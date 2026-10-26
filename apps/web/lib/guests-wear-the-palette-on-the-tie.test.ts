@@ -31,6 +31,7 @@ import { deeper, lum, pickDots, roleFigurePeople, zoneTints } from './role-figur
 import { dressCodeForEveryone } from './dress-code-for-everyone';
 import { resolveDisplayPalette } from './room-palette';
 import { sanitizeRolePalette } from './mood-board';
+import { fallbackInspirationParts } from './inspiration-parts';
 
 (globalThis as unknown as { React: unknown }).React = React;
 {
@@ -98,6 +99,7 @@ test('2a · the Studio’s Guests row draws the men in black with the palette on
   const html = renderToStaticMarkup(
     React.createElement(MoodBoardStudio as React.ComponentType<Record<string, unknown>>, {
       eventId: 'e',
+      inspirationParts: fallbackInspirationParts(),
       palette: PALETTE,
       fallbackFive: PALETTE.reception,
       frozenDressing: [],
@@ -183,7 +185,7 @@ test('4 · a guest man in a Barong Tagalog or Smart casual: the top wears the pa
     const config = { roles: { guest: { style } }, women: { roles: { guest: { style: 'long_gown' } } } };
     const studio = renderToStaticMarkup(
       React.createElement(MoodBoardStudio as React.ComponentType<Record<string, unknown>>, {
-        eventId: 'e', palette: PALETTE, fallbackFive: PALETTE.reception, frozenDressing: [], changes: [],
+        eventId: 'e', inspirationParts: fallbackInspirationParts(), palette: PALETTE, fallbackFive: PALETTE.reception, frozenDressing: [], changes: [],
         attire: [{ tier: 'roles', key: 'guest', label: 'Guests', paletteKey: 'guest', arrives: null }],
         dressConfig: config, attireStyles: [], inspirations: [], autoThemes: [], regions: [], dosLists: null, startTab: 'attire',
       }),
@@ -231,7 +233,7 @@ test('5 · every entourage man in a suit, tuxedo or vest design has three contro
   const { MoodBoardStudio } = await import('../app/dashboard/[eventId]/studio/mood-board/_components/mood-board-studio');
   const html = renderToStaticMarkup(
     React.createElement(MoodBoardStudio as React.ComponentType<Record<string, unknown>>, {
-      eventId: 'e', palette: { ...PALETTE, groom: C, groomsmen: C, principal_sponsors: C, touched_roles: ['groom', 'groomsmen', 'principal_sponsors'] }, fallbackFive: PALETTE.reception, frozenDressing: [], changes: [],
+      eventId: 'e', inspirationParts: fallbackInspirationParts(), palette: { ...PALETTE, groom: C, groomsmen: C, principal_sponsors: C, touched_roles: ['groom', 'groomsmen', 'principal_sponsors'] }, fallbackFive: PALETTE.reception, frozenDressing: [], changes: [],
       attire: [
         { tier: 'roles', key: 'groom', label: 'The groom', paletteKey: 'groom', arrives: null },
         { tier: 'groups', key: 'groomsmen', label: 'Groomsmen', paletteKey: 'groomsmen', arrives: null },

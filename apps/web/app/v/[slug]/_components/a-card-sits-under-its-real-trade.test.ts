@@ -5,6 +5,10 @@ import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
 import { serviceGroupOf, SERVICE_GROUPS } from '@/lib/vendors';
 import { eventVendorCategoryForCardKind } from '@/lib/event-vendor-category';
+import { fallbackSnapshot } from '@/lib/taxonomy-snapshot';
+
+/** The seeded taxonomy — `service_categories.coarse_category` as migrated (③0-c). */
+const SEED_TAXONOMY = fallbackSnapshot();
 
 /**
  * SUP-12 + SUP-14 · the two joins the shop page was missing.
@@ -26,7 +30,7 @@ function code(path: string): string {
 }
 
 const headingFor = (kind: string): string | undefined => {
-  const coarse = eventVendorCategoryForCardKind(kind, null);
+  const coarse = eventVendorCategoryForCardKind(kind, null, SEED_TAXONOMY);
   const key = serviceGroupOf(coarse);
   return SERVICE_GROUPS.find((g) => g.key === key)?.label;
 };
@@ -41,7 +45,7 @@ test('the two kinds live in production leave "Other" for their real trade', () =
 test('a kind the coarse vocabulary already knows is NOT re-derived', () => {
   // `photographer` was never broken; this row must not move it.
   assert.equal(headingFor('photographer'), headingFor('photographer'));
-  assert.equal(eventVendorCategoryForCardKind('photographer', null), 'photographer');
+  assert.equal(eventVendorCategoryForCardKind('photographer', null, SEED_TAXONOMY), 'photographer');
 });
 
 test('NO CARD DISAPPEARS — every kind lands in a real section', () => {

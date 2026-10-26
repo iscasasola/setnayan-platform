@@ -21,6 +21,10 @@ import {
   eventVendorCategoryKeyForCardKind,
 } from './event-vendor-category';
 import { VENDOR_CATEGORIES } from './vendors';
+import { fallbackSnapshot } from '@/lib/taxonomy-snapshot';
+
+/** The seeded taxonomy — `service_categories.coarse_category` as migrated (③0-c). */
+const SEED_TAXONOMY = fallbackSnapshot();
 
 const LEGAL = new Set<string>(VENDOR_CATEGORIES);
 
@@ -28,30 +32,30 @@ test('the two kinds live in production today resolve to real categories', () => 
   // `live_band` IS a canonical leaf; the live taxonomy gives it the tile of the
   // same name. `host_mc` is a tier-2 TILE and not a leaf at all, so the taxonomy
   // map has no entry for it and the caller hands in null.
-  assert.equal(eventVendorCategoryForCardKind('live_band', 'live_band'), 'band_dj');
-  assert.equal(eventVendorCategoryForCardKind('host_mc', null), 'host_emcee');
+  assert.equal(eventVendorCategoryForCardKind('live_band', 'live_band', SEED_TAXONOMY), 'band_dj');
+  assert.equal(eventVendorCategoryForCardKind('host_mc', null, SEED_TAXONOMY), 'host_emcee');
 });
 
 test('a card already filed under a coarse key keeps it', () => {
-  assert.equal(eventVendorCategoryForCardKind('photographer', null), 'photographer');
-  assert.equal(eventVendorCategoryForCardKind('venue', 'reception'), 'venue');
+  assert.equal(eventVendorCategoryForCardKind('photographer', null, SEED_TAXONOMY), 'photographer');
+  assert.equal(eventVendorCategoryForCardKind('venue', 'reception', SEED_TAXONOMY), 'venue');
   // Whitespace is not a different kind.
-  assert.equal(eventVendorCategoryForCardKind('  catering  ', null), 'catering');
+  assert.equal(eventVendorCategoryForCardKind('  catering  ', null, SEED_TAXONOMY), 'catering');
 });
 
 test('a leaf resolves through its branch when the leaf map does not know it', () => {
   // `band_live_music` is a live leaf under the `live_band` tile; nothing maps it
   // by leaf, so the branch has to answer.
-  assert.equal(eventVendorCategoryForCardKind('band_live_music', 'live_band'), 'band_dj');
-  assert.equal(eventVendorCategoryForCardKind('host_emcee', 'host_mc'), 'host_emcee');
+  assert.equal(eventVendorCategoryForCardKind('band_live_music', 'live_band', SEED_TAXONOMY), 'band_dj');
+  assert.equal(eventVendorCategoryForCardKind('host_emcee', 'host_mc', SEED_TAXONOMY), 'host_emcee');
 });
 
 test('the floor is misc — a real label — never an invalid one', () => {
-  assert.equal(eventVendorCategoryForCardKind('a_trade_nobody_has_invented', null), 'misc');
-  assert.equal(eventVendorCategoryForCardKind('unknown', 'unknown_branch'), 'misc');
-  assert.equal(eventVendorCategoryForCardKind('', 'live_band'), 'misc');
-  assert.equal(eventVendorCategoryForCardKind(null, null), 'misc');
-  assert.equal(eventVendorCategoryForCardKind(undefined, undefined), 'misc');
+  assert.equal(eventVendorCategoryForCardKind('a_trade_nobody_has_invented', null, SEED_TAXONOMY), 'misc');
+  assert.equal(eventVendorCategoryForCardKind('unknown', 'unknown_branch', SEED_TAXONOMY), 'misc');
+  assert.equal(eventVendorCategoryForCardKind('', 'live_band', SEED_TAXONOMY), 'misc');
+  assert.equal(eventVendorCategoryForCardKind(null, null, SEED_TAXONOMY), 'misc');
+  assert.equal(eventVendorCategoryForCardKind(undefined, undefined, SEED_TAXONOMY), 'misc');
 });
 
 test('EVERY answer it can give is a label the column accepts', () => {
@@ -70,7 +74,7 @@ test('EVERY answer it can give is a label the column accepts', () => {
   let checked = 0;
   for (const k of kinds) {
     for (const t of tiles) {
-      const got = eventVendorCategoryForCardKind(k, t);
+      const got = eventVendorCategoryForCardKind(k, t, SEED_TAXONOMY);
       assert.ok(
         LEGAL.has(got),
         `resolve(${JSON.stringify(k)}, ${JSON.stringify(t)}) = ${got}, which the enum does not have`,
@@ -84,11 +88,11 @@ test('EVERY answer it can give is a label the column accepts', () => {
 });
 
 test('the dual-written tile follows the same three rungs', () => {
-  assert.equal(eventVendorCategoryKeyForCardKind('live_band', 'live_band'), 'live_band');
+  assert.equal(eventVendorCategoryKeyForCardKind('live_band', 'live_band', SEED_TAXONOMY), 'live_band');
   // The kind IS a tile — this is the case that used to write null.
-  assert.equal(eventVendorCategoryKeyForCardKind('host_mc', null), 'host_mc');
-  assert.equal(eventVendorCategoryKeyForCardKind('photographer', null), null);
-  assert.equal(eventVendorCategoryKeyForCardKind(null, null), null);
+  assert.equal(eventVendorCategoryKeyForCardKind('host_mc', null, SEED_TAXONOMY), 'host_mc');
+  assert.equal(eventVendorCategoryKeyForCardKind('photographer', null, SEED_TAXONOMY), null);
+  assert.equal(eventVendorCategoryKeyForCardKind(null, null, SEED_TAXONOMY), null);
 });
 
 /* ── WIRING ──────────────────────────────────────────────────────────────────

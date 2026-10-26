@@ -28,6 +28,8 @@ import type { PGlite } from '@electric-sql/pglite';
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
 
 import { eventVendorCategoryForCardKind } from '../../lib/event-vendor-category';
+import { taxonomyFromDb } from './taxonomy-from-db';
+import type { TaxonomySnapshot } from '../../lib/taxonomy-snapshot';
 import { VENDOR_CATEGORIES } from '../../lib/vendors';
 
 let replay: ReplayResult;
@@ -64,9 +66,14 @@ async function enumLabels(): Promise<Set<string>> {
   return new Set(r.rows.map((x) => x.v));
 }
 
+/** The replayed taxonomy as `getTaxonomy()` would read it. */
+let liveTax: TaxonomySnapshot;
+
 before(async () => {
   replay = await createReplayedDb();
   db = replay.db;
+  // The DATABASE's answer (③0-c: `service_categories.coarse_category`), not the code fallback.
+  liveTax = await taxonomyFromDb(db);
 });
 after(async () => {
   await db.close();
@@ -87,7 +94,7 @@ test('every marketplace-visible card kind resolves to a label the enum HAS', asy
   const labels = await enumLabels();
   const r = await db.query<LeafRow>(LEAVES_SQL);
   const offenders = r.rows
-    .map((l) => ({ l, got: eventVendorCategoryForCardKind(l.canonical_service, l.tile_id) }))
+    .map((l) => ({ l, got: eventVendorCategoryForCardKind(l.canonical_service, l.tile_id, liveTax) }))
     .filter((x) => !labels.has(x.got))
     .map((x) => `${x.l.branch} › ${x.l.canonical_service} → ${x.got}`);
   assert.deepEqual(
@@ -105,7 +112,7 @@ test('a card kind that IS a tile id resolves too — the `host_mc` shape', async
   const labels = await enumLabels();
   const r = await db.query<TileRow>(TILES_SQL);
   const offenders = r.rows
-    .map((t) => ({ t, got: eventVendorCategoryForCardKind(t.id, null) }))
+    .map((t) => ({ t, got: eventVendorCategoryForCardKind(t.id, null, liveTax) }))
     .filter((x) => !labels.has(x.got))
     .map((x) => `${x.t.branch} (tile_id: ${x.t.id}) → ${x.got}`);
   assert.deepEqual(
@@ -118,7 +125,7 @@ test('a card kind that IS a tile id resolves too — the `host_mc` shape', async
 test('every legacy coarse key survives untouched and exists in the enum', async () => {
   const labels = await enumLabels();
   const bad = VENDOR_CATEGORIES.filter(
-    (c) => eventVendorCategoryForCardKind(c, null) !== c || !labels.has(c),
+    (c) => eventVendorCategoryForCardKind(c, null, liveTax) !== c || !labels.has(c),
   );
   assert.deepEqual(
     bad,
@@ -162,7 +169,7 @@ test('NEUTRALISATION: a kind the maps do not know is caught by these assertions'
   // unmappable kind still produced a legal label with no complaint, the
   // "0 offenders" above would be indistinguishable from a correct result.
   const labels = await enumLabels();
-  const got = eventVendorCategoryForCardKind('a_branch_nobody_has_added_yet', null);
+  const got = eventVendorCategoryForCardKind('a_branch_nobody_has_added_yet', null, liveTax);
   assert.equal(got, 'misc', 'the floor moved — the row would no longer be guaranteed to land');
   assert.ok(labels.has('misc'), 'misc is not in the enum, so even the floor would be refused');
 

@@ -9,6 +9,8 @@ import { PaidMark } from '@/app/_components/paid-mark';
 import { makerProMark, makerProUsable, paidMarkLabel } from '@/lib/paid-mark';
 import { HUB_DRAFT_BAR_FIELD, makerRedrawSave, makerSave } from '@/lib/maker-refresh';
 import { forgetCanvasSent, noteDraftedCanvas, sendCanvasBase } from '@/lib/maker-draft-store';
+import { backgroundPickUndo } from '@/lib/background-pick-undo';
+import { stageBgSourcesOffered } from '@/lib/stage-bg-sources';
 import { MAKER_MAX_CLIP_SECONDS, makeMakerVideoDurationValidator } from '@/lib/maker-media-limits';
 import { MakerMediaMeter } from '@/app/_components/maker-media-meter';
 import { coupleMediaCapBytes } from '@/lib/maker-media-limits';
@@ -60,7 +62,6 @@ import { useMaker } from '../../../launch/_components/maker-context';
 import { StageBackground, type StageBgSource, type StageBgTile } from '../../../launch/_components/stage-panel/stage-background';
 import { CoverSceneGroundRows } from '../../../launch/_components/stage-panel/cover-words-background';
 import { TILE_FOOT, TILE_RAMP_SPAN, tileFrostCss, tileFrostFoot, tileGlassColour, tileNameOnFlat, tileNameOnPhoto, tileNameOnRamp } from '@/lib/bg-tile-name';
-import { BACKGROUND_SOURCE_IS_PRO } from '@/lib/background-source';
 import { isStdLibrarySrc } from '@/lib/std-backgrounds';
 import { sceneShadeAt, sceneShadeOf } from '@/lib/scene-shade-bar';
 
@@ -328,11 +329,28 @@ function SceneBackgroundRows({
       /* 🖼 A pick that changes who draws the box (or a clip coming or going) is
          NOT drawn by the bridge: it is redrawn on the canvas in place once it
          lands (`makerRedrawSave`) — never a whole-Maker render. */
+      /* ↺ ITS UNDO IS DRAWN AT ONCE (`lib/background-pick-undo.ts`, owner 2026-10-26 "it blinks … 5-6 seconds"): the
+         refused branch's own put-back — the BEFORE on the canvas, in the Maker's copy and in this row — run at the ↺,
+         the page redrawn in place after it where the bridge could not draw it. Never a whole-Maker render. */
+      const drawCanvases = (canvases: Record<string, HubSectionCanvas>) => {
+        if (widgetType in canvases) {
+          latest.current = canvases[widgetType]!;
+          laid.current = canvases[widgetType]!;
+          setShown(canvases[widgetType]!);
+        }
+        lay(canvases);
+        onSaving?.(canvases, redrawsBox);
+        for (const [type, c] of Object.entries(canvases)) {
+          noteDraftedCanvas(type, c, before[type]);
+          forgetCanvasSent(type);
+        }
+      };
+      const undo = backgroundPickUndo({ back: () => drawCanvases(before), forward: () => drawCanvases(touched), redrawAfter: redrawsBox });
       const res = await (redrawsBox
         // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
-        ? makerRedrawSave(() => draftAction(eventId, fd), () => router.refresh())
+        ? makerRedrawSave(() => draftAction(eventId, fd), () => router.refresh(), { undo })
         // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
-        : makerSave(() => draftAction(eventId, fd), () => router.refresh(), { held: true })
+        : makerSave(() => draftAction(eventId, fd), () => router.refresh(), { held: true, undo })
       ).catch(
         () => ({ ok: false as const, intent: 'save' as const, error: 'That change could not be saved. Please try again.' }),
       );
@@ -673,13 +691,7 @@ function SceneBackgroundRows({
       <StageBackground
         pending={pending}
         source={source}
-        sources={[
-          { key: 'hub', pro: false },
-          { key: 'colour', pro: false },
-          ...(offerMedia
-            ? (loops.length > 0 ? (['scene', 'video', 'own'] as const) : (['scene', 'own'] as const)).map((key) => ({ key, pro: Boolean(mediaMark) && BACKGROUND_SOURCE_IS_PRO[key] }))
-            : []),
-        ]}
+        sources={stageBgSourcesOffered({ ownsPro, storeShell, hasLoops: loops.length > 0 })}
         onSource={(next) => {
           if (next === 'hub') {
             /* One choice: taken at once. */

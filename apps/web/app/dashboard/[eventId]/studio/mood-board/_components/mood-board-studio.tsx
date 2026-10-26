@@ -85,7 +85,7 @@ import type { InspirationPartsSnapshot } from '@/lib/inspiration-parts';
  * keeps the shipped board.
  *
  * ONE `ISegmented` (the Pill selector) — Palette · Attire · Inspiration · Do's & Don'ts (owner 2026-10-08, "ok"; the
- * attire boards — Bridal gown · Groom's suit · Bridesmaids · Groomsmen · Flower girl · Ring bearer ·
+ * attire boards — Bridal gown · Groom's attire · Bridesmaids · Groomsmen · Flower girl · Ring bearer ·
  * Entourage — live in Attire next to their role) — under
  * the Studio's Tool ▾ row, with ✨ Auto above it. Nothing here is a
  * new write:
@@ -118,10 +118,10 @@ export type MoodBoardStudioProps = {
   eventId: string;
   /**
    * 🧩 The inspiration parts (`getInspirationParts()`, step ② of PLAN `admin_inspiration_groups_2026-10-25`) — the
-   * "Which part?" names, order and the parts offered. Omitted (the dev lab, which never reads the database) = the
-   * consts the table was seeded from.
+   * "Which part?" names, order and the parts offered. REQUIRED (③0-b): the dev lab, which never reads the database,
+   * passes `fallbackInspirationParts()` by name.
    */
-  inspirationParts?: InspirationPartsSnapshot;
+  inspirationParts: InspirationPartsSnapshot;
   palette: RolePalette;
   /** The five the board shows while it is not the couple's — the worn theme's own. */
   fallbackFive: string[];

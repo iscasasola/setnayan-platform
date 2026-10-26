@@ -30,6 +30,8 @@
  *                                        ?pot=<credits> (default 24) · ?pot=0 · ?pot=pass (the Unlock pass) · ?pot=x
  *                                        (unread). A lab holds no camera seat, so a picked file is refused by the signer —
  *                                        which is itself the "a failure says what failed, in place" walk.
+ *                                        ?claim=1 — the camera is not this host's yet: one press, the claim rides the pick
+ *                                        (`startAddingPhotos`; with no session here it answers "signed out", on the sheet).
  *
  *   ?shop=0   an account that owns no shop (four tabs, no Shop)
  *
@@ -226,7 +228,8 @@ export default async function BarLab({
                     timeZone="Asia/Manila"
                     addPhotos={
                       <AddToLibrary
-                        token="lab-no-seat"
+                        token={sp.claim === '1' ? null : 'lab-no-seat'}
+                        eventId={EVENT}
                         pot={pot}
                         buy={<PapicBuySheet eventId={EVENT} left={typeof pot === 'number' ? pot : null} tone="brand" label="Add more" />}
                       />

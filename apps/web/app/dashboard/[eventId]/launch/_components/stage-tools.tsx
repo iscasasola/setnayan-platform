@@ -104,6 +104,7 @@ import { useIsDesktop } from '@/lib/use-responsive';
 import { makerPartCanvasOn, makerPartLabelOn, makerPartOfCanvas, makerPartsWithAdded, makerPostEventSceneOf } from '@/lib/maker-part-groups';
 import { filedOnCanvas, makerStagesPages } from '@/lib/maker-stage-filing';
 import { TypingBand } from '@/app/_components/typing-band';
+import { swipeMayStep, swipeScrollsSideways } from '@/lib/maker-swipe';
 
 /**
  * 🎬 THE STAGES TOOLBAR — the new Maker's bottom bar on the Stages side, on a phone (owner 2026-10-09, the approved
@@ -977,10 +978,9 @@ export function StageTools({
   useEffect(() => {
     let from: { x: number; y: number } | null = null;
     const down = (e: PointerEvent) => {
-      const t = e.target as Element | null;
-      const inPanel = t?.closest?.('[data-stage-tools], [data-phone-chrome="panel"]');
-      const skip = t?.closest?.('input, textarea, select, [role="slider"], [data-style-carousel], [data-maker-sheet], [aria-expanded="true"]');
-      from = inPanel && !skip ? { x: e.clientX, y: e.clientY } : null;
+      /* 👉 Never a row's own sideways scroll — the Background tiles threw the couple off the part (`lib/maker-swipe.ts`). */
+      const t = e.target instanceof Element ? e.target : null;
+      from = swipeMayStep(t, (el) => swipeScrollsSideways(el as Element)) ? { x: e.clientX, y: e.clientY } : null;
     };
     const up = (e: PointerEvent) => {
       const f = from;

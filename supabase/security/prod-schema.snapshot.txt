@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1648
-# tables: 432
-# columns: 5364
-# notnull: 3241
+# ledger: 1651
+# tables: 427
+# columns: 5318
+# notnull: 3211
 [ledger]
 20260512000000
 20260513000000
@@ -1659,7 +1659,10 @@
 20271287668170
 20271288430455
 20271288470033
+20271288562348
 20271289025011
+20271289389441
+20271289858095
 [columns]
 account_deletion_requests.admin_note
 account_deletion_requests.created_at
@@ -2709,7 +2712,6 @@ event_inspiration_assets.sampled_hex_6
 event_inspiration_assets.slot_key
 event_inspiration_assets.slot_position
 event_inspiration_assets.source_kind
-event_inspiration_assets.source_render_id
 event_inspiration_suggestions.created_at
 event_inspiration_suggestions.decided_at
 event_inspiration_suggestions.decided_by_user_id
@@ -2854,43 +2856,6 @@ event_recaps.settings
 event_recaps.status
 event_recaps.unpublished_by
 event_recaps.updated_at
-event_render_credit_grants.created_at
-event_render_credit_grants.credits
-event_render_credit_grants.event_id
-event_render_credit_grants.grant_id
-event_render_credit_grants.note
-event_render_credit_grants.order_id
-event_render_credit_grants.source
-event_render_credit_usage.created_at
-event_render_credit_usage.credits_used
-event_render_credit_usage.event_id
-event_render_credit_usage.updated_at
-event_render_share_consent.consented
-event_render_share_consent.consented_at
-event_render_share_consent.consented_by_user_id
-event_render_share_consent.event_id
-event_render_share_consent.updated_at
-event_render_share_consent.withdrawn_at
-event_renders.completed_at
-event_renders.config_digest
-event_renders.created_at
-event_renders.created_by_user_id
-event_renders.credits_debited
-event_renders.design_snapshot
-event_renders.event_id
-event_renders.failed_at
-event_renders.failure_reason
-event_renders.featured_at
-event_renders.featured_by_user_id
-event_renders.gallery_image_key
-event_renders.image_key
-event_renders.inspiration_asset_ids
-event_renders.note
-event_renders.part_id
-event_renders.prompt
-event_renders.render_id
-event_renders.reusable
-event_renders.reuse_blocked
 event_scene_objects.created_at
 event_scene_objects.event_id
 event_scene_objects.kind
@@ -4208,14 +4173,6 @@ moodboard_part_finalizations.requested_by_user_id
 moodboard_part_finalizations.state
 moodboard_part_finalizations.updated_at
 moodboard_part_finalizations.vendor_id
-moodboard_render_config.config_key
-moodboard_render_config.credits_per_pack
-moodboard_render_config.credits_per_part
-moodboard_render_config.credits_whole_look
-moodboard_render_config.is_active
-moodboard_render_config.max_note_chars
-moodboard_render_config.pack_service_code
-moodboard_render_config.updated_at
 moodboard_theme_templates.created_at
 moodboard_theme_templates.description
 moodboard_theme_templates.mood_tag
@@ -7778,28 +7735,6 @@ event_recaps.recap_id
 event_recaps.settings
 event_recaps.status
 event_recaps.updated_at
-event_render_credit_grants.created_at
-event_render_credit_grants.credits
-event_render_credit_grants.event_id
-event_render_credit_grants.grant_id
-event_render_credit_grants.source
-event_render_credit_usage.created_at
-event_render_credit_usage.credits_used
-event_render_credit_usage.event_id
-event_render_credit_usage.updated_at
-event_render_share_consent.consented
-event_render_share_consent.event_id
-event_render_share_consent.updated_at
-event_renders.config_digest
-event_renders.created_at
-event_renders.credits_debited
-event_renders.design_snapshot
-event_renders.event_id
-event_renders.inspiration_asset_ids
-event_renders.part_id
-event_renders.prompt
-event_renders.render_id
-event_renders.reuse_blocked
 event_scene_objects.created_at
 event_scene_objects.event_id
 event_scene_objects.kind
@@ -8534,14 +8469,6 @@ moodboard_part_finalizations.requested_at
 moodboard_part_finalizations.state
 moodboard_part_finalizations.updated_at
 moodboard_part_finalizations.vendor_id
-moodboard_render_config.config_key
-moodboard_render_config.credits_per_pack
-moodboard_render_config.credits_per_part
-moodboard_render_config.credits_whole_look
-moodboard_render_config.is_active
-moodboard_render_config.max_note_chars
-moodboard_render_config.pack_service_code
-moodboard_render_config.updated_at
 moodboard_theme_templates.created_at
 moodboard_theme_templates.description
 moodboard_theme_templates.mood_tag

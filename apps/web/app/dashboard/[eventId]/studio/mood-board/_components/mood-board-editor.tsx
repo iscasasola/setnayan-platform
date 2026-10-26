@@ -546,8 +546,8 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
   const asPanelPart = (p: RenderPart): FinalizationPanelPart => ({
     id: p.id,
     label: p.label,
-    blockerMessage: bookedUnread ? BOOKED_SUPPLIERS_UNREAD : (finalizeBlocker(p.id, bookedSuppliers)?.message ?? null),
-    eligible: (bookedUnread ? [] : eligibleSuppliersForPart(p.id, bookedSuppliers)).map((s) => ({
+    blockerMessage: bookedUnread ? BOOKED_SUPPLIERS_UNREAD : (finalizeBlocker(p.id, bookedSuppliers, parts)?.message ?? null),
+    eligible: (bookedUnread ? [] : eligibleSuppliersForPart(p.id, bookedSuppliers, parts)).map((s) => ({
       vendorId: s.vendorId,
       name: s.name,
     })),

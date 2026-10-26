@@ -9,6 +9,7 @@ import { readSupplierPayoutReadiness } from '@/lib/vendor-payment-methods.server
 import { teamSeats } from '@/lib/vendor-free-helper';
 import { isMusicToolCategory } from '@/lib/songs';
 import { moodboardLibraryAccessForProfile } from '@/lib/moodboard-library-access';
+import { getInspirationParts } from '@/lib/inspiration-parts-db';
 import { settingsMoreTools } from './settings-rows';
 import { SettingsView } from './settings-view';
 
@@ -68,7 +69,7 @@ export default async function VendorSettingsPage() {
       : Promise.resolve('unreadable' as const),
   ]);
   // The Moodboard library gate, decided from the profile already read (the pure half — no second read).
-  const moodboard = manager && moodboardLibraryAccessForProfile(profile).allowed;
+  const moodboard = manager && moodboardLibraryAccessForProfile(profile, await getInspirationParts()).allowed;
 
   const tier = (tierRow?.data as { tier_state?: string | null } | null)?.tier_state ?? null;
   const team = teamRead && !teamRead.error ? ((teamRead.data ?? []) as { user_id: string; role: string }[]) : null;

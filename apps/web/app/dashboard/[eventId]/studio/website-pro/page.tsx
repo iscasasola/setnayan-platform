@@ -71,6 +71,10 @@ const WEBSITE_HUB_HREF = (eventId: string) => `/dashboard/${eventId}/website`;
  *
  * 🔑 THE RULE THAT REPLACED THE OLD BENEFITS LIST is the same rule, made structural: a line may name only something a
  * buyer of THAT part is actually let through — so the lines ARE the gate table (`lib/hub-parts.ts`).
+ *
+ * ⛔ SOLD WHOLE AGAIN (owner 2026-10-26, "just have the upgrade event hub pro" → "no more by part as well on the
+ * website"): every part's row is off sale, so `onSale` hands no part price and the body sells Everything alone, the
+ * parts kept only as the list of what it unlocks (`pro-parts-body.tsx`).
  */
 
 export default async function WebsiteProBuyPage({ params, searchParams }: Props) {

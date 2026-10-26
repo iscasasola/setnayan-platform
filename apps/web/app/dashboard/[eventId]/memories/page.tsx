@@ -8,9 +8,10 @@ import { countGalleryFrames } from '@/lib/papic-gallery';
 import { viewerSeesCoupleScopedPapic } from '@/lib/papic-gallery-scope';
 import { resolveStoredWindow } from '@/lib/papic-window';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
-import { countNoun, formatCount } from '@/lib/format-number';
+import { formatCount } from '@/lib/format-number';
 import { getIapGate } from '@/lib/request-platform';
-import { PAPIC_UPLOADS_CAMERA_INDEX, papicCaptureCost } from '@/lib/papic-cameras';
+import { PAPIC_UPLOADS_CAMERA_INDEX, provisionUploadsCameraAdmin } from '@/lib/papic-cameras';
+import { UPLOADS_TAKEN_LINE } from '@/lib/uploads-seat-claim';
 import { EventMemoriesGallery } from '@/app/_components/memories/event-memories-gallery';
 import { Spotlight } from '@/app/_components/spotlight';
 import { HOST_PAGE_TOURS, HOST_PAGE_TOURS_AFTER } from '@/lib/host-page-tours';
@@ -21,8 +22,6 @@ import { IapPapicSheet } from '@/app/_components/iap/iap-papic-sheet';
 import { eventHasPapicUnlock } from '@/lib/entitlements';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { UploadsOpenChoice } from '@/app/dashboard/[eventId]/studio/papic/_components/uploads-open-choice';
-import { claimUploadsCamera } from '@/app/dashboard/[eventId]/studio/papic/actions';
-import { SubmitButton } from '@/app/_components/submit-button';
 import { memoriesCameraWords, memoriesUnreadable } from '@/lib/event-memories-words';
 import type { MemoriesAlbumKey } from '@/lib/event-memories';
 import { MemoriesSettings } from './_components/memories-settings';
@@ -40,7 +39,8 @@ type Props = { params: Promise<{ eventId: string }>; searchParams: Promise<Recor
  * ONE read for every album (`readEventMemories`: Papic · Challenges · Event Hub · Suppliers · Your uploads, the
  * compressed copies only) and one honest count beside it (`countGalleryFrames` — counted with the GRID'S OWN filters, so the number never counts a frame the grid will not draw). For the
  * couple it also draws what is theirs to run: ⚙ Gallery settings (`MemoriesSettings` — the controls that left the
- * Papic page) and + Add photos (the shipped uploader; when adding by hand is off, the sheet offers to turn it on).
+ * Papic page) and + Add photos (the shipped uploader — one press: pick, the camera is claimed on the way; when adding by
+ * hand is off, the sheet offers that switch).
  *
  * 🔑 A REFUSED READ IS NEVER AN EMPTY GALLERY — `memoriesUnreadable`, and each album's own read (`refused`).
  * And `refused.photos` is set when ANY capture read errored — said as "couldn't load", never as a smaller gallery.
@@ -109,13 +109,23 @@ export default async function EventMemoriesPage({ params, searchParams }: Props)
   const appleIap = iap.iap || iap.storeShell;
 
   // + ADD PHOTOS — the shipped uploader on the uploads camera (owner 2026-10-23: the one upload door, in the thumb
-  // row). "Adding photos by hand" folds into it: when it is off, the sheet offers the same switch to turn it on.
+  // row). ONE PRESS (owner 2026-10-26, live: "it seems there is no add photos" · "the turn on is not working as well
+  // fix it"): "Choose photos" opens the picker at once, and the camera is claimed on the way (`startAddingPhotos`).
   let addPhotos: React.ReactNode = null;
   if (host) {
     // ⚠ ABSENT MEANS OPEN — the switch's own rule (`the-uploads-switch-is-real.test.ts`), read off the one event select.
     const uploadsRow = ev;
     const uploadsOpen = uploadsRow?.papic_uploads_open ?? true;
     const admin = createAdminClient();
+    /* 🪪 THE CAMERA IS MINTED HERE TOO — this render already ran the couple check (`host`, the viewer's OWN membership
+       read on their own session), and the event id is the route's, never a form field: the same two facts that make
+       the studio render safe (`the-uploads-camera-has-no-back-door.test.ts`). Until 2026-10-26 only the studio page
+       minted it, and since 2026-10-24 that page sends the couple to Home before it gets there — so on 7 of 13 live
+       events the sheet's press found no camera and could only ever answer "please try again". Idempotent (the
+       UNIQUE upsert), best-effort, never throws; the same capture window as every camera. */
+    if (uploadsOpen && win) {
+      await provisionUploadsCameraAdmin(admin, eventId, { validFrom: win.startIso, validUntil: win.endIso });
+    }
     const { data: seat, error: seatErr } = await admin
       .from('paparazzi_seats')
       .select('seat_id, claim_qr_token, claimer_user_id')
@@ -124,13 +134,16 @@ export default async function EventMemoriesPage({ params, searchParams }: Props)
       .is('revoked_at', null)
       .maybeSingle();
     if (seatErr) logQueryError('EventMemoriesPage.uploadsSeat', seatErr, { event_id: eventId }, 'graceful_degrade');
-    const token = seat?.claimer_user_id === user.id ? ((seat?.claim_qr_token as string | null) ?? null) : null;
+    const claimer = (seat?.claimer_user_id as string | null | undefined) ?? null;
+    // The token reaches the browser only once the camera is THIS person's; unclaimed, the picker claims it on the pick.
+    const token = claimer === user.id ? ((seat?.claim_qr_token as string | null) ?? null) : null;
+    const takenByOther = claimer !== null && claimer !== user.id;
     /* 🪙 WHAT THIS CAMERA CAN STILL SPEND (owner 2026-10-25: "adding photos will use up papic credits") — the presign
        gate's OWN question (`papic_capture_points_available`: the seat's own credits + the event's one pot), so the
        number on the sheet is the number the server refuses at. The Papic Unlock pass shoots unmetered, as at the gate.
-       A read that failed is null — "Couldn't check", never 0. Only asked when the uploader is drawn. */
+       A read that failed is null — "Couldn't check", never 0. Asked whenever the uploader is drawn — claimed or not. */
     let pot: UploadPot = null;
-    if (uploadsOpen && token && seat?.seat_id) {
+    if (uploadsOpen && !takenByOther && seat?.seat_id) {
       const unlocked = await eventHasPapicUnlock(await eventEntitlementClient(eventId), eventId).catch(() => false);
       if (unlocked) pot = 'unmetered';
       else {
@@ -142,8 +155,6 @@ export default async function EventMemoriesPage({ params, searchParams }: Props)
         pot = typeof left === 'number' ? Math.max(0, left) : null;
       }
     }
-    // 📤 An added photo costs 3, a camera photo 1 (owner 2026-10-26) — said from the one function, never typed.
-    const addedPhotoWords = `Each photo you add uses ${countNoun(papicCaptureCost('photo', null, 'upload'), 'credit', 'credits')}.`;
     // The ONE Add more — Apple's sheet in the app (it sells there), the web's sheet on the web; the app without Apple's
     // shop offers no web checkout (the rule `appleIap` above records), so no door there.
     const buy = iap.iap ? (
@@ -153,18 +164,13 @@ export default async function EventMemoriesPage({ params, searchParams }: Props)
     );
     addPhotos = !uploadsOpen ? (
       <UploadsOpenChoice eventId={eventId} open={false} variant="row" back="memories" />
-    ) : token ? (
-      <AddToLibrary token={token} pot={pot} buy={buy} />
+    ) : takenByOther ? (
+      // Said before the press, never discovered after a pick: the one Uploads camera belongs to the other host.
+      <p className="text-sm text-ink/70" data-add-photos-taken="">
+        {UPLOADS_TAKEN_LINE}
+      </p>
     ) : (
-      <form action={claimUploadsCamera} className="space-y-3">
-        <input type="hidden" name="event_id" value={eventId} />
-        <input type="hidden" name="back" value="memories" />
-        <p className="max-w-prose text-sm text-ink/65">
-          Add photos and clips from your phone or laptop — older memories too. They land in your Memories with everything
-          your guests take. {addedPhotoWords}
-        </p>
-        <SubmitButton className="sn-btn-primary">Turn this on</SubmitButton>
-      </form>
+      <AddToLibrary token={token} eventId={eventId} pot={pot} buy={buy} />
     );
   }
 

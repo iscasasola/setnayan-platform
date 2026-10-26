@@ -33,7 +33,6 @@ import { MOODBOARD_SLOT_KEYS } from '../../lib/moodboard-slots';
 import { canonicalServicesForSlot } from '../../lib/moodboard-gallery';
 import { libraryPhotoParts } from '../../lib/inspiration-slots';
 import { fallbackInspirationParts, snapshotFromPartRows, type InspirationPartCategoryRow, type InspirationPartRow, type InspirationPartServiceRow } from '../../lib/inspiration-parts';
-import { FILIPINIANA_BARONG_CANONICALS } from '../../lib/taxonomy';
 
 let replay: ReplayResult;
 let db: PGlite;
@@ -191,9 +190,19 @@ test('1 · the SQL door is the tables — and, on today’s data, the TS map it 
     if (COUPLE_PARTS.has(slot)) assert.ok(sql.length > 0, `${slot} is a couple part with no supplying trade`);
   }
 
-  /* (c) The cross-view's ten keys are the TS const's ten keys — two copies, held equal until ③0-a makes them rows. */
+  /* (c) The cross-view is ROWS, not a list: ③0-a wrote the ten Filipiniana & Barongs keys as secondary_tiles, and
+     20271292138044 dropped the hand-kept SQL branch — so the pairs function answers exactly the rows, and an admin
+     un-listing a service on /admin/categories un-lists it here too. */
   const fb = (await db.query<{ k: string }>(`SELECT p.canonical_service AS k FROM public.inspiration_category_service_pairs() p WHERE p.category_id = 'filipiniana_barongs'`)).rows.map((r) => r.k).sort();
-  assert.deepEqual(fb, [...FILIPINIANA_BARONG_CANONICALS].sort(), 'the SQL Filipiniana & Barongs list drifted from FILIPINIANA_BARONG_CANONICALS');
+  const fbRows = (await db.query<{ k: string }>(
+    `SELECT canonical_service AS k FROM public.canonical_service_taxonomy
+      WHERE NOT COALESCE(marketplace_hidden, FALSE)
+        AND (tile_id = 'filipiniana_barongs' OR 'filipiniana_barongs' = ANY (COALESCE(secondary_tiles, ARRAY[]::TEXT[])))`,
+  )).rows.map((r) => r.k).sort();
+  assert.equal(fb.length, 10, `the cross-view should hold its ten services on the seed, got ${fb.length}`);
+  assert.deepEqual(fb, fbRows, 'inspiration_category_service_pairs() disagrees with the Filipiniana & Barongs rows');
+  const def = (await db.query<{ d: string }>(`SELECT pg_get_functiondef('public.inspiration_category_service_pairs()'::regprocedure) AS d`)).rows[0]!.d;
+  assert.ok(!/filipiniana_terno|barong_tagalog_rental/.test(def), 'inspiration_category_service_pairs() names cross-view services by hand again — cross-list through secondary_tiles');
 });
 
 test('2 · a florist suggests to Bridal bouquet, is refused Stage; a shop not booked is refused outright; three may wait', async () => {

@@ -33,7 +33,6 @@ import {
   type InspirationPartServiceRow,
   type InspirationPartsSnapshot,
 } from '../../lib/inspiration-parts';
-import { FILIPINIANA_BARONG_CANONICALS } from '../../lib/taxonomy';
 
 let replay: ReplayResult;
 let db: PGlite;
@@ -98,9 +97,9 @@ test('⭐ 1 · old = new for every part — the backfilled services are exactly 
     `SELECT canonical_service, tile_id, secondary_tiles, marketplace_hidden FROM public.canonical_service_taxonomy`,
   )).rows;
   const byCategory = (cat: string): string[] => {
-    const out = svc.filter((r) => !r.marketplace_hidden && (r.tile_id === cat || (r.secondary_tiles ?? []).includes(cat))).map((r) => r.canonical_service);
-    if (cat === 'filipiniana_barongs') out.push(...FILIPINIANA_BARONG_CANONICALS);
-    return out;
+    // The Filipiniana & Barongs cross-view is ordinary secondary_tiles rows since ③0-a (20271290076754) — no hand
+    // list on either side (20271292138044 dropped the SQL one).
+    return svc.filter((r) => !r.marketplace_hidden && (r.tile_id === cat || (r.secondary_tiles ?? []).includes(cat))).map((r) => r.canonical_service);
   };
   const seed = fallbackInspirationParts();
   let total = 0;

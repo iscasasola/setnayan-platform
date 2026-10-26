@@ -1,5 +1,5 @@
 import { startAhead } from '@/lib/start-ahead';
-import { mainBackgroundRowOffered } from '@/lib/main-background-offered';
+import { mainBackgroundProDoor } from '@/lib/main-background-offered';
 import { SCENE_ACCENTS_PREF_KEY, sceneAccentsFromPreferences } from '@/lib/art-kit-accents';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { redirect } from 'next/navigation';
@@ -917,10 +917,9 @@ export default async function WebsiteEditorPage({
             />
           ),
         },
-        /* 🌄 Built in the app too for a Pro event (owner 2026-10-26: "i cannot see the different background options") — `lib/main-background-offered.ts`. */
-        ...(!mainBackgroundRowOffered({ storeShell, ownsPro })
-          ? []
-          : [
+        /* 🌄 Built for EVERY event, on the web and in the app (owner 2026-10-26: "still none for the background") — how its
+           ◆ sources open is `mainBackgroundProDoor` (`lib/main-background-offered.ts`). */
+        ...[
               {
                 key: 'main-background',
                 label: 'Behind every scene',
@@ -979,11 +978,12 @@ export default async function WebsiteEditorPage({
                       videoChoice={videoChoice}
                       sceneUploads={sceneUploads}
                       mediaUsedBytes={mediaUsedBytes}
+                      proDoor={mainBackgroundProDoor({ storeShell, iap: iapGate.iap, ownsPro })}
                     />
                   </>
                 ),
               },
-            ]),
+            ],
         /* 🔤 FONT · 🎨 COLOURS — parts of the one Look panel
            (`lib/maker-look-sections.ts`, owner 2026-10-02; under Elements since
            2026-10-08): the SAME `ColorsPanel` and the same `updateSiteColors`

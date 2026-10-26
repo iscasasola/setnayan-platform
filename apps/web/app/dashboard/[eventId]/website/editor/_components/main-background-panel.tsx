@@ -73,6 +73,8 @@ import {
   type LookGroundPictures,
 } from '@/lib/background-pick';
 import { tellLookSample } from '@/lib/look-sample-store';
+import { IapUnlockSheet } from '@/app/_components/iap/iap-unlock-sheet';
+import type { MainBackgroundProDoor } from '@/lib/main-background-offered';
 import { backgroundPickUndo } from '@/lib/background-pick-undo';
 import { beginFilmLoad, readBlobWithProgress, waitFilmLoad } from '@/lib/pick-load';
 import { mainGroundChoice } from '@/lib/main-ground-choice';
@@ -148,6 +150,8 @@ export type MainBackgroundPage = {
 type LookWrite = BackgroundWrite;
 
 const PRO_TRAIL = { text: '◆', tone: 'muted' as const, label: 'Event Hub Pro' };
+/** A locked ◆ card's one line (the app, without Pro) — never a price, never a web link. */
+const PRO_LOCKED_LINE = 'Part of Event Hub Pro.';
 /** "Just the colour" — nothing laid over the page colour. */
 const NO_PICTURE: HubMainGround = { ground: 'none' };
 /** A card with no picture of its own yet — paper, never a blank. */
@@ -413,7 +417,15 @@ export function MainBackgroundPanel({
   colours,
   draftAction = hubDraftAction,
   page = null,
+  proDoor = 'open',
 }: {
+  /**
+   * 🍎 How the ◆ sources (Scene · Video · Upload) open here (`lib/main-background-offered.ts` `mainBackgroundProDoor`):
+   * 'open' — the web, or an event that owns Pro (tried free / usable, as always); 'apple' — the iPhone app where Apple
+   * sells Event Hub Pro: the ◆ cards are locked and Apple's sheet unlocks it in place; 'locked' — the app where nothing
+   * can be sold: locked, with no price and no web link (App Store 3.1.1).
+   */
+  proDoor?: MainBackgroundProDoor;
   /** 🌈 Studio › Look › Background's Colour source and Shade ▾ (the new Maker). Absent = the colour is set elsewhere (the lab). */
   page?: MainBackgroundPage | null;
   eventId: string;
@@ -980,6 +992,10 @@ export function MainBackgroundPanel({
       followsHero: Boolean(follow) || (!current && Boolean(hero.photoRef) && themeId !== 'house'),
     });
     const view = viewed ?? storedSource;
+    /* 🍎 A ◆ source in the app, for an event without Pro: its cards are shown, locked (`proDoor`) — a tap says why, and
+       Apple's sheet (where Apple sells) unlocks Event Hub Pro right here. Colour is everyone's. */
+    const proLockedHere = proDoor !== 'open' && (view === 'scene' || view === 'video' || view === 'own');
+    const proOnly = (fn: () => void) => (proLockedHere ? () => setNote(PRO_LOCKED_LINE) : fn);
     viewRef.current = view;
     /* 🥧 An upload in flight holds the strip as a loading pick does — the Upload card wears `FileUpload`'s own figure. */
     const stripPick: BackgroundPick | null =
@@ -1054,6 +1070,21 @@ export function MainBackgroundPanel({
           />
         </BgRow>
 
+        {proLockedHere ? (
+          <div className="flex min-h-11 items-center justify-between gap-3" data-bg-pro-locked={proDoor}>
+            <span className="min-w-0 text-[13px] text-ink/70">◆ {BACKGROUND_SOURCE_LABEL[view]} is part of Event Hub Pro</span>
+            {proDoor === 'apple' ? (
+              <IapUnlockSheet
+                eventId={eventId}
+                serviceKey="COUPLE_WEBSITE_PRO"
+                name="Event Hub Pro"
+                line="Scenes, videos and your own photos behind your Event Hub."
+                triggerLabel="Unlock"
+                triggerTestId="iap-look-background-pro"
+              />
+            ) : null}
+          </div>
+        ) : null}
         <BgCards label={BACKGROUND_SOURCE_LABEL[view]} source={view} pick={stripPick} onTap={(data) => (tapped.current = data)} onCancel={cancelPick}>
           {view === 'colour'
             ? BACKGROUND_EFFECTS.filter((e) => Boolean(page) || e === 'plain').map((e) => (
@@ -1102,7 +1133,7 @@ export function MainBackgroundPanel({
                   pro={proOn}
                   on={active && own?.media === b.src}
                   swatch={PAPER_SWATCH}
-                  onPick={() => pickExisting({ kind: 'photo', ref: b.src, stillUrl: b.src })}
+                  onPick={proOnly(() => pickExisting({ kind: 'photo', ref: b.src, stillUrl: b.src }))}
                 >
                   <StillOverSwatch src={b.src} swatch={PAPER_SWATCH} {...held(active && own?.media === b.src)} />
                 </BgCard>
@@ -1118,7 +1149,7 @@ export function MainBackgroundPanel({
                   pro={proOn && !(l.id === themeId && INVITE_THEMES[themeId]?.tier === 'free')}
                   on={active && loopNow === l.id}
                   swatch={loopSwatch(l.id, colours.canvas)}
-                  onPick={() => pickGround(l.id)}
+                  onPick={proOnly(() => pickGround(l.id))}
                 >
                   {/* The loop itself, muted, over its poster, over its own two colours — never a broken image. */}
                   <LoopPicture src={l.loopUrl ?? null}>
@@ -1139,7 +1170,7 @@ export function MainBackgroundPanel({
                   pro={proOn}
                   on={active && choice === 'hero'}
                   swatch={PAPER_SWATCH}
-                  onPick={() => pickGround('src:hero')}
+                  onPick={proOnly(() => pickGround('src:hero'))}
                 >
                   <StillOverSwatch src={hero.photoUrl} swatch={PAPER_SWATCH} {...held(active && choice === 'hero')} />
                 </BgCard>
@@ -1152,7 +1183,7 @@ export function MainBackgroundPanel({
                   pro={proOn}
                   on={active && own?.kind === 'snippet' && own.media === videoChoice.ref}
                   swatch={PAPER_SWATCH}
-                  onPick={() => pickExisting({ kind: 'snippet', ref: videoChoice.ref, stillUrl: urlOf(videoChoice.poster), poster: videoChoice.poster })}
+                  onPick={proOnly(() => pickExisting({ kind: 'snippet', ref: videoChoice.ref, stillUrl: urlOf(videoChoice.poster), poster: videoChoice.poster }))}
                 >
                   <StillOverSwatch src={urlOf(videoChoice.poster)} swatch={PAPER_SWATCH} {...held(active && own?.kind === 'snippet' && own.media === videoChoice.ref)} />
                 </BgCard>
@@ -1166,11 +1197,11 @@ export function MainBackgroundPanel({
                   pro={proOn}
                   on={active && own?.media === u.ref}
                   swatch={PAPER_SWATCH}
-                  onPick={() =>
+                  onPick={proOnly(() =>
                     u.kind === 'snippet'
                       ? pickExisting({ kind: 'snippet', ref: u.ref, stillUrl: u.posterUrl ?? null, poster: u.poster })
                       : pickExisting({ kind: 'photo', ref: u.ref, stillUrl: u.url })
-                  }
+                  )}
                 >
                   <StillOverSwatch src={u.kind === 'snippet' ? (u.posterUrl ?? null) : u.url} swatch={PAPER_SWATCH} {...held(active && own?.media === u.ref)} />
                 </BgCard>
@@ -1183,18 +1214,18 @@ export function MainBackgroundPanel({
                   pro={proOn}
                   on={active && own?.media === p.ref}
                   swatch={PAPER_SWATCH}
-                  onPick={() => pickExisting({ kind: 'photo', ref: p.ref, stillUrl: p.url })}
+                  onPick={proOnly(() => pickExisting({ kind: 'photo', ref: p.ref, stillUrl: p.url }))}
                 >
                   <StillOverSwatch src={p.url} swatch={PAPER_SWATCH} {...held(active && own?.media === p.ref)} />
                 </BgCard>
               ))}
               {/* The background they uploaded here is a card too — ringed, so "what is on" is never empty. */}
               {own && !listed ? (
-                <BgCard name="Your upload" data="own:upload" moving={own.kind === 'snippet'} pro={proOn} on={active} swatch={PAPER_SWATCH} onPick={() => {}}>
+                <BgCard name="Your upload" data="own:upload" moving={own.kind === 'snippet'} pro={proOn} on={active} swatch={PAPER_SWATCH} onPick={proOnly(() => {})}>
                   <StillOverSwatch src={overrideStillUrl} swatch={PAPER_SWATCH} {...held(active)} />
                 </BgCard>
               ) : null}
-              <BgCard name="Photo or video" data="upload" pro={proOn} on={false} swatch={PAPER_SWATCH} onPick={() => setUploadOpen((o) => !o)}>
+              <BgCard name="Photo or video" data="upload" pro={proOn} on={false} swatch={PAPER_SWATCH} onPick={proOnly(() => setUploadOpen((o) => !o))}>
                 <UploadPicture />
               </BgCard>
             </>

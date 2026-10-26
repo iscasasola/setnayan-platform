@@ -1,18 +1,21 @@
 /**
- * lib/main-background-offered.ts — 🌄 IS STUDIO › LOOK › BACKGROUND'S SOURCE ▾ BUILT FOR THIS VIEWER?
+ * lib/main-background-offered.ts — 🌄 STUDIO › LOOK › BACKGROUND'S SOURCE ▾, FOR EVERY EVENT, IN EVERY SHELL.
  *
- * Owner, on his phone in the app 2026-10-26: *"i cannot see the different background options. upload, color, videos,
- * etc"*. The Maker's main-background row (`website/editor/page.tsx`, "Behind every scene" — `MainBackgroundPanel`,
- * whose Source ▾ is Colour · Scene ◆ · Video ◆ · Upload ◆ and its picture cards) was built ONLY outside the app-store
- * shell, since its first day (2c6a6018ce: a Pro control is hidden in the shell). Without it, Look › Background falls
- * back to the shell's rows (`details-look-pages.tsx` `sourceHolds`): Pattern · Focus · Blur · Shade and the page
- * colour — no way to pick a source. His event is Event Hub Pro, and an unlock belongs to the event (owner
- * 2026-10-15): a Pro event's couple is never shown less in the app than on the web.
- *
- * ✅ THE RULE: built on the web, and in the store shell for an event that OWNS Pro (`makerProUsable`'s own rule —
- * `owns || !storeShell`). A free event in the shell keeps the shell's rows (no Pro control, no price, no web link).
- * Pure; held by `the-look-background-offers-every-source.test.ts`.
+ * Owner, in the app 2026-10-26: *"i cannot see the different background options. upload, color, videos, etc"* — and
+ * again on a free test event (Debut 18) once #6970 built the row only for Pro events in the app: *"still none for the
+ * background"*. The main-background row (`MainBackgroundPanel`: Source ▾ Colour · Scene ◆ · Video ◆ · Upload ◆ and
+ * its picture cards) is now built for EVERY event, on the web and in the app (`website/editor/page.tsx`). What differs
+ * is only how the ◆ sources open (`mainBackgroundProDoor`):
+ *   · 'open'   — the web (tried free, named at ✓ Apply, as always), or an event that owns Event Hub Pro (usable);
+ *   · 'apple'  — the iPhone app where Apple sells Event Hub Pro (`getIapGate().iap`): the ◆ cards are shown locked and
+ *                Apple's sheet (`IapUnlockSheet`, `COUPLE_WEBSITE_PRO` — sold whole again, #6963) unlocks it in place;
+ *   · 'locked' — the app where nothing can be sold: the ◆ cards are shown locked, with no price and no web link
+ *                (App Store 3.1.1).
+ * Colour is everyone's, everywhere. Pure; held by `the-look-background-offers-every-source.test.ts`.
  */
-export function mainBackgroundRowOffered({ storeShell, ownsPro }: { storeShell: boolean; ownsPro: boolean }): boolean {
-  return ownsPro || !storeShell;
+export type MainBackgroundProDoor = 'open' | 'apple' | 'locked';
+
+export function mainBackgroundProDoor({ storeShell, iap, ownsPro }: { storeShell: boolean; iap: boolean; ownsPro: boolean }): MainBackgroundProDoor {
+  if (ownsPro || !storeShell) return 'open';
+  return iap ? 'apple' : 'locked';
 }

@@ -182,6 +182,10 @@ function exportedTables(routeSrc: string): Set<string> {
  * exporting the row is itself unsafe. These are answers, not debt.
  */
 const DELIBERATE_EXCLUSIONS: Record<string, string> = {
+  // ── added 2026-10-26 (service card checks, migration 20271290013489) ──
+  card_claim_words:
+    'Admin configuration (a claim-word list). The only user column is created_by — the ADMIN who added the word, an actor stamp, not the subject of the row; nothing here was typed by or is about the exporting person.',
+
   // ── added 2026-10-18 with the table itself (Apple In-App Purchase, PR #6637) ──
   app_store_purchases:
     'The subject IS the buyer here, and every purchase is already in their export as an ' +

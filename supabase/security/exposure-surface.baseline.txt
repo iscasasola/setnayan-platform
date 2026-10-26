@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6706
+# facts: 6715
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     570
-#   col       4920
-#   policy    952
+#   tpriv     571
+#   col       4926
+#   policy    953
 #   view      8
-#   func      252
+#   func      253
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -60,6 +60,7 @@ tpriv	public.canonical_service_schemas|anon	SIUD
 tpriv	public.canonical_service_schemas|authenticated	SIUD
 tpriv	public.canonical_service_taxonomy|anon	SIUD
 tpriv	public.canonical_service_taxonomy|authenticated	SIUD
+tpriv	public.card_claim_words|authenticated	SIUD
 tpriv	public.chat_message_flags|authenticated	SIUD
 tpriv	public.chat_messages|anon	SD
 tpriv	public.chat_messages|authenticated	SD
@@ -833,6 +834,10 @@ col	public.canonical_service_taxonomy.phase	anon=SIU authenticated=SIU
 col	public.canonical_service_taxonomy.secondary_tiles	anon=SIU authenticated=SIU
 col	public.canonical_service_taxonomy.tile_id	anon=SIU authenticated=SIU
 col	public.canonical_service_taxonomy.updated_at	anon=SIU authenticated=SIU
+col	public.card_claim_words.created_at	anon=- authenticated=SIU
+col	public.card_claim_words.created_by	anon=- authenticated=SIU
+col	public.card_claim_words.note	anon=- authenticated=SIU
+col	public.card_claim_words.phrase	anon=- authenticated=SIU
 col	public.chat_message_flags.action_taken	anon=- authenticated=SIU
 col	public.chat_message_flags.categories	anon=- authenticated=SIU
 col	public.chat_message_flags.created_at	anon=- authenticated=SIU
@@ -2628,6 +2633,7 @@ col	public.integrity_flags.score	anon=SIU authenticated=SIU
 col	public.integrity_flags.status	anon=SIU authenticated=SIU
 col	public.integrity_flags.subject_event_vendor_id	anon=SIU authenticated=SIU
 col	public.integrity_flags.subject_review_id	anon=SIU authenticated=SIU
+col	public.integrity_flags.subject_service_id	anon=SIU authenticated=SIU
 col	public.integrity_flags.subject_vendor_id	anon=SIU authenticated=SIU
 col	public.invitation_widgets.audience	anon=- authenticated=SIU
 col	public.invitation_widgets.config_json	anon=- authenticated=SIU
@@ -3589,6 +3595,7 @@ col	public.platform_settings.business_address	anon=- authenticated=S
 col	public.platform_settings.business_email	anon=- authenticated=S
 col	public.platform_settings.business_name	anon=- authenticated=S
 col	public.platform_settings.business_tin	anon=- authenticated=S
+col	public.platform_settings.card_price_band_tolerance	anon=- authenticated=S
 col	public.platform_settings.creator_offer_sweep_last_run_at	anon=- authenticated=S
 col	public.platform_settings.default_vat_rate_pct	anon=- authenticated=S
 col	public.platform_settings.fee_leak_price_tolerance	anon=- authenticated=S
@@ -5565,6 +5572,7 @@ policy	public.canonical_service_schemas|canonical_service_schemas_admin_write	mo
 policy	public.canonical_service_schemas|canonical_service_schemas_read_all	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=true check=NULL
 policy	public.canonical_service_taxonomy|canonical_service_taxonomy_admin_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.canonical_service_taxonomy|canonical_service_taxonomy_read_all	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=true check=NULL
+policy	public.card_claim_words|card_claim_words_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.chat_message_flags|chat_message_flags_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
 policy	public.chat_message_flags|chat_message_flags_admin_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.chat_messages|chat_messages_block_guard	mode=RESTRICTIVE cmd=INSERT roles=authenticated using=NULL check=(NOT (EXISTS ( SELECT 1 FROM blocked_users b WHERE (((( SELECT auth.uid() AS uid) = b.blocker_user_id) OR (( SELECT auth.uid() AS uid) = b.blocked_user_id)) AND ( CASE WHEN (b.blocker_user_id = ( SELECT auth.uid() AS uid)) THEN b.blocked_user_id ELSE b.blocker_user_id END IN ( SELECT em.user_id FROM event_members em WHERE ((em.event_id = chat_messages.event_id) AND (em.member_type = 'couple'::member_type)) UNION SELECT vp.user_id FROM vendor_profiles vp WHERE (vp.vendor_profile_id = chat_messages.vendor_profile_id)))))))
@@ -6648,6 +6656,7 @@ func	public.review_is_booked_through_setnayan(p_event_id uuid, p_vendor_profile_
 func	public.review_via_vendor_import(p_event_id uuid, p_vendor_profile_id uuid)	secdef=yes exec=anon,authenticated search_path=public, extensions
 func	public.rls_auto_enable()	secdef=yes exec=anon,authenticated search_path=pg_catalog
 func	public.rotate_guest_qr_token(p_guest_id uuid, p_actor_kind text, p_reason text)	secdef=yes exec=authenticated search_path=public
+func	public.service_card_held(p_service_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.service_card_records(p_service_ids uuid[])	secdef=yes exec=authenticated search_path=public
 func	public.set_coordinator_colour_access(p_event_id uuid, p_user_id uuid, p_domain text, p_active boolean)	secdef=yes exec=authenticated search_path=public
 func	public.set_entourage_order(p_event_id uuid, p_guest_ids uuid[], p_orders integer[])	secdef=no exec=authenticated search_path=public, pg_temp

@@ -47,7 +47,11 @@ export async function readCardPriceBandTolerance(client: unknown): Promise<Toler
       .select('card_price_band_tolerance')
       .eq('id', 1)
       .maybeSingle();
-    if (error || !data) return { ok: false };
+    if (error) {
+      console.error('[supabase-error] lib/card-price-band-tolerance.ts · from:platform_settings.select', error);
+      return { ok: false };
+    }
+    if (!data) return { ok: false };
     return parseTolerance((data as { card_price_band_tolerance?: unknown }).card_price_band_tolerance);
   } catch {
     return { ok: false };

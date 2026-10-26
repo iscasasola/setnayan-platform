@@ -169,6 +169,12 @@ const PURGED_WITHOUT_SUBJECT_COLUMN: ReadonlySet<string> = new Set([
  * "not looked at yet".
  */
 const DELIBERATE_EXCLUSIONS: Record<string, string> = {
+  // ── added 2026-10-26 with the tables themselves (service card checks, migration 20271290013489) ──
+  // ADMIN configuration. The only user column is an actor stamp — `created_by`, nullable + ON DELETE SET NULL — so
+  // deleting the admin's account strips the stamp on its own. The rows are a word list: nothing in them is about a person.
+  card_claim_words:
+    'Admin word list. Only user column is created_by, ON DELETE SET NULL — an actor stamp that self-clears on account deletion; the row is a phrase and a note, about nobody.',
+
   // ── added 2026-09-03 with the table itself (BA7) ──
   // The ONLY subject-identifying column is `created_by_user_id`, declared
   // nullable + ON DELETE SET NULL in the migration that creates it

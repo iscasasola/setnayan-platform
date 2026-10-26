@@ -26,9 +26,9 @@
 --   2. One partial unique index: at most ONE holding flag per card.
 --   3. `card_claim_words` — the admin-editable list of claim words, seeded with
 --      the owner's six (guaranteed · #1 · best in · lowest price · official ·
---      100%), and `card_claim_word_allowances` — "Not a problem — stop flagging
---      “…” for this shop". RLS at CREATE: admin only; the check reads them with
---      the service role.
+--      100%). RLS at CREATE: admin only; the check reads it with the service
+--      role. (The per-shop allowance table and the Approve door land with the
+--      admin Cards tab that writes them — a table nobody writes is a wish.)
 --   4. `platform_settings.card_price_band_tolerance` — NULL, and NULL MEANS THE
 --      PRICE CHECK IS OFF. The ruling: "admin-set tolerance in platform
 --      settings, OFF until set — no guessed number". There is deliberately no
@@ -41,11 +41,10 @@
 --      hold below would read as "not held" for exactly the person it fences.
 --   7. `enforce_service_publish_gate` grows ONE arm: a card that is held may
 --      not GO live, except through an admin (`is_admin()`) or the verdict door
---      (`app.service_card_verdict`, opened only inside `approve_service_card`).
+--      (`app.service_card_verdict`, opened only by the admin Approve function,
+--      which lands with the Cards tab that calls it).
 --      `authenticated` holds UPDATE on every column of `vendor_services`, so a
 --      hold that lived only in TypeScript could be undone with one PATCH.
---   8. `approve_service_card(...)` — the one door: approves the flag and puts
---      the card live in one transaction. service_role only.
 --
 -- RA 10173: `detail` stays non-PII — reason codes, the card's OWN price and the
 -- band's aggregates, matched words, a repost-watch row id. No names, no bodies.
@@ -116,9 +115,9 @@ COMMENT ON COLUMN public.integrity_flags.subject_service_id IS
   'kind=service_card flag holds out of Explore. NULL for every other kind. The '
   'card is held while this row is open · asked_to_fix · rejected and '
   'vendor_services.is_active is false; enforce_service_publish_gate refuses a '
-  'supplier flip. Approved only through approve_service_card().';
+  'supplier flip; an admin Approve is the only way live.';
 
--- ── 3 · the claim words and the per-shop allowance ──────────────────────────
+-- ── 3 · the claim words ─────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.card_claim_words (
   phrase      TEXT PRIMARY KEY
                 CHECK (length(phrase) BETWEEN 1 AND 60 AND phrase = lower(btrim(phrase))),
@@ -152,31 +151,6 @@ INSERT INTO public.card_claim_words (phrase, note) VALUES
   ('official',     'implies an appointment'),
   ('100%',         'a promise we can’t stand behind')
 ON CONFLICT (phrase) DO NOTHING;
-
-CREATE TABLE IF NOT EXISTS public.card_claim_word_allowances (
-  vendor_profile_id UUID NOT NULL
-                      REFERENCES public.vendor_profiles(vendor_profile_id) ON DELETE CASCADE,
-  phrase            TEXT NOT NULL
-                      REFERENCES public.card_claim_words(phrase) ON DELETE CASCADE ON UPDATE CASCADE,
-  allowed_by        UUID REFERENCES public.users(user_id) ON DELETE SET NULL,
-  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY (vendor_profile_id, phrase)
-);
-ALTER TABLE public.card_claim_word_allowances ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS card_claim_word_allowances_admin_all ON public.card_claim_word_allowances;
-CREATE POLICY card_claim_word_allowances_admin_all ON public.card_claim_word_allowances
-  FOR ALL
-  TO authenticated
-  USING ((SELECT public.is_admin()))
-  WITH CHECK ((SELECT public.is_admin()));
-
-REVOKE ALL ON public.card_claim_word_allowances FROM anon;
-
-COMMENT ON TABLE public.card_claim_word_allowances IS
-  '"Not a problem — stop flagging “…” for this shop" (owner 2026-10-26: claim '
-  'words are admin-editable with a per-shop allowance). Written from an open '
-  'card on Integrity watch › Cards. Removing the word removes its allowances.';
 
 -- ── 4 · the owner's price tolerance — OFF until set ─────────────────────────
 ALTER TABLE public.platform_settings
@@ -281,7 +255,7 @@ BEGIN
   -- 🃏 THE HOLD (service card checks, owner 2026-10-26). A card waiting for a
   -- quick check goes live only on an admin's Approve — never by the supplier's
   -- switch, a PostgREST PATCH, or a save that skipped the check. The door is
-  -- the admin's own session, or `approve_service_card()`, which opens
+  -- the admin's own session, or the admin Approve function, which opens
   -- `app.service_card_verdict` for its one transaction.
   IF v_going_live AND TG_OP = 'UPDATE'
      AND public.service_card_held(NEW.vendor_service_id)
@@ -311,59 +285,5 @@ BEGIN
   RETURN NEW;
 END;
 $function$;
-
--- ── 8 · Approve — the one door ──────────────────────────────────────────────
--- Closes the holding flag as `approved` and puts the card live, in ONE
--- transaction, so a card can never be approved-but-hidden or live-but-held.
--- The cover · price · what's-included gate still runs on the flip: an Approve
--- cannot publish a card the gate would refuse. Returns FALSE (and changes
--- nothing) when the flag is not holding any more — a stale second click.
-CREATE OR REPLACE FUNCTION public.approve_service_card(
-  p_flag_id  BIGINT,
-  p_reviewer UUID,
-  p_note     TEXT DEFAULT NULL
-)
-RETURNS BOOLEAN
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path TO 'public'
-AS $function$
-DECLARE
-  v_service UUID;
-BEGIN
-  UPDATE public.integrity_flags
-     SET status           = 'approved',
-         resolution_notes = COALESCE(NULLIF(btrim(COALESCE(p_note, '')), ''), 'Approved — the card is live.'),
-         reviewed_by      = p_reviewer,
-         reviewed_at      = NOW()
-   WHERE id = p_flag_id
-     AND kind = 'service_card'
-     AND status IN ('open', 'asked_to_fix', 'rejected')
-  RETURNING subject_service_id INTO v_service;
-
-  IF v_service IS NULL THEN
-    RETURN FALSE;
-  END IF;
-
-  -- `true` = LOCAL: the door dies with this transaction (connections are
-  -- pooled), and is shut again explicitly right after the one flip.
-  PERFORM set_config('app.service_card_verdict', 'approve', true);
-  UPDATE public.vendor_services
-     SET is_active = TRUE, updated_at = NOW()
-   WHERE vendor_service_id = v_service;
-  PERFORM set_config('app.service_card_verdict', '', true);
-
-  RETURN TRUE;
-END;
-$function$;
-
-COMMENT ON FUNCTION public.approve_service_card(BIGINT, UUID, TEXT) IS
-  'Integrity watch › Cards › Approve: closes a holding service_card flag as '
-  'approved and puts the card live in one transaction (the publish gate''s '
-  'cover · price · inclusions arms still apply). service_role only — called by '
-  'the admin action after requireAdmin().';
-
-REVOKE ALL ON FUNCTION public.approve_service_card(BIGINT, UUID, TEXT) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.approve_service_card(BIGINT, UUID, TEXT) TO service_role;
 
 COMMIT;

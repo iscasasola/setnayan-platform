@@ -254,52 +254,7 @@ test('a LIVE card’s edit is untouched by the hold arm (only going live is judg
   assert.equal(await isActive(card), true);
 });
 
-// ── the doors ───────────────────────────────────────────────────────────────
-
-test('approve_service_card closes the flag AND puts the card live, once', async () => {
-  const card = await publishableDraft(41009);
-  const id = await flag(card, 'asked_to_fix');
-  const first = await asService(async () =>
-    (await db.query<{ ok: boolean }>(`SELECT public.approve_service_card($1, $2, NULL) AS ok`, [id, F.admin])).rows[0]!.ok,
-  );
-  assert.equal(first, true);
-  assert.equal(await isActive(card), true);
-  const st = await db.query<{ status: string; reviewed_by: string }>(`SELECT status, reviewed_by FROM public.integrity_flags WHERE id = $1`, [id]);
-  assert.equal(st.rows[0]!.status, 'approved');
-  assert.equal(st.rows[0]!.reviewed_by, F.admin);
-
-  const again = await asService(async () =>
-    (await db.query<{ ok: boolean }>(`SELECT public.approve_service_card($1, $2, NULL) AS ok`, [id, F.admin])).rows[0]!.ok,
-  );
-  assert.equal(again, false, 'a stale second Approve changed something');
-});
-
-test('the verdict door shuts after the approve — the same transaction cannot flip another held card', async () => {
-  const a = await publishableDraft(41010);
-  const b = await publishableDraft(41011);
-  const ida = await flag(a);
-  await flag(b);
-  const err = await refused(() =>
-    asService(() =>
-      db.transaction(async (tx) => {
-        await tx.query(`SELECT public.approve_service_card($1, $2, NULL)`, [ida, F.admin]);
-        await tx.query(`UPDATE public.vendor_services SET is_active = true WHERE vendor_service_id = $1`, [b]);
-      }),
-    ),
-  );
-  assert.equal(err, HOLD_SENTENCE);
-  assert.equal(await isActive(b), false);
-});
-
-test('a supplier cannot call approve_service_card', async () => {
-  const card = await publishableDraft(41012);
-  const id = await flag(card);
-  const err = await refused(() =>
-    as(F.vendorUser, () => db.query(`SELECT public.approve_service_card($1, $2, NULL)`, [id, F.vendorUser])),
-  );
-  assert.match(err ?? '', /permission denied/);
-  assert.equal(await isActive(card), false);
-});
+// ── the admin's own session ─────────────────────────────────────────────────
 
 test('an admin’s own session may switch a held card on (the admin door)', async () => {
   const card = await publishableDraft(41013);
@@ -313,6 +268,24 @@ test('an admin’s own session may switch a held card on (the admin door)', asyn
   assert.equal(await isActive(card), true);
 });
 
+test('the verdict door (app.service_card_verdict) admits a flip only inside its own transaction', async () => {
+  const card = await publishableDraft(41014);
+  await flag(card);
+  await asService(() =>
+    db.transaction(async (tx) => {
+      await tx.query(`SELECT set_config('app.service_card_verdict', 'approve', true)`);
+      await tx.query(`UPDATE public.vendor_services SET is_active = true WHERE vendor_service_id = $1`, [card]);
+    }),
+  );
+  assert.equal(await isActive(card), true);
+  const other = await publishableDraft(41015);
+  await flag(other);
+  const err = await refused(() =>
+    asService(() => db.query(`UPDATE public.vendor_services SET is_active = true WHERE vendor_service_id = $1`, [other])),
+  );
+  assert.equal(err, HOLD_SENTENCE, 'the door stayed open after its transaction');
+});
+
 // ── the words, the tolerance, the showcase surface ─────────────────────────
 
 test('the owner’s six claim words are seeded, and only an admin can read them', async () => {
@@ -324,14 +297,6 @@ test('the owner’s six claim words are seeded, and only an admin can read them'
   assert.equal(asAdmin, 6);
   const notLower = await refused(() => db.query(`INSERT INTO public.card_claim_words (phrase) VALUES ('Official ')`));
   assert.match(notLower ?? '', /card_claim_words_phrase_check|check constraint/);
-});
-
-test('an allowance is per shop and goes with its word', async () => {
-  await db.query(`INSERT INTO public.card_claim_words (phrase) VALUES ('premier') ON CONFLICT DO NOTHING`);
-  await db.query(`INSERT INTO public.card_claim_word_allowances (vendor_profile_id, phrase, allowed_by) VALUES ($1, 'premier', $2)`, [F.vendorId, F.admin]);
-  await db.query(`DELETE FROM public.card_claim_words WHERE phrase = 'premier'`);
-  const left = await db.query(`SELECT 1 FROM public.card_claim_word_allowances WHERE phrase = 'premier'`);
-  assert.equal(left.rows.length, 0);
 });
 
 test('the price tolerance exists and is OFF (NULL) until the owner sets it', async () => {

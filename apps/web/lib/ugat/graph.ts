@@ -3385,6 +3385,39 @@ export const UGAT_JOINTS: UgatJoint[] = [
     guardedBy: 'RLS — authenticated SELECT only (anon holds no grant; no write policy — writes go through the service role, as /admin/categories writes service_categories) · trigger inspiration_part_category_is_tier_2 on both tables · inspiration_parts_before_update (the key is permanent) · inspiration_parts_refuse_delete_with_photos (SECURITY DEFINER, counts both photo tables) · tests/db/inspiration-parts-seed-equals-the-consts.db.test.ts',
     traps: 'Since step ② the couple\u2019s Which part?, the supplier\u2019s Part \u25be, the gallery query and the upload gate read these tables through getInspirationParts() (falling back to the consts on an error or an empty table); the suggestion door (inspiration_suggestion_services, a hard-coded SQL mirror), the sign-off map (moodboard-finalization) and the render pool still read the consts. The also-categories\u2019 ORDER is data (the first tile a shop matches is the one printed on the credit), so a reader must ORDER BY sort_order. `palette` is kind = system with no home and is hidden: no shop fills it.',
   },
+  {
+    /**
+     * 🃏 SERVICE CARD CHECKS (owner 2026-10-26, DECISION_LOG "APPROVED — SERVICE CARD CHECKS AS DRAWN"; migration
+     * 20271290013489). A card goes live right away after the automatic check; a flagged card is HELD — saved with
+     * `is_active = false` and ONE holding `integrity_flags` row (kind `service_card`, status open · asked_to_fix ·
+     * rejected) naming it by `subject_service_id`. No column on `vendor_services` says "held"; the flag does.
+     * The claim words the check reads are admin data with a per-shop allowance; the price tolerance is a
+     * platform setting that is OFF (NULL) until the owner sets it.
+     */
+    id: 'J56',
+    claims: [
+      { kind: 'fk', table: 'integrity_flags', column: 'subject_service_id', references: 'vendor_services' },
+      { kind: 'check', table: 'integrity_flags', name: 'integrity_flags_kind_shape', mentions: 'subject_service_id' },
+      { kind: 'check', table: 'integrity_flags', name: 'integrity_flags_status_check', mentions: 'asked_to_fix' },
+      { kind: 'table', table: 'card_claim_words' },
+      { kind: 'column', table: 'platform_settings', column: 'card_price_band_tolerance' },
+      { kind: 'no_column', table: 'vendor_services', column: 'held' },
+    ],
+    chain: 2,
+    pair: ['TYPE-VENDORS', 'TYPE-SERVICES'],
+    title: 'Service card → the automatic check (held cards, claim words)',
+    joint: 'integrity_flags (kind service_card)',
+    cardinality:
+      'At most ONE holding flag per card (partial unique index integrity_flags_card_uniq on subject_service_id where status is open · asked_to_fix · rejected); closed history (approved · dismissed) unlimited',
+    implementedBy:
+      'integrity_flags.subject_service_id → vendor_services CASCADE · card_claim_words (phrase PK, lower-case) · platform_settings.card_price_band_tolerance (NULL = off) · service_card_held() SECURITY DEFINER · enforce_service_publish_gate hold arm',
+    writtenBy:
+      'the seed (the owner\u2019s six words) · /admin/settings (the tolerance) · the save and the admin Cards tab as they land (service card checks PRs 2–3)',
+    guardedBy:
+      'enforce_service_publish_gate refuses a held card going live except for is_admin() or the app.service_card_verdict door · integrity_flags + card_claim_words admin-only RLS · tests/db/a-held-card-waits-for-the-check.db.test.ts',
+    traps:
+      'A held card reads as an ordinary draft (`is_active = false`) to anything that does not ask service_card_held() — the shop page asks it, Explore does not need to. After a Reject every save re-queues (the same row re-opens), so a rejected card can never go live by a resave. The price check only looks BELOW the band, and only when the tolerance is set; no band ⇒ no check.',
+  },
 ];
 
 const UGAT_JOINT_PAIR_INDEX: Record<string, UgatJoint[]> = {};

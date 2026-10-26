@@ -5,6 +5,7 @@ import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { getBudgetBands } from '@/lib/budget-bands';
 import { safeNext } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
+import { resolveActiveShopId } from '@/lib/active-shop';
 import { resolveProfile } from '@/lib/event-type-profile';
 import { fetchCommunity } from '@/lib/communities';
 import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
@@ -28,6 +29,34 @@ import { NewEventHead } from './_components/new-event-head';
    lands in DIY by default. */
 
 export const metadata = { title: 'Create event' };
+
+/**
+ * The name of the shop this login is standing in, or null. ⚠ A refused read ANYWHERE
+ * here means "A business" asks the name instead of filling it — never a wrong shop.
+ */
+async function readActiveShopName(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+): Promise<string | null> {
+  let shopId: string | null = null;
+  try {
+    shopId = await resolveActiveShopId(supabase, userId);
+  } catch (e) {
+    logQueryError('CreateEventPage.activeShop', e, {}, 'graceful_degrade');
+    return null;
+  }
+  if (!shopId) return null;
+  const { data, error } = await supabase
+    .from('vendor_profiles')
+    .select('business_name')
+    .eq('vendor_profile_id', shopId)
+    .maybeSingle();
+  if (error) {
+    logQueryError('CreateEventPage.shopName', error, {}, 'graceful_degrade');
+    return null;
+  }
+  return (data?.business_name as string | null | undefined) ?? null;
+}
 
 const ERROR_COPY: Record<string, string> = {
   // The two outcomes of a failed write, kept apart on purpose. `create_failed`
@@ -220,31 +249,23 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
   // folds LESS: the documented fail-open direction. It sorts this picker only; it
   // is disclosed to nobody and written nowhere.
   //
-  // The account's OWN shop name fills "For · A business" (owner 2026-10-26: "If it
-  // is for a business …") — an owned `vendor_profiles` row, the same read the role
-  // summary makes. None (or a refused read) → the business name is asked.
+  // The shop this login is standing in fills "For · A business" (owner 2026-10-26:
+  // "If it is for a business …") — asked of THE resolver (`resolveActiveShopId`,
+  // the one answer to "which shop am I in"), then that one shop's name. None, or a
+  // refused read → the business name is asked instead.
   let subjects: CreateSubject[] = [];
   if (user && !samahan) {
-    const [{ data: profile, error: profileError }, { data: shops, error: shopError }] = await Promise.all([
+    const [{ data: profile, error: profileError }, shopName] = await Promise.all([
       supabase
         .from('users')
         .select('display_name, birth_date, sex, sex_consent_at')
         .eq('user_id', user.id)
         .maybeSingle(),
-      supabase
-        .from('vendor_profiles')
-        .select('business_name')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: true })
-        .limit(1),
+      readActiveShopName(supabase, user.id),
     ]);
     // ⚠ the account record. Absence DENIES rather than renders.
     if (profileError) {
       logQueryError('CreateEventPage.profile', profileError, {}, 'graceful_degrade');
-    }
-    // ⚠ their own shop. Refused, "A business" asks the name instead of filling it.
-    if (shopError) {
-      logQueryError('CreateEventPage.shop', shopError, {}, 'graceful_degrade');
     }
     const consentedSex = profile?.sex_consent_at ? ((profile?.sex as string | null) ?? null) : null;
     subjects = buildCreateRoster(
@@ -253,7 +274,7 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
         sex: consentedSex,
       }),
       alagaSubjects,
-      ((shops?.[0]?.business_name as string | null | undefined) ?? null),
+      shopName,
     );
   }
 

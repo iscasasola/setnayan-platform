@@ -195,10 +195,10 @@ export async function setEventTypeForWhomCore(
   const key = input.key.trim();
   if (!EVENT_TYPE_KEY_RE.test(key)) return { ok: false, error: 'Unknown event type.' };
   const forWhom = cleanForWhom(input.forWhom);
-  const patch = { for_whom: forWhom, updated_at: new Date().toISOString() };
+  const updatedAt = new Date().toISOString();
   const { data, error } = await admin
     .from('event_type_vocab')
-    .update(patch)
+    .update({ for_whom: forWhom, updated_at: updatedAt })
     .eq('event_type', key)
     .select('event_type')
     .maybeSingle();
@@ -206,13 +206,17 @@ export async function setEventTypeForWhomCore(
   clearHomeShelf('eventTypes');
   if (error) return { ok: false, error: error.message };
   if (!data) return { ok: false, error: 'not_found' };
-  await admin.from('admin_audit_log').insert({
+  // The audit row is a record, not the change: a refused write is logged and the save still stands.
+  const { error: auditError } = await admin.from('admin_audit_log').insert({
     action: 'event_types.for_whom',
     target_table: 'event_type_vocab',
     target_id: key,
-    after_json: patch,
+    after_json: { for_whom: forWhom, updated_at: updatedAt },
     actor_user_id: actorUserId,
   });
+  if (auditError) {
+    console.error('[supabase-error] lib/event-types-mutations.ts · setEventTypeForWhomCore audit', auditError);
+  }
   return { ok: true, data: { key, forWhom } };
 }
 

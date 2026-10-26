@@ -9,7 +9,8 @@ event you can only make is anniversary or wake/funeral."* · *"debut 17-18 woman
 - **The rule is data:** new column `event_type_vocab.for_whom text[]` (migration `20271292363990_event_type_for_whom`),
   values `self · someone · memorial · business`, seeded once, editable on Admin › Categories › Event types → "Who it's
   for". The grid folds with `forWhomHiddenTypes` (`lib/create-subjects.ts`); no event-type key is named in that code.
-  A row with no rule (fallback roster) fails open.
+  A row with no rule (fallback roster) fails open. Corporate and Grand opening are a business's — not offered "For
+  you" (owner on #6974, 2026-10-27).
 - **"For ▾" is always a choice now** (You · loved ones on file · Someone else · A business · Someone who passed away),
   redrawn as one full-width 44-px dropdown row with its one-line hint and the details in an ⓘ. Changing it re-filters
   the grid in place.

@@ -89,7 +89,9 @@ test('B · no raw read or sign call is handed a render key column', () => {
       }
     }
   }
-  assert.ok(scanned > 0, 'anti-vacuity: files that hold render keys do make storage calls — none were scanned');
+  /* No anti-vacuity floor any more: the render tables were dropped (migration 20271289858095) and no file holds a render
+     key, so `scanned` is legitimately 0. The offender check stays — it is what fires if a render key ever comes back. */
+  void scanned;
   assert.deepEqual(offenders, [], `renders are retired — nothing may read or sign a render key:\n${offenders.join('\n')}`);
 });
 

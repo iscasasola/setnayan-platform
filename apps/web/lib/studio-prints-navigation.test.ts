@@ -168,7 +168,8 @@ test('3 · Print settings holds every switch of every piece, under the prototype
   for (const [key, body] of [
     ['invitation', /\{parentsSwitch\}\{openingSwitch\}/],
     ['details', /body: detailsSwitches/],
-    ['passes', /\{guestNamesSwitch\}\s*\{passCornersPick\}\s*<TicketStyle input=\{prints\} \/>/],
+    /* 🎫 Ticket style left the sheet for the Digital ticket's slide (owner 2026-10-26) — `prints-carousel-follows-the-prototype.test.ts` (7). */
+    ['passes', /\{guestNamesSwitch\}\s*\{passCornersPick\}(?![\s\S]{0,400}TicketStyle)/],
     ['story', /part="poster-photo"/],
     ['seating', /\{seatPlanSwitch\}[\s\S]*?part="chart-layout"/],
   ] as const) {

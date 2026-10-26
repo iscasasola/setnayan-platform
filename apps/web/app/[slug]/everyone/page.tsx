@@ -1,4 +1,6 @@
 import { cache } from 'react';
+import { entourageWithProxies } from '@/lib/guest-proxy';
+import { entourageProxyNames } from '@/lib/guest-proxy.server';
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 
@@ -151,13 +153,17 @@ export default async function EveryonePage({ params }: { params: Promise<{ slug:
   );
   if (castError) throw new GuestReadError('everyone (entourage)', castError);
   // Same section order the invitation prints — the couple's, when they set one.
-  const castGroups = buildEntourage(
-    (castRows ?? []) as EntourageGuestRow[],
-    await loadEntourageSectionOrder(admin, event.event_id),
-    // The couple's own words for roles (owner 2026-09-30) — the same ones the invitation prints.
-    await loadEventRoleNames(admin, event.event_id),
-    // …and the event's Name style (owner 2026-09-30) — the names in the same style too.
-    nameStyle,
+  const castGroups = entourageWithProxies(
+    buildEntourage(
+      (castRows ?? []) as EntourageGuestRow[],
+      await loadEntourageSectionOrder(admin, event.event_id),
+      // The couple's own words for roles (owner 2026-09-30) — the same ones the invitation prints.
+      await loadEventRoleNames(admin, event.event_id),
+      // …and the event's Name style (owner 2026-09-30) — the names in the same style too.
+      nameStyle,
+    ),
+    // 🧍 "… (represented by …)" — the same as the invitation's section (owner 2026-10-27).
+    await entourageProxyNames(admin, event.event_id, (castRows ?? []) as { guest_id?: string | null; represented_by_guest_id?: string | null }[], nameStyle),
   );
   // 👁 The couple hid the Entourage on the stage the event is at ("What guests see"): this page keeps its own
   // "hasn't been shared yet" line — the state it already has for no entourage. One reading: `_lib/part-door.server.ts`.

@@ -1476,14 +1476,12 @@ const GUEST_OWN_ANSWER_COLUMNS = ['face_tagging_wanted', 'ugc_terms_accepted_at'
  * yet (42703) reads the row without it, and Me simply has no note — never "we couldn't find your invitation". This is
  * the ONLY guest-page read of that column, and it is the reader's own row: no other guest's view can carry it.
  */
-const GUEST_OWN_TOLERANT_COLUMNS = [
-  ...GUEST_OWN_ANSWER_COLUMNS,
-  'host_note_for_guest',
-  // 🧍 A role holder's proxy link and the name they typed (owner 2026-10-27, `lib/guest-proxy.server.ts`) — tolerant like
-  // the note: a database ahead of nothing reads the row without them, and the guest is simply drawn as themselves.
-  'represented_by_guest_id',
-  'proxy_named_by_guest',
-] as const;
+const GUEST_OWN_TOLERANT_COLUMNS = [...GUEST_OWN_ANSWER_COLUMNS, 'host_note_for_guest'] as const;
+/**
+ * 🧍 …and a role holder's proxy link and the name they typed (owner 2026-10-27, `lib/guest-proxy.server.ts`) — tolerant
+ * like the note: a database without them reads the row without them, and the guest is simply drawn as themselves.
+ */
+const GUEST_OWN_PROXY_COLUMNS = ['represented_by_guest_id', 'proxy_named_by_guest'] as const;
 
 /**
  * 1️⃣ THE GUEST'S OWN ROW — its own `cache()`d loader (2026-10-12), read by
@@ -1508,7 +1506,7 @@ export const loadGuestOwnRow = cache(async (admin: AdminClient, guestId: string)
   const read = <S extends string>(columns: S) =>
     admin.from('guests').select(columns).eq('guest_id', guestId).is('deleted_at', null).maybeSingle();
   const select = async <S extends string>(columns: S) => {
-    const whole = await read(`${columns}, ${GUEST_OWN_TOLERANT_COLUMNS.join(', ')}` as S);
+    const whole = await read(`${columns}, ${[...GUEST_OWN_TOLERANT_COLUMNS, ...GUEST_OWN_PROXY_COLUMNS].join(', ')}` as S);
     if (whole.error) {
       return whole.error.code === '42703' ? { ...(await read(columns)), answers: null } : { ...whole, answers: null };
     }
@@ -1524,7 +1522,7 @@ export const loadGuestOwnRow = cache(async (admin: AdminClient, guestId: string)
     };
   };
   return select(
-    'guest_id, first_name, last_name, name_prefix, middle_name, name_suffix, display_name, role, extra_roles, attire, gender, side, group_category, plus_one_of_guest_id, plus_one_mode, plus_one_name_confirmed_at, plus_one_allowed, plus_one_count, plus_one_name, rsvp_status, meal_preference, dietary_restrictions, guest_note, custom_tags, qr_token, photo_url, photo_source, email, mobile',
+    'guest_id, first_name, last_name, name_prefix, middle_name, name_suffix, display_name, role, attire, gender, extra_roles, side, group_category, plus_one_of_guest_id, plus_one_mode, plus_one_name_confirmed_at, plus_one_allowed, plus_one_count, plus_one_name, rsvp_status, meal_preference, dietary_restrictions, guest_note, custom_tags, qr_token, photo_url, photo_source, email, mobile',
   );
 });
 
@@ -2323,8 +2321,8 @@ export const loadEntourage = cache(
         correct while dropping "Atty." from a ninong's name.
       */
       // + who is a real COUPLE (owner 2026-09-30): walking together alone prints both full names.
-      // + `represented_by_guest_id` — "… (represented by …)" (owner 2026-10-27, `entourageWithProxies`).
-      .select(`${ENTOURAGE_COLUMNS}, ${ENTOURAGE_COUPLE_FIELDS}, ${ENTOURAGE_PARENT_FIELDS}, represented_by_guest_id`)
+      // (the couple fields carry `represented_by_guest_id` — "… (represented by …)", owner 2026-10-27)
+      .select(`${ENTOURAGE_COLUMNS}, ${ENTOURAGE_COUPLE_FIELDS}, ${ENTOURAGE_PARENT_FIELDS}`)
       .eq('event_id', eventId)
       /*
         🔴 A GUEST THE COUPLE REMOVED IS NOT ON THE INVITATION.

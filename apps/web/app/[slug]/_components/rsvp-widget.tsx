@@ -469,6 +469,80 @@ export function RsvpWidget({
      fails (offline, 5xx, a throw) or does not answer in time leaves this form mounted with everything typed and
      says so under the button, instead of the error screen that unmounted it. Without script it is the plain form
      post it always was. `reply-form.tsx` · `lib/reply-send.ts`. */
+  /* 🧍 The two proxy pieces (owner 2026-10-27) and the two slots they ride — built here so each rides an EXISTING slot. */
+  const proxyBanner = standIn ? (
+        <p
+          className="rounded-xl bg-gild/10 px-4 py-3 text-sm leading-snug text-ink"
+          data-rsvp-stand-in={guest.stand_in?.standingInFor ? 'proxy' : 'holder'}
+        >
+          {standIn}
+          {guest.stand_in?.representedBy ? (
+            <span className="mt-1 block text-xs text-ink/70">No reply is needed from you. If you can come after all, reply below — your hosts will decide.</span>
+          ) : null}
+        </p>
+      ) : null;
+  const placeFacts = guest.rsvp_status === 'attending' ? (
+        <InvitationFacts fold={oneAtATime}>
+          <p className="flex items-center gap-2.5 text-sm text-ink/80">
+            <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-gild" />
+            {words.solemn
+              ? 'Your place is noted — thank you for being with the family.'
+              : 'Your place is reserved — we can’t wait to celebrate with you.'}
+          </p>
+          {/* No pitch on a solemn page: "Planning your own celebration? Start
+              free" under a wake RSVP is the defect class itself. */}
+          {onDoor || !hostPitch ? null : words.solemn ? null : (
+            <GuestToHostCta
+              surface="rsvp_confirmation"
+              eventId={eventId}
+              eventPublicId={eventPublicId}
+              headline="Planning your own event?"
+              sub="Start free on Setnayan — no card needed."
+            />
+          )}
+        </InvitationFacts>
+      ) : null;
+  const standInAsk = offerStandIn ? (
+        <div data-rsvp-step className={`${declineReveal}space-y-1.5`} data-rsvp-stand-in-ask="">
+          <label htmlFor="stand_in_name" className={questionClass(oneAtATime)}>
+            I can’t come — someone will stand in for me
+          </label>
+          <p className="text-xs text-ink/70">
+            Optional. Type their name and {words.theOrganizer} will give them your seat and your role’s dress code and call time.
+          </p>
+          <input
+            id="stand_in_name"
+            name="stand_in_name"
+            type="text"
+            autoComplete="off"
+            autoCapitalize="words"
+            maxLength={120}
+            defaultValue={guest.proxy_named_by_guest ?? ''}
+            placeholder="Their first and last name"
+            className="input-field w-full"
+          />
+        </div>
+      ) : null;
+  const declineDetails = !declineArm ? null : detailsAlreadyKnown ? (
+        <details data-rsvp-step className={declineReveal || undefined}>
+          <summary className="flex min-h-11 cursor-pointer items-center justify-between gap-3 text-sm text-ink/80 hover:text-ink">
+            <span className="min-w-0">
+              <span className="block font-medium text-ink">Your details are filled in</span>
+              <span className="mt-0.5 block truncate text-xs text-ink/70">{knownSummary}</span>
+            </span>
+            <span className="shrink-0 text-xs font-medium text-mulberry">Change</span>
+          </summary>
+          <div className="space-y-4 pt-2">{contactFields}</div>
+        </details>
+      ) : (
+        <div data-rsvp-step className={`${declineReveal}space-y-1.5`}>
+          <span className={questionClass(oneAtATime)}>
+            How {words.theOrganizer} can reach you
+          </span>
+          {contactFields}
+        </div>
+      );
+
   return (
     <ReplyForm action={action} className="rsvp-form space-y-6">
       {/* FIRST in the form: the one-question progress sits above everything
@@ -535,45 +609,19 @@ export function RsvpWidget({
         </>
       )}
 
-      {/* 🧍‍♀️➡️🧍 THE PROXY ON THE REPLY (owner 2026-10-27). A proxy reads whom they stand in for, and replies as
-          themselves; the role holder reads who stands in for them — no reply is asked (they may still say they can come
-          after all, and the hosts decide). */}
-      {standIn ? (
-        <p
-          className="rounded-xl bg-gild/10 px-4 py-3 text-sm leading-snug text-ink"
-          data-rsvp-stand-in={guest.stand_in?.standingInFor ? 'proxy' : 'holder'}
-        >
-          {standIn}
-          {guest.stand_in?.representedBy ? (
-            <span className="mt-1 block text-xs text-ink/70">No reply is needed from you. If you can come after all, reply below — your hosts will decide.</span>
-          ) : null}
-        </p>
-      ) : null}
-
       {/* Seat reservation: confirming attendance holds the guest's place (the
           couple seats them later). Show the reassurance whenever they're
           attending — this is the "your place is reserved" confirmation. */}
-      {guest.rsvp_status === 'attending' ? (
-        <InvitationFacts fold={oneAtATime}>
-          <p className="flex items-center gap-2.5 text-sm text-ink/80">
-            <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-gild" />
-            {words.solemn
-              ? 'Your place is noted — thank you for being with the family.'
-              : 'Your place is reserved — we can’t wait to celebrate with you.'}
-          </p>
-          {/* No pitch on a solemn page: "Planning your own celebration? Start
-              free" under a wake RSVP is the defect class itself. */}
-          {onDoor || !hostPitch ? null : words.solemn ? null : (
-            <GuestToHostCta
-              surface="rsvp_confirmation"
-              eventId={eventId}
-              eventPublicId={eventPublicId}
-              headline="Planning your own event?"
-              sub="Start free on Setnayan — no card needed."
-            />
-          )}
-        </InvitationFacts>
-      ) : null}
+      {/* 🧍‍♀️➡️🧍 THE PROXY ON THE REPLY (owner 2026-10-27) rides THIS slot, so a card with no proxy keeps every React id it
+          had (`the-reply-card-is-todays-page`): a proxy reads whom they stand in for; the role holder, who stands in. */}
+      {proxyBanner ? (
+        <>
+          {proxyBanner}
+          {placeFacts}
+        </>
+      ) : (
+        placeFacts
+      )}
 
       {/* TWO quiet outlined options; the chosen one takes the palette's DEEP
           accent fill. Labels are the spec's reply-card wording — the `key`
@@ -888,45 +936,13 @@ export function RsvpWidget({
           Only for a guest who HOLDS A ROLE and is not already represented, on the decline arm: a name, typed — a guest
           cannot pick from the hosts' list, so the hosts confirm it on their card. `submitRsvp` stores it
           (`proxy_named_by_guest`) only with a decline, and the database refuses it for a guest with no role. */}
-      {offerStandIn ? (
-        <div data-rsvp-step className={`${declineReveal}space-y-1.5`} data-rsvp-stand-in-ask="">
-          <label htmlFor="stand_in_name" className={questionClass(oneAtATime)}>
-            I can’t come — someone will stand in for me
-          </label>
-          <p className="text-xs text-ink/70">
-            Optional. Type their name and {words.theOrganizer} will give them your seat and your role’s dress code and call time.
-          </p>
-          <input
-            id="stand_in_name"
-            name="stand_in_name"
-            type="text"
-            autoComplete="off"
-            autoCapitalize="words"
-            maxLength={120}
-            defaultValue={guest.proxy_named_by_guest ?? ''}
-            placeholder="Their first and last name"
-            className="input-field w-full"
-          />
-        </div>
-      ) : null}
-      {!declineArm ? null : detailsAlreadyKnown ? (
-        <details data-rsvp-step className={declineReveal || undefined}>
-          <summary className="flex min-h-11 cursor-pointer items-center justify-between gap-3 text-sm text-ink/80 hover:text-ink">
-            <span className="min-w-0">
-              <span className="block font-medium text-ink">Your details are filled in</span>
-              <span className="mt-0.5 block truncate text-xs text-ink/70">{knownSummary}</span>
-            </span>
-            <span className="shrink-0 text-xs font-medium text-mulberry">Change</span>
-          </summary>
-          <div className="space-y-4 pt-2">{contactFields}</div>
-        </details>
+      {standInAsk ? (
+        <>
+          {standInAsk}
+          {declineDetails}
+        </>
       ) : (
-        <div data-rsvp-step className={`${declineReveal}space-y-1.5`}>
-          <span className={questionClass(oneAtATime)}>
-            How {words.theOrganizer} can reach you
-          </span>
-          {contactFields}
-        </div>
+        declineDetails
       )}
 
       <div data-rsvp-step className="space-y-5">

@@ -902,7 +902,9 @@ export const ENTOURAGE_COLUMNS =
  * deliberately not named `*_COLUMNS`. The march never reads it (a march line is
  * both full names, always — `lineNames`).
  */
-export const ENTOURAGE_COUPLE_FIELDS = 'plus_one_of_guest_id, couple_with_guest_id';
+// + 🧍 `represented_by_guest_id` (owner 2026-10-27): who stands in for a role holder — printed "(represented by …)"
+//   by `entourageWithProxies` (lib/guest-proxy.ts). Watched by the guest page's stamp (`GUESTS_SHARED_COLUMNS`).
+export const ENTOURAGE_COUPLE_FIELDS = 'plus_one_of_guest_id, couple_with_guest_id, represented_by_guest_id';
 
 /**
  * + what tells a parent's "Mother of the Groom" from "Father of the Groom" when the title cannot (`parentWordOf`):

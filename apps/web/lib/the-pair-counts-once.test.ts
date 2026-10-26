@@ -92,11 +92,11 @@ test('3 · the counters’ own rule: the pair is one person, counted with the pr
 
 test('4 · the Guest List makes the pair ONE row before it counts, filters or draws anything', () => {
   const src = read('app/dashboard/[eventId]/guests/_components/guests-screen.tsx');
-  assert.match(src, /const \{ rows: roster, pairs \} = useMemo\(\(\) => asOnePair\(projected\), \[projected\]\);/);
+  assert.match(src, /const \{ rows: roster, pairs: standIns \} = useMemo\(\(\) => asOnePair\(projected\), \[projected\]\);/);
   assert.doesNotMatch(src, /const roster = useMemo\(\(\) => projectGuests\(/, 'the List counts the role holder and the proxy as two');
   // The row says who stands in, and is found by the proxy's name.
-  assert.match(src, /representedByWords\(pair\.proxyName\)/);
-  assert.match(src, /pair \? \[\.\.\.\(companions\.get\(id\) \?\? \[\]\), pair\.proxyName\]/);
+  assert.match(src, /representedByWords\(standIn\.proxyName\)/);
+  assert.match(src, /standIn \? \[\.\.\.\(companions\.get\(id\) \?\? \[\]\), standIn\.proxyName\]/);
   // Both lists of what a row carries hold the link, so the pair is drawn the same from a kept copy.
   const rows = read('lib/guest-list-rows.ts');
   assert.equal((rows.match(/'represented_by_guest_id'/g) ?? []).length, 2);

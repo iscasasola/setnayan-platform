@@ -43,7 +43,8 @@ type Roles = Pick<GuestRow, 'role'> & { extra_roles?: readonly GuestRole[] | nul
  * guest"*). The database refuses the same (`guest_holds_a_proxyable_role`); this decides what the card OFFERS.
  */
 export function holdsARole(g: Roles): boolean {
-  if (g.role === 'bride' || g.role === 'groom') return false;
+  // A row read without its role (a sample, a narrow read) holds none — never "a role we did not see".
+  if (!g.role || g.role === 'bride' || g.role === 'groom') return false;
   if (!NOT_A_PROXYABLE_ROLE.has(g.role)) return true;
   return (g.extra_roles ?? []).some((r) => !NOT_A_PROXYABLE_ROLE.has(r));
 }

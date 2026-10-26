@@ -239,6 +239,9 @@ test('⑧ Home’s "coming / no reply" and the Guests list count the SAME rows �
     live({ guest_id: 'req', rsvp_status: 'attending', entry_source: 'self_added_unlisted' }),
     live({ guest_id: 'rip', rsvp_status: 'pending', passed_away: true }),
     live({ guest_id: 'gone', rsvp_status: 'attending', deleted_at: '2026-10-02T00:00:00Z' }),
+    // 🧍 A role holder someone stands in for (owner 2026-10-27): the Guests list LISTS her (one row with her proxy, 'a'),
+    // Home never reads her — and neither counts her twice: "not having 2 guests but 1".
+    live({ guest_id: 'ninang', role: 'principal_sponsor_ninang', rsvp_status: 'pending', represented_by_guest_id: 'a' }),
   ];
   const counts = async (opts: Parameters<typeof fetchGuestsByEventMeasured>[2]) => {
     const r = await fetchGuestsByEventMeasured(fakeSupabase(rows) as never, 'e1', opts);
@@ -249,7 +252,7 @@ test('⑧ Home’s "coming / no reply" and the Guests list count the SAME rows �
   };
   // Home reads the accepted living list; the Guests list reads everything it draws.
   const home = await counts(undefined);
-  const list = await counts({ includeRequests: true, includePassedAway: true });
+  const list = await counts({ includeRequests: true, includePassedAway: true, includeRepresented: true });
   assert.deepEqual(home, list, 'Home and the Guests list disagree about the same event');
   // The basis: the couple counts, a request does not until kept, a deleted row never.
   assert.deepEqual(home, { coming: 3, noReply: 1 });
@@ -257,7 +260,7 @@ test('⑧ Home’s "coming / no reply" and the Guests list count the SAME rows �
   (rows[3] as Row).rsvp_status = 'attending';
   (rows[4] as Row).entry_source = 'host_seeded';
   assert.deepEqual(await counts(undefined), { coming: 5, noReply: 0 });
-  assert.deepEqual(await counts({ includeRequests: true, includePassedAway: true }), { coming: 5, noReply: 0 });
+  assert.deepEqual(await counts({ includeRequests: true, includePassedAway: true, includeRepresented: true }), { coming: 5, noReply: 0 });
   // …and both pages really run this chain.
   const homePage = stripComments(readFileSync(join(HERE, '..', 'page.tsx'), 'utf8'));
   // Since root-map waves 2+3 both pages take the counts the read worked out ONCE
@@ -265,7 +268,8 @@ test('⑧ Home’s "coming / no reply" and the Guests list count the SAME rows �
   assert.match(homePage, /fetchGuestsByEventMeasured\(supabase, eventId\)/);
   assert.match(homePage, /stats: guestStats \}/);
   const guestsPage = read('page.tsx');
-  assert.match(guestsPage, /fetchGuestsByEventMeasured\(supabase, eventId, \{ includeRequests: true, includePassedAway: true \}\)/);
+  // (+ `includeRepresented` since 2026-10-27: the List draws a represented role holder as ONE row with her proxy.)
+  assert.match(guestsPage, /fetchGuestsByEventMeasured\(supabase, eventId, \{ includeRequests: true, includePassedAway: true, includeRepresented: true \}\)/);
   assert.match(guestsPage, /const stats = guestsRead\.stats;/);
   assert.match(stripComments(readFileSync(join(HERE, '..', '..', '..', '..', 'lib', 'guests.ts'), 'utf8')), /return \{ rows, measured: true, stats: computeGuestStats\(rows\) \};/);
 });

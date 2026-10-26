@@ -67,7 +67,7 @@ test('4 · a proxy is offered — and accepted — ONLY for a guest who holds a 
   assert.match(card, /const offerProxy = holdsARole\(guest\) && !guest\.plus_one_of_guest_id && !holderRow;/);
   const reply = read('app/[slug]/_components/rsvp-widget.tsx');
   assert.match(reply, /holdsARole\(\{ role: guest\.role, extra_roles: guest\.extra_roles \?\? \[\] \}\)/);
-  assert.match(reply, /\{offerStandIn \? \(/);
+  assert.match(reply, /const standInAsk = offerStandIn \? \(/);
   const save = read('app/[slug]/actions.ts');
   assert.match(save, /holdsARole\(\{ role: before!\.role as GuestRole/);
   assert.match(save, /status === 'declined' && mayNameAStandIn/);

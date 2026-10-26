@@ -238,8 +238,8 @@ async function readEntourage(
     // + `passed_away` for THIS reader only (ENTOURAGE_COLUMNS' own rule: never
     // widen the shared list for one reader) — the parents' "the late …".
     // + who is a real couple — the card prints a pair line exactly as the page does.
-    // + `represented_by_guest_id` for THIS reader — "… (represented by …)" (owner 2026-10-27, `entourageWithProxies`).
-    .select(`${ENTOURAGE_COLUMNS}, ${PASSED_AWAY}, ${REPRESENTED_BY}, ${ENTOURAGE_COUPLE_FIELDS}, ${ENTOURAGE_PARENT_FIELDS}`)
+    // (the couple fields carry `represented_by_guest_id` — "… (represented by …)", owner 2026-10-27)
+    .select(`${ENTOURAGE_COLUMNS}, ${PASSED_AWAY}, ${ENTOURAGE_COUPLE_FIELDS}, ${ENTOURAGE_PARENT_FIELDS}`)
     .eq('event_id', eventId)
     .is('deleted_at', null)
     .or(`role.in.(${ENTOURAGE_ROLES.join(',')}),extra_roles.ov.{${ENTOURAGE_ROLES.join(',')}}`);

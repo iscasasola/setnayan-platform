@@ -3,9 +3,11 @@
 /**
  * add-rows.tsx — "+ Add", in place, at the top of each list.
  *
- *   Supplier categories → a new SERVICE under a category (createCanonicalLeaf)
- *                         or a new CATEGORY in a group (createTaxonomyNode) —
- *                         one row; "Goes under ▾" decides which.
+ *   Supplier categories → MOVED (③b, 2026-10-26): every column of the four-level
+ *                         map ends in its own "＋ Add …" row (`four-level-map.tsx`
+ *                         AddRow), so the one top row with "Goes under ▾" is gone
+ *                         (corpus PLAN admin_taxonomy_four_levels § 7.2). The near
+ *                         matches and "add as a search word instead" moved with it.
  *   Event types         → createEventTypeRoster (the key is made from the name)
  *   Religions           → createFaithVocab (the key is made from the name;
  *                         asked on the wedding until its panel says otherwise)
@@ -18,10 +20,8 @@
  */
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { createCanonicalLeaf, createTaxonomyNode, createEventTypeRoster, createFaithVocab } from '../actions';
-import { addTradeAlias } from '../search-word-actions';
+import { createEventTypeRoster, createFaithVocab } from '../actions';
 import { eventTypeKeyFromName, nearMatches, religionKeyFromName } from './model';
 import type { Choice } from './pickers';
 
@@ -38,149 +38,6 @@ function Hidden({ back }: { back: Record<string, string> }) {
   );
 }
 
-function Switch({ name, label, defaultChecked }: { name: string; label: string; defaultChecked?: boolean }) {
-  return (
-    <label className="inline-flex items-center gap-1.5 text-sm text-ink">
-      <input type="checkbox" name={name} defaultChecked={defaultChecked} className="h-4 w-4 accent-terracotta" />
-      {label}
-    </label>
-  );
-}
-
-export type AddServiceOption = { key: string; label: string; tileId: string | null; aliases: string[] };
-
-/** Supplier categories › + Add — a new service, or a new category. */
-export function AddServiceOrCategory({
-  services,
-  categories,
-  groups,
-  religions,
-  back,
-  cancelHref,
-}: {
-  services: readonly AddServiceOption[];
-  /** key = category id, group = its group's name. */
-  categories: readonly Choice[];
-  groups: readonly Choice[];
-  religions: readonly Choice[];
-  back: Record<string, string>;
-  cancelHref: string;
-}) {
-  const [name, setName] = useState('');
-  const [picked, setPicked] = useState<string>('');
-  const [faith, setFaith] = useState('');
-  const near = useMemo(() => nearMatches(name, services), [services, name]);
-  const suggestedTile = near[0]?.tileId ?? null;
-  const target = picked || (suggestedTile ? `c:${suggestedTile}` : '');
-  const isNewCategory = target.startsWith('g:');
-  const options = [
-    ...categories.map((c) => ({
-      key: `c:${c.key}`,
-      label: c.label,
-      group: c.group,
-      trail: suggestedTile === c.key ? { text: '✓ suggested', tone: 'ok' as const } : undefined,
-    })),
-    ...groups.map((g) => ({ key: `g:${g.key}`, label: `A new category in ${g.label}`, group: '— a new category —' })),
-  ];
-  const targetLabel = options.find((o) => o.key === target)?.label;
-  const top = near[0];
-
-  return (
-    <div className={ROW} data-add-row="categories">
-      <form action={isNewCategory ? createTaxonomyNode : createCanonicalLeaf} className="space-y-3">
-        <Hidden back={back} />
-        {isNewCategory ? (
-          <>
-            <input type="hidden" name="parent_id" value={target.slice(2)} />
-            <input type="hidden" name="label_en" value={name} />
-          </>
-        ) : (
-          <>
-            <input type="hidden" name="tile_id" value={target.slice(2)} />
-            <input type="hidden" name="display_name_en" value={name} />
-            <input type="hidden" name="faith" value={faith} />
-          </>
-        )}
-        <label className="block text-xs font-medium text-ink/70">
-          Name
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            minLength={2}
-            maxLength={80}
-            autoFocus
-            placeholder="e.g. Dirty ice cream cart"
-            className={`mt-1 ${FIELD}`}
-          />
-        </label>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-medium text-ink/70">Goes under</span>
-          <PickMenu
-            label="Goes under"
-            value={target}
-            buttonText={targetLabel ?? '— choose —'}
-            options={options}
-            onPick={setPicked}
-            compact
-            className="border border-ink/15"
-            stickyGroups
-          />
-        </div>
-        {name.trim().length >= 2 && near.length > 0 ? (
-          <div className="rounded-xl bg-warn-50 p-2.5 text-sm text-ink" data-near-matches="">
-            <p className="font-semibold">Close to what we have:</p>
-            <ul className="mt-1 space-y-0.5">
-              {near.map((n) => (
-                <li key={n.key}>{n.label}</li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-        {!isNewCategory ? (
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="text-xs font-medium text-ink/70">Religion</span>
-            <PickMenu
-              label="Religion"
-              value={faith}
-              buttonText={faith ? religions.find((r) => r.key === faith)?.label : 'Everyone'}
-              options={[{ key: '', label: 'Everyone' }, ...religions.map((r) => ({ key: r.key, label: r.label }))]}
-              onPick={setFaith}
-              compact
-              className="border border-ink/15"
-            />
-            <Switch name="is_ph" label="PH-specific" />
-            <Switch name="is_rental" label="Rental" />
-            <Switch name="is_tradition" label="Cultural" />
-          </div>
-        ) : null}
-        <div className="flex items-center gap-3">
-          <SubmitButton
-            disabled={name.trim().length < 2 || !target}
-            className="rounded-full bg-ink px-4 py-1.5 text-sm font-semibold text-cream disabled:opacity-40"
-            pendingLabel="Saving…"
-          >
-            Save
-          </SubmitButton>
-          <Link href={cancelHref} className="text-sm font-medium text-ink/70 hover:text-ink">
-            Cancel
-          </Link>
-        </div>
-      </form>
-      {top && name.trim().length >= 2 && !isNewCategory ? (
-        <form action={addTradeAlias} className="flex flex-wrap items-center gap-2 border-t border-ink/10 pt-2 text-sm">
-          <Hidden back={{ ...back, _open: `s:${top.key}` }} />
-          <input type="hidden" name="canonical_service" value={top.key} />
-          <input type="hidden" name="phrase" value={name} />
-          <span>Same thing as {top.label}?</span>
-          <SubmitButton className="rounded-full border border-ink/20 px-3 py-1 text-xs font-semibold text-ink" pendingLabel="Adding…">
-            Add “{name.trim()}” as a search word on {top.label} instead
-          </SubmitButton>
-        </form>
-      ) : null}
-    </div>
-  );
-}
 
 /** Event types › + Add — the key is made from the name, and is permanent. */
 export function AddEventType({

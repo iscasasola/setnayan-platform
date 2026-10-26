@@ -7,9 +7,19 @@ import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
 import { formatCount } from '@/lib/format-number';
 import { NAV_ICON_NAMES } from '@/lib/nav-icons';
 import { ADMIN_ASK_PARAM } from '@/lib/admin-map/humanize-field';
-import { AddEventType, AddReligion, AddServiceOrCategory } from './_components/add-rows';
+import { AddEventType, AddReligion } from './_components/add-rows';
 import { AskPrefill } from './_components/ask-prefill';
-import { categoriesHref, coerceShow, readState, type CategoriesList, type SearchParamsRecord } from './_components/back';
+import { categoriesHref, coerceShow, readMapParams, readState, type CategoriesList, type SearchParamsRecord } from './_components/back';
+import { DownloadPick } from './_components/download-pick';
+import { FourLevelMap } from './_components/four-level-map';
+import { cardById, partByKey, type MapData } from './_components/four-level-model';
+import { loadMapData } from './_components/load-map';
+import { CardPanel, PartPanel } from './_components/map-panels';
+import { InfoTip } from '@/app/_components/info-tip';
+import { getCanonicalBuckets, deriveBuckets } from '@/lib/vendor-counts';
+import { fallbackSnapshot } from '@/lib/taxonomy-snapshot';
+import { getInspirationParts } from '@/lib/inspiration-parts-db';
+import { surfacesDisagreeing, type SurfaceDisagreement } from '@/lib/taxonomy-surfaces-agree';
 import { CategoryPanel, GroupPanel, ServicePanel, categoryChoices, type CategoriesPanelData } from './_components/category-panels';
 import { EventTypePanel } from './_components/event-type-panel';
 import { CategoriesList as CategoriesListPane, EventTypesList, ReligionsList } from './_components/list-pane';
@@ -19,6 +29,7 @@ import { NavPick } from './_components/pickers';
 import { MixedFaithPanel, ReligionPanel } from './_components/religion-panel';
 import { RequestRow } from './_components/request-row';
 import { backRecord } from './_components/ui';
+import { GROUP_DEFAULT_ICON } from './_components/group-icons';
 
 /**
  * Categories & event types — ONE admin page for supplier categories, event
@@ -54,26 +65,16 @@ const SHOW_LABEL: Record<string, string> = {
   scoped: 'Event-scoped',
   hidden: 'Hidden from couples',
   words: 'Words waiting',
+  // ③b · the four-level map's own Show ▾ choices (corpus interactive-v4.html).
+  needs: 'Needs a look',
+  parts: 'Inspiration parts',
+  'nosvc-cat': 'Categories with no service',
+  'nosvc-part': 'Parts with no service',
 };
 
-/** Couple-facing default icon per group — mirrors the /explore strip. */
-const GROUP_DEFAULT_ICON: Record<string, string> = {
-  venue: 'Building2',
-  planning: 'ClipboardList',
-  feast: 'UtensilsCrossed',
-  design: 'Flower2',
-  program: 'Music',
-  documentary: 'Camera',
-  look: 'Shirt',
-  booths: 'Tent',
-  prints: 'Mail',
-  transport: 'Car',
-  experience: 'Compass',
-  dining: 'Utensils',
-  logistics_safety: 'ShieldCheck',
-  insurance: 'Umbrella',
-  specialty: 'Sparkles',
-};
+/** Show ▾ choices the SHIPPED list still answers (its own rows + panel); every other one is the map. */
+const LIST_SHOWS = new Set(['requests', 'unfiled', 'religion', 'scoped', 'words']);
+
 
 function first(v: string | string[] | undefined): string {
   return (Array.isArray(v) ? v[0] : v) ?? '';
@@ -95,6 +96,29 @@ export default async function CategoriesPage({ searchParams }: { searchParams: P
   const cats = state.list !== 'religions' || asking ? await loadCategories(admin, openTile) : null;
   const rel = state.list === 'religions' ? await loadReligions(admin) : null;
 
+  const mapMode = state.list === 'categories' && !LIST_SHOWS.has(state.show);
+  const mapData: MapData | null = state.list === 'categories' && cats ? await loadMapData(admin, cats) : null;
+  const mapAt = readMapParams(sp);
+
+  // ③b · "Surfaces disagreeing" — every reader family against the live tables, at request time.
+  let disagreeing: SurfaceDisagreement[] = [];
+  if (mapMode && cats && mapData) {
+    const [live, partsReader] = await Promise.all([getCanonicalBuckets(), getInspirationParts()]);
+    const constBuckets = deriveBuckets(fallbackSnapshot());
+    disagreeing = surfacesDisagreeing({
+      taxonomySource: cats.tax.source,
+      categoryIds: cats.categories.map((c) => c.id),
+      hiddenIds: new Set(cats.categories.filter((c) => c.hidden).map((c) => c.id)),
+      liveByTile: live.byTile as ReadonlyMap<string, readonly string[]>,
+      constByTile: constBuckets.byTile as ReadonlyMap<string, readonly string[]>,
+      partsReaderSource: partsReader.source,
+      partsReaderServices: Object.fromEntries(partsReader.parts.filter((p) => p.kind === 'part').map((p) => [p.slotKey, p.services])),
+      partsTableServices: mapData.partsRead ? Object.fromEntries(mapData.parts.map((p) => [p.key, p.services])) : null,
+      brokenCoupleLinks: cats.brokenCoupleLinks,
+      planGroups: PLAN_GROUPS.map((g) => ({ id: g.id, label: g.label, catalogTile: g.catalogTile ?? null })),
+    });
+  }
+
   const failed = [...vocab.failed, ...(cats?.failed ?? []), ...(rel?.failed ?? [])];
   const eventLabel = Object.fromEntries(vocab.eventTypes.map((e) => [e.key, e.label]));
 
@@ -114,7 +138,8 @@ export default async function CategoriesPage({ searchParams }: { searchParams: P
       `${formatCount(waiting)} words waiting`,
       unfiled > 0 ? `${formatCount(unfiled)} unfiled` : null,
       noDeadline > 0 ? `${formatCount(noDeadline)} categories have no deadline` : null,
-      cats.brokenCoupleLinks > 0 ? `${formatCount(cats.brokenCoupleLinks)} couple-side links broken` : null,
+      // ③b · in the map this number moved to "Surfaces disagreeing" (the Category key family).
+      !mapMode && cats.brokenCoupleLinks > 0 ? `${formatCount(cats.brokenCoupleLinks)} couple-side links broken` : null,
     ]
       .filter(Boolean)
       .join(' · ');
@@ -220,11 +245,17 @@ export default async function CategoriesPage({ searchParams }: { searchParams: P
       const c = cats.categories.find((x) => x.id === openTile);
       if (c) {
         const { cards, failed: cardsFailed } = await loadRefinementCards(admin, c.id);
-        panel = <CategoryPanel category={c} cards={cards} cardsFailed={cardsFailed} data={panelData} state={state} />;
+        panel = <CategoryPanel category={c} cards={cards} cardsFailed={cardsFailed} data={panelData} state={state} map={mapData ?? undefined} />;
       }
     } else if (state.open.startsWith('s:')) {
       const s = cats.services.find((x) => x.canonical === state.open.slice(2));
-      if (s) panel = <ServicePanel service={s} data={panelData} state={state} />;
+      if (s) panel = <ServicePanel service={s} data={panelData} state={state} map={mapData ?? undefined} />;
+    } else if (state.open.startsWith('p:') && mapData) {
+      const pt = partByKey(mapData, state.open.slice(2));
+      if (pt) panel = <PartPanel part={pt} data={mapData} state={state} />;
+    } else if (state.open.startsWith('k:') && mapData) {
+      const cd = cardById(mapData, state.open.slice(2));
+      if (cd) panel = <CardPanel card={cd} data={mapData} />;
     }
   } else if (state.list === 'event-types' && cats) {
     const et = vocab.eventTypes.find((e) => e.key === state.open);
@@ -249,23 +280,8 @@ export default async function CategoriesPage({ searchParams }: { searchParams: P
   // ── + Add ─────────────────────────────────────────────────────────────────
   const cancelHref = categoriesHref({ ...state });
   let addRow: ReactNode = null;
-  if (adding && state.list === 'categories' && cats) {
-    addRow = (
-      <AddServiceOrCategory
-        services={cats.services.map((s) => ({
-          key: s.canonical,
-          label: s.en,
-          tileId: s.tileId,
-          aliases: s.words.filter((w) => w.live).map((w) => w.phrase),
-        }))}
-        categories={catChoices}
-        groups={cats.groups.map((g) => ({ key: g.id, label: g.label }))}
-        religions={vocab.religions.filter((r) => r.status === 'active').map((r) => ({ key: r.key, label: r.label }))}
-        back={back}
-        cancelHref={cancelHref}
-      />
-    );
-  } else if (adding && state.list === 'event-types') {
+  // ③b · the categories list adds on the last row of each map column; a stale `?add=1` there lands on the map.
+  if (adding && state.list === 'event-types') {
     addRow = (
       <AddEventType existing={vocab.eventTypes.map((e) => ({ key: e.key, label: e.label }))} back={back} cancelHref={cancelHref} />
     );
@@ -322,6 +338,70 @@ export default async function CategoriesPage({ searchParams }: { searchParams: P
         </div>
       ) : null}
 
+      {mapMode && cats && mapData ? (
+        <div data-pane="map">
+          {/* ── the toolbar: List ▾ · search · Show ▾ · Download ▾ (Download sits where "+ Add" was, PLAN § 7.5) ── */}
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <NavPick
+              label="List"
+              value={state.list}
+              choices={(Object.keys(LIST_LABEL) as CategoriesList[]).map((k) => ({ key: k, label: LIST_LABEL[k] }))}
+              hrefs={{ categories: listHref('categories'), 'event-types': listHref('event-types'), religions: listHref('religions') }}
+            />
+            <form method="get" action="/admin/categories" className="flex min-w-[220px] flex-1 items-center gap-2" role="search">
+              {state.show ? <input type="hidden" name="show" value={state.show} /> : null}
+              <input
+                type="search"
+                name="q"
+                defaultValue={state.q}
+                maxLength={80}
+                placeholder="Find a group, category, service or part"
+                aria-label="Search this list"
+                className="min-h-11 min-w-0 flex-1 rounded-full border border-ink/15 bg-raised px-4 text-sm text-ink placeholder:text-ink/70"
+              />
+              <NavPick
+                label="Show"
+                value={state.show || 'everything'}
+                compact
+                choices={Object.entries(SHOW_LABEL).map(([k, v]) => ({ key: k || 'everything', label: v }))}
+                hrefs={showHrefs}
+              />
+            </form>
+            <DownloadPick
+              pdfHref={`/admin/categories/export?format=pdf${state.show ? `&show=${encodeURIComponent(state.show)}` : ''}${state.q ? `&q=${encodeURIComponent(state.q)}` : ''}`}
+              csvHref={`/admin/categories/export?format=csv${state.show ? `&show=${encodeURIComponent(state.show)}` : ''}${state.q ? `&q=${encodeURIComponent(state.q)}` : ''}`}
+            />
+          </div>
+          <p className="mb-2 max-w-[90ch] text-[13px] text-ink/70">
+            <InfoTip label="Groups hold categories · categories hold services · shops list cards under a service · parts are what couples see." align="start">
+              The words, one per level: Group (the parent) · Category (the child, and the couple’s board heading) · Service (what a shop
+              picks — vendor_services.category) · Part (what couples see on the Inspiration board). A service card is one shop’s listing
+              and only ever appears inside a service.
+            </InfoTip>
+          </p>
+          <p className="mb-2 text-xs text-ink/70" data-surfaces="">
+            {disagreeing.length === 0 ? (
+              <InfoTip label="Every surface reads this page." align="start">
+                Checked just now against the live tables: the taxonomy reader, the files that still hold the code copy of tile → services,
+                the parts reader, the couple-side category keys and the planning groups. None disagrees with what this page holds.
+              </InfoTip>
+            ) : (
+              <InfoTip label={`Surfaces disagreeing · ${disagreeing.length}`} labelClassName="font-semibold text-terracotta-700" align="start">
+                {disagreeing.map((x) => `${x.family} — ${x.detail} (${x.owner})`).join(' · ')}
+              </InfoTip>
+            )}
+          </p>
+          <FourLevelMap
+            data={mapData}
+            start={{ in: mapAt.in, at: mapAt.at, open: state.open }}
+            q={state.q}
+            show={state.show}
+            drawer={panel}
+            counts={counts}
+            groupDefaultIcon={GROUP_DEFAULT_ICON}
+          />
+        </div>
+      ) : (
       <div className="grid gap-6 lg:grid-cols-[minmax(300px,380px)_1fr]">
         <aside className={state.open || (state.show === 'requests' && panel) ? 'hidden lg:block' : ''} data-pane="list">
           <div className="flex items-center justify-between gap-2">
@@ -331,12 +411,14 @@ export default async function CategoriesPage({ searchParams }: { searchParams: P
               choices={(Object.keys(LIST_LABEL) as CategoriesList[]).map((k) => ({ key: k, label: LIST_LABEL[k] }))}
               hrefs={{ categories: listHref('categories'), 'event-types': listHref('event-types'), religions: listHref('religions') }}
             />
-            <Link
-              href={categoriesHref({ ...state, add: true })}
-              className="inline-flex min-h-10 items-center rounded-full bg-ink px-4 text-sm font-semibold text-cream"
-            >
-              + Add
-            </Link>
+            {state.list !== 'categories' ? (
+              <Link
+                href={categoriesHref({ ...state, add: true })}
+                className="inline-flex min-h-10 items-center rounded-full bg-ink px-4 text-sm font-semibold text-cream"
+              >
+                + Add
+              </Link>
+            ) : null}
           </div>
           <form method="get" action="/admin/categories" className="mt-3 flex items-center gap-2" role="search">
             {state.list !== 'categories' ? <input type="hidden" name="list" value={state.list} /> : null}
@@ -386,6 +468,7 @@ export default async function CategoriesPage({ searchParams }: { searchParams: P
           )}
         </section>
       </div>
+      )}
     </div>
   );
 }

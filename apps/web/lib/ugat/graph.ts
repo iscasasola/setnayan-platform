@@ -290,6 +290,7 @@ export const UGAT_TYPES: UgatTypeMeta[] = [
       { key: '', name: 'folder_id', note: 'DENORM ⚠ no FK' },
       { key: '', name: 'leaf_key', note: 'string, cards glue to it 🔴' },
       { key: '', name: 'coarse_category', note: 'tier-2 → the vendor_category its bookings are filed as (③0-c)' },
+      { key: '', name: 'sort_order', note: 'a service\u2019s place among its category on /admin/categories (Order \u25be, ③b); other readers still list A\u2013Z' },
     ],
     edges: [
       { verb: 'preferences', to: 'TYPE-EVENTS' },

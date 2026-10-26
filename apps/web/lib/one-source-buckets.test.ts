@@ -17,19 +17,15 @@ import { join, dirname, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { stripComments } from './strip-comments';
+import { CONST_BUCKET_READERS } from './taxonomy-surfaces-agree';
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 const CONST_SYMBOLS = ['canonicalServicesForTile', 'fallbackCanonicalBuckets'] as const;
 
-/** Product files still allowed to read the const buckets — each with its exit. */
-const ALLOWED: Record<string, string> = {
-  'lib/vendor-counts.ts': 'defines them',
-  'lib/moodboard-gallery.ts':
-    'inspiration-part helpers (canonicalServicesForSlot · tradeLabelForCredit · galleryFromServices) — ③0-b owns this file; ③a makes a part name SERVICES, which removes the tile expansion here',
-  'lib/moodboard-finalization.ts':
-    'supplier sign-off (tradesForPart / canonicalServicesForPart / eligibleSuppliersForPart) — ③0-b owns this file, same exit as above',
-};
+/** Product files still allowed to read the const buckets — each with its exit. ONE list, shared with the page's
+ *  runtime "Surfaces disagreeing" line (lib/taxonomy-surfaces-agree.ts), which names these files when they disagree. */
+const ALLOWED: Readonly<Record<string, string>> = CONST_BUCKET_READERS;
 
 /** Dev labs and fixtures are not shipped to anybody (audit B4). */
 const isDevOnly = (rel: string) => rel.startsWith(`app${sep}dev${sep}`) || rel.startsWith('app/dev/');

@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { guestDisplayName, guestFullName, type GuestRole } from '@/lib/guests';
 import { ENTOURAGE_COLUMNS, type EntourageGuestRow } from '@/lib/entourage';
+import type { NameStyle } from '@/lib/name-style';
 import { namedAProxy, type GuestStandIn, type StandingInFor } from '@/lib/guest-proxy';
 
 /**
@@ -67,6 +68,8 @@ export async function entourageProxyNames(
   admin: SupabaseClient,
   eventId: string,
   rows: readonly { guest_id?: string | null; represented_by_guest_id?: string | null }[],
+  /** The event's Name style — the proxy prints the way the holder beside them does. */
+  style?: NameStyle,
 ): Promise<Map<string, string>> {
   const links = rows.filter((r): r is { guest_id: string; represented_by_guest_id: string } => Boolean(r.guest_id && r.represented_by_guest_id));
   if (links.length === 0) return new Map();
@@ -82,7 +85,7 @@ export async function entourageProxyNames(
     return new Map();
   }
   const nameOf = new Map(
-    ((data ?? []) as unknown as (EntourageGuestRow & { guest_id: string })[]).map((p) => [p.guest_id, guestFullName(p) ?? guestDisplayName(p as never)] as const),
+    ((data ?? []) as unknown as (EntourageGuestRow & { guest_id: string })[]).map((p) => [p.guest_id, guestFullName(p, style) ?? guestDisplayName(p as never)] as const),
   );
   const out = new Map<string, string>();
   for (const l of links) {

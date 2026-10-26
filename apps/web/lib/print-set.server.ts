@@ -252,7 +252,7 @@ async function readEntourage(
   // The couple's own section order, read on ITS OWN (the loader's rule: an
   // unreadable preference prints the built-in order, never breaks the card).
   // 🧍 Who stands in for each represented role holder — started beside the order read, awaited after it.
-  const proxiesAhead = startAhead(entourageProxyNames(admin, eventId, rows));
+  const proxiesAhead = startAhead(entourageProxyNames(admin, eventId, rows, style));
   const groups = buildEntourage(rows, await loadEntourageSectionOrder(admin, eventId), names, style);
   return { groups: entourageWithProxies(groups, await proxiesAhead), passedAway };
 }

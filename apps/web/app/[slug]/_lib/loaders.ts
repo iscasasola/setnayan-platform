@@ -2367,7 +2367,12 @@ export const loadEntourage = cache(
       const drafted = await draftedMarchPrint(admin, eventId, marked, savedOrder, marchSteps, nameStyle);
       if (drafted) return drafted;
     }
-    const proxies = await entourageProxyNames(admin, eventId, (data ?? []) as { guest_id?: string | null; represented_by_guest_id?: string | null }[]);
+    const proxies = await entourageProxyNames(
+      admin,
+      eventId,
+      (data ?? []) as { guest_id?: string | null; represented_by_guest_id?: string | null }[],
+      nameStyle ?? (await (nameStyleAhead ?? loadEventNameStyle(admin, eventId))),
+    );
     return entourageWithProxies(
       buildEntourage(
         ((data ?? []) as EntourageGuestRow[]).map((r) => (r.guest_id && out.has(r.guest_id) ? { ...r, not_walking: true } : r)),

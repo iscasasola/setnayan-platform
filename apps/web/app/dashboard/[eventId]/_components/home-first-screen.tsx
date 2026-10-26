@@ -172,10 +172,6 @@ export function HomeFirstScreen({
           {/* ☀ TODAY — one line, on top: the shipped picker's ONE thing (`pickHomeNext`), and where it lives. */}
           <HomeToday target={today.target} words={today.words} tail={today.tail} calm={today.calm} />
 
-          {/* 📷 PAPIC — ONE CARD, ON TODAY (owner 2026-10-26: "that papic frame with toggle, place that on home and remove
-              that page" · "it should be on the today"). Your services below no longer draws it. */}
-          {papicCard ? <PapicTodayCard card={papicCard} /> : null}
-
           {/* 🚪 ONE QR FOR EVERYONE — where an event has no guest list, the QR IS the way in
               (owner 2026-10-08; prototype frame 2, its words). Opens the event's QR page. */}
           {noList ? (
@@ -190,6 +186,11 @@ export function HomeFirstScreen({
 
           {/* 🎛 THE CONTROL ROW — Countdown · Guests · Event Hub · Suppliers · Budget · Checklist; each opens its ONE page. */}
           <HomeControlRow input={control} hubPick={hubPick} />
+
+          {/* 📷 PAPIC — ONE CARD, ON THE ROW AFTER BUDGET (owner 2026-10-27: "Place papic under budget widget" · "Place it
+              on the next row after the budget widget"; it sat under Today since 2026-10-26). Budget is the control row's
+              last tile, so the card follows the row. Your services below no longer draws it. */}
+          {papicCard ? <PapicTodayCard card={papicCard} /> : null}
 
           {/* YOUR SERVICES — each grows in place with its quick controls; the Event Hub rose into the control row. */}
           <YourServices

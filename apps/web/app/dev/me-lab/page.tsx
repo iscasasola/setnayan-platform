@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { APPLE_WALLET_ROUTE, PASS_CARD_WORDS } from '@/lib/pass-card';
 import { headers } from 'next/headers';
 import { appleWalletDevice, type AppleWalletLink } from '@/lib/wallet-pass';
+import { mightBeIpadSafari } from '@/lib/apple-device';
 import { MeKeepInvitation } from '@/app/[slug]/_components/me-keep-invitation';
 import { MeStageLab } from './me-stage-lab';
 import { eventWordsFor } from '@/app/[slug]/_lib/event-words';
@@ -42,7 +43,9 @@ export default async function MeLabPage({ searchParams }: { searchParams: Promis
   const userAgent = (await headers()).get('user-agent');
   const labWallet: AppleWalletLink | null = appleWalletDevice(userAgent)
     ? { kind: 'download', href: APPLE_WALLET_ROUTE, label: PASS_CARD_WORDS.appleWallet }
-    : null;
+    : mightBeIpadSafari(userAgent)
+      ? { kind: 'download', href: APPLE_WALLET_ROUTE, label: PASS_CARD_WORDS.appleWallet, touchOnly: true }
+      : null;
   const labNote = sp.note === '1' ? 'Tita, we saved you a seat beside Lola — she can’t wait to see you.\nPlease bring the Santo Niño for the blessing.' : null;
   return (
     <main className="min-h-dvh bg-cream px-4 py-8 text-ink">

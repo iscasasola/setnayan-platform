@@ -8,8 +8,11 @@
  *   1 · WHERE — the button is drawn only by the three places that draw "Save my ticket" for a guest's OWN ticket (Me's
  *       `GuestTicket`, the thank-you page, its "ticket updated" pop-up), right after that Save, and only for a real
  *       ticket — rendered, not read, for `GuestTicket`.
- *   2 · WHO — an iPhone only. Android, a Mac, Windows and an unknown browser get nothing (`appleWalletLink`).
- *       Messenger on an iPhone gets the Safari hand-off; the Setnayan app gets its in-app browser sheet.
+ *   2 · WHO — an iPhone or an iPad (owner 2026-10-26, "Yes to all": iPads have Wallet). Android, Windows and an
+ *       unknown browser get nothing (`appleWalletLink`). A "Macintosh" gets a `touchOnly` link — it may be iPad Safari,
+ *       which says Macintosh — that draws NOTHING until the browser reports a touch screen (`AppleWalletTouchGate`),
+ *       so a real Mac still sees no badge. Messenger on an iPhone gets the Safari hand-off; the Setnayan app gets its
+ *       in-app browser sheet.
  *   3 · NEVER WITHOUT A SIGNABLE PASS — `offered` is false → no button anywhere; the pages ask `appleWalletOffered()`,
  *       which answers from a REAL probe signature (`probeSigner`), not from "the six values are present": a wrong
  *       passphrase, an expired certificate, a key that is not the certificate's own and a garbled certificate each
@@ -40,6 +43,9 @@ const UA = {
   iphoneMessenger: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 [FBAN/MessengerForiOS;FBAV/480.0]',
   iphoneApp: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 SetnayanApp SetnayanSignIn/1 SetnayanIAP/2',
   ipad: 'Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1',
+  // iPad Safari and the iPad app as MEASURED (lib/apple-device.ts): neither says "iPad".
+  ipadSafari: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Safari/605.1.15',
+  ipadApp: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 SetnayanApp SetnayanSignIn/1 SetnayanIAP/1',
   macSafari: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15',
   macChrome: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36',
   windows: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36 Edg/130.0',
@@ -50,10 +56,11 @@ const UA = {
 
 // ─── 2 · WHO ─────────────────────────────────────────────────────────────────
 
-test('2 · an iPhone only — Android, a Mac, Windows and nothing-at-all get no button', () => {
-  const kinds: Record<string, AppleWalletLink['kind'] | null> = {};
+test('2 · an iPhone or an iPad — a "Macintosh" waits for the browser (touchOnly); Android, Windows and nothing-at-all get no button', () => {
+  const kinds: Record<string, string | null> = {};
   for (const [name, ua] of Object.entries(UA)) {
-    kinds[name] = appleWalletLink(ua, LINK, true, { storeShell: /SetnayanApp/.test(ua) })?.kind ?? null;
+    const l = appleWalletLink(ua, LINK, true, { storeShell: /SetnayanApp/.test(ua) });
+    kinds[name] = l ? l.kind + (l.touchOnly ? ':touchOnly' : '') : null;
   }
   kinds.none = appleWalletLink(null, LINK, true)?.kind ?? null;
   assert.deepEqual(kinds, {
@@ -62,19 +69,41 @@ test('2 · an iPhone only — Android, a Mac, Windows and nothing-at-all get no 
     iphoneMessenger: 'safari',
     iphoneApp: 'sheet',
     ipad: 'download',
-    macSafari: null,
-    macChrome: null,
+    ipadSafari: 'download:touchOnly',
+    ipadApp: 'sheet',
+    macSafari: 'download:touchOnly',
+    macChrome: 'download:touchOnly',
     windows: null,
     android: null,
     androidApp: null,
     androidMessenger: null,
     none: null,
   });
+  // The iPad-as-Mac link is the SAME route and words as the iPhone's — only gated.
+  assert.deepEqual(appleWalletLink(UA.ipadSafari, LINK, true), { kind: 'download', href: APPLE_WALLET_ROUTE, label: PASS_CARD_WORDS.appleWallet, touchOnly: true });
   const dl = appleWalletLink(UA.iphoneSafari, LINK, true)!;
   assert.deepEqual(dl, { kind: 'download', href: APPLE_WALLET_ROUTE, label: PASS_CARD_WORDS.appleWallet });
   // The app's sheet opens the guest's OWN link (which signs them in there) — never the route, whose cookie the sheet lacks.
   assert.equal(appleWalletLink(UA.iphoneApp, LINK, true, { storeShell: true })!.href, LINK);
   assert.equal(appleWalletLink(UA.iphoneApp, 'not a link', true, { storeShell: true }), null);
+});
+
+test('2b · the touchOnly badge draws NOTHING on the server (a Mac gets no box, no gap); the browser decides by touch points', async () => {
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  (globalThis as { React?: typeof React }).React = React;
+  const { AppleWalletButton } = await import('../app/[slug]/_components/apple-wallet-button');
+  const draw = (l: AppleWalletLink | null) => renderToStaticMarkup(React.createElement(AppleWalletButton as never, { link: l } as never));
+  // An iPhone's badge is in the server's HTML — no shift on the phone that had it.
+  assert.match(draw(appleWalletLink(UA.iphoneSafari, LINK, true)), /data-wallet="apple"/, 'an iPhone lost its server-drawn badge');
+  // A "Macintosh" — a Mac, or iPad Safari — gets nothing until the browser answers.
+  assert.equal(draw(appleWalletLink(UA.macSafari, LINK, true)), '', 'a "Macintosh" got a server-drawn badge (a Mac would see it)');
+  const gate = code('app/[slug]/_components/apple-wallet-touch-gate.tsx');
+  assert.match(gate, /^'use client';/, 'the gate is not a client part — it cannot read navigator');
+  assert.match(gate, /useState\(false\)/, 'the gate shows before the browser has answered');
+  assert.match(gate, /isAppleTouchDevice\(navigator\.userAgent, navigator\.maxTouchPoints\)/, 'the gate no longer asks the touch-point rule');
+  assert.match(code('app/[slug]/_components/apple-wallet-button.tsx'), /link\.touchOnly \? <AppleWalletTouchGate>\{badge\}<\/AppleWalletTouchGate> : badge/, 'a touchOnly link is no longer gated');
+  // The thank-you's slot collapses when the badge never comes.
+  assert.match(code(THANK_YOU), /<div data-landing-wallet-slot="" className="[^"]*\bempty:hidden\b[^"]*">/, 'the thank-you’s Wallet slot keeps a box on a Mac');
 });
 
 // ─── 3 · NEVER WITHOUT A SIGNABLE PASS ──────────────────────────────────────
@@ -201,7 +230,7 @@ test('1a · exactly three places draw the button — one mount each, and each is
   const page = code(THANK_YOU);
   // The thank-you: the save line closes, and the very next thing is the Wallet slot (#6911 reserved it there; the
   // +1 list comes after) — Save and the badge together, directly under the ticket.
-  assert.match(page, /label=\{[^{}]*justIn \? REQUEST_WORDS\.saveUpdated : LANDING_WORDS\.saveTicket\}\s*variant="primary"\s*\/>\s*\)\}\s*<\/div>\s*(?:\{\s*\}\s*)?\{appleWallet \? \(\s*<div data-landing-wallet-slot="" className="!mt-2">\s*<AppleWalletButton link=\{appleWallet\} \/>/, 'the thank-you’s Wallet slot no longer sits directly under its Save my ticket');
+  assert.match(page, /label=\{[^{}]*justIn \? REQUEST_WORDS\.saveUpdated : LANDING_WORDS\.saveTicket\}\s*variant="primary"\s*\/>\s*\)\}\s*<\/div>\s*(?:\{\s*\}\s*)?\{appleWallet \? \(\s*<div data-landing-wallet-slot="" className="!mt-2 empty:hidden">\s*<AppleWalletButton link=\{appleWallet\} \/>/, 'the thank-you’s Wallet slot no longer sits directly under its Save my ticket');
   assert.match(page, /const appleWallet =\s*canvas \|\| safariSave \|\| passCard !== 'pass'\s*\?\s*null/, 'the thank-you hands a Wallet link beside the Safari hand-off, on the canvas, or without a real ticket');
   assert.match(page, /safariHref=\{safariSave\}\s*appleWallet=\{appleWallet\}/, 'the pop-up is not handed the same Wallet link as the page');
   // Me: the link exists only for a real ticket and goes only to GuestTicket.

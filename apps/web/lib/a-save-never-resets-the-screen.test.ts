@@ -104,6 +104,16 @@ test('(3) the registry is the allow-list — each name runs the action it names,
   for (const r of rows) assert.equal(r[1]!.split('.')[1], r[2], `door ${r[1]} runs ${r[2]} — a door's name is the action it runs`);
   assert.match(src, /if \(!isStayDoor\(door\) \|\| !Object\.hasOwn\(DOORS, door\)\) return \{ ok: false/, 'an unknown door name is no longer refused first');
   assert.match(src, /if \(answer === 'navigate'\) throw e;/, 'a redirect that must navigate is swallowed');
+  /* 🔒 the limited-helper gate runs BEFORE the action, with the area `AREA_RULES` gives it
+     (`app/dashboard/[eventId]/every-action-refuses-a-limited-helper.test.ts`). */
+  const gate = src.indexOf('await limitedHelperRefusal(');
+  assert.ok(gate > -1 && gate < src.indexOf('await run(formData)'), 'the door runs an action before asking the limited-helper gate');
+  assert.match(src, /if \(helperRefusal\) return \{ ok: false, error: helperRefusal \};/, 'a limited helper\'s refusal is not said');
+  const AREA: Record<string, string> = { papic: "'photos'", memories: "'photos'", schedule: "'schedule'", sponsors: 'null' };
+  for (const [kind, area] of Object.entries(AREA)) {
+    assert.match(src, new RegExp(`const ${kind} = \\(run[^\\n]*area: ${area} \\}\\);`), `${kind} doors no longer gate on ${area}`);
+  }
+  for (const r of rows) assert.ok(new RegExp(`'${r[1]!.replace('.', '\\.')}': (papic|memories|schedule|sponsors)\\(`).test(body), `door ${r[1]} names no gated area`);
   const form = stripComments(readFileSync(join(WEB, 'app/_components/stay-form.tsx'), 'utf8'));
   assert.match(form, /const onSubmit = \(e: FormEvent<HTMLFormElement>\) => \{\s*e\.preventDefault\(\);/, 'the stay form lets the browser submit — and follow the redirect');
   assert.match(form, /await saveInPlace\(door, fd\)/);

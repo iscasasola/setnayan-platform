@@ -5,6 +5,8 @@ import { isRedirectError } from 'next/dist/client/components/redirect-error';
 import { getURLFromRedirectError } from 'next/dist/client/components/redirect';
 import { COULD_NOT_SAVE, inPlaceAnswer, redirectPath, type StayResult, type StayWords } from '@/lib/save-in-place';
 import { isStayDoor, type StayDoor } from '@/lib/stay-doors';
+import { limitedHelperRefusal } from '@/lib/host-gate';
+import type { DelegateArea } from '@/lib/delegate-areas';
 import { memoriesNotice } from '@/lib/memories-notice';
 import { PAPIC_WORDS } from '@/app/dashboard/[eventId]/studio/papic/_lib/papic-in-place';
 import {
@@ -73,9 +75,17 @@ const SCHEDULE: StayWords = { within: [EVENT_SCREEN('schedule')] };
 /* Sponsors' `?error=` already carries the page's own sentence (`sponsors/page.tsx` shows it as given). */
 const SPONSORS: StayWords = { within: [EVENT_SCREEN('sponsors')], refuse: (q) => q.get('error') };
 
-type Door = { run: (fd: FormData) => Promise<unknown>; words: StayWords };
-const papic = (run: (fd: FormData) => Promise<unknown>): Door => ({ run, words: PAPIC_WORDS });
-const memories = (run: (fd: FormData) => Promise<unknown>): Door => ({ run, words: MEMORIES });
+/**
+ * `area` is the limited-helper area the action changes — the SAME one `AREA_RULES` gives it in
+ * `app/dashboard/[eventId]/every-action-refuses-a-limited-helper.test.ts` (studio/papic/ → 'photos', schedule/ →
+ * 'schedule', sponsors → none, so a limited helper is refused). The door asks the gate BEFORE any action runs; each
+ * action asks again on its own.
+ */
+type Door = { run: (fd: FormData) => Promise<unknown>; words: StayWords; area: DelegateArea | null };
+const papic = (run: (fd: FormData) => Promise<unknown>): Door => ({ run, words: PAPIC_WORDS, area: 'photos' });
+const memories = (run: (fd: FormData) => Promise<unknown>): Door => ({ run, words: MEMORIES, area: 'photos' });
+const schedule = (run: (fd: FormData) => Promise<unknown>): Door => ({ run, words: SCHEDULE, area: 'schedule' });
+const sponsors = (run: (fd: FormData) => Promise<unknown>): Door => ({ run, words: SPONSORS, area: null });
 
 const DOORS: Readonly<Record<StayDoor, Door>> = {
   'papic.setGuestAllotments': papic(setGuestAllotments),
@@ -105,19 +115,24 @@ const DOORS: Readonly<Record<StayDoor, Door>> = {
   'memories.unblockUploader': memories(onEvent(unblockUploader)),
   'memories.deletePhotoForever': memories(onEvent(deletePhotoForever)),
   'memories.setVendorCapturesHidden': memories(setVendorCapturesHidden),
-  'schedule.toggleActivityPick': { run: toggleActivityPick, words: SCHEDULE },
-  'schedule.applyActivityPicks': { run: applyActivityPicks, words: SCHEDULE },
-  'sponsors.addSponsor': { run: addSponsor, words: SPONSORS },
-  'sponsors.updateSponsor': { run: updateSponsor, words: SPONSORS },
-  'sponsors.removeSponsor': { run: removeSponsor, words: SPONSORS },
-  'sponsors.sendInvitation': { run: sendInvitation, words: SPONSORS },
-  'sponsors.markResponse': { run: markResponse, words: SPONSORS },
+  'schedule.toggleActivityPick': schedule(toggleActivityPick),
+  'schedule.applyActivityPicks': schedule(applyActivityPicks),
+  'sponsors.addSponsor': sponsors(addSponsor),
+  'sponsors.updateSponsor': sponsors(updateSponsor),
+  'sponsors.removeSponsor': sponsors(removeSponsor),
+  'sponsors.sendInvitation': sponsors(sendInvitation),
+  'sponsors.markResponse': sponsors(markResponse),
 };
 
 export async function saveInPlace(door: StayDoor, formData: FormData): Promise<StayResult> {
   /* The name came from the browser — only a registered door runs (`Object.hasOwn`: never a prototype key). */
   if (!isStayDoor(door) || !Object.hasOwn(DOORS, door)) return { ok: false, error: COULD_NOT_SAVE };
-  const { run, words } = DOORS[door];
+  const { run, words, area } = DOORS[door];
+  /* 🔒 The limited-helper gate, before anything runs (owner 2026-10-26: a limited helper changes only the areas the
+     host set to Edit). Every form a door serves carries `event_id`. */
+  const eventId = formData.get('event_id');
+  const helperRefusal = await limitedHelperRefusal(typeof eventId === 'string' ? eventId : '', area);
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   try {
     await run(formData);
     return { ok: true };

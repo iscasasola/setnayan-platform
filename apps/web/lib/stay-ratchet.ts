@@ -161,9 +161,10 @@ export const BASELINE_HEADER = `# a-save-never-resets-the-screen.baseline.txt â€
 # Never add a line by hand â€” a NEW redirecting action is either a door or navigation (stay-ratchet.navigation.ts).
 `;
 
-if (require.main === module && process.argv.includes('--write')) {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { STAY_NAVIGATION } = require('./stay-ratchet.navigation') as typeof import('./stay-ratchet.navigation');
+if (require.main === module && process.argv.includes('--write')) void writeBaseline();
+
+async function writeBaseline() {
+  const { STAY_NAVIGATION } = await import('./stay-ratchet.navigation');
   const doors = doorActions();
   const rest = scanRedirecting().filter((k) => !doors.has(k) && !(k in STAY_NAVIGATION));
   const first = process.argv.includes('--init');

@@ -27,26 +27,40 @@
 # Wish list 4/5 (the guest's "I sent it", 2026-10-08): event_gift_records PAID DOWN — its one writer ships
 # (lib/gift-record.server.ts · recordGift, service role behind the guest-session door). Both staged rows are
 # now gone; the wish list owes this file nothing. 44 -> 43.
+# Mood Board renders RETIRED 2026-10-26 (owner: "can we delete that?", rd/retire-mood-board-renders): 10 rpc-no-caller rows
+# ADDED — the app code was deleted but the render RPCs are KEPT with their tables (event_render_credit_grants and
+# event_render_share_consent hold rows; dropping the render schema is an owner call, same code-only shape as cleanup
+# slice B). lib/mood-board-renders-are-retired.test.ts fails if any app code calls one again. Two paid-down
+# result-dropped-silently rows (booking-fee-settings, platform-settings) deleted on the same regeneration. 43 -> 51.
 
 # ══ MONEY — a payment, fee, price or ledger with a missing end (11) ══
 rpc-no-caller	_apply_token_purchase_credit	1	no '_apply_token_purchase_credit' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 rpc-no-caller	confirm_vendor_subscription_by_reference	1	no 'confirm_vendor_subscription_by_reference' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 rpc-no-caller	consume_lead_token_hold	1	no 'consume_lead_token_hold' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 rpc-no-caller	grant_admin_direct_tokens	1	no 'grant_admin_direct_tokens' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
+rpc-no-caller	moodboard_render_balance	1	no 'moodboard_render_balance' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 rpc-no-caller	resolve_supplies_pricing	1	no 'resolve_supplies_pricing' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 table-no-writer	concierge_plan_templates	1	no .from('concierge_plan_templates').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
 table-no-writer	manual_payment_logs	1	no .from('manual_payment_logs').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
 table-no-writer	vendor_ad_subscriptions	1	no .from('vendor_ad_subscriptions').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
 notice-no-emitter	vendor_token_purchase_pending	1	a notification_type enum label with no member in the TS union — nothing in the app can emit it
 notice-no-emitter	vendor_tokens_credited	1	a notification_type enum label with no member in the TS union — nothing in the app can emit it
-result-dropped-silently	lib/booking-fee-settings.server.ts · from:platform_settings.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
-# ══ BOOKING LIFECYCLE — inquiry → quote → lock → contract → deposit (5) ══
+# ══ BOOKING LIFECYCLE — inquiry → quote → lock → contract → deposit (6) ══
 rpc-no-caller	current_thread_ids	1	no 'current_thread_ids' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 rpc-no-caller	finalize_guest_claim	1	no 'finalize_guest_claim' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 rpc-no-caller	guest_visible_messages	1	no 'guest_visible_messages' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
+rpc-no-caller	moodboard_set_render_reuse_blocked	1	no 'moodboard_set_render_reuse_blocked' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 rpc-no-caller	set_service_slot_day_capacity	1	no 'set_service_slot_day_capacity' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 table-no-writer	feature_reviews	1	no .from('feature_reviews').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
-# ══ COUPLE-FACING — guests, invitations, the celebration itself (13) ══
+# ══ COUPLE-FACING — guests, invitations, the celebration itself (21) ══
+rpc-no-caller	moodboard_admin_all_renders	1	no 'moodboard_admin_all_renders' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
+rpc-no-caller	moodboard_attach_gallery_copy	1	no 'moodboard_attach_gallery_copy' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
+rpc-no-caller	moodboard_begin_render	1	no 'moodboard_begin_render' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
+rpc-no-caller	moodboard_fail_render	1	no 'moodboard_fail_render' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
+rpc-no-caller	moodboard_finish_render	1	no 'moodboard_finish_render' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
+rpc-no-caller	moodboard_inspiration_pool	1	no 'moodboard_inspiration_pool' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
+rpc-no-caller	moodboard_set_render_featured	1	no 'moodboard_set_render_featured' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
+rpc-no-caller	moodboard_set_share_consent	1	no 'moodboard_set_share_consent' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 rpc-no-caller	open_submit_song_request	1	no 'open_submit_song_request' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 table-no-writer	event_feature_policy_override	1	no .from('event_feature_policy_override').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
 table-no-writer	event_scene_objects	1	no .from('event_scene_objects').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
@@ -64,13 +78,12 @@ result-dropped-silently	lib/vendor-seats.ts · from:vendor_profiles.select	1	err
 rpc-no-caller	vendor_meetings_set_updated_at	1	RETURNS trigger and no trigger is bound to it
 table-no-writer	vendor_2307_filings	1	no .from('vendor_2307_filings').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
 result-dropped-silently	lib/verification-checks-server.ts · from:vendor_profiles.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
-# ══ ADMIN / OPS — the console, jobs, tooling (6) ══
+# ══ ADMIN / OPS — the console, jobs, tooling (5) ══
 rpc-no-caller	execute_manpower_telemetry_reward	1	no 'execute_manpower_telemetry_reward' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 table-no-writer	concierge_brain_chunks	1	no .from('concierge_brain_chunks').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
 table-no-writer	concierge_response_cache	1	no .from('concierge_response_cache').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
 table-no-writer	render_jobs	1	no .from('render_jobs').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
 table-no-writer	seo_suggestions	1	no .from('seo_suggestions').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
-result-dropped-silently	lib/platform-settings.ts · from:platform_settings.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
 # ══ UNCLASSIFIED — no tier keyword matched; read the name (5) ══
 table-no-writer	person_stewardships	1	no .from('person_stewardships').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
 table-no-writer	stewardship_transfers	1	no .from('stewardship_transfers').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay

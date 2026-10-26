@@ -30,7 +30,9 @@ inspiration slot, and (with Apple's gate on) the App Store pack sheet. `/admin/m
   RPC / writes render credits / names the SKU (positive control: `lib/v2-catalog.ts`), the latest migration
   switches it off, no navigator part. Sabotaged twice, red each time.
 - Regenerated: admin map + jobs, Ugat screens, port-control baseline (only the removed render controls), dark
-  label-contrast record (one pair from the deleted file).
+  label-contrast record (one pair from the deleted file), and the Ugat both-ends baseline: **10 `rpc-no-caller`
+  rows ADDED** for the kept render RPCs (code-only retirement, same shape as cleanup slice B) and two rows another
+  PR had already paid down deleted — `EXPECTED_BASELINE_ROWS` 43 → 51. Exposure surface unchanged (no grant moved).
 
 🍎 Owner action, App Store Connect: remove "Mood Board · 50 renders" from build 6's submission / Remove from Sale
 (25 products need screenshots, not 26), and drop "Mood Board render packs" from the App Review reply.

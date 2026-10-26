@@ -139,7 +139,8 @@ test('⭐ the seed equals the consts: the same keys, home = the first trade, als
     assert.deepEqual(await alsoOf(key), [...rest], `${key}: "also from" is not the remaining trades in their order`);
     assert.equal(row.kind, first ? 'part' : 'system', `${key}: kind`);
     assert.equal(row.label_en, libraryPartLabel(key, fallbackInspirationParts()) ?? 'Palette', `${key}: the name is not the one a supplier reads today`);
-    assert.equal(row.hidden, !first || LEGACY_PALETTE_BOARDS.includes(key), `${key}: hidden`);
+    /* ③a hides `entourage` ("not its own part"; photos kept) — the fallback carries the same flag. */
+    assert.equal(row.hidden, !first || LEGACY_PALETTE_BOARDS.includes(key) || key === 'entourage', `${key}: hidden`);
   }
 });
 

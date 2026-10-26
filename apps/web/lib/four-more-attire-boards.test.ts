@@ -68,7 +68,7 @@ const FOUR = ['bridesmaids', 'groomsmen', 'flower_girl', 'ring_bearer'] as const
 /** 🗑 Six since 2026-10-14 (owner: "remove entourage" — DECISION_LOG "EFFECTS + ATTIRE DESIGN APPROVED"). */
 const SEVEN: ReadonlyArray<readonly [string, string]> = [
   ['bride', 'Bridal gown'],
-  ['groom', 'Groom’s suit'],
+  ['groom', 'Groom’s attire'],
   ['bridesmaids', 'Bridesmaids'],
   ['groomsmen', 'Groomsmen'],
   ['flower_girl', 'Flower girl'],
@@ -215,7 +215,7 @@ test('2 · the migration widens BOTH slot gates by exactly the four — and the 
 /* ── 3 ─────────────────────────────────────────────────────────────────────── */
 
 test('3 · Attire holds six boards in the owner’s order (Entourage gone, 2026-10-14), each exactly once whatever the guest list holds', () => {
-  assert.deepEqual(STUDIO_INSPIRATION_SLOTS.filter((s) => s.attire).map((s) => [s.slotKey, s.label]), SEVEN, 'not Bridal gown · Groom’s suit · Bridesmaids · Groomsmen · Flower girl · Ring bearer');
+  assert.deepEqual(STUDIO_INSPIRATION_SLOTS.filter((s) => s.attire).map((s) => [s.slotKey, s.label]), SEVEN, 'not Bridal gown · Groom’s attire · Bridesmaids · Groomsmen · Flower girl · Ring bearer');
   assert.equal(STUDIO_INSPIRATION_SLOTS.some((s) => s.slotKey === 'entourage'), false, 'the Entourage board is back');
   const placed = (rows: string[]) => [...rows.flatMap((r) => attireBoardsUnder(r)), ...attireBoardsAfter(rows)].map((s) => s.slotKey);
   /* Nobody but the couple yet: bride and groom under their rows, the other four after, in order. */

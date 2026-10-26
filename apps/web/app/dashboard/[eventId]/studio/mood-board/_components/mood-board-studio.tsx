@@ -85,7 +85,7 @@ import type { InspirationPartsSnapshot } from '@/lib/inspiration-parts';
  * keeps the shipped board.
  *
  * ONE `ISegmented` (the Pill selector) — Palette · Attire · Inspiration · Do's & Don'ts (owner 2026-10-08, "ok"; the
- * attire boards — Bridal gown · Groom's suit · Bridesmaids · Groomsmen · Flower girl · Ring bearer ·
+ * attire boards — Bridal gown · Groom's attire · Bridesmaids · Groomsmen · Flower girl · Ring bearer ·
  * Entourage — live in Attire next to their role) — under
  * the Studio's Tool ▾ row, with ✨ Auto above it. Nothing here is a
  * new write:

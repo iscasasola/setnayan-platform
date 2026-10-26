@@ -365,7 +365,8 @@ test('e · each removed tile\'s content is reachable at its home', () => {
   // The Home hands the way to the two services and the money line.
   const html = draw();
   // The money opens the budget where it lives now — Suppliers (owner 2026-10-07, H6).
-  for (const href of ['/dashboard/e1/studio/papic', '/dashboard/e1/studio/setnayan-ai', '/dashboard/e1/vendors?part=budget']) {
+  // 📷 Papic: without the couple's card, the row opens Papic's photos (Memories) — the Papic page is gone (2026-10-26).
+  for (const href of ['/dashboard/e1/memories', '/dashboard/e1/studio/setnayan-ai', '/dashboard/e1/vendors?part=budget']) {
     assert.ok(html.includes(`href="${href}"`), `the first screen must link ${href}`);
   }
 });

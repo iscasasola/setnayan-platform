@@ -1,5 +1,6 @@
 import { papicHomeHref } from '@/lib/papic-home-href';
 import { PapicStayForm } from './_components/papic-stay-form';
+import { ChallengeCardRow } from './_components/challenge-card-row';
 // Papic Games — couple challenge manager (spec §5 / gap #1 + #8). Lets the couple
 // AUTHOR their own generic challenges (so every event has a real game, not just
 // booth missions for booked vendors) and CURATE the live set — hide/show any
@@ -139,7 +140,7 @@ function FilterChip({
 
   return (
     <Link
-      href={`/dashboard/${eventId}/studio/papic/challenges${qs ? `?${qs}` : ''}#challenges`}
+      href={`/dashboard/${eventId}/studio/papic/challenges${qs ? `?${qs}` : ''}`}
       // The active chip is announced, not just coloured: on this palette the
       // difference between a selected and an unselected chip is a fill, and a
       // fill is invisible to a screen reader and to anyone who cannot see it.
@@ -445,39 +446,7 @@ export async function CoupleChallengesManager({
                  photos already taken keep it (`deleteCoupleChallengeAction`, a soft remove). */
               <ul className="divide-y divide-ink/10" data-papic-challenges-running="">
                 {missions.map((m) => (
-                  <li key={m.mission_id} className="flex items-center gap-2 py-1.5" data-papic-challenge={m.mission_id} data-papic-challenge-live={m.is_active ? 'on' : 'off'}>
-                    <span className={`min-w-0 flex-1 text-[14px] ${m.is_active ? 'text-ink' : 'text-ink/55'}`}>
-                      {m.prompt}
-                      {m.capture_kind ? (
-                        <span className="ml-1.5 inline-block rounded-full bg-ink/10 px-1.5 py-0.5 align-middle text-[10px] font-medium uppercase tracking-[0.08em] text-ink/60">
-                          {m.capture_kind === 'clip' ? 'Clip' : 'Photo'}
-                        </span>
-                      ) : null}
-                    </span>
-                    <PapicStayForm door="setCoupleChallengeActiveAction" action={setCoupleChallengeActiveAction} className="shrink-0">
-                      <input type="hidden" name="event_id" value={eventId} />
-                      <input type="hidden" name="mission_id" value={m.mission_id} />
-                      <input type="hidden" name="active" value={m.is_active ? 'false' : 'true'} />
-                      {ret}
-                      <button type="submit" role="switch" aria-checked={m.is_active} aria-label={m.prompt} className={SWITCH_BUTTON} disabled={!m.is_active && full} data-papic-challenge-switch="">
-                        <SwitchTrack on={m.is_active} />
-                      </button>
-                    </PapicStayForm>
-                    <PapicStayForm door="deleteCoupleChallengeAction" action={deleteCoupleChallengeAction} className="shrink-0">
-                      <input type="hidden" name="event_id" value={eventId} />
-                      <input type="hidden" name="mission_id" value={m.mission_id} />
-                      {ret}
-                      <button
-                        type="submit"
-                        aria-label={`Remove “${m.prompt}”`}
-                        title="Remove"
-                        className="inline-flex h-11 w-11 items-center justify-center rounded-full text-ink/50 transition-colors hover:bg-ink/5 hover:text-ink"
-                        data-papic-challenge-remove=""
-                      >
-                        <X aria-hidden className="h-[18px] w-[18px]" strokeWidth={2} />
-                      </button>
-                    </PapicStayForm>
-                  </li>
+                  <ChallengeCardRow key={m.mission_id} eventId={eventId} mission={m} full={full} returnTo={returnTo} />
                 ))}
               </ul>
             ) : null}

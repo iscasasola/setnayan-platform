@@ -6,7 +6,8 @@
  * *"it should be on the today"*.
  *
  * What this holds — each by RENDERING or by the pure function, and each with its sabotage:
- *   1 · Home's first screen draws EXACTLY ONE Papic card, in Today (before the control row), with Total · Taken ·
+ *   1 · Home's first screen draws EXACTLY ONE Papic card, on the row after Budget (owner 2026-10-27: "Place it on the
+ *       next row after the budget widget" — Budget is the control row's last tile), with Total · Taken ·
  *       Remaining and "Add more" on its face; Your services draws no second Papic.
  *   2 · a failed pot read says "Couldn't check", never 0.
  *   3 · `/dashboard/<id>/studio/papic` is not a page, and the old address forwards to Home with the card open —
@@ -92,15 +93,18 @@ const CARD = {
 };
 const count = (html: string, re: RegExp) => (html.match(re) ?? []).length;
 
-test('1 · Home draws EXACTLY ONE Papic card, in Today, with Total · Taken · Remaining and Add more on its face', () => {
+test('1 · Home draws EXACTLY ONE Papic card, on the row after Budget, with Total · Taken · Remaining and Add more on its face', () => {
   const html = home(CARD);
   assert.equal(count(html, /data-papic-home-card=/g), 1, 'one Papic card on Home');
   assert.equal(count(html, /data-home-service="papic"/g), 1, 'and no second Papic row in Your services');
-  // In Today: after the Today line, before the control row.
+  // On the row after Budget: after the whole control row (both its phone grid and its wide columns), above Your services.
   const today = html.indexOf('data-home-today=');
   const card = html.indexOf('data-papic-home-card=');
   const services = html.indexOf('data-home-services');
-  assert.ok(today >= 0 && card > today, 'the card sits under the Today line');
+  const rowEnd = html.indexOf('data-home-control="detail"');
+  const budget = html.lastIndexOf('data-home-card-key="budget"');
+  assert.ok(today >= 0 && rowEnd > today, 'the Today line and the control row are drawn');
+  assert.ok(budget > rowEnd && card > budget, 'the card sits on the row after Budget, below the control row');
   assert.ok(services === -1 || card < services, 'the card is above Your services, not inside it');
   assert.match(html, /id="papic"/, 'the card is the #papic anchor old links scroll to');
   // The face: the three counts and Add more.

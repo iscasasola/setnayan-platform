@@ -156,7 +156,10 @@ test('(C) the Maker’s Apply puts a drafted address live through the ONE rename
 
 test('(C) the charge authority prices every Event Hub Pro key — parts, several parts, the rest', () => {
   const auth = code('lib/order-charge-authority.ts');
-  assert.match(auth, /serviceKey === FULL_PRO_SKU \|\| serviceKey === HUB_PARTS_ORDER_KEY \|\| hubPartOfSku\(serviceKey\)/);
+  // Every Pro key reaches the Pro resolver: Full Pro, one part, several parts (2026-10-26: a part key is first named
+  // once, `partKey`, so it can also be refused with no event — never priced by the retail catalogue).
+  assert.match(auth, /const partKey = serviceKey === HUB_PARTS_ORDER_KEY \|\| hubPartOfSku\(serviceKey\) !== null;/);
+  assert.match(auth, /if \(eventId && \(serviceKey === FULL_PRO_SKU \|\| partKey\)\) \{\s*const hub = await resolveHubProCharge/);
   assert.match(auth, /eventHubOwnership\(admin, eventId, 'owned'\)/, 'the charge must count an order under review — nobody pays twice');
   const checkout = code('app/dashboard/[eventId]/checkout/actions.ts');
   assert.match(checkout, /parseHubPartsField\(formData\.get\('hub_parts'\)\)/);

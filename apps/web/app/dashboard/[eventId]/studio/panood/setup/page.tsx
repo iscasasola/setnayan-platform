@@ -38,7 +38,7 @@ import {
 } from '@/lib/live-studio-recordings';
 import { eventSkuActive } from '@/lib/entitlements';
 import { liveStudioControllerHref, LIVE_STUDIO_HOSTED_CHANNEL_SKU } from '@/lib/live-studio-control';
-import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
+import { hubPartPrices } from '@/lib/couple-website-pro';
 import { hubPart } from '@/lib/hub-parts';
 import { readEventWatchUrls } from '@/lib/watch-live-links';
 import {
@@ -249,8 +249,17 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
   // surfaces honest-state "arrives with the streaming rollout" instead of a
   // price (owner rule: never hardcode a price).
   // 💎 2026-10-22: the animation is sold as Event Hub Pro's Logo & QR part (the standalone row is retired) — its price.
-  const monogramSku = await formatV2Sku(hubPart('logo_qr').sku).catch(() => null);
-  const monogramPriceLabel = monogramSku ? formatPhp(monogramSku.price_php) : null;
+  // ⛔ 2026-10-26 (owner: "just have the upgrade event hub pro"): while that part is off sale, the animation is IN
+  // Event Hub Pro — the card says so with Pro's price. The catalogue is the one switch (`hubPartPrices().onSale`).
+  const monogramPrices = await hubPartPrices(createAdminClient()).catch(() => null);
+  const monogramPartSku = hubPart('logo_qr').sku;
+  const monogramPartPhp = monogramPrices?.onSale.has(monogramPartSku) ? monogramPrices.parts.get(monogramPartSku) : undefined;
+  const monogramPriceLabel =
+    monogramPartPhp != null
+      ? formatPhp(monogramPartPhp)
+      : monogramPrices?.full != null
+        ? `In Event Hub Pro · ${formatPhp(monogramPrices.full)}`
+        : null;
 
   // ⭐ THE RECORDING HANDOFF (09_Panood_Feature_Specification.md § 6 — "Couples
   // download from their Setnayan dashboard via a link that resolves the YouTube

@@ -28,19 +28,28 @@ const E = '00000000-0000-4000-8000-000000000000';
 const WEB = process.cwd();
 const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 
-/** The catalogue keys of every one-per-event Apple product (Setnayan AI · Music Maker · Patiktok · Thank You). */
+/** The catalogue keys of every one-per-event Apple product (Setnayan AI · Music Maker · Patiktok). */
 const APPLE_UNLOCK_KEYS = [...new Set(IAP_PRODUCTS.filter((p) => p.kind === 'event-unlock').map((p) => p.serviceKey))].map((sk) => {
   const entry = EVERY_ADD_ON.find((a) => a.serviceKey === sk);
   assert.ok(entry, `Apple sells ${sk}, but no catalogue entry carries it — it can have no door`);
   return entry.key;
 });
 
-test('premise · the four one-per-event Apple products are Setnayan AI, Music Maker, Patiktok, Thank You', () => {
-  assert.deepEqual([...APPLE_UNLOCK_KEYS].sort(), ['pakanta', 'patiktok', 'setnayan-ai', 'thank-you']);
+/**
+ * 🆓 The Thank-You Video left the App Store on 2026-10-26 — FREE for every event (owner: "let us remove thank you from
+ * the inapp purchase" → "make it free for now"). Its page still OPENS in the app where In-App Purchase is on, with no
+ * pay step at all (FREE_FOR_ALL_SKUS reads it as owned), so its door must keep every property an Apple-sold door has.
+ */
+const APP_OPENED_FREE_KEYS = ['thank-you'];
+const APP_DOOR_KEYS = [...APPLE_UNLOCK_KEYS, ...APP_OPENED_FREE_KEYS];
+
+test('premise · the three one-per-event Apple products are Setnayan AI, Music Maker, Patiktok — Thank You is free', () => {
+  assert.deepEqual([...APPLE_UNLOCK_KEYS].sort(), ['pakanta', 'patiktok', 'setnayan-ai']);
+  assert.ok(!APPLE_UNLOCK_KEYS.includes('thank-you'), 'Thank You is sold by Apple again — it is free for every event');
 });
 
-test('1 · the ONE rule: each Apple-sold key has its door only where Apple sells; every other paid key stays hidden', () => {
-  for (const key of APPLE_UNLOCK_KEYS) {
+test('1 · the ONE rule: each Apple-sold key (and free Thank You) has its door only where Apple sells; every other paid key stays hidden', () => {
+  for (const key of APP_DOOR_KEYS) {
     assert.equal(isStoreShellHiddenAddon(key, true), false, `${key}: Apple sells it here, yet its door is hidden`);
     assert.equal(isStoreShellHiddenAddon(key, false), true, `${key}: a door with the gate OFF (3.1.1)`);
     assert.equal(isStoreShellHiddenAddon(key), true, `${key}: a caller that does not pass iap must answer as before`);
@@ -50,7 +59,7 @@ test('1 · the ONE rule: each Apple-sold key has its door only where Apple sells
     assert.equal(isStoreShellWebOnlyPath(path, false), true, `${key}: its door ${path} opens with the gate off`);
   }
   for (const key of STORE_SHELL_HIDDEN_ADDON_KEYS) {
-    if (APPLE_UNLOCK_KEYS.includes(key) || key === 'papic') continue;
+    if (APP_DOOR_KEYS.includes(key) || key === 'papic') continue;
     assert.equal(isStoreShellHiddenAddon(key, true), true, `${key}: Apple does not sell it in the app — no door there`);
   }
   // The service parts list's door (Thank You under Papic — `ServiceParts`) is its own page, opened the same way.

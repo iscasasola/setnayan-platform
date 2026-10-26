@@ -151,7 +151,8 @@ export const RETAIL: RetailRow[] = [
   // must move in the same PR as the real one, or the suite passes green while
   // production serves the fallback stub.
   { service_code: 'LIVE_WALL', title: 'Live Venue Photo Wall', retail_price_php: 2500, is_active: false },
-  { service_code: 'PAPIC_ADDON_THANK_YOU', title: 'Thank You (Papic Add-on)', retail_price_php: 2500, is_active: true },
+  // FREE since 2026-10-26 (owner, "make it free for now") — the row is off only so nothing quotes a price.
+  { service_code: 'PAPIC_ADDON_THANK_YOU', title: 'Thank You (Papic Add-on)', retail_price_php: 2500, is_active: false },
   // ⚠ 6,000 IS BACK ON THE LADDER (owner 2026-08-26, ₱2,400) after being retired
   // on 2026-08-11. It was the fixture's example of a retired SKU; that role now
   // belongs to PAPIC_ADDON_STORIES and LIVE_WALL below, so the 'a retired SKU

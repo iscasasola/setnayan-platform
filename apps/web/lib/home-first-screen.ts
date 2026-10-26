@@ -566,8 +566,12 @@ export function homeServices(input: {
   papic: string;
   /** 📍 Papic's doors (Buy more · See N photos), when the glance offers them. */
   papicDoors?: PapicRowDoors | null;
-  /** Setnayan AI's plain status — the row as it was before `paid` (kept for a caller that has no facts). */
-  ai: string;
+  /**
+   * Setnayan AI's plain status — the row as it was before `paid` (kept for a caller that has no facts).
+   * null ⇒ no Setnayan AI row: it is not offered on this event (`setnayanAiOffered` — Suppliers off) and
+   * the event does not own it.
+   */
+  ai: string | null;
   /**
    * 🧾 EVERY PAID SERVICE + EVENT HUB PRO (owner 2026-10-14). When given, the Planner ·
    * Live stream · Music · Video booth · Event Hub Pro rows come from these facts — one
@@ -596,7 +600,9 @@ export function homeServices(input: {
         }
         return row ? [{ key, ...paidNames(key), status: row.price ?? glanceLineText(row.line), paid: row }] : [];
       })
-    : [{ key: 'ai', name: SERVICE_NAMES['setnayan-ai'].plain, brand: SERVICE_NAMES['setnayan-ai'].brand, status: input.ai }];
+    : input.ai === null
+      ? []
+      : [{ key: 'ai', name: SERVICE_NAMES['setnayan-ai'].plain, brand: SERVICE_NAMES['setnayan-ai'].brand, status: input.ai }];
   /* 🔒 NOT IN THE STORE SHELL — every paid row's page is web-only there (STORE_SHELL_HIDDEN_ADDON_KEYS), and the
      iPhone app sells only through Apple (the `apple` rows HomeFirstScreen draws on their own).
      🍎 Where Apple sells (`iap`), the rows the facts let through stay — never Papic or Live Watch (their `apple` rows

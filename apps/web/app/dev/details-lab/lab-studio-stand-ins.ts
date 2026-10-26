@@ -18,7 +18,13 @@ export const LAB_STUDIO_ACTIONS: Partial<StudioActions> = {
 };
 
 /** Prints: every Save button's file. A tiny stand-in PDF — no route is asked, nothing is drawn from the database (`print-fetch-context.tsx`). */
-export const LAB_PRINT_FETCH: typeof fetch = async () =>
+export const LAB_PRINT_FETCH: typeof fetch = async (input) => {
+  /* 🔎 What the button ASKED for, kept on the page for a walk to read (`window.__labPrintFetches`) — e.g. Pick guests' narrowed
+     address. Nothing is fetched. */
+  if (typeof window !== 'undefined') ((window as unknown as { __labPrintFetches?: string[] }).__labPrintFetches ??= []).push(String(input));
+  return labPdf();
+};
+const labPdf = () =>
   new Response(new Blob(['%PDF-1.4\n% lab stand-in: nothing was drawn and no route was asked\n'], { type: 'application/pdf' }), { status: 200 });
 /** `?refuse=1`: an unexpected 500 with an HTML page — the Save button says its own sentence, never the page's words. */
 export const LAB_PRINT_FETCH_REFUSED: typeof fetch = async () =>

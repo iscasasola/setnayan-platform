@@ -33,7 +33,10 @@ import { printPreviewVersion } from '@/lib/print-preview-cache';
 import { blocksWithDraftedCeremony } from '@/lib/ceremony-time';
 import { overlayHubDraftEvent, type HubDraftEvents } from '@/lib/hub-draft';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { GROUP_CATEGORY_LABELS, SIDE_LABELS, guestRoleLabel, type GuestGroupCategory, type GuestRole, type GuestSide } from '@/lib/guests';
+import { GROUP_CATEGORY_LABELS, SIDE_LABELS, fetchGuestsByEventMeasured, guestDisplayName, guestRoleLabel, type GuestGroupCategory, type GuestRole, type GuestSide } from '@/lib/guests';
+import { createClient } from '@/lib/supabase/server';
+import { fetchAssignments, fetchTables } from '@/lib/seating';
+import { seatedGuestsOf, seatingUnits } from '@/lib/print-entrance-chart';
 import { pickGuestRows } from '@/lib/print-picked-guests';
 import type { RoleNames } from '@/lib/role-names';
 import { readRoleNames } from '@/lib/role-names.server';
@@ -928,6 +931,70 @@ export async function loadPassGuestNames(
     group: g.group_category ? (GROUP_CATEGORY_LABELS[g.group_category] ?? null) : null,
     // …and Role ▾ (owner 2026-10-25, "side group and role for pick guests?") — the shipped role words (`ROLE_LABELS`).
     role: roleWord((g as { role?: string | null }).role ?? null, roleNames),
+  }));
+}
+
+/** Where a guest stands, said as it is — `declined` kept (the QR sheet and the place cards hold guests who cannot come). A plus-one
+ *  with no reply of their own follows their bringer's, as the pass rule does. */
+export function printGuestReply(row: { rsvp_status?: string | null; plus_one_of_guest_id?: string | null }, bringer: { rsvp_status?: string | null } | null): 'attending' | 'pending' | 'maybe' | 'declined' {
+  let reply = row.rsvp_status ?? 'pending';
+  if (row.plus_one_of_guest_id && reply === 'pending') reply = bringer?.rsvp_status ?? 'pending';
+  return reply === 'attending' ? 'attending' : reply === 'maybe' ? 'maybe' : reply === 'declined' ? 'declined' : 'pending';
+}
+
+/**
+ * 🔳 WHO IS ON THE GUEST QR SHEET, BY NAME (owner 2026-10-26, *"this should apply to all guest related prints"*) — the SAME read the
+ * sheet draws from (`loadGuestPasses` without `ticketsOnly` → `passGuestRows(eventId, false)`): every listed guest with a QR, a guest
+ * who can't come included (the sheet is not a ticket). Its View as ▾, its Pick guests and its count line read this, so the line says
+ * what the sheet holds. `null` when the list could not be read — never an empty list that would say nobody is on it.
+ */
+export async function loadQrGuestNames(
+  eventId: string,
+  printDetails: PromiseLike<unknown>,
+): Promise<Array<{ id: string; name: string; reply: 'attending' | 'pending' | 'maybe' | 'declined'; side: string | null; group: string | null; role: string | null }> | null> {
+  const [read, details, roleNames] = await Promise.all([
+    passGuestRows(eventId, false),
+    printDetails,
+    createAdminClient()
+      .from('events')
+      .select('role_names')
+      .eq('event_id', eventId)
+      .maybeSingle()
+      .then(({ data }) => readRoleNames((data as { role_names?: unknown } | null)?.role_names ?? null)),
+  ]);
+  if (!read.measured) return null;
+  const style = nameStyleOfPrintDetails(details);
+  const byId = new Map(read.rows.map((g) => [g.guest_id, g]));
+  return read.rows.map((g) => ({
+    id: g.guest_id,
+    name: displayPersonName(ticketName(g, style)),
+    reply: printGuestReply(g, g.plus_one_of_guest_id ? (byId.get(g.plus_one_of_guest_id) ?? null) : null),
+    side: g.side ? (SIDE_LABELS[g.side] ?? null) : null,
+    group: g.group_category ? (GROUP_CATEGORY_LABELS[g.group_category] ?? null) : null,
+    role: roleWord((g as { role?: string | null }).role ?? null, roleNames),
+  }));
+}
+
+/**
+ * 🪑 WHO HAS A PLACE CARD, BY NAME (owner 2026-10-26) — the seating pack's OWN read and grouping (`seating/print`: `fetchTables` ·
+ * `fetchAssignments` · `fetchGuestsByEvent` on the signed-in member's client, `seatingUnits`, then `seatedGuestsOf`), each by the
+ * name the card prints (`guestDisplayName`). So the place cards' count line, View as ▾ and Pick guests list exactly the cards the
+ * file draws — an unseated guest is never offered (their card would be refused). `null` when a read failed.
+ */
+export async function loadSeatedGuestNames(
+  eventId: string,
+): Promise<Array<{ id: string; name: string; reply: 'attending' | 'pending' | 'maybe' | 'declined'; side: string | null; group: string | null; role: string | null }> | null> {
+  const supabase = await createClient();
+  const [tables, assignments, guests] = await Promise.all([fetchTables(supabase, eventId), fetchAssignments(supabase, eventId), fetchGuestsByEventMeasured(supabase, eventId)]);
+  if (!guests.measured) return null;
+  const byId = new Map(guests.rows.map((g) => [g.guest_id, g]));
+  return seatedGuestsOf(seatingUnits(tables, assignments, guests.rows)).map((g) => ({
+    id: g.guest_id,
+    name: guestDisplayName(g),
+    reply: printGuestReply(g, g.plus_one_of_guest_id ? (byId.get(g.plus_one_of_guest_id) ?? null) : null),
+    side: g.side ? (SIDE_LABELS[g.side as GuestSide] ?? null) : null,
+    group: g.group_category ? (GROUP_CATEGORY_LABELS[g.group_category as GuestGroupCategory] ?? null) : null,
+    role: null,
   }));
 }
 

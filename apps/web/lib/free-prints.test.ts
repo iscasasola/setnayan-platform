@@ -124,7 +124,7 @@ test('file names follow the owner’s rule: <event slug>-<print>', () => {
   assert.deepEqual(byKey['event-qr'], ['cale-ice-event-qr.png']);
   // …and the routes name the file the same way when saved without the button.
   assert.match(read('app/dashboard/[eventId]/seating/export/route.ts'), /printFileName\(event\.slug, mode === 'blueprint' \? 'seat-plan-blueprint' : 'seat-plan'\)/);
-  assert.match(read('app/dashboard/[eventId]/seating/print/route.ts'), /printFileName\(event\.slug, oneGuest === null \? 'seating-pack' : `place-card-\$\{placeCardWord\(packUnits\)\}`\)/);
+  assert.match(read('app/dashboard/[eventId]/seating/print/route.ts'), /printFileName\(event\.slug, picked \? `place-cards-\$\{[^`]+\}-picked` : oneGuest === null \? 'seating-pack' : `place-card-\$\{placeCardWord\(packUnits\)\}`\)/);
   assert.match(read('app/dashboard/[eventId]/seating/caterer/route.ts'), /printFileName\(event\.slug, 'caterer-meal-counts'\)/);
 });
 

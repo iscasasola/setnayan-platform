@@ -107,6 +107,12 @@ const LAB_MANY_GUESTS = Array.from({ length: 109 }, (_, i) => ({
   role: i % 9 === 0 ? 'Ninang' : i % 9 === 1 ? 'Bridesmaid' : 'Guest',
 }));
 
+/** 🔳 Guests who can't come — on the QR sheet (it is not a ticket), never on a pass or ticket. */
+const LAB_DECLINED_GUESTS = [
+  { id: '00000000-0000-4000-8000-000000000901', name: 'Iris Calderon', reply: 'declined' as const, side: "Bride's side", group: 'Friends', role: 'Guest' },
+  { id: '00000000-0000-4000-8000-000000000902', name: 'Jun Mercado', reply: 'declined' as const, side: "Groom's side", group: 'Work', role: 'Guest' },
+];
+
 /**
  * ✍ The lab's fact editors — the SAME nodes Details draws (`detailsFactEditors`). Also handed to the Maker lab's shell
  * as its `factEditors` on `?facts=1` (the launch page hands the real Maker the same), so a tap that opens a fact's
@@ -299,6 +305,9 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
           /* 🎟 `?studio=1`: who has a pass (Studio › Prints' Event pass, owner 2026-10-16) — stand-in names; `passGuests=0` walks "nobody yet",
              `passGuests=x` the list that could not be read. */
           ...(studioLab ? { passGuests: one('passGuests') === '0' ? [] : one('passGuests') === 'x' ? null : one('passGuests') === 'many' ? LAB_MANY_GUESTS : LAB_PASS_GUESTS } : {}),
+          /* 🔳🪑 …and the QR sheet's and the place cards' own lists (2026-10-26): with `passGuests=many`, the QR sheet adds the guests who
+             can't come and the place cards hold the seated ones only — so each row's count line says its own file's number. */
+          ...(studioLab && one('passGuests') === 'many' ? { qrGuests: [...LAB_MANY_GUESTS, ...LAB_DECLINED_GUESTS], seatedGuests: LAB_MANY_GUESTS.slice(0, 64) } : {}),
           formats: { pass: formatFor('pass', one('pass_format'))!, invitation: formatFor('invitation', null)!, card: formatFor('card', null)! },
         }}
         /* 🧪 `?studio=1`: Prints' six on fixtures (owner "approved" 2026-10-13) — a menu of two moments and the schedule's food moments

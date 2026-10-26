@@ -138,8 +138,10 @@ test('3 · the ticket PNG, the printed batches, the plus-one’s door and the co
   assert.equal(passCardGuestName({ ...none, first_name: 'jose', last_name: 'de los santos' }), 'Jose de los Santos', 'the saved ticket prints the typed name');
   assert.equal(passCardGuestName({ ...none, first_name: 'Ana', last_name: 'MJ Reyes' }), 'Ana MJ Reyes', 'a name typed with capitals was changed');
   const print = read('lib/print-set.server.ts');
-  assert.equal((print.match(/displayPersonName\(ticketName\(g, style\)\)/g) ?? []).length, 2, 'a printed batch / the Prints name list prints the typed name');
-  assert.equal((print.match(/\bticketName\(g, style\)/g) ?? []).length, 2, 'a new ticketName print site skips displayPersonName');
+  // Every printed name goes through the caser — counted, and no bare ticketName() reaches paper (a third list, the
+  // picked-guests sheet, joined 2026-10-26; the property is "every one is cased", not "there are two").
+  assert.ok((print.match(/displayPersonName\(ticketName\(g, style\)\)/g) ?? []).length >= 2, 'a printed batch / the Prints name list prints the typed name');
+  assert.equal((print.match(/ticketName\(g, style\)/g) ?? []).length, (print.match(/displayPersonName\(ticketName\(g, style\)\)/g) ?? []).length, 'a printed name skips displayPersonName');
   const door = read('app/[slug]/welcome/page.tsx');
   assert.match(door, /const primaryName =\s*displayPersonName\(/, 'the plus-one’s door says "from maria"');
   assert.match(door, /const formalName = missing\.name \? null : displayPersonName\(composeFormalName\(row\)\) \|\| null;/);

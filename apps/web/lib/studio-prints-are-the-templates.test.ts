@@ -19,6 +19,10 @@
  * line, and the parents' cards — each is a field posted by the SAME print words form in TWO doors (Details › Words and the Finer Details switch), kept one by
  * `same-field.ts`, so a redrawn door needs the same two-door store the thank-you words got, and the Words door cannot be left drawn the old way beside it.
  *
+ * 🎠 SINCE 2026-10-26 Studio › Prints is ONE PRINT PER SLIDE (DECISION_LOG "APPROVED — PRINTS IS A SWIPE CAROUSEL"): the controls are the
+ * carousel's toolbar (`studio-prints-carousel.tsx`) — the same kinds: the Download is the ONE ActionButton (a guest print's Download ▾ is
+ * the house dropdown wearing that button), a size or file choice is the house dropdown (`PickMenu`), never a pill row.
+ *
  * SABOTAGE (each seen RED, then restored): a Studio save drawn with the old `button-primary` · a Studio save as a bare `<a download>` · an include switch with its own
  * track · the size ▾ as a bare PickMenu · a hand colour in a Studio part · a static import of a lazy Prints file into a first-load Maker file.
  */
@@ -28,6 +32,7 @@ import React from 'react';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { renderSettled } from './render-settled.test-helper';
+import { carouselAt, endSlides, slidesOf } from './prints-slides.test-helper';
 import { stripComments } from './strip-comments';
 
 (globalThis as unknown as { React: unknown }).React = React;
@@ -51,56 +56,69 @@ async function input(theme: string, ownsPro: boolean, storeShell = false) {
   return { eventId: 'E1', slug: 'rosa-ben', theme, ownsPro, storeShell, passGuests, formats: { pass: formatFor('pass', null)!, invitation: formatFor('invitation', null)!, card: formatFor('card', null)! } };
 }
 
-test('1 · every Save on Studio › Prints is the ONE ActionButton — a button of the template, never a hand-made link or the old chip/primary look', async () => {
+test('1 · every Download on Studio › Prints is the ONE ActionButton — a button of the template, never a hand-made link or the old chip/primary look', async () => {
   const { PrintPieceEditor, PrintEverythingStudio, DigitalTicketEditor, freePrintParts } = await import(`../${L}/maker-prints`);
   const states: Array<[string, boolean]> = [['house', false], ['galeriya', false], ['abaca', false], ['abaca', true]];
+  const set = ['invitation', 'details', 'pass', 'entourage', 'poster', 'story-poster', 'card'] as const;
   for (const [theme, pro] of states) {
     const i = await input(theme, pro);
-    const drawn = await renderSettled(
-      React.createElement(
-        React.Fragment,
-        null,
-        ...(['invitation', 'details', 'pass', 'entourage', 'poster', 'story-poster', 'card'] as const).map((k) => React.createElement(PrintPieceEditor as never, { key: k, input: i, piece: k, studio: true } as never)),
-        /* ⚙ 2026-10-17: the Digital ticket's row and Everything ◆ replace "The ticket guests save" and Download the set in Studio. */
-        React.createElement(DigitalTicketEditor as never, { key: 'ticket', input: i } as never),
-        React.createElement(PrintEverythingStudio as never, { key: 'everything', input: i } as never),
-        ...freePrintParts('E1', 'rosa-ben', i, true).map((f: { key: string; editor: React.ReactNode }) => React.createElement('div', { key: f.key }, f.editor)),
-      ),
-    );
-    /* + the ◆ doors: since 2026-10-16 a free couple's all-in-one files are the door to Event Hub Pro (every guest's pass and the QR sheet
-       left on 2026-10-22 — they are free saves now). */
-    const saves = [...drawn.matchAll(/<span data-print-save="[^"]*"[^>]*>[\s\S]*?<\/span>/g)].length;
-    const doors = (drawn.match(/data-print-all-in-one-pro=""/g) ?? []).length;
-    assert.ok(saves + doors >= 20, `${theme}/${pro}: only ${saves} saves and ${doors} ◆ doors drawn — the pieces were not all read`);
-    assert.doesNotMatch(drawn, /button-primary|button-secondary|<a\b[^>]*\bdownload=/, `${theme}/${pro}: a Studio save is the old look or a bare download link`);
-    assert.doesNotMatch(drawn, /sn-press inline-flex h-9 items-center rounded-md bg-cream/, `${theme}/${pro}: the old chip is drawn`);
-    /* Every save button (`<span data-print-save>` wraps ONE ActionButton) is the template's, with its tone. */
-    const buttons = tagsOf(drawn, 'button').filter((b) => /class="ab /.test(b));
-    assert.ok(buttons.length >= saves, `${theme}/${pro}: a save is not an ActionButton`);
-    assert.equal((drawn.match(/<span data-print-save=/g) ?? []).length, saves);
-    for (const b of buttons) assert.match(b, /data-tone="(?:brand|neutral)"/, 'a save has a tone of its own making');
-    /* ONE filled forward step per row: a piece's saves hold at most one main. */
-    for (const row of drawn.matchAll(/data-print-piece-saves="[^"]*">([\s\S]*?)<\/div>/g)) {
-      assert.ok(((row[1] ?? '').match(/data-main=""/g) ?? []).length <= 1, `${theme}/${pro}: a row has two filled buttons`);
+    const day = freePrintParts('E1', 'rosa-ben', i, true) as Array<{ key: string; label: string; editor: React.ReactNode }>;
+    try {
+      await slidesOf([
+        ...set.map((k) => React.createElement(PrintPieceEditor as never, { input: i, piece: k, studio: true } as never)),
+        React.createElement(DigitalTicketEditor as never, { input: i } as never),
+        React.createElement(PrintEverythingStudio as never, { input: i } as never),
+        ...day.map((f) => f.editor),
+      ]);
+      const items = [...set.map((k) => ({ key: k, label: k, group: 'set' as const })), { key: 'digital-ticket', label: 'Digital ticket', group: 'set' as const }, ...day.map((f) => ({ key: f.key, label: f.label, group: 'day' as const })), { key: 'download', label: 'Everything', group: 'download' as const }];
+      let downloads = 0;
+      for (const it of items) {
+        const html = await carouselAt(items, it.key);
+        const tools = html.slice(html.indexOf('data-prints-tools="phone"'), html.indexOf('data-prints-tools="desk"'));
+        assert.doesNotMatch(tools, /button-primary|button-secondary|<a\b[^>]*\bdownload=/, `${theme}/${pro} ${it.key}: a Download is the old look or a bare download link`);
+        assert.doesNotMatch(tools, /sn-press inline-flex h-9 items-center rounded-md bg-cream/, `${theme}/${pro} ${it.key}: the old chip is drawn`);
+        /* The row's main verb: ONE filled ActionButton (or the house dropdown wearing it, on a guest print) — never two. */
+        const act = tools.slice(tools.indexOf('data-prints-row="act"'));
+        const mains = (act.match(/class="ab ab-brand ab-main[^"]*"/g) ?? []).length;
+        if (it.key === 'download' && pro === false) {
+          /* A free couple's Everything is the ◆ door (the note that leads to Event Hub Pro) — the button still the template's. */
+          assert.ok(mains <= 1, `${theme}/${pro}: Everything has two filled buttons`);
+        } else {
+          assert.equal(mains, 1, `${theme}/${pro} ${it.key}: the toolbar has not exactly ONE filled Download`);
+        }
+        downloads += mains;
+        for (const b of tagsOf(act, 'button').filter((x) => /class="ab /.test(x))) assert.match(b, /data-tone="(?:brand|neutral)"|aria-haspopup="listbox"/, 'a Download has a tone of its own making');
+      }
+      assert.ok(downloads >= items.length - 1, `${theme}/${pro}: only ${downloads} Downloads drawn — the slides were not all read`);
+    } finally {
+      await endSlides();
     }
   }
 });
 
-test('2 · a piece’s head is ONE Form row: its name and sizes on the left, its size ▾ (the house dropdown) on the right', async () => {
+test('2 · a piece’s size ▾ is the house dropdown in the toolbar’s first row, and its spec line names the CHOSEN size', async () => {
   const { PrintPieceEditor } = await import(`../${L}/maker-prints`);
   const i = await input('house', false);
-  const inv = await renderSettled(React.createElement(PrintPieceEditor as never, { input: i, piece: 'invitation', studio: true } as never));
-  /* RE-AIMED 2026-10-16 (owner: "short size lines"): the line names the CHOSEN size only — "5 × 7 in or A5" listed both. */
-  assert.match(inv, /data-form-row-kind="chosen"[\s\S]*?Invitation[\s\S]*?5 × 7 in · 127 × 178 mm[\s\S]*?data-print-format-picker=""/, 'the invitation’s head is not the Form row with its chosen size and its size ▾');
-  assert.doesNotMatch(inv, /5 × 7 in or A5/, 'the invitation’s head lists every size again');
-  assert.match(inv, /aria-haspopup="listbox"/, 'the size ▾ is not the house dropdown');
-  /* A piece with one size has the row without a dropdown. */
-  const ent = await renderSettled(React.createElement(PrintPieceEditor as never, { input: i, piece: 'entourage', studio: true } as never));
-  assert.match(ent, /data-form-rows="print-head"/, 'the entourage’s head is not a Form row');
-  assert.doesNotMatch(ent, /data-print-format-picker/, 'a piece with one size draws a size ▾');
+  try {
+    await slidesOf((['invitation', 'entourage'] as const).map((k) => React.createElement(PrintPieceEditor as never, { input: i, piece: k, studio: true } as never)));
+    const items = [{ key: 'invitation', label: 'The Invitation', group: 'set' as const }, { key: 'entourage', label: 'The Entourage', group: 'set' as const }];
+    const inv = await carouselAt(items, 'invitation');
+    /* RE-AIMED 2026-10-16 (owner: "short size lines"): the line names the CHOSEN size only — "5 × 7 in or A5" listed both. */
+    assert.match(inv, /data-prints-spec=""[^>]*>5 × 7 in · 127 × 178 mm</, 'the invitation’s spec line is not its chosen size');
+    assert.doesNotMatch(inv, /5 × 7 in or A5/, 'the invitation’s spec line lists every size again');
+    const row1 = inv.slice(inv.indexOf('data-prints-row="choose"'), inv.indexOf('data-prints-row="act"'));
+    assert.match(row1, /aria-haspopup="listbox"[^>]*data-print-format-picker=""|data-print-format-picker=""[^>]*aria-haspopup="listbox"/, 'the size ▾ is not the house dropdown in the first row');
+    /* A piece with one size has no size ▾ — and no first row at all. */
+    const ent = await carouselAt(items, 'entourage');
+    const entTools = ent.slice(ent.indexOf('data-prints-tools="phone"'), ent.indexOf('data-prints-tools="desk"'));
+    assert.doesNotMatch(entTools, /data-print-format-picker/, 'a piece with one size draws a size ▾');
+    assert.doesNotMatch(entTools, /data-prints-row="choose"/, 'a piece with nothing to choose draws a first row');
+  } finally {
+    await endSlides();
+  }
   /* The shipped Details is untouched. */
   const shipped = await renderSettled(React.createElement(PrintPieceEditor as never, { input: i, piece: 'invitation' } as never));
-  assert.doesNotMatch(shipped, /data-form-row/, 'the shipped Details draws Form rows');
+  assert.doesNotMatch(shipped, /data-form-row|data-prints-/, 'the shipped Details draws Form rows or a slide');
 });
 
 test('3 · every include switch is the Form row’s switch — a switch button on the one track, no track of its own', async () => {
@@ -125,9 +143,13 @@ test('3 · every include switch is the Form row’s switch — a switch button o
   const sheet = read(`${L}/studio-prints-settings.tsx`);
   assert.doesNotMatch(sheet, /<select\b|<textarea\b|type="checkbox"|type="radio"|<PickMenu\b/, 'a Prints settings part draws a bare control');
   assert.doesNotMatch(sheet, /\bbg-(?:terracotta|mulberry|gild|gold|success|emerald|green|red|amber)|\btext-(?:terracotta|mulberry)|\bborder-(?:terracotta|mulberry)|#[0-9a-fA-F]{3,8}\b|\bstyle=\{/, 'a Prints settings part writes a colour of its own');
-  assert.equal((sheet.match(/<ChosenRow\b/g) ?? []).length, 1, 'a two-file dropdown is not the Form row’s one dropdown');
-  /* View as ▾ is the Form row's pill (the house dropdown's own look) opening its own lazy guest sheet — with "Search guests". */
-  assert.match(sheet, /className=\{`\$\{pickButtonClass\(false\)\} \$\{FORM_PICK_CLASS\} \$\{width\}`\}/, 'View as ▾ is not the Form row’s pill');
+  /* 🎠 The carousel's toolbar (2026-10-26): every choice is the house dropdown (`PickMenu`) — never a bare control, never a colour of its own
+     (its only `style=` is the paper's true shape and its zoom). View as ▾ opens its own lazy guest sheet — with "Search guests". */
+  const carousel = read(`${L}/studio-prints-carousel.tsx`);
+  assert.doesNotMatch(carousel, /<select\b|<textarea\b|type="checkbox"|type="radio"/, 'the carousel draws a bare control');
+  assert.doesNotMatch(carousel, /\bbg-(?:terracotta|mulberry|gild|gold|success|emerald|green|red|amber)|\btext-(?:terracotta|mulberry)|\bborder-(?:terracotta|mulberry)|#[0-9a-fA-F]{3,8}\b/, 'the carousel writes a colour of its own');
+  for (const m of carousel.matchAll(/style=\{\{([^}]*)\}\}/g)) assert.doesNotMatch(m[1]!, /colou?r|background|border/i, 'the carousel styles a colour inline');
+  assert.match(carousel, /data-prints-view-as=""[^>]*aria-haspopup="dialog"[^>]*onClick=\{p\.openGuests\}/, 'View as ▾ does not open the guest sheet');
   const guestSheet = read(`${L}/print-guest-sheet.tsx`);
   assert.doesNotMatch(guestSheet, /<select\b|<textarea\b|type="checkbox"|type="radio"|<PickMenu\b/, 'the guest sheet draws a bare control');
   assert.doesNotMatch(guestSheet, /\bbg-(?:terracotta|mulberry|gild|gold|success|emerald|green|red|amber)|\btext-(?:terracotta|mulberry)|#[0-9a-fA-F]{3,8}\b|\bstyle=\{/, 'the guest sheet writes a colour of its own');

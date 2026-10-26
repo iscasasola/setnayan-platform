@@ -139,3 +139,14 @@ export function everythingLine(themeName: string): string {
 }
 export const EVERYTHING_HEAD = { title: 'Everything', line: 'one file · Event Hub Pro' } as const;
 export const EVERYTHING_LABEL = 'Download everything';
+
+/**
+ * 🎠 What a slide's ⓘ says on the invitation set's pieces (prototype `prints_carousel_2026-10-26`: "title + one short line visible, the
+ * rest inside the ⓘ") — the set's own shipped words (`PrintSetDownloads`), never new copy. The store shell names no paid extra.
+ */
+export function printSetTip(storeShell: boolean): string {
+  const free = 'Free prints are plain white and print-ready — 3 mm bleed and crop marks, no watermark.';
+  return storeShell ? free : `${free} Your Event Hub look on paper is Event Hub Pro.`;
+}
+/** The Digital ticket's ⓘ — the pass panel's own shipped line. */
+export const DIGITAL_TICKET_TIP = 'One PNG per guest who is coming. Each guest’s own saves free.';

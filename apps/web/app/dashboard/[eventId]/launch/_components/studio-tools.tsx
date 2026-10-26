@@ -67,11 +67,11 @@ import { ChosenRow, FactRow, FormRow, FormRows, SwitchRow, TypedRow } from '@/ap
 import { Fold } from '@/app/_components/fold';
 import { RotateCcw, Undo } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
-import { PrintChoicePicker } from './print-choice-picker';
 import { StudioKindlyReply, StudioMenuEditor, StudioParents, StudioPosterPhoto } from './studio-prints-six';
-import { PrintPaperHead, StudioChartBody, StudioChartLayoutSetting, StudioChartPaper, type PrintSheetParts, type StudioPaper } from './print-paper';
-import { StudioPrintsBar } from './studio-prints-bar';
-import { StudioEditInPlace, StudioEverything, StudioFileChoice, StudioGuestPiece, StudioHubLookRow, StudioPieceDownload, StudioPrintSettings } from './studio-prints-settings';
+import { StudioChartBody, StudioChartLayoutSetting, StudioChartPaper, type StudioPaper } from './print-paper';
+import { StudioPrintsCarousel } from './studio-prints-carousel';
+import { useRegisterSlide } from './prints-view-store';
+import { StudioEverything, StudioFileChoice, StudioGuestPiece, StudioHubLookRow, StudioPieceDownload, StudioPrintSettings } from './studio-prints-settings';
 import { BACKGROUND_MAIN_INFO } from '@/lib/background-source';
 
 /**
@@ -973,36 +973,30 @@ export function StudioQrShown({ eventId, shown, children }: { eventId: string; s
 export const STUDIO_PRINT_ROWS = { 'data-studio-print-rows': '' } as const;
 
 /**
- * 🖨 A PRINT PIECE'S HEAD (owner 2026-10-08/09, the Form row): its name and its sizes on the left, its size ▾ on the right — ONE Form row. A piece with
- * one size has just the name and the size as its small line. The pick is the shipped `PrintChoicePicker`'s: the same address, the same warm sizes.
- *
- * 🖼 …WITH ITS PICTURE (owner 2026-10-14, *"i cannot see what the different prints look like"*): `paper` puts the print's real picture at the row's
- * left — the route's own, at its paper's shape — and a tap opens it full size with the same size ▾ and the same Saves (`print-paper.tsx`).
+ * 🖨 A PRINT PIECE'S HEAD (owner 2026-10-08/09; its picture 2026-10-14) — its name, its CHOSEN size line, its size ▾ (the shipped
+ * `PrintChoicePicker`'s addresses), its picture and its "Changed since you printed" line: since 2026-10-26 its slide of the Prints
+ * carousel (`studio-prints-carousel.tsx`), registered here. The piece's Download is its other part (`StudioPieceDownload`).
  */
 export function StudioPrintHead({
   name,
   line,
   picker,
   paper = null,
-  sheet = {},
+  changed = null,
+  printed,
+  tip,
 }: {
   name: string;
   line: string;
   picker: { label: string; value: string; dataAttr?: string; options: Array<{ key: string; label: string; href: string }> } | null;
   paper?: StudioPaper | null;
-  /** What the preview sheet repeats from the row — its Saves and its "Changed since you printed" line. */
-  sheet?: Omit<PrintSheetParts, 'size'>;
+  changed?: ReactNode;
+  printed?: { eventId: string; piece: string; version: string | null };
+  /** What the slide's ⓘ says — words the print already carried. */
+  tip?: string;
 }) {
-  const row = picker ? (
-    <PrintChoicePicker {...picker} row={{ name, line }} />
-  ) : (
-    <FormRows data="print-head" attrs={STUDIO_PRINT_ROWS}>
-      <FormRow name={name} line={line} />
-    </FormRows>
-  );
-  if (!paper) return row;
-  /* The sheet's size ▾ is the SAME pick (the same addresses) — named for the paper. */
-  return <PrintPaperHead paper={paper} row={row} sheet={{ ...sheet, size: picker ? <PrintChoicePicker {...picker} row={{ name: 'Paper size' }} /> : null }} />;
+  useRegisterSlide(paper?.item ?? name, 'head', { name, line, size: picker, ...(paper ? { paper } : {}), changed, printed, tip });
+  return null;
 }
 
 /**
@@ -1153,15 +1147,14 @@ export type StudioToolProps =
   /* 🪧 The entrance seating chart's own row and, on a computer, its picture (owner 2026-10-14, `print-paper.tsx`). */
   | ({ part: 'chart' } & Parameters<typeof StudioChartPaper>[0])
   | ({ part: 'chart-body' } & Parameters<typeof StudioChartBody>[0])
-  /* 🧭 Studio › Prints' piece bar, phone only (owner 2026-10-16, `studio-prints-bar.tsx`) — the same one lazy door. */
-  | ({ part: 'prints-bar' } & Parameters<typeof StudioPrintsBar>[0])
+  /* 🎠 Studio › Prints' carousel — one print per slide, its toolbar under it (owner 2026-10-26, `studio-prints-carousel.tsx`). */
+  | ({ part: 'prints-carousel' } & Parameters<typeof StudioPrintsCarousel>[0])
   /* 🗂 An all-in-one file (◆ Event Hub Pro) and one guest's pass, free (owner 2026-10-16). */
   /* 🖨 Print settings · one Download per piece · View as ▾ · All guests ◆ · Everything ◆ (owner 2026-10-17, `studio-prints-settings.tsx`). */
   | ({ part: 'print-settings' } & Parameters<typeof StudioPrintSettings>[0])
   /* 🎨 Your Event Hub look — ◆ every print wears it, 🔒 the door (owner 2026-10-21, `StudioHubLookRow`). */
   | ({ part: 'hub-look' } & Parameters<typeof StudioHubLookRow>[0])
   | ({ part: 'piece-download' } & Parameters<typeof StudioPieceDownload>[0])
-  | ({ part: 'edit-in-place' } & Parameters<typeof StudioEditInPlace>[0])
   | ({ part: 'guest-piece' } & Parameters<typeof StudioGuestPiece>[0])
   | ({ part: 'everything' } & Parameters<typeof StudioEverything>[0])
   | ({ part: 'file-choice' } & Parameters<typeof StudioFileChoice>[0])
@@ -1215,16 +1208,14 @@ export function StudioTool(props: StudioToolProps) {
       return <StudioChartPaper {...props} />;
     case 'chart-body':
       return <StudioChartBody {...props} />;
-    case 'prints-bar':
-      return <StudioPrintsBar {...props} />;
+    case 'prints-carousel':
+      return <StudioPrintsCarousel {...props} />;
     case 'print-settings':
       return <StudioPrintSettings {...props} />;
     case 'hub-look':
       return <StudioHubLookRow {...props} />;
     case 'piece-download':
       return <StudioPieceDownload {...props} />;
-    case 'edit-in-place':
-      return <StudioEditInPlace {...props} />;
     case 'guest-piece':
       return <StudioGuestPiece {...props} />;
     case 'everything':

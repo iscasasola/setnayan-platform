@@ -39,7 +39,7 @@ import {
 import { ChangedSincePrinted, PassCardDesignPicker, PosterPhotoPicker, PrintChoicePicker, PrintMenuEditor, PrintPreview, PrintSaveButton } from './details-lazy';
 import { DetailsGoTo } from './details-go';
 import { EVERYTHING_PRO_NOTE, PLACE_CARDS_PRO_NOTE, WHOLE_SET_PRO_NOTE } from '@/lib/studio-prints-six';
-import { GUEST_TOKEN, GUEST_WORD_TOKEN, EVERYTHING_LABEL, everythingLine, guestPrintCountLine, type PrintGuest } from '@/lib/studio-prints-settings';
+import { GUEST_TOKEN, GUEST_WORD_TOKEN, EVERYTHING_LABEL, DIGITAL_TICKET_TIP, everythingLine, guestPrintCountLine, printSetTip, type PrintGuest } from '@/lib/studio-prints-settings';
 import { formatCount } from '@/lib/format-number';
 import { printHeadLine } from '@/lib/print-head-line';
 import { StudioTool } from './details-lazy';
@@ -352,10 +352,10 @@ export function PrintPieceEditor({
   menu?: { saved: MenuMoment[]; caterer: MenuMoment[]; suggestions: string[]; flash: 'saved' | 'error' | null };
   children?: React.ReactNode;
   /**
-   * 🧭 The new Maker's Studio › Prints — ONE LIST (prototype `EDITORS.prints`, owner 2026-10-06
-   * "yes add prints as the eleventh tile"): the piece's name and sizes on the left, its size ▾ on the
-   * right, its Saves right under it as small buttons, then what it includes. Same pickers, same
-   * files, same switches — only the order and the look change.
+   * 🧭 The new Maker's Studio › Prints — ONE PRINT PER SLIDE since 2026-10-26 (owner: *"So we can make like a swipe
+   * carousel type where they can see the preview larger then under is the toolbar to pick style? and download options?"*;
+   * prototype `prints_carousel_2026-10-26`): the piece's parts REGISTER its slide — its name, its chosen size, its size ▾,
+   * its picture, its ONE Download — and `studio-prints-carousel.tsx` draws it. Same pickers, same files, same switches.
    */
   studio?: boolean;
 }) {
@@ -400,6 +400,7 @@ export function PrintPieceEditor({
     const one = themedReady ? { href: q(k, 'print'), file: file.themed(k) } : { href: classic(k), file: file.classic(k) };
     const label = themed && !themedReady ? 'Download · Classic' : 'Download';
     const changed = <ChangedSincePrinted eventId={input.eventId} piece={k} version={input.previewVersion} again={one} />;
+    const printed = { eventId: input.eventId, piece: k, version: input.previewVersion ?? null };
     /* 🖼 THE PIECE'S PICTURE IN ITS HEAD (owner 2026-10-14): the SAME address its body draws (`PrintPieceBody`), at its paper's shape. */
     const paper: StudioPaper = {
       item: k,
@@ -412,7 +413,7 @@ export function PrintPieceEditor({
         themed && !themedReady ? `◆ ${t.name} · sample until Pro` : t.name,
       ],
       empty: menuEmpty
-        ? { title: 'No menu yet', line: 'The moments of your night and the dishes of each — this card is never printed blank.', door: { kind: 'here', selector: '[data-print-editor="menu"] [data-print-menu-add] button', label: 'Add your menu' } }
+        ? { title: 'No menu yet', line: 'The moments of your night and the dishes of each — this card is never printed blank.', door: { kind: 'edit', label: 'Add your menu' } }
         : storyMissing
           ? { title: 'No Love Story yet', line: 'The poster prints your chapters, moment by moment. It is never printed blank.', door: { kind: 'item', item: 'love-story', label: 'Add your Love Story' } }
           : null,
@@ -451,42 +452,21 @@ export function PrintPieceEditor({
             none="No guest has a pass yet — a pass appears once a guest is on your list and coming."
             changed={changed}
             pickNoun={{ one: 'pass', many: 'passes' }}
+            printed={printed}
+            tip={printSetTip(input.storeShell)}
           />
         </div>
       );
     }
+    /* 🍽 The Menu's dishes are content, not settings: its shipped editor (it saves as you go), opened from the slide's ⓘ — and, with
+       no dishes yet, from its empty line ("Add your menu"). Nothing to download until there are dishes. */
+    const edit = k === 'menu' && menu ? { label: menuEmpty ? 'Add your menu' : 'Edit menu', body: studioMenu(input.eventId, menu) } : null;
     return (
       <div data-print-editor={k} data-print-studio="" className="flex flex-col gap-1">
-        {/* The piece's name, its CHOSEN size and its size ▾ — ONE Form row (`lib/print-head-line.ts`); every size stays in the dropdown. */}
-        <StudioTool
-          part="print-head"
-          name={name}
-          line={fam ? printHeadLine(k, formats[fam]) : spec.size}
-          paper={paper}
-          sheet={{ actions: menuEmpty || storyMissing ? null : <PrintSaveButton href={one.href} file={one.file} variant="action" main label={label} />, changed }}
-          picker={picker}
-        />
-        {menuEmpty || storyMissing ? null : (
-          <StudioTool
-            part="piece-download"
-            item={k}
-            name={name}
-            href={one.href}
-            file={one.file}
-            label={label}
-            /* 🍽 The Menu's dishes are content, not settings: "Edit menu" opens the shipped editor in place (it saves as you go). */
-            extra={
-              k === 'menu' && menu ? (
-                <StudioTool part="edit-in-place" label="Edit menu">
-                  {studioMenu(input.eventId, menu)}
-                </StudioTool>
-              ) : null
-            }
-          />
-        )}
-        {changed}
-        {/* No dishes yet: nothing to download — the editor itself is the row's next step (the picture's door lands on its ＋). */}
-        {k === 'menu' && menu && menuEmpty ? studioMenu(input.eventId, menu) : null}
+        {/* 🎠 The piece's slide: its name, its CHOSEN size (`lib/print-head-line.ts`), its size ▾ (every size stays in the dropdown), its picture. */}
+        <StudioTool part="print-head" name={name} line={fam ? printHeadLine(k, formats[fam]) : spec.size} paper={paper} changed={changed} printed={printed} picker={picker} tip={printSetTip(input.storeShell)} />
+        {/* ⬇ …and its ONE Download — withheld while the piece would print blank (no menu, no Love Story). */}
+        <StudioTool part="piece-download" item={k} name={name} href={menuEmpty || storyMissing ? null : one.href} file={menuEmpty || storyMissing ? null : one.file} label={label} edit={edit} />
       </div>
     );
   }
@@ -692,6 +672,7 @@ function studioFreeEditor(eventId: string, slug: string | null, fp: FreePrint, i
           /* 🎟 Pick guests on both (owner 2026-10-26, "all guest related prints"): the place cards' picked file is those guests'
              cards only — offered where All guests saves (Event Hub Pro for the pack), refused by the route otherwise too. */
           pickNoun={qr ? { one: 'QR code', many: 'QR codes' } : { one: 'place card', many: 'place cards' }}
+          tip={fp.blurb}
         />
       </div>
     );
@@ -713,6 +694,7 @@ function studioFreeEditor(eventId: string, slug: string | null, fp: FreePrint, i
             href: s.href,
             file: s.file,
           }))}
+          tip={fp.blurb}
         />
       </div>
     );
@@ -721,7 +703,7 @@ function studioFreeEditor(eventId: string, slug: string | null, fp: FreePrint, i
   return (
     <div className="flex flex-col gap-1" data-free-print-saves={fp.key} data-print-studio="">
       {/* 🖼 Its name and its picture — the route's own page 1, at its paper's shape (owner 2026-10-14); the blurb is the row's small line. */}
-      <StudioTool part="print-head" name={fp.label} line={fp.blurb} picker={null} paper={paper} sheet={{ actions: <PrintSaveButton href={first.href} file={first.file} variant="action" main label="Download" /> }} />
+      <StudioTool part="print-head" name={fp.label} line={fp.paper} picker={null} paper={paper} tip={fp.blurb} />
       <StudioTool part="piece-download" item={fp.key} name={fp.label} href={first.href} file={first.file} />
     </div>
   );
@@ -913,6 +895,7 @@ export function DigitalTicketEditor({ input }: { input: PrintsInput }) {
         /* 🎟 Pick guests (owner 2026-10-26, *"Why cant i pick specific guests to download and compile?"*): ONE .zip of just the
            guests ticked — the zip route narrowed by `guests=` (`/api/guest/pass-card/all`, each id checked against this event). */
         pickNoun={{ one: 'ticket', many: 'tickets', verb: 'Download' }}
+        tip={DIGITAL_TICKET_TIP}
       />
     </div>
   );

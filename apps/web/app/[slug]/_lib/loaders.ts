@@ -18,6 +18,8 @@
 // the results IN as arguments. The service-role admin client is cookie-free and
 // safe to use here (`loadEventShell` creates its own so its cache key stays
 // slug-only — see its doc block).
+import { entourageProxyNames, readGuestStandIn } from '@/lib/guest-proxy.server';
+import { entourageWithProxies } from '@/lib/guest-proxy';
 import { plusOneSeats } from '@/lib/guests';
 import { isPlaceholderSeat } from '@/lib/extra-seats';
 import { linkedSeatIds } from './plus-one-seats.server';
@@ -1474,7 +1476,14 @@ const GUEST_OWN_ANSWER_COLUMNS = ['face_tagging_wanted', 'ugc_terms_accepted_at'
  * yet (42703) reads the row without it, and Me simply has no note — never "we couldn't find your invitation". This is
  * the ONLY guest-page read of that column, and it is the reader's own row: no other guest's view can carry it.
  */
-const GUEST_OWN_TOLERANT_COLUMNS = [...GUEST_OWN_ANSWER_COLUMNS, 'host_note_for_guest'] as const;
+const GUEST_OWN_TOLERANT_COLUMNS = [
+  ...GUEST_OWN_ANSWER_COLUMNS,
+  'host_note_for_guest',
+  // 🧍 A role holder's proxy link and the name they typed (owner 2026-10-27, `lib/guest-proxy.server.ts`) — tolerant like
+  // the note: a database ahead of nothing reads the row without them, and the guest is simply drawn as themselves.
+  'represented_by_guest_id',
+  'proxy_named_by_guest',
+] as const;
 
 /**
  * 1️⃣ THE GUEST'S OWN ROW — its own `cache()`d loader (2026-10-12), read by
@@ -1515,7 +1524,7 @@ export const loadGuestOwnRow = cache(async (admin: AdminClient, guestId: string)
     };
   };
   return select(
-    'guest_id, first_name, last_name, name_prefix, middle_name, name_suffix, display_name, role, attire, gender, side, group_category, plus_one_of_guest_id, plus_one_mode, plus_one_name_confirmed_at, plus_one_allowed, plus_one_count, plus_one_name, rsvp_status, meal_preference, dietary_restrictions, guest_note, custom_tags, qr_token, photo_url, photo_source, email, mobile',
+    'guest_id, first_name, last_name, name_prefix, middle_name, name_suffix, display_name, role, extra_roles, attire, gender, side, group_category, plus_one_of_guest_id, plus_one_mode, plus_one_name_confirmed_at, plus_one_allowed, plus_one_count, plus_one_name, rsvp_status, meal_preference, dietary_restrictions, guest_note, custom_tags, qr_token, photo_url, photo_source, email, mobile',
   );
 });
 
@@ -1614,6 +1623,10 @@ export const loadGuestContext = cache(
     const checkinAhead = galleryWindowAhead ? startAhead(readGuestCheckin(admin, event.event_id, guest.guest_id)) : null;
     const firstScanAhead = startAhead(readFirstScan(admin, guest.guest_id));
     const vendorCreditsAhead = startAhead(fetchEventVendorCredits(event.event_id));
+    // 🧍 Who this guest stands in for — or who stands in for them (`readGuestStandIn`).
+    const standInAhead = startAhead(
+      readGuestStandIn(admin, event.event_id, guest as { guest_id: string; represented_by_guest_id?: string | null; proxy_named_by_guest?: string | null }),
+    );
 
     const ownerSlug = await resolveEventOwnerSlug(admin, event.event_id);
     // Encode the DB-canonical slug (event.slug), not the raw URL param (matched
@@ -2179,6 +2192,7 @@ export const loadGuestContext = cache(
         ...guest,
         ...(plusOneSeatRows ? { plus_one_seats: plusOneSeatRows } : {}),
         face_tagging_wanted: faceTaggingWish,
+        stand_in: await standInAhead,
       },
       qrSvg,
       invitationUrl,
@@ -2309,7 +2323,8 @@ export const loadEntourage = cache(
         correct while dropping "Atty." from a ninong's name.
       */
       // + who is a real COUPLE (owner 2026-09-30): walking together alone prints both full names.
-      .select(`${ENTOURAGE_COLUMNS}, ${ENTOURAGE_COUPLE_FIELDS}, ${ENTOURAGE_PARENT_FIELDS}`)
+      // + `represented_by_guest_id` — "… (represented by …)" (owner 2026-10-27, `entourageWithProxies`).
+      .select(`${ENTOURAGE_COLUMNS}, ${ENTOURAGE_COUPLE_FIELDS}, ${ENTOURAGE_PARENT_FIELDS}, represented_by_guest_id`)
       .eq('event_id', eventId)
       /*
         🔴 A GUEST THE COUPLE REMOVED IS NOT ON THE INVITATION.
@@ -2352,11 +2367,15 @@ export const loadEntourage = cache(
       const drafted = await draftedMarchPrint(admin, eventId, marked, savedOrder, marchSteps, nameStyle);
       if (drafted) return drafted;
     }
-    return buildEntourage(
-      ((data ?? []) as EntourageGuestRow[]).map((r) => (r.guest_id && out.has(r.guest_id) ? { ...r, not_walking: true } : r)),
-      await sectionOrderAhead,
-      await (roleNamesAhead ?? loadEventRoleNames(admin, eventId)),
-      nameStyle ?? (await (nameStyleAhead ?? loadEventNameStyle(admin, eventId))),
+    const proxies = await entourageProxyNames(admin, eventId, (data ?? []) as { guest_id?: string | null; represented_by_guest_id?: string | null }[]);
+    return entourageWithProxies(
+      buildEntourage(
+        ((data ?? []) as EntourageGuestRow[]).map((r) => (r.guest_id && out.has(r.guest_id) ? { ...r, not_walking: true } : r)),
+        await sectionOrderAhead,
+        await (roleNamesAhead ?? loadEventRoleNames(admin, eventId)),
+        nameStyle ?? (await (nameStyleAhead ?? loadEventNameStyle(admin, eventId))),
+      ),
+      proxies,
     );
   },
 );

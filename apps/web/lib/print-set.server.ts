@@ -1,5 +1,7 @@
 import 'server-only';
 
+import { entourageWithProxies } from '@/lib/guest-proxy';
+import { entourageProxyNames } from '@/lib/guest-proxy.server';
 import { originalForPrint } from '@/lib/old-photo-copies.server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -235,7 +237,8 @@ async function readEntourage(
     // + `passed_away` for THIS reader only (ENTOURAGE_COLUMNS' own rule: never
     // widen the shared list for one reader) — the parents' "the late …".
     // + who is a real couple — the card prints a pair line exactly as the page does.
-    .select(`${ENTOURAGE_COLUMNS}, ${PASSED_AWAY}, ${ENTOURAGE_COUPLE_FIELDS}, ${ENTOURAGE_PARENT_FIELDS}`)
+    // + `represented_by_guest_id` for THIS reader — "… (represented by …)" (owner 2026-10-27, `entourageWithProxies`).
+    .select(`${ENTOURAGE_COLUMNS}, ${PASSED_AWAY}, ${REPRESENTED_BY}, ${ENTOURAGE_COUPLE_FIELDS}, ${ENTOURAGE_PARENT_FIELDS}`)
     .eq('event_id', eventId)
     .is('deleted_at', null)
     .or(`role.in.(${ENTOURAGE_ROLES.join(',')}),extra_roles.ov.{${ENTOURAGE_ROLES.join(',')}}`);
@@ -243,11 +246,12 @@ async function readEntourage(
     logQueryError('print-set.readEntourage', error, { event_id: eventId }, 'graceful_degrade');
     return { groups: [], passedAway: new Set() };
   }
-  const rows = (data ?? []) as Array<EntourageGuestRow & { passed_away?: boolean | null }>;
+  const rows = (data ?? []) as Array<EntourageGuestRow & { passed_away?: boolean | null; represented_by_guest_id?: string | null }>;
   const passedAway = new Set(rows.filter((r) => r.passed_away === true && r.guest_id).map((r) => r.guest_id as string));
   // The couple's own section order, read on ITS OWN (the loader's rule: an
   // unreadable preference prints the built-in order, never breaks the card).
-  return { groups: buildEntourage(rows, await loadEntourageSectionOrder(admin, eventId), names, style), passedAway };
+  const [sectionOrder, proxies] = await Promise.all([loadEntourageSectionOrder(admin, eventId), entourageProxyNames(admin, eventId, rows)]);
+  return { groups: entourageWithProxies(buildEntourage(rows, sectionOrder, names, style), proxies), passedAway };
 }
 
 /** 👗 The print's dress code — the guest page's, read once (`dressCodeLines`, `lib/dress-code-for-everyone.ts`). */

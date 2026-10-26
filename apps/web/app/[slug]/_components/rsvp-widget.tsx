@@ -3,7 +3,8 @@ import { GuestToHostCta } from '@/app/_components/guest-to-host-cta';
 import type { PapicFaceMode } from '@/lib/papic-face-mode';
 import { submitRsvp } from '../actions';
 import type { GuestRow } from '../_lib/types';
-import { isAPlusOne, plusOneSeats } from '@/lib/guests';
+import { guestRoleLabel, isAPlusOne, plusOneSeats } from '@/lib/guests';
+import { holdsARole, roleOfRecord, standingInWords, standsInForYouWords } from '@/lib/guest-proxy';
 import { RsvpPlusOnes } from './rsvp-plus-ones';
 import { rsvpAsks, type RsvpAskConfig, type RsvpAskField, type RsvpWords } from '@/lib/rsvp-ask';
 import { rsvpFormWord, type RsvpFormWordKey } from '@/lib/rsvp-form-words';
@@ -425,6 +426,18 @@ export function RsvpWidget({
   );
 
   const admitCount = 1 + (guest.plus_one_allowed ? plusOneSeats(guest) : 0);
+  /* 🧍 The proxy, said on the reply (`lib/guest-proxy.ts`) — the role in the event's usual words. */
+  const standIn = guest.stand_in?.standingInFor
+    ? standingInWords(guest.stand_in.standingInFor.name, guestRoleLabel(roleOfRecord(guest.stand_in.standingInFor)))
+    : guest.stand_in?.representedBy
+      ? standsInForYouWords(guest.stand_in.representedBy.name)
+      : null;
+  const offerStandIn =
+    !replyLocked &&
+    !guest.stand_in?.representedBy &&
+    !guest.stand_in?.standingInFor &&
+    !guest.plus_one_of_guest_id &&
+    holdsARole({ role: guest.role, extra_roles: guest.extra_roles ?? [] });
   // The celebratory labels are the spec's reply-card wording and stay
   // byte-identical. A wake cannot ask anyone to "joyfully accept" — its labels
   // answer the only question a mourner is being asked. ONE list, drawn by every
@@ -521,6 +534,21 @@ export function RsvpWidget({
           </header>
         </>
       )}
+
+      {/* 🧍‍♀️➡️🧍 THE PROXY ON THE REPLY (owner 2026-10-27). A proxy reads whom they stand in for, and replies as
+          themselves; the role holder reads who stands in for them — no reply is asked (they may still say they can come
+          after all, and the hosts decide). */}
+      {standIn ? (
+        <p
+          className="rounded-xl bg-gild/10 px-4 py-3 text-sm leading-snug text-ink"
+          data-rsvp-stand-in={guest.stand_in?.standingInFor ? 'proxy' : 'holder'}
+        >
+          {standIn}
+          {guest.stand_in?.representedBy ? (
+            <span className="mt-1 block text-xs text-ink/70">No reply is needed from you. If you can come after all, reply below — your hosts will decide.</span>
+          ) : null}
+        </p>
+      ) : null}
 
       {/* Seat reservation: confirming attendance holds the guest's place (the
           couple seats them later). Show the reassurance whenever they're
@@ -856,6 +884,31 @@ export function RsvpWidget({
           disable. */}
       {/* 🪑 THE DECLINE ARM (owner 2026-10-25, decision 3 — "Decline path unchanged"): a guest who says No meets
           these boxes here, after the note, exactly as before. On a Yes the same answers are the You step above. */}
+      {/* 🧍 "I CAN'T COME — SOMEONE WILL STAND IN FOR ME" (owner 2026-10-27: "a role holder can answer … and name them").
+          Only for a guest who HOLDS A ROLE and is not already represented, on the decline arm: a name, typed — a guest
+          cannot pick from the hosts' list, so the hosts confirm it on their card. `submitRsvp` stores it
+          (`proxy_named_by_guest`) only with a decline, and the database refuses it for a guest with no role. */}
+      {offerStandIn ? (
+        <div data-rsvp-step className={`${declineReveal}space-y-1.5`} data-rsvp-stand-in-ask="">
+          <label htmlFor="stand_in_name" className={questionClass(oneAtATime)}>
+            I can’t come — someone will stand in for me
+          </label>
+          <p className="text-xs text-ink/70">
+            Optional. Type their name and {words.theOrganizer} will give them your seat and your role’s dress code and call time.
+          </p>
+          <input
+            id="stand_in_name"
+            name="stand_in_name"
+            type="text"
+            autoComplete="off"
+            autoCapitalize="words"
+            maxLength={120}
+            defaultValue={guest.proxy_named_by_guest ?? ''}
+            placeholder="Their first and last name"
+            className="input-field w-full"
+          />
+        </div>
+      ) : null}
       {!declineArm ? null : detailsAlreadyKnown ? (
         <details data-rsvp-step className={declineReveal || undefined}>
           <summary className="flex min-h-11 cursor-pointer items-center justify-between gap-3 text-sm text-ink/80 hover:text-ink">

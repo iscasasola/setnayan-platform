@@ -30,6 +30,7 @@
  * would be. So removing the proxy restores everything exactly — reply, count, seat.
  */
 import { guestDisplayName, type GuestRole, type GuestRow, type RsvpStatus } from '@/lib/guests';
+import type { EntourageGroup } from '@/lib/entourage';
 
 /** The roles that are the people the event is FOR — they never send a proxy to their own celebration. */
 const NOT_A_PROXYABLE_ROLE: ReadonlySet<GuestRole> = new Set<GuestRole>(['guest', 'bride', 'groom', 'celebrant']);
@@ -87,6 +88,13 @@ export type StandingInFor = {
   name: string;
   role: GuestRole;
   extra_roles: GuestRole[];
+};
+
+/** The guest's own side of a proxy, as their invitation reads it (`readGuestStandIn`, lib/guest-proxy.server.ts). */
+export type GuestStandIn = {
+  standingInFor: StandingInFor | null;
+  representedBy: { guestId: string; name: string } | null;
+  namedProxy: string | null;
 };
 
 /** The proxy a holder is represented by. */
@@ -190,4 +198,21 @@ export function asOnePair<
     });
   }
   return { rows: out, pairs };
+}
+
+/**
+ * 🖨 THE ENTOURAGE, THE PROGRAM, THE PRINTS: "<role holder> (represented by <proxy>)" (DECISION_LOG row: the role holder
+ * keeps the role on every print; controller's default wording, owner did not object). `proxyNameOf` maps a represented
+ * holder's guest_id to their proxy's name (`entourageProxyNames`, lib/guest-proxy.server.ts). Every other person — and
+ * every group shape — is returned as it was.
+ */
+export function entourageWithProxies(groups: EntourageGroup[], proxyNameOf: ReadonlyMap<string, string>): EntourageGroup[] {
+  if (proxyNameOf.size === 0) return groups;
+  return groups.map((g) => ({
+    ...g,
+    rows: g.rows.map(
+      (row) =>
+        row.map((p) => (p && p.id && proxyNameOf.has(p.id) ? { ...p, name: representedOnPrint(p.name, proxyNameOf.get(p.id)!) } : p)) as unknown as typeof row,
+    ),
+  }));
 }

@@ -1,4 +1,5 @@
 import { Fragment, isValidElement } from 'react';
+import { effectiveRoleOf, standingInWords, standsInForYouWords } from '@/lib/guest-proxy';
 import { BLOCK_LOOKS_STYLE_ATTR, BLOCK_MARK_ATTR, blockLooksCss, blockOfCanvas, readBlockLooks, type BlockLookBlock } from '@/lib/block-looks';
 import Link from 'next/link';
 import { watchLiveOccasion } from '@/lib/watch-live-occasion';
@@ -2717,6 +2718,13 @@ export async function SiteBody({
       faceMode,
       faceTaggingAskable,
     } = g;
+    /* 🧍‍♀️➡️🧍 THE ROLE THIS GUEST DRESSES AND ARRIVES AS (owner 2026-10-27: "giving them the role and dress code, call time,
+       etc"). A proxy wears the role they stand in for — every reader below of a dress code, a call time or a role word
+       takes `dressRole`, never `guest.role` (`effectiveRoleOf`, 🔒 lib/a-proxy-wears-the-role.test.ts). Everyone else's
+       is their own role, so nothing moves for them. */
+    const standIn = guest.stand_in ?? null;
+    const dressRole = effectiveRoleOf(guest, standIn?.standingInFor);
+    const guestAsRole = dressRole === guest.role ? guest : { ...guest, role: dressRole };
 
     // 🔒 A SIDE EXISTS ONLY WHERE TWO PEOPLE DO (2026-09-30). "Bride's side /
     // Groom's side / Both sides" was built for every event type, so a debut's
@@ -2794,7 +2802,7 @@ export async function SiteBody({
        Wear with it, exactly as the Welcome's look it replaced (`welcomeParts` needs `dress_code` among the scenes).
        Every guest has these parts since 2026-10-26 (owner: "EVERY GUEST GETS THE NEW GUEST SIDE"). */
     const meFactsHere = guestMeFacts({
-      role: guest.role ?? null,
+      role: dressRole ?? null,
       dressCodeConfig: event.dress_code_config ?? null,
       rolePalette: event.role_palette,
       roleNames,
@@ -2856,7 +2864,7 @@ export async function SiteBody({
       config: event.dress_code_config ?? null,
       ceremonyType: dressRiteOf(event),
       genderSeparation: (event as { gender_separation?: string | null }).gender_separation ?? null,
-      guestRole: guest.role ?? null,
+      guestRole: dressRole ?? null,
       guestAttire: guestAttireOf(guest),
       guestNameParts: guestNamePartsOf(guest),
       march: marchPlaceOf(entourage, guest.guest_id),
@@ -2963,8 +2971,14 @@ export async function SiteBody({
        named in What to wear, never on this line (one place for the colour fact). */
     const meGreeting = guestGreetingOf({
       name: placeCardName(guest, eventNameStyle) ?? (guestFullName(guest, eventNameStyle) || null),
-      roleCode: guest.role,
-      roleWord: roleWordOfGuest(guest, roleNames),
+      roleCode: dressRole,
+      roleWord: roleWordOfGuest(guestAsRole, roleNames),
+      // 🧍 "Standing in for Mrs. Ma. Theresa Sacdalan-Tria" · "Maria Catherine Sacdalan is standing in for you".
+      standIn: standIn?.standingInFor
+        ? standingInWords(standIn.standingInFor.name, roleWordOfGuest(guestAsRole, roleNames))
+        : standIn?.representedBy
+          ? standsInForYouWords(standIn.representedBy.name)
+          : null,
       sideLabel,
       date: greetingDateLine(event.event_date, event.event_date_precision),
       venues: event.venues ?? null,
@@ -3410,7 +3424,7 @@ export async function SiteBody({
           {g.checklist && plan.body === 'normal' && !isMakerCanvas && !isLive && !isPost ? (
             <GuestChecklist
               items={guestChecklistItems({
-                role: guest.role,
+                role: dressRole,
                 person: { ...guestNamePartsOf(guest), attire: guestAttireOf(guest) },
                 dressCodeConfig: event.dress_code_config ?? null,
                 rolePalette: event.role_palette,
@@ -3979,7 +3993,7 @@ export async function SiteBody({
                     config: event.dress_code_config ?? null,
                     ceremonyType: dressRiteOf(event),
                     genderSeparation: (event as { gender_separation?: string | null }).gender_separation ?? null,
-                    guestRole: guest.role ?? null,
+                    guestRole: dressRole ?? null,
                     guestAttire: guestAttireOf(guest),
       guestNameParts: guestNamePartsOf(guest),
                     march: marchPlaceOf(entourage, guest.guest_id),

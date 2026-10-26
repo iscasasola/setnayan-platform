@@ -40,6 +40,12 @@ export function MeGreeting({ greeting }: { greeting: GuestGreeting }) {
           {g.tail ? <span className="tracking-[0.14em] text-ink/70">{g.role ? `· ${g.tail}` : g.tail}</span> : null}
         </p>
       ) : null}
+      {/* 🧍 A proxy reads whom they stand in for; the role holder reads who stands in for them (owner 2026-10-27). */}
+      {g.standIn ? (
+        <p data-greeting-stand-in="" className="mx-auto mt-2.5 max-w-[22rem] text-[13.5px] leading-snug text-ink/75" style={{ textWrap: 'balance' }}>
+          {g.standIn}
+        </p>
+      ) : null}
       {g.date || g.venues.length > 0 ? (
         <>
           <div aria-hidden className="mx-auto mb-[18px] mt-5 h-px w-9 bg-gild/70" />

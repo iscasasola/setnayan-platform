@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "788b7e11c4",
+  "generatedFromRef": "5299c954c0",
   "routeCount": 473,
   "destinations": 1013,
-  "actions": 662,
-  "blocks": 7111,
+  "actions": 661,
+  "blocks": 7112,
   "routes": {
     "/": {
       "files": [
@@ -7863,9 +7863,7 @@
         "dashboard/[eventId]/memories/page.tsx"
       ],
       "destinations": [],
-      "actions": [
-        "claimUploadsCamera"
-      ],
+      "actions": [],
       "blocks": [
         "AddToLibrary",
         "DriveCopyCard",
@@ -7880,7 +7878,6 @@
         "PoolGalleryCard",
         "ServiceParts",
         "Spotlight",
-        "SubmitButton",
         "UploadsOpenChoice"
       ]
     },
@@ -9299,6 +9296,7 @@
         "ShutterSection",
         "SourceRow",
         "Spotlight",
+        "StartAddingPhotos",
         "StatusBanners",
         "StepperRung",
         "StudioBuyHero",
@@ -13146,6 +13144,7 @@
         "Metadata",
         "MutualDays",
         "PosterSprig",
+        "ProfileBack",
         "ProfileShareButton",
         "ReportPageButton",
         "ScaledTileList",

@@ -27,7 +27,14 @@ import { papicCameraSaleRefusedPath } from '@/lib/papic-sells-only-credits';
 import { fetchPapicPassTiers } from '@/lib/papic-pass-tiers';
 import { resolvePapicWindow } from '@/lib/papic-window';
 import { formatCount } from '@/lib/format-number';
-import { refuseLimitedHelper } from '@/lib/host-gate';
+import { limitedHelperRefusal, refuseLimitedHelper } from '@/lib/host-gate';
+import {
+  uploadsClaimAnswer,
+  uploadsClaimStep,
+  uploadsClaimWords,
+  type UploadsClaimCode,
+  type UploadsSeatRead,
+} from '@/lib/uploads-seat-claim';
 
 // Iteration 0012 Papic — couple-side server actions.
 //
@@ -765,45 +772,51 @@ export async function setPapicUploadsOpen(formData: FormData) {
   redirect(`${back}?uploads_open_set=${open ? '1' : '0'}`);
 }
 
-export async function claimUploadsCamera(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'), 'photos');
-  const result = await getCoupleEventId(formData.get('event_id'));
-  if (!result.ok) redirect(result.redirectTo);
-  const { eventId } = result;
-  const back = papicBack(formData, eventId);
+/**
+ * ＋ ADD PHOTOS IN ONE PRESS (owner 2026-10-26, live: "the turn on is not working as well fix it"). The sheet's
+ * "Choose photos" opens the file picker at once; the moment files are picked, the picker calls THIS to claim the event's
+ * Uploads camera for the host, then sends the files with the token it returns. There is no separate "Turn this on".
+ *
+ * Replaces `claimUploadsCamera` (a form + redirect): it answered a missing camera with `uploads_error=no_camera`, "please
+ * try again" — and no retry could mint the row (`lib/uploads-seat-claim.ts` has the measurement). It also answered a
+ * camera claimed by the OTHER host with "Adding photos is on" while the sheet stayed shut for this one.
+ *
+ * 🔒 THE SAME GATES, ANSWERED IN WORDS (a client-called action must not redirect a sheet away): the limited-helper gate,
+ * the couple check, then the token is read on the service role and claimed on the CALLER'S session through
+ * `papic_claim_seat` — idempotent in the database ('claimed' again for the same person; 'taken' for anybody else). The
+ * token reaches the browser only after the claim says it is this person's. It mints NOTHING
+ * (`the-uploads-camera-has-no-back-door.test.ts`): the camera is minted by the couple-checked Memories render.
+ */
+export type StartAddingPhotos = { ok: true; token: string } | { ok: false; code: UploadsClaimCode | 'helper'; words: string };
 
-  const admin = createAdminClient();
-  const { data: seat, error: seatError } = await admin
+export async function startAddingPhotos(rawEventId: string): Promise<StartAddingPhotos> {
+  const refuse = (code: UploadsClaimCode): StartAddingPhotos => ({ ok: false, code, words: uploadsClaimWords(code) });
+  const helper = await limitedHelperRefusal(rawEventId, 'photos');
+  if (helper) return { ok: false, code: 'helper', words: helper };
+  const result = await getCoupleEventId(rawEventId);
+  if (!result.ok) return refuse(result.redirectTo === '/login' ? 'signed_out' : 'not_host');
+  const { eventId } = result;
+
+  const { data: seat, error: seatError } = await createAdminClient()
     .from('paparazzi_seats')
-    .select('claim_qr_token, claimer_user_id')
+    .select('claim_qr_token')
     .eq('event_id', eventId)
     .eq('seat_index', PAPIC_UPLOADS_CAMERA_INDEX)
     .is('revoked_at', null)
     .maybeSingle();
-
-  // ⚠ A refused read is not "there is no camera". The studio render provisions
-  // it, so the honest answer is "try again in a moment", never a silent no-op.
-  if (seatError) {
-    logQueryError('claimUploadsCamera.seat', seatError, { event_id: eventId }, 'graceful_degrade');
-    redirect(`${back}?uploads_error=unavailable`);
-  }
-  if (!seat?.claim_qr_token) redirect(`${back}?uploads_error=no_camera`);
-  // Already ours ⇒ nothing to do. Not an error.
-  if (seat.claimer_user_id) redirect(`${back}?uploads_ready=1`);
+  if (seatError) logQueryError('startAddingPhotos.seat', seatError, { event_id: eventId }, 'graceful_degrade');
+  const step = uploadsClaimStep((seat as UploadsSeatRead) ?? null, Boolean(seatError));
+  if ('refuse' in step) return refuse(step.refuse);
 
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc('papic_claim_seat', {
-    p_token: seat.claim_qr_token as string,
-  });
+  const { data, error } = await supabase.rpc('papic_claim_seat', { p_token: step.claim });
   if (error) {
-    logQueryError('claimUploadsCamera.claim', error, { event_id: eventId }, 'graceful_degrade');
-    redirect(`${back}?uploads_error=claim_failed`);
+    logQueryError('startAddingPhotos.claim', error, { event_id: eventId }, 'graceful_degrade');
+    return refuse('claim_failed');
   }
-  const status = ((data ?? {}) as { status?: string }).status ?? 'error';
-  if (status !== 'claimed') redirect(`${back}?uploads_error=${encodeURIComponent(status)}`);
-
-  revalidatePath(back);
-  redirect(`${back}?uploads_ready=1`);
+  const answer = uploadsClaimAnswer(((data ?? {}) as { status?: string }).status);
+  if ('refuse' in answer) return refuse(answer.refuse);
+  return { ok: true, token: step.claim };
 }
 
 export async function setPapicStyle(formData: FormData) {

@@ -280,7 +280,7 @@ export async function GuestAllotmentsChoice({
             <input type="hidden" name="minimum_each" value={floorPoints ?? ''} />
           </>
         ) : null}
-        <SubmitButton className={enabled ? 'sn-btn-secondary' : 'sn-btn-primary'}>
+        <SubmitButton className={enabled ? 'ab ab-neutral inline-flex min-h-11 items-center justify-center' : 'ab ab-brand ab-main inline-flex min-h-11 items-center justify-center'}>
           {enabled ? 'Turn this off' : 'Turn this on'}
         </SubmitButton>
         <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-ink/50">
@@ -335,7 +335,7 @@ export async function GuestAllotmentsChoice({
                 placeholder={enabled ? String(split.perHead) : 'No limit'}
                 className="w-28 rounded-lg border border-ink/15 px-3 py-1.5 text-sm"
               />
-              <SubmitButton className="sn-btn-secondary">Save</SubmitButton>
+              <SubmitButton className="ab ab-neutral inline-flex min-h-11 items-center justify-center">Save</SubmitButton>
             </div>
             {/* A TYPED NUMBER IS "AT MOST" (migration 20271221350945): the
                 database holds it to the equal share, exactly as `splitTheRest`
@@ -390,7 +390,7 @@ export async function GuestAllotmentsChoice({
                 placeholder="No minimum"
                 className="w-28 rounded-lg border border-ink/15 px-3 py-1.5 text-sm"
               />
-              <SubmitButton className="sn-btn-secondary">Save</SubmitButton>
+              <SubmitButton className="ab ab-neutral inline-flex min-h-11 items-center justify-center">Save</SubmitButton>
             </div>
             {minimumLine ? (
               <p
@@ -493,7 +493,7 @@ export async function GuestAllotmentsChoice({
                 : 'Lifts every limit so any guest can keep taking from the pot for as long as it lasts. This happens automatically late in your event too.'}
             </p>
             {releasedAt ? null : (
-              <SubmitButton className="sn-btn-secondary">Open the rest to everyone</SubmitButton>
+              <SubmitButton className="ab ab-neutral inline-flex min-h-11 items-center justify-center">Open the rest to everyone</SubmitButton>
             )}
           </form>
         </>

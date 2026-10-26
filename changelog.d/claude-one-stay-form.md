@@ -26,6 +26,10 @@
 - The shared door asks the limited-helper gate first (`limitedHelperRefusal(event_id, area)` — photos · schedule ·
   none for Sponsors, matching `AREA_RULES`), carried from #6970's door. `lib/ugat/scan-fields.ts` reads `<StayForm>`
   as a form (its `event_id` is the door's), so the Fields map and the create-form round trips see the in-place forms.
+- `papic_provision_seats(uuid)` lost its only caller with `provisionPapicSeats` and is DROPPED (migration
+  `20271292339764_drop_papic_provision_seats_no_caller.sql`, IF EXISTS; `ugat-both-ends` rpc-no-caller). Paid seats
+  still provision through `provisionPapicSeatsAdmin` (service role). Exposure + anon-RPC baselines narrowed.
+  `a-delete-really-deletes` counts `StayConfirmForm` as the ConfirmForm it is, and pins that it still asks first.
 
 SPEC IMPACT: None to the spec text — implements DECISION_LOG 2026-10-26 "A SAVE NEVER RESETS THE SCREEN — APP-WIDE"
 (first batch after the Papic template; the row already says the fixes land in batches and a repo guard follows).

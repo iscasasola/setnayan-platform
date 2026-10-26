@@ -1,0 +1,12 @@
+-- drop_papic_provision_seats_no_caller
+--
+-- 2026-10-26 (reload audit §3c, PR "one StayForm"). `papic_provision_seats(uuid)` was the couple-session door behind
+-- the `provisionPapicSeats` server action on the old per-seat `/crew` cards. That action had no caller — `/crew`
+-- shows one shared code now (`lib/papic-sells-only-credits.test.ts`) — and was deleted, which left this SECURITY
+-- DEFINER function callable by any signed-in user with no app caller, no SQL body, policy, trigger or view naming it
+-- (`tests/db/ugat-both-ends.db.test.ts`, class rpc-no-caller). The end nobody needs goes.
+--
+-- Seats a PAID PAPIC_SEATS order owns are still made by the activation hook, which never used this RPC (it raises on
+-- a NULL auth.uid()): `lib/sku-activation.ts` › `provisionPapicSeatsAdmin` (`lib/papic-seats.ts`), service role.
+-- Idempotent: IF EXISTS.
+DROP FUNCTION IF EXISTS public.papic_provision_seats(uuid);

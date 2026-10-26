@@ -32,6 +32,7 @@ import {
 import {
   createEventTypeCore,
   updateEventTypeCore,
+  setEventTypeForWhomCore,
   setEventTypeEnabledCore,
   retireEventTypeCore,
   unretireEventTypeCore,
@@ -1936,6 +1937,23 @@ export async function updateEventTypePresentation(formData: FormData): Promise<n
   }
   revalidateEventTypeRosterSurfaces();
   redirectBack(formData, 'ok', `${res.data.label} saved.`);
+}
+
+/**
+ * Studio: WHO an event type can be for (owner 2026-10-26) — the four ticks under
+ * "Who it's for". Delegates to the shared core.
+ */
+export async function updateEventTypeForWhom(formData: FormData): Promise<never> {
+  const user = await requireAdmin();
+  const key = String(formData.get('event_type') ?? '').trim();
+  const admin = createAdminClient();
+  const res = await setEventTypeForWhomCore(admin, user.id, { key, forWhom: formData.getAll('for_whom') });
+  if (!res.ok) {
+    if (res.error === 'not_found') redirectBack(formData, 'error', 'Event type not found.');
+    redirectBack(formData, 'error', res.error);
+  }
+  revalidateEventTypeRosterSurfaces();
+  redirectBack(formData, 'ok', 'Who it’s for saved.');
 }
 
 // ── Faith vocabulary ─────────────────────────────────────────────────────────

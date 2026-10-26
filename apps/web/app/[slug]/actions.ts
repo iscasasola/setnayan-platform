@@ -1769,7 +1769,7 @@ async function wallPull(
   await revalidateEventSlug(eventId);
   // The couple's control strip lists the same tiles; leaving it stale would
   // show a photograph as "on the wall now" that a guest has just pulled.
-  revalidatePath(`/dashboard/${eventId}/studio/papic`);
+  revalidatePath(`/dashboard/${eventId}`);
   revalidatePath(`/dashboard/${eventId}/live`);
   return { ok: true, state: res.state };
 }

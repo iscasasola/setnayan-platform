@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6720
+# facts: 6722
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     571
-#   col       4929
+#   col       4931
 #   policy    953
 #   view      9
 #   func      254
@@ -1861,6 +1861,7 @@ col	public.event_type_vocab.description	anon=S authenticated=S
 col	public.event_type_vocab.emoji	anon=S authenticated=S
 col	public.event_type_vocab.enabled	anon=S authenticated=S
 col	public.event_type_vocab.event_type	anon=S authenticated=S
+col	public.event_type_vocab.for_whom	anon=S authenticated=S
 col	public.event_type_vocab.hero_photo_url	anon=S authenticated=S
 col	public.event_type_vocab.label_en	anon=S authenticated=S
 col	public.event_type_vocab.onboarding_href	anon=S authenticated=S
@@ -3186,6 +3187,7 @@ col	public.papic_missions.mission_id	anon=- authenticated=SIU
 col	public.papic_missions.mission_type	anon=- authenticated=SIU
 col	public.papic_missions.moment_key	anon=- authenticated=SIU
 col	public.papic_missions.prompt	anon=- authenticated=SIU
+col	public.papic_missions.removed_at	anon=- authenticated=SIU
 col	public.papic_missions.source	anon=- authenticated=SIU
 col	public.papic_missions.target_guest_id	anon=- authenticated=SIU
 col	public.papic_missions.target_role	anon=- authenticated=SIU

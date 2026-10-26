@@ -110,7 +110,7 @@ export async function POST(req: NextRequest) {
     if (eventReset) {
       await admin.from('events').update(eventReset).eq('event_id', eventId);
     }
-    const target = new URL(`/dashboard/${eventId}/studio/papic`, req.url);
+    const target = new URL(`/dashboard/${eventId}/memories`, req.url); // Drive lives in Memories (the Papic page is gone, 2026-10-26)
     target.searchParams.set('drive_disconnected', '1');
     return NextResponse.redirect(target);
   }
@@ -156,7 +156,7 @@ export async function POST(req: NextRequest) {
       : []),
   ]);
 
-  const target = new URL(`/dashboard/${eventId}/studio/papic`, req.url);
+  const target = new URL(`/dashboard/${eventId}/memories`, req.url); // Drive lives in Memories (the Papic page is gone, 2026-10-26)
   target.searchParams.set('drive_disconnected', '1');
   return NextResponse.redirect(target);
 }

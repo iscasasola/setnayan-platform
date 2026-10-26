@@ -39,6 +39,13 @@ jobs:
     # reported as "cancelled", which reads like a flake and is not one.
     # ⚠ It also had to be raised for the cache to LAND AT ALL: this PR must pass
     # the very check it repairs, on a run that has no cache yet to benefit from.
+    #
+    # ⚠ 2026-10-27: the cap was hit again — 8 of 59 attempts — and NOT by the
+    # suite (5.1–6.0 min in every success). The 2026-08-19 cache held the
+    # browser but not the apt packages, and that download is what ran 10–17
+    # minutes. See "WHERE THE 25 MINUTES ACTUALLY WENT" below. The cap stays at
+    # 25: with the packages cached and overlapped with the build, the measured
+    # successes (13.7–18.7 min when apt was fast) are the whole run.
     timeout-minutes: 25
 
     steps:
@@ -54,22 +61,43 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile=false
 
-      # Cache the browser binary, keyed on the resolved Playwright version.
+      # ═══ WHERE THE 25 MINUTES ACTUALLY WENT (measured 2026-10-27) ═══════════
       #
-      # WHY: this job's timeout-minutes is 15, and every cancellation observed
-      # on 2026-08-19 was EXACTLY 15m — i.e. the timeout, not a test failure —
-      # with the job dying inside this step. Measured over 30 runs: 22 success
-      # (5–14 min), 5 cancelled at 15m, and one of those was on `main`, so it is
-      # not branch-specific. Successes at 14m are one slow minute from the cap.
-      # The browser download is the variable part; caching removes it rather
-      # than raising the ceiling and waiting for the tail to catch up again.
+      # 59 job attempts on this workflow, 2026-10-24 → 2026-10-27. EIGHT died at
+      # the 25-minute cap, and in ALL EIGHT the time went to one step — "Install
+      # Playwright Chromium" — at 10.2–17.4 min, against a median of 0.2 min in
+      # the 47 successes. The suite itself ran 5.1–6.0 min in every success and
+      # was still passing when each of the eight was cut off.
       #
-      # The key includes the version so a Playwright bump misses the cache and
-      # re-downloads, instead of silently testing against a stale browser.
+      # The browser was already cached (2026-08-19). What was NOT cached is the
+      # ~26 MB of Ubuntu packages `playwright install-deps` fetches every run
+      # (fonts, libnss3, xvfb …). On a bad hour the runner's apt mirror serves
+      # them at ~43 kB/s: job 121690883112 logged "Fetched 25.9 MB in 10min 1s".
+      # The 2026-08-19 fix diagnosed the right STEP and cached the wrong half of
+      # it — that is why the cancellations came back.
+      #
+      # Two changes, either of which alone removes the cap-hit:
+      #   1. the .deb files are cached too, so a hit downloads nothing; and
+      #   2. the install runs IN THE BACKGROUND, behind the ~10-minute
+      #      `next build`, so even a cache miss on a slow mirror costs nothing
+      #      until it outlasts the build.
+      #
+      # NOT SHARDED, on purpose: the suite is ~6 of ~17 minutes and the build
+      # (~10) would have to run once and be shipped to every shard; and this
+      # account runs at most 20 jobs at once (changelog.d/rd-ci-cancels-
+      # superseded-runs.md: 20 running, 95 waiting) — every shard is a slot
+      # another PR waits for.
       - name: Resolve Playwright version
         id: pw
-        run: echo "version=$(pnpm --filter @setnayan/web exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+        # ImageOS / ImageVersion are runner MACHINE variables, which the `env`
+        # expression context does not see — so they are handed over as outputs.
+        run: |
+          echo "version=$(pnpm --filter @setnayan/web exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+          echo "image=${ImageOS}-${ImageVersion}" >> "$GITHUB_OUTPUT"
+          echo "imageos=${ImageOS}" >> "$GITHUB_OUTPUT"
 
+      # The browser binary, keyed on the resolved version so a Playwright bump
+      # misses the cache and re-downloads instead of testing a stale browser.
       - name: Cache Playwright browsers
         id: pw-cache
         uses: actions/cache@v4
@@ -77,16 +105,37 @@ jobs:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-${{ steps.pw.outputs.version }}-chromium
 
-      # A cache hit still needs the OS-level shared libraries, which live
-      # outside ~/.cache and are NOT restored by the cache. `--with-deps` on a
-      # hit installs those without re-downloading the browser.
-      - name: Install Playwright Chromium
+      # The OS packages the browser needs, as .deb files. They live outside
+      # ~/.cache/ms-playwright, so the browser cache above never held them.
+      # Keyed on the runner image too: a new image (weekly) misses, restores the
+      # previous set through restore-keys, downloads only what changed, and
+      # saves a fresh set.
+      - name: Cache Playwright system packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/playwright-apt
+          key: ${{ runner.os }}-${{ steps.pw.outputs.image }}-playwright-${{ steps.pw.outputs.version }}-apt
+          restore-keys: |
+            ${{ runner.os }}-${{ steps.pw.outputs.imageos }}-
+
+      - name: Install Playwright Chromium (browser only — on a cache miss)
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: pnpm --filter @setnayan/web exec playwright install chromium
+
+      # Started here, finished after the build ("Wait for …" below). A background
+      # process outlives its step — the production server further down relies on
+      # exactly that — and only ends with the job.
+      - name: Start the Playwright system packages (in the background, behind the build)
         run: |
-          if [ "${{ steps.pw-cache.outputs.cache-hit }}" = "true" ]; then
-            pnpm --filter @setnayan/web exec playwright install-deps chromium
-          else
-            pnpm --filter @setnayan/web exec playwright install --with-deps chromium
-          fi
+          mkdir -p ~/.cache/playwright-apt
+          # apt-get keeps what it downloads by default; say so, so the copy-back
+          # below cannot silently find nothing on an image that changed it.
+          echo 'APT::Keep-Downloaded-Packages "true";' | sudo tee /etc/apt/apt.conf.d/99-keep-downloaded-packages > /dev/null
+          sudo rm -f /etc/apt/apt.conf.d/docker-clean
+          n=$(find ~/.cache/playwright-apt -name '*.deb' | wc -l)
+          echo "restored $n cached .deb file(s)"
+          if [ "$n" -gt 0 ]; then sudo cp ~/.cache/playwright-apt/*.deb /var/cache/apt/archives/; fi
+          nohup bash -c 'pnpm --filter @setnayan/web exec playwright install-deps chromium > "$RUNNER_TEMP/pw-deps.log" 2>&1; echo $? > "$RUNNER_TEMP/pw-deps.exit"' > /dev/null 2>&1 &
 
       - name: Build web app
         run: pnpm --filter @setnayan/web build
@@ -97,6 +146,29 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: dummy-anon-key
           NEXT_PUBLIC_APP_URL: http://localhost:3000
+
+      # Fail-closed: no exit file → keep waiting (the job timeout is the
+      # ceiling); a non-zero exit fails this step with the full apt log.
+      - name: Wait for the Playwright system packages
+        run: |
+          waited=0
+          while [ ! -f "$RUNNER_TEMP/pw-deps.exit" ]; do sleep 2; waited=$((waited + 2)); done
+          echo "waited ${waited}s after the build for the system packages"
+          code=$(cat "$RUNNER_TEMP/pw-deps.exit")
+          if [ "$code" != "0" ]; then cat "$RUNNER_TEMP/pw-deps.log"; echo "::error::playwright install-deps exited $code"; exit 1; fi
+          # The one line that says whether the cache worked: "Need to get 0 B/…"
+          # means every package came from the restored .deb files.
+          grep -E "^(Need to get|Fetched|[0-9]+ upgraded)" "$RUNNER_TEMP/pw-deps.log" || tail -5 "$RUNNER_TEMP/pw-deps.log"
+          # Re-seed the cache dir with exactly the .debs of what is now installed
+          # (an epoch's ':' is '%3a' in apt's file names), so superseded versions
+          # do not pile up across images.
+          dpkg-query -W -f='${Package}_${Version}_${Architecture}.deb\n' | sed 's/:/%3a/g' | sort -u > "$RUNNER_TEMP/installed-debs.txt"
+          rm -rf ~/.cache/playwright-apt && mkdir -p ~/.cache/playwright-apt
+          for f in /var/cache/apt/archives/*.deb; do
+            [ -e "$f" ] || continue
+            if grep -qxF "$(basename "$f")" "$RUNNER_TEMP/installed-debs.txt"; then cp "$f" ~/.cache/playwright-apt/; fi
+          done
+          echo "cached $(find ~/.cache/playwright-apt -name '*.deb' | wc -l) .deb file(s), $(du -sh ~/.cache/playwright-apt | cut -f1)"
 
       - name: Start production server
         # `next start` binds to port 3000 (per the script in package.json).
@@ -123,6 +195,14 @@ jobs:
         env:
           E2E_BASE_URL: http://localhost:3000
           CI: 'true'
+          PLAYWRIGHT_JSON_OUTPUT_FILE: ${{ runner.temp }}/e2e-timings.json
+
+      # Where the suite's minutes go, per spec file, on THIS run — so the next
+      # "the e2e job is slow" starts from a measurement, not from the dot line.
+      # Reads the JSON the reporter above wrote; changes no result.
+      - name: Name the slowest spec files
+        if: ${{ !cancelled() }}
+        run: node scripts/e2e-timing-summary.mjs "$RUNNER_TEMP/e2e-timings.json"
 
       - name: Upload Playwright report on failure
         if: failure()

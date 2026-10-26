@@ -48,6 +48,7 @@
  *                   "follows the guest's side" can be walked; on the card &side=bride|groom|both picks the guest's side
  *                   (default bride) and the guest is already in College (groom's side)
  */
+import { papicHomeHref } from '@/lib/papic-home-href';
 import { LabPageSpotlight } from '@/app/dev/_components/lab-page-spotlight';
 import { TOURS } from '@/lib/tours';
 import { notFound } from 'next/navigation';
@@ -481,7 +482,7 @@ export default async function GuestsLabPage({
     const low = sp.low === '1';
     const labPapic: GuestPapicState =
       sp.papic === 'off'
-        ? { access: 'off', ceiling: undefined, door: `/dashboard/${EVENT}/studio/papic` }
+        ? { access: 'off', ceiling: undefined, door: papicHomeHref(EVENT) }
         : sp.papic === 'unknown'
           ? { access: 'unknown', ceiling: undefined }
           : { access: 'on', ceiling: sp.papic === 'set' ? 40 : sp.papic === 'none' ? 0 : null };

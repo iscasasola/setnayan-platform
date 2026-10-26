@@ -189,7 +189,8 @@ test('the organiser still reaches the shell — the fix must not close a real do
   );
   assert.equal(
     eventAlbumHref({ event_id: 'E1', slug: null, member_type: 'couple' }),
-    '/dashboard/E1/studio/papic',
+    // The album is Memories (the Papic page was removed 2026-10-26; the photos had moved there on 2026-10-23).
+    '/dashboard/E1/memories',
   );
 });
 
@@ -240,13 +241,13 @@ test('the album href resolves to a PAGE, never a route handler', () => {
   // App Router <Link> prefetches, so a side effect behind a card runs when the
   // card scrolls past. Both static destinations must be page.tsx files.
   for (const rel of [
-    'app/dashboard/[eventId]/studio/papic/page.tsx',
+    'app/dashboard/[eventId]/memories/page.tsx',
     'app/[slug]/page.tsx',
   ]) {
     assert.ok(existsSync(join(WEB, rel)), `destination is not a page: ${rel}`);
   }
   for (const rel of [
-    'app/dashboard/[eventId]/studio/papic/route.ts',
+    'app/dashboard/[eventId]/memories/route.ts',
     'app/[slug]/route.ts',
   ]) {
     assert.ok(

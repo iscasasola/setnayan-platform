@@ -1531,7 +1531,11 @@ h2.fd-sechead,
     background: var(--fd-cream);
     border-right: 1px solid var(--fd-line);
     z-index: 40;
-    padding: 16px 8px 40px max(8px, var(--sn-safe-l));
+    /* 📱 CLEARS THE STATUS BAR (owner 2026-10-27, iPhone app: "sidebar on mobile overlaps on the clock"). The drawer is
+       `position: fixed; top: 0`, so in the installed app it starts under the clock and battery; the top inset pushes
+       "My Home" below them, and the bottom inset keeps the last links above the home indicator. */
+    padding: calc(16px + env(safe-area-inset-top, 0px)) 8px
+      calc(40px + env(safe-area-inset-bottom, 0px)) max(8px, var(--sn-safe-l));
   }
   .fd {
     --fd-rail: 240px;

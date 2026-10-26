@@ -125,8 +125,9 @@ test('3 · Memories renders one ⚙, at the right end of its first row — and n
   assert.equal(count(html, /data-first-row=""/g), 1, 'Memories does not mark exactly one first row');
   const row = elementAround(html, html.indexOf('data-first-row=""'));
   assert.equal(count(row, /data-menu-settings="memories"/g), 1, 'the ⚙ is not inside the first row');
-  const tail = row.slice(row.indexOf('data-menu-settings="memories"'));
-  assert.doesNotMatch(tail, /<(?:button|a)\b(?![^>]*aria-label="Memories settings")/, 'something pressable sits after the ⚙ — it is not at the row’s right end');
+  // The right end: the ⚙'s element is the row's LAST child — nothing drawn after it.
+  const door = elementAround(row, row.indexOf('data-menu-settings="memories"'));
+  assert.ok(row.endsWith(`${door}</div>`), 'something is drawn after the ⚙ — it is not at the row’s right end');
   assert.equal(count(await renderMemories(false), /data-menu-settings="/g), 0, 'a guest sees the Memories ⚙');
 });
 

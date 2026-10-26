@@ -490,7 +490,8 @@ function Slide({
                 <ActionButton tone="neutral" icon={RefreshCw} label="Try again" onClick={page > 1 ? retryOther : retryFirst} />
               </span>
             ) : (
-              <span aria-hidden className={`absolute inset-0 grid place-items-center bg-ink/[0.06] text-[11px] font-semibold tracking-[0.04em] text-ink/50 ${near ? 'animate-pulse' : ''}`}>
+              /* The paper is always white (it is a print), in dark mode too — so its waiting words are dark on it, never the theme's ink. */
+              <span aria-hidden className={`absolute inset-0 grid place-items-center bg-black/[0.05] text-[11px] font-semibold tracking-[0.04em] text-black/45 ${near ? 'animate-pulse' : ''}`}>
                 {near ? 'Drawing…' : ''}
               </span>
             )}

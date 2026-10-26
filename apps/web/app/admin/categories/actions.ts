@@ -43,6 +43,9 @@ import { formatCount } from '@/lib/format-number';
 import { recordCollectedTradePhrase } from '@/lib/service-trade-aliases-db';
 import { CATEGORIES_PATH, backHref, type BackState } from './_components/back';
 import { clearHomeShelf } from '@/lib/home-shelf-clear';
+import { getTaxonomy } from '@/lib/taxonomy-db';
+import { deletionWouldBreakCoupleLinks } from '@/lib/vendor-category-taxonomy';
+import { VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
 
 const BASE = CATEGORIES_PATH;
 /** The onboarding read path (getOnboardingRefinements is DB-first) renders here —
@@ -1369,6 +1372,21 @@ export async function deleteTileWithDestination(
     .maybeSingle();
   if (!tileRow) return { ok: false, error: 'Category not found.' };
   if (tileRow.tier === 1) return { ok: false, error: 'Folders are owner-managed — can’t delete here.' };
+
+  // ③0-c — a couple-side category still anchored here hard-blocks. It is a code mapping
+  // (`VENDOR_CATEGORY_CANONICAL`), so it cannot be re-pointed from this page; deleting the
+  // category would drop every couple's supplier in it off their Suppliers page. This used to be
+  // only a "N couple-side links broken" number on the counts line, read after the damage.
+  const anchored = deletionWouldBreakCoupleLinks(await getTaxonomy(), tile);
+  if (anchored.length > 0) {
+    const names = anchored.map((d) => VENDOR_CATEGORY_LABEL[d.category] ?? d.category).join(', ');
+    return {
+      ok: false,
+      error:
+        `Couples’ suppliers are filed under “${tileRow.label_en}” (${names}). ` +
+        'Deleting it would take them off their Suppliers page — it needs a code change first.',
+    };
+  }
 
   // Sub-categories still hard-block (tier-3) — those aren't re-pointable here.
   const { count: childCount } = await admin

@@ -71,6 +71,7 @@ import {
 import { fetchUserEvents } from '@/lib/events';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import { eventVendorCategoryForCardKind } from '@/lib/event-vendor-category';
+import type { CoarseCategorySource } from '@/lib/vendor-branch-category';
 import { resolveAddShopToEvent } from './_components/add-shop-to-event-data';
 import { AddToEvent } from '@/app/_components/marketing/add-to-event';
 import { hasLiveInquiry } from '@/lib/shortlist-taxonomy';
@@ -1119,6 +1120,9 @@ export async function renderVendorBySlug({
     resolveServiceCoverUrls(activeServices),
     resolveTileByCardKind(activeServices),
   ]);
+  // ③0-c — the coarse category each category files its cards under is the LIVE column
+  // (`service_categories.coarse_category`); same cached snapshot the tile lookup above read.
+  const coarseSource = await getTaxonomy();
 
   // CARD RECORD (owner-locked 2026-07-28) — each card's compiled history:
   // booked count, event-type mix, anonymized ledger, milestone medals. ONE RPC
@@ -2949,6 +2953,7 @@ export async function renderVendorBySlug({
             showcaseByService={showcaseByService}
             coverUrlByService={coverUrlByService}
             tileByCardKind={tileByCardKind}
+            coarseSource={coarseSource}
             hidePrices={hidePricesPublicly}
             coupleEventDate={coupleEventDate}
             cardRecordByService={cardRecordByService}
@@ -3485,6 +3490,7 @@ function ServicesPricingSection({
   showcaseByService,
   coverUrlByService,
   tileByCardKind,
+  coarseSource,
   hidePrices,
   coupleEventDate,
   cardRecordByService,
@@ -3509,6 +3515,8 @@ function ServicesPricingSection({
    *  Empty ⇒ `eventVendorCategoryForCardKind` falls to its branch/`misc` rungs,
    *  which is the same degradation the inquiry action already accepts. */
   tileByCardKind: Map<string, string>;
+  /** ③0-c — the live coarse category per category (`getTaxonomy()`), for the group heading. */
+  coarseSource: CoarseCategorySource;
   /** Council #6: vendor opted to hide public prices → strip every peso amount. */
   hidePrices: boolean;
   /** The viewing couple's event date (ISO YYYY-MM-DD), when a signed-in couple
@@ -3566,6 +3574,7 @@ function ServicesPricingSection({
     const coarse = eventVendorCategoryForCardKind(
       s.category,
       tileByCardKind.get(s.category ?? '') ?? null,
+      coarseSource,
     );
     const key: ServiceGroupKey = serviceGroupOf(coarse);
     const bucket = byGroup.get(key);

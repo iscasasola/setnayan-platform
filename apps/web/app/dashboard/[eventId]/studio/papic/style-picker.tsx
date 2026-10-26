@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState, useTransition } from 'react';
 import { Check, Lock } from 'lucide-react';
 import {
   PAPIC_STYLES,
@@ -7,7 +8,7 @@ import {
   type PapicStyle,
 } from '@/lib/papic-photo-styles';
 import { papicLookSampleSrc } from '@/lib/papic-look-samples';
-import { setPapicStyle } from './actions';
+import { setPapicStyle, setPapicStyleInPlace } from './actions';
 
 /**
  * Papic event-look picker (couple-side setup).
@@ -46,9 +47,32 @@ export default function StylePicker({
    */
   variant?: 'cards' | 'strip';
 }) {
-  const active: PapicStyle = asPapicStyle(current);
+  const saved: PapicStyle = asPapicStyle(current);
+  /* 🎨 THE TAPPED LOOK IS HIGHLIGHTED AT ONCE — saved behind it, never a navigation (owner 2026-10-26: *"picking a
+     filter reload the whole screen and not just the filter to be highlighted"*). The form's own action stays the
+     no-JavaScript path; with JavaScript the tap is answered here and saved through `setPapicStyleInPlace`. A refused
+     save puts the ring back where it was and says why under the row. */
+  const [picked, setPicked] = useState<PapicStyle | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [, start] = useTransition();
+  useEffect(() => setPicked(null), [saved]);
+  const active: PapicStyle = picked ?? saved;
+  const pick = (id: PapicStyle) => {
+    if (id === active) return;
+    const was = active;
+    setPicked(id);
+    setError(null);
+    start(async () => {
+      const r = await setPapicStyleInPlace(eventId, id).catch(() => ({ ok: false as const, error: 'That filter could not be saved just now. Please try again.' }));
+      if (!r.ok) {
+        setPicked(was === saved ? null : was);
+        setError(r.error);
+      }
+    });
+  };
   if (variant === 'strip') {
     return (
+      <>
       <div className="grid grid-cols-5 gap-2" data-papic-filter-strip="">
         {PAPIC_STYLES.map((s) => {
           const isActive = s.id === active;
@@ -60,7 +84,16 @@ export default function StylePicker({
               <input type="hidden" name="event_id" value={eventId} />
               <input type="hidden" name="style" value={s.id} />
               {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
-              <button type="submit" aria-pressed={isActive} aria-label={`Set event look to ${s.label} — ${s.blurb}`} className="block w-full min-w-0 text-center">
+              <button
+                type="submit"
+                aria-pressed={isActive}
+                aria-label={`Set event look to ${s.label} — ${s.blurb}`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  pick(s.id);
+                }}
+                className="block w-full min-w-0 text-center"
+              >
                 <span className={swatch}>
                   {/* eslint-disable-next-line @next/next/no-img-element -- a committed 240 px still (public/papic/looks), versioned by `v` */}
                   <img src={papicLookSampleSrc(s.id)} alt={label} width={240} height={240} loading="lazy" decoding="async" data-papic-look-sample={s.id} className="absolute inset-0 h-full w-full object-cover" />
@@ -76,6 +109,12 @@ export default function StylePicker({
           );
         })}
       </div>
+      {error ? (
+        <p role="alert" className="text-[12.5px] text-terracotta-700" data-papic-filter-error="">
+          {error}
+        </p>
+      ) : null}
+      </>
     );
   }
 

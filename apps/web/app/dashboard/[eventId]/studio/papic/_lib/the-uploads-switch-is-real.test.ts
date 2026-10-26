@@ -65,10 +65,11 @@ test('🚨 the switch actually GOVERNS the picker', () => {
   // The failure being guarded is a switch that saves a value nobody reads.
   assert.match(PAGE, /const uploadsOpen =/, 'the page no longer reads the column');
   // Since 2026-10-23 the uploader's one door is Memories' + Add photos: OFF, its sheet offers the switch; ON, the
-  // shipped uploader (or the turn-on for the uploads camera). The branch is on the switch's own value.
+  // shipped uploader (which claims the uploads camera on the first pick — 2026-10-26, one press). The branch is on the
+  // switch's own value.
   assert.match(
     PAGE,
-    /addPhotos = !uploadsOpen \? \(\s*<UploadsOpenChoice[\s\S]{0,200}?\) : token \? \(\s*<AddToLibrary/,
+    /addPhotos = !uploadsOpen \? \(\s*<UploadsOpenChoice[\s\S]{0,200}?\) : takenByOther \? \([\s\S]{0,400}?\) : \(\s*<AddToLibrary/,
     'the + Add photos door no longer branches on the switch — turning it off would save a value and change nothing a person can see',
   );
 });

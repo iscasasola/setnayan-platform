@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "711530dd8d",
+  "generatedFromRef": "061819e00a",
   "routeCount": 474,
   "destinations": 1014,
-  "actions": 662,
-  "blocks": 7161,
+  "actions": 661,
+  "blocks": 7163,
   "routes": {
     "/": {
       "files": [
@@ -2647,6 +2647,7 @@
         "admin/categories/_components/load.ts",
         "admin/categories/_components/map-panels.tsx",
         "admin/categories/_components/map-rows.tsx",
+        "admin/categories/_components/map-toast.tsx",
         "admin/categories/_components/model.ts",
         "admin/categories/_components/onboarding-editor.tsx",
         "admin/categories/_components/part-controls.tsx",
@@ -2784,6 +2785,7 @@
         "MapDrawer",
         "MapSel",
         "MapToPick",
+        "MapToast",
         "MixedFaithPanel",
         "MoveGroupPick",
         "MovePartHomePick",
@@ -7917,9 +7919,7 @@
         "dashboard/[eventId]/memories/page.tsx"
       ],
       "destinations": [],
-      "actions": [
-        "claimUploadsCamera"
-      ],
+      "actions": [],
       "blocks": [
         "AddToLibrary",
         "DriveCopyCard",
@@ -7934,7 +7934,6 @@
         "PoolGalleryCard",
         "ServiceParts",
         "Spotlight",
-        "SubmitButton",
         "UploadsOpenChoice"
       ]
     },
@@ -9333,6 +9332,7 @@
         "PapicHomeCard",
         "PapicLightbox",
         "PapicSeePhotos",
+        "PapicStyle",
         "PapicSwitch",
         "PapicWindowPicker",
         "PayStep",
@@ -9353,6 +9353,7 @@
         "ShutterSection",
         "SourceRow",
         "Spotlight",
+        "StartAddingPhotos",
         "StatusBanners",
         "StepperRung",
         "StudioBuyHero",

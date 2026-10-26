@@ -696,7 +696,8 @@ test('(8) the Studio draws and lays a pick BEFORE its save, holds the save, lets
   assert.match(pickLook, /const worn = !opts\.render && !redraws && Boolean\(lay\) && heard > 0;/, 'a pick is called "worn" without a canvas that heard it');
   assert.match(
     pickLook,
-    /: worn\s*\? await makerSave\(\(\) => landing\(saveLookWrite\(eventId, write, draftAction, true\)\), \(\) => router\.refresh\(\), \{ held: true \}\)\s*: await makerRedrawSave\(\(\) => landing\(saveLookWrite\(eventId, write, draftAction, true\)\), \(\) => router\.refresh\(\)\);/,
+    /* (2026-10-26) each save now hands its ↺ inverse too (`undo`, `lib/background-pick-undo.ts`). */
+    /: worn\s*\? await makerSave\(\(\) => landing\(saveLookWrite\(eventId, write, draftAction, true\)\), \(\) => router\.refresh\(\), \{ held: true, undo \}\)\s*: await makerRedrawSave\(\(\) => landing\(saveLookWrite\(eventId, write, draftAction, true\)\), \(\) => router\.refresh\(\), \{ undo \}\);/,
     'a pick the canvas wears still asks the page to render',
   );
   // The canvas is told the save landed INSIDE the save — before any redraw can be asked — so only a later render takes the preview away.

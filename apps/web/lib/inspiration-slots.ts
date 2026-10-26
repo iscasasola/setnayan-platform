@@ -43,7 +43,7 @@ import type { WeddingTile } from './taxonomy';
 /* Pure and client-safe too (its only value import is `./mood-board`), so this file stays reachable from the client. */
 import { CAKE_LANE_PARTS, FLORIST_LANE_PARTS, ROOM_LANE_PARTS, type LanePart } from './colour-access';
 /* Pure and client-safe as well (values only from `./moodboard-slots`). */
-import { fallbackInspirationParts, inspirationPart, type InspirationPartsSnapshot } from './inspiration-parts';
+import { inspirationPart, type InspirationPartsSnapshot } from './inspiration-parts';
 
 /** Which lane a slot's palette paints when the couple taps "Use for …". */
 export type SlotPaletteTarget =
@@ -245,12 +245,12 @@ function studioPhotoParts(parts: InspirationPartsSnapshot, includeHidden: boolea
 }
 
 /** The couple's "Which part?": Venue & decor, then every Palette part with a board — named, ordered and offered by the snapshot. */
-export function palettePhotoParts(parts: InspirationPartsSnapshot = fallbackInspirationParts()): PhotoPart[] {
+export function palettePhotoParts(parts: InspirationPartsSnapshot): PhotoPart[] {
   return studioPhotoParts(parts, false, false);
 }
 
 /** The Palette's parts, then the Attire boards (Bridal gown · Groom’s suit · Bridesmaids · …) — the supplier's order. */
-export function libraryPhotoParts(parts: InspirationPartsSnapshot = fallbackInspirationParts()): PhotoPart[] {
+export function libraryPhotoParts(parts: InspirationPartsSnapshot): PhotoPart[] {
   return studioPhotoParts(parts, true, true);
 }
 

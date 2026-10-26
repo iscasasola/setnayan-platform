@@ -57,7 +57,6 @@ import { canonicalServicesForSlot, slotHasSupplierTrade } from './moodboard-gall
 import { HIT_LABEL, type ContentHit } from './moodboard-screen-findings';
 import { libraryPhotoParts, type PhotoPartGroup } from './inspiration-slots';
 import {
-  fallbackInspirationParts,
   inspirationPart,
   partCategories,
   type InspirationPartsSnapshot,
@@ -105,7 +104,7 @@ export type SlotUploadVerdict =
 export function slotUploadVerdict(
   slotKey: string,
   vendorServices: readonly string[] | null | undefined,
-  parts: InspirationPartsSnapshot = fallbackInspirationParts(),
+  parts: InspirationPartsSnapshot,
 ): SlotUploadVerdict {
   if (partCategories(inspirationPart(parts, slotKey)).length === 0) {
     if (!slotHasSupplierTrade(slotKey, parts)) {
@@ -143,7 +142,7 @@ export function slotUploadVerdict(
  */
 export function libraryPartLabel(
   slotKey: string,
-  parts: InspirationPartsSnapshot = fallbackInspirationParts(),
+  parts: InspirationPartsSnapshot,
 ): string | null {
   return inspirationPart(parts, slotKey)?.label ?? null;
 }
@@ -160,7 +159,7 @@ export function libraryPartLabel(
  */
 export function uploadableSlotsForShop(
   vendorServices: readonly string[] | null | undefined,
-  parts: InspirationPartsSnapshot = fallbackInspirationParts(),
+  parts: InspirationPartsSnapshot,
 ): Array<{ key: string; label: string; group: PhotoPartGroup }> {
   const out: Array<{ key: string; label: string; group: PhotoPartGroup }> = [];
   const seen = new Set<string>();

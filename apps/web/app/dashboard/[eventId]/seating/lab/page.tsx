@@ -63,6 +63,7 @@ import { INSPIRATION_SLOT_FOR_PART } from '@/lib/moodboard-slots';
 import { sanitizeReceptionDesign } from '@/lib/reception-scene';
 import { bookedZoneCandidates } from '@/lib/reception-booked-suggestions';
 import { getCanonicalBuckets } from '@/lib/vendor-counts';
+import { getInspirationParts } from '@/lib/inspiration-parts-db';
 import { sanitizeDismissedSuggestions } from '@/lib/reception-suggestion-chips';
 import type { BookedSupplier } from '@/lib/moodboard-finalization';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
@@ -289,6 +290,8 @@ export default async function SeatingLabPage({ params, searchParams }: Props) {
   // The tile → services buckets the chips match on — the live taxonomy, so a service an admin
   // files under a trade's tile is recognised here too (③0-a one source).
   const canonicalBuckets = await getCanonicalBuckets();
+  // 🧩 Which booked shop reaches which zone reads the live parts (③0-b), never the seed.
+  const inspirationParts = await getInspirationParts();
   const dismissedSuggestions = sanitizeDismissedSuggestions(
     (eventRow.data as Record<string, unknown> | null)?.dismissed_room_suggestions,
   );
@@ -542,7 +545,7 @@ export default async function SeatingLabPage({ params, searchParams }: Props) {
         receptionDesign={receptionDesign}
         inspirationByPart={inspirationByPart}
         finalizedByPart={finalizedByPart}
-        bookedSuggestions={bookedZoneCandidates(bookedSuppliers, venueSetting, canonicalBuckets)}
+        bookedSuggestions={bookedZoneCandidates(bookedSuppliers, venueSetting, canonicalBuckets, inspirationParts)}
         dismissedSuggestions={dismissedSuggestions}
         themeName={themeName}
         styleFamily={styleFamily}

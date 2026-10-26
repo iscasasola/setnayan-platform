@@ -11,7 +11,10 @@
  * `lib/taxonomy.ts`.
  *
  * PURE AND CLIENT-SAFE: types only from the taxonomy, values only from `./moodboard-slots`. A server page
- * hands its snapshot to a client component as a prop; a client component given none draws the fallback.
+ * hands its snapshot to a client component as a prop. 🛑 No helper defaults to `fallbackInspirationParts()`
+ * any more (③0-b, PLAN `admin_taxonomy_four_levels_2026-10-26` § 8.3): a caller that means the consts (a dev
+ * lab, the seed generator, a module-load structural assert) names it, so a forgotten snapshot is a type
+ * error, not a silent read of the seed.
  *
  * 🔑 A PART'S SUPPLIERS ARE TIER-2 CATEGORIES — its HOME first, then "also from" in order (the first tile a
  * shop matches is the one printed on the credit). `partCategories()` is the one place that order is read.

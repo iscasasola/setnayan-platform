@@ -63,6 +63,7 @@ import {
   eligibleSuppliersForPart,
   type BookedSupplier,
 } from './moodboard-finalization';
+import type { InspirationPartsSnapshot } from './inspiration-parts';
 import { servicesInTile, type CanonicalBuckets } from './vendor-counts';
 import { MOODBOARD_PART_TRADES } from './moodboard-slots';
 import { dismissKeyFor, type BookedZoneCandidate } from './reception-suggestion-chips';
@@ -156,6 +157,8 @@ export function bookedZoneCandidates(
   /** The live tile → services buckets (`await getCanonicalBuckets()`), so an option's trade
    *  follows what /admin/categories files under that tile today. */
   buckets: CanonicalBuckets,
+  /** The parts snapshot — `await getInspirationParts()`; required (③0-b), so the zone reach follows an admin edit. */
+  parts: InspirationPartsSnapshot,
 ): BookedZoneCandidate[] {
   const out: BookedZoneCandidate[] = [];
   for (const zone of zonesThatSuggest()) {
@@ -163,7 +166,7 @@ export function bookedZoneCandidates(
     const tiled = tiledOptionsForZone(zone);
     // 🔑 THE ZONE-REACH QUESTION IS ASKED OF THE EXISTING BRIDGE, NOT ANSWERED
     // HERE. Everything below only narrows this list.
-    for (const supplier of eligibleSuppliersForPart(renderPartIdForZone(zone), booked)) {
+    for (const supplier of eligibleSuppliersForPart(renderPartIdForZone(zone), booked, parts)) {
       const services = new Set(supplier.services);
       const matchedTiles: WeddingTile[] = [];
       let first: { attr: string; option: Option & { tile: WeddingTile } } | null = null;

@@ -17,7 +17,7 @@
 #   col       4921
 #   policy    952
 #   view      8
-#   func      252
+#   func      253
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -6578,6 +6578,7 @@ func	public.guest_pool_gallery(p_guest_id uuid, p_before timestamp with time zon
 func	public.guest_unlink_capture(p_guest_id uuid, p_source_table text, p_source_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.import_external_client(p_vendor_profile_id uuid, p_pool_id uuid, p_client_name text, p_client_contact text, p_client_note text, p_start_date date, p_end_date date, p_client_time time without time zone)	secdef=yes exec=authenticated search_path=public
 func	public.incoming_requests_for_me()	secdef=yes exec=authenticated search_path=public
+func	public.inspiration_category_services(p_category_id text)	secdef=no exec=authenticated search_path=public
 func	public.inspiration_suggestion_services(p_slot_key text)	secdef=no exec=authenticated search_path=public
 func	public.is_admin()	secdef=yes exec=anon,authenticated search_path=public
 func	public.is_console_admin()	secdef=yes exec=anon,authenticated search_path=public

@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { Armchair, Download, MoreHorizontal, QrCode, Trash2, Unlink, X } from 'lucide-react';
+import { Armchair, Download, MoreHorizontal, QrCode, RotateCcw, Trash2, Unlink, X } from 'lucide-react';
 import { ActionButton, actionButtonClass } from '@/components/action-button';
 import { NfcWriteButton } from '@/app/_components/nfc-write-button';
 import { SaveFileLink } from '@/app/_components/save-file-link';
@@ -12,6 +12,7 @@ import { menuNudge, menuRoomOf, menuWidthIn, nudgeUp, placeMenuIn } from '@/lib/
 import { useGuestActions } from './guest-actions-context';
 import { ticketFileName, ticketUrl, useTicketVersion, type TicketVersion } from './send-invite';
 import { DeleteGuestFlow, useGuestRemoval } from './guest-delete';
+import { GuestResetFlow } from './guest-reset';
 import { useInspectorContext } from '@/app/_components/inspector/inspector-column';
 import { useRouter } from 'next/navigation';
 import { useOneOpen } from '@/lib/one-open';
@@ -460,14 +461,18 @@ export function GuestDeleteControl({
   guestId,
   guestName,
   seatWithNoName = false,
+  resettable = false,
 }: {
   eventId: string;
   guestId: string;
   guestName: string;
   seatWithNoName?: boolean;
+  /** 🔄 Reset beside Delete (owner 2026-10-26: "(RESET) (DELETE)") — a guest's own card; never a +1 seat or the couple. */
+  resettable?: boolean;
 }) {
   const { release: releaseSeat } = useGuestRemoval(eventId);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
   const inspector = useInspectorContext();
   const router = useRouter();
   // The card is of a guest (or a seat) who is gone — close it: the panel over the list, or the standalone page back to the list.
@@ -476,7 +481,13 @@ export function GuestDeleteControl({
     else router.push(`/dashboard/${eventId}/guests`);
   };
   return (
-    <div data-guest-delete-control="">
+    <div data-guest-delete-control="" className={resettable && !seatWithNoName ? 'grid grid-cols-2 gap-2 [&>span>*]:w-full [&>span]:flex' : undefined}>
+      {/* (RESET) (DELETE) — two equal buttons, Reset first; each asks first and offers Undo right after. */}
+      {resettable && !seatWithNoName ? (
+        <span data-guest-reset="">
+          <ActionButton tone="warn" icon={RotateCcw} label="Reset" onClick={() => setConfirmReset(true)} />
+        </span>
+      ) : null}
       {seatWithNoName ? (
         <span data-guest-release-seat="">
           <ActionButton tone="danger" icon={Armchair} label="Release seat" onClick={() => void releaseSeat([guestId], { onReleased: closeCard })} />
@@ -486,6 +497,9 @@ export function GuestDeleteControl({
           <ActionButton tone="danger" icon={Trash2} label="Delete guest" onClick={() => setConfirmDelete(true)} />
         </span>
       )}
+      {confirmReset ? (
+        <GuestResetFlow eventId={eventId} guestId={guestId} guestName={guestName} onClose={() => setConfirmReset(false)} />
+      ) : null}
       {confirmDelete ? (
         <DeleteGuestFlow
           eventId={eventId}

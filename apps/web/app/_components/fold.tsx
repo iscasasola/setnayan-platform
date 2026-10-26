@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { OneOpenScope, useOneOpen } from '@/lib/one-open';
+import { InfoTip } from '@/app/_components/info-tip';
 
 /**
  * FOLD — keeps the less-used things out of the way; one line says what is inside (`INTERACTION_RULES.md` § 9,
@@ -33,6 +34,7 @@ export function Fold({
   popovers = false,
   summaryEnd = false,
   danger = false,
+  tip,
 }: {
   /** What the fold is — "More for guests". */
   title: string;
@@ -79,6 +81,14 @@ export function Fold({
   summaryEnd?: boolean;
   /** The title in the danger colour — a row whose inside is a destructive act (the card's Delete). Absent → ink. */
   danger?: boolean;
+  /**
+   * ⓘ BESIDE THE TITLE (house rule: the title and one short line visible, the details inside the ⓘ — owner 2026-10-23).
+   * With `summaryEnd`: the title becomes the `InfoTip`'s own label, drawn BESIDE the head (a button is never nested in
+   * the head), and the head keeps the summary and the arrow, named for the title. The ⓘ is inside the fold's own
+   * `OneOpenScope`, so opening it never shuts the fold; a tap on the title still opens the fold (a pointer convenience —
+   * the keyboard's door is the head button, named for the title). Absent → the head is exactly as it was.
+   */
+  tip?: ReactNode;
   className?: string;
 }) {
   const [open, setOpen] = useState(defaultOpen);
@@ -108,17 +118,21 @@ export function Fold({
     window.addEventListener('hashchange', apply);
     return () => window.removeEventListener('hashchange', apply);
   }, [anchor]);
+  const tipped = Boolean(tip) && summaryEnd;
   const head = (
     <button
       type="button"
       data-fold-head=""
       aria-expanded={open}
       aria-controls={id}
+      aria-label={tipped ? (summary ? `${title} · ${summary}` : title) : undefined}
       onClick={() => setOpen((o) => !o)}
-      className={`sn-press flex min-h-[52px] items-center gap-2 text-left text-[15px] font-semibold text-ink ${leadPress ? 'min-w-0 flex-1' : 'w-full'}`}
+      className={`sn-press flex min-h-[52px] items-center gap-2 text-left text-[15px] font-semibold text-ink ${leadPress || tipped ? 'min-w-0 flex-1' : 'w-full'}`}
     >
       {lead}
-      {summaryEnd ? (
+      {tipped ? (
+        <span className="ml-auto min-w-0 flex-1 truncate text-right text-[13.5px] font-normal text-ink/55">{summary}</span>
+      ) : summaryEnd ? (
         <>
           <span className={`shrink-0 font-medium ${danger ? 'text-danger-700' : ''}`}>{title}</span>
           <span className="ml-auto min-w-0 flex-1 truncate text-right text-[13.5px] font-normal text-ink/55">{summary}</span>
@@ -149,6 +163,17 @@ export function Fold({
       {leadPress ? (
         <div className="flex items-center gap-2" data-fold-row="">
           {leadPress}
+          {head}
+        </div>
+      ) : tipped ? (
+        <div className="flex items-center gap-2" data-fold-row="" data-fold-tipped="">
+          <div className="shrink-0 cursor-pointer" data-fold-title="" onClick={(e) => !(e.target as Element).closest('button') && setOpen((o) => !o)}>
+            <OneOpenScope id={scope}>
+              <InfoTip label={title} labelClassName={`text-[15px] font-medium ${danger ? 'text-danger-700' : 'text-ink'}`} align="start">
+                {tip}
+              </InfoTip>
+            </OneOpenScope>
+          </div>
           {head}
         </div>
       ) : (

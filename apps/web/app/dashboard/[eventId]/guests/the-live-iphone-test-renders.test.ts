@@ -184,12 +184,17 @@ test('⑦ the warning names what goes with them, in page — Delete and Cancel',
 
 /* RE-AIMED 2026-10-23: Delete left the ⋯ for the card's own last group (owner's groups) — the same flow, one place. */
 test('⑦ an ACCEPTED guest’s card offers Delete in its Delete group; the couple’s does not', async () => {
+  // RE-AIMED 2026-10-26: the group is "Reset · Delete" — Delete (and Reset) for a guest, neither for the couple.
   const accepted = await paintCard({ rsvp_status: 'attending' }, { withMenu: true });
   // The button leads with its icon, so an <svg> may sit before the words (and the words in the button's label).
   assert.match(accepted, /data-guest-delete="">\s*<button[^>]*>(?:<svg[\s\S]*?<\/svg>)?(?:<span class="lbl">)?Delete guest</, 'an attending guest’s card has no Delete');
   assert.ok(accepted.indexOf('data-guest-delete=""') > accepted.indexOf('>Access<'), 'Delete is not the card’s last group');
   const couple = await paintCard({ role: 'bride', rsvp_status: 'attending' }, { withMenu: true });
   assert.doesNotMatch(couple, /data-guest-delete=""/, 'the couple’s card offers a Delete that can only fail');
+  /* 🔄 Reset (2026-10-26) sits beside Delete for a guest — and is never offered on the couple's own rows. */
+  assert.match(accepted, /data-guest-reset="">\s*<button[^>]*>(?:<svg[\s\S]*?<\/svg>)?(?:<span class="lbl">)?Reset</, 'an attending guest’s card has no Reset');
+  assert.ok(accepted.indexOf('data-guest-reset=""') < accepted.indexOf('data-guest-delete=""'), 'Reset is not first');
+  assert.doesNotMatch(couple, /data-guest-reset=""/, 'the couple’s card offers a Reset');
 });
 
 test('⑦ the list and the card both go through the one warning and the one delete with Undo', () => {

@@ -944,9 +944,11 @@ async function inviteEnterPage({ params, searchParams }: Props) {
             </div>
             {/* 🍎 APPLE WALLET SLOT — directly under Save, the two together under the ticket (controller layout call,
                 2026-10-25); the +1 list (#6911) sits below them. The guest's OWN pass only. `!mt-2` pulls it up
-                against Save inside the section's `space-y-4` rhythm. */}
+                against Save inside the section's `space-y-4` rhythm. 📱 `empty:hidden` — on a "Macintosh" the link is
+                `touchOnly` (it may be iPad Safari) and the badge waits for the browser; on a real Mac it never comes,
+                and the slot takes no box and no gap. */}
             {appleWallet ? (
-              <div data-landing-wallet-slot="" className="!mt-2">
+              <div data-landing-wallet-slot="" className="!mt-2 empty:hidden">
                 <AppleWalletButton link={appleWallet} />
               </div>
             ) : null}

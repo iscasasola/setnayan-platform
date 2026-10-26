@@ -1,5 +1,6 @@
 import type { AppleWalletLink } from '@/lib/wallet-pass';
 import { AppleWalletSheetLink } from './apple-wallet-sheet-link';
+import { AppleWalletTouchGate } from './apple-wallet-touch-gate';
 
 /**
  * 🍎 APPLE'S BADGE ARTWORK — the owner approved using it (2026-10-25). Apple's rules require the official "Add to
@@ -19,11 +20,14 @@ export const APPLE_WALLET_BADGE: { onLight: string; onDark: string } | null = {
  * the `.pkpass` and Safari opens Wallet's Add sheet (and if signing fails after all, the route's own page says so —
  * "Save my ticket instead" — never a broken file). `safari` is the Messenger hand-off; `sheet` is the Setnayan app's
  * in-app browser (`AppleWalletSheetLink`).
+ *
+ * 📱 A `touchOnly` link (iPad Safari, which says "Macintosh") is drawn through `AppleWalletTouchGate`: nothing until
+ * the browser confirms a touch screen — so a Mac gets no badge and no space, and an iPad gets it after hydration.
  */
 export function AppleWalletButton({ link, className }: { link: AppleWalletLink | null; className?: string }) {
   if (!link) return null;
   const plain = 'button-secondary inline-flex w-full justify-center';
-  return (
+  const badge = (
     <div data-wallet="apple" className={className}>
       {link.kind === 'sheet' ? (
         <AppleWalletSheetLink href={link.href} label={link.label} className={plain} />
@@ -47,4 +51,5 @@ export function AppleWalletButton({ link, className }: { link: AppleWalletLink |
       )}
     </div>
   );
+  return link.touchOnly ? <AppleWalletTouchGate>{badge}</AppleWalletTouchGate> : badge;
 }

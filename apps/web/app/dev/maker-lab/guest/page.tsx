@@ -20,6 +20,7 @@ import { PlusOneSeatList } from '@/app/[slug]/_components/plus-one-seat-list';
 import { APPLE_WALLET_ROUTE, PASS_CARD_ROUTE, PASS_CARD_WORDS } from '@/lib/pass-card';
 import { AppleWalletButton } from '@/app/[slug]/_components/apple-wallet-button';
 import { appleWalletDevice, type AppleWalletLink } from '@/lib/wallet-pass';
+import { mightBeIpadSafari } from '@/lib/apple-device';
 import { ShortcutLine } from '@/app/[slug]/invite/_components/shortcut-line';
 import { shortcutLineShows } from '@/lib/home-screen-shortcut';
 import { isStoreShellRequest } from '@/lib/request-platform';
@@ -1118,7 +1119,9 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
          real route. */
       const labWallet: AppleWalletLink | null = appleWalletDevice(userAgent)
         ? { kind: 'download', href: APPLE_WALLET_ROUTE, label: PASS_CARD_WORDS.appleWallet }
-        : null;
+        : mightBeIpadSafari(userAgent)
+          ? { kind: 'download', href: APPLE_WALLET_ROUTE, label: PASS_CARD_WORDS.appleWallet, touchOnly: true }
+          : null;
       /* 🚪 `&signedout=1` — Save asks the REAL pass route with no guest pass on this phone (its 401), so a tap turns
          Save into "Get back in", exactly as a guest whose sign-in ended sees it (`SavePassCardButton`). */
       const labSignedOut = sp.signedout === '1';
@@ -1152,7 +1155,7 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
               />
               {/* 🍎 The Apple Wallet slot (PR #6548), filled as on `invite/enter` — directly under Save. */}
               {labWallet ? (
-                <div data-landing-wallet-slot="" className="!mt-2">
+                <div data-landing-wallet-slot="" className="!mt-2 empty:hidden">
                   <AppleWalletButton link={labWallet} />
                 </div>
               ) : null}

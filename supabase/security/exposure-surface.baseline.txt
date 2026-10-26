@@ -14,10 +14,10 @@
 #   rls       0
 #   rlsforce  0
 #   tpriv     572
-#   col       4932
+#   col       4933
 #   policy    954
 #   view      9
-#   func      255
+#   func      254
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -2639,7 +2639,6 @@ col	public.integrity_flags.score	anon=SIU authenticated=SIU
 col	public.integrity_flags.status	anon=SIU authenticated=SIU
 col	public.integrity_flags.subject_event_vendor_id	anon=SIU authenticated=SIU
 col	public.integrity_flags.subject_review_id	anon=SIU authenticated=SIU
-col	public.integrity_flags.subject_service_id	anon=SIU authenticated=SIU
 col	public.integrity_flags.subject_vendor_id	anon=SIU authenticated=SIU
 col	public.invitation_widgets.audience	anon=- authenticated=SIU
 col	public.invitation_widgets.config_json	anon=- authenticated=SIU
@@ -3601,7 +3600,6 @@ col	public.platform_settings.business_address	anon=- authenticated=S
 col	public.platform_settings.business_email	anon=- authenticated=S
 col	public.platform_settings.business_name	anon=- authenticated=S
 col	public.platform_settings.business_tin	anon=- authenticated=S
-col	public.platform_settings.card_price_band_tolerance	anon=- authenticated=S
 col	public.platform_settings.creator_offer_sweep_last_run_at	anon=- authenticated=S
 col	public.platform_settings.default_vat_rate_pct	anon=- authenticated=S
 col	public.platform_settings.fee_leak_price_tolerance	anon=- authenticated=S
@@ -4602,6 +4600,8 @@ col	public.vendor_image_flags.source_r2_ref	anon=- authenticated=SIU
 col	public.vendor_image_flags.source_surface	anon=- authenticated=SIU
 col	public.vendor_image_flags.source_vendor_id	anon=- authenticated=SIU
 col	public.vendor_image_flags.status	anon=- authenticated=SIU
+col	public.vendor_image_flags.supplier_report_note	anon=- authenticated=SIU
+col	public.vendor_image_flags.supplier_reported_at	anon=- authenticated=SIU
 col	public.vendor_image_hashes.hashed_at	anon=- authenticated=SIU
 col	public.vendor_image_hashes.id	anon=- authenticated=SIU
 col	public.vendor_image_hashes.is_demo	anon=- authenticated=SIU
@@ -4609,6 +4609,7 @@ col	public.vendor_image_hashes.phash	anon=- authenticated=SIU
 col	public.vendor_image_hashes.r2_ref	anon=- authenticated=SIU
 col	public.vendor_image_hashes.surface	anon=- authenticated=SIU
 col	public.vendor_image_hashes.vendor_profile_id	anon=- authenticated=SIU
+col	public.vendor_image_hashes.vendor_service_id	anon=- authenticated=SIU
 col	public.vendor_invites.business_name	anon=SIU authenticated=SIU
 col	public.vendor_invites.claim_token	anon=SIU authenticated=SIU
 col	public.vendor_invites.claimed_at	anon=SIU authenticated=SIU
@@ -6667,7 +6668,6 @@ func	public.review_is_booked_through_setnayan(p_event_id uuid, p_vendor_profile_
 func	public.review_via_vendor_import(p_event_id uuid, p_vendor_profile_id uuid)	secdef=yes exec=anon,authenticated search_path=public, extensions
 func	public.rls_auto_enable()	secdef=yes exec=anon,authenticated search_path=pg_catalog
 func	public.rotate_guest_qr_token(p_guest_id uuid, p_actor_kind text, p_reason text)	secdef=yes exec=authenticated search_path=public
-func	public.service_card_held(p_service_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.service_card_records(p_service_ids uuid[])	secdef=yes exec=authenticated search_path=public
 func	public.set_coordinator_colour_access(p_event_id uuid, p_user_id uuid, p_domain text, p_active boolean)	secdef=yes exec=authenticated search_path=public
 func	public.set_entourage_order(p_event_id uuid, p_guest_ids uuid[], p_orders integer[])	secdef=no exec=authenticated search_path=public, pg_temp

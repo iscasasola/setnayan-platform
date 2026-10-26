@@ -3425,37 +3425,43 @@ export const UGAT_JOINTS: UgatJoint[] = [
   },
   {
     /**
-     * 🃏 SERVICE CARD CHECKS (owner 2026-10-26, DECISION_LOG "APPROVED — SERVICE CARD CHECKS AS DRAWN"; migration
-     * 20271290013489). A card goes live right away after the automatic check; a flagged card is HELD — saved with
-     * `is_active = false` and ONE holding `integrity_flags` row (kind `service_card`, status open · asked_to_fix ·
-     * rejected) naming it by `subject_service_id`. No column on `vendor_services` says "held"; the flag does.
-     * The claim words the check reads are admin data with a per-shop allowance; the price tolerance is a
-     * platform setting that is OFF (NULL) until the owner sets it.
+     * 🃏 SERVICE CARD CHECKS — FIX BEFORE CREATE (owner 2026-10-26, DECISION_LOG "SERVICE CARD CHECKS — FIX BEFORE
+     * CREATE" + "ONE PHOTO, ONE SERVICE CARD" + "NO PRICE CHECK ON SERVICE CARDS AT ALL"; migration
+     * …_service_card_checks_v2). The maker checks a card before Create and the save re-checks and REFUSES — nothing
+     * is held or queued. Three checks: claim words (`card_claim_words`, admin data), the card matches its service
+     * (reviewed search words — taxonomy, no new data), and one photo = one service card: a cover/showcase hash now
+     * names the CARD it is on (`vendor_image_hashes.vendor_service_id`), so a photo already on another card — any
+     * shop, the same shop included — is refused. "It's mine — report it" is a note on the repost-watch row.
      */
-    id: 'J56',
+    id: 'J57',
     claims: [
-      { kind: 'fk', table: 'integrity_flags', column: 'subject_service_id', references: 'vendor_services' },
-      { kind: 'check', table: 'integrity_flags', name: 'integrity_flags_kind_shape', mentions: 'subject_service_id' },
-      { kind: 'check', table: 'integrity_flags', name: 'integrity_flags_status_check', mentions: 'asked_to_fix' },
       { kind: 'table', table: 'card_claim_words' },
-      { kind: 'column', table: 'platform_settings', column: 'card_price_band_tolerance' },
+      { kind: 'column', table: 'card_claim_words', column: 'phrase' },
+      { kind: 'fk', table: 'vendor_image_hashes', column: 'vendor_service_id', references: 'vendor_services' },
+      { kind: 'fk', table: 'vendor_image_hashes', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'check', table: 'vendor_image_hashes', name: 'vendor_image_hashes_surface_check', mentions: 'service_showcase' },
+      { kind: 'column', table: 'vendor_image_flags', column: 'supplier_reported_at' },
+      { kind: 'column', table: 'vendor_image_flags', column: 'supplier_report_note' },
+      { kind: 'unique', table: 'vendor_image_flags', columns: ['flagged_r2_ref', 'source_r2_ref'] },
       { kind: 'no_column', table: 'vendor_services', column: 'held' },
+      { kind: 'no_column', table: 'platform_settings', column: 'card_price_band_tolerance' },
     ],
     chain: 2,
     pair: ['TYPE-VENDORS', 'TYPE-SERVICES'],
-    title: 'Service card → the automatic check (held cards, claim words)',
-    joint: 'integrity_flags (kind service_card)',
+    title: 'Service card → the checks before Create (claim words · its service · one photo, one card)',
+    joint: 'vendor_image_hashes.vendor_service_id',
     cardinality:
-      'At most ONE holding flag per card (partial unique index integrity_flags_card_uniq on subject_service_id where status is open · asked_to_fix · rejected); closed history (approved · dismissed) unlimited',
+      'A photo (by pHash within the admin-set Hamming threshold) is on at most one service card across every shop; each cover/showcase hash names its card (nullable — portfolio and moodboard hashes name none) · one report per photo pair (UNIQUE flagged_r2_ref, source_r2_ref)',
     implementedBy:
-      'integrity_flags.subject_service_id → vendor_services CASCADE · card_claim_words (phrase PK, lower-case) · platform_settings.card_price_band_tolerance (NULL = off) · service_card_held() SECURITY DEFINER · enforce_service_publish_gate hold arm',
+      'card_claim_words (phrase PK, lower-case, admin-only RLS, seeded with six) · vendor_image_hashes.vendor_service_id → vendor_services ON DELETE SET NULL (a deleted card frees its photos) · vendor_image_flags.supplier_reported_at + supplier_report_note (the report) · surface service_showcase',
     writtenBy:
-      'the seed (the owner\u2019s six words) · /admin/settings (the tolerance) · the save and the admin Cards tab as they land (service card checks PRs 2–3)',
+      'the seed (the owner\u2019s six words) · the admin words list on /admin/settings · the card save (writes each photo hash\u2019s vendor_service_id) · the maker\u2019s upload-time photo check · "It\u2019s mine — report it" (stamps the repost-watch row)',
     guardedBy:
-      'enforce_service_publish_gate refuses a held card going live except for is_admin() or the app.service_card_verdict door · integrity_flags + card_claim_words admin-only RLS · tests/db/a-held-card-waits-for-the-check.db.test.ts',
+      'RLS: card_claim_words admin-only (the maker\u2019s page and the save read it with the service role); vendor_image_hashes / vendor_image_flags admin-only as before · tests/db/a-claim-word-list-is-admin-only.db.test.ts · tests/db/one-photo-one-card-schema.db.test.ts',
     traps:
-      'A held card reads as an ordinary draft (`is_active = false`) to anything that does not ask service_card_held() — the shop page asks it, Explore does not need to. After a Reject every save re-queues (the same row re-opens), so a rejected card can never go live by a resave. The price check only looks BELOW the band, and only when the tolerance is set; no band ⇒ no check.',
+      'No price anything — the owner removed it (no column, no setting). Existing duplicates are left alone: the rule binds new uploads and saves only, so two old cards may still share a photo. A hash with vendor_service_id NULL (made before the rule) still blocks a new card from another shop through the cross-vendor match, but cannot name a card.',
   },
+
 ];
 
 const UGAT_JOINT_PAIR_INDEX: Record<string, UgatJoint[]> = {};

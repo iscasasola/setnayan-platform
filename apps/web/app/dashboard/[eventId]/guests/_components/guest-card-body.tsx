@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { StayForm } from '@/app/_components/stay-form';
 import { composeFormalName } from '@/lib/formal-name';
 import { LINKED_NAME_WORDS, PROFILE_NAME_WORDS, plusOneHasNoName, seatNameAsTyped } from '@/lib/extra-seats';
 import { pickItems } from '@/lib/role-alternatives';
@@ -606,11 +607,13 @@ export function GuestCardBody({
                   one action, in place — it attaches the creator's membership to
                   this row (claim_my_couple_row re-checks everything). */}
               {offersThisIsMe ? (
-                <form action={releaseAction} data-this-is-me="">
+                <StayForm door="guests.releaseGuestClaim" action={releaseAction} data-this-is-me="">
+                  <input type="hidden" name="event_id" value={eventId} />
+                  <input type="hidden" name="guest_id" value={guest.guest_id} />
                   <input type="hidden" name="this_is_me" value="1" />
                   <input type="hidden" name="return_to" value={returnTo} />
                   <K.Submit pendingLabel="Saving…">This is me</K.Submit>
-                </form>
+                </StayForm>
               ) : null}
             </div>
           )}
@@ -1046,9 +1049,11 @@ export function GuestCardBody({
                lib/seat-link-approval.ts). Never offered while linked. */
             canManageAccess && !linkedAccount && guest.email ? (
               <div className="space-y-2 border-t border-ink/10 pt-3">
-                <form action={partnerLinkAction} data-partner-sign-in="">
+                <StayForm door="guests.inviteGuestByEmailAction" action={partnerLinkAction} data-partner-sign-in="">
+                  <input type="hidden" name="event_id" value={eventId} />
+                  <input type="hidden" name="guest_id" value={guest.guest_id} />
                   <K.Submit pendingLabel="Sending…">{`Send ${guest.first_name} their sign-in link`}</K.Submit>
-                </form>
+                </StayForm>
               </div>
             ) : null
           ) : (
@@ -1056,7 +1061,9 @@ export function GuestCardBody({
               {/* 🔁 GIVE THIS SPOT TO SOMEONE ELSE (owner 2026-09-26) — only for a
                   guest who has NOT replied. Rides the release door (`swap_name`). */}
               {guest.rsvp_status === 'pending' ? (
-                <form action={releaseAction} className="space-y-2" data-give-spot="">
+                <StayForm door="guests.releaseGuestClaim" action={releaseAction} className="space-y-2" data-give-spot="">
+                  <input type="hidden" name="event_id" value={eventId} />
+                  <input type="hidden" name="guest_id" value={guest.guest_id} />
                   <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">
                     <K.Tip label="Give this spot to someone else">
                       The new person takes this guest&rsquo;s table, seats and place in the count.{' '}
@@ -1077,15 +1084,17 @@ export function GuestCardBody({
                   <K.Submit main pendingLabel="Giving the spot…">
                     Give the spot
                   </K.Submit>
-                </form>
+                </StayForm>
               ) : null}
               {/* Owner ruling 2026-08-06: "the couple has full control of their
                   guests." Rotation FIRST, then the claim is let go. */}
-              <form action={releaseAction}>
+              <StayForm door="guests.releaseGuestClaim" action={releaseAction}>
+                <input type="hidden" name="event_id" value={eventId} />
+                <input type="hidden" name="guest_id" value={guest.guest_id} />
                 <K.Submit ariaLabel={`Take back ${name}'s seat — new QR and unlink their account`} pendingLabel="Taking back…">
                   Take this seat back
                 </K.Submit>
-              </form>
+              </StayForm>
               <p className="text-xs text-ink/50">
                 Give this spot: only while they have not replied. Take back: a new QR, and their account is unlinked.
               </p>

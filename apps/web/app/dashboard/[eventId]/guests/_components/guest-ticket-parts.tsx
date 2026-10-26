@@ -1,5 +1,6 @@
 'use client';
 
+import { StayForm } from '@/app/_components/stay-form';
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Armchair, Download, MoreHorizontal, QrCode, RotateCcw, Trash2, Unlink, X } from 'lucide-react';
@@ -403,7 +404,9 @@ export function GuestMoreMenu({
 
       {confirm !== null ? (
       <GuestPopup kind="confirm" onClose={() => setConfirm(null)} labelledById={confirmId}>
-        <form action={release} className="space-y-3" data-guest-confirm={confirm ?? ''}>
+        <StayForm door="guests.releaseGuestClaim" action={release} onSaved={() => setConfirm(null)} className="space-y-3" data-guest-confirm={confirm ?? ''}>
+          <input type="hidden" name="event_id" value={eventId} />
+          <input type="hidden" name="guest_id" value={guestId} />
           {confirm === 'new_qr' ? (
             <>
               <input type="hidden" name="new_qr" value="1" />
@@ -439,7 +442,7 @@ export function GuestMoreMenu({
               </SubmitButton>
             }
           />
-        </form>
+        </StayForm>
       </GuestPopup>
       ) : null}
     </div>

@@ -48,6 +48,16 @@ export const STAY_DOORS = [
   'sponsors.removeSponsor',
   'sponsors.sendInvitation',
   'sponsors.markResponse',
+  /* Guests — the list's Select › Set… and New group, the card's ⋯ and sign-in link, and Requests. */
+  'guests.bulkApplyRoleAndGroup',
+  'guests.createGuestGroup',
+  'guests.releaseGuestClaim',
+  'guests.inviteGuestByEmailAction',
+  'guests.keepGuestAction',
+  'guests.removeGuestAction',
+  'guests.linkGuestAction',
+  'guests.undoAcceptAction',
+  'guests.undoDeclineAction',
 ] as const;
 
 export type StayDoor = (typeof STAY_DOORS)[number];

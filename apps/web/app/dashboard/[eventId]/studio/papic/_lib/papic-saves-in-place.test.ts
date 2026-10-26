@@ -71,6 +71,7 @@ test('(3) the door runs exactly the Papic actions, in Papic\'s words, and the fo
   assert.match(door, /if \(answer === 'navigate'\) throw e;/, 'the door no longer reads the redirect as an answer');
   const form = stripComments(readFileSync(join(APP, '_components/stay-form.tsx'), 'utf8'));
   assert.match(form, /const onSubmit = \(e: FormEvent<HTMLFormElement>\) => \{\s*e\.preventDefault\(\);/, 'the stay form lets the browser submit — and follow the redirect');
-  assert.match(form, /await saveInPlace\(door, fd\)/);
+  assert.match(form, /const realDoor: StayDoorFn = \(door, fd\) => saveInPlace\(door, fd\);/, 'the app no longer saves through the real door');
+  assert.match(form, /const r = await send\(door, fd, action\);/, 'the stay form no longer sends through the door');
   assert.match(form, /role="alert"[^>]*data-stay-error/, 'a refusal is not said on the row');
 });

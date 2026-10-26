@@ -24,6 +24,8 @@ import { PageMasthead } from '@/app/_components/page-masthead';
    Requests), and a static import here puts all three in the Maker's first load (507 KB, never raised). */
 import { KeepQuickAdd, LinkPicker, SendInviteActions } from '../../_components/guest-setup/guest-setup-lazy';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { StayForm } from '@/app/_components/stay-form';
+import { readStayNews } from '@/lib/stay-news.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { keepGuestAction, removeGuestAction, linkGuestAction, undoAcceptAction, undoDeclineAction } from './actions';
 import { Check, Undo2, X } from 'lucide-react';
@@ -89,7 +91,10 @@ const DONE_COPY: Record<string, string> = {
  */
 export default async function RequestsPage({ params, searchParams }: Props) {
   const { eventId } = await params;
-  const { error: actionError, done, maker, who } = await searchParams;
+  /* 📍 A press here saves IN PLACE (`StayForm`): the step it leads to ("Accepted · Send invite · Undo") comes from the
+     news the door kept for this screen (`lib/stay-news.server.ts`) — or, for a no-JavaScript press, the address. */
+  const news = await readStayNews(`/dashboard/${eventId}/guests/claims`);
+  const { error: actionError, done, maker, who } = { ...(await searchParams), ...news };
   const inMaker = maker === '1';
 
   const user = await getCurrentUser();
@@ -256,12 +261,13 @@ export default async function RequestsPage({ params, searchParams }: Props) {
               template={setup.template}
               extra={
                 undoStillOpen(row.updated_at as string | null, now) ? (
-                  <form action={undoAcceptAction.bind(null, eventId)}>
+                  <StayForm door="guests.undoAcceptAction" action={undoAcceptAction.bind(null, eventId)}>
                     <input type="hidden" name="guest_id" value={row.guest_id as string} />
+                    <input type="hidden" name="event_id" value={eventId} />
                     <SubmitButton overlay={false} pendingLabel="Undoing…" className="sn-press inline-flex min-h-11 items-center gap-1.5 rounded-full px-4 text-sm font-medium text-ink/70">
                       <Undo2 aria-hidden className="h-4 w-4" /> Undo
                     </SubmitButton>
-                  </form>
+                  </StayForm>
                 ) : null
               }
             />
@@ -277,12 +283,13 @@ export default async function RequestsPage({ params, searchParams }: Props) {
             Declined · just now · their QR will say “{REQUEST_WORDS.declined}”
           </p>
           {undoStillOpen(row.deleted_at as string | null, now) ? (
-            <form action={undoDeclineAction.bind(null, eventId)} className="mt-2">
+            <StayForm door="guests.undoDeclineAction" action={undoDeclineAction.bind(null, eventId)} className="mt-2">
               <input type="hidden" name="guest_id" value={row.guest_id as string} />
+              <input type="hidden" name="event_id" value={eventId} />
               <SubmitButton overlay={false} pendingLabel="Undoing…" className="sn-press inline-flex min-h-11 items-center gap-1.5 rounded-full bg-ink/[0.06] px-4 text-sm font-medium text-ink">
                 <Undo2 aria-hidden className="h-4 w-4" /> Undo
               </SubmitButton>
-            </form>
+            </StayForm>
           ) : null}
         </section>
       );
@@ -385,8 +392,9 @@ export default async function RequestsPage({ params, searchParams }: Props) {
                       >
                         Accept
                       </summary>
-                      <form action={keepGuestAction.bind(null, eventId)} className={`mt-3 space-y-3 ${inMaker ? 'w-full' : 'w-[min(100vw-2rem,36rem)]'}`}>
+                      <StayForm door="guests.keepGuestAction" action={keepGuestAction.bind(null, eventId)} className={`mt-3 space-y-3 ${inMaker ? 'w-full' : 'w-[min(100vw-2rem,36rem)]'}`}>
                         <input type="hidden" name="guest_id" value={g.guest_id} />
+                        <input type="hidden" name="event_id" value={eventId} />
                         {inMaker ? null : <input type="hidden" name="from" value="requests" />}
                         <RoleNamesProvider names={roleNames}>
                           <KeepQuickAdd
@@ -399,11 +407,12 @@ export default async function RequestsPage({ params, searchParams }: Props) {
                         <SubmitButton className="button-primary" pendingLabel="Adding…">
                           Add to my list
                         </SubmitButton>
-                      </form>
+                      </StayForm>
                     </details>
 
-                    <form action={removeGuestAction.bind(null, eventId)}>
+                    <StayForm door="guests.removeGuestAction" action={removeGuestAction.bind(null, eventId)}>
                       <input type="hidden" name="guest_id" value={g.guest_id} />
+                      <input type="hidden" name="event_id" value={eventId} />
                       {inMaker ? null : <input type="hidden" name="from" value="requests" />}
                       <SubmitButton
                         overlay={false}
@@ -412,7 +421,7 @@ export default async function RequestsPage({ params, searchParams }: Props) {
                       >
                         Decline
                       </SubmitButton>
-                    </form>
+                    </StayForm>
 
                     {/* LINK — they are someone already on the list. */}
                     {candidates.length > 0 ? (
@@ -424,18 +433,20 @@ export default async function RequestsPage({ params, searchParams }: Props) {
                         >
                           Link
                         </summary>
-                        <form
+                        <StayForm
+                          door="guests.linkGuestAction"
                           action={linkGuestAction.bind(null, eventId)}
                           className={`mt-3 flex flex-wrap items-center gap-2 ${inMaker ? 'w-full' : 'w-[min(100vw-2rem,36rem)]'}`}
                         >
                           <input type="hidden" name="guest_id" value={g.guest_id} />
+                          <input type="hidden" name="event_id" value={eventId} />
                           {inMaker ? null : <input type="hidden" name="from" value="requests" />}
                           <span className="text-sm text-ink/60">Same as</span>
                           <LinkPicker candidates={candidates} initial={match} />
                           <SubmitButton className="button-primary" pendingLabel="Linking…">
                             Link
                           </SubmitButton>
-                        </form>
+                        </StayForm>
                       </details>
                     ) : !candidatesMeasured ? (
                       <p className="text-sm text-ink/55">

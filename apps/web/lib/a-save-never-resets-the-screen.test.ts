@@ -99,7 +99,7 @@ test('(2) a door action is never posted by a bare form — it would follow the r
 test('(3) the registry is the allow-list — each name runs the action it names, an invented name runs nothing', () => {
   const src = stripComments(readFileSync(join(WEB, DOOR_FILE), 'utf8'));
   const body = src.slice(src.indexOf('const DOORS'), src.indexOf('\n};', src.indexOf('const DOORS')));
-  const rows = [...body.matchAll(/^\s*'([\w.]+)':\s*(?:\w+\()?(?:onEvent\()?(?:\{ run: )?(\w+)/gm)];
+  const rows = [...body.matchAll(/^\s*'([\w.]+)':\s*(?:\w+\()?(?:on(?:Event|Guest)\()?(?:\{ run: )?(\w+)/gm)];
   assert.deepEqual(rows.map((r) => r[1]).sort(), [...STAY_DOORS].sort(), 'the registry and lib/stay-doors.ts disagree');
   for (const r of rows) assert.equal(r[1]!.split('.')[1], r[2], `door ${r[1]} runs ${r[2]} — a door's name is the action it runs`);
   assert.match(src, /if \(!isStayDoor\(door\) \|\| !Object\.hasOwn\(DOORS, door\)\) return \{ ok: false/, 'an unknown door name is no longer refused first');
@@ -109,14 +109,15 @@ test('(3) the registry is the allow-list — each name runs the action it names,
   const gate = src.indexOf('await limitedHelperRefusal(');
   assert.ok(gate > -1 && gate < src.indexOf('await run(formData)'), 'the door runs an action before asking the limited-helper gate');
   assert.match(src, /if \(helperRefusal\) return \{ ok: false, error: helperRefusal \};/, 'a limited helper\'s refusal is not said');
-  const AREA: Record<string, string> = { papic: "'photos'", memories: "'photos'", schedule: "'schedule'", sponsors: 'null' };
+  const AREA: Record<string, string> = { papic: "'photos'", memories: "'photos'", schedule: "'schedule'", sponsors: 'null', guests: "'guest_list'" };
   for (const [kind, area] of Object.entries(AREA)) {
     assert.match(src, new RegExp(`const ${kind} = \\(run[^\\n]*area: ${area} \\}\\);`), `${kind} doors no longer gate on ${area}`);
   }
-  for (const r of rows) assert.ok(new RegExp(`'${r[1]!.replace('.', '\\.')}': (papic|memories|schedule|sponsors)\\(`).test(body), `door ${r[1]} names no gated area`);
+  for (const r of rows) assert.ok(new RegExp(`'${r[1]!.replace('.', '\\.')}': (papic|memories|schedule|sponsors|guests)\\(`).test(body), `door ${r[1]} names no gated area`);
   const form = stripComments(readFileSync(join(WEB, 'app/_components/stay-form.tsx'), 'utf8'));
   assert.match(form, /const onSubmit = \(e: FormEvent<HTMLFormElement>\) => \{\s*e\.preventDefault\(\);/, 'the stay form lets the browser submit — and follow the redirect');
-  assert.match(form, /await saveInPlace\(door, fd\)/);
+  assert.match(form, /const realDoor: StayDoorFn = \(door, fd\) => saveInPlace\(door, fd\);/, 'the app no longer saves through the real door');
+  assert.match(form, /const r = await send\(door, fd, action\);/, 'the stay form no longer sends through the door');
   assert.match(form, /role="alert"[^>]*data-stay-error/, 'a refusal is not said on the row');
   assert.match(form, /action=\{action as/, 'the plain action is no longer the no-JavaScript path');
 });

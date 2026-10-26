@@ -5,6 +5,7 @@ import { isUuid } from '@/lib/is-uuid';
 import { GuestCard } from '../_components/guest-card';
 import { readGuestCard } from '../_components/guest-card-read';
 import { guestCardErrorCopy } from '../_components/guest-card-error-copy';
+import { guestCardFlash } from '../_components/guest-card-flash';
 import { UndoToastHost } from '../_components/undo-toast';
 
 export const metadata = { title: 'Guest detail' };
@@ -54,20 +55,8 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
   /* Said in the card's own words — a code it knows, a sentence an action wrote for the host, or one plain line; never the database's. */
   const errorMessage = search.error ? guestCardErrorCopy(search.error) : null;
 
-  // What the careful actions did — said on the card they were pressed on.
-  const inviteFlash =
-    search.swapped === '1'
-      ? { ok: true, msg: 'Done — the spot is theirs, with a new key. The old link and QR no longer work. Share their invitation from the guest list.' }
-      : search.unlinked === '1'
-        ? { ok: true, msg: 'Unlinked — that account no longer holds this invitation, and it has a new key. The old link and QR no longer work.' }
-        : search.new_qr === '1'
-          ? { ok: true, msg: 'Done — a new QR and link. The old ones no longer work. Send them the new one.' }
-          : // The couple row's sign-in link (the one email left — see the card's Access).
-            search.invite === 'sent'
-            ? { ok: true, msg: `Sign-in link sent to ${guest.email}.` }
-            : search.invite === 'failed'
-              ? { ok: false, msg: 'We couldn’t send the link just now — please try again.' }
-              : null;
+  // What the careful actions did — said on the card they were pressed on (`guest-card-flash.ts`, the in-place door says the same).
+  const inviteFlash = guestCardFlash(search, guest.email);
 
   return (
     <div className="mx-auto w-full max-w-2xl space-y-5 pb-16">

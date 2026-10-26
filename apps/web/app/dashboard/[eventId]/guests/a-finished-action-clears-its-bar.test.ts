@@ -25,6 +25,8 @@ import { join } from 'node:path';
 const HERE = join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests');
 const pairActions = readFileSync(join(HERE, 'pair-actions.ts'), 'utf8');
 const page = readFileSync(join(HERE, 'page.tsx'), 'utf8');
+/* 2026-10-26: the flash words moved to `_components/guest-list-flash.ts` so the in-place door says them too. */
+const flash = readFileSync(join(HERE, '_components', 'guest-list-flash.ts'), 'utf8');
 
 /** Every key handed to `backToList(eventId, { … })`, minus the error channel. */
 function redirectFlagsIn(source: string): string[] {
@@ -42,18 +44,14 @@ function redirectFlagsIn(source: string): string[] {
 
 const FLAGS = redirectFlagsIn(pairActions);
 
-test('the pair action still redirects with success flags at all', () => {
+test('the pair action answers in place — it redirects with no flag a bar would wait on', () => {
+  /* ⚖ 2026-09-30: "Pair these 2" (and `paired`) left the Guest list with "walks with". ⚖ 2026-10-26: `unpaired` went
+     too — `unpairGuestAction`'s only caller is the Maker's march, in place (DECISION_LOG "A SAVE NEVER RESETS THE
+     SCREEN — APP-WIDE"), so pair-actions.ts redirects nowhere and no bar can be left waiting on a flag. A redirect
+     added back must arrive here by itself (the flags are derived, never listed). */
   console.log(`pair-actions.ts success flags: ${FLAGS.join(', ') || '(none)'}`);
-  /* ⚖ 2026-09-30: the Guest list's "Pair these 2" (and its `paired` flag) left
-     with "walks with" — it lives only in the Maker's Wedding March now
-     (DECISION_LOG "WALKING TOGETHER IS NOT BEING A COUPLE"). `unpaired` stays:
-     `unpairGuestAction` keeps its redirect for a form-bound caller. */
-  assert.ok(
-    FLAGS.length >= 1,
-    `expected at least 1 success flag, found ${FLAGS.length} — the regex has ` +
-      'stopped matching, or the action stopped signalling success',
-  );
-  assert.ok(FLAGS.includes('unpaired'), 'the `unpaired` flag is gone');
+  assert.deepEqual(FLAGS, [], 'pair-actions.ts redirects with a flag again — register it below, or answer in place');
+  assert.doesNotMatch(pairActions, /\bredirect\(/, 'pair-actions.ts navigates again');
 });
 
 test('every pair flag is declared on the page searchParams type', () => {
@@ -74,9 +72,9 @@ test('every pair flag produces a message the host can read', () => {
   // end of pickFlash's destructured parameter type — where `search.<flag>` is
   // never written — so the guard passed on a page that read the flag nowhere.
   // Take everything from the signature to the next top-level declaration.
-  const start = page.indexOf('function pickFlash(');
+  const start = flash.indexOf('function pickFlash(');
   assert.notEqual(start, -1, 'could not find pickFlash — this guard is blind');
-  const after = page.slice(start + 'function pickFlash('.length);
+  const after = flash.slice(start + 'function pickFlash('.length);
   const end = after.search(/\n(?:export )?(?:function|const|type) /);
   const body = end === -1 ? after : after.slice(0, end);
   assert.ok(

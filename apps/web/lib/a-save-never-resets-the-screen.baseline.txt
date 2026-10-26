@@ -244,17 +244,6 @@ app/dashboard/(account)/samahan/actions.ts › updateCommunityIdentity
 app/dashboard/(launcher)/incoming-request-actions.ts › answerIncomingRequest
 app/dashboard/(launcher)/incoming-request-actions.ts › muteInviter
 app/dashboard/[eventId]/disputes/actions.ts › fileForceMajeureFlag
-app/dashboard/[eventId]/guests/[guestId]/actions.ts › inviteGuestByEmailAction
-app/dashboard/[eventId]/guests/[guestId]/actions.ts › releaseGuestClaim
-app/dashboard/[eventId]/guests/[guestId]/actions.ts › updateGuest
-app/dashboard/[eventId]/guests/claims/actions.ts › keepGuestAction
-app/dashboard/[eventId]/guests/claims/actions.ts › linkGuestAction
-app/dashboard/[eventId]/guests/claims/actions.ts › removeGuestAction
-app/dashboard/[eventId]/guests/claims/actions.ts › undoAcceptAction
-app/dashboard/[eventId]/guests/claims/actions.ts › undoDeclineAction
-app/dashboard/[eventId]/guests/groups-actions.ts › bulkApplyRoleAndGroup
-app/dashboard/[eventId]/guests/groups-actions.ts › createGuestGroup
-app/dashboard/[eventId]/guests/pair-actions.ts › unpairGuestAction
 app/dashboard/[eventId]/hosts/actions.ts › inviteHost
 app/dashboard/[eventId]/hosts/actions.ts › removeHost
 app/dashboard/[eventId]/hosts/actions.ts › revokeHostInvite

@@ -8,6 +8,7 @@
  * `StayForm` door instead. Held by `a-save-never-resets-the-screen.test.ts` (a stale entry fails too).
  */
 export const STAY_NAVIGATION: Readonly<Record<string, string>> = {
+  "app/dashboard/[eventId]/guests/[guestId]/actions.ts › updateGuest": "a non-quiet save goes back to the guest list (owner 2026-05-22: \"when information is saved on guest, it needs to return to guest list\"); the card's autosave posts quiet=1 and saves in place, success and refusal alike (a-refused-quiet-save-stays-on-the-card.test.ts)",
   "app/[slug]/welcome/actions.ts › abandonPlusOneInvite": "decline +1 invite → event page (leave)",
   "app/auth/oauth-actions.ts › signInWithApple": "OAuth hop to provider",
   "app/auth/oauth-actions.ts › signInWithFacebook": "OAuth hop to provider",

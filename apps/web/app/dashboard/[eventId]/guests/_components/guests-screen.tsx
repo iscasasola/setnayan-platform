@@ -38,6 +38,7 @@
  * `NewGroupInlineForm`; Invite N = the one-by-one run at `/guests/send?ids=`.
  */
 
+import { useStayDoor } from '@/app/_components/stay-form';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -582,12 +583,17 @@ export function GuestsScreen(props: GuestsScreenProps) {
   // ── Set… ▾ › Papic (owner 2026-10-23) — the sheet "Papic · set N each", open with the choice that was picked.
   const [papicSheet, setPapicSheet] = useState<GuestCamera | null>(null);
   const { bulkApplyRoleAndGroup, sendRunHref } = useGuestActions();
+  const stay = useStayDoor();
   const applyBulk = async (field: 'group_id' | 'table' | 'side', value: string) => {
     const fd = new FormData();
     for (const id of selected) fd.append('guest_ids[]', id);
     fd.set(field, value);
-    // ⚡ The action revalidates the guest list, so its answer carries the redrawn page — no second render.
-    await bulkApplyRoleAndGroup(eventId, fd);
+    fd.set('event_id', eventId);
+    // 📍 IN PLACE (owner 2026-10-26, "A SAVE NEVER RESETS THE SCREEN"): through the door, never its redirect — the list,
+    // its Select mode and its scroll stay; what it did (or why not) is said here. The lab's door runs its stand-in.
+    const r = await stay('guests.bulkApplyRoleAndGroup', fd, (f) => bulkApplyRoleAndGroup(eventId, f));
+    if (!r.ok) toast.error(r.error);
+    else if (r.said) toast.success(r.said);
   };
 
   // ── ✋ Set reply ▾ (owner 2026-10-21) — the ONE host reply write (`setGuestRsvp`): drawn at once, one Undo for all.

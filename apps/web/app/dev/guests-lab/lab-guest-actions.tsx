@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { GuestRemovalActionsContext, type GuestRemovalActions } from '@/app/dashboard/[eventId]/guests/_components/guest-delete';
 import { LAB_GUEST_ACTIONS, LAB_NAVIGATE_EVENT, LAB_SETUP_REFUSALS, labTimedAdds } from './lab-stand-ins';
 import { GuestActionsProvider } from '@/app/dashboard/[eventId]/guests/_components/guest-actions-context';
+import { StayDoorProvider, type StayDoorFn } from '@/app/_components/stay-form';
 
 /**
  * The lab's stand-ins for the guest list's writes: they succeed LOCALLY — the row hides, the Undo toast shows, Undo brings
@@ -51,9 +52,19 @@ export function LabGuestActions({ refuse = false, addMs = 0, children }: { refus
         : { ok: true, removedIds: [...ids], releasedSeats: [] },
     restoreDeletedGuests: async () => ({ ok: true }),
   };
+  /* 📍 The in-place door (`StayForm` · `useStayDoor`), STUBBED: a lab press never reaches `saveInPlace`. It runs the
+     lab's own stand-in (when the control has one) and answers the way the real door does — saved, or (`?refuse=1`)
+     refused with words said on the row — so the screen staying put can be seen and screenshotted. */
+  const door: StayDoorFn = async (_door, fd, action) => {
+    if (refuse) return { ok: false, error: 'The lab refuses this on purpose — nothing changed. Please try again.' };
+    if (action) await action(fd);
+    return { ok: true, said: 'Saved — the lab answered in place.' };
+  };
   return (
+    <StayDoorProvider value={door}>
     <GuestRemovalActionsContext.Provider value={stand}>
       <GuestActionsProvider actions={{ ...LAB_GUEST_ACTIONS, ...(refuse ? LAB_SETUP_REFUSALS : {}), ...labTimedAdds(addMs) }}>{children}</GuestActionsProvider>
     </GuestRemovalActionsContext.Provider>
+    </StayDoorProvider>
   );
 }

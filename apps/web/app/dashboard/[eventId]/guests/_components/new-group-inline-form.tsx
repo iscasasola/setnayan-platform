@@ -1,5 +1,6 @@
 'use client';
 
+import { StayForm } from '@/app/_components/stay-form';
 import { useContext } from 'react';
 import { useGuestActions } from './guest-actions-context';
 import { TEAM_SIDE_LABELS, type GuestGroupTeamSide } from '@/lib/guests';
@@ -19,10 +20,11 @@ export function NewGroupInlineForm({
   const hasSides = useContext(GuestListHasSidesContext);
   const { createGuestGroup } = useGuestActions();
   return (
-    <form
-      action={createGuestGroup.bind(null, eventId)}
+    <StayForm
+      door="guests.createGuestGroup" action={createGuestGroup.bind(null, eventId)}
       className="mt-3 flex flex-wrap items-end gap-2 rounded-md border border-ink/10 bg-cream/60 p-3"
     >
+      <input type="hidden" name="event_id" value={eventId} />
       {selectedIds.map((id) => (
         <input key={id} type="hidden" name="guest_ids[]" value={id} />
       ))}
@@ -82,6 +84,6 @@ export function NewGroupInlineForm({
           Cancel
         </button>
       </div>
-    </form>
+    </StayForm>
   );
 }

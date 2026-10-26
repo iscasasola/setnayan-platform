@@ -187,16 +187,18 @@ test('the march reads ONE order: the invitation’s, The Entourage card’s, the
 test('walking alone (a name dragged out of its pair) happens IN PLACE — the Guest list’s own unpair, no navigation', () => {
   const actions = read('app/dashboard/[eventId]/guests/pair-actions.ts');
   const unpair = actions.slice(actions.indexOf('export async function unpairGuestAction('));
-  assert.match(unpair, /const inPlace = mode === 'in-place';/);
-  // In place, a refusal is THROWN (said by the caller) and success RETURNS — both before any redirect.
-  assert.match(unpair, /if \(inPlace\) throw new Error\([^)]*\);\s*redirect\(/);
-  assert.match(unpair, /if \(inPlace\) \{[\s\S]*?return;\s*\}\s*redirect\(backToList\(eventId, \{ unpaired: '1' \}\)\);/);
+  // 2026-10-26 (DECISION_LOG "A SAVE NEVER RESETS THE SCREEN — APP-WIDE"): in place ALWAYS — its only caller is the
+  // march, so the form-bound redirect it kept went with the Guest list's pair row. A refusal is THROWN (said by the
+  // caller), success RETURNS, and nothing in it navigates.
+  const body = unpair.slice(0, unpair.indexOf('\n}') + 2);
+  assert.match(body, /if \(error\) throw new Error\([^)]*\);/);
+  assert.doesNotMatch(body, /\bredirect\(/, 'the unpair navigates again');
   // The Maker's march calls that same action — since 2026-10-06 at ✓ Apply (owner: *"Wait for apply"*),
   // through the one dispatch that replays the drafted steps.
   const march = read('app/dashboard/[eventId]/guests/march-step.ts');
   assert.match(march, /import \{ unpairGuestAction \} from '\.\/pair-actions';/);
   // 🚶 Since 2026-10-06 a name dragged out of its pair splits it: the same action, in place.
-  assert.match(march, /await unpairGuestAction\(eventId, step\.guest, 'in-place'\);/);
+  assert.match(march, /await unpairGuestAction\(eventId, step\.guest\);/);
   // …and the Guest list's rows no longer offer it at all (owner 2026-09-30:
   // "walks with" lives only in the Maker's Wedding March).
   const roster = read('app/dashboard/[eventId]/guests/_components/guests-screen.tsx');

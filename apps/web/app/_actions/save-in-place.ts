@@ -3,7 +3,8 @@
 import { revalidatePath } from 'next/cache';
 import { isRedirectError } from 'next/dist/client/components/redirect-error';
 import { getURLFromRedirectError } from 'next/dist/client/components/redirect';
-import { COULD_NOT_SAVE, inPlaceAnswer, redirectPath, type StayResult, type StayWords } from '@/lib/save-in-place';
+import { COULD_NOT_SAVE, inPlaceAnswer, redirectNews, redirectPath, type StayResult, type StayWords } from '@/lib/save-in-place';
+import { keepStayNews } from '@/lib/stay-news.server';
 import { isStayDoor, type StayDoor } from '@/lib/stay-doors';
 import { limitedHelperRefusal } from '@/lib/host-gate';
 import type { DelegateArea } from '@/lib/delegate-areas';
@@ -42,6 +43,19 @@ import {
 import { setVendorCapturesHidden } from '@/app/dashboard/[eventId]/studio/papic/vendor-visibility-actions';
 import { applyActivityPicks, toggleActivityPick } from '@/app/dashboard/[eventId]/schedule/activity-picks-actions';
 import { addSponsor, markResponse, removeSponsor, sendInvitation, updateSponsor } from '@/app/dashboard/[eventId]/sponsors/actions';
+import { bulkApplyRoleAndGroup, createGuestGroup } from '@/app/dashboard/[eventId]/guests/groups-actions';
+import { inviteGuestByEmailAction, releaseGuestClaim } from '@/app/dashboard/[eventId]/guests/[guestId]/actions';
+import {
+  keepGuestAction,
+  linkGuestAction,
+  removeGuestAction,
+  undoAcceptAction,
+  undoDeclineAction,
+} from '@/app/dashboard/[eventId]/guests/claims/actions';
+import { guestListErrorCopy } from '@/app/dashboard/[eventId]/guests/_components/guest-list-error-copy';
+import { guestCardErrorCopy } from '@/app/dashboard/[eventId]/guests/_components/guest-card-error-copy';
+import { pickFlash } from '@/app/dashboard/[eventId]/guests/_components/guest-list-flash';
+import { guestCardFlash } from '@/app/dashboard/[eventId]/guests/_components/guest-card-flash';
 
 /**
  * 📍 THE ONE DOOR EVERY `StayForm` SAVES THROUGH (owner, 2026-10-26, DECISION_LOG "A SAVE NEVER RESETS THE SCREEN —
@@ -60,6 +74,12 @@ const onEvent =
   (fn: (eventId: string, fd: FormData) => Promise<unknown>) =>
   (fd: FormData): Promise<unknown> =>
     fn(String(fd.get('event_id') ?? ''), fd);
+
+/** An action bound to its event AND guest (`.bind(null, eventId, guestId)`) reads both from the form. */
+const onGuest =
+  (fn: (eventId: string, guestId: string, fd: FormData) => Promise<unknown>) =>
+  (fd: FormData): Promise<unknown> =>
+    fn(String(fd.get('event_id') ?? ''), String(fd.get('guest_id') ?? ''), fd);
 
 const EVENT_SCREEN = (screen: string) => new RegExp(`^/dashboard/[^/]+/${screen}$`);
 
@@ -81,11 +101,35 @@ const SPONSORS: StayWords = { within: [EVENT_SCREEN('sponsors')], refuse: (q) =>
  * 'schedule', sponsors → none, so a limited helper is refused). The door asks the gate BEFORE any action runs; each
  * action asks again on its own.
  */
+/* The guest list — a `?error=` in its own words (`guestListErrorCopy`), and its flash (`pickFlash`) said on the row. */
+const GUEST_LIST: StayWords = {
+  within: [/^\/dashboard\/[^/]+\/guests(\/.*)?$/],
+  refuse: (q) => (q.get('error') ? guestListErrorCopy(q.get('error')!) : null),
+  saved: (q) => pickFlash(Object.fromEntries(q)),
+};
+/* The guest card's careful actions (⋯ › New QR · Unlink · This is me · Give the spot · the sign-in link). */
+const GUEST_CARD: StayWords = {
+  within: [/^\/dashboard\/[^/]+\/guests(\/.*)?$/],
+  refuse: (q) => {
+    if (q.get('error')) return guestCardErrorCopy(q.get('error')!);
+    const f = guestCardFlash(Object.fromEntries(q));
+    return f && !f.ok ? f.msg : null;
+  },
+  saved: (q) => {
+    const f = guestCardFlash(Object.fromEntries(q));
+    return f?.ok ? f.msg : pickFlash(Object.fromEntries(q));
+  },
+};
+/* Requests — `?error=` carries the page's own sentence; `?done=kept&who=` draws "Accepted · Send invite · Undo", so
+   the news is kept for the in-place re-render (`lib/stay-news.server.ts`). */
+const REQUESTS: StayWords = { within: [EVENT_SCREEN('guests/claims')], refuse: (q) => q.get('error'), keepNews: true };
+
 type Door = { run: (fd: FormData) => Promise<unknown>; words: StayWords; area: DelegateArea | null };
 const papic = (run: (fd: FormData) => Promise<unknown>): Door => ({ run, words: PAPIC_WORDS, area: 'photos' });
 const memories = (run: (fd: FormData) => Promise<unknown>): Door => ({ run, words: MEMORIES, area: 'photos' });
 const schedule = (run: (fd: FormData) => Promise<unknown>): Door => ({ run, words: SCHEDULE, area: 'schedule' });
 const sponsors = (run: (fd: FormData) => Promise<unknown>): Door => ({ run, words: SPONSORS, area: null });
+const guests = (run: (fd: FormData) => Promise<unknown>, words: StayWords): Door => ({ run, words, area: 'guest_list' });
 
 const DOORS: Readonly<Record<StayDoor, Door>> = {
   'papic.setGuestAllotments': papic(setGuestAllotments),
@@ -122,6 +166,15 @@ const DOORS: Readonly<Record<StayDoor, Door>> = {
   'sponsors.removeSponsor': sponsors(removeSponsor),
   'sponsors.sendInvitation': sponsors(sendInvitation),
   'sponsors.markResponse': sponsors(markResponse),
+  'guests.bulkApplyRoleAndGroup': guests(onEvent(bulkApplyRoleAndGroup), GUEST_LIST),
+  'guests.createGuestGroup': guests(onEvent(createGuestGroup), GUEST_LIST),
+  'guests.releaseGuestClaim': guests(onGuest(releaseGuestClaim), GUEST_CARD),
+  'guests.inviteGuestByEmailAction': guests(onGuest(inviteGuestByEmailAction), GUEST_CARD),
+  'guests.keepGuestAction': guests(onEvent(keepGuestAction), REQUESTS),
+  'guests.removeGuestAction': guests(onEvent(removeGuestAction), REQUESTS),
+  'guests.linkGuestAction': guests(onEvent(linkGuestAction), REQUESTS),
+  'guests.undoAcceptAction': guests(onEvent(undoAcceptAction), REQUESTS),
+  'guests.undoDeclineAction': guests(onEvent(undoDeclineAction), REQUESTS),
 };
 
 export async function saveInPlace(door: StayDoor, formData: FormData): Promise<StayResult> {
@@ -135,6 +188,7 @@ export async function saveInPlace(door: StayDoor, formData: FormData): Promise<S
   if (helperRefusal) return { ok: false, error: helperRefusal };
   try {
     await run(formData);
+    revalidateHere(formData);
     return { ok: true };
   } catch (e) {
     if (!isRedirectError(e)) {
@@ -145,8 +199,18 @@ export async function saveInPlace(door: StayDoor, formData: FormData): Promise<S
     const url = getURLFromRedirectError(e) ?? '';
     const answer = inPlaceAnswer(url, words);
     if (answer === 'navigate') throw e;
-    /* The screen it would have re-drawn is the screen the press is on — make sure it re-renders fresh. */
-    if (answer.ok) revalidatePath(redirectPath(url));
+    if (answer.ok) {
+      /* The screen it would have re-drawn — and the screen the press is ON (the Maker draws Requests too) — re-render fresh. */
+      revalidatePath(redirectPath(url));
+      revalidateHere(formData);
+      if (words.keepNews) await keepStayNews(redirectPath(url), redirectNews(url));
+    }
     return answer;
   }
+}
+
+/** The page the press was on (`stay_here`, set by `useStayDoor`) — a same-site path only; it only drops a cache. */
+function revalidateHere(formData: FormData): void {
+  const here = formData.get('stay_here');
+  if (typeof here === 'string' && /^\/[\w\-/.%()[\]@]*$/.test(here) && !here.startsWith('//')) revalidatePath(here);
 }

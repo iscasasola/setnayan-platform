@@ -15,7 +15,8 @@
  * Pure. Held by `lib/save-in-place.test.ts`.
  */
 
-export type StayResult = { ok: true } | { ok: false; error: string };
+/** `said` — the area's own words for what was done (`StayWords.saved`), when the screen used to say it in a banner. */
+export type StayResult = { ok: true; said?: string } | { ok: false; error: string };
 
 /** How one area reads its own redirect: its refusal words, and the screens a press may stay on. */
 export type StayWords = {
@@ -23,6 +24,11 @@ export type StayWords = {
   refuse?: (q: URLSearchParams) => string | null;
   /** `?<key>error=<code>` → the sentence for that code (falls back to `NOTHING_CHANGED`). */
   say?: Readonly<Record<string, string>>;
+  /** What was done, in the area's own words (the banner the redirect's `?<news>` drew), or `null`. */
+  saved?: (q: URLSearchParams) => string | null;
+  /** The screen draws a step FROM the redirect's `?<news>` (Requests' "Accepted · Send invite"): keep it for the
+   *  in-place re-render (`lib/stay-news.server.ts`). */
+  keepNews?: boolean;
   /** The screens a press may stay on (a path prefix, or a pattern for the whole path); anything else navigates — a
    *  gate's "not on this event" bounce to `/dashboard/<ev>` must never read as "saved". Default: any event screen. */
   within?: readonly (string | RegExp)[];
@@ -48,5 +54,12 @@ export function inPlaceAnswer(url: string, words: StayWords = {}): StayResult | 
   for (const [k, v] of q) {
     if (k.endsWith('error')) return { ok: false, error: words.say?.[v] ?? NOTHING_CHANGED };
   }
-  return { ok: true };
+  const said = words.saved?.(q);
+  return said ? { ok: true, said } : { ok: true };
+}
+
+/** The redirect's `?<news>` as plain pairs (no hash). */
+export function redirectNews(url: string): Record<string, string> {
+  const query = url.includes('?') ? url.slice(url.indexOf('?') + 1).split('#')[0] ?? '' : '';
+  return Object.fromEntries(new URLSearchParams(query));
 }

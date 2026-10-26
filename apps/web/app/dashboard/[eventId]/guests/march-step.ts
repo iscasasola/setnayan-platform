@@ -46,7 +46,7 @@ export async function callMarchStep(eventId: string, step: MarchStep): Promise<M
     case 'unpair':
       /* "they walk alone, right behind it" — the Guest list's own unpair, in place. */
       try {
-        await unpairGuestAction(eventId, step.guest, 'in-place');
+        await unpairGuestAction(eventId, step.guest);
       } catch {
         return { ok: false, reason: UNPAIR_REFUSED };
       }

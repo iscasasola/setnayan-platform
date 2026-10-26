@@ -22,6 +22,7 @@ import { resolveEventHonoree } from '@/lib/honoree-dependent-link';
 import { setupColumns } from '@/lib/onboarding/event-insert';
 import { SIMPLE_NEEDS_FIELD, SIMPLE_SETUP_FIELD } from './_components/simple-setup-field';
 import { defaultNeedsFor, needsColumns, sanitizeNeeds, applyNeedsToSetup } from '@/lib/event-needs';
+import { setnayanAiOffered } from '@/lib/setnayan-ai';
 
 /**
  * commitSimpleEvent — the create commit for a SIMPLE EVENT (owner 2026-06-27).
@@ -238,7 +239,9 @@ export async function commitSimpleEvent(formData: FormData) {
       poolRungKey: formData.get(PAPIC_FIELD_POOL_RUNG),
       // Arrives as the STRING 'true'/'false' — parseServicesStepSelection
       // accepts only a genuine yes, because Boolean('false') is true.
-      ai: formData.get(AI_FIELD_SELECTED),
+      // 🧭 Suppliers off on "What do you need?" ⇒ Setnayan AI was not offered (`setnayanAiOffered`, owner
+      // 2026-10-26) — a 'true' the form still posts is dropped, never charged.
+      ai: needs && !setnayanAiOffered(needs) ? 'false' : formData.get(AI_FIELD_SELECTED),
       // Event Hub Pro — the same STRING yes/no, the same parse rule.
       hubPro: formData.get(HUB_PRO_FIELD_SELECTED),
     },

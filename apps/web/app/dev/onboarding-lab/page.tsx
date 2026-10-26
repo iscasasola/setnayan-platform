@@ -11,6 +11,10 @@
  * button calls the real commit.
  *
  *   ?type=<event_type>   one of the twenty (default: hangout)
+ *   ?services=1          also mount the services step (Papic · Setnayan AI) on a FIXTURE view, so the
+ *                        Setnayan AI card can be seen following the needs screen's Suppliers row (owner
+ *                        2026-10-26, `setnayanAiOffered`). ⚠ Its peso figure is a lab placeholder, NOT a
+ *                        price — the real card reads `readServicesStepView` (the catalogue).
  */
 import { notFound } from 'next/navigation';
 import { GenericOnboarding } from '@/app/onboarding/[type]/_components/generic-onboarding';
@@ -20,6 +24,7 @@ import { CREATION_ASKS, resolveOnboardingFlow, resolveSetupSteps } from '@/lib/o
 import { setupViewForProfile } from '@/lib/onboarding/setup-view';
 import { DEFAULT_PRESET_BY_TYPE } from '@/lib/event-needs';
 import { manilaToday } from '@/lib/std-views';
+import { buildServicesStepView } from '@/lib/onboarding/services-step-data';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,7 +52,11 @@ const LABEL: Record<string, { label: string; emoji: string }> = {
   grand_opening: { label: 'Grand opening', emoji: '🎀' },
 };
 
-export default async function OnboardingLabPage({ searchParams }: { searchParams: Promise<{ type?: string }> }) {
+export default async function OnboardingLabPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ type?: string; services?: string }>;
+}) {
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
   const type = sp.type && sp.type in DEFAULT_PRESET_BY_TYPE ? sp.type : 'hangout';
@@ -110,6 +119,21 @@ export default async function OnboardingLabPage({ searchParams }: { searchParams
       todayISO={manilaToday()}
       setupView={view}
       setupSteps={resolveSetupSteps(view, CREATION_ASKS.generic)}
+      servicesStepView={
+        sp.services === '1'
+          ? buildServicesStepView({
+              eventWord: profile.terminology.eventWord,
+              poolTiers: [],
+              oneTiers: [],
+              pricePhpByCode: new Map(),
+              freePoolPoints: 50,
+              freeOnePoints: 0,
+              // Lab placeholder only (never a price): the card needs a figure to draw at all.
+              aiPricePhp: profile.marketplaceEnabled ? 999 : null,
+              hubPro: null,
+            })
+          : null
+      }
     />
   );
 }

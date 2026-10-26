@@ -29,6 +29,7 @@ import { setnayanAiTierInApp } from '@/lib/iap/setnayan-ai-in-app.server';
 import { storeShellAllowsPaidFeature } from '@/lib/store-shell';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { readEventNeedsFor } from '@/lib/event-needs-read.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { agreedTotalNow, fetchChangeLinesByVendor } from '@/lib/agreed-total-and-its-changes';
 import { buildBenchStandings } from '@/lib/conversation-list';
@@ -82,6 +83,7 @@ import { getTaxonomy } from '@/lib/taxonomy-db';
 import {
   isSetnayanAiActiveForEvent,
   shouldOfferSetnayanAiPurchaseForEvent,
+  setnayanAiOffered,
 } from '@/lib/setnayan-ai';
 import {
   resolveSetnayanAiPaywallEnabled,
@@ -1387,7 +1389,11 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   const aiOffer =
     shouldOfferSetnayanAiPurchaseForEvent(ev, aiGateOpts) &&
     (!storeShell || appleSai);
-  const aiOfferBanner = aiOffer ? (
+  // 🧭 …and only while this event has Suppliers on (the onboarding's "What do you need?" row,
+  // `setnayanAiOffered`, owner 2026-10-26) — the one rule every Setnayan AI offer follows. Asked only
+  // when there is an offer to make.
+  const saiOffered = aiOffer && setnayanAiOffered(await readEventNeedsFor(supabase, eventId, 'VendorsPage'));
+  const aiOfferBanner = saiOffered ? (
     <Link
       href={`/dashboard/${eventId}/studio/setnayan-ai`}
       className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-mulberry/25 bg-mulberry/5 px-4 py-3 transition-colors hover:bg-mulberry/10"

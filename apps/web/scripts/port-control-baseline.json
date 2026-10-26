@@ -1,9 +1,9 @@
 {
   "generatedFromRef": "1c9895ee30",
-  "routeCount": 473,
-  "destinations": 1013,
+  "routeCount": 474,
+  "destinations": 1014,
   "actions": 662,
-  "blocks": 7096,
+  "blocks": 7110,
   "routes": {
     "/": {
       "files": [
@@ -860,7 +860,6 @@
         "[slug]/_components/countdown-styles.tsx",
         "[slug]/_components/countdown.tsx",
         "[slug]/_components/cover-play-events.ts",
-        "[slug]/_components/cover-rsvp-goes.tsx",
         "[slug]/_components/cover-scene-ground.tsx",
         "[slug]/_components/cover-scene-menu-on-client.tsx",
         "[slug]/_components/cover-scene-menu.tsx",
@@ -1238,7 +1237,6 @@
         "CoverPlayOpening",
         "CoverPlayOpeningDetail",
         "CoverPlayOpeningServer",
-        "CoverRsvpGoes",
         "CoverSceneGround",
         "CoverSceneMenuOnClient",
         "CoverSceneMenuWaits",
@@ -2242,6 +2240,7 @@
         "/admin/live-studio-channels",
         "/admin/money",
         "/admin/moodboard-library",
+        "/admin/moodboard-renders",
         "/admin/more",
         "/admin/pakanta",
         "/admin/papic-storage",
@@ -3607,6 +3606,21 @@
         "PalettePreview",
         "RandomMoodboardPrompt",
         "ScreenFindingsPanel"
+      ]
+    },
+    "/admin/moodboard-renders": {
+      "files": [
+        "admin/moodboard-renders/_components/admin-render-grid.tsx",
+        "admin/moodboard-renders/actions.ts",
+        "admin/moodboard-renders/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "AdminRenderGrid",
+        "FeatureToggleResult",
+        "PageMasthead",
+        "Stat"
       ]
     },
     "/admin/more": {
@@ -8831,6 +8845,7 @@
         "dashboard/[eventId]/studio/mood-board/_components/inspiration-board.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/list-field.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/majors-editor.tsx",
+        "dashboard/[eventId]/studio/mood-board/_components/make-it-real.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/mood-board-actions-context.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/mood-board-editor.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/mood-board-lazy.tsx",
@@ -8842,6 +8857,7 @@
         "dashboard/[eventId]/studio/mood-board/_components/part-finalization-panel.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/printable-pdf-button.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/recolor-studio.tsx",
+        "dashboard/[eventId]/studio/mood-board/_components/render-pool-picker.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/role-attire-field.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/role-more-row.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/save-notice.tsx",
@@ -8857,6 +8873,7 @@
         "dashboard/[eventId]/studio/mood-board/finalization-actions.ts",
         "dashboard/[eventId]/studio/mood-board/loading.tsx",
         "dashboard/[eventId]/studio/mood-board/page.tsx",
+        "dashboard/[eventId]/studio/mood-board/render-actions.ts",
         "dashboard/[eventId]/studio/mood-board/suggestion-actions.ts"
       ],
       "destinations": [
@@ -8880,6 +8897,7 @@
         "CarriedAttire",
         "Chip",
         "ChoiceButton",
+        "ChoosePlanSheet",
         "ChosenRow",
         "ClipboardEntry",
         "ClosedRoundNote",
@@ -8915,6 +8933,7 @@
         "HubDraftField",
         "ISeg",
         "ISegmented",
+        "IapUnlockSheet",
         "ImageData",
         "IncDressCodeStarterNote",
         "InfoTip",
@@ -8924,6 +8943,7 @@
         "Link",
         "ListField",
         "MajorsEditor",
+        "MakeItReal",
         "MoodBoardActions",
         "MoodBoardActionsContext.Provider",
         "MoodBoardEditor",
@@ -8945,6 +8965,8 @@
         "PaletteSection",
         "PaletteStrip",
         "PartFinalizationPanel",
+        "PartRenderState",
+        "PartTile",
         "PeekToast",
         "Pic",
         "PickMenu",
@@ -8953,6 +8975,10 @@
         "RecolorStudio",
         "RegionEditMap",
         "RemovePhotoConfirm",
+        "RenderActionResult",
+        "RenderGallery",
+        "RenderPoolPage",
+        "RenderPoolPicker",
         "RoleAttireField",
         "RoleCard",
         "RoleColourDot",
@@ -8986,7 +9012,9 @@
         "ThemeTextReading",
         "Thumb",
         "Tile",
-        "TypedRow"
+        "TileChrome",
+        "TypedRow",
+        "WholeLookTile"
       ]
     },
     "/dashboard/[eventId]/studio/pakanta": {

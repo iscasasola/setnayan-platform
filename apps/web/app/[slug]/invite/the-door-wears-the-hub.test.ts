@@ -203,6 +203,9 @@ test('3 · the couple\'s own invitation line shows under their names — read fr
   assert.equal(heroLineWord({ canvas: { elements: { line: { word: 'our\u202Ewedding' } } } }), null, 'a bidi control reached the landing');
   const ENTER = read('[slug]/invite/enter/page.tsx');
   assert.match(ENTER, /const inviteLine = heroLineWord\(hub\.heroConfig\);/);
-  const subs = ENTER.match(/sub=\{justIn \? REQUEST_WORDS\.inSub\(hosts, null\) : \(inviteLine \?\? undefined\)\}/g) ?? [];
+  /* 🎟 2026-10-26 (owner: "since the ticket has the logo already and Event Name, Just start with your on the list"):
+     after a Yes with the full ticket the names stand down, and the line under them goes with them (`topStandsDown`,
+     `the-thank-you-starts-with-its-heading.test.ts`); everywhere else both landing renders still carry it. */
+  const subs = ENTER.match(/sub=\{justIn \? REQUEST_WORDS\.inSub\(hosts, null\) : (?:topStandsDown \? undefined : )?\(inviteLine \?\? undefined\)\}/g) ?? [];
   assert.equal(subs.length, 2, 'the line is missing from one of the two landing renders');
 });

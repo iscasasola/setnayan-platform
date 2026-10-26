@@ -24,16 +24,16 @@
     "sha256": "269f01d37ec83548acee3a03622b845fd8ec7bd74faa6232e7f70c6187f5685f"
   },
   "rsvp · guest · plain": {
-    "bytes": 36626,
-    "sha256": "87de190a5fa3198205d99374f59a7e9ac817e5c2b266dd0c2ad2144a2086b17e"
+    "bytes": 36645,
+    "sha256": "04fe1a2ef0f3bf70bbe78f4d32255bc02396752294293cba4b6210d90d196f20"
   },
   "rsvp · guest · hidden": {
-    "bytes": 25949,
-    "sha256": "04902ddba855e8de9df7adbf5c17ea326199718e5a31a16b4f7d86d170ede115"
+    "bytes": 25968,
+    "sha256": "8e10926b10b03c574e304c3a5bf41c6da91b22412c035d86e4986daa73ff86f0"
   },
   "rsvp · guest · browse": {
-    "bytes": 37148,
-    "sha256": "530ce11c31edf5f71ae8712bd1d0b00deff0d224b4020025885c53308a538730"
+    "bytes": 37167,
+    "sha256": "7524b20ac8148192d7ce956848ce1ac6b63570c46fa23525dde5dee3ba726c51"
   },
   "rsvp · anonymous · plain": {
     "bytes": 33169,

@@ -32,12 +32,10 @@ import {
   RENDER_PART_ID_PATTERN,
   WHOLE_LOOK_PART_ID,
   attirePaletteKeys,
-  creditsForPart,
   inspirationSlotsForPart,
   isRenderPartId,
   renderPartById,
   renderPartsInGroup,
-  type MoodboardRenderConfig,
 } from './moodboard-render-parts';
 import { RECEPTION_PARTS } from './reception-scene';
 import { PALETTE_LIMITS, PALETTE_ORDER, isWeddingPartyFineKey } from './mood-board';
@@ -217,27 +215,6 @@ test('a part knows which inspiration uploads condition it', () => {
   // not to an error.
   assert.deepEqual(inspirationSlotsForPart('people:officiants'), []);
   assert.deepEqual(inspirationSlotsForPart('nope:nope'), []);
-});
-
-/* ── credits come from the config row, never from this module ───────────── */
-
-test('the whole look costs the whole-look figure; every part costs the part figure', () => {
-  const config: MoodboardRenderConfig = {
-    creditsPerPart: 1,
-    creditsWholeLook: 5,
-    creditsPerPack: 50,
-    packServiceCode: 'MOODBOARD_RENDER_PACK',
-    maxNoteChars: 500,
-    isActive: true,
-  };
-  assert.equal(creditsForPart(WHOLE_LOOK_PART_ID, config), 5);
-  assert.equal(creditsForPart('room:ceiling', config), 1);
-
-  // The figures are the CONFIG's, not constants in the module — an owner who
-  // moves them must move every price with them.
-  const moved: MoodboardRenderConfig = { ...config, creditsPerPart: 2, creditsWholeLook: 8 };
-  assert.equal(creditsForPart('room:ceiling', moved), 2);
-  assert.equal(creditsForPart(WHOLE_LOOK_PART_ID, moved), 8);
 });
 
 test('no peso figure is encoded anywhere in the registry', () => {

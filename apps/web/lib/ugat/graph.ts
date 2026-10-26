@@ -752,6 +752,13 @@ export const UGAT_TYPES: UgatTypeMeta[] = [
   },
   {
     /**
+     * 🗑 RETIRED 2026-10-26 (owner: "mood board render is no longer available.
+     * can we delete that?"). The app no longer renders, sells or spends: the UI,
+     * the server actions, the Gemini client, both pack doors and the credit
+     * grant are deleted, and MOODBOARD_RENDER_PACK is is_active = false
+     * (migration 20271289025011). THE TABLES AND RPCs STAY — two of them hold
+     * rows — so this node still maps real schema. Nothing in app code writes it.
+     *
      * "Make it real" — the first surface where a couple spends money INSIDE a
      * planning tool rather than on a service, and therefore the first place a
      * balance can silently disagree with what was paid for.
@@ -772,7 +779,7 @@ export const UGAT_TYPES: UgatTypeMeta[] = [
     id: 'TYPE-RENDERS',
     type: 'render',
     name: 'Mood Board renders',
-    blurb: 'the paid photoreal image — a part, a digest, and the credit it cost',
+    blurb: 'RETIRED 2026-10-26 — the paid photoreal image; the tables remain, nothing writes them',
     countKey: 'render',
     icon: 'sparkles',
     color: 'var(--ug-e-render)',
@@ -2947,7 +2954,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     implementedBy:
       'event_render_credit_grants.order_id \u2192 orders for the purchase; balance = SUM(grants.credits) \u2212 usage.credits_used, computed only by moodboard_render_balance',
     writtenBy:
-      'moodboard_begin_render (spend \u2014 it calls reserve INSIDE the same transaction as the event_renders INSERT, so a debit without a render row is unrepresentable) \u00b7 moodboard_fail_render (refund) \u00b7 the pack-fulfilment path and moodboard_set_share_consent (grant) \u2014 SHIPPED in MB8',
+      'moodboard_begin_render (spend \u2014 it calls reserve INSIDE the same transaction as the event_renders INSERT, so a debit without a render row is unrepresentable) \u00b7 moodboard_fail_render (refund) \u00b7 moodboard_set_share_consent (grant) \u2014 SHIPPED in MB8. \u26d4 The pack-fulfilment grant (lib/sku-activation.ts) and every app caller were DELETED when renders were retired (2026-10-26); the RPCs remain in the database with no app caller.',
     guardedBy:
       'no write policy on either table (service-role / SECURITY DEFINER only); moodboard_render_caller_may_act gates every SPEND and CONSENT function and admits only the couple or an admin (owner ruling 2026-09-11, migration 20271221631865), while the two READS (balance, inspiration pool) use moodboard_render_caller_may_view \u2014 any member; `anon` is granted EXECUTE on none of them',
     traps:
@@ -3200,7 +3207,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     implementedBy:
       'event_inspiration_assets.library_asset_id \u2192 moodboard_library_assets, paired with source_kind = \'gallery_pick\' by a CHECK biconditional',
     writtenBy:
-      'applyGalleryPick (the couple\u2019s picker), applyRenderPick (MB9 \u2014 another couple\u2019s shared render, saved as a reference, costing nothing) and applyMoodboardTemplate (theme seeding) \u2014 all three in studio/mood-board/actions.ts; uploadMoodboardSlot writes the couple\u2019s OWN photos, which carry no id and no credit',
+      'applyGalleryPick (the couple\u2019s picker) and applyMoodboardTemplate (theme seeding) \u2014 both in studio/mood-board/actions.ts (applyRenderPick, MB9\u2019s shared-render pick, was deleted with Mood Board renders 2026-10-26; old render_pick rows may remain); uploadMoodboardSlot writes the couple\u2019s OWN photos, which carry no id and no credit',
     guardedBy:
       'RLS Pattern B \u2014 event_members-scoped select/insert/update, admin all; plus the provenance biconditional and the FK event_inspiration_assets_slot_key_is_a_part \u2192 inspiration_parts (20271288430455 \u2014 it replaced the 29-key slot CHECK; a part holding a photo cannot be deleted)',
     traps:

@@ -15,11 +15,10 @@
  *                                    path that bypasses every server action)
  *                                    may name only the PUBLIC media bucket.
  *
- * And the SERVE half, fed real rows: a forged key planted under the constraint
- * (in a rolled-back transaction — the only way one can exist) is read back
- * through the real pool RPC / the couple's own RLS read, and the app's pure
- * gates (shapeRenderPoolPage, isOwnRenderImageKey, siteMediaServeRef) refuse it
- * before any signer is called.
+ * And the SERVE half for website media, fed real rows: siteMediaServeRef refuses
+ * a forged key before any signer is called. (The render SERVE half — the pool
+ * shaper and the own-key gate — was deleted with Mood Board renders, retired
+ * 2026-10-26; the database rules above stay because the rows stay.)
  *
  * 🔑 EVERY REFUSAL HAS A POSITIVE CONTROL beside it — the same session, the same
  * row, the row's OWN key, ACCEPTED. Without that, a FALSE could be the
@@ -31,8 +30,6 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import type { PGlite } from '@electric-sql/pglite';
 import { createReplayedDb, setAuthUid, type ReplayResult } from './replay-migrations';
-import { shapeRenderPoolPage, type RawPoolRow } from '../../lib/moodboard-render-pool';
-import { isOwnRenderImageKey } from '../../lib/moodboard-render-keys';
 import { siteMediaServeRef, siteMediaServeRefs } from '../../lib/site-media-ref';
 
 let replay: ReplayResult;
@@ -209,7 +206,7 @@ test('finish_render REFUSES every key that is not the render’s own — and acc
   assert.equal(await rpcAs(F.couple, FINISH, [id, own(F.eventId, id)]), true);
   assert.equal((await keysOf(id)).image_key, own(F.eventId, id));
   // …and every extension the writer mints is admitted (the SQL list and the TS
-  // list agree — lib/moodboard-render-keys.test.ts pins the text).
+  // list agree).
   assert.equal(await rpcAs(F.couple, FINISH, [sibling, own(F.eventId, sibling, 'webp')]), true);
 });
 
@@ -290,90 +287,6 @@ test('the table itself refuses a forged key from ANY writer — service role / s
   // Positive control through the same door: the row's own key is accepted.
   await db.query(`UPDATE public.event_renders SET image_key = $2 WHERE render_id = $1`, [id, own(F.eventId, id)]);
   assert.equal((await keysOf(id)).image_key, own(F.eventId, id));
-});
-
-/* ── 4 · SERVE: a forged row that somehow exists is refused before signing ── */
-
-test('SERVE: a forged pooled key reaches another couple’s shaper and is withheld — never signed', async () => {
-  const id = await beginAs(F.couple, F.eventId, 1);
-  assert.equal(await rpcAs(F.couple, FINISH, [id, own(F.eventId, id)]), true);
-  assert.equal(await rpcAs(F.couple, ATTACH, [id, ownGallery(F.eventId, id)]), true);
-  await db.query(
-    `INSERT INTO public.event_render_share_consent (event_id, consented, consented_at)
-     VALUES ($1, TRUE, NOW()) ON CONFLICT (event_id) DO UPDATE SET consented = TRUE, consented_at = NOW()`,
-    [F.eventId],
-  );
-
-  const readPoolAsOtherCouple = async (): Promise<RawPoolRow[]> => {
-    await asUser(F.otherCouple);
-    try {
-      const r = await db.query<RawPoolRow>(
-        `SELECT * FROM public.moodboard_inspiration_pool($1, NULL, 24, 0, $2)`,
-        [F.otherEventId, id],
-      );
-      return r.rows;
-    } finally {
-      await reset();
-    }
-  };
-
-  // Positive control: the honest row is in the pool and IS signed.
-  const signed: string[] = [];
-  const spy = async (key: string) => {
-    signed.push(key);
-    return `https://signed/${key}`;
-  };
-  const honest = await shapeRenderPoolPage(await readPoolAsOtherCouple(), spy);
-  assert.equal(honest.renders.length, 1);
-  assert.deepEqual(signed, [ownGallery(F.eventId, id)]);
-
-  // Plant a forged key the only way one can exist — around the constraint, in
-  // a transaction that is rolled back — and read it through the real RPC.
-  signed.length = 0;
-  await db.exec('BEGIN');
-  try {
-    await db.exec(`ALTER TABLE public.event_renders DROP CONSTRAINT event_renders_gallery_image_key_is_its_own`);
-    await db.query(`UPDATE public.event_renders SET gallery_image_key = $2 WHERE render_id = $1`, [
-      id,
-      `payment-proof/events/${F.otherEventId}/proof.jpg`,
-    ]);
-    const rows = await readPoolAsOtherCouple();
-    assert.equal(rows.length, 1, 'the RPC does return the planted row — the app gate is what stops it');
-    assert.equal(rows[0]!.gallery_image_key, `payment-proof/events/${F.otherEventId}/proof.jpg`);
-    const forged = await shapeRenderPoolPage(rows, spy);
-    assert.equal(forged.renders.length, 0);
-    assert.equal(forged.withheld, 1);
-    assert.deepEqual(signed, [], 'the forged key must never reach the signer');
-  } finally {
-    await db.exec('ROLLBACK');
-    await reset();
-  }
-  assert.equal((await keysOf(id)).gallery_image_key, ownGallery(F.eventId, id), 'rolled back');
-});
-
-test('SERVE: a forged image key read back by the couple through RLS is refused before signing', async () => {
-  const id = await beginAs(F.couple, F.eventId, 1);
-  await db.exec('BEGIN');
-  try {
-    await db.exec(`ALTER TABLE public.event_renders DROP CONSTRAINT event_renders_image_key_is_its_own`);
-    await db.query(`UPDATE public.event_renders SET image_key = $2 WHERE render_id = $1`, [
-      id,
-      `payment-proof/events/${F.otherEventId}/proof.png`,
-    ]);
-    await asUser(F.couple);
-    const r = await db.query<{ render_id: string; image_key: string }>(
-      `SELECT render_id, image_key FROM public.event_renders WHERE render_id = $1`,
-      [id],
-    );
-    assert.equal(r.rows.length, 1, 'the couple can read the row (Pattern B) — so the gate must be in the app');
-    const row = r.rows[0]!;
-    assert.equal(isOwnRenderImageKey(row.image_key, { eventId: F.eventId, renderId: row.render_id }), false);
-    // Positive control on the same row id: its own key passes the same gate.
-    assert.equal(isOwnRenderImageKey(own(F.eventId, id), { eventId: F.eventId, renderId: row.render_id }), true);
-  } finally {
-    await db.exec('ROLLBACK');
-    await reset();
-  }
 });
 
 /* ── 5 · event website media: the PATCH path ─────────────────────────────── */

@@ -136,7 +136,7 @@ async function renderCount(eventId: string): Promise<number> {
 
 /**
  * The ONE key a render may name — `renders/<event_id>/<render_id>.<ext>`, the
- * writer's own derivation (lib/moodboard-render-keys.ts). Since migration
+ * writer's own derivation (the app writer was retired 2026-10-26). Since migration
  * 20271220579615 the finish RPC refuses (and the table's CHECK rejects) any
  * other string, so a fixture that finished a render with a made-up key would
  * now prove nothing about the rule it was written to test.

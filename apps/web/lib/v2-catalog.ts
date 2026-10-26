@@ -114,11 +114,7 @@ const BUILD_STATUS: Record<string, BuildStatus> = {
   HIGH_RES_ARCHIVE:    'partial',  // 0009 photo delivery partial
   LIVE_BACKGROUND:     'not_built', // REMOVED 2026-08-11 (owner: "remove wall backdrop"). Was marked 'live' on 2026-07-10 under "all features active" — it never was: the maker saved a draft and nothing rendered the 8K file or posted the USB it promised. Route, save endpoint, templates and both tables deleted (migration 20271132121622). Kept listed so the retirement is legible and any historical order row still resolves a status.
   PABATI:              'not_built', // RETIRED 2026-08-21 (owner: "we do not need pabati. retire it because it is part of papic"). Was a ₱1,299 5-second video guestbook; 0 greetings ever recorded, 0 orders ever. Its own challenge-library row now asks for an ordinary Papic clip, so the capability survives the product. Surface, API, table and RPCs deleted. Kept listed — same convention as LIVE_BACKGROUND above — so the retirement is legible and any historical order row still resolves a status.
-  // 2026-10-19 — was MISSING, so it silently defaulted to 'not_built' ("Coming soon")
-  // while /features/mood-board sells it as the paid half of a free-plus feature. Wired
-  // end to end: lib/sku-activation.ts grants it, lib/moodboard-render-credits.ts spends it,
-  // the mood-board editor buys it. Held by app/features/a-sold-feature-is-not-in-build.test.ts.
-  MOODBOARD_RENDER_PACK: 'live',
+  MOODBOARD_RENDER_PACK: 'not_built', // RETIRED 2026-10-26 (owner: "mood board render is no longer available. can we delete that?"). Was the ₱1,000 / 50-render "Make it real" pack; 0 orders ever, 0 renders ever. UI, actions, Gemini client, both pack doors (web + App Store) and the credit grant deleted; row deactivated by migration 20271289025011. Kept listed — same convention as PABATI above — so the retirement is legible.
   KWENTO:              'live',     // words-on-a-photo · FREE for every event (owner 2026-08-21 "kwento is free"; row deactivated by 20271156242842, feature kept on via FREE_FOR_ALL_SKUS) · was paid-to-unlock ₱299 from 2026-06-26 · ⚠ the old comment here said ₱500, which the catalog never charged
 
   PAKANTA:               'live',       // custom-song delivery end-to-end: intake + admin upload → auto-plays on the couple's site (PR #2038) · 2026-06-22

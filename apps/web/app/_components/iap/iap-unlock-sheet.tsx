@@ -54,7 +54,7 @@ export function IapUnlockSheet({
   /** The page's own button words, unchanged ("Unlock Setnayan AI", "Save & share"…), without a price. */
   triggerLabel: string;
   triggerTestId?: string;
-  /** "Add Music Maker", "Buy Mood Board · 50 renders"… */
+  /** "Add Music Maker", "Buy Papic credits"… */
   buyVerb?: string;
   /** Said once it is on. */
   onLine?: string;

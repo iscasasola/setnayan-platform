@@ -73,10 +73,6 @@ import {
   buildVendorDeepSearchInputs,
 } from '@/lib/vendor-deep-search-run';
 import { BOOTH_BRANDING_MIN_TIER } from '@/lib/seating-3d';
-import {
-  MOODBOARD_RENDER_PACK_SKU,
-  readMoodboardRenderConfig,
-} from '@/lib/moodboard-render-credits';
 import { formatPhp } from '@/lib/php';
 
 /**
@@ -224,75 +220,6 @@ async function stampAnnualSubscriptionWindow(ctx: ActivationContext): Promise<vo
  * NON-FATAL per the dispatcher contract: a failure here leaves a paid order with
  * no points, which an admin can re-run — it must never roll back the approval.
  */
-/**
- * MOODBOARD_RENDER_PACK → the Mood Board "Make it real" render-credit pack
- * (MB2's ledger, MB7's Buy button). 50 credits per pack (moodboard_render_-
- * config.credits_per_pack — admin-editable, never hardcoded here) into
- * `event_render_credit_grants`, source `pack_order`.
- *
- * IDEMPOTENT BY order_id — same shape as grantPapicPassPoints, but here the
- * table's own `event_render_credit_grants_order_unique` partial UNIQUE index
- * (WHERE order_id IS NOT NULL) enforces it too, so a race between a re-
- * approval and this pre-read still can't double-grant; the insert's unique-
- * violation is treated as "already granted", not an error.
- *
- * NON-FATAL per the dispatcher contract: a failure here leaves a paid order
- * with no credits, which an admin can re-run — it must never roll back the
- * approval that already happened.
- */
-async function grantMoodboardRenderPackCredits(ctx: ActivationContext): Promise<void> {
-  if (!ctx.eventId) return;
-  const eventId = ctx.eventId;
-  try {
-    const { data: existing } = await ctx.admin
-      .from('event_render_credit_grants')
-      .select('grant_id')
-      .eq('order_id', ctx.orderId)
-      .limit(1);
-    if (Array.isArray(existing) && existing.length > 0) return;
-
-    const config = await readMoodboardRenderConfig(ctx.admin);
-    if (!config) {
-      console.error(
-        '[sku-activation] MOODBOARD_RENDER_PACK activation could not read moodboard_render_config (non-fatal):',
-        { order_id: ctx.orderId },
-      );
-      reportActivationFault('activate:moodboard_render_pack_config', ctx, new Error('config unreadable'));
-      return;
-    }
-
-    const { error } = await ctx.admin.from('event_render_credit_grants').insert({
-      event_id: eventId,
-      credits: config.creditsPerPack,
-      source: 'pack_order',
-      order_id: ctx.orderId,
-    });
-    if (error) {
-      // A UNIQUE violation on order_id means a concurrent approval already
-      // granted this order's credits — not a failure to report.
-      if (error.code !== '23505') {
-        console.error('[sku-activation] MOODBOARD_RENDER_PACK grant insert failed (non-fatal):', {
-          order_id: ctx.orderId,
-          error: error.message,
-        });
-        reportActivationFault('activate:moodboard_render_pack_insert', ctx, error);
-      }
-      return;
-    }
-
-    await appendLedger(ctx.admin, {
-      order_id: ctx.orderId,
-      event_type: 'service_activated',
-      actor_user_id: ctx.actorUserId,
-      actor_role: 'admin',
-      metadata: { service_key: ctx.serviceKey, event_id: eventId, credits_granted: config.creditsPerPack },
-    });
-  } catch (e) {
-    console.error('[sku-activation] MOODBOARD_RENDER_PACK grant threw (non-fatal):', e);
-    reportActivationFault('activate:moodboard_render_pack', ctx, e);
-  }
-}
-
 /**
  * VENDOR PAPIC CREDITS — one INSERT into the supplier's per-event ledger,
  * `vendor_papic_portfolio_credit_grants`. Shared by the two doors the owner
@@ -727,45 +654,6 @@ async function reverseBookingFeeCharge(ctx: ActivationContext, chargeId: string)
     }
   } catch (e) {
     reportActivationFault('deactivate:vendor_papic_credits', ctx, e);
-  }
-}
-
-/**
- * 🎨 MOODBOARD_RENDER_PACK refunded → take back THAT order's render credits (2026-10-23, the Apple build: "refund the
- * money, keep the renders" was open on BOTH rails — an admin refund on the web and Apple's REFUND notification).
- *
- * The mirror of `grantMoodboardRenderPackCredits`: its grant row is keyed by `order_id` (partial UNIQUE), so deleting
- * by order_id takes back exactly what this order gave — never a comp, the consent bonus or another pack — and is
- * naturally idempotent (a second refund deletes nothing). Credits already SPENT stay spent: the balance is
- * `GREATEST(granted − used, 0)` (moodboard_render_balance), so it reads zero and the reserve refuses the next render,
- * the same fail-closed outcome `reversePapicPassPoints` documents for Papic.
- *
- * NON-FATAL per the dispatcher contract — but never silent: a failure is reported, because it leaves paid-back
- * credits spendable.
- */
-async function reverseMoodboardRenderPackCredits(ctx: ActivationContext): Promise<void> {
-  if (ctx.serviceKey !== MOODBOARD_RENDER_PACK_SKU) return;
-  try {
-    const { data, error } = await ctx.admin
-      .from('event_render_credit_grants')
-      .delete()
-      .eq('order_id', ctx.orderId)
-      .select('grant_id, credits');
-    if (error) {
-      reportActivationFault('deactivate:moodboard_render_pack', ctx, error);
-      return;
-    }
-    if (!Array.isArray(data) || data.length === 0) return;
-    const revoked = data.reduce((sum, r) => sum + (typeof r.credits === 'number' ? r.credits : 0), 0);
-    await appendLedger(ctx.admin, {
-      order_id: ctx.orderId,
-      event_type: 'order_refunded',
-      actor_user_id: ctx.actorUserId,
-      actor_role: 'admin',
-      metadata: { service_key: ctx.serviceKey, event_id: ctx.eventId, credits_revoked: revoked },
-    });
-  } catch (e) {
-    reportActivationFault('deactivate:moodboard_render_pack', ctx, e);
   }
 }
 
@@ -1231,11 +1119,6 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
   // is the `vendor_booking_fee__` prefix hook below. See
   // grantVendorPapicPortfolioPack.
   [VENDOR_PAPIC_PORTFOLIO_PACK_SKU_CODE]: grantVendorPapicPortfolioPack,
-
-  // 'MOODBOARD_RENDER_PACK' → the Mood Board "Make it real" render-credit pack
-  // (MB2 ledger, MB7 surface). Grants credits_per_pack into
-  // event_render_credit_grants on approval. See grantMoodboardRenderPackCredits.
-  [MOODBOARD_RENDER_PACK_SKU]: grantMoodboardRenderPackCredits,
 
   // 'vendor_ai_addon' → paid Vendor AI ("AI Chatbot") 28-day renewal. Stamps
   // the entitlement window on the paying vendor (the free first cycle is
@@ -2459,9 +2342,6 @@ export async function deactivateOrderSku(ctx: ActivationContext): Promise<void> 
   // and the fail-closed gate stops capture — which is the correct outcome for a
   // reversed order, not a bug to paper over.
   await reversePapicPassPoints(ctx);
-
-  // Mood Board render pack — reverse that order's render-credit grant (no-op for any other SKU).
-  await reverseMoodboardRenderPackCredits(ctx);
 
   // Booking fee — the SUPPLIER's own bill to Setnayan. Mirrors the
   // `vendor_booking_fee__{charge_id}` arm in `activateOrderSku`; see

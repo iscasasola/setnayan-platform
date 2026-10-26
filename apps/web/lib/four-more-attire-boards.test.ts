@@ -44,7 +44,6 @@ import { libraryPartLabel, uploadableSlotsForShop } from './moodboard-gallery-up
 import { dbAcceptedSlotKeys } from './inspiration-parts-gate.test-helper';
 import { STUDIO_INSPIRATION_SLOTS, attireBoardsAfter, attireBoardsUnder } from './inspiration-slots';
 import { inspirationSlotsForPart } from './moodboard-render-parts';
-import { renderPartIdsForSlot } from './moodboard-render-pool';
 import { tradesForPart } from './moodboard-finalization';
 import { WEDDING_TILE_LABEL } from './taxonomy';
 import { canonicalServicesForTile } from './vendor-counts';
@@ -288,7 +287,7 @@ test('5 · a board’s search reads its OWN shelf, and an empty shelf says so in
   const actions = read(`${MB}/actions.ts`);
   const fetch = actions.slice(actions.indexOf('export async function fetchGalleryAssets('), actions.indexOf('export async function applyGalleryPick('));
   assert.match(fetch, /\.eq\('asset_subtype', query\.slotKey\)/, 'the search no longer reads the board’s own shelf');
-  const pick = actions.slice(actions.indexOf('export async function applyGalleryPick('), actions.indexOf('export async function fetchRenderPool('));
+  const pick = actions.slice(actions.indexOf('export async function applyGalleryPick('));
   assert.match(pick, /\.eq\('asset_subtype', input\.slotKey\)/, 'a photo from another shelf could be saved onto this board');
   /* An empty shelf, drawn: the picker as it stands when the shelf holds nothing. */
   const { renderToStaticMarkup } = await import('react-dom/server');
@@ -326,11 +325,9 @@ test('6 · nothing waits for a slot any more — the waiting list itself is gone
 test('7 · the four move nothing a paid render or a supplier’s sign-off reads', () => {
   /* The wedding party's render is still conditioned by the entourage's photos alone… */
   assert.deepEqual(inspirationSlotsForPart('people:wedding_party'), ['entourage']);
-  /* …the bearers' part keeps the trades the owner decided (2026-09-04), not a board's… */
+  /* …and the bearers' part keeps the trades the owner decided (2026-09-04), not a board's. */
   assert.deepEqual(inspirationSlotsForPart('people:bearers_flower_girl'), []);
   assert.deepEqual(tradesForPart('people:bearers_flower_girl'), [...MOODBOARD_PART_TRADES['people:bearers_flower_girl']!]);
-  /* …and a board of the four offers the shared-render pool only the whole look, like any card that is not a part. */
-  for (const k of FOUR) assert.deepEqual(renderPartIdsForSlot(k), renderPartIdsForSlot('bridal_bouquet'), `${k} became a render part`);
 });
 
 /* ── 8 ─────────────────────────────────────────────────────────────────────── */

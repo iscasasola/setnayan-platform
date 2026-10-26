@@ -143,8 +143,7 @@ test('a read failure is a refusal, not a silent approval', async () => {
 // it here would mean mocking the module graph. The cheaper honest guard is to
 // read its BODY and require the call — with the window ending at the CLOSING
 // BRACE, never at "the next export", so a mention in the next function's
-// docblock cannot satisfy it (see [[a-source-guards-window-must-end-at-the-brace]]
-// and `mood-board/the-render-pool-pick-is-free.test.ts`, which this mirrors).
+// docblock cannot satisfy it (see [[a-source-guards-window-must-end-at-the-brace]]).
 
 import { readFileSync } from 'node:fs';
 

@@ -444,6 +444,7 @@ test('(7) Mood Board: one board in the Maker — Studio › Mood Board; the old 
   assert.match(ed, /export async function MoodBoardStudioBody\(/);
   const parts = read(`${MB}/_components/mood-board-parts.tsx`);
   assert.doesNotMatch(parts, /export function MoodPart(Note)?\(/, 'the old three-part board’s pieces are back');
-  // "Make it real" is sold nowhere it is not offered.
-  assert.match(read(`${L}/maker-details.tsx`), /<MoodBoardPieces makeItReal=\{!theme\.storeShell\} \/>/);
+  // "Make it real" (paid renders) was retired 2026-10-26 — the navigator lists no such part.
+  assert.match(read(`${L}/maker-details.tsx`), /<MoodBoardPieces \/>/);
+  assert.doesNotMatch(parts, /make-it-real/, 'the retired "Make it real" part is back in the navigator');
 });

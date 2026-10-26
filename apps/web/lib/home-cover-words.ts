@@ -21,6 +21,11 @@ export type HomeCoverWords = {
    * The eyebrow is untouched — at 375 it already fills its line beside Event Details.
    */
   forWho?: ForTag;
+  /**
+   * The date, short ("Dec 5") — the PINNED cover's one line (owner 2026-10-27, Home A: `<names> · <date>`). Absent
+   * when the event has no day picked: the pinned line is then the name alone, never a guessed date.
+   */
+  shortDate?: string;
 };
 
 export function homeCoverWords(event: {
@@ -36,7 +41,18 @@ export function homeCoverWords(event: {
     eyebrow: dateLabel ? `${typeLabel} · ${dateLabel}` : typeLabel,
     name: (event.display_name ?? '').trim() || `Your ${typeLabel}`,
   };
+  const shortDate = shortEventDate(event.event_date ?? null);
+  if (shortDate) words.shortDate = shortDate;
   const forName = event.for_tag?.name.trim();
   if (event.for_tag && forName) words.forWho = { name: forName, markUrl: event.for_tag.markUrl };
   return words;
+}
+
+/** "Dec 5" from a calendar day ("2026-12-05"), built from its parts so the reader's timezone cannot move the day
+    (`formatEventDate`'s own rule); '' for anything that is not a plain day. */
+export function shortEventDate(iso: string | null, locale = 'en-US'): string {
+  if (!iso) return '';
+  const [y, m, d] = iso.slice(0, 10).split('-').map(Number);
+  if (!y || !m || !d) return '';
+  return new Date(y, m - 1, d).toLocaleDateString(locale, { month: 'short', day: 'numeric' });
 }

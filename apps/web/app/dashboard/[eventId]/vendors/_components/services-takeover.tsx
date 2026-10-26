@@ -391,43 +391,50 @@ export function ServicesTakeover({
         Suppliers
       </p>
 
-      {/* ── PINNED: the date · place line, then Find · Build · Booked ──────
-          `.sn-ambient` is the page's own ground, so the block reads as the
-          page, not a box; it spans the column's gutters so rows scroll clean
-          under it. */}
+      {/* ── THE DATE · PLACE LINE — plain content now: it scrolls away under the pinned row (owner 2026-10-27,
+          "suppliers, make that 2 row pinned collapse to 1 row" → "pinned approve", Suppliers A). It is still the
+          ONLY place the date and the place appear (2026-10-07); each value still opens its sheet. */}
+      {factsSlot ? (
+        <div className="pt-2.5" data-suppliers-facts="">
+          {factsSlot}
+        </div>
+      ) : null}
+
+      {/* ── 📌 PINNED: Find · Build · Booked, ONE row (owner 2026-10-27, Suppliers A; amended "On the pinned the
+          selectors should stay but simplified"). The same segments, drawn tighter. `.sn-ambient` is the page's own
+          ground, so the row reads as the page, not a box; it spans the column's gutters so rows scroll clean under
+          it. 🔒 lib/the-pinned-row-is-one-row.test.ts */}
       <div
         ref={stickRef}
         data-suppliers-stick=""
-        className="sn-ambient sticky top-[var(--sup-top,0px)] z-[15] -mx-4 px-4 pb-2 pt-2.5 data-[stuck]:shadow-[0_1px_0_rgb(var(--color-ink)/0.1)] sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0"
+        className="sn-ambient sticky top-[var(--sup-top,0px)] z-[15] -mx-4 flex px-4 pb-1.5 pt-2 data-[stuck]:shadow-[0_1px_0_rgb(var(--color-ink)/0.1)] sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0"
+        data-tour="suppliers-segments"
       >
-        {factsSlot}
-        <div className="mt-2.5 flex" data-tour="suppliers-segments">
-          <ISegmented label="Find, Build or Booked">
-            {SUPPLIERS_MODES.map((m) => (
-              <ISeg
-                key={m}
-                tone="wine"
-                on={mode === m}
-                data={m}
-                // The segmented control DRIVES THE BUS: a press dispatches the
-                // mode's own tab key, and the listener above swaps the body.
-                onClick={() => goToBuildTab(SUPPLIERS_MODE_TAB[m])}
-              >
-                {SUPPLIERS_MODE_LABEL[m]}
-                {m === 'build' && tally.filled > 0 ? (
-                  <span className="ml-0.5 font-medium opacity-80" data-seg-count="build">
-                    <Count value={tally.filled} id="sup-seg-filled" />/<Count value={tally.total} id="sup-seg-total" />
-                  </span>
-                ) : null}
-                {m === 'booked' && bookedCount > 0 ? (
-                  <span className="ml-0.5 font-medium opacity-80" data-seg-count="booked">
-                    <Count value={bookedCount} id="sup-seg-booked" />
-                  </span>
-                ) : null}
-              </ISeg>
-            ))}
-          </ISegmented>
-        </div>
+        <ISegmented label="Find, Build or Booked">
+          {SUPPLIERS_MODES.map((m) => (
+            <ISeg
+              key={m}
+              tone="wine"
+              on={mode === m}
+              data={m}
+              // The segmented control DRIVES THE BUS: a press dispatches the
+              // mode's own tab key, and the listener above swaps the body.
+              onClick={() => goToBuildTab(SUPPLIERS_MODE_TAB[m])}
+            >
+              {SUPPLIERS_MODE_LABEL[m]}
+              {m === 'build' && tally.filled > 0 ? (
+                <span className="ml-0.5 font-medium opacity-80" data-seg-count="build">
+                  <Count value={tally.filled} id="sup-seg-filled" />/<Count value={tally.total} id="sup-seg-total" />
+                </span>
+              ) : null}
+              {m === 'booked' && bookedCount > 0 ? (
+                <span className="ml-0.5 font-medium opacity-80" data-seg-count="booked">
+                  <Count value={bookedCount} id="sup-seg-booked" />
+                </span>
+              ) : null}
+            </ISeg>
+          ))}
+        </ISegmented>
       </div>
 
       {/* ── ONE BODY ────────────────────────────────────────────────────────

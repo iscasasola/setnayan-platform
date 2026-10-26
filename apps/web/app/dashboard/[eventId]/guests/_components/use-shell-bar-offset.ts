@@ -8,14 +8,19 @@ import { useEffect, type RefObject } from 'react';
  * People — which wears the Guest list's clothes (owner 2026-10-22: "People must look similar to
  * guests") — reads the bar the same way instead of keeping a copy.
  */
-export function useShellBarOffset(root: RefObject<HTMLElement | null>) {
+/**
+ * `name` is the custom property it writes (`--gs-top` for Guests and People). The event Home's pinned cover band
+ * reads the same bar through it as `--home-bar` (2026-10-27, "on home, we also want to pin the header on top") —
+ * one read of the bar, never a copy (`home-cover-pin.tsx`).
+ */
+export function useShellBarOffset(root: RefObject<HTMLElement | null>, name = '--gs-top') {
   useEffect(() => {
     const el = root.current;
     const bar = document.querySelector<HTMLElement>('.shell-topbar');
     if (!el) return;
     const sync = () => {
       const shown = bar && bar.getAttribute('data-hidden') !== 'true' && getComputedStyle(bar).display !== 'none';
-      el.style.setProperty('--gs-top', shown ? `${bar!.getBoundingClientRect().height}px` : '0px');
+      el.style.setProperty(name, shown ? `${bar!.getBoundingClientRect().height}px` : '0px');
     };
     sync();
     if (!bar) return;
@@ -26,6 +31,6 @@ export function useShellBarOffset(root: RefObject<HTMLElement | null>) {
       mo.disconnect();
       window.removeEventListener('resize', sync);
     };
-  }, [root]);
+  }, [root, name]);
 }
 

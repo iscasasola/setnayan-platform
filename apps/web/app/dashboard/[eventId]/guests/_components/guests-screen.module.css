@@ -24,7 +24,7 @@
   --gs-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   --gs-t: 280ms;
   /* --gs-top: the shell bar's height while it shows (set by the screen);
-     --gs-stick-h: this screen's own sticky block (segmented · counts · meter). */
+     --gs-stick-h: this screen's own sticky block — ONE pinned row since 2026-10-27 (the counts strip scrolls). */
   position: relative;
   min-width: 0;
   /* THE READING COLUMN — 48 rem (owner 2026-10-19, couple dashboard desktop + tablet: "Home, Guests
@@ -69,6 +69,158 @@
 }
 /* The List · Map · Setup doors are no longer drawn here: they wear the app's one pill selector
    (`app/_components/pill-selector.tsx`, owner 2026-10-08). */
+
+/* ═══ 📌 THE ONE PINNED ROW (owner 2026-10-27 — Guests B, "pinned approve"; amended "On the pinned the selectors should
+   stay but simplified"; prototype `guests_pinned_row_2026-10-27`) ═══
+   The Guests sticky block holds ONE row: 8 + 44 + 8 = 60 px, the same at rest and scrolled, so `--gs-stick-h` (and the
+   group header pinned under it) never moves. Two faces lie over each other in the 44-px row: the full pill at rest;
+   once the Replies strip has scrolled under the row (`data-collapsed`, written by the screen) the summary —
+   `List · Map` (small, words only) · `✓ ✕ ?` doors · `Invite N ›`. They cross-fade with 6 px of travel on the screen's
+   own curve; the face that is away is `visibility: hidden`, so it is out of the tab order and the reading order.
+   `.pinned` is the Guests block only — People wears `.stick` too and keeps its own. 🔒 lib/the-pinned-row-is-one-row.test.ts */
+.stick.pinned {
+  padding: 8px 0;
+}
+.pinrow {
+  position: relative;
+  height: 44px;
+}
+.face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  transition:
+    opacity 220ms var(--gs-ease),
+    transform 220ms var(--gs-ease),
+    visibility 0s linear 0s;
+}
+.faceTop > nav {
+  flex: 1 1 auto;
+}
+.faceAlt {
+  opacity: 0;
+  transform: translateY(6px);
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 220ms var(--gs-ease),
+    transform 220ms var(--gs-ease),
+    visibility 0s linear 220ms;
+}
+.stick[data-collapsed] .faceTop {
+  opacity: 0;
+  transform: translateY(-6px);
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 220ms var(--gs-ease),
+    transform 220ms var(--gs-ease),
+    visibility 0s linear 220ms;
+}
+.stick[data-collapsed] .faceAlt {
+  opacity: 1;
+  transform: none;
+  visibility: visible;
+  pointer-events: auto;
+  transition:
+    opacity 220ms var(--gs-ease),
+    transform 220ms var(--gs-ease),
+    visibility 0s linear 0s;
+}
+.stick.pinned[data-collapsed] {
+  box-shadow: 0 1px 0 var(--gs-line);
+}
+/* `List · Map` — the shipped pill, drawn small: the same track and thumb, choices 30 px tall with words only (each
+   still presses at 46 — the selector's own `.sn-hit`). */
+.pinSeg {
+  flex: none;
+}
+.pinSeg > .pinSegChoice {
+  flex: none;
+  min-height: 30px;
+  padding: 0 12px;
+}
+.pinCounts {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+/* A count door, small: a mark in the reply's own colour and the number. Pressed = the number underlined. */
+button.pinCount {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  min-height: 44px;
+  padding: 0 4px;
+  background: none;
+  border: 0;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--gs-ink);
+  cursor: pointer;
+}
+.pinCount svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+.pinCount[data-pin-dot='attending'] svg {
+  color: var(--gs-ok);
+}
+.pinCount[data-pin-dot='declined'] svg {
+  color: rgb(var(--color-danger));
+}
+.pinCount[data-pin-dot='none'] svg {
+  color: rgb(var(--color-ink) / 0.5);
+}
+.pinCount[aria-pressed='true'] b {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+/* `Invite N ›` — the strip's one action, small: the filled brand pill 36 tall (it presses at 46 — `.ab::after`). */
+:is(a).pinInvite {
+  height: 36px;
+  padding: 0 12px;
+  gap: 4px;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.pinInvite svg {
+  width: 14px;
+  height: 14px;
+}
+.pinAllInvited {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.pinAllInvited svg {
+  width: 14px;
+  height: 14px;
+}
+/* 🖥 From 1024 the row is wide: the counts sit beside the selector, the action at the right edge (prototype g-desk). */
+@media (min-width: 1024px) {
+  .pinCounts {
+    flex: 0 0 auto;
+    margin-left: 10px;
+  }
+  .pinCounts + * {
+    margin-left: auto;
+  }
+}
 .counts {
   display: flex;
   gap: 10px 14px;
@@ -941,6 +1093,14 @@ button.node {
   .fold,
   .lower,
   .chev {
+    transition: none;
+  }
+  /* The pinned row's faces swap in place — no travel, no fade. */
+  .face,
+  .faceAlt,
+  .stick[data-collapsed] .faceTop,
+  .stick[data-collapsed] .faceAlt {
+    transform: none;
     transition: none;
   }
 }

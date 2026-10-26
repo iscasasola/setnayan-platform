@@ -102,7 +102,10 @@
    "Replies ⓘ · N% replied" · the two-colour bar · three big counts with hairlines between, no boxes · the +1s line ·
    "Invite N ›" (the app's filled brand pill) with "⤓ Excel" (the outlined neutral pill) beside it. Phone: one column,
    Invite fills the row. From 1024: the counts block left, the +1s line and the two buttons right. */
+/* It also wears `.counts` (the counts line it replaced — `lib/guests-read-is-honest.test.ts` anchors the measured gate
+   on it); written after `.counts`, these undo its flex row. */
 .strip {
+  display: block;
   margin: 12px 0 2px;
   color: var(--gs-ink);
 }
@@ -1043,7 +1046,6 @@ button.node {
 }
 /* A failed copy is dimmed — the counts and the rows, never the line that says why. */
 .screen[data-guests-copy='failed'] .counts,
-.screen[data-guests-copy='failed'] .strip,
 .screen[data-guests-copy='failed'] .replied,
 .screen[data-guests-copy='failed'] [data-guest-rows] {
   opacity: 0.6;

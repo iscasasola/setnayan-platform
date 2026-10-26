@@ -1248,12 +1248,12 @@ export function GuestsScreen(props: GuestsScreenProps) {
           <GuestListStatus copy={copy} fresh={props.measured} />
           {measured ? (
             <>
-              {/* 🧮 THE COUNTS STRIP — OPTION A (owner 2026-10-26, "option A", prototype `guest-counts/index.html` frames
-                  a-390 · a-1280): "Replies ⓘ · N% replied", the bar in two colours (attending · not coming over the grey of
-                  no reply), three big counts that are each the door to their filter, the +1s line, then ONE action —
-                  "Invite N ›" — with "⤓ Excel" beside it. Same numbers, same doors, same hrefs; only the layout moved.
-                  🔒 the-counts-strip-is-option-a.test.ts */}
-              <div className={`${styles.strip} ${styles.rise}`} data-roster-counts="" data-tour="guests-counts">
+              <div className={`${styles.counts} ${styles.strip} ${styles.rise}`} data-roster-counts="" data-tour="guests-counts">
+                {/* 🧮 THE COUNTS STRIP — OPTION A (owner 2026-10-26, "option A", prototype `guest-counts/index.html` frames
+                    a-390 · a-1280): "Replies ⓘ · N% replied", the bar in two colours (attending · not coming over the grey of
+                    no reply), three big counts that are each the door to their filter, the +1s line, then ONE action —
+                    "Invite N ›" — with "⤓ Excel" beside it. Same numbers, same doors, same hrefs; only the layout moved.
+                    🔒 the-counts-strip-is-option-a.test.ts */}
                 <div className={styles.countsMain}>
                   <div className={styles.countsTop}>
                     <InfoTip label="Replies" labelClassName={styles.countsTitle} align="start">

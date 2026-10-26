@@ -18,6 +18,8 @@ import {
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import { X } from 'lucide-react';
+import { onboardingExit } from '@/app/onboarding/_shared/onboarding-exit';
 import { useRouter } from 'next/navigation';
 import { isGatedLifeType } from '@/lib/life-event-gate';
 import { eventTypeAcceptsHonoreeLink } from '@/lib/honoree-dependent-link';
@@ -1841,6 +1843,7 @@ export function GenericOnboarding(props: Props) {
   }
 
   const isLast = screen === 'congrats';
+  const exit = onboardingExit(authed);
 
   return (
     <main className="flex min-h-screen flex-col bg-paper">
@@ -1850,6 +1853,26 @@ export function GenericOnboarding(props: Props) {
       {/* The brand line (owner 2026-10-21, "make sure there is Setnayan"): the SHIPPED wordmark — mark + SETNAYAN,
           the same one every first-run screen carries — not a hand-drawn copy of the mark. */}
       <header className="mx-auto flex w-full max-w-xl items-center gap-2 px-5 pb-3 pt-5">
+        {/* 🚪 The first screen's way out (owner 2026-10-26, "doesn't have a cancel"): the
+            Back below is blank on step 0 and the "What do you need?" screen has no nav row at
+            all, so a misclicked type had nowhere to go. ✕ returns to the event-type picker;
+            nothing is created (the commit is the final button). Later screens keep Back. */}
+        {step === 0 ? (
+          <Link
+            href={exit.href}
+            replace
+            aria-label={exit.label}
+            data-onboarding-exit=""
+            className="-my-1.5 -ml-1.5 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink focus-visible:outline-none [&:focus-visible>span]:ring-2 [&:focus-visible>span]:ring-mulberry"
+          >
+            <span
+              aria-hidden
+              className="inline-flex h-[34px] w-[34px] items-center justify-center rounded-full border border-ink/20 transition-colors hover:border-ink"
+            >
+              <X size={16} strokeWidth={2} />
+            </span>
+          </Link>
+        ) : null}
         <FirstRunBrand color="rgb(var(--color-ink))" size={13} />
       </header>
 

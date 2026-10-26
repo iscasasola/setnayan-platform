@@ -1130,3 +1130,13 @@
 .onbw button.mf-chip{-webkit-appearance:none;appearance:none;}
 .onbw button.chip{font:inherit;-webkit-appearance:none;appearance:none;}
 .onbw button.ghost{background:none;border:0;padding:0;font-family:inherit;display:block;width:100%;-webkit-appearance:none;appearance:none;}
+
+/* 🚪 The first screen's way out (owner 2026-10-26, "doesn't have a cancel"). It sits in the
+   "‹" slot: a 44px tap target drawn as a 34px ring. The "‹" occupies 34px across and 44px
+   down (a global tap-target floor stretches it), so the extra 5px each side is eaten by
+   negative margin — the brand lock-up does not move between the first screen and the second. */
+.onbw .btn-back.btn-exit{width:44px;height:44px;margin:0 -5px;border:0;background:transparent;color:var(--ink);text-decoration:none;-webkit-tap-highlight-color:transparent;}
+.onbw .btn-exit .btn-exit-ring{width:34px;height:34px;border-radius:50%;border:1px solid var(--line-2);display:inline-flex;align-items:center;justify-content:center;transition:border-color .15s;}
+.onbw .btn-exit:hover .btn-exit-ring,.onbw .btn-exit:focus-visible .btn-exit-ring{border-color:var(--ink);}
+.onbw .btn-exit:focus-visible{outline:none;}
+.onbw .btn-exit:focus-visible .btn-exit-ring{box-shadow:0 0 0 2px var(--paper),0 0 0 4px var(--gold);}

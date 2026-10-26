@@ -14,10 +14,17 @@ PR 3 of the approved PLAN's order (corpus `prototypes/service_card_checks_2026-1
   for words-only rows (re-checked server-side, one audit row each) · "Not a problem — stop flagging “…” for this
   shop" · the words list (add / remove). Every verdict: one `admin_audit_log` row + an in-app `service_card_check`
   notice, no email. The older Dismiss refuses a card.
+- Migration `20271291565921_service_card_verdicts.sql`: `card_claim_word_allowances` (RLS admin-only at CREATE) and
+  `approve_service_card()` (service_role; closes the hold and puts the card live in one transaction through the
+  door the publish gate honours; the gate's cover · price · inclusions still apply). The save's word check now
+  reads the shop's allowances.
 - Tab icons hide below `sm` so five tabs fit a 390 phone (as drawn).
+- Mapped: Ugat J56 gains the allowance table + FKs + unique; erasure/export classify it; admin jobs, ugat screens,
+  port baseline, exposure baseline, user-FK map regenerated.
 - `/dev/card-checks-lab` (dev-only) draws the real components over the prototype's samples; `/dev/card-maker-lab`
   gains `&held=1` for the maker helper.
 - Admin › Categories row word (PLAN PR 6) NOT built: that page's card list has not landed.
-- Tests: `the-cards-tab-decides-through-one-door.test.ts` (6, sabotaged red → restored), the lab's never-ships (2).
+- Tests: `tests/db/a-card-verdict-goes-through-one-door.db.test.ts` (5), `the-cards-tab-decides-through-one-door.test.ts`
+  (6, sabotaged red → restored), the lab's never-ships (2).
 
-SPEC IMPACT: None new — implements DECISION_LOG 2026-10-26 "APPROVED — SERVICE CARD CHECKS AS DRAWN".
+SPEC IMPACT: corpus `prototypes/service_card_checks_2026-10-26/PLAN.md` gains a "What was built" section; implements DECISION_LOG 2026-10-26 "APPROVED — SERVICE CARD CHECKS AS DRAWN" (no new decision).

@@ -43,12 +43,13 @@ type FlagRow = {
 };
 
 async function readFlag(admin: Admin, flagId: number): Promise<FlagRow | null> {
-  const { data } = await admin
+  const { data, error } = await admin
     .from('integrity_flags')
     .select('id, public_id, status, subject_vendor_id, subject_service_id, detail')
     .eq('id', flagId)
     .eq('kind', 'service_card')
     .maybeSingle();
+  if (error) throw new Error(`The card couldn’t be read just now: ${error.message}`);
   return (data as FlagRow | null) ?? null;
 }
 
@@ -77,14 +78,16 @@ async function audit(admin: Admin, userId: string, action: string, flag: FlagRow
 }
 
 async function cardTitle(admin: Admin, serviceId: string): Promise<string> {
-  const { data } = await admin.from('vendor_services').select('title, category').eq('vendor_service_id', serviceId).maybeSingle();
+  const { data, error } = await admin.from('vendor_services').select('title, category').eq('vendor_service_id', serviceId).maybeSingle();
+  if (error) console.error('[supabase-error] card-actions · from:vendor_services.select (title)', error);
   const row = data as { title: string | null; category: string } | null;
   return row?.title?.trim() || (row ? displayServiceLabel(row.category) : 'Your card');
 }
 
 async function tellSupplier(admin: Admin, flag: FlagRow, title: string, body: string) {
   try {
-    const { data } = await admin.from('vendor_profiles').select('user_id').eq('vendor_profile_id', flag.subject_vendor_id).maybeSingle();
+    const { data, error } = await admin.from('vendor_profiles').select('user_id').eq('vendor_profile_id', flag.subject_vendor_id).maybeSingle();
+    if (error) console.error('[supabase-error] card-actions · from:vendor_profiles.select (notice)', error);
     const userId = (data as { user_id?: string | null } | null)?.user_id;
     if (!userId) return;
     await emitNotification({
@@ -128,7 +131,10 @@ async function recheckStoredCard(admin: Admin, flag: FlagRow): Promise<CardReaso
     admin.from('vendor_service_inclusions').select('label').eq('vendor_service_id', flag.subject_service_id),
     admin.from('vendor_service_addons').select('label').eq('vendor_service_id', flag.subject_service_id),
   ]);
-  if (svc.error || !svc.data || incs.error) return null;
+  if (svc.error || !svc.data || incs.error) {
+    console.error('[supabase-error] card-actions · recheck read', svc.error ?? incs.error);
+    return null;
+  }
   const s = svc.data as {
     title: string | null;
     category: string;

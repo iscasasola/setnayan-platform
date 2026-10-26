@@ -165,15 +165,20 @@ async function readServiceWords(admin: Admin, category: string): Promise<CardChe
 }
 
 async function readClaimWords(admin: Admin, vendorProfileId: string): Promise<CardCheckContext['claimWords']> {
-  void vendorProfileId; // the per-shop allowance read joins here with the admin Cards tab (PR 3), which writes it
-  const words = await admin.from('card_claim_words').select('phrase');
-  if (words.error || !words.data) {
-    console.error('[supabase-error] lib/service-card-checks.server.ts · from:card_claim_words.select', words.error);
+  const [words, allowances] = await Promise.all([
+    admin.from('card_claim_words').select('phrase'),
+    admin.from('card_claim_word_allowances').select('phrase').eq('vendor_profile_id', vendorProfileId),
+  ]);
+  if (words.error || allowances.error || !words.data || !allowances.data) {
+    console.error(
+      '[supabase-error] lib/service-card-checks.server.ts · from:card_claim_words/card_claim_word_allowances.select',
+      words.error ?? allowances.error,
+    );
     return null;
   }
   return {
     words: (words.data as { phrase: string }[]).map((w) => w.phrase),
-    allowed: new Set<string>(),
+    allowed: new Set((allowances.data as { phrase: string }[]).map((a) => a.phrase)),
   };
 }
 

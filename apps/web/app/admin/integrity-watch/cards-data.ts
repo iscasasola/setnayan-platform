@@ -56,7 +56,10 @@ export async function loadCardsQueue(args: {
     q,
     admin.from('integrity_flags').select('id', { count: 'exact', head: true }).eq('kind', 'service_card').in('status', ['open', 'asked_to_fix']),
   ]);
-  if (error || !data) return { ok: false };
+  if (error || !data) {
+    console.error('[supabase-error] integrity-watch/cards-data · from:integrity_flags.select', error);
+    return { ok: false };
+  }
   const flags = data as {
     id: number;
     public_id: string;
@@ -81,7 +84,10 @@ export async function loadCardsQueue(args: {
       ? admin.from('vendor_services').select('vendor_profile_id').in('vendor_profile_id', vendorIds)
       : Promise.resolve({ data: [], error: null }),
   ]);
-  if (svcRes.error || shopRes.error || cardsRes.error) return { ok: false };
+  if (svcRes.error || shopRes.error || cardsRes.error) {
+    console.error('[supabase-error] integrity-watch/cards-data · queue joins', svcRes.error ?? shopRes.error ?? cardsRes.error);
+    return { ok: false };
+  }
   const svcById = new Map(
     ((svcRes.data ?? []) as {
       vendor_service_id: string;
@@ -144,7 +150,10 @@ export async function loadCardOpen(publicId: string, now: Date): Promise<CardOpe
     .eq('kind', 'service_card')
     .eq('public_id', publicId)
     .maybeSingle();
-  if (error) return 'failed';
+  if (error) {
+    console.error('[supabase-error] integrity-watch/cards-data · from:integrity_flags.select (open)', error);
+    return 'failed';
+  }
   if (!f) return null;
   const flag = f as {
     id: number;
@@ -162,7 +171,10 @@ export async function loadCardOpen(publicId: string, now: Date): Promise<CardOpe
     admin.from('vendor_services').select('is_active').eq('vendor_profile_id', flag.subject_vendor_id),
     admin.from('event_vendors').select('status').eq('marketplace_vendor_id', flag.subject_vendor_id),
   ]);
-  if (svcRes.error || !svcRes.data || shopRes.error) return 'failed';
+  if (svcRes.error || !svcRes.data || shopRes.error) {
+    console.error('[supabase-error] integrity-watch/cards-data · open joins', svcRes.error ?? shopRes.error);
+    return 'failed';
+  }
   const svc = svcRes.data as unknown as VendorServiceRow & { primary_photo_r2_key: string | null; showcase_photo_r2_keys: string[] | null };
   const shop = (shopRes.data ?? null) as { business_name: string | null; verification_state: string | null; created_at: string; services: string[] | null } | null;
   const [incs, discs] = await Promise.all([
@@ -179,10 +191,11 @@ export async function loadCardOpen(publicId: string, now: Date): Promise<CardOpe
   const photo = reasons.find((r): r is Extract<CardReason, { code: 'photo' }> => r.code === 'photo');
   const pairs: PhotoPair[] = [];
   if (photo && photo.matches.length > 0) {
-    const { data: imgs } = await admin
+    const { data: imgs, error: imgErr } = await admin
       .from('vendor_image_flags')
       .select('public_id, flagged_r2_ref, source_r2_ref, source_surface, source_vendor_id, hamming_distance, status, created_at')
       .in('public_id', photo.matches.map((m) => m.imageFlagPublicId));
+    if (imgErr) console.error('[supabase-error] integrity-watch/cards-data · from:vendor_image_flags.select', imgErr);
     const rows = (imgs ?? []) as {
       public_id: string;
       flagged_r2_ref: string;
@@ -241,6 +254,9 @@ export async function loadCardOpen(publicId: string, now: Date): Promise<CardOpe
 
 export async function loadClaimWords(): Promise<ClaimWordRow[] | null> {
   const { data, error } = await createAdminClient().from('card_claim_words').select('phrase, note').order('created_at', { ascending: true });
-  if (error || !data) return null;
+  if (error || !data) {
+    console.error('[supabase-error] integrity-watch/cards-data · from:card_claim_words.select', error);
+    return null;
+  }
   return data as ClaimWordRow[];
 }

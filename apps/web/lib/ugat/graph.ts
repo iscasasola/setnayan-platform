@@ -3400,21 +3400,25 @@ export const UGAT_JOINTS: UgatJoint[] = [
       { kind: 'check', table: 'integrity_flags', name: 'integrity_flags_kind_shape', mentions: 'subject_service_id' },
       { kind: 'check', table: 'integrity_flags', name: 'integrity_flags_status_check', mentions: 'asked_to_fix' },
       { kind: 'table', table: 'card_claim_words' },
+      { kind: 'table', table: 'card_claim_word_allowances' },
+      { kind: 'fk', table: 'card_claim_word_allowances', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'fk', table: 'card_claim_word_allowances', column: 'phrase', references: 'card_claim_words' },
+      { kind: 'unique', table: 'card_claim_word_allowances', columns: ['vendor_profile_id', 'phrase'] },
       { kind: 'column', table: 'platform_settings', column: 'card_price_band_tolerance' },
       { kind: 'no_column', table: 'vendor_services', column: 'held' },
     ],
     chain: 2,
     pair: ['TYPE-VENDORS', 'TYPE-SERVICES'],
-    title: 'Service card → the automatic check (held cards, claim words)',
+    title: 'Service card → the automatic check (held cards, claim words, per-shop allowances)',
     joint: 'integrity_flags (kind service_card)',
     cardinality:
-      'At most ONE holding flag per card (partial unique index integrity_flags_card_uniq on subject_service_id where status is open · asked_to_fix · rejected); closed history (approved · dismissed) unlimited',
+      'At most ONE holding flag per card (partial unique index integrity_flags_card_uniq on subject_service_id where status is open · asked_to_fix · rejected); closed history (approved · dismissed) unlimited · one allowance per (shop, word)',
     implementedBy:
-      'integrity_flags.subject_service_id → vendor_services CASCADE · card_claim_words (phrase PK, lower-case) · platform_settings.card_price_band_tolerance (NULL = off) · service_card_held() SECURITY DEFINER · enforce_service_publish_gate hold arm',
+      'integrity_flags.subject_service_id → vendor_services CASCADE · card_claim_words (phrase PK, lower-case) · card_claim_word_allowances (vendor_profile_id CASCADE, phrase → card_claim_words CASCADE) · platform_settings.card_price_band_tolerance (NULL = off) · service_card_held() SECURITY DEFINER · approve_service_card() (service_role, the app.service_card_verdict door) · enforce_service_publish_gate hold arm',
     writtenBy:
-      'commitVendorService via lib/service-card-checks.server.ts (opens / refreshes / clears the hold — a resave that passes clears an open or asked-to-fix hold, never a rejected one) · the repost-watch after() in the same save (the late photo hold, cover + showcase) · the seed (the owner\u2019s six words) · /admin/settings (the tolerance) · the admin Cards tab (PR 3)',
+      'commitVendorService via lib/service-card-checks.server.ts (opens / refreshes / clears the hold — a resave that passes clears an open or asked-to-fix hold, never a rejected one) · the repost-watch after() in the same save (the late photo hold, cover + showcase) · the seed (the owner\u2019s six words) · /admin/settings (the tolerance) · Integrity watch › Cards (card-actions.ts: Approve only through approve_service_card(), Ask to fix, Reject, bulk approve of words-only rows, allow a word for a shop, the word list)',
     guardedBy:
-      'enforce_service_publish_gate refuses a held card going live except for is_admin() or the app.service_card_verdict door · integrity_flags + card_claim_words admin-only RLS · tests/db/a-held-card-waits-for-the-check.db.test.ts',
+      'enforce_service_publish_gate refuses a held card going live except for is_admin() or the app.service_card_verdict door · integrity_flags + both word tables admin-only RLS · tests/db/a-held-card-waits-for-the-check.db.test.ts · tests/db/a-card-verdict-goes-through-one-door.db.test.ts · lib/service-card-checks.test.ts (fail-closed)',
     traps:
       'A held card reads as an ordinary draft (`is_active = false`) to anything that does not ask service_card_held() — the shop page asks it, Explore does not need to. After a Reject every save re-queues (the same row re-opens), so a rejected card can never go live by a resave. The price check only looks BELOW the band, and only when the tolerance is set; no band ⇒ no check.',
   },

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "4a317514a7",
-  "routeCount": 473,
-  "destinations": 1014,
+  "generatedFromRef": "0476877141",
+  "routeCount": 474,
+  "destinations": 1017,
   "actions": 662,
-  "blocks": 7113,
+  "blocks": 7126,
   "routes": {
     "/": {
       "files": [
@@ -3461,10 +3461,13 @@
     "/admin/integrity-watch": {
       "files": [
         "admin/integrity-watch/actions.ts",
+        "admin/integrity-watch/card-actions.ts",
+        "admin/integrity-watch/cards-data.ts",
         "admin/integrity-watch/page.tsx"
       ],
       "destinations": [
         "/admin/integrity-watch?tab=[seg]&status=[seg]",
+        "/admin/integrity-watch?tab=cards",
         "/admin/integrity-watch?tab=inquiries",
         "/admin/integrity-watch?tab=listings",
         "/admin/integrity-watch?tab=prices",
@@ -3476,6 +3479,11 @@
         "resolveIntegrityFlag"
       ],
       "blocks": [
+        "CardOpen",
+        "CardOpenView",
+        "CardsQueue",
+        "ClaimWordsFold",
+        "FlagRow",
         "FormFlash",
         "Link",
         "PageMasthead",
@@ -11019,6 +11027,26 @@
         "LabPageSpotlight",
         "LabShell",
         "TraditionNotes"
+      ]
+    },
+    "/dev/card-checks-lab": {
+      "files": [
+        "dev/card-checks-lab/page.tsx"
+      ],
+      "destinations": [
+        "/dev/card-checks-lab?v=queue",
+        "/dev/card-checks-lab?v=queue-before"
+      ],
+      "actions": [],
+      "blocks": [
+        "CardOpen",
+        "CardsQueue",
+        "Chrome",
+        "ClaimWordsFold",
+        "HeldCardBox",
+        "PageMasthead",
+        "PillLink",
+        "PillTrack"
       ]
     },
     "/dev/card-maker-lab": {

@@ -407,6 +407,8 @@ export default async function AdminIntegrityWatchPage({
       {/* Tabs — the app's ONE pill selector (owner 2026-10-08: "adjust all pill selectors to this"). Still links to
           the same addresses; the picked one now says `aria-current="page"` (it said nothing), which is how the
           sliding thumb finds it. */}
+      {/* 🃏 Five tabs since Cards (service card checks, 2026-10-26): the icons hide below `sm` so the track fits a
+          390 phone without a sideways scroll — the approved prototype draws the phone tabs as words only. */}
       <PillTrack className="mb-4" data-integrity-tabs="">
         <PillLink on={tab === 'reviews'} href="/admin/integrity-watch?tab=reviews" aria-current={tab === 'reviews' ? 'page' : undefined} className="gap-1.5 px-3">
           <Star aria-hidden className="hidden h-3.5 w-3.5 sm:inline-block" strokeWidth={2} /> Reviews

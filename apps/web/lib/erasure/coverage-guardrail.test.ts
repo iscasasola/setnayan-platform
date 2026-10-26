@@ -174,6 +174,8 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
   // deleting the admin's account strips the stamp on its own. The rows are a word list: nothing in them is about a person.
   card_claim_words:
     'Admin word list. Only user column is created_by, ON DELETE SET NULL — an actor stamp that self-clears on account deletion; the row is a phrase and a note, about nobody.',
+  card_claim_word_allowances:
+    'Per-shop allowance of a claim word. Only user column is allowed_by (the admin), ON DELETE SET NULL — self-clears; the shop side is vendor_profile_id ON DELETE CASCADE, so a deleted shop takes its allowances.',
 
   // ── added 2026-09-03 with the table itself (BA7) ──
   // The ONLY subject-identifying column is `created_by_user_id`, declared

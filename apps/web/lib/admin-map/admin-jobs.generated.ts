@@ -2,7 +2,7 @@
 // Regenerate with: pnpm --filter @setnayan/web admin:jobs
 //
 // Every job the admin can perform and what it asks for, read out of the action
-// that performs it. 320 jobs, 205 of them form-driven, as of 0cdd4f8e38.
+// that performs it. 327 jobs, 210 of them form-driven, as of 0476877141.
 // admin-jobs-are-generated.test.ts fails if this drifts from the code.
 
 import type { AdminJob } from './scan-admin-jobs';
@@ -34,6 +34,19 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "period_month"
     ],
     "refusedWhenEmpty": [],
+    "destructive": false
+  },
+  {
+    "name": "addClaimWord",
+    "phrase": "add claim word",
+    "ownerPath": "/admin/integrity-watch",
+    "resolvedPath": "/admin/integrity-watch",
+    "fields": [
+      "phrase"
+    ],
+    "refusedWhenEmpty": [
+      "phrase"
+    ],
     "destructive": false
   },
   {
@@ -236,6 +249,19 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "destructive": false
   },
   {
+    "name": "allowClaimWordForShop",
+    "phrase": "allow claim word for shop",
+    "ownerPath": "/admin/integrity-watch",
+    "resolvedPath": "/admin/integrity-watch",
+    "fields": [
+      "phrase"
+    ],
+    "refusedWhenEmpty": [
+      "phrase"
+    ],
+    "destructive": false
+  },
+  {
     "name": "applyApplicationDecision",
     "phrase": "apply application decision",
     "ownerPath": "/admin/verify",
@@ -379,6 +405,15 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "destructive": false
   },
   {
+    "name": "approveServiceCard",
+    "phrase": "approve service card",
+    "ownerPath": "/admin/integrity-watch",
+    "resolvedPath": "/admin/integrity-watch",
+    "fields": [],
+    "refusedWhenEmpty": [],
+    "destructive": false
+  },
+  {
     "name": "approveSubscription",
     "phrase": "approve subscription",
     "ownerPath": "/admin/subscriptions",
@@ -442,6 +477,19 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "destructive": false
   },
   {
+    "name": "askToFixServiceCard",
+    "phrase": "ask to fix service card",
+    "ownerPath": "/admin/integrity-watch",
+    "resolvedPath": "/admin/integrity-watch",
+    "fields": [
+      "message"
+    ],
+    "refusedWhenEmpty": [
+      "message"
+    ],
+    "destructive": false
+  },
+  {
     "name": "attachReceipt",
     "phrase": "attach receipt",
     "ownerPath": "/admin/app-performance",
@@ -491,6 +539,15 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "user_id",
       "reason"
     ],
+    "refusedWhenEmpty": [],
+    "destructive": false
+  },
+  {
+    "name": "bulkApproveServiceCards",
+    "phrase": "bulk approve service cards",
+    "ownerPath": "/admin/integrity-watch",
+    "resolvedPath": "/admin/integrity-watch",
+    "fields": [],
     "refusedWhenEmpty": [],
     "destructive": false
   },
@@ -1615,6 +1672,20 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "destructive": true
   },
   {
+    "name": "rejectServiceCard",
+    "phrase": "reject service card",
+    "ownerPath": "/admin/integrity-watch",
+    "resolvedPath": "/admin/integrity-watch",
+    "fields": [
+      "reason",
+      "words"
+    ],
+    "refusedWhenEmpty": [
+      "words"
+    ],
+    "destructive": true
+  },
+  {
     "name": "rejectSubscription",
     "phrase": "reject subscription",
     "ownerPath": "/admin/subscriptions",
@@ -1757,6 +1828,19 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "resolvedPath": "/admin/settings",
     "fields": [],
     "refusedWhenEmpty": [],
+    "destructive": true
+  },
+  {
+    "name": "removeClaimWord",
+    "phrase": "remove claim word",
+    "ownerPath": "/admin/integrity-watch",
+    "resolvedPath": "/admin/integrity-watch",
+    "fields": [
+      "phrase"
+    ],
+    "refusedWhenEmpty": [
+      "phrase"
+    ],
     "destructive": true
   },
   {

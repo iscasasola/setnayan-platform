@@ -167,6 +167,36 @@ export function guestCardReply(guest: Pick<GuestCardData['guest'], 'role' | 'rsv
 }
 
 
+/**
+ * 👤 THE GUEST'S FACE — their photo, else their initials. ONE drawing for both places it lives: the sticky header over
+ * the panel (`size="head"`, 44 px, left of the name — owner 2026-10-26) and the standalone page's identity row (48 px).
+ * Not a button: it opens nothing, here or there.
+ */
+export function GuestCardAvatar({
+  guest,
+  photoDisplayUrl,
+  size = 'body',
+}: {
+  guest: Parameters<typeof guestInitials>[0];
+  photoDisplayUrl: string | null;
+  size?: 'head' | 'body';
+}) {
+  const box = size === 'head' ? 'h-11 w-11' : 'h-12 w-12';
+  return photoDisplayUrl ? (
+    <span className={`inline-flex ${box} shrink-0 items-center justify-center overflow-hidden rounded-full bg-sn-accent/10`} data-guest-card-avatar={size}>
+      {/* eslint-disable-next-line @next/next/no-img-element -- presigned R2 URL, resolved by the loader */}
+      <img src={photoDisplayUrl} alt="" width={48} height={48} className="h-full w-full object-cover" />
+    </span>
+  ) : (
+    <span
+      className={`inline-flex ${box} shrink-0 items-center justify-center rounded-full bg-sn-accent/10 text-sm font-semibold text-sn-accent`}
+      data-guest-card-avatar={size}
+    >
+      {guestInitials(guest)}
+    </span>
+  );
+}
+
 export const GUEST_CARD_ERROR_COPY: Record<string, string> = {
   missing_name: 'Please enter both first and last name.',
   missing_side: 'Choose which side this guest is on.',
@@ -431,6 +461,9 @@ export function GuestCardBody({
   /** 🕯 Passed Away sits below Access, whose own small forms cannot nest in the autosave form — so it posts with it by `form=`. */
   const formId = `guest-card-${guest.guest_id}`;
   const seatWithNoName = plusOneHasNoName(guest);
+  /* 🔄 Reset is offered on a guest's own card (owner 2026-10-26) — never the couple (always attending), never a +1 seat
+     (it answers through its guest), and only where the card hands a Delete (the Maker's cards hand none). */
+  const canReset = !isCouple && !guest.plus_one_of_guest_id;
 
   /* 🎭 ONE Role dropdown (owner 2026-10-20: "Roles doesn't need also serves as… they can have multiple row in that Role in
      Wedding"): the Role picker's own list — each either-or pair under ONE heading (owner 2026-09-30) — with several ticked.
@@ -472,16 +505,10 @@ export function GuestCardBody({
       {/* ══ 1 · PROFILE · QR · BASIC INFO ═══════════════════════════════════════════════════════════════════════════════
           Identity — who, whose side, and the answer at a glance. */}
       <div className="flex items-center gap-3">
-        {photoDisplayUrl ? (
-          <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-sn-accent/10">
-            {/* eslint-disable-next-line @next/next/no-img-element -- presigned R2 URL, resolved by the loader */}
-            <img src={photoDisplayUrl} alt="" width={48} height={48} className="h-full w-full object-cover" />
-          </span>
-        ) : (
-          <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-sn-accent/10 text-sm font-semibold text-sn-accent">
-            {guestInitials(guest)}
-          </span>
-        )}
+        {/* 👤 Over the Guest list the face is in the sticky header, LEFT of the name (owner 2026-10-26: "Move profile photo
+            beside the name on the top? Left side") — `GuestCard` hands it to `InspectorColumn`'s `lead`. The standalone page
+            has no header, so it keeps it here. */}
+        {headerShown ? null : <GuestCardAvatar guest={guest} photoDisplayUrl={photoDisplayUrl} />}
         <div className="min-w-0 flex-1">
           {/* Over the Guest list the eyebrow, the name and the reply live in
               the panel's STICKY header (`headerShown`, InspectorColumn) — drawn
@@ -1090,18 +1117,31 @@ export function GuestCardBody({
             <p className="text-xs text-ink/50">Foundation of the event — can&rsquo;t be removed.</p>
           </K.Fold>
         ) : DeleteControl ? (
-          <K.Fold summary="Delete" value={seatWithNoName ? 'Release this +1 seat' : seats > 0 ? 'Removes them and their +1' : 'Asks first · can be undone'} last danger>
+          /* 🔄 RESET · DELETE (owner 2026-10-26: "So at the bottom, have (RESET) (DELETE)") — one bottom group, the two
+             buttons side by side. A +1 seat answers through its guest, so its card keeps Delete / Release alone. */
+          <K.Fold
+            summary={canReset ? 'Reset · Delete' : 'Delete'}
+            value={seatWithNoName ? 'Release this +1 seat' : seats > 0 && !canReset ? 'Removes them and their +1' : 'Asks first · can be undone'}
+            last
+            danger
+          >
             {/* The prototype's words (`guest_card_groups_and_papic_2026-10-23.html`), said before the button — all but its last
                 clause: the prototype says "This can be undone for a day", and the shipped Undo is the toast's, open for SIX
                 SECONDS (`undo-store.ts` UNDO_WINDOW_MS). A promise of a day would be false, so it says what is true. */}
+            {canReset ? (
+              <p className="text-xs text-ink/55" data-card-reset-says="">
+                Reset: Their reply and what they typed in it are cleared, as if never opened. Their link, QR and seat stay.
+              </p>
+            ) : null}
             {seatWithNoName ? null : (
               <p className="text-xs text-ink/55" data-card-delete-says="">
+                {canReset ? 'Delete: ' : null}
                 {seats > 0
                   ? 'Their QR and link stop working. Their +1’s seat goes too. You can undo it right after.'
                   : 'Their QR and link stop working. You can undo it right after.'}
               </p>
             )}
-            <DeleteControl eventId={eventId} guestId={guest.guest_id} guestName={name} seatWithNoName={seatWithNoName} />
+            <DeleteControl eventId={eventId} guestId={guest.guest_id} guestName={name} seatWithNoName={seatWithNoName} resettable={canReset} />
           </K.Fold>
         ) : null}
       </div>

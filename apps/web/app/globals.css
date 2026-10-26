@@ -6632,6 +6632,7 @@ html.dark .sn-side-panel-scrim {
     width: clamp(420px, 34vw, 580px);
     height: calc(100vh - 2.5rem);
     max-height: none;
+    transform: none; /* no hover lift under its sticky header — see the sheet's panel below */
   }
 }
 
@@ -6686,7 +6687,13 @@ html.dark .sn-side-panel-scrim {
 .sn-inspector-sheet .sn-inspector-head {
   position: sticky;
   top: env(safe-area-inset-top, 0px);
-  z-index: 2;
+  /* 🧱 THE HEADER IS ABOVE THE BODY — ALWAYS (owner, live iPhone 2026-10-26, one word: "Overlap"). This was `2`, and
+   * the body's Invite and ⋯ are `relative z-20` (they lift over the phone row's stretched link), so scrolled up they
+   * painted ON the header and across its hairline while the ticket beside them slid under it. Now the header takes
+   * the house sticky layer AND the body below is its own stacking context (`isolation`), so no z-index written inside
+   * the body — today's 20 or a later 999 — can reach above the header. 🔒
+   * guests/_components/the-card-head-sits-above-its-body.test.ts. */
+  z-index: var(--sn-z-sticky);
   align-items: center;
   margin: -20px -20px 0;
   padding: 10px 20px;
@@ -6698,6 +6705,36 @@ html.dark .sn-side-panel-scrim {
 .sn-inspector-shell--card .sn-inspector-head[data-scrolled='true'],
 .sn-inspector-sheet .sn-inspector-head[data-scrolled='true'] { border-bottom-color: var(--sn-hairline); }
 .sn-inspector-sheet .sn-inspector-head { margin: -1.25rem -1.25rem 0; padding: 10px 1.25rem; }
+/* 📏 FLUSH WITH THE TOP EDGE, NOT A PADDING BELOW IT (same report, 2026-10-26: the face peeked ABOVE the header). A
+ * sticky box sticks inside its scroller's PADDING — measured: the sheet's 20px top padding left the header stuck 20px
+ * down, and the body scrolled through that strip above it. So `top` gives that padding back (the notch's share stays:
+ * the header still clears the status bar, and its upward shadow paints that strip). Rail: the panel's 20px. */
+.sn-inspector-sheet .sn-inspector-head {
+  top: calc(env(safe-area-inset-top, 0px) - max(1.25rem, env(safe-area-inset-top, 0px)));
+}
+@media (min-width: 1280px) {
+  .sn-inspector-shell--card .sn-inspector-panel > .sn-inspector-head { top: -20px; }
+}
+/* The body under the sticky header: one stacking context at the base layer, so whatever it lifts stays inside it. */
+.sn-inspector-shell--card .sn-inspector-body,
+.sn-inspector-sheet .sn-inspector-body {
+  position: relative;
+  z-index: var(--sn-z-base);
+  isolation: isolate;
+}
+/* 👤 The face, left of the name (owner 2026-10-26), and a long eyebrow / name is cut before it ever meets ✕ or the pin. */
+.sn-inspector-lead { display: inline-flex; flex: none; }
+.sn-inspector-shell--card .sn-inspector-head .sn-eye,
+.sn-inspector-sheet .sn-inspector-head .sn-eye { display: block; max-width: 100%; overflow: clip; text-overflow: ellipsis; white-space: nowrap; line-height: 1.2; }
+/* 📌 The pinned Invite (`useHeadPin`): a slot that takes no room until something is drawn in it, and a short fade in. */
+.sn-inspector-pin-slot { display: inline-flex; flex: none; align-items: center; }
+.sn-inspector-pin-slot:empty { display: none; }
+.sn-inspector-pin { display: inline-flex; animation: sn-pin-in var(--sn-dur-control, 0.15s) var(--sn-ease-out) backwards; }
+.sn-inspector-pin .ab { padding: 0 12px; gap: 5px; }
+@keyframes sn-pin-in { from { opacity: 0 } to { opacity: 1 } }
+@media (prefers-reduced-motion: reduce) {
+  .sn-inspector-pin { animation: none; }
+}
 .sn-inspector-badge {
   display: inline-flex;
   align-items: center;
@@ -6728,6 +6765,10 @@ html.dark .sn-side-panel-scrim {
   border-radius: 0;
   background: none;
   box-shadow: none;
+  /* …and no `.sn-tile:hover` lift. A tap leaves :hover on (iOS keeps it), and the lift moved the WHOLE card 3px up under
+   * its own sticky header — measured 2026-10-26: the header stuck at -3px after one tap — and a held transform makes the
+   * panel the containing block of every `position: fixed` thing inside the card. */
+  transform: none;
 }
 .sn-inspector-sheet { overflow-x: hidden; }
 .sn-inspector-sheet .sn-inspector-body { min-width: 0; }

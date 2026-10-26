@@ -14,12 +14,37 @@ const labId = () => `lab-${++seq}`;
 export const LAB_GUEST_ACTIONS: Partial<GuestActions> = {
   bulkApplyRoleAndGroup: async () => undefined as never,
   /* ✋ Select → Set reply — local: says every id changed (the screen draws the new reply itself, and its Undo clears it). */
-  setGuestRsvp: async (_eventId, ids) => ({
-    ok: true,
-    changed: (typeof ids === 'string' ? [ids] : [...ids]).map((guest_id) => ({ guest_id, rsvp_status: 'pending' as const, rsvp_responded_at: null, rsvp_set_by: null, freedSeat: null })),
-    skipped: 0,
-    seats: { removedIds: [], releasedSeats: [] },
-  }),
+  /* 🔄 …and the card's Reset (`{ fresh: true }`) — local: answers with a stand-in of what it cleared, so its Undo toast shows. */
+  setGuestRsvp: async (_eventId, ids, _rsvp, opts) => {
+    const list = typeof ids === 'string' ? [ids] : [...ids];
+    return {
+      ok: true,
+      changed: list.map((guest_id) => ({ guest_id, rsvp_status: 'pending' as const, rsvp_responded_at: null, rsvp_set_by: null, freedSeat: null })),
+      skipped: 0,
+      seats: { removedIds: [], releasedSeats: [] },
+      ...(opts?.fresh
+        ? {
+            fresh: {
+              guest: {
+                guest_id: list[0] ?? 'lab',
+                rsvp_status: 'attending' as const,
+                rsvp_responded_at: null,
+                rsvp_set_by: 'guest' as const,
+                meal_preference: null,
+                dietary_restrictions: null,
+                guest_note: null,
+                display_name: null,
+                face_tagging_wanted: null,
+                plus_one_name: null,
+                plus_one_name_confirmed_at: null,
+              },
+              seats: [],
+              songs: [],
+            },
+          }
+        : {}),
+    };
+  },
   restoreGuestRsvpAndSeat: async () => ({ ok: true }),
   /* 📸 Their camera / Set… › Papic — local: says every guest was set. */
   setGuestAllotment: async (fd: FormData) => ({ ok: true as const, set: fd.getAll('guest_id').length }),

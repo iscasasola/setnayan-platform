@@ -443,9 +443,20 @@ export function InspectorColumn({
   swapKey,
   ariaLabel,
   badge,
+  lead,
+  pinSlot = false,
   children,
 }: {
   eyebrow: ReactNode;
+  /** 👤 Drawn at the LEFT of the eyebrow · name · reply — the guest card's face (owner 2026-10-26: *"Move profile photo
+   *  beside the name on the top? Left side"*). Optional; the other inspectors pass none. */
+  lead?: ReactNode;
+  /**
+   * 📌 A slot before ✕ that a control in the body can PORTAL its compact copy into while it is scrolled out of view under
+   * this header (`useHeadPin`, owner 2026-10-26: *"Let the invite … button pin to the top when it goes out of screen"*).
+   * Off by default — only the guest card has a control that pins.
+   */
+  pinSlot?: boolean;
   title: ReactNode;
   /** One short status under the title in the sticky header — the guest card's
    *  reply ("✓ Attending"). Optional; the other inspectors pass none. */
@@ -507,6 +518,11 @@ export function InspectorColumn({
       aria-label={ariaLabel ?? 'Details'}
     >
       <header ref={headRef} className="sn-inspector-head" data-scrolled={scrolled ? 'true' : 'false'}>
+        {lead ? (
+          <span className="sn-inspector-lead" data-inspector-lead="">
+            {lead}
+          </span>
+        ) : null}
         <div className="min-w-0 flex-1">
           <p className="sn-eye">{eyebrow}</p>
           <h2
@@ -522,6 +538,7 @@ export function InspectorColumn({
             </p>
           ) : null}
         </div>
+        {pinSlot ? <span className="sn-inspector-pin-slot" data-inspector-pin-slot="" /> : null}
         <button
           type="button"
           onClick={() => ctx?.close()}

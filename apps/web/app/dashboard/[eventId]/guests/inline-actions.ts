@@ -43,6 +43,19 @@ import {
   type QuickAddResult,
 } from './quick-add-actions';
 import { refuseLimitedHelper, limitedHelperRefusal } from '@/lib/host-gate';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { everyCopyIsNowStale } from '@/lib/a-withdrawal-reaches-every-copy.server';
+import {
+  freshBeforeIsValid,
+  freshGuestRestore,
+  freshGuestWrite,
+  freshResetHasWork,
+  freshSeatRestore,
+  freshSeatWrite,
+  seatsTheGuestNamed,
+  type FreshBefore,
+  type FreshSeatBefore,
+} from '@/lib/guest-fresh-reset';
 
 // Mirrors the closed sets in `[guestId]/actions.ts` — do not widen.
 const SIDE_VALUES: GuestSide[] = ['bride', 'groom', 'both'];
@@ -96,6 +109,8 @@ export type SetRsvpResult =
       skipped: number;
       /** 🪑 Their +1 seats with no name yet, released with a "Not coming" (the Undo brings them back). */
       seats: { removedIds: string[]; releasedSeats: ReleasedSeat[] };
+      /** 🔄 Reset (`{ fresh: true }`): everything it cleared, as it was — the Undo's payload. Null = nothing to clear. */
+      fresh?: FreshBefore | null;
     }
   | { ok: false; error: string };
 
@@ -116,12 +131,18 @@ export async function setGuestRsvp(
   eventId: string,
   guestIds: string | readonly string[],
   rsvp: RsvpStatus,
+  /** 🔄 `{ fresh: true }` — the card's Reset: ONE guest back to "never replied" (`lib/guest-fresh-reset.ts`). */
+  opts: { fresh?: boolean } = {},
 ): Promise<SetRsvpResult> {
   const helperRefusal = await limitedHelperRefusal(eventId, 'guest_list');
   if (helperRefusal) return { ok: false, error: helperRefusal };
   if (!RSVP_VALUES.includes(rsvp)) return { ok: false, error: 'Pick a valid RSVP.' };
   const ids = Array.from(new Set((typeof guestIds === 'string' ? [guestIds] : [...guestIds]).map((x) => String(x).trim()).filter(Boolean)));
   if (ids.length === 0) return { ok: false, error: 'Nothing selected.' };
+  if (opts.fresh === true) {
+    if (ids.length !== 1 || rsvp !== 'pending') return { ok: false, error: 'Reset works on one guest at a time.' };
+    return resetGuestToFresh(eventId, ids[0]!);
+  }
 
   const supabase = await createClient();
   const { data: rows, error: readErr } = await supabase
@@ -227,9 +248,12 @@ export async function restoreGuestRsvpAndSeat(
   eventId: string,
   before: readonly ReplyBefore[],
   seats: { removedIds: string[]; releasedSeats: ReleasedSeat[] } | null = null,
+  /** 🔄 The Undo of the card's Reset: what `setGuestRsvp(…, { fresh: true })` returned. */
+  fresh: FreshBefore | null = null,
 ): Promise<InlineResult> {
   const helperRefusal = await limitedHelperRefusal(eventId, 'guest_list');
   if (helperRefusal) return { ok: false, error: helperRefusal };
+  if (fresh) return restoreGuestFresh(eventId, fresh);
   const prior = [...(before ?? [])];
   if (prior.some((b) => !RSVP_VALUES.includes(b.rsvp_status))) return { ok: false, error: 'Pick a valid RSVP.' };
   if (prior.some((b) => b.rsvp_set_by !== null && b.rsvp_set_by !== 'guest' && b.rsvp_set_by !== 'host')) {
@@ -295,6 +319,184 @@ export async function restoreGuestRsvpAndSeat(
   }
 
   revalidatePath(guestsPath(eventId));
+  return { ok: true };
+}
+
+/**
+ * 🔄 RESET — one guest back to "never replied" (owner 2026-10-26: *"So at the bottom, have (RESET) (DELETE)"*). What it
+ * clears and keeps, and why, is `lib/guest-fresh-reset.ts`. Everything it clears is read FIRST and returned, so the
+ * Undo (`restoreGuestFresh`) puts back exactly what was there. Gated by the caller (`setGuestRsvp`: the limited-helper
+ * gate); the guest row is written with the RLS-scoped couple client, so a caller who may not write this event's guests
+ * writes nothing — and only after that write lands does the service role touch the song requests (the couple's role
+ * may only READ them), scoped to this event and this guest.
+ * 🔒 guests/_components/reset-makes-the-invitation-fresh.test.ts
+ */
+async function resetGuestToFresh(eventId: string, guestId: string): Promise<SetRsvpResult> {
+  const supabase = await createClient();
+  const empty = { removedIds: [] as string[], releasedSeats: [] as ReleasedSeat[] };
+  const { data: g, error: gErr } = await supabase
+    .from('guests')
+    .select(
+      'guest_id, role, plus_one_of_guest_id, rsvp_status, rsvp_responded_at, rsvp_set_by, meal_preference, dietary_restrictions, guest_note, display_name, face_tagging_wanted, plus_one_name, plus_one_name_confirmed_at',
+    )
+    .eq('event_id', eventId)
+    .eq('guest_id', guestId)
+    .is('deleted_at', null)
+    .maybeSingle();
+  if (gErr) return { ok: false, error: gErr.message };
+  if (!g) return { ok: false, error: 'Couldn’t find that guest.' };
+  // The couple and the honoree are always attending; a +1's reply is their guest's — Reset that guest instead.
+  if (!hostMaySetReply({ role: g.role as GuestRole })) return { ok: false, error: 'The couple’s own rows are always attending — there is nothing to reset.' };
+  if (g.plus_one_of_guest_id) return { ok: false, error: 'A +1 answers through their guest — reset the guest who brings them.' };
+
+  // Their seats — the ones the REPLY named (the guest's mark on the seat), never one an account holds.
+  const { data: seatRows, error: seatErr } = await supabase
+    .from('guests')
+    .select('guest_id, first_name, last_name, name_prefix, middle_name, name_suffix, display_name, plus_one_name_confirmed_at, rsvp_status, rsvp_responded_at, rsvp_set_by, meal_preference, dietary_restrictions, created_at')
+    .eq('event_id', eventId)
+    .eq('plus_one_of_guest_id', guestId)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: true });
+  if (seatErr) return { ok: false, error: seatErr.message };
+  const live = seatRows ?? [];
+  const { data: linkedRows, error: linkedErr } = live.length
+    ? await supabase.from('event_members').select('guest_id').eq('event_id', eventId).in('guest_id', live.map((r) => r.guest_id as string))
+    : { data: [], error: null };
+  if (linkedErr) return { ok: false, error: linkedErr.message };
+  const linked = new Set(((linkedRows ?? []) as Array<{ guest_id: string | null }>).map((r) => r.guest_id).filter((x): x is string => Boolean(x)));
+  const named = seatsTheGuestNamed(
+    live.map((r, i) => ({ ...(r as Record<string, unknown>), seat_index: i }) as unknown as FreshSeatBefore & { created_at?: string }),
+    linked,
+  ).map(({ created_at: _created, ...seat }) => seat as FreshSeatBefore);
+
+  // Their song requests still waiting for the DJ (service role: the couple may only read them).
+  const admin = createAdminClient();
+  const { data: songRows, error: songErr } = await admin
+    .from('event_song_requests')
+    .select('request_id, song_id, requester_name, created_at')
+    .eq('event_id', eventId)
+    .eq('guest_id', guestId)
+    .eq('origin', 'guest')
+    .eq('status', 'pending');
+  if (songErr) return { ok: false, error: songErr.message };
+
+  const before: FreshBefore = {
+    guest: {
+      guest_id: g.guest_id as string,
+      rsvp_status: g.rsvp_status as RsvpStatus,
+      rsvp_responded_at: (g.rsvp_responded_at as string | null) ?? null,
+      rsvp_set_by: (g.rsvp_set_by as 'guest' | 'host' | null) ?? null,
+      meal_preference: (g.meal_preference as FreshBefore['guest']['meal_preference']) ?? null,
+      dietary_restrictions: (g.dietary_restrictions as string | null) ?? null,
+      guest_note: (g.guest_note as string | null) ?? null,
+      display_name: (g.display_name as string | null) ?? null,
+      face_tagging_wanted: (g.face_tagging_wanted as boolean | null) ?? null,
+      plus_one_name: (g.plus_one_name as string | null) ?? null,
+      plus_one_name_confirmed_at: (g.plus_one_name_confirmed_at as string | null) ?? null,
+    },
+    seats: named,
+    songs: (songRows ?? []).map((x) => ({
+      request_id: x.request_id as string,
+      song_id: Number(x.song_id),
+      requester_name: (x.requester_name as string | null) ?? null,
+      created_at: x.created_at as string,
+    })),
+  };
+  if (!freshResetHasWork(before)) return { ok: true, changed: [], skipped: 1, seats: empty, fresh: null };
+
+  const now = new Date().toISOString();
+  // 1. Their row — the zero-row answer is a refusal, never "saved" (RLS writes nothing for a caller it does not admit).
+  const { data: wrote, error: wErr } = await supabase
+    .from('guests')
+    .update({ ...freshGuestWrite(), updated_at: now })
+    .eq('event_id', eventId)
+    .eq('guest_id', guestId)
+    .select('guest_id');
+  if (wErr) return { ok: false, error: wErr.message };
+  if (!wrote || wrote.length === 0) return { ok: false, error: 'Couldn’t reset that guest.' };
+
+  // 2. The seats they named → unnamed "+N · TBA" seats, each still theirs.
+  for (const seat of named) {
+    const { error } = await supabase
+      .from('guests')
+      .update({ ...freshSeatWrite(seat.seat_index), updated_at: now })
+      .eq('event_id', eventId)
+      .eq('guest_id', seat.guest_id)
+      .eq('plus_one_of_guest_id', guestId);
+    if (error) return { ok: false, error: error.message };
+  }
+
+  // 3. Their waiting song requests.
+  if (before.songs.length > 0) {
+    const { error } = await admin
+      .from('event_song_requests')
+      .delete()
+      .eq('event_id', eventId)
+      .eq('guest_id', guestId)
+      .eq('origin', 'guest')
+      .eq('status', 'pending')
+      .in('request_id', before.songs.map((x) => x.request_id));
+    if (error) logQueryError('resetGuestToFresh (song requests)', error, { event_id: eventId }, 'graceful_degrade');
+  }
+
+  revalidatePath(guestsPath(eventId));
+  await everyCopyIsNowStale(eventId);
+  return {
+    ok: true,
+    changed: [{ guest_id: guestId, rsvp_status: before.guest.rsvp_status, rsvp_responded_at: before.guest.rsvp_responded_at, rsvp_set_by: before.guest.rsvp_set_by, freedSeat: null }],
+    skipped: 0,
+    seats: empty,
+    fresh: before,
+  };
+}
+
+/** 🔄 The Undo of Reset: exactly what was there — the row's columns, the seats' names, the waiting songs. */
+async function restoreGuestFresh(eventId: string, fresh: FreshBefore): Promise<InlineResult> {
+  const guestId = fresh?.guest?.guest_id;
+  if (typeof guestId !== 'string' || !freshBeforeIsValid(fresh, guestId)) return { ok: false, error: 'Couldn’t undo that.' };
+  const supabase = await createClient();
+  const now = new Date().toISOString();
+  const { data: wrote, error } = await supabase
+    .from('guests')
+    .update({ ...freshGuestRestore(fresh.guest), updated_at: now })
+    .eq('event_id', eventId)
+    .eq('guest_id', guestId)
+    .is('plus_one_of_guest_id', null)
+    .select('guest_id');
+  if (error) return { ok: false, error: error.message };
+  if (!wrote || wrote.length === 0) return { ok: false, error: 'Couldn’t find that guest.' };
+  for (const seat of fresh.seats) {
+    // Only THEIR seat, in THIS event — a seat id from the payload that is not theirs writes nothing.
+    const { error: seatErr } = await supabase
+      .from('guests')
+      .update({ ...freshSeatRestore(seat), updated_at: now })
+      .eq('event_id', eventId)
+      .eq('guest_id', seat.guest_id)
+      .eq('plus_one_of_guest_id', guestId);
+    if (seatErr) return { ok: false, error: seatErr.message };
+  }
+  if (fresh.songs.length > 0) {
+    const admin = createAdminClient();
+    const { error: songErr } = await admin.from('event_song_requests').upsert(
+      fresh.songs.map((x) => ({
+        request_id: x.request_id,
+        event_id: eventId,
+        guest_id: guestId,
+        origin: 'guest',
+        song_id: x.song_id,
+        requester_name: x.requester_name,
+        status: 'pending',
+        created_at: x.created_at,
+      })),
+      { onConflict: 'request_id', ignoreDuplicates: true },
+    );
+    // 23505 = somebody asked for the same song meanwhile (one request per song per event) — the guest is still back.
+    if (songErr && (songErr as { code?: string }).code !== '23505') {
+      logQueryError('restoreGuestFresh (song requests)', songErr, { event_id: eventId }, 'graceful_degrade');
+    }
+  }
+  revalidatePath(guestsPath(eventId));
+  await everyCopyIsNowStale(eventId);
   return { ok: true };
 }
 

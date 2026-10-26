@@ -3,10 +3,10 @@ import { IapUnlockSheet } from '@/app/_components/iap/iap-unlock-sheet';
 import { StudioBuyHero } from '@/app/dashboard/[eventId]/studio/_components/studio-buy-hero';
 
 /**
- * 🧪 /dev/iap-doors-lab — the five Apple doors of 23 Oct (Setnayan AI · Music Maker · Patiktok · Thank You · Mood Board
- * pack), drawn by the SHIPPED `IapUnlockSheet` with each page's own props, NO database:
+ * 🧪 /dev/iap-doors-lab — the Apple doors of 23 Oct (Setnayan AI · Music Maker · Patiktok · Thank You; the Mood Board
+ * pack was retired with the renders, 2026-10-26), drawn by the SHIPPED `IapUnlockSheet` with each page's own props, NO database:
  *
- *   ?door=setnayan-ai · music-maker · patiktok · thank-you · mood-board
+ *   ?door=setnayan-ai · music-maker · patiktok · thank-you
  *
  * Apple's prices come from whatever `window.Capacitor` the walker hands it (a stand-in store with SAMPLE prices) —
  * the page types none. A dev page: 404 in production.
@@ -80,23 +80,7 @@ export default async function IapDoorsLab({ searchParams }: { searchParams: Prom
             triggerClassName={BTN}
           />
         </div>
-      ) : (
-        <div className="flex flex-col items-end gap-1.5 text-right">
-          <p className="text-sm font-semibold text-ink/75">Credits · none yet</p>
-          <IapUnlockSheet
-            eventId={E}
-            serviceKey="MOODBOARD_RENDER_PACK"
-            name="Mood Board · 50 renders"
-            line="Use them on any part, or the whole look."
-            info="Every box keeps its free colour preview. A photoreal render spends credits; buy another pack whenever you run low."
-            triggerLabel="Buy renders"
-            buyVerb="Buy"
-            onLine="Your renders are on this event."
-            plural
-            triggerTestId="iap-mood-board-pack"
-          />
-        </div>
-      )}
+      ) : null}
     </div>
   );
 }

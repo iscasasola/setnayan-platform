@@ -22,7 +22,7 @@ import type { ChapterOnThisDay } from '@/lib/chapters-on-this-day';
 // four is a defect, and `measures.test.ts` counts them.
 import { PAGE_COLUMN, PLATE } from '../_lib/measures';
 import { greetingDateLine, greetingAskOf, guestGreetingOf } from '@/lib/guest-greeting';
-import { MeGreeting, MeReply, ME_REPLY_ID } from './guest-greeting';
+import { MeGreeting, MeReply } from './guest-greeting';
 import { DRESS_CODE_ANCHOR } from './dress-code-widget';
 import { guestFullName, plusOneSeats, type RsvpStatus } from '@/lib/guests';
 import { guestAttireOf, guestNamePartsOf } from '@/lib/attire-rows';
@@ -2087,7 +2087,8 @@ export async function SiteBody({
     /* 🧭 …AND THE HOST'S OWN PAGE HAS ITS RSVP PART (owner 2026-10-17, *"confirm attendance is not doing anything?"* —
        on cale-ice, signed in as its host). The host holds no guest pass, so the reply page sent them straight back to
        `/{slug}` (307) and the tap reloaded the cover. Their page is a guest's (owner 2026-10-15): the Reply card stands
-       under the cover as a guest's does, the cover's button takes them to it, and the card's button opens the Reply
+       under the cover as a guest's does, the cover's button took them to it (since 2026-10-26 it opens the Reply
+       straight), and the card's button opens the Reply
        as the host's own preview of it (`?preview=draft`, the Maker's "Preview the whole stage" door — verified host
        membership, a sample guest, never a real reply). A booked supplier has no reply to make: no button.
        🗳 …AND THAT PREVIEW WAS THE BUG (owner 2026-10-24, on cale-ice): the page said "Viewing as you", and its Reply
@@ -2118,7 +2119,7 @@ export async function SiteBody({
     const strangerCoverRsvp = footDoor
       ? null
       : hostReplyCard
-        ? coverRsvpOf({ card: hostReplyCard, toPart: true })
+        ? coverRsvpOf({ card: hostReplyCard })
         : pageStage === 'rsvp' && plan.rsvpShouldRender && vendorCapability === null && !viewerIsHost
           ? coverRsvpOf({ card: null, visitorHref: replyDoor })
           : null;
@@ -3048,7 +3049,12 @@ export async function SiteBody({
        🪪 …AND SINCE 2026-10-24 THE ONE REPLY IS ME'S (owner, approving the Me redraw: "one place for everything"): on a
        tabbed page the button is a mark on Me (`#me-reply`, `MeReply`) — the shell opens Me there (`hub-shell.tsx`, a
        mark on another tab), and the Welcome draws no Reply
-       card of its own. A page that is one scroll keeps the card under the cover, as before. */
+       card of its own. A page that is one scroll keeps the card under the cover, as before.
+       🎯 …AND SINCE 2026-10-26 THE BUTTON NO LONGER STOPS THERE (owner, verbatim: *"instead of jumping to will you join
+       us? (REPLY) make it go directly to the RSVP Page"*): it opens the Reply card's own door — the reply page, the form
+       itself — in every pressable state (Confirm attendance · You're coming ✓ · Change · N more answers · You can't make
+       it · Change). Me's Reply and the card under the cover stay where they are, for a guest who goes there.
+       `the-cover-rsvp-reaches-its-action.test.ts`. */
     const guestRsvp =
       pageStage !== 'rsvp'
         ? null
@@ -3056,7 +3062,7 @@ export async function SiteBody({
           ? plan.rsvpShouldRender
             ? coverRsvpOf({ card: null, visitorHref: replyDoor })
             : null
-          : coverRsvpOf({ card: replyCard, toPart: true, partHref: tabs.on ? `#${ME_REPLY_ID}` : null });
+          : coverRsvpOf({ card: replyCard });
     const { group } = tabs;
     /* ⚖ THE SCAN-TRAIL OPT-OUT — ONE SMALL LINE, WITH THE GUEST'S OWN THINGS (RA 10173: it may move, never
        vanish). Owner 2026-09-30 moved it off the page body into the "Your details" sheet; the sheet is no longer

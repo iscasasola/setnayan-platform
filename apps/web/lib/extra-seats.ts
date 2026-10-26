@@ -157,12 +157,16 @@ export type CompanionSeatRow = {
  * 🪑 WHO A GUEST BRINGS, BY NAME — FROM THEIR SEAT ROWS, EVERY ONE (2026-10-22). The check-in desk, the souvenir desk
  * and the find-your-seat pass each printed the bringer's old one-name mirror (`guests.plus_one_name`): ONE name for a
  * guest who brings two, a stale name after the seat was renamed, nothing for a seat named on its own row, and a name
- * for a guest whose +1 was set to None. The seat rows are the +1s (owner 2026-09-21: "+3" is three rows), so:
- *   · a guest WITH seat rows → the names of their named seats (`plusOneHasNoName` is the List's own test), oldest
- *     first, a seat whose own reply says they can't come left out — zero rows named is `[]`, never the mirror;
- *   · a guest with NO seat rows at all → the mirror, only while they are allowed a +1 (the pass card's own rule,
- *     `readPartyCounts`: "the mirror only speaks for a bringer with no rows at all").
- * Pure. 🔒 lib/every-seat-is-counted.test.ts
+ * for a guest whose +1 was set to None. The seat rows are the +1s (owner 2026-09-21: "+3" is three rows), so the names
+ * of their named seats (`plusOneHasNoName` is the List's own test), oldest first, a seat whose own reply says they
+ * can't come left out — zero rows named is `[]`.
+ * 🧹 NEVER THE MIRROR, EVEN WITH NO ROWS (owner 2026-10-26, cale-ice: "I deleted that guest and added a new plus 1. It
+ * is still there?"). "No live rows" is exactly what a guest whose +1s were all REMOVED looks like here — the rows this
+ * is handed are live ones — and the mirror was never written back on a removal, so it named the person just deleted.
+ * The database now keeps the mirror in step (migration 20271288562348 `a_plus_ones_name_is_their_row`), and this reads
+ * the rows alone regardless: a name no live +1 row has is never drawn. (`bringer` keeps its old shape so every caller
+ * still compiles; only its `guest_id` is read.)
+ * Pure. 🔒 lib/every-seat-is-counted.test.ts · lib/a-removed-plus-one-leaves-no-name.test.ts
  */
 export function companionNames(
   bringer: { guest_id: string; plus_one_allowed?: boolean | null; plus_one_name?: string | null },
@@ -171,10 +175,6 @@ export function companionNames(
   const mine = seats
     .filter((r) => r.plus_one_of_guest_id === bringer.guest_id && r.guest_id !== bringer.guest_id)
     .sort((a, b) => (a.created_at ?? '').localeCompare(b.created_at ?? '') || a.guest_id.localeCompare(b.guest_id));
-  if (mine.length === 0) {
-    const mirror = (bringer.plus_one_name ?? '').trim();
-    return bringer.plus_one_allowed && mirror && !isPlaceholderNameWord('first', mirror) ? [mirror] : [];
-  }
   return mine
     .filter((r) => !plusOneHasNoName(r) && r.rsvp_status !== 'declined')
     .map((r) => {
@@ -182,6 +182,31 @@ export function companionNames(
       return [n.first, n.last].filter(Boolean).join(' ');
     })
     .filter(Boolean);
+}
+
+/**
+ * Every bringer's companion names, read off ONE roster (the List's rows, +1 rows among them) — `companionNames` per
+ * bringer, grouped once. What the Guest list's search matches a guest's +1 by (lib/guest-search.ts `companionNames`
+ * fact), instead of the one-name mirror. Pure.
+ */
+export function companionNamesByBringer(
+  rows: readonly (Omit<CompanionSeatRow, 'plus_one_name_confirmed_at'> & { plus_one_name_confirmed_at?: string | null })[],
+): Map<string, string[]> {
+  const byBringer = new Map<string, CompanionSeatRow[]>();
+  for (const r of rows) {
+    if (!r.plus_one_of_guest_id || r.plus_one_of_guest_id === r.guest_id) continue;
+    // A read that did not select the stamp reads as never stamped (GuestRow's own rule).
+    const seat: CompanionSeatRow = { ...r, plus_one_name_confirmed_at: r.plus_one_name_confirmed_at ?? null };
+    const list = byBringer.get(r.plus_one_of_guest_id);
+    if (list) list.push(seat);
+    else byBringer.set(r.plus_one_of_guest_id, [seat]);
+  }
+  const out = new Map<string, string[]>();
+  for (const [bringer, seats] of byBringer) {
+    const names = companionNames({ guest_id: bringer }, seats);
+    if (names.length > 0) out.set(bringer, names);
+  }
+  return out;
 }
 
 /** A +1 who HAS a name — every seat row that is not `plusOneHasNoName`. */

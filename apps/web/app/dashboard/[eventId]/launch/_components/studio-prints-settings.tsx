@@ -21,6 +21,7 @@ import {
   type PrintGuest,
 } from '@/lib/studio-prints-settings';
 import { PrintSaveButton } from './print-save-button';
+import type { PickNoun } from '@/lib/print-picked-guests';
 import { StudioProDoor } from './studio-prints-six';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
@@ -330,10 +331,12 @@ export function StudioGuestPiece({
   none: string;
   changed?: ReactNode;
   /**
-   * 🎟 PICK GUESTS (owner 2026-10-25): "Pick guests" beside "All guests" — some guests' passes / QR codes in one file. Given only by
-   * the rows whose all-guests file the route narrows (`guests=`): the Event pass and the Guest QR codes.
+   * 🎟 PICK GUESTS (owner 2026-10-25; every guest print 2026-10-26, *"this should apply to all guest related prints"*): "Pick guests"
+   * beside "All guests" — some guests' file in one. Given by every row whose all-guests file the route narrows (`guests=`): the Event
+   * pass, the Digital ticket's .zip, the Guest QR codes and the place cards. Offered only where All guests itself saves (a ◆ door is
+   * not a file), so a pick never reaches past the all-guests file's own gate.
    */
-  pickNoun?: { one: string; many: string } | null;
+  pickNoun?: PickNoun | null;
 }) {
   const list = guests ?? [];
   const [picking, setPicking] = useState(false);

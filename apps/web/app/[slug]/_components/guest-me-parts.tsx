@@ -147,7 +147,7 @@ export function ReplyCardRow({
 }: {
   card: ReplyCard;
   landed?: boolean;
-  /** 🧭 The page's RSVP part (`COVER_RSVP_PART`, lib/cover-rsvp.ts): the cover's button takes the reader here. */
+  /** 🧭 The page's RSVP part (`COVER_RSVP_PART`, lib/cover-rsvp.ts) — the card under the cover, for a reader who scrolls to it. */
   partId?: string | null;
   /**
    * 🕯 THE LOOK'S ART KIT OVER THE REPLY (`<KitSlot slot="reply">`, owner 2026-10-16) — the garland over the card's top

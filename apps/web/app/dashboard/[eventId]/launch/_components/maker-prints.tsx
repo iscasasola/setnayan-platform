@@ -39,7 +39,7 @@ import {
 import { ChangedSincePrinted, PassCardDesignPicker, PosterPhotoPicker, PrintChoicePicker, PrintMenuEditor, PrintPreview, PrintSaveButton } from './details-lazy';
 import { DetailsGoTo } from './details-go';
 import { EVERYTHING_PRO_NOTE, PLACE_CARDS_PRO_NOTE, WHOLE_SET_PRO_NOTE } from '@/lib/studio-prints-six';
-import { GUEST_TOKEN, GUEST_WORD_TOKEN, EVERYTHING_LABEL, everythingLine, guestPrintCountLine } from '@/lib/studio-prints-settings';
+import { GUEST_TOKEN, GUEST_WORD_TOKEN, EVERYTHING_LABEL, everythingLine, guestPrintCountLine, type PrintGuest } from '@/lib/studio-prints-settings';
 import { formatCount } from '@/lib/format-number';
 import { printHeadLine } from '@/lib/print-head-line';
 import { StudioTool } from './details-lazy';
@@ -119,7 +119,17 @@ export type PrintsInput = {
    * 🎟 Who has a pass, by name, in the printed passes' order (`loadPassGuestNames`; Studio only) — "Pass for ▾" and the count over
    * every guest's file. `null`: the list could not be read (said, never "nobody"); absent: not read here.
    */
-  passGuests?: Array<{ id: string; name: string; reply: 'attending' | 'pending' | 'maybe' }> | null;
+  passGuests?: PrintGuest[] | null;
+  /**
+   * 🔳 Who is on the Guest QR sheet, by name — the sheet's own read (`loadQrGuestNames`: every guest with a QR, can't-come included;
+   * Studio only). The QR row's View as ▾, Pick guests and count line. `null`: could not be read; absent: not read here.
+   */
+  qrGuests?: PrintGuest[] | null;
+  /**
+   * 🪑 Who has a place card, by name — the seating pack's own read and grouping (`loadSeatedGuestNames`; Studio only). The place
+   * cards row's View as ▾, Pick guests and count line. `null`: could not be read; absent: not read here.
+   */
+  seatedGuests?: PrintGuest[] | null;
   /**
    * ⚡ The hash of everything the pieces are drawn from (`printInputsVersion`),
    * put in each on-screen preview's address as `v` — a versioned preview is
@@ -581,7 +591,7 @@ export function freePrintParts(
    * 💾 The previews' names — the live hash and the draft's (`FreePrintStamps`), so a QR look being tried shows on the sheet — and
    * (2026-10-17) who may save the all-guests files (`ownsPro`, `storeShell`) and who View as ▾ lists (`passGuests`).
    */
-  input?: Pick<PrintsInput, 'previewVersion' | 'draftVersion'> & Partial<Pick<PrintsInput, 'ownsPro' | 'storeShell' | 'passGuests'>>,
+  input?: Pick<PrintsInput, 'previewVersion' | 'draftVersion'> & Partial<Pick<PrintsInput, 'ownsPro' | 'storeShell' | 'passGuests' | 'qrGuests' | 'seatedGuests'>>,
   /** 🧭 The new Maker's Studio › Prints: the blurb as the row's small line, the saves as small buttons (prototype `.pr-sv`). */
   studio = false,
 ): Array<{ key: FreePrint['key']; label: string; body: React.ReactNode; editor: React.ReactNode }> {
@@ -653,7 +663,10 @@ function studioFreeEditor(eventId: string, slug: string | null, fp: FreePrint, i
   if (fp.key === 'seating-chart') return <StudioTool part="chart" chart={studioChartInput(eventId, slug, fp)} />;
   const paper = freePaper(eventId, fp);
   const e = encodeURIComponent(eventId);
-  const guests = input?.passGuests ?? null;
+  /* Each guest print lists ITS OWN file's guests (owner 2026-10-26): the QR sheet everyone with a QR, the place cards everyone
+     seated — so View as ▾, Pick guests and the count line say what that file holds. Not read (absent) → the pass list, as before. */
+  const own = fp.key === 'qr-codes' ? input?.qrGuests : fp.key === 'seating-pack' ? input?.seatedGuests : undefined;
+  const guests = own !== undefined ? own : (input?.passGuests ?? null);
   const proOf = (s: { href: string; file: string }, note: { title: string; body: string }) =>
     allInOneFile({ eventId, ownsPro: input?.ownsPro ?? false, storeShell: input?.storeShell ?? false }, { ...s, label: 'All guests' }, note);
   if (fp.key === 'qr-codes' || fp.key === 'seating-pack') {
@@ -675,8 +688,10 @@ function studioFreeEditor(eventId: string, slug: string | null, fp: FreePrint, i
           }
           all={qr ? freeAllGuestsFile({ ...fp.saves[0]!, label: 'All guests' }) : proOf(fp.saves[0]!, ALL_GUESTS_NOTE[fp.key]!)}
           holds={guestPrintCountLine(fp.key, guests)}
-          none="No guest is on your list yet — add your guests, then pick one here."
-          pickNoun={qr ? { one: 'QR code', many: 'QR codes' } : null}
+          none={qr ? 'No guest is on your list yet — add your guests, then pick one here.' : 'No guest is seated yet — seat your guests in the seat plan, then pick one here.'}
+          /* 🎟 Pick guests on both (owner 2026-10-26, "all guest related prints"): the place cards' picked file is those guests'
+             cards only — offered where All guests saves (Event Hub Pro for the pack), refused by the route otherwise too. */
+          pickNoun={qr ? { one: 'QR code', many: 'QR codes' } : { one: 'place card', many: 'place cards' }}
         />
       </div>
     );
@@ -895,6 +910,9 @@ export function DigitalTicketEditor({ input }: { input: PrintsInput }) {
         all={zip}
         holds={guestPrintCountLine('digital-ticket', guests)}
         none="No guest has a ticket yet — a ticket appears once a guest is on your list and coming."
+        /* 🎟 Pick guests (owner 2026-10-26, *"Why cant i pick specific guests to download and compile?"*): ONE .zip of just the
+           guests ticked — the zip route narrowed by `guests=` (`/api/guest/pass-card/all`, each id checked against this event). */
+        pickNoun={{ one: 'ticket', many: 'tickets', verb: 'Download' }}
       />
     </div>
   );

@@ -30,7 +30,7 @@ export function RestorePurchasesRow({ className }: { className: string }) {
   };
   const listed =
     result && result.ok
-      ? // A pack (Papic credits, Mood Board renders) is never listed as "switched on" — like a Papic pack (2026-10-23).
+      ? // A pack (Papic credits) is never listed as "switched on" — like a Papic pack (2026-10-23).
         result.restored.filter((r) => !iapProductIsRepeatable(iapProductForServiceKey(r.serviceKey)))
       : [];
   return (

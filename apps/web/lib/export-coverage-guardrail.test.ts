@@ -242,6 +242,13 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
   event_delegates:
     'TABLE DROPPED 2026-09-18 (S37) — delegation superseded by event_moderators; ' +
     'no writer ever shipped, 0 rows in prod. Nothing to export.',
+  // Same parser limit: the retired Mood Board render schema, dropped with its export readers.
+  event_renders:
+    'TABLE DROPPED 2026-10-26 (migration 20271289858095, owner-approved) — the retired Mood Board ' +
+    '"Make it real" renders; 0 rows in prod. Its own_renders_requested export reader went with it. Nothing to export.',
+  event_render_share_consent:
+    'TABLE DROPPED 2026-10-26 (migration 20271289858095, owner-approved) — the retired renders\u2019 share ' +
+    'consent; its one row (the owner\u2019s own, withdrawn) was erased with owner approval. Nothing to export.',
   vendor_release_history:
     'TABLE DROPPED 2026-09-18 (migration 20271234083820, S37) — the soft-hold ' +
     'release audit whose writers never shipped; 0 rows in prod ever. Nothing to export.',

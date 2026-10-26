@@ -10,7 +10,8 @@ import { AI_TIER_SKU, type AiPriceTier } from '@/lib/setnayan-ai-type-pricing';
  *   (1) Sold in the iPhone app first: Papic credits, Event Hub Pro, Live Watch.
  *       Setnayan AI is a second wave; supplier plans stay web-only.
  *       ↳ The second wave (owner 2026-10-23): Setnayan AI, Music Maker, Patiktok,
- *         Thank You and the Mood Board pack — see the end of IAP_PRODUCTS.
+ *         Thank You and the Mood Board pack — see the end of IAP_PRODUCTS. The Mood Board pack
+ *         (`mood_board_renders_50`) was RETIRED with the renders (owner 2026-10-26) — its id is never reused.
  *   (2) Pro is offered in the app ONLY at ✓ Apply.
  *   (3) Pro and Live Watch are ONE purchase for the CURRENT event — a
  *       CONSUMABLE applied to that event, never a subscription and never a
@@ -52,9 +53,7 @@ export type IapProductKind =
   | 'live-watch'
   | 'papic-credits'
   /** 🍎 23 Oct: one unlock for the CURRENT event, never sold twice (Setnayan AI · Music Maker · Patiktok · Thank You). */
-  | 'event-unlock'
-  /** 🍎 23 Oct: Mood Board render credits — a pack, bought again and again like Papic credits. */
-  | 'mood-board-pack';
+  | 'event-unlock';
 
 export type IapProduct = {
   /** The App Store Connect product id. */
@@ -66,7 +65,7 @@ export type IapProduct = {
   appleType: 'consumable';
   /** The App Store display name the owner types in App Store Connect. */
   appStoreName: string;
-  /** Papic and Mood Board packs: the credits (renders) this product's name promises. */
+  /** Papic packs: the credits this product's name promises. */
   credits: number | null;
   /**
    * ✦ Setnayan AI only (owner 2026-10-23, "four consumables, one per web tier"): the web price TIER this product is
@@ -190,34 +189,16 @@ export const IAP_PRODUCTS: readonly IapProduct[] = Object.freeze([
       credits: null,
     }),
   ),
-  {
-    productId: `${PREFIX}mood_board_renders_50`,
-    serviceKey: 'MOODBOARD_RENDER_PACK',
-    kind: 'mood-board-pack',
-    appleType: 'consumable',
-    appStoreName: 'Mood Board · 50 renders',
-    credits: 50,
-  },
+  /* 🗑 `mood_board_renders_50` ("Mood Board · 50 renders") is RETIRED with Mood Board renders (owner 2026-10-26,
+     "mood board render is no longer available. can we delete that?"). Never re-add it, and never reuse its id. */
 ]);
 
 /**
- * A pack bought again and again (Papic credits, Mood Board renders): never refused as "owned", and left out of
- * Restore's list of things switched on (a restored pack is credits already spent or still there, not a feature).
+ * A pack bought again and again (Papic credits): never refused as "owned", and left out of Restore's list of things
+ * switched on (a restored pack is credits already spent or still there, not a feature).
  */
 export function iapProductIsRepeatable(product: IapProduct | null | undefined): boolean {
-  return product?.kind === 'papic-credits' || product?.kind === 'mood-board-pack';
-}
-
-/**
- * Does the Mood Board config still grant exactly the renders the App Store name promises, from THIS product's
- * catalogue row? `config` null = unreadable or switched off → not on sale (same rule as `papicCreditsMatch`).
- */
-export function moodBoardRendersMatch(
-  product: IapProduct,
-  config: { creditsPerPack: number; packServiceCode: string } | null,
-): boolean {
-  if (product.kind !== 'mood-board-pack') return true;
-  return config !== null && config.packServiceCode === product.serviceKey && config.creditsPerPack === product.credits;
+  return product?.kind === 'papic-credits';
 }
 
 /** The eleven part products, in the parts' own order. */

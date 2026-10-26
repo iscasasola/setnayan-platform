@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useId, useRef, useState, useTransition } from 'react';
+import { createPortal } from 'react-dom';
 import { Check, Link2, MessageCircle, MessagesSquare, PhoneCall, Send, Share2, Undo2 } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
+import { useHeadPin } from '@/app/_components/inspector/use-head-pin';
 import { ActionButton } from '@/components/action-button';
 import { Handed } from './handed';
 import { buildGuestInviteMessage, type InviteEventFacts } from '@/lib/guest-invite-message';
@@ -155,6 +157,14 @@ export function GuestInviteCell({
   const [pending, startTransition] = useTransition();
   const { setGuestInvitationSent } = useGuestActions();
   const ref = useRef<HTMLButtonElement>(null);
+  /* 📌 THE SAME INVITE, PINNED (owner 2026-10-26: *"Let the invite … button pin to the top when it goes out of screen"*).
+     On the card, while this Invite is scrolled up under the panel's sticky header, a compact copy of it sits in that
+     header (before ✕). It is this component's own button — the same `invite()`, the same sheet, the same Sent ✓ — drawn
+     into the header's slot (`useHeadPin`), and gone again the moment this one is back in view. The sheet anchors under
+     whichever of the two was pressed. 🔒 `guests/_components/the-card-head-sits-above-its-body.test.ts`. */
+  const pinRef = useRef<HTMLButtonElement>(null);
+  const [from, setFrom] = useState<'body' | 'head'>('body');
+  const pin = useHeadPin(ref, layout === 'card');
   const titleId = useId();
   const first = guest.firstName?.trim() || guest.fullName.split(/\s+/)[0] || 'them';
 
@@ -251,7 +261,8 @@ export function GuestInviteCell({
     its first row IS that share (message + ticket, unchanged), with Copy
     invitation link right under it. A computer keeps its three steps.
   */
-  function invite() {
+  function invite(at: 'body' | 'head' = 'body') {
+    setFrom(at);
     setSaid(null);
     setDone({ message: false, ticket: false, link: false });
     setTouch(isTouchDevice());
@@ -387,7 +398,7 @@ export function GuestInviteCell({
             icon={Send}
             label="Invite"
             name={sentAt ? `Invite ${guest.fullName} — sent ${sentDay}` : `Invite ${guest.fullName}`}
-            onClick={invite}
+            onClick={() => invite('body')}
             disabled={pending}
             aria-haspopup="dialog"
             /* ▾ on the card — Invite opens its send choices (owner-approved prototype `guest_card_groups_and_papic_2026-10-23.html`). */
@@ -398,8 +409,27 @@ export function GuestInviteCell({
         {more ? <Handed>{more}</Handed> : null}
       </div>
       {status}
+      {pin.pinned && pin.slot
+        ? createPortal(
+            <span className="sn-inspector-pin" data-guest-invite-pinned="">
+              <ActionButton
+                ref={pinRef}
+                tone="brand"
+                main
+                icon={Send}
+                label="Invite"
+                name={sentAt ? `Invite ${guest.fullName} — sent ${sentDay}` : `Invite ${guest.fullName}`}
+                onClick={() => invite('head')}
+                disabled={pending}
+                aria-haspopup="dialog"
+                caret
+              />
+            </span>,
+            pin.slot,
+          )
+        : null}
       {open ? (
-        <Popover anchorRef={ref} onClose={() => setOpen(false)} width={296} role="dialog" labelledById={titleId}>
+        <Popover anchorRef={from === 'head' && pin.pinned ? pinRef : ref} onClose={() => setOpen(false)} width={296} role="dialog" labelledById={titleId}>
           <div className="space-y-1 p-1.5" data-guest-invite-panel="">
             <div className="px-1 pb-1">
               <InfoTip label={`Invite ${first}`} labelId={titleId} labelClassName="text-sm font-medium text-ink" align="start">

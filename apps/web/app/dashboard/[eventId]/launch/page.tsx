@@ -105,7 +105,7 @@ import { findSampleEventId } from '@/app/tour/_lib/sample-event';
 import { qrLookChoicesFromRow } from '@/lib/qr-look.server';
 import { updateQrStyle } from './qr-look-actions';
 import { boardIsTheCouples, sampleBoardQuery, themeSeedPalettes } from '@/lib/theme-colours';
-import { loadPassGuestNames, parentGuestsForEvent, printInputsVersion, printOwnsPro, printThemeFor, readMenuSources, readPrintEvent, readRsvpHosts } from '@/lib/print-set.server';
+import { loadPassGuestNames, loadQrGuestNames, loadSeatedGuestNames, parentGuestsForEvent, printInputsVersion, printOwnsPro, printThemeFor, readMenuSources, readPrintEvent, readRsvpHosts } from '@/lib/print-set.server';
 import { printPreviewVersion } from '@/lib/print-preview-cache';
 import { printDraftOf } from '@/lib/ceremony-time';
 import { updateSpecialMessage } from '../website/special-message/actions';
@@ -1185,6 +1185,10 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
        file. The printed passes' own read and rule (`loadPassGuestNames`); null when it could not be read. Studio only. */
     const printEventP = readPrintEvent(printAdmin, eventId);
     const passGuestsP = loadPassGuestNames(eventId, printEventP.then((e) => e?.print_details ?? null)).catch(() => null);
+    /* 🔳🪑 …and the Guest QR sheet's and the place cards' own guests (owner 2026-10-26, "all guest related prints"): each row's
+       View as ▾, Pick guests and count line read the list ITS file draws (`loadQrGuestNames`, `loadSeatedGuestNames`). */
+    const qrGuestsP = loadQrGuestNames(eventId, printEventP.then((e) => e?.print_details ?? null)).catch(() => null);
+    const seatedGuestsP = loadSeatedGuestNames(eventId).catch(() => null);
     const [printEvent, printPro, rsvpHosts, printParents, egifts, printInputs, sampleVersion, feelRes, storyLiveRes, scheduleRes, announceOn] = await Promise.all([
       printEventP,
       printOwnsPro(eventId),
@@ -1432,6 +1436,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         posterPhoto: stored.posterPhoto ?? null,
         passCardsZip: passCardsZipFileNameOf(printEvent),
         passGuests: (await passGuestsP) ?? undefined,
+        qrGuests: await qrGuestsP,
+        seatedGuests: await seatedGuestsP,
         formats: {
           pass: formatFor('pass', one(search.pass_format))!,
           invitation: formatFor('invitation', one(search.invitation_format))!,

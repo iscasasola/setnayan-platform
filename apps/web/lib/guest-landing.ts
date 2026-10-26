@@ -109,6 +109,21 @@ export function landingTicketOf(input: {
   return 'faded';
 }
 
+/**
+ * 🎟 THE TICKET ALREADY SAYS WHOSE EVENT THIS IS (owner 2026-10-26, verbatim: *"since the ticket has the logo already
+ * and Event Name, Just start with your on the list"*). After a Yes, with the full ticket drawn below, the door's top —
+ * the couple's mark and their names (and their invitation line under the names) — is not drawn: the page STARTS with
+ * "You're on the list." (or the couple's own heading), then the ticket. The names stay as the page's heading for a
+ * screen reader only.
+ *
+ * Only where the ticket that repeats them IS drawn: after a No there is no ticket (`landingTicketOf` → none), so "We'll
+ * miss you." keeps the mark and the names — without them that page would not say whose event it is. Before a reply,
+ * and for a seat with no ticket, the top stands as it was. Held by `the-thank-you-starts-with-its-heading.test.ts`.
+ */
+export function landingTopStandsDown(input: { reply: LandingReply; ticket: LandingTicket }): boolean {
+  return input.reply === 'yes' && input.ticket === 'full';
+}
+
 /** The small link at the foot once they replied — "Change my reply", or after a No "Changed your plans?". */
 export function changeReplyWords(reply: LandingReply): string | null {
   if (reply === 'yes') return LANDING_WORDS.changeReply;

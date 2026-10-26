@@ -17,6 +17,7 @@ import {
   layoutEntranceChart,
   parseChartLayout,
   parseChartSize,
+  seatedGuestsOf,
   seatingUnits,
   unseatedCount,
   type SeatedUnit,
@@ -33,6 +34,7 @@ import { PAPER_HOW, previewPage, printPaperHeader } from '@/lib/print-paper';
 import { printOwnsPro } from '@/lib/print-set.server';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { allInOneRefusal } from '@/lib/studio-prints-six';
+import { PICKED_GUESTS_PARAM, PICKED_GUEST_REFUSAL, parsePickedGuests, pickGuestRows } from '@/lib/print-picked-guests';
 
 export const dynamic = 'force-dynamic';
 /* ⏱ 300 s, the shipped big-file route's ceiling (`/api/guest/pass-card/all`): a print file is drawn whole, then streamed
@@ -212,24 +214,36 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
        name, their table, their own QR — on the pack's own card page. A guest who is not seated has no card: said, never a blank. */
     const oneGuest = params.get('guest');
     if (oneGuest !== null && !GUEST_ID.test(oneGuest)) return new NextResponse('Which guest?', { status: 400 });
+    /* 🎟 PICKED GUESTS' PLACE CARDS (owner 2026-10-26, *"this should apply to all guest related prints"*): `guests=<id>,…` draws
+       those guests' cards only (no directory, no signs) — a file of several guests, so it asks the SAME Event Hub Pro question as
+       the whole pack below. Every id must be a guest this pack seats (`seatedGuestsOf`, the one answer the Prints row lists and
+       counts from): one that is not — another event's guest, an unseated guest, a removed one — refuses the whole file (403), never
+       dropped and never included. Malformed / empty / oversized → 400; with `guest=` too → 400 (one file, one question). */
+    const pickedParam = parsePickedGuests(params.get(PICKED_GUESTS_PARAM));
+    if (!pickedParam.ok) return new NextResponse(pickedParam.why, { status: 400 });
+    const picked = pickedParam.ids;
+    if (picked && oneGuest !== null) return new NextResponse('Pick one guest or several — not both.', { status: 400 });
     /* 🗂 …and the whole pack — the directory, every sign and every place card in one file — is Event Hub Pro (owner 2026-10-17,
        "ALL GUESTS ◆"; `isAllInOnePrint('seating-pack')`): refused before anything is drawn. Its on-screen picture stays free. */
     if (format === 'pdf' && oneGuest === null) {
       const [ownsPro, storeShell] = await Promise.all([printOwnsPro(eventId), isStoreShellRequest()]);
       if (!ownsPro) return new NextResponse(storeShell ? 'Not available here.' : allInOneRefusal('seating-pack'), { status: 403 });
     }
+    if (picked && !pickGuestRows(seatedGuestsOf(units), picked).ok) return new NextResponse(PICKED_GUEST_REFUSAL, { status: 403 });
+    const cardsOnly = oneGuest !== null || picked !== null;
     const packUnits: SeatingPackUnit[] = units.map((u) => ({
       label: u.label,
       joined: u.members.length,
       qrRef: `t-${u.key}`,
       guests: u.guests
         .filter((g) => oneGuest === null || g.guest_id === oneGuest)
+        .filter((g) => picked === null || picked.has(g.guest_id.toLowerCase()))
         .map((g) => ({ name: guestDisplayName(g), qrRef: `g-${g.qr_token}` })),
     }));
     if (oneGuest !== null && !packUnits.some((u) => u.guests.length > 0)) {
       return new NextResponse('That guest has no seat yet — a place card prints once a guest is seated in your seat plan.', { status: 404 });
     }
-    const docs = layoutSeatingPack({ coupleName: coupleNameEarly, dateLabel: dateLabelEarly, units: packUnits, signLine: signSub, cardsOnly: oneGuest !== null });
+    const docs = layoutSeatingPack({ coupleName: coupleNameEarly, dateLabel: dateLabelEarly, units: packUnits, signLine: signSub, cardsOnly });
     if (format === 'preview') {
       /* 📄 `?page=N` — the preview sheet's page N (Studio › Prints, owner 2026-10-14); its paper in `x-print-paper`. */
       const page = previewPage(params, docs.length);
@@ -245,7 +259,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
     }
     const images: PrintImages = {};
     const png = async (text: string) => new Uint8Array(await renderStyledUrlQrPng(text, look, 600));
-    if (oneGuest === null) for (const u of units) images[`t-${u.key}`] = { bytes: await png(`${site}?t=${u.lead.public_id}`), mime: 'image/png' };
+    if (!cardsOnly) for (const u of units) images[`t-${u.key}`] = { bytes: await png(`${site}?t=${u.lead.public_id}`), mime: 'image/png' };
     for (const pu of packUnits) {
       for (const g of pu.guests) images[g.qrRef] = { bytes: await png(`${site}?g=${g.qrRef.slice(2)}`), mime: 'image/png' };
     }
@@ -255,7 +269,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="${printFileName(event.slug, oneGuest === null ? 'seating-pack' : `place-card-${placeCardWord(packUnits)}`)}"`,
+        'Content-Disposition': `attachment; filename="${printFileName(event.slug, picked ? `place-cards-${packUnits.reduce((a, u) => a + u.guests.length, 0)}-picked` : oneGuest === null ? 'seating-pack' : `place-card-${placeCardWord(packUnits)}`)}"`,
         'Cache-Control': 'no-store',
       },
     });

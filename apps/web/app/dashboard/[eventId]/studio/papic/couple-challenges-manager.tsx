@@ -9,7 +9,7 @@ import { ChallengeCardRow } from './_components/challenge-card-row';
 // stay in the separate approval panel. Self-gates on papicGamesEnabled().
 
 import Link from 'next/link';
-import { Trophy, Eye, EyeOff, Plus, MessageSquareQuote, Search, X, Radio, Play, Square } from 'lucide-react';
+import { Trophy, Eye, EyeOff, Trash2, Plus, MessageSquareQuote, Search, X, Radio, Play, Square } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -61,7 +61,6 @@ import {
 import { formatCount } from '@/lib/format-number';
 import { fetchPauseState } from '@/lib/papic-challenge-pause';
 import { ACTIVE_CHALLENGE_CAP } from '@/lib/papic-missions';
-import { ChallengeAddSheet } from './_components/challenge-add-sheet';
 import { InfoTip } from '@/app/_components/info-tip';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 
@@ -225,7 +224,7 @@ export async function CoupleChallengesManager({
   // booked; it means nothing to the couple and matched no other screen.
   const { data, error: missionsErr } = await supabase
     .from('papic_missions')
-    .select('mission_id,source,prompt,is_active,board_slot,capture_kind,library_id')
+    .select('mission_id,source,prompt,is_active,board_slot,capture_kind,library_id,created_at')
     .eq('event_id', eventId)
     .eq('approved', true)
     // ✕ A removed challenge leaves the host's list for good (owner 2026-10-26); its row stays for the photos it tagged.
@@ -391,13 +390,11 @@ export async function CoupleChallengesManager({
 
   // ── EMBEDDED: a summary and a door, never a second copy of the screen ──────
   if (inCard) {
-    // 📷 IN THE PAPIC CARD (owner rulings 2026-10-24): ONE "Challenges" row with "N of 10" — its switch is the board's
-    // master switch, the shipped PAUSE (`setChallengesPausedAction`: the board stays, untouched, and comes back as it
-    // was). Off: only the row, "Off". On: every listed challenge grows in under it (owner 2026-10-26) — each with its Photo
-    // / Clip tag (`capture_kind`), its own switch (`setCoupleChallengeActiveAction`: live on the app / paused, still
-    // listed) and ✕ (`deleteCoupleChallengeAction`, a soft remove that keeps photos already taken) — then
-    // "+ Add a challenge", the shared bottom sheet over the 631-row library (`ChallengeAddSheet`), which also holds
-    // "+ Add your own". No new action; the hard cap of 10 is the server's (`activationRefused`).
+    // 📷 IN THE PAPIC CARD: ONE "Challenges" row — "N of 10 challenges on" — whose switch is the board's master switch,
+    // the shipped PAUSE (`setChallengesPausedAction`: the board stays, untouched, and comes back as it was). On: the TEN
+    // SLOTS (owner 2026-10-27), each `ChallengeCardRow` — its name opens the one challenge sheet (search the 631-row
+    // library · create your own) and a pick REPLACES it in place; its switch turns just that one off, and it stays in
+    // its slot. No "Add a challenge", no ✕. The hard cap of 10 live is the server's (`activationRefused`).
     const [pause, typeRes] = await Promise.all([
       fetchPauseState(supabase, eventId),
       supabase.from('events').select('event_type').eq('event_id', eventId).maybeSingle(),
@@ -407,19 +404,26 @@ export async function CoupleChallengesManager({
     const full = running.length >= ACTIVE_CHALLENGE_CAP;
     const taken = missions.map((m) => m.library_id).filter((id): id is number => typeof id === 'number');
     const ret = returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null;
+    const eventType = ((typeRes.data as { event_type?: string | null } | null)?.event_type ?? null) as string | null;
+    // The ten: what the event has, oldest first (stable — a switch never reorders), padded to ten with slots to choose.
+    const listed = [...missions]
+      .sort((a, b) => String((a as { created_at?: string }).created_at ?? '').localeCompare(String((b as { created_at?: string }).created_at ?? '')))
+      .slice(0, ACTIVE_CHALLENGE_CAP);
+    const slots: Array<(typeof listed)[number] | null> = [...listed, ...Array.from({ length: ACTIVE_CHALLENGE_CAP - listed.length }, () => null)];
     return (
       <section className="flex flex-col" data-papic-challenges-card={off ? 'off' : 'on'}>
         <div className="flex items-center gap-3 py-3">
           <span className="min-w-0 flex-1">
             <span className="flex items-baseline gap-2">
               <InfoTip label="Challenges" labelClassName="text-[15px] font-semibold text-ink" align="start">
-                Little photo missions on every guest&rsquo;s board — at most 10 at a time. Off pauses the whole board (for a
-                moment everybody must be watching) and it comes back exactly as it was. Switch one challenge off to take
-                just that one away.
+                Ten little photo missions on every guest&rsquo;s board. Tap one to choose a different challenge — search
+                ours or write your own; photos already taken keep the old one. Switch one off and it stays in its place,
+                just not live. The switch up here pauses the whole board (for a moment everybody must be watching) and it
+                comes back exactly as it was.
               </InfoTip>
               {missionsReadable ? (
                 <span className="text-[12.5px] text-ink/55" data-papic-challenges-count="">
-                  {formatCount(running.length)} of {formatCount(ACTIVE_CHALLENGE_CAP)}
+                  {formatCount(running.length)} of {formatCount(ACTIVE_CHALLENGE_CAP)} challenges on
                 </span>
               ) : null}
             </span>
@@ -441,29 +445,22 @@ export async function CoupleChallengesManager({
         {off ? null : (
           <>
             {missionsReadable ? (
-              /* 🎚 EACH CHALLENGE: its name · its switch (live on the app / paused — `is_active`, the shipped hide) · ✕
-                 remove (owner 2026-10-26). Paused ones stay listed so they can come back; ✕ takes one away for good —
-                 photos already taken keep it (`deleteCoupleChallengeAction`, a soft remove). */
+              /* 🎚 TEN SLOTS, ALWAYS TEN ROWS (owner 2026-10-27: "there will be 10 challenges the can make. choose a
+                 challenge or turn that challenge off. turning 1 off will become 9 of 10 challenges. it stays there, but
+                 just off."). Each row: its name — tap to choose its challenge (search · create; the pick replaces it in
+                 place) · its switch. In the order they were made, so a switch never moves a row (an off row keeps its
+                 place; a replacement takes the replaced one's `created_at`). No "Add a challenge" button, no ✕. */
               <ul className="divide-y divide-ink/10" data-papic-challenges-running="">
-                {missions.map((m) => (
-                  <ChallengeCardRow key={m.mission_id} eventId={eventId} mission={m} full={full} returnTo={returnTo} />
+                {slots.map((m, i) => (
+                  <ChallengeCardRow key={m?.mission_id ?? `slot-${i}`} eventId={eventId} eventType={eventType} taken={taken} mission={m} full={full} returnTo={returnTo} />
                 ))}
               </ul>
             ) : null}
-            <div className="flex flex-col gap-1 pt-3">
-              <ChallengeAddSheet
-                eventId={eventId}
-                eventType={((typeRes.data as { event_type?: string | null } | null)?.event_type ?? null) as string | null}
-                taken={taken}
-                full={full}
-                returnTo={returnTo}
-              />
-              {full ? (
-                <p className="text-[12.5px] text-ink/60" data-papic-challenges-full="">
-                  10 are running — turn one off first.
-                </p>
-              ) : null}
-            </div>
+            {full ? (
+              <p className="pt-2 text-[12.5px] text-ink/60" data-papic-challenges-full="">
+                10 are on — turn one off to turn another on.
+              </p>
+            ) : null}
           </>
         )}
       </section>
@@ -1122,20 +1119,22 @@ function ChallengeRow({
               )}
             </button>
           </PapicStayForm>
-          {/* ✕ Remove — every lane (owner 2026-10-26); a soft remove, so photos already taken keep it. */}
-          <PapicStayForm door="deleteCoupleChallengeAction" action={deleteCoupleChallengeAction}>
-            <input type="hidden" name="event_id" value={eventId} />
-            <input type="hidden" name="mission_id" value={m.mission_id} />
-            <button
-              type="submit"
-              title="Remove"
-              aria-label="Remove challenge"
-              className="inline-flex h-11 w-11 items-center justify-center rounded-md text-ink/50 transition-colors hover:bg-ink/5 hover:text-ink"
-              data-papic-challenge-remove=""
-            >
-              <X aria-hidden className="h-4 w-4" strokeWidth={2} />
-            </button>
-          </PapicStayForm>
+          {/* Delete — only the couple's own. Since 2026-10-26 a SOFT remove (`deleteCoupleChallengeAction`): photos already
+              taken keep the challenge. (The Papic card has no ✕ — its slots are changed or switched off, owner 2026-10-27.) */}
+          {m.source === 'couple' ? (
+            <PapicStayForm door="deleteCoupleChallengeAction" action={deleteCoupleChallengeAction}>
+              <input type="hidden" name="event_id" value={eventId} />
+              <input type="hidden" name="mission_id" value={m.mission_id} />
+              <button
+                type="submit"
+                title="Delete"
+                aria-label="Delete challenge"
+                className="inline-flex items-center rounded-md border border-ink/15 bg-cream px-2 py-1.5 text-ink/50 transition-colors hover:border-terracotta/40 hover:text-terracotta-700"
+              >
+                <Trash2 aria-hidden className="h-4 w-4" strokeWidth={2} />
+              </button>
+            </PapicStayForm>
+          ) : null}
         </div>
       </div>
     </li>

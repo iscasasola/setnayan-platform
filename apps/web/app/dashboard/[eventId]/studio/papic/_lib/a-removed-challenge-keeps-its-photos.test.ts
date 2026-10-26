@@ -57,15 +57,40 @@ test('the host’s list and the picker skip removed rows; Memories keeps one onl
   assert.match(MEMORIES, /select\('mission_id, prompt, source, vendor_id, board_slot, removed_at'\)/, 'Memories cannot tell a removed challenge');
 });
 
-test('each challenge in the card: its name · its switch · its ✕ (44 px)', () => {
+test('🎚 the card is TEN SLOTS: each row its name (a press that changes it) · its switch — no ✕, no "Add a challenge"', () => {
+  // Owner 2026-10-27: "there will be 10 challenges the can make. choose a challenge or turn that challenge off. turning 1
+  // off will become 9 of 10 challenges. it stays there, but just off."
   const at = MANAGER.indexOf('data-papic-challenges-running=""');
   const list = MANAGER.slice(at, MANAGER.indexOf('</ul>', at));
   assert.ok(at > 0, 'premise: the in-card list');
-  assert.match(list, /\{missions\.map\(\(m\) => \(\s*<ChallengeCardRow\b/, 'the list shows only running challenges — a paused one could never come back');
+  assert.match(list, /\{slots\.map\(\(m, i\) => \(\s*<ChallengeCardRow\b/, 'the card does not draw the ten slots');
+  assert.match(MANAGER, /Array\.from\(\{ length: ACTIVE_CHALLENGE_CAP - listed\.length \}, \(\) => null\)/, 'the list is not padded to ten');
+  assert.match(MANAGER, /\.slice\(0, ACTIVE_CHALLENGE_CAP\)/, 'more than ten rows can be drawn');
+  assert.match(MANAGER, /of \{formatCount\(ACTIVE_CHALLENGE_CAP\)\} challenges on/, 'the header does not say "N of 10 challenges on"');
+  const inCard = MANAGER.slice(MANAGER.indexOf('if (inCard) {'), MANAGER.indexOf('if (!standalone) {'));
+  assert.doesNotMatch(inCard, /<ChallengeAddSheet\b|deleteCoupleChallengeAction/, 'an "Add a challenge" button or a ✕ is back in the card');
   const row = stripComments(readFileSync(join(PAPIC, '_components', 'challenge-card-row.tsx'), 'utf8'));
-  assert.match(row, /role="switch" aria-checked=\{m\.is_active\}/, 'the switch does not show live / paused');
-  assert.match(row, /door="deleteCoupleChallengeAction"/, 'no ✕ on the row');
-  assert.match(row, /className="inline-flex h-11 w-11[^"]*"[\s\S]{0,80}data-papic-challenge-remove=""/, 'the ✕ is smaller than 44 px');
-  // SABOTAGE — a row without its ✕ is caught.
-  assert.doesNotMatch(row.replace(/door="deleteCoupleChallengeAction"/g, ''), /door="deleteCoupleChallengeAction"/);
+  assert.match(row, /<ChallengeAddSheet\b[^>]*slot=\{\{ mission: m \}\}/, 'the row name does not open the change sheet');
+  assert.match(row, /role="switch" aria-checked=\{m\.is_active\}/, 'the switch does not show on / off');
+  assert.doesNotMatch(row, /deleteCoupleChallengeAction|data-papic-challenge-remove/, 'a ✕ is back on the row');
+  const sheet = stripComments(readFileSync(join(PAPIC, '_components', 'challenge-add-sheet.tsx'), 'utf8'));
+  assert.equal((sheet.match(/name="replace_mission_id"/g) ?? []).length, 1, 'the sheet does not tell the server which slot it changes');
+  assert.match(sheet, /className="flex min-h-11 min-w-0 flex-1 items-center text-left"/, 'the row press is smaller than 44 px');
+  // SABOTAGE — a ✕ put back on the row is caught.
+  assert.match(row + '<PapicStayForm door="deleteCoupleChallengeAction"', /deleteCoupleChallengeAction/);
+});
+
+test('🎚 changing a slot: the new one goes in FIRST, then the old one is retired (never deleted), in the same place', () => {
+  for (const fn of ['createCoupleChallengeAction', 'addLibraryChallengeAction']) {
+    const b = body(ACTIONS, fn);
+    const ins = b.indexOf(".from('papic_missions').insert(");
+    const retire = b.indexOf('await retireReplaced(supabase, eventId, replacing.id)');
+    assert.ok(ins > 0 && retire > ins, `${fn}: the old challenge is retired before its replacement is in`);
+    assert.match(b, /created_at: replacing\.createdAt/, `${fn}: the replacement does not take the slot's place`);
+    assert.doesNotMatch(b, /\.delete\(\)/, `${fn} deletes`);
+  }
+  const retire = ACTIONS.slice(ACTIONS.indexOf('async function retireReplaced('), ACTIONS.indexOf('export async function createCoupleChallengeAction('));
+  assert.match(retire, /\.update\(\{ is_active: false, removed_at: new Date\(\)\.toISOString\(\), moment_key: null \}\)/, 'a replaced challenge is not retired softly');
+  // SABOTAGE — a hard delete in its place is caught.
+  assert.doesNotMatch(retire.replace('.update({ is_active: false, removed_at: new Date().toISOString(), moment_key: null })', '.delete()'), /\.update\(\{ is_active: false/);
 });

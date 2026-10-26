@@ -159,6 +159,43 @@ async function activeChallengesBesides(
   return count ?? null;
 }
 
+/**
+ * 🎚 THE SLOT BEING CHANGED (owner 2026-10-27: *"there will be 10 challenges the can make. choose a challenge or turn
+ * that challenge off"*). A row in the card is tapped to CHOOSE its challenge: the form posts `replace_mission_id`, the
+ * new challenge is inserted, and THEN the old one is retired — `is_active = false, removed_at, moment_key = null`, never a
+ * DELETE (completions are `ON DELETE CASCADE`), so photos already taken keep it. Read as the couple (RLS); scoped to
+ * this event; a removed row cannot be replaced twice. null = nothing to replace (a plain add).
+ */
+async function slotBeingReplaced(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  eventId: string,
+  raw: FormDataEntryValue | null,
+): Promise<{ id: string; createdAt: string | null } | null> {
+  if (typeof raw !== 'string' || raw.length === 0) return null;
+  const { data, error } = await supabase
+    .from('papic_missions')
+    .select('mission_id, created_at')
+    .eq('mission_id', raw)
+    .eq('event_id', eventId)
+    .eq('approved', true)
+    .is('removed_at', null)
+    .maybeSingle();
+  if (error) logQueryError('slotBeingReplaced', error, { event_id: eventId }, 'graceful_degrade');
+  const row = data as { mission_id?: string; created_at?: string | null } | null;
+  return row?.mission_id ? { id: row.mission_id, createdAt: row.created_at ?? null } : null;
+}
+
+/** Retire the replaced challenge — kept for the photos it already tagged, off the host's list and every guest's board. */
+async function retireReplaced(supabase: Awaited<ReturnType<typeof createClient>>, eventId: string, missionId: string): Promise<void> {
+  const { error } = await supabase
+    .from('papic_missions')
+    .update({ is_active: false, removed_at: new Date().toISOString(), moment_key: null })
+    .eq('mission_id', missionId)
+    .eq('event_id', eventId)
+    .is('removed_at', null);
+  if (error) logQueryError('retireReplaced', error, { event_id: eventId }, 'graceful_degrade');
+}
+
 export async function createCoupleChallengeAction(formData: FormData) {
   await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const rawEventId = formData.get('event_id');
@@ -175,16 +212,22 @@ export async function createCoupleChallengeAction(formData: FormData) {
   }
 
   const supabase = await createClient();
+  // 🎚 Choosing a slot's challenge (2026-10-27): the new one takes the old one's place.
+  const replacing = await slotBeingReplaced(supabase, eventId, formData.get('replace_mission_id'));
   // 🔒 It turns on only if there is room under the hard cap of 10 (owner 2026-10-24); else it is kept, switched off.
-  const room = !activationRefused(await activeChallengesBesides(supabase, eventId, null));
-  await supabase.from('papic_missions').insert({
+  const room = !activationRefused(await activeChallengesBesides(supabase, eventId, replacing?.id ?? null));
+  const { error: insertErr } = await supabase.from('papic_missions').insert({
     event_id: eventId,
     mission_type: 'prompt',
     source: 'couple',
     prompt: prompt.trim().slice(0, 280),
     approved: true,
     is_active: room,
+    // 🎚 In the replaced one's place — the card lists the ten oldest first, so the row does not move.
+    ...(replacing?.createdAt ? { created_at: replacing.createdAt } : {}),
   });
+  if (insertErr) logQueryError('createCoupleChallengeAction.insert', insertErr, { event_id: eventId }, 'graceful_degrade');
+  if (replacing && !insertErr) await retireReplaced(supabase, eventId, replacing.id);
 
   revalidatePath(`/dashboard/${eventId}/studio/papic/challenges`);
   redirect(challengeReturnPath(eventId, formData.get('return_to')));
@@ -348,6 +391,8 @@ export async function addLibraryChallengeAction(formData: FormData) {
   if (laneErr) {
     redirect(`${returnTo}?add=unavailable`);
   }
+  // 🎚 Choosing a slot's challenge (2026-10-27): one in, one out — the ceiling is not asked, the slot count is unchanged.
+  const replacing = await slotBeingReplaced(supabase, eventId, formData.get('replace_mission_id'));
   const live = (laneRows ?? []).filter((r) => r.is_active);
   const vendorUsed = live.filter((r) => r.source === 'vendor' || r.source === 'auto').length;
   const chosen = live.filter((r) => r.source === 'couple').length;
@@ -357,15 +402,17 @@ export async function addLibraryChallengeAction(formData: FormData) {
   // will not fit. Refusing here with `?add=full` is what makes that legible;
   // silently dropping the last moments would be the same silent-drop this
   // ceiling was added to stop, moved into a new screen.
-  if (chosen >= coupleSlots(vendorUsed)) {
+  if (!replacing && chosen >= coupleSlots(vendorUsed)) {
     redirect(`${returnTo}?add=full`);
   }
-  // 🔒 …and the event-wide hard cap of 10 running challenges, whatever lane they are in (owner 2026-10-24).
-  if (activationRefused(await activeChallengesBesides(supabase, eventId, null))) {
+  // 🔒 …and the event-wide hard cap of 10 running challenges, whatever lane they are in (owner 2026-10-24). A
+  // replacement turns on only if there is room besides the one it replaces; else it is kept, switched off.
+  const roomForIt = !activationRefused(await activeChallengesBesides(supabase, eventId, replacing?.id ?? null));
+  if (!replacing && !roomForIt) {
     redirect(`${returnTo}?add=full`);
   }
 
-  await supabase.from('papic_missions').insert({
+  const { error: addErr } = await supabase.from('papic_missions').insert({
     event_id: eventId,
     mission_type: row.mission_type,
     source: 'couple',
@@ -373,12 +420,15 @@ export async function addLibraryChallengeAction(formData: FormData) {
     library_id: row.library_id,
     capture_kind: row.capture_kind,
     approved: true,
-    is_active: true,
+    is_active: roomForIt,
+    ...(replacing?.createdAt ? { created_at: replacing.createdAt } : {}),
     // NULL for every add that did not come from the run of show — the column
     // means "placed at this moment", and a default would claim a placement
     // nobody made.
     moment_key: momentKey,
   });
+  if (addErr) logQueryError('addLibraryChallengeAction.insert', addErr, { event_id: eventId }, 'graceful_degrade');
+  if (replacing && !addErr) await retireReplaced(supabase, eventId, replacing.id);
 
   revalidatePath(returnTo);
   redirect(returnTo);
@@ -674,8 +724,9 @@ export async function stopChallengeAction(formData: FormData) {
  * leaves the run of show). The CHECK `papic_missions_removed_is_off` (migration 20271292346034) means a removed row
  * can never be switched back on.
  *
- * Any lane may be removed — the couple's own, a Setnayan fill, a booth, an approved supplier's — scoped to this event
- * (RLS `papic_missions_member_all` is who may; the WHERE says which). A removed COUPLE pick from the library also
+ * The couple's OWN challenges only, as it always was (the full challenges page's bin; a Setnayan, booth or supplier
+ * challenge is switched off, never deleted). Since 2026-10-27 the Papic card has no ✕ at all — its ten slots are
+ * CHANGED (`replace_mission_id` on the two add actions, the same soft retirement) or switched off. A removed pick also
  * leaves a Setnayan veto tombstone for that library row, so the board's fill (`ensure_papic_board`, which skips
  * library rows a couple has taken or vetoed) cannot put the same challenge back as a Setnayan pick.
  *
@@ -703,6 +754,7 @@ export async function deleteCoupleChallengeAction(formData: FormData) {
     .update({ is_active: false, removed_at: removedAt, moment_key: null })
     .eq('mission_id', missionId)
     .eq('event_id', eventId)
+    .eq('source', 'couple')
     .is('removed_at', null)
     .select('source, library_id, prompt, mission_type, capture_kind')
     .maybeSingle();

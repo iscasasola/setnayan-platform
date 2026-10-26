@@ -193,7 +193,7 @@ function labPapicCard(eventId: string, phase: string | undefined, failed: boolea
         {challenges ? (
           <ul className="divide-y divide-ink/10 border-t border-ink/10 pt-1" data-lab-challenges="">
             {LAB_CHALLENGES.map((m) => (
-              <ChallengeCardRow key={m.mission_id} eventId={eventId} mission={m} full={false} returnTo="home" />
+              <ChallengeCardRow key={m.mission_id} eventId={eventId} eventType="wedding" taken={[]} mission={m} full={false} returnTo="home" />
             ))}
           </ul>
         ) : null}
@@ -203,10 +203,17 @@ function labPapicCard(eventId: string, phase: string | undefined, failed: boolea
   };
 }
 const LAB_CHALLENGES = [
-  { mission_id: 'lab-1', prompt: 'A selfie with the couple', is_active: true, capture_kind: 'photo' },
-  { mission_id: 'lab-2', prompt: 'The first dance, from your seat', is_active: true, capture_kind: 'clip' },
-  { mission_id: 'lab-3', prompt: 'Your table, all smiling', is_active: false, capture_kind: 'photo' },
-];
+  'A selfie with the couple',
+  'The first dance, from your seat',
+  'Your table, all smiling',
+  'The oldest guest and the youngest',
+  'Someone mid-laugh',
+  'The cake before it is cut',
+  'A toast, glasses up',
+  'Your best dance move',
+  'The view from the back row',
+  'Something borrowed, something blue',
+].map((prompt, i) => ({ mission_id: `lab-${i + 1}`, prompt, is_active: i !== 2, capture_kind: i === 1 || i === 7 ? 'clip' : 'photo' }));
 
 /** 🎛 The Event Hub tile's "Pick what shows", handed in so the sheet opens with no database (nothing pinned; the date
  * gives the Invitation). Its pick still calls the real `setLaunchPhase`, which refuses a made-up event. */

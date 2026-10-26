@@ -155,3 +155,87 @@ test('🔒 a removed challenge can never be switched back on (the CHECK), and th
     );
   }
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TEN SLOTS (owner 2026-10-27): "turning 1 off will become 9 of 10 challenges. it stays there, but just off."
+// ═══════════════════════════════════════════════════════════════════════════
+async function bareEvent(tag: string): Promise<{ eventId: string; coupleUid: string }> {
+  const u = await db.query<{ id: string }>(
+    `INSERT INTO auth.users (email, raw_user_meta_data) VALUES ($1, jsonb_build_object('account_type','customer')) RETURNING id`,
+    [`slots-${tag}@audit.test`],
+  );
+  const ev = await db.query<{ event_id: string }>(
+    `INSERT INTO public.events (display_name, event_type, event_date) VALUES ($1, 'birthday', $2::date) RETURNING event_id`,
+    [`Slots ${tag}`, new Date(Date.now() + 30 * DAY).toISOString().slice(0, 10)],
+  );
+  await db.query(`INSERT INTO public.event_members (event_id, user_id, member_type) VALUES ($1,$2,'couple')`, [ev.rows[0]!.event_id, u.rows[0]!.id]);
+  return { eventId: ev.rows[0]!.event_id, coupleUid: u.rows[0]!.id };
+}
+/** The board as the couple's card lists it: approved, not removed — and how many of those are live. */
+async function slotsOf(eventId: string): Promise<{ listed: number; live: number }> {
+  const r = await db.query<{ listed: number; live: number }>(
+    `SELECT count(*)::int AS listed, count(*) FILTER (WHERE is_active)::int AS live
+       FROM public.papic_missions WHERE event_id = $1 AND approved AND removed_at IS NULL AND source IN ('couple','setnayan')`,
+    [eventId],
+  );
+  return r.rows[0]!;
+}
+async function buildBoardAs(uid: string, eventId: string): Promise<void> {
+  await asUser(uid);
+  try {
+    await db.query(`SELECT public.ensure_papic_board($1::uuid)`, [eventId]);
+  } finally {
+    await reset();
+  }
+}
+
+test('🎚 an OFF challenge keeps its slot — the board does not hand the couple an eleventh', async () => {
+  const f = await bareEvent('off');
+  await buildBoardAs(f.coupleUid, f.eventId);
+  const start = await slotsOf(f.eventId);
+  assert.equal(start.listed, 10, 'premise: a new event starts with its ten');
+  assert.equal(start.live, 10);
+  const one = await db.query<{ mission_id: string }>(
+    `SELECT mission_id FROM public.papic_missions WHERE event_id = $1 AND is_active AND source = 'setnayan' LIMIT 1`,
+    [f.eventId],
+  );
+  await asUser(f.coupleUid);
+  await db.query(`UPDATE public.papic_missions SET is_active = false WHERE mission_id = $1 AND removed_at IS NULL`, [one.rows[0]!.mission_id]);
+  await reset();
+  await buildBoardAs(f.coupleUid, f.eventId);
+  assert.deepEqual(await slotsOf(f.eventId), { listed: 10, live: 9 }, '"9 of 10" — the off one stays in its slot, and nothing new is added');
+});
+
+test('🎚 CHANGING a slot replaces it: still ten, the old one kept for its photos — and a gap IS refilled (the contrast)', async () => {
+  const f = await bareEvent('change');
+  await buildBoardAs(f.coupleUid, f.eventId);
+  const old = await db.query<{ mission_id: string }>(
+    `SELECT mission_id FROM public.papic_missions WHERE event_id = $1 AND is_active AND source = 'setnayan' LIMIT 1`,
+    [f.eventId],
+  );
+  // The change, as the action writes it: the couple's own challenge in, the old one retired (never deleted).
+  await asUser(f.coupleUid);
+  await db.query(
+    `INSERT INTO public.papic_missions (event_id, mission_type, source, prompt, approved, is_active) VALUES ($1,'prompt','couple','Our own one',true,true)`,
+    [f.eventId],
+  );
+  await db.query(
+    `UPDATE public.papic_missions SET is_active = false, removed_at = now(), moment_key = null WHERE mission_id = $1 AND removed_at IS NULL`,
+    [old.rows[0]!.mission_id],
+  );
+  await reset();
+  await buildBoardAs(f.coupleUid, f.eventId);
+  assert.deepEqual(await slotsOf(f.eventId), { listed: 10, live: 10 }, 'a change is one in, one out');
+  const kept = await db.query(`SELECT 1 FROM public.papic_missions WHERE mission_id = $1`, [old.rows[0]!.mission_id]);
+  assert.equal(kept.rows.length, 1, 'the replaced challenge is kept (its photos keep it)');
+
+  // CONTRAST (the sabotage of the rule): a challenge RETIRED with nothing in its place is not "off" — the board fills
+  // the gap. If the off rule were a coincidence of the fill, the first test could not tell these apart.
+  const gap = await db.query<{ mission_id: string }>(
+    `SELECT mission_id FROM public.papic_missions WHERE event_id = $1 AND is_active AND source = 'setnayan' LIMIT 1`,
+    [f.eventId],
+  );
+  await db.query(`UPDATE public.papic_missions SET is_active = false, removed_at = now() WHERE mission_id = $1`, [gap.rows[0]!.mission_id]);
+  await buildBoardAs(f.coupleUid, f.eventId);
+  assert.deepEqual(await slotsOf(f.eventId), { listed: 10, live: 10 }, 'a retired-with-no-replacement row is refilled — only OFF holds a slot');
+});

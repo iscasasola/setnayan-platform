@@ -1,5 +1,6 @@
 /**
- * _lib/papic-in-place.ts — 📍 WHAT A PAPIC ACTION'S REDIRECT MEANS WHEN THE PRESS STAYS IN PLACE (`in-place-actions.ts`).
+ * _lib/papic-in-place.ts — 📍 WHAT A PAPIC ACTION'S REDIRECT MEANS WHEN THE PRESS STAYS IN PLACE — Papic's own words
+ * for the app-wide door (`app/_actions/save-in-place.ts`, read by `lib/save-in-place.ts`).
  *
  * A Papic action ends in `redirect(<back>?<news>)`. Asked in place, that URL is read instead of followed:
  *   · a refusal — `?…_error=<code>` or `?add=full` → `{ ok: false, error }`, said on the row in the page's own words;
@@ -9,31 +10,12 @@
  *     the page in place.
  * Pure. Held by `papic-saves-in-place.test.ts`.
  */
+import { inPlaceAnswer, type StayResult, type StayWords } from '@/lib/save-in-place';
+import { STAY_DOORS } from '@/lib/stay-doors';
 
-/** Every Papic action a control may save in place through (`in-place-actions.ts` `DOORS`). */
-export const PAPIC_DOORS = [
-  'setGuestAllotments',
-  'setGuestAllotment',
-  'releaseTheRest',
-  'setPapicWindow',
-  'setPapicUploadsOpen',
-  'setPapicGuestCaptureEarly',
-  'setCoupleFaceTaggingDeclined',
-  'setCapturePreserved',
-  'setClipShowcaseApproval',
-  'setGuestClipShowcaseApproval',
-  'reviewVendorChallengeAction',
-  'setChallengesPausedAction',
-  'setCoupleChallengeActiveAction',
-  'createCoupleChallengeAction',
-  'addLibraryChallengeAction',
-  'armChallengeAction',
-  'stopChallengeAction',
-  'deleteCoupleChallengeAction',
-] as const;
-export type PapicDoor = (typeof PAPIC_DOORS)[number];
-
-export type PapicInPlaceResult = { ok: true } | { ok: false; error: string };
+/** Every Papic action a control may save in place through (the `papic.` doors of `lib/stay-doors.ts`). */
+export const PAPIC_DOORS = STAY_DOORS.filter((d) => d.startsWith('papic.'));
+export type PapicDoor = Extract<(typeof STAY_DOORS)[number], `papic.${string}`>;
 
 const SAY: Readonly<Record<string, string>> = {
   /* The allotments' own words (`page.tsx`'s banner), said on the row instead. */
@@ -42,17 +24,14 @@ const SAY: Readonly<Record<string, string>> = {
   minimum_above_limit: 'The least anybody gets cannot be more than the limit you set for everyone.',
   bad_number: 'That needs to be a whole number of credits, or empty to let it work itself out.',
   unknown_guest: 'We could not find that guest on your list.',
-  full: 'Ten challenges are already on — turn one off first.',
 };
-const NOTHING_CHANGED = 'We could not save that. Nothing changed — please try again.';
+const FULL = 'Ten challenges are already on — turn one off first.';
 
-export function papicInPlaceAnswer(url: string): PapicInPlaceResult | 'navigate' {
-  const [path, query = ''] = url.split('?');
-  if (!path || !path.startsWith('/dashboard/') || path.startsWith('/login')) return 'navigate';
-  const q = new URLSearchParams(query);
-  if (q.get('add') === 'full') return { ok: false, error: SAY.full! };
-  for (const [k, v] of q) {
-    if (k.endsWith('error')) return { ok: false, error: SAY[v] ?? NOTHING_CHANGED };
-  }
-  return { ok: true };
+export const PAPIC_WORDS: StayWords = {
+  say: SAY,
+  refuse: (q) => (q.get('add') === 'full' ? FULL : null),
+};
+
+export function papicInPlaceAnswer(url: string): StayResult | 'navigate' {
+  return inPlaceAnswer(url, PAPIC_WORDS);
 }

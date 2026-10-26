@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "9fc01bea89",
+  "generatedFromRef": "f8e3f6a2df",
   "routeCount": 474,
   "destinations": 1014,
   "actions": 661,
-  "blocks": 7167,
+  "blocks": 7170,
   "routes": {
     "/": {
       "files": [
@@ -6461,6 +6461,7 @@
         "Row",
         "Section",
         "SpecialMessageField",
+        "StayForm",
         "SubmitButton",
         "SupplierPhotosSwitch",
         "Suspense",
@@ -8399,6 +8400,7 @@
         "SheetHead",
         "SheetState",
         "ShiftSheet",
+        "StayForm",
         "Stepper",
         "StudioDay",
         "SubmitButton",
@@ -8695,6 +8697,7 @@
         "PairTargetPicker",
         "PrincipalPairRow",
         "SponsorCard",
+        "StayForm",
         "SubmitButton"
       ]
     },
@@ -9228,7 +9231,6 @@
         "dashboard/[eventId]/studio/papic/_components/papic-camera-settings.tsx",
         "dashboard/[eventId]/studio/papic/_components/papic-gallery-grid.tsx",
         "dashboard/[eventId]/studio/papic/_components/papic-see-photos.tsx",
-        "dashboard/[eventId]/studio/papic/_components/papic-stay-form.tsx",
         "dashboard/[eventId]/studio/papic/_components/papic-top-band.tsx",
         "dashboard/[eventId]/studio/papic/_components/pool-gallery-actions.ts",
         "dashboard/[eventId]/studio/papic/_components/pool-gallery-card.tsx",
@@ -9244,7 +9246,6 @@
         "dashboard/[eventId]/studio/papic/couple-challenges-manager.tsx",
         "dashboard/[eventId]/studio/papic/face-tagging-actions.ts",
         "dashboard/[eventId]/studio/papic/guest-window-actions.ts",
-        "dashboard/[eventId]/studio/papic/in-place-actions.ts",
         "dashboard/[eventId]/studio/papic/loading.tsx",
         "dashboard/[eventId]/studio/papic/page.tsx",
         "dashboard/[eventId]/studio/papic/papic-window-picker.tsx",
@@ -9321,7 +9322,6 @@
         "GuestAllotmentsChoice",
         "GuestCamerasChoice",
         "GuestContributionsCard",
-        "HTMLFormElement",
         "HTMLInputElement",
         "IapPapicSheet",
         "InfoTip",
@@ -9334,10 +9334,8 @@
         "PapicBuySheet",
         "PapicCameraSettings",
         "PapicHomeCard",
-        "PapicInPlaceResult",
         "PapicLightbox",
         "PapicSeePhotos",
-        "PapicStayForm",
         "PapicStyle",
         "PapicSwitch",
         "PapicWindowPicker",
@@ -9361,6 +9359,7 @@
         "Spotlight",
         "StartAddingPhotos",
         "StatusBanners",
+        "StayForm",
         "StepperRung",
         "StudioBuyHero",
         "StylePicker",
@@ -9433,7 +9432,6 @@
       ],
       "actions": [],
       "blocks": [
-        "ConfirmForm",
         "GridPageSkeleton",
         "KwentoActionResult",
         "KwentoQueue",
@@ -9441,6 +9439,8 @@
         "Link",
         "PageMasthead",
         "ReadRefusedNotice",
+        "StayConfirmForm",
+        "StayForm",
         "SubmitButton"
       ]
     },
@@ -9490,7 +9490,8 @@
       ],
       "blocks": [
         "Link",
-        "MomentShelf"
+        "MomentShelf",
+        "StayForm"
       ]
     },
     "/dashboard/[eventId]/studio/patiktok": {

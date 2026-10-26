@@ -15,7 +15,7 @@ import { refuseLimitedHelper } from '@/lib/host-gate';
  *
  * The ONE Group dropdown (`_components/guest-group-picker.tsx`) creates here too (`op: 'create'`, 2026-10-20 — the same
  * insert as the shipped `quickCreateGroup`, plus the name rule below; the capture bar's `#Group`, claims and the Quick add
- * sheet keep `quickCreateGroup`'s find-or-create). Renaming and deleting already exist — `updateGuestGroup` / `deleteGuestGroup` in
+ * sheet keep `quickCreateGroup`'s find-or-create). Renaming and deleting already existed — `updateGuestGroup` / `deleteGuestGroup` (deleted 2026-10-26, no caller) in
  * groups-actions.ts — but those REDIRECT to the guest list, which would navigate a card away mid-edit. These are the same
  * writes, RETURNING a result, with the same checks as `quickCreateGroup`: a signed-in user, this event's row only
  * (`.eq('event_id', …)`), and RLS on `guest_groups` (couples + admins) decides the rest.

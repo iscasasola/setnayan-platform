@@ -830,8 +830,9 @@ const FORM_ROW_TAGS = /^(?:TypedRow|ChosenRow|SwitchRow|DateRow|FormRow|FactRow|
 
 function formsIn(rel: string, src: string): RawForm[] {
   const out: RawForm[] = [];
-  // `SafeForm` IS a form (it renders one, with the action caught — `_components/safe-form.tsx`): read both spellings.
-  for (const m of src.matchAll(/<(form|SafeForm)\b/g)) {
+  // `SafeForm` IS a form (it renders one, with the action caught — `_components/safe-form.tsx`), and so is `StayForm`
+  // (`_components/stay-form.tsx` — the same action, saved in place): read every spelling.
+  for (const m of src.matchAll(/<(form|SafeForm|StayForm)\b/g)) {
     // the opening tag ends at the first depth-0 `>` that is not `=>`
     let k = m.index! + m[0].length;
     let depth = 0;
@@ -880,6 +881,9 @@ function formsIn(rel: string, src: string): RawForm[] {
       const name = (n[2] ?? n[3] ?? n[4])!;
       if (!/\s/.test(name)) inputs.add(name);
     }
+    // A `StayForm`'s `event_id` is read by its DOOR (`app/_actions/save-in-place.ts` — the limited-helper gate, and the
+    // event of an action the plain form binds), not by the action: it is not a dropped field.
+    if (m[1] === 'StayForm') inputs.delete('event_id');
     if (exprs.length === 0 && inputs.size === 0) continue;
     const children = [...new Set([...inner.matchAll(/<([A-Z][\w]*)\b/g)].map((c) => c[1]!))].sort();
     out.push({ from: rel, actionExprs: exprs, inputs: [...inputs].sort(), children });
@@ -974,7 +978,7 @@ export function scanFields(opts: ScanFieldsOptions): UgatFieldsMap {
       return c ? literalAt(c) : null;
     };
     const reads = src.includes('.select(') ? readsIn(src, constLiteral) : [];
-    const forms = rel.endsWith('.tsx') && /<(?:form|SafeForm)\b/.test(src) ? formsIn(rel, src) : [];
+    const forms = rel.endsWith('.tsx') && /<(?:form|SafeForm|StayForm)\b/.test(src) ? formsIn(rel, src) : [];
     const stores: string[] = [];
     for (const m of src.matchAll(/\b(?:window\.)?(local|session)Storage\.setItem\(\s*/g)) {
       const lit = literalAt(src.slice(m.index! + m[0].length));

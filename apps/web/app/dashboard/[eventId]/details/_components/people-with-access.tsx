@@ -1,6 +1,7 @@
 'use client';
 
 import { setVendorCapturesHidden } from '@/app/dashboard/[eventId]/studio/papic/vendor-visibility-actions';
+import { StayForm } from '@/app/_components/stay-form';
 
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
@@ -529,7 +530,7 @@ export function PeopleWithAccess({
  */
 function SupplierPhotosSwitch({ eventId, vendorRowId, hidden }: { eventId: string; vendorRowId: string; hidden: boolean }) {
   return (
-    <form action={setVendorCapturesHidden} data-supplier-photos={hidden ? 'hidden' : 'shown'}>
+    <StayForm door="memories.setVendorCapturesHidden" action={setVendorCapturesHidden} data-supplier-photos={hidden ? 'hidden' : 'shown'}>
       <input type="hidden" name="event_id" value={eventId} />
       <input type="hidden" name="vendor_id" value={vendorRowId} />
       <input type="hidden" name="hidden" value={hidden ? '0' : '1'} />
@@ -541,6 +542,6 @@ function SupplierPhotosSwitch({ eventId, vendorRowId, hidden }: { eventId: strin
         </span>
         <SwitchTrack on={!hidden} />
       </button>
-    </form>
+    </StayForm>
   );
 }

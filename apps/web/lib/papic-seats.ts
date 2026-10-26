@@ -270,7 +270,7 @@ export function papicSeatJoinUrl(appUrl: string, token: string): string {
  * Admin-side idempotent seat provisioning — the activation-hook half of "a paid
  * feature is ready with NO manual activate step once the order is approved".
  *
- * The couple-facing provisionPapicSeats() server action goes through the
+ * The couple-facing provisionPapicSeats() server action (deleted 2026-10-26, no caller) went through the
  * SECURITY DEFINER papic_provision_seats() RPC, but that RPC raises on
  * `auth.uid() IS NULL` — so it can't be called from the PAPIC_SEATS activation
  * hook, which runs under the SERVICE-ROLE admin client (no auth.uid()). This

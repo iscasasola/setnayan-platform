@@ -38,6 +38,10 @@ type Props = {
    * Use this prop + an external trigger button instead.
    */
   formId?: string;
+  /** Runs on the CONFIRMED submit instead of letting the browser post it (`StayConfirmForm` saves it in place). */
+  onConfirmedSubmit?: (event: FormEvent<HTMLFormElement>) => void;
+  /** Extra attributes for the `<form>` (`data-stay`, `aria-busy`). */
+  formProps?: { 'data-stay'?: string; 'aria-busy'?: boolean };
   children: ReactNode;
 };
 
@@ -67,6 +71,8 @@ export function ConfirmForm({
   destructive,
   className,
   formId,
+  onConfirmedSubmit,
+  formProps,
   children,
 }: Props) {
   const [open, setOpen] = useState(false);
@@ -81,6 +87,7 @@ export function ConfirmForm({
       // Second submit triggered by requestSubmit() after dialog confirm.
       // Let the form go through React's server-action pipeline as normal.
       hasConfirmedRef.current = false;
+      onConfirmedSubmit?.(event);
       return;
     }
     event.preventDefault();
@@ -103,7 +110,7 @@ export function ConfirmForm({
 
   return (
     <>
-      <form ref={formRef} id={formId} action={action} onSubmit={handleSubmit} className={className}>
+      <form ref={formRef} id={formId} action={action} onSubmit={handleSubmit} className={className} {...formProps}>
         {children}
       </form>
       <ConfirmDialog

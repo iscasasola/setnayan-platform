@@ -1,6 +1,6 @@
 'use client';
 
-import { PapicStayForm } from './papic-stay-form';
+import { StayForm } from '@/app/_components/stay-form';
 /**
  * FINDING ONE GUEST AMONG TWO HUNDRED.
  *
@@ -98,8 +98,8 @@ export function GuestAllotmentPicker({ eventId, guests, action }: Props) {
         <ul className="max-h-72 space-y-1 overflow-y-auto pr-1">
           {ordered.map((g) => (
             <li key={g.guestId}>
-              <PapicStayForm
-                door="setGuestAllotment" action={action as (formData: FormData) => Promise<void>}
+              <StayForm
+                door="papic.setGuestAllotment" action={action as (formData: FormData) => Promise<void>}
                 className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-ink/[0.03]"
               >
                 <input type="hidden" name="event_id" value={eventId} />
@@ -125,7 +125,7 @@ export function GuestAllotmentPicker({ eventId, guests, action }: Props) {
                 <SubmitButton className="rounded-lg bg-ink/5 px-2.5 py-1 text-xs font-medium text-ink/70 hover:bg-ink/10">
                   Save
                 </SubmitButton>
-              </PapicStayForm>
+              </StayForm>
             </li>
           ))}
         </ul>

@@ -10,6 +10,7 @@ import {
 } from '@/lib/vendor-activities';
 import { applyActivityPicks, toggleActivityPick } from '../activity-picks-actions';
 import { formatCount } from '@/lib/format-number';
+import { StayForm } from '@/app/_components/stay-form';
 
 /**
  * EMCEE PICKS — the couple's menu of their host's segments, on the schedule page.
@@ -144,7 +145,7 @@ export async function EmceePicks({
           const isPlaced = placedIds.has(a.activity_id);
           return (
             <li key={a.activity_id}>
-              <form action={toggleActivityPick} className="h-full">
+              <StayForm door="schedule.toggleActivityPick" action={toggleActivityPick} className="h-full">
                 <input type="hidden" name="event_id" value={eventId} />
                 <input type="hidden" name="activity_id" value={a.activity_id} />
                 <input type="hidden" name="picked" value={isPicked ? 'false' : 'true'} />
@@ -172,14 +173,14 @@ export async function EmceePicks({
                     {isPlaced ? ' · on your timeline' : ''}
                   </span>
                 </button>
-              </form>
+              </StayForm>
             </li>
           );
         })}
       </ul>
 
       {unplacedCount > 0 ? (
-        <form action={applyActivityPicks}>
+        <StayForm door="schedule.applyActivityPicks" action={applyActivityPicks}>
           <input type="hidden" name="event_id" value={eventId} />
           <button
             type="submit"
@@ -192,7 +193,7 @@ export async function EmceePicks({
             They go in after everything you already have, back to back — nothing you have
             planned moves. Drag them where they belong afterwards.
           </span>
-        </form>
+        </StayForm>
       ) : chosen.length > 0 ? (
         <p className="text-xs leading-relaxed text-ink/60">
           All {chosen.length} added to your timeline. Untick isn&rsquo;t available once a

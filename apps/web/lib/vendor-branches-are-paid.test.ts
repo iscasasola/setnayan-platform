@@ -294,12 +294,19 @@ test('the branch picker offers only branches the rule calls usable', () => {
   assert.match(src, /branchLabelById = new Map\(allBranches\.map/);
 });
 
-test('the server refuses an unpaid branch at every one of the three write paths', () => {
+/* Two since 2026-10-26: the third, `updateVendorService`, had no caller and was deleted (reload audit §3c) — the maker
+   saves through `commitVendorService`, which is one of the two. */
+test('the server refuses an unpaid branch at every one of the write paths', () => {
   const src = read('app/vendor-dashboard/services/actions.ts');
   const resolves = src.match(/await resolveBranchId\(/g) ?? [];
-  assert.equal(resolves.length, 3, 'a fourth write path must be gated too');
+  assert.equal(resolves.length, 2, 'a third write path must be gated too');
   const refusals = src.match(/if \(!branchPick\.ok\)/g) ?? [];
-  assert.equal(refusals.length, 3, 'every resolve must act on a refusal');
+  assert.equal(refusals.length, 2, 'every resolve must act on a refusal');
+  for (const fn of ['createVendorService', 'commitVendorService']) {
+    const at = src.indexOf(`export async function ${fn}(`);
+    const body = src.slice(at, src.indexOf('\nexport async function ', at + 10));
+    assert.match(body, /await resolveBranchId\(/, `${fn} writes a branch without the paid-branch gate`);
+  }
   // The gate reads the paid status with a client that can see every payer's
   // order — the session client cannot, so a shop's second manager would be
   // refused a branch that is live.

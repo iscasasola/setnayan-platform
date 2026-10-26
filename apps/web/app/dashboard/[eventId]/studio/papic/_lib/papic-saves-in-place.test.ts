@@ -1,13 +1,13 @@
 /**
  * 📍 NO PAPIC CONTROL NAVIGATES ON A SAVE — every form on the Papic page (and in Home's Papic card, which draws the same
- * components) saves IN PLACE (`papic-stay-form.tsx` → `in-place-actions.ts`).
+ * components) saves IN PLACE through the app-wide `StayForm` (`app/_components/stay-form.tsx` → `app/_actions/save-in-place.ts`).
  *
  * Owner, live 2026-10-26: *"saving minimum and maximum on papic resets the whole screen. this should not happen"* ·
  * *"when i turn of a challenge. it should just remove it"* · *"it jumped to a different page"*. Every Papic action ends
  * in `redirect(...)`; a plain `<form action={…}>` followed it — the page re-drawn from the top, and a challenge's eye
  * (no `return_to`) landed on the Challenges page (`challengeReturnPath`'s default).
  *
- *   (1) no `<form action={fn}>` is left in the Papic page's files — each is a `PapicStayForm` — except the flows that
+ *   (1) no `<form action={fn}>` is left in the Papic page's files — each is a `StayForm` — except the flows that
  *       MUST navigate, each listed with its reason;
  *   (2) the redirect an action ends in is read as an answer: news → saved in place; `…_error=` / `add=full` → said on
  *       the row in the page's own words; signed out / off the event → let through;
@@ -24,8 +24,7 @@ const PAPIC = join(__dirname, '..');
 /** The Papic page's own files and its components (Home's Papic card draws these) — the sub-pages are their own screens. */
 const FILES = [
   ...readdirSync(PAPIC).filter((f) => f.endsWith('.tsx')).map((f) => f),
-  /* (the stay form itself wraps the one `<form>` every control now goes through) */
-  ...readdirSync(join(PAPIC, '_components')).filter((f) => f.endsWith('.tsx') && f !== 'papic-stay-form.tsx').map((f) => `_components/${f}`),
+  ...readdirSync(join(PAPIC, '_components')).filter((f) => f.endsWith('.tsx')).map((f) => `_components/${f}`),
 ];
 /** A form whose action MUST navigate — and why. */
 const MUST_NAVIGATE: Record<string, string> = {
@@ -38,14 +37,14 @@ test('(1) every Papic form saves in place — or is listed as a flow that must n
   let stays = 0;
   for (const f of FILES) {
     const src = stripComments(readFileSync(join(PAPIC, f), 'utf8'));
-    stays += (src.match(/<PapicStayForm\b/g) ?? []).length;
+    stays += (src.match(/<StayForm\b/g) ?? []).length;
     for (const m of src.matchAll(/<form\b[^>]*?\baction=\{([^}]+)\}/g)) {
       const key = `${f} › ${m[1]!.trim()}`;
       if (!(key in MUST_NAVIGATE)) blind.push(key);
     }
   }
   assert.ok(stays >= 25, `only ${stays} Papic forms save in place — the scan is not reading the Papic page`);
-  assert.deepEqual(blind, [], `These Papic forms follow their action's redirect — the whole screen resets on a save. Make each a \`PapicStayForm\`:\n  ${blind.join('\n  ')}`);
+  assert.deepEqual(blind, [], `These Papic forms follow their action's redirect — the whole screen resets on a save. Make each a \`StayForm\`:\n  ${blind.join('\n  ')}`);
 });
 
 test('(2) a redirect is read as an answer — saved, refused (said), or let through', () => {
@@ -63,14 +62,15 @@ test('(2) a redirect is read as an answer — saved, refused (said), or let thro
   assert.equal(papicInPlaceAnswer('/login?next=/dashboard/e1'), 'navigate');
 });
 
-test('(3) the door runs exactly the listed actions, and the form sends through it without navigating', () => {
-  const door = stripComments(readFileSync(join(PAPIC, 'in-place-actions.ts'), 'utf8'));
-  const body = door.slice(door.indexOf('const DOORS'), door.indexOf('};', door.indexOf('const DOORS')));
-  const listed = [...body.matchAll(/^\s*(\w+),$/gm)].map((m) => m[1]);
-  assert.deepEqual([...listed].sort(), [...PAPIC_DOORS].sort());
-  assert.match(door, /if \(answer === 'navigate'\) throw e;\s*return answer;/, 'the door no longer reads the redirect as an answer');
-  const form = stripComments(readFileSync(join(PAPIC, '_components/papic-stay-form.tsx'), 'utf8'));
-  assert.match(form, /onSubmit=\{\(e\) => \{\s*e\.preventDefault\(\);/, 'the stay form lets the browser submit — and follow the redirect');
-  assert.match(form, /await papicSaveInPlace\(door, fd\)/);
-  assert.match(form, /role="alert"[^>]*data-papic-stay-error/, 'a refusal is not said on the row');
+test('(3) the door runs exactly the Papic actions, in Papic\'s words, and the form sends through it without navigating', () => {
+  const APP = join(PAPIC, '../../../..');
+  const door = stripComments(readFileSync(join(APP, '_actions/save-in-place.ts'), 'utf8'));
+  const papicRows = [...door.matchAll(/^\s*'(papic\.\w+)': papic\((\w+)\),$/gm)];
+  assert.deepEqual(papicRows.map((m) => m[1]).sort(), [...PAPIC_DOORS].sort());
+  for (const m of papicRows) assert.equal(m[1], `papic.${m[2]}`, `door ${m[1]} runs ${m[2]} — a door's name is the action it runs`);
+  assert.match(door, /if \(answer === 'navigate'\) throw e;/, 'the door no longer reads the redirect as an answer');
+  const form = stripComments(readFileSync(join(APP, '_components/stay-form.tsx'), 'utf8'));
+  assert.match(form, /const onSubmit = \(e: FormEvent<HTMLFormElement>\) => \{\s*e\.preventDefault\(\);/, 'the stay form lets the browser submit — and follow the redirect');
+  assert.match(form, /await saveInPlace\(door, fd\)/);
+  assert.match(form, /role="alert"[^>]*data-stay-error/, 'a refusal is not said on the row');
 });

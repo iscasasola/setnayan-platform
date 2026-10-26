@@ -1961,7 +1961,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     implementedBy:
       'paparazzi_seats is the HUB of the 17-table Papic cluster (6 inbound FKs) — not papic_photos. A SEAT is the unit of entitlement; captures hang off it. Both seats and papic_photos carry event_id ON DELETE CASCADE.',
     writtenBy:
-      'Seat provisioning on SKU activation (provisionPapicSeats) · seat re-issue · the capture upload path',
+      'Seat provisioning on SKU activation (provisionPapicSeatsAdmin) · seat re-issue · the capture upload path',
     guardedBy: 'current_event_ids() — the event-scoped RLS spine',
     traps:
       'Event deletion CASCADEs the entire Papic cluster — seats, captures, missions, usage counters — in one shot. There is no tombstone and no soft-delete: capture metadata is gone, not archived, which sits awkwardly beside the 5-year originals-retention promise.',

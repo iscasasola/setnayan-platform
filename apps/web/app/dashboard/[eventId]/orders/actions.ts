@@ -3,21 +3,8 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
-import { parseClientRef, orderPaymentProofPolicy } from '@/lib/r2-client-ref';
-import { insertFaultLog } from '@/lib/telemetry/fault-log';
-import { coordinatorMoneyScopeAllowed } from '@/lib/coordinator-money-scope';
-import { paymentRowFor } from '@/lib/order-mint-identity';
-import { notifyAdminsPaymentProofSubmitted } from '@/lib/order-admin-notify';
 import { CANCELLABLE_ORDER_STATUSES } from '@/lib/event-deletion-gate';
-import { canLogPaymentAgainstOrder } from '@/lib/order-promotion-rule';
 import { refuseLimitedHelper } from '@/lib/host-gate';
-
-function nullIfBlank(raw: FormDataEntryValue | null): string | null {
-  if (typeof raw !== 'string') return null;
-  const t = raw.trim();
-  return t.length > 0 ? t : null;
-}
 
 /**
  * ⛔ `createOrder` — DELETED 2026-07-26 (SEC-4).
@@ -44,7 +31,7 @@ function nullIfBlank(raw: FormDataEntryValue | null): string | null {
  * orphaned by the same change (deleted here too), and nothing in app / lib /
  * api / tests / scripts imported it. But a `'use server'` export stays
  * POST-able by its action id whether or not any UI references it — this module
- * reaches the client graph through `cancelOrder` + `logPayment` — so "no UI"
+ * reaches the client graph through `cancelOrder` — so "no UI"
  * was never "no attack surface". Deleting the export deletes the surface.
  *
  * IF SELF-COMP COMES BACK (spec § 3.1a · vendor "comp for myself"), re-add it
@@ -122,191 +109,9 @@ export async function cancelOrder(formData: FormData) {
   redirect(`/dashboard/${eventId}/orders?cancelled=1`);
 }
 
-export async function logPayment(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'), null);
-  const eventId = formData.get('event_id');
-  const orderId = formData.get('order_id');
-  const amountRaw = formData.get('amount_php');
-  const channel = formData.get('channel');
-  const paidAtRaw = formData.get('paid_at');
-
-  if (
-    typeof eventId !== 'string' ||
-    typeof orderId !== 'string' ||
-    typeof channel !== 'string'
-  ) {
-    throw new Error('Invalid input');
-  }
-  if (typeof amountRaw !== 'string') throw new Error('Amount required');
-  const amount = Number(amountRaw);
-  if (!Number.isFinite(amount) || amount <= 0) {
-    throw new Error('Amount must be > 0');
-  }
-  const trimmedChannel = channel.trim();
-  if (trimmedChannel.length === 0) throw new Error('Channel required');
-
-  const paidAt =
-    typeof paidAtRaw === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(paidAtRaw)
-      ? paidAtRaw
-      : new Date().toISOString().slice(0, 10);
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-
-  // Ownership guard (money bug-hunt 2026-06-26, #11): only log a payment against
-  // an order you're actually allowed to see. RLS (orders_owner_read) scopes this
-  // read to your own orders + your events' orders; a foreign order_id returns
-  // null → reject. Without this, the payments INSERT (whose RLS only checks
-  // payments.user_id = auth.uid()) let a user pin a payment row onto a
-  // stranger's order and pollute their reconciliation/order totals.
-  const { data: ownedOrder } = await supabase
-    .from('orders')
-    .select('order_id, event_id, status')
-    .eq('order_id', orderId)
-    .maybeSingle();
-  if (!ownedOrder || ownedOrder.event_id !== eventId) {
-    throw new Error('Order not found for this event');
-  }
-
-  // 🔒 THE SECOND DOOR (CTRL-B1 build 2, 2026-09-22). A precondition on the
-  // admin's approve door is not a precondition — money arrives here first, and
-  // this read used to select `order_id, event_id` and nothing else, so a
-  // customer could attach a payment to an order that was already `cancelled`,
-  // `refunded` or `lapsed`.
-  //
-  // 🔑 THAT MONEY DOES NOT BOUNCE — IT DISAPPEARS. Nothing downstream reads a
-  // closed order again, so the payment sits in the queue attached to a row no
-  // reconciliation will ever revisit, and the couple believes they have paid.
-  //
-  // Paying against an already-`paid` order stays ALLOWED on purpose: settling a
-  // balance is ordinary, and `resolveEventMoney` reconciles an overpayment
-  // rather than discarding it. Only CLOSED orders are refused.
-  if (!canLogPaymentAgainstOrder(ownedOrder.status)) {
-    throw new Error(
-      `This order is “${String(ownedOrder.status)}” and is no longer accepting payments. ` +
-        'If you have already sent money for it, contact us before sending more — do not pay again.',
-    );
-  }
-
-  // Consent-scoped coordinator payment handling (owner 2026-07-19 #5). The
-  // orders SELECT above is satisfied by ANY event member (migration
-  // 20270129279924 widened the read to all members), so a coordinator could
-  // attach payment proof to the couple's orders. Behind
-  // NEXT_PUBLIC_COORDINATOR_CONSENT_GATE_ENABLED, a non-couple member may log
-  // a payment only when the couple granted the 'checkout' scope at invite
-  // time (coordinator_access_consents.scopes). Flag OFF = exact current
-  // behavior (helper returns true without reading).
-  const moneyWriter = createMoneyWriterClient();
-  const checkoutAllowed = await coordinatorMoneyScopeAllowed(
-    moneyWriter,
-    eventId,
-    user.id,
-    'checkout',
-  );
-  if (!checkoutAllowed) {
-    throw new Error(
-      'The couple has not approved payment handling for your coordinator access — ask them to re-invite you with payment permission.',
-    );
-  }
-
-  // Optional screenshot — ONE supported shape: `<FileUpload name="screenshot_ref">`
-  // uploads direct-to-R2 client-side (PRIVATE thread-files bucket) and emits an
-  // `r2://bucket/key` hidden input, which we store verbatim in `screenshot_url`.
-  //
-  // ⛔ The legacy `<input type="file" name="screenshot">` fallback was DELETED
-  // 2026-07-30. It piped the file through `uploadPublicAsset` — the PUBLIC
-  // `setnayan-media` bucket — three lines under the comment promising payment
-  // proofs never go there. A payment proof is a bank / GCash transfer
-  // screenshot: account numbers and names, served unsigned to anyone with the
-  // key. It had no live producer (the app's only `name="screenshot"` input,
-  // `papic/order/[token]/page.tsx`, posts to `submitPapicGuestPayment`, which
-  // uploads server-side to the private bucket and mints its own ref), so this
-  // was a loaded gun rather than a live leak — the next page to render that
-  // field name would have published proofs to the open internet with no code
-  // change. `payment-proof-public-bucket.test.ts` keeps it deleted.
-  let screenshotUrl: string | null = null;
-  const screenshotRefRaw = formData.get('screenshot_ref');
-  // SEC-1: bind the client-supplied ref to THIS order's private-bucket prefix.
-  // A bare `startsWith('r2://')` let the buyer pin any key in any bucket onto
-  // their own order, which an admin then renders presigned while reconciling.
-  if (
-    typeof screenshotRefRaw === 'string' &&
-    parseClientRef(screenshotRefRaw.trim(), orderPaymentProofPolicy(orderId))
-  ) {
-    screenshotUrl = screenshotRefRaw.trim();
-  }
-
-  // Task 8 pilot hardening (2026-06-01): client-supplied idempotency key
-  // deduplicates double-submits during pilot. The new-payment form mints
-  // a UUID once on first render and ships it as a hidden input on every
-  // retry; the (order_id, client_idempotency_key) partial unique index
-  // turns the second insert into a 23505 unique-violation we catch and
-  // treat as "already logged."
-  const idempotencyKeyRaw = formData.get('client_idempotency_key');
-  const idempotencyKey =
-    typeof idempotencyKeyRaw === 'string' && idempotencyKeyRaw.trim().length > 0
-      ? idempotencyKeyRaw.trim().slice(0, 64)
-      : null;
-
-  // ── SEC-4b · service-role write, ownership already proven above ────────────
-  // `payments` INSERT is revoked from `authenticated` (migration
-  // 20271008178212), so this goes through service_role — which bypasses
-  // `payments_owner_insert`'s `WITH CHECK (user_id = auth.uid())`.
-  //
-  // Nothing about the AUTHORIZATION changes: the guards that matter are the two
-  // above, and both stay on the SESSION client precisely so RLS keeps scoping
-  // them — the `orders` SELECT (RLS `orders_owner_read` limits it to the
-  // caller's own orders / their events' orders, and a foreign order_id comes
-  // back null → reject) plus the event_id match and the coordinator 'checkout'
-  // consent scope. `paymentRowFor` then re-binds the row to that proven order
-  // and to the server's user id, replacing what RLS used to enforce.
-  const { error } = await moneyWriter.from('payments').insert(
-    paymentRowFor(
-      { userId: user.id, verifiedOrderId: ownedOrder.order_id as string },
-      {
-        amount_php: Math.round(amount * 100) / 100,
-        channel: trimmedChannel,
-        reference_number: nullIfBlank(formData.get('reference_number')),
-        screenshot_url: screenshotUrl,
-        paid_at: paidAt,
-        client_idempotency_key: idempotencyKey,
-      },
-    ),
-  );
-  if (error) {
-    // 23505 = unique_violation. With a non-null idempotency key this means
-    // the customer's previous submit succeeded and they retried; treat as
-    // success and route them to the order detail page so they see the
-    // already-logged payment.
-    const code = (error as { code?: string }).code;
-    if (code === '23505' && idempotencyKey) {
-      revalidatePath(`/dashboard/${eventId}/orders/${orderId}`);
-      redirect(`/dashboard/${eventId}/orders/${orderId}?paid_logged=1`);
-    }
-    await insertFaultLog({
-      event_type: 'SUPABASE_SAVE_ERROR',
-      element_name: 'Log payment (proof submission)',
-      file_path: 'app/dashboard/[eventId]/orders/actions.ts',
-      error_message: error.message,
-      payload_snapshot: { eventId, orderId, userId: user.id, hasIdempotencyKey: idempotencyKey !== null },
-    });
-    throw new Error(error.message);
-  }
-
-  // Somebody has just moved real money and is waiting for their purchase to
-  // switch on. Before this, that step told NOBODY — the only trace was a row in
-  // a queue an admin had to already be looking at. Awaited, but fail-soft
-  // inside, so it can never roll back a recorded payment.
-  await notifyAdminsPaymentProofSubmitted({
-    orderId,
-    eventId,
-    amountPhp: amount,
-    channel,
-  });
-
-  revalidatePath(`/dashboard/${eventId}/orders/${orderId}`);
-  redirect(`/dashboard/${eventId}/orders/${orderId}?paid_logged=1`);
-}
+/**
+ * ⛔ `logPayment` — DELETED 2026-10-26 (reload audit §3c). It had no caller: every purchase path logs its payment on
+ * `/pay/<reference>` (`app/pay/[reference]/actions.ts` › `submitPaymentProof`), which carries the admin alert
+ * (`notifyAdminsPaymentProofSubmitted`, held by `lib/you-are-told-when-you-are-paid.test.ts`). A `'use server'` export
+ * stays POST-able by its action id whether or not any UI calls it, so the dead door went with its UI.
+ */

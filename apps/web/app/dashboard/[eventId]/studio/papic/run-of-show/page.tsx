@@ -27,6 +27,7 @@
  * not the couple. They share the board, the ceiling and the server action; they
  * are not the same screen and folding one into the other would make both worse.
  */
+import { StayForm } from '@/app/_components/stay-form';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
@@ -198,7 +199,7 @@ export default async function RunOfShowPage({ params, searchParams }: Props) {
                 </>
               )}
             </p>
-            <form action={setChallengesPausedAction}>
+            <StayForm door="papic.setChallengesPausedAction" action={setChallengesPausedAction}>
               <input type="hidden" name="event_id" value={eventId} />
               {/* Explicit intent, never a toggle: two taps on a slow connection
                   must not resume the pause they just started. */}
@@ -223,7 +224,7 @@ export default async function RunOfShowPage({ params, searchParams }: Props) {
                   </>
                 )}
               </button>
-            </form>
+            </StayForm>
           </div>
         )}
       </div>
@@ -284,7 +285,7 @@ export default async function RunOfShowPage({ params, searchParams }: Props) {
                         Being asked now
                       </span>
                     ) : (
-                      <form action={armChallengeAction}>
+                      <StayForm door="papic.armChallengeAction" action={armChallengeAction}>
                         <input type="hidden" name="event_id" value={eventId} />
                         <input type="hidden" name="mission_id" value={placed.missionId} />
                         <input type="hidden" name="return_to" value="run-of-show" />
@@ -295,10 +296,10 @@ export default async function RunOfShowPage({ params, searchParams }: Props) {
                           <Play aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
                           This is happening now
                         </button>
-                      </form>
+                      </StayForm>
                     )}
 
-                    <form action={clearMomentChallengeAction}>
+                    <StayForm door="papic.clearMomentChallengeAction" action={clearMomentChallengeAction}>
                       <input type="hidden" name="event_id" value={eventId} />
                       <input type="hidden" name="mission_id" value={placed.missionId} />
                       <button
@@ -308,7 +309,7 @@ export default async function RunOfShowPage({ params, searchParams }: Props) {
                         <X aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
                         Take off this moment
                       </button>
-                    </form>
+                    </StayForm>
                   </div>
                 </div>
               ) : (
@@ -388,7 +389,7 @@ function MomentShelf({
             <span className="text-sm text-ink/85">
               {displayChallengePrompt(c.prompt, { organizer })}
             </span>
-            <form action={addLibraryChallengeAction} className="shrink-0">
+            <StayForm door="papic.addLibraryChallengeAction" action={addLibraryChallengeAction} className="shrink-0">
               <input type="hidden" name="event_id" value={eventId} />
               <input type="hidden" name="library_id" value={c.library_id} />
               <input type="hidden" name="moment_key" value={momentKey} />
@@ -399,7 +400,7 @@ function MomentShelf({
               >
                 Use this
               </button>
-            </form>
+            </StayForm>
           </li>
         ))}
       </ul>

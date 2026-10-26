@@ -150,7 +150,8 @@ test('the return survives the submit — the intent is carried through the redir
   // or an insert failure silently drops the way back.
   const fn = actions.slice(
     actions.indexOf('export async function proposeCategory'),
-    actions.indexOf('export async function updateVendorService'),
+    /* the next export after it (`updateVendorService` was, until it was deleted as dead on 2026-10-26) */
+    actions.indexOf('\nexport async function ', actions.indexOf('export async function proposeCategory') + 10),
   );
   const redirects = fn.match(/redirect\(\s*`[^`]*`/g) ?? [];
   assert.equal(redirects.length, 3, `proposeCategory has ${redirects.length} redirects, expected 3`);

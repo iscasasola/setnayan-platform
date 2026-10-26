@@ -61,10 +61,13 @@ const read = (p: string) => readFileSync(join(appDir, p), 'utf8');
  * 🔑 THE LIST GREW BY LOSING AN ENTRY. Coverage went from two live lanes plus
  * one dead one to three live ones. If you remove a lane here, check it is dead
  * rather than merely renamed, and put its successor in the same commit.
+ *
+ * ⚖ `dashboard/[eventId]/orders/actions.ts` LEFT THIS LIST ON 2026-10-26 — its `logPayment` was deleted (reload audit
+ * §3c: zero callers; every purchase logs its payment on `/pay/<reference>`, already listed here). Its successor IS
+ * `pay/[reference]/actions.ts` › `submitPaymentProof`, so coverage of the live lanes is unchanged.
  */
 const CALL_SITES = [
   'dashboard/[eventId]/checkout/actions.ts',
-  'dashboard/[eventId]/orders/actions.ts',
   'pay/[reference]/actions.ts',
 ] as const;
 

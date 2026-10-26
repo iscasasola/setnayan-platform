@@ -304,10 +304,15 @@ test('BOTH photo kinds get the control, each naming its own table', () => {
 test('the control is behind a confirm that says it cannot be undone', () => {
   const src = read(PAGE);
   assert.equal(
-    (src.match(/<ConfirmForm/g) ?? []).length,
+    /* `StayConfirmForm` (2026-10-26) IS a ConfirmForm — the same dialog, its confirmed press saved in place. */
+    (src.match(/<(?:Stay)?ConfirmForm\b/g) ?? []).length,
     2,
     'an irreversible delete fires on a single accidental click',
   );
+  // …and each one still asks first: the delete is a ConfirmForm whose confirmed press is the only post.
+  assert.equal((src.match(/<StayConfirmForm\b[^>]*?door="memories\.deletePhotoForever"/g) ?? []).length, 2);
+  const confirm = read('app/_components/stay-form.tsx');
+  assert.match(confirm, /<ConfirmForm \{\.\.\.rest\} onConfirmedSubmit=\{stay\.onSubmit\}/, 'StayConfirmForm no longer goes through the ConfirmForm dialog');
   assert.match(src, /cannot be undone/i);
 });
 

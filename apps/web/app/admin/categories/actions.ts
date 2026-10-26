@@ -732,13 +732,21 @@ export async function createTaxonomyNode(formData: FormData) {
     marketplace_hidden: false,
     status: 'active',
   };
-  const { error } = await admin.from('service_categories').insert(row);
+  // `coarse_category` is left to the database on purpose: the BEFORE INSERT trigger
+  // `service_categories_inherit_coarse_category` (③0-c part 2) gives a new category its group's
+  // most common coarse category (ties → the first sibling by sort_order; none → NULL), so its
+  // shops are not filed under misc. Read back so the audit row records what was actually stored.
+  const { data: inserted, error } = await admin
+    .from('service_categories')
+    .insert(row)
+    .select('coarse_category')
+    .maybeSingle();
   if (error) redirectBack(formData, 'error', error.message);
   await admin.from('admin_audit_log').insert({
     action: 'taxonomy.create',
     target_table: 'service_categories',
     target_id: id,
-    after_json: row,
+    after_json: { ...row, coarse_category: (inserted as { coarse_category: string | null } | null)?.coarse_category ?? null },
     actor_user_id: user.id,
   });
   revalidatePath(BASE);

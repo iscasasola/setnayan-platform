@@ -162,7 +162,14 @@ export async function resolveOrderChargeCentavos(
   // A part, several parts, or everything once a part is paid: priced from the catalogue against what THIS event
   // already holds — never above the rest to everything, never twice. Full Pro with nothing paid toward it falls
   // through to the catalogue exactly as before (and the onboarding price there).
-  if (eventId && (serviceKey === FULL_PRO_SKU || serviceKey === HUB_PARTS_ORDER_KEY || hubPartOfSku(serviceKey))) {
+  // ⛔ A PART is never priced by the retail catalogue below (it does not read `is_active`): with no event it is
+  // refused here, and with one `resolveHubProCharge` refuses it while it is off sale — every part since 2026-10-26
+  // (owner: "just have the upgrade event hub pro" … "no more by part as well on the website").
+  const partKey = serviceKey === HUB_PARTS_ORDER_KEY || hubPartOfSku(serviceKey) !== null;
+  if (partKey && !eventId) {
+    return { ok: false, refusal: 'no_price_source', detail: 'an Event Hub Pro part is sold for an event only' };
+  }
+  if (eventId && (serviceKey === FULL_PRO_SKU || partKey)) {
     const hub = await resolveHubProCharge(admin, eventId, serviceKey, input.hubParts ?? []);
     if (hub) return hub;
   }

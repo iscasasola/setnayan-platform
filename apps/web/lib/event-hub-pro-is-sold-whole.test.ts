@@ -10,7 +10,8 @@
  *   2. every part price a surface reads goes through `onSale` — a read that skips it would sell a retired part
  *      (`formatV2Sku` never looks at `is_active`, which is how the Monogram and Panood pages kept a ₱500 part button);
  *   3. with no part on sale the Event Hub Pro page sells Everything alone, the parts only as the list of what it opens;
- *   4. with no part on sale /pricing draws no "Everything / Just the parts you need" dropdown — a dropdown of one.
+ *   4. with no part on sale /pricing draws no "Everything / Just the parts you need" dropdown — a dropdown of one;
+ *   5. the SERVER refuses a part order — off sale with an event, outright without one — never only a hidden button.
  *
  * (The iPhone app's side — the one-unlock Apply sheet, Apple's page selling Pro alone, the server refusing every part
  * product — is `pro-parts-in-the-app.test.ts`.)
@@ -109,4 +110,21 @@ test('with no part on sale /pricing draws no parts dropdown and no "just the par
   assert.match(page, /are Event Hub Pro\$\{prices\.hubParts\.length > 0 \? ', or just the parts you need' : ''\}\./);
   // The parts list itself only holds rows the catalogue has ACTIVE (`_pricing-reads.ts`).
   assert.match(code('app/(shell)/pricing/_pricing-reads.ts'), /const n = r && r\.is_active \? Number\(r\.retail_price_php\) : NaN;/);
+});
+
+/* ── 5 · the server refuses ─────────────────────────────────────────────── */
+
+test('the charge authority refuses every part order: off sale with an event, outright without one', () => {
+  const a = code('lib/order-charge-authority.ts');
+  // Every part key (one part, or several under the multi-part bill) is caught BEFORE the retail catalogue, which
+  // prices a row whatever its `is_active` says.
+  const partKey = a.indexOf('const partKey = serviceKey === HUB_PARTS_ORDER_KEY || hubPartOfSku(serviceKey) !== null;');
+  const retail = a.indexOf('resolveRetailChargeCentavos(');
+  assert.ok(partKey > 0 && retail > partKey, 'a part key can reach the retail catalogue before it is refused');
+  assert.match(a, /if \(partKey && !eventId\) \{\s*return \{ ok: false, refusal: 'no_price_source'/);
+  assert.match(a, /if \(eventId && \(serviceKey === FULL_PRO_SKU \|\| partKey\)\) \{\s*const hub = await resolveHubProCharge/);
+  // …and resolveHubProCharge answers for every part key (null only for Full Pro with nothing paid), refusing one off sale.
+  assert.match(a, /if \(serviceKey === FULL_PRO_SKU && !owned\.full && owned\.paidPhp === 0\) return null;/);
+  assert.match(a, /parts\.some\(\(p\) => !prices\.onSale\.has\(hubPart\(p\)\.sku\)\)\) \{\s*return \{ ok: false, refusal: 'no_price_source'/);
+  assert.match(a, /if \(!charge\.ok\) \{/);
 });

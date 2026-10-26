@@ -11,7 +11,8 @@ SALE. Their ownership stays, so a part already paid for keeps working and still 
   - the ✓ Apply sheet is the one-unlock sheet ("Unlock Pro and Apply · ₱…");
   - the Maker's quiet line ("Pro parts from ₱500") and the Studio cards' "◆ … from ₱500" lines are gone;
   - onboarding drops "Or buy it part by part later";
-  - the server refuses a part order (`resolveHubProCharge`).
+  - the server refuses a part order (`resolveHubProCharge`). A part key with no event is now refused outright too,
+    before the retail catalogue, which prices a row whatever its `is_active` says.
 - **The Event Hub Pro page** (`studio/website-pro`) sells Everything alone. Its eleven parts become one "What Event Hub
   Pro unlocks" list (each part's gates), with no price, no part button, no `?buy=` pick and no "counts toward"
   footer.
@@ -20,8 +21,10 @@ SALE. Their ownership stays, so a part already paid for keeps working and still 
 - **The iPhone app** sells Pro whole.
   - The Apply sheet never builds the Apple parts sheet, so "Unlock Pro and Apply" opens `/apple-pro`.
   - `/apple-pro` sells Event Hub Pro alone (no `?buy=` parts; the `AppleProParts` screen is deleted).
-  - `startAppStorePurchase` refuses every `event-hub-part` product (`not_on_sale`).
-  - The part products stay defined only so a past transaction would verify. They were never attached to a version.
+  - The eleven `com.setnayan.app.hub_part_*` products are RETIRED out of `IAP_PRODUCTS`, the way
+    `mood_board_renders_50` was: StoreKit is never asked for them, `iapProductById` answers null, and the purchase
+    start refuses one as unknown. Their ids stay listed in `RETIRED_HUB_PART_PRODUCT_IDS` so none is ever reused.
+    They were never attached to a version, and the `event-hub-part` kind is gone.
 - **Two sellers that skipped the switch, found and fixed.** The Monogram page and the Panood setup card priced the Logo
   & QR part through `formatV2Sku`, which never reads `is_active`. They would have kept a ₱500 part button after the
   flip. Now Monogram sells Event Hub Pro in place ("Unlock Event Hub Pro"), and Panood says "In Event Hub Pro · ₱…".
@@ -30,7 +33,8 @@ SALE. Their ownership stays, so a part already paid for keeps working and still 
   `apple-on`.
 - Guards:
   - new `lib/event-hub-pro-is-sold-whole.test.ts`: the migration; every part-price read goes through `onSale` (and
-    never `formatV2Sku`), sabotage-checked; the Pro page; /pricing rendered;
+    never `formatV2Sku`), sabotage-checked; the Pro page; /pricing rendered; the server's refusal;
+  - `lib/iap/products.test.ts` holds the retired ids to the parts table and asserts none is sold;
   - `lib/pro-parts-in-the-app.test.ts` re-aimed from "the app sells parts" to "the app sells Pro whole".
 
 SPEC IMPACT: corpus `DECISION_LOG.md` new row "EVENT HUB PRO IS SOLD WHOLE AGAIN" (supersedes the selling half of

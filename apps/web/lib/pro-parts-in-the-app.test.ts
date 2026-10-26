@@ -84,7 +84,9 @@ test('the app hands the Apply sheet no part pricing — it is the one-unlock she
 
 test('the server refuses every part in the app, Everything once any part is owned, and an owned Pro', () => {
   const a = code('lib/iap/iap-actions.ts');
-  assert.match(a, /product\.kind === 'event-hub-part'\) \{\s*return startRefusal\('not_on_sale'\);/);
+  // A part product is no longer a product at all (`RETIRED_HUB_PART_PRODUCT_IDS`): the start refuses it as unknown.
+  assert.match(a, /const product = iapProductById\(input\.productId\);[\s\S]{0,120}if \(!product \|\| !eventId\) return startRefusal\('unavailable'\);/);
+  assert.doesNotMatch(a, /event-hub-part/, 'the app still knows a part product kind');
   assert.match(a, /product\.kind === 'event-hub-pro'[\s\S]{0,200}if \(own\.full\) return startRefusal\('owned'\);\s*if \(own\.parts\.size > 0 \|\| own\.paidPhp > 0\) return startRefusal\('not_on_sale'\);/);
 });
 

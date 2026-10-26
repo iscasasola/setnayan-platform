@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useSyncExternalStore, type ReactElement, type ReactNode } from 'react';
 import type { PickNoun } from '@/lib/print-picked-guests';
+import type { PassCardDesign } from '@/lib/pass-card';
 import type { PrintGuest } from '@/lib/studio-prints-settings';
 import type { StudioChartInput, StudioPaper } from './print-paper';
 
@@ -73,6 +74,13 @@ export type SlideGuests = {
   pickNoun: PickNoun | null;
 };
 
+/**
+ * 🎫 The Digital ticket's look — Classic · Ticket · Photo poster (owner 2026-10-26, verbatim: *"The 3 designs for the digital ticket should
+ * be on the carousel and not on settings."*). `saved` is the look the couple is editing (the drafted one, else live); a pick goes through
+ * the ONE ticket-style pick (`usePassLookPick` — the Maker's draft store and the draft save, waits for Apply). `previews`: each look's picture.
+ */
+export type SlideTicketStyle = { saved: PassCardDesign; previews: Readonly<Record<PassCardDesign, string>> };
+
 export type PrintSlide = {
   name?: string;
   /** The spec line under the name — the chosen size, never every size. */
@@ -82,6 +90,8 @@ export type PrintSlide = {
   /** A print with two files and ONE dropdown (the seat plan's Colours ▾, the caterer's File ▾) — the pick is the file. */
   choice?: { label: string; options: ReadonlyArray<{ key: string; label: string; href: string; file: string }> } | null;
   guest?: SlideGuests;
+  /** 🎫 The Digital ticket's Style ▾ (only that slide). */
+  ticketStyle?: SlideTicketStyle;
   /** A plain print's ONE file — one press, one file. Null: nothing to save yet (no menu, no Love Story). */
   download?: { href: string; file: string; label: string } | null;
   /** Everything ◆ — every piece in one PDF. */

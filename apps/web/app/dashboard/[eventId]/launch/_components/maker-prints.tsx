@@ -842,24 +842,6 @@ export function PrintSetDownloads({ input }: { input: PrintsInput }) {
 }
 
 /**
- * 🎫 TICKET STYLE — what each guest saves (Classic · Ticket · Photo poster), drawn in ⚙ Print settings › Passes since 2026-10-17. The
- * SAME picker (`PassCardDesignPicker studio`: the style-card strip, drafted, waits for Apply) with the same previews.
- */
-export function TicketStyle({ input }: { input: PrintsInput }) {
-  const { q } = printPlan(input);
-  return (
-    <div data-pass-cards="" data-print-ticket-style="">
-      <PassCardDesignPicker
-        eventId={input.eventId}
-        saved={input.passDesign ?? DEFAULT_PASS_CARD_DESIGN}
-        studio
-        previews={Object.fromEntries(PASS_CARD_DESIGNS.map((d) => [d, `${q('pass', 'screen', PASS_CARD_FORMAT_ID)}&pass_design=${d}`])) as Record<PassCardDesign, string>}
-      />
-    </div>
-  );
-}
-
-/**
  * 🎫 THE DIGITAL TICKET (owner 2026-10-17) — a guest print of its own row: the PNG each guest saves, drawn for the guest View as ▾
  * shows (`/api/guest/pass-card?guest=<id>`, the Guest list's own per-guest file, free), and All guests — the zip of every ticket
  * (`PASS_CARDS_ZIP_ROUTE`): Event Hub Pro from 2026-09-29, FREE for every event since 2026-10-22 (owner "yes", DECISION_LOG "THE
@@ -868,6 +850,7 @@ export function TicketStyle({ input }: { input: PrintsInput }) {
  */
 export function DigitalTicketEditor({ input }: { input: PrintsInput }) {
   const { eventId, slug, passDesign = DEFAULT_PASS_CARD_DESIGN, passCardsZip = 'passes.zip' } = input;
+  const { q } = printPlan(input);
   const guests = input.passGuests ?? null;
   const zip = freeAllGuestsFile({ href: `${PASS_CARDS_ZIP_ROUTE}?event=${eventId}`, file: passCardsZip, label: 'All guests' });
   return (
@@ -896,6 +879,13 @@ export function DigitalTicketEditor({ input }: { input: PrintsInput }) {
            guests ticked — the zip route narrowed by `guests=` (`/api/guest/pass-card/all`, each id checked against this event). */
         pickNoun={{ one: 'ticket', many: 'tickets', verb: 'Download' }}
         tip={DIGITAL_TICKET_TIP}
+        /* 🎫 ITS THREE LOOKS ARE ON ITS SLIDE (owner 2026-10-26, verbatim: *"The 3 designs for the digital ticket should be on the carousel
+           and not on settings."*): Classic ▾ beside View as ▾ — the look the couple is editing (the drafted one, else live), each look's
+           menu picture the same the settings strip drew. A pick still waits for Apply (`usePassLookPick`, the one draft save). */
+        ticketStyle={{
+          saved: passDesign,
+          previews: Object.fromEntries(PASS_CARD_DESIGNS.map((d) => [d, `${q('pass', 'screen', PASS_CARD_FORMAT_ID)}&pass_design=${d}`])) as Record<PassCardDesign, string>,
+        }}
       />
     </div>
   );

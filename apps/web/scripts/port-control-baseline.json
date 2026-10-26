@@ -1,5 +1,5 @@
 {
-  "generatedFromRef": "d64ad909f4",
+  "generatedFromRef": "6b142bcdfb",
   "routeCount": 473,
   "destinations": 1013,
   "actions": 662,
@@ -7320,8 +7320,6 @@
         "AutoDraft",
         "Bar",
         "BeforeWeStartScreen",
-        "BgCard",
-        "BgCards",
         "BlockAnimateRows",
         "BlockGround",
         "BlockGroundRows",
@@ -7774,7 +7772,7 @@
         "ThemePick",
         "ThemePickProvider",
         "ThemePreviewOverlay",
-        "TicketStyle",
+        "TicketStylePick",
         "TimelineRowsLoading",
         "Toast",
         "Toggle",
@@ -11216,12 +11214,15 @@
     },
     "/dev/iap-doors-lab": {
       "files": [
-        "dev/iap-doors-lab/page.tsx"
+        "dev/iap-doors-lab/page.tsx",
+        "dev/iap-doors-lab/papic-added-preview.tsx"
       ],
       "destinations": [],
       "actions": [],
       "blocks": [
         "IapUnlockSheet",
+        "PapicAddedPreview",
+        "PapicCreditsAdded",
         "StudioBuyHero"
       ]
     },

@@ -27,11 +27,14 @@ export function HubProWays({
   parts,
 }: {
   everythingLabel: string;
-  /** Null when no part could be read — then there is no second way to offer. */
+  /** Null when no part is on sale (or none could be read) — then there is no second way, and no dropdown at all. */
   partsLabel: string | null;
   parts: ReactNode;
 }) {
   const [way, setWay] = useState<'all' | 'parts'>('all');
+  /* ⛔ Sold whole (owner 2026-10-26, "no more by part as well on the website"): with no part on sale there is ONE way,
+     and a dropdown of one is not a choice — the row's own price already says it. */
+  if (!partsLabel) return null;
   const options = [
     { key: 'all', label: everythingLabel },
     ...(partsLabel ? [{ key: 'parts', label: partsLabel }] : []),

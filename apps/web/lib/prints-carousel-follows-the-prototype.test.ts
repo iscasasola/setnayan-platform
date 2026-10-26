@@ -14,9 +14,14 @@
  *       seated list on the place cards (`guestPrintCountLine`) — never another print's number;
  *   4 · ⚙ Print settings is on EVERY slide (the phone's toolbar and the computer's right column) and opens the one sheet;
  *   5 · cheap to swipe: only the slide on screen and its two neighbours ask for their picture — every other slide is its paper's shape;
- *   6 · the long row list, the piece bar and the tap-to-enlarge sheet are DELETED, not hidden; the dev lab reaches this surface.
+ *   6 · the long row list, the piece bar and the tap-to-enlarge sheet are DELETED, not hidden; the dev lab reaches this surface;
+ *   7 · the Digital ticket's three looks are ON ITS SLIDE, not in ⚙ Print settings (owner 2026-10-26, verbatim: *"The 3 designs for
+ *       the digital ticket should be on the carousel and not on settings."*): Classic ▾ beside View as ▾ (each look's picture in the
+ *       list), a pick redraws the slide for the guest shown, and it waits for Apply through the ONE pick (`usePassLookPick` — the
+ *       Maker's draft store and the draft save) — the sheet no longer draws it.
  *
- * SABOTAGE (seen RED, then restored — see the PR): Pick guests… dropped from Download ▾ (`guestDownloadOptions`) → (1) red.
+ * SABOTAGE (seen RED, then restored — see the PR): Pick guests… dropped from Download ▾ (`guestDownloadOptions`) → (1) red ·
+ * the Style ▾ dropped from the Digital ticket's toolbar (`choiceControls`) → (7) red.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -216,4 +221,54 @@ test('6 · the long list, the piece bar and the tap-to-enlarge sheet are deleted
   }
   /* The lab's Details is the real Maker's — its Studio (the owner's phone), never Details' retired one-piece view. */
   assert.match(read('app/dev/maker-lab/page.tsx'), /detailsLabNode\(\{ \.\.\.sp, studio: '1', /, 'the lab reaches another Prints view than the owner’s');
+});
+
+test('7 · the Digital ticket’s three looks are on its slide — Classic ▾ beside View as ▾ — and not in Print settings', async () => {
+  const { withTicketLook } = await import(`../${L}/studio-prints-carousel`);
+  const ticketLook = withTicketLook as (src: string, d: string) => string;
+  try {
+    const { slides, items } = await everySlide();
+    const ticket = slides.get('digital-ticket')!;
+    assert.ok(ticket.ticketStyle, 'the Digital ticket carries no look to pick');
+    assert.deepEqual(Object.keys(ticket.ticketStyle!.previews).sort(), ['classic', 'poster', 'ticket'], 'not the three looks, each with its picture');
+    for (const it of items) {
+      const html = await carouselAt(items, it.key);
+      const tools = toolsOf(html);
+      const desk = deskOf(html);
+      if (it.key !== 'digital-ticket') {
+        assert.doesNotMatch(tools + desk, /data-prints-ticket-style/, `${it.key}: the ticket look is offered on another print`);
+        continue;
+      }
+      const row1 = tools.slice(tools.indexOf('data-prints-row="choose"'), tools.indexOf('data-prints-row="act"'));
+      assert.match(row1, /aria-haspopup="listbox"[^>]*data-prints-ticket-style=""|data-prints-ticket-style=""[^>]*aria-haspopup="listbox"/, 'the look is not one house dropdown in the toolbar’s first row');
+      assert.match(row1, /data-prints-ticket-style=""[^>]*>[\s\S]*?Classic</, 'Style ▾ does not name the look being edited');
+      assert.ok(row1.indexOf('data-prints-ticket-style') < row1.indexOf('data-prints-view-as'), 'Style ▾ is not beside View as ▾, before it');
+      assert.match(desk, /data-form-row="prints-style"[\s\S]*?data-prints-ticket-style=""/, 'on a computer the look is not a Form row of the right column');
+      /* The big preview is the guest's own ticket in the look being edited. */
+      assert.match(html, /data-prints-paper="digital-ticket"/);
+    }
+  } finally {
+    await endSlides();
+  }
+  /* A pick redraws the slide: its address carries the look picked — the route draws the look asked for. */
+  assert.equal(ticketLook('/api/guest/pass-card?guest=g1&design=classic', 'poster'), '/api/guest/pass-card?guest=g1&design=poster');
+  assert.equal(ticketLook('/api/guest/pass-card?guest=g1', 'ticket'), '/api/guest/pass-card?guest=g1&design=ticket');
+  const carousel = read(`${L}/studio-prints-carousel.tsx`);
+  assert.match(carousel, /return \{ src: slide\.ticketStyle && ticketLook \? withTicketLook\(drawn, ticketLook\) : drawn, aspect: paper\.aspect \};/, 'the slide does not redraw in the look picked');
+  /* ONE state, ONE save: the slide and the dropdown read the same pick, which is the picker's own (the draft — waits for Apply). */
+  assert.match(carousel, /const look = usePassLookPick\(ticket\?\.guest\?\.eventId \?\? '', ticket\?\.ticketStyle\?\.saved \?\? DEFAULT_PASS_CARD_DESIGN\);/);
+  assert.match(carousel, /onPick=\{look\.pick\}/);
+  assert.match(carousel, /What each guest saves · waits for Apply/, 'the open list does not say the pick waits for Apply');
+  assert.doesNotMatch(carousel, /passDesignDraftPatch|noteDraftedPassLook|hubDraftAction/, 'the carousel saves the look a way of its own — a fork of the state');
+  const picker = read(`${L}/pass-card-design-picker.tsx`);
+  const hook = picker.slice(picker.indexOf('export function usePassLookPick('), picker.indexOf('export function PassCardDesignPicker('));
+  assert.match(hook, /const read = draftedPassLookOr\(saved\);/);
+  assert.match(hook, /fd\.set\('patch', JSON\.stringify\(passDesignDraftPatch\(design\)\)\);/, 'the pick no longer goes to the draft (Apply)');
+  assert.match(picker, /const \{ shown, pick, pending, error \} = usePassLookPick\(eventId, saved\);/, 'the picker keeps a second copy of the pick');
+  /* …and the sheet no longer draws it (no duplicate). */
+  const details = read(`${L}/maker-details.tsx`);
+  const sheet = details.slice(details.indexOf('editors[EVERY_PRINT_ITEM] = ('), details.indexOf('editors[DIGITAL_TICKET_ITEM]'));
+  assert.doesNotMatch(sheet, /TicketStyle|PassCardDesignPicker/, 'Ticket style is still in Print settings');
+  assert.doesNotMatch(read(`${L}/maker-prints.tsx`), /export function TicketStyle\b/, 'the settings strip is back');
+  assert.doesNotMatch(picker, /studio\?: boolean|data-pass-card-design-studio/, 'the settings strip is back');
 });

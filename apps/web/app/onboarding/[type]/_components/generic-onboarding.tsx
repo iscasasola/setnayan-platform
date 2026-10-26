@@ -18,6 +18,8 @@ import {
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import { ChevronLeft, X } from 'lucide-react';
+import { onboardingExit } from '@/app/onboarding/_shared/onboarding-exit';
 import { useRouter } from 'next/navigation';
 import { isGatedLifeType } from '@/lib/life-event-gate';
 import { eventTypeAcceptsHonoreeLink } from '@/lib/honoree-dependent-link';
@@ -221,6 +223,12 @@ type Draft = {
 };
 
 const DRAFT_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+/** The top-left control: a 44px tap target drawn as a 34px ring (✕ on step 0, ‹ after). */
+const TOP_RING =
+  '-my-1.5 -ml-1.5 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink disabled:opacity-40 focus-visible:outline-none [&:focus-visible>span]:ring-2 [&:focus-visible>span]:ring-mulberry';
+const TOP_RING_FACE =
+  'inline-flex h-[34px] w-[34px] items-center justify-center rounded-full border border-ink/20 transition-colors hover:border-ink';
 
 export function GenericOnboarding(props: Props) {
   const {
@@ -1841,6 +1849,7 @@ export function GenericOnboarding(props: Props) {
   }
 
   const isLast = screen === 'congrats';
+  const exit = onboardingExit(authed);
 
   return (
     <main className="flex min-h-screen flex-col bg-paper">
@@ -1850,6 +1859,29 @@ export function GenericOnboarding(props: Props) {
       {/* The brand line (owner 2026-10-21, "make sure there is Setnayan"): the SHIPPED wordmark — mark + SETNAYAN,
           the same one every first-run screen carries — not a hand-drawn copy of the mark. */}
       <header className="mx-auto flex w-full max-w-xl items-center gap-2 px-5 pb-3 pt-5">
+        {/* 🚪 The top-left control (owner 2026-10-26, "doesn't have a cancel"), the same as the
+            wedding flow's: ✕ on step 0 leaves for the event-type picker (nothing is created —
+            the commit is the final button); ‹ on every later step goes back one. ONE shape in
+            ONE slot, so the brand never moves between steps. The bottom Back stays too. */}
+        {step === 0 ? (
+          <Link
+            href={exit.href}
+            replace
+            aria-label={exit.label}
+            data-onboarding-exit=""
+            className={TOP_RING}
+          >
+            <span aria-hidden className={TOP_RING_FACE}>
+              <X size={16} strokeWidth={2} />
+            </span>
+          </Link>
+        ) : (
+          <button type="button" onClick={() => go(-1)} disabled={committing} aria-label="Back" className={TOP_RING}>
+            <span aria-hidden className={TOP_RING_FACE}>
+              <ChevronLeft size={16} strokeWidth={2} />
+            </span>
+          </button>
+        )}
         <FirstRunBrand color="rgb(var(--color-ink))" size={13} />
       </header>
 

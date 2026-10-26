@@ -339,7 +339,7 @@ export default async function PricingPage() {
               shot={<WhyShot src="/feature-shots/event-hub-0.jpg" y="28%" zoom={1.1} />}
               title="An Event Hub that looks like yours"
               line="One page your guests open — your look, your reveal."
-              tip="A complete design is included with every event. Your own photos, music, themes and the cinematic reveal are Event Hub Pro, or just the parts you need."
+              tip={`A complete design is included with every event. Your own photos, music, themes and the cinematic reveal are Event Hub Pro${prices.hubParts.length > 0 ? ', or just the parts you need' : ''}.`}
             />
             <WhyPoint
               shot={<WhyShot src="/feature-shots/3d-plan-0.jpg" y="21%" zoom={1.25} />}

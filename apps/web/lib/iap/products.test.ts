@@ -15,7 +15,9 @@ import {
   iapProductById,
   iapProductForServiceKey,
   papicCreditsMatch,
-  IAP_HUB_PART_PRODUCTS,
+  IAP_PRODUCT_IDS,
+  RETIRED_HUB_PART_PRODUCT_IDS,
+  RETIRED_HUB_PART_SERVICE_KEYS,
   iapPriceRowFor,
   iapProductFitsAiTier,
   iapSetnayanAiProductForTier,
@@ -30,18 +32,8 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 test('ruling 1 + 23 Oct — Papic credits, Event Hub Pro, Live Watch and the five more; no supplier plan', () => {
   const keys = IAP_PRODUCTS.map((p) => p.serviceKey).sort();
   assert.deepEqual(keys, [
-    // 💎 + the eleven Event Hub Pro parts (owner 2026-10-22, "yes to all") — 1.1, flag-dark.
-    'COUPLE_HUB_PART_ADDRESS',
-    'COUPLE_HUB_PART_BACKGROUND',
-    'COUPLE_HUB_PART_LOGO_QR',
-    'COUPLE_HUB_PART_MOTION',
-    'COUPLE_HUB_PART_MUSIC',
-    'COUPLE_HUB_PART_OWN_SCENES',
-    'COUPLE_HUB_PART_PHOTOS',
-    'COUPLE_HUB_PART_POST_EVENT',
-    'COUPLE_HUB_PART_PRINTS',
-    'COUPLE_HUB_PART_REVEAL',
-    'COUPLE_HUB_PART_STYLE',
+    // 🗑 The eleven Event Hub Pro PART products (2026-10-22) are retired, never sold (owner 2026-10-26, "just have the
+    // upgrade event hub pro") — Event Hub Pro is the one Event Hub product. See RETIRED_HUB_PART_PRODUCT_IDS.
     'COUPLE_WEBSITE_PRO',
     'LIVE_STUDIO',
     // 🍎 The second wave — owner 2026-10-23, verbatim: "Add Setnayan AI, Music Maker, Patiktok, Thank You and Mood
@@ -178,16 +170,17 @@ test('Event Hub Pro’s product sells THE Pro key (the client-safe spelling equa
   assert.equal(iapProductForServiceKey(COUPLE_WEBSITE_PRO_SERVICE_KEY)?.productId, 'com.setnayan.app.event_hub_pro');
 });
 
-test('💎 the eleven part products sell exactly the eleven parts — one product a part, its own catalogue code', () => {
-  /* Held against the parts table: a part added or renamed without its product (or the reverse) fails here. */
-  const sold = IAP_HUB_PART_PRODUCTS.map((p) => p.serviceKey);
-  assert.deepEqual(sold, HUB_PARTS.map((p) => p.sku));
-  for (const p of IAP_HUB_PART_PRODUCTS) {
-    const part = HUB_PARTS.find((h) => h.sku === p.serviceKey)!;
-    assert.equal(p.productId, `com.setnayan.app.hub_part_${part.id}`, 'a part product id drifted from its part — ids are forever');
-    assert.equal(p.appStoreName, `Event Hub Pro · ${part.name}`);
-    assert.equal(p.kind, 'event-hub-part');
+test('🗑 the eleven part products are retired — sold by nothing, their ids kept so none is ever reused (owner 2026-10-26)', () => {
+  /* "and just have the upgrade event hub pro" … "i mean no more by part as well on the website." Held against the parts
+     table, so the retired list stays the one that was made in App Store Connect: one id a part, never drifted. */
+  assert.deepEqual(RETIRED_HUB_PART_SERVICE_KEYS, HUB_PARTS.map((p) => p.sku));
+  assert.deepEqual(RETIRED_HUB_PART_PRODUCT_IDS, HUB_PARTS.map((p) => `com.setnayan.app.hub_part_${p.id}`), 'a retired part id drifted — ids are forever');
+  for (const id of RETIRED_HUB_PART_PRODUCT_IDS) {
+    assert.equal(iapProductById(id), null, `${id} is sold again — Event Hub Pro is sold whole`);
+    assert.ok(!IAP_PRODUCT_IDS.includes(id), `${id} is asked of StoreKit`);
   }
+  for (const key of RETIRED_HUB_PART_SERVICE_KEYS) assert.equal(iapProductForServiceKey(key), null, `${key} has an App Store product again`);
+  assert.ok(!IAP_PRODUCTS.some((p) => /hub_part|COUPLE_HUB_PART/.test(p.productId + p.serviceKey)), 'a part product is back');
 });
 
 test('✦ Setnayan AI: one product per web tier — A keeps `setnayan_ai` (never renamed), E has none, each floored on its own row', async () => {

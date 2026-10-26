@@ -9,9 +9,6 @@ import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { useStudioActions } from './studio-actions-context';
 import { PrintPreview } from './print-preview';
 import { SP_LOOK_CARD, SP_LOOK_NAME, SP_PHONE_PICTURE } from '@/lib/maker-stage-room';
-import { BgCard, BgCards } from '../../website/editor/_components/background-cards';
-import { FormRow, FormRows } from '@/app/_components/form-row';
-import { StatusLine } from '@/app/_components/status-line';
 
 /**
  * 🎫 THE TICKET STYLE — ONE dropdown (Classic · Ticket · Photo poster) and
@@ -30,36 +27,19 @@ import { StatusLine } from '@/app/_components/status-line';
  * merges it into `print_details.pass_design` (`hub-draft-actions.ts`). The
  * old live door (`POST /api/hub-print/pass-design`) is gone.
  *
- * Drawn in two places, one component: the Guest's ticket scene's sheet (the
- * dropdown alone — the ticket is drawn on the page above it, `preview={false}`,
- * `onShown` tells the page which) and Prints (dropdown + picture).
+ * Drawn by the Guest's ticket scene's sheet (the dropdown alone — the ticket is
+ * drawn on the page above it, `preview={false}`, `onShown` tells the page which)
+ * and Style › Look (`cards`). Prints offers the same pick on the Digital ticket's
+ * slide (`usePassLookPick`, the same state and save) — no longer in Print settings.
  */
-export function PassCardDesignPicker({
-  eventId,
-  saved,
-  previews,
-  preview = true,
-  onShown,
-  cards = false,
-  studio = false,
-}: {
-  eventId: string;
-  /** The look the couple is editing — the drafted one when the draft holds it, else the live one. */
-  saved: PassCardDesign;
-  /** The card drawn in each look — `/api/hub-print/pass?…&pass_format=phone-card&pass_design=<key>`. */
-  previews: Readonly<Record<PassCardDesign, string>>;
-  /** Draw the card beside the dropdown (Prints). Off where the page above already draws it (the Guest's ticket scene). */
-  preview?: boolean;
-  /** The look on screen — every pick at once, and a refused one put back. */
-  onShown?: (design: PassCardDesign) => void;
-  /** 🧭 The new Maker's Style › Look: the looks as a row of PICTURES (each card its own ticket), not a dropdown. */
-  cards?: boolean;
-  /**
-   * 🧭 Studio › Prints (owner "approved" 2026-10-13, kind 5): the looks as the ONE style-card strip (`BgCards` / `BgCard` — 3:4, the
-   * picture edge to edge, the picked one ringed in the accent and centred), under a Form row that says the pick waits for Apply.
-   */
-  studio?: boolean;
-}) {
+/**
+ * 🎫 THE ONE TICKET-STYLE PICK — what is shown and how a pick saves, for every door that offers the three looks: this picker (the
+ * Guest's ticket scene's ▾, Style › Look's cards) and the Digital ticket's slide of the Prints carousel (owner 2026-10-26, verbatim:
+ * *"The 3 designs for the digital ticket should be on the carousel and not on settings."*, `studio-prints-carousel.tsx`). ONE state —
+ * the Maker's draft store (`draftedPassLookOr` / `noteDraftedPassLook`) — and ONE save (the Event Hub draft, waits for Apply); no
+ * door keeps a copy of its own.
+ */
+export function usePassLookPick(eventId: string, saved: PassCardDesign): { shown: PassCardDesign; pick: (key: string) => void; pending: boolean; error: string | null } {
   /* The Maker's draft door — the shipped action; only the dev lab hands in its stand-in (`studio-actions-context.tsx`), so a lab pick never reaches a real event. */
   const { hubDraftAction } = useStudioActions();
   /*
@@ -73,13 +53,6 @@ export function PassCardDesignPicker({
   const shown: PassCardDesign = PASS_CARD_DESIGNS.find((d) => d === read) ?? saved;
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
-  /* Tell the page which look is on screen whenever it changes — a pick, a refusal put back, or ↺ from the bar. */
-  const told = useRef<PassCardDesign>(shown);
-  useEffect(() => {
-    if (told.current === shown) return;
-    told.current = shown;
-    onShown?.(shown);
-  }, [shown, onShown]);
 
   const pick = (key: string) => {
     const design = PASS_CARD_DESIGNS.find((d) => d === key);
@@ -104,29 +77,37 @@ export function PassCardDesignPicker({
       }
     });
   };
+  return { shown, pick, pending, error };
+}
 
-  if (studio) {
-    return (
-      <div className="flex flex-col" data-pass-card-design={shown} data-pass-card-design-studio="" aria-busy={pending || undefined}>
-        <FormRows data="pass-style">
-          <FormRow name={PASS_CARD_WORDS.style} line="What each guest saves · waits for Apply" data="pass-style" />
-        </FormRows>
-        <BgCards label={PASS_CARD_WORDS.style} source="pass-style">
-          {PASS_CARD_DESIGNS.map((d) => (
-            <BgCard key={d} name={PASS_CARD_DESIGN_LABEL[d]} on={d === shown} onPick={() => pick(d)} data={d} swatch="white">
-              {/* eslint-disable-next-line @next/next/no-img-element -- the drawn ticket PNG, already warm */}
-              <img src={previews[d]} alt="" aria-hidden data-pass-card-design-pick={d} className="absolute inset-0 h-full w-full object-cover" loading="eager" />
-            </BgCard>
-          ))}
-        </BgCards>
-        {error ? (
-          <StatusLine tone="bad" data="pass-style">
-            {error}
-          </StatusLine>
-        ) : null}
-      </div>
-    );
-  }
+export function PassCardDesignPicker({
+  eventId,
+  saved,
+  previews,
+  preview = true,
+  onShown,
+  cards = false,
+}: {
+  eventId: string;
+  /** The look the couple is editing — the drafted one when the draft holds it, else the live one. */
+  saved: PassCardDesign;
+  /** The card drawn in each look — `/api/hub-print/pass?…&pass_format=phone-card&pass_design=<key>`. */
+  previews: Readonly<Record<PassCardDesign, string>>;
+  /** Draw the card beside the dropdown (Prints). Off where the page above already draws it (the Guest's ticket scene). */
+  preview?: boolean;
+  /** The look on screen — every pick at once, and a refused one put back. */
+  onShown?: (design: PassCardDesign) => void;
+  /** 🧭 The new Maker's Style › Look: the looks as a row of PICTURES (each card its own ticket), not a dropdown. */
+  cards?: boolean;
+}) {
+  const { shown, pick, pending, error } = usePassLookPick(eventId, saved);
+  /* Tell the page which look is on screen whenever it changes — a pick, a refusal put back, or ↺ from the bar. */
+  const told = useRef<PassCardDesign>(shown);
+  useEffect(() => {
+    if (told.current === shown) return;
+    told.current = shown;
+    onShown?.(shown);
+  }, [shown, onShown]);
 
   if (cards) {
     return (

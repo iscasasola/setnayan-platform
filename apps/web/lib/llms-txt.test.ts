@@ -214,7 +214,10 @@ test('the monogram no longer promises the LED background — and is no longer so
       "Event Hub PRO's Logo & QR part. Name /palogo \"Logo Maker\".",
   );
   assert.match(out, /\[Logo Maker\]\([^)]*\/palogo\)/, 'the /palogo link must name the product the page sells');
-  assert.match(out, /Logo & QR/, "the animation's real home (Event Hub PRO's Logo & QR part) must still be named");
+  // 2026-10-26 (owner, "just have the upgrade event hub pro"): the Logo & QR part is off sale too — the animation's
+  // home is Event Hub PRO itself, named on the Monogram Maker's own line.
+  assert.match(out, /\*\*Monogram Maker\*\* — free\.[^\n]*Event Hub PRO animates it/, "the animation's real home (Event Hub PRO) must still be named");
+  assert.ok(!/part by part|Logo & QR part/i.test(out), 'llms.txt still sells Event Hub PRO part by part');
   assert.ok(
     !/includes the LED Live Background/i.test(out),
     'llms.txt still claims the monogram includes the LED Live Background. The LED ' +

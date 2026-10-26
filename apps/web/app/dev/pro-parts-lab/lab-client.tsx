@@ -32,13 +32,20 @@ const FOUR = [
   effect('m', 'music', 'Your own song', 'Whole Event Hub'),
 ];
 
-const APPLE = [
-  effect('a', 'motion', 'Animation', 'Schedule'),
-  effect('t', 'motion', 'Transition', 'Scrub'),
-  effect('m', 'music', 'Your own song', 'Whole Event Hub'),
-];
-
-export function LabFrame({ frame, pricing, line }: { frame: string; pricing: ApplySheetPricing; line: MakerState['proLine'] }) {
+export function LabFrame({
+  frame,
+  pricing,
+  priceLabel,
+  line,
+  addressPricePhp,
+}: {
+  frame: string;
+  /** Null — the app, or no part on sale: the one-unlock sheet. */
+  pricing: ApplySheetPricing | null;
+  priceLabel: string | null;
+  line: MakerState['proLine'];
+  addressPricePhp: number | null;
+}) {
   const backdrop = (body: ReactNode) => (
     <div className="relative min-h-dvh bg-gradient-to-b from-[#d6cab8] to-[#b9a78f]">
       <p className="pt-40 text-center font-serif text-5xl text-white/90">Ana &amp; Miguel</p>
@@ -48,7 +55,7 @@ export function LabFrame({ frame, pricing, line }: { frame: string; pricing: App
   if (frame.startsWith('sheet')) {
     // 'sheet-held' — 📵 the store shell where Apple does not sell Pro: no effects, the held ◆ changes said neutrally.
     const held = frame === 'sheet-held';
-    const effects = frame === 'sheet-four' ? FOUR : frame === 'sheet-ready' || held ? [] : frame === 'sheet-apple' ? APPLE : TWO;
+    const effects = frame === 'sheet-four' ? FOUR : frame === 'sheet-ready' || held ? [] : TWO;
     return backdrop(
       <ApplyProSheet
         effects={effects}
@@ -60,8 +67,8 @@ export function LabFrame({ frame, pricing, line }: { frame: string; pricing: App
           { place: 'Invitation', what: 'Reply words', pro: false, held: false },
           { place: 'Love Story', what: 'Moment 3', pro: false, held: false },
         ]}
-        priceLabel={null}
-        proHref={frame === 'sheet-apple' ? '/dev/pro-parts-lab?frame=apple-parts&from=maker' : '/dev/pro-parts-lab?frame=parts-free&from=maker'}
+        priceLabel={priceLabel}
+        proHref={frame === 'sheet-apple' ? '/dev/pro-parts-lab?frame=apple&from=maker' : '/dev/pro-parts-lab?frame=parts-free&from=maker'}
         pending={false}
         onGo={noop}
         onRemove={noop}
@@ -83,7 +90,7 @@ export function LabFrame({ frame, pricing, line }: { frame: string; pricing: App
           saveAction={async () => undefined}
           owns={false}
           renamed={kept}
-          pricePhp={pricing.partPricePhp.address ?? null}
+          pricePhp={addressPricePhp}
           storeShell={false}
           drafted={frame === 'address-pick' ? 'ana-miguel-wedding' : null}
         />

@@ -5,6 +5,10 @@
  * Pure. The held effects (`hubDraftProEffects`, each tagged with ITS part) are grouped under their part, in the
  * parts' own order, each group priced from the catalogue figure the bar loader read; the subtotal, the rest to
  * everything and the two buttons follow the ONE rule in `hubApplyOffer`. No second list of what is Pro, no price typed.
+ *
+ * ⛔ PARTS ARE OFF SALE (owner 2026-10-26, "just have the upgrade event hub pro"): no part has an active catalogue row,
+ * so the bar hands no part price, `pricing` is null and the sheet is the one-unlock sheet. This stays only as the
+ * reader of the catalogue's switch — the iPhone app never sells parts (its Apple products are not attached).
  */
 import {
   HUB_PARTS,
@@ -22,12 +26,6 @@ export type ApplySheetPricing = {
   partPricePhp: Partial<Record<HubPartId, number>>;
   fullPricePhp: number | null;
   ownership: HubOwnershipView;
-  /**
-   * 🍎 The iPhone app 1.1 where Apple sells (flag-dark — `SetnayanIAP/2` + the owner's switch): NO web figure at all —
-   * the groups show no price, the buttons none either; Apple's own prices are shown on Apple's page (`/apple-pro`).
-   * "Everything" is not offered once any part is owned (owner 2026-10-22).
-   */
-  appleStore?: boolean;
 };
 
 /** With this many parts or more, each part is ONE line that opens its effects — the sheet never scrolls past 8 lines. */
@@ -79,10 +77,6 @@ export type ApplySheetButtons = {
   ownedNames: string[];
   partIds: HubPartId[];
   partsLabel: string;
-  /** 🍎 The app: no figures; "Everything" only while nothing is owned. */
-  appleStore?: boolean;
-  /** Is "everything" offered at all? Always on the web (its price is the rest); in the app only while nothing is owned. */
-  everythingOffered: boolean;
 };
 
 /**
@@ -93,27 +87,6 @@ export function applySheetButtons(
   pricing: ApplySheetPricing | null,
 ): ApplySheetButtons | null {
   if (!groups || !pricing) return null;
-  if (pricing.appleStore) {
-    const ownedApple = new Set(pricing.ownership.parts);
-    const idsApple = groups.parts.map((g) => g.part);
-    return {
-      lead: 'parts',
-      showParts: true,
-      everythingOffered: ownedApple.size === 0 && pricing.ownership.paidPhp === 0 && !pricing.ownership.full,
-      subtotalPhp: 0,
-      restPhp: 0,
-      morePhp: 0,
-      paidPhp: 0,
-      fullPhp: 0,
-      allParts: HUB_PARTS.length,
-      otherParts: HUB_PARTS.filter((p) => !ownedApple.has(p.id) && !idsApple.includes(p.id)).length,
-      partsWord: idsApple.length === 1 ? 'this one' : idsApple.length === 2 ? 'these two' : `these ${idsApple.length}`,
-      ownedNames: HUB_PARTS.filter((p) => ownedApple.has(p.id)).map((p) => p.name),
-      partIds: idsApple,
-      partsLabel: idsApple.length <= 2 ? hubPartsLabel(idsApple) : `these ${idsApple.length} parts`,
-      appleStore: true,
-    };
-  }
   if (pricing.fullPricePhp === null) return null;
   if (groups.parts.some((g) => g.pricePhp === null)) return null;
   const subtotal = groups.parts.reduce((sum, g) => sum + (g.pricePhp ?? 0), 0);
@@ -125,7 +98,6 @@ export function applySheetButtons(
   return {
     lead: offer.lead,
     showParts: offer.showParts,
-    everythingOffered: true,
     subtotalPhp: subtotal,
     restPhp: rest,
     morePhp: offer.more ?? 0,

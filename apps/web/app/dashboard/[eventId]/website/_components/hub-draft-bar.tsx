@@ -81,7 +81,7 @@ import { IconPill } from '../../launch/_components/icon-pill';
  * shell (`storeShell`) there is no price, no link and no pay path — a Pro key
  * is held and reads "◆ N waiting for Pro", with "Remove Pro changes" (owner 2026-10-08, "keep, marked"), and never
  * names the web (anti-steering, 3.1.1 — controller 2026-10-23). Where Apple sells Pro (`appleIap`) the dock hands
- * `storeShell: false` and the Apply sheet names the parts on Apple's sheet.
+ * `storeShell: false` and the Apply sheet asks for Event Hub Pro whole, on Apple's sheet (owner 2026-10-26).
  */
 
 export type HubDraftBarProps = {
@@ -107,7 +107,7 @@ export type HubDraftBarProps = {
   /** 💎 Each part's catalogue price and Full Pro's (`HubDraftBarData`) — the Apply sheet's groups and buttons. */
   partPricePhp?: Partial<Record<HubPartId, number>>;
   fullPricePhp?: number | null;
-  /** 🍎 Apple sells here (`HubDraftBarData.appleIap`) — the sheet names parts with no web figure. */
+  /** 🍎 Apple sells here (`HubDraftBarData.appleIap`) — the sheet asks for Event Hub Pro whole, with no web figure. */
   appleIap?: boolean;
   /**
    * 🧪 The door ↺ · ✓ · Restore · Reset go through. A real Maker hands none: it is `hubDraftAction`. The dev lab
@@ -640,12 +640,12 @@ export function HubDraftToolbar({
           onClose={() => setSheetOpen(false)}
           tour={applyTour}
           pricing={
-            appleIap
-              ? /* 🍎 1.1 where Apple sells (flag-dark): the parts by name, no web figure — Apple's page prices them. */
-                { partPricePhp: {}, fullPricePhp: null, ownership: ownership ?? { full: false, parts: [], paidPhp: 0, fullPricePhp: null }, appleStore: true }
-              : !storeShell && partPricePhp && Object.keys(partPricePhp).length > 0
-                ? { partPricePhp, fullPricePhp, ownership: ownership ?? { full: false, parts: [], paidPhp: 0, fullPricePhp: null } }
-                : null
+            /* 🍎 The app sells Event Hub Pro whole — never part by part (owner 2026-10-26: "just have the upgrade event
+               hub pro"); its sheet is the one-unlock sheet. On the web the parts follow the catalogue: none on sale →
+               no part price was read → the same one-unlock sheet. */
+            !storeShell && !appleIap && partPricePhp && Object.keys(partPricePhp).length > 0
+              ? { partPricePhp, fullPricePhp, ownership: ownership ?? { full: false, parts: [], paidPhp: 0, fullPricePhp: null } }
+              : null
           }
         />,
         document.body,

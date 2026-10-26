@@ -12,8 +12,7 @@ import { papicPassPointsForSku } from '@/lib/papic-pass-tiers';
 import { ADD_ONS } from '@/lib/add-ons-catalog';
 import { iapProductById, iapProductFitsAiTier, iapProductIsRepeatable, papicCreditsMatch } from './products';
 import { setnayanAiTierInApp } from './setnayan-ai-in-app.server';
-import { eventHubOwnership, eventOwnsHubPart } from '@/lib/couple-website-pro';
-import { hubPartOfSku } from '@/lib/hub-parts';
+import { eventHubOwnership } from '@/lib/couple-website-pro';
 import { verifyAppleTransaction } from './apple-transaction';
 import { createPurchaseIntent, fulfilAppleTransaction, type FulfilOutcome } from './fulfil.server';
 import { startRefusal, type IapStartResult, type IapConfirmResult, type IapRestoreResult } from './iap-outcome';
@@ -104,13 +103,11 @@ export async function startAppStorePurchase(input: {
 
   // 🔒 Owned is never sold twice (prototype frames 10 · 11). Credits (Papic) are
   // consumable and always buyable; Pro, Live Watch and every 'event-unlock' are one per event.
-  // 💎 Part by part (owner 2026-10-22): a part is owned by its own order, Full Pro or the cap — and "everything" is
-  // not sold in the app once ANY part is owned (it would charge the full Apple price for what is less on the web,
-  // and the app may not say so); the event finishes on the web.
-  if (product.kind === 'event-hub-part') {
-    const part = hubPartOfSku(product.serviceKey);
-    if (!part || (await eventOwnsHubPart(admin, eventId, part))) return startRefusal('owned');
-  } else if (product.kind === 'event-hub-pro') {
+  // ⛔ Event Hub Pro is sold WHOLE (owner 2026-10-26, "just have the upgrade event hub pro"): the part products are
+  // retired out of `IAP_PRODUCTS`, so one is an unknown product above. "Everything" is not sold in the app once ANY
+  // part is owned (it would charge the full Apple price for what is less on the web, and the app may not say so);
+  // such an event finishes on the web.
+  if (product.kind === 'event-hub-pro') {
     const own = await eventHubOwnership(admin, eventId, 'owned');
     if (own.full) return startRefusal('owned');
     if (own.parts.size > 0 || own.paidPhp > 0) return startRefusal('not_on_sale');

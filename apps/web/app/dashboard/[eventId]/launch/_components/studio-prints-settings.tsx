@@ -14,7 +14,7 @@ import { PaidMark } from '@/app/_components/paid-mark';
 import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
 import { HUB_LOOK_PRO_NOTE, HUB_LOOK_ROW } from '@/lib/studio-hub-look-row';
 import type { StudioPaper } from './print-paper';
-import { setPrintSettingsOpen, usePrintSettingsOpen, useRegisterSlide, type AllInOneF } from './prints-view-store';
+import { setPrintSettingsOpen, usePrintSettingsOpen, useRegisterSlide, type AllInOneF, type SlideTicketStyle } from './prints-view-store';
 export type { AllInOneF } from './prints-view-store';
 
 /**
@@ -253,6 +253,7 @@ export function StudioGuestPiece({
   pickNoun = null,
   printed,
   tip,
+  ticketStyle,
 }: {
   eventId: string;
   item: string;
@@ -276,9 +277,12 @@ export function StudioGuestPiece({
   pickNoun?: PickNoun | null;
   printed?: { eventId: string; piece: string; version: string | null };
   tip?: string;
+  /** 🎫 The Digital ticket's three looks (Classic · Ticket · Photo poster) — its slide's Style ▾ (owner 2026-10-26). */
+  ticketStyle?: SlideTicketStyle;
 }) {
   useRegisterSlide(item, 'guest-piece', {
     printed,
+    ...(ticketStyle ? { ticketStyle } : {}),
     name,
     line,
     paper,

@@ -677,19 +677,31 @@ export async function createTaxonomyNode(formData: FormData) {
 export async function createCanonicalLeaf(formData: FormData) {
   const user = await requireAdmin();
   const tileId = String(formData.get('tile_id') ?? '').trim();
+  const label = String(formData.get('display_name_en') ?? '').trim();
+  const isRental = formData.get('is_rental') === 'on';
+  const isPh = formData.get('is_ph') === 'on';
+  const isTradition = formData.get('is_tradition') === 'on';
+  const faith = String(formData.get('faith') ?? '').trim();
+  const refinementLabel = String(formData.get('refinement_label') ?? '').trim();
+  const refinementOptions = String(formData.get('refinement_options') ?? '').trim();
   if (!tileId) throw new Error('Missing tile_id');
+  // Said here as well as in the core, so the form refuses before a round trip and the admin-jobs
+  // checklist (lib/admin-map) still reads this field's refusal off the action.
+  if (label.length < 2 || label.length > 80) {
+    redirectBack(formData, 'error', 'Service name must be 2–80 characters.');
+  }
   // The one rule for "a new service" — shared with the map's in-place "＋ Add a service" row
   // (`addServiceCore`, _components/taxonomy-writes.ts): faith validated against faith_vocab, schema
   // then placement with a rollback, last among its category's services.
   const res = await addServiceCore(createAdminClient(), user.id, {
     tileId,
-    label: String(formData.get('display_name_en') ?? ''),
-    faith: String(formData.get('faith') ?? ''),
-    isPh: formData.get('is_ph') === 'on',
-    isRental: formData.get('is_rental') === 'on',
-    isTradition: formData.get('is_tradition') === 'on',
-    refinementLabel: String(formData.get('refinement_label') ?? ''),
-    refinementOptions: String(formData.get('refinement_options') ?? ''),
+    label,
+    faith,
+    isPh,
+    isRental,
+    isTradition,
+    refinementLabel,
+    refinementOptions,
   });
   if (!res.ok) redirectBack(formData, 'error', res.error);
   revalidatePath(BASE);

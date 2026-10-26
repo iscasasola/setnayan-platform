@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6716
+# facts: 6717
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     571
-#   col       4925
+#   col       4926
 #   policy    953
 #   view      9
 #   func      254
@@ -832,6 +832,7 @@ col	public.canonical_service_taxonomy.marketplace_hidden	anon=SIU authenticated=
 col	public.canonical_service_taxonomy.merged_into	anon=SIU authenticated=SIU
 col	public.canonical_service_taxonomy.phase	anon=SIU authenticated=SIU
 col	public.canonical_service_taxonomy.secondary_tiles	anon=SIU authenticated=SIU
+col	public.canonical_service_taxonomy.sort_order	anon=SIU authenticated=SIU
 col	public.canonical_service_taxonomy.tile_id	anon=SIU authenticated=SIU
 col	public.canonical_service_taxonomy.updated_at	anon=SIU authenticated=SIU
 col	public.chat_message_flags.action_taken	anon=- authenticated=SIU

@@ -70,9 +70,14 @@ test('1 · the door is one 44 px icon-only ⚙ named for its menu', async () => 
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { MenuSettingsButton } = await import('./menu-settings-button');
   for (const menu of SETTINGS_MENUS) {
-    const html = renderToStaticMarkup(
-      React.createElement(MenuSettingsButton, { menu, open: false, onOpenChange: () => {}, children: React.createElement('p', null, 'rows') }),
-    );
+    // The rows are the sheet's required `children`; typed as the component's own props.
+    const props: React.ComponentProps<typeof MenuSettingsButton> = {
+      menu,
+      open: false,
+      onOpenChange: () => {},
+      children: React.createElement('p', null, 'rows'),
+    };
+    const html = renderToStaticMarkup(React.createElement(MenuSettingsButton, props));
     assert.equal(count(html, /<button\b/g), 1, `${menu}: the door is not exactly one button`);
     assert.equal(count(html, new RegExp(`data-menu-settings="${menu}"`, 'g')), 1, `${menu}: the door is not marked`);
     assert.match(html, new RegExp(`aria-label="${SETTINGS_ENTRY[menu].sheet}"`), `${menu}: the ⚙ is not named "${SETTINGS_ENTRY[menu].sheet}"`);

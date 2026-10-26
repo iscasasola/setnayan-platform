@@ -21,6 +21,7 @@ import {
   fetchVendorValidateContacts,
 } from '@/lib/platform-settings';
 import { getLoaderSettings } from '@/lib/loader-settings';
+import { readCardPriceBandTolerance, toleranceToPercent } from '@/lib/card-price-band-tolerance';
 import { removeBrandIcon, saveBusinessIdentity } from '@/app/admin/settings/actions';
 import { TinInput } from '@/app/admin/settings/_components/tin-input';
 import { BrandIconUploadForm } from '@/app/admin/settings/_components/brand-icon-form';
@@ -68,6 +69,9 @@ export async function SettingsSurface({ searchParams }: Props) {
     await fetchPlatformSettingsMeasured(admin);
   // Soft probe (degrades to defaults pre-migration 20270503417266).
   const validateContacts = await fetchVendorValidateContacts(admin);
+  // Service card checks (owner 2026-10-26) — its own read, never the FALLBACK row: a refused read must not show
+  // "off" and let Save write blank over the owner's number.
+  const cardTolerance = await readCardPriceBandTolerance(admin);
   // Loader appearance (owner 2026-07-05; degrades to DEFAULT pre-migration
   // 20270520000000).
   const loaderConfig = await getLoaderSettings();
@@ -199,6 +203,28 @@ export async function SettingsSurface({ searchParams }: Props) {
               step={1}
               required
               defaultValue={settings.repost_watch_hamming_threshold}
+              className="input-field"
+            />
+          </Field>
+          <Field
+            label="Price-band tolerance for new cards (%)"
+            htmlFor="card_price_band_tolerance_pct"
+            help={
+              cardTolerance.ok
+                ? 'A new or edited service card waits for a quick check when its price sits more than this far below the low end of its service’s price band. Blank = the price check is off.'
+                : 'Couldn’t read the current value — leave this as it is and try again in a moment.'
+            }
+          >
+            <input
+              id="card_price_band_tolerance_pct"
+              name={cardTolerance.ok ? 'card_price_band_tolerance_pct' : undefined}
+              type="number"
+              min={0}
+              max={100}
+              step="0.1"
+              placeholder="Off"
+              disabled={!cardTolerance.ok}
+              defaultValue={cardTolerance.ok ? toleranceToPercent(cardTolerance.tolerance) : ''}
               className="input-field"
             />
           </Field>

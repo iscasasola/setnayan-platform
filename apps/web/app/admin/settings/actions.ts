@@ -22,6 +22,7 @@ import {
   describeAccountChange,
 } from '@/lib/payment-destination';
 import { fetchPlatformSettingsMeasured } from '@/lib/platform-settings';
+import { percentToTolerance } from '@/lib/card-price-band-tolerance';
 import {
   PAY_CHANNELS,
   isPayChannel,
@@ -146,6 +147,28 @@ export async function saveBusinessIdentity(formData: FormData) {
   revalidateTag(GLOBAL_SETTINGS_TAGS.platformSettings);
   if (error) {
     return redirect(`/admin/settings?tab=settings&error=${encodeURIComponent(plainRefusal('AdminSettingsActions', error))}`);
+  }
+
+  // Service card checks — the price tolerance (migration 20271290013489; owner 2026-10-26: "admin-set tolerance in
+  // platform settings, OFF until set — no guessed number"). Its OWN update, and only when the box was on the form:
+  // the surface omits the field's name when it could not read the current value, so an unread value is never
+  // overwritten with blank. Blank = OFF (NULL).
+  if (formData.has('card_price_band_tolerance_pct')) {
+    const tol = percentToTolerance(formData.get('card_price_band_tolerance_pct'));
+    if (!tol.ok) {
+      return redirect(
+        `/admin/settings?tab=settings&error=${encodeURIComponent('Business identity saved, but the card price tolerance must be a number from 0 to 100, or blank for off.')}`,
+      );
+    }
+    const { error: tolErr } = await admin
+      .from('platform_settings')
+      .update({ card_price_band_tolerance: tol.value, updated_at: new Date().toISOString() })
+      .eq('id', 1);
+    if (tolErr) {
+      return redirect(
+        `/admin/settings?tab=settings&error=${encodeURIComponent(`Business identity saved, but the card price tolerance couldn't save. Try again.${logRefusal('AdminSettingsActions (card price tolerance)', tolErr)}`)}`,
+      );
+    }
   }
 
   // Vendor VALIDATE destinations (migration 20270503417266) — saved in a

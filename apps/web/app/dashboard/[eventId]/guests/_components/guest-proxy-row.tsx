@@ -89,8 +89,8 @@ export function GuestProxyRow({
       <div data-guest-proxy="" data-guest-proxy-state="represented" onInput={stop} onChange={stop} className="contents">
         <FormRow
           name="Proxy"
-          about={{ words: `${rep.name} comes in ${firstName}’s place: their seat, the role’s dress code and call time. ${firstName} keeps the role and is counted once, as ${rep.name}.` }}
-          line={`${RSVP_ROW_WORDS[rep.rsvp as RsvpStatus] ?? ''} · they count for ${firstName}`}
+          about={{ words: `${rep.name} comes in ${firstName}’s place: their seat, the role’s dress code and call time. ${firstName} keeps the role and is counted once, as ${rep.name} — with ${rep.name}’s reply.` }}
+          line={RSVP_ROW_WORDS[rep.rsvp as RsvpStatus] ?? null}
           problem={problem}
           data="card-proxy"
           attrs={{ 'data-card-field': 'proxy' }}

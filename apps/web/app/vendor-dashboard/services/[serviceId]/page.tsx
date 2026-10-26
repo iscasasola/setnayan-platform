@@ -82,6 +82,7 @@ export default async function EditServiceCardPage({
   // SECURITY DEFINER and says only yes/no). An unread answer draws the switch as waiting: the database refuses a
   // held card going live anyway, so "waits" is the honest reading of "we could not ask".
   const { data: heldAnswer, error: heldErr } = await supabase.rpc('service_card_held', { p_service_id: serviceId });
+  if (heldErr) console.error('[supabase-error] services/[serviceId] · rpc:service_card_held', heldErr);
   const held = heldErr ? !card.editing.isActive : heldAnswer === true;
   const kindName = ctx.kindLabel(card.category);
 

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "788b7e11c4",
+  "generatedFromRef": "4a317514a7",
   "routeCount": 473,
-  "destinations": 1013,
+  "destinations": 1014,
   "actions": 662,
-  "blocks": 7111,
+  "blocks": 7113,
   "routes": {
     "/": {
       "files": [
@@ -14964,6 +14964,7 @@
         "vendor-dashboard/services/_components/coverage-panel.tsx",
         "vendor-dashboard/services/_components/customization-step.tsx",
         "vendor-dashboard/services/_components/halls-uses-pick.tsx",
+        "vendor-dashboard/services/_components/held-card-box.tsx",
         "vendor-dashboard/services/_components/manager-tabs.tsx",
         "vendor-dashboard/services/_components/payment-schedule-editor.tsx",
         "vendor-dashboard/services/_components/pricing-basis-editor.tsx",
@@ -14984,6 +14985,7 @@
       "destinations": [
         "/vendor-dashboard/attributes",
         "/vendor-dashboard/packages",
+        "/vendor-dashboard/services/[seg]",
         "/vendor-dashboard/services/new/[seg]?from=[seg]",
         "/vendor-dashboard/subscription"
       ],
@@ -15038,9 +15040,11 @@
         "GridCard",
         "HTMLDivElement",
         "HTMLFormElement",
+        "HeldCardBox",
         "Icon",
         "IncludedFlags",
         "InclusionsEditor",
+        "InfoTip",
         "KindGroup",
         "KindRow",
         "LastMinuteFields",

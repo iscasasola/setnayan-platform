@@ -69,7 +69,10 @@ async function readPhotoMatches(
     .eq('flagged_vendor_id', vendorProfileId)
     .eq('status', 'open')
     .in('flagged_r2_ref', refs);
-  if (error || !data) return null;
+  if (error || !data) {
+    console.error('[supabase-error] lib/service-card-checks.server.ts · from:vendor_image_flags.select', error);
+    return null;
+  }
   return (data as { public_id: string; flagged_r2_ref: string; hamming_distance: number }[]).map((r) => ({
     imageFlagPublicId: r.public_id,
     hamming: Number(r.hamming_distance),
@@ -83,7 +86,10 @@ async function readBand(admin: Admin, vendorProfileId: string, category: string)
     .select('hq_region')
     .eq('vendor_profile_id', vendorProfileId)
     .maybeSingle();
-  if (vpErr) return null;
+  if (vpErr) {
+    console.error('[supabase-error] lib/service-card-checks.server.ts · from:vendor_profiles.select', vpErr);
+    return null;
+  }
   const hq = ((vp as { hq_region?: string | null } | null)?.hq_region ?? '').trim();
   // The same region key `recompute_market_price_bands()` writes: the canonical slug, else the stored spelling.
   const region = resolveRegion(hq)?.slug ?? (hq || null);
@@ -95,7 +101,10 @@ async function readBand(admin: Admin, vendorProfileId: string, category: string)
     .eq('region_slug', region)
     .eq('pax_bucket', PAX_ALL)
     .maybeSingle();
-  if (error) return null;
+  if (error) {
+    console.error('[supabase-error] lib/service-card-checks.server.ts · from:market_price_bands.select', error);
+    return null;
+  }
   if (!data) return 'none';
   const b = data as { low_php: number | string; median_php: number | string; high_php: number | string; sample_n: number };
   return {
@@ -114,7 +123,13 @@ async function readServiceWords(admin: Admin, category: string): Promise<CardChe
     admin.from('canonical_service_aliases').select('phrase, canonical_service').not('reviewed_at', 'is', null),
     admin.from('canonical_service_taxonomy').select('canonical_service, merged_into').not('merged_into', 'is', null),
   ]);
-  if (schemas.error || aliases.error || merges.error || !schemas.data || !aliases.data || !merges.data) return null;
+  if (schemas.error || aliases.error || merges.error || !schemas.data || !aliases.data || !merges.data) {
+    console.error(
+      '[supabase-error] lib/service-card-checks.server.ts · from:canonical_service_schemas/aliases/taxonomy.select',
+      schemas.error ?? aliases.error ?? merges.error,
+    );
+    return null;
+  }
 
   const mergedInto = new Map<string, string>();
   for (const m of merges.data as { canonical_service: string; merged_into: string | null }[]) {
@@ -150,14 +165,15 @@ async function readServiceWords(admin: Admin, category: string): Promise<CardChe
 }
 
 async function readClaimWords(admin: Admin, vendorProfileId: string): Promise<CardCheckContext['claimWords']> {
-  const [words, allowances] = await Promise.all([
-    admin.from('card_claim_words').select('phrase'),
-    admin.from('card_claim_word_allowances').select('phrase').eq('vendor_profile_id', vendorProfileId),
-  ]);
-  if (words.error || allowances.error || !words.data || !allowances.data) return null;
+  void vendorProfileId; // the per-shop allowance read joins here with the admin Cards tab (PR 3), which writes it
+  const words = await admin.from('card_claim_words').select('phrase');
+  if (words.error || !words.data) {
+    console.error('[supabase-error] lib/service-card-checks.server.ts · from:card_claim_words.select', words.error);
+    return null;
+  }
   return {
     words: (words.data as { phrase: string }[]).map((w) => w.phrase),
-    allowed: new Set((allowances.data as { phrase: string }[]).map((a) => a.phrase)),
+    allowed: new Set<string>(),
   };
 }
 
@@ -272,7 +288,10 @@ export async function readHoldingFlag(serviceId: string): Promise<HoldingFlag | 
       .eq('subject_service_id', serviceId)
       .in('status', ['open', 'asked_to_fix', 'rejected'])
       .maybeSingle();
-    if (error) return undefined;
+    if (error) {
+      console.error('[supabase-error] lib/service-card-checks.server.ts · from:integrity_flags.select', error);
+      return undefined;
+    }
     return (data as HoldingFlag | null) ?? null;
   } catch {
     return undefined;
@@ -307,6 +326,7 @@ export async function holdServiceCard(args: {
   };
   if (args.existing) {
     const { error } = await admin.from('integrity_flags').update(row).eq('id', args.existing.id);
+    if (error) console.error('[supabase-error] lib/service-card-checks.server.ts · from:integrity_flags.update', error);
     return !error;
   }
   const { error } = await admin.from('integrity_flags').insert({
@@ -315,6 +335,7 @@ export async function holdServiceCard(args: {
     subject_vendor_id: args.vendorProfileId,
     subject_service_id: args.serviceId,
   });
+  if (error) console.error('[supabase-error] lib/service-card-checks.server.ts · from:integrity_flags.insert', error);
   return !error;
 }
 
@@ -331,6 +352,7 @@ export async function clearServiceCardHold(flag: HoldingFlag): Promise<boolean> 
     })
     .eq('id', flag.id)
     .in('status', ['open', 'asked_to_fix']);
+  if (error) console.error('[supabase-error] lib/service-card-checks.server.ts · from:integrity_flags.update (clear)', error);
   return !error;
 }
 

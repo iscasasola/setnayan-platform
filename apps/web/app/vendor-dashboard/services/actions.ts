@@ -1865,6 +1865,7 @@ export async function commitVendorService(formData: FormData) {
         .select('label')
         .eq('vendor_service_id', serviceId as string)
         .eq('vendor_profile_id', profile.vendor_profile_id);
+      if (addonReadErr) console.error('[supabase-error] commitVendorService · from:vendor_service_addons.select', addonReadErr);
       addonLabels = addonReadErr ? null : ((addonRows ?? []) as { label: string }[]).map((r) => r.label);
     }
     const check = await checkServiceCard({

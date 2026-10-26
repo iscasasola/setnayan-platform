@@ -5,7 +5,8 @@ PR 2 of the approved PLAN's order (corpus `prototypes/service_card_checks_2026-1
 
 - `lib/service-card-checks.ts` (pure) + `.server.ts` (reads, flag write): photo (open repost-watch matches on the
   card's cover and showcase), price BELOW the band only (OFF until the owner sets the tolerance), card-vs-service
-  mismatch (reviewed search words, both halves), claim words (admin list minus the shop's allowances). Unverified
+  mismatch (reviewed search words, both halves), claim words (admin list; the per-shop allowance read joins with PR 3,
+  which writes it). Unverified
   shop is never a hold. **Fail-closed**: a read the check could not make holds the card ("We couldn't finish the
   automatic check").
 - `commitVendorService`: checks run after every bounce and before the one write; a hit saves the card hidden
@@ -16,8 +17,9 @@ PR 2 of the approved PLAN's order (corpus `prototypes/service_card_checks_2026-1
 - The three drawn supplier deltas only: the gold "Saved · waiting for a quick check" box replacing the sage one, the
   row word "· waiting for a check" (switch greys, title "Waits for the check"), and the maker helper
   "Waits for the check · hidden cards keep their bookings". The switch asks the hold first.
-- New in-app notice type `service_card_check` registered (label "Card check", amber).
+- New in-app notice type `service_card_check`: enum migration `20271290823350` (its own file) + the TS union, label
+  "Card check", amber — not on the email allowlist.
 - Tests: `lib/service-card-checks.test.ts` (20), `lib/service-card-check-copy.test.ts` (6),
   `app/vendor-dashboard/services/card-checks-run-inside-the-save.test.ts` (5) — each guard sabotaged red → restored.
 
-SPEC IMPACT: None new — implements DECISION_LOG 2026-10-26 "APPROVED — SERVICE CARD CHECKS AS DRAWN".
+SPEC IMPACT: corpus `prototypes/service_card_checks_2026-10-26/PLAN.md` gains a "What was built" section; implements DECISION_LOG 2026-10-26 "APPROVED — SERVICE CARD CHECKS AS DRAWN" (no new decision).

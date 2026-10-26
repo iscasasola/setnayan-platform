@@ -3412,7 +3412,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     implementedBy:
       'integrity_flags.subject_service_id → vendor_services CASCADE · card_claim_words (phrase PK, lower-case) · platform_settings.card_price_band_tolerance (NULL = off) · service_card_held() SECURITY DEFINER · enforce_service_publish_gate hold arm',
     writtenBy:
-      'the seed (the owner\u2019s six words) · /admin/settings (the tolerance) · the save and the admin Cards tab as they land (service card checks PRs 2–3)',
+      'commitVendorService via lib/service-card-checks.server.ts (opens / refreshes / clears the hold — a resave that passes clears an open or asked-to-fix hold, never a rejected one) · the repost-watch after() in the same save (the late photo hold, cover + showcase) · the seed (the owner\u2019s six words) · /admin/settings (the tolerance) · the admin Cards tab (PR 3)',
     guardedBy:
       'enforce_service_publish_gate refuses a held card going live except for is_admin() or the app.service_card_verdict door · integrity_flags + card_claim_words admin-only RLS · tests/db/a-held-card-waits-for-the-check.db.test.ts',
     traps:

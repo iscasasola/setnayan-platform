@@ -119,7 +119,7 @@ export const STUDIO_INSPIRATION_SLOTS: readonly StudioInspirationSlot[] = [
      🧒 Flower girl · Ring bearer: no palette button. The two share ONE palette (`bearers_flower_girl`),
      so "use this board's colours" from either would overwrite the other's — shown, never applied. */
   { slotKey: 'bride', label: 'Bridal gown', from: 'gown designers and make-up artists', target: { kind: 'role', key: 'bride' }, useLabel: 'Use for the bride’s colours', attire: true },
-  { slotKey: 'groom', label: 'Groom’s suit', from: 'suit and barong makers', target: { kind: 'none' }, useLabel: null, attire: true },
+  { slotKey: 'groom', label: 'Groom’s attire', from: 'suit and barong makers', target: { kind: 'none' }, useLabel: null, attire: true },
   { slotKey: 'bridesmaids', label: 'Bridesmaids', from: 'dress and Filipiniana makers', target: { kind: 'role', key: 'bridesmaids' }, useLabel: 'Use for the bridesmaids', attire: true },
   { slotKey: 'groomsmen', label: 'Groomsmen', from: 'suit and barong makers', target: { kind: 'role', key: 'groomsmen' }, useLabel: 'Use for the groomsmen', attire: true },
   { slotKey: 'flower_girl', label: 'Flower girl', from: 'dress and Filipiniana makers', target: { kind: 'none' }, useLabel: null, attire: true, beside: 'bearers_flower_girl' },
@@ -249,7 +249,7 @@ export function palettePhotoParts(parts: InspirationPartsSnapshot): PhotoPart[] 
   return studioPhotoParts(parts, false, false);
 }
 
-/** The Palette's parts, then the Attire boards (Bridal gown · Groom’s suit · Bridesmaids · …) — the supplier's order. */
+/** The Palette's parts, then the Attire boards (Bridal gown · Groom’s attire · Bridesmaids · …) — the supplier's order. */
 export function libraryPhotoParts(parts: InspirationPartsSnapshot): PhotoPart[] {
   return studioPhotoParts(parts, true, true);
 }

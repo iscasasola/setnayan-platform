@@ -107,15 +107,19 @@ export const GALLERY_SLOT_KEYS: readonly MoodboardSlotKey[] = MOODBOARD_SLOT_KEY
 );
 
 /**
- * The canonical service keys a slot's trades cover, de-duped.
+ * The canonical service keys that may add a photo to a slot, de-duped.
  *
- * DERIVED from the tiles above via lib/vendor-counts. MB11's "which trades may
- * upload to this slot" gate reads exactly this — never its own copy.
+ * 🧩 ③a: the part's OWN services (`inspiration_part_services`, read into the snapshot) — the same
+ * `canonical_service` a shop sells, linked one by one by an admin. Only the fallback snapshot (no table read,
+ * `services: null`) derives them from the part's categories via lib/vendor-counts, which is exactly how the
+ * table was backfilled. MB11's "which trades may upload to this slot" gate reads exactly this — never its own copy.
  */
 export function canonicalServicesForSlot(
   slot: string,
   parts: InspirationPartsSnapshot,
 ): string[] {
+  const part = inspirationPart(parts, slot);
+  if (part && part.services !== null) return part.kind === 'system' ? [] : [...new Set(part.services)];
   const out = new Set<string>();
   for (const tile of tradesForSlot(slot, parts)) {
     for (const canonical of canonicalServicesForTile(tile)) out.add(canonical);

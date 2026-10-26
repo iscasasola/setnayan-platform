@@ -70,13 +70,25 @@ test('⭐ a jeweller sees nothing — until an admin adds a Jewellery part, and 
     source: 'db',
     parts: [
       ...before.parts,
-      { slotKey: 'jewellery', label: 'Jewellery', kind: 'part', homeCategoryId: 'jewelleries_accessories', alsoCategoryIds: [], hidden: false, sortOrder: 300 },
+      { slotKey: 'jewellery', label: 'Jewellery', kind: 'part', homeCategoryId: 'jewelleries_accessories', alsoCategoryIds: [], services: null, hidden: false, sortOrder: 300 },
     ],
   };
   assert.deepEqual(listed(jeweller, after), ['jewellery']);
   assert.equal(slotUploadVerdict('jewellery', jeweller, after).allowed, true);
   /* …and the florist's list is untouched by it. */
   assert.deepEqual(listed(shopOf('florist'), after), listed(shopOf('florist'), before));
+
+  /* 🌳 ③a: a DB part's SERVICES are the door, not its home. Homed on Jewelleries but linking none of its services → the
+     jeweller is refused; homed on a stylist's category but linking one jewellery service → that jeweller is let in. */
+  const byServices = (home: string, services: string[]): InspirationPartsSnapshot => ({
+    source: 'db',
+    parts: [
+      ...before.parts,
+      { slotKey: 'jewellery', label: 'Jewellery', kind: 'part', homeCategoryId: home, alsoCategoryIds: [], services, hidden: false, sortOrder: 300 },
+    ],
+  });
+  assert.equal(slotUploadVerdict('jewellery', jeweller, byServices('jewelleries_accessories', [])).allowed, false, 'a home with no linked service let a jeweller in');
+  assert.equal(slotUploadVerdict('jewellery', jeweller, byServices('stylist_decorator', [jeweller[0]!])).allowed, true, 'a linked jewellery service did not let the jeweller in');
 });
 
 test('a part the snapshot moves to another category moves with it — the access is the snapshot’s, never the consts’', () => {

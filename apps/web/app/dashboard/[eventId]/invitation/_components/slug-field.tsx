@@ -322,6 +322,9 @@ export function AddressField({
   };
   const price = pricePhp !== null ? formatPhp(pricePhp) : null;
   const offered = owns || !storeShell;
+  /* What renaming needs, said where no part is on sale — never named in the store shell (a couple there without the
+     address sees no paid row at all: `offered`). */
+  const needs = storeShell ? null : 'Event Hub Pro';
   return (
     <div data-address-field={owns ? 'owned' : renamed ? 'kept' : 'free'} className="space-y-3">
       <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">Address</p>
@@ -380,7 +383,7 @@ export function AddressField({
                   <>Old links keep working for {slugForwardingLabel()}.</>
                 ) : (
                   <>
-                    <b className="font-semibold text-ink">◆ Goes live when you Apply</b> — {price ? `Custom address ${price}, or everything.` : 'with Event Hub Pro.'}
+                    <b className="font-semibold text-ink">◆ Goes live when you Apply</b> — {price ? `Custom address ${price}, or everything.` : `with ${needs}.`}
                     Until then guests use the link above, and it keeps forwarding for {slugForwardingLabel()} after.
                   </>
                 )}
@@ -391,8 +394,8 @@ export function AddressField({
               {owns
                 ? `Your old link keeps forwarding for ${slugForwardingLabel()}.`
                 : renamed
-                  ? `Your current address stays yours for free. Choosing a new one is ${price ? 'the Custom address part, or everything' : 'part of Event Hub Pro'}. The old one keeps forwarding for ${slugForwardingLabel()}.`
-                  : `${price ? 'Part of everything, too.' : 'Part of Event Hub Pro.'} Your old link keeps forwarding for ${slugForwardingLabel()}.`}
+                  ? `Your current address stays yours for free. Choosing a new one is ${price ? 'the Custom address part, or everything' : `part of ${needs}`}. The old one keeps forwarding for ${slugForwardingLabel()}.`
+                  : `${price ? 'Part of everything, too.' : `Part of ${needs}.`} Your old link keeps forwarding for ${slugForwardingLabel()}.`}
             </p>
           )}
         </div>

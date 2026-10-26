@@ -28,7 +28,11 @@ SALE. Their ownership stays, so a part already paid for keeps working and still 
 - **Two sellers that skipped the switch, found and fixed.** The Monogram page and the Panood setup card priced the Logo
   & QR part through `formatV2Sku`, which never reads `is_active`. They would have kept a ₱500 part button after the
   flip. Now Monogram sells Event Hub Pro in place ("Unlock Event Hub Pro"), and Panood says "In Event Hub Pro · ₱…".
-- **The address field** names Event Hub Pro, not "the Custom address part", when no part price is read.
+- **The address field** names Event Hub Pro, not "the Custom address part", when no part price is read (never in the
+  store shell).
+- **llms.txt** (what AI assistants read) drops the eleven part codes and the "Or part by part …" sentence. Quoting a
+  retired row throws and drops the whole file to its stub, so this had to ship with the migration. Its fixture marks
+  the parts inactive.
 - `/dev/pro-parts-lab` draws every frame in both states (`&sale=off` = today), and its Apple frames are now `apple` and
   `apple-on`.
 - Guards:

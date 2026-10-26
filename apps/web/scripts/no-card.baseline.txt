@@ -2,7 +2,7 @@
 # radius (rounded-lg|xl|2xl|3xl|card|tile). GENERATED — never hand-edit:
 #   node apps/web/scripts/lint-no-card.mjs --update-baseline
 # A RATCHET: a count may fall, never rise; a file not listed may hold none.
-# 662 files · 1816 lines
+# 651 files · 1770 lines
 2 apps/web/app/_components/account-switcher/account-switcher.tsx
 3 apps/web/app/_components/alaala/lens-body.tsx
 1 apps/web/app/_components/amendment-builder.tsx
@@ -37,8 +37,7 @@
 1 apps/web/app/_components/negotiation-card-shell.tsx
 1 apps/web/app/_components/negotiation-composer-menu.tsx
 1 apps/web/app/_components/nfc-write-button.tsx
-2 apps/web/app/_components/notifications/notifications-list.tsx
-4 apps/web/app/_components/pabuya/pabuya-card-list.tsx
+3 apps/web/app/_components/pabuya/pabuya-card-list.tsx
 1 apps/web/app/_components/payment-plan-stepper.tsx
 6 apps/web/app/_components/payment/payment-rails.tsx
 1 apps/web/app/_components/plan3d/booth-vendor-card.tsx
@@ -81,8 +80,7 @@
 3 apps/web/app/(shell)/papic/_papic-scan.tsx
 1 apps/web/app/(shell)/papic/_papic-sections.tsx
 5 apps/web/app/(shell)/papic/page.tsx
-3 apps/web/app/(shell)/pricing/_papic-estimator.tsx
-6 apps/web/app/(shell)/pricing/page.tsx
+1 apps/web/app/(shell)/pricing/page.tsx
 1 apps/web/app/(shell)/realstories/page.tsx
 1 apps/web/app/[slug]/_components/day-of-announcement.tsx
 1 apps/web/app/[slug]/_components/day-of-banner.tsx
@@ -178,8 +176,6 @@
 1 apps/web/app/admin/moodboard-library/_components/color-range-manipulator.tsx
 7 apps/web/app/admin/moodboard-library/_components/library-editor.tsx
 2 apps/web/app/admin/moodboard-library/_components/screen-findings-panel.tsx
-1 apps/web/app/admin/moodboard-renders/_components/admin-render-grid.tsx
-2 apps/web/app/admin/moodboard-renders/page.tsx
 1 apps/web/app/admin/operations-hiring/_components/smoke-test-panel.tsx
 1 apps/web/app/admin/page.tsx
 2 apps/web/app/admin/pakanta/page.tsx
@@ -268,9 +264,8 @@
 1 apps/web/app/dashboard/(account)/profile/_components/haptics-toggle.tsx
 1 apps/web/app/dashboard/(account)/profile/concierge/page.tsx
 2 apps/web/app/dashboard/(account)/profile/page.tsx
-2 apps/web/app/dashboard/(account)/samahan/[communityId]/_components/samahan-identity-header.tsx
-2 apps/web/app/dashboard/(account)/samahan/[communityId]/_components/samahan-stories.tsx
-11 apps/web/app/dashboard/(account)/samahan/[communityId]/page.tsx
+1 apps/web/app/dashboard/(account)/samahan/[communityId]/_components/samahan-identity-header.tsx
+1 apps/web/app/dashboard/(account)/samahan/[communityId]/page.tsx
 1 apps/web/app/dashboard/(account)/samahan/page.tsx
 4 apps/web/app/dashboard/(launcher)/_components/event-card-menu.tsx
 1 apps/web/app/dashboard/(launcher)/_components/year-moments-list.tsx
@@ -387,13 +382,11 @@
 2 apps/web/app/dashboard/[eventId]/studio/mood-board/_components/gallery-picker.tsx
 1 apps/web/app/dashboard/[eventId]/studio/mood-board/_components/group-attire-field.tsx
 4 apps/web/app/dashboard/[eventId]/studio/mood-board/_components/inspiration-board.tsx
-5 apps/web/app/dashboard/[eventId]/studio/mood-board/_components/make-it-real.tsx
 3 apps/web/app/dashboard/[eventId]/studio/mood-board/_components/mood-board-editor.tsx
 2 apps/web/app/dashboard/[eventId]/studio/mood-board/_components/moodboard-board.tsx
 12 apps/web/app/dashboard/[eventId]/studio/mood-board/_components/palette-section.tsx
 2 apps/web/app/dashboard/[eventId]/studio/mood-board/_components/part-finalization-panel.tsx
 2 apps/web/app/dashboard/[eventId]/studio/mood-board/_components/recolor-studio.tsx
-2 apps/web/app/dashboard/[eventId]/studio/mood-board/_components/render-pool-picker.tsx
 1 apps/web/app/dashboard/[eventId]/studio/mood-board/_components/role-attire-field.tsx
 1 apps/web/app/dashboard/[eventId]/studio/mood-board/_components/swatch-popover.tsx
 3 apps/web/app/dashboard/[eventId]/studio/mood-board/_components/template-gallery.tsx
@@ -405,7 +398,6 @@
 1 apps/web/app/dashboard/[eventId]/studio/panood/cameras/page.tsx
 11 apps/web/app/dashboard/[eventId]/studio/panood/setup/go-live-card.tsx
 16 apps/web/app/dashboard/[eventId]/studio/panood/setup/page.tsx
-1 apps/web/app/dashboard/[eventId]/studio/papic/_components/add-to-library.tsx
 3 apps/web/app/dashboard/[eventId]/studio/papic/_components/credit-stepper.tsx
 2 apps/web/app/dashboard/[eventId]/studio/papic/_components/guest-allotment-picker.tsx
 2 apps/web/app/dashboard/[eventId]/studio/papic/_components/guest-allotments-choice.tsx
@@ -415,13 +407,13 @@
 2 apps/web/app/dashboard/[eventId]/studio/papic/_components/live-wall-controls.tsx
 1 apps/web/app/dashboard/[eventId]/studio/papic/_components/magazine-card.tsx
 1 apps/web/app/dashboard/[eventId]/studio/papic/_components/papic-gallery-grid.tsx
+3 apps/web/app/dashboard/[eventId]/studio/papic/_components/papic-outcome-banners.tsx
 2 apps/web/app/dashboard/[eventId]/studio/papic/_components/pool-gallery-card.tsx
 1 apps/web/app/dashboard/[eventId]/studio/papic/_components/recap-card.tsx
 8 apps/web/app/dashboard/[eventId]/studio/papic/couple-challenges-manager.tsx
 1 apps/web/app/dashboard/[eventId]/studio/papic/moderation/_components/kwento-queue-controls.tsx
 1 apps/web/app/dashboard/[eventId]/studio/papic/moderation/_components/kwento-queue.tsx
 4 apps/web/app/dashboard/[eventId]/studio/papic/moderation/page.tsx
-5 apps/web/app/dashboard/[eventId]/studio/papic/page.tsx
 1 apps/web/app/dashboard/[eventId]/studio/papic/papic-window-picker.tsx
 1 apps/web/app/dashboard/[eventId]/studio/papic/recap/_components/recap-drive-nudge.tsx
 5 apps/web/app/dashboard/[eventId]/studio/papic/recap/page.tsx
@@ -513,8 +505,7 @@
 1 apps/web/app/papic/decorate/_components/kwento-decorator.tsx
 1 apps/web/app/papic/demo/[token]/_components/demo-join-flow.tsx
 1 apps/web/app/papic/demo/[token]/page.tsx
-4 apps/web/app/papic/guest/_components/papic-challenge-panel.tsx
-8 apps/web/app/papic/guest/_components/papic-guest-capture.tsx
+7 apps/web/app/papic/guest/_components/papic-guest-capture.tsx
 1 apps/web/app/papic/join/[token]/_components/app-install-banner.tsx
 4 apps/web/app/papic/me/[token]/_components/guest-story-maker.tsx
 5 apps/web/app/papic/order/[token]/page.tsx
@@ -526,7 +517,6 @@
 1 apps/web/app/realstories/_components/gallery.tsx
 1 apps/web/app/realstories/_components/stories-search.tsx
 1 apps/web/app/realstories/[slug]/page.tsx
-1 apps/web/app/receipts/[receiptId]/page.tsx
 1 apps/web/app/signup/loading.tsx
 2 apps/web/app/tl/about/page.tsx
 1 apps/web/app/tour/_components/tour-chat-thread.tsx

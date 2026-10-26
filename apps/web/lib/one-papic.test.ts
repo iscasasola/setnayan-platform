@@ -82,7 +82,8 @@ test('the Papic page sells no camera rung — and a rung list that comes back fi
   // (lib/papic-sells-only-credits.test.ts holds the deletion). This keeps the
   // old floor for the day a rung list is drawn here again: it must filter.
   const page = fs.readFileSync(
-    path.join(process.cwd(), 'app', 'dashboard', '[eventId]', 'studio', 'papic', 'page.tsx'),
+    // The Papic page is gone (2026-10-26) — its card's settings are where a rung list would come back.
+    path.join(process.cwd(), 'app', 'dashboard', '[eventId]', 'studio', 'papic', '_components', 'papic-camera-settings.tsx'),
     'utf8',
   );
   const stripped = page

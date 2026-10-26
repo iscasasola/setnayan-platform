@@ -35,7 +35,8 @@ const PAPIC = dirname(dirname(fileURLToPath(import.meta.url)));
 const APP = join(PAPIC, '..', '..', '..', '..');
 const ROOT = join(APP, '..', '..', '..');
 const WEB = join(APP, '..');
-const PAGE = readFileSync(join(PAPIC, 'page.tsx'), 'utf8');
+// The Papic page is gone (2026-10-26) — Home draws its card and the settings it opens.
+const PAGE = [join(PAPIC, '..', '..', 'page.tsx'), join(PAPIC, '_components', 'papic-camera-settings.tsx')].map((f) => readFileSync(f, 'utf8')).join('\n');
 
 /**
  * Every source file under `app/`, `lib/` and `tests/` — INCLUDING tests.

@@ -1,7 +1,8 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { guestDisplayName, type GuestRole } from '@/lib/guests';
+import { guestDisplayName, guestFullName, type GuestRole } from '@/lib/guests';
+import { ENTOURAGE_COLUMNS, type EntourageGuestRow } from '@/lib/entourage';
 import { namedAProxy, type GuestStandIn, type StandingInFor } from '@/lib/guest-proxy';
 
 /**
@@ -28,7 +29,7 @@ export async function readGuestStandIn(
   const [holderRead, proxyRead] = await Promise.all([
     admin
       .from('guests')
-      .select('guest_id, first_name, last_name, display_name, role, extra_roles')
+      .select('guest_id, display_name, name_prefix, first_name, middle_name, last_name, name_suffix, role, extra_roles')
       .eq('event_id', eventId)
       .eq('represented_by_guest_id', own.guest_id)
       .is('deleted_at', null)
@@ -36,7 +37,7 @@ export async function readGuestStandIn(
     own.represented_by_guest_id
       ? admin
           .from('guests')
-          .select('guest_id, first_name, last_name, display_name')
+          .select('guest_id, display_name, name_prefix, first_name, middle_name, last_name, name_suffix, role, extra_roles')
           .eq('event_id', eventId)
           .eq('guest_id', own.represented_by_guest_id)
           .is('deleted_at', null)
@@ -71,7 +72,8 @@ export async function entourageProxyNames(
   if (links.length === 0) return new Map();
   const { data, error } = await admin
     .from('guests')
-    .select('guest_id, first_name, last_name, display_name')
+    // The entourage's own columns — the proxy is printed the way the holder is (`guestFullName`, the formal name).
+    .select(ENTOURAGE_COLUMNS)
     .eq('event_id', eventId)
     .in('guest_id', links.map((l) => l.represented_by_guest_id))
     .is('deleted_at', null);
@@ -79,7 +81,9 @@ export async function entourageProxyNames(
     logQueryError('entourageProxyNames', error, { eventId }, 'graceful_degrade');
     return new Map();
   }
-  const nameOf = new Map(((data ?? []) as { guest_id: string; first_name: string; last_name: string; display_name: string | null }[]).map((p) => [p.guest_id, guestDisplayName(p)] as const));
+  const nameOf = new Map(
+    ((data ?? []) as unknown as (EntourageGuestRow & { guest_id: string })[]).map((p) => [p.guest_id, guestFullName(p) ?? guestDisplayName(p as never)] as const),
+  );
   const out = new Map<string, string>();
   for (const l of links) {
     const n = nameOf.get(l.represented_by_guest_id);

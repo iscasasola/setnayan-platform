@@ -289,6 +289,7 @@ export const UGAT_TYPES: UgatTypeMeta[] = [
       { key: 'pk', name: 'tile_id', note: 'real FK anchor' },
       { key: '', name: 'folder_id', note: 'DENORM ⚠ no FK' },
       { key: '', name: 'leaf_key', note: 'string, cards glue to it 🔴' },
+      { key: '', name: 'coarse_category', note: 'tier-2 → the vendor_category its bookings are filed as (③0-c)' },
     ],
     edges: [
       { verb: 'preferences', to: 'TYPE-EVENTS' },
@@ -1762,6 +1763,9 @@ export const UGAT_JOINTS: UgatJoint[] = [
       // the BOOKING id, which is exactly why it carries no vendor FK.
       { kind: 'column', table: 'event_vendors', column: 'vendor_id' },
       { kind: 'column', table: 'event_vendors', column: 'category_key' },
+      // ③0-c (2026-10-26): the coarse `event_vendors.category` a booking is stored with is
+      // answered by the category's own row — no longer by a code map.
+      { kind: 'column', table: 'service_categories', column: 'coarse_category' },
     ],
     chain: 7,
     pair: ['TYPE-EVENTS', 'TYPE-VENDORS'],
@@ -1772,7 +1776,8 @@ export const UGAT_JOINTS: UgatJoint[] = [
       'event_vendors — 🔴 TRAP: its PK column is literally NAMED vendor_id but it is actually the BOOKING id, not a vendor reference.',
     writtenBy: 'Vendor-add flow on the couple dashboard · CSV import · admin-assisted booking entry',
     guardedBy: 'current_event_ids() for the couple side; vendor side reads via current_vendor_ids() when vendor_org_id is set',
-    traps: 'Org FK (vendor_org_id) is SET-NULL nullable — a booking can point at an off-platform vendor with no org row. category_key DOES have a real FK.',
+    traps:
+      'Org FK (vendor_org_id) is SET-NULL nullable — a booking can point at an off-platform vendor with no org row. category_key DOES have a real FK. The coarse `category` enum is resolved from service_categories.coarse_category (③0-c, 2026-10-26; read through getTaxonomy(), lib/vendor-branch-category.ts BRANCH_TO_VENDOR_CATEGORY is only the seed/fallback) — a category with no value files its bookings under misc. Deleting a category a couple-side VendorCategory is anchored on is REFUSED (deletionWouldBreakCoupleLinks).',
   },
   {
     id: 'J8',

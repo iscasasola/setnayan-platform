@@ -35,8 +35,10 @@ export function CreateEventPanel({ children }: { children: ReactNode }) {
     window.setTimeout(() => router.back(), sidePanelExitMs(reduce));
   }, [router]);
   return (
-    <SidePanel open={open} onClose={close} title="New event" size="wide" phone="sheet">
-      {children}
+    <SidePanel open={open} onClose={close} title="New event" titleHidden size="wide" phone="sheet">
+      {/* 🔑 Inside this panel the page's own "Back to events · NEW EVENT" head is not drawn and the question is the
+          first line, beside the ✕ (owner 2026-10-27). A cold load of /dashboard/create-event keeps its way back. */}
+      <div data-create-event-in-panel="">{children}</div>
     </SidePanel>
   );
 }

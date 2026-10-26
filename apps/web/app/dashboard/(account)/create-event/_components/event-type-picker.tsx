@@ -307,7 +307,8 @@ export function EventTypePicker({
 
   const heading = (
     <header className="mb-8 space-y-2">
-      <h1 className="sn-h1">What kind of event are you planning?</h1>
+      {/* In the panel this is the first line, and the ✕ floats over its top right — leave it room. */}
+      <h1 className="sn-h1 [[data-create-event-in-panel]_&]:pr-12">What kind of event are you planning?</h1>
       <p className="text-base text-ink/65">Tap a type to begin.</p>
     </header>
   );

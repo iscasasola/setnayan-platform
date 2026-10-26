@@ -61,6 +61,12 @@ export type SidePanelProps = {
    * approved 2026-09-24). From 768px both are the same right-hand panel.
    */
   phone?: 'side' | 'sheet';
+  /**
+   * The content's own first line IS the heading (owner 2026-10-27, Create Event: *"All of these are not needed. You
+   * can bring up the what kind of event you are planning and also you can keep the (x) on upper right"*): the title
+   * stays the dialog's accessible name but is not drawn, and the ✕ floats at the top right over the content.
+   */
+  titleHidden?: boolean;
   children: ReactNode;
 };
 
@@ -71,6 +77,7 @@ export function SidePanel({
   info,
   size = 'default',
   phone = 'side',
+  titleHidden = false,
   children,
 }: SidePanelProps) {
   const [portal, setPortal] = useState<HTMLElement | null>(null);
@@ -124,7 +131,14 @@ export function SidePanel({
         data-phone={phone === 'sheet' ? 'sheet' : undefined}
         data-closing={closing}
       >
-        <div className="flex items-center justify-between gap-3 px-5 pb-3 pt-4">
+        <div
+          className={
+            titleHidden
+              ? 'pointer-events-none absolute right-3 top-3 z-10 flex justify-end'
+              : 'flex items-center justify-between gap-3 px-5 pb-3 pt-4'
+          }
+          data-side-panel-title-hidden={titleHidden ? '' : undefined}
+        >
           {info ? (
             <InfoTip
               label={title}
@@ -136,7 +150,7 @@ export function SidePanel({
               {info}
             </InfoTip>
           ) : (
-            <h2 id={titleId} className="text-xl font-extrabold tracking-tight text-ink">
+            <h2 id={titleId} className={titleHidden ? 'sr-only' : 'text-xl font-extrabold tracking-tight text-ink'}>
               {title}
             </h2>
           )}
@@ -144,7 +158,7 @@ export function SidePanel({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="sn-press inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink/55 transition-all duration-sn-control ease-sn hover:bg-ink/5 hover:text-ink"
+            className="sn-press pointer-events-auto inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink/55 transition-all duration-sn-control ease-sn hover:bg-ink/5 hover:text-ink"
           >
             <X aria-hidden className="h-4 w-4" strokeWidth={2} />
           </button>

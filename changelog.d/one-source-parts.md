@@ -32,5 +32,6 @@ where 29 of 29 parts match. Two things stay written in it on purpose:
 TS map. A new test 6 simulates admin edits and checks that the function and the florist's door follow each one:
 re-home, link a category, unlink it, add a service, retire a part.
 
-SPEC IMPACT: None. This implements PLAN `prototypes/admin_taxonomy_four_levels_2026-10-26/PLAN.md` § 8.3 step ③0-b,
-under the corpus DECISION_LOG row "2026-10-26 · APPROVED — BUILD THE TAXONOMY". No new product decision.
+SPEC IMPACT: corpus `prototypes/admin_taxonomy_four_levels_2026-10-26/PLAN.md` § 10 "Build record" (new — what
+③0-b shipped, the class-C fallbacks kept, the Filipiniana SQL branch ③0-a must drop), under DECISION_LOG row
+"2026-10-26 · APPROVED — BUILD THE TAXONOMY" (PLAN § 8.3 ③0-b). No new product decision.

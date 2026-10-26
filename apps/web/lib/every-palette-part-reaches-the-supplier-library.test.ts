@@ -217,7 +217,8 @@ test('4 · the way in: Today and Shop draw “Add to the inspiration library” 
   const page = code('app/vendor-dashboard/page.tsx');
   // The shared predicate first; since 2026-10-23 also "not while it is a first step still to do" (personal invite B6).
   /* ③0-b: the predicate is asked of the LIVE parts (`getInspirationParts()`), the snapshot the real upload gate reads. */
-  assert.match(page, /const libraryOpen = moodboardLibraryAccessForProfile\(profile, await getInspirationParts\(\)\)\.allowed;/, 'the Today page does not ask the shared predicate of the live parts');
+  assert.match(page, /const inspirationPartsRead = getInspirationParts\(\);/, 'the Today page does not read the live parts');
+  assert.match(page, /const libraryOpen = moodboardLibraryAccessForProfile\(profile, await inspirationPartsRead\)\.allowed;/, 'the Today page does not ask the shared predicate of the live parts');
   assert.match(page, /library=\{\s*libraryOpen\b/, 'the Today page does not pass the shared predicate');
   const screen = code('app/vendor-dashboard/_components/supplier-today-screen.tsx');
   assert.match(screen, /library=\{library\}/, 'the Today screen drops the flag');

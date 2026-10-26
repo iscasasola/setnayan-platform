@@ -12,6 +12,7 @@
  *   &s=edit                       an existing card in the same maker (the edit sheet) — Live · delete · copy
  *   &s=unread                     …an existing card whose add-ons could not be read (Save waits)
  *   &s=fixed                      a new card whose kind came with the address (/services/new/[category])
+ *   &held=1                       …with s=edit: the card is waiting for a quick check (service card checks, Delta 3)
  *
  * Names are the prototype's samples: nobody real.
  */
@@ -244,7 +245,7 @@ export default async function CardMakerLabPage({
         scheduleOfKind={shop.scheduleOfKind}
         branches={[]}
         initial={fx?.initial ?? null}
-        editing={fx?.editing ?? null}
+        editing={fx ? (sp.held === '1' ? { ...fx.editing, held: true, isActive: false } : fx.editing) : null}
         unread={s === 'unread' ? ['add-ons'] : []}
         returnTo="/dev/card-maker-lab"
       />

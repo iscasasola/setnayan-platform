@@ -88,7 +88,7 @@ const BASE_COLS =
   'vendor_service_id,public_id,vendor_profile_id,category,starting_price_php,added_pax_price_php,crew_size,crew_meal_required,is_active,created_at,updated_at';
 const PRICING_COLS =
   'pricing_basis,per_pax_price_php,min_pax,hour_base_php,min_hours,extra_hour_php,crew_meal_included,transport_included,transport_flat_fee_php,showcase_video_r2_key,showcase_photo_r2_keys';
-const FULL_SELECT = `${BASE_COLS},title,branch_id,recommended_lead_time_months,last_minute_end_months,last_minute_surcharge_pct,daily_capacity,exclusive_perk_text,includes_setnayan_gift,base_pax,coverage_id,primary_photo_r2_key,${PRICING_COLS}`;
+export const VENDOR_SERVICE_FULL_SELECT = `${BASE_COLS},title,branch_id,recommended_lead_time_months,last_minute_end_months,last_minute_surcharge_pct,daily_capacity,exclusive_perk_text,includes_setnayan_gift,base_pax,coverage_id,primary_photo_r2_key,${PRICING_COLS}`;
 
 export async function fetchVendorServices(
   supabase: SupabaseClient,
@@ -96,7 +96,7 @@ export async function fetchVendorServices(
 ): Promise<VendorServiceRow[]> {
   const { data, error } = await supabase
     .from('vendor_services')
-    .select(FULL_SELECT)
+    .select(VENDOR_SERVICE_FULL_SELECT)
     .eq('vendor_profile_id', vendorProfileId)
     .order('created_at', { ascending: true });
   if (error) {

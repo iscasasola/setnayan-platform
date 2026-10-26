@@ -94,6 +94,11 @@ export async function resolveIntegrityFlag(formData: FormData) {
   if (!flag) throw new Error('Flag not found.');
 
   const kind = (flag as { kind: string }).kind;
+  // 🃏 A service card is decided on the Cards tab (Approve · Ask to fix · Reject — card-actions.ts), never dismissed
+  // here: a dismiss would close the hold without the card's verdict, leaving it switchable by the supplier.
+  if (kind === 'service_card') {
+    throw new Error('Use Approve, Ask to fix or Reject on the card.');
+  }
   // confirm_fraud is a VERDICT only (records status; never mutates the subject —
   // only hide_listing does). Safe for inquiry_concentration too, whose subject is
   // the *victim* vendor that must never be penalized.

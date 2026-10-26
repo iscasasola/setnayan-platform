@@ -36,6 +36,10 @@ import { plausibilityScannerEnabled } from '@/lib/plausibility-scanner-flag';
 import { FormFlash } from '@/app/_components/forms/form-flash';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { PillLink, PillTrack } from '@/app/_components/pill-track';
+import { LayoutGrid } from 'lucide-react';
+import { CardOpen, CardsQueue, ClaimWordsFold } from './_cards/cards-tab';
+import type { CardReasonFilter, CardStatusFilter } from './_cards/cards-types';
+import { loadCardOpen, loadCardsQueue, loadClaimWords } from './cards-data';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Integrity watch · Admin' };
@@ -87,7 +91,7 @@ const INQUIRY_CONCENTRATION_REASON_LABEL: Record<string, string> = {
   sock_puppet_concentration: 'Linked accounts targeting one supplier',
 };
 
-type Tab = 'reviews' | 'listings' | 'inquiries' | 'prices';
+type Tab = 'reviews' | 'listings' | 'inquiries' | 'prices' | 'cards';
 type StatusFilter = 'open' | 'confirmed' | 'dismissed' | 'all';
 
 const STATUS_LABEL: Record<FlagStatus, string> = {
@@ -113,10 +117,22 @@ const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
 function normalizeTab(raw: string | undefined, pricesEnabled: boolean): Tab {
   if (raw === 'listings') return 'listings';
   if (raw === 'inquiries') return 'inquiries';
+  // 🃏 Service card checks (owner 2026-10-26) — the fifth tab.
+  if (raw === 'cards') return 'cards';
   // 'prices' only resolves when the scanner flag is on — while dark the tab is
   // unreachable and the page behaves exactly as before.
   if (raw === 'prices' && pricesEnabled) return 'prices';
   return 'reviews';
+}
+function normalizeCardStatus(raw: string | undefined): CardStatusFilter {
+  return (['open', 'approved', 'asked_to_fix', 'rejected', 'all'] as const).includes(raw as CardStatusFilter)
+    ? (raw as CardStatusFilter)
+    : 'open';
+}
+function normalizeCardReason(raw: string | undefined): CardReasonFilter {
+  return (['any', 'photo', 'price', 'service', 'words', 'check_unavailable'] as const).includes(raw as CardReasonFilter)
+    ? (raw as CardReasonFilter)
+    : 'any';
 }
 function normalizeStatus(raw: string | undefined): StatusFilter {
   return (['open', 'confirmed', 'dismissed', 'all'] as const).includes(
@@ -209,6 +225,12 @@ export default async function AdminIntegrityWatchPage({
     status?: string;
     scanned?: string;
     flagged?: string;
+    reason?: string;
+    open?: string;
+    error?: string;
+    done?: string;
+    n?: string;
+    words?: string;
   }>;
 }) {
   await requireAdmin();
@@ -216,8 +238,11 @@ export default async function AdminIntegrityWatchPage({
   const pricesEnabled = plausibilityScannerEnabled();
   const tab = normalizeTab(search.tab, pricesEnabled);
   const status = normalizeStatus(search.status);
+  const now = new Date();
   const kind =
-    tab === 'reviews'
+    tab === 'cards'
+      ? 'service_card'
+      : tab === 'reviews'
       ? 'review_fraud'
       : tab === 'listings'
         ? 'ghost_listing'
@@ -242,7 +267,9 @@ export default async function AdminIntegrityWatchPage({
   else if (status === 'confirmed')
     listQuery = listQuery.in('status', ['confirmed_fraud', 'listing_hidden']);
 
-  const { data: listData, error: listError } = await listQuery;
+  // The Cards tab draws its own list (`cards-data.ts`); the shared list query is skipped there.
+  const { data: listData, error: listError } =
+    tab === 'cards' ? { data: [] as FlagRow[], error: null } : await listQuery;
   if (listError) logQueryError('AdminIntegrityWatchPage (integrity_flags)', listError);
   const rows = (listData ?? []) as FlagRow[];
 
@@ -278,6 +305,18 @@ export default async function AdminIntegrityWatchPage({
     .select('id', { count: 'exact', head: true })
     .eq('kind', 'inquiry_concentration')
     .eq('status', 'open');
+  // 🃏 Cards — open counts what still needs a person: open + asked to fix (PLAN §4: "asked_to_fix is a status, not a
+  // resolution").
+  const cardStatus = normalizeCardStatus(search.status);
+  const cardReason = normalizeCardReason(search.reason);
+  const cardsQueue = tab === 'cards' && !search.open ? await loadCardsQueue({ status: cardStatus, reason: cardReason, now }) : null;
+  const cardOpen = tab === 'cards' && search.open ? await loadCardOpen(search.open, now) : null;
+  const claimWords = tab === 'cards' && !search.open ? await loadClaimWords() : null;
+  const { count: openCardsCount } = await admin
+    .from('integrity_flags')
+    .select('id', { count: 'exact', head: true })
+    .eq('kind', 'service_card')
+    .in('status', ['open', 'asked_to_fix']);
   // Only counted when the scanner is enabled (dark otherwise).
   const openPrices = pricesEnabled
     ? (
@@ -291,7 +330,7 @@ export default async function AdminIntegrityWatchPage({
 
   // Inquiries have no rescan — they're raised by the cron-free fraud-cluster
   // sweep, not an on-demand backfill.
-  const hasRescan = tab !== 'inquiries';
+  const hasRescan = tab !== 'inquiries' && tab !== 'cards';
   const rescanAction =
     tab === 'reviews'
       ? rescanReviewsForFraud
@@ -332,6 +371,14 @@ export default async function AdminIntegrityWatchPage({
         }
       />
       <div className="mb-6">
+        {tab === 'cards' ? (
+        <p className="text-sm text-ink/70">
+          Deterministic integrity screening. <span className="font-medium">Cards</span> holds service cards the
+          automatic check kept out of Explore — a photo seen on another shop, a price far outside the service’s band, a
+          card filed under the wrong service, or a claim word. Detect-and-review only: a card goes live on your Approve,
+          and the supplier can fix and resave at any time; a resave that passes goes live by itself and leaves this list.
+        </p>
+        ) : (
         <p className="text-sm text-ink/70">
           Deterministic integrity screening. <span className="font-medium">Reviews</span>{' '}
           scores every submitted review on velocity/burst, rating anomaly, and
@@ -343,6 +390,7 @@ export default async function AdminIntegrityWatchPage({
           review flag never auto-deletes the review, and a listing is only hidden
           on an explicit click. Demo suppliers are excluded.
         </p>
+        )}
       </div>
 
       {search.scanned !== undefined && (
@@ -361,24 +409,71 @@ export default async function AdminIntegrityWatchPage({
           sliding thumb finds it. */}
       <PillTrack className="mb-4" data-integrity-tabs="">
         <PillLink on={tab === 'reviews'} href="/admin/integrity-watch?tab=reviews" aria-current={tab === 'reviews' ? 'page' : undefined} className="gap-1.5 px-3">
-          <Star aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Reviews
+          <Star aria-hidden className="hidden h-3.5 w-3.5 sm:inline-block" strokeWidth={2} /> Reviews
           {openReviews ? ` · ${openReviews}` : ''}
         </PillLink>
         <PillLink on={tab === 'listings'} href="/admin/integrity-watch?tab=listings" aria-current={tab === 'listings' ? 'page' : undefined} className="gap-1.5 px-3">
-          <Store aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Listings
+          <Store aria-hidden className="hidden h-3.5 w-3.5 sm:inline-block" strokeWidth={2} /> Listings
           {openListings ? ` · ${openListings}` : ''}
         </PillLink>
         <PillLink on={tab === 'inquiries'} href="/admin/integrity-watch?tab=inquiries" aria-current={tab === 'inquiries' ? 'page' : undefined} className="gap-1.5 px-3">
-          <Users aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Inquiries
+          <Users aria-hidden className="hidden h-3.5 w-3.5 sm:inline-block" strokeWidth={2} /> Inquiries
           {openInquiries ? ` · ${openInquiries}` : ''}
         </PillLink>
         {pricesEnabled && (
           <PillLink on={tab === 'prices'} href="/admin/integrity-watch?tab=prices" aria-current={tab === 'prices' ? 'page' : undefined} className="gap-1.5 px-3">
-            <Coins aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Prices
+            <Coins aria-hidden className="hidden h-3.5 w-3.5 sm:inline-block" strokeWidth={2} /> Prices
             {openPrices ? ` · ${openPrices}` : ''}
           </PillLink>
         )}
+        <PillLink on={tab === 'cards'} href="/admin/integrity-watch?tab=cards" aria-current={tab === 'cards' ? 'page' : undefined} className="gap-1.5 px-3">
+          <LayoutGrid aria-hidden className="hidden h-3.5 w-3.5 sm:inline-block" strokeWidth={2} /> Cards
+          {openCardsCount ? ` · ${openCardsCount}` : ''}
+        </PillLink>
       </PillTrack>
+
+      {tab === 'cards' ? (
+        <>
+          {search.error ? (
+            <div className="mb-4">
+              <FormFlash tone="error">{search.error}</FormFlash>
+            </div>
+          ) : search.done ? (
+            <div className="mb-4">
+              <FormFlash tone="success">
+                {search.done === 'approved'
+                  ? 'Approved · the card is live now · the supplier was told in-app · audit row written.'
+                  : search.done === 'asked'
+                    ? 'Sent · the card stays out of Explore · the supplier sees your message on the card · the row stays in Cards until they save again.'
+                    : search.done === 'rejected'
+                      ? 'Rejected · the card stays out of Explore with your reason · the supplier can edit it; the next save comes back here.'
+                      : `${Number(search.n) || 0} card${Number(search.n) === 1 ? '' : 's'} approved · live now · each written to the audit log`}
+              </FormFlash>
+            </div>
+          ) : null}
+          {search.open ? (
+            cardOpen === 'failed' ? (
+              <FormFlash tone="error">This card couldn&apos;t load right now. We&apos;ve logged the issue — refresh in a moment.</FormFlash>
+            ) : cardOpen === null ? (
+              <p className="text-sm text-ink/65">That card isn&apos;t in the list any more.</p>
+            ) : (
+              <CardOpen view={cardOpen} now={now} />
+            )
+          ) : (
+            <>
+              <CardsQueue
+                rows={cardsQueue && cardsQueue.ok ? cardsQueue.rows : null}
+                openCount={openCardsCount ?? 0}
+                status={cardStatus}
+                reason={cardReason}
+                now={now}
+              />
+              <ClaimWordsFold words={claimWords} open={search.words === '1'} />
+            </>
+          )}
+        </>
+      ) : (
+      <>
 
       {/* Status filters */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -555,6 +650,9 @@ export default async function AdminIntegrityWatchPage({
             );
           })}
         </ul>
+      )}
+
+      </>
       )}
 
       <p className="mt-6 text-sm text-ink/70">

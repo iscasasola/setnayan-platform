@@ -33,6 +33,16 @@ import { resolveDisplayPalette } from '@/lib/room-palette';
 import { plusOneOfWords, type PlusOneOf } from '@/lib/plus-one-of';
 import { plusOneSeatLines, plusOneSeatPeople } from '@/lib/extra-seats';
 import type { RsvpStatus } from '@/lib/guests';
+import { guestDisplayName, guestRoleLabel } from '@/lib/guests';
+import { guestArriveBy } from '@/lib/role-group-dress-code';
+import {
+  cameAfterAll,
+  effectiveRoleOf,
+  holdsARole,
+  namedAProxy,
+  type RepresentedBy,
+  type StandingInFor,
+} from '@/lib/guest-proxy';
 
 /**
  * The base every guest's own invitation link (and NFC tag) is built from —
@@ -163,6 +173,29 @@ export type GuestCardData = {
    * event's dress code could not be read: the card then says nothing, never a "Not set yet" it did not measure.
    */
   outfit: { wear: string; from: string } | null;
+  /**
+   * 🧍‍♀️➡️🧍 THE PROXY, BOTH WAYS (owner 2026-10-27, DECISION_LOG "A ROLE HOLDER CAN SEND A PROXY"). Optional: a card drawn
+   * from elsewhere (the Maker, the lab) without it shows no Proxy row. Every NULL inside means "could not read" — the card then
+   * offers nothing it did not measure.
+   */
+  proxy?: GuestProxyCard | null;
+};
+
+export type GuestProxyCard = {
+  /** This guest holds a role, so the card offers "Proxy ▾" (owner: "this only works if they have role and not guest"). */
+  offer: boolean;
+  /** On a ROLE HOLDER: who stands in for them. Null = nobody (or the read was refused — then `unread`). */
+  representedBy: RepresentedBy | null;
+  /** On a PROXY: the role holder they stand in for, and the role they take on. */
+  standingInFor: (StandingInFor & { roleWord: string; callTime: string | null }) | null;
+  /** The name the role holder TYPED on their reply ("someone will stand in for me") — the host links or adds them. */
+  namedByGuest: string | null;
+  /** The holder replied "attending" after the link — "says she can come after all — keep the proxy?". */
+  cameAfterAll: boolean;
+  /** Who may stand in — this event's living guests who are not the couple, a +1 seat, represented, or a proxy already. */
+  choices: { guestId: string; name: string }[] | null;
+  /** A link read was refused — the card says so and offers no change. */
+  unread: boolean;
 };
 
 export async function loadGuestCard(
@@ -195,6 +228,7 @@ export async function loadGuestCard(
     { data: eventGroupRows, error: eventGroupRowsError },
     roleNames,
     { data: dressRow, error: dressRowError },
+    { data: holderRow, error: holderRowError },
   ] = await Promise.all([
     fetchGuestById(supabase, eventId, guestId),
     // 👤 Linked to an account with a formal name → the card wears the profile's
@@ -246,6 +280,14 @@ export async function loadGuestCard(
     eventRowOnce(supabase, eventId, 'dress_code_config, role_palette', () =>
       supabase.from('events').select('dress_code_config, role_palette').eq('event_id', eventId).maybeSingle(),
     ),
+    // 🧍 The role holder THIS guest stands in for, if any (the link lives on the holder's row).
+    supabase
+      .from('guests')
+      .select('guest_id, first_name, last_name, display_name, role, extra_roles')
+      .eq('event_id', eventId)
+      .eq('represented_by_guest_id', guestId)
+      .is('deleted_at', null)
+      .maybeSingle(),
   ]);
   if (!stored) return null;
   const guest = withProfileName(stored, profileNames);
@@ -351,7 +393,8 @@ export async function loadGuestCard(
 
   // Access (co-host / limited helper) and whether the viewer may change it —
   // plus, beside them, whether a +1 holds their own account (needs the row).
-  const [accessMap, viewerMembership, nameLinked, plusOneOf] = await Promise.all([
+  const offerProxy = holdsARole(guest) && !guest.plus_one_of_guest_id && !holderRow;
+  const [accessMap, viewerMembership, nameLinked, plusOneOf, proxyRead, choiceRead] = await Promise.all([
     loadGuestAccessMap(eventId, [{ guest_id: guest.guest_id, role: guest.role }]),
     (async () => {
       if (!viewerId) return null;
@@ -414,6 +457,26 @@ export async function loadGuestCard(
           });
         })()
       : Promise.resolve(null),
+    // 🧍 The proxy who stands in for THIS role holder.
+    guest.represented_by_guest_id
+      ? supabase
+          .from('guests')
+          .select('guest_id, first_name, last_name, display_name, rsvp_status')
+          .eq('event_id', eventId)
+          .eq('guest_id', guest.represented_by_guest_id)
+          .is('deleted_at', null)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+    // 🧍 Who may stand in — only read for a guest the card offers "Proxy ▾" to.
+    offerProxy
+      ? supabase
+          .from('guests')
+          .select('guest_id, first_name, last_name, display_name, role, plus_one_of_guest_id, represented_by_guest_id, entry_source, passed_away')
+          .eq('event_id', eventId)
+          .is('deleted_at', null)
+          .neq('guest_id', guestId)
+          .order('first_name', { ascending: true })
+      : Promise.resolve({ data: [], error: null }),
   ]);
 
   const canManageAccess = viewerMembership !== null;
@@ -451,11 +514,20 @@ export async function loadGuestCard(
   }
   const dress = (dressRow ?? null) as { dress_code_config?: unknown; role_palette?: unknown } | null;
   /* No row at all (the event hidden from this reader) is not "nothing picked" either — no line. */
+  // 🧍 The role this guest DRESSES as — a proxy wears the role they stand in for (`effectiveRoleOf`).
+  if (holderRowError) logQueryError('loadGuestCard.standingInFor', holderRowError, { eventId, guestId }, 'graceful_degrade');
+  const holder = (holderRow ?? null) as
+    | { guest_id: string; first_name: string; last_name: string; display_name: string | null; role: GuestRole; extra_roles: GuestRole[] | null }
+    | null;
+  const standingInFor: StandingInFor | null = holder
+    ? { guestId: holder.guest_id, name: guestDisplayName(holder), role: holder.role, extra_roles: holder.extra_roles ?? [] }
+    : null;
+  const dressRole = effectiveRoleOf(guest, standingInFor);
   const outfit = dressRowError || !dress
     ? null
     : guestOutfitWords(
         guestOutfitOf({
-          role: guest.role,
+          role: dressRole,
           dressCodeConfig: dress?.dress_code_config ?? null,
           palette: resolveDisplayPalette(sanitizeRolePalette(dress?.role_palette)),
           roleNames,
@@ -463,7 +535,53 @@ export async function loadGuestCard(
         }),
       );
 
+  const { data: proxyRow, error: proxyErr } = proxyRead as { data: unknown; error: unknown };
+  const { data: choiceRows, error: choiceErr } = choiceRead as { data: unknown; error: unknown };
+  if (proxyErr) logQueryError('loadGuestCard.representedBy', proxyErr, { eventId, guestId }, 'graceful_degrade');
+  if (choiceErr) logQueryError('loadGuestCard.proxyChoices', choiceErr, { eventId, guestId }, 'graceful_degrade');
+  const proxyGuest = (proxyRow ?? null) as
+    | { guest_id: string; first_name: string; last_name: string; display_name: string | null; rsvp_status: RsvpStatus }
+    | null;
+  const proxy: GuestProxyCard = {
+    offer: offerProxy,
+    representedBy: proxyGuest ? { guestId: proxyGuest.guest_id, name: guestDisplayName(proxyGuest), rsvp: proxyGuest.rsvp_status } : null,
+    standingInFor: standingInFor
+      ? {
+          ...standingInFor,
+          roleWord: guestRoleLabel(dressRole, roleNames),
+          callTime: dress && !dressRowError ? guestArriveBy({ role: dressRole, config: dress.dress_code_config ?? null, general: null }) : null,
+        }
+      : null,
+    namedByGuest: namedAProxy(guest),
+    cameAfterAll: cameAfterAll(guest),
+    choices: choiceErr
+      ? null
+      : ((choiceRows ?? []) as {
+          guest_id: string;
+          first_name: string;
+          last_name: string;
+          display_name: string | null;
+          role: GuestRole;
+          plus_one_of_guest_id: string | null;
+          represented_by_guest_id: string | null;
+          entry_source: string | null;
+          passed_away: boolean | null;
+        }[])
+          .filter(
+            (g) =>
+              g.role !== 'bride' &&
+              g.role !== 'groom' &&
+              !g.plus_one_of_guest_id &&
+              !g.represented_by_guest_id &&
+              g.entry_source !== 'self_added_unlisted' &&
+              g.passed_away !== true,
+          )
+          .map((g) => ({ guestId: g.guest_id, name: guestDisplayName(g) })),
+    unread: Boolean(holderRowError || proxyErr || (guest.represented_by_guest_id && !proxyGuest)),
+  };
+
   return {
+    proxy,
     outfit: outfit ? { wear: outfit.wear, from: outfit.from } : null,
     roleNames,
     tables,

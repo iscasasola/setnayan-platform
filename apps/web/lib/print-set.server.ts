@@ -61,7 +61,7 @@ import {
 import { fetchEgiftMethods } from '@/lib/egift';
 import { loveStoryPartners, printStoryChapters } from '@/lib/love-story-moments';
 import { VENDOR_PACKAGE_ITEM_SELECT, keptItemRows, resolveVendorCategory, type VendorPackageItemRow } from '@/lib/vendor-packages';
-import { PASSED_AWAY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
+import { PASSED_AWAY, REPRESENTED_BY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
 import { filterPassCardRows, type PassCardRow } from '@/lib/pass-card';
 import { nameStyleOfPrintDetails, ticketName, type NameStyle } from '@/lib/name-style';
 import { displayPersonName } from '@/lib/person-name-case';
@@ -865,7 +865,7 @@ export async function passGuestRows(eventId: string, ticketsOnly: boolean): Prom
     .eq('event_id', eventId)
     .is('deleted_at', null)
     // 🛂 No pass for a request until Keep or Link.
-    .neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false)
+    .neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false).is(REPRESENTED_BY, null)
     .order('last_name', { ascending: true });
   if (error) {
     logQueryError('print-set.loadGuestPasses', error, { event_id: eventId }, 'graceful_degrade');

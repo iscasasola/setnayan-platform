@@ -5,7 +5,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
 import { isCoordinatorPrepReleaseEnabled } from '@/lib/coordinator-prep-release';
 import { isPlaceholderSeat } from '@/lib/extra-seats';
-import { PASSED_AWAY, REQUEST_ENTRY_SOURCE, type GuestRole } from '@/lib/guests';
+import { PASSED_AWAY, REPRESENTED_BY, REQUEST_ENTRY_SOURCE, type GuestRole } from '@/lib/guests';
 import { guestArriveBy } from '@/lib/role-group-dress-code';
 import { CLASSIC_PRINT_THEME, isProPrint } from '@/lib/print-pieces';
 import { layoutPassCard, type PrintPass } from '@/lib/print-layout';
@@ -444,7 +444,7 @@ export async function eligiblePassCardGuests(
     .eq('event_id', eventId)
     .is('deleted_at', null)
     // Cheap pre-filter; `passCardEligibility` below is the rule.
-    .neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false)
+    .neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false).is(REPRESENTED_BY, null)
     .order('last_name', { ascending: true })
     .order('first_name', { ascending: true });
   if (error) {

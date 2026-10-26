@@ -324,7 +324,7 @@ export {
   CUSTOM_COLUMN_BODY_MAX,
   sectionOrderToPersist,
 } from './custom-columns';
-import { PASSED_AWAY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
+import { PASSED_AWAY, REPRESENTED_BY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
 import { readSceneLooks, type PostEventSceneLooks } from '@/lib/post-event-draft';
 export type { CustomColumn };
 export { readCustomColumns };
@@ -889,14 +889,14 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
       .select('guest_id', { count: 'exact', head: true })
       .eq('event_id', eventId)
       .is('deleted_at', null)
-      .neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false)),
+      .neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false).is(REPRESENTED_BY, null)),
     guestsAttending: early(() =>
       admin
       .from('guests')
       .select('guest_id', { count: 'exact', head: true })
       .eq('event_id', eventId)
       .is('deleted_at', null)
-      .neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false)
+      .neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false).is(REPRESENTED_BY, null)
       .eq('rsvp_status', 'attending')),
     guestsReplied: early(() =>
       admin
@@ -904,7 +904,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
       .select('guest_id', { count: 'exact', head: true })
       .eq('event_id', eventId)
       .is('deleted_at', null)
-      .neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false)
+      .neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false).is(REPRESENTED_BY, null)
       .neq('rsvp_status', 'pending')),
     supplierRows: early(() =>
       admin

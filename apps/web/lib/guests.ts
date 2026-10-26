@@ -290,6 +290,14 @@ export type GuestRow = {
    *  seated or sent an invitation — see `countsTowardEvent`. Optional so
    *  hand-built rows in tests and fixtures read as living. */
   passed_away?: boolean | null;
+  /** 🧍‍♀️➡️🧍 On a ROLE HOLDER: the guest who stands in for them (owner 2026-10-27, "A ROLE HOLDER CAN SEND A PROXY").
+   *  The holder is LISTED (roster, entourage, prints "(represented by …)") but NOT COUNTED — the pair counts once, as the
+   *  proxy (`countsTowardEvent`). Optional so hand-built rows read as not represented. `lib/guest-proxy.ts`. */
+  represented_by_guest_id?: string | null;
+  /** When the link above was made (the database stamps it). */
+  represented_since?: string | null;
+  /** The name a role holder typed on their own reply ("someone will stand in for me") — the host confirms it. */
+  proxy_named_by_guest?: string | null;
   /** COUPLE-PRIVATE note ABOUT this guest. Never render on a guest-facing
    *  surface — it used to be, via the RSVP form, which also overwrote it. */
   notes: string | null;
@@ -603,7 +611,7 @@ export type GuestStats = {
 };
 
 const GUEST_FIELDS =
-  'guest_id,public_id,event_id,first_name,last_name,name_prefix,middle_name,name_suffix,pair_with_guest_id,display_name,side,group_category,role,extra_roles,plus_one_allowed,plus_one_count,plus_one_name,plus_one_of_guest_id,plus_one_mode,email,mobile,meal_preference,dietary_restrictions,photo_consent,faceblock_enabled,face_recognition_excluded,photo_url,photo_source,photo_updated_at,invited_to_blocks,rsvp_status,notes,guest_note,qr_token,custom_tags,seating_priority,attire,gender,seniority_rank,relation,created_at,rsvp_responded_at,invitation_sent_at,entry_source,passed_away,plus_one_name_confirmed_at,rsvp_set_by';
+  'guest_id,public_id,event_id,first_name,last_name,name_prefix,middle_name,name_suffix,pair_with_guest_id,display_name,side,group_category,role,extra_roles,plus_one_allowed,plus_one_count,plus_one_name,plus_one_of_guest_id,plus_one_mode,email,mobile,meal_preference,dietary_restrictions,photo_consent,faceblock_enabled,face_recognition_excluded,photo_url,photo_source,photo_updated_at,invited_to_blocks,rsvp_status,notes,guest_note,qr_token,custom_tags,seating_priority,attire,gender,seniority_rank,relation,created_at,rsvp_responded_at,invitation_sent_at,entry_source,passed_away,plus_one_name_confirmed_at,rsvp_set_by,represented_by_guest_id,represented_since,proxy_named_by_guest';
 
 // Bride & groom are the foundation of the event — always Attending, never
 // Pending (owner directive 2026-06-03). The DB trigger from migration
@@ -672,6 +680,15 @@ export const REQUEST_ENTRY_SOURCE = 'self_added_unlisted';
  */
 export const PASSED_AWAY = 'passed_away';
 
+/**
+ * 🧍‍♀️➡️🧍 REPRESENTED — LISTED, COUNTED ONCE AS THEIR PROXY (owner, 2026-10-27, verbatim: *"make sure the seats are
+ * properly counted. not having 2 guests but 1."*). A role holder with `represented_by_guest_id` set sends someone in
+ * their place: they keep the role (entourage, sponsor counts, prints), the PROXY takes their seat, and only the proxy
+ * counts — with the proxy's own reply. Every counter applies `.is(REPRESENTED_BY, null)` beside `.eq(PASSED_AWAY,
+ * false)`; the SQL readers carry the same predicate (migration 20271292712479). `lib/guest-proxy.ts` holds the rest.
+ */
+export const REPRESENTED_BY = 'represented_by_guest_id';
+
 /** Does this row count — in a headcount, a seat, a caterer's number? */
 /**
  * 🖐 "MARKED BY YOU" (owner 2026-10-21: *""Marked by you" on replies I set"*): a reply a HOST set
@@ -682,8 +699,13 @@ export function replyMarkedByHost(g: { rsvp_status: RsvpStatus; rsvp_set_by?: 'g
   return g.rsvp_set_by === 'host' && g.rsvp_status !== 'pending';
 }
 
-export function countsTowardEvent(g: { entry_source?: string | null; passed_away?: boolean | null }): boolean {
-  return g.entry_source !== REQUEST_ENTRY_SOURCE && g.passed_away !== true;
+export function countsTowardEvent(g: {
+  entry_source?: string | null;
+  passed_away?: boolean | null;
+  represented_by_guest_id?: string | null;
+}): boolean {
+  // 🧍 A represented role holder counts as their proxy — the proxy's row is the one counted (REPRESENTED_BY).
+  return g.entry_source !== REQUEST_ENTRY_SOURCE && g.passed_away !== true && !g.represented_by_guest_id;
 }
 
 /**
@@ -708,8 +730,16 @@ export function guestHasTicket(g: {
   entry_source?: string | null;
   rsvp_status?: string | null;
   passed_away?: boolean | null;
+  represented_by_guest_id?: string | null;
 }): boolean {
-  return Boolean(g.qr_token) && g.entry_source !== REQUEST_ENTRY_SOURCE && g.rsvp_status !== 'declined' && g.passed_away !== true;
+  // 🧍 A represented role holder does not come — their proxy checks in with their OWN ticket.
+  return (
+    Boolean(g.qr_token) &&
+    g.entry_source !== REQUEST_ENTRY_SOURCE &&
+    g.rsvp_status !== 'declined' &&
+    g.passed_away !== true &&
+    !g.represented_by_guest_id
+  );
 }
 
 export async function fetchGuestsByEventMeasured(
@@ -722,6 +752,9 @@ export async function fetchGuestsByEventMeasured(
     /** The roster and the reception-desk registry only: they LIST a guest who
      *  passed away (never counting them). Everyone else reads the living list. */
     includePassedAway?: boolean;
+    /** 🧍 The roster, the card, the prints and the export only: they LIST a represented role holder (the pair is one
+     *  row; the entourage still names them). Everyone else reads the counted list — the proxy, not the holder. */
+    includeRepresented?: boolean;
   } = {},
 ): Promise<MeasuredGuests> {
   let q = supabase
@@ -731,6 +764,7 @@ export async function fetchGuestsByEventMeasured(
     .is('deleted_at', null);
   if (!opts.includeRequests) q = q.neq('entry_source', REQUEST_ENTRY_SOURCE);
   if (!opts.includePassedAway) q = q.eq(PASSED_AWAY, false);
+  if (!opts.includeRepresented) q = q.is(REPRESENTED_BY, null);
   const { data, error } = await q
     .order('last_name', { ascending: true })
     .order('first_name', { ascending: true });
@@ -805,7 +839,8 @@ export async function countGuestsByEvent(
       .eq('event_id', eventId)
       .is('deleted_at', null)
       .neq('entry_source', REQUEST_ENTRY_SOURCE)
-      .eq(PASSED_AWAY, false);
+      .eq(PASSED_AWAY, false)
+      .is(REPRESENTED_BY, null);
     if (error) {
       logQueryError(
         'countGuestsByEvent',
@@ -833,7 +868,7 @@ export async function countGuestsByEvent(
  * reads as `guests.*`. That it is exactly GUEST_FIELDS + the note is held by `a-note-reaches-only-its-guest.test.ts`.
  */
 const GUEST_CARD_FIELDS =
-  'guest_id,public_id,event_id,first_name,last_name,name_prefix,middle_name,name_suffix,pair_with_guest_id,display_name,side,group_category,role,extra_roles,plus_one_allowed,plus_one_count,plus_one_name,plus_one_of_guest_id,plus_one_mode,email,mobile,meal_preference,dietary_restrictions,photo_consent,faceblock_enabled,face_recognition_excluded,photo_url,photo_source,photo_updated_at,invited_to_blocks,rsvp_status,notes,guest_note,qr_token,custom_tags,seating_priority,attire,gender,seniority_rank,relation,created_at,rsvp_responded_at,invitation_sent_at,entry_source,passed_away,plus_one_name_confirmed_at,rsvp_set_by,host_note_for_guest';
+  'guest_id,public_id,event_id,first_name,last_name,name_prefix,middle_name,name_suffix,pair_with_guest_id,display_name,side,group_category,role,extra_roles,plus_one_allowed,plus_one_count,plus_one_name,plus_one_of_guest_id,plus_one_mode,email,mobile,meal_preference,dietary_restrictions,photo_consent,faceblock_enabled,face_recognition_excluded,photo_url,photo_source,photo_updated_at,invited_to_blocks,rsvp_status,notes,guest_note,qr_token,custom_tags,seating_priority,attire,gender,seniority_rank,relation,created_at,rsvp_responded_at,invitation_sent_at,entry_source,passed_away,plus_one_name_confirmed_at,rsvp_set_by,represented_by_guest_id,represented_since,proxy_named_by_guest,host_note_for_guest';
 
 export async function fetchGuestById(
   supabase: SupabaseClient,

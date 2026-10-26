@@ -2,7 +2,7 @@ import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { guestsMaySeeSeatsFor } from '@/lib/guests-may-see-seats';
 import { isEmailConfigured, sendEmail } from '@/lib/email';
-import { PASSED_AWAY, type GuestRole } from '@/lib/guests';
+import { PASSED_AWAY, REPRESENTED_BY, type GuestRole } from '@/lib/guests';
 import { guestReplyBy, readGuestReminders } from '@/lib/rsvp-ask';
 import { replyFaceOf, replyWindow } from '@/lib/reply-window';
 import { resolveProfile } from '@/lib/event-type-profile';
@@ -211,7 +211,7 @@ async function remindOneEvent(
     .eq('event_id', ev.event_id)
     .is('deleted_at', null)
     // 🕯 Never to a guest the couple marked "Passed away".
-    .eq(PASSED_AWAY, false)
+    .eq(PASSED_AWAY, false).is(REPRESENTED_BY, null)
     .neq('rsvp_status', 'declined')
     .not('email', 'is', null)
     .not('qr_token', 'is', null)

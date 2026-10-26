@@ -35,6 +35,7 @@ import { dressCodeForEveryone } from './dress-code-for-everyone';
 import { resolveDisplayPalette } from './room-palette';
 import { sanitizeRolePalette } from './mood-board';
 import type { GuestRole } from './guests';
+import { fallbackInspirationParts } from './inspiration-parts';
 
 (globalThis as unknown as { React: unknown }).React = React;
 {
@@ -226,6 +227,7 @@ test('5 · the Studio draws the honour rows: a figure per column, one Wear ▾ e
     renderToStaticMarkup(
       React.createElement(MoodBoardStudio as never, {
         eventId: 'e',
+        inspirationParts: fallbackInspirationParts(),
         palette: { reception: ['#5B4A6B', '#D9C4CF', '#A9834B', '#F7F2EC', '#7A8B6F'] },
         fallbackFive: ['#5B4A6B', '#D9C4CF', '#A9834B', '#F7F2EC', '#7A8B6F'],
         frozenDressing: [],

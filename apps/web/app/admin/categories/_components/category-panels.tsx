@@ -47,6 +47,9 @@ import { FieldPick, ListPick, SavePick, type Choice } from './pickers';
 import { BackFields, INPUT, KeyRow, ReadOnly, SAVE, Section, SwitchForm, backRecord } from './ui';
 import { WhatCouplesChoose } from './what-couples-choose';
 import { WhatSuppliersFillIn } from './what-suppliers-fill-in';
+import { mapReorder } from '../four-level-actions';
+import type { MapData } from './four-level-model';
+import { CategoryCards, CategoryParts, FilesShopsAs, ServiceCards, ServiceParts } from './map-panels';
 
 type PlanGroupRef = { id: string; label: string; catalogTile?: string | null; catalogFolder?: string | null };
 
@@ -160,6 +163,7 @@ function DeadlineForm({ row, label, state }: { row: Deadline; label: string; sta
 // ── Group ───────────────────────────────────────────────────────────────────
 
 export function GroupPanel({ group, data, state }: { group: Group; data: CategoriesPanelData; state: BackState }) {
+  const groupOrder = data.groups.map((g) => g.id);
   const cats = data.categories.filter((c) => c.groupId === group.id);
   const scoped = cats.filter((c) => c.eventTypes && c.eventTypes.length > 0);
   const groupPlans = data.planGroups.filter((g) => !g.catalogTile && g.catalogFolder === group.id);
@@ -186,6 +190,10 @@ export function GroupPanel({ group, data, state }: { group: Group; data: Categor
             Save
           </SubmitButton>
         </form>
+        {/* ③b · Order ▾ on a group (the /explore strip follows the same order). */}
+        <KeyRow label="Order">
+          <OrderPick id={group.id} siblings={groupOrder} save={mapReorder.bind(null, 'groups', '')} />
+        </KeyRow>
       </Section>
       <Section title={`Categories in this group (${cats.length})`}>
         <ul className="flex flex-wrap gap-2">
@@ -233,12 +241,15 @@ export function CategoryPanel({
   cardsFailed,
   data,
   state,
+  map,
 }: {
   category: Category;
   cards: RefinementCard[];
   cardsFailed: boolean;
   data: CategoriesPanelData;
   state: BackState;
+  /** The four-level map's data (③b) — parts, service cards, the coarse filing. */
+  map?: MapData;
 }) {
   const group = data.groups.find((g) => g.id === category.groupId);
   const services = data.services.filter((s) => s.tileId === category.id);
@@ -271,7 +282,20 @@ export function CategoryPanel({
         <KeyRow label="Order">
           <OrderPick id={category.id} siblings={siblings} save={reorderCategories.bind(null, category.groupId)} />
         </KeyRow>
+        {map ? <FilesShopsAs categoryId={category.id} coarse={map.categories.find((c) => c.id === category.id)?.coarse ?? null} /> : null}
       </Section>
+
+      {map ? (
+        <Section title={`Parts (${map.parts.filter((p) => p.home === category.id).length})`}>
+          <CategoryParts categoryId={category.id} data={map} state={state} />
+        </Section>
+      ) : null}
+
+      {map ? (
+        <Section title={`Service cards · ${map.cardsRead ? map.cards.filter((cd) => services.some((s) => s.canonical === cd.service)).length : '—'}`}>
+          <CategoryCards categoryId={category.id} data={map} state={state} />
+        </Section>
+      ) : null}
 
       <Section title="Shows for events">
         <ReadOnly>{showsForLabel(category.eventTypes, data.eventLabels)}</ReadOnly>
@@ -366,7 +390,19 @@ const MARKS: Array<{ flag: string; label: string; on: (s: Service) => boolean }>
   { flag: 'marketplace_hidden', label: 'Hidden from suppliers’ picker', on: (s) => s.hidden },
 ];
 
-export function ServicePanel({ service, data, state }: { service: Service; data: CategoriesPanelData; state: BackState }) {
+export function ServicePanel({
+  service,
+  data,
+  state,
+  map,
+}: {
+  service: Service;
+  data: CategoriesPanelData;
+  state: BackState;
+  /** The four-level map's data (③b) — the parts it feeds, its cards, its place. */
+  map?: MapData;
+}) {
+  const serviceOrder = map && service.tileId ? map.services.filter((s) => s.tileId === service.tileId).map((s) => s.key) : [];
   const category = data.categories.find((c) => c.id === service.tileId) ?? null;
   const group = category ? data.groups.find((g) => g.id === category.groupId) : null;
   const back = backRecord(state);
@@ -445,7 +481,24 @@ export function ServicePanel({ service, data, state }: { service: Service; data:
             }
           />
         </KeyRow>
+        {map && service.tileId && serviceOrder.length > 1 ? (
+          <KeyRow label="Order">
+            <OrderPick id={service.canonical} siblings={serviceOrder} save={mapReorder.bind(null, 'services', service.tileId)} />
+          </KeyRow>
+        ) : null}
       </Section>
+
+      {map ? (
+        <Section title={`Inspiration parts (${map.parts.filter((p) => p.services.includes(service.canonical)).length})`}>
+          <ServiceParts serviceKey={service.canonical} data={map} state={state} />
+        </Section>
+      ) : null}
+
+      {map ? (
+        <Section title={`Service cards · ${map.cardsRead ? map.cards.filter((cd) => cd.service === service.canonical).length : '—'}`}>
+          <ServiceCards serviceKey={service.canonical} data={map} state={state} />
+        </Section>
+      ) : null}
 
       <Section title="Religion">
         <ReadOnly>{religion ? `${religion.label} only` : 'Everyone'}</ReadOnly>

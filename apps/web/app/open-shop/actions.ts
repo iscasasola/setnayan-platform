@@ -18,6 +18,7 @@ import { parseCoordPair } from '@/lib/parse-coord';
 import { parseVendorPhone } from '@/lib/phone-rules';
 import { VENDOR_SLUG_RE } from '@/lib/vendor-slug';
 import { vendorCategoryForLeaf } from '@/lib/vendor-packages';
+import { getTaxonomy } from '@/lib/taxonomy-db';
 import {
   OPEN_SHOP_EMAIL_RE,
   OPEN_SHOP_ERRORS,
@@ -274,7 +275,7 @@ export async function becomeVendor(formData: FormData): Promise<void> {
       pickedLeaf = leaf.canonicalService;
       // Guaranteed non-'misc' for every live leaf by
       // tests/db/no-service-lands-in-misc.db.test.ts.
-      coarseService = vendorCategoryForLeaf(leaf.canonicalService, leaf.tileId);
+      coarseService = vendorCategoryForLeaf(leaf.canonicalService, leaf.tileId, await getTaxonomy());
     }
   }
   if (!coarseService) {

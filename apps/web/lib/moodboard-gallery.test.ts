@@ -11,7 +11,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { MOODBOARD_SLOT_KEYS } from './moodboard-slots';
-import { FILIPINIANA_BARONG_CANONICALS, WEDDING_TILE_LABEL } from './taxonomy';
+import { WEDDING_TILE_LABEL } from './taxonomy';
 import { canonicalServicesForTile } from './vendor-counts';
 import {
   GALLERY_MAX_LIMIT,
@@ -29,6 +29,7 @@ import {
   tradesForSlot,
   type RawGalleryRow,
 } from './moodboard-gallery';
+import { fallbackInspirationParts } from './inspiration-parts';
 
 /* ── the map is a lookup over the taxonomy, not a new vocabulary ────────── */
 
@@ -72,8 +73,8 @@ test('a tile that resolves to NO canonical service would silently empty a picker
 
 test('`palette` has NO supplying trade, and that is the honest answer', () => {
   assert.deepEqual(MOODBOARD_SLOT_TRADES.palette, []);
-  assert.equal(slotHasSupplierTrade('palette'), false);
-  assert.equal(canonicalServicesForSlot('palette').length, 0);
+  assert.equal(slotHasSupplierTrade('palette', fallbackInspirationParts()), false);
+  assert.equal(canonicalServicesForSlot('palette', fallbackInspirationParts()).length, 0);
   assert.ok(!GALLERY_SLOT_KEYS.includes('palette'));
 });
 
@@ -87,25 +88,25 @@ test('GALLERY_SLOT_KEYS is DERIVED from the map, never listed', () => {
 test('canonicalServicesForSlot derives from the tiles and de-dupes', () => {
   // `venue` names one tile — a single-tile slot resolves to exactly that
   // tile's canonicals.
-  const venue = canonicalServicesForSlot('venue');
+  const venue = canonicalServicesForSlot('venue', fallbackInspirationParts());
   assert.deepEqual(venue, canonicalServicesForTile('ceremony_venue'));
   // `flowers` names two tiles (MB18 added `stylist_decorator`) — the slot's
   // canonicals must be the union of both, not either tile alone.
-  const flowers = canonicalServicesForSlot('flowers');
+  const flowers = canonicalServicesForSlot('flowers', fallbackInspirationParts());
   for (const c of canonicalServicesForTile('florist')) assert.ok(flowers.includes(c));
   for (const c of canonicalServicesForTile('stylist_decorator')) assert.ok(flowers.includes(c));
   assert.equal(new Set(flowers).size, flowers.length, 'duplicates leaked through');
   // `bride` names three tiles that overlap on the Filipiniana canonicals.
-  const bride = canonicalServicesForSlot('bride');
+  const bride = canonicalServicesForSlot('bride', fallbackInspirationParts());
   assert.equal(new Set(bride).size, bride.length, 'duplicates leaked through');
-  for (const tile of tradesForSlot('bride')) {
+  for (const tile of tradesForSlot('bride', fallbackInspirationParts())) {
     for (const c of canonicalServicesForTile(tile)) assert.ok(bride.includes(c));
   }
 });
 
 test('an unknown slot key gets an empty answer, never a guessed one', () => {
-  assert.deepEqual([...tradesForSlot('not_a_slot')], []);
-  assert.equal(slotHasSupplierTrade('not_a_slot'), false);
+  assert.deepEqual([...tradesForSlot('not_a_slot', fallbackInspirationParts())], []);
+  assert.equal(slotHasSupplierTrade('not_a_slot', fallbackInspirationParts()), false);
 });
 
 /* ── MB18 — the four map rows the owner asked for, verbatim ─────────────── */
@@ -115,8 +116,8 @@ test('⭐ MB18 · a shop whose only service is barong_tagalog_rental may upload 
   // resolving canonicals correctly (see moodboard-gallery.ts's docblock and
   // build-sessions/MB-GALLERY-PLAN.md's 2026-09-05 correction); it was simply
   // missing from these two slots' rows.
-  const entourage = canonicalServicesForSlot('entourage');
-  const guests = canonicalServicesForSlot('guests');
+  const entourage = canonicalServicesForSlot('entourage', fallbackInspirationParts());
+  const guests = canonicalServicesForSlot('guests', fallbackInspirationParts());
   assert.ok(
     entourage.includes('barong_tagalog_rental'),
     'entourage must resolve barong_tagalog_rental via filipiniana_barongs',
@@ -184,8 +185,8 @@ test('⭐ MB18 · non-regression pin — canonicalServicesForSlot(\'bride\') sti
   // `bride` already worked before this session touched anything (the
   // 2026-09-05 correction to the plan measured this directly). Pinned here so
   // a future refactor of the map cannot quietly break it.
-  const bride = canonicalServicesForSlot('bride');
-  const hasFilipinianaBarongMember = FILIPINIANA_BARONG_CANONICALS.some((c) =>
+  const bride = canonicalServicesForSlot('bride', fallbackInspirationParts());
+  const hasFilipinianaBarongMember = canonicalServicesForTile('filipiniana_barongs').some((c) =>
     bride.includes(c),
   );
   assert.ok(hasFilipinianaBarongMember, 'bride lost its Filipiniana/Barong resolution');
@@ -195,20 +196,20 @@ test('⭐ MB18 · non-regression pin — canonicalServicesForSlot(\'bride\') sti
 
 test('the trade label comes from the SHOP’s services, not from the slot', () => {
   const floristCanonical = canonicalServicesForTile('florist')[0]!;
-  assert.equal(tradeLabelForCredit('flowers', [floristCanonical]), 'Florist');
+  assert.equal(tradeLabelForCredit('flowers', [floristCanonical], fallbackInspirationParts()), 'Florist');
 });
 
 test('⭐ a shop whose trades do not reach the slot gets NO label — never the slot’s first tile', () => {
   // The exact fabrication this refuses: a caterer's photo sitting in `flowers`
   // must not read "· Florist" just because of where it was filed.
   const cateringCanonical = canonicalServicesForTile('catering')[0]!;
-  assert.equal(tradeLabelForCredit('flowers', [cateringCanonical]), null);
+  assert.equal(tradeLabelForCredit('flowers', [cateringCanonical], fallbackInspirationParts()), null);
   assert.equal(creditLine('Bloom & Vine', null), 'Bloom & Vine');
 });
 
 test('no services at all → the name alone, which is true', () => {
-  assert.equal(tradeLabelForCredit('flowers', []), null);
-  assert.equal(tradeLabelForCredit('flowers', null), null);
+  assert.equal(tradeLabelForCredit('flowers', [], fallbackInspirationParts()), null);
+  assert.equal(tradeLabelForCredit('flowers', null, fallbackInspirationParts()), null);
 });
 
 test('the slot’s ORDER decides which of several matched trades is printed', () => {
@@ -216,24 +217,24 @@ test('the slot’s ORDER decides which of several matched trades is printed', ()
   // credited as the stylist, because a stylist dresses the table.
   const stylist = canonicalServicesForTile('stylist_decorator')[0]!;
   const florist = canonicalServicesForTile('florist')[0]!;
-  assert.equal(tradeLabelForCredit('table', [florist, stylist]), 'Stylist / Decorator');
+  assert.equal(tradeLabelForCredit('table', [florist, stylist], fallbackInspirationParts()), 'Stylist / Decorator');
 });
 
 test('⭐ MB18 · the credit for a florist on flowers still reads "Florist"', () => {
   const floristCanonical = canonicalServicesForTile('florist')[0]!;
-  assert.equal(tradeLabelForCredit('flowers', [floristCanonical]), 'Florist');
+  assert.equal(tradeLabelForCredit('flowers', [floristCanonical], fallbackInspirationParts()), 'Florist');
 });
 
 test('MB18 · a stylist-only shop on flowers is credited "Stylist / Decorator", florist wins when both', () => {
   const stylistCanonical = canonicalServicesForTile('stylist_decorator')[0]!;
   const floristCanonical = canonicalServicesForTile('florist')[0]!;
   assert.equal(
-    tradeLabelForCredit('flowers', [stylistCanonical]),
+    tradeLabelForCredit('flowers', [stylistCanonical], fallbackInspirationParts()),
     'Stylist / Decorator',
     'a shop that is ONLY a stylist must still get a label on flowers',
   );
   assert.equal(
-    tradeLabelForCredit('flowers', [stylistCanonical, floristCanonical]),
+    tradeLabelForCredit('flowers', [stylistCanonical, floristCanonical], fallbackInspirationParts()),
     'Florist',
     'florist leads the row, so it wins the credit when a shop is both',
   );
@@ -247,38 +248,38 @@ test('creditLine joins with a middot and survives a blank name', () => {
 /* ── the cap. The unbounded query is the thing this session was warned about ── */
 
 test('⭐ THE CAP · a caller asking for a million rows gets GALLERY_MAX_LIMIT', () => {
-  const q = normalizeGalleryQuery({ slotKey: 'flowers', limit: 1_000_000 });
+  const q = normalizeGalleryQuery({ slotKey: 'flowers', limit: 1_000_000 }, fallbackInspirationParts());
   assert.equal(q?.limit, GALLERY_MAX_LIMIT);
 });
 
 test('⭐ THE CAP · offset is clamped too, so "show more" cannot walk forever', () => {
-  const q = normalizeGalleryQuery({ slotKey: 'flowers', offset: 9_999_999 });
+  const q = normalizeGalleryQuery({ slotKey: 'flowers', offset: 9_999_999 }, fallbackInspirationParts());
   assert.equal(q?.offset, GALLERY_MAX_OFFSET);
 });
 
 test('⭐ THE CAP · a MISSING limit is still a limit', () => {
   // The failure mode that mattered: `limit` absent meaning "no limit".
-  const q = normalizeGalleryQuery({ slotKey: 'flowers' });
+  const q = normalizeGalleryQuery({ slotKey: 'flowers' }, fallbackInspirationParts());
   assert.equal(q?.limit, GALLERY_PAGE_SIZE);
   assert.equal(q?.offset, 0);
 });
 
 test('garbage limits and offsets fall back, never through', () => {
   for (const bad of [Number.NaN, Number.POSITIVE_INFINITY, 'lots', null, {}]) {
-    const q = normalizeGalleryQuery({ slotKey: 'flowers', limit: bad, offset: bad });
+    const q = normalizeGalleryQuery({ slotKey: 'flowers', limit: bad, offset: bad }, fallbackInspirationParts());
     assert.ok(q, `rejected the slot over a bad limit: ${String(bad)}`);
     assert.ok(q!.limit >= 1 && q!.limit <= GALLERY_MAX_LIMIT, String(bad));
     assert.ok(q!.offset >= 0 && q!.offset <= GALLERY_MAX_OFFSET, String(bad));
   }
-  assert.equal(normalizeGalleryQuery({ slotKey: 'flowers', limit: -5 })?.limit, 1);
-  assert.equal(normalizeGalleryQuery({ slotKey: 'flowers', offset: -5 })?.offset, 0);
+  assert.equal(normalizeGalleryQuery({ slotKey: 'flowers', limit: -5 }, fallbackInspirationParts())?.limit, 1);
+  assert.equal(normalizeGalleryQuery({ slotKey: 'flowers', offset: -5 }, fallbackInspirationParts())?.offset, 0);
 });
 
 test('a slot with no supplying trade is REFUSED, not queried empty', () => {
-  assert.equal(normalizeGalleryQuery({ slotKey: 'palette' }), null);
-  assert.equal(normalizeGalleryQuery({ slotKey: 'not_a_slot' }), null);
-  assert.equal(normalizeGalleryQuery({ slotKey: 42 }), null);
-  assert.equal(normalizeGalleryQuery({}), null);
+  assert.equal(normalizeGalleryQuery({ slotKey: 'palette' }, fallbackInspirationParts()), null);
+  assert.equal(normalizeGalleryQuery({ slotKey: 'not_a_slot' }, fallbackInspirationParts()), null);
+  assert.equal(normalizeGalleryQuery({ slotKey: 42 }, fallbackInspirationParts()), null);
+  assert.equal(normalizeGalleryQuery({}, fallbackInspirationParts()), null);
 });
 
 /* ── shaping: one reason a photo is withheld (its shop cannot be credited), counted ─ */
@@ -300,7 +301,7 @@ function row(over: Partial<RawGalleryRow> = {}): RawGalleryRow {
 }
 
 test('a shapeable row carries its credit and six colours in slot order', () => {
-  const { assets, withheld } = shapeGalleryPage('flowers', [row()]);
+  const { assets, withheld } = shapeGalleryPage('flowers', [row()], fallbackInspirationParts());
   assert.equal(withheld, 0);
   assert.equal(assets.length, 1);
   assert.equal(assets[0]!.credit, 'Bloom & Vine · Florist');
@@ -312,7 +313,7 @@ test('a shapeable row carries its credit and six colours in slot order', () => {
 });
 
 test('⭐ WITHHELD · a photo whose SHOP is unreadable is never shown uncredited', () => {
-  const { assets, withheld } = shapeGalleryPage('flowers', [row({ shop: null })]);
+  const { assets, withheld } = shapeGalleryPage('flowers', [row({ shop: null })], fallbackInspirationParts());
   assert.equal(assets.length, 0);
   assert.equal(withheld, 1);
 });
@@ -320,7 +321,7 @@ test('⭐ WITHHELD · a photo whose SHOP is unreadable is never shown uncredited
 test('⭐ WITHHELD · a shop with a blank business_name is not a credit', () => {
   const { assets, withheld } = shapeGalleryPage('flowers', [
     row({ shop: { business_name: '   ', services: [] } }),
-  ]);
+  ], fallbackInspirationParts());
   assert.equal(assets.length, 0);
   assert.equal(withheld, 1);
 });
@@ -329,7 +330,7 @@ test('⭐ SHOWN, NOT WITHHELD · no sampled colours still means no invented colo
   // RE-AIMED 2026-10-19 (PR #6655): withholding an untagged photo made an approved supplier photo invisible —
   // suppliers do not tag colours. It is shown with NO swatches (never padded with cream); its colours are read off
   // its own pixels on the server when a couple saves it (`applyGalleryPick`).
-  const { assets, withheld } = shapeGalleryPage('flowers', [row({ ranges: [] })]);
+  const { assets, withheld } = shapeGalleryPage('flowers', [row({ ranges: [] })], fallbackInspirationParts());
   assert.equal(assets.length, 1);
   assert.equal(withheld, 0);
   assert.deepEqual(assets[0]!.swatches, []);
@@ -338,12 +339,12 @@ test('⭐ SHOWN, NOT WITHHELD · no sampled colours still means no invented colo
 /* ── MB22 · isEventLinked reaches the shaped asset, exactly as given ────── */
 
 test('⭐ MB22 · a back-catalogue row (is_event_linked: false) is NOT marked event-linked', () => {
-  const { assets } = shapeGalleryPage('flowers', [row({ is_event_linked: false })]);
+  const { assets } = shapeGalleryPage('flowers', [row({ is_event_linked: false })], fallbackInspirationParts());
   assert.equal(assets[0]!.isEventLinked, false);
 });
 
 test('⭐ MB22 · an event-linked row (is_event_linked: true) IS marked event-linked', () => {
-  const { assets } = shapeGalleryPage('flowers', [row({ is_event_linked: true })]);
+  const { assets } = shapeGalleryPage('flowers', [row({ is_event_linked: true })], fallbackInspirationParts());
   assert.equal(assets[0]!.isEventLinked, true);
 });
 
@@ -355,7 +356,7 @@ test('MB22 · shapeGalleryPage never reorders — the DB query is the only sort'
     row({ asset_id: 'BACK-1', is_event_linked: false }),
     row({ asset_id: 'EVENT-1', is_event_linked: true }),
     row({ asset_id: 'BACK-2', is_event_linked: false }),
-  ]);
+  ], fallbackInspirationParts());
   assert.deepEqual(
     assets.map((a) => a.assetId),
     ['BACK-1', 'EVENT-1', 'BACK-2'],
@@ -369,7 +370,7 @@ test('withholding is counted, not swallowed — a mixed page reports both halves
     row({ asset_id: 'A2', shop: null }),
     row({ asset_id: 'A3', ranges: [] }),
     row({ asset_id: 'A4' }),
-  ]);
+  ], fallbackInspirationParts());
   assert.deepEqual(
     assets.map((a) => a.assetId),
     ['A1', 'A3', 'A4'],

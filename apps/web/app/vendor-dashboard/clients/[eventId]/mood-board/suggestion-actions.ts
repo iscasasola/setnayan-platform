@@ -31,6 +31,7 @@ import { extractPaletteFromBytes } from '@/lib/extract-palette.server';
 import { fetchShopLogoBytes, listShopOwnPhotos, readShopOwnPhotoBytes, type ShopOwnPhoto } from '@/lib/shop-own-photos.server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { libraryPhotoParts } from '@/lib/inspiration-slots';
+import { getInspirationParts } from '@/lib/inspiration-parts-db';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { SUGGEST_REFUSAL } from '@/lib/inspiration-suggestions';
 import type { VendorProfileRow } from '@/lib/vendor-profile';
@@ -51,7 +52,7 @@ export async function suggestInspirationPhoto(formData: FormData): Promise<Sugge
   const file = picked instanceof File && picked.size > 0 ? picked : null;
   const shopPhotoRef = String(formData.get('shopPhotoRef') ?? '').trim() || null;
 
-  if (!eventId || !libraryPhotoParts().some((p) => p.key === slotKey)) {
+  if (!eventId || !libraryPhotoParts(await getInspirationParts()).some((p) => p.key === slotKey)) {
     return { status: 'refused', message: 'Pick which part this photo is for.' };
   }
   if (!file && !shopPhotoRef) return { status: 'refused', message: 'Pick a photo — a file, or one from your shop.' };

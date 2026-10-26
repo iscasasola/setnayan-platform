@@ -37,6 +37,7 @@
  *                         fixtures; `&fresh=1` a new event (nothing filled in yet)
  */
 import { passCardDesignFrom } from '@/lib/pass-card';
+import { fallbackInspirationParts } from '@/lib/inspiration-parts';
 import { MakerDetails, detailsFactEditors } from '@/app/dashboard/[eventId]/launch/_components/maker-details';
 import { pickableInviteThemes } from '@/lib/invite-themes';
 import { formatFor, parsePrintDetails } from '@/lib/print-pieces';
@@ -451,6 +452,7 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
                   <LabMoodBoardActions refuse={one('refuse') === '1'} library={one('library') === '1'}>
                   <MoodBoardStudio
                     eventId={EVENT}
+                    inspirationParts={fallbackInspirationParts()}
                     palette={(designsAttire ? labDesignsRolePalette() : caleIce ? labCaleIceRolePalette(caleIceAfter) : rolesAttire ? labRolesRolePalette() : { reception: ['#5B4A6B', '#D9C4CF', '#A9834B', '#F7F2EC', '#7A8B6F'], bride: ['#F7F2EC', '#D9C4CF', '#A9834B'], groom: ['#2C2A29'], ...(sharedAttire ? { principal_sponsors: ['#6B6B3A'] } : {}) }) as never}
                     fallbackFive={['#5B4A6B', '#D9C4CF', '#A9834B', '#F7F2EC', '#7A8B6F']}
                     frozenDressing={[]}

@@ -25,10 +25,6 @@ const PRO = iapProductForServiceKey('COUPLE_WEBSITE_PRO');
  * frames 1 · 6 · 7 · 8 · 9).
  */
 export function AppleProScreen(props: AppleProScreenProps) {
-  const { parts = [], ownedNames = [] } = props;
-  if (parts.length > 0) {
-    return <AppleProParts eventId={props.eventId} back={props.back} parts={parts} ownedNames={ownedNames} sample={props.sample ?? null} />;
-  }
   return <AppleProEverything eventId={props.eventId} back={props.back} sample={props.sample ?? null} />;
 }
 
@@ -37,18 +33,13 @@ type AppleProScreenProps = {
   /** The Maker (or Home) — where the couple returns. */
   back: string;
   /** DEV LAB ONLY: draw one outcome with a sample price, without StoreKit. */
-  sample?: { screen: IapScreen | null; price: string | null; partPrices?: Record<string, string> } | null;
-  /**
-   * 💎 PART BY PART (owner 2026-10-22, 1.1 flag-dark): the parts the Apply sheet asked for — each a fixed-price Apple
-   * product, bought one after another in this one tap. Empty: "everything" (Full Pro), offered only while nothing is
-   * owned (the page decides).
-   */
-  parts?: ReadonlyArray<{ name: string; productId: string }>;
-  /** The parts this event already holds — named, and said to count toward Event Hub Pro (no figure). */
-  ownedNames?: readonly string[];
+  sample?: { screen: IapScreen | null; price: string | null } | null;
 };
 
-/** Everything (Full Pro) — the one product, offered only while the event owns no part (the page decides). */
+/**
+ * Everything (Full Pro) — the one product the app sells for the Event Hub (owner 2026-10-26: "just have the upgrade
+ * event hub pro"; the part-by-part Apple products of 2026-10-22 are retired, never attached to a version).
+ */
 function AppleProEverything({ eventId, back, sample }: Pick<AppleProScreenProps, 'eventId' | 'back'> & { sample: AppleProScreenProps['sample'] }) {
   const router = useRouter();
   const [price, setPrice] = useState<{ state: 'loading' | 'ready' | 'silent'; value: string | null }>(
@@ -142,135 +133,6 @@ function AppleProEverything({ eventId, back, sample }: Pick<AppleProScreenProps,
         {buying
           ? 'Opening the App Store…'
           : `${screen?.kind === 'failed' ? 'Try again' : 'Unlock Pro and Apply'}${price.value ? ` · ${price.value}` : ''}`}
-      </button>
-      <p className="text-center text-xs text-ink/60">{IAP_COPY.billedByApple}</p>
-      <button type="button" onClick={() => router.push(back)} className="sn-press min-h-11 w-full rounded-full text-sm font-semibold text-ink/70 hover:bg-ink/5">
-        Not now
-      </button>
-    </section>
-  );
-}
-
-/**
- * 💎 THE PARTS, THROUGH APPLE (owner 2026-10-22; prototype frame 6) — each part at StoreKit's own price
- * (`displayPrice`, never a web figure, never a sum the app would have to invent), bought one after another in one tap:
- * "Unlock Style + Motion and Apply". The band says what is already owned and that it counts toward Event Hub Pro — no
- * figure, and never "everything for less on the web" (3.1.1). Success is said only once OUR server has verified each.
- */
-function AppleProParts({
-  eventId,
-  back,
-  parts,
-  ownedNames,
-  sample,
-}: {
-  eventId: string;
-  back: string;
-  parts: ReadonlyArray<{ name: string; productId: string }>;
-  ownedNames: readonly string[];
-  sample: { screen: IapScreen | null; price: string | null; partPrices?: Record<string, string> } | null;
-}) {
-  const router = useRouter();
-  const [prices, setPrices] = useState<Record<string, string> | null>(sample?.partPrices ?? null);
-  const [silent, setSilent] = useState(false);
-  const [buying, setBuying] = useState<string | null>(null);
-  const [done, setDone] = useState<string[]>([]);
-  const [screen, setScreen] = useState<IapScreen | null>(sample?.screen ?? null);
-  useEffect(() => {
-    if (sample) return;
-    let alive = true;
-    void loadAppStoreProducts(parts.map((p) => p.productId)).then((map) => {
-      if (!alive) return;
-      const out: Record<string, string> = {};
-      for (const p of parts) {
-        const v = map?.get(p.productId)?.displayPrice;
-        if (v) out[p.productId] = v;
-      }
-      if (Object.keys(out).length === parts.length) setPrices(out);
-      else setSilent(true);
-    });
-    return () => {
-      alive = false;
-    };
-  }, [parts, sample]);
-  const left = parts.filter((p) => !done.includes(p.productId));
-  const buyAll = async () => {
-    if (sample || buying || !prices) return;
-    setScreen(null);
-    for (const p of left) {
-      setBuying(p.productId);
-      const s = await buyWithApple({ eventId, productId: p.productId });
-      if (s.kind !== 'on') {
-        setBuying(null);
-        setScreen(s);
-        return;
-      }
-      setDone((d) => [...d, p.productId]);
-    }
-    setBuying(null);
-    setScreen({ kind: 'on' });
-  };
-  const sep = back.includes('?') ? '&' : '?';
-  const names = parts.map((p) => p.name).join(' + ');
-  if (screen?.kind === 'on') {
-    return (
-      <section className="mx-auto flex w-full max-w-md flex-col gap-3 px-4 py-6" data-apple-parts-on="">
-        <h1 className="inline-flex items-center gap-1.5 font-serif text-2xl text-ink">
-          {names} {parts.length === 1 ? 'is' : 'are'} on
-          <PaidMark state="unlocked" bare label="Event Hub Pro" size="xs" />
-        </h1>
-        <p className="text-sm text-ink/70">For this event, and everyone on it.</p>
-        <button type="button" onClick={() => router.push(`${back}${sep}apply=1`)} className="button-primary sn-press mt-2 min-h-11 w-full">
-          Done — apply my changes
-        </button>
-        <p className="text-center text-xs text-ink/60">{IAP_COPY.receipt}</p>
-      </section>
-    );
-  }
-  return (
-    <section className="mx-auto flex w-full max-w-md flex-col gap-3 px-4 py-6" data-apple-parts-buy="">
-      <h1 className="inline-flex items-center gap-1.5 font-serif text-2xl text-ink">
-        Event Hub Pro
-        <PaidMark state="try" bare label="Event Hub Pro" size="xs" />
-      </h1>
-      <ul className="divide-y divide-ink/10">
-        {parts.map((p) => (
-          <li key={p.productId} className="flex min-h-11 items-center justify-between gap-3 py-2 text-sm" data-apple-part={p.productId}>
-            <span className="inline-flex items-center gap-2 font-semibold text-ink">
-              {done.includes(p.productId) ? <PaidMark state="unlocked" bare label="Event Hub Pro" size="xs" /> : <PaidMark state="try" bare label="Event Hub Pro" size="xs" />}
-              {p.name}
-            </span>
-            <span className="font-mono text-ink/80">{prices?.[p.productId] ?? ''}</span>
-          </li>
-        ))}
-      </ul>
-      {ownedNames.length > 0 ? (
-        <p className="rounded-2xl bg-ink/[0.05] px-3 py-2.5 text-[13px] leading-snug text-ink/80" data-apple-parts-band="">
-          You already have <strong className="text-ink">{ownedNames.join(' · ')}</strong>. Everything you unlock counts toward Event Hub Pro.
-        </p>
-      ) : null}
-      {screen?.kind === 'cancelled' ? (
-        <p className="text-sm text-ink/70" role="status">{IAP_COPY.cancelled} Your Pro changes are still in your draft.</p>
-      ) : screen?.kind === 'failed' ? (
-        <div className="text-sm text-ink/70" role="alert">
-          <p>{IAP_COPY.failedLead}</p>
-          <p className="mt-1">{IAP_COPY.failedNext}</p>
-        </div>
-      ) : screen?.kind === 'refused' ? (
-        <p className="text-sm text-ink/70" role="alert">{screen.message}</p>
-      ) : screen?.kind === 'pending' ? (
-        <p className="text-sm text-ink/70" role="status">{screen.askToBuy ? IAP_COPY.askToBuy : pendingLine(names, false)}</p>
-      ) : silent ? (
-        <p className="text-sm text-ink/70" role="status">{IAP_COPY.storeSilent}</p>
-      ) : null}
-      <button
-        type="button"
-        onClick={() => void buyAll()}
-        disabled={Boolean(buying) || !prices}
-        data-apple-parts-unlock=""
-        className="button-primary sn-press mt-2 inline-flex min-h-11 w-full items-center justify-center text-center disabled:opacity-60"
-      >
-        {buying ? 'Opening the App Store…' : `Unlock ${left.map((p) => p.name).join(' + ') || names} and Apply`}
       </button>
       <p className="text-center text-xs text-ink/60">{IAP_COPY.billedByApple}</p>
       <button type="button" onClick={() => router.push(back)} className="sn-press min-h-11 w-full rounded-full text-sm font-semibold text-ink/70 hover:bg-ink/5">

@@ -21,6 +21,11 @@ import {
  * draws, from what the page read: what the event holds (active · owned), each part's catalogue price, Full Pro's, and
  * the Apply sheet's `?buy=` pick. No reads here, so the page and its lab (`/dev/pro-parts-lab`) draw the same thing.
  * Every figure is handed in; nothing is typed.
+ *
+ * ⛔ SOLD WHOLE AGAIN (owner 2026-10-26, "just have the upgrade event hub pro" → "no more by part as well on the
+ * website"): the parts' catalogue rows are off sale, so no part price is handed in. Then the page is ONE unlock —
+ * Everything — and the parts below are only the honest list of what it opens (each part's gates), with no price, no
+ * button and no "counts toward" line. The catalogue is the one switch (`hubPartPrices().onSale`).
  */
 export type ProPartsBodyProps = {
   eventId: string;
@@ -48,6 +53,8 @@ export function ProPartsBody({ eventId, title, back, fromMaker, hubHref, active,
     has(active, id) ? 'yours' : has(owned, id) ? 'review' : 'buy';
   /** Never charge above the rest — a part that would cost more than everything is offered at the rest (and unlocks it). */
   const chargeOf = (php: number) => (restPhp === null ? php : Math.min(php, restPhp));
+  /** Is any part sold on its own? None since 2026-10-26 — then the page sells Everything alone. */
+  const partsOnSale = HUB_PARTS.some((p) => partPrice(p.id) !== null);
 
   /* `?buy=` — the Apply sheet's pick, carried here: "style,motion" or "full". Unknown or owned parts are dropped. */
   const buyFull = buy === 'full';
@@ -94,7 +101,9 @@ export function ProPartsBody({ eventId, title, back, fromMaker, hubHref, active,
         <p className="text-[15px] leading-snug text-ink/65">
           {paidPhp > 0 && !active?.full
             ? `You've paid ${formatPhp(paidPhp)} toward everything.`
-            : 'Buy the parts you use, or everything at once. Each unlock is for this event and everyone on it.'}
+            : partsOnSale
+              ? 'Buy the parts you use, or everything at once. Each unlock is for this event and everyone on it.'
+              : 'One unlock for everything below — for this event and everyone on it.'}
         </p>
       </header>
 
@@ -105,7 +114,7 @@ export function ProPartsBody({ eventId, title, back, fromMaker, hubHref, active,
             <PaidMark state="unlocked" label={paidMarkLabel('unlocked', 'Event Hub Pro')} size="lg" tone="current" /> Unlocked
           </p>
           <p className="text-sm text-ink/70">
-            Everything is on across your Event Hub — all {HUB_PARTS.length} parts — and the &ldquo;Powered by Setnayan&rdquo; footer is off.
+            Everything is on across your Event Hub{partsOnSale ? ` — all ${HUB_PARTS.length} parts —` : ''} and the &ldquo;Powered by Setnayan&rdquo; footer is off.
           </p>
           <Link
             href={fromMaker ? back.href : hubHref}
@@ -121,7 +130,7 @@ export function ProPartsBody({ eventId, title, back, fromMaker, hubHref, active,
             <Clock aria-hidden className="h-5 w-5" strokeWidth={1.75} /> Payment under review
           </p>
           <p className="text-sm text-ink/70">
-            We&rsquo;ve received your Event Hub Pro order. Our team reconciles within one business day — every part unlocks
+            We&rsquo;ve received your Event Hub Pro order. Our team reconciles within one business day — everything unlocks
             automatically once it is approved.
           </p>
           <Link href={`/dashboard/${eventId}/orders`} className="mt-3 inline-flex min-h-11 items-center text-sm font-medium text-mulberry underline underline-offset-2">
@@ -137,15 +146,17 @@ export function ProPartsBody({ eventId, title, back, fromMaker, hubHref, active,
           <p className="mt-1 text-sm leading-snug text-ink/65">
             {paidPhp > 0
               ? `The other parts, and the "Powered by Setnayan" footer comes off. ${formatPhp(fullPhp ?? 0)} in all — you've paid ${formatPhp(paidPhp)} of it.`
-              : `All ${HUB_PARTS.length} parts, and the "Powered by Setnayan" footer comes off your Hub, invite, prints and story.`}
+              : partsOnSale
+                ? `All ${HUB_PARTS.length} parts, and the "Powered by Setnayan" footer comes off your Hub, invite, prints and story.`
+                : `Everything below, and the "Powered by Setnayan" footer comes off your Hub, invite, prints and story.`}
           </p>
           <div className="mt-3">
             {drawer({
               serviceKey: FULL_PRO_SKU,
-              name: 'Event Hub Pro · everything',
+              name: partsOnSale ? 'Event Hub Pro · everything' : 'Event Hub Pro',
               php: restPhp,
               // The drawer's own trigger shows the figure beside the words — the label is words only.
-              label: paidPhp > 0 ? 'Unlock the rest' : 'Unlock everything',
+              label: paidPhp > 0 ? 'Unlock the rest' : partsOnSale ? 'Unlock everything' : 'Unlock Event Hub Pro',
             })}
           </div>
         </div>
@@ -154,7 +165,7 @@ export function ProPartsBody({ eventId, title, back, fromMaker, hubHref, active,
       )}
 
       {/* ── THE APPLY SHEET'S PICK (`?buy=`) — one order, one payment. ── */}
-      {!active?.full && !owned?.full && buyParts.length > 0 && buyPricePhp !== null ? (
+      {partsOnSale && !active?.full && !owned?.full && buyParts.length > 0 && buyPricePhp !== null ? (
         <div className="rounded-3xl bg-ink/[0.04] p-5 ring-2 ring-terracotta/50" data-pro-buy-pick={buyParts.join(',')}>
           <p className="flex items-baseline justify-between gap-3">
             <span className="text-lg font-semibold text-ink">{hubPartsLabel(buyParts)}</span>
@@ -173,11 +184,14 @@ export function ProPartsBody({ eventId, title, back, fromMaker, hubHref, active,
         </div>
       ) : null}
 
-      {/* ── THE ELEVEN PARTS, big then small. ── */}
-      {[
-        { title: 'Big parts', parts: big },
-        { title: 'Small parts', parts: small },
-      ].map((band) => (
+      {/* ── THE ELEVEN PARTS, big then small — or, sold whole, one list of what Everything opens. ── */}
+      {(partsOnSale
+        ? [
+            { title: 'Big parts', parts: big },
+            { title: 'Small parts', parts: small },
+          ]
+        : [{ title: 'What Event Hub Pro unlocks', parts: HUB_PARTS }]
+      ).map((band) => (
         <section key={band.title} aria-label={band.title} data-pro-parts-band={band.title}>
           <p className="flex items-baseline justify-between border-b border-ink/15 pb-2 pt-2">
             <span className="text-sm font-semibold text-ink">{band.title}</span>
@@ -245,7 +259,7 @@ export function ProPartsBody({ eventId, title, back, fromMaker, hubHref, active,
       ))}
 
       <p className="pt-2 text-center text-sm leading-snug text-ink/60">
-        Everything you pay here counts toward everything.{fullPhp !== null ? ` At ${formatPhp(fullPhp)}, it all unlocks.` : ''} Every
+        {partsOnSale ? `Everything you pay here counts toward everything.${fullPhp !== null ? ` At ${formatPhp(fullPhp)}, it all unlocks.` : ''} ` : ''}Every
         guest&rsquo;s ticket and the all-guests QR sheet are free for everyone.
       </p>
     </section>

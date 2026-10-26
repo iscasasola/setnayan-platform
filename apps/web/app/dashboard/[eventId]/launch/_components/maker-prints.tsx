@@ -846,7 +846,7 @@ export function PrintSetDownloads({ input }: { input: PrintsInput }) {
  * shows (`/api/guest/pass-card?guest=<id>`, the Guest list's own per-guest file, free), and All guests — the zip of every ticket
  * (`PASS_CARDS_ZIP_ROUTE`): Event Hub Pro from 2026-09-29, FREE for every event since 2026-10-22 (owner "yes", DECISION_LOG "THE
  * DIGITAL TICKET ZIP IS FREE" — it is how couples hand out tickets), so a plain Download (`freeAllGuestsFile`), the store shell
- * included, and the route asks no Pro question. Its look is Ticket style, in Print settings; a free event's is plain white.
+ * included, and the route asks no Pro question. Its look is its own slide's Ticket style ▾ (Classic ▾, owner 2026-10-26 — it left Print settings); a free event's is plain white.
  */
 export function DigitalTicketEditor({ input }: { input: PrintsInput }) {
   const { eventId, slug, passDesign = DEFAULT_PASS_CARD_DESIGN, passCardsZip = 'passes.zip' } = input;

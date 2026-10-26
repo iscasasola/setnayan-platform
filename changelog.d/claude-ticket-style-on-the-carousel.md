@@ -16,4 +16,11 @@ settings."*
 Guarded by `apps/web/lib/prints-carousel-follows-the-prototype.test.ts` (7) — sabotaged once (the Style ▾ dropped from the toolbar → red).
 `the-ticket-style-follows-the-draft`, `studio-prints-six-are-the-templates` (5) and `studio-prints-navigation` (3) now read the slide.
 
-SPEC IMPACT: None — moves an existing control to where the owner asked; same field, same save, same Apply.
+Mapped: `scripts/port-control-baseline.json` regenerated — the launch route's `TicketStyle` → `TicketStylePick` (the control moved from
+the ⚙ sheet to the toolbar) and the strip's `BgCard`/`BgCards` gone with it; `lib/ugat/screens.generated.json` regenerated (no change —
+no door moved). No address pointed at the sheet's Ticket style row; `?item=digital-ticket` opens the carousel on the slide that now
+carries it, and the Prints tile's own address still opens Prints. `app/api/CONSUMER_INVENTORY.md` names the carousel as a second reader
+of the `pass_design=` previews. The dev lab's `/dev/me-lab/ticket` takes `&design=` so the three looks can be seen without a database.
+
+SPEC IMPACT: `Setnayan/prototypes/prints_carousel_2026-10-26/NOTES.md` (new, corpus 597da4d2) — records that the Digital ticket's three
+looks now live on its carousel slide, not in ⚙ Print settings (owner 2026-10-26); same field, same save, same Apply.

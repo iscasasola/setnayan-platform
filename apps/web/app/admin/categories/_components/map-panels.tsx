@@ -17,7 +17,7 @@ import Link from 'next/link';
 import { InfoTip } from '@/app/_components/info-tip';
 import { ROLE_DESIGNS, FIGURE_ROLES, type FigureRole } from '@/lib/attire-designs';
 import { VENDOR_CATEGORIES, VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
-import { movePartHome, renamePart, reorderParts, setCoarseCategoryForm, setPartHidden, setPartServicesForm } from '../four-level-actions';
+import { mapReorder, mapWriteForm } from '../four-level-actions';
 import { categoriesHref, type BackState } from './back';
 import {
   cardHeld,
@@ -153,9 +153,9 @@ export function PartPanel({ part, data, state }: { part: MapPart; data: MapData;
         }
       />
       <Section title="Name & place">
-        <RenamePart label={part.label} save={renamePart.bind(null, part.key)} />
+        <RenamePart slotKey={part.key} label={part.label} />
         <KeyRow label="Move to">
-          <MovePartHomePick home={part.home} choices={categoryChoicesFrom(data)} move={movePartHome.bind(null, part.key)} />
+          <MovePartHomePick slotKey={part.key} home={part.home} choices={categoryChoicesFrom(data)} />
         </KeyRow>
         <ReadOnly>
           <InfoTip label="The home is one category" align="start">
@@ -163,7 +163,7 @@ export function PartPanel({ part, data, state }: { part: MapPart; data: MapData;
           </InfoTip>
         </ReadOnly>
         <KeyRow label="Order">
-          <OrderPick id={part.key} siblings={siblings} save={reorderParts.bind(null, part.home)} />
+          <OrderPick id={part.key} siblings={siblings} save={mapReorder.bind(null, 'parts', part.home)} />
         </KeyRow>
       </Section>
       <Section title="Services it links">
@@ -172,7 +172,7 @@ export function PartPanel({ part, data, state }: { part: MapPart; data: MapData;
             label="Services"
             picked={part.services}
             choices={serviceChoices}
-            action={setPartServicesForm}
+            action={mapWriteForm.bind(null, 'part-services')}
             field="services"
             hidden={{ slot_key: part.key }}
             buttonText={svcText}
@@ -210,7 +210,7 @@ export function PartPanel({ part, data, state }: { part: MapPart; data: MapData;
         ) : null}
       </Section>
       <Section title="Hidden from couples">
-        <PartHiddenSwitch hidden={part.hidden} save={setPartHidden.bind(null, part.key)} />
+        <PartHiddenSwitch slotKey={part.key} hidden={part.hidden} />
         <p className="text-xs text-ink/70">Hiding keeps every saved photo.</p>
       </Section>
     </article>
@@ -302,7 +302,7 @@ export function FilesShopsAs({ categoryId, coarse }: { categoryId: string; coars
         value={coarse ?? ''}
         buttonText={coarse ? VENDOR_CATEGORY_LABEL[coarse as VendorCategory] ?? coarse : 'Other (not filed)'}
         choices={choices}
-        action={setCoarseCategoryForm}
+        action={mapWriteForm.bind(null, 'coarse')}
         field="coarse_category"
         hidden={{ category_id: categoryId }}
       />

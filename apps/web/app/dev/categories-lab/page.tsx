@@ -103,7 +103,7 @@ export default async function CategoriesLabPage({ searchParams }: { searchParams
   }
 
   return (
-    <main className="mx-auto w-full max-w-7xl bg-cream px-4 py-6 sm:px-6 lg:px-8" data-lab="categories">
+    <main className="mx-auto w-full max-w-[1400px] bg-cream px-4 py-6 sm:px-6 lg:px-8" data-lab="categories">
       <h1 className="mb-1 text-xl font-semibold text-ink">Categories &amp; event types</h1>
       <p className="mb-3 text-xs text-ink/70">
         Dev lab · the real map on {cats.tax.source === 'db' ? 'the live tree (read-only)' : 'the code copy'}

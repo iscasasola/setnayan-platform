@@ -25,8 +25,8 @@ import { createEventTypeRoster, createFaithVocab } from '../actions';
 import { eventTypeKeyFromName, nearMatches, religionKeyFromName } from './model';
 import type { Choice } from './pickers';
 
-const FIELD = 'w-full rounded-md border border-ink/15 bg-white px-2.5 py-1.5 text-sm text-ink';
-const ROW = 'space-y-3 rounded-2xl bg-white p-3';
+const FIELD = 'w-full rounded-md border border-ink/15 bg-raised px-2.5 py-1.5 text-sm text-ink';
+const ROW = 'space-y-3 rounded-2xl bg-raised p-3';
 
 function Hidden({ back }: { back: Record<string, string> }) {
   return (

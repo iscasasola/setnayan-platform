@@ -2,7 +2,7 @@
 
 /**
  * part-controls.tsx — the part drawer's controls whose doors answer JSON (🌳 ③b, `four-level-actions.ts`):
- * Name (renamePart), Move to ▾ (movePartHome, with Undo), Hidden from couples (setPartHidden). Each runs
+ * Name, Move to ▾ (with Undo), Hidden from couples — all through `mapWrite`. Each runs
  * its action, says what happened in place and refreshes the page — the same shape as the shipped
  * `in-place.tsx` controls. The actions arrive BOUND by the server panel, so this file never decides which
  * record it edits.
@@ -12,6 +12,7 @@ import { useRouter } from 'next/navigation';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { SwitchTrack, SWITCH_BUTTON } from '@/app/_components/switch-track';
 import type { Choice } from './pickers';
+import { mapWrite } from '../four-level-actions';
 
 type Result = { ok: true; message: string; previous?: string } | { ok: false; error: string };
 
@@ -30,7 +31,8 @@ function Said({ said, onUndo }: { said: { ok: boolean; text: string } | null; on
   );
 }
 
-export function RenamePart({ label, save }: { label: string; save: (label: string) => Promise<Result> }) {
+export function RenamePart({ slotKey, label }: { slotKey: string; label: string }) {
+  const save = (v: string) => mapWrite({ op: 'renamePart', slotKey, label: v }) as Promise<Result>;
   const router = useRouter();
   const [v, setV] = useState(label);
   const [said, setSaid] = useState<{ ok: boolean; text: string } | null>(null);
@@ -58,15 +60,8 @@ export function RenamePart({ label, save }: { label: string; save: (label: strin
 }
 
 /** Move to ▾ — the part's home category; "Moved to … · Undo" (PLAN § 7.3). */
-export function MovePartHomePick({
-  home,
-  choices,
-  move,
-}: {
-  home: string;
-  choices: readonly Choice[];
-  move: (categoryId: string) => Promise<Result>;
-}) {
+export function MovePartHomePick({ slotKey, home, choices }: { slotKey: string; home: string; choices: readonly Choice[] }) {
+  const move = (categoryId: string) => mapWrite({ op: 'movePart', slotKey, categoryId }) as Promise<Result>;
   const router = useRouter();
   const [said, setSaid] = useState<{ ok: boolean; text: string } | null>(null);
   const [undoTo, setUndoTo] = useState('');
@@ -96,7 +91,8 @@ export function MovePartHomePick({
   );
 }
 
-export function PartHiddenSwitch({ hidden, save }: { hidden: boolean; save: (hidden: boolean) => Promise<Result> }) {
+export function PartHiddenSwitch({ slotKey, hidden }: { slotKey: string; hidden: boolean }) {
+  const save = (h: boolean) => mapWrite({ op: 'hidePart', slotKey, hidden: h }) as Promise<Result>;
   const router = useRouter();
   const [said, setSaid] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, start] = useTransition();

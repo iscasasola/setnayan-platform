@@ -34,15 +34,7 @@ import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { moveTileToFolder } from '../actions';
 import { addTradeAlias } from '../search-word-actions';
-import {
-  addCategoryInPlace,
-  addGroupInPlace,
-  addPartInPlace,
-  addServiceInPlace,
-  linkPartServices,
-  movePartHome,
-  moveServiceInPlace,
-} from '../four-level-actions';
+import { mapWrite } from '../four-level-actions';
 import { CATEGORIES_PATH, categoriesHref, type CategoriesShow } from './back';
 import { nearMatches } from './model';
 import {
@@ -223,7 +215,7 @@ export function FourLevelMap({ data, start, q, show, drawer, counts, groupDefaul
 
   // ── adds ─────────────────────────────────────────────────────────────────────
   async function addGroup(label: string): Promise<string | null> {
-    const res = (await addGroupInPlace(label)) as WriteResult;
+    const res = (await mapWrite({ op: 'addGroup', label })) as WriteResult;
     if (!res.ok) return res.error;
     setJustAdded(`g:${res.id}`);
     stand({ g: res.id!, c: '', sel: `g:${res.id}` });
@@ -233,7 +225,7 @@ export function FourLevelMap({ data, start, q, show, drawer, counts, groupDefaul
     return null;
   }
   async function addCategory(groupId: string, label: string): Promise<string | null> {
-    const res = (await addCategoryInPlace(groupId, label)) as WriteResult;
+    const res = (await mapWrite({ op: 'addCategory', groupId, label })) as WriteResult;
     if (!res.ok) return res.error;
     setJustAdded(`c:${res.id}`);
     stand({ g: groupId, c: res.id!, sel: `c:${res.id}` });
@@ -243,7 +235,7 @@ export function FourLevelMap({ data, start, q, show, drawer, counts, groupDefaul
     return null;
   }
   async function addService(categoryId: string, label: string): Promise<string | null> {
-    const res = (await addServiceInPlace(categoryId, label)) as WriteResult;
+    const res = (await mapWrite({ op: 'addService', categoryId, label })) as WriteResult;
     if (!res.ok) return res.error;
     setJustAdded(`s:${res.id}`);
     stand({ ...desk, c: categoryId, sel: `s:${res.id}` });
@@ -268,13 +260,13 @@ export function FourLevelMap({ data, start, q, show, drawer, counts, groupDefaul
     refresh();
   }
   async function moveService(key: string, catId: string) {
-    const res = (await moveServiceInPlace(key, catId)) as WriteResult;
+    const res = (await mapWrite({ op: 'moveService', key, categoryId: catId })) as WriteResult;
     if (!res.ok) return say(res.error);
     const from = res.previous ?? '';
     const c = categoryById(data, catId);
     stand({ g: c?.groupId ?? desk.g, c: catId, sel: `s:${key}` });
     say(`Moved to ${c?.label ?? catId}`, from ? async () => {
-      const back = (await moveServiceInPlace(key, from)) as WriteResult;
+      const back = (await mapWrite({ op: 'moveService', key, categoryId: from })) as WriteResult;
       const fc = categoryById(data, from);
       stand({ g: fc?.groupId ?? desk.g, c: from, sel: `s:${key}` });
       say(back.ok ? 'Undone' : back.error);
@@ -283,13 +275,13 @@ export function FourLevelMap({ data, start, q, show, drawer, counts, groupDefaul
     refresh();
   }
   async function movePart(key: string, catId: string) {
-    const res = (await movePartHome(key, catId)) as WriteResult;
+    const res = (await mapWrite({ op: 'movePart', slotKey: key, categoryId: catId })) as WriteResult;
     if (!res.ok) return say(res.error);
     const from = res.previous ?? '';
     const c = categoryById(data, catId);
     stand({ g: c?.groupId ?? desk.g, c: catId, sel: `p:${key}` });
     say(`Moved to ${c?.label ?? catId}`, from ? async () => {
-      const back = (await movePartHome(key, from)) as WriteResult;
+      const back = (await mapWrite({ op: 'movePart', slotKey: key, categoryId: from })) as WriteResult;
       const fc = categoryById(data, from);
       stand({ g: fc?.groupId ?? desk.g, c: from, sel: `p:${key}` });
       say(back.ok ? 'Undone' : back.error);
@@ -770,8 +762,8 @@ function AddRow({
         data-add={kind}
         className={
           card
-            ? 'flex min-h-11 items-center gap-2.5 rounded-2xl border border-dashed border-ink/15 px-3 py-2.5 focus-within:border-solid focus-within:bg-raised'
-            : 'mb-0.5 mt-1 flex min-h-11 items-center gap-2.5 rounded-xl border border-dashed border-ink/15 px-2.5 text-[13.5px] text-ink/70 focus-within:border-solid focus-within:bg-raised focus-within:text-ink'
+            ? 'flex min-h-11 items-center gap-2.5 rounded-2xl border border-dashed border-ink/15 px-3 py-2.5 focus-within:border-solid focus-within:bg-raised' // no-card-ok: the add row is a text input (a pressable control) — the approved last-row "＋ Add" shape
+            : 'mb-0.5 mt-1 flex min-h-11 items-center gap-2.5 rounded-xl border border-dashed border-ink/15 px-2.5 text-[13.5px] text-ink/70 focus-within:border-solid focus-within:bg-raised focus-within:text-ink' // no-card-ok: the add row is a text input (a pressable control)
         }
       >
         <span aria-hidden className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border-[1.5px] border-mulberry text-base text-mulberry">
@@ -824,7 +816,7 @@ function AddRow({
 function FlatList({ data, q, show, onJump }: { data: MapData; q: string; show: string; onJump: (h: FlatHit) => void }) {
   const hits = flatHits(data, q, show);
   return (
-    <div className="max-w-3xl rounded-2xl border border-ink/15 p-1.5" data-flat="">
+    <div className="max-w-3xl" data-flat="">
       <p className="px-2.5 py-1.5 text-xs text-ink/70">
         {hits.length === 0
           ? q.trim()
@@ -861,7 +853,7 @@ function FlatList({ data, q, show, onJump }: { data: MapData; q: string; show: s
 
 function KeyStrip() {
   return (
-    <details className="group mb-2.5 rounded-2xl border border-ink/15" data-key-strip="">
+    <details className="group mb-2.5 border-y border-ink/10" data-key-strip="">
       <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between px-3 text-[13px] font-semibold text-ink">
         Three things that are never confused
         <span aria-hidden className="text-xs text-ink/55 transition-transform group-open:rotate-180">
@@ -903,7 +895,7 @@ function PartTile({ d, p, on, hl, foreignHome, onTap }: { d: MapData; p: MapPart
       data-id={`p:${p.key}`}
       data-row="part-tile"
       onClick={onTap}
-      className={`flex flex-col overflow-hidden rounded-2xl border border-ink/15 bg-raised text-left text-ink ${on || hl ? 'outline outline-2 outline-mulberry' : ''} ${hl ? 'bg-mulberry/10' : ''}`}
+      className={`flex flex-col overflow-hidden rounded-2xl border border-ink/15 bg-raised text-left text-ink ${on || hl ? 'outline outline-2 outline-mulberry' : ''} ${hl ? 'bg-mulberry/10' : ''}`} // no-card-ok: a part tile is a <button> (it selects / opens the part)
     >
       <span aria-hidden className="grid h-24 grid-cols-[2fr_1fr_1fr] gap-0.5">
         <i className="block bg-ink/10" />
@@ -1313,7 +1305,7 @@ function PartPicker({
     const on = !linkedNow(p);
     setOptimistic((o) => ({ ...o, [p.key]: on }));
     start(async () => {
-      const res = (await linkPartServices(p.key, targets, on)) as WriteResult;
+      const res = (await mapWrite({ op: 'link', slotKey: p.key, services: targets, on })) as WriteResult;
       if (!res.ok) {
         setOptimistic((o) => ({ ...o, [p.key]: !on }));
         onSaid(res.error);
@@ -1329,7 +1321,7 @@ function PartPicker({
     const label = name.trim();
     if (label.length < 2) return;
     start(async () => {
-      const res = (await addPartInPlace(cid, label, targets)) as WriteResult;
+      const res = (await mapWrite({ op: 'addPart', categoryId: cid, label, services: targets })) as WriteResult;
       if (!res.ok) return onSaid(res.error);
       setName('');
       onSaid(res.message);
@@ -1403,7 +1395,7 @@ function PartPicker({
           </div>
         ))}
       </div>
-      <form onSubmit={create} className="mt-3 flex min-h-11 items-center gap-2.5 rounded-xl border border-dashed border-ink/15 px-2.5 focus-within:border-solid focus-within:bg-raised" data-create-part="">
+      <form onSubmit={create} className="mt-3 flex min-h-11 items-center gap-2.5 rounded-xl border border-dashed border-ink/15 px-2.5 focus-within:border-solid focus-within:bg-raised" data-create-part=""> {/* no-card-ok: a text input */}
         <span aria-hidden className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border-[1.5px] border-mulberry text-base text-mulberry">
           ＋
         </span>

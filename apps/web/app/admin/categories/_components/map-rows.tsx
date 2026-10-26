@@ -66,7 +66,7 @@ export function Pill({ children, gap = false }: { children: ReactNode; gap?: boo
   );
 }
 
-const ROW = 'relative flex w-full min-h-11 items-center gap-2 rounded-xl px-2 text-[13.5px] text-ink transition-colors';
+const ROW = 'relative flex w-full min-h-11 items-center gap-2 rounded-xl px-2 text-[13.5px] transition-colors';
 const ROW_ON = 'bg-ink text-cream';
 const ROW_HL = 'bg-mulberry/10 ring-1 ring-inset ring-mulberry';
 const OPEN = 'grid min-h-11 w-11 shrink-0 place-items-center rounded-lg text-base';
@@ -184,7 +184,7 @@ export function ServiceRow({
       onMouseEnter={() => h.onHover?.(id)}
       onMouseLeave={() => h.onHover?.('')}
       {...dragProps(h, id, true, false)}
-      className={`${ROW} ${on ? ROW_ON : hl ? ROW_HL : 'hover:bg-ink/5'} ${dim ? 'opacity-45' : ''} ${isNew ? 'ring-1 ring-inset ring-mulberry' : ''}`}
+      className={`${ROW} ${on ? ROW_ON : hl ? `${ROW_HL} text-ink` : 'text-ink hover:bg-ink/5'} ${dim ? 'opacity-45' : ''} ${isNew ? 'ring-1 ring-inset ring-mulberry' : ''}`}
     >
       {h.drag ? <span aria-hidden className="w-3 shrink-0 cursor-grab text-center text-xs tracking-[-2px] opacity-55">⋮⋮</span> : null}
       <button type="button" onClick={() => h.onTap(id)} className="flex min-h-11 min-w-0 flex-1 items-center gap-2 text-left">
@@ -248,7 +248,7 @@ export function PartRow({
       onMouseEnter={() => h.onHover?.(id)}
       onMouseLeave={() => h.onHover?.('')}
       {...dragProps(h, id, true, false)}
-      className={`${ROW} ${on ? ROW_ON : hl ? ROW_HL : 'hover:bg-ink/5'} ${dim ? 'opacity-45' : ''} ${isNew ? 'ring-1 ring-inset ring-mulberry' : ''}`}
+      className={`${ROW} ${on ? ROW_ON : hl ? `${ROW_HL} text-ink` : 'text-ink hover:bg-ink/5'} ${dim ? 'opacity-45' : ''} ${isNew ? 'ring-1 ring-inset ring-mulberry' : ''}`}
     >
       {h.drag ? <span aria-hidden className="w-3 shrink-0 cursor-grab text-center text-xs tracking-[-2px] opacity-55">⋮⋮</span> : null}
       <button type="button" onClick={() => h.onTap(id)} className="flex min-h-11 min-w-0 flex-1 items-center gap-2 text-left">
@@ -310,8 +310,8 @@ export function ColHead({ level, title, sub }: { level: Level; title: ReactNode;
   return (
     <div className="flex min-h-11 shrink-0 items-center gap-2 border-b border-ink/10 px-3 text-[13px] font-semibold text-ink">
       <LevelIcon level={level} accent />
-      <span className="min-w-0 [overflow-wrap:anywhere]">{title}</span>
-      <small className="ml-auto text-right text-xs font-normal text-ink/70">{sub}</small>
+      <span className="shrink-0 whitespace-nowrap">{title}</span>
+      <small className="ml-auto min-w-0 text-right text-xs font-normal leading-tight text-ink/70">{sub}</small>
     </div>
   );
 }
@@ -370,7 +370,7 @@ export function DesktopColumns({
             key={col}
             data-col={col}
             aria-label={col}
-            className={`flex min-h-[420px] min-w-0 flex-col rounded-2xl border border-ink/15 bg-cream ${
+            className={`flex min-h-[420px] min-w-0 flex-col rounded-2xl bg-ink/[0.03] ${
               col === 'services' || col === 'parts' ? 'self-stretch' : 'max-h-[calc(100vh-150px)] self-start'
             }`}
           >

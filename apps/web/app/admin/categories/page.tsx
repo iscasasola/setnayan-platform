@@ -297,7 +297,7 @@ export default async function CategoriesPage({ searchParams }: { searchParams: P
   );
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+    <div className={`mx-auto w-full ${mapMode ? "max-w-[1400px]" : "max-w-7xl"} px-4 py-6 sm:px-6 lg:px-8`}>
       <PageMasthead title="Categories & event types" />
 
       {ok || error ? (
@@ -436,7 +436,7 @@ export default async function CategoriesPage({ searchParams }: { searchParams: P
                     : 'Find a religion'
               }
               aria-label="Search this list"
-              className="min-h-10 min-w-0 flex-1 rounded-full border border-ink/15 bg-white px-4 text-sm text-ink"
+              className="min-h-10 min-w-0 flex-1 rounded-full border border-ink/15 bg-raised px-4 text-sm text-ink"
             />
             {state.list === 'categories' ? (
               <NavPick

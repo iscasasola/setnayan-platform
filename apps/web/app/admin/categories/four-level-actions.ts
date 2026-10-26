@@ -3,10 +3,17 @@
 /**
  * four-level-actions.ts — the in-place doors of the four-level Categories page (🌳 ③b; corpus
  * prototypes/admin_taxonomy_four_levels_2026-10-26/interactive-v4.html). The last-row "＋ Add …" rows,
- * the part picker's ticks, drag-onto-a-parent and the Order ▾ / Move to ▾ picks fire these from a
- * `useTransition` — they cannot redirect, so each answers `{ ok, message }` / `{ ok:false, error }` and
- * the client refreshes. Every one re-checks admin (the /admin layout already 404s everyone else) and
- * calls the ONE core in `_components/taxonomy-writes.ts` that the shipped forms call too.
+ * the part picker's ticks, drag-onto-a-parent and the drawer's Order ▾ / Move to ▾ / Services ▾ picks fire
+ * these from a `useTransition` — they cannot redirect, so each answers `{ ok, message }` /
+ * `{ ok:false, error }` and the client refreshes. Every one re-checks admin (the /admin layout already
+ * 404s everyone else) and calls the ONE core in `_components/taxonomy-writes.ts` that the shipped forms
+ * call too.
+ *
+ * 🔢 THREE EXPORTS, NOT FIFTEEN. Every exported server action is one Vercel route and the deployment
+ * refuses above 2,048 (`scripts/lint-server-action-budget.mjs`, 2026-09-26: production stopped for ~7
+ * hours). So the map's writes share one door per argument shape: `mapWrite(op)` for the typed calls,
+ * `mapReorder(level, parent, ids)` for every Order ▾, `mapWriteForm(kind, formData)` for the shipped
+ * FormData pickers (ListPick · SavePick). The op is re-validated here — it arrives from the browser.
  */
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
@@ -30,6 +37,17 @@ import {
   type WriteResult,
 } from './_components/taxonomy-writes';
 
+export type MapOp =
+  | { op: 'addGroup'; label: string }
+  | { op: 'addCategory'; groupId: string; label: string }
+  | { op: 'addService'; categoryId: string; label: string }
+  | { op: 'addPart'; categoryId: string; label: string; services: string[] }
+  | { op: 'link'; slotKey: string; services: string[]; on: boolean }
+  | { op: 'movePart'; slotKey: string; categoryId: string }
+  | { op: 'moveService'; key: string; categoryId: string }
+  | { op: 'renamePart'; slotKey: string; label: string }
+  | { op: 'hidePart'; slotKey: string; hidden: boolean };
+
 async function gate(): Promise<{ id: string } | null> {
   const supabase = await createClient();
   const {
@@ -52,66 +70,58 @@ async function asAdmin(run: (actorId: string) => Promise<WriteResult>): Promise<
   return res;
 }
 
-const admin = () => createAdminClient();
+const str = (v: unknown) => String(v ?? '');
+const list = (v: unknown) => (Array.isArray(v) ? v.map(String) : []);
 
-export async function addGroupInPlace(label: string): Promise<WriteResult> {
-  return asAdmin((actor) => addGroupCore(admin(), actor, label));
+/** Every typed in-place write of the map — add · link · move · rename · hide. */
+export async function mapWrite(op: MapOp): Promise<WriteResult> {
+  const admin = createAdminClient();
+  switch (op?.op) {
+    case 'addGroup':
+      return asAdmin((a) => addGroupCore(admin, a, str(op.label)));
+    case 'addCategory':
+      return asAdmin((a) => addCategoryCore(admin, a, str(op.groupId), str(op.label)));
+    case 'addService':
+      return asAdmin((a) => addServiceCore(admin, a, { tileId: str(op.categoryId), label: str(op.label) }));
+    case 'addPart':
+      return asAdmin((a) => addPartCore(admin, a, { homeCategoryId: str(op.categoryId), label: str(op.label), services: list(op.services) }));
+    case 'link':
+      return asAdmin((a) => linkPartServicesCore(admin, a, str(op.slotKey), list(op.services), op.on === true));
+    case 'movePart':
+      return asAdmin((a) => movePartHomeCore(admin, a, str(op.slotKey), str(op.categoryId)));
+    case 'moveService':
+      return asAdmin((a) => moveServiceCore(admin, a, str(op.key), str(op.categoryId)));
+    case 'renamePart':
+      return asAdmin((a) => renamePartCore(admin, a, str(op.slotKey), str(op.label)));
+    case 'hidePart':
+      return asAdmin((a) => setPartHiddenCore(admin, a, str(op.slotKey), op.hidden === true));
+    default:
+      return { ok: false, error: 'Unknown change.' };
+  }
 }
 
-export async function addCategoryInPlace(groupId: string, label: string): Promise<WriteResult> {
-  return asAdmin((actor) => addCategoryCore(admin(), actor, groupId, label));
+/** Order ▾ on a group (parent ''), a category's services, or a home's parts — bound per drawer. */
+export async function mapReorder(level: 'groups' | 'services' | 'parts', parentId: string, orderedIds: string[]): Promise<WriteResult> {
+  const admin = createAdminClient();
+  const ids = list(orderedIds);
+  if (level === 'groups') return asAdmin((a) => reorderGroupsCore(admin, a, ids));
+  if (level === 'services') return asAdmin((a) => reorderServicesCore(admin, a, str(parentId), ids));
+  if (level === 'parts') return asAdmin((a) => reorderPartsCore(admin, a, str(parentId), ids));
+  return { ok: false, error: 'Unknown order.' };
 }
 
-export async function addServiceInPlace(tileId: string, label: string): Promise<WriteResult> {
-  return asAdmin((actor) => addServiceCore(admin(), actor, { tileId, label }));
-}
-
-export async function addPartInPlace(homeCategoryId: string, label: string, services: string[]): Promise<WriteResult> {
-  return asAdmin((actor) => addPartCore(admin(), actor, { homeCategoryId, label, services }));
-}
-
-export async function linkPartServices(slotKey: string, services: string[], on: boolean): Promise<WriteResult> {
-  return asAdmin((actor) => linkPartServicesCore(admin(), actor, slotKey, services, on));
-}
-
-/** FormData shape for the drawer's `ListPick` (posts the whole list under `services`). */
-export async function setPartServicesForm(formData: FormData): Promise<WriteResult> {
-  const slot = String(formData.get('slot_key') ?? '');
-  const services = formData.getAll('services').map(String);
-  return asAdmin((actor) => setPartServicesCore(admin(), actor, slot, services));
-}
-
-export async function moveServiceInPlace(canonical: string, tileId: string): Promise<WriteResult> {
-  return asAdmin((actor) => moveServiceCore(admin(), actor, canonical, tileId));
-}
-
-export async function movePartHome(slotKey: string, categoryId: string): Promise<WriteResult> {
-  return asAdmin((actor) => movePartHomeCore(admin(), actor, slotKey, categoryId));
-}
-
-export async function reorderGroups(orderedIds: string[]): Promise<WriteResult> {
-  return asAdmin((actor) => reorderGroupsCore(admin(), actor, orderedIds));
-}
-
-export async function reorderServices(tileId: string, orderedKeys: string[]): Promise<WriteResult> {
-  return asAdmin((actor) => reorderServicesCore(admin(), actor, tileId, orderedKeys));
-}
-
-export async function reorderParts(homeId: string, orderedKeys: string[]): Promise<WriteResult> {
-  return asAdmin((actor) => reorderPartsCore(admin(), actor, homeId, orderedKeys));
-}
-
-/** "Files shops as ▾" — a `SavePick` posts `category_id` + `coarse_category`. */
-export async function setCoarseCategoryForm(formData: FormData): Promise<WriteResult> {
-  return asAdmin((actor) =>
-    setCoarseCategoryCore(admin(), actor, String(formData.get('category_id') ?? ''), String(formData.get('coarse_category') ?? '')),
-  );
-}
-
-export async function renamePart(slotKey: string, label: string): Promise<WriteResult> {
-  return asAdmin((actor) => renamePartCore(admin(), actor, slotKey, label));
-}
-
-export async function setPartHidden(slotKey: string, hidden: boolean): Promise<WriteResult> {
-  return asAdmin((actor) => setPartHiddenCore(admin(), actor, slotKey, hidden));
+/**
+ * The shipped FormData pickers, bound per use: "Services ▾" on a part (a `ListPick` posting `slot_key` +
+ * every `services`) and "Files shops as ▾" on a category (a `SavePick` posting `category_id` +
+ * `coarse_category`).
+ */
+export async function mapWriteForm(kind: 'part-services' | 'coarse', formData: FormData): Promise<WriteResult> {
+  const admin = createAdminClient();
+  if (kind === 'part-services') {
+    return asAdmin((a) => setPartServicesCore(admin, a, str(formData.get('slot_key')), formData.getAll('services').map(String)));
+  }
+  if (kind === 'coarse') {
+    return asAdmin((a) => setCoarseCategoryCore(admin, a, str(formData.get('category_id')), str(formData.get('coarse_category'))));
+  }
+  return { ok: false, error: 'Unknown change.' };
 }

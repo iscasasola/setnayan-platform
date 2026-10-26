@@ -84,10 +84,10 @@ test('A · the last-row "＋ Add a service" (③b) calls the ONE add-a-service c
   // (corpus PLAN admin_taxonomy_four_levels § 7.2). The row answers in place through
   // `addServiceInPlace`, and BOTH doors — that one and the shipped form — run `addServiceCore`.
   const map = read('four-level-map.tsx');
-  assert.match(map, /addServiceInPlace\(categoryId, label\)/, 'the map no longer adds a service through the in-place door');
+  assert.match(map, /mapWrite\(\{ op: 'addService', categoryId, label \}\)/, 'the map no longer adds a service through the in-place door');
   assert.match(map, /nearMatches\(name, pool\)/, 'the add row lost its near matches');
   assert.match(map, /action=\{addTradeAlias\}/, 'the add row lost "add as a search word instead"');
-  assert.match(read('../four-level-actions.ts'), /addServiceCore\(admin\(\), actor, \{ tileId, label \}\)/);
+  assert.match(read('../four-level-actions.ts'), /addServiceCore\(admin, a, \{ tileId: str\(op\.categoryId\), label: str\(op\.label\) \}\)/);
   assert.match(actionBody('../actions.ts', 'createCanonicalLeaf'), /addServiceCore\(createAdminClient\(\), user\.id, \{/);
   // The shipped form still posts every field it refuses without.
   for (const field of job('createCanonicalLeaf').refusedWhenEmpty) assert.ok(['tile_id', 'display_name_en'].includes(field), `createCanonicalLeaf now refuses without ${field}`);

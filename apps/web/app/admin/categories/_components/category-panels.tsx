@@ -47,7 +47,7 @@ import { FieldPick, ListPick, SavePick, type Choice } from './pickers';
 import { BackFields, INPUT, KeyRow, ReadOnly, SAVE, Section, SwitchForm, backRecord } from './ui';
 import { WhatCouplesChoose } from './what-couples-choose';
 import { WhatSuppliersFillIn } from './what-suppliers-fill-in';
-import { reorderGroups, reorderServices } from '../four-level-actions';
+import { mapReorder } from '../four-level-actions';
 import type { MapData } from './four-level-model';
 import { CategoryCards, CategoryParts, FilesShopsAs, ServiceCards, ServiceParts } from './map-panels';
 
@@ -192,7 +192,7 @@ export function GroupPanel({ group, data, state }: { group: Group; data: Categor
         </form>
         {/* ③b · Order ▾ on a group (the /explore strip follows the same order). */}
         <KeyRow label="Order">
-          <OrderPick id={group.id} siblings={groupOrder} save={reorderGroups} />
+          <OrderPick id={group.id} siblings={groupOrder} save={mapReorder.bind(null, 'groups', '')} />
         </KeyRow>
       </Section>
       <Section title={`Categories in this group (${cats.length})`}>
@@ -483,7 +483,7 @@ export function ServicePanel({
         </KeyRow>
         {map && service.tileId && serviceOrder.length > 1 ? (
           <KeyRow label="Order">
-            <OrderPick id={service.canonical} siblings={serviceOrder} save={reorderServices.bind(null, service.tileId)} />
+            <OrderPick id={service.canonical} siblings={serviceOrder} save={mapReorder.bind(null, 'services', service.tileId)} />
           </KeyRow>
         ) : null}
       </Section>

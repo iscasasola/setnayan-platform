@@ -26,8 +26,7 @@ import { VENDOR_CATEGORIES } from '@/lib/vendors';
 
 // The service-role client is untyped in this repo (`createAdminClient()`), and the test adapter is
 // supabase-js-SHAPED, not supabase-js — so the cores take the loose shape both satisfy.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type AdminDb = SupabaseClient<any, any, any>;
+export type AdminDb = SupabaseClient;
 
 export type WriteResult = { ok: true; message: string; id?: string; previous?: string } | { ok: false; error: string };
 

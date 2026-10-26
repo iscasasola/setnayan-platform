@@ -27,12 +27,16 @@ let W: Writes;
 let replay: ReplayResult;
 let db: PGlite;
 let admin: AdminDb;
-const ACTOR = '00000000-0000-4000-8000-0000000000ad';
+let ACTOR = '';
 
 before(async () => {
   replay = await createReplayedDb();
   db = replay.db;
   admin = makeAdminClient(db) as unknown as AdminDb;
+  // A real signed-up account to act as the admin — admin_audit_log.actor_user_id is an FK into users.
+  ACTOR = (await db.query<{ id: string }>(
+    `INSERT INTO auth.users (email, raw_user_meta_data) VALUES ('four-levels-admin@setnayan.test', jsonb_build_object('account_type','customer')) RETURNING id`,
+  )).rows[0]!.id;
   W = await import('../../app/admin/categories/_components/taxonomy-writes');
 });
 after(async () => {
@@ -134,7 +138,7 @@ test('Order ▾ on services — a permutation only, written dense; anything else
   assert.ok(r.ok, JSON.stringify(r));
   assert.deepEqual(await col(`SELECT canonical_service AS v FROM public.canonical_service_taxonomy WHERE tile_id = 'grooms_attire' AND merged_into IS NULL ORDER BY sort_order`), reversed);
   assert.equal((await W.reorderServicesCore(admin, ACTOR, 'grooms_attire', reversed.slice(1))).ok, false, 'a dropped service was accepted');
-  assert.equal((await W.reorderServicesCore(admin, ACTOR, 'grooms_attire', [...reversed, 'photographer'])).ok, false, 'a foreign service was accepted');
+  assert.equal((await W.reorderServicesCore(admin, ACTOR, 'grooms_attire', [...reversed, 'florals'])).ok, false, 'a foreign service was accepted');
 });
 
 test('add a part → home = the category, linked to the services it was born with; the key is made from the name', async () => {
@@ -145,8 +149,8 @@ test('add a part → home = the category, linked to the services it was born wit
   const row = await one<{ home_category_id: string; kind: string }>(`SELECT home_category_id, kind FROM public.inspiration_parts WHERE slot_key = 'four_level_cufflinks'`);
   assert.deepEqual(row, { home_category_id: 'grooms_attire', kind: 'part' });
   assert.deepEqual(await col(`SELECT canonical_service AS v FROM public.inspiration_part_services WHERE slot_key = 'four_level_cufflinks' ORDER BY canonical_service`), [...svcs].sort());
-  // The ③a derivation (what the reader reads) follows the new part at once.
-  assert.deepEqual(await col(`SELECT category_id AS v FROM public.inspiration_part_categories_derived WHERE slot_key = 'four_level_cufflinks'`), ['grooms_attire']);
+  // The ③a derivation (what the reader reads) holds no ALSO-category: every link is its home's (the view excludes the home).
+  assert.deepEqual(await col(`SELECT category_id AS v FROM public.inspiration_part_categories_derived WHERE slot_key = 'four_level_cufflinks'`), []);
   // A second part of the same name gets its own key; an unknown service is refused.
   const again = await W.addPartCore(admin, ACTOR, { homeCategoryId: 'grooms_attire', label: 'Four-Level Cufflinks', services: [] });
   assert.ok(again.ok && again.id === 'four_level_cufflinks_2', JSON.stringify(again));
@@ -156,27 +160,28 @@ test('add a part → home = the category, linked to the services it was born wit
 test('the picker — tick links THIS service (a row, never a copy), untick unlinks; the ③a double write follows', async () => {
   /* 🧪 SABOTAGE TARGET: a tick writes exactly one inspiration_part_services row. */
   const before = await col(`SELECT canonical_service AS v FROM public.inspiration_part_services WHERE slot_key = 'four_level_cufflinks'`);
-  const on = await W.linkPartServicesCore(admin, ACTOR, 'four_level_cufflinks', ['photographer'], true);
+  const on = await W.linkPartServicesCore(admin, ACTOR, 'four_level_cufflinks', ['florals'], true);
   assert.ok(on.ok, JSON.stringify(on));
   const linked = await col(`SELECT canonical_service AS v FROM public.inspiration_part_services WHERE slot_key = 'four_level_cufflinks'`);
-  assert.deepEqual([...linked].sort(), [...before, 'photographer'].sort());
+  assert.deepEqual([...linked].sort(), [...before, 'florals'].sort());
   const parts = await one<{ n: number }>(`SELECT count(*)::int AS n FROM public.inspiration_parts WHERE label_en = 'Four-Level Cufflinks'`);
   assert.equal(parts?.n, 2, 'a tick copied the part');
-  // The stored copy is the derivation (③a's trigger), now including the photographer's own category.
+  // The stored copy is the derivation (③a's trigger), now including the florist's own category.
   const stored = await col(`SELECT category_id AS v FROM public.inspiration_part_categories WHERE slot_key = 'four_level_cufflinks' ORDER BY category_id`);
   const derived = await col(`SELECT category_id AS v FROM public.inspiration_part_categories_derived WHERE slot_key = 'four_level_cufflinks' ORDER BY category_id`);
   assert.deepEqual(stored, derived);
+  assert.ok(derived.includes('florist'), `a linked florist service did not bring its category: ${derived.join(', ')}`);
   // Ticking again is a no-op, not a duplicate.
-  assert.ok((await W.linkPartServicesCore(admin, ACTOR, 'four_level_cufflinks', ['photographer'], true)).ok);
-  const off = await W.linkPartServicesCore(admin, ACTOR, 'four_level_cufflinks', ['photographer'], false);
+  assert.ok((await W.linkPartServicesCore(admin, ACTOR, 'four_level_cufflinks', ['florals'], true)).ok);
+  const off = await W.linkPartServicesCore(admin, ACTOR, 'four_level_cufflinks', ['florals'], false);
   assert.ok(off.ok);
   assert.deepEqual((await col(`SELECT canonical_service AS v FROM public.inspiration_part_services WHERE slot_key = 'four_level_cufflinks'`)).sort(), [...before].sort());
   // The palette (kind = system) takes no services.
-  assert.equal((await W.linkPartServicesCore(admin, ACTOR, 'palette', ['photographer'], true)).ok, false);
+  assert.equal((await W.linkPartServicesCore(admin, ACTOR, 'palette', ['florals'], true)).ok, false);
   // The drawer's Services ▾ writes only the difference.
-  const set = await W.setPartServicesCore(admin, ACTOR, 'four_level_cufflinks', ['photographer']);
+  const set = await W.setPartServicesCore(admin, ACTOR, 'four_level_cufflinks', ['florals']);
   assert.ok(set.ok);
-  assert.deepEqual(await col(`SELECT canonical_service AS v FROM public.inspiration_part_services WHERE slot_key = 'four_level_cufflinks'`), ['photographer']);
+  assert.deepEqual(await col(`SELECT canonical_service AS v FROM public.inspiration_part_services WHERE slot_key = 'four_level_cufflinks'`), ['florals']);
 });
 
 test('move a part home → the heading moves, its services do not; Undo puts it back', async () => {

@@ -42,7 +42,9 @@ test('2 · a part stores our loop as the clip it is — the shape the canvas alr
 });
 
 test('3 · the part\'s Source offers Video ◆ between Scene and Upload, reads a stored loop back as Video, and puts a clip', () => {
-  assert.match(ROW, /\(loops\.length > 0 \? \(\['scene', 'video', 'own'\] as const\) : \(\['scene', 'own'\] as const\)\)/, 'Video ◆ is not offered');
+  /* (2026-10-26) the row asks `stageBgSourcesOffered` (`lib/stage-bg-sources.ts`): Video ◆ between Scene and Upload, where loops were handed. */
+  assert.match(ROW, /sources=\{stageBgSourcesOffered\(\{ ownsPro, storeShell, hasLoops: loops\.length > 0 \}\)\}/, 'Video ◆ is not offered');
+  assert.match(readFileSync(join(__dirname, 'stage-bg-sources.ts'), 'utf8'), /o\.hasLoops \? \['scene', 'video', 'own'\] : \['scene', 'own'\]/, 'Video ◆ is not offered between Scene and Upload');
   assert.match(ROW, /themeLoopOf\(bg\.media\)\s*\? 'video'\s*: 'own'/, 'a stored loop reads as "Upload"');
   assert.match(ROW, /if \(source === 'video'\) \{\s*const l = loops\.find\(\(c\) => c\.loop === key\);\s*return l \? put\(clipBg\(l\.loop, l\.poster\), false\) : undefined;/);
   assert.match(read('app/dashboard/[eventId]/launch/_components/stage-panel/stage-background.tsx'), /export type StageBgSource = 'hub' \| 'colour' \| 'scene' \| 'video' \| 'own';/);

@@ -20,6 +20,7 @@ import { HUB_GLASS_OPACITY_MAX, HUB_GLASS_OPACITY_MIN, HUB_GLASS_OPACITY_STEP, h
 import { INVITE_THEMES } from '@/lib/invite-themes';
 import { HUB_DRAFT_BAR_FIELD, makerRedrawSave } from '@/lib/maker-refresh';
 import { forgetCanvasSent, noteDraftedCanvas, sendCanvasBase } from '@/lib/maker-draft-store';
+import { backgroundPickUndo } from '@/lib/background-pick-undo';
 import { MAKER_MAX_CLIP_SECONDS, makeMakerVideoDurationValidator } from '@/lib/maker-media-limits';
 import { coupleMediaRefusalLink } from '@/lib/couple-media-allowance';
 import { SCENE_BACKGROUND_FOLDER, sceneBackgroundPathPrefix } from '@/lib/scene-media-choices';
@@ -152,8 +153,19 @@ export function CoverSceneGroundRows({
       // 👥 …with the canvas this pick was built on: another host's pick on the cover meanwhile is kept.
       sendCanvasBase(fd, 'hero', canvas, canvasNext, before);
       fd.set(HUB_DRAFT_BAR_FIELD, '1');
+      /* ↺ ITS UNDO IS DRAWN AT ONCE (`lib/background-pick-undo.ts`, owner 2026-10-26 "it blinks … 5-6 seconds"): the
+         BEFORE back in this row and the Maker's copy at the press, the cover redrawn in place once the ↺ lands — never
+         a whole-Maker render and a new canvas page. */
+      const drawCanvas = (c: HubSectionCanvas) => {
+        showCoverShade(null);
+        latest.current = c;
+        setShown(c);
+        noteDraftedCanvas('hero', c, before);
+        forgetCanvasSent('hero');
+      };
+      const undo = backgroundPickUndo({ back: () => drawCanvas(before), forward: () => drawCanvas(canvasNext), redrawAfter: true });
       // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
-      const res = await makerRedrawSave(() => draftAction(eventId, fd), () => router.refresh()).catch(() => ({
+      const res = await makerRedrawSave(() => draftAction(eventId, fd), () => router.refresh(), { undo }).catch(() => ({
         ok: false as const,
         intent: 'save' as const,
         error: 'That change could not be saved. Please try again.',

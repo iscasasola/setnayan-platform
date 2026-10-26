@@ -167,8 +167,12 @@ test('the scan finds the outcomes (a guard reading nothing passes everything)', 
   // banner, and the four Papic buys now redirect to /pay/<reference> instead of
   // coming back here to describe a payment page. Check `git log` for the mint
   // before believing any future drop is as innocent as this one.
+  //
+  // ⬇ 17 → 16 on 2026-10-26, the same kind of lowering: `uploads_ready` is DELETED, not missed. Its only minter,
+  // `claimUploadsCamera` (a form + redirect), is gone — + Add photos is one press now (`startAddingPhotos` answers on
+  // the sheet, never in the address; owner: "the turn on is not working as well fix it").
   assert.ok(
-    KEYS.length >= 17,
+    KEYS.length >= 16,
     `expected this route's redirect outcomes, found ${KEYS.length}: ${KEYS.join(', ')}`,
   );
   for (const known of ['style_set', 'style_error', 'faceTagging', 'guestCameras']) {

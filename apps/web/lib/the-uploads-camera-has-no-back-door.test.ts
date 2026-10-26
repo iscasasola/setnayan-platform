@@ -67,17 +67,44 @@ test('🚨 the Uploads camera index collides with nothing', () => {
   assert.ok(n < paid, `index ${n} lands in the paid camera range (${paid}+)`);
 });
 
-test('🚨 the provisioner is called from ONE place, and that place is the couple-checked studio render', () => {
+test('🚨 the provisioner is called only from COUPLE-CHECKED RENDERS — the studio page and the Memories page', () => {
+  // 2026-10-26 (owner, live: "the turn on is not working as well fix it"): the studio render was the ONE minter, and
+  // since 2026-10-24 it sends the couple to Home before it gets there — so on 7 of 13 live events + Add photos found no
+  // camera and could only say "please try again". The Memories render is the second minter, and it is held to the same
+  // two facts as the first: it runs AFTER a couple check on the viewer's own session, and the event id is the route's.
   const callers = FILES.filter((f) => /provisionUploadsCameraAdmin\s*\(/.test(readFileSync(f, 'utf8')))
     .map((f) => f.slice(WEB.length + 1))
-    .filter((rel) => rel !== 'lib/papic-cameras.ts');
+    .filter((rel) => rel !== 'lib/papic-cameras.ts')
+    .sort();
   assert.deepEqual(
     callers,
-    ['app/dashboard/[eventId]/studio/papic/page.tsx'],
+    ['app/dashboard/[eventId]/memories/page.tsx', 'app/dashboard/[eventId]/studio/papic/page.tsx'],
     'the Uploads camera is minted somewhere new. This is a SERVICE-ROLE write: a caller that takes a ' +
       'client-supplied event id lets a signed-in stranger mint a live seat on somebody else\'s wedding ' +
       'and claim it — and every gate downstream checks claimer identity and nothing else.',
   );
+});
+
+test('🚨 Memories mints it only inside the host branch, from the route\'s event id, after the couple read', () => {
+  const page = readFileSync(join(WEB, 'app/dashboard/[eventId]/memories/page.tsx'), 'utf8');
+  // The couple check: the viewer's OWN membership, read on their own session, decides `host`.
+  assert.match(page, /const \{ eventId \} = await params;/, 'the Memories event id no longer comes from the route');
+  assert.match(
+    page,
+    /supabase\.from\('event_members'\)\.select\('member_type'\)\.eq\('event_id', eventId\)\.eq\('user_id', user\.id\)/,
+    'the host is no longer read from the viewer\'s own membership',
+  );
+  assert.match(page, /const host = membershipRes\.data\?\.member_type === 'couple';/, 'host is no longer "a couple member"');
+  const hostBranch = /\n  if \(host\) \{[\s\S]*?\n  \}\n/.exec(page)?.[0] ?? '';
+  assert.ok(hostBranch, 'the Memories host branch is gone or restructured beyond recognition');
+  const outside = page.replace(hostBranch, '');
+  assert.ok(/provisionUploadsCameraAdmin\(/.test(hostBranch), 'the mint left the host branch');
+  assert.ok(!/provisionUploadsCameraAdmin\(/.test(outside), 'the Uploads camera is minted OUTSIDE the host branch — any viewer\'s render would mint it');
+  const call = /provisionUploadsCameraAdmin\([\s\S]{0,200}?\}\)/.exec(hostBranch)?.[0] ?? '';
+  assert.match(call, /provisionUploadsCameraAdmin\(admin, eventId,/, 'the mint no longer takes the route\'s event id');
+  assert.match(call, /validFrom: win\.startIso/, 'the Memories mint no longer takes the event window');
+  assert.match(call, /validUntil: win\.endIso/, 'the Memories mint no longer takes the event window');
+  assert.ok(!/validFrom: null/.test(call), 'a null window makes this the only seat exempt from the dates the couple picked');
 });
 
 test('🚨 there is no server action wrapper for it', () => {

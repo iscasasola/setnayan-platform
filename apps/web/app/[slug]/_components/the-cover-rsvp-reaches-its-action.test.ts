@@ -43,8 +43,8 @@ const coverOf = (html: string) => {
 };
 
 const READERS = [
-  ['a guest with a key', { guestStages: true }, 'guest'],
-  ['a guest with a key · a full ground', { guestStages: true, widgets: FULL }, 'guest'],
+  ['a guest with a key', {}, 'guest'],
+  ['a guest with a key · a full ground', { widgets: FULL }, 'guest'],
   ['the host on their own page (cale-ice’s shape)', { identity: fixtureStranger(), widgets: FULL, ...PHOTO, ownerCapability: HOST, ...HOST_ROW }, 'host'],
   ['the host · the text cover', { identity: fixtureStranger(), ownerCapability: HOST, ...HOST_ROW }, 'host'],
 ] as const;

@@ -25,6 +25,7 @@ import { CAKE_LANE_PARTS, FLORIST_LANE_PARTS, MAIN_COLOUR_SLOTS, ROOM_LANE_PARTS
 import { resolveRoomDressing, type RolePalette } from './mood-board';
 import { LEGACY_PALETTE_BOARDS, MAIN_PALETTE_BOARD, STUDIO_INSPIRATION_SLOTS, paletteBoardOf, paletteUploadBoards } from './inspiration-slots';
 import { MOODBOARD_SLOT_KEYS } from './moodboard-slots';
+import { dbAcceptedSlotKeys } from './inspiration-parts-gate.test-helper';
 
 (globalThis as unknown as { React: unknown }).React = React;
 {
@@ -78,8 +79,15 @@ test('2 · every part has its own photos; Venue & decor feeds the main palette; 
 
 test('3 · the app’s slot list is the latest migration’s, which only widens the two gates', () => {
   const files = readdirSync(MIGRATIONS).filter((f) => f.endsWith('.sql')).sort();
-  const latest = files.filter((f) => /event_inspiration_assets_slot_key_check_v3/.test(readFileSync(join(MIGRATIONS, f), 'utf8').replace(/--.*$/gm, ''))).pop()!;
+  /* 🧩 RE-AIMED for step ② (PLAN admin_inspiration_groups_2026-10-25): `…_inspiration_parts_are_the_photo_keys.sql` DROPS
+     the slot CHECK for an FK + trigger into inspiration_parts, so the last file that LISTS slots is still the palette
+     parts' — and the database's slots are now the seeded parts, which must still be the app's list. */
+  const latest = files
+    .filter((f) => !f.endsWith('_inspiration_parts_are_the_photo_keys.sql'))
+    .filter((f) => /event_inspiration_assets_slot_key_check_v3/.test(readFileSync(join(MIGRATIONS, f), 'utf8').replace(/--.*$/gm, '')))
+    .pop()!;
   assert.match(latest, /_palette_parts_five_more_slots\.sql$/, `the latest re-listing of the slot gate is ${latest} — point this test at it`);
+  assert.deepEqual([...dbAcceptedSlotKeys()].sort(), [...MOODBOARD_SLOT_KEYS].sort(), 'the parts the database accepts are not the app’s list');
   const body = readFileSync(join(MIGRATIONS, latest), 'utf8').replace(/--.*$/gm, '');
   for (const gate of ['ADD CONSTRAINT event_inspiration_assets_slot_key_check_v3', 'ADD CONSTRAINT moodboard_library_assets_supplier_gallery_shape']) {
     const at = body.indexOf(gate);

@@ -14,7 +14,8 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { MOODBOARD_SLOT_KEYS } from './moodboard-slots';
 import { MOODBOARD_SLOT_TRADES } from './moodboard-gallery';
-import { AWAITING_A_SLOT, STUDIO_INSPIRATION_SLOTS } from './inspiration-slots';
+import { STUDIO_INSPIRATION_SLOTS } from './inspiration-slots';
+import { dbAcceptedSlotKeys } from './inspiration-parts-gate.test-helper';
 
 const DIR = join(__dirname, '..', '..', '..', 'supabase', 'migrations');
 const sql = (suffix: string) => readFileSync(join(DIR, readdirSync(DIR).find((f) => f.endsWith(suffix))!), 'utf8');
@@ -43,8 +44,9 @@ test('the app carries them: the vocabulary, their trades, a Studio card and a bo
   }
   assert.deepEqual([...MOODBOARD_SLOT_TRADES.bridal_bouquet], ['florist']);
   assert.deepEqual([...MOODBOARD_SLOT_TRADES.centrepieces], ['florist', 'stylist_decorator', 'catering']);
-  /* The two are no longer waiting (nor are the owner's four attire boards, since 20271266380994). */
-  assert.ok(!AWAITING_A_SLOT.some((a) => ['Bridal bouquet', 'Centrepieces'].includes(a.label)), 'a part with a slot still waits for one');
+  /* 🧩 Both are inspiration parts the database accepts on a photo (step ② of PLAN admin_inspiration_groups_2026-10-25:
+     the slot gates are an FK + a trigger into inspiration_parts; `AWAITING_A_SLOT`, the list they once waited in, is gone). */
+  for (const k of ['bridal_bouquet', 'centrepieces']) assert.ok(dbAcceptedSlotKeys().includes(k), `${k} is not an inspiration part`);
   const board = readFileSync(join(__dirname, '../app/dashboard/[eventId]/studio/mood-board/_components/inspiration-board.tsx'), 'utf8');
   assert.match(board, /\{ k: 'bridal_bouquet', label: 'Bridal bouquet' \}/);
   assert.match(board, /\{ k: 'centrepieces', label: 'Centrepieces' \}/);

@@ -27,13 +27,13 @@ async function main() {
   for (const [g, ground] of Object.entries(grounds)) {
     for (const [s, st] of Object.entries(states)) {
       const identity = { ...buildSimulatedGuestIdentity({ slug: FIXTURE_EVENT.slug, seeAs: st.seeAs }), moreAnswers: st.moreAnswers };
-      pages[`${g}:${s}`] = await renderSiteBodyFixture({ guestStages: true, identity, ...(ground ? { widgets: fixtureWidgets({ hero: { ground } }) } : {}) });
+      pages[`${g}:${s}`] = await renderSiteBodyFixture({ identity, ...(ground ? { widgets: fixtureWidgets({ hero: { ground } }) } : {}) });
     }
   }
   /* 📷 …and a PHOTO cover (a hero photo, no Cover Scene ground): its 4:5 plate under the date is the first part to give way. */
   for (const [s, st] of Object.entries(states)) {
     const identity = { ...buildSimulatedGuestIdentity({ slug: FIXTURE_EVENT.slug, seeAs: st.seeAs }), moreAnswers: st.moreAnswers };
-    pages[`photo:${s}`] = await renderSiteBodyFixture({ guestStages: true, identity, heroPhotoUrl: 'https://cdn.test/fixture-hero.jpg' });
+    pages[`photo:${s}`] = await renderSiteBodyFixture({ identity, heroPhotoUrl: 'https://cdn.test/fixture-hero.jpg' });
   }
   const fromTsx = createRequire(createRequire(join(WEB, '..', '..', 'package.json')).resolve('tsx/package.json'));
   const esbuild = fromTsx('esbuild') as { buildSync: (o: Record<string, unknown>) => { outputFiles: { text: string }[] } };

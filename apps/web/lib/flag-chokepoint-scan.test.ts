@@ -85,19 +85,6 @@ const FLAGS: FlagSpec[] = [
     locals: ['appleIap'],
   },
   {
-    // 🧭 THE MAKER'S GUEST SIDE (plan EVENT_HUB_MAKER_STAGES_STUDIO_BUILD_PLAN_2026-10-06.md PR 6) — the Reply
-    // card, Invitation › Me, the camera's looks — on for the variable or for an internal HOST. The Maker itself
-    // is no longer a flag (owner 2026-10-25, "delete that old event hub maker"): there is one Maker, and
-    // `lib/there-is-one-maker.test.ts` fails if a flag or a role ever chooses another. The variable keeps its
-    // name so production's value keeps meaning what it meant for guests.
-    env: 'NEXT_PUBLIC_MAKER_STAGES_STUDIO_ENABLED',
-    helper: 'lib/guest-stages-on.ts',
-    fn: 'guestStagesFlagOn',
-    gates: ['lib/guest-stages-on.ts'],
-    pureCores: [],
-    locals: ['guestStages'],
-  },
-  {
     // 🖥 The guest's Event Hub on a desktop — the approved system sheet (DL 2026-10-15). Dark for guests while it is
     // checked; on for an internal viewer. The guest page asks once and writes the desk <style> or not.
     env: 'NEXT_PUBLIC_GUEST_HUB_DESKTOP_ENABLED',

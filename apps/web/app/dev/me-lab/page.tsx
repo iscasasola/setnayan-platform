@@ -49,8 +49,8 @@ export default async function MeLabPage({ searchParams }: { searchParams: Promis
       {people.map((p) => {
         const person = { ...guestNamePartsOf(p), attire: guestAttireOf(p) };
         const facts = guestMeFacts({ role: p.role, dressCodeConfig: config, rolePalette, person });
-        const parts = guestMePartsShown({ on: true, getIn: 'list', listed: true, facts });
-        const note = guestMeNoteShown({ on: true, getIn: 'list', listed: true, note: labNote, eventNames: 'Jodalicca & Claire', theOrganizer: words.theOrganizer });
+        const parts = guestMePartsShown({ getIn: 'list', listed: true, facts });
+        const note = guestMeNoteShown({ getIn: 'list', listed: true, note: labNote, eventNames: 'Jodalicca & Claire', theOrganizer: words.theOrganizer });
         return (
           <section key={p.key} data-lab-person={p.key} className="mx-auto mb-16 max-w-[430px] space-y-10 border-t border-ink/10 pt-6">
             <p className="font-mono text-[0.6rem] uppercase tracking-[0.2em] text-ink/50">

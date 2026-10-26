@@ -286,7 +286,9 @@ test('(6) a COVER stored to leave by Scrub, on a real page: while Scrub ships da
       const CELL = '<div data-pahina-first-screen="" class="hub-cover-cell"><div data-pahina-chapters="" class="hub-cover" data-hub-fx="">';
       const REST = '<div data-pahina-chapters="" class="hub-cover-after mt-12 space-y-12 empty:hidden">';
       assert.ok(stored.html.includes(`${CELL}<header data-pahina-first-screen=""`), 'the masthead is not in the cover’s box');
-      assert.ok(stored.html.includes(`</header></div>${REST}<div data-arrival-action="ask"`), 'the reply row is not what follows the cover in its box');
+      /* 🧭 Every guest gets the new guest side (owner 2026-10-26): on this tabbed page the Reply is Me's one (`#me-reply`),
+         so the Welcome draws no reply row and the cover's group holds nothing after the cover — its box is the empty rest. */
+      assert.ok(stored.html.includes(`</header></div>${REST}</div></div>`), 'something other than the empty rest follows the cover in its box');
       const lead = stored.html.slice(stored.html.indexOf('<div data-hub-tab="home"'), stored.html.indexOf('<div data-hub-tab="home"', stored.html.indexOf('<div data-hub-tab="home"') + 1));
       assert.ok(lead.includes(CELL) && lead.includes(REST), 'the cover’s hand-over is not in the page’s first group');
       assert.equal(count(stored.html, 'data-hub-fx'), 1, 'something else on this page is marked for the engine');
@@ -295,7 +297,7 @@ test('(6) a COVER stored to leave by Scrub, on a real page: while Scrub ships da
         .replace('<div class="hub-page-cell"><div class="hub-page-stage"><article', '<article')
         .replace('</article></div></div>', '</article>')
         .replace(CELL, '')
-        .replace(new RegExp(`</header></div>${REST}(<div data-arrival-action="ask"[\\s\\S]*?</div>)</div></div>`), '</header>$1');
+        .replace(`</header></div>${REST}</div></div>`, '</header>');
       assert.ok(unwrapped === today, `with its boxes taken off the page is not today’s page — ${firstDifference(unwrapped, today)}`);
       continue;
     }
@@ -492,6 +494,8 @@ test('(5) it is tooling: no file of the app imports the fixture, the helper or t
     'lib/the-reply-panel-is-the-reply-page.test.ts',
     /* …and (2026-10-24, the Me redraw) Me is the one place: Me's order, the one Reply, read off the real page. A test. */
     'lib/me-is-the-one-place.test.ts',
+    /* …and (2026-10-26) every guest gets the new guest side: the Reply and Me's parts read off a page handed no switch. A test. */
+    'lib/every-guest-gets-the-new-side.test.ts',
     /* …and (2026-10-24) Me offers "Keep this invitation" first: its slot under the greeting, read off the real page. A test. */
     'lib/me-offers-save-first.test.ts',
     /* …and (2026-10-24, cale-ice › Details) no Event Details card on any page: every stage, reader and style. A test. */

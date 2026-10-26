@@ -30,7 +30,7 @@ export type BoardPart = {
 };
 
 export type BoardLane = {
-  key: Exclude<PhotoPartGroup, 'main'>;
+  key: Exclude<PhotoPartGroup, 'main' | 'more'>;
   /** "Flowers — yours to add to" · "The room — for their stylist". */
   title: string;
   /** Nothing in it is this shop's — "Look only". */

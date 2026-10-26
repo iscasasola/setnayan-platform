@@ -70,6 +70,7 @@ import {
   type GalleryUploadMode,
 } from '@/lib/moodboard-gallery-upload';
 import { SUPPLIER_GALLERY_ASSET_TYPE } from '@/lib/moodboard-gallery';
+import { getInspirationParts } from '@/lib/inspiration-parts-db';
 import type { VendorProfileRow } from '@/lib/vendor-profile';
 import type { ColorRangeMap } from '@/app/admin/moodboard-library/_components/color-range-manipulator';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -374,7 +375,8 @@ export async function uploadStylistAsset(
   }
 
   if (isGallery) {
-    const slot = slotUploadVerdict(assetSubtype ?? '', profile.services);
+    const parts = await getInspirationParts();
+    const slot = slotUploadVerdict(assetSubtype ?? '', profile.services, parts);
     if (!slot.allowed) throw new Error(slot.message);
 
     const tier = await fetchShopTier(admin, profile.vendor_profile_id);
@@ -392,7 +394,7 @@ export async function uploadStylistAsset(
       mode,
       cap: tierCaps(tier).galleryBackCatalogPhotosPerCategory,
       backCatalogueUsed: used,
-      categoryLabel: libraryPartLabel(slot.slotKey) ?? 'that category',
+      categoryLabel: libraryPartLabel(slot.slotKey, parts) ?? 'that category',
     });
     if (!quota.allowed) throw new Error(quota.message);
   }
@@ -545,7 +547,7 @@ export async function importEditorialMediaToGallery(input: {
     );
   }
 
-  const slot = slotUploadVerdict(input.slotKey, profile.services);
+  const slot = slotUploadVerdict(input.slotKey, profile.services, await getInspirationParts());
   if (!slot.allowed) throw new Error(slot.message);
 
   const { data: media } = await admin

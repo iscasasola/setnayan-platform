@@ -608,14 +608,6 @@ type SiteBodyProps = {
    * drawn on the canvas (`meSection`).
    */
   sampleViewer?: SeeAs | null;
-  /**
-   * 🧭 THE NEW MAKER'S GUEST SIDE is on for this event (`guestStagesOn`,
-   * page.tsx — the Maker's own switch, or an internal host's event). On: the
-   * Reply card under the names and at the top of Me, and the four
-   * for-each-guest parts on Invitation › Me. Off (every real couple today):
-   * the page exactly as it was.
-   */
-  guestStages?: boolean;
   /** 👤 The named companions on this guest's own seats ("Coming with you") — page.tsx's `yourGuestsFor` read. */
   comingWith?: readonly string[];
 };
@@ -676,7 +668,6 @@ export async function SiteBody({
   meSection = null,
   meSave = null,
   sampleViewer = null,
-  guestStages = false,
   comingWith = [],
 }: SiteBodyProps) {
   /* 🖼 A style's true miniature lays its one style over the rows (`_lib/style-preview.ts`);
@@ -2796,31 +2787,34 @@ export async function SiteBody({
     /* 👤 INVITATION › ME — THE FOUR FOR-EACH-GUEST PARTS (owner 2026-10-06,
        `lib/guest-me-parts.ts`): List only · Guests reply, a guest on the list,
        and only the facts their own row carries. Drawn on the Invitation's Me
-       tab (a tabbed page — Me is a page of its own there). */
+       tab (a tabbed page — Me is a page of its own there).
+       👗 What to wear is the Dress code's own "you" half, so it keeps the Dress code's place on this stage: a couple who
+       hid the Dress code here ("WHAT GUESTS SEE", DECISION_LOG 2026-10-10 — withheld at the source) hides this guest's
+       Wear with it, exactly as the Welcome's look it replaced (`welcomeParts` needs `dress_code` among the scenes).
+       Every guest has these parts since 2026-10-26 (owner: "EVERY GUEST GETS THE NEW GUEST SIDE"). */
+    const meFactsHere = guestMeFacts({
+      role: guest.role ?? null,
+      dressCodeConfig: event.dress_code_config ?? null,
+      rolePalette: event.role_palette,
+      roleNames,
+      comingWith,
+      guestsArriveBy,
+      person: { ...guestNamePartsOf(guest), attire: guestAttireOf(guest) },
+    });
     const meParts =
-      guestStages && pageStage === 'rsvp' && tabsOn && !isMakerCanvas
+      pageStage === 'rsvp' && tabsOn && !isMakerCanvas
         ? guestMePartsShown({
-            on: guestStages,
             getIn: readGuestsGetIn(event.rsvp_ask_config),
             listed: readerIsListed({ kind: 'guest', entrySource: (guest as { entry_source?: string | null }).entry_source ?? null }),
-            facts: guestMeFacts({
-              role: guest.role ?? null,
-              dressCodeConfig: event.dress_code_config ?? null,
-              rolePalette: event.role_palette,
-              roleNames,
-              comingWith,
-              guestsArriveBy,
-              person: { ...guestNamePartsOf(guest), attire: guestAttireOf(guest) },
-            }),
+            facts: { ...meFactsHere, wear: meFactsHere.wear && plan.hideableInOrder.some((w) => w.widget_type === 'dress_code') },
           })
         : [];
     /* 💌 THE HOSTS' NOTE TO THIS GUEST (owner 2026-10-20, `guestMeNoteShown`): under Your role on Me, by the same gate
        as the four parts — and read from THIS reader's own row (`loadGuestOwnRow`), so it is only ever theirs. Never on
        the Maker's canvas (no real guest is reading it there). */
     const meNote =
-      guestStages && pageStage === 'rsvp' && tabsOn && !isMakerCanvas
+      pageStage === 'rsvp' && tabsOn && !isMakerCanvas
         ? guestMeNoteShown({
-            on: guestStages,
             getIn: readGuestsGetIn(event.rsvp_ask_config),
             listed: readerIsListed({ kind: 'guest', entrySource: (guest as { entry_source?: string | null }).entry_source ?? null }),
             note: guest.host_note_for_guest ?? null,
@@ -2834,7 +2828,7 @@ export async function SiteBody({
     const replyBy = plan.guestListClosed
       ? null
       : guestReplyBy({ deadline: event.guest_list_edit_deadline ?? null, today: todayYmd() });
-    const replyCardHere =
+    const replyCard =
       pageStage === 'rsvp' && plan.rsvpShouldRender && !isMakerCanvas
         ? replyCardOf({
             action: arrivalAction,
@@ -2849,12 +2843,10 @@ export async function SiteBody({
             moreAnswers: g.moreAnswers,
           })
         : null;
-    /* The Welcome's card and the cover's state follow the new guest side (`guestStages`), as they shipped. */
-    const replyCard = guestStages ? replyCardHere : null;
-    /* ✉ ME'S ONE REPLY (owner 2026-10-24) — for EVERY guest on the Invitation, not only the new guest side: it replaces
+    /* ✉ ME'S ONE REPLY (owner 2026-10-24) — for EVERY guest on the Invitation: it replaces
        the ticket's "Reply to the invitation" and the "Change your reply" bar, which every guest had. A plus-one who has
        not replied is not asked here (their own link asks them — as the ticket's door never did either). */
-    const meReplyCard = replyCardHere && !(guest.plus_one_of_guest_id && replyCardHere.kind === 'ask') ? replyCardHere : null;
+    const meReplyCard = replyCard && !(guest.plus_one_of_guest_id && replyCard.kind === 'ask') ? replyCard : null;
     /* 👗 THIS GUEST'S OWN LOOK — read once, for the Welcome's "you" panel and
        for Me's parts (one home per fact: when Me draws them, the Welcome's
        look stands down — DECISION_LOG 2026-10-06 "'YOUR DETAILS' LIVES ON
@@ -3378,9 +3370,7 @@ export async function SiteBody({
             <ReplyCardRow card={replyCard} partId={COVER_RSVP_PART} landed={Boolean(rsvpFlash && rsvpFlash.tone !== 'error')} kit={artKit ? <KitSlot kit={artKit} slot="reply" /> : null} />
           ) : (
           <ArrivalActionRow
-            /* 🪪 ONE REPLY, ON ME (owner 2026-10-24): on a tabbed page an action that opens the reply opens Me's one
-               Reply instead (`#me-reply` — the shell opens Me there), so the Welcome holds no second door to it. */
-            action={tabs.on && meReplyCard && arrivalAction && actionOpensReply(arrivalAction) ? { ...arrivalAction, href: `#${ME_REPLY_ID}` } : arrivalAction}
+            action={arrivalAction}
             landed={Boolean(rsvpFlash && rsvpFlash.tone !== 'error')}
           />
           )}

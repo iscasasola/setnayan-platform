@@ -114,14 +114,12 @@ export function readerIsListed(reader: { kind: 'guest'; entrySource?: string | n
 }
 
 /** 🔒 Rules 1 and 2 — the Me page's personal half is open to this reader at all. */
-function meIsPersonal(input: { on: boolean; getIn: GuestsGetIn; listed: boolean }): boolean {
-  return input.on && input.getIn === 'list' && input.listed;
+function meIsPersonal(input: { getIn: GuestsGetIn; listed: boolean }): boolean {
+  return input.getIn === 'list' && input.listed;
 }
 
 /** 🔒 The parts this reader sees, in order — [] whenever any rule fails. */
 export function guestMePartsShown(input: {
-  /** The new Maker's guest side is on for this event (`guestStagesOn`). */
-  on: boolean;
   getIn: GuestsGetIn;
   listed: boolean;
   facts: GuestMeFacts;
@@ -141,7 +139,6 @@ export function guestMePartsShown(input: {
  * Null: nothing drawn, not even the heading.
  */
 export function guestMeNoteShown(input: {
-  on: boolean;
   getIn: GuestsGetIn;
   listed: boolean;
   note: string | null | undefined;

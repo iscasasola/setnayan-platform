@@ -17,7 +17,7 @@ import {
   qrHit,
   slotUploadVerdict,
   uploadableSlotsForShop,
-  GALLERY_SLOT_LABEL,
+  libraryPartLabel,
   RIGHTS_WARRANTY_TEXT,
   RIGHTS_WARRANTY_VERSION,
 } from './moodboard-gallery-upload';
@@ -60,15 +60,15 @@ test('palette admits nobody — a colour reference is no shop’s portfolio', ()
   const everyService = GALLERY_SLOT_KEYS.flatMap((k) => canonicalServicesForSlot(k));
   const verdict = slotUploadVerdict('palette', everyService);
   assert.equal(verdict.allowed, false);
-  assert.equal(GALLERY_SLOT_LABEL.palette, null);
+  if (!verdict.allowed) assert.equal(verdict.reason, 'no_supplier_trade');
 });
 
 test('every gallery slot has a supplier-facing label', () => {
-  // The Record is over the FULL slot union, so a new slot is a compile error.
-  // This asserts the runtime half: a slot that HAS a supplying trade must have
-  // a name to show the supplier, or the picker renders a blank option.
+  // 🧩 Step ②: a part's one name is its inspiration_parts row (`libraryPartLabel` reads the snapshot; the
+  // per-slot shelf-name map is gone). A slot that HAS a supplying trade must have a name to show the
+  // supplier, or the picker renders a blank option.
   for (const k of GALLERY_SLOT_KEYS) {
-    assert.ok(GALLERY_SLOT_LABEL[k], `slot ${k} needs a supplier-facing label`);
+    assert.ok(libraryPartLabel(k), `slot ${k} needs a supplier-facing label`);
   }
 });
 

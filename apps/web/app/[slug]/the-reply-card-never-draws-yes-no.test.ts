@@ -15,8 +15,9 @@
  *      the sheet, once;
  *   3. the words of each state; "Reply by" only for a date the host set;
  *   4. on the day and after, no card — the page's action keeps its own words;
- *   5. site-body mounts it under the names and at the top of Me, behind the
- *      guest-side switch, and the Welcome action is still mounted once.
+ *   5. site-body mounts it under the names and on Me, for every guest (no
+ *      guest-side switch since 2026-10-26), and the Welcome action is still
+ *      mounted once.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -81,15 +82,14 @@ test('4 · on the day and after, there is no card — the action keeps its own w
   assert.equal((await cardFor('attending', '2026-12-19')).card, null, 'a card after the day');
 });
 
-test('5 · the card: the Welcome’s behind the switch on a page that is one scroll; Me’s ONE Reply at Me’s foot', () => {
+test('5 · the card: the Welcome’s on a page that is one scroll; Me’s ONE Reply at Me’s foot', () => {
   /* 🔁 RE-AIMED 2026-10-24 (owner, the Me redraw — "one place for everything"): the card is built once from the page's
-     own action behind the reply's own gate (`replyCardHere`); the Welcome's card and the cover's state still follow the
-     guest-side switch (`replyCard`); Me's one Reply (`meReplyCard`, `MeReply`) is every guest's and stands at Me's FOOT,
+     own action behind the reply's own gate (`replyCard`) — 🧭 and since 2026-10-26 no guest-side switch stands in front of
+     it (owner: every guest gets the new guest side, DECISION_LOG "EVERY GUEST GETS THE NEW GUEST SIDE"); Me's one Reply (`meReplyCard`, `MeReply`) is every guest's and stands at Me's FOOT,
      after the ticket and the rest of Me — no card at the top of Me any more. THE PROPERTY IS UNCHANGED: the card draws no
      Yes / No (the tests above). */
   const body = stripComments(readFileSync(join(__dirname, '_components/site-body.tsx'), 'utf8'));
-  assert.match(body, /const replyCardHere =\s*pageStage === 'rsvp' && plan\.rsvpShouldRender && !isMakerCanvas\s*\?\s*replyCardOf\(/, 'the card is not behind the reply’s own gate');
-  assert.match(body, /const replyCard = guestStages \? replyCardHere : null;/, 'the Welcome’s card is not behind the guest-side switch');
+  assert.match(body, /const replyCard =\s*pageStage === 'rsvp' && plan\.rsvpShouldRender && !isMakerCanvas\s*\?\s*replyCardOf\(/, 'the card is not behind the reply’s own gate');
   assert.match(body, /\{replyCard && tabs\.on \? \([\s\S]*?\) : replyCard \? \(\s*<ReplyCardRow card=\{replyCard\}[^]*?\) : \(\s*<ArrivalActionRow/, 'the card does not stand in the Welcome action’s place');
   assert.equal(body.split('<ArrivalActionRow').length - 1, 1, 'the Welcome action is mounted more than once');
   const me = body.slice(body.lastIndexOf('data-me-stage'));

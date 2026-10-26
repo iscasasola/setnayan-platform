@@ -40,6 +40,9 @@ import { DateCalendar, M_FULL } from '@/app/onboarding/_shared/date-calendar';
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { ChevronLeft, X } from 'lucide-react';
+import { onboardingExit } from '@/app/onboarding/_shared/onboarding-exit';
 import '../_styles/onboarding.css';
 // Desktop-only editorial canvas around the locked phone frame (owner 2026-06-13).
 // Layered ON TOP of the prototype CSS — see onboarding-desktop.css header.
@@ -1509,6 +1512,10 @@ export function OnboardingShell({
   const seq = useMemo(() => buildSequence(state.kind, authed, state.loveSkipped, state.ai, state.picks, setupSteps, storeShell), [state.kind, authed, state.loveSkipped, state.ai, state.picks, storeShell, setupSteps]);
   const stepClamped = Math.min(Math.max(0, state.step), seq.length - 1);
   const activeId: ScreenId = seq[stepClamped] ?? 'welcome';
+  // 🚪 The first screen is the first index of the sequence, whatever screen that is today
+  // (`w_names` on the approved flow). Its top-left control is the way OUT, not a step back.
+  const onFirstScreen = stepClamped === 0;
+  const exit = onboardingExit(authed);
   // 🧭 The approved wedding flow is on once the engine resolved cards for the wedding.
   const approvedFlow = setupSteps.length > 0;
   // "n of N" counts the question cards only (the account gate and the services step are not questions).
@@ -1637,16 +1644,22 @@ export function OnboardingShell({
      Pattern: keep exactly ONE sentinel history entry on top of the stack while the
      shell is mounted. Each Back press pops the sentinel → we step the flow back one
      screen (go(-1), which already handles the refine / style sub-steps) and re-arm a
-     fresh sentinel so the NEXT Back is caught too. On the first screen (welcome) we
+     fresh sentinel so the NEXT Back is caught too. On the first screen (step 0) we
      let the pop through so the couple leaves onboarding cleanly. Forward navigation
      stays pure state (no pushState), so the sentinel always sits on top. The on-screen
      "‹" button is unchanged — it still calls go(-1) directly and already works. */
   const goRef = useRef(go);
   goRef.current = go;
-  // canGoBack mirrors the on-screen "‹" hide rule (hidden only on welcome): Back is a
-  // step-back on every screen except the first, where it exits onboarding.
+  // canGoBack mirrors the on-screen "‹" rule: Back is a step-back on every screen except
+  // the first, where it exits onboarding.
+  // 🚪 "THE FIRST SCREEN" IS STEP 0, NEVER A SCREEN ID (owner 2026-10-26, "doesn't have a
+  // cancel"). This used to read `activeId !== 'welcome'` — but 'welcome' is in
+  // REMOVED_SCREENS and is never in the approved list either, so it is NEVER active: the
+  // "exit on the first screen" branch was dead, the "‹" on the real first screen
+  // (`w_names`) called go(-1) and clamped to 0 (a button that did nothing), and the
+  // hardware/browser Back on that screen re-armed the sentinel forever — no way out at all.
   const canGoBackRef = useRef(false);
-  canGoBackRef.current = activeId !== 'welcome';
+  canGoBackRef.current = !onFirstScreen;
   // Flipped true the instant the final commit→dashboard navigation begins, so a
   // popstate fired during teardown is ignored (never re-steps the flow as we leave).
   const exitingOnbRef = useRef(false);
@@ -2949,15 +2962,31 @@ export function OnboardingShell({
         {/* top — brand + progress */}
         <div className="top">
           <div className="brandrow">
-            <button
-              className="btn-back"
-              type="button"
-              onClick={() => go(-1)}
-              aria-label="Back"
-              style={{ display: activeId === 'welcome' ? 'none' : 'inline-flex' }}
-            >
-              {'‹'}
-            </button>
+            {/* 🚪 First screen: ✕ leaves (back to the event-type picker — a misclicked type is
+                one tap from the right one); every later screen: ‹ steps back. Same slot, so the
+                brand never moves. `replace` + exitingOnbRef: leaving never re-steps the flow. */}
+            {onFirstScreen ? (
+              <Link
+                className="btn-back btn-ring btn-exit"
+                href={exit.href}
+                replace
+                aria-label={exit.label}
+                data-onboarding-exit=""
+                onClick={() => {
+                  exitingOnbRef.current = true;
+                }}
+              >
+                <span className="btn-ring-face" aria-hidden>
+                  <X size={16} strokeWidth={2} />
+                </span>
+              </Link>
+            ) : (
+              <button className="btn-back btn-ring" type="button" onClick={() => go(-1)} aria-label="Back">
+                <span className="btn-ring-face" aria-hidden>
+                  <ChevronLeft size={16} strokeWidth={2} />
+                </span>
+              </button>
+            )}
             <span className="brandlock">
               <svg className="blmark-img" viewBox="0 0 5333.3335 5333.3335" role="img" aria-label="Setnayan">
                 <path

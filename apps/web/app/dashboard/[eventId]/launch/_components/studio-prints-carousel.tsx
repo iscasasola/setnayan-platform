@@ -34,6 +34,8 @@ import { DetailsSelectContext } from './details-go';
 import { chartHeadLine } from '@/lib/print-head-line';
 import { chartAddresses, useChartPick, usePaper, type StudioPaper, type StudioPaperDoor } from './print-paper';
 import { usePrintSave, type PrintSaveState } from './print-save-button';
+import { usePassLookPick } from './pass-card-design-picker';
+import { DEFAULT_PASS_CARD_DESIGN, PASS_CARD_DESIGNS, PASS_CARD_DESIGN_LABEL, PASS_CARD_WORDS, type PassCardDesign } from '@/lib/pass-card';
 import { setPrintSettingsOpen, usePrintGuest, usePrintSlides, type AllInOneF, type PrintSlide } from './prints-view-store';
 
 /**
@@ -70,6 +72,14 @@ const REACH_44 = "relative after:absolute after:-inset-[3px] after:content-['']"
 const swap = (s: string, g: PrintGuest) => s.split(GUEST_TOKEN).join(encodeURIComponent(g.id)).split(GUEST_WORD_TOKEN).join(guestFileWord(g.name));
 /** A picture with no guest to draw — the token taken out (the address then draws the first guest, as the row did). */
 const unguest = (s: string) => s.split(`&pass_guest=${GUEST_TOKEN}`).join('').split(GUEST_TOKEN).join('');
+
+/**
+ * 🎫 The Digital ticket's picture in the look being edited — its own address with `design=` set to that look (the route draws the look
+ * asked for, `passCardDesignFor`). A pick redraws the slide at once; the guests' own files keep the live look until Apply.
+ */
+export function withTicketLook(src: string, design: PassCardDesign): string {
+  return /[?&]design=/.test(src) ? src.replace(/([?&]design=)[^&]*/, `$1${design}`) : `${src}${src.includes('?') ? '&' : '?'}design=${design}`;
+}
 
 /** "PDF" · "PNG" · ".zip" — a file's kind, read from its name. */
 function fileKind(file: string): string {
@@ -141,6 +151,10 @@ export function StudioPrintsCarousel({
 }) {
   const pieces = useMemo(() => studioPrintsPieces(items), [items]);
   const slides = usePrintSlides();
+  /* 🎫 The Digital ticket's look — the ONE pick (the Maker's draft store + the draft save); its slide and its Style ▾ read the same. */
+  const ticket = slides.get('digital-ticket');
+  const look = usePassLookPick(ticket?.guest?.eventId ?? '', ticket?.ticketStyle?.saved ?? DEFAULT_PASS_CARD_DESIGN);
+  const ticketLook: PassCardDesign | null = ticket?.ticketStyle ? look.shown : null;
   const start = Math.max(0, pieces.findIndex((p) => p.key === at));
   const [i, setI] = useState(start);
   const track = useRef<HTMLDivElement>(null);
@@ -251,7 +265,7 @@ export function StudioPrintsCarousel({
   const list = g?.guests ?? [];
   const [pickedGuest, setPickedGuest] = usePrintGuest(g?.eventId ?? '', list[0]?.id ?? null);
   const guest = list.find((x) => x.id === pickedGuest) ?? list[0] ?? null;
-  const facts = useSlideFacts(slide, guest);
+  const facts = useSlideFacts(slide, guest, ticketLook);
 
   const run = (href: string, file: string) => {
     setSavedFor(here.key);
@@ -281,6 +295,7 @@ export function StudioPrintsCarousel({
   const tools = {
     here,
     slide,
+    look: slide.ticketStyle ? look : null,
     guest,
     state,
     facts,
@@ -326,8 +341,8 @@ export function StudioPrintsCarousel({
 
       {/* The slides — the phone's (full width), and on a computer the centre column with ‹ ›. */}
       <div className="relative flex min-h-0 flex-1 flex-col lg:min-w-0">
-        <Track refEl={track} pieces={pieces} slides={slides} at={i} guest={guest} onEdit={() => setEditOpen(true)} className="flex lg:hidden" />
-        <Track refEl={deskTrack} pieces={pieces} slides={slides} at={i} guest={guest} onEdit={() => setEditOpen(true)} className="hidden lg:flex" desk />
+        <Track refEl={track} pieces={pieces} slides={slides} at={i} guest={guest} ticketLook={ticketLook} onEdit={() => setEditOpen(true)} className="flex lg:hidden" />
+        <Track refEl={deskTrack} pieces={pieces} slides={slides} at={i} guest={guest} ticketLook={ticketLook} onEdit={() => setEditOpen(true)} className="hidden lg:flex" desk />
         <span className="absolute left-5 top-1/2 hidden -translate-y-1/2 lg:block">
           <ActionButton tone="neutral" iconOnly icon={ChevronLeft} label="Previous print" disabled={i === 0} onClick={() => go(i - 1)} />
         </span>
@@ -376,7 +391,7 @@ function plainFile(slide: PrintSlide, choices: Record<string, string>, item: str
 /* ═══ ONE SLIDE ═══════════════════════════════════════════════════════════════════════════════════════════════════════════ */
 
 /** The slide's picture address — the guest's own on a guest print, the chart's for its pick. */
-function useSlideSrc(slide: PrintSlide | undefined, guest: PrintGuest | null): { src: string | null; aspect: number } {
+function useSlideSrc(slide: PrintSlide | undefined, guest: PrintGuest | null, ticketLook: PassCardDesign | null = null): { src: string | null; aspect: number } {
   const chart = slide?.chart;
   const [pick] = useChartPick(chart?.eventId ?? '', { layout: 'table', size: chart?.defaultSize ?? '' });
   if (chart) {
@@ -385,13 +400,16 @@ function useSlideSrc(slide: PrintSlide | undefined, guest: PrintGuest | null): {
   }
   const paper = slide?.paper;
   if (!paper) return { src: null, aspect: 0.7 };
-  if (slide.guest) return { src: guest && slide.guest.guestPicture ? swap(paper.src, guest) : unguest(paper.src), aspect: paper.aspect };
+  if (slide.guest) {
+    const drawn = guest && slide.guest.guestPicture ? swap(paper.src, guest) : unguest(paper.src);
+    return { src: slide.ticketStyle && ticketLook ? withTicketLook(drawn, ticketLook) : drawn, aspect: paper.aspect };
+  }
   return { src: paper.src, aspect: paper.aspect };
 }
 
 /** What the route said about the slide's paper (pages · empty · fits) — read from the picture already asked for. */
-function useSlideFacts(slide: PrintSlide, guest: PrintGuest | null): PrintPaperFacts | null {
-  const { src } = useSlideSrc(slide, guest);
+function useSlideFacts(slide: PrintSlide, guest: PrintGuest | null, ticketLook: PassCardDesign | null): PrintPaperFacts | null {
+  const { src } = useSlideSrc(slide, guest, ticketLook);
   const [state] = usePaper(src, false);
   return state.loaded?.facts ?? null;
 }
@@ -402,6 +420,7 @@ function Track({
   slides,
   at,
   guest,
+  ticketLook,
   onEdit,
   className,
   desk = false,
@@ -411,6 +430,7 @@ function Track({
   slides: ReadonlyMap<string, PrintSlide>;
   at: number;
   guest: PrintGuest | null;
+  ticketLook: PassCardDesign | null;
   onEdit: () => void;
   className: string;
   desk?: boolean;
@@ -424,7 +444,7 @@ function Track({
       className={`${className} min-h-0 flex-1 snap-x snap-mandatory overflow-x-auto overflow-y-hidden overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`}
     >
       {pieces.map((p, j) => (
-        <Slide key={p.key} piece={p} slide={slides.get(p.key)} near={Math.abs(j - at) <= 1} current={j === at} guest={guest} onEdit={onEdit} desk={desk} />
+        <Slide key={p.key} piece={p} slide={slides.get(p.key)} near={Math.abs(j - at) <= 1} current={j === at} guest={guest} ticketLook={ticketLook} onEdit={onEdit} desk={desk} />
       ))}
     </div>
   );
@@ -439,6 +459,7 @@ function Slide({
   near,
   current,
   guest,
+  ticketLook,
   onEdit,
   desk,
 }: {
@@ -447,10 +468,11 @@ function Slide({
   near: boolean;
   current: boolean;
   guest: PrintGuest | null;
+  ticketLook: PassCardDesign | null;
   onEdit: () => void;
   desk: boolean;
 }) {
-  const { src, aspect } = useSlideSrc(slide, slide?.guest ? guest : null);
+  const { src, aspect } = useSlideSrc(slide, slide?.guest ? guest : null, ticketLook);
   const [page, setPage] = useState(1);
   const [first, retryFirst] = usePaper(src, near, current);
   const pages = slide?.paper?.pages ? Math.max(1, first.loaded?.facts?.pages ?? 1) : 1;
@@ -720,6 +742,8 @@ function useChanged(printed: PrintSlide['printed']): boolean {
 type ToolsProps = {
   here: StudioPrintsPiece;
   slide: PrintSlide;
+  /** 🎫 The Digital ticket's look and its pick (only on that slide). */
+  look: ReturnType<typeof usePassLookPick> | null;
   guest: PrintGuest | null;
   state: PrintSaveState;
   facts: PrintPaperFacts | null;
@@ -773,6 +797,9 @@ function choiceControls(p: ToolsProps, look: 'pill' | 'row'): Array<{ key: strin
       node: <SizePick size={s} className={cls} />,
     });
   }
+  if (slide.ticketStyle && p.look) {
+    out.push({ key: 'style', name: PASS_CARD_WORDS.style, node: <TicketStylePick style={slide.ticketStyle} look={p.look} className={cls} /> });
+  }
   if (slide.guest && p.guest) {
     const name = p.guest.name;
     out.push({
@@ -793,6 +820,39 @@ function choiceControls(p: ToolsProps, look: 'pill' | 'row'): Array<{ key: strin
     });
   }
   return out;
+}
+
+/**
+ * 🎫 THE DIGITAL TICKET'S STYLE ▾ (owner 2026-10-26, verbatim: *"The 3 designs for the digital ticket should be on the carousel and not
+ * on settings."*) — the house dropdown, Classic · Ticket · Photo poster, each with its small picture in the list, beside View as ▾ (the
+ * Event pass's Calling card ▾ is its twin). A pick redraws the slide for the guest shown at once and WAITS FOR APPLY — said in the open
+ * list — through the ONE ticket-style pick (`usePassLookPick`: the Maker's draft store, the draft save); a refused save is put back
+ * and said under the toolbar.
+ */
+function TicketStylePick({ style, look, className }: { style: NonNullable<PrintSlide['ticketStyle']>; look: NonNullable<ToolsProps['look']>; className: string }) {
+  return (
+    <PickMenu
+      label={PASS_CARD_WORDS.style}
+      value={look.shown}
+      options={PASS_CARD_DESIGNS.map((d) => ({ key: d, label: PASS_CARD_DESIGN_LABEL[d], thumb: style.previews[d] }))}
+      onPick={look.pick}
+      dataAttr="data-prints-ticket-style"
+      className={className}
+      head={
+        <li role="none" data-prints-ticket-style-line="" className="px-3 pb-1.5 pt-1 text-[12px] text-ink/60">
+          What each guest saves · waits for Apply
+        </li>
+      }
+      trigger={
+        <>
+          <span className="min-w-0 truncate" aria-busy={look.pending || undefined}>
+            {PASS_CARD_DESIGN_LABEL[look.shown]}
+          </span>
+          {CARET}
+        </>
+      }
+    />
+  );
 }
 
 /** 📐 The size ▾ — a pick NAVIGATES to the address the row's `PrintChoicePicker` always went to (the piece redraws in that size). */
@@ -999,6 +1059,8 @@ function SettingsButton() {
 
 function CountLine(p: ToolsProps) {
   if (p.slide.chart && p.facts?.fits === false) return <ChartFull chart={p.slide.chart} facts={p.facts} />;
+  /* 🎫 A ticket style that did not save is put back — and said here, in place of the count, until the next pick. */
+  if (p.look?.error) return <StatusLine tone="bad" data="pass-style">{p.look.error}</StatusLine>;
   const words = p.slide.chart ? '' : countLine(p.slide, p.facts);
   return (
     <p data-prints-count={p.here.key} className="line-clamp-2 min-h-4 px-0.5 text-[12px] leading-[1.35] text-ink/65">

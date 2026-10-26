@@ -1,6 +1,6 @@
 'use client';
 
-import { HUB_DRAFT_BAR_FIELD, makerRedrawSave, makerSave } from '@/lib/maker-refresh';
+import { HUB_DRAFT_BAR_FIELD, makerRedrawSave, makerSave, requestCanvasRedraw } from '@/lib/maker-refresh';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { Check, Undo2 } from 'lucide-react';
@@ -73,6 +73,7 @@ import {
   type LookGroundPictures,
 } from '@/lib/background-pick';
 import { tellLookSample } from '@/lib/look-sample-store';
+import { backgroundPickUndo } from '@/lib/background-pick-undo';
 import { beginFilmLoad, readBlobWithProgress, waitFilmLoad } from '@/lib/pick-load';
 import { mainGroundChoice } from '@/lib/main-ground-choice';
 import { heroFrameWrites } from '@/lib/hero-frame-sync';
@@ -633,6 +634,8 @@ export function MainBackgroundPanel({
       bg: write.events && 'site_bg_color' in write.events ? (write.events.site_bg_color ?? null) : ground.bg,
       art: write.events?.site_art_direction ?? ground.art,
     };
+    /** ↺ What the page wore before this pick — what its Undo lays back at once. */
+    const before = lookGround.read(lookKey, serverRef.current);
     const fresh = opts.began === undefined;
     const seq = opts.began ?? ++lookPickSeq;
     if (fresh) pickMark('tap');
@@ -680,6 +683,25 @@ export function MainBackgroundPanel({
       if (r.ok) postToCanvas(mainGroundLandedMessage(seq));
       return r;
     };
+    /* ↺ ITS UNDO IS DRAWN AT ONCE (`lib/background-pick-undo.ts`, owner 2026-10-26 "it blinks … 5-6 seconds"): the
+       BEFORE laid on the canvas and the sample, and kept as the Maker's own copy, at the press; the page redraws itself
+       in place once the ↺ lands. A refused ↺ lays this pick again. Never a whole-Maker render and a new canvas page. */
+    let undoneAt = 0;
+    const wear = (g: LookGround) => {
+      const at = ++lookPickSeq;
+      undoneAt = at;
+      lookDrawnSeq = at;
+      postToCanvas(mainGroundPreviewMessage(at, backgroundLayOf(g, lookPictures, wornFor(g))));
+      lookGround.draw(lookKey, g, serverRef.current);
+      tellLookSample(eventId, g);
+      setPick(null);
+      setNote(null);
+    };
+    /* …told landed BEFORE the redraw is asked for, so the redraw may take the preview away (as `landing` does). */
+    const undo = backgroundPickUndo({ back: () => wear(before), forward: () => wear(next), redrawAfter: true }, () => {
+      postToCanvas(mainGroundLandedMessage(undoneAt));
+      requestCanvasRedraw();
+    });
     void (async () => {
       if (film) {
         const arrived = await waitFilmLoad(film, (pct) => setPick((p) => (p && p.seq === seq ? { ...p, pct } : p)), stop.signal);
@@ -704,9 +726,9 @@ export function MainBackgroundPanel({
           ? await makerSave(() => saveLookWrite(eventId, write, draftAction), () => router.refresh())
           : worn
             // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
-            ? await makerSave(() => landing(saveLookWrite(eventId, write, draftAction, true)), () => router.refresh(), { held: true })
+            ? await makerSave(() => landing(saveLookWrite(eventId, write, draftAction, true)), () => router.refresh(), { held: true, undo })
             // one-render: keep (batched) — a Maker draft save goes through `lib/maker-refresh.ts`, which refreshes ONCE after the last save in flight; draft intents revalidate nothing.
-            : await makerRedrawSave(() => landing(saveLookWrite(eventId, write, draftAction, true)), () => router.refresh());
+            : await makerRedrawSave(() => landing(saveLookWrite(eventId, write, draftAction, true)), () => router.refresh(), { undo });
         pickMark('write-answered');
         if (!worn && !opts.render) pickMark('redraw-asked');
         ok = r.ok === true;

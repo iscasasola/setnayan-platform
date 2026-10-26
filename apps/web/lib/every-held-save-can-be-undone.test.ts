@@ -33,12 +33,8 @@ export const UNDO_NOT_DRAWN: Record<string, string> = {
   'app/dashboard/[eventId]/launch/_components/studio-info.tsx › studioPhotosHeadingKeep': `Studio › Info Photos heading keep (redrawn in place) — ${PHASE_2}`,
   'app/dashboard/[eventId]/website/editor/_components/fonts-look-rows.tsx › commit': `fonts (redrawn in place) — ${PHASE_2}`,
   'app/dashboard/[eventId]/website/editor/_components/use-scene-canvas.ts › useHeldEventsSave': `a scene's look held on the events row (redrawn in place) — ${PHASE_2}`,
-  'app/dashboard/[eventId]/website/editor/_components/main-background-panel.tsx › pickLook': `the main background's look — ${PHASE_2}`,
-  'app/dashboard/[eventId]/website/editor/_components/scene-background-row.tsx › save': `a scene background (Colour · Plain · a photo) — ${PHASE_2}`,
-  /* 🖼 The Cover Scene's background (2026-10-15) — the same save shape as a scene's, redrawn in place. */
   /* 🖼 A scene of their own's slot picture (2026-10-18) — the bridge cannot draw a picture into a slot; redrawn in place. */
   'app/dashboard/[eventId]/launch/_components/stage-panel/scene-photos.tsx › write': `a scene of their own's picture slot (redrawn in place) — ${PHASE_2}`,
-  'app/dashboard/[eventId]/launch/_components/stage-panel/cover-words-background.tsx › put': `the Cover Scene's background (the hero row's canvas.ground) — ${PHASE_2}`,
   /* — drawn by their own message, an inverse not yet handed — */
   'app/dashboard/[eventId]/website/editor/_components/music-button-row.tsx › commit': `the music button — ${PHASE_2}`,
   'app/dashboard/[eventId]/website/editor/_components/buttons-look-row.tsx › commit': `Look › Buttons — ${PHASE_2}`,
@@ -167,6 +163,12 @@ test('G6 the phase-1 kinds hand their inverse (each named, so dropping one is re
     ['app/dashboard/[eventId]/website/editor/_components/fixed-scene-style-row.tsx', /styleTap\(\{[\s\S]*?save: makerRedrawSave,/],
     ['app/dashboard/[eventId]/website/editor/_components/use-scene-canvas.ts', /await styleTap\(\{[^}]*save: makerRedrawSave \}\)/],
     ['app/dashboard/[eventId]/website/editor/_components/use-scene-canvas.ts', /makerRedrawSave\(send, refresh, \{ undo: scenePictureUndo\(/],
+    /* 🖼 (2026-10-26, owner "it blinks … 5-6 seconds before undo is done") the three background savers — their ↺ was
+       the slow path (a whole-Maker render and a new canvas page); now the BEFORE is laid back at once. */
+    ['app/dashboard/[eventId]/website/editor/_components/scene-background-row.tsx', /makerSave\(\(\) => draftAction\(eventId, fd\), \(\) => router\.refresh\(\), \{ held: true, undo \}\)/],
+    ['app/dashboard/[eventId]/website/editor/_components/scene-background-row.tsx', /makerRedrawSave\(\(\) => draftAction\(eventId, fd\), \(\) => router\.refresh\(\), \{ undo \}\)/],
+    ['app/dashboard/[eventId]/launch/_components/stage-panel/cover-words-background.tsx', /makerRedrawSave\(\(\) => draftAction\(eventId, fd\), \(\) => router\.refresh\(\), \{ undo \}\)/],
+    ['app/dashboard/[eventId]/website/editor/_components/main-background-panel.tsx', /\{ held: true, undo \}\)[\s\S]*?makerRedrawSave\([^;]*\{ undo \}\)/],
     /* 👗🎨 the Mood Board's attire and palette picks (held since 2026-10-15) */
     ['app/dashboard/[eventId]/studio/mood-board/_components/mood-board-studio.tsx', /\{ undo: boardUndo\(\(undone\) => put\(undone \? was : wrote\)\) \}/],
     ['app/dashboard/[eventId]/studio/mood-board/_components/mood-board-studio.tsx', /\{ undo: boardUndo\(\(undone\) => put\(undone \? before : \(next as typeof dress\)\)\) \}/],

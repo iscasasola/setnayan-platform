@@ -131,7 +131,7 @@ test('(1) the Studio’s Background draws no hero-video uploader; the hero video
   // The hero video, when there is one, is the "Your video" card — and a tap makes it THE BACKGROUND (a clip of theirs).
   assert.match(
     panel,
-    /\{videoChoice \? \(\s*<BgCard\s+name="Your video"[\s\S]{0,300}onPick=\{\(\) => pickExisting\(\{ kind: 'snippet', ref: videoChoice\.ref,/,
+    /\{videoChoice \? \(\s*<BgCard\s+name="Your video"[\s\S]{0,300}onPick=\{proOnly\(\(\) => pickExisting\(\{ kind: 'snippet', ref: videoChoice\.ref,/,
     'the hero video is no longer a background card',
   );
   // A new clip comes in through the source's own Upload — saved AS the background.

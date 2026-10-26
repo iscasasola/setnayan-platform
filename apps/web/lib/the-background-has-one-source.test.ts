@@ -165,10 +165,10 @@ test('(3) the Studio draws ONE Source dropdown and the cards of the source on sc
   // Each source's cards are the shipped list, and the tap is the shipped save.
   assert.match(studio, /view === 'colour'\s*\? BACKGROUND_EFFECTS\.filter\(\(e\) => Boolean\(page\) \|\| e === 'plain'\)\.map/);
   assert.match(studio, /view === 'pattern'\s*\? HUB_MAIN_PATTERNS\.filter\(\(k\) => k === pattern\)\.map[\s\S]{0,520}onPick=\{\(\) => save\(\{ ground: 'pattern', pattern: k \}, FAILED\)\}/);
-  assert.match(studio, /view === 'scene'\s*\? STD_REALISTIC_BACKGROUNDS\.map[\s\S]{0,520}onPick=\{\(\) => pickExisting\(\{ kind: 'photo', ref: b\.src, stillUrl: b\.src \}\)\}/);
-  assert.match(studio, /view === 'video'\s*\? loops\.map[\s\S]{0,620}onPick=\{\(\) => pickGround\(l\.id\)\}/);
-  assert.match(studio, /name="Your cover photo"[\s\S]{0,260}onPick=\{\(\) => pickGround\('src:hero'\)\}/);
-  assert.match(studio, /name="Photo or video" data="upload"[\s\S]{0,160}onPick=\{\(\) => setUploadOpen\(\(o\) => !o\)\}/, 'the Upload card does not open the uploader in place');
+  assert.match(studio, /view === 'scene'\s*\? STD_REALISTIC_BACKGROUNDS\.map[\s\S]{0,520}onPick=\{proOnly\(\(\) => pickExisting\(\{ kind: 'photo', ref: b\.src, stillUrl: b\.src \}\)\)\}/);
+  assert.match(studio, /view === 'video'\s*\? loops\.map[\s\S]{0,620}onPick=\{proOnly\(\(\) => pickGround\(l\.id\)\)\}/);
+  assert.match(studio, /name="Your cover photo"[\s\S]{0,260}onPick=\{proOnly\(\(\) => pickGround\('src:hero'\)\)\}/);
+  assert.match(studio, /name="Photo or video" data="upload"[\s\S]{0,160}onPick=\{proOnly\(\(\) => setUploadOpen\(\(o\) => !o\)\)\}/, 'the Upload card does not open the uploader in place');
   assert.match(studio, /<FileUpload[\s\S]{0,400}compressImage\s*compressVideo\s*videoCompressProfile="maker"/, 'the upload is not the shipped one (compressed on the phone)');
   // 🎬 The hero video (it was under Music) is the "Your video" CARD among the couple's other pictures — never its own
   // uploader here (owner 2026-10-14: it "has no use for the background"; `focus-moves-the-picture.test.ts` (1)).

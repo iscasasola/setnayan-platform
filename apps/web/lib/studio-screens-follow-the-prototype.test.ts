@@ -144,8 +144,8 @@ test('4 · Studio › Look opens on its one bar: no tall tiles; Background is th
   /* The carousel became picture cards under ONE Source ▾ (2026-10-08, the Look restudy row 2 —
      `the-background-has-one-source.test.ts`). What M29 held stays held: the Studio draws the dropdown's OWN
      choices through its OWN handler — the same loops, the same hero follow — never a second list. */
-  assert.match(mb, /view === 'video'\s*\? loops\.map\(\(l\) => \([\s\S]{0,620}onPick=\{\(\) => pickGround\(l\.id\)\}/, 'the Video cards are not the dropdown’s loops');
-  assert.match(mb, /name="Your cover photo"[\s\S]{0,260}onPick=\{\(\) => pickGround\('src:hero'\)\}/, 'the cover photo card is not the dropdown’s "Same as my hero"');
+  assert.match(mb, /view === 'video'\s*\? loops\.map\(\(l\) => \([\s\S]{0,620}onPick=\{proOnly\(\(\) => pickGround\(l\.id\)\)\}/, 'the Video cards are not the dropdown’s loops');
+  assert.match(mb, /name="Your cover photo"[\s\S]{0,260}onPick=\{proOnly\(\(\) => pickGround\('src:hero'\)\)\}/, 'the cover photo card is not the dropdown’s "Same as my hero"');
   assert.match(mb, /options=\{\[\.\.\.loops\.map\(groundLoopOption\), \.\.\.groundOwnOptions\]\}\s+onPick=\{pickGround\}/, 'the dropdown is not the same list');
   assert.doesNotMatch(mb, /GroundCarousel/, 'the carousel is drawn beside the cards');
   const bar = read(`${L}/studio-tools.tsx`);

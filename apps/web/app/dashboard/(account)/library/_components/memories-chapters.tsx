@@ -29,7 +29,7 @@ import { GalleryDoor } from './gallery-doors';
 
 /** Where a frame opens — unchanged from the lens body: the studio for a host, the photo for a guest. */
 function frameHref(item: WallItem): { href: string; external: boolean } {
-  if (item.role === 'couple') return { href: `/dashboard/${item.eventId}/studio/papic`, external: false };
+  if (item.role === 'couple') return { href: `/dashboard/${item.eventId}/memories`, external: false };
   return { href: item.url, external: true };
 }
 

@@ -50,7 +50,8 @@ const PAPIC = dirname(dirname(fileURLToPath(import.meta.url)));
    the uploader this switch governs — is on the event's Memories tab, where the sheet offers the switch while it is
    off. `PAGE` is where the uploader branches now; `PAPIC_PAGE` still reads the save's outcome (the action lands there). */
 const PAGE = readFileSync(join(PAPIC, '..', '..', 'memories', 'page.tsx'), 'utf8');
-const PAPIC_PAGE = readFileSync(join(PAPIC, 'page.tsx'), 'utf8');
+// The Papic page is gone (2026-10-26) — its banners (which say a save's outcome) moved, unchanged, to the card.
+const PAPIC_PAGE = readFileSync(join(PAPIC, '_components', 'papic-outcome-banners.tsx'), 'utf8');
 const CHOICE = readFileSync(join(PAPIC, '_components/uploads-open-choice.tsx'), 'utf8');
 const ACTIONS = readFileSync(join(PAPIC, 'actions.ts'), 'utf8');
 

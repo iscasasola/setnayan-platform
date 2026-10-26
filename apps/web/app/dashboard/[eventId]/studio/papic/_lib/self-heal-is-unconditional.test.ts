@@ -47,7 +47,13 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const PAGE = readFileSync(resolve(HERE, '..', 'page.tsx'), 'utf8');
+/*
+  📷 THE PAPIC PAGE IS GONE (owner 2026-10-26: "place that on home and remove that page"); its four self-heals moved,
+  in the same order, to `papic-self-heal.tsx`, which Home renders inside the couple's Papic card on every render. So
+  `PAGE` is that component, its "render" is its final `return null`, and Home is checked for drawing it unconditionally.
+*/
+const PAGE = readFileSync(resolve(HERE, '..', '_components', 'papic-self-heal.tsx'), 'utf8');
+const HOME = readFileSync(resolve(HERE, '..', '..', '..', 'page.tsx'), 'utf8');
 
 /** Comments stripped — a guard must never pass on the prose explaining it. */
 const CODE = PAGE.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
@@ -66,10 +72,10 @@ const SELF_HEALS = [
  * it is taken.
  */
 function prologue(): string {
-  const jsx = CODE.indexOf('return (');
-  assert.ok(jsx > 0, 'the page has no render — has it been restructured?');
+  const jsx = CODE.lastIndexOf('return null;');
+  assert.ok(jsx > 0, 'the self-heal has no end — has it been restructured?');
   const out = CODE.slice(0, jsx);
-  assert.ok(out.length > 500, 'the prologue came back suspiciously short');
+  assert.ok(out.length > 300, 'the prologue came back suspiciously short');
   return out;
 }
 
@@ -131,6 +137,32 @@ test('the page still renders (this guard is about ORDER, not absence)', () => {
   // `prologue()` would be the whole file and every assertion above would hold
   // for free. The rooms version of this test asserted `resolvePapicRoom(` for
   // exactly the same reason; the anchor changed, the reasoning did not.
-  assert.match(CODE, /return \(/);
+  assert.match(CODE, /return null;/);
   assert.ok(prologue().length < CODE.length, 'the prologue is the whole file — there is no render');
 });
+
+test('🚨 Home draws the self-heal on every couple render — never behind the open state or an answer from the URL', () => {
+  const at = HOME.indexOf('const papicCard: PapicCardInput | null =');
+  const card = HOME.slice(at, HOME.indexOf(': null;', at));
+  assert.ok(at > 0, 'premise: Home builds the Papic card');
+  const heal = card.indexOf('<PapicSelfHeal eventId={eventId} />');
+  assert.ok(heal > 0, 'the self-heal left the Papic card');
+  // Not inside the outcome branch (`hasPapicOutcome(search) ? (…) : null`), which only a save's answer opens.
+  const outcome = card.indexOf('hasPapicOutcome(search) ? (');
+  const outcomeEnd = card.indexOf(') : null}', outcome);
+  assert.ok(!(heal > outcome && heal < outcomeEnd), 'the self-heal runs only when the URL carries an outcome');
+  // The card's settings are drawn closed too (the region is `inert`, never unmounted), so the heal runs folded.
+  const cardSrc = readFileSync(resolve(HERE, '..', '..', '..', '_components', 'papic-home-card.tsx'), 'utf8');
+  assert.match(cardSrc, /<div className="pt-4">\{settings\}<\/div>/, 'the settings are mounted only when open — the heal would stop running');
+});
+
+test('the three self-heals run together (the speed-up the removed page’s own guard held)', () => {
+  // `the-papic-page-opens-fast.test.ts` went with the page; its part (3) — the heals in ONE trip, after the host check —
+  // is the self-heal's shape now.
+  const all = /await Promise\.all\(\[([\s\S]*?)\]\);/.exec(CODE)?.[1] ?? '';
+  for (const fn of ['provisionFreeCamerasAdmin', 'ensureFreePapicPoolGrantAdmin', 'provisionUploadsCameraAdmin']) {
+    assert.match(all, new RegExp(`\\b${fn}\\(`), `${fn} left the one Promise.all`);
+  }
+  assert.ok(CODE.indexOf('await eventEntitlementClient(eventId)') < CODE.indexOf('await Promise.all(['), 'a heal runs before the host check');
+});
+

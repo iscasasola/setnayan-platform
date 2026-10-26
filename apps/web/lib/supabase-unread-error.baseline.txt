@@ -82,7 +82,6 @@ app/api/oauth/photo-delivery/callback/route.ts	discarded	from:oauth_state.delete
 app/api/oauth/youtube/callback/route.ts	discarded	from:live_studio_channel_oauth_state.delete	1
 app/api/oauth/youtube/callback/route.ts	discarded	from:oauth_state.delete	1
 app/api/oauth/youtube/disconnect/route.ts	discarded	from:oauth_grants.update	1
-app/api/papic/guest-capture/route.ts	discarded-in-try	from:papic_guest_captures.update	1
 app/api/papic/kwento/route.ts	discarded-in-try	from:events.update	2
 app/api/papic/kwento/route.ts	discarded-in-try	rpc:wall_approve_caption	1
 app/api/photo-delivery/disconnect/route.ts	discarded	from:events.update	1
@@ -90,13 +89,10 @@ app/api/photo-delivery/disconnect/route.ts	discarded	from:oauth_grants.update	1
 app/api/tiktok/auth/callback/route.ts	discarded	from:patiktok_oauth_grants.update	1
 app/api/tiktok/auth/callback/route.ts	discarded	from:patiktok_oauth_state.delete	1
 app/api/vendor/instagram/callback/route.ts	discarded	from:vendor_ig_oauth_state.delete	1
-app/api/vendor/papic-capture/route.ts	discarded-in-try	from:vendor_papic_captures.update	1
 app/api/vendor/papic-portfolio-import/route.ts	discarded-in-try	from:vendor_papic_portfolio_photos.update	1
 app/claim/[token]/actions.ts	discarded	from:godparents.update	1
 app/claim/[token]/actions.ts	write-error-dropped	from:dependents.update	2
-app/dashboard/(account)/people/dependent-actions.ts	discarded	from:dependents.delete	1
 app/dashboard/(account)/people/dependent-actions.ts	discarded	from:dependents.update	2
-app/dashboard/(account)/people/dependent-actions.ts	discarded	from:godparents.delete	1
 app/dashboard/(account)/profile/actions.ts	discarded	from:slug_change_log.insert	1
 app/dashboard/(account)/profile/face-profile-actions.ts	discarded	from:guest_face_enrollments.update	1
 app/dashboard/(account)/samahan/actions.ts	discarded	from:communities.update	1
@@ -119,7 +115,6 @@ app/dashboard/[eventId]/guests/inline-actions.ts	discarded	from:guests.update	1
 app/dashboard/[eventId]/guests/quick-add-actions.ts	discarded	from:guest_group_memberships.upsert	1
 app/dashboard/[eventId]/hosts/actions.ts	discarded	from:event_members.delete	1
 app/dashboard/[eventId]/hosts/actions.ts	discarded	from:event_moderators.update	1
-app/dashboard/[eventId]/invitation/actions.ts	discarded	from:slug_change_log.insert	1
 app/dashboard/[eventId]/nikah-actions.ts	discarded	from:events.update	1
 app/dashboard/[eventId]/schedule/activity-picks-actions.ts	discarded	from:event_activity_picks.delete	1
 app/dashboard/[eventId]/schedule/activity-picks-actions.ts	discarded	from:event_activity_picks.update	1
@@ -130,11 +125,8 @@ app/dashboard/[eventId]/seating/actions.ts	discarded-in-try	rpc:refresh_seating_
 app/dashboard/[eventId]/sponsors/actions.ts	discarded-in-try	from:event_sponsors.delete	1
 app/dashboard/[eventId]/story/actions.ts	discarded	from:events.update	1
 app/dashboard/[eventId]/story/whats-next-actions.ts	discarded	from:events.delete	1
-app/dashboard/[eventId]/studio/mood-board/actions.ts	discarded	from:event_inspiration_assets.update	2
+app/dashboard/[eventId]/studio/mood-board/actions.ts	discarded	from:event_inspiration_assets.update	1
 app/dashboard/[eventId]/studio/panood/setup/actions.ts	discarded	from:events.update	6
-app/dashboard/[eventId]/studio/papic/actions.ts	discarded	from:orders.update	1
-app/dashboard/[eventId]/studio/papic/actions.ts	discarded	from:papic_limited_snapshots.update	1
-app/dashboard/[eventId]/studio/papic/actions.ts	discarded	from:papic_missions.delete	1
 app/dashboard/[eventId]/studio/papic/actions.ts	discarded	from:papic_missions.insert	2
 app/dashboard/[eventId]/studio/papic/actions.ts	discarded	from:papic_missions.update	1
 app/dashboard/[eventId]/studio/papic/actions.ts	discarded	from:papic_photos.update	1
@@ -168,7 +160,7 @@ app/dashboard/[eventId]/website/editor/actions.ts	discarded	from:events.update	2
 app/dashboard/[eventId]/website/editor/actions.ts	write-error-dropped	from:events.update	1
 app/dashboard/[eventId]/website/hero-photo/actions.ts	discarded	from:events.update	2
 app/dashboard/[eventId]/wizard-actions.ts	discarded	from:event_inspiration_assets.update	1
-app/dashboard/[eventId]/wizard-actions.ts	discarded	from:events.update	3
+app/dashboard/[eventId]/wizard-actions.ts	discarded	from:events.update	1
 app/host/accept/[token]/actions.ts	discarded	from:event_moderators.update	1
 app/join/[eventId]/actions.ts	discarded	from:guests.update	1
 app/open-shop/actions.ts	discarded	from:users.update	2
@@ -305,8 +297,6 @@ lib/referrals.ts	discarded-in-try	from:referral_redemptions.update	3
 lib/reusable-bookings.server.ts	discarded	from:event_vendors.update	1
 lib/review-fraud-screener.ts	discarded-in-try	from:integrity_flags.insert	1
 lib/review-fraud-screener.ts	discarded-in-try	from:integrity_flags.update	1
-lib/seating-reconcile.ts	discarded-in-try	from:event_seat_assignments.delete	1
-lib/seating-reconcile.ts	discarded-in-try	from:event_seat_assignments.upsert	1
 lib/service-trade-aliases-db.ts	discarded-in-try	from:canonical_service_aliases.upsert	1
 lib/sku-activation.ts	discarded	from:event_tables.update	1
 lib/sku-activation.ts	discarded	from:orders.update	6
@@ -337,7 +327,6 @@ lib/vendor-deep-search-run.ts	discarded	from:vendor_web_dossiers.update	1
 lib/vendor-image-repost-watch.ts	discarded	from:vendor_image_flags.upsert	1
 lib/vendor-image-repost-watch.ts	discarded-in-try	from:vendor_image_hashes.upsert	1
 lib/vendor-invite-actions.ts	discarded	from:chat_threads.upsert	1
-lib/vendor-invite-actions.ts	discarded	from:event_vendors.update	1
 lib/vendor-invite-actions.ts	discarded	from:vendor_follows.upsert	2
 lib/vendor-invite-actions.ts	discarded	from:vendor_invites.update	1
 lib/vendor-invites.ts	discarded	from:vendor_invites.update	1

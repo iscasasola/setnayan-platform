@@ -37,12 +37,13 @@ import { fileURLToPath } from 'node:url';
   dates are the FIRST topic (on Papic's own line, with its switch), above the credits and everything else.
 */
 const PAPIC = dirname(dirname(fileURLToPath(import.meta.url)));
-const PAGE_SRC = readFileSync(join(PAPIC, 'page.tsx'), 'utf8');
+// 📷 2026-10-26: the Papic page is gone — Home draws the card and opens these settings from its ›.
+const PAGE_SRC = readFileSync(join(PAPIC, '..', '..', 'page.tsx'), 'utf8');
 const SRC = readFileSync(join(PAPIC, '_components', 'papic-camera-settings.tsx'), 'utf8');
 
 test('the page draws the camera settings — otherwise every rule here is vacuous', () => {
-  assert.match(PAGE_SRC, /<PapicCameraSettings\b/, 'the Papic page no longer draws the camera settings');
-  assert.ok(SRC.includes('data-papic-counter=""'), 'the credits counter is gone; the order rule would pass on nothing');
+  assert.match(PAGE_SRC, /<PapicCameraSettings\b/, 'Home no longer draws the camera settings');
+  assert.ok(SRC.includes('data-papic-settings=""'), 'the settings section is gone; the order rule would pass on nothing');
 });
 
 test('🚨 the three tabs never come back', () => {
@@ -52,10 +53,12 @@ test('🚨 the three tabs never come back', () => {
   }
 });
 
-test('🚨 the dates come FIRST — above the credits and every other topic', () => {
+test('🚨 the dates come FIRST inside the settings — above every other topic', () => {
+  // (2026-10-26, owner: the counts and Add more are on the card's FACE — "the count of the total, taken, remaining and
+  //  a button to add more" — so the dates are the first thing the › opens, above the Settings.)
   const picker = SRC.indexOf('<PapicWindowPicker');
-  const credits = SRC.indexOf('data-papic-counter=""');
-  assert.ok(picker > 0 && picker < credits, 'the dates moved below the credits — the cameras’ days are the first thing set');
+  const settings = SRC.indexOf('data-papic-settings=""');
+  assert.ok(picker > 0 && picker < settings, 'the dates moved below the other settings — the cameras’ days are the first thing set');
 });
 
 /*

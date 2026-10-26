@@ -1,5 +1,6 @@
 'use server';
 
+import { papicHomeHref, withQuery, hrefPath } from '@/lib/papic-home-href';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
@@ -35,7 +36,7 @@ export async function setPapicGuestCaptureEarly(formData: FormData): Promise<voi
   const eventId = String(formData.get('event_id') ?? '').trim();
   const early = String(formData.get('early') ?? '') === '1';
   // 🏠 Saved inside Home's Papic card (`return_to=home`) → back to Home; a fixed word, never a URL from the form.
-  const back = formData.get('return_to') === 'home' ? `/dashboard/${eventId}` : `/dashboard/${eventId}/studio/papic`;
+  const back = formData.get('return_to') === 'home' ? `/dashboard/${eventId}` : papicHomeHref(eventId);
   if (!eventId) redirect('/dashboard');
 
   const supabase = await createClient();
@@ -66,9 +67,9 @@ export async function setPapicGuestCaptureEarly(formData: FormData): Promise<voi
   // failed write would redirect to the success state and the host would believe
   // they had opened the cameras.
   // A failure lands on the Papic page, where its banner is read — never a silent return to Home.
-  if (error) redirect(`/dashboard/${eventId}/studio/papic?guestCameras=error`);
+  if (error) redirect(papicHomeHref(eventId, `guestCameras=error`));
 
-  revalidatePath(back);
+  revalidatePath(hrefPath(back));
   if (back === `/dashboard/${eventId}`) redirect(back);
-  redirect(`${back}?guestCameras=${early ? 'early' : 'eventday'}`);
+  redirect(withQuery(back, `guestCameras=${early ? 'early' : 'eventday'}`));
 }

@@ -1,3 +1,4 @@
+import { papicHomeHref } from '@/lib/papic-home-href';
 import Link from 'next/link';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { headers } from 'next/headers';
@@ -57,7 +58,7 @@ export default async function PapicCrewPage({ params }: Props) {
     redirect(`/dashboard/${eventId}`);
   }
 
-  const backLink = `/dashboard/${eventId}/studio/papic`;
+  const backLink = papicHomeHref(eventId);
 
   const { data: eventRow, error: eventRowError } = await supabase
     .from('events')

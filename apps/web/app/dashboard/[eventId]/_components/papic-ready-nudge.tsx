@@ -44,6 +44,7 @@
  * derived from the same read. A literal here would be the one place that drifts.
  */
 
+import { papicHomeHref } from '@/lib/papic-home-href';
 import { useEffect, useState } from 'react';
 import { Camera, ChevronRight, X } from 'lucide-react';
 
@@ -99,7 +100,7 @@ export function PapicReadyNudge({ eventId }: Props) {
           photo uses your event’s credits, and each one lands in your Memories.
         </p>
         <a
-          href={`/dashboard/${eventId}/studio/papic`}
+          href={papicHomeHref(eventId)}
           className="group mt-1.5 inline-flex items-center gap-1 text-sm font-medium text-terracotta hover:underline"
         >
           Open Papic

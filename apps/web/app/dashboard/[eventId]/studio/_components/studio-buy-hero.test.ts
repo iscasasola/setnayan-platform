@@ -74,7 +74,9 @@ test('the selling pages are found by what they RENDER, not by a word in a commen
     This asserts the SHAPE that made that measurable, so the next person does
     not have to re-derive it: the set is discovered from rendered controls.
   */
-  assert.ok(selling.length >= 5, `only ${selling.length} selling pages — the sweep found nothing.`);
+  // 5 → 4 on 2026-10-26: the Papic page was REMOVED (owner: "place that on home and remove that page") — not missed;
+  // its Add more is the card's on Home. Never lower this for any other reason.
+  assert.ok(selling.length >= 4, `only ${selling.length} selling pages — the sweep found nothing.`);
   assert.ok(
     !selling.includes('indoor-blueprint'),
     'indoor-blueprint is a retired SKU with no checkout; if it sells again, that is a decision.',

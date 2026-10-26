@@ -27,6 +27,7 @@
  * Migration 20271155952591 lifts the ceiling; this screen is what makes it
  * legible.
  */
+import { papicHomeHref } from '@/lib/papic-home-href';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
@@ -73,7 +74,7 @@ export default async function ChallengesPage({ params, searchParams }: Props) {
           (owner, 2026-08-21) — no title bar, no (i), just the action and the
           content. */}
       <Link
-        href={`/dashboard/${eventId}/studio/papic`}
+        href={papicHomeHref(eventId)}
         className="inline-flex items-center gap-1.5 text-sm text-link underline-offset-2 hover:underline"
       >
         <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />

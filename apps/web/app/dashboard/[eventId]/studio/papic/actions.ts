@@ -1,5 +1,6 @@
 'use server';
 
+import { papicHomeHref, withQuery, hrefPath } from '@/lib/papic-home-href';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -84,7 +85,7 @@ async function getCoupleEventId(rawEventId: FormDataEntryValue | null): Promise<
   if (!membership || membership.member_type !== 'couple') {
     return {
       ok: false,
-      redirectTo: `/dashboard/${eventId}/studio/papic?papic_access_error=not_a_couple`,
+      redirectTo: papicHomeHref(eventId, `papic_access_error=not_a_couple`),
     };
   }
 
@@ -115,7 +116,7 @@ export async function reviewVendorChallengeAction(formData: FormData) {
     missionId.length === 0 ||
     (decision !== 'approve' && decision !== 'reject')
   ) {
-    redirect(`/dashboard/${eventId}/studio/papic`);
+    redirect(papicHomeHref(eventId));
   }
 
   const supabase = await createClient();
@@ -124,8 +125,8 @@ export async function reviewVendorChallengeAction(formData: FormData) {
     approve: decision === 'approve',
   });
 
-  revalidatePath(`/dashboard/${eventId}/studio/papic`);
-  redirect(`/dashboard/${eventId}/studio/papic`);
+  revalidatePath(`/dashboard/${eventId}`);
+  redirect(papicHomeHref(eventId));
 }
 
 // ==========================================================================
@@ -158,6 +159,43 @@ async function activeChallengesBesides(
   return count ?? null;
 }
 
+/**
+ * 🎚 THE SLOT BEING CHANGED (owner 2026-10-27: *"there will be 10 challenges the can make. choose a challenge or turn
+ * that challenge off"*). A row in the card is tapped to CHOOSE its challenge: the form posts `replace_mission_id`, the
+ * new challenge is inserted, and THEN the old one is retired — `is_active = false, removed_at, moment_key = null`, never a
+ * DELETE (completions are `ON DELETE CASCADE`), so photos already taken keep it. Read as the couple (RLS); scoped to
+ * this event; a removed row cannot be replaced twice. null = nothing to replace (a plain add).
+ */
+async function slotBeingReplaced(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  eventId: string,
+  raw: FormDataEntryValue | null,
+): Promise<{ id: string; createdAt: string | null } | null> {
+  if (typeof raw !== 'string' || raw.length === 0) return null;
+  const { data, error } = await supabase
+    .from('papic_missions')
+    .select('mission_id, created_at')
+    .eq('mission_id', raw)
+    .eq('event_id', eventId)
+    .eq('approved', true)
+    .is('removed_at', null)
+    .maybeSingle();
+  if (error) logQueryError('slotBeingReplaced', error, { event_id: eventId }, 'graceful_degrade');
+  const row = data as { mission_id?: string; created_at?: string | null } | null;
+  return row?.mission_id ? { id: row.mission_id, createdAt: row.created_at ?? null } : null;
+}
+
+/** Retire the replaced challenge — kept for the photos it already tagged, off the host's list and every guest's board. */
+async function retireReplaced(supabase: Awaited<ReturnType<typeof createClient>>, eventId: string, missionId: string): Promise<void> {
+  const { error } = await supabase
+    .from('papic_missions')
+    .update({ is_active: false, removed_at: new Date().toISOString(), moment_key: null })
+    .eq('mission_id', missionId)
+    .eq('event_id', eventId)
+    .is('removed_at', null);
+  if (error) logQueryError('retireReplaced', error, { event_id: eventId }, 'graceful_degrade');
+}
+
 export async function createCoupleChallengeAction(formData: FormData) {
   await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const rawEventId = formData.get('event_id');
@@ -174,16 +212,22 @@ export async function createCoupleChallengeAction(formData: FormData) {
   }
 
   const supabase = await createClient();
+  // 🎚 Choosing a slot's challenge (2026-10-27): the new one takes the old one's place.
+  const replacing = await slotBeingReplaced(supabase, eventId, formData.get('replace_mission_id'));
   // 🔒 It turns on only if there is room under the hard cap of 10 (owner 2026-10-24); else it is kept, switched off.
-  const room = !activationRefused(await activeChallengesBesides(supabase, eventId, null));
-  await supabase.from('papic_missions').insert({
+  const room = !activationRefused(await activeChallengesBesides(supabase, eventId, replacing?.id ?? null));
+  const { error: insertErr } = await supabase.from('papic_missions').insert({
     event_id: eventId,
     mission_type: 'prompt',
     source: 'couple',
     prompt: prompt.trim().slice(0, 280),
     approved: true,
     is_active: room,
+    // 🎚 In the replaced one's place — the card lists the ten oldest first, so the row does not move.
+    ...(replacing?.createdAt ? { created_at: replacing.createdAt } : {}),
   });
+  if (insertErr) logQueryError('createCoupleChallengeAction.insert', insertErr, { event_id: eventId }, 'graceful_degrade');
+  if (replacing && !insertErr) await retireReplaced(supabase, eventId, replacing.id);
 
   revalidatePath(`/dashboard/${eventId}/studio/papic/challenges`);
   redirect(challengeReturnPath(eventId, formData.get('return_to')));
@@ -228,11 +272,10 @@ export async function createCoupleChallengeAction(formData: FormData) {
  * 🔑 The guard was right that something was wrong; it was wrong about what.
  */
 function challengeReturnPath(eventId: string, raw: FormDataEntryValue | null): string {
-  const base = `/dashboard/${eventId}/studio/papic`;
   // 🏠 'home' — pressed inside Home's open Papic card (owner 2026-10-23: the card "expands on home"); a fixed word
-  // picks a fixed path, never a URL from the form.
+  // picks a fixed path, never a URL from the form. The two others are the Papic page's children, still pages.
   if (raw === 'home') return `/dashboard/${eventId}`;
-  return raw === 'run-of-show' ? `${base}/run-of-show` : `${base}/challenges`;
+  return raw === 'run-of-show' ? `/dashboard/${eventId}/studio/papic/run-of-show` : `/dashboard/${eventId}/studio/papic/challenges`;
 }
 
 export async function addLibraryChallengeAction(formData: FormData) {
@@ -296,6 +339,9 @@ export async function addLibraryChallengeAction(formData: FormData) {
     .select('mission_id')
     .eq('event_id', eventId)
     .eq('library_id', libraryId)
+    // ✕ A removed pick is not "already on the board" — adding it again makes a fresh challenge; the removed row keeps
+    // its old photos.
+    .is('removed_at', null)
     .limit(1);
   if (existing && existing.length > 0) {
     // 🔑 ALREADY ON THE BOARD IS NOT ALREADY IN THE RUN OF SHOW. A couple who
@@ -345,6 +391,8 @@ export async function addLibraryChallengeAction(formData: FormData) {
   if (laneErr) {
     redirect(`${returnTo}?add=unavailable`);
   }
+  // 🎚 Choosing a slot's challenge (2026-10-27): one in, one out — the ceiling is not asked, the slot count is unchanged.
+  const replacing = await slotBeingReplaced(supabase, eventId, formData.get('replace_mission_id'));
   const live = (laneRows ?? []).filter((r) => r.is_active);
   const vendorUsed = live.filter((r) => r.source === 'vendor' || r.source === 'auto').length;
   const chosen = live.filter((r) => r.source === 'couple').length;
@@ -354,15 +402,17 @@ export async function addLibraryChallengeAction(formData: FormData) {
   // will not fit. Refusing here with `?add=full` is what makes that legible;
   // silently dropping the last moments would be the same silent-drop this
   // ceiling was added to stop, moved into a new screen.
-  if (chosen >= coupleSlots(vendorUsed)) {
+  if (!replacing && chosen >= coupleSlots(vendorUsed)) {
     redirect(`${returnTo}?add=full`);
   }
-  // 🔒 …and the event-wide hard cap of 10 running challenges, whatever lane they are in (owner 2026-10-24).
-  if (activationRefused(await activeChallengesBesides(supabase, eventId, null))) {
+  // 🔒 …and the event-wide hard cap of 10 running challenges, whatever lane they are in (owner 2026-10-24). A
+  // replacement turns on only if there is room besides the one it replaces; else it is kept, switched off.
+  const roomForIt = !activationRefused(await activeChallengesBesides(supabase, eventId, replacing?.id ?? null));
+  if (!replacing && !roomForIt) {
     redirect(`${returnTo}?add=full`);
   }
 
-  await supabase.from('papic_missions').insert({
+  const { error: addErr } = await supabase.from('papic_missions').insert({
     event_id: eventId,
     mission_type: row.mission_type,
     source: 'couple',
@@ -370,12 +420,15 @@ export async function addLibraryChallengeAction(formData: FormData) {
     library_id: row.library_id,
     capture_kind: row.capture_kind,
     approved: true,
-    is_active: true,
+    is_active: roomForIt,
+    ...(replacing?.createdAt ? { created_at: replacing.createdAt } : {}),
     // NULL for every add that did not come from the run of show — the column
     // means "placed at this moment", and a default would claim a placement
     // nobody made.
     moment_key: momentKey,
   });
+  if (addErr) logQueryError('addLibraryChallengeAction.insert', addErr, { event_id: eventId }, 'graceful_degrade');
+  if (replacing && !addErr) await retireReplaced(supabase, eventId, replacing.id);
 
   revalidatePath(returnTo);
   redirect(returnTo);
@@ -412,7 +465,9 @@ export async function setCoupleChallengeActiveAction(formData: FormData) {
     .from('papic_missions')
     .update({ is_active: active === 'true' })
     .eq('mission_id', missionId)
-    .eq('event_id', eventId);
+    .eq('event_id', eventId)
+    // ✕ A removed challenge is gone for good — the switch never re-lights it (CHECK papic_missions_removed_is_off).
+    .is('removed_at', null);
 
   revalidatePath(`/dashboard/${eventId}/studio/papic/challenges`);
   redirect(challengeReturnPath(eventId, formData.get('return_to')));
@@ -658,9 +713,25 @@ export async function stopChallengeAction(formData: FormData) {
   redirect(challengeReturnPath(eventId, formData.get('return_to')));
 }
 
-/** Delete one of the couple's OWN challenges. Auto/vendor missions are hidden via
- *  the toggle, never deleted here (a deleted auto mission would just regenerate;
- *  a vendor's challenge is theirs) — so this is scoped source='couple'. */
+/**
+ * ✕ REMOVE A CHALLENGE — A SOFT REMOVE, NEVER A DELETE (owner 2026-10-26, DECISION_LOG "PAPIC CHALLENGES: A LIVE
+ * SWITCH AND AN ✕"): *"if the challenge is removed and someone did the challenge, the photo and challenge is saved
+ * but anything after, you do not have the challenge"*.
+ *
+ * The row stays — `papic_mission_completions.mission_id` is `ON DELETE CASCADE`, so the old hard delete threw away
+ * every photo's challenge tag. Removal is `is_active = false` (which closes every guest path: the board, completing,
+ * arming — all filter it) PLUS `removed_at` (which takes it off the host's list too) PLUS `moment_key = null` (it
+ * leaves the run of show). The CHECK `papic_missions_removed_is_off` (migration 20271292346034) means a removed row
+ * can never be switched back on.
+ *
+ * The couple's OWN challenges only, as it always was (the full challenges page's bin; a Setnayan, booth or supplier
+ * challenge is switched off, never deleted). Since 2026-10-27 the Papic card has no ✕ at all — its ten slots are
+ * CHANGED (`replace_mission_id` on the two add actions, the same soft retirement) or switched off. A removed pick also
+ * leaves a Setnayan veto tombstone for that library row, so the board's fill (`ensure_papic_board`, which skips
+ * library rows a couple has taken or vetoed) cannot put the same challenge back as a Setnayan pick.
+ *
+ * 🔒 `a-removed-challenge-keeps-its-photos.test.ts` (source) + `.db.test.ts` (the database) hold it.
+ */
 export async function deleteCoupleChallengeAction(formData: FormData) {
   await refuseLimitedHelper(formData.get('event_id'), 'photos');
   const rawEventId = formData.get('event_id');
@@ -677,12 +748,47 @@ export async function deleteCoupleChallengeAction(formData: FormData) {
   }
 
   const supabase = await createClient();
-  await supabase
+  const removedAt = new Date().toISOString();
+  const { data: removed, error: removeErr } = await supabase
     .from('papic_missions')
-    .delete()
+    .update({ is_active: false, removed_at: removedAt, moment_key: null })
     .eq('mission_id', missionId)
     .eq('event_id', eventId)
-    .eq('source', 'couple');
+    .eq('source', 'couple')
+    .is('removed_at', null)
+    .select('source, library_id, prompt, mission_type, capture_kind')
+    .maybeSingle();
+  if (removeErr) logQueryError('deleteCoupleChallengeAction.remove', removeErr, { event_id: eventId }, 'graceful_degrade');
+
+  // The couple's own library pick leaves a veto tombstone, so the Setnayan fill cannot hand the same challenge back.
+  const libraryId = (removed as { library_id?: number | null } | null)?.library_id ?? null;
+  if (removed && (removed as { source?: string }).source === 'couple' && typeof libraryId === 'number') {
+    const { data: hero } = await supabase
+      .from('papic_missions')
+      .select('mission_id')
+      .eq('event_id', eventId)
+      .eq('source', 'setnayan')
+      .eq('library_id', libraryId)
+      .maybeSingle();
+    const veto = hero
+      ? await supabase
+          .from('papic_missions')
+          .update({ is_active: false, removed_at: removedAt, moment_key: null })
+          .eq('mission_id', (hero as { mission_id: string }).mission_id)
+          .eq('event_id', eventId)
+      : await supabase.from('papic_missions').insert({
+          event_id: eventId,
+          source: 'setnayan',
+          library_id: libraryId,
+          prompt: (removed as { prompt: string }).prompt,
+          mission_type: (removed as { mission_type: string }).mission_type,
+          capture_kind: (removed as { capture_kind?: string | null }).capture_kind ?? null,
+          approved: true,
+          is_active: false,
+          removed_at: removedAt,
+        });
+    if (veto.error) logQueryError('deleteCoupleChallengeAction.veto', veto.error, { event_id: eventId }, 'graceful_degrade');
+  }
 
   revalidatePath(`/dashboard/${eventId}/studio/papic/challenges`);
   redirect(challengeReturnPath(eventId, formData.get('return_to')));
@@ -744,7 +850,7 @@ const PAPIC_STYLE_VALUES = ['ORIG', 'RETRO', 'MONO', 'CINE', 'LOMO'] as const;
  * there), else the Papic page. A fixed word picks a fixed path — never a URL from the form.
  */
 function papicBack(formData: FormData, eventId: string): string {
-  return formData.get('back') === 'memories' ? `/dashboard/${eventId}/memories` : `/dashboard/${eventId}/studio/papic`;
+  return formData.get('back') === 'memories' ? `/dashboard/${eventId}/memories` : papicHomeHref(eventId);
 }
 
 export async function setPapicUploadsOpen(formData: FormData) {
@@ -766,10 +872,10 @@ export async function setPapicUploadsOpen(formData: FormData) {
 
   if (error) {
     logQueryError('setPapicUploadsOpen', error, { event_id: eventId, open }, 'graceful_degrade');
-    redirect(`${back}?uploads_error=save_failed`);
+    redirect(withQuery(back, `uploads_error=save_failed`));
   }
-  revalidatePath(back);
-  redirect(`${back}?uploads_open_set=${open ? '1' : '0'}`);
+  revalidatePath(hrefPath(back));
+  redirect(withQuery(back, `uploads_open_set=${open ? '1' : '0'}`));
 }
 
 /**
@@ -830,7 +936,7 @@ export async function setPapicStyle(formData: FormData) {
   const raw = formData.get('style');
   const style = typeof raw === 'string' ? raw.trim().toUpperCase() : '';
   if (!(PAPIC_STYLE_VALUES as readonly string[]).includes(style)) {
-    redirect(`/dashboard/${eventId}/studio/papic?style_error=invalid`);
+    redirect(papicHomeHref(eventId, `style_error=invalid`));
   }
 
   const admin = createAdminClient();
@@ -841,18 +947,18 @@ export async function setPapicStyle(formData: FormData) {
 
   if (error) {
     redirect(
-      `/dashboard/${eventId}/studio/papic?style_error=${encodeURIComponent(
+      papicHomeHref(eventId, `style_error=${encodeURIComponent(
         error.message.slice(0, 64),
-      )}`,
+      )}`),
     );
   }
 
-  revalidatePath(`/dashboard/${eventId}/studio/papic`);
+  revalidatePath(`/dashboard/${eventId}`);
   if (savedFromHome(formData)) {
     revalidatePath(`/dashboard/${eventId}`);
     redirect(`/dashboard/${eventId}`);
   }
-  redirect(`/dashboard/${eventId}/studio/papic?style_set=${style}`);
+  redirect(papicHomeHref(eventId, `style_set=${style}`));
 }
 
 /**
@@ -876,7 +982,7 @@ export async function setPapicStyleInPlace(eventIdRaw: string, styleRaw: string)
     logQueryError('setPapicStyleInPlace.update', error, { event_id: eventId }, 'graceful_degrade');
     return { ok: false, error: 'That filter could not be saved just now. Please try again.' };
   }
-  revalidatePath(`/dashboard/${eventId}/studio/papic`);
+  revalidatePath(`/dashboard/${eventId}`);
   revalidatePath(`/dashboard/${eventId}`);
   return { ok: true };
 }
@@ -1032,7 +1138,7 @@ export async function setClipShowcaseApproval(formData: FormData) {
   const rawPhotoId = formData.get('photo_id');
   const photoId = typeof rawPhotoId === 'string' ? rawPhotoId.trim() : '';
   if (!photoId) {
-    redirect(`/dashboard/${eventId}/studio/papic?showcase_error=missing_photo`);
+    redirect(papicHomeHref(eventId, `showcase_error=missing_photo`));
   }
   const approve = formData.get('approve') === '1';
 
@@ -1046,18 +1152,18 @@ export async function setClipShowcaseApproval(formData: FormData) {
 
   if (error) {
     redirect(
-      `/dashboard/${eventId}/studio/papic?showcase_error=${encodeURIComponent(
+      papicHomeHref(eventId, `showcase_error=${encodeURIComponent(
         error.message.slice(0, 64),
-      )}`,
+      )}`),
     );
   }
 
   // Refresh the gallery (couple) + the public manifesto orb (ISR) so the change
   // shows on the next render of either surface.
-  revalidatePath(`/dashboard/${eventId}/studio/papic`);
+  revalidatePath(`/dashboard/${eventId}`);
   revalidatePath('/our-story');
   redirect(
-    `/dashboard/${eventId}/studio/papic?showcase_set=${approve ? 'approved' : 'removed'}`,
+    papicHomeHref(eventId, `showcase_set=${approve ? 'approved' : 'removed'}`),
   );
 }
 
@@ -1089,7 +1195,7 @@ export async function setGuestClipShowcaseApproval(formData: FormData) {
   const rawCaptureId = formData.get('photo_id');
   const captureId = typeof rawCaptureId === 'string' ? rawCaptureId.trim() : '';
   if (!captureId) {
-    redirect(`/dashboard/${eventId}/studio/papic?showcase_error=missing_photo`);
+    redirect(papicHomeHref(eventId, `showcase_error=missing_photo`));
   }
   const approve = formData.get('approve') === '1';
 
@@ -1103,16 +1209,16 @@ export async function setGuestClipShowcaseApproval(formData: FormData) {
 
   if (error) {
     redirect(
-      `/dashboard/${eventId}/studio/papic?showcase_error=${encodeURIComponent(
+      papicHomeHref(eventId, `showcase_error=${encodeURIComponent(
         error.message.slice(0, 64),
-      )}`,
+      )}`),
     );
   }
 
-  revalidatePath(`/dashboard/${eventId}/studio/papic`);
+  revalidatePath(`/dashboard/${eventId}`);
   revalidatePath('/our-story');
   redirect(
-    `/dashboard/${eventId}/studio/papic?showcase_set=${approve ? 'approved' : 'removed'}`,
+    papicHomeHref(eventId, `showcase_set=${approve ? 'approved' : 'removed'}`),
   );
 }
 
@@ -1213,7 +1319,7 @@ export async function setPapicWindow(formData: FormData) {
   });
   if (!resolved.ok) {
     redirect(
-      `/dashboard/${eventId}/studio/papic?papic_window_error=${resolved.error}`,
+      papicHomeHref(eventId, `papic_window_error=${resolved.error}`),
     );
   }
   const { window: win } = resolved;
@@ -1227,9 +1333,9 @@ export async function setPapicWindow(formData: FormData) {
     .eq('event_id', eventId);
   if (updErr) {
     redirect(
-      `/dashboard/${eventId}/studio/papic?papic_window_error=${encodeURIComponent(
+      papicHomeHref(eventId, `papic_window_error=${encodeURIComponent(
         updErr.message.slice(0, 48),
-      )}`,
+      )}`),
     );
   }
 
@@ -1249,7 +1355,7 @@ export async function setPapicWindow(formData: FormData) {
     // swallow — the window is saved; seats re-stamp on the next sync.
   }
 
-  revalidatePath(`/dashboard/${eventId}/studio/papic`);
+  revalidatePath(`/dashboard/${eventId}`);
   // 🏠 Saved from Home's Papic card: land back on Home, the card still open (a failure still lands on the Papic
   // page above, where its banner is read).
   if (savedFromHome(formData)) {
@@ -1257,7 +1363,7 @@ export async function setPapicWindow(formData: FormData) {
     redirect(`/dashboard/${eventId}`);
   }
   redirect(
-    `/dashboard/${eventId}/studio/papic?papic_window_saved=${win.days}`,
+    papicHomeHref(eventId, `papic_window_saved=${win.days}`),
   );
 }
 
@@ -1347,14 +1453,14 @@ export async function purchasePapicPoolTopUp(formData: FormData) {
   }
 
   const fail = (code: string): never =>
-    redirect(`/dashboard/${eventId}/studio/papic?papic_pool_error=${code}`);
+    redirect(papicHomeHref(eventId, `papic_pool_error=${code}`));
 
   const admin = createAdminClient();
 
   // The celebration is over — no sale. See the note above this file's
   // purchase actions, and lib/event-is-over.server.ts.
   if (await eventIsOver(admin, eventId)) {
-    redirect(`/dashboard/${eventId}/studio/papic?papic_pool_error=event_over`);
+    redirect(papicHomeHref(eventId, `papic_pool_error=event_over`));
   }
 
   // The rung must be a LIVE, NON-TOPUP Pool rung. Read from the table, never an
@@ -1420,7 +1526,7 @@ export async function purchasePapicPoolTopUp(formData: FormData) {
   });
   if (!kept.keptMine) redirect(payPath(kept.reference));
 
-  revalidatePath(`/dashboard/${eventId}/studio/papic`);
+  revalidatePath(`/dashboard/${eventId}`);
   // 💳 STRAIGHT TO THE PAYMENT PAGE — not back to the studio with a banner.
   // Every other buy button in the product ends here (lib/pay-path.ts lists a
   // dozen), and this path used to be the exception: it returned to the studio,
@@ -1468,7 +1574,7 @@ export async function setCapturePreserved(formData: FormData) {
     redirect(result.redirectTo);
   }
   const { eventId } = result;
-  const back = `/dashboard/${eventId}/studio/papic`;
+  const back = papicHomeHref(eventId);
 
   const captureId = String(formData.get('capture_id') ?? '').trim();
   const source = String(formData.get('source') ?? '').trim();
@@ -1478,7 +1584,7 @@ export async function setCapturePreserved(formData: FormData) {
   const preserve = String(formData.get('preserve') ?? '') === 'yes';
 
   if (!captureId || (source !== 'seat' && source !== 'guest')) {
-    redirect(`${back}?preserve_error=invalid`);
+    redirect(withQuery(back, `preserve_error=invalid`));
   }
 
   const table = source === 'seat' ? 'papic_photos' : 'papic_guest_captures';
@@ -1495,13 +1601,13 @@ export async function setCapturePreserved(formData: FormData) {
 
   // Supabase resolves `{ error }` rather than throwing, so an unchecked failure
   // would read as "no such capture" and silently do nothing.
-  if (readErr) redirect(`${back}?preserve_error=unreadable`);
-  if (!row) redirect(`${back}?preserve_error=not_found`);
+  if (readErr) redirect(withQuery(back, `preserve_error=unreadable`));
+  if (!row) redirect(withQuery(back, `preserve_error=not_found`));
 
   if ((row as { full_res_dropped_at?: string | null }).full_res_dropped_at) {
     // The original is already the compressed copy. Nothing to keep, and nothing
     // this can undo — refuse out loud instead of writing a mark that does nothing.
-    redirect(`${back}?preserve_error=already_compressed`);
+    redirect(withQuery(back, `preserve_error=already_compressed`));
   }
 
   const { error: writeErr } = await admin
@@ -1511,11 +1617,11 @@ export async function setCapturePreserved(formData: FormData) {
     .eq('event_id', eventId);
 
   if (writeErr) {
-    redirect(`${back}?preserve_error=${encodeURIComponent(writeErr.message.slice(0, 64))}`);
+    redirect(withQuery(back, `preserve_error=${encodeURIComponent(writeErr.message.slice(0, 64))}`));
   }
 
-  revalidatePath(back);
-  redirect(`${back}?preserve_set=${preserve ? 'kept' : 'released'}`);
+  revalidatePath(hrefPath(back));
+  redirect(withQuery(back, `preserve_set=${preserve ? 'kept' : 'released'}`));
 }
 
 /**
@@ -1562,10 +1668,10 @@ export async function setGuestAllotments(formData: FormData) {
   const result = await getCoupleEventId(formData.get('event_id'));
   if (!result.ok) redirect(result.redirectTo);
   const { eventId } = result;
-  const back = `/dashboard/${eventId}/studio/papic`;
+  const back = papicHomeHref(eventId);
 
   const fail = (code: string): never =>
-    redirect(`${back}?allotment_error=${encodeURIComponent(code)}`);
+    redirect(withQuery(back, `allotment_error=${encodeURIComponent(code)}`));
 
   // The form posts the value it wants, not a flip of what it read.
   const enabled = String(formData.get('enabled') ?? '') === '1';
@@ -1632,13 +1738,13 @@ export async function setGuestAllotments(formData: FormData) {
     fail('save_failed');
   }
 
-  revalidatePath(back);
+  revalidatePath(hrefPath(back));
   // 🏠 Saved inside Home's Papic card — land back on Home (a failure above still lands here, where its banner is read).
   if (savedFromHome(formData)) {
     revalidatePath(`/dashboard/${eventId}`);
     redirect(`/dashboard/${eventId}`);
   }
-  redirect(`${back}?allotment_set=${enabled ? '1' : '0'}`);
+  redirect(withQuery(back, `allotment_set=${enabled ? '1' : '0'}`));
 }
 
 /**
@@ -1666,10 +1772,10 @@ export async function setGuestAllotment(formData: FormData): Promise<void | { ok
     redirect(result.redirectTo);
   }
   const { eventId } = result;
-  const back = `/dashboard/${eventId}/studio/papic`;
+  const back = papicHomeHref(eventId);
 
   const fail = (code: string): never =>
-    redirect(`${back}?allotment_error=${encodeURIComponent(code)}`);
+    redirect(withQuery(back, `allotment_error=${encodeURIComponent(code)}`));
 
   const guestIds = [...new Set(formData.getAll('guest_id').map((v) => String(v).trim()).filter(Boolean))];
   if (guestIds.length === 0) {
@@ -1750,13 +1856,13 @@ export async function setGuestAllotment(formData: FormData): Promise<void | { ok
     revalidateAllotmentReaders(eventId);
     return { ok: true, set };
   }
-  revalidatePath(back);
-  redirect(`${back}?allotment_set=${points === null ? 'cleared' : points}`);
+  revalidatePath(hrefPath(back));
+  redirect(withQuery(back, `allotment_set=${points === null ? 'cleared' : points}`));
 }
 
 /** The pages that draw a guest's ceiling: the Papic page's named guests, and the guest card's Papic row. */
 function revalidateAllotmentReaders(eventId: string) {
-  revalidatePath(`/dashboard/${eventId}/studio/papic`);
+  revalidatePath(`/dashboard/${eventId}`);
   revalidatePath(`/dashboard/${eventId}/guests`, 'layout');
 }
 
@@ -1778,7 +1884,7 @@ export async function releaseTheRest(formData: FormData) {
   const result = await getCoupleEventId(formData.get('event_id'));
   if (!result.ok) redirect(result.redirectTo);
   const { eventId } = result;
-  const back = `/dashboard/${eventId}/studio/papic`;
+  const back = papicHomeHref(eventId);
 
   const supabase = await createClient();
   const {
@@ -1798,13 +1904,13 @@ export async function releaseTheRest(formData: FormData) {
 
   if (error) {
     logQueryError('releaseTheRest', error, { event_id: eventId }, 'graceful_degrade');
-    redirect(`${back}?allotment_error=save_failed`);
+    redirect(withQuery(back, `allotment_error=save_failed`));
   }
 
-  revalidatePath(back);
+  revalidatePath(hrefPath(back));
   if (savedFromHome(formData)) {
     revalidatePath(`/dashboard/${eventId}`);
     redirect(`/dashboard/${eventId}`);
   }
-  redirect(`${back}?allotment_set=released`);
+  redirect(withQuery(back, `allotment_set=released`));
 }

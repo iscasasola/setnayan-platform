@@ -172,10 +172,11 @@ test('Papic switched off says so, with the door to switch it on', () => {
   if (off.view.kind !== 'say') return;
   assert.equal(off.view.words, DAY_PAPIC_WORDS.off);
   assert.deepEqual(off.view.door, { label: DAY_PAPIC_WORDS.switchOn, href: `/dashboard/${E}/details/field/papic-answer` });
-  // …and not on yet (no pool): its door is the Papic page, which arms the free pool.
+  // …and not on yet (no pool): its door is the Papic card on Home (the page was removed 2026-10-26), whose self-heal
+  // arms the free pool (`papic-self-heal.tsx`).
   const none = dayView(false, null);
   assert.equal(none.face, 'none');
-  assert.equal(none.view.kind === 'say' && none.view.door?.href, `/dashboard/${E}/studio/papic`);
+  assert.equal(none.view.kind === 'say' && none.view.door?.href, `/dashboard/${E}?papic=open#papic`);
 });
 
 test('the day row paints the view — the say line never draws a meter', () => {
@@ -206,7 +207,8 @@ test('with More gone, Home draws Your services in every phase — first screen, 
   assert.match(after, /<YourServices eventId=\{eventId\} services=\{homeServiceRowAll\}/, 'after the day lost Your services');
   const first = code('app/dashboard/[eventId]/_components/home-first-screen.tsx');
   // (The Event Hub rose into the control row on the first screen, owner-approved 2026-10-24.)
-  assert.match(first, /<YourServices\s+eventId=\{eventId\}\s+services=\{services\.filter\(\(s\) => s\.key !== 'hub'\)\}/, 'the first screen lost Your services');
+  // 📷 …and Papic is not in it where its card is drawn on Today (owner 2026-10-26: "it should be on the today").
+  assert.match(first, /<YourServices\s+eventId=\{eventId\}\s+services=\{services\.filter\(\(s\) => s\.key !== 'hub' && !\(papicCard && s\.key === 'papic'\)\)\}/, 'the first screen lost Your services');
   assert.match(first, /id="your-services"/, 'Your services has no address for a door to scroll to');
   // No Next card is on screen in any phase (owner-approved 2026-10-24) — one list, nothing stands down: the input
   // itself names no service (`next: 'plan'`).

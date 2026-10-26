@@ -34,6 +34,17 @@ import { boardLaneCounts, boardShowingWords } from './papic-missions';
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const PAPIC = join(WEB, 'app/dashboard/[eventId]/studio/papic');
+/** The Papic page is gone (2026-10-26); what it drew lives on Home's Papic card — these files, read as one. */
+const cardSources = () =>
+  [
+    join(PAPIC, '_components', 'papic-outcome-banners.tsx'),
+    join(PAPIC, '_components', 'papic-self-heal.tsx'),
+    join(PAPIC, '_components', 'papic-camera-settings.tsx'),
+    join(PAPIC, '_components', 'papic-camera-help.tsx'),
+    join(WEB, 'app/dashboard/[eventId]/page.tsx'),
+  ]
+    .map((f) => stripComments(read(f)))
+    .join('\n');
 const read = (p: string) => readFileSync(p, 'utf8');
 
 /** Every couple-facing source file: the event dashboard tree, minus tests. */
@@ -107,11 +118,11 @@ test('🚨 the three retired camera sales REFUSE — couple-checked, and nothing
   for (const key of RETIRED_PAPIC_CAMERA_SALE_KEYS) {
     assert.ok(!new RegExp(`service_key:\\s*'${key}'`).test(src), `an order is minted under ${key} again`);
   }
-  assert.equal(papicCameraSaleRefusedPath('E'), `/dashboard/E/studio/papic?papic_error=${PAPIC_CAMERA_SALE_REFUSED}`);
+  assert.equal(papicCameraSaleRefusedPath('E'), `/dashboard/E?papic=open&papic_error=${PAPIC_CAMERA_SALE_REFUSED}#papic`);
 });
 
 test('the refusal is spoken on the page, once, and historical camera money is untouched', () => {
-  const page = stripComments(read(join(PAPIC, 'page.tsx')));
+  const page = cardSources();
   assert.match(page, /papicError === PAPIC_CAMERA_SALE_REFUSED[\s\S]{0,200}PAPIC_CAMERA_SALE_REFUSED_WORDS/, 'the page no longer says why');
   // The activation hooks for orders already paid stay wired — retiring a door is not abandoning its orders.
   const activation = read(join(WEB, 'lib/sku-activation.ts'));
@@ -121,7 +132,7 @@ test('the refusal is spoken on the page, once, and historical camera money is un
 });
 
 test('🚨 the Papic page draws no seat count, no "in your pocket" card, and no per-seat cards', () => {
-  const page = stripComments(read(join(PAPIC, 'page.tsx')));
+  const page = cardSources();
   assert.doesNotMatch(page, /still in your pocket|claimLinkUnclaimed|claimLinkTotal|extraCameraCount/, 'a seat count is back on the page');
   assert.doesNotMatch(page, /label="Crew cameras"|label="Your uploads"/, 'a retired way-in row is back');
   const crew = stripComments(read(join(PAPIC, 'crew/page.tsx')));
@@ -137,7 +148,7 @@ test('🚨 the Papic page draws no seat count, no "in your pocket" card, and no 
 test('one door to the uploader — Memories’ + Add photos, never a second entry', () => {
   // 🗂 2026-10-23 (owner, PR-B): the library is the event's Memories tab — "+ Add photos" in its thumb row is the one
   // upload door; the Papic page (the camera only) carries none.
-  const papic = stripComments(read(join(PAPIC, 'page.tsx')));
+  const papic = cardSources();
   assert.doesNotMatch(papic, /<AddToLibrary\b|<AddPhotosDoor\b/, 'the Papic page opens an uploader again');
   const memories = stripComments(read(join(PAPIC, '..', '..', 'memories', 'page.tsx')));
   assert.equal((memories.match(/<AddToLibrary\b/g) ?? []).length, 1, 'the uploader is built once, not per door');

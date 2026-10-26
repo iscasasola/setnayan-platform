@@ -48,7 +48,7 @@ test('every RENDER_PART is finalizable, and the whole look deliberately is not',
   }
   // No single supplier builds the ceiling and the gowns and the cake. The
   // database refuses it too — `moodboard_part_finalizations_part_id_shape`
-  // omits `whole_look`, unlike event_renders' own CHECK.
+  // omits `whole_look`, unlike the (dropped) event_renders CHECK did.
   assert.equal(isFinalizablePartId(WHOLE_LOOK_PART_ID), false);
   assert.equal(isFinalizablePartId('room:nope'), false);
 });

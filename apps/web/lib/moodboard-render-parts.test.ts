@@ -113,7 +113,7 @@ test('labels are the SOURCE labels, not re-typed', () => {
 
 /* ── identity ────────────────────────────────────────────────────────────── */
 
-test('part ids are unique and match the shape event_renders.part_id enforces', () => {
+test('part ids are unique and match the part-id shape (RENDER_PART_ID_PATTERN)', () => {
   const ids = RENDER_PARTS.map((p) => p.id);
   assert.equal(new Set(ids).size, ids.length, 'duplicate part id');
   for (const id of ids) {

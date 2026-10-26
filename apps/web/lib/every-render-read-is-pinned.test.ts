@@ -5,8 +5,8 @@
  *
  * 🗑 Mood Board renders were RETIRED 2026-10-26 (owner: "can we delete that?").
  * Their serve module, its doors and rule A ("only the serve module reads the
- * render bucket") went with them. The `event_renders` rows stay in the database
- * (lib/personal-data-export.ts still exports them as data), so:
+ * render bucket") went with them, and the render tables were dropped
+ * (migration 20271289858095), so:
  *
  *   B · no raw read or sign CALL may take a render key column (`image_key` /
  *       `gallery_image_key`) in its arguments — there is no exemption any more.
@@ -89,7 +89,9 @@ test('B · no raw read or sign call is handed a render key column', () => {
       }
     }
   }
-  assert.ok(scanned > 0, 'anti-vacuity: files that hold render keys do make storage calls — none were scanned');
+  /* No anti-vacuity floor any more: the render tables were dropped (migration 20271289858095) and no file holds a render
+     key, so `scanned` is legitimately 0. The offender check stays — it is what fires if a render key ever comes back. */
+  void scanned;
   assert.deepEqual(offenders, [], `renders are retired — nothing may read or sign a render key:\n${offenders.join('\n')}`);
 });
 

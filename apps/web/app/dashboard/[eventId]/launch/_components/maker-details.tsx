@@ -681,8 +681,8 @@ export function MakerDetails(props: MakerDetailsProps) {
             // The Save the Date as guests meet it, the draft — its way back lands on Details.
             previewHref: slug ? previewCarriesPlace(`/${slug}?phase=save_the_date&preview=draft`, { kind: 'tool', key: 'details' }) : null,
             shareUrl: slug ? `${siteOrigin()}${publicEventPath(slug)}` : null,
-            // The Guest list's own invite flow (its "Share the link" tab).
-            sendHref: `${base}/guests?gview=share`,
+            // The Guest list's own invite flow — Guests ⚙, open on Invitations (settings per menu B; was `?gview=share`).
+            sendHref: `${base}/guests?settings=1&row=invitations`,
             ...(props.guide.guestsHref ? { guestsHref: props.guide.guestsHref } : {}),
           },
           tour: props.guide.tour ?? null,

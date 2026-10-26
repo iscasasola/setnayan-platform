@@ -37,6 +37,7 @@
  */
 
 import { MORE_SERVICES_PARAM, MORE_SERVICES_VALUE } from './studio-hub';
+import { DETAILS_ROWS_MOVED_TO_GUESTS } from './event-settings-record';
 
 /** The More menu's address, relative to the event (`studioHubHref`). */
 const MORE_MENU = `?${MORE_SERVICES_PARAM}=${MORE_SERVICES_VALUE}`;
@@ -65,6 +66,24 @@ const EVENT_SCOPED: readonly (readonly [from: string, to: string])[] = [
   // (`details/change` is a real page again, 2026-10-02 — Event settings save
   // live, so they cannot sit in the Maker. Its redirect from #6280 is gone.)
 ];
+
+/**
+ * ⚙ SETTINGS THAT MOVED HOME (owner 2026-10-26/27, "each menu has their own settings"; settings per menu PLAN § 6).
+ * NOT retired pages — `details/field/[row]` is still a route for the rows that stayed — but a row that left Event
+ * Details for its menu's ⚙ must not 404 or open nothing: its old field address (digest emails, bookmarks, tours)
+ * lands on the control in its new home. `/dashboard/<eventId>/<from>` → `/dashboard/<eventId>/<to>`.
+ * Held by `lib/moved-settings-forward.test.ts`.
+ */
+const MOVED_SETTINGS: readonly (readonly [from: string, to: string])[] = [
+  // B · Guests ⚙ — the Guest list with its ⚙ sheet open on that row.
+  ...Object.entries(DETAILS_ROWS_MOVED_TO_GUESTS).map(
+    ([from, row]) => [`details/field/${from}`, `guests?settings=1&row=${row}`] as const,
+  ),
+];
+const MOVED_SETTINGS_MAP: ReadonlyMap<string, string> = new Map(MOVED_SETTINGS);
+
+/** Every moved setting's old address, with `<eventId>` as the placeholder — for tests and docs. */
+export const MOVED_SETTING_OLD_PATHS: readonly string[] = MOVED_SETTINGS.map(([from]) => `/dashboard/<eventId>/${from}`);
 
 /** Whole-path pairs (no event id in them). */
 const FIXED: readonly (readonly [from: string, to: string])[] = [
@@ -127,6 +146,8 @@ export function legacyRedirectTarget(pathname: string, search = ''): string | nu
 
   const m = /^\/dashboard\/([^/]+)\/(.+)$/.exec(path);
   if (!m) return null;
+  const moved = MOVED_SETTINGS_MAP.get(m[2]!);
+  if (moved !== undefined) return `/dashboard/${m[1]}/${moved}`;
   const to = EVENT_SCOPED_RE.get(m[2]!);
   if (to === undefined) return null;
   if (to === '' || to.startsWith('?')) return `/dashboard/${m[1]}${to}`;

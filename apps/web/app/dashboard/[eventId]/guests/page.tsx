@@ -2,6 +2,8 @@ import { eventNoun } from '@/lib/event-noun';
 import { guestMatchesSearch } from '@/lib/guest-search';
 import { companionNamesByBringer } from '@/lib/extra-seats';
 import Link from 'next/link';
+import { Suspense } from 'react';
+import { guestsSettingsHref, isSettingsRowKey } from '@/lib/event-settings-record';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { eventRowOnce, openDashboardEventRow } from '@/lib/event-row-once';
@@ -214,6 +216,10 @@ type Props = {
     view?: string;
     group?: string;
     gview?: string;
+    /** `1` — Guests ⚙ open (a link's way in; the ⚙ press opens it in place). */
+    settings?: string;
+    /** With `settings=1`: the row to land on (`SETTINGS_ROWS` key). */
+    row?: string;
     team?: string;
     tag?: string;
     sort?: string;
@@ -293,6 +299,12 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     (Both are decided by the address alone, so they leave before any read.)
   */
   if (search.gview === 'hosts') redirect(`/dashboard/${eventId}/hosts`);
+  /*
+    ⚙ THE "SETTINGS" SEGMENT IS THE ⚙ NOW (owner 2026-10-27, settings per menu call 1): the pill is List · Map, and
+    the guest settings open as Guests ⚙'s sheet. An old `?gview=share` / `?view=share` link lands on the list with
+    the sheet open (`?settings=1`), before any read.
+  */
+  if (search.gview === 'share' || search.view === 'share') redirect(guestsSettingsHref(eventId));
   if (search.gview === 'checkin') redirect(`/dashboard/${eventId}/guests/checkin`);
 
   const supabase = await createClient();
@@ -639,8 +651,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     ? rawView.slice('group:'.length)
     : null;
   const view = legacyGroup ? 'all' : rawView;
-  const gview: 'list' | 'map' | 'share' =
-    search.gview === 'map' ? 'map' : search.gview === 'share' ? 'share' : 'list';
+  const gview: 'list' | 'map' = search.gview === 'map' ? 'map' : 'list';
   const teamRaw = search.team ?? 'all';
   const teamFilter: 'all' | 'bride' | 'groom' =
     hasSides && (teamRaw === 'bride' || teamRaw === 'groom') ? teamRaw : 'all';
@@ -1022,7 +1033,17 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       initialQuery={search.select === 'to-invite' ? 'to invite' : (search.q ?? '')}
       initialSelect={!guestsViewOnly && search.select === 'to-invite'}
       viewOnly={guestsViewOnly}
-      setup={gview === 'share' ? <InvitePanel eventId={eventId} /> : null}
+      // ⚙ GUESTS SETTINGS — the couple's (the panel's own rule): drawn with the page and streamed, so the ⚙ opens it
+      // in place. The page's own guest read is handed in (one read of the list, not two).
+      setup={
+        viewer.isCouple ? (
+          <Suspense fallback={<p className="px-4 py-6 text-center text-[13px] text-ink/60">Loading your guest settings…</p>}>
+            <InvitePanel eventId={eventId} guestsRead={guestsRead} requests={pendingClaimsCount} />
+          </Suspense>
+        ) : null
+      }
+      settingsOpen={search.settings === '1'}
+      settingsRow={search.settings === '1' && isSettingsRowKey(search.row) ? search.row : null}
       empty={
         !guestsMeasured || rosterAll.length === 0 ? (
           <EmptyState finished={finished} hasGuests={false} eventId={eventId} measured={guestsMeasured} total={0} />

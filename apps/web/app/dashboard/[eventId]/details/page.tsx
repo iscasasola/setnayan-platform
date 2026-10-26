@@ -58,7 +58,6 @@ import { sanitizeRolePalette } from '@/lib/mood-board';
 import { resolveDisplayPalette } from '@/lib/room-palette';
 import { dressCodeForEveryone } from '@/lib/dress-code-for-everyone';
 import { resolveMoments } from '@/lib/love-story-moments';
-import { readGuestsReply, resolveReplyBy } from '@/lib/rsvp-ask';
 import { studioHubHref } from '@/lib/studio-hub';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { readHubDraft } from '@/lib/hub-draft-store';
@@ -69,8 +68,6 @@ import {
   HIDDEN_BY_THE_COUPLE,
   NOT_SET_YET,
   describeEventDate,
-  howGuestsGetIn,
-  rsvpQuestions,
   sectionTitle,
   sheetDate,
   type EventDetailsSectionKey,
@@ -340,10 +337,6 @@ export default async function EventDetailsPage({
     ceremonyType: str('ceremony_type'),
   });
   const moments = resolveMoments(shown.love_story).filter((m) => !m.hidden);
-  const getIn = howGuestsGetIn(shown.rsvp_ask_config);
-  const questions = rsvpQuestions(shown.rsvp_ask_config);
-  const guestsReply = readGuestsReply(shown.rsvp_ask_config);
-  const replyBy = resolveReplyBy({ deadline: str('guest_list_edit_deadline'), eventDate: shownStr('event_date') });
 
   // ── Names (as drafted) ────────────────────────────────────────────────────
   // 🔀 Both people in full, in the ORDER the event's name keeps (`coupleNamesLine`, owner 2026-10-21) — never re-set here.
@@ -514,10 +507,11 @@ export default async function EventDetailsPage({
   /* 📁 Each fold's one line on the phone — built from its own rows' values. */
   const summary: Record<RecordGroupKey, string> = {
     looks: foldSummary([headingFont, mainColours.length > 0 ? `${mainColours.length} colours` : null, buttons]),
+    // ⚙ How guests get in · What to ask · Reply by left for Guests ⚙ (settings per menu B) — the fold's line is its answers now.
     works: foldSummary([
-      getIn.value,
-      guestsReply ? (questions.length > 1 ? questions.slice(1).join(', ') : null) : null,
-      guestsReply && replyBy ? `Reply by ${sheetDate(replyBy.date, false)}` : null,
+      setupOfType.cameraDefault !== 'off' ? answerSub(papicChoices(), answerKeyOf('papic_on', shown.papic_on)) || null : null,
+      setupOfType.giftsMode !== 'none' ? answerSub(giftsChoices(), answerKeyOf('gifts_on', shown.gifts_on)) || null : null,
+      answerSub(logoChoices(words.twoPeople), answerKeyOf('logo_wanted', shown.logo_wanted)) || null,
     ]),
     event: foldSummary([
       eventDateShown,
@@ -640,18 +634,10 @@ export default async function EventDetailsPage({
         {/* ══ HOW IT WORKS ══ */}
         <RecordFold group="works" title={groupTitle('works')} summary={summary.works} recordHref={record}>
           <Section k="rsvp">
-            {/* "RSVP or not" is NOT a second switch — the "No reply" choices are it (study § 1b). */}
-            <Row
-              row="guests-get-in"
-              fact="guests-get-in"
-              label="How guests get in"
-              value={getIn.value}
-              hint={getIn.chosen ? null : 'The default — not chosen yet'}
-              open={opens('guests-get-in')}
-              record={record}
-              waiting={waiting('rsvp_ask_config')}
-            />
-            {/* 📷 …AND AS A CAMERA (owner 2026-10-23: "the how guests get in will be on event settings"): the one code
+            {/* ⚙ How guests get in · What to ask · Guests reply by moved to Guests ⚙ (owner 2026-10-27, settings per menu:
+                "guest settings only on Guests"; PLAN § 3 row B). Their old field addresses forward there
+                (`DETAILS_ROWS_MOVED_TO_GUESTS`, `lib/legacy-redirects.ts`). */}
+            {/* 📷 THE ONE CODE (owner 2026-10-23: "the how guests get in will be on event settings"): the one code
                 for everyone and every guest's own QR, under this ONE row — moved here from the Papic page. */}
             {setupOfType.cameraDefault !== 'off' ? (
               viewer.isCouple ? (
@@ -663,28 +649,6 @@ export default async function EventDetailsPage({
                   The couple holds the one code for guests&rsquo; cameras.
                 </p>
               )
-            ) : null}
-            {guestsReply ? (
-              <>
-                <Row
-                  row="rsvp-questions"
-                  fact="rsvp-questions"
-                  label="What to ask"
-                  value={questions.length > 0 ? `${questions.length} · ${questions.join(' · ')}` : null}
-                  open={opens('rsvp-questions')}
-                  record={record}
-                  waiting={waiting('rsvp_ask_config')}
-                />
-                <Row
-                  row="reply-by"
-                  fact="reply-by"
-                  label="Guests reply by"
-                  value={replyBy ? sheetDate(replyBy.date) : null}
-                  hint={replyBy?.isDefault ? 'Suggested — 30 days before the day. The guest list closes the same day.' : replyBy ? 'The guest list closes the same day.' : null}
-                  open={opens('reply-by')}
-                  record={record}
-                />
-              </>
             ) : null}
           </Section>
           <Section k="hub">
@@ -886,7 +850,6 @@ export default async function EventDetailsPage({
               }
               hint={stats && seatsWithoutARow > 0 ? `${formatCount(stats.total + seatsWithoutARow)} expected with their plus-ones` : null}
             />
-            <Row row="list-closes" label="Guest list closes" value={sheetDate(str('guest_list_edit_deadline'))} open={opens('list-closes')} record={record} />
             <Row
               row="costs-view"
               label="How you see costs"

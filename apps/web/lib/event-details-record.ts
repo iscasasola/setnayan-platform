@@ -73,12 +73,11 @@ export type RecordEditorKey = keyof typeof RECORD_EDITOR_COMPONENT;
  * them) or listed in `RECORD_ROW_TOOL`.
  */
 export const RECORD_ROW_EDITOR = {
+  /* ⚙ 'guests-get-in' · 'rsvp-questions' · 'reply-by' · 'list-closes' left for Guests ⚙ (settings per menu B,
+     owner 2026-10-27) — `DETAILS_ROWS_MOVED_TO_GUESTS` (`lib/event-settings-record.ts`) forwards their addresses. */
   fonts: 'font',
   colours: 'colours',
   buttons: 'buttons',
-  'guests-get-in': 'rsvp',
-  'rsvp-questions': 'rsvp',
-  'reply-by': 'rsvp',
   'papic-answer': 'papic',
   'gifts-answer': 'gifts',
   'logo-answer': 'logo-answer',
@@ -93,7 +92,6 @@ export const RECORD_ROW_EDITOR = {
   'love-story': 'love-story',
   'special-message': 'special-message',
   estimate: 'settings',
-  'list-closes': 'settings',
   'costs-view': 'settings',
 } as const satisfies Record<string, RecordEditorKey>;
 export type RecordRowKey = keyof typeof RECORD_ROW_EDITOR;
@@ -151,9 +149,6 @@ export const RECORD_ROW_GROUP: Readonly<Record<RecordRowKey | RecordToolRowKey, 
   cover: 'looks',
   logo: 'looks',
   music: 'looks',
-  'guests-get-in': 'works',
-  'rsvp-questions': 'works',
-  'reply-by': 'works',
   'papic-answer': 'works',
   'gifts-answer': 'works',
   'logo-answer': 'works',
@@ -171,7 +166,6 @@ export const RECORD_ROW_GROUP: Readonly<Record<RecordRowKey | RecordToolRowKey, 
   'special-message': 'event',
   wears: 'event',
   estimate: 'guests-money',
-  'list-closes': 'guests-money',
   'costs-view': 'guests-money',
 };
 

@@ -46,7 +46,7 @@ export const SETTINGS_ENTRY: Record<SettingsMenu, SettingsEntry> = {
     door: 'first-row-gear',
     sheet: 'Guests settings',
     line: 'How guests get in, what you ask, when the list closes.',
-    live: false,
+    live: true,
   },
   hub: {
     door: 'first-row-gear',

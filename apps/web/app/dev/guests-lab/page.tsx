@@ -28,7 +28,7 @@
  *                   an empty list, &fail=1 for a refused read
  *   &low=1          push the card's ticket row to the bottom of a short phone
  *                   (375×667), where a menu has no room under it
- *   ?part=setup     Guests › Setup (2026-10-07) — the REAL `GuestSetupRows` on
+ *   ?part=setup     Guests ⚙ (settings per menu, 2026-10-27; was Guests › Setup) — the REAL `GuestSetupRows` on
  *                   fixture data: &getin=list|personal|requests|one_qr_approve|one_qr,
  *                   &hc=open|locked; "Send to N" is counted off the lab roster
  *                   by the one rule (`toInviteCount`). The Digital Pass is the shipped
@@ -625,8 +625,8 @@ export default async function GuestsLabPage({
     );
   }
 
-  /* ⚙ Guests › Setup (PR 4d) — the REAL rows on fixture data, drawn inside the
-     real Guests screen (`?part=setup` = `?part=screen&gview=share`). */
+  /* ⚙ Guests settings — the REAL rows on fixture data, in the real Guests screen's ⚙ sheet, opened
+     (`?part=setup` = `?part=screen&settings=1`; `&row=<key>` lands on a row). */
   const getIn = isGuestsGetIn(sp.getin) ? sp.getin : 'list';
   const labConfig = { ...guestsGetInPatch(getIn), dietary: false, song_request: false, note: false };
   const hc = typeof sp.hc === 'string' ? sp.hc : 'open';
@@ -645,6 +645,7 @@ export default async function GuestsLabPage({
                         notice: null,
                       }}
                       headcount={{ locked: hc === 'locked', attending: 7, heads: 7 }}
+                      requests={3}
                     />
   );
   if (part === 'rsvp') {
@@ -699,7 +700,7 @@ export default async function GuestsLabPage({
     };
     const tables = [...new Set(MJ_ROSTER.map((r) => r[4]))].map((label, i) => ({ tableId: `t-${i}`, label }));
     const tableByGuest = Object.fromEntries(MJ_ROSTER.map(([, , , , table], i) => [`g-mj-${i}`, table]).filter((_, i) => i % 3 !== 2));
-    const gview = sp.gview === 'map' ? 'map' : sp.gview === 'share' || part === 'setup' ? 'share' : 'list';
+    const gview = sp.gview === 'map' ? 'map' : 'list';
     const empty = sp.empty === '1';
     const fail = sp.fail === '1';
     /* `&addMs=N`: an add answers after N ms, as a real one waits on the server (lab-stand-ins.ts › labTimedAdds). */
@@ -732,6 +733,8 @@ export default async function GuestsLabPage({
                     rootLabel="Maria & Jose"
                     initialQuery={typeof sp.q === 'string' ? sp.q : ''}
                     setup={setupRows}
+                    settingsOpen={part === 'setup' || sp.settings === '1'}
+                    settingsRow={typeof sp.row === 'string' ? sp.row : null}
                     empty={
                       empty || fail ? (
                         <p className="p-8 text-center text-base text-ink/70" data-guests-empty="">

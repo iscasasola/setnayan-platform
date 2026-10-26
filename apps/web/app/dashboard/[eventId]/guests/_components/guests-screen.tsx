@@ -80,6 +80,7 @@ import { useInspectorContext } from '@/app/_components/inspector/inspector-colum
 import { PILL_TRACK_CLASS, PILL_TRACK_GROUND, PillThumb, pillSegClass } from '@/app/_components/pill-selector';
 import { GuestPopup } from './guest-popup';
 import { Handed } from './handed';
+import { MenuSettingsButton } from '@/app/_components/menu-settings-button';
 import { usePeekToast } from './use-peek-toast';
 import {
   countsTowardEvent,
@@ -160,7 +161,7 @@ export type GuestsScreenProps = {
   eventId: string;
   /** The event's role set (`resolveRoleSetKeyForEvent`) — the Add card's Role list. Absent = the wedding set. */
   roleSetKey?: string | null;
-  gview: 'list' | 'map' | 'share';
+  gview: 'list' | 'map';
   /**
    * Every guest, importance-sorted by the page (the honoree first) — ONLY the fields the list draws and
    * searches (`lib/guest-list-rows.ts` GUEST_LIST_ROW_FIELDS), never the whole row.
@@ -204,8 +205,16 @@ export type GuestsScreenProps = {
    * held by `message-needs-an-account.test.ts`; the gap is named in the PR).
    */
   chatHrefFor?: (guestId: string) => string | null;
-  /** The Setup body (the shipped Share panel until PR 4d). */
+  /**
+   * ⚙ GUESTS SETTINGS — the sheet's rows (`InvitePanel` → `GuestSetupRows`), drawn by the server. Present → the ⚙ at
+   * the right end of the List · Map row (owner 2026-10-27, settings per menu call 1: the "Settings" segment became the
+   * ⚙). Null → no ⚙ (not the couple).
+   */
   setup?: ReactNode;
+  /** `?settings=1` — the sheet opens with the page (a link's way in). */
+  settingsOpen?: boolean;
+  /** `?row=` — the row the open sheet lands on (its `data-setup-row`). */
+  settingsRow?: string | null;
   /**
    * What the List shows instead of sections when there is nothing to section:
    * the page's shipped EmptyState — "No guests yet." + one Add, or, when the
@@ -315,6 +324,8 @@ export function GuestsScreen(props: GuestsScreenProps) {
     initialSelect = false,
     chatHrefFor,
     setup,
+    settingsOpen: settingsAsked = false,
+    settingsRow = null,
     empty,
     copy = null,
     roleSetKey = null,
@@ -322,6 +333,35 @@ export function GuestsScreen(props: GuestsScreenProps) {
   } = live;
   // 🔒 Nothing that writes is offered while this is the phone's old copy OR the viewer may only look.
   const writesOff = copy !== null || viewOnly;
+  // ⚙ Guests settings — opened by the ⚙ in place; a link (`?settings=1&row=…`) opens it with the page. Closing drops
+  // the link's words from the address without a navigation, so Back does not reopen it and nothing redraws.
+  const [settingsOpen, setSettingsOpen] = useState(settingsAsked);
+  const openSettings = useCallback((open: boolean) => {
+    setSettingsOpen(open);
+    if (open) return;
+    try {
+      const url = new URL(window.location.href);
+      if (!url.searchParams.has('settings') && !url.searchParams.has('row')) return;
+      url.searchParams.delete('settings');
+      url.searchParams.delete('row');
+      window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+    } catch {
+      /* the address keeps its words; the sheet is closed either way */
+    }
+  }, []);
+  useEffect(() => {
+    if (!settingsOpen || !settingsRow) return;
+    // The rows stream in after the sheet: look for the named row a few times, then land on it.
+    let tries = 0;
+    const t = window.setInterval(() => {
+      const el = document.querySelector(`[data-menu-settings-sheet="guests"] [data-setup-row="${CSS.escape(settingsRow)}"]`);
+      if (el || ++tries > 20) {
+        window.clearInterval(t);
+        el?.scrollIntoView({ block: 'center' });
+      }
+    }, 150);
+    return () => window.clearInterval(t);
+  }, [settingsOpen, settingsRow]);
   // The list's rows carry only GUEST_LIST_ROW_FIELDS; every helper below reads within them —
   // 🔒 guests/the-list-sends-only-what-it-draws.test.ts runs this screen and those helpers over rows that
   // record each field read.
@@ -513,7 +553,6 @@ export function GuestsScreen(props: GuestsScreenProps) {
   const [barOn, setBarOn] = useState(false);
   useEffect(() => {
     setBarOn(false);
-    if (gview === 'share') return;
     const r = requestAnimationFrame(() => requestAnimationFrame(() => setBarOn(true)));
     return () => cancelAnimationFrame(r);
   }, [gview]);
@@ -701,7 +740,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
     </button>
   );
 
-  const seg = (key: 'list' | 'map' | 'share', label: string, count?: number) => (
+  const seg = (key: 'list' | 'map', label: string, count?: number) => (
     <Link
       key={key}
       className={`${pillSegClass(gview === key)} [&>b]:font-medium [&>b]:opacity-80`}
@@ -709,7 +748,6 @@ export function GuestsScreen(props: GuestsScreenProps) {
       aria-current={gview === key ? 'page' : undefined}
       scroll={false}
       data-guests-seg={key}
-      data-tour={key === 'share' ? 'guests-setup' : undefined}
     >
       {label}
       {count !== undefined && measured ? <b><Count value={count} id={`gs-seg-${key}`} /></b> : null}
@@ -1237,13 +1275,20 @@ export function GuestsScreen(props: GuestsScreenProps) {
         <div ref={stickRef} className={styles.stick} data-guests-stick="">
           {/* 🎚 THE ONE PILL SELECTOR (owner 2026-10-08: "adjust all pill selectors to this") — the app's template
               draws the track, the three views and the terracotta thumb that slides between them. Still links. */}
-          <nav className={`${PILL_TRACK_CLASS} ${PILL_TRACK_GROUND}`} aria-label="Guest list views" data-guests-segmented="" data-tour="guests-views">
-            <PillThumb />
-            {seg('list', 'List', stats.total)}
-            {seg('map', 'Map')}
-            {/* "Setup" → "Settings" (owner 2026-10-23, one word — the same word as Home's ⚙ Settings). */}
-            {seg('share', 'Settings')}
-          </nav>
+          {/* ⚙ THE FIRST ROW: List · Map, then the menu's ⚙ at its right end (owner 2026-10-27, settings per menu — the
+              "Settings" segment became the ⚙, the same door and spot as every menu; `menu-settings-button.tsx`). */}
+          <div className="flex items-center gap-2" data-first-row="">
+            <nav className={`${PILL_TRACK_CLASS} ${PILL_TRACK_GROUND} min-w-0 flex-1`} aria-label="Guest list views" data-guests-segmented="" data-tour="guests-views">
+              <PillThumb />
+              {seg('list', 'List', stats.total)}
+              {seg('map', 'Map')}
+            </nav>
+            {setup ? (
+              <MenuSettingsButton menu="guests" open={settingsOpen} onOpenChange={openSettings} tour="guests-setup">
+                {setup}
+              </MenuSettingsButton>
+            ) : null}
+          </div>
           {/* 📋 The copy line — in the flow, under the selector, never over anything (guest-copy-mark.tsx). */}
           <GuestListStatus copy={copy} fresh={props.measured} />
           {measured ? (
@@ -1388,7 +1433,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
           ) : null}
         </div>
 
-        {gview === 'share' ? <Handed>{setup}</Handed> : gview === 'map' ? (
+        {gview === 'map' ? (
           <GuestMapCanvas
             rootLabel={rootLabel}
             tree={tree}
@@ -1401,7 +1446,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
           list
         )}
 
-        {gview === 'share' ? null : (
+        {(
           <div
             // The ONE shared glass row (BUTTON_RULE rule 7, `.sn-glass-row` in
             // globals.css, builder GR): the row tints and blurs what scrolls behind.

@@ -46,7 +46,7 @@ export type GuestActions = {
   /** Where "Invite N" goes: the one-by-one run, with the selected guests who still need an invitation. */
   sendRunHref: (eventId: string, ids: string[]) => string;
   /** Guests › Setup's two doors: "Send to N" (the run, for everyone still to invite) and "Pick who" (the list, in Select mode). */
-  setupDoorHref: (eventId: string, door: 'send' | 'pick-who') => string;
+  setupDoorHref: (eventId: string, door: 'send' | 'pick-who' | 'requests') => string;
   /** 👥 The ONE Group dropdown's ✎ and 🗑 (owner 2026-10-20): rename / delete a couple's own group in place, and the delete's count. */
   editGuestGroupInPlace: typeof editGuestGroupInPlace;
   /** ✋ Select → Set reply ▾ (owner 2026-10-21) — the one host reply write, and its Undo. */
@@ -72,7 +72,12 @@ export const REAL_GUEST_ACTIONS: GuestActions = {
   setGuestListFinalized,
   releaseGuestClaim,
   sendRunHref: (eventId, ids) => `/dashboard/${eventId}/guests/send?ids=${ids.join(',')}`,
-  setupDoorHref: (eventId, door) => (door === 'send' ? `/dashboard/${eventId}/guests/send` : `/dashboard/${eventId}/guests?select=to-invite`),
+  setupDoorHref: (eventId, door) =>
+    door === 'send'
+      ? `/dashboard/${eventId}/guests/send`
+      : door === 'requests'
+        ? `/dashboard/${eventId}/guests/claims`
+        : `/dashboard/${eventId}/guests?select=to-invite`,
   editGuestGroupInPlace,
   setGuestRsvp,
   restoreGuestRsvpAndSeat,

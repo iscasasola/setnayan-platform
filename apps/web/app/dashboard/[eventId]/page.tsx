@@ -99,7 +99,7 @@ import { resolvePapicHomeTile } from '@/lib/papic-home-tile';
 import { papicGlance } from '@/lib/papic-glance';
 import { resolveStoredWindow } from '@/lib/papic-window';
 import { papicIsOn } from '@/lib/event-answers';
-import { isSetnayanAiActiveForEvent } from '@/lib/setnayan-ai';
+import { eventOwnsSetnayanAi, isSetnayanAiActiveForEvent, setnayanAiOffered } from '@/lib/setnayan-ai';
 import { planNextYearEvent } from '@/app/dashboard/(account)/create-event/actions';
 import { resolveSetnayanAiPaywallEnabled } from '@/lib/integration-config';
 import { resolveSetnayanAiOfferForEvent } from '@/lib/setnayan-ai-server';
@@ -568,7 +568,9 @@ export default async function EventHomePage({
     // `null` = the paywall could not be resolved: no offer, and Home's
     // "Your services" row prints "—" for Setnayan AI rather than guess.
     const paywallOn = await resolveSetnayanAiPaywallEnabled().catch((): boolean | null => null);
-    const aiOffer = paywallOn === true
+    // 🧭 Suppliers off (the onboarding's "What do you need?", `events.suppliers_on`) ⇒ Setnayan AI is not
+    // offered here at all (`setnayanAiOffered`, owner 2026-10-26) — no comeback card, no Next card, no price.
+    const aiOffer = paywallOn === true && setnayanAiOffered(await homeNeedsRead)
       ? await resolveSetnayanAiOfferForEvent(
           supabase,
           eventId,
@@ -871,8 +873,18 @@ export default async function EventHomePage({
           { paywallEnabled: paywallOn },
         );
   const homePaidPrices = new Map<string, string>();
+  /* 🧭 SETNAYAN AI ONLY WITH SUPPLIERS ON (owner 2026-10-26, DECISION_LOG "SETNAYAN AI SHOWS ONLY WHEN THE EVENT HAS
+     SUPPLIERS ON"). Off ⇒ no "Try it" line and no "On" row for the free assist — unless the event already OWNS it
+     (bought, or a payment waiting): then its row stays exactly as it was. Nothing is ever taken away. */
+  const saiOffered = setnayanAiOffered(eventNeeds);
+  const saiOwned =
+    eventOwnsSetnayanAi(event as { setnayan_ai_active?: boolean | null; setnayan_ai_active_until?: string | null }) ||
+    homePaid?.aiPending === true;
+  const saiShown = saiOffered || saiOwned;
   const homePaidReads: Record<string, { active: boolean | null; pending: boolean | null } | null> = {
-    [HOME_PAID_SKU.ai]: { active: aiActiveNow, pending: aiActiveNow === false ? homePaid?.aiPending ?? null : false },
+    [HOME_PAID_SKU.ai]: saiShown
+      ? { active: aiActiveNow, pending: aiActiveNow === false ? homePaid?.aiPending ?? null : false }
+      : { active: false, pending: false },
   };
   for (const [sku, read, price] of homePaid?.reads ?? []) {
     homePaidReads[sku] = read;
@@ -891,7 +903,7 @@ export default async function EventHomePage({
           !(storeShell && isStoreShellHiddenAddon(a.key, iap)) &&
           addOnOfferedForEvent(a, needsProfile, (event as { community_id?: string | null }).community_id ?? null),
         sellableNow: (e) => addOnSellableNow(e, lifecyclePhase === 'after' ? 'after' : 'plan'),
-        aiSellable: homePaid.aiPricePhp > 0,
+        aiSellable: homePaid.aiPricePhp > 0 && saiOffered,
         refusesPath: (p) => storeShell && isStoreShellWebOnlyPath(p, iap),
         comebackHoursLeft:
           aiOfferShown && aiOffer?.kind === 'comeback'
@@ -938,7 +950,7 @@ export default async function EventHomePage({
     papic: papicNow.status,
     // 🎨 The row's line, meter and doors (owner 2026-10-14). Buy more is the couple's (the purchase is couple-only).
     papicDoors: canViewPapicCounts ? { glance: papicNow, line: papicNow.line, buy: papicNow.buy && viewerMemberType === 'couple' } : null,
-    ai: aiStatus(
+    ai: !saiShown ? null : aiStatus(
       paywallOn === null
         ? null
         : isSetnayanAiActiveForEvent(

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "5259fbfa43",
-  "routeCount": 475,
+  "generatedFromRef": "9d0733125a",
+  "routeCount": 474,
   "destinations": 1014,
-  "actions": 662,
-  "blocks": 7165,
+  "actions": 661,
+  "blocks": 7164,
   "routes": {
     "/": {
       "files": [
@@ -2715,7 +2715,6 @@
         "setServiceSecondaryTiles",
         "setTileEventTypeOffered",
         "unteachTradeAlias",
-        "updateEventTypeForWhom",
         "updateEventTypePresentation",
         "updatePlanningDeadline",
         "upsertEventTypeProfile",
@@ -5123,7 +5122,6 @@
         "HTMLInputElement",
         "Image",
         "InPlanningWedding",
-        "InfoTip",
         "Link",
         "NewEventHead",
         "PhotoTile",
@@ -11106,16 +11104,6 @@
         "ServicePanel"
       ]
     },
-    "/dev/create-for-lab": {
-      "files": [
-        "dev/create-for-lab/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [],
-      "blocks": [
-        "EventTypePicker"
-      ]
-    },
     "/dev/customer-money-lab": {
       "files": [
         "dev/customer-money-lab/page.tsx"
@@ -12304,6 +12292,7 @@
         "SetupAnswers",
         "SetupCard",
         "SimpleSetupFlow",
+        "SimpleSuppliersOnContext.Provider",
         "SubmitButton"
       ]
     },

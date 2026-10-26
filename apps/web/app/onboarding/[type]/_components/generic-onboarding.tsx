@@ -62,6 +62,7 @@ import { normalizeSpecialtyValues } from '@/lib/onboarding/specialty-values';
 import { EMPTY_PREFILL, partitionOnboardingPrefill, type OnboardingPrefill } from '@/lib/onboarding/prefill';
 import type { ServicesStepView } from '@/lib/onboarding/services-step-data';
 import { ServicesStep } from '@/app/onboarding/_shared/services-step';
+import { setnayanAiOffered } from '@/lib/setnayan-ai';
 import {
   EMPTY_SERVICES_SELECTION,
   type ServicesStepSelection,
@@ -1276,7 +1277,7 @@ export function GenericOnboarding(props: Props) {
             {intro?.headline ??
               'A few quick questions and we’ll shape a plan made for your event.'}
           </Title>
-          <p className="mt-4 text-ink/60">{intro?.subcopy ?? 'Free to start — no account needed yet.'}</p>
+          <p className="mt-4 text-ink/60">{intro?.subcopy ?? 'Start now — no account needed yet.'}</p>
           {/* Entrance grey-out (owner ruling 2026-09-11): told HERE, on the very
               first screen, instead of only after a wizard-length walk ends in
               the same refusal. `blockedBy` is seeded from the server's entrance
@@ -1800,6 +1801,9 @@ export function GenericOnboarding(props: Props) {
             // both always render, at their real prices.
             interestedServices={planServices}
             aiValue={servicesStepAiValue}
+            // 🧭 The needs screen's Suppliers row, live (owner 2026-10-26: Setnayan AI shows only with
+            // Suppliers on — `setnayanAiOffered`). No needs screen (engine off) ⇒ no choice made ⇒ on.
+            suppliersOn={!engine || setnayanAiOffered(needs)}
             // The picker (owner 2026-08-11). Safe to pass HERE because this
             // flow's commit carries the selection through to a real order —
             // see commitOnboardingEvent. Do not copy these two props to a

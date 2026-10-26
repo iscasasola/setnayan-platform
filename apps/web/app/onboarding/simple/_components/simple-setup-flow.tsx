@@ -40,6 +40,7 @@ import {
   type NeedPreset,
 } from '@/lib/event-needs';
 import { SIMPLE_NEEDS_FIELD, SIMPLE_SETUP_FIELD } from './simple-setup-field';
+import { SimpleSuppliersOnContext } from './papic-step-fields';
 
 type Props = {
   /** NULL = the type is not admitted to the engine: the form is yesterday's, unpaced. */
@@ -158,7 +159,8 @@ function Paced({ view, steps, finish, label, marketplace }: Props & { view: Setu
         />
       ) : null}
       <div hidden={only || step !== last} className="space-y-6">
-        {finish}
+        {/* 🧭 The Suppliers row reaches the Setnayan AI card live (`setnayanAiOffered`, owner 2026-10-26). */}
+        <SimpleSuppliersOnContext.Provider value={needs.suppliers}>{finish}</SimpleSuppliersOnContext.Provider>
       </div>
       {!only && step > 0 && step < last ? (
         <div className="flex gap-3">

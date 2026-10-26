@@ -21,6 +21,7 @@
 /dev/budget-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/card-maker-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/categories-lab	# 2026-10-26 · internal (dev, prototypes) · the four-level Categories map with no sign-in, for the side-by-side with interactive-v4; 404 in production — a page nobody can reach without typing its address
+/dev/create-for-lab	# 2026-10-26 · internal (dev, prototypes) · the create grid's "For ▾" on fixtures for walks and screenshots; 404 in production
 /dev/customer-money-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/details-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/group-lab	# 2026-10-26 · internal (dev, prototypes) · the group page on fixtures for walks and side-by-sides; a page nobody can reach without typing its address

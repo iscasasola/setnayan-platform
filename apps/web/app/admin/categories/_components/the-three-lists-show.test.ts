@@ -109,9 +109,9 @@ const requests: SupplierRequest[] = [
 ];
 
 const eventTypes: EventType[] = [
-  { key: 'wedding', label: 'Wedding', emoji: '💍', description: null, sortOrder: 1, status: 'active', enabled: true, onboardingHref: null, heroPhotoUrl: null },
-  { key: 'birthday', label: 'Birthday', emoji: '🎂', description: null, sortOrder: 2, status: 'active', enabled: false, onboardingHref: null, heroPhotoUrl: null },
-  { key: 'old_rite', label: 'Old rite', emoji: '🕯️', description: null, sortOrder: 3, status: 'retired', enabled: false, onboardingHref: null, heroPhotoUrl: null },
+  { key: 'wedding', label: 'Wedding', emoji: '💍', description: null, sortOrder: 1, status: 'active', enabled: true, onboardingHref: null, heroPhotoUrl: null, forWhom: null },
+  { key: 'birthday', label: 'Birthday', emoji: '🎂', description: null, sortOrder: 2, status: 'active', enabled: false, onboardingHref: null, heroPhotoUrl: null, forWhom: null },
+  { key: 'old_rite', label: 'Old rite', emoji: '🕯️', description: null, sortOrder: 3, status: 'retired', enabled: false, onboardingHref: null, heroPhotoUrl: null, forWhom: null },
 ];
 
 const religions: Religion[] = [

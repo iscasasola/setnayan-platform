@@ -51,8 +51,11 @@ test('the grid opens on "You"', () => {
 });
 
 // SABOTAGE: make forMenuSubjects return the roster unconditionally → RED.
-test('the "For" dropdown exists only when a loved one makes it a choice', () => {
-  assert.equal(forMenuSubjects([you, someone]), null, 'You + Someone else is not a choice the grid needs — draw nothing');
+// 2026-10-26 (owner: "For you" folds what cannot be yours): "Someone else" is now a real answer on its own — it
+// opens a christening, which "For you" folds — so the dropdown draws whenever the roster holds more than "You".
+test('the "For" dropdown exists whenever there is more than "You" to choose', () => {
+  assert.deepEqual(forMenuSubjects([you, someone])?.map((s) => s.id), [you.id, someone.id]);
+  assert.equal(forMenuSubjects([you]), null, '"You" alone is not a choice — draw nothing');
   assert.equal(forMenuSubjects([]), null);
   assert.deepEqual(forMenuSubjects([you, lola!, someone])?.map((s) => s.id), [you.id, lola!.id, someone.id]);
 });
@@ -63,7 +66,8 @@ test('the rows say the drawn words, and a loved one keeps the shipped plain-Engl
   assert.equal(forMenuLabel(lola!), 'Lola Rosa');
   assert.equal(forMenuHint(lola!), 'Loved one · person', 'Alaga → "Loved ones" (owner 2026-09-29); no age is shown');
   assert.equal(forMenuLabel(someone), 'Someone else');
-  assert.equal(forMenuHint(someone), 'Show me everything');
+  // "Show me everything" stopped being true on 2026-10-26: a wake is only for someone who passed away.
+  assert.equal(forMenuHint(someone), 'A living person — every event');
 });
 
 // SABOTAGE: put back `const [subject, setSubject] = useState<CreateSubject | null>(null);` → RED.

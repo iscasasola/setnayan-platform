@@ -11,6 +11,8 @@ import localFont from 'next/font/local';
 import { HUB_CHOICE_FACES_CLASS } from './_fonts/choice-faces';
 import Script from 'next/script';
 import './globals.css';
+// THE ONE PLACE THE LOOK LIVES — colour roles (+ legacy aliases). See the file's header.
+import './theme.css';
 import { ClientTypeDetector } from './_components/client-type-detector';
 import { StoreShellLinkGuard } from './_components/store-shell-link-guard';
 import { NativeBridge } from './_components/native-bridge';

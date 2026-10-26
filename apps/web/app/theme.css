@@ -1,0 +1,120 @@
+/*
+ * theme.css — THE ONE PLACE THE APP'S LOOK LIVES (brand refresh, step 1 · owner 2026-10-26).
+ *
+ * Owner, verbatim: "if we choose a different color or icon or font, it will be easy to make the
+ * whole app to look differently." DECISION_LOG 2026-10-26 "ONE PLACE TO RESTYLE THE WHOLE APP" and
+ * "APPROVED — THE NEW LOOK AND ITS BUILD PLAN"; contract = corpus
+ * prototypes/brand_refresh_2026-10-26/before_after.html (Plan §1a, the role table).
+ *
+ * ── WHAT IS IN HERE ─────────────────────────────────────────────────────────
+ * 1. ROLES. A colour is named by its JOB, never by its hue: page · surface · surface-2 · ink ·
+ *    muted · line · primary · on-primary · link · selected · selected-soft · badge · badge-ink ·
+ *    success(-wash) · warning(-wash) · danger(-wash) · info(-wash) · focus · masthead(-ink).
+ *    Each is an `R G B` triple so Tailwind's `/<alpha>` works (`bg-page`, `text-muted`,
+ *    `border-line`, `bg-primary text-on-primary` …, tailwind.config.ts `colors`).
+ *    TODAY'S VALUES — byte for byte the colours the app paints now (Light and Dark), so this file
+ *    changes NO pixel. `lib/theme-roles-are-todays-colours.test.ts` pins every one of them to the
+ *    globals.css token it was measured from.
+ * 2. LEGACY ALIASES. The colour-word tokens that components still name (`--color-cream`,
+ *    `--color-mulberry`, `--color-terracotta`, `--ink-soft` …) are re-pointed AT the roles, so
+ *    editing a role here moves every `bg-cream` / `bg-mulberry` / `text-ink/55` in the app too.
+ *    They stay until the raw-colour baseline (scripts/raw-colour.baseline.txt) reads zero; then
+ *    the aliases and the legacy names are deleted (plan step 17).
+ *
+ * ── WHY THE ALIASES WIN WITHOUT DEPENDING ON FILE ORDER ─────────────────────
+ * globals.css still DECLARES those legacy names with literal values (`:root` 0,1,0 and
+ * `html.dark` 0,1,1) — 160+ tests and the contrast lint parse those literals, so they stay until
+ * the flip regenerates them. The alias rule below is `html:root, html.dark:root`: specificity
+ * (0,1,1) in Light and (0,2,1) in Dark — always one step above globals.css, whichever stylesheet
+ * the bundler emits first. The literals in globals.css are therefore shadowed: equal today
+ * (pinned), dead at runtime.
+ *
+ * ── WHAT IS NOT IN HERE (owner scope, plan §1a "Separation from the Event Hub") ──
+ * The guest Event Hub (`app/[slug]`, `.sn-editorial`) and the Maker set the SAME legacy names per
+ * event on their OWN element (buildSitePaletteVars in app/[slug]/_lib/pro-site-vars.ts,
+ * `[data-hub-theme]` blocks in globals.css). Those are descendants of <html>, so a couple's
+ * palette still wins inside their hub; nothing below targets anything but the root element.
+ *
+ * TO RESTYLE THE APP: change the role values in the two blocks below (Light, then Dark), check
+ * `pnpm lint:contrast`, done. The legacy names follow on their own.
+ */
+
+/* ── 1 · ROLES — Light (today) ───────────────────────────────────────────── */
+:root {
+  --role-page: 255 255 255;          /* = --color-cream   #FFFFFF */
+  --role-surface: 255 255 255;       /* = --color-raised  #FFFFFF (a card one step above the page) */
+  --role-surface-2: 244 242 236;     /* = --surface-soft  #F4F2EC (a quiet wash) */
+  --role-ink: 44 42 41;              /* = --color-ink     #2C2A29 */
+  --role-muted: 79 83 91;            /* = --ink-soft      #4F535B */
+  --role-line: 234 234 234;          /* = ink at 10 % over the page (`border-ink/10`) #EAEAEA — no token held it */
+  --role-primary: 194 78 37;         /* = --color-mulberry #C24E25 (the main button) */
+  --role-on-primary: 255 255 255;    /* = --sn-on-accent  #FFFFFF (words on the main button) */
+  --role-link: 59 78 103;            /* = --color-link    #3B4E67 */
+  --role-selected: 169 131 75;       /* = --color-terracotta #A9834B (the picked tab / pill) */
+  --role-selected-soft: 244 236 216; /* = --accent-soft   #F4ECD8 (a quiet picked wash) */
+  --role-badge: 243 236 223;         /* = --ramp-terracotta-100 #F3ECDF */
+  --role-badge-ink: 140 105 50;      /* = --color-terracotta-700 #8C6932 (what `text-terracotta` paints) */
+  --role-success: 43 116 74;         /* = --color-ok      #2B744A */
+  --role-success-wash: 227 236 224;  /* = --ramp-success-100 #E3ECE0 */
+  --role-warning: 150 90 0;          /* = --color-warn    #965A00 */
+  --role-warning-wash: 243 236 223;  /* = --ramp-warn-100 #F3ECDF */
+  --role-danger: 179 38 30;          /* = --color-danger  #B3261E */
+  --role-danger-wash: 244 215 201;   /* = --ramp-danger-100 #F4D7C9 */
+  --role-info: 59 78 103;            /* = --color-info (= --color-link) #3B4E67 */
+  --role-info-wash: 226 234 239;     /* = --ramp-info-100 #E2EAEF */
+  --role-focus: 194 78 37;           /* = the A11Y-1 global ring, `rgb(var(--color-mulberry))` */
+  --role-masthead: 194 78 37;        /* = --sn-accent (the event Home band) */
+  --role-masthead-ink: 255 255 255;  /* = --sn-on-accent (words on that band) */
+}
+
+/* ── 1 · ROLES — Dark (today; painted only on DARK_READY routes, lib/appearance.ts) ── */
+html.dark {
+  --role-page: 23 22 15;             /* #17160F */
+  --role-surface: 35 32 25;          /* #232019 */
+  --role-surface-2: 43 40 33;        /* #2B2821 */
+  --role-ink: 251 250 247;           /* #FBFAF7 */
+  --role-muted: 182 185 190;         /* #B6B9BE */
+  --role-line: 46 45 38;             /* ink at 10 % over the dark page */
+  --role-primary: 229 121 78;        /* #E5794E */
+  --role-on-primary: 23 22 15;       /* #17160F */
+  --role-link: 157 178 206;          /* #9DB2CE */
+  --role-selected: 203 167 102;      /* #CBA766 */
+  --role-selected-soft: 65 56 39;    /* #413827 */
+  --role-badge: 92 71 38;            /* --ramp-terracotta-100, dark */
+  --role-badge-ink: 168 131 64;      /* --color-terracotta-700, dark */
+  --role-success: 111 207 151;       /* #6FCF97 */
+  --role-success-wash: 44 57 42;
+  --role-warning: 240 180 90;        /* #F0B45A */
+  --role-warning-wash: 63 48 25;
+  --role-danger: 242 129 122;        /* #F2817A */
+  --role-danger-wash: 95 48 33;
+  --role-info: 157 178 206;
+  --role-info-wash: 47 62 73;
+  --role-focus: 229 121 78;
+  --role-masthead: 229 121 78;
+  --role-masthead-ink: 23 22 15;
+}
+
+/* ── 2 · LEGACY ALIASES — the colour-word names, pointed at the roles ────── */
+/* Only names whose value equals one role in BOTH themes are aliased; the rest (the -600/-700
+ * steps, the --ramp-* ladders, the kit families --m-* / --sn-* / --fd-* …) are migrated by the
+ * area batches (plan steps 5–14), each lowering the raw-colour baseline. */
+html:root,
+html.dark:root {
+  --color-cream: var(--role-page);
+  --color-raised: var(--role-surface);
+  --color-ink: var(--role-ink);
+  --ink-soft: var(--role-muted);
+  --color-mulberry: var(--role-primary);
+  --sn-on-accent: var(--role-on-primary);
+  --color-link: var(--role-link);
+  --color-terracotta: var(--role-selected);
+  --color-ok: var(--role-success);
+  --color-warn: var(--role-warning);
+  --color-danger: var(--role-danger);
+  --color-info: var(--role-info);
+  /* hex-valued slots read as `var(--surface)` (no alpha) — same colour, written as rgb() */
+  --surface: rgb(var(--role-surface));
+  --surface-soft: rgb(var(--role-surface-2));
+  --accent-soft: rgb(var(--role-selected-soft));
+}

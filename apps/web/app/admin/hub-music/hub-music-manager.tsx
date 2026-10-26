@@ -735,7 +735,7 @@ function EditTrack({
           type="button"
           onClick={onRemove}
           disabled={busy}
-          className="inline-flex h-11 items-center gap-2 rounded-md border border-danger/40 px-4 text-sm font-medium text-danger hover:bg-danger/5 disabled:opacity-50"
+          className="inline-flex h-11 items-center gap-2 rounded-md border px-4 text-sm font-medium disabled:opacity-50"
         >
           <Trash2 className="h-4 w-4" aria-hidden />
           Remove

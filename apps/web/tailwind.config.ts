@@ -165,6 +165,37 @@ const config: Config = {
         'sn-spring': 'var(--sn-pill-spring)',
       },
       colors: {
+        // ── THE ROLES (brand refresh step 1, owner 2026-10-26 · app/theme.css) ──────────────
+        // A colour by its JOB. Every value is a `--role-*` triple in app/theme.css — the ONE file
+        // that restyles the app. New code uses ONLY these; the colour-word families below
+        // (cream · terracotta · mulberry · ink/NN · gold · the ramps …) are legacy, counted by
+        // scripts/lint-raw-colour.mjs, and leave as the area batches migrate their readers.
+        // `ink`, `link` and `surface` are roles too — they keep their existing keys below, whose
+        // tokens app/theme.css now aliases to `--role-ink` / `--role-link` / `--role-surface`.
+        page: 'rgb(var(--role-page) / <alpha-value>)',
+        'surface-2': 'rgb(var(--role-surface-2) / <alpha-value>)',
+        muted: 'rgb(var(--role-muted) / <alpha-value>)',
+        line: 'rgb(var(--role-line) / <alpha-value>)',
+        primary: 'rgb(var(--role-primary) / <alpha-value>)',
+        // `text-on-primary` — nested so its first word (`on`) is a key (scripts/lint-colour-exists.mjs).
+        on: { primary: 'rgb(var(--role-on-primary) / <alpha-value>)' },
+        selected: {
+          DEFAULT: 'rgb(var(--role-selected) / <alpha-value>)',
+          soft: 'rgb(var(--role-selected-soft) / <alpha-value>)',
+        },
+        badge: {
+          DEFAULT: 'rgb(var(--role-badge) / <alpha-value>)',
+          ink: 'rgb(var(--role-badge-ink) / <alpha-value>)',
+        },
+        warning: {
+          DEFAULT: 'rgb(var(--role-warning) / <alpha-value>)',
+          wash: 'rgb(var(--role-warning-wash) / <alpha-value>)',
+        },
+        focus: 'rgb(var(--role-focus) / <alpha-value>)',
+        masthead: {
+          DEFAULT: 'rgb(var(--role-masthead) / <alpha-value>)',
+          ink: 'rgb(var(--role-masthead-ink) / <alpha-value>)',
+        },
         // Themeable surface tokens — values resolve at runtime from CSS vars
         // defined in globals.css per mode. Light mode = Clean Editorial
         // Alabaster + Obsidian + Champagne; dark mode (html.dark) = Obsidian
@@ -358,6 +389,10 @@ const config: Config = {
         // `lib/every-colour-token-has-a-dark-pair.test.ts` fails if a
         // literal colour comes back here.
         success: {
+          // Roles (app/theme.css): `bg-success` / `text-success` and its quiet `-wash`. The numbered
+          // ramp below is legacy — counted by lint-raw-colour.
+          DEFAULT: 'rgb(var(--role-success) / <alpha-value>)',
+          wash: 'rgb(var(--role-success-wash) / <alpha-value>)',
           50: 'rgb(var(--ramp-success-50) / <alpha-value>)',
           100: 'rgb(var(--ramp-success-100) / <alpha-value>)',
           200: 'rgb(var(--ramp-success-200) / <alpha-value>)', // --m-sage
@@ -384,6 +419,10 @@ const config: Config = {
           950: 'rgb(var(--ramp-warn-950) / <alpha-value>)',
         },
         danger: {
+          // Roles (app/theme.css): `bg-danger` / `text-danger` and its quiet `-wash`. The numbered
+          // ramp below is legacy — counted by lint-raw-colour.
+          DEFAULT: 'rgb(var(--role-danger) / <alpha-value>)',
+          wash: 'rgb(var(--role-danger-wash) / <alpha-value>)',
           50: 'rgb(var(--ramp-danger-50) / <alpha-value>)',
           100: 'rgb(var(--ramp-danger-100) / <alpha-value>)', // --m-blush
           200: 'rgb(var(--ramp-danger-200) / <alpha-value>)',
@@ -477,6 +516,10 @@ const config: Config = {
         // tier). Added 2026-07-15 to retire the last raw `violet` one-offs on the
         // vendor surface (kit: gold + info-slate + warm semantics only).
         info: {
+          // Roles (app/theme.css): `bg-info` / `text-info` and its quiet `-wash`. The numbered
+          // ramp below is legacy — counted by lint-raw-colour.
+          DEFAULT: 'rgb(var(--role-info) / <alpha-value>)',
+          wash: 'rgb(var(--role-info-wash) / <alpha-value>)',
           50: 'rgb(var(--ramp-info-50) / <alpha-value>)',
           100: 'rgb(var(--ramp-info-100) / <alpha-value>)', // --sn-info-soft
           200: 'rgb(var(--ramp-info-200) / <alpha-value>)',

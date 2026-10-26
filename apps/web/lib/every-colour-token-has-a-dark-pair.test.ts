@@ -90,10 +90,11 @@ const isDarkBlock = (b: Block) =>
   /(^|[\s,])html\.dark\b/.test(b.sel) || b.ctx.some((c) => /prefers-color-scheme:\s*dark/.test(c));
 
 /** `{ light: name→value at the root selector, dark: names redeclared in a dark block }`. */
-function tokens(file: string, rootSel: RegExp, darkSel: RegExp) {
+function tokens(file: string | string[], rootSel: RegExp, darkSel: RegExp) {
   const light = new Map<string, string>();
   const dark = new Set<string>();
-  for (const b of blocks(read(file))) {
+  const css = (Array.isArray(file) ? file : [file]).map(read).join('\n');
+  for (const b of blocks(css)) {
     const inMediaOrSupports = b.ctx.some((c) => /^@(media|supports|container)/.test(c));
     for (const [, name = '', value = ''] of b.body.matchAll(/--([a-z0-9-]+)\s*:\s*([^;]+);/gi)) {
       if (isDarkBlock(b) && darkSel.test(b.sel)) dark.add(name);
@@ -103,7 +104,9 @@ function tokens(file: string, rootSel: RegExp, darkSel: RegExp) {
   return { light, dark };
 }
 
-const G = tokens('app/globals.css', /^(:root|html)$/, /^html\.dark$/);
+// globals.css + app/theme.css — the colour ROLES (brand refresh step 1, 2026-10-26) live in the
+// latter, and the Tailwind palette reads them (`--role-*`), so both are the root token source.
+const G = tokens(['app/globals.css', 'app/theme.css'], /^(:root|html)$/, /^html\.dark$/);
 const FD = tokens('app/_components/frontdoor/front-door.css', /^\.fd$/, /^html\.dark \.fd$/);
 
 test('the readers find what they are meant to find (a zero is a measurement, not a silence)', () => {

@@ -217,6 +217,20 @@ jobs:
         id: guard_colour_exists
         continue-on-error: true
         run: node apps/web/scripts/lint-colour-exists.mjs
+
+      # NO NEW RAW COLOUR (brand refresh, owner 2026-10-26: "if we choose a
+      # different color … it will be easy to make the whole app look
+      # differently"). A per-file RATCHET on hex / rgb() / `R G B` literals,
+      # colour-word + palette + ramp Tailwind classes and roles with an /alpha
+      # on Setnayan's own screens: a count may fall, never rise, and a file not
+      # in apps/web/scripts/raw-colour.baseline.txt may hold none. New code
+      # names a ROLE from apps/web/app/theme.css. The guest Event Hub
+      # (app/[slug], OG cards) and the couple-chosen looks are not scanned.
+      # See apps/web/scripts/lint-raw-colour.mjs.
+      - name: Lint raw colour
+        id: guard_raw_colour
+        continue-on-error: true
+        run: node apps/web/scripts/lint-raw-colour.mjs
       # Every column added to public.events after the 20271007100000 lockdown must
       # carry its own GRANT SELECT (col). The table revokes table-level SELECT and
       # re-grants a computed allowlist, so an ungranted column is unreadable through
@@ -570,6 +584,7 @@ jobs:
           NO_CARD: ${{ steps.guard_no_card.outcome }}
           SERVER_ACTION_BUDGET: ${{ steps.guard_server_action_budget.outcome }}
           COLOUR_EXISTS: ${{ steps.guard_colour_exists.outcome }}
+          RAW_COLOUR: ${{ steps.guard_raw_colour.outcome }}
           EVENTS_GRANTS: ${{ steps.guard_events_grants.outcome }}
           VENDOR_PROFILES_GRANTS: ${{ steps.guard_vendor_profiles_grants.outcome }}
           POOL_CONFIG_COLUMNS: ${{ steps.guard_pool_config_columns.outcome }}
@@ -611,6 +626,7 @@ jobs:
           check 'lint no new cards'           "$NO_CARD"
           check 'lint server-action budget'   "$SERVER_ACTION_BUDGET"
           check 'lint colour names resolve'   "$COLOUR_EXISTS"
+          check 'lint raw colour'             "$RAW_COLOUR"
           check 'lint events column grants'  "$EVENTS_GRANTS"
           check 'lint vendor_profiles column grants'  "$VENDOR_PROFILES_GRANTS"
           check 'lint one comment stripper'   "$ONE_STRIPPER"

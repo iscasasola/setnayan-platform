@@ -16,6 +16,7 @@
     "lint:legibility": "node scripts/lint-guest-legibility.mjs",
     "lint:radius": "node scripts/lint-radius.mjs",
     "lint:no-card": "node scripts/lint-no-card.mjs",
+    "lint:raw-colour": "node scripts/lint-raw-colour.mjs",
     "lint:contrast": "node scripts/lint-label-on-fill-contrast.mjs",
     "lint:vendor-layout": "node scripts/lint-vendor-layout-revalidate.mjs",
     "lint:masthead": "node scripts/lint-page-masthead.mjs",

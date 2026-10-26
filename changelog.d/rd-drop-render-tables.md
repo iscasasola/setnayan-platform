@@ -20,6 +20,7 @@ place, erasing its two rows (both on the owner's own event: a free `consent_bonu
   subject-scope pins; the two erasure-coverage rows; the five render db tests; the Ugat `TYPE-RENDERS` node, its
   three joints and claims, its count and colour; the two `event_inspiration_assets` render claims (now a
   `no_column source_render_id` claim, `source_kind_check_v5`); the 10 `rpc-no-caller` both-ends rows (51 → 41).
+- Export + erasure guardrails: the two dropped user-keyed tables get DELIBERATE_EXCLUSIONS rows (the parsers cannot see a DROP).
 - Regenerated: exposure baseline (removals only, 6776 → 6706 facts), user-FK behaviour map (242 → 239).
 - Kept: `MOODBOARD_RENDER_PACK` catalogue row (inactive since #6938; an order row may name it) and
   `lib/moodboard-render-parts.ts` (its part ids are still the finalization vocabulary).

@@ -556,7 +556,7 @@ export async function loadGuestCard(
     cameAfterAll: cameAfterAll(guest),
     choices: choiceErr
       ? null
-      : ((choiceRows ?? []) as {
+      : withoutTakenProxies((choiceRows ?? []) as {
           guest_id: string;
           first_name: string;
           last_name: string;
@@ -651,4 +651,10 @@ async function readCoupleRowHolders(
     owner = (person as { claimed_by_user_id: string | null } | null)?.claimed_by_user_id ?? null;
   }
   return { linked: (held.data ?? []).length > 0, ownedByAnother: owner !== null && owner !== viewerId };
+}
+
+/** 🧍 A guest who already stands in for someone (named in another row's `represented_by_guest_id`) is not offered again. */
+function withoutTakenProxies<T extends { guest_id: string; represented_by_guest_id: string | null }>(rows: T[]): T[] {
+  const taken = new Set(rows.map((r) => r.represented_by_guest_id).filter((id): id is string => Boolean(id)));
+  return rows.filter((r) => !taken.has(r.guest_id));
 }

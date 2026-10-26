@@ -10,7 +10,7 @@
  *     (`guestChecklistItems`), the greeting's role line (`roleCode`) — `dressRole`, never `guest.role`;
  *   · the host's card (guest-card-data.ts): the attire line (`guestOutfitOf`) and the call time (`guestArriveBy`);
  *   · the ticket (pass-card.server.ts): one card (`readPassCardGuest`) and the couple's zip (`eligiblePassCardGuests`)
- *     wear the stand-in role before `passCardPass` reads Arrive.
+ *     wear the stand-in role before `passCardPass` reads Arrive; the reminder email's checklist does the same.
  *
  * Sabotage (2026-10-27): `role: guest.role ?? null` put back into `guestMeFacts` → test 1 red; `role: guest.role` into
  * the card's `guestOutfitOf` → test 2 red; the `wearTheirStandInRoles` call dropped from `readPassCardGuest` → test 3 red;
@@ -55,6 +55,9 @@ test('3 · the ticket — one card and the zip — reads Arrive from the stand-i
   const zip = src.slice(src.indexOf('export async function eligiblePassCardGuests'));
   assert.match(zip.slice(0, 1400), /await wearTheirStandInRoles\(admin, filterEligible\(/);
   assert.match(src, /arrive: guestArriveBy\(\{ role: g\.role as GuestRole \| null/);
+  // …and the reminder email's checklist (the same ticket reading, before `guestChecklistItems`).
+  const reminder = read('lib/guest-reminder-emails.ts');
+  assert.match(reminder, /const guests = await wearTheirStandInRoles\(admin, /);
 });
 
 test('4 · a proxy is offered — and accepted — ONLY for a guest who holds a role', () => {

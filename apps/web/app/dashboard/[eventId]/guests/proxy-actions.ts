@@ -100,6 +100,9 @@ export async function setGuestProxy(eventId: string, holderGuestId: string, move
   }
 
   revalidatePath(`/dashboard/${eventId}/guests`);
+  // Both cards of the pair, when one is open on its own page.
+  revalidatePath(`/dashboard/${eventId}/guests/${holderGuestId}`);
+  if (proxyId ?? h.represented_by_guest_id) revalidatePath(`/dashboard/${eventId}/guests/${proxyId ?? h.represented_by_guest_id}`);
   revalidatePath(`/dashboard/${eventId}/seating`);
   return { ok: true, proxyGuestId: move.kind === 'keep' ? h.represented_by_guest_id : proxyId };
 }

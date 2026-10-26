@@ -1,4 +1,5 @@
 import 'server-only';
+import { wearTheirStandInRoles } from '@/lib/pass-card.server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { guestsMaySeeSeatsFor } from '@/lib/guests-may-see-seats';
 import { isEmailConfigured, sendEmail } from '@/lib/email';
@@ -220,7 +221,8 @@ async function remindOneEvent(
     logQueryError('guest-reminder-emails: guests.select', guestsErr, { event_id: ev.event_id });
     return { scanned: 0, sent: 0 };
   }
-  const guests = ((guestsRaw ?? []) as ReminderGuestRow[]).filter((g) => isSendableEmail(g.email) && g.qr_token);
+  // 🧍 A proxy's checklist says the ROLE's dress code and call time (owner 2026-10-27) — the ticket's own reading.
+  const guests = await wearTheirStandInRoles(admin, ((guestsRaw ?? []) as ReminderGuestRow[]).filter((g) => isSendableEmail(g.email) && g.qr_token));
   if (guests.length === 0) return { scanned: 0, sent: 0 };
 
   // ── The facts every guest's checklist shares, gathered ONCE per event ──

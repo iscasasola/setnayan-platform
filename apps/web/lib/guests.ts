@@ -752,8 +752,7 @@ export async function fetchGuestsByEventMeasured(
     /** The roster and the reception-desk registry only: they LIST a guest who
      *  passed away (never counting them). Everyone else reads the living list. */
     includePassedAway?: boolean;
-    /** 🧍 The roster, the card, the prints and the export only: they LIST a represented role holder (the pair is one
-     *  row; the entourage still names them). Everyone else reads the counted list — the proxy, not the holder. */
+    /** 🧍 Roster + export only: they LIST a represented role holder (REPRESENTED_BY). */
     includeRepresented?: boolean;
   } = {},
 ): Promise<MeasuredGuests> {

@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Search } from 'lucide-react';
 import { ChosenRow, FormRow, TypedRow } from '@/app/_components/form-row';
@@ -44,7 +43,6 @@ export function GuestProxyRow({
   variant: 'page' | 'panel';
 }) {
   const { setGuestProxy } = useGuestActions();
-  const router = useRouter();
   const [query, setQuery] = useState('');
   const [adding, setAdding] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
@@ -60,8 +58,8 @@ export function GuestProxyRow({
         setProblem(res.error);
         return res.error;
       }
+      // The action revalidates the Guests page, so its answer already carries the new card — no second render.
       setAdding(false);
-      router.refresh();
       return null;
     } catch {
       const why = 'Couldn’t save — check your connection and try again.';

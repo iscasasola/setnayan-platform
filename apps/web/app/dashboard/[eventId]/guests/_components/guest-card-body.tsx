@@ -1124,23 +1124,28 @@ export function GuestCardBody({
             value={seatWithNoName ? 'Release this +1 seat' : seats > 0 && !canReset ? 'Removes them and their +1' : 'Asks first · can be undone'}
             last
             danger
+            /* ⓘ Title + one short line visible, what each does inside the ⓘ (house rule, coordinator review of #6937). */
+            tip={
+              seatWithNoName ? undefined : (
+                <span className="block space-y-1.5" data-card-delete-says="">
+                  {canReset ? (
+                    <span className="block" data-card-reset-says="">
+                      Reset: Their reply and what they typed in it are cleared, as if never opened. Their link, QR and seat stay.
+                    </span>
+                  ) : null}
+                  <span className="block">
+                    {canReset ? 'Delete: ' : null}
+                    {seats > 0
+                      ? 'Their QR and link stop working. Their +1’s seat goes too. You can undo it right after.'
+                      : 'Their QR and link stop working. You can undo it right after.'}
+                  </span>
+                </span>
+              )
+            }
           >
-            {/* The prototype's words (`guest_card_groups_and_papic_2026-10-23.html`), said before the button — all but its last
+            {/* The prototype's words (`guest_card_groups_and_papic_2026-10-23.html`), now inside the ⓘ — all but its last
                 clause: the prototype says "This can be undone for a day", and the shipped Undo is the toast's, open for SIX
                 SECONDS (`undo-store.ts` UNDO_WINDOW_MS). A promise of a day would be false, so it says what is true. */}
-            {canReset ? (
-              <p className="text-xs text-ink/55" data-card-reset-says="">
-                Reset: Their reply and what they typed in it are cleared, as if never opened. Their link, QR and seat stay.
-              </p>
-            ) : null}
-            {seatWithNoName ? null : (
-              <p className="text-xs text-ink/55" data-card-delete-says="">
-                {canReset ? 'Delete: ' : null}
-                {seats > 0
-                  ? 'Their QR and link stop working. Their +1’s seat goes too. You can undo it right after.'
-                  : 'Their QR and link stop working. You can undo it right after.'}
-              </p>
-            )}
             <DeleteControl eventId={eventId} guestId={guest.guest_id} guestName={name} seatWithNoName={seatWithNoName} resettable={canReset} />
           </K.Fold>
         ) : null}

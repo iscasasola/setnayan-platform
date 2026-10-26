@@ -16,9 +16,12 @@
  *      restored as pending; no `invitation_sent_at`, `notes`, `mobile` or `qr_token` in any write; the Undo through
  *      `restoreGuestRsvpAndSeat` after the same gate.
  *   6. The card: Reset first, Delete second, side by side, only on a guest's own card (never the couple, never a +1).
+ *   7. The fold shows the title, "Asks first · can be undone" and the two buttons; what each does is inside the ⓘ beside
+ *      the title (`Fold`'s `tip`, drawn BESIDE the head — never a button inside a button). Coordinator review of #6937.
  *
  * SABOTAGE (each seen RED, then restored): `display_name` dropped from `freshGuestWrite` → tests 1, 3, 4 red · Reset
- * called before the limited-helper gate in `setGuestRsvp` → test 5 red.
+ * called before the limited-helper gate in `setGuestRsvp` → test 5 red · the Reset sentence moved back into the fold's
+ * body → test 7 red.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -193,7 +196,7 @@ test('6 · the card: Reset first, Delete second, side by side, on a guest’s ow
   const r = control.indexOf('data-guest-reset=""');
   const d = control.indexOf('data-guest-delete=""');
   assert.ok(r > 0 && d > r, 'Reset is drawn before Delete');
-  assert.match(control, /className=\{resettable && !seatWithNoName \? 'grid grid-cols-2 gap-2' : undefined\}/, 'two equal buttons side by side');
+  assert.match(control, /className=\{resettable && !seatWithNoName \? 'grid grid-cols-2 gap-2 \[&>span>\*\]:w-full \[&>span\]:flex' : undefined\}/, 'two equal buttons side by side');
   assert.match(control, /<GuestResetFlow eventId=\{eventId\} guestId=\{guestId\}/);
   const body = read('guest-card-body.tsx');
   assert.match(body, /const canReset = !isCouple && !guest\.plus_one_of_guest_id;/, 'never the couple, never a +1 seat');
@@ -202,4 +205,23 @@ test('6 · the card: Reset first, Delete second, side by side, on a guest’s ow
   assert.match(flow, /setGuestRsvp\(eventId, \[guestId\], 'pending', \{ fresh: true \}\)/);
   assert.match(flow, /pushUndo\(\{[\s\S]*restoreGuestRsvpAndSeat\(eventId, \[\], null, fresh\)/, 'Undo right after, in the same toast');
   assert.match(flow, /const \{ setGuestRsvp, restoreGuestRsvpAndSeat \} = useGuestActions\(\);/, 'through the context — the lab’s stand-ins answer there');
+});
+
+test('7 · the fold: title, one short line and the two buttons visible — what each does inside the ⓘ beside the title', () => {
+  const body = read('guest-card-body.tsx');
+  const fold = body.slice(body.indexOf("summary={canReset ? 'Reset · Delete' : 'Delete'}"), body.indexOf('</K.Fold>', body.indexOf("summary={canReset ? 'Reset · Delete' : 'Delete'}")));
+  const tipAt = fold.indexOf('tip={');
+  const childrenAt = fold.indexOf('<DeleteControl');
+  assert.ok(tipAt > 0 && childrenAt > tipAt, 'the explanations are a prop of the fold');
+  assert.match(fold.slice(tipAt, childrenAt), /Reset: Their reply and what they typed in it are cleared/, 'the Reset line is in the ⓘ');
+  assert.match(fold.slice(tipAt, childrenAt), /Their QR and link stop working/, 'the Delete line is in the ⓘ');
+  const visible = fold.slice(fold.indexOf('}\n          >') + 13, childrenAt);
+  assert.doesNotMatch(visible, /<p\b|Reset:|stop working/, 'no explanation sentence is drawn in the fold’s body (comments are already stripped by `read`)');
+  assert.match(fold, /value=\{seatWithNoName \? 'Release this \+1 seat' : seats > 0 && !canReset \? 'Removes them and their \+1' : 'Asks first · can be undone'\}/);
+  // The fold draws the ⓘ BESIDE its head button, the title as the ⓘ's own label — never nested in the head.
+  const f = readFileSync(join(HERE, '..', '..', '..', '..', '_components', 'fold.tsx'), 'utf8');
+  const foldSrc = stripComments(f);
+  assert.match(foldSrc, /tipped \? \(\s*<div className="flex items-center gap-2" data-fold-row="" data-fold-tipped="">\s*<div className="shrink-0 cursor-pointer" data-fold-title="" onClick=\{\(e\) => !\(e\.target as Element\)\.closest\('button'\) && setOpen\(\(o\) => !o\)\}>\s*<OneOpenScope id=\{scope\}>\s*<InfoTip label=\{title\}[\s\S]*?\{tip\}\s*<\/InfoTip>\s*<\/OneOpenScope>\s*<\/div>\s*\{head\}/, 'the ⓘ sits beside the head, its label the title, inside the fold’s scope (opening it must not shut the fold)');
+  const rows = read('guest-card-rows.tsx');
+  assert.match(rows, /tip=\{tip\}/, 'the card’s fold hands its tip to the house Fold');
 });

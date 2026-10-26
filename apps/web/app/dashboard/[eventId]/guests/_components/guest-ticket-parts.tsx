@@ -481,11 +481,11 @@ export function GuestDeleteControl({
     else router.push(`/dashboard/${eventId}/guests`);
   };
   return (
-    <div data-guest-delete-control="" className={resettable && !seatWithNoName ? 'grid grid-cols-2 gap-2' : undefined}>
+    <div data-guest-delete-control="" className={resettable && !seatWithNoName ? 'grid grid-cols-2 gap-2 [&>span>*]:w-full [&>span]:flex' : undefined}>
       {/* (RESET) (DELETE) — two equal buttons, Reset first; each asks first and offers Undo right after. */}
       {resettable && !seatWithNoName ? (
-        <span data-guest-reset="" className="flex">
-          <ActionButton tone="warn" icon={RotateCcw} label="Reset" onClick={() => setConfirmReset(true)} className="w-full" />
+        <span data-guest-reset="">
+          <ActionButton tone="warn" icon={RotateCcw} label="Reset" onClick={() => setConfirmReset(true)} />
         </span>
       ) : null}
       {seatWithNoName ? (
@@ -493,8 +493,8 @@ export function GuestDeleteControl({
           <ActionButton tone="danger" icon={Armchair} label="Release seat" onClick={() => void releaseSeat([guestId], { onReleased: closeCard })} />
         </span>
       ) : (
-        <span data-guest-delete="" className={resettable ? 'flex' : undefined}>
-          <ActionButton tone="danger" icon={Trash2} label="Delete guest" onClick={() => setConfirmDelete(true)} className={resettable ? 'w-full' : undefined} />
+        <span data-guest-delete="">
+          <ActionButton tone="danger" icon={Trash2} label="Delete guest" onClick={() => setConfirmDelete(true)} />
         </span>
       )}
       {confirmReset ? (

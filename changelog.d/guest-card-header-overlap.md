@@ -17,9 +17,11 @@ box sticks inside its scroller's padding, so the header stuck 20px down with the
 - 📌 Owner: *"Let the invite … button pin to the top when it goes out of screen"* — while the card's Invite is scrolled
   up under the header, a compact Invite ▾ appears in it before ✕: the same `GuestInviteCell` button portalled into
   `InspectorColumn`'s new `pinSlot` (`useHeadPin`, an IntersectionObserver — no scroll math), opening the same sheet.
-  Short fade; none under reduced motion. A long name truncates first.
+  Short fade; none under reduced motion. Under 480px it is a 44px round button (send glyph + ▾, named "Invite …") and
+  the header's spacing tightens, so "Daniel Ramos" and "GUEST · GROOM'S SIDE" both fit at 390; the full pill above.
 - 🔄 Owner: *"So at the bottom, have (RESET) (DELETE)"* — the bottom group is "Reset · Delete", two equal buttons, Reset
-  first. Reset asks first (the Delete warning's shape) and offers Undo in the same toast. It clears what the reply
+  first; visible are the title, "Asks first · can be undone" and the buttons, what each does is in the ⓘ beside the
+  title (`Fold`'s new `tip`, drawn beside the head and inside the fold's one-open scope). Reset asks first (the Delete warning's shape) and offers Undo in the same toast. It clears what the reply
   wrote (measured from `submitRsvp` / `nameTheSeats`): the answer → No reply, meal, dietary, the guest's note, what to
   call them (`display_name` — only the reply writes it on a guest's own row), the photo-tagging answer, the "+1 name"
   mirror, the +1 seats THEY named (back to "+N · TBA", never deleted — the "+N" is their rows) and their songs still

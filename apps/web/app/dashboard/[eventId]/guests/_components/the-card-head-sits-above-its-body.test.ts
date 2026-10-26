@@ -22,11 +22,16 @@
  *      an IntersectionObserver decides (`isPinnedUnderHead`, executed below), never a scroll listener — and the copy opens
  *      the same sheet (`invite('head')`, anchored to it). It fades in, and not at all under reduced motion.
  *
+ *   7. 📱 On a phone (< 480px) the pinned Invite is a 44px round button — send glyph + ▾, its word hidden, its NAME still
+ *      "Invite …" — and the header's spacing tightens, so "Daniel Ramos" and "GUEST · GROOM'S SIDE" both fit at 390
+ *      (coordinator review of #6937; measured with scrollWidth vs clientWidth in WebKit). The full pill from 480px up.
+ *
  * NOT CLAIMED: the pixels — those are the before/after shots in the PR (`shots-2026-10-26/guest-card-overlap/`), measured
  * with elementFromPoint on the header's hairline (before: the body's Invite / ⋯; after: the header, at every point).
  *
  * SABOTAGE (each seen RED, then restored): the header back to `z-index: 2` · `isolation: isolate` dropped from the body ·
- * the body drawing the face again over the panel · the pinned copy drawn without `pin.pinned`.
+ * the body drawing the face again over the panel · the pinned copy drawn without `pin.pinned` · the phone rule's
+ * `.lbl { display: none }` removed.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -146,4 +151,18 @@ test('6c · the pinned Invite is the SAME cell’s button, drawn only while its 
   assert.match(decl(pin, 'animation') ?? '', /^sn-pin-in /, 'it fades in');
   assert.match(CSS, /@media \(prefers-reduced-motion: reduce\) \{\s*\.sn-inspector-pin \{ animation: none; \}/, 'no fade under reduced motion');
   assert.equal(decl(rule('.sn-inspector-pin-slot:empty'), 'display'), 'none', 'an empty slot takes no room beside the name');
+});
+
+test('7 · on a phone the pinned Invite is a 44px round button (glyph + ▾), named in full — the full pill from 480px', () => {
+  const m = /@media \(max-width: 479\.98px\) \{([\s\S]*?)\n\}/.exec(CSS);
+  assert.ok(m, 'the phone rule for the pinned Invite is gone');
+  const phone = m![1]!;
+  assert.match(phone, /\.sn-inspector-pin \.ab \{ width: 44px; min-width: 44px; height: 44px; padding: 0; gap: 0; \}/, 'a 44px round button');
+  assert.match(phone, /\.sn-inspector-pin \.ab \.lbl \{ display: none; \}/, 'the word is hidden on a phone');
+  assert.match(phone, /\.sn-inspector-pin \.ab \[data-caret\]/, 'the ▾ stays');
+  assert.match(phone, /\.sn-inspector-sheet \.sn-inspector-head \{ gap: 8px; \}/, 'the header’s spacing tightens on a phone');
+  // The SAME button: it keeps its word for its name, and its caret.
+  const portal = CELL.slice(CELL.indexOf('createPortal(') - 40, CELL.indexOf('pin.slot,') + 9);
+  assert.match(portal, /name=\{sentAt \? `Invite \$\{guest\.fullName\} — sent \$\{sentDay\}` : `Invite \$\{guest\.fullName\}`\}/, 'its name still says who it invites');
+  assert.match(portal, /label="Invite"/);
 });

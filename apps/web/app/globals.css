@@ -6731,6 +6731,18 @@ html.dark .sn-side-panel-scrim {
 .sn-inspector-pin-slot:empty { display: none; }
 .sn-inspector-pin { display: inline-flex; animation: sn-pin-in var(--sn-dur-control, 0.15s) var(--sn-ease-out) backwards; }
 .sn-inspector-pin .ab { padding: 0 12px; gap: 5px; }
+/* 📱 On a phone the pinned Invite is a 44px round button — the send glyph and ▾ only (its name still says "Invite …"),
+ * so the name and the eyebrow keep their room (coordinator review of #6937: "Daniel…" → "Daniel Ramos"). The same
+ * button, the same sheet; the full pill from 480px up. */
+@media (max-width: 479.98px) {
+  .sn-inspector-pin .ab { width: 44px; min-width: 44px; height: 44px; padding: 0; gap: 0; }
+  .sn-inspector-pin .ab .lbl { display: none; }
+  .sn-inspector-pin .ab svg { width: 17px; height: 17px; }
+  .sn-inspector-pin .ab [data-caret] { width: 11px; height: 11px; margin: 0 -1px 0 0; }
+  /* …and the header's own spacing tightens a little, so "GUEST · GROOM'S SIDE" and "Daniel Ramos" both fit at 390. */
+  .sn-inspector-sheet .sn-inspector-head { gap: 8px; }
+  .sn-inspector-sheet .sn-inspector-head .sn-eye { letter-spacing: 0.1em; }
+}
 @keyframes sn-pin-in { from { opacity: 0 } to { opacity: 1 } }
 @media (prefers-reduced-motion: reduce) {
   .sn-inspector-pin { animation: none; }

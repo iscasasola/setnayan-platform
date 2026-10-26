@@ -24,7 +24,7 @@ import { hearAction } from './hear-action';
 export function resetWarningText(name: string): { title: string; body: string } {
   return {
     title: `Reset ${name}’s invitation?`,
-    body: 'Their reply goes back to No reply, and what they typed in it is cleared — meal, dietary, their note, what to call them, the names they gave their +1s and songs still waiting. Their link, QR, seat and your info stay. You can undo it right after.',
+    body: 'Their reply goes back to No reply, and what they typed in it is cleared — meal, dietary, their note, what to call them, the names they gave their +1s and songs still waiting. Their link, QR, seat and the details you entered stay. You can undo it right after.',
   };
 }
 

@@ -537,8 +537,8 @@ export function ServicesStep({
   onSelectionChange,
   className,
   packPicker = false,
-  solemn = false,
   suppliersOn = true,
+  solemn = false,
 }: {
   /**
    * What the couple has picked so far. Present WITH `onSelectionChange` ⇒ the

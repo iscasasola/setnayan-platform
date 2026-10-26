@@ -1386,13 +1386,14 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // links to a route the store shell is refused (lib/store-shell.ts).
   // 🍎 Where Apple sells Setnayan AI for THIS event (lib/iap/setnayan-ai-in-app.server.ts), the banner shows in the
   // app too — it carries no price, and its page's pay step is Apple's sheet.
-  // 🧭 …and only while this event has Suppliers on (the onboarding's "What do you need?" row,
-  // `setnayanAiOffered`, owner 2026-10-26) — the one rule every Setnayan AI offer follows.
   const aiOffer =
     shouldOfferSetnayanAiPurchaseForEvent(ev, aiGateOpts) &&
-    (!storeShell || appleSai) &&
-    setnayanAiOffered(await readEventNeedsFor(supabase, eventId, 'VendorsPage'));
-  const aiOfferBanner = aiOffer ? (
+    (!storeShell || appleSai);
+  // 🧭 …and only while this event has Suppliers on (the onboarding's "What do you need?" row,
+  // `setnayanAiOffered`, owner 2026-10-26) — the one rule every Setnayan AI offer follows. Asked only
+  // when there is an offer to make.
+  const saiOffered = aiOffer && setnayanAiOffered(await readEventNeedsFor(supabase, eventId, 'VendorsPage'));
+  const aiOfferBanner = saiOffered ? (
     <Link
       href={`/dashboard/${eventId}/studio/setnayan-ai`}
       className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-mulberry/25 bg-mulberry/5 px-4 py-3 transition-colors hover:bg-mulberry/10"

@@ -184,7 +184,7 @@ export default async function SetnayanAiPage({ params }: Props) {
   const appleSells = appleProduct !== null;
   // Paid Sai (paywall on) is shown in the app — bought, owned or for sale — only where Apple sells this event's tier
   // (3.1.3(b)); a free Sai (paywall off) is planning and stays.
-  if (appleIap && paywallOn && !appleSells && !notOffered) redirect(`/dashboard/${eventId}`);
+  if (appleIap && paywallOn && !appleSells) redirect(`/dashboard/${eventId}`);
   const settings = showBuy && !appleIap ? await fetchPlatformSettings(supabase) : null;
 
   return (

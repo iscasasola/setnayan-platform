@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "061819e00a",
+  "generatedFromRef": "5259fbfa43",
   "routeCount": 474,
   "destinations": 1014,
   "actions": 661,
-  "blocks": 7163,
+  "blocks": 7164,
   "routes": {
     "/": {
       "files": [
@@ -12292,6 +12292,7 @@
         "SetupAnswers",
         "SetupCard",
         "SimpleSetupFlow",
+        "SimpleSuppliersOnContext.Provider",
         "SubmitButton"
       ]
     },

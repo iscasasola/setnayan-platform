@@ -8,7 +8,8 @@ import { getCurrentUser } from '@/lib/auth';
 import { resolveSetnayanAiDisplayPricePhp } from '@/lib/setnayan-ai-server';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { eventOwnsSku } from '@/lib/entitlements';
-import { isSetnayanAiActiveForEvent } from '@/lib/setnayan-ai';
+import { setnayanAiOffered, isSetnayanAiActiveForEvent } from '@/lib/setnayan-ai';
+import { readEventNeedsFor } from '@/lib/event-needs-read.server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   resolveSetnayanAiPaywallEnabled,
@@ -157,8 +158,16 @@ export default async function SetnayanAiPage({ params }: Props) {
   const priceLabel =
     pricePhp != null ? `₱${Math.round(pricePhp).toLocaleString('en-PH')}` : null;
 
+  /* 🧭 SUPPLIERS OFF ⇒ NOT OFFERED (owner 2026-10-26, DECISION_LOG "SETNAYAN AI SHOWS ONLY WHEN THE EVENT HAS
+     SUPPLIERS ON": "it is based on the onboarding"). The onboarding's Suppliers row (`events.suppliers_on`) is read
+     through the ONE predicate, `setnayanAiOffered`. Off and not owned ⇒ no pitch, no price, no Unlock — one plain
+     line, and NO redirect (owner rule: a page never throws the person somewhere else). An event that OWNS it keeps
+     every state below exactly as it was. */
+  const offered = setnayanAiOffered(await readEventNeedsFor(supabase, eventId, 'SetnayanAiStudio'));
+  const notOffered = !offered && !owns;
+
   // Only the BUY branch needs the BDO/GCash settings · fetch lazily there.
-  const showBuy = !active && !owns && paywallOn;
+  const showBuy = !active && !owns && paywallOn && !notOffered;
 
   /* 🍎 THE iPHONE APP, WHERE APPLE SELLS (`getIapGate().iap`; owner 2026-10-23, "five more Apple products"). The page
      opens there (lib/store-shell.ts `IAP_OPENED_ROUTE`) and its ONE pay step is Apple's sheet: no web price, no
@@ -175,7 +184,7 @@ export default async function SetnayanAiPage({ params }: Props) {
   const appleSells = appleProduct !== null;
   // Paid Sai (paywall on) is shown in the app — bought, owned or for sale — only where Apple sells this event's tier
   // (3.1.3(b)); a free Sai (paywall off) is planning and stays.
-  if (appleIap && paywallOn && !appleSells) redirect(`/dashboard/${eventId}`);
+  if (appleIap && paywallOn && !appleSells && !notOffered) redirect(`/dashboard/${eventId}`);
   const settings = showBuy && !appleIap ? await fetchPlatformSettings(supabase) : null;
 
   return (
@@ -193,7 +202,12 @@ export default async function SetnayanAiPage({ params }: Props) {
           BUY state only — never re-pitch an owner (consistency plan Tier 4 rule,
           extended to Setnayan AI 2026-06-25). The "tool" itself (the ranked
           shortlist) lives on /vendors, so the active state leads straight there. */}
-      {active ? (
+      {notOffered ? (
+        <p data-sai-not-offered="" className="text-sm leading-relaxed text-ink/70">
+          Setnayan AI works with your suppliers. This {eventWord} has Suppliers switched off, so there is nothing for
+          it to do yet — switch Suppliers on from Home and it appears here.
+        </p>
+      ) : active ? (
         <>
           <PageMasthead
             titleNode={

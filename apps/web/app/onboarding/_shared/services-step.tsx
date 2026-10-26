@@ -80,6 +80,7 @@
  */
 
 import { SERVICE_NAMES, serviceNameLine } from '@/lib/service-names';
+import { setnayanAiOffered } from '@/lib/setnayan-ai';
 import { useMemo, useState, type ReactNode } from 'react';
 import { Camera, CheckCircle2, Globe2, Sparkles, Users, UserRound } from 'lucide-react';
 
@@ -537,6 +538,7 @@ export function ServicesStep({
   className,
   packPicker = false,
   solemn = false,
+  suppliersOn = true,
 }: {
   /**
    * What the couple has picked so far. Present WITH `onSelectionChange` ⇒ the
@@ -579,8 +581,19 @@ export function ServicesStep({
    * 2026-10-15 removed that — every pack now states its own estimate instead.
    */
   packPicker?: boolean;
+  /**
+   * 🧭 The draft's "What do you need?" Suppliers row, LIVE (owner 2026-10-26, DECISION_LOG "SETNAYAN AI
+   * SHOWS ONLY WHEN THE EVENT HAS SUPPLIERS ON": *"it is based on the onboarding"*). false ⇒ card 2 is not
+   * drawn and its pick never reaches the total — switched back on, it returns as it was. Absent ⇒ true ⇒
+   * a flow with no Suppliers choice (the wedding) reads byte-identically.
+   */
+  suppliersOn?: boolean;
 }) {
-  const { papic, ai } = view;
+  const { papic } = view;
+  // 🧭 ONE predicate decides (`setnayanAiOffered`, lib/setnayan-ai.ts) — never a second rule here.
+  const ai = setnayanAiOffered({ suppliers: suppliersOn }) ? view.ai : null;
+  // An AI pick made before Suppliers was switched off never prices: the quote reads it as not picked.
+  const quoted = selection && !ai && selection.ai ? setAi(selection, false) : selection;
   const hubPro = view.hubPro ?? null;
   const types = useMemo(
     () => orderPapicTypes(papic.types, interestedServices),
@@ -591,15 +604,15 @@ export function ServicesStep({
   const interactive = selection != null && onSelectionChange != null;
   const quote = useMemo(
     () =>
-      selection
+      quoted
         ? quoteServicesStepSelection(
             papic.types,
-            selection,
+            quoted,
             ai?.pricePhp ?? null,
             hubPro?.pricePhp ?? null,
           )
         : { poolPhp: 0, aiPhp: 0, hubProPhp: 0, papicPhp: 0, totalPhp: 0 },
-    [papic.types, selection, ai, hubPro],
+    [papic.types, quoted, ai, hubPro],
   );
 
   /**
@@ -609,15 +622,15 @@ export function ServicesStep({
    */
   const laterPhp = useMemo(
     () =>
-      selection
+      quoted
         ? quoteServicesStepLaterSelection(
             papic.types,
-            selection,
+            quoted,
             ai?.listPricePhp ?? ai?.pricePhp ?? null,
             hubPro?.listPricePhp ?? hubPro?.pricePhp ?? null,
           )
         : 0,
-    [papic.types, selection, ai, hubPro],
+    [papic.types, quoted, ai, hubPro],
   );
   const savingPhp = Math.max(0, laterPhp - quote.totalPhp);
 

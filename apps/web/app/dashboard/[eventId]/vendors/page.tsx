@@ -29,6 +29,7 @@ import { setnayanAiTierInApp } from '@/lib/iap/setnayan-ai-in-app.server';
 import { storeShellAllowsPaidFeature } from '@/lib/store-shell';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { readEventNeedsFor } from '@/lib/event-needs-read.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { agreedTotalNow, fetchChangeLinesByVendor } from '@/lib/agreed-total-and-its-changes';
 import { buildBenchStandings } from '@/lib/conversation-list';
@@ -82,6 +83,7 @@ import { getTaxonomy } from '@/lib/taxonomy-db';
 import {
   isSetnayanAiActiveForEvent,
   shouldOfferSetnayanAiPurchaseForEvent,
+  setnayanAiOffered,
 } from '@/lib/setnayan-ai';
 import {
   resolveSetnayanAiPaywallEnabled,
@@ -1384,9 +1386,12 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // links to a route the store shell is refused (lib/store-shell.ts).
   // 🍎 Where Apple sells Setnayan AI for THIS event (lib/iap/setnayan-ai-in-app.server.ts), the banner shows in the
   // app too — it carries no price, and its page's pay step is Apple's sheet.
+  // 🧭 …and only while this event has Suppliers on (the onboarding's "What do you need?" row,
+  // `setnayanAiOffered`, owner 2026-10-26) — the one rule every Setnayan AI offer follows.
   const aiOffer =
     shouldOfferSetnayanAiPurchaseForEvent(ev, aiGateOpts) &&
-    (!storeShell || appleSai);
+    (!storeShell || appleSai) &&
+    setnayanAiOffered(await readEventNeedsFor(supabase, eventId, 'VendorsPage'));
   const aiOfferBanner = aiOffer ? (
     <Link
       href={`/dashboard/${eventId}/studio/setnayan-ai`}

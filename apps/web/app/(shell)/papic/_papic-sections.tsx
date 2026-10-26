@@ -50,9 +50,9 @@ import { Spotlights, type Spotlight } from '@/app/_components/marketing/_spotlig
  *   • The live wall is FREE — `LIVE_WALL` is inactive in the catalog *because*
  *     it is in the free set, not because it was retired.
  *   • The keepsake magazine (`KWENTO`) is FREE for the same reason.
- *   • The Thank-You film (`PAPIC_ADDON_THANK_YOU`) is ACTIVE at a real price,
- *     so it carries a paid marker. Listing it beside the free things unmarked
- *     would be the one dishonest line on the page.
+ *   • The Thank-You film (`PAPIC_ADDON_THANK_YOU`) is FREE since 2026-10-26
+ *     (owner, "make it free for now") — in the free set, row off — so it
+ *     carries no paid marker any more.
  *
  * 📷 The photographs are our own demo celebration, already in `public/`. They
  * are illustrative of the MOMENT each feature is for — they are not screenshots
@@ -120,7 +120,7 @@ const EVERYTHING_ELSE: readonly Extra[] = [
   { t: 'A recap page', d: 'The event gathered into one page you can send.' },
   { t: 'A keepsake magazine', d: 'Your photographs laid out to print, with your guests’ words beside the picture each one is about. Free.' },
   { t: 'Life flash', d: 'The whole story, cut short and set to music.' },
-  { t: 'A thank-you film', d: 'Made from the night and addressed to the people who came.', paid: true },
+  { t: 'A thank-you film', d: 'Made from the night and addressed to the people who came. Free.' },
   { t: 'Memories that read in chapters', d: 'Grouped by how far from the day each photo was taken, so the run-up reads as the run-up.' },
   { t: 'A copy in your own Google Drive', d: 'Connect it and your originals land there too.' },
   { t: 'Posters and place cards you can print', d: 'The codes come ready to put on the tables.' },

@@ -17,6 +17,7 @@ import {
   papicCreditsMatch,
   IAP_PRODUCT_IDS,
   RETIRED_HUB_PART_PRODUCT_IDS,
+  RETIRED_IAP_PRODUCT_IDS,
   RETIRED_HUB_PART_SERVICE_KEYS,
   iapPriceRowFor,
   iapProductFitsAiTier,
@@ -41,7 +42,7 @@ test('ruling 1 + 23 Oct — Papic credits, Event Hub Pro, Live Watch and the fiv
     // assertion that stood here (ruling 1, 2026-10-18: "Setnayan AI is a second wave").
     // 🗑 MOODBOARD_RENDER_PACK left with Mood Board renders (owner 2026-10-26, "can we delete that?").
     'PAKANTA',
-    'PAPIC_ADDON_THANK_YOU',
+    // 🗑 PAPIC_ADDON_THANK_YOU left — the Thank-You Video is free for every event (owner 2026-10-26).
     'PAPIC_GUEST_100',
     'PAPIC_GUEST_10K',
     'PAPIC_GUEST_1K',
@@ -69,7 +70,7 @@ test('🍎 23 Oct — the five more: ids are exactly the controller’s (FOREVER
     ['com.setnayan.app.setnayan_ai_tier_d', 'SETNAYAN_AI', 'event-unlock', 'Setnayan AI', null],
     ['com.setnayan.app.music_maker', 'PAKANTA', 'event-unlock', 'Music Maker', null],
     ['com.setnayan.app.patiktok', 'PATIKTOK_COMPILER', 'event-unlock', 'Patiktok', null],
-    ['com.setnayan.app.papic_thank_you', 'PAPIC_ADDON_THANK_YOU', 'event-unlock', 'Thank You', null],
+    // 🗑 com.setnayan.app.papic_thank_you is RETIRED (owner 2026-10-26) — held by the test below.
   ];
   for (const [id, key, kind, name, credits] of want) {
     const p = iapProductById(id);
@@ -88,6 +89,18 @@ test('🗑 the retired Mood Board render pack is sold by no product, and its id 
   assert.equal(iapProductById('com.setnayan.app.mood_board_renders_50'), null);
   assert.equal(iapProductForServiceKey('MOODBOARD_RENDER_PACK'), null);
   assert.ok(!IAP_PRODUCTS.some((p) => /mood_board|MOODBOARD/i.test(p.productId + p.serviceKey)), 'a Mood Board product is back');
+});
+
+test('🗑 Thank You is sold by no product — free for every event — and its id is kept, never reused (owner 2026-10-26)', () => {
+  /* "let us remove thank you from the inapp purchase" → "make it free for now". */
+  assert.equal(iapProductById('com.setnayan.app.papic_thank_you'), null, 'the Thank You product is sold again');
+  assert.equal(iapProductForServiceKey('PAPIC_ADDON_THANK_YOU'), null, 'Thank You has an App Store product again');
+  assert.ok(RETIRED_IAP_PRODUCT_IDS.includes('com.setnayan.app.papic_thank_you'), 'the retired id is no longer listed — it could be reused');
+  for (const id of RETIRED_IAP_PRODUCT_IDS) {
+    assert.equal(iapProductById(id), null, `${id} is retired and sold again`);
+    assert.ok(!IAP_PRODUCT_IDS.includes(id), `${id} is asked of StoreKit`);
+  }
+  assert.ok(RETIRED_HUB_PART_PRODUCT_IDS.every((id) => RETIRED_IAP_PRODUCT_IDS.includes(id)), 'a retired part id is missing from the one retired list');
 });
 
 test('ruling 3 — every product is a CONSUMABLE (one purchase for the current event)', () => {

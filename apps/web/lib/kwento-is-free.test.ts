@@ -44,16 +44,20 @@ test('Kwento is free for every event', () => {
   asked to place the boundary exactly: the Thank-You film stays paid. Papic
   FEATURES are free; Papic SHOTS are the product.
 
+  ⚠ MOVED 2026-10-26 by the owner himself: *"let us remove thank you from the
+  inapp purchase"* → *"make it free for now"*. The film left this list and joined
+  FREE_FOR_ALL_SKUS (its own test: thank-you-video-is-free.test.ts). The SHOTS
+  line stands.
+
   This is the assertion that stops a future "make Papic free" sweep from taking
   the revenue with it.
 */
-test('the shot ladder and the produced film are NOT free', () => {
+test('the shot ladder is NOT free', () => {
   for (const paid of [
     'PAPIC_GUEST_100',
     'PAPIC_GUEST',
     'PAPIC_GUEST_10K',
     'PAPIC_GUEST_20K',
-    'PAPIC_ADDON_THANK_YOU',
   ]) {
     assert.ok(!FREE_FOR_ALL_SKUS.has(paid), `${paid} is what Papic SELLS`);
   }

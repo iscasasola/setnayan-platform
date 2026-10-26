@@ -270,11 +270,11 @@ test('✦ Setnayan AI: the purchase switches the event’s flag on; Apple’s re
   assert.equal(await flag(), false, 'refunded and still on');
 });
 
-test('Music Maker · Patiktok · Thank You: each ONE paid iOS order (ownership reads it); a refund leaves it refunded', async () => {
+test('Music Maker · Patiktok: each ONE paid iOS order (ownership reads it); a refund leaves it refunded', async () => {
   for (const [productId, key] of [
     ['com.setnayan.app.music_maker', 'PAKANTA'],
     ['com.setnayan.app.patiktok', 'PATIKTOK_COMPILER'],
-    ['com.setnayan.app.papic_thank_you', 'PAPIC_ADDON_THANK_YOU'],
+    // Thank You left the App Store 2026-10-26 — free for every event (lib/iap/products.ts RETIRED_IAP_PRODUCT_IDS).
   ] as const) {
     const { eventId, t } = await buyInApp(productId);
     assert.deepEqual((await ordersFor(eventId)).map((o) => [o.status, o.service_key, o.platform]), [['paid', key, 'ios']], productId);

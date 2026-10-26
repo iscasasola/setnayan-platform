@@ -298,7 +298,8 @@ export const STORE_SHELL_WEB_ONLY_PATH = '/web-only';
  *   · 🍎 (owner 2026-10-23, "five more Apple products") the homes of Setnayan AI
  *     (`studio/setnayan-ai`), Music Maker (`studio/pakanta`), Patiktok
  *     (`studio/patiktok` + its booth and templates) and the Thank-You Video
- *     (`studio/thank-you`). Each page's ONE pay step becomes Apple's sheet
+ *     (`studio/thank-you` — FREE for every event since 2026-10-26, so it opens
+ *     here with no pay step at all; its Apple product is retired). Each page's ONE pay step becomes Apple's sheet
  *     (`IapUnlockSheet`) and draws no web price, no GCash / BDO and no web link
  *     when `getIapGate().iap` is true. (Mood Board is a free planning page that
  *     is never refused; its paid part, Make it real, was retired 2026-10-26.)

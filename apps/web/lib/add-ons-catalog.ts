@@ -887,8 +887,8 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     blurb: 'A short film for the people who came — made from the photos everyone agreed to share.',
     cta: 'Make the film',
     studioGroup: 'capture',
-    // Paid SKU — without this the Studio card never flips to Active/Pending when
-    // owned (paid-features-auto-show). Canonical V2 code (sku-catalog-v2.ts).
+    // The SKU the card reads (paid-features-auto-show). FREE for every event since
+    // 2026-10-26 (FREE_FOR_ALL_SKUS) — it reads as owned everywhere. Canonical V2 code.
     serviceKey: 'PAPIC_ADDON_THANK_YOU',
     poster: {
       motion: 'scan',

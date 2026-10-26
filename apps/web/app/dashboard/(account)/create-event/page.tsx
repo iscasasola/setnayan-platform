@@ -10,6 +10,7 @@ import { resolveProfile } from '@/lib/event-type-profile';
 import { fetchCommunity } from '@/lib/communities';
 import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
 import { isPersonDependent } from '@/lib/dependent-people';
+import { lovedOnesInMyCare, spouseIdSet, type DependentOwnership } from '@/lib/my-loved-ones';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { hiddenMeasuredTypes, type ConcernPerson } from '@/lib/life-event-gate';
 import { manilaToday } from '@/lib/std-views';
@@ -212,18 +213,31 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
     dependentPeopleEnabled() &&
     (await isDataPrivacyControlActive('dependent_minor_profiles'))
   ) {
-    // RLS scopes this to the viewer's own (+ married-household shared)
-    // dependents; a household concern counts. Handed-over records aged out.
-    const { data: deps, error: depsError } = await supabase
-      .from('dependents')
-      .select('dependent_id, name, dependent_kind, birth_date, sex, claimed_user_id')
-      .is('handed_over_at', null);
+    // ⚠ RLS IS NOT THE SCOPE: it admits an ADMIN to every dependent on the platform (owner 2026-10-27, on this
+    // picker: "Why do i have flowerstoreph and indigocaterers" — three were other users' businesses). The rows are
+    // the viewer's own loved ones still in their care (+ a real spouse's shared ones), by the ONE rule in
+    // `lib/my-loved-ones.ts` — the same one the People page uses.
+    const [{ data: deps, error: depsError }, { data: spouseIds, error: spouseError }] = await Promise.all([
+      supabase
+        .from('dependents')
+        .select(
+          'dependent_id, name, dependent_kind, birth_date, sex, claimed_user_id, owner_user_id, handed_over_by_user_id, shared_with_spouse, handed_over_at',
+        )
+        .is('handed_over_at', null),
+      supabase.rpc('current_spouse_user_ids'),
+    ]);
     // ⚠ the dependents this person can create an event for. Refused, the picker offers
     // ⚠ none and they cannot start an event for a child they already added.
     if (depsError) {
       logQueryError('CreateEventPage.deps', depsError, {}, 'graceful_degrade');
     }
-    const rows = (deps ?? []) as DependentSubjectRow[];
+    // Refused, a spouse's shared rows are left out — never someone else's.
+    if (spouseError) logQueryError('CreateEventPage.depsSpouse', spouseError, {}, 'graceful_degrade');
+    const rows: DependentSubjectRow[] = lovedOnesInMyCare(
+      (deps ?? []) as Array<DependentSubjectRow & DependentOwnership>,
+      user.id,
+      spouseIdSet(spouseIds),
+    );
     hiddenTypeKeys = hiddenMeasuredTypes(
       rows.filter((r) => isPersonDependent(r.dependent_kind)) as ConcernPerson[],
       today,

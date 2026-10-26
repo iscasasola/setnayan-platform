@@ -1777,7 +1777,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     writtenBy: 'Vendor-add flow on the couple dashboard · CSV import · admin-assisted booking entry',
     guardedBy: 'current_event_ids() for the couple side; vendor side reads via current_vendor_ids() when vendor_org_id is set',
     traps:
-      'Org FK (vendor_org_id) is SET-NULL nullable — a booking can point at an off-platform vendor with no org row. category_key DOES have a real FK. The coarse `category` enum is resolved from service_categories.coarse_category (③0-c, 2026-10-26; read through getTaxonomy(), lib/vendor-branch-category.ts BRANCH_TO_VENDOR_CATEGORY is only the seed/fallback) — a category with no value files its bookings under misc. Deleting a category a couple-side VendorCategory is anchored on is REFUSED (deletionWouldBreakCoupleLinks).',
+      'Org FK (vendor_org_id) is SET-NULL nullable — a booking can point at an off-platform vendor with no org row. category_key DOES have a real FK. The coarse `category` enum is resolved from service_categories.coarse_category (③0-c, 2026-10-26; read through getTaxonomy(), lib/vendor-branch-category.ts BRANCH_TO_VENDOR_CATEGORY is only the seed/fallback) — a NEW category inherits its group\'s most common sibling value on insert (trigger service_categories_inherit_coarse_category, ③0-c part 2; ties → first sibling by sort_order); one left with no value files its bookings under misc. Deleting a category a couple-side VendorCategory is anchored on is REFUSED (deletionWouldBreakCoupleLinks).',
   },
   {
     id: 'J8',

@@ -16,10 +16,8 @@
  *      (`deletionWouldBreakCoupleLinks`, called by `deleteTileWithDestination`), where it used to be
  *      a number on the admin page read after the damage.
  *
- * ⚠ OPEN OWNER QUESTION, pinned rather than guessed: a category created with NO coarse category
- * still resolves to `misc` (case "a new category with no coarse category…"). How a new category
- * gets one — chosen on create, set on its panel, inherited — is a product call this PR does not
- * make. When it is made, that case changes.
+ * A NEW category inherits its group's most common coarse category (controller decision
+ * 2026-10-26; trigger `service_categories_inherit_coarse_category`, ③0-c part 2) — section 2b.
  */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -136,10 +134,86 @@ test('an admin re-files an existing category → the resolvers follow', async ()
   });
 });
 
-test('OPEN OWNER QUESTION — a new category with no coarse category still files its shops under misc', async () => {
-  await asAdminEdit(addCategory(null), async () => {
+/* ═════ 2b · A NEW CATEGORY INHERITS ITS GROUP'S COARSE CATEGORY (③0-c part 2) ═══════════════
+   Controller decision 2026-10-26: a new category created with no coarse category takes its group's
+   most common sibling value; ties → the first sibling by sort_order; no sibling with a value → NULL.
+   Enforced by the BEFORE INSERT trigger `service_categories_inherit_coarse_category`, so every door
+   that creates a category (the admin page's `createTaxonomyNode` today) gets it. */
+
+const GROUP = 'one_source_test_group';
+const tier1 = `INSERT INTO public.service_categories (id, parent_id, tier, kind, label_en, slug, sort_order)
+  VALUES ('${GROUP}', NULL, 1, 'branch', 'Test group', 'one-source-test-group', 999)`;
+const sibling = (id: string, sort: number, coarse: string | null) =>
+  `INSERT INTO public.service_categories (id, parent_id, tier, kind, label_en, slug, sort_order, coarse_category)
+   VALUES ('${id}', '${GROUP}', 2, 'leaf', '${id}', '${id.replace(/_/g, '-')}', ${sort}, ${coarse ? `'${coarse}'` : 'NULL'})`;
+const created = `INSERT INTO public.service_categories (id, parent_id, tier, kind, label_en, slug, sort_order)
+  VALUES ('${NEW_TILE}', '${GROUP}', 2, 'leaf', 'Drone shows', 'one-source-drone-shows', 99)`;
+
+async function storedCoarse(id: string): Promise<string | null> {
+  const r = await db.query<{ c: string | null }>(
+    `SELECT coarse_category::text AS c FROM public.service_categories WHERE id = $1`,
+    [id],
+  );
+  return r.rows[0]?.c ?? null;
+}
+
+test('a new category with no coarse category inherits its group\'s MOST COMMON one — and its shops are filed there, not under misc', async () => {
+  await asAdminEdit(
+    [
+      tier1,
+      sibling('os_a', 0, 'florist'),
+      sibling('os_b', 1, 'performers'),
+      sibling('os_c', 2, 'performers'),
+      created,
+      `INSERT INTO public.canonical_service_taxonomy (canonical_service, folder_id, tile_id, phase)
+       VALUES ('${NEW_SERVICE}', '${GROUP}', '${NEW_TILE}', 'V1')`,
+    ],
+    async () => {
+      assert.equal(await storedCoarse(NEW_TILE), 'performers');
+      const live = await taxonomyFromDb(db);
+      assert.equal(vendorCategoryForLeaf(NEW_SERVICE, NEW_TILE, live), 'performers');
+      assert.equal(eventVendorCategoryForCardKind(NEW_TILE, null, live), 'performers');
+    },
+  );
+});
+
+test('a tie goes to the first sibling by sort_order', async () => {
+  await asAdminEdit([tier1, sibling('os_b', 1, 'performers'), sibling('os_a', 0, 'florist'), created], async () => {
+    assert.equal(await storedCoarse(NEW_TILE), 'florist');
+  });
+});
+
+test('siblings with no value do not vote; a group with no sibling value leaves it NULL (→ misc, listed for a look)', async () => {
+  await asAdminEdit([tier1, sibling('os_a', 0, null), created], async () => {
+    assert.equal(await storedCoarse(NEW_TILE), null);
     const live = await taxonomyFromDb(db);
     assert.equal(vendorCategoryForLeaf(NEW_SERVICE, NEW_TILE, live), 'misc');
+  });
+});
+
+test('an explicit coarse category on create wins, and the rule touches no existing row', async () => {
+  await asAdminEdit(addCategory('florist'), async () => {
+    assert.equal(await storedCoarse(NEW_TILE), 'florist', 'the trigger overwrote a value it was given');
+  });
+  await asAdminEdit([`UPDATE public.service_categories SET coarse_category = NULL WHERE id = 'fireworks'`], async () => {
+    assert.equal(await storedCoarse('fireworks'), null, 'the rule must not run on UPDATE');
+  });
+});
+
+test('in a real group the inherited value is the siblings\' mode, computed independently here', async () => {
+  const sibs = await db.query<{ c: string; sort_order: number }>(
+    `SELECT coarse_category::text AS c, sort_order FROM public.service_categories
+      WHERE parent_id = 'design' AND tier = 2 AND coarse_category IS NOT NULL`,
+  );
+  const tally = new Map<string, { n: number; first: number }>();
+  for (const r of sibs.rows) {
+    const t = tally.get(r.c) ?? { n: 0, first: Number.POSITIVE_INFINITY };
+    tally.set(r.c, { n: t.n + 1, first: Math.min(t.first, r.sort_order) });
+  }
+  const expected = [...tally].sort((x, y) => y[1].n - x[1].n || x[1].first - y[1].first)[0]?.[0];
+  assert.ok(expected, 'premise: design has categories with a coarse category');
+  await asAdminEdit(addCategory(null), async () => {
+    assert.equal(await storedCoarse(NEW_TILE), expected);
   });
 });
 

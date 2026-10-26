@@ -265,7 +265,9 @@ async function readArriveLabel(admin: SupabaseClient, eventId: string, out: { at
 /**
  * "and 1 guest" — counted from the plus-one ROWS a bringer has: named (never a
  * "+ TBA" seat), not removed, and not "can't come" on their own reply. A guest
- * whose companion lives only as `plus_one_name` (no row yet) counts one.
+ * with no live row counts none — never the `plus_one_name` mirror (owner
+ * 2026-10-26: a removed +1's name stayed on the mirror, so "no live row" printed
+ * "and 1 guest" for the person just deleted).
  */
 async function readPartyCounts(admin: SupabaseClient, eventId: string, bringerIds?: string[]): Promise<Map<string, number> | null> {
   const out = new Map<string, number>();
@@ -285,8 +287,7 @@ async function readPartyCounts(admin: SupabaseClient, eventId: string, bringerId
     return null;
   }
   for (const r of (data ?? []) as Array<{ guest_id: string; first_name: string | null; plus_one_of_guest_id: string; plus_one_name_confirmed_at: string | null; rsvp_status: string | null }>) {
-    // A bringer with seat ROWS is counted from the rows alone (zero included) —
-    // the `plus_one_name` mirror only speaks for a bringer with no rows at all.
+    // Counted from the rows alone (zero included); a bringer with no live row is absent → 0 on the card.
     if (!out.has(r.plus_one_of_guest_id)) out.set(r.plus_one_of_guest_id, 0);
     if (isPlaceholderSeat({ guest_id: r.guest_id, first_name: r.first_name, confirmed_at: r.plus_one_name_confirmed_at })) continue;
     if (r.rsvp_status === 'declined') continue;
@@ -310,9 +311,12 @@ export function passCardPass(kit: PassCardKit, g: PassCardGuest, qrRef: string |
     /* ⏰ THEIR OWN ARRIVE-BY (owner 2026-10-19, cale-ice: Me said 8:00 AM, the ticket under it 2:30 PM) — their role's
        call time, the one Me › Arrive by reads, else the doors' time (`guestArriveBy`). */
     arrive: guestArriveBy({ role: g.role as GuestRole | null, config: kit.set.event.dress_code_config, general: kit.arrive }),
-    // BOTH halves: the couple's permission AND an actual person.
-    bringing: g.plus_one_allowed ? g.plus_one_name : null,
-    party: kit.party === null ? 0 : (kit.party.get(g.guest_id) ?? (g.plus_one_allowed && g.plus_one_name?.trim() ? 1 : 0)),
+    // BOTH halves: the couple's permission AND an actual person — a person on a LIVE +1 row (the party count, read
+    // off the rows). 🧹 The one-name mirror alone never speaks (owner 2026-10-26, cale-ice: "I deleted that guest and
+    // added a new plus 1. It is still there?"): it held the name of a +1 the host had removed. The database keeps it in
+    // step now (migration 20271288562348); a card with no live named row still prints nobody. 🔒 lib/a-removed-plus-one-leaves-no-name.test.ts
+    bringing: g.plus_one_allowed && (kit.party?.get(g.guest_id) ?? 0) > 0 ? g.plus_one_name : null,
+    party: kit.party === null ? 0 : (kit.party.get(g.guest_id) ?? 0),
   };
 }
 

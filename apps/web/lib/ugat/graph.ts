@@ -1703,6 +1703,8 @@ export const UGAT_JOINTS: UgatJoint[] = [
       { kind: 'fk', table: 'guests', column: 'event_id', references: 'events' },
       // The plus-one self-reference is ONE level deep (owner 2026-10-21: "a +1 of a guest cannot have their own +1").
       { kind: 'check', table: 'guests', name: 'a_plus_one_brings_no_one', mentions: 'plus_one_of_guest_id' },
+      // The one-name copy the a_plus_ones_name_is_their_row triggers keep in step with the +1 rows (2026-10-26).
+      { kind: 'column', table: 'guests', column: 'plus_one_name' },
     ],
     chain: 3,
     pair: ['TYPE-EVENTS', 'TYPE-GUESTS'],
@@ -1710,7 +1712,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     joint: null,
     cardinality: 'One-to-many · direct FK, no joint table needed',
     implementedBy:
-      'Direct FK guests.event_id + personal qr_token per guest. Plus-one is a self-referencing guest row (plus_one_of_guest_id), one level only: a +1 brings no +1 — CHECK a_plus_one_brings_no_one (their own count stays 0) + trigger a_plus_one_has_no_plus_one (their bringer is never a +1). A guest’s +N IS their +1 rows: the a_plus_ones_count_is_their_rows triggers run guest_plus_one_seats_follow_count (same advisory lock as guest_plus_one_seat_mint) on every write of plus_one_count — missing TBA seats minted, only unnamed placeholders removed. households groups guests with ON DELETE SET NULL.',
+      'Direct FK guests.event_id + personal qr_token per guest. Plus-one is a self-referencing guest row (plus_one_of_guest_id), one level only: a +1 brings no +1 — CHECK a_plus_one_brings_no_one (their own count stays 0) + trigger a_plus_one_has_no_plus_one (their bringer is never a +1). A guest’s +N IS their +1 rows: the a_plus_ones_count_is_their_rows triggers run guest_plus_one_seats_follow_count (same advisory lock as guest_plus_one_seat_mint) on every write of plus_one_count — missing TBA seats minted, only unnamed placeholders removed. And a guest’s one-name copy guests.plus_one_name IS their +1 rows: the a_plus_ones_name_is_their_row triggers run guest_plus_one_name_follows_rows whenever a NAMED +1 row appears, is removed, comes back (Undo), is renamed or moves — the copy is the oldest live named +1’s name or NULL; readers draw the rows, never the copy (2026-10-26). households groups guests with ON DELETE SET NULL.',
     writtenBy: 'Guest-list add/import flows · CSV bulk import · plus-one add action',
     guardedBy: 'current_event_ids() — same RLS spine as chain 1',
     traps: 'Not every edge hides a table — this one is a plain FK. Don’t assume every line on this map is a joint.',

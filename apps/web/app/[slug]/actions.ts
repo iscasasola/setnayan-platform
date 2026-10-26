@@ -1001,6 +1001,8 @@ async function nameTheSeats(
       const stamp = new Date().toISOString();
       let failed = false;
       let namedCount = 0;
+      // 🧹 The names that LANDED on a seat row, in order — the only names the primary's mirror may carry (below).
+      const landed: string[] = [];
 
       for (const op of ops) {
         // ⚖ Owner 2026-09-29: each plus-one is asked ONLY first name, last
@@ -1058,7 +1060,10 @@ async function nameTheSeats(
           if (error) {
             logQueryError('submitRsvp.nameSeat', error, { event_id: eventId, guest_id: op.seatId }, 'graceful_degrade');
             failed = true;
-          } else namedCount += 1;
+          } else {
+            namedCount += 1;
+            landed.push(`${op.first} ${op.last}`.trim());
+          }
         } else {
           // Same shape the host's own "add a guest" form inserts, so the seat
           // gets a real row — and with it the qr_token the column mints by DEFAULT.
@@ -1110,15 +1115,21 @@ async function nameTheSeats(
             if (comingErr) {
               logQueryError('submitRsvp.seatComing', comingErr, { event_id: eventId, bringer_guest_id: guestId }, 'graceful_degrade');
               failed = true;
-            } else namedCount += 1;
+            } else {
+              namedCount += 1;
+              landed.push(`${op.first} ${op.last}`.trim());
+            }
           }
         }
       }
 
       // Mirror onto the primary so the host's list chips stop reading "+ TBA":
       // the first name given, as the single-seat reply always did.
-      const named = ops.find((o) => o.kind !== 'details');
-      const firstNamed = named ? `${named.first} ${named.last}`.trim() : '';
+      // 🧹 ONLY A NAME THAT LANDED ON A ROW (owner 2026-10-26: "I deleted that guest and added a new plus 1. It is still
+      // there?"). A mint answered `full` drops the name, a failed write saves nothing — the mirror once took the planned
+      // name anyway, a person on no row. The database also keeps it in step with the rows from here on (migration
+      // 20271288562348 `a_plus_ones_name_is_their_row`).
+      const firstNamed = landed.find(Boolean) ?? '';
       if (firstNamed) {
         const { error } = await admin
           .from('guests')

@@ -60,7 +60,8 @@ test('PERMISSION IS NOT A PERSON — the card asks for both', () => {
   // Since 2026-09-30 the page draws no facts itself — the guest's pass is the
   // Digital ticket (on Me), whose facts come from `passCardPass`.
   const src = stripComments(readFileSync(join(__dirname, 'pass-card.server.ts'), 'utf8'));
-  assert.match(src, /bringing: g\.plus_one_allowed \? g\.plus_one_name : null/);
+  // 🧹 …and a person on a LIVE named +1 row (the party count, 2026-10-26: the copy alone named a removed +1).
+  assert.match(src, /bringing: g\.plus_one_allowed && \(kit\.party\?\.get\(g\.guest_id\) \?\? 0\) > 0 \? g\.plus_one_name : null/);
   // And the resolver itself never reads a boolean. Comments are stripped with
   // the ONE shared stripper first: this file's own docblock EXPLAINS
   // `plus_one_allowed`, and prose about a construct is not the construct — the

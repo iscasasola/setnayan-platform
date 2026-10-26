@@ -233,3 +233,27 @@ export function shouldOfferSetnayanAiPurchaseForEvent(
   if (!paywallEnabled) return false;
   return !ownsPerEvent;
 }
+
+/**
+ * 🧭 IS SETNAYAN AI OFFERED ON THIS EVENT AT ALL? — the ONE predicate every offer site calls.
+ *
+ * ⚖ Owner 2026-10-26 (DECISION_LOG "SETNAYAN AI SHOWS ONLY WHEN THE EVENT HAS SUPPLIERS ON"), verbatim:
+ * *"so when suppliers are deactivated on the event to be created, Setnayan AI does not need to show."* —
+ * and, asked which switch: *"it is based on the onboarding"*. So the input is the onboarding's
+ * "What do you need?" Suppliers row: live in the create flow (`EventNeeds.suppliers`, the draft) and,
+ * once the event exists, the stored `events.suppliers_on` read back by `readEventNeeds` (NULL = never
+ * asked = ON, so every event made before the needs screen reads exactly as it did).
+ *
+ * `false` ⇒ draw NO Setnayan AI offer, toggle, upsell or price line. Everything Setnayan AI does is about
+ * suppliers (rank them, route the first inquiry, chase the quiet ones, flag their payments), so on an
+ * event with Suppliers off every one of those lines would be a fake door.
+ *
+ * 🔒 IT NEVER TAKES ANYTHING AWAY. An event that already OWNS Setnayan AI keeps it — this only decides
+ * whether we ADVERTISE it. Each surface keeps its own "owned / pending" row as it was; and the commit
+ * paths drop an AI pick made on a Suppliers-off draft rather than charge for it.
+ *
+ * Held by `apps/web/lib/setnayan-ai-needs-suppliers.test.ts` (every offer site calls this).
+ */
+export function setnayanAiOffered(needs: { suppliers: boolean } | null | undefined): boolean {
+  return needs?.suppliers !== false;
+}

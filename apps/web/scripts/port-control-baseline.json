@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "e07349e5e7",
+  "generatedFromRef": "587d82ab79",
   "routeCount": 473,
   "destinations": 994,
   "actions": 642,
-  "blocks": 7095,
+  "blocks": 7098,
   "routes": {
     "/": {
       "files": [
@@ -11101,6 +11101,7 @@
       "blocks": [
         "AppleProScreen",
         "ApplyProSheetLab",
+        "ChallengeCardRow",
         "CollectionCard",
         "CollectionGrid",
         "DayOfModeGrid",
@@ -11113,6 +11114,7 @@
         "LabShell",
         "LabSpotlight",
         "PapicBuySheet",
+        "PapicCameraHelp",
         "PapicCameraSettings",
         "PapicSwitch",
         "PapicTopBand",
@@ -12132,6 +12134,7 @@
         "SetupAnswers",
         "SetupCard",
         "SimpleSetupFlow",
+        "SimpleSuppliersOnContext.Provider",
         "SubmitButton"
       ]
     },

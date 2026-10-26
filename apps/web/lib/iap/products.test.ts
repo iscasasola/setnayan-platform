@@ -20,7 +20,6 @@ import {
   iapProductFitsAiTier,
   iapSetnayanAiProductForTier,
   iapProductIsRepeatable,
-  moodBoardRendersMatch,
 } from './products';
 import { COUPLE_WEBSITE_PRO_SERVICE_KEY } from '@/lib/couple-website-pro';
 import { HUB_PARTS } from '../hub-parts';
@@ -48,7 +47,7 @@ test('ruling 1 + 23 Oct — Papic credits, Event Hub Pro, Live Watch and the fiv
     // 🍎 The second wave — owner 2026-10-23, verbatim: "Add Setnayan AI, Music Maker, Patiktok, Thank You and Mood
     // Board pack as Apple products before submitting build 6." This SUPERSEDES the first wave's "no Setnayan AI"
     // assertion that stood here (ruling 1, 2026-10-18: "Setnayan AI is a second wave").
-    'MOODBOARD_RENDER_PACK',
+    // 🗑 MOODBOARD_RENDER_PACK left with Mood Board renders (owner 2026-10-26, "can we delete that?").
     'PAKANTA',
     'PAPIC_ADDON_THANK_YOU',
     'PAPIC_GUEST_100',
@@ -79,28 +78,24 @@ test('🍎 23 Oct — the five more: ids are exactly the controller’s (FOREVER
     ['com.setnayan.app.music_maker', 'PAKANTA', 'event-unlock', 'Music Maker', null],
     ['com.setnayan.app.patiktok', 'PATIKTOK_COMPILER', 'event-unlock', 'Patiktok', null],
     ['com.setnayan.app.papic_thank_you', 'PAPIC_ADDON_THANK_YOU', 'event-unlock', 'Thank You', null],
-    ['com.setnayan.app.mood_board_renders_50', 'MOODBOARD_RENDER_PACK', 'mood-board-pack', 'Mood Board · 50 renders', 50],
   ];
   for (const [id, key, kind, name, credits] of want) {
     const p = iapProductById(id);
     assert.ok(p, `${id} missing`);
     assert.deepEqual([p!.serviceKey, p!.kind, p!.appStoreName, p!.credits, p!.appleType], [key, kind, name, credits, 'consumable'], id);
   }
-  // Repeatable = never "owned", hidden from Restore's list: the two packs, nothing else.
+  // Repeatable = never "owned", hidden from Restore's list: the Papic packs, nothing else.
   assert.deepEqual(
     IAP_PRODUCTS.filter((p) => iapProductIsRepeatable(p)).map((p) => p.kind).filter((k, i, a) => a.indexOf(k) === i),
-    ['papic-credits', 'mood-board-pack'],
+    ['papic-credits'],
   );
   assert.equal(iapProductIsRepeatable(null), false);
 });
 
-test('the Mood Board pack is on sale only while the config grants exactly 50 renders from its own catalogue row', () => {
-  const pack = iapProductForServiceKey('MOODBOARD_RENDER_PACK')!;
-  assert.equal(moodBoardRendersMatch(pack, { creditsPerPack: 50, packServiceCode: 'MOODBOARD_RENDER_PACK' }), true);
-  assert.equal(moodBoardRendersMatch(pack, { creditsPerPack: 60, packServiceCode: 'MOODBOARD_RENDER_PACK' }), false);
-  assert.equal(moodBoardRendersMatch(pack, { creditsPerPack: 50, packServiceCode: 'OTHER' }), false);
-  assert.equal(moodBoardRendersMatch(pack, null), false);
-  assert.equal(moodBoardRendersMatch(iapProductForServiceKey('PAKANTA')!, null), true, 'not a pack → no config rule');
+test('🗑 the retired Mood Board render pack is sold by no product, and its id is never reused (owner 2026-10-26)', () => {
+  assert.equal(iapProductById('com.setnayan.app.mood_board_renders_50'), null);
+  assert.equal(iapProductForServiceKey('MOODBOARD_RENDER_PACK'), null);
+  assert.ok(!IAP_PRODUCTS.some((p) => /mood_board|MOODBOARD/i.test(p.productId + p.serviceKey)), 'a Mood Board product is back');
 });
 
 test('ruling 3 — every product is a CONSUMABLE (one purchase for the current event)', () => {

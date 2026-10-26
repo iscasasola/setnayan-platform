@@ -5,11 +5,11 @@
  * That module is the 2026-05-21 watermark, and its own header says what it is:
  * "client-side Canvas watermarking before upload… Upgrade to server-side
  * sharp.js compositing in V1.x if takedown evasion becomes a real problem."
- * It calls `document.createElement('canvas')`. A Mood Board render is produced
- * entirely server-side — the Gemini pipeline hands `render-actions.ts` raw
- * bytes that no browser ever touches — so there is no document to draw on and
- * no upload to intercept. Not a shortcoming of that module; a different place
- * in the pipeline.
+ * It calls `document.createElement('canvas')`. A photo marked here is already
+ * bytes on the server (a supplier's library upload), so there is no document to
+ * draw on and no upload to intercept. Not a shortcoming of that module; a
+ * different place in the pipeline. (It was written for the Mood Board renders,
+ * retired 2026-10-26.)
  *
  * This is the sharp-based equivalent for bytes. It does not replace
  * `watermark.ts`, which still marks vendor marketplace uploads client-side, and
@@ -18,11 +18,8 @@
  * carry the browser half into every server bundle.
  *
  * ── WHAT IT IS FOR, AND WHAT IT IS NOT FOR ────────────────────────────────
- * 🔒 THE COUPLE'S OWN COPY IS NEVER MARKED. This runs on the GALLERY copy —
- * the derived image other couples browse — and never on `image_key`, the
- * photograph the couple paid for. `moodboard-gallery-copy.ts` is the only
- * caller on that side and it names both keys, so the two cannot be confused at
- * the call site.
+ * 🔒 IT MARKS THE GALLERY COPY — the derived image other couples browse —
+ * never the owner's original.
  *
  * The mark is a DETERRENT, not anti-tamper: anyone determined can crop it. The
  * owner directive it serves is about scraping and attribution, and a visible

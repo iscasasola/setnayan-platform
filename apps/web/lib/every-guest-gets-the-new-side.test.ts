@@ -10,7 +10,8 @@
  * here three ways, so a switch cannot come back by any door:
  *
  *   1 · THE REAL GUEST PAGE, DRAWN WITH NOTHING SWITCHED — `SiteBody` for the fixture invitation and a listed guest,
- *       handed no prop at all beyond who they are: the cover's RSVP button opens Me's one Reply (`#me-reply`), and Me
+ *       handed no prop at all beyond who they are: the cover's RSVP button opens the reply page (owner 2026-10-26),
+ *       Me's one Reply (`#me-reply`) is drawn, and Me
  *       draws the guest's own parts (`data-me-parts`). A page that needs a prop, a flag or a host read to draw them
  *       fails here.
  *   2 · THE PARTS' GATE HAS NO SWITCH INPUT — `guestMePartsShown` / `guestMeNoteShown` answer for a listed guest from
@@ -41,7 +42,7 @@ test('1 · the real guest page draws the Reply and Me’s own parts with nothing
   const identity = { ...base, guest: { ...base.guest, role: 'best_woman', side: 'groom' } } as never;
   const html = await renderSiteBodyFixture({ identity });
   const cover = html.slice(html.indexOf('<header data-pahina-first-screen=""'), html.indexOf('</header>', html.indexOf('<header data-pahina-first-screen=""')));
-  assert.match(cover, /<a [^>]*data-cover-rsvp="ask"[^>]*href="#me-reply"|<a [^>]*href="#me-reply"[^>]*data-cover-rsvp="ask"/, 'the cover’s RSVP button (the new guest side’s Reply) is not drawn for a plain guest');
+  assert.match(cover, /<a [^>]*data-cover-rsvp="ask"[^>]*href="[^"]*\/invite\/reply"|<a [^>]*href="[^"]*\/invite\/reply"[^>]*data-cover-rsvp="ask"/, 'the cover’s RSVP button (the new guest side’s Reply) is not drawn for a plain guest');
   assert.ok(html.includes('id="me-reply"'), 'Me’s one Reply is missing');
   const me = html.slice(html.indexOf('data-me-stage=""'));
   assert.ok(me.length < html.length, 'anti-vacuity: no Me on the page');

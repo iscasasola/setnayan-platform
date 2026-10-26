@@ -5,9 +5,10 @@
  * Held on THE REAL GUEST PAGE (`SiteBody`, the fixture invitation, a tabbed Invitation):
  *   (1) Me reads top to bottom: who (the formal name), as what (the role), when and where (date, Ceremony /
  *       Reception) · the guest's own sections · the ONE Reply (`#me-reply`) · the record line and the two pills;
- *   (2) ONE Reply on the page: the cover's button is a mark on Me (`#me-reply`), the Welcome draws no Reply card and
- *       no greeting paragraph, Me draws no second door (no top-of-Me card, no ticket "Reply to the invitation", no
- *       "Change your reply" bar) — exactly one link into the reply page, and it is Me's;
+ *   (2) ONE Reply on the page: the Welcome draws no Reply card and no greeting paragraph, Me draws no second door (no
+ *       top-of-Me card, no ticket "Reply to the invitation", no "Change your reply" bar) — the links into the reply
+ *       page are exactly two: Me's one Reply, and the cover's button (which opens the reply page straight since
+ *       2026-10-26 — owner: "make it go directly to the RSVP Page"; it was a mark on Me, `#me-reply`);
  *   (3) after a yes the same spot reads "You're coming ✓ · Change my reply";
  *   (4) the record notice says "at this event" — never the event type's word;
  *   (5) the rules: a plain guest has no role line; the role line carries no colour dots; one place for both venues is
@@ -52,16 +53,19 @@ test('(1) Me reads who · as what · when and where · their sections · the one
   assert.match(me, /Will you join us\?/);
 });
 
-test('(2) ONE Reply: the cover’s button is a mark on Me, and no second door is drawn anywhere', async () => {
+test('(2) ONE Reply: Me’s, and the cover’s button straight to the reply page — no second door drawn anywhere', async () => {
   const html = await renderSiteBodyFixture({ identity: asBestWoman() });
   const cover = html.slice(html.indexOf('<header data-pahina-first-screen=""'), html.indexOf('</header>', html.indexOf('<header data-pahina-first-screen=""')));
-  assert.match(cover, /data-cover-rsvp="ask"[^>]*href="#me-reply"|href="#me-reply"[^>]*data-cover-rsvp="ask"/, 'the cover’s RSVP button does not open Me at its Reply');
+  // 🔁 2026-10-26 (owner: "instead of jumping to will you join us? (REPLY) make it go directly to the RSVP Page").
+  assert.match(cover, /data-cover-rsvp="ask"[^>]*href="[^"]*\/invite\/reply"|href="[^"]*\/invite\/reply"[^>]*data-cover-rsvp="ask"/, 'the cover’s RSVP button does not open the reply page');
   assert.ok(!html.includes('id="site-reply"'), 'the Welcome still draws its own Reply card');
   assert.ok(!/joining us as|love to celebrate with you|hope you can be with us/.test(html), 'the Welcome’s greeting paragraph is back');
   assert.ok(!html.includes('data-me-change-reply'), 'the "Change your reply" bar is back');
   assert.ok(!html.includes('data-me-reply=""'), 'the ticket’s "Reply to the invitation" bar is back');
   const doors = html.match(/href="[^"]*\/invite\/reply[^"]*"/g) ?? [];
-  assert.equal(doors.length, 1, `the page holds ${doors.length} doors into the reply page — one, Me’s, is the rule`);
+  const coverDoors = cover.match(/href="[^"]*\/invite\/reply[^"]*"/g) ?? [];
+  assert.equal(coverDoors.length, 1, 'anti-vacuity: the cover holds no door into the reply page');
+  assert.equal(doors.length, 2, `the page holds ${doors.length} doors into the reply page — two, the cover’s button and Me’s, is the rule`);
   const meDoor = meOf(html).indexOf('/invite/reply');
   assert.ok(meDoor > 0, 'the one door is not Me’s');
 });

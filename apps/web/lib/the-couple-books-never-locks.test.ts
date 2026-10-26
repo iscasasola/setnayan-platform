@@ -62,7 +62,6 @@ const ALLOW: readonly WordAllow[] = [
   { prefix: 'lib/event-hub-control.ts', why: 'the private-event lock screen' },
   { prefix: 'lib/user-delete-blockers.ts', why: 'an account locked out on deletion' },
   { prefix: 'app/(shell)/mood-board/', why: 'the mood board ("Nothing here is locked")' },
-  { prefix: 'app/dashboard/[eventId]/studio/mood-board/', why: 'a mood-board preview the couple keeps as is' },
   { prefix: 'app/(shell)/papic/', why: 'Papic credits — "never locked into what you pick"' },
   { prefix: 'lib/camera-bridge/', why: 'a locked Papic clip cap — a developer error string' },
   { prefix: 'app/(shell)/explore/compare/', text: /hide-prices lock/, why: 'a demo-data note about the hide-prices rule' },

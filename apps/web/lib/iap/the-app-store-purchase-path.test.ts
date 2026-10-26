@@ -64,7 +64,6 @@ test('the intent is written only AFTER every check a web checkout makes (and own
     /coordinatorMoneyScopeAllowed\(/,
     /resolveServiceSellability\(/,
     /papicCreditsMatch\(/,
-    /moodBoardRendersMatch\(/,
     /setnayanAiTierInApp\(/,
     /if \(!iapProductFitsAiTier\(product, sai\.tier\)\) return startRefusal\('not_on_sale'\);/,
     /eventIsOver\(/,

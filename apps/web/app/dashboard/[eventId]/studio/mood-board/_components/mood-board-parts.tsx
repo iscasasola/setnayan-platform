@@ -20,7 +20,6 @@ export const MOOD_BOARD_PARTS = [
   { key: 'palette', label: 'Palette' },
   { key: 'reception', label: 'Reception' },
   { key: 'colours', label: 'In your colours' },
-  { key: 'make-it-real', label: 'Make it real' },
   { key: 'share', label: 'Share & export' },
 ] as const;
 export type MoodBoardPart = (typeof MOOD_BOARD_PARTS)[number]['key'];
@@ -32,12 +31,12 @@ function usePart(): [MoodBoardPart, (p: MoodBoardPart) => void] {
   return [on, (p) => setPiece(p)];
 }
 
-/** The navigator's rows (a desk) / chips (a phone). "Make it real" is left out where it is not sold. */
-export function MoodBoardPieces({ makeItReal }: { makeItReal: boolean }) {
+/** The navigator's rows (a desk) / chips (a phone). */
+export function MoodBoardPieces() {
   const [on, pick] = usePart();
   return (
     <>
-      {MOOD_BOARD_PARTS.filter((p) => makeItReal || p.key !== 'make-it-real').map((p) => (
+      {MOOD_BOARD_PARTS.map((p) => (
         <DetailsPieceButton key={p.key} on={on === p.key} data={`mood-board:${p.key}`} onPick={() => pick(p.key)}>
           {p.label}
         </DetailsPieceButton>

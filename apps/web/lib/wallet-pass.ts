@@ -26,7 +26,7 @@ import { APPLE_WALLET_ROUTE, PASS_CARD_REFUSED, PASS_CARD_WORDS, decidePassCardA
 import { printLookFor, CLASSIC_PRINT_THEME } from './print-pieces';
 import { publicEventUrl } from './public-event-url';
 import { buildInvitationUrl } from './qr';
-import { isAppleTouchDevice } from './apple-device';
+import { isAppleTouchDevice, mightBeIpadSafari } from './apple-device';
 
 // ─── Who may add one ────────────────────────────────────────────────────────
 
@@ -319,15 +319,20 @@ export function pemFromEnvValue(raw: string | null | undefined): string | null {
 // ─── Who is offered the button ──────────────────────────────────────────────
 
 /**
- * 🍎 AN iPHONE (or an iPad that says so, or an iPod) — the phones Apple Wallet lives on. Owner, 2026-10-25: *"Add to
- * Apple Wallet beside Save my ticket on iPhone"*; Android and desktop get nothing new (Google Wallet is deferred, and a
- * desktop browser has no Wallet to hand a pass to). Chrome / Firefox / Edge on an iPhone count: every iOS browser is
- * WebKit and hands a `.pkpass` to Wallet's Add sheet.
+ * 🍎 AN iPHONE OR AN iPAD — the devices Apple Wallet lives on. Owner, 2026-10-25: *"Add to Apple Wallet beside Save
+ * my ticket on iPhone"*; owner 2026-10-26 ("Yes to all"): the iPad too — iPads have Apple Wallet. Android and a
+ * desktop Mac get nothing new (Google Wallet is deferred, and a desktop browser has no Wallet to hand a pass to).
+ * Chrome / Firefox / Edge on an iPhone count: every iOS browser is WebKit and hands a `.pkpass` to Wallet's Add sheet.
+ *
+ * `maxTouchPoints` is the BROWSER's `navigator.maxTouchPoints` — omit it on the server. iPad Safari sends a Mac
+ * user-agent ("Macintosh"), so only the browser can tell it from a Mac: a "Macintosh" with more than one touch point
+ * is an iPad (no Mac has a touch screen). On the server that case is `mightBeIpadSafari`, and `appleWalletLink` hands
+ * a `touchOnly` link that `AppleWalletButton` draws only after this answers yes in the browser.
  */
-export function appleWalletDevice(userAgent: string | null | undefined): boolean {
+export function appleWalletDevice(userAgent: string | null | undefined, maxTouchPoints?: number | null): boolean {
   // Through the one device reader (`lib/apple-device.ts`, held by `apple-device.test.ts` § 5) — never a bare
-  // /iPhone|iPad/, which reads an iPad that says "Macintosh" (the Setnayan iPad app) as a Mac.
-  return isAppleTouchDevice(userAgent);
+  // /iPhone|iPad/, which reads an iPad that says "Macintosh" (iPad Safari, the Setnayan iPad app) as a Mac.
+  return isAppleTouchDevice(userAgent, maxTouchPoints);
 }
 
 /**
@@ -339,7 +344,18 @@ export function appleWalletDevice(userAgent: string | null | undefined): boolean
  *                  link in the app's in-app browser sheet (SFSafariViewController, `openEventHub`), where the ticket
  *                  page draws the `download` button. No sheet in that build → no button (never a dead link).
  */
-export type AppleWalletLink = { kind: 'download' | 'safari' | 'sheet'; href: string; label: string };
+export type AppleWalletLink = {
+  kind: 'download' | 'safari' | 'sheet';
+  href: string;
+  label: string;
+  /**
+   * 📱 iPAD SAFARI, NOT YET CONFIRMED — the server read a "Macintosh" user-agent (`mightBeIpadSafari`), which is
+   * either a Mac (no Wallet) or an iPad in Safari (Wallet). `AppleWalletButton` draws nothing on the server and on
+   * first paint, then shows the badge only if the browser says `appleWalletDevice(ua, maxTouchPoints)`. Absent on
+   * every link the server is sure of — an iPhone's badge is in the server's HTML, no shift.
+   */
+  touchOnly?: true;
+};
 
 /**
  * The link beside "Save my ticket", or null. `offered` is the server's answer (`appleWalletOffered`: the set in the
@@ -351,7 +367,15 @@ export function appleWalletLink(
   offered: boolean,
   opts: { storeShell?: boolean } = {},
 ): AppleWalletLink | null {
-  if (!offered || !appleWalletDevice(userAgent)) return null;
+  if (!offered) return null;
+  if (!appleWalletDevice(userAgent)) {
+    // 📱 A "Macintosh" may be iPad Safari — only the browser can tell (`touchOnly`). Not inside an app's web view (the
+    // Setnayan iPad app carries its own marker and is caught above; any other in-app browser cannot add a pass).
+    if (!opts.storeShell && mightBeIpadSafari(userAgent) && inAppHandoff(userAgent, personalLink).kind === 'none') {
+      return { kind: 'download', href: APPLE_WALLET_ROUTE, label: PASS_CARD_WORDS.appleWallet, touchOnly: true };
+    }
+    return null;
+  }
   if (opts.storeShell) {
     return /^https:\/\//.test(personalLink) ? { kind: 'sheet', href: personalLink, label: PASS_CARD_WORDS.appleWalletInAppSheet } : null;
   }

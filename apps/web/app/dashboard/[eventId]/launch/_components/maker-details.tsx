@@ -1394,7 +1394,7 @@ export function MakerDetails(props: MakerDetailsProps) {
         pieces={{
           ...(look
             ? {
-                'mood-board': <MoodBoardPieces makeItReal={!theme.storeShell} />,
+                'mood-board': <MoodBoardPieces />,
                 hero: <DetailsLookPieces item="hero" />,
                 reveal: <DetailsLookPieces item="reveal" />,
               }

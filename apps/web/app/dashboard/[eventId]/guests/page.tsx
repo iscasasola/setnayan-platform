@@ -1,5 +1,6 @@
 import { eventNoun } from '@/lib/event-noun';
 import { guestMatchesSearch } from '@/lib/guest-search';
+import { companionNamesByBringer } from '@/lib/extra-seats';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -712,6 +713,8 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     }
   }
 
+  // 🧹 Who each guest brings, off their live +1 rows — the search's +1 words, never the one-name mirror (2026-10-26).
+  const companionsByGuestId = q ? companionNamesByBringer(guests) : new Map<string, string[]>();
   let visible = guests.filter((g) => {
     if (teamFilter === 'bride' && !(g.side === 'bride' || g.side === 'both'))
       return false;
@@ -728,6 +731,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         groupLabels: groupLabelsByGuestId.get(g.guest_id),
         tableLabel: tableLabelByGuestId.get(g.guest_id) ?? null,
         songRequests: songsByGuestId.get(g.guest_id),
+        companionNames: companionsByGuestId.get(g.guest_id),
       })
     )
       return false;

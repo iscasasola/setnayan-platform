@@ -55,7 +55,7 @@ function edited(): InspirationPartsSnapshot {
   at('tunnel').hidden = true; // hidden from couples
   at('ceiling').sortOrder = 15; // ceiling before stage (20)
   const parts: InspirationPart[] = base.filter((p) => p.slotKey !== 'chairs'); // a part deleted (it held no photo)
-  parts.push({ slotKey: 'flower_arch', label: 'Flower arch', kind: 'part', homeCategoryId: 'florist', alsoCategoryIds: ['stylist_decorator'], hidden: false, sortOrder: 135 });
+  parts.push({ slotKey: 'flower_arch', label: 'Flower arch', kind: 'part', homeCategoryId: 'florist', alsoCategoryIds: ['stylist_decorator'], services: null, hidden: false, sortOrder: 135 });
   parts.sort((a, b) => a.sortOrder - b.sortOrder);
   return { source: 'db', parts };
 }

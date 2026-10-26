@@ -32,6 +32,7 @@ import { SupplierSuggestBoard } from '../_components/supplier-suggest-board';
 import { listShopPhotosForSuggestion, suggestInspirationPhoto, withdrawInspirationSuggestion } from './suggestion-actions';
 import { buildSupplierBoard, firstOwnPart, ownLaneWords } from '@/lib/supplier-suggest-board';
 import { suggestablePartsForShop, supplierTradeWord } from '@/lib/inspiration-suggestion-parts';
+import { getInspirationParts } from '@/lib/inspiration-parts-db';
 import { supplierRoleLine, type SupplierSuggestion } from '@/lib/inspiration-suggestions';
 import { shownMainFive } from '@/lib/mood-board-studio';
 import { themeSeedPalette } from '@/lib/mood-board-palette-set';
@@ -285,7 +286,8 @@ export default async function VendorMoodBoardPage({ params }: Props) {
     ]
       .filter(Boolean)
       .join(' · ') || null;
-  const suggestParts = suggestablePartsForShop(profile.services);
+  const inspirationParts = await getInspirationParts();
+  const suggestParts = suggestablePartsForShop(profile.services, inspirationParts);
   const photosBySlot: Record<string, string[]> = {};
   for (const it of board.inspirations) (photosBySlot[it.slot_key] ??= [])[it.slot_position - 1] = it.image_url;
   const suggestBoard = buildSupplierBoard({
@@ -319,7 +321,7 @@ export default async function VendorMoodBoardPage({ params }: Props) {
         eventId={eventId}
         couple={coupleName}
         eventLine={eventLine}
-        roleLine={supplierRoleLine(supplierTradeWord(profile.services, firstOwnPart(suggestBoard)), ownLaneWords(suggestBoard))}
+        roleLine={supplierRoleLine(supplierTradeWord(profile.services, firstOwnPart(suggestBoard), inspirationParts), ownLaneWords(suggestBoard))}
         board={suggestBoard}
         mine={mine}
         actions={{ suggest: suggestInspirationPhoto, withdraw: withdrawInspirationSuggestion, listShopPhotos: listShopPhotosForSuggestion }}

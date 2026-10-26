@@ -11,10 +11,18 @@
  * `lib/taxonomy.ts`.
  *
  * PURE AND CLIENT-SAFE: types only from the taxonomy, values only from `./moodboard-slots`. A server page
- * hands its snapshot to a client component as a prop; a client component given none draws the fallback.
+ * hands its snapshot to a client component as a prop. 🛑 No helper defaults to `fallbackInspirationParts()`
+ * any more (③0-b, PLAN `admin_taxonomy_four_levels_2026-10-26` § 8.3): a caller that means the consts (a dev
+ * lab, the seed generator, a module-load structural assert) names it, so a forgotten snapshot is a type
+ * error, not a silent read of the seed.
  *
- * 🔑 A PART'S SUPPLIERS ARE TIER-2 CATEGORIES — its HOME first, then "also from" in order (the first tile a
- * shop matches is the one printed on the credit). `partCategories()` is the one place that order is read.
+ * 🔑 A PART'S SUPPLIERS ARE SERVICES (③a, PLAN `admin_taxonomy_four_levels_2026-10-26` § 3; migration
+ * `20271291224109_inspiration_part_services.sql`): `inspiration_part_services` names the same `canonical_service`
+ * a shop sells, and `services` carries them in the credit's order. Its CATEGORIES — the HOME first, then "also
+ * from" in order (the first tile a shop matches is the one printed on the credit) — are DERIVED from those
+ * services by the database (`inspiration_part_categories_derived`), so `partCategories()` reads exactly what it
+ * read before and no caller changes. The fallback carries `services: null`: its categories are the consts, and
+ * the server expands them (`canonicalServicesForSlot`) the way the backfill did.
  */
 import type { WeddingTile } from './taxonomy';
 import { MOODBOARD_SLOT_KEYS, type MoodboardSlotKey } from './moodboard-slots';
@@ -27,6 +35,11 @@ export type InspirationPart = {
   kind: 'part' | 'system';
   homeCategoryId: string | null;
   alsoCategoryIds: readonly string[];
+  /**
+   * The shop services that may add a photo (`inspiration_part_services`, in sort order) — the DB snapshot's.
+   * `null` = the fallback: no table was read, so the services are the categories' expansion (`canonicalServicesForSlot`).
+   */
+  services: readonly string[] | null;
   /** Hidden from couples (never offered for a new photo). Suppliers' shelves are unaffected. */
   hidden: boolean;
   sortOrder: number;
@@ -127,7 +140,8 @@ export const INSPIRATION_PART_FALLBACK: Readonly<
   flower_accents: { label: 'Accents', order: 130 },
   cake: { label: 'Cake', order: 140 },
   bride: { label: 'Bridal gown', order: 150 },
-  groom: { label: 'Groom’s suit', order: 160 },
+  // "Groom’s suit" → "Groom’s attire" (owner ruling 2026-10-26, recorded with "BUILD THE TAXONOMY"; migration ③a).
+  groom: { label: 'Groom’s attire', order: 160 },
   bridesmaids: { label: 'Bridesmaids', order: 170 },
   groomsmen: { label: 'Groomsmen', order: 180 },
   flower_girl: { label: 'Flower girl', order: 190 },
@@ -139,7 +153,8 @@ export const INSPIRATION_PART_FALLBACK: Readonly<
   flowers: { label: 'Flowers', order: 230, hidden: true },
   cocktail: { label: 'Cocktail hour', order: 240 },
   principal_sponsor: { label: 'Principal sponsors’ attire', order: 250 },
-  entourage: { label: 'Entourage attire', order: 260 },
+  // Hidden 2026-10-26 ("not its own part" — the dress code's per-role rows are; photos kept; migration ③a).
+  entourage: { label: 'Entourage attire', order: 260, hidden: true },
   parents: { label: 'Parents’ attire', order: 270 },
   guests: { label: 'Guest attire', order: 280 },
   // 🔑 The system part — no supplying trade (`MOODBOARD_SLOT_TRADES.palette` is empty).
@@ -160,6 +175,7 @@ export function fallbackInspirationParts(): InspirationPartsSnapshot {
       kind: home ? 'part' : 'system',
       homeCategoryId: home ?? null,
       alsoCategoryIds: also,
+      services: null,
       hidden: f.hidden === true,
       sortOrder: f.order,
     };
@@ -182,8 +198,10 @@ export type InspirationPartRow = {
   hidden: boolean;
   status: string;
 };
-/** A row of `inspiration_part_categories`. */
+/** A row of `inspiration_part_categories_derived` (since ③a; same shape as the old `inspiration_part_categories`). */
 export type InspirationPartCategoryRow = { slot_key: string; category_id: string; sort_order: number };
+/** A row of `inspiration_part_services`. */
+export type InspirationPartServiceRow = { slot_key: string; canonical_service: string; sort_order: number };
 
 /**
  * The two tables as one snapshot — pure, so the shaping unit-tests without a database. A retired part is
@@ -192,12 +210,20 @@ export type InspirationPartCategoryRow = { slot_key: string; category_id: string
 export function snapshotFromPartRows(
   rows: readonly InspirationPartRow[],
   links: readonly InspirationPartCategoryRow[],
+  /** `inspiration_part_services` rows; `null` = not read (a parse of a seed), so `services` stays null. */
+  serviceLinks: readonly InspirationPartServiceRow[] | null,
 ): InspirationPartsSnapshot {
   const also = new Map<string, InspirationPartCategoryRow[]>();
   for (const l of links) {
     const list = also.get(l.slot_key) ?? [];
     list.push(l);
     also.set(l.slot_key, list);
+  }
+  const svc = new Map<string, InspirationPartServiceRow[]>();
+  for (const l of serviceLinks ?? []) {
+    const list = svc.get(l.slot_key) ?? [];
+    list.push(l);
+    svc.set(l.slot_key, list);
   }
   const parts: InspirationPart[] = rows
     .filter((r) => r.status !== 'retired')
@@ -209,6 +235,12 @@ export function snapshotFromPartRows(
       alsoCategoryIds: (also.get(r.slot_key) ?? [])
         .sort((a, b) => a.sort_order - b.sort_order || a.category_id.localeCompare(b.category_id))
         .map((l) => l.category_id),
+      services:
+        serviceLinks === null
+          ? null
+          : (svc.get(r.slot_key) ?? [])
+              .sort((a, b) => a.sort_order - b.sort_order || a.canonical_service.localeCompare(b.canonical_service))
+              .map((l) => l.canonical_service),
       hidden: r.hidden,
       sortOrder: r.sort_order,
     }));

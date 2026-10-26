@@ -36,6 +36,7 @@ import { stripComments } from './strip-comments';
 import { shapeGalleryPage, normalizeGalleryQuery, MOODBOARD_SLOT_TRADES, type RawGalleryRow } from './moodboard-gallery';
 import { libraryPhotoParts } from './inspiration-slots';
 import { canonicalServicesForTile } from './vendor-counts';
+import { fallbackInspirationParts } from './inspiration-parts';
 
 const WEB = join(__dirname, '..');
 const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
@@ -47,7 +48,7 @@ const fnBody = (src: string, head: string) => {
 
 test('1 · an approved supplier photo with zero colour ranges reaches Search ideas on every couple part, credited', () => {
   process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://lab.supabase.test';
-  const parts = libraryPhotoParts();
+  const parts = libraryPhotoParts(fallbackInspirationParts());
   assert.ok(parts.length >= 20);
   for (const p of parts) {
     const services = canonicalServicesForTile(MOODBOARD_SLOT_TRADES[p.key][0]!);
@@ -60,9 +61,9 @@ test('1 · an approved supplier photo with zero colour ranges reaches Search ide
       ranges: [],
       is_event_linked: false,
     };
-    const q = normalizeGalleryQuery({ slotKey: p.key });
+    const q = normalizeGalleryQuery({ slotKey: p.key }, fallbackInspirationParts());
     assert.ok(q, `${p.label}: Search ideas cannot ask for ${p.key}`);
-    const page = shapeGalleryPage(q!.slotKey, [row]);
+    const page = shapeGalleryPage(q!.slotKey, [row], fallbackInspirationParts());
     assert.equal(page.withheld, 0, `${p.label}: an untagged approved photo was withheld — invisible to every couple`);
     assert.equal(page.assets.length, 1, `${p.label}: the untagged photo did not reach Search ideas`);
     const a = page.assets[0]!;
@@ -71,7 +72,7 @@ test('1 · an approved supplier photo with zero colour ranges reaches Search ide
     assert.equal(a.imageUrl, `https://lab.supabase.test/storage/v1/object/public/moodboard-library/u1/${p.key}.jpg`, `${p.label}: the picture is a bucket path, not a URL`);
   }
   /* Older rows' URLs and site paths pass through untouched. */
-  const legacy = shapeGalleryPage('flowers', [{ asset_id: 'x', label: '', storage_path: 'https://cdn/x.webp', vendor_profile_id: 'V1', shop: { business_name: 'B', services: [] }, ranges: [], is_event_linked: false }]);
+  const legacy = shapeGalleryPage('flowers', [{ asset_id: 'x', label: '', storage_path: 'https://cdn/x.webp', vendor_profile_id: 'V1', shop: { business_name: 'B', services: [] }, ranges: [], is_event_linked: false }], fallbackInspirationParts());
   assert.equal(legacy.assets[0]!.imageUrl, 'https://cdn/x.webp');
 });
 

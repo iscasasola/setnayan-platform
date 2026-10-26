@@ -124,11 +124,17 @@ test('the widening lives in the SEARCH scope, not in the canonical accessor', ()
   const counts = stripComments(
     readFileSync(resolve(HERE, '../lib/vendor-counts.ts'), 'utf8'),
   );
-  const fn = counts.slice(counts.indexOf('export function canonicalServicesForTile'));
-  const body = fn.slice(0, fn.indexOf('\n}'));
-  assert.ok(
-    !/\.\.\.canonicals, tile|\[\.\.\.c, tile\]/.test(body),
-    'canonicalServicesForTile was widened again — that makes every tile look ' +
-      'alive and blinds KNOWN_DEAD_TILES self-cleaning',
-  );
+  // Both accessors: the live one (`servicesInTile`, what product code calls since ③0-a) and its
+  // const fallback (`canonicalServicesForTile`, what the reachability guard reads).
+  for (const name of ['servicesInTile', 'canonicalServicesForTile']) {
+    const at = counts.indexOf(`export function ${name}`);
+    assert.ok(at >= 0, `premise: lib/vendor-counts.ts no longer exports ${name}`);
+    const fn = counts.slice(at);
+    const body = fn.slice(0, fn.indexOf('\n}'));
+    assert.ok(
+      !/\.\.\.canonicals, tile|\[\.\.\.c, tile\]|, tile\]/.test(body),
+      `${name} was widened again — that makes every tile look ` +
+        'alive and blinds KNOWN_DEAD_TILES self-cleaning',
+    );
+  }
 });

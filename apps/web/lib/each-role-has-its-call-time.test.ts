@@ -27,6 +27,7 @@ import { callTimeOf, withCallTime } from './mood-board-studio';
 import { carryCallTimes, sanitizeRoleAttire } from './role-dress-code';
 import { resolveGuestAttireWithGroups, sanitizeGroupAttire } from './role-group-dress-code';
 import { isDressableRole } from './attire-rows';
+import { fallbackInspirationParts } from './inspiration-parts';
 
 /* The Studio and the old form are client components that import server actions — stood in, as
    `each-role-has-its-own-designs.test.ts` does, so they render here without a server. */
@@ -115,6 +116,7 @@ async function studio(dressConfig: Record<string, unknown> | null): Promise<stri
   return renderToStaticMarkup(
     React.createElement(MoodBoardStudio as React.ComponentType<Record<string, unknown>>, {
       eventId: 'e',
+      inspirationParts: fallbackInspirationParts(),
       palette: { reception: ['#5C0700', '#669C35', '#F7F2EC', '#646B38', '#F3E5B9'] },
       fallbackFive: ['#5C0700', '#669C35', '#F7F2EC', '#646B38', '#F3E5B9'],
       frozenDressing: [],

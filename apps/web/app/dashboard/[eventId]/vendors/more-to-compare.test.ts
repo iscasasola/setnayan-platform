@@ -106,7 +106,7 @@ test('🔑 the action withholds the name on the SERVER, for exactly the anonymiz
 test('🔑 the action reads cards only for suppliers the search already returned, and never drops them on a later return', () => {
   assert.match(ACTION, /hideUnbookable: true,/, 'the list shows suppliers who cannot be booked on the date');
   assert.match(ACTION, /fetchMarketServiceCards\(\s*createAdminClient\(\),\s*search\.results\.map\(\(r\) => r\.vendorProfileId\),/);
-  assert.match(ACTION, /canonicalServicesForTile\(tile as WeddingTile\)/);
+  assert.match(ACTION, /servicesInTile\(await getCanonicalBuckets\(\), tile\)/);
   // A failed card read is null all the way to the browser.
   assert.match(ACTION, /const serviceCardByProfileId = marketCards\s*\?\s*withholdCardNames\([\s\S]*?\)\s*:\s*null;/);
   const after = ACTION.slice(ACTION.indexOf('const serviceCardByProfileId = marketCards'));

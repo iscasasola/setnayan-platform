@@ -232,10 +232,14 @@ test('a leaf-filed card can still be copied — the [category] route accepts it'
   // ids. A kind the product SAVES has to be a kind this door ACCEPTS.
   assert.match(
     route,
-    /WEDDING_TILE_SET\.has\(category\)/,
-    'the [category] route refuses wedding tile ids again — a card filed under ' +
+    /\(await liveTileIds\(\)\)\.has\(category\)/,
+    'the [category] route refuses tile ids again — a card filed under ' +
       'one (host_mc, live_band, dj, choir …) gets a copy button that 404s',
   );
+  // …and the tile ids it accepts are the LIVE categories (③0-d), not the code list:
+  // a category an admin creates must not 404 here.
+  assert.match(route, /\(await getTaxonomy\(\)\)\.tileOrder/, 'the tile arm reads the code list again, not the live taxonomy');
+  assert.ok(!/WEDDING_TILE_ORDER/.test(route), 'the [category] route reads the const tile list again');
   assert.match(route, /notFound\(\)/, 'the route stopped refusing an unknown kind entirely');
   // And its rendered name goes through the shared resolver, not the legacy-only
   // one, or a leaf card's own page would announce a humanised guess.

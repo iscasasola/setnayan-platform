@@ -23,6 +23,8 @@ import {
   type TaxonomyPhase,
   type TaxonomyEntry,
 } from './taxonomy';
+import { BRANCH_TO_VENDOR_CATEGORY } from './vendor-branch-category';
+import type { VendorCategory } from './vendors';
 
 /**
  * Plain, fully-serializable mirror of the taxonomy constants — safe to pass
@@ -63,6 +65,13 @@ export type TaxonomySnapshot = {
    * them. Sparse — only true entries stored. Empty on the fallback path.
    */
   hiddenCategories: Record<string, true>;
+  /**
+   * tier-2 category id → the coarse `vendor_category` a shop filed under it is stored with
+   * (`service_categories.coarse_category`, ③0-c). Sparse — a category with no value is absent,
+   * and the resolver then answers `misc`. The fallback copies `BRANCH_TO_VENDOR_CATEGORY`, the
+   * map the column was seeded from.
+   */
+  tileCoarseCategory: Record<string, VendorCategory>;
   /** canonical_service → metadata (the TAXONOMY_MAP equivalent). */
   map: Record<string, TaxonomyEntry>;
 };
@@ -79,6 +88,8 @@ export type CategoryRow = {
   icon_name: string | null;
   sample_photo_r2_key: string | null;
   marketplace_hidden: boolean;
+  /** `vendor_category` enum label, or null. Absent on a pre-③0-c read. */
+  coarse_category?: string | null;
 };
 
 export type MapRow = {
@@ -121,6 +132,7 @@ export function fallbackSnapshot(): TaxonomySnapshot {
     hiddenCategories: Object.fromEntries(
       [...ADMIN_ONLY_TILES].map((t) => [t, true as const]),
     ) as Record<string, true>,
+    tileCoarseCategory: { ...BRANCH_TO_VENDOR_CATEGORY },
     map: { ...TAXONOMY_MAP },
   };
 }
@@ -160,6 +172,7 @@ export function snapshotFromRows(cats: CategoryRow[], maps: MapRow[]): TaxonomyS
   const tileSlug: Record<string, string> = {};
   const tilesByParent: Record<string, WeddingTile[]> = {};
   const tileEventTypes: Record<string, string[] | null> = {};
+  const tileCoarseCategory: Record<string, VendorCategory> = {};
   for (const p of parents) tilesByParent[p.id] = [];
   for (const t of tiles) {
     if (t.parent_id) {
@@ -172,6 +185,7 @@ export function snapshotFromRows(cats: CategoryRow[], maps: MapRow[]): TaxonomyS
       t.applicable_event_types && t.applicable_event_types.length > 0
         ? t.applicable_event_types
         : null; // null = universal (serves all events)
+    if (t.coarse_category) tileCoarseCategory[t.id] = t.coarse_category as VendorCategory;
   }
 
   const map: Record<string, TaxonomyEntry> = {};
@@ -209,6 +223,7 @@ export function snapshotFromRows(cats: CategoryRow[], maps: MapRow[]): TaxonomyS
     categoryIcons,
     categoryPhotos,
     hiddenCategories,
+    tileCoarseCategory,
     map,
   };
 }

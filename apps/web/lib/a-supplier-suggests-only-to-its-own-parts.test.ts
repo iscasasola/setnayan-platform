@@ -27,6 +27,7 @@ import { buildSupplierBoard, firstOwnPart, ownLaneWords } from './supplier-sugge
 import { canonicalServicesForTile } from './vendor-counts';
 import { WEDDING_TILE_LABEL, type WeddingTile } from './taxonomy';
 import { coupleCountLine, keepPlan, suggestionNoticeTitle, supplierCountLine, supplierRoleLine } from './inspiration-suggestions';
+import { fallbackInspirationParts } from './inspiration-parts';
 
 (globalThis as unknown as { React: unknown }).React = React;
 {
@@ -41,8 +42,8 @@ import { coupleCountLine, keepPlan, suggestionNoticeTitle, supplierCountLine, su
 const WEB = join(__dirname, '..');
 const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 const TILES = Object.keys(WEDDING_TILE_LABEL) as WeddingTile[];
-const keysFor = (tile: WeddingTile) => new Set<string>(suggestablePartsForShop(canonicalServicesForTile(tile)).map((p) => p.key));
-const ATTIRE_KEYS = libraryPhotoParts().filter((p) => p.group === 'attire').map((p) => p.key);
+const keysFor = (tile: WeddingTile) => new Set<string>(suggestablePartsForShop(canonicalServicesForTile(tile), fallbackInspirationParts()).map((p) => p.key));
+const ATTIRE_KEYS = libraryPhotoParts(fallbackInspirationParts()).filter((p) => p.group === 'attire').map((p) => p.key);
 const ATTIRE_TILES: WeddingTile[] = ['brides_attire', 'grooms_attire', 'womens_attire', 'mens_attire', 'filipiniana_barongs', 'hmua'];
 
 test('1 · bouquets are the florist’s alone; attire boards the attire trades’ alone; Stage is never a florist’s', () => {
@@ -65,7 +66,7 @@ test('2 · the supplier’s board draws “Suggest a photo” on exactly the sho
   const FIVE = ['#5B4A6B', '#D9C4CF', '#A9834B', '#F7F2EC', '#7A8B6F'];
   const draw = (tile: WeddingTile) => {
     const services = canonicalServicesForTile(tile);
-    const parts = suggestablePartsForShop(services);
+    const parts = suggestablePartsForShop(services, fallbackInspirationParts());
     const board = buildSupplierBoard({ palette: { reception: FIVE }, five: FIVE, photosBySlot: {}, suggestable: new Set(parts.map((p) => p.key)) });
     const noop = async () => ({ status: 'ok' as const });
     const html = renderToStaticMarkup(
@@ -73,7 +74,7 @@ test('2 · the supplier’s board draws “Suggest a photo” on exactly the sho
         eventId: 'e',
         couple: 'Lab couple',
         eventLine: null,
-        roleLine: supplierRoleLine(supplierTradeWord(services, firstOwnPart(board)), ownLaneWords(board)),
+        roleLine: supplierRoleLine(supplierTradeWord(services, firstOwnPart(board), fallbackInspirationParts()), ownLaneWords(board)),
         board,
         mine: [],
         actions: { suggest: noop as never, withdraw: noop, listShopPhotos: async () => ({ photos: [], failed: false }) },
@@ -105,10 +106,12 @@ test('2 · the supplier’s board draws “Suggest a photo” on exactly the sho
 
   /* The page hands the board the one map's answer for the signed-in shop — never a list of its own. */
   const page = code('app/vendor-dashboard/clients/[eventId]/mood-board/page.tsx');
-  assert.match(page, /const suggestParts = suggestablePartsForShop\(profile\.services\);/);
+  /* ③0-b: …from the LIVE parts (`getInspirationParts()`), never the seed — an admin edit must reach the board. */
+  assert.match(page, /const inspirationParts = await getInspirationParts\(\);/, 'the supplier’s board does not read the live parts');
+  assert.match(page, /const suggestParts = suggestablePartsForShop\(profile\.services, inspirationParts\);/);
   assert.match(page, /suggestable: new Set\(suggestParts\.map\(\(p\) => p\.key\)\)/);
   const parts = code('lib/inspiration-suggestion-parts.ts');
-  assert.match(parts, /libraryPhotoParts\(\)\.filter\(\(p\) => slotUploadVerdict\(p\.key, services\)\.allowed\)/, 'the suggestable parts are not the library’s own verdict');
+  assert.match(parts, /libraryPhotoParts\(parts\)\.filter\(\(p\) => slotUploadVerdict\(p\.key, services, parts\)\.allowed\)/, 'the suggestable parts are not the library’s own verdict on the snapshot it was handed');
 });
 
 test('3 · Keep never replaces silently — with no free place and no photo named it ASKS, and the Palette asks first', () => {

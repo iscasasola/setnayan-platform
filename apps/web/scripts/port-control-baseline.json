@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "af16fc75b1",
+  "generatedFromRef": "3a09bc2fcf",
   "routeCount": 473,
   "destinations": 1013,
   "actions": 662,
-  "blocks": 7100,
+  "blocks": 7101,
   "routes": {
     "/": {
       "files": [
@@ -846,6 +846,7 @@
         "[slug]/_components/apple-on-touch.tsx",
         "[slug]/_components/apple-wallet-button.tsx",
         "[slug]/_components/apple-wallet-sheet-link.tsx",
+        "[slug]/_components/apple-wallet-touch-gate.tsx",
         "[slug]/_components/arrival-action.tsx",
         "[slug]/_components/arrival-greeting.tsx",
         "[slug]/_components/art-kit-motion.tsx",
@@ -1190,6 +1191,7 @@
         "AppleOnTouch",
         "AppleWalletButton",
         "AppleWalletSheetLink",
+        "AppleWalletTouchGate",
         "ArrangedSheet",
         "ArrivalActionRow",
         "ArrivalGreeting",

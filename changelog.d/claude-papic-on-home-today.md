@@ -20,16 +20,24 @@ challenge is saved but anything after, you do not have the challenge"*.
   Memories. Every link and save redirect now uses `papicHomeHref` (`lib/papic-home-href.ts`); album links go to
   Memories. Its child pages (crew, challenges, recap, run-of-show, moderation) stay.
 - **Photo Notes Magazine, Your Recap and Life-Flash move to Memories** (unchanged components, host only).
-- **Challenges:** each row in the card is its name · a switch (live / paused, still listed) · ✕ remove (44 px). The ✕
-  (`deleteCoupleChallengeAction`) is now a SOFT remove — `is_active = false, removed_at, moment_key = null`, any lane;
-  a removed couple library pick leaves a Setnayan veto so the board cannot hand it back. Migration
-  `20271292346034_a_removed_challenge_keeps_its_photos` adds `papic_missions.removed_at` and the CHECK
-  `papic_missions_removed_is_off`. Photos already taken keep their challenge (completions are no longer cascaded) and
-  Memories keeps a removed challenge in its filter only while a photo carries it.
+- **Challenges are TEN SLOTS** (owner 2026-10-27: *"there will be 10 challenges the can make. choose a challenge or turn
+  that challenge off. turning 1 off will become 9 of 10 challenges. it stays there, but just off."*). The card's header
+  says "N of 10 challenges on"; each row = the challenge's name (a press — it opens the one challenge sheet: search the
+  library · create your own; a pick REPLACES that slot's challenge in place) · its switch (off = it stays in its slot,
+  greyed, not live). No "Add a challenge" button and no ✕ in the card (the ✕ the 2026-10-26 ruling asked for was
+  replaced by the owner's 2026-10-27 wording — "off + change"). A replacement is inserted first (taking the old one's
+  `created_at`, so the row does not move), then the old one is RETIRED — `is_active = false, removed_at, moment_key =
+  null`, never deleted — so photos already taken keep it and its tag. Migration
+  `20271292346034_a_removed_challenge_keeps_its_photos` adds `papic_missions.removed_at` + CHECK
+  `papic_missions_removed_is_off`, and re-creates `ensure_papic_board` with ONE change: the Setnayan fill no longer
+  hands the board a replacement for a challenge that is merely OFF (`v_fill = target − off`; slotting unchanged). The
+  full challenges page's bin (couple's own only) is now the same soft retirement. Memories keeps a retired challenge
+  in its filter only while a photo carries it.
 
 Guards: `papic-lives-on-home.test.ts` (one card in Today with counts + Add more, the forward, every former control's
 new home, no link to the gone page — each with a sabotage), `a-removed-challenge-keeps-its-photos.test.ts` +
-`tests/db/a-removed-challenge-keeps-its-photos.db.test.ts`; ~30 page-reading guards retargeted to the card's files.
+`tests/db/a-removed-challenge-keeps-its-photos.db.test.ts` (photos kept, off keeps its slot, a change is one in one
+out — sabotaged by reverting the fill); ~30 page-reading guards retargeted to the card's files.
 Maps: port-control baseline (the old route's controls removed deliberately), Ugat screens, legacy redirects.
 
 SPEC IMPACT: corpus note `0012_papic/PAPIC_ON_HOME_TODAY_2026-10-26.md` (Setnayan-specs) — records the controls' new homes;

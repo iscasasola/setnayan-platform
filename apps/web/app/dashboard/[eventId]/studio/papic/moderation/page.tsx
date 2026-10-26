@@ -24,8 +24,7 @@ import {
   setSeatPhotoHidden,
   deletePhotoForever,} from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { ConfirmForm } from '@/app/_components/confirm-form';
-import { StayForm } from '@/app/_components/stay-form';
+import { StayConfirmForm, StayForm } from '@/app/_components/stay-form';
 import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = { title: 'Photo moderation · Papic' };
@@ -433,7 +432,7 @@ export default async function PapicModerationPage({
                   reversible thing a host usually wants, and this one cannot be
                   undone. The dialog says so in words, not by colour alone.
                 */}
-                <ConfirmForm
+                <StayConfirmForm
                   door="memories.deletePhotoForever"
                   action={deletePhotoForever.bind(null, eventId)}
                   title="Delete this photo forever?"
@@ -449,7 +448,7 @@ export default async function PapicModerationPage({
                   >
                     <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Delete forever
                   </SubmitButton>
-                </ConfirmForm>
+                </StayConfirmForm>
 
 
                 {/* Report */}
@@ -597,7 +596,7 @@ export default async function PapicModerationPage({
                     </SubmitButton>
                   </StayForm>
                   {/* Delete forever — same ruling, same posture, seat side. */}
-                  <ConfirmForm
+                  <StayConfirmForm
                     door="memories.deletePhotoForever"
                     action={deletePhotoForever.bind(null, eventId)}
                     title="Delete this photo forever?"
@@ -613,7 +612,7 @@ export default async function PapicModerationPage({
                     >
                       <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Delete forever
                     </SubmitButton>
-                  </ConfirmForm>
+                  </StayConfirmForm>
 
                 </li>
               );

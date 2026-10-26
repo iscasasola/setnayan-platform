@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useTransition, type FormEvent, type FormHTMLAttributes, type ReactNode } from 'react';
+import { useState, useTransition, type ComponentProps, type FormEvent, type FormHTMLAttributes, type ReactNode } from 'react';
 import { saveInPlace } from '@/app/_actions/save-in-place';
 import { COULD_NOT_SAVE } from '@/lib/save-in-place';
+import { ConfirmForm } from './confirm-form';
 import type { StayDoor } from '@/lib/stay-doors';
 
 /**
@@ -47,8 +48,25 @@ export function StayForm({
 }
 
 /**
- * The submit half of `StayForm`, for a form component that owns its own `<form>` (`ConfirmForm`'s confirmed second
- * submit). `onSubmit` prevents the browser's submit and saves through the door; `refusal` is the line to draw under it.
+ * A `ConfirmForm` (asks first — "Delete forever?") whose CONFIRMED press saves in place through `door`. Kept here, not
+ * inside `ConfirmForm`, so the many screens that only confirm never import the door's registry.
+ */
+export function StayConfirmForm({
+  door,
+  onSaved,
+  ...rest
+}: { door: StayDoor; onSaved?: () => void } & Omit<ComponentProps<typeof ConfirmForm>, 'onConfirmedSubmit' | 'formProps'>) {
+  const stay = useStaySubmit(door, onSaved);
+  return (
+    <>
+      <ConfirmForm {...rest} onConfirmedSubmit={stay.onSubmit} formProps={{ 'data-stay': door, 'aria-busy': stay.pending || undefined }} />
+      {stay.refusal}
+    </>
+  );
+}
+
+/**
+ * The submit half of `StayForm`, for a form component that owns its own `<form>` (`StayConfirmForm`). `onSubmit` prevents the browser's submit and saves through the door; `refusal` is the line to draw under it.
  */
 export function useStaySubmit(door: StayDoor, onSaved?: () => void) {
   const [error, setError] = useState<string | null>(null);

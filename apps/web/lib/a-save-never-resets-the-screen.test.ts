@@ -10,7 +10,7 @@
  *   (1) RATCHET — every redirecting action (`lib/stay-ratchet.ts`, a TypeScript-AST scan) is a door, navigation with a
  *       reason (`stay-ratchet.navigation.ts`), or in the baseline of the not-yet-converted — and that baseline may only
  *       SHRINK: a new redirecting action fails here, and so does a baseline line that no longer redirects.
- *   (2) a door's action is never posted by a bare `<form action>` / door-less `<ConfirmForm>` — that would follow the
+ *   (2) a door's action is never posted by a bare `<form action>` / a plain `<ConfirmForm>` (use `StayConfirmForm`) — that would follow the
  *       redirect again, the door notwithstanding;
  *   (3) the registry is the allow-list: every `lib/stay-doors.ts` name has exactly one action (the type does that at
  *       compile time; this holds the name ↔ action pairing), and an invented name is refused before anything runs;
@@ -89,11 +89,11 @@ test('(2) a door action is never posted by a bare form — it would follow the r
     if (!/<(form|ConfirmForm)\b/.test(text)) continue;
     const code = stripComments(text);
     for (const m of code.matchAll(/<(form|ConfirmForm)\b([^>]*?)\b(action|formAction)=\{\(?\s*([A-Za-z_$][\w$]*)/g)) {
-      if (local.includes(m[4]!) && !/\bdoor=/.test(m[2]!)) bare.push(`${rel} › <${m[1]} action={${m[4]}}>`);
+      if (local.includes(m[4]!)) bare.push(`${rel} › <${m[1]} action={${m[4]}}>`);
     }
   }
   assert.ok(checked >= 12, `only ${checked} files post a door action — the sweep is not reading them`);
-  assert.deepEqual(bare, [], 'These forms post a door action without the door — the screen resets on every press. Make each a `<StayForm door=…>` (or give the ConfirmForm its `door`).');
+  assert.deepEqual(bare, [], 'These forms post a door action without the door — the screen resets on every press. Make each a `<StayForm door=…>` (a confirm-first one: `<StayConfirmForm door=…>`).');
 });
 
 test('(3) the registry is the allow-list — each name runs the action it names, an invented name runs nothing', () => {

@@ -2,8 +2,6 @@
 
 import { useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { ConfirmDialog } from './confirm-dialog';
-import { useStaySubmit } from './stay-form';
-import type { StayDoor } from '@/lib/stay-doors';
 
 type Props = {
   action: (formData: FormData) => void | Promise<void>;
@@ -40,9 +38,10 @@ type Props = {
    * Use this prop + an external trigger button instead.
    */
   formId?: string;
-  /** 📍 Save the confirmed press IN PLACE through this door (`StayForm`) — the screen is not re-drawn. Without it the
-   *  confirmed submit follows the action's redirect as before. */
-  door?: StayDoor;
+  /** Runs on the CONFIRMED submit instead of letting the browser post it (`StayConfirmForm` saves it in place). */
+  onConfirmedSubmit?: (event: FormEvent<HTMLFormElement>) => void;
+  /** Extra attributes for the `<form>` (`data-stay`, `aria-busy`). */
+  formProps?: Partial<Record<`data-${string}` | 'aria-busy', string | boolean | undefined>>;
   children: ReactNode;
 };
 
@@ -72,10 +71,10 @@ export function ConfirmForm({
   destructive,
   className,
   formId,
-  door,
+  onConfirmedSubmit,
+  formProps,
   children,
 }: Props) {
-  const stay = useStaySubmit(door ?? ('' as StayDoor));
   const [open, setOpen] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
   // A ref (not state) so the second submit fires SYNCHRONOUSLY in the same
@@ -88,7 +87,7 @@ export function ConfirmForm({
       // Second submit triggered by requestSubmit() after dialog confirm.
       // Let the form go through React's server-action pipeline as normal.
       hasConfirmedRef.current = false;
-      if (door) stay.onSubmit(event);
+      onConfirmedSubmit?.(event);
       return;
     }
     event.preventDefault();
@@ -111,10 +110,9 @@ export function ConfirmForm({
 
   return (
     <>
-      <form ref={formRef} id={formId} action={action} onSubmit={handleSubmit} className={className} data-stay={door} aria-busy={stay.pending || undefined}>
+      <form ref={formRef} id={formId} action={action} onSubmit={handleSubmit} className={className} {...formProps}>
         {children}
       </form>
-      {door ? stay.refusal : null}
       <ConfirmDialog
         open={open}
         title={title ?? 'Confirm action'}

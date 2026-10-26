@@ -5,7 +5,7 @@
   (`lib/stay-doors.ts`) to `app/_actions/save-in-place.ts`, whose registry (`Record<StayDoor, …>`) alone maps it to an
   action; the same action runs (its own sign-in / membership / gates) and its redirect is read by `lib/save-in-place.ts`
   in the area's own words — saved → re-rendered in place; refused → said on the row; signed out / not on the event /
-  off the screen → navigates as before. The plain action stays as the no-JavaScript path. `ConfirmForm` takes `door`.
+  off the screen → navigates as before. The plain action stays as the no-JavaScript path. `StayConfirmForm` (a `ConfirmForm` whose confirmed press saves in place; `ConfirmForm` itself gains only an `onConfirmedSubmit` hook, so screens that only confirm never import the registry).
   Papic's `PapicStayForm` / `in-place-actions.ts` are folded into it (no behaviour change).
 - Converted: Memories' photo sheet (hide / show · seat photo · approve · report · stop / let shoot · delete forever ·
   a supplier's photos) — the sheet follows the fresh list, so it stays open and flips; Papic › Moderation (the same

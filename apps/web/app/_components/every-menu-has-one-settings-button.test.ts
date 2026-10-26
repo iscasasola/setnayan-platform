@@ -71,7 +71,7 @@ test('1 · the door is one 44 px icon-only ⚙ named for its menu', async () => 
   const { MenuSettingsButton } = await import('./menu-settings-button');
   for (const menu of SETTINGS_MENUS) {
     const html = renderToStaticMarkup(
-      React.createElement(MenuSettingsButton, { menu, open: false, onOpenChange: () => {} }, React.createElement('p', null, 'rows')),
+      React.createElement(MenuSettingsButton, { menu, open: false, onOpenChange: () => {}, children: React.createElement('p', null, 'rows') }),
     );
     assert.equal(count(html, /<button\b/g), 1, `${menu}: the door is not exactly one button`);
     assert.equal(count(html, new RegExp(`data-menu-settings="${menu}"`, 'g')), 1, `${menu}: the door is not marked`);

@@ -189,13 +189,17 @@ export function companionNames(
  * bringer, grouped once. What the Guest list's search matches a guest's +1 by (lib/guest-search.ts `companionNames`
  * fact), instead of the one-name mirror. Pure.
  */
-export function companionNamesByBringer(rows: readonly CompanionSeatRow[]): Map<string, string[]> {
+export function companionNamesByBringer(
+  rows: readonly (Omit<CompanionSeatRow, 'plus_one_name_confirmed_at'> & { plus_one_name_confirmed_at?: string | null })[],
+): Map<string, string[]> {
   const byBringer = new Map<string, CompanionSeatRow[]>();
   for (const r of rows) {
     if (!r.plus_one_of_guest_id || r.plus_one_of_guest_id === r.guest_id) continue;
+    // A read that did not select the stamp reads as never stamped (GuestRow's own rule).
+    const seat: CompanionSeatRow = { ...r, plus_one_name_confirmed_at: r.plus_one_name_confirmed_at ?? null };
     const list = byBringer.get(r.plus_one_of_guest_id);
-    if (list) list.push(r);
-    else byBringer.set(r.plus_one_of_guest_id, [r]);
+    if (list) list.push(seat);
+    else byBringer.set(r.plus_one_of_guest_id, [seat]);
   }
   const out = new Map<string, string[]>();
   for (const [bringer, seats] of byBringer) {

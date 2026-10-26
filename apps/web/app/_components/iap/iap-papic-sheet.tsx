@@ -2,7 +2,7 @@
 
 import { useCallback, useId, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, X } from 'lucide-react';
+import { Check, Plus, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { Sheet } from '@/app/_components/sheet';
 import { InfoTip } from '@/app/_components/info-tip';
@@ -80,15 +80,7 @@ export function IapPapicSheet({
 
   const body =
     screen?.kind === 'on' ? (
-      <div data-iap-papic-on="">
-        <p className="text-sm text-ink/70">
-          {bought ? `${credits(bought)} are on this event.` : 'Your credits are on this event.'}
-        </p>
-        <div className="mt-3.5">
-          <ActionButton tone="brand" main icon={<X aria-hidden strokeWidth={1.9} />} label="Done" onClick={close} />
-        </div>
-        <p className="mt-1.5 text-center text-xs text-ink/60">{IAP_COPY.receipt}</p>
-      </div>
+      <PapicCreditsAdded headingId={headingId} what={bought ? credits(bought) : null} onDone={close} />
     ) : screen?.kind === 'pending' ? (
       <div data-iap-papic-pending="">
         <p className="text-[17px] font-semibold text-ink">{IAP_COPY.pendingTitle}</p>
@@ -154,7 +146,9 @@ export function IapPapicSheet({
   const sheet = open ? (
     <Sheet open onClose={close} labelledById={headingId} rise>
       <div className="px-4 pb-4 pt-3.5" data-iap-papic-sheet="">
-        {/* The title and its ONE ⓘ; the sheet's own ✕ closes it (no "Not now" — owner 2026-10-24). */}
+        {/* The title and its ONE ⓘ; the sheet's own ✕ closes it (no "Not now" — owner 2026-10-24). On success the
+            success block carries the heading instead. */}
+        {screen?.kind === 'on' ? null : (
         <InfoTip
           label="Add credits"
           labelAs="h3"
@@ -165,6 +159,7 @@ export function IapPapicSheet({
           One credit is one photo; a short clip uses a little more. Credits land on this event the moment Apple confirms.
           {ladderEnds(rungs) ? ` ${ladderEnds(rungs)} — add more any time.` : ''}
         </InfoTip>
+        )}
         {screen?.kind === 'on' || screen?.kind === 'pending' ? null : (
           <p className="mb-3.5 text-sm text-ink/60">
             {left !== null ? `You have ${left.toLocaleString('en-PH')} credits` : 'Credits land once Apple confirms.'}
@@ -189,5 +184,35 @@ export function IapPapicSheet({
       />
       {sheet && typeof document !== 'undefined' ? createPortal(sheet, document.body) : null}
     </>
+  );
+}
+
+/**
+ * ✅ The purchase landed (owner 2026-10-26 on TestFlight: "make it more presentable") — one clear moment: a check,
+ * what was added, one Done, Apple's receipt line. It carries the sheet's heading (the "Add credits" title is not drawn
+ * on this screen). Exported so `/dev/iap-doors-lab?door=papic-added` can draw it without a purchase.
+ */
+export function PapicCreditsAdded({ headingId, what, onDone }: { headingId: string; what: string | null; onDone: () => void }) {
+  return (
+    <div data-iap-papic-on="" className="flex flex-col items-center pt-1 text-center">
+      <span aria-hidden className="grid h-14 w-14 place-items-center rounded-full bg-success-100 text-success-700">
+        <Check className="h-7 w-7" strokeWidth={2.2} />
+      </span>
+      <h3 id={headingId} className="mt-3 text-[19px] font-semibold tracking-tight text-ink">
+        {what ? `${what} added` : 'Credits added'}
+      </h3>
+      <p className="mt-1 text-sm text-ink/70">On this event now. Guests can start taking photos.</p>
+      <div className="mt-4 w-full">
+        <ActionButton
+          tone="brand"
+          main
+          className="w-full justify-center"
+          icon={<Check aria-hidden strokeWidth={1.9} />}
+          label="Done"
+          onClick={onDone}
+        />
+      </div>
+      <p className="mt-2 text-xs text-ink/55">{IAP_COPY.receipt}</p>
+    </div>
   );
 }

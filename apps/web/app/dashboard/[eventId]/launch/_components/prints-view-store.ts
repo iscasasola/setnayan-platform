@@ -99,6 +99,22 @@ export type PrintSlide = {
 };
 
 const SLIDES = new Map<string, Map<string, PrintSlide>>();
+const put = (item: string, part: string, slide: PrintSlide) => {
+  const parts = SLIDES.get(item) ?? new Map<string, PrintSlide>();
+  parts.set(part, slide);
+  SLIDES.set(item, parts);
+};
+
+/**
+ * 🧪 THE GUARDS' SEAM — never on in the app. Off (always, in a browser and on the server) a share reaches the store only from an
+ * effect; on, a pure render writes it too, so a test can read what each print hands its slide and draw the carousel from it.
+ * Turning it off empties the store.
+ */
+let CAPTURE = false;
+export function captureSlidesForTest(on: boolean) {
+  CAPTURE = on;
+  if (!on) SLIDES.clear();
+}
 
 /** The parts of a slide that are React nodes or functions — never compared, only drawn. */
 const NOT_COMPARED = new Set(['changed', 'body', 'icon', 'note']);
@@ -108,14 +124,14 @@ const NOT_COMPARED = new Set(['changed', 'body', 'icon', 'note']);
  * share leaves; the carousel merges the shares.
  */
 export function useRegisterSlide(item: string, part: string, slide: PrintSlide) {
+  /* 🧪 A pure render (the guards' `renderToStaticMarkup`) runs no effect — with the test seam on, the share is written as it renders. */
+  if (CAPTURE) put(item, part, slide);
   const key = JSON.stringify(slide, (k, v) => (NOT_COMPARED.has(k) ? undefined : v));
   const told = useRef<string | null>(null);
   /* Every render hands the store the newest share (its nodes are the newest the server drew); the carousel is told only when
      something it compares moved. */
   useEffect(() => {
-    const parts = SLIDES.get(item) ?? new Map<string, PrintSlide>();
-    parts.set(part, slide);
-    SLIDES.set(item, parts);
+    put(item, part, slide);
     if (told.current !== key) {
       told.current = key;
       tell();
@@ -133,6 +149,10 @@ export function useRegisterSlide(item: string, part: string, slide: PrintSlide) 
 /** Every registered slide, its parts merged. */
 export function usePrintSlides(): ReadonlyMap<string, PrintSlide> {
   useSyncExternalStore(subscribe, () => tick, () => 0);
+  return printSlidesNow();
+}
+/** The store as it stands, each slide's parts merged (the hook's read; the guards read it after a captured render). */
+export function printSlidesNow(): ReadonlyMap<string, PrintSlide> {
   const out = new Map<string, PrintSlide>();
   for (const [item, parts] of SLIDES) {
     if (parts.size === 0) continue;

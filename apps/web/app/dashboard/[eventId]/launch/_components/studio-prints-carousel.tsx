@@ -4,6 +4,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useId,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -30,6 +31,7 @@ import { GUEST_TOKEN, GUEST_WORD_TOKEN, PRINT_SETTINGS_LABEL, PRINT_SETTINGS_LIN
 import { studioPrintsPieces, type StudioPrintsPiece } from '@/lib/studio-details';
 import type { DetailsItemGroup, DetailsItemKey } from '@/lib/maker-details-items';
 import { DetailsSelectContext } from './details-go';
+import { chartHeadLine } from '@/lib/print-head-line';
 import { chartAddresses, useChartPick, usePaper, type StudioPaper, type StudioPaperDoor } from './print-paper';
 import { usePrintSave, type PrintSaveState } from './print-save-button';
 import { setPrintSettingsOpen, usePrintGuest, usePrintSlides, type AllInOneF, type PrintSlide } from './prints-view-store';
@@ -488,7 +490,7 @@ function Slide({
                 <ActionButton tone="neutral" icon={RefreshCw} label="Try again" onClick={page > 1 ? retryOther : retryFirst} />
               </span>
             ) : (
-              <span aria-hidden className={`absolute inset-0 grid place-items-center bg-[#EFEAE1] text-[11px] font-semibold tracking-[0.04em] text-[#8E8880] ${near ? 'animate-pulse' : ''}`}>
+              <span aria-hidden className={`absolute inset-0 grid place-items-center bg-ink/[0.06] text-[11px] font-semibold tracking-[0.04em] text-ink/50 ${near ? 'animate-pulse' : ''}`}>
                 {near ? 'Drawing…' : ''}
               </span>
             )}
@@ -595,7 +597,7 @@ function Zoomable({ on, pages, page, onPage, children }: { on: boolean; pages: n
             data-prints-pages={pages}
             aria-label={`Page ${formatCount(page)} of ${formatCount(pages)} — next page`}
             onClick={() => onPage(page >= pages ? 1 : page + 1)}
-            className={`absolute bottom-2 right-2 rounded-full bg-black/55 px-2 py-[3px] text-[10px] font-semibold tracking-[0.06em] text-white ${REACH_44}`}
+            className={`absolute bottom-2 right-2 rounded-full bg-ink/70 px-2 py-[3px] text-[10px] font-semibold tracking-[0.06em] text-cream ${REACH_44}`}
           >
             {page === 1 ? `${formatCount(pages)} pages` : `${formatCount(page)} of ${formatCount(pages)}`}
           </button>
@@ -677,7 +679,7 @@ function Under({
         </span>
       </div>
       <p data-prints-spec="" className="max-w-full truncate text-center text-[12.5px] text-ink/65">
-        {specLine(slide)}
+        {slide.chart ? <ChartSpec chart={slide.chart} /> : specLine(slide)}
       </p>
     </div>
   );
@@ -685,9 +687,15 @@ function Under({
 
 /** The one spec line — the chosen size, never every size. */
 function specLine(slide: PrintSlide): string {
-  if (slide.chart) return slide.chart.blurb;
   if (slide.everything) return 'one file · Event Hub Pro';
   return slide.line ?? '';
+}
+
+/** 🪧 The entrance chart's spec line — the CHOSEN size only ("A2 · one sheet for the door", `chartHeadLine`), the chart's own pick. */
+function ChartSpec({ chart }: { chart: NonNullable<PrintSlide['chart']> }) {
+  const [pick] = useChartPick(chart.eventId, { layout: 'table', size: chart.defaultSize });
+  const spec = chart.sizes.find((s) => s.key === pick.size) ?? chart.sizes[0]!;
+  return <>{chartHeadLine(spec)}</>;
 }
 
 /** "Changed since you printed" applies to this piece (this browser saved it, and its inputs moved on). */
@@ -1072,9 +1080,10 @@ function DeskTools(p: ToolsProps) {
 
 /** The Menu's dishes (its shipped editor — it saves as you go), in the house sheet, above the Maker. */
 function EditSheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+  const headId = useId();
   const node = (
     <div data-prints-edit-layer="" className="relative z-[96]">
-      <Sheet open onClose={onClose} title={title}>
+      <Sheet open onClose={onClose} title={title} labelledById={headId}>
         <div data-prints-edit-sheet="" className="max-h-[78dvh] overflow-y-auto overscroll-contain px-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
           {children}
         </div>

@@ -15,7 +15,7 @@ import { RefinementsEditor } from '../../_components/refinements-editor';
 import { canvasMakerEnabled } from '@/lib/canvas-maker-flag';
 import { cardKindLabeller } from '@/lib/card-kind-labeller';
 import { buildLeafIndex, isCoverageLeafKind } from '@/lib/service-card-kind';
-import { WEDDING_TILE_ORDER } from '@/lib/taxonomy';
+import { getTaxonomy } from '@/lib/taxonomy-db';
 import { buildCanvasInitialFromCard } from '@/lib/vendor-card-copy';
 
 export const metadata = { title: 'Add a service' };
@@ -50,8 +50,17 @@ const CATEGORY_SET = new Set<string>(VENDOR_CATEGORIES);
  *
  * ⚠ Membership only — this does not make a tile id a `VendorCategory`. It says
  * the door may open for a kind the product itself stores.
+ *
+ * 🔑 READ FROM THE LIVE TAXONOMY (③0-d one source, 2026-10-26). This was
+ * a Set over the tile list in `lib/taxonomy.ts` — the code's copy — so a card kind on a
+ * category an admin created in /admin/categories 404'd here exactly the way
+ * `host_mc` once did. The door now asks `getTaxonomy().tileOrder`, the same
+ * tier-2 rows the admin page edits (fallback-safe: an unreadable database
+ * answers with the code list, never with nothing).
  */
-const WEDDING_TILE_SET = new Set<string>(WEDDING_TILE_ORDER);
+async function liveTileIds(): Promise<ReadonlySet<string>> {
+  return new Set<string>((await getTaxonomy()).tileOrder);
+}
 
 /**
  * /vendor-dashboard/services/new/[category] — the guided "create a service"
@@ -82,7 +91,7 @@ export default async function NewServicePage({
   if (
     !CATEGORY_SET.has(category) &&
     !isCoverageLeafKind(category, leafKinds) &&
-    !WEDDING_TILE_SET.has(category)
+    !(await liveTileIds()).has(category)
   ) {
     notFound();
   }

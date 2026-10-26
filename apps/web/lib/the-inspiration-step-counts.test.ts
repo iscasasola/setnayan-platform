@@ -53,7 +53,7 @@ test('a photo in the library ticks it; an unmeasured count never does', () => {
 
 test('the server half asks the same trade rule as Today’s row, and never the plan', () => {
   const src = stripComments(readFileSync(join(WEB, 'lib/vendor-first-steps.server.ts'), 'utf8'));
-  assert.match(src, /moodboardLibraryAccessForProfile\(profile, await getInspirationParts\(\)\)\.allowed/);
+  assert.match(src, /getInspirationParts\(\)\.then\(async \(parts\) => \{\s*const open = moodboardLibraryAccessForProfile\(profile, parts\)\.allowed;/);
   assert.match(src, /inspiration: libraryOpen \?/);
   assert.doesNotMatch(src, /inspiration[^\n]*tier/i, 'the inspiration step is gated by plan');
 });

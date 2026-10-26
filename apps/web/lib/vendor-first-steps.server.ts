@@ -64,8 +64,13 @@ export async function fetchVendorFirstStepsState(
   const profileChecklist = businessProfileChecklist(profile);
 
   // 🌱🖼 The inspiration library is a counted step for the trades that supply a part (frame B6, owner 2026-10-23).
-  const libraryOpen = moodboardLibraryAccessForProfile(profile, await getInspirationParts()).allowed;
-  const [application, serviceCount, customerCount, registrationNumberOnFile, shopWideDaysOff, libraryCount] =
+  // 🧩 Asked of the live parts (③0-b) INSIDE the batch below, never before it — a read awaited up here was one more
+  // round on Today (`the-supplier-today-reads-together.test.ts`). Today starts the same `cache()`d read first thing.
+  const libraryRead = getInspirationParts().then(async (parts) => {
+    const open = moodboardLibraryAccessForProfile(profile, parts).allowed;
+    return { open, count: open ? await countOwnLibraryPhotos((profile as { user_id?: string | null }).user_id ?? null) : undefined };
+  });
+  const [application, serviceCount, customerCount, registrationNumberOnFile, shopWideDaysOff, library] =
     await Promise.all([
       fetchLatestApplication(supabase, vendorProfileId).catch(() => null),
       countVendorServices(supabase, vendorProfileId),
@@ -74,8 +79,10 @@ export async function fetchVendorFirstStepsState(
       // Step 4 — a shop-wide day off belongs to no schedule, so Today's schedules read cannot see it. Asked only
       // here, on a shop not yet approved (the one that sees this rail), and only when the caller counted the rest.
       known.blocks ? countShopWideDaysOff(supabase, vendorProfileId) : Promise.resolve(0),
-      libraryOpen ? countOwnLibraryPhotos((profile as { user_id?: string | null }).user_id ?? null) : Promise.resolve(undefined),
+      libraryRead,
     ]);
+  const libraryOpen = library.open;
+  const libraryCount = library.count;
 
   const uploads = (application?.doc_uploads ?? {}) as DocUploadMap;
 

@@ -55,6 +55,11 @@ export const dynamic = 'force-dynamic';
  * ⚠ The film is encoded in the browser, so "pay to save" is a door, not a
  * vault: the preview player hides its download control, and the Save button
  * only exists once the SKU is active. That matches Patiktok's posture.
+ *
+ * 🆓 FREE FOR EVERY EVENT SINCE 2026-10-26 (owner: *"let us remove thank you from the inapp purchase"* → *"make it
+ * free for now"*). `PAPIC_ADDON_THANK_YOU` is in `FREE_FOR_ALL_SKUS`, so `eventSkuActive` answers yes for every event:
+ * `checkout` stays null, the page opens on its masthead, and "Save to my phone" downloads straight away — on the web
+ * and in the app (its App Store product is retired). The unowned branches below stay for the day a price returns.
  */
 export default async function ThankYouVideoPage({
   params,

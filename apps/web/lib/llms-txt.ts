@@ -156,7 +156,8 @@ const REQUIRED_RETAIL = [
   // inside it — a vendor product, described under the vendor section, not here.
   // 🪤 ENTRY AND PROSE PRICE GO TOGETHER — leaving this entry throws
   // RetiredSkuError and drops the whole file to its stub.
-  'PAPIC_ADDON_THANK_YOU',
+  // PAPIC_ADDON_THANK_YOU removed 2026-10-26 — FREE for every event (owner: "make it free for now"; FREE_FOR_ALL_SKUS,
+  // migration _thank_you_video_is_free). 🪤 Entry and prose went together: a quoted inactive row drops the file to its stub.
   // LIVE_WALL removed 2026-08-11 — owner set it FREE ("live photo wall FREE"),
   // so it no longer has a price to advertise and its row is deactivated. Its
   // prose line stayed and now reads "free": the FEATURE is on for every event
@@ -591,7 +592,7 @@ Pricing in PHP. All sales final on digital deliverables.
 - **Live Watch — hosted channel** — ${R('LIVE_STUDIO_HOSTED_CHANNEL')} per day, optional, on top of Live Watch. For couples with no livestream channel of their own: Setnayan supplies and runs the YouTube channel the broadcast goes to. Charged for each day it is used, because a Setnayan channel is a scarce resource — unlike the software unlock, which costs nothing to run twice. Your own channel is the default and costs nothing extra.
 - **Music Maker** — ${R('PAKANTA')}. Custom Filipino-style song written for the couple.
 - **3D Plan** — free. Walk the reception in 3D before it is real — every table and detail in place, drawn from the seat plan, the guest list and the mood board; guests walk it from their own phones and can make their own avatar.
-- **Thank You Video** — ${R('PAPIC_ADDON_THANK_YOU')}. Compiled thank-you video for all attendees.
+- **Thank You Video** — free. A short film made from the guests' shared photos, for everyone who came.
 - **Memory lane** — free. Live photo collage with live attendance count, shown on a screen at the venue and mirrored on every guest's own phone during the celebration.
 - **Monogram Maker** — free. A bespoke monogram generated from the couple's inputs; Event Hub PRO animates it.
 - **Event Hub** — free. The 4-in-1 couple website (Save the Date, RSVP, on-the-day, Editorial) with unlimited RSVP.

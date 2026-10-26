@@ -41,7 +41,7 @@ type Props = {
   /** Runs on the CONFIRMED submit instead of letting the browser post it (`StayConfirmForm` saves it in place). */
   onConfirmedSubmit?: (event: FormEvent<HTMLFormElement>) => void;
   /** Extra attributes for the `<form>` (`data-stay`, `aria-busy`). */
-  formProps?: Partial<Record<`data-${string}` | 'aria-busy', string | boolean | undefined>>;
+  formProps?: { 'data-stay'?: string; 'aria-busy'?: boolean };
   children: ReactNode;
 };
 

@@ -1,5 +1,5 @@
 {
-  "generatedFromRef": "e670d230f1",
+  "generatedFromRef": "d2634a5d5e",
   "routeCount": 474,
   "destinations": 1014,
   "actions": 661,
@@ -9432,7 +9432,6 @@
       ],
       "actions": [],
       "blocks": [
-        "ConfirmForm",
         "GridPageSkeleton",
         "KwentoActionResult",
         "KwentoQueue",
@@ -9440,6 +9439,7 @@
         "Link",
         "PageMasthead",
         "ReadRefusedNotice",
+        "StayConfirmForm",
         "StayForm",
         "SubmitButton"
       ]

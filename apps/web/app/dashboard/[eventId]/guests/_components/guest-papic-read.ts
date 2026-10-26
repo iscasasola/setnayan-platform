@@ -1,3 +1,4 @@
+import { papicHomeHref } from '@/lib/papic-home-href';
 import 'server-only';
 
 import { eventPapicGuestAccess, eventPapicGuestAccessWhy, type PapicGuestAccess } from '@/lib/papic-guest';
@@ -42,7 +43,7 @@ export async function readEventPapicAccess(eventId: string): Promise<PapicGuestA
  * Papic yet is the Papic page, which arms the free pool on its first view.
  */
 export function papicSwitchHref(eventId: string, answeredNo: boolean): string {
-  return answeredNo ? recordFieldHref(eventId, 'papic-answer') : `/dashboard/${eventId}/studio/papic`;
+  return answeredNo ? recordFieldHref(eventId, 'papic-answer') : papicHomeHref(eventId);
 }
 
 /** The event's Papic and one guest's camera, both started at once. Hand the result on with `forTheCouple`. */

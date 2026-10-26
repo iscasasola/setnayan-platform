@@ -47,7 +47,7 @@ function albums(kind: 'full' | 'empty'): Album[] {
   ];
   return rows.map(([event, count]) => ({
     event, role: event.role, count, thumbs: [], slug: null, markPlays: false,
-    href: event.role === 'couple' ? `/dashboard/${event.event_id}/studio/papic` : null,
+    href: event.role === 'couple' ? `/dashboard/${event.event_id}/memories` : null,
   })) as unknown as Album[];
 }
 

@@ -59,6 +59,8 @@ const FORWARDS: readonly (readonly [string, string])[] = [
   [`/dashboard/${EID}/studio`, MORE],
   // 👗 "THE DRESS CODE IS SET IN THE MOOD BOARD" (2026-10-01; removed 2026-10-04).
   [`/dashboard/${EID}/website/dress-code`, `/dashboard/${EID}/studio/mood-board`],
+  // 📷 THE PAPIC PAGE (owner 2026-10-26: "place that on home and remove that page") — its card is on Home › Today.
+  [`/dashboard/${EID}/studio/papic`, `/dashboard/${EID}?papic=open#papic`],
 ];
 
 /** The page file each old path used to be (relative to app/). */
@@ -84,6 +86,7 @@ const DELETED_PAGES: readonly string[] = [
   'dashboard/[eventId]/suite/page.tsx',
   'dashboard/[eventId]/studio/page.tsx',
   'dashboard/[eventId]/website/dress-code/page.tsx',
+  'dashboard/[eventId]/studio/papic/page.tsx',
 ];
 
 test('every retired path forwards to the destination its stub had', () => {
@@ -99,8 +102,10 @@ test('a trailing slash still forwards; a child path or a live path does not', ()
   assert.equal(legacyRedirectTarget(`/dashboard/${EID}/design/extra`), null);
   // live neighbours that merely share a word with a retired path
   for (const live of [
-    // The product pages under /studio are live — only the index retired (d1).
-    `/dashboard/${EID}/studio/papic`,
+    // The product pages under /studio are live — only the index retired (d1). (Papic's page itself retired
+    // 2026-10-26 — its children stay pages.)
+    `/dashboard/${EID}/studio/papic/crew`,
+    `/dashboard/${EID}/studio/papic/challenges`,
     `/dashboard/${EID}/studio/about/papic`,
     `/dashboard/${EID}/galleries`,
     `/dashboard/${EID}/launch`, // the controller — NOT website/launch

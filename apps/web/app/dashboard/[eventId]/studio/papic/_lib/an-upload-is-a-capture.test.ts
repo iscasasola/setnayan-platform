@@ -33,7 +33,6 @@ import { fileURLToPath } from 'node:url';
 const PAPIC = dirname(dirname(fileURLToPath(import.meta.url)));
 const PICKER = readFileSync(join(PAPIC, '_components/add-to-library.tsx'), 'utf8');
 const SENDER = readFileSync(join(PAPIC, '..', '..', '..', '..', '..', 'lib', 'upload-send.ts'), 'utf8');
-const PAGE = readFileSync(join(PAPIC, 'page.tsx'), 'utf8');
 const MEMORIES = readFileSync(join(PAPIC, '..', '..', 'memories', 'page.tsx'), 'utf8');
 
 test('the picker still exists and still uploads — or every rule below is vacuous', () => {

@@ -1,5 +1,6 @@
 'use server';
 
+import { papicHomeHref, withQuery, hrefPath } from '@/lib/papic-home-href';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
@@ -55,7 +56,7 @@ export async function setVendorCapturesHidden(formData: FormData): Promise<void>
       ? `/dashboard/${eventId}/memories`
       : from === 'details'
         ? `/dashboard/${eventId}/details`
-        : `/dashboard/${eventId}/studio/papic`;
+        : papicHomeHref(eventId);
   if (!eventId || !vendorRowId) redirect(back);
 
   const supabase = await createClient();
@@ -73,9 +74,9 @@ export async function setVendorCapturesHidden(formData: FormData): Promise<void>
     .eq('vendor_id', vendorRowId)
     .eq('event_id', eventId);
 
-  if (error) redirect(`${back}?vendorMedia=error`);
+  if (error) redirect(withQuery(back, `vendorMedia=error`));
 
-  revalidatePath(back);
+  revalidatePath(hrefPath(back));
   revalidatePath(`/dashboard/${eventId}/memories`);
-  redirect(`${back}?vendorMedia=${hidden ? 'hidden' : 'shown'}`);
+  redirect(withQuery(back, `vendorMedia=${hidden ? 'hidden' : 'shown'}`));
 }

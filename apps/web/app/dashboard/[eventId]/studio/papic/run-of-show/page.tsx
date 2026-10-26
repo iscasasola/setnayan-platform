@@ -27,6 +27,7 @@
  * not the couple. They share the board, the ceiling and the server action; they
  * are not the same screen and folding one into the other would make both worse.
  */
+import { papicHomeHref } from '@/lib/papic-home-href';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
@@ -109,7 +110,7 @@ export default async function RunOfShowPage({ params, searchParams }: Props) {
   return (
     <div className="sn-col py-6">
       <Link
-        href={`/dashboard/${eventId}/studio/papic`}
+        href={papicHomeHref(eventId)}
         className="inline-flex items-center gap-1.5 text-sm text-link underline-offset-2 hover:underline"
       >
         <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />

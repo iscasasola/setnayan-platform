@@ -61,6 +61,8 @@
  */
 import { PapicBuySheet } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-buy-sheet';
 import { PapicCameraSettings, PapicSwitch } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-camera-settings';
+import { ChallengeCardRow } from '@/app/dashboard/[eventId]/studio/papic/_components/challenge-card-row';
+import { PapicCameraHelp } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-camera-help';
 import { papicCardPhase } from '@/lib/papic-home-card';
 import type { PapicCardInput } from '@/app/dashboard/[eventId]/_components/home-first-screen';
 import { LabShell } from '@/app/dev/_components/lab-shell';
@@ -171,7 +173,7 @@ const STATES: Record<string, HomeNextInput> = {
 /* 📷 PAPIC'S CARD (owner 2026-10-26, "a quick on off button and expand for more settings") — `?card=1[&cardphase=before|live|after]`:
    the REAL card on fixture dates — closed, the head and the switch; open, the REAL camera settings (in a lab with no
    database they say "couldn't load" — the failed-read state, drawn as it ships). */
-function labPapicCard(eventId: string, phase: string | undefined, failed: boolean): PapicCardInput {
+function labPapicCard(eventId: string, phase: string | undefined, failed: boolean, challenges = false): PapicCardInput {
   const startIso = '2026-12-10T16:00:00.000Z';
   const endIso = '2026-12-13T04:00:00.000Z';
   const now = phase === 'after' ? Date.parse('2026-12-14T02:00:00Z') : phase === 'live' ? Date.parse('2026-12-12T06:00:00Z') : Date.parse('2026-10-23T02:00:00Z');
@@ -179,16 +181,39 @@ function labPapicCard(eventId: string, phase: string | undefined, failed: boolea
     phase: papicCardPhase(startIso, endIso, now),
     thankYouHref: '#thank-you',
     headControl: <PapicSwitch eventId={eventId} saved />,
+    // 🔢 The face (owner 2026-10-26): Total · Taken · Remaining and Add more — the settings open under it.
+    counts: { total: failed ? null : 2000, left: failed ? null : 1240 },
+    buy: <PapicBuySheet eventId={eventId} left={failed ? null : 1240} tone="brand" main label="Add more" />,
+    defaultOpen: challenges,
     settings: (
-      <PapicCameraSettings
-        eventId={eventId}
-        seat="home"
-        credits={{ total: failed ? null : 2000, left: failed ? null : 1240 }}
-        buy={<PapicBuySheet eventId={eventId} left={failed ? null : 1240} tone="brand" main label="Add more" />}
-      />
+      <>
+        <PapicCameraSettings eventId={eventId} seat="home" />
+        {/* `?challenges=1` — the REAL challenge rows (name · switch · ✕) on fixtures: the settings above have no
+            database here, so their own list cannot draw. */}
+        {challenges ? (
+          <ul className="divide-y divide-ink/10 border-t border-ink/10 pt-1" data-lab-challenges="">
+            {LAB_CHALLENGES.map((m) => (
+              <ChallengeCardRow key={m.mission_id} eventId={eventId} eventType="wedding" taken={[]} mission={m} full={false} returnTo="home" />
+            ))}
+          </ul>
+        ) : null}
+        <PapicCameraHelp />
+      </>
     ),
   };
 }
+const LAB_CHALLENGES = [
+  'A selfie with the couple',
+  'The first dance, from your seat',
+  'Your table, all smiling',
+  'The oldest guest and the youngest',
+  'Someone mid-laugh',
+  'The cake before it is cut',
+  'A toast, glasses up',
+  'Your best dance move',
+  'The view from the back row',
+  'Something borrowed, something blue',
+].map((prompt, i) => ({ mission_id: `lab-${i + 1}`, prompt, is_active: i !== 2, capture_kind: i === 1 || i === 7 ? 'clip' : 'photo' }));
 
 /** 🎛 The Event Hub tile's "Pick what shows", handed in so the sheet opens with no database (nothing pinned; the date
  * gives the Invitation). Its pick still calls the real `setLaunchPhase`, which refuses a made-up event. */
@@ -197,7 +222,7 @@ const LAB_HUB_PICK: HomeHubPickRead = { ok: true, pinned: null, byDate: 'rsvp' }
 export default async function HomeLab({
   searchParams,
 }: {
-  searchParams: Promise<{ bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; card?: string; cardphase?: string; open?: string; need?: string }>;
+  searchParams: Promise<{ bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; card?: string; cardphase?: string; challenges?: string; open?: string; need?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -438,11 +463,11 @@ export default async function HomeLab({
         papicLeft={papicNow.count}
         papicSizes={LAB_SIZES}
         hubPick={unread ? { ok: false, reason: 'unread' } : LAB_HUB_PICK}
-        papicCard={q.card === '1' ? labPapicCard(E, q.cardphase, q.fail === '1' || q.unread === '1') : null}
+        papicCard={q.card === '1' ? labPapicCard(E, q.cardphase, q.fail === '1' || q.unread === '1', q.challenges === '1') : null}
         apple={
           q.store === '1' && q.apple === '1'
             ? {
-                papic: { status: papicNow.status, buy: true, open: q.v11 === '1' ? `/dashboard/${E}/studio/papic` : null },
+                papic: { status: papicNow.status, buy: true, open: null },
                 liveWatch:
                   q.live === 'on'
                     ? {

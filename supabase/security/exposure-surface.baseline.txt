@@ -3184,6 +3184,7 @@ col	public.papic_missions.mission_id	anon=- authenticated=SIU
 col	public.papic_missions.mission_type	anon=- authenticated=SIU
 col	public.papic_missions.moment_key	anon=- authenticated=SIU
 col	public.papic_missions.prompt	anon=- authenticated=SIU
+col	public.papic_missions.removed_at	anon=- authenticated=SIU
 col	public.papic_missions.source	anon=- authenticated=SIU
 col	public.papic_missions.target_guest_id	anon=- authenticated=SIU
 col	public.papic_missions.target_role	anon=- authenticated=SIU

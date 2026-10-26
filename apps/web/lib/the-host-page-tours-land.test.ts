@@ -56,7 +56,6 @@ const MOUNTS: Mount[] = [
   { file: 'app/dashboard/[eventId]/vendors/page.tsx', key: 'suppliers', after: 'journey', inMaker: false },
   { file: 'app/dashboard/[eventId]/memories/page.tsx', key: 'memories', after: 'journey', inMaker: false },
   { file: 'app/dashboard/[eventId]/page.tsx', key: 'home', after: 'journey', inMaker: false },
-  { file: 'app/dashboard/[eventId]/studio/papic/page.tsx', key: 'papic', after: 'journey', inMaker: false },
   { file: 'app/dashboard/[eventId]/seating/page.tsx', key: 'seatPlan', after: 'journey', inMaker: false },
   { file: 'app/dashboard/[eventId]/seating/page.tsx', key: 'seatPlan', after: 'maker', inMaker: true },
   { file: 'app/dashboard/[eventId]/studio/mood-board/_components/mood-board-editor.tsx', key: 'moodBoard', after: 'journey', inMaker: false },
@@ -89,7 +88,7 @@ test('inside the Maker, every page tour waits for the Maker’s own (one tour at
 });
 
 test('the old carousels for the replaced pages are gone (two first-visit things never stack)', () => {
-  for (const f of ['app/dashboard/[eventId]/budget/page.tsx', 'app/dashboard/[eventId]/studio/papic/page.tsx', 'app/dashboard/[eventId]/seating/page.tsx']) {
+  for (const f of ['app/dashboard/[eventId]/budget/page.tsx', 'app/dashboard/[eventId]/seating/page.tsx']) {
     assert.doesNotMatch(read(f), /<MiniTour\b/, `${f} still mounts a MiniTour beside its spotlight`);
   }
 });

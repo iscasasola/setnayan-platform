@@ -39,11 +39,13 @@ test('no manpower note types the gig amount', () => {
   }
 });
 
-test('the DSLR row prices from the catalogue and only while the row is active', () => {
-  const page = code('app/dashboard/[eventId]/studio/papic/page.tsx');
-  assert.match(page, /service_code', 'CAMERA_BRIDGE'/);
-  assert.match(page, /cameraBridgeRow\?\.is_active/);
-  assert.match(page, /pricePhp: number \| null/);
+test('the DSLR line types no price — CAMERA_BRIDGE is retired, so it offers nothing for sale', () => {
+  // 2026-10-26: the Papic page (which read the catalogue row and showed a price only while it was ACTIVE) is gone; its
+  // help moved into the card's ⓘ. CAMERA_BRIDGE was retired (migration 20270828170000), so the row could only ever
+  // read "not on sale" — the help says that, and must never type a ₱ of its own.
+  const help = code('app/dashboard/[eventId]/studio/papic/_components/papic-camera-help.tsx');
+  assert.match(help, /not on sale yet/);
+  assert.doesNotMatch(help, /₱|formatPhp\(/, 'the DSLR help types a price');
 });
 
 test('the seat-limit message reads the live seat fee', () => {

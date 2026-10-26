@@ -40,7 +40,8 @@ const read = (rel: string) => readFileSync(join(web, rel), 'utf8');
 const stripComments = (src: string) =>
   src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
 
-const STUDIO_PAGE = 'app/dashboard/[eventId]/studio/papic/page.tsx';
+// The Papic page is gone (2026-10-26); its banners moved, unchanged, to the card on Home.
+const STUDIO_PAGE = 'app/dashboard/[eventId]/studio/papic/_components/papic-outcome-banners.tsx';
 const STUDIO_ACTIONS = 'app/dashboard/[eventId]/studio/papic/actions.ts';
 const EMIT = 'lib/notification-emit.ts';
 

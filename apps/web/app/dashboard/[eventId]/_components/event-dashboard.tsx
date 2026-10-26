@@ -1,3 +1,4 @@
+import { papicHomeHref } from '@/lib/papic-home-href';
 import Link from 'next/link';
 import type { DaysToGo } from '@/lib/countdown-target';
 import { notFound, redirect } from 'next/navigation';
@@ -2079,7 +2080,7 @@ export async function EventDashboard({
   const papicMini = papicHome && !storeShell ? (
     <Link
       key="papic"
-      href={`${base}/studio/papic`}
+      href={papicHomeHref(eventId)}
       className="sn-tile sn-press flex flex-col text-left"
     >
       <span className="sn-eye">

@@ -54,18 +54,20 @@ test('3 · Home hands over the event-wide settings, and every door the old quick
   assert.doesNotMatch(cam, /<FaceBlockingList/, 'a per-guest face list is back under the card');
   assert.match(cam, /<GuestAllotmentsChoice eventId=\{eventId\} variant="row" eventWide returnTo=\{seat === 'home' \? 'home' : null\}/, 'the event-wide limit is not under Home’s card, or does not land back on Home');
   assert.match(cam, /href=\{`\/dashboard\/\$\{eventId\}\/guests`\}[\s\S]{0,400}guest card/, 'no door to the guest cards');
-  // The credits and Add more moved off the closed card — they must live in the open settings Home hands over.
-  assert.match(cam, /data-papic-counter=""/, 'the credits counter is not in the open settings');
-  assert.match(cam, /\{buy \? <div className="flex" data-papic-add-more="">\{buy\}<\/div> : null\}/, 'Add more is not in the open settings');
-  assert.match(h, /<PapicCameraSettings[\s\S]{0,240}credits=\{\{ total: papicNow\.total, left: papicNow\.count \}\}[\s\S]{0,40}buy=\{<PapicBuySheet/, 'Home does not hand the open settings the credits and Add more');
+  // 🔢 The counts and Add more are on the card's FACE (owner 2026-10-26: "the count of the total, taken, remaining and
+  // a button to add more") — Home hands them to the card, not to the open settings.
+  assert.match(h, /counts: \{ total: papicNow\.total, left: papicNow\.count \},\s*buy: papicBuy,/, 'Home does not hand the card its counts and Add more');
+  assert.doesNotMatch(h, /<PapicCameraSettings[^>]*credits=/, 'the open settings draw a second counter under the face');
   // After the day the Thank-You Video door leads the OPEN card (it lived on the closed one until 2026-10-26).
   const open = rendered({ open: true, phase: 'after' });
   assert.match(open, /data-papic-thank-you=""[\s\S]*Thank-You Video[\s\S]*data-sentinel-settings/, 'the Thank-You Video door is lost, or not the open card’s first row');
 });
 
-test('4 · the controller page is retired for the couple on the web — an old link opens the card on Home (owner 2026-10-24)', () => {
-  const page = code('app/dashboard/[eventId]/studio/papic/page.tsx');
-  assert.match(page, /if \(!storeShell && [\s\S]{0,120}member_type === 'couple'\) \{\s*redirect\(`\/dashboard\/\$\{eventId\}\?papic=open`\);/, 'a plain visit still draws the separate Papic page for the couple');
+test('4 · the controller page is gone — an old link opens the card on Home (owner 2026-10-24 · removed 2026-10-26)', () => {
+  // The page itself is deleted; the old address is forwarded by the middleware's legacy map (`lib/legacy-redirects.ts`,
+  // `papic-lives-on-home.test.ts` holds the targets) to `?papic=open#papic`.
+  const legacy = code('lib/legacy-redirects.ts');
+  assert.match(legacy, /PAPIC_PAGE_RE = \/\^\\\/dashboard\\\/\(\[\^\/\]\+\)\\\/studio\\\/papic\$\//, 'the old Papic address is not forwarded');
   const c = code(CARD);
   assert.match(c, /searchParams\.get\('papic'\) !== 'open'/, 'the card does not open itself for an old link');
   assert.match(c, /window\.history\.replaceState\(/, 'the card leaves ?papic=open in the address — Home’s own URL must come back');
@@ -91,7 +93,7 @@ function rendered({ open, phase = 'live' }: { open: boolean; phase?: 'before' | 
 test('5 · closed, the card is the head only — mark · Papic · Guest photos · the switch · › (owner 2026-10-26)', () => {
   const html = rendered({ open: false, phase: 'after' });
   // Everything above the settings region is what the closed card shows.
-  const cut = html.indexOf('<div id=');
+  const cut = html.lastIndexOf('<div', html.indexOf('role="region"'));
   assert.ok(cut > 0 && html.slice(cut).includes('role="region"'), 'the settings region is not the last part of the card');
   const closed = html.slice(0, cut);
   assert.match(closed, /data-sentinel-switch/, 'the Papic switch is not on the closed card');
@@ -108,5 +110,7 @@ test('5 · closed, the card is the head only — mark · Papic · Guest photos �
   const c = code(CARD);
   const props = c.match(/export function PapicHomeCard\(\{([\s\S]*?)\}: \{/)?.[1] ?? '';
   const names = props.split(',').map((p) => p.trim().split(/\s|=/)[0]).filter(Boolean).sort();
-  assert.deepEqual(names, ['brand', 'defaultOpen', 'headControl', 'icon', 'marker', 'name', 'phase', 'settings', 'thankYouHref'], 'the card takes a prop beyond the head and its settings (a strip, a meter, an action row?)');
+  // 🔢 + `counts` and `buy` (owner 2026-10-26: "the count of the total, taken, remaining and a button to add more") —
+  // the face's one line and Add more; nothing else (no strip, no meter, no photos).
+  assert.deepEqual(names, ['brand', 'buy', 'counts', 'defaultOpen', 'headControl', 'icon', 'marker', 'name', 'phase', 'settings', 'thankYouHref'], 'the card takes a prop beyond the head, its face and its settings (a strip, a meter, an action row?)');
 });

@@ -66,7 +66,6 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..');
 const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 const E = '00000000-0000-4000-8000-000000000000';
-const PAPIC_PAGE = 'app/dashboard/[eventId]/studio/papic/page.tsx';
 const CONTROLLER = 'app/panood/control/[eventId]/page.tsx';
 
 /* ═══ 1 · THE GATE — what opens, only where Apple sells ════════════════════ */
@@ -261,9 +260,11 @@ test('2 · the page hands `open` and `goLive` ONLY inside the Apple branch (appl
   const page = code('app/dashboard/[eventId]/page.tsx');
   const branch = page.slice(page.indexOf('apple={'), page.indexOf('ground={homeCover}'));
   assert.match(branch, /^apple=\{\s*appleFacts\s*\?/, 'the Apple prop is no longer behind appleFacts');
-  assert.match(branch, /open: `\/dashboard\/\$\{eventId\}\/studio\/papic`/);
+  // 📷 2026-10-26: the Papic page is gone — the couple's Papic is the one card on Today (Add more = Apple's sheet), so
+  // the app row is drawn only where no card is (a coordinator), and opens nothing.
+  assert.match(branch, /canViewPapicCounts && !papicCard[\s\S]{0,160}open: null/, 'the app draws a second Papic beside the card, or the row opens a page');
   assert.match(branch, /goLive: appleFacts\.liveActive && liveStudioRoamEnabled\(\) \? liveStudioControlPath\(eventId\) : null/);
-  assert.equal((page.match(/studio\/papic`/g) ?? []).length, 1, 'a second Papic door outside the Apple branch');
+  assert.equal((page.match(/studio\/papic`/g) ?? []).length, 0, 'a door to the gone Papic page');
 });
 
 test('2 · Live Watch reads where it was bought — and claims nothing it cannot read', () => {
@@ -316,35 +317,26 @@ function asksAppleIap(src: string, at: number): boolean {
   return false;
 }
 
-test('3 · the Papic page reads the gate once, and every web-only offer on it asks it', () => {
-  const src = code(PAPIC_PAGE);
-  assert.match(src, /const appleIap = \(await getIapGate\(\)\)\.iap;/);
-  // (2026-10-23: the crew-camera ladder, the guest-camera tier sheet and the unlock bundle are GONE from the page —
-  //  not gated, removed; Papic sells credits only. They may not come back on either platform.)
-  for (const gone of ['ExtraCamerasPicker', 'GuestCameraTierPicker', 'LimitedCard', 'PAPIC_UNLOCK']) {
-    assert.ok(!new RegExp(`<${gone}\\b|serviceKey="${gone}"`).test(src), `${gone} is on the Papic page again`);
+test('3 · the Papic card reads the gate once, and every web-only offer on it asks it', () => {
+  // 📷 2026-10-26: the Papic page is gone — Home draws its card (the app's Papic door too, where Apple sells).
+  const src = code('app/dashboard/[eventId]/page.tsx');
+  const settings = code('app/dashboard/[eventId]/studio/papic/_components/papic-camera-settings.tsx');
+  // (2026-10-23: the crew-camera ladder, the guest-camera tier sheet and the unlock bundle are GONE — not gated,
+  //  removed; Papic sells credits only. They may not come back on either platform.)
+  for (const gone of ['ExtraCamerasPicker', 'GuestCameraTierPicker', 'LimitedCard', 'PAPIC_UNLOCK', 'DslrBridgeSection', 'InlineCheckoutDrawer']) {
+    assert.ok(!new RegExp(`<${gone}\\b|serviceKey="${gone}"`).test(settings), `${gone} is on the Papic card again`);
   }
-  // Each mount of a thing sold only on the web — found by name, counted, every one gated. (Keep full-res left with
-  // the files for the Memories ⚙ sheet on 2026-10-23 — gated there, below.)
-  const SOLD_ON_THE_WEB = ['InlineCheckoutDrawer', 'DslrBridgeSection'];
-  let mounts = 0;
-  const ungated: string[] = [];
-  for (const name of SOLD_ON_THE_WEB) {
-    for (const m of src.matchAll(new RegExp(`<${name}\\b`, 'g'))) {
-      mounts++;
-      if (!asksAppleIap(src, m.index!)) ungated.push(`${name} @${src.slice(0, m.index!).split('\n').length}`);
-    }
-  }
-  assert.ok(mounts >= 1, `found only ${mounts} web-offer mounts — the anchor moved`);
-  assert.deepEqual(ungated, [], 'A web-only offer is drawn on the Papic page with nothing asking `appleIap`:\n  ' + ungated.join('\n  '));
-  // Every part handed the gate — the credits band draws Add more as Apple's sheet there.
-  // 📷 The card's Add more (2026-10-24, one Papic card): Apple's sheet in the app, the web's elsewhere — one switch.
-  assert.match(src, /appleIap \? \(\s*<IapPapicSheet\b[\s\S]{0,200}?\) : \(\s*<PapicBuySheet\b/, 'the card’s Add more is not Apple’s sheet in the app');
-  for (const mount of ['<StatusBanners']) {
+  // The card's Add more: Apple's sheet where Apple sells, none in the bare store shell, the web's sheet elsewhere.
+  assert.match(src, /const papicBuy = iap \? \(\s*<IapPapicSheet\b[\s\S]{0,120}?\) : storeShell \? null : \(\s*<PapicBuySheet\b/, 'the card’s Add more is not Apple’s sheet in the app');
+  // The card is drawn in the app only where Apple sells (the page opened only there, `IAP_OPENED_ROUTE`).
+  assert.match(src, /viewerMemberType === 'couple' && \(!storeShell \|\| iap\)/, 'the card reaches the bare store shell');
+  // Every part that could speak of the web is handed the gate.
+  for (const mount of ['<PapicOutcomeBanners', '<PapicCameraHelp']) {
     const at = src.indexOf(mount);
     assert.ok(at > 0, `${mount} moved`);
-    assert.match(src.slice(at, src.indexOf('/>', at)), /appleIap=\{appleIap\}|apple=\{appleIap\}/, `${mount} is not handed the gate`);
+    assert.match(src.slice(at, src.indexOf('/>', at)), /appleIap=\{iap\}/, `${mount} is not handed the gate`);
   }
+  assert.match(code('app/dashboard/[eventId]/studio/papic/_components/papic-camera-help.tsx'), /\{appleIap \? null : \(/, 'DSLR pairing is said in the app');
   // 🗂 The files' web-only offers moved to the Memories ⚙ sheet with the files — gated there.
   const sheet = code('app/dashboard/[eventId]/memories/_components/memories-settings.tsx');
   assert.match(sheet, /\{appleIap \? null : \(/, 'Keep full-res is drawn in the app');

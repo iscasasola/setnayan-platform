@@ -4,6 +4,7 @@ import { notAvailableWindowFilter } from '@/lib/not-available';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { moodboardLibraryAccessForProfile } from '@/lib/moodboard-library-access';
+import { getInspirationParts } from '@/lib/inspiration-parts-db';
 
 import { businessProfileChecklist, profileGaps, type VendorProfileRow } from '@/lib/vendor-profile';
 import {
@@ -63,7 +64,7 @@ export async function fetchVendorFirstStepsState(
   const profileChecklist = businessProfileChecklist(profile);
 
   // 🌱🖼 The inspiration library is a counted step for the trades that supply a part (frame B6, owner 2026-10-23).
-  const libraryOpen = moodboardLibraryAccessForProfile(profile).allowed;
+  const libraryOpen = moodboardLibraryAccessForProfile(profile, await getInspirationParts()).allowed;
   const [application, serviceCount, customerCount, registrationNumberOnFile, shopWideDaysOff, libraryCount] =
     await Promise.all([
       fetchLatestApplication(supabase, vendorProfileId).catch(() => null),

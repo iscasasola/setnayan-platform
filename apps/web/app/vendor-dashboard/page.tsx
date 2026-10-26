@@ -10,6 +10,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { businessProfileChecklist, fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { moodboardLibraryAccessForProfile } from '@/lib/moodboard-library-access';
+import { getInspirationParts } from '@/lib/inspiration-parts-db';
 import { todayCreditNotice } from '@/lib/vendor-credit-warning';
 import { giftDoorWords, giftShopLine, planGiftOf } from '@/lib/plan-gift';
 import {
@@ -573,6 +574,8 @@ export default async function VendorOverviewPage({
           }
         : null;
 
+  // 🧩 The library door reads the live parts (③0-b) — the same snapshot the real upload gate reads.
+  const libraryOpen = moodboardLibraryAccessForProfile(profile, await getInspirationParts()).allowed;
 
   return (
     <div className="mx-auto w-full max-w-6xl tab:max-w-3xl px-4 py-4 sm:px-6 sm:py-10 lg:px-8">
@@ -591,7 +594,7 @@ export default async function VendorOverviewPage({
         // 🌱🖼 "Add to the inspiration library" — only for a shop whose trades supply a part (owner 2026-10-19).
         // While it is a first step still to do (personal invite B6), the step IS the door — the row would say it twice.
         library={
-          moodboardLibraryAccessForProfile(profile).allowed &&
+          libraryOpen &&
           !firstSteps?.steps.some((st) => st.key === 'inspiration' && st.state !== 'done')
         }
         actions={{

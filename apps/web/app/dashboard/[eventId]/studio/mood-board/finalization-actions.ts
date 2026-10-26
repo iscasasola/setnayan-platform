@@ -38,6 +38,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { getInspirationParts } from '@/lib/inspiration-parts-db';
 import { emitNotification } from '@/lib/notification-emit';
 import { sanitizeRolePalette, sanitizePaletteStyle } from '@/lib/mood-board';
 import { sanitizeReceptionDesign } from '@/lib/reception-scene';
@@ -101,7 +102,7 @@ export async function requestPartFinalization(
   if (bookingErr) return { status: 'error', message: bookingErr.message };
   if (!booking) return { status: 'not_booked' };
 
-  const needed = canonicalServicesForPart(partId);
+  const needed = canonicalServicesForPart(partId, await getInspirationParts());
   if (needed.length === 0) return { status: 'not_in_category' };
 
   let services: string[] = [];

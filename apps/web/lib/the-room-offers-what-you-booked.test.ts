@@ -56,6 +56,7 @@ import {
 } from '@/lib/moodboard-finalization';
 import { MOODBOARD_PART_TRADES } from '@/lib/moodboard-slots';
 import { stripComments } from '@/lib/strip-comments';
+import { fallbackInspirationParts } from './inspiration-parts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = join(HERE, '..');
@@ -118,7 +119,7 @@ function tilesByZone(design: ReceptionDesign): Map<PartId, ReadonlySet<string>> 
 
 test('rendering the chips leaves the saved room byte-identical', () => {
   const before = JSON.stringify(DRESSED_ROOM);
-  const candidates = bookedZoneCandidates([LIVE_BAND, CATERER], 'banquet_hall');
+  const candidates = bookedZoneCandidates([LIVE_BAND, CATERER], 'banquet_hall', fallbackInspirationParts());
   assert.ok(candidates.length > 0, 'fixture must actually produce offers, or this proves nothing');
 
   const shown = suggestionsToShow(candidates, {
@@ -137,7 +138,7 @@ test('rendering the chips leaves the saved room byte-identical', () => {
 
 test('an untouched room stays untouched — no zone gains a key from a booking', () => {
   const EMPTY: ReceptionDesign = {};
-  const candidates = bookedZoneCandidates([LIVE_BAND, CATERER], 'banquet_hall');
+  const candidates = bookedZoneCandidates([LIVE_BAND, CATERER], 'banquet_hall', fallbackInspirationParts());
   suggestionsToShow(candidates, {
     dismissedKeys: [],
     frozenZones: NO_FROZEN,
@@ -178,7 +179,7 @@ test('dismissing changes ONLY the dismissed list — structurally, not by care',
   assert.doesNotMatch(body, /mood_board_updated_at/);
 
   // And the pure half is a filter: dismissing removes a chip, nothing else.
-  const candidates = bookedZoneCandidates([LIVE_BAND], 'banquet_hall');
+  const candidates = bookedZoneCandidates([LIVE_BAND], 'banquet_hall', fallbackInspirationParts());
   const one = candidates[0]!;
   const after = suggestionsToShow(candidates, {
     dismissedKeys: [one.dismissKey],
@@ -237,7 +238,7 @@ function applyLikeTheEditor(
 }
 
 test('accepting one offer writes exactly one zone; every other key is byte-identical', () => {
-  const candidates = bookedZoneCandidates([LIVE_BAND], 'banquet_hall');
+  const candidates = bookedZoneCandidates([LIVE_BAND], 'banquet_hall', fallbackInspirationParts());
   const sg = candidates.find((c) => c.zone === 'program');
   assert.ok(sg, 'a live band must reach the program zone');
   assert.equal(sg.optionId, 'live_band');
@@ -308,27 +309,27 @@ test('a photographer reaches no reception zone, so renders no chip', () => {
   // shared bridge must genuinely say a photographer answers no zone.
   for (const zone of zonesThatSuggest()) {
     assert.equal(
-      supplierCanAnswerPart(renderPartIdForZone(zone), PHOTOGRAPHER),
+      supplierCanAnswerPart(renderPartIdForZone(zone), PHOTOGRAPHER, fallbackInspirationParts()),
       false,
       `a photographer should not answer ${zone}`,
     );
   }
-  assert.deepEqual(bookedZoneCandidates([PHOTOGRAPHER], 'banquet_hall'), []);
+  assert.deepEqual(bookedZoneCandidates([PHOTOGRAPHER], 'banquet_hall', fallbackInspirationParts()), []);
 });
 
 test('a coordinator renders no chip either', () => {
-  assert.deepEqual(bookedZoneCandidates([COORDINATOR], 'banquet_hall'), []);
+  assert.deepEqual(bookedZoneCandidates([COORDINATOR], 'banquet_hall', fallbackInspirationParts()), []);
 });
 
 test('a booking with no marketplace shop behind it renders no chip', () => {
   // `BookedSupplier.services` is empty when the couple booked their own
   // supplier. Empty must mean silence, not "matches everything".
   const OWN: BookedSupplier = { vendorId: 'v-own', name: "Tita's lechon", services: [] };
-  assert.deepEqual(bookedZoneCandidates([OWN], 'banquet_hall'), []);
+  assert.deepEqual(bookedZoneCandidates([OWN], 'banquet_hall', fallbackInspirationParts()), []);
 });
 
 test('a frozen zone renders no chip', () => {
-  const candidates = bookedZoneCandidates([LIVE_BAND], 'banquet_hall');
+  const candidates = bookedZoneCandidates([LIVE_BAND], 'banquet_hall', fallbackInspirationParts());
   assert.ok(candidates.some((c) => c.zone === 'program'));
   const shown = suggestionsToShow(candidates, {
     dismissedKeys: [],
@@ -346,7 +347,7 @@ test('a zone that already reflects the shop’s trade renders no chip', () => {
   // not the suggested option, which is `buffet` (first, most characteristic).
   // The offer must still be suppressed: they have answered their caterer.
   const withPlated: ReceptionDesign = { ...DRESSED_ROOM, feast: { service: 'plated' } };
-  const candidates = bookedZoneCandidates([CATERER], 'banquet_hall');
+  const candidates = bookedZoneCandidates([CATERER], 'banquet_hall', fallbackInspirationParts());
   const feast = candidates.find((c) => c.zone === 'feast');
   assert.ok(feast);
   assert.equal(feast.optionId, 'buffet', 'the suggested option is the first, not the chosen one');
@@ -380,11 +381,11 @@ test('a shop eligible for the zone with no option in its trade renders no chip',
     services: ['av_production'],
   };
   assert.equal(
-    eligibleSuppliersForPart('room:program', [AV]).length,
+    eligibleSuppliersForPart('room:program', [AV], fallbackInspirationParts()).length,
     1,
     'premise: an AV shop must be eligible for the program zone',
   );
-  assert.deepEqual(bookedZoneCandidates([AV], 'banquet_hall'), []);
+  assert.deepEqual(bookedZoneCandidates([AV], 'banquet_hall', fallbackInspirationParts()), []);
 });
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -410,10 +411,10 @@ test('every option trade is one its own zone already claims', () => {
 
 test('a candidate is always a supplier the SHARED bridge agrees reaches the zone', () => {
   const booked = [LIVE_BAND, CATERER, PHOTOGRAPHER, COORDINATOR];
-  for (const c of bookedZoneCandidates(booked, 'banquet_hall')) {
+  for (const c of bookedZoneCandidates(booked, 'banquet_hall', fallbackInspirationParts())) {
     const supplier = booked.find((b) => b.vendorId === c.vendorId)!;
     assert.equal(
-      supplierCanAnswerPart(renderPartIdForZone(c.zone), supplier),
+      supplierCanAnswerPart(renderPartIdForZone(c.zone), supplier, fallbackInspirationParts()),
       true,
       `${c.vendorName} was offered ${c.zone} but the shared bridge says they do not reach it`,
     );
@@ -450,13 +451,13 @@ test('the suggested option is the vocabulary’s first match, not an alphabetica
     'dj'.localeCompare('live_band') < 0,
     'premise: the alphabet puts the DJ before the band — the two rules disagree',
   );
-  const c = bookedZoneCandidates([BAND_AND_DJ], 'banquet_hall').find((x) => x.zone === 'program')!;
+  const c = bookedZoneCandidates([BAND_AND_DJ], 'banquet_hall', fallbackInspirationParts()).find((x) => x.zone === 'program')!;
   assert.equal(c.optionId, 'live_band', 'the pick followed the alphabet, not the vocabulary');
   // both trades are still reported, so the "already answered" test stays honest
   assert.deepEqual([...c.matchedTiles].sort(), ['dj', 'live_band']);
 
   // and the plain caterer still resolves to the first catering option
-  const cater = bookedZoneCandidates([CATERER], 'banquet_hall').find((x) => x.zone === 'feast')!;
+  const cater = bookedZoneCandidates([CATERER], 'banquet_hall', fallbackInspirationParts()).find((x) => x.zone === 'feast')!;
   assert.equal(cater.optionId, 'buffet');
 });
 
@@ -477,7 +478,7 @@ test('a dismissal is keyed on the BOOKING, so a new booking gets a fresh chip', 
   const second: BookedSupplier = { ...LIVE_BAND, vendorId: 'booking-2', name: 'Another Band' };
   const dismissed = [dismissKeyFor('booking-1', 'program')];
 
-  const shown = suggestionsToShow(bookedZoneCandidates([first, second], 'banquet_hall'), {
+  const shown = suggestionsToShow(bookedZoneCandidates([first, second], 'banquet_hall', fallbackInspirationParts()), {
     dismissedKeys: dismissed,
     frozenZones: NO_FROZEN,
     selectedTilesByZone: tilesByZone(DRESSED_ROOM),
@@ -524,7 +525,8 @@ test('the lab page loads bookings the way the finalization panel does', () => {
   assert.match(page, /\.in\('status', CONFIRMED_VENDOR_STATUSES as unknown as string\[\]\)/);
   assert.match(panel, /\.in\('status', CONFIRMED_VENDOR_STATUSES as unknown as string\[\]\)/);
   // and it must actually resolve + pass the candidates
-  assert.match(page, /bookedZoneCandidates\(bookedSuppliers, venueSetting\)/);
+  assert.match(page, /bookedZoneCandidates\(bookedSuppliers, venueSetting, inspirationParts\)/);
+  assert.match(page, /const inspirationParts = await getInspirationParts\(\);/, 'the lab resolves the zones off the seed, not the live parts (③0-b)');
   assert.match(page, /dismissedSuggestions=\{dismissedSuggestions\}/);
   assert.match(page, /dismissed_room_suggestions/);
 });

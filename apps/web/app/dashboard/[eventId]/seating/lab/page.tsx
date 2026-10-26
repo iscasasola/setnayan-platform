@@ -62,6 +62,7 @@ import { renderPartById } from '@/lib/moodboard-render-parts';
 import { INSPIRATION_SLOT_FOR_PART } from '@/lib/moodboard-slots';
 import { sanitizeReceptionDesign } from '@/lib/reception-scene';
 import { bookedZoneCandidates } from '@/lib/reception-booked-suggestions';
+import { getInspirationParts } from '@/lib/inspiration-parts-db';
 import { sanitizeDismissedSuggestions } from '@/lib/reception-suggestion-chips';
 import type { BookedSupplier } from '@/lib/moodboard-finalization';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
@@ -285,6 +286,8 @@ export default async function SeatingLabPage({ params, searchParams }: Props) {
       services: ((shop as { services?: string[] } | null | undefined)?.services ?? []).filter(Boolean),
     };
   });
+  // 🧩 Which booked shop reaches which zone reads the live parts (③0-b), never the seed.
+  const inspirationParts = await getInspirationParts();
   const dismissedSuggestions = sanitizeDismissedSuggestions(
     (eventRow.data as Record<string, unknown> | null)?.dismissed_room_suggestions,
   );
@@ -538,7 +541,7 @@ export default async function SeatingLabPage({ params, searchParams }: Props) {
         receptionDesign={receptionDesign}
         inspirationByPart={inspirationByPart}
         finalizedByPart={finalizedByPart}
-        bookedSuggestions={bookedZoneCandidates(bookedSuppliers, venueSetting)}
+        bookedSuggestions={bookedZoneCandidates(bookedSuppliers, venueSetting, inspirationParts)}
         dismissedSuggestions={dismissedSuggestions}
         themeName={themeName}
         styleFamily={styleFamily}

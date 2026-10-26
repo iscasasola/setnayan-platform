@@ -118,10 +118,10 @@ export type MoodBoardStudioProps = {
   eventId: string;
   /**
    * 🧩 The inspiration parts (`getInspirationParts()`, step ② of PLAN `admin_inspiration_groups_2026-10-25`) — the
-   * "Which part?" names, order and the parts offered. Omitted (the dev lab, which never reads the database) = the
-   * consts the table was seeded from.
+   * "Which part?" names, order and the parts offered. REQUIRED (③0-b): the dev lab, which never reads the database,
+   * passes `fallbackInspirationParts()` by name.
    */
-  inspirationParts?: InspirationPartsSnapshot;
+  inspirationParts: InspirationPartsSnapshot;
   palette: RolePalette;
   /** The five the board shows while it is not the couple's — the worn theme's own. */
   fallbackFive: string[];

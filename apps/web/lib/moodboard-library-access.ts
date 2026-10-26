@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { fetchOwnVendorProfile, type VendorProfileRow } from '@/lib/vendor-profile';
 import { uploadableSlotsForShop } from '@/lib/moodboard-gallery-upload';
 import type { PhotoPartGroup } from '@/lib/inspiration-slots';
-import { fallbackInspirationParts, type InspirationPartsSnapshot } from '@/lib/inspiration-parts';
+import type { InspirationPartsSnapshot } from '@/lib/inspiration-parts';
 import { getInspirationParts } from '@/lib/inspiration-parts-db';
 
 /**
@@ -62,8 +62,8 @@ export const MOODBOARD_LIBRARY_DENIAL: Readonly<
  */
 export function moodboardLibraryAccessForProfile(
   profile: VendorProfileRow | null,
-  /** The parts snapshot (`getInspirationParts()`); omitted = the consts the table was seeded from. */
-  parts: InspirationPartsSnapshot = fallbackInspirationParts(),
+  /** The parts snapshot — `await getInspirationParts()`. REQUIRED (③0-b): no silent fallback to the consts. */
+  parts: InspirationPartsSnapshot,
 ): MoodboardLibraryAccess {
   if (!profile) return { allowed: false, reason: 'no_shop' };
   const slots = uploadableSlotsForShop(profile.services, parts);

@@ -67,6 +67,15 @@ export type TaxonomySnapshot = {
   map: Record<string, TaxonomyEntry>;
 };
 
+/**
+ * The columns `getTaxonomy()` reads — exported so a db test reads EXACTLY what the reader reads
+ * (`tests/db/one-source-buckets.db.test.ts`) instead of a second hand-typed list.
+ */
+export const TAXONOMY_CATEGORY_COLUMNS =
+  'id,parent_id,tier,label_en,label_short,slug,sort_order,applicable_event_types,icon_name,sample_photo_r2_key,marketplace_hidden';
+export const TAXONOMY_MAP_COLUMNS =
+  'canonical_service,folder_id,tile_id,phase,faith,is_ph,is_setnayan,is_rental,dietary,is_tradition,marketplace_hidden,secondary_tiles';
+
 export type CategoryRow = {
   id: string;
   parent_id: string | null;

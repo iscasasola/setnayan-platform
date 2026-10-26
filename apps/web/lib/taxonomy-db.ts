@@ -23,6 +23,8 @@ import { cache } from 'react';
 
 import { createClient } from './supabase/server';
 import {
+  TAXONOMY_CATEGORY_COLUMNS,
+  TAXONOMY_MAP_COLUMNS,
   fallbackSnapshot,
   snapshotFromRows,
   type CategoryRow,
@@ -42,17 +44,8 @@ export const getTaxonomy = cache(async (): Promise<TaxonomySnapshot> => {
   try {
     const sb = await createClient();
     const [catsRes, mapsRes] = await Promise.all([
-      sb
-        .from('service_categories')
-        .select(
-          'id,parent_id,tier,label_en,label_short,slug,sort_order,applicable_event_types,icon_name,sample_photo_r2_key,marketplace_hidden',
-        )
-        .lte('tier', 2),
-      sb
-        .from('canonical_service_taxonomy')
-        .select(
-          'canonical_service,folder_id,tile_id,phase,faith,is_ph,is_setnayan,is_rental,dietary,is_tradition,marketplace_hidden,secondary_tiles',
-        ),
+      sb.from('service_categories').select(TAXONOMY_CATEGORY_COLUMNS).lte('tier', 2),
+      sb.from('canonical_service_taxonomy').select(TAXONOMY_MAP_COLUMNS),
     ]);
 
     const cats = catsRes.data as CategoryRow[] | null;

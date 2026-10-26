@@ -63,7 +63,7 @@ import {
   eligibleSuppliersForPart,
   type BookedSupplier,
 } from './moodboard-finalization';
-import { canonicalServicesForTile } from './vendor-counts';
+import { servicesInTile, type CanonicalBuckets } from './vendor-counts';
 import { MOODBOARD_PART_TRADES } from './moodboard-slots';
 import { dismissKeyFor, type BookedZoneCandidate } from './reception-suggestion-chips';
 import type { WeddingTile } from './taxonomy';
@@ -153,6 +153,9 @@ assertOptionTilesBelongToTheirZone();
 export function bookedZoneCandidates(
   booked: readonly BookedSupplier[],
   venueSetting: string | null | undefined,
+  /** The live tile → services buckets (`await getCanonicalBuckets()`), so an option's trade
+   *  follows what /admin/categories files under that tile today. */
+  buckets: CanonicalBuckets,
 ): BookedZoneCandidate[] {
   const out: BookedZoneCandidate[] = [];
   for (const zone of zonesThatSuggest()) {
@@ -165,7 +168,7 @@ export function bookedZoneCandidates(
       const matchedTiles: WeddingTile[] = [];
       let first: { attr: string; option: Option & { tile: WeddingTile } } | null = null;
       for (const entry of tiled) {
-        if (!canonicalServicesForTile(entry.option.tile).some((c) => services.has(c))) continue;
+        if (!servicesInTile(buckets, entry.option.tile).some((c) => services.has(c))) continue;
         if (!matchedTiles.includes(entry.option.tile)) matchedTiles.push(entry.option.tile);
         if (first === null) first = entry;
       }

@@ -34,7 +34,7 @@ import {
 } from '@/lib/shortlist-taxonomy';
 import { TAXONOMY_MAP } from '@/lib/taxonomy';
 import type { TaxonomySnapshot } from '@/lib/taxonomy-db';
-import { fetchVendorCountsByService, rollUpCountsToTile } from '@/lib/vendor-counts';
+import { fetchVendorCountsByService, getCanonicalBuckets, rollUpCountsToTile } from '@/lib/vendor-counts';
 import { buildFindList, type FindList } from '@/lib/supplier-find';
 
 /** tile → the words of every service under it, so the one search finds
@@ -105,7 +105,11 @@ export async function readFindList(args: {
   // Supplier counts — a soft signal; unknown (null) when the read fails.
   let counts: Map<string, number> | null = null;
   try {
-    const perTile = rollUpCountsToTile(await fetchVendorCountsByService(createAdminClient()));
+    const [perCanonical, buckets] = await Promise.all([
+      fetchVendorCountsByService(createAdminClient()),
+      getCanonicalBuckets(),
+    ]);
+    const perTile = rollUpCountsToTile(perCanonical, buckets);
     counts = new Map([...perTile].map(([t, c]) => [t as string, c.total]));
   } catch {
     counts = null;

@@ -36,8 +36,12 @@ test('2 · every activation path asks the cap before it writes', () => {
   assert.ok(check > 0, 'turning a challenge on never asks the cap');
   assert.ok(check < toggle.indexOf(".update({ is_active: active === 'true' })"), 'the cap is asked after the write');
   const pick = body('addLibraryChallengeAction');
-  const capAt = pick.indexOf('activationRefused(await activeChallengesBesides(supabase, eventId, null))');
+  // 🎚 2026-10-27: a pick can CHANGE a slot — the cap is asked besides the challenge it replaces (one in, one out).
+  const capAt = pick.indexOf('activationRefused(await activeChallengesBesides(supabase, eventId, replacing?.id ?? null))');
   assert.ok(capAt > 0 && capAt < pick.indexOf(".from('papic_missions').insert("), 'a library pick never asks the cap before it inserts');
   const own = body('createCoupleChallengeAction');
-  assert.match(own, /const room = !activationRefused\(await activeChallengesBesides\(supabase, eventId, null\)\);[\s\S]*is_active: room,/, 'one written by hand turns on whatever the count');
+  assert.match(own, /const room = !activationRefused\(await activeChallengesBesides\(supabase, eventId, replacing\?\.id \?\? null\)\);[\s\S]*is_active: room,/, 'one written by hand turns on whatever the count');
+  // …and a library pick that is not a change still refuses outright at the cap; a change is kept, switched off.
+  assert.match(pick, /if \(!replacing && !roomForIt\) \{\s*redirect\(`\$\{returnTo\}\?add=full`\);/, 'an eleventh library pick is no longer refused');
+  assert.match(pick, /is_active: roomForIt,/, 'a library pick turns on whatever the count');
 });

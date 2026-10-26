@@ -1,6 +1,7 @@
 'use server';
 
 import { isRedirectError } from 'next/dist/client/components/redirect-error';
+import { limitedHelperRefusal } from '@/lib/host-gate';
 import { getURLFromRedirectError } from 'next/dist/client/components/redirect';
 import {
   addLibraryChallengeAction,
@@ -61,6 +62,11 @@ const DOORS: Readonly<Record<PapicDoor, (fd: FormData) => Promise<unknown>>> = {
 export async function papicSaveInPlace(door: PapicDoor, formData: FormData): Promise<PapicInPlaceResult> {
   const run = DOORS[door];
   if (!run) return { ok: false, error: 'That could not be saved just now. Please try again.' };
+  /* 🔒 The door's own gate, before any action runs — every Papic setting is the 'photos' area (owner 2026-10-26: a
+     limited helper changes only the areas the host set to Edit). Each wrapped action gates again; this says it here. */
+  const eventId = formData.get('event_id');
+  const helperRefusal = await limitedHelperRefusal(typeof eventId === 'string' ? eventId : '', 'photos');
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   try {
     await run(formData);
     return { ok: true };

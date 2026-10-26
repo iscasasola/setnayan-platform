@@ -48,7 +48,8 @@ test('From ▾ is a known option, read as the shop’s services; Near ▾ a know
 test('the server action still caps every request', () => {
   const src = stripComments(readFileSync(join(__dirname, '../app/dashboard/[eventId]/studio/mood-board/actions.ts'), 'utf8'));
   const body = src.slice(src.indexOf('export async function fetchGalleryAssets'), src.indexOf('export async function applyGalleryPick'));
-  assert.match(body, /normalizeGalleryQuery\(input\)/);
+  /* 🧩 Step ②: the query is normalised against the parts snapshot — still on the raw input, still before the read. */
+  assert.match(body, /normalizeGalleryQuery\(input, parts\)/);
   assert.match(body, /\.range\(query\.offset, query\.offset \+ query\.limit - 1\)/);
   assert.doesNotMatch(body, /input\.(q|from|near)\b/, 'a raw filter reached the query around the cap');
 });

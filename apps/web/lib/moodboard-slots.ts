@@ -12,11 +12,11 @@
  *
  * wizard-actions.ts now imports from here, so there is still one list.
  *
- * ⚠ THE DATABASE HOLDS THE SAME ALLOWLIST as a CHECK constraint
- * (`event_inspiration_assets_slot_key_check_v3`, last widened by
- * `20271278232574_palette_parts_five_more_slots.sql`). That pair predates
- * this file and is NOT collapsed here — a CHECK cannot read TypeScript. They
- * agree today; widen both together, and the DB is the one that fails loudly.
+ * 🧩 SINCE STEP ② (PLAN `admin_inspiration_groups_2026-10-25`) THIS LIST IS THE FALLBACK SEED ONLY. The
+ * parts live in `public.inspiration_parts` (seeded from this list, migration 20271287668170), the board's
+ * CHECK `event_inspiration_assets_slot_key_check_v3` is replaced by an FK into that table, and validators
+ * ask `getInspirationParts()` (`isInspirationPartKey`). The union type stays: the code that still keys a
+ * Record by slot (render parts, the fallback's names) needs it to be a compile error.
  */
 
 // Types only — erased at compile time, so this module keeps its zero VALUE

@@ -121,6 +121,8 @@ export interface UgatCounts {
    * walk_no).
    */
   march: number;
+  /** Inspiration parts: every part row, hidden ones included (they still hold photos). */
+  inspirationpart: number;
   /** Sub-figures surfaced on the type-node cards. */
   detail: {
     vendorTotalOrgs: number;
@@ -229,6 +231,7 @@ async function loadUgatCounts(): Promise<UgatCounts> {
     colourGrantRows,
     colourGrantHostRows,
     marchRows,
+    inspirationPartRows,
   ] = await Promise.all([
     headCount(admin, 'users'),
     headCount(admin, 'events'),
@@ -308,6 +311,8 @@ async function loadUgatCounts(): Promise<UgatCounts> {
     headCount(admin, 'event_colour_grants_coordinator', (q) => q.eq('is_active', true)),
     // Wedding March: every person placed in a march (one row each).
     headCount(admin, 'march_walks'),
+    // Inspiration parts: every part, hidden included.
+    headCount(admin, 'inspiration_parts'),
   ]);
 
   return {
@@ -337,6 +342,7 @@ async function loadUgatCounts(): Promise<UgatCounts> {
     signoff: signoffRows,
     colourgrant: colourGrantRows + colourGrantHostRows,
     march: marchRows,
+    inspirationpart: inspirationPartRows,
     detail: {
       vendorTotalOrgs: vendorsTotal,
       billingActiveSubs: activeSubs,

@@ -71,11 +71,9 @@ import { isChineseWedding } from '@/lib/chinese-wedding';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
-import {
-  isMoodboardSlotKey,
-  isMoodboardSlotPosition,
-  MOODBOARD_SLOT_POSITIONS,
-} from '@/lib/moodboard-slots';
+import { isMoodboardSlotPosition, MOODBOARD_SLOT_POSITIONS } from '@/lib/moodboard-slots';
+import { isInspirationPartKey } from '@/lib/inspiration-parts';
+import { getInspirationParts } from '@/lib/inspiration-parts-db';
 import {
   parseWizardState,
   WIZARD_TASKS,
@@ -943,7 +941,7 @@ export async function uploadMoodboardSlot(formData: FormData): Promise<{
   if (typeof eventIdRaw !== 'string' || !eventIdRaw) {
     return { status: 'error', message: 'event_id required' };
   }
-  if (!isMoodboardSlotKey(slotKeyRaw)) {
+  if (!isInspirationPartKey(await getInspirationParts(), slotKeyRaw)) {
     return { status: 'error', message: 'slot_key invalid' };
   }
   const slotPosition = Number(slotPositionRaw);
@@ -1110,7 +1108,7 @@ export async function removeMoodboardSlot(formData: FormData): Promise<{
   if (typeof eventIdRaw !== 'string' || !eventIdRaw) {
     return { status: 'error', message: 'event_id required' };
   }
-  if (!isMoodboardSlotKey(slotKeyRaw)) {
+  if (!isInspirationPartKey(await getInspirationParts(), slotKeyRaw)) {
     return { status: 'error', message: 'slot_key invalid' };
   }
   const slotPosition = Number(slotPositionRaw);

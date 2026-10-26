@@ -107,6 +107,7 @@ import { renderableImageSrc } from '@/lib/event-card-art';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { resolveHero } from '@/lib/event-hero';
 import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
+import { myLovedOnes, spouseIdSet, type DependentOwnership } from '@/lib/my-loved-ones';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { peopleConnectionsEnabled } from '@/lib/people-connections';
 import { formatCount } from '@/lib/format-number';
@@ -709,11 +710,15 @@ export default async function LauncherPage({
       (await isDataPrivacyControlActive('dependent_minor_profiles'))
     ) {
       try {
-        const { count, error } = await supabase
-          .from('dependents')
-          .select('dependent_id', { count: 'exact', head: true });
+        // ⚠ RLS admits an ADMIN to every dependent on the platform — a bare count counted everyone's
+        // (owner 2026-10-27). Count by the ONE rule the People page lists by (`lib/my-loved-ones.ts`).
+        const [{ data, error }, { data: spouseIds, error: spouseError }] = await Promise.all([
+          supabase.from('dependents').select('owner_user_id, handed_over_by_user_id, shared_with_spouse, handed_over_at'),
+          supabase.rpc('current_spouse_user_ids'),
+        ]);
         if (error) console.error('[supabase-error] app/dashboard/(launcher)/page.tsx · from:dependents.select', error);
-        if (!error) alagaCount = count ?? 0;
+        if (spouseError) console.error('[supabase-error] app/dashboard/(launcher)/page.tsx · rpc:current_spouse_user_ids', spouseError);
+        if (!error) alagaCount = myLovedOnes((data ?? []) as DependentOwnership[], user.id, spouseIdSet(spouseIds)).length;
       } catch {
         alagaCount = null;
       }

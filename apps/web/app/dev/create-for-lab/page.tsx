@@ -27,7 +27,7 @@ const TYPES: Array<[string, string, string, string[]]> = [
   ['birthday', 'Birthday', '🎂', ['self', 'someone']],
   ['celebration', 'Celebration', '🥂', B],
   ['travel', 'Travel', '✈️', B],
-  ['corporate', 'Corporate', '🏢', B],
+  ['corporate', 'Corporate', '🏢', ['someone', 'business']],
   ['tournament', 'Tournament', '🏆', B],
   ['christening', 'Christening', '🕯️', ['someone']],
   ['anniversary', 'Anniversary', '💞', ['self', 'someone', 'memorial', 'business']],
@@ -40,7 +40,7 @@ const TYPES: Array<[string, string, string, string[]]> = [
   ['wake', 'Wake', '🕊️', ['memorial']],
   ['concert', 'Concert', '🎤', B],
   ['open_house', 'Open house', '🏠', B],
-  ['grand_opening', 'Grand opening', '🎀', B],
+  ['grand_opening', 'Grand opening', '🎀', ['someone', 'business']],
 ];
 
 export default async function CreateForLab({

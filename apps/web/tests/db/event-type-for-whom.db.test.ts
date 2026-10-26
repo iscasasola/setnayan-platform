@@ -44,8 +44,11 @@ test('the seeded rule: no christening or wake for yourself; a wake only for some
   assert.deepEqual(await forWhom('wedding'), ['self', 'someone'], 'a wedding is for people, never a business');
   const debut = await forWhom('debut');
   if (debut) assert.deepEqual(debut, ['self', 'someone'], 'the debut AGE band is code (life-event-gate), not a mode');
-  const corporate = await forWhom('corporate');
-  if (corporate) assert.ok(corporate.includes('business'));
+  // Owner on #6974 (2026-10-27, "1. Yes"): Corporate and Grand opening are a business's — never "for you".
+  for (const key of ['corporate', 'grand_opening']) {
+    const v = await forWhom(key);
+    if (v) assert.deepEqual(v, ['someone', 'business'], key);
+  }
 });
 
 test('only the four words may be stored', async () => {

@@ -48,9 +48,13 @@ BEGIN
     -- The types a business throws.
     UPDATE public.event_type_vocab SET for_whom = ARRAY['self', 'someone', 'business']::text[]
       WHERE event_type IN (
-        'celebration', 'travel', 'corporate', 'tournament', 'gala_night',
-        'simple_event', 'concert', 'open_house', 'grand_opening'
+        'celebration', 'travel', 'tournament', 'gala_night',
+        'simple_event', 'concert', 'open_house'
       );
+    -- A business's own events — never "for you" (owner on #6974, 2026-10-27: "1. Yes" — Corporate and Grand
+    -- opening show under the business, not under For you).
+    UPDATE public.event_type_vocab SET for_whom = ARRAY['someone', 'business']::text[]
+      WHERE event_type IN ('corporate', 'grand_opening');
     -- Everything else (wedding · debut · gender_reveal · birthday · graduation ·
     -- reunion · date · hangout) keeps the default {self,someone}.
   END IF;

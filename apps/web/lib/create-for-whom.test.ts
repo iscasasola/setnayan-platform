@@ -43,7 +43,8 @@ const ROWS = [
   { key: 'debut', forWhom: ['self', 'someone'] },
   { key: 'christening', forWhom: ['someone'] },
   { key: 'anniversary', forWhom: ['self', 'someone', 'memorial', 'business'] },
-  { key: 'corporate', forWhom: ['self', 'someone', 'business'] },
+  { key: 'corporate', forWhom: ['someone', 'business'] },
+  { key: 'gala_night', forWhom: ['self', 'someone', 'business'] },
   { key: 'wake', forWhom: ['memorial'] },
   { key: 'admin_new', forWhom: null }, // the fallback roster / a row read before the column
 ];
@@ -54,11 +55,12 @@ const shown = (subject: Parameters<typeof forWhomHiddenTypes>[1]) => {
 
 // ── 1. the rule ──────────────────────────────────────────────────────────────
 test('For you: no christening, no wake — everything else that can be yours', () => {
-  assert.deepEqual(shown(buildSelfSubject('Ice')), ['wedding', 'debut', 'anniversary', 'corporate', 'admin_new']);
+  // Corporate is a business's own (owner on #6974, 2026-10-27) — not offered "for you".
+  assert.deepEqual(shown(buildSelfSubject('Ice')), ['wedding', 'debut', 'anniversary', 'gala_night', 'admin_new']);
 });
 
 test('Someone else (living): everything but a wake', () => {
-  assert.deepEqual(shown(buildUnspecifiedSubject()), ['wedding', 'debut', 'christening', 'anniversary', 'corporate', 'admin_new']);
+  assert.deepEqual(shown(buildUnspecifiedSubject()), ['wedding', 'debut', 'christening', 'anniversary', 'corporate', 'gala_night', 'admin_new']);
 });
 
 test('Someone who passed away: only an anniversary and a wake', () => {
@@ -66,7 +68,7 @@ test('Someone who passed away: only an anniversary and a wake', () => {
 });
 
 test('A business: only what a business throws', () => {
-  assert.deepEqual(shown(buildBusinessSubject('Aling Nena’s Store')), ['anniversary', 'corporate', 'admin_new']);
+  assert.deepEqual(shown(buildBusinessSubject('Aling Nena’s Store')), ['anniversary', 'corporate', 'gala_night', 'admin_new']);
 });
 
 test('a loved one on file reads "someone"; a shop alaga reads "business"', () => {

@@ -23,6 +23,9 @@
   action is a door, navigation with a reason (`lib/stay-ratchet.navigation.ts`, seeded from the audit's 69), or in
   `lib/a-save-never-resets-the-screen.baseline.txt`, which may only shrink (`pnpm tsx lib/stay-ratchet.ts --write`);
   a door action posted by a bare `<form>` fails too.
+- The shared door asks the limited-helper gate first (`limitedHelperRefusal(event_id, area)` — photos · schedule ·
+  none for Sponsors, matching `AREA_RULES`), carried from #6970's door. `lib/ugat/scan-fields.ts` reads `<StayForm>`
+  as a form (its `event_id` is the door's), so the Fields map and the create-form round trips see the in-place forms.
 
 SPEC IMPACT: None to the spec text — implements DECISION_LOG 2026-10-26 "A SAVE NEVER RESETS THE SCREEN — APP-WIDE"
 (first batch after the Papic template; the row already says the fixes land in batches and a repo guard follows).

@@ -1,3 +1,4 @@
+import { papicHomeHref } from '@/lib/papic-home-href';
 import { PapicStayForm } from './_components/papic-stay-form';
 // Papic Games — couple challenge manager (spec §5 / gap #1 + #8). Lets the couple
 // AUTHOR their own generic challenges (so every event has a real game, not just
@@ -7,7 +8,7 @@ import { PapicStayForm } from './_components/papic-stay-form';
 // stay in the separate approval panel. Self-gates on papicGamesEnabled().
 
 import Link from 'next/link';
-import { Trophy, Eye, EyeOff, Trash2, Plus, MessageSquareQuote, Search, X, Radio, Play, Square } from 'lucide-react';
+import { Trophy, Eye, EyeOff, Plus, MessageSquareQuote, Search, X, Radio, Play, Square } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -138,7 +139,7 @@ function FilterChip({
 
   return (
     <Link
-      href={`/dashboard/${eventId}/studio/papic${qs ? `?${qs}` : ''}#challenges`}
+      href={`/dashboard/${eventId}/studio/papic/challenges${qs ? `?${qs}` : ''}#challenges`}
       // The active chip is announced, not just coloured: on this palette the
       // difference between a selected and an unselected chip is a fill, and a
       // fill is invisible to a screen reader and to anyone who cannot see it.
@@ -226,6 +227,8 @@ export async function CoupleChallengesManager({
     .select('mission_id,source,prompt,is_active,board_slot,capture_kind,library_id')
     .eq('event_id', eventId)
     .eq('approved', true)
+    // ✕ A removed challenge leaves the host's list for good (owner 2026-10-26); its row stays for the photos it tagged.
+    .is('removed_at', null)
     .order('board_slot', { ascending: true, nullsFirst: false })
     .order('created_at', { ascending: true });
 
@@ -345,7 +348,9 @@ export async function CoupleChallengesManager({
     .from('papic_missions')
     .select('library_id')
     .eq('event_id', eventId)
-    .not('library_id', 'is', null);
+    .not('library_id', 'is', null)
+    // ✕ …and a removed one may be picked again (a fresh challenge; the removed row keeps its old photos).
+    .is('removed_at', null);
   if (takenErr) console.error('[supabase-error] app/dashboard/[eventId]/studio/papic/couple-challenges-manager.tsx · from:papic_missions.select', takenErr);
 
   // What kind of celebration this is (so a birthday is never offered a garter
@@ -387,8 +392,9 @@ export async function CoupleChallengesManager({
   if (inCard) {
     // 📷 IN THE PAPIC CARD (owner rulings 2026-10-24): ONE "Challenges" row with "N of 10" — its switch is the board's
     // master switch, the shipped PAUSE (`setChallengesPausedAction`: the board stays, untouched, and comes back as it
-    // was). Off: only the row, "Off". On: ONLY the running challenges grow in under it — each with its Photo / Clip tag
-    // (`capture_kind`) and its own switch (`setCoupleChallengeActiveAction`; off takes it out of this list) — then
+    // was). Off: only the row, "Off". On: every listed challenge grows in under it (owner 2026-10-26) — each with its Photo
+    // / Clip tag (`capture_kind`), its own switch (`setCoupleChallengeActiveAction`: live on the app / paused, still
+    // listed) and ✕ (`deleteCoupleChallengeAction`, a soft remove that keeps photos already taken) — then
     // "+ Add a challenge", the shared bottom sheet over the 631-row library (`ChallengeAddSheet`), which also holds
     // "+ Add your own". No new action; the hard cap of 10 is the server's (`activationRefused`).
     const [pause, typeRes] = await Promise.all([
@@ -434,10 +440,13 @@ export async function CoupleChallengesManager({
         {off ? null : (
           <>
             {missionsReadable ? (
+              /* 🎚 EACH CHALLENGE: its name · its switch (live on the app / paused — `is_active`, the shipped hide) · ✕
+                 remove (owner 2026-10-26). Paused ones stay listed so they can come back; ✕ takes one away for good —
+                 photos already taken keep it (`deleteCoupleChallengeAction`, a soft remove). */
               <ul className="divide-y divide-ink/10" data-papic-challenges-running="">
-                {running.map((m) => (
-                  <li key={m.mission_id} className="flex items-center gap-3 py-2.5" data-papic-challenge={m.mission_id}>
-                    <span className="min-w-0 flex-1 text-[14px] text-ink">
+                {missions.map((m) => (
+                  <li key={m.mission_id} className="flex items-center gap-2 py-1.5" data-papic-challenge={m.mission_id} data-papic-challenge-live={m.is_active ? 'on' : 'off'}>
+                    <span className={`min-w-0 flex-1 text-[14px] ${m.is_active ? 'text-ink' : 'text-ink/55'}`}>
                       {m.prompt}
                       {m.capture_kind ? (
                         <span className="ml-1.5 inline-block rounded-full bg-ink/10 px-1.5 py-0.5 align-middle text-[10px] font-medium uppercase tracking-[0.08em] text-ink/60">
@@ -448,10 +457,24 @@ export async function CoupleChallengesManager({
                     <PapicStayForm door="setCoupleChallengeActiveAction" action={setCoupleChallengeActiveAction} className="shrink-0">
                       <input type="hidden" name="event_id" value={eventId} />
                       <input type="hidden" name="mission_id" value={m.mission_id} />
-                      <input type="hidden" name="active" value="false" />
+                      <input type="hidden" name="active" value={m.is_active ? 'false' : 'true'} />
                       {ret}
-                      <button type="submit" role="switch" aria-checked aria-label={m.prompt} className={SWITCH_BUTTON}>
-                        <SwitchTrack on />
+                      <button type="submit" role="switch" aria-checked={m.is_active} aria-label={m.prompt} className={SWITCH_BUTTON} disabled={!m.is_active && full} data-papic-challenge-switch="">
+                        <SwitchTrack on={m.is_active} />
+                      </button>
+                    </PapicStayForm>
+                    <PapicStayForm door="deleteCoupleChallengeAction" action={deleteCoupleChallengeAction} className="shrink-0">
+                      <input type="hidden" name="event_id" value={eventId} />
+                      <input type="hidden" name="mission_id" value={m.mission_id} />
+                      {ret}
+                      <button
+                        type="submit"
+                        aria-label={`Remove “${m.prompt}”`}
+                        title="Remove"
+                        className="inline-flex h-11 w-11 items-center justify-center rounded-full text-ink/50 transition-colors hover:bg-ink/5 hover:text-ink"
+                        data-papic-challenge-remove=""
+                      >
+                        <X aria-hidden className="h-[18px] w-[18px]" strokeWidth={2} />
                       </button>
                     </PapicStayForm>
                   </li>
@@ -731,7 +754,7 @@ export async function CoupleChallengesManager({
 
           {!showingDefault ? (
             <Link
-              href={`/dashboard/${eventId}/studio/papic#challenges`}
+              href={papicHomeHref(eventId)}
               className="mt-3 inline-flex items-center gap-1 text-xs text-link underline underline-offset-2"
             >
               <X aria-hidden className="h-3 w-3" strokeWidth={2} />
@@ -1130,21 +1153,20 @@ function ChallengeRow({
               )}
             </button>
           </PapicStayForm>
-          {/* Delete — only the couple's own. */}
-          {m.source === 'couple' ? (
-            <PapicStayForm door="deleteCoupleChallengeAction" action={deleteCoupleChallengeAction}>
-              <input type="hidden" name="event_id" value={eventId} />
-              <input type="hidden" name="mission_id" value={m.mission_id} />
-              <button
-                type="submit"
-                title="Delete"
-                aria-label="Delete challenge"
-                className="inline-flex items-center rounded-md border border-ink/15 bg-cream px-2 py-1.5 text-ink/50 transition-colors hover:border-terracotta/40 hover:text-terracotta-700"
-              >
-                <Trash2 aria-hidden className="h-4 w-4" strokeWidth={2} />
-              </button>
-            </PapicStayForm>
-          ) : null}
+          {/* ✕ Remove — every lane (owner 2026-10-26); a soft remove, so photos already taken keep it. */}
+          <PapicStayForm door="deleteCoupleChallengeAction" action={deleteCoupleChallengeAction}>
+            <input type="hidden" name="event_id" value={eventId} />
+            <input type="hidden" name="mission_id" value={m.mission_id} />
+            <button
+              type="submit"
+              title="Remove"
+              aria-label="Remove challenge"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-md text-ink/50 transition-colors hover:bg-ink/5 hover:text-ink"
+              data-papic-challenge-remove=""
+            >
+              <X aria-hidden className="h-4 w-4" strokeWidth={2} />
+            </button>
+          </PapicStayForm>
         </div>
       </div>
     </li>

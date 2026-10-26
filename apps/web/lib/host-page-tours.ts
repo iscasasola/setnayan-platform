@@ -18,7 +18,8 @@ import type { TourKey } from './tours';
 export const HOST_PAGE_TOURS = {
   maker: 'customer_event_hub_maker_v2',
   budget: 'customer_budget_v2',
-  papic: 'customer_papic_v2',
+  // (papic: 'customer_papic_v2' — its page was removed 2026-10-26; the Papic card lives on Home › Today, under Home's
+  //  own tour. The tour's definition stays in lib/tours.ts, mounted nowhere.)
   seatPlan: 'customer_seat_plan_v2',
   moodBoard: 'customer_mood_board_v1',
   memories: 'customer_memories_v2',

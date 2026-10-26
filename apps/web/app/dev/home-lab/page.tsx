@@ -442,7 +442,7 @@ export default async function HomeLab({
         apple={
           q.store === '1' && q.apple === '1'
             ? {
-                papic: { status: papicNow.status, buy: true, open: q.v11 === '1' ? `/dashboard/${E}/studio/papic` : null },
+                papic: { status: papicNow.status, buy: true, open: null },
                 liveWatch:
                   q.live === 'on'
                     ? {

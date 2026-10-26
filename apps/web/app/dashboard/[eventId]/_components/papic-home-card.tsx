@@ -14,8 +14,15 @@
  *            does not change; the head (⌄) folds it back. Credits, Add more and the dates live in the settings; after
  *            the day, the Thank-You Video door is the open card's first row.
  *
- * ONE card, everywhere (owner ruling 2026-10-24): Home on the phone and the desktop, and the Papic page, which draws it
- * open. The settings are the server's (`PapicCameraSettings`), handed in as `settings`.
+ * ONE card, on Home › Today (owner 2026-10-26, DECISION_LOG "THE PAPIC CARD LIVES ON HOME › TODAY; THE STANDALONE
+ * PAPIC PAGE IS REMOVED": *"that papic frame with toggle, place that on home and remove that page"* · *"it should be on
+ * the today"*). The Papic page is gone; its every setting opens from this card's ›.
+ *
+ * 🔢 THE FACE CARRIES THE COUNTS (owner 2026-10-26, on the Papic row: *"this is the widget that should be at home with
+ * the count of the total, taken, remaining and a button to add more"*): under the head, one line Total · Taken ·
+ * Remaining (credits, from the one pot read Home already makes — a failed read says "Couldn't check", never 0) and
+ * "Add more", the one buy sheet (Apple's in the app, the web's on the web; none where neither sells). Both sit OUTSIDE
+ * the head's button — a sheet's button inside a button is invalid HTML — so the head still only opens the settings.
  */
 
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
@@ -23,6 +30,9 @@ import { ChevronRight, Clapperboard } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import type { PapicCardPhase } from '@/lib/papic-home-card';
 import { OneOpenScope, useOneOpen } from '@/lib/one-open';
+import { formatCount } from '@/lib/format-number';
+import { PAPIC_CARD_ANCHOR } from '@/lib/papic-home-href';
+import { papicCountsWords } from '@/lib/papic-card-counts';
 
 export function PapicHomeCard({
   name,
@@ -34,6 +44,8 @@ export function PapicHomeCard({
   marker,
   defaultOpen = false,
   headControl = null,
+  counts = null,
+  buy = null,
 }: {
   name: string;
   brand?: string;
@@ -52,6 +64,10 @@ export function PapicHomeCard({
    * button"). A SIBLING of the head's button, never inside it (a switch in a button is invalid HTML).
    */
   headControl?: ReactNode;
+  /** The pot: what it holds and has left. null = not shown (a lab); a field null = not measured ("Couldn't check"). */
+  counts?: { total: number | null; left: number | null } | null;
+  /** "Add more" — the one buy sheet, built by the server for this platform; null = not offered here. */
+  buy?: ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   // 🔒 ONE OPEN AT A TIME on Home (owner-approved 2026-10-24): opening Papic closes the service open before.
@@ -75,7 +91,7 @@ export function PapicHomeCard({
   }, []);
 
   return (
-    <div ref={root} className="col-span-full flex min-w-0 scroll-mt-20 flex-col md:col-span-1" data-papic-home-card={open ? 'open' : 'rest'}>
+    <div ref={root} id={PAPIC_CARD_ANCHOR} className="col-span-full flex min-w-0 scroll-mt-20 flex-col md:col-span-1" data-papic-home-card={open ? 'open' : 'rest'}>
       <OneOpenScope id={oneOpenId}>
         <div className="sg-row relative" {...marker}>
           {/* THE SWITCH — in the head, closed and open, over the head's right edge beside the ›. */}
@@ -111,6 +127,18 @@ export function PapicHomeCard({
             </span>
           </button>
 
+          {/* 🔢 TOTAL · TAKEN · REMAINING, and ADD MORE — on the face, closed and open (owner 2026-10-26). */}
+          {counts || buy ? (
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 pt-2" data-papic-card-face="">
+              {counts ? <PapicCounts total={counts.total} left={counts.left} /> : <span />}
+              {buy ? (
+                <span className="shrink-0" data-papic-card-add-more="">
+                  {buy}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
+
           {/* THE SETTINGS, INSIDE THE CARD'S OWN FRAME — the height grows, the settings fade in; folded, they are inert. */}
           <div
             id={regionId}
@@ -135,5 +163,29 @@ export function PapicHomeCard({
         </div>
       </OneOpenScope>
     </div>
+  );
+}
+
+/** Total · Taken · Remaining — the pot, in one line. A field that was not measured says so, never 0. */
+function PapicCounts({ total, left }: { total: number | null; left: number | null }) {
+  const words = papicCountsWords(total, left);
+  if (!words) {
+    return (
+      <p role="status" className="text-[13px] text-ink/60" data-papic-card-counts="unread">
+        Credits · Couldn&rsquo;t check
+      </p>
+    );
+  }
+  return (
+    <dl className="flex items-baseline gap-3 text-[13px] text-ink/65" data-papic-card-counts="">
+      {words.map(([k, v]) => (
+        <div key={k} className="flex items-baseline gap-1">
+          <dt>{k}</dt>
+          <dd className={`font-semibold ${k === 'Remaining' ? 'text-success-700' : 'text-ink'}`} data-papic-card-count={k.toLowerCase()}>
+            {formatCount(v)}
+          </dd>
+        </div>
+      ))}
+    </dl>
   );
 }

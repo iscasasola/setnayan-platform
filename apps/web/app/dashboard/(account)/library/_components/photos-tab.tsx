@@ -164,7 +164,7 @@ export async function PhotosTab({
           {anniversaries.map(({ album, yearsAgo }) => (
             <Link
               key={album.event.event_id}
-              href={`/dashboard/${album.event.event_id}/studio/papic`}
+              href={`/dashboard/${album.event.event_id}/memories`}
               className="flex items-center gap-3 rounded-2xl border border-terracotta/20 bg-terracotta/5 p-4 transition-colors hover:bg-terracotta/10"
             >
               <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-terracotta/15 text-terracotta">

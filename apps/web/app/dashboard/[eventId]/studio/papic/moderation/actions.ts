@@ -634,3 +634,108 @@ export async function deletePhotoForever(eventId: string, formData: FormData) {
   revalidatePath(`/dashboard/${eventId}/memories`);
   redirect(`${home}?deleted=1`);
 }
+
+/**
+ * 🏷 TAG A PERSON IN A PHOTO — the full-screen viewer's Tag (owner 2026-10-27, on Memories: *"tag (add a person
+ * tagged)"*).
+ *
+ * NO NEW SCHEMA. `photo_tags` has held "who is in this photo" since the Live Photo Wall schema (`20261104000959`):
+ * `(source_table, source_id, guest_id)` UNIQUE, and `source` already names `'manual_pick'` — a person's own human
+ * assertion, read as HIGH-TRUST beside a QR scan (`life-story-moment-graph.ts`), and never confused with an
+ * `auto_face` guess. Every reader already takes it: the couple's tag dot (`papic-gallery.ts`), each guest's "photos of
+ * you" (`guest-live-gallery.ts`), the story's RA 10173 veto (`consent-veto.ts`). Writes stay where the table put them —
+ * no user-facing write policy, so the couple check runs here and the service role writes, as every action in this
+ * file does.
+ *
+ *   · the photo and the guest must BOTH be this event's (`event_id` on each read) — a guest from another wedding
+ *     never resolves;
+ *   · a camera photo (`papic_photos`) or a guest's capture (`papic_guest_captures`) only — the table's own CHECK; a
+ *     supplier's file and an Event Hub file have no tag (the viewer draws no Tag for them);
+ *   · ⚖ A GUEST WHO TOOK THEMSELVES OFF STAYS OFF. A tombstone with `removed_by = 'guest'` ("Not me", the face
+ *     withdrawal) or `'admin'` is never revived by the couple — re-tagging would undo the guest's own erasure. Only the
+ *     couple's own untag can be taken back;
+ *   · the story's veto is built from these rows, so a tag reaches every cached copy (`everyCopyIsNowStale`).
+ */
+const TAG_TABLES = ['papic_photos', 'papic_guest_captures'] as const;
+
+async function readTagTarget(eventId: string, formData: FormData, home: string) {
+  const table = formData.get('table');
+  const id = formData.get('id');
+  const guestId = formData.get('guest_id');
+  if (!TAG_TABLES.includes(table as (typeof TAG_TABLES)[number])) redirect(`${home}?error=bad_input`);
+  if (typeof id !== 'string' || id.length === 0) redirect(`${home}?error=bad_input`);
+  if (typeof guestId !== 'string' || guestId.length === 0) redirect(`${home}?error=bad_input`);
+  return { table: table as (typeof TAG_TABLES)[number], id, guestId };
+}
+
+export async function tagPersonInPhoto(eventId: string, formData: FormData) {
+  await refuseLimitedHelper(eventId, 'photos');
+  await requireCouple(eventId);
+  const home = photoActionHome(formData, eventId);
+  const { table, id, guestId } = await readTagTarget(eventId, formData, home);
+  const admin = createAdminClient();
+  const idColumn = table === 'papic_photos' ? 'photo_id' : 'capture_id';
+
+  const [photoRes, guestRes, existingRes] = await Promise.all([
+    admin.from(table).select(idColumn).eq(idColumn, id).eq('event_id', eventId).maybeSingle(),
+    admin.from('guests').select('guest_id').eq('guest_id', guestId).eq('event_id', eventId).is('deleted_at', null).maybeSingle(),
+    admin
+      .from('photo_tags')
+      .select('tag_id, removed_at, removed_by')
+      .eq('event_id', eventId)
+      .eq('source_table', table)
+      .eq('source_id', id)
+      .eq('guest_id', guestId)
+      .maybeSingle(),
+  ]);
+  // A refused read is not "not found" — fail closed, nothing written.
+  if (photoRes.error || guestRes.error || existingRes.error) redirect(`${home}?error=tag_failed`);
+  if (!photoRes.data || !guestRes.data) redirect(`${home}?error=not_found`);
+
+  const existing = existingRes.data as { tag_id: string; removed_at: string | null; removed_by: string | null } | null;
+  if (existing && existing.removed_at === null) redirect(`${home}?tagged=1`); // already tagged — nothing to change
+  if (existing && existing.removed_by !== 'couple') redirect(`${home}?error=tag_declined`);
+
+  const write = existing
+    ? admin
+        .from('photo_tags')
+        .update({ removed_at: null, removed_by: null, source: 'manual_pick' })
+        .eq('tag_id', existing.tag_id)
+        .eq('removed_by', 'couple')
+        .select('tag_id')
+    : admin
+        .from('photo_tags')
+        .insert({ event_id: eventId, source_table: table, source_id: id, guest_id: guestId, source: 'manual_pick' })
+        .select('tag_id');
+  const { data: wrote, error } = await write;
+  // The COUNT, not the absence of an error — a zero-row write is success-shaped.
+  if (error || !wrote || wrote.length === 0) redirect(`${home}?error=tag_failed`);
+
+  await everyCopyIsNowStale(eventId);
+  revalidatePath(`/dashboard/${eventId}/memories`);
+  redirect(`${home}?tagged=1`);
+}
+
+/** Take a person's tag off a photo — a tombstone (`removed_by = 'couple'`), so the couple can put it back. */
+export async function untagPersonInPhoto(eventId: string, formData: FormData) {
+  await refuseLimitedHelper(eventId, 'photos');
+  await requireCouple(eventId);
+  const home = photoActionHome(formData, eventId);
+  const { table, id, guestId } = await readTagTarget(eventId, formData, home);
+  const admin = createAdminClient();
+  const { data: gone, error } = await admin
+    .from('photo_tags')
+    .update({ removed_at: new Date().toISOString(), removed_by: 'couple' })
+    .eq('event_id', eventId)
+    .eq('source_table', table)
+    .eq('source_id', id)
+    .eq('guest_id', guestId)
+    .is('removed_at', null)
+    .select('tag_id');
+  if (error) redirect(`${home}?error=tag_failed`);
+  if (!gone || gone.length === 0) redirect(`${home}?error=not_found`);
+
+  await everyCopyIsNowStale(eventId);
+  revalidatePath(`/dashboard/${eventId}/memories`);
+  redirect(`${home}?untagged=1`);
+}

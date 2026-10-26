@@ -37,7 +37,9 @@ import {
   reportCapture,
   setCaptureHidden,
   setSeatPhotoHidden,
+  tagPersonInPhoto,
   unblockUploader,
+  untagPersonInPhoto,
 } from '@/app/dashboard/[eventId]/studio/papic/moderation/actions';
 import { setVendorCapturesHidden } from '@/app/dashboard/[eventId]/studio/papic/vendor-visibility-actions';
 import { applyActivityPicks, toggleActivityPick } from '@/app/dashboard/[eventId]/schedule/activity-picks-actions';
@@ -115,6 +117,8 @@ const DOORS: Readonly<Record<StayDoor, Door>> = {
   'memories.unblockUploader': memories(onEvent(unblockUploader)),
   'memories.deletePhotoForever': memories(onEvent(deletePhotoForever)),
   'memories.setVendorCapturesHidden': memories(setVendorCapturesHidden),
+  'memories.tagPersonInPhoto': memories(onEvent(tagPersonInPhoto)),
+  'memories.untagPersonInPhoto': memories(onEvent(untagPersonInPhoto)),
   'schedule.toggleActivityPick': schedule(toggleActivityPick),
   'schedule.applyActivityPicks': schedule(applyActivityPicks),
   'sponsors.addSponsor': sponsors(addSponsor),

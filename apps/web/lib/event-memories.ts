@@ -135,3 +135,91 @@ export function hubImageRefs(value: unknown, eventId: string): { ref: string; us
   return [...out].map(([ref, use]) => ({ ref, use }));
 }
 
+
+// ── THE ONE PHOTO VIEWER ON MEMORIES (owner 2026-10-27) ───────────────────────────────────────────────────────────
+
+/** A guest the couple can tag in a photo (`photo_tags.guest_id`). */
+export type MemoriesPerson = { guestId: string; name: string };
+/** Who is tagged where — `"<table>:<id>"` → guest ids. `refused` = a read failed: say so, never "nobody". */
+export type MemoriesTags = { people: MemoriesPerson[]; byItem: Record<string, string[]>; refused: boolean };
+
+export const tagKey = (it: { table: string; id: string }) => `${it.table}:${it.id}`;
+
+/** A Papic file the couple can put a name on — `photo_tags.source_table`'s own CHECK (never a supplier or Hub file). */
+export function canTag(item: { table: string }): boolean {
+  return item.table === 'papic_photos' || item.table === 'papic_guest_captures';
+}
+
+/** Delete forever is a Papic file's (camera or guest) — never a supplier's, never the Event Hub's own file. */
+export function canDeleteForever(item: { memSource: MemoriesSource; table: string }): boolean {
+  return canModerate({ source: item.memSource }) && canTag(item);
+}
+
+export type ViewerActionKey = 'download' | 'tag' | 'delete' | 'more';
+
+/**
+ * The viewer's icons for one file, in the bar's order — Download · Tag · Delete · ⋯. An action that does not apply is
+ * ABSENT, never a dead button: an Event Hub file only downloads ("Used on your Event Hub" — it is managed on the Hub);
+ * a supplier's file downloads and offers ⋯ (hide that supplier's photos); a viewer who is not the couple only
+ * downloads.
+ */
+export function viewerActionsFor(
+  item: { memSource: MemoriesSource; table: string; canDownload: boolean },
+  ctx: { host: boolean; hasSupplier: boolean },
+): ViewerActionKey[] {
+  const out: ViewerActionKey[] = [];
+  if (item.canDownload) out.push('download');
+  if (!ctx.host) return out;
+  if (canTag(item)) out.push('tag');
+  if (canDeleteForever(item)) out.push('delete');
+  if (moreFor(item, { hasSupplier: ctx.hasSupplier, guest: false }).length > 0) out.push('more');
+  return out;
+}
+
+export type MoreKey = 'approve' | 'hide' | 'report' | 'stop' | 'supplier';
+
+/** What ⋯ holds — the photo sheet's moderation that is not on the bar (Hide/Show or Approve · Report · Stop · a supplier's photos). */
+export function moreFor(
+  item: { memSource: MemoriesSource; table: string; look?: MemoriesLook; guestId?: string | null },
+  ctx: { hasSupplier: boolean; guest: boolean },
+): MoreKey[] {
+  if (item.memSource === 'suppliers') return ctx.hasSupplier ? ['supplier'] : [];
+  if (!canDeleteForever(item)) return [];
+  const out: MoreKey[] = [item.look === 'screened' ? 'approve' : 'hide'];
+  if (item.table === 'papic_guest_captures' && item.look !== 'reported') out.push('report');
+  if (item.guestId && item.memSource === 'papic') out.push('stop');
+  return out;
+}
+
+/**
+ * The order the viewer swipes through = the order the grid DRAWS: by challenge in the Challenges album; by the day's
+ * moments (then "More") when following the moments; otherwise the filtered list as it stands.
+ */
+export function displayOrder<T extends { id: string; challengeId: string | null }>(
+  shown: readonly T[],
+  opts: {
+    album: MemoriesAlbumKey;
+    challenges: readonly MemoriesChallenge[];
+    chapters: ReadonlyArray<{ photoIds: string[] }> | null;
+    moments: boolean;
+    needsLook: boolean;
+  },
+): T[] {
+  if (opts.album === 'challenges') return challengeGroups(shown, opts.challenges).flatMap((g) => g.items);
+  if (opts.moments && opts.chapters && opts.chapters.length > 1 && !opts.needsLook && (opts.album === 'all' || opts.album === 'papic')) {
+    const byId = new Map(shown.map((it) => [it.id, it]));
+    const used = new Set<string>();
+    const out: T[] = [];
+    for (const c of opts.chapters) {
+      for (const id of c.photoIds) {
+        const it = byId.get(id);
+        if (it && !used.has(id)) {
+          used.add(id);
+          out.push(it);
+        }
+      }
+    }
+    return [...out, ...shown.filter((it) => !used.has(it.id))];
+  }
+  return [...shown];
+}

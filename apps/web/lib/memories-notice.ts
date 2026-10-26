@@ -13,6 +13,10 @@ const one = (v: string | string[] | undefined): string | null => (typeof v === '
 
 export function memoriesNotice(search: Search): MemoriesNotice | null {
   const error = one(search.error);
+  if (error === 'tag_declined') {
+    // ⚖ The guest took themselves off this photo ("Not me", or withdrew from face tagging) — their word stands.
+    return { tone: 'bad', text: 'That guest took themselves off this photo, so they can’t be tagged in it again.' };
+  }
   if (error === 'delete_partial') {
     // A partial delete must not say "try again and it will be fine" — the photo is still here on purpose.
     return { tone: 'bad', text: 'We could not remove every copy of that photo, so nothing was deleted — it is still here. Please try again.' };
@@ -30,6 +34,8 @@ export function memoriesNotice(search: Search): MemoriesNotice | null {
     (one(search.unblocked) && 'That guest can add photos again.') ||
     (one(search.approved) && 'Photo approved — it shows in your Memories again.') ||
     (one(search.deleted) && 'Photo deleted. Every copy of it is gone.') ||
+    (one(search.tagged) && 'Tagged.') ||
+    (one(search.untagged) && 'Tag removed.') ||
     (one(search.uploads_ready) && 'Adding photos is on — tap + to add yours.') ||
     (one(search.uploads_open_set) === '1' && 'Adding photos by hand is on.') ||
     (one(search.uploads_open_set) === '0' && 'Adding photos by hand is off.') ||

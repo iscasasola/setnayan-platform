@@ -39,6 +39,9 @@ export const STAY_DOORS = [
   'memories.unblockUploader',
   'memories.deletePhotoForever',
   'memories.setVendorCapturesHidden',
+  /* The one photo viewer's Tag (owner 2026-10-27) — `photo_tags`, `manual_pick`. */
+  'memories.tagPersonInPhoto',
+  'memories.untagPersonInPhoto',
   /* Schedule — the host's segments (`schedule/_components/emcee-picks.tsx`). */
   'schedule.toggleActivityPick',
   'schedule.applyActivityPicks',

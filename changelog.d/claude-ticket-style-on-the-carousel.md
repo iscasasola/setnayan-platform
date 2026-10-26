@@ -14,7 +14,7 @@ settings."*
   (`studio` mode) are deleted.
 
 Guarded by `apps/web/lib/prints-carousel-follows-the-prototype.test.ts` (7) — sabotaged once (the Style ▾ dropped from the toolbar → red).
-`the-ticket-style-follows-the-draft`, `studio-prints-six-are-the-templates` (5) and `studio-prints-navigation` (3) now read the slide.
+`the-ticket-style-follows-the-draft`, `studio-prints-six-are-the-templates` (5), `studio-prints-navigation` (3) and `print-settings-has-one-way-to-save` (3 — the carousel says "waits for Apply" and writes the draft through `usePassLookPick`) now read the slide.
 
 Mapped: `scripts/port-control-baseline.json` regenerated — the launch route's `TicketStyle` → `TicketStylePick` (the control moved from
 the ⚙ sheet to the toolbar) and the strip's `BgCard`/`BgCards` gone with it; `lib/ugat/screens.generated.json` regenerated (no change —

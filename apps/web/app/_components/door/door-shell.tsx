@@ -128,6 +128,8 @@ export type DoorSkin = {
   action?: { background: string; label: string; hover: string };
 };
 
+const SR_ONLY = 'sr-only';
+
 export type DoorShellProps = {
   /** Small mono line above the title — the doorway's name. */
   eyebrow?: React.ReactNode;
@@ -209,6 +211,9 @@ export function DoorShell({
   children,
 }: DoorShellProps) {
   const threshold = tone === 'threshold';
+  /* The visible title's look; a quiet top keeps the heading for a screen reader only. Held in a const so the h1 tag
+     itself names no hiding class — the skeleton guard reads a drawn title from the tag. */
+  const titleClass = quietTop ? SR_ONLY : 'font-serif text-2xl font-semibold tracking-tight text-ink sm:text-3xl';
   const rail = steps && steps.length > 1 ? <StepRail steps={steps} /> : null;
 
   /*
@@ -349,7 +354,7 @@ export function DoorShell({
               </p>
             ) : null}
 
-            <h1 {...(titleIsNames ? { 'data-hub-names': '' } : {})} className={quietTop ? 'sr-only' : 'font-serif text-2xl font-semibold tracking-tight text-ink sm:text-3xl'}>
+            <h1 {...(titleIsNames ? { 'data-hub-names': '' } : {})} className={titleClass}>
               {title}
             </h1>
 

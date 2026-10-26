@@ -94,7 +94,7 @@ export interface UgatCounts {
   runofshow: number;
   /** Live Studio: claimed camera operators. */
   livestudio: number;
-  /** Mood Board renders: "Make it real" images produced. */
+  /** Mood Board renders: "Make it real" images produced (retired 2026-10-26 — the count no longer grows). */
   render: number;
   /**
    * Mood Board library: EVERY asset in the pool — admin placeholders, generated

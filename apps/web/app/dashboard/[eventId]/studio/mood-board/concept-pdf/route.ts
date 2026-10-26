@@ -174,7 +174,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
     design,
     palette: swatches,
     scenePng,
-    resultPng: null, // photoreal render slots in once "Make it real" ships
+    resultPng: null, // Mood Board renders were retired 2026-10-26 — the stylised scene is the hero
     inspirations,
     logoPng,
     qrPng,

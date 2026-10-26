@@ -10,7 +10,7 @@
  * Three pages:
  *   1. Cover            — monogram · names · date · hero (the design)
  *   2. The Concept      — the stylized scene full-bleed (upgrades to the
- *                          photoreal render once "Make it real" ships → resultPng)
+ *                          photoreal render → resultPng; renders were retired 2026-10-26, so null)
  *   3. How you made this — palette swatches · the per-part design choices ·
  *                          the custom template · the uploaded inspirations
  *
@@ -58,7 +58,7 @@ export type ConceptPdfInput = {
   palette: string[];
   /** Rasterized stylized scene (the "custom template"), 3:2. */
   scenePng: Uint8Array;
-  /** Photoreal render once "Make it real" ships; null today → scene is the hero. */
+  /** A photoreal render — always null since Mood Board renders were retired (2026-10-26) → scene is the hero. */
   resultPng: Uint8Array | null;
   /** Pre-normalized square (1:1) inspiration images. */
   inspirations: Uint8Array[];
@@ -365,10 +365,7 @@ export async function buildConceptPdf(input: ConceptPdfInput): Promise<Uint8Arra
       cy -= 18;
     }
     if (!result) {
-      p.drawText(
-        ascii('This is your design preview. Use "Make it real" to render it as a photoreal photograph.'),
-        { x: MARGIN, y: cy, size: 10, font: bold, color: GOLD },
-      );
+      p.drawText(ascii('This is your design preview.'), { x: MARGIN, y: cy, size: 10, font: bold, color: GOLD });
     }
     footer(p);
   }

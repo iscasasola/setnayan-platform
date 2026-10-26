@@ -91,6 +91,7 @@ import {
   landingWhenWhere,
   landingReplyOf,
   landingTicketOf,
+  landingTopStandsDown,
   openBeforeReplyHref,
   ticketFingerprint,
 } from '@/lib/guest-landing';
@@ -620,6 +621,11 @@ async function inviteEnterPage({ params, searchParams }: Props) {
     await tileCodeOnce(event.event_id as string, guest.guest_id as string);
   }
   const ticket = landingTicketOf({ reply, eligibility: passCard, isPlusOne: Boolean(guest.plus_one_of_guest_id) });
+  /* 🎟 THE TICKET ALREADY CARRIES THE MARK AND THE NAMES (owner 2026-10-26: *"since the ticket has the logo already and
+     Event Name, Just start with your on the list"*): after a Yes with the full ticket, the door's top stands down — the
+     page starts with "You're on the list." (or the couple's own heading). A No keeps it: no ticket says whose event
+     this is there (`landingTopStandsDown`). */
+  const topStandsDown = landingTopStandsDown({ reply, ticket });
   /* 🧩 The Maker's "When no" sample is a guest who said no: no ticket (a real one's is withdrawn — `cannotCome`;
      the sample has no row to read that from, so it is said here). Canvas only — false for every guest. */
   const noTicketSample = canvas && reply === 'no';
@@ -820,7 +826,7 @@ async function inviteEnterPage({ params, searchParams }: Props) {
       />
       {/* 1b · INSIDE MESSENGER — a thin bar of ours at the very top, never over the page. */}
       <InAppBar handoff={inApp} />
-      <DoorShell brand="foot" eyebrow={justIn ? REQUEST_WORDS.inTitle : undefined} title={title} sub={justIn ? REQUEST_WORDS.inSub(hosts, null) : (inviteLine ?? undefined)} skin={skin}>
+      <DoorShell brand="foot" eyebrow={justIn ? REQUEST_WORDS.inTitle : undefined} title={title} sub={justIn ? REQUEST_WORDS.inSub(hosts, null) : topStandsDown ? undefined : (inviteLine ?? undefined)} skin={skin} quietTop={topStandsDown}>
         {/* 🎟 5 · A NEW OR CHANGED TICKET POPS UP FIRST, WITH SAVE — once per version. */}
         {ticket === 'full' && !canvas ? (
           <TicketPopup

@@ -74,7 +74,6 @@ const NOT_A_TOOL: Record<string, string> = {
   '@ffmpeg/ffmpeg': 'video compression of a picked file — megabytes of WebAssembly, never on a hunch',
   '@ffmpeg/util': 'video compression of a picked file (with @ffmpeg/ffmpeg)',
   jsqr: 'reads a QR inside a picked image (upload pipeline)',
-  qrcode: 'draws a payment QR on a checkout step — not a Maker tool',
   'app/dashboard/[eventId]/seating/lab/_components/seating-lab-3d.tsx': 'the 3D seat view (three.js, ~150KB+) — opened by its own 3D button; three.js stays out of every preload',
   'app/_components/plan3d/plan3d-scene.tsx': 'the 3D plan view (three.js) — same reason',
   'app/_components/plan3d/kit/cinematic.tsx': 'the 3D plan view (three.js) — same reason',

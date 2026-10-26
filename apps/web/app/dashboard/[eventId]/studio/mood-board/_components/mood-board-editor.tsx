@@ -31,8 +31,6 @@ import {
   applyThemeIntent,
   fetchGalleryAssets,
   applyGalleryPick,
-  fetchRenderPool,
-  applyRenderPick,
 } from '../actions';
 import {
   creditLine,
@@ -45,7 +43,6 @@ import { getInspirationParts } from '@/lib/inspiration-parts-db';
 import {
   ConceptPdfButton,
   InspirationBoard,
-  MakeItReal,
   MoodboardBoard,
   PaletteBoardProvider,
   PaletteSection,
@@ -76,28 +73,10 @@ import type { CoupleSuggestion } from '@/lib/inspiration-suggestions';
 import type { InspirationItem } from './inspiration-board';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PageMasthead } from '@/app/_components/page-masthead';
-import { getIapGate, isStoreShellRequest } from '@/lib/request-platform';
-import { STORE_SHELL_NO_PAY_SETTINGS } from '@/lib/store-shell';
-import { resolveServiceSellability } from '@/lib/v2-catalog';
-import { iapProductForServiceKey, moodBoardRendersMatch } from '@/lib/iap/products';
-import {
-  RENDER_PARTS,
-  renderPartById,
-  WHOLE_LOOK_PART_ID,
-  type RenderPart,
-} from '@/lib/moodboard-render-parts';
-import { readEventRenders } from '@/lib/moodboard-render-gallery';
-import { signOwnRenderImage } from '@/lib/moodboard-render-serve';
-import {
-  MOODBOARD_RENDER_PACK_SKU,
-  readMoodboardRenderConfig,
-  readMoodboardRenderBalance,
-} from '@/lib/moodboard-render-credits';
+import { isStoreShellRequest } from '@/lib/request-platform';
+import { RENDER_PARTS, type RenderPart } from '@/lib/moodboard-render-parts';
 import { VENUE_SETTING_LABEL, isVenueSetting } from '@/lib/venue-settings';
 import { pickCeremonyScene, pickFiguresByRole } from '@/lib/moodboard-board-picks';
-import { fetchPlatformSettings } from '@/lib/platform-settings';
-import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
-import { formatPhp } from '@/lib/orders';
 import { draftedEventColumn } from '@/lib/hub-draft-store';
 import { normalizeDressCodeConfig } from './dress-code-config';
 import type { DressCodeConfig } from '../dress-code-actions';
@@ -138,7 +117,7 @@ export const BOOKED_SUPPLIERS_UNREAD = 'Your booked suppliers could not be read 
  *     always was, `‹ Back to add-ons` and all.
  *
  * Nothing about the board itself changed in the move: the same reads, the same
- * palette, inspirations, renders, and the supplier side — part finalizations
+ * palette, inspirations, and the supplier side — part finalizations
  * (`moodboard_part_finalizations`) and Share with vendors — unchanged, so Your
  * Team and every booked supplier read exactly what they read before.
  */
@@ -236,15 +215,8 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
     venueFlowerRes,
     inspirationRes,
     bookedVendorRes,
-    moodboardRenderConfig,
-    moodboardRenderBalance,
-    moodboardRenderPackSku,
-    platformSettings,
-    moodboardRenderRows,
-    shareConsentRes,
     finalizationRes,
     bookedSupplierRes,
-    mayActRes,
   ] = await Promise.all([
     supabase
       .from('events')
@@ -296,8 +268,7 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
       .not('approved_at', 'is', null)
       .is('retired_at', null),
     // The couple's uploaded inspiration photos (per-event, from onboarding's
-    // intake) — surfaced here so they can add/manage them, and so they can feed
-    // the future "Make it real" render as extra references.
+    // intake) — surfaced here so they can add/manage them.
     // MB10 — the credit rides along. `library_asset_id` is only set on a
     // gallery pick, so a couple's own upload embeds nothing and costs nothing.
     // If RLS refuses the shop (unverified, hidden) the embed comes back null
@@ -324,24 +295,6 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
       .select('marketplace_vendor_id')
       .eq('event_id', eventId)
       .not('marketplace_vendor_id', 'is', null),
-    // MB7 — "Make it real": the admin-editable render parameters (Pattern H,
-    // world-readable) and this event's real credit balance
-    // (moodboard_render_balance — ZERO ROWS means "not permitted", not a
-    // fabricated zero; see readMoodboardRenderBalance's own docblock).
-    readMoodboardRenderConfig(supabase),
-    readMoodboardRenderBalance(supabase, eventId),
-    formatV2Sku(MOODBOARD_RENDER_PACK_SKU).catch(() => null),
-    fetchPlatformSettings(supabase),
-    // MB8 — the couple's own renders. `null` means the read was REFUSED, and
-    // the gallery says so; it must never render as "no renders yet" (see
-    // readEventRenders' own docblock — this is the guest-list failure's shape).
-    readEventRenders(supabase, eventId),
-    // MB8 — the event-level "let Setnayan feature your creation" consent.
-    supabase
-      .from('event_render_share_consent')
-      .select('consented')
-      .eq('event_id', eventId)
-      .maybeSingle(),
     // MB12 — every finalization handshake on this board. Read UNFILTERED by
     // state on purpose: the AGREED rows are what freeze the palette, and the
     // closed ones (declined / expired) are what let a row say "turned down —
@@ -371,12 +324,6 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
       .select(BOOKED_SUPPLIER_SELECT)
       .eq('event_id', eventId)
       .in('status', CONFIRMED_VENDOR_STATUSES as unknown as string[]),
-    // Owner ruling 2026-09-11: only the couple (and Setnayan admins) start a
-    // render on the couple's credits or choose to share it. Asked of the SAME
-    // database gate the spend/consent functions use (migration 20271221631865),
-    // so the page and the refusal cannot disagree. Every other member still
-    // sees the balance, the renders and the pool — that is the read gate.
-    supabase.rpc('moodboard_render_caller_may_act', { p_event_id: eventId }),
   ]);
   const event = eventRes.data;
   if (!event) {
@@ -481,7 +428,7 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
   // A zone the venue genuinely lacks (a beach's ceiling, a garden's walls)
   // is dropped from the summary entirely — never printed as "Not set" next
   // to zones the couple could actually design. Same predicate the Seat
-  // Plan's drawing and 04's render brief gate on (`venueZoneApplies`).
+  // Plan's drawing gates on (`venueZoneApplies`).
   const receptionSummary = RECEPTION_PARTS.filter(
     (p) => p.id !== 'people' && venueZoneApplies(event.venue_setting, p.id),
   ).map((p) => ({
@@ -534,7 +481,7 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
     visibleKeys.add('wedding_party');
   }
 
-  // ── MB7: "Make it real" — which RENDER_PARTS this event may offer ───────
+  // ── which RENDER_PARTS this event has (the sign-off panels below) ───────
   // RENDER_PARTS is derived (lib/moodboard-render-parts.ts) from
   // RECEPTION_PARTS / PALETTE_ORDER / MOODBOARD_SLOT_KEYS, so it offers every
   // attire role the taxonomy knows — including ones this event's guest list
@@ -617,61 +564,10 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
     )
     .map(asPanelPart);
 
-  // Every inspiration slot that holds at least one photo — the same
-  // `inspirations` rows InspirationBoard renders, read once here rather than
-  // re-fetched, so section 04's render gate can never see a different photo
-  // set than the couple does.
-  const inspirationPresence = Array.from(new Set(inspirations.map((i) => i.slot_key)));
-
-  // ── MB8: resolve each render's viewing URL, server-side ──────────────────
-  //
-  // Renders live in the PRIVATE bucket, so they are readable only through a
-  // short-lived presigned GET minted here. A row whose URL cannot be minted
-  // keeps `imageUrl: null`, and the gallery says "saved — reload to see it"
-  // rather than showing a broken image or, worse, treating a photograph the
-  // couple owns as if it did not exist.
-  //
-  // `partLabel` comes from the DERIVED registry, so a render of a zone added
-  // later is still labelled properly instead of showing its raw `room:foo` id.
-  const moodboardRenders =
-    moodboardRenderRows === null
-      ? null
-      : await Promise.all(
-          moodboardRenderRows.map(async (r) => ({
-            ...r,
-            partLabel:
-              r.part_id === WHOLE_LOOK_PART_ID
-                ? 'The whole look'
-                : (renderPartById(r.part_id)?.label ?? r.part_id),
-            // 🔒 Only THIS render's own object is ever signed — a key that is
-            // not `renders/<this event>/<this render>.<ext>` signs nothing.
-            imageUrl: await signOwnRenderImage({
-              eventId,
-              renderId: r.render_id,
-              key: r.image_key,
-            }),
-          })),
-        );
-  const shareConsented = shareConsentRes.data?.consented === true;
-  // A refused or failed check is "no" — the controls then say who can use them
-  // rather than offering a button the database will refuse.
-  const mayStartRenders = !mayActRes.error && mayActRes.data === true;
-
   const venueSetting = (event as { venue_setting?: string | null }).venue_setting ?? null;
   const venueLabel = isVenueSetting(venueSetting)
     ? VENUE_SETTING_LABEL[venueSetting]
     : 'Not set yet';
-
-  const moodboardRenderPackPlan = moodboardRenderPackSku
-    ? {
-        sku_code: MOODBOARD_RENDER_PACK_SKU,
-        name: moodboardRenderPackSku.display_name,
-        scope: 'One pack of Mood Board render credits, used across every part or the whole look.',
-        price: formatPhp(moodboardRenderPackSku.price_php),
-        unit: '',
-        priceCentavos: String(moodboardRenderPackSku.price_centavos),
-      }
-    : null;
 
   // ── the blank-start fork (MB3, 2026-09-03) ──────────────────────────────
   // ⚠ CORRECTED: this page used to pre-fill the editor with a starter palette
@@ -906,25 +802,8 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
   // ── redesign (2026-09-02): one scrollable canvas instead of separated
   // tabs/sections. Every existing data-fetching contract above is unchanged;
   // this only restructures how the same data is composed into the page.
-  /**
-   * 🔒 MAKE IT REAL IS A PAID DIGITAL FEATURE — render credits bought for ₱ and
-   * spent here. The App Store / Play Store shell neither sells nor spends them
-   * (guideline 3.1.1 / 3.1.3(b); lib/store-shell.ts), so the section and its
-   * jump link are not mounted there. The free Mood Board around it — theme,
-   * inspiration, palette, reception, share — is the planning surface the app
-   * exists for and stays whole. Desktop and the web are unaffected.
-   */
+  /** The App Store / Play Store shell — it withholds the "Back to add-ons" link below (App Review 3.1.1). */
   const storeShell = await isStoreShellRequest();
-  /* 🍎 …EXCEPT WHERE APPLE SELLS THE PACK (`getIapGate().iap`; owner 2026-10-23, "five more Apple products"): there
-     Make it real mounts, and its Buy is Apple's sheet for "Mood Board · 50 renders" — no web price, no GCash / BDO.
-     With `iap` false the store shell is exactly as above. */
-  const appleIap = storeShell && (await getIapGate()).iap;
-  /** 🍎 Apple's pack door shows only while the catalogue sells the pack AND the config still grants its 50 (no dead tap). */
-  const applePack = iapProductForServiceKey(MOODBOARD_RENDER_PACK_SKU);
-  const appleOnSale =
-    appleIap && applePack !== null &&
-    moodBoardRendersMatch(applePack, moodboardRenderConfig) &&
-    (await resolveServiceSellability(MOODBOARD_RENDER_PACK_SKU)) === 'sellable';
   const jumpLinks: ReadonlyArray<{ href: string; label: string }> = [
     { href: '#theme', label: 'Theme' },
     { href: '#inspiration', label: 'Inspiration' },
@@ -932,7 +811,6 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
     { href: '#dos-and-donts', label: 'Do’s & don’ts' },
     { href: '#reception', label: 'Reception' },
     { href: '#colors', label: 'In your colors' },
-    ...(storeShell && !appleIap ? [] : [{ href: '#make-it-real', label: 'Make it real' }]),
     { href: '#share', label: 'Share & export' },
   ];
 
@@ -971,8 +849,7 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
       <header className="space-y-1">
         <InfoTip label="Your inspirations" labelAs="h2" labelClassName="text-2xl font-semibold text-ink" ariaLabel="About inspiration">
           Upload up to 3 photos per category — drag one onto another slot to reorder. We pull a matching palette
-          colour from each upload automatically, and these references will make your photo-real render match your
-          taste, not a generic wedding.
+          colour from each upload automatically.
         </InfoTip>
         <p className="max-w-prose text-sm text-ink/65">Drop the looks you love — a venue, a backdrop, a bouquet, an outfit.</p>
       </header>
@@ -982,8 +859,6 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
         gallerySlots={gallerySlotKeys(parts)}
         fetchGalleryAction={fetchGalleryAssets}
         applyGalleryAction={applyGalleryPick}
-        fetchRenderPoolAction={fetchRenderPool}
-        applyRenderPickAction={applyRenderPick}
       />
     </section>
   );
@@ -1083,26 +958,6 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
       <MoodboardBoard sections={sections} compact />
     </section>
   );
-  const makeItReal = storeShell && !appleIap ? null : (
-    <MakeItReal
-      apple={appleIap}
-      eventId={eventId}
-      eligibleParts={eligibleRenderParts}
-      palette={palette}
-      receptionDesign={receptionDesign}
-      inspirationPresence={inspirationPresence}
-      venueSetting={venueSetting}
-      venueLabel={venueLabel}
-      config={moodboardRenderConfig}
-      balance={moodboardRenderBalance}
-      appleOnSale={appleOnSale}
-      packPlan={appleIap ? null : moodboardRenderPackPlan}
-      checkoutSettings={appleIap ? STORE_SHELL_NO_PAY_SETTINGS : platformSettings}
-      renders={moodboardRenders}
-      shareConsented={shareConsented}
-      mayStartRenders={mayStartRenders}
-    />
-  );
   const shareWords = (
     <header className="space-y-1">
       <h2 className="text-2xl font-semibold text-ink">Share with your suppliers</h2>
@@ -1140,7 +995,7 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
     storeShell,
     jumpLinks,
     provider,
-    parts: { lastSaved, theme, inspiration, paletteSection, peopleAgreed, dressLists: dressListsPart, reception, roomAgreed, colours, makeItReal, shareWords, shareButton, pdfs },
+    parts: { lastSaved, theme, inspiration, paletteSection, peopleAgreed, dressLists: dressListsPart, reception, roomAgreed, colours, shareWords, shareButton, pdfs },
     /* 🧭 What Studio › Mood Board & Dress Code draws from — the SAME reads, nothing re-fetched. */
     studio: {
       palette,
@@ -1221,8 +1076,6 @@ export async function MoodBoardEditor({ eventId }: { eventId: string }) {
         </div>
 
         <div className="border-t border-ink/10 pt-6">{parts.colours}</div>
-
-        {parts.makeItReal}
 
         <section id="share" className="scroll-mt-24 space-y-4 border-t border-ink/10 pt-6" data-tour="mood-board-share">
           {parts.shareWords}

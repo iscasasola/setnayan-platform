@@ -262,34 +262,6 @@ async function buyInApp(productId: string) {
   assert.equal(out.status, 'on', JSON.stringify(out));
   return { userId, eventId, t, orderId: out.status === 'on' ? out.orderId : '' };
 }
-const renderGrantsFor = async (orderId: string) =>
-  (await db.query<{ credits: number; source: string }>(`SELECT credits, source FROM public.event_render_credit_grants WHERE order_id = $1`, [orderId])).rows;
-
-test('🎨 Mood Board · 50 renders: ONE paid iOS order, the config’s pack of credits — and a REFUND takes exactly that grant back', async () => {
-  const { eventId, t, orderId } = await buyInApp('com.setnayan.app.mood_board_renders_50');
-  const orders = await ordersFor(eventId);
-  assert.deepEqual(orders.map((o) => [o.status, o.platform, o.service_key, o.payment_method_key]), [['paid', 'ios', 'MOODBOARD_RENDER_PACK', 'app_store']]);
-  const cfg = await db.query<{ n: number }>(`SELECT credits_per_pack AS n FROM public.moodboard_render_config WHERE config_key = 'default'`);
-  assert.deepEqual(await renderGrantsFor(orderId), [{ credits: cfg.rows[0]!.n, source: 'pack_order' }], 'the web’s own activation hook granted the pack');
-
-  // A comp on the same event is NOT this order's — the refund must leave it.
-  await db.query(`INSERT INTO public.event_render_credit_grants (event_id, credits, source) VALUES ($1, 3, 'comp')`, [eventId]);
-  // A second pack bought again (repeatable) is its own order and its own grant.
-  const again = await fulfil.fulfilAppleTransaction(admin, t);
-  assert.equal(again.status === 'on' && again.activatedNow, false, 'a re-delivery never re-grants');
-  assert.equal((await renderGrantsFor(orderId)).length, 1);
-
-  const r = await fulfil.revokeAppleTransaction(admin, { ...t, revocationDate: new Date(), revocationReason: 1 }, 'REFUND');
-  assert.deepEqual(r, { status: 'revoked' });
-  assert.equal((await ordersFor(eventId))[0]!.status, 'refunded');
-  assert.deepEqual(await renderGrantsFor(orderId), [], 'refund the money, keep the renders — never');
-  const left = await db.query<{ credits: number; source: string }>(`SELECT credits, source FROM public.event_render_credit_grants WHERE event_id = $1`, [eventId]);
-  assert.deepEqual(left.rows, [{ credits: 3, source: 'comp' }], 'the refund took back more than its own grant');
-  // Idempotent: a second REFUND changes nothing.
-  assert.deepEqual(await fulfil.revokeAppleTransaction(admin, { ...t, revocationDate: new Date(), revocationReason: 1 }, 'REFUND'), { status: 'already' });
-  assert.equal((await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM public.event_render_credit_grants WHERE event_id = $1`, [eventId])).rows[0]!.n, 1);
-});
-
 test('✦ Setnayan AI: the purchase switches the event’s flag on; Apple’s refund switches it off again', async () => {
   const { eventId, t } = await buyInApp('com.setnayan.app.setnayan_ai');
   const flag = async () => (await db.query<{ on: boolean }>(`SELECT setnayan_ai_active AS on FROM public.events WHERE event_id = $1`, [eventId])).rows[0]!.on;

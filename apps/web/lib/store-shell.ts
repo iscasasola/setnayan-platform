@@ -224,7 +224,7 @@ export const STORE_SHELL_WEB_ONLY_DOORWAYS: ReadonlySet<string> = new Set([
  * stay open in the app).
  */
 export const STORE_SHELL_WEB_ONLY_FEATURE_SLUGS: ReadonlySet<string> = new Set([
-  'mood-board',
+  // ('mood-board' left 2026-10-26: its only paid part, the render pack, was retired — the page is plain free now.)
   'setnayan-ai',
   'event-hub',
   'prints',
@@ -301,8 +301,7 @@ export const STORE_SHELL_WEB_ONLY_PATH = '/web-only';
  *     (`studio/thank-you`). Each page's ONE pay step becomes Apple's sheet
  *     (`IapUnlockSheet`) and draws no web price, no GCash / BDO and no web link
  *     when `getIapGate().iap` is true. (Mood Board is a free planning page that
- *     is never refused; its paid part, Make it real, mounts there behind the same
- *     gate.)
+ *     is never refused; its paid part, Make it real, was retired 2026-10-26.)
  *
  * NOT here, deliberately: the Live Watch detail / buy page
  * (`studio/live-studio-control`), the legacy setup and broadcast rooms, the

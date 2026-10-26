@@ -15,7 +15,8 @@
  *
  *   ?part=notices   the Notifications list, scrolled under the account thumb bar
  *   ?part=head      (retired with the phone title + ⋯ — redirects to part=screen)
- *   ?part=card      a guest's card (Daniel Ramos) — tap Invite or ⋯; &plusone=1 a +1's seat (TBA), &named=1 a named +1
+ *   ?part=card      a guest's card (Daniel Ramos) — tap Invite or ⋯; &plusone=1 a +1's seat (TBA), &named=1 a named +1;
+ *                   &frame=panel the card in the real sheet over the list (its sticky header, face, pinned Invite)
  *                   &seats=2 a guest who brings TWO +1s (one named, one not yet) — every seat a line (2026-10-22);
  *                   &seatread=empty the card as origin/main's `.maybeSingle()` loader drew that guest (the read erred → []),
  *                   &seatread=fail a refused seat read ("Couldn’t read …", never the empty state)
@@ -60,6 +61,7 @@ import { BottomDock } from '@/app/_components/nav/bottom-nav';
 import { AddGuestSheet } from '@/app/dashboard/[eventId]/guests/_components/add-guest-sheet';
 import { QuickAddSheet } from '@/app/dashboard/[eventId]/guests/_components/quick-add-sheet';
 import { GuestCard } from '@/app/dashboard/[eventId]/guests/_components/guest-card';
+import { LabCardSheet } from './lab-card-sheet';
 import { guestCardErrorCopy } from '@/app/dashboard/[eventId]/guests/_components/guest-card-error-copy';
 import type { GuestPapicState } from '@/lib/papic-guest-camera';
 import type { GuestCardData } from '@/app/dashboard/[eventId]/guests/_components/guest-card-data';
@@ -569,6 +571,40 @@ export default async function GuestsLabPage({
         person: { name_prefix: cardGuest.name_prefix ?? null, display_name: cardGuest.display_name ?? null, gender: cardGuest.gender ?? null, attire: cardGuest.attire },
       }),
     );
+    const panelFrame = sp.frame === 'panel';
+    const labCard = (
+      <LabGuestActions refuse={labRefuses}>
+        <GuestCard
+          frame={panelFrame ? 'panel' : 'page'}
+          eventId={EVENT}
+          data={{ ...cardData(cardGuest, host), ...protoData, ...sidesData, ...seatOf, ...seatLines, ...linkedData, roleNames: labWords, outfit: { wear: labOutfit.wear, from: labOutfit.from } } as GuestCardData}
+          invitationBase="https://www.setnayan.com/maria-and-jose"
+          photoDisplayUrl={null}
+          returnTo={labBack}
+          errorMessage={typeof sp.error === 'string' ? guestCardErrorCopy(sp.error) : null}
+          actions={{ update: labUpdate, release: labRelease, partnerLink: labPartnerLink }}
+          inviteFlash={null}
+          inviteSetup={{
+            facts: { hostsName: 'Maria & Jose', eventWord: 'wedding', eventDate: '2026-12-12', datePrecision: 'day' },
+            template: null,
+            slug: 'maria-and-jose',
+          }}
+          /* 📸 ?papic=off · ?papic=unknown · ?papic=set (40 credits) · ?papic=none — else on, sharing with everyone. */
+          papic={labPapic}
+          storeShell={false}
+          ticketVersion={null}
+          helper={null}
+        />
+      </LabGuestActions>
+    );
+    if (panelFrame) {
+      return (
+        <div className="sn-ambient min-h-screen" data-lab-render={labRenders}>
+          <LabCardSheet>{labCard}</LabCardSheet>
+          <UndoToastHost />
+        </div>
+      );
+    }
     return (
       <div className="sn-ambient min-h-screen">
         <main className="sn-vt-page">
@@ -577,29 +613,7 @@ export default async function GuestsLabPage({
               {/* The panel over the Guest list, as a phone shows it: inset from the left. */}
               <div className="ml-12 min-h-dvh rounded-l-3xl bg-cream px-[18px] pb-10 pt-6 shadow-xl" data-lab-card="" data-lab-render={labRenders}>
                 {low ? <div aria-hidden className="h-[440px]" data-lab-low="" /> : null}
-                <LabGuestActions refuse={labRefuses}>
-                <GuestCard
-                  frame="page"
-                  eventId={EVENT}
-                  data={{ ...cardData(cardGuest, host), ...protoData, ...sidesData, ...seatOf, ...seatLines, ...linkedData, roleNames: labWords, outfit: { wear: labOutfit.wear, from: labOutfit.from } } as GuestCardData}
-                  invitationBase="https://www.setnayan.com/maria-and-jose"
-                  photoDisplayUrl={null}
-                  returnTo={labBack}
-                  errorMessage={typeof sp.error === 'string' ? guestCardErrorCopy(sp.error) : null}
-                  actions={{ update: labUpdate, release: labRelease, partnerLink: labPartnerLink }}
-                  inviteFlash={null}
-                  inviteSetup={{
-                    facts: { hostsName: 'Maria & Jose', eventWord: 'wedding', eventDate: '2026-12-12', datePrecision: 'day' },
-                    template: null,
-                    slug: 'maria-and-jose',
-                  }}
-                  /* 📸 ?papic=off · ?papic=unknown · ?papic=set (40 credits) · ?papic=none — else on, sharing with everyone. */
-                  papic={labPapic}
-                  storeShell={false}
-                  ticketVersion={null}
-                  helper={null}
-                />
-                </LabGuestActions>
+                {labCard}
               </div>
             </div>
           </div>

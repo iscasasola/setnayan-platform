@@ -23,7 +23,6 @@ import { HUB_RSVP_DEFAULT_WORDS } from '@/lib/element-style';
 import type { CoverSceneLayer } from '../_lib/cover-scene-layer';
 import { COVER_LINE_ATTR, COVER_LINE_OWN } from '@/lib/hub-veil';
 import { COVER_SCENE_CREAM_VARS, CoverSceneGround } from './cover-scene-ground';
-import { CoverRsvpGoes } from './cover-rsvp-goes';
 import { FirstScreenDoor } from './first-screen-door';
 import { moreAnswersWords } from '@/lib/guest-one-path';
 
@@ -436,8 +435,7 @@ export function PahinaMasthead({
       ) : (
         rsvpPart
       )}
-      {/* 🧭 The button takes the reader to the page's RSVP part (`lib/cover-rsvp.ts` `COVER_RSVP_PART`): a glide. */}
-      {!door && rsvp && 'href' in rsvp && rsvp.href.startsWith('#') ? <CoverRsvpGoes /> : null}
+      {/* 🎯 The button opens the RSVP page itself (owner 2026-10-26, `lib/cover-rsvp.ts`) — a plain link; no glide. */}
       {/* 📐 THE BUTTON IS WHOLLY ON THE FIRST SCREEN (owner 2026-10-20, DECISION_LOG "THE COVER'S REPLY BUTTON HAS THREE
           STATES": *"lift the button so it's fully visible on first open"* — measured on iPhone 13, its box was y 644–688
           in a 664-tall screen). The text cover is taller than a short phone, so the guest's foot is fitted by the SAME

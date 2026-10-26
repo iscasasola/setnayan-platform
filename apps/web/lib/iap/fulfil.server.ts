@@ -397,7 +397,7 @@ export async function fulfilAppleTransaction(
  * Apple refunded (or revoked) a transaction — App Store Server Notifications
  * v2 `REFUND`. The order leaves `paid` (`RELINQUISHED_STATUSES` then stops
  * counting it) and `deactivateOrderSku` takes back what activation granted
- * (Papic credits, Mood Board render credits, Setnayan AI's stored flag; Pro, Live
+ * (Papic credits, Setnayan AI's stored flag; Pro, Live
  * Watch, Music Maker, Patiktok and Thank You read ownership off the order and
  * re-lock by themselves). Idempotent: a second REFUND finds the order already refunded.
  *

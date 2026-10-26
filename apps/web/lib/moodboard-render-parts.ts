@@ -1,6 +1,12 @@
 /**
  * The RENDERABLE PART REGISTRY for Mood Board section 04, "Make it real".
  *
+ * 🗑 "MAKE IT REAL" ITSELF WAS RETIRED 2026-10-26 (owner: "mood board render is no
+ * longer available. can we delete that?") — the renders, their credits and the
+ * pack are gone. This registry stays because it outlived them: it is the PART
+ * VOCABULARY the supplier sign-offs (lib/moodboard-finalization.ts) and the 3D
+ * Plan's locks read. The name is historical; nothing here renders or charges.
+ *
  * Owner, 2026-09-03: *"make it real is not just 4, it can grow? … they can
  * render each one or … a more expensive render to see the whole look in one
  * photo."* — so a render is addressed to a PART, and the whole look is one more
@@ -373,28 +379,4 @@ export function inspirationSlotsForPart(partId: string): MoodboardSlotKey[] {
     }
   }
   return out;
-}
-
-/**
- * The admin-editable render parameters, as the app sees them.
- *
- * Shape of one `moodboard_render_config` row. There is deliberately no default
- * object here: a caller that cannot read the row must say so, not substitute a
- * guess — "1 credit" quietly assumed while the owner has moved it to 2 is a
- * charge nobody authorised. And the peso price is NOT in this shape at all;
- * `packServiceCode` points at `platform_retail_catalog_v2`, which is the only
- * place a customer price exists.
- */
-export type MoodboardRenderConfig = {
-  creditsPerPart: number;
-  creditsWholeLook: number;
-  creditsPerPack: number;
-  packServiceCode: string;
-  maxNoteChars: number;
-  isActive: boolean;
-};
-
-/** What one render of `partId` costs, in credits, given the live config row. */
-export function creditsForPart(partId: string, config: MoodboardRenderConfig): number {
-  return partId === WHOLE_LOOK_PART_ID ? config.creditsWholeLook : config.creditsPerPart;
 }

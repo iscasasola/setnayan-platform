@@ -158,8 +158,9 @@ test('the list, logo and guest-photo helpers all go through the gated signer', (
  *   event_paperwork.document_r2_key · event_vendor_payments.proof_r2_key ·
  *   event_vendors.deposit_proof_url · event_gift_records.screenshot_r2_key ·
  *   vendor_verification_applications.doc_uploads · the catalogue's sample art.
- * (Chat attachments and mood-board renders have their own dedicated routes —
- * lib/chat-attachment-signs-only-its-own-thread.test.ts, every-render-read-is-pinned.)
+ * (Chat attachments have their own dedicated route —
+ * lib/chat-attachment-signs-only-its-own-thread.test.ts; mood-board renders are retired and
+ * nothing may sign one — every-render-read-is-pinned.)
  */
 const PRIVATE_READERS: Array<[file: string, needle: RegExp]> = [
   ['app/admin/payments/page.tsx', /displayUrlForPrivateStoredAsset\(\s*p\.screenshot_url,\s*paymentProofPolicy\(/],
@@ -258,7 +259,6 @@ const RAW_SIGNER_CALLERS: Record<string, string> = {
   'lib/std-video-gate.ts': 'parseClientRef(stdVideo*/stdSealed policy) first',
   'lib/vendor-image-repost-watch.ts': 'server-side byte fetch for analysis; never served',
   'lib/vendor-qr-media-guard.ts': 'server-side byte fetch for analysis; never served',
-  'lib/moodboard-render-serve.ts': 'the render’s own key (#5415)',
   'lib/background-videos.ts': 'admin-curated media',
   'app/admin/app-performance/actions.ts': 'admin-only, named bucket',
   'app/admin/verification-docs/actions.ts': 'admin-only, named bucket',

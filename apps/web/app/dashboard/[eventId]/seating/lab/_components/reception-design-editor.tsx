@@ -408,8 +408,7 @@ export function ReceptionDesignEditor({
 
   /** The zone rail's per-zone treatment text — every selected option of the
    *  part's first (defining) attribute, not just the primary one, so the
-   *  rail reads the same way `moodboard-make-it-real.ts`'s `briefZoneLines`
-   *  does ("Draped canopy + Fairy lights"), not a bare "+1" count. */
+   *  rail reads "Draped canopy + Fairy lights", not a bare "+1" count. */
   function zoneRailText(part: (typeof RECEPTION_PARTS)[number]): string {
     const a = part.attributes[0]!;
     const labels = selAll(design, part.id, a.id)

@@ -383,16 +383,9 @@ test('wiring: the vendor 3D Booth card never mounts in the store shell', () => {
   );
 });
 
-test('wiring: Mood Board "Make it real" (paid render credits) is not mounted in the store shell', () => {
-  // The board moved into one component (Details part 3) — the page and the Maker's Details both draw it.
+test('wiring: Mood Board "Make it real" (paid render credits) is retired — mounted nowhere, store shell or web (2026-10-26)', () => {
   const s = src('app/dashboard/[eventId]/studio/mood-board/_components/mood-board-editor.tsx');
-  assert.equal((s.match(/<MakeItReal\b/g) ?? []).length, 1, 'one mount — every mount must be gated');
-  // Since Details part 3 the board's parts are nodes, drawn by the page and the Maker alike.
-  // 🍎 …except where Apple sells the pack (2026-10-23): `appleIap` is false whenever the gate is (the store shell
-  // AND the build AND the switch), so with the gate off the store shell still mounts nothing.
-  assert.match(s, /const appleIap = storeShell && \(await getIapGate\(\)\)\.iap;/);
-  assert.match(s, /const makeItReal = storeShell && !appleIap \? null : \(\s*<MakeItReal\b/);
-  assert.match(s, /\.\.\.\(storeShell && !appleIap \? \[\] : \[\{ href: '#make-it-real'/, 'the jump link would point at nothing');
+  assert.doesNotMatch(s, /<MakeItReal\b|#make-it-real|getIapGate/, 'the retired render door is back on the Mood Board');
 });
 
 test('wiring: the dashboard withholds the Sai pitch and a web-bought Sai in the store shell', () => {
@@ -909,7 +902,6 @@ test('🍎 #5/#14 — nothing that sells or names Android renders on a route the
     ['app/dashboard/[eventId]/_components/setnayan-ai-comeback-offer.tsx', { why: 'the event dashboard mounts it only off the store shell', gate: { file: 'app/dashboard/[eventId]/page.tsx', re: /aiOffer && aiOfferSettings && !storeShell \? \(\s*<SetnayanAiComebackOffer\b/ } }],
     ['app/dashboard/[eventId]/monogram/animate-rows.tsx', { why: 'its "Unlock Animation & Apply" drawer needs a `checkout`, which the page builds only off the store shell', gate: { file: 'app/dashboard/[eventId]/monogram/page.tsx', re: /if \(!ownsAnimated && !storeShell\) \{/ } }],
     ['app/dashboard/[eventId]/monogram/animated-monogram-upgrade.tsx', { why: 'mounted only off the store shell', gate: { file: 'app/dashboard/[eventId]/monogram/page.tsx', re: /unlock=\{!storeShell && ownsAnimated \? <AnimatedMonogramUpgrade\b/ } }],
-    ['app/dashboard/[eventId]/studio/mood-board/_components/make-it-real.tsx', { why: '"Buy more credits" lives in Make it real, which the board mounts in the store shell ONLY where Apple sells the pack (2026-10-23) — and there its Buy is Apple\'s sheet (`apple`)', gate: { file: 'app/dashboard/[eventId]/studio/mood-board/_components/mood-board-editor.tsx', re: /const makeItReal = storeShell && !appleIap \? null : \(\s*<MakeItReal\s+apple=\{appleIap\}/ } }],
     ['app/vendor-dashboard/shop/_components/voice-match-card.tsx', { why: 'drawn only by voice-match-section, which returns null in the store shell', gate: { file: 'app/vendor-dashboard/shop/_components/voice-match-section.tsx', re: /if \(!advancedActive && \(await isStoreShellRequest\(\)\)\) return null;/ } }],
   ]);
 

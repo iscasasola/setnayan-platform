@@ -487,14 +487,9 @@ const DOORS: Array<[file: string, gate: RegExp[]]> = [
     [/const appleIap = \(await getIapGate\(\)\)\.iap;/, /if \(!owned && appleIap\) \{/, /settings: STORE_SHELL_NO_PAY_SETTINGS,\s*apple: sellability === 'sellable',/],
   ],
   [`${STUDIO}/thank-you/_components/thank-you-maker.tsx`, [/if \(checkout\.apple\) \{\s*return \(\s*<div className="space-y-2">\s*<IapUnlockSheet\b/]],
-  [
-    `${STUDIO}/mood-board/_components/mood-board-editor.tsx`,
-    [/const appleIap = storeShell && \(await getIapGate\(\)\)\.iap;/, /const makeItReal = storeShell && !appleIap \? null : \(\s*<MakeItReal\s+apple=\{appleIap\}/],
-  ],
-  [`${STUDIO}/mood-board/_components/make-it-real.tsx`, [/\{apple \? \(\s*mayStartRenders && !configUnavailable && appleOnSale \? \(\s*<IapUnlockSheet\b/, /\$\{apple \? '' : ' Payment is verified by hand/]],
 ];
 
-test('6 · the five doors: each page reads the one gate, and Apple’s sheet is mounted only inside it', () => {
+test('6 · the doors (the Mood Board pack retired 2026-10-26): each page reads the one gate, and Apple’s sheet is mounted only inside it', () => {
   for (const [file, gates] of DOORS) {
     const src = code(file);
     for (const re of gates) assert.match(src, re, `${file}: ${re}`);
@@ -502,7 +497,6 @@ test('6 · the five doors: each page reads the one gate, and Apple’s sheet is 
   // Every IapUnlockSheet mount in the product is one of these (the /dev lab aside) — a new mount is a new decision.
   const mounts = DOORS.map(([f]) => f).filter((f) => /<IapUnlockSheet\b/.test(code(f)));
   assert.deepEqual(mounts.sort(), [
-    `${STUDIO}/mood-board/_components/make-it-real.tsx`,
     `${STUDIO}/pakanta/_components/pakanta-music-form.tsx`,
     `${STUDIO}/patiktok/page.tsx`,
     `${STUDIO}/setnayan-ai/page.tsx`,
@@ -510,7 +504,6 @@ test('6 · the five doors: each page reads the one gate, and Apple’s sheet is 
   ]);
   // GATE OFF: with `apple` false each component takes the web branch it always took.
   assert.match(code(`${STUDIO}/pakanta/_components/pakanta-music-form.tsx`), /\) : readyToPay && pricePhp != null \? \(\s*<InlineCheckoutDrawer\b/);
-  assert.match(code(`${STUDIO}/mood-board/_components/make-it-real.tsx`), /\) : packPlan && mayStartRenders \? \(\s*<ChoosePlanSheet\b/);
 });
 
 test('6 · a Setnayan AI bought on the web or in the app lights up in the app only where Apple sells THIS EVENT’S TIER', async () => {

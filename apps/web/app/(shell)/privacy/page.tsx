@@ -1998,9 +1998,7 @@ export default function PrivacyPage() {
               and explicitly connect a Drive account via OAuth; Google&rsquo;s
               public STUN server — contacted briefly by your device when starting
               a live call or camera connection, to discover its own network
-              address; and the Gemini image model, which receives the pictures
-              on a mood board when a couple pays to render one with
-              &ldquo;Make it real&rdquo;)
+              address)
             </li>
             <li>
               TikTok (Patiktok only · for couples who explicitly

@@ -12,9 +12,10 @@ import type { FeaturePageEntry } from './types';
  *   · Setnayan AI — paid (`platform_settings.setnayan_ai_paywall_enabled` read
  *     TRUE on 2026-10-18). Its old "weekly digest" line is gone: the digest
  *     assembler has no caller. The "% match" is free for everyone.
- *   · Mood Board — free to use; photoreal renders spend credits bought as
- *     MOODBOARD_RENDER_PACK. Rooms, ceiling and stage are now designed with the
- *     Seat plan, so they are no longer claimed here. Dress code has its own page.
+ *   · Mood Board — free. Its paid photoreal renders ("Make it real",
+ *     MOODBOARD_RENDER_PACK) were retired 2026-10-26 and are not claimed here.
+ *     Rooms, ceiling and stage are now designed with the Seat plan, so they are
+ *     no longer claimed here. Dress code has its own page.
  */
 export const PLAN_B_FEATURES: readonly FeaturePageEntry[] = [
   {
@@ -25,8 +26,8 @@ export const PLAN_B_FEATURES: readonly FeaturePageEntry[] = [
     line: { en: 'Pick your colours once — your event dresses to match.', tl: 'Piliin ang kulay nang isang beses — susunod ang event mo.' },
     title: { en: 'Event Mood Board and Color Palette', tl: 'Mood Board at Color Palette ng Event' },
     description: {
-      en: 'Pick your event colours once, set each role’s look, and share one board with your suppliers. Free to use, with optional photoreal renders.',
-      tl: 'Piliin ang kulay ng event nang isang beses, itakda ang itsura ng bawat role, at ibahagi ang iisang board sa suppliers. Libreng gamitin, may optional na renders.',
+      en: 'Pick your event colours once, set each role’s look, and share one board with your suppliers. Free to use.',
+      tl: 'Piliin ang kulay ng event nang isang beses, itakda ang itsura ng bawat role, at ibahagi ang iisang board sa suppliers. Libreng gamitin.',
     },
     answer: {
       en: 'Setnayan Mood Board is where your event decides how it looks. You start from a curated theme or your own palette, set colours for each role, and gather the details you love. It is free to use, and one board gives suppliers a single answer to “what is your motif?”.',
@@ -41,8 +42,8 @@ export const PLAN_B_FEATURES: readonly FeaturePageEntry[] = [
       tl: ['Magsimula sa curated na theme o buuin ang sariling palette.', 'Bigyan ng kulay ang bawat role, magdagdag ng sariling role, at mag-ipon ng mga detalyeng gusto mo.', 'Ibahagi ito: makakabukas ng read-only na kopya ang na-book na supplier, at may one-page printable para sa iba.'],
     },
     different: {
-      en: ['Your Event Hub, logo and QR codes take your colours.', 'The wedding party in your 3D Plan wears the colours you set for their role.', 'Booked suppliers open a read-only copy, and there is a one-page printable for everyone else.', 'Swatch previews are free. A photoreal “Make it real” render spends a credit, and a failed render gives it back.'],
-      tl: ['Sinusunod ng Event Hub, logo at QR codes mo ang mga kulay mo.', 'Ang wedding party sa 3D Plan ay suot ang kulay na itinakda mo para sa role nila.', 'Makakabukas ng read-only na kopya ang na-book na supplier, at may one-page printable para sa iba.', 'Libre ang swatch previews. Gumagamit ng isang credit ang photoreal na “Make it real” render, at ibinabalik ito kapag pumalya ang render.'],
+      en: ['Your Event Hub, logo and QR codes take your colours.', 'The wedding party in your 3D Plan wears the colours you set for their role.', 'Booked suppliers open a read-only copy, and there is a one-page printable for everyone else.'],
+      tl: ['Sinusunod ng Event Hub, logo at QR codes mo ang mga kulay mo.', 'Ang wedding party sa 3D Plan ay suot ang kulay na itinakda mo para sa role nila.', 'Makakabukas ng read-only na kopya ang na-book na supplier, at may one-page printable para sa iba.'],
     },
     worksWith: [
       { slug: 'dress-code', how: { en: 'Each role’s colours become what guests are told to wear.', tl: 'Ang kulay ng bawat role ang sinasabi sa bisita kung ano ang isusuot.' } },
@@ -52,13 +53,13 @@ export const PLAN_B_FEATURES: readonly FeaturePageEntry[] = [
     ],
     faq: {
       en: [
-        { q: 'Is there a free mood board maker for events?', a: 'Yes. The Setnayan Mood Board is free to use with every account. Only the optional photoreal renders cost credits.' },
+        { q: 'Is there a free mood board maker for events?', a: 'Yes. The Setnayan Mood Board is free to use with every account.' },
         { q: 'Do I need design skills?', a: 'No. Start from a curated theme and it fills your palette. Change anything you do not like.' },
         { q: 'Where do my colours show up?', a: 'On what Setnayan makes for you: your Event Hub, logo and QR codes, the dress code your guests read, and the wedding party in your 3D Plan.' },
         { q: 'Can my suppliers see it?', a: 'Suppliers you booked through Setnayan can open a read-only copy, and there is a one-page printable for anyone else.' },
       ],
       tl: [
-        { q: 'May libreng mood board maker ba para sa event?', a: 'Meron. Libreng gamitin ang Setnayan Mood Board sa bawat account. Ang optional na photoreal renders lang ang gumagamit ng credits.' },
+        { q: 'May libreng mood board maker ba para sa event?', a: 'Meron. Libreng gamitin ang Setnayan Mood Board sa bawat account.' },
         { q: 'Kailangan ba ng design skills?', a: 'Hindi. Magsimula sa curated na theme at mapupuno ang palette mo. Palitan ang ayaw mo.' },
         { q: 'Saan lumalabas ang mga kulay ko?', a: 'Sa mga ginagawa ng Setnayan para sa iyo: Event Hub, logo at QR codes, ang dress code na binabasa ng bisita, at ang wedding party sa 3D Plan.' },
         { q: 'Makikita ba ito ng mga supplier ko?', a: 'Ang mga supplier na na-book mo sa Setnayan ay makakabukas ng read-only na kopya, at may one-page printable para sa iba.' },
@@ -77,9 +78,9 @@ export const PLAN_B_FEATURES: readonly FeaturePageEntry[] = [
         },
       },
     ],
-    price: { kind: 'free-plus', catalogue: 'retail', codes: ['MOODBOARD_RENDER_PACK'] },
+    price: { kind: 'free' },
     moreHref: '/mood-board',
-    evidence: ['app/(shell)/mood-board/page.tsx', 'lib/mood-board.ts', 'lib/moodboard-printable.ts', 'lib/moodboard-render-credits.ts', 'lib/room-palette.ts'],
+    evidence: ['app/(shell)/mood-board/page.tsx', 'lib/mood-board.ts', 'lib/moodboard-printable.ts', 'lib/room-palette.ts'],
   },
   {
     slug: 'marketplace',

@@ -94,12 +94,14 @@ async function used(eventId: string): Promise<number> {
 
 /* ── the price lives in exactly one place ───────────────────────────────── */
 
-test('the one pack is in the catalog, and the catalog is the only place a peso appears', async () => {
-  const r = await db.query<{ retail_price_php: string }>(
-    `SELECT retail_price_php FROM public.platform_retail_catalog_v2
+test('the one pack is in the catalog — RETIRED (is_active false) — and the catalog is the only place a peso appears', async () => {
+  const r = await db.query<{ retail_price_php: string; is_active: boolean }>(
+    `SELECT retail_price_php, is_active FROM public.platform_retail_catalog_v2
       WHERE service_code = 'MOODBOARD_RENDER_PACK'`,
   );
-  assert.equal(r.rows.length, 1, 'the render pack SKU must exist');
+  assert.equal(r.rows.length, 1, 'the render pack row must still exist (order history may name it)');
+  // 🗑 Mood Board renders were retired 2026-10-26 (migration 20271289025011): nothing may sell the pack.
+  assert.equal(r.rows[0]!.is_active, false, 'the retired render pack is on sale again');
 
   // The config row points AT the catalog rather than copying the price. A
   // second peso figure is the defect this shape exists to make impossible —

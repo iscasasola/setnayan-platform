@@ -1271,7 +1271,7 @@ export function GenericOnboarding(props: Props) {
             {intro?.headline ??
               'A few quick questions and we’ll shape a plan made for your event.'}
           </Title>
-          <p className="mt-4 text-ink/60">{intro?.subcopy ?? 'Free to start — no account needed yet.'}</p>
+          <p className="mt-4 text-ink/60">{intro?.subcopy ?? 'Start now — no account needed yet.'}</p>
           {/* Entrance grey-out (owner ruling 2026-09-11): told HERE, on the very
               first screen, instead of only after a wizard-length walk ends in
               the same refusal. `blockedBy` is seeded from the server's entrance

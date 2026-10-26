@@ -142,7 +142,7 @@ const TYPE_COPY: Record<
     // the same thing at exactly the same price — which is simpler to say and is
     // the actual product rule, not a simplification of it.
     note:
-      'One free camera to try it — then add as many dedicated cameras as you ' +
+      'One camera included to try it — then add as many dedicated cameras as you ' +
       'want, and top any of them up for the same price when they run low. No ' +
       'new QR needed.',
     Icon: UserRound,
@@ -277,7 +277,7 @@ function PriceLine({ pricePhp, listPricePhp }: { pricePhp: number; listPricePhp?
   ) : (
     <p className="mt-3 flex items-baseline justify-between gap-3 rounded-[var(--m-r-sm)] bg-terracotta/10 px-3 py-2">
       <span className="text-sm text-ink/70">Included</span>
-      <span className="font-mono text-base font-semibold text-terracotta-700">Free</span>
+      <span className="font-mono text-base font-semibold text-terracotta-700">Included</span>
     </p>
   );
 }
@@ -505,8 +505,8 @@ function PapicType({
               left={credits(type.freePoints)}
               right={
                 type.freeCameras === null
-                  ? 'Free — yours now'
-                  : `Free — ${type.freeCameras === 1 ? '1 camera' : `${type.freeCameras} cameras`}`
+                  ? 'Included — yours now'
+                  : `Included — ${type.freeCameras === 1 ? '1 camera' : `${type.freeCameras} cameras`}`
               }
             />
           ) : null}
@@ -709,11 +709,11 @@ export function ServicesStep({
           />
           <span>
             {solemn ? (
-              <>Photo sharing is ready whenever you need it — the free shots and guest QR are set up.</>
+              <>Photo sharing is ready whenever you need it — your shots and guest QR are set up.</>
             ) : (
               <>
                 <strong className="font-semibold">{SERVICE_NAMES.papic.plain} is live on this {eventWord}.</strong>{' '}
-                Your free shots and guest QR are ready.
+                Your shots and guest QR are ready.
               </>
             )}
           </span>
@@ -739,7 +739,7 @@ export function ServicesStep({
           <p className="mt-4 flex items-baseline justify-between gap-3 rounded-[var(--m-r-md)] border border-ink/12 bg-ink/[0.02] px-4 py-3">
             <span className="text-sm font-semibold text-ink">{SERVICE_NAMES.papic.plain}</span>
             <span className="font-sans text-xl font-semibold tabular-nums text-ink">
-              {quote.papicPhp > 0 ? peso(quote.papicPhp) : 'Free'}
+              {quote.papicPhp > 0 ? peso(quote.papicPhp) : 'Included'}
             </span>
           </p>
         ) : null}
@@ -754,7 +754,7 @@ export function ServicesStep({
           <strong className="font-semibold text-ink">
             Covered from today until your {eventWord} date.
           </strong>{' '}
-          Plan a year ahead and that&rsquo;s a year of storage — the window is free,
+          Plan a year ahead and that&rsquo;s a year of storage — the window costs nothing extra,
           however long it is.
         </p>
         <p className="mt-2 text-xs leading-relaxed text-ink/70">
@@ -953,7 +953,7 @@ export function ServicesStep({
             <div className="flex items-baseline justify-between gap-3">
               <dt className="text-sm text-ink/70">{SERVICE_NAMES.papic.plain}</dt>
               <dd className="font-mono text-sm tabular-nums text-ink/80">
-                {quote.papicPhp > 0 ? peso(quote.papicPhp) : 'Free'}
+                {quote.papicPhp > 0 ? peso(quote.papicPhp) : 'Included'}
               </dd>
             </div>
             {ai ? (
@@ -1010,7 +1010,7 @@ export function ServicesStep({
             <div className="mt-1 flex items-baseline justify-between gap-3 border-t border-ink/10 pt-3">
               <dt className="text-sm font-semibold text-ink">Your total today</dt>
               <dd className="font-sans text-2xl font-semibold tabular-nums text-ink">
-                {quote.totalPhp > 0 ? peso(quote.totalPhp) : 'Free'}
+                {quote.totalPhp > 0 ? peso(quote.totalPhp) : '₱0'}
               </dd>
             </div>
           </dl>
@@ -1025,12 +1025,12 @@ export function ServicesStep({
             {quote.totalPhp > 0 ? (
               <>
                 We&rsquo;ll show you where to send it right after this — your {eventWord}{' '}
-                and your free credits are live either way, and what you added arrives once
+                and your included credits are live either way, and what you added arrives once
                 your payment is confirmed.
               </>
             ) : (
               <>
-                Nothing to pay. Your {eventWord} and your free shots go live the moment
+                Nothing to pay. Your {eventWord} and your included shots go live the moment
                 you finish — you can add more whenever you want.
               </>
             )}

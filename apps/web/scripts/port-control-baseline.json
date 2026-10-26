@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "684d1b97ac",
+  "generatedFromRef": "6b142bcdfb",
   "routeCount": 473,
   "destinations": 1013,
-  "actions": 661,
-  "blocks": 7112,
+  "actions": 662,
+  "blocks": 7113,
   "routes": {
     "/": {
       "files": [
@@ -7861,7 +7861,9 @@
         "dashboard/[eventId]/memories/page.tsx"
       ],
       "destinations": [],
-      "actions": [],
+      "actions": [
+        "claimUploadsCamera"
+      ],
       "blocks": [
         "AddToLibrary",
         "DriveCopyCard",
@@ -7876,6 +7878,7 @@
         "PoolGalleryCard",
         "ServiceParts",
         "Spotlight",
+        "SubmitButton",
         "UploadsOpenChoice"
       ]
     },
@@ -9274,6 +9277,7 @@
         "PapicHomeCard",
         "PapicLightbox",
         "PapicSeePhotos",
+        "PapicStyle",
         "PapicSwitch",
         "PapicWindowPicker",
         "PayStep",
@@ -9294,7 +9298,6 @@
         "ShutterSection",
         "SourceRow",
         "Spotlight",
-        "StartAddingPhotos",
         "StatusBanners",
         "StepperRung",
         "StudioBuyHero",

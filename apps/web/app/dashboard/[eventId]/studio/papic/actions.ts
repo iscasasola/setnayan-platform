@@ -855,6 +855,32 @@ export async function setPapicStyle(formData: FormData) {
   redirect(`/dashboard/${eventId}/studio/papic?style_set=${style}`);
 }
 
+/**
+ * 🎨 THE FILTER, PICKED IN PLACE (owner 2026-10-26, on his phone: *"on papic, picking a filter reload the whole screen
+ * and not just the filter to be highlighted"*). `setPapicStyle` above ends in a `redirect` — a navigation, so every
+ * tap re-drew the whole page from the top. The strip (`style-picker.tsx`) now highlights the tapped look at once and
+ * saves through THIS: the same gate, the same check, the same one column — answered, never a navigation. The pages
+ * that show the look are re-rendered in place (`revalidatePath`, no redirect). The form's `setPapicStyle` stays the
+ * no-JavaScript path. Held by `picking-a-filter-stays-in-place.test.ts`.
+ */
+export async function setPapicStyleInPlace(eventIdRaw: string, styleRaw: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const refused = await limitedHelperRefusal(eventIdRaw, 'photos');
+  if (refused) return { ok: false, error: refused };
+  const result = await getCoupleEventId(eventIdRaw);
+  if (!result.ok) return { ok: false, error: 'This event could not be opened just now. Please try again.' };
+  const { eventId } = result;
+  const style = typeof styleRaw === 'string' ? styleRaw.trim().toUpperCase() : '';
+  if (!(PAPIC_STYLE_VALUES as readonly string[]).includes(style)) return { ok: false, error: 'That filter could not be read.' };
+  const { error } = await createAdminClient().from('events').update({ papic_style: style }).eq('event_id', eventId);
+  if (error) {
+    logQueryError('setPapicStyleInPlace.update', error, { event_id: eventId }, 'graceful_degrade');
+    return { ok: false, error: 'That filter could not be saved just now. Please try again.' };
+  }
+  revalidatePath(`/dashboard/${eventId}/studio/papic`);
+  revalidatePath(`/dashboard/${eventId}`);
+  return { ok: true };
+}
+
 // ─────────────────────────────────────────────────────────────────────────
 // Papic · 5 Seats — couple-side seat lifecycle (provision + reissue).
 //

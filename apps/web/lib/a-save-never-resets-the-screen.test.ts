@@ -111,11 +111,11 @@ test('(3) the registry is the allow-list — each name runs the action it names,
   const gate = src.indexOf('await limitedHelperRefusal(');
   assert.ok(gate > -1 && gate < src.indexOf('await run(formData)'), 'the door runs an action before asking the limited-helper gate');
   assert.match(src, /if \(helperRefusal\) return \{ ok: false, error: helperRefusal \};/, 'a limited helper\'s refusal is not said');
-  const AREA: Record<string, string> = { papic: "'photos'", memories: "'photos'", schedule: "'schedule'", sponsors: 'null', guests: "'guest_list'", hosts: 'null', review: 'null', invitation: "'invitations'", guest: "'guest'" };
+  const AREA: Record<string, string> = { papic: "'photos'", memories: "'photos'", schedule: "'schedule'", sponsors: 'null', guests: "'guest_list'", hosts: 'null', review: 'null', invitation: "'invitations'", guest: "'guest'", account: "'account'" };
   for (const [kind, area] of Object.entries(AREA)) {
     assert.match(src, new RegExp(`const ${kind} = \\(run[^\\n]*area: ${area} \\}\\);`), `${kind} doors no longer gate on ${area}`);
   }
-  for (const r of rows) assert.ok(new RegExp(`'${r[1]!.replace('.', '\\.')}': (papic|memories|schedule|sponsors|guests|hosts|review|invitation|guest)\\(`).test(body), `door ${r[1]} names no gated area`);
+  for (const r of rows) assert.ok(new RegExp(`'${r[1]!.replace('.', '\\.')}': (papic|memories|schedule|sponsors|guests|hosts|review|invitation|guest|account)\\(`).test(body), `door ${r[1]} names no gated area`);
   const form = stripComments(readFileSync(join(WEB, 'app/_components/stay-form.tsx'), 'utf8'));
   assert.match(form, /const onSubmit = \(e: FormEvent<HTMLFormElement>\) => \{\s*e\.preventDefault\(\);/, 'the stay form lets the browser submit — and follow the redirect');
   assert.match(form, /const realDoor: StayDoorFn = \(door, fd\) => saveInPlace\(door, fd\);/, 'the app no longer saves through the real door');

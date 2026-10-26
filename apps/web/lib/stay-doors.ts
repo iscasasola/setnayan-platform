@@ -82,6 +82,17 @@ export const STAY_DOORS = [
   'guest.withdrawFaceConsent',
   'guest.linkThisSeatAction',
   'guest.saveAttendedVendorAction',
+  /* Your profile — details, privacy switches, public handle, face profile, account deletion. */
+  'account.updatePersonalInfo',
+  'account.updatePublicGreeting',
+  'account.updatePublicProfileEnabled',
+  'account.updateDiscoverableByName',
+  'account.updateSharePhotoWithHosts',
+  'account.updateUserSlug',
+  'account.setAccountFaceProfileConsent',
+  'account.forgetMyFaceEverywhere',
+  'account.requestAccountDeletion',
+  'account.cancelAccountDeletionRequest',
 ] as const;
 
 export type StayDoor = (typeof STAY_DOORS)[number];

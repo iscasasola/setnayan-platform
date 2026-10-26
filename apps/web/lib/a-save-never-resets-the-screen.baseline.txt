@@ -219,16 +219,6 @@ app/dashboard/(account)/people/dependent-actions.ts › deleteGodparent
 app/dashboard/(account)/people/dependent-actions.ts › emailHandoverLink
 app/dashboard/(account)/people/dependent-actions.ts › revokeHandoverLink
 app/dashboard/(account)/people/dependent-actions.ts › setDependentSharing
-app/dashboard/(account)/profile/actions.ts › cancelAccountDeletionRequest
-app/dashboard/(account)/profile/actions.ts › requestAccountDeletion
-app/dashboard/(account)/profile/actions.ts › updateDiscoverableByName
-app/dashboard/(account)/profile/actions.ts › updatePersonalInfo
-app/dashboard/(account)/profile/actions.ts › updatePublicGreeting
-app/dashboard/(account)/profile/actions.ts › updatePublicProfileEnabled
-app/dashboard/(account)/profile/actions.ts › updateSharePhotoWithHosts
-app/dashboard/(account)/profile/actions.ts › updateUserSlug
-app/dashboard/(account)/profile/face-profile-actions.ts › forgetMyFaceEverywhere
-app/dashboard/(account)/profile/face-profile-actions.ts › setAccountFaceProfileConsent
 app/dashboard/(account)/samahan/actions.ts › deleteSamahanMessage
 app/dashboard/(account)/samahan/actions.ts › demoteMember
 app/dashboard/(account)/samahan/actions.ts › postSamahanMessage

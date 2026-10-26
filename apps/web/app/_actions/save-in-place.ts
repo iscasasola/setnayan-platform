@@ -75,6 +75,17 @@ import {
   setGuestScanTracking,
   withdrawFaceConsent,
 } from '@/app/[slug]/actions';
+import {
+  cancelAccountDeletionRequest,
+  requestAccountDeletion,
+  updateDiscoverableByName,
+  updatePersonalInfo,
+  updatePublicGreeting,
+  updatePublicProfileEnabled,
+  updateSharePhotoWithHosts,
+  updateUserSlug,
+} from '@/app/dashboard/(account)/profile/actions';
+import { forgetMyFaceEverywhere, setAccountFaceProfileConsent } from '@/app/dashboard/(account)/profile/face-profile-actions';
 
 /**
  * 📍 THE ONE DOOR EVERY `StayForm` SAVES THROUGH (owner, 2026-10-26, DECISION_LOG "A SAVE NEVER RESETS THE SCREEN —
@@ -175,7 +186,25 @@ const GUEST_PAGE: StayWords = {
   saved: (q) => (q.get('save') === 'ok' ? 'Saved to your account — find it in your Library for your own plans.' : null),
 };
 
-type Door = { run: (fd: FormData) => Promise<unknown>; words: StayWords; area: DelegateArea | null | 'guest' };
+/* Your profile (`/dashboard/profile`) — `?error=` / `?slug_error=` carry the action's own sentence; the page's own
+   "saved" lines are said on the row; the account-deletion state is drawn from the news. */
+const PROFILE_SAID: Readonly<Record<string, string>> = {
+  saved: 'Saved.',
+  public_profile_saved: 'Public profile setting saved.',
+  discoverable_saved: 'Saved — who can find you by name.',
+  photo_sharing_saved: 'Saved — who can see your photo.',
+  slug_saved: 'Your public handle has been updated.',
+  face_forgotten: 'Done — your face profile has been forgotten.',
+  deletion_cancelled: 'Account-deletion request cancelled. Your account stays active.',
+};
+const PROFILE: StayWords = {
+  within: [/^\/dashboard\/profile$/],
+  refuse: (q) => q.get('error') ?? q.get('slug_error'),
+  saved: (q) => Object.keys(PROFILE_SAID).map((k) => (q.get(k) ? PROFILE_SAID[k]! : null)).find(Boolean) ?? null,
+  keepNews: true,
+};
+
+type Door = { run: (fd: FormData) => Promise<unknown>; words: StayWords; area: DelegateArea | null | 'guest' | 'account' };
 const papic = (run: (fd: FormData) => Promise<unknown>): Door => ({ run, words: PAPIC_WORDS, area: 'photos' });
 const memories = (run: (fd: FormData) => Promise<unknown>): Door => ({ run, words: MEMORIES, area: 'photos' });
 const schedule = (run: (fd: FormData) => Promise<unknown>): Door => ({ run, words: SCHEDULE, area: 'schedule' });
@@ -186,6 +215,8 @@ const invitation = (run: (fd: FormData) => Promise<unknown>): Door => ({ run, wo
 /* A GUEST's own press on their event page — not a host's write, so the limited-helper gate does not apply (a helper
    who is also a guest still answers their own invitation). Each action checks the guest's session itself. */
 const guest = (run: (fd: FormData) => Promise<unknown>): Door => ({ run, words: GUEST_PAGE, area: 'guest' });
+/* A person's OWN account — no event, so no event helper gate; each action signs the person in itself. */
+const account = (run: (fd: FormData) => Promise<unknown>): Door => ({ run, words: PROFILE, area: 'account' });
 const yes = (fd: FormData, name: string) => fd.get(name) === '1';
 const guests = (run: (fd: FormData) => Promise<unknown>, words: StayWords): Door => ({ run, words, area: 'guest_list' });
 
@@ -251,6 +282,16 @@ const DOORS: Readonly<Record<StayDoor, Door>> = {
   'guest.setGuestScanTracking': guest((fd) => setGuestScanTracking(String(fd.get('event_id') ?? ''), String(fd.get('guest_id') ?? ''), yes(fd, 'opt_out'))),
   'guest.withdrawFaceConsent': guest(onGuest(withdrawFaceConsent)),
   'guest.linkThisSeatAction': guest(onEvent(linkThisSeatAction)),
+  'account.updatePersonalInfo': account(updatePersonalInfo),
+  'account.updatePublicGreeting': account(updatePublicGreeting),
+  'account.updatePublicProfileEnabled': account(updatePublicProfileEnabled),
+  'account.updateDiscoverableByName': account(updateDiscoverableByName),
+  'account.updateSharePhotoWithHosts': account(updateSharePhotoWithHosts),
+  'account.updateUserSlug': account(updateUserSlug),
+  'account.setAccountFaceProfileConsent': account(setAccountFaceProfileConsent),
+  'account.forgetMyFaceEverywhere': account(forgetMyFaceEverywhere),
+  'account.requestAccountDeletion': account(requestAccountDeletion),
+  'account.cancelAccountDeletionRequest': account(cancelAccountDeletionRequest),
   'guest.saveAttendedVendorAction': guest((fd) =>
     saveAttendedVendorAction(String(fd.get('event_id') ?? ''), String(fd.get('slug') ?? ''), String(fd.get('vendor_profile_id') ?? '')),
   ),
@@ -262,7 +303,7 @@ export async function saveInPlace(door: StayDoor, formData: FormData): Promise<S
   const { run, words, area } = DOORS[door];
   /* 🔒 The limited-helper gate, before anything runs (owner 2026-10-26: a limited helper changes only the areas the
      host set to Edit). Every form a door serves carries `event_id`. */
-  if (area !== 'guest') {
+  if (area !== 'guest' && area !== 'account') {
     const eventId = formData.get('event_id');
     const helperRefusal = await limitedHelperRefusal(typeof eventId === 'string' ? eventId : '', area);
     if (helperRefusal) return { ok: false, error: helperRefusal };

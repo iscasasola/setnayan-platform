@@ -150,7 +150,7 @@ test('1b · the screen draws the tally in the counts line — and nothing of it 
   };
   assert.equal(half('named'), `${t.named} named`);
   assert.equal(half('unnamed'), `${t.unnamed} no name yet`);
-  assert.match(html, /data-roster-plus-ones=""[^>]*>\s*· \+1s:/, 'the line does not say "+1s:"');
+  assert.match(html, /data-roster-plus-ones=""[^>]*>\s*\+1s ·/, 'the line does not say "+1s ·"');
   const none = await renderGuestsScreen({ guests: [guestRow({ first_name: 'Ana' }), guestRow({ first_name: 'Bert' })] });
   assert.doesNotMatch(none, /data-roster-plus-ones|data-plus-filter/, 'a list with no +1s draws a +1 count');
 });

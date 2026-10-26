@@ -44,6 +44,7 @@
 --   5 · TRIGGER `a_removed_proxy_ends_the_link` (AFTER UPDATE OF deleted_at) — a proxy (or holder) taken off the
 --       list ends the link, which (4) turns into "the seat comes back".
 --   6 · `free_seat_on_decline` — a decline that NAMES a proxy, or a represented holder, keeps the seat.
+--   6b · the guest page's stamp (`guests_event_public_rev_upd`) watches `represented_by_guest_id` too.
 --   7 · THE SQL READERS — their LATEST bodies, copied by script with ONE change: every guest read that says
 --         <a>.entry_source <> 'self_added_unlisted' AND NOT <a>.passed_away
 --       now also says `AND <a>.represented_by_guest_id IS NULL`:
@@ -260,6 +261,27 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
+-- ── 6b · the guest page's stamp watches the link ───────────────────────────────────────────────────────────────
+-- The invitation's entourage prints "<holder> (represented by <proxy>)", so the public, REMEMBERED entourage read now
+-- names `represented_by_guest_id` — and a remembered `guests` read may name only the columns this trigger watches
+-- (apps/web/lib/event-shared-reads.ts `GUESTS_SHARED_COLUMNS`). Identical to 20271275959355 with that ONE column added
+-- on both sides, so linking or removing a proxy refreshes every guest's page at once.
+DROP TRIGGER IF EXISTS guests_event_public_rev_upd ON public.guests;
+CREATE CONSTRAINT TRIGGER guests_event_public_rev_upd
+  AFTER UPDATE ON public.guests
+  DEFERRABLE INITIALLY DEFERRED
+  FOR EACH ROW
+  WHEN ((
+    OLD.event_id, OLD.guest_id, OLD.deleted_at, OLD.display_name, OLD.name_prefix, OLD.first_name,
+    OLD.middle_name, OLD.last_name, OLD.name_suffix, OLD.role, OLD.extra_roles,
+    OLD.plus_one_of_guest_id, OLD.couple_with_guest_id, OLD.attire, OLD.gender, OLD.represented_by_guest_id
+  ) IS DISTINCT FROM (
+    NEW.event_id, NEW.guest_id, NEW.deleted_at, NEW.display_name, NEW.name_prefix, NEW.first_name,
+    NEW.middle_name, NEW.last_name, NEW.name_suffix, NEW.role, NEW.extra_roles,
+    NEW.plus_one_of_guest_id, NEW.couple_with_guest_id, NEW.attire, NEW.gender, NEW.represented_by_guest_id
+  ))
+  EXECUTE FUNCTION public.event_public_rev_on_write();
 
 -- ── 7 · the SQL readers: a represented holder is not counted ──────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION public.get_vendor_seat_plan(p_event_id UUID)

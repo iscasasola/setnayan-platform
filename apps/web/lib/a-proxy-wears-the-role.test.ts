@@ -53,7 +53,7 @@ test('3 · the ticket — one card and the zip — reads Arrive from the stand-i
   const one = src.slice(src.indexOf('export async function readPassCardGuest'));
   assert.match(one.slice(0, 900), /await wearTheirStandInRoles\(admin, \[read\]\)/);
   const zip = src.slice(src.indexOf('export async function eligiblePassCardGuests'));
-  assert.match(zip.slice(0, 1400), /await wearTheirStandInRoles\(admin, filterEligible\(/);
+  assert.match(zip.slice(0, 1600), /filterEligible\(await wearTheirStandInRoles\(admin, /);
   assert.match(src, /arrive: guestArriveBy\(\{ role: g\.role as GuestRole \| null/);
   // …and the reminder email's checklist (the same ticket reading, before `guestChecklistItems`).
   const reminder = read('lib/guest-reminder-emails.ts');

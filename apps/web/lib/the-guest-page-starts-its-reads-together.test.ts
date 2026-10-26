@@ -117,6 +117,8 @@ test('only these reads are started ahead — each one every path below awaits, n
       'resolveEventQrLook', 'eventPapicGuestActive', 'resolveGuestCamera', 'getGuestLiveGallery', 'getGuestOwnShots',
       'resolveFaceTagging', 'readFaceTaggingWish', 'isDataPrivacyControlActive', 'readGuestCheckin', 'readFirstScan',
       'fetchEventVendorCredits',
+      // 🧍 Whom they stand in for (2026-10-27, `readGuestStandIn`) — a read, beside the others, after the row is theirs.
+      'readGuestStandIn',
     ].sort(),
   );
   // …and none of them leaves before the guest's row has been checked.

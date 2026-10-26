@@ -2973,16 +2973,16 @@ export async function SiteBody({
       name: placeCardName(guest, eventNameStyle) ?? (guestFullName(guest, eventNameStyle) || null),
       roleCode: dressRole,
       roleWord: roleWordOfGuest(guestAsRole, roleNames),
+      sideLabel,
+      date: greetingDateLine(event.event_date, event.event_date_precision),
+      venues: event.venues ?? null,
+      venueName: event.venue_name ?? null,
       // 🧍 "Standing in for Mrs. Ma. Theresa Sacdalan-Tria" · "Maria Catherine Sacdalan is standing in for you".
       standIn: standIn?.standingInFor
         ? standingInWords(standIn.standingInFor.name, roleWordOfGuest(guestAsRole, roleNames))
         : standIn?.representedBy
           ? standsInForYouWords(standIn.representedBy.name)
           : null,
-      sideLabel,
-      date: greetingDateLine(event.event_date, event.event_date_precision),
-      venues: event.venues ?? null,
-      venueName: event.venue_name ?? null,
     });
 
     /* 🏠 THE DAY'S WELCOME (owner 2026-09-30, "THE DAY'S MENU HAS FIVE"):

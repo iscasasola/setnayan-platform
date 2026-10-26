@@ -477,7 +477,8 @@ export async function eligiblePassCardGuests(
     logQueryError('pass-card.eligible', error, { event_id: eventId }, 'graceful_degrade');
     return { guests: [], measured: false };
   }
-  return { guests: await wearTheirStandInRoles(admin, filterEligible((data ?? []) as unknown as PassCardGuest[])), measured: true };
+  // 🧍 Each proxy wears the role they stand in for before the rule picks who has a card (Arrive = the role's call time).
+  return { guests: filterEligible(await wearTheirStandInRoles(admin, (data ?? []) as unknown as PassCardGuest[])), measured: true };
 }
 
 /** The rule over a whole list — `filterPassCardRows` (pure, executed by its test). */

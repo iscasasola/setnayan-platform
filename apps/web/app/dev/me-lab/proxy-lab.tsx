@@ -75,7 +75,7 @@ function labSponsors(): EntourageGuestRow[] {
 
 export async function ProxyLab({ who, reply }: { who: string | null; reply: (formData: FormData) => Promise<void> }) {
   if (who === 'print') {
-    const groups = entourageWithProxies(buildEntourage(labSponsors(), null), new Map([['g-proxy-theresa', 'Maria Catherine Sacdalan']]));
+    const groups = entourageWithProxies(buildEntourage(labSponsors(), null, {}, 'full'), new Map([['g-proxy-theresa', 'Maria Catherine Sacdalan']]));
     return (
       <main className="min-h-dvh bg-cream px-4 py-8 text-ink" data-lab-proxy="print">
         <section className="mx-auto max-w-[430px]">

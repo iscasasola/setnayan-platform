@@ -732,14 +732,9 @@ export function guestHasTicket(g: {
   passed_away?: boolean | null;
   represented_by_guest_id?: string | null;
 }): boolean {
-  // 🧍 A represented role holder does not come — their proxy checks in with their OWN ticket.
-  return (
-    Boolean(g.qr_token) &&
-    g.entry_source !== REQUEST_ENTRY_SOURCE &&
-    g.rsvp_status !== 'declined' &&
-    g.passed_away !== true &&
-    !g.represented_by_guest_id
-  );
+  return Boolean(g.qr_token) && g.entry_source !== REQUEST_ENTRY_SOURCE && g.rsvp_status !== 'declined' && g.passed_away !== true &&
+    // 🧍 A represented role holder does not come — their proxy checks in with their OWN ticket.
+    !g.represented_by_guest_id;
 }
 
 export async function fetchGuestsByEventMeasured(

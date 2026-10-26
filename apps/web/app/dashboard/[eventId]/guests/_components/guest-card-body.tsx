@@ -1121,13 +1121,15 @@ export function GuestCardBody({
              buttons side by side. A +1 seat answers through its guest, so its card keeps Delete / Release alone. */
           <K.Fold
             summary={canReset ? 'Reset · Delete' : 'Delete'}
-            value={seatWithNoName ? 'Release this +1 seat' : seats > 0 && !canReset ? 'Removes them and their +1' : 'Asks first · can be undone'}
+            /* "Can be undone" with Reset beside Delete — one line at 375 and 390; that both ask first is in the ⓘ. */
+            value={seatWithNoName ? 'Release this +1 seat' : canReset ? 'Can be undone' : seats > 0 ? 'Removes them and their +1' : 'Asks first · can be undone'}
             last
             danger
             /* ⓘ Title + one short line visible, what each does inside the ⓘ (house rule, coordinator review of #6937). */
             tip={
               seatWithNoName ? undefined : (
                 <span className="block space-y-1.5" data-card-delete-says="">
+                  {canReset ? <span className="block">Both ask first, and both can be undone right after.</span> : null}
                   {canReset ? (
                     <span className="block" data-card-reset-says="">
                       Reset: Their reply and what they typed in it are cleared, as if never opened. Their link, QR and seat stay.

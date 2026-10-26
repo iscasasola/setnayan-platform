@@ -16,7 +16,7 @@
  *      restored as pending; no `invitation_sent_at`, `notes`, `mobile` or `qr_token` in any write; the Undo through
  *      `restoreGuestRsvpAndSeat` after the same gate.
  *   6. The card: Reset first, Delete second, side by side, only on a guest's own card (never the couple, never a +1).
- *   7. The fold shows the title, "Asks first · can be undone" and the two buttons; what each does is inside the ⓘ beside
+ *   7. The fold shows the title, "Can be undone" and the two buttons; what each does (and that both ask first) is inside the ⓘ beside
  *      the title (`Fold`'s `tip`, drawn BESIDE the head — never a button inside a button). Coordinator review of #6937.
  *
  * SABOTAGE (each seen RED, then restored): `display_name` dropped from `freshGuestWrite` → tests 1, 3, 4 red · Reset
@@ -217,7 +217,8 @@ test('7 · the fold: title, one short line and the two buttons visible — what 
   assert.match(fold.slice(tipAt, childrenAt), /Their QR and link stop working/, 'the Delete line is in the ⓘ');
   const visible = fold.slice(fold.indexOf('}\n          >') + 13, childrenAt);
   assert.doesNotMatch(visible, /<p\b|Reset:|stop working/, 'no explanation sentence is drawn in the fold’s body (comments are already stripped by `read`)');
-  assert.match(fold, /value=\{seatWithNoName \? 'Release this \+1 seat' : seats > 0 && !canReset \? 'Removes them and their \+1' : 'Asks first · can be undone'\}/);
+  assert.match(fold, /value=\{seatWithNoName \? 'Release this \+1 seat' : canReset \? 'Can be undone' : seats > 0 \? 'Removes them and their \+1' : 'Asks first · can be undone'\}/, 'the one short line fits at 375 and 390');
+  assert.match(fold.slice(tipAt, childrenAt), /Both ask first/, 'that both ask first is said in the ⓘ');
   // The fold draws the ⓘ BESIDE its head button, the title as the ⓘ's own label — never nested in the head.
   const f = readFileSync(join(HERE, '..', '..', '..', '..', '_components', 'fold.tsx'), 'utf8');
   const foldSrc = stripComments(f);

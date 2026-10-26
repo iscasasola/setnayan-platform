@@ -20,7 +20,7 @@ box sticks inside its scroller's padding, so the header stuck 20px down with the
   Short fade; none under reduced motion. Under 480px it is a 44px round button (send glyph + ▾, named "Invite …") and
   the header's spacing tightens, so "Daniel Ramos" and "GUEST · GROOM'S SIDE" both fit at 390; the full pill above.
 - 🔄 Owner: *"So at the bottom, have (RESET) (DELETE)"* — the bottom group is "Reset · Delete", two equal buttons, Reset
-  first; visible are the title, "Asks first · can be undone" and the buttons, what each does is in the ⓘ beside the
+  first; visible are the title, "Can be undone" and the buttons; what each does (and that both ask first) is in the ⓘ beside the
   title (`Fold`'s new `tip`, drawn beside the head and inside the fold's one-open scope). Reset asks first (the Delete warning's shape) and offers Undo in the same toast. It clears what the reply
   wrote (measured from `submitRsvp` / `nameTheSeats`): the answer → No reply, meal, dietary, the guest's note, what to
   call them (`display_name` — only the reply writes it on a guest's own row), the photo-tagging answer, the "+1 name"

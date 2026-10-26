@@ -12,8 +12,8 @@
  *
  * ── OWNER RULING 2026-09-05: RECOLOURED DRAWINGS ONLY ───────────────────────
  * This section shows the couple's palette applied to a DRAWING — never a
- * photograph, never a Make-it-real render, never another couple's anything.
- * Renders live in "Make it real" (paid) and in section 01's inspiration pool.
+ * photograph, never a render, never another couple's anything. (The paid
+ * "Make it real" renders were retired 2026-10-26.)
  *
  * ⛔ A COMMENT HERE WAS FALSE FOR MONTHS, AND IT IS WHY THIS SECTION LIED.
  * It said attire figures are "colored SVG illustrations on a no-CORS host, so

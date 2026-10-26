@@ -141,7 +141,7 @@ test('4 · one guest’s place card is that card alone; an unseated guest is sai
   assert.match(route, /if \(oneGuest !== null && !GUEST_ID\.test\(oneGuest\)\) return new NextResponse\('Which guest\?', \{ status: 400 \}\);/);
   assert.match(route, /\.filter\(\(g\) => oneGuest === null \|\| g\.guest_id === oneGuest\)/, 'the card is not filtered to the guest asked');
   assert.match(route, /return new NextResponse\('That guest has no seat yet[^']*', \{ status: 404 \}\)/, 'an unseated guest is not said in words');
-  assert.match(route, /cardsOnly: oneGuest !== null/);
+  assert.match(route, /const cardsOnly = oneGuest !== null \|\| picked !== null;[\s\S]*layoutSeatingPack\(\{[^}]*cardsOnly \}\)/, 'one guest’s card (or a pick) is drawn with the directory and signs');
   /* The pack's whole PDF asks the event's Pro BEFORE anything is drawn — never the picture, the chart, or one guest's card. */
   const gate = route.indexOf("if (format === 'pdf' && oneGuest === null) {");
   assert.ok(gate > 0 && gate < route.indexOf('const docs = layoutSeatingPack('), 'the pack is drawn before its Pro question');
@@ -185,11 +185,14 @@ test('6 · the words: View as ▾’s groups, the count lines (the number IS the
     'View as ▾ is not coming first, then not replied, then maybe — each group with its count',
   );
   assert.equal(guestPrintCountLine('pass', GUESTS), '4 passes · 2 coming, 1 not replied yet, 1 maybe · ganged on A4 with cut lines');
-  assert.equal(guestPrintCountLine('digital-ticket', GUESTS), '4 tickets · one PNG per guest who is coming · .zip');
-  /* Not read here → no number (never a guess). */
-  assert.doesNotMatch(guestPrintCountLine('qr-codes', GUESTS), /\d+ (?:codes|guests)/);
-  assert.doesNotMatch(guestPrintCountLine('seating-pack', GUESTS), /\d+ place cards/);
-  assert.equal(guestPrintCountLine('pass', null), 'Guests who are coming');
+  /* 2026-10-26: the zip holds everyone who has not declined — said so, never "who is coming" (owner: 199 tickets, 76 coming). */
+  assert.equal(guestPrintCountLine('digital-ticket', GUESTS), '4 tickets · 2 coming, 1 not replied yet, 1 maybe · one PNG each · .zip');
+  /* The QR sheet and the place cards count THEIR OWN file's list (`loadQrGuestNames`, `loadSeatedGuestNames`) — a number only when read. */
+  assert.equal(guestPrintCountLine('qr-codes', GUESTS), '4 QR codes · every guest on your list · 12 to an A4 page');
+  assert.equal(guestPrintCountLine('seating-pack', GUESTS), '4 place cards · seated guests · with the table directory and a sign for every table');
+  assert.doesNotMatch(guestPrintCountLine('qr-codes', null), /\d+ QR codes?/);
+  assert.doesNotMatch(guestPrintCountLine('seating-pack', null), /\d+ place cards?/);
+  assert.equal(guestPrintCountLine('pass', null), 'Every guest who has not declined');
   /* The ◆ notes are the prototype's, said the same by the routes. */
   assert.equal(PLACE_CARDS_PRO_NOTE.title, 'Every place card in one file is Event Hub Pro');
   assert.equal(allInOneRefusal('seating-pack'), `${PLACE_CARDS_PRO_NOTE.title}. ${PLACE_CARDS_PRO_NOTE.body}`);

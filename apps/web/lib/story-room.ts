@@ -83,7 +83,8 @@ export type RoomTable = {
  * the positions, the shapes and the per-table counts into the story at the
  * moment it is told, and stop reading the live plan from then on. It is the
  * house pattern already (`moodboard_part_finalizations.design_snapshot`,
- * `event_renders.design_snapshot` — both verified to exist; ⚠ `03` cites
+ * `event_renders.design_snapshot` — both verified to exist then; event_renders was
+ * dropped with the retired Mood Board renders on 2026-10-26; ⚠ `03` cites
  * `event_moodboard_saves.palette_snapshot` as the precedent and THAT TABLE DOES
  * NOT EXIST in production).
  *

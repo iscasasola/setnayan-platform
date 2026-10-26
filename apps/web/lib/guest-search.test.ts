@@ -92,7 +92,9 @@ const ROWS: Row[] = [
   // ── every RSVP answer ──
   ['vegetarian', g({ meal_preference: 'vegetarian' }), {}, true],
   ['peanut', g({ dietary_restrictions: 'No peanuts please' }), {}, true],
-  ['Ben', g({ plus_one_name: 'Ben Lim' }), {}, true],
+  // Who they bring — the names on their LIVE +1 rows, never the one-name copy (2026-10-26: a removed +1 stayed findable).
+  ['Ben', g(), { companionNames: ['Ben Lim'] }, true],
+  ['Ben', g({ plus_one_name: 'Ben Lim' } as Partial<GuestSearchRow>), {}, false],
   ['can’t wait', g({ guest_note: "Can't wait!" }), {}, true],
   ['perfect', g(), { songRequests: ['Perfect Ed Sheeran'] }, true],
   ['sheeran', g(), { songRequests: ['Perfect Ed Sheeran'] }, true],

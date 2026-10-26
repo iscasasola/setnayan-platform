@@ -141,6 +141,15 @@ export function seatingUnits<T extends SeatPlanTable, G extends SeatPlanPerson>(
   return [...units.values()];
 }
 
+/**
+ * 🎟 THE PLACE CARDS' GUESTS — one card per seated guest, in the pack's order (unit by unit, by name). ONE answer for the seating
+ * pack's file (`seating/print` — what it draws, and which picked ids it accepts) and the count line and Pick guests list Prints
+ * shows for it (`loadSeatedGuestNames`), so the line can never say a number the file does not hold (owner 2026-10-26).
+ */
+export function seatedGuestsOf<G extends SeatPlanPerson>(units: ReadonlyArray<{ guests: readonly G[] }>): G[] {
+  return units.flatMap((u) => u.guests);
+}
+
 /** An unnamed extra seat ("+1 · TBA") — a count, not a person, until it is named. */
 function isUnnamedSeat(g: SeatPlanPerson): boolean {
   return Boolean(g.plus_one_of_guest_id) && (g.first_name ?? '').trim().toUpperCase() === PLACEHOLDER_FIRST_NAME;

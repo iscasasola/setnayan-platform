@@ -302,6 +302,13 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
   // parser cannot see a DROP — same reason as calendar_feed_tokens above.
   vendor_release_history:
     'Table DROPPED 2026-09-18 — writers never shipped, 0 rows in prod ever. Nothing left to erase.',
+  // ⚠ TABLES DROPPED 2026-10-26 (migration 20271289858095, owner-approved) — the
+  // retired Mood Board render schema. Their two SET NULL rules were removed from
+  // coverage.ts in the same change (a rule against a dropped table records an
+  // erasure FAILURE). Listed only because the parser cannot see a DROP.
+  event_renders: 'Table DROPPED 2026-10-26 — the retired Mood Board renders; 0 rows in prod. Nothing left to erase.',
+  event_render_share_consent:
+    'Table DROPPED 2026-10-26 — the retired renders\u2019 share consent; its one row (the owner\u2019s own) was erased with owner approval. Nothing left to erase.',
   // Same parser limit. Their purge rules left coverage.ts in the same change.
   event_delegates:
     'Table DROPPED 2026-09-18 (S37) — superseded by event_moderators, no writer ever, 0 rows. Nothing left to erase.',

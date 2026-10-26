@@ -3,10 +3,10 @@
  * twice, or guessed it when the read failed (2026-10-22, after Antonio Loo's two-seat card read "no +1 added yet").
  *
  * A guest's +1s are their seat ROWS (`plus_one_of_guest_id`, owner 2026-09-21: "+3" is three rows). The bringer's old
- * `plus_one_name` holds ONE name and is not kept in step with the rows. THE PROPERTIES:
+ * `plus_one_name` holds ONE name (kept in step with the rows by the database since 2026-10-26). THE PROPERTIES:
  *   1 · who a guest brings, by name, is every named seat row (`companionNames`) — two named seats are two names; a
- *       renamed seat beats a stale mirror; a guest set to None with a stale mirror brings nobody; the mirror speaks
- *       only for a guest with no rows at all, and only while they are allowed one;
+ *       renamed seat beats a stale mirror; a guest set to None with a stale mirror brings nobody; and a guest with no
+ *       live rows brings nobody — the mirror never speaks (2026-10-26, lib/a-removed-plus-one-leaves-no-name.test.ts);
  *   2 · "N expected with their plus-ones" adds only the seats with no row yet (`seatsNotYetOnTheList`) — the rows are
  *       already in the list's total;
  *   3 · the check-in desk, the souvenir desk and the find-your-seat pass read who comes from the rows, never the mirror
@@ -55,8 +55,10 @@ test('a seat renamed on its own row beats the stale mirror; an unnamed seat or a
   assert.deepEqual(companionNames(g, [seat('s1', 'g-k', 'Ben', '+1', { plus_one_name_confirmed_at: null })]), ['Ben']);
 });
 
-test('the mirror speaks only for a guest with NO rows, and only while allowed a +1 (set to None → nobody)', () => {
-  assert.deepEqual(companionNames({ guest_id: 'g', plus_one_allowed: true, plus_one_name: 'Katrina Buanhog' }, []), ['Katrina Buanhog']);
+test('the mirror never speaks — not for a guest with no live rows, not for one set to None', () => {
+  // 2026-10-26 (owner: "I deleted that guest and added a new plus 1. It is still there?"): "no live rows" is what a
+  // guest whose +1s were all removed looks like, and the mirror then named the person just deleted.
+  assert.deepEqual(companionNames({ guest_id: 'g', plus_one_allowed: true, plus_one_name: 'Katrina Buanhog' }, []), [], 'the mirror spoke for a guest with no live row');
   assert.deepEqual(companionNames({ guest_id: 'g', plus_one_allowed: false, plus_one_name: 'Katrina Buanhog' }, []), [], 'a guest set to None still brings the mirror');
   assert.deepEqual(companionNames({ guest_id: 'g', plus_one_allowed: true, plus_one_name: 'TBA' }, []), [], 'the import’s "TBA" mirror read as a name');
 });

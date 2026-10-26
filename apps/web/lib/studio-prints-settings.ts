@@ -43,7 +43,11 @@ export type GuestPrintKey = (typeof GUEST_PRINT_KEYS)[number];
 export type PrintGuest = {
   id: string;
   name: string;
-  reply: 'attending' | 'pending' | 'maybe';
+  /**
+   * Where the guest stands. A ticket or pass is never printed for `declined` (the ticket rule), so the pass / ticket lists never hold
+   * one; the Guest QR sheet and the place cards are not tickets and do (2026-10-26).
+   */
+  reply: 'attending' | 'pending' | 'maybe' | 'declined';
   /** Pick guests' Side ▾ and Group ▾ (owner 2026-10-25) — the guest list's own words; absent on a sample guest. */
   side?: string | null;
   group?: string | null;
@@ -51,8 +55,9 @@ export type PrintGuest = {
 };
 
 /**
- * View as ▾ — the guests, coming first, then not replied, then maybe, each group named with its count (prototype `guestItems`).
- * The house dropdown's groups; the order inside a group is the printed passes' own.
+ * View as ▾ — the guests, coming first, then not replied, then maybe, then can't come (only the QR sheet and the place cards hold
+ * those), each group named with its count (prototype `guestItems`). The house dropdown's groups; the order inside a group is the
+ * file's own.
  */
 export function guestPickOptions(guests: readonly PrintGuest[]): Array<{ key: string; label: string; group: string }> {
   const n = (r: PrintGuest['reply']) => guests.filter((g) => g.reply === r).length;
@@ -60,8 +65,9 @@ export function guestPickOptions(guests: readonly PrintGuest[]): Array<{ key: st
     attending: `Coming · ${n('attending')}`,
     pending: `Not replied yet · ${n('pending')}`,
     maybe: `Maybe · ${n('maybe')}`,
+    declined: `Can’t come · ${n('declined')}`,
   };
-  return (['attending', 'pending', 'maybe'] as const).flatMap((r) => guests.filter((g) => g.reply === r).map((g) => ({ key: g.id, label: g.name, group: group[r] })));
+  return (['attending', 'pending', 'maybe', 'declined'] as const).flatMap((r) => guests.filter((g) => g.reply === r).map((g) => ({ key: g.id, label: g.name, group: group[r] })));
 }
 
 /**
@@ -96,20 +102,30 @@ export function guestFileWord(name: string): string {
 const fmt = (n: number) => n.toLocaleString('en-PH');
 
 /**
- * The line under a guest print's Download · All guests ◆ — what the all-guests file holds. The pass and the ticket count from the
- * file's own read (`loadPassGuestNames`, the ticket rule); the QR sheet and the place cards are not read here, so they say who
- * they hold without a number (never a guess). Unread (null), the line says who the file is for.
+ * 🧮 THE LINE UNDER A GUEST PRINT'S DOWNLOAD · ALL GUESTS — what the all-guests file holds, counted from the SAME list the row's
+ * View as ▾ and Pick guests list, which is the file's OWN read (owner 2026-10-26, on the Digital ticket's "199 tickets · one PNG
+ * per guest who is coming": 199 was the file, "coming" was not — 76 were):
+ *   · pass · digital-ticket — `loadPassGuestNames` (`passGuestRows(…, true)`, the ticket rule — the zip's `filterEligible` is the same
+ *     rule): everyone who has not declined, said as coming / not replied yet / maybe;
+ *   · qr-codes — `loadQrGuestNames` (`passGuestRows(…, false)`, the QR sheet's own read): every guest with a QR, can't-come included;
+ *   · seating-pack — `loadSeatedGuestNames` (`seatedGuestsOf(seatingUnits(…))`, the pack's own grouping): one place card per seated
+ *     guest, beside the directory and the signs.
+ * The number IS the file, never a guess. Unread (null) or empty, the line says who the file is for, without a number.
  */
 export function guestPrintCountLine(key: GuestPrintKey, guests: readonly PrintGuest[] | null, size?: string): string {
-  if (key === 'qr-codes') return 'Every guest’s own QR · 12 to an A4 page';
-  if (key === 'seating-pack') return 'Seated guests only · with the table directory and a sign for every table';
-  if (!guests || guests.length === 0) return key === 'pass' ? 'Guests who are coming' : 'One PNG per guest who is coming · .zip';
-  const n = (r: PrintGuest['reply']) => guests.filter((g) => g.reply === r).length;
-  if (key === 'digital-ticket') return `${fmt(guests.length)} ${guests.length === 1 ? 'ticket' : 'tickets'} · one PNG per guest who is coming · .zip`;
-  const parts = [`${fmt(n('attending'))} coming`];
-  if (n('pending') > 0) parts.push(`${fmt(n('pending'))} not replied yet`);
-  if (n('maybe') > 0) parts.push(`${fmt(n('maybe'))} maybe`);
-  return `${fmt(guests.length)} ${guests.length === 1 ? 'pass' : 'passes'} · ${parts.join(', ')}${size ? ` · ${size}` : ''} · ganged on A4 with cut lines`;
+  const has = Boolean(guests && guests.length > 0);
+  const list = guests ?? [];
+  const n = list.length;
+  if (key === 'qr-codes') return has ? `${fmt(n)} ${n === 1 ? 'QR code' : 'QR codes'} · every guest on your list · 12 to an A4 page` : 'Every guest’s own QR · 12 to an A4 page';
+  if (key === 'seating-pack')
+    return has ? `${fmt(n)} ${n === 1 ? 'place card' : 'place cards'} · seated guests · with the table directory and a sign for every table` : 'Seated guests only · with the table directory and a sign for every table';
+  if (!has) return key === 'pass' ? 'Every guest who has not declined' : 'One PNG per guest who has not declined · .zip';
+  const r = (x: PrintGuest['reply']) => list.filter((g) => g.reply === x).length;
+  const parts = [`${fmt(r('attending'))} coming`];
+  if (r('pending') > 0) parts.push(`${fmt(r('pending'))} not replied yet`);
+  if (r('maybe') > 0) parts.push(`${fmt(r('maybe'))} maybe`);
+  if (key === 'digital-ticket') return `${fmt(n)} ${n === 1 ? 'ticket' : 'tickets'} · ${parts.join(', ')} · one PNG each · .zip`;
+  return `${fmt(n)} ${n === 1 ? 'pass' : 'passes'} · ${parts.join(', ')}${size ? ` · ${size}` : ''} · ganged on A4 with cut lines`;
 }
 
 /** The token a guest print's addresses carry where the picked guest's id goes — the row swaps it in (`studio-prints-settings.tsx`). */

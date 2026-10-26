@@ -1574,7 +1574,6 @@ function TablesView({
     seatplan: 'TYPE-SEATPLAN',
     runofshow: 'TYPE-RUNOFSHOW',
     livestudio: 'TYPE-LIVESTUDIO',
-    render: 'TYPE-RENDERS',
     gallery: 'TYPE-GALLERY',
     signoff: 'TYPE-SIGNOFF',
     colourgrant: 'TYPE-COLOURGRANT',

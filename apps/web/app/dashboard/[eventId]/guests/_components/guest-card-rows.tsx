@@ -115,12 +115,13 @@ export function CardDoor({ label, value, href, action, data }: CardDoorProps) {
  * the left, its summary at the right cut with "…" (never a second line), a hairline under every row but the last, the row inset
  * from the card's edge by the prototype's 2 px.
  */
-export function CardFold({ summary, value, emptyValue, open = false, last = false, danger = false, children }: CardFoldProps) {
+export function CardFold({ summary, value, emptyValue, open = false, last = false, danger = false, tip, children }: CardFoldProps) {
   return (
     <Fold title={summary}
       summary={value ?? emptyValue ?? '—'}
       summaryEnd
       danger={danger}
+      tip={tip}
       defaultOpen={open}
       className={`px-0.5 ${last ? '' : 'border-b border-ink/10'}`}
       data={`card-${summary.toLowerCase().replace(/\W+/g, '-')}`}

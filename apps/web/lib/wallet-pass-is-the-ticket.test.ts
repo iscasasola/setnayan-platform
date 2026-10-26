@@ -176,12 +176,20 @@ test('colours: the couple’s look, the label falling back to ink, the pass to C
   }
 });
 
-test('who is offered the button: an iPhone (owner 2026-10-25) — never Android, never a desktop browser', () => {
-  assert.equal(appleWalletDevice('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1'), true);
-  assert.equal(appleWalletDevice('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15'), false);
-  assert.equal(appleWalletDevice('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36'), false);
-  assert.equal(appleWalletDevice('Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/130.0 Mobile Safari/537.36'), false);
-  assert.equal(appleWalletDevice(null), false);
+test('who is offered the button: an iPhone or an iPad (owner 2026-10-26) — never Android, Windows or a desktop Mac', () => {
+  const MAC_SAFARI = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15';
+  const cases: Array<[string, string | null, number | undefined, boolean]> = [
+    ['iPhone', 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1', undefined, true],
+    ['iPad that says iPad', 'Mozilla/5.0 (iPad; CPU OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1', undefined, true],
+    ['iPad Safari — Macintosh + 5 touch points', MAC_SAFARI, 5, true],
+    ['a Mac — Macintosh + 0 touch points', MAC_SAFARI, 0, false],
+    ['a Mac on the server — no touch count', MAC_SAFARI, undefined, false],
+    ['Mac Chrome + 0', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36', 0, false],
+    ['Android, touch', 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/130.0 Mobile Safari/537.36', 5, false],
+    ['Windows, touch screen', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36', 10, false],
+    ['nothing', null, undefined, false],
+  ];
+  for (const [why, ua, touch, want] of cases) assert.equal(appleWalletDevice(ua, touch), want, why);
 });
 
 // ─── The real file ──────────────────────────────────────────────────────────

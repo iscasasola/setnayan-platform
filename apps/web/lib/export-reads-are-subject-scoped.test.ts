@@ -75,8 +75,6 @@ const ANCHORS: Record<string, RegExp> = {
   event_deletion_requests: eqUid('user_id'),
   event_clusters: eqUid('owner_user_id'),
   event_costs: eqUid('created_by_user_id'),
-  event_renders: eqUid('created_by_user_id'),
-  event_render_share_consent: eqUid('consented_by_user_id'),
   event_colour_grants_coordinator: eqUid('user_id'),
   event_colour_changes: eqUid('actor_user_id'),
   // couple-grain by decision (2026-09-11): the caller's OWN couple events — pinned

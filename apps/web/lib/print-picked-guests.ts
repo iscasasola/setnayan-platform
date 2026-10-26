@@ -1,6 +1,8 @@
 /**
- * 🎟 PICK GUESTS — SOME GUESTS' PASSES OR QR CODES IN ONE FILE (owner 2026-10-25, on the guest pass / QR print: *"instead of just
- * making me select all, allow me to pick multiple guests to compile together as well."*).
+ * 🎟 PICK GUESTS — SOME GUESTS' PRINTS IN ONE FILE (owner 2026-10-25, on the guest pass / QR print: *"instead of just making me
+ * select all, allow me to pick multiple guests to compile together as well."*; 2026-10-26, on the Digital ticket: *"Why cant i pick
+ * specific guests to download and compile?"* → *"And this should apply to all guest related prints."*). Every per-guest row offers
+ * it — the Event pass, the Digital ticket (.zip), the Guest QR codes and the place cards.
  *
  * Beside "All guests" (still the default), "Pick guests" opens a sheet that ticks guests and prints ONLY those, ganged on A4 with the
  * same cut lines (#6876). The address carries the picked ids as one `guests=<id>,<id>,…` parameter — the route's own way of naming a
@@ -62,6 +64,24 @@ export function pickGuestRows<T extends { guest_id: string }>(
 /** The all-guests file's address, narrowed to the picked guests. */
 export function pickedGuestsHref(href: string, ids: readonly string[]): string {
   return `${href}${href.includes('?') ? '&' : '?'}${PICKED_GUESTS_PARAM}=${ids.map(encodeURIComponent).join(',')}`;
+}
+
+/**
+ * What one guest's thing is called on a row that offers Pick guests, and the sheet's one verb — "Print 12 passes" for a paper file,
+ * "Download 12 tickets" for the digital tickets' .zip (owner 2026-10-26: *"this should apply to all guest related prints"*).
+ */
+export type PickNoun = { one: string; many: string; verb?: 'Print' | 'Download' };
+
+/**
+ * 🎟 THE PICKED FILE — the ONE rule the Pick guests sheet saves by, whatever the row (pass PDF, QR sheet, place cards, ticket .zip):
+ * the all-guests file's own address narrowed to exactly `ids` (`pickedGuestsHref`), named after the all-guests file with
+ * `-<n>-picked` before ITS OWN extension (a `.zip` stays a `.zip`), and the button's words. Pure, so the test executes it.
+ */
+export function pickedFile(all: { href: string; file: string }, ids: readonly string[], noun: PickNoun): { href: string; file: string; label: string } {
+  const n = ids.length;
+  const dot = all.file.lastIndexOf('.');
+  const file = dot > 0 ? `${all.file.slice(0, dot)}-${n}-picked${all.file.slice(dot)}` : `${all.file}-${n}-picked`;
+  return { href: pickedGuestsHref(all.href, ids), file, label: `${noun.verb ?? 'Print'} ${formatCount(n)} ${n === 1 ? noun.one : noun.many}` };
 }
 
 /** The sheet's filters: a typed name, a side, a group, a role — each optional; `''` is "Any"; they combine. */

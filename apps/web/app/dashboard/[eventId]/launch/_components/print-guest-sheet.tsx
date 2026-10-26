@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { Printer, Search } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { ActionButton } from '@/components/action-button';
-import { MAX_PICKED_GUESTS, filterPickGuests, pickFilterValues, pickedGuestsHref } from '@/lib/print-picked-guests';
+import { MAX_PICKED_GUESTS, filterPickGuests, pickFilterValues, pickedFile, type PickNoun } from '@/lib/print-picked-guests';
 import { ChosenRow, FormRows } from '@/app/_components/form-row';
 import { PrintSaveButton } from './print-save-button';
 import { formatCount } from '@/lib/format-number';
@@ -121,7 +121,8 @@ export function GuestPickSheet({
  * 🎟 PICK GUESTS — SOME GUESTS' PASSES OR QR CODES IN ONE FILE (owner 2026-10-25: *"instead of just making me select all, allow me to
  * pick multiple guests to compile together as well."*).
  *
- * Opened in place from "Pick guests" beside "All guests" (which stays the default) on the Event pass and the Guest QR codes rows.
+ * Opened in place from "Pick guests" beside "All guests" (which stays the default) on EVERY guest print's row — the Event pass, the
+ * Digital ticket (.zip), the Guest QR codes and the place cards (owner 2026-10-26: *"this should apply to all guest related prints"*).
  * The shared `Sheet`: "Search guests", Side ▾, Group ▾ and Role ▾ (the Form row's dropdown, `ChosenRow` — never a pill row), the guests as ticked options (View as ▾'s option look, many at once), "Select all shown" / "Clear", "12 picked", and ONE button — "Print 12 passes". The file is the all-guests file's own
  * address narrowed by `guests=<ids>` (`pickedGuestsHref`); the route checks every id against this event's list and refuses one it
  * does not know (`lib/print-picked-guests.ts`). Same lazy chunk as View as ▾.
@@ -138,8 +139,8 @@ export function GuestManySheet({
   href: string;
   /** The all-guests file's name — the picked file is named after it. */
   file: string;
-  /** What one guest's thing is called — "pass" · "QR code". */
-  noun: { one: string; many: string };
+  /** What one guest's thing is called — "pass" · "QR code" · "ticket" — and the button's verb (Print · Download). */
+  noun: PickNoun;
   onClose: () => void;
 }) {
   const headId = useId();
@@ -162,9 +163,15 @@ export function GuestManySheet({
       return next;
     });
   const n = ids.length;
-  const words = `Print ${formatCount(n)} ${n === 1 ? noun.one : noun.many}`;
-  /* Portalled like View as ▾'s sheet: the row it opens from can sit inside a scrolling, transformed or hidden panel. */
+  /* The ONE rule for the file (`pickedFile`): the all-guests address narrowed to these ids, named after it, a .zip kept a .zip. */
+  const out = pickedFile({ href, file }, ids, noun);
+  const words = out.label;
+  /* Portalled like View as ▾'s sheet: the row it opens from can sit inside a scrolling, transformed or hidden panel.
+     🪟 …AND ABOVE THE MAKER. The shared `Sheet` sits at z-50 and the Maker is a `fixed z-[80]` layer, so a bare portal opened this
+     sheet BEHIND it — invisible, with the page scroll-locked (measured in the lab 2026-10-26: the sheet in the DOM at the screen's
+     size, `elementFromPoint` landing on the Maker). Its own layer at View as ▾'s z-[96] (`data-print-guest-sheet-layer`). */
   const node = (
+    <div data-print-pick-sheet-layer="" className="relative z-[96]">
     <Sheet open onClose={onClose} labelledById={headId}>
       <div data-print-pick-sheet="" className="flex max-h-[80dvh] min-h-0 flex-col">
         <h2 id={headId} className="px-5 pb-2 pt-4 font-display text-[19px] text-ink">
@@ -235,13 +242,14 @@ export function GuestManySheet({
         <div className="shrink-0 border-t border-ink/10 px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3" data-print-pick-print="">
           {over ? <p className="pb-2 text-[12.5px] text-ink/60">Pick up to {formatCount(MAX_PICKED_GUESTS)} guests at a time — or print All guests.</p> : null}
           {n > 0 && !over ? (
-            <PrintSaveButton href={pickedGuestsHref(href, ids)} file={file.replace(/\.pdf$/, `-${formatCount(n)}-picked.pdf`)} variant="action" main wide label={words} />
+            <PrintSaveButton href={out.href} file={out.file} variant="action" main wide label={words} />
           ) : (
-            <ActionButton tone="brand" main label={n > 0 ? words : `Print ${noun.many}`} icon={Printer} disabled />
+            <ActionButton tone="brand" main label={n > 0 ? words : `${noun.verb ?? 'Print'} ${noun.many}`} icon={Printer} disabled />
           )}
         </div>
       </div>
     </Sheet>
+    </div>
   );
   return typeof document === 'undefined' ? null : createPortal(node, document.body);
 }

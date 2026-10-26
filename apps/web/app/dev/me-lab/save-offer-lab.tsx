@@ -1,5 +1,6 @@
 import { APPLE_WALLET_ROUTE, PASS_CARD_WORDS } from '@/lib/pass-card';
 import { appleWalletDevice, type AppleWalletLink } from '@/lib/wallet-pass';
+import { mightBeIpadSafari } from '@/lib/apple-device';
 import type { GuestAccountState } from '@/lib/guest-one-path';
 import { MeKeepInvitation } from '@/app/[slug]/_components/me-keep-invitation';
 import { SaveToAccount } from '@/app/[slug]/_components/save-to-account';
@@ -38,7 +39,9 @@ export function SaveOfferLab({ sp }: { sp: Record<string, string | string[] | un
         : { kind: 'offer' };
   const wallet: AppleWalletLink | null = appleWalletDevice(userAgent)
     ? { kind: 'download', href: APPLE_WALLET_ROUTE, label: PASS_CARD_WORDS.appleWallet }
-    : null;
+    : mightBeIpadSafari(userAgent)
+      ? { kind: 'download', href: APPLE_WALLET_ROUTE, label: PASS_CARD_WORDS.appleWallet, touchOnly: true }
+      : null;
   const names = 'Maria & Jose';
   const base = { eventId: 'lab-event', slug: 'lab', personalLink: 'https://www.setnayan.com/lab?invite=0123456789abcdef', userAgent, termsCarried };
   const page = one('page') === 'thanks' ? 'thanks' : 'me';
@@ -68,7 +71,7 @@ export function SaveOfferLab({ sp }: { sp: Record<string, string | string[] | un
                 <SavePassCardButton hrefs={['/dev/me-lab/ticket?who=woman']} label={LANDING_WORDS.saveTicket} variant="primary" />
               </div>
               {wallet ? (
-                <div className="!mt-2">
+                <div className="!mt-2 empty:hidden">
                   <AppleWalletButton link={wallet} />
                 </div>
               ) : null}

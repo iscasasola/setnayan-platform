@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { InspectorColumn } from '@/app/_components/inspector/inspector-column';
 import type { GuestHelperCard } from '@/lib/guest-helper-card.server';
 import type { GuestPapicState } from '@/lib/papic-guest-camera';
-import { GuestCardBody, guestCardEyebrow, guestCardReply, guestCardTitle, type GuestCardActions } from './guest-card-body';
+import { GuestCardAvatar, GuestCardBody, guestCardEyebrow, guestCardReply, guestCardTitle, type GuestCardActions } from './guest-card-body';
 import type { GuestCardData } from './guest-card-data';
 import type { InviteSetup } from './invite-message-setup';
 import { GuestInviteCell } from './guest-invite-cell';
@@ -103,6 +103,8 @@ export function GuestCard({
       eyebrow={guestCardEyebrow(guest, { hasSides: data.hasSides, roleNames: data.roleNames, plusOneOf: data.plusOneOf })}
       title={title}
       badge={guestCardReply(guest)}
+      lead={<GuestCardAvatar guest={guest} photoDisplayUrl={photoDisplayUrl} size="head" />}
+      pinSlot
       swapKey={guest.guest_id}
       ariaLabel={`${title} details`}
     >

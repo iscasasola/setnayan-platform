@@ -694,7 +694,8 @@ export function MainBackgroundPanel({
       postToCanvas(mainGroundPreviewMessage(at, backgroundLayOf(g, lookPictures, wornFor(g))));
       lookGround.draw(lookKey, g, serverRef.current);
       tellLookSample(eventId, g);
-      setPick(null);
+      /* The line of a pick the ↺ has taken back is let go (a newer pick's line stays). */
+      setPick((p) => (p && p.seq < at ? null : p));
       setNote(null);
     };
     /* …told landed BEFORE the redraw is asked for, so the redraw may take the preview away (as `landing` does). */

@@ -108,7 +108,9 @@ test('(1) the cards take the rows left to them, nothing scrolls up and down, and
   assert.match(html, /^<div[^>]*data-look-cards=""[^>]*><span aria-hidden="true" data-look-end="first"/);
   assert.match(html, /<span aria-hidden="true" data-look-end="last" class="shrink-0"[^>]*><\/span><\/div>$/);
   assert.doesNotMatch(car, /data-look-end="(first|last)"[^>]*on(Click|Pointer|Touch)/);
-  assert.match(read(`${L}/stage-tools.tsx`), /const skip = t\?\.closest\?\.\('[^']*\[data-style-carousel\][^']*'\);/, 'a swipe on the strip also steps to the next part');
+  /* (2026-10-26) the swipe asks ONE rule (`lib/maker-swipe.ts`) — the carousel is in its skip list, and any sideways-scrolling row is skipped too. */
+  assert.match(read(`${L}/stage-tools.tsx`), /swipeMayStep\(t, /, 'a swipe on the strip also steps to the next part');
+  assert.match(read('lib/maker-swipe.ts'), /MAKER_SWIPE_SKIP =\s*'[^']*\[data-style-carousel\][^']*'/, 'a swipe on the strip also steps to the next part');
 
   /* THE WORK AREA'S PARTS ARE LAID IN THAT PANE under Style (`rows`); a body that is not the work area's keeps its own. */
   const h = React.createElement;

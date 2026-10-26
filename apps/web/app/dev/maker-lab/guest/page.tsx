@@ -70,6 +70,7 @@ import { coverEntranceIsStill, resolveCoverEntrance } from '@/lib/cover-entrance
 import { resolveArrivalAction } from '@/lib/arrival-action';
 import { ReplyCardRow } from '@/app/[slug]/_components/guest-me-parts';
 import { RsvpNoteLines } from '@/app/[slug]/_components/rsvp-note-lines';
+import { LabThanksDoor } from './lab-thanks-door';
 import type { GuestRow } from '@/app/[slug]/_lib/types';
 import { LANDING_WORDS, landingHeadline } from '@/lib/guest-landing';
 import { readRsvpLook, rsvpScreenLayout } from '@/lib/rsvp-look';
@@ -180,6 +181,9 @@ const LAB_GUEST = {
  * finding of the Root map ("sends rsvp_status, but labReply never reads it") — so it is the real one, not a stand-in.
  */
 const labReply = submitInviteReply.bind(null, 'lab', 'lab-guest');
+
+/** 🚪 The lab's reply page (`./lab-reply-door.tsx`) — where the lab's own Reply links land, as `invite/reply` would. */
+const LAB_REPLY_DOOR = '/dev/maker-lab/guest?rsvp=form&door=1';
 
 /**
  * `?look=<json>` — a stored `rsvp_ask_config.look` to draw the lab's reply screens with, as the SERVER draws a guest's
@@ -695,12 +699,12 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
      "You're coming ✓ · N more answers"): the same guest as `going`, its N handed in as the page hands it (`moreAnswers`). */
   const labMore = rsvpStateAsked === 'more' ? 2 : rsvpStateAsked === 'more1' ? 1 : 0;
   const rsvpState = labMore > 0 ? 'going' : rsvpStateAsked;
-  /* 🧭 …and, as on the page, the button TAKES the guest to the RSVP part — the Reply card under the cover (owner
-     2026-10-17, *"it is not going to the RSVP part?"*); the Maker's own canvas keeps the doorway it always drew. */
+  /* 🎯 …and, as on the page, the button OPENS THE REPLY PAGE straight away (owner 2026-10-26) — here the lab's own
+     (`LAB_REPLY_DOOR`); the Reply card under the cover stays, as on the page. */
   const labReplyCard =
     stageNow === 'rsvp'
       ? replyCardOf({
-          action: resolveArrivalAction({ slug: 'maria-and-jose', rsvpStatus: rsvpState === 'going' ? 'attending' : rsvpState === 'declined' ? 'declined' : 'pending', eventDate: '2026-12-12', today: '2026-10-14', hasPass: true }),
+          action: resolveArrivalAction({ slug: 'maria-and-jose', rsvpStatus: rsvpState === 'going' ? 'attending' : rsvpState === 'declined' ? 'declined' : 'pending', eventDate: '2026-12-12', today: '2026-10-14', hasPass: true, rsvpHref: LAB_REPLY_DOOR }),
           replyBy: null,
           seats: 1,
           window: rsvpState === 'closed' || rsvpState === 'not_yet' ? (labWindow(rsvpState) ?? undefined) : undefined,
@@ -711,9 +715,8 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   const labRsvp =
     stageNow === 'rsvp'
       ? coverRsvpOf({
-          toPart: !makerCanvas,
           card: replyCardOf({
-            action: resolveArrivalAction({ slug: 'maria-and-jose', rsvpStatus: rsvpState === 'going' ? 'attending' : rsvpState === 'declined' ? 'declined' : 'pending', eventDate: '2026-12-12', today: '2026-10-14', hasPass: true }),
+            action: resolveArrivalAction({ slug: 'maria-and-jose', rsvpStatus: rsvpState === 'going' ? 'attending' : rsvpState === 'declined' ? 'declined' : 'pending', eventDate: '2026-12-12', today: '2026-10-14', hasPass: true, rsvpHref: LAB_REPLY_DOOR }),
             replyBy: null,
             seats: 1,
             window: rsvpState === 'closed' || rsvpState === 'not_yet' ? (labWindow(rsvpState) ?? undefined) : undefined,
@@ -1120,15 +1123,11 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
          Save into "Get back in", exactly as a guest whose sign-in ended sees it (`SavePassCardButton`). */
       const labSignedOut = sp.signedout === '1';
       return (
-        <main className="min-h-dvh px-5 py-6 text-ink" style={{ background: `linear-gradient(160deg, ${LAB_BOARD[4]} 0%, ${LAB_BOARD[2]} 52%, ${LAB_BOARD[1]} 100%)` }} data-lab-guest-thanks="">
+        <div className="min-h-dvh text-ink" style={{ background: `linear-gradient(160deg, ${LAB_BOARD[4]} 0%, ${LAB_BOARD[2]} 52%, ${LAB_BOARD[1]} 100%)` }} data-lab-guest-thanks="">
           <style>{EDITOR_CANVAS_HIDES_APP_CHROME}</style>
           <RsvpLookStyle config={labConfig} board={celebrationColours(LAB_BOARD)} parts={['yesnote', 'pass']} />
-          <div className="space-y-6 rounded-3xl bg-white px-5 py-6 shadow-sm">
-            <header data-door-header="">
-              <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-gild">You&rsquo;re invited</p>
-              <h1 className="mt-1 text-xl font-semibold">Maria &amp; Jose</h1>
-              <p className="mt-0.5 font-mono text-[11px] uppercase tracking-[0.14em] text-ink/60">Saturday, December 12, 2026</p>
-            </header>
+          {/* 🚪 The REAL door, as `invite/enter` draws it after a Yes — its top stood down (`./lab-thanks-door.tsx`). */}
+          <LabThanksDoor names="Maria & Jose" monogram="M&J">
             <div data-landing="message" className="space-y-3">
               <RsvpNoteLines
                 reply="yes"
@@ -1162,8 +1161,8 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
               <PlusOneSeatList seats={labSeats} ticketed={labTicketed} />
             </section>
             {shortcut ? <ShortcutLine userAgent={userAgent} /> : null}
-          </div>
-        </main>
+          </LabThanksDoor>
+        </div>
       );
     }
     if (rsvp === 'form' && sp.sheet === '1') {

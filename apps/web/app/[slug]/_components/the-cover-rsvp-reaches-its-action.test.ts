@@ -1,25 +1,24 @@
 /**
- * the-cover-rsvp-reaches-its-action.test.ts — 🧭 A TAP ON THE COVER'S RSVP BUTTON REACHES ITS ACTION.
+ * the-cover-rsvp-reaches-its-action.test.ts — 🧭 THE COVER'S RSVP BUTTON GOES STRAIGHT TO THE RSVP PAGE.
  *
- * Live on `/cale-ice`, 2026-10-17 (owner, signed in as its host: *"confirm attendance is not doing anything?"* · then
- * *"it is not going to the RSVP part?"*). Measured: the tap was NOT swallowed — no layer, veil, drape or handler
- * stopped it (lab, Chromium 375/1280 + WebKit 375: the click reached the link, `defaultPrevented` false, the browser
- * navigated). It went to `/cale-ice/invite/reply`, and the reply page keeps only a reader who holds a guest pass for
- * the event (`replyEntry`, lib/guest-pass-hop.ts): the host holds none, so `GET /cale-ice/invite/reply` → 307 →
- * `/cale-ice` — the tap reloaded the cover it was pressed on.
+ * Owner 2026-10-26, verbatim: *"on rsvp when they get the invite link there is a button confirm attendance. instead of
+ * jumping to will you join us? (REPLY) make it go directly to the RSVP Page."*
  *
- * The rule now (owner 2026-10-17): the button TAKES the reader to the page's RSVP part — the Reply card under the cover
- * (`COVER_RSVP_PART`) — and that card's own button opens the Reply in a form THIS reader can reach.
+ * History: 2026-10-17 (live on `/cale-ice`, signed in as its host — *"confirm attendance is not doing anything?"*) the
+ * button went to `/cale-ice/invite/reply`, and the reply page sent anyone without a guest pass back to `/cale-ice` (307),
+ * so the tap reloaded the cover. The fix then was a stop on the way: the button glided to the page's RSVP part (the
+ * Reply card under the cover; from 2026-10-24 Me's "Will you join us? · Reply"), whose own button opened the reply.
+ * Since 2026-10-24 the reply page replies as exactly whom the Event Hub is viewing as (`readReplyIdentityForEvent`): the
+ * guest's pass or seat, or a signed-in host's OWN row — and tells a host with no row so (`NoReplyHere`), never a 307.
+ * So the stop is gone: the cover's button IS the door to the reply page, one tap.
  *
  * A PROPERTY, on the REAL page (`SiteBody`, the fixture invitation), for every reader who meets the button:
- *   · the cover's button is an in-page link to an element that IS on this page, with the RSVP part's id;
- *   · that part holds a link into the Reply that this reader is not bounced from — a guest (who holds the pass) to
- *     the reply page — and the host to the SAME reply page, which since 2026-10-24 replies as the host's OWN row
- *     (`readReplyIdentityForEvent`). It used to open the reply's host preview (`?preview=draft`), whose sample guest is
- *     named after a real guest — the owner was asked to answer "Gabriel dela Peña"'s RSVP
- *     (`lib/the-reply-is-sent-as-who-the-hub-says.test.ts`);
- *   · the glide that makes the jump smooth is mounted (and the plain link still works without it);
- *   · nobody without a guest pass is handed a cover button straight into the reply page (it would bounce them).
+ *   · a guest with a seat (a key) — the button's href is the reply page, never an in-page `#…` mark (Me's `#me-reply`,
+ *     the Welcome's `#site-reply`); Me's own Reply is still there, for a guest who goes to Me;
+ *   · the host on their own page — the same reply page (it replies as the host's own row); the host's card under the
+ *     cover is still there;
+ *   · a stranger (no seat, no pass) is still handed the stranger's door in the cover's foot, never the reply page
+ *     (it would send them home) — unchanged.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -50,43 +49,29 @@ const READERS = [
 ] as const;
 
 for (const [who, props, kind] of READERS) {
-  test(`${who}: the cover’s button goes to the RSVP part on this page, and the part opens a Reply this reader can reach`, async () => {
+  test(`${who}: the cover’s button goes straight to the RSVP page — no stop at an RSVP part`, async () => {
     const page = await renderSiteBodyFixtureFull(props as never);
     assert.deepEqual(page.complaints, [], 'React or the page complained while rendering');
     const html = page.html;
-    const cover = coverOf(html);
-    const head = cover.html;
+    const head = coverOf(html).html;
     const button = /<a [^>]*data-cover-rsvp="ask"[^>]*>/.exec(head)?.[0];
     assert.ok(button, 'anti-vacuity: no RSVP button on the cover');
     const href = /href="([^"]*)"/.exec(button!)![1]!;
-    /* 🔁 2026-10-24 (owner, the Me redraw — one place): a guest's RSVP part is Me's one Reply (`#me-reply`, on the Me
-       tab — the hub shell opens that tab at it); the host's page has no Me, and keeps its card under the cover. */
+    assert.ok(!href.startsWith('#'), `the cover’s button still stops at an RSVP part on the page (${href}) — the owner asked for the RSVP page`);
+    assert.equal(href, REPLY, `the cover’s button goes to ${href}, not to the RSVP page`);
+    // The RSVP part the button used to stop at is still on the page, for a reader who goes there (Me's Reply / the card).
     const PART = kind === 'guest' ? 'me-reply' : COVER_RSVP_PART;
-    assert.equal(href, `#${PART}`, `the cover’s button goes to ${href}, not to the page’s RSVP part`);
-    // The part is ON this page, after the cover, exactly once.
-    assert.equal(html.split(`id="${PART}"`).length - 1, 1, 'the RSVP part is not on the page exactly once — the button leads nowhere');
+    assert.equal(html.split(`id="${PART}"`).length - 1, 1, `the ${kind === 'guest' ? 'Me' : 'host’s'} Reply is no longer on the page`);
     const at = html.indexOf(`id="${PART}"`);
-    assert.ok(at > cover.end, 'the RSVP part is not under the cover');
-    if (kind === 'guest') {
-      const meTab = html.lastIndexOf('data-hub-tab="me"', at);
-      assert.ok(meTab > cover.end, 'Me’s Reply is not on the Me tab — the shell has no tab to open at it');
-      assert.ok(!html.includes(`id="${COVER_RSVP_PART}"`), 'the Welcome still draws a second RSVP part');
-    }
-    const partTag = html.lastIndexOf('<', at);
-    const part = html.slice(partTag, html.indexOf('</div>', html.indexOf('</a>', at)) + 6);
-    const into = /<a [^>]*href="([^"]*)"/.exec(part)?.[1];
-    assert.ok(into, 'the RSVP part holds no way into the Reply — the reader lands on nothing to press');
-    if (kind === 'guest') assert.equal(into, REPLY, 'the guest’s RSVP part does not open the reply page');
-    else assert.equal(into, REPLY, 'the host’s RSVP part does not open the plain reply page — the one that replies as the host’s own row (a `?preview=draft` here is the Maker’s sample, named after a real guest)');
+    const part = html.slice(html.lastIndexOf('<', at), html.indexOf('</div>', html.indexOf('</a>', at)) + 6);
+    assert.equal(/<a [^>]*href="([^"]*)"/.exec(part)?.[1], REPLY, 'the RSVP part’s own Reply no longer opens the reply page');
   });
 }
 
-test('nobody without a guest pass is handed a cover button straight into the reply page — it would bounce them home', async () => {
-  // The bounce itself, as the reply page decides it.
+test('a stranger (no seat, no pass) is never handed a cover button into the reply page — it would send them home', async () => {
+  // The bounce itself, as the reply page decides it for a reader it does not know.
   assert.deepEqual(replyEntry({ slug: 'cale-ice', hasPass: false, code: null }), { kind: 'door', href: '/cale-ice' });
   for (const props of [
-    { identity: fixtureStranger(), ownerCapability: HOST },
-    { identity: fixtureStranger(), widgets: FULL, ...PHOTO, ownerCapability: HOST },
     { identity: fixtureStranger() },
     { identity: fixtureStranger(), ...PHOTO },
   ]) {
@@ -97,14 +82,14 @@ test('nobody without a guest pass is handed a cover button straight into the rep
   }
 });
 
-test('the glide is mounted by the foot whenever its button is an in-page link, and it never blocks the plain link', async () => {
-  const { readFileSync } = await import('node:fs');
+test('the glide is gone — nothing on the cover stops the tap on its way to the reply page', async () => {
+  const { readFileSync, existsSync } = await import('node:fs');
   const { join } = await import('node:path');
   const foot = readFileSync(join(__dirname, 'pahina-masthead.tsx'), 'utf8');
-  assert.match(foot, /rsvp\.href\.startsWith\('#'\) \? <CoverRsvpGoes \/> : null/, 'the foot no longer mounts the glide for an in-page button');
-  const glide = readFileSync(join(__dirname, 'cover-rsvp-goes.tsx'), 'utf8');
-  // It only steps in when the part exists — otherwise the browser's own jump (or navigation) stands.
-  assert.match(glide, /if \(!part\) return;[^\n]*\n[\s\S]{0,200}?if \(part\.closest\('\[hidden\]'\)\) return;\s*e\.preventDefault\(\);/, 'the glide prevents the jump before it has found the part — or takes a part on another tab (Me’s Reply) from the shell');
-  // It listens on the document, so nothing laid over the button's words can stand between the tap and the move.
-  assert.match(glide, /document\.addEventListener\('click', onClick\)/);
+  assert.doesNotMatch(foot, /CoverRsvpGoes/, 'the cover still mounts the in-page glide');
+  assert.ok(!existsSync(join(__dirname, 'cover-rsvp-goes.tsx')), 'the in-page glide is back — the button no longer stops on the page');
+  // The one decision: a reply state's href is the Reply card's own — the reply page — never a mark on the page.
+  const decide = readFileSync(join(__dirname, '..', '..', '..', 'lib', 'cover-rsvp.ts'), 'utf8');
+  assert.match(decide, /return \{ kind: c\.kind, href: c\.href \};/, 'coverRsvpOf no longer hands the button the card’s own href');
+  assert.doesNotMatch(decide, /toPart|partHref/, 'coverRsvpOf can still send the button to a part of the page');
 });

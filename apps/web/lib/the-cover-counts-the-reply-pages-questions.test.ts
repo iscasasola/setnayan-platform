@@ -10,8 +10,8 @@
  *   (1) THE PROPERTY — over every combination of reply · meal · mobile · which questions are on · the lock, the N the
  *       cover draws equals the number of questions the reply page draws for the same row (`rsvpGate` → `RsvpWidget`'s
  *       `missing`): meal and mobile, never attendance for a guest already coming. Never a second count.
- *   (2) THE THREE STATES — not answered "Confirm attendance" · coming and complete "You're coming ✓ · Change" (a glide to
- *       the card, as shipped) · coming with N owed "You're coming ✓ · N more answers" ("1 more answer"), a link that
+ *   (2) THE THREE STATES — not answered "Confirm attendance" · coming and complete "You're coming ✓ · Change" (the reply
+ *       page, since 2026-10-26 — owner: "make it go directly to the RSVP Page") · coming with N owed "You're coming ✓ · N more answers" ("1 more answer"), a link that
  *       OPENS the reply page. A decline keeps "You can't make it · Change" — the gate asks a decliner nothing more.
  *   (3) A FAILURE DOES NOT LOOK LIKE SUCCESS — a row without the answers is not counted (`guestAnswersRead`), and an
  *       uncounted N (null) draws the plain "Change": never a wrong number.
@@ -27,7 +27,7 @@ import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
 import { guestAnswersRead, moreAnswersOf, moreAnswersWords, rsvpGate } from '@/lib/guest-one-path';
 import { replyCardOf } from '@/lib/guest-me-parts';
-import { COVER_RSVP_PART, coverRsvpOf } from '@/lib/cover-rsvp';
+import { coverRsvpOf } from '@/lib/cover-rsvp';
 import { resolveArrivalAction } from '@/lib/arrival-action';
 import { inviteReplyPath } from '@/lib/invite-arrival';
 
@@ -101,18 +101,18 @@ test('(2) the three states — and a decline keeps its shipped words', async () 
     return { a, href: /href="([^"]*)"/.exec(a)?.[1] ?? null, text: a.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim() };
   };
 
-  const ask = button(coverRsvpOf({ card: cardOf('pending'), toPart: true }));
+  const ask = button(coverRsvpOf({ card: cardOf('pending') }));
   assert.equal(ask.text, 'Confirm attendance');
 
-  const complete = button(coverRsvpOf({ card: cardOf('attending', 0), toPart: true }));
+  const complete = button(coverRsvpOf({ card: cardOf('attending', 0) }));
   assert.equal(complete.text, 'You’re coming ✓ · Change', 'the complete reply’s button changed');
-  assert.equal(complete.href, `#${COVER_RSVP_PART}`, 'the complete reply no longer glides to the Reply card');
+  assert.equal(complete.href, REPLY, 'the complete reply’s Change does not open the reply page (owner 2026-10-26: straight to the RSVP page)');
 
   for (const [n, words] of [[2, '2 more answers'], [1, '1 more answer']] as const) {
     const card = cardOf('attending', n);
     assert.equal(card?.cta, words, `the Reply card (Welcome · Me) does not say "${words}"`);
     assert.equal(card?.line, 'You’re coming · 1 seat', 'the Reply card’s line changed');
-    const more = button(coverRsvpOf({ card, toPart: true }));
+    const more = button(coverRsvpOf({ card }));
     assert.equal(more.text, `You’re coming ✓ · ${words}`, `the cover does not say "You’re coming ✓ · ${words}"`);
     assert.equal(more.href, REPLY, 'a tap does not open the reply page (which asks only the missing ones)');
     assert.match(more.a, new RegExp(`data-cover-rsvp-more="${n}"`));
@@ -122,7 +122,7 @@ test('(2) the three states — and a decline keeps its shipped words', async () 
   // A decline: the gate asks a decliner nothing more — "You can't make it · Change", whatever is blank.
   const declinedGate = rsvpGate({ rsvpStatus: 'declined', mealPreference: null, mobile: null, askMeal: true, askMobile: true, locked: false });
   assert.equal(moreAnswersOf(declinedGate), 0, 'a decliner is counted as owing answers');
-  const declined = button(coverRsvpOf({ card: cardOf('declined', moreAnswersOf(declinedGate)), toPart: true }));
+  const declined = button(coverRsvpOf({ card: cardOf('declined', moreAnswersOf(declinedGate)) }));
   assert.equal(declined.text, 'You can’t make it · Change');
   // …and a number handed to a declined card is ignored: only "coming" can owe answers.
   assert.equal(cardOf('declined', 2)?.cta, 'Change my reply');
@@ -136,7 +136,7 @@ test('(3) a failure does not look like success — an uncounted N says the plain
   assert.equal(moreAnswersOf(null), null, 'an unread gate became a number');
   const card = cardOf('attending', null);
   assert.equal(card?.cta, 'Change my reply', 'an uncounted N drew something other than the shipped words');
-  assert.equal(coverRsvpOf({ card, toPart: true })?.kind === 'going' && 'more' in coverRsvpOf({ card, toPart: true })!, false);
+  assert.equal(coverRsvpOf({ card })?.kind === 'going' && 'more' in coverRsvpOf({ card })!, false);
 });
 
 test('(4) every surface reads the same N — one count, one set of words', () => {
@@ -154,8 +154,8 @@ test('(4) every surface reads the same N — one count, one set of words', () =>
   // The guest's Reply card (Welcome · Me) — and so the cover — carry it.
   const body = stripComments(read('app/[slug]/_components/site-body.tsx'));
   assert.match(body, /moreAnswers: g\.moreAnswers,/, 'the guest’s Reply card does not read N');
-  // (2026-10-24, the Me redraw: on a tabbed page the cover's part is Me's one Reply — the card it reads is the same.)
-  assert.match(body, /: coverRsvpOf\(\{ card: replyCard, toPart: true, partHref: tabs\.on \? `#\$\{ME_REPLY_ID\}` : null \}\);/, 'the cover does not read the guest’s Reply card');
+  // (2026-10-26: the cover opens the reply page straight from the same card — the card it reads is Me's.)
+  assert.match(body, /: coverRsvpOf\(\{ card: replyCard \}\);/, 'the cover does not read the guest’s Reply card');
   assert.match(body, /<MeReply ask=\{greetingAskOf\(meReplyCard\)!\}/, 'Me’s one Reply does not read the guest’s Reply card (and its N)');
   // The landing door: the reply page's own call, on its own row (the select carries `mobile`).
   const enter = stripComments(read('app/[slug]/invite/enter/page.tsx'));

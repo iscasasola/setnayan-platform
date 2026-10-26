@@ -177,6 +177,14 @@ export type DoorShellProps = {
    * `app/[slug]/` passes it (`the-guest-doors-wear-the-event.test.ts`).
    */
   brand?: 'top' | 'foot';
+  /**
+   * 🎟 THE TOP STANDS DOWN (owner 2026-10-26, on the thank-you after a Yes: *"since the ticket has the logo already and
+   * Event Name, Just start with your on the list"*). The skin's crest (the couple's mark) is not drawn and the title is
+   * the page's heading for a screen reader only — the card then starts with its children. An `eyebrow`, `sub` or
+   * `meta` still passed is still drawn (a "You're in!" arrival keeps its own line). Off by default: every door draws
+   * its top as before. The caller decides it (`landingTopStandsDown`, lib/guest-landing.ts).
+   */
+  quietTop?: boolean;
   children?: React.ReactNode;
 };
 
@@ -197,6 +205,7 @@ export function DoorShell({
   skin,
   lead,
   brand = 'top',
+  quietTop = false,
   children,
 }: DoorShellProps) {
   const threshold = tone === 'threshold';
@@ -318,11 +327,15 @@ export function DoorShell({
             threshold ? 'border-t-mulberry' : 'border-t-ink/20',
           ].join(' ')}
         >
-          {skin?.crest ? <div aria-hidden>{skin.crest}</div> : null}
+          {skin?.crest && !quietTop ? <div aria-hidden>{skin.crest}</div> : null}
           {skin?.hinge ? null : rail}
           {lead}
 
-          <header className="space-y-2" data-door-header="">
+          {/* 🎟 A quiet top with nothing else to say: the title alone, read aloud, drawn nowhere (`quietTop`). */}
+          {quietTop && !eyebrow && !sub && !meta ? (
+            <h1 className="sr-only" data-door-quiet-top="">{title}</h1>
+          ) : (
+          <header className="space-y-2" data-door-header="" data-door-quiet-top={quietTop ? '' : undefined}>
             {eyebrow ? (
               <p
                 className={[
@@ -336,7 +349,7 @@ export function DoorShell({
               </p>
             ) : null}
 
-            <h1 {...(titleIsNames ? { 'data-hub-names': '' } : {})} className="font-serif text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
+            <h1 {...(titleIsNames ? { 'data-hub-names': '' } : {})} className={quietTop ? 'sr-only' : 'font-serif text-2xl font-semibold tracking-tight text-ink sm:text-3xl'}>
               {title}
             </h1>
 
@@ -348,6 +361,7 @@ export function DoorShell({
               </p>
             ) : null}
           </header>
+          )}
 
           {skin?.hinge ? (
             <>
@@ -356,7 +370,7 @@ export function DoorShell({
             </>
           ) : null}
 
-          {children ? <div className="mt-4 space-y-4 sm:mt-6">{children}</div> : null}
+          {children ? <div className={quietTop && !eyebrow && !sub && !meta ? 'space-y-4' : 'mt-4 space-y-4 sm:mt-6'}>{children}</div> : null}
         </div>
         {/* The couple's page: the way home is one small line UNDER the card —
             on the card's own paper (`bg-surface`, the theme's), so the words

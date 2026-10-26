@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "79c151726e",
+  "generatedFromRef": "1c9895ee30",
   "routeCount": 474,
   "destinations": 1014,
   "actions": 662,
-  "blocks": 7111,
+  "blocks": 7110,
   "routes": {
     "/": {
       "files": [
@@ -860,7 +860,6 @@
         "[slug]/_components/countdown-styles.tsx",
         "[slug]/_components/countdown.tsx",
         "[slug]/_components/cover-play-events.ts",
-        "[slug]/_components/cover-rsvp-goes.tsx",
         "[slug]/_components/cover-scene-ground.tsx",
         "[slug]/_components/cover-scene-menu-on-client.tsx",
         "[slug]/_components/cover-scene-menu.tsx",
@@ -1238,7 +1237,6 @@
         "CoverPlayOpening",
         "CoverPlayOpeningDetail",
         "CoverPlayOpeningServer",
-        "CoverRsvpGoes",
         "CoverSceneGround",
         "CoverSceneMenuOnClient",
         "CoverSceneMenuWaits",

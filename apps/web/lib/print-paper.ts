@@ -78,7 +78,7 @@ export function previewPage(params: URLSearchParams, pages: number): number {
   return Math.min(n, Math.max(1, pages));
 }
 
-/** The same picture's page N — the address the preview sheet asks for page 2 onward (page 1 is the thumbnail's own). */
+/** The same picture's page N — the address a slide asks for page 2 onward (page 1 is the slide's own picture). */
 export function paperPageSrc(src: string, page: number): string {
   if (page <= 1) return src;
   return `${src}${src.includes('?') ? '&' : '?'}page=${page}`;
@@ -117,18 +117,3 @@ export const PAPER_EMPTY: Record<PrintPaperEmpty, { title: string; line: string;
   yes: { title: 'Nobody has said yes yet', line: 'This counts the guests who are coming.', door: 'guests' },
   guests: { title: 'No guests yet', line: 'Add your guests — this prints from your guest list.', door: 'guests' },
 };
-
-/* ── THE BOX ──────────────────────────────────────────────────────────────── */
-
-/** The row head's picture box (prototype `.thumb`): 72 px on a phone, 56 px on a computer. */
-export const PRINT_THUMB_PX = 72;
-
-/**
- * 📐 THE PICTURE AT ITS TRUE PAPER PROPORTIONS, inside a square box (`printPreviewBox`'s rule, small): the long
- * side fills the box, the short side follows the paper — a landscape seat plan is wide and short, a pass is a strip.
- * An unknown shape is a square.
- */
-export function printThumbSize(aspect: number | null | undefined, box = PRINT_THUMB_PX): { w: number; h: number } {
-  if (!aspect || !Number.isFinite(aspect) || aspect <= 0) return { w: box, h: box };
-  return aspect >= 1 ? { w: box, h: Math.max(8, Math.round(box / aspect)) } : { w: Math.max(8, Math.round(box * aspect)), h: box };
-}

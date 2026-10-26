@@ -33,6 +33,7 @@ import { MOODBOARD_SLOT_KEYS } from '../../lib/moodboard-slots';
 import { MOODBOARD_SLOT_TRADES } from '../../lib/moodboard-gallery';
 import { libraryPartLabel } from '../../lib/moodboard-gallery-upload';
 import { LEGACY_PALETTE_BOARDS, libraryPhotoParts } from '../../lib/inspiration-slots';
+import { fallbackInspirationParts } from '../../lib/inspiration-parts';
 
 let replay: ReplayResult;
 let db: PGlite;
@@ -137,14 +138,15 @@ test('⭐ the seed equals the consts: the same keys, home = the first trade, als
     assert.equal(row.home_category_id, first ?? null, `${key}: home is not the first trade`);
     assert.deepEqual(await alsoOf(key), [...rest], `${key}: "also from" is not the remaining trades in their order`);
     assert.equal(row.kind, first ? 'part' : 'system', `${key}: kind`);
-    assert.equal(row.label_en, libraryPartLabel(key) ?? 'Palette', `${key}: the name is not the one a supplier reads today`);
-    assert.equal(row.hidden, !first || LEGACY_PALETTE_BOARDS.includes(key), `${key}: hidden`);
+    assert.equal(row.label_en, libraryPartLabel(key, fallbackInspirationParts()) ?? 'Palette', `${key}: the name is not the one a supplier reads today`);
+    /* ③a hides `entourage` ("not its own part"; photos kept) — the fallback carries the same flag. */
+    assert.equal(row.hidden, !first || LEGACY_PALETTE_BOARDS.includes(key) || key === 'entourage', `${key}: hidden`);
   }
 });
 
 test('the order is the couple’s Palette parts and Attire boards first, as libraryPhotoParts() draws them', async () => {
   const order = (await parts()).map((r) => r.slot_key);
-  const lib = [...new Set(libraryPhotoParts().map((p) => p.key))];
+  const lib = [...new Set(libraryPhotoParts(fallbackInspirationParts()).map((p) => p.key))];
   assert.deepEqual(order.slice(0, lib.length), lib);
   assert.equal(order.at(-1), 'palette', 'the system part is not last');
 });

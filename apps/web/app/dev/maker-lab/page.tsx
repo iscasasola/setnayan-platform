@@ -190,7 +190,10 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
       revealLab={revealLab}
       scenes={scenes}
       navigator={navigator}
-      details={detailsLabNode({ ...sp, shape: 'mj', look: '1', labPass: (await cookies()).get(LAB_PASS_COOKIE)?.value })}
+      /* 🧭 `studio: '1'` ALWAYS (2026-10-26): there is one Maker, and the real launch page always hands Details its Studio
+         (`studioDetails`) — without it this lab drew Details' retired one-piece Prints view ("INVITATION SET · The Invitation" +
+         its editor sheet), a door no couple has, instead of Studio › Prints. */
+      details={detailsLabNode({ ...sp, studio: '1', shape: 'mj', look: '1', labPass: (await cookies()).get(LAB_PASS_COOKIE)?.value })}
       /* ✍ `&facts=1` — the fact editors the launch page hands the real Maker (`factEditors`): a tap that opens one in the
          work area is seen as it is on a couple's Maker (the Love Story's moments, 2026-10-19). Off by default. */
       factEditors={sp.facts === '1' ? detailsLabFacts(sp, { specialMessage: LAB_SAMPLE.message, pabuyaMessage: 'Thank you for joining us — every gift is received with thanks.' }) : undefined}

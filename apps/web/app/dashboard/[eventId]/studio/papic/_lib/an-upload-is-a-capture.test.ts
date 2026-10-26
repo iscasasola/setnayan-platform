@@ -109,14 +109,20 @@ test('🚨 refusals name something a person can actually do', () => {
   assert.ok(!/return code/.test(fn), 'a raw error code is handed straight to a person');
 });
 
-test('the picker only renders for a camera this couple actually holds', () => {
+test('the picker is handed a token only for a camera this couple actually holds — else it claims on the pick', () => {
+  // 📍 + Add photos lives in Memories now (2026-10-23). Since 2026-10-26 (owner: "the turn on is not working as well
+  // fix it") an unclaimed camera gets the picker too, with NO token: the first pick claims it (`startAddingPhotos`)
+  // and only then holds one. What must still hold: a token reaches the browser only when it is this person's.
   assert.ok(
-    // 📍 + Add photos lives in Memories now (2026-10-23) — the picker and its claimer check moved with it.
-    /token \? \(\s*<AddToLibrary/.test(MEMORIES),
-    'the picker renders without a resolved token — every upload would be refused by the presign with no explanation',
+    /const token = claimer === user\.id \?/.test(MEMORIES),
+    'Memories no longer checks that the Uploads camera belongs to THIS person — a token resolved for somebody else is a camera handed to the wrong hands',
   );
   assert.ok(
-    /const token = seat\?\.claimer_user_id === user\.id \?/.test(MEMORIES),
-    'the studio no longer checks that the Uploads camera belongs to THIS person — a token resolved for somebody else is a camera handed to the wrong hands',
+    /<AddToLibrary token=\{token\} eventId=\{eventId\}/.test(MEMORIES),
+    'the picker no longer gets the resolved token (or the event to claim with when it is null) — every upload would be refused by the presign with no explanation',
+  );
+  assert.ok(
+    /if \(!tokenRef\.current\)[\s\S]{0,400}startAddingPhotos\(eventId\)/.test(PICKER),
+    'the picker sends without a token instead of claiming the camera first',
   );
 });

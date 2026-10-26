@@ -47,6 +47,7 @@ import { inspirationSlotsForPart } from './moodboard-render-parts';
 import { tradesForPart } from './moodboard-finalization';
 import { WEDDING_TILE_LABEL } from './taxonomy';
 import { canonicalServicesForTile } from './vendor-counts';
+import { fallbackInspirationParts } from './inspiration-parts';
 
 (globalThis as unknown as { React: unknown }).React = React;
 {
@@ -67,7 +68,7 @@ const FOUR = ['bridesmaids', 'groomsmen', 'flower_girl', 'ring_bearer'] as const
 /** 🗑 Six since 2026-10-14 (owner: "remove entourage" — DECISION_LOG "EFFECTS + ATTIRE DESIGN APPROVED"). */
 const SEVEN: ReadonlyArray<readonly [string, string]> = [
   ['bride', 'Bridal gown'],
-  ['groom', 'Groom’s suit'],
+  ['groom', 'Groom’s attire'],
   ['bridesmaids', 'Bridesmaids'],
   ['groomsmen', 'Groomsmen'],
   ['flower_girl', 'Flower girl'],
@@ -124,6 +125,7 @@ async function drawn(tab: 'colours' | 'attire' | 'dos', attire: readonly Row[]):
     const out = renderToStaticMarkup(
       React.createElement(MoodBoardStudio, {
         eventId: 'e',
+        inspirationParts: fallbackInspirationParts(),
         palette: { reception: ['#5B4A6B', '#D9C4CF', '#A9834B', '#F7F2EC', '#7A8B6F'] },
         fallbackFive: ['#5B4A6B', '#D9C4CF', '#A9834B', '#F7F2EC', '#7A8B6F'],
         frozenDressing: [],
@@ -167,7 +169,7 @@ test('1 · the four are stored slots, each on the trades that dress those people
     assert.ok(MOODBOARD_SLOT_TRADES.entourage.includes(t), `${k} → ${t} is not one of the entourage’s own trades`);
   }
   /* The service each board is about is really reached — and the other half's is not. */
-  const reach = (slot: string) => new Set(canonicalServicesForSlot(slot));
+  const reach = (slot: string) => new Set(canonicalServicesForSlot(slot, fallbackInspirationParts()));
   assert.ok(reach('bridesmaids').has('bridesmaid_dress') && !reach('bridesmaids').has('groomsman_set'), 'Bridesmaids does not reach bridesmaid dresses (or reaches the groomsmen’s)');
   assert.ok(reach('groomsmen').has('groomsman_set') && !reach('groomsmen').has('bridesmaid_dress'), 'Groomsmen does not reach groomsmen’s sets (or reaches the bridesmaids’)');
   assert.ok(reach('flower_girl').has('flower_girl_dress') && !reach('flower_girl').has('ring_bearer_suit'), 'Flower girl does not reach flower-girl dresses (or reaches the ring bearer’s)');
@@ -213,7 +215,7 @@ test('2 · the migration widens BOTH slot gates by exactly the four — and the 
 /* ── 3 ─────────────────────────────────────────────────────────────────────── */
 
 test('3 · Attire holds six boards in the owner’s order (Entourage gone, 2026-10-14), each exactly once whatever the guest list holds', () => {
-  assert.deepEqual(STUDIO_INSPIRATION_SLOTS.filter((s) => s.attire).map((s) => [s.slotKey, s.label]), SEVEN, 'not Bridal gown · Groom’s suit · Bridesmaids · Groomsmen · Flower girl · Ring bearer');
+  assert.deepEqual(STUDIO_INSPIRATION_SLOTS.filter((s) => s.attire).map((s) => [s.slotKey, s.label]), SEVEN, 'not Bridal gown · Groom’s attire · Bridesmaids · Groomsmen · Flower girl · Ring bearer');
   assert.equal(STUDIO_INSPIRATION_SLOTS.some((s) => s.slotKey === 'entourage'), false, 'the Entourage board is back');
   const placed = (rows: string[]) => [...rows.flatMap((r) => attireBoardsUnder(r)), ...attireBoardsAfter(rows)].map((s) => s.slotKey);
   /* Nobody but the couple yet: bride and groom under their rows, the other four after, in order. */
@@ -278,10 +280,10 @@ test('4 · the ＋ can open the file picker from Attire: the one file input is m
 
 test('5 · a board’s search reads its OWN shelf, and an empty shelf says so in words', async () => {
   for (const k of FOUR) {
-    const q = normalizeGalleryQuery({ slotKey: k });
+    const q = normalizeGalleryQuery({ slotKey: k }, fallbackInspirationParts());
     assert.ok(q, `${k}: Search ideas › would be refused ("No supplier gallery for that slot")`);
     assert.equal(q!.slotKey, k, `${k}: the search asks another board’s shelf`);
-    assert.deepEqual(shapeGalleryPage(k, []), { assets: [], withheld: 0 });
+    assert.deepEqual(shapeGalleryPage(k, [], fallbackInspirationParts()), { assets: [], withheld: 0 });
   }
   /* The read and the save both name the shelf by the board's own key — never a neighbour's photos. */
   const actions = read(`${MB}/actions.ts`);
@@ -327,7 +329,7 @@ test('7 · the four move nothing a paid render or a supplier’s sign-off reads'
   assert.deepEqual(inspirationSlotsForPart('people:wedding_party'), ['entourage']);
   /* …and the bearers' part keeps the trades the owner decided (2026-09-04), not a board's. */
   assert.deepEqual(inspirationSlotsForPart('people:bearers_flower_girl'), []);
-  assert.deepEqual(tradesForPart('people:bearers_flower_girl'), [...MOODBOARD_PART_TRADES['people:bearers_flower_girl']!]);
+  assert.deepEqual(tradesForPart('people:bearers_flower_girl', fallbackInspirationParts()), [...MOODBOARD_PART_TRADES['people:bearers_flower_girl']!]);
 });
 
 /* ── 8 ─────────────────────────────────────────────────────────────────────── */
@@ -335,11 +337,11 @@ test('7 · the four move nothing a paid render or a supplier’s sign-off reads'
 test('8 · a tailor is offered the shelf — the supplier’s side of the same slot', () => {
   /* The name a tailor READS for each shelf — the part's one name (step ②; it was always the board's name, the shelf
      names that sat under it in a deleted map were never drawn). */
-  assert.equal(libraryPartLabel('bridesmaids'), 'Bridesmaids');
-  assert.equal(libraryPartLabel('groomsmen'), 'Groomsmen');
-  assert.equal(libraryPartLabel('flower_girl'), 'Flower girl');
-  assert.equal(libraryPartLabel('ring_bearer'), 'Ring bearer');
-  const shelves = (services: string[]) => uploadableSlotsForShop(services).map((s) => s.key as string);
+  assert.equal(libraryPartLabel('bridesmaids', fallbackInspirationParts()), 'Bridesmaids');
+  assert.equal(libraryPartLabel('groomsmen', fallbackInspirationParts()), 'Groomsmen');
+  assert.equal(libraryPartLabel('flower_girl', fallbackInspirationParts()), 'Flower girl');
+  assert.equal(libraryPartLabel('ring_bearer', fallbackInspirationParts()), 'Ring bearer');
+  const shelves = (services: string[]) => uploadableSlotsForShop(services, fallbackInspirationParts()).map((s) => s.key as string);
   const women = shelves(['bridesmaid_dress']);
   const men = shelves(['groomsman_set']);
   assert.ok(women.includes('bridesmaids') && women.includes('flower_girl'), 'a dressmaker is not offered the Bridesmaids and Flower girl shelves');

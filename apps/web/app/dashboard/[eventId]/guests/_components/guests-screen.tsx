@@ -45,6 +45,7 @@ import {
   Armchair,
   Check,
   ChevronDown,
+  ChevronRight,
   ChevronsDownUp,
   ChevronsUpDown,
   CircleHelp,
@@ -69,7 +70,8 @@ import {
   Users,
   X,
 } from 'lucide-react';
-import { ActionButton } from '@/components/action-button';
+import { ActionButton, actionButtonClass } from '@/components/action-button';
+import { InfoTip } from '@/app/_components/info-tip';
 import { ThumbRow, type ThumbField, type ThumbMenu } from '@/components/thumb-row';
 import { Count, Fill } from '@/components/count';
 import { formatCount } from '@/lib/format-number';
@@ -95,6 +97,7 @@ import { projectGuests } from '@/lib/guest-optimistic';
 import { normalizeSearchText } from '@/lib/guest-search';
 import {
   isToInvite,
+  mayBeInvited,
   MAP_ARRANGE,
   mapTree,
   hostMaySetReply,
@@ -684,16 +687,17 @@ export function GuestsScreen(props: GuestsScreenProps) {
     setReplyFilter((now) => (now === f ? null : f));
     window.scrollTo({ top: 0 });
   };
-  /** A count, as a door to its filter — pressed again (or × Clear) to take it off. */
+  /** A count, as a door to its filter — pressed again (or × Clear) to take it off. Option A (owner 2026-10-26): the
+      number large, its word under it beside a dot in the reply's own colour — the same door, the same filter. */
   const countDoor = (f: ReplyFilter, value: number, id: string, word: string) => (
     <button
       type="button"
-      className={styles.countsDoor}
+      className={styles.countBig}
       aria-pressed={replyFilter === f}
       onClick={() => pickReply(f)}
       data-reply-filter={f}
     >
-      <b><Count value={value} id={id} /></b> {word}
+      <b><Count value={value} id={id} /></b> <span className={styles.countWord}><i className={styles.countDot} data-dot={f} aria-hidden />{word}</span>
     </button>
   );
 
@@ -1244,95 +1248,130 @@ export function GuestsScreen(props: GuestsScreenProps) {
           <GuestListStatus copy={copy} fresh={props.measured} />
           {measured ? (
             <>
-              <div className={`${styles.counts} ${styles.rise}`} data-roster-counts="" data-tour="guests-counts">
-                {/* 👆 Each count is a door to exactly the guests it counts (`replyFilterMatches`, owner 2026-10-21). */}
-                <span>{countDoor('attending', stats.yes, 'gs-yes', RSVP_ROW_WORDS.attending.toLowerCase())}</span>
-                <span>· {countDoor('declined', stats.no, 'gs-no', RSVP_ROW_WORDS.declined.toLowerCase())}</span>
-                <span>· {countDoor('none', stats.none, 'gs-none', RSVP_ROW_WORDS.pending.toLowerCase())}</span>
-                {/* 🚪 "N TO INVITE" IS A DOOR (controller 2026-10-08: from the List — the tab people
-                    land on — there was no way to start sending). It opens the ONE send run, the very
-                    place Setup's "Send to N" opens (`guest-setup-rows.tsx` → `/guests/send`); the two
-                    are held equal by `counts-equal-the-rows.test.ts`. With nobody left to invite it is
-                    plain words, never a dead link. A refused read draws none of this line. */}
-                {stats.toInvite > 0 ? (
-                  <span className={styles.wine}>
-                    ·{' '}
-                    <Link href={`/dashboard/${eventId}/guests/send`} className={styles.countsDoor} data-roster-to-invite="door">
-                      <b><Count value={stats.toInvite} id="gs-toinv" /></b> to invite
-                    </Link>
-                  </span>
-                ) : (
-                  <span className={styles.wine} data-roster-to-invite="words">
-                    · <b><Count value={stats.toInvite} id="gs-toinv" /></b> to invite
-                  </span>
-                )}
-                {/* 🪑 "+1s: N named · M no name yet" (owner 2026-10-21) — each half a door to the +1 filter, tapped again
-                    to clear it; the same `plusOneFilterMatches` the rows below are filtered by. No +1s → not drawn. */}
-                {plusTally.named + plusTally.unnamed > 0 ? (
-                  <span data-roster-plus-ones="">
-                    · +1s:{' '}
-                    <button
-                      type="button"
-                      className={styles.countsDoor}
-                      aria-pressed={plusFilter === 'named'}
-                      onClick={() => pickPlus('named')}
-                      data-plus-filter="named"
-                    >
-                      <b><Count value={plusTally.named} id="gs-plus-named" /></b> named
-                    </button>{' '}
-                    ·{' '}
-                    <button
-                      type="button"
-                      className={styles.countsDoor}
-                      aria-pressed={plusFilter === 'unnamed'}
-                      onClick={() => pickPlus('unnamed')}
-                      data-plus-filter="unnamed"
-                    >
-                      <b><Count value={plusTally.unnamed} id="gs-plus-unnamed" /></b> no name yet
-                    </button>
-                  </span>
-                ) : null}
-                {q || filtered ? (
-                  <span className={styles.mute}>
-                    · <Count value={shown} id="gs-shown" /> of {formatCount(stats.total)} shown
-                  </span>
-                ) : null}
-                {filtered ? (
-                  <button
-                    type="button"
-                    className={styles.countsDoor}
-                    onClick={() => {
-                      setReplyFilter(null);
-                      setPlusFilter(null);
-                    }}
-                    data-roster-clear-filter=""
+              <div className={`${styles.counts} ${styles.strip} ${styles.rise}`} data-roster-counts="" data-tour="guests-counts">
+                {/* 🧮 THE COUNTS STRIP — OPTION A (owner 2026-10-26, "option A", prototype `guest-counts/index.html` frames
+                    a-390 · a-1280): "Replies ⓘ · N% replied", the bar in two colours (attending · not coming over the grey of
+                    no reply), three big counts that are each the door to their filter, the +1s line, then ONE action —
+                    "Invite N ›" — with "⤓ Excel" beside it. Same numbers, same doors, same hrefs; only the layout moved.
+                    🔒 the-counts-strip-is-option-a.test.ts */}
+                <div className={styles.countsMain}>
+                  <div className={styles.countsTop}>
+                    <InfoTip label="Replies" labelClassName={styles.countsTitle} align="start">
+                      Tap a number to see just those guests; tap it again to see everyone. +1s: “named” ones have a name,
+                      “no name yet” are seats still waiting for one.
+                    </InfoTip>
+                    <span className={styles.mute}>
+                      <Count value={replied} format="pct" id="gs-replied-pct" /> replied
+                    </span>
+                  </div>
+                  <div
+                    className={styles.meter}
+                    data-replied-meter=""
+                    role="img"
+                    aria-label={`${formatCount(stats.yes)} ${RSVP_ROW_WORDS.attending.toLowerCase()}, ${formatCount(stats.no)} ${RSVP_ROW_WORDS.declined.toLowerCase()}, ${formatCount(stats.none)} ${RSVP_ROW_WORDS.pending.toLowerCase()}`}
                   >
-                    × Clear
-                  </button>
-                ) : null}
-              </div>
-              <div className={styles.meter} data-replied-meter="">
-                <Fill value={replied} id="gs-replied" className={styles.meterFill} />
-              </div>
-              <div className={styles.replied}>
-                <span>
-                  <Count value={replied} format="pct" id="gs-replied-pct" /> replied
-                </span>
-                {/* 📥 THE LIST AS A SPREADSHEET, ONE TAP (owner 2026-10-16: "just have a excel file for their
-                    guests"). The server writes it fresh, in the import template's own columns, so the same
-                    file can be edited and uploaded again (`guests/export/route.ts`). A plain link — no
-                    JavaScript, nothing added to any bundle. */}
-                {copy?.freshness === 'failed' ? null : (
-                  <a
-                    href={`/dashboard/${eventId}/guests/export`}
-                    download
-                    className={`${styles.countsDoor} ${styles.export}`}
-                    data-guests-export=""
-                  >
-                    <Download aria-hidden strokeWidth={1.9} />
-                    Download as Excel
-                  </a>
-                )}
+                    <Fill value={stats.total ? (stats.yes / stats.total) * 100 : 0} id="gs-meter-yes" className={styles.meterFill} />
+                    <Fill value={stats.total ? (stats.no / stats.total) * 100 : 0} id="gs-meter-no" className={styles.meterNo} />
+                  </div>
+                  {/* 👆 Each count is a door to exactly the guests it counts (`replyFilterMatches`, owner 2026-10-21). */}
+                  <div className={styles.countsGrid}>
+                    {countDoor('attending', stats.yes, 'gs-yes', RSVP_ROW_WORDS.attending)}
+                    {countDoor('declined', stats.no, 'gs-no', RSVP_ROW_WORDS.declined)}
+                    {countDoor('none', stats.none, 'gs-none', RSVP_ROW_WORDS.pending)}
+                  </div>
+                </div>
+                <div className={styles.countsSide}>
+                  {plusTally.named + plusTally.unnamed > 0 || q || filtered ? (
+                    <div className={styles.plusLine}>
+                      {/* 🪑 "+1s · N named · M no name yet" (owner 2026-10-21) — each half a door to the +1 filter, tapped
+                          again to clear it; the same `plusOneFilterMatches` the rows below are filtered by. No +1s → not drawn. */}
+                      {plusTally.named + plusTally.unnamed > 0 ? (
+                        <span data-roster-plus-ones="">
+                          +1s ·{' '}
+                          <button
+                            type="button"
+                            className={styles.countsDoor}
+                            aria-pressed={plusFilter === 'named'}
+                            onClick={() => pickPlus('named')}
+                            data-plus-filter="named"
+                          >
+                            <b><Count value={plusTally.named} id="gs-plus-named" /></b> named
+                          </button>{' '}
+                          ·{' '}
+                          <button
+                            type="button"
+                            className={styles.countsDoor}
+                            aria-pressed={plusFilter === 'unnamed'}
+                            onClick={() => pickPlus('unnamed')}
+                            data-plus-filter="unnamed"
+                          >
+                            <b><Count value={plusTally.unnamed} id="gs-plus-unnamed" /></b> no name yet
+                          </button>
+                        </span>
+                      ) : null}
+                      {q || filtered ? (
+                        <span>
+                          <Count value={shown} id="gs-shown" /> of {formatCount(stats.total)} shown
+                        </span>
+                      ) : null}
+                      {filtered ? (
+                        <button
+                          type="button"
+                          className={styles.countsDoor}
+                          onClick={() => {
+                            setReplyFilter(null);
+                            setPlusFilter(null);
+                          }}
+                          data-roster-clear-filter=""
+                        >
+                          × Clear
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  <div className={styles.countsActs}>
+                    {/* 🚪 "INVITE N" IS THE STRIP'S ONE ACTION (controller 2026-10-08: from the List — the tab people land on
+                        — there was no way to start sending; option A 2026-10-26 made it the button it always was). It
+                        opens the ONE send run, the very place Setup's "Send to N" opens (`guest-setup-rows.tsx` →
+                        `/guests/send`); the two are held equal by `counts-equal-the-rows.test.ts`. With nobody left to
+                        invite there is no button and no dead link — a quiet "Everyone invited", and only when somebody
+                        could be invited at all (`mayBeInvited`), so a list of just the couple never claims it. A refused
+                        read draws none of this strip. */}
+                    {stats.toInvite > 0 ? (
+                      <Link
+                        href={`/dashboard/${eventId}/guests/send`}
+                        className={actionButtonClass('brand', { main: true, extra: `${styles.invite} min-h-11` })}
+                        data-roster-to-invite="door"
+                      >
+                        <span className="lbl">
+                          Invite <Count value={stats.toInvite} id="gs-toinv" />
+                        </span>
+                        <ChevronRight aria-hidden strokeWidth={2} />
+                      </Link>
+                    ) : roster.some((g) => mayBeInvited(g)) ? (
+                      <span className={`${styles.mute} ${styles.allInvited}`} data-roster-to-invite="words">
+                        <Check aria-hidden strokeWidth={2} /> Everyone invited
+                      </span>
+                    ) : null}
+                    {/* 📥 THE LIST AS A SPREADSHEET, ONE TAP (owner 2026-10-16: "just have a excel file for their
+                        guests"). The server writes it fresh, in the import template's own columns, so the same
+                        file can be edited and uploaded again (`guests/export/route.ts`). A plain link — no
+                        JavaScript, nothing added to any bundle. */}
+                    {copy?.freshness === 'failed' ? null : (
+                      <a
+                        href={`/dashboard/${eventId}/guests/export`}
+                        download
+                        className={actionButtonClass('neutral', { extra: `${styles.excel} min-h-11` })}
+                        aria-label="Download as Excel"
+                        title="Download as Excel"
+                        data-guests-export=""
+                      >
+                        <Download aria-hidden strokeWidth={1.9} />
+                        <span className="lbl">Excel</span>
+                      </a>
+                    )}
+                  </div>
+                </div>
               </div>
               {/* 📏 A read beside the list that did not happen is SAID, here, in the strip's own words — never drawn
                   as "no groups" / "nobody seated". Only under a list that WAS read: a refused list has its own

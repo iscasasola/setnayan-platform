@@ -21,7 +21,7 @@
 import { DIGITAL_TICKET_ITEM, EVERY_PRINT_ITEM, FREE_PRINT_KEYS, type DetailsItemGroup, type DetailsItemKey } from '@/lib/maker-details-items';
 import { PRINT_SET_KEYS } from '@/lib/print-pieces';
 import { STUDIO_TILE_ITEM } from '@/lib/studio-tile-defs';
-import { EVERYTHING_HEAD, EVERYTHING_LABEL, PRINT_SETTINGS_LABEL } from '@/lib/studio-prints-settings';
+import { EVERYTHING_HEAD } from '@/lib/studio-prints-settings';
 
 /** The gifts items that leave Info for E-Gifts, in the prototype's order. */
 export const STUDIO_GIFT_ITEMS: readonly DetailsItemKey[] = ['gifts', 'thank-you'];
@@ -106,22 +106,24 @@ export const STUDIO_FORM_ITEMS: readonly DetailsItemKey[] = [
 export const STUDIO_PAGE_ITEMS: readonly DetailsItemKey[] = ['love-story', 'mood-board', 'schedule'];
 
 /**
- * 🧭 THE PIECE BAR'S LIST (owner 2026-10-16, Studio › Prints on a phone — `studio-prints-bar.tsx`): every piece of the Prints
- * form, in the form's order, under the form's own group words — "Your invitation set" · "For the day · free for every event" ·
- * "Download the set". "On every print" is first and has no heading (it IS the head of the form). `caption` is the small word
- * over the piece's name on the bar. Read from `STUDIO_FORM_HEADS` and the items' own labels — never a second list of names.
+ * 🎠 THE CAROUSEL'S SLIDES, IN ORDER (owner 2026-10-26, Studio › Prints as a swipe carousel — `studio-prints-carousel.tsx`; it was
+ * the retired piece bar's list, owner 2026-10-16): every print of the Prints form, in the form's order, under the form's own group
+ * words — "Your invitation set" · "For the day · free for every event" · "Everything". The name ▾ under a slide lists them, grouped,
+ * and jumps. ⚙ Print settings is NOT a slide — it is a setting of every print, opened from every slide's ⚙. Read from
+ * `STUDIO_FORM_HEADS` and the items' own labels — never a second list of names.
  */
-export type StudioPrintsBarPiece = { key: DetailsItemKey; label: string; group?: string; caption: string; hint?: string };
-export function studioPrintsBarPieces(items: ReadonlyArray<{ key: DetailsItemKey; label: string; group: DetailsItemGroup }>): StudioPrintsBarPiece[] {
-  const set = STUDIO_FORM_HEADS.invitation!.title;
+export type StudioPrintsPiece = { key: DetailsItemKey; label: string; group: string; caption: string };
+export function studioPrintsPieces(items: ReadonlyArray<{ key: DetailsItemKey; label: string; group: DetailsItemGroup }>): StudioPrintsPiece[] {
+  const set = STUDIO_FORM_HEADS.invitation!;
   const day = STUDIO_FORM_HEADS[FREE_PRINT_KEYS[0]!]!;
-  return items.map((i) => {
-    const label = i.label.replace(/^the\s+/i, '');
-    if (i.key === EVERY_PRINT_ITEM) return { key: i.key, label: PRINT_SETTINGS_LABEL, caption: 'Prints', hint: 'QR · NFC · words · passes' };
-    if (i.group === 'day') return { key: i.key, label, group: `${day.title} · ${day.line}`, caption: day.title };
-    if (i.group === 'download') return { key: i.key, label: EVERYTHING_LABEL, group: EVERYTHING_HEAD.title, caption: EVERYTHING_HEAD.title };
-    return { key: i.key, label, group: set, caption: set };
-  });
+  return items
+    .filter((i) => i.key !== EVERY_PRINT_ITEM)
+    .map((i) => {
+      const label = i.label.replace(/^the\s+/i, '');
+      if (i.group === 'day') return { key: i.key, label, group: `${day.title} · ${day.line}`, caption: day.title };
+      if (i.group === 'download') return { key: i.key, label: EVERYTHING_HEAD.title, group: EVERYTHING_HEAD.title, caption: EVERYTHING_HEAD.title };
+      return { key: i.key, label, group: `${set.title} · ${set.line}`, caption: set.title };
+    });
 }
 
 /** The top nav (52 px) — the panel fills the rest, edge to edge (prototype `.full`). The panel's own height is

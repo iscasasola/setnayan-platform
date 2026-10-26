@@ -38,8 +38,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getBatchVendorAvailableDays } from '@/lib/vendor-availability';
 import { resolveProbeWindow } from '@/lib/build-date-window';
-import { canonicalServicesForTile } from '@/lib/vendor-counts';
-import type { WeddingTile } from '@/lib/taxonomy';
+import { getCanonicalBuckets, servicesInTile } from '@/lib/vendor-counts';
 import { fetchMarketServiceCards } from '@/lib/bench-service-cards';
 import { withholdCardNames, type BenchServiceCard } from '@/lib/bench-service-card';
 import { searchCategoryVendors, type CategoryVendorResult } from './category-search';
@@ -161,7 +160,7 @@ export async function fetchInlineMoreRow(input: {
   const marketCards = await fetchMarketServiceCards(
     createAdminClient(),
     search.results.map((r) => r.vendorProfileId),
-    [...new Set([...canonicalServicesForTile(tile as WeddingTile), tile])],
+    [...new Set([...servicesInTile(await getCanonicalBuckets(), tile), tile])],
     new Date(),
   );
   // A supplier whose name is still withheld is not named by their card's title.

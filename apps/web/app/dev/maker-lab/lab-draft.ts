@@ -382,7 +382,7 @@ export function labFontsFrom(value: string | undefined): { site_font_key?: unkno
     return {};
   }
 }
-/** 🎫 The ticket style the lab's draft holds (`events.print_details.pass_design`) — Prints' strip is drawn from it, as the real page's is. */
+/** 🎫 The ticket style the lab's draft holds (`events.print_details.pass_design`) — the Digital ticket slide's Ticket style ▾ is drawn from it, as the real page's is. */
 export const LAB_PASS_COOKIE = 'lab_pass';
 /** 🏷 The drafted section headings (`events.role_names`, section keys only) — the canvas's entourage wears them. */
 export const LAB_SECTIONS_COOKIE = 'lab_sections';

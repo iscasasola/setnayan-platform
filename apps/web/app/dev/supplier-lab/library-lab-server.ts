@@ -30,6 +30,10 @@ import { autoColourRanges } from '@/lib/extract-palette.server';
 import type { ScreenFindings } from '@/lib/moodboard-screen-findings';
 import type { ColorRangeMap } from '@/lib/color-recolor';
 import { LAB_LIBRARY_SHOP, LAB_SHOP_PHOTOS } from './library-lab-fixture';
+import { fallbackInspirationParts } from '@/lib/inspiration-parts';
+
+/** 🧪 The lab reaches no database, so it reads the consts — named, never defaulted (③0-b). */
+const LAB_PARTS = fallbackInspirationParts();
 
 export type LabLibraryAsset = {
   asset_id: string;
@@ -100,7 +104,7 @@ export async function libraryLab(input: LibraryLabOp, form?: FormData): Promise<
     }
     case 'gallery': {
       /* The couple's Search ideas — the shipped clamp, then the shipped shaping (credit, withholding). */
-      const query = normalizeGalleryQuery(input);
+      const query = normalizeGalleryQuery(input, LAB_PARTS);
       if (!query) throw new Error('No supplier Inspiration for that slot');
       const published = s.assets.filter((a) => a.asset_subtype === query.slotKey && a.approved_at && !a.retired_at && (!query.q || a.label.toLowerCase().includes(query.q.toLowerCase())));
       const range = published.slice(query.offset, query.offset + query.limit);
@@ -113,7 +117,7 @@ export async function libraryLab(input: LibraryLabOp, form?: FormData): Promise<
         ranges: Object.values(a.color_ranges).map((r) => ({ slot_id: r.slotId, sampled_hex: r.sampledHex })),
         is_event_linked: false,
       }));
-      const { assets, withheld } = shapeGalleryPage(query.slotKey, rows);
+      const { assets, withheld } = shapeGalleryPage(query.slotKey, rows, LAB_PARTS);
       const page: GalleryPage = {
         assets,
         total: published.length,
@@ -137,14 +141,14 @@ export async function libraryLab(input: LibraryLabOp, form?: FormData): Promise<
       if (file && shopPhotoRef) throw new Error('Pick one photo at a time.');
       if (!label) throw new Error('label required');
       if (!rightsWarranted) throw new Error('Please confirm you hold the rights to publish this photo before uploading.');
-      const slot = slotUploadVerdict(assetSubtype, LAB_LIBRARY_SHOP.services);
+      const slot = slotUploadVerdict(assetSubtype, LAB_LIBRARY_SHOP.services, LAB_PARTS);
       if (!slot.allowed) throw new Error(slot.message);
       const used = s.assets.filter((a) => a.asset_subtype === slot.slotKey && !a.retired_at).length;
       const quota = backCatalogueQuotaVerdict({
         mode: 'back_catalogue',
         cap: tierCaps(null).galleryBackCatalogPhotosPerCategory,
         backCatalogueUsed: used,
-        categoryLabel: libraryPartLabel(slot.slotKey) ?? 'that category',
+        categoryLabel: libraryPartLabel(slot.slotKey, LAB_PARTS) ?? 'that category',
       });
       if (!quota.allowed) throw new Error(quota.message);
 

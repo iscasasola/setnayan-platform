@@ -107,7 +107,7 @@ test('a tile owned by TWO plan groups picks the tile-wide one, never the narrowe
 test('the action scopes by TILE first — the group hint would search a fraction of the row', () => {
   const src = code(ACTION);
   // The tile branch must come BEFORE the PLAN_GROUPS lookup.
-  const tileAt = src.indexOf('canonicalServicesForTile(tile as WeddingTile)');
+  const tileAt = src.indexOf('servicesInTile(buckets, tile)');
   const groupAt = src.indexOf("PLAN_GROUPS.find((x) => x.id === groupId)");
   assert.ok(tileAt > 0 && groupAt > 0, 'canonicalsForScope must handle both keys');
   assert.ok(

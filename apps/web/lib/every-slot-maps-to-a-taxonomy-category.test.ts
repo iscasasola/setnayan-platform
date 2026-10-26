@@ -27,7 +27,8 @@ import { fallbackInspirationParts, partCategories } from './inspiration-parts';
    Flower girl · Ring bearer each on a slot of their own since migration 20271266380994 — DRAWN, no
    longer waiting; `four-more-attire-boards.test.ts` holds the four). */
 /* The Entourage board left Attire on 2026-10-14 (owner: the Attire screen is one block per role; its stored photos stay, `wedding_party` stays the silent palette fallback). */
-const OWNERS_TWELVE = ['Flowers', 'Tables', 'Venue & decor', 'Bridal gown', 'Groom’s suit', 'Cake', 'Bridal bouquet', 'Centrepieces', 'Stage', 'Ceiling', 'Wall', 'Tunnel', 'Groomsmen', 'Bridesmaids', 'Flower girl', 'Ring bearer',
+/* "Groom’s suit" became "Groom’s attire" on 2026-10-26 (owner ruling recorded with "BUILD THE TAXONOMY"; migration ③a). */
+const OWNERS_TWELVE = ['Flowers', 'Tables', 'Venue & decor', 'Bridal gown', 'Groom’s attire', 'Cake', 'Bridal bouquet', 'Centrepieces', 'Stage', 'Ceiling', 'Wall', 'Tunnel', 'Groomsmen', 'Bridesmaids', 'Flower girl', 'Ring bearer',
   /* 🎨🖼 The Palette's five parts with photos of their own (owner 2026-10-19, "2. yes"). */
   'Chairs', 'Ribbons & candles', 'Lights', 'Entourage bouquets', 'Flower accents'];
 

@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6723
+# facts: 6734
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     571
-#   col       4932
-#   policy    953
-#   view      8
-#   func      255
+#   tpriv     572
+#   col       4938
+#   policy    954
+#   view      9
+#   func      257
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -246,6 +246,7 @@ tpriv	public.inquiry_outcome_reason_codes|anon	SIUD
 tpriv	public.inquiry_outcome_reason_codes|authenticated	SIUD
 tpriv	public.inquiry_outcomes|authenticated	SIUD
 tpriv	public.inspiration_part_categories|authenticated	S
+tpriv	public.inspiration_part_services|authenticated	S
 tpriv	public.inspiration_parts|authenticated	S
 tpriv	public.integrity_flags|anon	SIUD
 tpriv	public.integrity_flags|authenticated	SIUD
@@ -832,6 +833,7 @@ col	public.canonical_service_taxonomy.marketplace_hidden	anon=SIU authenticated=
 col	public.canonical_service_taxonomy.merged_into	anon=SIU authenticated=SIU
 col	public.canonical_service_taxonomy.phase	anon=SIU authenticated=SIU
 col	public.canonical_service_taxonomy.secondary_tiles	anon=SIU authenticated=SIU
+col	public.canonical_service_taxonomy.sort_order	anon=SIU authenticated=SIU
 col	public.canonical_service_taxonomy.tile_id	anon=SIU authenticated=SIU
 col	public.canonical_service_taxonomy.updated_at	anon=SIU authenticated=SIU
 col	public.chat_message_flags.action_taken	anon=- authenticated=SIU
@@ -2607,6 +2609,10 @@ col	public.inspiration_part_categories.category_id	anon=- authenticated=S
 col	public.inspiration_part_categories.created_at	anon=- authenticated=S
 col	public.inspiration_part_categories.slot_key	anon=- authenticated=S
 col	public.inspiration_part_categories.sort_order	anon=- authenticated=S
+col	public.inspiration_part_services.canonical_service	anon=- authenticated=S
+col	public.inspiration_part_services.created_at	anon=- authenticated=S
+col	public.inspiration_part_services.slot_key	anon=- authenticated=S
+col	public.inspiration_part_services.sort_order	anon=- authenticated=S
 col	public.inspiration_parts.created_at	anon=- authenticated=S
 col	public.inspiration_parts.hidden	anon=- authenticated=S
 col	public.inspiration_parts.home_category_id	anon=- authenticated=S
@@ -3875,6 +3881,7 @@ col	public.service_catalog.subscription	anon=SIU authenticated=SIU
 col	public.service_catalog.unit	anon=SIU authenticated=SIU
 col	public.service_catalog.updated_at	anon=SIU authenticated=SIU
 col	public.service_categories.applicable_event_types	anon=SIU authenticated=SIU
+col	public.service_categories.coarse_category	anon=SIU authenticated=SIU
 col	public.service_categories.created_at	anon=SIU authenticated=SIU
 col	public.service_categories.icon_name	anon=SIU authenticated=SIU
 col	public.service_categories.id	anon=SIU authenticated=SIU
@@ -5940,6 +5947,7 @@ policy	public.inquiry_outcomes|inquiry_outcomes_org_insert	mode=PERMISSIVE cmd=I
 policy	public.inquiry_outcomes|inquiry_outcomes_org_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))
 policy	public.inquiry_outcomes|inquiry_outcomes_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_console_admin() AS is_console_admin)) check=NULL
 policy	public.inspiration_part_categories|inspiration_part_categories_read_signed_in	mode=PERMISSIVE cmd=SELECT roles=authenticated using=true check=NULL
+policy	public.inspiration_part_services|inspiration_part_services_read_signed_in	mode=PERMISSIVE cmd=SELECT roles=authenticated using=true check=NULL
 policy	public.inspiration_parts|inspiration_parts_read_signed_in	mode=PERMISSIVE cmd=SELECT roles=authenticated using=true check=NULL
 policy	public.integrity_flags|integrity_flags_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
 policy	public.integrity_flags|integrity_flags_admin_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
@@ -6480,6 +6488,7 @@ policy	storage.objects|moodboard_library_storage_admin_write	mode=PERMISSIVE cmd
 policy	storage.objects|moodboard_library_storage_public_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=(bucket_id = 'moodboard-library'::text) check=NULL
 policy	storage.objects|moodboard_library_storage_vendor_write	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=((bucket_id = 'moodboard-library'::text) AND (auth.uid() IS NOT NULL) AND (EXISTS ( SELECT 1 FROM users u WHERE ((u.user_id = auth.uid()) AND (u.account_type = 'vendor'::account_type)))) AND (name ~~ ((auth.uid())::text || '/%'::text))) check=((bucket_id = 'moodboard-library'::text) AND (auth.uid() IS NOT NULL) AND (EXISTS ( SELECT 1 FROM users u WHERE ((u.user_id = auth.uid()) AND (u.account_type = 'vendor'::account_type)))) AND (name ~~ ((auth.uid())::text || '/%'::text)))
 view	public.events_host	type=view owner=postgres honours_rls=NO select=authenticated
+view	public.inspiration_part_categories_derived	type=view owner=postgres honours_rls=yes select=authenticated
 view	public.vendor_active_ads	type=view owner=postgres honours_rls=yes select=anon,authenticated
 view	public.vendor_completed_events	type=view owner=postgres honours_rls=NO select=anon,authenticated
 view	public.vendor_market_stats	type=view owner=postgres honours_rls=yes select=anon,authenticated
@@ -6591,6 +6600,8 @@ func	public.guest_pool_gallery(p_guest_id uuid, p_before timestamp with time zon
 func	public.guest_unlink_capture(p_guest_id uuid, p_source_table text, p_source_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.import_external_client(p_vendor_profile_id uuid, p_pool_id uuid, p_client_name text, p_client_contact text, p_client_note text, p_start_date date, p_end_date date, p_client_time time without time zone)	secdef=yes exec=authenticated search_path=public
 func	public.incoming_requests_for_me()	secdef=yes exec=authenticated search_path=public
+func	public.inspiration_category_service_pairs()	secdef=no exec=authenticated search_path=public
+func	public.inspiration_part_derived_categories_all()	secdef=no exec=authenticated search_path=public
 func	public.inspiration_suggestion_services(p_slot_key text)	secdef=no exec=authenticated search_path=public
 func	public.is_admin()	secdef=yes exec=anon,authenticated search_path=public
 func	public.is_console_admin()	secdef=yes exec=anon,authenticated search_path=public

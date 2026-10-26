@@ -34,8 +34,9 @@ const PREVIEWS = { classic: '/c.png', ticket: '/t.png', poster: '/p.png' };
 async function ringed(saved: string): Promise<string | null> {
   const { PassCardDesignPicker } = await import(`../${L}/pass-card-design-picker`);
   const { renderToStaticMarkup } = await import('react-dom/server');
-  const m = renderToStaticMarkup(React.createElement(PassCardDesignPicker as never, { eventId: 'E1', saved, studio: true, previews: PREVIEWS } as never));
-  return m.match(/aria-pressed="true"[^>]*data-bg-card="([a-z]+)"/)?.[1] ?? null;
+  /* The settings strip (`studio`) left with the Ticket style row (2026-10-26); the picker's cards read the same ONE pick (`usePassLookPick`). */
+  const m = renderToStaticMarkup(React.createElement(PassCardDesignPicker as never, { eventId: 'E1', saved, cards: true, previews: PREVIEWS } as never));
+  return m.match(/aria-checked="true"[^>]*data-style-card="([a-z]+)"/)?.[1] ?? null;
 }
 
 test('a pick is shown at once; after ↺ (an unheld write, then a Maker render) the strip rings what the draft holds', async () => {

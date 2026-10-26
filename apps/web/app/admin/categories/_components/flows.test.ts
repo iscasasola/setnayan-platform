@@ -79,22 +79,23 @@ test('A · the near matches for a whole new name are found word by word', () => 
   assert.equal(near[0]!.tileId, 'food_cart');
 });
 
-test('A · the + Add row posts every field createCanonicalLeaf refuses without, to that action', () => {
-  const src = read('add-rows.tsx');
-  assert.match(src, /action=\{isNewCategory \? createTaxonomyNode : createCanonicalLeaf\}/);
-  for (const field of job('createCanonicalLeaf').refusedWhenEmpty) {
-    assert.ok(src.includes(`name="${field}"`), `the add row never posts ${field}, which createCanonicalLeaf refuses without`);
-  }
-  for (const field of ['faith', 'is_ph', 'is_rental', 'is_tradition']) {
-    assert.ok(job('createCanonicalLeaf').fields.includes(field), `createCanonicalLeaf no longer reads ${field}`);
-    assert.ok(src.includes(`name="${field}"`), `the add row lost its ${field} control`);
-  }
-  // The honest alternative is one press away: a search word on the trade we have.
-  assert.match(src, /action=\{addTradeAlias\}/);
+test('A · the last-row "＋ Add a service" (③b) calls the ONE add-a-service core, and keeps its honest alternative', () => {
+  // ③b moved "+ Add" from one top row ("Goes under ▾") onto the last row of each map column
+  // (corpus PLAN admin_taxonomy_four_levels § 7.2). The row answers in place through
+  // `addServiceInPlace`, and BOTH doors — that one and the shipped form — run `addServiceCore`.
+  const map = read('four-level-map.tsx');
+  assert.match(map, /mapWrite\(\{ op: 'addService', categoryId, label \}\)/, 'the map no longer adds a service through the in-place door');
+  assert.match(map, /nearMatches\(name, pool\)/, 'the add row lost its near matches');
+  assert.match(map, /action=\{addTradeAlias\}/, 'the add row lost "add as a search word instead"');
+  assert.match(read('../four-level-actions.ts'), /addServiceCore\(admin, a, \{ tileId: str\(op\.categoryId\), label: str\(op\.label\) \}\)/);
+  assert.match(actionBody('../actions.ts', 'createCanonicalLeaf'), /addServiceCore\(createAdminClient\(\), user\.id, \{/);
+  // The shipped form still posts every field it refuses without.
+  for (const field of job('createCanonicalLeaf').refusedWhenEmpty) assert.ok(['tile_id', 'display_name_en'].includes(field), `createCanonicalLeaf now refuses without ${field}`);
 });
 
 test('A · saving says where it is live', () => {
-  assert.match(actionBody('../actions.ts', 'createCanonicalLeaf'), /is live under \$\{tile\.label_en \?\? tileId\}\. Suppliers can pick it now\./);
+  const core = read('taxonomy-writes.ts');
+  assert.match(core, /is live under \$\{t\.label_en \?\? input\.tileId\}\. Suppliers can pick it now\./);
 });
 
 // ── B · Approve a request by mapping it ────────────────────────────────────

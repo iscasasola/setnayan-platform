@@ -29,6 +29,7 @@ import { CouldNotLoad } from './_components/could-not-load';
 import { SoftReadLog } from '@/lib/soft-read';
 import { ServicesDisclosure } from './_components/services-disclosure';
 import { moodboardLibraryAccessForProfile } from '@/lib/moodboard-library-access';
+import { getInspirationParts } from '@/lib/inspiration-parts-db';
 import { INSPIRATION_LIBRARY_HREF, INSPIRATION_LIBRARY_ROW } from '@/lib/inspiration-library-entry';
 import { packageAuthoringEnabled } from '@/lib/package-authoring-flag';
 import { vendorAutoReplyEnabled } from '@/lib/vendor-autoreply-flag';
@@ -223,7 +224,7 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
       phoneConfirmedAt: verifyApp?.contact_phone_confirmed_at ?? null,
     },
     // The shared predicate, off the profile already read — no second query (lib/moodboard-library-access.ts).
-    libraryOpen: moodboardLibraryAccessForProfile(profile).allowed,
+    libraryOpen: moodboardLibraryAccessForProfile(profile, await getInspirationParts()).allowed,
   };
 }
 

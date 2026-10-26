@@ -102,7 +102,7 @@ export function PapicBuySheet({
           labelClassName="text-[19px] font-semibold tracking-tight text-ink"
           align="start"
         >
-          One credit is one photo; a short clip uses a little more.
+          One credit is one camera photo; a short clip uses a little more.
           {rungs && ladderEnds(rungs) ? ` ${ladderEnds(rungs)} — add more any time.` : ' Add more any time.'}
         </InfoTip>
         <p className="mb-3.5 text-sm text-ink/60" data-papic-buy-have="">

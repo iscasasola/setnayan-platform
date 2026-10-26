@@ -12,6 +12,9 @@ import { AI_TIER_SKU, type AiPriceTier } from '@/lib/setnayan-ai-type-pricing';
  *       ↳ The second wave (owner 2026-10-23): Setnayan AI, Music Maker, Patiktok,
  *         Thank You and the Mood Board pack — see the end of IAP_PRODUCTS. The Mood Board pack
  *         (`mood_board_renders_50`) was RETIRED with the renders (owner 2026-10-26) — its id is never reused.
+ *       ↳ The eleven Event Hub Pro PART products (`hub_part_*`, 2026-10-22) were RETIRED before any was sold (owner
+ *         2026-10-26, "just have the upgrade event hub pro") — Event Hub Pro is sold whole; their ids are listed in
+ *         `RETIRED_HUB_PART_PRODUCT_IDS` and never reused.
  *   (2) Pro is offered in the app ONLY at ✓ Apply.
  *   (3) Pro and Live Watch are ONE purchase for the CURRENT event — a
  *       CONSUMABLE applied to that event, never a subscription and never a
@@ -49,7 +52,6 @@ const EVENT_HUB_PRO_SERVICE_KEY = 'COUPLE_WEBSITE_PRO';
 
 export type IapProductKind =
   | 'event-hub-pro'
-  | 'event-hub-part'
   | 'live-watch'
   | 'papic-credits'
   /** 🍎 23 Oct: one unlock for the CURRENT event, never sold twice (Setnayan AI · Music Maker · Patiktok · Thank You). */
@@ -78,15 +80,15 @@ export type IapProduct = {
 const PREFIX = 'com.setnayan.app.';
 
 /**
- * 💎 EVENT HUB PRO, PART BY PART — in the iPhone app 1.1 (owner 2026-10-22, "yes to all"; flag-dark behind the one IAP
- * gate, `SetnayanIAP/2` + the owner's switch): each of the eleven parts is a fixed-price Apple product (CONSUMABLE, for
- * the current event — ruling 3), floor = web ÷ 0.85 like every product here (ruling 4). An in-app part counts its WEB
- * value toward everything (the cap reads the catalogue, never Apple's price). Once any part is owned the app hides
- * "Everything" (finish on the web — which the app may not say). Spelled here, not imported from `lib/hub-parts.ts`'s
- * table, only so a renamed part can never silently change a PRODUCT ID (ids are forever); `products.test.ts` holds the
- * two lists equal.
+ * 🗑 EVENT HUB PRO, PART BY PART — RETIRED, NEVER OFFERED (owner 2026-10-26: "and just have the upgrade event hub pro"
+ * … "i mean no more by part as well on the website"). The eleven part products of 2026-10-22 were made in App Store
+ * Connect but never attached to a version and never sold; Event Hub Pro (`event_hub_pro`) is the one Event Hub product.
+ * They are OUT of `IAP_PRODUCTS` — so StoreKit is never asked for them, `iapProductById` answers null and the server
+ * refuses one by name — and kept HERE, the way `mood_board_renders_50` is kept in a comment, only so an id is never
+ * reused (ids are forever). Spelled here, not derived from `lib/hub-parts.ts`'s table, so a renamed part can never
+ * change one; `products.test.ts` holds the two lists equal.
  */
-const HUB_PART_PRODUCTS: ReadonlyArray<readonly [part: string, serviceKey: string, name: string]> = [
+const RETIRED_HUB_PART_PRODUCTS: ReadonlyArray<readonly [part: string, serviceKey: string, name: string]> = [
   ['reveal', 'COUPLE_HUB_PART_REVEAL', 'Reveal'],
   ['background', 'COUPLE_HUB_PART_BACKGROUND', 'Background'],
   ['photos', 'COUPLE_HUB_PART_PHOTOS', 'Photos'],
@@ -109,16 +111,6 @@ export const IAP_PRODUCTS: readonly IapProduct[] = Object.freeze([
     appStoreName: 'Event Hub Pro',
     credits: null,
   },
-  ...HUB_PART_PRODUCTS.map(
-    ([part, serviceKey, name]): IapProduct => ({
-      productId: `${PREFIX}hub_part_${part}`,
-      serviceKey,
-      kind: 'event-hub-part',
-      appleType: 'consumable',
-      appStoreName: `Event Hub Pro · ${name}`,
-      credits: null,
-    }),
-  ),
   {
     productId: `${PREFIX}live_watch`,
     serviceKey: 'LIVE_STUDIO',
@@ -201,8 +193,11 @@ export function iapProductIsRepeatable(product: IapProduct | null | undefined): 
   return product?.kind === 'papic-credits';
 }
 
-/** The eleven part products, in the parts' own order. */
-export const IAP_HUB_PART_PRODUCTS: readonly IapProduct[] = IAP_PRODUCTS.filter((p) => p.kind === 'event-hub-part');
+/** 🗑 The eleven retired part products' ids, in the parts' own order — never sold, never reused. */
+export const RETIRED_HUB_PART_PRODUCT_IDS: readonly string[] = RETIRED_HUB_PART_PRODUCTS.map(([part]) => `${PREFIX}hub_part_${part}`);
+
+/** The catalogue code each retired part product would have sold — `products.test.ts` holds them to the parts table. */
+export const RETIRED_HUB_PART_SERVICE_KEYS: readonly string[] = RETIRED_HUB_PART_PRODUCTS.map(([, serviceKey]) => serviceKey);
 
 /** Every product id, for StoreKit's `Product.products(for:)`. */
 export const IAP_PRODUCT_IDS: readonly string[] = IAP_PRODUCTS.map((p) => p.productId);

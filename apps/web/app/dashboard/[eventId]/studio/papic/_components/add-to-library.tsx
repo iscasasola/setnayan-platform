@@ -2,12 +2,15 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { Upload, Loader2, Check, AlertCircle } from 'lucide-react';
+import { ImagePlus, Loader2, Check, AlertCircle } from 'lucide-react';
 import { recordSeatCapture } from '@/app/papic/actions';
+import { startAddingPhotos } from '@/app/dashboard/[eventId]/studio/papic/actions';
+import { ActionButton } from '@/components/action-button';
 import { InfoTip } from '@/app/_components/info-tip';
 import type { UploadOutcome } from '@/lib/upload-send';
 import {
   costInfoLine,
+  photoCostLine,
   coverVerdict,
   creditsCount,
   selectionCost,
@@ -125,11 +128,19 @@ async function probeVideo(
 }
 
 export function AddToLibrary({
-  token,
+  token: tokenAtOpen,
+  eventId = null,
   pot: potAtOpen,
   buy = null,
 }: {
-  token: string;
+  /**
+   * The Uploads camera's token when it is already this person's; null when it is not claimed yet — then the first pick
+   * claims it on the way (`startAddingPhotos`, with `eventId`) and the files go up in the same press. ONE STEP (owner
+   * 2026-10-26: "the turn on is not working as well fix it") — there is no "Turn this on" before the picker.
+   */
+  token: string | null;
+  /** The event, for the claim on the first pick. Needed only while `token` is null. */
+  eventId?: string | null;
   /**
    * Credits this camera can still spend — the presign gate's own read (`papic_capture_points_available`), or
    * 'unmetered' (the Papic Unlock pass), or null when it could not be read (said as "Couldn't check", never 0).
@@ -149,6 +160,13 @@ export function AddToLibrary({
   /** A file was refused because the pot ran dry mid-pick (a second tab, a guest camera spending at the same time). */
   const [ranDry, setRanDry] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  /** The camera's token — the prop, or the one the first pick's claim returned (a ref: the same press reads it). */
+  const tokenRef = useRef<string | null>(tokenAtOpen);
+  useEffect(() => {
+    if (tokenAtOpen) tokenRef.current = tokenAtOpen;
+  }, [tokenAtOpen]);
+  /** Why the camera could not be claimed — said on the sheet, never a silent no-op. */
+  const [claimRefused, setClaimRefused] = useState<string | null>(null);
 
   const patch = useCallback((id: string, next: Partial<Row>) => {
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...next } : r)));
@@ -163,6 +181,7 @@ export function AddToLibrary({
       onProgress?: (pct: number) => void,
     ): Promise<{ ok: true; ref: string } | { ok: false; why: string; code: string | null }> => {
       const { sendToStorage } = await import('@/lib/upload-send');
+      const token = tokenRef.current ?? '';
       // A neutral name, as before: the picked file's own name never reaches the object key.
       const file = new File([blob], `upload-${Date.now()}.${e}`, { type: contentType });
       const run = sendToStorage(
@@ -172,7 +191,7 @@ export function AddToLibrary({
       const out = await run.done;
       return out.ok ? { ok: true, ref: out.r2Ref } : { ok: false, why: whyNot(out), code: out.code ?? null };
     },
-    [token],
+    [],
   );
 
   /** Record through the shared capture path — with a clock, so a reply that never comes is said. */
@@ -183,14 +202,14 @@ export function AddToLibrary({
         timer = setTimeout(() => resolve({ ok: false, error: 'record_stalled' }), RECORD_STALL_MS);
       });
       try {
-        return await Promise.race([recordSeatCapture(token, ref, kind, posterRef, durationMs), stalled]);
+        return await Promise.race([recordSeatCapture(tokenRef.current ?? '', ref, kind, posterRef, durationMs), stalled]);
       } catch {
         return { ok: false as const, error: 'record_failed' };
       } finally {
         clearTimeout(timer);
       }
     },
-    [token],
+    [],
   );
 
   const onPick = useCallback(
@@ -202,7 +221,29 @@ export function AddToLibrary({
       setShort(null);
       setLanded(0);
       setRanDry(false);
+      setClaimRefused(null);
       setBusy(true);
+
+      // ── 0 · THE CAMERA, CLAIMED ON THE WAY — the first pick on an unclaimed camera claims it for this host, then the
+      //        same press goes on. A refusal stops here, says why on the sheet, and sends nothing.
+      if (!tokenRef.current) {
+        let claim: Awaited<ReturnType<typeof startAddingPhotos>>;
+        try {
+          claim = eventId
+            ? await startAddingPhotos(eventId)
+            : { ok: false, code: 'no_camera', words: 'Adding photos isn’t ready on this event yet. Nothing was uploaded.' };
+        } catch {
+          claim = { ok: false, code: 'claim_failed', words: 'Adding photos didn’t start — nothing was uploaded. Try again in a moment.' };
+        }
+        if (!claim.ok) {
+          setRows([]);
+          setClaimRefused(claim.words);
+          setBusy(false);
+          if (inputRef.current) inputRef.current.value = '';
+          return;
+        }
+        tokenRef.current = claim.token;
+      }
 
       // ── 1 · READ EVERY FILE FIRST — its kind, its size, a clip's length and poster — so the WHOLE pick is priced
       //        before a single credit is reserved. Keyed on the row id, never the filename (two cameras' IMG_0001).
@@ -308,7 +349,7 @@ export function AddToLibrary({
       // one-render: keep (no-revalidate) — recordSeatCapture and the presigned PUT revalidate nothing, so only this re-reads the grid.
       if (added > 0) router.refresh();
     },
-    [send, record, patch, pot, router],
+    [send, record, patch, pot, router, eventId],
   );
 
   return (
@@ -321,30 +362,46 @@ export function AddToLibrary({
           labelClassName="text-[15px] font-semibold text-ink"
           align="start"
         >
-          {costInfoLine()} Older memories are welcome — the engagement shoot, childhood photos, the proposal clip. Credits
-          come from your event&rsquo;s one pot, the same your cameras use.
+          {costInfoLine()} Snippets are up to 10 seconds. Older memories are welcome — the engagement shoot, childhood photos,
+          the proposal clip. Credits come from your event&rsquo;s one pot, the same your cameras use.
         </InfoTip>
         <p className="mt-0.5 text-sm text-ink/65" data-add-photos-pot={typeof pot === 'number' ? pot : String(pot)}>
-          From your phone or laptop — older memories too.
+          {/* Title + ONE short line (house rule) — the price from the one function, never typed. */}
+          {photoCostLine()}
         </p>
       </div>
 
       {pot === 0 && buy && !short && !ranDry ? <div data-add-photos-buy="empty">{buy}</div> : null}
 
-      <label className="flex min-h-[44px] cursor-pointer flex-col items-center gap-2 rounded-xl border border-dashed border-ink/20 bg-cream/50 px-4 py-8 text-center hover:border-ink/35 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-terracotta/50">
-        <Upload aria-hidden className="h-5 w-5 text-ink/45" strokeWidth={1.75} />
-        <span className="text-sm font-medium text-ink">{busy ? 'Adding…' : 'Choose photos or snippets'}</span>
-        <span className="text-xs text-ink/55">Snippets up to 10 seconds</span>
-        <input
-          ref={inputRef}
-          type="file"
-          multiple
-          accept="image/*,video/*"
-          className="sr-only"
-          disabled={busy}
-          onChange={(e) => void onPick(e.target.files)}
-        />
-      </label>
+      {/* THE ONE PRESS — the brand's main button, full width, in the sheet's thumb reach. It opens the picker at once (a
+          tap is the gesture iOS needs); an unclaimed camera is claimed after the pick, in the same press. */}
+      <ActionButton
+        tone="brand"
+        main
+        icon={busy ? <Loader2 aria-hidden className="animate-spin" strokeWidth={1.9} /> : ImagePlus}
+        label={busy ? 'Adding…' : 'Choose photos'}
+        waiting={busy}
+        onClick={() => inputRef.current?.click()}
+        className="w-full justify-center"
+        data-testid="add-photos-choose"
+      />
+      <input
+        ref={inputRef}
+        type="file"
+        multiple
+        accept="image/*,video/*"
+        className="sr-only"
+        tabIndex={-1}
+        aria-hidden
+        disabled={busy}
+        onChange={(e) => void onPick(e.target.files)}
+      />
+
+      {claimRefused ? (
+        <p role="alert" className="text-sm text-danger-700" data-add-photos-claim-refused="">
+          {claimRefused}
+        </p>
+      ) : null}
 
       {short ? (
         <div role="alert" className="space-y-2" data-add-photos-short={short.short}>

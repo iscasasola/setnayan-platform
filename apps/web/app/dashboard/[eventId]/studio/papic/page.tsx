@@ -96,7 +96,7 @@ type Props = {
      *  storage. Renamed from `storage_error` 2026-08-26 when the storage
      *  question was deleted and its old name started lying. */
     papic_access_error?: string;
-    /** Turning on the Uploads camera — see claimUploadsCamera. */
+    /** Old links' answers about adding photos — carried on to Memories (the one-press `startAddingPhotos` answers on its sheet now). */
     uploads_ready?: string;
     uploads_error?: string;
     uploads_open_set?: string;

@@ -56,7 +56,10 @@ async function prices(): Promise<{ parts: Map<string, number>; full: number | nu
   return { parts, full };
 }
 
-test('the eleven parts are on sale at the owner’s prices, with no sign-up price', async () => {
+test('the eleven parts keep the owner’s prices but are OFF SALE — Event Hub Pro is sold whole (owner 2026-10-26)', async () => {
+  /* RE-AIMED 2026-10-26 (owner: "just have the upgrade event hub pro" → "no more by part as well on the website"):
+     migration 20271290543004 takes every part off sale. The rows stay, at their prices, so a part already paid for
+     still counts toward the cap at its web value (`hubPartPrices` reads the price whatever `is_active` says). */
   const r = await db.query<{ code: string; php: string; signup: string | null; active: boolean }>(
     `SELECT service_code AS code, retail_price_php::text AS php, onboarding_price_php::text AS signup, is_active AS active
        FROM public.platform_retail_catalog_v2 WHERE service_code LIKE 'COUPLE_HUB_PART_%' ORDER BY service_code`,
@@ -67,7 +70,7 @@ test('the eleven parts are on sale at the owner’s prices, with no sign-up pric
     assert.ok(part, `${row.code} is a catalogue row no part reads`);
     const want = hubPart(part!).size === 'big' ? 1000 : 500;
     assert.equal(Number(row.php), want, `${row.code}: ₱${row.php}, the owner said ₱${want}`);
-    assert.equal(row.active, true, `${row.code} is off sale`);
+    assert.equal(row.active, false, `${row.code} is on sale — Event Hub Pro is sold whole`);
     assert.equal(row.signup, null, `${row.code} carries a sign-up price — onboarding sells Full Pro only`);
   }
   /* …and every part the code names has its row. */

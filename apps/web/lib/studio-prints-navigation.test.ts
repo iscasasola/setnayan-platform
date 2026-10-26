@@ -14,6 +14,11 @@
  * that one sheet (3), the Event pass is a guest print — View as ▾ · Download · All guests ◆ (5) — and the bar ends on "Download
  * everything" under "Everything" (1b). `prints-settings-and-downloads.test.ts` holds the rest of that ruling.
  *
+ * 🎠 SINCE 2026-10-26 THE PIECE BAR IS GONE (owner: *"So we can make like a swipe carousel type where they can see the preview larger
+ * then under is the toolbar to pick style? and download options?"*; DECISION_LOG "APPROVED — PRINTS IS A SWIPE CAROUSEL"): Studio ›
+ * Prints is one print per slide (`studio-prints-carousel.tsx`). (1) and (1b) now hold the carousel the same way they held the bar —
+ * mounted ONCE, only for the Prints form, its list the form's own; ‹ › is the swipe, the bar's ▾ is the name ▾ under the slide.
+ *
  * SABOTAGE (each seen RED, then restored — see the PR): the bar mounted without the Studio · Prints condition · its `lg:hidden`
  * dropped · `{qrAlways}` put back under the Event pass · the NFC switch put back under Finer Details · a head line that joins
  * every size again.
@@ -28,7 +33,9 @@ import { PRINT_FORMATS, formatsFor, type PrintFormat } from './print-pieces';
 import { ENTRANCE_CHART_SIZES } from './print-entrance-chart';
 import { chartHeadLine, printHeadLine } from './print-head-line';
 import { DETAILS_ITEM_GROUPS, EVERY_PRINT_ITEM } from './maker-details-items';
-import { STUDIO_FORM_HEADS, STUDIO_FORM_ITEMS, studioDetailsGroups, studioPrintsBarPieces } from './studio-details';
+import { STUDIO_FORM_HEADS, STUDIO_FORM_ITEMS, studioDetailsGroups, studioPrintsPieces } from './studio-details';
+import { endSlides, slidesOf } from './prints-slides.test-helper';
+import { existsSync } from 'node:fs';
 import { STUDIO_TILE_ITEM } from './studio-tile-defs';
 
 (globalThis as unknown as { React: unknown }).React = React;
@@ -66,63 +73,66 @@ function editorBlock(src: string, key: string): string {
   return end < 0 ? rest : rest.slice(0, end + 1);
 }
 
-test('1 · the piece bar is mounted ONCE — only for the new Maker’s Prints form — and only on a phone', async () => {
+test('1 · the carousel is mounted ONCE — only for the new Maker’s Prints form — and the editors stay mounted under it', async () => {
   const ws = read(`${L}/details-workspace.tsx`);
   /* The condition: the new Maker's Studio AND the Prints form. */
   const cond = ws.match(/const studioPrints = ([^;]+);/);
-  assert.ok(cond, 'the bar’s condition is gone');
-  assert.match(cond[1]!, /maker\?\.stagesStudio === true/, 'the bar no longer needs the new Maker');
-  assert.match(cond[1]!, /formGroup\?\.key === 'prints'/, 'the bar no longer needs the Prints form');
-  const mounts = [...ws.matchAll(/part="prints-bar"/g)];
-  assert.equal(mounts.length, 1, 'the bar is mounted more than once');
-  const before = ws.slice(0, mounts[0]!.index);
-  assert.match(before.slice(-120), /\{studioPrints && formGroup \? <StudioTool $/, 'the bar is mounted without the Studio › Prints condition');
-  /* Under the form's scroller, inside the editor column — never a layer over the form. */
-  /* (A comment between the two reads as `{   }` once comments are stripped.) */
-  assert.match(ws, /\{editorsBody\(false\)\}\s*(?:\{\s*\}\s*)?\{studioPrints && formGroup \? <StudioTool part="prints-bar"/, 'the bar is not right under the form’s scroller');
-  /* Nowhere else in the app. */
+  assert.ok(cond, 'the carousel’s condition is gone');
+  assert.match(cond[1]!, /maker\?\.stagesStudio === true/, 'the carousel no longer needs the new Maker');
+  assert.match(cond[1]!, /formGroup\?\.key === 'prints'/, 'the carousel no longer needs the Prints form');
+  const mounts = [...ws.matchAll(/part="prints-carousel"/g)];
+  assert.equal(mounts.length, 1, 'the carousel is mounted more than once');
+  /* The editors are HIDDEN under it, never unmounted — the print words form posts every field, and each print registers its slide. */
+  assert.match(ws, /\{editorsBody\(studioPrints\)\}\s*(?:\{\s*\}\s*)?\{studioPrints && formGroup \? <StudioTool part="prints-carousel" items=\{formGroup\.items\} at=\{selected\} onSelect=\{select\} \/> : null\}/, 'the carousel is not drawn in place of the hidden (still mounted) editors');
+  /* The bar is deleted — not commented out — and drawn nowhere. */
+  assert.equal(existsSync(join(WEB, `${L}/studio-prints-bar.tsx`)), false, 'the piece bar’s file is back');
   const others = walk(join(WEB, 'app'))
     .map((p) => relative(WEB, p))
-    .filter((p) => p !== `${L}/details-workspace.tsx` && p !== `${L}/studio-tools.tsx` && p !== `${L}/studio-prints-bar.tsx`)
-    .filter((p) => /part="prints-bar"|<StudioPrintsBar\b/.test(read(p)));
-  assert.deepEqual(others, [], 'the bar is drawn somewhere else');
+    .filter((p) => /part="prints-bar"|StudioPrintsBar\b|part="prints-carousel"/.test(read(p)))
+    .filter((p) => p !== `${L}/details-workspace.tsx` && p !== `${L}/studio-tools.tsx`);
+  assert.deepEqual(others, [], 'the carousel (or the bar) is drawn somewhere else');
 
-  /* Rendered: phone only, the three presses, the label and its group — and padded clear of the home indicator. */
-  const { renderToStaticMarkup } = await import('react-dom/server');
-  const { StudioPrintsBar } = await import(`../${L}/studio-prints-bar`);
-  const items = [
-    { key: EVERY_PRINT_ITEM, label: 'On every print', group: 'set' as const },
-    { key: 'invitation' as const, label: 'The Invitation', group: 'set' as const },
-    { key: 'pass' as const, label: 'Event pass', group: 'set' as const },
-    { key: 'qr-codes' as const, label: 'Guest QR codes', group: 'day' as const },
-    { key: 'download' as const, label: 'Download the set', group: 'download' as const },
-  ];
-  const html = renderToStaticMarkup(React.createElement(StudioPrintsBar, { items, box: { current: null }, onGo: () => {}, at: 'pass' }));
-  const root = html.match(/<div data-studio-prints-bar=""[^>]*class="([^"]*)"/);
-  assert.ok(root, 'the bar did not render');
-  assert.match(root[1]!, /(^|\s)lg:hidden(\s|$)/, 'the bar shows on a computer — its navigator already lists the pieces');
-  assert.match(root[1]!, /env\(safe-area-inset-bottom\)/, 'the bar does not keep clear of the home indicator');
-  assert.match(html, /aria-label="Previous piece"/);
-  assert.match(html, /aria-label="Next piece"/);
-  assert.match(html, /data-prints-bar-pick=""[^>]*>[\s\S]*?Event pass/, 'the dropdown does not name the piece you are on');
-  assert.match(html, /data-prints-bar-caption=""[^>]*>Your invitation set</, 'the piece’s group is not said over its name');
+  /* Rendered: the slides, ‹ › on a computer, the name ▾ and its group words, and the toolbar clear of the home indicator. */
+  const { PrintPieceEditor } = await import(`../${L}/maker-prints`);
+  const { formatFor } = await import('./print-pieces');
+  const input = { eventId: 'E1', slug: 'rosa-ben', theme: 'house', ownsPro: false, storeShell: false, passGuests: [{ id: '00000000-0000-4000-8000-000000000101', name: 'Ana Reyes', reply: 'attending' }], formats: { pass: formatFor('pass', null)!, invitation: formatFor('invitation', null)!, card: formatFor('card', null)! } };
+  try {
+    await slidesOf((['invitation', 'pass'] as const).map((k) => React.createElement(PrintPieceEditor as never, { input, piece: k, studio: true } as never)));
+    const { renderToStaticMarkup } = await import('react-dom/server');
+    const { StudioPrintsCarousel } = await import(`../${L}/studio-prints-carousel`);
+    const items = [
+      { key: EVERY_PRINT_ITEM, label: 'On every print', group: 'set' as const },
+      { key: 'invitation' as const, label: 'The Invitation', group: 'set' as const },
+      { key: 'pass' as const, label: 'Event pass', group: 'set' as const },
+    ];
+    const html = renderToStaticMarkup(React.createElement(StudioPrintsCarousel as never, { items, at: 'pass', onSelect: () => {} } as never));
+    assert.equal((html.match(/data-prints-slide="/g) ?? []).length * 1, 4, 'not one slide per print on each track (the phone’s and the computer’s), ⚙ Print settings not a slide');
+    assert.match(html, /data-prints-track="phone"[^>]*class="[^"]*snap-x snap-mandatory/, 'the phone’s slides do not snap');
+    assert.match(html, /aria-label="Previous print"/);
+    assert.match(html, /aria-label="Next print"/);
+    assert.match(html, /data-prints-jump=""[^>]*>[\s\S]*?Event pass/, 'the name ▾ does not name the print you are on');
+    const tools = html.match(/data-prints-tools="phone" class="([^"]*)"/);
+    assert.ok(tools, 'the phone’s toolbar did not render');
+    assert.match(tools[1]!, /env\(safe-area-inset-bottom\)/, 'the toolbar does not keep clear of the home indicator');
+    assert.match(tools[1]!, /(^|\s)lg:hidden(\s|$)/, 'the phone’s toolbar shows on a computer — its tools are the right column there');
+  } finally {
+    await endSlides();
+  }
 });
 
-test('1b · the bar’s list is the form, in the form’s order, under the form’s own group words — "Print settings" first', () => {
+test('1b · the name ▾’s list is the form, in the form’s order, under the form’s own group words — ⚙ Print settings is not a slide', () => {
   const shipped = DETAILS_ITEM_GROUPS.map((g) => ({ key: g.group, label: g.label, items: g.keys.map((key) => ({ key, label: key, group: g.group })), ...(g.form ? { form: true as const } : {}), ...(g.hidden ? { hidden: true as const } : {}) }));
   const prints = studioDetailsGroups(shipped).find((g) => g.key === 'prints')!;
-  const pieces = studioPrintsBarPieces(prints.items);
-  assert.deepEqual(pieces.map((p) => p.key), prints.items.map((i) => i.key), 'the bar lists other pieces than the form draws');
-  assert.equal(pieces[0]!.key, EVERY_PRINT_ITEM, '"Print settings" is not first');
-  assert.equal(pieces[0]!.label, 'Print settings', 'the head of the form is not "Print settings" on the bar (owner 2026-10-17)');
-  assert.equal(pieces[0]!.group, undefined, '"Print settings" sits under a heading — it is the head of the form');
-  assert.deepEqual([...new Set(pieces.map((p) => p.group).filter(Boolean))], ['Your invitation set', 'For the day · free for every event', 'Everything']);
-  assert.equal(pieces.at(-1)!.label, 'Download everything', 'the last piece on the bar is not "Download everything"');
+  const pieces = studioPrintsPieces(prints.items);
+  assert.deepEqual(pieces.map((p) => p.key), prints.items.map((i) => i.key).filter((k) => k !== EVERY_PRINT_ITEM), 'the slides are other pieces than the form draws');
+  assert.ok(!pieces.some((p) => p.key === EVERY_PRINT_ITEM), '⚙ Print settings is a slide — it is a setting of every print, on every slide');
+  assert.deepEqual([...new Set(pieces.map((p) => p.group))], ['Your invitation set · one at a time is free', 'For the day · free for every event', 'Everything']);
+  assert.equal(pieces.at(-1)!.label, 'Everything', 'the last slide is not "Everything"');
   assert.equal(STUDIO_FORM_HEADS[EVERY_PRINT_ITEM], undefined, 'the ⚙ row names itself — a heading over it says it twice');
   assert.deepEqual(STUDIO_FORM_HEADS.download, { title: 'Everything', line: 'one file · Event Hub Pro' });
   assert.ok(STUDIO_FORM_ITEMS.includes(EVERY_PRINT_ITEM), '"Print settings" does not fill the phone screen like the rest of Prints');
   assert.ok(STUDIO_FORM_ITEMS.includes('digital-ticket'), 'the Digital ticket does not fill the phone screen like the rest of Prints');
-  /* The Prints tile opens at the head of its form — the settings row first, then the Invitation. */
+  /* The Prints tile opens at the head of its form — the carousel then opens on its first print. */
   assert.equal(STUDIO_TILE_ITEM.prints, EVERY_PRINT_ITEM);
 });
 
@@ -158,7 +168,8 @@ test('3 · Print settings holds every switch of every piece, under the prototype
   for (const [key, body] of [
     ['invitation', /\{parentsSwitch\}\{openingSwitch\}/],
     ['details', /body: detailsSwitches/],
-    ['passes', /\{guestNamesSwitch\}\s*\{passCornersPick\}\s*<TicketStyle input=\{prints\} \/>/],
+    /* 🎫 Ticket style left the sheet for the Digital ticket's slide (owner 2026-10-26) — `prints-carousel-follows-the-prototype.test.ts` (7). */
+    ['passes', /\{guestNamesSwitch\}\s*\{passCornersPick\}(?![\s\S]{0,400}TicketStyle)/],
     ['story', /part="poster-photo"/],
     ['seating', /\{seatPlanSwitch\}[\s\S]*?part="chart-layout"/],
   ] as const) {
@@ -202,11 +213,10 @@ test('4 · a head line names the CHOSEN size only — every format of every fami
   const studio = prints.slice(prints.indexOf('if (studio) {'), prints.indexOf('return (\n    <div data-print-editor={k} className="flex flex-col gap-3">'));
   assert.match(studio, /line=\{fam \? printHeadLine\(k, formats\[fam\]\) : spec\.size\}/, 'a piece’s head line is not the chosen size');
   assert.doesNotMatch(studio, /sizes\.join|\.map\(\(f\) => f\.label\)\s*(?:;|\.join)/, 'a head line joins a list of sizes again');
-  assert.match(read(`${L}/print-paper.tsx`), /line=\{chartHeadLine\(spec\)\}/, 'the entrance chart’s head line is not the chosen size');
+  assert.match(read(`${L}/studio-prints-carousel.tsx`), /return <>\{chartHeadLine\(spec\)\}<\/>;/, 'the entrance chart’s spec line is not the chosen size');
 });
 
 test('5 · the Event pass is a guest print: View as ▾ · Download (that guest, the size picked) · All guests ◆ (every guest, the size picked)', async () => {
-  const { renderSettled } = await import('./render-settled.test-helper');
   const { formatFor } = await import('./print-pieces');
   const { PrintPieceEditor, printPlan } = await import(`../${L}/maker-prints`);
   const guests = [
@@ -219,21 +229,17 @@ test('5 · the Event pass is a guest print: View as ▾ · Download (that guest,
       /* The all-guests file's address carries THIS row's size — Classic always, the theme's own when it prints ready. */
       const plan = printPlan(input);
       assert.match(plan.classic('passes'), new RegExp(`^/api/hub-print/passes\\?.*&pass_format=${fmt}$`), `the all-guests file is not in the size picked (${fmt})`);
-      const drawn = await renderSettled(React.createElement(PrintPieceEditor as never, { input, piece: 'pass', studio: true } as never));
-      const row = drawn.match(/data-print-piece-saves="pass"[^>]*>([\s\S]*?)<\/div><p data-print-guest-count="pass"[^>]*>([^<]*)<\/p>/);
-      assert.ok(row, `${theme}/${pro}: the Event pass has no Download · All guests with its line under them`);
-      const [, buttons] = row;
-      const one = buttons!.search(/>Download</);
-      const all = buttons!.search(/>All guests</);
-      assert.ok(one >= 0 && all > one, `${theme}/${pro}: not Download, then All guests`);
-      assert.doesNotMatch(drawn, /Sample \(PDF\)|Pass for|Every guest’s pass \(PDF\)/, 'a retired control is back (Sample (PDF) · Pass for ▾)');
-      /* The one guest's file is that guest's pass — Ana, the first guest, until another is picked. */
-      assert.match(buttons!, /data-print-save="rosa-ben-pass(?:-[a-z]+)?-ana-reyes\.pdf"/, `${theme}/${pro}: the Download is not the picked guest’s pass`);
-      /* Every guest's pass in one file is FREE since 2026-10-22 (owner: "the goal of the free is to keep everything minimum ready"):
-         the file itself for every couple, never the ◆ door. */
-      assert.match(buttons!, /data-print-save="rosa-ben-passes(?:-[a-z]+)?\.pdf"/, `${theme}/${pro}: every guest’s pass is not a Download`);
-      assert.doesNotMatch(buttons!, /data-print-all-in-one-pro=""/, `${theme}/${pro}: every guest’s pass is still the ◆ door`);
-      assert.match(drawn, /data-print-view-as=""/, 'the Event pass has no View as ▾');
+      const slides = await slidesOf([React.createElement(PrintPieceEditor as never, { input, piece: 'pass', studio: true } as never)]);
+      const g = slides.get('pass')?.guest;
+      assert.ok(g, `${theme}/${pro}: the Event pass is not a guest print`);
+      assert.doesNotMatch(JSON.stringify(slides.get('pass')), /Sample \(PDF\)|Pass for|Every guest’s pass \(PDF\)/, 'a retired control is back (Sample (PDF) · Pass for ▾)');
+      /* The one guest's file is that guest's pass — Ana, the first guest, until another is picked (`GUEST_WORD_TOKEN` swapped by the slide). */
+      assert.match(g!.one.file, /^rosa-ben-pass(?:-[a-z]+)?-__GUESTWORD__\.pdf$/, `${theme}/${pro}: the Download is not the picked guest’s pass`);
+      /* Every guest's pass in one file is FREE since 2026-10-22: the file itself for every couple, never the ◆ door. */
+      assert.equal(g!.all?.kind, 'save', `${theme}/${pro}: every guest’s pass is still the ◆ door`);
+      assert.match((g!.all as { file: string }).file, /^rosa-ben-passes(?:-[a-z]+)?\.pdf$/, `${theme}/${pro}: every guest’s pass is not a Download`);
+      assert.equal(g!.guests?.length, 2, 'View as ▾ does not list the pass guests');
+      await endSlides();
     }
   }
   /* …its address: the row's own print file (the size picked rides in it) with the guest added — the route's free one-pass file. */
@@ -248,7 +254,6 @@ test('5 · the Event pass is a guest print: View as ▾ · Download (that guest,
 });
 
 test('6 · the all-guests line says what the FILE holds — its passes, how many are coming and how many have not replied — from the file’s own rule', async () => {
-  const { renderSettled } = await import('./render-settled.test-helper');
   const { formatFor } = await import('./print-pieces');
   const { PrintPieceEditor } = await import(`../${L}/maker-prints`);
   const { passGuestReply } = await import('./print-set.server');
@@ -272,8 +277,10 @@ test('6 · the all-guests line says what the FILE holds — its passes, how many
   /* cale-ice's shape: 6 coming, 103 not replied — the number IS the file. */
   const draw = async (passGuests: Array<{ id: string; name: string; reply: 'attending' | 'pending' | 'maybe' }>) => {
     const input = { eventId: 'E1', slug: 'rosa-ben', theme: 'house', ownsPro: true, storeShell: false, formats: { pass: formatFor('pass', null)!, invitation: formatFor('invitation', null)!, card: formatFor('card', null)! }, passGuests };
-    const html = await renderSettled(React.createElement(PrintPieceEditor as never, { input, piece: 'pass', studio: true } as never));
-    return html.match(/<p data-print-guest-count="pass"[^>]*>([^<]*)<\/p>/)?.[1] ?? '';
+    const slides = await slidesOf([React.createElement(PrintPieceEditor as never, { input, piece: 'pass', studio: true } as never)]);
+    const line = slides.get('pass')?.guest?.holds ?? '';
+    await endSlides();
+    return line;
   };
   const guests = (a: number, p: number, m = 0) => [
     ...Array.from({ length: a }, (_, i) => ({ id: `a${i}`, name: `A ${i}`, reply: 'attending' as const })),

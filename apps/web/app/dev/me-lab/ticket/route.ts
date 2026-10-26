@@ -6,10 +6,12 @@ import { FREE_QR_LOOK } from '@/lib/qr-look';
 import { guestArriveBy } from '@/lib/role-group-dress-code';
 import { LAB_DOORS, LAB_PEOPLE, labMeDressConfig } from '../lab-people';
 import { displayPersonName } from '@/lib/person-name-case';
+import { PASS_CARD_DESIGNS, type PassCardDesign } from '@/lib/pass-card';
 
 /**
  * 🎟 THE ME LAB'S TICKET — the real card drawing (`layoutPassCard` → `renderPassCardPng`, Classic), with Arrive read as
  * the real ticket reads it (`guestArriveBy`: the role's own call time, else the doors' time). No database.
+ * `&design=ticket|poster` — the same card in another of the three looks (Studio › Prints' Digital ticket slide, 2026-10-26).
  */
 export async function GET(req: Request): Promise<Response> {
   if (process.env.NODE_ENV === 'production') return new Response('Not found', { status: 404 });
@@ -48,7 +50,9 @@ export async function GET(req: Request): Promise<Response> {
     arrive: guestArriveBy({ role: p.role, config: labMeDressConfig(), general: LAB_DOORS }),
     party: 0,
   };
-  const doc = layoutPassCard({ look: printLookFor('house'), data, mode: 'screen', foil: false }, pass, 'classic');
+  const asked = new URL(req.url).searchParams.get('design');
+  const design: PassCardDesign = PASS_CARD_DESIGNS.find((d) => d === asked) ?? 'classic';
+  const doc = layoutPassCard({ look: printLookFor('house'), data, mode: 'screen', foil: false }, pass, design);
   const png = await renderPassCardPng(doc, { 'qr-lab': { bytes: new Uint8Array(qr), mime: 'image/png' } });
   return new Response(Buffer.from(png), { headers: { 'content-type': 'image/png', 'cache-control': 'no-store' } });
 }

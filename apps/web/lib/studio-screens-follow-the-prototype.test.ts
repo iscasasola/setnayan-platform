@@ -97,7 +97,7 @@ test('2 · the opening line: ONE dropdown in Studio, never a pill row — the sh
   assert.match(shipped, /name="opening_line"/);
 });
 
-test('3 · a print in Studio is one row of the list: name · sizes · size ▾ · its ONE Download under it', async () => {
+test('3 · a print in Studio is one slide: its head (name · chosen size · size ▾ · picture) and its ONE Download', async () => {
   const { PrintPieceEditor } = await import(`../${L}/maker-prints`);
   const { formatFor } = await import('./print-pieces');
   const input = {
@@ -119,12 +119,14 @@ test('3 · a print in Studio is one row of the list: name · sizes · size ▾ �
   /* RE-AIMED 2026-10-17 (owner *"ok on prints"*: ONE Download per piece): the row's head, then its ONE Download right under it — the
      lazy `piece-download` part (the ActionButton inside it, `studio-prints-settings.tsx`); the Event pass is the guest print part. */
   const studioSrc = editor.slice(editor.indexOf('if (studio) {'));
-  assert.match(studioSrc, /part="print-head"[\s\S]*?\/>\s*\{menuEmpty \|\| storyMissing \? null : \(\s*<StudioTool\s+part="piece-download"/, 'the Download is not right under the piece’s row');
+  /* 🎠 2026-10-26: one print per slide — the head registers the slide, its ONE Download is the slide's other part (withheld while blank). */
+  assert.match(studioSrc, /<StudioTool part="print-head"[\s\S]*?\/>[\s\S]{0,200}<StudioTool part="piece-download" item=\{k\} name=\{name\} href=\{menuEmpty \|\| storyMissing \? null : one\.href\}/, 'the Download is not the piece’s own slide part');
   assert.equal((studioSrc.match(/part="piece-download"/g) ?? []).length, 1, 'a piece has more than its one Download');
   assert.equal((studioSrc.match(/part="guest-piece"/g) ?? []).length, 1, 'the Event pass is not a guest print');
   assert.doesNotMatch(studioSrc, /part="all-in-one"|part="one-pass"|Sample \(PDF\)|Save · Classic/, 'a retired Save is drawn on a Studio row');
   const sheet = read(`${L}/studio-prints-settings.tsx`);
-  assert.match(sheet.slice(sheet.indexOf('export function StudioPieceDownload(')), /<PrintSaveButton href=\{href\} file=\{file\} variant="action" main label=\{label\}/, 'the Download is not the one ActionButton');
+  assert.match(sheet.slice(sheet.indexOf('export function StudioPieceDownload(')), /useRegisterSlide\(item, 'download', \{ name, download: href && file \? \{ href, file, label \} : null, edit \}\);/, 'the Download is not registered as the slide’s one file');
+  assert.match(read(`${L}/studio-prints-carousel.tsx`), /<ActionButton tone="brand" main icon=\{busy \? icon : Download\} label=\{saveWord\(state, 'Download'\)\}/, 'the slide’s Download is not the one ActionButton');
   assert.doesNotMatch(editor, /variant=\{studio \? 'chip'/, 'a Studio Save is still the old chip');
   /* RE-AIMED 2026-10-16 (owner: "short size lines"): the row's line names the CHOSEN size only — every size stays in the ▾
      (`lib/print-head-line.ts`, held by `studio-prints-navigation.test.ts`). */

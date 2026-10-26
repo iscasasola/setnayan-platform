@@ -34,6 +34,7 @@ import React from 'react';
 
 import { stripComments } from './strip-comments';
 import { BACKGROUND_SOURCE_IS_PRO, BACKGROUND_SOURCE_LABEL } from './background-source';
+import { stageBgSourcesOffered } from './stage-bg-sources';
 import { HUB_BACKGROUND_KINDS, resolveHubBackground, sanitizeHubCanvas } from './hub-canvas';
 import { SP_BG_ROW, SP_BG_STRIP, SP_BG_TILE, SP_BG_TILE_ADD, SP_BG_TILE_FACE, SP_BG_TILE_FADE, SP_BG_TILE_NAME, SP_BG_TILE_RING_PX, SP_BG_TILE_SLASH, SP_BG_TILE_TONE, SP_ROWS, STAGE_PANEL_VARS, stageBarRow } from './maker-stage-room';
 import { TILE_FADE, TILE_FLAT_FLOOR, TILE_FOOT, TILE_FOOT_BAND, TILE_INK, TILE_RAMP_SPAN, tileFlatContrast, tileFrostCss, tileFrostFoot, tileGlassColour, tileNameOnFlat, tileNameOnPhoto, tileNameOnRamp, tilePhotoContrast, tileRampUnder } from './bg-tile-name';
@@ -174,7 +175,16 @@ test('(2) what a scene can store is what is offered — every tile round-trips; 
   /* THE SOURCES: the Event Hub's own and Colour for everyone; Scene and Upload where media is offered — named and
      marked ◆ by the Look's own table, never a second list. */
   const branch = row.slice(row.indexOf('if (ss) {'), row.indexOf('<section data-scene-background-row'));
-  assert.match(branch, /\{ key: 'hub', pro: false \},\s*\{ key: 'colour', pro: false \},\s*\.\.\.\(offerMedia\s*\? \(loops\.length > 0 \? \(\['scene', 'video', 'own'\] as const\) : \(\['scene', 'own'\] as const\)\)\.map\(\(key\) => \(\{ key, pro: Boolean\(mediaMark\) && BACKGROUND_SOURCE_IS_PRO\[key\] \}\)\)\s*: \[\]\),/);
+  /* (2026-10-26) the row's sources are `stageBgSourcesOffered` (`lib/stage-bg-sources.ts`) — asked here, not re-read. */
+  assert.match(branch, /sources=\{stageBgSourcesOffered\(\{ ownsPro, storeShell, hasLoops: loops\.length > 0 \}\)\}/);
+  assert.deepEqual(stageBgSourcesOffered({ ownsPro: false, storeShell: false, hasLoops: true }), [
+    { key: 'hub', pro: false },
+    { key: 'colour', pro: false },
+    { key: 'scene', pro: true },
+    { key: 'video', pro: true },
+    { key: 'own', pro: true },
+  ]);
+  assert.deepEqual(stageBgSourcesOffered({ ownsPro: false, storeShell: true, hasLoops: true }).map((x) => x.key), ['hub', 'colour']);
   assert.equal(BACKGROUND_SOURCE_IS_PRO.scene && BACKGROUND_SOURCE_IS_PRO.own && !BACKGROUND_SOURCE_IS_PRO.colour, true);
   assert.deepEqual([BACKGROUND_SOURCE_LABEL.colour, BACKGROUND_SOURCE_LABEL.scene, BACKGROUND_SOURCE_LABEL.own], ['Colour', 'Scene', 'Upload']);
   /* (The first source's name is a prop since 2026-10-15 — the Cover Scene's reads "The theme's own"; a scene's is

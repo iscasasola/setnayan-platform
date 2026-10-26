@@ -80,18 +80,19 @@ export const RETAIL: RetailRow[] = [
   // retail_price_php, is_active from public.platform_retail_catalog_v2 where
   // service_code = 'COUPLE_WEBSITE_PRO'.
   { service_code: 'COUPLE_WEBSITE_PRO', title: 'Event Hub Pro', retail_price_php: 5000, is_active: true },
-  // 💎 Event Hub Pro, part by part (owner 2026-10-22) — migration 20271282742262 seeds these; re-check with the select above.
-  { service_code: 'COUPLE_HUB_PART_REVEAL', title: 'Event Hub Pro · Reveal', retail_price_php: 1000, is_active: true },
-  { service_code: 'COUPLE_HUB_PART_BACKGROUND', title: 'Event Hub Pro · Background', retail_price_php: 1000, is_active: true },
-  { service_code: 'COUPLE_HUB_PART_PHOTOS', title: 'Event Hub Pro · Photos', retail_price_php: 1000, is_active: true },
-  { service_code: 'COUPLE_HUB_PART_STYLE', title: 'Event Hub Pro · Style', retail_price_php: 1000, is_active: true },
-  { service_code: 'COUPLE_HUB_PART_MOTION', title: 'Event Hub Pro · Motion', retail_price_php: 1000, is_active: true },
-  { service_code: 'COUPLE_HUB_PART_LOGO_QR', title: 'Event Hub Pro · Logo & QR', retail_price_php: 500, is_active: true },
-  { service_code: 'COUPLE_HUB_PART_MUSIC', title: 'Event Hub Pro · Music', retail_price_php: 500, is_active: true },
-  { service_code: 'COUPLE_HUB_PART_PRINTS', title: 'Event Hub Pro · Prints', retail_price_php: 500, is_active: true },
-  { service_code: 'COUPLE_HUB_PART_POST_EVENT', title: 'Event Hub Pro · Post Event', retail_price_php: 500, is_active: true },
-  { service_code: 'COUPLE_HUB_PART_OWN_SCENES', title: 'Event Hub Pro · Your own scenes', retail_price_php: 500, is_active: true },
-  { service_code: 'COUPLE_HUB_PART_ADDRESS', title: 'Event Hub Pro · Custom address', retail_price_php: 500, is_active: true },
+  // 💎 Event Hub Pro, part by part (owner 2026-10-22) — migration 20271282742262 seeds these; OFF SALE since 2026-10-26
+  // (owner: "just have the upgrade event hub pro" — migration 20271290543004). Re-check with the select above.
+  { service_code: 'COUPLE_HUB_PART_REVEAL', title: 'Event Hub Pro · Reveal', retail_price_php: 1000, is_active: false },
+  { service_code: 'COUPLE_HUB_PART_BACKGROUND', title: 'Event Hub Pro · Background', retail_price_php: 1000, is_active: false },
+  { service_code: 'COUPLE_HUB_PART_PHOTOS', title: 'Event Hub Pro · Photos', retail_price_php: 1000, is_active: false },
+  { service_code: 'COUPLE_HUB_PART_STYLE', title: 'Event Hub Pro · Style', retail_price_php: 1000, is_active: false },
+  { service_code: 'COUPLE_HUB_PART_MOTION', title: 'Event Hub Pro · Motion', retail_price_php: 1000, is_active: false },
+  { service_code: 'COUPLE_HUB_PART_LOGO_QR', title: 'Event Hub Pro · Logo & QR', retail_price_php: 500, is_active: false },
+  { service_code: 'COUPLE_HUB_PART_MUSIC', title: 'Event Hub Pro · Music', retail_price_php: 500, is_active: false },
+  { service_code: 'COUPLE_HUB_PART_PRINTS', title: 'Event Hub Pro · Prints', retail_price_php: 500, is_active: false },
+  { service_code: 'COUPLE_HUB_PART_POST_EVENT', title: 'Event Hub Pro · Post Event', retail_price_php: 500, is_active: false },
+  { service_code: 'COUPLE_HUB_PART_OWN_SCENES', title: 'Event Hub Pro · Your own scenes', retail_price_php: 500, is_active: false },
+  { service_code: 'COUPLE_HUB_PART_ADDRESS', title: 'Event Hub Pro · Custom address', retail_price_php: 500, is_active: false },
   // ── THE PAPIC LADDER, owner 2026-08-26 ──────────────────────────────────
   // ⚠ SIXTEEN ROWS, and this fixture is the SECOND hand-typed copy of the
   // catalog that this file's own docblock warns about. When a rung's price or

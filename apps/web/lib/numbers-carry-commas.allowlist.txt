@@ -18,6 +18,7 @@ app/dashboard/[eventId]/guests/page.tsx :: guestsScreen :: TEXT — a React elem
 app/(shell)/papic/_papic-free-credits.tsx :: promise.count :: TEXT — PapicFreeCreditPromise.count is built by points.toLocaleString('en-PH') in lib/papic-free-credit-promise.ts
 app/(shell)/papic/_papic-free-credits.tsx :: promise.count :: TEXT — the second render of the same grouped string
 app/realstories/[slug]/page.tsx :: wedding.guestCount :: TEXT — RealWedding.guestCount is static copy ("120 guests") in lib/real-weddings.ts
+app/admin/categories/_components/four-level-map.tsx :: counts :: TEXT — the Categories page's counts line, a string the server built with formatCount (page.tsx)
 app/vendor-dashboard/services/_components/services-manager.tsx :: congrats.count :: TEXT — buildServiceCardCongrats().count is a sentence ("You now have …"), not a number
 app/_components/card-record-section.tsx :: row.pax :: TEXT — the ledger's coarse pax BAND label, a string (see the file's docblock)
 app/dashboard/[eventId]/sponsors/page.tsx :: tier :: TEXT — a sponsor tier NAME ("Principal"), not a count

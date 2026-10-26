@@ -660,23 +660,11 @@ export function DetailsWorkspace({
     return () => window.cancelAnimationFrame(id);
   }, [formAt, sheetOpen]);
 
-  /* 🧭 STUDIO › PRINTS' PIECE BAR (owner 2026-10-16, `studio-prints-bar.tsx`): only the new Maker's Prints form, only on a
-     phone (the bar is `lg:hidden` — a computer's navigator already lists the pieces). A pick, ‹ and › run `select(k)` and THIS
-     column's own scroll to `[data-details-editor=k]` (the same as `formAt`'s — never `scrollIntoView`, which moves the Maker
-     too): done here as well as by the effect, so a piece already picked but scrolled away from is still brought back. */
+  /* 🎠 STUDIO › PRINTS IS A SWIPE CAROUSEL (owner 2026-10-26, DECISION_LOG "APPROVED — PRINTS IS A SWIPE CAROUSEL"; prototype
+     `prints_carousel_2026-10-26`): only the new Maker's Prints form. Its items' editors stay MOUNTED — hidden, never unmounted (the
+     print words form posts every field; each print registers its slide from there) — and the carousel draws one print per slide in
+     their place, its toolbar under it (`studio-prints-carousel.tsx`). A swipe, ‹ › or a jump picks the item (`select`). */
   const studioPrints = maker?.stagesStudio === true && formGroup?.key === 'prints';
-  const goToPiece = useCallback(
-    (k: DetailsItemKey) => {
-      select(k);
-      window.requestAnimationFrame(() => {
-        const box = editorRef.current;
-        const el = box?.querySelector<HTMLElement>(`[data-details-editor="${k}"]`);
-        if (!box || !el) return;
-        box.scrollTop += el.getBoundingClientRect().top - box.getBoundingClientRect().top - 8;
-      });
-    },
-    [select],
-  );
 
   /** Every item's editor — all mounted, the picked one shown (`hidden` never unmounts: a hidden field still posts). */
   const editorsBody = (whole: boolean) => (
@@ -995,9 +983,9 @@ export function DetailsWorkspace({
             />
           </div>
           <p className="hidden px-4 pt-4 font-serif text-lg text-ink lg:block">{formGroup ? formGroup.label : (current.panelLabel ?? current.label)}</p>
-          {editorsBody(false)}
-          {/* 🧭 Under the form, in the lower third — never over it: the column ends where the bar begins. */}
-          {studioPrints && formGroup ? <StudioTool part="prints-bar" items={formGroup.items} box={editorRef} onGo={goToPiece} at={selected} /> : null}
+          {/* 🎠 Studio › Prints: the editors stay mounted but hidden — the carousel is what shows. */}
+          {editorsBody(studioPrints)}
+          {studioPrints && formGroup ? <StudioTool part="prints-carousel" items={formGroup.items} at={selected} onSelect={select} /> : null}
         </aside>
         )}
         {ltTiles}

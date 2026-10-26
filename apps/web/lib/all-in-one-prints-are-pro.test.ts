@@ -34,6 +34,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import React from 'react';
+import { endSlides, slidesOf } from './prints-slides.test-helper';
+import { GUEST_WORD_TOKEN, guestFileWord } from './studio-prints-settings';
 import { renderSettled } from './render-settled.test-helper';
 import { isAllInOnePrint } from './print-pieces';
 
@@ -178,6 +180,20 @@ test('1d · the DIGITAL TICKET ZIP is served to a free event (2026-10-22): no Pr
   }
 });
 
+/** A slide's files as a press saves them: the ◆ door (and its mark), or the file (named for the first guest on a guest print). */
+function filesOf(slide: { guest?: { one: { file: string }; all: unknown; guests: ReadonlyArray<{ name: string }> | null }; everything?: { all: unknown }; download?: { file: string } | null } | undefined): string {
+  if (!slide) return '';
+  const all = (f: unknown) => {
+    const x = f as { kind: 'save'; file: string; icon?: { props: { state: string } } } | { kind: 'door'; icon: { props: { state: string } } } | null;
+    if (!x) return '';
+    if (x.kind === 'door') return ` data-print-all-in-one-pro="" data-paid-mark="${x.icon.props.state}"`;
+    return ` data-print-save="${x.file}"${x.icon ? ` data-paid-mark="${x.icon.props.state}"` : ''}`;
+  };
+  const first = slide.guest?.guests?.[0];
+  const one = slide.guest && first ? ` data-print-save="${slide.guest.one.file.split(GUEST_WORD_TOKEN).join(guestFileWord(first.name))}"` : '';
+  return `${one}${slide.guest ? all(slide.guest.all) : ''}${slide.everything ? all(slide.everything.all) : ''}${slide.download ? ` data-print-save="${slide.download.file}"` : ''}`;
+}
+
 test('2 · Studio › Prints marks every all-in-one file with the zip’s ◆ pattern; one guest’s file is a plain free Download', async () => {
   const L = '../app/dashboard/[eventId]/launch/_components';
   const { PrintPieceEditor, PrintEverythingStudio, DigitalTicketEditor, PrintSetDownloads, PassCardsPanel, freePrintParts } = await import(`${L}/maker-prints`);
@@ -189,11 +205,20 @@ test('2 · Studio › Prints marks every all-in-one file with the zip’s ◆ pa
       passGuests: [{ id: GUEST, name: 'Ana Reyes', reply: 'attending' as const }, { id: '00000000-0000-4000-8000-000000000102', name: 'Ben Cruz', reply: 'pending' as const }],
       passCardsZip: 'rosa-ben-tickets.zip',
     };
-    const pass = await renderSettled(React.createElement(PrintPieceEditor as never, { input, piece: 'pass', studio: true } as never));
-    const everything = await renderSettled(React.createElement(PrintEverythingStudio as never, { input } as never));
-    const ticket = await renderSettled(React.createElement(DigitalTicketEditor as never, { input } as never));
+    /* 🎠 Studio › Prints is one slide per print (2026-10-26): each print REGISTERS its files, the carousel's Download ▾ saves them.
+       Read them as the files a press saves — the ◆ door and its mark, or the file and its name (the guest's file named for Ana). */
     const free = (freePrintParts as (...a: unknown[]) => Array<{ key: string; editor: React.ReactNode }>)('E1', 'rosa-ben', input, true);
-    const day = await renderSettled(React.createElement(React.Fragment, null, ...free.filter((f) => f.key === 'qr-codes' || f.key === 'seating-pack').map((f) => React.createElement(React.Fragment, { key: f.key }, f.editor))));
+    const slides = await slidesOf([
+      React.createElement(PrintPieceEditor as never, { input, piece: 'pass', studio: true } as never),
+      React.createElement(PrintEverythingStudio as never, { input } as never),
+      React.createElement(DigitalTicketEditor as never, { input } as never),
+      ...free.filter((f) => f.key === 'qr-codes' || f.key === 'seating-pack').map((f) => f.editor),
+    ]);
+    await endSlides();
+    const pass = filesOf(slides.get('pass'));
+    const everything = filesOf(slides.get('download'));
+    const ticket = filesOf(slides.get('digital-ticket'));
+    const day = filesOf(slides.get('qr-codes')) + filesOf(slides.get('seating-pack'));
     /* The shipped Details (the flag off) — its own all-in-one buttons, the same ◆ pattern. */
     const set = await renderSettled(React.createElement(PrintSetDownloads as never, { input } as never));
     const cards = await renderSettled(React.createElement(PassCardsPanel as never, { input } as never));

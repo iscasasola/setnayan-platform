@@ -283,6 +283,8 @@ function SuggestionsRow({
  * everything) sees "Change it" with no price, and saves as before.
  *
  * Every figure is a catalogue read handed in; in the app-store shell a couple without the part sees no paid row.
+ * ⛔ Since 2026-10-26 the part is off sale (owner: "just have the upgrade event hub pro") — no price is handed in, and
+ * the row says Event Hub Pro instead of the part.
  */
 export function AddressField({
   eventId,
@@ -320,6 +322,9 @@ export function AddressField({
   };
   const price = pricePhp !== null ? formatPhp(pricePhp) : null;
   const offered = owns || !storeShell;
+  /* What renaming needs, said where no part is on sale — never named in the store shell (a couple there without the
+     address sees no paid row at all: `offered`). */
+  const needs = storeShell ? null : 'Event Hub Pro';
   return (
     <div data-address-field={owns ? 'owned' : renamed ? 'kept' : 'free'} className="space-y-3">
       <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">Address</p>
@@ -378,7 +383,7 @@ export function AddressField({
                   <>Old links keep working for {slugForwardingLabel()}.</>
                 ) : (
                   <>
-                    <b className="font-semibold text-ink">◆ Goes live when you Apply</b> — Custom address{price ? ` ${price}` : ''}, or everything.
+                    <b className="font-semibold text-ink">◆ Goes live when you Apply</b> — {price ? `Custom address ${price}, or everything.` : `with ${needs}.`}
                     Until then guests use the link above, and it keeps forwarding for {slugForwardingLabel()} after.
                   </>
                 )}
@@ -389,8 +394,8 @@ export function AddressField({
               {owns
                 ? `Your old link keeps forwarding for ${slugForwardingLabel()}.`
                 : renamed
-                  ? `Your current address stays yours for free. Choosing a new one is the Custom address part, or everything. The old one keeps forwarding for ${slugForwardingLabel()}.`
-                  : `Part of everything, too. Your old link keeps forwarding for ${slugForwardingLabel()}.`}
+                  ? `Your current address stays yours for free. Choosing a new one is ${price ? 'the Custom address part, or everything' : `part of ${needs}`}. The old one keeps forwarding for ${slugForwardingLabel()}.`
+                  : `${price ? 'Part of everything, too.' : `Part of ${needs}.`} Your old link keeps forwarding for ${slugForwardingLabel()}.`}
             </p>
           )}
         </div>

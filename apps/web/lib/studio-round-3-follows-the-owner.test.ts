@@ -320,8 +320,8 @@ test('7 · Mood Board: Palette · Attire · Do’s & Don’ts (Inspiration is IN
      "remove entourage"). `four-more-attire-boards.test.ts` draws them. */
   assert.deepEqual(
     attire,
-    [['bride', 'Bridal gown'], ['groom', 'Groom’s suit'], ['bridesmaids', 'Bridesmaids'], ['groomsmen', 'Groomsmen'], ['flower_girl', 'Flower girl'], ['ring_bearer', 'Ring bearer']],
-    'the attire boards are not Bridal gown · Groom’s suit · Bridesmaids · Groomsmen · Flower girl · Ring bearer',
+    [['bride', 'Bridal gown'], ['groom', 'Groom’s attire'], ['bridesmaids', 'Bridesmaids'], ['groomsmen', 'Groomsmen'], ['flower_girl', 'Flower girl'], ['ring_bearer', 'Ring bearer']],
+    'the attire boards are not Bridal gown · Groom’s attire · Bridesmaids · Groomsmen · Flower girl · Ring bearer',
   );
   /* (`AWAITING_A_SLOT` — the list a board without a slot waited in — is gone with step ② of PLAN
      admin_inspiration_groups_2026-10-25: a new board is one inspiration_parts row.) */

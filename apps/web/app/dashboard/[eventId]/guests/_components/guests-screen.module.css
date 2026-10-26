@@ -194,7 +194,14 @@
   background: rgb(var(--color-danger));
 }
 .countDot[data-dot='none'] {
-  background: rgb(var(--color-ink) / 0.14);
+  background: rgb(var(--color-ink) / 0.22);
+}
+/* Dark: the grey of "no reply" (the bar's track and its dot) lifted so it still reads on the dark page. */
+:global(html.dark) .meter {
+  background: rgb(var(--color-ink) / 0.2);
+}
+:global(html.dark) .countDot[data-dot='none'] {
+  background: rgb(var(--color-ink) / 0.34);
 }
 .countsSide {
   margin-top: 10px;

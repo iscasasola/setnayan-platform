@@ -74,7 +74,7 @@ test('2 · "Change my reply" is ON Me — Me’s one Reply, gated like the reply
   assert.ok(!BODY.includes('data-me-change-reply'), 'the separate "Change your reply" bar is back — a second door');
   const at = BODY.indexOf('<MeReply ask={greetingAskOf(meReplyCard)!}');
   assert.ok(at > BODY.indexOf("group('me'"), 'Me has no Reply of its own');
-  const card = BODY.slice(BODY.indexOf('const replyCardHere ='), BODY.indexOf('const meReplyCard ='));
+  const card = BODY.slice(BODY.indexOf('const replyCard ='), BODY.indexOf('const meReplyCard ='));
   assert.match(card, /plan\.rsvpShouldRender/, 'Me’s Reply is not gated on the reply’s own gate — it could point at nothing');
   assert.match(card, /replyCardOf\(\{\s*action: arrivalAction,/, 'Me’s Reply is not the page’s own action (the reply page)');
 });

@@ -12,7 +12,7 @@
  * This guard FAILS if one comes back — each check names a way it would:
  *
  *   1 · NO SWITCH EXISTS — the two flag modules are deleted, and nothing in app/ or lib/ reads the desktop variable;
- *       the stages variable is read by the GUEST side's one helper only (`lib/guest-stages-on.ts`).
+ *       the stages variable is read by nothing (the guest side's helper went 2026-10-26, every guest gets it).
  *   2 · THE SHELL TAKES NO CHOICE — `MakerShell` has no `stagesStudio` / `desktopColumns` prop, and the context it
  *       provides says `stagesStudio: true`, a literal: never a prop, a role or a reading.
  *   3 · NO CALLER HANDS ONE IN — the launch page and the dev lab pass no such prop and import no flag; the launch page's
@@ -58,7 +58,7 @@ test('1 · no switch exists — the flag modules are gone, and only the guest si
     assert.doesNotMatch(src, /\bmaker(StagesStudio|DesktopColumns)Enabled\b|\bmakerChoiceIsUnread\b/, `${rel} asks a Maker flag again`);
     if (/NEXT_PUBLIC_MAKER_STAGES_STUDIO_ENABLED/.test(src)) stagesReaders.push(rel);
   }
-  assert.deepEqual(stagesReaders, ['lib/guest-stages-on.ts'], 'the stages variable is read outside the guest side — is it choosing a Maker again?');
+  assert.deepEqual(stagesReaders, [], 'the stages variable is read again — every guest gets the new side (2026-10-26) and there is one Maker; nothing may choose by it');
 });
 
 test('2 · the shell takes no choice — no prop, and its context says `stagesStudio: true`', () => {

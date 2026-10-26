@@ -17,7 +17,7 @@ async function main() {
   const eventId = siteBodyFixtureProps().event.event_id;
   const host = { capability: 'owner', ownerUserId: 'lab-host', ownerEventId: eventId, maySiteEdit: true } as const;
   const pages: Record<string, string> = {
-    guest: await renderSiteBodyFixture({ guestStages: true, widgets }),
+    guest: await renderSiteBodyFixture({ widgets }),
     host: await renderSiteBodyFixture({ identity: fixtureStranger(), widgets, heroPhotoUrl: 'https://cdn.test/fixture-hero.jpg', ownerCapability: host as never,
       /* 🗳 The host's OWN guest row, not yet answered (owner bug 2026-10-24): the host's Reply card is theirs — it reads
          their row and opens the plain reply page, never the Maker’s sample. */

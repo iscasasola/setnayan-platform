@@ -242,16 +242,22 @@ test('Announcements: nothing kept is the same bytes; a look kept adds its style 
  * Sabotages seen red (each restored): the mark drawn when the panel draws nothing · the mark parted from the wear root.
  */
 
-/** The fixture guest as a ninang the couple dressed (`dress_code_config.roles`), at one of two moments. */
+/** The fixture guest as a ninang the couple dressed (`dress_code_config.roles`), at one of two moments.
+ *  🧭 On the Invitation every guest now gets Me's own parts (owner 2026-10-26, "EVERY GUEST GETS THE NEW GUEST SIDE"), so
+ *  her panel there is Me's `wear` part — drawn when her row's own column has a Wear: a woman, her row's women's Wear. */
 async function dressed(moment: 'Invitation' | 'The Day', looks: unknown, role: string | null = 'principal_sponsor_ninang'): Promise<string> {
   const base = siteBodyFixtureProps();
   const identity = base.identity as unknown as Record<string, unknown> & { guest: Record<string, unknown> };
   return renderSiteBodyFixture({
     ...(moment === 'The Day' ? { dayOfPhase: 'live', lifecyclePhase: 'event' } : {}),
-    identity: { ...identity, guest: { ...identity.guest, role } } as unknown as SiteBodyFixtureProps['identity'],
+    identity: { ...identity, guest: { ...identity.guest, role, ...(moment === 'Invitation' ? { gender: 'woman' } : {}) } } as unknown as SiteBodyFixtureProps['identity'],
     event: {
       ...FIXTURE_EVENT,
-      dress_code_config: { ...(FIXTURE_EVENT.dress_code_config as object), roles: { principal_sponsor_ninang: { style: 'filipiniana' } } },
+      dress_code_config: {
+        ...(FIXTURE_EVENT.dress_code_config as object),
+        roles: { principal_sponsor_ninang: { style: 'filipiniana' } },
+        ...(moment === 'Invitation' ? { women: { groups: { principal_sponsors: { style: 'long_gown' } } } } : {}),
+      },
       ...(looks === undefined ? {} : { style_preferences: { [BLOCK_LOOKS_PREF_KEY]: looks } }),
     } as SiteBodyFixtureProps['event'],
   } as Partial<SiteBodyFixtureProps>);
@@ -259,7 +265,8 @@ async function dressed(moment: 'Invitation' | 'The Day', looks: unknown, role: s
 
 for (const moment of ['Invitation', 'The Day'] as const) {
   test(`What to wear, ${moment}: nothing kept is the same page; a look kept adds the mark right before the guest’s own panel and the one style — and no mark when there is no panel`, async () => {
-    const ROOT = '<section class="space-y-5"><p class="pahina-eyebrow"><span>What to wear</span></p>';
+    /* The Invitation's panel is Me's `wear` part; The Day's is its Welcome's own look. */
+    const ROOT = moment === 'Invitation' ? '<section class="space-y-3" data-me-part="wear">' : '<section class="space-y-5"><p class="pahina-eyebrow"><span>What to wear</span></p>';
     const mark = `<span hidden="" ${BLOCK_MARK_ATTR}="look"></span>`;
     const plain = await dressed(moment, undefined);
     /* Anti-vacuity: this guest's OWN panel is drawn, once (on the Invitation filed in Me; on The Day in its Welcome). */

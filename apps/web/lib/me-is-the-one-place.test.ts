@@ -39,7 +39,7 @@ const meOf = (html: string) => {
 };
 
 test('(1) Me reads who · as what · when and where · their sections · the one Reply · the record and the pills', async () => {
-  const html = await renderSiteBodyFixture({ guestStages: true, identity: asBestWoman() });
+  const html = await renderSiteBodyFixture({ identity: asBestWoman() });
   const me = meOf(html);
   const order = ['data-greeting-eyebrow', 'data-greeting-name', 'data-greeting-role', 'data-greeting-date', 'data-greeting-venues', 'id="me-reply"', 'data-me-foot'];
   let last = -1;
@@ -53,7 +53,7 @@ test('(1) Me reads who · as what · when and where · their sections · the one
 });
 
 test('(2) ONE Reply: the cover’s button is a mark on Me, and no second door is drawn anywhere', async () => {
-  const html = await renderSiteBodyFixture({ guestStages: true, identity: asBestWoman() });
+  const html = await renderSiteBodyFixture({ identity: asBestWoman() });
   const cover = html.slice(html.indexOf('<header data-pahina-first-screen=""'), html.indexOf('</header>', html.indexOf('<header data-pahina-first-screen=""')));
   assert.match(cover, /data-cover-rsvp="ask"[^>]*href="#me-reply"|href="#me-reply"[^>]*data-cover-rsvp="ask"/, 'the cover’s RSVP button does not open Me at its Reply');
   assert.ok(!html.includes('id="site-reply"'), 'the Welcome still draws its own Reply card');
@@ -64,15 +64,10 @@ test('(2) ONE Reply: the cover’s button is a mark on Me, and no second door is
   assert.equal(doors.length, 1, `the page holds ${doors.length} doors into the reply page — one, Me’s, is the rule`);
   const meDoor = meOf(html).indexOf('/invite/reply');
   assert.ok(meDoor > 0, 'the one door is not Me’s');
-  // …and on a page without the new guest side (no cover button): the Welcome's one action opens Me's Reply too.
-  const plain = await renderSiteBodyFixture({ identity: asBestWoman() });
-  const plainDoors = plain.match(/href="[^"]*\/invite\/reply[^"]*"/g) ?? [];
-  assert.equal(plainDoors.length, 1, `without the guest side the page holds ${plainDoors.length} doors into the reply page`);
-  assert.match(plain, /data-arrival-action="ask"[^>]*>\s*<a [^>]*href="#me-reply"/, 'the Welcome’s action does not open Me’s Reply');
 });
 
 test('(3) after a yes: "You’re coming ✓ · Change my reply", in the same spot', async () => {
-  const html = await renderSiteBodyFixture({ guestStages: true, identity: asBestWoman({ rsvp_status: 'attending' }) });
+  const html = await renderSiteBodyFixture({ identity: asBestWoman({ rsvp_status: 'attending' }) });
   const me = meOf(html);
   const foot = me.slice(me.indexOf('id="me-reply"'));
   assert.match(foot, /You’re coming/);

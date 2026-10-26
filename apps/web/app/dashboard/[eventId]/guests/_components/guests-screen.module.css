@@ -81,9 +81,6 @@
 .counts b {
   font-weight: 600;
 }
-.wine {
-  color: rgb(var(--color-mulberry-700));
-}
 .mute {
   color: var(--gs-mute);
 }
@@ -101,21 +98,178 @@
   position: absolute;
   inset: -14px -6px;
 }
+/* ═══ THE COUNTS STRIP — option A (owner 2026-10-26, prototype `guest-counts/index.html` a-390 · a-1280) ═══
+   "Replies ⓘ · N% replied" · the two-colour bar · three big counts with hairlines between, no boxes · the +1s line ·
+   "Invite N ›" (the app's filled brand pill) with "⤓ Excel" (the outlined neutral pill) beside it. Phone: one column,
+   Invite fills the row. From 1024: the counts block left, the +1s line and the two buttons right. */
+.strip {
+  margin: 12px 0 2px;
+  color: var(--gs-ink);
+}
+.countsTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+.countsTitle {
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--gs-ink);
+}
 .meter {
-  position: relative;
-  height: 6px;
-  border-radius: var(--m-r-xs);
-  background: var(--gs-line);
+  display: flex;
+  height: 10px;
+  border-radius: var(--m-r-full);
+  background: rgb(var(--color-ink) / 0.14);
   overflow: hidden;
-  margin-top: 10px;
+}
+.meterFill,
+.meterNo {
+  height: 100%;
+  flex: none;
 }
 .meterFill {
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
   background: var(--gs-ok);
 }
+.meterNo {
+  background: rgb(var(--color-danger));
+}
+.countsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 12px;
+  border-top: 1px solid var(--gs-line);
+}
+/* A count — one door, 44 px tall at the least, the number large and its word under it. */
+.countBig {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 0;
+  padding: 10px 0 6px;
+  text-align: left;
+  color: var(--gs-ink);
+}
+.countBig + .countBig {
+  border-left: 1px solid var(--gs-line);
+  padding-left: 14px;
+}
+.countBig > b {
+  font-size: 26px;
+  font-weight: 650;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.countWord {
+  font-size: 13px;
+  color: var(--gs-mute);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+/* Pressed = its filter is on: the word takes the ink and an underline, the way the old line's door read. */
+.countBig[aria-pressed='true'] .countWord {
+  color: var(--gs-ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.countDot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--m-r-full);
+  margin-right: 6px;
+  vertical-align: 1px;
+}
+.countDot[data-dot='attending'] {
+  background: var(--gs-ok);
+}
+.countDot[data-dot='declined'] {
+  background: rgb(var(--color-danger));
+}
+.countDot[data-dot='none'] {
+  background: rgb(var(--color-ink) / 0.14);
+}
+.countsSide {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--gs-line);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.plusLine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  min-height: 32px;
+  font-size: 13.5px;
+  color: var(--gs-mute);
+}
+.plusLine .countsDoor {
+  color: var(--gs-ink);
+}
+.plusLine b {
+  font-weight: 500;
+}
+.countsActs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+:is(a).invite {
+  flex: 1 1 auto;
+  height: 44px;
+  font-size: 15px;
+  font-weight: 600;
+}
+:is(a).excel {
+  height: 44px;
+  font-size: 13.5px;
+}
+.excel svg,
+.invite svg {
+  width: 16px;
+  height: 16px;
+}
+.allInvited {
+  flex: 1 1 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  font-size: 13.5px;
+}
+.allInvited svg {
+  width: 16px;
+  height: 16px;
+  color: var(--gs-ok);
+}
+@media (min-width: 1024px) {
+  .strip {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: 28px;
+    align-items: end;
+  }
+  .countsSide {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: 0;
+    gap: 6px;
+  }
+  :is(a).invite {
+    flex: 0 0 auto;
+  }
+}
+/* Used by People (`people-roster-view.tsx` imports this sheet as `gs`) for its quiet notes. */
 .replied {
   font-size: 12px;
   margin: 5px 0 0;
@@ -124,18 +278,6 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-}
-/* 📥 Download as Excel — one tap from the list, a plain door in the replied line (no frame: it is a link). */
-.export {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  color: rgb(var(--color-mulberry-700));
-  font-weight: 500;
-}
-.export svg {
-  width: 14px;
-  height: 14px;
 }
 
 /* ═══ a plain row (requests to join) ═══ */
@@ -894,7 +1036,7 @@ button.node {
 }
 /* A failed copy is dimmed — the counts and the rows, never the line that says why. */
 .screen[data-guests-copy='failed'] .counts,
-.screen[data-guests-copy='failed'] .meter,
+.screen[data-guests-copy='failed'] .strip,
 .screen[data-guests-copy='failed'] .replied,
 .screen[data-guests-copy='failed'] [data-guest-rows] {
   opacity: 0.6;
@@ -908,6 +1050,12 @@ button.countsDoor {
   min-height: 0; /* the 44 px target is the door's ::after (above), as "to invite" — the line keeps its height */
   font: inherit;
   color: inherit;
+  cursor: pointer;
+}
+button.countBig {
+  background: none;
+  border: 0;
+  font: inherit;
   cursor: pointer;
 }
 button.countsDoor[aria-pressed='true'] {

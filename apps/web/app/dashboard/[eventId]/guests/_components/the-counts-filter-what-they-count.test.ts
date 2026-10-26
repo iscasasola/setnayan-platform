@@ -92,7 +92,7 @@ test('1b · the screen draws each count as a door holding its number; "to invite
   const r = roster(3);
   const stats = rosterStats(r);
   const html = await renderGuestsScreen({ guests: r });
-  for (const [f, n, word] of [['attending', stats.yes, 'attending'], ['declined', stats.no, 'not coming'], ['none', stats.none, 'no reply']] as const) {
+  for (const [f, n, word] of [['attending', stats.yes, 'Attending'], ['declined', stats.no, 'Not coming'], ['none', stats.none, 'No reply']] as const) {
     const m = new RegExp(`<button[^>]*data-reply-filter="${f}"[^>]*>([\\s\\S]*?)</button>`).exec(html);
     assert.ok(m, `the "${word}" count is not a door`);
     assert.equal(m![1]!.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim(), `${n} ${word}`);

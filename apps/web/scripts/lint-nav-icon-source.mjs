@@ -8,7 +8,7 @@
  *   "Every nav-chrome surface sources its menu LABEL + ICON from the registry,
  *    not from a private hardcoded list. The registry is the single import."
  *
- * Two checks, both fail the build:
+ * Three checks, all fail the build:
  *
  *   (A) DELEGATION — every canonical nav-chrome chokepoint (the per-doorway
  *       sidebars + bottom navs + the public marketing top-nav) MUST consume the
@@ -20,6 +20,9 @@
  *   (B) PLUMBING INTEGRITY — the registry's own central files must still export
  *       the resolver + defaults + icon converter the chokepoints depend on. This
  *       stops a future edit from gutting the registry out from under them.
+ *
+ *   (C) THROUGH THE MAP (brand refresh step 3, 2026-10-26) — the registry's icon resolvers draw
+ *       through app/_components/icon/icon-map.ts and never import an icon library themselves.
  *
  * IMPORTANT — this is a POSITIVE delegation guard, NOT a "ban lucide-react in
  * nav files" rule. The wired chokepoints INTENTIONALLY import a handful of
@@ -85,7 +88,25 @@ const PLUMBING = [
   ['lib/nav-registry-defaults.ts', ['NAV_SLOT_DEFAULTS']],
   ['app/_components/nav/nav-icon-component.tsx', ['export function navIconComponent']],
   ['app/_components/nav/dynamic-icon.tsx', []],
+  // BRAND REFRESH STEP 3 (owner 2026-10-26): the registry's icons are drawn by the ONE icon map, and
+  // stored lucide names reach it through the translation table — so switching icon sets is an edit to
+  // icon-map.ts, and a row that stores "Users" follows it with no data migration.
+  ['lib/nav-icons.ts', ["from '@/app/_components/icon/legacy-icon-names'"]],
+  ['app/_components/icon/icon-map.ts', ['export const GLYPHS', 'export const ICONS', 'export type IconComponent']],
+  ['app/_components/icon/legacy-icon-names.ts', ['export const LEGACY_ICON_NAMES', 'export function glyphForStoredName']],
+  ['app/_components/icon/icon.tsx', ['export function Icon']],
 ];
+
+// (C) The registry's resolvers read icons THROUGH THE MAP (step 3) — none of them may import an icon
+// library again. (The app-wide ratchet on every other importer is lint-icon-source.mjs.)
+const THROUGH_THE_MAP = [
+  'lib/nav-icons.ts',
+  'app/_components/nav/nav-icon-component.tsx',
+  'app/_components/nav/dynamic-icon.tsx',
+  'lib/nav-line-icon.ts',
+  'lib/taxonomy-icon-name.ts',
+];
+const ICON_LIB_RE = /from\s+['"](?:lucide-react|@carbon\/icons-react)(?:\/[^'"]*)?['"]/;
 
 const errors = [];
 
@@ -126,6 +147,23 @@ for (const [rel, markers] of PLUMBING) {
           `    → the nav chokepoints depend on it; restore it or get owner sign-off.`,
       );
     }
+  }
+}
+
+// (C) Through the map.
+for (const rel of THROUGH_THE_MAP) {
+  let src;
+  try {
+    src = readFileSync(join(WEB_ROOT, rel), 'utf8');
+  } catch {
+    errors.push(`Registry icon resolver is missing at ${rel}.`);
+    continue;
+  }
+  if (ICON_LIB_RE.test(src)) {
+    errors.push(
+      `${rel} imports an icon library directly. The registry draws through app/_components/icon/icon-map.ts\n` +
+        `    → use GLYPHS / glyphForStoredName (legacy-icon-names.ts) so an icon-set switch stays one file.`,
+    );
   }
 }
 

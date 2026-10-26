@@ -18,7 +18,7 @@
  * both import it.
  */
 
-import type { LucideIcon } from 'lucide-react';
+import type { IconComponent as LucideIcon } from '@/app/_components/icon/icon-map';
 import { getLucideIcon } from '@/lib/nav-icons';
 import type { NavIconDescriptor, NavSlotLite } from '@/lib/nav-registry-types';
 

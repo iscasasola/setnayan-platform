@@ -2,8 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import { Circle } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+import { GLYPHS, type IconComponent as LucideIcon } from '@/app/_components/icon/icon-map';
 import type { CSSProperties } from 'react';
 import { getLucideIcon } from '@/lib/nav-icons';
 import { SetnayanMark } from '@/app/_components/setnayan-mark-icon';
@@ -57,5 +56,5 @@ export function navIconComponent(icon: NavIconDescriptor): LucideIcon {
     if (icon.customUrl) return imgIcon(icon.customUrl);
     return NullIcon;
   }
-  return (getLucideIcon(icon.lucideName) ?? Circle) as LucideIcon;
+  return (getLucideIcon(icon.lucideName) ?? GLYPHS.circle) as LucideIcon;
 }

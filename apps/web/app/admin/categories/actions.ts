@@ -37,7 +37,8 @@ import {
   unretireEventTypeCore,
 } from '@/lib/event-types-mutations';
 import { FAITH_REGISTRY } from '@/lib/faith-registry';
-import { WEDDING_TILE_ORDER } from '@/lib/taxonomy';
+import { logQueryError } from '@/lib/supabase/error-detect';
+import { secondaryTilesVerdict } from './_components/model';
 import { formatCount } from '@/lib/format-number';
 import { recordCollectedTradePhrase } from '@/lib/service-trade-aliases-db';
 import { CATEGORIES_PATH, backHref, type BackState } from './_components/back';
@@ -2499,9 +2500,11 @@ export async function setServiceFlag(formData: FormData): Promise<never> {
 
 /**
  * Admin: set a canonical's `secondary_tiles` (cross-listing on additional tiles
- * beyond its home tile). Values are validated against the live tile catalog
- * (WEDDING_TILE_ORDER) — the home tile is excluded (it's not a "secondary").
- * Empty selection clears the array to NULL. Audit-logged, redirect-back.
+ * beyond its home tile). Values are validated against the LIVE tier-2
+ * `service_categories` rows (`secondaryTilesVerdict`, model.ts) — so a category
+ * created on this page can be cross-listed onto at once — and the home tile is
+ * excluded (it's not a "secondary"). Empty selection clears the array to `{}`.
+ * Audit-logged, redirect-back.
  */
 export async function setServiceSecondaryTiles(formData: FormData): Promise<never> {
   const user = await requireAdmin();
@@ -2524,16 +2527,25 @@ export async function setServiceSecondaryTiles(formData: FormData): Promise<neve
     .maybeSingle();
   if (!before) redirectBack(formData, 'error', 'Canonical not found.');
 
-  // Validate every selected tile is a real tile; never let the home tile be its
-  // own secondary.
-  const validTiles = new Set<string>(WEDDING_TILE_ORDER as readonly string[]);
-  const homeTile = (before as { tile_id: string | null }).tile_id;
-  const cleaned = selected.filter((t) => t !== homeTile);
-  const unknown = cleaned.filter((t) => !validTiles.has(t));
-  if (unknown.length > 0) {
-    redirectBack(formData, 'error', 'Unknown category(s): ' + unknown.join(', '));
+  // Validate every selected tile against the categories that exist NOW (one source:
+  // the same tier-2 rows the page offers); never let the home tile be its own secondary.
+  const { data: liveCats, error: catsError } = await admin
+    .from('service_categories')
+    .select('id')
+    .eq('tier', 2);
+  if (catsError || !liveCats) {
+    logQueryError('admin/categories/actions.ts: setServiceSecondaryTiles service_categories', catsError);
+    redirectBack(formData, 'error', 'Could not read the categories — nothing was changed.');
   }
-  const next = cleaned.length > 0 ? cleaned.sort() : null;
+  const verdict = secondaryTilesVerdict(
+    selected,
+    (before as { tile_id: string | null }).tile_id,
+    (liveCats as { id: string }[]).map((c) => c.id),
+  );
+  if (!verdict.ok) {
+    redirectBack(formData, 'error', 'Unknown category(s): ' + verdict.unknown.join(', '));
+  }
+  const next = verdict.next;
 
   const { error } = await admin
     .from('canonical_service_taxonomy')
@@ -2545,7 +2557,7 @@ export async function setServiceSecondaryTiles(formData: FormData): Promise<neve
     action: 'taxonomy.set_secondary_tiles',
     target_table: 'canonical_service_taxonomy',
     target_id: canonical,
-    before_json: { secondary_tiles: (before as { secondary_tiles: string[] | null }).secondary_tiles ?? null },
+    before_json: { secondary_tiles: (before as { secondary_tiles: string[] | null }).secondary_tiles ?? [] },
     after_json: { secondary_tiles: next },
     actor_user_id: user.id,
   });
@@ -2554,7 +2566,9 @@ export async function setServiceSecondaryTiles(formData: FormData): Promise<neve
   redirectBack(
     formData,
     'ok',
-    next ? `Cross-listed on ${next.length} more ${next.length === 1 ? 'tile' : 'tiles'}.` : 'Cross-listing cleared.',
+    next.length > 0
+      ? `Cross-listed on ${next.length} more ${next.length === 1 ? 'tile' : 'tiles'}.`
+      : 'Cross-listing cleared.',
   );
 }
 

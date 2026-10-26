@@ -315,7 +315,7 @@ export function StudioPrintsCarousel({
                   onClick={() => go(pieces.indexOf(p))}
                   className={`sn-press flex min-h-11 w-full items-center gap-2.5 rounded-xl px-3 text-left text-[14px] text-ink ${on ? 'bg-cream font-bold shadow-[inset_0_0_0_1px_rgb(var(--color-ink)/0.1)]' : ''}`}
                 >
-                  <span aria-hidden style={{ aspectRatio: String(a), width: a >= 1 ? 26 : 20 }} className="shrink-0 rounded-[3px] border border-ink/20 bg-white" />
+                  <span aria-hidden style={{ aspectRatio: String(a), width: a >= 1 ? 26 : 20 }} className="shrink-0 rounded-sm border border-ink/20 bg-white" />
                   <span className="min-w-0 truncate">{p.label}</span>
                 </button>
               );
@@ -478,7 +478,7 @@ function Slide({
             data-prints-paper={piece.key}
             data-prints-paper-state={near ? shown.status : 'far'}
             style={{ aspectRatio: String(aspect), width: `min(100cqw, calc(100cqh * ${aspect}), ${cap}px)` }}
-            className={`relative overflow-hidden shadow-[0_14px_34px_-14px_rgba(30,26,18,.45),0_1px_0_rgba(0,0,0,.05)] ${near && shown.status === 'error' ? 'bg-cream ring-1 ring-ink/10' : 'bg-white'} ${aspect === 1 || piece.key === 'digital-ticket' ? 'rounded-[10px]' : 'rounded-[4px]'}`}
+            className={`relative overflow-hidden shadow-[0_14px_34px_-14px_rgba(30,26,18,.45),0_1px_0_rgba(0,0,0,.05)] ${near && shown.status === 'error' ? 'bg-cream ring-1 ring-ink/10' : 'bg-white'} ${aspect === 1 || piece.key === 'digital-ticket' ? 'rounded-md' : 'rounded-sm'}`}
           >
             {near && shown.status === 'loaded' && shown.loaded ? (
               // eslint-disable-next-line @next/next/no-img-element -- the print's own picture from its route (an SVG/PNG/JPEG blob)

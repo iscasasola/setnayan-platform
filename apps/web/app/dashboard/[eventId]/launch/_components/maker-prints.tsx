@@ -352,10 +352,10 @@ export function PrintPieceEditor({
   menu?: { saved: MenuMoment[]; caterer: MenuMoment[]; suggestions: string[]; flash: 'saved' | 'error' | null };
   children?: React.ReactNode;
   /**
-   * 🧭 The new Maker's Studio › Prints — ONE LIST (prototype `EDITORS.prints`, owner 2026-10-06
-   * "yes add prints as the eleventh tile"): the piece's name and sizes on the left, its size ▾ on the
-   * right, its Saves right under it as small buttons, then what it includes. Same pickers, same
-   * files, same switches — only the order and the look change.
+   * 🧭 The new Maker's Studio › Prints — ONE PRINT PER SLIDE since 2026-10-26 (owner: *"So we can make like a swipe
+   * carousel type where they can see the preview larger then under is the toolbar to pick style? and download options?"*;
+   * prototype `prints_carousel_2026-10-26`): the piece's parts REGISTER its slide — its name, its chosen size, its size ▾,
+   * its picture, its ONE Download — and `studio-prints-carousel.tsx` draws it. Same pickers, same files, same switches.
    */
   studio?: boolean;
 }) {

@@ -9,10 +9,10 @@ import {
   recomputeReceptionAnchor,
   userHostsEvent,
 } from '@/lib/events';
-import { VENDOR_CATEGORIES, type VendorCategory } from '@/lib/vendors';
-import { vendorCategoryForLeaf } from '@/lib/vendor-packages';
 import type { CoarseCategorySource } from '@/lib/vendor-branch-category';
 import { getTaxonomy } from '@/lib/taxonomy-db';
+import { VENDOR_CATEGORIES, type VendorCategory } from '@/lib/vendors';
+import { vendorCategoryForLeaf } from '@/lib/vendor-packages';
 import { canonicalServicesForTile } from '@/lib/vendor-counts';
 import { cardForTile, type ShopCard } from '@/lib/bench-save-card';
 import type { WeddingTile } from '@/lib/taxonomy';
@@ -257,6 +257,8 @@ export async function saveVendorToPicks(formData: FormData): Promise<SaveVendorR
   */
   const tile = String(formData.get('tile') ?? '').trim();
   let tileCard: ShopCard | null = null;
+  // ③0-c — the coarse category a category files its shops under is the LIVE column.
+  const coarseSource = await getTaxonomy();
   if (tile) {
     const { data: cards } = await admin
       .from('vendor_services')
@@ -265,8 +267,6 @@ export async function saveVendorToPicks(formData: FormData): Promise<SaveVendorR
       .eq('is_active', true);
     tileCard = cardForTile((cards ?? []) as ShopCard[], tile, canonicalServicesForTile(tile as WeddingTile));
   }
-  // ③0-c — the coarse category a category files its shops under is the LIVE column.
-  const coarseSource = await getTaxonomy();
   const tileCategory: VendorCategory | null = (() => {
     if (!tileCard?.category) return null;
     const c = vendorCategoryForLeaf(tileCard.category, tile, coarseSource);

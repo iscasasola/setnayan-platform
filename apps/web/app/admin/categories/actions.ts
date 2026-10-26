@@ -38,13 +38,13 @@ import {
 } from '@/lib/event-types-mutations';
 import { FAITH_REGISTRY } from '@/lib/faith-registry';
 import { WEDDING_TILE_ORDER } from '@/lib/taxonomy';
-import { getTaxonomy } from '@/lib/taxonomy-db';
-import { deletionWouldBreakCoupleLinks } from '@/lib/vendor-category-taxonomy';
-import { VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
 import { formatCount } from '@/lib/format-number';
 import { recordCollectedTradePhrase } from '@/lib/service-trade-aliases-db';
 import { CATEGORIES_PATH, backHref, type BackState } from './_components/back';
 import { clearHomeShelf } from '@/lib/home-shelf-clear';
+import { getTaxonomy } from '@/lib/taxonomy-db';
+import { deletionWouldBreakCoupleLinks } from '@/lib/vendor-category-taxonomy';
+import { VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
 
 const BASE = CATEGORIES_PATH;
 /** The onboarding read path (getOnboardingRefinements is DB-first) renders here —

@@ -192,7 +192,7 @@ test('1 · the SQL door is the tables — and, on today’s data, the TS map it 
   }
 
   /* (c) The cross-view's ten keys are the TS const's ten keys — two copies, held equal until ③0-a makes them rows. */
-  const fb = (await db.query<{ k: string }>(`SELECT public.inspiration_category_services('filipiniana_barongs') AS k`)).rows.map((r) => r.k).sort();
+  const fb = (await db.query<{ k: string }>(`SELECT p.canonical_service AS k FROM public.inspiration_category_service_pairs() p WHERE p.category_id = 'filipiniana_barongs'`)).rows.map((r) => r.k).sort();
   assert.deepEqual(fb, [...FILIPINIANA_BARONG_CANONICALS].sort(), 'the SQL Filipiniana & Barongs list drifted from FILIPINIANA_BARONG_CANONICALS');
 });
 

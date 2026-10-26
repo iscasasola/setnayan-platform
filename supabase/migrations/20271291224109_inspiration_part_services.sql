@@ -12,8 +12,8 @@
 --   1 · `inspiration_category_service_pairs()` — every tier-2 category with every shop
 --       service that supplies it, ONE rule (not marketplace-hidden; tile_id or
 --       secondary_tiles; + the Filipiniana & Barongs cross-view list until ③0-a writes it
---       as rows). ③0-b's `inspiration_category_services(category)` now reads it, so the
---       rule is written once.
+--       as rows). ③0-b's `inspiration_category_services(category)` loses its last caller here
+--       and is DROPPED (§ 6), so the rule is written once.
 --   2 · `inspiration_part_services(slot_key, canonical_service, sort_order)` — RLS at
 --       CREATE TABLE exactly as step ① (authenticated SELECT; no write policy — writes go
 --       through the service role behind requireAdmin(), as /admin/categories does).
@@ -79,21 +79,11 @@ $$;
 COMMENT ON FUNCTION public.inspiration_category_service_pairs() IS
   'Every tier-2 category with every shop service that supplies it — not marketplace_hidden, '
   'tile_id or secondary_tiles (the deriveBuckets rule), plus the Filipiniana & Barongs '
-  'cross-view until ③0-a. The one rule behind inspiration_category_services, the ③a backfill '
-  'and inspiration_part_derived_categories.';
+  'cross-view until ③0-a. The one rule behind the ③a backfill and '
+  'inspiration_part_derived_categories.';
 
 REVOKE ALL ON FUNCTION public.inspiration_category_service_pairs() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.inspiration_category_service_pairs() TO authenticated;
-
-CREATE OR REPLACE FUNCTION public.inspiration_category_services(
-  p_category_id TEXT
-) RETURNS SETOF TEXT
-LANGUAGE sql
-STABLE
-SET search_path = public
-AS $$
-  SELECT p.canonical_service FROM public.inspiration_category_service_pairs() p WHERE p.category_id = p_category_id;
-$$;
 
 -- ── 2 · The link table ──────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.inspiration_part_services (
@@ -326,6 +316,10 @@ COMMENT ON FUNCTION public.inspiration_suggestion_services(TEXT) IS
 REVOKE ALL ON FUNCTION public.inspiration_suggestion_services(TEXT) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.inspiration_suggestion_services(TEXT) FROM anon;
 GRANT EXECUTE ON FUNCTION public.inspiration_suggestion_services(TEXT) TO authenticated;
+
+-- ③0-b's one-category helper has no caller left: the backfill and the derivation read the pairs, the door reads the
+-- link table. Dropped rather than left as an orphan RPC (ugat-both-ends.db.test.ts).
+DROP FUNCTION IF EXISTS public.inspiration_category_services(TEXT);
 
 -- ── 7 · Two recorded calls: Groom's attire · Entourage hidden ───────────────
 UPDATE public.inspiration_parts SET label_en = 'Groom’s attire'

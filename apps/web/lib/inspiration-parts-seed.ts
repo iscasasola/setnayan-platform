@@ -27,6 +27,7 @@ import { MOODBOARD_SLOT_KEYS, type MoodboardSlotKey } from './moodboard-slots';
 import { MOODBOARD_SLOT_TRADES } from './moodboard-gallery';
 import { libraryPartLabel } from './moodboard-gallery-upload';
 import { LEGACY_PALETTE_BOARDS, libraryPhotoParts } from './inspiration-slots';
+import { fallbackInspirationParts } from './inspiration-parts';
 
 export type InspirationPartSeedRow = {
   slotKey: MoodboardSlotKey;
@@ -43,8 +44,11 @@ export const SYSTEM_PART_KEYS: readonly MoodboardSlotKey[] = ['palette'];
 const SYSTEM_PART_LABEL: Readonly<Record<string, string>> = { palette: 'Palette' };
 
 export function inspirationPartsSeed(): InspirationPartSeedRow[] {
+  // 🧩 THE SEED IS GENERATED FROM THE CONSTS — so it names `fallbackInspirationParts()` on purpose (③0-b: the
+  // helpers no longer default to it; a caller reading the consts says so where a reviewer can see it).
+  const consts = fallbackInspirationParts();
   const order: MoodboardSlotKey[] = [];
-  for (const p of libraryPhotoParts()) if (!order.includes(p.key)) order.push(p.key);
+  for (const p of libraryPhotoParts(consts)) if (!order.includes(p.key)) order.push(p.key);
   for (const k of MOODBOARD_SLOT_KEYS) if (!order.includes(k) && !SYSTEM_PART_KEYS.includes(k)) order.push(k);
   for (const k of SYSTEM_PART_KEYS) order.push(k);
   if (order.length !== MOODBOARD_SLOT_KEYS.length) throw new Error('inspiration parts seed: the order lost or doubled a key');
@@ -52,7 +56,7 @@ export function inspirationPartsSeed(): InspirationPartSeedRow[] {
   return order.map((slotKey, i) => {
     const system = SYSTEM_PART_KEYS.includes(slotKey);
     const [home, ...also] = MOODBOARD_SLOT_TRADES[slotKey];
-    const label = system ? SYSTEM_PART_LABEL[slotKey] : libraryPartLabel(slotKey);
+    const label = system ? SYSTEM_PART_LABEL[slotKey] : libraryPartLabel(slotKey, consts);
     if (!label) throw new Error(`inspiration parts seed: ${slotKey} has no name`);
     if (!system && !home) throw new Error(`inspiration parts seed: ${slotKey} has no supplying trade`);
     return {

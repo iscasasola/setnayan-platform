@@ -1,6 +1,7 @@
 import { libraryPhotoParts, type PhotoPart } from './inspiration-slots';
 import { slotUploadVerdict } from './moodboard-gallery-upload';
 import { tradeLabelForCredit } from './moodboard-gallery';
+import type { InspirationPartsSnapshot } from './inspiration-parts';
 
 /**
  * lib/inspiration-suggestion-parts.ts — 🤝🖼 WHICH OF THE COUPLE'S PARTS A BOOKED SUPPLIER MAY SUGGEST PHOTOS TO
@@ -15,11 +16,18 @@ import { tradeLabelForCredit } from './moodboard-gallery';
  * 20271279311294) and `a-supplier-suggests-only-to-its-own-parts.db.test.ts` fails when the two disagree.
  *
  * Server-side (it reads the taxonomy); the board receives the answer as keys.
+ *
+ * 🧩 Both functions take the parts snapshot (`await getInspirationParts()`) as a REQUIRED argument (③0-b, PLAN
+ * `admin_taxonomy_four_levels_2026-10-26` § 8.3) — before it they read the consts, so a part an admin re-homed or
+ * hid kept its old suppliers here while the couple's picker moved.
  */
 
 /** Every couple part this shop may suggest a photo to, in the couple's order. */
-export function suggestablePartsForShop(services: readonly string[] | null | undefined): PhotoPart[] {
-  return libraryPhotoParts().filter((p) => slotUploadVerdict(p.key, services).allowed);
+export function suggestablePartsForShop(
+  services: readonly string[] | null | undefined,
+  parts: InspirationPartsSnapshot,
+): PhotoPart[] {
+  return libraryPhotoParts(parts).filter((p) => slotUploadVerdict(p.key, services, parts).allowed);
 }
 
 /**
@@ -27,8 +35,12 @@ export function suggestablePartsForShop(services: readonly string[] | null | und
  * that the board draws FIRST (`firstOwnPart`), from the shop's own services (`tradeLabelForCredit` — never the slot's
  * first tile as a stand-in), "Stylist / Decorator" said as "Stylist". `null` when no part is this shop's.
  */
-export function supplierTradeWord(services: readonly string[] | null | undefined, slotKey: string | null): string | null {
+export function supplierTradeWord(
+  services: readonly string[] | null | undefined,
+  slotKey: string | null,
+  parts: InspirationPartsSnapshot,
+): string | null {
   if (!slotKey) return null;
-  const label = tradeLabelForCredit(slotKey, services);
+  const label = tradeLabelForCredit(slotKey, services, parts);
   return label ? (label.split(' / ')[0] ?? label) : null;
 }

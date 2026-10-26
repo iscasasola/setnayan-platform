@@ -43,7 +43,7 @@ import type { WeddingTile } from './taxonomy';
 /* Pure and client-safe too (its only value import is `./mood-board`), so this file stays reachable from the client. */
 import { CAKE_LANE_PARTS, FLORIST_LANE_PARTS, ROOM_LANE_PARTS, type LanePart } from './colour-access';
 /* Pure and client-safe as well (values only from `./moodboard-slots`). */
-import { fallbackInspirationParts, inspirationPart, type InspirationPartsSnapshot } from './inspiration-parts';
+import { inspirationPart, type InspirationPartsSnapshot } from './inspiration-parts';
 
 /** Which lane a slot's palette paints when the couple taps "Use for …". */
 export type SlotPaletteTarget =
@@ -119,7 +119,7 @@ export const STUDIO_INSPIRATION_SLOTS: readonly StudioInspirationSlot[] = [
      🧒 Flower girl · Ring bearer: no palette button. The two share ONE palette (`bearers_flower_girl`),
      so "use this board's colours" from either would overwrite the other's — shown, never applied. */
   { slotKey: 'bride', label: 'Bridal gown', from: 'gown designers and make-up artists', target: { kind: 'role', key: 'bride' }, useLabel: 'Use for the bride’s colours', attire: true },
-  { slotKey: 'groom', label: 'Groom’s suit', from: 'suit and barong makers', target: { kind: 'none' }, useLabel: null, attire: true },
+  { slotKey: 'groom', label: 'Groom’s attire', from: 'suit and barong makers', target: { kind: 'none' }, useLabel: null, attire: true },
   { slotKey: 'bridesmaids', label: 'Bridesmaids', from: 'dress and Filipiniana makers', target: { kind: 'role', key: 'bridesmaids' }, useLabel: 'Use for the bridesmaids', attire: true },
   { slotKey: 'groomsmen', label: 'Groomsmen', from: 'suit and barong makers', target: { kind: 'role', key: 'groomsmen' }, useLabel: 'Use for the groomsmen', attire: true },
   { slotKey: 'flower_girl', label: 'Flower girl', from: 'dress and Filipiniana makers', target: { kind: 'none' }, useLabel: null, attire: true, beside: 'bearers_flower_girl' },
@@ -245,12 +245,12 @@ function studioPhotoParts(parts: InspirationPartsSnapshot, includeHidden: boolea
 }
 
 /** The couple's "Which part?": Venue & decor, then every Palette part with a board — named, ordered and offered by the snapshot. */
-export function palettePhotoParts(parts: InspirationPartsSnapshot = fallbackInspirationParts()): PhotoPart[] {
+export function palettePhotoParts(parts: InspirationPartsSnapshot): PhotoPart[] {
   return studioPhotoParts(parts, false, false);
 }
 
-/** The Palette's parts, then the Attire boards (Bridal gown · Groom’s suit · Bridesmaids · …) — the supplier's order. */
-export function libraryPhotoParts(parts: InspirationPartsSnapshot = fallbackInspirationParts()): PhotoPart[] {
+/** The Palette's parts, then the Attire boards (Bridal gown · Groom’s attire · Bridesmaids · …) — the supplier's order. */
+export function libraryPhotoParts(parts: InspirationPartsSnapshot): PhotoPart[] {
   return studioPhotoParts(parts, true, true);
 }
 

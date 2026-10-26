@@ -23,6 +23,7 @@ import {
 } from './moodboard-gallery-upload';
 import { TIER_CAPS, tierCaps } from './vendor-tier-caps';
 import { GALLERY_SLOT_KEYS, canonicalServicesForSlot } from './moodboard-gallery';
+import { fallbackInspirationParts } from './inspiration-parts';
 
 /* ══════════════════════════════════════════════════════════════════════════
    THE TRADE GATE — the lock that kept this page unused since May 2026
@@ -39,26 +40,26 @@ test('the supplying trades can upload — not just reception_decor', () => {
     ['cocktail', 'mobile_bar'],
   ];
   for (const [slot, tile] of cases) {
-    const services = canonicalServicesForSlot(slot);
+    const services = canonicalServicesForSlot(slot, fallbackInspirationParts());
     assert.ok(
       services.length > 0,
       `${slot} should have canonical services (via ${tile})`,
     );
-    const verdict = slotUploadVerdict(slot, services);
+    const verdict = slotUploadVerdict(slot, services, fallbackInspirationParts());
     assert.equal(verdict.allowed, true, `${slot} should admit its own trades`);
   }
 });
 
 test('a florist cannot upload into the cake shelf', () => {
-  const floristServices = canonicalServicesForSlot('flowers');
-  const verdict = slotUploadVerdict('cake', floristServices);
+  const floristServices = canonicalServicesForSlot('flowers', fallbackInspirationParts());
+  const verdict = slotUploadVerdict('cake', floristServices, fallbackInspirationParts());
   assert.equal(verdict.allowed, false);
   if (!verdict.allowed) assert.equal(verdict.reason, 'wrong_trade');
 });
 
 test('palette admits nobody — a colour reference is no shop’s portfolio', () => {
-  const everyService = GALLERY_SLOT_KEYS.flatMap((k) => canonicalServicesForSlot(k));
-  const verdict = slotUploadVerdict('palette', everyService);
+  const everyService = GALLERY_SLOT_KEYS.flatMap((k) => canonicalServicesForSlot(k, fallbackInspirationParts()));
+  const verdict = slotUploadVerdict('palette', everyService, fallbackInspirationParts());
   assert.equal(verdict.allowed, false);
   if (!verdict.allowed) assert.equal(verdict.reason, 'no_supplier_trade');
 });
@@ -68,16 +69,16 @@ test('every gallery slot has a supplier-facing label', () => {
   // per-slot shelf-name map is gone). A slot that HAS a supplying trade must have a name to show the
   // supplier, or the picker renders a blank option.
   for (const k of GALLERY_SLOT_KEYS) {
-    assert.ok(libraryPartLabel(k), `slot ${k} needs a supplier-facing label`);
+    assert.ok(libraryPartLabel(k, fallbackInspirationParts()), `slot ${k} needs a supplier-facing label`);
   }
 });
 
 test('the picker offers only the shop’s own shelves', () => {
-  const florist = uploadableSlotsForShop(canonicalServicesForSlot('flowers'));
+  const florist = uploadableSlotsForShop(canonicalServicesForSlot('flowers', fallbackInspirationParts()), fallbackInspirationParts());
   assert.ok(florist.length > 0);
   assert.ok(florist.every((s) => s.label.length > 0));
-  assert.equal(uploadableSlotsForShop([]).length, 0);
-  assert.equal(uploadableSlotsForShop(null).length, 0);
+  assert.equal(uploadableSlotsForShop([], fallbackInspirationParts()).length, 0);
+  assert.equal(uploadableSlotsForShop(null, fallbackInspirationParts()).length, 0);
 });
 
 /* ══════════════════════════════════════════════════════════════════════════

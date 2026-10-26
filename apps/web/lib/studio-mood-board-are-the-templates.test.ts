@@ -40,6 +40,7 @@ import React from 'react';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from './strip-comments';
+import { fallbackInspirationParts } from './inspiration-parts';
 
 (globalThis as unknown as { React: unknown }).React = React;
 {
@@ -66,6 +67,7 @@ async function html(el: React.ReactElement): Promise<string> {
 const PALETTE = { reception: ['#5B4A6B', '#D9C4CF', '#A9834B', '#F7F2EC', '#7A8B6F'], bride: ['#F7F2EC', '#D9C4CF'], groom: ['#2C2A29'] };
 const base = {
   eventId: 'E1',
+  inspirationParts: fallbackInspirationParts(),
   palette: PALETTE,
   fallbackFive: PALETTE.reception,
   frozenDressing: ['florals'],

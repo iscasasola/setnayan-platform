@@ -45,6 +45,7 @@ import { blockTime } from './print-pieces';
 import { guestMeFacts } from './guest-me-parts';
 import { guestArriveBy } from './role-group-dress-code';
 import { invitationCard } from '../app/[slug]/_lib/invitation-card';
+import { fallbackInspirationParts } from './inspiration-parts';
 
 (globalThis as unknown as { React: unknown }).React = React;
 {
@@ -288,6 +289,7 @@ test('6b · Studio › Attire draws the Guests call time from the Schedule — t
     renderToStaticMarkup(
       React.createElement(MoodBoardStudio as React.ComponentType<Record<string, unknown>>, {
         eventId: 'e',
+        inspirationParts: fallbackInspirationParts(),
         palette: { reception: ['#5C0700', '#669C35', '#F7F2EC', '#646B38', '#F3E5B9'] },
         fallbackFive: ['#5C0700', '#669C35', '#F7F2EC', '#646B38', '#F3E5B9'],
         frozenDressing: [],

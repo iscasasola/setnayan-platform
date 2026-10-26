@@ -6,6 +6,14 @@
  *   1 · THE MAP IS ONE MAP. `inspiration_suggestion_services(slot)` is asked about EVERY slot and compared with
  *       `canonicalServicesForSlot` for every couple part (`libraryPhotoParts`) — and EMPTY for every other slot. Where
  *       the two differ the database wins at runtime and the screen has already offered the button.
+ *       🌳 ③0-b (PLAN admin_taxonomy_four_levels_2026-10-26 § 8.3, migration 20271290389661): the function is a JOIN on
+ *       the tables now, so test 1 compares it with the TABLES (an expansion this file computes from the replayed rows)
+ *       as well as with the TS map on today's data — the TS map alone is the seed, which no admin edit moves, so a
+ *       comparison to it alone stayed green after every edit (audit A18).
+ *       🌳 ③a (20271291224109): the tables are `inspiration_part_services` now — a part names SERVICES.
+ *   6 · AN ADMIN EDIT MOVES THE DOOR. Link and unlink a service, re-home a part (the heading moves, the door does
+ *       not), add a service to the taxonomy (it reaches nothing until linked), retire a part — after each, the
+ *       function equals the link table again and the florist's door follows.
  *   2 · ONLY ITS OWN PARTS, ONLY WHEN BOOKED. A florist opens a suggestion on Bridal bouquet, is answered
  *       `wrong_trade` on Stage, and a shop NOT booked on the event is refused outright (`not_booked`). Three may wait
  *       per part per shop; the fourth is `full`.
@@ -24,6 +32,7 @@ import { createReplayedDb, setAuthUid, type ReplayResult } from './replay-migrat
 import { MOODBOARD_SLOT_KEYS } from '../../lib/moodboard-slots';
 import { canonicalServicesForSlot } from '../../lib/moodboard-gallery';
 import { libraryPhotoParts } from '../../lib/inspiration-slots';
+import { fallbackInspirationParts, snapshotFromPartRows, type InspirationPartCategoryRow, type InspirationPartRow, type InspirationPartServiceRow } from '../../lib/inspiration-parts';
 
 let replay: ReplayResult;
 let db: PGlite;
@@ -126,16 +135,74 @@ after(async () => {
   await db?.close?.();
 });
 
-test('1 · the SQL map is the TS map — every couple part, and empty for every other slot', async () => {
-  const parts = new Set(libraryPhotoParts().map((p) => p.key));
-  assert.ok(parts.size >= 19, `only ${parts.size} couple parts were read — the list is broken, not the guard`);
-  for (const slot of MOODBOARD_SLOT_KEYS) {
-    const r = await db.query<{ s: string[] }>(`SELECT public.inspiration_suggestion_services($1) AS s`, [slot]);
-    const sql = [...(r.rows[0]!.s ?? [])].sort();
-    const ts = parts.has(slot) ? [...canonicalServicesForSlot(slot)].sort() : [];
-    assert.deepEqual(sql, ts, `inspiration_suggestion_services('${slot}') disagrees with canonicalServicesForSlot — re-list it in a NEW migration from the TS map`);
-    if (parts.has(slot)) assert.ok(ts.length > 0, `${slot} is a couple part with no supplying trade`);
+/** The couple parts — the Studio's structure, read off the consts on purpose (it is code, not admin data). */
+const COUPLE_PARTS = new Set<string>(libraryPhotoParts(fallbackInspirationParts()).map((p) => p.key));
+
+async function sqlServices(slot: string): Promise<string[]> {
+  await reset();
+  const r = await db.query<{ s: string[] }>(`SELECT public.inspiration_suggestion_services($1) AS s`, [slot]);
+  return [...(r.rows[0]!.s ?? [])].sort();
+}
+
+/**
+ * 🧮 THE TABLES' ANSWER, computed HERE from the replayed rows — independent of the SQL function: since ③a
+ * (20271291224109) a part's suppliers are its rows in `inspiration_part_services`, the same `canonical_service` a shop
+ * sells. Retired parts, the system part and every slot the couple's Studio does not draw answer empty.
+ */
+async function tablesAnswer(): Promise<Map<string, string[]>> {
+  await reset();
+  const parts = (await db.query<InspirationPartRow>(`SELECT slot_key,label_en,kind,home_category_id,sort_order,hidden,status FROM public.inspiration_parts`)).rows;
+  const links = (await db.query<{ slot_key: string; canonical_service: string }>(`SELECT slot_key, canonical_service FROM public.inspiration_part_services`)).rows;
+  const answer = new Map<string, string[]>();
+  for (const p of parts) {
+    const ok = p.kind === 'part' && p.status !== 'retired' && COUPLE_PARTS.has(p.slot_key);
+    answer.set(p.slot_key, ok ? [...new Set(links.filter((l) => l.slot_key === p.slot_key).map((l) => l.canonical_service))].sort() : []);
   }
+  return answer;
+}
+
+/** The function equals the tables for every part the table holds (and every board key besides). */
+async function assertFunctionIsTheTables(when: string): Promise<void> {
+  const expected = await tablesAnswer();
+  const slots = new Set<string>([...expected.keys(), ...MOODBOARD_SLOT_KEYS]);
+  for (const slot of slots) {
+    assert.deepEqual(await sqlServices(slot), expected.get(slot) ?? [], `${when}: inspiration_suggestion_services('${slot}') is not what the tables say`);
+  }
+}
+
+test('1 · the SQL door is the tables — and, on today’s data, the TS map it was generated from; empty for every other slot', async () => {
+  assert.ok(COUPLE_PARTS.size >= 19, `only ${COUPLE_PARTS.size} couple parts were read — the list is broken, not the guard`);
+  /* (a) The tables — the source of truth since ③0-b. */
+  await assertFunctionIsTheTables('today');
+
+  /* (b) Unchanged on ship day: the old CASE was generated from canonicalServicesForSlot over the consts, so equality
+     with it on today's seed is "old = new" for every slot. Also with the DB snapshot the app now reads. */
+  const rows = (await db.query<InspirationPartRow>(`SELECT slot_key,label_en,kind,home_category_id,sort_order,hidden,status FROM public.inspiration_parts`)).rows;
+  const links = (await db.query<InspirationPartCategoryRow>(`SELECT slot_key,category_id,sort_order FROM public.inspiration_part_categories_derived`)).rows;
+  const svc = (await db.query<InspirationPartServiceRow>(`SELECT slot_key,canonical_service,sort_order FROM public.inspiration_part_services`)).rows;
+  const dbSnap = snapshotFromPartRows(rows, links, svc);
+  for (const slot of MOODBOARD_SLOT_KEYS) {
+    const sql = await sqlServices(slot);
+    const seed = COUPLE_PARTS.has(slot) ? [...canonicalServicesForSlot(slot, fallbackInspirationParts())].sort() : [];
+    const live = COUPLE_PARTS.has(slot) ? [...canonicalServicesForSlot(slot, dbSnap)].sort() : [];
+    assert.deepEqual(sql, seed, `inspiration_suggestion_services('${slot}') changed on ship day — it is not what the CASE answered`);
+    assert.deepEqual(sql, live, `inspiration_suggestion_services('${slot}') disagrees with what the app reads from the same rows`);
+    if (COUPLE_PARTS.has(slot)) assert.ok(sql.length > 0, `${slot} is a couple part with no supplying trade`);
+  }
+
+  /* (c) The cross-view is ROWS, not a list: ③0-a wrote the ten Filipiniana & Barongs keys as secondary_tiles, and
+     20271292138044 dropped the hand-kept SQL branch — so the pairs function answers exactly the rows, and an admin
+     un-listing a service on /admin/categories un-lists it here too. */
+  const fb = (await db.query<{ k: string }>(`SELECT p.canonical_service AS k FROM public.inspiration_category_service_pairs() p WHERE p.category_id = 'filipiniana_barongs'`)).rows.map((r) => r.k).sort();
+  const fbRows = (await db.query<{ k: string }>(
+    `SELECT canonical_service AS k FROM public.canonical_service_taxonomy
+      WHERE NOT COALESCE(marketplace_hidden, FALSE)
+        AND (tile_id = 'filipiniana_barongs' OR 'filipiniana_barongs' = ANY (COALESCE(secondary_tiles, ARRAY[]::TEXT[])))`,
+  )).rows.map((r) => r.k).sort();
+  assert.equal(fb.length, 10, `the cross-view should hold its ten services on the seed, got ${fb.length}`);
+  assert.deepEqual(fb, fbRows, 'inspiration_category_service_pairs() disagrees with the Filipiniana & Barongs rows');
+  const def = (await db.query<{ d: string }>(`SELECT pg_get_functiondef('public.inspiration_category_service_pairs()'::regprocedure) AS d`)).rows[0]!.d;
+  assert.ok(!/filipiniana_terno|barong_tagalog_rental/.test(def), 'inspiration_category_service_pairs() names cross-view services by hand again — cross-list through secondary_tiles');
 });
 
 test('2 · a florist suggests to Bridal bouquet, is refused Stage; a shop not booked is refused outright; three may wait', async () => {
@@ -283,4 +350,59 @@ test('5 · a guest and another supplier cannot Keep; another supplier cannot rea
   const back = await as<{ status: string }>(W.florist, `SELECT public.vendor_withdraw_inspiration_suggestion($1) AS out`, [s.value.suggestion_id]);
   assert.ok(back.ok && back.value.status === 'ok');
   assert.equal(await stateOf(s.value.suggestion_id!), 'withdrawn');
+});
+
+test('6 · an admin edit moves the door: link, unlink, re-home, add a service, retire — the function follows the link table', async () => {
+  await reset();
+  /* Every edit is undone in `finally` — the replay is shared by the whole file. */
+  try {
+    /* Today: Tunnel is a stylist's part; a florist is refused. */
+    let t = await begin(W.florist, 'tunnel');
+    assert.ok(t.ok && t.value.status === 'wrong_trade', `before any edit a florist reached Tunnel: ${JSON.stringify(t)}`);
+
+    /* 🧪 SABOTAGE TARGET — link the florist's service to Tunnel: the florist may now suggest there. */
+    await reset();
+    await db.query(`INSERT INTO public.inspiration_part_services (slot_key, canonical_service, sort_order) VALUES ('tunnel','florals',9000)`);
+    await assertFunctionIsTheTables('after linking florals to tunnel');
+    t = await begin(W.florist, 'tunnel');
+    assert.ok(t.ok && t.value.status === 'ok', `a linked service did not open the door: ${JSON.stringify(t)}`);
+    /* …unlink it: refused again. */
+    await reset();
+    await db.query(`DELETE FROM public.inspiration_part_services WHERE slot_key='tunnel' AND canonical_service='florals'`);
+    await assertFunctionIsTheTables('after unlinking florals');
+    t = await begin(W.florist, 'tunnel');
+    assert.ok(t.ok && t.value.status === 'wrong_trade', `an unlinked service still opens the door: ${JSON.stringify(t)}`);
+
+    /* Re-home Tunnel onto Florist: the HOME is the heading, the SERVICES are who may add — the door does not move. */
+    await reset();
+    await db.query(`UPDATE public.inspiration_parts SET home_category_id='florist' WHERE slot_key='tunnel'`);
+    await assertFunctionIsTheTables('after re-homing tunnel');
+    t = await begin(W.florist, 'tunnel');
+    assert.ok(t.ok && t.value.status === 'wrong_trade', `a re-home granted shops no service link names: ${JSON.stringify(t)}`);
+    const st = await begin(W.stylist, 'tunnel');
+    assert.ok(st.ok && st.value.status === 'ok', `a re-home took the door from the linked services: ${JSON.stringify(st)}`);
+
+    /* A new service under a category reaches no part until an admin links it. */
+    await reset();
+    await db.query(
+      `INSERT INTO public.canonical_service_taxonomy (canonical_service, folder_id, tile_id, phase) VALUES ('moss_wall_florist','design','florist','V1.2')`,
+    );
+    await assertFunctionIsTheTables('after adding a florist service');
+    assert.ok(!(await sqlServices('bridal_bouquet')).includes('moss_wall_florist'), 'a service nobody linked reached a part');
+    await db.query(`INSERT INTO public.inspiration_part_services (slot_key, canonical_service, sort_order) VALUES ('bridal_bouquet','moss_wall_florist',9000)`);
+    await assertFunctionIsTheTables('after linking the new service');
+    assert.ok((await sqlServices('bridal_bouquet')).includes('moss_wall_florist'), 'a linked new service did not reach the part');
+
+    /* Retire a part → nobody may suggest to it. */
+    await db.query(`UPDATE public.inspiration_parts SET status='retired' WHERE slot_key='centrepieces'`);
+    await assertFunctionIsTheTables('after retiring centrepieces');
+    assert.deepEqual(await sqlServices('centrepieces'), [], 'a retired part still takes suggestions');
+  } finally {
+    await reset();
+    await db.query(`UPDATE public.inspiration_parts SET home_category_id='stylist_decorator' WHERE slot_key='tunnel'`);
+    await db.query(`UPDATE public.inspiration_parts SET status='active' WHERE slot_key='centrepieces'`);
+    await db.query(`DELETE FROM public.inspiration_part_services WHERE (slot_key, canonical_service) IN (('tunnel','florals'),('bridal_bouquet','moss_wall_florist'))`);
+    await db.query(`DELETE FROM public.canonical_service_taxonomy WHERE canonical_service='moss_wall_florist'`);
+    await assertFunctionIsTheTables('after undoing every edit');
+  }
 });

@@ -39,6 +39,7 @@ import { canonicalServicesForSlot } from './moodboard-gallery';
 import { canonicalServicesForTile } from './vendor-counts';
 import { deriveBoard } from './palette-styles';
 import type { RolePalette } from './mood-board';
+import { fallbackInspirationParts } from './inspiration-parts';
 
 /* ── 1 · which parts can be finalized at all ─────────────────────────────── */
 
@@ -67,11 +68,11 @@ test('a part’s services are exactly its slots’ services — one map, compose
   // 🔑 THE ANTI-DRIFT ASSERTION. If somebody ever hand-writes a part → trade
   // table, this fails: the only correct answer is the composition of MB2's
   // part → slot join and MB10's slot → trade map.
-  const bride = canonicalServicesForPart('people:bride');
-  assert.deepEqual([...bride].sort(), [...canonicalServicesForSlot('bride')].sort());
+  const bride = canonicalServicesForPart('people:bride', fallbackInspirationParts());
+  assert.deepEqual([...bride].sort(), [...canonicalServicesForSlot('bride', fallbackInspirationParts())].sort());
 
-  const tables = canonicalServicesForPart('room:tables');
-  assert.deepEqual([...tables].sort(), [...canonicalServicesForSlot('table')].sort());
+  const tables = canonicalServicesForPart('room:tables', fallbackInspirationParts());
+  assert.deepEqual([...tables].sort(), [...canonicalServicesForSlot('table', fallbackInspirationParts())].sort());
 });
 
 /**
@@ -104,7 +105,7 @@ const MB16_RESCUED_PARTS = [
 ];
 
 test('no part is left with no supplying trade — all eight orphans were adopted', () => {
-  const none = RENDER_PARTS.filter((p) => canonicalServicesForPart(p.id).length === 0)
+  const none = RENDER_PARTS.filter((p) => canonicalServicesForPart(p.id, fallbackInspirationParts()).length === 0)
     .map((p) => p.id)
     .sort();
   assert.deepEqual(
@@ -122,10 +123,10 @@ test('each rescued part resolves through MOODBOARD_PART_TRADES, and to REAL cano
     // shop — a tile that resolves to zero canonicals grants nothing at all,
     // which renders exactly like having no trade.
     assert.ok(
-      canonicalServicesForPart(id).length > 0,
+      canonicalServicesForPart(id, fallbackInspirationParts()).length > 0,
       `${id} names tiles that expand to no canonical service — it is still unaskable`,
     );
-    assert.ok(tradeLabelsForPart(id).length > 0, `${id} has no human trade label`);
+    assert.ok(tradeLabelsForPart(id, fallbackInspirationParts()).length > 0, `${id} has no human trade label`);
   }
 });
 
@@ -170,8 +171,8 @@ test('the four room orphans are the stylist’s, and the four people orphans are
 test('every OTHER part has at least one trade and at least one human label for it', () => {
   for (const p of RENDER_PARTS) {
     if (PARTS_NO_TRADE_ANSWERS.includes(p.id)) continue;
-    assert.ok(canonicalServicesForPart(p.id).length > 0, `${p.id} lost its services`);
-    const labels = tradeLabelsForPart(p.id);
+    assert.ok(canonicalServicesForPart(p.id, fallbackInspirationParts()).length > 0, `${p.id} lost its services`);
+    const labels = tradeLabelsForPart(p.id, fallbackInspirationParts());
     assert.ok(labels.length > 0, `${p.id} has services but no trade label to name them`);
     for (const l of labels) assert.ok(l.trim().length > 0, `${p.id} has a blank trade label`);
   }
@@ -196,7 +197,7 @@ test('a part with no trade says so, rather than offering nothing and explaining 
   // what a retired or mistyped part looks like, and the sentence has to
   // survive: a dead button with no explanation is the shape this repo keeps
   // shipping.
-  const b = finalizeBlocker('room:no_such_zone', [FLORIST]);
+  const b = finalizeBlocker('room:no_such_zone', [FLORIST], fallbackInspirationParts());
   assert.equal(b?.code, 'no_trade');
   assert.ok(b!.message.length > 20, 'a blocker with no sentence is a dead button');
 });
@@ -204,7 +205,7 @@ test('a part with no trade says so, rather than offering nothing and explaining 
 test('a rescued part is now BLOCKED ON BOOKING, not on existence — the difference is the point', () => {
   // Before MB16 this said "nobody can ever agree to this". Now it names the
   // trade to book, which is a thing the couple can act on.
-  const b = finalizeBlocker('room:walls', [FLORIST]);
+  const b = finalizeBlocker('room:walls', [FLORIST], fallbackInspirationParts());
   assert.equal(b?.code, 'no_booked_supplier');
   assert.ok(
     b!.message.includes('Stylist'),
@@ -213,7 +214,7 @@ test('a rescued part is now BLOCKED ON BOOKING, not on existence — the differe
 });
 
 test('a part with a trade but nobody booked names the trade to book', () => {
-  const b = finalizeBlocker('place:flowers', [CATERER]);
+  const b = finalizeBlocker('place:flowers', [CATERER], fallbackInspirationParts());
   assert.equal(b?.code, 'no_booked_supplier');
   assert.ok(
     b!.message.includes('Florist'),
@@ -222,12 +223,12 @@ test('a part with a trade but nobody booked names the trade to book', () => {
 });
 
 test('a booked supplier in the trade unblocks it, and only they are offered', () => {
-  assert.equal(finalizeBlocker('place:flowers', [FLORIST, CATERER]), null);
+  assert.equal(finalizeBlocker('place:flowers', [FLORIST, CATERER], fallbackInspirationParts()), null);
   assert.deepEqual(
-    eligibleSuppliersForPart('place:flowers', [FLORIST, CATERER]).map((s) => s.vendorId),
+    eligibleSuppliersForPart('place:flowers', [FLORIST, CATERER], fallbackInspirationParts()).map((s) => s.vendorId),
     ['v-florist'],
   );
-  assert.equal(supplierCanAnswerPart('place:flowers', CATERER), false);
+  assert.equal(supplierCanAnswerPart('place:flowers', CATERER, fallbackInspirationParts()), false);
 });
 
 test('a booking with no shop behind it has no services and is never eligible', () => {
@@ -235,8 +236,8 @@ test('a booking with no shop behind it has no services and is never eligible', (
   // trade to check against, so they cannot be asked. Failing OPEN here would
   // let any booking sign off on any part.
   const ownSupplier: BookedSupplier = { vendorId: 'v-own', name: 'Tita', services: [] };
-  assert.equal(supplierCanAnswerPart('place:flowers', ownSupplier), false);
-  assert.equal(finalizeBlocker('place:flowers', [ownSupplier])?.code, 'no_booked_supplier');
+  assert.equal(supplierCanAnswerPart('place:flowers', ownSupplier, fallbackInspirationParts()), false);
+  assert.equal(finalizeBlocker('place:flowers', [ownSupplier], fallbackInspirationParts())?.code, 'no_booked_supplier');
 });
 
 /* ── 4 · what agreeing freezes ───────────────────────────────────────────── */

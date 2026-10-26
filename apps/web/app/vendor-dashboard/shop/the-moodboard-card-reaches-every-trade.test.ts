@@ -23,6 +23,7 @@ import assert from 'node:assert/strict';
 import { shopToolShelves } from './shop-tool-shelves';
 import { moodboardLibraryAccessForProfile } from '@/lib/moodboard-library-access';
 import type { VendorProfileRow } from '@/lib/vendor-profile';
+import { fallbackInspirationParts } from '@/lib/inspiration-parts';
 
 function fakeProfile(services: string[]): VendorProfileRow {
   return { services } as unknown as VendorProfileRow;
@@ -36,7 +37,7 @@ function couplesSeeHrefs(hasAccess: boolean, hasMusicRepertoireAccess = false): 
 }
 
 test('a shop whose only service is bridal_gown_custom gets the moodboard-library card', () => {
-  const access = moodboardLibraryAccessForProfile(fakeProfile(['bridal_gown_custom']));
+  const access = moodboardLibraryAccessForProfile(fakeProfile(['bridal_gown_custom']), fallbackInspirationParts());
   assert.equal(access.allowed, true, 'a gown designer supplies the bride slot and should be allowed');
 
   const hrefs = couplesSeeHrefs(access.allowed);
@@ -47,7 +48,7 @@ test('a shop whose only service is bridal_gown_custom gets the moodboard-library
 });
 
 test('a shop with no supplying trade does not get the moodboard-library card', () => {
-  const access = moodboardLibraryAccessForProfile(fakeProfile(['disputes_only_trade_that_supplies_nothing']));
+  const access = moodboardLibraryAccessForProfile(fakeProfile(['disputes_only_trade_that_supplies_nothing']), fallbackInspirationParts());
   assert.equal(access.allowed, false, 'a trade with no mood-board slot must be refused');
 
   const hrefs = couplesSeeHrefs(access.allowed);

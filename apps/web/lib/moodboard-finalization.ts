@@ -42,6 +42,13 @@
  * module-load assertion refuses a key that names a part the slot join already
  * answers, so the two maps cannot both speak about one part.
  *
+ * 🧩 WHO MAY BE ASKED READS THE PARTS SNAPSHOT (③0-b, PLAN
+ * `admin_taxonomy_four_levels_2026-10-26` § 8.3). Every "who" function takes
+ * `parts` — `await getInspirationParts()` on the server — as a REQUIRED
+ * argument. Until ③0-b they reached `tradesForSlot` with no snapshot, so the
+ * sign-off kept the seed's answer after an admin re-homed or hid a part, while
+ * the couple's picker and the upload gate moved.
+ *
  * ⚠ AN EMPTY TRADE LIST IS STILL AN ANSWER for anything that gains neither.
  * Guessing a trade is worse than silence — it is MB10's own rule.
  * `moodboard-finalization.test.ts` pins the set, so it can only change visibly.
@@ -63,6 +70,7 @@ import {
   type RenderPart,
 } from './moodboard-render-parts';
 import { canonicalServicesForSlot, tradesForSlot } from './moodboard-gallery';
+import { fallbackInspirationParts, type InspirationPartsSnapshot } from './inspiration-parts';
 import { canonicalServicesForTile } from './vendor-counts';
 import { MOODBOARD_PART_TRADES, orphanPartTrades } from './moodboard-slots';
 import { WEDDING_TILE_LABEL, type WeddingTile } from './taxonomy';
@@ -112,10 +120,10 @@ export function isFinalizablePartId(partId: string): boolean {
  * a future edit that tried to give a part a second, disagreeing trade list
  * throws at module load rather than shipping two maps nobody compares.
  */
-export function tradesForPart(partId: string): WeddingTile[] {
+export function tradesForPart(partId: string, parts: InspirationPartsSnapshot): WeddingTile[] {
   const out = new Set<WeddingTile>();
   for (const slot of inspirationSlotsForPart(partId)) {
-    for (const tile of tradesForSlot(slot)) out.add(tile);
+    for (const tile of tradesForSlot(slot, parts)) out.add(tile);
   }
   if (out.size === 0) {
     for (const tile of orphanPartTrades(partId)) out.add(tile);
@@ -136,13 +144,17 @@ export function tradesForPart(partId: string): WeddingTile[] {
  *     second opinion about one fact that nothing would ever compare.
  */
 function assertOrphanTradesDoNotOverlap(): void {
+  // 🧩 A STRUCTURAL check of two code maps, run once at module load — before any request exists, so there
+  // is no snapshot to read. It asks the consts on purpose (③0-b: the fallback is named, never defaulted):
+  // the question is "do the code maps overlap", not "what may this shop do today".
+  const seed = fallbackInspirationParts();
   for (const partId of Object.keys(MOODBOARD_PART_TRADES)) {
     if (renderPartById(partId) === undefined) {
       throw new Error(
         `moodboard-finalization: MOODBOARD_PART_TRADES names "${partId}", which is not a render part`,
       );
     }
-    const fromSlots = inspirationSlotsForPart(partId).flatMap((s) => [...tradesForSlot(s)]);
+    const fromSlots = inspirationSlotsForPart(partId).flatMap((s) => [...tradesForSlot(s, seed)]);
     if (fromSlots.length > 0) {
       throw new Error(
         `moodboard-finalization: MOODBOARD_PART_TRADES names "${partId}", which already has ` +
@@ -166,10 +178,10 @@ assertOrphanTradesDoNotOverlap();
  * slot?" — resolved through the same function, `canonicalServicesForSlot`,
  * whose docblock says the gate must read it and never its own copy.
  */
-export function canonicalServicesForPart(partId: string): string[] {
+export function canonicalServicesForPart(partId: string, parts: InspirationPartsSnapshot): string[] {
   const out = new Set<string>();
   for (const slot of inspirationSlotsForPart(partId)) {
-    for (const canonical of canonicalServicesForSlot(slot)) out.add(canonical);
+    for (const canonical of canonicalServicesForSlot(slot, parts)) out.add(canonical);
   }
   // MB16: the eight parts with no slot resolve through the part → trade map,
   // and through the SAME tile → canonical expansion, so an orphan part's
@@ -186,8 +198,8 @@ export function canonicalServicesForPart(partId: string): string[] {
 
 /** Human words for the trades a part needs — "a Stylist / Decorator or a
  *  Florist". Used to say what the board is WAITING FOR, never to fill a gap. */
-export function tradeLabelsForPart(partId: string): string[] {
-  return tradesForPart(partId).map((t) => WEDDING_TILE_LABEL[t]);
+export function tradeLabelsForPart(partId: string, parts: InspirationPartsSnapshot): string[] {
+  return tradesForPart(partId, parts).map((t) => WEDDING_TILE_LABEL[t]);
 }
 
 /** One booked supplier on this event, as the eligibility check reads it. */
@@ -201,8 +213,12 @@ export type BookedSupplier = {
 };
 
 /** TRUE when this booked supplier's trades reach this part. */
-export function supplierCanAnswerPart(partId: string, supplier: BookedSupplier): boolean {
-  const needed = canonicalServicesForPart(partId);
+export function supplierCanAnswerPart(
+  partId: string,
+  supplier: BookedSupplier,
+  parts: InspirationPartsSnapshot,
+): boolean {
+  const needed = canonicalServicesForPart(partId, parts);
   if (needed.length === 0) return false;
   return supplier.services.some((s) => needed.includes(s));
 }
@@ -211,8 +227,9 @@ export function supplierCanAnswerPart(partId: string, supplier: BookedSupplier):
 export function eligibleSuppliersForPart(
   partId: string,
   booked: readonly BookedSupplier[],
+  parts: InspirationPartsSnapshot,
 ): BookedSupplier[] {
-  return booked.filter((s) => supplierCanAnswerPart(partId, s));
+  return booked.filter((s) => supplierCanAnswerPart(partId, s, parts));
 }
 
 /**
@@ -232,8 +249,9 @@ export type FinalizeBlocker =
 export function finalizeBlocker(
   partId: string,
   booked: readonly BookedSupplier[],
+  parts: InspirationPartsSnapshot,
 ): FinalizeBlocker | null {
-  const labels = tradeLabelsForPart(partId);
+  const labels = tradeLabelsForPart(partId, parts);
   if (labels.length === 0) {
     return {
       code: 'no_trade',
@@ -242,7 +260,7 @@ export function finalizeBlocker(
         'It stays yours to change.',
     };
   }
-  if (eligibleSuppliersForPart(partId, booked).length === 0) {
+  if (eligibleSuppliersForPart(partId, booked, parts).length === 0) {
     const list =
       labels.length === 1
         ? labels[0]!

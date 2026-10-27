@@ -1,3 +1,33 @@
+# HANDOVER — claude/chat-files-rule (Builder C2, 2026-10-28)
+
+Contract: DECISION_LOG 2026-10-28 "CHAT FILES" + owner amendment "alway compress files when sending on chat. never keep
+original size". Server side, job and pure helpers ONLY — C1 owns every chat screen.
+
+## State
+- Rules: `lib/chat-file-rules.ts` (limits, words, kept-forever, expiry dates, isExpired, judgeStoredChatFile).
+- Client helper: `lib/chat-file-prepare.ts` (`prepareChatFile`, `uploadPreparedChatFile`) — not yet called by the composer (C1).
+- Server: `lib/chat-send.ts` (File path + uploaded-ref path), `lib/chat-actions.ts` (`attachment_ref`, `attachment_ref_name`
+  form fields on the existing action), `app/api/upload/route.ts` (chat clamp + own-folder pin), `lib/r2-client-ref.ts` (`chat` root).
+- Sweep: `lib/chat-file-expiry-sweep-core.ts` (pure) + `lib/chat-file-expiry-sweep.ts` (binder), registry key `chat-file-expiry`,
+  fired in `app/admin/layout.tsx`. OFF unless `CHAT_FILE_EXPIRY_ENABLED=true`; off = dry run.
+- Guards: `lib/chat-files-rule.test.ts`; sabotage script in the session scratchpad (14/14 red).
+
+## Decisions taken (not covered by the record)
+- Photo cap after compression = 20 MB (same as documents). Pick-time source guards stay (image 40 MB, video 300 MB).
+- A video the phone cannot compress is REFUSED (owner: never keep original size), with "This phone couldn't shrink that video…".
+- GIF and documents are not compressed — no compressor exists that keeps a GIF animated or a PDF byte-identical.
+- "Expired" = `attachment_name` kept, `attachment_r2_key` and `attachment_url` null — no migration.
+- Events with month/year precision never expire (a guessed day would delete early); multi-day events count from `event_end_date`.
+- Payment proofs / contracts live in other tables; the sweep reads only `chat_messages.attachment_r2_key` and also skips any ref
+  a proof/contract column names.
+
+## Known limits
+- The send action body is capped at 6 MB (next.config) — files above ~4 MB must go through `uploadPreparedChatFile` + the ref
+  fields. Until C1 wires that, a big video/doc fails at the platform, not with the owner's words.
+- On a gate refusal (not a member, declined thread…) after a ref upload, the uploaded object is left (no row points at it).
+
+---
+
 # HANDOVER — claude/guests-summary-carousel (Builder GC, 2026-10-28)
 
 Contract: corpus `prototypes/guests_summary_carousel_2026-10-27/` (style A) + DECISION_LOG 2026-10-27 rows (carousel

@@ -567,7 +567,10 @@ const PRIVATE_BUCKET_ROOTS: ReadonlyMap<R2BucketName, ReadonlySet<string>> = new
   // `pabuya-qr` added 2026-09-17 — the couple's gift QR moved out of the public
   // bucket. Its own ROOT rather than `events/…` so bucketForPrefix can carry a
   // defence-in-depth rule for it (see pabuyaQrPolicy).
-  ['setnayan-thread-files', new Set(['events', 'payments', 'payment-screenshots', 'payment-proof', 'pabuya-qr', 'vendor-payment-qr'])],
+  // `chat` added 2026-10-28 (CHAT FILES) — a video up to 50 MB cannot ride the
+  // send action, so the phone presigns `chat/<thread>/<own uid>` here; the route
+  // checks thread membership AND that the folder is the caller's own.
+  ['setnayan-thread-files', new Set(['events', 'payments', 'payment-screenshots', 'payment-proof', 'pabuya-qr', 'vendor-payment-qr', 'chat'])],
   // Scanned legal paperwork (shares the bucket with contracts + receipts).
   ['setnayan-vendor-contracts', new Set(['paperwork'])],
   // DTI / BIR 2303 / Mayor's Permit / IDs, per vendor.

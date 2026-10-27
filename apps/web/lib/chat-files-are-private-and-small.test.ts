@@ -79,7 +79,8 @@ test('🔑 2 · photographs are compressed; evidence is not', () => {
 test('🔑 3 · a file is judged against ITS OWN ceiling', () => {
   const doc = chatAttachmentLimit('application/pdf');
   assert.equal(doc.maxBytes, CHAT_DOCUMENT_MAX_BYTES);
-  assert.match(doc.tooLargeMessage, /10 MB/);
+  // 10 MB → 20 MB, in the owner's words (2026-10-28, CHAT FILES).
+  assert.match(doc.tooLargeMessage, /over 20 MB\. Send a Drive or YouTube link instead\./);
   const img = chatAttachmentLimit('image/jpeg');
   // A 4 MB phone photo is the most ordinary thing anyone sends and must not be
   // refused — it is about to be compressed in the browser.

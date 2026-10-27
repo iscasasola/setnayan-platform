@@ -19,8 +19,9 @@ import { guestRow, renderGuestsScreen } from '@/app/dashboard/[eventId]/guests/_
 const WEB = join(__dirname, '..');
 const GLOBALS = readFileSync(join(WEB, 'app', 'globals.css'), 'utf8');
 /** Every rule whose selector list mentions `.sn-acc-head`, joined (selector + body). */
-const accRules = [...GLOBALS.matchAll(/([^{}]*\.sn-acc-head[^{}]*)\{([^}]*)\}/g)].map((m) => ({ sel: m[1]!.trim(), body: m[2]! }));
-const rule = (sel: string) => accRules.find((r) => r.sel.split('\n').pop()!.trim() === sel)?.body ?? '';
+// The selector is the LAST line before `{` — the comment above a rule (which names `.sn-acc-chip` too) is not part of it.
+const accRules = [...GLOBALS.matchAll(/([^{}]*\.sn-acc-head[^{}]*)\{([^}]*)\}/g)].map((m) => ({ sel: m[1]!.trim().split('\n').pop()!.trim(), body: m[2]! }));
+const rule = (sel: string) => accRules.find((r) => r.sel === sel)?.body ?? '';
 
 test('Guests: every group header wears the mark — data-open on the OPEN one only, the chip on its icon', async () => {
   const guests = [
@@ -55,6 +56,7 @@ test('the mark: grey chip closed, terracotta chip + white icon open, a divider u
   assert.match(chip, /--disc: var\(--sn-acc-chip\);/);
   assert.match(chip, /color: var\(--sn-acc-chip-ink\);/);
   // NO band: nothing in the mark paints the header's own ground (the prototype's tints are superseded).
+  assert.equal(accRules.length, 5, `the mark is ${accRules.length} rules, not the five — re-aim`);
   for (const r of accRules) {
     if (/\.sn-acc-chip/.test(r.sel)) continue;
     assert.doesNotMatch(r.body, /background|color-mix/, `"${r.sel}" paints a band — the approved mark is the chip alone`);

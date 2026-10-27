@@ -51,6 +51,7 @@ import {
   ChevronsDownUp,
   ChevronsUpDown,
   CircleHelp,
+  Clock,
   Ellipsis,
   Heart,
   House,
@@ -61,6 +62,7 @@ import {
   PartyPopper,
   Pencil,
   Plus,
+  Send,
   Share,
   SquareCheck,
   Star,
@@ -1747,11 +1749,18 @@ export function GuestsScreen(props: GuestsScreenProps) {
 /* ═══ one guest row ═══ */
 
 
-const PILL: Record<GuestRow['rsvp_status'], { cls: string; word: string }> = {
-  attending: { cls: 'pillOk', word: `✓ ${RSVP_ROW_WORDS.attending}` },
-  declined: { cls: 'pillMute', word: RSVP_ROW_WORDS.declined },
-  maybe: { cls: 'pillWine', word: RSVP_ROW_WORDS.maybe },
-  pending: { cls: 'pillMute', word: RSVP_ROW_WORDS.pending },
+/**
+ * 🏷 THE ROW'S REPLY PILL — ONE FAMILY (owner 2026-10-27, DECISION_LOG "THE ROW REPLY PILLS ARE ONE FAMILY", option A of
+ * `prototypes/guests_reply_pills_2026-10-27/`): every state wears its icon and its own colour — the carousel card ②'s
+ * dot colours, so the card and the rows say one thing. Before, only Attending had an icon, Not coming was the grey of
+ * No reply, and To invite was the avatars' gold. To invite is an OUTLINE: a to-do, never the avatar's fill.
+ */
+const PILL: Record<GuestRow['rsvp_status'] | 'toinvite', { cls: string; word: string; Icon: typeof Check }> = {
+  attending: { cls: 'pillOk', word: RSVP_ROW_WORDS.attending, Icon: Check },
+  declined: { cls: 'pillNo', word: RSVP_ROW_WORDS.declined, Icon: X },
+  maybe: { cls: 'pillWine', word: RSVP_ROW_WORDS.maybe, Icon: CircleHelp },
+  pending: { cls: 'pillMute', word: RSVP_ROW_WORDS.pending, Icon: Clock },
+  toinvite: { cls: 'pillGold', word: 'To invite', Icon: Send },
 };
 
 /**
@@ -1827,7 +1836,10 @@ function GuestRowLine({
   const plus = plusOneSeats(g);
   // 🪑 A "+N" with fewer seat rows than N says so — never a +1 the list cannot show (`seatRowsByGuest`).
   const notAdded = Math.max(0, plus - seatsOnList);
-  const pill = isToInvite(g) && g.rsvp_status === 'pending' ? { cls: 'pillGold', word: 'To invite' } : PILL[g.rsvp_status];
+  const pill = isToInvite(g) && g.rsvp_status === 'pending' ? PILL.toinvite : PILL[g.rsvp_status];
+  // 🪑 A +1 with no name yet travels on their guest's invitation (the send run skips them): the row says whose, instead
+  // of a To invite of its own on every seat. The COUNT rule (`isToInvite`) is untouched — only the drawing.
+  const rides = plusWords?.name ? plusWords.host : null;
   const act = (e: React.MouseEvent<HTMLElement>) => (selectMode ? onToggle() : onOpen(g.guest_id, e.currentTarget));
   // A +1 shows their guest's side — the side follows the guest who brings them.
   const side = plusWords?.side ?? g.side;
@@ -1888,7 +1900,16 @@ function GuestRowLine({
                   {' · '}
                 </span>
               ) : null}
-              <span className={`${styles.pill} ${styles[pill.cls]}`}>{pill.word}</span>
+              {rides ? (
+                <span className={styles.mute} data-row-rides-on="">
+                  On {rides}’s invitation
+                </span>
+              ) : (
+                <span className={`${styles.pill} ${styles[pill.cls]}`} data-reply-pill="">
+                  <pill.Icon aria-hidden className={styles.pillIco} strokeWidth={2.4} />
+                  {pill.word}
+                </span>
+              )}
               {/* 🖐 A reply the host set says so, quietly (owner 2026-10-21: "Marked by you"). */}
               {replyMarkedByHost(g) ? <span className={styles.mute} data-reply-marked="">{' · marked'}</span> : null}
               {table ? ` · ${table}` : ''}

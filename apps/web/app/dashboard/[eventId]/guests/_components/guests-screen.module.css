@@ -933,20 +933,35 @@ button.ico {
   color: var(--gs-ink);
   transition: background 200ms, color 200ms;
 }
+/* 🏷 ONE FAMILY (owner 2026-10-27): icon + its own colour — the carousel card ②'s dot colours (`.countDot`). */
+.pillIco {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 4px;
+  vertical-align: -1px;
+}
 .pillOk {
-  background: color-mix(in srgb, var(--gs-ok) 14%, transparent);
+  background: color-mix(in srgb, var(--gs-ok) 13%, transparent);
   color: var(--gs-ok);
 }
+.pillNo {
+  background: rgb(var(--color-danger) / 0.11);
+  color: rgb(var(--color-danger));
+}
 .pillWine {
-  background: color-mix(in srgb, var(--gs-warn) 14%, transparent);
+  background: color-mix(in srgb, var(--gs-warn) 13%, transparent);
   color: var(--gs-warn);
 }
 .pillMute {
-  color: var(--gs-mute);
+  background: rgb(var(--color-ink) / 0.07);
+  color: rgb(var(--color-ink) / 0.7);
 }
+/* To invite: an OUTLINE in the accent — a to-do, never the avatars' gold fill (it melted into them). */
 .pillGold {
-  background: var(--gs-gild-soft);
-  color: rgb(var(--color-terracotta-700));
+  background: transparent;
+  color: rgb(var(--sn-accent));
+  box-shadow: inset 0 0 0 1.25px rgb(var(--sn-accent) / 0.7);
 }
 .empty {
   font-size: 13px;

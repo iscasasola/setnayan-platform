@@ -597,6 +597,8 @@ export type PlusOneWords = {
   of: string | null;
   /** The side the row shows: their guest's (a +1's side follows their guest). */
   side: GuestRow['side'];
+  /** Their guest as the row's "On Daniel’s invitation" says it — the first name, else the name as shown. */
+  host: string;
 };
 
 type SeatFields = Pick<GuestRow, 'guest_id' | 'plus_one_of_guest_id' | 'first_name'>;
@@ -622,7 +624,7 @@ export function plusOneWordsFrom<G extends SeatFields & Pick<GuestRow, 'display_
     seatNo.set(hostId, i + 1);
     // The one wording (lib/plus-one-of.ts) — the card's title and eyebrow say the same.
     const w = plusOneOfWords(g, host, i);
-    out.set(g.guest_id, { hostId, name: w.name, of: w.name ? null : w.of, side: w.side });
+    out.set(g.guest_id, { hostId, name: w.name, of: w.name ? null : w.of, side: w.side, host: host.first_name?.trim() || w.hostName });
   }
   return out;
 }

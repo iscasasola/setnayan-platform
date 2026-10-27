@@ -62,12 +62,15 @@ const ANNOUNCEMENT_BACKOFF_MAX_MS = 5 * 60_000;
 
 export function DayOfAnnouncement({
   slug,
+  body = null,
   stage = 'live',
   sceneStyle = null,
   look = null,
 }: {
-  /** The event's address — the card asks `/{slug}/announcement`. */
-  slug: string;
+  /** The event's address — the card asks `/{slug}/announcement`. Absent → it draws `body` and asks nothing (a lab). */
+  slug?: string;
+  /** Words already in hand (a lab, a test). The layout passes none: it reads no viewer, so it cannot know them. */
+  body?: string | null;
   /** 'live' = the day-of look (default); 'before' = the calm Invitation-stage look. The layout resolves it. */
   stage?: 'before' | 'live';
   /** 🎨 `banner` (the default) · `notice` · `line` — `announcement-styles.tsx`. Same words, same tones. */
@@ -75,9 +78,10 @@ export function DayOfAnnouncement({
   /** 🧱 The block's own look (`AnnouncementLook`), drawn right before the card — only when there is a card. */
   look?: ReactNode;
 }) {
-  const [text, setText] = useState<string | null>(null);
+  const [text, setText] = useState<string | null>(body);
 
   useEffect(() => {
+    if (!slug) return;
     let alive = true;
     let timer: number | null = null;
     let failures = 0;

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { loadEventShell } from '../_lib/loaders';
-import { announcementStageOf, holdsThisEventsCurrentPass, latestAnnouncementFor } from '../_lib/latest-announcement.server';
+import { holdsThisEventsCurrentPass, latestAnnouncementFor } from '../_lib/latest-announcement.server';
+import { announcementStageOf } from '../_lib/announcement-stage';
 import { NOT_HELD } from '@/lib/live-day-cache';
 
 /**

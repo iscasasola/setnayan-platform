@@ -1671,10 +1671,10 @@ async function invitationBody({
   /* ⛔ THE ANNOUNCEMENT IS LOADED BY `[slug]/layout.tsx` NOW (2026-09-22), not
      here. It used to be read on this page and handed to SiteBody — which is
      why it reached ONE of the twelve guest pages. The layout wraps all twelve
-     and carries the guests-only gate that the guest tree used to provide
-     structurally. Do not re-add the read here: `loadDayOfBroadcast` is
-     cache()-wrapped, so a second call would be free but the second MOUNT would
-     double the banner on this page. */
+     and mounts the card; since EV1 (2026-10-28) the card asks
+     `GET /{slug}/announcement`, which carries the guests-only gate. Do not re-add
+     a read here: it would make this page read the viewer for a banner the
+     layout already draws, and a second MOUNT would double it. */
 
   // Shared SiteBody props — identical for every identity tier. The per-tier
   // delta travels in the `identity` union (see _lib/site-identity.ts): the

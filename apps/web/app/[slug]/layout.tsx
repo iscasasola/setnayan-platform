@@ -1,5 +1,5 @@
 import { type AnnouncementStage } from '@/lib/coordinator-broadcasts';
-import { announcementStageOf } from './_lib/latest-announcement.server';
+import { announcementStageOf } from './_lib/announcement-stage';
 import { DayOfAnnouncement } from './_components/day-of-announcement';
 import { AnnouncementLook } from './_components/announcement-look';
 import { GuestLookScope } from './_components/guest-look-scope';
@@ -73,7 +73,7 @@ import { withGuestReadLimitQuiet } from '@/lib/read-limit';
  * ── WHEN IT SHOWS: AS SOON AS IT IS SENT (owner 2026-09-28) ──────────────
  * `announcementStage` (lib/coordinator-broadcasts.ts) resolves 'before' ·
  * 'live' · 'after' from the day-of phase and `isFinishedEvent`'s verdict, and
- * `loadDayOfBroadcast` returns null only for 'after'. So an announcement sent
+ * the announcement route answers nothing only for 'after'. So an announcement sent
  * from the Schedule a week early is at the top of the guest's Invitation that
  * week (calm look, in flow), at the top of the Event Hub on the day (day-of
  * look, sticky), and gone once the event is over — the Post Event page keeps

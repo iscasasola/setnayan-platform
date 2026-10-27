@@ -44,9 +44,12 @@ test('a 0.0 rating draws no badge — no reviews, no ★', () => {
 test('a voided booking drops a medal — the medal is a pure function of the count, never stored', () => {
   const at50 = shopBadges({ ...base, completedEvents: 50 }).find((b) => b.kind === 'milestone');
   assert.equal(at50?.glyph, '50');
-  // One of the fifty is voided: the view no longer counts it, and the medal steps down on the next read.
+  assert.equal(at50?.tier, 'tier2');
+  // One of the fifty is voided: the view no longer counts it, and the medal steps down on the next read — its
+  // material steps down with it.
   const at49 = shopBadges({ ...base, completedEvents: 49 }).find((b) => b.kind === 'milestone');
-  assert.equal(at49?.glyph, '25');
+  assert.equal(at49?.glyph, '10');
+  assert.equal(at49?.tier, 'tier1');
   assert.ok(!earnedKeys({ ...base, completedEvents: 49 }).includes('milestone:50'));
   // Below the first rung: no medal at all.
   assert.equal(shopBadges({ ...base, completedEvents: 9 }).find((b) => b.kind === 'milestone'), undefined);
@@ -55,13 +58,15 @@ test('a voided booking drops a medal — the medal is a pure function of the cou
 });
 
 test('Next to earn uses the shipped thresholds — never a new number', () => {
-  assert.deepEqual([...MILESTONE_THRESHOLDS], [10, 25, 50, 100]);
+  assert.deepEqual([...MILESTONE_THRESHOLDS], [10, 50, 100, 500, 1000, 5000, 10000]);
   assert.equal(nextToEarnLine(96), 'Next to earn: 100 events · 4 to go');
   assert.equal(nextToEarnLine(0), 'Next to earn: 10 events · 10 to go');
   assert.equal(nextToEarnLine(25), 'Next to earn: 50 events · 25 to go');
-  assert.equal(nextToEarnLine(100), null, 'there is no rung above 100');
+  assert.equal(nextToEarnLine(100), 'Next to earn: 500 events · 400 to go');
+  assert.equal(nextToEarnLine(4200), 'Next to earn: 5,000 events · 800 to go');
+  assert.equal(nextToEarnLine(10000), null, 'there is no rung above 10,000');
   assert.equal(nextToEarnLine(null), null);
-  for (let n = 0; n <= 120; n++) {
+  for (let n = 0; n <= 12000; n += 7) {
     const l = milestoneLadder(n);
     if (l.next !== null) assert.ok((MILESTONE_THRESHOLDS as readonly number[]).includes(l.next), `next ${l.next} is not a shipped threshold`);
     if (l.earned !== null) assert.ok((MILESTONE_THRESHOLDS as readonly number[]).includes(l.earned));
@@ -98,7 +103,10 @@ test('print takes the badges as they are on the day — the same list the page d
     badgesForPrint(base).map((b) => b.key),
     ['verified', 'milestone:50', 'rating', 'years'],
   );
-  assert.deepEqual(badgesForPrint({ ...base, verified: false, completedEvents: 101 }).map((b) => b.key), ['milestone:100', 'rating', 'years']);
+  assert.deepEqual(badgesForPrint({ ...base, verified: false, completedEvents: 1001 }).map((b) => b.key), ['milestone:1000', 'rating', 'years']);
+  const k = badgesForPrint({ ...base, completedEvents: 10000 }).find((b) => b.kind === 'milestone');
+  assert.equal(k?.glyph, '10K');
+  assert.equal(k?.line1, '10,000 EVENTS');
 });
 
 test('awards wear the pill in their own words', () => {
@@ -120,6 +128,7 @@ test('newly earned: the highest new milestone, once; dismissed keys keep it quie
   assert.equal(newlyEarned(f, first!.keys), null, 'dismissed — nothing new');
   const later = newlyEarned({ ...base, completedEvents: 100 }, first!.keys);
   assert.equal(later?.key, 'milestone:100');
+  assert.equal(newlyEarned({ ...base, completedEvents: 99 }, first!.keys), null, 'no "within reach" line — only earned');
   // A rating never announces itself as "earned".
   assert.ok(!earnedKeys(base).includes('rating'));
 });

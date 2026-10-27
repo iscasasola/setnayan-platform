@@ -2,6 +2,7 @@ import { loadOtFont, type OtFont } from '@/lib/glyph-path';
 import { outlineWords, type OtFace } from '@/lib/logo-fonts';
 import { setnayanMarkSvg } from '@/lib/qr-style-svg';
 import type { ShopBadge } from '@/lib/shop-badges';
+import { TIERS } from '@/lib/badge-tiers';
 
 /**
  * 🖨 THE PILL ON PAPER — the badges as ONE vector file a printer can scale from a calling card to an 8 × 8 ft tarp
@@ -54,12 +55,34 @@ function starPath(cx: number, cy: number, r: number): string {
   return `M${pts.join('L')}Z`;
 }
 
-type Drawn = { svg: string; width: number; height: number };
+type Drawn = { svg: string; defs: string; width: number; height: number };
+
+function grad(id: string, stops: readonly string[], w: number, h: number): string {
+  return (
+    `<linearGradient id="${id}" x1="0" y1="0" x2="${n(w)}" y2="${n(h * 0.47)}" gradientUnits="userSpaceOnUse">` +
+    stops.map((c, i) => `<stop offset="${n((i / Math.max(1, stops.length - 1)) * 100)}%" stop-color="${c}"/>`).join('') +
+    `</linearGradient>`
+  );
+}
+
+/** The laurel over the top step's pill — two sprigs, gold. */
+function laurelSvg(cx: number, top: number, w: number): string {
+  const k = w / 40;
+  const t = (x: number, y: number) => `${n(cx + (x - 20) * k)},${n(top + y * k)}`;
+  return `<g fill="none" stroke="#d9b866" stroke-width="${n(1.4 * k)}" stroke-linecap="round"><path d="M${t(20, 18)} Q${t(10, 15)} ${t(5, 3)}"/><path d="M${t(20, 18)} Q${t(30, 15)} ${t(35, 3)}"/><path d="M${t(8, 9)} L${t(13, 12)} M${t(6, 5)} L${t(10, 8)} M${t(32, 9)} L${t(27, 12)} M${t(34, 5)} L${t(30, 8)}"/></g>`;
+}
 
 /** One pill at em size `F`, top-left at (0, 0). */
 function pill(b: ShopBadge, F: number, ground: PrintGround, colour: string, idx: number): Drawn {
-  const g = ground === 'colour' ? { bg: colour, fg: '#F2EAD8', mk: 'rgba(255,255,255,0.08)' } : GROUNDS[ground];
-  const foil = ground === 'dark' || ground === 'colour';
+  const tier = b.tier ? TIERS.find((t) => t.key === b.tier) ?? null : null;
+  const paint = tier ? tier[ground === 'dark' || ground === 'colour' ? 'dark' : 'light'] : null;
+  const g = paint
+    ? { bg: paint.bg, fg: paint.fg, mk: paint.mk }
+    : ground === 'colour'
+      ? { bg: colour, fg: '#F2EAD8', mk: 'rgba(255,255,255,0.08)' }
+      : GROUNDS[ground];
+  const foil = paint !== null || ground === 'dark' || ground === 'colour';
+  const glyphInk = paint ? paint.mkc : GOLD;
   const f = face();
   const padY = 0.38 * F;
   const padL = 0.42 * F;
@@ -100,19 +123,24 @@ function pill(b: ShopBadge, F: number, ground: PrintGround, colour: string, idx:
     const gp = outlineWords(f, b.glyph, 0, 0, gs, 0);
     const gb = gp.getBoundingBox();
     const gp2 = outlineWords(f, b.glyph, cx - (gb.x1 + gb.x2) / 2, cy - (gb.y1 + gb.y2) / 2, gs, 0);
-    inCircle = `<path d="${gp2.toPathData(2)}" fill="${GOLD}"/>`;
+    inCircle = `<path d="${gp2.toPathData(2)}" fill="${glyphInk}"/>`;
   }
+  const edgeId = `edge${idx}`;
   const foilId = `foil${idx}`;
+  const defs =
+    grad(edgeId, paint ? paint.edge : FOIL_STOPS.map(([, c]) => c), W, H) +
+    grad(foilId, paint ? paint.foil : FOIL_STOPS.map(([, c]) => c), W, H);
   const svg =
-    `<g data-badge="${b.key}">` +
-    `<rect x="0.7" y="0.7" width="${n(W - 1.4)}" height="${n(H - 1.4)}" rx="${n((H - 1.4) / 2)}" fill="${g.bg}" stroke="url(#${foilId})" stroke-width="1.4"/>` +
+    `<g data-badge="${b.key}"${tier ? ` data-tier="${tier.key}"` : ''}>` +
+    `<rect x="0.7" y="0.7" width="${n(W - 1.4)}" height="${n(H - 1.4)}" rx="${n((H - 1.4) / 2)}" fill="${g.bg}" stroke="url(#${edgeId})" stroke-width="1.4"/>` +
+    (tier?.laurel ? laurelSvg(W / 2, -0.95 * F, 2.6 * F) : '') +
     `<circle cx="${n(cx)}" cy="${n(cy)}" r="${n(circle / 2)}" fill="${g.mk}"/>` +
     inCircle +
     `<path d="${p1.toPathData(2)}" fill="${foil ? `url(#${foilId})` : g.fg}"/>` +
     `<path d="${p2.toPathData(2)}" fill="${g.fg}"/>` +
     tickSvg +
     `</g>`;
-  return { svg, width: W, height: H };
+  return { svg, defs, width: W, height: H };
 }
 
 /**
@@ -123,10 +151,10 @@ export function badgePrintSvg(badges: readonly ShopBadge[], opts: { ground?: Pri
   const ground = opts.ground ?? 'light';
   const colour = /^#[0-9a-fA-F]{6}$/.test(opts.colour ?? '') ? opts.colour! : '#1F3A2C';
   const F = opts.em ?? 34;
-  const gapY = 0.6 * F;
+  const gapY = 1.1 * F;
   const drawn = badges.map((b, i) => pill(b, F, ground, colour, i));
   const W = Math.max(1, ...drawn.map((d) => d.width));
-  let y = 0;
+  let y = F; // room for a laurel above the first pill
   const body = drawn
     .map((d) => {
       const out = `<g transform="translate(0 ${n(y)})">${d.svg}</g>`;
@@ -135,14 +163,7 @@ export function badgePrintSvg(badges: readonly ShopBadge[], opts: { ground?: Pri
     })
     .join('');
   const H = Math.max(1, y - gapY);
-  const defs = drawn
-    .map(
-      (d, i) =>
-        `<linearGradient id="foil${i}" x1="0" y1="0" x2="${n(d.width)}" y2="${n(d.height * 0.47)}" gradientUnits="userSpaceOnUse">` +
-        FOIL_STOPS.map(([o, c]) => `<stop offset="${o}%" stop-color="${c}"/>`).join('') +
-        `</linearGradient>`,
-    )
-    .join('');
+  const defs = drawn.map((d) => d.defs).join('');
   return (
     `<?xml version="1.0" encoding="UTF-8"?>` +
     `<svg xmlns="http://www.w3.org/2000/svg" width="${n(W)}pt" height="${n(H)}pt" viewBox="0 0 ${n(W)} ${n(H)}">` +

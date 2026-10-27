@@ -1037,8 +1037,8 @@ export async function renderVendorBySlug({
   const bookingCountMeasured = finalizedBookingRead.measured;
   const expTier = experienceTier(finalizedBookingCount);
   // 🏅 The pills (lib/shop-badges.ts). Verified has its own gate below (the route's strict `verification_state`), so it
-  // is left out here; the ★ pill keeps the Free-tier star gate it always had. Awards fail soft to none (an award is a
-  // bonus word — the shipped `fetchVendorCurrentAwards` contract).
+  // is left out here; the ★ pill keeps the Free-tier star gate it always had. Awards fail soft to none (the shipped
+  // `fetchVendorCurrentAwards` contract).
   const spotlightAwards = await fetchVendorCurrentAwards(admin, vendor.vendor_profile_id).catch(() => []);
   const pagePills = shopBadges({
     verified: false,
@@ -2344,7 +2344,7 @@ export async function renderVendorBySlug({
             ) : null}
             {/* 🏅 THE PERFORMANCE BADGES WEAR THE PILL (owner 2026-10-28) — the milestone medal from the SAME
                 public completed-events count the experience chip states (`finalizedBookingCount`, measured only),
-                and this month's Spotlight Awards. `lib/shop-badges.ts` decides; nothing is stored, so a voided
+                in its step's material, and this month's Spotlight Awards. `lib/shop-badges.ts` decides; nothing is stored, so a voided
                 booking un-earns the medal on the next render. The QR on a supplier's card/tarp lands here, so a
                 scan always shows today's badges. */}
             {performancePills.map((b) => (

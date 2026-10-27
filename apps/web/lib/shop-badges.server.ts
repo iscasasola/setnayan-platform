@@ -14,7 +14,7 @@ import type { ShopBadgeFacts, TrackerFacts } from '@/lib/shop-badges';
  *
  * 🔑 A REFUSED READ IS NOT A ZERO. The completed-events count and the trusted stat come back null when their read
  * fails, so the tracker says "Couldn't load" and no medal is drawn — never "0 of 10", never "No reviews yet" to a shop
- * with forty. Awards fail soft to none (the shipped `fetchVendorCurrentAwards` contract — an award is a bonus word).
+ * with forty. Awards fail soft to none (the shipped `fetchVendorCurrentAwards` contract).
  *
  * Read AT THE MOMENT OF USE: the print route calls this per file, so a tarp carries today's badges.
  */

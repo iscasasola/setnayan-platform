@@ -121,3 +121,70 @@
   background-clip: text;
   color: transparent;
 }
+
+/* ── A milestone's material (lib/badge-tiers.ts) — the same pill, the paint climbs with the step. Every colour arrives
+   as a custom property set by the component, light (`--tl-*`) and dark (`--td-*`); every one is held to AA by
+   lib/badge-tiers.test.ts. ─────────────────────────────────────────────────────────────────────────────────────── */
+.tiered {
+  background: var(--tl-bg);
+  color: var(--tl-fg);
+}
+.tiered .edge {
+  background: var(--tl-edge);
+}
+.tiered .mk {
+  background: var(--tl-mk);
+}
+.tiered .glyph {
+  color: var(--tl-mkc);
+}
+.tiered .t1 {
+  background: var(--tl-foil);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.tiered.onDark {
+  background: var(--td-bg);
+  color: var(--td-fg);
+}
+.tiered.onDark .edge {
+  background: var(--td-edge);
+}
+.tiered.onDark .mk {
+  background: var(--td-mk);
+}
+.tiered.onDark .glyph {
+  color: var(--td-mkc);
+}
+.tiered.onDark .t1 {
+  background: var(--td-foil);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+:global(html.dark) .tiered.auto {
+  background: var(--td-bg);
+  color: var(--td-fg);
+}
+:global(html.dark) .tiered.auto .edge {
+  background: var(--td-edge);
+}
+:global(html.dark) .tiered.auto .mk {
+  background: var(--td-mk);
+}
+:global(html.dark) .tiered.auto .glyph {
+  color: var(--td-mkc);
+}
+:global(html.dark) .tiered.auto .t1 {
+  background: var(--td-foil);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+.laurel {
+  position: absolute;
+  left: 50%;
+  top: -0.95em;
+  width: 2.6em;
+  transform: translateX(-50%);
+  pointer-events: none;
+}

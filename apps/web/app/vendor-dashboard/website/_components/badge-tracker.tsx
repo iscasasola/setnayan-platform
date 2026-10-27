@@ -89,6 +89,19 @@ export function BadgeTracker({ d }: { d: BadgeTrackerData }) {
                   <i className="block h-full rounded-full bg-success-700" style={{ width: `${r.bar}%` }} />
                 </div>
               ) : null}
+              {r.ladder ? (
+                <div className="mt-2 flex flex-wrap items-center gap-2" data-badge-ladder="">
+                  {r.ladder.now ? <ShopBadgePill badge={r.ladder.now} size="xs" /> : null}
+                  {r.ladder.next ? (
+                    <>
+                      <span aria-hidden className="text-ink/40">→</span>
+                      <span className="opacity-50" data-badge-ladder-next="">
+                        <ShopBadgePill badge={r.ladder.next} size="xs" />
+                      </span>
+                    </>
+                  ) : null}
+                </div>
+              ) : null}
               {r.door ? (
                 <div className="mt-2">
                   <ActionButton

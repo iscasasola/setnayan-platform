@@ -28,13 +28,17 @@ test('one pill per badge, in print order, every word outlined (no <text> a print
 test('a medal un-earned since the design was made is not printed', () => {
   const svg = badgePrintSvg(badgesForPrint({ ...facts, completedEvents: 49 }));
   assert.doesNotMatch(svg, /milestone:50/);
-  assert.match(svg, /milestone:25/);
+  assert.match(svg, /data-badge="milestone:10" data-tier="tier1"/, 'and the medal it still holds wears that step’s material');
 });
 
 test('grounds: dark and colour put SETNAYAN in foil; a bad colour falls back to the prototype green', () => {
   const dark = badgePrintSvg(badgesForPrint(facts).slice(0, 1), { ground: 'dark' });
   assert.match(dark, /fill="#151312"/);
   assert.match(dark, /fill="url\(#foil0\)"/);
+  // The top step wears the laurel.
+  const top = badgePrintSvg(badgesForPrint({ ...facts, completedEvents: 10000 }).filter((b) => b.kind === 'milestone'));
+  assert.match(top, /data-tier="tier7"/);
+  assert.match(top, /stroke="#d9b866"/);
   const colour = badgePrintSvg(badgesForPrint(facts).slice(0, 1), { ground: 'colour', colour: 'red;x' });
   assert.match(colour, /fill="#1F3A2C"/);
 });

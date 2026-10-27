@@ -8,7 +8,8 @@
  *
  *   · Verified   — `hasVerifiedBadge` (lib/verified-badge.ts): verified AND its papers deadline not passed. The caller
  *                  hands in the answer; this file never re-asks `verification_state`.
- *   · Milestone  — `milestonesFor` / `MILESTONE_THRESHOLDS` 10 · 25 · 50 · 100 (lib/service-card-record.ts), applied
+ *   · Milestone  — `milestonesFor` / `MILESTONE_THRESHOLDS` 10 · 50 · 100 · 500 · 1,000 · 5,000 · 10,000
+ *                  (lib/service-card-record.ts, the ladder changed 2026-10-28), applied
  *                  to the shop's PUBLIC completed-events count (`vendor_public_completed_events_stats`, the same
  *                  anti-fraud number the shop page's experience chip states). A pure function of that count, NEVER
  *                  stored: a booking that is voided leaves `delivered/complete`, the view refreshes, and the medal is
@@ -17,7 +18,11 @@
  *                  badge — never a 0.0. And NO target: no ruling sets a rating goal (owner: "don't guess"), so the
  *                  tracker shows the live ★ and nothing to reach for.
  *   · Years      — `yearsInBusiness` (lib/vendor-experience.ts): null below one year, so a first-year shop shows none.
- *   · Awards     — the shop's current Spotlight Awards, as their `AWARD_LABELS` words (the Today Shop row's `awardWord`).
+ *   · Awards     — the shop's current Spotlight Awards, in their `AWARD_LABELS` words (the Today Shop row's
+ *                  `awardWord`) — the monthly marketplace recognitions that already ship.
+ *
+ * A milestone wears its step's material
+ * (`lib/badge-tiers.ts`), so the badge looks better the higher the step.
  *
  * PURE — no clock (the year is handed in), no network, no `server-only`. The readers live in `shop-badges.server.ts`;
  * every surface (the shop's page, Shop › Page, Today, the print file) composes from THIS file, so a badge cannot read
@@ -26,6 +31,7 @@
 
 import { cardRecordRatingFromTrusted, milestonesFor } from '@/lib/service-card-record';
 import { yearsInBusiness } from '@/lib/vendor-experience';
+import { stepGlyph, tierForStep, type TierKey } from '@/lib/badge-tiers';
 
 export type ShopBadgeKind = 'verified' | 'milestone' | 'rating' | 'years' | 'award';
 
@@ -40,6 +46,8 @@ export type ShopBadge = {
   line2: string;
   /** The badge in plain words, for a screen reader and the Today line. */
   label: string;
+  /** A milestone's material (`lib/badge-tiers.ts`) — internal key, never shown. Absent = the plain gold-edged pill. */
+  tier?: TierKey;
 };
 
 /** What the badges are worked out from — every field a read the caller already made. */
@@ -52,7 +60,7 @@ export type ShopBadgeFacts = {
   trusted: { trusted_avg_rating: number | null; trusted_review_count: number | null } | null;
   /** `vendor_profiles.in_business_since_year`. */
   inBusinessSinceYear: number | null;
-  /** The current Spotlight Awards in their `AWARD_LABELS` words ("Setnayan's Top Pick" · "Most Booked" · …). */
+  /** This month's Spotlight Awards in their `AWARD_LABELS` words ("Setnayan's Top Pick" · "Most Booked" · …). */
   awards: readonly string[];
   /** The calendar year "now" — handed in, so this stays pure. */
   nowYear: number;
@@ -98,18 +106,28 @@ export function milestoneLadder(count: number): MilestoneLadder {
   };
 }
 
-function milestoneBadge(t: number): ShopBadge {
-  return { key: `milestone:${t}`, kind: 'milestone', glyph: String(t), line1: 'EVENTS', line2: 'ON SETNAYAN', label: `${t} events on Setnayan` };
-}
+const COUNT = new Intl.NumberFormat('en-PH');
 
-function ratingWord(avg: number): string {
-  return avg.toFixed(1);
+function milestoneBadge(t: number): ShopBadge {
+  return {
+    key: `milestone:${t}`,
+    kind: 'milestone',
+    glyph: stepGlyph(t),
+    line1: `${COUNT.format(t)} EVENTS`,
+    line2: 'ON SETNAYAN',
+    label: `${COUNT.format(t)} events on Setnayan`,
+    tier: tierForStep(t)?.key,
+  };
 }
 
 /** The words an award wears on the pill: "Setnayan's Top Pick" → SETNAYAN / TOP PICK; "Most Booked" → SETNAYAN / MOST BOOKED. */
 function awardBadge(words: string): ShopBadge {
   const rest = words.replace(/^Setnayan[’']s\s+/i, '').trim();
   return { key: `award:${rest.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`, kind: 'award', glyph: null, line1: 'SETNAYAN', line2: rest.toUpperCase(), label: words };
+}
+
+function ratingWord(avg: number): string {
+  return avg.toFixed(1);
 }
 
 /**
@@ -170,6 +188,8 @@ export type TrackerRow = {
   bar?: number;
   /** The one action that moves it, in place or one door away. */
   door?: { label: string; href: string };
+  /** A ladder badge: the pill it wears now and the pill the next step wears (the material climbs). */
+  ladder?: { now: ShopBadge | null; next: ShopBadge | null };
 };
 
 /** Where the tracker's doors go — the shipped pages, never a new one. */
@@ -217,17 +237,18 @@ export function badgeTracker(f: TrackerFacts): TrackerRow[] {
     const badge = milestoneBadge(l.earned ?? l.next ?? 10);
     rows.push(
       l.next === null
-        ? { kind: 'milestone', key: badge.key, badge, title: 'Milestone · events on Setnayan', line: `${l.count} events · every milestone earned`, state: 'earned', stateWord: 'Earned', bar: 100 }
+        ? { kind: 'milestone', key: badge.key, badge, title: 'Milestone · events on Setnayan', line: `${COUNT.format(l.count)} events · every milestone earned`, state: 'earned', stateWord: 'Earned', bar: 100, ladder: { now: badge, next: null } }
         : {
             kind: 'milestone',
             key: badge.key,
             badge,
             title: 'Milestone · events on Setnayan',
-            line: `${l.count} of ${l.next} → next badge: ${l.next} events`,
+            line: `${COUNT.format(l.count)} of ${COUNT.format(l.next)} → next badge: ${COUNT.format(l.next)} events`,
             state: 'to_go',
-            stateWord: `${l.toGo} to go`,
+            stateWord: `${COUNT.format(l.toGo!)} to go`,
             bar: l.pct,
             door: { label: 'See the couples asking', href: TRACKER_DOORS.asking },
+            ladder: { now: l.earned === null ? null : milestoneBadge(l.earned), next: milestoneBadge(l.next) },
           },
     );
   }
@@ -253,7 +274,6 @@ export function badgeTracker(f: TrackerFacts): TrackerRow[] {
         ? { kind: 'years', key: 'years', badge: yearsBadge, title: 'Years in business', line: `Since ${f.inBusinessSinceYear} · shows after your first year`, state: 'not_yet', stateWord: 'Not yet' }
         : { kind: 'years', key: 'years', badge: yearsBadge, title: 'Years in business', line: 'Add the year you started', state: 'not_yet', stateWord: 'Not yet', door: { label: 'Add it in your details', href: TRACKER_DOORS.details } },
   );
-
   for (const a of new Set(f.awards)) {
     if (!a.trim()) continue;
     const badge = awardBadge(a);
@@ -267,10 +287,10 @@ export function trackerSummary(f: ShopBadgeFacts): string {
   const parts: string[] = [];
   if (f.verified) parts.push('Verified');
   const l = f.completedEvents === null ? null : milestoneLadder(f.completedEvents);
-  if (l?.earned) parts.push(`${l.earned} events`);
+  if (l?.earned) parts.push(`${COUNT.format(l.earned)} events`);
   const rating = cardRecordRatingFromTrusted(f.trusted);
   if (rating) parts.push(`★ ${ratingWord(rating.avg)}`);
-  if (l && l.next !== null) parts.push(`next: ${l.next} events`);
+  if (l && l.next !== null) parts.push(`next: ${COUNT.format(l.next)} events`);
   return parts.length > 0 ? parts.join(' · ') : 'They show by themselves as you earn them';
 }
 
@@ -278,7 +298,7 @@ export function trackerSummary(f: ShopBadgeFacts): string {
 export function nextToEarnLine(completedEvents: number | null): string | null {
   if (completedEvents === null) return null;
   const l = milestoneLadder(completedEvents);
-  return l.next === null ? null : `Next to earn: ${l.next} events · ${l.toGo} to go`;
+  return l.next === null ? null : `Next to earn: ${COUNT.format(l.next)} events · ${COUNT.format(l.toGo!)} to go`;
 }
 
 /* ── "Improves every time" — the Today line ──────────────────────────────────────────────────────────────── */
@@ -313,12 +333,13 @@ export function newlyEarned(f: ShopBadgeFacts, seen: readonly string[]): EarnedN
     .filter((k) => k.startsWith('milestone:'))
     .map((k) => Number(k.slice('milestone:'.length)))
     .sort((a, b) => b - a)[0];
-  let badge: ShopBadge;
-  if (milestone !== undefined) badge = milestoneBadge(milestone);
-  else {
-    const award = fresh.find((k) => k.startsWith('award:'));
-    badge = award ? shopBadges(f).find((b) => b.key === award)! : VERIFIED;
-  }
-  const what = badge.kind === 'milestone' ? `${badge.glyph} events` : badge.label;
+  const award = fresh.find((k) => k.startsWith('award:'));
+  const badge =
+    milestone !== undefined
+      ? milestoneBadge(milestone)
+      : award
+        ? (shopBadges(f).find((b) => b.key === award) ?? VERIFIED)
+        : VERIFIED;
+  const what = badge.kind === 'milestone' ? `${COUNT.format(milestone!)} events` : badge.label;
   return { key: badge.key, badge, sentence: `You earned ${what} ✓ — your tarp and card can show it`, keys };
 }

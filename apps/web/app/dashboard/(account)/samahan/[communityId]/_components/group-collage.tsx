@@ -107,7 +107,7 @@ export function GroupCollage({
   const title = `${collage.label} · ${storiesWord(collage.stories.length)}`;
   return (
     <div
-      className="w-full self-stretch overflow-hidden rounded-[18px] bg-[#1b1916] text-white"
+      className="w-full self-stretch overflow-hidden rounded-2xl bg-[#1b1916] text-white"
       data-collage={collage.key}
       aria-label={title}
       role="group"

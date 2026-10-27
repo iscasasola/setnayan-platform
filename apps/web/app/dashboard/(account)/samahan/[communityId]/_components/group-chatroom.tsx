@@ -130,7 +130,7 @@ function MessageBubble({
   if (!m.is_self) {
     return (
       <li className="flex max-w-[78%] flex-col items-start self-start" data-chat-message="">
-        <div className="rounded-[18px] bg-ink/[0.06] px-3 py-2 text-[14.5px] text-ink">
+        <div className="rounded-2xl bg-ink/[0.06] px-3 py-2 text-[14.5px] text-ink">
           {first ? <p className="mb-px text-[11px] font-bold text-gold-deep">{m.author_name}</p> : null}
           {/* Plain text — React escapes it, so a message can never become markup. */}
           <p className="whitespace-pre-wrap break-words">{m.body}</p>
@@ -145,7 +145,7 @@ function MessageBubble({
         type="button"
         onClick={() => onArm(armed ? null : m.message_id)}
         aria-expanded={armed}
-        className="rounded-[18px] bg-terracotta-700 px-3 py-2 text-left text-[14.5px] text-white dark:text-cream"
+        className="rounded-2xl bg-terracotta-700 px-3 py-2 text-left text-[14.5px] text-white dark:text-cream"
       >
         <span className="block whitespace-pre-wrap break-words">{m.body}</span>
       </button>

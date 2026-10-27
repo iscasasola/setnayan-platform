@@ -22,3 +22,8 @@ Owner, 27 Oct: *"pinned approve"* (Guests B · Home A · Suppliers A) and *"On t
 SPEC IMPACT: DECISION_LOG.md 2026-10-27 rows "PINNED ROWS ON SCROLL — ONE ROW PER MENU (Guests B · Home A · Suppliers A)"
 and "PINNED ROWS KEEP THEIR SELECTORS — SIMPLIFIED" — build note appended; prototype copied to
 `prototypes/guests_pinned_row_2026-10-27/`.
+- **Found while shooting — the pinned rows hid UNDER the bar on a desk.** `data-hidden="true"` is only the scroll's
+  request; `front-door.css` slides the bar away below 1024 px only, so at 1280 every sticky head read "bar hidden" and
+  pinned at `top: 0`, behind the 60-px bar (already true of the shipped Guests block; with one row it vanished whole).
+  One shared read now, `shellBarShows` in `use-shell-bar-offset.ts`, used by Guests, People, Home and Suppliers;
+  `suppliers-keeps-the-shell-bar.test.ts` now holds the helper (sabotage: dropping its 1024 rule → red).

@@ -83,6 +83,7 @@ import { BENCH_BUILT_EVENT, benchLocalStore, builtNowIn } from './bench-local';
 import { CoverBar, CoverCount, CoverRingProvider } from './cover-ring';
 import { SuppliersModeContext, THUMB_SLIDE_MS } from './suppliers-mode';
 import { followColumn } from '../../guests/_components/dock-follows-column';
+import { shellBarShows } from '../../guests/_components/use-shell-bar-offset';
 
 /** The rows take the column's edges from here up — the 2026-10-23 full-width line (`lg`). */
 const COLUMN_ROWS_FROM = '(min-width: 1024px)';
@@ -314,8 +315,7 @@ export function ServicesTakeover({
     let lastTop = -1;
     let lastStick = -1;
     const sync = () => {
-      const shown = bar && bar.getAttribute('data-hidden') !== 'true' && getComputedStyle(bar).display !== 'none';
-      const top = shown ? bar.getBoundingClientRect().height : 0;
+      const top = shellBarShows(bar) ? bar.getBoundingClientRect().height : 0;
       if (top !== lastTop) {
         lastTop = top;
         root.style.setProperty('--sup-top', `${top}px`);

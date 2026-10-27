@@ -73,6 +73,7 @@ import {
 import { ActionButton, actionButtonClass } from '@/components/action-button';
 import { InfoTip } from '@/app/_components/info-tip';
 import { ThumbRow, type ThumbField, type ThumbMenu } from '@/components/thumb-row';
+import { useThumbRowArrivesLast } from '@/lib/thumb-row-arrives-last';
 import { Count } from '@/components/count';
 import { SnapCarousel, type CarouselCard } from '@/components/snap-carousel';
 import { formatCount } from '@/lib/format-number';
@@ -573,13 +574,9 @@ export function GuestsScreen(props: GuestsScreenProps) {
     return () => clearTimeout(t);
   }, [gview]);
 
-  // ── The thumb row slides up once the mode has rendered.
-  const [barOn, setBarOn] = useState(false);
-  useEffect(() => {
-    setBarOn(false);
-    const r = requestAnimationFrame(() => requestAnimationFrame(() => setBarOn(true)));
-    return () => cancelAnimationFrame(r);
-  }, [gview]);
+  // ── The thumb row arrives LAST — after the carousel and the open section have built up (owner 2026-10-27,
+  //    `lib/thumb-row-arrives-last.ts`); List ↔ Map builds up again, so it re-arms on the view.
+  const barOn = useThumbRowArrivesLast(gview);
 
   // ── 🖥 From 701 the thumb row sits UNDER THE READING COLUMN, edge to edge with it, and stays there when the column
   //    moves (owner 2026-10-20, "is the desktop view done fixing?"). The column is THIS screen — `dock-follows-column.ts`.

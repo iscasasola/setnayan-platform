@@ -20,6 +20,8 @@ import {
 import { saveImageToDevice } from '@/lib/save-to-device';
 import { useGuestActions } from './guest-actions-context';
 import { hearAction } from './hear-action';
+import { SentOrNotYet } from './sent-or-not-yet';
+import { useAskOnReturn } from '@/lib/ask-on-return';
 import { Popover } from './overlay-primitives';
 import {
   shareInvite,
@@ -167,6 +169,8 @@ export function GuestInviteCell({
   const pin = useHeadPin(ref, layout === 'card');
   const titleId = useId();
   const first = guest.firstName?.trim() || guest.fullName.split(/\s+/)[0] || 'them';
+  // 📨 An app opened, or something was copied to paste elsewhere — on the way back, ask "Sent / Not yet" (owner 2026-10-27).
+  const back = useAskOnReturn();
 
   useEffect(() => setSentAt(guest.sentAt), [guest.sentAt]);
 
@@ -293,6 +297,7 @@ export function GuestInviteCell({
     if (plan.kind === 'share') return share();
     const out = await runInviteAppPlan(plan, text, touch);
     setSaid(out === 'manual' ? { kind: 'manual', text } : { kind: 'app', text: inviteAppSaid(app, plan, first) });
+    if (!sentAt) back.arm();
   }
 
   /*
@@ -310,6 +315,7 @@ export function GuestInviteCell({
     } catch {
       setSaid({ kind: 'manual', text: link });
     }
+    if (!sentAt) back.arm();
   }
 
   async function copyMessage() {
@@ -320,6 +326,7 @@ export function GuestInviteCell({
     } catch {
       setSaid({ kind: 'manual', text });
     }
+    if (!sentAt) back.arm();
   }
 
   async function copyTicket() {
@@ -529,6 +536,15 @@ export function GuestInviteCell({
           </div>
         </Popover>
       ) : null}
+      <SentOrNotYet
+        open={back.asking && !sentAt}
+        name={first}
+        onSent={() => {
+          back.settle();
+          mark(true);
+        }}
+        onNotYet={back.settle}
+      />
     </div>
   );
 }

@@ -25,6 +25,8 @@ import {
 import { setGuestInvitationSent } from '../../invitation/actions';
 import { saveInviteMessage } from '../send/actions';
 import { hearAction } from './hear-action';
+import { SentOrNotYet } from './sent-or-not-yet';
+import { useAskOnReturn } from '@/lib/ask-on-return';
 
 /**
  * SEND INVITE · COPY MESSAGE — one guest, their own link, from the couple's
@@ -252,6 +254,8 @@ export function SendInviteActions({
   const manualRef = useRef<HTMLTextAreaElement>(null);
   const first = guest.firstName?.trim() || guest.fullName.split(/\s+/)[0] || 'them';
   const file = useTicketFile(guest.guestId, ticketFileName(guest.fullName), Boolean(guest.inviteUrl), guest.ticketVersion);
+  // 📨 Copy and "Send in an app" LEAVE Setnayan — on the way back, ask "Sent / Not yet" (owner 2026-10-27).
+  const back = useAskOnReturn();
 
   useEffect(() => {
     setSentAt(guest.sentAt);
@@ -310,6 +314,8 @@ export function SendInviteActions({
       // Clipboard blocked (some in-app browsers) — hand them the text, selected.
       setSaid({ kind: 'manual', text });
     }
+    // Either way they now paste it somewhere else — ask when they come back.
+    if (!sentAt) back.arm();
   }
 
   async function send() {
@@ -330,6 +336,7 @@ export function SendInviteActions({
     if (plan.kind === 'share') return send();
     const out = await runInviteAppPlan(plan, text, device.touch);
     setSaid(out === 'manual' ? { kind: 'manual', text } : { kind: 'app', text: inviteAppSaid(app, plan, first) });
+    if (!sentAt) back.arm();
   }
   const appDevice = inviteDevice();
   const appMenu = (
@@ -469,6 +476,16 @@ export function SendInviteActions({
           </p>
         ) : null}
       </div>
+
+      <SentOrNotYet
+        open={back.asking && !sentAt}
+        name={first}
+        onSent={() => {
+          back.settle();
+          mark(true);
+        }}
+        onNotYet={back.settle}
+      />
     </div>
   );
 }

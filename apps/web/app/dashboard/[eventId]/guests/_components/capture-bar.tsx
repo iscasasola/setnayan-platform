@@ -25,9 +25,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ClipboardList, ListPlus, Plus, Upload, Users } from 'lucide-react';
+import { Plus, Upload, Users } from 'lucide-react';
 import type { GuestSide } from '@/lib/guests';
-import { OpenQuickAddButton } from './quick-add-sheet';
 import { OpenAddFromPeopleButton } from './add-from-people-sheet';
 import { useGuestActions } from './guest-actions-context';
 import { guestAdds, queueTypedGuest } from './guest-add-queue';
@@ -219,16 +218,8 @@ export function AddDoors({ eventId, rows = false }: { eventId: string; rows?: bo
         label={door(<Users className="h-4 w-4" strokeWidth={1.8} aria-hidden />, 'From your people')}
         className={cls}
       />
-      <OpenQuickAddButton
-        ariaLabel="Add with details"
-        label={door(<ClipboardList className="h-4 w-4" strokeWidth={1.8} aria-hidden />, 'Add with details')}
-        className={cls}
-      />
       <Link href={`/dashboard/${eventId}/guests/import`} aria-label="Import a file" title="Import a file" className={cls}>
         {door(<Upload className="h-4 w-4" strokeWidth={1.8} aria-hidden />, 'Import a file')}
-      </Link>
-      <Link href={`/dashboard/${eventId}/guests/quick`} aria-label="Paste many names" title="Paste many names" className={cls}>
-        {door(<ListPlus className="h-4 w-4" strokeWidth={1.8} aria-hidden />, 'Paste many names')}
       </Link>
     </>
   );

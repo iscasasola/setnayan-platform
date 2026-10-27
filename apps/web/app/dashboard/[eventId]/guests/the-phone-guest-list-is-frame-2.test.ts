@@ -37,7 +37,7 @@ test('the add doors: no round + (owner 2026-10-25); the four other ways are ONE 
   const sheet = read('_components', 'add-guest-sheet.tsx');
   assert.match(sheet, /<PickMenu\b[\s\S]{0,200}label="Add another way"/, 'the four other ways are not one dropdown');
   assert.match(sheet, /options=\{ADD_WAYS\.map\(/, 'the sheet’s dropdown no longer reads the one list');
-  for (const w of ['From your people', 'Add with details', 'Import a file', 'Paste many names']) {
+  for (const w of ['From your people', 'Import a file']) {
     assert.ok(sheet.includes(`'${w}'`), `the list lost "${w}"`);
   }
   assert.match(SCREEN, /if \(addTyped\(v\) === NEEDS_BOTH_NAMES\) openAddGuest\(v\);/, 'a one-name line no longer opens the sheet with the typed name');

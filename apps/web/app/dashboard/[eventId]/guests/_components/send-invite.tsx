@@ -25,6 +25,8 @@ import {
 import { setGuestInvitationSent } from '../../invitation/actions';
 import { saveInviteMessage } from '../send/actions';
 import { hearAction } from './hear-action';
+import { SentOrNotYet } from './sent-or-not-yet';
+import { useAskOnReturn } from '@/lib/ask-on-return';
 
 /**
  * SEND INVITE · COPY MESSAGE — one guest, their own link, from the couple's
@@ -252,6 +254,8 @@ export function SendInviteActions({
   const manualRef = useRef<HTMLTextAreaElement>(null);
   const first = guest.firstName?.trim() || guest.fullName.split(/\s+/)[0] || 'them';
   const file = useTicketFile(guest.guestId, ticketFileName(guest.fullName), Boolean(guest.inviteUrl), guest.ticketVersion);
+  // 📨 Copy and "Send in an app" LEAVE Setnayan — on the way back, ask "Sent / Not yet" (owner 2026-10-27).
+  const back = useAskOnReturn();
 
   useEffect(() => {
     setSentAt(guest.sentAt);
@@ -303,6 +307,8 @@ export function SendInviteActions({
 
   async function copyText(kind: 'copied' | 'copied-desktop') {
     const text = message(false);
+    // They will paste it somewhere else — ask when they come back. Armed AT the press, before any await.
+    if (!sentAt) back.arm();
     try {
       await navigator.clipboard.writeText(text);
       setSaid({ kind });
@@ -328,6 +334,8 @@ export function SendInviteActions({
     const text = message(false);
     const plan = inviteAppPlan(app, text, device);
     if (plan.kind === 'share') return send();
+    // Armed AT the press: opening an app can hide this page before the promise below settles.
+    if (!sentAt) back.arm();
     const out = await runInviteAppPlan(plan, text, device.touch);
     setSaid(out === 'manual' ? { kind: 'manual', text } : { kind: 'app', text: inviteAppSaid(app, plan, first) });
   }
@@ -469,6 +477,16 @@ export function SendInviteActions({
           </p>
         ) : null}
       </div>
+
+      <SentOrNotYet
+        open={back.asking && !sentAt}
+        name={first}
+        onSent={() => {
+          back.settle();
+          mark(true);
+        }}
+        onNotYet={back.settle}
+      />
     </div>
   );
 }

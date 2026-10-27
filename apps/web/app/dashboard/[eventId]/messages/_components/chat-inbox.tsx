@@ -15,7 +15,7 @@ import { formatCount } from '@/lib/format-number';
 
 /**
  * THE CHATS INBOX, MESSENGER-SHAPED (owner 2026-10-27, *"look and feel like Messenger"*; chat prototype 2026-10-28,
- * frame A) — a big title, All · Unread · Suppliers, one row per chat with NO frame (round avatar · name · its small tag ·
+ * frames A + L) — a big title, All · Unread · Suppliers, one row per chat with NO frame (round avatar · name · its event ·
  * the last line, "You: …" when yours · the time · bold + a dot when unread), and the search in the frosted THUMB ROW
  * at the bottom with ✎ beside it (owner: *"thumb bar"*).
  *
@@ -37,9 +37,7 @@ export type InboxRow = {
   preview: string;
   timeLabel: string;
   unread: boolean;
-  /** The quiet word beside the name — the thread's own stage (Quote · Booked), never a new fact. */
-  tag: string | null;
-  /** "Dec 18 · Claire & Indalecio" — the event this one thread belongs to. */
+  /** "Dec 18 · Claire & Indalecio" — the event this one thread belongs to, beside the name (frame L). */
   eventLine: string;
   archived: boolean;
   /** Archive / unarchive — the shipped per-row form, drawn by the page. */
@@ -116,14 +114,16 @@ export function ChatInbox({
         <ThreadListAvatar logoUrl={r.logoUrl} name={r.name} size="lg" />
         <span className="min-w-0 flex-1">
           <span className="flex items-baseline gap-1.5">
-            <span className={`min-w-0 truncate text-[16px] text-ink ${r.unread ? 'font-bold' : 'font-medium'}`}>{r.name}</span>
-            {r.tag ? <span className="shrink-0 text-[11px] font-semibold text-sn-accent">· {r.tag}</span> : null}
+            <span className={`min-w-0 shrink-0 truncate text-[16px] text-ink ${r.unread ? 'font-bold' : 'font-medium'}`} style={{ maxWidth: '70%' }}>{r.name}</span>
+            {/* Frame L (owner 2026-10-28, "i want isolation per event"): each row says WHICH event — "· Dec 18 · …". */}
+            {r.eventLine ? (
+              <span className="min-w-0 shrink truncate text-[11px] font-semibold text-sn-accent" data-inbox-event-line="">
+                · {r.eventLine}
+              </span>
+            ) : null}
           </span>
           <span className={`block truncate text-[14px] ${r.unread ? 'font-bold text-ink' : 'text-ink/60'}`}>
             {r.preview} · {r.timeLabel}
-          </span>
-          <span className="block truncate text-[12px] text-ink/45" data-inbox-event-line="">
-            {r.eventLine}
           </span>
         </span>
         {r.unread ? <span aria-label="Unread" className="h-3 w-3 shrink-0 rounded-full bg-sn-accent" /> : null}

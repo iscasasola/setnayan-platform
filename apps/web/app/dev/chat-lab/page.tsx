@@ -28,8 +28,7 @@ export default async function ChatLabInboxPage({
     preview: t.preview,
     timeLabel: t.time,
     unread: t.unread,
-    tag: t.tag,
-    eventLine: EVENT_LINE,
+    eventLine: 'Dec 18 · Ana & Miguel',
     archived: false,
     archive: <ThreadArchiveToggle threadId={t.id} returnTo="/dev/chat-lab" archived={false} />,
   }));

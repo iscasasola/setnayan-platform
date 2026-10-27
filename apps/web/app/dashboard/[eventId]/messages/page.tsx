@@ -215,7 +215,16 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
     logQueryError('CoupleMessagesPage.event', eventRes.error, { event_id: eventId }, 'graceful_degrade');
   }
   const ev = (eventRes.data ?? null) as { display_name?: string | null; event_date?: string | null } | null;
-  const eventLine = [ev?.event_date ? formatLongDate(ev.event_date) : null, ev?.display_name?.trim() || null]
+  // Short, beside the supplier's name (frame L): "Dec 18 · Ana & Miguel". The sheet's scope line uses the long date.
+  const eventLine = [
+    ev?.event_date
+      ? new Date(`${ev.event_date.slice(0, 10)}T00:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
+      : null,
+    ev?.display_name?.trim() || null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  const eventLineLong = [ev?.event_date ? formatLongDate(ev.event_date) : null, ev?.display_name?.trim() || null]
     .filter(Boolean)
     .join(' · ');
 
@@ -231,8 +240,6 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
       preview: r.preview,
       timeLabel: r.timeLabel,
       unread: r.unread,
-      // The thread's OWN stage word, never a new fact: a quote waiting, or booked.
-      tag: r.stage === 'quoted' ? 'Quote' : r.stage === 'booked' || r.stage === 'completed' ? 'Booked' : null,
       eventLine,
       archived: archivedRow,
       archive: <ThreadArchiveToggle threadId={r.threadId} returnTo={returnTo} archived={archivedRow} />,
@@ -283,7 +290,7 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
         newMessage={
           <>
             <p className="mb-2 mt-1 text-[13px] text-ink/60" data-new-message-scope="">
-              {eventLine ? `${eventLine} — ` : ''}this event&rsquo;s suppliers only
+              {eventLineLong ? `${eventLineLong} — ` : ''}this event&rsquo;s suppliers only
             </p>
             {teamReadFailed ? (
               <p role="alert" className="text-sm text-ink/70">

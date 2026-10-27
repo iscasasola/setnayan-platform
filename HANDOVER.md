@@ -13,9 +13,13 @@ Contract: corpus `prototypes/coordinator_door_2026-10-28/` + DECISION_LOG 2026-1
 - Lab: `/dev/supplier-lab?s=coord-today|coord-events|coord-customer[&none=1]`, `/dev/home-lab?coord=1&shell=1`.
 - Walk + sabotage scripts: `shots-2026-10-28/coord/scripts/` (serve.sh · walk.mjs · sabotage.py · proto.mjs).
 
+- Needs line (owner follow-up 28 Oct): `readEventsYouRunWithNeeds` (Today + Events page only) → board's attention
+  read; `checklistOverdueCount` in lib/checklist.ts mirrors the launcher's pinned inline math.
+- Check-in desk: coordinating line (`checkInHref`, layout's `coordinatorCheckInP`) + Hub `CheckinDeskRows`.
+
 ## Decisions taken (not covered by the record)
-- Status line = what the day is to them (In N days · Today · Wrapping up · access until …), not "3 things need you":
-  no count of what needs a coordinator exists; inventing one would be a number nobody measured.
+- Needs words: "N things need you · <top>" only when total > top count, else the top line; measured zero =
+  "Nothing needs you right now"; refused = "Couldn’t load what needs you". The countdown stays as `status` (Hub rows).
 - Switch OFF counts as no access (prototype note D: "access-toggle off … = it leaves the list").
 - The tab is the person's own seat, so a scoped helper who coordinates gets it too.
 - The line shows only when the coordinator also has a shop (a non-supplier planner has no shop to go back to).

@@ -45,7 +45,19 @@ import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 
 const PAPIC = dirname(dirname(fileURLToPath(import.meta.url)));
-const PAGE = readFileSync(join(PAPIC, 'page.tsx'), 'utf8');
+/*
+  📷 THE PAPIC PAGE IS GONE (owner 2026-10-26: "that papic frame with toggle, place that on home and remove that page").
+  What it drew is the Papic card on Home › Today: Home's page (the card, its face, its outcome line) and the parts it
+  mounts there — so `PAGE` is those, read as one, and the bill follows each control to it.
+*/
+const PAGE = [
+  join(PAPIC, '..', '..', 'page.tsx'),
+  join(PAPIC, '_components', 'papic-outcome-banners.tsx'),
+  join(PAPIC, '_components', 'papic-camera-help.tsx'),
+  join(PAPIC, '_components', 'papic-self-heal.tsx'),
+]
+  .map((f) => readFileSync(f, 'utf8'))
+  .join('\n');
 
 /*
   🗂 THE PAGE SPLIT IN TWO (owner 2026-10-23, PR-B): *"Papic is the camera service. Gallery is the collection of the
@@ -58,7 +70,7 @@ const MEMORIES = join(PAPIC, '..', '..', 'memories');
 const DETAILS = join(PAPIC, '..', '..', 'details');
 const read = (...p: string[]) => readFileSync(join(...p), 'utf8');
 const SURFACES = {
-  'the Papic page': PAGE,
+  'the Papic card on Home': PAGE,
   'the camera settings': read(PAPIC, '_components', 'papic-camera-settings.tsx'),
   'the Memories page': read(MEMORIES, 'page.tsx'),
   'the Memories ⚙ sheet': read(MEMORIES, '_components', 'memories-settings.tsx'),
@@ -75,14 +87,12 @@ const EVERYWHERE = Object.values(SURFACES).join('\n');
  */
 const CONTROLS_BEFORE_THE_REDESIGN = [
   'AddToLibrary',
-  'CaptureDefaultsSection',
   'CoupleChallengesManager',
   'DriveConnectCTA',
   'DriveConnectedPanel',
   'DriveCopyCard',
   'DriveReconnectBanner',
   'DriveSafetyPanel',
-  'DslrBridgeSection',
   'FaceTaggingChoice',
   'GuestCamerasChoice',
   'GuestContributionsCard',
@@ -99,9 +109,7 @@ const CONTROLS_BEFORE_THE_REDESIGN = [
   'PoolGalleryCard',
   'RecapCard',
   'SettingRow',
-  'ShutterSection',
   'StatusBanners',
-  'StudioBuyHero',
   'StylePicker',
   'SubmitButton',
   'UploadsOpenChoice',
@@ -122,6 +130,12 @@ const REPLACED_OR_REMOVED: Record<string, string> = {
   // 📷 ONE PAPIC CARD (owner ruling 2026-10-24): the page draws Home's card, open — its counter, meter, window line and
   // Add more ARE the band's balance and buy (`papic-camera-settings.tsx`).
   PapicTopBand: 'replaced by the one Papic card (PapicHomeCard, open) — its controller holds the balance and Add more',
+  // 📷 THE PAGE IS GONE (owner 2026-10-26) — its card is on Home › Today. Setup & help was three explanation blocks, not
+  // controls: their words are the card's one "How the camera works" ⓘ (`papic-camera-help.tsx`).
+  ShutterSection: 'replaced by PapicCameraHelp (the ⓘ holds its words)',
+  CaptureDefaultsSection: 'replaced by PapicCameraHelp (the ⓘ holds its words)',
+  DslrBridgeSection: 'replaced by PapicCameraHelp (CAMERA_BRIDGE is retired — "not on sale yet", as the row read)',
+  StudioBuyHero: 'the page heading went with the page — the card head names Papic',
 };
 
 test('🚨 every control the three rooms held is still mounted — on the Papic page or where it moved', () => {

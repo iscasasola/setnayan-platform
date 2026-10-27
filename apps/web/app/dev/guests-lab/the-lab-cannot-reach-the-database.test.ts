@@ -37,8 +37,9 @@ const read = (p: string) => stripComments(readFileSync(p, 'utf8'));
 test('(1) every write the context carries has a lab stand-in — none is left real', () => {
   /* The names the context carries — read from its source (importing it would import every server action). */
   const ctx = read(join(GUESTS, 'guest-actions-context.tsx'));
-  const real = [...ctx.slice(ctx.indexOf('export const REAL_GUEST_ACTIONS')).matchAll(/^\s{2}(\w+)(?::|,)/gm)].map((m) => m[1]).slice(0, 20);
-  assert.equal(real.length, 20, 'the context’s names could not be read');
+  // 🧍 21 since the card's Proxy ▾ (`setGuestProxy`, 2026-10-27) — the count moves with the context, never a cap that hides one.
+  const real = [...ctx.slice(ctx.indexOf('export const REAL_GUEST_ACTIONS')).matchAll(/^\s{2}(\w+)(?::|,)/gm)].map((m) => m[1]).slice(0, 21);
+  assert.equal(real.length, 21, 'the context’s names could not be read');
   assert.deepEqual(Object.keys(LAB_GUEST_ACTIONS).sort(), [...real].sort(), 'a lab press can reach a real action');
   for (const f of ['lab-stand-ins.ts', 'lab-guest-actions.tsx']) {
     assert.doesNotMatch(read(join(HERE, f)), /from '[^']*(?:-actions|\/actions)'|groups-actions|inline-actions/, `${f} imports a real action module`);

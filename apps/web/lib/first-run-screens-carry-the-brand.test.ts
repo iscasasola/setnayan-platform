@@ -80,7 +80,13 @@ test('2 · a brand-new couple’s Done goes to the picker — and only then', ()
   // (`create-event/the-grid-opens-first.test.ts`).
   const picker = read('app/dashboard/(account)/create-event/_components/event-type-picker.tsx');
   assert.doesNotMatch(picker, /Para kanino ito/, 'the who-screen is back in front of the grid');
-  assert.match(picker, /<PickMenu[\s\S]{0,120}\bcompact\b/, 'the who must stay a compact dropdown on the first screen');
+  // 2026-10-26 (owner: "also fix how for dropdown is presented"): the who is now ONE full-width 44-px row, not a
+  // compact pill — it still fits 320 px because both of its lines TRUNCATE inside a `min-w-0` column.
+  assert.match(
+    picker,
+    /<PickMenu[\s\S]{0,1200}trigger=\{[\s\S]{0,400}min-w-0 flex-1[\s\S]{0,200}block truncate[\s\S]{0,200}block truncate/,
+    'the who row must truncate its words so the first screen still fits a 320 px phone',
+  );
   const head = read('app/dashboard/(account)/create-event/_components/new-event-head.tsx');
   assert.match(head, /\{nothingBehind \? null : \(\s*<Link/, 'the way back is drawn with nothing behind it');
   // ONE wordmark on the picker: the account bar's top bar (mark + "Setnayan" at every width) — never a second

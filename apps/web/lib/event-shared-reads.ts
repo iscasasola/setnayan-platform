@@ -105,6 +105,8 @@ export const GUESTS_SHARED_COLUMNS = [
   'couple_with_guest_id',
   'attire',
   'gender',
+  // 🧍 The entourage prints "(represented by …)" (owner 2026-10-27) — the stamp watches the link (migration 20271292712479).
+  'represented_by_guest_id',
 ] as const;
 
 /**
@@ -132,6 +134,7 @@ export const VIEWER_FILTER_KEYS: ReadonlySet<string> = new Set([
   'plus_one_of_guest_id',
   'couple_with_guest_id',
   'pair_with_guest_id',
+  'represented_by_guest_id',
 ]);
 
 /** The backstop (seconds) — see the docblock: the rev is the freshness rule, not this. */

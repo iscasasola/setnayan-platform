@@ -30,6 +30,8 @@ test('the cover words: type · date over the names, "Your <type>" for an unnamed
   assert.deepEqual(homeCoverWords({ event_type: 'wedding', event_date: '2026-12-18', display_name: ' Indalecio & Claire ' }), {
     eyebrow: 'Wedding · December 18, 2026',
     name: 'Indalecio & Claire',
+    // The pinned cover's one line (owner 2026-10-27, Home A: `<names> · <short date>`).
+    shortDate: 'Dec 18',
   });
   assert.deepEqual(homeCoverWords({ event_type: 'debut', event_date: null, display_name: '' }), { eyebrow: 'Debut', name: 'Your Debut' });
 });

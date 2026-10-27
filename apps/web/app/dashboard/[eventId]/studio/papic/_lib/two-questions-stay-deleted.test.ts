@@ -35,7 +35,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const PAPIC_DIR = dirname(dirname(fileURLToPath(import.meta.url)));
-const PAGE = join(PAPIC_DIR, 'page.tsx');
+// The Papic page is gone (2026-10-26) — what it said is said by its card's parts on Home now.
+const PAGE = join(PAPIC_DIR, '_components', 'papic-outcome-banners.tsx');
 
 /** Strip // and /* *\/ comments and JSX {/* *\/} blocks, preserving string literals. */
 function stripComments(src: string): string {
@@ -67,6 +68,8 @@ function stripComments(src: string): string {
 // carries the Papic files — the camera page, the Memories settings sheet and the Drive card — as ONE source.
 const SURFACES = [
   PAGE,
+  join(PAPIC_DIR, '_components', 'papic-camera-settings.tsx'),
+  join(PAPIC_DIR, '_components', 'papic-camera-help.tsx'),
   join(PAPIC_DIR, '..', '..', 'memories', '_components', 'memories-settings.tsx'),
   join(PAPIC_DIR, '_components', 'drive-copy-card.tsx'),
 ];

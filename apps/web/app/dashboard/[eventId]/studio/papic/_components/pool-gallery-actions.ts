@@ -59,6 +59,6 @@ export async function setPoolGalleryOpen(
   // 0-row update (event vanished / column missing pre-migration) is NOT success.
   if (!data || data.length === 0) return { ok: false, error: 'not_saved' };
 
-  revalidatePath(`/dashboard/${clean}/studio/papic`);
+  revalidatePath(`/dashboard/${clean}/memories`); // the gallery lives in Memories
   return { ok: true, open: open === true };
 }

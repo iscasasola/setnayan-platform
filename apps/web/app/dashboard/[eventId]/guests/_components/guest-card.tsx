@@ -9,6 +9,7 @@ import { GuestInviteCell } from './guest-invite-cell';
 import { GuestDeleteControl, GuestMoreMenu, GuestTicketThumb } from './guest-ticket-parts';
 import { GuestPapicCamera } from './guest-papic-camera';
 import { GuestAccessPick } from './guest-access-pick';
+import { GuestProxyRow } from './guest-proxy-row';
 import { GuestHelperAccess } from './guest-helper-access';
 
 /**
@@ -85,6 +86,7 @@ export function GuestCard({
       papic={papic}
       PapicCamera={GuestPapicCamera}
       AccessPick={GuestAccessPick}
+      ProxyRow={GuestProxyRow}
       storeShell={storeShell}
       ticketVersion={ticketVersion}
       helperAccess={
@@ -102,7 +104,7 @@ export function GuestCard({
     <InspectorColumn
       eyebrow={guestCardEyebrow(guest, { hasSides: data.hasSides, roleNames: data.roleNames, plusOneOf: data.plusOneOf })}
       title={title}
-      badge={guestCardReply(guest)}
+      badge={guestCardReply(guest, data.proxy)}
       lead={<GuestCardAvatar guest={guest} photoDisplayUrl={photoDisplayUrl} size="head" />}
       pinSlot
       swapKey={guest.guest_id}

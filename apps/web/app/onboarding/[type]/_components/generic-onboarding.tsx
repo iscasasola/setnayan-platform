@@ -532,6 +532,9 @@ export function GenericOnboarding(props: Props) {
       const carried = takeHonoree();
       if (carried) {
         setHonoree(carried.name);
+        // "For · You" on the grid (owner 2026-10-26): the celebrant is the account
+        // holder — show the settled "This one's yours" chip, never the empty box.
+        if (carried.forSelf) setMomentForSelf(true);
         // …and WHICH record that name is, so the cap keys on the person rather
         // than the spelling. A CLAIM only — commitOnboardingEvent re-reads it
         // under `owner_user_id = you` and drops anything else.
@@ -882,12 +885,15 @@ export function GenericOnboarding(props: Props) {
     const out: Record<string, unknown> = {};
     // Whose birthday: the name they typed, or — when they left it blank, which
     // has always meant "mine" — the name on their own account.
-    const name = honoree.trim() || (knownBirthdayAge != null ? (selfName ?? '') : '');
+    // "For you" (the grid's answer, or the reader's own Year row) names the account
+    // holder as the celebrant (owner 2026-10-26: "the name of the celebrant should
+    // automatically be me").
+    const name = honoree.trim() || (knownBirthdayAge != null || momentForSelf ? (selfName ?? '') : '');
     if (name) out.celebrant_name = name;
     if (knownBirthdayAge != null) out.celebrant_age = knownBirthdayAge;
     if (derivedMilestone) out.milestone_type = derivedMilestone;
     return out;
-  }, [eventType, honoree, knownBirthdayAge, selfName, derivedMilestone]);
+  }, [eventType, honoree, knownBirthdayAge, momentForSelf, selfName, derivedMilestone]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -1358,7 +1364,8 @@ export function GenericOnboarding(props: Props) {
               </p>
               <div className="mt-6 flex max-w-lg items-center gap-3 rounded-[var(--m-r-md)] border border-ink/10 bg-ink/[0.02] px-4 py-3">
                 <span className="min-w-0 text-sm text-ink/70">
-                  For <span className="font-medium text-ink">you</span>
+                  {/* The celebrant IS the account holder — by name (owner 2026-10-26). */}
+                  For <span className="font-medium text-ink" data-self-celebrant>{selfName?.trim() || 'you'}</span>
                   {momentAge != null ? (
                     <span className="block truncate text-xs text-ink/50">
                       Turning {momentAge}

@@ -459,7 +459,7 @@ export async function startPapicGuestPurchase(formData: FormData) {
   // are told, not asked). Refresh it so the line appears without them reloading.
   // Post-mint and best-effort: the buyer's redirect must not wait on it, and a
   // stale card is a cosmetic miss, not a lost order.
-  revalidatePath(`/dashboard/${buyer!.eventId}/studio/papic`);
+  revalidatePath(`/dashboard/${buyer!.eventId}`);
 
   // THE ONE PAYMENT PAGE (owner 2026-08-21). Now that the buyer must have an
   // account, `orders_owner_read` admits them on `user_id = auth.uid()` and the
@@ -683,6 +683,6 @@ export async function releaseGuestDedicatedShots(formData: FormData) {
   const moved = Number(data ?? 0);
   if (!(moved > 0)) backTo(returnTo, 'nothing_to_release');
 
-  revalidatePath(`/dashboard/${buyer.eventId}/studio/papic`);
+  revalidatePath(`/dashboard/${buyer.eventId}`);
   redirect(`${safeReturnTo(returnTo)}?papic_release=${moved}`);
 }

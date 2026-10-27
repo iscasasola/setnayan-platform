@@ -26,7 +26,6 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const PAPIC_DIR = dirname(dirname(fileURLToPath(import.meta.url)));
-const PAGE = join(PAPIC_DIR, 'page.tsx');
 
 // ⚠ THE READS AND THE RENDER LIVE IN TWO FILES NOW, AND THE RULES FOLLOWED THEM
 // RATHER THAN BEING RELAXED. On 2026-08-28 the four facts moved onto the dark
@@ -105,13 +104,15 @@ test('a person is told where they stand before anything asks them to decide', ()
   // the running balance (the credits band — where they stand) comes before the camera settings (what they decide).
   // 📷 2026-10-24 (owner: ONE Papic card): the balance is the card's controller — the counter, inside the camera
   // settings, comes before the first decision (the Settings heading).
-  const page = readFileSync(PAGE, 'utf8');
-  assert.match(page, /<PapicCameraSettings eventId=\{eventId\} credits=\{\{ total: papicBand\.total, left: papicBand\.count \}\}/, 'the page hands the card no balance — it tells nobody where they stand');
-  const cam = readFileSync(join(PAPIC_DIR, '_components', 'papic-camera-settings.tsx'), 'utf8');
-  const band = cam.indexOf('data-papic-counter=""');
-  const settings = cam.indexOf('data-papic-settings=""');
-  assert.ok(band > 0, 'the counter is not drawn — the card tells nobody where they stand');
+  // 📷 2026-10-26 (owner: "the count of the total, taken, remaining and a button to add more"; the Papic page removed):
+  // the balance is on the card's FACE — Total · Taken · Remaining — drawn before the settings region it opens.
+  const page = readFileSync(join(PAPIC_DIR, '..', '..', 'page.tsx'), 'utf8');
+  assert.match(page, /counts: \{ total: papicNow\.total, left: papicNow\.count \}/, 'Home hands the card no balance — it tells nobody where they stand');
+  const card = readFileSync(join(PAPIC_DIR, '..', '..', '_components', 'papic-home-card.tsx'), 'utf8');
+  const face = card.indexOf('data-papic-card-face=""');
+  const settings = card.indexOf('data-papic-home-settings=');
+  assert.ok(face > 0, 'the counts are not drawn — the card tells nobody where they stand');
   assert.ok(settings > 0, 'the camera settings are not drawn');
-  assert.ok(band < settings, 'the camera settings ask for decisions before the balance says where the couple stands');
+  assert.ok(face < settings, 'the camera settings ask for decisions before the balance says where the couple stands');
   assert.doesNotMatch(page, /\bBLOCK_ORDER\b/, 'a phase map is back — DOM order would stop being visual order');
 });

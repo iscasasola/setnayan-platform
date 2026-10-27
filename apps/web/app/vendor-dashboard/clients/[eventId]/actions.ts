@@ -1,5 +1,6 @@
 'use server';
 
+import { papicHomeHref } from '@/lib/papic-home-href';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -589,7 +590,7 @@ export async function createVendorChallengeAction(formData: FormData) {
           type: 'papic_challenge_pending',
           title: `${vendorName} added a Papic Challenge`,
           body: 'Approve it to share it with your guests.',
-          relatedUrl: `/dashboard/${eventId}/studio/papic`,
+          relatedUrl: papicHomeHref(eventId),
         });
       }
     } catch (e) {

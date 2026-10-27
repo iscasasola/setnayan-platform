@@ -73,7 +73,7 @@ test('the wizard door gates on the server, not only in the client', () => {
 test('both collecting surfaces ask the question for the business types', () => {
   assert.match(
     read(PICKER),
-    /\{pickerAsksHonoree\(selected\.key, subject\?\.kind\) && !samahanCommunityId \? \(/,
+    /(?:\{|: )pickerAsksHonoree\(selected\.key, subject\?\.kind\) && !samahanCommunityId \? \(/,
     'the inline picker stopped offering the honoree field',
   );
   const wizard = read(WIZARD);

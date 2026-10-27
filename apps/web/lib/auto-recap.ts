@@ -35,7 +35,7 @@ import { presignDisplayUrl } from '@/lib/uploads';
 import { isR2Configured, R2_BUCKETS, type R2BucketName } from '@/lib/r2';
 import { parseYouTubeVideoId, youTubeEmbedUrl } from '@/lib/panood-watch';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { PASSED_AWAY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
+import { PASSED_AWAY, REPRESENTED_BY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
 
 export type RecapStatus = 'draft' | 'published' | 'unpublished';
 
@@ -456,7 +456,7 @@ export async function loadRecapCoupleSummary(eventId: string): Promise<RecapCoup
         .select('guest_id', { count: 'exact', head: true })
         .eq('event_id', eventId)
         .is('deleted_at', null)
-        .neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false),
+        .neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false).is(REPRESENTED_BY, null),
       admin.from('events').select('slug, our_photos').eq('event_id', eventId).maybeSingle(),
     ]);
 

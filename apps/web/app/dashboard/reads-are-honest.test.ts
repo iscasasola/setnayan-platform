@@ -832,18 +832,19 @@ test('a refused read never renders as a count of zero or an emptied money docume
       'pre-fill fails closed, but knowingly.',
   );
 
+  // 📷 The guest-camera sync moved with the Papic card's self-heal (the Papic page was removed 2026-10-26).
   const papic = stripComments(
-    readFileSync(join(HERE, '[eventId]/studio/papic/page.tsx'), 'utf8'),
+    readFileSync(join(HERE, '[eventId]/studio/papic/_components/papic-self-heal.tsx'), 'utf8'),
   );
   assert.match(
     papic,
-    /guestCameraCount = guestCameraCountError \? null : count \?\? 0;/,
+    /if \(seatsErr\) logQueryError\(/,
     '"0 cameras ready" to a couple whose guests all hold one. An unread count ' +
       'is not zero.',
   );
   assert.match(
     papic,
-    /if \(guestCameraCount !== null && guestCameraCount !== expected\)/,
+    /if \(!seatsErr && \(count \?\? 0\) !== Math\.min\(guests, snapshot\.camera_cap\)\)/,
     'A write triggered by a read that failed is a write nobody asked for.',
   );
 

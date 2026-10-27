@@ -22,19 +22,21 @@ import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
 
 const code = (f: string) => stripComments(readFileSync(join(process.cwd(), f), 'utf8'));
-const PAPIC = 'app/dashboard/[eventId]/studio/papic/page.tsx';
+// 📷 The Papic page is gone (owner 2026-10-26: "place that on home and remove that page") — Home draws the card.
+const PAPIC = 'app/dashboard/[eventId]/page.tsx';
 const CAMERA = 'app/dashboard/[eventId]/studio/papic/_components/papic-camera-settings.tsx';
 const SETTINGS = 'app/dashboard/[eventId]/memories/_components/memories-settings.tsx';
 const DETAILS = 'app/dashboard/[eventId]/details/page.tsx';
 const ACCESS = 'app/dashboard/[eventId]/details/_components/people-with-access.tsx';
 const GUESTS = 'app/dashboard/[eventId]/guests/_components/guests-screen.tsx';
 
-test('1 · the Papic page is the camera: the one line, the credits, his five — and none of the files', () => {
+test('1 · the Papic card is the camera: the switch, the counts, his five — and none of the files', () => {
   const page = code(PAPIC);
-  const body = page.slice(page.indexOf('data-papic-page="camera"'));
-  assert.ok(body.length > 100, 'premise: the camera page is drawn');
-  assert.match(body, /<PapicHomeCard\b[\s\S]*?defaultOpen/, 'the Papic page does not draw the one Papic card, open (owner 2026-10-24)');
-  assert.match(body, /<PapicCameraSettings eventId=\{eventId\}/, 'the Papic page no longer draws the camera settings');
+  const at = page.indexOf('const papicCard: PapicCardInput | null =');
+  const body = page.slice(at, page.indexOf(': null;', at));
+  assert.ok(at > 0 && body.length > 100, 'premise: Home builds the Papic card');
+  assert.match(body, /headControl: <PapicSwitch\b/, 'the card lost its switch');
+  assert.match(body, /<PapicCameraSettings eventId=\{eventId\} seat="home"/, 'the card no longer opens the camera settings');
   // The camera, in the owner's order — ONE component, also opened under Home's Papic card.
   const cam = code(CAMERA);
   for (const must of [
@@ -63,7 +65,7 @@ test('1 · the Papic page is the camera: the one line, the credits, his five —
     'HIGH_RES_ARCHIVE"',
     '/studio/papic/moderation',
   ]) {
-    assert.ok(!body.includes(gone), `the Papic page draws ${gone} again — it belongs to Memories, Event Details or the photo`);
+    assert.ok(!body.includes(gone) && !cam.includes(gone), `the Papic card draws ${gone} again — it belongs to Memories, Event Details or the photo`);
   }
 });
 

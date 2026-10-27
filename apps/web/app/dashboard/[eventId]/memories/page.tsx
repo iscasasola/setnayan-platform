@@ -19,6 +19,9 @@ import { AddToLibrary } from '@/app/dashboard/[eventId]/studio/papic/_components
 import type { UploadPot } from '@/app/dashboard/[eventId]/studio/papic/_lib/upload-credits';
 import { PapicBuySheet } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-buy-sheet';
 import { IapPapicSheet } from '@/app/_components/iap/iap-papic-sheet';
+import { MagazineCard } from '@/app/dashboard/[eventId]/studio/papic/_components/magazine-card';
+import { RecapCard } from '@/app/dashboard/[eventId]/studio/papic/_components/recap-card';
+import { LifeFlashCard } from '@/app/dashboard/[eventId]/studio/papic/_components/life-flash-card';
 import { eventHasPapicUnlock } from '@/lib/entitlements';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { UploadsOpenChoice } from '@/app/dashboard/[eventId]/studio/papic/_components/uploads-open-choice';
@@ -216,6 +219,16 @@ export default async function EventMemoriesPage({ params, searchParams }: Props)
       blockedGuests={read.blockedGuests}
       suppliers={read.suppliers}
     />
+    {/* 📖 MADE FROM YOUR MEMORIES — Photo Notes Magazine, Your Recap and this day's Life-Flash, moved here unchanged from
+        the Papic page when it was removed (2026-10-26; controller's call, DECISION_LOG "THE PAPIC CARD LIVES ON HOME ›
+        TODAY"): they are made FROM these photos, so they sit under them. The host's, as the page was; each self-gates. */}
+    {host ? (
+      <section className="flex flex-col gap-3 px-4 pb-8 pt-2" aria-label="Made from your memories" data-memories-keepsakes="">
+        <MagazineCard eventId={eventId} />
+        <RecapCard eventId={eventId} />
+        <LifeFlashCard eventId={eventId} />
+      </section>
+    ) : null}
     {/* 🔦 First visit only — a new feature gets its spotlight (house rule), after the host journey. */}
     <Spotlight tourKey={HOST_PAGE_TOURS.memories} after={HOST_PAGE_TOURS_AFTER} replay="page" />
     </>

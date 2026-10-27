@@ -48,6 +48,7 @@
  *                   "follows the guest's side" can be walked; on the card &side=bride|groom|both picks the guest's side
  *                   (default bride) and the guest is already in College (groom's side)
  */
+import { papicHomeHref } from '@/lib/papic-home-href';
 import { LabPageSpotlight } from '@/app/dev/_components/lab-page-spotlight';
 import { TOURS } from '@/lib/tours';
 import { notFound } from 'next/navigation';
@@ -367,6 +368,21 @@ function withPlusOnes(roster: GuestRow[], backfilled = false, paired = false): G
   ];
 }
 
+/**
+ * 🧍‍♀️➡️🧍 THE CALE-ICE PAIR (owner 2026-10-27, verbatim: *"in cale-ice, mrs. ma. theresa sacdalan-tria will be proxied by
+ * mrs. maria catherine sacdalan"*) — FIXTURES ONLY, nothing is read or written: a principal sponsor (Ninang) and the guest
+ * who stands in for her. `?part=card&proxy=offer|named|holder|proxy|plain` draws each card; `?part=screen&proxies=1` adds
+ * the pair to the List (one row).
+ */
+const LAB_HOLDER = { guest_id: 'g-proxy-theresa', name_prefix: 'Mrs.', first_name: 'Ma. Theresa', last_name: 'Sacdalan-Tria', role: 'principal_sponsor_ninang' as const, side: 'bride' as const, group_category: 'family' as const };
+const LAB_PROXY = { guest_id: 'g-proxy-catherine', name_prefix: 'Mrs.', first_name: 'Maria Catherine', last_name: 'Sacdalan', role: 'guest' as const, side: 'bride' as const, group_category: 'family' as const };
+function labProxyPair(): GuestRow[] {
+  return [
+    guest({ ...LAB_HOLDER, public_id: 'S89G-LABPX00001', rsvp_status: 'declined', invitation_sent_at: '2026-09-20T00:00:00Z', represented_by_guest_id: LAB_PROXY.guest_id, represented_since: '2026-10-27T01:00:00Z' }),
+    guest({ ...LAB_PROXY, public_id: 'S89G-LABPX00002', rsvp_status: 'attending', invitation_sent_at: '2026-10-27T01:00:00Z' }),
+  ];
+}
+
 /** 🤝 `?part=card&plusone=1` — the card opened on a plain guest's unnamed seat (live: Rose Marie Buanhug's), bride's side. */
 const LAB_SEAT_HOST = { guest_id: 'g-mj-14', first_name: 'Rosa', last_name: 'Santos', display_name: null, side: 'bride' as const };
 
@@ -466,7 +482,7 @@ export default async function GuestsLabPage({
     const low = sp.low === '1';
     const labPapic: GuestPapicState =
       sp.papic === 'off'
-        ? { access: 'off', ceiling: undefined, door: `/dashboard/${EVENT}/studio/papic` }
+        ? { access: 'off', ceiling: undefined, door: papicHomeHref(EVENT) }
         : sp.papic === 'unknown'
           ? { access: 'unknown', ceiling: undefined }
           : { access: 'on', ceiling: sp.papic === 'set' ? 40 : sp.papic === 'none' ? 0 : null };
@@ -554,7 +570,60 @@ export default async function GuestsLabPage({
     /* 👗 `&dress=1` — a dress code as the Studio stores it (VIP · Immediate Family: men Suit and tie · women Long gown;
        Principal Sponsors: men Barong · women Filipiniana; Guests: men Suit · women Long dress), so the Seat fold's
        "Attire · 3D seat plan" line is drawn by the ONE reading (`guestOutfitOf`); without it, nothing is picked. */
-    const cardGuest = sidesGuest ?? protoGuest ?? g;
+    /* 🧍 `&proxy=` — the cale-ice pair (fixtures): offer · named (she typed a name on her reply) · holder (represented;
+       `&after=1` she said she can come after all) · proxy (Maria Catherine's card, standing in) · plain (a plain guest: no row). */
+    const proxyMode = typeof sp.proxy === 'string' ? sp.proxy : null;
+    const proxyGuest =
+      proxyMode === 'proxy'
+        ? guest({ ...LAB_PROXY, rsvp_status: 'attending' })
+        : proxyMode === 'plain'
+          ? guest({ ...LAB_PROXY, rsvp_status: 'pending' })
+          : proxyMode
+            ? guest({
+                ...LAB_HOLDER,
+                rsvp_status: proxyMode === 'named' ? 'declined' : proxyMode === 'holder' && sp.after === '1' ? 'attending' : proxyMode === 'holder' ? 'declined' : 'attending',
+                ...(proxyMode === 'holder' ? { represented_by_guest_id: LAB_PROXY.guest_id, represented_since: '2026-10-27T01:00:00Z' } : {}),
+                ...(proxyMode === 'holder' && sp.after === '1' ? { rsvp_set_by: 'guest' as const, rsvp_responded_at: '2026-10-27T05:00:00Z' } : {}),
+                ...(proxyMode === 'named' ? { proxy_named_by_guest: 'Maria Catherine Sacdalan', rsvp_set_by: 'guest' as const } : {}),
+              })
+            : null;
+    const labChoices = [
+      { guestId: LAB_PROXY.guest_id, name: 'Maria Catherine Sacdalan' },
+      { guestId: 'g-mj-14', name: 'Rosa Santos' },
+      { guestId: 'g-mj-15', name: 'Divina Mercado' },
+      { guestId: 'g-mj-16', name: 'Carlo Santos' },
+      { guestId: 'g-mj-24', name: 'Joana Cruz' },
+    ];
+    const proxyData = proxyMode
+      ? {
+          proxy:
+            proxyMode === 'proxy'
+              ? {
+                  offer: false,
+                  representedBy: null,
+                  standingInFor: { guestId: LAB_HOLDER.guest_id, name: 'Ma. Theresa Sacdalan-Tria', role: LAB_HOLDER.role, extra_roles: [], roleWord: 'Principal Sponsor · Ninang', callTime: '2:00 PM' },
+                  namedByGuest: null,
+                  cameAfterAll: false,
+                  choices: null,
+                  unread: false,
+                }
+              : proxyMode === 'plain'
+                ? { offer: false, representedBy: null, standingInFor: null, namedByGuest: null, cameAfterAll: false, choices: null, unread: false }
+                : {
+                    offer: true,
+                    representedBy: proxyMode === 'holder' ? { guestId: LAB_PROXY.guest_id, name: 'Maria Catherine Sacdalan', rsvp: 'attending' as const } : null,
+                    standingInFor: null,
+                    namedByGuest: proxyMode === 'named' ? 'Maria Catherine Sacdalan' : null,
+                    cameAfterAll: proxyMode === 'holder' && sp.after === '1',
+                    choices: labChoices,
+                    unread: false,
+                  },
+          tables: [{ tableId: 't-sponsors', label: 'Principal Sponsors 1' }],
+          seatTableId: proxyMode === 'holder' ? null : 't-sponsors',
+          seatedAt: proxyMode === 'holder' ? null : 'Principal Sponsors 1',
+        }
+      : {};
+    const cardGuest = proxyGuest ?? sidesGuest ?? protoGuest ?? g;
     const labDress = sp.dress === '1'
       ? {
           groups: { vip_family: { style: 'suit' }, principal_sponsors: { style: 'barong_tagalog' } },
@@ -564,7 +633,8 @@ export default async function GuestsLabPage({
       : null;
     const labOutfit = guestOutfitWords(
       guestOutfitOf({
-        role: cardGuest.role,
+        // 🧍 A proxy wears the role they stand in for (`effectiveRoleOf`) — the same reading the real card makes.
+        role: proxyMode === 'proxy' ? LAB_HOLDER.role : cardGuest.role,
         dressCodeConfig: labDress,
         palette: {},
         roleNames: labWords,
@@ -577,7 +647,7 @@ export default async function GuestsLabPage({
         <GuestCard
           frame={panelFrame ? 'panel' : 'page'}
           eventId={EVENT}
-          data={{ ...cardData(cardGuest, host), ...protoData, ...sidesData, ...seatOf, ...seatLines, ...linkedData, roleNames: labWords, outfit: { wear: labOutfit.wear, from: labOutfit.from } } as GuestCardData}
+          data={{ ...cardData(cardGuest, host), ...protoData, ...sidesData, ...seatOf, ...seatLines, ...linkedData, ...proxyData, roleNames: labWords, outfit: { wear: labOutfit.wear, from: labOutfit.from } } as GuestCardData}
           invitationBase="https://www.setnayan.com/maria-and-jose"
           photoDisplayUrl={null}
           returnTo={labBack}
@@ -677,7 +747,10 @@ export default async function GuestsLabPage({
     const roster00 = sp.plusones === '1' ? withPlusOnes(planningRoster(), sp.backfilled === '1', sp.paired === '1') : planningRoster();
     /* 📜 `&many=N` — N more guests after maria-and-jose's (owner 2026-10-24, live: a search on a long list left the hit
        above the screen), so a search can be walked on a list a phone has to scroll. */
-    const roster0 = roster00.concat(manyGuests(Math.min(400, Math.max(0, Number(typeof sp.many === 'string' ? sp.many : 0) || 0))));
+    const roster0 = roster00
+      .concat(manyGuests(Math.min(400, Math.max(0, Number(typeof sp.many === 'string' ? sp.many : 0) || 0))))
+      // 🧍 `&proxies=1` — the cale-ice pair (fixtures): ONE row on the List, counted once.
+      .concat(sp.proxies === '1' ? labProxyPair() : []);
     /* 🖐 `&marked=1` — two replies the host set (owner 2026-10-21), so the rows' quiet "marked" can be seen. */
     const roster1 = sp.marked === '1'
       ? roster0.map((g) => (g.guest_id === 'g-mj-5' || g.guest_id === 'g-mj-9' ? { ...g, rsvp_status: 'attending' as const, rsvp_set_by: 'host' as const } : g))

@@ -38,7 +38,8 @@ const WEB = join(HERE, '..');
 const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
 
 const PICKER = 'app/dashboard/[eventId]/studio/papic/extra-cameras-picker.tsx';
-const PAPIC_PAGE = 'app/dashboard/[eventId]/studio/papic/page.tsx';
+// The Papic page is gone (2026-10-26) — its card's settings are where a camera price would reappear.
+const PAPIC_PAGE = 'app/dashboard/[eventId]/studio/papic/_components/papic-camera-settings.tsx';
 
 /*
   ⛔ 2026-10-23 — THE PICKER THESE RULES HELD IS DELETED, and with it the only couple surface that ever

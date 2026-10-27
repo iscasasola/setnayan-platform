@@ -45,7 +45,7 @@ function eventIdFrom(formData: FormData): string {
 /** Revalidate the couple surface + the public recap page + its OG card. */
 async function revalidateRecap(eventId: string, slug: string | null): Promise<void> {
   revalidatePath(`/dashboard/${eventId}/studio/papic/recap`);
-  revalidatePath(`/dashboard/${eventId}/studio/papic`);
+  revalidatePath(`/dashboard/${eventId}/memories`); // Your Recap's card lives in Memories (2026-10-26)
   if (slug) {
     revalidatePath(`/${slug}/recap`);
     revalidatePath(`/api/og/recap/${slug}`);

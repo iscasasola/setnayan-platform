@@ -1,4 +1,5 @@
 import { Suspense } from 'react';
+import { readGuestStandIn } from '@/lib/guest-proxy.server';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { DoorNotice, DoorShell } from '@/app/_components/door/door-shell';
@@ -192,7 +193,7 @@ async function inviteReplyPage({ params, searchParams }: Props) {
     : await admin
     .from('guests')
     .select(
-      'guest_id, first_name, last_name, display_name, role, side, group_category, plus_one_of_guest_id, plus_one_mode, plus_one_name_confirmed_at, plus_one_allowed, plus_one_count, plus_one_name, rsvp_status, meal_preference, dietary_restrictions, guest_note, custom_tags, qr_token, photo_url, photo_source, email, mobile',
+      'guest_id, first_name, last_name, display_name, role, extra_roles, side, group_category, plus_one_of_guest_id, plus_one_mode, plus_one_name_confirmed_at, plus_one_allowed, plus_one_count, plus_one_name, rsvp_status, meal_preference, dietary_restrictions, guest_note, custom_tags, qr_token, photo_url, photo_source, email, mobile, represented_by_guest_id, proxy_named_by_guest',
     )
     .eq('guest_id', session!.guest_id)
     .eq('event_id', event.event_id)
@@ -209,6 +210,10 @@ async function inviteReplyPage({ params, searchParams }: Props) {
     !guest.plus_one_name_confirmed_at &&
     (!guest.first_name || String(guest.first_name).toLowerCase() === 'tba');
   if (isUnconfirmedTba) redirect(`/${home}/welcome`);
+  /* 🧍 The proxy, both ways — never on the Maker's canvas (a stand-in person, nothing of theirs to read). */
+  const standIn = canvas
+    ? null
+    : await readGuestStandIn(admin, event.event_id as string, guest as { guest_id: string; represented_by_guest_id?: string | null; proxy_named_by_guest?: string | null });
 
   /* ⏳ THE ARRIVAL SHOWS SOMETHING WHILE IT LOADS (2026-10-11). Everything above
      this line is a ROUTING decision — `notFound()`, the redirects, who this
@@ -463,6 +468,8 @@ async function inviteReplyPage({ params, searchParams }: Props) {
           words={words}
           guest={{
             ...(guest as unknown as GuestRow),
+            // 🧍 Who they stand in for, or who stands in for them (owner 2026-10-27) — the reply says it.
+            stand_in: standIn ?? undefined,
             // One set of boxes per seat (+1…+4): name, meal, dietary. Never the
             // seat's key — that is for the thank-you's "Send their invite".
             // 🪑 A REFUSED read (null) is NOT "no seats": `undefined` gives the reply the loader's own fallback (one box,

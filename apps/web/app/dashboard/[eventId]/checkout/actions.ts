@@ -114,6 +114,12 @@ export type ApplyVoucherResult = {
   discount_php: string;
   final_php: string;
   reason?: string;
+  /**
+   * 💲 Only on an `intent=welcome_quote` call: the website-only welcome price for
+   * the line, or null when the buyer is not on it (switch off, the app, not a
+   * first purchase, any read failed).
+   */
+  welcome?: { welcomeCentavos: string; pct: number } | null;
 };
 
 export async function applyVoucherAction(
@@ -121,6 +127,25 @@ export async function applyVoucherAction(
   formData: FormData,
 ): Promise<ApplyVoucherResult> {
   void prevState;
+
+  // 💲 The drawer's welcome-price check rides this read (see quoteWelcomeForLine).
+  if (formData.get('intent') === 'welcome_quote') {
+    const hubPartsRaw = formData.get('hub_parts');
+    const q = await quoteWelcomeForLine({
+      eventId: String(formData.get('event_id') ?? ''),
+      serviceKey: String(formData.get('service_key') ?? ''),
+      hubParts: typeof hubPartsRaw === 'string' ? hubPartsRaw : undefined,
+    });
+    return {
+      applied: false,
+      code: null,
+      discount_centavos: '0',
+      final_centavos: '0',
+      discount_php: '',
+      final_php: '',
+      welcome: q,
+    };
+  }
 
   const code = formData.get('code');
   const serviceKey = formData.get('service_key');
@@ -1176,8 +1201,13 @@ async function orderLandedForBuyer(
  *
  * Priced by the SAME two calls `submitOrderAction` makes (`resolveOrderChargeCentavos`
  * then `welcomeChargeFor`), so the figure on the screen is the figure charged.
+ *
+ * ⚠ NOT EXPORTED, ON PURPOSE: every exported server action is a Vercel route and
+ * the budget is full (`scripts/lint-server-action-budget.mjs`). The drawer reaches
+ * it through the price-check action it already calls — `applyVoucherAction` with
+ * `intent=welcome_quote` — which is the same kind of read.
  */
-export async function quoteWelcomeAction(input: {
+async function quoteWelcomeForLine(input: {
   eventId: string;
   serviceKey: string;
   hubParts?: string;

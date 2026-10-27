@@ -7,7 +7,7 @@ Owner ruling 2026-10-28 (DECISION_LOG "ONE PRICE EVERYWHERE = THE APP STORE PRIC
   the per-row `onboarding_price_php` overrides through `setupPricePhp` (cheaper wins, centavo rounding). "First" is
   read from `orders` (no new table): any couple-side row with a positive amount, no comp, status not draft/cancelled.
   Any platform counts, so the welcome is once per account; an app sign-up who has bought nothing gets it on the web.
-- **Where:** the checkout drawer asks `quoteWelcomeAction` when it opens and shows "Welcome price · N% off your first
+- **Where:** the checkout drawer asks for it when it opens (through the existing price-check action `applyVoucherAction`, `intent=welcome_quote` — no new server action; the budget is full) and shows "Welcome price · N% off your first
   purchase"; `submitOrderAction` decides the charge itself and refuses if the screen and the server disagree. It never
   stacks with a voucher or the Setnayan AI comeback offer. The create flow (onboarding services card, its one bill,
   the wedding paywall pricing) asks the same question (`setupPriceAppliesForCreateFlow`).

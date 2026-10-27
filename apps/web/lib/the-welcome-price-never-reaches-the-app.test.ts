@@ -60,17 +60,17 @@ test('2 · every server decision asks the shipped store-shell detector', () => {
   assert.ok(!/formData|searchParams/.test(body), 'nothing the browser sends may decide it');
   // Every path that hands out a welcome figure goes through that decision.
   const actions = codeOnly(read('app/dashboard/[eventId]/checkout/actions.ts'));
-  const quote = actions.slice(actions.indexOf('export async function quoteWelcomeAction('));
+  const quote = actions.slice(actions.indexOf('async function quoteWelcomeForLine('));
   assert.match(quote.slice(0, 2000), /const decision = await readWelcomeDecision\(user\.id\);\s*if \(decision\.kind !== 'welcome'\) return null;/);
 });
 
 test('3 · the checkout drawer never asks for, nor shows, a welcome price in the app', () => {
   const src = codeOnly(read('app/dashboard/[eventId]/_components/inline-checkout-drawer.tsx'));
   assert.match(src, /const isNativeApp = useIsStoreShell\(\);/, 'the drawer must use the shipped store-shell hook');
-  const call = src.indexOf('quoteWelcomeAction({');
+  const call = src.indexOf("fd.set('intent', 'welcome_quote');");
   assert.ok(call > 0, 'the welcome quote call is gone (update this guard with it)');
   assert.match(
-    src.slice(Math.max(0, call - 200), call),
+    src.slice(Math.max(0, call - 260), call),
     /if \(isNativeApp \|\| !open\) return;/,
     'the quote must be refused in the store shell BEFORE it is asked',
   );
@@ -121,7 +121,7 @@ const ROSTER: Record<string, Fence> = {
 
 /** Code that can put a set-up / welcome figure on a screen. */
 const TOUCHES_THE_PRICE =
-  /quoteWelcomeAction|welcome-discount|setupPricePhp|hasSetupSaving|setupPriceAppliesForCreateFlow|onboarding-discount|onboarding_price_php|onboarding_discount_pct|readServicesStepView|buildOnboardingPricing|Welcome price/;
+  /welcome_quote|quoteWelcomeForLine|welcome-discount|setupPricePhp|hasSetupSaving|setupPriceAppliesForCreateFlow|onboarding-discount|onboarding_price_php|onboarding_discount_pct|readServicesStepView|buildOnboardingPricing|Welcome price/;
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const e of readdirSync(dir, { withFileTypes: true })) {

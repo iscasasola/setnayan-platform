@@ -91,7 +91,6 @@ import { useModalA11y } from '@/lib/use-modal-a11y';
 import { useIsStoreShell } from '@/lib/use-store-shell';
 import {
   applyVoucherAction,
-  quoteWelcomeAction,
   submitOrderAction,
   type ApplyVoucherResult,
   type SubmitOrderResult,
@@ -349,9 +348,14 @@ export function InlineCheckoutDrawer({
   useEffect(() => {
     if (isNativeApp || !open) return;
     let live = true;
-    quoteWelcomeAction({ eventId, serviceKey, hubParts })
-      .then((q) => {
-        if (live) setWelcomeQuote(q);
+    const fd = new FormData();
+    fd.set('intent', 'welcome_quote');
+    fd.set('event_id', eventId);
+    fd.set('service_key', serviceKey);
+    if (hubParts) fd.set('hub_parts', hubParts);
+    applyVoucherAction(null, fd)
+      .then((r) => {
+        if (live) setWelcomeQuote(r.welcome ?? null);
       })
       // A quote that never answered shows the regular price — the server then
       // charges the regular price too, because the drawer did not claim one.

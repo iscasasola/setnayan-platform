@@ -87,7 +87,6 @@ const NO_EVENT_WRITE: Record<string, string> = {
   'guests/open-guest-card.tsx#openGuestCard': 'read: renders the guest card',
   'studio/papic/actions.ts#papicBuySizes': 'read: price rungs',
   'checkout/actions.ts#applyVoucherAction': 'read: prices a voucher code, records nothing',
-  'checkout/actions.ts#quoteWelcomeAction': 'read: quotes the website-only welcome price, records nothing',
   'studio/live-studio-control/actions.ts#setYoutubeLiveReadyAck': 'writes only the caller’s own users row',
   '_actions/share-consent.ts#revokeShareConsent': 'acts on the caller’s own consent row by id (RLS-scoped), not on the event',
 };

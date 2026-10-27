@@ -248,6 +248,8 @@ test('C1 · a file pinned to Decisions, a contract or a payment proof is never d
   assert.equal(s.keptForever, 5);
   for (const c of CHAT_KEPT_FOREVER_COLUMNS) {
     assert.equal(isKeptForever({ [c]: 'x' }), true, c);
+    // The per-row predicate refuses it on its own, whatever the loop does.
+    assert.equal(isDueForExpiry(row(c, { [c]: 'x' }), NOW), false, `${c} would be swept`);
   }
 });
 

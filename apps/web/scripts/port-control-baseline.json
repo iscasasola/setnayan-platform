@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "79344fcdf2",
-  "routeCount": 474,
-  "destinations": 993,
-  "actions": 642,
-  "blocks": 7138,
+  "generatedFromRef": "c55a35ace2",
+  "routeCount": 475,
+  "destinations": 995,
+  "actions": 651,
+  "blocks": 7167,
   "routes": {
     "/": {
       "files": [
@@ -2642,6 +2642,7 @@
         "admin/categories/_components/four-level-map.tsx",
         "admin/categories/_components/four-level-model.ts",
         "admin/categories/_components/group-icons.ts",
+        "admin/categories/_components/hub-tools-pane.tsx",
         "admin/categories/_components/in-place.tsx",
         "admin/categories/_components/list-pane.tsx",
         "admin/categories/_components/load-map.ts",
@@ -2772,6 +2773,9 @@
         "HTMLElement",
         "Head",
         "Hidden",
+        "HubToolKey",
+        "HubToolsPane",
+        "HubToolsSection",
         "Icon",
         "InfoTip",
         "ItemForm",
@@ -2829,6 +2833,7 @@
         "SVGSVGElement",
         "Said",
         "SavePick",
+        "ScanMode",
         "SearchParamsRecord",
         "Section",
         "ServiceBack",
@@ -2839,6 +2844,7 @@
         "StudioActionResult",
         "SubmitButton",
         "SwitchForm",
+        "SwitchRow",
         "SwitchTrack",
         "T",
         "Thumbs",
@@ -3431,20 +3437,22 @@
     },
     "/admin/help": {
       "files": [
+        "admin/help/_components/help-messenger.tsx",
         "admin/help/actions.ts",
         "admin/help/loading.tsx",
         "admin/help/page.tsx"
       ],
-      "destinations": [
-        "/admin/help?status=[seg]"
-      ],
+      "destinations": [],
       "actions": [
+        "action",
         "setHelpMessageStatus"
       ],
       "blocks": [
-        "FilterChip",
-        "PageMasthead",
-        "SubmitButton"
+        "ActionButton",
+        "HelpMessageRow",
+        "HelpMessenger",
+        "Link",
+        "PageMasthead"
       ]
     },
     "/admin/hub-music": {
@@ -4894,13 +4902,37 @@
     },
     "/admin/work": {
       "files": [
+        "admin/work/_components/supplier-inbox.tsx",
         "admin/work/actions.ts",
         "admin/work/page.tsx"
       ],
-      "destinations": [],
-      "actions": [],
+      "destinations": [
+        "/admin/help?m=[seg]"
+      ],
+      "actions": [
+        "createEventTypeRoster",
+        "openApplicationDocument",
+        "resolveRepostFlag",
+        "setEventTypeStatus",
+        "settleCorrectionFromWorkList",
+        "settleHelpFromWorkList",
+        "settleVerificationFromWorkList"
+      ],
       "blocks": [
-        "QueuesTriageFeed"
+        "ActionButton",
+        "CardsBody",
+        "DocsBody",
+        "Fact",
+        "Icon",
+        "InfoTip",
+        "Link",
+        "MsgsBody",
+        "NamesBody",
+        "Preview",
+        "QueuesTriageFeed",
+        "ReasonPick",
+        "SupplierInbox",
+        "TypesBody"
       ]
     },
     "/api/v1": {
@@ -5650,6 +5682,7 @@
         "ForTagMark",
         "GlassEventCard",
         "HTMLDialogElement",
+        "HTMLDivElement",
         "Icon",
         "Image",
         "ImpactLines",
@@ -6679,6 +6712,7 @@
         "dashboard/[eventId]/guests/_components/role-section-order.ts",
         "dashboard/[eventId]/guests/_components/search-add-card.tsx",
         "dashboard/[eventId]/guests/_components/send-invite.tsx",
+        "dashboard/[eventId]/guests/_components/sent-or-not-yet.tsx",
         "dashboard/[eventId]/guests/_components/title-picker.tsx",
         "dashboard/[eventId]/guests/_components/titles-waiting.tsx",
         "dashboard/[eventId]/guests/_components/undo-store.ts",
@@ -6753,6 +6787,7 @@
         "CardToggleProps",
         "ChangeAccessLink",
         "ChosenRow",
+        "ConfirmDialog",
         "CoordinatorColourDomains",
         "CoordinatorGrantChips",
         "Count",
@@ -6890,6 +6925,7 @@
         "Scrim",
         "SearchAddRow",
         "SendInvite",
+        "SentOrNotYet",
         "SetRsvpResult",
         "Sheet",
         "SnapCarousel",
@@ -10833,6 +10869,28 @@
         "LabCard",
         "LabRecord",
         "NewManualVendorModal"
+      ]
+    },
+    "/dev/admin-supplier-lab": {
+      "files": [
+        "dev/admin-supplier-lab/fixtures.ts",
+        "dev/admin-supplier-lab/lab-submit-catcher.tsx",
+        "dev/admin-supplier-lab/page.tsx"
+      ],
+      "destinations": [
+        "/admin/verify",
+        "/dev/admin-supplier-lab?view=[seg]"
+      ],
+      "actions": [
+        "setHelpMessageStatus"
+      ],
+      "blocks": [
+        "HelpMessenger",
+        "HubToolsPane",
+        "LabSubmitCatcher",
+        "QueuesTriageFeed",
+        "SP",
+        "SupplierInbox"
       ]
     },
     "/dev/art-kit-lab": {

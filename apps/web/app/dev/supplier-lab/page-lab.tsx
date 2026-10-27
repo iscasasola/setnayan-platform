@@ -35,9 +35,11 @@ import { LabSeedDraft } from './lab-seed-draft';
 import { PORTFOLIO_FREE_BASE } from '@/lib/vendor-tier-caps';
 import { BadgeEarnedLine } from '@/app/vendor-dashboard/_components/badge-earned-line';
 import { badgePrintSvg } from '@/lib/shop-badge-print';
+import { ShopBadgePill } from '@/app/_components/shop-badge-pill';
+import { MILESTONE_THRESHOLDS } from '@/lib/service-card-record';
 import { badgeTracker, badgesForPrint, nextToEarnLine, shopBadges, trackerSummary, type TrackerFacts } from '@/lib/shop-badges';
 
-export const PAGE_LAB_STATES = ['details', 'page', 'collections', 'avatar', 'badge-today'] as const;
+export const PAGE_LAB_STATES = ['details', 'page', 'collections', 'avatar', 'badge-today', 'badge-tiers'] as const;
 export type PageLabState = (typeof PAGE_LAB_STATES)[number];
 type Who = 'parish' | 'caterer' | 'studio';
 
@@ -390,6 +392,30 @@ function pageFixture(who: Who): PageClientData {
 
 export function PageLab({ state, who: rawWho, draft, invited = false }: { state: PageLabState; who?: string; draft?: boolean; /** 🎁 `&invited=1` on details — fresh from a personal invite (B4). */ invited?: boolean }) {
   const who: Who = rawWho === 'caterer' || rawWho === 'studio' ? rawWho : 'parish';
+  if (state === 'badge-tiers') {
+    /* 🏅 Every step's pill (the material climbs) on a light and a dark ground, and the Verified pill on the four
+       grounds of the approved prototype — the side-by-side sheet for pill.png and tiers.png. */
+    const step = (n: number) => shopBadges({ verified: false, completedEvents: n, trusted: null, inBusinessSinceYear: null, awards: [], nowYear: 2026 })[0]!;
+    const verified = shopBadges({ verified: true, completedEvents: null, trusted: null, inBusinessSinceYear: null, awards: [], nowYear: 2026 })[0]!;
+    return (
+      <div className="min-h-screen space-y-6 bg-cream p-4 text-ink" data-lab-badge-tiers="">
+        <div className="flex flex-wrap items-center gap-3" data-lab-grounds="">
+          {(['light', 'dark', 'colour', 'white'] as const).map((g) => (
+            <div key={g} className="rounded-2xl p-4" style={{ background: g === 'dark' ? '#151312' : g === 'colour' ? '#1f3a2c' : g === 'white' ? '#fff' : '#F7F2E8' }}>
+              <ShopBadgePill badge={verified} ground={g} size="md" />
+            </div>
+          ))}
+        </div>
+        {(['light', 'dark'] as const).map((g) => (
+          <div key={g} className="flex flex-wrap items-center gap-x-3 gap-y-6 rounded-2xl p-4 pt-6" style={{ background: g === 'dark' ? '#151312' : '#F7F2E8' }} data-lab-tiers={g}>
+            {MILESTONE_THRESHOLDS.map((n) => (
+              <ShopBadgePill key={n} badge={step(n)} ground={g} size="sm" />
+            ))}
+          </div>
+        ))}
+      </div>
+    );
+  }
   if (state === 'badge-today') {
     /* 🏅 The Today line (`badge-earned-line.tsx`) on lab facts: its facts and its print file are handed in as data:
        URIs, so nothing leaves the machine and Save to print saves the REAL outlined file for this lab shop. */

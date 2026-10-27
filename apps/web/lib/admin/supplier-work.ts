@@ -15,6 +15,8 @@
  * Pure: no React, no database.
  */
 
+import { safeNext } from '@/lib/safe-next';
+
 export const SUPPLIER_WORK_KINDS = ['docs', 'names', 'cards', 'types', 'msgs'] as const;
 export type SupplierWorkKind = (typeof SUPPLIER_WORK_KINDS)[number];
 
@@ -119,6 +121,12 @@ export type SupplierWorkItem = {
       status: 'pending' | 'linked';
       eventType: string | null;
       askedBy: string;
+      /**
+       * Once the type exists (linked): its supplier coverage per GROUP, read from the same
+       * `service_categories.applicable_event_types` Scope categories edits — covered = every category in the group
+       * serves the type. Null before it exists, or when the read failed (the row then says so).
+       */
+      coverage: Array<{ groupId: string; label: string; covered: boolean }> | null;
     }
   | {
       kind: 'msgs';
@@ -186,4 +194,34 @@ export function redirectRefusal(digest: string): string | null {
   if (q === -1) return null;
   const err = new URLSearchParams(url.slice(q + 1)).get('error');
   return err === null ? null : err || 'That could not be done.';
+}
+
+/**
+ * `return_to` when it is an Admin › Work address — anything else is null (an open redirect is never followed). A form
+ * posted from Work to a page's own action (Categories, Scope categories) carries it so the press lands back on Work.
+ */
+export function workReturnTo(raw: unknown): string | null {
+  if (typeof raw !== 'string' || !raw) return null;
+  const safe = safeNext(raw, '');
+  return safe === '/admin/work' || safe.startsWith('/admin/work?') ? safe : null;
+}
+
+/** Does a category's `applicable_event_types` serve this type? NULL / [] = every type (universal). */
+export function servesType(types: readonly string[] | null | undefined, eventType: string): boolean {
+  return !types || types.length === 0 || types.includes(eventType);
+}
+
+/** A type's coverage per group: covered when EVERY active category in the group serves it. */
+export function coverageByGroup(
+  eventType: string,
+  groups: ReadonlyArray<{ id: string; label: string }>,
+  tiles: ReadonlyArray<{ parent_id: string | null; applicable_event_types: readonly string[] | null }>,
+): Array<{ groupId: string; label: string; covered: boolean }> {
+  return groups
+    .map((g) => {
+      const mine = tiles.filter((t) => t.parent_id === g.id);
+      return { groupId: g.id, label: g.label, covered: mine.length > 0 && mine.every((t) => servesType(t.applicable_event_types, eventType)), n: mine.length };
+    })
+    .filter((g) => g.n > 0)
+    .map(({ groupId, label, covered }) => ({ groupId, label, covered }));
 }

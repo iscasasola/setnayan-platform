@@ -158,9 +158,8 @@ export default async function AdminWorkLanding({
   const itemRaw = sp?.item;
   const itemKey = Array.isArray(itemRaw) ? itemRaw[0] : itemRaw;
   const admin = createAdminClient();
-  const [supplierRead, groupsRead, typesRead] = await Promise.all([
+  const [supplierRead, typesRead] = await Promise.all([
     loadSupplierWork(),
-    admin.from('service_categories').select('id, label_en, sort_order').eq('tier', 1).eq('status', 'active').order('sort_order'),
     admin.from('event_type_vocab').select('event_type, label_en, sort_order').eq('status', 'active').order('sort_order'),
   ]);
   const keep = new URLSearchParams();
@@ -187,7 +186,6 @@ export default async function AdminWorkLanding({
           kind={supplierKind}
           itemKey={itemKey}
           basePath={basePath}
-          groups={((groupsRead.data ?? []) as Array<{ id: string; label_en: string }>).map((g) => ({ id: g.id, label: g.label_en }))}
           eventTypes={((typesRead.data ?? []) as Array<{ event_type: string; label_en: string }>).map((t) => ({ key: t.event_type, label: t.label_en }))}
           nowMs={nowMs}
         />

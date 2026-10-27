@@ -103,6 +103,10 @@ const FILES = scannedFiles();
  */
 const BADGE_SITE_BILL: ReadonlyMap<string, { count: number; why: string }> = new Map([
   [
+    'lib/admin/supplier-work.server.ts',
+    { count: 1, why: 'Admin › Work only: marks a flagged card from a shop that is not yet listed as verified (public_visibility) — a moderation note for staff, never a rendered Verified badge.' },
+  ],
+  [
     'app/dashboard/(account)/library/_data/saved-vendors.ts',
     { count: 1, why: 'Feeds resolveVendorDisplayName only — SavedVendorCard has no verified field, no badge renders here.' },
   ],

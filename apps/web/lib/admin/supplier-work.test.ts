@@ -13,6 +13,8 @@ import {
   pickedReason,
   redirectRefusal,
   workBackHref,
+  workReturnTo,
+  coverageByGroup,
   type SupplierWorkItem,
 } from './supplier-work';
 
@@ -67,4 +69,26 @@ test('kind chips: unknown ⇒ everything; match % from the pHash distance', () =
   assert.equal(matchPercent(0), 100);
   assert.equal(matchPercent(64), 0);
   assert.equal(matchPercent(3), 95);
+});
+
+test('return_to is followed only to Work — never an open redirect', () => {
+  assert.equal(workReturnTo('/admin/work?kind=types'), '/admin/work?kind=types');
+  assert.equal(workReturnTo('/admin/work'), '/admin/work');
+  assert.equal(workReturnTo('/admin/categories'), null);
+  assert.equal(workReturnTo('https://evil.example/admin/work'), null);
+  assert.equal(workReturnTo('//evil.example'), null);
+  assert.equal(workReturnTo(null), null);
+});
+
+test('a group covers a type only when EVERY one of its categories serves it (NULL = every type)', () => {
+  const groups = [{ id: 'a', label: 'A' }, { id: 'b', label: 'B' }, { id: 'c', label: 'C (empty)' }];
+  const tiles = [
+    { parent_id: 'a', applicable_event_types: null },
+    { parent_id: 'a', applicable_event_types: ['reunion'] },
+    { parent_id: 'b', applicable_event_types: ['wedding'] },
+  ];
+  assert.deepEqual(coverageByGroup('reunion', groups, tiles), [
+    { groupId: 'a', label: 'A', covered: true },
+    { groupId: 'b', label: 'B', covered: false },
+  ]);
 });

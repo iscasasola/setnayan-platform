@@ -23,7 +23,7 @@ import { setHelpMessageStatus } from '@/app/admin/help/actions';
 import { coerceSupplierWorkKind } from '@/lib/admin/supplier-work';
 import { HUB_TOOLS_SEED, HUB_TOOL_RECORDS, hubToolsFor } from '@/lib/hub-tools';
 import { LabSubmitCatcher } from './lab-submit-catcher';
-import { LAB_GROUPS, LAB_TYPES, labThreads, labWork } from './fixtures';
+import { LAB_TYPES, labThreads, labWork } from './fixtures';
 
 type SP = Record<string, string | string[] | undefined>;
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? '';
@@ -62,7 +62,6 @@ export default async function AdminSupplierLabPage({ searchParams }: { searchPar
               kind={coerceSupplierWorkKind(sp.kind)}
               itemKey={one(sp.item) || undefined}
               basePath={`/dev/admin-supplier-lab?view=work${one(sp.kind) ? `&kind=${one(sp.kind)}` : ''}`}
-              groups={LAB_GROUPS}
               eventTypes={LAB_TYPES}
               nowMs={now}
             />

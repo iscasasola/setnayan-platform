@@ -46,6 +46,7 @@ import { settleVerificationFromWorkList, openApplicationDocument } from '@/app/a
 import { settleCorrectionFromWorkList, settleHelpFromWorkList } from '@/app/admin/work/actions';
 import { resolveRepostFlag } from '@/app/admin/repost-watch/actions';
 import { createEventTypeRoster, setEventTypeStatus } from '@/app/admin/categories/actions';
+import { setFolderEventTypeOffered } from '@/app/admin/categories/event-type-actions';
 
 export type SupplierInboxProps = {
   read: SupplierWorkRead;
@@ -54,8 +55,6 @@ export type SupplierInboxProps = {
   itemKey?: string;
   /** This page's address WITHOUT `item`/`settle` — where every form comes back to. */
   basePath: string;
-  /** Supplier groups, for a new event type's coverage ("Suppliers it covers"). */
-  groups: ReadonlyArray<{ id: string; label: string }>;
   /** The event types an ask can be pointed to. */
   eventTypes: ReadonlyArray<{ key: string; label: string }>;
   nowMs: number;
@@ -254,12 +253,10 @@ function CardsBody({ item, back }: { item: Extract<SupplierWorkItem, { kind: 'ca
 function TypesBody({
   item,
   back,
-  groups,
   eventTypes,
 }: {
   item: Extract<SupplierWorkItem, { kind: 'types' }>;
   back: string;
-  groups: SupplierInboxProps['groups'];
   eventTypes: SupplierInboxProps['eventTypes'];
 }) {
   if (item.status === 'linked') {
@@ -267,6 +264,37 @@ function TypesBody({
     return (
       <div className="max-w-2xl">
         <Fact name={`Added as ${linked}`} sub="Couples cannot pick it yet. Putting it in the picker tells everyone who asked, in the app." badge="Hidden" tone="wait" />
+        {/* SUPPLIER COVERAGE, RIGHT HERE — the shipped Scope categories switch, one group at a time. */}
+        <p className="border-t border-ink/10 py-2 text-[14px] text-ink" data-type-coverage="">
+          <InfoTip label="Suppliers it covers" align="start">
+            The same switch as Event types › Scope categories: a covered group offers this type on every one of its
+            categories. Hide a group that has nothing to do with it.
+          </InfoTip>
+        </p>
+        {item.coverage === null ? (
+          <p role="alert" className="mb-2 rounded-card bg-[var(--sn-warning-soft)] p-3 text-sm text-ink">
+            Couldn’t read which suppliers cover it — refresh to try again.
+          </p>
+        ) : (
+          <ul className="mb-1">
+            {item.coverage.map((g) => (
+              <li key={g.groupId} className="flex min-h-[52px] items-center gap-2.5 border-t border-ink/10 py-1.5 first:border-t-0">
+                <span className="min-w-0 flex-1 text-[14px] text-ink">{g.label}</span>
+                <form action={setFolderEventTypeOffered} data-work-form="types-cover">
+                  <input type="hidden" name="event_type" value={item.eventType ?? ''} />
+                  <input type="hidden" name="folder_id" value={g.groupId} />
+                  <input type="hidden" name="offered" value={g.covered ? '0' : '1'} />
+                  <input type="hidden" name="return_to" value={back} />
+                  {g.covered ? (
+                    <ActionButton type="submit" tone="neutral" icon={<X />} label="Hide" name={`Hide ${linked} from ${g.label}`} />
+                  ) : (
+                    <ActionButton type="submit" tone="ok" icon={<Check />} label="Cover" name={`Cover ${linked} by ${g.label}`} />
+                  )}
+                </form>
+              </li>
+            ))}
+          </ul>
+        )}
         <form action={setEventTypeStatus} className="mt-2.5" data-work-form="types-picker">
           <input type="hidden" name="event_type" value={item.eventType ?? ''} />
           <input type="hidden" name="status" value="picker" />
@@ -283,31 +311,13 @@ function TypesBody({
       <form id={add} action={createEventTypeRoster} data-work-form="types-add">
         <input type="hidden" name="request_id" value={item.requestId} />
         <input type="hidden" name="event_type" value="" />
-        <input type="hidden" name="cover_set" value="1" />
         <input type="hidden" name="return_to" value={back} />
         <label className="flex min-h-[52px] flex-wrap items-center gap-2.5 py-1.5" htmlFor={`name-${add}`}>
           <span className="min-w-[10rem] flex-1 text-[14px] text-ink">
-            Name <span className="block text-xs text-ink/70">as people will see it</span>
+            Name <span className="block text-xs text-ink/70">as people will see it · its supplier coverage opens here next</span>
           </span>
           <input id={`name-${add}`} name="label_en" defaultValue={item.label} minLength={2} maxLength={80} required className={PILL} />
         </label>
-        <fieldset className="border-t border-ink/10 py-2">
-          <legend className="sr-only">Suppliers it covers</legend>
-          <p className="py-1.5 text-[14px] text-ink">
-            <InfoTip label="Suppliers it covers" align="start">
-              Ticked groups offer this type on every one of their categories — the same switch as Event types › Scope
-              categories. Untick a group that has nothing to do with it.
-            </InfoTip>
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {groups.map((g) => (
-              <label key={g.id} className="sn-press inline-flex min-h-10 items-center gap-2 rounded-full border border-ink/15 bg-white px-3 text-[13px] text-ink dark:bg-raised">
-                <input type="checkbox" name="cover_group" value={g.id} defaultChecked className="h-4 w-4 accent-[var(--sn-accent,#C24E25)]" />
-                {g.label}
-              </label>
-            ))}
-          </div>
-        </fieldset>
       </form>
       <form id={link} action={setEventTypeStatus} data-work-form="types-link">
         <input type="hidden" name="request_id" value={item.requestId} />
@@ -367,7 +377,7 @@ function MsgsBody({ item, back }: { item: Extract<SupplierWorkItem, { kind: 'msg
   );
 }
 
-export function SupplierInbox({ read, kind, itemKey, basePath, groups, eventTypes, nowMs }: SupplierInboxProps) {
+export function SupplierInbox({ read, kind, itemKey, basePath, eventTypes, nowMs }: SupplierInboxProps) {
   const counts = countByKind(read.items);
   const shown = kind ? read.items.filter((i) => i.kind === kind) : read.items;
   const back = href(basePath, { item: undefined, settle: undefined, why: undefined });
@@ -448,7 +458,7 @@ export function SupplierInbox({ read, kind, itemKey, basePath, groups, eventType
                     {item.kind === 'docs' ? <DocsBody item={item} back={rowBack} /> : null}
                     {item.kind === 'names' ? <NamesBody item={item} back={rowBack} /> : null}
                     {item.kind === 'cards' ? <CardsBody item={item} back={rowBack} /> : null}
-                    {item.kind === 'types' ? <TypesBody item={item} back={rowBack} groups={groups} eventTypes={eventTypes} /> : null}
+                    {item.kind === 'types' ? <TypesBody item={item} back={rowBack} eventTypes={eventTypes} /> : null}
                     {item.kind === 'msgs' ? <MsgsBody item={item} back={rowBack} /> : null}
                   </div>
                 ) : null}

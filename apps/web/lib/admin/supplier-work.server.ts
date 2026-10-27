@@ -8,7 +8,9 @@ import { resolveDocumentLocation } from '@/lib/verification-checks';
 import { buildVerificationChecksForVendors, r2KeysInSlot } from '@/lib/verification-checks-server';
 import { DOC_SLOTS, type DocUpload } from '@/lib/vendor-verification';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { formatCount } from '@/lib/format-number';
 import {
+  coverageByGroup,
   matchPercent,
   orderSupplierWork,
   shopAddress,
@@ -133,7 +135,7 @@ async function readDocs(admin: Admin): Promise<SupplierWorkItem[] | 'failed'> {
         key: `docs:${r.application_id}`,
         kind: 'docs',
         title: `Documents · ${shop}`,
-        line: `${inCount} of ${papers.length} papers in${r.status === 'in_review' ? ' · being checked' : ' · new'}`,
+        line: `${formatCount(inCount)} of ${formatCount(papers.length)} papers in${r.status === 'in_review' ? ' · being checked' : ' · new'}`,
         at: r.submitted_at ?? r.created_at,
         applicationId: r.application_id,
         shopName: shop,
@@ -253,6 +255,20 @@ async function readTypes(admin: Admin): Promise<SupplierWorkItem[] | 'failed' | 
     event_type: string | null;
     created_at: string;
   }>;
+  // The coverage of every type an ask is linked to — one read of groups + categories, only when one is linked.
+  let groups: Array<{ id: string; label: string }> | null = null;
+  let tiles: Array<{ parent_id: string | null; applicable_event_types: string[] | null }> | null = null;
+  if (rows.some((r) => r.status === 'linked' && r.event_type)) {
+    const [g, t] = await Promise.all([
+      admin.from('service_categories').select('id, label_en, sort_order').eq('tier', 1).eq('status', 'active').order('sort_order'),
+      admin.from('service_categories').select('parent_id, applicable_event_types').eq('tier', 2).eq('status', 'active'),
+    ]);
+    if (g.error || t.error) logQueryError('supplierWork.types.coverage', (g.error ?? t.error)!, {}, 'graceful_degrade');
+    else {
+      groups = ((g.data ?? []) as Array<{ id: string; label_en: string }>).map((x) => ({ id: x.id, label: x.label_en }));
+      tiles = (t.data ?? []) as Array<{ parent_id: string | null; applicable_event_types: string[] | null }>;
+    }
+  }
   const names = new Map<string, string>();
   const ids = [...new Set(rows.map((r) => r.requested_by))];
   if (ids.length > 0) {
@@ -273,6 +289,7 @@ async function readTypes(admin: Admin): Promise<SupplierWorkItem[] | 'failed' | 
     status: r.status,
     eventType: r.event_type,
     askedBy: names.get(r.requested_by) ?? 'a host',
+    coverage: r.status === 'linked' && r.event_type && groups && tiles ? coverageByGroup(r.event_type, groups, tiles) : null,
   }));
 }
 

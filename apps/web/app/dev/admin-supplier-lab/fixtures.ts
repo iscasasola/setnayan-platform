@@ -99,6 +99,7 @@ export function labWork(now: number, fail: readonly string[], absentTypes: boole
       status: 'pending',
       eventType: null,
       askedBy: 'Batch 2010 Samahan',
+      coverage: null,
     },
     {
       key: 'types:r2',
@@ -111,6 +112,12 @@ export function labWork(now: number, fail: readonly string[], absentTypes: boole
       status: 'linked',
       eventType: 'pet_birthday',
       askedBy: 'Ana',
+      coverage: [
+        { groupId: 'g-venues', label: 'Venues & churches', covered: true },
+        { groupId: 'g-catering', label: 'Catering & cake', covered: true },
+        { groupId: 'g-photo', label: 'Photo & video', covered: true },
+        { groupId: 'g-attire', label: 'Attire, hair & make-up', covered: false },
+      ],
     },
     {
       key: 'msgs:m1',
@@ -132,15 +139,6 @@ export function labWork(now: number, fail: readonly string[], absentTypes: boole
     absent: absentTypes ? ['types'] : [],
   };
 }
-
-export const LAB_GROUPS = [
-  { id: 'g-venues', label: 'Venues & churches' },
-  { id: 'g-catering', label: 'Catering & cake' },
-  { id: 'g-hosts', label: 'Hosts, music & program' },
-  { id: 'g-photo', label: 'Photo & video' },
-  { id: 'g-booths', label: 'Booths, carts & bars' },
-  { id: 'g-prints', label: 'Invites, prints & souvenirs' },
-];
 
 export const LAB_TYPES = [
   { key: 'reunion', label: 'Reunion' },

@@ -36,6 +36,7 @@ const WORK = code(read('app/admin/work/actions.ts'));
 const REPOST = code(read('app/admin/repost-watch/actions.ts'));
 const CATS = code(read('app/admin/categories/actions.ts'));
 const HELP = code(read('app/admin/help/actions.ts'));
+const SCOPE = code(read('app/admin/categories/event-type-actions.ts'));
 
 /** Every action the section posts to, with the file that holds it. */
 const POSTED: ReadonlyArray<[string, string]> = [
@@ -44,6 +45,7 @@ const POSTED: ReadonlyArray<[string, string]> = [
   ['resolveRepostFlag', REPOST],
   ['createEventTypeRoster', CATS],
   ['setEventTypeStatus', CATS],
+  ['setFolderEventTypeOffered', SCOPE],
   ['settleHelpFromWorkList', WORK],
 ];
 
@@ -68,7 +70,8 @@ test('1 · each posted action answers a Work press ON Work', () => {
   const rb = CATS.slice(CATS.indexOf('function redirectBack('), CATS.indexOf('function workReturnTo('));
   const ret = rb.indexOf('if (returnTo) redirect(workBackHref(');
   assert.ok(ret > 0 && ret < rb.indexOf('redirect(backHref('), 'redirectBack no longer returns a Work press to Work');
-  assert.match(CATS, /safe === '\/admin\/work' \|\| safe\.startsWith\('\/admin\/work\?'\)/, 'return_to must be a Work address only');
+  const sr = SCOPE.slice(SCOPE.indexOf('function scopedRedirect('), SCOPE.indexOf('function scopedRedirect(') + 600);
+  assert.ok(sr.indexOf('if (returnTo) redirect(workBackHref(') > 0 && sr.indexOf('if (returnTo) redirect(workBackHref(') < sr.indexOf('redirect(backHref('), 'Scope categories no longer returns a Work press to Work');
   assert.match(bodyOf(WORK, 'settleViaRedirectingAction'), /redirect\(workBackHref\(back, outcome\)\)/);
 });
 

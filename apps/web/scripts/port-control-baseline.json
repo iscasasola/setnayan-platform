@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "79344fcdf2",
+  "generatedFromRef": "17f7e74bcd",
   "routeCount": 474,
-  "destinations": 993,
+  "destinations": 990,
   "actions": 642,
-  "blocks": 7138,
+  "blocks": 7147,
   "routes": {
     "/": {
       "files": [
@@ -5295,6 +5295,9 @@
         "dashboard/(account)/people/_components/find-or-invite.tsx",
         "dashboard/(account)/people/_components/follow-list-view.tsx",
         "dashboard/(account)/people/_components/found-person-card.tsx",
+        "dashboard/(account)/people/_components/group-chat-rows.tsx",
+        "dashboard/(account)/people/_components/people-groups-view.tsx",
+        "dashboard/(account)/people/_components/people-pinned-row.tsx",
         "dashboard/(account)/people/_components/people-roster-view.tsx",
         "dashboard/(account)/people/_components/people-thumb.tsx",
         "dashboard/(account)/people/_components/people-view-picker.tsx",
@@ -5337,7 +5340,6 @@
         "ConfirmForm",
         "ConnectionTreeSection",
         "CopyButton",
-        "CountDoor",
         "DependentKind",
         "DependentsSection",
         "Drawer",
@@ -5348,6 +5350,7 @@
         "FollowRowItem",
         "FoundPersonCard",
         "Frame",
+        "GroupChatRows",
         "GroupsFoldList",
         "GroupsFoldSection",
         "GuestConfirmActions",
@@ -5364,10 +5367,16 @@
         "Layer",
         "LifeStorySection",
         "Link",
+        "MenuSettingsButton",
         "PageMasthead",
         "PeopleFilter",
+        "PeopleGroupRows",
+        "PeopleGroupsView",
+        "PeoplePinnedRow",
         "PeoplePreview",
         "PeopleRosterView",
+        "PeopleSettings",
+        "PeopleSettingsRows",
         "PeopleThumb",
         "PeopleViewPicker",
         "Person",
@@ -5376,6 +5385,7 @@
         "PersonNameLink",
         "PersonRow",
         "PickMenu",
+        "PinnedRow",
         "PlanTogether",
         "Popover",
         "PreviewRow",
@@ -5383,6 +5393,7 @@
         "SamahanPeopleSection",
         "Spotlight",
         "SubmitButton",
+        "SwitchRow",
         "T",
         "ThumbField",
         "ThumbTool",
@@ -5499,16 +5510,10 @@
       ],
       "destinations": [
         "/dashboard/samahan/[seg]",
-        "/dashboard/samahan/[seg]?tab=usapan",
-        "/dashboard/samahan/new"
+        "/dashboard/samahan/[seg]?tab=usapan"
       ],
       "actions": [],
-      "blocks": [
-        "CommunityRow",
-        "Link",
-        "PageMasthead",
-        "QuietStart"
-      ]
+      "blocks": []
     },
     "/dashboard/(account)/samahan/[communityId]": {
       "files": [
@@ -5519,8 +5524,7 @@
         "dashboard/(account)/samahan/[communityId]/page.tsx"
       ],
       "destinations": [
-        "/dashboard/people",
-        "/dashboard/samahan"
+        "/dashboard/people"
       ],
       "actions": [
         "deleteSamahanMessage",
@@ -5615,7 +5619,6 @@
         "/dashboard/notifications",
         "/dashboard/people",
         "/dashboard/profile",
-        "/dashboard/samahan",
         "/dashboard/samahan/[seg]",
         "/dashboard?hub=1",
         "/vendor-dashboard"
@@ -5650,6 +5653,7 @@
         "ForTagMark",
         "GlassEventCard",
         "HTMLDialogElement",
+        "HTMLDivElement",
         "Icon",
         "Image",
         "ImpactLines",
@@ -6679,6 +6683,7 @@
         "dashboard/[eventId]/guests/_components/role-section-order.ts",
         "dashboard/[eventId]/guests/_components/search-add-card.tsx",
         "dashboard/[eventId]/guests/_components/send-invite.tsx",
+        "dashboard/[eventId]/guests/_components/sent-or-not-yet.tsx",
         "dashboard/[eventId]/guests/_components/title-picker.tsx",
         "dashboard/[eventId]/guests/_components/titles-waiting.tsx",
         "dashboard/[eventId]/guests/_components/undo-store.ts",
@@ -6753,6 +6758,7 @@
         "CardToggleProps",
         "ChangeAccessLink",
         "ChosenRow",
+        "ConfirmDialog",
         "CoordinatorColourDomains",
         "CoordinatorGrantChips",
         "Count",
@@ -6890,6 +6896,7 @@
         "Scrim",
         "SearchAddRow",
         "SendInvite",
+        "SentOrNotYet",
         "SetRsvpResult",
         "Sheet",
         "SnapCarousel",
@@ -11428,8 +11435,10 @@
         "FoundPersonCard",
         "GroupsFoldList",
         "LabTour",
+        "PeopleGroupsView",
         "PeopleRosterView",
         "RosterPerson",
+        "SecondDegreeStandIn",
         "SpotlightMount",
         "TreeStandIn"
       ]

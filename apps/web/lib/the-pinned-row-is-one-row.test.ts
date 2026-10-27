@@ -158,3 +158,35 @@ test('Home — the cover pins as one line: names · date · ⚙, the ⚙ its one
   assert.match(html, /Cale &amp; Ice<\/span><span[^>]*>Dec 5<\/span><span data-home-pin-gear=""[^>]*><a\b[^>]*href="\/dashboard\/e1\/details"[^>]*>(?:(?!<a\b|<button\b).)*<\/a><\/span><\/span>$/, 'the pinned line does not end with its ⚙');
   assert.equal(count(html, /<(a|button)\b/g), 1, 'the pinned line holds another control besides its ⚙');
 });
+
+/*
+ * 📌 THE SHARED PINNED ROW (owner 2026-10-28 — People first, "People and Groups approved"; part 2 mounts the SAME
+ * component on Events, Memories and Discover). `app/_components/pinned-row/pinned-row.tsx` is the one row: picker ▾ ·
+ * count doors · ONE action · ⚙. ONE LINE AT 390: the row is a 44-px box that never wraps — the doors are the part that
+ * gives (they shrink and clip, never push the action or the ⚙ to a second line). The Playwright walk in
+ * `/dev/people-lab` measures the same at 375 and 390 (the row's box is 44 px tall, its action and ⚙ on its line).
+ *
+ * Sabotage (2026-10-28, each reverted): `flex-wrap: wrap` on `.pin` → red; `height: 44px` → `min-height` → red; the
+ * doors' `min-width: 0` dropped → red; People drawing its own row instead of `<PinnedRow` → red.
+ */
+test('the shared pinned row is ONE line — 44 px, never wraps, the doors give way — and People wears it', () => {
+  const css = readFileSync(join(process.cwd(), 'app', '_components', 'pinned-row', 'pinned-row.module.css'), 'utf8');
+  const rule = (sel: string) => {
+    const m = new RegExp(`(?:^|\\n)${sel.replace('.', '\\.')} \\{([^}]*)\\}`).exec(css);
+    assert.ok(m, `${sel} is gone from the shared row's stylesheet`);
+    return m[1]!;
+  };
+  const pin = rule('.pin');
+  assert.match(pin, /\bheight: 44px;/, 'the pinned row is not a 44-px box');
+  assert.doesNotMatch(pin, /min-height/, 'the pinned row may grow past 44 px');
+  assert.match(pin, /flex-wrap: nowrap;/, 'the pinned row may wrap to a second line');
+  assert.match(pin, /white-space: nowrap;/);
+  const doors = rule('.pinDoors');
+  assert.match(doors, /min-width: 0;/, 'the doors cannot shrink — they push the action and the ⚙ off the line');
+  assert.match(doors, /overflow: hidden;/);
+  assert.match(rule('.pinAct'), /flex: 0 0 auto;/, 'the action can be squeezed');
+  assert.match(rule('.pinPick'), /flex: 0 0 auto;/, 'the picker can be squeezed');
+  const people = stripComments(readFileSync(join(process.cwd(), 'app', 'dashboard', '(account)', 'people', '_components', 'people-pinned-row.tsx'), 'utf8'));
+  assert.match(people, /<PinnedRow\b/, 'People draws its own pinned row instead of the shared one');
+  assert.doesNotMatch(people, /className=\{?[^>]*\bpin(Door|Act|Doors)\b/, 'People re-draws a piece of the shared row');
+});

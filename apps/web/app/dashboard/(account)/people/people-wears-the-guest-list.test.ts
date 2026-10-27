@@ -152,7 +152,8 @@ const CAPABILITIES: Array<[string, string, RegExp]> = [
   ['Loved ones (alaga) as a section of the list', PAGE, /key: 'alaga' as const, label: 'Loved ones'/],
   ['Your connection tree as the last section', PAGE, /key: 'tree' as const, label: 'Your connection tree'[\s\S]{0,120}<ConnectionTreeSection userId=\{user\.id\} bare \/>/],
   ['Your story', PAGE, /<YourStorySection \/>/],
-  ['Groups · New group', PAGE, /href="\/dashboard\/samahan\/new"/],
+  // 📌 Since 2026-10-28 the Groups view makes a group from its pinned row (＋ New) — a MOVE, not a loss.
+  ['Groups · New group', code('_components/people-pinned-row.tsx'), /href: '\/dashboard\/samahan\/new'/],
   ['Following / Followers lists', PAGE, /<FollowListView[\s\S]{0,200}picker=\{picker\}/],
   // The spotlight replaced the switched-off carousel (2026-10-22, help-sync) — still a first-visit tour on the page.
   ['The first-visit tour', PAGE, /<Spotlight tourKey="customer_people_v3"/],
@@ -173,7 +174,8 @@ test('🔒 the ≡ list holds Groups · Following · Followers — and every vie
   assert.match(PAGE, /initialFilter=\{view === 'requests' \? 'asking' : 'all'\}/, 'the Requests row no longer opens on "asking you"');
   // The views that are not the roster carry the same thumb row (field + ≡), so a phone can always get back.
   assert.ok(FOLLOW.includes('<PeopleThumb picker={picker} />'), 'Following / Followers have no way back on a phone');
-  assert.ok(PAGE.slice(PAGE.indexOf("view === 'samahan' ? (")).includes('<PeopleThumb picker={picker} />'), 'Groups has no way back on a phone');
+  assert.match(PAGE.slice(PAGE.indexOf("view === 'samahan' && groupRows ? (")), /<PeopleGroupsView\b[^>]*picker=\{picker\}/, 'Groups has no way back on a phone');
+  assert.ok(code('_components/people-groups-view.tsx').includes('<PeopleThumb picker={picker} />'), 'Groups has no way back on a phone');
   assert.match(THUMB, /<PeopleViewPicker view=\{picker\.view\} options=\{picker\.options\} gates=\{picker\.gates\} onInvite=\{\(\) => setInviting\(true\)\} \/>/);
 });
 
@@ -194,8 +196,8 @@ test('🔴 a refused roster says "couldn’t load" at the top — never "0 conne
   const first = head.indexOf('doors={[');
   assert.ok(refused >= 0, 'the counts line no longer checks the refusal first');
   assert.ok(first > refused, 'a count can be drawn before the refusal is checked');
-  const ROW = stripComments(readFileSync(join(HERE, '_components', 'people-pinned-row.tsx'), 'utf8'));
-  assert.match(ROW, /\{note \? \(\s*<span className=\{ps\.pinNote\}[^]*?\) : \(\s*doors\.map\(/, 'the pinned row draws its doors over a note (a refusal could show a 0)');
+  const ROW = stripComments(readFileSync(join(HERE, '..', '..', '..', '_components', 'pinned-row', 'pinned-row.tsx'), 'utf8'));
+  assert.match(ROW, /\{note \? \(\s*<span className=\{pr\.pinNote\}[^]*?\) : \(\s*doors\.map\(/, 'the pinned row draws its doors over a note (a refusal could show a 0)');
   assert.ok(!/\d/.test(ROSTER.slice(ROSTER.indexOf("const REFUSED_COUNTS = '"), ROSTER.indexOf("const REFUSED_COUNTS = '") + 60).split("'")[1] ?? '0'), 'the refused counts line carries a number');
   // The counts ARE the rows they filter to — never a server number that can disagree with the list.
   assert.match(ROSTER, /const tally = \{ connected: connectedRows\.length, waiting: waitingRows\.length, asking: requests\.length \};/);

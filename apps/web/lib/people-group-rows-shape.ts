@@ -54,13 +54,13 @@ export function chatWhen(iso: string, now: Date): string {
   if (ms < 60_000) return 'now';
   if (ms < 3_600_000) return `${Math.floor(ms / 60_000)}m`;
   if (ms < 86_400_000) return `${Math.floor(ms / 3_600_000)}h`;
-  if (ms < 7 * 86_400_000) return new Date(iso).toLocaleDateString('en-PH', { weekday: 'short', timeZone: 'Asia/Manila' });
-  return new Date(iso).toLocaleDateString('en-PH', { day: 'numeric', month: 'short', timeZone: 'Asia/Manila' });
+  if (ms < 7 * 86_400_000) return new Date(iso).toLocaleDateString('en-GB', { weekday: 'short', timeZone: 'Asia/Manila' });
+  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'Asia/Manila' });
 }
 
-/** An event's date (a calendar date, no clock) as "15 Nov" — read in UTC so the day never shifts. */
+/** An event's date (a calendar date, no clock) as "15 Nov" (day first, the drawing's order) — read in UTC so the day never shifts. */
 export function eventDay(date: string): string {
-  return new Date(`${date.slice(0, 10)}T00:00:00Z`).toLocaleDateString('en-PH', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+  return new Date(`${date.slice(0, 10)}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
 }
 
 /** Today in Manila, as the `YYYY-MM-DD` an event date compares against. */

@@ -377,6 +377,7 @@ export function PeopleRosterView({
       <div className={gs.stick} data-people-head="">
         <PeoplePinnedRow
           face="people"
+          tour="people-counts"
           view="connected"
           options={pin.options}
           gates={picker.gates}

@@ -2740,7 +2740,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     guardedBy:
       'INSERT policy demands user_id = auth.uid() AND membership (nobody posts in another member\u2019s voice); UPDATE policy scopes take-down to the author; samahan_messages_author_field_guard freezes every field except deleted_at.',
     traps:
-      'Take-down is SOFT \u2014 readers MUST filter `deleted_at IS NULL`; a query that forgets shows messages their authors withdrew. Retention follows the 5-year CHAT rule via purge_expired_chat \u2014 no new sweep was added, and adding one would be a second definition of when a message is old.',
+      'Take-down is SOFT \u2014 readers MUST filter `deleted_at IS NULL`; a query that forgets shows messages their authors withdrew. Retention follows the 5-year CHAT rule via purge_expired_chat \u2014 no new sweep was added, and adding one would be a second definition of when a message is old. \u26d4 THERE IS NO READ MARKER: nothing records what a member has read (People \u203a Groups, 2026-10-28, shows each group\u2019s last line and time from ONE embedded read \u2014 lib/people-group-rows.ts \u2014 and deliberately NO unread badge). The samahan_message notices are collapsed hourly and cleared only by \u201cMark read\u201d, so they are not one either.',
   },
   {
     /**

@@ -1,16 +1,14 @@
 'use client';
 
-import { useEffect, useRef, useState, useTransition } from 'react';
-import Link from 'next/link';
+import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus } from 'lucide-react';
-import { PickMenu, type PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import type { PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { MenuSettingsButton } from '@/app/_components/menu-settings-button';
+import { PinnedRow, type PinnedDoor } from '@/app/_components/pinned-row/pinned-row';
 import { SwitchRow } from '@/app/_components/form-row';
-import { formatCount } from '@/lib/format-number';
 import { PINNED_FACE_LABEL, peopleViewHref, type PeopleView, type PeopleViewGates, type PinnedFace } from '@/lib/people-views';
 import { updateDiscoverableByName } from '../../profile/actions';
-import ps from './people-screen.module.css';
 
 /**
  * people-pinned-row.tsx — 📌 THE PEOPLE PAGE'S ONE PINNED ROW (owner 2026-10-28, DECISION_LOG "USER DASHBOARD PART 1 —
@@ -24,20 +22,12 @@ import ps from './people-screen.module.css';
  *   · ⚙ People settings at the right end — the shipped `MenuSettingsButton`, mounted HERE ONLY, so both faces share
  *     one door (`every-menu-has-one-settings-button.test.ts` counts one site).
  *
- * The row is the same box at rest and pinned (the Suppliers row's rule — the row IS the pinned row), so nothing under
- * it jumps; once the page runs under it a hairline fades in (`data-stuck`, opacity only, none under reduced motion).
+ * The row itself is the app's SHARED `PinnedRow` (`app/_components/pinned-row/pinned-row.tsx`) — this file only says
+ * what People puts in it. Same box at rest and pinned, so nothing under it jumps.
  * 🔒 people/the-people-pinned-row.test.ts
  */
 
-export type PinDoor = {
-  key: string;
-  n: number;
-  word: string;
-  /** The brand colour — the count that waits on you. */
-  hot?: boolean;
-  on: boolean;
-  onTap: () => void;
-};
+export type PinDoor = PinnedDoor;
 
 export type PinAction = { kind: 'invite'; onTap: () => void } | { kind: 'new-group' };
 
@@ -53,96 +43,48 @@ export function PeoplePinnedRow({
   note = null,
   action,
   settings,
+  tour,
 }: {
   face: PinnedFace;
+  /** 🔦 The spotlight anchor on the doors (`people-counts` on the People face). */
+  tour?: string;
   /** The view the picker shows as picked. */
   view: PeopleView;
   /** `pinnedViewOptions(…)` — People · Groups · Following · Followers · Loved ones. */
   options: readonly PickOption[];
   gates: PeopleViewGates;
-  doors: readonly PinDoor[];
+  doors: readonly PinnedDoor[];
   /** Said in the doors' place when there is nothing to count ("Nobody yet", a refusal). */
   note?: string | null;
   action: PinAction;
   settings: PeopleSettings;
 }) {
   const router = useRouter();
-  const rowRef = useRef<HTMLDivElement>(null);
-  const [stuck, setStuck] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-
-  // Stuck = the sticky block sits at its pinned top (the shell bar's bottom). One passive listener, read per frame.
-  useEffect(() => {
-    const row = rowRef.current;
-    const block = row?.closest<HTMLElement>('[data-people-head]');
-    if (!row || !block) return;
-    let raf = 0;
-    const read = () => {
-      raf = 0;
-      const top = parseFloat(getComputedStyle(block).top) || 0;
-      setStuck(window.scrollY > 0 && block.getBoundingClientRect().top <= top + 0.5);
-    };
-    const onScroll = () => {
-      if (!raf) raf = requestAnimationFrame(read);
-    };
-    read();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => {
-      window.removeEventListener('scroll', onScroll);
-      if (raf) cancelAnimationFrame(raf);
-    };
-  }, []);
-
   return (
-    <div ref={rowRef} className={ps.pin} data-people-pin={face} data-first-row="" data-stuck={stuck ? '' : undefined}>
-      <span data-pick="" className={ps.pinPick} data-people-pin-pick="">
-        <PickMenu
-          label="People — show"
-          value={view}
-          buttonText={PINNED_FACE_LABEL[face]}
-          options={options}
-          compact
-          dataAttr="data-people-pin-picker"
-          onPick={(k) => router.push(peopleViewHref(k as PeopleView, gates))}
-        />
-      </span>
-      <span className={ps.pinDoors} data-people-pin-doors="" data-tour={face === 'people' ? 'people-counts' : undefined}>
-        {note ? (
-          <span className={ps.pinNote} role="status" data-people-pin-note="">
-            {note}
-          </span>
-        ) : (
-          doors.map((d) => (
-            <button
-              key={d.key}
-              type="button"
-              onClick={d.onTap}
-              aria-pressed={d.on}
-              className={`${ps.pinDoor} ${d.hot ? ps.hot : ''}`}
-              data-people-pin-door={d.key}
-              data-people-count={d.word}
-            >
-              <b>{formatCount(d.n)}</b>
-              {d.word}
-            </button>
-          ))
-        )}
-      </span>
-      <span className={ps.pinSpace} aria-hidden />
-      {action.kind === 'invite' ? (
-        <button type="button" className={ps.pinAct} onClick={action.onTap} data-people-pin-action="invite" aria-haspopup="dialog">
-          Invite
-        </button>
-      ) : (
-        <Link href="/dashboard/samahan/new" className={ps.pinAct} data-people-pin-action="new-group" aria-label="New group">
-          <Plus aria-hidden className="h-4 w-4" strokeWidth={2.4} />
-          New
-        </Link>
-      )}
-      <MenuSettingsButton menu="people" open={settingsOpen} onOpenChange={setSettingsOpen}>
-        <PeopleSettingsRows settings={settings} />
-      </MenuSettingsButton>
-    </div>
+    <PinnedRow
+      data={{ 'data-people-pin': face }}
+      picker={{
+        label: 'People — show',
+        value: view,
+        buttonText: PINNED_FACE_LABEL[face],
+        options,
+        onPick: (k) => router.push(peopleViewHref(k as PeopleView, gates)),
+      }}
+      doors={doors}
+      note={note}
+      doorsTour={tour}
+      action={
+        action.kind === 'invite'
+          ? { label: 'Invite', mark: 'invite', onTap: action.onTap, dialog: true }
+          : { label: 'New', icon: Plus, ariaLabel: 'New group', mark: 'new-group', href: '/dashboard/samahan/new' }
+      }
+      gear={
+        <MenuSettingsButton menu="people" open={settingsOpen} onOpenChange={setSettingsOpen}>
+          <PeopleSettingsRows settings={settings} />
+        </MenuSettingsButton>
+      }
+    />
   );
 }
 

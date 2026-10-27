@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "79344fcdf2",
-  "routeCount": 474,
-  "destinations": 993,
-  "actions": 642,
-  "blocks": 7138,
+  "generatedFromRef": "45d694c210",
+  "routeCount": 476,
+  "destinations": 997,
+  "actions": 641,
+  "blocks": 7162,
   "routes": {
     "/": {
       "files": [
@@ -5650,6 +5650,7 @@
         "ForTagMark",
         "GlassEventCard",
         "HTMLDialogElement",
+        "HTMLDivElement",
         "Icon",
         "Image",
         "ImpactLines",
@@ -6679,6 +6680,7 @@
         "dashboard/[eventId]/guests/_components/role-section-order.ts",
         "dashboard/[eventId]/guests/_components/search-add-card.tsx",
         "dashboard/[eventId]/guests/_components/send-invite.tsx",
+        "dashboard/[eventId]/guests/_components/sent-or-not-yet.tsx",
         "dashboard/[eventId]/guests/_components/title-picker.tsx",
         "dashboard/[eventId]/guests/_components/titles-waiting.tsx",
         "dashboard/[eventId]/guests/_components/undo-store.ts",
@@ -6753,6 +6755,7 @@
         "CardToggleProps",
         "ChangeAccessLink",
         "ChosenRow",
+        "ConfirmDialog",
         "CoordinatorColourDomains",
         "CoordinatorGrantChips",
         "Count",
@@ -6890,6 +6893,7 @@
         "Scrim",
         "SearchAddRow",
         "SendInvite",
+        "SentOrNotYet",
         "SetRsvpResult",
         "Sheet",
         "SnapCarousel",
@@ -7967,6 +7971,7 @@
     },
     "/dashboard/[eventId]/messages": {
       "files": [
+        "dashboard/[eventId]/messages/_components/chat-inbox.tsx",
         "dashboard/[eventId]/messages/_components/start-thread-picker.tsx",
         "dashboard/[eventId]/messages/actions.ts",
         "dashboard/[eventId]/messages/loading.tsx",
@@ -7978,18 +7983,24 @@
         "/dashboard/[seg]/vendors"
       ],
       "actions": [
-        "returnTo",
         "startThreadByVendorEmail"
       ],
       "blocks": [
+        "ChatInbox",
         "FeedPageSkeleton",
+        "Filter",
+        "HTMLDivElement",
         "Link",
         "PageMasthead",
         "PickMenu",
+        "PillThumb",
+        "Sheet",
         "StartThreadPicker",
         "SubmitButton",
         "ThreadArchiveToggle",
-        "ThreadListAvatar"
+        "ThreadListAvatar",
+        "ThumbDock",
+        "ThumbRow"
       ]
     },
     "/dashboard/[eventId]/messages/[threadId]": {
@@ -8012,11 +8023,10 @@
         "ChatSendForm",
         "ChatThreadMenu",
         "ConversationColumn",
+        "CoupleThreadToolsSheet",
         "Link",
         "NegotiationComposerMenu",
-        "RevealToolButton",
         "SubmitButton",
-        "ThreadCallLauncher",
         "ThreadInterestChips",
         "ThreadToolHashReveal",
         "ThreadToolPanel"
@@ -10975,6 +10985,47 @@
         "PartPanel",
         "SearchParamsRecord",
         "ServicePanel"
+      ]
+    },
+    "/dev/chat-lab": {
+      "files": [
+        "dev/chat-lab/fixtures.tsx",
+        "dev/chat-lab/page.tsx"
+      ],
+      "destinations": [
+        "/dev/chat-lab",
+        "/dev/chat-lab/t/[seg][seg]"
+      ],
+      "actions": [],
+      "blocks": [
+        "ChatInbox",
+        "LabShell",
+        "StartThreadPicker",
+        "ThreadArchiveToggle"
+      ]
+    },
+    "/dev/chat-lab/t/[threadId]": {
+      "files": [
+        "dev/chat-lab/t/[threadId]/loading.tsx",
+        "dev/chat-lab/t/[threadId]/page.tsx"
+      ],
+      "destinations": [
+        "/dev/chat-lab",
+        "/dev/chat-lab/t/[seg]"
+      ],
+      "actions": [],
+      "blocks": [
+        "ChatBox",
+        "ChatMessageStream",
+        "ChatSafetyBanner",
+        "ChatSendForm",
+        "ChatThreadMenu",
+        "CoupleThreadToolsSheet",
+        "LabShell",
+        "Link",
+        "ThreadToolHashReveal",
+        "ThreadToolPanel",
+        "ThreadToolsSheet"
       ]
     },
     "/dev/create-for-lab": {
@@ -14323,12 +14374,12 @@
         "SubmitButton",
         "ThreadAnswerLine",
         "ThreadAttribution",
-        "ThreadCallLauncher",
         "ThreadDayAnswer",
         "ThreadInterestChips",
         "ThreadToolHashReveal",
         "ThreadToolPanel",
         "ThreadToolsSheet",
+        "ToolsSheetButton",
         "VendorEventDayPrepCta",
         "VendorOfferService",
         "VendorPaymentLive"

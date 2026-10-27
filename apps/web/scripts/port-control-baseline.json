@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "55554c261f",
+  "generatedFromRef": "a45a5a8327",
   "routeCount": 474,
   "destinations": 990,
   "actions": 642,
-  "blocks": 7147,
+  "blocks": 7148,
   "routes": {
     "/": {
       "files": [
@@ -6799,6 +6799,7 @@
         "GuestConfirmActions",
         "GuestGroupPicker",
         "GuestHelperAccess",
+        "GuestInviteCell",
         "GuestListHasSidesContext.Provider",
         "GuestListStatus",
         "GuestMapCanvas",

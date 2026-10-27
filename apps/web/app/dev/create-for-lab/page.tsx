@@ -63,7 +63,7 @@ const GROUP_TYPES = [
 ];
 
 const GROUPS = [
-  buildGroupSubject({ communityId: 'g-batch', name: 'Batch 2010 Samahan', memberCount: 42 }),
+  buildGroupSubject({ communityId: 'g-batch', name: 'Batch 2010 Alumni', memberCount: 42 }),
   buildGroupSubject({ communityId: 'g-family', name: 'Casasola Family', memberCount: 18 }),
 ];
 

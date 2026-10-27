@@ -201,7 +201,7 @@ test('each create door calls resolveEventHonoree once and writes what it returns
 test('the collecting surfaces post the shop on the widened types', () => {
   assert.match(
     read('app/dashboard/(account)/create-event/_components/event-type-picker.tsx'),
-    /(?:\{|: )pickerAsksHonoree\(selected\.key, subject\?\.kind\) && !samahanCommunityId \? \(/,
+    /(?:\{|: )pickerAsksHonoree\(selected\.key, subject\?\.kind\) && !communityId \? \(/,
     'the inline picker must draw the field for a shop on every offered type',
   );
   const wizard = read('app/onboarding/[type]/_components/generic-onboarding.tsx');

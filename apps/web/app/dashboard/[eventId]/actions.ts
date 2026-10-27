@@ -715,7 +715,7 @@ export async function updateEventMatchCriteria(
       supabase
         .from('event_type_requests')
         .select('status, event_type, created_at, label')
-        .eq('requested_by', user.id)
+        .eq('user_id', user.id)
         .eq('status', 'added'),
     ]);
     if (rowError || !row) {

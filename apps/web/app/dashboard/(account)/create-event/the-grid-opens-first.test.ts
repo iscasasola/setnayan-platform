@@ -75,7 +75,7 @@ test('the rows say the drawn words, and a loved one keeps the shipped plain-Engl
 test('the picker has no who-screen in front of the grid', () => {
   assert.doesNotMatch(PICKER, /Para kanino ito/, 'the Tagalog who-screen is back');
   assert.doesNotMatch(PICKER, /askWho/, 'a who-step gate is back in front of the grid');
-  assert.match(PICKER, /useState<CreateSubject \| null>\(\(\) =>\s*!samahanCommunityId && !preselect \? openingSubject\(subjects\) : null,?\s*\)/);
+  assert.match(PICKER, /useState<CreateSubject \| null>\(\(\) =>\s*!samahanCommunityId && !preselect\s*\? \(\(initialSubjectId \? subjects\?\.find\(\(s\) => s\.id === initialSubjectId\) : undefined\) \?\? openingSubject\(subjects\)\)\s*: null,?\s*\)/);
   const grid = PICKER.indexOf('<EventTypePhotoPicker');
   const firstReturn = PICKER.indexOf('  return (', PICKER.indexOf('const heading'));
   assert.ok(grid > firstReturn && firstReturn > 0, 'the first thing the picker returns must be the grid');
@@ -91,7 +91,7 @@ test('the who is ONE dropdown above the grid, gated on a real choice', () => {
 });
 
 test('"show all" still appears only when something is hidden', () => {
-  assert.match(PICKER, /\{hiddenCount > 0 && !showAllTypes \? \(/);
+  assert.match(PICKER, /\{hiddenCount > 0 && !showAllTypes && mayShowAll \? \(/);
   assert.match(PICKER, /Planning for someone else\?/);
   assert.doesNotMatch(PICKER, /May iba ka pang pinaplano/, 'English labels (owner 2026-10-07)');
 });

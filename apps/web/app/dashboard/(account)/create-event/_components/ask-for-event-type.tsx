@@ -39,7 +39,7 @@ export function AskForEventType() {
         setOutcome('signed_out');
         return;
       }
-      const { error } = await supabase.from('event_type_requests').insert({ requested_by: user.id, label: clean });
+      const { error } = await supabase.from('event_type_requests').insert({ user_id: user.id, label: clean });
       setOutcome(askOutcome(error));
     } catch {
       setOutcome('failed');

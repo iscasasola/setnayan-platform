@@ -60,16 +60,16 @@ test('1 · Celebration is hidden from couples, still active — never retired, n
 
 test('2 · a host asks for themselves only, open and untyped, and reads only their own', async () => {
   await asUser(U.a, () =>
-    db.query(`INSERT INTO public.event_type_requests (requested_by, label) VALUES ($1, 'Alumni homecoming')`, [U.a]),
+    db.query(`INSERT INTO public.event_type_requests (user_id, label) VALUES ($1, 'Alumni homecoming')`, [U.a]),
   );
   await assert.rejects(
-    asUser(U.a, () => db.query(`INSERT INTO public.event_type_requests (requested_by, label) VALUES ($1, 'Forged')`, [U.b])),
+    asUser(U.a, () => db.query(`INSERT INTO public.event_type_requests (user_id, label) VALUES ($1, 'Forged')`, [U.b])),
     /row-level security/i,
     'an ask in someone else’s name',
   );
   await assert.rejects(
     asUser(U.a, () =>
-      db.query(`INSERT INTO public.event_type_requests (requested_by, label, status) VALUES ($1, 'Pre-closed', 'dismissed')`, [U.a]),
+      db.query(`INSERT INTO public.event_type_requests (user_id, label, status) VALUES ($1, 'Pre-closed', 'dismissed')`, [U.a]),
     ),
     /row-level security/i,
     'an ask that arrives already answered',
@@ -77,7 +77,7 @@ test('2 · a host asks for themselves only, open and untyped, and reads only the
   const seenByB = await asUser(U.b, () => db.query(`SELECT 1 FROM public.event_type_requests`));
   assert.equal(seenByB.rows.length, 0, 'B reads nobody else’s asks');
   const moved = await asUser(U.a, () =>
-    db.query(`UPDATE public.event_type_requests SET status = 'dismissed' WHERE requested_by = $1 RETURNING 1`, [U.a]),
+    db.query(`UPDATE public.event_type_requests SET status = 'dismissed' WHERE user_id = $1 RETURNING 1`, [U.a]),
   );
   assert.equal(moved.rows.length, 0, 'a host cannot resolve their own ask');
 });
@@ -85,7 +85,7 @@ test('2 · a host asks for themselves only, open and untyped, and reads only the
 test('3 · one open ask per person per name', async () => {
   await assert.rejects(
     asUser(U.a, () =>
-      db.query(`INSERT INTO public.event_type_requests (requested_by, label) VALUES ($1, '  alumni HOMECOMING ')`, [U.a]),
+      db.query(`INSERT INTO public.event_type_requests (user_id, label) VALUES ($1, '  alumni HOMECOMING ')`, [U.a]),
     ),
     /duplicate key|unique/i,
   );

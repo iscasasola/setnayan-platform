@@ -34,7 +34,7 @@ import { askOutcome, cleanAskLabel, eventKindChoices, maySwitchEventKind, GENERI
 const read = (p: string) => readFileSync(join(process.cwd(), p), 'utf8');
 const code = (p: string) => stripComments(read(p));
 
-const batch = buildGroupSubject({ communityId: 'c-1', name: 'Batch 2010 Samahan', memberCount: 42 });
+const batch = buildGroupSubject({ communityId: 'c-1', name: 'Batch 2010 Alumni', memberCount: 42 });
 
 test('the dropdown’s sections: You · Someone else · YOUR GROUPS · YOUR BUSINESS · (divider) passed away', () => {
   const roster = buildCreateRoster(buildSelfSubject('Ice'), [], 'Casasola Events', [batch]);

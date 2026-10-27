@@ -1860,10 +1860,10 @@ col	public.event_type_requests.created_at	anon=- authenticated=SIU
 col	public.event_type_requests.event_type	anon=- authenticated=SIU
 col	public.event_type_requests.label	anon=- authenticated=SIU
 col	public.event_type_requests.request_id	anon=- authenticated=SIU
-col	public.event_type_requests.requested_by	anon=- authenticated=SIU
 col	public.event_type_requests.resolved_at	anon=- authenticated=SIU
 col	public.event_type_requests.resolved_by	anon=- authenticated=SIU
 col	public.event_type_requests.status	anon=- authenticated=SIU
+col	public.event_type_requests.user_id	anon=- authenticated=SIU
 col	public.event_type_vocab.ai_price_tier	anon=S authenticated=S
 col	public.event_type_vocab.created_at	anon=S authenticated=S
 col	public.event_type_vocab.description	anon=S authenticated=S
@@ -5835,8 +5835,8 @@ policy	public.event_type_profiles|event_type_profiles_admin_write	mode=PERMISSIV
 policy	public.event_type_profiles|event_type_profiles_read_all	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=true check=NULL
 policy	public.event_type_requests|event_type_requests_admin_delete	mode=PERMISSIVE cmd=DELETE roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
 policy	public.event_type_requests|event_type_requests_admin_write	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
-policy	public.event_type_requests|event_type_requests_ask	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((requested_by = ( SELECT auth.uid() AS uid)) AND (status = 'pending'::text) AND (event_type IS NULL) AND (resolved_by IS NULL) AND (resolved_at IS NULL))
-policy	public.event_type_requests|event_type_requests_read_own	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((requested_by = ( SELECT auth.uid() AS uid)) OR ( SELECT is_admin() AS is_admin)) check=NULL
+policy	public.event_type_requests|event_type_requests_ask	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((user_id = ( SELECT auth.uid() AS uid)) AND (status = 'pending'::text) AND (event_type IS NULL) AND (resolved_by IS NULL) AND (resolved_at IS NULL))
+policy	public.event_type_requests|event_type_requests_read_own	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((user_id = ( SELECT auth.uid() AS uid)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.event_type_vocab|event_type_vocab_admin_write	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.event_type_vocab|event_type_vocab_read_all	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=true check=NULL
 policy	public.event_vendor_booth_posters|event_vendor_booth_posters_vendor_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=(( SELECT is_admin() AS is_admin) OR (vendor_profile_id IN ( SELECT vp.vendor_profile_id FROM vendor_profiles vp WHERE (vp.user_id = ( SELECT auth.uid() AS uid)) UNION SELECT tm.vendor_profile_id FROM vendor_team_members tm WHERE (tm.user_id = ( SELECT auth.uid() AS uid))))) check=NULL

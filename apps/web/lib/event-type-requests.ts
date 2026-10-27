@@ -51,7 +51,7 @@ export type EventKindLineInput = {
 
 export type EventTypeRequestRow = {
   request_id: string;
-  requested_by: string;
+  user_id: string;
   label: string;
   status: string;
   event_type: string | null;

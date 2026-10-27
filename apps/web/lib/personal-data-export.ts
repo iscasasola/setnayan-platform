@@ -294,6 +294,7 @@ export async function buildPersonalDataExport(
     papicFreeGrantClaimsRes,
     userUnfollowsRes,
     inviteMutesRes,
+    eventTypeAsksRes,
     vendorReuseRequestsRes,
     workingNotesRes,
     broadcastsSentRes,
@@ -573,6 +574,13 @@ export async function buildPersonalDataExport(
       .select('muted_user_id, created_at')
       .eq('user_id', user.id)
       .order('created_at', { ascending: true }),
+    // RA 10173 (2026-10-28) — the event types the subject ASKED us to add ("Can't find yours? Ask us to add
+    // it", migration 20271294233183): their own words, keyed to them (user_id), readable under their own RLS.
+    supabase
+      .from('event_type_requests')
+      .select('label, status, event_type, created_at, resolved_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: true }),
     // RA 10173 (2026-08-04) — RE-BOOKING REQUESTS the subject initiated
     // (migration 20271103100614). AUTHOR-scoped on requested_by_user_id, not
     // event-scoped: the row records a request THIS person made, and a co-host
@@ -822,6 +830,7 @@ export async function buildPersonalDataExport(
   const papicFreeGrantClaims = listOutcome('papic_free_grant_claims', papicFreeGrantClaimsRes);
   const userUnfollows = listOutcome('user_unfollows', userUnfollowsRes);
   const inviteMutes = listOutcome('invite_mutes', inviteMutesRes);
+  const eventTypeAsks = listOutcome('event_type_requests', eventTypeAsksRes);
   const vendorReuseRequests = listOutcome('vendor_reuse_requests', vendorReuseRequestsRes);
   const ownSuggestions = listOutcome('event_inspiration_suggestions', ownSuggestionsRes);
   const workingNotes = listOutcome(
@@ -1029,6 +1038,7 @@ export async function buildPersonalDataExport(
     papic_free_grant_claims: papicFreeGrantClaims.rows,
     user_unfollows: userUnfollows.rows,
     invite_mutes: inviteMutes.rows,
+    event_type_requests: eventTypeAsks.rows,
     vendor_reuse_requests: vendorReuseRequests.rows,
     // 🤝🖼 Photos the subject suggested to couples' boards as a booked supplier (author-scoped).
     inspiration_suggestions_sent: ownSuggestions.rows,

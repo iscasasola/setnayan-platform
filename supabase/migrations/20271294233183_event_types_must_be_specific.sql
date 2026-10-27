@@ -41,8 +41,9 @@ UPDATE public.event_type_vocab
 -- ── 2 · The request queue ──────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.event_type_requests (
   request_id    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  -- Who asked. Their own row (RLS pattern A); a deleted account takes its asks with it.
-  requested_by  UUID NOT NULL REFERENCES public.users(user_id) ON DELETE CASCADE,
+  -- Who asked — the row's SUBJECT (RLS pattern A: `user_id`, their own row). Erasure deletes it
+  -- (lib/erasure/coverage.ts OWN_ROW_DELETES); the CASCADE is that same decision at the database.
+  user_id       UUID NOT NULL REFERENCES public.users(user_id) ON DELETE CASCADE,
   -- What they typed — the kind of event, in their words ("Alumni homecoming").
   label         TEXT NOT NULL CHECK (char_length(btrim(label)) BETWEEN 2 AND 80),
   --   pending   → waiting for the admin
@@ -64,7 +65,7 @@ ALTER TABLE public.event_type_requests ENABLE ROW LEVEL SECURITY;
 
 -- One open ask per person per name — a double tap is one row, not two.
 CREATE UNIQUE INDEX IF NOT EXISTS event_type_requests_one_open_ask
-  ON public.event_type_requests (requested_by, lower(btrim(label)))
+  ON public.event_type_requests (user_id, lower(btrim(label)))
   WHERE status = 'pending';
 -- The admin queue reads open asks newest first; the "added" sweep reads by type.
 CREATE INDEX IF NOT EXISTS event_type_requests_status_idx
@@ -81,7 +82,7 @@ CREATE POLICY event_type_requests_ask
   ON public.event_type_requests FOR INSERT
   TO authenticated
   WITH CHECK (
-    requested_by = (SELECT auth.uid())
+    user_id = (SELECT auth.uid())
     AND status = 'pending'
     AND event_type IS NULL
     AND resolved_by IS NULL
@@ -92,7 +93,7 @@ DROP POLICY IF EXISTS event_type_requests_read_own ON public.event_type_requests
 CREATE POLICY event_type_requests_read_own
   ON public.event_type_requests FOR SELECT
   TO authenticated
-  USING (requested_by = (SELECT auth.uid()) OR (SELECT public.is_admin()));
+  USING (user_id = (SELECT auth.uid()) OR (SELECT public.is_admin()));
 
 DROP POLICY IF EXISTS event_type_requests_admin_write ON public.event_type_requests;
 CREATE POLICY event_type_requests_admin_write

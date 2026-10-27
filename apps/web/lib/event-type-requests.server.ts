@@ -15,7 +15,7 @@ import type { EventTypeAsk } from '@/lib/event-type-requests';
 export async function loadEventTypeAsks(admin: SupabaseClient): Promise<{ asks: EventTypeAsk[]; failed: boolean }> {
   const { data, error } = await admin
     .from('event_type_requests')
-    .select('request_id, requested_by, label, status, event_type, created_at')
+    .select('request_id, user_id, label, status, event_type, created_at')
     .in('status', ['pending', 'linked'])
     .order('created_at', { ascending: false })
     .limit(200);
@@ -25,13 +25,13 @@ export async function loadEventTypeAsks(admin: SupabaseClient): Promise<{ asks: 
   }
   const rows = (data ?? []) as Array<{
     request_id: string;
-    requested_by: string;
+    user_id: string;
     label: string;
     status: 'pending' | 'linked';
     event_type: string | null;
     created_at: string;
   }>;
-  const ids = [...new Set(rows.map((r) => r.requested_by))];
+  const ids = [...new Set(rows.map((r) => r.user_id))];
   const names = new Map<string, string>();
   if (ids.length > 0) {
     const { data: people, error: peopleError } = await admin.from('users').select('user_id, display_name').in('user_id', ids);
@@ -48,7 +48,7 @@ export async function loadEventTypeAsks(admin: SupabaseClient): Promise<{ asks: 
       status: r.status,
       eventType: r.event_type,
       createdAt: r.created_at,
-      askedBy: names.get(r.requested_by) ?? 'A host',
+      askedBy: names.get(r.user_id) ?? 'A host',
     })),
   };
 }
@@ -60,6 +60,7 @@ async function whereToSwitch(admin: SupabaseClient, userId: string, since: strin
     .select('event_id')
     .eq('user_id', userId)
     .eq('member_type', 'couple');
+  if (error) logQueryError('tellAsksTheTypeIsReady.myEvents', error, { user_id: userId }, 'graceful_degrade');
   if (error || !mine || mine.length === 0) return '/dashboard/create-event';
   const { data: ev, error: evError } = await admin
     .from('events')
@@ -72,7 +73,12 @@ async function whereToSwitch(admin: SupabaseClient, userId: string, since: strin
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (evError || !ev) return '/dashboard/create-event';
+  if (evError) {
+    // Refused, the notice still goes — it links to the picker instead of their event.
+    logQueryError('tellAsksTheTypeIsReady.whereToSwitch', evError, { user_id: userId }, 'graceful_degrade');
+    return '/dashboard/create-event';
+  }
+  if (!ev) return '/dashboard/create-event';
   return `/dashboard/${(ev as { event_id: string }).event_id}/details`;
 }
 
@@ -92,19 +98,19 @@ export async function tellAsksTheTypeIsReady(
     .update({ status: 'added', resolved_at: new Date().toISOString(), resolved_by: adminUserId })
     .eq('event_type', eventType)
     .eq('status', 'linked')
-    .select('request_id, requested_by, label, created_at');
+    .select('request_id, user_id, label, created_at');
   if (error) {
     logQueryError('tellAsksTheTypeIsReady', error, { event_type: eventType }, 'graceful_degrade');
     return 0;
   }
-  const rows = (claimed ?? []) as Array<{ request_id: string; requested_by: string; label: string; created_at: string }>;
+  const rows = (claimed ?? []) as Array<{ request_id: string; user_id: string; label: string; created_at: string }>;
   for (const r of rows) {
     await emitNotification({
-      userId: r.requested_by,
+      userId: r.user_id,
       type: 'event_type_added',
       title: `${typeLabel} is ready`,
       body: `You asked for “${r.label}”. Pick ${typeLabel} for a new event, or switch the event you started in its Event settings.`,
-      relatedUrl: await whereToSwitch(admin, r.requested_by, r.created_at),
+      relatedUrl: await whereToSwitch(admin, r.user_id, r.created_at),
     });
   }
   return rows.length;

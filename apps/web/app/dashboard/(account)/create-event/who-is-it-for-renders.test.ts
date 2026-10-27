@@ -69,7 +69,7 @@ test('1 · a group picked: only what a group may hold, and the For row names the
     assert.ok(!shown.includes(personal), `${personal} is a personal milestone — a group never holds it`);
   }
   for (const k of ['reunion', 'tournament', 'anniversary', 'gala_night']) assert.ok(shown.includes(k), `${k} is offered to a group`);
-  assert.match(html, /Batch 2010 Samahan/);
+  assert.match(html, /Batch 2010 Alumni/);
   assert.match(html, /Group · members see it in the group/);
   assert.doesNotMatch(html, /Show all event types/, 'a group has no doorway to personal types');
 });

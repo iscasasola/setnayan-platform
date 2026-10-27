@@ -1292,7 +1292,7 @@ export const OWN_ROW_DELETES: ReadonlyArray<{
 }> = [
   {
     table: 'event_type_requests',
-    column: 'requested_by',
+    column: 'user_id',
     why: 'The subject’s own asks for an event type we do not have (“Can’t find yours? Ask us to add it”, 2026-10-28) — what they typed, theirs alone; no audit, money or shared-record role. The type an admin made from it lives on in event_type_vocab, which carries no trace of who asked.',
   },
   {

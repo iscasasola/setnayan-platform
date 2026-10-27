@@ -99,7 +99,7 @@ async function loadEventKind(
     supabase
       .from('event_type_requests')
       .select('status, event_type, created_at, label')
-      .eq('requested_by', userId)
+      .eq('user_id', userId)
       .eq('status', 'added'),
     supabase.from('events').select('created_at').eq('event_id', eventId).maybeSingle(),
   ]);

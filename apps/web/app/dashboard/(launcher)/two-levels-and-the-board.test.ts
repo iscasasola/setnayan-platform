@@ -1010,7 +1010,7 @@ test('a folded event type is always one tap from being shown', () => {
   );
   assert.match(
     src,
-    /showAllTypes \|\| hidden\.length === 0/,
+    /\(showAllTypes && mayShowAll\) \|\| hidden\.length === 0/,
     'The create grid no longer un-folds when "show all" is pressed.',
   );
 });

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "414e35c69b",
+  "generatedFromRef": "910c244099",
   "routeCount": 475,
   "destinations": 993,
   "actions": 642,
-  "blocks": 7144,
+  "blocks": 7147,
   "routes": {
     "/": {
       "files": [
@@ -6235,6 +6235,7 @@
         "dashboard/[eventId]/budget/_components/budget-screen.tsx",
         "dashboard/[eventId]/budget/_components/budget-sheets.tsx",
         "dashboard/[eventId]/budget/_components/budget-summary.tsx",
+        "dashboard/[eventId]/budget/_components/print-budget-link.tsx",
         "dashboard/[eventId]/budget/_components/share-budget-band-toggle.tsx",
         "dashboard/[eventId]/budget/_components/suggest-milestones-button.tsx",
         "dashboard/[eventId]/budget/_components/tradition-notes.tsx",
@@ -6286,6 +6287,7 @@
         "PageMasthead",
         "Peso",
         "PickMenu",
+        "PrintBudgetLink",
         "R",
         "RecordCostResult",
         "RecordSheet",
@@ -6875,6 +6877,7 @@
         "PeopleHits",
         "Pick",
         "PickMenu",
+        "PickWhoContext.Provider",
         "PillThumb",
         "PinnedSummary",
         "PlusOneFilter",
@@ -7703,6 +7706,7 @@
         "PrintSetBody",
         "PrintSetDownloads",
         "PrintedStamp",
+        "PrintsPageDesk",
         "ProMark",
         "ProNote",
         "ProQuietLine",

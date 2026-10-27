@@ -11,7 +11,7 @@
  *   · The phone's share sheet does NOT arm: it already stamps Sent ✓ when an app took the message.
  *
  * Sabotage (2026-10-27, each reverted): `visible` asks without a leave → red · the TTL check dropped → red · the arm
- * removed from Send invite's `viaApp` → red · the cell's Sent wired to a fresh server call → red · the share path
+ * removed from Send invite's `viaApp` → red · the arm moved after the `await` → red · the cell's Sent wired to a fresh server call → red · the share path
  * armed → red.
  */
 import { test } from 'node:test';
@@ -75,8 +75,15 @@ for (const [label, src, appFn, copyFns, shareFn] of [
   ['GuestInviteCell', CELL, 'async function viaApp(', ['async function copyMessage(', 'async function copyLink('], 'async function share('],
 ] as const) {
   test(`${label}: an app or a copy arms the question; the share sheet does not`, () => {
-    assert.match(fnBody(src, appFn), /back\.arm\(\)/, `${label}: opening an app does not ask on return`);
-    for (const f of copyFns) assert.match(fnBody(src, f), /back\.arm\(\)/, `${label}: ${f} does not ask on return`);
+    // Armed AT the press — before the first await. Opening an app can hide the page before its promise settles, so an
+    // arm placed after the await misses the very leave it exists to see (found walking the lab, 2026-10-27).
+    for (const f of [appFn, ...copyFns]) {
+      const body = fnBody(src, f);
+      const armAt = body.indexOf('back.arm()');
+      const awaitAt = body.indexOf('await ');
+      assert.ok(armAt > -1, `${label}: ${f} does not ask on return`);
+      assert.ok(awaitAt === -1 || armAt < awaitAt, `${label}: ${f} arms only after an await — a fast leave is missed`);
+    }
     assert.doesNotMatch(fnBody(src, shareFn), /back\.arm\(\)/, `${label}: the share sheet asks although it already stamps`);
   });
 

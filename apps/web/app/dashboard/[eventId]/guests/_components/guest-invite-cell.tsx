@@ -295,9 +295,10 @@ export function GuestInviteCell({
     const text = message(false);
     const plan = inviteAppPlan(app, text, { touch, share: typeof navigator.share === 'function' });
     if (plan.kind === 'share') return share();
+    // Armed AT the press: opening an app can hide this page before the promise below settles.
+    if (!sentAt) back.arm();
     const out = await runInviteAppPlan(plan, text, touch);
     setSaid(out === 'manual' ? { kind: 'manual', text } : { kind: 'app', text: inviteAppSaid(app, plan, first) });
-    if (!sentAt) back.arm();
   }
 
   /*
@@ -309,24 +310,24 @@ export function GuestInviteCell({
   */
   async function copyLink() {
     const link = guest.inviteUrl ?? '';
+    if (!sentAt) back.arm(); // armed AT the press, before any await
     try {
       await navigator.clipboard.writeText(link);
       setDone((d) => ({ ...d, link: true }));
     } catch {
       setSaid({ kind: 'manual', text: link });
     }
-    if (!sentAt) back.arm();
   }
 
   async function copyMessage() {
     const text = message(false);
+    if (!sentAt) back.arm(); // armed AT the press, before any await
     try {
       await navigator.clipboard.writeText(text);
       setDone((d) => ({ ...d, message: true }));
     } catch {
       setSaid({ kind: 'manual', text });
     }
-    if (!sentAt) back.arm();
   }
 
   async function copyTicket() {

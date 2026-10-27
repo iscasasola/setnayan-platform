@@ -307,6 +307,8 @@ export function SendInviteActions({
 
   async function copyText(kind: 'copied' | 'copied-desktop') {
     const text = message(false);
+    // They will paste it somewhere else — ask when they come back. Armed AT the press, before any await.
+    if (!sentAt) back.arm();
     try {
       await navigator.clipboard.writeText(text);
       setSaid({ kind });
@@ -314,8 +316,6 @@ export function SendInviteActions({
       // Clipboard blocked (some in-app browsers) — hand them the text, selected.
       setSaid({ kind: 'manual', text });
     }
-    // Either way they now paste it somewhere else — ask when they come back.
-    if (!sentAt) back.arm();
   }
 
   async function send() {
@@ -334,9 +334,10 @@ export function SendInviteActions({
     const text = message(false);
     const plan = inviteAppPlan(app, text, device);
     if (plan.kind === 'share') return send();
+    // Armed AT the press: opening an app can hide this page before the promise below settles.
+    if (!sentAt) back.arm();
     const out = await runInviteAppPlan(plan, text, device.touch);
     setSaid(out === 'manual' ? { kind: 'manual', text } : { kind: 'app', text: inviteAppSaid(app, plan, first) });
-    if (!sentAt) back.arm();
   }
   const appDevice = inviteDevice();
   const appMenu = (

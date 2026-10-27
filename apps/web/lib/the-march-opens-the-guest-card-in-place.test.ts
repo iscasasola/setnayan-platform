@@ -90,12 +90,13 @@ test('1b · the march draws the card for the tapped person, with the reader it w
 
 test('2 · the card is THE guest card — `GuestCard`, the Guest list’s panel — read by the one card reader, once', () => {
   assert.match(ACTION, /^'use server';/);
-  assert.match(ACTION, /const read = await readGuestCard\(supabase, eventId, guestId, user\.id\);/, 'the card is not read by the one card reader');
+  // The viewer rides beside the card's reads (a promise of their id — the-card-opens-at-the-tap.test.ts 6).
+  assert.match(ACTION, /const read = await readGuestCard\(supabase, eventId, guestId, userRead\.then\(/, 'the card is not read by the one card reader');
   assert.match(ACTION, /<GuestCard frame="panel" eventId=\{eventId\} \{\.\.\.read\}/, 'the march draws a card other than THE guest card');
   assert.doesNotMatch(ACTION, /GuestCardBody|\bkit=\{|actions=\{/, 'the march’s card is drawn around the one card, or takes other writes');
   assert.match(ACTION, /if \(!isUuid\(eventId\) \|\| !isUuid\(guestId\) \|\| !\(at in RETURN_TO\)\)/);
   // The address a failed save lands on is the server's, never the browser's.
-  assert.match(ACTION, /returnTo=\{RETURN_TO\[at\]\(eventId\)\}/);
+  assert.match(ACTION, /returnTo=\{RETURN_TO\[at\]\(eventId, guestId\)\}/);
   // A refusal is a sentence, never the database's words.
   assert.match(ACTION, /catch \{\s*return \{ ok: false, reason: COULD_NOT_OPEN \};/);
   assert.doesNotMatch(ACTION, /\.message\b/, 'a thrown error’s words could reach the couple');

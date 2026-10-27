@@ -230,8 +230,8 @@ export default async function HomeLab({
   const proto = q.proto === '1';
   /* The prototype's own figures, for the side-by-side (prototypes/home_and_guests_2026-10-07_fable.html). */
   const F0 = proto
-    ? { eyebrow: 'Wedding · Fri, Dec 18, 2026', name: 'Cale & Ice', days: 72, coming: 7, noReply: 2, paid: 0, owing: 1056000 }
-    : { eyebrow: 'Wedding · March 13, 2027', name: 'Ana & Miguel', days: 163, coming: 96, noReply: 35, paid: 120000, owing: 45000 };
+    ? { eyebrow: 'Wedding · Fri, Dec 18, 2026', shortDate: 'Dec 18', name: 'Cale & Ice', days: 72, coming: 7, noReply: 2, paid: 0, owing: 1056000 }
+    : { eyebrow: 'Wedding · March 13, 2027', shortDate: 'Mar 13', name: 'Ana & Miguel', days: 163, coming: 96, noReply: 35, paid: 120000, owing: 45000 };
   /* 🔀 `?order=a|b` — the owner's couple, its event name stored either way round (owner 2026-10-21): the header is
      the REAL `homeCoverWords` over that stored name, as the dashboard draws it. */
   const F =
@@ -456,7 +456,7 @@ export default async function HomeLab({
     <div className="mx-auto min-h-screen w-full bg-cream px-4 pb-6 pt-3 sm:px-6 sm:pt-6 lg:px-8">
       <HomeFirstScreen
         eventId={E}
-        cover={{ eyebrow: F.eyebrow, name: F.name, ...(labForWho ? { forWho: labForWho } : {}) }}
+        cover={{ eyebrow: F.eyebrow, shortDate: F.shortDate, name: F.name, ...(labForWho ? { forWho: labForWho } : {}) }}
         next={next}
         control={labControl}
         needs={labNeeds ? { ...labNeeds, switchOn: switchOnRows(labNeeds, { marketplace: true }) } : null}

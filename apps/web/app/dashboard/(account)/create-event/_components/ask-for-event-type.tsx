@@ -92,7 +92,11 @@ export function AskForEventType() {
                 className="input-field"
                 maxLength={80}
                 name="ask_event_type"
-                onChange={(e) => setLabel(e.target.value)}
+                onChange={(e) => {
+                  setLabel(e.target.value);
+                  // A refusal answers the last press, not what is typed now.
+                  setOutcome(null);
+                }}
                 placeholder="e.g. Alumni homecoming"
                 type="text"
                 value={label}

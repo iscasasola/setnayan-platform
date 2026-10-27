@@ -38,7 +38,7 @@
  */
 
 import { useState, useTransition } from 'react';
-import { Check, Copy, Download, Share2 } from 'lucide-react';
+import { Check, Copy, Share, Share2 } from 'lucide-react';
 import { useSaveLoader } from '@/components/sd-loader';
 import { ActionButton } from '@/components/action-button';
 import { shareBlobToDevice } from '@/lib/save-to-device';
@@ -139,7 +139,7 @@ export function SupplierConnectPanel({
           <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
             <ActionButton
               tone="neutral"
-              icon={Download}
+              icon={Share}
               label={saved === 'saving' ? 'Saving…' : 'Download'}
               name="Download the QR as a picture"
               onClick={download}

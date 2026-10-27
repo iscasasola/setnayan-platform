@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState, useTransition } from 'react';
-import { ScrollText, Copy, Check, Download, X } from 'lucide-react';
+import { ScrollText, Copy, Check, Share, X } from 'lucide-react';
 import { generateEmceeScript } from '../actions';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
@@ -179,7 +179,7 @@ export function EmceeScriptButton({ eventId, coupleName, variant = 'button' }: P
                   disabled={!script}
                   className="inline-flex items-center gap-1.5 rounded-lg bg-terracotta-700 px-3 py-2 text-sm font-medium text-cream transition-colors hover:bg-terracotta-800 disabled:opacity-50"
                 >
-                  <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                  <Share aria-hidden className="h-4 w-4" strokeWidth={1.75} />
                   {saveNote === 'expired' ? 'Tap to save' : 'Download'}
                 </button>
               </div>

@@ -16,7 +16,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AlertTriangle,
   Clapperboard,
-  Download,
+  Share,
   Loader2,
   Music2,
   RotateCcw,
@@ -292,12 +292,12 @@ export function TeaserGenerator({
               rel="noopener noreferrer"
               className={downloadClass}
             >
-              <Download aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+              <Share aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
               Download
             </OpenFileLink>
           ) : (
             <button type="button" onClick={() => void saveRendered()} className={downloadClass}>
-              <Download aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+              <Share aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
               {saveNote === 'expired' ? 'Tap to save' : 'Download'}
             </button>
           )

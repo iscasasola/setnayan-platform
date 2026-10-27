@@ -3,7 +3,7 @@
 import { PapicStayForm } from './papic-stay-form';
 import { Fragment, useEffect, useState } from 'react';
 import { PAPIC_OPEN_GALLERY } from './papic-see-photos';
-import { Play, Download, Sparkles, Loader2, Gem } from 'lucide-react';
+import { Play, Share, Sparkles, Loader2, Gem } from 'lucide-react';
 import type { GalleryPhoto, GalleryTagSource, PreservationTotals } from '@/lib/papic-gallery';
 import { PAPIC_POINTS_PER_SNIPPET } from '@/lib/papic-cameras-pure';
 import {
@@ -199,7 +199,7 @@ export function PapicGalleryGrid({
           filename="setnayan-papic-photos.zip"
           className="sn-gal-btn mt-2 inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium"
         >
-          <Download aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+          <Share aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
           Download all
         </SaveFileLink>
       ) : null}
@@ -405,7 +405,7 @@ export function PapicLightbox({
             {saving ? (
               <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
             ) : (
-              <Download aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+              <Share aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
             )}
             {saving ? 'Saving…' : 'Download snippet'}
           </button>
@@ -416,7 +416,7 @@ export function PapicLightbox({
             filename={`setnayan-photo-${photo.id}.jpg`}
             className="sn-gal-btn inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium"
           >
-            <Download aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+            <Share aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
             Save photo
           </SaveFileLink>
         ) : null

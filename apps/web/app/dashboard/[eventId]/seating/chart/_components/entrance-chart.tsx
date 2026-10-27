@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Download, Loader2, RotateCcw } from 'lucide-react';
+import { Share, Loader2, RotateCcw } from 'lucide-react';
 import { PillSelector } from '@/app/_components/pill-selector';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { ActionButton } from '@/components/action-button';
@@ -167,7 +167,7 @@ export function EntranceChart({
             tone="brand"
             main
             waiting={!canSave}
-            icon={save.k === 'making' ? <Loader2 aria-hidden className="animate-spin" strokeWidth={1.9} /> : Download}
+            icon={save.k === 'making' ? <Loader2 aria-hidden className="animate-spin" strokeWidth={1.9} /> : Share}
             label={save.k === 'making' ? 'Making your chart…' : 'Save PDF'}
             onClick={() => void run()}
           />

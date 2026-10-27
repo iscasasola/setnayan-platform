@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Share } from 'lucide-react';
 import { SaveFileLink } from '@/app/_components/save-file-link';
 import { importGuestsCsv } from './actions';
 import { GuestImportForm } from './import-form';
@@ -41,7 +42,8 @@ export default async function ImportGuestsPage({ params }: Props) {
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-3">
           {/* 📥 Saved, never shown in place — the app's web view renders a file with no way back (owner 2026-10-27). */}
-          <SaveFileLink href={template.xlsx} filename={template.xlsx.split('/').pop() ?? 'setnayan-guest-list.xlsx'} className="button-primary">
+          <SaveFileLink href={template.xlsx} filename={template.xlsx.split('/').pop() ?? 'setnayan-guest-list.xlsx'} className="button-primary inline-flex items-center gap-1.5">
+            <Share aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             Download for Excel / Numbers
           </SaveFileLink>
           <a

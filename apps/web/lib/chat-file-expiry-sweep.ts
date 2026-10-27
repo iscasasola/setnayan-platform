@@ -60,7 +60,6 @@ function bindIO(admin: ReturnType<typeof createAdminClient>): ChatFileExpiryIO {
       const reads = await Promise.all([
         admin.from('event_vendor_payments').select('proof_r2_key').in('proof_r2_key', refs),
         admin.from('vendor_contracts').select('file_url').in('file_url', refs),
-        admin.from('event_vendors').select('deposit_proof_url').in('deposit_proof_url', refs),
       ]);
       for (const r of reads) {
         if (r.error) throw new Error(`kept-forever read: ${r.error.message}`);

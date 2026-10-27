@@ -58,15 +58,19 @@ export const PAPIC_ANCHORS_DEFAULT: readonly (readonly [number, number])[] = [
   // Migration 20271182141904 un-drifts the catalog seed and this list follows
   // it, so the anchors reproduce the ladder that is actually charged. The
   // catalog stays the source of truth; this is a fallback, never a price.
-  [100, 70],
-  [3_000, 1_680],
-  [10_000, 4_500],
-  [20_000, 7_200],
-  [50_000, 15_000],
+  // 💲 2026-10-28 ("THE ONE PRICE" + "Yes, ×1.32"): the anchors follow the catalogue migration
+  // `*_one_price_app_store_equals_website.sql`. Was 70 · 1,680 · 4,500 · 7,200 · 15,000 · 24,000.
+  // ⚠ The owner's 200–2,000 rungs (189 · 282 · 373 · 465 · 929 · 1,845) do NOT compute from the 100 anchor's ₱0.95
+  //   (that gives 190 · 285 · 380 · 475 · 950 · 1,900) — an open owner question on PR #7005.
+  [100, 95],
+  [3_000, 2_214],
+  [10_000, 5_950],
+  [20_000, 9_488],
+  [50_000, 19_766],
   // ⚖ Owner 2026-08-29: *"place an editable row like 50,000 and make the value
   // 24000 php."* ₱0.24 a credit — a real saving on 50,000's ₱0.30, where a
   // COMPUTED rung would have inherited ₱0.30 and cost exactly two 50,000s.
-  [100_000, 24_000],
+  [100_000, 31_625],
 ] as const;
 
 /** True when this rung is one the owner types into rather than one that computes. */

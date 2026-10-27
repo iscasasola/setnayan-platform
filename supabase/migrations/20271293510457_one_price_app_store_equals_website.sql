@@ -30,7 +30,7 @@
 -- a renamed or missing service_code would leave the old price standing with a
 -- green migration — so every row count is asserted and the migration RAISES.
 --
--- Idempotent: re-applying matches the same 13 rows and writes the same values.
+-- Idempotent: re-applying matches the same 25 rows and writes the same values.
 
 DO $$
 DECLARE
@@ -57,7 +57,22 @@ BEGIN
       ('SETNAYAN_AI_C',      1190::numeric),
       ('SETNAYAN_AI_D',       265::numeric),
       ('PAKANTA',            3300::numeric),
-      ('PATIKTOK_COMPILER',  1980::numeric)
+      ('PATIKTOK_COMPILER',  1980::numeric),
+      -- ⚖ The rest of the Papic web ladder (owner 2026-10-28, "Yes, ×1.32"): old web price × ~1.3177, rounded so
+      -- the price per credit never rises. `PAPIC_GUEST` (no suffix) is the 3,000-credit rung (₱1,680 → ₱2,214,
+      -- ₱0.738 a credit, level with 4K–7K); the owner's list did not name it, the coordinator's rule priced it.
+      ('PAPIC_GUEST_200',     189::numeric),
+      ('PAPIC_GUEST_300',     282::numeric),
+      ('PAPIC_GUEST_400',     373::numeric),
+      ('PAPIC_GUEST_2K',     1845::numeric),
+      ('PAPIC_GUEST',        2214::numeric),
+      ('PAPIC_GUEST_4K',     2952::numeric),
+      ('PAPIC_GUEST_6K',     4428::numeric),
+      ('PAPIC_GUEST_7K',     5166::numeric),
+      ('PAPIC_GUEST_20K',    9488::numeric),
+      ('PAPIC_GUEST_30K',   14232::numeric),
+      ('PAPIC_GUEST_50K',   19766::numeric),
+      ('PAPIC_GUEST_100K',  31625::numeric)
     ) AS p(service_code, price)
   LOOP
     UPDATE public.platform_retail_catalog_v2

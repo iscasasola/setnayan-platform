@@ -31,6 +31,14 @@ Owner ruling 2026-10-28 (DECISION_LOG "ONE PRICE EVERYWHERE = THE APP STORE PRIC
   (NULL → the dial prices them live). Ships WITH the App Store equality check above.
 - The typed AI fallback ladders (regular 3300/1980/1190/265, sign-up 1980/1188/714/159), the llms.txt fixture, the
   Papic ladder pin and the Music Maker demo figure follow the catalogue.
+- **The rest of the Papic web ladder × ~1.32** (owner on PR #7005, "Yes, ×1.32"): 200 ₱189 · 300 ₱282 · 400 ₱373 ·
+  2K ₱1,845 · 3K (`PAPIC_GUEST`) ₱2,214 · 4K ₱2,952 · 6K ₱4,428 · 7K ₱5,166 · 20K ₱9,488 · 30K ₱14,232 · 50K ₱19,766 ·
+  100K ₱31,625, in the same migration (25 rows, each asserted). The anchor seed, the ladder pin, the llms.txt fixture
+  and the supplier-gift db numbers follow (gift floor ₱3,500 → ₱4,750 booking; cap ₱3.35M → ₱4.54M).
+- **Event Hub Pro part-holders keep their full Pro** (owner, "Keep their full Pro"): migration
+  `20271294362939_hub_pro_parts_keep_the_old_cap.sql` adds `event_hub_pro_legacy_part_lines` — the part lines bought
+  before 2026-10-28 16:00 UTC and the old ₱5,000 cap (the only place either lives); `eventHubOwnership` applies it
+  through `hubOwnershipFrom({ legacy })` with today's status rule. No order is rewritten.
 
-SPEC IMPACT: Implements DECISION_LOG 2026-10-28 "ONE PRICE EVERYWHERE" + "THE ONE PRICE — APP STORE = WEBSITE" (no corpus edit needed — the rows already
+SPEC IMPACT: Implements DECISION_LOG 2026-10-28 "ONE PRICE EVERYWHERE" + "THE ONE PRICE — APP STORE = WEBSITE"; corpus rows added 2026-10-28 for "THE REST OF THE PAPIC WEB LADDER × ~1.32" and "EVENT HUB PRO PART-HOLDERS KEEP THEIR FULL PRO" (no corpus edit needed — the rows already
 records the ruling; open owner items listed in the PR).

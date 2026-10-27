@@ -3,10 +3,11 @@
  * BY PART"; migration 20271282742262).
  *
  *   · the eleven parts are catalogue rows at the owner's prices (BIG ₱1,000 · SMALL ₱500), on sale, with NO sign-up
- *     price (onboarding keeps its one offer), and Full Pro keeps ₱5,000 / ₱3,000;
+ *     price (onboarding keeps its one offer), and Full Pro is the one price ₱6,590 (2026-10-28), no sign-up override;
  *   · THE CAP, measured on real rows: the event's paid part orders — read the way the render reads them
  *     (`event_entitlement_facts`) — priced from the catalogue, fed to the one cap function (`hubOwnershipFrom`):
- *     ₱4,500 paid is not everything, ₱5,000 is; a refunded order counts for nothing; a part paid twice counts once;
+ *     ₱4,500 paid is not everything; ₱5,000 is everything ONLY for parts bought before the old-cap cutover (owner
+ *     2026-10-28, "Keep their full Pro") — the same total after it is not; a refunded order counts for nothing; a part paid twice counts once;
  *     a still-submitted order owns nothing yet (the handshake) but counts toward the buy surface's rest.
  *
  * Run: pnpm --filter @setnayan/web test:db
@@ -19,6 +20,8 @@ import {
   FULL_PRO_SKU,
   HUB_PARTS,
   HUB_PART_SKUS,
+  HUB_PART_PAID_CODES,
+  hubLegacyPartLinesFrom,
   hubOwnershipFrom,
   hubPart,
   hubPartOfPaidCode,
@@ -87,16 +90,24 @@ test('Full Pro is the one price ₱6,590, with no sign-up override (2026-10-28)'
 });
 
 /** A fresh event with these part orders. */
-async function eventWith(orders: Array<{ part: HubPartId; status: string; code?: string }>): Promise<string> {
+/** After the old-cap cutover (migration `*_hub_pro_parts_keep_the_old_cap.sql`) — a NEW part total. */
+const AFTER_CUTOVER = '2026-11-01T00:00:00Z';
+/** Inside the week parts were on sale (22–26 Oct 2026) — under the old ₱5,000 cap. */
+const PARTS_WEEK = '2026-10-24T03:00:00Z';
+
+async function eventWith(
+  orders: Array<{ part: HubPartId; status: string; code?: string }>,
+  at: string = AFTER_CUTOVER,
+): Promise<string> {
   const ev = await db.query<{ event_id: string }>(
     `INSERT INTO public.events (display_name, event_type) VALUES ('Parts Event', 'birthday') RETURNING event_id`,
   );
   const eventId = ev.rows[0]!.event_id;
   for (const o of orders) {
     await db.query(
-      `INSERT INTO public.orders (event_id, user_id, service_key, description, requested_total_php, status, reference_code)
-       VALUES ($1, NULL, $2, 'part', 1, $3, $4)`,
-      [eventId, o.code ?? hubPart(o.part).sku, o.status, nextRef()],
+      `INSERT INTO public.orders (event_id, user_id, service_key, description, requested_total_php, status, reference_code, created_at)
+       VALUES ($1, NULL, $2, 'part', 1, $3, $4, $5::timestamptz)`,
+      [eventId, o.code ?? hubPart(o.part).sku, o.status, nextRef(), at],
     );
   }
   return eventId;
@@ -115,13 +126,33 @@ async function capOf(eventId: string, mode: 'active' | 'owned') {
       .map((o) => hubPartOfPaidCode(o.service_key))
       .filter((p): p is HubPartId => p !== null);
     const p = await prices();
-    return hubOwnershipFrom({ fullHeld: false, partHeld: (id) => paid.includes(id), paidParts: paid, prices: p.parts, fullPrice: p.full });
+    // ⚖ The old cap, kept — the SAME RPC and parser `eventHubOwnership` asks (owner 2026-10-28, "Keep their full Pro").
+    const lr = await db.query<{ l: unknown }>(
+      `SELECT public.event_hub_pro_legacy_part_lines($1::uuid, $2::text[]) AS l`,
+      [eventId, [...HUB_PART_PAID_CODES]],
+    );
+    const legacy = hubLegacyPartLinesFrom(lr.rows[0]!.l);
+    assert.ok(legacy, 'the old-cap read answered in a shape the app cannot read');
+    return hubOwnershipFrom({
+      fullHeld: false,
+      partHeld: (id) => paid.includes(id),
+      paidParts: paid,
+      prices: p.parts,
+      fullPrice: p.full,
+      legacy: {
+        capPhp: legacy!.capPhp,
+        paidParts: legacy!.lines
+          .filter((l) => live.has(l.status ?? ''))
+          .map((l) => hubPartOfPaidCode(l.service_key))
+          .filter((x): x is HubPartId => x !== null),
+      },
+    });
   } finally {
     await db.query(`SELECT set_config('request.jwt.claim.role', '', false)`);
   }
 }
 
-test('₱4,500 of parts is not everything; the rest is ₱500', async () => {
+test('₱4,500 of parts is not everything; the rest is the one price less it (₱6,590 − ₱4,500 = ₱2,090)', async () => {
   const id = await eventWith([
     { part: 'reveal', status: 'paid' },
     { part: 'background', status: 'paid' },
@@ -132,11 +163,34 @@ test('₱4,500 of parts is not everything; the rest is ₱500', async () => {
   const o = await capOf(id, 'active');
   assert.equal(o.paidPhp, 4500);
   assert.equal(o.full, false);
-  assert.equal(hubRestToEverything(o), 500);
+  assert.equal(hubRestToEverything(o), 2090);
   assert.equal(o.parts.has('motion'), false);
 });
 
-test('₱5,000 of parts is everything — footer included — and a refund takes it back', async () => {
+test('⚖ a ₱5,000 part-holder from 22–26 Oct KEEPS everything — footer included — and a refund takes it back', async () => {
+  // Owner 2026-10-28, "Keep their full Pro": parts that reached the OLD ₱5,000 cap before the cutover stay everything.
+  const id = await eventWith(
+    [
+      { part: 'reveal', status: 'paid' },
+      { part: 'background', status: 'paid' },
+      { part: 'photos', status: 'paid' },
+      { part: 'style', status: 'paid' },
+      { part: 'music', status: 'paid' },
+      { part: 'prints', status: 'paid' },
+    ],
+    PARTS_WEEK,
+  );
+  const o = await capOf(id, 'active');
+  assert.equal(o.paidPhp, 5000);
+  assert.equal(o.full, true, 'a part-holder of 22–26 Oct lost the everything they paid ₱5,000 for');
+  assert.equal(o.parts.size, 11);
+  await db.query(`UPDATE public.orders SET status = 'refunded' WHERE event_id = $1 AND service_key = $2`, [id, hubPart('prints').sku]);
+  const after = await capOf(id, 'active');
+  assert.equal(after.paidPhp, 4500);
+  assert.equal(after.full, false, 'a refunded part still counted toward the old cap');
+});
+
+test('⚖ the SAME ₱5,000 of parts bought AFTER the cutover is not everything — new buyers need the one price', async () => {
   const id = await eventWith([
     { part: 'reveal', status: 'paid' },
     { part: 'background', status: 'paid' },
@@ -147,12 +201,24 @@ test('₱5,000 of parts is everything — footer included — and a refund takes
   ]);
   const o = await capOf(id, 'active');
   assert.equal(o.paidPhp, 5000);
-  assert.equal(o.full, true, '₱5,000 of parts did not unlock everything');
-  assert.equal(o.parts.size, 11);
-  await db.query(`UPDATE public.orders SET status = 'refunded' WHERE event_id = $1 AND service_key = $2`, [id, hubPart('prints').sku]);
-  const after = await capOf(id, 'active');
-  assert.equal(after.paidPhp, 4500);
-  assert.equal(after.full, false, 'a refunded part still counted toward everything');
+  assert.equal(o.full, false, 'a part total after the cutover was measured against the old cap');
+  assert.equal(hubRestToEverything(o), 1590);
+});
+
+test('⚖ an old-week order still under review owns nothing yet — the old cap follows the same status rule', async () => {
+  const id = await eventWith(
+    [
+      { part: 'reveal', status: 'paid' },
+      { part: 'background', status: 'paid' },
+      { part: 'photos', status: 'paid' },
+      { part: 'style', status: 'paid' },
+      { part: 'music', status: 'paid' },
+      { part: 'prints', status: 'submitted' },
+    ],
+    PARTS_WEEK,
+  );
+  assert.equal((await capOf(id, 'active')).full, false, 'an unapproved part reached the old cap');
+  assert.equal((await capOf(id, 'owned')).full, true, 'the buy surface would ask a part-holder to pay again');
 });
 
 test('a part paid twice counts once; a submitted order owns nothing yet but counts toward the buy surface', async () => {
@@ -182,5 +248,5 @@ test('🪄 the retired Animated Monogram reads as Logo & QR — owned, and count
   const o = await capOf(id, 'active');
   assert.equal(o.parts.has('logo_qr'), true, 'a monogram owner does not own Logo & QR');
   assert.equal(o.paidPhp, 1500, 'the monogram did not count at Logo & QR’s web value');
-  assert.equal(hubRestToEverything(o), 3500);
+  assert.equal(hubRestToEverything(o), 5090);
 });

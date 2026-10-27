@@ -713,7 +713,7 @@ test('a card that said YES to the gift → the order is fee + gift and names the
   assert.ok(res.status === 'ordered');
   const feePhp = bookingFeePhp(50_000); // ₱2,500
   const giftPhp = Math.floor(feePhp * 100 * 0.4) / 100; // 40% of the fee, ₱1,000
-  assert.equal(res.giftCredits, 1_429, '₱50,000 → 1,429 free photos');
+  assert.equal(res.giftCredits, 1_078, '₱50,000 → 1,078 free photos (the 2026-10-28 one-price ladder)');
   assert.equal(res.amountPhp, feePhp + giftPhp, 'the supplier pays fee + gift');
 
   // The fee column stays the fee — the gift rides beside it.

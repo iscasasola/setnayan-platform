@@ -15,10 +15,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { stripComments } from '@/lib/strip-comments';
 
 const WEB = process.cwd();
 const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
-const code = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+const code = (s: string) => stripComments(s);
 
 /** The body of `[export] async function <name>(` up to the next top-level `\n}`. */
 function bodyOf(src: string, name: string): string {

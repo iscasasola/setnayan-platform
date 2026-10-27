@@ -124,9 +124,9 @@ function Fact({ name, sub, badge, tone = 'ok' }: { name: string; sub?: string | 
 function Preview({ url, alt, empty }: { url: string | null; alt: string; empty: string }) {
   return url ? (
     // eslint-disable-next-line @next/next/no-img-element -- a short-lived signed link; next/image cannot cache it
-    <img src={url} alt={alt} className="h-40 w-full rounded-xl border border-ink/10 bg-ink/[0.03] object-contain" />
+    <img src={url} alt={alt} className="h-40 w-full rounded-xl bg-ink/[0.04] object-contain" />
   ) : (
-    <div className="grid h-40 w-full place-items-center rounded-xl border border-ink/10 bg-ink/[0.03] px-3 text-center text-xs text-ink/70">
+    <div className="grid h-40 w-full place-items-center rounded-xl bg-ink/[0.04] px-3 text-center text-xs text-ink/70">
       {empty}
     </div>
   );

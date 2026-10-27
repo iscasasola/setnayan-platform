@@ -105,7 +105,7 @@ export function HelpMessenger({
           Couldn’t load the messages — refresh in a moment. This is not an empty inbox.
         </p>
       ) : null}
-      <div className="grid overflow-hidden rounded-2xl border border-ink/10 bg-white dark:bg-raised md:h-[560px] md:grid-cols-[300px_1fr]">
+      <div className="grid overflow-hidden rounded-2xl bg-white shadow-sm dark:bg-raised md:h-[560px] md:grid-cols-[300px_1fr]">
         <ul className={`${open ? 'hidden md:block' : ''} overflow-y-auto border-ink/10 md:border-r`} aria-label="Conversations" data-help-list="">
           {threads.length === 0 && !failed ? (
             <li className="p-8 text-center text-sm text-ink/70">

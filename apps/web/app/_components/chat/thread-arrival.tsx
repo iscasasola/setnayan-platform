@@ -56,7 +56,7 @@ export function ThreadArrival() {
         {known
           ? known.rows.map((r) =>
               r.card ? (
-                <li key={r.id} aria-hidden className="my-2 h-20 self-center rounded-2xl border border-ink/10 bg-ink/[0.03]" style={{ width: '88%' }} />
+                <li key={r.id} aria-hidden className="my-2 h-20 self-center rounded-2xl bg-ink/[0.05]" style={{ width: '88%' }} />
               ) : (
                 <li key={r.id} className={`flex ${r.mine ? 'justify-end' : 'justify-start pl-[34px]'}`}>
                   <span className={`max-w-[75%] whitespace-pre-wrap break-words rounded-[18px] px-3 py-2 text-[15px] leading-snug ${r.mine ? 'bg-terracotta text-cream' : 'bg-ink/[0.06] text-ink'}`}>

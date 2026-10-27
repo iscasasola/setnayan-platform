@@ -32,7 +32,7 @@ import { backRecord } from './_components/ui';
 import { GROUP_DEFAULT_ICON } from './_components/group-icons';
 import { HubToolsPane } from './_components/hub-tools-pane';
 import { setCategoryHubTools } from './actions';
-import { hubToolsFor, nameKey } from '@/lib/hub-tools';
+import { hubToolsFor, isHubToolTemplate, nameKey, type HubToolRecord, type HubToolTemplate } from '@/lib/hub-tools';
 import type { Category } from './_components/model';
 
 /**
@@ -501,10 +501,28 @@ async function HubToolsSection({
   const current =
     ordered.find((c) => c.id === wanted) ?? ordered.find((c) => nameKey(c.label) === 'catering') ?? ordered[0] ?? null;
   const admin = createAdminClient();
-  const read = current
-    ? await admin.from('category_hub_tools').select('tools, scan_default').eq('category_id', current.id).maybeSingle()
-    : null;
-  const answer = current && read && !read.error ? hubToolsFor(current.label, read.data) : null;
+  // The library is RECORDS (`hub_tools`, each with its template); a category's answer is its settings row + switches.
+  const [libRead, setRead, swRead] = current
+    ? await Promise.all([
+        admin.from('hub_tools').select('tool_key, label, template').eq('is_active', true).order('sort_order'),
+        admin.from('category_hub_settings').select('scan_default').eq('category_id', current.id).maybeSingle(),
+        admin.from('category_hub_tool_switches').select('tool_key').eq('category_id', current.id),
+      ])
+    : [null, null, null];
+  const library: HubToolRecord[] = ((libRead?.data ?? []) as Array<{ tool_key: string; label: string; template: string }>)
+    .filter((r) => isHubToolTemplate(r.template))
+    .map((r) => ({ key: r.tool_key, label: r.label, template: r.template as HubToolTemplate }));
+  const readOk = Boolean(current && libRead && !libRead.error && setRead && !setRead.error && swRead && !swRead.error);
+  const answer =
+    current && readOk
+      ? hubToolsFor(
+          current.label,
+          setRead!.data
+            ? { scan_default: (setRead!.data as { scan_default: string }).scan_default, tools: ((swRead!.data ?? []) as Array<{ tool_key: string }>).map((r) => r.tool_key) }
+            : null,
+          library,
+        )
+      : null;
   return (
     <div data-pane="hub-tools">
       <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -538,6 +556,7 @@ async function HubToolsSection({
           key={current.id}
           categoryId={current.id}
           categoryLabel={current.label}
+          library={library}
           tools={answer.tools}
           scan={answer.scan}
           source={answer.source}

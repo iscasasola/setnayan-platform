@@ -47,7 +47,7 @@ import { CATEGORIES_PATH, backHref, type BackState } from './_components/back';
 import { safeNext } from '@/lib/safe-next';
 import { workBackHref } from '@/lib/admin/supplier-work';
 import { setNewTypeCoverage } from '@/lib/admin/event-type-coverage';
-import { parseHubToolsSave } from '@/lib/hub-tools';
+import { isHubToolTemplate, parseHubToolsSave, type HubToolTemplate } from '@/lib/hub-tools';
 import { clearHomeShelf } from '@/lib/home-shelf-clear';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import { deletionWouldBreakCoupleLinks } from '@/lib/vendor-category-taxonomy';
@@ -1946,42 +1946,57 @@ export async function createEventTypeRoster(formData: FormData): Promise<never> 
  */
 export async function setCategoryHubTools(formData: FormData): Promise<StudioActionResult> {
   const user = await requireAdmin();
-  const parsed = parseHubToolsSave({
-    categoryId: formData.get('category_id'),
-    tools: formData.getAll('tool'),
-    scan: formData.get('scan_default'),
-  });
-  if (!parsed) return { ok: false, error: 'That switch names a tool or a scan mode we do not have.' };
   const admin = createAdminClient();
+  // The ACTIVE library, read at press time — a switch can only name a tool record that exists and is on.
+  const { data: libRows, error: libErr } = await admin
+    .from('hub_tools')
+    .select('tool_key, label, template')
+    .eq('is_active', true);
+  if (libErr || !libRows) return { ok: false, error: 'Couldn’t read the tool library — nothing was saved.' };
+  const library = (libRows as Array<{ tool_key: string; label: string; template: string }>)
+    .filter((r) => isHubToolTemplate(r.template))
+    .map((r) => ({ key: r.tool_key, label: r.label, template: r.template as HubToolTemplate }));
+  const parsed = parseHubToolsSave(
+    { categoryId: formData.get('category_id'), tools: formData.getAll('tool'), scan: formData.get('scan_default') },
+    library,
+  );
+  if (!parsed) return { ok: false, error: 'That switch names a tool or a scan mode we do not have.' };
   const { data: cat, error: catErr } = await admin
     .from('service_categories')
-    .select('id, label_en')
+    .select('id')
     .eq('id', parsed.categoryId)
     .eq('tier', 2)
     .maybeSingle();
   if (catErr) return { ok: false, error: 'Couldn’t check that category — nothing was saved.' };
   if (!cat) return { ok: false, error: 'Category not found — nothing was saved.' };
-  const { data: before } = await admin
-    .from('category_hub_tools')
-    .select('tools, scan_default')
-    .eq('category_id', parsed.categoryId)
-    .maybeSingle();
-  const { error } = await admin.from('category_hub_tools').upsert(
-    {
-      category_id: parsed.categoryId,
-      tools: parsed.tools,
-      scan_default: parsed.scan,
-      updated_at: new Date().toISOString(),
-      updated_by: user.id,
-    },
-    { onConflict: 'category_id' },
-  );
-  if (error) return { ok: false, error: 'Couldn’t save — nothing changed. Try again.' };
+
+  const now = new Date().toISOString();
+  // 1 · the switches ON (idempotent) · 2 · every other ACTIVE tool OFF for this category · 3 · the settings row.
+  // An inactive tool's switch is left alone — Turn off keeps data.
+  if (parsed.tools.length > 0) {
+    const { error } = await admin
+      .from('category_hub_tool_switches')
+      .upsert(parsed.tools.map((tool_key) => ({ category_id: parsed.categoryId, tool_key })), { onConflict: 'category_id,tool_key', ignoreDuplicates: true });
+    if (error) return { ok: false, error: 'Couldn’t save — nothing changed. Try again.' };
+  }
+  const off = library.map((t) => t.key).filter((k) => !parsed.tools.includes(k));
+  if (off.length > 0) {
+    const { error } = await admin
+      .from('category_hub_tool_switches')
+      .delete()
+      .eq('category_id', parsed.categoryId)
+      .in('tool_key', off);
+    if (error) return { ok: false, error: 'Saved the switches you turned on, but not the ones you turned off — refresh and try again.' };
+  }
+  const { error: setErr } = await admin
+    .from('category_hub_settings')
+    .upsert({ category_id: parsed.categoryId, scan_default: parsed.scan, updated_at: now, updated_by: user.id }, { onConflict: 'category_id' });
+  if (setErr) return { ok: false, error: 'Saved the switches, but not the scan default — try again.' };
+
   await admin.from('admin_audit_log').insert({
     action: 'taxonomy.set_hub_tools',
-    target_table: 'category_hub_tools',
+    target_table: 'category_hub_settings',
     target_id: parsed.categoryId,
-    before_json: before ?? null,
     after_json: { tools: parsed.tools, scan_default: parsed.scan },
     actor_user_id: user.id,
   });

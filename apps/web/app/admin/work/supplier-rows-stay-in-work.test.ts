@@ -97,13 +97,19 @@ test('3 · only admins reach these actions: the gate is each one’s first state
   assert.doesNotMatch(VERIFY, /export async function applyApplicationDecision/);
 });
 
-test('3 · the new table is written only through is_admin(); the reason column is bounded', () => {
+test('3 · the new tables are written only through is_admin(); the reason column is bounded', () => {
   const dir = join(WEB, '..', '..', 'supabase', 'migrations');
   const file = readdirSync(dir).find((f) => f.endsWith('_admin_supplier_slice.sql'));
   assert.ok(file, 'the slice migration is missing');
   const sql = readFileSync(join(dir, file!), 'utf8');
-  assert.match(sql, /ALTER TABLE public\.category_hub_tools ENABLE ROW LEVEL SECURITY/);
-  assert.match(sql, /category_hub_tools_admin_write[\s\S]*?FOR ALL[\s\S]*?USING \(\(SELECT public\.is_admin\(\)\)\)[\s\S]*?WITH CHECK \(\(SELECT public\.is_admin\(\)\)\)/);
-  assert.doesNotMatch(sql, /category_hub_tools_read[\s\S]{0,120}FOR (INSERT|UPDATE|DELETE|ALL)/);
+  for (const t of ['hub_tools', 'category_hub_tool_switches', 'category_hub_settings']) {
+    assert.match(sql, new RegExp(`ALTER TABLE public\\.${t} ENABLE ROW LEVEL SECURITY`), `${t} has no RLS at CREATE`);
+  }
+  assert.match(sql, /ARRAY\['hub_tools', 'category_hub_tool_switches', 'category_hub_settings'\]/);
+  assert.match(sql, /FOR ALL TO authenticated USING \(\(SELECT public\.is_admin\(\)\)\) WITH CHECK \(\(SELECT public\.is_admin\(\)\)\)/);
+  assert.match(sql, /FOR SELECT TO authenticated USING \(true\)/);
+  // A tool is a record with one of the eight templates — never a free name.
+  assert.match(sql, /template IN\s*\('checklist', 'per_person', 'live_timeline', 'counter', 'ordered_list', 'plan', 'media', 'log'\)/);
+  assert.match(sql, /REFERENCES public\.hub_tools\(tool_key\) ON DELETE RESTRICT/);
   assert.match(sql, /decline_reason IS NULL OR char_length\(decline_reason\) BETWEEN 1 AND 300/);
 });

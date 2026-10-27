@@ -12,13 +12,15 @@
 import { useState, useTransition } from 'react';
 import { SwitchRow } from '@/app/_components/form-row';
 import { InfoTip } from '@/app/_components/info-tip';
-import { HUB_TOOL_LIBRARY, SCAN_MODES, type HubToolKey, type ScanMode } from '@/lib/hub-tools';
+import { SCAN_MODES, type HubToolRecord, type ScanMode } from '@/lib/hub-tools';
 import type { StudioActionResult } from '../actions';
 
 export type HubToolsPaneProps = {
   categoryId: string;
   categoryLabel: string;
-  tools: readonly HubToolKey[];
+  /** The ACTIVE tool records (`hub_tools`) — each one of the eight templates. */
+  library: readonly HubToolRecord[];
+  tools: readonly string[];
   scan: ScanMode;
   source: 'saved' | 'seed' | 'fallback';
   /** The save. Absent in the lab, where a press answers "Saved ✓ (lab)" and nothing leaves the page. */
@@ -31,17 +33,17 @@ const SOURCE_WORDS: Record<HubToolsPaneProps['source'], string> = {
   fallback: 'This category is not in the approved starting set, so it starts with the basics.',
 };
 
-export function HubToolsPane({ categoryId, categoryLabel, tools, scan, source, save }: HubToolsPaneProps) {
-  const [on, setOn] = useState<ReadonlySet<HubToolKey>>(() => new Set(tools));
+export function HubToolsPane({ categoryId, categoryLabel, library, tools, scan, source, save }: HubToolsPaneProps) {
+  const [on, setOn] = useState<ReadonlySet<string>>(() => new Set(tools));
   const [mode, setMode] = useState<ScanMode>(scan);
   const [line, setLine] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, start] = useTransition();
 
-  const commit = (nextOn: ReadonlySet<HubToolKey>, nextMode: ScanMode, undo: () => void) => {
+  const commit = (nextOn: ReadonlySet<string>, nextMode: ScanMode, undo: () => void) => {
     setLine(null);
     const fd = new FormData();
     fd.set('category_id', categoryId);
-    for (const t of HUB_TOOL_LIBRARY) if (nextOn.has(t.key)) fd.append('tool', t.key);
+    for (const t of library) if (nextOn.has(t.key)) fd.append('tool', t.key);
     fd.set('scan_default', nextMode);
     start(async () => {
       if (!save) {
@@ -62,7 +64,7 @@ export function HubToolsPane({ categoryId, categoryLabel, tools, scan, source, s
     });
   };
 
-  const flip = (key: HubToolKey, next: boolean) => {
+  const flip = (key: string, next: boolean) => {
     const before = on;
     const after = new Set(on);
     if (next) after.add(key);
@@ -75,20 +77,20 @@ export function HubToolsPane({ categoryId, categoryLabel, tools, scan, source, s
     <section aria-label={`Hub tools · ${categoryLabel}`} data-hub-tools={categoryId}>
       <p className="mt-2 max-w-[90ch] text-[14px] text-ink/70">
         <InfoTip label={`What a booked ${categoryLabel} supplier gets in their Hub.`} align="start">
-          Switch tools on or off — no build needed. {SOURCE_WORDS[source]} The supplier-side Hub that draws these tools is
+          Switch tools on or off — no build needed. Every tool is one of eight shared templates (Checklist · Per-person sheet · Live timeline · Counter · Ordered list · Plan · Media · Log). {SOURCE_WORDS[source]} The supplier-side Hub that draws these tools is
           built next; it reads exactly these switches.
         </InfoTip>
       </p>
 
       <div className="mt-3 grid gap-x-8 sm:grid-cols-2" data-hub-tool-list="">
-        {HUB_TOOL_LIBRARY.map((t) => (
+        {library.map((t) => (
           <SwitchRow
             key={t.key}
             name={t.label}
             on={on.has(t.key)}
             disabled={pending}
             onChange={(next) => flip(t.key, next)}
-            attrs={{ 'data-hub-tool': t.key }}
+            attrs={{ 'data-hub-tool': t.key, 'data-hub-template': t.template }}
           />
         ))}
       </div>

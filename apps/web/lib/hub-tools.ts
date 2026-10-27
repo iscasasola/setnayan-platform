@@ -6,7 +6,8 @@
  *
  * 🔑 A TOOL IS CODE; A SWITCH CANNOT INVENT ONE. The library below is generated from the approved prototype
  * (`prototypes/hub_tools_by_service_2026-10-28/index.html` — 43 tools, 80 services). Admin › Categories › Hub tools
- * stores only which keys are ON per category and the default scan mode (`category_hub_tools`); a category nobody has
+ * stores which tool RECORDS are on per category (`category_hub_tool_switches`) and the default scan mode
+ * (`category_hub_settings`); the tools themselves are records in `hub_tools` (key · name · template), seeded from here; a category nobody has
  * saved reads its seed row, matched by name; a category the seed does not name reads the seed's "Everything else".
  *
  * ⏳ NOT BUILT HERE: the supplier-side Hub that DRAWS these tools. `hubToolsFor` is the reader it will call. The three
@@ -31,53 +32,76 @@ export function isScanMode(v: unknown): v is ScanMode {
   return typeof v === 'string' && SCAN_MODES.some((m) => m.key === v);
 }
 
+/**
+ * THE EIGHT TEMPLATES (owner-approved 2026-10-28, `prototypes/hub_tools_working_2026-10-28/` +
+ * `admin_tool_maker_2026-10-28/`). EVERY tool is one of these — a tool is a RECORD (key · name · template), never a
+ * hand-built screen, so the later Tool maker adds a tool by adding a record. Neither the templates' screens nor the
+ * maker is built here; this only fixes the shape so that later build fits.
+ * ⚖ Which template each seed tool takes is the builder's reading of the tool's name (the prototype lists the eight
+ * but does not assign them) — admin will be able to change it in the Tool maker.
+ */
+export const HUB_TOOL_TEMPLATES = [
+  { key: 'checklist', label: 'Checklist', what: 'tick items' },
+  { key: 'per_person', label: 'Per-person sheet', what: 'a row per person' },
+  { key: 'live_timeline', label: 'Live timeline', what: 'runs on the day' },
+  { key: 'counter', label: 'Counter', what: '＋ / − count' },
+  { key: 'ordered_list', label: 'Ordered list', what: 'drag to order' },
+  { key: 'plan', label: 'Plan', what: 'tables / floor' },
+  { key: 'media', label: 'Media', what: 'photos & video' },
+  { key: 'log', label: 'Log', what: 'time-stamped notes' },
+] as const;
+export type HubToolTemplate = (typeof HUB_TOOL_TEMPLATES)[number]['key'];
+
+/** One tool as a record — what `hub_tools` holds and what the Tool maker will write. */
+export type HubToolRecord = { key: string; label: string; template: HubToolTemplate };
+
 type HubToolsSeedRow = { group: string; category: string; tools: readonly string[]; scan: ScanMode };
 
 /* ── GENERATED from the approved prototype (do not hand-edit the lists — regenerate) ── */
 export const HUB_TOOL_LIBRARY = [
-  { key: "fittings_and_measurements", label: "Fittings & measurements", shipped: false },
-  { key: "delivery_and_drop_off", label: "Delivery & drop-off", shipped: false },
-  { key: "entourage", label: "Entourage", shipped: false },
-  { key: "looks_per_person", label: "Looks per person", shipped: false },
-  { key: "chair_schedule", label: "Chair schedule", shipped: false },
-  { key: "photo_upload", label: "Photo upload (Photo by · credits)", shipped: false },
-  { key: "personalisation_list", label: "Personalisation list", shipped: false },
-  { key: "wellness_plan", label: "Wellness plan", shipped: false },
-  { key: "queue_counter", label: "Queue counter", shipped: false },
-  { key: "papic_camera", label: "Papic camera", shipped: true },
-  { key: "quantity_vs_guests", label: "Quantity vs guests", shipped: false },
-  { key: "dietary_and_allergies", label: "Dietary & allergies", shipped: false },
-  { key: "load_in_and_venue_access", label: "Load-in & venue access", shipped: false },
-  { key: "pick_up_times_and_routes", label: "Pick-up times & routes", shipped: false },
-  { key: "headcount", label: "Headcount", shipped: true },
-  { key: "itinerary", label: "Itinerary", shipped: false },
-  { key: "tables_and_seating", label: "Tables & seating", shipped: false },
-  { key: "serving_times", label: "Serving times", shipped: false },
-  { key: "crew_roster", label: "Crew roster", shipped: false },
-  { key: "floor_command", label: "Floor Command", shipped: true },
-  { key: "run_of_show", label: "Run of show (live)", shipped: true },
-  { key: "march", label: "March (read)", shipped: true },
-  { key: "paperwork_checklist", label: "Paperwork checklist", shipped: false },
-  { key: "reservation_slots", label: "Reservation slots", shipped: false },
-  { key: "remembrance_schedule", label: "Remembrance schedule", shipped: false },
-  { key: "emcee_script", label: "Emcee script", shipped: true },
-  { key: "march_cue_sheet", label: "March cue sheet (live)", shipped: false },
-  { key: "song_desk", label: "Song Desk", shipped: true },
-  { key: "set_list", label: "Set list", shipped: false },
-  { key: "tech_rider", label: "Tech rider", shipped: false },
-  { key: "ceremony_details", label: "Ceremony details", shipped: false },
-  { key: "live_studio", label: "Live Studio", shipped: true },
-  { key: "rehearsal_and_cues", label: "Rehearsal & cues", shipped: false },
-  { key: "insured_people_list", label: "Insured people list", shipped: false },
-  { key: "proofs_and_approval", label: "Proofs & approval", shipped: false },
-  { key: "incident_log", label: "Incident log", shipped: false },
-  { key: "brackets_and_scoring", label: "Brackets & scoring", shipped: false },
-  { key: "shot_list", label: "Shot list", shipped: false },
-  { key: "photo_delivery", label: "Photo delivery", shipped: false },
-  { key: "reveal_cue", label: "Reveal cue", shipped: false },
-  { key: "floor_plan", label: "Floor plan", shipped: false },
-  { key: "safety_permit_and_cue", label: "Safety permit & cue", shipped: false },
-  { key: "room_list", label: "Room list", shipped: false },
+  { key: "fittings_and_measurements", label: "Fittings & measurements", template: "per_person", shipped: false },
+  { key: "delivery_and_drop_off", label: "Delivery & drop-off", template: "checklist", shipped: false },
+  { key: "entourage", label: "Entourage", template: "per_person", shipped: false },
+  { key: "looks_per_person", label: "Looks per person", template: "per_person", shipped: false },
+  { key: "chair_schedule", label: "Chair schedule", template: "ordered_list", shipped: false },
+  { key: "photo_upload", label: "Photo upload (Photo by · credits)", template: "media", shipped: false },
+  { key: "personalisation_list", label: "Personalisation list", template: "per_person", shipped: false },
+  { key: "wellness_plan", label: "Wellness plan", template: "plan", shipped: false },
+  { key: "queue_counter", label: "Queue counter", template: "counter", shipped: false },
+  { key: "papic_camera", label: "Papic camera", template: "media", shipped: true },
+  { key: "quantity_vs_guests", label: "Quantity vs guests", template: "counter", shipped: false },
+  { key: "dietary_and_allergies", label: "Dietary & allergies", template: "per_person", shipped: false },
+  { key: "load_in_and_venue_access", label: "Load-in & venue access", template: "checklist", shipped: false },
+  { key: "pick_up_times_and_routes", label: "Pick-up times & routes", template: "live_timeline", shipped: false },
+  { key: "headcount", label: "Headcount", template: "counter", shipped: true },
+  { key: "itinerary", label: "Itinerary", template: "live_timeline", shipped: false },
+  { key: "tables_and_seating", label: "Tables & seating", template: "plan", shipped: false },
+  { key: "serving_times", label: "Serving times", template: "live_timeline", shipped: false },
+  { key: "crew_roster", label: "Crew roster", template: "per_person", shipped: false },
+  { key: "floor_command", label: "Floor Command", template: "live_timeline", shipped: true },
+  { key: "run_of_show", label: "Run of show (live)", template: "live_timeline", shipped: true },
+  { key: "march", label: "March (read)", template: "live_timeline", shipped: true },
+  { key: "paperwork_checklist", label: "Paperwork checklist", template: "checklist", shipped: false },
+  { key: "reservation_slots", label: "Reservation slots", template: "ordered_list", shipped: false },
+  { key: "remembrance_schedule", label: "Remembrance schedule", template: "live_timeline", shipped: false },
+  { key: "emcee_script", label: "Emcee script", template: "live_timeline", shipped: true },
+  { key: "march_cue_sheet", label: "March cue sheet (live)", template: "live_timeline", shipped: false },
+  { key: "song_desk", label: "Song Desk", template: "ordered_list", shipped: true },
+  { key: "set_list", label: "Set list", template: "ordered_list", shipped: false },
+  { key: "tech_rider", label: "Tech rider", template: "checklist", shipped: false },
+  { key: "ceremony_details", label: "Ceremony details", template: "checklist", shipped: false },
+  { key: "live_studio", label: "Live Studio", template: "media", shipped: true },
+  { key: "rehearsal_and_cues", label: "Rehearsal & cues", template: "live_timeline", shipped: false },
+  { key: "insured_people_list", label: "Insured people list", template: "per_person", shipped: false },
+  { key: "proofs_and_approval", label: "Proofs & approval", template: "checklist", shipped: false },
+  { key: "incident_log", label: "Incident log", template: "log", shipped: false },
+  { key: "brackets_and_scoring", label: "Brackets & scoring", template: "ordered_list", shipped: false },
+  { key: "shot_list", label: "Shot list", template: "checklist", shipped: false },
+  { key: "photo_delivery", label: "Photo delivery", template: "media", shipped: false },
+  { key: "reveal_cue", label: "Reveal cue", template: "live_timeline", shipped: false },
+  { key: "floor_plan", label: "Floor plan", template: "plan", shipped: false },
+  { key: "safety_permit_and_cue", label: "Safety permit & cue", template: "checklist", shipped: false },
+  { key: "room_list", label: "Room list", template: "per_person", shipped: false },
 ] as const;
 
 export const HUB_TOOLS_SEED: ReadonlyArray<HubToolsSeedRow> = [
@@ -167,8 +191,16 @@ export type HubToolKey = (typeof HUB_TOOL_LIBRARY)[number]['key'];
 
 const LIBRARY_KEYS: ReadonlySet<string> = new Set(HUB_TOOL_LIBRARY.map((t) => t.key));
 
+/** A key of the CODE seed library (the database library may hold more once the Tool maker exists). */
 export function isHubToolKey(v: unknown): v is HubToolKey {
   return typeof v === 'string' && LIBRARY_KEYS.has(v);
+}
+
+/** The code library as records — the SEED of `hub_tools` (migration 20271293237246 inserts exactly these). */
+export const HUB_TOOL_RECORDS: readonly HubToolRecord[] = HUB_TOOL_LIBRARY.map((t) => ({ key: t.key, label: t.label, template: t.template }));
+
+export function isHubToolTemplate(v: unknown): v is HubToolTemplate {
+  return typeof v === 'string' && HUB_TOOL_TEMPLATES.some((t) => t.key === v);
 }
 
 /** The seed's catch-all row — what a category the prototype does not name starts with. */
@@ -192,12 +224,15 @@ export function seedFor(categoryLabel: string): { row: HubToolsSeedRow; matched:
   return hit ? { row: hit, matched: true } : { row: HUB_TOOLS_FALLBACK, matched: false };
 }
 
-/** A stored `category_hub_tools` row, as read. */
-export type HubToolsRow = { tools: readonly string[] | null; scan_default: string | null };
+/**
+ * What an admin saved for one category: its scan default (`category_hub_settings` — the row's presence IS "saved")
+ * and the tools switched on (`category_hub_tool_switches`, one row per tool record).
+ */
+export type HubToolsSaved = { scan_default: string | null; tools: readonly string[] };
 
 export type HubToolsAnswer = {
-  /** Library keys switched on, in LIBRARY order (never the stored order). */
-  tools: HubToolKey[];
+  /** Tool keys switched on, in LIBRARY order (never the stored order). */
+  tools: string[];
   scan: ScanMode;
   /** saved = an admin saved this category · seed = the approved starting set · fallback = "Everything else". */
   source: 'saved' | 'seed' | 'fallback';
@@ -205,39 +240,39 @@ export type HubToolsAnswer = {
 
 /**
  * THE READER — what a booked supplier of this category gets in their Hub.
- * A saved row wins; an unknown key in it (a tool since removed from the library) is dropped, never drawn.
+ * `library` = the ACTIVE tool records (`hub_tools` where is_active; the code seed when not given). A tool switched
+ * off in the library (Turn off keeps data) simply drops out — its switches stay stored for when it comes back.
  */
-export function hubToolsFor(categoryLabel: string, saved: HubToolsRow | null | undefined): HubToolsAnswer {
+export function hubToolsFor(
+  categoryLabel: string,
+  saved: HubToolsSaved | null | undefined,
+  library: readonly HubToolRecord[] = HUB_TOOL_RECORDS,
+): HubToolsAnswer {
+  const inOrder = (on: ReadonlySet<string>) => library.filter((t) => on.has(t.key)).map((t) => t.key);
   if (saved) {
-    const on = new Set((saved.tools ?? []).filter(isHubToolKey));
     return {
-      tools: HUB_TOOL_LIBRARY.filter((t) => on.has(t.key)).map((t) => t.key),
+      tools: inOrder(new Set(saved.tools ?? [])),
       scan: isScanMode(saved.scan_default) ? saved.scan_default : 'once',
       source: 'saved',
     };
   }
   const { row, matched } = seedFor(categoryLabel);
-  const on = new Set(row.tools);
-  return {
-    tools: HUB_TOOL_LIBRARY.filter((t) => on.has(t.key)).map((t) => t.key),
-    scan: row.scan,
-    source: matched ? 'seed' : 'fallback',
-  };
+  return { tools: inOrder(new Set(row.tools)), scan: row.scan, source: matched ? 'seed' : 'fallback' };
 }
 
 /**
- * The save's input, validated — the action's whole decision lives here so a test can CALL it.
- * Refuses (null) an unknown scan mode or an unknown tool: a switch can only name a tool the library holds.
+ * The save's input, validated against the ACTIVE library — the action's whole decision lives here so a test can CALL
+ * it. Refuses (null) an unknown scan mode or a tool the library does not hold: a switch can only name a tool record.
  */
-export function parseHubToolsSave(input: {
-  categoryId: unknown;
-  tools: readonly unknown[];
-  scan: unknown;
-}): { categoryId: string; tools: HubToolKey[]; scan: ScanMode } | null {
+export function parseHubToolsSave(
+  input: { categoryId: unknown; tools: readonly unknown[]; scan: unknown },
+  library: readonly HubToolRecord[] = HUB_TOOL_RECORDS,
+): { categoryId: string; tools: string[]; scan: ScanMode } | null {
   const categoryId = typeof input.categoryId === 'string' ? input.categoryId.trim() : '';
   if (!categoryId || categoryId.length > 120) return null;
   if (!isScanMode(input.scan)) return null;
-  if (!input.tools.every(isHubToolKey)) return null;
-  const on = new Set(input.tools as HubToolKey[]);
-  return { categoryId, tools: HUB_TOOL_LIBRARY.filter((t) => on.has(t.key)).map((t) => t.key), scan: input.scan };
+  const known = new Set(library.map((t) => t.key));
+  if (!input.tools.every((t) => typeof t === 'string' && known.has(t))) return null;
+  const on = new Set(input.tools as string[]);
+  return { categoryId, tools: library.filter((t) => on.has(t.key)).map((t) => t.key), scan: input.scan };
 }

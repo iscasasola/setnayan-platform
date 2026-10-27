@@ -21,7 +21,7 @@ import { HubToolsPane } from '@/app/admin/categories/_components/hub-tools-pane'
 import { HelpMessenger } from '@/app/admin/help/_components/help-messenger';
 import { setHelpMessageStatus } from '@/app/admin/help/actions';
 import { coerceSupplierWorkKind } from '@/lib/admin/supplier-work';
-import { HUB_TOOLS_SEED, hubToolsFor } from '@/lib/hub-tools';
+import { HUB_TOOLS_SEED, HUB_TOOL_RECORDS, hubToolsFor } from '@/lib/hub-tools';
 import { LabSubmitCatcher } from './lab-submit-catcher';
 import { LAB_GROUPS, LAB_TYPES, labThreads, labWork } from './fixtures';
 
@@ -79,7 +79,7 @@ export default async function AdminSupplierLabPage({ searchParams }: { searchPar
           {(() => {
             const label = one(sp.cat) || 'Catering';
             const a = hubToolsFor(label, null);
-            return <HubToolsPane key={label} categoryId={`lab-${label}`} categoryLabel={label} tools={a.tools} scan={a.scan} source={a.source} />;
+            return <HubToolsPane key={label} categoryId={`lab-${label}`} categoryLabel={label} library={HUB_TOOL_RECORDS} tools={a.tools} scan={a.scan} source={a.source} />;
           })()}
           <p className="mt-6 text-xs text-ink/70">Seeded categories in this lab: {HUB_TOOLS_SEED.slice(0, 6).map((r) => r.category).join(' · ')} …</p>
         </div>

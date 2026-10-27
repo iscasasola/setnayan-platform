@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "b3a0835e00",
+  "generatedFromRef": "3d03197f4e",
   "routeCount": 474,
   "destinations": 993,
   "actions": 642,
-  "blocks": 7146,
+  "blocks": 7147,
   "routes": {
     "/": {
       "files": [
@@ -6236,6 +6236,7 @@
         "dashboard/[eventId]/budget/_components/budget-screen.tsx",
         "dashboard/[eventId]/budget/_components/budget-sheets.tsx",
         "dashboard/[eventId]/budget/_components/budget-summary.tsx",
+        "dashboard/[eventId]/budget/_components/print-budget-link.tsx",
         "dashboard/[eventId]/budget/_components/share-budget-band-toggle.tsx",
         "dashboard/[eventId]/budget/_components/suggest-milestones-button.tsx",
         "dashboard/[eventId]/budget/_components/tradition-notes.tsx",
@@ -6287,6 +6288,7 @@
         "PageMasthead",
         "Peso",
         "PickMenu",
+        "PrintBudgetLink",
         "R",
         "RecordCostResult",
         "RecordSheet",

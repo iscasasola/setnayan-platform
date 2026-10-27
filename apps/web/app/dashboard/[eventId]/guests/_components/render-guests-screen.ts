@@ -64,6 +64,8 @@ export async function renderGuestsScreen(opts: {
   requests?: number;
   /** 🔗 The event lets guests in with one link for everyone. */
   oneQr?: boolean;
+  /** 📤 Each row's Share (`RowInvite`): the address, the words, and guest_id → token. Absent → no row draws Share. */
+  invite?: unknown;
 }): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { AppRouterContext } = await import('next/dist/shared/lib/app-router-context.shared-runtime');
@@ -99,6 +101,7 @@ export async function renderGuestsScreen(opts: {
           empty: opts.empty ?? null,
           copy: opts.copy ?? null,
           viewOnly: opts.viewOnly ?? false,
+          invite: opts.invite ?? null,
         } as never),
       ),
     ),

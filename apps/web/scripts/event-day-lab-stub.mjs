@@ -21,6 +21,7 @@
  *   GET /__reset   → zero the counters
  *   GET /__keys?as=host|seat → { cookieName, cookieValue } — a Supabase session cookie for that account
  *   GET /__fixture → { events, guests: [{ guest_id, event_id, qr_token }] } — what the load test signs passes for
+ *   GET /__fail?name=<table|rpc>&seconds=N → that table or rpc answers 504 for N seconds (a stalled database)
  * `maxInFlight` is the most requests the app had open at this stand-in at once: the stand-in for "database
  * connections in use" (the pass bar's "< 40 of 60").
  *
@@ -170,6 +171,8 @@ function matches(row, key, expr) {
 const RESERVED = new Set(['select', 'order', 'limit', 'offset', 'or', 'and', 'on_conflict', 'columns']);
 
 // ── Counters ───────────────────────────────────────────────────────────────────────────────────────────────────
+const failing = new Map(); // name → until (ms)
+const failsNow = (name) => (failing.get(name) ?? 0) > Date.now();
 let stats;
 const reset = () => {
   stats = { since: new Date().toISOString(), total: 0, byKind: {}, byName: {}, maxInFlight: 0, inFlight: 0, perSecond: {}, writes: 0 };
@@ -224,6 +227,10 @@ const server = http.createServer((req, res) => {
         hostUserId: HOST,
       });
     }
+    if (path === '/__fail') {
+      failing.set(url.searchParams.get('name') ?? '', Date.now() + Number(url.searchParams.get('seconds') ?? 30) * 1000);
+      return send(200, { ok: true });
+    }
     if (path === '/__bump') {
       const ev = db.events.find((r) => r.slug === url.searchParams.get('slug'));
       if (ev) revs[ev.event_id] += 1;
@@ -245,6 +252,7 @@ const server = http.createServer((req, res) => {
     if (path.startsWith('/rest/v1/rpc/')) {
       const name = path.slice('/rest/v1/rpc/'.length);
       count('rpc', name);
+      if (failsNow(name)) return send(504, { code: 'PGRST003', message: 'Timed out acquiring connection from connection pool' });
       let a = {};
       try {
         a = raw ? JSON.parse(raw) : Object.fromEntries(url.searchParams);
@@ -265,6 +273,9 @@ const server = http.createServer((req, res) => {
     if (path.startsWith('/rest/v1/')) {
       const table = path.slice('/rest/v1/'.length);
       count(req.method === 'GET' || req.method === 'HEAD' ? 'read' : 'write', table);
+      if (failsNow(table) && (req.method === 'GET' || req.method === 'HEAD')) {
+        return send(504, { code: 'PGRST003', message: 'Timed out acquiring connection from connection pool' });
+      }
       const filters = {};
       for (const [k, v] of url.searchParams) if (!RESERVED.has(k)) filters[k] = v;
       if (req.method !== 'GET' && req.method !== 'HEAD') {

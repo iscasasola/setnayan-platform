@@ -77,6 +77,8 @@ const NEVER_ON_THE_CACHED_HUB: Record<string, string> = {
   'lib/guest-one-path.server.ts :: guestPassEvidence': 'the redeem / reply doors only; the hub render never calls it',
   'lib/live-wall.ts :: setWallDisplayCookie': 'the wall DISPLAY pairing (/wall routes); never a guest page render',
   'lib/live-wall.ts :: readWallDisplayCookie': 'the wall DISPLAY pairing (/wall routes); never a guest page render',
+  'lib/custom-domain-resolve.ts :: callResolverRpc':
+    "the middleware's custom-domain / paid-subdomain lookups (a `no-store` fetch) — the page imports only this file's host predicates",
   'lib/active-shop.ts :: readActiveShopCookie':
     "a SIGNED-IN supplier's shop — reached only through the vendor capability, which needs an account (none on the cached hub)",
 };
@@ -92,7 +94,8 @@ function declName(st: ts.Node | null): string | null {
   return null;
 }
 
-const REQUEST_READ = /\bcookies\(\)|\bheaders\(\)|\bdraftMode\(\)|\bconnection\(\)|\bunstable_noStore\(|\bnoStore\(\)/g;
+/** A request read — or a fetch that forbids caching, which turns an ISR render dynamic at runtime just the same. */
+const REQUEST_READ = /\bcookies\(\)|\bheaders\(\)|\bdraftMode\(\)|\bconnection\(\)|\bunstable_noStore\(|\bnoStore\(\)|\bcache:\s*['"]no-store['"]|\brevalidate:\s*0\b/g;
 
 function directive(src: string): 'client' | 'server' | null {
   const m = /^(?:\s|\/\/[^\n]*\n|\/\*[\s\S]*?\*\/)*(['"])use (client|server)\1/.exec(src);

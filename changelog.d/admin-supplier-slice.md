@@ -22,11 +22,14 @@ Owner, verbatim: *"A"* (DECISION_LOG 2026-10-28 "ADMIN SUPPLIER SLICE APPROVED �
     offers **Put it in the picker** (#7001 tells the askers in-app). Before #7001 merges the table is absent and the
     row SAYS so.
   - **Messages** — a shop's message with an in-row reply (`settleHelpFromWorkList`).
-- **Categories › Hub tools** (List ▾ › Hub tools): per category the 43 switches of the ONE shared library + the default
+- **Categories › Hub tools** (List ▾ › Hub tools): per category the switches of the ONE shared library + the default
   scan mode (Once · Ordered → Received · Unlimited · Group session · Roaming), saved in place ("Saved ✓") by the new
-  `setCategoryHubTools` into the new `category_hub_tools`. The library and the approved 80-service seed are code
-  (`lib/hub-tools.ts`, generated from `prototypes/hub_tools_by_service_2026-10-28/`); `hubToolsFor` is the pure reader
-  the supplier Hub will call — **the supplier-side Hub is not built here**.
+  `setCategoryHubTools`. **A tool is a RECORD** (owner-approved 2026-10-28, `hub_tools_working` + `admin_tool_maker`):
+  `hub_tools` (key · name · one of EIGHT templates · `is_active` — Turn off keeps data; seeded with the 43 approved
+  tools) · `category_hub_tool_switches` (category × tool, FK both, RESTRICT on the tool) · `category_hub_settings`
+  (scan default; its row = "saved"; none = the approved 80-service seed in `lib/hub-tools.ts`). `hubToolsFor` is the
+  pure reader the supplier Hub will call. **Not built here:** the supplier-side Hub, the eight templates' screens, the
+  Tool maker (which will just write `hub_tools` rows). The template each seed tool takes is the builder's reading.
 - **Messages** (`/admin/help`, nav "Help" → "Messages"): the Help inbox drawn as a Messenger-style chat — people left,
   conversation right, reply box at the bottom — on the shipped data and action (C1's chat is not merged; no second
   chat). A ticket still holds ONE reply (`admin_notes`); sending again replaces it, and the box says so.
@@ -37,8 +40,8 @@ Owner, verbatim: *"A"* (DECISION_LOG 2026-10-28 "ADMIN SUPPLIER SLICE APPROVED �
 - In-app only: new notification type `supplier_request_answered` (NOT on the email allowlist). Server actions: +0 net
   (`setCategoryHubTools` +1, `applyApplicationDecision` −1; the verify settle moved files).
 - Migrations: `20271292839996_notification_type_supplier_request_answered.sql` (enum value, own file) ·
-  `20271293237246_admin_supplier_slice.sql` (`decline_reason` + `category_hub_tools`, RLS at CREATE: read signed-in,
-  write `is_admin()`). Not applied — the pipeline applies on merge.
+  `20271293237246_admin_supplier_slice.sql` (`decline_reason` + `hub_tools` · `category_hub_tool_switches` ·
+  `category_hub_settings`, RLS at CREATE: read signed-in, write `is_admin()`). Not applied — the pipeline applies on merge.
 - Lab: `/dev/admin-supplier-lab` (fixtures; every press caught and said).
 
 SPEC IMPACT: corpus `DECISION_LOG.md` — a BUILT row under "ADMIN SUPPLIER SLICE APPROVED" (what shipped, what waits:

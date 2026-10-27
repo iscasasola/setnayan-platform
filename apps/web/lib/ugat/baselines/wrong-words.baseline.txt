@@ -7,7 +7,6 @@
 app/_components/account-switcher/account-switcher.tsx "Secure your plan" → /signup	# first run 2026-10-02 · sign-in & onboarding · a "Messages" row that opens the roster
 app/_components/frontdoor/command-data.ts "Saved suppliers" → /dashboard/library	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/_components/frontdoor/front-door-feed.tsx "New uploads" → /realstories	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
-app/_components/frontdoor/front-door-feed.tsx "See how sharing works" → /realstories	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
 app/_components/home/HomeOverlays.tsx "See the full story →" → /setnayan-ai	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
 app/_components/home/HomeOverlays.tsx "Turn on Setnayan AI" → /onboarding/wedding	# first run 2026-10-02 · sign-in & onboarding · a "Messages" row that opens the roster
 app/_components/site-stage/site-stage.tsx "Phone" → /[slug]	# first run 2026-10-02 · guest app · a "Messages" row that opens the roster
@@ -18,15 +17,19 @@ app/(shell)/alaala/page.tsx "Logo Maker" → /palogo	# first run 2026-10-02 · p
 app/(shell)/explore/compare/page.tsx "Ask about your date —" → /v/[slug]	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
 app/(shell)/explore/compare/page.tsx "View full profile →" → /v/[slug]	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
 app/(shell)/papic/page.tsx "See every amount →" → /pricing	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
+app/(shell)/pricing/page.tsx "See everything Setnayan does →" → /features	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
+app/(shell)/pricing/plan/_plan-quiz.tsx "What each one does" → /pricing	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
 app/[slug]/_lib/room-links.ts "Happening now" → /[slug]/hub	# first run 2026-10-02 · guest app · a "Messages" row that opens the roster
 app/[slug]/_lib/room-links.ts "The album" → /[slug]/recap	# first run 2026-10-02 · guest app · a "Messages" row that opens the roster
 app/[slug]/_lib/room-links.ts "Walk the room" → /[slug]/venue	# first run 2026-10-02 · guest app · a "Messages" row that opens the roster
 app/[slug]/avatar/_components/avatar-maker.tsx "See me in the room →" → /[slug]/venue	# first run 2026-10-02 · guest app · a "Messages" row that opens the roster
+app/[slug]/find-seat/_components/seat-frame.tsx "Confirm your Booking" → /[slug]	# first run 2026-10-02 · guest app · a "Messages" row that opens the roster
 app/[slug]/hub/page.tsx "See the venue map →" → /[slug]/find-my-table	# first run 2026-10-02 · guest app · a "Messages" row that opens the roster
 app/creators/_components/creator-story-hero.tsx "Publish your story — free" → /signup	# first run 2026-10-02 · sign-in & onboarding · a "Messages" row that opens the roster
 app/creators/_components/creator-story-sections.tsx "Publish your story — free" → /signup	# first run 2026-10-02 · sign-in & onboarding · a "Messages" row that opens the roster
 app/dashboard/_components/secure-account-banner.tsx "Secure my plan" → /signup	# first run 2026-10-02 · sign-in & onboarding · a "Messages" row that opens the roster
 app/dashboard/(account)/create-event/page.tsx "Buksan ang" → /dashboard/[eventId]	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
+app/dashboard/(account)/library/_components/photos-tab.tsx "ago today — relive the day" → /dashboard/[eventId]/memories	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/(account)/library/_components/saved-vendor-card.tsx "Contact" → /v/[slug]	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
 app/dashboard/(account)/library/page.tsx "Spaces on your home" → /dashboard	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/(account)/life-flash/_components/flash.tsx "Plan what’s next →" → /dashboard/create-event	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
@@ -35,18 +38,20 @@ app/dashboard/(account)/people/[dependentId]/page.tsx "Visit the shop" → /[slu
 app/dashboard/(account)/profile/page.tsx "secure your plan" → /signup	# first run 2026-10-02 · sign-in & onboarding · a "Messages" row that opens the roster
 app/dashboard/(account)/profile/page.tsx "Secure your plan" → /signup	# first run 2026-10-02 · sign-in & onboarding · a "Messages" row that opens the roster
 app/dashboard/(account)/profile/page.tsx "View public profile" → /u/[userSlug]	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
+app/dashboard/(launcher)/_components/account-bottom-nav.tsx "Discover" → /	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
 app/dashboard/(launcher)/_components/year-moments-strip.tsx "Add your birthday" → /dashboard/profile	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/_components/checklist/checklist-full.tsx "· available" → /dashboard/[eventId]/vendors	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
+app/dashboard/[eventId]/_components/day-of-mode/live-photo-wall-card.tsx "Open Memory lane on a screen" → /wall/[eventId]	# first run 2026-10-02 · guest app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/_components/event-dashboard.tsx "t replied yet" → /dashboard/[eventId]/guests	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
-app/dashboard/[eventId]/_components/home-first-screen.tsx "coming" → /dashboard/[eventId]/guests	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
-app/dashboard/[eventId]/_components/home-first-screen.tsx "Paid Still owing Budget ›" → /dashboard/[eventId]/vendors	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
-app/dashboard/[eventId]/_components/home-first-screen.tsx "Your services" → /dashboard/[eventId]/checklist	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
+app/dashboard/[eventId]/_components/home-control-row.tsx "+ more to settle" → /dashboard/[eventId]/vendors	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
+app/dashboard/[eventId]/_components/home-control-row.tsx "can’t come" → /dashboard/[eventId]/guests	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
+app/dashboard/[eventId]/_components/home-control-row.tsx "coming" → /dashboard/[eventId]/guests	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
+app/dashboard/[eventId]/_components/home-control-row.tsx "replied · waiting on you" → /dashboard/[eventId]/vendors	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/_components/nikah-essentials-card.tsx "Mutual consent" → /dashboard/[eventId]/guests	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/clearance/page.tsx "Stop the livestream" → /dashboard/[eventId]/launch	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/date-selection/_components/chinese-specialist-nudge.tsx "Find a date / feng-shui specialist" → /explore	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
 app/dashboard/[eventId]/documents/page.tsx "· · Ref" → /dashboard/[eventId]/orders	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/documents/page.tsx "TXN- - · ·" → /receipts/[receiptId]	# first run 2026-10-02 · guest app · a "Messages" row that opens the roster
-app/dashboard/[eventId]/guests/_components/capture-bar.tsx "Paste many names" → /dashboard/[eventId]/guests/quick	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/guests/invite/_components/share-link-panel.tsx "waiting for you to confirm" → /dashboard/[eventId]/guests/claims	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/guests/page.tsx "Who came" → /dashboard/[eventId]/guests/checkin	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/launch/_components/hub-pro-offer.tsx "What s included" → /dashboard/[eventId]/website/editor	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
@@ -114,13 +119,12 @@ app/vendor-dashboard/services/_components/services-manager.tsx "Set up off-seaso
 app/vendor-dashboard/services/_components/services-manager.tsx "Start a new card from this one" → /vendor-dashboard/services/new/[category]	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
 app/vendor-dashboard/settings/settings-view.tsx "Recent" → /vendor-dashboard/notifications	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
 app/vendor-dashboard/subscription/_components/plan-picker.tsx "Get verified first" → /vendor-dashboard/profile	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
+app/vendor-dashboard/subscription/_components/plan-rows.tsx "Portfolio photos" → /vendor-dashboard/collections	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
 app/vendor-dashboard/website/_components/page-parts.tsx "No photos yet" → /vendor-dashboard/collections	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
 app/vendor-dashboard/website/_components/page-parts.tsx "Nothing to pick yet" → /vendor-dashboard/profile	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
 app/vendor-dashboard/website/_components/page-parts.tsx "Reply to a review" → /vendor-dashboard/reviews	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
 app/vendor/claim/[token]/page.tsx "This invite was previously declined." → /signup	# first run 2026-10-02 · sign-in & onboarding · a "Messages" row that opens the roster
 app/waitlist/page.tsx "Pre-register your business today" → /for-suppliers	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
-lib/free-tools-rail.ts "Groups" → /dashboard	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
-lib/free-tools-rail.ts "Groups" → /dashboard/[eventId]/messages	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 lib/nav-registry-defaults.ts "Build" → /dashboard/[eventId]/guests	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 lib/nav-registry-defaults.ts "Confirm" → /dashboard/[eventId]/guests/claims	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 lib/nav-registry-defaults.ts "Customize" → /dashboard/[eventId]/guests	# first run 2026-10-02 · host app · a "Messages" row that opens the roster

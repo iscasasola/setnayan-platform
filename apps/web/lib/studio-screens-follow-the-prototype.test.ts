@@ -126,7 +126,7 @@ test('3 · a print in Studio is one slide: its head (name · chosen size · size
   assert.doesNotMatch(studioSrc, /part="all-in-one"|part="one-pass"|Sample \(PDF\)|Save · Classic/, 'a retired Save is drawn on a Studio row');
   const sheet = read(`${L}/studio-prints-settings.tsx`);
   assert.match(sheet.slice(sheet.indexOf('export function StudioPieceDownload(')), /useRegisterSlide\(item, 'download', \{ name, download: href && file \? \{ href, file, label \} : null, edit \}\);/, 'the Download is not registered as the slide’s one file');
-  assert.match(read(`${L}/studio-prints-carousel.tsx`), /<ActionButton tone="brand" main icon=\{busy \? icon : Download\} label=\{saveWord\(state, 'Download'\)\}/, 'the slide’s Download is not the one ActionButton');
+  assert.match(read(`${L}/studio-prints-carousel.tsx`), /<ActionButton tone="brand" main icon=\{busy \? icon : Share\} label=\{saveWord\(state, 'Download'\)\}/, 'the slide’s Download is not the one ActionButton');
   assert.doesNotMatch(editor, /variant=\{studio \? 'chip'/, 'a Studio Save is still the old chip');
   /* RE-AIMED 2026-10-16 (owner: "short size lines"): the row's line names the CHOSEN size only — every size stays in the ▾
      (`lib/print-head-line.ts`, held by `studio-prints-navigation.test.ts`). */

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Camera, Download, Loader2, ShieldCheck, Sparkles } from 'lucide-react';
+import { Camera, Share, Loader2, ShieldCheck, Sparkles } from 'lucide-react';
 import {
   useDemoChannel,
   untaggedReason,
@@ -409,7 +409,7 @@ export function DemoJoinFlow({
                     onClick={() => savePhoto(p)}
                     className="inline-flex items-center gap-1 text-xs font-medium text-[var(--m-mulberry)]"
                   >
-                    <Download aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                    <Share aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
                     {saveNote?.id === p.id && saveNote.k === 'expired' ? 'Tap to save' : 'Save'}
                   </button>
                 </div>

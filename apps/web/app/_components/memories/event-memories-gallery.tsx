@@ -24,7 +24,7 @@
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { EyeOff, Eye, Flag, Ban, Trash2, Check, Minus, Play, Plus, Download, X } from 'lucide-react';
+import { EyeOff, Eye, Flag, Ban, Trash2, Check, Minus, Play, Plus, Share, X } from 'lucide-react';
 import { ThumbRow } from '@/components/thumb-row';
 import { ActionButton } from '@/components/action-button';
 import { Sheet } from '@/app/_components/sheet';
@@ -609,7 +609,7 @@ function PhotoSheet({
           {item.memSource === 'hub' ? (
             item.downloadUrl ? (
               <OpenFileLink className={OPT} href={item.downloadUrl} download>
-                <Download aria-hidden className="h-4 w-4" strokeWidth={1.9} /> Save to phone
+                <Share aria-hidden className="h-4 w-4" strokeWidth={1.9} /> Save to phone
               </OpenFileLink>
             ) : null
           ) : null}

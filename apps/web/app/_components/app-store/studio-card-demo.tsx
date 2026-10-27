@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from 'react';
 import {
-  Play, Pause, Users, Check, ChevronUp, Music, QrCode, Download,
+  Play, Pause, Users, Check, ChevronUp, Music, QrCode, Share,
   Printer, Cloud, ShieldCheck, MapPin, Sparkles, Star, Globe,
 } from 'lucide-react';
 // Slug list lives in a SERVER-SAFE module (NOT this 'use client' file) so the
@@ -400,7 +400,7 @@ const MOOD_BOARD_SCENES: RichFrame[] = [
           </div>
         </div>
         <button type="button" className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-terracotta-700 px-3 py-1.5 text-[10px] font-medium text-cream">
-          <Download aria-hidden className="h-3 w-3" strokeWidth={2} /> Download
+          <Share aria-hidden className="h-3 w-3" strokeWidth={2} /> Download
         </button>
         <span className="mt-1.5 font-mono text-[7px] uppercase tracking-[0.15em] text-ink/45">Free · one vision every supplier pulls from</span>
       </div>
@@ -560,7 +560,7 @@ const PATIKTOK_SCENES: RichFrame[] = [
       <div className="absolute inset-0 flex flex-col items-center justify-center bg-cream px-4 text-ink">
         <div className="flex aspect-[9/16] w-[128px] items-center justify-center rounded-lg bg-black text-cream"><Play aria-hidden className="h-6 w-6" strokeWidth={1.5} /></div>
         <button type="button" className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-1.5 text-[10px] font-medium text-white">
-          <Download aria-hidden className="h-3 w-3" strokeWidth={2} /> Download reel
+          <Share aria-hidden className="h-3 w-3" strokeWidth={2} /> Download reel
         </button>
         <span className="mt-1.5 font-mono text-[7px] uppercase tracking-[0.15em] text-ink/45">Saved to your Memories</span>
       </div>

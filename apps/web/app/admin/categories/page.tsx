@@ -28,6 +28,8 @@ import { categoryListRows, mapTargetsClosestFirst, unfiledServices, wordsWaiting
 import { NavPick } from './_components/pickers';
 import { MixedFaithPanel, ReligionPanel } from './_components/religion-panel';
 import { RequestRow } from './_components/request-row';
+import { EventTypeAsks } from './_components/event-type-asks';
+import { loadEventTypeAsks } from '@/lib/event-type-requests.server';
 import { backRecord } from './_components/ui';
 import { GROUP_DEFAULT_ICON } from './_components/group-icons';
 
@@ -96,6 +98,8 @@ export default async function CategoriesPage({ searchParams }: { searchParams: P
   const cats = state.list !== 'religions' || asking ? await loadCategories(admin, openTile) : null;
   const rel = state.list === 'religions' ? await loadReligions(admin) : null;
 
+  // ➕ The hosts' "Ask us to add it" (owner 2026-10-28) — read only on the Event types list.
+  const asks = state.list === 'event-types' ? await loadEventTypeAsks(admin) : null;
   const mapMode = state.list === 'categories' && !LIST_SHOWS.has(state.show);
   const mapData: MapData | null = state.list === 'categories' && cats ? await loadMapData(admin, cats) : null;
   const mapAt = readMapParams(sp);
@@ -146,7 +150,7 @@ export default async function CategoriesPage({ searchParams }: { searchParams: P
   } else if (state.list === 'event-types') {
     const inPicker = vocab.eventTypes.filter((e) => e.status === 'active' && e.enabled).length;
     const retired = vocab.eventTypes.filter((e) => e.status === 'retired').length;
-    counts = `${formatCount(vocab.eventTypes.length)} event types · ${formatCount(inPicker)} in the picker · ${formatCount(vocab.eventTypes.length - inPicker - retired)} hidden · ${formatCount(retired)} retired`;
+    counts = `${formatCount(vocab.eventTypes.length)} event types · ${formatCount(inPicker)} in the picker · ${formatCount(vocab.eventTypes.length - inPicker - retired)} hidden · ${formatCount(retired)} retired${asks && asks.asks.length > 0 ? ` · ${formatCount(asks.asks.length)} asked for by hosts` : ''}`;
   } else if (state.list === 'religions' && rel) {
     const live = vocab.religions.filter((r) => r.launch?.status === 'active').length;
     const soon = vocab.religions.filter((r) => r.launch?.status === 'coming_soon').length;
@@ -450,6 +454,14 @@ export default async function CategoriesPage({ searchParams }: { searchParams: P
           </form>
           {counts ? <p className="mt-2 px-1 text-xs text-ink/70" data-counts="">{counts}</p> : null}
           {addRow ? <div className="mt-3">{addRow}</div> : null}
+          {asks ? (
+            <EventTypeAsks
+              asks={asks.asks}
+              failed={asks.failed}
+              types={vocab.eventTypes.filter((e) => e.status === 'active').map((e) => ({ key: e.key, label: e.label }))}
+              back={back}
+            />
+          ) : null}
           <nav aria-label={LIST_LABEL[state.list]} className="mt-3">
             {list}
           </nav>

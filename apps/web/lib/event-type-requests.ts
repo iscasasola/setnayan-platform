@@ -29,6 +29,26 @@ export function askOutcome(error: { code?: string | null } | null | undefined): 
   return 'failed';
 }
 
+/** One open ask as Admin › Event types lists it (`loadEventTypeAsks`). */
+export type EventTypeAsk = {
+  requestId: string;
+  label: string;
+  status: 'pending' | 'linked';
+  eventType: string | null;
+  createdAt: string;
+  /** The asker's display name — never their email. */
+  askedBy: string;
+};
+
+/** Event settings' "Kind of event" line — null when there is nothing to offer. */
+export type EventKindLineInput = {
+  /** True when the stored type is the generic one — the line asks for a specific kind. */
+  generic: boolean;
+  /** The stored type's own label (the generic one's word is never drawn — see `EventKindLine`). */
+  currentLabel: string;
+  choices: Array<{ key: string; label: string; asked: boolean }>;
+};
+
 export type EventTypeRequestRow = {
   request_id: string;
   requested_by: string;

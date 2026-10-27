@@ -3,6 +3,8 @@
 import { DetailsForm } from './details-form';
 import { GovernedFields } from './governed-fields';
 import { PaxSettingsCard } from './pax-settings-card';
+import { EventKindLine } from './event-kind-line';
+import type { EventKindLineInput } from '@/lib/event-type-requests';
 
 /**
  * 🗂 EVENT SETTINGS — on the Event Details page, OUTSIDE the Maker (2026-10-02).
@@ -27,6 +29,7 @@ export function EventSettingsEditor({
   form,
   governed,
   pax,
+  kind = null,
 }: {
   eventId: string;
   form: {
@@ -60,9 +63,12 @@ export function EventSettingsEditor({
     rows: ReadonlyArray<'ceremony' | 'venue' | 'ceremony_venue' | 'pax'>;
   };
   pax: { deadline: string | null; mode: 'realtime' | 'final_only' };
+  /** 🏷 Kind of event — one line, only on a generic event or after an ask was added (owner 2026-10-28). */
+  kind?: EventKindLineInput | null;
 }) {
   return (
     <div className="flex flex-col gap-6" data-details-settings="">
+      {kind ? <EventKindLine eventId={eventId} kind={kind} /> : null}
       <GovernedFields
         eventId={eventId}
         confirmedVendorCount={governed.confirmedVendorCount}

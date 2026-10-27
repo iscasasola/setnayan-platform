@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "79344fcdf2",
+  "generatedFromRef": "d4c22157ad",
   "routeCount": 474,
-  "destinations": 993,
+  "destinations": 992,
   "actions": 642,
-  "blocks": 7138,
+  "blocks": 7145,
   "routes": {
     "/": {
       "files": [
@@ -5650,6 +5650,7 @@
         "ForTagMark",
         "GlassEventCard",
         "HTMLDialogElement",
+        "HTMLDivElement",
         "Icon",
         "Image",
         "ImpactLines",
@@ -6679,6 +6680,7 @@
         "dashboard/[eventId]/guests/_components/role-section-order.ts",
         "dashboard/[eventId]/guests/_components/search-add-card.tsx",
         "dashboard/[eventId]/guests/_components/send-invite.tsx",
+        "dashboard/[eventId]/guests/_components/sent-or-not-yet.tsx",
         "dashboard/[eventId]/guests/_components/title-picker.tsx",
         "dashboard/[eventId]/guests/_components/titles-waiting.tsx",
         "dashboard/[eventId]/guests/_components/undo-store.ts",
@@ -6753,6 +6755,7 @@
         "CardToggleProps",
         "ChangeAccessLink",
         "ChosenRow",
+        "ConfirmDialog",
         "CoordinatorColourDomains",
         "CoordinatorGrantChips",
         "Count",
@@ -6791,6 +6794,7 @@
         "GuestConfirmActions",
         "GuestGroupPicker",
         "GuestHelperAccess",
+        "GuestInviteCell",
         "GuestListHasSidesContext.Provider",
         "GuestListStatus",
         "GuestMapCanvas",
@@ -6890,6 +6894,7 @@
         "Scrim",
         "SearchAddRow",
         "SendInvite",
+        "SentOrNotYet",
         "SetRsvpResult",
         "Sheet",
         "SnapCarousel",
@@ -7095,18 +7100,20 @@
         "dashboard/[eventId]/guests/send/page.tsx"
       ],
       "destinations": [
-        "/dashboard/[seg]/guests",
         "/dashboard/[seg]/invitation"
       ],
       "actions": [],
       "blocks": [
+        "ActionButton",
+        "HTMLDivElement",
+        "Icon",
+        "InfoTip",
         "InviteMessageEditor",
         "Link",
         "NotSharedWithYou",
-        "PickMenu",
-        "SendInviteActions",
         "SendRun",
-        "Who"
+        "SentOrNotYet",
+        "Sheet"
       ]
     },
     "/dashboard/[eventId]/guests/souvenirs": {

@@ -38,7 +38,7 @@
  *                   SAMPLE event's pass (`?sample=1`, the public sample door) —
  *                   a lab has no event of its own. Saves go nowhere real: the
  *                   fixture event id fails the host fence, and a refusal says so.
- *   ?part=run       the send run (`/guests/send`) on the same roster — the REAL
+ *   ?part=run       (&ids=a,b · &oneqr=1 · &fail=1) the send run (`/guests/send`) on the same roster — the REAL
  *                   `SendRun` over `sendRunGuests`; its "Not sent yet (N)" is
  *                   the List's "N to invite" and Setup's "Send to N". The QR
  *                   and the ticket are a real event's, so they do not draw here.
@@ -73,6 +73,7 @@ import { guestOutfitOf, guestOutfitWords } from '@/lib/guest-outfit';
 import { guestDisplayName, guestFullName, type GuestRow } from '@/lib/guests';
 import { DEFAULT_NAME_STYLE } from '@/lib/name-style';
 import { sendRunGuests, toInviteCount } from '@/lib/guest-roster-view';
+import { runGuestPage } from '@/lib/send-run-page';
 import { plusOneOfWords } from '@/lib/plus-one-of';
 import { plusOneSeatLines, plusOneSeatPeople } from '@/lib/extra-seats';
 import { invitationLinkOn } from '@/lib/invitation-link';
@@ -868,28 +869,44 @@ export default async function GuestsLabPage({
   }
 
   if (part === 'run') {
-    // The REAL run over the REAL rule's list (`sendRunGuests`) — the page's own two lines.
+    // The REAL run over the REAL rule's list (`sendRunGuests`), full screen (owner 2026-10-27, "THE SEND RUN, REDRAWN
+    // SIMPLE"): each guest as a page (`runGuestPage`). `&ids=a,b` — Select's "Invite N"; `&oneqr=1` — a one-link event
+    // (the event's ONE link and a stand-in QR); ✕ and Done for now land on the lab's Guest list.
     const failed = sp.fail === '1';
-    const runGuests = sendRunGuests(failed ? [] : planningRoster()).map((g) => ({
+    const roster = failed ? [] : planningRoster();
+    const ids = typeof sp.ids === 'string' ? sp.ids.split(',').filter(Boolean) : [];
+    const runGuests = sendRunGuests(roster, ids).map((g) => ({
       guestId: g.guest_id,
       formalName: guestFullName(g, DEFAULT_NAME_STYLE),
       firstName: g.first_name,
       fullName: guestDisplayName(g),
       inviteUrl: invitationLinkOn(LAB_HUB, g.guest_id),
       sentAt: g.invitation_sent_at,
+      page: runGuestPage(g, roster, null, true),
     }));
+    const oneLink =
+      sp.oneqr === '1'
+        ? {
+            url: `${LAB_HUB}/invite`,
+            qrSvg:
+              '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 21 21"><rect width="21" height="21" fill="#fff"/><path d="M1 1h7v7H1zM13 1h7v7h-7zM1 13h7v7H1z" fill="none" stroke="#1E1A12" stroke-width="1.4"/><path d="M3 3h3v3H3zM15 3h3v3h-3zM3 15h3v3H3zM10 2h1v3h-1zM10 10h3v1h-3zM14 13h2v2h-2zM17 17h2v2h-2zM11 15h2v3h-2z" fill="#1E1A12"/></svg>',
+          }
+        : null;
     return (
       <div className="sn-ambient min-h-screen">
         <main className="sn-vt-page">
-          <div className="mx-auto w-full max-w-xl px-4 pb-24 pt-4 sm:px-6" data-lab-run="">
-            <h1 className="mt-1 text-2xl font-semibold tracking-tight text-ink">Send invites one by one</h1>
-            <SendRun
-              eventId={EVENT}
-              guests={runGuests}
-              measured={!failed}
-              facts={{ hostsName: 'Maria & Jose', eventWord: 'wedding', eventDate: '2026-12-12', datePrecision: 'day' }}
-              template={null}
-            />
+          <div data-lab-run="">
+            <LabGuestActions refuse={sp.refuse === '1'}>
+              <SendRun
+                eventId={EVENT}
+                guests={runGuests}
+                measured={!failed}
+                facts={{ hostsName: 'Maria & Jose', eventWord: 'wedding', eventDate: '2026-12-12', datePrecision: 'day' }}
+                template={null}
+                oneLink={oneLink}
+                guestsHref="/dev/guests-lab?part=screen"
+              />
+            </LabGuestActions>
           </div>
         </main>
         <DockStandIn />

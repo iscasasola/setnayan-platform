@@ -77,13 +77,13 @@ test('the eleven parts keep the owner’s prices but are OFF SALE — Event Hub 
   for (const p of HUB_PARTS) assert.ok(r.rows.some((x) => x.code === p.sku), `${p.name} has no catalogue row`);
 });
 
-test('Full Pro keeps its ₱5,000 and its one sign-up price', async () => {
+test('Full Pro is the one price ₱6,590, with no sign-up override (2026-10-28)', async () => {
   const r = await db.query<{ php: string; signup: string | null }>(
     `SELECT retail_price_php::text AS php, onboarding_price_php::text AS signup FROM public.platform_retail_catalog_v2
       WHERE service_code = 'COUPLE_WEBSITE_PRO'`,
   );
-  assert.equal(Number(r.rows[0]!.php), 5000);
-  assert.equal(Number(r.rows[0]!.signup), 3000);
+  assert.equal(Number(r.rows[0]!.php), 6590);
+  assert.equal(r.rows[0]!.signup, null);
 });
 
 /** A fresh event with these part orders. */

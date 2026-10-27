@@ -37,19 +37,21 @@ export const PAPIC_LADDER_EXPECTED: readonly (readonly [number, number])[] = [
   //   no-op there, a repair here) and this fixture follows it. Do not "correct"
   //   these back: they are a snapshot of a table the screen can move again
   //   tomorrow, and the catalog is the source of truth, never this file.
-  [100, 70],
+  // 💲 2026-10-28 ("THE ONE PRICE — APP STORE = WEBSITE"): the five App Store packs moved to the owner's App
+  // Store prices (100 · 500 · 1,000 · 5,000 · 10,000); the other rungs are untouched — see the PR's open question.
+  [100, 95],
   [200, 140],
   [300, 210],
   [400, 280],
-  [500, 350],
-  [1_000, 700],
+  [500, 465],
+  [1_000, 929],
   [2_000, 1_400],
   [3_000, 1_680],
   [4_000, 2_240],
-  [5_000, 2_800],
+  [5_000, 3_690],
   [6_000, 3_360],
   [7_000, 3_920],
-  [10_000, 4_500],
+  [10_000, 5_950],
   [20_000, 7_200],
   [30_000, 10_800],
   [50_000, 15_000],

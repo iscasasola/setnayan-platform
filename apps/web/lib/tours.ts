@@ -1263,7 +1263,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: Wand2,
         title: 'Hub',
-        body: 'Where you make your Event Hub, the invitation and every print. Names, date, schedule, mood board and logo are all in its Details.',
+        body: 'Where you make your Event Hub and its invitation. Names, date, schedule, mood board and logo are all in its Details. Your prints open from Home.',
       },
       {
         Icon: Camera,
@@ -1870,6 +1870,13 @@ export const TOURS: Record<TourKey, TourDefinition> = {
           anchor: 'home-faces',
           title: 'More on every tile',
           body: 'Swipe a tile to see its other counts — they turn by themselves too. Tap one to open that exact item.',
+        },
+        {
+          // 🖨 (R8, owner 2026-10-27 "PRINTS LEAVES STUDIO") Prints' own page opens from this line — Home holds the door.
+          // Only where the line is drawn (the couple, with an Event Hub) — dropped elsewhere (`lib/spotlight-drops.ts`).
+          anchor: 'home-prints',
+          title: 'Prints',
+          body: 'Your invitation set and the prints for the day. Tap to open them: swipe through, then download or share.',
         },
         {
           anchor: 'home-services',

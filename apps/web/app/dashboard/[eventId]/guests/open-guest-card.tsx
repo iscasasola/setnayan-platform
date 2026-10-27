@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { isUuid } from '@/lib/is-uuid';
+import { printsPageHref } from '@/lib/prints-page-href';
 import { GuestCard, type GuestCardResult } from './_components/guest-card';
 import { readGuestCard } from './_components/guest-card-read';
 
@@ -21,7 +22,8 @@ import { readGuestCard } from './_components/guest-card-read';
  */
 const RETURN_TO = {
   march: (eventId: string) => `/dashboard/${eventId}/launch?tool=details&item=march`,
-  invitation: (eventId: string) => `/dashboard/${eventId}/launch?tool=details&item=invitation`,
+  /* 🖨 The invitation's parents are a print's — its return is the Prints page (R8, 2026-10-27 "PRINTS LEAVES STUDIO"). */
+  invitation: (eventId: string) => printsPageHref(eventId, 'invitation'),
 } as const;
 
 const COULD_NOT_OPEN = 'Their guest card couldn’t open just now — try again.';

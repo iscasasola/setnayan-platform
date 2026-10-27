@@ -32,7 +32,7 @@ const COSTS_OPTIONS = [
 
 export function SuppliersSettingsRows({ eventId, view }: { eventId: string; view: SuppliersSettingsView }) {
   return (
-    <div className="pb-6" data-suppliers-settings="">
+    <div className="px-4 pb-6" data-suppliers-settings="">
       <FormRows data="suppliers-settings">
         <ClusterHead name={SUPPLIERS_SETTINGS_CLUSTERS[0]} first />
         <CostsRow eventId={eventId} costs={view.costs} />

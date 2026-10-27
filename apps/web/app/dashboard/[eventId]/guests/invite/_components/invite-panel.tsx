@@ -71,7 +71,7 @@ export async function InvitePanel({
   if (eventRes.error || !eventRes.data || draft === undefined) {
     if (eventRes.error) logQueryError('GuestSetup (events)', eventRes.error, { event_id: eventId }, 'graceful_degrade');
     return (
-      <p role="alert" className="mt-6 text-sm text-terracotta-700">
+      <p role="alert" className="mt-6 px-4 text-sm text-terracotta-700">
         We couldn&rsquo;t read your guest setup just now. Nothing was changed — try again in a moment.
       </p>
     );
@@ -93,20 +93,23 @@ export async function InvitePanel({
   const attending = guests.measured ? guests.rows.filter((g) => countsTowardEvent(g) && g.rsvp_status === 'attending').length : null;
 
   return (
-    <GuestSetupRows
-      eventId={eventId}
-      config={config}
-      drafted={drafted}
-      reply={{
-        own: row.guest_list_edit_deadline,
-        pricingMode: row.adaptive_pricing_mode === 'final_only' ? 'final_only' : 'realtime',
-        fallback: resolveReplyBy({ deadline: null, eventDate: row.event_date })?.date ?? null,
-      }}
-      toInvite={toInvite}
-      passSrc={`/api/hub-print/pass?event=${eventId}&mode=screen&pass_guest=first`}
-      oneLink={oneLink}
-      headcount={{ locked: finalize.locked, attending, heads: finalize.locked ? finalize.finalPax : livePax }}
-      requests={requests}
-    />
+    /* The sheet's gutter — the same 16 px Memories' sheet rows sit in (`menu-settings-button.tsx` draws only the frame). */
+    <div className="px-4">
+      <GuestSetupRows
+        eventId={eventId}
+        config={config}
+        drafted={drafted}
+        reply={{
+          own: row.guest_list_edit_deadline,
+          pricingMode: row.adaptive_pricing_mode === 'final_only' ? 'final_only' : 'realtime',
+          fallback: resolveReplyBy({ deadline: null, eventDate: row.event_date })?.date ?? null,
+        }}
+        toInvite={toInvite}
+        passSrc={`/api/hub-print/pass?event=${eventId}&mode=screen&pass_guest=first`}
+        oneLink={oneLink}
+        headcount={{ locked: finalize.locked, attending, heads: finalize.locked ? finalize.finalPax : livePax }}
+        requests={requests}
+      />
+    </div>
   );
 }

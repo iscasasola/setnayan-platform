@@ -1,3 +1,27 @@
+# HANDOVER — claude/groups-chatroom (Builder GCR, 2026-10-28)
+
+Contract: DECISION_LOG 2026-10-28 "GROUPS AS A CHATROOM" + corpus `prototypes/groups_chatroom_2026-10-28/`.
+Base: `claude/groups-return-to-people` (the back-button fix, 2 commits) — the PR carries them if that has not merged.
+
+## State
+- Page: `samahan/[communityId]/page.tsx` → `GroupHome` (server-safe, decides event doors) → `GroupChatroom` (client):
+  top (‹ People · name · count · ⋯) · `SamahanStories strip` · pinned next event (Going?) · chat · ThumbRow (＋ · field · 📷).
+- Collage: `lib/samahan-chatroom.ts` (pure, read-time) + `_components/group-collage.tsx` (chat item + full-screen player).
+- Moved: photo + rename → top of Members; "Take it down" → tap your own bubble; "Play the day" → last ring; Plan an event → ＋.
+- `fetchSamahanMessages` returns null on a refused read; `fetchCommunityEvents` reads `created_at`.
+- Guards: `group-is-a-chatroom.test.ts` (rendered), `lib/samahan-chatroom.test.ts`; sabotage script in session scratchpad (11/11 red).
+- Lab: `/dev/group-lab` (+ ?member=1 ?empty=1 ?refused=1). Walk: `shots-2026-10-28/groups-chat/scripts/` (serve.sh · walk.mjs).
+
+## Decisions taken (not covered by the record)
+- Full-screen collage stays muted — no "Turn sound on" (six clips at once); sound = tap a tile → the strip's player.
+- Notifications row opens the inbox (no per-group switch exists to say "On").
+- Going? = a door to the event's own page (invited → `/{slug}`, where the RSVP lives); organisers see "Open"; no stored toggle.
+- Placeholder "Message the group" (≤ 3 words rule), not "Message <group name>".
+- Accent = the house deep accent (terracotta-700) — the prototype's orange is not a token.
+- A 1-clip hour still posts ("1 story"); an hour posts when it ENDS; tiles play only while on screen.
+
+---
+
 # HANDOVER — claude/chat-files-rule (Builder C2, 2026-10-28)
 
 Contract: DECISION_LOG 2026-10-28 "CHAT FILES" + owner amendment "alway compress files when sending on chat. never keep

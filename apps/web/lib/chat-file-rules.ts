@@ -42,6 +42,7 @@
 
 import { manilaTodayISO } from '@/lib/event-board';
 import { formatLongDate } from '@/lib/format-date';
+import { formatCount } from '@/lib/format-number';
 
 // ── 1 · SIZES (after compression) ───────────────────────────────────────────
 
@@ -79,7 +80,7 @@ export function chatFileKind(mime: string | null | undefined): ChatFileKind {
 
 /** The refusal, in the owner's words. */
 export function chatFileTooLargeMessage(maxMb: number): string {
-  return `That file is over ${maxMb} MB. Send a Drive or YouTube link instead.`;
+  return `That file is over ${formatCount(maxMb)} MB. Send a Drive or YouTube link instead.`;
 }
 
 /**
@@ -246,7 +247,7 @@ export function judgeStoredChatFile(args: {
     return { ok: false, message: CHAT_FILE_UPLOAD_FAILED, discard: false };
   }
   if (!args.head) return { ok: false, message: CHAT_FILE_UPLOAD_FAILED, discard: false };
-  const mime = (args.head.contentType ?? '').split(';')[0].trim().toLowerCase();
+  const mime = ((args.head.contentType ?? '').split(';')[0] ?? '').trim().toLowerCase();
   if (!args.allowedMime.includes(mime)) {
     return { ok: false, message: CHAT_FILE_TYPE_REFUSAL, discard: true };
   }

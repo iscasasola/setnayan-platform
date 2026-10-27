@@ -33,6 +33,9 @@ import {
  */
 
 export function chatFileExpiryEnabled(): boolean {
+  // ⛔ DELIBERATELY NOT converted to envFlagEnabled: this permanently deletes
+  // people's files. Widening what counts as ON is an owner call. Pinned by
+  // lib/env-flag.test.ts (HELD_STRICT) and lib/chat-files-rule.test.ts.
   return process.env.CHAT_FILE_EXPIRY_ENABLED === 'true';
 }
 

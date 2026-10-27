@@ -240,7 +240,7 @@ test('C1 · a file pinned to Decisions, a contract or a payment proof is never d
     row('proof'),
     row('plain'),
   ];
-  const proofRef = rows[4].attachment_r2_key as string;
+  const proofRef = rows[4]?.attachment_r2_key as string;
   const { io, deleted, marked } = fakeIO(rows, { kept: [proofRef] });
   const s = await runChatFileExpirySweepWith(io, { now: NOW, dryRun: false });
   assert.deepEqual(marked, ['plain']);

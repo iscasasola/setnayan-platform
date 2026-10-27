@@ -81,7 +81,7 @@ export type ChatFileExpirySummary = {
 export function expiryCutoff(now: Date): string {
   // expiryDateFor(d) = d + 90; due when today ≥ d + 90 ⇔ d ≤ today − 90.
   const today = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
-  const [y, m, d] = today.split('-').map(Number);
+  const [y = NaN, m = NaN, d = NaN] = today.split('-').map(Number);
   return new Date(Date.UTC(y, m - 1, d - 90)).toISOString().slice(0, 10);
 }
 

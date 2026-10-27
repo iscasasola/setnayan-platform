@@ -81,13 +81,15 @@
 .stick.pinned {
   padding: 8px 0;
 }
-.pinrow {
-  position: relative;
-  height: 44px;
-}
+/* The summary face lies over the full pill's own 44-px box (the sticky block is its containing block); the full pill
+   stays in the flow, so the block is 60 px with either face showing. */
 .face {
   position: absolute;
-  inset: 0;
+  top: 8px;
+  left: 0;
+  right: 0;
+  height: 44px;
+  z-index: 1;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -97,8 +99,11 @@
     transform 220ms var(--gs-ease),
     visibility 0s linear 0s;
 }
-.faceTop > nav {
-  flex: 1 1 auto;
+.stick.pinned > [data-guests-segmented] {
+  transition:
+    opacity 220ms var(--gs-ease),
+    transform 220ms var(--gs-ease),
+    visibility 0s linear 0s;
 }
 .faceAlt {
   opacity: 0;
@@ -110,7 +115,7 @@
     transform 220ms var(--gs-ease),
     visibility 0s linear 220ms;
 }
-.stick[data-collapsed] .faceTop {
+.stick.pinned[data-collapsed] > [data-guests-segmented] {
   opacity: 0;
   transform: translateY(-6px);
   visibility: hidden;
@@ -1098,7 +1103,8 @@ button.node {
   /* The pinned row's faces swap in place — no travel, no fade. */
   .face,
   .faceAlt,
-  .stick[data-collapsed] .faceTop,
+  .stick.pinned > [data-guests-segmented],
+  .stick.pinned[data-collapsed] > [data-guests-segmented],
   .stick[data-collapsed] .faceAlt {
     transform: none;
     transition: none;

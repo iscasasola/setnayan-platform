@@ -755,6 +755,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
       word is for a screen reader. Pressed = underlined, never boxed. */
   const pinDoor = (f: ReplyFilter, value: number, id: string, word: string, Mark: typeof Check) => (
     <button
+      key={f}
       type="button"
       className={styles.pinCount}
       aria-pressed={replyFilter === f}
@@ -1319,22 +1320,19 @@ export function GuestsScreen(props: GuestsScreenProps) {
       >
         <div ref={stickRef} className={`${styles.stick} ${styles.pinned}`} data-guests-stick="">
           {/* 📌 ONE PINNED ROW, TWO FACES (owner 2026-10-27, Guests B + "selectors should stay but simplified"): 44 px,
-              fixed — the faces are laid over each other, so the swap moves nothing under it. The summary face is
-              first in the markup; the full pill is the face at rest. */}
-          <div className={styles.pinrow} data-guests-pinrow="">
-            {measured && gview === 'list' ? (
-              <div className={`${styles.face} ${styles.faceAlt}`} data-guests-pin-face="summary">
-                <nav className={`${PILL_TRACK_CLASS} ${PILL_TRACK_GROUND} ${styles.pinSeg}`} aria-label="Guest list views" data-guests-pin-segmented="">
-                  <PillThumb />
-                  {pinSeg('list', 'List')}
-                  {pinSeg('map', 'Map')}
-                </nav>
-                <span className={styles.pinCounts}>
-                  {pinDoor('attending', stats.yes, 'gs-pin-yes', RSVP_ROW_WORDS.attending, Check)}
-                  {pinDoor('declined', stats.no, 'gs-pin-no', RSVP_ROW_WORDS.declined, X)}
-                  {pinDoor('none', stats.none, 'gs-pin-none', RSVP_ROW_WORDS.pending, CircleHelp)}
-                </span>
-                {stats.toInvite > 0 ? (
+              fixed — the summary face is laid over the full pill (absolute, the pill's own box), so the swap moves
+              nothing under it. The full pill is the face at rest and stays in the flow, the copy line right after it.
+              The summary is drawn by `PinnedSummary` (below) from the SAME doors. 🔒 lib/the-pinned-row-is-one-row.test.ts */}
+          {measured && gview === 'list' ? (
+            <PinnedSummary
+              segs={[pinSeg('list', 'List'), pinSeg('map', 'Map')]}
+              doors={[
+                pinDoor('attending', stats.yes, 'gs-pin-yes', RSVP_ROW_WORDS.attending, Check),
+                pinDoor('declined', stats.no, 'gs-pin-no', RSVP_ROW_WORDS.declined, X),
+                pinDoor('none', stats.none, 'gs-pin-none', RSVP_ROW_WORDS.pending, CircleHelp),
+              ]}
+              invite={
+                stats.toInvite > 0 ? (
                   <Link
                     href={`/dashboard/${eventId}/guests/send`}
                     className={actionButtonClass('brand', { main: true, extra: styles.pinInvite })}
@@ -1349,21 +1347,19 @@ export function GuestsScreen(props: GuestsScreenProps) {
                   <span className={`${styles.mute} ${styles.pinAllInvited}`} data-roster-to-invite="words">
                     <Check aria-hidden strokeWidth={2} /> Everyone invited
                   </span>
-                ) : null}
-              </div>
-            ) : null}
-            <div className={`${styles.face} ${styles.faceTop}`} data-guests-pin-face="views">
-              {/* 🎚 THE ONE PILL SELECTOR (owner 2026-10-08: "adjust all pill selectors to this") — the app's template
-                  draws the track, the three views and the terracotta thumb that slides between them. Still links. */}
-              <nav className={`${PILL_TRACK_CLASS} ${PILL_TRACK_GROUND}`} aria-label="Guest list views" data-guests-segmented="" data-tour="guests-views">
-                <PillThumb />
-                {seg('list', 'List', stats.total)}
-                {seg('map', 'Map')}
-                {/* "Setup" → "Settings" (owner 2026-10-23, one word — the same word as Home's ⚙ Settings). */}
-                {seg('share', 'Settings')}
-              </nav>
-            </div>
-          </div>
+                ) : null
+              }
+            />
+          ) : null}
+          {/* 🎚 THE ONE PILL SELECTOR (owner 2026-10-08: "adjust all pill selectors to this") — the app's template
+              draws the track, the three views and the terracotta thumb that slides between them. Still links. */}
+          <nav className={`${PILL_TRACK_CLASS} ${PILL_TRACK_GROUND}`} aria-label="Guest list views" data-guests-segmented="" data-tour="guests-views">
+            <PillThumb />
+            {seg('list', 'List', stats.total)}
+            {seg('map', 'Map')}
+            {/* "Setup" → "Settings" (owner 2026-10-23, one word — the same word as Home's ⚙ Settings). */}
+            {seg('share', 'Settings')}
+          </nav>
           {/* 📋 The copy line — in the flow, under the selector, never over anything (guest-copy-mark.tsx). */}
           <GuestListStatus copy={copy} fresh={props.measured} />
         </div>
@@ -1606,6 +1602,23 @@ const PILL: Record<GuestRow['rsvp_status'], { cls: string; word: string }> = {
  * 🤝 Is this row drawn as part of the guest above it? A +1 right after their guest (or after that guest's
  * earlier +1) — no divider between them: a guest and their +1 are one topic.
  */
+/** 📌 The pinned row's summary face (owner 2026-10-27, Guests B + "On the pinned the selectors should stay but
+    simplified"): `List · Map` (the shipped pill, small, words only) · the three reply doors · `Invite N ›`. Every part is
+    built by the screen from the SAME doors as the strip (`pickReply`, `data-reply-filter`, the one `/guests/send` href);
+    this only lays them in one 44-px row over the full pill. Hidden until the strip has scrolled under the row. */
+function PinnedSummary({ segs, doors, invite }: { segs: ReactNode[]; doors: ReactNode[]; invite: ReactNode }) {
+  return (
+    <div className={`${styles.face} ${styles.faceAlt}`} data-guests-pin-face="summary">
+      <nav className={`${PILL_TRACK_CLASS} ${PILL_TRACK_GROUND} ${styles.pinSeg}`} aria-label="Guest list views" data-guests-pin-segmented="">
+        <PillThumb />
+        {segs}
+      </nav>
+      <span className={styles.pinCounts}>{doors}</span>
+      {invite}
+    </div>
+  );
+}
+
 function joinedToTheRowAbove(g: GuestRow, above: GuestRow | undefined): boolean {
   const host = g.plus_one_of_guest_id;
   return Boolean(host && above && (above.guest_id === host || above.plus_one_of_guest_id === host));

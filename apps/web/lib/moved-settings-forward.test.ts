@@ -15,7 +15,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { legacyRedirectTarget, MOVED_SETTING_OLD_PATHS } from './legacy-redirects';
-import { DETAILS_ROWS_MOVED_TO_GUESTS, SETTINGS_ROWS } from './event-settings-record';
+import { DETAILS_ROWS_MOVED_TO_GUESTS, DETAILS_ROWS_MOVED_TO_SUPPLIERS, SETTINGS_ROWS } from './event-settings-record';
 import { RECORD_ROW_EDITOR } from './event-details-record';
 
 const EID = 'S89E-ABCDEFGHIJ';
@@ -27,6 +27,8 @@ const MOVES: readonly (readonly [string, string])[] = [
   ['reply-by', 'reply-by'],
   ['list-closes', 'reply-by'],
 ];
+/** Suppliers ⚙ (owner 2026-10-27, "SUPPLIERS GETS ITS ⚙"). */
+const SUPPLIER_MOVES: readonly (readonly [string, string])[] = [['costs-view', 'costs-view']];
 
 test('1 · every moved row forwards to its home, and the map holds no more and no fewer', () => {
   for (const [from, row] of MOVES) {
@@ -36,19 +38,30 @@ test('1 · every moved row forwards to its home, and the map holds no more and n
       `/details/field/${from} does not land on Guests ⚙ › ${row}`,
     );
   }
-  assert.equal(MOVED_SETTING_OLD_PATHS.length, MOVES.length, `the map forwards ${MOVED_SETTING_OLD_PATHS.length} moved rows, this list ${MOVES.length}`);
+  for (const [from, row] of SUPPLIER_MOVES) {
+    assert.equal(
+      legacyRedirectTarget(`/dashboard/${EID}/details/field/${from}`),
+      `/dashboard/${EID}/vendors?settings=1&row=${row}`,
+      `/details/field/${from} does not land on Suppliers ⚙ › ${row}`,
+    );
+  }
+  assert.equal(MOVED_SETTING_OLD_PATHS.length, MOVES.length + SUPPLIER_MOVES.length, `the map forwards ${MOVED_SETTING_OLD_PATHS.length} moved rows, this list ${MOVES.length + SUPPLIER_MOVES.length}`);
 });
 
 test('2 · a moved row no longer opens on Event Details', () => {
-  for (const from of Object.keys(DETAILS_ROWS_MOVED_TO_GUESTS)) {
+  for (const from of [...Object.keys(DETAILS_ROWS_MOVED_TO_GUESTS), ...Object.keys(DETAILS_ROWS_MOVED_TO_SUPPLIERS)]) {
     assert.ok(!(from in RECORD_ROW_EDITOR), `Event Details still opens "${from}" — the setting lives in two places`);
   }
 });
 
-test('3 · every destination is a row Guests ⚙ draws', () => {
+test('3 · every destination is a row its menu ⚙ draws', () => {
   for (const row of Object.values(DETAILS_ROWS_MOVED_TO_GUESTS)) {
     assert.ok(row in SETTINGS_ROWS, `row=${row} is not a settings row`);
     assert.equal(SETTINGS_ROWS[row].menu, 'guests', `row=${row} is not a Guests ⚙ row`);
+  }
+  for (const row of Object.values(DETAILS_ROWS_MOVED_TO_SUPPLIERS)) {
+    assert.ok(row in SETTINGS_ROWS, `row=${row} is not a settings row`);
+    assert.equal(SETTINGS_ROWS[row].menu, 'suppliers', `row=${row} is not a Suppliers ⚙ row`);
   }
 });
 

@@ -37,7 +37,7 @@
  */
 
 import { MORE_SERVICES_PARAM, MORE_SERVICES_VALUE } from './studio-hub';
-import { DETAILS_ROWS_MOVED_TO_GUESTS } from './event-settings-record';
+import { DETAILS_ROWS_MOVED_TO_GUESTS, DETAILS_ROWS_MOVED_TO_SUPPLIERS } from './event-settings-record';
 import { papicHomeHref } from './papic-home-href';
 
 /** The More menu's address, relative to the event (`studioHubHref`). */
@@ -79,6 +79,10 @@ const MOVED_SETTINGS: readonly (readonly [from: string, to: string])[] = [
   // B · Guests ⚙ — the Guest list with its ⚙ sheet open on that row.
   ...Object.entries(DETAILS_ROWS_MOVED_TO_GUESTS).map(
     ([from, row]) => [`details/field/${from}`, `guests?settings=1&row=${row}`] as const,
+  ),
+  // Suppliers ⚙ (owner 2026-10-27) — Suppliers with its ⚙ sheet open.
+  ...Object.entries(DETAILS_ROWS_MOVED_TO_SUPPLIERS).map(
+    ([from, row]) => [`details/field/${from}`, `vendors?settings=1&row=${row}`] as const,
   ),
 ];
 const MOVED_SETTINGS_MAP: ReadonlyMap<string, string> = new Map(MOVED_SETTINGS);

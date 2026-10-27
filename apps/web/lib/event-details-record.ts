@@ -92,7 +92,7 @@ export const RECORD_ROW_EDITOR = {
   'love-story': 'love-story',
   'special-message': 'special-message',
   estimate: 'settings',
-  'costs-view': 'settings',
+  /* ⚙ 'costs-view' left for Suppliers ⚙ (owner 2026-10-27) — `DETAILS_ROWS_MOVED_TO_SUPPLIERS` forwards its address. */
 } as const satisfies Record<string, RecordEditorKey>;
 export type RecordRowKey = keyof typeof RECORD_ROW_EDITOR;
 
@@ -166,7 +166,6 @@ export const RECORD_ROW_GROUP: Readonly<Record<RecordRowKey | RecordToolRowKey, 
   'special-message': 'event',
   wears: 'event',
   estimate: 'guests-money',
-  'costs-view': 'guests-money',
 };
 
 /**

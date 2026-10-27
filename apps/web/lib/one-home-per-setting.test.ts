@@ -10,7 +10,8 @@
  *   3 · Event Details opens none of a moved row (its editor map no longer names it).
  * The counts are printed per surface.
  *
- * A menu joins `SURFACES` in the PR that moves its rows home (PLAN § 5: B Guests, C Hub, D Prints, E Event Settings).
+ * A menu joins `SURFACES` in the PR that moves its rows home (PLAN § 5: B Guests, C Hub, D Prints, E Event Settings;
+ * Suppliers 2026-10-27 — the owner reversed call 3, "SUPPLIERS GETS ITS ⚙").
  *
  * Sabotage (2026-10-27): `<RequestsRow …/>` drawn twice → 2 red; `requests` given `menu: 'hub'` → 1 and 2 red; the
  * Finalize row dropped from `GuestSetupRows` → 2 red.
@@ -27,6 +28,29 @@ const SURFACES: Partial<Record<SettingsMenu, () => Promise<string[]>>> = {
     const { renderSetup } = await import('../app/dashboard/[eventId]/_components/guest-setup/render-setup');
     // "They reply" draws the asks and Reply by; a personal choice the Invitations; "Anyone with the link" the one link.
     return Promise.all((['list', 'personal', 'one_qr'] as const).map((getIn) => renderSetup({ getIn })));
+  },
+  // ⚙ Suppliers (owner 2026-10-27, "SUPPLIERS GETS ITS ⚙"): every row read · every read refused · a delegate (no photos).
+  suppliers: async () => {
+    await import('../app/dashboard/[eventId]/_components/guest-setup/render-setup'); // stubs `server-only` for the actions' modules
+    const React = (await import('react')).default;
+    (globalThis as unknown as { React: unknown }).React = React;
+    const { renderToStaticMarkup } = await import('react-dom/server');
+    const { SuppliersSettingsRows } = await import('../app/dashboard/[eventId]/vendors/_components/suppliers-settings-rows');
+    const draw = (view: import('./suppliers-settings').SuppliersSettingsView) =>
+      renderToStaticMarkup(React.createElement(SuppliersSettingsRows, { eventId: 'e1', view }));
+    return [
+      draw({
+        costs: { mode: 'final_only', deadline: '2027-01-10' },
+        payments: [{ id: 'p1', when: 'Nov 3', words: 'Lumen Studio · Downpayment ₱10,000' }],
+        photos: [
+          { vendorRowId: 'v1', name: 'Lumen Studio', hidden: false },
+          { vendorRowId: 'v2', name: 'Sinag Films', hidden: true },
+        ],
+        photosRead: true,
+      }),
+      draw({ costs: null, payments: null, photos: null, photosRead: false }),
+      draw({ costs: { mode: 'realtime', deadline: null }, payments: [], photos: null, photosRead: true }),
+    ];
   },
 };
 

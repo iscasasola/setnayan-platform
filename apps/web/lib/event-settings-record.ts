@@ -25,7 +25,7 @@ export type SettingsRow = {
   writer: string;
 };
 
-/** Guests ⚙ — the three clusters, in order (prototype § 4). */
+/** Guests ⚙ — the three clusters, in order (prototype § 4). Suppliers ⚙'s are `SUPPLIERS_SETTINGS_CLUSTERS`. */
 export const GUESTS_SETTINGS_CLUSTERS = ['Getting in', 'Replies', 'Closing the list'] as const;
 
 export const SETTINGS_ROWS = {
@@ -43,6 +43,11 @@ export const SETTINGS_ROWS = {
   'reply-by': { menu: 'guests', cluster: 'Replies', writer: 'updatePaxSettings' },
   requests: { menu: 'guests', cluster: 'Replies', writer: '/guests/claims' },
   finalize: { menu: 'guests', cluster: 'Closing the list', writer: 'setGuestListFinalized' },
+  /* ── Suppliers ⚙ (owner 2026-10-27, "SUPPLIERS GETS ITS ⚙ — THE SUPPLIER SETTINGS MOVE THERE"; reverses call 3) ── */
+  'costs-view': { menu: 'suppliers', cluster: 'Costs', writer: 'updatePaxSettings' },
+  'supplier-payments': { menu: 'suppliers', cluster: 'Payments', writer: '/vendors' },
+  budget: { menu: 'suppliers', cluster: 'Payments', writer: '/vendors?part=budget' },
+  'supplier-photos': { menu: 'suppliers', cluster: 'Photos', writer: 'setVendorCapturesHiddenHere' },
 } as const satisfies Record<string, SettingsRow>;
 
 export type SettingsRowKey = keyof typeof SETTINGS_ROWS;
@@ -70,4 +75,17 @@ export const DETAILS_ROWS_MOVED_TO_GUESTS = {
   'rsvp-questions': 'asks',
   'reply-by': 'reply-by',
   'list-closes': 'reply-by',
+} as const satisfies Record<string, SettingsRowKey>;
+
+/** Suppliers ⚙, open — and, with a row, scrolled to it. */
+export function suppliersSettingsHref(eventId: string, row?: SettingsRowKey): string {
+  return `/dashboard/${eventId}/vendors?settings=1${row ? `&row=${row}` : ''}`;
+}
+
+/**
+ * Event Details rows that LEFT for Suppliers ⚙ (owner 2026-10-27) → the row they are now. Only `costs-view` had a field
+ * address; Supplier payments was a read and the photos switch lived inside Event access, neither with an address.
+ */
+export const DETAILS_ROWS_MOVED_TO_SUPPLIERS = {
+  'costs-view': 'costs-view',
 } as const satisfies Record<string, SettingsRowKey>;

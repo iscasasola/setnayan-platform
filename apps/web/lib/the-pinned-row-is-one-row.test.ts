@@ -15,7 +15,12 @@
  * ⚙ EVERY PINNED ROW ENDS WITH ITS MENU'S ⚙ (owner 2026-10-27, "EVERY MENU'S ⚙ RIDES ITS PINNED ROW TOO" and "THE
  * PINNED ROW IS THE APP-WIDE TEMPLATE": selector or name line · counts · one action · ⚙). Guests' ⚙ is ONE mounted
  * button both faces show (the summary face stops short of it), so `every-menu-has-one-settings-button` still counts one.
- *   · SUPPLIERS — only `Find · Build · Booked` pins; the date · place line is plain content above it and scrolls away.
+ * Suppliers' ⚙ is the same mounted button at rest and pinned (the row IS the pinned row).
+ *
+ * Sabotage (2026-10-27, ⚙ ends, each reverted): Guests ⚙ moved before the pill · `data-has-gear` dropped · the face's
+ * `right: 52px` → 0 · Home's ⚙ removed · a second control in Home's line · Suppliers ⚙ removed · a control after
+ * Suppliers ⚙ — each red.
+ *   · SUPPLIERS — only `Find · Build · Booked · ⚙` pins; the date · place line is plain content above it and scrolls away.
  *
  * Sabotage (2026-10-27, each reverted): the counts strip moved back inside `data-guests-stick` → Guests test red;
  * `pinSeg('share', 'Settings')` added to the pinned face → Guests test red; `pinSeg('map', …)` removed → red;
@@ -92,7 +97,7 @@ test('Guests — the sticky block is one row; its pinned face keeps List · Map,
   assert.doesNotMatch(css, /\[data-collapsed\][^{]*\[data-first-row\]\s*\{|\[data-collapsed\][^{]*\[data-menu-settings/, 'pinned, the ⚙ is faded out');
 });
 
-test('Suppliers — only Find · Build · Booked pins; the date · place line scrolls away above it', () => {
+test('Suppliers — only Find · Build · Booked · ⚙ pins; the date · place line scrolls away above it', () => {
   const src = read('vendors', '_components', 'services-takeover.tsx');
   const at = src.indexOf('data-suppliers-stick=""');
   assert.ok(at > -1, 'the pinned row is gone');
@@ -106,6 +111,14 @@ test('Suppliers — only Find · Build · Booked pins; the date · place line sc
   assert.equal(count(stick, '{factsSlot}'), 0, 'the date · place line is pinned again — two rows');
   const facts = src.indexOf('{factsSlot}');
   assert.ok(facts > -1 && facts < open, 'the date · place line must sit above the pinned row, as plain content');
+
+  // ⚙ The row ENDS with Suppliers ⚙ (owner 2026-10-27, "SUPPLIERS GETS ITS ⚙" + "EVERY MENU'S ⚙ RIDES ITS PINNED ROW
+  // TOO"): the row is the menu's first row, and after the selector comes its ONE ⚙ and nothing else before </div>.
+  const rowEnd = src.indexOf('</div>', close);
+  const tail = src.slice(close + '</ISegmented>'.length, rowEnd);
+  assert.match(src.slice(open, at + 400), /data-first-row=""/, 'the pinned row is not marked as the menu’s first row');
+  assert.equal(count(tail, /<MenuSettingsButton\b[^>]*\bmenu="suppliers"/g), 1, 'the pinned row does not end with Suppliers ⚙');
+  assert.equal(count(tail, /<(?!\/|MenuSettingsButton\b)[A-Za-z]/g), 0, 'something besides the ⚙ is drawn after the selector');
 });
 
 test('Home — the cover pins as one line: names · date · ⚙, the ⚙ its one control', async () => {

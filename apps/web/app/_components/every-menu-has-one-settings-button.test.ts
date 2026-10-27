@@ -8,7 +8,10 @@
  * Held as properties, measured on what RENDERS where it can be rendered:
  *   1 · the door is one 44 px icon-only ⚙ named "<Menu> settings", marked `data-menu-settings="<menu>"`;
  *   2 · every menu whose entry is `live` is mounted at EXACTLY ONE site in the app, and every menu that is not live
- *       (Suppliers' reserved spot included) at NONE — flipping `live` in `lib/menu-settings.ts` flips this check;
+ *       at NONE — flipping `live` in `lib/menu-settings.ts` flips this check. SUPPLIERS WAS `reserved` (owner call 3,
+ *       "no ⚙ until it owns a setting") and was held at none here; the OWNER REVERSED IT 2026-10-27 (DECISION_LOG
+ *       "SUPPLIERS GETS ITS ⚙ — THE SUPPLIER SETTINGS MOVE THERE", *"and move them to suppliers"*), so it is now held
+ *       LIVE, mounted once, in its Find · Build · Booked row (`data-first-row`);
  *   3 · Memories RENDERS exactly one ⚙, inside its first row, at the row's right end — and none for a guest;
  *   4 · Home mounts no menu ⚙ (its ⚙ is the cover's, which opens Event Settings).
  *
@@ -88,7 +91,7 @@ test('1 · the door is one 44 px icon-only ⚙ named for its menu', async () => 
   }
 });
 
-test('2 · each live menu is mounted at exactly one site; the others (Suppliers reserved) at none', () => {
+test('2 · each live menu is mounted at exactly one site; the others at none — Suppliers now live (owner reversed call 3)', () => {
   const mounts = SOURCES.flatMap((s) => [...s.code.matchAll(/<MenuSettingsButton\b[^>]*?\bmenu="([a-z]+)"/g)].map((m) => ({ menu: m[1]!, path: s.path })));
   const bare = SOURCES.filter((s) => /<MenuSettingsButton\b(?![^>]*?\bmenu=")/.test(s.code)).map((s) => s.path);
   assert.deepEqual(bare, [], 'a ⚙ is mounted without a literal menu="…" — this check could not count it');
@@ -104,6 +107,10 @@ test('2 · each live menu is mounted at exactly one site; the others (Suppliers 
   assert.deepEqual(unknown, [], 'a ⚙ is mounted for a menu the map does not know');
   assert.ok(SETTINGS_MENUS.some((m) => SETTINGS_ENTRY[m].live), 'no menu is live — this check counts nothing');
   console.log(`  ⚙ mounts: ${printed.join(' · ')}`);
+  // Suppliers: live since 2026-10-27, and its one ⚙ ends the Find · Build · Booked row (also its pinned row).
+  assert.equal(SETTINGS_ENTRY.suppliers.live, true, 'Suppliers ⚙ is not live — the owner reversed call 3 on 2026-10-27');
+  const sup = mounts.filter((m) => m.menu === 'suppliers').map((m) => m.path);
+  assert.deepEqual(sup, ['dashboard/[eventId]/vendors/_components/services-takeover.tsx'], 'Suppliers ⚙ is not mounted in its Find · Build · Booked row');
 });
 
 async function renderMemories(host: boolean): Promise<string> {

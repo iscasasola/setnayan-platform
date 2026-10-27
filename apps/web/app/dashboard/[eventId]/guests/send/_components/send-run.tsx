@@ -304,7 +304,7 @@ export function SendRun({
     >
       <div className="rounded-3xl bg-white p-3 shadow-[0_10px_30px_-14px_rgba(30,34,41,0.35)]" data-send-run-qr="">
         {oneLink?.qrSvg ? (
-          <div className="h-[168px] w-[168px] [&_svg]:h-full [&_svg]:w-full" aria-label="The event’s QR" role="img" dangerouslySetInnerHTML={{ __html: oneLink.qrSvg }} />
+          <div className="qr-slot h-[168px] w-[168px] [&_svg]:h-full [&_svg]:w-full" aria-label="The event’s QR" role="img" dangerouslySetInnerHTML={{ __html: oneLink.qrSvg }} />
         ) : oneLink ? null : (
           // eslint-disable-next-line @next/next/no-img-element -- our own gated QR route, the same bytes as Download
           <img src={`/api/website/qr/guest/${current.guestId}`} alt={`${current.fullName}’s QR`} width={168} height={168} className="h-[168px] w-[168px] object-contain" draggable={false} />

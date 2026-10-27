@@ -1,12 +1,12 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowRight, CalendarCheck, CalendarX, Check, MessageCircle, Plus, Send, Store, Undo2 } from 'lucide-react';
+import { ArrowRight, CalendarCheck, CalendarX, Check, LogIn, MessageCircle, Plus, Send, Store, Undo2 } from 'lucide-react';
 import { CalendarGrid } from '@/app/_components/calendar';
 import { Sheet } from '@/app/_components/sheet';
 import { SignInHereLink } from '@/app/_components/auth/sign-in-here-link';
-import { ActionButton } from '@/components/action-button';
-import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { ActionButton, actionButtonClass } from '@/components/action-button';
+import { ChosenRow, FormRows, SwitchRow } from '@/app/_components/form-row';
 import { CALENDAR_HATCH, type CalendarDayState } from '@/lib/calendar-grid';
 import {
   CHECK_DATE_WORDS,
@@ -226,7 +226,7 @@ export function CheckADateCalendar({
         <CalendarGrid value={day} states={states} today={today} min={today} max={to} startAt={firstDay ?? today} onPick={pick} data="check-a-date" />
         <p className="flex gap-4 px-0.5 pt-3 text-[12.5px] text-ink/65" data-check-date-legend="">
           <span className="inline-flex items-center gap-1.5">
-            <i aria-hidden className="block h-3.5 w-3.5 rounded-full border border-ink/25" />
+            <b aria-hidden className="text-[12.5px] font-semibold text-ink">1</b>
             {CHECK_DATE_WORDS.available}
           </span>
           <span className="inline-flex items-center gap-1.5">
@@ -279,25 +279,22 @@ export function CheckADateCalendar({
                   This shop hasn&rsquo;t listed its services yet. Ask from the shop page.
                 </p>
               ) : (
-                <div role="group" aria-label="Services">
+                <FormRows data="check-date-services">
                   {services.map((s) => {
                     const open = serviceOpen(s.serviceId, day);
-                    const on = chosen.includes(s.serviceId);
                     return (
-                      <label key={s.serviceId} className={`flex min-h-12 items-center gap-2.5 border-b border-ink/10 text-[14.5px] ${open ? 'cursor-pointer' : 'opacity-50'}`} data-check-date-service={s.serviceId}>
-                        <input
-                          type="checkbox"
-                          className="h-5 w-5 flex-none accent-[rgb(var(--color-mulberry))]"
-                          checked={on && open}
-                          disabled={!open}
-                          onChange={(e) => setChosen((cur) => (e.target.checked ? [...cur.filter((x) => x !== s.serviceId), s.serviceId] : cur.filter((x) => x !== s.serviceId)))}
-                        />
-                        <span className="min-w-0 flex-1">{s.label}</span>
-                        <small className="flex-none text-[12.5px] text-ink/55">{open ? s.price : CHECK_DATE_WORDS.not_bookable}</small>
-                      </label>
+                      <SwitchRow
+                        key={s.serviceId}
+                        name={s.label}
+                        on={open && chosen.includes(s.serviceId)}
+                        disabled={!open}
+                        note={open ? s.price || undefined : CHECK_DATE_WORDS.not_bookable}
+                        onChange={(next) => setChosen((cur) => (next ? [...cur.filter((x) => x !== s.serviceId), s.serviceId] : cur.filter((x) => x !== s.serviceId)))}
+                        attrs={{ 'data-check-date-service': s.serviceId }}
+                      />
                     );
                   })}
-                </div>
+                </FormRows>
               )}
               <div className="mt-3">
                 {services.length === 0 ? (
@@ -315,33 +312,28 @@ export function CheckADateCalendar({
               <p className="mb-2 text-[13px] text-ink/60">{words}</p>
               {!signedIn ? (
                 <div data-check-date-sign-in="">
-                  <p className="py-2 text-[14px] text-ink/75">Sign in to pick your event. Your date and services are kept.</p>
-                  <SignInHereLink
-                    href="/login"
-                    className="sn-press mt-1 flex min-h-12 w-full items-center justify-center rounded-full bg-sn-accent px-5 text-[15px] font-bold text-sn-on-accent"
-                  >
-                    Sign in
+                  <p className="py-2 text-[14px] text-ink/75">Sign in to pick your event. Your picks are kept.</p>
+                  {/* The shared sign-in door, worn as the button rule's main brand button (it must stay a real link). */}
+                  <SignInHereLink href="/login" className={actionButtonClass('brand', { main: true, extra: MAIN })}>
+                    <LogIn aria-hidden className="h-4 w-4" strokeWidth={2} />
+                    <span className="lbl">Sign in</span>
                   </SignInHereLink>
                 </div>
               ) : (
                 <>
-                  {sameDay.length === 1 && sameDay[0] ? (
-                    <div className="flex min-h-12 items-center gap-2.5 border-b border-ink/10 text-[14.5px]" data-check-date-event-auto={sameDay[0].eventId}>
-                      <Check aria-hidden className="h-5 w-5 flex-none text-sn-accent" strokeWidth={2.4} />
-                      <span className="min-w-0 flex-1 truncate">{eventWord(sameDay[0])}</span>
-                    </div>
-                  ) : sameDay.length > 1 || others.length > 0 ? (
-                    <div className="py-1" data-check-date-event-pick="">
-                      <PickMenu
-                        label={sameDay.length > 1 ? 'Your events that day' : 'Or one of your events'}
+                  {sameDay.length > 0 || others.length > 0 ? (
+                    <FormRows data="check-date-event">
+                      <ChosenRow
+                        name={sameDay.length > 0 ? 'Event' : 'Or one of yours'}
+                        label="Your events"
                         value={eventId}
-                        buttonText={eventId ? undefined : 'Pick your event'}
-                        options={(sameDay.length > 1 ? sameDay : others).map((e) => ({ key: e.eventId, label: eventWord(e) }))}
+                        buttonText={eventId ? undefined : 'Pick'}
+                        options={(sameDay.length > 0 ? sameDay : others).map((e) => ({ key: e.eventId, label: eventWord(e) }))}
                         onPick={(k) => setEventId(k)}
                         dataAttr="data-check-date-event"
-                        className="!min-h-12 w-full"
+                        attrs={sameDay.length === 1 && sameDay[0] ? { 'data-check-date-event-auto': sameDay[0].eventId } : { 'data-check-date-event-pick': '' }}
                       />
-                    </div>
+                    </FormRows>
                   ) : null}
                   {sameDay.length === 0 ? (
                     <div className="mt-2">

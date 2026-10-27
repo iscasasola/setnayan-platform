@@ -17,6 +17,8 @@
  */
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { RotateCw } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { createClient } from '@/lib/supabase/server';
 import { fetchUserEvents } from '@/lib/events';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
@@ -83,9 +85,9 @@ export default async function CheckADatePage({ params, searchParams }: Props) {
           <p role="alert" className="mt-2 text-[15px] text-ink/75">
             We couldn&rsquo;t load this shop&rsquo;s dates just now, so we won&rsquo;t guess which days are free. Please try again in a moment.
           </p>
-          <a href={`/v/${encodeURIComponent(slug)}/dates`} className="sn-press mt-4 inline-flex min-h-11 items-center rounded-full border border-ink/15 px-5 text-[15px] font-semibold">
-            Try again
-          </a>
+          <div className="mt-4">
+            <ActionButton tone="neutral" icon={<RotateCw aria-hidden className="h-4 w-4" strokeWidth={2} />} label="Try again" href={`/v/${encodeURIComponent(slug)}/dates`} />
+          </div>
         </div>
       ) : (
         <CheckADateCalendar

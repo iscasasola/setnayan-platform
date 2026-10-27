@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { GuestRemovalActionsContext, type GuestRemovalActions } from '@/app/dashboard/[eventId]/guests/_components/guest-delete';
 import { LAB_GUEST_ACTIONS, LAB_NAVIGATE_EVENT, LAB_SETUP_REFUSALS, labTimedAdds } from './lab-stand-ins';
 import { GuestActionsProvider } from '@/app/dashboard/[eventId]/guests/_components/guest-actions-context';
+import type { GuestCardResult } from '@/app/dashboard/[eventId]/guests/_components/guest-card';
 
 /**
  * The lab's stand-ins for the guest list's writes: they succeed LOCALLY — the row hides, the Undo toast shows, Undo brings
@@ -28,7 +29,18 @@ import { GuestActionsProvider } from '@/app/dashboard/[eventId]/guests/_componen
  * `/api/guest/pass-card`); Write to NFC (a browser API, no database); the card's Access line (a link to Event Details). The
  * Setup rows' two doors ("Send to N", "Pick who") are stand-ins too: they stay in the lab (`setupDoorHref`).
  */
-export function LabGuestActions({ refuse = false, addMs = 0, children }: { refuse?: boolean; addMs?: number; children: ReactNode }) {
+export function LabGuestActions({
+  refuse = false,
+  addMs = 0,
+  openCard,
+  children,
+}: {
+  refuse?: boolean;
+  addMs?: number;
+  /** 🪪 `?part=screen&open=1`: the lab's card-only read (an inline server action that answers with the lab card). */
+  openCard?: (guestId: string) => Promise<GuestCardResult>;
+  children: ReactNode;
+}) {
   /* A stand-in that must change what the page DRAWS (Finalize → the locked row) moves a search param the fixture reads, with
      `router.replace` — which refetches the page — never `replaceState` + `refresh()`, which Next does not follow. */
   const router = useRouter();
@@ -53,7 +65,7 @@ export function LabGuestActions({ refuse = false, addMs = 0, children }: { refus
   };
   return (
     <GuestRemovalActionsContext.Provider value={stand}>
-      <GuestActionsProvider actions={{ ...LAB_GUEST_ACTIONS, ...(refuse ? LAB_SETUP_REFUSALS : {}), ...labTimedAdds(addMs) }}>{children}</GuestActionsProvider>
+      <GuestActionsProvider actions={{ ...LAB_GUEST_ACTIONS, ...(refuse ? LAB_SETUP_REFUSALS : {}), ...labTimedAdds(addMs), ...(openCard ? { openGuestCard: (_eventId: string, guestId: string) => openCard(guestId) } : {}) }}>{children}</GuestActionsProvider>
     </GuestRemovalActionsContext.Provider>
   );
 }

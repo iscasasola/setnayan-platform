@@ -42,7 +42,7 @@ import {
   type RoleGroup,
 } from '@/lib/role-groups';
 import type { RoleNames } from '@/lib/role-names';
-import { plusOneOfWords } from '@/lib/plus-one-of';
+import { plusOneOfWords, type PlusOneOf } from '@/lib/plus-one-of';
 import { plusOneHasNoName, plusOneIsNamed } from '@/lib/extra-seats';
 
 /** The 250 ms wait after the last key — the Guests thumb row's debounce (rule 4; the retired top-bar guest search used the same). */
@@ -623,6 +623,9 @@ export type PlusOneWords = {
   side: GuestRow['side'];
   /** Their guest as the row's "On Daniel’s invitation" says it — the first name, else the name as shown. */
   host: string;
+  /** The one wording whole (`plusOneOfWords`) — what the guest card's head says, so the head drawn at the tap
+   *  (`guest-card-head.tsx`) and the card that arrives say the same. */
+  card: PlusOneOf;
 };
 
 type SeatFields = Pick<GuestRow, 'guest_id' | 'plus_one_of_guest_id' | 'first_name'>;
@@ -648,7 +651,7 @@ export function plusOneWordsFrom<G extends SeatFields & Pick<GuestRow, 'display_
     seatNo.set(hostId, i + 1);
     // The one wording (lib/plus-one-of.ts) — the card's title and eyebrow say the same.
     const w = plusOneOfWords(g, host, i);
-    out.set(g.guest_id, { hostId, name: w.name, of: w.name ? null : w.of, side: w.side, host: host.first_name?.trim() || w.hostName });
+    out.set(g.guest_id, { hostId, name: w.name, of: w.name ? null : w.of, side: w.side, host: host.first_name?.trim() || w.hostName, card: w });
   }
   return out;
 }

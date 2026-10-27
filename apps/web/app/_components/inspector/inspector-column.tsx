@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { X, ArrowUpRight } from 'lucide-react';
+import { StatusLine } from '@/app/_components/status-line';
 import {
   createContext,
   useCallback,
@@ -76,8 +77,34 @@ export function useInspector(paramKey = 'inspect') {
     [router, buildUrl],
   );
 
-  return { paramKey, selectedId: urlId, push };
+  /* 🪪 The address moves WITHOUT a server render — for a surface that draws the body itself (`InspectorHeld`). Next
+     follows a native `pushState` (useSearchParams updates, Back closes it), and nothing is asked of the server. */
+  const shallow = useCallback(
+    (id: string | null) => {
+      window.history.pushState(null, '', buildUrl(id));
+    },
+    [buildUrl],
+  );
+
+  return { paramKey, selectedId: urlId, push, shallow };
 }
+
+/**
+ * 🪪 A BODY THE SURFACE DRAWS ITSELF, AT THE TAP (guest card opens fast, owner 2026-10-27: a guest's card took ~2 s to
+ * open on his iPhone). The Guest list used to open a card by moving the address (`?inspect=`), which re-rendered the
+ * WHOLE page on the server and sent all of it back — every name on the list, ~312 KB for 182 guests — while the sheet
+ * said only "Opening…". Measured in /dev/guests-lab (390 × 844, Chromium at 4× CPU): ~3.1 s from tap to name.
+ *
+ * Handed to `select()`, it opens the sheet AT ONCE with `head` — drawn from what the row already has on screen — while
+ * `load` reads that ONE body; the address moves without a server render (`shallow`). A body the page itself renders
+ * for the same id later (a save's revalidation, a deep link) is newer and takes over.
+ */
+export type InspectorHeld = {
+  /** The one body, read alone (the Guest list: `openGuestCard`). A refusal is a plain sentence. */
+  load: () => Promise<{ ok: true; card: ReactNode } | { ok: false; reason: string }>;
+  /** The head, drawn at the tap from the row on screen, around whatever the body says meanwhile. */
+  head: (body: ReactNode) => ReactNode;
+};
 
 // ── Context (shared by triggers + the panel) ────────────────────────────────
 
@@ -85,7 +112,7 @@ type InspectorContextValue = {
   paramKey: string;
   selectedId: string | null;
   open: boolean;
-  select: (id: string, trigger?: HTMLElement | null) => void;
+  select: (id: string, trigger?: HTMLElement | null, held?: InspectorHeld) => void;
   close: () => void;
   /** True once per user-initiated open — the panel uses it to decide whether to
    *  steal focus (it must NOT on a cold refresh/share load). */
@@ -131,8 +158,16 @@ export function InspectorLayout({
   inspector,
   className,
   mobileSheet = false,
+  inspectorId,
 }: {
   paramKey?: string;
+  /**
+   * OPT-IN (2026-10-28, the guest card): WHICH id the server-rendered `inspector` is for. Given, the layout may also hold
+   * a body it read itself (`InspectorHeld`, handed to `select`) and moves the address without a server render; the
+   * server's body is shown only while it is for the id the address names. Left out (Studio, Vendors, Overview), nothing
+   * changes: every open and close is a navigation, as before.
+   */
+  inspectorId?: string | null;
   /**
    * OPT-IN (2026-09-22, for the guest card). Below xl this layout normally
    * hides the rail and its triggers navigate to a standalone route. With
@@ -157,36 +192,87 @@ export function InspectorLayout({
   inspector: ReactNode;
   className?: string;
 }) {
-  const { selectedId, push } = useInspector(paramKey);
+  const { selectedId, push, shallow } = useInspector(paramKey);
   const isXl = useIsInspectorViewport();
+  const inPlace = inspectorId !== undefined;
+
+  // 🪪 A body this layout read itself (`InspectorHeld`) — for one id; `card` null while it is being read.
+  const [held, setHeld] = useState<{ id: string; seq: number; head: InspectorHeld['head']; card: ReactNode | null; reason: string | null; load: InspectorHeld['load'] } | null>(null);
+  const seq = useRef(0);
+  const read = useCallback((id: string, h: InspectorHeld) => {
+    const mine = ++seq.current;
+    setHeld({ id, seq: mine, head: h.head, card: null, reason: null, load: h.load });
+    const settle = (card: ReactNode | null, reason: string | null) =>
+      setHeld((cur) => (cur && cur.seq === mine ? { ...cur, card, reason } : cur));
+    h.load().then(
+      (r) => (r.ok ? settle(r.card, null) : settle(null, r.reason)),
+      () => settle(null, 'This couldn’t open just now — try again.'),
+    );
+  }, []);
+  // The page rendered a body for the id we hold → it is newer than ours (a save's revalidation): it takes over.
+  useEffect(() => {
+    setHeld((cur) => (cur && hasSelection && inspectorId === cur.id ? null : cur));
+  }, [inspector, inspectorId, hasSelection]);
+
+  // The server's body counts only while it is for the id the address names (in place), else as before.
+  const serverBody = hasSelection && (!inPlace || inspectorId === selectedId) ? inspector : null;
+  const heldNow = held && held.id === selectedId ? held : null;
+  const shown: ReactNode = heldNow
+    ? (heldNow.card ??
+      serverBody ??
+      heldNow.head(
+        heldNow.reason ? (
+          <StatusLine tone="bad" data="inspector-held" action={{ label: 'Try again', onClick: () => read(heldNow.id, heldNow) }}>
+            {heldNow.reason}
+          </StatusLine>
+        ) : (
+          <p role="status" className="py-2 text-[13.5px] text-ink/65" data-inspector-opening="">
+            Opening their card…
+          </p>
+        ),
+      ))
+    : serverBody;
+  const has = Boolean(shown);
 
   // Optimistic open so the width transition fires on click, before the server
   // round-trip that renders the body. Cleared once server truth catches up.
   const [optimisticOpen, setOptimisticOpen] = useState<boolean | null>(null);
   useEffect(() => {
     setOptimisticOpen(null);
-  }, [hasSelection, selectedId]);
-  const open = isXl && (optimisticOpen ?? hasSelection);
+  }, [has, selectedId]);
+  const open = isXl && (optimisticOpen ?? has);
 
   const lastTrigger = useRef<HTMLElement | null>(null);
   const wantPanelFocus = useRef(false);
   const prevOpen = useRef(open);
 
   const select = useCallback(
-    (id: string, trigger?: HTMLElement | null) => {
+    (id: string, trigger?: HTMLElement | null, h?: InspectorHeld) => {
       lastTrigger.current =
         trigger ?? (document.activeElement as HTMLElement | null);
       wantPanelFocus.current = true;
       setOptimisticOpen(true);
+      // ⚡ In place: the head at once, the one body read alone, the address moved with no server render.
+      if (inPlace && h) {
+        read(id, h);
+        shallow(id);
+        return;
+      }
       push(id);
     },
-    [push],
+    [push, shallow, read, inPlace],
   );
 
   const close = useCallback(() => {
     setOptimisticOpen(false);
+    if (inPlace) {
+      // Closing asks the server for nothing either — the list behind is already the list.
+      setHeld(null);
+      shallow(null);
+      return;
+    }
     push(null);
-  }, [push]);
+  }, [push, shallow, inPlace]);
 
   const consumePanelFocus = useCallback(() => {
     if (wantPanelFocus.current) {
@@ -208,7 +294,7 @@ export function InspectorLayout({
   // Below xl with `mobileSheet`, the sheet is open whenever the server says a
   // selection resolved — `open` above is gated on isXl, which the rail needs and
   // the sheet must not inherit.
-  const sheetOpen = mobileSheet && !isXl && (optimisticOpen ?? hasSelection);
+  const sheetOpen = mobileSheet && !isXl && (optimisticOpen ?? has);
 
   const ctx = useMemo<InspectorContextValue>(
     () => ({
@@ -233,11 +319,11 @@ export function InspectorLayout({
         {/* Persistent rail so the width transition can play on both open AND
             close (the body inside comes/goes with the server render). */}
         <div className="sn-inspector-rail" aria-hidden={open ? undefined : true}>
-          {inspector}
+          {isXl ? shown : serverBody}
         </div>
       </div>
       {sheetOpen ? (
-        <InspectorSheet onClose={close}>{inspector}</InspectorSheet>
+        <InspectorSheet onClose={close}>{shown}</InspectorSheet>
       ) : null}
     </InspectorContext.Provider>
   );

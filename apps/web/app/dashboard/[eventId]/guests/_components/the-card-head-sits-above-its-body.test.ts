@@ -119,7 +119,8 @@ test('5 · the face is in the header over the panel, and only on the page in the
   assert.match(CARD, /\bpinSlot\b/, 'GuestCard must open the header’s pin slot');
   assert.match(BODY, /\{headerShown \? null : <GuestCardAvatar guest=\{guest\} photoDisplayUrl=\{photoDisplayUrl\} \/>\}/, 'over the panel the body must not draw the face a second time');
   assert.equal((BODY.match(/<GuestCardAvatar\b/g) ?? []).length, 1, 'the body draws the face in one place');
-  const av = BODY.slice(BODY.indexOf('export function GuestCardAvatar('));
+  const HEAD = read(`${G}/guest-card-head.tsx`);
+  const av = HEAD.slice(HEAD.indexOf('export function GuestCardAvatar('));
   assert.match(av.slice(0, 1400), /photoDisplayUrl \?[\s\S]*<img src=\{photoDisplayUrl\}[\s\S]*guestInitials\(guest\)/, 'the face is their photo, else their initials');
   assert.match(av.slice(0, 1400), /size === 'head' \? 'h-11 w-11'/, 'the header’s face is 44px');
 });

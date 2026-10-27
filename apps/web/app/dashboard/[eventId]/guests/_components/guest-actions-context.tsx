@@ -13,6 +13,8 @@ import { releaseGuestClaim } from '../[guestId]/actions';
 import { editGuestGroupInPlace } from '../group-edit-actions';
 import { setGuestAllotment } from '../../studio/papic/actions';
 import { setGuestProxy } from '../proxy-actions';
+import { openGuestCard } from '../open-guest-card';
+import type { GuestCardResult } from './guest-card';
 
 /**
  * The guest list's writes that a plain press reaches — the SHIPPED server actions by default.
@@ -57,6 +59,13 @@ export type GuestActions = {
   setGuestAllotment: typeof setGuestAllotment;
   /** 🧍 The card's "Proxy ▾" (owner 2026-10-27) — link · add · remove · keep, on the role holder's row. */
   setGuestProxy: typeof setGuestProxy;
+  /**
+   * 🪪 ONE guest's card, read alone — what a tap on a row opens (guest card opens fast, owner 2026-10-27: ~2 s on his
+   * iPhone). The shipped card-only reader (`openGuestCard`, the Wedding March's), never the whole Guests page: opening a
+   * card used to re-render the entire list on the server and send all of it back (~312 KB for 182 guests) before the
+   * card could show. Imported statically, so the first tap fetches no extra code before it asks.
+   */
+  openGuestCard: (eventId: string, guestId: string) => Promise<GuestCardResult>;
 };
 
 export const REAL_GUEST_ACTIONS: GuestActions = {
@@ -86,6 +95,7 @@ export const REAL_GUEST_ACTIONS: GuestActions = {
   restoreGuestRsvpAndSeat,
   setGuestAllotment,
   setGuestProxy,
+  openGuestCard: (eventId, guestId) => openGuestCard(eventId, guestId, 'list'),
 };
 
 export const GuestActionsContext = createContext<Partial<GuestActions> | null>(null);

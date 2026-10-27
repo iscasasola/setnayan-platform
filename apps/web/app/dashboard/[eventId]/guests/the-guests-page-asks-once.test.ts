@@ -65,7 +65,7 @@ type View = {
   ms: number;
   steps: string[];
 };
-type Report = Record<'page' | 'pageWithCard' | 'layoutAndPage' | 'oneReadRefused' | 'delegateWithoutGuestList', View>;
+type Report = Record<'page' | 'pageWithCard' | 'cardAlone' | 'layoutAndPage' | 'oneReadRefused' | 'delegateWithoutGuestList', View>;
 
 const WEB = join(__dirname, '..', '..', '..', '..');
 
@@ -104,6 +104,14 @@ test(`1 · the page is at most ${MAX_DEPTH} trips deep before its first name —
         `another it does not need — start it beside the others, before THE ONE WAIT:\n${shape(v)}`,
     );
   }
+});
+
+test(`1b · ⚡ ONE guest's card, read alone (what a tap on a row asks for), is at most ${MAX_DEPTH} trips deep too`, () => {
+  /* the-card-opens-at-the-tap.test.ts (6): who is asking rides BESIDE the card's reads, on its own client — on the card's
+     client its auth lock held every read for a whole trip (3 deep, 478 ms at 150 ms a trip → 2 deep, 309 ms). */
+  const v = REPORT.cardAlone;
+  assert.ok(v.calls >= 5, `only ${v.calls} requests were counted — the card read is not reaching the stand-in`);
+  assert.ok(v.depth <= MAX_DEPTH, `a tap's card read now waits ${v.depth} trips in a row (at most ${MAX_DEPTH}):\n${shape(v)}`);
 });
 
 test('2 · the event’s row is read ONCE per request, and the membership question asked once', () => {

@@ -1279,6 +1279,9 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           className="sn-inspector-shell--card"
           mobileSheet
           hasSelection={Boolean(inspectorBody)}
+          /* 🪪 Whose card `inspector` is — so a tap can open a card IN PLACE (read alone, the address moved with no
+             server render) and this page's own card takes over only for the id the address names. */
+          inspectorId={inspectorBody && inspectedGuest ? inspectedGuest.guest_id : null}
           master={master}
           inspector={inspectorBody}
         />

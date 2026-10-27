@@ -421,6 +421,34 @@ const LAB_PASS_SRC =
    panel), so a walk can SEE how many times one press makes the server draw this page (`lib/one-save-one-render.ts`). */
 let labRenders = 0;
 
+/** 🪪 A lab guest's card as the Guest list draws it — in its panel (`?part=screen&open=1`). */
+function labListCard(
+  g: GuestRow,
+  actions: { update: (f: FormData) => Promise<unknown>; release: (f: FormData) => Promise<void>; partnerLink: () => Promise<void> },
+  refuse: boolean,
+) {
+  return (
+    <LabGuestActions refuse={refuse}>
+      <GuestCard
+        frame="panel"
+        eventId={EVENT}
+        data={cardData(g, g.role === 'bride' || g.role === 'groom')}
+        invitationBase="https://www.setnayan.com/maria-and-jose"
+        photoDisplayUrl={null}
+        returnTo={`/dev/guests-lab?part=screen&open=1&inspect=${g.guest_id}`}
+        errorMessage={null}
+        actions={actions as never}
+        inviteFlash={null}
+        inviteSetup={{ facts: { hostsName: 'Maria & Jose', eventWord: 'wedding', eventDate: '2026-12-12', datePrecision: 'day' }, template: null, slug: 'maria-and-jose' }}
+        papic={{ access: 'on', ceiling: null }}
+        storeShell={false}
+        ticketVersion={null}
+        helper={null}
+      />
+    </LabGuestActions>
+  );
+}
+
 export default async function GuestsLabPage({
   searchParams,
 }: {
@@ -784,7 +812,7 @@ export default async function GuestsLabPage({
     const labAddMs = Math.min(10_000, Math.max(0, Number(typeof sp.addMs === 'string' ? sp.addMs : 0) || 0));
     const screen = (
                 <section className="sn-col max-w-none flex flex-col gap-6" data-lab-screen="">
-                  <LabGuestActions refuse={sp.refuse === '1'} addMs={labAddMs}>
+                  <LabGuestActions refuse={sp.refuse === '1'} addMs={labAddMs} openCard={labOpenCard}>
                   <GuestsScreen
                     eventId={EVENT}
                     gview={gview}
@@ -829,26 +857,18 @@ export default async function GuestsLabPage({
        2026-10-28; `&many=150` for a list the size of a real one). `&inspect=<id>` is the page's own address for an open
        card: the lab draws that guest's card on the server, as `guests/page.tsx` does — the cold-load / deep-link path. */
     const openMode = sp.open === '1';
-    const listCard = (g: GuestRow) => (
-      <LabGuestActions refuse={labRefuses}>
-        <GuestCard
-          frame="panel"
-          eventId={EVENT}
-          data={cardData(g, g.role === 'bride' || g.role === 'groom')}
-          invitationBase="https://www.setnayan.com/maria-and-jose"
-          photoDisplayUrl={null}
-          returnTo={`/dev/guests-lab?part=screen&open=1&inspect=${g.guest_id}`}
-          errorMessage={null}
-          actions={{ update: labUpdate, release: labRelease, partnerLink: labPartnerLink }}
-          inviteFlash={null}
-          inviteSetup={{ facts: { hostsName: 'Maria & Jose', eventWord: 'wedding', eventDate: '2026-12-12', datePrecision: 'day' }, template: null, slug: 'maria-and-jose' }}
-          papic={{ access: 'on', ceiling: null }}
-          storeShell={false}
-          ticketVersion={null}
-          helper={null}
-        />
-      </LabGuestActions>
-    );
+    const labActs = { update: labUpdate, release: labRelease, partnerLink: labPartnerLink };
+    const listCard = (g: GuestRow) => labListCard(g, labActs, labRefuses);
+    /* ⚡ What a tap reads now: ONE card, alone (the lab's stand-in for `openGuestCard`) — an INLINE server action (not
+       exported), so a tap is a real round trip to the server that answers with this card and nothing else. */
+    const labMany = Math.min(400, Math.max(0, Number(typeof sp.many === 'string' ? sp.many : 0) || 0));
+    async function labOpenCard(guestId: string) {
+      'use server';
+      const g = planningRoster().concat(manyGuests(labMany)).find((x) => x.guest_id === guestId);
+      return g
+        ? { ok: true as const, card: labListCard(g, labActs, labRefuses) }
+        : { ok: false as const, reason: 'This guest isn’t on your guest list any more.' };
+    }
     const inspectedGuest = openMode && typeof sp.inspect === 'string' ? (roster.find((g) => g.guest_id === sp.inspect) ?? null) : null;
     const opened = openMode ? (
       <InspectorLayout
@@ -856,6 +876,7 @@ export default async function GuestsLabPage({
         className="sn-inspector-shell--card"
         mobileSheet
         hasSelection={Boolean(inspectedGuest)}
+        inspectorId={inspectedGuest?.guest_id ?? null}
         master={screen}
         inspector={inspectedGuest ? listCard(inspectedGuest) : null}
       />

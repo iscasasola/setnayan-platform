@@ -5,7 +5,6 @@ import { pickItems } from '@/lib/role-alternatives';
 import { InfoTip } from '@/app/_components/info-tip';
 import {
   guestDisplayName,
-  guestInitials,
   GROUP_CATEGORY_LABELS,
   MEAL_LABELS,
   guestRoleLabel,
@@ -58,6 +57,7 @@ import type { GuestInviteCell } from './guest-invite-cell';
 // from a 'use client' file would arrive here as a client reference, not a string).
 import { PASS_CARD_ROUTE } from '@/lib/pass-card';
 import type { InviteSetup } from './invite-message-setup';
+import { GuestCardAvatar, guestCardEyebrow, guestCardReply, guestCardTitle } from './guest-card-head';
 import type { CardBoxProps, CardDoorProps, CardFactProps, CardFieldProps, CardFoldProps, CardGroupProps, CardInvitedToProps, CardKit, CardRolesProps, CardLockedProps, CardPickProps, CardSubmitProps, CardTipProps, CardTitleProps, CardToggleProps } from './guest-card-kit';
 import type { ComponentType } from 'react';
 import { AutosaveForm } from './guest-card-autosave';
@@ -70,7 +70,6 @@ import { inviteGuestByEmailAction, releaseGuestClaim, updateGuest } from '../[gu
 import { invitationLinkOn } from '@/lib/invitation-link';
 import { tableWords } from '@/lib/table-words';
 import { HOST_NOTE_MAX } from '@/lib/guest-host-note';
-import { displayPersonName } from '@/lib/person-name-case';
 
 /**
  * guest-card-body.tsx — ONE card per guest: the personal QR AND every editable
@@ -140,67 +139,10 @@ const RSVP_OPTIONS: RsvpStatus[] = ['attending', 'pending', 'maybe', 'declined']
 const CARD_RSVP_WORDS: Record<RsvpStatus, string> = RSVP_ROW_WORDS;
 
 
-/**
- * The card's identity line and its reply, as words — ONE source for the body
- * (the standalone page) and the sticky header over the panel (owner 2026-10-02:
- * "maybe we can leave this part persistent?"), so they are drawn once each.
- */
-export function guestCardEyebrow(
-  guest: Pick<GuestCardData['guest'], 'role' | 'side'>,
-  opts: { hasSides: boolean; roleNames: GuestCardData['roleNames']; plusOneOf?: GuestCardData['plusOneOf'] },
-): string {
-  const isCouple = guest.role === 'bride' || guest.role === 'groom';
-  // 🤝 A +1 is "+1 of Rose Marie Buanhug", on their guest's side (lib/plus-one-of.ts) — never a plain "Guest".
-  const of = isCouple ? null : (opts.plusOneOf ?? null);
-  const side = of ? of.side : guest.side;
-  return [isCouple ? guestRoleLabel(guest.role, opts.roleNames) : (of?.of ?? 'Guest'), opts.hasSides && !isCouple ? SIDE_LABELS[side] : null]
-    .filter(Boolean)
-    .join(' · ');
-}
-/** The card's title: an unnamed +1 seat is named by its guest ("Rose Marie Buanhug’s +1 · TBA"), everyone else by name. */
-export function guestCardTitle(
-  guest: Parameters<typeof guestDisplayName>[0],
-  plusOneOf?: GuestCardData['plusOneOf'],
-): string {
-  return plusOneOf?.name ?? displayPersonName(guestDisplayName(guest));
-}
-export function guestCardReply(guest: Pick<GuestCardData['guest'], 'role' | 'rsvp_status'>, proxy?: GuestCardData['proxy']): string {
-  if (guest.role === 'bride' || guest.role === 'groom') return '✓ Attending · always';
-  // 🧍 A represented role holder's answer is their proxy's — the pair counts once, as them.
-  if (proxy?.representedBy) return representedByWords(proxy.representedBy.name);
-  return `${guest.rsvp_status === 'attending' ? '✓ ' : ''}${CARD_RSVP_WORDS[guest.rsvp_status]}`;
-}
-
-
-/**
- * 👤 THE GUEST'S FACE — their photo, else their initials. ONE drawing for both places it lives: the sticky header over
- * the panel (`size="head"`, 44 px, left of the name — owner 2026-10-26) and the standalone page's identity row (48 px).
- * Not a button: it opens nothing, here or there.
- */
-export function GuestCardAvatar({
-  guest,
-  photoDisplayUrl,
-  size = 'body',
-}: {
-  guest: Parameters<typeof guestInitials>[0];
-  photoDisplayUrl: string | null;
-  size?: 'head' | 'body';
-}) {
-  const box = size === 'head' ? 'h-11 w-11' : 'h-12 w-12';
-  return photoDisplayUrl ? (
-    <span className={`inline-flex ${box} shrink-0 items-center justify-center overflow-hidden rounded-full bg-sn-accent/10`} data-guest-card-avatar={size}>
-      {/* eslint-disable-next-line @next/next/no-img-element -- presigned R2 URL, resolved by the loader */}
-      <img src={photoDisplayUrl} alt="" width={48} height={48} className="h-full w-full object-cover" />
-    </span>
-  ) : (
-    <span
-      className={`inline-flex ${box} shrink-0 items-center justify-center rounded-full bg-sn-accent/10 text-sm font-semibold text-sn-accent`}
-      data-guest-card-avatar={size}
-    >
-      {guestInitials(guest)}
-    </span>
-  );
-}
+/* 🪪 The card's head — eyebrow · name · reply and the face — lives in its own small module (`guest-card-head.tsx`) so the
+   Guest list can draw it AT THE TAP from the row already on screen, without carrying this whole body into the list's
+   first load (guest card opens fast, 2026-10-28). Re-exported here: every surface still reads them from the card. */
+export { GuestCardAvatar, guestCardEyebrow, guestCardReply, guestCardTitle } from './guest-card-head';
 
 export const GUEST_CARD_ERROR_COPY: Record<string, string> = {
   missing_name: 'Please enter both first and last name.',

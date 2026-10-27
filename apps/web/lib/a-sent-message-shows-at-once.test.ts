@@ -43,9 +43,10 @@ test('the line under your last message: Sending… · Not sent · Delivered · S
 
 test('the composer paints BEFORE the server answers, and a failure is said in words with Try again', () => {
   const send = read('app/_components/chat-send-form.tsx');
-  const painted = send.indexOf('new CustomEvent(CHAT_PENDING_EVENT');
-  const delivered = send.indexOf('void deliver(formData, pending, hasFile)');
-  assert.ok(painted > 0 && delivered > painted, 'the pending bubble is not dispatched before the send is started');
+  // Inside the form's own action (the retry path dispatches too — it must not stand in for the first paint).
+  const action = send.slice(send.indexOf('action={async (formData: FormData) => {'), send.lastIndexOf('void deliver(formData, pending, hasFile)'));
+  assert.ok(action.length > 200, 'the form action was not found');
+  assert.match(action, /window\.dispatchEvent\(new CustomEvent\(CHAT_PENDING_EVENT, \{ detail: pending \}\)\)/, 'the pending bubble is not dispatched before the send is started');
   assert.match(send, /new CustomEvent\(CHAT_SETTLED_EVENT/, 'the composer never says how a send ended');
   assert.match(send, /registerRetry\(pending\.tempId/, 'a failed send cannot be tried again');
   const stream = read('app/_components/chat-message-stream.tsx');

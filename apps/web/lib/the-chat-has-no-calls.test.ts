@@ -36,6 +36,7 @@ test('neither thread page mounts a call, reads the calls gate, or draws a phone 
     const s = read(rel);
     assert.ok(s.length > 10_000, `${rel} read short`);
     assert.equal((s.match(/<ThreadCallLauncher\b/g) ?? []).length, 0, `${rel} mounts a call launcher`);
+    assert.doesNotMatch(s, /thread-call-launcher|thread-call-room|thread-call-actions/, `${rel} imports the call code again`);
     assert.doesNotMatch(s, /thread-calls-gate|resolveThreadCallsEnabled/, `${rel} still reads the calls gate`);
     assert.doesNotMatch(s, /\b(Phone|PhoneCall|Video)\b[,\s]*[}\w]*\s*from 'lucide-react'|<(Phone|PhoneCall|Video)\b/, `${rel} draws a call icon`);
   }

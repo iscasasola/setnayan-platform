@@ -313,11 +313,32 @@ button.pinCount {
   outline: 2px solid rgb(var(--sn-accent));
   outline-offset: 2px;
 }
-.cardTip {
+/* Every card's ⓘ in the same spot, top-right (owner 2026-10-27: "why total guests has (i) while other carousel elements
+   do not"). Its tip opens INSIDE the card (the Home tiles' rule, `.hc-lab-tip`): the carousel's track is a scroller and
+   cuts anything that hangs out of it. So the ⓘ's own wrapper steps out of the layout (`display: contents`) — the BUTTON takes the
+   corner, above card ①'s door — and the tip lies over the card's body beside it: short words, small type. A touch
+   anywhere else closes it. */
+.card > .cardTip {
+  display: contents;
+}
+.cardTip > button {
   position: absolute;
   top: 6px;
   right: 8px;
   z-index: 2;
+}
+.cardTip :global(.sn-tip) {
+  top: 4px;
+  left: 4px;
+  right: 30px;
+  width: auto;
+  max-width: none;
+  padding-top: 0;
+}
+.cardTip :global(.sn-tip-body) {
+  padding: 7px 10px;
+  font-size: 12px;
+  line-height: 1.4;
 }
 .ringRow {
   display: flex;

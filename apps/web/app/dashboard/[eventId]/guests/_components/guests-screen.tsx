@@ -931,11 +931,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
           </span>
           {cardTip(
             'Total guests',
-            <>
-              Counted from the list just now. The ring is how much of the list has replied — attending in green, not
-              coming in red. Requests come from people who used your event link and are not on the list yet; tap the
-              card to keep them or link them to a name you already have.
-            </>,
+            <>Counted from the list just now. Ring: green attending, red not coming. Tap the card for requests from your event link.</>,
           )}
         </div>
       ),
@@ -954,10 +950,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
           {inviteFoot ? <span className={styles.cardFoot}>{inviteFoot}</span> : null}
           {cardTip(
             'Replies',
-            <>
-              Tap a number to see just those guests; tap it again to see everyone. “To invite” are guests whose
-              invitation has not been sent yet — Invite walks them one at a time.
-            </>,
+            <>Tap a number to see just those guests; again to see everyone. Invite sends to everyone still to invite, one at a time.</>,
           )}
         </div>
       ),
@@ -1012,10 +1005,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
                 </span>
                 {cardTip(
                   '+1s',
-                  <>
-                    +1s: “named” ones have a name, “no name yet” are seats still waiting for one. Tap a part of the bar to
-                    see just those; tap it again to see everyone.
-                  </>,
+                  <>“Named” +1s have a name; “no name yet” seats still wait for one. Tap a part of the bar to see just those.</>,
                 )}
               </div>
             ),

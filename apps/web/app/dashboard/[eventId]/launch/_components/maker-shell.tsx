@@ -335,8 +335,10 @@ export function MakerShell({
   /* 🖨 ONE DOOR EACH WAY (R8, `lib/prints-page.ts`): a print opened in the Maker — an old door, a tour, a tab that
      came back — is the Prints page's; anything but a print opened on the Prints page is the Maker's. Each lands on
      its own page AT THE SAME ITEM (`detailsItemHref` names both), so no door leads to a page that no longer holds it. */
-  const detailsOpen = selection?.kind === 'tool' && selection.key === 'details';
-  const itemElsewhere = hasWork && detailsOpen && detailsItem !== null && isPrintsItem(detailsItem) !== printsPage ? detailsItem : null;
+  /* Read from the ITEM alone, never whether Details is still open: the Stages side's landing rule (`makerDoorLanding`)
+     drops the selection in the same commit a cold door names its item, and the forward must not lose that race. The
+     item is only ever set while Details is open (the workspace tells it), so nothing stale can trigger it. */
+  const itemElsewhere = hasWork && detailsItem !== null && isPrintsItem(detailsItem) !== printsPage ? detailsItem : null;
   /* A whole-page load, never the router: the two are different pages of the app (the Maker's history entry is replaced —
      it never held a print; the Prints page's is kept, so Back returns to Prints). */
   useEffect(() => {

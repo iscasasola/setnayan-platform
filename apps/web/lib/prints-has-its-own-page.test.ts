@@ -243,7 +243,7 @@ test('4 · one door each way inside the app: a print in the Maker loads the page
   const shell = read(`${L}/_components/maker-shell.tsx`);
   assert.match(
     shell,
-    /const itemElsewhere = hasWork && detailsOpen && detailsItem !== null && isPrintsItem\(detailsItem\) !== printsPage \? detailsItem : null;/,
+    /const itemElsewhere = hasWork && detailsItem !== null && isPrintsItem\(detailsItem\) !== printsPage \? detailsItem : null;/,
     'the shell no longer tells a print in the Maker (or a non-print on the Prints page) apart',
   );
   assert.match(shell, /const to = detailsItemHref\(eventId, itemElsewhere\);\s*if \(printsPage\) window\.location\.assign\(to\);\s*else window\.location\.replace\(to\);/);

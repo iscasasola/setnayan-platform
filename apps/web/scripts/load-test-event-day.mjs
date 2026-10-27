@@ -44,6 +44,13 @@ const MODE = args.mode ?? 'after';
 const SCANNERS = Number(args.scanners ?? 4);
 const ANNOUNCE_AT = Number(args['announce-at'] ?? Math.round(RAMP * 0.75));
 const NEXT_DIR = args['next-dir'] ?? '.next';
+/**
+ * `--edge 1` — open the hub the way Vercel's edge serves it AFTER the middleware's rewrite: straight at the cached copy's
+ * address (`/{slug}/cached/{key}`, the key computed here exactly as lib/hub-view-key.ts does). `next start` hands a
+ * rewritten request its ORIGINAL url, so behind the middleware it always renders; Vercel invokes the rewritten path.
+ * Needs the server started with HUB_VIEW_LAB_DIRECT=1 (a lab switch — never set on Vercel).
+ */
+const EDGE = args.edge === '1';
 const SECRET = process.env.GUEST_SESSION_SECRET ?? '';
 
 for (const u of [BASE, STUB]) {
@@ -91,6 +98,9 @@ function passCookie(g) {
   return `setnayan_guest_session=${head}.${body}.${sig}`;
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+/** lib/hub-view-key.ts `hubPassMac`, in node. */
+const hubMac = (guestId, qr) =>
+  crypto.createHmac('sha256', SECRET).update(`hub-view-v1|${guestId.toLowerCase()}|${qr}`).digest().subarray(0, 16).toString('base64url');
 const jitter = (ms) => Math.round(ms * (0.8 + 0.4 * Math.random()));
 const now = () => performance.now();
 
@@ -130,6 +140,10 @@ const hostCookie = await (async () => {
   const k = await (await fetch(`${STUB}/__keys?as=host`)).json();
   return `${k.cookieName}=${k.cookieValue}`;
 })();
+if (EDGE) {
+  const st = await (await fetch(`${STUB}/rest/v1/rpc/event_public_stamp`, { method: 'POST', body: JSON.stringify({ p_slug: SLUG }) })).json();
+  REV = String(st?.[0]?.rev ?? 0);
+}
 await fetch(`${STUB}/__reset`);
 const started = Date.now();
 const until = started + (RAMP + HOLD) * 1000;
@@ -151,10 +165,14 @@ function noteSeen(g, body) {
   }
 }
 
+let REV = '0';
+const hubUrl = (g) =>
+  EDGE ? `${BASE}/${SLUG}/cached/v1.${REV}.g${g.guest_id.replace(/-/g, '')}${hubMac(g.guest_id, g.qr_token)}.000x.-.-` : `${BASE}/${SLUG}`;
+
 async function guest(g, i) {
   await sleep((RAMP * 1000 * i) / Math.max(GUESTS, 1));
   const cookie = passCookie(g);
-  await hit('hub', `${BASE}/${SLUG}`, { headers: { cookie } });
+  await hit('hub', hubUrl(g), { headers: { cookie } });
   noteSeen(g, await announcementRead(g, cookie));
   let wallOpen = true;
   const reopenAt = Date.now() + (until - Date.now()) * Math.random();
@@ -168,7 +186,7 @@ async function guest(g, i) {
     if (Date.now() >= until) break;
     if (!reopened && Date.now() >= reopenAt) {
       reopened = true;
-      await hit('hub', `${BASE}/${SLUG}`, { headers: { cookie } });
+      await hit('hub', hubUrl(g), { headers: { cookie } });
     }
     if (Date.now() >= nextPulse) {
       await hit('pulse', `${BASE}/${SLUG}/live-pulse`, { headers: { cookie } });
@@ -263,6 +281,7 @@ const db = await (await fetch(`${STUB}/__stats`)).json();
 const seen = [...announcement.seenBy.values()].sort((a, b) => a - b);
 const report = {
   mode: MODE,
+  edge: EDGE,
   base: BASE,
   slug: SLUG,
   guests: guests.length,

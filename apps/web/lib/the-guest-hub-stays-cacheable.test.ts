@@ -304,7 +304,7 @@ test('§3 · the route’s own address is refused from outside, and the rewrite 
   assert.ok(isHubViewPath('/maria-and-jose/cached/v1.7.a.-.-.-'));
   assert.ok(!isHubViewPath('/maria-and-jose'));
   const mw = code('middleware.ts');
-  const refuse = mw.indexOf('if (isHubViewPath(pathname)) return new NextResponse(');
+  const refuse = mw.indexOf("if (isHubViewPath(pathname) && process.env.HUB_VIEW_LAB_DIRECT !== '1') return new NextResponse(");
   const rewrite = mw.indexOf('const hubView = await hubViewRewritePath(request);');
   const session = mw.indexOf('const { response, user } = await updateSession(request);');
   assert.ok(refuse > 0 && rewrite > refuse && session > rewrite, 'refuse the cached path, then rewrite, then refresh the session');

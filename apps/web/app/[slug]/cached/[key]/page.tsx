@@ -36,13 +36,21 @@ export function generateStaticParams(): Array<{ slug: string; key: string }> {
 
 type Props = { params: Promise<{ slug: string; key: string }> };
 
-type Resolved = { viewer: CachedHubViewer; eventId: string; tab: string | null };
+type Resolved = { viewer: CachedHubViewer; eventId: string | null; tab: string | null };
 
 /** The key → the viewer this copy is for. `null` = not a key we made / not an event (404). Throws on a failed read. */
 const resolve = cache(async (slug: string, rawKey: string): Promise<Resolved | null> => {
   const key = parseHubViewKey(rawKey);
   if (!key) return null;
-  const event = await loadEventShell(slug);
+  let event: Awaited<ReturnType<typeof loadEventShell>>;
+  try {
+    event = await loadEventShell(slug);
+  } catch {
+    // ⏱ The event did not answer (a stalled database). Draw nobody's page and let the page's OWN read of the same
+    // (`cache()`d, so equally failed) event say its honest words through its bounded wait — never a bare 500 from here,
+    // and never a stranger's page under a guest's key: the page throws before it draws anything for anyone.
+    return { viewer: { pass: null, ua: null }, eventId: null, tab: key.tab };
+  }
   if (!event?.event_id) return null;
   let pass: CachedHubViewer['pass'] = null;
   if (key.viewer.kind === 'guest') {
@@ -86,7 +94,7 @@ export default async function CachedEventHub({ params }: Props) {
   const r = await resolve(slug, key);
   if (!r) notFound();
   holdCachedHubViewer(r.viewer);
-  await wearTheEventsTag(r.eventId);
+  if (r.eventId) await wearTheEventsTag(r.eventId);
   return PublicInvitationPage({
     params: Promise.resolve({ slug }),
     searchParams: Promise.resolve(r.tab ? { tab: r.tab } : {}),

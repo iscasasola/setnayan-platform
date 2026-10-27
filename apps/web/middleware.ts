@@ -450,7 +450,10 @@ async function middlewareCore(request: NextRequest) {
 
   // 🗄 THE CACHED EVENT HUB (EV1 · owner 2026-10-28: "Our priority is not crash any event hub most specially during
   // their event"). Its own address is never served to the outside — only this rewrite reaches it.
-  if (isHubViewPath(pathname)) return new NextResponse('Not found', { status: 404 });
+  // (A LAB build may ask it directly — `HUB_VIEW_LAB_DIRECT=1`, never set on Vercel — to show the copy being served the
+  // way Vercel's edge serves it after this rewrite; `next start` hands the route its ORIGINAL url, so a rewrite there
+  // always renders. See scripts/load-test-event-day.mjs.)
+  if (isHubViewPath(pathname) && process.env.HUB_VIEW_LAB_DIRECT !== '1') return new NextResponse('Not found', { status: 404 });
   // A guest's or a stranger's `/{slug}` — no session, no host preview, no one-shot flash — is answered from the copy
   // cached for THEIR key (lib/hub-view-route.ts); everyone else falls through to the live render below. Before
   // `updateSession` on purpose: such a request carries no Supabase session, so there is nothing for it to refresh.

@@ -1,11 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Megaphone } from 'lucide-react';
-import { createClient } from '@/lib/supabase/client';
-import { pauseWhileHidden } from '@/lib/tab-return';
-import { latestAnnouncementForGuest } from '../announcement-actions';
-import { herdDelay } from '@/lib/live-day-timing';
+import { jittered } from '@/lib/live-day-timing';
 import { AnnouncementLine, AnnouncementNotice } from './announcement-styles';
 
 /**
@@ -42,106 +39,104 @@ import { AnnouncementLine, AnnouncementNotice } from './announcement-styles';
  * two-way belongs in the coordinator's own surfaces, not on a wedding page a
  * guest opened to find their table.
  *
- * ── IT ARRIVES ON ITS OWN NOW (2026-08-05) ──────────────────────────────────
- * It used to be resolved once, server-side, at render. So the message reached
- * only the guests who happened to reload — and nobody reloads a page they are
- * already looking at. "Phones down, the ceremony is starting" is worth nothing
- * five minutes late.
- *
- * Two things bring it in, and the ORDER MATTERS:
- *   1. a Supabase `broadcast` ping on this event's channel — instant, and
- *      carrying NO TEXT (see announcement-actions.ts for why);
- *   2. a slow poll, because venue wifi drops channels constantly. The ping is
- *      a hint; the timer is the guarantee. A dropped channel costs latency,
- *      never the message.
- *
- * The server-rendered `body` seeds it, so the first paint is unchanged and a
- * guest who lands mid-announcement still sees it with no round-trip.
+ * ── HOW IT ARRIVES NOW: ONE SMALL ASK, NO LIVE CONNECTION (EV1, 2026-10-28) ─
+ * Owner, 2026-10-28 (DECISION_LOG "NO EVENT HUB MAY CRASH"): *guests never hold
+ * a live connection* — and *"Our priority is not crash any event hub most
+ * specially during their event"*. It used to be read by the layout at render
+ * (so every guest page rendered per request), kept fresh by a Supabase
+ * Realtime channel PER GUEST (Realtime was >10× all other database time in the
+ * 2026-10-18 audit) and a 45 s server-action pull. Now the card asks ONE small
+ * route, `GET /{slug}/announcement` (route.ts beside the page — guests of this
+ * event only, one remembered answer per event):
+ *   · the moment the page opens, and the moment a pocketed phone is looked at;
+ *   · every ~30 s (± 20 %, so the venue's phones drift apart) while it is
+ *     looked at — a hidden tab asks nothing;
+ *   · after a failed ask, a little later each time (to 5 minutes), so a venue
+ *     whose Wi-Fi is down is not hammered the moment it comes back.
+ * Only ever REPLACED with something real: a failed ask never blanks a standing
+ * "phones down" off a guest's screen — an empty answer and a broken one are not
+ * the same thing, and this one is safety-adjacent.
  */
-/** After the coordinator's ping, each phone asks somewhere inside this window — never all at once. */
-const PING_SPREAD_MS = 3_000;
+export const ANNOUNCEMENT_POLL_MS = 30_000;
+const ANNOUNCEMENT_BACKOFF_MAX_MS = 5 * 60_000;
 
 export function DayOfAnnouncement({
-  body,
-  eventId,
+  slug,
   stage = 'live',
   sceneStyle = null,
+  look = null,
 }: {
-  body: string;
-  /** Which event to listen on. Absent → the component stays exactly as it was,
-   *  server-rendered and static, so nothing regresses if a caller forgets. */
-  eventId?: string;
-  /** 'live' = the day-of look (default, so no caller regresses); 'before' =
-   *  the calm Invitation-stage look. The layout resolves it. */
+  /** The event's address — the card asks `/{slug}/announcement`. */
+  slug: string;
+  /** 'live' = the day-of look (default); 'before' = the calm Invitation-stage look. The layout resolves it. */
   stage?: 'before' | 'live';
   /** 🎨 `banner` (the default) · `notice` · `line` — `announcement-styles.tsx`. Same words, same tones. */
   sceneStyle?: string | null;
+  /** 🧱 The block's own look (`AnnouncementLook`), drawn right before the card — only when there is a card. */
+  look?: ReactNode;
 }) {
-  const [text, setText] = useState(body);
-  // The server value wins on navigation — otherwise a guest moving between
-  // pages would keep whatever the last subscription happened to fetch.
-  const seeded = useRef(body);
-  if (seeded.current !== body) {
-    seeded.current = body;
-    if (text !== body) setText(body);
-  }
+  const [text, setText] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!eventId) return;
     let alive = true;
+    let timer: number | null = null;
+    let failures = 0;
 
     const pull = async () => {
-      // A pocketed phone asks nothing (2026-10-18, live-day polling) — the visibility handler below catches it up the
-      // moment it is looked at. It used to keep asking every 45 s from a pocket all reception long.
       if (document.visibilityState !== 'visible') return;
       try {
-        const latest = await latestAnnouncementForGuest(eventId);
-        // Only ever REPLACE with something real. A failed read must not blank a
-        // standing "phones down" off a guest's screen — the same rule the rest
-        // of the guest site follows: an empty answer and a broken one are not
-        // the same thing, and this one is safety-adjacent.
-        if (alive && latest?.body) setText(latest.body);
+        // No request cache directive — see lib/live-day-cache.ts `liveEdgeHeaders`.
+        const res = await fetch(`/${encodeURIComponent(slug)}/announcement`);
+        if (!res.ok) throw new Error(String(res.status));
+        const answer = (await res.json()) as { body?: string | null };
+        failures = 0;
+        if (alive && typeof answer.body === 'string' && answer.body.trim()) setText(answer.body);
       } catch {
-        // Venue wifi. The next tick covers it.
+        failures += 1; // Venue Wi-Fi — the next ask, a little later, covers it.
       }
     };
 
-    const pingTimers: number[] = [];
-    const supabase = createClient();
-    // 🔌 A pocketed phone lets the channel go after a while (`pauseWhileHidden`); the visibility handler below pulls
-    // the moment it is looked at, so a ping missed in the pocket is a message read on the way out of it.
-    const stopChannel = pauseWhileHidden(() => {
-      const channel = supabase
-        .channel(`announce:${eventId}`)
-        .on('broadcast', { event: 'announcement' }, () => {
-          // The ping reaches EVERY guest's phone in the same instant. Each waits a random moment (< 3 s) before asking,
-          // so the venue's phones reach the server spread out instead of all at once (lib/live-day-timing.ts).
-          pingTimers.push(window.setTimeout(() => void pull(), herdDelay(PING_SPREAD_MS)));
-        })
-        .subscribe();
-      return () => supabase.removeChannel(channel);
-    });
+    const schedule = () => {
+      const wait = Math.min(ANNOUNCEMENT_POLL_MS * 2 ** failures, ANNOUNCEMENT_BACKOFF_MAX_MS);
+      timer = window.setTimeout(() => {
+        timer = null;
+        void pull().finally(() => {
+          if (alive) schedule();
+        });
+      }, jittered(wait));
+    };
 
-    // 45s: slow enough to be invisible on a phone battery through a reception,
-    // fast enough that a dropped channel is a delay and not a silence.
-    const timer = window.setInterval(() => void pull(), 45_000);
     const onVisible = () => {
       if (document.visibilityState === 'visible') void pull();
     };
-    document.addEventListener('visibilitychange', onVisible);
 
+    void pull();
+    schedule();
+    document.addEventListener('visibilitychange', onVisible);
     return () => {
       alive = false;
-      window.clearInterval(timer);
-      pingTimers.forEach((t) => window.clearTimeout(t));
+      if (timer !== null) window.clearTimeout(timer);
       document.removeEventListener('visibilitychange', onVisible);
-      stopChannel();
     };
-  }, [eventId]);
+  }, [slug]);
 
-  if (sceneStyle === 'notice') return <AnnouncementNotice body={text} stage={stage} />;
-  if (sceneStyle === 'line') return <AnnouncementLine body={text} stage={stage} />;
-  return <AnnouncementCard body={text} stage={stage} />;
+  if (!text) return null;
+  const card =
+    sceneStyle === 'notice' ? (
+      <AnnouncementNotice body={text} stage={stage} />
+    ) : sceneStyle === 'line' ? (
+      <AnnouncementLine body={text} stage={stage} />
+    ) : (
+      <AnnouncementCard body={text} stage={stage} />
+    );
+  /* On the day it is sticky so it follows the reader down a long page — the guest who needs "phones down" is the one
+     already scrolled into their seat card. Before the day it sits at the top, in flow. */
+  return (
+    <div className={stage === 'live' ? 'sticky top-0 z-50' : undefined}>
+      {look}
+      {card}
+    </div>
+  );
 }
 
 function AnnouncementCard({ body, stage }: { body: string; stage: 'before' | 'live' }) {

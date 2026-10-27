@@ -1,15 +1,11 @@
-import { createAdminClient } from '@/lib/supabase/admin';
-import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
-import { calendarDayInZone, getDayOfPhase } from '@/lib/day-of-mode';
-import { isFinishedEvent } from '@/lib/event-board';
-import { announcementStage, type AnnouncementStage } from '@/lib/coordinator-broadcasts';
-import { readGuestSession } from '@/lib/guest-session';
+import { type AnnouncementStage } from '@/lib/coordinator-broadcasts';
+import { announcementStageOf } from './_lib/latest-announcement.server';
 import { DayOfAnnouncement } from './_components/day-of-announcement';
 import { AnnouncementLook } from './_components/announcement-look';
 import { GuestLookScope } from './_components/guest-look-scope';
 import { lookScopeProps } from './_components/host-draft-look';
 import { fixedSceneStyleOf } from '@/lib/fixed-scene-style-of';
-import { loadDayOfBroadcast, loadEventShell, loadGuestLook, type GuestLook } from './_lib/loaders';
+import { loadEventShell, loadGuestLook, type GuestLook } from './_lib/loaders';
 import { withGuestReadLimitQuiet } from '@/lib/read-limit';
 
 /**
@@ -86,18 +82,19 @@ import { withGuestReadLimitQuiet } from '@/lib/read-limit';
  * UTC once decided what time it was at a wedding in Manila and got it eight
  * hours wrong (see page.tsx's "two clocks" note).
  *
- * ⛔ GUESTS ONLY — THIS GATE IS THE WHOLE REASON THE LIFT IS NOT A ONE-LINER.
+ * ⛔ GUESTS ONLY — AND SINCE EV1 (2026-10-28) THE GATE IS ASKED BY THE CARD, NOT HERE.
  * `day-of-announcement.test.ts` pins the ruling: *"An announcement is for the
  * people in the room; 'the ceremony is running late' is not for whoever was
- * forwarded the URL."* In `site-body.tsx` that gate was STRUCTURAL — the mount
- * sat inside the guest tree, so anonymous visitors could not reach it. A
- * layout wraps everyone, anonymous visitors included, so the gate has to be
- * asked for explicitly here or the lift would publish the coordinator's words
- * to anybody holding the link.
- *
- * The session must also be for THIS event: a guest of one wedding holding a
- * cookie must not read another couple's announcements. Same comparison
- * `page.tsx` makes for the ask-the-band door.
+ * forwarded the URL."* This layout used to ask it by reading the guest's cookie
+ * — which made EVERY page under it render per request, the Event Hub included,
+ * and the hub could never be served from the cache on the day (owner: *"Our
+ * priority is not crash any event hub most specially during their event"*).
+ * The card (`DayOfAnnouncement`, a client component) now asks
+ * `GET /{slug}/announcement`, and THAT route holds the gate: a current pass for
+ * THIS event, or a signed-in viewer `readGuestSession` admits for it
+ * (`_lib/latest-announcement.server.ts`). A stranger is answered `{ body: null }`
+ * — the same answer as "nothing was said" — so the layout's HTML carries no
+ * words at all, for anyone.
  *
  * ⚠ This layout does NOT re-implement the preview override (`forcedPhase`)
  * that `page.tsx` applies. Here only the real clock counts, which is the
@@ -122,7 +119,6 @@ type GuestTreeLayoutProps = {
 async function guestTreeLayout({ children, params }: GuestTreeLayoutProps) {
   const { slug } = await params;
 
-  let broadcast: { body: string; createdAt: string } | null = null;
   let eventId: string | null = null;
   let stage: AnnouncementStage = 'before';
   /** 🎨 The couple's pick for the announcement's shape (`style_preferences.scene_styles`). */
@@ -134,28 +130,11 @@ async function guestTreeLayout({ children, params }: GuestTreeLayoutProps) {
     const event = await loadEventShell(slug);
     if (event?.event_id) {
       eventId = event.event_id;
-      // GUESTS ONLY, and only a guest of THIS event.
-      const session = await readGuestSession();
-      const isThisEventsGuest = session?.event_id === event.event_id;
-      const venueTz = eventTimezoneFromCoords(
-        event.venue_latitude,
-        event.venue_longitude,
-      );
-      const phase = event.event_date
-        ? getDayOfPhase(event.event_date, venueTz)
-        : 'inactive';
-      // "Over" is the board's own definition (last day passed, venue calendar)
-      // — never a second one. The shell does not carry `archived`; an archived
-      // event's guests are the couple's call elsewhere, not this banner's.
-      const ended = isFinishedEvent(
-        {
-          event_date: event.event_date,
-          event_end_date: event.event_end_date,
-          archived: null,
-        },
-        calendarDayInZone(venueTz),
-      );
-      stage = announcementStage(phase, ended);
+      // 🗄 NO VIEWER IS READ HERE (EV1, 2026-10-28). The guests-only gate moved to the route the card asks
+      // (`announcement/route.ts`), so this layout — and every page under it, the Event Hub included — reads nothing
+      // from the request and can be served from the cache. What is decided here is the event's alone: the stage
+      // (the venue's clock + the board's "is it over" — `announcementStageOf`, the route's own rule) and the look.
+      stage = announcementStageOf(event);
       // Before the day it sits over the Invitation; on it, over The Day.
       stylePreferences = (event as { style_preferences?: unknown }).style_preferences;
       announcementStyle = fixedSceneStyleOf(
@@ -164,14 +143,11 @@ async function guestTreeLayout({ children, params }: GuestTreeLayoutProps) {
         stage === 'live' ? 'event' : 'rsvp',
         event.event_type ?? null,
       );
-      broadcast = isThisEventsGuest
-        ? await loadDayOfBroadcast(createAdminClient(), event.event_id, stage)
-        : null;
     }
   } catch {
     // Best-effort, deliberately silent: the announcement is an addition to the
     // page, never a precondition for it.
-    broadcast = null;
+    eventId = null;
   }
 
   // THE COUPLE'S LOOK — best-effort for the same reason: a page in the house
@@ -194,18 +170,15 @@ async function guestTreeLayout({ children, params }: GuestTreeLayoutProps) {
           needs "phones down" is the one already scrolled into their seat
           card. Before the day it sits at the top, in flow: a week out, nothing
           is urgent enough to ride over the couple's invitation. */}
-      {broadcast && eventId ? (
-        <div className={stage === 'live' ? 'sticky top-0 z-50' : undefined}>
-          {/* 🧱 Its own Animate and Background (`lib/block-looks.ts`): the block's style and mark, right before its
-              root — only when the couple kept a look for it. */}
-          <AnnouncementLook stylePreferences={stylePreferences} />
-          <DayOfAnnouncement
-            body={broadcast.body}
-            eventId={eventId}
-            stage={stage === 'live' ? 'live' : 'before'}
-            sceneStyle={announcementStyle}
-          />
-        </div>
+      {eventId && stage !== 'after' ? (
+        <DayOfAnnouncement
+          slug={slug}
+          stage={stage === 'live' ? 'live' : 'before'}
+          sceneStyle={announcementStyle}
+          // 🧱 Its own Animate and Background (`lib/block-looks.ts`): the block's style and mark, right before its
+          // root — only when the couple kept a look for it, and only drawn once there are words to show.
+          look={<AnnouncementLook stylePreferences={stylePreferences} />}
+        />
       ) : null}
       {children}
     </GuestLookScope>

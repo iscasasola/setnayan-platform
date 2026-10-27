@@ -11,6 +11,9 @@
  *   ?shop=<name>        they own a shop of this name (default: none)
  *   ?groups=1           they organize two groups (owner 2026-10-28, "Your groups" — prototype who_is_it_for_2026-10-28)
  *   ?for=<row id>       open on that "For ▾" row (`self` · `unspecified` · `business` · `memorial` · `group:g-batch`)
+ *   ?settings=generic   instead of the grid: Event settings' "Kind of event" line on an existing generic event
+ *   ?settings=asked     … on an event whose host's ask ("Alumni homecoming") is now added
+ *                       (its pick calls the REAL action, which — with no database — answers with its own refusal)
  *
  * "Celebration" is listed with `enabled: false` and filtered exactly as `getCreatableEventTypes` filters production
  * (migration 20271294233183 hides it from couples — owner 2026-10-28, "Celebration removed").
@@ -20,6 +23,8 @@ import { EventTypePicker } from '@/app/dashboard/(account)/create-event/_compone
 import type { EventTypeRow } from '@/app/dashboard/(account)/create-event/_components/event-types';
 import { buildCreateRoster, buildGroupSubject, buildSelfSubject } from '@/lib/create-subjects';
 import { manilaToday } from '@/lib/std-views';
+import { EventKindLine } from '@/app/dashboard/[eventId]/details/_components/event-kind-line';
+import { eventKindChoices } from '@/lib/event-type-requests';
 
 export const dynamic = 'force-dynamic';
 
@@ -65,10 +70,34 @@ const GROUPS = [
 export default async function CreateForLab({
   searchParams,
 }: {
-  searchParams: Promise<{ birth?: string; sex?: string; shop?: string; groups?: string; for?: string }>;
+  searchParams: Promise<{ birth?: string; sex?: string; shop?: string; groups?: string; for?: string; settings?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
+  if (sp.settings === 'generic' || sp.settings === 'asked') {
+    const generic = sp.settings === 'generic';
+    const creatable = [
+      ...TYPES.filter(([k]) => !NOT_IN_THE_PICKER.has(k)).map(([key, label]) => ({ key, label })),
+      ...(generic ? [] : [{ key: 'alumni_homecoming', label: 'Alumni homecoming' }]),
+    ];
+    const choices = eventKindChoices({
+      eventType: generic ? 'celebration' : 'reunion',
+      eventCreatedAt: '2026-10-28T10:00:00Z',
+      creatable,
+      myAsks: generic
+        ? []
+        : [{ status: 'added', event_type: 'alumni_homecoming', created_at: '2026-10-28T09:00:00Z', label: 'Alumni homecoming' }],
+    });
+    return (
+      <div className="mx-auto w-full max-w-md px-4 py-10">
+        <p className="mb-4 text-xs uppercase tracking-[0.14em] text-ink/50">Event settings (lab)</p>
+        <EventKindLine
+          eventId="lab-event"
+          kind={{ generic, currentLabel: generic ? 'Celebration' : 'Reunion', choices }}
+        />
+      </div>
+    );
+  }
   const types: EventTypeRow[] = TYPES.map(([key, label, emoji, forWhom]) => ({
     key,
     label,

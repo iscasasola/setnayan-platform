@@ -26,6 +26,9 @@
  *                   maria-and-jose's roster, with a stand-in shell bar and
  *                   dock: &gview=map for the map, &q=… to search, &empty=1 for
  *                   an empty list, &fail=1 for a refused read
+ *   &req=0          (screen) no requests to join waiting — the carousel's card ① says "No requests waiting"
+ *   &oneqr=1        (screen) a one-link event with no list to walk (just the couple): card ② reads
+ *                   "One link for everyone · Share" (owner 2026-10-27, "THE SEND RUN ALSO SERVES A ONE-QR EVENT")
  *   &low=1          push the card's ticket row to the bottom of a short phone
  *                   (375×667), where a menu has no room under it
  *   ?part=setup     Guests ⚙ (settings per menu, 2026-10-27; was Guests › Setup) — the REAL `GuestSetupRows` on
@@ -784,7 +787,7 @@ export default async function GuestsLabPage({
                   <GuestsScreen
                     eventId={EVENT}
                     gview={gview}
-                    guests={empty || fail ? [] : roster}
+                    guests={empty || fail ? [] : sp.oneqr === '1' ? roster.filter((g) => g.role === 'bride' || g.role === 'groom') : roster}
                     measured={!fail}
                     hasSides
                     groupsByGuest={GROUPS}
@@ -801,7 +804,8 @@ export default async function GuestsLabPage({
                     songsByGuest={{}}
                     linkedGuestIds={roster.filter((_, i) => i % 2 === 0).map((g) => g.guest_id)}
                     faceByGuest={{}}
-                    requests={3}
+                    requests={sp.req === '0' ? 0 : 3}
+                    oneQr={sp.oneqr === '1'}
                     titlesWaiting={sp.titles === '1' ? LAB_TITLES_WAITING : []}
                     rootLabel="Maria & Jose"
                     initialQuery={typeof sp.q === 'string' ? sp.q : ''}

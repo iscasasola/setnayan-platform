@@ -1,7 +1,7 @@
 /*
  * snap-carousel.module.css — 🎠 the one carousel (owner 2026-10-27, "snap to center with a small part peaking and
- * continuous not end to end"). A card is the track's width less a peek and a gap on EACH side; the track pads by the same,
- * so the first and last slots can also sit in the centre. 🔒 lib/every-carousel-snaps-to-centre-and-loops.test.ts
+ * continuous not end to end"). The track pads by a peek and a gap on EACH side and a card is its whole content box, so
+ * the centred card leaves exactly `--sc-peek` of each neighbour in sight (and the end slots can also sit in the centre). 🔒 lib/every-carousel-snaps-to-centre-and-loops.test.ts
  */
 .carousel {
   --sc-peek: 18px;
@@ -24,7 +24,8 @@
   display: none;
 }
 .slide {
-  flex: 0 0 calc(100% - 2 * (var(--sc-peek) + var(--sc-gap)));
+  /* 100% of the track's CONTENT box — the track's own padding is the peek + gap on each side. */
+  flex: 0 0 100%;
   min-width: 0;
   display: flex;
   scroll-snap-align: center;

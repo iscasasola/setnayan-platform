@@ -72,8 +72,8 @@ test('centre snap, one card per swipe, a peek on both sides — plain CSS scroll
   assert.match(CSS, /\.track \{[^}]*scroll-snap-type: x mandatory;/);
   assert.match(CSS, /\.slide \{[^}]*scroll-snap-align: center;/, 'a card does not snap to the centre');
   assert.match(CSS, /\.slide \{[^}]*scroll-snap-stop: always;/, 'a fling can skip cards (and run past the copies)');
-  // The peek: a card is the track less a peek and a gap on EACH side, and the track pads by the same.
-  assert.match(CSS, /\.slide \{[^}]*flex: 0 0 calc\(100% - 2 \* \(var\(--sc-peek\) \+ var\(--sc-gap\)\)\);/, 'no peek on both sides');
+  // The peek: the track pads by a peek and a gap on EACH side, and a card is its whole content box.
+  assert.match(CSS, /\.slide \{[^}]*flex: 0 0 100%;/, 'a card is not the track’s content box — the peek is not the padding');
   assert.match(CSS, /\.track \{[^}]*padding-inline: calc\(var\(--sc-peek\) \+ var\(--sc-gap\)\);/);
   assert.match(CSS, /--sc-peek: \d+px;/);
   assert.doesNotMatch(SRC, /from ['"](swiper|embla|keen-slider|react-slick|flickity)/, 'a carousel library');

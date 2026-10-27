@@ -17,7 +17,7 @@
  *
  * Sabotage (2026-10-28, each seen red, then restored): 'rsvp' put back in `STUDIO_TILE_KEYS` → 1 red · the launch
  * page's forward removed → 2 red · `rsvp` part's source back to `studio:rsvp` → 3 red · the `guests` door dropped from
- * the guided 'reply-by' step → 4 red · the How guests answer row dropped from `GuestSetupRows` → 5 red.
+ * the guided 'reply-by' step → 4 red · the How guests answer row’s key renamed in `GuestSetupRows` → 5 red.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';

@@ -12,8 +12,14 @@
  *   ?send=fail      Send fails on the server → "Not sent · Try again"; default: it succeeds after 600 ms
  *   ?delay=<ms>     the server takes this long to answer (default 0) — what the instant open is measured against
  *   ?expiry=1       the event was 80 days ago → the files-rule line "These files go on <date>. Save any you need."
+ *
+ * The real thread routes' `loading.tsx` is `ThreadArrival`; this lab has NO loading.tsx (a dev route under a loading
+ * boundary that 404s in production would stream a 200 first — `the-press-commits-now.test.ts`). It draws the same
+ * `ThreadArrival` as a Suspense fallback instead, AFTER the production 404, so `?delay=` still shows the instant open.
  */
 import { notFound } from 'next/navigation';
+import { Suspense } from 'react';
+import { ThreadArrival } from '@/app/_components/chat/thread-arrival';
 import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
 import { LabShell } from '@/app/dev/_components/lab-shell';
@@ -33,14 +39,23 @@ import { dealEntryFor } from '@/lib/deal-entry';
 import { initialsFor } from '@/lib/conversation-list';
 import { LAB_EVENT, LAB_MESSAGES, LAB_STAFF, LAB_THREADS, LAB_USER } from '../../fixtures';
 
-export default async function ChatLabThreadPage({
-  params,
-  searchParams,
-}: {
+type LabProps = {
   params: Promise<{ threadId: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
-}) {
+};
+
+export default async function ChatLabThreadPage({ params, searchParams }: LabProps) {
   if (process.env.NODE_ENV === 'production') notFound();
+  return (
+    <LabShell eventId={LAB_EVENT}>
+      <Suspense fallback={<ThreadArrival />}>
+        <LabThread params={params} searchParams={searchParams} />
+      </Suspense>
+    </LabShell>
+  );
+}
+
+async function LabThread({ params, searchParams }: LabProps) {
   const { threadId } = await params;
   const sp = await searchParams;
   const one = (k: string) => (typeof sp[k] === 'string' ? (sp[k] as string) : '');
@@ -66,7 +81,7 @@ export default async function ChatLabThreadPage({
   }
 
   return (
-    <LabShell eventId={LAB_EVENT}>
+    <>
       <ThreadToolHashReveal />
       <div className="flex h-[calc(100dvh-12rem)] min-h-[27rem] gap-4">
         <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
@@ -133,6 +148,6 @@ export default async function ChatLabThreadPage({
           </ChatBox>
         </section>
       </div>
-    </LabShell>
+    </>
   );
 }

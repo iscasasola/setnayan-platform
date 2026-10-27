@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Ban, ExternalLink, Flag, Info, RotateCcw, X } from 'lucide-react';
+import { Ban, ExternalLink, Flag, MoreVertical, RotateCcw, X } from 'lucide-react';
 import { blockUser, reportUser, unblockUser } from '@/lib/chat-actions';
 import { useOneOpen } from '@/lib/one-open';
 
@@ -57,10 +57,11 @@ export function ChatThreadMenu({
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label="About this chat"
-        /* ⓘ — the head's one action (chat prototype 2026-10-28, frame B; no 📞, no video). Same menu as the ⋮ was. */
+        /* The head's one action (chat prototype 2026-10-28, frame B draws ⓘ; no 📞, no video). It stays ⋮: the house
+           keeps the ⓘ glyph for InfoTip/Explain only (`there-is-one-info-dot.test.ts`) — a menu is not a tip. */
         className="grid h-11 w-11 place-items-center rounded-full text-ink/60 hover:bg-ink/5 hover:text-ink"
       >
-        <Info aria-hidden className="h-[22px] w-[22px] text-sn-accent" strokeWidth={1.9} />
+        <MoreVertical aria-hidden className="h-[22px] w-[22px] text-sn-accent" strokeWidth={1.9} />
       </button>
 
       {open ? (

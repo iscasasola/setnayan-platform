@@ -24,12 +24,7 @@ import {
   maybeRunSamahanStorySweep,
   type SamahanStory,
 } from '@/lib/samahan-stories';
-import {
-  deleteSamahanMessage,
-  leaveCommunity,
-  postSamahanMessage,
-  rotateInviteToken,
-} from '../actions';
+import { leaveCommunity, rotateInviteToken } from '../actions';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { SamahanIdentityHeader } from './_components/samahan-identity-header';
 import { MemberActionsMenu } from './_components/member-actions-menu';
@@ -41,30 +36,29 @@ import {
   type EventMemberType,
 } from './_components/group-home';
 import { formatCount } from '@/lib/format-number';
-import { PEOPLE_GROUPS_HREF } from '@/lib/people-views';
 
 export const metadata = {
   title: 'Group',
 };
 
-// The group page (owner 2026-10-26: "a place for chat, events and stories. that's it") — ONE page, no tab bar:
-// the group's face, its members (with "Bring people in"), Events, Stories, Chat (`GroupHome`, drawn from
-// prototypes/group_samahan_2026-10-25). The three lists that do not fit a phone's first screen are ONE TAP IN, at
-// the `?tab=` addresses the old tabs used — every redirect in ../actions.ts, the Usapan notice
-// (lib/samahan-notice-rules.ts) and the create-event back link already write them, so none of them lands on a dead
-// page:
-//   ?tab=usapan  → the chat            ?tab=members → the full list + Bring people in (#bring-in)
+// The group page IS A CHATROOM (owner 2026-10-28: "groups should look like a chatroom with stories and events. all
+// stories will run in a collage every hour" → "Groups chatroom approved"; prototypes/groups_chatroom_2026-10-28):
+// ‹ People · the group + ⋯ · the Stories strip · the next event pinned · the chat (`GroupHome` → `GroupChatroom`).
+// The lists that do not fit are ONE TAP IN from ⋯, at the `?tab=` addresses the old tabs used — every redirect in
+// ../actions.ts, the Usapan notice (lib/samahan-notice-rules.ts) and the create-event back link already write them,
+// so none of them lands on a dead page:
+//   ?tab=usapan  → the group page (the chat IS the page now)
+//   ?tab=members → the full list + Bring people in (#bring-in) + the group's photo and name
 //   ?tab=events  → every event         ?tab=overview (or anything else) → the group page
 // Membership gate: fetchCommunity returns null (RLS hides the row) → notFound().
 //
 // RA 10173 (plan §9): the members list renders display_name + role + join date ONLY — never email, never photo,
 // never an auth UUID in the DOM; organizer action forms target the bigserial member_row_id.
 
-const VIEWS = ['usapan', 'members', 'events'] as const;
+const VIEWS = ['members', 'events'] as const;
 type View = (typeof VIEWS)[number] | 'home';
 
 const VIEW_TITLE: Record<Exclude<View, 'home'>, string> = {
-  usapan: 'Chatroom',
   members: 'Members',
   events: 'Events',
 };
@@ -114,11 +108,11 @@ export default async function SamahanSpacePage({
   const isOrganizer = community.role === 'organizer';
   const base = `/dashboard/samahan/${community.community_id}`;
 
-  // Per-view data — the group page reads what its four parts draw (the roster for the members row, the events, the
-  // stories, the newest message); each one-tap view reads only its own list.
+  // Per-view data — the chatroom reads the events (pinned + cards), the stories (the strip + the hourly collage) and
+  // Usapan; each one-tap view reads only its own list. `?tab=usapan` is not a view any more, so it opens the chatroom.
   const home = view === 'home';
   const [roster, events, viewerMemberships, inviteToken, stories, messages] = await Promise.all([
-    home || view === 'members'
+    view === 'members'
       ? fetchCommunityRoster(supabase, createAdminClient(), communityId, user.id)
       : Promise.resolve([] as CommunityRosterEntry[]),
     home || view === 'events'
@@ -133,9 +127,9 @@ export default async function SamahanSpacePage({
     home
       ? fetchSamahanStories(supabase, createAdminClient(), communityId, user.id)
       : Promise.resolve([] as SamahanStory[] | null),
-    home || view === 'usapan'
+    home
       ? fetchSamahanMessages(supabase, createAdminClient(), communityId, user.id)
-      : Promise.resolve([] as SamahanMessage[]),
+      : Promise.resolve([] as SamahanMessage[] | null),
   ]);
 
   // Cron-free expiry sweep, fired from the surface whose audience visits —
@@ -163,17 +157,59 @@ export default async function SamahanSpacePage({
   // When the count was refused, say nothing rather than a figure.
   const memberCount = community.member_count_measured === false ? null : community.member_count;
 
-  let body: React.ReactNode;
+  const initial = community.name.trim().charAt(0).toUpperCase() || 'S';
+  // Group photo (owner 2026-08-24): r2:// ref presigned server-side; a
+  // legacy/absent value falls back to the initial chip unchanged.
+  const photoDisplayUrl =
+    home || view === 'members' ? await displayUrlForStoredAsset(community.photo_url) : null;
+
+  const notice = (
+    <>
+      {successMessage ? (
+        <p role="status" className="mt-2 text-sm text-ink/75">
+          {successMessage}
+        </p>
+      ) : null}
+      {errorMessage ? (
+        <p role="alert" className="mt-2 text-sm text-terracotta-700">
+          {errorMessage}
+        </p>
+      ) : null}
+    </>
+  );
+
   if (home) {
-    const initial = community.name.trim().charAt(0).toUpperCase() || 'S';
-    // Group photo (owner 2026-08-24): r2:// ref presigned server-side; a
-    // legacy/absent value falls back to the initial chip unchanged.
-    const photoDisplayUrl = await displayUrlForStoredAsset(community.photo_url);
+    return (
+      <div className="mx-auto w-full max-w-2xl px-4 pt-4 sm:px-6 lg:px-8">
+        <GroupHome
+          base={base}
+          communityId={community.community_id}
+          name={community.name}
+          photoDisplayUrl={photoDisplayUrl}
+          initial={initial}
+          isOrganizer={isOrganizer}
+          memberCount={memberCount}
+          events={events}
+          viewerMemberships={viewerMemberships}
+          stories={stories ?? []}
+          storiesUnreadable={stories === null}
+          messages={messages ?? []}
+          messagesUnreadable={messages === null}
+          nowMs={Date.now()}
+          notice={notice}
+        />
+      </div>
+    );
+  }
+
+  let body: React.ReactNode;
+  if (view === 'members') {
     body = (
-      <GroupHome
-        header={
-          // The samahan's face, edited WHERE IT IS (owner 2026-08-24: "click on this image to upload photo? … taps
-          // the text to rename as well?"). The one line under the name is the group's description.
+      <>
+        {/* The samahan's face, edited WHERE IT IS (owner 2026-08-24: "click on this image to upload photo? … taps the
+            text to rename as well?") — at the top of Members since the chatroom (2026-10-28): anyone can rename the
+            group or change its photo, and the line under the list says so. */}
+        <div className="mb-3">
           <SamahanIdentityHeader
             communityId={community.community_id}
             name={community.name}
@@ -186,23 +222,7 @@ export default async function SamahanSpacePage({
               ) : null
             }
           />
-        }
-        base={base}
-        communityId={community.community_id}
-        isOrganizer={isOrganizer}
-        memberCount={memberCount}
-        roster={roster}
-        events={events}
-        viewerMemberships={viewerMemberships}
-        stories={stories ?? []}
-        storiesUnreadable={stories === null}
-        latestMessage={messages.length > 0 ? messages[messages.length - 1]! : null}
-      />
-    );
-  } else if (view === 'usapan') {
-    body = <UsapanTab communityId={community.community_id} messages={messages} />;
-  } else if (view === 'members') {
-    body = (
+        </div>
       <MembersTab
         communityId={community.community_id}
         publicId={community.public_id}
@@ -211,6 +231,7 @@ export default async function SamahanSpacePage({
         roster={roster}
         inviteToken={inviteToken}
       />
+      </>
     );
   } else {
     body = (
@@ -225,104 +246,17 @@ export default async function SamahanSpacePage({
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 pb-10 pt-4 sm:px-6 lg:px-8">
-      {/* Back — from the group page to every group; from a one-tap view to its group. */}
-      {home ? (
-        <Link href={PEOPLE_GROUPS_HREF} className={BACK}>
-          <ArrowLeft aria-hidden className="h-4 w-4 shrink-0" strokeWidth={2} />
-          <span className="truncate">Back to Groups</span>
-        </Link>
-      ) : (
-        <Link href={base} className={BACK}>
-          <ArrowLeft aria-hidden className="h-4 w-4 shrink-0" strokeWidth={2} />
-          <span className="truncate">{community.name}</span>
-        </Link>
-      )}
+      {/* Back — a one-tap view returns to its group (the chatroom's own ‹ People returns to People › Groups). */}
+      <Link href={base} className={BACK}>
+        <ArrowLeft aria-hidden className="h-4 w-4 shrink-0" strokeWidth={2} />
+        <span className="truncate">{community.name}</span>
+      </Link>
 
-      {!home ? (
-        <h1 className="mb-1 text-2xl font-semibold tracking-tight text-ink">{VIEW_TITLE[view]}</h1>
-      ) : null}
+      <h1 className="mb-1 text-2xl font-semibold tracking-tight text-ink">{VIEW_TITLE[view]}</h1>
 
-      {successMessage ? (
-        <p role="status" className="mb-3 text-sm text-ink/75">
-          {successMessage}
-        </p>
-      ) : null}
-      {errorMessage ? (
-        <p role="alert" className="mb-3 text-sm text-terracotta-700">
-          {errorMessage}
-        </p>
-      ) : null}
+      <div className="mb-3">{notice}</div>
 
       {body}
-    </div>
-  );
-}
-
-function UsapanTab({
-  communityId,
-  messages,
-}: {
-  communityId: string;
-  messages: SamahanMessage[];
-}) {
-  return (
-    <div>
-      <p className="mb-3 text-[13px] text-ink/60">Usapan — the group chat.</p>
-      {messages.length === 0 ? (
-        <p className="py-2 text-xs text-ink/55">No one has said anything yet. Start it off.</p>
-      ) : (
-        <ul className="space-y-3" role="list">
-          {messages.map((m) => (
-            <li
-              key={m.message_id}
-              className={m.is_self ? 'flex flex-col items-end' : 'flex flex-col items-start'}
-            >
-              <div
-                className={`max-w-[85%] rounded-2xl px-3.5 py-2 text-sm ${
-                  m.is_self ? 'bg-mulberry text-white dark:text-cream' : 'bg-ink/5 text-ink'
-                }`}
-              >
-                {!m.is_self ? (
-                  <p className="mb-0.5 text-[11px] font-semibold text-ink/60">{m.author_name}</p>
-                ) : null}
-                {/* Plain text — React escapes it, so a message can never
-                    become markup. */}
-                <p className="whitespace-pre-wrap break-words">{m.body}</p>
-              </div>
-              {m.is_self ? (
-                <form action={deleteSamahanMessage} className="mt-1">
-                  <input type="hidden" name="community_id" value={communityId} />
-                  <input type="hidden" name="message_id" value={m.message_id} />
-                  <SubmitButton className="min-h-8 text-[10px] text-ink/45" pendingLabel="Removing…">
-                    Take it down
-                  </SubmitButton>
-                </form>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <form action={postSamahanMessage} className="mt-4 flex items-end gap-2 border-t border-ink/10 pt-3">
-        <input type="hidden" name="community_id" value={communityId} />
-        <label className="sr-only" htmlFor="usapan-body">
-          Your message
-        </label>
-        <textarea
-          id="usapan-body"
-          name="body"
-          rows={2}
-          maxLength={2000}
-          placeholder="Say something to the group…"
-          className="min-w-0 flex-1 rounded-xl border border-ink/15 bg-white dark:bg-raised px-3 py-2 text-sm text-ink"
-        />
-        <SubmitButton
-          className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-semibold text-white dark:text-cream"
-          pendingLabel="Sending…"
-        >
-          Send
-        </SubmitButton>
-      </form>
     </div>
   );
 }

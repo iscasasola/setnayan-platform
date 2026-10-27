@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { Armchair, Share, MoreHorizontal, QrCode, RotateCcw, Trash2, Unlink, X } from 'lucide-react';
+import { Armchair, Share, MoreHorizontal, RotateCcw, RotateCw, Trash2, Unlink, X } from 'lucide-react';
 import { ActionButton, actionButtonClass } from '@/components/action-button';
 import { NfcWriteButton } from '@/app/_components/nfc-write-button';
 import { SaveFileLink } from '@/app/_components/save-file-link';
@@ -187,9 +187,9 @@ export function GuestTicketThumb({
 const MORE_MENU_WIDTH = 224;
 
 /**
- * ⋯ — Write to NFC · New QR · Unlink account, one list. Every line carries its
- * icon (owner 2026-10-04: "every item gets an icon, or none do" — Write to NFC
- * had one, New QR had none).
+ * The card's ticket row after Share: NFC · New QR as icon buttons (owner 2026-10-27), then ⋯ — Unlink account, the
+ * one line left in the list, drawn only while an account holds the invitation. (Write to NFC and New QR were ⋯ lines
+ * until 2026-10-28.)
  *
  * 🗑 Delete guest LEFT this list (owner 2026-10-23, prototype
  * `guest_card_groups_and_papic_2026-10-23.html`): it is the card's own last
@@ -328,7 +328,25 @@ export function GuestMoreMenu({
     'flex min-h-11 w-full items-center gap-2.5 rounded-xl px-3 text-left text-[14px] text-ink transition-colors hover:bg-ink/5';
 
   return (
-    <div ref={wrapRef} className="relative" data-guest-more-menu="">
+    <>
+      {/* 🎟 THE TICKET ROW'S NFC · NEW QR (owner 2026-10-27, DECISION_LOG "GUEST CARD TICKET ROW = THREE ICON BUTTONS:
+          SHARE · NFC · NEW QR"; prototype `send_run_simple_2026-10-27` frames card · newqr). Beside Share (the invite
+          cell's own), two neutral 44-px icon buttons: NFC — the shipped writer and its sheet (`NfcWriteButton`); New QR
+          — asks first, then the shipped `releaseGuestClaim` › `new_qr` door. The ⋯ keeps the rest (Unlink account) and
+          draws only when it has something in it. 🔒 guests/_components/the-ticket-row-is-three-icons.test.ts */}
+      {nfcUrl ? <NfcWriteButton url={nfcUrl} iconOnly name={`Write ${guestName}’s link to NFC`} /> : null}
+      <ActionButton
+        tone="neutral"
+        iconOnly
+        icon={RotateCw}
+        label="New QR"
+        name={`Make a new QR for ${guestName}`}
+        onClick={() => setConfirm('new_qr')}
+        aria-haspopup="dialog"
+        data-testid="guest-new-qr"
+      />
+      {linked ? (
+    <div ref={wrapRef} className="relative ml-auto" data-guest-more-menu="">
       <ActionButton
         ref={buttonRef}
         tone="neutral"
@@ -367,27 +385,11 @@ export function GuestMoreMenu({
         data-guest-more-list=""
         className="fixed z-[96] rounded-2xl bg-cream p-1.5 shadow-[0_18px_40px_-18px_rgba(30,26,18,.45)] ring-1 ring-ink/5"
       >
-        {nfcUrl ? (
-          <NfcWriteButton url={nfcUrl} className={item} />
-        ) : null}
-        <button
-          type="button"
-          role="menuitem"
-          className={item}
-          data-guest-new-qr=""
-          onClick={() => {
-            setOpen(false);
-            setConfirm('new_qr');
-          }}
-        >
-          <QrCode aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-          New QR
-        </button>
         {linked ? (
           <button
             type="button"
             role="menuitem"
-            className={`${item} border-t border-ink/[0.06] text-danger-700`}
+            className={`${item} text-danger-700`}
             data-guest-unlink=""
             onClick={() => {
               setOpen(false);
@@ -400,6 +402,8 @@ export function GuestMoreMenu({
         ) : null}
       </div>,
       )}
+    </div>
+      ) : null}
 
       {confirm !== null ? (
       <GuestPopup kind="confirm" onClose={() => setConfirm(null)} labelledById={confirmId}>
@@ -411,9 +415,9 @@ export function GuestMoreMenu({
               <h2 id={confirmId} className="font-display text-xl text-ink">
                 Make a new QR for {guestName}?
               </h2>
-              <p className="text-sm leading-relaxed text-ink/70">
-                The old QR and link will stop working. Send them the new one — they&rsquo;ll see their updated
-                ticket first when they open it.
+              <p className="text-sm leading-relaxed text-ink/70" data-guest-new-qr-warning="">
+                Their old QR and link will stop working. Anyone holding the old one — a printed pass, a forwarded
+                message — won&rsquo;t get in.
               </p>
             </>
           ) : (
@@ -442,7 +446,7 @@ export function GuestMoreMenu({
         </form>
       </GuestPopup>
       ) : null}
-    </div>
+    </>
   );
 }
 

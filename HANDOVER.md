@@ -1,3 +1,29 @@
+# HANDOVER — claude/chat-messenger-look (Builder C1 · chat look, 2026-10-28)
+
+Contract: corpus `prototypes/chat_messenger_2026-10-28/` (frames A–F; J/K for pickers; L = isolation per event) +
+DECISION_LOG 2026-10-27 chat rows + 2026-10-28 "CHAT APPROVED". Coordinator rulings relayed mid-build: compress every
+chat file (C2's `lib/chat-file-prepare.ts` — not on main yet; the composer still uses the shipped compressImageForWeb,
+never a "send original"), supplier chat only inside an event, ONE search in the thumb row (name now, message text = C5),
+isolation per event (event line on every row), "Seen", staff name on supplier messages (stored per message → built).
+
+## State
+- Built + committed: thread takeover/head/bubbles/composer/＋ sheets/no calls/one Share a file/optimistic send/Seen/
+  staff names; inbox (ChatInbox + ✎ event-suppliers sheet + thumb-row search); ThreadArrival loading; /dev/chat-lab.
+- Guards: 5 new + 7 moved. Sabotage: 15 runs, all red, restored (two guards tightened after a sabotage stayed green).
+- Pending: full tsc + full unit suite (heavy lock queue), merge origin/main, regenerate `pnpm ugat:screens` and
+  `port:baseline` (deliberate removals: RevealToolButton, ThreadCallLauncher), walk + side-by-side shots, PR.
+
+## Decisions taken (not covered by the record)
+- Couple per-event inbox: "Suppliers" chip = every row (all are supplier chats here); Groups/People chips not drawn (C4).
+- Row tag = the thread's own stage (Quote / Booked); no "Meeting" tag (no cheap read — would be a new fact).
+- Supplier inbox (`vendor-dashboard/messages/surface.tsx`) NOT restyled in C1 — rows already carry the couple+event.
+- Booking-fee lines in the supplier's quote composer / booking-ask panel left as shipped (monetization lock; flag on in
+  prod env list) — surfaced to the owner, not removed. No Google Drive door exists in chat (nothing to remove).
+- Lock-handshake flag: set in Vercel Production (encrypted); its value is NOT readable from public bundles (only signed-in
+  thread chunks inline it) — reported as unverified.
+
+---
+
 # HANDOVER — claude/guests-summary-carousel (Builder GC, 2026-10-28)
 
 Contract: corpus `prototypes/guests_summary_carousel_2026-10-27/` (style A) + DECISION_LOG 2026-10-27 rows (carousel

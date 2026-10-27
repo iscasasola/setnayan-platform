@@ -2,6 +2,7 @@ import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { hasVerifiedBadge } from '@/lib/verified-badge';
 import { AWARD_LABELS, fetchVendorCurrentAwards } from '@/lib/spotlight-awards';
 import type { ShopBadgeFacts, TrackerFacts } from '@/lib/shop-badges';
@@ -21,8 +22,9 @@ import type { ShopBadgeFacts, TrackerFacts } from '@/lib/shop-badges';
 export async function readShopBadgeFacts(
   admin: SupabaseClient,
   vendorProfileId: string,
-  now: Date = new Date(),
+  at?: Date,
 ): Promise<ShopBadgeFacts> {
+  const now = at ?? new Date();
   const [own, completed, trusted, awards] = await Promise.all([
     admin
       .from('vendor_profiles')
@@ -92,7 +94,9 @@ export async function readUnreviewedCount(admin: SupabaseClient, vendorProfileId
   return ids.filter((id) => !reviewed.has(id)).length;
 }
 
-export async function readShopTrackerFacts(admin: SupabaseClient, vendorProfileId: string, now: Date = new Date()): Promise<TrackerFacts> {
-  const [facts, unreviewed] = await Promise.all([readShopBadgeFacts(admin, vendorProfileId, now), readUnreviewedCount(admin, vendorProfileId)]);
+/** The tracker's facts for the signed-in supplier's OWN shop (the caller proved `vendorProfileId` from the session). */
+export async function readShopTrackerFacts(vendorProfileId: string, at?: Date): Promise<TrackerFacts> {
+  const admin = createAdminClient();
+  const [facts, unreviewed] = await Promise.all([readShopBadgeFacts(admin, vendorProfileId, at), readUnreviewedCount(admin, vendorProfileId)]);
   return { ...facts, unreviewed };
 }

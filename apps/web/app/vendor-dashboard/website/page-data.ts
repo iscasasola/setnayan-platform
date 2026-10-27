@@ -15,7 +15,6 @@ import { TIER_CAPS } from '@/lib/vendor-tier-caps';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { pageSavedFrom, type PageSaved } from '@/lib/supplier-page-draft';
 import type { DomainRow } from './actions';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { readShopTrackerFacts } from '@/lib/shop-badges.server';
 import { badgeTracker, nextToEarnLine, shopBadges, trackerSummary } from '@/lib/shop-badges';
 import type { BadgeTrackerData } from './_components/badge-tracker';
@@ -175,7 +174,7 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
   ).then((xs) => xs.filter((x): x is { key: string; url: string } => x !== null));
   const shellRead = isStoreShellRequest();
   // 🏅 The badges' facts — the shop's own id, the service-role client (the public stats views + its own row).
-  const badgesRead = readShopTrackerFacts(createAdminClient(), vendorId);
+  const badgesRead = readShopTrackerFacts(vendorId);
 
   const [own, stats, reviews, stories, domains, vocab, portfolio, storeShell, badgeFacts] = await Promise.all([
     ownRead,

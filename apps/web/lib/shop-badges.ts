@@ -261,7 +261,7 @@ export function badgeTracker(f: TrackerFacts): TrackerRow[] {
   }
 
   const rating = cardRecordRatingFromTrusted(f.trusted);
-  const askLine = f.unreviewed && f.unreviewed > 0 ? ` · ${f.unreviewed} couple${f.unreviewed === 1 ? '' : 's'} haven’t reviewed yet` : '';
+  const askLine = f.unreviewed && f.unreviewed > 0 ? ` · ${COUNT.format(f.unreviewed)} couple${f.unreviewed === 1 ? '' : 's'} haven’t reviewed yet` : '';
   const ask = f.unreviewed && f.unreviewed > 0 ? { label: 'Ask for reviews', href: TRACKER_DOORS.finished } : undefined;
   const ratingBadge: ShopBadge = { key: 'rating', kind: 'rating', glyph: '★', line1: 'RATING', line2: 'TRUSTED', label: 'Rating' };
   rows.push(

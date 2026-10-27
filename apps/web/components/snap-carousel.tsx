@@ -21,6 +21,7 @@
  * 🔒 lib/every-carousel-snaps-to-centre-and-loops.test.ts
  */
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { formatCount } from '@/lib/format-number';
 import styles from './snap-carousel.module.css';
 
 export type CarouselCard = {
@@ -226,7 +227,7 @@ export function SnapCarousel({
               className={styles.slide}
               role="group"
               aria-roledescription="slide"
-              aria-label={`${s.real + 1} of ${n}: ${card.label}`}
+              aria-label={`${formatCount(s.real + 1)} of ${formatCount(n)}: ${card.label}`}
               data-snap-slide={card.key}
             >
               {card.node}

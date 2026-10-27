@@ -10331,6 +10331,37 @@ html:has(> head > style[data-cover-menu]) [data-first-screen-fit]:has(> header[d
 .sn-keep-rule { width: 30px; height: 2px; background: rgb(var(--color-gild) / 0.45); }
 
 
+/* ═══ 🪗 .sn-acc-head — EVERY FOLDABLE HEADER, ONE MARK (owner 2026-10-27, "APPROVED — FOLDABLE HEADERS ARE MARKED BY
+   THE ICON CHIP", verbatim "1"; supersedes the closed/open tint and the full-width band rows). The header's round icon
+   chip (`.sn-acc-chip`) is soft grey while the group is CLOSED and solid terracotta with a white icon while it is OPEN
+   (`[data-open]`, set from the same boolean as its button's `aria-expanded`); one thin divider under the header; NO
+   background band or tint — pinned too. Dark mode keeps the contrast. A shared part (the universal template): Guests
+   wears it first; Suppliers and every other foldable header adopt THIS class, never a copy.
+   Unlayered on purpose (after the last @layer, before the Scrub block that must close the sheet) — it must win over a screen module's own chip colour. 🔒 lib/a-foldable-header-is-marked-by-its-chip.test.ts */
+.sn-acc-head {
+  --sn-acc-chip: rgb(var(--color-ink) / 0.07);
+  --sn-acc-chip-ink: rgb(var(--color-ink) / 0.55);
+  box-shadow: 0 1px 0 rgb(var(--color-ink) / 0.1);
+}
+.sn-acc-head[data-open] {
+  --sn-acc-chip: rgb(var(--sn-accent));
+  --sn-acc-chip-ink: #fff;
+}
+html.dark .sn-acc-head {
+  --sn-acc-chip: rgb(var(--color-ink) / 0.12);
+  --sn-acc-chip-ink: rgb(var(--color-ink) / 0.7);
+  box-shadow: 0 1px 0 rgb(var(--color-ink) / 0.14);
+}
+html.dark .sn-acc-head[data-open] {
+  --sn-acc-chip: rgb(var(--sn-accent));
+  --sn-acc-chip-ink: #fff;
+}
+.sn-acc-head .sn-acc-chip {
+  --disc: var(--sn-acc-chip);
+  color: var(--sn-acc-chip-ink);
+  transition: color 200ms ease;
+}
+
 /* ══ 🎚 SCRUB — A HELD HAND-OVER (owner 2026-10-09, approved on `review/scrub-prototype.html`: *"them must be on the same
    position to create that keynote like transistion"* · *"let it enter on the last 20% of the build out"* · *"element
    run completely normal. we only control the effect"*).
@@ -10475,37 +10506,4 @@ html:has(> head > style[data-cover-menu]) [data-first-screen-fit]:has(> header[d
     animation-timeline: auto;
     animation-range: normal;
   }
-}
-
-
-
-/* ═══ 🪗 .sn-acc-head — EVERY FOLDABLE HEADER, ONE MARK (owner 2026-10-27, "APPROVED — FOLDABLE HEADERS ARE MARKED BY
-   THE ICON CHIP", verbatim "1"; supersedes the closed/open tint and the full-width band rows). The header's round icon
-   chip (`.sn-acc-chip`) is soft grey while the group is CLOSED and solid terracotta with a white icon while it is OPEN
-   (`[data-open]`, set from the same boolean as its button's `aria-expanded`); one thin divider under the header; NO
-   background band or tint — pinned too. Dark mode keeps the contrast. A shared part (the universal template): Guests
-   wears it first; Suppliers and every other foldable header adopt THIS class, never a copy.
-   Unlayered on purpose — it must win over a screen module's own chip colour. 🔒 lib/a-foldable-header-is-marked-by-its-chip.test.ts */
-.sn-acc-head {
-  --sn-acc-chip: rgb(var(--color-ink) / 0.07);
-  --sn-acc-chip-ink: rgb(var(--color-ink) / 0.55);
-  box-shadow: 0 1px 0 rgb(var(--color-ink) / 0.1);
-}
-.sn-acc-head[data-open] {
-  --sn-acc-chip: rgb(var(--sn-accent));
-  --sn-acc-chip-ink: #fff;
-}
-html.dark .sn-acc-head {
-  --sn-acc-chip: rgb(var(--color-ink) / 0.12);
-  --sn-acc-chip-ink: rgb(var(--color-ink) / 0.7);
-  box-shadow: 0 1px 0 rgb(var(--color-ink) / 0.14);
-}
-html.dark .sn-acc-head[data-open] {
-  --sn-acc-chip: rgb(var(--sn-accent));
-  --sn-acc-chip-ink: #fff;
-}
-.sn-acc-head .sn-acc-chip {
-  --disc: var(--sn-acc-chip);
-  color: var(--sn-acc-chip-ink);
-  transition: color 200ms ease;
 }

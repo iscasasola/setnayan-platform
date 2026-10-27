@@ -1,7 +1,7 @@
 {
-  "generatedFromRef": "a45a5a8327",
+  "generatedFromRef": "79fe868230",
   "routeCount": 474,
-  "destinations": 990,
+  "destinations": 989,
   "actions": 642,
   "blocks": 7148,
   "routes": {
@@ -5514,7 +5514,6 @@
         "dashboard/(account)/samahan/[communityId]/page.tsx"
       ],
       "destinations": [
-        "/dashboard/notifications",
         "/dashboard/people"
       ],
       "actions": [
@@ -5528,8 +5527,10 @@
         "updateCommunityIdentity"
       ],
       "blocks": [
+        "ActionButton",
         "Blob",
         "CollagePlayer",
+        "ConfirmDialog",
         "CopyButton",
         "DateChip",
         "EventCard",
@@ -5555,8 +5556,6 @@
         "PickMenu",
         "SamahanIdentityHeader",
         "SamahanStories",
-        "Sheet",
-        "SheetRow",
         "StoriesControl",
         "SubmitButton",
         "ThumbRow",

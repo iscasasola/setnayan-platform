@@ -1,12 +1,14 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   ArrowUp,
   Bell,
   CalendarDays,
   Camera,
+  CircleHelp,
   ChevronLeft,
   ChevronRight,
   LogOut,
@@ -17,8 +19,10 @@ import {
   Users,
 } from 'lucide-react';
 import { ThumbRow } from '@/components/thumb-row';
-import { Sheet } from '@/app/_components/sheet';
+import { ActionButton } from '@/components/action-button';
+import { ConfirmDialog } from '@/app/_components/confirm-dialog';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { PickMenu, type PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { followColumn } from '@/app/dashboard/[eventId]/guests/_components/dock-follows-column';
 import { eventTypeBadge } from '@/lib/event-vocabulary';
 import { formatCount } from '@/lib/format-number';
@@ -194,9 +198,7 @@ function EventCard({ event, door }: { event: ChatEvent; door: EventDoor | undefi
           {inner}
         </Link>
       ) : (
-        <div className="flex items-center gap-2.5 rounded-2xl border border-dashed border-ink/15 p-2.5" /* no-card-ok: dashed — an event you may not open, said in words */>
-          {inner}
-        </div>
+        <div className="flex items-center gap-2.5 py-1.5">{inner}</div>
       )}
     </li>
   );
@@ -246,9 +248,9 @@ export function GroupChatroom({
   const storiesRef = useRef<StoriesControl | null>(null);
   const chatRef = useRef<HTMLDivElement>(null);
   const hostRef = useRef<HTMLDivElement>(null);
-  const [moreOpen, setMoreOpen] = useState(false);
-  const [plusOpen, setPlusOpen] = useState(false);
-  const [leaveArmed, setLeaveArmed] = useState(false);
+  const router = useRouter();
+  const leaveRef = useRef<HTMLFormElement>(null);
+  const [leaveAsk, setLeaveAsk] = useState(false);
   const [armedMsg, setArmedMsg] = useState<string | null>(null);
   const [playerKey, setPlayerKey] = useState<string | null>(null);
   const [text, setText] = useState('');
@@ -276,7 +278,6 @@ export function GroupChatroom({
     storiesRef.current?.play(storyId);
   }, []);
   const record = useCallback(() => {
-    setPlusOpen(false);
     storiesRef.current?.record();
   }, []);
 
@@ -285,6 +286,36 @@ export function GroupChatroom({
     memberCount === null ? null : `${formatCount(memberCount)} ${memberCount === 1 ? 'member' : 'members'}`;
   const pinnedDoor = pinned ? doors[pinned.event_id] : undefined;
   const pinnedParts = pinned ? dayParts(pinned.event_date) : null;
+
+  // ⋯ — the shipped lists, one tap in: ONE dropdown (any set of choices is a PickMenu).
+  const moreHref: Record<string, string> = {
+    members: `${base}?tab=members`,
+    events: `${base}?tab=events`,
+    'bring-in': `${base}?tab=members#bring-in`,
+    notifications: '/dashboard/notifications',
+  };
+  const moreOptions: PickOption[] = [
+    { key: 'members', label: 'Members', icon: <Users className="h-[18px] w-[18px]" />, ...(count ? { trail: { text: formatCount(memberCount ?? 0), tone: 'muted' as const } } : {}) },
+    { key: 'events', label: 'All events', icon: <CalendarDays className="h-[18px] w-[18px]" />, trail: { text: formatCount(eventCount), tone: 'muted' } },
+    ...(isOrganizer ? [{ key: 'bring-in', label: 'Bring people in', icon: <UserPlus className="h-[18px] w-[18px]" /> }] : []),
+    { key: 'notifications', label: 'Notifications', icon: <Bell className="h-[18px] w-[18px]" />, hint: 'Group notices land in your inbox' },
+    { key: 'leave', label: 'Leave group', icon: <LogOut className="h-[18px] w-[18px]" /> },
+  ];
+  // ＋ — what you can add to the group.
+  const plusHref: Record<string, string> = {
+    plan: planHref,
+    'bring-in': `${base}?tab=members#bring-in`,
+    events: `${base}?tab=events`,
+  };
+  const plusOptions: PickOption[] = [
+    { key: 'story', label: 'A story', hint: '3 seconds', icon: <Camera className="h-[18px] w-[18px]" /> },
+    ...(isOrganizer
+      ? [
+          { key: 'plan', label: 'Plan an event', icon: <CalendarDays className="h-[18px] w-[18px]" /> },
+          { key: 'bring-in', label: 'Bring people in', icon: <UserPlus className="h-[18px] w-[18px]" /> },
+        ]
+      : [{ key: 'events', label: 'All events', icon: <CalendarDays className="h-[18px] w-[18px]" /> }]),
+  ];
 
   let prevAuthor: string | null = null;
 
@@ -301,7 +332,7 @@ export function GroupChatroom({
           <ChevronLeft aria-hidden className="h-4 w-4" strokeWidth={2} />
           People
         </Link>
-        <span className="flex h-[38px] w-[38px] shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#7a5a3c] text-[13px] font-bold text-[#f6ead6]">
+        <span className="sn-initials flex h-[38px] w-[38px] shrink-0 items-center justify-center overflow-hidden rounded-full text-[13px] font-bold">
           {photoDisplayUrl ? (
             // eslint-disable-next-line @next/next/no-img-element -- short-lived presigned URL
             <img src={photoDisplayUrl} alt="" className="h-full w-full object-cover" />
@@ -313,16 +344,36 @@ export function GroupChatroom({
           <h1 className="truncate text-base font-semibold leading-tight text-ink">{name}</h1>
           {count ? <p className="truncate text-xs text-ink/55">{count}</p> : null}
         </div>
-        <button
-          type="button"
-          onClick={() => setMoreOpen(true)}
-          aria-label="More"
-          aria-haspopup="dialog"
+        <PickMenu
+          label="Group menu"
+          value={null}
+          buttonText="More"
+          options={moreOptions}
+          dataAttr="data-group-more"
+          trigger={<MoreHorizontal aria-hidden className="h-5 w-5" />}
           className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink/70 hover:bg-ink/5"
-          data-group-more=""
-        >
-          <MoreHorizontal aria-hidden className="h-5 w-5" />
-        </button>
+          onPick={(k) => {
+            if (k === 'leave') return setLeaveAsk(true);
+            const href = moreHref[k];
+            if (href) router.push(href);
+          }}
+        />
+        {/* Leave — the shipped action, asked first in the approved confirm box. */}
+        <form ref={leaveRef} action={leaveCommunity} className="hidden">
+          <input type="hidden" name="community_id" value={communityId} />
+        </form>
+        <ConfirmDialog
+          open={leaveAsk}
+          title="Leave this group?"
+          body="You stop seeing its chat, stories and events. Someone in the group can bring you back in."
+          confirmLabel="Leave group"
+          destructive
+          onCancel={() => setLeaveAsk(false)}
+          onConfirm={() => {
+            setLeaveAsk(false);
+            leaveRef.current?.requestSubmit();
+          }}
+        />
       </header>
 
       {notice}
@@ -350,13 +401,14 @@ export function GroupChatroom({
             </span>
           </span>
           {pinnedDoor?.href ? (
-            <Link
-              href={pinnedDoor.href}
-              className="inline-flex min-h-11 shrink-0 items-center rounded-full border border-ink/20 px-3.5 text-[13px] font-semibold text-ink hover:bg-ink/5"
-              data-group-going=""
-            >
-              {pinnedDoor.invited ? 'Going?' : 'Open'}
-            </Link>
+            <span className="shrink-0" data-group-going={pinnedDoor.href}>
+              <ActionButton
+                tone="neutral"
+                icon={pinnedDoor.invited ? CircleHelp : ChevronRight}
+                label={pinnedDoor.invited ? 'Going?' : 'Open'}
+                href={pinnedDoor.href}
+              />
+            </span>
           ) : null}
         </div>
       ) : null}
@@ -433,7 +485,26 @@ export function GroupChatroom({
         >
           <ThumbRow
             name="group-chat"
-            left={[{ icon: Plus, label: 'Add to the group', onClick: () => setPlusOpen(true), testId: 'group-plus' }]}
+            left={[
+              {
+                node: (
+                  <PickMenu
+                    label="Add to the group"
+                    value={null}
+                    buttonText="Add"
+                    options={plusOptions}
+                    dataAttr="data-group-plus"
+                    trigger={<Plus aria-hidden className="h-5 w-5" strokeWidth={2} />}
+                    className="inline-flex h-11 w-11 items-center justify-center rounded-full text-ink/80"
+                    onPick={(k) => {
+                      if (k === 'story') return record();
+                      const href = plusHref[k];
+                      if (href) router.push(href);
+                    }}
+                  />
+                ),
+              },
+            ]}
             field={{
               node: (
                 <form
@@ -462,14 +533,9 @@ export function GroupChatroom({
                     className="h-full min-w-0 flex-1 bg-transparent text-[15px] text-ink outline-none placeholder:text-ink/45"
                   />
                   {text.trim() ? (
-                    <SubmitButton
-                      overlay={false}
-                      pendingLabel=""
-                      aria-label="Send"
-                      className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-terracotta-700 text-white dark:text-cream"
-                    >
-                      <ArrowUp aria-hidden className="h-4 w-4" strokeWidth={2.4} />
-                    </SubmitButton>
+                    <span className="shrink-0" data-group-send="">
+                      <ActionButton tone="brand" filled iconOnly icon={ArrowUp} label="Send" type="submit" />
+                    </span>
                   ) : null}
                 </form>
               ),
@@ -478,58 +544,6 @@ export function GroupChatroom({
           />
         </div>
       </div>
-
-      {/* ⋯ — the shipped lists, one tap in. */}
-      <Sheet open={moreOpen} onClose={() => { setMoreOpen(false); setLeaveArmed(false); }} labelledById="group-more-title" rise>
-        <div className="px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-4" data-group-more-sheet="">
-          <h2 id="group-more-title" className="mb-1 pr-12 text-[17px] font-semibold text-ink">
-            {name}
-          </h2>
-          <nav className="flex flex-col divide-y divide-ink/10" aria-label="Group">
-            <SheetRow href={`${base}?tab=members`} icon={<Users className="h-[18px] w-[18px]" />} label="Members" end={count ? formatCount(memberCount ?? 0) : null} />
-            <SheetRow href={`${base}?tab=events`} icon={<CalendarDays className="h-[18px] w-[18px]" />} label="All events" end={formatCount(eventCount)} />
-            {isOrganizer ? (
-              <SheetRow href={`${base}?tab=members#bring-in`} icon={<UserPlus className="h-[18px] w-[18px]" />} label="Bring people in" />
-            ) : null}
-            <SheetRow href="/dashboard/notifications" icon={<Bell className="h-[18px] w-[18px]" />} label="Notifications" end="Inbox" />
-            <form action={leaveCommunity} onSubmit={(e) => { if (!leaveArmed) { e.preventDefault(); setLeaveArmed(true); } }}>
-              <input type="hidden" name="community_id" value={communityId} />
-              <button
-                type="submit"
-                className="flex min-h-[50px] w-full items-center gap-2.5 text-left text-[15px] font-medium text-danger-700"
-                data-group-leave={leaveArmed ? 'armed' : ''}
-              >
-                <LogOut aria-hidden className="h-[18px] w-[18px]" />
-                {leaveArmed ? 'Tap again to leave the group' : 'Leave group'}
-              </button>
-            </form>
-          </nav>
-        </div>
-      </Sheet>
-
-      {/* ＋ — what you can add to the group. */}
-      <Sheet open={plusOpen} onClose={() => setPlusOpen(false)} labelledById="group-plus-title" rise>
-        <div className="px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-4" data-group-plus-sheet="">
-          <h2 id="group-plus-title" className="mb-1 pr-12 text-[17px] font-semibold text-ink">
-            Add to the group
-          </h2>
-          <div className="flex flex-col divide-y divide-ink/10">
-            <button type="button" onClick={record} className="flex min-h-[50px] w-full items-center gap-2.5 text-left text-[15px] text-ink" data-group-plus-story="">
-              <Camera aria-hidden className="h-[18px] w-[18px] text-ink/70" />
-              <span className="flex-1">A story</span>
-              <span className="text-[13px] text-ink/50">3 seconds</span>
-            </button>
-            {isOrganizer ? (
-              <SheetRow href={planHref} icon={<CalendarDays className="h-[18px] w-[18px]" />} label="Plan an event" />
-            ) : null}
-            {isOrganizer ? (
-              <SheetRow href={`${base}?tab=members#bring-in`} icon={<UserPlus className="h-[18px] w-[18px]" />} label="Bring people in" />
-            ) : (
-              <SheetRow href={`${base}?tab=events`} icon={<CalendarDays className="h-[18px] w-[18px]" />} label="All events" />
-            )}
-          </div>
-        </div>
-      </Sheet>
 
       <CollagePlayer
         collages={collages}
@@ -540,18 +554,5 @@ export function GroupChatroom({
         onOpenStory={openStory}
       />
     </div>
-  );
-}
-
-function SheetRow({ href, icon, label, end }: { href: string; icon: ReactNode; label: string; end?: string | null }) {
-  return (
-    <Link href={href} className="flex min-h-[50px] items-center gap-2.5 text-[15px] text-ink" data-group-sheet-row={label}>
-      <span aria-hidden className="text-ink/70">
-        {icon}
-      </span>
-      <span className="flex-1">{label}</span>
-      {end ? <span className="text-[13px] text-ink/50">{end}</span> : null}
-      <ChevronRight aria-hidden className="h-4 w-4 text-ink/35" />
-    </Link>
   );
 }

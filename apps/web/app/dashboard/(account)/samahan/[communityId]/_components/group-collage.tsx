@@ -5,6 +5,7 @@ import { ChevronRight, Clapperboard, Play, X } from 'lucide-react';
 import { leftLabel, storiesWord, type HourCollage } from '@/lib/samahan-chatroom';
 import type { SamahanStory } from '@/lib/samahan-stories';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
+import { ActionButton } from '@/components/action-button';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { useBackCloses } from '@/lib/use-back-closes';
 
@@ -67,7 +68,7 @@ function Tile({ story, still, onOpen }: { story: SamahanStory; still: boolean; o
     <>
       {face}
       <span aria-hidden className="absolute inset-0 bg-gradient-to-b from-transparent from-55% to-black/55" />
-      <span className="absolute bottom-1.5 left-2 right-2 truncate text-left text-[11px] font-semibold text-white [text-shadow:0_1px_3px_#000]">
+      <span className="absolute bottom-1.5 left-2 right-2 truncate text-left text-[11px] font-semibold text-white drop-shadow">
         {name}
       </span>
     </>
@@ -107,7 +108,7 @@ export function GroupCollage({
   const title = `${collage.label} · ${storiesWord(collage.stories.length)}`;
   return (
     <div
-      className="w-full self-stretch overflow-hidden rounded-2xl bg-[#1b1916] text-white"
+      className="w-full self-stretch overflow-hidden rounded-2xl bg-black text-white"
       data-collage={collage.key}
       aria-label={title}
       role="group"
@@ -127,14 +128,9 @@ export function GroupCollage({
       <div className="flex items-center gap-2 px-3 py-2 text-[13px]">
         <b className="min-w-0 flex-1 truncate font-semibold">{title}</b>
         <span className="text-[11px] text-white/60">{leftLabel(collage.goneAtMs, nowMs)}</span>
-        <button
-          type="button"
-          onClick={onPlay}
-          className="inline-flex min-h-11 items-center gap-1 rounded-full bg-terracotta-700 px-3.5 text-[13px] font-bold text-white dark:text-cream"
-          data-collage-play=""
-        >
-          <Play className="h-3.5 w-3.5" aria-hidden fill="currentColor" /> Play
-        </button>
+        <span data-collage-play="">
+          <ActionButton tone="brand" filled icon={Play} label="Play" onClick={onPlay} />
+        </span>
       </div>
     </div>
   );

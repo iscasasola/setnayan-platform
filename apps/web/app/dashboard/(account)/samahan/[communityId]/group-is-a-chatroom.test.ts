@@ -114,7 +114,7 @@ test('1 · top to bottom: top → stories → next event → chat → the messag
   const bar = ORGANIZER.indexOf('data-group-composer');
   assert.ok(bar > ORGANIZER.indexOf('data-group-part="chat"'), 'the message bar is not after the chat');
   for (const name of ['Add to the group', 'Message the group', 'Add a story']) {
-    assert.ok(ORGANIZER.includes(`aria-label="${name}"`), `the message bar lost “${name}”`);
+    assert.ok(ORGANIZER.includes(`aria-label="${name}`), `the message bar lost “${name}”`);
   }
   assert.match(ORGANIZER, /data-thumb-row="group-chat"/, 'the message bar is not the one thumb row');
   assert.match(ORGANIZER, /12 members/);
@@ -137,10 +137,11 @@ test('3 · an event card opens THAT event; Going? opens the pinned one; a closed
   assert.match(card(INVITED, 'ev-new'), /href="\/reunion"/, 'the invited card does not open the event’s page');
   assert.doesNotMatch(card(OUTSIDER, 'ev-new'), /href=/, 'an event you may not open is a link');
   assert.match(card(OUTSIDER, 'ev-new'), /Ask an organizer to add you/);
-  const going = /<a[^>]*data-group-going=""[^>]*>([^<]*)</.exec(INVITED);
-  assert.ok(going, 'Going? is gone');
-  assert.match(going[0], /href="\/liga"/, 'Going? does not open the pinned event');
-  assert.equal(going[1], 'Going?');
+  const at = INVITED.indexOf('data-group-going="');
+  assert.ok(at > 0, 'Going? is gone');
+  const going = INVITED.slice(at, INVITED.indexOf('</span>', INVITED.indexOf('</a>', at)) + 7);
+  assert.match(going, /<a[^>]*href="\/liga"/, 'Going? does not open the pinned event');
+  assert.match(going, /Going\?/);
   assert.match(ORGANIZER, /Liga ng Barangay/);
 });
 
@@ -156,16 +157,19 @@ test('4 · the hourly collage is in the chat with that hour’s clips', () => {
 });
 
 test('5 · ⋯ holds the shipped lists; every old ?tab= address lands', () => {
-  for (const [label, href] of [
-    ['Members', '${base}?tab=members'],
-    ['All events', '${base}?tab=events'],
-    ['Bring people in', '${base}?tab=members#bring-in'],
-    ['Notifications', '/dashboard/notifications'],
+  // ⋯ is ONE dropdown (PickMenu) whose picks go to the shipped lists.
+  assert.match(ROOM, /<PickMenu\s+label="Group menu"/, '⋯ is no longer the one dropdown');
+  for (const [key, label, href] of [
+    ['members', 'Members', '`${base}?tab=members`'],
+    ['events', 'All events', '`${base}?tab=events`'],
+    ['bring-in', 'Bring people in', '`${base}?tab=members#bring-in`'],
+    ['notifications', 'Notifications', "'/dashboard/notifications'"],
   ] as const) {
-    const row = new RegExp(`<SheetRow href=\\{?[\`"]${href.replace(/[$?{}#/]/g, (c) => `\\${c}`)}[\`"]\\}?[\\s\\S]{0,160}?label="${label}"`);
-    assert.match(ROOM, row, `⋯ lost “${label}” → ${href}`);
+    assert.ok(ROOM.includes(`${key.includes('-') ? `'${key}'` : key}: ${href}`), `⋯ “${label}” no longer lands on ${href}`);
+    assert.ok(ROOM.includes(`key: '${key}', label: '${label}'`), `⋯ lost “${label}”`);
   }
-  assert.match(ROOM, /<form action=\{leaveCommunity\}/, '⋯ lost Leave');
+  assert.match(ROOM, /key: 'leave', label: 'Leave group'/, '⋯ lost Leave');
+  assert.match(ROOM, /action=\{leaveCommunity\}/, 'Leave no longer posts the shipped action');
   const views = PAGE.match(/const VIEWS = \[([^\]]*)\] as const/);
   assert.ok(views, 'the one-tap views list is gone');
   assert.ok(views![1]!.includes("'members'") && views![1]!.includes("'events'"), 'a one-tap list no longer resolves');
@@ -182,5 +186,5 @@ test('6 · moved, not lost', () => {
   assert.match(ROOM, /<SamahanStories[\s\S]{0,200}strip[\s\S]{0,80}controlRef=\{storiesRef\}/, 'the strip is not the shipped one');
   assert.match(ROOM, /storiesRef\.current\?\.record\(\)/, '📷 does not open the strip’s camera');
   assert.match(ORGANIZER, /aria-label="Play the day"/, 'the strip lost Play the day');
-  assert.match(ROOM, /href=\{planHref\}/, '“Plan an event” is gone');
+  assert.match(ROOM, /plan: planHref/, '“Plan an event” is gone from ＋');
 });

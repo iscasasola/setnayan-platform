@@ -38,6 +38,10 @@ import {
   sameMac,
 } from './hub-view-key';
 import { forgetHubStampsForTest, hubViewRewritePath } from './hub-view-route';
+import { RSVP_TERMS_COOKIE } from './terms-agreement';
+import { VIEW_AS_FREE_COOKIE } from './view-as-free';
+import { HOST_PREVIEW_PASS_COOKIE_NAME } from './pass-account-rule';
+import { DEMO_MODE_COOKIE_NAME } from './demo-mode-constants';
 
 const rel = (abs: string) => path.relative(WEB_ROOT, abs).split(path.sep).join('/');
 const abs = (p: string) => path.join(WEB_ROOT, p);
@@ -141,11 +145,13 @@ test('§1 · the cached hub route reads nothing from the request but its own add
   assert.match(route, /export function generateStaticParams\(/, 'without generateStaticParams the route renders per request');
   assert.doesNotMatch(route, REQUEST_READ, 'a request read on the cached route makes it render per request');
   assert.doesNotMatch(route, /\bsearchParams\s*\}|props\.searchParams|await searchParams/, 'the cached route must never read the query');
-  const hold = route.indexOf('holdCachedHubViewer(r.viewer)');
-  const render = route.indexOf('PublicInvitationPage({');
+  const page = route.slice(route.indexOf('export default async function'));
+  const hold = page.indexOf('holdCachedHubViewer(r.viewer)');
+  const render = page.indexOf('PublicInvitationPage({');
   assert.ok(hold > 0 && render > hold, 'the viewer must be held BEFORE the page renders anything');
-  const metaHold = route.indexOf('holdCachedHubViewer(r.viewer);');
-  const meta = route.indexOf('liveMetadata(');
+  const metadata = route.slice(route.indexOf('export async function generateMetadata'), route.indexOf('export default async function'));
+  const metaHold = metadata.indexOf('holdCachedHubViewer(r.viewer);');
+  const meta = metadata.indexOf('liveMetadata(');
   assert.ok(metaHold > 0 && meta > metaHold, 'the metadata must be resolved for the held viewer too');
   assert.match(route, /tags: \[liveDayTag\(eventId\)\]/, "the copy must wear the event's live-day tag (an announcement clears it)");
 });
@@ -242,7 +248,11 @@ test('§3 · only a request the live render would draw identically is let into t
   for (const p of HUB_LIVE_PARAMS) assert.equal(shape({ searchParams: new URLSearchParams(`${p}=1`) }), null, `?${p}= must keep the live render`);
   assert.equal(shape({ cookieNames: ['sb-abc-auth-token'] }), null, 'a signed-in account keeps the live render');
   assert.equal(shape({ cookieNames: ['sb-abc-auth-token.0'] }), null, 'a chunked session too');
-  for (const c of HUB_LIVE_COOKIES) assert.equal(shape({ cookieNames: [c] }), null, `${c} keeps the live render`);
+  // The cookies the live render reads that the cached copy cannot — named from their OWN modules, not from the list.
+  for (const c of [RSVP_TERMS_COOKIE, VIEW_AS_FREE_COOKIE, HOST_PREVIEW_PASS_COOKIE_NAME, DEMO_MODE_COOKIE_NAME]) {
+    assert.ok(HUB_LIVE_COOKIES.includes(c), `${c} is read by the live render and is not a live cookie`);
+    assert.equal(shape({ cookieNames: [c] }), null, `${c} keeps the live render`);
+  }
   assert.equal(shape({ clientTypeCookie: 'capacitor' }), null, 'the store app keeps the live render');
   assert.equal(shape({ clientTypeCookie: 'tauri' }), null, 'the desktop app keeps the live render');
   assert.equal(shape({ userAgent: 'Mozilla/5.0 SetnayanApp/ios' }), null, 'the app’s mark keeps the live render');

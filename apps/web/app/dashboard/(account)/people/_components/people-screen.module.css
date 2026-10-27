@@ -286,7 +286,7 @@
   gap: 4px;
   margin-top: 3px;
   padding: 1px 7px;
-  border-radius: 8px;
+  border-radius: var(--m-r-sm);
   background: var(--gs-gild-soft, color-mix(in srgb, #a9834b 16%, transparent));
   color: rgb(var(--color-terracotta-700, 140 105 50));
   font-size: 11px;

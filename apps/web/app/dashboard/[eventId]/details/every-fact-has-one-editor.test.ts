@@ -96,7 +96,9 @@ const RECORD_REACHES: Record<RecordEditorKey, RegExp> = {
 
 test('every row that opens its field is drawn as one — a count', () => {
   const rows = Object.keys(RECORD_ROW_EDITOR);
-  assert.ok(rows.length >= 20, `only ${rows.length} rows open a field — the list shrank, so this would prove less`);
+  // 20 until 2026-10-27; settings per menu moved 5 rows to their menus' ⚙ (Guests: guests-get-in · rsvp-questions ·
+  // reply-by · list-closes; Suppliers: costs-view — `DETAILS_ROWS_MOVED_TO_*`), so the floor is 15. Shrinks only by a move.
+  assert.ok(rows.length >= 15, `only ${rows.length} rows open a field — the list shrank, so this would prove less`);
   const missing: string[] = [];
   for (const row of rows) {
     const re = new RegExp(`row="${row}"[\\s\\S]{0,900}?open=\\{(?:eventWord === 'wedding' \\? )?opens\\('${row}'\\)`);
@@ -133,7 +135,10 @@ test('each editor the record opens IS the Maker’s — defined once, mounted by
     assert.match(EDITOR, new RegExp(`case '${key}':`), `record-editor has no case for "${key}"`);
   }
   // Every row's editor is one of these, and every editor is opened by a row.
-  const used = new Set(Object.values(RECORD_ROW_EDITOR));
+  // ⚙ `rsvp` (the Maker's RSVP panel) is opened by NO record row since its three rows moved to Guests ⚙ (2026-10-27) —
+  // named here, so a second editor going dark is still red. The Maker still mounts it (checked above).
+  const MOVED_AWAY: RecordEditorKey[] = ['rsvp'];
+  const used = new Set<string>([...Object.values(RECORD_ROW_EDITOR), ...MOVED_AWAY]);
   assert.deepEqual([...used].sort(), [...keys].sort(), 'an editor no row opens, or a row naming no editor');
 });
 
@@ -162,7 +167,7 @@ test('only the parts another flow owns carry a quiet "Open … ›" link', () =>
 
 test('opening a row writes nothing — a GET to its field, and nothing on that path writes', () => {
   assert.equal(recordFieldHref('E1', 'fonts'), '/dashboard/E1/details/field/fonts');
-  assert.equal(recordRowOfPath('/dashboard/E1/details/field/reply-by'), 'reply-by');
+  assert.equal(recordRowOfPath('/dashboard/E1/details/field/estimate'), 'estimate');
   assert.equal(recordRowOfPath('/dashboard/E1/details'), null);
   assert.equal(parseRecordRow('not-a-row'), null, 'an address that names no row opens nothing');
   for (const row of Object.keys(RECORD_ROW_EDITOR)) assert.ok(RECORD_ROW_GROUP[row as keyof typeof RECORD_ROW_GROUP], `${row} sits in no fold`);

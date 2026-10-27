@@ -84,18 +84,21 @@ test('2 · Memories › ⚙ Gallery settings draws the five that moved — the s
   assert.match(g, /Follow the moments in order/, 'the moments switch left the sheet');
 });
 
-test('3 · How guests get in carries the one code; a supplier row carries its photos; Guests says Settings', () => {
+test('3 · the one code stays in How it works; the supplier photos switch is Suppliers ⚙’s; Guests’ Settings is its ⚙', () => {
+  // ⚙ 2026-10-27 (settings per menu): the How guests get in row moved to Guests ⚙ — the one code stays in Event
+  // Details' How it works section (its rsvp section), the couple's only.
   const d = code(DETAILS);
-  const row = d.indexOf('row="guests-get-in"');
-  assert.ok(row > 0, 'premise: the How guests get in row');
-  assert.match(d.slice(row, row + 900), /<OneCodeUnderGetIn eventId=\{eventId\} \/>/, 'the one code is not under the How guests get in row');
+  const sec = d.indexOf('<Section k="rsvp">');
+  assert.ok(sec > 0, 'premise: the How it works › rsvp section');
+  assert.match(d.slice(sec, sec + 1600), /<OneCodeUnderGetIn eventId=\{eventId\} \/>/, 'the one code left How it works');
   assert.match(d, /viewer\.isCouple \? \(\s*<OneCodeUnderGetIn/, 'the one code reaches a delegate — it is the couple’s to hand out');
   assert.match(d, /data-one-code="not-yours"/, 'a delegate sees an empty space where the one code would be');
-  assert.match(d, /supplierPhotos=\{supplierShots\}/, 'Event access is not handed the suppliers’ photos');
-  const a = code(ACCESS);
-  assert.match(a, /<SupplierPhotosSwitch\b/, 'a supplier row draws no photos switch');
-  assert.match(a, /name="back" value="details"/, 'the switch would land on the Papic page');
+  // The supplier's photos switch moved to Suppliers ⚙ (owner 2026-10-27, "SUPPLIERS GETS ITS ⚙") — one home.
+  assert.doesNotMatch(d, /supplierPhotos=/, 'Event access is still handed the suppliers’ photos — two homes');
+  assert.doesNotMatch(code(ACCESS), /SupplierPhotosSwitch|setVendorCapturesHidden/, 'Event access still draws a photos switch');
+  const sup = code('app/dashboard/[eventId]/vendors/_components/suppliers-settings-rows.tsx');
+  assert.match(sup, /setVendorCapturesHiddenHere\(eventId, supplier\.vendorRowId, next\)/, 'Suppliers ⚙ does not save the photos switch in place');
   const gs = code(GUESTS);
-  assert.match(gs, /seg\('share', 'Settings'\)/, 'Guests’ third segment no longer says Settings');
-  assert.doesNotMatch(gs, /seg\('share', 'Setup'\)/, '"Setup" is back');
+  assert.match(gs, /<MenuSettingsButton menu="guests"/, 'Guests’ Settings is not its ⚙');
+  assert.doesNotMatch(gs, /seg\('share', '(Settings|Setup)'\)/, 'the Settings segment is back beside the ⚙');
 });

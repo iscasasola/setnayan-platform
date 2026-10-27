@@ -295,8 +295,9 @@ test('e · the Home draws exactly one h1 — the cover name — and it is the fi
   // as ONE line, `<names> · <date>`, drawn in place of the big words once stuck. That line is the third copy — and the
   // ONLY one allowed: aria-hidden, inside `data-home-cover-pin`. Any other copy is still a dupe.
   assert.equal(count(html, 'Ana &amp; Miguel'), 3, 'the name is the h1 (read) plus the big line and the pinned line (both seen, aria-hidden) — a fourth copy is a dupe');
-  assert.match(html, /<span aria-hidden="true" data-home-cover-pin=""[^>]*>(?:(?!<\/span>).)*?>Ana &amp; Miguel</, 'the third copy is the pinned line, hidden from a screen reader');
-  assert.equal(count(html.replace(/<span aria-hidden="true" data-home-cover-pin=""[\s\S]*?<\/span><\/span>/, ''), 'Ana &amp; Miguel'), 2, 'outside the pinned line the name is the h1 plus one aria-hidden line — a third copy is a dupe');
+  // (⚙ 2026-10-27: the line ends with Home's ⚙, a real control — so aria-hidden moved from the line onto its words.)
+  assert.match(html, /<span data-home-cover-pin=""[^>]*><span aria-hidden="true"[^>]*>Ana &amp; Miguel</, 'the third copy is the pinned line, hidden from a screen reader');
+  assert.equal(count(html.replace(/<span data-home-cover-pin=""[^>]*><span aria-hidden="true"[^>]*>Ana &amp; Miguel<\/span>/, ''), 'Ana &amp; Miguel'), 2, 'outside the pinned line the name is the h1 plus one aria-hidden line — a third copy is a dupe');
   assert.match(html, /aria-hidden="true"[^>]*>Ana &amp; Miguel</, 'the seen copy must be hidden from a screen reader, or the name is read twice');
 });
 

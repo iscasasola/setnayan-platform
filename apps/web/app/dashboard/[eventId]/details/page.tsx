@@ -1,6 +1,5 @@
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { OneCodeUnderGetIn } from '@/app/dashboard/[eventId]/studio/papic/_components/one-code';
-import { readSupplierShots } from '@/lib/event-memories.server';
 import { coupleNamesLine } from '@/lib/typed-names';
 import { PlanMyselfSwitch } from '../launch/_components/plan-myself';
 import { planMyselfOn } from '@/lib/plan-myself';
@@ -37,7 +36,6 @@ import { fetchScheduleBlocks } from '@/lib/schedule';
 import { blockTime, ceremonyBlock, firstBlockOf } from '@/lib/print-pieces';
 import { guestsArriveFrom, guestsArriveSource } from '@/lib/guests-arrive';
 import { formatWallClock } from '@/lib/schedule-datetime-local';
-import { fetchUpcomingItems, type UpcomingItem } from '@/lib/upcoming-items';
 import { computeGuestStats, fetchGuestsByEventMeasured, seatsNotYetOnTheList } from '@/lib/guests';
 import { isBudgetTruthEnabled } from '@/lib/budget-truth-flag';
 import { resolveEventMoney } from '@/lib/budget-truth';
@@ -228,9 +226,8 @@ export default async function EventDetailsPage({
   // 2026-10-20) — the approval card at the top of Event access.
   const claimsRead = viewer.isCouple ? readClaimAccessAsks(supabase, eventId) : null;
   // 📷 The suppliers who shot here — their rows carry the whole-delivery switch for Memories (owner 2026-10-23).
-  const supplierShotsRead = viewer.isCouple ? readSupplierShots(supabase, eventId).catch(() => null) : null;
 
-  const [vendorsRead, scheduleRead, upcomingRead, guestsRead, ordersRead, vatRead, privateRead, moneyRead, snapshotRead, proRead, poolRead, draftRead, guideRead, storeShell] =
+  const [vendorsRead, scheduleRead, guestsRead, ordersRead, vatRead, privateRead, moneyRead, snapshotRead, proRead, poolRead, draftRead, guideRead, storeShell] =
     await Promise.all([
       settle(
         (async () => {
@@ -247,20 +244,6 @@ export default async function EventDetailsPage({
         })(),
       ),
       settle(fetchScheduleBlocks(supabase, eventId)),
-      suppliersHidden
-        ? Promise.resolve(null)
-        : settle(
-            fetchUpcomingItems({
-              supabase,
-              eventId,
-              eventDate: str('event_date'),
-              ceremonyType: str('ceremony_type'),
-              now,
-              remindersEnabled: false,
-              statutory: false,
-              limit: 50,
-            }),
-          ),
       mayReadGuests ? settle(fetchGuestsByEventMeasured(supabase, eventId)) : Promise.resolve(null),
       moneyHidden ? Promise.resolve(null) : settle(fetchOrdersForEvent(supabase, eventId)),
       moneyHidden ? Promise.resolve(null) : settle(getEffectiveVatRatePct(supabase)),
@@ -355,10 +338,6 @@ export default async function EventDetailsPage({
       : titleCase(eventWord);
 
   // ── Key dates, soonest first ──────────────────────────────────────────────
-  const payments: UpcomingItem[] =
-    upcomingRead && upcomingRead.ok ? upcomingRead.v.items.filter((i) => i.source === 'vendor_payment').slice(0, 2) : [];
-  const paymentsFailed =
-    !!upcomingRead && (!upcomingRead.ok || upcomingRead.v.unreadableSources.includes('vendor_payment'));
   const blocks = scheduleRead.ok ? scheduleRead.v : [];
   const ceremony = ceremonyBlock(blocks);
   const reception = firstBlockOf(blocks, 'reception');
@@ -464,7 +443,6 @@ export default async function EventDetailsPage({
 
   const people = accessRead ? await accessRead : null;
   const claims = claimsRead ? await claimsRead : null;
-  const supplierShots = supplierShotsRead ? await supplierShotsRead : null;
   // The closed fold says when someone is waiting for Approve (owner 2026-10-20).
   const claimsWaitingNote =
     claims?.measured && claims.asks.length > 0 ? ` · ${formatCount(claims.asks.length)} waiting for you` : '';
@@ -733,21 +711,7 @@ export default async function EventDetailsPage({
             ) : (
               <Row fact="arrive" label="Times on the day" value={COULD_NOT_LOAD} />
             )}
-            {paymentsFailed ? (
-              <Row money label="Supplier payments" value={COULD_NOT_LOAD} />
-            ) : suppliersHidden ? (
-              <Row label="Supplier payments" value={HIDDEN_BY_THE_COUPLE} />
-            ) : (
-              payments.map((p) => (
-                <Row
-                  money
-                  key={p.id}
-                  label={sheetDate(p.date.toISOString(), false) ?? '—'}
-                  value={`${p.vendorBusinessName ?? p.subtitle} · ${p.title}${p.amountCentavos != null ? ` ${formatPhp(p.amountCentavos / 100)}` : ''}`}
-                  hint="Supplier payment"
-                />
-              ))
-            )}
+            {/* ⚙ "Supplier payments" left for Suppliers ⚙ (owner 2026-10-27, "SUPPLIERS GETS ITS ⚙"). */}
           </Section>
 
           {/* ── Venues — a booked one is fixed; otherwise the venue is typed here ── */}
@@ -850,13 +814,7 @@ export default async function EventDetailsPage({
               }
               hint={stats && seatsWithoutARow > 0 ? `${formatCount(stats.total + seatsWithoutARow)} expected with their plus-ones` : null}
             />
-            <Row
-              row="costs-view"
-              label="How you see costs"
-              value={str('adaptive_pricing_mode') === 'final_only' ? 'Final only' : 'Realtime'}
-              open={opens('costs-view')}
-              record={record}
-            />
+            {/* ⚙ "How you see costs" left for Suppliers ⚙ (owner 2026-10-27) — its old address forwards there. */}
           </Section>
 
           {/* ── Budget — the Budget page's own four numbers ── */}
@@ -973,7 +931,6 @@ export default async function EventDetailsPage({
               failed={Boolean(people && !people.measured)}
               flash={accessFlash}
               claims={claims}
-              supplierPhotos={supplierShots}
             />
           </RecordFold>
         ) : null}

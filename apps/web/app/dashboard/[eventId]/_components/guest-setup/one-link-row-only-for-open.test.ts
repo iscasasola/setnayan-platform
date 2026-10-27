@@ -15,11 +15,12 @@ const rows = (html: string) => [...html.matchAll(/data-setup-row="([^"]+)"/g)].m
 
 test('each choice draws exactly its rows', async () => {
   const expected: Record<string, string[]> = {
-    list: ['get-in', 'invitations', 'asks', 'reply-by', 'finalize'],
-    personal: ['get-in', 'invitations', 'finalize'],
-    requests: ['get-in', 'invitations', 'asks', 'reply-by', 'finalize'],
-    one_qr_approve: ['get-in', 'invitations', 'finalize'],
-    one_qr: ['get-in', 'one-link', 'finalize'],
+    // ⚙ Guests ⚙ (2026-10-27): Requests to join is a Replies row in every state; Finalize closes the sheet.
+    list: ['get-in', 'invitations', 'asks', 'reply-by', 'requests', 'finalize'],
+    personal: ['get-in', 'invitations', 'requests', 'finalize'],
+    requests: ['get-in', 'invitations', 'asks', 'reply-by', 'requests', 'finalize'],
+    one_qr_approve: ['get-in', 'invitations', 'requests', 'finalize'],
+    one_qr: ['get-in', 'one-link', 'requests', 'finalize'],
   };
   for (const [getIn, want] of Object.entries(expected)) {
     const html = await renderSetup({ getIn: getIn as never });

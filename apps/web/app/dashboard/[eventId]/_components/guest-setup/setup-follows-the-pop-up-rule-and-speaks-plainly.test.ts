@@ -66,7 +66,8 @@ test('(3) the slots the page hands the screen are single children, not list memb
   assert.equal((cell.match(/\{more \? <Handed>\{more\}<\/Handed> : null\}/g) ?? []).length, 2, 'the Invite cell draws the ⋯ the page hands it among its children again');
   assert.doesNotMatch(cell, /[^>]\{more\}[^<]/, 'the ⋯ is placed bare among the cell’s children');
   assert.match(screen, /\{empty && !q \? <Handed>\{empty\}<\/Handed> : null\}/, 'the empty slot sits among the list’s children again');
-  assert.match(screen, /\{gview === 'share' \? <Handed>\{setup\}<\/Handed> :/, 'the Setup slot sits among the screen’s children again');
+  // ⚙ Guests ⚙ (2026-10-27): the Setup slot is the sheet's rows — the ⚙'s ONE child, never a list member.
+  assert.match(screen, /<MenuSettingsButton menu="guests"[^>]*>\s*\{setup\}\s*<\/MenuSettingsButton>/, 'the Setup slot is not the ⚙ sheet’s single child');
 });
 
 test('(4) the lab’s Digital Pass picture is drawn inline — never the production address its CSP refuses', () => {

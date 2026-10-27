@@ -56,5 +56,8 @@ test('rendered: exactly one finalize row in Setup, for every choice, with its �
   }
   const reply = await renderSetup({ getIn: 'list' });
   const order = [...reply.matchAll(/data-setup-row="([^"]+)"/g)].map((m) => m[1]);
-  assert.equal(order[order.indexOf('reply-by') + 1], 'finalize', `finalize does not sit next to Reply by: ${order.join(' · ')}`);
+  // ⚙ Guests ⚙ (owner 2026-10-27, settings per menu): Finalize is the "Closing the list" cluster, the sheet's LAST row
+  // — after Replies (asks · Reply by · Requests to join).
+  assert.equal(order[order.length - 1], 'finalize', `finalize is not the sheet's last row (Closing the list): ${order.join(' · ')}`);
+  assert.ok(order.indexOf('reply-by') < order.indexOf('finalize'), `finalize comes before Reply by: ${order.join(' · ')}`);
 });

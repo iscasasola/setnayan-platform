@@ -33,8 +33,11 @@ import { AccountSwitcher } from '@/app/_components/account-switcher/account-swit
 import { supplierAvatarRows } from '@/app/vendor-dashboard/_components/supplier-avatar-rows';
 import { LabSeedDraft } from './lab-seed-draft';
 import { PORTFOLIO_FREE_BASE } from '@/lib/vendor-tier-caps';
+import { BadgeEarnedLine } from '@/app/vendor-dashboard/_components/badge-earned-line';
+import { badgePrintSvg } from '@/lib/shop-badge-print';
+import { badgeTracker, badgesForPrint, nextToEarnLine, shopBadges, trackerSummary, type TrackerFacts } from '@/lib/shop-badges';
 
-export const PAGE_LAB_STATES = ['details', 'page', 'collections', 'avatar'] as const;
+export const PAGE_LAB_STATES = ['details', 'page', 'collections', 'avatar', 'badge-today'] as const;
 export type PageLabState = (typeof PAGE_LAB_STATES)[number];
 type Who = 'parish' | 'caterer' | 'studio';
 
@@ -323,8 +326,30 @@ const SAMPLE_PHOTOS = [
   '/realstories/maria-juan-g3.jpg',
 ];
 
+/** 🏅 The badges' lab facts — the caterer sits at 96 of 100 (the prototype's frame), the studio has just reached 50,
+ *  the parish is not verified yet and has no completed events. */
+const LAB_BADGE_EVENTS: Record<Who, { events: number; unreviewed: number; awards: string[] }> = {
+  parish: { events: 0, unreviewed: 0, awards: [] },
+  caterer: { events: 96, unreviewed: 3, awards: [] },
+  studio: { events: 50, unreviewed: 2, awards: ["Setnayan's Top Pick"] },
+};
+export function labBadgeFacts(who: Who): TrackerFacts {
+  const f = FIX[who];
+  const b = LAB_BADGE_EVENTS[who];
+  return {
+    verified: f.verified,
+    completedEvents: b.events,
+    trusted: { trusted_avg_rating: f.rating, trusted_review_count: f.reviews },
+    inBusinessSinceYear: f.since,
+    awards: b.awards,
+    nowYear: 2026,
+    unreviewed: b.unreviewed,
+  };
+}
+
 function pageFixture(who: Who): PageClientData {
   const f = FIX[who];
+  const bf = labBadgeFacts(who);
   const portfolio = SAMPLE_PHOTOS.map((url, i) => ({ key: `p${i}`, url }));
   const services = f.services.map((key) => ({ key, label: f.labels[key] ?? key }));
   return {
@@ -359,11 +384,29 @@ function pageFixture(who: Who): PageClientData {
     proAsks: vendorPaywallApplies(f.tier === 'pro'),
     storeShell: false,
     plans: pagePlanLines(),
+    badges: { summary: trackerSummary(bf), pills: shopBadges(bf), next: nextToEarnLine(bf.completedEvents), rows: badgeTracker(bf), saveHref: `data:image/svg+xml;base64,${Buffer.from(badgePrintSvg(badgesForPrint(bf))).toString('base64')}` },
   };
 }
 
 export function PageLab({ state, who: rawWho, draft, invited = false }: { state: PageLabState; who?: string; draft?: boolean; /** 🎁 `&invited=1` on details — fresh from a personal invite (B4). */ invited?: boolean }) {
   const who: Who = rawWho === 'caterer' || rawWho === 'studio' ? rawWho : 'parish';
+  if (state === 'badge-today') {
+    /* 🏅 The Today line (`badge-earned-line.tsx`) on lab facts: its facts and its print file are handed in as data:
+       URIs, so nothing leaves the machine and Save to print saves the REAL outlined file for this lab shop. */
+    const bf = labBadgeFacts(who);
+    const files = Object.fromEntries(
+      badgesForPrint(bf).map((b) => [b.key, `data:image/svg+xml;base64,${Buffer.from(badgePrintSvg([b])).toString('base64')}`]),
+    );
+    return (
+      <div className="min-h-screen bg-cream px-4 pt-4 text-ink" data-lab-badge-today="">
+        <BadgeEarnedLine
+          factsUrl={`data:application/json,${encodeURIComponent(JSON.stringify({ vendorId: `lab-${who}`, facts: bf }))}`}
+          labFiles={files}
+        />
+        <p className="text-[13px] text-ink/60">Today's rows continue below.</p>
+      </div>
+    );
+  }
   if (state === 'avatar') {
     return (
       <div className="flex justify-end p-4" data-lab-avatar="">

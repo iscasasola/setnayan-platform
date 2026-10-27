@@ -56,6 +56,7 @@ import { fetchVendorFirstStepsState } from '@/lib/vendor-first-steps.server';
 import type { FirstStepsRail } from '@/lib/vendor-first-steps';
 import { AWARD_LABELS, fetchVendorCurrentAwards } from '@/lib/spotlight-awards';
 import { businessMilestone } from '@/lib/vendor-milestone';
+import { BadgeEarnedLine } from './_components/badge-earned-line';
 import { manilaToday } from '@/lib/std-views';
 
 import { PageMasthead } from '@/app/_components/page-masthead';
@@ -587,6 +588,7 @@ export default async function VendorOverviewPage({
           with no explanation. Its lasting status line is drawn by the screen, under the Next card. */}
       {outcome ? <SupplierToast text={outcome.text} tone={outcome.tone} retry={genericFailure.has(outcome.text)} line={false} /> : null}
 
+      <BadgeEarnedLine />
       <SupplierTodayScreen
         view={view}
         outcome={outcome}

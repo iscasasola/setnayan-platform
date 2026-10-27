@@ -78,6 +78,7 @@ export default async function YourPage() {
           proAsks: ownAddressAsks,
           storeShell: d.storeShell,
           plans: d.plans,
+          badges: d.badges,
         }}
         domainBody={
           <>

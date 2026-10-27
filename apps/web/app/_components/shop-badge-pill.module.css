@@ -1,0 +1,123 @@
+/* 🏅 The approved pill (corpus prototypes/calling_cards_20_2026-10-28/pill.html): the mark/number in a circle on the
+   left · two tracked caps lines in Jost · a rounded pill with a gold-foil edge. Sized by font-size, so one shape works
+   from a chip on the page up to a tarp. */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55em;
+  border-radius: 999px;
+  padding: 0.38em 1.15em 0.38em 0.42em;
+  position: relative;
+  line-height: 1;
+  font-family: var(--font-hub-jost), 'Jost', system-ui, sans-serif;
+  white-space: nowrap;
+  vertical-align: middle;
+  isolation: isolate;
+}
+.edge {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  padding: 1.4px;
+  background: linear-gradient(115deg, #8a6a2c, #d9b866 18%, #f6e7b0 28%, #b88d3b 42%, #e9cf86 58%, #8e6b2b 74%, #e6c97d);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+.mk {
+  width: 2.25em;
+  height: 2.25em;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex: none;
+  color: #cb9e4b;
+}
+.mk svg {
+  width: 72%;
+  height: 72%;
+}
+.glyph {
+  font-weight: 500;
+  font-size: 0.95em;
+  letter-spacing: 0;
+  color: #cb9e4b;
+}
+.t1 {
+  display: block;
+  font-weight: 500;
+  font-size: 0.82em;
+  letter-spacing: 0.32em;
+}
+.t2 {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  font-weight: 500;
+  font-size: 0.68em;
+  letter-spacing: 0.42em;
+  margin-top: 0.32em;
+}
+.t2 i {
+  font-style: normal;
+  font-size: 1.05em;
+  letter-spacing: 0;
+}
+.foil {
+  background: linear-gradient(115deg, #8a6a2c, #d9b866 18%, #f6e7b0 28%, #b88d3b 42%, #e9cf86 58%, #8e6b2b 74%, #e6c97d);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ── Grounds ─────────────────────────────────────────────────────────── */
+.light {
+  background: #f7f2e8;
+  color: #2b2620;
+}
+.light .mk {
+  background: #fff;
+}
+.white {
+  background: #fff;
+  color: #1e1a12;
+}
+.white .mk {
+  background: #f7f2e8;
+}
+.dark {
+  background: #151312;
+  color: #f4efe6;
+}
+.dark .mk {
+  background: #24211e;
+}
+.colour {
+  color: #f2ead8;
+}
+.colour .mk {
+  background: rgb(255 255 255 / 0.08);
+}
+
+/* `auto` follows the app's own theme: ivory by day, black by night. */
+.auto {
+  background: #f7f2e8;
+  color: #2b2620;
+}
+.auto .mk {
+  background: #fff;
+}
+:global(html.dark) .auto {
+  background: #151312;
+  color: #f4efe6;
+}
+:global(html.dark) .auto .mk {
+  background: #24211e;
+}
+:global(html.dark) .auto .t1 {
+  background: linear-gradient(115deg, #8a6a2c, #d9b866 18%, #f6e7b0 28%, #b88d3b 42%, #e9cf86 58%, #8e6b2b 74%, #e6c97d);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}

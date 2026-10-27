@@ -143,7 +143,6 @@ guestsTest('B · the same draft fixture: Guests › Setup draws what Studio › 
         drafted: true,
         reply: { own: '2027-01-14', pricingMode: 'realtime', fallback: null },
         toInvite: 4,
-        passSrc: '/api/hub-print/pass?event=e1&mode=screen&pass_guest=first',
         oneLink: { url: 'https://setnayan.com/e1/invite', qrSvg: '<svg data-qr=""></svg>', notice: null },
         headcount: { locked: false, attending: 3, heads: 3 },
       }),

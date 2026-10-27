@@ -1473,10 +1473,10 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // ------------------------------------------------------------------------
   const backLink = (
     <Link
-      href="/vendor-dashboard/clients"
+      href="/vendor-dashboard/customers"
       className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-ink/55 hover:text-ink"
     >
-      <ArrowLeft aria-hidden className="h-4 w-4" /> Clients
+      <ArrowLeft aria-hidden className="h-4 w-4" /> Customers
     </Link>
   );
 

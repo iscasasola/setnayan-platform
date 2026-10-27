@@ -98,16 +98,13 @@ export default async function PapicGuestPage({
             from the event. One tap of one of five tabs and the celebration is
             gone, with no route back to it. The camera link now carries the
             event, so the way out goes back to the invitation they were standing
-            on; `/` remains the fallback for a bare visit that names no event. */}
+            on. A bare visit that names no event draws no back (lib/page-home.ts, owner 2026-10-28:
+            a guest page never sends anyone to the marketing front page). */}
         {backSlug ? (
           <Link href={`/${backSlug}`} className="button-secondary">
             Back to the invitation
           </Link>
-        ) : (
-          <Link href="/" className="button-secondary">
-            Back to Setnayan
-          </Link>
-        )}
+        ) : null}
       </DoorShell>
     );
   }

@@ -346,9 +346,6 @@ function TerminalCard({
 }) {
   return (
     <DoorShell tone="dead_end" eyebrow={eyebrow} title={title} sub={body} width="lg">
-      <Link href="/" className="button-secondary">
-        Back to Setnayan
-      </Link>
     </DoorShell>
   );
 }

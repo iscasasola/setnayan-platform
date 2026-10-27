@@ -3278,8 +3278,8 @@ export async function renderVendorBySlug({
             <Link href="/signup" className="button-primary">
               Plan with Setnayan
             </Link>
-            <Link href="/" className="button-secondary">
-              Back to home
+            <Link href="/explore" className="button-secondary">
+              Back to suppliers
             </Link>
           </div>
         </section>

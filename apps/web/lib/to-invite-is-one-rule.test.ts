@@ -82,6 +82,8 @@ const ROSTER: GuestRow[] = [
   g('gil', { invitation_sent_at: SENT, rsvp_status: 'attending' }),
   g('req', { entry_source: REQUEST_ENTRY_SOURCE }), // a request: on the page, in no count
   g('late', { passed_away: true }),
+  // 🪑 Ana's +1 with no name yet rides on Ana's invitation — never "Send to TBA" (owner 2026-10-27).
+  g('seat', { first_name: 'TBA', last_name: '+1', plus_one_of_guest_id: 'ana', plus_one_name_confirmed_at: null } as Partial<GuestRow>),
 ];
 /** The owner's rule, spelled out by hand — the oracle every surface is held to. */
 const TO_INVITE = ['ana', 'ben', 'cora'];
@@ -184,6 +186,19 @@ test('a refused read is unknown — never "0 to invite", never "everyone has the
   const run = await renderRun([], { measured: false });
   assert.match(text(run), /We couldn’t load your guest list just now/);
   assert.doesNotMatch(text(run), /Everyone has their invite|Not sent yet \(0\)/, 'the run draws a refused read as all done');
+});
+
+test('a +1 with no name rides on their guest’s invitation; named, they are invited like anyone', () => {
+  // 'seat' sits in ROSTER and is in none of the numbers above (TO_INVITE / MAY_BE_INVITED leave it out).
+  assert.ok(!sendRunGuests(ROSTER).some((r) => r.guest_id === 'seat'), 'the run offers "Send to TBA"');
+  const named = ROSTER.map((r) =>
+    r.guest_id === 'seat' ? ({ ...r, first_name: 'Nina', last_name: 'Cruz', plus_one_name_confirmed_at: SENT } as GuestRow) : r,
+  );
+  assert.ok(isToInvite(named.find((r) => r.guest_id === 'seat')!), 'a named +1 is not invited');
+  assert.equal(toInviteCount(named, true), TO_INVITE.length + 1);
+  // 🔒 A read without the name fields never drops a seat on a guess.
+  const { first_name: _drop, ...noName } = ROSTER.find((r) => r.guest_id === 'seat')! as GuestRow & Record<string, unknown>;
+  assert.ok(isToInvite(noName as unknown as GuestRow), 'a read without first_name dropped a +1 it could not see');
 });
 
 test('declining after the run opened takes a guest out on the next read; changing back brings them in', () => {

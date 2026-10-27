@@ -106,7 +106,30 @@ export type InviteFacts = {
   passed_away?: boolean | null;
   invitation_sent_at?: string | null;
   rsvp_status?: string | null;
+  /** A +1 seat's facts — read only when the guest read carries `first_name` (see `ridesOnTheirGuest`). */
+  guest_id?: string;
+  plus_one_of_guest_id?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  plus_one_name_confirmed_at?: string | null;
 };
+
+/**
+ * 🪑 A +1 SEAT WITH NO NAME YET RIDES ON THEIR GUEST'S INVITATION (owner 2026-10-27, DECISION_LOG "THE SEND RUN, REDRAWN
+ * SIMPLE": the run's first card read "+1 · TBA — Send to TBA"). There is nobody to send it to, so it is not an
+ * invitation of its own: not in "To invite", not in the run, not in any "Send N". Named, it is a person and is invited.
+ * 🔒 Only a read that CARRIES the name can say "no name" — a read without `first_name` never drops a seat.
+ */
+function ridesOnTheirGuest(g: InviteFacts): boolean {
+  if (!g.plus_one_of_guest_id || !('first_name' in g)) return false;
+  return plusOneHasNoName({
+    guest_id: g.guest_id,
+    plus_one_of_guest_id: g.plus_one_of_guest_id,
+    first_name: g.first_name ?? null,
+    last_name: g.last_name ?? null,
+    plus_one_name_confirmed_at: g.plus_one_name_confirmed_at ?? null,
+  });
+}
 
 /**
  * MAY THIS GUEST BE SENT AN INVITATION AT ALL — sent already or not. A living,
@@ -120,7 +143,8 @@ export function mayBeInvited(g: InviteFacts): boolean {
     g.role !== 'groom' &&
     !isHonoreeRole(g.role as GuestRow['role']) &&
     countsTowardEvent(g) &&
-    g.rsvp_status !== 'declined'
+    g.rsvp_status !== 'declined' &&
+    !ridesOnTheirGuest(g)
   );
 }
 

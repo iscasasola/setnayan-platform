@@ -59,7 +59,7 @@ test('🔴 People draws with the Guest list’s own stylesheet and button — im
   }
   assert.ok((row.match(/<ActionButton /g) ?? []).length >= 4, 'a row verb is drawn as something other than the shared button');
   // The sections fold the Guest list's way, and the thumb row is its glass row.
-  for (const cls of ['gs.sec', 'gs.barWrap', 'gs.bar', 'gs.ico', 'gs.lab', 'gs.fold', 'gs.stick', 'gs.counts']) {
+  for (const cls of ['gs.sec', 'gs.barWrap', 'gs.bar', 'gs.ico', 'gs.lab', 'gs.fold', 'gs.stick']) {
     assert.ok(ROSTER.includes(cls), `the roster lost the Guest list's ${cls}`);
   }
   // …and People's own sheet adds, it does not re-draw: none of the Guest list's structural classes is defined here.
@@ -188,11 +188,14 @@ test('🔒 select mode has the two verbs and only two — no bulk label (a label
 
 test('🔴 a refused roster says "couldn’t load" at the top — never "0 connected"', () => {
   const head = ROSTER.slice(ROSTER.indexOf('const topLine = ('), ROSTER.indexOf('const rowFor = '));
-  const refused = head.indexOf('roster.connectionsUnavailable && tally.connected + tally.waiting + tally.asking === 0 ?');
-  const first = head.indexOf('<CountDoor');
+  // 📌 Since 2026-10-28 the counts are the pinned row's doors (`PeoplePinnedRow`); the row draws `note` INSTEAD of the
+  // doors whenever it is set, so the refusal must be the note's first branch.
+  const refused = head.indexOf('note={roster.connectionsUnavailable && tally.connected + tally.waiting + tally.asking === 0 ? REFUSED_COUNTS');
+  const first = head.indexOf('doors={[');
   assert.ok(refused >= 0, 'the counts line no longer checks the refusal first');
   assert.ok(first > refused, 'a count can be drawn before the refusal is checked');
-  assert.ok(head.slice(refused, first).includes('{REFUSED_COUNTS}'), 'the refusal branch does not say so');
+  const ROW = stripComments(readFileSync(join(HERE, '_components', 'people-pinned-row.tsx'), 'utf8'));
+  assert.match(ROW, /\{note \? \(\s*<span className=\{ps\.pinNote\}[^]*?\) : \(\s*doors\.map\(/, 'the pinned row draws its doors over a note (a refusal could show a 0)');
   assert.ok(!/\d/.test(ROSTER.slice(ROSTER.indexOf("const REFUSED_COUNTS = '"), ROSTER.indexOf("const REFUSED_COUNTS = '") + 60).split("'")[1] ?? '0'), 'the refused counts line carries a number');
   // The counts ARE the rows they filter to — never a server number that can disagree with the list.
   assert.match(ROSTER, /const tally = \{ connected: connectedRows\.length, waiting: waitingRows\.length, asking: requests\.length \};/);

@@ -252,3 +252,179 @@
   --gs-ok: rgb(var(--color-ok, 43 116 74));
   --gs-warn: rgb(var(--color-warn, 150 90 0));
 }
+
+/* ═══ 👥 a group row reads like a chat (owner 2026-10-28; prototype user_dash_2026-10-28 B–D) ═══
+   The disc sits in a 52-px ring box; the ring (gold → brand → gold) is drawn only while the group has live stories,
+   so a row never changes size between the two. */
+.groupRing {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 52px;
+  height: 52px;
+  border-radius: var(--m-r-full, 9999px);
+  padding: 2px;
+}
+.groupRingLive {
+  background: conic-gradient(var(--sn-gold-500, #a9834b), rgb(var(--color-mulberry)), var(--sn-gold-500, #a9834b));
+}
+.groupDisc {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--m-r-full, 9999px);
+  border: 2px solid var(--gs-paper, #f7f5f0);
+  background: color-mix(in srgb, var(--sn-gold-500, #a9834b) 22%, var(--gs-paper, #f7f5f0));
+  color: rgb(var(--color-ink));
+  font-size: 13px;
+  font-weight: 700;
+}
+.groupEvent {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 3px;
+  padding: 1px 7px;
+  border-radius: 8px;
+  background: var(--gs-gild-soft, color-mix(in srgb, #a9834b 16%, transparent));
+  color: rgb(var(--color-terracotta-700, 140 105 50));
+  font-size: 11px;
+  font-weight: 700;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+:global(html.dark) .groupEvent {
+  color: var(--sn-gold-500, #cba766);
+}
+
+/* ═══ 📌 THE PINNED ROW (owner 2026-10-28 — the 27 Oct template on People: picker · count doors · ONE action · ⚙) ═══
+   ONE 44-px row inside the sticky block, the same box at rest and pinned — nothing under it moves. Once the page has
+   scrolled under it (`data-stuck`, written by the row), a hairline and a soft shade fade in (opacity only, 220 ms; none
+   under reduced motion). 🔒 people/the-people-pinned-row.test.ts */
+.pin {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 44px;
+  min-width: 0;
+}
+.pin::after {
+  content: '';
+  position: absolute;
+  left: -16px;
+  right: -16px;
+  bottom: -8px;
+  height: 1px;
+  background: var(--gs-line, rgb(var(--color-ink) / 0.1));
+  box-shadow: 0 6px 14px -10px rgb(0 0 0 / 0.35);
+  opacity: 0;
+  transition: opacity 220ms var(--gs-ease, ease);
+  pointer-events: none;
+}
+.pin[data-stuck]::after {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pin::after {
+    transition: none;
+  }
+}
+.pinPick {
+  flex: 0 0 auto;
+  min-width: 0;
+}
+.pinPick button {
+  height: 36px !important;
+  min-height: 36px !important;
+  padding: 0 10px !important;
+  border-radius: var(--m-r-full, 9999px) !important;
+  font-weight: 700 !important;
+  font-size: 13.5px !important;
+}
+.pinDoors {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 13.5px;
+  white-space: nowrap;
+}
+.pinDoor {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
+  padding: 0 7px;
+  border: 0;
+  border-radius: var(--m-r-full, 9999px);
+  background: transparent;
+  color: var(--gs-ink, rgb(var(--color-ink)));
+  font: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 220ms var(--gs-ease, ease), color 220ms var(--gs-ease, ease);
+}
+.pinDoor b {
+  font-weight: 700;
+  margin-right: 3px;
+}
+.pinDoor.hot {
+  color: rgb(var(--color-mulberry));
+}
+.pinDoor[aria-pressed='true'] {
+  background: rgb(var(--color-ink));
+  color: var(--gs-paper, #f7f5f0);
+}
+@media (prefers-reduced-motion: reduce) {
+  .pinDoor {
+    transition: none;
+  }
+}
+.pinNote {
+  font-size: 13px;
+  color: var(--gs-mute, rgb(var(--color-ink) / 0.6));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pinSpace {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.pinAct {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+  height: 36px;
+  padding: 0 13px;
+  border: 0;
+  border-radius: var(--m-r-full, 9999px);
+  background: rgb(var(--color-mulberry));
+  color: rgb(var(--color-cream));
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.pinAct:focus-visible,
+.pinDoor:focus-visible {
+  outline: 2px solid rgb(var(--color-mulberry));
+  outline-offset: 2px;
+}
+/* 44-px thumb targets drawn AROUND the 36-px pills, so the row itself stays 44. */
+.pinDoor::after,
+.pinAct::after {
+  content: '';
+  position: absolute;
+  inset: -4px 0;
+}
+.pinAct {
+  position: relative;
+}

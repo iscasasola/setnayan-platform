@@ -59,6 +59,7 @@ import { FindField, FindNotes, FindResults, INVITE_SOMEONE_KEY, InviteCard, Invi
 import { AccountThumbRow, ThumbTool } from '../../_components/account-thumb-row';
 import { PersonAvatar } from './person-avatar';
 import ps from './people-screen.module.css';
+import { PeoplePinnedRow, type PeopleSettings } from './people-pinned-row';
 import Link from 'next/link';
 import { InfoTip } from '@/app/_components/info-tip';
 import { personPageHref } from '@/lib/person-page-link';
@@ -211,6 +212,9 @@ type Run = (fn: () => Promise<{ ok: true } | { ok: false; error: string }>) => v
 /** The ≡ filter button's list (Groups · Following · Followers — owner 2026-10-22). */
 export type PeoplePickerProps = { view: PeopleView; options: readonly PickOption[]; gates: PeopleViewGates };
 
+/** 📌 What the page hands the pinned row: its picker list and People settings' values. */
+export type PeoplePinProps = { options: readonly PickOption[]; settings: PeopleSettings };
+
 /** A folded section the page hands in (Loved ones · Groups · Your connection tree), drawn after the roster's own. */
 export type PeopleExtraSection = {
   key: 'alaga' | 'groups' | 'tree';
@@ -227,6 +231,7 @@ export function PeopleRosterView({
   relations,
   spouseNote,
   picker,
+  pin,
   extra = [],
   initialFilter = 'all',
   focus = null,
@@ -237,6 +242,8 @@ export function PeopleRosterView({
   relations: ConnectionRelation[];
   spouseNote: string | null;
   picker: PeoplePickerProps;
+  /** 📌 The pinned row's picker list (`pinnedViewOptions`) and People settings' values. */
+  pin: PeoplePinProps;
   extra?: PeopleExtraSection[];
   /** `?view=requests` opens on "asking you" (the rail's Requests row). */
   initialFilter?: PeopleFilter;
@@ -361,36 +368,29 @@ export function PeopleRosterView({
     });
   }
 
+  /* 📌 THE PINNED ROW (owner 2026-10-28, "People and Groups approved"): People ▾ · connected · asking you · Invite · ⚙,
+     one 44-px row in the sticky block (`PeoplePinnedRow`). "Waiting for them" left the row for the ≡ list's "This
+     list" group (the row holds the approved two doors); its section is still drawn in the list. The refusal lines sit
+     UNDER the sticky block — the block is one row. */
   const topLine = (
-    <div className={gs.stick} data-people-head="">
-      {roster.connectionsUnavailable && tally.connected + tally.waiting + tally.asking === 0 ? (
-        // A refusal is said as one — never "0 connected".
-        <p role="status" className={`${gs.counts} ${gs.mute}`} data-people-counts="refused">
-          {REFUSED_COUNTS}
-        </p>
-      ) : (
-        <div className={`${gs.counts} ${ps.counts}`} data-people-counts="" data-tour="people-counts">
-          {nobody ? (
-            <span className={gs.mute}>Nobody yet</span>
-          ) : (
-            <>
-              <CountDoor n={tally.connected} word="connected" on={filter === 'connected'} onTap={() => setFilter(filter === 'connected' ? 'all' : 'connected')} />
-              {tally.waiting > 0 ? (
-                <>
-                  <span aria-hidden className={gs.mute}>·</span>
-                  <CountDoor n={tally.waiting} word="waiting for them" on={filter === 'waiting'} onTap={() => setFilter(filter === 'waiting' ? 'all' : 'waiting')} />
-                </>
-              ) : null}
-              {tally.asking > 0 ? (
-                <>
-                  <span aria-hidden className={gs.mute}>·</span>
-                  <CountDoor hot n={tally.asking} word="asking you" on={filter === 'asking'} onTap={() => setFilter(filter === 'asking' ? 'all' : 'asking')} />
-                </>
-              ) : null}
-            </>
-          )}
-        </div>
-      )}
+    <>
+      <div className={gs.stick} data-people-head="">
+        <PeoplePinnedRow
+          face="people"
+          view="connected"
+          options={pin.options}
+          gates={picker.gates}
+          note={roster.connectionsUnavailable && tally.connected + tally.waiting + tally.asking === 0 ? REFUSED_COUNTS : nobody ? 'Nobody yet' : null}
+          doors={[
+            { key: 'connected', n: tally.connected, word: 'connected', on: filter === 'connected', onTap: () => setFilter(filter === 'connected' ? 'all' : 'connected') },
+            ...(tally.asking > 0
+              ? [{ key: 'asking', n: tally.asking, word: 'asking you', hot: true, on: filter === 'asking', onTap: () => setFilter(filter === 'asking' ? 'all' : 'asking') }]
+              : []),
+          ]}
+          action={{ kind: 'invite', onTap: () => setInviting(true) }}
+          settings={pin.settings}
+        />
+      </div>
       {roster.connectionsUnavailable && !nobody ? (
         <p role="status" className={`${gs.replied}`} data-people-refused>
           {PARTLY_REFUSED_LINE}
@@ -399,7 +399,15 @@ export function PeopleRosterView({
       {roster.samahanUnavailable ? (
         <p className={gs.replied}>We couldn’t read your groups just now, so the groups on each row may be missing some.</p>
       ) : null}
-    </div>
+      {filter === 'waiting' ? (
+        <p className={`${gs.replied}`} data-people-filter-line="waiting">
+          Showing the {formatCount(tally.waiting)} waiting for them ·{' '}
+          <button type="button" className="underline underline-offset-2" onClick={() => setFilter('all')}>
+            Show everyone
+          </button>
+        </p>
+      ) : null}
+    </>
   );
 
   const rowFor = (p: RosterPerson) => (
@@ -550,6 +558,9 @@ export function PeopleRosterView({
               : [
                   { key: 'list:fold', label: allOpen ? 'Collapse all' : 'Expand all', group: 'This list', icon: allOpen ? <ChevronsDownUp className="h-[18px] w-[18px]" strokeWidth={1.9} /> : <ChevronsUpDown className="h-[18px] w-[18px]" strokeWidth={1.9} /> },
                   { key: 'list:select', label: 'Select', group: 'This list', icon: <SquareCheck className="h-[18px] w-[18px]" strokeWidth={1.9} /> },
+                  ...(tally.waiting > 0
+                    ? [{ key: 'list:waiting', label: `Waiting for them ${formatCount(tally.waiting)}`, group: 'This list', icon: <Clock className="h-[18px] w-[18px]" strokeWidth={1.9} /> }]
+                    : []),
                 ]),
             { key: INVITE_SOMEONE_KEY, label: 'Invite someone', group: 'Add', icon: <UserPlus className="h-[18px] w-[18px]" strokeWidth={1.9} /> },
           ]}
@@ -557,6 +568,7 @@ export function PeopleRosterView({
             if (k === INVITE_SOMEONE_KEY) return setInviting(true);
             if (k === 'list:fold') return setOpen(allOpen ? new Set() : new Set(allKeys));
             if (k === 'list:select') return setSelectMode(true);
+            if (k === 'list:waiting') return setFilter(filter === 'waiting' ? 'all' : 'waiting');
             router.push(peopleViewHref(k as PeopleView, picker.gates));
           }}
           dataAttr="data-people-views"
@@ -689,21 +701,6 @@ export function PeopleRosterView({
         </GuestPopup>
       ) : null}
     </div>
-  );
-}
-
-/** One number in the counts line, as a door to the rows it counts (the Guest list's `.countsDoor`). */
-function CountDoor({ n, word, on, hot = false, onTap }: { n: number; word: string; on: boolean; hot?: boolean; onTap: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onTap}
-      aria-pressed={on}
-      className={`${gs.countsDoor} ${ps.countDoor} ${hot ? ps.hot : ''} ${on ? ps.on : ''}`}
-      data-people-count={word}
-    >
-      <b>{formatCount(n)}</b> {word}
-    </button>
   );
 }
 

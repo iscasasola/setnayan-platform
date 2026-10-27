@@ -188,7 +188,7 @@ const ANCHOR_HOME: Record<string, string | string[]> = {
   'memories-grid': 'app/_components/memories/event-memories-gallery.tsx',
   'memories-search': 'app/_components/memories/event-memories-gallery.tsx',
   'memories-add': 'app/_components/memories/event-memories-gallery.tsx',
-  'people-counts': 'app/dashboard/(account)/people/_components/people-roster-view.tsx',
+  'people-counts': 'app/dashboard/(account)/people/_components/people-pinned-row.tsx',
   'people-loved-ones': 'app/dashboard/(account)/people/_components/people-roster-view.tsx',
   'people-view': 'app/dashboard/(account)/people/_components/people-roster-view.tsx',
   'people-find': 'app/dashboard/(account)/people/_components/find-or-invite.tsx',

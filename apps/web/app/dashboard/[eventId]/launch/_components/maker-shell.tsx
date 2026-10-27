@@ -95,7 +95,7 @@ import { useMakerTool, type MakerEventBar, type MakerProLine, type MakerTool } f
 import type { MakerSide } from './maker-bar';
 import { PickSheetContext, type PickSheet } from '../../website/editor/_components/pick-menu-place';
 /* 🧭 The new Maker's own chrome — lazy, so the shipped Maker's first load carries none of it. */
-import { LowerThirdGrab, MakerSheet, MakerTour, MakerUpdating, StageTools, StudioBackToPart, StudioCover, StudioSideSwitch, StudioToolMenu } from './details-lazy';
+import { LowerThirdGrab, MakerSheet, MakerTour, MakerUpdating, PrintsPageDesk, StageTools, StudioBackToPart, StudioCover, StudioSideSwitch, StudioToolMenu } from './details-lazy';
 import { MAKER_LT_HALF } from '@/lib/maker-phone-room';
 import { detailsItemLayout } from '@/lib/maker-details-items';
 import { studioTileItem, type StudioTileKey } from '@/lib/studio-tile-defs';
@@ -1079,6 +1079,8 @@ export function MakerShell({
             /* 🖨 The Prints page names itself where Stages | Studio stands — it has no stage and no Studio to switch to. */
             <h1 data-maker-tool="side" data-bar-item="Prints" data-bar-fill="" data-prints-page-title="" className={`flex min-w-0 flex-1 items-center justify-center truncate text-[16px] font-semibold text-ink ${MAKER_BAR_PHONE.side}`}>
               {PRINTS_PAGE_LABEL}
+              {/* 🖥 …and a desktop still wears the Maker's columns, which the switch mounts everywhere else. */}
+              <PrintsPageDesk />
             </h1>
           ) : (
           <div data-maker-tool="side" data-bar-item="Stages or Studio" data-bar-fill="" className={`flex min-w-0 flex-1 ${MAKER_BAR_PHONE.side}`}>

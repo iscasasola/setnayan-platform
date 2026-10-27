@@ -146,6 +146,11 @@ test('2 · the shell draws Prints alone: "Prints" where Stages | Studio stood, �
   assert.match(prints, /data-maker-studio-full=""/, 'the Prints page is not full screen');
   assert.match(prints, /data-maker-studio-room=""/, 'the editor’s room under the carousel is gone');
   assert.doesNotMatch(prints, /data-studio-home=|data-maker-lower-third=|data-lt-item-menu/, 'the Prints page draws the Studio home or the lower third');
+  /* 🖥 …and on a desktop it wears the Maker's columns, as Studio › Prints did (the switch mounts them everywhere else). */
+  const shell = read(`${L}/_components/maker-shell.tsx`);
+  const title = shell.slice(shell.indexOf('data-prints-page-title'), shell.indexOf('</h1>', shell.indexOf('data-prints-page-title')));
+  assert.match(title, /<PrintsPageDesk \/>/, 'the Prints page drops the desktop columns');
+  assert.match(read(`${L}/_components/stages-studio-parts.tsx`), /export function PrintsPageDesk\(\) \{\s*const wide = useIsDesktop\('lg'\);\s*return useMaker\(\)\?\.stagesStudio === true && wide \? <MakerDesk \/> : null;/);
 });
 
 /* ══ 3 · HOME HOLDS THE DOOR ══════════════════════════════════════════════════════════════════════════════════════════ */

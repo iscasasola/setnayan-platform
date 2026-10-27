@@ -77,7 +77,7 @@ test('2 · the shell takes no choice — no prop, and its context says `stagesSt
      stands (it has no stage and no Studio to switch to). That ternary may test `printsPage` and nothing else. */
   assert.match(
     shell,
-    /<\/IconPill>[\s{}]*(?:\{printsPage \? \([\s\S]{0,600}?data-prints-page-title[\s\S]{0,300}?\) : \(\s*)?<div data-maker-tool="side"[^>]*>\s*<StudioSideSwitch /,
+    /<\/IconPill>[\s{}]*(?:\{printsPage \? \([\s\S]{0,600}?data-prints-page-title[\s\S]{0,500}?\) : \(\s*)?<div data-maker-tool="side"[^>]*>\s*<StudioSideSwitch /,
     'Stages | Studio is no longer drawn unconditionally after Exit',
   );
   assert.match(shell, /<PickSheetContext\.Provider value=\{makerPickSheet\}>/, 'the one bottom sheet became conditional');

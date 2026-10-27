@@ -21,6 +21,16 @@ import { GUESTS_SEE_WORDS, guestsSeeRowStatus } from '@/lib/guests-see-table';
 import { GuestsSeeSheet, guestsSeeWorkArea } from './guests-see-sheet';
 import { useMaker } from './maker-context';
 import { MakerDesk } from './maker-desk';
+
+/**
+ * 🖨 THE PRINTS PAGE'S DESKTOP (R8, 2026-10-27): the Prints page draws no Stages | Studio switch — the one thing that mounts
+ * the Maker's desktop columns (`MakerDesk`, below in `StudioSideSwitch`). So it mounts them HERE, on the same terms (the one
+ * Maker, a desktop width): Studio › Prints on a desktop looked like this, and the Prints page must too. Lazy, as the switch is.
+ */
+export function PrintsPageDesk() {
+  const wide = useIsDesktop('lg');
+  return useMaker()?.stagesStudio === true && wide ? <MakerDesk /> : null;
+}
 import { useIsDesktop } from '@/lib/use-responsive';
 
 /**

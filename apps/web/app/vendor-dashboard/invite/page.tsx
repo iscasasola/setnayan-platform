@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { renderUrlQrSvg } from '@/lib/qr';
+import { checkADateQr } from '@/lib/check-a-date-qr';
 import { buildVendorInviteUrl, vendorCoverageCategories } from '@/lib/vendor-couple-invite';
 import { buildVendorLockUrl } from '@/lib/vendor-locked-qr';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
@@ -66,7 +67,7 @@ export default async function VendorQrCodesPage({
   searchParams: Promise<{ et?: string; cat?: string; mode?: string; issued?: string; error?: string; ledger?: string; date?: string }>;
 }) {
   const search = await searchParams;
-  const mode: 'shortlist' | 'locked' = search.mode === 'locked' ? 'locked' : 'shortlist';
+  const mode: 'shortlist' | 'locked' | 'dates' = search.mode === 'locked' ? 'locked' : search.mode === 'dates' ? 'dates' : 'shortlist';
   const supabase = await createClient();
   const {
     data: { user },
@@ -110,10 +111,27 @@ export default async function VendorQrCodesPage({
   const modeOptions: QrPick[] = [
     { key: 'shortlist', label: 'Shortlist · free', href: `${QR_HREF}?mode=shortlist` },
     { key: 'locked', label: 'Booked · one-use', href: `${QR_HREF}?mode=locked` },
+    // 📅 CHECK A DATE (owner 2026-10-28 ✅ "index.html approve"): one permanent code → the shop's /v/<slug>/dates.
+    { key: 'dates', label: 'Check a date · free', href: `${QR_HREF}?mode=dates` },
   ];
 
   if (!canShare) {
     return <QrCodes mode={mode} backHref={DATES_HREF} modeOptions={modeOptions} canShare={false} setupHref="/vendor-dashboard/shop" shortlist={null} booked={null} />;
+  }
+
+  if (mode === 'dates') {
+    return (
+      <QrCodes
+        mode="dates"
+        backHref={DATES_HREF}
+        modeOptions={modeOptions}
+        canShare
+        setupHref="/vendor-dashboard/shop"
+        shortlist={null}
+        booked={null}
+        checkADate={{ ...(await checkADateQr(slug!)), shopName: (profile as { business_name?: string | null }).business_name?.trim() || 'Your shop' }}
+      />
+    );
   }
 
   if (mode === 'shortlist') {

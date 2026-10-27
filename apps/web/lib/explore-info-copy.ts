@@ -41,11 +41,11 @@ import type { BlockedLockReason, LockWithheldReason } from '@/lib/bench-card-act
 export const EXPLORE_INFO_BUTTON_LABEL = 'About this page';
 
 /** Heading inside the page-level ⓘ panel. */
-export const EXPLORE_INFO_TITLE = 'How Explore works';
+export const EXPLORE_INFO_TITLE = 'How Suppliers works';
 
 /** §11.1 — what this page does. */
 export const EXPLORE_INFO_WHAT =
-  'Browse every service your event needs: open a folder, open a category, and its vendors appear as a carousel. Nothing here is committed — shortlisting, comparing and inquiring are all free.';
+  'Browse every service your event needs: open a folder, open a category, and its suppliers appear as a carousel. Nothing here is committed — shortlisting, comparing and inquiring are all free.';
 
 /**
  * §11.1 — what the Coverage Strip means. Names the strip "your event", the
@@ -76,7 +76,7 @@ export const EXPLORE_INFO_STRIP =
  * `explore-info-copy.test.ts`. Do not restore the promise ahead of the step.
  */
 export const EXPLORE_INFO_HANDSHAKE =
-  'Booking this vendor tells them straight away. You then pay them directly and send the receipt — once they accept it, your date is reserved on their calendar.';
+  'Booking this supplier tells them straight away. You then pay them directly and send the receipt — once they accept it, your date is reserved on their calendar.';
 
 /**
  * 📅 What the settled-date banner used to say under the header (owner 2026-10-26, *"Yes — build the new Suppliers
@@ -99,7 +99,7 @@ export const EXPLORE_STATE_LEGEND: ReadonlyArray<{
   meaning: string;
 }> = [
   { state: 'empty', glyph: COVERAGE_GLYPH.empty, label: 'Not started', meaning: 'nothing shortlisted here yet' },
-  { state: 'exploring', glyph: COVERAGE_GLYPH.exploring, label: 'Exploring', meaning: 'you have vendors saved' },
+  { state: 'exploring', glyph: COVERAGE_GLYPH.exploring, label: 'Saved', meaning: 'you have suppliers saved' },
   { state: 'picked', glyph: COVERAGE_GLYPH.picked, label: 'In your build', meaning: 'a candidate is pinned to your suppliers' },
   { state: 'locked', glyph: COVERAGE_GLYPH.locked, label: 'Booked', meaning: 'a booking is under way or done' },
   { state: 'covered', glyph: COVERAGE_GLYPH.covered, label: 'Covered', meaning: 'you told us you are done with this one' },
@@ -284,7 +284,7 @@ export function removeFromPlanButtonLabel(label: string): string {
  * the server action when it refuses — one sentence, one home.
  */
 export const REMOVE_BLOCKED_LOCKED =
-  'This category has a booked vendor. Undo that booking first — removing a category never cancels a booking.';
+  'This category has a booked supplier. Undo that booking first — removing a category never cancels a booking.';
 
 /** A folder whose in-plan set is empty but whose pool is not. Visible copy, so
  *  it takes the same noun as the heading and the ⓘ panel. */

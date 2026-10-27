@@ -12,7 +12,7 @@ import type { ShopBadge, TrackerRow, TrackerState } from '@/lib/shop-badges';
  * to accomplish to get the next badge"*; prototype `supplier_in_place_2026-10-28/interactive.html`, Shop › Awards and
  * badges). Inside Shop › Page's "Awards and badges" fold:
  *
- *   the badges couples see today, in the pill · "Next to earn: 100 events · 4 to go" · Save to print
+ *   the badges couples see today, in the pill · "Next to earn: 100 events · Gold · 4 to go" · Save to print
  *   one row per badge — its circle · what it is · where it stands · a bar ONLY where a ladder exists · the one action
  *   that moves it · its state (Earned · N to go · Live · Not yet)
  *
@@ -22,7 +22,7 @@ import type { ShopBadge, TrackerRow, TrackerState } from '@/lib/shop-badges';
 export type BadgeTrackerData = {
   /** The pills couples see today (`shopBadges`). */
   pills: ShopBadge[];
-  /** "Next to earn: 100 events · 4 to go", or null at the top / when unread. */
+  /** "Next to earn: 100 events · Gold · 4 to go", or null at the top / when unread. */
   next: string | null;
   rows: TrackerRow[];
   /** /dev only — the print file as a data: URI, so the lab saves the real file with no session. */

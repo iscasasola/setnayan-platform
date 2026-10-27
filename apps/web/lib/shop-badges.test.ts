@@ -59,11 +59,11 @@ test('a voided booking drops a medal — the medal is a pure function of the cou
 
 test('Next to earn uses the shipped thresholds — never a new number', () => {
   assert.deepEqual([...MILESTONE_THRESHOLDS], [10, 50, 100, 500, 1000, 5000, 10000]);
-  assert.equal(nextToEarnLine(96), 'Next to earn: 100 events · 4 to go');
-  assert.equal(nextToEarnLine(0), 'Next to earn: 10 events · 10 to go');
-  assert.equal(nextToEarnLine(25), 'Next to earn: 50 events · 25 to go');
-  assert.equal(nextToEarnLine(100), 'Next to earn: 500 events · 400 to go');
-  assert.equal(nextToEarnLine(4200), 'Next to earn: 5,000 events · 800 to go');
+  assert.equal(nextToEarnLine(96), 'Next to earn: 100 events · Gold · 4 to go');
+  assert.equal(nextToEarnLine(0), 'Next to earn: 10 events · Bronze · 10 to go');
+  assert.equal(nextToEarnLine(25), 'Next to earn: 50 events · Silver · 25 to go');
+  assert.equal(nextToEarnLine(100), 'Next to earn: 500 events · Platinum · 400 to go');
+  assert.equal(nextToEarnLine(4200), 'Next to earn: 5,000 events · Ruby · 800 to go');
   assert.equal(nextToEarnLine(10000), null, 'there is no rung above 10,000');
   assert.equal(nextToEarnLine(null), null);
   for (let n = 0; n <= 12000; n += 7) {
@@ -77,7 +77,7 @@ test('the tracker: Earned / N to go / Live — and the rating carries NO bar and
   const rows = badgeTracker({ ...base, unreviewed: 3 });
   const by = Object.fromEntries(rows.map((r) => [r.kind, r]));
   assert.equal(by.verified!.stateWord, 'Earned');
-  assert.equal(by.milestone!.line, '96 of 100 → next badge: 100 events');
+  assert.equal(by.milestone!.line, '96 of 100 → next badge: 100 events · Gold');
   assert.equal(by.milestone!.stateWord, '4 to go');
   assert.equal(by.milestone!.bar, 96);
   assert.equal(by.milestone!.door?.href, '/vendor-dashboard/customers?lane=waiting#customers');
@@ -107,6 +107,7 @@ test('print takes the badges as they are on the day — the same list the page d
   const k = badgesForPrint({ ...base, completedEvents: 10000 }).find((b) => b.kind === 'milestone');
   assert.equal(k?.glyph, '10K');
   assert.equal(k?.line1, '10,000 EVENTS');
+  assert.equal(k?.line2, 'BLACK DIAMOND · ON SETNAYAN', 'the approved name sits under the number');
 });
 
 test('awards wear the pill in their own words', () => {
@@ -124,7 +125,7 @@ test('newly earned: the highest new milestone, once; dismissed keys keep it quie
   const f = { ...base, completedEvents: 50 };
   const first = newlyEarned(f, []);
   assert.equal(first?.key, 'milestone:50');
-  assert.equal(first?.sentence, 'You earned 50 events ✓ — your tarp and card can show it');
+  assert.equal(first?.sentence, 'You earned 50 events · Silver ✓ — your tarp and card can show it');
   assert.equal(newlyEarned(f, first!.keys), null, 'dismissed — nothing new');
   const later = newlyEarned({ ...base, completedEvents: 100 }, first!.keys);
   assert.equal(later?.key, 'milestone:100');

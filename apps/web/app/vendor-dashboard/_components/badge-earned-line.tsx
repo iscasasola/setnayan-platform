@@ -10,7 +10,7 @@ import { newlyEarned, type EarnedNews, type ShopBadgeFacts } from '@/lib/shop-ba
  * 🏅 "IMPROVES EVERY TIME" — ONE line on Today when a badge is NEWLY earned (owner 2026-10-28: *"we want to build it
  * now so it improves everytime"*):
  *
- *   [pill]  You earned 50 events ✓ — your tarp and card can show it      Save to print · Got it
+ *   [pill]  You earned 50 events · Silver ✓ — your tarp and card can show it      Save to print · Got it
  *
  * 🔑 "NEWLY" WITHOUT NEW SCHEMA. The badges are worked out live (`lib/shop-badges.ts`, facts from
  * `/api/vendor/badges?view=facts`, fetched AFTER Today has drawn so Today's own reads never grow). What the supplier

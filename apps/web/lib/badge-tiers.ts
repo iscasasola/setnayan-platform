@@ -3,9 +3,10 @@
  * the ladder itself: *"like youtube … 10,50,100,500,1000,5000,10000?"*). The SAME pill at every step; the MATERIAL
  * climbs — one tier per step of `MILESTONE_THRESHOLDS`, in order:
  *
- *   tier1 bronze-tone · tier2 pewter · tier3 gold · tier4 pale steel · tier5 blue · tier6 red · tier7 black + laurel
+ *   10 Bronze · 50 Silver · 100 Gold · 500 Platinum · 1,000 Diamond · 5,000 Ruby · 10,000 Black Diamond (+ laurel)
  *
- * ⚠ NO TIER NAME IS SHOWN — the keys are positional (`tier1` … `tier7`) and the badge shows the number only. A tier is a pure function of the step reached (`tierForStep`), so it upgrades itself the moment the live
+ * The NAMES were approved by the owner on 2026-10-28 and are shown on the badge, under the number ("SILVER · ON
+ * SETNAYAN"). The keys stay positional (`tier1` … `tier7`) so a renamed material never renames data. A tier is a pure function of the step reached (`tierForStep`), so it upgrades itself the moment the live
  * count crosses a step and steps down with a voided booking. Nothing is stored.
  *
  * 🔑 EVERY TIER READS AT WCAG AA, ON A LIGHT GROUND AND A DARK ONE. The foil is a gradient, so "the text's colour" is
@@ -35,7 +36,7 @@ export type TierPaint = {
   edge: readonly string[];
 };
 
-export type Tier = { key: TierKey; step: number; light: TierPaint; dark: TierPaint; laurel: boolean };
+export type Tier = { key: TierKey; step: number; name: string; light: TierPaint; dark: TierPaint; laurel: boolean };
 
 const DARK_BG = '#151312';
 const DARK_MK = '#24211E';
@@ -48,42 +49,49 @@ const SILVER_EDGE = ['#8d9196', '#e9ecef', '#b7bcc2', '#f4f6f8', '#8d9196', '#df
 const MATERIALS: Array<Omit<Tier, 'step'>> = [
   {
     key: 'tier1',
+    name: 'Bronze',
     laurel: false,
     light: { bg: '#FFFFFF', fg: '#2B2620', mk: '#F6EEE6', mkc: '#7A4A22', foil: ['#7A4A22', '#8F5A2C', '#6B3F1C'], edge: ['#8c5a2b', '#d9a577', '#7a4a22', '#c58b5a', '#8c5a2b'] },
     dark: { bg: DARK_BG, fg: DARK_FG, mk: DARK_MK, mkc: '#E2AB7C', foil: ['#E2AB7C', '#F2C49A', '#D4955F'], edge: ['#8c5a2b', '#d9a577', '#7a4a22', '#c58b5a', '#8c5a2b'] },
   },
   {
     key: 'tier2',
+    name: 'Silver',
     laurel: false,
     light: { bg: '#FFFFFF', fg: '#2B2620', mk: '#EEF0F2', mkc: '#4E545B', foil: ['#4E545B', '#666C73', '#575D64'], edge: SILVER_EDGE },
     dark: { bg: DARK_BG, fg: DARK_FG, mk: DARK_MK, mkc: '#D5DADF', foil: ['#C9CED4', '#F4F6F8', '#B7BCC2'], edge: SILVER_EDGE },
   },
   {
     key: 'tier3',
+    name: 'Gold',
     laurel: false,
     light: { bg: '#FBF7EF', fg: '#2B2620', mk: '#FFFFFF', mkc: '#7F5F20', foil: ['#7F5F20', '#8A6A2C', '#6E5118'], edge: GOLD_EDGE },
     dark: { bg: DARK_BG, fg: DARK_FG, mk: DARK_MK, mkc: '#E9CF86', foil: ['#D9B866', '#F6E7B0', '#E9CF86'], edge: GOLD_EDGE },
   },
   {
     key: 'tier4',
+    name: 'Platinum',
     laurel: false,
     light: { bg: '#F4F6F8', fg: '#1F2328', mk: '#FFFFFF', mkc: '#3E4A55', foil: ['#3E4A55', '#55616C', '#46525D'], edge: ['#7d8790', '#eef2f5', '#a9b3bc', '#ffffff', '#7d8790'] },
     dark: { bg: DARK_BG, fg: DARK_FG, mk: DARK_MK, mkc: '#E4E9EE', foil: ['#DDE3E8', '#FFFFFF', '#C3CCD4'], edge: ['#7d8790', '#eef2f5', '#a9b3bc', '#ffffff', '#7d8790'] },
   },
   {
     key: 'tier5',
+    name: 'Diamond',
     laurel: false,
     light: { bg: '#F3F8FC', fg: '#14212B', mk: '#FFFFFF', mkc: '#1F4E6B', foil: ['#1F4E6B', '#2A6386', '#1B4560'], edge: ['#6fa3c4', '#ffffff', '#a8d4ee', '#e8f6ff', '#6fa3c4'] },
     dark: { bg: DARK_BG, fg: DARK_FG, mk: DARK_MK, mkc: '#A9D8F4', foil: ['#9FD3F2', '#E8F6FF', '#7FC0E6'], edge: ['#6fa3c4', '#ffffff', '#a8d4ee', '#e8f6ff', '#6fa3c4'] },
   },
   {
     key: 'tier6',
+    name: 'Ruby',
     laurel: false,
     light: { bg: '#FFF6F7', fg: '#2A1418', mk: '#FFFFFF', mkc: '#8E1B2E', foil: ['#8E1B2E', '#A3243A', '#7A1626'], edge: ['#7a1626', '#e0566c', '#a3243a', '#f3a6b2', '#7a1626'] },
     dark: { bg: DARK_BG, fg: DARK_FG, mk: DARK_MK, mkc: '#F29AA9', foil: ['#F08A9B', '#F8B9C3', '#EC7A8D'], edge: ['#7a1626', '#e0566c', '#a3243a', '#f3a6b2', '#7a1626'] },
   },
   {
     key: 'tier7',
+    name: 'Black Diamond',
     laurel: true,
     // The top step is black on every ground — the material IS the black.
     light: { bg: '#0E0E10', fg: '#F4F4F6', mk: '#232327', mkc: '#F4F6F8', foil: ['#E9ECEF', '#FFFFFF', '#C9CED4'], edge: ['#5a5f66', '#ffffff', '#9aa1a9', '#e9ecef', '#5a5f66'] },

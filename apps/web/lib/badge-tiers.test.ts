@@ -17,6 +17,11 @@ test('one tier per shipped step, in order — no step without a material, no mat
   assert.equal(tierForStep(25), null, '25 is not a step');
   assert.ok(TIERS[TIERS.length - 1]!.laurel, 'the top step wears the laurel');
   assert.equal(TIERS.filter((t) => t.laurel).length, 1);
+  assert.deepEqual(
+    TIERS.map((t) => t.name),
+    ['Bronze', 'Silver', 'Gold', 'Platinum', 'Diamond', 'Ruby', 'Black Diamond'],
+    'the names the owner approved on 2026-10-28, in ladder order',
+  );
 });
 
 for (const t of TIERS) {

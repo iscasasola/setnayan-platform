@@ -108,14 +108,21 @@ export function milestoneLadder(count: number): MilestoneLadder {
 
 const COUNT = new Intl.NumberFormat('en-PH');
 
+/** The step's approved name (owner 2026-10-28) — "Silver" — or null for a number that is not a step. */
+export function stepName(t: number): string | null {
+  return tierForStep(t)?.name ?? null;
+}
+
 function milestoneBadge(t: number): ShopBadge {
+  const name = stepName(t);
   return {
     key: `milestone:${t}`,
     kind: 'milestone',
     glyph: stepGlyph(t),
     line1: `${COUNT.format(t)} EVENTS`,
-    line2: 'ON SETNAYAN',
-    label: `${COUNT.format(t)} events on Setnayan`,
+    // The material's name sits under the number (owner 2026-10-28: "show them on the badge, under the number").
+    line2: name ? `${name.toUpperCase()} · ON SETNAYAN` : 'ON SETNAYAN',
+    label: `${COUNT.format(t)} events on Setnayan${name ? ` · ${name}` : ''}`,
     tier: tierForStep(t)?.key,
   };
 }
@@ -243,7 +250,7 @@ export function badgeTracker(f: TrackerFacts): TrackerRow[] {
             key: badge.key,
             badge,
             title: 'Milestone · events on Setnayan',
-            line: `${COUNT.format(l.count)} of ${COUNT.format(l.next)} → next badge: ${COUNT.format(l.next)} events`,
+            line: `${COUNT.format(l.count)} of ${COUNT.format(l.next)} → next badge: ${COUNT.format(l.next)} events · ${stepName(l.next)}`,
             state: 'to_go',
             stateWord: `${COUNT.format(l.toGo!)} to go`,
             bar: l.pct,
@@ -294,11 +301,11 @@ export function trackerSummary(f: ShopBadgeFacts): string {
   return parts.length > 0 ? parts.join(' · ') : 'They show by themselves as you earn them';
 }
 
-/** "Next to earn: 100 events · 4 to go" — from the same ladder; null at the top or when unread. */
+/** "Next to earn: 100 events · Gold · 4 to go" — from the same ladder; null at the top or when unread. */
 export function nextToEarnLine(completedEvents: number | null): string | null {
   if (completedEvents === null) return null;
   const l = milestoneLadder(completedEvents);
-  return l.next === null ? null : `Next to earn: ${COUNT.format(l.next)} events · ${COUNT.format(l.toGo!)} to go`;
+  return l.next === null ? null : `Next to earn: ${COUNT.format(l.next)} events · ${stepName(l.next)} · ${COUNT.format(l.toGo!)} to go`;
 }
 
 /* ── "Improves every time" — the Today line ──────────────────────────────────────────────────────────────── */
@@ -340,6 +347,6 @@ export function newlyEarned(f: ShopBadgeFacts, seen: readonly string[]): EarnedN
       : award
         ? (shopBadges(f).find((b) => b.key === award) ?? VERIFIED)
         : VERIFIED;
-  const what = badge.kind === 'milestone' ? `${COUNT.format(milestone!)} events` : badge.label;
+  const what = badge.kind === 'milestone' ? `${COUNT.format(milestone!)} events · ${stepName(milestone!)}` : badge.label;
   return { key: badge.key, badge, sentence: `You earned ${what} ✓ — your tarp and card can show it`, keys };
 }

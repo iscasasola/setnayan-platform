@@ -92,6 +92,16 @@ export function rememberThread(
   }
 }
 
+/** The storage key's raw value plus the viewer, so a caller can tell when it changed (a stable snapshot). */
+export function lastKnownStamp(threadId: string): string {
+  if (typeof window === 'undefined') return '';
+  try {
+    return `${window.__snChatViewer ?? ''}|${window.sessionStorage.getItem(PREFIX + threadId) ?? ''}`;
+  } catch {
+    return '';
+  }
+}
+
 /** The remembered thread — only for the same viewer this page has marked. */
 export function recallThread(threadId: string): LastKnown | null {
   if (typeof window === 'undefined') return null;

@@ -69,8 +69,11 @@ test('the anchor: the frame, the stream and both pages were read', () => {
 });
 
 test('(1) the ChatBox root keeps its automatic minimum, so an open tray cannot take the stream’s floor', () => {
-  const roots = classNamesWith(BOX, ['flex-1', 'flex-col']).filter((c) => c.includes('sn-row'));
-  assert.equal(roots.length, 1, `expected exactly one framed flex-1 root in chat-box.tsx, found ${roots.length}`);
+  // 2026-10-28 · the root lost its `sn-row` card (Messenger look: no frame) and became the full-screen takeover — it is
+  // now found by its `min-w-0` (only the root has it) and must still carry `data-chat-takeover`. The property is the same.
+  assert.match(BOX, /data-chat-takeover/, 'the ChatBox root is no longer the takeover');
+  const roots = classNamesWith(BOX, ['flex-1', 'flex-col', 'min-w-0']);
+  assert.equal(roots.length, 1, `expected exactly one flex-1 root in chat-box.tsx, found ${roots.length}`);
   const root = classes(roots[0]!);
   assert.ok(
     !root.some((c) => c === 'min-h-0' || /^min-h-(px|\[0(px|rem)?\])$/.test(c)),

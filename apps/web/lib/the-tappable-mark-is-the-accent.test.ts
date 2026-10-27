@@ -28,7 +28,7 @@ const TAPPABLE_MARKS: readonly { file: string; icon: string; count: number; what
   { file: 'app/_components/back-button.tsx', icon: 'ArrowLeft', count: 1, what: 'the back arrow of BackButton' },
   { file: 'app/_components/chat/thread-list-card.tsx', icon: 'ArrowRight', count: 1, what: 'the arrow at the end of a conversation row' },
   { file: 'app/_components/contracts/contract-card.tsx', icon: 'ArrowRight', count: 1, what: 'the arrow at the end of a contract row' },
-  { file: 'app/_components/chat-thread-menu.tsx', icon: 'MoreVertical', count: 1, what: 'a conversation’s ⋮ menu' },
+  { file: 'app/_components/chat-thread-menu.tsx', icon: 'Info', count: 1, what: 'a conversation’s ⓘ menu (was ⋮ — chat prototype 2026-10-28)' },
   { file: 'app/_components/app-store/layout.tsx', icon: 'ArrowLeft', count: 1, what: 'the back arrow of a Studio service page' },
   { file: 'app/_components/app-store/layout.tsx', icon: 'ChevronRight', count: 1, what: 'the arrow at the end of a Studio service row' },
 ];

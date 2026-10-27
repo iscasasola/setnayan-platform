@@ -10542,6 +10542,5 @@ html.dark .sn-acc-head[data-open] {
     border: 1px solid rgb(var(--color-ink) / 0.1);
     border-radius: 1rem;
     background-color: rgb(var(--color-cream));
-    overflow: hidden;
   }
 }

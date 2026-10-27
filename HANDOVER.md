@@ -1,3 +1,28 @@
+# HANDOVER — claude/coordinator-door (Builder CD, 2026-10-28)
+
+Contract: corpus `prototypes/coordinator_door_2026-10-28/` + DECISION_LOG 2026-10-28 "COORDINATORS GET A DOOR".
+
+## State
+- Rule: `lib/events-you-run.ts` (`seatRunsTheEvent`, `eventsYouRun`) · read: `lib/events-you-run.server.ts` (cache()d,
+  own session, fails closed) · words: `lib/events-you-run-words.ts` (no imports — the client bar/rail use it).
+- Today: `supplier-today-first-screen.tsx` section `data-today-events-you-run`; rows `_components/events-you-run-rows.tsx`.
+- Tab: `VENDOR_EVENTS_TAB` (bar) + `VENDOR_EVENTS_DESTINATION` (rail), `runsEvents` from the supplier layout.
+- Page: `app/vendor-dashboard/events/page.tsx` → `_components/events-you-run-screen.tsx`.
+- Customer card: `clients/[eventId]/_components/open-their-event.tsx`, both shells, + Coordinator Badge.
+- Inside: `app/dashboard/[eventId]/_components/coordinating-line.tsx`, drawn by the event layout (`coordinatorSeat`).
+- Lab: `/dev/supplier-lab?s=coord-today|coord-events|coord-customer[&none=1]`, `/dev/home-lab?coord=1&shell=1`.
+- Walk + sabotage scripts: `shots-2026-10-28/coord/scripts/` (serve.sh · walk.mjs · sabotage.py · proto.mjs).
+
+## Decisions taken (not covered by the record)
+- Status line = what the day is to them (In N days · Today · Wrapping up · access until …), not "3 things need you":
+  no count of what needs a coordinator exists; inventing one would be a number nobody measured.
+- Switch OFF counts as no access (prototype note D: "access-toggle off … = it leaves the list").
+- The tab is the person's own seat, so a scoped helper who coordinates gets it too.
+- The line shows only when the coordinator also has a shop (a non-supplier planner has no shop to go back to).
+- Events page reached after access ended: "No events to run right now." + Back to Today (no error, no redirect).
+
+---
+
 # HANDOVER — claude/guests-summary-carousel (Builder GC, 2026-10-28)
 
 Contract: corpus `prototypes/guests_summary_carousel_2026-10-27/` (style A) + DECISION_LOG 2026-10-27 rows (carousel

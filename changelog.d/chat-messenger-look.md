@@ -16,9 +16,10 @@ Chat slice **C1** of the approved chat prototype (corpus `prototypes/chat_messen
   Money · Plan · Talk & files · Just you, with the shipped greyed/shut rules; ONE "Share a file" ("File · photo · video ·
   the contract").
 - **No calls** (owner: "remove both voice and video call") — the Call row, the call panel + its anchors, the composer
-  `call` affordance and the customer page's "Call" deep link are gone. LEFT IN PLACE, unused by the chat, for the owner:
-  `app/_actions/thread-call-actions.ts`, `app/_components/thread-call-room.tsx`, `app/_components/thread-call-launcher.tsx`,
-  `lib/thread-calls-gate.ts`, `app/_components/appointment-join.tsx` (appointments' video join, not the chat).
+  `call` affordance and the customer page's "Call" deep link are gone; the chat-only `thread-call-launcher.tsx` UI is
+  deleted (the Ugat both-ends check: an unmounted component is mounted or deleted). LEFT IN PLACE for the owner:
+  `app/_actions/thread-call-actions.ts`, `app/_components/thread-call-room.tsx`, `lib/thread-calls-gate.ts` — still
+  used by `app/_components/appointment-join.tsx` (appointments' video join, not the chat).
 - **Inbox** — big title, All · Unread · Suppliers, frameless rows (56px round · name · stage tag · "You: …" · time · bold +
   dot) each with its event line (owner: "i want isolation per event"); the ONE search in the frosted thumb row
   (`ThumbRow`/`ThumbDock`, eases to 70 % while scrolling) matching names via `lib/chat-inbox-search.ts` (the seam C5's
@@ -26,6 +27,9 @@ Chat slice **C1** of the approved chat prototype (corpus `prototypes/chat_messen
   supplier inside an event").
 - **Fast** — a thread's `loading.tsx` is `ThreadArrival`: the last-known messages (sessionStorage, same viewer only) in
   the thread's own shape, at once.
+- Files (C2, #6997): the composer sends every file through `prepareChatFile` → `uploadPreparedChatFile` →
+  `attachment_ref`; the thread shows the 14-day "These files go on …" line and "File expired · <name>" (flow + Files tab).
+  The chat attachment chip wears `Share`, not `Download`.
 - Lab: `/dev/chat-lab` (inbox) and `/dev/chat-lab/t/<id>` (thread; `?side=vendor`, `?seen=1`, `?send=fail`, `?delay=`).
 - Guards: `lib/the-chat-has-no-calls`, `lib/a-sent-message-shows-at-once`, `lib/the-chat-inbox-is-one-search`,
   `lib/the-chat-is-messenger-shaped`, `lib/a-supplier-chat-starts-inside-an-event` (new); `one-chat-box-like-messenger`,

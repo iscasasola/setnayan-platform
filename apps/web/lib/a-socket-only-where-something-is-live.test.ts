@@ -39,7 +39,6 @@ const ROOTS = ['app', 'lib', 'components'];
 /** Every file that opens a Realtime channel, and why it is live. Keys are paths from apps/web. */
 const LIVE: Record<string, string> = {
   'app/_components/chat-message-stream.tsx': 'an open chat thread streams its messages (lets go after 30 s hidden)',
-  'app/_components/thread-call-launcher.tsx': 'an incoming call rings on an open thread — only when calling is unlocked',
   'app/_components/appointment-join.tsx': 'Join on a confirmed online appointment, inside its join window',
   'lib/call-webrtc.ts': 'call signalling, only while in a call',
   'app/_components/run-of-show-header.tsx': 'the day-of now / next header (lets go after 30 s hidden)',

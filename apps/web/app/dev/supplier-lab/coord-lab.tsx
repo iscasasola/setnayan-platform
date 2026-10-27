@@ -14,9 +14,9 @@
  */
 import Link from 'next/link';
 import { MessageSquare } from 'lucide-react';
-import { BottomDock } from '@/app/_components/nav/bottom-nav';
+import { BottomDock, BottomNav } from '@/app/_components/nav/bottom-nav';
 import { Badge } from '@/app/_components/badge';
-import { VendorBottomNav } from '@/app/vendor-dashboard/_components/vendor-bottom-nav';
+import { vendorBarItems } from '@/app/vendor-dashboard/_components/vendor-bottom-nav';
 import { EventsYouRunScreen } from '@/app/vendor-dashboard/_components/events-you-run-screen';
 import { OpenTheirEvent } from '@/app/vendor-dashboard/clients/[eventId]/_components/open-their-event';
 import type { TodayActions } from '@/app/vendor-dashboard/_components/supplier-today-screen';
@@ -58,7 +58,9 @@ export function CoordLab({ state, none, actions }: { state: CoordState; none: bo
   const runs = eventsYouRun(labSeats(none), LAB_NOW, LAB_TODAY);
   const bar = (
     <BottomDock boundary="tab">
-      <VendorBottomNav role="owner" runsEvents={runs.length > 0} />
+      {/* The supplier bar's OWN resolver (what `VendorBottomNav` renders) — the lab sits outside the app tree, where
+          the bar component itself may not mount (`seam-invariants.test.ts`). */}
+      <BottomNav items={vendorBarItems({ role: 'owner', runsEvents: runs.length > 0 })} />
     </BottomDock>
   );
   if (state === 'coord-today') {

@@ -17,15 +17,11 @@ export function EventsYouRunScreen({ events, measured }: { events: readonly Even
   const after = events.filter((e) => e.rank === 2);
   return (
     <section data-events-you-run-screen="" aria-labelledby="events-you-run-title">
-      <InfoTip
-        label="Events you run"
-        labelAs="h1"
-        labelId="events-you-run-title"
-        labelClassName="font-serif text-[24px] italic leading-tight text-ink"
-        align="start"
-      >
-        {EVENTS_YOU_RUN_TIP}
-      </InfoTip>
+      <h1 id="events-you-run-title" className="font-serif text-[24px] italic leading-tight text-ink">
+        <InfoTip label="Events you run" align="start">
+          {EVENTS_YOU_RUN_TIP}
+        </InfoTip>
+      </h1>
       <p className="mt-0.5 text-[13px] text-ink/60">{EVENTS_YOU_RUN_LEDE}</p>
       {events.length === 0 ? (
         <p className="mt-4 text-[15px] text-ink/70" data-events-you-run-empty={measured ? 'none' : 'unread'}>

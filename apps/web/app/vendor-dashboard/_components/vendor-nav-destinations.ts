@@ -160,20 +160,6 @@ export const VENDOR_DESTINATIONS: readonly NavItem[] = [
 ] as const;
 
 /**
- * 🗂 THE EVENTS ROW — the rail's spelling of the bar's fifth tab (`VENDOR_EVENTS_TAB`, owner "approved",
- * 2026-10-28): the events this person runs as the hosts' coordinator. Joins ONLY while `runsEvents` is true, after the
- * role filter (it is the person's own seat, not the shop's), last — the same rule, the same word, the same room as the
- * phone (`coordinator-door.test.ts`).
- */
-export const VENDOR_EVENTS_DESTINATION: NavItem = {
-  key: 'events',
-  label: 'Events',
-  href: EVENTS_YOU_RUN_HREF,
-  icon: ClipboardList,
-  matchPrefix: EVENTS_YOU_RUN_HREF,
-};
-
-/**
  * Rooms OUTSIDE `/vendor-dashboard/shop` that are Shop SEGMENTS, so they light
  * Shop — on the phone bar (`vendor-bottom-nav.tsx` spreads this into Shop's
  * `activeMatch`) and on the rail (`vendorRailCandidates`). ONE list for both.
@@ -197,6 +183,20 @@ export const VENDOR_SHOP_EXTRA_MATCH: readonly string[] = [
   '/vendor-dashboard/performance',
   '/vendor-dashboard/demand',
 ];
+
+/**
+ * 🗂 THE EVENTS ROW — the rail's spelling of the bar's fifth tab (`VENDOR_EVENTS_TAB`, owner "approved",
+ * 2026-10-28): the events this person runs as the hosts' coordinator. Joins ONLY while `runsEvents` is true, after the
+ * role filter (it is the person's own seat, not the shop's), last — the same rule, the same word, the same room as the
+ * phone (`coordinator-door.test.ts`).
+ */
+export const VENDOR_EVENTS_DESTINATION: NavItem = {
+  key: 'events',
+  label: 'Events',
+  href: EVENTS_YOU_RUN_HREF,
+  icon: ClipboardList,
+  matchPrefix: EVENTS_YOU_RUN_HREF,
+};
 
 /**
  * Every (key, href) the rail's ONE `activeRailKey` resolution weighs: the rows

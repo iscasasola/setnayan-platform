@@ -6,6 +6,7 @@ import {
   SETNAYAN_AI_SKU,
   resolveSetnayanAiTypePricePhp,
   resolveSetnayanAiTierPricesResolution,
+  houseSignupPricePhp,
   type AiTierPricesResolution,
 } from './setnayan-ai-event-pricing';
 import { setnayanAiTierSkuForEventType } from './setnayan-ai-type-pricing';
@@ -96,6 +97,11 @@ export async function resolveSetnayanAiDisplayPricePhp(
   // the cheaper one, which is the same disagreement in the other direction.
   if (context === 'onboarding' && usable(row?.onboarding_price_php)) {
     return row!.onboarding_price_php as number;
+  }
+  // 💲 No override on the row: the house dial of the regular price (2026-10-28).
+  if (context === 'onboarding' && usable(row?.retail_price_php)) {
+    // DISPLAY: an unreadable dial shows the regular price rather than a guess.
+    return (await houseSignupPricePhp(row!.retail_price_php as number)) ?? (row!.retail_price_php as number);
   }
   return usable(row?.retail_price_php) ? (row!.retail_price_php as number) : 0;
 }

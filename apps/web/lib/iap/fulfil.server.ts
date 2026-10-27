@@ -387,7 +387,7 @@ export async function fulfilAppleTransaction(
       const direction = (php ?? 0) > webPhp ? 'above' : 'below';
       await insertFaultLog({
         event_type: 'OTHER',
-        element_name: 'App Store price differs from the website price',
+        element_name: 'App Store price differs from the catalogue price',
         file_path: 'lib/iap/fulfil.server.ts',
         error_message: `${tx.product.productId} sold for ${formatPhp(php ?? 0)} in the app — ${direction} the website price ${formatPhp(webPhp)}. One price everywhere: set the catalogue row or the App Store Connect price point so they are the same.`,
         payload_snapshot: { productId: tx.product.productId, chargedPhp: php, webPhp, catalogPhp: amount.catalogPhp },

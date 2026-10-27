@@ -49,7 +49,11 @@ export async function countAccountPurchases(userId: string): Promise<number | nu
       .gt('requested_total_php', 0)
       .not('status', 'in', `(${NOT_A_PURCHASE_STATUSES.join(',')})`)
       .limit(5);
-    if (error) return null;
+    if (error) {
+      // The regular price then stands — said, so a welcome that never applies is traceable.
+      console.error('[welcome-discount] could not read the account’s orders:', error.message);
+      return null;
+    }
     // The filter above and `countsAsPurchase` say the same thing; the second
     // pass is the one the unit tests pin, so a drifted filter cannot widen it.
     return ((data ?? []) as Parameters<typeof countsAsPurchase>[0][]).filter(countsAsPurchase).length;

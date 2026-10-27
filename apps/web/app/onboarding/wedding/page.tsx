@@ -153,12 +153,10 @@ export default async function OnboardingWeddingPage({
   // 2026-10-28, "ONE PRICE EVERYWHERE"): with the welcome switch on, an account
   // that has bought before sees the regular price here — the same question the
   // services card and the bill ask (`setupPriceAppliesForCreateFlow`).
-  const pricing = buildOnboardingPricing(
-    customerSkus,
-    bundles,
-    null,
-    (await setupPriceAppliesForCreateFlow(user?.id ?? null)) ? await fetchOnboardingDiscountPct() : 0,
-  );
+  const setupPct = (await setupPriceAppliesForCreateFlow(user?.id ?? null))
+    ? await fetchOnboardingDiscountPct()
+    : 0;
+  const pricing = buildOnboardingPricing(customerSkus, bundles, null, setupPct);
 
   // Date-anchor model: pre-select the faith on a Religious wedding from the
   // user's OWN profile religion (reference-only, opt-in). Only when it maps to

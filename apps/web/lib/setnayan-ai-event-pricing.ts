@@ -28,6 +28,41 @@ import {
   type AiPriceTier,
 } from './setnayan-ai-type-pricing';
 import { resolveAiBandForEventType } from './setnayan-ai-band-source';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { readOnboardingDiscountPct, setupPricePhp } from '@/lib/onboarding-discount';
+
+/**
+ * 💲 THE SIGN-UP PRICE OF A ROW WITH NO OVERRIDE OF ITS OWN = THE HOUSE DIAL.
+ *
+ * Owner, 2026-10-28 (DECISION_LOG "THE ONE PRICE — APP STORE = WEBSITE"): the
+ * per-row `onboarding_price_php` overrides were cleared when the prices moved to
+ * the App Store figures, "so the welcome price is the house 40% of the new price".
+ * Before that, a NULL here meant "no sign-up discount" and charged the regular
+ * price — which, with every AI row cleared, would have silently ended the AI
+ * sign-up discount while every other product kept it. A NULL now means "no
+ * override": the ONE house rule (`setupPricePhp`, `platform_settings.
+ * onboarding_discount_pct`) prices it, exactly as it prices the Papic rungs.
+ *
+ * Read with the ADMIN client: `platform_settings` is platform config and the
+ * caller may be anonymous (onboarding). Fails to the DEFAULT, never to zero.
+ */
+export async function houseSignupPricePhp(retailPhp: number): Promise<number | null> {
+  try {
+    const { data, error } = await createAdminClient()
+      .from('platform_settings')
+      .select('onboarding_discount_pct')
+      .eq('id', 1)
+      .maybeSingle();
+    // SEC-7: a failed read is NOT "the default" on a money path — the caller refuses.
+    if (error) return null;
+    const pct = readOnboardingDiscountPct(
+      (data as { onboarding_discount_pct?: number | string | null } | null)?.onboarding_discount_pct,
+    );
+    return setupPricePhp(retailPhp, null, pct);
+  } catch {
+    return null;
+  }
+}
 
 /** The intro catalog SKU (₱499 first cycle) — the live per-event AI row. */
 export const SETNAYAN_AI_SKU = 'SETNAYAN_AI';
@@ -130,6 +165,14 @@ export async function resolveSetnayanAiTypePriceResolution(
   if (context === 'onboarding' && usable(row?.onboarding_price_php)) {
     return { status: 'resolved', php: row!.onboarding_price_php as number };
   }
+  // 💲 No override on the row: the house dial of the regular price (2026-10-28).
+  if (context === 'onboarding' && usable(row?.retail_price_php)) {
+    const house = await houseSignupPricePhp(row!.retail_price_php as number);
+    if (house === null) {
+      return { status: 'read_error', message: 'platform_settings(onboarding_discount_pct): unreadable' };
+    }
+    return { status: 'resolved', php: house };
+  }
   if (usable(row?.retail_price_php)) {
     // An onboarding read with no discount on the row pays the regular price.
     return { status: 'resolved', php: row!.retail_price_php as number };
@@ -221,14 +264,19 @@ export async function resolveSetnayanAiTierPricesResolution(
   // this row", not "look elsewhere"). If it does not, neither figure can be
   // trusted and the locked ladder answers for both, so the pair stays coherent.
   if (usable(row?.retail_price_php)) {
+    const house = usable(row?.onboarding_price_php)
+      ? (row!.onboarding_price_php as number)
+      : await houseSignupPricePhp(row!.retail_price_php as number);
+    if (house === null) {
+      return { status: 'read_error', message: 'platform_settings(onboarding_discount_pct): unreadable' };
+    }
     return {
       status: 'resolved',
       prices: {
         band,
         retailPhp: row!.retail_price_php as number,
-        onboardingPhp: usable(row?.onboarding_price_php)
-          ? (row!.onboarding_price_php as number)
-          : null,
+        // 💲 No override on the row → the house dial of the regular price (2026-10-28).
+        onboardingPhp: house,
       },
     };
   }

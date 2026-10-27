@@ -79,7 +79,7 @@ export const RETAIL: RetailRow[] = [
   // applies it, prod still reads 3500.00 — re-check with: select
   // retail_price_php, is_active from public.platform_retail_catalog_v2 where
   // service_code = 'COUPLE_WEBSITE_PRO'.
-  { service_code: 'COUPLE_WEBSITE_PRO', title: 'Event Hub Pro', retail_price_php: 5000, is_active: true },
+  { service_code: 'COUPLE_WEBSITE_PRO', title: 'Event Hub Pro', retail_price_php: 6590, is_active: true },
   // 💎 Event Hub Pro, part by part (owner 2026-10-22) — migration 20271282742262 seeds these; OFF SALE since 2026-10-26
   // (owner: "just have the upgrade event hub pro" — migration 20271290543004). Re-check with the select above.
   { service_code: 'COUPLE_HUB_PART_REVEAL', title: 'Event Hub Pro · Reveal', retail_price_php: 1000, is_active: false },
@@ -99,18 +99,18 @@ export const RETAIL: RetailRow[] = [
   // is_active changes in prod, it changes here in the SAME PR — otherwise the
   // suite passes green while llms-txt.ts throws MissingSkuError on rebuild and
   // production serves the fallback stub.
-  { service_code: 'PAPIC_GUEST_100', title: 'Papic — add 100 credits', retail_price_php: 70, is_active: true },
+  { service_code: 'PAPIC_GUEST_100', title: 'Papic — add 100 credits', retail_price_php: 95, is_active: true },
   { service_code: 'PAPIC_GUEST_200', title: 'Papic — add 200 credits', retail_price_php: 140, is_active: true },
   { service_code: 'PAPIC_GUEST_300', title: 'Papic — add 300 credits', retail_price_php: 210, is_active: true },
   { service_code: 'PAPIC_GUEST_400', title: 'Papic — add 400 credits', retail_price_php: 280, is_active: true },
-  { service_code: 'PAPIC_GUEST_500', title: 'Papic — add 500 credits', retail_price_php: 350, is_active: true },
-  { service_code: 'PAPIC_GUEST_1K', title: 'Papic — add 1,000 credits', retail_price_php: 700, is_active: true },
+  { service_code: 'PAPIC_GUEST_500', title: 'Papic — add 500 credits', retail_price_php: 465, is_active: true },
+  { service_code: 'PAPIC_GUEST_1K', title: 'Papic — add 1,000 credits', retail_price_php: 929, is_active: true },
   { service_code: 'PAPIC_GUEST_2K', title: 'Papic — add 2,000 credits', retail_price_php: 1400, is_active: true },
   { service_code: 'PAPIC_GUEST', title: 'Papic — add 3,000 credits', retail_price_php: 1680, is_active: true },
   { service_code: 'PAPIC_GUEST_4K', title: 'Papic — add 4,000 credits', retail_price_php: 2240, is_active: true },
-  { service_code: 'PAPIC_GUEST_5K', title: 'Papic — add 5,000 credits', retail_price_php: 2800, is_active: true },
+  { service_code: 'PAPIC_GUEST_5K', title: 'Papic — add 5,000 credits', retail_price_php: 3690, is_active: true },
   { service_code: 'PAPIC_GUEST_7K', title: 'Papic — add 7,000 credits', retail_price_php: 3920, is_active: true },
-  { service_code: 'PAPIC_GUEST_10K', title: 'Papic — add 10,000 credits', retail_price_php: 4500, is_active: true },
+  { service_code: 'PAPIC_GUEST_10K', title: 'Papic — add 10,000 credits', retail_price_php: 5950, is_active: true },
   { service_code: 'PAPIC_GUEST_30K', title: 'Papic — add 30,000 credits', retail_price_php: 10800, is_active: true },
   { service_code: 'PAPIC_GUEST_50K', title: 'Papic — add 50,000 credits', retail_price_php: 15000, is_active: true },
   // The 100,000 anchor (owner 2026-08-29). Its price here is the FIXTURE's,
@@ -125,7 +125,7 @@ export const RETAIL: RetailRow[] = [
   // replayed catalog precisely so a reprice cannot land in one place only. It
   // moved in the same PR as the real one, which is the rule the neighbouring
   // fixtures already state.
-  { service_code: 'LIVE_STUDIO', title: 'Live Watch', retail_price_php: 2500, is_active: true },
+  { service_code: 'LIVE_STUDIO', title: 'Live Watch', retail_price_php: 3300, is_active: true },
   // ♻️ BACK ON SALE 2026-09-03 (LS8, migration 20271200509567) at ₱3,000 / DAY.
   // It was deactivated the day before by LS6 for one reason — its ₱1,500 was set to
   // SUM with LIVE_STUDIO into a ₱3,000 hosted total, and that pairing broke when
@@ -144,7 +144,7 @@ export const RETAIL: RetailRow[] = [
   // under-describing a live product. The retirement pairing documented in
   // `llms-txt.ts` runs in BOTH directions; only the retiring half was written down.
   { service_code: 'LIVE_STUDIO_HOSTED_CHANNEL', title: 'Live Watch — hosted channel', retail_price_php: 3000, is_active: true },
-  { service_code: 'PAKANTA', title: 'Music Maker', retail_price_php: 2500, is_active: true },
+  { service_code: 'PAKANTA', title: 'Music Maker', retail_price_php: 3300, is_active: true },
   // is_active:false since 2026-08-11 — owner set the wall FREE, so the paid row
   // is retired and the prose says "free". See the fixture note on
   // PAPIC_ADDON_STORIES: this file is a SECOND hand-typed copy of the catalog and
@@ -168,12 +168,12 @@ export const RETAIL: RetailRow[] = [
   // its fallback stub. A fixture is a SECOND hand-typed copy of the catalog —
   // when a SKU's is_active changes in prod, it must change here in the same PR.
   { service_code: 'PAPIC_ADDON_STORIES', title: 'Stories', retail_price_php: 2000, is_active: false },
-  { service_code: 'PATIKTOK_COMPILER', title: 'Patiktok', retail_price_php: 1500, is_active: true },
+  { service_code: 'PATIKTOK_COMPILER', title: 'Patiktok', retail_price_php: 1980, is_active: true },
   // SEATING_3D is FREE for couples since 2026-09-05 (owner) — deactivated in
   // prod by migration 20271205977137 and carried by FREE_FOR_ALL_SKUS (PR
   // #5185). Kept listed, inactive, same convention as KWENTO below.
   { service_code: 'SEATING_3D', title: '3D Plan', retail_price_php: 1500, is_active: false },
-  { service_code: 'SETNAYAN_AI', title: 'Setnayan AI', retail_price_php: 2499, is_active: true },
+  { service_code: 'SETNAYAN_AI', title: 'Setnayan AI', retail_price_php: 3300, is_active: true },
   // PABATI is GONE from this fixture on purpose. It went FREE on 2026-08-21 and
   // was RETIRED the same day ("we do not need pabati. retire it because it is
   // part of papic"), so it is no longer in REQUIRED_RETAIL and no longer named
@@ -200,9 +200,9 @@ export const RETAIL: RetailRow[] = [
   // inactive, so the change is legible here — the KWENTO convention above.
   { service_code: 'CUSTOM_QR_GUEST', title: 'Custom QR per Guest', retail_price_php: 0, is_active: false },
   // --- AI tier ladder: price-source rows, inactive BY DESIGN ---
-  { service_code: 'SETNAYAN_AI_B', title: 'Setnayan AI (Tier B · major milestone)', retail_price_php: 1499, is_active: false },
-  { service_code: 'SETNAYAN_AI_C', title: 'Setnayan AI (Tier C · standard event)', retail_price_php: 899, is_active: false },
-  { service_code: 'SETNAYAN_AI_D', title: 'Setnayan AI (Tier D · light)', retail_price_php: 199, is_active: false },
+  { service_code: 'SETNAYAN_AI_B', title: 'Setnayan AI (Tier B · major milestone)', retail_price_php: 1980, is_active: false },
+  { service_code: 'SETNAYAN_AI_C', title: 'Setnayan AI (Tier C · standard event)', retail_price_php: 1190, is_active: false },
+  { service_code: 'SETNAYAN_AI_D', title: 'Setnayan AI (Tier D · light)', retail_price_php: 265, is_active: false },
   // --- present in production, inactive, and NEVER named in the prose ---
   // ⚠ ADDED 2026-08-31 by the full fixture-vs-catalogue diff. The fixture had
   // never carried them, so nothing proved the renderer keeps them out — and

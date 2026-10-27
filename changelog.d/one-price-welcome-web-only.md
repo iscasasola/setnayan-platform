@@ -21,5 +21,17 @@ Owner ruling 2026-10-28 (DECISION_LOG "ONE PRICE EVERYWHERE = THE APP STORE PRIC
   VAT rate) within ₱0.50, and logs a mismatch either way (`appStorePriceMatchesWeb`, `lib/iap/products.ts`).
   No price changed.
 
-SPEC IMPACT: Implements DECISION_LOG 2026-10-28 "ONE PRICE EVERYWHERE" (no corpus edit needed — the row already
+### + The one price itself (owner 2026-10-28, DECISION_LOG "THE ONE PRICE — APP STORE = WEBSITE")
+
+- Migration `20271293510457_one_price_app_store_equals_website.sql` sets `retail_price_php` on 13 rows to the owner's
+  App Store prices (Pro ₱6,590 · Live Watch ₱3,300 · Papic 100/500/1K/5K/10K ₱95/465/929/3,690/5,950 · Setnayan AI
+  ₱3,300 / B ₱1,980 / C ₱1,190 / D ₱265 · Music Maker ₱3,300 · Patiktok ₱1,980) and clears their
+  `onboarding_price_php`; every UPDATE asserts exactly one row (a zero-row update raises). `is_active` untouched.
+  Ships WITH the App Store equality check above — the ÷0.85 floor would fault-log every sale at these prices.
+- A NULL `onboarding_price_php` on a Setnayan AI row now means "the house dial" (it meant "no sign-up discount"),
+  so clearing the overrides keeps the AI sign-up price at 40% off like every other product
+  (`houseSignupPricePhp`, refuses on an unreadable setting). The typed fallback ladders follow the catalogue
+  (regular 3300/1980/1190/265, sign-up 1980/1188/714/159); the llms.txt fixture and the Music Maker demo figure too.
+
+SPEC IMPACT: Implements DECISION_LOG 2026-10-28 "ONE PRICE EVERYWHERE" + "THE ONE PRICE — APP STORE = WEBSITE" (no corpus edit needed — the rows already
 records the ruling; open owner items listed in the PR).

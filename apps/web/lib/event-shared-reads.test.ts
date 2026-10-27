@@ -301,6 +301,17 @@ test('4d · outside an opened render the fetch is the plain fetch — every requ
 /* ═══ 5 · THE STAMP COVERS THE LIST ═════════════════════════════════════ */
 
 const MIGRATION = readFileSync(join(ROOT, 'supabase', 'migrations', '20271275959355_the_guest_page_reads_a_stamp.sql'), 'utf8');
+/** The LATEST migration that (re)creates the guests update trigger — its WHEN list is the one the database holds
+ *  (20271292712479 added `represented_by_guest_id`, 2026-10-27). */
+const GUESTS_TRIGGER_MIGRATION = (() => {
+  const dir = join(ROOT, 'supabase', 'migrations');
+  const latest = readdirSync(dir)
+    .filter((f) => f.endsWith('.sql'))
+    .sort()
+    .filter((f) => /CREATE CONSTRAINT TRIGGER guests_event_public_rev_upd/.test(readFileSync(join(dir, f), 'utf8')))
+    .pop();
+  return readFileSync(join(dir, latest!), 'utf8');
+})();
 
 test('5 · every table the page may remember moves the stamp — and `guests` watches exactly its shared columns', () => {
   const loop = /FOREACH t IN ARRAY ARRAY\[([\s\S]*?)\] LOOP/.exec(MIGRATION)?.[1] ?? '';
@@ -311,7 +322,7 @@ test('5 · every table the page may remember moves the stamp — and `guests` wa
     assert.ok(looped.includes(table), `${table} may be remembered but no trigger moves its stamp — a write to it would never be seen`);
   }
   assert.match(MIGRATION, /CREATE CONSTRAINT TRIGGER guests_event_public_rev\s+AFTER INSERT OR DELETE ON public\.guests\s+DEFERRABLE INITIALLY DEFERRED/);
-  const when = /CREATE CONSTRAINT TRIGGER guests_event_public_rev_upd[\s\S]*?WHEN \(\(([\s\S]*?)\) IS DISTINCT FROM \(([\s\S]*?)\)\)/.exec(MIGRATION);
+  const when = /CREATE CONSTRAINT TRIGGER guests_event_public_rev_upd[\s\S]*?WHEN \(\(([\s\S]*?)\) IS DISTINCT FROM \(([\s\S]*?)\)\)/.exec(GUESTS_TRIGGER_MIGRATION);
   assert.ok(when, 'the guests update trigger’s WHEN was not found — update this guard');
   const oldCols = when[1]!.split(',').map((c) => c.trim().replace(/^OLD\./, ''));
   const newCols = when[2]!.split(',').map((c) => c.trim().replace(/^NEW\./, ''));

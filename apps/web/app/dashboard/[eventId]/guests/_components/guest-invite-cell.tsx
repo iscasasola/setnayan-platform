@@ -20,6 +20,8 @@ import {
 import { saveImageToDevice } from '@/lib/save-to-device';
 import { useGuestActions } from './guest-actions-context';
 import { hearAction } from './hear-action';
+import { SentOrNotYet } from './sent-or-not-yet';
+import { useAskOnReturn } from '@/lib/ask-on-return';
 import { Popover } from './overlay-primitives';
 import {
   shareInvite,
@@ -167,6 +169,8 @@ export function GuestInviteCell({
   const pin = useHeadPin(ref, layout === 'card');
   const titleId = useId();
   const first = guest.firstName?.trim() || guest.fullName.split(/\s+/)[0] || 'them';
+  // 📨 An app opened, or something was copied to paste elsewhere — on the way back, ask "Sent / Not yet" (owner 2026-10-27).
+  const back = useAskOnReturn();
 
   useEffect(() => setSentAt(guest.sentAt), [guest.sentAt]);
 
@@ -291,6 +295,8 @@ export function GuestInviteCell({
     const text = message(false);
     const plan = inviteAppPlan(app, text, { touch, share: typeof navigator.share === 'function' });
     if (plan.kind === 'share') return share();
+    // Armed AT the press: opening an app can hide this page before the promise below settles.
+    if (!sentAt) back.arm();
     const out = await runInviteAppPlan(plan, text, touch);
     setSaid(out === 'manual' ? { kind: 'manual', text } : { kind: 'app', text: inviteAppSaid(app, plan, first) });
   }
@@ -304,6 +310,7 @@ export function GuestInviteCell({
   */
   async function copyLink() {
     const link = guest.inviteUrl ?? '';
+    if (!sentAt) back.arm(); // armed AT the press, before any await
     try {
       await navigator.clipboard.writeText(link);
       setDone((d) => ({ ...d, link: true }));
@@ -314,6 +321,7 @@ export function GuestInviteCell({
 
   async function copyMessage() {
     const text = message(false);
+    if (!sentAt) back.arm(); // armed AT the press, before any await
     try {
       await navigator.clipboard.writeText(text);
       setDone((d) => ({ ...d, message: true }));
@@ -529,6 +537,15 @@ export function GuestInviteCell({
           </div>
         </Popover>
       ) : null}
+      <SentOrNotYet
+        open={back.asking && !sentAt}
+        name={first}
+        onSent={() => {
+          back.settle();
+          mark(true);
+        }}
+        onNotYet={back.settle}
+      />
     </div>
   );
 }

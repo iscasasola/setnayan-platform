@@ -47,7 +47,8 @@ import { applyTick, isChecklistKey } from '@/lib/guest-checklist';
 import { moderateKwentoText } from '@/lib/kwento-moderation';
 import { SONG_ARTIST_MAX, SONG_TITLE_MAX } from '@/lib/guest-song-request-rule';
 import { cookies, headers } from 'next/headers';
-import type { MealPreference, RsvpStatus } from '@/lib/guests';
+import type { GuestRole, MealPreference, RsvpStatus } from '@/lib/guests';
+import { holdsARole } from '@/lib/guest-proxy';
 import { resolveRsvpAsk } from '@/lib/rsvp-ask';
 import { REPLY_WINDOW_EVENT_COLUMNS } from '@/lib/reply-window';
 import { replyWindowOfRow } from '@/lib/reply-window.server';
@@ -249,7 +250,7 @@ export async function adoptSeatSessionAction(eventId: string): Promise<void> {
 
 /** What a reply save reads of the guest before it writes — and again, if another save landed in between. */
 const REPLY_BEFORE_COLUMNS =
-  'rsvp_status, rsvp_responded_at, meal_preference, dietary_restrictions, guest_note, email, mobile, display_name, role, extra_roles, updated_at';
+  'rsvp_status, rsvp_responded_at, meal_preference, dietary_restrictions, guest_note, email, mobile, display_name, role, extra_roles, updated_at, represented_by_guest_id, proxy_named_by_guest';
 
 export async function submitRsvp(
   eventId: string,
@@ -548,6 +549,24 @@ export async function submitRsvp(
   // (2026-08-01). No correction → exactly `guestNoteToWrite`; a failed read with the question off stays undefined.
   const guestNoteWritten = withNameCorrection(guestNoteToWrite, nameCorrection);
   const mobileToWrite = ask.mobile ? contactMobile : before ? ((before.mobile as string | null) ?? null) : undefined;
+  /*
+    🧍 "I CAN'T COME — SOMEONE WILL STAND IN FOR ME" (owner 2026-10-27). A ROLE HOLDER's decline may name the person who
+    comes in their place (`stand_in_name`); the hosts confirm it on the guest card. Kept only with a decline, only for a
+    guest who holds a role and is not already represented (the database refuses a role-less one too —
+    `a_proxy_stands_in_for_a_role`); a Yes clears it (nobody stands in for a guest who comes). Anything else leaves it as
+    stored (`undefined` — dropped from the write). While it is set the decline KEEPS the seat (`free_seat_on_decline`).
+  */
+  const standInTyped = clean(formData.get('stand_in_name')).replace(/\s+/g, ' ').slice(0, 120) || null;
+  const mayNameAStandIn =
+    Boolean(before) &&
+    !(before as { represented_by_guest_id?: string | null }).represented_by_guest_id &&
+    holdsARole({ role: before!.role as GuestRole, extra_roles: (before!.extra_roles as GuestRole[] | null) ?? [] });
+  const standInToWrite: string | null | undefined =
+    status === 'declined' && mayNameAStandIn
+      ? standInTyped
+      : status === 'attending' && (before as { proxy_named_by_guest?: string | null } | null)?.proxy_named_by_guest
+        ? null
+        : undefined;
 
   /*
     🔁 TWO SAVES AT ONCE TELL THE COUPLE ONCE (event-day L1·6). Two submits of
@@ -588,6 +607,8 @@ export async function submitRsvp(
                     ? ((before?.rsvp_responded_at as string | null) ?? null)
                     : new Date().toISOString()
                   : null,
+              // 🧍 The stand-in they named (see `standInToWrite`) — with the answer, so it freezes with it.
+              proxy_named_by_guest: standInToWrite,
             }),
         meal_preference: mealToWrite,
         dietary_restrictions: dietaryToWrite,
@@ -1748,7 +1769,7 @@ async function wallPull(
   await revalidateEventSlug(eventId);
   // The couple's control strip lists the same tiles; leaving it stale would
   // show a photograph as "on the wall now" that a guest has just pulled.
-  revalidatePath(`/dashboard/${eventId}/studio/papic`);
+  revalidatePath(`/dashboard/${eventId}`);
   revalidatePath(`/dashboard/${eventId}/live`);
   return { ok: true, state: res.state };
 }

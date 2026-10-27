@@ -1,11 +1,12 @@
 import 'server-only';
 
+import { effectiveRoleOf } from '@/lib/guest-proxy';
 import { createHash } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
 import { isCoordinatorPrepReleaseEnabled } from '@/lib/coordinator-prep-release';
 import { isPlaceholderSeat } from '@/lib/extra-seats';
-import { PASSED_AWAY, REQUEST_ENTRY_SOURCE, type GuestRole } from '@/lib/guests';
+import { PASSED_AWAY, REPRESENTED_BY, REQUEST_ENTRY_SOURCE, type GuestRole } from '@/lib/guests';
 import { guestArriveBy } from '@/lib/role-group-dress-code';
 import { CLASSIC_PRINT_THEME, isProPrint } from '@/lib/print-pieces';
 import { layoutPassCard, type PrintPass } from '@/lib/print-layout';
@@ -48,7 +49,8 @@ import {
  */
 const PASS_CARD_GUEST_COLUMNS =
   'guest_id, event_id, deleted_at, entry_source, passed_away, rsvp_status, plus_one_of_guest_id, qr_token, role, ' +
-  'name_prefix, first_name, middle_name, last_name, name_suffix, display_name, plus_one_allowed, plus_one_name, plus_one_name_confirmed_at';
+  'name_prefix, first_name, middle_name, last_name, name_suffix, display_name, plus_one_allowed, plus_one_name, plus_one_name_confirmed_at, ' +
+  'represented_by_guest_id';
 
 export type PassCardGuest = PassCardRow & {
   /** ⏰ Their role — a role with its own call time prints THAT as Arrive (`guestArriveBy`), never the doors' time. */
@@ -87,6 +89,29 @@ export function passCardGuestName(
   return displayPersonName(ticketName(g, style));
 }
 
+/**
+ * 🧍 A PROXY'S TICKET SAYS THE ROLE'S CALL TIME (owner 2026-10-27: "the dress code, call time, will be same as their proxy
+ * role"). Each row that stands in for a role holder takes that holder's role (`roleOfRecord`) — the one thing `passCardPass`
+ * reads a role for (`guestArriveBy`). A refused read leaves the rows as they are (their own role, never a guessed one).
+ */
+export async function wearTheirStandInRoles<T extends { guest_id: string; role: string | null }>(admin: SupabaseClient, rows: T[]): Promise<T[]> {
+  if (rows.length === 0) return rows;
+  const { data, error } = await admin
+    .from('guests')
+    .select('represented_by_guest_id, role, extra_roles')
+    .in('represented_by_guest_id', rows.map((r) => r.guest_id))
+    .is('deleted_at', null);
+  if (error) {
+    logQueryError('pass-card.standIn', error, { rows: rows.length }, 'graceful_degrade');
+    return rows;
+  }
+  const roleOf = new Map<string, GuestRole>();
+  for (const h of (data ?? []) as { represented_by_guest_id: string; role: GuestRole; extra_roles: GuestRole[] | null }[]) {
+    roleOf.set(h.represented_by_guest_id, effectiveRoleOf({ role: 'guest' }, { role: h.role, extra_roles: h.extra_roles ?? [] }));
+  }
+  return roleOf.size === 0 ? rows : rows.map((r) => (roleOf.has(r.guest_id) ? { ...r, role: roleOf.get(r.guest_id)! } : r));
+}
+
 /** One guest row (and, for a plus-one, the row of whoever brought them). */
 export async function readPassCardGuest(
   admin: SupabaseClient,
@@ -97,7 +122,8 @@ export async function readPassCardGuest(
     logQueryError('pass-card.readGuest', error, { guest_id: guestId }, 'graceful_degrade');
     return { target: null, bringer: null, failed: true };
   }
-  const target = (data as PassCardGuest | null) ?? null;
+  const read = (data as PassCardGuest | null) ?? null;
+  const target = read ? ((await wearTheirStandInRoles(admin, [read]))[0] ?? read) : null;
   if (!target?.plus_one_of_guest_id) return { target, bringer: null, failed: false };
   const { data: b, error: bErr } = await admin
     .from('guests')
@@ -444,14 +470,15 @@ export async function eligiblePassCardGuests(
     .eq('event_id', eventId)
     .is('deleted_at', null)
     // Cheap pre-filter; `passCardEligibility` below is the rule.
-    .neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false)
+    .neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false).is(REPRESENTED_BY, null)
     .order('last_name', { ascending: true })
     .order('first_name', { ascending: true });
   if (error) {
     logQueryError('pass-card.eligible', error, { event_id: eventId }, 'graceful_degrade');
     return { guests: [], measured: false };
   }
-  return { guests: filterEligible((data ?? []) as unknown as PassCardGuest[]), measured: true };
+  // 🧍 Each proxy wears the role they stand in for before the rule picks who has a card (Arrive = the role's call time).
+  return { guests: filterEligible(await wearTheirStandInRoles(admin, (data ?? []) as unknown as PassCardGuest[])), measured: true };
 }
 
 /** The rule over a whole list — `filterPassCardRows` (pure, executed by its test). */

@@ -20,7 +20,9 @@ const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$
 const ACTION = read('..', 'app', 'dashboard', '[eventId]', 'studio', 'papic', 'vendor-visibility-actions.ts');
 // 🗂 2026-10-23: the switch is on each supplier's row in Settings › Event access (and a supplier photo's sheet on
 // Memories) — `VendorMediaControls` on the Papic page is gone.
-const CONTROL = read('..', 'app', 'dashboard', '[eventId]', 'details', '_components', 'people-with-access.tsx');
+// ⚙ The supplier's switch moved from Event Details › Event access to Suppliers ⚙ (owner 2026-10-27, "SUPPLIERS GETS
+// ITS ⚙ — THE SUPPLIER SETTINGS MOVE THERE") — one home; it saves in place there (`setVendorCapturesHiddenHere`).
+const CONTROL = read('..', 'app', 'dashboard', '[eventId]', 'vendors', '_components', 'suppliers-settings-rows.tsx');
 const PAGE = read('..', 'app', '_components', 'memories', 'event-memories-gallery.tsx');
 const GALLERY = read('papic-gallery.ts');
 
@@ -36,7 +38,8 @@ test('THE HANDLE: something actually WRITES the column', () => {
 
 test('THE HANDLE IS REACHABLE: a control is mounted, not just written', () => {
   // A server action nobody renders is still a dead feature.
-  assert.match(strip(CONTROL), /action=\{setVendorCapturesHidden\}/, 'the Event access row must call it');
+  assert.match(strip(CONTROL), /await setVendorCapturesHiddenHere\(eventId, supplier\.vendorRowId, next\)/, 'the Suppliers ⚙ row must call it');
+  assert.match(strip(ACTION), /export async function setVendorCapturesHiddenHere[\s\S]*?\.update\(\{ papic_captures_hidden: hidden \}\)/, 'the in-place action must write the same column');
   assert.match(strip(PAGE), /action=\{setVendorCapturesHidden\}/, 'and a supplier photo’s sheet on Memories too');
 });
 

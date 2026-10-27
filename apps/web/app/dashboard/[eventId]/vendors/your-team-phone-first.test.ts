@@ -79,7 +79,9 @@ test('(a) the order: the date · place line, Find · Build · Booked, then one b
   for (const [name, at] of Object.entries({ stick, facts, seg, find, build, booked })) {
     assert.ok(at > -1, `the ${name} piece is gone`);
   }
-  assert.ok(stick < facts && facts < seg, 'the date · place line sits ABOVE the segmented control, inside the pinned block');
+  // 📌 2026-10-27 (owner, Suppliers A — "suppliers, make that 2 row pinned collapse to 1 row" → "pinned approve"): the
+  // date · place line still sits ABOVE the control, but OUTSIDE the pinned block — it scrolls away; only the control pins.
+  assert.ok(facts < stick && stick < seg, 'the date · place line sits ABOVE the segmented control, outside the pinned block (only the control pins)');
   assert.ok(seg < find && find < build && build < booked, 'the body follows the control, in the order Find · Build · Booked');
   // ONE control, the shipped one, in the wine tone — and exactly three segments.
   assert.equal((body.match(/<ISegmented\b/g) ?? []).length, 1, 'a second navigator');

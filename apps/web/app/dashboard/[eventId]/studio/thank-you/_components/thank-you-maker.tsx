@@ -23,7 +23,7 @@
 // `thank-you-video.test.ts` pins that split.
 
 import { useCallback, useRef, useState } from 'react';
-import { AlertTriangle, Check, Download, Film, Loader2 } from 'lucide-react';
+import { AlertTriangle, Check, Share, Film, Loader2 } from 'lucide-react';
 import { renderReel, type RenderClip } from '@/lib/reel-render';
 import {
   THANK_YOU_FOOTER,
@@ -31,6 +31,7 @@ import {
   type ThankYouPlan,
 } from '@/lib/thank-you-video-shared';
 import { formatCount } from '@/lib/format-number';
+import { saveFileToDevice } from '@/lib/save-to-device';
 import { formatPhp } from '@/lib/orders';
 import { PaidMark } from '@/app/_components/paid-mark';
 import {
@@ -79,6 +80,10 @@ export function ThankYouMaker({
   // Revoked on replace so a couple who re-renders three times does not hold
   // three encoded films in memory on a phone.
   const objectUrlRef = useRef<string | null>(null);
+  // The film itself, kept so "Save to my phone" hands the FILE to the device (share sheet on a phone, a download on a
+  // computer). 🐞 2026-10-27: a blob `<a download>` in the iPhone app saves nothing and traps the view.
+  const filmRef = useRef<File | null>(null);
+  const [saveNote, setSaveNote] = useState<'expired' | 'failed' | null>(null);
 
   const make = useCallback(async () => {
     setPhase('rendering');
@@ -109,6 +114,8 @@ export function ThankYouMaker({
       if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
       const url = URL.createObjectURL(result.blob);
       objectUrlRef.current = url;
+      filmRef.current = new File([result.blob], 'setnayan-thank-you.mp4', { type: result.blob.type || 'video/mp4' });
+      setSaveNote(null);
       setFileUrl(url);
       setPhase('done');
     } catch (e) {
@@ -188,14 +195,27 @@ export function ThankYouMaker({
             <>
               {/* eslint-disable-next-line jsx-a11y/media-has-caption -- a silent-or-music montage with no speech has no captions to provide */}
               <video src={fileUrl} controls playsInline className="w-full rounded-xl" />
-              <a
-                href={fileUrl}
-                download="setnayan-thank-you.mp4"
+              <button
+                type="button"
+                onClick={async () => {
+                  const film = filmRef.current;
+                  if (!film) {
+                    setSaveNote('failed');
+                    return;
+                  }
+                  const r = await saveFileToDevice(film);
+                  setSaveNote(r === 'expired' ? 'expired' : r === 'failed' ? 'failed' : null);
+                }}
                 className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-ink px-4 py-2.5 text-sm font-medium text-cream hover:bg-ink/90"
               >
-                <Download className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-                Save to my phone
-              </a>
+                <Share className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+                {saveNote === 'expired' ? 'Tap to save' : 'Save to my phone'}
+              </button>
+              {saveNote === 'failed' ? (
+                <p role="alert" className="text-sm text-terracotta-700">
+                  The film could not be saved to this phone. Nothing was saved — try again.
+                </p>
+              ) : null}
             </>
           )}
         </div>

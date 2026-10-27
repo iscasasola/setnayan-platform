@@ -1,8 +1,9 @@
 'use client';
 
+import { PapicStayForm } from './papic-stay-form';
 import { Fragment, useEffect, useState } from 'react';
 import { PAPIC_OPEN_GALLERY } from './papic-see-photos';
-import { Play, Download, Sparkles, Loader2, Gem } from 'lucide-react';
+import { Play, Share, Sparkles, Loader2, Gem } from 'lucide-react';
 import type { GalleryPhoto, GalleryTagSource, PreservationTotals } from '@/lib/papic-gallery';
 import { PAPIC_POINTS_PER_SNIPPET } from '@/lib/papic-cameras-pure';
 import {
@@ -14,6 +15,7 @@ import {
 import { formatPhp } from '@/lib/orders';
 import { SavePhotoButton } from '@/app/_components/save-photo-button';
 import { saveMediaToDevice } from '@/lib/save-to-device';
+import { SaveFileLink } from '@/app/_components/save-file-link';
 import { setClipShowcaseApproval, setGuestClipShowcaseApproval, setCapturePreserved } from '../actions';
 import { GalleryCredit } from '@/app/_components/gallery/gallery-credit';
 import { GalleryLightbox } from '@/app/_components/gallery/gallery-lightbox';
@@ -191,14 +193,15 @@ export function PapicGalleryGrid({
       </div>
 
       {eventId && photos.length > 0 ? (
-        <a
+        // 📥 Saved, never shown in place — the app's web view renders a file with no way back (owner 2026-10-27).
+        <SaveFileLink
           href={`/dashboard/${eventId}/studio/papic/gallery-zip`}
-          download
+          filename="setnayan-papic-photos.zip"
           className="sn-gal-btn mt-2 inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium"
         >
-          <Download aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+          <Share aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
           Download all
-        </a>
+        </SaveFileLink>
       ) : null}
 
       {eventId && photos.some((p) => p.kind === 'clip') ? (
@@ -402,19 +405,20 @@ export function PapicLightbox({
             {saving ? (
               <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
             ) : (
-              <Download aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+              <Share aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
             )}
             {saving ? 'Saving…' : 'Download snippet'}
           </button>
         ) : photo.saveUrl ? (
-          <a
+          // `saveUrl` is the same-origin save-photo route — SaveFileLink saves it (share sheet / download), never shows it.
+          <SaveFileLink
             href={photo.saveUrl}
-            download
+            filename={`setnayan-photo-${photo.id}.jpg`}
             className="sn-gal-btn inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium"
           >
-            <Download aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+            <Share aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
             Save photo
-          </a>
+          </SaveFileLink>
         ) : null
       }
     />
@@ -454,7 +458,7 @@ function ShowcaseToggle({
   // papic_photos.
   const action = source === 'guest' ? setGuestClipShowcaseApproval : setClipShowcaseApproval;
   return (
-    <form action={action} className="absolute left-1 top-1">
+    <PapicStayForm door={source === 'guest' ? 'setGuestClipShowcaseApproval' : 'setClipShowcaseApproval'} action={action} className="absolute left-1 top-1">
       <input type="hidden" name="event_id" value={eventId} />
       <input type="hidden" name="photo_id" value={photoId} />
       <input type="hidden" name="approve" value={approved ? '0' : '1'} />
@@ -474,7 +478,7 @@ function ShowcaseToggle({
       >
         <Sparkles aria-hidden className="h-3 w-3" strokeWidth={2} />
       </button>
-    </form>
+    </PapicStayForm>
   );
 }
 
@@ -603,7 +607,7 @@ function PreserveToggle({
     ? 'Kept at full resolution. Tap to release — it stays in your Memories, just smaller, and that cannot be undone later.'
     : 'Released — it will be stored smaller. Tap to keep it at full resolution.';
   return (
-    <form action={setCapturePreserved} className="absolute right-1 top-1">
+    <PapicStayForm door="setCapturePreserved" action={setCapturePreserved} className="absolute right-1 top-1">
       <input type="hidden" name="event_id" value={eventId} />
       <input type="hidden" name="capture_id" value={captureId} />
       <input type="hidden" name="source" value={source} />
@@ -621,6 +625,6 @@ function PreserveToggle({
       >
         <Gem aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
       </button>
-    </form>
+    </PapicStayForm>
   );
 }

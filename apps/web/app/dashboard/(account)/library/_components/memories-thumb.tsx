@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Download, ListFilter } from 'lucide-react';
+import { Share, ListFilter } from 'lucide-react';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import type { LinkPickOption } from '@/app/_components/link-pick-menu';
 import { AccountThumbRow, ThumbField, ThumbTool } from '../../_components/account-thumb-row';
+import { usePrintSave } from '@/app/dashboard/[eventId]/launch/_components/print-save-button';
 
 /**
  * memories-thumb.tsx — Memories' bottom row, drawn as THE ONE THUMB ROW (owner 2026-10-22: the Find row on every
@@ -14,7 +15,7 @@ import { AccountThumbRow, ThumbField, ThumbTool } from '../../_components/accoun
  *   inventing a verb).
  * ≡ is ONE dropdown (any set of choices is a dropdown) holding what were two: EVENT (All events · each event you host
  * or attended, its count on the right) and SHOW (the five lenses · "Also kept", the shipped list) — plus ⤓ Download
- * all once one event you host is picked (the studio's own `gallery-zip`). Every option is still a plain address.
+ * all once one event you host is picked (the studio's own `gallery-zip`, SAVED through `usePrintSave`, never navigated to).
  * The field is the one NEW mechanism (flagged in the prototype's adoption table): it narrows the chapters already on
  * the page by their names — event, chapter, album — on the device; nothing is fetched.
  */
@@ -34,6 +35,10 @@ export function MemoriesThumb({
   const router = useRouter();
   const [q, setQ] = useState('');
   const [none, setNone] = useState(false);
+  // 📥 "Download all" SAVES the zip — never `location.assign` it: the app's web view renders a file in its only view,
+  // with no way back and nothing saved (owner 2026-10-27). Same save as SaveFileLink: fetch with the session → the
+  // share sheet on a phone, a download on a computer; a zip that outlives the tap asks for one more pick.
+  const { state: saving, save } = usePrintSave();
 
   // Narrow the page's chapters by name. The chapters are server-drawn, so this marks them, nothing more.
   useEffect(() => {
@@ -57,7 +62,7 @@ export function MemoriesThumb({
       group: o.group === 'Also kept' ? 'Also kept' : 'Show',
       ...(o.key === showValue && events ? { trail: { text: 'showing', tone: 'ok' as const } } : {}),
     })),
-    ...(download ? [{ key: 'download', label: 'Download all', group: 'This event', href: download, icon: <Download className="h-[18px] w-[18px]" strokeWidth={1.9} /> }] : []),
+    ...(download ? [{ key: 'download', label: 'Download all', group: 'This event', href: download, icon: <Share className="h-[18px] w-[18px]" strokeWidth={1.9} /> }] : []),
   ].map((o) => ({ ...o, icon: o.icon ?? <ListFilter className="h-[18px] w-[18px]" strokeWidth={1.9} /> }));
 
   return (
@@ -65,6 +70,19 @@ export function MemoriesThumb({
       {none ? (
         <p role="status" className="mx-auto w-full max-w-3xl py-3 text-[14px] text-ink/60" data-memories-no-match="">
           No event or chapter named “{q.trim()}” here.
+        </p>
+      ) : null}
+      {saving.k === 'working' ? (
+        <p role="status" className="mx-auto w-full max-w-3xl py-3 text-[14px] text-ink/60" data-memories-download="saving">
+          Preparing your photos…
+        </p>
+      ) : saving.k === 'ready' ? (
+        <p role="status" className="mx-auto w-full max-w-3xl py-3 text-[14px] text-ink/60" data-memories-download="ready">
+          Your photos are ready — pick Download all again to save them.
+        </p>
+      ) : saving.k === 'error' ? (
+        <p role="alert" className="mx-auto w-full max-w-3xl py-3 text-[14px] text-danger-700" data-memories-download="failed">
+          {saving.message}
         </p>
       ) : null}
       <AccountThumbRow
@@ -79,7 +97,7 @@ export function MemoriesThumb({
                 onPick={(k) => {
                   const o = options.find((x) => x.key === k);
                   if (!o) return;
-                  if (k === 'download') return window.location.assign(o.href);
+                  if (k === 'download') return void save(o.href, 'setnayan-papic-photos.zip');
                   router.push(o.href, { scroll: false });
                 }}
                 dataAttr="data-memories-filter"

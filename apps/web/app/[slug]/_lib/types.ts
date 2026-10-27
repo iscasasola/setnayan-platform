@@ -443,6 +443,13 @@ export type GuestRow = {
   guest_id: string;
   first_name: string;
   last_name: string;
+  /** Their extra roles — "may they send a proxy" reads them with `role` (`holdsARole`). Absent on an older read. */
+  extra_roles?: GuestRole[] | null;
+  /** 🧍 A role holder's proxy link and the name they typed — the reader's own row (`loadGuestOwnRow`). */
+  represented_by_guest_id?: string | null;
+  proxy_named_by_guest?: string | null;
+  /** 🧍 Who this guest stands in for, or who stands in for them (`readGuestStandIn`). Absent on a stand-in's drawing. */
+  stand_in?: import('@/lib/guest-proxy').GuestStandIn;
   /** The other formal name parts (`lib/formal-name.ts`) — the place card prints them. */
   name_prefix?: string | null;
   middle_name?: string | null;

@@ -67,7 +67,9 @@ test('🚨 the Uploads camera index collides with nothing', () => {
   assert.ok(n < paid, `index ${n} lands in the paid camera range (${paid}+)`);
 });
 
-test('🚨 the provisioner is called only from COUPLE-CHECKED RENDERS — the studio page and the Memories page', () => {
+test('🚨 the provisioner is called only from COUPLE-CHECKED RENDERS — the Papic card\'s self-heal and the Memories page', () => {
+  // 2026-10-26: the studio page is GONE (owner: "place that on home and remove that page"); its self-heals moved with its
+  // card to Home — `papic-self-heal.tsx`, rendered only inside the couple's card, host-checked before any write.
   // 2026-10-26 (owner, live: "the turn on is not working as well fix it"): the studio render was the ONE minter, and
   // since 2026-10-24 it sends the couple to Home before it gets there — so on 7 of 13 live events + Add photos found no
   // camera and could only say "please try again". The Memories render is the second minter, and it is held to the same
@@ -78,7 +80,7 @@ test('🚨 the provisioner is called only from COUPLE-CHECKED RENDERS — the st
     .sort();
   assert.deepEqual(
     callers,
-    ['app/dashboard/[eventId]/memories/page.tsx', 'app/dashboard/[eventId]/studio/papic/page.tsx'],
+    ['app/dashboard/[eventId]/memories/page.tsx', 'app/dashboard/[eventId]/studio/papic/_components/papic-self-heal.tsx'],
     'the Uploads camera is minted somewhere new. This is a SERVICE-ROLE write: a caller that takes a ' +
       'client-supplied event id lets a signed-in stranger mint a live seat on somebody else\'s wedding ' +
       'and claim it — and every gate downstream checks claimer identity and nothing else.',
@@ -116,10 +118,18 @@ test('🚨 there is no server action wrapper for it', () => {
 });
 
 test('🚨 it takes the event\'s real capture window, never null', () => {
-  const page = readFileSync(join(WEB, 'app/dashboard/[eventId]/studio/papic/page.tsx'), 'utf8');
-  const call = /provisionUploadsCameraAdmin\([\s\S]{0,300}?\}\)/.exec(page)?.[0] ?? '';
-  assert.match(call, /validFrom: papicWindow\.startIso/, 'the Uploads camera no longer takes the event window');
-  assert.match(call, /validUntil: papicWindow\.endIso/, 'the Uploads camera no longer takes the event window');
+  const heal = readFileSync(join(WEB, 'app/dashboard/[eventId]/studio/papic/_components/papic-self-heal.tsx'), 'utf8');
+  const call = /provisionUploadsCameraAdmin\([\s\S]{0,300}?\}\)/.exec(heal)?.[0] ?? '';
+  assert.match(call, /validFrom: win\.startIso/, 'the Uploads camera no longer takes the event window');
+  assert.match(call, /validUntil: win\.endIso/, 'the Uploads camera no longer takes the event window');
+  // …and the heal asks the host-only entitlement check BEFORE it writes, and the event row on the viewer's own session.
+  assert.ok(heal.indexOf('await eventEntitlementClient(eventId)') > 0 && heal.indexOf('await eventEntitlementClient(eventId)') < heal.indexOf('provisionUploadsCameraAdmin('), 'the self-heal writes before the host check');
+  // …and Home draws it only inside the couple's card.
+  const home = readFileSync(join(WEB, 'app/dashboard/[eventId]/page.tsx'), 'utf8');
+  const cardBranch = /const papicCard: PapicCardInput \| null =[\s\S]*?: null;/.exec(home)?.[0] ?? '';
+  assert.match(cardBranch, /viewerMemberType === 'couple'/, 'the card (and its self-heal) is no longer the couple\'s alone');
+  assert.match(cardBranch, /<PapicSelfHeal eventId=\{eventId\} \/>/, 'the self-heal left the couple\'s card');
+  assert.equal((home.match(/<PapicSelfHeal\b/g) ?? []).length, 1, 'the self-heal is drawn somewhere else on Home');
   // captureWindowState returns 'open' on null bounds, so a null-window seat
   // would be the only camera in the product exempt from the couple's dates.
   assert.ok(!/validFrom: null/.test(call), 'a null window makes this the only seat exempt from the dates the couple picked');

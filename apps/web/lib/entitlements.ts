@@ -802,8 +802,9 @@ async function basketGrantsSku(
  *
  * ⛔ THE SHOT LADDER IS NOT IN THIS SET AND MUST NOT JOIN IT. Papic FEATURES are
  * free; Papic SHOTS are the product — 50 free, then ₱50 / ₱1,000 / ₱3,000 /
- * ₱5,000, owner-locked. Same for PAPIC_ADDON_THANK_YOU: the produced video is
- * the thing that gets monetised.
+ * ₱5,000, owner-locked. (PAPIC_ADDON_THANK_YOU was named here as "the produced
+ * video is the thing that gets monetised" — the owner made it free on 2026-10-26;
+ * see its entry below.)
  */
 export const FREE_FOR_ALL_SKUS: ReadonlySet<string> = Object.freeze(
   // SEATING_3D — the 3D Plan — FREE for couples (owner 2026-09-05). Measured
@@ -841,7 +842,17 @@ export const FREE_FOR_ALL_SKUS: ReadonlySet<string> = Object.freeze(
   // lands its own gate for the pass, delete this entry with it — a free entry
   // for a SKU nothing reads is the "free and retired are opposite products"
   // trap kwento-is-free.test.ts describes.
-  new Set(['LIVE_WALL', 'KWENTO', 'EDITORIAL_PRO', 'SEATING_3D', 'CUSTOM_QR_GUEST']),
+  //
+  // PAPIC_ADDON_THANK_YOU — the Thank-You Video — FREE for every event, web and
+  // app (owner 2026-10-26: *"let us remove thank you from the inapp purchase"* →
+  // *"make it free for now"*). Measured before: zero orders and zero order lines,
+  // ever. The two halves of the LIVE_WALL precedent travel together: this entry
+  // switches it ON for everyone, and migration `_thank_you_video_is_free`
+  // deactivates the row ONLY so nothing quotes a price (`retail_price_php` kept,
+  // so a reversal has its figure). Its App Store product is retired, never offered
+  // (lib/iap/products.ts `RETIRED_IAP_PRODUCT_IDS`). "For now" is the owner's —
+  // putting a price back is one line here plus re-activating the row.
+  new Set(['LIVE_WALL', 'KWENTO', 'EDITORIAL_PRO', 'SEATING_3D', 'CUSTOM_QR_GUEST', 'PAPIC_ADDON_THANK_YOU']),
 ) as ReadonlySet<string>;
 
 export async function eventOwnsSku(

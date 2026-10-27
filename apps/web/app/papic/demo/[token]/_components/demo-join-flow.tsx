@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Camera, Download, Loader2, ShieldCheck, Sparkles } from 'lucide-react';
+import { Camera, Share, Loader2, ShieldCheck, Sparkles } from 'lucide-react';
 import {
   useDemoChannel,
   untaggedReason,
@@ -14,6 +14,7 @@ import { euclideanDistance } from '@/lib/face-match-core';
 import { PAPIC_STYLES, DEFAULT_PAPIC_STYLE } from '@/lib/papic-photo-styles';
 import { recordDemoShot } from '@/app/_actions/demo-session-actions';
 import { formatCount } from '@/lib/format-number';
+import { saveFileToDevice } from '@/lib/save-to-device';
 import { useCameraThatComesBack } from '@/lib/use-camera-that-comes-back';
 
 /**
@@ -70,6 +71,8 @@ export function DemoJoinFlow({
   const [remaining, setRemaining] = useState(3);
   const [style, setStyle] = useState<string>(DEFAULT_PAPIC_STYLE);
   const [shooting, setShooting] = useState(false);
+  // A save that did not simply work, per photo: 'expired' keeps the made file for one more tap; 'failed' says so.
+  const [saveNote, setSaveNote] = useState<{ id: string; k: 'expired' | 'failed'; file?: File } | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   // Which camera is open, and whether it is showing — so a camera that comes
@@ -261,26 +264,42 @@ export function DemoJoinFlow({
     }
   }, [otherRole, remaining, role, send, shooting, token]);
 
+  // 🐞 2026-10-27 (iPhone app): a programmatic `a.download` saves nothing in the app's web view — the styled photo is
+  // made here and handed to the device with saveFileToDevice (share sheet on a phone, a download on a computer).
   const savePhoto = useCallback(
     (photo: DemoPhoto) => {
+      const hand = async (file: File) => {
+        const r = await saveFileToDevice(file);
+        setSaveNote(r === 'expired' ? { id: photo.id, k: 'expired', file } : r === 'failed' ? { id: photo.id, k: 'failed' } : null);
+      };
+      if (saveNote?.id === photo.id && saveNote.k === 'expired' && saveNote.file) {
+        void hand(saveNote.file);
+        return;
+      }
+      const fail = () => setSaveNote({ id: photo.id, k: 'failed' });
       const img = new Image();
+      img.onerror = fail;
       img.onload = () => {
         const canvas = document.createElement('canvas');
         canvas.width = img.naturalWidth;
         canvas.height = img.naturalHeight;
         const ctx = canvas.getContext('2d');
-        if (!ctx) return;
+        if (!ctx) return fail();
         // The style set on the big screen bakes into the saved file.
         ctx.filter = styleCss(style);
         ctx.drawImage(img, 0, 0);
-        const a = document.createElement('a');
-        a.href = canvas.toDataURL('image/jpeg', 0.9);
-        a.download = `papic-demo-${style.toLowerCase()}.jpg`;
-        a.click();
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) return fail();
+            void hand(new File([blob], `papic-demo-${style.toLowerCase()}.jpg`, { type: 'image/jpeg' }));
+          },
+          'image/jpeg',
+          0.9,
+        );
       };
       img.src = photo.dataUrl;
     },
-    [style],
+    [style, saveNote],
   );
 
   const tagLabel = useCallback(
@@ -390,10 +409,15 @@ export function DemoJoinFlow({
                     onClick={() => savePhoto(p)}
                     className="inline-flex items-center gap-1 text-xs font-medium text-[var(--m-mulberry)]"
                   >
-                    <Download aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                    Save
+                    <Share aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                    {saveNote?.id === p.id && saveNote.k === 'expired' ? 'Tap to save' : 'Save'}
                   </button>
                 </div>
+                {saveNote?.id === p.id && saveNote.k === 'failed' ? (
+                  <p role="alert" className="px-3 pb-2 text-xs text-[var(--m-mulberry)]">
+                    This photo could not be saved to your phone. Nothing was saved — try again.
+                  </p>
+                ) : null}
               </div>
             ))}
             <p className="text-center text-[11px] text-[var(--m-grey,#8c8884)]">

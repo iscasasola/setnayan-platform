@@ -5,16 +5,18 @@ import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { getBudgetBands } from '@/lib/budget-bands';
 import { safeNext } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
+import { resolveActiveShopId } from '@/lib/active-shop';
 import { resolveProfile } from '@/lib/event-type-profile';
 import { fetchCommunity } from '@/lib/communities';
 import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
 import { isPersonDependent } from '@/lib/dependent-people';
+import { lovedOnesInMyCare, spouseIdSet, type DependentOwnership } from '@/lib/my-loved-ones';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { hiddenMeasuredTypes, type ConcernPerson } from '@/lib/life-event-gate';
 import { manilaToday } from '@/lib/std-views';
 import {
+  buildCreateRoster,
   buildSelfSubject,
-  buildUnspecifiedSubject,
   dependentSubjects,
   type CreateSubject,
   type DependentSubjectRow,
@@ -28,6 +30,34 @@ import { NewEventHead } from './_components/new-event-head';
    lands in DIY by default. */
 
 export const metadata = { title: 'Create event' };
+
+/**
+ * The name of the shop this login is standing in, or null. ⚠ A refused read ANYWHERE
+ * here means "A business" asks the name instead of filling it — never a wrong shop.
+ */
+async function readActiveShopName(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+): Promise<string | null> {
+  let shopId: string | null = null;
+  try {
+    shopId = await resolveActiveShopId(supabase, userId);
+  } catch (e) {
+    logQueryError('CreateEventPage.activeShop', e, {}, 'graceful_degrade');
+    return null;
+  }
+  if (!shopId) return null;
+  const { data, error } = await supabase
+    .from('vendor_profiles')
+    .select('business_name')
+    .eq('vendor_profile_id', shopId)
+    .maybeSingle();
+  if (error) {
+    logQueryError('CreateEventPage.shopName', error, {}, 'graceful_degrade');
+    return null;
+  }
+  return (data?.business_name as string | null | undefined) ?? null;
+}
 
 const ERROR_COPY: Record<string, string> = {
   // The two outcomes of a failed write, kept apart on purpose. `create_failed`
@@ -183,18 +213,31 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
     dependentPeopleEnabled() &&
     (await isDataPrivacyControlActive('dependent_minor_profiles'))
   ) {
-    // RLS scopes this to the viewer's own (+ married-household shared)
-    // dependents; a household concern counts. Handed-over records aged out.
-    const { data: deps, error: depsError } = await supabase
-      .from('dependents')
-      .select('dependent_id, name, dependent_kind, birth_date, sex, claimed_user_id')
-      .is('handed_over_at', null);
+    // ⚠ RLS IS NOT THE SCOPE: it admits an ADMIN to every dependent on the platform (owner 2026-10-27, on this
+    // picker: "Why do i have flowerstoreph and indigocaterers" — three were other users' businesses). The rows are
+    // the viewer's own loved ones still in their care (+ a real spouse's shared ones), by the ONE rule in
+    // `lib/my-loved-ones.ts` — the same one the People page uses.
+    const [{ data: deps, error: depsError }, { data: spouseIds, error: spouseError }] = await Promise.all([
+      supabase
+        .from('dependents')
+        .select(
+          'dependent_id, name, dependent_kind, birth_date, sex, claimed_user_id, owner_user_id, handed_over_by_user_id, shared_with_spouse, handed_over_at',
+        )
+        .is('handed_over_at', null),
+      supabase.rpc('current_spouse_user_ids'),
+    ]);
     // ⚠ the dependents this person can create an event for. Refused, the picker offers
     // ⚠ none and they cannot start an event for a child they already added.
     if (depsError) {
       logQueryError('CreateEventPage.deps', depsError, {}, 'graceful_degrade');
     }
-    const rows = (deps ?? []) as DependentSubjectRow[];
+    // Refused, a spouse's shared rows are left out — never someone else's.
+    if (spouseError) logQueryError('CreateEventPage.depsSpouse', spouseError, {}, 'graceful_degrade');
+    const rows: DependentSubjectRow[] = lovedOnesInMyCare(
+      (deps ?? []) as Array<DependentSubjectRow & DependentOwnership>,
+      user.id,
+      spouseIdSet(spouseIds),
+    );
     hiddenTypeKeys = hiddenMeasuredTypes(
       rows.filter((r) => isPersonDependent(r.dependent_kind)) as ConcernPerson[],
       today,
@@ -214,28 +257,39 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
   // barred by lib/onboarding/event-insert.ts). An account with no saved birthday
   // measures nothing and keeps the whole grid, exactly as it shipped.
   //
-  // `sex` is deliberately NOT read. It would only sharpen 18F/21M on the debut
-  // ladder, it carries its own RA 10173 consent stamp, and the owner directed
-  // birthdays — not a second sensitive field. Omitting it checks BOTH debut ages,
-  // which folds LESS, the documented fail-open direction.
+  // `sex` IS read now — but only when it carries its RA 10173 consent stamp
+  // (`sex_consent_at`). Owner 2026-10-26: "debut 17-18 woman, 20-21 men. so if no
+  // gender for 17-21." Unconsented (or blank) → null → the wide 17–21 band, which
+  // folds LESS: the documented fail-open direction. It sorts this picker only; it
+  // is disclosed to nobody and written nowhere.
+  //
+  // The shop this login is standing in fills "For · A business" (owner 2026-10-26:
+  // "If it is for a business …") — asked of THE resolver (`resolveActiveShopId`,
+  // the one answer to "which shop am I in"), then that one shop's name. None, or a
+  // refused read → the business name is asked instead.
   let subjects: CreateSubject[] = [];
   if (user && !samahan) {
-    const { data: profile, error: profileError } = await supabase
-      .from('users')
-      .select('display_name, birth_date')
-      .eq('user_id', user.id)
-      .maybeSingle();
+    const [{ data: profile, error: profileError }, shopName] = await Promise.all([
+      supabase
+        .from('users')
+        .select('display_name, birth_date, sex, sex_consent_at')
+        .eq('user_id', user.id)
+        .maybeSingle(),
+      readActiveShopName(supabase, user.id),
+    ]);
     // ⚠ the account record. Absence DENIES rather than renders.
     if (profileError) {
       logQueryError('CreateEventPage.profile', profileError, {}, 'graceful_degrade');
     }
-    subjects = [
+    const consentedSex = profile?.sex_consent_at ? ((profile?.sex as string | null) ?? null) : null;
+    subjects = buildCreateRoster(
       buildSelfSubject((profile?.display_name as string | null) ?? null, {
         birth_date: (profile?.birth_date as string | null) ?? null,
+        sex: consentedSex,
       }),
-      ...alagaSubjects,
-      buildUnspecifiedSubject(),
-    ];
+      alagaSubjects,
+      shopName,
+    );
   }
 
   // "PLAN AN EVENT TOGETHER" (owner 2026-09-29: "add partner (to become a
@@ -327,7 +381,7 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
   );
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 lg:px-8 [[data-create-event-in-panel]_&]:pt-4">
       <NewEventHead nothingBehind={nothingBehind} samahan={samahan} />
 
       <EventTypePicker

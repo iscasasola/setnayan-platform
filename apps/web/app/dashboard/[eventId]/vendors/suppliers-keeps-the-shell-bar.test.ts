@@ -76,7 +76,13 @@ test('the pinned block sits UNDER the bar — at its measured height — and row
   assert.doesNotMatch(stick, /(^| )(top-0|fixed)( |$)/, 'pinned at the very top, the block sits ON the bar');
   // The height is read off the bar itself — and is 0 while the bar is slid away.
   assert.match(src, /document\.querySelector<HTMLElement>\('\.shell-topbar'\)/);
-  assert.match(src, /bar\.getAttribute\('data-hidden'\) !== 'true'/, 'a hidden bar would leave a gap above the block');
+  // 2026-10-27: the "is the bar on screen" read moved into ONE shared helper, `shellBarShows` (Guests, People, Home and
+  // Suppliers all ask it) — `data-hidden` alone said "hidden" on a desk where the CSS keeps the bar, so the pinned row
+  // sat UNDER the bar at 1280. The helper still honours `data-hidden` wherever the bar really slides away.
+  assert.match(src, /const top = shellBarShows\(bar\) \? bar\.getBoundingClientRect\(\)\.height : 0;/, 'a hidden bar would leave a gap above the block');
+  const shared = code('..', 'guests', '_components', 'use-shell-bar-offset.ts');
+  assert.match(shared, /if \(bar\.getAttribute\('data-hidden'\) !== 'true'\) return true;/, 'the shared read no longer honours a slid-away bar');
+  assert.match(shared, /matchMedia\('\(min-width: 1024px\)'\)\.matches\) return true;/, 'on a desk the bar stays put — the shared read must say so');
   assert.match(src, /root\.style\.setProperty\('--sup-top', `\$\{top\}px`\)/);
   assert.match(src, /root\.style\.setProperty\('--stick-h', `\$\{top \+ stick\.offsetHeight\}px`\)/);
   // A bench doorway and a `#svc-*` section land below the bar AND the block.

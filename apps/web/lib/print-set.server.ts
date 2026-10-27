@@ -1,5 +1,8 @@
 import 'server-only';
 
+import { startAhead } from '@/lib/start-ahead';
+import { entourageWithProxies } from '@/lib/guest-proxy';
+import { entourageProxyNames } from '@/lib/guest-proxy.server';
 import { originalForPrint } from '@/lib/old-photo-copies.server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -61,7 +64,7 @@ import {
 import { fetchEgiftMethods } from '@/lib/egift';
 import { loveStoryPartners, printStoryChapters } from '@/lib/love-story-moments';
 import { VENDOR_PACKAGE_ITEM_SELECT, keptItemRows, resolveVendorCategory, type VendorPackageItemRow } from '@/lib/vendor-packages';
-import { PASSED_AWAY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
+import { PASSED_AWAY, REPRESENTED_BY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
 import { filterPassCardRows, type PassCardRow } from '@/lib/pass-card';
 import { nameStyleOfPrintDetails, ticketName, type NameStyle } from '@/lib/name-style';
 import { displayPersonName } from '@/lib/person-name-case';
@@ -235,6 +238,7 @@ async function readEntourage(
     // + `passed_away` for THIS reader only (ENTOURAGE_COLUMNS' own rule: never
     // widen the shared list for one reader) — the parents' "the late …".
     // + who is a real couple — the card prints a pair line exactly as the page does.
+    // (the couple fields carry `represented_by_guest_id` — "… (represented by …)", owner 2026-10-27)
     .select(`${ENTOURAGE_COLUMNS}, ${PASSED_AWAY}, ${ENTOURAGE_COUPLE_FIELDS}, ${ENTOURAGE_PARENT_FIELDS}`)
     .eq('event_id', eventId)
     .is('deleted_at', null)
@@ -243,11 +247,14 @@ async function readEntourage(
     logQueryError('print-set.readEntourage', error, { event_id: eventId }, 'graceful_degrade');
     return { groups: [], passedAway: new Set() };
   }
-  const rows = (data ?? []) as Array<EntourageGuestRow & { passed_away?: boolean | null }>;
+  const rows = (data ?? []) as Array<EntourageGuestRow & { passed_away?: boolean | null; represented_by_guest_id?: string | null }>;
   const passedAway = new Set(rows.filter((r) => r.passed_away === true && r.guest_id).map((r) => r.guest_id as string));
   // The couple's own section order, read on ITS OWN (the loader's rule: an
   // unreadable preference prints the built-in order, never breaks the card).
-  return { groups: buildEntourage(rows, await loadEntourageSectionOrder(admin, eventId), names, style), passedAway };
+  // 🧍 Who stands in for each represented role holder — started beside the order read, awaited after it.
+  const proxiesAhead = startAhead(entourageProxyNames(admin, eventId, rows, style));
+  const groups = buildEntourage(rows, await loadEntourageSectionOrder(admin, eventId), names, style);
+  return { groups: entourageWithProxies(groups, await proxiesAhead), passedAway };
 }
 
 /** 👗 The print's dress code — the guest page's, read once (`dressCodeLines`, `lib/dress-code-for-everyone.ts`). */
@@ -865,7 +872,7 @@ export async function passGuestRows(eventId: string, ticketsOnly: boolean): Prom
     .eq('event_id', eventId)
     .is('deleted_at', null)
     // 🛂 No pass for a request until Keep or Link.
-    .neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false)
+    .neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false).is(REPRESENTED_BY, null)
     .order('last_name', { ascending: true });
   if (error) {
     logQueryError('print-set.loadGuestPasses', error, { event_id: eventId }, 'graceful_degrade');

@@ -38,12 +38,19 @@ export type PapicCardInput = {
   settings: ReactNode;
   /** The Papic ON/OFF switch, in the card's head beside the › — closed and open (owner 2026-10-26). */
   headControl?: ReactNode;
+  /** 🔢 Total · Taken · Remaining on the card's face (owner 2026-10-26) — the pot Home already read. */
+  counts?: { total: number | null; left: number | null } | null;
+  /** "Add more" on the face — the one buy sheet for this platform; null = not offered. */
+  buy?: ReactNode;
+  /** Open on arrival — a save's outcome or a purchase error is said inside the open card. */
+  defaultOpen?: boolean;
 };
 
 /** Where each service in the "Your services" row goes — `href:` literals, for the port-controls scan. */
 function serviceHref(key: HomeServiceKey, eventId: string): string {
   const doors: ReadonlyArray<{ key: HomeServiceKey; href: string }> = [
-    { key: 'papic', href: `/dashboard/${eventId}/studio/papic` },
+    // A viewer with no Papic card (the couple's card is on Today): Papic's photos, in Memories (the page is gone).
+    { key: 'papic', href: `/dashboard/${eventId}/memories` },
     { key: 'ai', href: `/dashboard/${eventId}/studio/setnayan-ai` },
     { key: 'nikah', href: `/dashboard/${eventId}/nikah` },
   ];
@@ -157,7 +164,7 @@ export function HomeFirstScreen({
     <section data-home-first-screen aria-label="Home" className="flex w-full flex-col gap-3">
       {/* 🖼 The cover wears the Event Hub's main background (owner 2026-10-07, #6394), the words in the hub's own
           measured ink over its veil (`lib/home-cover.ts`). */}
-      <HomeCoverBand cover={cover} ground={ground} />
+      <HomeCoverBand cover={cover} ground={ground} settingsHref={`/dashboard/${eventId}/details`} />
 
       {/* 📅 "Later" beside the verb folds the Today line for today, on this device (owner 2026-10-23). */}
       <HomeTodayFold eventId={eventId} kind={next.kind}>
@@ -180,14 +187,18 @@ export function HomeFirstScreen({
           {/* 🎛 THE CONTROL ROW — Countdown · Guests · Event Hub · Suppliers · Budget · Checklist; each opens its ONE page. */}
           <HomeControlRow input={control} hubPick={hubPick} />
 
+          {/* 📷 PAPIC — ONE CARD, ON THE ROW AFTER BUDGET (owner 2026-10-27: "Place papic under budget widget" · "Place it
+              on the next row after the budget widget"; it sat under Today since 2026-10-26). Budget is the control row's
+              last tile, so the card follows the row. Your services below no longer draws it. */}
+          {papicCard ? <PapicTodayCard card={papicCard} /> : null}
+
           {/* YOUR SERVICES — each grows in place with its quick controls; the Event Hub rose into the control row. */}
           <YourServices
             eventId={eventId}
-            services={services.filter((s) => s.key !== 'hub')}
+            services={services.filter((s) => s.key !== 'hub' && !(papicCard && s.key === 'papic'))}
             apple={apple}
             papicLeft={papicLeft}
             papicSizes={papicSizes}
-            papicCard={papicCard}
             cards={serviceCards}
           />
 
@@ -393,6 +404,28 @@ export function YourServices({
 }
 
 /**
+ * 📷 THE ONE PAPIC CARD (owner 2026-10-26) — Today draws it before the day, the console's Papic slot on the day, Your
+ * services after it: one component, so the three can never say two things about one pot.
+ */
+function PapicTodayCard({ card, name = SERVICE_NAMES.papic.plain, brand = SERVICE_NAMES.papic.brand }: { card: PapicCardInput; name?: string; brand?: string }) {
+  return (
+    <PapicHomeCard
+      name={name}
+      brand={brand}
+      icon={<Camera aria-hidden strokeWidth={1.9} />}
+      phase={card.phase}
+      thankYouHref={card.thankYouHref}
+      settings={card.settings}
+      headControl={card.headControl ?? null}
+      counts={card.counts ?? null}
+      buy={card.buy ?? null}
+      defaultOpen={card.defaultOpen ?? false}
+      marker={{ 'data-home-service': 'papic', 'data-home-today-papic': '' }}
+    />
+  );
+}
+
+/**
  * 🎨 PAPIC'S ROW — the service glance at Home size (owner "approve all",
  * 2026-10-14; prototype `renderHome()`): name · the status line with its dot ·
  * the meter · Buy more (the sheet) · See N photos (opens the event's Memories tab, 2026-10-23).
@@ -416,20 +449,7 @@ function PapicServiceRow({
 }) {
   // 📷 THE CARD THAT OPENS UNDER ITSELF (owner 2026-10-23) — nothing on Home navigates to the Papic page now. Closed it
   // is the head and the switch only (owner 2026-10-26); credits, Add more and the dates live in the open settings.
-  if (card) {
-    return (
-      <PapicHomeCard
-        name={svc.name}
-        brand={svc.brand}
-        icon={<Camera aria-hidden strokeWidth={1.9} />}
-        phase={card.phase}
-        thankYouHref={card.thankYouHref}
-        settings={card.settings}
-        headControl={card.headControl ?? null}
-        marker={{ 'data-home-service': 'papic' }}
-      />
-    );
-  }
+  if (card) return <PapicTodayCard card={card} name={svc.name} brand={svc.brand} />;
   const photos = typeof doors.glance.result === 'number' && doors.glance.result > 0 ? doors.glance.result : null;
   const acts =
     doors.buy || photos ? (
@@ -451,7 +471,9 @@ function PapicServiceRow({
   const line = doors.whileNext?.tail ? { ...doors.line, tailWhileNext: true } : doors.line;
   return (
     <ServiceGlanceRow
-      href={`/dashboard/${eventId}/studio/papic`}
+      // A coordinator's row (no card — the settings write as the couple): Papic's photos, in Memories. The Papic page it
+      // opened is gone (2026-10-26).
+      href={`/dashboard/${eventId}/memories`}
       name={svc.name}
       brand={svc.brand}
       icon={<Camera aria-hidden strokeWidth={1.9} />}

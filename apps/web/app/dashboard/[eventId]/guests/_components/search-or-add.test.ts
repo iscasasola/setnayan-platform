@@ -33,7 +33,7 @@ const count = (html: string, s: string) => html.split(s).length - 1;
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SCREEN = stripComments(readFileSync(join(HERE, 'guests-screen.tsx'), 'utf8'));
 const SHEET = stripComments(readFileSync(join(HERE, 'add-guest-sheet.tsx'), 'utf8'));
-const WAYS = ['From your people', 'Add with details', 'Import a file', 'Paste many names'];
+const WAYS = ['From your people', 'Import a file'];
 
 test('no round ＋ on the thumb row — list or map; the field is the add', async () => {
   for (const gview of ['list', 'map'] as const) {
@@ -119,9 +119,10 @@ test('≡ holds the same ways — ONE list, the imported openers — on the list
   // The opener imports each sheet's own opener — never an event name typed by hand (capture-bar.tsx says why).
   const opener = SHEET.slice(SHEET.indexOf('export function openAddWay('));
   assert.match(opener, /openAddFromPeople\(\)/);
-  assert.match(opener, /openQuickAdd\(\)/);
   assert.match(opener, /\/guests\/import`/);
-  assert.match(opener, /\/guests\/quick`/);
+  // 🔍 Owner 2026-10-27: "We do not need this on guests since our search bar provides the same feature" — the two ways are gone.
+  assert.doesNotMatch(opener, /openQuickAdd\(\)|\/guests\/quick`/, 'Add with details / Paste many names came back');
+  assert.ok(!SHEET.includes("label: 'Add with details'") && !SHEET.includes("label: 'Paste many names'"), 'a removed way is back in ADD_WAYS');
   assert.ok(!/setnayan:/.test(opener.slice(0, opener.indexOf('\n}'))), 'the opener re-dispatches an event name by hand');
 });
 

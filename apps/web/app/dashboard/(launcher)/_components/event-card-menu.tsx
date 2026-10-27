@@ -2,6 +2,7 @@
 
 import {
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -10,7 +11,7 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { useHydrated } from '@/lib/use-hydrated';
-import { Archive, CalendarPlus, MoreVertical, Trash2 } from 'lucide-react';
+import { Archive, CalendarPlus, Eye, MoreVertical, Trash2 } from 'lucide-react';
 
 import { setEventArchived } from '../../[eventId]/archive-actions';
 import {
@@ -29,6 +30,9 @@ import {
 } from '@/lib/event-deletion-reasons';
 import { buildWeddingIcs, icsDataHref } from '@/lib/calendar-links';
 import { useOneOpen } from '@/lib/one-open';
+import { SaveFileLink } from '@/app/_components/save-file-link';
+import { openEventHub } from '@/lib/open-external';
+import { menuShiftIntoView } from '@/lib/menu-place';
 
 /**
  * event-card-menu.tsx — the per-card "⋯" on My Events.
@@ -94,6 +98,7 @@ export function EventCardMenu({
   /** Dark cards (the mobile hero) need light chrome to stay visible. */
   tone = 'light',
   align = 'right',
+  hubUrl = null,
 }: {
   eventId: string;
   eventName: string;
@@ -122,6 +127,12 @@ export function EventCardMenu({
    * natural right anchor.
    */
   align?: 'left' | 'right';
+  /**
+   * 👁 The public Event Hub's address when guests can open it (Public or Unlisted, with a slug — Home's rule), else
+   * null and the row is not drawn. Owner 2026-10-27: *"View event hub add that if event hub is available for that
+   * event"*. Opens through `openEventHub`: the in-app browser sheet in the app, a new tab on the web.
+   */
+  hubUrl?: string | null;
 }) {
   const [open, setOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -163,6 +174,25 @@ export function EventCardMenu({
   /** The note is one line until it is asked for — see `step`. */
   const [noteOpen, setNoteOpen] = useState(false);
   useOneOpen(open, close); // one open at a time — lib/one-open.ts
+  /**
+   * 📐 THE OPEN MENU IS MEASURED AND KEPT ON SCREEN (owner 2026-10-27, phone screenshots: on a LEFT-column card the
+   * menu ran off the left edge — "this away", "ove for good"). `align` alone cannot hold it: it depends on which
+   * column a card lands in, and the board's grid has changed between one and two columns more than once. So once it
+   * is drawn, its real box is measured and it is nudged sideways to sit inside the 16-px page gutter
+   * (`menuShiftIntoView`, lib/menu-place.ts). Whatever the grid does, the whole menu shows.
+   */
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [menuShift, setMenuShift] = useState(0);
+  useLayoutEffect(() => {
+    const el = menuRef.current;
+    if (!open || confirming || !el) {
+      setMenuShift(0);
+      return;
+    }
+    el.style.transform = '';
+    const r = el.getBoundingClientRect();
+    setMenuShift(menuShiftIntoView({ left: r.left, right: r.right }, document.documentElement.clientWidth));
+  }, [open, confirming, align]);
   const [pending, startTransition] = useTransition();
 
   function close() {
@@ -391,18 +421,48 @@ export function EventCardMenu({
             className="fixed inset-0 z-40 cursor-default"
           />
           <div
+            ref={menuRef}
             role="menu"
+            data-board-menu=""
+            style={menuShift ? { transform: `translateX(${menuShift}px)` } : undefined}
             className={`absolute top-11 z-50 w-[17.5rem] max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-ink/10 bg-cream p-1 text-left shadow-lg ${
               align === 'left' ? 'left-0' : 'right-0'
             }`}
           >
-            {icsHref ? (
+            {hubUrl ? (
               <>
                 <a
-                  href={icsHref}
-                  download={`${eventName}.ics`}
+                  href={hubUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   role="menuitem"
-                  onClick={close}
+                  data-board-menu-hub=""
+                  onClick={(e) => {
+                    e.preventDefault();
+                    close();
+                    openEventHub(hubUrl);
+                  }}
+                  className="flex w-full items-start gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm text-ink hover:bg-ink/5"
+                >
+                  <Eye aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-ink/60" strokeWidth={2} />
+                  <span>
+                    <span className="block font-semibold">View Event Hub</span>
+                    <span className="mt-0.5 block text-[11.5px] leading-snug text-ink/55">What your guests see.</span>
+                  </span>
+                </a>
+                <div className="my-1 h-px bg-ink/10" />
+              </>
+            ) : null}
+            {icsHref ? (
+              <>
+                {/* 📥 Saved, never shown in place: the app's web view ignores `download` and renders the .ics with no way
+                    back (owner 2026-10-27). SaveFileLink runs the share sheet / download; the wrapper's capture still
+                    closes the menu on the same tap. */}
+                <div className="contents" onClickCapture={close}>
+                <SaveFileLink
+                  href={icsHref}
+                  filename={`${eventName}.ics`}
+                  role="menuitem"
                   className="flex w-full items-start gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm text-ink hover:bg-ink/5"
                 >
                   <CalendarPlus
@@ -418,7 +478,8 @@ export function EventCardMenu({
                       Just this event, on your phone.
                     </span>
                   </span>
-                </a>
+                </SaveFileLink>
+                </div>
                 <div className="my-1 h-px bg-ink/10" />
               </>
             ) : null}

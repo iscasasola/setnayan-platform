@@ -77,16 +77,42 @@ test('the guest card saves the ticket with ONE button, through SaveFileLink', ()
 });
 
 /*
-  🔑 SaveFileLink's children are a FUNCTION of its saving state. A function
+  🔑 SaveFileLink's children MAY be a FUNCTION of its saving state. A function
   cannot cross from a server component to a client one — React throws
   "Functions cannot be passed directly to Client Components" and the whole
   PAGE fails. That shipped once: the guest list crashed in production
   (digest 3329950423, 2026-09-27) because two server components wrote
-  `<SaveFileLink>{() => …}</SaveFileLink>`. So SaveFileLink may be MOUNTED
-  only from a file that is itself 'use client'. Swept, not listed, so a new
-  caller is caught without anyone updating this file.
+  `<SaveFileLink>{() => …}</SaveFileLink>`. Since 2026-10-27 (the app-download
+  sweep) SaveFileLink also takes PLAIN children, which a server page may pass —
+  so the hazard is exactly a FUNCTION child from a file that is not 'use client'.
+  Swept, not listed, so a new caller is caught without anyone updating this file.
 */
-test('SaveFileLink is mounted only from client components', () => {
+/** The children right after each `<SaveFileLink …>` opening tag (brace-aware, so an `=>` in a prop does not end it). */
+function saveFileLinkChildren(src: string): string[] {
+  const out: string[] = [];
+  const re = /<SaveFileLink\b/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(src))) {
+    let depth = 0;
+    let i = m.index;
+    for (; i < src.length; i++) {
+      const c = src[i];
+      if (c === '{') depth++;
+      else if (c === '}') depth--;
+      else if (c === '>' && depth === 0) break;
+    }
+    out.push(src.slice(i + 1, i + 80));
+  }
+  return out;
+}
+const FUNCTION_CHILD = /^\s*\{\s*(?:\([^)]*\)|[A-Za-z_]\w*)\s*(?::[^=]*)?=>/;
+
+test('a server component never hands SaveFileLink a FUNCTION child', () => {
+  // The scanner can see: a function child in a client file is found as one.
+  assert.ok(
+    saveFileLinkChildren(stripComments(read('app/_components/qr-actions.tsx'))).some((c) => FUNCTION_CHILD.test(c)),
+    'the scanner no longer recognises a function child — the sweep below would pass blind',
+  );
   const APP = join(__dirname, '..', 'app');
   const offenders: string[] = [];
   const walk = (dir: string) => {
@@ -101,22 +127,22 @@ test('SaveFileLink is mounted only from client components', () => {
         if (!src.includes('<SaveFileLink')) continue;
         // 'use client' must be the first statement; comments may precede it.
         const isClient = /^(?:\s*(?:\/\*[\s\S]*?\*\/|\/\/[^\n]*))*\s*['"]use client['"]/.test(raw);
-        if (!isClient) offenders.push(full.slice(APP.length + 1));
+        if (!isClient && saveFileLinkChildren(src).some((c) => FUNCTION_CHILD.test(c))) offenders.push(full.slice(APP.length + 1));
       }
     }
   };
   walk(APP);
-  assert.deepEqual(offenders, [], `server components mounting SaveFileLink (a function child cannot cross to the client): ${offenders.join(', ')}`);
+  assert.deepEqual(offenders, [], `server components handing SaveFileLink a function child (it cannot cross to the client): ${offenders.join(', ')}`);
 });
 
 test('SaveFileLink itself: fetch → blob → save/share, never a raw cross-origin navigation', () => {
   const src = stripComments(read('app/_components/save-file-link.tsx'));
   assert.ok(src.includes("'use client'"), 'SaveFileLink must be a client component to intercept the click');
   assert.ok(src.includes('preventDefault()'), 'the click is not intercepted — a browser that ignores `download` will navigate');
-  assert.ok(
-    src.includes("from '@/lib/save-to-device'"),
-    'SaveFileLink does not use the shared fetch→blob→share helper',
-  );
+  // 2026-10-27: the shared fetch → share sheet / download is `usePrintSave` (the Prints save) — it also keeps a file
+  // that outlived the tap ("tap again") and says a failure in words, which the older helper dropped silently.
+  assert.ok(src.includes('usePrintSave()'), 'SaveFileLink does not use the shared fetch→blob→share save');
+  assert.match(src, /role="alert"/, 'a failed save says nothing — a failure must not look like success');
   // The <a> keeps href/download as the no-JS fallback — removing them would
   // make a scripting-off visit unable to get the file at all.
   assert.match(src, /href=\{href\}/);

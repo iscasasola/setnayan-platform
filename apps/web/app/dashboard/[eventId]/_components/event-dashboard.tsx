@@ -1,3 +1,4 @@
+import { papicHomeHref } from '@/lib/papic-home-href';
 import Link from 'next/link';
 import type { DaysToGo } from '@/lib/countdown-target';
 import { notFound, redirect } from 'next/navigation';
@@ -60,7 +61,8 @@ import {
   scheduleBlockLabelFor,
   type ScheduleBlockRow,
 } from '@/lib/schedule';
-import { isSetnayanAiActiveForEvent } from '@/lib/setnayan-ai';
+import { isSetnayanAiActiveForEvent, setnayanAiOffered } from '@/lib/setnayan-ai';
+import { readEventNeedsFor } from '@/lib/event-needs-read.server';
 import { cockpitEnabled } from '@/lib/setnayan-ai-cockpit-flag';
 import { ROLE_SUBTYPE_LABEL, isRoleSubtype } from '@/lib/event-moderators';
 import { CREATOR_WORD, seatAccessWord } from '@/lib/guest-access';
@@ -784,6 +786,8 @@ export async function EventDashboard({
   );
   const budgetVisibilityRead = startAhead(resolveBudgetVisibility(supabase, eventId, user.id));
   const aiPaywallRead = startAhead(resolveSetnayanAiPaywallEnabled());
+  // 🧭 The onboarding's Suppliers row (`events.suppliers_on`) — Setnayan AI's offers follow it (`setnayanAiOffered`).
+  const saiNeedsRead = startAhead(readEventNeedsFor(supabase, eventId, 'EventDashboard'));
   const fullSaiRead = startAhead(
     resolveSetnayanAiDisplayPricePhp(supabase, event.event_type as string | null, 'regular').catch(() => 0),
   );
@@ -1447,8 +1451,13 @@ export async function EventDashboard({
   // never buy.
   // 🍎 The offer names Setnayan AI ("Setnayan AI · Free", "Let Sai find…") — a paid web
   // extra the iPhone app does not offer, so the app draws no offer at all.
+  // 🧭 And never with Suppliers off (owner 2026-10-26: Setnayan AI shows only when the event has Suppliers on).
   const venueOfferAvailable =
-    marketplaceEnabled && !storeShell && !aiActive && isFirstVenueShortlistOfferAvailable(eventVendors);
+    marketplaceEnabled &&
+    !storeShell &&
+    !aiActive &&
+    setnayanAiOffered(await saiNeedsRead) &&
+    isFirstVenueShortlistOfferAvailable(eventVendors);
   const venueOfferInline =
     venueOfferAvailable &&
     decisionGroups.some((g) => g.items.some((i) => isSaiAssistFreeDecisionId(i.id)));
@@ -2071,7 +2080,7 @@ export async function EventDashboard({
   const papicMini = papicHome && !storeShell ? (
     <Link
       key="papic"
-      href={`${base}/studio/papic`}
+      href={papicHomeHref(eventId)}
       className="sn-tile sn-press flex flex-col text-left"
     >
       <span className="sn-eye">

@@ -18,7 +18,7 @@ import { stripComments } from '@/lib/strip-comments';
 const PAPIC = join(dirname(fileURLToPath(import.meta.url)), '..', 'app', 'dashboard', '[eventId]', 'studio', 'papic');
 const read = (...p: string[]) => stripComments(readFileSync(join(PAPIC, ...p), 'utf8'));
 const SURFACES = {
-  page: read('page.tsx'),
+  // (the Papic page, removed 2026-10-26 — its card on Home draws the same camera settings)
   // 📷 The dates live in the camera settings since 2026-10-23 — the one component the Papic page and Home's Papic
   // card both draw (`PapicCameraSettings`).
   settings: read('_components', 'papic-camera-settings.tsx'),

@@ -29,6 +29,7 @@ import { setnayanAiTierInApp } from '@/lib/iap/setnayan-ai-in-app.server';
 import { storeShellAllowsPaidFeature } from '@/lib/store-shell';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { readEventNeedsFor } from '@/lib/event-needs-read.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { agreedTotalNow, fetchChangeLinesByVendor } from '@/lib/agreed-total-and-its-changes';
 import { buildBenchStandings } from '@/lib/conversation-list';
@@ -82,6 +83,7 @@ import { getTaxonomy } from '@/lib/taxonomy-db';
 import {
   isSetnayanAiActiveForEvent,
   shouldOfferSetnayanAiPurchaseForEvent,
+  setnayanAiOffered,
 } from '@/lib/setnayan-ai';
 import {
   resolveSetnayanAiPaywallEnabled,
@@ -146,6 +148,8 @@ import {
 } from '@/lib/build-date-window';
 import { buildCoupleFaithSet } from '@/lib/taxonomy-filters';
 import { ServicesTakeover } from './_components/services-takeover';
+import { SuppliersSettingsRows } from './_components/suppliers-settings-rows';
+import { loadSuppliersSettings } from '@/lib/suppliers-settings.server';
 import { LastSeenCapture } from '@/app/_components/last-seen/last-seen-capture';
 import { DatePlaceLine } from './_components/date-place-line';
 import { BookedBody } from './_components/booked-body';
@@ -194,7 +198,7 @@ type Props = {
   // part (2026-09-29) = which of Your Team's parts is showing — absent is the
   // team itself, `budget` is the shipped Budget page (lib/pillar-parts.ts).
   // pay (2026-10-24) = one payment's line item — the Budget part opens its Pay sheet (Home's Budget widget).
-  searchParams: Promise<{ status?: string; tab?: string; open?: string; inspect?: string; part?: string; pay?: string }>;
+  searchParams: Promise<{ status?: string; tab?: string; open?: string; inspect?: string; part?: string; pay?: string; settings?: string }>;
 };
 
 type EventBudgetRow = {
@@ -305,7 +309,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // 👥 People with access (owner 2026-10-03): Suppliers is its own area. A
   // delegate the host set to Off reads no bookings (20271262573732 closed the
   // door) — say so, never draw an empty team.
-  if (isDelegateWithoutArea(await fetchEventViewer(supabase, eventId, user.id), 'vendors')) {
+  const viewer = await fetchEventViewer(supabase, eventId, user.id);
+  if (isDelegateWithoutArea(viewer, 'vendors')) {
     return <NotSharedWithYou title="Suppliers" thing="supplier list" />;
   }
 
@@ -406,6 +411,13 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   }
 
   const ev = (eventCtx.data as EventBudgetRow | null) ?? null;
+  // ⚙ Suppliers ⚙'s sheet (owner 2026-10-27, "SUPPLIERS GETS ITS ⚙"): started here, awaited where the shell is drawn,
+  // so its reads overlap the page's own instead of queueing in front of them.
+  const suppliersSettingsRead = loadSuppliersSettings(supabase, eventId, {
+    isCouple: viewer.isCouple,
+    eventDate: ev?.event_date ?? null,
+    ceremonyType: ev?.ceremony_type ?? null,
+  });
   // PR5 — the date the couple is PLANNING on: a drafted date waits for Apply (answer 7), yet the line, the bench's
   // date fit and Build's fit line read it, so choosing a day re-runs the fit everywhere. Bookings, locks and every
   // write keep reading the LIVE row (`ev`) — a draft never books anyone.
@@ -1387,7 +1399,11 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   const aiOffer =
     shouldOfferSetnayanAiPurchaseForEvent(ev, aiGateOpts) &&
     (!storeShell || appleSai);
-  const aiOfferBanner = aiOffer ? (
+  // 🧭 …and only while this event has Suppliers on (the onboarding's "What do you need?" row,
+  // `setnayanAiOffered`, owner 2026-10-26) — the one rule every Setnayan AI offer follows. Asked only
+  // when there is an offer to make.
+  const saiOffered = aiOffer && setnayanAiOffered(await readEventNeedsFor(supabase, eventId, 'VendorsPage'));
+  const aiOfferBanner = saiOffered ? (
     <Link
       href={`/dashboard/${eventId}/studio/setnayan-ai`}
       className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-mulberry/25 bg-mulberry/5 px-4 py-3 transition-colors hover:bg-mulberry/10"
@@ -2921,6 +2937,9 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       <LastSeenCapture page="suppliers">
         <ServicesTakeover
           eventId={eventId}
+          settingsSlot={<SuppliersSettingsRows eventId={eventId} view={await suppliersSettingsRead} />}
+          // `?settings=1` — a moved row's old address (`MOVED_SETTINGS`) lands with the sheet open.
+          settingsOpenAtFirst={sp.settings === '1'}
           // `?tab=` picks the FIRST body (the lock door, a checklist deep link,
           // the finished-event summary); anything else opens on Find.
           initialTab={initialTab}

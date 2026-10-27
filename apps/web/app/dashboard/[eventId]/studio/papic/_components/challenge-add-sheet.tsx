@@ -1,5 +1,6 @@
 'use client';
 
+import { PapicStayForm } from './papic-stay-form';
 /**
  * challenge-add-sheet.tsx — "+ ADD A CHALLENGE", A POP-UP IN THE PAPIC CARD (owner ruling 2026-10-24: "opens a POP-UP:
  * the shared bottom sheet, not a new page and not inline. A search box over title and prompt, a category PickMenu
@@ -13,6 +14,12 @@
  *   · a tap posts the SHIPPED `addLibraryChallengeAction` (library_id; the server's caps decide);
  *   · "+ Add your own" posts the SHIPPED `createCoupleChallengeAction`.
  * At the cap (10 running) the sheet still opens, says so, and turns nothing on — the server refuses an 11th anyway.
+ *
+ * 🎚 THE SLOT VARIANT (owner 2026-10-27: *"there will be 10 challenges the can make. choose a challenge or turn that
+ * challenge off"*): in the Papic card each of the ten rows IS this sheet's trigger — the row's name (or "Choose a
+ * challenge" where a slot has none yet). Opened from a row, the sheet CHOOSES that slot's challenge: both forms post
+ * `replace_mission_id`, and the server puts the pick in the row's place and retires the old one — photos already taken
+ * keep it. No "Add a challenge" button in the card any more; the same search and "Create your own" live here.
  */
 
 import { useEffect, useId, useState } from 'react';
@@ -36,6 +43,7 @@ export function ChallengeAddSheet({
   taken,
   full,
   returnTo,
+  slot = null,
 }: {
   eventId: string;
   eventType: string | null;
@@ -44,6 +52,11 @@ export function ChallengeAddSheet({
   /** 10 already running — nothing more may be turned on. */
   full: boolean;
   returnTo: 'home' | null;
+  /**
+   * 🎚 One of the card's ten rows: `mission` is the challenge in it now (null = a slot still to choose). The trigger is
+   * the row's name; a pick replaces it in place.
+   */
+  slot?: { mission: { mission_id: string; prompt: string; is_active: boolean; capture_kind?: string | null } | null } | null;
 }) {
   const headingId = useId();
   const [open, setOpen] = useState(false);
@@ -75,15 +88,29 @@ export function ChallengeAddSheet({
     };
   }, [open, q, category, kind, eventType, taken]);
 
-  const ret = returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null;
+  const replacing = slot?.mission ?? null;
+  const ret = (
+    <>
+      {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
+      {replacing ? <input type="hidden" name="replace_mission_id" value={replacing.mission_id} /> : null}
+    </>
+  );
+  // A chosen replacement turns on if there is room besides the one it replaces — the server decides; never "full" here.
+  const capped = slot ? false : full;
+  const heading = slot ? 'Choose a challenge' : 'Add a challenge';
 
   const sheet = open ? (
-    <Sheet open onClose={() => setOpen(false)} labelledById={headingId} title="Add a challenge" wide>
+    <Sheet open onClose={() => setOpen(false)} labelledById={headingId} title={heading} wide>
       <div className="flex flex-col gap-3 px-4 pb-6 pt-3" data-papic-challenge-sheet="">
         <h2 id={headingId} className="text-[19px] font-semibold tracking-tight text-ink">
-          Add a challenge
+          {heading}
         </h2>
-        {full ? (
+        {replacing ? (
+          <p className="text-[13px] text-ink/60" data-papic-challenge-replacing="">
+            In place of “{replacing.prompt}” — photos already taken keep it.
+          </p>
+        ) : null}
+        {capped ? (
           <p role="status" className="text-[13px] text-terracotta-700" data-papic-challenge-full="">
             10 are running — the most an event can have. Turn one off first.
           </p>
@@ -137,7 +164,7 @@ export function ChallengeAddSheet({
               <ul className="divide-y divide-ink/10" data-papic-challenge-library="">
                 {read.rows.map((r) => (
                   <li key={r.library_id}>
-                    <form action={addLibraryChallengeAction} className="flex items-center gap-3 py-2.5">
+                    <PapicStayForm door="addLibraryChallengeAction" action={addLibraryChallengeAction} className="flex items-center gap-3 py-2.5">
                       <input type="hidden" name="event_id" value={eventId} />
                       <input type="hidden" name="library_id" value={String(r.library_id)} />
                       {ret}
@@ -150,21 +177,21 @@ export function ChallengeAddSheet({
                         </span>
                         <span className="block text-[12.5px] text-ink/55">{r.prompt}</span>
                       </span>
-                      <SubmitButton className="inline-flex h-10 shrink-0 items-center rounded-full border border-ink/15 px-4 text-[13px] font-medium text-ink hover:bg-ink/5 disabled:opacity-45" disabled={full}>
-                        Add
+                      <SubmitButton className="inline-flex h-10 shrink-0 items-center rounded-full border border-ink/15 px-4 text-[13px] font-medium text-ink hover:bg-ink/5 disabled:opacity-45" disabled={capped}>
+                        {slot ? 'Choose' : 'Add'}
                       </SubmitButton>
-                    </form>
+                    </PapicStayForm>
                   </li>
                 ))}
               </ul>
             )}
           </>
         )}
-        <form action={createCoupleChallengeAction} className="flex flex-col gap-1.5 border-t border-ink/10 pt-3" data-papic-challenge-own="">
+        <PapicStayForm door="createCoupleChallengeAction" action={createCoupleChallengeAction} className="flex flex-col gap-1.5 border-t border-ink/10 pt-3" data-papic-challenge-own="">
           <input type="hidden" name="event_id" value={eventId} />
           {ret}
           <label htmlFor={`own-challenge-${eventId}`} className="text-[14px] font-medium text-ink">
-            + Add your own
+            {slot ? 'Or create your own' : '+ Add your own'}
           </label>
           <span className="flex items-center gap-2">
             <input
@@ -175,13 +202,47 @@ export function ChallengeAddSheet({
               placeholder="Get a photo with the newlyweds on the dance floor"
               className="h-10 min-w-0 flex-1 rounded-full border border-ink/15 bg-paper px-4 text-[14px] text-ink placeholder:text-ink/40"
             />
-            <SubmitButton className="inline-flex h-10 shrink-0 items-center rounded-full border border-ink/15 px-4 text-[13px] font-medium text-ink hover:bg-ink/5 disabled:opacity-45">Add</SubmitButton>
+            <SubmitButton className="inline-flex h-10 shrink-0 items-center rounded-full border border-ink/15 px-4 text-[13px] font-medium text-ink hover:bg-ink/5 disabled:opacity-45">{slot ? 'Use it' : 'Add'}</SubmitButton>
           </span>
           <span className="text-[12px] text-ink/55">Up to 280 characters · it turns on if you have room</span>
-        </form>
+        </PapicStayForm>
       </div>
     </Sheet>
   ) : null;
+
+  if (slot) {
+    // 🎚 THE ROW ITSELF IS THE PRESS — its name (or "Choose a challenge"), 44 px tall, opening this sheet in place.
+    const m = slot.mission;
+    return (
+      <>
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          className="flex min-h-11 min-w-0 flex-1 items-center text-left"
+          data-papic-challenge-choose={m ? 'change' : 'empty'}
+        >
+          {m ? (
+            <span className={`min-w-0 text-[14px] ${m.is_active ? 'text-ink' : 'text-ink/50'}`}>
+              {m.prompt}
+              {m.capture_kind ? (
+                <span className="ml-1.5 inline-block rounded-full bg-ink/10 px-1.5 py-0.5 align-middle text-[10px] font-medium uppercase tracking-[0.08em] text-ink/60">
+                  {m.capture_kind === 'clip' ? 'Clip' : 'Photo'}
+                </span>
+              ) : null}
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 text-[14px] font-medium text-mulberry">
+              <Plus aria-hidden="true" className="h-4 w-4" strokeWidth={1.9} />
+              Choose a challenge
+            </span>
+          )}
+        </button>
+        {sheet && typeof document !== 'undefined' ? createPortal(sheet, document.body) : null}
+      </>
+    );
+  }
 
   return (
     <>

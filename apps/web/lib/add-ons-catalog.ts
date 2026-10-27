@@ -12,6 +12,7 @@
  * in a page file.
  */
 
+import { papicHomeHref } from '@/lib/papic-home-href';
 import {
   Receipt,
   Globe2,
@@ -233,7 +234,11 @@ export function addOnHref(key: string, eventId: string): string {
   // per-camera ladder is bought from. Pre-wired here so the day its status
   // flips to 'live' the card opens a real surface instead of 404ing on a
   // /studio/papic-guest route that does not exist.
-  if (key === 'papic-guest') return `/dashboard/${eventId}/studio/papic`;
+  // 📷 'papic' itself is NOT special-cased (2026-10-26): its page is gone and the old address forwards to the card on
+  // Home (`lib/legacy-redirects.ts`), but the address stays `/studio/papic` here ON PURPOSE — the store shell refuses
+  // that path in the app without Apple's shop (`lib/store-shell.ts`), and pointing every menu row at Home would show a
+  // Papic door there that App Review must not find.
+  if (key === 'papic-guest') return papicHomeHref(eventId);
   if (key === 'animated-monogram') return `/dashboard/${eventId}/monogram`;
   // Features that don't own a Studio surface of their own open their real home
   // rather than a "coming soon" stub — so every Studio button lands somewhere
@@ -887,8 +892,8 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     blurb: 'A short film for the people who came — made from the photos everyone agreed to share.',
     cta: 'Make the film',
     studioGroup: 'capture',
-    // Paid SKU — without this the Studio card never flips to Active/Pending when
-    // owned (paid-features-auto-show). Canonical V2 code (sku-catalog-v2.ts).
+    // The SKU the card reads (paid-features-auto-show). FREE for every event since
+    // 2026-10-26 (FREE_FOR_ALL_SKUS) — it reads as owned everywhere. Canonical V2 code.
     serviceKey: 'PAPIC_ADDON_THANK_YOU',
     poster: {
       motion: 'scan',

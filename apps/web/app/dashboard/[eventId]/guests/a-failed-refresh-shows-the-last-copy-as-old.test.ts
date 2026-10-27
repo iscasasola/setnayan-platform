@@ -56,7 +56,8 @@ test('2 · while the fresh list comes, the line says it is the last copy — in 
   // NOTHING COVERS CONTENT (owner rule): the line is inside the sticky block, right after the selector — not
   // a fixed layer over it — and it is not the floating last-seen pill.
   const stick = html.slice(html.indexOf('data-guests-stick'), html.indexOf('data-roster-counts'));
-  assert.match(stick, /<\/nav><p role="status"[^>]*data-guests-status="updating"/, 'the line follows the selector in the flow');
+  // (⚙ 2026-10-27: the selector's first row ends with the menu's ⚙ — the line follows that row.)
+  assert.match(stick, /<\/nav>(?:<span data-menu-settings="guests"[\s\S]*?<\/span>)?<\/div><p role="status"[^>]*data-guests-status="updating"/, 'the line follows the selector in the flow');
   assert.doesNotMatch(html, /data-last-seen-mark|class="[^"]*\bfixed\b[^"]*"[^>]*data-guests-status/);
   // (The round ＋ left the row 2026-10-25; the ways to add are gated on `copy` — held by search-or-add.test.ts.)
   for (const write of ['>Remove<']) {

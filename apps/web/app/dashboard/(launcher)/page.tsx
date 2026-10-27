@@ -23,6 +23,7 @@ import { YearMomentsStrip } from './_components/year-moments-strip';
 import { Spotlight } from '@/app/_components/spotlight';
 import { IncomingRequests } from './_components/incoming-requests';
 import { createClient } from '@/lib/supabase/server';
+import { publicEventPath } from '@/lib/public-event-url';
 import { getCurrentUser } from '@/lib/auth';
 import { fetchUserEvents, fetchUserEventsOrReconnect, type EventWithRole } from '@/lib/events';
 import { rethrowIfSchemaBlip } from '@/lib/read-retry';
@@ -107,6 +108,7 @@ import { renderableImageSrc } from '@/lib/event-card-art';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { resolveHero } from '@/lib/event-hero';
 import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
+import { myLovedOnes, spouseIdSet, type DependentOwnership } from '@/lib/my-loved-ones';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { peopleConnectionsEnabled } from '@/lib/people-connections';
 import { formatCount } from '@/lib/format-number';
@@ -709,11 +711,15 @@ export default async function LauncherPage({
       (await isDataPrivacyControlActive('dependent_minor_profiles'))
     ) {
       try {
-        const { count, error } = await supabase
-          .from('dependents')
-          .select('dependent_id', { count: 'exact', head: true });
+        // ⚠ RLS admits an ADMIN to every dependent on the platform — a bare count counted everyone's
+        // (owner 2026-10-27). Count by the ONE rule the People page lists by (`lib/my-loved-ones.ts`).
+        const [{ data, error }, { data: spouseIds, error: spouseError }] = await Promise.all([
+          supabase.from('dependents').select('owner_user_id, handed_over_by_user_id, shared_with_spouse, handed_over_at'),
+          supabase.rpc('current_spouse_user_ids'),
+        ]);
         if (error) console.error('[supabase-error] app/dashboard/(launcher)/page.tsx · from:dependents.select', error);
-        if (!error) alagaCount = count ?? 0;
+        if (spouseError) console.error('[supabase-error] app/dashboard/(launcher)/page.tsx · rpc:current_spouse_user_ids', spouseError);
+        if (!error) alagaCount = myLovedOnes((data ?? []) as DependentOwnership[], user.id, spouseIdSet(spouseIds)).length;
       } catch {
         alagaCount = null;
       }
@@ -860,6 +866,29 @@ export default async function LauncherPage({
     upcomingOnPage.filter((e) => e.member_type === 'couple').map((e) => e.event_id),
   ).catch(() => new Map<string, ForTag>());
 
+  // 👁 "View Event Hub" in each card's ⋯ menu (owner 2026-10-27: *"View event hub add that if event hub is available
+  // for that event"*). Home's own rule (`lib/home-control.server.ts`): the event has a slug AND its page is Public or
+  // Unlisted. A small read of its own, NOT a column added to `fetchUserEvents` — that shared read powers every
+  // dashboard, and one column a role cannot SELECT would reject it whole. A failed read only drops the menu row.
+  const hubUrlByIdRead = (async (): Promise<Map<string, string>> => {
+    const own = organiserEvents.filter((e) => e.member_type === 'couple' && e.slug);
+    if (own.length === 0) return new Map();
+    const { data, error } = await supabase
+      .from('events')
+      .select('event_id, landing_page_visibility')
+      .in('event_id', own.map((e) => e.event_id));
+    if (error) {
+      logQueryError('Launcher (hub visibility)', error, { user_id: user.id }, 'graceful_degrade');
+      return new Map();
+    }
+    const open = new Set(
+      (data ?? [])
+        .filter((r) => r.landing_page_visibility === 'public' || r.landing_page_visibility === 'unlisted')
+        .map((r) => r.event_id as string),
+    );
+    return new Map(own.filter((e) => open.has(e.event_id)).map((e) => [e.event_id, publicEventPath(e.slug as string)]));
+  })().catch(() => new Map<string, string>());
+
   // ─── THE ONE WAIT ────────────────────────────────────────────────────────
   const [
     checklistEntries,
@@ -875,6 +904,7 @@ export default async function LauncherPage({
     ownHeroById,
     posterById,
     forTagById,
+    hubUrlById,
   ] = await Promise.all([
     checklistRead,
     decisionRead,
@@ -889,6 +919,7 @@ export default async function LauncherPage({
     ownHeroByIdRead,
     posterByIdRead,
     forTagByIdRead,
+    hubUrlByIdRead,
   ]);
 
   const checklistByEvent = new Map(checklistEntries);
@@ -1264,7 +1295,7 @@ export default async function LauncherPage({
         ) : null}
         <CollectionGrid>
           {happeningNow.map((event, i) => (
-            <BoardCardWithMenu key={event.event_id} event={event}>
+            <BoardCardWithMenu key={event.event_id} event={event} hubUrl={hubUrlById.get(event.event_id) ?? null}>
               <GlassEventCard
                 event={event}
                 pct={progressByEvent.get(event.event_id) ?? null}
@@ -1325,7 +1356,7 @@ export default async function LauncherPage({
         ) : (
         <CollectionGrid layout="poster">
           {upcomingOnPage.map((event, i) => (
-            <BoardCardWithMenu key={event.event_id} event={event}>
+            <BoardCardWithMenu key={event.event_id} event={event} hubUrl={hubUrlById.get(event.event_id) ?? null}>
               <GlassEventCard
                 event={event}
                 pct={progressByEvent.get(event.event_id) ?? null}
@@ -1371,7 +1402,7 @@ export default async function LauncherPage({
             </p>
             <CollectionGrid>
               {putAway.map((event, i) => (
-                <BoardCardWithMenu key={event.event_id} event={event}>
+                <BoardCardWithMenu key={event.event_id} event={event} hubUrl={hubUrlById.get(event.event_id) ?? null}>
                   <GlassEventCard
                     event={event}
                     pct={progressByEvent.get(event.event_id) ?? null}
@@ -1488,7 +1519,7 @@ export default async function LauncherPage({
                 "Celebrated". */}
             <CollectionGrid>
               {unwritten.map((event, i) => (
-                <BoardCardWithMenu key={event.event_id} event={event} finished>
+                <BoardCardWithMenu key={event.event_id} event={event} finished hubUrl={hubUrlById.get(event.event_id) ?? null}>
                   <GlassEventCard
                     event={event}
                     pct={progressByEvent.get(event.event_id) ?? null}
@@ -1547,7 +1578,7 @@ export default async function LauncherPage({
         ) : null}
         <CollectionGrid>
           {written.map((event, i) => (
-            <BoardCardWithMenu key={event.event_id} event={event} finished>
+            <BoardCardWithMenu key={event.event_id} event={event} finished hubUrl={hubUrlById.get(event.event_id) ?? null}>
               <GlassEventCard
                 event={event}
                 pct={progressByEvent.get(event.event_id) ?? null}
@@ -2192,6 +2223,7 @@ function BoardCardWithMenu({
    * calendar, so `EventCardMenu` drops that row entirely when this is true.
    */
   finished = false,
+  hubUrl = null,
   children,
 }: {
   event: EventWithRole;
@@ -2201,6 +2233,8 @@ function BoardCardWithMenu({
    *  partly off the left of the screen, where it cannot be scrolled to. */
   align?: 'left' | 'right';
   finished?: boolean;
+  /** The public Event Hub's path when guests can open it — the menu then offers "View Event Hub". */
+  hubUrl?: string | null;
   children: ReactNode;
 }) {
   if (event.member_type !== 'couple') return <>{children}</>;
@@ -2217,6 +2251,7 @@ function BoardCardWithMenu({
         finished={finished}
         tone={tone}
         align={align}
+        hubUrl={hubUrl}
       />
     </div>
   );

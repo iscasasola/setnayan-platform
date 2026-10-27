@@ -69,7 +69,7 @@ test('C7 · the way-out stands on the film’s centre line, and the chrome above
   assert.ok(wayOut, 'the quiet "See our page" lost its row');
   assert.match(wayOut[1] ?? '', /\binset-x-0\b/);
   assert.match(wayOut[1] ?? '', /\bjustify-center\b/, '"See our page" is off the centre line again');
-  const chip = /className="pointer-events-none absolute inset-x-0 [^"]*"\s+style=\{\{\s*bottom:\s*'calc\(([\d.]+)rem \+ var\(--cookie-banner-top, 0px\)\)'\s*\}\}\s+onClick=\{\(e\) => e\.stopPropagation\(\)\}\s*>\s*<a\b/.exec(FILM);
+  const chip = /className="pointer-events-none absolute inset-x-0 [^"]*"\s+style=\{\{\s*bottom:\s*'calc\(([\d.]+)rem \+ var\(--cookie-banner-top, 0px\)\)'\s*\}\}\s+onClick=\{\(e\) => e\.stopPropagation\(\)\}\s*>\s*(?:\{content\.icsHref \? \(\s*)?<(?:a|SaveFileLink)\b/.exec(FILM);
   assert.ok(chip, 'the persistent "Add to calendar" chip lost its row');
   const hint = /bottom-36[^`]*`\}\s+style=\{\{\s*bottom:\s*'calc\(([\d.]+)rem \+ var\(--cookie-banner-top, 0px\)\)'\s*\}\}\s*>\s*(?:\{\s*\}\s*)*<p data-film-hold-hint/.exec(FILM);
   assert.ok(hint, 'the hold cue lost its row');

@@ -77,7 +77,7 @@ export async function loadVocab(admin: Admin, opts: { readiness: boolean }): Pro
   const [etRes, faithRes, readiness] = await Promise.all([
     admin
       .from('event_type_vocab')
-      .select('event_type, label_en, emoji, description, sort_order, status, enabled, onboarding_href, hero_photo_url')
+      .select('event_type, label_en, emoji, description, sort_order, status, enabled, onboarding_href, hero_photo_url, for_whom')
       .order('sort_order', { ascending: true })
       .order('event_type', { ascending: true }),
     admin
@@ -101,6 +101,7 @@ export async function loadVocab(admin: Admin, opts: { readiness: boolean }): Pro
       enabled: boolean | null;
       onboarding_href: string | null;
       hero_photo_url: string | null;
+      for_whom: string[] | null;
     }>
   ).map((r) => ({
     key: r.event_type,
@@ -112,6 +113,7 @@ export async function loadVocab(admin: Admin, opts: { readiness: boolean }): Pro
     enabled: r.enabled === true,
     onboardingHref: r.onboarding_href,
     heroPhotoUrl: r.hero_photo_url,
+    forWhom: Array.isArray(r.for_whom) ? r.for_whom : null,
   }));
 
   const readinessBy = new Map(readiness.map((r) => [r.ceremonyType, r]));

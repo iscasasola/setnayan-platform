@@ -117,12 +117,9 @@ test('🚨 no purchase link arrives with the quantity already chosen', () => {
 test('the balance itself is untouched — this guard must not have silenced the facts', () => {
   // A cut that also removed the meter would pass every rule above while making
   // the page worse. The event must still be able to say what it HOLDS.
-  const page = readFileSync(
-    join(WEB, 'app/dashboard/[eventId]/studio/papic/page.tsx'),
-    'utf8',
-  );
-  // 🎨 One band now carries the balance, the meter and Buy more (owner 2026-10-14).
-  assert.match(page, /credits=\{\{ total: papicBand\.total, left: papicBand\.count \}\}/, 'the live credit balance is gone from the Papic page (the card’s counter)');
+  // 📷 2026-10-26: the Papic page is gone — the balance is on the Papic card's face on Home (Total · Taken · Remaining).
+  const page = readFileSync(join(WEB, 'app/dashboard/[eventId]/page.tsx'), 'utf8');
+  assert.match(page, /counts: \{ total: papicNow\.total, left: papicNow\.count \}/, 'the live credit balance is gone from the Papic card');
 });
 
 test('🎟 onboarding recommends NOTHING either — each pack states its own estimate (owner 2026-10-15)', () => {

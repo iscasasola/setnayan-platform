@@ -2,6 +2,7 @@ import type { HomeCover } from '@/lib/home-cover';
 import type { HomeCoverWords } from '@/lib/home-cover-words';
 import { forTagWords, type ForTag } from '@/lib/for-tag';
 import { ForTagMark } from '@/app/_components/for-tag-mark';
+import { HomeCoverPin } from './home-cover-pin';
 
 /**
  * home-cover-band.tsx — THE EVENT HOME'S COVER BAND (the name and the date line),
@@ -13,13 +14,25 @@ import { ForTagMark } from '@/app/_components/for-tag-mark';
  * ⚙ NO SETTINGS PILL (owner-approved 2026-10-24, `home_control_center_2026-10-24_fable.html`: "Keeps the cover; drops
  * the pill so Event Settings has one door"). The Countdown widget is Event Details' ONE door now — the pill that opened
  * the same page (the 23 Oct ruling) was a second door to it.
+ *
+ * 📌 IT PINS AS ONE LINE (owner 2026-10-27, Home A — "on home, we also want to pin the header on top"): `sticky` with a
+ * negative top (the bar's height − (the band's height − 52 px)), so its in-flow height never changes; stuck, the big
+ * words fade and `<names> · <date>` takes their place in the bottom 52 px (`home-cover-pin.tsx`). The loading screen
+ * draws this same band, so the hand-over cannot jump. No selector on Home, and no ⚙ on its cover AT REST (24 Oct).
+ *
+ * ⚙ THE PINNED LINE ENDS WITH HOME'S ⚙ (owner 2026-10-27, "EVERY MENU'S ⚙ RIDES ITS PINNED ROW TOO": *"headeer ana
+ * and miguel has the event settings"*): `<names> · <date> · ⚙`, the ⚙ opening Event Details — drawn only once the band
+ * has stuck (`visibility` follows `data-collapsed`), so at rest the Countdown is still the one door on screen.
  */
 export function HomeCoverBand({
   cover,
   ground = null,
+  settingsHref,
 }: {
   cover: HomeCoverWords;
   ground?: HomeCover | null;
+  /** ⚙ Event Details' address — the pinned line's ⚙ (27 Oct). The loading screen passes none: its band never pins. */
+  settingsHref?: string;
 }) {
   return (
       <div
@@ -31,7 +44,7 @@ export function HomeCoverBand({
            lg:px-8, pt-3 · sm:pt-6) and pads by the same amount, so it runs edge to edge of
            the content area, square-edged, with its words on the page's gutter. The cards
            below keep their column (`data-home-column`). */
-        className={`relative -mx-4 -mt-3 flex items-end justify-between gap-3 overflow-hidden px-4 pb-[18px] pt-[22px] sm:-mx-6 sm:-mt-6 sm:px-6 lg:-mx-8 lg:px-8 ${ground ? '' : 'bg-mulberry text-cream'}`}
+        className={`group/cover sticky top-[calc(var(--home-bar)-var(--home-band-h)+52px)] z-[15] -mx-4 -mt-3 flex items-end justify-between gap-3 overflow-hidden px-4 pb-[18px] pt-[22px] [transition:top_0.3s_ease-out] sm:-mx-6 sm:-mt-6 sm:px-6 lg:-mx-8 lg:px-8 ${ground ? '' : 'bg-mulberry text-cream'}`}
         style={ground ? { background: ground.kind === 'paper' ? ground.background : undefined, color: ground.ink } : undefined}
       >
         {ground?.kind === 'image' ? (
@@ -42,7 +55,7 @@ export function HomeCoverBand({
             <span className="absolute inset-0 block" style={{ background: ground.scrim }} />
           </span>
         ) : null}
-        <div className="relative min-w-0">
+        <div className="relative min-w-0 transition-[opacity,transform] duration-200 ease-sn group-data-[collapsed]/cover:-translate-y-2.5 group-data-[collapsed]/cover:opacity-0 motion-reduce:transition-none motion-reduce:group-data-[collapsed]/cover:translate-y-0">
           {/* The page's one h1. Screen-reader only: the name is drawn once, below, for the eye — and
               BEFORE the eyebrow, so `lint-page-masthead` does not read a label-over-h1. */}
           <h1 className="sr-only">{cover.name}</h1>
@@ -50,6 +63,7 @@ export function HomeCoverBand({
           <p aria-hidden className="text-[26px] font-semibold leading-[1.1] tracking-[-0.01em]">{cover.name}</p>
           {cover.forWho ? <HomeForLine tag={cover.forWho} /> : null}
         </div>
+        <HomeCoverPin name={cover.name} date={cover.shortDate} settingsHref={settingsHref} />
       </div>
   );
 }

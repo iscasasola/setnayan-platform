@@ -100,11 +100,11 @@ export default async function CoupleRecapPage({
   return (
     <div className="mx-auto w-full max-w-2xl space-y-6 px-4 py-8 sm:px-6">
       <Link
-        href={`/dashboard/${eventId}/studio/papic`}
+        href={`/dashboard/${eventId}/memories`}
         className="inline-flex items-center gap-1.5 text-sm text-ink/60 hover:text-ink"
       >
         <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={2} />
-        Back to Papic
+        Back to Memories
       </Link>
 
       <PageMasthead

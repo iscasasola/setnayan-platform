@@ -25,6 +25,7 @@ import { setupArmsPapic } from '@/lib/event-answers';
 import { setupViewForProfile } from '@/lib/onboarding/setup-view';
 import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
 import { mintOnboardingServiceOrders } from '@/lib/onboarding-services-orders';
+import { setnayanAiOffered } from '@/lib/setnayan-ai';
 import { getBlockingLifeEvent } from '@/app/dashboard/(account)/create-event/life-event-guard';
 import {
   resolveEventHonoree,
@@ -257,7 +258,12 @@ export async function commitOnboardingEvent(
   const papic = await mintOnboardingServiceOrders(admin, {
     eventId: insertedEvent.event_id,
     userId: user.id,
-    rawSelection: payload.servicesSelection,
+    // 🧭 Suppliers switched off on "What do you need?" ⇒ Setnayan AI was not offered (`setnayanAiOffered`,
+    // owner 2026-10-26) — a pick the wire still carries is dropped, never charged.
+    rawSelection:
+      needs && !setnayanAiOffered(needs) && payload.servicesSelection && typeof payload.servicesSelection === 'object'
+        ? { ...(payload.servicesSelection as Record<string, unknown>), ai: false }
+        : payload.servicesSelection,
   });
 
   return { ok: true, eventId: insertedEvent.event_id, paymentPath: papic.paymentPath };

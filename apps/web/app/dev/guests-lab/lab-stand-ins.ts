@@ -48,6 +48,8 @@ export const LAB_GUEST_ACTIONS: Partial<GuestActions> = {
   restoreGuestRsvpAndSeat: async () => ({ ok: true }),
   /* 📸 Their camera / Set… › Papic — local: says every guest was set. */
   setGuestAllotment: async (fd: FormData) => ({ ok: true as const, set: fd.getAll('guest_id').length }),
+  /* 🧍 Proxy ▾ — local: says it was linked (nothing is written). */
+  setGuestProxy: async (_eventId, _holder, move) => ({ ok: true as const, proxyGuestId: move.kind === 'link' ? move.proxyGuestId : null }),
   createGuestGroup: async () => undefined as never,
   addSingleGuest: async (_eventId, draft) => ({
     ok: true,
@@ -91,7 +93,8 @@ export const LAB_GUEST_ACTIONS: Partial<GuestActions> = {
   /* "Invite N" opens the lab's own one-by-one run (the REAL run on fixtures), not a real route. */
   sendRunHref: (_eventId, ids) => `/dev/guests-lab?part=run&ids=${ids.join(',')}`,
   /* Setup's "Send to N" and "Pick who" stay in the lab: its own run, its own list. */
-  setupDoorHref: (_eventId, door) => (door === 'send' ? '/dev/guests-lab?part=run' : '/dev/guests-lab?part=screen&select=to-invite'),
+  setupDoorHref: (_eventId, door) =>
+    door === 'send' ? '/dev/guests-lab?part=run' : door === 'requests' ? '/dev/guests-lab?part=screen&q=requests' : '/dev/guests-lab?part=screen&select=to-invite',
   /* Guests › Setup: the asks / how guests get in (the Maker's draft door), Reply by, Finalize — all local. */
   hubDraftAction: async () => ({ ok: true, intent: 'save', applied: 0, held: [] }),
   updatePaxSettings: async () => ({ ok: true }),

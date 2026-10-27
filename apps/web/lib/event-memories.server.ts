@@ -53,7 +53,7 @@ export async function readEventMemories(
     // The board's own order (`couple-challenges-manager.tsx`): slot, then when it was made.
     supabase
       .from('papic_missions')
-      .select('mission_id, prompt, source, vendor_id, board_slot')
+      .select('mission_id, prompt, source, vendor_id, board_slot, removed_at')
       .eq('event_id', eventId)
       .eq('approved', true)
       .order('board_slot', { ascending: true, nullsFirst: false })
@@ -78,7 +78,13 @@ export async function readEventMemories(
   const challengesRefused = Boolean(missionsRes.error || completionsRes.error);
   if (missionsRes.error) logQueryError('readEventMemories.missions', missionsRes.error, { event_id: eventId }, 'graceful_degrade');
   if (completionsRes.error) logQueryError('readEventMemories.completions', completionsRes.error, { event_id: eventId }, 'graceful_degrade');
-  const missions = (missionsRes.data ?? []) as { mission_id: string; prompt: string | null; source: string | null; vendor_id: string | null }[];
+  const completionRows = (completionsRes.data ?? []) as { mission_id: string; capture_id: string | null }[];
+  /* ✕ A REMOVED CHALLENGE STAYS ON THE PHOTOS IT TAGGED (owner 2026-10-26: "the photo and challenge is saved"): it is
+     listed here only while a photo still carries it, so the filter never offers a removed challenge with nothing in it. */
+  const tagged = new Set(completionRows.filter((c) => c.capture_id).map((c) => c.mission_id));
+  const missions = ((missionsRes.data ?? []) as { mission_id: string; prompt: string | null; source: string | null; vendor_id: string | null; removed_at?: string | null }[]).filter(
+    (m) => !m.removed_at || tagged.has(m.mission_id),
+  );
   const vendorIds = [...new Set(missions.filter((m) => m.source === 'vendor' && m.vendor_id).map((m) => m.vendor_id as string))];
   const { data: vendorRows } = vendorIds.length
     ? await supabase.from('event_vendors').select('vendor_id, vendor_name').in('vendor_id', vendorIds)
@@ -90,7 +96,7 @@ export async function readEventMemories(
     supplier: m.source === 'vendor' && m.vendor_id ? (vendorName.get(m.vendor_id) ?? null) : null,
   }));
   const missionOfCapture = new Map(
-    ((completionsRes.data ?? []) as { mission_id: string; capture_id: string | null }[])
+    completionRows
       .filter((c) => c.capture_id)
       .map((c) => [c.capture_id as string, c.mission_id]),
   );

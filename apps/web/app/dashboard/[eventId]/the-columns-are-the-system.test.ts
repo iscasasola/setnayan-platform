@@ -55,9 +55,8 @@ test('Budget reads', () => {
   for (const m of sections) assert.match(m[1]!, new RegExp(`\\b${READING.tw}\\b`), `a budget column is not the reading column: "sn-col${m[1]}"`);
 });
 
-test('a Studio product (Papic) reads', () => {
-  assert.match(read('studio/papic/page.tsx'), new RegExp(`<div className="mx-auto w-full ${READING.tw}">\\s*<section className="flex flex-col gap-7 pb-12">`));
-});
+// (The Studio product that read as a column here was the Papic page — removed 2026-10-26; its card lives on Home ›
+// Today, inside Home's own column.)
 
 test('Suppliers is the wide stage below 1024, and the whole body from 1024 (owner 2026-10-23)', () => {
   assert.match(

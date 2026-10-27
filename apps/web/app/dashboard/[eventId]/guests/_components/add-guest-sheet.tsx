@@ -30,7 +30,6 @@ import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/p
 import { GuestPopup } from './guest-popup';
 import { CaptureBar } from './capture-bar';
 import { JustAdded } from './just-added';
-import { openQuickAdd } from './quick-add-sheet';
 import { openAddFromPeople } from './add-from-people-sheet';
 
 const OPEN_EVENT = 'setnayan:add-guest-open';
@@ -55,11 +54,11 @@ export function openAddGuest(name = ''): void {
  * guests/ opens a camera to read a paper list; the check-in desk's scan is arrivals, not adding). It is not invented
  * here — an open owner question, recorded in DECISION_LOG 2026-10-25.
  */
+// 🔍 "Add with details" and "Paste many names" left (owner 2026-10-27: "We do not need this on guests since our search
+// bar provides the same feature") — typing in the search adds, and the new guest's card takes the details.
 export const ADD_WAYS = [
   { key: 'people', label: 'From your people' },
-  { key: 'details', label: 'Add with details' },
   { key: 'import', label: 'Import a file' },
-  { key: 'paste', label: 'Paste many names' },
 ] as const;
 export type AddWayKey = (typeof ADD_WAYS)[number]['key'];
 
@@ -69,9 +68,7 @@ export type AddWayKey = (typeof ADD_WAYS)[number]['key'];
  */
 export function openAddWay(key: AddWayKey, eventId: string, push: (href: string) => void): void {
   if (key === 'people') openAddFromPeople();
-  else if (key === 'details') openQuickAdd();
-  else if (key === 'import') push(`/dashboard/${eventId}/guests/import`);
-  else push(`/dashboard/${eventId}/guests/quick`);
+  else push(`/dashboard/${eventId}/guests/import`);
 }
 
 /**

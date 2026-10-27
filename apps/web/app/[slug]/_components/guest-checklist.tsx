@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { checklistProgress, type ChecklistItem, type ChecklistKey } from '@/lib/guest-checklist';
 import { formatCount } from '@/lib/format-number';
+import { SaveFileLink } from '@/app/_components/save-file-link';
 
 /**
  * "YOUR CHECKLIST" — the last 30 days (owner 2026-09-26: *"something
@@ -130,10 +131,19 @@ export function GuestChecklist({
                   <span className="mt-0.5 block text-sm text-ink/70">
                     {item.sub}
                     {item.sub && item.link ? ' · ' : null}
-                    {item.link ? (
+                    {item.link?.download ? (
+                      <SaveFileLink
+                        href={item.link.href}
+                        filename="setnayan-guest-pass.png"
+                        className="font-medium text-ink underline underline-offset-4"
+                      >
+                        {item.link.label}
+                      </SaveFileLink>
+                    ) : item.link ? (
                       <a
                         href={item.link.href}
-                        {...(item.link.download ? { download: '' } : { target: '_blank', rel: 'noopener noreferrer' })}
+                        target="_blank"
+                        rel="noopener noreferrer"
                         className="font-medium text-ink underline underline-offset-4"
                       >
                         {item.link.label}

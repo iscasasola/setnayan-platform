@@ -1,3 +1,4 @@
+import { papicHomeHref } from '@/lib/papic-home-href';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { startAhead } from '@/lib/start-ahead';
 import { MAKER_LATE_UNREAD, type MakerLate } from '@/lib/maker-late';
@@ -743,7 +744,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       owned: hasPapic,
       launchLabel: 'Hand out cameras',
       launchHref: `${base}/studio/papic/crew`,
-      addHref: `${base}/studio/papic`,
+      addHref: papicHomeHref(eventId),
       Icon: Camera,
     },
   ];

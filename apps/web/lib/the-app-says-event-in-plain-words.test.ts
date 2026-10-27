@@ -98,6 +98,8 @@ const NOUN_ALLOWED_STRINGS: Record<string, string[]> = {
   'lib/event-anchor.ts': ['celebration'],
   'lib/event-brief.ts': ['celebration'],
   'lib/onboarding/type-questions.ts': ['celebration'],
+  // the generic type's KEY — never drawn; it keeps it off the "Kind of event" choices (2026-10-28)
+  'lib/event-type-requests.ts': ['celebration'],
   'lib/papic-challenge-pool.ts': ['celebration'],
   'lib/papic-event-access.ts': ['celebration'],
   'lib/supplier-find.ts': ['celebrations'],

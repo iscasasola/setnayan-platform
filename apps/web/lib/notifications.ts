@@ -466,6 +466,12 @@ export type NotificationType =
      booking is made by the couple's ask and the supplier's yes. */
   | 'quote_accepted'
   | 'quote_declined'
+  /* ➕ "CAN'T FIND YOURS? ASK US TO ADD IT" (owner 2026-10-28, DECISION_LOG
+     "EVENT TYPES MUST BE SPECIFIC"). → the HOST who asked, in the app only (NOT
+     on the email allowlist — owner 2026-10-11). Emitted when the event type they
+     named is in the create picker (Admin › Event types). Enum value:
+     20271293446382. */
+  | 'event_type_added'
   /* 💸 A CHANGE ORDER — a signed amount on what the couple owes
      (`vendor_change_orders.delta_amount_php`). `proposed` → whichever side did
      NOT raise it, who must accept or decline; `answered` → the side that raised
@@ -596,6 +602,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   schedule_change_requested: 'Schedule request',
   quote_accepted: 'Quote accepted',
   quote_declined: 'Quote declined',
+  event_type_added: 'Your event type was added',
   change_order_proposed: 'Change order',
   change_order_answered: 'Change order answered',
   schedule_shifted: 'Schedule moved',
@@ -807,6 +814,8 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   quote_accepted: 'bg-success-100 text-success-900',
   // A no the supplier can answer with another quote → amber, like every other no.
   quote_declined: 'bg-warn-100 text-warn-900',
+  // What they asked for is ready — a settled good thing, like an agreement.
+  event_type_added: 'bg-success-100 text-success-800',
   // Money waiting on a yes → the same action-needed amber as a payment ask. The
   // answer can be yes or no, so it takes amber too rather than claim a verdict
   // the type alone does not carry (same reasoning as part_reopen_answered).
@@ -1054,6 +1063,7 @@ export const NOTIFICATION_TYPE_ICON: Partial<Record<NotificationType, Notificati
   guest_claim_rejected: 'user-plus',
   connection_request: 'user-plus',
   connection_confirmed: 'user-check',
+  event_type_added: 'sparkle',
   vendor_joined: 'user-plus',
   samahan_join: 'user-plus',
   order_quoted: 'receipt',

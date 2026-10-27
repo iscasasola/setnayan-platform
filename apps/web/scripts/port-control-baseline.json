@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "79344fcdf2",
+  "generatedFromRef": "0980ffdc1e",
   "routeCount": 474,
   "destinations": 993,
   "actions": 642,
-  "blocks": 7138,
+  "blocks": 7149,
   "routes": {
     "/": {
       "files": [
@@ -2637,6 +2637,7 @@
         "admin/categories/_components/back.ts",
         "admin/categories/_components/category-panels.tsx",
         "admin/categories/_components/download-pick.tsx",
+        "admin/categories/_components/event-type-asks.tsx",
         "admin/categories/_components/event-type-panel.tsx",
         "admin/categories/_components/four-level-fixture.ts",
         "admin/categories/_components/four-level-map.tsx",
@@ -2731,6 +2732,7 @@
         "AddRow",
         "AddServicePrefill",
         "AskPrefill",
+        "AskRow",
         "BackFields",
         "BackState",
         "Badge",
@@ -2758,6 +2760,7 @@
         "Dot",
         "DownloadPick",
         "EditorPack",
+        "EventTypeAsks",
         "EventTypePanel",
         "EventTypesList",
         "FieldPick",
@@ -5093,6 +5096,7 @@
     },
     "/dashboard/(account)/create-event": {
       "files": [
+        "dashboard/(account)/create-event/_components/ask-for-event-type.tsx",
         "dashboard/(account)/create-event/_components/create-date-picker.tsx",
         "dashboard/(account)/create-event/_components/create-location-picker.tsx",
         "dashboard/(account)/create-event/_components/event-type-photo-picker.tsx",
@@ -5114,6 +5118,8 @@
         "createWeddingEvent"
       ],
       "blocks": [
+        "AskForEventType",
+        "AskOutcome",
         "BlockingLifeEvent",
         "CreateDatePicker",
         "CreateLocationPicker",
@@ -5134,6 +5140,7 @@
         "PickMenu",
         "PillButton",
         "PillTrack",
+        "Sheet",
         "SubmitButton"
       ]
     },
@@ -5650,6 +5657,7 @@
         "ForTagMark",
         "GlassEventCard",
         "HTMLDialogElement",
+        "HTMLDivElement",
         "Icon",
         "Image",
         "ImpactLines",
@@ -6405,6 +6413,7 @@
     "/dashboard/[eventId]/details": {
       "files": [
         "dashboard/[eventId]/details/_components/details-form.tsx",
+        "dashboard/[eventId]/details/_components/event-kind-line.tsx",
         "dashboard/[eventId]/details/_components/event-settings-editor.tsx",
         "dashboard/[eventId]/details/_components/governed-fields.tsx",
         "dashboard/[eventId]/details/_components/pax-settings-card.tsx",
@@ -6442,6 +6451,7 @@
         "EditableField",
         "EditableRow",
         "ErrorNote",
+        "EventKindLine",
         "EventSettingsEditor",
         "FormPageSkeleton",
         "GovernedFields",
@@ -6679,6 +6689,7 @@
         "dashboard/[eventId]/guests/_components/role-section-order.ts",
         "dashboard/[eventId]/guests/_components/search-add-card.tsx",
         "dashboard/[eventId]/guests/_components/send-invite.tsx",
+        "dashboard/[eventId]/guests/_components/sent-or-not-yet.tsx",
         "dashboard/[eventId]/guests/_components/title-picker.tsx",
         "dashboard/[eventId]/guests/_components/titles-waiting.tsx",
         "dashboard/[eventId]/guests/_components/undo-store.ts",
@@ -6753,6 +6764,7 @@
         "CardToggleProps",
         "ChangeAccessLink",
         "ChosenRow",
+        "ConfirmDialog",
         "CoordinatorColourDomains",
         "CoordinatorGrantChips",
         "Count",
@@ -6890,6 +6902,7 @@
         "Scrim",
         "SearchAddRow",
         "SendInvite",
+        "SentOrNotYet",
         "SetRsvpResult",
         "Sheet",
         "SnapCarousel",
@@ -7474,6 +7487,7 @@
         "EditSheet",
         "Element",
         "ElementSheet",
+        "EventKindLineInput",
         "EventPoster",
         "EventSettingsInput",
         "Explain",
@@ -10984,6 +10998,7 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "EventKindLine",
         "EventTypePicker"
       ]
     },

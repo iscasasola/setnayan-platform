@@ -71,6 +71,7 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
   // "Don't show me invites from this person" (owner 2026-09-28, migration
   // 20271252896804) — the subject's own private mute list, keyed on user_id.
   { table: 'invite_mutes', decision: 'exported', as: 'invite_mutes' },
+  { table: 'event_type_requests', decision: 'exported', as: 'event_type_requests' },
 
   // ── Excluded, with the reason ───────────────────────────────────────────
   {

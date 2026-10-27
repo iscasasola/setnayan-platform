@@ -1938,7 +1938,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
       'events.community_id REFERENCES communities(community_id) ON DELETE SET NULL. NULL = an event owned by its people rather than by a group — the default and the overwhelming majority. A WEDDING is owned by the couple, never by a group, and the CHECK below enforces that rather than leaving it to convention.',
     writtenBy: 'Event creation when the host picks a community-class event',
     guardedBy:
-      'CHECK events_community_class_consistency — allows community_id only when event_type ∈ simple_event · corporate · travel · celebration · tournament · reunion · anniversary. A DB-level backstop the app gate cannot bypass. (Corrected 2026-07-30: this previously said "the event class"; there is no event_class column — the rule tests event_type.)',
+      'CHECK events_community_class_consistency — allows community_id only when event_type ∈ simple_event · corporate · travel · celebration · tournament · reunion · anniversary · concert · open_house · grand_opening · gala_night · date · hangout (widened 2026-10-28, 20271294233183, to match every community_eligible profile — "Your groups" in the create picker). A DB-level backstop the app gate cannot bypass. (Corrected 2026-07-30: this previously said "the event class"; there is no event_class column — the rule tests event_type.)',
     traps:
       'ON DELETE SET NULL means deleting a group SILENTLY orphans its events into personal ones rather than failing — the events survive, their ownership does not. The CHECK is the bypass-proof half; the app gate alone is not.',
   },

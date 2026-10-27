@@ -233,7 +233,8 @@ export function rosterStats(guests: readonly GuestRow[]): {
     yes: guests.filter((g) => replyFilterMatches(g, 'attending')).length,
     no: guests.filter((g) => replyFilterMatches(g, 'declined')).length,
     none: guests.filter((g) => replyFilterMatches(g, 'none')).length,
-    toInvite: counted.filter((g) => isToInvite(g)).length,
+    // The carousel's "To invite" door IS this count's rows (`replyFilterMatches(g, 'toinvite')`).
+    toInvite: guests.filter((g) => replyFilterMatches(g, 'toinvite')).length,
   };
 }
 
@@ -245,14 +246,20 @@ export function rosterStats(guests: readonly GuestRow[]): {
  * typed word and the number can never disagree. A guest who is not counted (a request, the passed-away) is in none.
  * 🔒 guests/_components/the-counts-filter-what-they-count.test.ts
  */
-export type ReplyFilter = 'attending' | 'declined' | 'none';
+export type ReplyFilter = 'attending' | 'declined' | 'none' | 'toinvite';
 
+/**
+ * 🎠 `toinvite` (owner 2026-10-27, "APPROVED — GUESTS CAROUSEL STYLE A"): the carousel's fourth count, "To invite", is a
+ * door like the other three — it filters to exactly the guests `isToInvite` names, the same rule its number counts
+ * (`rosterStats().toInvite`) and the "to invite" search word reads.
+ */
 export function replyFilterMatches(
-  g: Pick<GuestRow, 'role' | 'rsvp_status' | 'entry_source' | 'passed_away'>,
+  g: Pick<GuestRow, 'role' | 'rsvp_status' | 'entry_source' | 'passed_away'> & { invitation_sent_at?: string | null },
   f: ReplyFilter | null,
 ): boolean {
   if (f === null) return true;
   if (!countsTowardEvent(g)) return false;
+  if (f === 'toinvite') return isToInvite(g);
   return f === 'none' ? hasNotAnswered(g) : g.rsvp_status === f;
 }
 

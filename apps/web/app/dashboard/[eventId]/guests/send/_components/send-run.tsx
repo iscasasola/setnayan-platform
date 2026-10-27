@@ -310,7 +310,7 @@ export function SendRun({
           <img src={`/api/website/qr/guest/${current.guestId}`} alt={`${current.fullName}’s QR`} width={168} height={168} className="h-[168px] w-[168px] object-contain" draggable={false} />
         )}
       </div>
-      <p className="mt-5 font-mono text-[11px] uppercase tracking-[0.18em] text-ink/50" data-send-run-position="">
+      <p className="mt-5 text-[12px] uppercase tracking-[0.2em] text-ink/50" data-send-run-position="">
         Invite {formatCount(before + position)} of {formatCount(sendable.length)}
       </p>
       <h2 className="mt-1 break-words font-display text-[30px] leading-tight text-ink" data-send-run-name="">

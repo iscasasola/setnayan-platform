@@ -60,7 +60,9 @@ test('1 · nothing in the app sends anyone to the old /dashboard/samahan index',
 
 test('2 · the old index forwards to People › Groups, with the note', () => {
   const page = read('app/dashboard/(account)/samahan/page.tsx');
-  assert.match(page, /redirect\(`\$\{PEOPLE_GROUPS_HREF\}\$\{note\}`\)/, 'the old Groups index no longer forwards to People');
+  const fwd = /redirect\(`([^`$]+)\$\{note\}`\)/.exec(page);
+  assert.ok(fwd, 'the old Groups index no longer forwards to People');
+  assert.equal(fwd[1], PEOPLE_GROUPS_HREF, 'the old Groups index forwards somewhere other than People › Groups');
   assert.match(page, /sp\.left === '1' \? '&left=1'/);
   assert.equal(PEOPLE_GROUPS_HREF, '/dashboard/people?view=samahan');
   // The address really opens Groups whenever Groups is a view the person has.

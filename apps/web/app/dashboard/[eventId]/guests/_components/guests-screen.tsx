@@ -57,10 +57,8 @@ import {
   House,
   ListFilter,
   Mail,
-  MessageCircle,
   Minus,
   PartyPopper,
-  Pencil,
   Plus,
   Send,
   Share,
@@ -70,6 +68,7 @@ import {
   Upload,
   User,
   Users,
+  Trash2,
   X,
 } from 'lucide-react';
 import { ActionButton, actionButtonClass } from '@/components/action-button';
@@ -118,6 +117,7 @@ import {
   rosterSections,
   rosterStats,
   rowVerbsFor,
+  type RowVerb,
   SEARCH_WAIT_MS,
   typedLineIsAFilter,
   withTheirPlusOnes,
@@ -156,6 +156,10 @@ import type { GuestMutation } from '@/lib/guest-optimistic';
 import { pushUndo, guestToast } from './undo-store';
 import { plainRefusal } from './plain-refusal';
 import styles from './guests-screen.module.css';
+import { GuestInviteCell } from './guest-invite-cell';
+import type { SendInviteGuest } from './send-invite';
+import type { InviteEventFacts } from '@/lib/guest-invite-message';
+import { invitationLinkOn } from '@/lib/invitation-link';
 import { useKeepGuestList, useKeptGuestList, type GuestsCopyState } from './guest-list-copy';
 import type { GuestListRow } from '@/lib/guest-list-rows';
 import { GuestListStatus } from './guest-copy-mark';
@@ -191,8 +195,6 @@ export type GuestsScreenProps = {
   tableByGuest: Record<string, string>;
   /** guest_id → their song requests (the shipped search reads them). */
   songsByGuest: Record<string, string[]>;
-  /** Guests an account holds (null = not measured). */
-  linkedGuestIds: string[] | null;
   /** guest_id → a face to draw. */
   faceByGuest: Record<string, string>;
   /** Requests to join waiting (from the event link). */
@@ -206,11 +208,12 @@ export type GuestsScreenProps = {
   /** Open in Select mode (Setup's "☑ Pick who" → `?select=to-invite`). */
   initialSelect?: boolean;
   /**
-   * Where a guest's chat opens, if anywhere. ⚠ No couple↔guest chat ships
-   * today, so the page passes `() => null` and no row draws Message (G35 is
-   * held by `message-needs-an-account.test.ts`; the gap is named in the PR).
+   * 📤 WHAT A ROW'S SHARE SENDS (owner 2026-10-27, "GUEST ROW = SHARE + DELETE") — the event's address, its words and the
+   * couple's wording, read ONCE by the page (the same `loadInviteSetup` the open card uses), and each invitable guest's
+   * own token. Only guests who `mayBeInvited` and have a token are in `tokens`; a guest absent from it gets no Share.
+   * Null → no row draws Share (no address yet, or a viewer who may not send).
    */
-  chatHrefFor?: (guestId: string) => string | null;
+  invite?: RowInvite | null;
   /**
    * ⚙ GUESTS SETTINGS — the sheet's rows (`InvitePanel` → `GuestSetupRows`), drawn by the server. Present → the ⚙ at
    * the right end of the List · Map row (owner 2026-10-27, settings per menu call 1: the "Settings" segment became the
@@ -251,6 +254,14 @@ export type GuestsScreenProps = {
    * so the page never draws a control that can only fail.
    */
   viewOnly?: boolean;
+};
+
+/** 📤 A row's Share: the event's invitation address + words, and guest_id → their own QR token. */
+export type RowInvite = {
+  base: string;
+  tokens: Record<string, string>;
+  facts: InviteEventFacts;
+  template: string | null;
 };
 
 /** ⚡ The most rows the first draw holds; the rest arrive at the first idle moment. */
@@ -307,7 +318,6 @@ export function GuestsScreen(props: GuestsScreenProps) {
         measured: true,
         notLoaded: null,
         songsByGuest: {},
-        linkedGuestIds: null,
         groups: [],
         tables: [],
         empty: null,
@@ -327,14 +337,13 @@ export function GuestsScreen(props: GuestsScreenProps) {
     tables,
     tableByGuest,
     songsByGuest,
-    linkedGuestIds,
     faceByGuest,
     requests,
     titlesWaiting = [],
     rootLabel,
     initialQuery = '',
     initialSelect = false,
-    chatHrefFor,
+    invite = null,
     setup,
     settingsOpen: settingsAsked = false,
     settingsRow = null,
@@ -444,7 +453,6 @@ export function GuestsScreen(props: GuestsScreenProps) {
     }),
     [roleNames, hasSides, groupsByGuest, tableByGuest, songsByGuest, companions, rosterById, standIns, standingIn],
   );
-  const linked = useMemo(() => (linkedGuestIds ? new Set(linkedGuestIds) : null), [linkedGuestIds]);
 
   // ── The query: typed into an UNCONTROLLED box, read 250 ms after the last key.
   const [q, setQ] = useState(initialQuery.trim());
@@ -1486,15 +1494,9 @@ export function GuestsScreen(props: GuestsScreenProps) {
                       face={faceByGuest[g.guest_id]}
                       // 🧍 The two sit in ONE seat — the proxy’s (the role’s seat moved to them).
                       table={tableByGuest[g.guest_id] ?? null}
-                      verbs={
-                        writesOff
-                          ? []
-                          : rowVerbsFor(g, {
-                              linked: linked ? linked.has(g.guest_id) : null,
-                              chatHref: chatHrefFor?.(g.guest_id) ?? null,
-                            })
-                      }
-                      chatHref={chatHrefFor?.(g.guest_id) ?? null}
+                      verbs={writesOff ? [] : rowVerbsFor(g, { shareable: Boolean(invite?.tokens[g.guest_id]) })}
+                      eventId={eventId}
+                      invite={invite}
                       onOpen={openCard}
                       onToggle={() => toggleOne(g.guest_id)}
                       onRemove={() => {
@@ -1802,7 +1804,8 @@ function GuestRowLine({
   face,
   table,
   verbs,
-  chatHref,
+  eventId,
+  invite,
   onOpen,
   onToggle,
   onRemove,
@@ -1822,8 +1825,11 @@ function GuestRowLine({
   picked: boolean;
   face?: string;
   table: string | null;
-  verbs: readonly ('message' | 'edit' | 'remove' | 'release')[];
-  chatHref: string | null;
+  /** `rowVerbsFor`: Share · Delete (or Release seat) — nothing else (owner 2026-10-27). */
+  verbs: readonly RowVerb[];
+  eventId: string;
+  /** What the Share sends — the page's one read (`RowInvite`); the guest's own token is in `invite.tokens`. */
+  invite: RowInvite | null;
   onOpen: (id: string, el: HTMLElement) => void;
   onToggle: () => void;
   onRemove: () => void;
@@ -1844,6 +1850,20 @@ function GuestRowLine({
   // A +1 shows their guest's side — the side follows the guest who brings them.
   const side = plusWords?.side ?? g.side;
   const sideCls = side === 'bride' ? styles.sideBride : side === 'groom' ? styles.sideGroom : styles.sideBoth;
+  // 📤 Their invitation, as the card's Invite builds it (guest-card-body.tsx): their name as given in the event's Name
+  // style, their own link. Null → no Share (no token handed in for them).
+  const token = invite?.tokens[g.guest_id];
+  const share: SendInviteGuest | null =
+    invite && token
+      ? {
+          guestId: g.guest_id,
+          formalName: guestNameAsGiven(g, invite.facts.nameStyle),
+          firstName: g.first_name,
+          fullName: name,
+          inviteUrl: invitationLinkOn(invite.base, token),
+          sentAt: g.invitation_sent_at ?? null,
+        }
+      : null;
   return (
     <div
       className={`${styles.g} ${picked ? styles.picked : ''} ${g.plus_one_of_guest_id ? styles.plus : ''} ${joined ? styles.joined : ''}`}
@@ -1920,17 +1940,16 @@ function GuestRowLine({
         </div>
       </button>
       {/* ➡ The buttons END the name's line (owner 2026-10-20: "edit and remove button can be in a row? on the right
-          side?") — one line per guest. From 701 they keep their words; under 701 they are 44 × 44 icons, so each is
-          named for its guest. Held by guest-row-actions-share-the-name-line.test.ts. */}
+          side?") — one line per guest. 🗂 SHARE · DELETE, NOTHING ELSE (owner 2026-10-27: "share and delete only"): the
+          pencil went — the whole row opens the card, where editing happens. From 701 they keep their words; under 701
+          they are 44 × 44 icons, so each is named for its guest. Held by guest-row-actions-share-the-name-line.test.ts
+          and the-guest-row-is-share-and-delete.test.ts. */}
       {selectMode ? null : (
         <span className={styles.acts} data-fit-row="" data-row-acts="">
-          {verbs.includes('message') && chatHref ? (
-            <ActionButton tone="info" icon={MessageCircle} label="Message" name={`Message ${name}`} href={chatHref} />
+          {verbs.includes('share') && share ? (
+            <GuestInviteCell eventId={eventId} layout="icon" guest={share} facts={invite!.facts} template={invite!.template} />
           ) : null}
-          {verbs.includes('edit') ? (
-            <ActionButton tone="neutral" icon={Pencil} label="Edit" name={`Edit ${name}`} onClick={(e) => onOpen(g.guest_id, e.currentTarget)} />
-          ) : null}
-          {verbs.includes('remove') ? <ActionButton tone="danger" icon={X} label="Remove" name={`Remove ${name}`} onClick={onRemove} /> : null}
+          {verbs.includes('remove') ? <ActionButton tone="danger" icon={Trash2} label="Delete" name={`Delete ${name}`} onClick={onRemove} /> : null}
           {verbs.includes('release') ? (
             <ActionButton tone="danger" icon={Armchair} label="Release seat" name={`Release seat ${name}`} onClick={onRelease} />
           ) : null}

@@ -100,12 +100,13 @@ import type { LabFactOptions } from './fact-sheet-fixtures';
 import type { DateFit } from '@/lib/calendar-truth';
 import { SuppliersSettingsRows } from '@/app/dashboard/[eventId]/vendors/_components/suppliers-settings-rows';
 import type { SuppliersSettingsView } from '@/lib/suppliers-settings';
+import { formatPhp } from '@/lib/php';
 
 const LAB_SUPPLIERS_SETTINGS: SuppliersSettingsView = {
   costs: { mode: 'realtime', deadline: '2026-11-20' },
   payments: [
-    { id: 'p1', when: 'Nov 3', words: 'Kusina ni Lola · Downpayment ₱25,000' },
-    { id: 'p2', when: 'Nov 18', words: 'Lumina Studio · Second payment ₱18,000' },
+    { id: 'p1', when: 'Nov 3', words: `Kusina ni Lola · First payment ${formatPhp(25000)}` },
+    { id: 'p2', when: 'Nov 18', words: `Lumina Studio · Second payment ${formatPhp(18000)}` },
   ],
   photos: [
     { vendorRowId: 'v-lumina', name: 'Lumina Studio', hidden: false },

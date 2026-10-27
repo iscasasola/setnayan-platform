@@ -136,7 +136,7 @@ function PhotosRow({ eventId, supplier, first }: { eventId: string; supplier: { 
       data="supplier-photos"
       name={supplier.name}
       attrs={first ? { 'data-setup-row': 'supplier-photos', 'data-supplier-photos': hidden ? 'hidden' : 'shown' } : { 'data-supplier-photos': hidden ? 'hidden' : 'shown' }}
-      line={hidden ? 'Their photos in your Memories · hidden, kept, not deleted' : 'Their photos in your Memories · shown'}
+      line={hidden ? 'Their photos in your Memories · hidden, kept — nothing is deleted' : 'Their photos in your Memories · shown — hide them and nothing is deleted'}
       problem={err}
     >
       <button

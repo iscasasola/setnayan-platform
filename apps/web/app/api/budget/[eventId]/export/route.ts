@@ -103,7 +103,7 @@ export async function GET(req: Request, { params }: Params) {
   }
 
   return new NextResponse(
-    budgetExportHtml({ ...input, csvHref: `/api/budget/${eventId}/export?format=csv` }),
+    budgetExportHtml({ ...input, backHref: `/dashboard/${eventId}/budget` }),
     {
       status: 200,
       headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'private, no-store' },

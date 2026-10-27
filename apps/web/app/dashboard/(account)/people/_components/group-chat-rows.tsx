@@ -40,7 +40,9 @@ export function GroupChatRows({ rows, activityUnreadable = false }: { rows: read
               data-group-stories={g.stories > 0 ? String(g.stories) : undefined}
             >
               <span aria-hidden className={`${ps.groupRing} ${g.stories > 0 ? ps.groupRingLive : ''}`} data-group-ring={g.stories > 0 ? 'live' : 'none'}>
-                <span className={ps.groupDisc}>{groupInitials(g.name)}</span>
+                <span className="grid h-full w-full place-items-center rounded-full border-2 border-cream bg-gold/[0.14] text-[13px] font-bold text-gold-deep">
+                  {groupInitials(g.name)}
+                </span>
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[15px] font-semibold text-ink">{g.name}</span>
@@ -48,8 +50,8 @@ export function GroupChatRows({ rows, activityUnreadable = false }: { rows: read
                   {lineFor(g, activityUnreadable)}
                 </span>
                 {g.nextEvent ? (
-                  <span className={ps.groupEvent} data-group-next-event="">
-                    <CalendarDays aria-hidden className="h-3 w-3" strokeWidth={2.2} />
+                  <span className="mt-0.5 flex min-w-0 items-center gap-1 truncate text-[12px] font-semibold text-gold-deep" data-group-next-event="">
+                    <CalendarDays aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
                     {g.nextEvent.label}
                   </span>
                 ) : null}

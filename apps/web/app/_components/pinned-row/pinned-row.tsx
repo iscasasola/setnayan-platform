@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import Link from 'next/link';
 import type { LucideIcon } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { PickMenu, type PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { formatCount } from '@/lib/format-number';
 import pr from './pinned-row.module.css';
@@ -16,7 +16,8 @@ import pr from './pinned-row.module.css';
  *   · `picker`  — the page's EXISTING view picker, the shared `PickMenu`, shown as "<Name> ▾";
  *   · `doors`   — the page's live counts as FILTER DOORS (`aria-pressed` while filtering); `note` is said in their place
  *                 when there is nothing to count or the read was refused (never a 0 over a refusal);
- *   · `action`  — the page's ONE action, a link (`href`) or a button (`onTap`);
+ *   · `action`  — the page's ONE action: the shared `ActionButton`, brand tone, the row's main verb (icon + word),
+ *                 a link (`href`) or a button (`onTap`);
  *   · `gear`    — the menu's ⚙ at the right end: the caller mounts its `<MenuSettingsButton menu="…">` and passes it here,
  *                 so the ⚙ guard (`every-menu-has-one-settings-button.test.ts`) still counts one literal site per menu.
  *
@@ -49,7 +50,8 @@ export type PinnedPicker = {
 
 export type PinnedAction = {
   label: string;
-  icon?: LucideIcon;
+  /** The shared `ActionButton`'s icon — every house button is icon + word. */
+  icon: LucideIcon;
   ariaLabel?: string;
   /** A walk/guard mark — `data-pinned-action="<mark>"`. */
   mark: string;
@@ -104,14 +106,6 @@ export function PinnedRow({
     };
   }, []);
 
-  const Icon = action.icon;
-  const face = (
-    <>
-      {Icon ? <Icon aria-hidden className="h-4 w-4" strokeWidth={2.4} /> : null}
-      {action.label}
-    </>
-  );
-
   return (
     <div ref={rowRef} className={pr.pin} data-pinned-row="" data-first-row="" data-stuck={stuck ? '' : undefined} {...data}>
       <span data-pick="" className={pr.pinPick} data-pinned-pick="">
@@ -147,22 +141,21 @@ export function PinnedRow({
         )}
       </span>
       <span className={pr.pinSpace} aria-hidden />
-      {action.href !== undefined ? (
-        <Link href={action.href} className={pr.pinAct} data-pinned-action={action.mark} aria-label={action.ariaLabel}>
-          {face}
-        </Link>
-      ) : (
-        <button
-          type="button"
-          className={pr.pinAct}
-          onClick={action.onTap}
-          data-pinned-action={action.mark}
-          aria-label={action.ariaLabel}
-          aria-haspopup={action.dialog ? 'dialog' : undefined}
-        >
-          {face}
-        </button>
-      )}
+      <span className={pr.pinAct} data-pinned-action={action.mark}>
+        {action.href !== undefined ? (
+          <ActionButton tone="brand" main icon={action.icon} label={action.label} name={action.ariaLabel} href={action.href} />
+        ) : (
+          <ActionButton
+            tone="brand"
+            main
+            icon={action.icon}
+            label={action.label}
+            name={action.ariaLabel}
+            onClick={action.onTap}
+            aria-haspopup={action.dialog ? 'dialog' : undefined}
+          />
+        )}
+      </span>
       {gear}
     </div>
   );

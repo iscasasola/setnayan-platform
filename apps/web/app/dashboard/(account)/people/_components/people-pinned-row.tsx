@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus } from 'lucide-react';
+import { Plus, UserPlus } from 'lucide-react';
 import type { PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { MenuSettingsButton } from '@/app/_components/menu-settings-button';
 import { PinnedRow, type PinnedDoor } from '@/app/_components/pinned-row/pinned-row';
@@ -76,7 +76,7 @@ export function PeoplePinnedRow({
       doorsTour={tour}
       action={
         action.kind === 'invite'
-          ? { label: 'Invite', mark: 'invite', onTap: action.onTap, dialog: true }
+          ? { label: 'Invite', icon: UserPlus, mark: 'invite', onTap: action.onTap, dialog: true }
           : { label: 'New', icon: Plus, ariaLabel: 'New group', mark: 'new-group', href: '/dashboard/samahan/new' }
       }
       gear={

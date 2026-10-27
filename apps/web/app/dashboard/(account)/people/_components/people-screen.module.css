@@ -254,48 +254,17 @@
 }
 
 /* ═══ 👥 a group row reads like a chat (owner 2026-10-28; prototype user_dash_2026-10-28 B–D) ═══
-   The disc sits in a 52-px ring box; the ring (gold → brand → gold) is drawn only while the group has live stories,
-   so a row never changes size between the two. */
+   The face sits in a 52-px ring box; the ring (gold → brand → gold, tokens) is drawn only while the group has live
+   stories, so a row never changes size between the two. The disc itself is the shipped fold's (`bg-gold/[0.14]`). */
 .groupRing {
   display: inline-grid;
   place-items: center;
   flex: 0 0 auto;
   width: 52px;
   height: 52px;
-  border-radius: var(--m-r-full, 9999px);
+  border-radius: var(--m-r-full);
   padding: 2px;
 }
 .groupRingLive {
-  background: conic-gradient(var(--sn-gold-500, #a9834b), rgb(var(--color-mulberry)), var(--sn-gold-500, #a9834b));
-}
-.groupDisc {
-  display: grid;
-  place-items: center;
-  width: 100%;
-  height: 100%;
-  border-radius: var(--m-r-full, 9999px);
-  border: 2px solid var(--gs-paper, #f7f5f0);
-  background: color-mix(in srgb, var(--sn-gold-500, #a9834b) 22%, var(--gs-paper, #f7f5f0));
-  color: rgb(var(--color-ink));
-  font-size: 13px;
-  font-weight: 700;
-}
-.groupEvent {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  margin-top: 3px;
-  padding: 1px 7px;
-  border-radius: var(--m-r-sm);
-  background: var(--gs-gild-soft, color-mix(in srgb, #a9834b 16%, transparent));
-  color: rgb(var(--color-terracotta-700, 140 105 50));
-  font-size: 11px;
-  font-weight: 700;
-  max-width: 100%;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-:global(html.dark) .groupEvent {
-  color: var(--sn-gold-500, #cba766);
+  background: conic-gradient(rgb(var(--color-terracotta)), rgb(var(--color-mulberry)), rgb(var(--color-terracotta)));
 }

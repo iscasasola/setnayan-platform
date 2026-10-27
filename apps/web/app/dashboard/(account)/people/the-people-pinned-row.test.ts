@@ -76,7 +76,7 @@ async function renderRow(over: Record<string, unknown> = {}) {
       { key: 'connected', n: 4, word: 'connected', on: false, onTap: () => {} },
       { key: 'asking', n: 1, word: 'asking you', hot: true, on: true, onTap: () => {} },
     ],
-    action: { label: 'Invite', mark: 'invite', onTap: () => {}, dialog: true },
+    action: { label: 'Invite', icon: (await import('lucide-react')).UserPlus, mark: 'invite', onTap: () => {}, dialog: true },
     gear: React.createElement('span', { 'data-menu-settings': 'people' }, React.createElement('button', { type: 'button' }, '⚙')),
     ...over,
   };
@@ -92,8 +92,10 @@ test('2 · the row holds ONE action, between the doors and the ⚙ — the ⚙ e
   assert.ok(html.indexOf('data-pinned-picker') < doorsAt && doorsAt < actAt && actAt < gearAt, 'the order is not picker · doors · action · ⚙');
   assert.ok(html.endsWith('</button></span></div>'), 'something is drawn after the ⚙');
   assert.equal(count(html, /data-first-row=""/g), 1, 'the row is not the menu’s first row');
-  const link = await renderRow({ action: { label: 'New', mark: 'new-group', ariaLabel: 'New group', href: '/dashboard/samahan/new' } });
-  const newTag = /<a [^>]*data-pinned-action="new-group"[^>]*>/.exec(link)?.[0] ?? '';
+  assert.match(html, /data-pinned-action="invite"[^>]*><button [^>]*class="ab ab-brand ab-main/, 'Invite is not the shared ActionButton (brand, main)');
+  const link = await renderRow({ action: { label: 'New', icon: (await import('lucide-react')).Plus, mark: 'new-group', ariaLabel: 'New group', href: '/dashboard/samahan/new' } });
+  const newTag = /data-pinned-action="new-group"[^>]*><a [^>]*>/.exec(link)?.[0] ?? '';
+  assert.match(newTag, /class="ab ab-brand ab-main/, '＋ New is not the shared ActionButton (brand, main)');
   assert.match(newTag, /href="\/dashboard\/samahan\/new"/, '＋ New does not open the page that creates a group');
   const groups = read('_components', 'people-groups-view.tsx');
   assert.match(groups, /action=\{\{ kind: 'new-group' \}\}/);

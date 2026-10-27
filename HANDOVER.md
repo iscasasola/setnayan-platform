@@ -1,3 +1,61 @@
+# HANDOVER — claude/chat-files-rule (Builder C2, 2026-10-28)
+
+Contract: DECISION_LOG 2026-10-28 "CHAT FILES" + owner amendment "alway compress files when sending on chat. never keep
+original size". Server side, job and pure helpers ONLY — C1 owns every chat screen.
+
+## State
+- Rules: `lib/chat-file-rules.ts` (limits, words, kept-forever, expiry dates, isExpired, judgeStoredChatFile).
+- Client helper: `lib/chat-file-prepare.ts` (`prepareChatFile`, `uploadPreparedChatFile`) — not yet called by the composer (C1).
+- Server: `lib/chat-send.ts` (File path + uploaded-ref path), `lib/chat-actions.ts` (`attachment_ref`, `attachment_ref_name`
+  form fields on the existing action), `app/api/upload/route.ts` (chat clamp + own-folder pin), `lib/r2-client-ref.ts` (`chat` root).
+- Sweep: `lib/chat-file-expiry-sweep-core.ts` (pure) + `lib/chat-file-expiry-sweep.ts` (binder), registry key `chat-file-expiry`,
+  fired in `app/admin/layout.tsx`. OFF unless `CHAT_FILE_EXPIRY_ENABLED=true`; off = dry run.
+- Guards: `lib/chat-files-rule.test.ts`; sabotage script in the session scratchpad (14/14 red).
+
+## Decisions taken (not covered by the record)
+- Photo cap after compression = 20 MB (same as documents). Pick-time source guards stay (image 40 MB, video 300 MB).
+- A video the phone cannot compress is REFUSED (owner: never keep original size), with "This phone couldn't shrink that video…".
+- GIF and documents are not compressed — no compressor exists that keeps a GIF animated or a PDF byte-identical.
+- "Expired" = `attachment_name` kept, `attachment_r2_key` and `attachment_url` null — no migration.
+- Events with month/year precision never expire (a guessed day would delete early); multi-day events count from `event_end_date`.
+- Payment proofs / contracts live in other tables; the sweep reads only `chat_messages.attachment_r2_key` and also skips any ref
+  a proof/contract column names.
+
+## Known limits
+- The send action body is capped at 6 MB (next.config) — files above ~4 MB must go through `uploadPreparedChatFile` + the ref
+  fields. Until C1 wires that, a big video/doc fails at the platform, not with the owner's words.
+- On a gate refusal (not a member, declined thread…) after a ref upload, the uploaded object is left (no row points at it).
+
+---
+
+# HANDOVER — claude/guests-summary-carousel (Builder GC, 2026-10-28)
+
+Contract: corpus `prototypes/guests_summary_carousel_2026-10-27/` (style A) + DECISION_LOG 2026-10-27 rows (carousel
+style A · snap/peek/loop · ⓘ per card · foldable headers by the chip · file buttons are a share button).
+
+## State
+- Built + guarded + walked (lab, 390/375, Chromium + Playwright WebKit, light/dark). Sabotage: 19/19 red, restored.
+- Carousel = `components/snap-carousel.tsx` (+ module css); cards built in `guests-screen.tsx` (`summaryCards`).
+- Pinned row: `.stickHold` holder + `.stick.pinned[data-collapsed]` fixed (List only); swap read off the carousel's bottom.
+- Excel: `useGuestsExcel` (guests-excel-button.tsx) → ≡ "Save as Excel" (share icon), `usePrintSave`.
+- `.sn-acc-head` / `.sn-acc-chip` in globals.css (end of file, unlayered); Guests only.
+- One-QR: page reads `rsvp_ask_config` ONLY when no guest `mayBeInvited` (`guestsOneQr`); Share → ⚙ sheet row `one-link`.
+- Walk scripts: `shots-2026-10-28/guests-carousel/scripts/` (serve.sh · walk.mjs · plus.mjs · tipdbg.mjs · sabotage.py).
+
+## Decisions taken (not covered by the record)
+- Card ① opens `/guests/claims`, NOT `/access-requests` (brief/prototype said access-requests): the `requests` number is
+  `pendingClaimsCount` (self-joined unlisted guests) and the shipped "Review" strip opened /guests/claims;
+  /access-requests is coordinators' asks. Same door as shipped.
+- ⓘ tips open INSIDE each card (Home tiles' rule): the track (a scroller) clipped a tip hanging below it. Shorter tip words.
+- +1s card is omitted when the list has no +1s (the shipped strip drew no +1 line then); the carousel loops with 2 cards.
+- "N of M shown · × Clear" line kept, under the dots, only while a search/door is on.
+- Divider under each header = column width (not full-bleed). `.sec` top border dropped for Guests (`.accSec`) so lines never double.
+- Map view keeps the shipped sticky first row (no carousel there).
+- KNOWN, PRE-EXISTING: intermittent useId hydration mismatch on InfoTip ids in the lab — reproduced on origin/main's
+  strip InfoTip too (checked by swapping main's three files in, then restoring).
+
+---
+
 # HANDOVER — PR-D `rd/home-control-row` (builder, 2026-10-24)
 
 Contract: corpus `prototypes/home_control_center_2026-10-24_fable.html` (10067d39, owner "ok" ~16:50) — its Review notes.

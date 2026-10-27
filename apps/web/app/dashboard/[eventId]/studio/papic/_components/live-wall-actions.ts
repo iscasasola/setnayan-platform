@@ -23,8 +23,9 @@ import { limitedHelperRefusal } from '@/lib/host-gate';
 
 type ActionResult = { ok: true } | { ok: false; error: string };
 
+/** Home — the Papic card lives there now (the Papic page is gone, 2026-10-26). */
 function papicPath(eventId: string): string {
-  return `/dashboard/${eventId}/studio/papic`;
+  return `/dashboard/${eventId}`;
 }
 
 /** Both surfaces that render these controls (the add-on card + the P3 console). */

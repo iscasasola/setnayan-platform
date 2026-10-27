@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { BadgeCheck, BellRing, CalendarClock, CalendarX2, Check, Clock, Download, MapPin, QrCode, Users, X } from 'lucide-react';
+import { BadgeCheck, BellRing, CalendarClock, CalendarX2, Check, Clock, Share, MapPin, QrCode, Users, X } from 'lucide-react';
 import { Fold } from '@/app/_components/fold';
 import { FormCounter } from '@/app/_components/form-counter';
 import { ConfirmForm } from '@/app/_components/confirm-form';
@@ -438,11 +438,11 @@ export function DatesFolds({
       />
       <DatesRow
         data="ics"
-        lead={<RowTile><Download strokeWidth={1.75} /></RowTile>}
+        lead={<RowTile><Share strokeWidth={1.75} /></RowTile>}
         title="Phone calendar"
         line="Every booking · .ics"
         href={icsHref}
-        download
+        download="setnayan-bookings.ics"
       />
     </div>
   );

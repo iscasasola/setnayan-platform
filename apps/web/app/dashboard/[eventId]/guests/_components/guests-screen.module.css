@@ -24,7 +24,7 @@
   --gs-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   --gs-t: 280ms;
   /* --gs-top: the shell bar's height while it shows (set by the screen);
-     --gs-stick-h: this screen's own sticky block (segmented · counts · meter). */
+     --gs-stick-h: this screen's own sticky block — ONE pinned row since 2026-10-27 (the counts strip scrolls). */
   position: relative;
   min-width: 0;
   /* THE READING COLUMN — 48 rem (owner 2026-10-19, couple dashboard desktop + tablet: "Home, Guests
@@ -69,6 +69,174 @@
 }
 /* The List · Map · Setup doors are no longer drawn here: they wear the app's one pill selector
    (`app/_components/pill-selector.tsx`, owner 2026-10-08). */
+
+/* ═══ 📌 THE ONE PINNED ROW (owner 2026-10-27 — Guests B, "pinned approve"; amended "On the pinned the selectors should
+   stay but simplified"; prototype `guests_pinned_row_2026-10-27`) ═══
+   The Guests sticky block holds ONE row: 8 + 44 + 8 = 60 px, the same at rest and scrolled, so `--gs-stick-h` (and the
+   group header pinned under it) never moves. Two faces lie over each other in the 44-px row: the full pill at rest;
+   once the Replies strip has scrolled under the row (`data-collapsed`, written by the screen) the summary —
+   `List · Map` (small, words only) · `✓ ✕ ?` doors · `Invite N ›`. They cross-fade with 6 px of travel on the screen's
+   own curve; the face that is away is `visibility: hidden`, so it is out of the tab order and the reading order.
+   `.pinned` is the Guests block only — People wears `.stick` too and keeps its own. 🔒 lib/the-pinned-row-is-one-row.test.ts */
+.stick.pinned {
+  padding: 8px 0;
+}
+/* 📌 PINS ONCE (owner 2026-10-27, "the selector double pins. we want them to pin only the new way and not the first pin
+   it does"): on the List the block is NOT sticky at rest — it scrolls away with the page, the carousel under it. Once
+   the carousel has passed under where the row sits (`data-collapsed`), the block pins: fixed under the shell bar, on its
+   holder's column edges (`--gs-pin-l` / `--gs-pin-w`, written by the screen), arriving with a 6-px drop. The holder keeps
+   its height in the flow, so pinning moves nothing. The Map keeps its shipped sticky row. */
+.stickHold {
+  min-height: var(--gs-stick-h, 60px);
+}
+.screen[data-guests-screen='list'] .stick.pinned {
+  position: relative;
+  top: auto;
+}
+.screen[data-guests-screen='list'] .stick.pinned[data-collapsed] {
+  position: fixed;
+  top: var(--gs-top, 0px);
+  left: var(--gs-pin-l, 0px);
+  width: var(--gs-pin-w, 100%);
+  animation: gs-pin-in 220ms var(--gs-ease);
+}
+@keyframes gs-pin-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+/* The summary face lies over the full pill's own 44-px box (the sticky block is its containing block); the full pill
+   stays in the flow, so the block is 60 px with either face showing. */
+.face {
+  position: absolute;
+  top: 8px;
+  left: 0;
+  right: 0;
+  height: 44px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  transition:
+    opacity 220ms var(--gs-ease),
+    transform 220ms var(--gs-ease),
+    visibility 0s linear 0s;
+}
+.stick.pinned [data-first-row] > [data-guests-segmented] {
+  transition:
+    opacity 220ms var(--gs-ease),
+    transform 220ms var(--gs-ease),
+    visibility 0s linear 0s;
+}
+.faceAlt {
+  opacity: 0;
+  transform: translateY(6px);
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 220ms var(--gs-ease),
+    transform 220ms var(--gs-ease),
+    visibility 0s linear 220ms;
+}
+.stick.pinned[data-collapsed] [data-first-row] > [data-guests-segmented] {
+  opacity: 0;
+  transform: translateY(-6px);
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 220ms var(--gs-ease),
+    transform 220ms var(--gs-ease),
+    visibility 0s linear 220ms;
+}
+.stick[data-collapsed] .faceAlt {
+  opacity: 1;
+  transform: none;
+  visibility: visible;
+  pointer-events: auto;
+  transition:
+    opacity 220ms var(--gs-ease),
+    transform 220ms var(--gs-ease),
+    visibility 0s linear 0s;
+}
+.stick.pinned[data-collapsed] {
+  box-shadow: 0 1px 0 var(--gs-line);
+}
+/* ⚙ THE MENU'S ONE ⚙ RIDES BOTH FACES (owner 2026-10-27, "EVERY MENU'S ⚙ RIDES ITS PINNED ROW TOO"): it is the
+   first row's right end and is never faded — the summary face stops 52 px short (44 + the row's 8-px gap), so the SAME
+   mounted button ends the row at rest and pinned. 🔒 lib/the-pinned-row-is-one-row.test.ts */
+.stick.pinned[data-has-gear] .face {
+  right: 52px;
+}
+/* 52 px fewer for the face: at 390 the three counts and Invite sat touching — the counts close up a little. */
+.stick.pinned[data-has-gear] .pinCounts {
+  gap: 0;
+}
+.stick.pinned[data-has-gear] button.pinCount {
+  padding: 0 3px;
+}
+/* `List · Map` — the shipped pill, drawn small: the same track and thumb, choices 30 px tall with words only (each
+   still presses at 46 — the selector's own `.sn-hit`). */
+.pinSeg {
+  flex: none;
+}
+.pinSeg > .pinSegChoice {
+  flex: none;
+  min-height: 30px;
+  padding: 0 12px;
+}
+.pinCounts {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+/* A count door, small: a mark in the reply's own colour and the number. Pressed = the number underlined. */
+button.pinCount {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  min-height: 44px;
+  padding: 0 4px;
+  background: none;
+  border: 0;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--gs-ink);
+  cursor: pointer;
+}
+.pinCount svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+.pinCount[data-pin-dot='attending'] svg {
+  color: var(--gs-ok);
+}
+.pinCount[data-pin-dot='declined'] svg {
+  color: rgb(var(--color-danger));
+}
+.pinCount[data-pin-dot='none'] svg {
+  color: rgb(var(--color-ink) / 0.5);
+}
+.pinCount[aria-pressed='true'] b {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+/* 🖥 From 1024 the row is wide: the counts sit beside the selector, the action at the right edge (prototype g-desk). */
+@media (min-width: 1024px) {
+  .pinCounts {
+    flex: 0 0 auto;
+    margin-left: 10px;
+  }
+}
 .counts {
   display: flex;
   gap: 10px 14px;
@@ -98,97 +266,255 @@
   position: absolute;
   inset: -14px -6px;
 }
-/* ═══ THE COUNTS STRIP — option A (owner 2026-10-26, prototype `guest-counts/index.html` a-390 · a-1280) ═══
-   "Replies ⓘ · N% replied" · the two-colour bar · three big counts with hairlines between, no boxes · the +1s line ·
-   "Invite N ›" (the app's filled brand pill) with "⤓ Excel" (the outlined neutral pill) beside it. Phone: one column,
-   Invite fills the row. From 1024: the counts block left, the +1s line and the two buttons right. */
-/* It also wears `.counts` (the counts line it replaced — `lib/guests-read-is-honest.test.ts` anchors the measured gate
-   on it); written after `.counts`, these undo its flex row. */
-.strip {
-  display: block;
-  margin: 12px 0 2px;
+/* What a search or a door is showing — "N of M shown · × Clear", under the carousel, only while one is on. */
+.shownLine {
+  justify-content: center;
+  margin: 8px 0 0;
+  font-size: 12.5px;
+}
+
+/* ═══ 🎠 THE SUMMARY CAROUSEL — STYLE A, THE RING (owner 2026-10-27, "ring looks good"; prototype
+   `guests_summary_carousel_2026-10-27/` frames rest · oneqr · attention · pinned). Three compact cards (≤ 96 px at 390)
+   in the shared `SnapCarousel` (centre snap, peeks, loop). Each card is framed — it holds the doors; its ⓘ sits in the
+   same spot, top-right. 🔒 the-summary-carousel-holds-the-doors.test.ts ═══ */
+.summary {
+  margin: 4px 0 10px;
   color: var(--gs-ink);
 }
-.countsTop {
+.card {
+  position: relative;
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  font-size: 13px;
-  margin-bottom: 8px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  min-width: 0;
+  min-height: 64px;
+  padding: 8px 12px;
+  border: 1px solid var(--gs-line);
+  border-radius: var(--m-r-md);
+  background: rgb(var(--color-cream, 255 255 255));
+  color: var(--gs-ink);
 }
-.countsTitle {
+:global(html.dark) .card {
+  background: rgb(251 250 247 / 0.05);
+}
+/* Requests are waiting → card ① takes the accent edge (prototype `attention`). */
+.cardAttn {
+  border-color: color-mix(in srgb, rgb(var(--sn-accent)) 45%, transparent);
+}
+/* Card ① is ONE door: the link covers the card; the ⓘ sits above it and opens its tip without leaving. */
+.cardDoor {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+}
+.cardDoor:focus-visible {
+  outline: 2px solid rgb(var(--sn-accent));
+  outline-offset: 2px;
+}
+/* Every card's ⓘ in the same spot, top-right (owner 2026-10-27: "why total guests has (i) while other carousel elements
+   do not"). Its tip opens INSIDE the card (the Home tiles' rule, `.hc-lab-tip`): the carousel's track is a scroller and
+   cuts anything that hangs out of it. So the ⓘ's own wrapper steps out of the layout (`display: contents`) — the BUTTON takes the
+   corner, above card ①'s door — and the tip lies over the card's body beside it: short words, small type. A touch
+   anywhere else closes it. */
+.card > .cardTip {
+  display: contents;
+}
+.cardTip > button {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  z-index: 2;
+}
+.cardTip :global(.sn-tip) {
+  top: 4px;
+  left: 4px;
+  right: 30px;
+  width: auto;
+  max-width: none;
+  padding-top: 0;
+}
+.cardTip :global(.sn-tip-body) {
+  padding: 7px 10px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.ringRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+/* The ring — 44 px: the grey track, then attending (green) and not coming (red after it) as shares of the whole. It
+   draws itself in on first view (~600 ms) — from nothing to the value the server drew, so with no script, or under
+   reduced motion, it simply IS the value. */
+.ring {
+  position: relative;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+}
+.ring svg {
+  position: absolute;
+  inset: 0;
+  width: 44px;
+  height: 44px;
+  transform: rotate(-90deg);
+}
+.ring > b {
+  position: relative;
+  font-size: 12.5px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.ringTrack,
+.ringArc {
+  fill: none;
+  stroke-width: 5;
+}
+.ringTrack {
+  stroke: rgb(var(--color-ink) / 0.12);
+}
+:global(html.dark) .ringTrack {
+  stroke: rgb(var(--color-ink) / 0.2);
+}
+.ringArc {
+  stroke-linecap: round;
+}
+.ringYes {
+  stroke: var(--gs-ok);
+  stroke-dasharray: calc(var(--gs-yes, 0) * 1) 100;
+  animation: gs-ring-in 600ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.ringNo {
+  stroke: rgb(var(--color-danger));
+  stroke-dasharray: calc(var(--gs-no, 0) * 1) 100;
+  stroke-dashoffset: calc(-1 * var(--gs-yes, 0));
+  animation: gs-ring-in 600ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+@keyframes gs-ring-in {
+  from {
+    stroke-dasharray: 0 100;
+  }
+}
+.beside {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  padding-right: 20px;
+}
+.cardLabel {
+  font-size: 12px;
+  color: var(--gs-mute);
+  white-space: nowrap;
+}
+.cardLabel b {
   font-size: 15px;
   font-weight: 650;
   color: var(--gs-ink);
+  font-variant-numeric: tabular-nums;
 }
-.meter {
-  display: flex;
-  height: 10px;
-  border-radius: var(--m-r-full);
-  background: rgb(var(--color-ink) / 0.14);
-  overflow: hidden;
+.cardBig {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.15;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
-.meterFill,
-.meterNo {
-  height: 100%;
+.reqOn,
+.reqOff {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12.5px;
+  white-space: nowrap;
+  min-width: 0;
+}
+.reqOn {
+  color: rgb(var(--sn-accent));
+  font-weight: 600;
+}
+.reqOff {
+  color: var(--gs-mute);
+}
+.reqDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgb(var(--sn-accent));
   flex: none;
 }
-.meterFill {
-  background: var(--gs-ok);
+.reqChev {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  color: var(--gs-mute);
 }
-.meterNo {
-  background: rgb(var(--color-danger));
-}
-.countsGrid {
+/* Card ②: the four counts in one row, hairlines between, each a door (44 px tall to the thumb — `::after`). */
+.four {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  margin-top: 12px;
-  border-top: 1px solid var(--gs-line);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0 18px 0 -4px;
 }
-/* A count — one door, 44 px tall at the least, the number large and its word under it. */
-.countBig {
+.mini {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  justify-content: center;
-  min-height: 44px;
+  gap: 1px;
   min-width: 0;
-  padding: 10px 0 6px;
+  min-height: 30px;
+  padding: 2px 4px;
+  border-radius: var(--m-r-sm);
   text-align: left;
   color: var(--gs-ink);
+  background: none;
+  font: inherit;
 }
-.countBig + .countBig {
+.mini::after {
+  content: '';
+  position: absolute;
+  inset: -7px 0;
+}
+.mini + .mini {
   border-left: 1px solid var(--gs-line);
-  padding-left: 14px;
+  border-radius: 0 var(--m-r-sm) var(--m-r-sm) 0;
 }
-.countBig > b {
-  font-size: 26px;
+/* Sized as the approved picture draws them (prototype `compare` / `oneqr`: the number and its word both small, the
+   number bold) — the card stays well under 96 px. */
+.mini > b {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
   font-weight: 650;
-  line-height: 1.1;
+  line-height: 1.05;
   font-variant-numeric: tabular-nums;
 }
-.countWord {
-  font-size: 13px;
+.miniWord {
+  max-width: 100%;
+  font-size: 10px;
   color: var(--gs-mute);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 100%;
 }
-/* Pressed = its filter is on: the word takes the ink and an underline, the way the old line's door read. */
-.countBig[aria-pressed='true'] .countWord {
+.mini[aria-pressed='true'] {
+  background: color-mix(in srgb, rgb(var(--sn-accent)) 10%, transparent);
+}
+.mini[aria-pressed='true'] .miniWord {
   color: var(--gs-ink);
-  text-decoration: underline;
-  text-underline-offset: 3px;
 }
 .countDot {
   display: inline-block;
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: var(--m-r-full);
-  margin-right: 6px;
-  vertical-align: 1px;
+  flex: none;
 }
 .countDot[data-dot='attending'] {
   background: var(--gs-ok);
@@ -196,87 +522,134 @@
 .countDot[data-dot='declined'] {
   background: rgb(var(--color-danger));
 }
-.countDot[data-dot='none'] {
+.countDot[data-dot='none'],
+.countDot[data-dot='unnamed'] {
   background: rgb(var(--color-ink) / 0.22);
 }
-/* Dark: the grey of "no reply" (the bar's track and its dot) lifted so it still reads on the dark page. */
-:global(html.dark) .meter {
-  background: rgb(var(--color-ink) / 0.2);
+.countDot[data-dot='toinvite'],
+.countDot[data-dot='named'] {
+  background: rgb(var(--sn-accent));
 }
-:global(html.dark) .countDot[data-dot='none'] {
+/* Dark: the grey of "no reply" lifted so it still reads on the dark page. */
+:global(html.dark) .countDot[data-dot='none'],
+:global(html.dark) .countDot[data-dot='unnamed'] {
   background: rgb(var(--color-ink) / 0.34);
 }
-.countsSide {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid var(--gs-line);
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.plusLine {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 12px;
-  min-height: 32px;
-  font-size: 13.5px;
-  color: var(--gs-mute);
-}
-.plusLine .countsDoor {
-  color: var(--gs-ink);
-}
-.plusLine b {
-  font-weight: 500;
-}
-.countsActs {
+.cardFoot {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
+  min-width: 0;
 }
-:is(a).invite {
-  flex: 1 1 auto;
-  height: 44px;
-  font-size: 15px;
+.cardSub {
+  min-width: 0;
+  font-size: 12px;
+  color: var(--gs-mute);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* `Invite N ›` / `Share` — the app's filled brand pill, compact (it presses at 44 — `.ab::after`). */
+:is(a, button).cardInvite {
+  flex: none;
+  height: 30px;
+  min-height: 30px;
+  padding: 0 12px;
+  gap: 4px;
+  font-size: 12.5px;
   font-weight: 600;
 }
-:is(a).excel {
-  height: 44px;
-  font-size: 13.5px;
-}
-.excel svg,
-.invite svg {
-  width: 16px;
-  height: 16px;
+.cardInvite svg {
+  width: 13px;
+  height: 13px;
 }
 .allInvited {
-  flex: 1 1 auto;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  min-height: 44px;
-  font-size: 13.5px;
+  gap: 5px;
+  min-height: 30px;
 }
 .allInvited svg {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   color: var(--gs-ok);
 }
-@media (min-width: 1024px) {
-  .strip {
-    display: grid;
-    grid-template-columns: 1.2fr 1fr;
-    gap: 28px;
-    align-items: end;
+/* Card ③: "+1s · N" and its legend on one line, then the two-part bar — each half a door. */
+.plusHead {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  padding-right: 20px;
+  min-width: 0;
+}
+.plusHead .cardLabel {
+  color: var(--gs-ink);
+}
+.legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--gs-mute);
+  white-space: nowrap;
+}
+.legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.legend b {
+  color: var(--gs-ink);
+  font-weight: 600;
+}
+.split {
+  display: flex;
+  gap: 3px;
+  height: 10px;
+  margin: 4px 0 2px;
+}
+.half {
+  position: relative;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--m-r-full);
+  cursor: pointer;
+  animation: gs-half-in 600ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  transform-origin: left center;
+}
+.half::after {
+  content: '';
+  position: absolute;
+  inset: -17px 0;
+}
+.half[data-half='named'] {
+  background: rgb(var(--sn-accent));
+}
+.half[data-half='unnamed'] {
+  background: rgb(var(--color-ink) / 0.22);
+}
+:global(html.dark) .half[data-half='unnamed'] {
+  background: rgb(var(--color-ink) / 0.34);
+}
+.half[aria-pressed='true'] {
+  box-shadow:
+    0 0 0 2px rgb(var(--color-cream, 255 255 255)),
+    0 0 0 4px rgb(var(--sn-accent));
+}
+@keyframes gs-half-in {
+  from {
+    transform: scaleX(0);
   }
-  .countsSide {
-    margin-top: 0;
-    padding-top: 0;
-    border-top: 0;
-    gap: 6px;
-  }
-  :is(a).invite {
-    flex: 0 0 auto;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ringYes,
+  .ringNo,
+  .half {
+    animation: none;
   }
 }
 /* Used by People (`people-roster-view.tsx` imports this sheet as `gs`) for its quiet notes. */
@@ -333,6 +706,15 @@
   z-index: 12;
   background: var(--gs-paper);
   box-shadow: 0 1px 0 var(--gs-line);
+}
+/* 🪗 Guests' headers wear the shared `.sn-acc-head` (globals.css): the divider is UNDER each header, so the section
+   draws no line of its own above, and the first row under an open header none either (one line, never two). The paper
+   behind a pinned header is the page itself — no band. People keeps `.sec` as it was. */
+.accSec {
+  border-top: 0;
+}
+.accSec > .fold > div > .g:first-child {
+  border-top: 0;
 }
 .barWrap {
   min-width: 0;
@@ -551,20 +933,35 @@ button.ico {
   color: var(--gs-ink);
   transition: background 200ms, color 200ms;
 }
+/* 🏷 ONE FAMILY (owner 2026-10-27): icon + its own colour — the carousel card ②'s dot colours (`.countDot`). */
+.pillIco {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 4px;
+  vertical-align: -1px;
+}
 .pillOk {
-  background: color-mix(in srgb, var(--gs-ok) 14%, transparent);
+  background: color-mix(in srgb, var(--gs-ok) 13%, transparent);
   color: var(--gs-ok);
 }
+.pillNo {
+  background: rgb(var(--color-danger) / 0.11);
+  color: rgb(var(--color-danger));
+}
 .pillWine {
-  background: color-mix(in srgb, var(--gs-warn) 14%, transparent);
+  background: color-mix(in srgb, var(--gs-warn) 13%, transparent);
   color: var(--gs-warn);
 }
 .pillMute {
-  color: var(--gs-mute);
+  background: rgb(var(--color-ink) / 0.07);
+  color: rgb(var(--color-ink) / 0.7);
 }
+/* To invite: an OUTLINE in the accent — a to-do, never the avatars' gold fill (it melted into them). */
 .pillGold {
-  background: var(--gs-gild-soft);
-  color: rgb(var(--color-terracotta-700));
+  background: transparent;
+  color: rgb(var(--sn-accent));
+  box-shadow: inset 0 0 0 1.25px rgb(var(--sn-accent) / 0.7);
 }
 .empty {
   font-size: 13px;
@@ -698,6 +1095,8 @@ button.ico {
   gap: 10px;
   align-items: center;
   z-index: 25;
+  /* Arrives LAST (owner 2026-10-27): `useThumbRowArrivesLast` holds `data-on` until the page has built up, then the
+     row rises and its controls fade in. Until then they take no taps. */
   transform: translateY(140%);
   transition: transform 320ms var(--gs-ease);
   pointer-events: none;
@@ -706,6 +1105,20 @@ button.ico {
 }
 .lower[data-on='true'] {
   transform: none;
+}
+/* 🫧 THE FADE IS ON EACH GLASS CONTROL ITSELF — NEVER ON THE ROW OR ANY WRAPPER AROUND THE CONTROLS. An ancestor with
+   opacity below 1 (or an opacity transition running on it) becomes the blur's backdrop root: each control's frosted glass
+   then blurs only the empty row, not the list behind it, and reads as a flat white wash (owner 2026-10-27, "the thumb row
+   seem to have lost its design"). A glass element's OWN opacity is applied after its blur, so fading it keeps it frosted. */
+.lower :global(.sn-glass-row) {
+  opacity: 0;
+  transition: opacity 320ms var(--gs-ease);
+}
+.lower[data-on='true'] :global(.sn-glass-row) {
+  opacity: 1;
+}
+.lower:not([data-on='true']) > * {
+  pointer-events: none;
 }
 .lower > * {
   pointer-events: auto;
@@ -935,12 +1348,23 @@ button.node {
   .node,
   .ico.picked,
   .g.picked .ava,
-  .open > .barWrap .ico {
+  .open > .barWrap .ico,
+  .screen[data-guests-screen='list'] .stick.pinned[data-collapsed] {
     animation: none;
   }
   .fold,
   .lower,
+  .lower :global(.sn-glass-row),
   .chev {
+    transition: none;
+  }
+  /* The pinned row's faces swap in place — no travel, no fade. */
+  .face,
+  .faceAlt,
+  .stick.pinned [data-first-row] > [data-guests-segmented],
+  .stick.pinned[data-collapsed] [data-first-row] > [data-guests-segmented],
+  .stick[data-collapsed] .faceAlt {
+    transform: none;
     transition: none;
   }
 }

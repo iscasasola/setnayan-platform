@@ -14,6 +14,7 @@ import { LAB_PEOPLE, labMeDressConfig, labMeRolePalette } from './lab-people';
 import { ConnectHostsLab } from './connect-hosts-lab';
 import { HostViewsGuestLab } from './host-views-guest-lab';
 import { SaveOfferLab } from './save-offer-lab';
+import { ProxyLab } from './proxy-lab';
 
 /**
  * 👤 THE ME LAB — Invitation › Me's own parts (Your role · What to wear · Arrive by) and the digital ticket under them,
@@ -25,6 +26,7 @@ import { SaveOfferLab } from './save-offer-lab';
  * `?connect=1` draws the 🤝 "Also connect with <the hosts>" link step and the host's Requests row (`./connect-hosts-lab`).
  * `?save=1` draws the save offer, option A (`./save-offer-lab`): Me's ticket group and the thank-you's, per device / state / look.
  * `?host=1` draws Me on a guest's invitation for the HOST (before / after) and for the guest (`./host-views-guest-lab`).
+ * `?proxy=1&who=proxy|holder|ask` draws the 🧍 proxy's Me and reply, the role holder's, and the holder's "someone will stand in" ask (`./proxy-lab`).
  */
 export default async function MeLabPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   if (process.env.NODE_ENV === 'production') notFound();
@@ -33,6 +35,14 @@ export default async function MeLabPage({ searchParams }: { searchParams: Promis
   if (sp.connect === '1') return <ConnectHostsLab />;
   if (sp.save === '1') return <SaveOfferLab sp={sp} />;
   if (sp.host === '1') return <HostViewsGuestLab only={typeof sp.only === 'string' ? sp.only : null} />;
+  if (sp.proxy === '1') {
+    /* 🧍 The proxy lab's reply writes NOTHING (an inline stand-in, not exported — no route, no database). */
+    async function labProxyReply(formData: FormData) {
+      'use server';
+      void formData;
+    }
+    return <ProxyLab who={typeof sp.who === 'string' ? sp.who : null} reply={labProxyReply} />;
+  }
   const words = await eventWordsFor('wedding');
   const config = labMeDressConfig();
   const rolePalette = labMeRolePalette();

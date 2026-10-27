@@ -1,5 +1,6 @@
 'use client';
 
+import { PapicStayForm } from './_components/papic-stay-form';
 import { useState } from 'react';
 import { CalendarRange, Info } from 'lucide-react';
 import { setPapicWindow } from './actions';
@@ -138,7 +139,7 @@ export default function PapicWindowPicker({
         ) : null}
       </div>
 
-      <form action={setPapicWindow} className="mt-4 space-y-3">
+      <PapicStayForm door="setPapicWindow" action={setPapicWindow} className="mt-4 space-y-3">
         <input type="hidden" name="event_id" value={eventId} />
         {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
         {!travel ? (
@@ -211,7 +212,7 @@ export default function PapicWindowPicker({
         >
           Save dates
         </SubmitButton>
-      </form>
+      </PapicStayForm>
     </div>
   );
 }

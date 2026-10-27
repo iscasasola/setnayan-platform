@@ -201,11 +201,13 @@ test('columns: no column twice, Invite leads while anyone is unsent, Check-in on
   assert.equal(rosterSlotCount(200, COLS.length), 1, 'a squeezed list still shows one column');
 });
 
-test('rows: requests are never rows between guests — one strip leads to the Requests page', () => {
+test('rows: requests are never rows between guests — one door leads to the Requests page', () => {
   assert.doesNotMatch(ROWS, /SelfJoinDesktopRow|MobileSelfJoinCard/);
-  // ⤷ Maker PR 4f: the strip is the List's first row (GuestsScreen), `👤 Review`.
+  // ⤷ Maker PR 4f: the strip was the List's first row (GuestsScreen), `👤 Review`; since 2026-10-27 the door is card ① of
+  // the summary carousel ("● N requests to join ›") — the whole card opens the same Requests page.
   const SCREEN = read('guests-screen.tsx');
-  assert.match(SCREEN, /data-requests-strip=""/);
+  assert.doesNotMatch(SCREEN, /data-requests-strip=""/, 'the requests strip came back above the list — it is card ① now');
+  assert.match(SCREEN, /href=\{`\/dashboard\/\$\{eventId\}\/guests\/claims`\}[^>]*data-requests-door=""/);
   assert.match(SCREEN, /'request' : 'requests'\} to join/);
   assert.match(PAGE, /\.filter\(\(g\) => !selfJoinIds\.includes\(g\.guest_id\)\)/, 'requests are drawn as rows on the new list');
 });

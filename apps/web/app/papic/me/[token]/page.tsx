@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ArrowRight, Camera, CircleAlert, Clock, Download, Images, Sparkles } from 'lucide-react';
+import { ArrowRight, Camera, CircleAlert, Clock, Share, Images, Sparkles } from 'lucide-react';
 import { DoorShell } from '@/app/_components/door/door-shell';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveGuestCamera } from '@/lib/papic-limited';
@@ -10,6 +10,7 @@ import { groupIntoChapters, type ChapterContext } from '@/lib/papic-chapters';
 import { papicPoolGalleryActive } from '@/lib/papic-pool-gate';
 import { GuestStoryMaker } from './_components/guest-story-maker';
 import { GuestSpotlight } from '@/app/_components/guest-spotlight';
+import { SaveFileLink } from '@/app/_components/save-file-link';
 import { TOURS } from '@/lib/tours';
 
 // Papic · MY camera (guest personal-QR → Limited roll camera).
@@ -138,14 +139,15 @@ async function GuestGallery({
       ))}
       {/* Download all — the full set of tagged captures as a ZIP (not just the
           preview grid above), streamed from the token-scoped download route. */}
-      <a
+      <SaveFileLink
         href={`/papic/me/${token}/download`}
+        filename="my-setnayan-photos.zip"
         data-tour="me-download"
         className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-md bg-ink/5 px-4 py-2 text-sm font-medium text-ink/80 transition hover:bg-ink/10"
       >
-        <Download aria-hidden className="h-4 w-4" strokeWidth={2} />
+        <Share aria-hidden className="h-4 w-4" strokeWidth={2} />
         Download my photos
-      </a>
+      </SaveFileLink>
       {/* Kwento Decorator — go through the token→session bridge (route handler)
           so a guest who only has the raw token link still gets a session before
           the session-scoped /papic/decorate. Plain <a> = full nav that sets the

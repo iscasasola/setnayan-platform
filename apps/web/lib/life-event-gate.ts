@@ -174,34 +174,34 @@ export function beyondHorizon(
 
 // ── measured-type visibility (owner 2026-07-17 "hide what doesn't concern") ──
 
-/** The Nth birthday as an ISO date, Feb-29 clamped (mirrors claimBirthdateCutoff). */
-function nthBirthdayISO(birthISO: string, n: number): string | null {
-  const [y, m = 1, d = 1] = birthISO.split('-').map(Number);
-  if (!y || !m || !d) return null;
-  const lastDay = new Date(Date.UTC(y + n, m, 0)).getUTCDate();
-  return new Date(Date.UTC(y + n, m - 1, Math.min(d, lastDay))).toISOString().slice(0, 10);
-}
-
 /**
- * Debut concern — someone reaches their debut age (18 F / 21 M / either when
- * sex unknown) within the debut horizon. Pure; caller supplies the birthdate.
+ * The debut AGE BAND (owner 2026-10-26, verbatim: "debut 17-18 woman, 20-21 men.
+ * so if no gender for 17-21."). A debut concerns someone whose age TODAY sits in
+ * their band — women 17–18, men 20–21, and 17–21 when sex is unknown (or not
+ * consented, which the caller passes as null). Inclusive, in whole years.
+ *
+ * Replaced the 2026-07-17 reading ("turns 18 F / 21 M within the 548-day debut
+ * horizon"). Every boundary the old tests pinned still holds; what moved is a
+ * 16-year-old (no longer shown a year early) and a 19/20-year-old woman.
  */
+export const DEBUT_AGE_BAND: Readonly<Record<'female' | 'male' | 'unknown', readonly [number, number]>> = {
+  female: [17, 18],
+  male: [20, 21],
+  unknown: [17, 21],
+};
+
+/** Debut concern — the person's age today is inside their DEBUT_AGE_BAND. Pure. */
 export function debutConcernsBirthdate(
   birthISO: string,
   sex: Sex,
   todayISO: string,
 ): boolean {
-  const ages = sex === 'female' ? [18] : sex === 'male' ? [21] : [18, 21];
+  const birth = parseISO(birthISO);
   const today = parseISO(todayISO);
-  if (!today) return false;
-  const debutHorizonDays = horizonDaysFor('debut') ?? 548;
-  const horizonEnd = new Date(today.getTime() + debutHorizonDays * 86_400_000)
-    .toISOString()
-    .slice(0, 10);
-  return ages.some((age) => {
-    const day = nthBirthdayISO(birthISO, age);
-    return day != null && day >= todayISO && day <= horizonEnd;
-  });
+  if (!birth || !today) return false;
+  const [lo, hi] = DEBUT_AGE_BAND[sex === 'female' || sex === 'male' ? sex : 'unknown'];
+  const age = yearsBetween(birth, today);
+  return age >= lo && age <= hi;
 }
 
 /** Christening concern — a young child (under 8; PH binyag is infant-to-7). */

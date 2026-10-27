@@ -112,3 +112,15 @@ test('a stash written before the link existed still reads (name only)', () => {
     assert.deepEqual(takeHonoree(), { name: 'Nina', dependentId: null });
   });
 });
+
+// ── "For · You" (owner 2026-10-26: "if it is for you, the name of the celebrant should automatically be me") ──
+// SABOTAGE: drop `if (parsed.s === 1) return …` in takeHonoree → RED.
+test('“For you” crosses as the answer itself — no name (the blank slot is yours), read once', () => {
+  withSessionStorage(() => {
+    stashHonoree('', null, { forSelf: true });
+    assert.deepEqual(takeHonoree(), { name: '', dependentId: null, forSelf: true });
+    assert.equal(takeHonoree(), null, 'a second read must find nothing');
+    stashHonoree('Ignored', 'dep-9', { forSelf: true });
+    assert.deepEqual(takeHonoree(), { name: '', dependentId: null, forSelf: true }, 'forSelf never carries a name or a record');
+  });
+});

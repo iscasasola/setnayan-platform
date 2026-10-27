@@ -183,7 +183,7 @@ export default async function GalleriesHubPage({ params }: Props) {
       count: ready ? papicCount : null,
       // Never send them to the empty-state door on a count we did not take.
       viewLabel: ready ? 'View & download' : papicCountMeasured ? 'Open Papic' : 'Look anyway',
-      viewHref: ready ? `${base}/studio/papic/recap` : `${base}/studio/papic`,
+      viewHref: ready ? `${base}/studio/papic/recap` : `${base}/memories`,
       Icon: Camera,
     });
   }

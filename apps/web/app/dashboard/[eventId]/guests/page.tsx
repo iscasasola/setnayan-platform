@@ -2,6 +2,8 @@ import { eventNoun } from '@/lib/event-noun';
 import { guestMatchesSearch } from '@/lib/guest-search';
 import { companionNamesByBringer } from '@/lib/extra-seats';
 import Link from 'next/link';
+import { Suspense } from 'react';
+import { guestsSettingsHref, isSettingsRowKey } from '@/lib/event-settings-record';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { eventRowOnce, openDashboardEventRow } from '@/lib/event-row-once';
@@ -66,7 +68,8 @@ import { ROLE_SECTION_ORDER } from './_components/role-section-order';
 import { GuestsScreen } from './_components/guests-screen';
 import type { TitleWaitingPerson } from './_components/titles-waiting';
 import { needsWomanOrMan, ROLES_WHOSE_WORD_NEEDS_GENDER, titleButtonText, titleKey } from '@/lib/guest-title';
-import { mapRootLabel } from '@/lib/guest-roster-view';
+import { mapRootLabel, mayBeInvited } from '@/lib/guest-roster-view';
+import { readGuestsGetIn } from '@/lib/who-can-reply';
 import { InvitePanel } from './invite/_components/invite-panel';
 import { AddFromPeopleSheet } from './_components/add-from-people-sheet';
 import { QuickAddSheet } from './_components/quick-add-sheet';
@@ -214,6 +217,10 @@ type Props = {
     view?: string;
     group?: string;
     gview?: string;
+    /** `1` — Guests ⚙ open (a link's way in; the ⚙ press opens it in place). */
+    settings?: string;
+    /** With `settings=1`: the row to land on (`SETTINGS_ROWS` key). */
+    row?: string;
     team?: string;
     tag?: string;
     sort?: string;
@@ -293,6 +300,12 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     (Both are decided by the address alone, so they leave before any read.)
   */
   if (search.gview === 'hosts') redirect(`/dashboard/${eventId}/hosts`);
+  /*
+    ⚙ THE "SETTINGS" SEGMENT IS THE ⚙ NOW (owner 2026-10-27, settings per menu call 1): the pill is List · Map, and
+    the guest settings open as Guests ⚙'s sheet. An old `?gview=share` / `?view=share` link lands on the list with
+    the sheet open (`?settings=1`), before any read.
+  */
+  if (search.gview === 'share' || search.view === 'share') redirect(guestsSettingsHref(eventId));
   if (search.gview === 'checkin') redirect(`/dashboard/${eventId}/guests/checkin`);
 
   const supabase = await createClient();
@@ -401,7 +414,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   );
   const rosterRead = Promise.all([
       // The roster draws requests as their own rows; computeGuestStats leaves them out of every count.
-      fetchGuestsByEventMeasured(supabase, eventId, { includeRequests: true, includePassedAway: true }),
+      fetchGuestsByEventMeasured(supabase, eventId, { includeRequests: true, includePassedAway: true, includeRepresented: true }),
       eventRowRead,
       // 📏 MEASURED (2026-10-11): a refused groups read used to come back as "no groups" and draw every guest
       // without one — the same fault the guest read itself had. Each says whether it happened; see `sideReads` below.
@@ -639,8 +652,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     ? rawView.slice('group:'.length)
     : null;
   const view = legacyGroup ? 'all' : rawView;
-  const gview: 'list' | 'map' | 'share' =
-    search.gview === 'map' ? 'map' : search.gview === 'share' ? 'share' : 'list';
+  const gview: 'list' | 'map' = search.gview === 'map' ? 'map' : 'list';
   const teamRaw = search.team ?? 'all';
   const teamFilter: 'all' | 'bride' | 'groom' =
     hasSides && (teamRaw === 'bride' || teamRaw === 'groom') ? teamRaw : 'all';
@@ -979,6 +991,21 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     .map(listRowOf);
   // The map's centre: the celebrants' first names ("Maria & Jose"), else the event word.
   const mapRoot = mapRootLabel(rosterAll, eventWord);
+  // 🔗 ONE LINK FOR EVERYONE (owner 2026-10-27, "THE SEND RUN ALSO SERVES A ONE-QR EVENT"): the carousel's To invite card
+  // reads "One link for everyone · Share" only when there is NO list to walk — so the event's get-in rule is read only
+  // then (an empty or couple-only list), never on every open. The couple's own read; refused → the card says nothing new.
+  const guestsOneQr =
+    viewer.isCouple && guestsMeasured && !rosterAll.some((g) => mayBeInvited(g))
+      ? await supabase
+          .from('events')
+          .select('rsvp_ask_config')
+          .eq('event_id', eventId)
+          .maybeSingle()
+          .then((r) => {
+            if (r.error) logQueryError('GuestsPage (one link · rsvp_ask_config)', r.error, { event_id: eventId }, 'graceful_degrade');
+            return !r.error && readGuestsGetIn((r.data as { rsvp_ask_config?: unknown } | null)?.rsvp_ask_config ?? null) === 'one_qr';
+          })
+      : false;
   // 🪪 Whose printed word waits on Woman or Man (owner 2026-10-17) — the List's one prompt; gone when none are left.
   const titlesWaiting: TitleWaitingPerson[] = guests
     .filter((g) => g.entry_source !== REQUEST_ENTRY_SOURCE && needsWomanOrMan(g))
@@ -1015,6 +1042,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       linkedGuestIds={linkedGuestIds}
       faceByGuest={faceByGuest}
       requests={pendingClaimsCount}
+      oneQr={guestsOneQr}
       titlesWaiting={titlesWaiting}
       papic={viewer.isCouple && !storeShell ? eventPapic : null}
       rootLabel={mapRoot}
@@ -1022,7 +1050,17 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       initialQuery={search.select === 'to-invite' ? 'to invite' : (search.q ?? '')}
       initialSelect={!guestsViewOnly && search.select === 'to-invite'}
       viewOnly={guestsViewOnly}
-      setup={gview === 'share' ? <InvitePanel eventId={eventId} /> : null}
+      // ⚙ GUESTS SETTINGS — the couple's (the panel's own rule): drawn with the page and streamed, so the ⚙ opens it
+      // in place. The page's own guest read is handed in (one read of the list, not two).
+      setup={
+        viewer.isCouple ? (
+          <Suspense fallback={<p className="px-4 py-6 text-center text-[13px] text-ink/60">Loading your guest settings…</p>}>
+            <InvitePanel eventId={eventId} guestsRead={guestsRead} requests={pendingClaimsCount} />
+          </Suspense>
+        ) : null
+      }
+      settingsOpen={search.settings === '1'}
+      settingsRow={search.settings === '1' && isSettingsRowKey(search.row) ? search.row : null}
       empty={
         !guestsMeasured || rosterAll.length === 0 ? (
           <EmptyState finished={finished} hasGuests={false} eventId={eventId} measured={guestsMeasured} total={0} />

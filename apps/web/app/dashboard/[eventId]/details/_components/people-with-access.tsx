@@ -1,6 +1,5 @@
 'use client';
 
-import { setVendorCapturesHidden } from '@/app/dashboard/[eventId]/studio/papic/vendor-visibility-actions';
 
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
@@ -386,13 +385,10 @@ function PersonItem({
   eventId,
   row,
   readOnly,
-  photos = null,
 }: {
   eventId: string;
   row: PersonRow;
   readOnly: boolean;
-  /** A supplier who shot here: is their delivery in Memories? */
-  photos?: { hidden: boolean } | null;
 }) {
   return (
     <li className="space-y-2 py-3" data-person={row.kind}>
@@ -427,9 +423,8 @@ function PersonItem({
       ) : row.areas ? (
         <AreaPicks eventId={eventId} row={{ ...row, areas: row.areas }} readOnly={readOnly || row.isViewer} />
       ) : null}
-      {row.kind === 'supplier' && row.vendorId && photos && !readOnly ? (
-        <SupplierPhotosSwitch eventId={eventId} vendorRowId={row.vendorId} hidden={photos.hidden} />
-      ) : null}
+      {/* ⚙ The supplier's "Their photos in your Memories" switch left for Suppliers ⚙ (owner 2026-10-27, "SUPPLIERS GETS
+          ITS ⚙" — one home each); access stays here. */}
     </li>
   );
 }
@@ -442,15 +437,9 @@ export function PeopleWithAccess({
   failed,
   flash,
   claims = null,
-  supplierPhotos = null,
 }: {
   eventId: string;
   rows: PersonRow[];
-  /**
-   * 📷 The suppliers who shot here, by `event_vendors.vendor_id` — each row carries the switch for its whole delivery
-   * in Memories (owner 2026-10-23, moved here from the Papic page's "Suppliers' photos"). Null: not read / not the couple.
-   */
-  supplierPhotos?: Record<string, { hidden: boolean }> | null;
   addable: { guestId: string; name: string }[];
   /** A delegate looking at their own access: words, never dropdowns. */
   readOnly: boolean;
@@ -508,7 +497,6 @@ export function PeopleWithAccess({
                         eventId={eventId}
                         row={row}
                         readOnly={readOnly}
-                        photos={row.vendorId && supplierPhotos ? (supplierPhotos[row.vendorId] ?? null) : null}
                       />
                     ))}
                   </ul>
@@ -523,24 +511,3 @@ export function PeopleWithAccess({
   );
 }
 
-/**
- * A supplier's whole delivery, in or out of Memories — the shipped writer (`setVendorCapturesHidden`), returning here
- * (`back=details`). Hidden is kept, never deleted; the supplier keeps their own copies.
- */
-function SupplierPhotosSwitch({ eventId, vendorRowId, hidden }: { eventId: string; vendorRowId: string; hidden: boolean }) {
-  return (
-    <form action={setVendorCapturesHidden} data-supplier-photos={hidden ? 'hidden' : 'shown'}>
-      <input type="hidden" name="event_id" value={eventId} />
-      <input type="hidden" name="vendor_id" value={vendorRowId} />
-      <input type="hidden" name="hidden" value={hidden ? '0' : '1'} />
-      <input type="hidden" name="back" value="details" />
-      <button type="submit" role="switch" aria-checked={!hidden} className="flex min-h-11 w-full items-center justify-between gap-3 text-left">
-        <span className="min-w-0">
-          <span className="block text-[13.5px] text-ink">Their photos in your Memories</span>
-          <span className="block text-[12px] text-ink/55">{hidden ? 'Hidden · kept, not deleted' : 'Shown · hide them and nothing is deleted'}</span>
-        </span>
-        <SwitchTrack on={!hidden} />
-      </button>
-    </form>
-  );
-}

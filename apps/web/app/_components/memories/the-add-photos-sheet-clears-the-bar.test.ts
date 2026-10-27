@@ -31,6 +31,8 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..', '..', '..');
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 const GALLERY = read('app/_components/memories/event-memories-gallery.tsx');
+/** The ⚙ settings sheet moved into the shared menu door (2026-10-27, settings per menu) — same OnBody rule there. */
+const MENU_DOOR = read('app/_components/menu-settings-button.tsx');
 const SHEET = read('app/_components/sheet.tsx');
 const NAV = read('app/_components/nav/bottom-nav.tsx');
 const CSS = read('app/globals.css');
@@ -55,23 +57,31 @@ test('the reason holds: the page is a containing block for `fixed` (it carries a
 });
 
 test('OnBody is a real portal into <body>, not a pass-through', () => {
-  const fn = /function OnBody\([\s\S]*?\n\}/.exec(GALLERY)?.[0] ?? '';
-  assert.ok(fn, 'OnBody is gone — the gallery’s sheets are back inside the page');
-  assert.match(fn, /setHost\(document\.body\)/, 'OnBody no longer targets document.body');
-  assert.match(fn, /createPortal\(children, host\)/, 'OnBody no longer portals its children');
+  for (const src of [GALLERY, MENU_DOOR]) {
+    const fn = /function OnBody\([\s\S]*?\n\}/.exec(src)?.[0] ?? '';
+    assert.ok(fn, 'OnBody is gone — the sheets are back inside the page');
+    assert.match(fn, /setHost\(document\.body\)/, 'OnBody no longer targets document.body');
+    assert.match(fn, /createPortal\(children, host\)/, 'OnBody no longer portals its children');
+  }
 });
 
 test('🔒 every Sheet in the gallery — + Add photos first — is drawn through OnBody', () => {
   const all = sheets(GALLERY);
   const titles = all.map((s) => s.title);
   assert.ok(titles.includes('Add photos'), `the + Add photos sheet is gone from the gallery (found: ${titles.join(', ')})`);
-  assert.ok(all.length >= 3, `expected the three sheets (photo · settings · Add photos), found ${all.length}`);
-  for (const s of all) {
-    assert.match(s.before, /<OnBody>\s*$/, `the "${s.title}" sheet is rendered inside the page — its bottom runs off the screen and under the bar`);
+  assert.ok(all.length >= 2, `expected the gallery's own sheets (photo · Add photos), found ${all.length}`);
+  // The ⚙ sheet is the shared menu door's now — the gallery mounts the door, the door draws the sheet.
+  assert.match(GALLERY, /<MenuSettingsButton\b[^>]*menu="memories"/, 'the gallery no longer mounts the shared ⚙ door — where did its settings sheet go?');
+  const door = sheets(MENU_DOOR);
+  assert.equal(door.length, 1, 'the shared ⚙ door draws other than one sheet');
+  for (const [src, list] of [[GALLERY, all], [MENU_DOOR, door]] as const) {
+    for (const s of list) {
+      assert.match(s.before, /<OnBody>\s*$/, `the "${s.title}" sheet is rendered inside the page — its bottom runs off the screen and under the bar`);
+    }
+    // …and every OnBody closes right after its Sheet (a wrapper left open around the page would portal the page).
+    assert.equal((src.match(/<OnBody>/g) ?? []).length, list.length, 'an OnBody wraps something other than one Sheet');
+    assert.equal((src.match(/<\/Sheet>\s*<\/OnBody>/g) ?? []).length, list.length, 'an OnBody does not close right after its Sheet');
   }
-  // …and every OnBody closes right after its Sheet (a wrapper left open around the page would portal the page).
-  assert.equal((GALLERY.match(/<OnBody>/g) ?? []).length, all.length, 'an OnBody wraps something other than one Sheet');
-  assert.equal((GALLERY.match(/<\/Sheet>\s*<\/OnBody>/g) ?? []).length, all.length, 'an OnBody does not close right after its Sheet');
 });
 
 test('🔒 at the root the sheet is ABOVE the bar — read from the Sheet and the dock, both boundaries', () => {

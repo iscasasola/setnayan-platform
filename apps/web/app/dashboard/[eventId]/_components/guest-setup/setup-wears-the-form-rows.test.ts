@@ -76,7 +76,7 @@ test('Reply by writes LIVE on this door and says so; the Maker’s stays drafted
 test('every row is a Form row; the rows that are not a shared part are FormRow with their buttons at the right', async () => {
   const html = await renderSetup({ getIn: 'list' });
   const rows = [...html.matchAll(/data-setup-row="([^"]+)"/g)].map((m) => m[1]);
-  assert.deepEqual(rows, ['get-in', 'invitations', 'asks', 'reply-by', 'finalize']);
+  assert.deepEqual(rows, ['get-in', 'invitations', 'asks', 'reply-by', 'requests', 'finalize']); // ⚙ Guests ⚙ (2026-10-27): + Requests to join
   for (const row of rows) assert.match(html, new RegExp(`data-form-row="[^"]*"[^>]*data-setup-row="${row}"|data-setup-row="${row}"[^>]*data-form-row="`), `${row} is not a Form row`);
   assert.equal((html.match(/data-form-rows="guest-setup"/g) ?? []).length, 1, 'more than one list');
   assert.match(html, /data-testid="setup-send"/);

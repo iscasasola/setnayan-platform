@@ -37,6 +37,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Check } from 'lucide-react';
 
 import { CopyButton } from '@/app/_components/copy-button';
+import { SaveFileLink } from '@/app/_components/save-file-link';
 import { OpenWalletButton } from '@/app/_components/open-wallet-button';
 import { isQrPhPayload, mintOrderQr } from '@/lib/emv-qr';
 import { qrWords } from '@/lib/qr-amount-truth';
@@ -411,13 +412,13 @@ export function PaymentDetailsBlock({
                   point that phone's camera at its own screen. Both GCash and
                   the BDO app can scan an image from the gallery, so saving is
                   the only route that works without a second device. */}
-              <a
+              <SaveFileLink
                 href={mintedQr}
-                download={`setnayan-${channel}-${amountPhp.toFixed(2)}.png`}
+                filename={`setnayan-${channel}-${amountPhp.toFixed(2)}.png`}
                 className="rounded-full border border-ink/15 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-ink/55 transition hover:border-ink/30 hover:text-ink"
               >
                 Save image · scan from your photos
-              </a>
+              </SaveFileLink>
             </>
           ) : (
             /* 🚨 THIS BRANCH IS THE STATIC UPLOADED CODE, WHICH CARRIES NO

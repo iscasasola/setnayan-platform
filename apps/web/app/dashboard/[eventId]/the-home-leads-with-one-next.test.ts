@@ -224,7 +224,8 @@ test('d · the services row is on the first screen, last, under the control row'
   const at = html.indexOf('data-home-services');
   assert.ok(at > html.indexOf('data-home-control="detail"'), 'the row sits under the control row');
   assert.equal(count(html, 'See all'), 0, 'there is nothing under the row to "see all" of');
-  assert.match(html, /<a data-home-service="papic"[^>]*href="\/dashboard\/e1\/studio\/papic"[^>]*>[\s\S]*?On · 12 photos/, 'Papic opens its page with its status');
+  // 📷 Without the couple's card (the page was removed 2026-10-26), the Papic row opens Papic's photos, in Memories.
+  assert.match(html, /<a data-home-service="papic"[^>]*href="\/dashboard\/e1\/memories"[^>]*>[\s\S]*?On · 12 photos/, 'Papic opens its photos with its status');
   assert.match(html, /<a data-home-service="ai"[^>]*href="\/dashboard\/e1\/studio\/setnayan-ai"[^>]*>[\s\S]*?Try it/, 'Setnayan AI opens its page with its status');
 });
 
@@ -290,7 +291,13 @@ test('e · the Home draws exactly one h1 — the cover name — and it is the fi
   const html = draw();
   assert.equal(count(html, '<h1'), 1, 'the first screen must carry the page\'s one h1 (the Kumusta hero that held it is gone)');
   assert.match(html, /<h1[^>]*>Ana &amp; Miguel<\/h1>/, 'the h1 is the event name');
-  assert.equal(count(html, 'Ana &amp; Miguel'), 2, 'the name is the h1 (read) plus one aria-hidden line (seen) — a third copy is a dupe');
+  // 📌 2026-10-27 (owner, Home A — "on home, we also want to pin the header on top" → "pinned approve"): the cover pins
+  // as ONE line, `<names> · <date>`, drawn in place of the big words once stuck. That line is the third copy — and the
+  // ONLY one allowed: aria-hidden, inside `data-home-cover-pin`. Any other copy is still a dupe.
+  assert.equal(count(html, 'Ana &amp; Miguel'), 3, 'the name is the h1 (read) plus the big line and the pinned line (both seen, aria-hidden) — a fourth copy is a dupe');
+  // (⚙ 2026-10-27: the line ends with Home's ⚙, a real control — so aria-hidden moved from the line onto its words.)
+  assert.match(html, /<span data-home-cover-pin=""[^>]*><span aria-hidden="true"[^>]*>Ana &amp; Miguel</, 'the third copy is the pinned line, hidden from a screen reader');
+  assert.equal(count(html.replace(/<span data-home-cover-pin=""[^>]*><span aria-hidden="true"[^>]*>Ana &amp; Miguel<\/span>/, ''), 'Ana &amp; Miguel'), 2, 'outside the pinned line the name is the h1 plus one aria-hidden line — a third copy is a dupe');
   assert.match(html, /aria-hidden="true"[^>]*>Ana &amp; Miguel</, 'the seen copy must be hidden from a screen reader, or the name is read twice');
 });
 
@@ -341,7 +348,8 @@ test('e · a calm Today points at the Checklist — the plan, step by step — a
 test('e · each removed tile\'s content is reachable at its home', () => {
   // [tile, the route it now lives at, a file under that route, what that file still states]
   const homes: Array<[string, string, string | null, RegExp | null]> = [
-    ['Papic · N shots / photos → the Your services row, then its page', 'studio/papic', null, null],
+    // 📷 The Papic page was removed 2026-10-26 — the couple's card is on Today; the photos are Memories.
+    ['Papic · N shots / photos → the Papic card on Today, then its photos', 'memories', null, null],
     // The share's word is "booked" since d19 (2026-10-02, "couples read book, never lock").
     ['Sai · your briefing · % booked → the Setnayan AI page (live state)', 'studio/setnayan-ai', 'studio/setnayan-ai/_components/setnayan-ai-value.tsx', /% booked/],
     ['Setnayan AI · The Watch → the Setnayan AI page (deadlines + payments it keeps; the alerts themselves are notifications)', 'studio/setnayan-ai', 'studio/setnayan-ai/_components/setnayan-ai-value.tsx', /every supplier, deadline and payment/],
@@ -363,7 +371,8 @@ test('e · each removed tile\'s content is reachable at its home', () => {
   // The Home hands the way to the two services and the money line.
   const html = draw();
   // The money opens the budget where it lives now — Suppliers (owner 2026-10-07, H6).
-  for (const href of ['/dashboard/e1/studio/papic', '/dashboard/e1/studio/setnayan-ai', '/dashboard/e1/vendors?part=budget']) {
+  // 📷 Papic: without the couple's card, the row opens Papic's photos (Memories) — the Papic page is gone (2026-10-26).
+  for (const href of ['/dashboard/e1/memories', '/dashboard/e1/studio/setnayan-ai', '/dashboard/e1/vendors?part=budget']) {
     assert.ok(html.includes(`href="${href}"`), `the first screen must link ${href}`);
   }
 });

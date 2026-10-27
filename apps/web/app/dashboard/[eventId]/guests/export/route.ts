@@ -47,7 +47,8 @@ export async function GET(_req: Request, ctx: { params: Promise<{ eventId: strin
   }
 
   const [guestsRead, roleSetKey, roleNames, assignmentsRead, tablesRead] = await Promise.all([
-    fetchGuestsByEventMeasured(supabase, eventId, { includePassedAway: true }),
+    // 🧍 The file lists everyone — a represented role holder too (the count rule is the roster's, not the file's).
+    fetchGuestsByEventMeasured(supabase, eventId, { includePassedAway: true, includeRepresented: true }),
     resolveRoleSetKeyForEvent(eventId),
     loadRoleNames(supabase, eventId, 'GuestsExport.roleNames'),
     measuredOr(fetchAssignments(supabase, eventId), [] as Awaited<ReturnType<typeof fetchAssignments>>, (e) =>

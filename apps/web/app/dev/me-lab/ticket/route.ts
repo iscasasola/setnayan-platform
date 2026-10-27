@@ -4,7 +4,8 @@ import { renderPassCardPng } from '@/lib/pass-card-render';
 import { renderInvitationQrPng } from '@/lib/qr';
 import { FREE_QR_LOOK } from '@/lib/qr-look';
 import { guestArriveBy } from '@/lib/role-group-dress-code';
-import { LAB_DOORS, LAB_PEOPLE, labMeDressConfig } from '../lab-people';
+import { LAB_DOORS, LAB_PEOPLE, labMeDressConfig, labProxyDressConfig } from '../lab-people';
+import type { GuestRole } from '@/lib/guests';
 import { displayPersonName } from '@/lib/person-name-case';
 import { PASS_CARD_DESIGNS, type PassCardDesign } from '@/lib/pass-card';
 
@@ -21,6 +22,7 @@ export async function GET(req: Request): Promise<Response> {
   const p = LAB_PEOPLE.find((x) => x.key === who) ?? LAB_PEOPLE[0]!;
   /* `?name=pamela labriaga` — a typed name, printed the way the real card prints it (`passCardGuestName`, shown cased). */
   const typed = new URL(req.url).searchParams.get('name');
+  const role = (new URL(req.url).searchParams.get('role') as GuestRole | null) ?? null;
   const data: PrintSetData = {
     names: mj ? { first: 'Maria', second: 'Jose' } : { first: 'Indalecio', second: 'Claire' },
     eyebrow: 'The wedding of',
@@ -47,7 +49,10 @@ export async function GET(req: Request): Promise<Response> {
     seatNumber: null,
     qrRef: 'qr-lab',
     serial: null,
-    arrive: guestArriveBy({ role: p.role, config: labMeDressConfig(), general: LAB_DOORS }),
+    /* 🧍 `&role=` — the role a PROXY stands in for (`?proxy=1`): Arrive is that role's call time, as the real ticket reads it. */
+    arrive: role
+      ? guestArriveBy({ role, config: labProxyDressConfig(), general: LAB_DOORS })
+      : guestArriveBy({ role: p.role, config: labMeDressConfig(), general: LAB_DOORS }),
     party: 0,
   };
   const asked = new URL(req.url).searchParams.get('design');

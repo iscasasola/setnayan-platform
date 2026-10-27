@@ -40,6 +40,7 @@ import { STD_THEMES, resolveStdTheme, type StdTheme, type StdThemeId } from '@/l
 import { readableTextOn } from '@/lib/site-palette';
 import { bespokeSvgToDataUri } from '@/lib/bespoke-monogram-shared';
 import { HeroMonogram } from '@/app/_components/hero-monogram';
+import { SaveFileLink } from '@/app/_components/save-file-link';
 import { CoupleLogo } from '@/app/_components/couple-logo';
 import { coupleLogoPlays } from '@/lib/couple-logo-plays';
 import { StudioRevealPlayer, type StudioAnim } from '@/app/_components/studio-reveal-player';
@@ -837,16 +838,26 @@ export function SaveTheDateFilm({
             the film has played is not a finale. */}
         {(content.icsHref || content.gcalUrl) && idx === closeIdx ? (
           <div className="mt-1" onClick={(e) => e.stopPropagation()}>
-            <a
-              href={content.icsHref ?? content.gcalUrl ?? '#'}
-              {...(content.icsHref
-                ? { download: content.icsFilename }
-                : { target: '_blank', rel: 'noopener noreferrer' })}
-              className={`inline-flex items-center gap-2 rounded-full ${accentBtnCls} px-6 py-3 text-base font-semibold shadow`}
-              style={accentBtnStyle}
-            >
-              Add to calendar
-            </a>
+            {content.icsHref ? (
+              <SaveFileLink
+                href={content.icsHref}
+                filename={content.icsFilename}
+                className={`inline-flex items-center gap-2 rounded-full ${accentBtnCls} px-6 py-3 text-base font-semibold shadow`}
+                style={accentBtnStyle}
+              >
+                Add to calendar
+              </SaveFileLink>
+            ) : (
+              <a
+                href={content.gcalUrl ?? '#'}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`inline-flex items-center gap-2 rounded-full ${accentBtnCls} px-6 py-3 text-base font-semibold shadow`}
+                style={accentBtnStyle}
+              >
+                Add to calendar
+              </a>
+            )}
           </div>
         ) : null}
         {/* THE WAY OUT — open browse only, and ONLY once this beat is ACTIVE,
@@ -1705,16 +1716,26 @@ export function SaveTheDateFilm({
           style={{ bottom: 'calc(6rem + var(--cookie-banner-top, 0px))' }}
           onClick={(e) => e.stopPropagation()}
         >
-          <a
-            href={content.icsHref ?? content.gcalUrl ?? '#'}
-            {...(content.icsHref
-              ? { download: content.icsFilename }
-              : { target: '_blank', rel: 'noopener noreferrer' })}
-            className="pointer-events-auto flex min-h-[44px] items-center gap-1.5 rounded-full bg-current/10 px-4 py-2.5 text-sm font-medium opacity-75 transition-opacity hover:opacity-100"
-          >
-            <CalendarPlus aria-hidden className="h-4 w-4" />
-            Add to calendar
-          </a>
+          {content.icsHref ? (
+            <SaveFileLink
+              href={content.icsHref}
+              filename={content.icsFilename}
+              className="pointer-events-auto flex min-h-[44px] items-center gap-1.5 rounded-full bg-current/10 px-4 py-2.5 text-sm font-medium opacity-75 transition-opacity hover:opacity-100"
+            >
+              <CalendarPlus aria-hidden className="h-4 w-4" />
+              Add to calendar
+            </SaveFileLink>
+          ) : (
+            <a
+              href={content.gcalUrl ?? '#'}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="pointer-events-auto flex min-h-[44px] items-center gap-1.5 rounded-full bg-current/10 px-4 py-2.5 text-sm font-medium opacity-75 transition-opacity hover:opacity-100"
+            >
+              <CalendarPlus aria-hidden className="h-4 w-4" />
+              Add to calendar
+            </a>
+          )}
         </div>
       ) : null}
 

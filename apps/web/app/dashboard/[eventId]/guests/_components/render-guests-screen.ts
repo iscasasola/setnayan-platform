@@ -45,7 +45,11 @@ export const guestRow = (over: Partial<GuestRow> = {}): GuestRow =>
 export async function renderGuestsScreen(opts: {
   guests: GuestRow[];
   measured?: boolean;
-  gview?: 'list' | 'map' | 'share';
+  gview?: 'list' | 'map';
+  /** ⚙ Guests settings' rows — present → the ⚙ draws (the page hands them to the couple only). */
+  setup?: unknown;
+  /** `?settings=1` — the sheet open with the page. */
+  settingsOpen?: boolean;
   /** The "we couldn't load your groups / tables" sentence (`lib/guest-list-unread.ts`). */
   notLoaded?: string | null;
   /** A `?q=` from the top bar — a search opens every section with a hit. */
@@ -56,6 +60,10 @@ export async function renderGuestsScreen(opts: {
   empty?: unknown;
   /** 👁 Draw it for a delegate who may only look (a limited helper, guest list not Edit). */
   viewOnly?: boolean;
+  /** 👤 Requests to join waiting (card ① of the summary carousel). */
+  requests?: number;
+  /** 🔗 The event lets guests in with one link for everyone. */
+  oneQr?: boolean;
 }): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { AppRouterContext } = await import('next/dist/shared/lib/app-router-context.shared-runtime');
@@ -82,11 +90,13 @@ export async function renderGuestsScreen(opts: {
           songsByGuest: {},
           linkedGuestIds: [],
           faceByGuest: {},
-          requests: 0,
+          requests: opts.requests ?? 0,
+          oneQr: opts.oneQr ?? false,
           rootLabel: 'A & B',
           initialQuery: opts.initialQuery ?? '',
           initialSelect: false,
-          setup: null,
+          setup: opts.setup ?? null,
+          settingsOpen: opts.settingsOpen ?? false,
           empty: opts.empty ?? null,
           copy: opts.copy ?? null,
           viewOnly: opts.viewOnly ?? false,

@@ -66,7 +66,10 @@ import { jobPrefillIsRead } from './prefill-consumers';
 // "ONE admin page" for the launch offer) — the rule above, raised by one.
 // 145 since 2026-10-22: Admin › App Performance › Visits joins the menu (owner
 // 2026-10-22, site traffic in our own admin) — the rule above, raised by one.
-export const MODEL_CHOICE_CAP = 145;
+// 146 since 2026-10-26: Admin › Event types gains "Who it's for" (`updateEventTypeForWhom`, owner 2026-10-26 —
+// the create grid's "For ▾" rule), a job that shares a word with the flagship sentence — one more scoring job, so
+// the last zero-hit page fell off at 145. The rule above, raised by one.
+export const MODEL_CHOICE_CAP = 146;
 // 141 → 142 on 2026-10-02, measured with the probe this docblock describes:
 // "Categories & event types" folded six admin pages into one (88 pages now)
 // and the -y/-ies match let the owner's word "category" reach every job on

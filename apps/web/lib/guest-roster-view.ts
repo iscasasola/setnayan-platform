@@ -106,7 +106,30 @@ export type InviteFacts = {
   passed_away?: boolean | null;
   invitation_sent_at?: string | null;
   rsvp_status?: string | null;
+  /** A +1 seat's facts — read only when the guest read carries `first_name` (see `ridesOnTheirGuest`). */
+  guest_id?: string;
+  plus_one_of_guest_id?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  plus_one_name_confirmed_at?: string | null;
 };
+
+/**
+ * 🪑 A +1 SEAT WITH NO NAME YET RIDES ON THEIR GUEST'S INVITATION (owner 2026-10-27, DECISION_LOG "THE SEND RUN, REDRAWN
+ * SIMPLE": the run's first card read "+1 · TBA — Send to TBA"). There is nobody to send it to, so it is not an
+ * invitation of its own: not in "To invite", not in the run, not in any "Send N". Named, it is a person and is invited.
+ * 🔒 Only a read that CARRIES the name can say "no name" — a read without `first_name` never drops a seat.
+ */
+function ridesOnTheirGuest(g: InviteFacts): boolean {
+  if (!g.plus_one_of_guest_id || !('first_name' in g)) return false;
+  return plusOneHasNoName({
+    guest_id: g.guest_id,
+    plus_one_of_guest_id: g.plus_one_of_guest_id,
+    first_name: g.first_name ?? null,
+    last_name: g.last_name ?? null,
+    plus_one_name_confirmed_at: g.plus_one_name_confirmed_at ?? null,
+  });
+}
 
 /**
  * MAY THIS GUEST BE SENT AN INVITATION AT ALL — sent already or not. A living,
@@ -120,7 +143,8 @@ export function mayBeInvited(g: InviteFacts): boolean {
     g.role !== 'groom' &&
     !isHonoreeRole(g.role as GuestRow['role']) &&
     countsTowardEvent(g) &&
-    g.rsvp_status !== 'declined'
+    g.rsvp_status !== 'declined' &&
+    !ridesOnTheirGuest(g)
   );
 }
 
@@ -233,6 +257,7 @@ export function rosterStats(guests: readonly GuestRow[]): {
     yes: guests.filter((g) => replyFilterMatches(g, 'attending')).length,
     no: guests.filter((g) => replyFilterMatches(g, 'declined')).length,
     none: guests.filter((g) => replyFilterMatches(g, 'none')).length,
+    // The carousel's "To invite" door leaves exactly these rows (`replyFilterMatches(g, 'toinvite')` reads `isToInvite`).
     toInvite: counted.filter((g) => isToInvite(g)).length,
   };
 }
@@ -245,14 +270,20 @@ export function rosterStats(guests: readonly GuestRow[]): {
  * typed word and the number can never disagree. A guest who is not counted (a request, the passed-away) is in none.
  * 🔒 guests/_components/the-counts-filter-what-they-count.test.ts
  */
-export type ReplyFilter = 'attending' | 'declined' | 'none';
+export type ReplyFilter = 'attending' | 'declined' | 'none' | 'toinvite';
 
+/**
+ * 🎠 `toinvite` (owner 2026-10-27, "APPROVED — GUESTS CAROUSEL STYLE A"): the carousel's fourth count, "To invite", is a
+ * door like the other three — it filters to exactly the guests `isToInvite` names, the same rule its number counts
+ * (`rosterStats().toInvite`) and the "to invite" search word reads.
+ */
 export function replyFilterMatches(
-  g: Pick<GuestRow, 'role' | 'rsvp_status' | 'entry_source' | 'passed_away'>,
+  g: Pick<GuestRow, 'role' | 'rsvp_status' | 'entry_source' | 'passed_away'> & { invitation_sent_at?: string | null },
   f: ReplyFilter | null,
 ): boolean {
   if (f === null) return true;
   if (!countsTowardEvent(g)) return false;
+  if (f === 'toinvite') return isToInvite(g);
   return f === 'none' ? hasNotAnswered(g) : g.rsvp_status === f;
 }
 
@@ -590,6 +621,8 @@ export type PlusOneWords = {
   of: string | null;
   /** The side the row shows: their guest's (a +1's side follows their guest). */
   side: GuestRow['side'];
+  /** Their guest as the row's "On Daniel’s invitation" says it — the first name, else the name as shown. */
+  host: string;
 };
 
 type SeatFields = Pick<GuestRow, 'guest_id' | 'plus_one_of_guest_id' | 'first_name'>;
@@ -615,7 +648,7 @@ export function plusOneWordsFrom<G extends SeatFields & Pick<GuestRow, 'display_
     seatNo.set(hostId, i + 1);
     // The one wording (lib/plus-one-of.ts) — the card's title and eyebrow say the same.
     const w = plusOneOfWords(g, host, i);
-    out.set(g.guest_id, { hostId, name: w.name, of: w.name ? null : w.of, side: w.side });
+    out.set(g.guest_id, { hostId, name: w.name, of: w.name ? null : w.of, side: w.side, host: host.first_name?.trim() || w.hostName });
   }
   return out;
 }

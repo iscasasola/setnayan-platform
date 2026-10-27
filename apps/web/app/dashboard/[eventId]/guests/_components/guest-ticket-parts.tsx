@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { Armchair, Download, MoreHorizontal, QrCode, RotateCcw, Trash2, Unlink, X } from 'lucide-react';
+import { Armchair, Share, MoreHorizontal, QrCode, RotateCcw, Trash2, Unlink, X } from 'lucide-react';
 import { ActionButton, actionButtonClass } from '@/components/action-button';
 import { NfcWriteButton } from '@/app/_components/nfc-write-button';
 import { SaveFileLink } from '@/app/_components/save-file-link';
@@ -171,7 +171,7 @@ export function GuestTicketThumb({
           >
             {(state) => (
               <>
-                <Download aria-hidden strokeWidth={1.9} />
+                <Share aria-hidden strokeWidth={1.9} />
                 <span className="lbl">{state === 'saving' ? 'Saving…' : 'Save ticket'}</span>
               </>
             )}

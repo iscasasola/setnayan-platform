@@ -45,6 +45,7 @@ import { flushSync } from 'react-dom';
 import { Sparkles } from 'lucide-react';
 import { Explain } from '@/app/_components/explain';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { MenuSettingsButton } from '@/app/_components/menu-settings-button';
 import { Count } from '@/components/count';
 import { ISeg, ISegmented } from '../../website/editor/_components/inspector-kit';
 import {
@@ -83,6 +84,7 @@ import { BENCH_BUILT_EVENT, benchLocalStore, builtNowIn } from './bench-local';
 import { CoverBar, CoverCount, CoverRingProvider } from './cover-ring';
 import { SuppliersModeContext, THUMB_SLIDE_MS } from './suppliers-mode';
 import { followColumn } from '../../guests/_components/dock-follows-column';
+import { shellBarShows } from '../../guests/_components/use-shell-bar-offset';
 
 /** The rows take the column's edges from here up — the 2026-10-23 full-width line (`lg`). */
 const COLUMN_ROWS_FROM = '(min-width: 1024px)';
@@ -152,8 +154,18 @@ export function ServicesTakeover({
   premium = false,
   teamSlot,
   bookedSlot,
+  settingsSlot,
+  settingsOpenAtFirst = false,
 }: {
   eventId: string;
+  /**
+   * ⚙ SUPPLIERS ⚙'S SHEET ROWS (owner 2026-10-27, "SUPPLIERS GETS ITS ⚙ — THE SUPPLIER SETTINGS MOVE THERE"), drawn by
+   * the page (`suppliers-settings-rows.tsx`). Given → the menu's ONE ⚙ ends the Find · Build · Booked row, which is
+   * also the pinned row ("EVERY MENU'S ⚙ RIDES ITS PINNED ROW TOO"). Absent (a lab, the loading screen) → no ⚙.
+   */
+  settingsSlot?: ReactNode;
+  /** `?settings=1` — the sheet is open on arrival (a moved row's old address forwards here). */
+  settingsOpenAtFirst?: boolean;
   /** The `?tab=` the page arrived with (the lock door, a checklist deep link,
    *  the finished-event summary) — the FIRST paint is already that body. */
   initialTab?: BudgetBuildTab;
@@ -197,6 +209,7 @@ export function ServicesTakeover({
   // (`BENCH_BUILT_EVENT`); Build N/M and the cart peek re-count from the page's own inputs with each pick as it
   // stands now — no page render. The leave-Find refresh brings the page's own numbers, which then agree.
   const [builtTick, setBuiltTick] = useState(0);
+  const [settingsOpen, setSettingsOpen] = useState(settingsOpenAtFirst);
   useEffect(() => {
     const onBuilt = () => setBuiltTick((n) => n + 1);
     window.addEventListener(BENCH_BUILT_EVENT, onBuilt);
@@ -314,8 +327,7 @@ export function ServicesTakeover({
     let lastTop = -1;
     let lastStick = -1;
     const sync = () => {
-      const shown = bar && bar.getAttribute('data-hidden') !== 'true' && getComputedStyle(bar).display !== 'none';
-      const top = shown ? bar.getBoundingClientRect().height : 0;
+      const top = shellBarShows(bar) ? bar.getBoundingClientRect().height : 0;
       if (top !== lastTop) {
         lastTop = top;
         root.style.setProperty('--sup-top', `${top}px`);
@@ -391,43 +403,57 @@ export function ServicesTakeover({
         Suppliers
       </p>
 
-      {/* ── PINNED: the date · place line, then Find · Build · Booked ──────
-          `.sn-ambient` is the page's own ground, so the block reads as the
-          page, not a box; it spans the column's gutters so rows scroll clean
-          under it. */}
+      {/* ── THE DATE · PLACE LINE — plain content now: it scrolls away under the pinned row (owner 2026-10-27,
+          "suppliers, make that 2 row pinned collapse to 1 row" → "pinned approve", Suppliers A). It is still the
+          ONLY place the date and the place appear (2026-10-07); each value still opens its sheet. */}
+      {factsSlot ? (
+        <div className="pt-2.5" data-suppliers-facts="">
+          {factsSlot}
+        </div>
+      ) : null}
+
+      {/* ── 📌 PINNED: Find · Build · Booked, ONE row (owner 2026-10-27, Suppliers A; amended "On the pinned the
+          selectors should stay but simplified"). The same segments, drawn tighter. `.sn-ambient` is the page's own
+          ground, so the row reads as the page, not a box; it spans the column's gutters so rows scroll clean under
+          it. 🔒 lib/the-pinned-row-is-one-row.test.ts */}
       <div
         ref={stickRef}
         data-suppliers-stick=""
-        className="sn-ambient sticky top-[var(--sup-top,0px)] z-[15] -mx-4 px-4 pb-2 pt-2.5 data-[stuck]:shadow-[0_1px_0_rgb(var(--color-ink)/0.1)] sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0"
+        className="sn-ambient sticky top-[var(--sup-top,0px)] z-[15] -mx-4 flex items-center gap-2 px-4 pb-1.5 pt-2 data-[stuck]:shadow-[0_1px_0_rgb(var(--color-ink)/0.1)] sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0"
+        data-tour="suppliers-segments"
+        data-first-row=""
       >
-        {factsSlot}
-        <div className="mt-2.5 flex" data-tour="suppliers-segments">
-          <ISegmented label="Find, Build or Booked">
-            {SUPPLIERS_MODES.map((m) => (
-              <ISeg
-                key={m}
-                tone="wine"
-                on={mode === m}
-                data={m}
-                // The segmented control DRIVES THE BUS: a press dispatches the
-                // mode's own tab key, and the listener above swaps the body.
-                onClick={() => goToBuildTab(SUPPLIERS_MODE_TAB[m])}
-              >
-                {SUPPLIERS_MODE_LABEL[m]}
-                {m === 'build' && tally.filled > 0 ? (
-                  <span className="ml-0.5 font-medium opacity-80" data-seg-count="build">
-                    <Count value={tally.filled} id="sup-seg-filled" />/<Count value={tally.total} id="sup-seg-total" />
-                  </span>
-                ) : null}
-                {m === 'booked' && bookedCount > 0 ? (
-                  <span className="ml-0.5 font-medium opacity-80" data-seg-count="booked">
-                    <Count value={bookedCount} id="sup-seg-booked" />
-                  </span>
-                ) : null}
-              </ISeg>
-            ))}
-          </ISegmented>
-        </div>
+        <ISegmented label="Find, Build or Booked">
+          {SUPPLIERS_MODES.map((m) => (
+            <ISeg
+              key={m}
+              tone="wine"
+              on={mode === m}
+              data={m}
+              // The segmented control DRIVES THE BUS: a press dispatches the
+              // mode's own tab key, and the listener above swaps the body.
+              onClick={() => goToBuildTab(SUPPLIERS_MODE_TAB[m])}
+            >
+              {SUPPLIERS_MODE_LABEL[m]}
+              {m === 'build' && tally.filled > 0 ? (
+                <span className="ml-0.5 font-medium opacity-80" data-seg-count="build">
+                  <Count value={tally.filled} id="sup-seg-filled" />/<Count value={tally.total} id="sup-seg-total" />
+                </span>
+              ) : null}
+              {m === 'booked' && bookedCount > 0 ? (
+                <span className="ml-0.5 font-medium opacity-80" data-seg-count="booked">
+                  <Count value={bookedCount} id="sup-seg-booked" />
+                </span>
+              ) : null}
+            </ISeg>
+          ))}
+        </ISegmented>
+        {/* ⚙ The row ends with the menu's ONE ⚙ (owner 2026-10-27) — at rest and pinned, the same button. */}
+        {settingsSlot ? (
+          <MenuSettingsButton menu="suppliers" open={settingsOpen} onOpenChange={setSettingsOpen}>
+            {settingsSlot}
+          </MenuSettingsButton>
+        ) : null}
       </div>
 
       {/* ── ONE BODY ────────────────────────────────────────────────────────

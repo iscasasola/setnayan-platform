@@ -57,6 +57,44 @@ export async function saveImageToDevice(url: string, filename: string): Promise<
   }
 }
 
+/** What a `saveFileToDevice` call ended as — `expired` is iOS refusing a share whose tap ran out while the file was
+ *  being made (`NotAllowedError`): the caller keeps the File and asks for one more tap. */
+export type SaveFileResult = 'shared' | 'dismissed' | 'downloaded' | 'expired' | 'failed';
+
+/**
+ * 🐞 Owner 2026-10-27 (iPhone app): a download *"opened the file with no close button and it did not download"*.
+ * Hand a File made IN THE PAGE (a PDF drawn in the browser, a text script, a rendered reel) to the device, with the
+ * file name exactly as given — the phone's SHARE SHEET on a touch device that can share it (Save to Files / Save
+ * Video / open in another app; the app's web view has no Downloads folder, so a blob `<a download>` there saves
+ * nothing), a plain download on a computer. Same choice as `usePrintSave` (print-save-button.tsx). Never throws.
+ */
+export async function saveFileToDevice(file: File): Promise<SaveFileResult> {
+  try {
+    const touch = typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches;
+    if (touch && canShareFiles() && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file] });
+        return 'shared';
+      } catch (e) {
+        if (e instanceof DOMException && e.name === 'AbortError') return 'dismissed';
+        if (e instanceof DOMException && e.name === 'NotAllowedError') return 'expired';
+        // else fall through to the download
+      }
+    }
+    const objectUrl = URL.createObjectURL(file);
+    const a = document.createElement('a');
+    a.href = objectUrl;
+    a.download = file.name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 10_000);
+    return 'downloaded';
+  } catch {
+    return 'failed';
+  }
+}
+
 /**
  * Save an already-in-hand Blob (e.g. a client-rendered reel) to the device.
  * Like saveMediaToDevice but skips the network fetch — the blob is local. The

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
-import { Download, ImageDown, ArrowRight, Loader2, UploadCloud } from 'lucide-react';
+import { Share, ArrowRight, Loader2, UploadCloud } from 'lucide-react';
 import { mountStudio } from '@/lib/monogram-studio/engine';
 import { STUDIO_HTML, STUDIO_CSS } from '@/lib/monogram-studio/markup';
 import { STUDIO_HTML_V2, STUDIO_CSS_V2 } from '@/lib/monogram-studio/markup-v2';
@@ -12,6 +12,7 @@ import { sanitizeStudioSvg, type StudioConfig, type StudioAnimKind } from '@/lib
 import { stashMonogramDraft } from '@/lib/monogram-studio/draft';
 import { StudioRevealPlayer, type StudioAnim } from '@/app/_components/studio-reveal-player';
 import { fileToMarkSvg } from '@/lib/monogram-studio/upload';
+import { saveFileToDevice } from '@/lib/save-to-device';
 
 /**
  * PublicMonogramStudio — the FREE, no-login Vector Monogram Studio on
@@ -25,17 +26,8 @@ import { fileToMarkSvg } from '@/lib/monogram-studio/upload';
 
 type StudioApi = { getExport: () => { svg: string; config: StudioConfig } | null; destroy: () => void };
 
-function downloadBlob(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  // Revoke on the next tick so the navigation/download has started.
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
+/** Which download a kept-for-one-more-tap file belongs to (see `saveMade` in the component). */
+type SaveSlot = 'svg' | 'png' | 'traced';
 
 /**
  * Rasterize the studio's pure-paths SVG to a transparent PNG client-side. The
@@ -79,6 +71,31 @@ export function PublicMonogramStudio() {
   const [ready, setReady] = useState(false);
   const [pngBusy, setPngBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // 🐞 2026-10-27 (iPhone app): a programmatic `a.download` of a blob saves nothing in the app's web view. Files made
+  // here go through saveFileToDevice (share sheet on a phone, a download on a computer). A share whose tap ran out
+  // while the file was being made ('expired') keeps the file here and that button says "Tap to save".
+  const [pendingSave, setPendingSave] = useState<{ slot: SaveSlot; file: File } | null>(null);
+
+  async function saveMade(slot: SaveSlot, file: File): Promise<boolean> {
+    const r = await saveFileToDevice(file);
+    if (r === 'expired') {
+      setPendingSave({ slot, file });
+      return false;
+    }
+    setPendingSave(null);
+    if (r === 'failed') {
+      setError('Could not save that file to this device — nothing was downloaded. Try again.');
+      return false;
+    }
+    return true;
+  }
+
+  /** The button's tap when its file is already made and only waits for one more tap. */
+  function retryPending(slot: SaveSlot): boolean {
+    if (pendingSave?.slot !== slot) return false;
+    void saveMade(slot, pendingSave.file);
+    return true;
+  }
   // Universal portal preview (benchmark §3): the same live-site player renders
   // every reveal over the canvas — the free studio previews the real thing.
   const [previewKind, setPreviewKind] = useState<StudioAnimKind | null>(null);
@@ -243,20 +260,22 @@ export function PublicMonogramStudio() {
   }
 
   function onDownloadSvg() {
+    if (retryPending('svg')) return;
     const exp = getCleanExport();
     if (!exp) return;
-    downloadBlob(new Blob([exp.svg], { type: 'image/svg+xml' }), 'setnayan-monogram.svg');
+    void saveMade('svg', new File([exp.svg], 'setnayan-monogram.svg', { type: 'image/svg+xml' }));
     stashMonogramDraft(exp.svg, exp.config);
   }
 
   async function onDownloadPng() {
+    if (retryPending('png')) return;
     const exp = getCleanExport();
     if (!exp || pngBusy) return;
     setPngBusy(true);
     try {
       const blob = await rasterizeToPng(exp.svg, 1600);
       if (blob) {
-        downloadBlob(blob, 'setnayan-monogram.png');
+        void saveMade('png', new File([blob], 'setnayan-monogram.png', { type: 'image/png' }));
         stashMonogramDraft(exp.svg, exp.config);
       } else {
         setError('Could not render the PNG — the SVG download still works.');
@@ -322,8 +341,8 @@ export function PublicMonogramStudio() {
           disabled={!ready}
           className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-full bg-[#1E2229] px-5 py-3 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <Download aria-hidden className="h-4 w-4" strokeWidth={2} />
-          Download SVG
+          <Share aria-hidden className="h-4 w-4" strokeWidth={2} />
+          {pendingSave?.slot === 'svg' ? 'Tap to save' : 'Download SVG'}
         </button>
         <button
           type="button"
@@ -334,9 +353,9 @@ export function PublicMonogramStudio() {
           {pngBusy ? (
             <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={2} />
           ) : (
-            <ImageDown aria-hidden className="h-4 w-4" strokeWidth={2} />
+            <Share aria-hidden className="h-4 w-4" strokeWidth={2} />
           )}
-          {pngBusy ? 'Preparing PNG…' : 'Download PNG'}
+          {pngBusy ? 'Preparing PNG…' : pendingSave?.slot === 'png' ? 'Tap to save' : 'Download PNG'}
         </button>
       </div>
 
@@ -386,10 +405,13 @@ export function PublicMonogramStudio() {
               ))}
               <button
                 type="button"
-                onClick={() => downloadBlob(new Blob([uploaded.svg], { type: 'image/svg+xml' }), 'setnayan-mark-traced.svg')}
+                onClick={() => {
+                  if (retryPending('traced')) return;
+                  void saveMade('traced', new File([uploaded.svg], 'setnayan-mark-traced.svg', { type: 'image/svg+xml' }));
+                }}
                 className="rounded-full bg-[#1E2229] px-3 py-1.5 text-xs font-semibold text-[#FBFBFA] hover:opacity-90"
               >
-                Download vector
+                {pendingSave?.slot === 'traced' ? 'Tap to save' : 'Download vector'}
               </button>
             </div>
           </div>

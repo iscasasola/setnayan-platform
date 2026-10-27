@@ -16,7 +16,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AlertTriangle,
   Clapperboard,
-  Download,
+  Share,
   Loader2,
   Music2,
   RotateCcw,
@@ -30,6 +30,8 @@ import {
   TEASER_PALETTE,
 } from '@/lib/creator-teaser-shared';
 import { prepareChapterTeaser, finalizeChapterTeaser } from '../actions';
+import { OpenFileLink } from '@/app/_components/open-file-link';
+import { saveFileToDevice } from '@/lib/save-to-device';
 
 type Phase = 'idle' | 'preparing' | 'rendering' | 'uploading' | 'done' | 'error';
 
@@ -73,6 +75,10 @@ export function TeaserGenerator({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [savedUrl, setSavedUrl] = useState<string | null>(existingTeaserUrl);
   const previewUrlRef = useRef<string | null>(null);
+  // The rendered teaser itself, kept so "Download" can hand it to the device when there is no stored copy to open
+  // (a blob: URL cannot be opened in the app's in-app browser sheet, and `<a download>` saves nothing in the app).
+  const teaserFileRef = useRef<File | null>(null);
+  const [saveNote, setSaveNote] = useState<'expired' | 'failed' | null>(null);
 
   useEffect(() => {
     previewUrlRef.current = previewUrl;
@@ -167,6 +173,10 @@ export function TeaserGenerator({
       const fin = await finalizeChapterTeaser({ chapterId, bucket, key });
 
       const objUrl = URL.createObjectURL(result.blob);
+      teaserFileRef.current = new File([result.blob], `setnayan-teaser.${result.mimeType.includes('webm') ? 'webm' : 'mp4'}`, {
+        type: result.mimeType,
+      });
+      setSaveNote(null);
       setPreviewUrl(objUrl);
       setSavedUrl(fin.downloadUrl ?? objUrl);
       setPhase('done');
@@ -180,6 +190,20 @@ export function TeaserGenerator({
   const busy = phase === 'preparing' || phase === 'rendering' || phase === 'uploading';
   const pct = Math.round(progress * 100);
   const activeUrl = previewUrl ?? savedUrl;
+  // 🐞 2026-10-27 (iPhone app): the stored copy (a presigned R2 URL) opens in the in-app browser sheet via
+  // OpenFileLink; a teaser that only exists in this page (blob:) is SAVED with saveFileToDevice.
+  const storedUrl = savedUrl && !savedUrl.startsWith('blob:') ? savedUrl : null;
+  const saveRendered = async () => {
+    const file = teaserFileRef.current;
+    if (!file) {
+      setSaveNote('failed');
+      return;
+    }
+    const r = await saveFileToDevice(file);
+    setSaveNote(r === 'expired' ? 'expired' : r === 'failed' ? 'failed' : null);
+  };
+  const downloadClass =
+    'inline-flex items-center justify-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/70 hover:border-mulberry/40 hover:text-mulberry';
 
   return (
     <section className="space-y-3 rounded-tile border border-ink/10 bg-ink/[0.02] p-4">
@@ -260,18 +284,30 @@ export function TeaserGenerator({
           {activeUrl ? 'Regenerate teaser' : 'Generate teaser'}
         </button>
         {activeUrl && !busy ? (
-          <a
-            href={activeUrl}
-            download="setnayan-teaser"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center justify-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/70 hover:border-mulberry/40 hover:text-mulberry"
-          >
-            <Download aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-            Download
-          </a>
+          storedUrl ? (
+            <OpenFileLink
+              href={storedUrl}
+              download="setnayan-teaser"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={downloadClass}
+            >
+              <Share aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+              Download
+            </OpenFileLink>
+          ) : (
+            <button type="button" onClick={() => void saveRendered()} className={downloadClass}>
+              <Share aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+              {saveNote === 'expired' ? 'Tap to save' : 'Download'}
+            </button>
+          )
         ) : null}
       </div>
+      {saveNote === 'failed' ? (
+        <p role="alert" className="text-[11px] text-danger-700">
+          The teaser could not be saved to this device. Nothing was downloaded.
+        </p>
+      ) : null}
     </section>
   );
 }

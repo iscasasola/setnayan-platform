@@ -200,7 +200,8 @@ async function main() {
   const countingFetch = globalThis.fetch;
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input instanceof Request ? input.url : input);
-    if (url.includes('/rest/v1/guests?') && url.includes(`guest_id=eq.${GUEST_ID}`)) ownRowReads += 1;
+    // `[?&]` — a filter on `represented_by_guest_id=eq.<them>` (who they stand in for) is not their own row.
+    if (url.includes('/rest/v1/guests?') && new RegExp(`[?&]guest_id=eq\\.${GUEST_ID}`).test(url)) ownRowReads += 1;
     return countingFetch(input, init);
   }) as typeof fetch;
 

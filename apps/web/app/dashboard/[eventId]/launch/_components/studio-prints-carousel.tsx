@@ -15,7 +15,7 @@ import {
 import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
-import { AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Download, Loader2, RefreshCw, Settings, UserRound } from 'lucide-react';
+import { AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Share, Loader2, RefreshCw, Settings, UserRound } from 'lucide-react';
 import { ActionButton, actionButtonClass } from '@/components/action-button';
 import { InfoTip } from '@/app/_components/info-tip';
 import { Sheet } from '@/app/_components/sheet';
@@ -966,10 +966,10 @@ function DownloadControl(p: ToolsProps & { wide?: boolean }) {
   const { slide, state } = p;
   const busy = state.k === 'working';
   const main = actionButtonClass('brand', { main: true, extra: 'min-h-12 w-full justify-center !text-[15px]' });
-  const icon = busy ? <Loader2 aria-hidden className="animate-spin" strokeWidth={1.9} /> : <Download aria-hidden strokeWidth={1.9} />;
+  const icon = busy ? <Loader2 aria-hidden className="animate-spin" strokeWidth={1.9} /> : <Share aria-hidden strokeWidth={1.9} />;
   if (slide.guest) {
     const options = guestDownloadOptions(slide, p.guest);
-    if (!options.length) return <ActionButton tone="brand" main icon={Download} label="Download" disabled className="min-h-12 w-full justify-center" />;
+    if (!options.length) return <ActionButton tone="brand" main icon={Share} label="Download" disabled className="min-h-12 w-full justify-center" />;
     return (
       <PickMenu
         label="Download"
@@ -994,7 +994,7 @@ function DownloadControl(p: ToolsProps & { wide?: boolean }) {
     if (all === null) return null;
     return (
       <span data-prints-download="everything" className="flex w-full">
-        <ActionButton tone="brand" main icon={busy ? icon : all.icon ?? Download} label={saveWord(state, 'Download everything')} waiting={busy} onClick={p.actions.onEverything} className="min-h-12 w-full justify-center" />
+        <ActionButton tone="brand" main icon={busy ? icon : all.icon ?? Share} label={saveWord(state, 'Download everything')} waiting={busy} onClick={p.actions.onEverything} className="min-h-12 w-full justify-center" />
       </span>
     );
   }
@@ -1002,7 +1002,7 @@ function DownloadControl(p: ToolsProps & { wide?: boolean }) {
   const f = plainFile(slide, p.choices, p.here.key);
   return (
     <span data-prints-download="plain" className="flex w-full">
-      <ActionButton tone="brand" main icon={busy ? icon : Download} label={saveWord(state, 'Download')} waiting={busy} disabled={!f} onClick={p.actions.onPlain} className="min-h-12 w-full justify-center" />
+      <ActionButton tone="brand" main icon={busy ? icon : Share} label={saveWord(state, 'Download')} waiting={busy} disabled={!f} onClick={p.actions.onPlain} className="min-h-12 w-full justify-center" />
     </span>
   );
 }
@@ -1013,13 +1013,13 @@ function ChartDownload(p: ToolsProps) {
   const at = chartAddresses(chart.route, pick, chart.defaultSize);
   const busy = p.state.k === 'working';
   const tooFull = p.facts?.fits === false;
-  if (tooFull) return <ActionButton tone="brand" main icon={Download} label="Download" disabled className="min-h-12 w-full justify-center" />;
+  if (tooFull) return <ActionButton tone="brand" main icon={Share} label="Download" disabled className="min-h-12 w-full justify-center" />;
   return (
     <span data-prints-download="chart" className="flex w-full">
       <ActionButton
         tone="brand"
         main
-        icon={busy ? <Loader2 aria-hidden className="animate-spin" strokeWidth={1.9} /> : Download}
+        icon={busy ? <Loader2 aria-hidden className="animate-spin" strokeWidth={1.9} /> : Share}
         label={saveWord(p.state, 'Download')}
         waiting={busy}
         onClick={() => p.actions.onHref(at.pdf, chart.files[pick.layout])}

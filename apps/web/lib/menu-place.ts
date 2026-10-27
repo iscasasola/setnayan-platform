@@ -128,3 +128,15 @@ export function nudgeUp(el: Element, by: number): void {
   }
   window.scrollBy({ top: by, behavior: 'instant' as ScrollBehavior });
 }
+
+/**
+ * How far to slide a menu that is ALREADY DRAWN so its box sits inside the screen, `edge` px from either side —
+ * the board card ⋯ menu (event-card-menu.tsx), positioned by CSS against its card, measured once open. Positive
+ * moves it right. A menu wider than the room keeps its left edge in view (the start of every row is the part that
+ * reads). Pure; 0 when it already fits.
+ */
+export function menuShiftIntoView(box: { left: number; right: number }, viewportWidth: number, edge = 16): number {
+  if (box.left < edge) return edge - box.left;
+  if (box.right > viewportWidth - edge) return Math.max(edge - box.left, viewportWidth - edge - box.right);
+  return 0;
+}

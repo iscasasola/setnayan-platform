@@ -12,6 +12,9 @@ import { AI_TIER_SKU, type AiPriceTier } from '@/lib/setnayan-ai-type-pricing';
  *       ↳ The second wave (owner 2026-10-23): Setnayan AI, Music Maker, Patiktok,
  *         Thank You and the Mood Board pack — see the end of IAP_PRODUCTS. The Mood Board pack
  *         (`mood_board_renders_50`) was RETIRED with the renders (owner 2026-10-26) — its id is never reused.
+ *         The Thank You product (`papic_thank_you`) was RETIRED when the Thank-You Video went free (owner 2026-10-26,
+ *         "let us remove thank you from the inapp purchase" → "make it free for now") — listed in
+ *         `RETIRED_IAP_PRODUCT_IDS`, never reused.
  *       ↳ The eleven Event Hub Pro PART products (`hub_part_*`, 2026-10-22) were RETIRED before any was sold (owner
  *         2026-10-26, "just have the upgrade event hub pro") — Event Hub Pro is sold whole; their ids are listed in
  *         `RETIRED_HUB_PART_PRODUCT_IDS` and never reused.
@@ -169,7 +172,8 @@ export const IAP_PRODUCTS: readonly IapProduct[] = Object.freeze([
     [
       ['music_maker', 'PAKANTA', 'Music Maker'],
       ['patiktok', 'PATIKTOK_COMPILER', 'Patiktok'],
-      ['papic_thank_you', 'PAPIC_ADDON_THANK_YOU', 'Thank You'],
+      /* 🗑 `papic_thank_you` (PAPIC_ADDON_THANK_YOU) is RETIRED — the Thank-You Video is free for every event (owner
+         2026-10-26). Kept in `RETIRED_IAP_PRODUCT_IDS`; never re-add it here, never reuse its id. */
     ] as const
   ).map(
     ([id, serviceKey, name]): IapProduct => ({
@@ -198,6 +202,17 @@ export const RETIRED_HUB_PART_PRODUCT_IDS: readonly string[] = RETIRED_HUB_PART_
 
 /** The catalogue code each retired part product would have sold — `products.test.ts` holds them to the parts table. */
 export const RETIRED_HUB_PART_SERVICE_KEYS: readonly string[] = RETIRED_HUB_PART_PRODUCTS.map(([, serviceKey]) => serviceKey);
+
+/**
+ * 🗑 App Store products made in App Store Connect and RETIRED — never sold, never asked of StoreKit, never reused
+ * (ids are forever). `mood_board_renders_50` predates this list and stays named in comments above.
+ */
+export const RETIRED_IAP_PRODUCT_IDS: readonly string[] = Object.freeze([
+  // The eleven Event Hub Pro parts — Event Hub Pro is sold whole (owner 2026-10-26).
+  ...RETIRED_HUB_PART_PRODUCT_IDS,
+  // The Thank-You Video went free for every event (owner 2026-10-26, "make it free for now").
+  `${PREFIX}papic_thank_you`,
+]);
 
 /** Every product id, for StoreKit's `Product.products(for:)`. */
 export const IAP_PRODUCT_IDS: readonly string[] = IAP_PRODUCTS.map((p) => p.productId);

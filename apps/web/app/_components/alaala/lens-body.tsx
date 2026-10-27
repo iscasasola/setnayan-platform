@@ -35,7 +35,7 @@ import { formatCount } from '@/lib/format-number';
 function frameHref(item: WallItem): { href: string; external: boolean } {
   // OWNED → the event's album, where the full viewer and Download all live.
   if (item.role === 'couple') {
-    return { href: `/dashboard/${item.eventId}/studio/papic`, external: false };
+    return { href: `/dashboard/${item.eventId}/memories`, external: false };
   }
   // ATTENDED → the picture itself. The event dashboard admits COUPLE members
   // only (`[eventId]/layout.tsx` → notFound), so sending a guest there is a

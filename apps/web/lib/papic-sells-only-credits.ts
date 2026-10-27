@@ -1,3 +1,5 @@
+import { papicHomeHref } from '@/lib/papic-home-href';
+
 /**
  * PAPIC SELLS CREDITS — AND NOTHING ELSE.
  *
@@ -33,7 +35,7 @@ export const PAPIC_CAMERA_SALE_REFUSED_WORDS =
 
 /** Where a refused camera sale lands: back on the Papic page, with the sentence above. */
 export function papicCameraSaleRefusedPath(eventId: string): string {
-  return `/dashboard/${eventId}/studio/papic?papic_error=${PAPIC_CAMERA_SALE_REFUSED}`;
+  return papicHomeHref(eventId, `papic_error=${PAPIC_CAMERA_SALE_REFUSED}`);
 }
 
 /**

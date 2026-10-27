@@ -45,6 +45,9 @@ import type { GuestDeleteControl, GuestMoreMenu, GuestTicketThumb } from './gues
 /* ⚡ TYPE ONLY, the same seam: "Their camera ▾" is handed in by the Guests pages (the Maker's cards hand none). */
 import type { GuestPapicCamera } from './guest-papic-camera';
 import type { GuestAccessPick } from './guest-access-pick';
+/* ⚡ TYPE ONLY, the same seam: "Proxy ▾" is handed in by `GuestCard` (the Maker's first load never carries it). */
+import type { GuestProxyRow } from './guest-proxy-row';
+import { proxyForWords, representedByWords } from '@/lib/guest-proxy';
 import { guestCameraSummary, type GuestPapicState } from '@/lib/papic-guest-camera';
 /* ⚡ TYPE ONLY. The Invite pair is handed in by the page that draws it
    (\`SendInvite\` below): the Guest list passes the real one, and the Maker —
@@ -161,8 +164,10 @@ export function guestCardTitle(
 ): string {
   return plusOneOf?.name ?? displayPersonName(guestDisplayName(guest));
 }
-export function guestCardReply(guest: Pick<GuestCardData['guest'], 'role' | 'rsvp_status'>): string {
+export function guestCardReply(guest: Pick<GuestCardData['guest'], 'role' | 'rsvp_status'>, proxy?: GuestCardData['proxy']): string {
   if (guest.role === 'bride' || guest.role === 'groom') return '✓ Attending · always';
+  // 🧍 A represented role holder's answer is their proxy's — the pair counts once, as them.
+  if (proxy?.representedBy) return representedByWords(proxy.representedBy.name);
   return `${guest.rsvp_status === 'attending' ? '✓ ' : ''}${CARD_RSVP_WORDS[guest.rsvp_status]}`;
 }
 
@@ -254,6 +259,7 @@ export function GuestCardBody({
   papic,
   PapicCamera,
   AccessPick,
+  ProxyRow,
   storeShell = false,
   helperAccess,
   actions,
@@ -309,6 +315,8 @@ export function GuestCardBody({
   PapicCamera?: ComponentType<Parameters<typeof GuestPapicCamera>[0]>;
   /** "Access ▾" for a linked guest (`guest-access-pick.tsx`, owner 24 Oct) — handed in by the Guests pages; the Maker hands none. */
   AccessPick?: ComponentType<Parameters<typeof GuestAccessPick>[0]>;
+  /** 🧍 "Proxy ▾" on a role holder's card (`guest-proxy-row.tsx`) — handed in by `GuestCard`; the Maker hands none. */
+  ProxyRow?: ComponentType<Parameters<typeof GuestProxyRow>[0]>;
   /**
    * 🍎 Drawn in the iPhone / Android app (`isStoreShellRequest`). Papic is a paid service the app never names
    * (`lib/the-app-names-no-paid-service.test.ts`), so there the group stays the shipped "Photos" row — the three face switches.
@@ -348,7 +356,12 @@ export function GuestCardBody({
     seatTableId,
     groupChoices,
     outfit,
+    proxy = null,
   } = data;
+  /* 🧍‍♀️➡️🧍 THE PROXY, BOTH WAYS (owner 2026-10-27). `representedBy` — this ROLE HOLDER sends someone in their place;
+     `standingInFor` — THIS guest is that someone, and wears the role they stand in for (read-only here). */
+  const representedBy = proxy?.representedBy ?? null;
+  const standingInFor = proxy?.standingInFor ?? null;
   /* 👤 Whose words the name is (owner 2026-09-30): a linked account's profile
      name is fixed here — "From their account" for the couple, a way to the
      profile for the person themself. A plus-one's link keeps its own words. */
@@ -424,7 +437,9 @@ export function GuestCardBody({
         : 'None';
   const rsvpSummary = isCouple
     ? 'Attending · always'
-    : [
+    : representedBy
+      ? representedByWords(representedBy.name)
+      : [
         CARD_RSVP_WORDS[guest.rsvp_status],
         // 🖐 A reply the host set says so — "Attending · Marked by you" (owner 2026-10-21).
         replyMarkedByHost(guest) ? 'Marked by you' : null,
@@ -450,7 +465,13 @@ export function GuestCardBody({
         : papicRow.ceiling === undefined
           ? faceWords
           : [guestCameraSummary(papicRow.ceiling), guest.faceblock_enabled ? 'Blurred' : null].filter(Boolean).join(' · ');
-  const seatSummary = seatedAt ? tableWords(seatedAt) : guest.rsvp_status === 'declined' ? 'Not coming' : 'Not seated';
+  const seatSummary = representedBy
+    ? `${representedBy.name} sits in their seat`
+    : seatedAt
+      ? tableWords(seatedAt)
+      : guest.rsvp_status === 'declined' && !proxy?.namedByGuest
+        ? 'Not coming'
+        : 'Not seated';
   const notesSummary = [guest.host_note_for_guest?.trim() ? 'A note for them' : null, guest.notes?.trim() ? 'A private note' : null].filter(Boolean).join(' · ') || null;
   const accessSummary = [
     linked === null ? null : linked ? 'Linked' : 'Not linked',
@@ -526,13 +547,23 @@ export function GuestCardBody({
           <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
             {!headerShown ? (
               <span className="rounded-full bg-success-50 px-2 py-0.5 font-medium text-success-800 ring-1 ring-success-200">
-                {guestCardReply(guest)}
+                {guestCardReply(guest, proxy)}
               </span>
             ) : null}
             {seats > 0 && !isCouple ? (
               <span className="rounded-full px-2 py-0.5 text-ink/70 ring-1 ring-ink/15">+{seats}</span>
             ) : null}
             {isCouple ? <span className="rounded-full px-2 py-0.5 text-ink/70 ring-1 ring-ink/15">Host</span> : null}
+            {/* 🧍 "Proxy for Mrs. Ma. Theresa Sacdalan-Tria ›" — tap opens the role holder's card. */}
+            {standingInFor ? (
+              <Link
+                href={variant === 'panel' ? `/dashboard/${eventId}/guests?inspect=${standingInFor.guestId}` : `/dashboard/${eventId}/guests/${standingInFor.guestId}`}
+                className="sn-press rounded-full bg-sn-accent/10 px-2 py-0.5 font-medium text-sn-accent ring-1 ring-sn-accent/25"
+                data-guest-proxy-for={standingInFor.guestId}
+              >
+                {proxyForWords(standingInFor.name)} ›
+              </Link>
+            ) : null}
             {/* ✓ Saved, at the right of the reply (owner-approved prototype `guest_card_groups_and_papic_2026-10-23.html`): the
                 autosave form's own save line is drawn HERE (`CardSaveState` portals into this slot; the form sits below). */}
             <span id={`${formId}-saved`} className="ml-auto" data-guest-card-save-slot="" />
@@ -731,6 +762,18 @@ export function GuestCardBody({
                 <K.Locked label={hasSides ? 'Role in wedding' : 'Role'} value={roleWord} note="Foundation · locked" />
                 <input type="hidden" name="role" value={guest.role} />
               </>
+            ) : standingInFor ? (
+              /* 🧍 A PROXY WEARS THE ROLE THEY STAND IN FOR — shown as inherited, read-only on this card (controller's design:
+                 "role, dress code and call time shown as inherited, from <role holder>'s role"). Their own stored role is
+                 carried, never rewritten; the extras are not posted, so `updateGuest` leaves them as they are. */
+              <>
+                <K.Locked
+                  label={hasSides ? 'Role in wedding' : 'Role'}
+                  value={standingInFor.roleWord}
+                  note={`Standing in · from ${standingInFor.name}’s role`}
+                />
+                <input type="hidden" name="role" value={guest.role} />
+              </>
             ) : (
               <K.Cols className="space-y-1">
                 {/* 🎭 ONE Role dropdown, several ticked (owner 2026-10-20): the first is `role` (main — it decides the
@@ -745,6 +788,10 @@ export function GuestCardBody({
                 />
                 {/* 🏷 Rename this role · Rename this section (owner 2026-09-30 / 2026-10-19) — the Guests pages' kit only. */}
                 {K.Rename ? <K.Rename eventId={eventId} role={guest.role} names={roleNames} /> : null}
+                {/* 🧍 "Proxy ▾" — only for a guest who HOLDS A ROLE (owner: "this only works if they have role and not guest"). */}
+                {ProxyRow && proxy && (proxy.offer || representedBy || proxy.unread) ? (
+                  <ProxyRow eventId={eventId} guestId={guest.guest_id} firstName={callName} proxy={proxy} variant={variant} />
+                ) : null}
               </K.Cols>
             )}
             {/* ✉ Carried, never shown: no email to guests (owner 2026-09-30).
@@ -850,6 +897,24 @@ export function GuestCardBody({
                 {/* 🔴 AND NO "Answer recorded" LINE: the action coerces bride and
                     groom to attending, so their stamp only says when a host saved. */}
                 <input type="hidden" name="rsvp_status" value="attending" />
+              </>
+            ) : representedBy ? (
+              /* 🧍 THE PAIR'S ANSWER IS THE PROXY'S — "Represented by <proxy> ›" (tap opens their card). The holder's own stored
+                 answer is carried unchanged, so removing the proxy restores it exactly. */
+              <>
+                <div className="flex min-h-[52px] items-center gap-2.5" data-guest-represented-by={representedBy.guestId}>
+                  <span className="text-sm text-ink/70">Reply</span>
+                  <Link
+                    href={variant === 'panel' ? `/dashboard/${eventId}/guests?inspect=${representedBy.guestId}` : `/dashboard/${eventId}/guests/${representedBy.guestId}`}
+                    className="sn-press ml-auto min-w-0 truncate text-sm font-medium text-sn-accent"
+                  >
+                    {representedByWords(representedBy.name)} ›
+                  </Link>
+                </div>
+                <p className="text-xs text-ink/50">
+                  Counted once, as {representedBy.name} · {CARD_RSVP_WORDS[representedBy.rsvp]}
+                </p>
+                <input type="hidden" name="rsvp_status" value={guest.rsvp_status} />
               </>
             ) : (
               /* Attending · No reply · Not coming (owner 2026-09-30 — no Maybe).
@@ -960,7 +1025,12 @@ export function GuestCardBody({
 
           {/* ══ 6 · SEAT PLAN — the table, in place (never "go edit elsewhere") ════════════════════════════════════════ */}
           <K.Fold summary="Seat Plan" value={seatSummary}>
-            {tables && !guest.passed_away && guest.rsvp_status !== 'declined' ? (
+            {representedBy ? (
+              /* 🧍 The role's seat moved to the proxy (`the_proxy_takes_the_seat`) — the holder is not seated twice. */
+              <p className="text-sm text-ink/70" data-guest-seat-is-the-proxys="">
+                {representedBy.name} sits in this seat — change it on their card.
+              </p>
+            ) : tables && !guest.passed_away && (guest.rsvp_status !== 'declined' || proxy?.namedByGuest) ? (
               <>
                 <K.Pick
                   name="table_id"
@@ -980,6 +1050,10 @@ export function GuestCardBody({
                 in the 3D seat plan is said, read from their role's dress code (`guestOutfitWords`) — where it is set is
                 plain words, never a link. Nothing is posted: `guests.attire` stays as stored. A refused read says nothing. */}
             {outfit ? <K.Fact field="attire" label="Attire · 3D seat plan" value={outfit.wear} where={outfit.from} /> : null}
+            {/* 🧍 A proxy arrives at the role's call time — said where it comes from. */}
+            {standingInFor?.callTime ? (
+              <K.Fact field="call_time" label="Call time" value={standingInFor.callTime} where={`From ${standingInFor.name}’s role`} />
+            ) : null}
           </K.Fold>
 
           {/* ══ 7 · NOTE FOR THEM · PRIVATE NOTE — one group, two fields, as the owner wrote it ═══════════════════════════

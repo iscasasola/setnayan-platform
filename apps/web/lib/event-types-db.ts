@@ -55,6 +55,9 @@ type VocabRow = {
   onboarding_href: string | null;
   hero_photo_url: string | null;
   description: string | null;
+  /** Who it can be for (migration 20271292363990). Optional: rows remembered or
+   *  handed in by another reader may predate the column. */
+  for_whom?: string[] | null;
 };
 
 function toRow(v: VocabRow): EventTypeRow {
@@ -66,6 +69,7 @@ function toRow(v: VocabRow): EventTypeRow {
     onboardingHref: v.onboarding_href,
     heroPhotoUrl: v.hero_photo_url,
     description: v.description,
+    forWhom: Array.isArray(v.for_whom) ? v.for_whom : null,
   };
 }
 
@@ -81,11 +85,11 @@ export const getEventTypeVocab = cache(async (): Promise<EventTypeRow[]> => {
     // same rows for every reader, so it is read with the SERVICE client — never the viewer's
     // session, which a remembered read must not touch. A refused read throws inside, is never
     // remembered, and lands on the fallback roster for this page only — as before.
-    const data = await rememberedGlobalRead('event_type_vocab-active-v1', GLOBAL_SETTINGS_TAGS.eventTypeVocab, async () => {
+    const data = await rememberedGlobalRead('event_type_vocab-active-v2', GLOBAL_SETTINGS_TAGS.eventTypeVocab, async () => {
       const { data: rows, error } = await createAdminClient()
         .from('event_type_vocab')
         .select(
-          'event_type, label_en, emoji, enabled, status, sort_order, onboarding_href, hero_photo_url, description',
+          'event_type, label_en, emoji, enabled, status, sort_order, onboarding_href, hero_photo_url, description, for_whom',
         )
         .eq('status', 'active')
         .order('sort_order', { ascending: true });

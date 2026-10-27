@@ -1,8 +1,10 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
-import { ChevronLeft, ArrowRight, ArrowUpRight, Download } from 'lucide-react';
+import { ChevronLeft, ArrowRight, ArrowUpRight, Share } from 'lucide-react';
 import { Logo } from '@/app/_components/logo';
+import { SaveFileLink } from '@/app/_components/save-file-link';
+import { OpenFileLink } from '@/app/_components/open-file-link';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchApprovedSpotlightsForSlug } from '@/lib/journal-spotlights';
 import { keepThisRenderBriefly } from '@/lib/keep-a-degraded-render-briefly';
@@ -227,14 +229,27 @@ function Block({
       return (
         <div className="my-8 rounded-2xl border border-mulberry/20 bg-accent-soft p-5 sm:p-6">
           <p className="text-base leading-relaxed text-ink/80">{block.text}</p>
-          <a
-            href={block.href}
-            download
-            className="mt-4 inline-flex items-center gap-2 rounded-full bg-mulberry px-5 py-2.5 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-600"
-          >
-            <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            {block.label}
-          </a>
+          {/* A same-origin file (the planner PDF in /public) is SAVED through the share sheet; an outside file opens in
+              the app's in-app browser sheet. A bare `<a download>` renders in the iPhone app's only view, no way back. */}
+          {block.href.startsWith('/') && !block.href.startsWith('//') ? (
+            <SaveFileLink
+              href={block.href}
+              filename={(block.href.split('?')[0] ?? '').split('/').pop() || 'download'}
+              className="mt-4 inline-flex items-center gap-2 rounded-full bg-mulberry px-5 py-2.5 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-600"
+            >
+              <Share aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+              {block.label}
+            </SaveFileLink>
+          ) : (
+            <OpenFileLink
+              href={block.href}
+              download
+              className="mt-4 inline-flex items-center gap-2 rounded-full bg-mulberry px-5 py-2.5 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-600"
+            >
+              <Share aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+              {block.label}
+            </OpenFileLink>
+          )}
         </div>
       );
     // Affiliate / shopping recommendation. A MALFORMED HREF EARNS NOTHING AND

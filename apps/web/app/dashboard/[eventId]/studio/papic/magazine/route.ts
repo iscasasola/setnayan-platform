@@ -1,4 +1,4 @@
-import { PASSED_AWAY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
+import { PASSED_AWAY, REPRESENTED_BY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
 import { NextResponse } from 'next/server';
 import sharp from 'sharp';
 import { redirect } from 'next/navigation';
@@ -228,7 +228,7 @@ export async function GET(
     .eq('event_id', eventId)
     .is('deleted_at', null)
     // 🛂 A request is not a guest of the day until Keep or Link.
-    .neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false);
+    .neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false).is(REPRESENTED_BY, null);
   if (guestCountError) {
     logQueryError(
       'PapicMagazineRoute.guestCount',

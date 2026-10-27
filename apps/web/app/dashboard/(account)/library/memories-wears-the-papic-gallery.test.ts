@@ -97,7 +97,8 @@ const SEATS: Array<[string, string, RegExp]> = [
   ['Albums by event', PAGE, /active === 'albums' \?[\s\S]{0,300}<PhotosTab userId=\{user\.id\} \/>/],
   ['Editorials', PAGE, /<EditorialsTab userId=\{user\.id\} \/>/],
   ['Saved suppliers', PAGE, /<VendorsTab userId=\{user\.id\} \/>/],
-  ['A frame opens the studio (owned) or the photo (attended)', CH, /item\.role === 'couple'\) return \{ href: `\/dashboard\/\$\{item\.eventId\}\/studio\/papic`/],
+  // (2026-10-26: the Papic page is gone — the couple's frame opens the event's Memories, where the photos live.)
+  ['A frame opens the event Memories (owned) or the photo (attended)', CH, /item\.role === 'couple'\) return \{ href: `\/dashboard\/\$\{item\.eventId\}\/memories`/],
   ['The day’s chapters come from the run of show', CH, /groupIntoChapters\(\{/],
 ];
 for (const [what, src, re] of SEATS) {

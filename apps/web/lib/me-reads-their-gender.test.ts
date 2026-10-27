@@ -81,7 +81,8 @@ const kinWord = (base: string, said: 'woman' | 'man' | null) =>
   said === null ? base : base === 'Parent' ? (said === 'woman' ? 'Mother' : 'Father') : said === 'woman' ? 'Grandmother' : 'Grandfather';
 
 test('1 · Me › Your role — the owner\'s row: an "Atty. (Woman)" groom\'s parent is "Mother of the Groom"', async () => {
-  assert.match(read('app/[slug]/_components/site-body.tsx'), /const meGreeting = guestGreetingOf\(\{[\s\S]{0,200}?roleWord: roleWordOfGuest\(guest, roleNames\),/, 'Me’s role line is not the one role word');
+  // (`guestAsRole` — the reader's own row, wearing the role they stand in for when they are a proxy, 2026-10-27.)
+  assert.match(read('app/[slug]/_components/site-body.tsx'), /const meGreeting = guestGreetingOf\(\{[\s\S]{0,200}?roleWord: roleWordOfGuest\((?:guest|guestAsRole), roleNames\),/, 'Me’s role line is not the one role word');
   const her: Row = { role: 'groom_parents', name_prefix: 'Atty.', display_name: 'Eufrocina M. Sacdalan-Casasola', gender: 'woman', attire: 'neutral' };
   const said = text(await me(her, 'role'));
   assert.match(said, /Mother of the Groom/, `her Me page said: ${said}`);

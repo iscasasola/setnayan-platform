@@ -62,6 +62,7 @@ import { normalizeSpecialtyValues } from '@/lib/onboarding/specialty-values';
 import { EMPTY_PREFILL, partitionOnboardingPrefill, type OnboardingPrefill } from '@/lib/onboarding/prefill';
 import type { ServicesStepView } from '@/lib/onboarding/services-step-data';
 import { ServicesStep } from '@/app/onboarding/_shared/services-step';
+import { setnayanAiOffered } from '@/lib/setnayan-ai';
 import {
   EMPTY_SERVICES_SELECTION,
   type ServicesStepSelection,
@@ -531,6 +532,9 @@ export function GenericOnboarding(props: Props) {
       const carried = takeHonoree();
       if (carried) {
         setHonoree(carried.name);
+        // "For · You" on the grid (owner 2026-10-26): the celebrant is the account
+        // holder — show the settled "This one's yours" chip, never the empty box.
+        if (carried.forSelf) setMomentForSelf(true);
         // …and WHICH record that name is, so the cap keys on the person rather
         // than the spelling. A CLAIM only — commitOnboardingEvent re-reads it
         // under `owner_user_id = you` and drops anything else.
@@ -881,12 +885,15 @@ export function GenericOnboarding(props: Props) {
     const out: Record<string, unknown> = {};
     // Whose birthday: the name they typed, or — when they left it blank, which
     // has always meant "mine" — the name on their own account.
-    const name = honoree.trim() || (knownBirthdayAge != null ? (selfName ?? '') : '');
+    // "For you" (the grid's answer, or the reader's own Year row) names the account
+    // holder as the celebrant (owner 2026-10-26: "the name of the celebrant should
+    // automatically be me").
+    const name = honoree.trim() || (knownBirthdayAge != null || momentForSelf ? (selfName ?? '') : '');
     if (name) out.celebrant_name = name;
     if (knownBirthdayAge != null) out.celebrant_age = knownBirthdayAge;
     if (derivedMilestone) out.milestone_type = derivedMilestone;
     return out;
-  }, [eventType, honoree, knownBirthdayAge, selfName, derivedMilestone]);
+  }, [eventType, honoree, knownBirthdayAge, momentForSelf, selfName, derivedMilestone]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -1270,7 +1277,7 @@ export function GenericOnboarding(props: Props) {
             {intro?.headline ??
               'A few quick questions and we’ll shape a plan made for your event.'}
           </Title>
-          <p className="mt-4 text-ink/60">{intro?.subcopy ?? 'Free to start — no account needed yet.'}</p>
+          <p className="mt-4 text-ink/60">{intro?.subcopy ?? 'Start now — no account needed yet.'}</p>
           {/* Entrance grey-out (owner ruling 2026-09-11): told HERE, on the very
               first screen, instead of only after a wizard-length walk ends in
               the same refusal. `blockedBy` is seeded from the server's entrance
@@ -1357,7 +1364,8 @@ export function GenericOnboarding(props: Props) {
               </p>
               <div className="mt-6 flex max-w-lg items-center gap-3 rounded-[var(--m-r-md)] border border-ink/10 bg-ink/[0.02] px-4 py-3">
                 <span className="min-w-0 text-sm text-ink/70">
-                  For <span className="font-medium text-ink">you</span>
+                  {/* The celebrant IS the account holder — by name (owner 2026-10-26). */}
+                  For <span className="font-medium text-ink" data-self-celebrant>{selfName?.trim() || 'you'}</span>
                   {momentAge != null ? (
                     <span className="block truncate text-xs text-ink/50">
                       Turning {momentAge}
@@ -1793,6 +1801,9 @@ export function GenericOnboarding(props: Props) {
             // both always render, at their real prices.
             interestedServices={planServices}
             aiValue={servicesStepAiValue}
+            // 🧭 The needs screen's Suppliers row, live (owner 2026-10-26: Setnayan AI shows only with
+            // Suppliers on — `setnayanAiOffered`). No needs screen (engine off) ⇒ no choice made ⇒ on.
+            suppliersOn={!engine || setnayanAiOffered(needs)}
             // The picker (owner 2026-08-11). Safe to pass HERE because this
             // flow's commit carries the selection through to a real order —
             // see commitOnboardingEvent. Do not copy these two props to a

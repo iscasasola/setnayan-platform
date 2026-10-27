@@ -1,6 +1,10 @@
 import { Suspense } from 'react';
 import { PapicBuySheet } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-buy-sheet';
 import { PapicCameraSettings, PapicSwitch } from './studio/papic/_components/papic-camera-settings';
+import { PapicOutcomeBanners, hasPapicOutcome, type PapicOutcomes } from './studio/papic/_components/papic-outcome-banners';
+import { PapicSelfHeal } from './studio/papic/_components/papic-self-heal';
+import { PapicCameraHelp } from './studio/papic/_components/papic-camera-help';
+import { IapPapicSheet } from '@/app/_components/iap/iap-papic-sheet';
 import { papicCardPhase } from '@/lib/papic-home-card';
 import { OUR_SERVICE_PARTS } from '@/lib/our-services';
 import type { PapicCardInput } from './_components/home-first-screen';
@@ -99,7 +103,7 @@ import { resolvePapicHomeTile } from '@/lib/papic-home-tile';
 import { papicGlance } from '@/lib/papic-glance';
 import { resolveStoredWindow } from '@/lib/papic-window';
 import { papicIsOn } from '@/lib/event-answers';
-import { isSetnayanAiActiveForEvent } from '@/lib/setnayan-ai';
+import { eventOwnsSetnayanAi, isSetnayanAiActiveForEvent, setnayanAiOffered } from '@/lib/setnayan-ai';
 import { planNextYearEvent } from '@/app/dashboard/(account)/create-event/actions';
 import { resolveSetnayanAiPaywallEnabled } from '@/lib/integration-config';
 import { resolveSetnayanAiOfferForEvent } from '@/lib/setnayan-ai-server';
@@ -184,7 +188,8 @@ export default async function EventHomePage({
   searchParams,
 }: {
   params: Promise<{ eventId: string }>;
-  searchParams?: Promise<{ sai?: string; inspect?: string; sheet?: string }>;
+  /** 📷 + the Papic card's answers (the Papic page is gone, 2026-10-26): a save's outcome, `?buy=1`, a purchase error. */
+  searchParams?: Promise<{ sai?: string; inspect?: string; sheet?: string; buy?: string; papic_pool_error?: string } & PapicOutcomes>;
 }) {
   const { eventId } = await params;
   const search = searchParams ? await searchParams : {};
@@ -568,7 +573,9 @@ export default async function EventHomePage({
     // `null` = the paywall could not be resolved: no offer, and Home's
     // "Your services" row prints "—" for Setnayan AI rather than guess.
     const paywallOn = await resolveSetnayanAiPaywallEnabled().catch((): boolean | null => null);
-    const aiOffer = paywallOn === true
+    // 🧭 Suppliers off (the onboarding's "What do you need?", `events.suppliers_on`) ⇒ Setnayan AI is not
+    // offered here at all (`setnayanAiOffered`, owner 2026-10-26) — no comeback card, no Next card, no price.
+    const aiOffer = paywallOn === true && setnayanAiOffered(await homeNeedsRead)
       ? await resolveSetnayanAiOfferForEvent(
           supabase,
           eventId,
@@ -871,8 +878,18 @@ export default async function EventHomePage({
           { paywallEnabled: paywallOn },
         );
   const homePaidPrices = new Map<string, string>();
+  /* 🧭 SETNAYAN AI ONLY WITH SUPPLIERS ON (owner 2026-10-26, DECISION_LOG "SETNAYAN AI SHOWS ONLY WHEN THE EVENT HAS
+     SUPPLIERS ON"). Off ⇒ no "Try it" line and no "On" row for the free assist — unless the event already OWNS it
+     (bought, or a payment waiting): then its row stays exactly as it was. Nothing is ever taken away. */
+  const saiOffered = setnayanAiOffered(eventNeeds);
+  const saiOwned =
+    eventOwnsSetnayanAi(event as { setnayan_ai_active?: boolean | null; setnayan_ai_active_until?: string | null }) ||
+    homePaid?.aiPending === true;
+  const saiShown = saiOffered || saiOwned;
   const homePaidReads: Record<string, { active: boolean | null; pending: boolean | null } | null> = {
-    [HOME_PAID_SKU.ai]: { active: aiActiveNow, pending: aiActiveNow === false ? homePaid?.aiPending ?? null : false },
+    [HOME_PAID_SKU.ai]: saiShown
+      ? { active: aiActiveNow, pending: aiActiveNow === false ? homePaid?.aiPending ?? null : false }
+      : { active: false, pending: false },
   };
   for (const [sku, read, price] of homePaid?.reads ?? []) {
     homePaidReads[sku] = read;
@@ -891,7 +908,7 @@ export default async function EventHomePage({
           !(storeShell && isStoreShellHiddenAddon(a.key, iap)) &&
           addOnOfferedForEvent(a, needsProfile, (event as { community_id?: string | null }).community_id ?? null),
         sellableNow: (e) => addOnSellableNow(e, lifecyclePhase === 'after' ? 'after' : 'plan'),
-        aiSellable: homePaid.aiPricePhp > 0,
+        aiSellable: homePaid.aiPricePhp > 0 && saiOffered,
         refusesPath: (p) => storeShell && isStoreShellWebOnlyPath(p, iap),
         comebackHoursLeft:
           aiOfferShown && aiOffer?.kind === 'comeback'
@@ -900,27 +917,54 @@ export default async function EventHomePage({
       })
     : null;
   /*
-    📷 PAPIC'S CARD (owner 2026-10-23: "does not open to a new page. just expands on home"; 2026-10-26: "it just needs
-    to have a quick on off button and expand for more settings for papic"): the head with the Papic switch, and the
-    camera settings it opens UNDER itself — the same `PapicCameraSettings` `/studio/papic` draws. The couple's alone (the settings write as the
-    couple); a coordinator keeps the shipped row. The app keeps its own Papic row (`apple`).
+    📷 PAPIC'S CARD — ONE, ON HOME › TODAY (owner 2026-10-26, DECISION_LOG "THE PAPIC CARD LIVES ON HOME › TODAY; THE
+    STANDALONE PAPIC PAGE IS REMOVED"): the head with the Papic switch; on its face Total · Taken · Remaining and "Add
+    more"; its › grows every Papic setting in place (`PapicCameraSettings`, which the removed page drew too). The
+    couple's alone — the settings write as the couple; a coordinator keeps the shipped row.
+    🍎 IN THE APP TOO, WHERE APPLE SELLS (`iap`): the page was the app's Papic door (`IAP_OPENED_ROUTE`), so the card is
+    now — Add more is Apple's sheet there. The store shell without Apple's shop never reached the page and draws no card.
+    The Add more is the Memories page's, exactly: Apple's sheet · none in the bare store shell · the web's sheet.
   */
   const papicCardPhaseNow = papicCardPhase(papicWin.startIso, papicWin.endIso, Date.now());
+  const papicPoolError = typeof search.papic_pool_error === 'string' ? search.papic_pool_error : null;
+  const papicBuy = iap ? (
+    <IapPapicSheet eventId={eventId} left={papicNow.count} label="Add more" />
+  ) : storeShell ? null : (
+    <PapicBuySheet
+      eventId={eventId}
+      left={papicNow.count}
+      tone="brand"
+      main
+      label="Add more"
+      defaultOpen={Boolean(papicPoolError) || search.buy === '1'}
+      error={papicPoolError}
+    />
+  );
   const papicCard: PapicCardInput | null =
-    canViewPapicCounts && viewerMemberType === 'couple' && !appleFacts && !storeShell
+    canViewPapicCounts && viewerMemberType === 'couple' && (!storeShell || iap)
       ? {
           phase: papicCardPhaseNow,
-          thankYouHref: OUR_SERVICE_PARTS.papic ? addOnHref(OUR_SERVICE_PARTS.papic.key, eventId) : null,
+          // 🍎 In the app the Thank-You Video keeps its own row (an Apple product there) — no web door on the card.
+          thankYouHref: !storeShell && OUR_SERVICE_PARTS.papic ? addOnHref(OUR_SERVICE_PARTS.papic.key, eventId) : null,
           headControl: <PapicSwitch eventId={eventId} saved={papicSwitch === undefined ? null : papicIsOn(papicSwitch)} />,
+          counts: { total: papicNow.total, left: papicNow.count },
+          buy: papicBuy,
+          defaultOpen: hasPapicOutcome(search) || Boolean(papicPoolError),
           settings: (
-            <Suspense fallback={null}>
-              <PapicCameraSettings
-                eventId={eventId}
-                seat="home"
-                credits={{ total: papicNow.total, left: papicNow.count }}
-                buy={<PapicBuySheet eventId={eventId} left={papicNow.count} tone="brand" main label="Add more" />}
-              />
-            </Suspense>
+            <>
+              {hasPapicOutcome(search) ? (
+                <div className="pb-4" data-papic-card-outcome="">
+                  <PapicOutcomeBanners eventId={eventId} search={search} appleIap={iap} />
+                </div>
+              ) : null}
+              <Suspense fallback={null}>
+                <PapicCameraSettings eventId={eventId} seat="home" />
+              </Suspense>
+              <PapicCameraHelp appleIap={iap} />
+              <Suspense fallback={null}>
+                <PapicSelfHeal eventId={eventId} />
+              </Suspense>
+            </>
           ),
         }
       : null;
@@ -938,7 +982,7 @@ export default async function EventHomePage({
     papic: papicNow.status,
     // 🎨 The row's line, meter and doors (owner 2026-10-14). Buy more is the couple's (the purchase is couple-only).
     papicDoors: canViewPapicCounts ? { glance: papicNow, line: papicNow.line, buy: papicNow.buy && viewerMemberType === 'couple' } : null,
-    ai: aiStatus(
+    ai: !saiShown ? null : aiStatus(
       paywallOn === null
         ? null
         : isSetnayanAiActiveForEvent(
@@ -1034,14 +1078,16 @@ export default async function EventHomePage({
         appleFacts
           ? {
               // Papic credits are the couple's to buy, as on the web; its status is the row's own.
-              papic: canViewPapicCounts
-                ? {
-                    status: papicNow.status,
-                    buy: viewerMemberType === 'couple',
-                    /* 🍎 Version 1.1: the Papic page opens in this app (`IAP_OPENED_ROUTE`) — the row is its door. */
-                    open: `/dashboard/${eventId}/studio/papic`,
-                  }
-                : null,
+              // 🍎 ONE Papic: where the card is drawn (the couple, Apple selling) the row is not. A coordinator keeps the
+              // row's status — the Papic page it opened is gone (2026-10-26), so it opens nothing.
+              papic:
+                canViewPapicCounts && !papicCard
+                  ? {
+                      status: papicNow.status,
+                      buy: viewerMemberType === 'couple',
+                      open: null,
+                    }
+                  : null,
               /* 🍎 THE THANK-YOU VIDEO — an Apple product here (owner 2026-10-23); App Review must find its door. Papic's
                  part, so it rides with the Papic row; offered as its catalogue entry is for this event. */
               thankYou: canViewPapicCounts && appleThankYouOffered
@@ -1348,7 +1394,8 @@ export default async function EventHomePage({
 
           {/* 🧾 Your services after the day — the summary's "Your services" card scrolls here (More left
               the bar, owner 22 Oct 2026). None in the store shell, exactly as on the first screen. */}
-          <YourServices eventId={eventId} services={homeServiceRowAll} papicLeft={papicNow.count} cards={serviceCards} />
+          {/* 📷 …and Papic's card, the one Today draws before the day (the Papic page is gone, 2026-10-26). */}
+          <YourServices eventId={eventId} services={homeServiceRowAll} papicLeft={papicNow.count} papicCard={papicCard} cards={serviceCards} />
 
           <details className="sn-tile">
             <summary className="cursor-pointer list-none text-[13.5px] font-semibold text-ink/70">

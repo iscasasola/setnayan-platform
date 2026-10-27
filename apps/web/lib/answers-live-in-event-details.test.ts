@@ -171,8 +171,8 @@ test('Papic No closes the guest camera door for every caller; Yes turns it back 
   assert.ok(off > 0 && off < access.indexOf('owned.some(Boolean)'), 'a purchase must not reopen a camera the host said No to');
   const apply = read('app/dashboard/[eventId]/website/hub-draft-actions.ts');
   assert.match(apply, /if \(eventsPatch\.papic_on === true\) \{[\s\S]{0,120}ensureFreePapicPoolGrantAdmin\(admin, eventId\);/);
-  // The studio's self-heal leaves an answered-No event unarmed.
-  assert.match(read('app/dashboard/[eventId]/studio/papic/page.tsx'), /if \(!papicAnsweredNo\) \{\s*await ensureFreePapicPoolGrantAdmin\(unlockAdmin, eventId\);/);
+  // The Papic card's self-heal (moved from the removed Papic page, 2026-10-26) leaves an answered-No event unarmed.
+  assert.match(read('app/dashboard/[eventId]/studio/papic/_components/papic-self-heal.tsx'), /answeredNo \? Promise\.resolve\(\) : ensureFreePapicPoolGrantAdmin\(admin, eventId\)/);
 });
 
 /* ══ GIFTS ══ */

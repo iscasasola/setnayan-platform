@@ -57,6 +57,8 @@ export const GUEST_LIST_ROW_FIELDS = [
   'dietary_restrictions',
   'notes',
   'relation',
+  // 🧍 The pair is ONE row (owner 2026-10-27): the holder's row draws "Represented by …" and carries the proxy's reply.
+  'represented_by_guest_id',
 ] as const satisfies readonly (keyof GuestRow)[];
 
 export type GuestListRow = Pick<GuestRow, (typeof GUEST_LIST_ROW_FIELDS)[number]>;
@@ -93,6 +95,8 @@ export const GUEST_COPY_ROW_FIELDS = [
   'plus_one_of_guest_id',
   'plus_one_name_confirmed_at',
   'guest_note',
+  // 🧍 A kept copy draws the pair as one row too — never two guests where there is one.
+  'represented_by_guest_id',
 ] as const satisfies readonly (typeof GUEST_LIST_ROW_FIELDS)[number][];
 
 export type GuestCopyRow = Pick<GuestRow, (typeof GUEST_COPY_ROW_FIELDS)[number]>;

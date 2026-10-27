@@ -226,6 +226,16 @@ export const PERIODIC_JOBS: readonly PeriodicJob[] = [
     reportsCount: true,
   },
   {
+    // 🗂 CHAT FILES (owner 2026-10-28). SHIPS OFF — `CHAT_FILE_EXPIRY_ENABLED`
+    // (server-side, opt-in) — and runs as a dry run until he switches it on.
+    // rows_affected = objects R2 confirmed gone (HEAD 404), never "attempted".
+    key: 'chat-file-expiry',
+    kind: 'retention',
+    gapMs: DAILY_GAP_MS,
+    what: 'Chat files deleted 90 days after the event (contracts, payment proofs and anything pinned to Decisions are kept) — off until switched on',
+    reportsCount: true,
+  },
+  {
     key: 'samahan-story-sweep',
     kind: 'retention',
     gapMs: 60 * 60 * 1000,

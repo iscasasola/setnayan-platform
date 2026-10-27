@@ -25,6 +25,7 @@ import { delegateAccessLastDay, permissionsWithinWindow } from './delegate-acces
 import type { ModeratorPermissions } from './delegate-areas';
 import { areaCells, coordinatorHasHostAccess } from './people-with-access';
 import type { EventDecisionSummary } from './event-decisions';
+import { formatCount } from './format-number';
 
 /** The coordinator's seat — the one role this door is for (owner 2026-10-07: "Same as User Host of the event"). */
 export const COORDINATOR_SEAT_ROLE = 'wedding_planner_external';
@@ -216,7 +217,7 @@ export function needsLine(summary: EventDecisionSummary | null): string {
   if (summary === null) return NEEDS_UNREAD;
   if (summary.total <= 0 || !summary.top) return NEEDS_NOTHING;
   if (summary.total > summary.top.count) {
-    return `${summary.total} ${summary.total === 1 ? 'thing needs' : 'things need'} you · ${summary.top.label}`;
+    return `${formatCount(summary.total)} ${summary.total === 1 ? 'thing needs' : 'things need'} you · ${summary.top.label}`;
   }
   return summary.top.label;
 }

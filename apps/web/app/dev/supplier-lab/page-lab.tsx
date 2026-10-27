@@ -429,7 +429,7 @@ export function PageLab({ state, who: rawWho, draft, invited = false }: { state:
           factsUrl={`data:application/json,${encodeURIComponent(JSON.stringify({ vendorId: `lab-${who}`, facts: bf }))}`}
           labFiles={files}
         />
-        <p className="text-[13px] text-ink/60">Today's rows continue below.</p>
+        <p className="text-[13px] text-ink/60">Today&rsquo;s rows continue below.</p>
       </div>
     );
   }

@@ -2,7 +2,7 @@
 
 import { CHAT_ATTACH_INPUT_ID } from '@/lib/chat-attach-input-id';
 import Link from 'next/link';
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import {
   BadgeCheck,
@@ -12,8 +12,7 @@ import {
   Flag,
   Handshake,
   Paperclip,
-  Phone,
-  Plus,
+  PlusCircle,
   ReceiptText,
   Star,
   Store,
@@ -24,11 +23,14 @@ import {
 import { Sheet } from '@/app/_components/sheet';
 import { revealThreadTool } from '@/app/_components/chat/reveal-thread-tool';
 import {
+  THREAD_TOOL_GROUPS,
   vendorThreadToolRows,
+  type ThreadToolGroup,
   type VendorThreadLinkTool,
   type VendorThreadToolIcon,
   type VendorThreadToolsState,
 } from '@/lib/vendor-thread-tools';
+import { coupleThreadTools } from '@/lib/chat-box-tools';
 
 /**
  * THE ＋ BESIDE THE MESSAGE FIELD — and the ONE sheet of every tool the conversation has (simpler supplier dashboard,
@@ -60,7 +62,6 @@ const ICON: Record<VendorThreadToolIcon, LucideIcon> = {
   schedule: CalendarClock,
   file: Paperclip,
   offer: Store,
-  voice: Phone,
   deal: CalendarPlus,
   guests: Users,
   outcome: Star,
@@ -83,91 +84,123 @@ function linkHref(tool: VendorThreadLinkTool, eventId: string): string {
   }
 }
 
-export function ThreadToolsSheet({ eventId, state }: { eventId: string; state: VendorThreadToolsState }) {
+/** One row as the sheet draws it — the supplier's registry rows and the couple's rows both come down to this. */
+type SheetRow = {
+  key: string;
+  label: string;
+  line: string;
+  icon: VendorThreadToolIcon;
+  primary?: boolean;
+  group?: ThreadToolGroup;
+  shut: { reason: string } | null;
+  href?: string;
+  reveal?: readonly string[];
+  attach?: boolean;
+};
+
+/**
+ * THE ＋ AND ITS SHEET, drawn once for both sides (chat prototype 2026-10-28, frames C and D). The supplier's rows carry
+ * a group, and a quiet heading is drawn where the group changes (Money · Plan · Talk & files · Just you); the couple's
+ * two rows carry none. Rows have no frames — the icon round and the words, a hairline between (frames only on what
+ * you press: the row itself is the press).
+ */
+function ToolsSheetButton({ rows, sheetMark }: { rows: SheetRow[]; sheetMark: string }) {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   const headingId = useId();
-  const rows = vendorThreadToolRows(state);
+
+  let lastGroup: ThreadToolGroup | undefined;
+  const items: ReactNode[] = [];
+  for (const row of rows) {
+    if (row.group && row.group !== lastGroup) {
+      const g = THREAD_TOOL_GROUPS.find((x) => x.key === row.group);
+      items.push(
+        <li key={`group-${row.group}`} aria-hidden className="pb-1 pt-3 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/55" data-thread-tool-group={row.group}>
+          {g?.label}
+        </li>,
+      );
+      lastGroup = row.group;
+    }
+    const Icon = ICON[row.icon];
+    const shut = row.shut;
+    const lead = (
+      <span
+        aria-hidden
+        className={`grid h-10 w-10 shrink-0 place-items-center rounded-full ${
+          shut ? 'bg-ink/[0.04] text-ink/30' : row.primary ? 'bg-sn-accent/10 text-sn-accent' : 'bg-ink/[0.05] text-sn-accent'
+        }`}
+      >
+        <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
+      </span>
+    );
+    const words = (
+      <span className="min-w-0 flex-1">
+        <span className={`block truncate text-[15px] font-semibold leading-tight ${shut ? 'text-ink/40' : 'text-ink'}`}>
+          {row.label}
+        </span>
+        <span className="mt-0.5 block truncate text-[13px] text-ink/60">{row.line}</span>
+      </span>
+    );
+    const rowClass = 'flex min-h-[56px] w-full items-center gap-3.5 py-2 text-left';
+    if (shut) {
+      const reasonId = `${headingId}-shut-${row.key}`;
+      items.push(
+        <li key={row.key} data-thread-tool-row={row.key} data-shut="">
+          <span role="button" aria-disabled="true" aria-describedby={reasonId} tabIndex={0} className={rowClass}>
+            {lead}
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[15px] font-semibold leading-tight text-ink/40">{row.label}</span>
+              <span id={reasonId} className="mt-0.5 block text-[13px] text-ink/60">
+                {shut.reason}
+              </span>
+            </span>
+          </span>
+        </li>,
+      );
+      continue;
+    }
+    items.push(
+      <li key={row.key} data-thread-tool-row={row.key}>
+        {row.href ? (
+          <Link href={row.href} className={`sn-press ${rowClass}`} onClick={() => setOpen(false)}>
+            {lead}
+            {words}
+            <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-ink/35" strokeWidth={2} />
+          </Link>
+        ) : (
+          <button
+            type="button"
+            className={`sn-press ${rowClass}`}
+            onClick={() => {
+              if (row.attach) {
+                // Inside the tap: a phone only opens a file picker from a user gesture.
+                document.getElementById(CHAT_ATTACH_INPUT_ID)?.click();
+                setOpen(false);
+                return;
+              }
+              setOpen(false);
+              // After the sheet has gone, so the opened panel is what they are looking at.
+              const reveal = row.reveal;
+              if (reveal) window.setTimeout(() => revealThreadTool(reveal), 0);
+            }}
+          >
+            {lead}
+            {words}
+            <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-ink/35" strokeWidth={2} />
+          </button>
+        )}
+      </li>,
+    );
+  }
 
   const sheet = (
     <Sheet open={open} onClose={() => setOpen(false)} labelledById={headingId} rise>
-      <div className="px-5 pb-5 pt-5" data-thread-tools-sheet="">
+      <div className="px-5 pb-5 pt-5" data-thread-tools-sheet={sheetMark}>
         <h2 id={headingId} className="pr-12 text-[17px] font-semibold text-ink">
           Tools
         </h2>
-        <ul className="mt-2">
-          {rows.map(({ tool, shut }) => {
-            const Icon = ICON[tool.icon];
-            const lead = (
-              <span
-                aria-hidden
-                className={`grid h-9 w-9 shrink-0 place-items-center rounded-full ${
-                  shut ? 'bg-ink/[0.04] text-ink/30' : tool.primary ? 'bg-sn-accent/10 text-sn-accent' : 'bg-ink/[0.05] text-ink/60'
-                }`}
-              >
-                <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
-              </span>
-            );
-            const words = (
-              <span className="min-w-0 flex-1">
-                <span className={`block truncate text-[15px] font-medium leading-tight ${shut ? 'text-ink/40' : 'text-ink'}`}>
-                  {tool.label}
-                </span>
-                <span className="mt-0.5 block truncate text-[13px] text-ink/60">{tool.line}</span>
-              </span>
-            );
-            const rowClass = 'flex min-h-[60px] w-full items-center gap-3 border-t border-ink/10 py-2.5 text-left';
-            if (shut) {
-              const reasonId = `${headingId}-shut-${tool.key}`;
-              return (
-                <li key={tool.key} className="first:[&>*]:border-t-0" data-thread-tool-row={tool.key} data-shut="">
-                  <span role="button" aria-disabled="true" aria-describedby={reasonId} tabIndex={0} className={rowClass}>
-                    {lead}
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[15px] font-medium leading-tight text-ink/40">{tool.label}</span>
-                      <span id={reasonId} className="mt-0.5 block text-[13px] text-ink/60">
-                        {shut.reason}
-                      </span>
-                    </span>
-                  </span>
-                </li>
-              );
-            }
-            return (
-              <li key={tool.key} className="first:[&>*]:border-t-0" data-thread-tool-row={tool.key}>
-                {tool.link ? (
-                  <Link href={linkHref(tool, eventId)} className={`sn-press ${rowClass}`} onClick={() => setOpen(false)}>
-                    {lead}
-                    {words}
-                    <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-sn-accent" strokeWidth={2} />
-                  </Link>
-                ) : (
-                  <button
-                    type="button"
-                    className={`sn-press ${rowClass}`}
-                    onClick={() => {
-                      if (tool.attach) {
-                        // Inside the tap: a phone only opens a file picker from a user gesture.
-                        document.getElementById(CHAT_ATTACH_INPUT_ID)?.click();
-                        setOpen(false);
-                        return;
-                      }
-                      setOpen(false);
-                      // After the sheet has gone, so the opened panel is what the supplier is looking at.
-                      const reveal = tool.reveal;
-                      if (reveal) window.setTimeout(() => revealThreadTool(reveal), 0);
-                    }}
-                  >
-                    {lead}
-                    {words}
-                    <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-sn-accent" strokeWidth={2} />
-                  </button>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+        <ul className="mt-1">{items}</ul>
       </div>
     </Sheet>
   );
@@ -181,13 +214,47 @@ export function ThreadToolsSheet({ eventId, state }: { eventId: string; state: V
         aria-haspopup="dialog"
         title="Tools"
         data-thread-tools-open=""
-        className="sn-press inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-ink/[0.06] text-ink hover:bg-ink/[0.1]"
+        className="sn-press inline-flex h-11 w-10 shrink-0 items-center justify-center rounded-full text-sn-accent hover:bg-ink/[0.05]"
       >
-        <Plus aria-hidden className="h-5 w-5" strokeWidth={2} />
+        <PlusCircle aria-hidden className="h-[22px] w-[22px]" strokeWidth={1.9} />
       </button>
       {mounted ? createPortal(sheet, document.body) : null}
     </>
   );
+}
+
+/** The supplier's ＋ — every row of `VENDOR_THREAD_TOOLS`, grouped, with the shipped greyed/shut rules. */
+export function ThreadToolsSheet({ eventId, state }: { eventId: string; state: VendorThreadToolsState }) {
+  const rows: SheetRow[] = vendorThreadToolRows(state).map(({ tool, shut }) => ({
+    key: tool.key,
+    label: tool.label,
+    line: tool.line,
+    icon: tool.icon,
+    primary: tool.primary,
+    group: tool.group,
+    shut,
+    href: tool.link ? linkHref(tool, eventId) : undefined,
+    reveal: tool.reveal,
+    attach: tool.attach,
+  }));
+  return <ToolsSheetButton rows={rows} sheetMark="vendor" />;
+}
+
+/**
+ * The couple's ＋ (chat prototype frame C) — "Deal or meeting" when the deal panel is mounted, and the ONE "Share a
+ * file". `dealReveal` is `dealEntryFor(…).composer.reveal`, or null when the page mounts no deal panel.
+ */
+export function CoupleThreadToolsSheet({ dealReveal }: { dealReveal: readonly string[] | null }) {
+  const rows: SheetRow[] = coupleThreadTools(dealReveal).map((t) => ({
+    key: t.key,
+    label: t.label,
+    line: t.line,
+    icon: t.icon,
+    shut: null,
+    reveal: t.reveal,
+    attach: t.attach,
+  }));
+  return <ToolsSheetButton rows={rows} sheetMark="couple" />;
 }
 
 /**

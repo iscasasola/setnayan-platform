@@ -50,8 +50,7 @@ import { ChatMessageStream } from '@/app/_components/chat-message-stream';
 import { fetchThreadLockHandshake } from '@/lib/thread-lock-handshake.server';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
 import { NegotiationComposerMenu } from '@/app/_components/negotiation-composer-menu';
-import { ThreadCallLauncher } from '@/app/_components/thread-call-launcher';
-import { resolveThreadCallsEnabled } from '@/lib/thread-calls-gate';
+import { readThreadReceipts } from '@/lib/chat-thread-receipts.server';
 import { ChatThreadMenu } from '@/app/_components/chat-thread-menu';
 import { ChatPrivacyNotice } from '@/app/_components/chat-privacy-notice';
 import { ThreadInterestChips } from '@/app/_components/thread-interest-chips';
@@ -251,9 +250,8 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   // ⚠ ADD A NEW READ AS ANOTHER STARTED PROMISE, NOT AS ANOTHER `await` IN THIS
   // RUN — one stray `await` puts a full database trip back in front of the page.
 
-  // Voice/video calling is a paid-vendor capability (gate-dark by default).
-  // When it's locked for this vendor's tier the launcher shows an upgrade nudge.
-  const callsEnabledRead = resolveThreadCallsEnabled(thread.vendor_profile_id);
+  // 📵 No calls in the chat (owner 2026-10-28, "remove both voice and video call") — the calls-gate read is gone
+  // from this page; `lib/thread-calls-gate.ts` stays, unused here, for the owner to decide on.
 
   /**
    * THE TWO MONEY LINES UNDER THE QUOTE TOTAL — resolved ONCE here so the
@@ -292,7 +290,6 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   // awaited in turn before the batch started, so no write ran while one of them
   // could still fail the page.
   const writesWaitFor = Promise.all([
-    callsEnabledRead,
     composerFeeStandingRead,
     composerPapicStandingRead,
   ]);
@@ -932,9 +929,21 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     return conversationRows;
   })();
 
+  // ✓✓ "Seen" under the supplier's last message (owner 2026-10-28, *"yes show seen"*) — one started read, like the
+  // rest; it waits for the batch only to know who has written for the couple (`lib/chat-thread-receipts.server.ts`).
+  const receiptsRead = (async () => {
+    const batch = await batchRead;
+    return readThreadReceipts(createAdminClient(), {
+      threadId,
+      viewerRole: 'vendor',
+      viewerUserId: user.id,
+      vendorProfileId: thread.vendor_profile_id,
+      messages: batch[2],
+    });
+  })();
+
   // ═══ THE ONE WAIT ═══════════════════════════════════════════════════════════
   const [
-    callsEnabled,
     composerFeeStanding,
     composerPapicStanding,
     [
@@ -972,8 +981,8 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     standingExtras,
     conversationRows,
     dayAnswer,
+    receipts,
   ] = await Promise.all([
-    callsEnabledRead,
     composerFeeStandingRead,
     composerPapicStandingRead,
     batchRead,
@@ -997,6 +1006,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     standingExtrasRead,
     conversationRowsRead,
     dayAnswerRead,
+    receiptsRead,
   ]);
 
   const composerGiftBasis = giftBasisFrom(composerPapicStanding);
@@ -1303,22 +1313,6 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
         />
       ) : null,
     'offer-service': <VendorOfferService threadId={threadId} options={offerOptions} />,
-    'thread-call': (
-        <ThreadCallLauncher
-          threadId={threadId}
-          currentUserId={user.id}
-          counterpartyLabel={coupleLabel}
-          callsEnabled={callsEnabled}
-          viewerRole="vendor"
-          upgradeHref="/vendor-dashboard/subscription"
-          // Gives the two Start buttons the ids `thread-call-voice` and
-          // `thread-call-video`, which is what lets the rail offer "Voice call"
-          // and "Video call" as two entries that open ONE panel and land on the
-          // right button. Passed here only — the launcher is mounted on three
-          // other screens and must not grow duplicate ids there.
-          buttonIdPrefix="thread-call"
-        />
-    ),
     'deal-or-meeting': (
         <NegotiationComposerMenu
           embedded
@@ -1530,19 +1524,19 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
             <>
               <Link
                 href="/vendor-dashboard/messages"
-                aria-label="Back to Messages"
-                className="grid h-11 w-9 shrink-0 place-items-center rounded-full text-ink/60 hover:bg-ink/5 hover:text-ink"
+                aria-label="Back to Chats"
+                className="grid h-11 w-10 shrink-0 place-items-center rounded-full text-sn-accent hover:bg-ink/5"
               >
-                <ChevronLeft aria-hidden className="h-5 w-5" strokeWidth={2} />
+                <ChevronLeft aria-hidden className="h-6 w-6" strokeWidth={2} />
               </Link>
               <span
                 aria-hidden
-                className="hidden h-9 w-9 shrink-0 place-items-center rounded-full border border-ink/10 bg-white text-xs font-semibold text-ink/70 sm:grid"
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-ink/[0.1] text-[13px] font-semibold text-ink/75"
               >
                 {railInitials}
               </span>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-ink">
+                <p className="truncate text-[16px] font-semibold leading-tight text-ink">
                   {headerLabel}
                   {founderInquiry ? (
                     <span className="ml-2 inline-block rounded-full bg-terracotta/15 px-2 py-0.5 align-middle font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta-700">
@@ -1554,7 +1548,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
                     ("December 18, 2026", never the raw ISO key — owner
                     2026-09-08) · the live count, naming the inquiry count
                     whenever the two differ, either way. */}
-                <p className="flex flex-wrap items-center gap-x-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-ink/55 [&>*+*]:before:mr-1.5 [&>*+*]:before:content-['·']">
+                <p className="flex min-w-0 items-center gap-x-1 truncate text-[12px] leading-tight text-ink/55 [&>*+*]:before:mr-1 [&>*+*]:before:content-['·']">
                   <ThreadInterestChips supabase={supabase} threadId={threadId} compact />
                   {event?.event_date ? <span>{formatLongDate(event.event_date)}</span> : null}
                   {guestCountLine(guestCounts) ? (
@@ -1764,9 +1758,10 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
                 ) : null}
                 {/* NOTHING BETWEEN THE LAST MESSAGE AND THE BOX BUT THE BOX.
                     ＋ · message · Send (simpler supplier dashboard step 4, 2026-10-14): the grey ＋ opens ONE sheet
-                    of every tool this conversation has (`thread-tools-sheet.tsx`) — it replaced the composer's
-                    🧾 / 📞 icons and the rail's Tools column. The paperclip moved into that sheet ("Share a file or
-                    the contract"); its input stays here so the file still rides this form. Send is the one main. */}
+                    of every tool this conversation has (`thread-tools-sheet.tsx`), grouped Money · Plan · Talk & files ·
+                    Just you (chat prototype 2026-10-28, frame D) — 📵 no call. The paperclip is its ONE "Share a file"
+                    (file · photo · video · the contract); its input stays here so the file still rides this form, and
+                    📷 · 🖼 are the composer's shortcuts into the same input. */}
                 <ChatSendForm
                   threadId={threadId}
                   sendAction={sendChatMessage}
@@ -1984,6 +1979,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
                private signer — see the prop in chat-message-stream.tsx. */
             paymentProofUrl={bookedMoney.deposit?.proofUrl ?? null}
             payoutReadiness={payoutReadiness}
+            theirLastReadAt={receipts.theirLastReadAt}
           />
         </ChatBox>
       </section>

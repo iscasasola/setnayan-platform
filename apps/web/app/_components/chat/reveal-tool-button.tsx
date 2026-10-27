@@ -1,6 +1,6 @@
 'use client';
 
-import { Handshake, Phone, ReceiptText } from 'lucide-react';
+import { Handshake, ReceiptText } from 'lucide-react';
 import {
   CHAT_BOX_AFFORDANCES,
   affordanceReveal,
@@ -22,9 +22,8 @@ import { revealThreadTool } from './reveal-thread-tool';
  * 44px both ways — `globals.css` floors every button's height at 44px; the
  * width is set here so the target is square on a phone.
  */
-const ICON: Record<ChatBoxAffordanceKey, typeof Phone> = {
+const ICON: Record<ChatBoxAffordanceKey, typeof Handshake> = {
   deal: Handshake,
-  call: Phone,
 };
 
 export function RevealToolButton({
@@ -33,7 +32,7 @@ export function RevealToolButton({
   entry,
 }: {
   affordance: ChatBoxAffordanceKey;
-  /** Overrides the registry label — e.g. "Call Hiraya Catering". */
+  /** Overrides the registry label. */
   label?: string;
   /**
    * The deal slot only: what `dealEntryFor` decided this thread's 🧾 opens.

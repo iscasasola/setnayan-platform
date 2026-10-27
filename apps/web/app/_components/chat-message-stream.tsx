@@ -23,7 +23,7 @@
 
 import Link from 'next/link';
 import { OpenFileLink } from '@/app/_components/open-file-link';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Download, FileText } from 'lucide-react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/client';
@@ -85,6 +85,18 @@ import { PayoutMethodNudge } from '@/app/vendor-dashboard/_components/payout-met
 import { renderPerkUnlock } from '@/lib/perk-unlock-message';
 import { formatCount } from '@/lib/format-number';
 import { pauseWhileHidden } from '@/lib/tab-return';
+import {
+  CHAT_PENDING_EVENT,
+  CHAT_SETTLED_EVENT,
+  CONFIRM_WINDOW_MS,
+  LAST_LINE_WORDS,
+  lastOwnLine,
+  runRetry,
+  settlePendings,
+  type PendingSend,
+} from '@/lib/chat-optimistic';
+import { bubbleRun, timeBreakBefore } from '@/lib/chat-bubble-runs';
+import { markChatViewer, rememberThread } from '@/lib/chat-last-known';
 
 /** Display data for the in-thread proposal card, fetched by proposal_id. */
 type ProposalLineItem = {
@@ -121,6 +133,16 @@ type ProposalCardData = {
 
 type Props = {
   threadId: string;
+  /**
+   * The other side's latest read of this thread (`chat_thread_reads.last_read_at`, read by the page) — "Seen" under
+   * your last message once it is at or after it (owner 2026-10-28: *"yes show seen"*). Null = unknown or never.
+   */
+  theirLastReadAt?: string | null;
+  /**
+   * Couple side: the shop team member's first name per `sender_user_id`, for a supplier message (owner 2026-10-28 —
+   * any member of the shop may reply). Only names the page may show (a revealed shop); absent → no name line.
+   */
+  senderNames?: Record<string, string>;
   /**
    * `dealEntryFor(...)` for this thread, from the page. The "🧾 Send a deal"
    * chip opens the amendment builder, and a Deal amends a quote — so before
@@ -309,12 +331,22 @@ export function ChatMessageStream({
   paymentProofUrl = null,
   payoutReadiness = 'unreadable',
   feeForecast = null,
+  theirLastReadAt = null,
+  senderNames = {},
 }: Props) {
   // Single Supabase client instance per mount — createClient is cheap but
   // the channel objects we attach to it must outlive each render.
   const supabase = useMemo(() => createClient(), []);
 
   const [messages, setMessages] = useState<ChatMessageRow[]>(initialMessages);
+  /** ⚡ Sent but not yet stored — painted at once, faded (`lib/chat-optimistic.ts`). */
+  const [pendings, setPendings] = useState<PendingSend[]>([]);
+  /* Remember the last messages, so the next open of this thread paints them before the server answers
+     (`lib/chat-last-known.ts`, drawn by the thread's `loading.tsx`). */
+  useEffect(() => {
+    markChatViewer(currentUserId);
+    rememberThread(threadId, messages, { viewerRole, uid: currentUserId, label: counterpartyLabel });
+  }, [threadId, messages, viewerRole, currentUserId, counterpartyLabel]);
   const [counterpartyTyping, setCounterpartyTyping] = useState(false);
 
   // Proposal cards: a message with proposal_id renders as a card. We fetch the
@@ -1000,6 +1032,58 @@ export function ChatMessageStream({
   }, [threadId, handleLocalTyping, handleSendClear]);
 
   // ---------------------------------------------------------------------------
+  // ⚡ OPTIMISTIC SEND — the composer's pending bubbles (lib/chat-optimistic.ts).
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    const onPending = (e: Event) => {
+      const p = (e as CustomEvent<PendingSend>).detail;
+      if (!p || p.threadId !== threadId) return;
+      setPendings((prev) => [...prev.filter((x) => x.tempId !== p.tempId), p]);
+      stickToBottomRef.current = true;
+    };
+    const onSettled = (e: Event) => {
+      const d = (e as CustomEvent<{ tempId: string; threadId: string; ok: boolean }>).detail;
+      if (!d || d.threadId !== threadId) return;
+      setPendings((prev) =>
+        prev.map((x) => (x.tempId === d.tempId ? { ...x, state: d.ok ? 'sent' : 'failed' } : x)),
+      );
+      if (!d.ok) return;
+      // 🔑 A RETURN IS NOT A DELIVERY: the real row must arrive. If Realtime has not brought it within the window,
+      // read the thread once; still absent → "Not sent" (an attachment the server refused returns quietly).
+      window.setTimeout(() => {
+        void (async () => {
+          let fresh: ChatMessageRow[] | null = null;
+          try {
+            fresh = await fetchMessages(supabase, threadId);
+          } catch {
+            fresh = null;
+          }
+          setPendings((prev) => {
+            const still = prev.find((x) => x.tempId === d.tempId);
+            if (!still) return prev;
+            if (fresh && settlePendings([still], fresh, viewerRole).length === 0) {
+              return prev.filter((x) => x.tempId !== d.tempId);
+            }
+            return prev.map((x) => (x.tempId === d.tempId ? { ...x, state: 'failed' } : x));
+          });
+          if (fresh) setMessages(fresh);
+        })();
+      }, CONFIRM_WINDOW_MS);
+    };
+    window.addEventListener(CHAT_PENDING_EVENT, onPending);
+    window.addEventListener(CHAT_SETTLED_EVENT, onSettled);
+    return () => {
+      window.removeEventListener(CHAT_PENDING_EVENT, onPending);
+      window.removeEventListener(CHAT_SETTLED_EVENT, onSettled);
+    };
+  }, [threadId, supabase, viewerRole]);
+
+  // A pending bubble leaves the moment its real row is in the thread.
+  useEffect(() => {
+    setPendings((prev) => (prev.length ? settlePendings(prev, messages, viewerRole) : prev));
+  }, [messages, viewerRole]);
+
+  // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
   // See the `flush` prop. One string, three scrollers, so the card chrome can
@@ -1087,7 +1171,7 @@ export function ChatMessageStream({
         minimum, and `basis-0` makes that minimum count THIS FLOOR rather than
         the whole thread. Same on the Decisions and Files scrollers above.
       */
-      className={`min-h-[14rem] flex-1 basis-0 space-y-2 overflow-y-auto ${scrollerChrome}`}
+      className={`min-h-[14rem] flex-1 basis-0 space-y-0.5 overflow-y-auto ${scrollerChrome}`}
       aria-live="polite"
       aria-relevant="additions"
     >
@@ -1103,7 +1187,8 @@ export function ChatMessageStream({
           No messages yet — say hi to break the ice.
         </li>
       ) : (
-        messages.map((m) => {
+        messages.map((m, i) => {
+          const node = (() => {
           // Proposal cards — a vendor-sent structured proposal lands in the
           // thread. Render the card (title · price · status + a Review/View
           // link to the existing /proposals page) instead of a plain bubble;
@@ -1469,14 +1554,42 @@ export function ChatMessageStream({
               </li>
             );
           }
+          // 💬 MESSENGER BUBBLES (chat prototype 2026-10-28, frame B): yours right in terracotta, theirs left with a
+          // small avatar beside the LAST bubble of their run; the corners join inside a run; no frame.
+          const mine = ownsBubble(m, viewerRole);
+          const run = bubbleRun(messages, i);
+          const staffName =
+            viewerRole === 'couple' && !mine && run.first && m.sender_user_id ? senderNames[m.sender_user_id] ?? null : null;
+          const corner = mine
+            ? `${run.first ? '' : 'rounded-tr-[6px]'} ${run.last ? '' : 'rounded-br-[6px]'}`
+            : `${run.first ? '' : 'rounded-tl-[6px]'} ${run.last ? '' : 'rounded-bl-[6px]'}`;
           return (
             <li
               key={m.message_id}
-              className={`flex flex-col ${ownsBubble(m, viewerRole) ? 'items-end' : 'items-start'}`}
+              className={`flex flex-col ${mine ? 'items-end' : 'items-start'} ${run.first ? 'pt-1.5' : ''}`}
+              data-chat-bubble={mine ? 'mine' : 'theirs'}
             >
+              {staffName ? (
+                <span className="mb-0.5 ml-[38px] text-[12px] text-ink/55" data-chat-staff-name="">
+                  {staffName}
+                </span>
+              ) : null}
+              <div className={`flex max-w-full items-end gap-1.5 ${mine ? 'justify-end' : ''}`}>
+              {!mine ? (
+                run.last ? (
+                  <span
+                    aria-hidden
+                    className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-ink/[0.1] text-[10px] font-semibold text-ink/70"
+                  >
+                    {initialsOf(counterpartyLabel)}
+                  </span>
+                ) : (
+                  <span aria-hidden className="w-7 shrink-0" />
+                )
+              ) : null}
               <div
-                className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${
-                  ownsBubble(m, viewerRole)
+                className={`max-w-[75%] rounded-[18px] px-3 py-2 text-[15px] leading-snug ${corner} ${
+                  mine
                     ? 'bg-terracotta text-cream'
                     : 'bg-ink/[0.06] text-ink'
                 }`}
@@ -1501,26 +1614,21 @@ export function ChatMessageStream({
                     hasBody={!!m.body}
                   />
                 ) : null}
-                <p
-                  className={`mt-1 font-mono text-[10px] uppercase tracking-[0.15em] ${
-                    ownsBubble(m, viewerRole) ? 'text-cream/70' : 'text-ink/50'
-                  }`}
-                >
-                  {/* AI-disclosure label (vendor-autoreply §2B): a bot message
-                      is NEVER presented as a human. The couple sees it under
-                      the vendor's name with an explicit AI tag; the vendor
-                      sees the same tag instead of "You" (it wasn't them).
-                      Copy is the §8 candidate string, pending owner sign-off. */}
-                  {m.is_bot
-                    ? viewerRole === 'vendor' && ownsBubble(m, viewerRole)
-                      ? '⚡ AI auto-reply'
-                      : `⚡ AI auto-reply · ${counterpartyLabel}`
-                    : ownsBubble(m, viewerRole)
-                      ? 'You'
-                      : counterpartyLabel}
-                  {' · '}
-                  {formatChatTimestamp(m.created_at)}
-                </p>
+                {/* AI-disclosure label (vendor-autoreply §2B): a bot message
+                    is NEVER presented as a human. The couple sees it under
+                    the vendor's name with an explicit AI tag; the vendor
+                    sees the same tag instead of "You" (it wasn't them).
+                    The time now sits centred between runs (Messenger), so
+                    only this label stays inside the bubble. */}
+                {m.is_bot ? (
+                  <p className={`mt-1 text-[11px] ${mine ? 'text-cream/75' : 'text-ink/55'}`}>
+                    {viewerRole === 'vendor' && mine ? '⚡ AI auto-reply' : `⚡ AI auto-reply · ${counterpartyLabel}`}
+                  </p>
+                ) : null}
+                <span className="sr-only">
+                  {mine ? 'You' : counterpartyLabel} · {formatChatTimestamp(m.created_at)}
+                </span>
+              </div>
               </div>
               {/* Negotiation auto-reader (Phase 1): under the sender's OWN
                   message, if the deterministic reader flags a meeting topic,
@@ -1561,8 +1669,56 @@ export function ChatMessageStream({
               ) : null}
             </li>
           );
+          })();
+          // A centred time between runs (Messenger): first message, or a quiet gap since the one before.
+          const brk = timeBreakBefore(messages, i);
+          return (
+            <Fragment key={m.message_id}>
+              {brk ? (
+                <li aria-hidden className="pb-1 pt-3 text-center text-[12px] text-ink/50" data-chat-time="">
+                  {formatChatTimestamp(m.created_at)}
+                </li>
+              ) : null}
+              {node}
+            </Fragment>
+          );
         })
       )}
+      {/* ⚡ Sent, not yet stored — your words at once, faded (prototype frame B). */}
+      {pendings.map((p) => (
+        <li key={p.tempId} className="flex flex-col items-end" data-chat-pending={p.state}>
+          <div className={`max-w-[75%] rounded-[18px] bg-terracotta px-3 py-2 text-[15px] leading-snug text-cream ${p.state === 'failed' ? 'opacity-50' : 'opacity-60'}`}>
+            {p.body ? <p className="whitespace-pre-wrap break-words">{p.body}</p> : null}
+            {p.fileName ? <p className="truncate text-[13px] text-cream/85">📎 {p.fileName}</p> : null}
+          </div>
+        </li>
+      ))}
+      {(() => {
+        const lastStored = [...messages].reverse().find((m) => !m.proposal_id && !m.appointment_id && !m.change_order_id && !m.amendment_id && m.sender_role !== 'system') ?? null;
+        const line = lastOwnLine({ lastStored, pendings, viewerRole, theirLastReadAt });
+        if (!line) return null;
+        if (line.kind === 'failed') {
+          return (
+            <li className="flex items-center justify-end gap-2 pr-1 text-[12px] text-terracotta" data-chat-last-line="failed" role="alert">
+              <span>{LAST_LINE_WORDS.failed}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!runRetry(line.tempId)) setPendings((prev) => prev.filter((x) => x.tempId !== line.tempId));
+                }}
+                className="inline-flex min-h-11 items-center px-2 font-semibold underline underline-offset-2"
+              >
+                Try again
+              </button>
+            </li>
+          );
+        }
+        return (
+          <li className="pr-1 text-right text-[12px] text-ink/50" data-chat-last-line={line.kind}>
+            {LAST_LINE_WORDS[line.kind]}
+          </li>
+        );
+      })()}
       {counterpartyTyping ? (
         <li className="flex justify-start" data-testid="typing-indicator">
           <div className="inline-flex items-center gap-1 rounded-full bg-ink/[0.06] px-3 py-1 text-xs text-ink/60">
@@ -1606,6 +1762,13 @@ export function ChatMessageStream({
       )}
     </div>
   );
+}
+
+function initialsOf(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  const a = parts[0]?.[0] ?? '';
+  const b = parts.length > 1 ? parts[parts.length - 1]![0] ?? '' : '';
+  return (a + b).toUpperCase() || '·';
 }
 
 function ownsBubble(

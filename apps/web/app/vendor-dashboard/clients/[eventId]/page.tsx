@@ -23,7 +23,6 @@ import {
   MessageSquarePlus,
   PackageCheck,
   Palette,
-  Phone,
   ScrollText,
   Sparkles,
   UserRound,
@@ -2286,14 +2285,7 @@ function ReturningMarkerAndActions({
             <MessageSquare aria-hidden className="h-3.5 w-3.5" /> Chat
           </Link>
         ) : null}
-        {threadId ? (
-          <Link
-            href={`/vendor-dashboard/messages/${threadId}#thread-call`}
-            className={`${actionBase} border-ink/15 bg-white text-ink/70 hover:border-terracotta/40`}
-          >
-            <Phone aria-hidden className="h-3.5 w-3.5" /> Call
-          </Link>
-        ) : null}
+        {/* 📵 "Call" (→ the chat's call panel) is gone with the panel — owner 2026-10-28, "remove both voice and video call". */}
         <Link
           href={
             threadId

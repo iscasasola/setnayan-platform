@@ -148,7 +148,7 @@ test('3 · the ticket PNG, the printed batches, the plus-one’s door and the co
   assert.match(read('app/[slug]/welcome/_components/plus-one-door.tsx'), /const wholeName = displayPersonName\(composeFormalName\(row\)\);/);
   const list = read('app/dashboard/[eventId]/guests/_components/guests-screen.tsx');
   assert.match(list, /const name = plusWords\?\.name \?\? displayPersonName\(guestNameAsGiven\(g\) \?\? guestDisplayName\(g\)\);/, 'the Guest list row prints the typed name');
-  assert.match(read('app/dashboard/[eventId]/guests/_components/guest-card-body.tsx'), /return plusOneOf\?\.name \?\? displayPersonName\(guestDisplayName\(guest\)\);/, 'the guest card’s title prints the typed name');
+  assert.match(read('app/dashboard/[eventId]/guests/_components/guest-card-head.tsx'), /return plusOneOf\?\.name \?\? displayPersonName\(guestDisplayName\(guest\)\);/, 'the guest card’s title prints the typed name');
   assert.match(read('app/dashboard/[eventId]/guests/_components/guest-map-canvas.tsx'), /const name = words\?\.name \?\? displayPersonName\(guestDisplayName\(g\)\);/, 'the Guest map prints the typed name');
 });
 

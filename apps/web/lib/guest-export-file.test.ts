@@ -108,6 +108,13 @@ test('6 · the route never sends an empty file for a refused read, and keeps the
   assert.match(route, /viewerAreaLevel\(viewer, 'guest_list'\) === null/, 'only who may see the guest list');
   assert.match(route, /'Cache-Control': 'private, no-store'/);
   assert.match(route, /assignmentsRead\.measured && tablesRead\.measured/, 'an unread seat plan drops the Table column');
-  const screen = readFileSync(join(WEB, 'app', 'dashboard', '[eventId]', 'guests', '_components', 'guests-screen.tsx'), 'utf8');
-  assert.match(screen, /href=\{`\/dashboard\/\$\{eventId\}\/guests\/export`\}\s*download/, 'one tap from the list');
+  const screen = stripComments(readFileSync(join(WEB, 'app', 'dashboard', '[eventId]', 'guests', '_components', 'guests-screen.tsx'), 'utf8'));
+  assert.match(screen, /<GuestsExcelButton eventId=\{eventId\}/, 'one tap from the list');
+  // 🐞 Owner 27 Oct (iPhone app): the bare `<a download>` RENDERED the CSV in the app's only view, no close button,
+  // nothing saved. The tap must be taken over and SAVED (share sheet / download) — the link stays only as the
+  // before-hydration fallback.
+  const button = stripComments(readFileSync(join(WEB, 'app', 'dashboard', '[eventId]', 'guests', '_components', 'guests-excel-button.tsx'), 'utf8'));
+  assert.match(button, /`\/dashboard\/\$\{eventId\}\/guests\/export`/, 'the button does not fetch the export route');
+  assert.match(button, /onClick=\{\(e\) => \{\s*e\.preventDefault\(\);\s*void save\(href,/, 'the tap is not taken over — the app shows the file in place again');
+  assert.match(button, /usePrintSave\(\)/, 'the save is not the shared one (share sheet on a phone, download on a computer)');
 });

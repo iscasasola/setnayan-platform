@@ -20,6 +20,7 @@ import {
 } from '@/lib/calendar-links';
 import { resolveStdFilmContent } from '@/lib/save-the-date-content';
 import { resolveStdTheme } from '@/lib/std-themes';
+import { SaveFileLink } from '@/app/_components/save-file-link';
 import { CountdownWidget } from './countdown';
 import { OurStory } from './our-story';
 import { SaveTheDateFilm, type StdLockup } from './save-the-date-film';
@@ -240,13 +241,13 @@ export function SaveTheDateView({
             </a>
           ) : null}
           {ics ? (
-            <a
+            <SaveFileLink
               href={icsDataHref(ics)}
-              download={`${displayName.replace(/[^\w-]+/g, '-')}-save-the-date.ics`}
+              filename={`${displayName.replace(/[^\w-]+/g, '-')}-save-the-date.ics`}
               className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-ink/15 bg-cream px-5 py-2.5 text-sm font-medium text-ink/75 shadow-sm transition hover:border-terracotta hover:text-terracotta-700"
             >
               Apple / Outlook (.ics)
-            </a>
+            </SaveFileLink>
           ) : null}
         </div>
       ) : null}

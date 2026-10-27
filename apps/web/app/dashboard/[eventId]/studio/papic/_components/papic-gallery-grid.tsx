@@ -15,6 +15,7 @@ import {
 import { formatPhp } from '@/lib/orders';
 import { SavePhotoButton } from '@/app/_components/save-photo-button';
 import { saveMediaToDevice } from '@/lib/save-to-device';
+import { SaveFileLink } from '@/app/_components/save-file-link';
 import { setClipShowcaseApproval, setGuestClipShowcaseApproval, setCapturePreserved } from '../actions';
 import { GalleryCredit } from '@/app/_components/gallery/gallery-credit';
 import { GalleryLightbox } from '@/app/_components/gallery/gallery-lightbox';
@@ -192,14 +193,15 @@ export function PapicGalleryGrid({
       </div>
 
       {eventId && photos.length > 0 ? (
-        <a
+        // 📥 Saved, never shown in place — the app's web view renders a file with no way back (owner 2026-10-27).
+        <SaveFileLink
           href={`/dashboard/${eventId}/studio/papic/gallery-zip`}
-          download
+          filename="setnayan-papic-photos.zip"
           className="sn-gal-btn mt-2 inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium"
         >
           <Download aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
           Download all
-        </a>
+        </SaveFileLink>
       ) : null}
 
       {eventId && photos.some((p) => p.kind === 'clip') ? (
@@ -408,14 +410,15 @@ export function PapicLightbox({
             {saving ? 'Saving…' : 'Download snippet'}
           </button>
         ) : photo.saveUrl ? (
-          <a
+          // `saveUrl` is the same-origin save-photo route — SaveFileLink saves it (share sheet / download), never shows it.
+          <SaveFileLink
             href={photo.saveUrl}
-            download
+            filename={`setnayan-photo-${photo.id}.jpg`}
             className="sn-gal-btn inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium"
           >
             <Download aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
             Save photo
-          </a>
+          </SaveFileLink>
         ) : null
       }
     />

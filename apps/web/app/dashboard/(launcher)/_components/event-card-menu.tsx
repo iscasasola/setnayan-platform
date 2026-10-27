@@ -29,6 +29,7 @@ import {
 } from '@/lib/event-deletion-reasons';
 import { buildWeddingIcs, icsDataHref } from '@/lib/calendar-links';
 import { useOneOpen } from '@/lib/one-open';
+import { SaveFileLink } from '@/app/_components/save-file-link';
 
 /**
  * event-card-menu.tsx — the per-card "⋯" on My Events.
@@ -398,11 +399,14 @@ export function EventCardMenu({
           >
             {icsHref ? (
               <>
-                <a
+                {/* 📥 Saved, never shown in place: the app's web view ignores `download` and renders the .ics with no way
+                    back (owner 2026-10-27). SaveFileLink runs the share sheet / download; the wrapper's capture still
+                    closes the menu on the same tap. */}
+                <div className="contents" onClickCapture={close}>
+                <SaveFileLink
                   href={icsHref}
-                  download={`${eventName}.ics`}
+                  filename={`${eventName}.ics`}
                   role="menuitem"
-                  onClick={close}
                   className="flex w-full items-start gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm text-ink hover:bg-ink/5"
                 >
                   <CalendarPlus
@@ -418,7 +422,8 @@ export function EventCardMenu({
                       Just this event, on your phone.
                     </span>
                   </span>
-                </a>
+                </SaveFileLink>
+                </div>
                 <div className="my-1 h-px bg-ink/10" />
               </>
             ) : null}

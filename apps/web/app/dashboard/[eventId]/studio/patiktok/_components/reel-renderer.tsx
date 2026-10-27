@@ -30,6 +30,8 @@ import { renderReel } from '@/lib/reel-render';
 import { PATIKTOK_PREVIEW_WATERMARK } from '@/lib/patiktok-access';
 import { formatPhp } from '@/lib/orders';
 import { PaidMark } from '@/app/_components/paid-mark';
+import { OpenFileLink } from '@/app/_components/open-file-link';
+import { saveFileToDevice } from '@/lib/save-to-device';
 import {
   InlineCheckoutDrawer,
   type InlineCheckoutDrawerProps,
@@ -85,6 +87,10 @@ export function ReelRenderer({
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [renderMode, setRenderMode] = useState<string | null>(null);
   const previewUrlRef = useRef<string | null>(null);
+  // The rendered reel itself, so "Download reel" hands the FILE to the device (share sheet on a phone, a download on a
+  // computer). 🐞 2026-10-27: a blob `<a download>` in the iPhone app saves nothing and traps the view.
+  const reelFileRef = useRef<File | null>(null);
+  const [saveNote, setSaveNote] = useState<'expired' | 'failed' | null>(null);
 
   useEffect(() => {
     previewUrlRef.current = previewUrl;
@@ -176,6 +182,10 @@ export function ReelRenderer({
 
       const objUrl = URL.createObjectURL(result.blob);
       setPreviewUrl(objUrl);
+      reelFileRef.current = new File([result.blob], `patiktok-reel.${result.mimeType.includes('webm') ? 'webm' : 'mp4'}`, {
+        type: result.mimeType,
+      });
+      setSaveNote(null);
       if (!fin.ok) {
         setPhase('preview');
         return;
@@ -253,23 +263,31 @@ export function ReelRenderer({
             />
           </div>
           <div className="flex flex-wrap gap-2">
-            <a
-              href={previewUrl}
-              download="patiktok-reel.mp4"
+            <button
+              type="button"
+              onClick={async () => {
+                const reel = reelFileRef.current;
+                if (!reel) {
+                  setSaveNote('failed');
+                  return;
+                }
+                const r = await saveFileToDevice(reel);
+                setSaveNote(r === 'expired' ? 'expired' : r === 'failed' ? 'failed' : null);
+              }}
               className="inline-flex items-center justify-center gap-2 rounded-md bg-success-700 px-4 py-2.5 text-sm font-medium text-cream transition-colors hover:bg-success-800"
             >
               <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-              Download reel
-            </a>
+              {saveNote === 'expired' ? 'Tap to save' : 'Download reel'}
+            </button>
             {downloadUrl ? (
-              <a
+              <OpenFileLink
                 href={downloadUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center justify-center gap-2 rounded-md border border-ink/15 bg-cream px-4 py-2.5 text-sm font-medium text-ink/70 hover:border-mulberry/40 hover:text-mulberry"
               >
                 Open saved copy
-              </a>
+              </OpenFileLink>
             ) : null}
             <button
               type="button"
@@ -280,6 +298,11 @@ export function ReelRenderer({
               Render again
             </button>
           </div>
+          {saveNote === 'failed' ? (
+            <p role="alert" className="text-sm text-danger-700">
+              The reel could not be saved to this device. Nothing was downloaded — try again.
+            </p>
+          ) : null}
           <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/45">
             Saved to your Memories{renderMode ? ` · ${renderMode.replace('client_', '')}` : ''}
           </p>

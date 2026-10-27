@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { SaveFileLink } from '@/app/_components/save-file-link';
 import { importGuestsCsv } from './actions';
 import { GuestImportForm } from './import-form';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
@@ -39,9 +40,10 @@ export default async function ImportGuestsPage({ params }: Props) {
           Fill it in with Excel, Numbers or Google Sheets — one person per row.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-3">
-          <a href={template.xlsx} download className="button-primary">
+          {/* 📥 Saved, never shown in place — the app's web view renders a file with no way back (owner 2026-10-27). */}
+          <SaveFileLink href={template.xlsx} filename={template.xlsx.split('/').pop() ?? 'setnayan-guest-list.xlsx'} className="button-primary">
             Download for Excel / Numbers
-          </a>
+          </SaveFileLink>
           <a
             href={template.googleSheets}
             target="_blank"
@@ -50,9 +52,13 @@ export default async function ImportGuestsPage({ params }: Props) {
           >
             Open in Google Sheets
           </a>
-          <a href={template.csv} download className="text-sm font-medium text-terracotta-700 hover:underline">
+          <SaveFileLink
+            href={template.csv}
+            filename={template.csv.split('/').pop() ?? 'setnayan-guest-list.csv'}
+            className="text-sm font-medium text-terracotta-700 hover:underline"
+          >
             CSV
-          </a>
+          </SaveFileLink>
         </div>
       </section>
 

@@ -51,7 +51,6 @@ import {
   ChevronsDownUp,
   ChevronsUpDown,
   CircleHelp,
-  Download,
   Ellipsis,
   Heart,
   House,
@@ -79,6 +78,7 @@ import { PickMenu, type PickOption } from '@/app/dashboard/[eventId]/website/edi
 import { useInspectorContext } from '@/app/_components/inspector/inspector-column';
 import { PILL_TRACK_CLASS, PILL_TRACK_GROUND, PillThumb, pillSegClass } from '@/app/_components/pill-selector';
 import { GuestPopup } from './guest-popup';
+import { GuestsExcelButton } from './guests-excel-button';
 import { Handed } from './handed';
 import { MenuSettingsButton } from '@/app/_components/menu-settings-button';
 import { usePeekToast } from './use-peek-toast';
@@ -1520,20 +1520,11 @@ export function GuestsScreen(props: GuestsScreenProps) {
                   ) : null}
                   {/* 📥 THE LIST AS A SPREADSHEET, ONE TAP (owner 2026-10-16: "just have a excel file for their
                       guests"). The server writes it fresh, in the import template's own columns, so the same
-                      file can be edited and uploaded again (`guests/export/route.ts`). A plain link — no
-                      JavaScript, nothing added to any bundle. */}
+                      file can be edited and uploaded again (`guests/export/route.ts`). SAVED through the share
+                      sheet / a download, never shown in place — the app's web view rendered the CSV with no way
+                      back (owner 27 Oct; `guests-excel-button.tsx`). */}
                   {copy?.freshness === 'failed' ? null : (
-                    <a
-                      href={`/dashboard/${eventId}/guests/export`}
-                      download
-                      className={actionButtonClass('neutral', { extra: `${styles.excel} min-h-11` })}
-                      aria-label="Download as Excel"
-                      title="Download as Excel"
-                      data-guests-export=""
-                    >
-                      <Download aria-hidden strokeWidth={1.9} />
-                      <span className="lbl">Excel</span>
-                    </a>
+                    <GuestsExcelButton eventId={eventId} className={actionButtonClass('neutral', { extra: `${styles.excel} min-h-11` })} />
                   )}
                 </div>
               </div>

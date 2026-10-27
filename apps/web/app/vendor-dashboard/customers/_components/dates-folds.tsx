@@ -442,7 +442,7 @@ export function DatesFolds({
         title="Phone calendar"
         line="Every booking · .ics"
         href={icsHref}
-        download
+        download="setnayan-bookings.ics"
       />
     </div>
   );

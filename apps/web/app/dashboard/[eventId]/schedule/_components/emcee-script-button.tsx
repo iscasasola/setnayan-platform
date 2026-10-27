@@ -5,12 +5,13 @@ import { ScrollText, Copy, Check, Download, X } from 'lucide-react';
 import { generateEmceeScript } from '../actions';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
+import { saveFileToDevice } from '@/lib/save-to-device';
 
 /**
  * EmceeScriptButton — one-tap "Generate emcee script" affordance for the
  * schedule page. Calls the server action (which runs the pure buildEmceeScript
  * compiler over the saved blocks + guest list), then shows the result in a
- * modal with copy-to-clipboard + download-as-.txt. Read-only — it compiles the
+ * modal with copy-to-clipboard + save-as-.txt (`saveFileToDevice`). Read-only — it compiles the
  * existing program, never mutates it.
  */
 
@@ -61,21 +62,19 @@ export function EmceeScriptButton({ eventId, coupleName, variant = 'button' }: P
     }
   }
 
-  function download() {
+  // 📥 SAVED through the device, never a bare blob `<a download>` click: the app's web view has no Downloads folder and
+  // saved nothing (owner 2026-10-27). `saveFileToDevice` = the share sheet on a phone, a download on a computer.
+  // 'expired' (iOS refused a share whose tap ran out) → the button says "Tap to save"; 'failed' says so in words.
+  const [saveNote, setSaveNote] = useState<'expired' | 'failed' | null>(null);
+  async function download() {
     if (!script) return;
-    const blob = new Blob([script], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
     const slug = (coupleName ?? 'wedding')
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '');
-    a.href = url;
-    a.download = `emcee-script-${slug || 'wedding'}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    const file = new File([script], `emcee-script-${slug || 'wedding'}.txt`, { type: 'text/plain;charset=utf-8' });
+    const result = await saveFileToDevice(file);
+    setSaveNote(result === 'expired' ? 'expired' : result === 'failed' ? 'failed' : null);
   }
 
   return (
@@ -181,9 +180,14 @@ export function EmceeScriptButton({ eventId, coupleName, variant = 'button' }: P
                   className="inline-flex items-center gap-1.5 rounded-lg bg-terracotta-700 px-3 py-2 text-sm font-medium text-cream transition-colors hover:bg-terracotta-800 disabled:opacity-50"
                 >
                   <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                  Download
+                  {saveNote === 'expired' ? 'Tap to save' : 'Download'}
                 </button>
               </div>
+              {saveNote === 'failed' ? (
+                <p role="alert" className="basis-full text-xs text-danger-700" data-emcee-save="failed">
+                  The script could not be saved — copy it instead, or try again.
+                </p>
+              ) : null}
             </footer>
           </div>
         </div>

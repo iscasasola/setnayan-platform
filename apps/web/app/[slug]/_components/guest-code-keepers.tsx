@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Check, Copy, Download } from 'lucide-react';
 import { SavePassCardButton } from '@/app/_components/save-pass-card-button';
+import { SaveFileLink } from '@/app/_components/save-file-link';
 import { PASS_CARD_WORDS } from '@/lib/pass-card';
 
 /**
@@ -14,10 +15,10 @@ import { PASS_CARD_WORDS } from '@/lib/pass-card';
  * used to show the code and offer nothing; giving each its own pair of buttons
  * would be three chances to forget one, and the next surface would make four.
  *
- * The save is a plain anchor with `download` pointed at /api/guest/qr — the
- * same shape the host dashboard already uses for its branded PNG, so the
- * browser does the saving and no JavaScript is required for the half that
- * matters most. Only the clipboard needs a client.
+ * The save is `SaveFileLink` pointed at /api/guest/qr (2026-10-27): a bare
+ * `<a download>` was rendered in place by the iPhone app's web view, with no
+ * way back. The tap now saves through the share sheet / a download; the
+ * anchor keeps `href` + `download` so a tap before hydration still works.
  *
  * ⛔ NO "WRITE TO NFC" HERE — owner, 2026-09-21: *"remove the write to NFC on
  * the event hub."* Writing a tag is a job for the people who PRINT and PLACE
@@ -67,14 +68,14 @@ export function GuestCodeKeepers({
         {passCardHref ? (
           <SavePassCardButton hrefs={[passCardHref]} label={PASS_CARD_WORDS.saveOwn} />
         ) : (
-        <a
+        <SaveFileLink
           href="/api/guest/qr"
-          download
+          filename="setnayan-qr.png"
           className="inline-flex min-h-[44px] items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/70 transition hover:border-terracotta hover:text-terracotta-700"
         >
           <Download aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           Save the code
-        </a>
+        </SaveFileLink>
         )}
         <button
           type="button"

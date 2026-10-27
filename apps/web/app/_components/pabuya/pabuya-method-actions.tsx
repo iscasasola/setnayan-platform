@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Check, Copy, Download } from 'lucide-react';
+import { SaveFileLink } from '@/app/_components/save-file-link';
 
 /**
  * The two things a guest actually does with a gift method: copy the number, or
@@ -103,18 +104,18 @@ export function PabuyaMethodActions({
       ) : null}
 
       {qrUrl ? (
-        <a
+        <SaveFileLink
           href={`${qrUrl}${qrUrl.includes('?') ? '&' : '?'}download=1`}
-          /* `download` is belt-and-braces: the route already sends
-             Content-Disposition: attachment, which is what actually works on
-             iOS Safari where the attribute alone is unreliable. */
-          download
+          /* The route sends Content-Disposition: attachment, but the iPhone app's web view ignores both that and the
+             `download` attribute and RENDERS the image with no way back — SaveFileLink fetches it and hands it to the
+             share sheet ("Save Image") instead. */
+          filename={`${label.replace(/[^\w-]+/g, '-').toLowerCase()}-qr.png`}
           className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-3.5 py-2 text-xs font-medium text-ink/80 transition hover:border-terracotta hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
           aria-label={`Save the ${label} QR code to your photos`}
         >
           <Download aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           Save QR
-        </a>
+        </SaveFileLink>
       ) : null}
     </div>
   );

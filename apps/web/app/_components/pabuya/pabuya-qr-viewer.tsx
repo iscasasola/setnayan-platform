@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Download } from 'lucide-react';
 import { GalleryLightbox } from '@/app/_components/gallery/gallery-lightbox';
+import { SaveFileLink } from '@/app/_components/save-file-link';
 
 /**
  * 📱 THE GIFT QR, OPENED IN PLACE (owner 2026-10-24, on the Event Hub's e-gifts:
@@ -67,16 +68,17 @@ export function PabuyaQrThumb({
             </>
           }
           actions={
-            <a
+            <SaveFileLink
               href={saveHref}
-              /* The route answers `?download=1` with Content-Disposition: attachment — the page stays put. */
-              download
+              /* The route answers `?download=1` with Content-Disposition: attachment — but the iPhone app's web view
+                 renders it in place anyway, so SaveFileLink fetches it and hands it to the share sheet. */
+              filename={`${label.replace(/[^\w-]+/g, '-').toLowerCase()}-qr.png`}
               aria-label={`Save the ${label} QR code to your photos`}
               className="sn-gal-btn inline-flex min-h-[44px] items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium"
             >
               <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
               Save QR
-            </a>
+            </SaveFileLink>
           }
         />
       ) : null}

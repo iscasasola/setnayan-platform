@@ -381,7 +381,7 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
   );
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 lg:px-8 [[data-create-event-in-panel]_&]:pt-4">
       <NewEventHead nothingBehind={nothingBehind} samahan={samahan} />
 
       <EventTypePicker

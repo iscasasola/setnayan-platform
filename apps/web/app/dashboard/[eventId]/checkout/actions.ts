@@ -67,6 +67,7 @@ import { getEffectiveVatRatePct } from '@/lib/platform-settings';
 import { coordinatorMoneyScopeAllowed } from '@/lib/coordinator-money-scope';
 import { orderRowFor, paymentRowFor } from '@/lib/order-mint-identity';
 import { getRequestPlatform, isRequestPlatform } from '@/lib/request-platform';
+import { readWelcomeDecision, welcomeChargeFor } from '@/lib/welcome-discount.server';
 import { notifyAdminsOrderAwaitingReconciliation } from '@/lib/order-admin-notify';
 import { isUniqueRefusal, orderInsertRefusal, PAYMENT_NOT_LOGGED } from '@/lib/checkout-submit-refusal';
 import { HUB_PARTS_ORDER_KEY, hubPart, parseHubPartsField } from '@/lib/hub-parts';
@@ -585,9 +586,9 @@ export async function submitOrderAction(
     return { ok: false, reason: refusalMessage(authority.refusal) };
   }
 
-  // The ONE authoritative amount for this order. `const` + the brand means it
-  // cannot be reassigned or re-multiplied downstream.
-  const chargeTotal: OrderTotalCentavos = authority.total;
+  // The REGULAR catalogue charge — what the tripwire below checks against the
+  // figure the buyer was shown. The welcome price (below) may only LOWER it.
+  const regularTotal: OrderTotalCentavos = authority.total;
   // SEC-3: the pax this order is PRICED at, frozen onto the order row below.
   // events.estimated_pax is legitimately host-writable and stays that way, so
   // the billed pax must never be re-derivable from it after the fact. Same
@@ -607,7 +608,7 @@ export async function submitOrderAction(
   // the host-writable estimate.
   if (
     chargeOverchargesDisplayedPrice({
-      total: chargeTotal,
+      total: regularTotal,
       displayedCentavos,
       volatile: authority.volatile,
     })
@@ -616,7 +617,7 @@ export async function submitOrderAction(
       event_type: 'OTHER',
       element_name: 'Checkout would overcharge the displayed price',
       file_path: 'app/dashboard/[eventId]/checkout/actions.ts',
-      error_message: `resolved ${chargeTotal.toString()} > displayed ${displayedCentavos?.toString()}`,
+      error_message: `resolved ${regularTotal.toString()} > displayed ${displayedCentavos?.toString()}`,
       payload_snapshot: { eventId: eventIdClean, serviceKey, source: authority.source },
     });
     return {
@@ -624,6 +625,38 @@ export async function submitOrderAction(
       reason: 'The price for this changed. Please refresh the page and try again.',
     };
   }
+
+  // ── 💲 The website-only welcome price (owner 2026-10-28, "ONE PRICE EVERYWHERE") ──
+  // An account's FIRST purchase, on the website only, at the shipped set-up rule
+  // (`lib/welcome-discount.ts`). Decided HERE from the session, the request's own
+  // shell signals and the orders table — never from a form field. It does not
+  // stack: a buyer who applied a voucher pays the voucher price instead.
+  //
+  // 🔑 THE SCREEN AND THE CHARGE MUST AGREE. The drawer says whether it SHOWED the
+  // welcome price (`welcome_quoted`); if the server now decides otherwise (another
+  // purchase landed in a second tab, the owner switched it off) the sale is
+  // refused with "the price changed" rather than billing a figure the QR did not
+  // carry. The flag never sets the price — it only refuses a disagreement.
+  const voucherRequested = typeof voucherCodeRaw === 'string' && voucherCodeRaw.trim().length > 0;
+  const welcome = voucherRequested
+    ? null
+    : await welcomeChargeFor({
+        decision: await readWelcomeDecision(user.id),
+        serviceKey,
+        eventId: eventIdClean,
+        regular: authority,
+      });
+  const welcomeApplied = welcome !== null && welcome.ok;
+  if (welcomeApplied !== (formData.get('welcome_quoted') === '1')) {
+    return {
+      ok: false,
+      reason: 'The price for this changed. Please refresh the page and try again.',
+    };
+  }
+
+  // The ONE authoritative amount for this order. `const` + the brand means it
+  // cannot be reassigned or re-multiplied downstream.
+  const chargeTotal: OrderTotalCentavos = welcome && welcome.ok ? welcome.total : regularTotal;
 
   const originalCentavos: bigint = chargeTotal;
 
@@ -794,7 +827,8 @@ export async function submitOrderAction(
     },
     {
       service_key: serviceKey,
-      description: displayName,
+      // The admin reconciling this bill sees WHY it is below the catalogue price.
+      description: welcomeApplied ? `${displayName} · Welcome price (first purchase)` : displayName,
       requested_total_php: originalPriceForOrderTotal,
       reference_code: referenceCode,
       platform: orderPlatform,
@@ -1129,4 +1163,55 @@ async function orderLandedForBuyer(
     .eq('user_id', userId)
     .maybeSingle();
   return !landedErr && Boolean(landed);
+}
+
+/**
+ * 💲 The website-only welcome price for ONE line, as the drawer should show it
+ * (owner 2026-10-28, "ONE PRICE EVERYWHERE"). A READ: it records nothing.
+ *
+ * Null whenever the buyer is not on the welcome price — the switch is off, this
+ * is the App Store / Play Store shell (`readWelcomeDecision` refuses the app
+ * before anything else), the account has bought before, or any read failed.
+ * The drawer then shows exactly what it showed before this existed.
+ *
+ * Priced by the SAME two calls `submitOrderAction` makes (`resolveOrderChargeCentavos`
+ * then `welcomeChargeFor`), so the figure on the screen is the figure charged.
+ */
+export async function quoteWelcomeAction(input: {
+  eventId: string;
+  serviceKey: string;
+  hubParts?: string;
+}): Promise<{ welcomeCentavos: string; pct: number } | null> {
+  try {
+    const eventIdClean = typeof input.eventId === 'string' ? input.eventId.trim() : '';
+    const serviceKey = typeof input.serviceKey === 'string' ? input.serviceKey : '';
+    if (!eventIdClean || !serviceKey) return null;
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user || user.is_anonymous) return null;
+    const decision = await readWelcomeDecision(user.id);
+    if (decision.kind !== 'welcome') return null;
+    // Only for the buyer's own event — the same membership the checkout requires.
+    const { data: membership } = await supabase
+      .from('event_members')
+      .select('event_id')
+      .eq('event_id', eventIdClean)
+      .eq('user_id', user.id)
+      .maybeSingle();
+    if (!membership) return null;
+    const fd = new FormData();
+    if (input.hubParts) fd.set('hub_parts', input.hubParts);
+    const regular = await resolveOrderChargeCentavos({
+      serviceKey,
+      eventId: eventIdClean,
+      hubParts: serviceKey === HUB_PARTS_ORDER_KEY ? parseHubPartsField(fd.get('hub_parts')) : [],
+    });
+    const welcome = await welcomeChargeFor({ decision, serviceKey, eventId: eventIdClean, regular });
+    if (!welcome || !welcome.ok) return null;
+    return { welcomeCentavos: welcome.total.toString(), pct: decision.pct };
+  } catch {
+    return null;
+  }
 }

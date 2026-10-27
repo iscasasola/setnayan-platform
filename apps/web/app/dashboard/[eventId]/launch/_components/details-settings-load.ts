@@ -163,7 +163,7 @@ export async function loadEventSettings(input: {
   };
 
   const eventType = str('event_type');
-  const [confirmedVendorCount, budgetAccess, profile, activeCeremonies, kind] = await Promise.all([
+  const [confirmedVendorCount, budgetAccess, profile, activeCeremonies, kindLine] = await Promise.all([
     getConfirmedVendorCount(supabase, eventId),
     resolveBudgetVisibility(supabase, eventId, userId),
     resolveProfile(eventType ?? 'wedding'),
@@ -260,7 +260,7 @@ export async function loadEventSettings(input: {
       rows,
     },
     pax: { deadline, mode },
-    kind,
+    kind: kindLine,
     readout,
     sub: [pax != null && pax > 0 ? `About ${formatCount(pax)} guests` : null, region?.display_label ?? null].filter(Boolean).join(' · ') || NOT_SET_YET,
   };

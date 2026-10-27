@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { ChevronDown } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
@@ -16,10 +15,9 @@ import { updateEventMatchCriteria } from '../../actions';
  * it — existing ones keep working, and their host picks a specific kind here), or an event whose host asked us to add
  * a type that is now added ("start with the closest type and switch once it exists"). One dropdown (PickMenu), the
  * details inside the ⓘ. It saves the moment a kind is picked, through the shipped `updateEventMatchCriteria`
- * (`event_type_switch` door, +0 actions), and refreshes in place — the screen never resets.
+ * (`event_type_switch` door, +0 actions), and the action's own revalidate redraws it in place — the screen never resets.
  */
 export function EventKindLine({ eventId, kind }: { eventId: string; kind: EventKindLineInput }) {
-  const router = useRouter();
   const [pending, start] = useTransition();
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const firstAsked = kind.choices.find((c) => c.asked);
@@ -62,8 +60,8 @@ export function EventKindLine({ eventId, kind }: { eventId: string; kind: EventK
             fd.set('event_type_switch', key);
             const res = await updateEventMatchCriteria(fd);
             if (res.ok) {
+              // The action revalidates the event's layout, so its answer already carries the new render.
               setMessage({ ok: true, text: 'Saved.' });
-              router.refresh();
             } else {
               setMessage({ ok: false, text: res.message });
             }

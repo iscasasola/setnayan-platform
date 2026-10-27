@@ -100,7 +100,7 @@ export function AskForEventType() {
               <p className="text-[13px] text-ink/60">
                 Meanwhile, start with the closest type — you can switch once yours is added.
               </p>
-              {outcome && outcome !== 'sent' ? (
+              {outcome ? (
                 <p role="alert" className="text-sm text-terracotta-700">
                   {outcome === 'too_short'
                     ? 'Type the kind of event first.'

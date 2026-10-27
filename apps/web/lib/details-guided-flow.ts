@@ -253,6 +253,20 @@ export type GuidedLinkStep = {
 };
 
 /**
+ * 🗂 WHERE A LINK STEP GOES — the guests' names to the Guest list's import (`guestsHref`); a reply setting (R1, owner
+ * 2026-10-28: *"RSVP moves into the Guests ⚙ sheet"*) to Guests ⚙ (`guestsSettingsHref`, `?settings=1`) open on its row.
+ * Null: that door was not handed in — the link is not drawn rather than drawn to nowhere.
+ */
+export function guidedLinkHref(
+  link: Pick<GuidedLinkStep, 'guests'> | null,
+  doors: { guestsHref?: string; guestsSettingsHref?: string },
+): string | null {
+  if (!link) return null;
+  if (link.guests) return doors.guestsSettingsHref ? `${doors.guestsSettingsHref}&row=${link.guests}` : null;
+  return doors.guestsHref ?? null;
+}
+
+/**
  * A screen of the flow: the stage picker, a stage's Before we start, a step
  * (walked as part of `round`), or a stage's Ready screen.
  */

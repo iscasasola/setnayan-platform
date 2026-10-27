@@ -10,7 +10,7 @@ import { useMaker } from './maker-context';
 import {
   roundName,
   stageSteps,
-  type GuidedLinkStep,
+  guidedLinkHref,
   type GuidedPlan,
   type GuidedRound,
   type GuidedScreen,
@@ -56,15 +56,6 @@ export type DetailsGuideActions = {
   guestsSettingsHref?: string;
 };
 
-/**
- * 🗂 WHERE A LINK STEP GOES — the guests' names to the Guest list's import; a reply setting (R1, owner 2026-10-28:
- * *"RSVP moves into the Guests ⚙ sheet"*) to Guests ⚙ open on its row. Null: that door was not handed in.
- */
-export function guidedLinkHref(link: Pick<GuidedLinkStep, 'guests'> | null, actions: Pick<DetailsGuideActions, 'guestsHref' | 'guestsSettingsHref'>): string | null {
-  if (!link) return null;
-  if (link.guests) return actions.guestsSettingsHref ? `${actions.guestsSettingsHref}&row=${link.guests}` : null;
-  return actions.guestsHref ?? null;
-}
 
 export type DetailsGuide = {
   plan: GuidedPlan;

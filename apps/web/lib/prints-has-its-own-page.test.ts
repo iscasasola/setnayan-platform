@@ -228,6 +228,10 @@ test('4 · every link into a print is the page’s — and the guest card’s re
   }
   assert.equal(detailsItemHref('e-1', 'pass', '&pass_format=boarding'), '/dashboard/e-1/prints?item=pass&pass_format=boarding');
   assert.match(read('app/dashboard/[eventId]/guests/open-guest-card.tsx'), /invitation: \(eventId: string\) => printsPageHref\(eventId, 'invitation'\),/);
+  /* A print form posted without JavaScript comes back to the Prints page — never the Maker, whose print addresses only forward. */
+  const route = read('app/api/hub-print/[piece]/route.ts');
+  assert.match(route, /const back = new URL\(printsPageHref\(eventId, piece === 'menu' \? 'menu' : 'invitation'\), req\.url\);/);
+  assert.doesNotMatch(route, /\/dashboard\/\$\{eventId\}\/launch/, 'a print save returns to the Maker again');
 });
 
 test('4 · one door each way inside the app: a print in the Maker loads the page; anything else on the page loads the Maker', () => {

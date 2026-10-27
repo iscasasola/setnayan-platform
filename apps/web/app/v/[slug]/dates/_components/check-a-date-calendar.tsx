@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowRight, CalendarCheck, CalendarX, Check, MessageCircle, Plus, Send, Store, Undo2 } from 'lucide-react';
 import { CalendarGrid } from '@/app/_components/calendar';

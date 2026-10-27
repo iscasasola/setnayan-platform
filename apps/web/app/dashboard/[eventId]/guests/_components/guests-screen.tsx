@@ -1112,8 +1112,8 @@ export function GuestsScreen(props: GuestsScreenProps) {
           : [],
         // ☑ Select lives in this menu (owner 2026-10-22, question 1) — it was the row's fifth round.
         writesOff ? [] : [{ key: 'select', label: 'Select…', group: 'List', icon: <SquareCheck className="h-[18px] w-[18px]" strokeWidth={1.9} /> }],
-        addWays,
         fileOptions,
+        addWays,
       ),
     onPick: (k) => {
       if (pickedAddWay(k)) return;

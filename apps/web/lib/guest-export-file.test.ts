@@ -109,12 +109,23 @@ test('6 · the route never sends an empty file for a refused read, and keeps the
   assert.match(route, /'Cache-Control': 'private, no-store'/);
   assert.match(route, /assignmentsRead\.measured && tablesRead\.measured/, 'an unread seat plan drops the Table column');
   const screen = stripComments(readFileSync(join(WEB, 'app', 'dashboard', '[eventId]', 'guests', '_components', 'guests-screen.tsx'), 'utf8'));
-  assert.match(screen, /<GuestsExcelButton eventId=\{eventId\}/, 'one tap from the list');
+  // 📤 Since the summary carousel (owner 2026-10-27) the counts strip is gone; the file is a ≡ choice on the List's thumb
+  // row, wearing the SHARE icon (owner 2026-10-27, "FILE BUTTONS ARE A SHARE BUTTON") — one tap from the list still.
+  assert.match(screen, /const excel = useGuestsExcel\(eventId, toast\);/, 'the list lost its Excel');
+  assert.match(
+    screen,
+    /\{ key: GUESTS_EXCEL_KEY, label: excel\.label, group: 'File', icon: <Share\b/,
+    'Save as Excel is not a ≡ choice wearing the share icon',
+  );
+  const sortMenu = screen.slice(screen.indexOf('const sortMenu: ThumbMenu = {'), screen.indexOf('const arrangeMenu: ThumbMenu = {'));
+  assert.match(sortMenu, /\bfileOptions,/, 'the List’s ≡ does not offer Save as Excel');
+  assert.match(sortMenu, /if \(k === GUESTS_EXCEL_KEY\) return excel\.save\(\);/, 'picking Save as Excel does not save the file');
   // 🐞 Owner 27 Oct (iPhone app): the bare `<a download>` RENDERED the CSV in the app's only view, no close button,
-  // nothing saved. The tap must be taken over and SAVED (share sheet / download) — the link stays only as the
-  // before-hydration fallback.
+  // nothing saved. The pick must be SAVED (share sheet / download) through the shared save — never a link at all.
   const button = stripComments(readFileSync(join(WEB, 'app', 'dashboard', '[eventId]', 'guests', '_components', 'guests-excel-button.tsx'), 'utf8'));
-  assert.match(button, /`\/dashboard\/\$\{eventId\}\/guests\/export`/, 'the button does not fetch the export route');
-  assert.match(button, /onClick=\{\(e\) => \{\s*e\.preventDefault\(\);\s*void save\(href,/, 'the tap is not taken over — the app shows the file in place again');
+  assert.match(button, /`\/dashboard\/\$\{eventId\}\/guests\/export`/, 'the save does not fetch the export route');
+  assert.match(button, /void save\(href, `Guest-list-\$\{day\}\.csv`\)/, 'the pick is not handed to the shared save');
+  assert.doesNotMatch(button, /<a\b|href=\{|window\.open|location\.(href|assign)/, 'the export is a link again — the app shows the file in place');
+  assert.doesNotMatch(screen, /guests\/export/, 'the screen links the export route itself, past the shared save');
   assert.match(button, /usePrintSave\(\)/, 'the save is not the shared one (share sheet on a phone, download on a computer)');
 });

@@ -60,6 +60,10 @@ export async function renderGuestsScreen(opts: {
   empty?: unknown;
   /** 👁 Draw it for a delegate who may only look (a limited helper, guest list not Edit). */
   viewOnly?: boolean;
+  /** 👤 Requests to join waiting (card ① of the summary carousel). */
+  requests?: number;
+  /** 🔗 The event lets guests in with one link for everyone. */
+  oneQr?: boolean;
 }): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { AppRouterContext } = await import('next/dist/shared/lib/app-router-context.shared-runtime');
@@ -86,7 +90,8 @@ export async function renderGuestsScreen(opts: {
           songsByGuest: {},
           linkedGuestIds: [],
           faceByGuest: {},
-          requests: 0,
+          requests: opts.requests ?? 0,
+          oneQr: opts.oneQr ?? false,
           rootLabel: 'A & B',
           initialQuery: opts.initialQuery ?? '',
           initialSelect: false,

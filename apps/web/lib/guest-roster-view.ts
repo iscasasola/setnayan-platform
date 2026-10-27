@@ -233,8 +233,8 @@ export function rosterStats(guests: readonly GuestRow[]): {
     yes: guests.filter((g) => replyFilterMatches(g, 'attending')).length,
     no: guests.filter((g) => replyFilterMatches(g, 'declined')).length,
     none: guests.filter((g) => replyFilterMatches(g, 'none')).length,
-    // The carousel's "To invite" door IS this count's rows (`replyFilterMatches(g, 'toinvite')`).
-    toInvite: guests.filter((g) => replyFilterMatches(g, 'toinvite')).length,
+    // The carousel's "To invite" door leaves exactly these rows (`replyFilterMatches(g, 'toinvite')` reads `isToInvite`).
+    toInvite: counted.filter((g) => isToInvite(g)).length,
   };
 }
 

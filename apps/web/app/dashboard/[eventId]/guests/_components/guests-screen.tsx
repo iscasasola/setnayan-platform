@@ -9,11 +9,11 @@
  * `BUTTON_RULE_2026-10-07_fable.md`.
  *
  * What is on the screen, top to bottom (the prototype's own order):
- *   1. the sticky block — ONE pinned row (owner 2026-10-27, Guests B, "selectors should stay but simplified"):
- *      `List N · Map · Settings` (one segmented control, G1) at rest; scrolled past the Replies strip, the same
- *      44 px swaps to `List · Map · ✓ ✕ ? · Invite N ›`. The strip (counts, meter — `Count` / `Fill`, G4) is
- *      ordinary content under it and scrolls away; `--gs-stick-h` is the one row's height;
- *   2. List: the requests-to-join row (`👤 Review`, G11), then the SECTIONS of
+ *   1. the first row — `List N · Map · ⚙` (one segmented control, G1) — scrolling WITH the page at rest, then the
+ *      summary carousel (owner 2026-10-27, style A "the ring": Total guests + requests · the four reply counts +
+ *      Invite N › · +1s — `SnapCarousel`); once the carousel has scrolled away the row PINS ONCE as one 44 px row,
+ *      `List · Map · ✓ ✕ ? · ⚙` (no Invite); `--gs-stick-h` is the one row's height;
+ *   2. List: the SECTIONS of
  *      the one Sort dropdown (Role · Last name · Side · Group · RSVP; the
  *      celebrants first in every view — G16/G17), each popping then unfolding
  *      (G21), the open one pinned under the sticky block (G13) — its first tap
@@ -61,6 +61,7 @@ import {
   PartyPopper,
   Pencil,
   Plus,
+  Share,
   SquareCheck,
   Star,
   Tag,
@@ -72,13 +73,14 @@ import {
 import { ActionButton, actionButtonClass } from '@/components/action-button';
 import { InfoTip } from '@/app/_components/info-tip';
 import { ThumbRow, type ThumbField, type ThumbMenu } from '@/components/thumb-row';
-import { Count, Fill } from '@/components/count';
+import { Count } from '@/components/count';
+import { SnapCarousel, type CarouselCard } from '@/components/snap-carousel';
 import { formatCount } from '@/lib/format-number';
 import { PickMenu, type PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { useInspectorContext } from '@/app/_components/inspector/inspector-column';
 import { PILL_TRACK_CLASS, PILL_TRACK_GROUND, PillThumb, pillSegClass } from '@/app/_components/pill-selector';
 import { GuestPopup } from './guest-popup';
-import { GuestsExcelButton } from './guests-excel-button';
+import { GUESTS_EXCEL_KEY, useGuestsExcel } from './guests-excel-button';
 import { Handed } from './handed';
 import { MenuSettingsButton } from '@/app/_components/menu-settings-button';
 import { usePeekToast } from './use-peek-toast';
@@ -217,6 +219,12 @@ export type GuestsScreenProps = {
   /** `?row=` — the row the open sheet lands on (its `data-setup-row`). */
   settingsRow?: string | null;
   /**
+   * 🔗 The event lets guests in with ONE link for everyone ("Anyone with the link", `readGuestsGetIn` = 'one_qr'). With
+   * no list to walk, the carousel's To invite card reads "One link for everyone · Share" (owner 2026-10-27, "THE SEND RUN
+   * ALSO SERVES A ONE-QR EVENT") — Share opens the ⚙ sheet on its "Your one link" row (link · Copy · Share · the QR).
+   */
+  oneQr?: boolean;
+  /**
    * What the List shows instead of sections when there is nothing to section:
    * the page's shipped EmptyState — "No guests yet." + one Add, or, when the
    * read was REFUSED, "We couldn't load your guest list" (never "no guests").
@@ -327,6 +335,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
     setup,
     settingsOpen: settingsAsked = false,
     settingsRow = null,
+    oneQr = false,
     empty,
     copy = null,
     roleSetKey = null,
@@ -337,9 +346,11 @@ export function GuestsScreen(props: GuestsScreenProps) {
   // ⚙ Guests settings — opened by the ⚙ in place; a link (`?settings=1&row=…`) opens it with the page. Closing drops
   // the link's words from the address without a navigation, so Back does not reopen it and nothing redraws.
   const [settingsOpen, setSettingsOpen] = useState(settingsAsked);
+  const [landRow, setLandRow] = useState<string | null>(settingsRow);
   const openSettings = useCallback((open: boolean) => {
     setSettingsOpen(open);
     if (open) return;
+    setLandRow(null);
     try {
       const url = new URL(window.location.href);
       if (!url.searchParams.has('settings') && !url.searchParams.has('row')) return;
@@ -351,6 +362,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
     }
   }, []);
   useEffect(() => {
+    const settingsRow = landRow;
     if (!settingsOpen || !settingsRow) return;
     // The rows stream in after the sheet: look for the named row a few times, then land on it.
     let tries = 0;
@@ -362,7 +374,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
       }
     }, 150);
     return () => window.clearInterval(t);
-  }, [settingsOpen, settingsRow]);
+  }, [settingsOpen, landRow]);
   // The list's rows carry only GUEST_LIST_ROW_FIELDS; every helper below reads within them —
   // 🔒 guests/the-list-sends-only-what-it-draws.test.ts runs this screen and those helpers over rows that
   // record each field read.
@@ -379,6 +391,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const stickRef = useRef<HTMLDivElement>(null);
   const stripRef = useRef<HTMLDivElement>(null);
+  const holdRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const thumbRef = useRef<HTMLDivElement>(null);
   const fieldRef = useRef<HTMLInputElement>(null);
@@ -587,29 +600,44 @@ export function GuestsScreen(props: GuestsScreenProps) {
     return () => ro?.disconnect();
   }, []);
 
-  // ── 📌 THE ONE PINNED ROW (owner 2026-10-27, "pinned approve" — Guests B — and "On the pinned the selectors should
-  //    stay but simplified"; prototype `guests_pinned_row_2026-10-27`). The sticky block is the first row ONLY; the
-  //    Replies strip is ordinary content under it. Once the strip's bottom has passed under the row, the row's two
-  //    faces swap (`data-collapsed`, a cross-fade in the CSS): the full pill out, `List · Map · ✓ ✕ ? · Invite N ›` in.
-  //    Same box, same 44 px — nothing under it moves. Written as an ATTRIBUTE, only when it changes, never as state:
-  //    the list below never re-renders for a scroll. List only — Map is one canvas, Settings has its own page.
-  //    🔒 lib/the-pinned-row-is-one-row.test.ts
+  // ── 📌 THE ONE PINNED ROW, PINNED ONCE (owner 2026-10-27: "pinned approve" — Guests B; "On the pinned the selectors
+  //    should stay but simplified"; then "the selector double pins. we want them to pin only the new way and not the first
+  //    pin it does" — DECISION_LOG "GUESTS: THE SUMMARY BECOMES ONE AUTO-SCROLLING CAROUSEL; THE SELECTOR PINS ONCE").
+  //    At rest the List · Map pill is NOT sticky: it scrolls with the page, the summary carousel under it. Only once the
+  //    carousel's bottom has passed under where the row would sit does the block pin (`data-collapsed` → fixed under
+  //    the bar, in its holder's column) with its summary face `List · Map · ✓ ✕ ? · ⚙` — no Invite (that lives on the
+  //    carousel's To invite card). The holder keeps the block's height in the flow, so nothing under it moves. Written as
+  //    ATTRIBUTES and custom properties, only when they change, never as state: the list never re-renders for a scroll.
+  //    List only — the Map is one canvas and keeps its shipped sticky row. 🔒 lib/the-pinned-row-is-one-row.test.ts
   useEffect(() => {
     const st = stickRef.current;
+    const hold = holdRef.current;
     const strip = stripRef.current;
+    const root = rootRef.current;
     if (!st) return;
-    if (!strip || gview !== 'list') {
+    if (!strip || !hold || !root || gview !== 'list') {
       st.removeAttribute('data-collapsed');
       return;
     }
     let raf = 0;
     let last: boolean | null = null;
+    let place = '';
     const read = () => {
       raf = 0;
-      const on = strip.getBoundingClientRect().bottom <= st.getBoundingClientRect().bottom + 2;
+      // The shell bar's height while it shows (`useShellBarOffset` writes it inline) — the row pins under it.
+      const bar = parseFloat(root.style.getPropertyValue('--gs-top')) || 0;
+      const on = strip.getBoundingClientRect().bottom <= bar + st.offsetHeight + 2;
       if (on !== last) {
         last = on;
         st.toggleAttribute('data-collapsed', on);
+      }
+      // Pinned, the row is `position: fixed` — it takes its holder's column edges (the desk's rail, a card column).
+      const r = hold.getBoundingClientRect();
+      const next = `${Math.round(r.left)}|${Math.round(r.width)}`;
+      if (next !== place) {
+        place = next;
+        st.style.setProperty('--gs-pin-l', `${Math.round(r.left)}px`);
+        st.style.setProperty('--gs-pin-w', `${Math.round(r.width)}px`);
       }
     };
     const soon = () => {
@@ -618,8 +646,12 @@ export function GuestsScreen(props: GuestsScreenProps) {
     read();
     window.addEventListener('scroll', soon, { passive: true });
     window.addEventListener('resize', soon);
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(soon) : null;
+    ro?.observe(hold);
+    if (root.parentElement) ro?.observe(root.parentElement);
     return () => {
       if (raf) cancelAnimationFrame(raf);
+      ro?.disconnect();
       window.removeEventListener('scroll', soon);
       window.removeEventListener('resize', soon);
     };
@@ -775,19 +807,212 @@ export function GuestsScreen(props: GuestsScreenProps) {
     setReplyFilter((now) => (now === f ? null : f));
     window.scrollTo({ top: 0 });
   };
-  /** A count, as a door to its filter — pressed again (or × Clear) to take it off. Option A (owner 2026-10-26): the
-      number large, its word under it beside a dot in the reply's own colour — the same door, the same filter. */
+  /* ═══ 🎠 THE SUMMARY CAROUSEL — STYLE A, THE RING (owner 2026-10-27, "ring looks good"; DECISION_LOG "APPROVED —
+     GUESTS CAROUSEL STYLE A (THE RING), COMPACT"; prototype `guests_summary_carousel_2026-10-27/` frames rest · oneqr ·
+     attention). Three grouped cards, each ≤ 96 px at 390, each with its ⓘ top-right (the details live there):
+       ① Total guests — the ring fills to the % replied (attending green · not coming red over the grey track) and
+          "● N requests to join ›"; the whole card opens the requests page (the one the old "Review" strip opened);
+       ② Attending · Not coming · No reply · To invite — four counts, each the door to its filter (`pickReply`), then
+          `Invite N ›`, the ONE send run (`/guests/send`) — or "One link for everyone · Share" on a one-link event with no
+          list to walk;
+       ③ +1s — named / no name yet as a two-part bar, each half the door to its filter (`pickPlus`).
+     Same numbers, same doors, same hrefs as the counts strip they replace. 🔒 the-summary-carousel-holds-the-doors.test.ts */
+  const pct = (n: number) => (stats.total ? (n / stats.total) * 100 : 0);
+  const cardTip = (label: string, tip: ReactNode) => (
+    <InfoTip label={label} labelClassName="sr-only" align="end" className={styles.cardTip}>
+      {tip}
+    </InfoTip>
+  );
+  /** A count on card ②: a dot in the reply's colour, the number, the word under it — the door to exactly those guests. */
   const countDoor = (f: ReplyFilter, value: number, id: string, word: string) => (
     <button
       type="button"
-      className={styles.countBig}
+      className={styles.mini}
       aria-pressed={replyFilter === f}
       onClick={() => pickReply(f)}
       data-reply-filter={f}
     >
-      <b><Count value={value} id={id} /></b> <span className={styles.countWord}><i className={styles.countDot} data-dot={f} aria-hidden />{word}</span>
+      <b>
+        <i className={styles.countDot} data-dot={f} aria-hidden />
+        <Count value={value} id={id} />
+      </b>{' '}
+      <span className={styles.miniWord}>{word}</span>
     </button>
   );
+  const listToWalk = roster.some((g) => mayBeInvited(g));
+  const inviteFoot: ReactNode =
+    stats.toInvite > 0 ? (
+      <>
+        <span className={styles.cardSub}>
+          <Count value={stats.toInvite} id="gs-toinv-sub" /> not yet sent their invitation
+        </span>
+        <Link
+          href={`/dashboard/${eventId}/guests/send`}
+          className={actionButtonClass('brand', { main: true, extra: styles.cardInvite })}
+          data-roster-to-invite="door"
+        >
+          <span className="lbl">
+            Invite <Count value={stats.toInvite} id="gs-toinv" />
+          </span>
+          <ChevronRight aria-hidden strokeWidth={2} />
+        </Link>
+      </>
+    ) : listToWalk ? (
+      <span className={`${styles.cardSub} ${styles.allInvited}`} data-roster-to-invite="words">
+        <Check aria-hidden strokeWidth={2} /> Everyone invited
+      </span>
+    ) : oneQr ? (
+      <>
+        <span className={styles.cardSub} data-roster-to-invite="one-link">
+          One link for everyone
+        </span>
+        {setup ? (
+          <button
+            type="button"
+            className={actionButtonClass('brand', { main: true, extra: styles.cardInvite })}
+            onClick={() => {
+              setLandRow('one-link');
+              openSettings(true);
+            }}
+            data-roster-share-link=""
+          >
+            <Share aria-hidden strokeWidth={2} />
+            <span className="lbl">Share</span>
+          </button>
+        ) : null}
+      </>
+    ) : null;
+  const summaryCards: CarouselCard[] = [
+    {
+      key: 'total',
+      label: 'Total guests',
+      node: (
+        <div
+          className={`${styles.card} ${requests > 0 ? styles.cardAttn : ''}`}
+          data-guests-card="total"
+          // The ring's two arcs, as shares of the whole (attending, then not coming after it).
+          style={{ '--gs-yes': pct(stats.yes), '--gs-no': pct(stats.no) } as React.CSSProperties}
+        >
+          <Link
+            href={`/dashboard/${eventId}/guests/claims`}
+            className={styles.cardDoor}
+            aria-label={`${formatCount(stats.total)} guests, ${replied}% replied, ${formatCount(requests)} ${requests === 1 ? 'request' : 'requests'} to join — open requests`}
+            data-requests-door=""
+          />
+          <span className={styles.ringRow}>
+            <span className={styles.ring} data-replied-ring="" aria-hidden>
+              <svg viewBox="0 0 44 44">
+                <circle className={styles.ringTrack} cx="22" cy="22" r="19" />
+                <circle className={`${styles.ringArc} ${styles.ringYes}`} cx="22" cy="22" r="19" pathLength={100} data-arc="yes" />
+                <circle className={`${styles.ringArc} ${styles.ringNo}`} cx="22" cy="22" r="19" pathLength={100} data-arc="no" />
+              </svg>
+              <b>
+                <Count value={stats.total} id="gs-total" />
+              </b>
+            </span>
+            <span className={styles.beside}>
+              <span className={styles.cardLabel}>Total guests</span>
+              <span className={styles.cardBig}>
+                <Count value={replied} format="pct" id="gs-replied-pct" /> replied
+              </span>
+              {requests > 0 ? (
+                <span className={styles.reqOn} data-requests-waiting="">
+                  <i aria-hidden className={styles.reqDot} />
+                  <Count value={requests} id="gs-req" /> {requests === 1 ? 'request' : 'requests'} to join
+                  <ChevronRight aria-hidden strokeWidth={2.2} className={styles.reqChev} />
+                </span>
+              ) : (
+                <span className={styles.reqOff}>
+                  No requests waiting
+                  <ChevronRight aria-hidden strokeWidth={2.2} className={styles.reqChev} />
+                </span>
+              )}
+            </span>
+          </span>
+          {cardTip(
+            'Total guests',
+            <>Counted from the list just now. Ring: green attending, red not coming. Tap the card for requests from your event link.</>,
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'replies',
+      label: 'Replies and who is still to invite',
+      node: (
+        <div className={styles.card} data-guests-card="replies">
+          <span className={styles.four}>
+            {countDoor('attending', stats.yes, 'gs-yes', RSVP_ROW_WORDS.attending)}
+            {countDoor('declined', stats.no, 'gs-no', RSVP_ROW_WORDS.declined)}
+            {countDoor('none', stats.none, 'gs-none', RSVP_ROW_WORDS.pending)}
+            {countDoor('toinvite', stats.toInvite, 'gs-toinvite', 'To invite')}
+          </span>
+          {inviteFoot ? <span className={styles.cardFoot}>{inviteFoot}</span> : null}
+          {cardTip(
+            'Replies',
+            <>Tap a number to see just those guests; again to see everyone. Invite sends to everyone still to invite, one at a time.</>,
+          )}
+        </div>
+      ),
+    },
+    ...(plusTally.named + plusTally.unnamed > 0
+      ? [
+          {
+            key: 'plus',
+            label: '+1s',
+            node: (
+              <div className={styles.card} data-guests-card="plus">
+                <span className={styles.plusHead}>
+                  <span className={styles.cardLabel} data-roster-plus-ones="">
+                    +1s · <b><Count value={plusTally.named + plusTally.unnamed} id="gs-plus-all" /></b>
+                  </span>
+                  <span className={styles.legend} aria-hidden>
+                    <span>
+                      <i className={styles.countDot} data-dot="named" />
+                      <b>{formatCount(plusTally.named)}</b> named
+                    </span>
+                    <span>
+                      <i className={styles.countDot} data-dot="unnamed" />
+                      <b>{formatCount(plusTally.unnamed)}</b> no name yet
+                    </span>
+                  </span>
+                </span>
+                {/* 🪑 Each half of the bar is the door to the +1 filter (owner 2026-10-21; the same `plusOneFilterMatches`
+                    the rows are filtered by), its width its share; tapped again, everyone. */}
+                <span className={styles.split}>
+                  {(
+                    [
+                      ['named', plusTally.named, 'named', 'gs-plus-named'],
+                      ['unnamed', plusTally.unnamed, 'no name yet', 'gs-plus-unnamed'],
+                    ] as const
+                  ).map(([k, v, word, id]) => (
+                    <button
+                      key={k}
+                      type="button"
+                      className={styles.half}
+                      data-half={k}
+                      style={{ flexGrow: v, flexBasis: 0, minWidth: v > 0 ? 28 : 0 }}
+                      hidden={v === 0}
+                      aria-pressed={plusFilter === k}
+                      onClick={() => pickPlus(k)}
+                      data-plus-filter={k}
+                    >
+                      <span className="sr-only">
+                        <b><Count value={v} id={id} /></b> {word}
+                      </span>
+                    </button>
+                  ))}
+                </span>
+                {cardTip(
+                  '+1s',
+                  <>“Named” +1s have a name; “no name yet” seats still wait for one. Tap a part of the bar to see just those.</>,
+                )}
+              </div>
+            ),
+          },
+        ]
+      : []),
+  ];
 
   /** The pinned row's count: the SAME door (`pickReply`, `data-reply-filter`) drawn small — a mark and the number; the
       word is for a screen reader. Pressed = underlined, never boxed. */
@@ -853,6 +1078,15 @@ export function GuestsScreen(props: GuestsScreenProps) {
     openAddWay(k.slice(4) as AddWayKey, eventId, (href) => router.push(href));
     return true;
   };
+  /* 📤 SAVE AS EXCEL (owner 2026-10-27, "FILE BUTTONS ARE A SHARE BUTTON") — the counts strip that drew "⤓ Excel" is
+     the carousel now, so the list's file is a ≡ choice wearing the SHARE icon: the shipped save (`usePrintSave` →
+     the phone's share sheet / a download), never a link the app would render in place. Not on the phone's failed
+     copy (there is no fresh list to write). 🔒 lib/guest-export-file.test.ts */
+  const excel = useGuestsExcel(eventId, toast);
+  const fileOptions: PickOption[] =
+    copy?.freshness === 'failed'
+      ? []
+      : [{ key: GUESTS_EXCEL_KEY, label: excel.label, group: 'File', icon: <Share className="h-[18px] w-[18px]" strokeWidth={1.9} /> }];
   const sortMenu: ThumbMenu = {
     mark: 'data-thumb-sort',
     tour: 'guests-sort',
@@ -868,10 +1102,12 @@ export function GuestsScreen(props: GuestsScreenProps) {
           : [],
         // ☑ Select lives in this menu (owner 2026-10-22, question 1) — it was the row's fifth round.
         writesOff ? [] : [{ key: 'select', label: 'Select…', group: 'List', icon: <SquareCheck className="h-[18px] w-[18px]" strokeWidth={1.9} /> }],
+        fileOptions,
         addWays,
       ),
     onPick: (k) => {
       if (pickedAddWay(k)) return;
+      if (k === GUESTS_EXCEL_KEY) return excel.save();
       if (k === 'select') return setSelectMode(true);
       if (k.startsWith('plus:')) {
         setPlusFilter(k.slice(5) as PlusOneFilter);
@@ -1164,19 +1400,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
   /* ═══ the list ═══ */
   const list = (
     <div ref={listRef} data-guest-rows="">
-      {requests > 0 ? (
-        <div className={`${styles.row} ${styles.rise}`} data-requests-strip="">
-          <div>
-            <div className={styles.t}>
-              <Count value={requests} id="gs-req" /> {requests === 1 ? 'request' : 'requests'} to join
-            </div>
-            <div className={styles.s}>From your event link — keep them, or link them to a name you already have.</div>
-          </div>
-          <span className={styles.acts} data-fit-acts="">
-            <ActionButton tone="brand" main icon={User} label="Review" href={`/dashboard/${eventId}/guests/claims`} />
-          </span>
-        </div>
-      ) : null}
+      {/* 👤 Requests to join are card ① of the summary carousel now (owner 2026-10-27) — no strip here. */}
       {titlesWaiting.length > 0 && !writesOff ? (
         <TitlesWaiting eventId={eventId} people={titlesWaiting} classes={{ row: `${styles.row} ${styles.rise}`, t: styles.t ?? '', s: styles.s ?? '', acts: styles.acts ?? '' }} />
       ) : null}
@@ -1201,11 +1425,13 @@ export function GuestsScreen(props: GuestsScreenProps) {
           <section
             key={sec.key}
             id={headId}
-            className={`${styles.sec} ${styles.rise} ${opened ? styles.open : ''}`}
+            className={`${styles.sec} ${styles.accSec} ${styles.rise} ${opened ? styles.open : ''}`}
             data-guest-section={sec.key}
             data-open={opened ? 'true' : 'false'}
           >
-            <div className={styles.barWrap}>
+            {/* 🪗 The foldable header's one mark (owner 2026-10-27, "FOLDABLE HEADERS ARE MARKED BY THE ICON CHIP"): the
+                shared `.sn-acc-head` — chip grey closed, terracotta open, one divider under it, no band. */}
+            <div className={`${styles.barWrap} sn-acc-head`} data-open={opened ? '' : undefined}>
               {selectMode ? (
                 <button
                   type="button"
@@ -1226,7 +1452,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
                 data-section-head=""
               >
                 {selectMode ? null : (
-                  <span className={styles.ico} aria-hidden>
+                  <span className={`${styles.ico} sn-acc-chip`} aria-hidden>
                     <Mark mark={sec.mark} />
                   </span>
                 )}
@@ -1356,11 +1582,15 @@ export function GuestsScreen(props: GuestsScreenProps) {
         data-guests-screen={gview}
         data-guests-copy={copy ? copy.freshness : undefined}
       >
+        {/* 📌 The holder keeps the block's height in the flow while the block itself is pinned (fixed) — pinning moves
+            nothing under it (`--gs-stick-h`, measured off the block). */}
+        <div ref={holdRef} className={styles.stickHold} data-guests-stick-hold="">
         <div ref={stickRef} className={`${styles.stick} ${styles.pinned}`} data-guests-stick="" data-has-gear={setup ? '' : undefined}>
-          {/* 📌 ONE PINNED ROW, TWO FACES (owner 2026-10-27, Guests B + "selectors should stay but simplified"): 44 px,
-              fixed — the summary face is laid over the full pill (absolute, the pill's own box), so the swap moves
-              nothing under it. The full pill is the face at rest and stays in the flow, the copy line right after it.
-              The summary is drawn by `PinnedSummary` (below) from the SAME doors. 🔒 lib/the-pinned-row-is-one-row.test.ts */}
+          {/* 📌 ONE PINNED ROW, TWO FACES, PINNED ONCE (owner 2026-10-27, Guests B + "selectors should stay but
+              simplified" + "the selector … pin only the new way"): 44 px — the summary face is laid over the full pill
+              (absolute, the pill's own box), so the swap moves nothing. At rest the block scrolls with the page; it pins
+              only once the carousel has gone. The summary is drawn by `PinnedSummary` (below) from the SAME doors.
+              🔒 lib/the-pinned-row-is-one-row.test.ts */}
           {measured && gview === 'list' ? (
             <PinnedSummary
               segs={[pinSeg('list', 'List'), pinSeg('map', 'Map')]}
@@ -1369,24 +1599,6 @@ export function GuestsScreen(props: GuestsScreenProps) {
                 pinDoor('declined', stats.no, 'gs-pin-no', RSVP_ROW_WORDS.declined, X),
                 pinDoor('none', stats.none, 'gs-pin-none', RSVP_ROW_WORDS.pending, CircleHelp),
               ]}
-              invite={
-                stats.toInvite > 0 ? (
-                  <Link
-                    href={`/dashboard/${eventId}/guests/send`}
-                    className={actionButtonClass('brand', { main: true, extra: styles.pinInvite })}
-                    data-roster-to-invite="door"
-                  >
-                    <span className="lbl">
-                      Invite <Count value={stats.toInvite} id="gs-pin-toinv" />
-                    </span>
-                    <ChevronRight aria-hidden strokeWidth={2} />
-                  </Link>
-                ) : roster.some((g) => mayBeInvited(g)) ? (
-                  <span className={`${styles.mute} ${styles.pinAllInvited}`} data-roster-to-invite="words">
-                    <Check aria-hidden strokeWidth={2} /> Everyone invited
-                  </span>
-                ) : null
-              }
             />
           ) : null}
           {/* 🎚 THE ONE PILL SELECTOR (owner 2026-10-08: "adjust all pill selectors to this") — the app's template
@@ -1410,124 +1622,33 @@ export function GuestsScreen(props: GuestsScreenProps) {
           {/* 📋 The copy line — in the flow, under the selector, never over anything (guest-copy-mark.tsx). */}
           <GuestListStatus copy={copy} fresh={props.measured} />
         </div>
+        </div>
 
         {measured ? (
           <>
-            <div className={`${styles.counts} ${styles.strip} ${styles.rise}`} ref={stripRef} data-roster-counts="" data-tour="guests-counts">
-              {/* 🧮 THE COUNTS STRIP — OPTION A (owner 2026-10-26, "option A", prototype `guest-counts/index.html` frames
-                  a-390 · a-1280): "Replies ⓘ · N% replied", the bar in two colours (attending · not coming over the grey of
-                  no reply), three big counts that are each the door to their filter, the +1s line, then ONE action —
-                  "Invite N ›" — with "⤓ Excel" beside it. Same numbers, same doors, same hrefs; only the layout moved.
-                  🔒 the-counts-strip-is-option-a.test.ts */}
-              <div className={styles.countsMain}>
-                <div className={styles.countsTop}>
-                  <InfoTip label="Replies" labelClassName={styles.countsTitle} align="start">
-                    Tap a number to see just those guests; tap it again to see everyone. +1s: “named” ones have a name,
-                    “no name yet” are seats still waiting for one.
-                  </InfoTip>
-                  <span className={styles.mute}>
-                    <Count value={replied} format="pct" id="gs-replied-pct" /> replied
+            <div className={`${styles.summary} ${styles.rise}`} ref={stripRef} data-roster-counts="" data-tour="guests-counts">
+              <SnapCarousel cards={summaryCards} label="Guest summary" attrs={{ 'data-guests-carousel': '' }} />
+              {/* What a search or a door is showing — "N of M shown · × Clear" — only while one is on. */}
+              {q || filtered ? (
+                <p className={`${styles.counts} ${styles.mute} ${styles.shownLine}`} data-roster-shown="">
+                  <span>
+                    <Count value={shown} id="gs-shown" /> of {formatCount(stats.total)} shown
                   </span>
-                </div>
-                <div
-                  className={styles.meter}
-                  data-replied-meter=""
-                  role="img"
-                  aria-label={`${formatCount(stats.yes)} ${RSVP_ROW_WORDS.attending.toLowerCase()}, ${formatCount(stats.no)} ${RSVP_ROW_WORDS.declined.toLowerCase()}, ${formatCount(stats.none)} ${RSVP_ROW_WORDS.pending.toLowerCase()}`}
-                >
-                  <Fill value={stats.total ? (stats.yes / stats.total) * 100 : 0} id="gs-meter-yes" className={styles.meterFill} />
-                  <Fill value={stats.total ? (stats.no / stats.total) * 100 : 0} id="gs-meter-no" className={styles.meterNo} />
-                </div>
-                {/* 👆 Each count is a door to exactly the guests it counts (`replyFilterMatches`, owner 2026-10-21). */}
-                <div className={styles.countsGrid}>
-                  {countDoor('attending', stats.yes, 'gs-yes', RSVP_ROW_WORDS.attending)}
-                  {countDoor('declined', stats.no, 'gs-no', RSVP_ROW_WORDS.declined)}
-                  {countDoor('none', stats.none, 'gs-none', RSVP_ROW_WORDS.pending)}
-                </div>
-              </div>
-              <div className={styles.countsSide}>
-                {plusTally.named + plusTally.unnamed > 0 || q || filtered ? (
-                  <div className={styles.plusLine}>
-                    {/* 🪑 "+1s · N named · M no name yet" (owner 2026-10-21) — each half a door to the +1 filter, tapped
-                        again to clear it; the same `plusOneFilterMatches` the rows below are filtered by. No +1s → not drawn. */}
-                    {plusTally.named + plusTally.unnamed > 0 ? (
-                      <span data-roster-plus-ones="">
-                        +1s ·{' '}
-                        <button
-                          type="button"
-                          className={styles.countsDoor}
-                          aria-pressed={plusFilter === 'named'}
-                          onClick={() => pickPlus('named')}
-                          data-plus-filter="named"
-                        >
-                          <b><Count value={plusTally.named} id="gs-plus-named" /></b> named
-                        </button>{' '}
-                        ·{' '}
-                        <button
-                          type="button"
-                          className={styles.countsDoor}
-                          aria-pressed={plusFilter === 'unnamed'}
-                          onClick={() => pickPlus('unnamed')}
-                          data-plus-filter="unnamed"
-                        >
-                          <b><Count value={plusTally.unnamed} id="gs-plus-unnamed" /></b> no name yet
-                        </button>
-                      </span>
-                    ) : null}
-                    {q || filtered ? (
-                      <span>
-                        <Count value={shown} id="gs-shown" /> of {formatCount(stats.total)} shown
-                      </span>
-                    ) : null}
-                    {filtered ? (
-                      <button
-                        type="button"
-                        className={styles.countsDoor}
-                        onClick={() => {
-                          setReplyFilter(null);
-                          setPlusFilter(null);
-                        }}
-                        data-roster-clear-filter=""
-                      >
-                        × Clear
-                      </button>
-                    ) : null}
-                  </div>
-                ) : null}
-                <div className={styles.countsActs}>
-                  {/* 🚪 "INVITE N" IS THE STRIP'S ONE ACTION (controller 2026-10-08: from the List — the tab people land on
-                      — there was no way to start sending; option A 2026-10-26 made it the button it always was). It
-                      opens the ONE send run, the very place Setup's "Send to N" opens (`guest-setup-rows.tsx` →
-                      `/guests/send`); the two are held equal by `counts-equal-the-rows.test.ts`. With nobody left to
-                      invite there is no button and no dead link — a quiet "Everyone invited", and only when somebody
-                      could be invited at all (`mayBeInvited`), so a list of just the couple never claims it. A refused
-                      read draws none of this strip. */}
-                  {stats.toInvite > 0 ? (
-                    <Link
-                      href={`/dashboard/${eventId}/guests/send`}
-                      className={actionButtonClass('brand', { main: true, extra: `${styles.invite} min-h-11` })}
-                      data-roster-to-invite="door"
+                  {filtered ? (
+                    <button
+                      type="button"
+                      className={styles.countsDoor}
+                      onClick={() => {
+                        setReplyFilter(null);
+                        setPlusFilter(null);
+                      }}
+                      data-roster-clear-filter=""
                     >
-                      <span className="lbl">
-                        Invite <Count value={stats.toInvite} id="gs-toinv" />
-                      </span>
-                      <ChevronRight aria-hidden strokeWidth={2} />
-                    </Link>
-                  ) : roster.some((g) => mayBeInvited(g)) ? (
-                    <span className={`${styles.mute} ${styles.allInvited}`} data-roster-to-invite="words">
-                      <Check aria-hidden strokeWidth={2} /> Everyone invited
-                    </span>
+                      × Clear
+                    </button>
                   ) : null}
-                  {/* 📥 THE LIST AS A SPREADSHEET, ONE TAP (owner 2026-10-16: "just have a excel file for their
-                      guests"). The server writes it fresh, in the import template's own columns, so the same
-                      file can be edited and uploaded again (`guests/export/route.ts`). SAVED through the share
-                      sheet / a download, never shown in place — the app's web view rendered the CSV with no way
-                      back (owner 27 Oct; `guests-excel-button.tsx`). */}
-                  {copy?.freshness === 'failed' ? null : (
-                    <GuestsExcelButton eventId={eventId} className={actionButtonClass('neutral', { extra: `${styles.excel} min-h-11` })} />
-                  )}
-                </div>
-              </div>
+                </p>
+              ) : null}
             </div>
             {/* 📏 A read beside the list that did not happen is SAID, here, in the strip's own words — never drawn
                 as "no groups" / "nobody seated". Only under a list that WAS read: a refused list has its own
@@ -1641,10 +1762,11 @@ const PILL: Record<GuestRow['rsvp_status'], { cls: string; word: string }> = {
  * earlier +1) — no divider between them: a guest and their +1 are one topic.
  */
 /** 📌 The pinned row's summary face (owner 2026-10-27, Guests B + "On the pinned the selectors should stay but
-    simplified"): `List · Map` (the shipped pill, small, words only) · the three reply doors · `Invite N ›`. Every part is
-    built by the screen from the SAME doors as the strip (`pickReply`, `data-reply-filter`, the one `/guests/send` href);
-    this only lays them in one 44-px row over the full pill. Hidden until the strip has scrolled under the row. */
-function PinnedSummary({ segs, doors, invite }: { segs: ReactNode[]; doors: ReactNode[]; invite: ReactNode }) {
+    simplified"; amended by the approved carousel: "Pinned row: List · Map · ✓ ✕ ? · ⚙ (no Invite), pins once"):
+    `List · Map` (the shipped pill, small, words only) · the three reply doors; the ⚙ is the block's own. Every part is
+    built by the screen from the SAME doors as the carousel (`pickReply`, `data-reply-filter`); this only lays them in
+    one 44-px row over the full pill. Hidden until the carousel has scrolled under the row. */
+function PinnedSummary({ segs, doors }: { segs: ReactNode[]; doors: ReactNode[] }) {
   return (
     <div className={`${styles.face} ${styles.faceAlt}`} data-guests-pin-face="summary">
       <nav className={`${PILL_TRACK_CLASS} ${PILL_TRACK_GROUND} ${styles.pinSeg}`} aria-label="Guest list views, pinned" data-guests-pin-segmented="">
@@ -1652,7 +1774,6 @@ function PinnedSummary({ segs, doors, invite }: { segs: ReactNode[]; doors: Reac
         {segs}
       </nav>
       <span className={styles.pinCounts}>{doors}</span>
-      {invite}
     </div>
   );
 }

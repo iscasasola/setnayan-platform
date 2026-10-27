@@ -69,6 +69,8 @@ test('1 · each count IS its filter’s rows — and the search words for the sa
     attending: ['attending', 'accepted', 'coming'],
     declined: ['not coming', 'declined', 'regrets'],
     none: ['no reply', 'pending', 'waiting'],
+    // 🎠 The carousel's fourth door (2026-10-27): "To invite" filters to the rows its number counts.
+    toinvite: ['to invite', 'not invited'],
   };
   for (let n = 0; n < 6; n++) {
     const r = roster(n);
@@ -77,6 +79,8 @@ test('1 · each count IS its filter’s rows — and the search words for the sa
     assert.equal(stats.yes, by('attending').length, `roster ${n}: attending`);
     assert.equal(stats.no, by('declined').length, `roster ${n}: not coming`);
     assert.equal(stats.none, by('none').length, `roster ${n}: no reply`);
+    assert.equal(stats.toInvite, by('toinvite').length, `roster ${n}: to invite`);
+    assert.ok(n === 0 || stats.toInvite > 0, `roster ${n} has nobody to invite — the to-invite door is untested`);
     for (const f of Object.keys(words) as ReplyFilter[]) {
       for (const w of words[f]) {
         assert.deepEqual(r.filter((g) => rosterSearchMatches(w, g, FACTS)).map((g) => g.guest_id), by(f), `roster ${n}: "${w}" ≠ the ${f} filter`);

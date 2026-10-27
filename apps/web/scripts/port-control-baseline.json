@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "0f40789795",
+  "generatedFromRef": "ddd08d4e3d",
   "routeCount": 474,
   "destinations": 994,
   "actions": 642,
-  "blocks": 7120,
+  "blocks": 7121,
   "routes": {
     "/": {
       "files": [
@@ -11728,6 +11728,7 @@
         "ServicesTakeover",
         "ShortlistCategories",
         "SuppliersLabStage",
+        "SuppliersSettingsRows",
         "TeamRowFacts"
       ]
     },

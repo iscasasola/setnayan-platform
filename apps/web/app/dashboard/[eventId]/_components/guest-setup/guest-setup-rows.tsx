@@ -23,7 +23,7 @@ import {
   headcountLockedLine,
   headcountOpenLine,
 } from '@/lib/headcount-row';
-import { useGuestActions } from '../../guests/_components/guest-actions-context';
+import { useGuestActions, usePickWho } from '../../guests/_components/guest-actions-context';
 import { GuestConfirmActions, GuestPopup } from '../../guests/_components/guest-popup';
 import { plainRefusal } from '../../guests/_components/plain-refusal';
 import { GuestsGetIn } from './guests-get-in';
@@ -239,6 +239,8 @@ function RequestsRow({ eventId, waiting }: { eventId: string; waiting: number | 
  */
 function InvitationsRow({ eventId, toInvite }: { eventId: string; toInvite: number | null }) {
   const { setupDoorHref } = useGuestActions();
+  // ☑ On the Guests screen, Pick who works IN PLACE — closes this sheet, Select on, the list narrowed to To invite.
+  const pickWho = usePickWho();
   const acts = useRef<HTMLSpanElement>(null);
   useFitRow(acts);
   return (
@@ -275,6 +277,14 @@ function InvitationsRow({ eventId, toInvite }: { eventId: string; toInvite: numb
           icon={SquareCheck}
           label="Pick who"
           href={setupDoorHref(eventId, 'pick-who')}
+          onClick={
+            pickWho
+              ? (e) => {
+                  e.preventDefault();
+                  pickWho();
+                }
+              : undefined
+          }
           data-testid="setup-pick-who"
         />
       </span>

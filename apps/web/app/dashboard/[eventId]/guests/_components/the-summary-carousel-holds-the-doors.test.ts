@@ -66,7 +66,7 @@ test('the carousel draws three cards in order, each ONCE, each with its ⓘ in t
   assert.deepEqual(cards, ['total', 'replies', 'plus'], 'the three cards are not ① total · ② replies · ③ +1s, each once');
   assert.equal(count(c, /data-snap-copy/g), 0, 'the server drew loop copies — every door would be in the page twice');
   for (const k of cards) {
-    const card = div(c, `data-guests-card="${k}"`)!;
+    const card: string = div(c, `data-guests-card="${k}"`)!;
     // The ⓘ is the app's one InfoTip (a button "About …"), the card's LAST child — positioned top-right by `.cardTip`.
     assert.match(card, /<span class="[^"]*\bcardTip\b[^"]*"[^>]*>(?:(?!data-guests-card).)*aria-label="About [^"]+"/s, `card ${k} has no ⓘ`);
     assert.equal(count(card, /aria-label="About /g), 1, `card ${k} has more than one ⓘ`);

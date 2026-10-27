@@ -38,7 +38,6 @@ export async function renderSetup(
         drafted: false,
         reply: { own: '2027-01-14', pricingMode: 'realtime', fallback: null },
         toInvite: opts.toInvite === undefined ? 4 : opts.toInvite,
-        passSrc: '/api/hub-print/pass?event=e1&mode=screen&pass_guest=first',
         oneLink: { url: 'https://setnayan.com/cale-ice/invite', qrSvg: '<svg data-qr=""></svg>', notice: null },
         headcount: { ...HEADCOUNT_OPEN, ...(opts.headcount ?? {}) },
       }),

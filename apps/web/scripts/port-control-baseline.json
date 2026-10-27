@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "3bc016d810",
+  "generatedFromRef": "79344fcdf2",
   "routeCount": 474,
   "destinations": 993,
   "actions": 642,
-  "blocks": 7120,
+  "blocks": 7138,
   "routes": {
     "/": {
       "files": [
@@ -1570,6 +1570,7 @@
         "Said",
         "SampleViewerInert",
         "SaveAvatarResult",
+        "SaveFileLink",
         "SaveOfferHead",
         "SavePassCardButton",
         "SavePhotoButton",
@@ -4959,6 +4960,8 @@
         "JournalPartnerCredit",
         "Link",
         "Logo",
+        "OpenFileLink",
+        "SaveFileLink",
         "ShopLink"
       ]
     },
@@ -5161,9 +5164,11 @@
         "ChapterEmbedFrame",
         "ChapterFields",
         "CreatorBody",
+        "File",
         "FormFlash",
         "Link",
         "OfferInbox",
+        "OpenFileLink",
         "PageMasthead",
         "Phase",
         "SubmitButton",
@@ -5455,6 +5460,7 @@
         "PushToggle",
         "RestorePurchasesRow",
         "Row",
+        "SaveFileLink",
         "Segmented",
         "SettingsGroup",
         "SettingsShell",
@@ -5659,6 +5665,7 @@
         "ReasonNote",
         "ReasonPicker",
         "RemoveDialog",
+        "SaveFileLink",
         "SectionLabel",
         "ShelfInfo",
         "SidePanel",
@@ -6279,6 +6286,7 @@
         "R",
         "RecordCostResult",
         "RecordSheet",
+        "SaveFileLink",
         "SetEventBudgetResult",
         "SetShareBudgetBandResult",
         "ShareBudgetBandToggle",
@@ -6348,6 +6356,7 @@
       "actions": [],
       "blocks": [
         "Link",
+        "OpenFileLink",
         "PageMasthead"
       ]
     },
@@ -6652,6 +6661,7 @@
         "dashboard/[eventId]/guests/_components/guest-selection-store.ts",
         "dashboard/[eventId]/guests/_components/guest-ticket-parts.tsx",
         "dashboard/[eventId]/guests/_components/guests-db.harness.ts",
+        "dashboard/[eventId]/guests/_components/guests-excel-button.tsx",
         "dashboard/[eventId]/guests/_components/guests-last-copy.tsx",
         "dashboard/[eventId]/guests/_components/guests-screen.tsx",
         "dashboard/[eventId]/guests/_components/handed.tsx",
@@ -6756,7 +6766,6 @@
         "Explain",
         "FactRow",
         "File",
-        "Fill",
         "Fix",
         "Fold",
         "FormData",
@@ -6883,6 +6892,7 @@
         "SendInvite",
         "SetRsvpResult",
         "Sheet",
+        "SnapCarousel",
         "SoftDeleteForUndoResult",
         "Spotlight",
         "StatusLine",
@@ -6993,6 +7003,7 @@
         "GuestImportForm",
         "GuestImportState",
         "Link",
+        "SaveFileLink",
         "Submit"
       ]
     },
@@ -8980,6 +8991,7 @@
         "Element",
         "EventLinkedBadge",
         "Explain",
+        "File",
         "FinalizationActionResult",
         "FormRow",
         "FormRows",
@@ -9366,6 +9378,7 @@
         "BoothLaunchPanel",
         "BoothTag",
         "CategoryChips",
+        "File",
         "GridPageSkeleton",
         "HTMLDivElement",
         "HTMLVideoElement",
@@ -9378,6 +9391,7 @@
         "MediaRecorder",
         "MediaStream",
         "MusicTrackOption",
+        "OpenFileLink",
         "PaidMark",
         "Phase",
         "Preview",
@@ -9603,6 +9617,7 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "File",
         "IapUnlockSheet",
         "InlineCheckoutDrawer",
         "PageMasthead",
@@ -12669,7 +12684,8 @@
         "MusicChoice",
         "MusicOption",
         "Phase",
-        "PoolDoorway"
+        "PoolDoorway",
+        "SaveFileLink"
       ]
     },
     "/papic/order/[token]": {
@@ -13694,6 +13710,7 @@
         "Result",
         "ReturningMarkerAndActions",
         "RunOfShowHeader",
+        "SaveFileLink",
         "ScheduleTab",
         "ScriptActionState",
         "ScriptComposer",
@@ -13897,6 +13914,7 @@
       "blocks": [
         "DetailPageSkeleton",
         "Link",
+        "OpenFileLink",
         "SubmitButton"
       ]
     },
@@ -14046,6 +14064,7 @@
         "RosterRow",
         "RosterRowView",
         "RowTile",
+        "SaveFileLink",
         "SearchBox",
         "ShareTeamPick",
         "Sheet",

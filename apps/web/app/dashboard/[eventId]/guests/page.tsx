@@ -65,7 +65,7 @@ import { accountPhotoRefsByGuest } from '@/lib/guest-account-photos';
 import { accountNamesByGuest } from '@/lib/linked-profile-names';
 import { withProfileName } from '@/lib/formal-name';
 import { ROLE_SECTION_ORDER } from './_components/role-section-order';
-import { GuestsScreen } from './_components/guests-screen';
+import { GuestsScreen, type RowInvite } from './_components/guests-screen';
 import type { TitleWaitingPerson } from './_components/titles-waiting';
 import { needsWomanOrMan, ROLES_WHOSE_WORD_NEEDS_GENDER, titleButtonText, titleKey } from '@/lib/guest-title';
 import { mapRootLabel, mayBeInvited } from '@/lib/guest-roster-view';
@@ -510,9 +510,6 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   /* ⚖ Owner 2026-09-20: "so when users create their accounts, when they have a
      profile photo, it will show here too" — the account photos, beside everything else. */
   const accountRefRead = userRead.then((user) => (user ? accountPhotoRefsByGuest(supabase, eventId, user.id) : ({} as Record<string, string>)));
-  // Which guests an account holds — a row's 💬 Message needs one (G35). Refused
-  // → null, and no row claims an account nobody measured.
-  const linkedGuestIdsRead = readLinkedGuestIds(supabase, eventId);
 
   // ─── THE ONE WAIT ────────────────────────────────────────────────────────
   const [
@@ -527,7 +524,6 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     invitationBase,
     inviteSetup,
     accountRefByGuest,
-    linkedGuestIds,
     eventPapic,
     storeShell,
   ] = await Promise.all([
@@ -542,7 +538,6 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     invitationBaseRead,
     inviteSetupRead,
     accountRefRead,
-    linkedGuestIdsRead,
     eventPapicRead,
     storeShellRead,
   ]);
@@ -934,7 +929,6 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // recounted here, so the meters, the counts line and the header cannot disagree.
   const stats = guestsRead.stats;
   const flash = pickFlash(search);
-  // (`linkedGuestIds` — which guests an account holds, read in the one wait above.)
 
   // Minimal pool the quick-add sheet matches new names against for the
   // duplicate check — full unfiltered list, not the filtered `visible`.
@@ -1025,6 +1019,24 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // membership read blipped is never shown a read-only list (owner 2026-09-28 · live report 2026-10-25).
   const guestsViewOnly =
     !viewer.isCouple && viewer.delegatePermissions !== null && viewerAreaLevel(viewer, 'guest_list') !== 'edit';
+  /* 📤 EACH ROW'S SHARE (owner 2026-10-27, "GUEST ROW = SHARE + DELETE") — the event's address and words, read ONCE above
+     (the same `invitationBase` + `inviteSetup` the open card uses), and the token of every guest the send run would hold
+     (`mayBeInvited` — never the couple, a declined guest, a passed-away one, or a +1 riding their guest's invitation).
+     Only the token travels, never the rest of the row (the-list-sends-only-what-it-draws.test.ts), and only to a viewer
+     who may send — a look-only helper gets no Share, the same seam as Select and Delete. */
+  const rowInvite: RowInvite | null =
+    !guestsViewOnly && invitationBase
+      ? {
+          base: invitationBase,
+          tokens: Object.fromEntries(
+            guests
+              .filter((g) => !selfJoinIds.includes(g.guest_id) && mayBeInvited(g) && Boolean(g.qr_token))
+              .map((g) => [g.guest_id, g.qr_token as string] as const),
+          ),
+          facts: inviteSetup.facts,
+          template: inviteSetup.template,
+        }
+      : null;
   const guestsScreen = (
     <GuestsScreen
       eventId={eventId}
@@ -1039,10 +1051,10 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       tables={tables.map((t) => ({ tableId: t.table_id, label: tableWords(t.table_label) }))}
       tableByGuest={tableByGuest}
       songsByGuest={songsByGuest}
-      linkedGuestIds={linkedGuestIds}
       faceByGuest={faceByGuest}
       requests={pendingClaimsCount}
       oneQr={guestsOneQr}
+      invite={rowInvite}
       titlesWaiting={titlesWaiting}
       papic={viewer.isCouple && !storeShell ? eventPapic : null}
       rootLabel={mapRoot}
@@ -1587,22 +1599,6 @@ function pickFlash(search: {
  * A refusal returns null, and the column then says "—" for everybody rather than
  * a confident "Not linked" nobody measured.
  */
-async function readLinkedGuestIds(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  eventId: string,
-): Promise<string[] | null> {
-  const { data, error } = await supabase
-    .from('event_members')
-    .select('guest_id')
-    .eq('event_id', eventId)
-    .not('guest_id', 'is', null);
-  if (error) {
-    logQueryError('GuestsPage.linkedGuestIds', error, { eventId }, 'graceful_degrade');
-    return null;
-  }
-  return [...new Set(((data ?? []) as { guest_id: string | null }[]).map((r) => r.guest_id).filter((id): id is string => Boolean(id)))];
-}
-
 function EmptyState({
   hasGuests,
   eventId,

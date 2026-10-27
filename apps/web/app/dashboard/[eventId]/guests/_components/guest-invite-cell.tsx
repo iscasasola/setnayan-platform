@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState, useTransition } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, Link2, MessageCircle, MessagesSquare, PhoneCall, Send, Share2, Undo2 } from 'lucide-react';
+import { Check, Link2, MessageCircle, MessagesSquare, PhoneCall, Send, Share, Share2, Undo2 } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { useHeadPin } from '@/app/_components/inspector/use-head-pin';
 import { ActionButton } from '@/components/action-button';
@@ -132,8 +132,12 @@ export function GuestInviteCell({
   guest: SendInviteGuest;
   facts: InviteEventFacts;
   template: string | null;
-  /** 'card' — the guest card's top · 'row' — a desktop row · 'phone' — a phone row (status to the right). */
-  layout?: 'card' | 'row' | 'phone';
+  /**
+   * 'card' — the guest card's top · 'row' — a desktop row · 'phone' — a phone row (status to the right) ·
+   * 'icon' — the Guest list ROW's Share: one icon button, no status line, no ⋯ (owner 2026-10-27, "GUEST ROW = SHARE +
+   * DELETE"). On a phone it opens the phone's own share sheet at once; on a computer it opens this same sheet.
+   */
+  layout?: 'card' | 'row' | 'phone' | 'icon';
   /** The ⋯ menu, drawn right beside Invite (`GuestMoreMenu`). */
   more?: React.ReactNode;
   /** Whether an account holds this invitation; null = not measured, so not said. */
@@ -212,6 +216,8 @@ export function GuestInviteCell({
   );
 
   if (!guest.inviteUrl) {
+    // 📤 A row's Share is drawn only for a guest with their own link (`rowVerbsFor` → 'share'); nothing to say here.
+    if (layout === 'icon') return null;
     return (
       <div className={layout === 'phone' ? 'flex items-center gap-2' : 'space-y-1'} data-guest-invite-cell="no-link">
         <div className="flex items-center gap-1.5">
@@ -281,6 +287,27 @@ export function GuestInviteCell({
     const out = await shareInvite(file ?? null, message);
     if (out === 'shared') return mark(true);
     if (out === 'closed') return;
+    setTouch(false);
+  }
+
+  /*
+    📤 THE ROW'S SHARE — THE ONE SEND BUTTON (owner 2026-10-27: *"yes i want a 1 button"* · *"share and delete only"*).
+    A phone: the phone's own share sheet AT ONCE (Messenger · Viber · WhatsApp · SMS · Copy — its real, installed apps),
+    with the same message, through the same `shareInvite`; an app taking it stamps Sent ✓ exactly as the card's share
+    does. 🪤 TEXT ONLY, NOT THE TICKET FILE: the file is fetched only once a sheet is open (owner, live iPhone test
+    2026-10-02 — a list asking for 180 tickets is a cost nobody asked for), and an `await` before `navigator.share`
+    spends iOS's tap. So the row shares the message whose link opens their ticket (`ticketAttached: false` says so).
+    A computer — no share sheet where Messenger and Viber live — and a phone whose sheet refuses get THIS cell's sheet:
+    the app rows + Copy message · Copy ticket · Mark as sent · Copy invitation link. Never a second sender.
+  */
+  async function rowShare() {
+    if (isTouchDevice() && typeof navigator.share === 'function') {
+      setSaid(null);
+      const out = await shareInvite(null, message);
+      if (out === 'shared') return mark(true);
+      if (out === 'closed') return;
+    }
+    invite('body');
     setTouch(false);
   }
 
@@ -390,6 +417,140 @@ export function GuestInviteCell({
     </button>
   );
 
+  // The sheet (shared by every layout) and the "Did you send?" question on the way back.
+  const sheet = open ? (
+    <Popover anchorRef={from === 'head' && pin.pinned ? pinRef : ref} onClose={() => setOpen(false)} width={296} role="dialog" labelledById={titleId}>
+      <div className="space-y-1 p-1.5" data-guest-invite-panel="">
+        <div className="px-1 pb-1">
+          <InfoTip label={`Invite ${first}`} labelId={titleId} labelClassName="text-sm font-medium text-ink" align="start">
+            WhatsApp{touch ? ' and Viber open' : ' opens'} with the message ready — you pick {first} and press send.
+            {touch ? '' : ' Viber on a computer can’t take a message from a link, so we copy it.'} Messenger can’t take one
+            either: we copy it and open Messenger for you to paste. Nothing goes out until you send it in your app.
+          </InfoTip>
+        </div>
+        <div role="group" aria-label="Send in an app" data-invite-apps="">
+          {appRows}
+        </div>
+        {touch ? (
+          <>
+            <button
+              type="button"
+              onClick={share}
+              disabled={pending || file === undefined}
+              className={step}
+              data-guest-invite-share=""
+            >
+              <Share2 aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.8} />
+              {twoLines(INVITE_APP_NAMES.more, file === undefined ? 'Getting their ticket…' : inviteAppHint('more', device))}
+            </button>
+            {copyLinkRow}
+          </>
+        ) : (
+          <>
+        <div aria-hidden className="mx-2.5 my-1 border-t border-ink/[0.08]" />
+        <button type="button" onClick={copyMessage} className={step} data-guest-invite-copy="">
+          {num(1, done.message)}
+          <span className="flex-1">Copy message</span>
+          {done.message ? <span className="text-xs text-success-700">Copied</span> : null}
+        </button>
+        <button type="button" onClick={copyTicket} className={step} data-guest-invite-copy-ticket="">
+          {num(2, done.ticket)}
+          <span className="flex-1">Copy ticket</span>
+          {done.ticket ? <span className="text-xs text-success-700">Copied</span> : null}
+        </button>
+        {sentAt ? (
+          <p className="flex min-h-[44px] items-center gap-2.5 px-2.5 text-[13px] text-ink" data-guest-invite-sent="">
+            {num(3, true)}
+            <span className="flex-1">Sent {sentDay}</span>
+            <ActionButton tone="neutral" quiet icon={Undo2} label="Undo" onClick={() => mark(false)} disabled={pending} />
+          </p>
+        ) : (
+          <button type="button" onClick={() => mark(true)} disabled={pending} className={step} data-guest-invite-mark="">
+            {num(3, false)}
+            <span className="flex-1">{pending ? 'Saving…' : 'Mark as sent'}</span>
+          </button>
+        )}
+        {copyLinkRow}
+        <p className="border-t border-ink/[0.06] px-2.5 pt-2 text-xs leading-relaxed text-ink/60">
+          Paste the message, then paste the ticket in the chat.
+        </p>
+          </>
+        )}
+        <div aria-live="polite" className="space-y-1.5 px-1">
+          {said?.kind === 'ticket-saved' ? (
+            <p className="text-xs text-ink/75">Your browser saved the ticket as a file instead — attach it to the message.</p>
+          ) : null}
+          {said?.kind === 'no-ticket' ? (
+            <p className="text-xs text-ink/75">
+              {first} has no ticket yet. The message still carries their link.
+            </p>
+          ) : null}
+          {said?.kind === 'manual' ? (
+            <>
+              <p className="text-xs text-ink/75">The copy was blocked — select it and copy it.</p>
+              <textarea
+                className="w-full rounded-lg border border-ink/15 bg-white dark:bg-raised p-2 text-xs leading-relaxed text-ink"
+                readOnly
+                value={said.text}
+                rows={5}
+                onFocus={(e) => e.currentTarget.select()}
+              />
+            </>
+          ) : null}
+          {said?.kind === 'app' ? (
+            <>
+              <p className="text-xs leading-relaxed text-ink/75" data-invite-app-said="">
+                {said.text}
+              </p>
+              {touch && !sentAt ? (
+                <button type="button" onClick={() => mark(true)} disabled={pending} className={step} data-guest-invite-mark="">
+                  <Check aria-hidden className="h-4 w-4 shrink-0 text-success-700" strokeWidth={2.25} />
+                  <span className="flex-1">{pending ? 'Saving…' : 'Mark as sent'}</span>
+                </button>
+              ) : null}
+            </>
+          ) : null}
+          {said?.kind === 'error' ? (
+            <p role="alert" className="text-xs text-danger-700">
+              {said.text}
+            </p>
+          ) : null}
+        </div>
+      </div>
+    </Popover>
+  ) : null;
+  const askBack = (
+    <SentOrNotYet
+      open={back.asking && !sentAt}
+      name={first}
+      onSent={() => {
+        back.settle();
+        mark(true);
+      }}
+      onNotYet={back.settle}
+    />
+  );
+
+  /* 📤 THE ROW'S SHARE — one neutral icon button, named for its guest; it sits in the row's buttons as their own child
+     (`display: contents`), so the row's fit states and its 44-px phone rule size it like Delete. */
+  if (layout === 'icon') {
+    return (
+      <span className="contents" data-guest-invite-pair="icon" data-sent={sentAt ? 'true' : undefined}>
+        <ActionButton
+          ref={ref}
+          tone="neutral"
+          icon={Share}
+          label="Share"
+          name={sentAt ? `Share ${guest.fullName}’s invitation — sent ${sentDay}` : `Share ${guest.fullName}’s invitation`}
+          onClick={rowShare}
+          disabled={pending}
+        />
+        {sheet}
+        {askBack}
+      </span>
+    );
+  }
+
   return (
     <div
       className={layout === 'phone' ? 'flex w-full items-center gap-2' : 'space-y-1'}
@@ -436,116 +597,8 @@ export function GuestInviteCell({
             pin.slot,
           )
         : null}
-      {open ? (
-        <Popover anchorRef={from === 'head' && pin.pinned ? pinRef : ref} onClose={() => setOpen(false)} width={296} role="dialog" labelledById={titleId}>
-          <div className="space-y-1 p-1.5" data-guest-invite-panel="">
-            <div className="px-1 pb-1">
-              <InfoTip label={`Invite ${first}`} labelId={titleId} labelClassName="text-sm font-medium text-ink" align="start">
-                WhatsApp{touch ? ' and Viber open' : ' opens'} with the message ready — you pick {first} and press send.
-                {touch ? '' : ' Viber on a computer can’t take a message from a link, so we copy it.'} Messenger can’t take one
-                either: we copy it and open Messenger for you to paste. Nothing goes out until you send it in your app.
-              </InfoTip>
-            </div>
-            <div role="group" aria-label="Send in an app" data-invite-apps="">
-              {appRows}
-            </div>
-            {touch ? (
-              <>
-                <button
-                  type="button"
-                  onClick={share}
-                  disabled={pending || file === undefined}
-                  className={step}
-                  data-guest-invite-share=""
-                >
-                  <Share2 aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.8} />
-                  {twoLines(INVITE_APP_NAMES.more, file === undefined ? 'Getting their ticket…' : inviteAppHint('more', device))}
-                </button>
-                {copyLinkRow}
-              </>
-            ) : (
-              <>
-            <div aria-hidden className="mx-2.5 my-1 border-t border-ink/[0.08]" />
-            <button type="button" onClick={copyMessage} className={step} data-guest-invite-copy="">
-              {num(1, done.message)}
-              <span className="flex-1">Copy message</span>
-              {done.message ? <span className="text-xs text-success-700">Copied</span> : null}
-            </button>
-            <button type="button" onClick={copyTicket} className={step} data-guest-invite-copy-ticket="">
-              {num(2, done.ticket)}
-              <span className="flex-1">Copy ticket</span>
-              {done.ticket ? <span className="text-xs text-success-700">Copied</span> : null}
-            </button>
-            {sentAt ? (
-              <p className="flex min-h-[44px] items-center gap-2.5 px-2.5 text-[13px] text-ink" data-guest-invite-sent="">
-                {num(3, true)}
-                <span className="flex-1">Sent {sentDay}</span>
-                <ActionButton tone="neutral" quiet icon={Undo2} label="Undo" onClick={() => mark(false)} disabled={pending} />
-              </p>
-            ) : (
-              <button type="button" onClick={() => mark(true)} disabled={pending} className={step} data-guest-invite-mark="">
-                {num(3, false)}
-                <span className="flex-1">{pending ? 'Saving…' : 'Mark as sent'}</span>
-              </button>
-            )}
-            {copyLinkRow}
-            <p className="border-t border-ink/[0.06] px-2.5 pt-2 text-xs leading-relaxed text-ink/60">
-              Paste the message, then paste the ticket in the chat.
-            </p>
-              </>
-            )}
-            <div aria-live="polite" className="space-y-1.5 px-1">
-              {said?.kind === 'ticket-saved' ? (
-                <p className="text-xs text-ink/75">Your browser saved the ticket as a file instead — attach it to the message.</p>
-              ) : null}
-              {said?.kind === 'no-ticket' ? (
-                <p className="text-xs text-ink/75">
-                  {first} has no ticket yet. The message still carries their link.
-                </p>
-              ) : null}
-              {said?.kind === 'manual' ? (
-                <>
-                  <p className="text-xs text-ink/75">The copy was blocked — select it and copy it.</p>
-                  <textarea
-                    className="w-full rounded-lg border border-ink/15 bg-white dark:bg-raised p-2 text-xs leading-relaxed text-ink"
-                    readOnly
-                    value={said.text}
-                    rows={5}
-                    onFocus={(e) => e.currentTarget.select()}
-                  />
-                </>
-              ) : null}
-              {said?.kind === 'app' ? (
-                <>
-                  <p className="text-xs leading-relaxed text-ink/75" data-invite-app-said="">
-                    {said.text}
-                  </p>
-                  {touch && !sentAt ? (
-                    <button type="button" onClick={() => mark(true)} disabled={pending} className={step} data-guest-invite-mark="">
-                      <Check aria-hidden className="h-4 w-4 shrink-0 text-success-700" strokeWidth={2.25} />
-                      <span className="flex-1">{pending ? 'Saving…' : 'Mark as sent'}</span>
-                    </button>
-                  ) : null}
-                </>
-              ) : null}
-              {said?.kind === 'error' ? (
-                <p role="alert" className="text-xs text-danger-700">
-                  {said.text}
-                </p>
-              ) : null}
-            </div>
-          </div>
-        </Popover>
-      ) : null}
-      <SentOrNotYet
-        open={back.asking && !sentAt}
-        name={first}
-        onSent={() => {
-          back.settle();
-          mark(true);
-        }}
-        onNotYet={back.settle}
-      />
+      {sheet}
+      {askBack}
     </div>
   );
 }

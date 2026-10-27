@@ -1241,6 +1241,8 @@ export function StageTools({
   const fixedHere = canvasOfPick ? fixedOfKey(canvasOfPick) : null;
   /** 🎞 The picked part's Post Event scene, by its canvas key (`p:<scene>`) — null off Post Event, or on a part that is not one. */
   const canvasOfScene = picked && !rsvpOpen && makerPostEventSceneOf(stageKey, picked) ? makerPartCanvasOn(stageKey, picked) : null;
+  /** 🗂 R1 — the event the Guests ⚙ door names (the shell's own id); null outside the Maker. */
+  const makerEventId = maker?.eventId ?? null;
   useEffect(() => {
     /* The RSVP stage's screens: the form and its two notes have ONE door — the reply's settings, in Guests ⚙ (R1). */
     const q = rsvpOpen ? rsvpQuietRow(picked) : picked && picked !== 'reveal' ? makerPartQuietRow(picked) : null;
@@ -1248,7 +1250,7 @@ export function StageTools({
     if (q) {
       if ('suppliers' in q.to) quiet = { kind: 'suppliers', words: q.words, href: suppliersHref };
       /* 🗂 R1 (owner 2026-10-28): the reply's settings left Studio for Guests ⚙ — its door opens that sheet on the row. */
-      else if ('guests' in q.to) quiet = maker ? { kind: 'guests', words: q.words, href: guestsSettingsHref(maker.eventId, q.to.guests) } : null;
+      else if ('guests' in q.to) quiet = makerEventId ? { kind: 'guests', words: q.words, href: guestsSettingsHref(makerEventId, q.to.guests) } : null;
       else {
         const to = q.to.studio;
         quiet = {
@@ -1277,7 +1279,7 @@ export function StageTools({
     const story = !rsvpOpen && picked && canvasOfScene ? postEventAbout(postEventSceneNow(canvasOfScene), POST_EVENT_ABOUT) : null;
     const about = (f ? [f.line, f.source?.text].filter(Boolean).join(' ') || null : null) ?? (rsvpOpen && picked ? (RSVP_PART_ABOUT[picked] ?? null) : null) ?? story;
     setStagePanelNow({ picked, quiet, about, line: rsvpLine });
-  }, [picked, rsvpLine, rsvpOpen, rsvpCardEdits, suppliersHref, stageKey, shownPage, onOpenStudio, fixedHere, canvasOfScene, maker?.renderStamp, maker?.eventId]);
+  }, [picked, rsvpLine, rsvpOpen, rsvpCardEdits, suppliersHref, stageKey, shownPage, onOpenStudio, fixedHere, canvasOfScene, maker?.renderStamp, makerEventId]);
   useEffect(() => () => setStagePanelNow({ picked: null, quiet: null, about: null }), []);
 
   /* 🚫 A TOOL WITH NOTHING TO SET ON THE PICKED PART (`makerPartToolWorks`): grey, `aria-disabled`, and a tap says

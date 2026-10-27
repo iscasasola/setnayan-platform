@@ -90,7 +90,7 @@ test('3 · the RSVP stage’s form and its Reply card open Guests ⚙ — never 
   for (const row of PART_ROWS) assert.equal(SETTINGS_ROWS[row].menu, 'guests', `the part door names ${row}, not a Guests ⚙ row`);
   // The toolbar turns that door into a plain link to the sheet's row (another page of the app, like Suppliers).
   const tools = read('app/dashboard/[eventId]/launch/_components/stage-tools.tsx');
-  assert.match(tools, /else if \('guests' in q\.to\) quiet = maker \? \{ kind: 'guests', words: q\.words, href: guestsSettingsHref\(maker\.eventId, q\.to\.guests\) \} : null;/);
+  assert.match(tools, /else if \('guests' in q\.to\) quiet = makerEventId \? \{ kind: 'guests', words: q\.words, href: guestsSettingsHref\(makerEventId, q\.to\.guests\) \} : null;/);
   assert.match(read('app/dashboard/[eventId]/launch/_components/stage-panel/kit.tsx'), /quiet\.kind === 'guests' \? \([\s\S]{0,200}?href=\{quiet\.href\}/);
 });
 

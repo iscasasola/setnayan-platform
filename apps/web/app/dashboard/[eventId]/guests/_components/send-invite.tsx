@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useId, useRef, useState, useTransition } from 'react';
-import { Check, Copy, Download, Send, Undo2 } from 'lucide-react';
+import { Check, Copy, Share, Send, Undo2 } from 'lucide-react';
 import { SaveFileLink } from '@/app/_components/save-file-link';
 import { ActionButton, actionButtonClass } from '@/components/action-button';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
@@ -422,7 +422,7 @@ export function SendInviteActions({
                 >
                   {(state) => (
                     <>
-                      <Download aria-hidden strokeWidth={1.9} />
+                      <Share aria-hidden strokeWidth={1.9} />
                       <span className="lbl">{state === 'saving' ? 'Saving…' : 'Download ticket'}</span>
                     </>
                   )}

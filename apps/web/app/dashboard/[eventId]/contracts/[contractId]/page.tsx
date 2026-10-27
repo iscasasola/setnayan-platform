@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { ArrowLeft, Download } from 'lucide-react';
+import { ArrowLeft, Share } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { OpenFileLink } from '@/app/_components/open-file-link';
 import { PageMasthead } from '@/app/_components/page-masthead';
@@ -72,7 +72,7 @@ export default async function CustomerContractDetailPage({ params }: Props) {
             rel="noreferrer"
             className="button-secondary inline-flex items-center justify-center gap-2 text-sm"
           >
-            <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            <Share aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             View / download
           </OpenFileLink>
         </div>

@@ -7,7 +7,7 @@ import {
   CalendarDays,
   ClipboardList,
   Signpost,
-  Download,
+  Share,
   FileText,
   Gift,
   Gem,
@@ -581,7 +581,7 @@ export function MakerDetails(props: MakerDetailsProps) {
       return { label: 'Event Hub address', sub: address ?? 'Not set yet', done: Boolean(slug), usedOn: ['every print', 'every pass'], icon: <Link2 aria-hidden className="h-4 w-4" strokeWidth={1.75} /> };
     }
     if (k === 'qr') return { label: 'QR code', done: Boolean(slug), usedOn: ['every print', 'every pass'], icon: <QrCode aria-hidden className="h-4 w-4" strokeWidth={1.75} /> };
-    if (k === 'download') return { label: 'Download the set', sub: 'PDF · every pass', icon: <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} /> };
+    if (k === 'download') return { label: 'Download the set', sub: 'PDF · every pass', icon: <Share aria-hidden className="h-4 w-4" strokeWidth={1.75} /> };
     /* 🖨 Studio › Prints' head (owner 2026-10-16): the QR line and the NFC spot, once for the whole set. */
     /* ⚙ …Print settings since 2026-10-17: every switch and field of every piece, in one sheet. */
     if (k === EVERY_PRINT_ITEM) return { label: PRINT_SETTINGS_LABEL, sub: PRINT_SETTINGS_LINE, icon: <Settings aria-hidden className="h-4 w-4" strokeWidth={1.75} /> };

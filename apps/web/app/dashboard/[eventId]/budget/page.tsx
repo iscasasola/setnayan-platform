@@ -1,6 +1,6 @@
 import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
 import { redirect } from 'next/navigation';
-import { Download, Printer } from 'lucide-react';
+import { Share, Printer } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { isChineseWedding, isMuslimWedding } from '@/lib/chinese-wedding';
 import { getCurrentUser } from '@/lib/auth';
@@ -451,7 +451,7 @@ export default async function BudgetPage({ params, searchParams }: Props) {
               filename={`setnayan-${budgetFileSlug}-budget.ics`}
               className="inline-flex items-center gap-2 rounded-md border border-ink/15 bg-white/55 px-4 py-2 text-sm font-medium text-ink backdrop-blur-sm transition hover:border-terracotta/50 hover:text-terracotta-700"
             >
-              <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+              <Share aria-hidden className="h-4 w-4" strokeWidth={1.75} />
               Export upcoming dates (.ics)
             </SaveFileLink>
             {/* SUP-64 · the same books as this page, to print or to open in a
@@ -466,7 +466,7 @@ export default async function BudgetPage({ params, searchParams }: Props) {
                   filename={`setnayan-${budgetFileSlug}-budget.csv`}
                   className="inline-flex items-center gap-2 rounded-md border border-ink/15 bg-white/55 px-4 py-2 text-sm font-medium text-ink backdrop-blur-sm transition hover:border-terracotta/50 hover:text-terracotta-700"
                 >
-                  <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+                  <Share aria-hidden className="h-4 w-4" strokeWidth={1.75} />
                   Budget (.csv)
                 </SaveFileLink>
                 <a

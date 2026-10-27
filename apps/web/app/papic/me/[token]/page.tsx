@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ArrowRight, Camera, CircleAlert, Clock, Download, Images, Sparkles } from 'lucide-react';
+import { ArrowRight, Camera, CircleAlert, Clock, Share, Images, Sparkles } from 'lucide-react';
 import { DoorShell } from '@/app/_components/door/door-shell';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveGuestCamera } from '@/lib/papic-limited';
@@ -145,7 +145,7 @@ async function GuestGallery({
         data-tour="me-download"
         className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-md bg-ink/5 px-4 py-2 text-sm font-medium text-ink/80 transition hover:bg-ink/10"
       >
-        <Download aria-hidden className="h-4 w-4" strokeWidth={2} />
+        <Share aria-hidden className="h-4 w-4" strokeWidth={2} />
         Download my photos
       </SaveFileLink>
       {/* Kwento Decorator — go through the token→session bridge (route handler)

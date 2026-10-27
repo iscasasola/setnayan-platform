@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition, type MouseEvent } from 'react';
 import { Check, ChevronRight, Copy, Mail, RotateCcw, Share2, SquareCheck, X } from 'lucide-react';
 import { ActionButton, useFitRow } from '@/components/action-button';
 import { Count } from '@/components/count';
@@ -279,7 +279,7 @@ function InvitationsRow({ eventId, toInvite }: { eventId: string; toInvite: numb
           href={setupDoorHref(eventId, 'pick-who')}
           onClick={
             pickWho
-              ? (e) => {
+              ? (e: MouseEvent<HTMLAnchorElement>) => {
                   e.preventDefault();
                   pickWho();
                 }

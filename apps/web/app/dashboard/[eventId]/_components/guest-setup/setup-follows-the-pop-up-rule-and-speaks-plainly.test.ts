@@ -67,7 +67,8 @@ test('(3) the slots the page hands the screen are single children, not list memb
   assert.doesNotMatch(cell, /[^>]\{more\}[^<]/, 'the ⋯ is placed bare among the cell’s children');
   assert.match(screen, /\{empty && !q \? <Handed>\{empty\}<\/Handed> : null\}/, 'the empty slot sits among the list’s children again');
   // ⚙ Guests ⚙ (2026-10-27): the Setup slot is the sheet's rows — the ⚙'s ONE child, never a list member.
-  assert.match(screen, /<MenuSettingsButton menu="guests"[^>]*>\s*\{setup\}\s*<\/MenuSettingsButton>/, 'the Setup slot is not the ⚙ sheet’s single child');
+  // ☑ (2026-10-28) the rows sit inside `PickWhoContext` so Pick who works in place — still the ⚙'s ONE child.
+  assert.match(screen, /<MenuSettingsButton menu="guests"[^>]*>\s*<PickWhoContext\.Provider value=\{[^}]*\}>\{setup\}<\/PickWhoContext\.Provider>\s*<\/MenuSettingsButton>/, 'the Setup slot is not the ⚙ sheet’s single child');
 });
 
 test('(4) Invitations draws no pass picture — the Event Pass lives in Prints (owner 2026-10-28 "yes")', () => {

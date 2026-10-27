@@ -13,7 +13,7 @@
  * The seats run through the SHIPPED rule (`eventsYouRun`), so `&none=1` is the rule saying no — not the lab hiding.
  */
 import Link from 'next/link';
-import { MessageSquare, FileText } from 'lucide-react';
+import { MessageSquare } from 'lucide-react';
 import { BottomDock } from '@/app/_components/nav/bottom-nav';
 import { Badge } from '@/app/_components/badge';
 import { VendorBottomNav } from '@/app/vendor-dashboard/_components/vendor-bottom-nav';
@@ -96,9 +96,6 @@ export function CoordLab({ state, none, actions }: { state: CoordState; none: bo
         {claire ? <OpenTheirEvent eventId={claire.eventId} /> : null}
         <Link href="/vendor-dashboard/messages/t-lab-claire" className="inline-flex items-center gap-1.5 rounded-lg bg-ink px-3 py-2 text-xs font-semibold text-cream">
           <MessageSquare aria-hidden className="h-3.5 w-3.5" /> Open chat
-        </Link>
-        <Link href="/vendor-dashboard/proposals" className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/70">
-          <FileText aria-hidden className="h-3.5 w-3.5" /> New quote
         </Link>
       </div>
       {bar}

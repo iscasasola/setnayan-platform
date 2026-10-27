@@ -88,6 +88,7 @@ import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo
 import { LabGuestActions } from './lab-guest-actions';
 import { LabShell } from '@/app/dev/_components/lab-shell';
 import { RoleNamesProvider } from '@/app/dashboard/[eventId]/guests/_components/role-names-context';
+import { InspectorLayout } from '@/app/_components/inspector/inspector-column';
 
 const EVENT = '00000000-0000-4000-8000-000000000000';
 /** 👥 `&sides=1` — cale-ice's own groups as measured in prod 2026-10-20 (names + sides only), plus one both-sides group;
@@ -823,6 +824,42 @@ export default async function GuestsLabPage({
                   </LabGuestActions>
                 </section>
     );
+    /* 🪪 `&open=1` — the screen inside the REAL `InspectorLayout` the Guests page draws it in (`mobileSheet`), so a tap
+       on a row opens that guest's card the way the page does and tap → card can be TIMED (guest card opens fast,
+       2026-10-28; `&many=150` for a list the size of a real one). `&inspect=<id>` is the page's own address for an open
+       card: the lab draws that guest's card on the server, as `guests/page.tsx` does — the cold-load / deep-link path. */
+    const openMode = sp.open === '1';
+    const listCard = (g: GuestRow) => (
+      <LabGuestActions refuse={labRefuses}>
+        <GuestCard
+          frame="panel"
+          eventId={EVENT}
+          data={cardData(g, g.role === 'bride' || g.role === 'groom')}
+          invitationBase="https://www.setnayan.com/maria-and-jose"
+          photoDisplayUrl={null}
+          returnTo={`/dev/guests-lab?part=screen&open=1&inspect=${g.guest_id}`}
+          errorMessage={null}
+          actions={{ update: labUpdate, release: labRelease, partnerLink: labPartnerLink }}
+          inviteFlash={null}
+          inviteSetup={{ facts: { hostsName: 'Maria & Jose', eventWord: 'wedding', eventDate: '2026-12-12', datePrecision: 'day' }, template: null, slug: 'maria-and-jose' }}
+          papic={{ access: 'on', ceiling: null }}
+          storeShell={false}
+          ticketVersion={null}
+          helper={null}
+        />
+      </LabGuestActions>
+    );
+    const inspectedGuest = openMode && typeof sp.inspect === 'string' ? (roster.find((g) => g.guest_id === sp.inspect) ?? null) : null;
+    const opened = openMode ? (
+      <InspectorLayout
+        paramKey="inspect"
+        className="sn-inspector-shell--card"
+        mobileSheet
+        hasSelection={Boolean(inspectedGuest)}
+        master={screen}
+        inspector={inspectedGuest ? listCard(inspectedGuest) : null}
+      />
+    ) : null;
     /* `&shell=1` — the REAL One Shell around the screen (rail + bar + the event's
        menu, `boundary="tab"`), for the tablet/desktop walk. */
     if (sp.shell === '1') {
@@ -846,7 +883,7 @@ export default async function GuestsLabPage({
           <main className="sn-vt-page">
             <div data-shell-main>
               <div className="mx-auto w-full px-4 pb-6 pt-3 sm:px-6 sm:pt-6 lg:px-8">
-                {screen}
+                {opened ?? screen}
               </div>
             </div>
           </main>

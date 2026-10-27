@@ -354,6 +354,8 @@ async function main() {
     pageWithCard: await view(() => page({ inspect: GUESTS[2]!.guest_id })),
     /** The layout and the page together, as Next renders them — one request's worth of reads. */
     layoutAndPage: await view(() => Promise.all([EventLayout({ children: null, params } as never), page()]).then(([, drawn]) => drawn)),
+    /** ONE guest's card alone — the card-only read a tap on a row costs (`openGuestCard`), no list. */
+    cardAlone: await view(() => import('./open-guest-card').then((m) => m.openGuestCard(EVENT_ID, GUESTS[2]!.guest_id, 'march'))),
     oneReadRefused: undefined as unknown as ViewReport,
     delegateWithoutGuestList: undefined as unknown as ViewReport,
   };

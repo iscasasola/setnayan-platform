@@ -1609,7 +1609,7 @@ const PILL: Record<GuestRow['rsvp_status'], { cls: string; word: string }> = {
 function PinnedSummary({ segs, doors, invite }: { segs: ReactNode[]; doors: ReactNode[]; invite: ReactNode }) {
   return (
     <div className={`${styles.face} ${styles.faceAlt}`} data-guests-pin-face="summary">
-      <nav className={`${PILL_TRACK_CLASS} ${PILL_TRACK_GROUND} ${styles.pinSeg}`} aria-label="Guest list views" data-guests-pin-segmented="">
+      <nav className={`${PILL_TRACK_CLASS} ${PILL_TRACK_GROUND} ${styles.pinSeg}`} aria-label="Guest list views, pinned" data-guests-pin-segmented="">
         <PillThumb />
         {segs}
       </nav>

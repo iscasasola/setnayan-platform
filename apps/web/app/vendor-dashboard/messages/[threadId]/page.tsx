@@ -317,7 +317,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   const eventRead = (async () => {
     return await paxAdmin
       .from('events')
-      .select('display_name, event_date, event_type, region, setnayan_ai_active, created_at, budget_band, mood_feel_key, ceremony_type')
+      .select('display_name, event_date, event_date_precision, event_end_date, event_type, region, setnayan_ai_active, created_at, budget_band, mood_feel_key, ceremony_type')
       .eq('event_id', thread.event_id)
       .maybeSingle();
   })();
@@ -1767,6 +1767,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
                   sendAction={sendChatMessage}
                   lead={<ThreadToolsSheet eventId={thread.event_id} state={toolsState} />}
                   attachInputId={CHAT_ATTACH_INPUT_ID}
+                  userId={user.id}
                 />
               </div>
                   ) : thread.inquiry_status === 'pending' ? (
@@ -1980,6 +1981,11 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
             paymentProofUrl={bookedMoney.deposit?.proofUrl ?? null}
             payoutReadiness={payoutReadiness}
             theirLastReadAt={receipts.theirLastReadAt}
+            fileExpiry={{
+              eventDate: event?.event_date ?? null,
+              endDate: (event as { event_end_date?: string | null } | null)?.event_end_date ?? null,
+              precision: (event as { event_date_precision?: string | null } | null)?.event_date_precision ?? null,
+            }}
           />
         </ChatBox>
       </section>

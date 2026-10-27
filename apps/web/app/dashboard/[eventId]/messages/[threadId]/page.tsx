@@ -113,6 +113,17 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     return (eventRow as { event_date?: string | null } | null)?.event_date ?? null;
   })();
 
+  // 🗂 The chat-files rule (C2) counts from the event's LAST day and only from a real day — its precision and end.
+  const eventDayRead = (async () => {
+    const { data, error } = await supabase
+      .from('events')
+      .select('event_date_precision, event_end_date')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    if (error) logQueryError('CoupleThreadPage.eventDay', error, { event_id: eventId }, 'graceful_degrade');
+    return (data ?? null) as { event_date_precision?: string | null; event_end_date?: string | null } | null;
+  })();
+
   // UGC block state (Apple 1.2) — drives the thread menu label + composer gating.
   const blockStateRead = getThreadBlockState(thread, user.id, 'couple');
 
@@ -547,6 +558,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     { bookedMoney, couplePay },
     conversationRows,
     receipts,
+    eventDay,
   ] = await Promise.all([
     eventDateRead,
     blockStateRead,
@@ -562,6 +574,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     bookedRead,
     conversationRowsRead,
     receiptsRead,
+    eventDayRead,
   ]);
 
   // WHAT THE 🧾 ENTRY OFFERS (owner, 2026-09-19). No new read: the rung and the
@@ -800,6 +813,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
                   sendAction={sendChatMessage}
                   lead={<CoupleThreadToolsSheet dealReveal={dealOpen ? dealEntry.composer.reveal : null} />}
                   attachInputId={CHAT_ATTACH_INPUT_ID}
+                  userId={user.id}
                 />
               </div>
             ) : thread.inquiry_status === 'pending' ? (
@@ -892,6 +906,11 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
             couplePay={couplePay}
             theirLastReadAt={receipts.theirLastReadAt}
             senderNames={receipts.senderNames}
+            fileExpiry={{
+              eventDate,
+              endDate: eventDay?.event_end_date ?? null,
+              precision: eventDay?.event_date_precision ?? null,
+            }}
           />
         </ChatBox>
       </section>

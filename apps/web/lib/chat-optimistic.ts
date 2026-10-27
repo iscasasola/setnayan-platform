@@ -25,6 +25,8 @@ export type PendingSend = {
   /** ms since epoch, when Send was pressed. */
   at: number;
   state: 'sending' | 'sent' | 'failed';
+  /** Why it did not go, in words, when the composer knows (a file refused or too big — C2's sentences). */
+  reason?: string;
 };
 
 export const CHAT_PENDING_EVENT = 'chat-stream:pending';
@@ -64,14 +66,15 @@ export type SentRowLike = {
 };
 
 /**
- * Is `row` the real message a pending bubble stands for? Same side, same words (trimmed), the same file name when a
- * file rode it, and stored no earlier than a minute before Send was pressed (a clock skew allowance — never an older
+ * Is `row` the real message a pending bubble stands for? Same side, same words (trimmed), a file when a file rode
+ * it, and stored no earlier than a minute before Send was pressed (a clock skew allowance — never an older
  * identical "ok" from yesterday).
  */
 export function matchesPending(row: SentRowLike, pending: PendingSend, viewerRole: string): boolean {
   if (row.sender_role !== viewerRole) return false;
   if ((row.body ?? '').trim() !== pending.body.trim()) return false;
-  if (pending.fileName && (row.attachment_name ?? null) !== pending.fileName) return false;
+  // A file rode it → the row must carry one. Not the same NAME: compression may rename it (photo.HEIC → photo.jpg).
+  if (pending.fileName && !(row.attachment_name ?? '').trim()) return false;
   const stored = Date.parse(row.created_at);
   if (Number.isFinite(stored) && stored < pending.at - 60_000) return false;
   return true;
@@ -93,7 +96,7 @@ export function settlePendings<R extends SentRowLike>(pendings: PendingSend[], r
  * otherwise the last stored message is yours → "Seen" once the other side's read marker (`chat_thread_reads`) is at
  * or after it, else "Delivered"; the other side spoke last → nothing (their reply says it was read).
  */
-export type LastLine = { kind: 'sending' } | { kind: 'failed'; tempId: string } | { kind: 'delivered' } | { kind: 'seen' } | null;
+export type LastLine = { kind: 'sending' } | { kind: 'failed'; tempId: string; reason?: string } | { kind: 'delivered' } | { kind: 'seen' } | null;
 
 export function lastOwnLine(args: {
   lastStored: { sender_role: string; created_at: string } | null;
@@ -103,7 +106,10 @@ export function lastOwnLine(args: {
   theirLastReadAt: string | null;
 }): LastLine {
   const last = args.pendings[args.pendings.length - 1];
-  if (last) return last.state === 'failed' ? { kind: 'failed', tempId: last.tempId } : { kind: 'sending' };
+  if (last) {
+    if (last.state !== 'failed') return { kind: 'sending' };
+    return last.reason ? { kind: 'failed', tempId: last.tempId, reason: last.reason } : { kind: 'failed', tempId: last.tempId };
+  }
   const s = args.lastStored;
   if (!s || s.sender_role !== args.viewerRole) return null;
   if (args.theirLastReadAt && Date.parse(args.theirLastReadAt) >= Date.parse(s.created_at)) return { kind: 'seen' };

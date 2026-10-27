@@ -36,12 +36,8 @@ import { SubmitButton } from './submit-button';
 import { trackFailure } from '@/lib/telemetry/track-error';
 import { chatContactFilterEnabled } from '@/lib/chat-contact-filter-flag';
 import { evaluateMessage, CONTACT_BLOCK_MESSAGE } from '@/lib/chat-contact-filter';
-import { compressImageForWeb } from '@/lib/image-compress';
-import {
-  CHAT_ATTACHMENT_ACCEPT,
-  chatAttachmentLimit,
-  isCompressibleImage,
-} from '@/lib/chat-attachment-limits';
+import { prepareChatFile, uploadPreparedChatFile } from '@/lib/chat-file-prepare';
+import { CHAT_ATTACHMENT_ACCEPT, chatAttachmentLimit } from '@/lib/chat-attachment-limits';
 import { shouldSendOnEnter, isCoarsePointer } from '@/lib/chat-enter-to-send';
 import { useTapAway } from '@/app/_components/typing-band';
 import {
@@ -73,6 +69,11 @@ type Props = {
    * `attachment` with every limit and the compression it has. Absent → the paperclip, unchanged (the couple's page).
    */
   attachInputId?: string;
+  /**
+   * The sender — the chat-files rule (C2) uploads a file into the sender's own folder BEFORE the send
+   * (`uploadPreparedChatFile`), because a big video or document cannot ride the send action's body.
+   */
+  userId?: string;
 };
 
 // The picker's list and the size ceilings are DERIVED from the one shared
@@ -81,7 +82,7 @@ type Props = {
 // which is how a picker comes to offer a type the server refuses, with a file
 // that simply will not send as the only symptom.
 
-export function ChatSendForm({ threadId, sendAction, lead, attachInputId }: Props) {
+export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId }: Props) {
   const [hasDraft, setHasDraft] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -155,8 +156,39 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId }: Prop
 
   /** Send one FormData and say how it went — the first try and every Try again run through here. */
   const deliver = async (formData: FormData, pending: PendingSend, hasFile: boolean) => {
-    const settle = (ok: boolean) =>
-      window.dispatchEvent(new CustomEvent(CHAT_SETTLED_EVENT, { detail: { tempId: pending.tempId, threadId, ok } }));
+    const settle = (ok: boolean, reason?: string) =>
+      window.dispatchEvent(new CustomEvent(CHAT_SETTLED_EVENT, { detail: { tempId: pending.tempId, threadId, ok, reason } }));
+    const again = () =>
+      registerRetry(pending.tempId, () => {
+        window.dispatchEvent(new CustomEvent(CHAT_PENDING_EVENT, { detail: { ...pending, state: 'sending', at: Date.now() } }));
+        void deliver(formData, pending, hasFile);
+      });
+    /* 🗂 EVERY FILE GOES THROUGH THE ONE HELPER (owner 2026-10-28: "alway compress files when sending on chat. never
+       keep original size"; C2 `lib/chat-file-prepare.ts`): compressed (a photo always, a video always — an
+       uncompressible video is REFUSED), judged, PUT to the sender's own folder, and the send carries only its ref.
+       There is no raw-File branch: the picked File never rides the form. A refusal is said in words. */
+    const raw = formData.get('attachment');
+    formData.delete('attachment');
+    if (raw instanceof File && raw.size > 0) {
+      const prep = await prepareChatFile(raw);
+      if (!prep.ok) {
+        settle(false, prep.message);
+        return;
+      }
+      if (!userId) {
+        settle(false, 'Couldn’t send your file. Please reload and try again.');
+        return;
+      }
+      const up = await uploadPreparedChatFile({ threadId, userId, prepared: prep.prepared });
+      if (!up.ok) {
+        formData.set('attachment', raw); // a Try again prepares it once more
+        again();
+        settle(false, up.message);
+        return;
+      }
+      formData.set('attachment_ref', up.ref);
+      formData.set('attachment_ref_name', up.name);
+    }
     try {
       await sendAction(formData);
     } catch (err) {
@@ -168,10 +200,7 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId }: Prop
         error: err,
         payload: { threadId, hadAttachment: hasFile },
       });
-      registerRetry(pending.tempId, () => {
-        window.dispatchEvent(new CustomEvent(CHAT_PENDING_EVENT, { detail: { ...pending, state: 'sending', at: Date.now() } }));
-        void deliver(formData, pending, hasFile);
-      });
+      again();
       settle(false);
       return;
     }
@@ -199,29 +228,7 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId }: Prop
         // the photo compression below is awaited too, not only sendAction.
         sendPendingRef.current = true;
 
-        /* COMPRESS BEFORE IT LEAVES THE PHONE (owner 2026-09-09: "all files
-           uploaded on chat should be compressed and minimum").
-
-           A phone photo is 3–5 MB and becomes a few hundred KB. It happens in
-           THIS browser, so it costs us no compute and it is dramatically faster
-           to send on a venue's weak signal.
-
-           ⚠ Only photographs. A PDF or Word contract is evidence and must
-           arrive byte-for-byte; an animated GIF drawn to a canvas would come
-           out a still. `isCompressibleImage` decides, not this call site.
-
-           ⚠ AND IT FAILS OPEN, BY CONTRACT: `compressImageForWeb` returns the
-           ORIGINAL file when it cannot help or cannot run. A browser without
-           canvas support must still be able to send the picture — losing the
-           bytes is a cost, losing the message is a defect. */
-        if (hasFile && isCompressibleImage((fileVal as File).type)) {
-          try {
-            const smaller = await compressImageForWeb(fileVal as File);
-            formData.set('attachment', smaller);
-          } catch {
-            // Keep the original. See the fail-open note above.
-          }
-        }
+        // Compression happens in `deliver`, through the chat-files helper (C2) — after the bubble is already on screen.
 
         // Chatroom blocked-rules — block off-platform contact info before it
         // ever leaves the browser (the server re-checks too). Keeps the text so

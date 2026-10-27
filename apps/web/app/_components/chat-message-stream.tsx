@@ -96,6 +96,13 @@ import {
   type PendingSend,
 } from '@/lib/chat-optimistic';
 import { bubbleRun, timeBreakBefore } from '@/lib/chat-bubble-runs';
+import {
+  CHAT_FILE_EXPIRED_LABEL,
+  expiryDateFor,
+  expiryWarningLine,
+  isExpired,
+  showsExpiryWarning,
+} from '@/lib/chat-file-rules';
 import { markChatViewer, rememberThread } from '@/lib/chat-last-known';
 
 /** Display data for the in-thread proposal card, fetched by proposal_id. */
@@ -143,6 +150,12 @@ type Props = {
    * any member of the shop may reply). Only names the page may show (a revealed shop); absent → no name line.
    */
   senderNames?: Record<string, string>;
+  /**
+   * The event's day, for the chat-files rule (C2, `lib/chat-file-rules.ts`): from 14 days before the ordinary files
+   * go (90 days after the event) the thread shows ONE line, "These files go on <date>. Save any you need." Null /
+   * absent → no line (no day → files never expire).
+   */
+  fileExpiry?: { eventDate: string | null; endDate?: string | null; precision?: string | null } | null;
   /**
    * `dealEntryFor(...)` for this thread, from the page. The "🧾 Send a deal"
    * chip opens the amendment builder, and a Deal amends a quote — so before
@@ -333,6 +346,7 @@ export function ChatMessageStream({
   feeForecast = null,
   theirLastReadAt = null,
   senderNames = {},
+  fileExpiry = null,
 }: Props) {
   // Single Supabase client instance per mount — createClient is cheap but
   // the channel objects we attach to it must outlive each render.
@@ -859,7 +873,8 @@ export function ChatMessageStream({
     if (stickToBottomRef.current) {
       scrollToBottom('smooth');
     }
-  }, [messages, scrollToBottom]);
+    // A pending bubble, and its "Not sent · Try again", must come into view too.
+  }, [messages, pendings, scrollToBottom]);
 
   /*
     Jump pills — owner, 2026-09-18: "chatbox everything inside it, and buttons
@@ -1042,10 +1057,10 @@ export function ChatMessageStream({
       stickToBottomRef.current = true;
     };
     const onSettled = (e: Event) => {
-      const d = (e as CustomEvent<{ tempId: string; threadId: string; ok: boolean }>).detail;
+      const d = (e as CustomEvent<{ tempId: string; threadId: string; ok: boolean; reason?: string }>).detail;
       if (!d || d.threadId !== threadId) return;
       setPendings((prev) =>
-        prev.map((x) => (x.tempId === d.tempId ? { ...x, state: d.ok ? 'sent' : 'failed' } : x)),
+        prev.map((x) => (x.tempId === d.tempId ? { ...x, state: d.ok ? 'sent' : 'failed', reason: d.reason } : x)),
       );
       if (!d.ok) return;
       // 🔑 A RETURN IS NOT A DELIVERY: the real row must arrive. If Realtime has not brought it within the window,
@@ -1104,6 +1119,18 @@ export function ChatMessageStream({
         needsYouCount={needsYouCount}
         filesCount={files.length}
       />
+      {(() => {
+        // 🗂 The chat-files rule's one line (C2) — in-app only, never an email.
+        if (!fileExpiry?.eventDate) return null;
+        const opts = { endDate: fileExpiry.endDate ?? null, precision: fileExpiry.precision ?? null };
+        if (!showsExpiryWarning(new Date(), fileExpiry.eventDate, opts)) return null;
+        const day = expiryDateFor(fileExpiry.eventDate, opts);
+        return day ? (
+          <p className="mb-1 px-1 text-[12.5px] text-ink/65" role="note" data-chat-files-expiry="">
+            {expiryWarningLine(day)}
+          </p>
+        ) : null;
+      })()}
 
       {view === 'decisions' ? (
         <div className={`min-h-[14rem] flex-1 basis-0 overflow-y-auto ${scrollerChrome}`}>
@@ -1590,7 +1617,7 @@ export function ChatMessageStream({
               <div
                 className={`max-w-[75%] rounded-[18px] px-3 py-2 text-[15px] leading-snug ${corner} ${
                   mine
-                    ? 'bg-terracotta text-cream'
+                    ? 'bg-sn-accent text-white'
                     : 'bg-ink/[0.06] text-ink'
                 }`}
               >
@@ -1613,6 +1640,11 @@ export function ChatMessageStream({
                     owns={ownsBubble(m, viewerRole)}
                     hasBody={!!m.body}
                   />
+                ) : isExpired(m) ? (
+                  // The file went with the 90-days-after rule (C2): its name stays, and it says so.
+                  <p className={`text-[13px] ${mine ? 'text-white/85' : 'text-ink/60'}`} data-chat-file-expired="">
+                    {CHAT_FILE_EXPIRED_LABEL} · {m.attachment_name}
+                  </p>
                 ) : null}
                 {/* AI-disclosure label (vendor-autoreply §2B): a bot message
                     is NEVER presented as a human. The couple sees it under
@@ -1621,7 +1653,7 @@ export function ChatMessageStream({
                     The time now sits centred between runs (Messenger), so
                     only this label stays inside the bubble. */}
                 {m.is_bot ? (
-                  <p className={`mt-1 text-[11px] ${mine ? 'text-cream/75' : 'text-ink/55'}`}>
+                  <p className={`mt-1 text-[11px] ${mine ? 'text-white/80' : 'text-ink/55'}`}>
                     {viewerRole === 'vendor' && mine ? '⚡ AI auto-reply' : `⚡ AI auto-reply · ${counterpartyLabel}`}
                   </p>
                 ) : null}
@@ -1687,9 +1719,9 @@ export function ChatMessageStream({
       {/* ⚡ Sent, not yet stored — your words at once, faded (prototype frame B). */}
       {pendings.map((p) => (
         <li key={p.tempId} className="flex flex-col items-end" data-chat-pending={p.state}>
-          <div className={`max-w-[75%] rounded-[18px] bg-terracotta px-3 py-2 text-[15px] leading-snug text-cream ${p.state === 'failed' ? 'opacity-50' : 'opacity-60'}`}>
+          <div className={`max-w-[75%] rounded-[18px] bg-sn-accent px-3 py-2 text-[15px] leading-snug text-white ${p.state === 'failed' ? 'opacity-50' : 'opacity-60'}`}>
             {p.body ? <p className="whitespace-pre-wrap break-words">{p.body}</p> : null}
-            {p.fileName ? <p className="truncate text-[13px] text-cream/85">📎 {p.fileName}</p> : null}
+            {p.fileName ? <p className="truncate text-[13px] text-white/85">📎 {p.fileName}</p> : null}
           </div>
         </li>
       ))}
@@ -1700,7 +1732,10 @@ export function ChatMessageStream({
         if (line.kind === 'failed') {
           return (
             <li className="flex items-center justify-end gap-2 pr-1 text-[12px] text-terracotta" data-chat-last-line="failed" role="alert">
-              <span>{LAST_LINE_WORDS.failed}</span>
+              <span>
+                {LAST_LINE_WORDS.failed}
+                {line.reason ? ` — ${line.reason}` : ''}
+              </span>
               <button
                 type="button"
                 onClick={() => {

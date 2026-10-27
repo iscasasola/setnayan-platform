@@ -11,6 +11,7 @@
  *   ?seen=1         the other side has read your last message → "Seen"
  *   ?send=fail      Send fails on the server → "Not sent · Try again"; default: it succeeds after 600 ms
  *   ?delay=<ms>     the server takes this long to answer (default 0) — what the instant open is measured against
+ *   ?expiry=1       the event was 80 days ago → the files-rule line "These files go on <date>. Save any you need."
  */
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
@@ -54,6 +55,8 @@ export default async function ChatLabThreadPage({
   const last = LAB_MESSAGES[LAB_MESSAGES.length - 1]!;
   const theirLastReadAt = one('seen') === '1' ? new Date(Date.parse(last.created_at) + 60_000).toISOString() : null;
   const dealEntry = dealEntryFor({ side, hasQuote: true });
+  const expiryEventDate =
+    one('expiry') === '1' ? new Date(Date.now() - 80 * 86_400_000).toISOString().slice(0, 10) : '2026-12-18';
 
   async function labSend(formData: FormData) {
     'use server';
@@ -103,6 +106,7 @@ export default async function ChatLabThreadPage({
                   )
                 }
                 attachInputId={CHAT_ATTACH_INPUT_ID}
+                userId={LAB_USER}
               />
             }
             tray={
@@ -124,6 +128,7 @@ export default async function ChatLabThreadPage({
               theirLastReadAt={theirLastReadAt}
               senderNames={side === 'couple' ? { [LAB_STAFF]: 'Paolo' } : {}}
               lockHandshake={null}
+              fileExpiry={{ eventDate: expiryEventDate, precision: 'day' }}
             />
           </ChatBox>
         </section>

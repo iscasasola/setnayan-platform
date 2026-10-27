@@ -13,6 +13,7 @@ import {
   INQUIRY_CUSTOMER_UNKNOWN,
 } from '@/lib/inquiry-customer.server';
 import { ThreadListCard } from '@/app/_components/chat/thread-list-card';
+import { formatLongDate } from '@/lib/format-date';
 import {
   inquirySourceLabel,
   RETURNING_CUSTOMER_LABEL,
@@ -172,7 +173,9 @@ export default async function VendorMessagesPage({ searchParams }: Props = {}) {
             }
             timestampLine={
               <>
-                {t.event?.event_date ? `${t.event.event_date} · ` : ''}
+                {/* One row per couple-EVENT (owner 2026-10-28, "i want isolation per event"): the title is the event,
+                    this line its date — written as a date, never the raw key. */}
+                <span data-inbox-event-line="">{t.event?.event_date ? `${formatLongDate(t.event.event_date)} · ` : ''}</span>
                 Last activity {formatChatTimestamp(t.updated_at)}
               </>
             }

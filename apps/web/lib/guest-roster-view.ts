@@ -15,10 +15,10 @@
  *     search reads WORDS (`rosterSearchMatches`): a reply, "to invite", a role, a
  *     group, a side, a table — on top of the one shipped matcher
  *     (`lib/guest-search.ts`), never a second one.
- *   · *"why is there nudge now?"* · *"so again. you still kept the invite here.
- *     how do we invite?"* · *"but no account, no chat"* — `rowVerbsFor`: a row is
- *     Message (only with a Setnayan account AND a chat to open) · Edit · Remove.
- *     No Invite, no Nudge, ever.
+ *   · *"why is there nudge now?"* (no Nudge, ever) · and, 2026-10-27, *"share and
+ *     delete only"* — `rowVerbsFor`: a row is Share (the ONE Send button, for a
+ *     guest who has their own link) · Delete. The pencil went: the whole row opens
+ *     the guest card, where editing happens.
  *
  * Pure: no React, no I/O. The client screen (`guests-screen.tsx`) and the map
  * (`guest-map-canvas.tsx`) both read it, so the list and the map can never
@@ -760,24 +760,27 @@ export function typedLineIsAFilter(query: string, facts: Pick<RosterFacts, 'role
 
 /* ─── A ROW'S VERBS ─────────────────────────────────────────────────────── */
 
-export type RowVerb = 'message' | 'edit' | 'remove' | 'release';
+export type RowVerb = 'share' | 'remove' | 'release';
 
 /**
- * The verbs a guest row carries, in order. `💬 Message` only when the guest's
- * name is linked to a Setnayan account AND there is a chat to open (G35: "no
- * account, no chat"); `✕ Remove` never on the couple (the server refuses them).
- * There is NO invite and NO nudge here — inviting is the one run (G28, G34).
+ * THE VERBS A GUEST ROW CARRIES, in order — SHARE · DELETE, and nothing else (owner 2026-10-27, DECISION_LOG "GUEST ROW
+ * = SHARE + DELETE; THE PENCIL GOES": *"okay that makes more sense. share and delete only"*).
+ *   · 📤 `share` — the ONE Send button (DECISION_LOG "ONE SEND BUTTON FOR EVERY INVITE"), only for a guest the page
+ *     handed a personal link (`shareable`: they may be invited, have a QR token, and the event has an address). A +1
+ *     with no name rides on their guest's invitation, so never theirs.
+ *   · 🗑 `remove` — the shipped remove with its warning and Undo; never on the couple (the server refuses them).
+ *   · 🪑 `release` — a +1 with no name yet is a SEAT, not a person: "Release seat" (gone at once, with Undo; their
+ *     guest's "+N" one lower) in place of Delete. A named +1 is a person — the shipped remove (owner 2026-10-21).
+ * There is NO edit (the row itself opens the card), NO message, NO nudge.
  */
 export function rowVerbsFor(
   g: Pick<GuestRow, 'role'> & Partial<PlusFilterFields>,
-  opts: { linked: boolean | null; chatHref: string | null },
+  opts: { shareable: boolean },
 ): RowVerb[] {
   const verbs: RowVerb[] = [];
-  if (opts.linked === true && opts.chatHref) verbs.push('message');
-  verbs.push('edit');
-  // 🪑 A +1 with no name yet is a SEAT, not a person: "Release seat" (gone at once, with Undo; their guest's "+N" one
-  // lower) in place of Remove. A named +1 is a person — the shipped Remove, with its warning (owner 2026-10-21).
-  if (plusOneHasNoName({ ...g, first_name: g.first_name ?? null })) verbs.push('release');
+  const seat = plusOneHasNoName({ ...g, first_name: g.first_name ?? null });
+  if (opts.shareable && !seat) verbs.push('share');
+  if (seat) verbs.push('release');
   else if (g.role !== 'bride' && g.role !== 'groom') verbs.push('remove');
   return verbs;
 }

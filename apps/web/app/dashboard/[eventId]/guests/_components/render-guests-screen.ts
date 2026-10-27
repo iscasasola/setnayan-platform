@@ -88,7 +88,6 @@ export async function renderGuestsScreen(opts: {
           tables: [],
           tableByGuest: {},
           songsByGuest: {},
-          linkedGuestIds: [],
           faceByGuest: {},
           requests: opts.requests ?? 0,
           oneQr: opts.oneQr ?? false,

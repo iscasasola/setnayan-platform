@@ -90,13 +90,16 @@ test('3 · the counters’ own rule: the pair is one person, counted with the pr
   assert.equal(passCardEligibility({ guest_id: 'h', event_id: 'e', qr_token: 't', represented_by_guest_id: 'g-proxy' }), 'none');
 });
 
-test('4 · the Guest List makes the pair ONE row before it counts, filters or draws anything', () => {
+test('4 · the Guest List draws BOTH rows, linked, and the holder row is not counted (owner 2026-10-27 "B")', () => {
+  // Owner: "Cannot find her on the list anymore. Seems like she fused with the original guest" → B: her own row again.
   const src = read('app/dashboard/[eventId]/guests/_components/guests-screen.tsx');
-  assert.match(src, /const \{ rows: roster, pairs: standIns \} = useMemo\(\(\) => asOnePair\(projected\), \[projected\]\);/);
-  assert.doesNotMatch(src, /const roster = useMemo\(\(\) => projectGuests\(/, 'the List counts the role holder and the proxy as two');
-  // The row says who stands in, and is found by the proxy's name.
-  assert.match(src, /representedByWords\(standIn\.proxyName\)/);
-  assert.match(src, /standIn \? \[\.\.\.\(companions\.get\(id\) \?\? \[\]\), standIn\.proxyName\]/);
+  assert.match(src, /const \{ rows: roster, pairs: standIns, standingIn \} = useMemo\(\(\) => withStandIns\(projected\), \[projected\]\);/);
+  assert.doesNotMatch(src, /asOnePair\(/, 'the List folds the proxy into the holder again — she cannot be found or invited');
+  // The holder row says who stands in and that it is not counted; the proxy row says whom they stand in for.
+  assert.match(src, /\{representedByWords\(standIn\.proxyName\)\} · not counted/);
+  assert.match(src, /proxyForWords\(standingInFor\.holderName\)/);
+  // Each is found by the other's name.
+  assert.match(src, /standIns\.get\(id\)\?\.proxyName \?\? standingIn\.get\(id\)\?\.holderName/);
   // Both lists of what a row carries hold the link, so the pair is drawn the same from a kept copy.
   const rows = read('lib/guest-list-rows.ts');
   assert.equal((rows.match(/'represented_by_guest_id'/g) ?? []).length, 2);

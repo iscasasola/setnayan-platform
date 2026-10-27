@@ -126,7 +126,7 @@ import {
   type SectionIcon,
   type SectionMark,
 } from '@/lib/guest-roster-view';
-import { asOnePair, representedByWords, type PairOnRow as StandInOnRow } from '@/lib/guest-proxy';
+import { withStandIns, proxyForWords, representedByWords, type PairOnRow as StandInOnRow, type StandingInOnRow } from '@/lib/guest-proxy';
 import { useGuestActions } from './guest-actions-context';
 import { useRoleNames } from './role-names-context';
 import { guestOptimistic, useGuestOptimistic } from './guest-optimistic-store';
@@ -351,11 +351,12 @@ export function GuestsScreen(props: GuestsScreenProps) {
   useEffect(() => {
     guestOptimistic.reconcile(guests);
   }, [guests]);
-  /* 🧍 ONE ROW FOR TWO (owner 2026-10-27: "not having 2 guests but 1"): a role holder and the proxy who stands in for
-     them are drawn — and counted, filtered, searched — as the holder's row carrying the proxy's reply; the proxy has no
-     row of their own (`asOnePair`, lib/guest-proxy.ts). Everything below reads `roster`, so nothing counts them twice. */
+  /* 🧍 TWO ROWS, LINKED, COUNTED ONCE (owner 2026-10-27 "B" — the one-row version hid the proxy: "Cannot find her on the
+     list anymore"): the role holder's row says "Represented by … · not counted" (it keeps `represented_by_guest_id`,
+     so `countsTowardEvent` leaves it out); the proxy's own row — their reply, ticket, Invite — says "Proxy for …"
+     (`withStandIns`, lib/guest-proxy.ts). Searching either name finds both. */
   const projected = useMemo(() => projectGuests(guests, optimistic), [guests, optimistic]);
-  const { rows: roster, pairs: standIns } = useMemo(() => asOnePair(projected), [projected]);
+  const { rows: roster, pairs: standIns, standingIn } = useMemo(() => withStandIns(projected), [projected]);
 
   // ── ⚡ Names typed and Entered: on screen at once ("Just added"), written in order, the list re-read ONCE when the
   // queue is empty; a re-read that holds a saved name lets its waiting row step aside (guest-add-queue.ts).
@@ -380,14 +381,14 @@ export function GuestsScreen(props: GuestsScreenProps) {
       groupsOf: (id) => groupsByGuest[id] ?? [],
       tableOf: (id) => tableByGuest[id] ?? null,
       songsOf: (id) => songsByGuest[id] ?? [],
-      // 🧍 The holder's row is found by the proxy's name too.
+      // 🧍 The role holder and the stand-in are each found by the other's name too.
       companionsOf: (id) => {
-        const standIn = standIns.get(id);
-        return standIn ? [...(companions.get(id) ?? []), standIn.proxyName] : (companions.get(id) ?? []);
+        const other = standIns.get(id)?.proxyName ?? standingIn.get(id)?.holderName;
+        return other ? [...(companions.get(id) ?? []), other] : (companions.get(id) ?? []);
       },
       guestById: (id) => rosterById.get(id),
     }),
-    [roleNames, hasSides, groupsByGuest, tableByGuest, songsByGuest, companions, rosterById, standIns],
+    [roleNames, hasSides, groupsByGuest, tableByGuest, songsByGuest, companions, rosterById, standIns, standingIn],
   );
   const linked = useMemo(() => (linkedGuestIds ? new Set(linkedGuestIds) : null), [linkedGuestIds]);
 
@@ -1216,13 +1217,14 @@ export function GuestsScreen(props: GuestsScreenProps) {
                       g={g}
                       plusWords={plusWords.get(g.guest_id) ?? null}
                       standIn={standIns.get(g.guest_id) ?? null}
+                      standingInFor={standingIn.get(g.guest_id) ?? null}
                       seatsOnList={seatRows.get(g.guest_id) ?? 0}
                       joined={joinedToTheRowAbove(g, drawn[i - 1])}
                       selectMode={selectMode}
                       picked={selected.has(g.guest_id)}
                       face={faceByGuest[g.guest_id]}
                       // 🧍 The two sit in ONE seat — the proxy’s (the role’s seat moved to them).
-                      table={tableByGuest[g.guest_id] ?? tableOfStandIn(standIns.get(g.guest_id), tableByGuest)}
+                      table={tableByGuest[g.guest_id] ?? null}
                       verbs={
                         writesOff
                           ? []
@@ -1625,14 +1627,11 @@ function joinedToTheRowAbove(g: GuestRow, above: GuestRow | undefined): boolean 
 }
 
 /** 🧍 The table is the proxy's — the role's seat moved to them (trigger `the_proxy_takes_the_seat`). */
-function tableOfStandIn(standIn: StandInOnRow | undefined, tableByGuest: Record<string, string>): string | null {
-  return standIn ? (tableByGuest[standIn.proxyId] ?? null) : null;
-}
-
 function GuestRowLine({
   g,
   plusWords,
   standIn = null,
+  standingInFor = null,
   seatsOnList,
   joined,
   selectMode,
@@ -1649,8 +1648,10 @@ function GuestRowLine({
   g: GuestRow;
   /** Whose +1 this row is (`plusOneWordsFrom`); null for everyone else. */
   plusWords: PlusOneWords | null;
-  /** 🧍 The proxy standing in for this role holder — ONE row for both, line 2 says who (`asOnePair`). */
+  /** 🧍 On a ROLE HOLDER's row: the proxy standing in for them — "Represented by … · not counted" (`withStandIns`). */
   standIn?: StandInOnRow | null;
+  /** 🧍 On the PROXY's own row: the role holder they stand in for — "Proxy for …". */
+  standingInFor?: StandingInOnRow | null;
   /** This guest's seats that are rows on the list (`seatRowsByGuest`). */
   seatsOnList: number;
   joined: boolean;
@@ -1719,12 +1720,17 @@ function GuestRowLine({
         <div className={styles.meta}>
           {g.passed_away ? (
             'In loving memory · not counted'
+          ) : standIn ? (
+            /* 🧍 The role holder does not come — their proxy's own row below counts for both. */
+            <span className={styles.mute} data-row-represented-by={standIn.proxyId}>
+              {representedByWords(standIn.proxyName)} · not counted
+            </span>
           ) : (
             <>
-              {/* 🧍 "Represented by Maria Catherine Sacdalan" — and the pill is THEIR reply (the two count once, as them). */}
-              {standIn ? (
-                <span className={styles.mute} data-row-represented-by={standIn.proxyId}>
-                  {representedByWords(standIn.proxyName)}
+              {/* 🧍 The proxy's own row: who they stand in for, then their own reply. */}
+              {standingInFor ? (
+                <span className={styles.mute} data-row-proxy-for={standingInFor.holderId}>
+                  {proxyForWords(standingInFor.holderName)}
                   {' · '}
                 </span>
               ) : null}

@@ -11,7 +11,7 @@ import {
   writePrintedStamp,
   type PrintedStamp,
 } from '@/lib/printed-stamp';
-import { Download, Loader2 } from 'lucide-react';
+import { Share, Loader2 } from 'lucide-react';
 import { ActionButton, type ActionTone } from '@/components/action-button';
 import { usePrintFetch } from './print-fetch-context';
 import { STUDIO_SAVE_CHIP } from '@/lib/studio-skin';
@@ -198,7 +198,7 @@ export function PrintSaveButton({
           main={main}
           quiet={quiet}
           waiting={state.k === 'working'}
-          icon={state.k === 'working' ? <Loader2 aria-hidden className="animate-spin" strokeWidth={1.9} /> : (icon ?? Download)}
+          icon={state.k === 'working' ? <Loader2 aria-hidden className="animate-spin" strokeWidth={1.9} /> : (icon ?? Share)}
           label={word}
           name={state.k === 'idle' || state.k === 'saved' || state.k === 'error' ? (label ?? fileName) : word}
           onClick={() => void run()}
@@ -242,7 +242,7 @@ export function PrintSaveButton({
         {state.k === 'working' ? (
           <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={1.75} />
         ) : variant !== 'link' && variant !== 'chip' ? (
-          <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          <Share aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         ) : null}
         {state.k === 'working' ? 'Preparing…' : state.k === 'ready' ? 'Tap to save' : children}
       </a>

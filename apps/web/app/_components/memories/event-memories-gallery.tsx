@@ -30,6 +30,7 @@ import { ActionButton } from '@/components/action-button';
 import { Sheet } from '@/app/_components/sheet';
 import { MenuSettingsButton } from '@/app/_components/menu-settings-button';
 import { InfoTip } from '@/app/_components/info-tip';
+import { OpenFileLink } from '@/app/_components/open-file-link';
 import { SwitchTrack } from '@/app/_components/switch-track';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { PapicLightbox } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-gallery-grid';
@@ -607,9 +608,9 @@ function PhotoSheet({
 
           {item.memSource === 'hub' ? (
             item.downloadUrl ? (
-              <a className={OPT} href={item.downloadUrl} download>
+              <OpenFileLink className={OPT} href={item.downloadUrl} download>
                 <Download aria-hidden className="h-4 w-4" strokeWidth={1.9} /> Save to phone
-              </a>
+              </OpenFileLink>
             ) : null
           ) : null}
 

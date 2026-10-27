@@ -93,14 +93,32 @@ test('1 · no `<a download>` on an app screen leaves the tap to the web view', (
   assert.deepEqual(offenders, [], `bare download links — use SaveFileLink (same-origin / data:) or OpenFileLink (presigned R2):\n${offenders.join('\n')}`);
 });
 
+/**
+ * Links that match the file-route shape but open a PAGE, each with its reason. Keyed by the exact href source, so an
+ * entry can never excuse a different link in the same file — and an entry whose link is gone fails below.
+ */
+const PAGES_NOT_FILES: Record<string, string> = {
+  // "Print budget": without `format=csv` the route answers `text/html` (budgetExportHtml) — a print PAGE, not a file.
+  // How it should open inside the iPhone app is an OPEN OWNER QUESTION (2026-10-27): the in-app sheet is signed out.
+  'href={`/api/budget/${eventId}/export`}': 'app/dashboard/[eventId]/budget/page.tsx',
+};
+
 test('2 · no plain link points straight at a file route', () => {
   const offenders: string[] = [];
+  const seen = new Set<string>();
   for (const { rel, src } of sources()) {
     for (const tag of anchorTags(src)) {
+      const page = Object.keys(PAGES_NOT_FILES).find((h) => tag.includes(h) && PAGES_NOT_FILES[h] === rel);
+      if (page) {
+        seen.add(page);
+        continue;
+      }
       if (FILE_ROUTE.test(tag) && !takesOverTheTap(tag, src)) offenders.push(`${rel}: ${tag.replace(/\s+/g, ' ').slice(0, 120)}`);
     }
   }
   assert.deepEqual(offenders, [], `links that render a file in place — use SaveFileLink:\n${offenders.join('\n')}`);
+  const stale = Object.keys(PAGES_NOT_FILES).filter((h) => !seen.has(h));
+  assert.deepEqual(stale, [], `PAGES_NOT_FILES excuses a link that no longer exists — remove the entry:\n${stale.join('\n')}`);
 });
 
 test('3 · a file made in the page is never handed over by a download click alone', () => {

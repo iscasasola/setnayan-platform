@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { CoupleLogo } from '@/app/_components/couple-logo';
+import { SaveFileLink } from '@/app/_components/save-file-link';
 import { coupleLogoPlays } from '@/lib/couple-logo-plays';
 import { logoPlaysFor } from '@/lib/logo-plays.server';
 import { redirect } from 'next/navigation';
@@ -3357,12 +3358,13 @@ function ScheduleTab(props: {
               </span>
             ) : null}
             {allBlocks.length > 0 ? (
-              <a
+              <SaveFileLink
                 href={`/vendor-dashboard/clients/${eventId}/calendar.ics${mineOnly ? '?mine=1' : ''}`}
+                filename={`schedule-${eventId}${mineOnly ? '-mine' : ''}.ics`}
                 className="inline-flex items-center gap-1 text-sm font-medium text-mulberry underline"
               >
                 <CalendarPlus aria-hidden className="h-4 w-4" /> Add to calendar
-              </a>
+              </SaveFileLink>
             ) : null}
           </div>
         </div>

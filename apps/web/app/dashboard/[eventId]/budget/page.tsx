@@ -33,6 +33,7 @@ import { costCategoryOptions } from '@/lib/event-costs';
 import { depositStepHref } from '@/lib/deposit-pay-step';
 import { paymentDoor, type PaymentDoor } from '@/lib/accepted-quote-terms';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { SaveFileLink } from '@/app/_components/save-file-link';
 import { YOUR_TEAM_BUDGET_PART, yourTeamBudgetHref } from '@/lib/pillar-parts';
 import { DeniedState } from '@/app/_components/states/denied-state';
 import { resolveBudgetVisibility } from '@/lib/budget-visibility';
@@ -203,6 +204,14 @@ export default async function BudgetPage({ params, searchParams }: Props) {
         share_budget_band: boolean | null;
       }
     | null;
+
+  // The saved files' names — the same slug the export routes put in their Content-Disposition.
+  const budgetFileSlug =
+    (event?.display_name ?? '')
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'event';
 
   // Muslim weddings carry a Mahr — the groom's mandatory gift to the bride. It
   // is hers alone and is NOT a Setnayan or vendor charge, so it never enters the
@@ -435,13 +444,16 @@ export default async function BudgetPage({ params, searchParams }: Props) {
         title="Budget"
         actions={
           <div className="flex flex-wrap gap-2">
-            <a
+            {/* 📥 Both files are SAVED, never shown in place — the app's web view ignores `download` and renders a
+                file with no way back (owner 2026-10-27). SaveFileLink: fetch with the session → share sheet / download. */}
+            <SaveFileLink
               href={`/api/budget/${eventId}/ics`}
+              filename={`setnayan-${budgetFileSlug}-budget.ics`}
               className="inline-flex items-center gap-2 rounded-md border border-ink/15 bg-white/55 px-4 py-2 text-sm font-medium text-ink backdrop-blur-sm transition hover:border-terracotta/50 hover:text-terracotta-700"
             >
               <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
               Export upcoming dates (.ics)
-            </a>
+            </SaveFileLink>
             {/* SUP-64 · the same books as this page, to print or to open in a
                 spreadsheet. Agreed money only — see lib/budget-export.ts.
                 Offered only when the resolver answered: with no `money` the
@@ -449,13 +461,14 @@ export default async function BudgetPage({ params, searchParams }: Props) {
                 promise the page already knows it cannot keep. */}
             {money ? (
               <>
-                <a
+                <SaveFileLink
                   href={`/api/budget/${eventId}/export?format=csv`}
+                  filename={`setnayan-${budgetFileSlug}-budget.csv`}
                   className="inline-flex items-center gap-2 rounded-md border border-ink/15 bg-white/55 px-4 py-2 text-sm font-medium text-ink backdrop-blur-sm transition hover:border-terracotta/50 hover:text-terracotta-700"
                 >
                   <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
                   Budget (.csv)
-                </a>
+                </SaveFileLink>
                 <a
                   href={`/api/budget/${eventId}/export`}
                   target="_blank"

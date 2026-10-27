@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { Badge, type BadgeTone } from '@/app/_components/badge';
+import { SaveFileLink } from '@/app/_components/save-file-link';
 
 /**
  * CUSTOMERS › DATES — one row (S-PR3; frames 04 · 35). The People row's shape without the avatar: a title, one quiet
@@ -33,8 +34,9 @@ export function DatesRow({
   data?: string;
   /** A number at the right, read big (frame 35: "Holding this date … 2"). */
   strong?: ReactNode;
-  /** The row downloads a file (the phone calendar's .ics) — a plain link, never a client navigation. */
-  download?: boolean;
+  /** The row saves a file (the phone calendar's .ics) — through SaveFileLink, never a client navigation and never a
+   *  bare `<a download>` (the iPhone app's web view renders that in place, with no way back). */
+  download?: boolean | string;
   /** 🔦 A spotlight tour's anchor token (`data-tour`). */
   tour?: string;
 }) {
@@ -58,9 +60,15 @@ export function DatesRow({
   const rowClass = 'flex min-h-[60px] items-center gap-3 border-t border-ink/10 py-2.5 first:border-t-0';
   if (href && !end && download) {
     return (
-      <a href={href} download className={`sn-press ${rowClass}`} data-dates-row={data ?? ''} data-tour={tour}>
+      <SaveFileLink
+        href={href}
+        filename={typeof download === 'string' ? download : (href.split('?')[0] ?? '').split('/').pop() || 'download'}
+        className={`sn-press ${rowClass}`}
+        data-dates-row={data ?? ''}
+        data-tour={tour}
+      >
         {inner}
-      </a>
+      </SaveFileLink>
     );
   }
   return href && !end ? (

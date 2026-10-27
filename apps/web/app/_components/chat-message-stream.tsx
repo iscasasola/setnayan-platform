@@ -22,6 +22,7 @@
 // while we were offline catch up without a page reload.
 
 import Link from 'next/link';
+import { OpenFileLink } from '@/app/_components/open-file-link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Download, FileText } from 'lucide-react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
@@ -1650,7 +1651,7 @@ function AttachmentBlock({
 
   if (isImage) {
     return (
-      <a
+      <OpenFileLink
         href={url}
         target="_blank"
         rel="noopener noreferrer"
@@ -1663,12 +1664,12 @@ function AttachmentBlock({
           loading="lazy"
           className="max-h-64 max-w-full rounded-xl object-cover"
         />
-      </a>
+      </OpenFileLink>
     );
   }
 
   return (
-    <a
+    <OpenFileLink
       href={url}
       target="_blank"
       rel="noopener noreferrer"
@@ -1691,6 +1692,6 @@ function AttachmentBlock({
         ) : null}
       </span>
       <Download className="h-4 w-4 shrink-0 opacity-70" strokeWidth={1.75} />
-    </a>
+    </OpenFileLink>
   );
 }

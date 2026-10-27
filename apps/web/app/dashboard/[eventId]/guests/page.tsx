@@ -68,7 +68,8 @@ import { ROLE_SECTION_ORDER } from './_components/role-section-order';
 import { GuestsScreen } from './_components/guests-screen';
 import type { TitleWaitingPerson } from './_components/titles-waiting';
 import { needsWomanOrMan, ROLES_WHOSE_WORD_NEEDS_GENDER, titleButtonText, titleKey } from '@/lib/guest-title';
-import { mapRootLabel } from '@/lib/guest-roster-view';
+import { mapRootLabel, mayBeInvited } from '@/lib/guest-roster-view';
+import { readGuestsGetIn } from '@/lib/who-can-reply';
 import { InvitePanel } from './invite/_components/invite-panel';
 import { AddFromPeopleSheet } from './_components/add-from-people-sheet';
 import { QuickAddSheet } from './_components/quick-add-sheet';
@@ -990,6 +991,21 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     .map(listRowOf);
   // The map's centre: the celebrants' first names ("Maria & Jose"), else the event word.
   const mapRoot = mapRootLabel(rosterAll, eventWord);
+  // 🔗 ONE LINK FOR EVERYONE (owner 2026-10-27, "THE SEND RUN ALSO SERVES A ONE-QR EVENT"): the carousel's To invite card
+  // reads "One link for everyone · Share" only when there is NO list to walk — so the event's get-in rule is read only
+  // then (an empty or couple-only list), never on every open. The couple's own read; refused → the card says nothing new.
+  const guestsOneQr =
+    viewer.isCouple && guestsMeasured && !rosterAll.some((g) => mayBeInvited(g))
+      ? await supabase
+          .from('events')
+          .select('rsvp_ask_config')
+          .eq('event_id', eventId)
+          .maybeSingle()
+          .then((r) => {
+            if (r.error) logQueryError('GuestsPage (one link · rsvp_ask_config)', r.error, { event_id: eventId }, 'graceful_degrade');
+            return !r.error && readGuestsGetIn((r.data as { rsvp_ask_config?: unknown } | null)?.rsvp_ask_config ?? null) === 'one_qr';
+          })
+      : false;
   // 🪪 Whose printed word waits on Woman or Man (owner 2026-10-17) — the List's one prompt; gone when none are left.
   const titlesWaiting: TitleWaitingPerson[] = guests
     .filter((g) => g.entry_source !== REQUEST_ENTRY_SOURCE && needsWomanOrMan(g))
@@ -1026,6 +1042,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       linkedGuestIds={linkedGuestIds}
       faceByGuest={faceByGuest}
       requests={pendingClaimsCount}
+      oneQr={guestsOneQr}
       titlesWaiting={titlesWaiting}
       papic={viewer.isCouple && !storeShell ? eventPapic : null}
       rootLabel={mapRoot}

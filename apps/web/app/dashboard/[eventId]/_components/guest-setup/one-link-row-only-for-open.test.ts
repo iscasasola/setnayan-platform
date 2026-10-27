@@ -2,8 +2,9 @@
  * one-link-row-only-for-open.test.ts — "Your one link" (link · Copy · Share +
  * the one QR) renders ONLY for Open · Anyone with the link (owner 2026-10-07:
  * *"this will only show if the settings says one QR link only"*, G27). The two
- * request choices do not show it; the personal choices show Invitations + the
- * Digital Pass instead; the RSVP asks and Reply by show only for "They reply".
+ * request choices do not show it; the personal choices show Invitations instead
+ * (no pass picture since 2026-10-28 — it lives in Prints); the RSVP asks and
+ * Reply by show only for "They reply".
  *
  * 🛡 Sabotage: render the one-link row for every choice → red.
  */
@@ -28,7 +29,7 @@ test('each choice draws exactly its rows', async () => {
     console.log(`${getIn}: ${got.join(' · ')}`);
     assert.deepEqual(got, want, `${getIn} draws the wrong rows`);
     assert.equal(html.includes('data-setup-one-qr'), getIn === 'one_qr', `${getIn}: the one QR`);
-    assert.equal(html.includes('data-setup-pass'), getIn !== 'one_qr', `${getIn}: the Digital Pass`);
+    assert.equal(html.includes('data-setup-pass'), false, `${getIn}: a pass picture is drawn in Guests ⚙ (it lives in Prints since 2026-10-28)`);
   }
 });
 

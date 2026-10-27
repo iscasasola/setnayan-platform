@@ -70,12 +70,11 @@ test('(3) the slots the page hands the screen are single children, not list memb
   assert.match(screen, /<MenuSettingsButton menu="guests"[^>]*>\s*\{setup\}\s*<\/MenuSettingsButton>/, 'the Setup slot is not the ⚙ sheet’s single child');
 });
 
-test('(4) the lab’s Digital Pass picture is drawn inline — never the production address its CSP refuses', () => {
-  const lab = readFileSync(join(HERE, '..', '..', '..', '..', 'dev', 'guests-lab', 'page.tsx'), 'utf8');
-  assert.match(lab, /passSrc=\{LAB_PASS_SRC\}/);
-  assert.match(lab, /const LAB_PASS_SRC =\s*'data:image\/svg\+xml;utf8,'/);
-  assert.doesNotMatch(lab, /passSrc="https?:/, 'the lab asks the live site for the pass picture again (img-src refuses it)');
-  /* The REAL Setup view hands a same-origin path, which the page's img-src allows. */
-  const panel = readFileSync(join(HERE, '..', '..', 'guests', 'invite', '_components', 'invite-panel.tsx'), 'utf8');
-  assert.match(panel, /passSrc=\{`\/api\/hub-print\/pass\?event=\$\{eventId\}&mode=screen&pass_guest=first`\}/, 'the real Setup view’s pass picture is no longer same-origin');
+test('(4) Invitations draws no pass picture — the Event Pass lives in Prints (owner 2026-10-28 "yes")', () => {
+  // Asked "Why is the invitation here? Shouldn't that be on prints?", the owner said yes: Guests ⚙ › Invitations is the
+  // count · Send to N · Pick who, nothing more. The pass stays in Prints (`PRINT_PIECES.pass`) and on each guest's card.
+  const rows = stripComments(readFileSync(join(HERE, 'guest-setup-rows.tsx'), 'utf8'));
+  assert.doesNotMatch(rows, /passSrc|data-setup-pass|hub-print\/pass/, 'the Invitations row draws the pass picture again');
+  const panel = stripComments(readFileSync(join(HERE, '..', '..', 'guests', 'invite', '_components', 'invite-panel.tsx'), 'utf8'));
+  assert.doesNotMatch(panel, /passSrc=/, 'the Setup view hands a pass picture again');
 });

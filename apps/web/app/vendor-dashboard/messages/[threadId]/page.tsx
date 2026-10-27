@@ -931,7 +931,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
 
   // 🗂 The chat-files rule (C2) counts from the event's LAST day and only from a real day — its precision and end.
   // Its own read (admin, like `eventRead`: the ownership gate above already passed), so the brief's read stays as it is.
-  const eventDayRead = (async () => {
+  const eventFileDayRead = (async () => {
     const { data, error } = await createAdminClient()
       .from('events')
       .select('event_date_precision, event_end_date')
@@ -994,7 +994,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     conversationRows,
     dayAnswer,
     receipts,
-    eventDay,
+    eventFileDay,
   ] = await Promise.all([
     composerFeeStandingRead,
     composerPapicStandingRead,
@@ -1020,7 +1020,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     conversationRowsRead,
     dayAnswerRead,
     receiptsRead,
-    eventDayRead,
+    eventFileDayRead,
   ]);
 
   const composerGiftBasis = giftBasisFrom(composerPapicStanding);
@@ -1997,8 +1997,8 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
             theirLastReadAt={receipts.theirLastReadAt}
             fileExpiry={{
               eventDate: event?.event_date ?? null,
-              endDate: eventDay?.event_end_date ?? null,
-              precision: eventDay?.event_date_precision ?? null,
+              endDate: eventFileDay?.event_end_date ?? null,
+              precision: eventFileDay?.event_date_precision ?? null,
             }}
           />
         </ChatBox>

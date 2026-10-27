@@ -458,7 +458,7 @@ export default async function HomeLab({
     <>
     {/* `&coord=1` — 🗂 a supplier inside an event they run as the hosts' coordinator (owner 2026-10-28): the REAL
         line the event layout draws above every page for that viewer, over the couple's own Home. */}
-    {q.coord === '1' ? <CoordinatingLine eventName={F.name} /> : null}
+    {q.coord === '1' ? <CoordinatingLine eventName={F.name} checkInHref={`/dashboard/${E}/guests/checkin`} /> : null}
     <div className="mx-auto min-h-screen w-full bg-cream px-4 pb-6 pt-3 sm:px-6 sm:pt-6 lg:px-8">
       <HomeFirstScreen
         eventId={E}

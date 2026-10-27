@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { ChevronRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
-import { readEventsYouRun } from '@/lib/events-you-run.server';
+import { readEventsYouRunWithNeeds } from '@/lib/events-you-run.server';
 import { EventsYouRunScreen } from '../_components/events-you-run-screen';
 
 /**
@@ -20,7 +20,7 @@ export const dynamic = 'force-dynamic';
 export default async function EventsYouRunPage() {
   const [supabase, user] = await Promise.all([createClient(), getCurrentUser()]);
   if (!user) redirect('/login');
-  const { events, measured } = await readEventsYouRun(supabase, user.id);
+  const { events, measured } = await readEventsYouRunWithNeeds(supabase, user.id);
   return (
     <div className="mx-auto w-full max-w-6xl tab:max-w-3xl px-4 py-4 sm:px-6 sm:py-10 lg:px-8">
       <EventsYouRunScreen events={events} measured={measured} />

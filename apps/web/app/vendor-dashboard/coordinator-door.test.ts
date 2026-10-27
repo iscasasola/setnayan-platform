@@ -30,6 +30,7 @@ import type { VendorTeamRole } from '@/lib/vendor-team';
 import { barItemsForShell } from '@/app/_components/nav/bottom-nav';
 import { isStoreShellWebOnlyPath } from '@/lib/store-shell';
 import { EVENTS_YOU_RUN_HREF } from '@/lib/events-you-run-words';
+import { COORDINATOR_ON_AREAS } from '@/lib/people-with-access';
 import { VENDOR_BOTTOM_NAV_ITEMS, VENDOR_EVENTS_TAB, vendorBarItems } from './_components/vendor-bottom-nav';
 import { resolveVendorDestinations } from './_components/vendor-nav-destinations';
 
@@ -100,7 +101,7 @@ test('1 · the layout reads LIVE seats, fails closed, and tells the bar AND the 
 
 test('2 · Today draws "Events you run" only when the live read has a row', () => {
   const page = src('app/vendor-dashboard/page.tsx');
-  assert.match(page, /readEventsYouRun\(supabase, user\.id\)\.catch\(\(\) => \(\{ events: \[\], measured: false \}\)\)/);
+  assert.match(page, /readEventsYouRunWithNeeds\(supabase, user\.id\)\.catch\(\(\) => \(\{ events: \[\], measured: false \}\)\)/);
   assert.match(page, /eventsYouRun=\{eventsYouRun\}/, 'Today is not handed the rows');
   const screen = src('app/vendor-dashboard/_components/supplier-today-first-screen.tsx');
   assert.match(screen, /eventsYouRun = \[\]/, 'an absent list must default to none');
@@ -211,4 +212,57 @@ test('5 · words — supplier never vendor, event never celebration, in every vi
       assert.doesNotMatch(s, /celebration/i, `${relative(WEB, f)} says "celebration": ${s}`);
     }
   }
+});
+
+/* ══ 6 · what needs them — the events board's own read (owner 2026-10-28) ═══════ */
+
+test('6 · the rows print WHAT NEEDS THEM from the board’s own attention read; a refusal is said', () => {
+  const rows = src('app/vendor-dashboard/_components/events-you-run-rows.tsx');
+  assert.match(rows, /data-needs="">\{e\.needs\}/, 'the row prints something other than what needs them');
+  assert.doesNotMatch(rows.split('export function CheckinDeskRows')[0]!, /\{e\.status\}/, 'the countdown is back on the row');
+  const read = src('lib/events-you-run.server.ts');
+  for (const shipped of ['readEventDecisionCounts(supabase, ids)', 'readEventUnreadCounts(supabase)', 'readChecklistItems(supabase, e.eventId)', 'summarizeEventDecisions(', 'checklistOverdueCount(items, e.anchor, todayIso)']) {
+    assert.ok(read.includes(shipped), `the needs line does not reuse the shipped read: ${shipped}`);
+  }
+  assert.match(
+    read,
+    /if \(counts === null \|\| unread === null \|\| items === null \|\| items === undefined\) \{\s*summaries\.set\(e\.eventId, null\)/,
+    'a refused read must reach the row as null ("Couldn’t load"), never as zeros',
+  );
+  // The surfaces that PRINT it read the needs; the tab and the door only ask whether (no attention reads).
+  assert.match(src('app/vendor-dashboard/page.tsx'), /readEventsYouRunWithNeeds\(supabase, user\.id\)/);
+  assert.match(src('app/vendor-dashboard/events/page.tsx'), /readEventsYouRunWithNeeds\(supabase, user\.id\)/);
+  assert.doesNotMatch(src('app/vendor-dashboard/layout.tsx'), /readEventsYouRunWithNeeds/);
+});
+
+/* ══ 7 · the Check-in desk, one tap from the coordinator's event and their Hub ══ */
+
+test('7 · the shipped Check-in desk admits a live coordinator (no new permission)', () => {
+  const desk = src('app/dashboard/[eventId]/guests/checkin/page.tsx');
+  assert.match(desk, /\.in\('member_type', \['couple', 'coordinator'\]\)/, 'the desk no longer admits a coordinator member');
+  assert.match(desk, /isDelegateWithoutArea\(viewer, 'guest_list'\)/, 'the desk’s own guest-list rule moved');
+  // A live coordinator = the hosts' switch ON, which shares the guest list (so the desk opens for every row we draw).
+  assert.ok(COORDINATOR_ON_AREAS.includes('guest_list'), 'the switch no longer shares the guest list — the desk would refuse');
+});
+
+test('7 · the coordinating line carries Check-in only when the desk’s own rule admits the seat', () => {
+  const layout = src('app/dashboard/[eventId]/layout.tsx');
+  assert.match(
+    layout,
+    /if \(coordinatorSeat\) \{\s*coordinatorCheckInP = applyDelegateAccessWindow\(supabase, eventId, seat\.permissions_json \?\? null, false\)\s*\.then\(\(p\) => resolveAreaLevel\(p, 'guest_list'\) !== null\)\s*\.catch\(\(\) => false\);/,
+    'the Check-in door is not the desk’s own rule (window + guest list), or fails open',
+  );
+  assert.match(layout, /checkInHref=\{coordinatorCheckIn \? `\/dashboard\/\$\{eventId\}\/guests\/checkin` : null\}/);
+  const line = src('app/dashboard/[eventId]/_components/coordinating-line.tsx');
+  assert.match(line, /\{checkInHref \? \(\s*<Link\s+href=\{checkInHref\}/, 'Check-in is drawn without an address');
+  assert.equal([...line.matchAll(/min-h-11/g)].length, 2, 'both doors on the line must be 44 px');
+});
+
+test('7 · the supplier Hub opens the desk for each event they run — and for nobody else', () => {
+  const hub = src('app/vendor-dashboard/on-the-day/page.tsx');
+  assert.match(hub, /readEventsYouRun\(supabase, user\.id\)\.catch\(\(\) => \(\{ events: \[\], measured: false \}\)\)/);
+  assert.match(hub, /<CheckinDeskRows events=\{runEvents\} \/>/);
+  const rows = src('app/vendor-dashboard/_components/events-you-run-rows.tsx');
+  assert.match(rows, /checkinDeskHref = \(eventId: string\) => `\/dashboard\/\$\{eventId\}\/guests\/checkin`/, 'the Hub opens something other than the shipped desk');
+  assert.match(rows, /const live = events\.filter\(\(e\) => e\.rank !== 2\);\s*if \(live\.length === 0\) return null;/, 'rows drawn with no live event');
 });

@@ -11,7 +11,12 @@ import assert from 'node:assert/strict';
 
 import { COORDINATOR_AREAS, type ModeratorPermissions } from './delegate-areas';
 import { COORDINATOR_ON_AREAS } from './people-with-access';
+import { summarizeEventDecisions } from './event-decisions';
 import {
+  NEEDS_NOTHING,
+  NEEDS_UNREAD,
+  needsLine,
+  withNeeds,
   COORDINATOR_SEAT_ROLE,
   coordinatingWords,
   eventYouRunOf,
@@ -109,4 +114,29 @@ test('a name is never blank', () => {
   assert.equal(eventYouRunOf(seat({}, { display_name: '  ' }), TODAY)?.name, 'Wedding you run');
   assert.equal(coordinatingWords('Claire & Indalecio'), 'Coordinating Claire & Indalecio');
   assert.equal(coordinatingWords(''), 'Coordinating this event');
+});
+
+/* ── 🔔 WHAT NEEDS THEM (owner 2026-10-28: "3 things need you · …", not the countdown) ─────────────────────── */
+
+
+test('the line is the events board’s own summary — total first only when it says more than the top line', () => {
+  assert.equal(needsLine(summarizeEventDecisions({ pay: 0, approve: 2, message: 1, overdue: 0 })), '3 things need you · 2 quotes to approve');
+  assert.equal(needsLine(summarizeEventDecisions({ pay: 0, approve: 2, message: 0, overdue: 0 })), '2 quotes to approve');
+  assert.equal(needsLine(summarizeEventDecisions({ pay: 1, approve: 0, message: 0, overdue: 0 })), '1 payment to settle');
+  assert.equal(needsLine(summarizeEventDecisions({ pay: 0, approve: 0, message: 0, overdue: 0 })), NEEDS_NOTHING);
+});
+
+test('⛔ a refused read is said — never “nothing needs you”', () => {
+  assert.equal(needsLine(null), NEEDS_UNREAD);
+  const rows = eventsYouRun([seat()], NOW, TODAY);
+  // Before the read lands, and for an event the read did not answer, the row says it could not load.
+  assert.equal(rows[0]!.needs, NEEDS_UNREAD);
+  assert.equal(withNeeds(rows, new Map())[0]!.needs, NEEDS_UNREAD);
+  assert.equal(withNeeds(rows, new Map([['e-1', null]]))[0]!.needs, NEEDS_UNREAD);
+  assert.notEqual(NEEDS_UNREAD, NEEDS_NOTHING);
+});
+
+test('the row carries the event’s date fields for the overdue count', () => {
+  const [e] = eventsYouRun([seat({}, { date_candidates: ['2026-12-12'], created_at: '2026-06-01T00:00:00Z' })], NOW, TODAY);
+  assert.deepEqual(e!.anchor, { event_type: 'wedding', event_date: '2026-12-12', date_candidates: ['2026-12-12'], date_window_start: null, created_at: '2026-06-01T00:00:00Z' });
 });

@@ -7,6 +7,8 @@
  *   ?s=coord-customer   frame C — the customer card's header for a couple they run: the Coordinator pill and the REAL
  *                       `OpenTheirEvent` beside the shipped "Open chat" (the card itself is a database page; its header
  *                       here is a faithful stand-in of the shipped identity block + action row)
+ *   ?s=coord-hub        the supplier Hub's Check-in desk rows (owner 2026-10-28, "coordinators can also scan qr codes")
+ *   &unread=1           the attention read refused — every row says it could not load
  *   &none=1             the no-access case: every seat Off / expired / removed → no rows, no tab, no button
  *   frame D (inside the event) is `/dev/home-lab?coord=1&shell=1` — the REAL `CoordinatingLine` over the couple's Home.
  *
@@ -21,10 +23,12 @@ import { EventsYouRunScreen } from '@/app/vendor-dashboard/_components/events-yo
 import { OpenTheirEvent } from '@/app/vendor-dashboard/clients/[eventId]/_components/open-their-event';
 import type { TodayActions } from '@/app/vendor-dashboard/_components/supplier-today-screen';
 import { COORDINATOR_AREAS, type ModeratorPermissions } from '@/lib/delegate-areas';
-import { COORDINATOR_SEAT_ROLE, eventsYouRun, type CoordinatorSeatRow } from '@/lib/events-you-run';
+import { COORDINATOR_SEAT_ROLE, eventsYouRun, withNeeds, type CoordinatorSeatRow } from '@/lib/events-you-run';
+import { summarizeEventDecisions, type EventDecisionSummary } from '@/lib/event-decisions';
+import { CheckinDeskRows } from '@/app/vendor-dashboard/_components/events-you-run-rows';
 import { TodayEasyLab } from './today-easy-lab';
 
-export const COORD_STATES = ['coord-today', 'coord-events', 'coord-customer'] as const;
+export const COORD_STATES = ['coord-today', 'coord-events', 'coord-customer', 'coord-hub'] as const;
 export type CoordState = (typeof COORD_STATES)[number];
 
 const LAB_TODAY = '2026-10-14';
@@ -54,8 +58,18 @@ function labSeats(none: boolean): CoordinatorSeatRow[] {
   ];
 }
 
-export function CoordLab({ state, none, actions }: { state: CoordState; none: boolean; actions: TodayActions }) {
-  const runs = eventsYouRun(labSeats(none), LAB_NOW, LAB_TODAY);
+/** What needs them, per event — through the board's own fold (`summarizeEventDecisions`); `&unread=1` = refused. */
+function labNeeds(unread: boolean): Map<string, EventDecisionSummary | null> {
+  if (unread) return new Map();
+  return new Map([
+    ['lab-claire', summarizeEventDecisions({ pay: 0, approve: 2, message: 1, overdue: 0 })],
+    ['lab-reyes', summarizeEventDecisions({ pay: 0, approve: 0, message: 0, overdue: 0 })],
+    ['lab-santos', summarizeEventDecisions({ pay: 0, approve: 0, message: 0, overdue: 1 })],
+  ]);
+}
+
+export function CoordLab({ state, none, unread = false, actions }: { state: CoordState; none: boolean; unread?: boolean; actions: TodayActions }) {
+  const runs = withNeeds(eventsYouRun(labSeats(none), LAB_NOW, LAB_TODAY), labNeeds(unread));
   const bar = (
     <BottomDock boundary="tab">
       <CoordLabBar runsEvents={runs.length > 0} />
@@ -73,6 +87,18 @@ export function CoordLab({ state, none, actions }: { state: CoordState; none: bo
     return (
       <div className="min-h-screen bg-cream px-4 pb-32 pt-4" data-coord-lab="events" data-runs={runs.length}>
         <EventsYouRunScreen events={runs} measured />
+        {bar}
+      </div>
+    );
+  }
+  if (state === 'coord-hub') {
+    /* The supplier Hub's new top section — the REAL `CheckinDeskRows` the Hub page mounts (the Hub itself is a
+       database page; this is its first block). */
+    return (
+      <div className="min-h-screen bg-cream px-4 pb-32 pt-4" data-coord-lab="hub" data-runs={runs.length}>
+        <h1 className="sr-only">Event Hub</h1>
+        <CheckinDeskRows events={runs} />
+        {runs.length === 0 ? <p className="text-[15px] text-ink/70">No event today</p> : null}
         {bar}
       </div>
     );

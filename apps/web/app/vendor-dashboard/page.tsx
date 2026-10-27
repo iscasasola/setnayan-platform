@@ -30,7 +30,7 @@ import {
   type VendorEarningsSummary,
 } from '@/lib/vendor-overview';
 import { ServerTimer } from '@/lib/server-timing';
-import { readEventsYouRun } from '@/lib/events-you-run.server';
+import { readEventsYouRunWithNeeds } from '@/lib/events-you-run.server';
 import { acceptInquiry, declineInquiry } from '@/lib/chat-actions';
 import {
   vendorAcknowledgeDeposit,
@@ -287,7 +287,7 @@ export default async function VendorOverviewPage({
   // 🗂 "Events you run" (owner "approved", 2026-10-28) — this person's LIVE coordinator seats. The layout started the
   // same cache()d read for the Events tab, so this is free; started here and read at the end, it adds no trip.
   // Fails closed: a refused read draws no section (`lib/events-you-run.server.ts`).
-  const eventsYouRunP = readEventsYouRun(supabase, user.id).catch(() => ({ events: [], measured: false }));
+  const eventsYouRunP = readEventsYouRunWithNeeds(supabase, user.id).catch(() => ({ events: [], measured: false }));
   const todayIso = manilaToday();
   const vendorProfileId = profile.vendor_profile_id;
   let data;

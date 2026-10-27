@@ -24,6 +24,7 @@
 import { delegateAccessLastDay, permissionsWithinWindow } from './delegate-access-window';
 import type { ModeratorPermissions } from './delegate-areas';
 import { areaCells, coordinatorHasHostAccess } from './people-with-access';
+import type { EventDecisionSummary } from './event-decisions';
 
 /** The coordinator's seat — the one role this door is for (owner 2026-10-07: "Same as User Host of the event"). */
 export const COORDINATOR_SEAT_ROLE = 'wedding_planner_external';
@@ -38,6 +39,10 @@ export type CoordinatorSeatEvent = {
   event_end_date: string | null;
   event_date_precision: string | null;
   venue_name: string | null;
+  /** For the overdue count's anchor + runway (`checklistOverdueCount`) — the same columns the events board reads. */
+  date_candidates?: string[] | null;
+  date_window_start?: string | null;
+  created_at?: string | null;
 };
 
 /** One `event_moderators` row as the server read returns it (the event embedded). */
@@ -60,6 +65,14 @@ export type EventYouRun = {
   placeLine: string;
   /** What the day is to them: "Today" · "Tomorrow" · "In 45 days" · "Wrapping up · access until Dec 19" · "Date not set yet". */
   status: string;
+  /**
+   * 🔔 WHAT NEEDS THEM (owner 2026-10-28: the rows show "3 things need you · …", not the countdown) — the row's
+   * accent line. Filled by `withNeeds` from the events board's own attention read (`summarizeEventDecisions`); until
+   * then, and whenever that read is refused, it says it could not load — never "nothing needs you".
+   */
+  needs: string;
+  /** The event's date fields, for the overdue count (`checklistOverdueCount`). */
+  anchor: { event_type: string | null; event_date: string | null; date_candidates: string[] | null; date_window_start: string | null; created_at: string | null };
   /** Where Open goes — the couple's own event dashboard, through its shipped check. */
   href: string;
   /** Sort key: 0 upcoming (by date) · 1 no date yet · 2 after the event (still in its window). */
@@ -158,6 +171,14 @@ export function eventYouRunOf(row: CoordinatorSeatRow, todayIso: string): EventY
     line: [typeWord, day, 'Coordinator'].filter(Boolean).join(' · '),
     placeLine: [typeWord, day, ev.venue_name?.trim() || null].filter(Boolean).join(' · '),
     status,
+    needs: NEEDS_UNREAD,
+    anchor: {
+      event_type: ev.event_type,
+      event_date: ev.event_date,
+      date_candidates: ev.date_candidates ?? null,
+      date_window_start: ev.date_window_start ?? null,
+      created_at: ev.created_at ?? null,
+    },
     href: `/dashboard/${ev.event_id}`,
     rank,
     date: ev.event_date,
@@ -178,6 +199,34 @@ export function eventsYouRun(rows: readonly CoordinatorSeatRow[], now: Date, tod
   return out.sort(
     (a, b) => a.rank - b.rank || (a.date ?? '').localeCompare(b.date ?? '') || a.name.localeCompare(b.name),
   );
+}
+
+/** A refused attention read, said — never "nothing needs you" (collection template, owner 2026-09-24). */
+export const NEEDS_UNREAD = 'Couldn’t load what needs you';
+/** A measured nothing. */
+export const NEEDS_NOTHING = 'Nothing needs you right now';
+
+/**
+ * The accent line, from the events board's own summary (`summarizeEventDecisions`: payments to settle · quotes to
+ * approve · unread chats · tasks overdue, in that priority). `null` = the read was refused.
+ * "3 things need you · 2 quotes to approve" when more is waiting than the top line names (prototype frame B), else
+ * the top line alone ("2 quotes to approve") so one number is never said twice.
+ */
+export function needsLine(summary: EventDecisionSummary | null): string {
+  if (summary === null) return NEEDS_UNREAD;
+  if (summary.total <= 0 || !summary.top) return NEEDS_NOTHING;
+  if (summary.total > summary.top.count) {
+    return `${summary.total} ${summary.total === 1 ? 'thing needs' : 'things need'} you · ${summary.top.label}`;
+  }
+  return summary.top.label;
+}
+
+/** Each row with its line, from a summary per event id (`null` / missing = refused). Pure. */
+export function withNeeds(
+  events: readonly EventYouRun[],
+  summaries: ReadonlyMap<string, EventDecisionSummary | null>,
+): EventYouRun[] {
+  return events.map((e) => ({ ...e, needs: needsLine(summaries.has(e.eventId) ? summaries.get(e.eventId)! : null) }));
 }
 
 /** The slim dark line inside their event (prototype frame D). */

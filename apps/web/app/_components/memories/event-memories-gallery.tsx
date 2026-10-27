@@ -24,10 +24,11 @@
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { EyeOff, Eye, Flag, Ban, Trash2, Check, Minus, Play, Plus, Settings, Download, X } from 'lucide-react';
+import { EyeOff, Eye, Flag, Ban, Trash2, Check, Minus, Play, Plus, Download, X } from 'lucide-react';
 import { ThumbRow } from '@/components/thumb-row';
 import { ActionButton } from '@/components/action-button';
 import { Sheet } from '@/app/_components/sheet';
+import { MenuSettingsButton } from '@/app/_components/menu-settings-button';
 import { InfoTip } from '@/app/_components/info-tip';
 import { SwitchTrack } from '@/app/_components/switch-track';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
@@ -169,7 +170,6 @@ export function EventMemoriesGallery({
   const [needsLook, setNeedsLook] = useState(false);
   const [moments, setMomentsState] = useState(false);
   const [gearOpen, setGearOpen] = useState(false);
-  const gearHeading = useId();
 
   useEffect(() => {
     const a = readLocal(ALBUM_KEY);
@@ -293,7 +293,7 @@ export function EventMemoriesGallery({
       <h1 className="sr-only">Memories</h1>
 
       {/* TOP ROW — Albums ▾ · the count · Needs a look · (− / + on a desktop) · ⚙. */}
-      <div className="flex min-h-[48px] items-center gap-2 pb-2.5" data-memories-top="">
+      <div className="flex min-h-[48px] items-center gap-2 pb-2.5" data-memories-top="" data-first-row="">
         <span data-memories-albums="" data-tour="memories-albums" className="shrink-0">
           <PickMenu label="Albums" value={album} options={albumOptions} onPick={(k) => isMemoriesAlbum(k) && setAlbum(k)} compact />
         </span>
@@ -321,7 +321,34 @@ export function EventMemoriesGallery({
           </span>
         ) : null}
         {host ? (
-          <ActionButton tone="neutral" iconOnly icon={Settings} label="Memories settings" onClick={() => setGearOpen(true)} data-memories-gear="" tour="memories-settings" />
+          // ⚙ THE MENU'S SETTINGS — the shared door (`menu-settings-button.tsx`); Memories was its template.
+          <MenuSettingsButton menu="memories" open={gearOpen} onOpenChange={setGearOpen} tour="memories-settings">
+            <div className="divide-y divide-ink/10 px-4 pb-4" data-memories-settings="">
+              {/* FOLLOW THE MOMENTS IN ORDER — the owner's word for the gallery grouped by the day's moments. */}
+              <button
+                type="button"
+                role="switch"
+                aria-checked={moments}
+                onClick={() => setMoments(!moments)}
+                disabled={!chapters || chapters.length < 2}
+                className="flex min-h-[56px] w-full items-center justify-between gap-3 py-2 text-left disabled:opacity-60"
+                data-memories-moments=""
+              >
+                <span className="min-w-0">
+                  <span className="block text-[15px] font-medium text-ink">Follow the moments in order</span>
+                  <span className="block text-[12.5px] text-ink/60">
+                    {!chapters || chapters.length < 2
+                      ? 'Needs your schedule'
+                      : moments
+                        ? 'On · grouped by your schedule'
+                        : 'Off · one stream, newest first'}
+                  </span>
+                </span>
+                <SwitchTrack on={moments} />
+              </button>
+              {settings}
+            </div>
+          </MenuSettingsButton>
         ) : null}
       </div>
       {needsLook ? (
@@ -370,40 +397,6 @@ export function EventMemoriesGallery({
       ) : null}
       {viewing ? <PapicLightbox photo={viewing} onClose={() => setViewing(null)} timeZone={timeZone} /> : null}
 
-      {gearOpen ? (
-        <OnBody>
-        <Sheet open onClose={() => setGearOpen(false)} labelledById={gearHeading} title="Memories settings" wide>
-          <h2 id={gearHeading} className="sr-only">
-            Memories settings
-          </h2>
-          <div className="divide-y divide-ink/10 px-4 pb-4" data-memories-settings="">
-            {/* FOLLOW THE MOMENTS IN ORDER — the owner's word for the gallery grouped by the day's moments. */}
-            <button
-              type="button"
-              role="switch"
-              aria-checked={moments}
-              onClick={() => setMoments(!moments)}
-              disabled={!chapters || chapters.length < 2}
-              className="flex min-h-[56px] w-full items-center justify-between gap-3 py-2 text-left disabled:opacity-60"
-              data-memories-moments=""
-            >
-              <span className="min-w-0">
-                <span className="block text-[15px] font-medium text-ink">Follow the moments in order</span>
-                <span className="block text-[12.5px] text-ink/60">
-                  {!chapters || chapters.length < 2
-                    ? 'Needs your schedule'
-                    : moments
-                      ? 'On · grouped by your schedule'
-                      : 'Off · one stream, newest first'}
-                </span>
-              </span>
-              <SwitchTrack on={moments} />
-            </button>
-            {settings}
-          </div>
-        </Sheet>
-        </OnBody>
-      ) : null}
     </section>
   );
 }

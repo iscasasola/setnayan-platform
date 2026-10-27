@@ -82,7 +82,7 @@ export function ShopBadgePill({
         </svg>
       ) : null}
       <span aria-hidden className={s.mk}>
-        {badge.glyph === null ? <SetnayanMark /> : <span className={s.glyph}>{badge.glyph}</span>}
+        {badge.glyph === null ? <SetnayanMark /> : <span className={s.glyph} style={badge.glyph.length >= 3 ? { fontSize: '0.76em' } : undefined}>{badge.glyph}</span>}
       </span>
       <span aria-hidden>
         <span className={[s.t1, foil ? s.foil : ''].filter(Boolean).join(' ')}>{badge.line1}</span>

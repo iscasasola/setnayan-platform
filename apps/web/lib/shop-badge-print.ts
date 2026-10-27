@@ -119,7 +119,7 @@ function pill(b: ShopBadge, F: number, ground: PrintGround, colour: string, idx:
   if (b.glyph === null) inCircle = setnayanMarkSvg(cx, cy, circle * 0.72, GOLD);
   else if (b.glyph === '★') inCircle = `<path d="${starPath(cx, cy + circle * 0.03, circle * 0.3)}" fill="${GOLD}"/>`;
   else {
-    const gs = 0.95 * F;
+    const gs = (b.glyph.length >= 3 ? 0.76 : 0.95) * F;
     const gp = outlineWords(f, b.glyph, 0, 0, gs, 0);
     const gb = gp.getBoundingBox();
     const gp2 = outlineWords(f, b.glyph, cx - (gb.x1 + gb.x2) / 2, cy - (gb.y1 + gb.y2) / 2, gs, 0);

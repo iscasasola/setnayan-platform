@@ -1,35 +1,36 @@
 'use client';
 
-import { useState } from 'react';
-import { saveImageToDevice } from '@/lib/save-to-device';
+import { usePrintSave, type PrintSaveState } from '@/app/dashboard/[eventId]/launch/_components/print-save-button';
 
-export type SaveFileState = 'idle' | 'saving';
+export type SaveFileState = 'idle' | 'saving' | 'ready';
 
 /**
- * SaveFileLink — the one safe way this app hands the visitor a same-origin
- * file: a QR PNG, the guest list's QR-codes PDF, anything served with a
- * `Content-Disposition: attachment` on the other end.
+ * SaveFileLink — the one safe way this app hands the visitor a file: a QR PNG, the guest list's QR-codes PDF, a
+ * calendar (.ics), a CSV, a zip, a data: URI — anything served with a `Content-Disposition: attachment` on the other
+ * end, or drawn in the page.
  *
  * ── WHY A PLAIN `<a download>` WASN'T ENOUGH ────────────────────────────────
- * Owner, 2026-09-25, on the Guest list: *"When we try to download the QR
- * code, when that button is pressed. it should just save and not open a new
- * page."* A bare `<a href download>` is enough on most desktop browsers, but
- * iOS Safari and the Capacitor iOS shell can both ignore the `download`
- * attribute on a same-origin GET and just navigate to (render) the file
- * instead — which is exactly "opens a new page" from the chair holding the
- * phone. fetch → blob → object-URL (`saveImageToDevice`, already shipped for
- * Papic photo saves) sidesteps that, and prefers the native share sheet
- * ("Save to Photos" / "Save file") on a device that can share a File but has
- * no silent write to Downloads.
+ * Owner, 2026-09-25, on the Guest list: *"When we try to download the QR code, when that button is pressed. it should
+ * just save and not open a new page."* And 2026-10-27, from the iPhone app: *"download excel on the app when pressed
+ * opened the file with no close button and it did not download"*. iOS Safari and the Capacitor iOS shell both ignore
+ * the `download` attribute on a same-origin GET and RENDER the file in the app's only view — no back, no close,
+ * nothing saved.
  *
- * `href` + `download` stay on the anchor as a working fallback for the instant
- * before hydration and for anyone browsing with scripting off; `onClick`
- * takes over — and calls `preventDefault` — the moment it can, so the browser
- * never gets to navigate.
+ * So the tap is taken over and runs the save every Prints button uses (`usePrintSave`): fetch with the signed-in
+ * session → the phone's SHARE SHEET (Save to Files · Save Image · open in another app) → a plain download on a
+ * computer. A slow file that outlives the tap says "tap again"; a refused or failed file says so in words beside
+ * the link (the route's own message when it sent one) — never the look of success, never a silent nothing.
  *
- * Deliberately NOT a `<Link>`: this is a FILE, never a route Next should try
- * to own client-side (see roster-doors.test.ts, "the tab row renders it as a
- * DOWNLOAD, not a navigation").
+ * `children` is either plain content (mountable from a SERVER component) or a function of the saving state (only
+ * from a client component — a function cannot cross the boundary; `a-qr-download-never-opens-a-new-page.test.ts`).
+ *
+ * `href` + `download` stay on the anchor as a working fallback for the instant before hydration and for anyone
+ * browsing with scripting off; `onClick` takes over — and calls `preventDefault` — the moment it can.
+ *
+ * Deliberately NOT a `<Link>`: this is a FILE, never a route Next should try to own client-side.
+ *
+ * A file on R2 behind a presigned URL that is VIEWED rather than saved (a contract, a chat attachment, a rendered
+ * video) goes through `OpenFileLink` instead — the app's in-app browser sheet, which needs no CORS and no session.
  */
 export function SaveFileLink({
   href,
@@ -41,29 +42,46 @@ export function SaveFileLink({
   href: string;
   filename: string;
   className?: string;
-  /** Render prop so the caller can swap icon/label while saving. */
-  children: (state: SaveFileState) => React.ReactNode;
-} & Omit<
-  React.AnchorHTMLAttributes<HTMLAnchorElement>,
-  'href' | 'download' | 'onClick' | 'className' | 'children'
->) {
-  const [state, setState] = useState<SaveFileState>('idle');
+  /** Plain content, or a render prop so a CLIENT caller can swap icon/label while saving. */
+  children: React.ReactNode | ((state: SaveFileState) => React.ReactNode);
+} & Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, 'href' | 'download' | 'onClick' | 'className' | 'children'>) {
+  const { state, save } = usePrintSave();
+  const shown: SaveFileState = state.k === 'working' ? 'saving' : state.k === 'ready' ? 'ready' : 'idle';
   return (
-    <a
-      {...rest}
-      href={href}
-      download={filename}
-      aria-busy={state === 'saving' || undefined}
-      className={className}
-      onClick={async (e) => {
-        e.preventDefault();
-        if (state === 'saving') return;
-        setState('saving');
-        await saveImageToDevice(href, filename);
-        setState('idle');
-      }}
-    >
-      {children(state)}
-    </a>
+    <>
+      <a
+        {...rest}
+        href={href}
+        download={filename}
+        aria-busy={state.k === 'working' || undefined}
+        className={className}
+        onClick={(e) => {
+          e.preventDefault();
+          void save(href, filename);
+        }}
+      >
+        {typeof children === 'function' ? children(shown) : children}
+      </a>
+      <SaveFileLine state={state} />
+    </>
   );
+}
+
+/** The one line beside a save that did not simply work: a file that outlived the tap, or why it failed. */
+function SaveFileLine({ state }: { state: PrintSaveState }) {
+  if (state.k === 'error') {
+    return (
+      <span role="alert" data-save-file="failed" className="block text-xs text-danger-700">
+        {state.message}
+      </span>
+    );
+  }
+  if (state.k === 'ready') {
+    return (
+      <span role="status" data-save-file="ready" className="block text-xs text-ink/60">
+        Your file is ready — tap again to save it.
+      </span>
+    );
+  }
+  return null;
 }

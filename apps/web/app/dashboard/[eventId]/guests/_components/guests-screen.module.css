@@ -291,7 +291,7 @@ button.pinCount {
   min-height: 64px;
   padding: 8px 12px;
   border: 1px solid var(--gs-line);
-  border-radius: 16px;
+  border-radius: var(--m-r-md);
   background: rgb(var(--color-cream, 255 255 255));
   color: var(--gs-ink);
 }
@@ -469,7 +469,7 @@ button.pinCount {
   min-width: 0;
   min-height: 30px;
   padding: 2px 4px;
-  border-radius: 10px;
+  border-radius: var(--m-r-sm);
   text-align: left;
   color: var(--gs-ink);
   background: none;
@@ -482,7 +482,7 @@ button.pinCount {
 }
 .mini + .mini {
   border-left: 1px solid var(--gs-line);
-  border-radius: 0 10px 10px 0;
+  border-radius: 0 var(--m-r-sm) var(--m-r-sm) 0;
 }
 /* Sized as the approved picture draws them (prototype `compare` / `oneqr`: the number and its word both small, the
    number bold) — the card stays well under 96 px. */
@@ -616,7 +616,7 @@ button.pinCount {
   min-height: 0;
   padding: 0;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--m-r-full);
   cursor: pointer;
   animation: gs-half-in 600ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
   transform-origin: left center;

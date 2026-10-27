@@ -1,3 +1,47 @@
+# HANDOVER — claude/groups-chatroom (Builder GCR, 2026-10-28)
+
+Contract: DECISION_LOG 2026-10-28 "GROUPS AS A CHATROOM" + corpus `prototypes/groups_chatroom_2026-10-28/`.
+Base: `claude/groups-return-to-people` (the back-button fix, 2 commits) — the PR carries them if that has not merged.
+
+## State
+- Page: `samahan/[communityId]/page.tsx` → `GroupHome` (server-safe, decides event doors) → `GroupChatroom` (client):
+  top (‹ People · name · count · ⋯) · `SamahanStories strip` · pinned next event (Going?) · chat · ThumbRow (＋ · field · 📷).
+- Collage: `lib/samahan-chatroom.ts` (pure, read-time) + `_components/group-collage.tsx` (chat item + full-screen player).
+- Moved: photo + rename → top of Members; "Take it down" → tap your own bubble; "Play the day" → last ring; Plan an event → ＋.
+- `fetchSamahanMessages` returns null on a refused read; `fetchCommunityEvents` reads `created_at`.
+- Guards: `group-is-a-chatroom.test.ts` (rendered), `lib/samahan-chatroom.test.ts`; sabotage script in session scratchpad (11/11 red).
+- Lab: `/dev/group-lab` (+ ?member=1 ?empty=1 ?refused=1). Walk: `shots-2026-10-28/groups-chat/scripts/` (serve.sh · walk.mjs).
+
+## ⏸ PAUSED 2026-10-28 (controller: free the Mac's queues) — exact state
+- PR #7009 (DRAFT, label do-not-auto-merge, autoMergeRequest null). Pushed through the commit that carries this note.
+- House-template pass DONE (coordinator relay): ⋯ and ＋ are one PickMenu each (trigger = icon), Leave asks in the
+  shipped ConfirmDialog, Going?/Play/Send are ActionButtons, no frame on a closed event card, token colours only
+  (sn-initials avatar, bg-black media). The collage FULL-SCREEN player's Close / Next hour stay plain white buttons,
+  like the shipped story player beside it (ActionButton tones do not read on black).
+- CI on the previous head: typecheck ✅ (earlier run), guards ✅ after the radius fix; unit tests 1/3 had ONE red —
+  `lib/samahan-reads-are-honest.test.ts` "the page hands the strip the refusal" (it pinned group-home.tsx; the strip
+  now draws in group-chatroom.tsx) → re-aimed in this commit, green locally. Rest of that CI run was still pending.
+- NOT DONE: the Playwright walk (lab, 390/375, light/dark, Chromium + WebKit) and the side-by-side shots — the walk
+  lane never reached me (10 deep). Local full typecheck / `pnpm lint` / full unit suite were never run locally (lane
+  10 deep) — CI is the gate for them. No lock held, no ticket queued, no dev server running, `.next` removed.
+
+## Next step (when resumed)
+1. `gh pr checks 7009` — fix any red from its log (one push per round).
+2. `shots-2026-10-28/groups-chat/scripts/serve.sh` (walk lane, port 3611), then `ENGINE=chromium node walk.mjs` and
+   `ENGINE=webkit node walk.mjs` from that folder; `touch scripts/STOP` when done. Look at the shots next to
+   `proto-p1..p4.png`; put the ✅/⚠ table and shot paths in the PR body.
+3. Report to the controller (PR + SHA, controls ✅/⚠, sabotage 11/11, check counts, deviations, check card).
+
+## Decisions taken (not covered by the record)
+- Full-screen collage stays muted — no "Turn sound on" (six clips at once); sound = tap a tile → the strip's player.
+- Notifications row opens the inbox (no per-group switch exists to say "On").
+- Going? = a door to the event's own page (invited → `/{slug}`, where the RSVP lives); organisers see "Open"; no stored toggle.
+- Placeholder "Message the group" (≤ 3 words rule), not "Message <group name>".
+- Accent = the house deep accent (terracotta-700) — the prototype's orange is not a token.
+- A 1-clip hour still posts ("1 story"); an hour posts when it ENDS; tiles play only while on screen.
+
+---
+
 # HANDOVER — claude/chat-files-rule (Builder C2, 2026-10-28)
 
 Contract: DECISION_LOG 2026-10-28 "CHAT FILES" + owner amendment "alway compress files when sending on chat. never keep

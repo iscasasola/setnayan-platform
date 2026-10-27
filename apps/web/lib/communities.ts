@@ -76,6 +76,12 @@ export type CommunityEventRow = {
    * query the way an ungranted column would.
    */
   slug: string | null;
+  /**
+   * When the event was planned — where its card sits in the group's chat (owner 2026-10-28, "GROUPS AS A CHATROOM":
+   * a new event posts as a card). Granted to `authenticated` by the events column allow-list (20271007100000 denies
+   * only the QR token and the Drive token). Optional: a row read without it simply posts no card.
+   */
+  created_at?: string | null;
 };
 
 type MembershipJoinRow = {
@@ -233,7 +239,7 @@ export async function fetchCommunityEvents(
 ): Promise<CommunityEventRow[]> {
   const { data, error } = await supabase
     .from('events')
-    .select('event_id, display_name, event_type, event_date, archived, slug')
+    .select('event_id, display_name, event_type, event_date, archived, slug, created_at')
     .eq('community_id', communityId)
     .order('event_date', { ascending: true, nullsFirst: false });
   if (error) {
@@ -564,13 +570,17 @@ export type SamahanMessage = {
  * Reads through the CALLER'S client so RLS scopes it to members; the admin
  * client resolves display names ONLY — the same split fetchCommunityRoster
  * uses, and for the same RA 10173 reason (never email, never an auth uuid).
+ *
+ * NULL = the read was REFUSED (2026-10-28, the chatroom): the chat is now the
+ * whole group page, and a refused read returned as `[]` would draw "No one has
+ * said anything yet" over a busy group — a failure that looks like emptiness.
  */
 export async function fetchSamahanMessages(
   supabase: SupabaseClient,
   admin: SupabaseClient,
   communityId: string,
   viewerId: string,
-): Promise<SamahanMessage[]> {
+): Promise<SamahanMessage[] | null> {
   const { data, error } = await supabase
     .from('samahan_messages')
     .select('message_id, user_id, body, created_at')
@@ -579,7 +589,7 @@ export async function fetchSamahanMessages(
     .order('created_at', { ascending: false })
     .limit(200);
   if (error) console.error('[supabase-error] lib/communities.ts · from:samahan_messages.select', error);
-  if (error || !data) return [];
+  if (error || !data) return null;
   const rows = (data as Array<{
     message_id: string;
     user_id: string;

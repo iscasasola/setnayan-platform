@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ChevronLeft,
@@ -86,15 +86,36 @@ async function extractPoster(file: File): Promise<{ poster: Blob; durationS: num
   }
 }
 
+/**
+ * What the group's chatroom may ask the strip to do (owner 2026-10-28, "GROUPS AS A CHATROOM"): the message bar's 📷
+ * opens THIS camera, and a collage tile opens THIS player on that person's clip — one camera and one player, never a
+ * second copy of either, so the rules (one an hour, 24 hours, the day plays through) stay in one place.
+ */
+export type StoriesControl = {
+  /** Open the 3-second camera — the same press as "Add yours" (refused while yours for this hour is up). */
+  record: () => void;
+  /** Play the day from this clip. */
+  play: (storyId: string) => void;
+};
+
 export function SamahanStories({
   communityId,
   stories,
   unreadable = false,
+  strip = false,
+  controlRef,
 }: {
   communityId: string;
   stories: SamahanStory[];
   /** The stories read was REFUSED — distinct from an empty day (S41b). */
   unreadable?: boolean;
+  /**
+   * The chatroom's strip (prototypes/groups_chatroom_2026-10-28): the rings only, under the group's name — the title
+   * row folds away and "Play the day" becomes the row's last ring. Same rules, same camera, same player.
+   */
+  strip?: boolean;
+  /** Filled with the strip's camera and player, for the chatroom's 📷 and its collage tiles. */
+  controlRef?: MutableRefObject<StoriesControl | null>;
 }) {
   const router = useRouter();
   const fallbackInputRef = useRef<HTMLInputElement>(null);
@@ -243,6 +264,30 @@ export function SamahanStories({
   // Stop the camera when the component unmounts with the sheet open.
   useEffect(() => closeCamera, [closeCamera]);
 
+  // The chatroom's 📷 and collage tiles reach THIS camera and THIS player (StoriesControl).
+  const myHourUsedRef = useRef(false);
+  myHourUsedRef.current = myHourUsed;
+  const busyRef = useRef(busy);
+  busyRef.current = busy;
+  const openCameraRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    if (!controlRef) return;
+    controlRef.current = {
+      record: () => {
+        if (myHourUsedRef.current) {
+          setMessage(ERROR_COPY.one_per_hour!);
+          return;
+        }
+        if (busyRef.current !== 'idle') return;
+        openCameraRef.current();
+      },
+      play: (storyId: string) => setPlayingId(storyId),
+    };
+    return () => {
+      controlRef.current = null;
+    };
+  }, [controlRef]);
+
   // The shared pop-up contract: the page behind is held still and inert, Tab stays inside, Escape closes.
   useModalA11y({ open: cameraOpen, onClose: closeCamera, containerRef: cameraDialogRef });
   useModalA11y({ open: playing !== null, onClose: () => setPlayingId(null), containerRef: playerDialogRef });
@@ -297,6 +342,8 @@ export function SamahanStories({
     },
     [facing],
   );
+
+  openCameraRef.current = () => void openCamera();
 
   // THE CAMERA COMES BACK (Duo + iPad audit 2026-10-19, W4): when iOS, a Duo or
   // a dead track takes the story camera, reopen the same facing through
@@ -476,7 +523,9 @@ export function SamahanStories({
     // THE RING ROW (prototypes/group_samahan_2026-10-25, "Stories = the same clips, as a RING ROW with Add yours
     // first"). Title + one short line; the cap and the 24-hour promise sit in the ⓘ. Every control the strip had is
     // here: the camera ("Add yours", first), "Play the day", each clip, and "Take it down" under your own.
-    <section aria-label="Stories">
+    <section aria-label="Stories" data-stories-strip={strip ? '' : undefined}>
+      {strip ? null : (
+      <>
       <div className="flex min-h-11 items-center gap-2">
         <InfoTip label="Stories" labelAs="h2" labelClassName="text-[17px] font-semibold text-ink" align="start">
           Three raw seconds from each of you — one an hour, gone after 24. Tap a ring to watch from there to now. Your
@@ -498,6 +547,8 @@ export function SamahanStories({
           ? `This hour, right now — ${formatCount(reel.length)} clips, one after another.`
           : 'This hour, right now.'}
       </p>
+      </>
+      )}
       {message ? <p className="mb-2 text-xs text-mulberry-700">{message}</p> : null}
 
       <ul className="flex gap-3 overflow-x-auto pb-2" role="list" data-story-rings="">
@@ -588,6 +639,21 @@ export function SamahanStories({
               ) : null}
             </li>
           ))}
+        {/* The chatroom's strip has no title row, so "Play the day" is the row's last ring — the same press. */}
+        {strip && reel.length > 1 ? (
+          <li className="w-16 flex-none text-center">
+            <button
+              type="button"
+              onClick={() => goTo(0)}
+              aria-label="Play the day"
+              className="mx-auto flex h-[58px] w-[58px] items-center justify-center rounded-full bg-ink/5 text-[color:var(--m-nav-active)]"
+            >
+              <Play className="h-5 w-5" aria-hidden />
+            </button>
+            <span className="mt-1 block truncate text-[11px] font-medium text-ink">The day</span>
+            <span className="block text-[10px] text-ink/50">{formatCount(reel.length)} clips</span>
+          </li>
+        ) : null}
       </ul>
 
       {unreadable && stories.length === 0 ? (

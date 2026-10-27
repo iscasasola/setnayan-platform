@@ -1,36 +1,41 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { ChevronRight, MessageCircle, Plus, UserPlus } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
-import type { CommunityEventRow, CommunityRosterEntry, SamahanMessage } from '@/lib/communities';
+import type { CommunityEventRow, SamahanMessage } from '@/lib/communities';
 import type { SamahanStory } from '@/lib/samahan-stories';
 import type { EventWithRole } from '@/lib/events';
-import { eventBoardHref, stanceClosedReason } from '@/lib/event-board';
+import { eventBoardHref, eventStance, manilaTodayISO, stanceClosedReason } from '@/lib/event-board';
 import { eventTypeBadge } from '@/lib/event-vocabulary';
-import { formatCount } from '@/lib/format-number';
-import { relativeTimeShort } from '@/lib/notifications';
-import { SamahanStories } from './samahan-stories';
+import { nextGroupEvent, type ChatEvent } from '@/lib/samahan-chatroom';
+import { GroupChatroom, type EventDoor } from './group-chatroom';
 
 export type EventMemberType = EventWithRole['member_type'];
 
 /**
- * group-home.tsx — THE GROUP IS FOUR THINGS, ON ONE PAGE (owner 2026-10-26, verbatim: "Groups: We can bring in
- * people in the group and they share the same group where there is a place for chat, events and stories. that's
- * it"). Drawn from prototypes/group_samahan_2026-10-25 (corpus 0e658e05), frame "group-home-390":
+ * group-home.tsx — the group page's parts.
  *
- *   the group's face (photo · name · one line) → MEMBERS (the row + "Bring people in") → EVENTS → STORIES → CHAT
+ * 💬 FROM 2026-10-28 THE GROUP IS A CHATROOM (owner, verbatim: *"groups should look like a chatroom with stories and
+ * events. all stories will run in a collage every hour"* → *"Groups chatroom approved. Send it to the build screen"*;
+ * DECISION_LOG "GROUPS AS A CHATROOM"; prototypes/groups_chatroom_2026-10-28, baseline group_samahan_2026-10-25).
+ * `GroupHome` is no longer four stacked sections (members · events · stories · a "Chatroom · Usapan" row you tapped
+ * into) — Usapan IS the page (`GroupChatroom`): ‹ People · the group + ⋯ · the Stories strip · the next event pinned ·
+ * the chat with the message bar at the thumb. Where each of the four went:
  *
- * The tab bar it replaces (overview · usapan · members · events) is gone; the chat, the full members list and the
- * full events list are each ONE TAP IN, at the same `?tab=` addresses every redirect and notice already writes, so
- * no old link lands on a dead page. Nothing here is a new read except the Usapan preview (the newest message), which
- * the prototype marks Δ — `fetchSamahanMessages` already existed.
+ *   members row + "Bring people in" → ⋯ › Members · ⋯ › Bring people in (the same `?tab=members` / `#bring-in`)
+ *   events (first three + "See all") → the next one pinned · a card in the chat per new event · ⋯ › All events
+ *   "Plan an event"                  → ＋ › Plan an event (organizers)
+ *   stories                          → the same strip, rings only; 📷 in the message bar opens its camera
+ *   the chat row                     → the chat itself
+ *   the group's photo + rename       → ⋯ › Members, at the top (anyone can rename — the line there says so)
+ *
+ * This file stays SERVER-SAFE (no 'use client'): `page.tsx` imports `QUIET_ACTION` (a string) and the shared rows for
+ * the one-tap views, and a string exported from a client module reaches a server component as a reference, not a
+ * string. `GroupHome` decides each event's door here (`eventBoardHref`) and hands plain rows to the client chatroom.
  *
  * Presentational ONLY — no database: `page.tsx` reads and hands the rows in, and `/dev/group-lab` hands in
- * fixtures, so the lab and the live page cannot drift apart. 🔒 group-is-four-things.test.ts holds the order.
+ * fixtures, so the lab and the live page cannot drift apart. 🔒 group-is-a-chatroom.test.ts.
  */
-
-/** The home shows the first few events; the rest are one tap in (`?tab=events`). */
-export const HOME_EVENT_ROWS = 3;
 
 /** A section's quiet action, at the right of its title (the prototype's `.q`): 44 px tall, never a frame. */
 export const QUIET_ACTION =
@@ -62,159 +67,78 @@ export function GroupSectionHead({
   );
 }
 
+/** Where an event may send this viewer — the same answer the shared row gives (`eventBoardHref`). */
+export function eventDoor(e: CommunityEventRow, memberType: EventMemberType | null): EventDoor {
+  const href = memberType ? eventBoardHref({ event_id: e.event_id, slug: e.slug, member_type: memberType }) : null;
+  return {
+    href,
+    reason: href ? null : memberType ? stanceClosedReason(memberType) : 'Ask an organizer to add you to this event.',
+    invited: memberType ? eventStance(memberType) === 'invited' : false,
+  };
+}
+
 export function GroupHome({
-  header,
   base,
   communityId,
+  name,
+  photoDisplayUrl,
+  initial,
   isOrganizer,
   memberCount,
-  roster,
   events,
   viewerMemberships,
   stories,
   storiesUnreadable,
-  latestMessage,
+  messages,
+  messagesUnreadable,
+  nowMs,
+  notice,
 }: {
-  /** The group's face — `SamahanIdentityHeader` (photo + rename, edited where it is). */
-  header: ReactNode;
   base: string;
   communityId: string;
+  name: string;
+  photoDisplayUrl: string | null;
+  initial: string;
   isOrganizer: boolean;
   /** null = the count was refused — never printed as a number the reader can disprove. */
   memberCount: number | null;
-  roster: CommunityRosterEntry[];
-  events: CommunityEventRow[];
+  events: ChatEvent[];
   viewerMemberships: Map<string, EventMemberType>;
   stories: SamahanStory[];
   /** The stories read was REFUSED — the strip must not say "Nothing yet" (S41b). */
   storiesUnreadable: boolean;
-  /** The newest Usapan message, or null (none, or not readable — the row then says neither). */
-  latestMessage: SamahanMessage | null;
+  /** Usapan, oldest first. */
+  messages: SamahanMessage[];
+  /** The Usapan read was REFUSED — the chat must not read as a quiet group. */
+  messagesUnreadable: boolean;
+  /** The render's clock (ms) — the hourly collage is derived from it. */
+  nowMs: number;
+  notice?: ReactNode;
 }) {
-  const planHref = `/dashboard/create-event?samahan=${communityId}`;
-  const shownEvents = events.slice(0, HOME_EVENT_ROWS);
-  const chips = roster.slice(0, 3);
-  const more = memberCount !== null && memberCount > chips.length && chips.length > 0 ? memberCount - chips.length : 0;
-
+  const doors: Record<string, EventDoor> = {};
+  for (const e of events) doors[e.event_id] = eventDoor(e, viewerMemberships.get(e.event_id) ?? null);
+  const pinned = nextGroupEvent(events, manilaTodayISO(new Date(nowMs)));
   return (
     <div data-group-home="">
-      {header}
-
-      {/* 1 · MEMBERS — who is in it, and the door to bring people in (the invite link + "Ask into a group"). The roster
-          carries no photos (RA 10173), so the chips are initials. */}
-      <div className="flex items-center gap-2" data-group-part="members">
-        <Link
-          href={`${base}?tab=members`}
-          className="-mx-2 flex min-h-11 min-w-0 flex-1 items-center gap-2.5 rounded-md px-2 py-1 hover:bg-ink/[0.04]"
-        >
-          {chips.length > 0 ? (
-            <span className="flex shrink-0" aria-hidden>
-              {chips.map((m, i) => (
-                <span
-                  key={m.member_row_id}
-                  className={`flex h-7 w-7 items-center justify-center rounded-full border-2 border-cream bg-ink/10 text-[11px] font-semibold text-ink ${i > 0 ? '-ml-2' : ''}`}
-                >
-                  {m.display_name.trim().charAt(0).toUpperCase() || 'M'}
-                </span>
-              ))}
-              {more > 0 ? (
-                <span className="-ml-2 flex h-7 min-w-7 items-center justify-center rounded-full border-2 border-cream bg-ink/5 px-1 text-[10px] font-semibold text-ink/60">
-                  +{formatCount(more)}
-                </span>
-              ) : null}
-            </span>
-          ) : null}
-          <span className="min-w-0 flex-1 truncate text-sm text-ink">
-            {memberCount === null
-              ? 'Members not loaded'
-              : `${formatCount(memberCount)} ${memberCount === 1 ? 'member' : 'members'}`}
-            <small className="block truncate text-xs text-ink/50">
-              {isOrganizer ? 'You’re an organizer' : 'You’re a member'}
-            </small>
-          </span>
-          <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-ink/40" />
-        </Link>
-        {isOrganizer ? (
-          <Link href={`${base}?tab=members#bring-in`} className={`${QUIET_ACTION} shrink-0`} data-bring-in="">
-            <UserPlus aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-            Bring people in
-          </Link>
-        ) : null}
-      </div>
-
-      {/* 2 · EVENTS — the same rows the Events list reads (events.community_id). */}
-      <section className="mt-3 border-t border-ink/10 pt-2" data-group-part="events">
-        <GroupSectionHead
-          title="Events"
-          tip="Events an organizer plans for this group. Open the ones you’re on; for the rest, ask an organizer to add you."
-          line="What this group is going to."
-          action={
-            isOrganizer ? (
-              <Link href={planHref} className={QUIET_ACTION}>
-                <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                Plan an event
-              </Link>
-            ) : null
-          }
-        />
-        {events.length === 0 ? (
-          <div className="py-2">
-            <p className="text-sm font-semibold text-ink">Walang event pa.</p>
-            <p className="text-[13px] text-ink/60">When an organizer plans a reunion or outing, it shows up here.</p>
-          </div>
-        ) : (
-          <ul className="space-y-1.5" role="list">
-            {shownEvents.map((e) => (
-              <GroupEventRow key={e.event_id} event={e} memberType={viewerMemberships.get(e.event_id) ?? null} />
-            ))}
-          </ul>
-        )}
-        {events.length > HOME_EVENT_ROWS ? (
-          <Link href={`${base}?tab=events`} className={QUIET_ACTION}>
-            See all {formatCount(events.length)} events
-            <ChevronRight aria-hidden className="h-3.5 w-3.5" />
-          </Link>
-        ) : null}
-      </section>
-
-      {/* 3 · STORIES — the ring row; the shipped camera and the day's player, unchanged underneath. */}
-      <div className="mt-3 border-t border-ink/10 pt-2" data-group-part="stories">
-        <SamahanStories communityId={communityId} stories={stories} unreadable={storiesUnreadable} />
-      </div>
-
-      {/* 4 · CHAT — Usapan one tap away, its newest message as the preview. */}
-      <section className="mt-3 border-t border-ink/10 pt-2" data-group-part="chat">
-        <GroupSectionHead
-          title="Chatroom"
-          tip="Usapan is the group’s own chat — everyone in the group reads it, and you can take your own messages down."
-          line="Usapan — the group chat."
-        />
-        <Link
-          href={`${base}?tab=usapan`}
-          className="flex min-h-[60px] items-center gap-3 rounded-xl border border-ink/10 bg-white/60 px-3 py-2 transition-colors hover:bg-ink/[0.03] dark:bg-raised" // no-card-ok: the whole row is the press into the chat
-          data-group-chat-row=""
-        >
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-ink/[0.06] text-ink">
-            <MessageCircle aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-[15px] font-semibold text-ink">Usapan</span>
-            <span className="block truncate text-[13px] text-ink/60">
-              {latestMessage ? (
-                <>
-                  <b className="font-semibold text-ink">{latestMessage.is_self ? 'You' : latestMessage.author_name}:</b>{' '}
-                  {latestMessage.body}
-                </>
-              ) : (
-                'Open the group chat'
-              )}
-            </span>
-          </span>
-          {latestMessage ? (
-            <span className="shrink-0 self-start pt-1 text-xs text-ink/50">{relativeTimeShort(latestMessage.created_at)}</span>
-          ) : null}
-        </Link>
-      </section>
+      <GroupChatroom
+        base={base}
+        communityId={communityId}
+        name={name}
+        photoDisplayUrl={photoDisplayUrl}
+        initial={initial}
+        isOrganizer={isOrganizer}
+        memberCount={memberCount}
+        eventCount={events.length}
+        events={events}
+        doors={doors}
+        pinned={pinned}
+        stories={stories}
+        storiesUnreadable={storiesUnreadable}
+        messages={messages}
+        messagesUnreadable={messagesUnreadable}
+        nowMs={nowMs}
+        notice={notice}
+      />
     </div>
   );
 }

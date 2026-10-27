@@ -10,6 +10,7 @@ import {
     type CommunityRole,
 } from '@/lib/communities';
 import { notifySamahanCoMembers } from '@/lib/samahan-notify';
+import { PEOPLE_GROUPS_HREF } from '@/lib/people-views';
 
 // Samahan (Communities) — server actions for the minimal cut (PR-2 of 4).
 // Spec: Samahan_Minimal_Build_Plan_2026-07-15.md §3. Redirect-with-error-param
@@ -118,22 +119,22 @@ export async function createCommunity(formData: FormData) {
     console.error('[createCommunity] invite token insert failed', tokenError.message);
   }
 
-  revalidatePath('/dashboard/samahan');
+  revalidatePath('/dashboard/people');
   redirect(`/dashboard/samahan/${communityId}?created=1`);
 }
 
 export async function leaveCommunity(formData: FormData) {
   const communityId = String(formData.get('community_id') ?? '');
-  if (!communityId) redirect('/dashboard/samahan');
+  if (!communityId) redirect(PEOPLE_GROUPS_HREF);
 
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect('/login?next=%2Fdashboard%2Fsamahan');
+  if (!user) redirect('/login?next=%2Fdashboard%2Fpeople%3Fview%3Dsamahan');
 
   const self = await fetchSelfMembership(supabase, communityId, user.id);
-  if (!self) redirect('/dashboard/samahan');
+  if (!self) redirect(PEOPLE_GROUPS_HREF);
 
   const admin = createAdminClient();
   const counts = await fetchMemberCounts(admin, communityId);
@@ -178,8 +179,8 @@ export async function leaveCommunity(formData: FormData) {
       .eq('community_id', communityId);
   }
 
-  revalidatePath('/dashboard/samahan');
-  redirect('/dashboard/samahan?left=1');
+  revalidatePath('/dashboard/people');
+  redirect(`${PEOPLE_GROUPS_HREF}&left=1`);
 }
 
 /** Shared organizer-verb plumbing: auth → organizer check → target row. */
@@ -187,14 +188,14 @@ async function organizerActionContext(formData: FormData) {
   const communityId = String(formData.get('community_id') ?? '');
   const memberRowId = Number(formData.get('member_row_id') ?? NaN);
   if (!communityId || !Number.isInteger(memberRowId)) {
-    redirect('/dashboard/samahan');
+    redirect(PEOPLE_GROUPS_HREF);
   }
 
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect('/login?next=%2Fdashboard%2Fsamahan');
+  if (!user) redirect('/login?next=%2Fdashboard%2Fpeople%3Fview%3Dsamahan');
 
   const self = await fetchSelfMembership(supabase, communityId, user.id);
   // RLS enforces organizer-only writes regardless; this early exit gives a
@@ -291,13 +292,13 @@ export async function removeMember(formData: FormData) {
 
 export async function rotateInviteToken(formData: FormData) {
   const communityId = String(formData.get('community_id') ?? '');
-  if (!communityId) redirect('/dashboard/samahan');
+  if (!communityId) redirect(PEOPLE_GROUPS_HREF);
 
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect('/login?next=%2Fdashboard%2Fsamahan');
+  if (!user) redirect('/login?next=%2Fdashboard%2Fpeople%3Fview%3Dsamahan');
 
   const self = await fetchSelfMembership(supabase, communityId, user.id);
   if (!self || self.role !== 'organizer') {
@@ -349,14 +350,14 @@ export async function rotateInviteToken(formData: FormData) {
  */
 export async function updateCommunityIdentity(formData: FormData) {
   const communityId = String(formData.get('community_id') ?? '');
-  if (!communityId) redirect('/dashboard/samahan');
+  if (!communityId) redirect(PEOPLE_GROUPS_HREF);
   const back = `/dashboard/samahan/${communityId}`;
 
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect('/login?next=%2Fdashboard%2Fsamahan');
+  if (!user) redirect('/login?next=%2Fdashboard%2Fpeople%3Fview%3Dsamahan');
 
   const rawName = String(formData.get('name') ?? '').trim();
   // The photo field is a stored-asset ref minted via /api/upload (tenancy:
@@ -389,7 +390,7 @@ export async function updateCommunityIdentity(formData: FormData) {
     redirect(`${back}?error=${encodeURIComponent('That change didn’t save. Try again.')}`);
   }
   revalidatePath(back);
-  revalidatePath('/dashboard/samahan');
+  revalidatePath('/dashboard/people');
   redirect(`${back}?updated=1`);
 }
 
@@ -400,27 +401,28 @@ export async function updateCommunityIdentity(formData: FormData) {
  */
 export async function postSamahanMessage(formData: FormData) {
   const communityId = String(formData.get('community_id') ?? '');
-  if (!communityId) redirect('/dashboard/samahan');
-  const back = `/dashboard/samahan/${communityId}?tab=usapan`;
+  if (!communityId) redirect(PEOPLE_GROUPS_HREF);
+  // The chat IS the group page (owner 2026-10-28, "GROUPS AS A CHATROOM") — back to it, not the old Usapan tab.
+  const back = `/dashboard/samahan/${communityId}`;
 
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect('/login?next=%2Fdashboard%2Fsamahan');
+  if (!user) redirect('/login?next=%2Fdashboard%2Fpeople%3Fview%3Dsamahan');
 
   const body = String(formData.get('body') ?? '').trim();
   // An empty box is a mis-tap, not an error worth a message.
   if (!body) redirect(back);
   if (body.length > 2000) {
-    redirect(`${back}&error=${encodeURIComponent('That message is too long.')}`);
+    redirect(`${back}?error=${encodeURIComponent('That message is too long.')}`);
   }
 
   const { error } = await supabase
     .from('samahan_messages')
     .insert({ community_id: communityId, user_id: user.id, body });
   if (error) {
-    redirect(`${back}&error=${encodeURIComponent('That didn’t send. Try again.')}`);
+    redirect(`${back}?error=${encodeURIComponent('That didn’t send. Try again.')}`);
   }
   // Tell the rest of the group — after the response, never in front of it, and
   // never able to fail the message that already landed. Collapsed to one unread
@@ -439,14 +441,14 @@ export async function postSamahanMessage(formData: FormData) {
 export async function deleteSamahanMessage(formData: FormData) {
   const communityId = String(formData.get('community_id') ?? '');
   const messageId = String(formData.get('message_id') ?? '');
-  if (!communityId || !messageId) redirect('/dashboard/samahan');
-  const back = `/dashboard/samahan/${communityId}?tab=usapan`;
+  if (!communityId || !messageId) redirect(PEOPLE_GROUPS_HREF);
+  const back = `/dashboard/samahan/${communityId}`;
 
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect('/login?next=%2Fdashboard%2Fsamahan');
+  if (!user) redirect('/login?next=%2Fdashboard%2Fpeople%3Fview%3Dsamahan');
 
   // RLS scopes this to the author's own row; no app-side role check needed.
   await supabase

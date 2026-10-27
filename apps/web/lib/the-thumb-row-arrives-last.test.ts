@@ -12,7 +12,7 @@
  *     rises AND fades, taking no taps until it is on.
  *
  * Sabotage (2026-10-27, each reverted): the delay set to 300 → red (shorter than the ring) · Guests back on the
- * double rAF → red · `opacity: 0` dropped from `.lower` → red · the no-taps-until-on rule removed → red.
+ * double rAF → red · the glass controls' `opacity: 0` dropped → red · the fade put back on `.lower` itself, or on its wrapper `.lower > *` → red · the no-taps-until-on rule removed → red.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -48,11 +48,18 @@ test('Guests takes its row’s entrance from the one timing, not two animation f
   assert.match(SCREEN, /data-on=\{barOn \? 'true' : 'false'\}/, 'the row no longer reads it');
 });
 
-test('the row rises and fades in, and takes no taps until it is on', () => {
+test('the row rises, its controls fade in, and it takes no taps until it is on', () => {
   const lower = CSS.slice(CSS.indexOf('.lower {'), CSS.indexOf('}', CSS.indexOf('.lower {')));
-  assert.match(lower, /opacity: 0;/, 'the row does not fade in');
   assert.match(lower, /transform: translateY\(140%\);/, 'the row does not rise');
+  // 🫧 Never fade the ROW: an ancestor with opacity < 1 (or a running opacity transition) is the glass's backdrop root,
+  // so every control's frosted glass turns into a flat white wash (owner, 2026-10-27: "the thumb row seem to have lost
+  // its design").
+  assert.doesNotMatch(lower, /opacity|transition:[^;]*opacity/, 'the row itself fades — its controls lose their frosted glass');
   const on = CSS.slice(CSS.indexOf(".lower[data-on='true'] {"), CSS.indexOf('}', CSS.indexOf(".lower[data-on='true'] {")));
-  assert.match(on, /opacity: 1;/);
+  assert.doesNotMatch(on, /opacity/, 'the row itself fades — its controls lose their frosted glass');
+  // …nor on the wrapper between the row and its controls (`.lower > *`): it is an ancestor of the glass too.
+  assert.doesNotMatch(CSS, /\.lower(?:\[data-on='true'\])? > \* \{[^}]*opacity/, 'the wrapper around the controls fades — the glass goes flat');
+  assert.match(CSS, /\.lower :global\(\.sn-glass-row\) \{\s*opacity: 0;\s*transition: opacity 320ms/, 'the glass controls do not fade in');
+  assert.match(CSS, /\.lower\[data-on='true'\] :global\(\.sn-glass-row\) \{\s*opacity: 1;/, 'the glass controls never become visible');
   assert.match(CSS, /\.lower:not\(\[data-on='true'\]\) > \* \{\s*pointer-events: none;/, 'a hidden row can be tapped');
 });

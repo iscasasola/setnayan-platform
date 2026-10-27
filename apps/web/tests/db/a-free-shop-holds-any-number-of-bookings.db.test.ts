@@ -157,8 +157,8 @@ async function liveEvents(): Promise<number> {
   return (
     await db.query<{ n: number }>(
       `SELECT count(DISTINCT event_id)::int AS n FROM public.event_vendors
-        WHERE marketplace_vendor_id = $1 AND status = ANY($2::public.vendor_status[])`,
-      [F.shop, [...LIVE]],
+        WHERE marketplace_vendor_id = $1 AND status::text = ANY(string_to_array($2, ','))`,
+      [F.shop, LIVE.join(',')],
     )
   ).rows[0]!.n;
 }

@@ -105,7 +105,6 @@ export async function InvitePanel({
           fallback: resolveReplyBy({ deadline: null, eventDate: row.event_date })?.date ?? null,
         }}
         toInvite={toInvite}
-        passSrc={`/api/hub-print/pass?event=${eventId}&mode=screen&pass_guest=first`}
         oneLink={oneLink}
         headcount={{ locked: finalize.locked, attending, heads: finalize.locked ? finalize.finalPax : livePax }}
         requests={requests}

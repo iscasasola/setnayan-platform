@@ -65,7 +65,6 @@ export function GuestsLastCopy({ children }: { children: ReactNode }) {
                 tables={[]}
                 tableByGuest={list.tableByGuest}
                 songsByGuest={{}}
-                linkedGuestIds={null}
                 faceByGuest={list.faceByGuest}
                 requests={list.requests}
                 rootLabel={list.rootLabel}

@@ -1,5 +1,6 @@
 /**
- * guest-row-actions-share-the-name-line.test.ts — A GUEST IS ONE LINE: Edit and Remove END the name's line
+ * guest-row-actions-share-the-name-line.test.ts — A GUEST IS ONE LINE: the row's buttons END the name's line
+ * (since 2026-10-27 those are Share · Delete — owner: "share and delete only"; the-guest-row-is-share-and-delete.test.ts)
  * (owner 2026-10-20, on a Guests › List row whose Edit and Remove sat on a second line under the name: *"edit and
  * remove button can be in a row? on the right side?"*).
  *
@@ -13,14 +14,14 @@
  *   3. PHONE TARGETS — under the tablet/desktop boundary (the same 701 px this module uses for the thumb row) a guest
  *      row's buttons are at least 44 × 44, words hidden, icons shown, and that rule comes AFTER the group-state rules
  *      it must beat at equal weight. Each button is named for its guest (aria-label "Edit Maria Santos"), so forty
- *      icon-only buttons are not forty identical "Edit"s. From 701 nothing hides the word.
+ *      icon-only buttons are not forty identical "Delete"s. From 701 nothing hides the word.
  *
  * Seen in a real browser (2026-10-20, the guests lab, Chromium + WebKit at 375 / 820 / 1280): every row's buttons'
  * box sits inside the row's box and its vertical centre is the row's within 1 px; at 375 each button is 44 × 44.
  *
  * SABOTAGE (each seen RED, then restored): `.g .acts { grid-column: 2 }` · the third `auto` track removed · the
  * buttons moved inside the name's button · `.nm` back to `flex-wrap: wrap` · the phone button 40 px · the phone block
- * moved above the icon-state rules · `name=` dropped from Remove · the phone boundary 1023 px.
+ * moved above the icon-state rules · `name=` dropped from Delete · the phone boundary 1023 px.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -183,14 +184,20 @@ test('WIDE: from 701 nothing hides a guest row’s words', () => {
   });
 });
 
-test('every row button is named for its guest — an icon-only list is not forty identical “Edit”s', () => {
+test('every row button is named for its guest — an icon-only list is not forty identical “Delete”s', () => {
   const acts = ROW.slice(ROW.indexOf('className={styles.acts}'));
-  const buttons = acts.slice(0, acts.indexOf('</span>')).match(/<ActionButton\b[\s\S]*?\/>/g) ?? [];
-  assert.ok(buttons.length >= 2, `found ${buttons.length} row buttons — Edit and Remove at least`);
+  const body = acts.slice(0, acts.indexOf('</span>'));
+  const buttons = body.match(/<ActionButton\b[\s\S]*?\/>/g) ?? [];
+  assert.ok(buttons.length >= 1, `found ${buttons.length} row ActionButtons — Delete at least`);
   for (const b of buttons) {
     const label = /label="([^"]+)"/.exec(b)?.[1];
     assert.ok(label, `a row button without a word: ${b}`);
     assert.ok(b.includes(`name={\`${label} \${name}\`}`), `“${label}” is not named for its guest (aria-label "${label} <name>")`);
   }
-  assert.ok(buttons.some((b) => b.includes('label="Edit"')) && buttons.some((b) => b.includes('label="Remove"')));
+  assert.ok(buttons.some((b) => b.includes('label="Delete"')), 'the row lost Delete');
+  // 📤 Share is the shipped Invite cell drawn as one icon; ITS name carries the guest (guest-invite-cell.tsx, layout 'icon').
+  assert.match(body, /<GuestInviteCell\b[^>]*layout="icon"/, 'the row lost Share');
+  const CELL = stripComments(readFileSync(join(HERE, 'guest-invite-cell.tsx'), 'utf8'));
+  const icon = CELL.slice(CELL.indexOf("if (layout === 'icon') {"));
+  assert.match(icon, /label="Share"\s+name=\{sentAt \? `Share \$\{guest\.fullName\}/, 'Share is not named for its guest');
 });

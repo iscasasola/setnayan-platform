@@ -27,6 +27,7 @@
  *                   dock: &gview=map for the map, &q=… to search, &empty=1 for
  *                   an empty list, &fail=1 for a refused read
  *   &req=0          (screen) no requests to join waiting — the carousel's card ① says "No requests waiting"
+ *   &select=to-invite (screen) ⚙ › Pick who's cold link — Select on, the list narrowed to To invite
  *   &oneqr=1        (screen) a one-link event with no list to walk (just the couple): card ② reads
  *                   "One link for everyone · Share" (owner 2026-10-27, "THE SEND RUN ALSO SERVES A ONE-QR EVENT")
  *   &low=1          push the card's ticket row to the bottom of a short phone
@@ -404,18 +405,6 @@ function DockStandIn() {
   );
 }
 
-/**
- * The Digital Pass picture on the lab's Setup page: a small picture drawn INLINE (a `data:` image — the page's CSP allows it),
- * never the production address it once pointed at (`https://setnayan.com/api/hub-print/pass…`: refused by the page's own
- * `img-src` three times, and a lab page has no business asking the live site for anything). The REAL Setup view hands a
- * same-origin path (`/api/hub-print/pass?event=…`), which the CSP allows.
- */
-const LAB_PASS_SRC =
-  'data:image/svg+xml;utf8,' +
-  encodeURIComponent(
-    '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="426" viewBox="0 0 320 426"><rect width="320" height="426" rx="20" fill="#fbf7f0" stroke="#d9cfbf"/><text x="160" y="150" font-family="Georgia,serif" font-size="26" text-anchor="middle" fill="#1e1a12">Maria &amp; Jose</text><text x="160" y="184" font-family="sans-serif" font-size="13" text-anchor="middle" fill="#6b6455">Digital Pass (lab sample)</text><rect x="100" y="224" width="120" height="120" rx="8" fill="#fff" stroke="#d9cfbf"/></svg>',
-  );
-
 /* ⚡ ONE SAVE, ONE RENDER — the lab counts its own server renders (dev log `[one-render]`, and `data-lab-render` on the card's
    panel), so a walk can SEE how many times one press makes the server draw this page (`lib/one-save-one-render.ts`). */
 let labRenders = 0;
@@ -711,7 +700,6 @@ export default async function GuestsLabPage({
                       drafted={false}
                       reply={{ own: '2027-01-14', pricingMode: 'realtime', fallback: null }}
                       toInvite={toInviteCount(sp.fail === '1' ? [] : planningRoster(), sp.fail !== '1')}
-                      passSrc={LAB_PASS_SRC}
                       oneLink={{
                         url: 'https://setnayan.com/cale-ice/invite',
                         qrSvg: await renderStyledUrlQrSvg('https://setnayan.com/cale-ice/invite', undefined, 240),
@@ -802,13 +790,21 @@ export default async function GuestsLabPage({
                     tables={tables}
                     tableByGuest={tableByGuest}
                     songsByGuest={{}}
-                    linkedGuestIds={roster.filter((_, i) => i % 2 === 0).map((g) => g.guest_id)}
                     faceByGuest={{}}
                     requests={sp.req === '0' ? 0 : 3}
                     oneQr={sp.oneqr === '1'}
+                    // 📤 Each row's Share, as the page hands it: the address, the event's words, and a token per guest the
+                    // run would hold (`sendRunGuests` = the page's `mayBeInvited`); the lab's token is the guest's id.
+                    invite={{
+                      base: LAB_HUB,
+                      tokens: Object.fromEntries(sendRunGuests(roster).map((g) => [g.guest_id, g.guest_id] as const)),
+                      facts: { hostsName: 'Maria & Jose', eventWord: 'wedding', eventDate: '2026-12-12', datePrecision: 'day' },
+                      template: null,
+                    }}
                     titlesWaiting={sp.titles === '1' ? LAB_TITLES_WAITING : []}
                     rootLabel="Maria & Jose"
                     initialQuery={typeof sp.q === 'string' ? sp.q : ''}
+                    initialSelect={sp.select === 'to-invite'}
                     setup={setupRows}
                     settingsOpen={part === 'setup' || sp.settings === '1'}
                     settingsRow={typeof sp.row === 'string' ? sp.row : null}

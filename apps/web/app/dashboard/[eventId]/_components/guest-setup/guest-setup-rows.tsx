@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition, type MouseEvent } from 'react';
 import { Check, ChevronRight, Copy, Mail, RotateCcw, Share2, SquareCheck, X } from 'lucide-react';
 import { ActionButton, useFitRow } from '@/components/action-button';
 import { Count } from '@/components/count';
@@ -23,7 +23,7 @@ import {
   headcountLockedLine,
   headcountOpenLine,
 } from '@/lib/headcount-row';
-import { useGuestActions } from '../../guests/_components/guest-actions-context';
+import { useGuestActions, usePickWho } from '../../guests/_components/guest-actions-context';
 import { GuestConfirmActions, GuestPopup } from '../../guests/_components/guest-popup';
 import { plainRefusal } from '../../guests/_components/plain-refusal';
 import { GuestsGetIn } from './guests-get-in';
@@ -61,8 +61,9 @@ export type HeadcountView = {
  * → Guests → Setup). Rows, in order, the words left and ONE control right:
  *
  *   1. How guests get in   `GuestsGetIn` (shared with the Maker)
- *   2. Invitations         ✉ Send to N · ☑ Pick who, and the guest's Digital Pass
- *                          (personal choices only)
+ *   2. Invitations         ✉ Send to N · ☑ Pick who (personal choices only). No pass
+ *                          picture here (owner 2026-10-28 "yes": the Event Pass lives
+ *                          in Prints, each guest's ticket on their card)
  *   3. Your one link       link · Copy · Share + the QR (Open · Anyone with the link only)
  *   4. RSVP asks           `RsvpAsks` (shared) — "They reply" choices only
  *   5. Reply by            `ReplyBy` (shared) — "They reply" choices only
@@ -87,7 +88,6 @@ export function GuestSetupRows({
   drafted,
   reply,
   toInvite,
-  passSrc,
   oneLink,
   headcount,
   requests = null,
@@ -101,8 +101,6 @@ export function GuestSetupRows({
   reply: { own: string | null; pricingMode: 'realtime' | 'final_only'; fallback: string | null } | null;
   /** Guests not yet sent an invitation (null = the list could not be read). */
   toInvite: number | null;
-  /** The shipped Digital Pass picture — the first guest who is coming. */
-  passSrc: string;
   oneLink: OneLink;
   headcount: HeadcountView;
   /** Requests to join waiting (null = not counted — the row still opens the list). */
@@ -179,7 +177,7 @@ export function GuestSetupRows({
           </p>
         ) : null}
 
-        {personal ? <InvitationsRow eventId={eventId} toInvite={toInvite} passSrc={passSrc} /> : null}
+        {personal ? <InvitationsRow eventId={eventId} toInvite={toInvite} /> : null}
         {getIn === 'one_qr' ? <OneLinkRow link={oneLink} /> : null}
         <ClusterHead name={GUESTS_SETTINGS_CLUSTERS[1]} />
         {replies ? <RsvpAsks frame={asksFrame} config={local} onToggle={(field, v) => save({ [field]: v }, 'That question')} /> : null}
@@ -234,12 +232,17 @@ function RequestsRow({ eventId, waiting }: { eventId: string; waiting: number | 
   );
 }
 
-/** ✉ INVITATIONS — the shipped one-by-one run (`/guests/send`), and what each guest gets. */
-function InvitationsRow({ eventId, toInvite, passSrc }: { eventId: string; toInvite: number | null; passSrc: string }) {
+/**
+ * ✉ INVITATIONS — the count, the shipped one-by-one run (`/guests/send`) and Pick who. Nothing else: the Event Pass
+ * front/back preview LEFT (owner 2026-10-28, asked "Why is the invitation here? Shouldn't that be on prints?", then
+ * "yes") — the pass lives in Prints (`PRINT_PIECES.pass`) and each guest's ticket on their card.
+ */
+function InvitationsRow({ eventId, toInvite }: { eventId: string; toInvite: number | null }) {
   const { setupDoorHref } = useGuestActions();
+  // ☑ On the Guests screen, Pick who works IN PLACE — closes this sheet, Select on, the list narrowed to To invite.
+  const pickWho = usePickWho();
   const acts = useRef<HTMLSpanElement>(null);
   useFitRow(acts);
-  const [passFailed, setPassFailed] = useState(false);
   return (
     <FormRow
       data="invitations"
@@ -254,24 +257,6 @@ function InvitationsRow({ eventId, toInvite, passSrc }: { eventId: string; toInv
             <Count value={toInvite} id="setup-to-invite" /> to invite.
           </>
         )
-      }
-      /* 🎫 THEIR DIGITAL PASS (owner: *"and show their Digital Pass"*) — the shipped ticket
-          (`/api/hub-print/pass`, the first guest who is coming, their own QR), so the couple
-          sees what each guest gets. A picture that fails says so. */
-      below={
-        <div className="pb-3" data-setup-pass="">
-          {passFailed ? (
-            <p className="text-[13px] text-ink/60">We couldn&rsquo;t draw a Digital Pass just now.</p>
-          ) : (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={passSrc}
-              alt="A guest’s Digital Pass"
-              className="mx-auto block h-auto w-full max-w-[320px] rounded-xl"
-              onError={() => setPassFailed(true)}
-            />
-          )}
-        </div>
       }
     >
       <span ref={acts} className={ACTS}>
@@ -292,6 +277,14 @@ function InvitationsRow({ eventId, toInvite, passSrc }: { eventId: string; toInv
           icon={SquareCheck}
           label="Pick who"
           href={setupDoorHref(eventId, 'pick-who')}
+          onClick={
+            pickWho
+              ? (e: MouseEvent<HTMLAnchorElement>) => {
+                  e.preventDefault();
+                  pickWho();
+                }
+              : undefined
+          }
           data-testid="setup-pick-who"
         />
       </span>

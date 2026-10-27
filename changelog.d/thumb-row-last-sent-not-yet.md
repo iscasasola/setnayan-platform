@@ -8,7 +8,9 @@ No"*).
 - **Thumb row arrives last** — `lib/thumb-row-arrives-last.ts` is the ONE timing (`THUMB_ROW_ENTERS_AFTER_MS` = 700,
   longer than the Guests ring's 600 ms build-up; reduced motion = no wait). Guests' row used to slide up two frames after
   first paint, over the ring and the section pop; it now rises AND fades in after the build-up, re-arming on List ↔ Map,
-  and takes no taps until it is on. Other thumb-row pages adopt the same hook with the pinned-row template.
+  and takes no taps until it is on. 🫧 The fade sits on each GLASS CONTROL, never on the row or the wrapper around
+  them: a fading ancestor becomes the blur's backdrop root and turns the frosted glass into a flat white wash (owner,
+  on the first lab shots: *"the thumb row seem to have lost its design"*). Other thumb-row pages adopt the same hook with the pinned-row template.
 - **Sent / Not yet** — `lib/ask-on-return.ts` (`askOnReturnStep`, pure; `useAskOnReturn`) + `SentOrNotYet` (the approved
   `ConfirmDialog`). Armed by the presses that LEAVE Setnayan — "Send in an app" (Viber · WhatsApp · Messenger) and the
   copies (message, link) — at the press, before any await (opening an app can hide the page before its promise settles;

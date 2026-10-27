@@ -2063,7 +2063,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
          scenes BEFORE the day too, so it no longer waits for the day. Never on
          the Maker's very first visit — two first-visit things must not stack.
          Inside the shell so its dialog sits in the shell's layer. */
-      postEventTour={hasWork && !firstVisit ? <MiniTour tourKey="customer_post_event_v1" storeShell={storeShell} /> : null}
+      postEventTour={hasWork && !firstVisit && !printsPage ? <MiniTour tourKey="customer_post_event_v1" storeShell={storeShell} /> : null}
       printsPage={printsPage}
     >
       {hasWork ? (

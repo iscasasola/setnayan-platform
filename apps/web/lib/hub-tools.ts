@@ -231,7 +231,7 @@ export function seedFor(categoryLabel: string): { row: HubToolsSeedRow; matched:
 export type HubToolsSaved = { scan_default: string | null; tools: readonly string[] };
 
 export type HubToolsAnswer = {
-  /** Tool keys switched on, in LIBRARY order (never the stored order). */
+  /** Tool keys SUGGESTED for the category, in LIBRARY order (never the stored order). Not an allow-list. */
   tools: string[];
   scan: ScanMode;
   /** saved = an admin saved this category · seed = the approved starting set · fallback = "Everything else". */
@@ -239,7 +239,9 @@ export type HubToolsAnswer = {
 };
 
 /**
- * THE READER — what a booked supplier of this category gets in their Hub.
+ * THE READER — the tools SUGGESTED to a supplier of this category ("Popular for florists").
+ * 🔑 A SUGGESTION, NEVER A GATE (owner 2026-10-28: "These forms and tools are all available to all services"): the
+ * supplier Hub must offer EVERY active tool; this only orders what is shown first. Never filter a supplier's tools by it.
  * `library` = the ACTIVE tool records (`hub_tools` where is_active; the code seed when not given). A tool switched
  * off in the library (Turn off keeps data) simply drops out — its switches stay stored for when it comes back.
  */

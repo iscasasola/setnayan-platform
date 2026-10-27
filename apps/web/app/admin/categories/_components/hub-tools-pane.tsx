@@ -2,8 +2,12 @@
 
 /**
  * hub-tools-pane.tsx — Admin › Categories › Hub tools (admin supplier slice, owner 2026-10-28; prototype
- * `prototypes/admin_supplier_slice_2026-10-28/` cats.png). Per category: the tool switches from the ONE shared library
- * and the default scan mode.
+ * `prototypes/admin_supplier_slice_2026-10-28/` cats.png). Per category: which tools of the ONE shared library are
+ * SUGGESTED to its suppliers, and the default scan mode.
+ *
+ * 🔑 SUGGESTIONS, NEVER GATES (owner 2026-10-28: "These forms and tools are all available to all services. They just
+ * need to pick what they need and customize and save that tool or form"). A switch off here never hides or blocks a
+ * tool from any supplier — it only decides what is offered first.
  *
  * 🔑 A SAVE NEVER RESETS THE SCREEN. Every switch and the scan pick save in place through `setCategoryHubTools`
  * (a result, never a redirect) and the line under the list says "Saved ✓" — or what went wrong, with the switch put
@@ -76,9 +80,10 @@ export function HubToolsPane({ categoryId, categoryLabel, library, tools, scan, 
   return (
     <section aria-label={`Hub tools · ${categoryLabel}`} data-hub-tools={categoryId}>
       <p className="mt-2 max-w-[90ch] text-[14px] text-ink/70">
-        <InfoTip label={`What a booked ${categoryLabel} supplier gets in their Hub.`} align="start">
-          Switch tools on or off — no build needed. Every tool is one of eight shared templates (Checklist · Per-person sheet · Live timeline · Counter · Ordered list · Plan · Media · Log). {SOURCE_WORDS[source]} The supplier-side Hub that draws these tools is
-          built next; it reads exactly these switches.
+        <InfoTip label={`Suggested for ${categoryLabel}`} labelAs="h2" labelClassName="text-[15px] font-semibold text-ink" align="start">
+          Suggestions, never gates: every supplier can pick ANY tool and customise it. These are the ones a {categoryLabel}{' '}
+          supplier sees first (“Popular for this category”). Every tool is one of eight shared templates (Checklist ·
+          Per-person sheet · Live timeline · Counter · Ordered list · Plan · Media · Log). {SOURCE_WORDS[source]}
         </InfoTip>
       </p>
 

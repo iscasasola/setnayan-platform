@@ -22,7 +22,9 @@
 --       · hub_tools                    — the ONE library: key · name · template · is_active. Seeded with the 43
 --                                        approved tools (lib/hub-tools.ts). "Turn off" = is_active false: the tool
 --                                        leaves every Hub but its switches (and later its data) are KEPT.
---       · category_hub_tool_switches   — which tool is ON for which category (one row per pair, FK to both).
+--       · category_hub_tool_switches   — which tool is SUGGESTED for which category (one row per pair, FK to both).
+--                                        🔑 A SUGGESTION, NEVER A GATE (owner 2026-10-28: "These forms and tools are
+--                                        all available to all services"): every supplier may use ANY active tool.
 --       · category_hub_settings        — per category: the default scan mode. Its row existing = "an admin saved
 --                                        this category"; no row = the approved seed (lib/hub-tools.ts hubToolsFor).
 --     NOT built here (owner: later): the Tool maker and the templates' screens; per-tool fields / roles.
@@ -144,7 +146,7 @@ ON CONFLICT (tool_key) DO NOTHING;
 COMMENT ON TABLE public.hub_tools IS
   'Admin › Categories › Hub tools (owner 2026-10-28): the ONE shared library — every tool a record with one of eight templates. Turn off (is_active=false) keeps data. A later Tool maker writes rows here.';
 COMMENT ON TABLE public.category_hub_tool_switches IS
-  'Which hub_tools record is ON for which category. Written only together with its category_hub_settings row.';
+  'Which hub_tools record is SUGGESTED for which category ("Popular for florists") — never a gate: every supplier may use any active tool (owner 2026-10-28).';
 COMMENT ON TABLE public.category_hub_settings IS
   'Per category: the default scan mode; the row existing means an admin saved the category (no row = the approved seed in lib/hub-tools.ts).';
 

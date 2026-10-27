@@ -22,7 +22,8 @@ Owner, verbatim: *"A"* (DECISION_LOG 2026-10-28 "ADMIN SUPPLIER SLICE APPROVED �
     offers **Put it in the picker** (#7001 tells the askers in-app). Before #7001 merges the table is absent and the
     row SAYS so.
   - **Messages** — a shop's message with an in-row reply (`settleHelpFromWorkList`).
-- **Categories › Hub tools** (List ▾ › Hub tools): per category the switches of the ONE shared library + the default
+- **Categories › Hub tools** (List ▾ › Hub tools): per category the tools SUGGESTED to its suppliers ("Suggested for
+  Catering" — never a gate: owner, *"These forms and tools are all available to all services"*) + the default
   scan mode (Once · Ordered → Received · Unlimited · Group session · Roaming), saved in place ("Saved ✓") by the new
   `setCategoryHubTools`. **A tool is a RECORD** (owner-approved 2026-10-28, `hub_tools_working` + `admin_tool_maker`):
   `hub_tools` (key · name · one of EIGHT templates · `is_active` — Turn off keeps data; seeded with the 43 approved

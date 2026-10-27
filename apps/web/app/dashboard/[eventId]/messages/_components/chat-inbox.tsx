@@ -145,6 +145,26 @@ export function ChatInbox({
 
   return (
     <div data-chat-inbox="">
+      {/* Mounted FIRST: from 1024 the row is the column's first line (ThumbDock draws it in place); on a phone it is
+          portalled onto the bottom dock, where it arrives last. */}
+      <ThumbDock>
+        <div ref={dockRef} className="transition-opacity duration-300 data-[scrolling]:opacity-70 motion-reduce:transition-none" data-chat-inbox-thumb="">
+          <ThumbRow
+            name="chats"
+            field={{
+              placeholder: 'Search chats',
+              label: 'Search chats by name',
+              input: {
+                type: 'search',
+                value: query,
+                onChange: (e) => setQuery(e.currentTarget.value),
+                'data-chat-inbox-search': '',
+              },
+            }}
+            action={{ icon: SquarePen, label: 'New message', onClick: () => setComposing(true), testId: 'chat-new-message' }}
+          />
+        </div>
+      </ThumbDock>
       <div className="mb-2 mt-1">
         <div role="group" aria-label="Show" className={`${PILL_TRACK_CLASS} ${PILL_TRACK_GROUND} w-full`}>
           <PillThumb />
@@ -177,24 +197,6 @@ export function ChatInbox({
         </details>
       ) : null}
 
-      <ThumbDock>
-        <div ref={dockRef} className="transition-opacity duration-300 data-[scrolling]:opacity-70 motion-reduce:transition-none" data-chat-inbox-thumb="">
-          <ThumbRow
-            name="chats"
-            field={{
-              placeholder: 'Search chats',
-              label: 'Search chats by name',
-              input: {
-                type: 'search',
-                value: query,
-                onChange: (e) => setQuery(e.currentTarget.value),
-                'data-chat-inbox-search': '',
-              },
-            }}
-            action={{ icon: SquarePen, label: 'New message', onClick: () => setComposing(true), testId: 'chat-new-message' }}
-          />
-        </div>
-      </ThumbDock>
       {mounted ? createPortal(sheet, document.body) : null}
     </div>
   );

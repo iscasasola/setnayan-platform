@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useTransition } from 'react';
-import { Check, Copy, Mail, RotateCcw, Share2, SquareCheck, X } from 'lucide-react';
+import { Check, ChevronRight, Copy, Mail, RotateCcw, Share2, SquareCheck, X } from 'lucide-react';
 import { ActionButton, useFitRow } from '@/components/action-button';
 import { Count } from '@/components/count';
 import { FormRow, FormRows } from '@/app/_components/form-row';
@@ -31,6 +31,7 @@ import { RsvpAsks } from './rsvp-asks';
 import { ReplyBy } from './reply-by';
 import type { OneLink } from './one-link.server';
 import { asksFrame, getInFrame, replyByFrame } from './setup-frames';
+import { GUESTS_SETTINGS_CLUSTERS } from '@/lib/event-settings-record';
 
 /** 📨 The Invitations row's words (HOME_AND_GUESTS_CHECK G26). */
 export const INVITATIONS_TITLE = 'Invitations';
@@ -39,6 +40,9 @@ export const ONE_LINK_TITLE = 'Your one link';
 export const INVITATIONS_ABOUT = 'One by one from your phone — Viber, Messenger, WhatsApp or SMS.';
 /** Behind the one link's ⓘ. */
 export const ONE_LINK_ABOUT = 'Whoever opens it is in.';
+/** 📥 Requests to join — the row's words (prototype § 4). */
+export const REQUESTS_TITLE = 'Requests to join';
+export const REQUESTS_LINE = 'People who asked through the link';
 /** Two buttons on a row never take more than this share of it: the name keeps the rest (the button rule's 3b). */
 const ACTS = 'flex min-w-0 max-w-[58%] items-center gap-2';
 
@@ -86,6 +90,7 @@ export function GuestSetupRows({
   passSrc,
   oneLink,
   headcount,
+  requests = null,
 }: {
   eventId: string;
   /** Drafted-over-live `rsvp_ask_config` (sparse — an absent ask is ON). */
@@ -100,6 +105,8 @@ export function GuestSetupRows({
   passSrc: string;
   oneLink: OneLink;
   headcount: HeadcountView;
+  /** Requests to join waiting (null = not counted — the row still opens the list). */
+  requests?: number | null;
 }) {
   /* The shipped actions — the dev lab hands in stand-ins (`guest-actions-context.tsx`). Held under their own names. */
   const { hubDraftAction, updatePaxSettings } = useGuestActions();
@@ -158,6 +165,8 @@ export function GuestSetupRows({
       {/* ONE list of the app's Form rows (`FormRows`): the pills share one width and one field is open at a time. The three shared
           parts are handed the SAME frames the Maker hands them (`setup-frames.tsx`) — one part, one look, in both doors. */}
       <FormRows data="guest-setup">
+        {/* ⚙ THREE CLUSTERS (owner 2026-10-27, settings per menu; prototype § 4): Getting in · Replies · Closing the list. */}
+        <ClusterHead name={GUESTS_SETTINGS_CLUSTERS[0]} first />
         <GuestsGetIn frame={getInFrame} value={getIn} onPick={(v) => save(guestsGetInPatch(v), `“${GUESTS_GET_IN_LABEL}”`)} />
         {waiting ? (
           <p className="-mt-1 pb-2.5 pl-0.5 text-[12.5px] text-ink/55" data-setup-waiting="">
@@ -172,6 +181,7 @@ export function GuestSetupRows({
 
         {personal ? <InvitationsRow eventId={eventId} toInvite={toInvite} passSrc={passSrc} /> : null}
         {getIn === 'one_qr' ? <OneLinkRow link={oneLink} /> : null}
+        <ClusterHead name={GUESTS_SETTINGS_CLUSTERS[1]} />
         {replies ? <RsvpAsks frame={asksFrame} config={local} onToggle={(field, v) => save({ [field]: v }, 'That question')} /> : null}
         {replies ? (
           reply ? (
@@ -188,9 +198,39 @@ export function GuestSetupRows({
             <FormRow data="reply-by" name="Reply by" attrs={{ 'data-setup-row': 'reply-by' }} problem="We couldn’t read it just now." />
           )
         ) : null}
+        <RequestsRow eventId={eventId} waiting={requests} />
+        <ClusterHead name={GUESTS_SETTINGS_CLUSTERS[2]} />
         <FinalizeRow eventId={eventId} view={headcount} />
       </FormRows>
     </div>
+  );
+}
+
+/** A cluster's head — the sheet's small mono label over its rows (prototype `.hd`). Not pressable: no frame. */
+function ClusterHead({ name, first = false }: { name: string; first?: boolean }) {
+  return (
+    <p
+      data-settings-cluster={name}
+      className={`${first ? 'pt-2' : 'pt-5'} pb-1 font-mono text-[11px] uppercase tracking-[0.14em] text-ink/55 [&+*]:!border-t-0`}
+    >
+      {name}
+    </p>
+  );
+}
+
+/** 📥 REQUESTS TO JOIN — people who asked through the link; the row opens their list (`/guests/claims`). */
+function RequestsRow({ eventId, waiting }: { eventId: string; waiting: number | null }) {
+  const { setupDoorHref } = useGuestActions();
+  return (
+    <FormRow data="requests" name={REQUESTS_TITLE} line={REQUESTS_LINE} attrs={{ 'data-setup-row': 'requests' }}>
+      <ActionButton
+        tone={waiting ? 'brand' : 'neutral'}
+        icon={ChevronRight}
+        label={waiting === null ? 'Open' : waiting === 0 ? 'None waiting' : `${waiting} waiting`}
+        href={setupDoorHref(eventId, 'requests')}
+        data-testid="setup-requests"
+      />
+    </FormRow>
   );
 }
 

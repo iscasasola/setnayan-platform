@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { fetchGuestsByEventMeasured } from '@/lib/guests';
+import { countsTowardEvent, fetchGuestsByEventMeasured } from '@/lib/guests';
 import { readHubDraft } from '@/lib/hub-draft-store';
 import { readFinalizeState, resolveLivePax } from '@/lib/pax';
 import { resolveReplyBy, sanitizeRsvpAskConfig } from '@/lib/rsvp-ask';
@@ -10,8 +10,9 @@ import { GuestSetupRows } from '../../../_components/guest-setup/guest-setup-row
 import { readOneLink } from '../../../_components/guest-setup/one-link.server';
 
 /**
- * invite-panel.tsx — GUESTS › SETUP, the guest list's third segment
- * (`?gview=share`, labelled **Setup**).
+ * invite-panel.tsx — GUESTS ⚙ (Guests settings), the sheet behind the Guest list's ⚙ (owner 2026-10-27, settings per
+ * menu: the third segment "Settings" became the ⚙; `?gview=share` forwards to `?settings=1`). It was the guest list's
+ * third segment (`?gview=share`, labelled **Setup**, later **Settings**).
  *
  * ⚖ Owner 2026-10-07 (DECISION_LOG "GUESTS › SETUP"): *"Setup?"* · *"do we
  * place here the information we need per guest? how to get in? The replies will
@@ -29,7 +30,17 @@ import { readOneLink } from '../../../_components/guest-setup/one-link.server';
  * 🔒 Couple-only, like the panel it replaces: these are the couple's settings,
  * and Finalize is money. A non-couple viewer gets a note, never the controls.
  */
-export async function InvitePanel({ eventId }: { eventId: string }) {
+export async function InvitePanel({
+  eventId,
+  guestsRead,
+  requests = null,
+}: {
+  eventId: string;
+  /** The Guest list page's own read of the guests — handed in so the list is read once, not twice. */
+  guestsRead?: Awaited<ReturnType<typeof fetchGuestsByEventMeasured>>;
+  /** Requests to join waiting (null = not counted). */
+  requests?: number | null;
+}) {
   const user = await getCurrentUser();
   const supabase = await createClient();
   const { data: membership } = user
@@ -52,7 +63,7 @@ export async function InvitePanel({ eventId }: { eventId: string }) {
       .eq('event_id', eventId)
       .maybeSingle(),
     readHubDraft(supabase, eventId).catch(() => undefined),
-    fetchGuestsByEventMeasured(supabase, eventId),
+    guestsRead ?? fetchGuestsByEventMeasured(supabase, eventId),
     readFinalizeState(supabase, eventId),
     readOneLink(supabase, eventId),
     resolveLivePax(supabase, eventId).catch(() => null),
@@ -60,7 +71,7 @@ export async function InvitePanel({ eventId }: { eventId: string }) {
   if (eventRes.error || !eventRes.data || draft === undefined) {
     if (eventRes.error) logQueryError('GuestSetup (events)', eventRes.error, { event_id: eventId }, 'graceful_degrade');
     return (
-      <p role="alert" className="mt-6 text-sm text-terracotta-700">
+      <p role="alert" className="mt-6 px-4 text-sm text-terracotta-700">
         We couldn&rsquo;t read your guest setup just now. Nothing was changed — try again in a moment.
       </p>
     );
@@ -78,22 +89,27 @@ export async function InvitePanel({ eventId }: { eventId: string }) {
   /* "Send to N" — the ONE "to invite" rule (`isToInvite`): the List's number, and the
      send run's. A refused read is null ("We couldn't count…"), never 0. */
   const toInvite = toInviteCount(guests.rows, guests.measured);
-  const attending = guests.measured ? guests.rows.filter((g) => g.rsvp_status === 'attending').length : null;
+  /* The page's read carries requests and the passed-away too — only the list that counts is counted. */
+  const attending = guests.measured ? guests.rows.filter((g) => countsTowardEvent(g) && g.rsvp_status === 'attending').length : null;
 
   return (
-    <GuestSetupRows
-      eventId={eventId}
-      config={config}
-      drafted={drafted}
-      reply={{
-        own: row.guest_list_edit_deadline,
-        pricingMode: row.adaptive_pricing_mode === 'final_only' ? 'final_only' : 'realtime',
-        fallback: resolveReplyBy({ deadline: null, eventDate: row.event_date })?.date ?? null,
-      }}
-      toInvite={toInvite}
-      passSrc={`/api/hub-print/pass?event=${eventId}&mode=screen&pass_guest=first`}
-      oneLink={oneLink}
-      headcount={{ locked: finalize.locked, attending, heads: finalize.locked ? finalize.finalPax : livePax }}
-    />
+    /* The sheet's gutter — the same 16 px Memories' sheet rows sit in (`menu-settings-button.tsx` draws only the frame). */
+    <div className="px-4">
+      <GuestSetupRows
+        eventId={eventId}
+        config={config}
+        drafted={drafted}
+        reply={{
+          own: row.guest_list_edit_deadline,
+          pricingMode: row.adaptive_pricing_mode === 'final_only' ? 'final_only' : 'realtime',
+          fallback: resolveReplyBy({ deadline: null, eventDate: row.event_date })?.date ?? null,
+        }}
+        toInvite={toInvite}
+        passSrc={`/api/hub-print/pass?event=${eventId}&mode=screen&pass_guest=first`}
+        oneLink={oneLink}
+        headcount={{ locked: finalize.locked, attending, heads: finalize.locked ? finalize.finalPax : livePax }}
+        requests={requests}
+      />
+    </div>
   );
 }

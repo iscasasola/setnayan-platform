@@ -99,7 +99,7 @@
     transform 220ms var(--gs-ease),
     visibility 0s linear 0s;
 }
-.stick.pinned > [data-guests-segmented] {
+.stick.pinned [data-first-row] > [data-guests-segmented] {
   transition:
     opacity 220ms var(--gs-ease),
     transform 220ms var(--gs-ease),
@@ -115,7 +115,7 @@
     transform 220ms var(--gs-ease),
     visibility 0s linear 220ms;
 }
-.stick.pinned[data-collapsed] > [data-guests-segmented] {
+.stick.pinned[data-collapsed] [data-first-row] > [data-guests-segmented] {
   opacity: 0;
   transform: translateY(-6px);
   visibility: hidden;
@@ -137,6 +137,22 @@
 }
 .stick.pinned[data-collapsed] {
   box-shadow: 0 1px 0 var(--gs-line);
+}
+/* ⚙ THE MENU'S ONE ⚙ RIDES BOTH FACES (owner 2026-10-27, "EVERY MENU'S ⚙ RIDES ITS PINNED ROW TOO"): it is the
+   first row's right end and is never faded — the summary face stops 52 px short (44 + the row's 8-px gap), so the SAME
+   mounted button ends the row at rest and pinned. 🔒 lib/the-pinned-row-is-one-row.test.ts */
+.stick.pinned[data-has-gear] .face {
+  right: 52px;
+}
+/* 52 px fewer for the face: at 390 the three counts and Invite sat touching — the counts close up a little. */
+.stick.pinned[data-has-gear] .pinCounts {
+  gap: 0;
+}
+.stick.pinned[data-has-gear] button.pinCount {
+  padding: 0 3px;
+}
+.stick.pinned[data-has-gear] :is(a).pinInvite {
+  padding: 0 10px;
 }
 /* `List · Map` — the shipped pill, drawn small: the same track and thumb, choices 30 px tall with words only (each
    still presses at 46 — the selector's own `.sn-hit`). */
@@ -1103,8 +1119,8 @@ button.node {
   /* The pinned row's faces swap in place — no travel, no fade. */
   .face,
   .faceAlt,
-  .stick.pinned > [data-guests-segmented],
-  .stick.pinned[data-collapsed] > [data-guests-segmented],
+  .stick.pinned [data-first-row] > [data-guests-segmented],
+  .stick.pinned[data-collapsed] [data-first-row] > [data-guests-segmented],
   .stick[data-collapsed] .faceAlt {
     transform: none;
     transition: none;

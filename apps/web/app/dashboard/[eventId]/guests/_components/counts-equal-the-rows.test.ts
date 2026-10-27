@@ -124,7 +124,7 @@ test('"N to invite" on the List is a door into the send run when N > 0 (rendered
     guestRow({ rsvp_status: 'attending' }),
   ];
   assert.equal(rosterStats(guests).toInvite, 2, 'the fixture moved — two guests are still to invite');
-  for (const gview of ['list', 'map', 'share'] as const) {
+  for (const gview of ['list', 'map'] as const) { // ⚙ 'share' is Guests ⚙ now, not a view (2026-10-27)
     const line = countsLine(await renderGuestsScreen({ guests, gview }));
     assert.ok(line, `Guests › ${gview} drew no counts line for a measured list`);
     const door = toInviteDoor(line);

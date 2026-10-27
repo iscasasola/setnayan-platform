@@ -45,6 +45,7 @@ import { flushSync } from 'react-dom';
 import { Sparkles } from 'lucide-react';
 import { Explain } from '@/app/_components/explain';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { MenuSettingsButton } from '@/app/_components/menu-settings-button';
 import { Count } from '@/components/count';
 import { ISeg, ISegmented } from '../../website/editor/_components/inspector-kit';
 import {
@@ -153,8 +154,18 @@ export function ServicesTakeover({
   premium = false,
   teamSlot,
   bookedSlot,
+  settingsSlot,
+  settingsOpenAtFirst = false,
 }: {
   eventId: string;
+  /**
+   * ⚙ SUPPLIERS ⚙'S SHEET ROWS (owner 2026-10-27, "SUPPLIERS GETS ITS ⚙ — THE SUPPLIER SETTINGS MOVE THERE"), drawn by
+   * the page (`suppliers-settings-rows.tsx`). Given → the menu's ONE ⚙ ends the Find · Build · Booked row, which is
+   * also the pinned row ("EVERY MENU'S ⚙ RIDES ITS PINNED ROW TOO"). Absent (a lab, the loading screen) → no ⚙.
+   */
+  settingsSlot?: ReactNode;
+  /** `?settings=1` — the sheet is open on arrival (a moved row's old address forwards here). */
+  settingsOpenAtFirst?: boolean;
   /** The `?tab=` the page arrived with (the lock door, a checklist deep link,
    *  the finished-event summary) — the FIRST paint is already that body. */
   initialTab?: BudgetBuildTab;
@@ -198,6 +209,7 @@ export function ServicesTakeover({
   // (`BENCH_BUILT_EVENT`); Build N/M and the cart peek re-count from the page's own inputs with each pick as it
   // stands now — no page render. The leave-Find refresh brings the page's own numbers, which then agree.
   const [builtTick, setBuiltTick] = useState(0);
+  const [settingsOpen, setSettingsOpen] = useState(settingsOpenAtFirst);
   useEffect(() => {
     const onBuilt = () => setBuiltTick((n) => n + 1);
     window.addEventListener(BENCH_BUILT_EVENT, onBuilt);
@@ -407,8 +419,9 @@ export function ServicesTakeover({
       <div
         ref={stickRef}
         data-suppliers-stick=""
-        className="sn-ambient sticky top-[var(--sup-top,0px)] z-[15] -mx-4 flex px-4 pb-1.5 pt-2 data-[stuck]:shadow-[0_1px_0_rgb(var(--color-ink)/0.1)] sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0"
+        className="sn-ambient sticky top-[var(--sup-top,0px)] z-[15] -mx-4 flex items-center gap-2 px-4 pb-1.5 pt-2 data-[stuck]:shadow-[0_1px_0_rgb(var(--color-ink)/0.1)] sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0"
         data-tour="suppliers-segments"
+        data-first-row=""
       >
         <ISegmented label="Find, Build or Booked">
           {SUPPLIERS_MODES.map((m) => (
@@ -435,6 +448,12 @@ export function ServicesTakeover({
             </ISeg>
           ))}
         </ISegmented>
+        {/* ⚙ The row ends with the menu's ONE ⚙ (owner 2026-10-27) — at rest and pinned, the same button. */}
+        {settingsSlot ? (
+          <MenuSettingsButton menu="suppliers" open={settingsOpen} onOpenChange={setSettingsOpen}>
+            {settingsSlot}
+          </MenuSettingsButton>
+        ) : null}
       </div>
 
       {/* ── ONE BODY ────────────────────────────────────────────────────────

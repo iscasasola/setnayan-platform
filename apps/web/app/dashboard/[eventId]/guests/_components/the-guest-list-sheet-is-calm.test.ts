@@ -57,16 +57,19 @@ test('2 · the dark behind a guest sheet is the app\'s ONE pop-up dark — no wa
   }
 });
 
-test('4 · the doors are ONE segmented control — List · Map · Settings, one word each (G1; "Setup" → "Settings", owner 2026-10-23)', () => {
-  const nav = SCREEN.slice(SCREEN.indexOf('<nav'), SCREEN.indexOf('</nav>'));
+test('4 · the doors are ONE segmented control — List · Map, one word each, then the ⚙ (Settings became the ⚙, owner 2026-10-27)', () => {
+  const navAt = SCREEN.lastIndexOf('<nav', SCREEN.indexOf('aria-label="Guest list views"'));
+  const nav = SCREEN.slice(navAt, SCREEN.indexOf('</nav>', navAt));
   // 2026-10-08: the doors are drawn by the app's ONE pill selector (owner: "adjust all pill selectors to this"),
   // no longer by this screen's own `.seg` CSS — so the pin is the template's track and thumb.
-  assert.match(nav, /className=\{`\$\{PILL_TRACK_CLASS\} \$\{PILL_TRACK_GROUND\}`\}/, 'the doors are not one segmented control');
+  assert.match(nav, /className=\{`\$\{PILL_TRACK_CLASS\} \$\{PILL_TRACK_GROUND\}[^`]*`\}/, 'the doors are not one segmented control');
   assert.match(nav, /<PillThumb \/>/, 'the doors lost the thumb that slides between them');
   assert.match(SCREEN, /className=\{`\$\{pillSegClass\(gview === key\)\} /, 'a door does not wear the pill selector’s look');
   assert.doesNotMatch(SCREEN, /styles\.seg\b/, 'the doors are drawn by this screen’s own CSS again');
   const words = [...nav.matchAll(/seg\('(\w+)', '([^']+)'/g)].map((m) => m[2]);
-  assert.deepEqual(words, ['List', 'Map', 'Settings'], `the segments read ${words.join(' · ')}`);
+  assert.deepEqual(words, ['List', 'Map'], `the segments read ${words.join(' · ')}`);
+  // The "Settings" segment is the menu's ⚙ now — right after the pill, in the same first row.
+  assert.match(SCREEN.slice(navAt), /^[\s\S]*?<\/nav>\s*\{setup \? \(\s*<MenuSettingsButton menu="guests"/, 'the ⚙ does not follow the List · Map pill');
 });
 
 test('4 · the segmented doors are a <nav> of LINKS — never a broken tab', () => {

@@ -45,7 +45,11 @@ export const guestRow = (over: Partial<GuestRow> = {}): GuestRow =>
 export async function renderGuestsScreen(opts: {
   guests: GuestRow[];
   measured?: boolean;
-  gview?: 'list' | 'map' | 'share';
+  gview?: 'list' | 'map';
+  /** ⚙ Guests settings' rows — present → the ⚙ draws (the page hands them to the couple only). */
+  setup?: unknown;
+  /** `?settings=1` — the sheet open with the page. */
+  settingsOpen?: boolean;
   /** The "we couldn't load your groups / tables" sentence (`lib/guest-list-unread.ts`). */
   notLoaded?: string | null;
   /** A `?q=` from the top bar — a search opens every section with a hit. */
@@ -86,7 +90,8 @@ export async function renderGuestsScreen(opts: {
           rootLabel: 'A & B',
           initialQuery: opts.initialQuery ?? '',
           initialSelect: false,
-          setup: null,
+          setup: opts.setup ?? null,
+          settingsOpen: opts.settingsOpen ?? false,
           empty: opts.empty ?? null,
           copy: opts.copy ?? null,
           viewOnly: opts.viewOnly ?? false,

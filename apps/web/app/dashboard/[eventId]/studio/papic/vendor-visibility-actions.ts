@@ -80,3 +80,32 @@ export async function setVendorCapturesHidden(formData: FormData): Promise<void>
   revalidatePath(`/dashboard/${eventId}/memories`);
   redirect(withQuery(back, `vendorMedia=${hidden ? 'hidden' : 'shown'}`));
 }
+
+/**
+ * The SAME write, answered IN PLACE — for Suppliers ⚙ (owner 2026-10-27, "SUPPLIERS GETS ITS ⚙"; the switch moved there
+ * from Event Details › Event access). A save never resets the screen (owner 2026-10-26): no redirect, the sheet stays
+ * open and the switch shows what was stored. Same gate, same scoped update, same RLS-bound client as above.
+ */
+export async function setVendorCapturesHiddenHere(
+  eventId: string,
+  vendorRowId: string,
+  hidden: boolean,
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  await refuseLimitedHelper(eventId, 'photos');
+  if (!eventId || !vendorRowId) return { ok: false, message: 'That supplier could not be found.' };
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, message: 'Sign in again to change this.' };
+  const { data, error } = await supabase
+    .from('event_vendors')
+    .update({ papic_captures_hidden: hidden })
+    .eq('vendor_id', vendorRowId)
+    .eq('event_id', eventId)
+    .select('vendor_id');
+  // A zero-row update is a refusal, not a save — say so.
+  if (error || !data || data.length === 0) return { ok: false, message: 'We couldn’t save that. Try again.' };
+  revalidatePath(`/dashboard/${eventId}/memories`);
+  return { ok: true };
+}

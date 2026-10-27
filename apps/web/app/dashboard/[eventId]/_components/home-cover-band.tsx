@@ -18,14 +18,21 @@ import { HomeCoverPin } from './home-cover-pin';
  * 📌 IT PINS AS ONE LINE (owner 2026-10-27, Home A — "on home, we also want to pin the header on top"): `sticky` with a
  * negative top (the bar's height − (the band's height − 52 px)), so its in-flow height never changes; stuck, the big
  * words fade and `<names> · <date>` takes their place in the bottom 52 px (`home-cover-pin.tsx`). The loading screen
- * draws this same band, so the hand-over cannot jump. No selector on Home, and no ⚙ on its cover (24 Oct).
+ * draws this same band, so the hand-over cannot jump. No selector on Home, and no ⚙ on its cover AT REST (24 Oct).
+ *
+ * ⚙ THE PINNED LINE ENDS WITH HOME'S ⚙ (owner 2026-10-27, "EVERY MENU'S ⚙ RIDES ITS PINNED ROW TOO": *"headeer ana
+ * and miguel has the event settings"*): `<names> · <date> · ⚙`, the ⚙ opening Event Details — drawn only once the band
+ * has stuck (`visibility` follows `data-collapsed`), so at rest the Countdown is still the one door on screen.
  */
 export function HomeCoverBand({
   cover,
   ground = null,
+  settingsHref,
 }: {
   cover: HomeCoverWords;
   ground?: HomeCover | null;
+  /** ⚙ Event Details' address — the pinned line's ⚙ (27 Oct). The loading screen passes none: its band never pins. */
+  settingsHref?: string;
 }) {
   return (
       <div
@@ -56,7 +63,7 @@ export function HomeCoverBand({
           <p aria-hidden className="text-[26px] font-semibold leading-[1.1] tracking-[-0.01em]">{cover.name}</p>
           {cover.forWho ? <HomeForLine tag={cover.forWho} /> : null}
         </div>
-        <HomeCoverPin name={cover.name} date={cover.shortDate} />
+        <HomeCoverPin name={cover.name} date={cover.shortDate} settingsHref={settingsHref} />
       </div>
   );
 }

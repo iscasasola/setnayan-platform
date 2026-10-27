@@ -76,6 +76,17 @@ test('2 · Home has exactly one door to Event Details — the Countdown widget (
   // control center (`home_control_center_2026-10-24_fable.html`) draws the cover without it: the Countdown is the door.
   const html = renderToStaticMarkup(React.createElement(HomeCoverBand, { cover: { name: 'Cale & Ice', eyebrow: 'Wedding · 14 Feb 2027' } }));
   assert.equal([...html.matchAll(/<a\b/g)].length, 0, 'the cover band draws a door again — a second door to Event Details');
+  // ⚙ AMENDED 2026-10-27 (owner, "EVERY MENU'S ⚙ RIDES ITS PINNED ROW TOO"): the PINNED line ends with Home's ⚙, the one
+  // door the band may draw — inside the pinned line, and `invisible` until the band has stuck, so at rest the Countdown
+  // is still the only door on screen. Its name is the page's own ("Event Details"), never a second name.
+  const pinned = renderToStaticMarkup(
+    React.createElement(HomeCoverBand, { cover: { name: 'Cale & Ice', eyebrow: 'Wedding · 14 Feb 2027' }, settingsHref: '/dashboard/EVT123/details' }),
+  );
+  const doors = [...pinned.matchAll(/<a\b[^>]*>/g)].map((m) => m[0]);
+  assert.equal(doors.length, 1, `the pinned band draws ${doors.length} doors — it draws exactly its ⚙`);
+  assert.match(doors[0] ?? '', /href="\/dashboard\/EVT123\/details"/, 'the pinned ⚙ does not open Event Details');
+  assert.match(doors[0] ?? '', /aria-label="Event Details"/, 'the pinned ⚙ is not named for the page it opens');
+  assert.match(pinned, /<span data-home-pin-gear="" class="[^"]*\binvisible\b[^"]*group-data-\[collapsed\]\/cover:visible/, 'the pinned ⚙ shows at rest — a second door beside the Countdown');
   const { tiles } = homeControlTiles(fixtureControl('EVT123'));
   const toDetails = tiles.filter((t) => [t.door, ...t.faces.flatMap((f) => [f.href, f.action?.href ?? ''])].some((h) => DETAILS_HREF.test(h)));
   assert.deepEqual(toDetails.map((t) => t.key), ['count'], 'a widget other than the Countdown opens Event Details');

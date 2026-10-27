@@ -1,13 +1,12 @@
-import { Mail } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { SubmitButton } from '@/app/_components/submit-button';
 import { TIER_LABEL, type VendorTier } from '@/lib/vendor-tier-caps';
 import { setHelpMessageStatus } from './actions';
+import { HelpMessenger, type HelpThread } from './_components/help-messenger';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
-export const metadata = { title: 'Help inbox · Admin' };
+export const metadata = { title: 'Messages · Admin' };
 
 type HelpMessageRow = {
   message_id: string;
@@ -26,30 +25,7 @@ type HelpMessageRow = {
   priority_rank: number | null;
 };
 
-// Chip tone per vendor tier — paid tiers get progressively louder so the
-// front-of-queue rows read at a glance. Non-vendor rows render no chip.
-const TIER_CHIP_TONE: Record<VendorTier, string> = {
-  free: 'bg-ink/5 text-ink/60',
-  verified: 'bg-ink/5 text-ink/60',
-  solo: 'bg-mulberry/10 text-mulberry-700',
-  pro: 'bg-terracotta/15 text-terracotta-700',
-  enterprise: 'bg-success-100 text-success-800',
-  custom: 'bg-[var(--sn-info-soft)] text-[color:var(--sn-info)]',
-};
-
-const STATUS_TONE: Record<HelpMessageRow['status'], string> = {
-  new: 'bg-danger-100 text-danger-800',
-  in_progress: 'bg-warn-100 text-warn-900',
-  closed: 'bg-success-100 text-success-800',
-};
-
-const STATUS_LABEL: Record<HelpMessageRow['status'], string> = {
-  new: 'New',
-  in_progress: 'In progress',
-  closed: 'Closed',
-};
-
-type Props = { searchParams: Promise<{ status?: string }> };
+type Props = { searchParams: Promise<{ status?: string; m?: string }> };
 
 export default async function AdminHelpPage({ searchParams }: Props) {
   await requireAdmin();
@@ -60,7 +36,7 @@ export default async function AdminHelpPage({ searchParams }: Props) {
   let query = admin
     .from('help_messages')
     .select(
-      'message_id,public_id,user_id,sender_email,sender_name,topic,subject,body,status,admin_notes,resolved_at,created_at,submitter_vendor_tier,priority_rank',
+      'message_id,public_id,user_id,sender_email,sender_name,topic,subject,body,status,admin_notes,resolved_at,created_at,updated_at,submitter_vendor_tier,priority_rank',
     )
     // Priority support: paid vendors (enterprise>pro>solo>verified/free) float
     // above non-vendor requests; within a priority band, freshest first.
@@ -70,171 +46,47 @@ export default async function AdminHelpPage({ searchParams }: Props) {
   if (filter === 'open') query = query.in('status', ['new', 'in_progress']);
   else if (filter === 'new' || filter === 'in_progress' || filter === 'closed')
     query = query.eq('status', filter);
-
   const { data, error } = await query;
   if (error) {
     logQueryError('AdminHelpPage (help_messages)', error);
   }
-  const items = (data ?? []) as HelpMessageRow[];
+  const items = (data ?? []) as Array<HelpMessageRow & { updated_at: string | null }>;
+
+  // ➕ The shop's own name beside a supplier's message (admin supplier slice, 2026-10-28) — one read, by owner.
+  const owners = [...new Set(items.filter((m) => m.submitter_vendor_tier && m.user_id).map((m) => m.user_id as string))];
+  const shopByOwner = new Map<string, string>();
+  if (owners.length > 0) {
+    const { data: shops, error: shopErr } = await admin.from('vendor_profiles').select('user_id, business_name').in('user_id', owners);
+    if (shopErr) logQueryError('AdminHelpPage (shop names)', shopErr);
+    for (const sh of (shops ?? []) as Array<{ user_id: string; business_name: string | null }>) {
+      if (sh.business_name?.trim() && !shopByOwner.has(sh.user_id)) shopByOwner.set(sh.user_id, sh.business_name.trim());
+    }
+  }
+  const threads: HelpThread[] = items.map((m) => ({
+    message_id: m.message_id,
+    public_id: m.public_id,
+    user_id: m.user_id,
+    sender_name: m.sender_name,
+    sender_email: m.sender_email,
+    shop_name: m.user_id ? (shopByOwner.get(m.user_id) ?? null) : null,
+    topic: m.topic,
+    subject: m.subject,
+    body: m.body,
+    status: m.status,
+    admin_notes: m.admin_notes,
+    created_at: m.created_at,
+    updated_at: m.updated_at,
+    tier_label: m.submitter_vendor_tier ? TIER_LABEL[m.submitter_vendor_tier] : null,
+  }));
+  // A wide screen opens the first conversation; a phone starts on the list (?m= opens one).
+  const openId = search.m ?? null;
 
   return (
-    <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
-      {/* The page starts at its content — the filter chips below are the
-          first thing an operator actually uses.
-          ⚖ The sentence survives: replies here are MANUAL. Somebody marking a
-          message closed without having emailed anybody would otherwise think
-          the app had answered it. */}
-      <PageMasthead title="Help inbox" />
-      <p className="mb-6 text-sm text-ink/70">
-        Messages submitted via <code className="text-xs">/help</code>. Anyone (anon or
-        signed-in) can submit; replies go via email (manual until Resend wires).
-      </p>
-
-      <nav className="mb-6 flex flex-wrap gap-2">
-        <FilterChip active={filter} target="open" label="Open" />
-        <FilterChip active={filter} target="new" label="New" />
-        <FilterChip active={filter} target="in_progress" label="In progress" />
-        <FilterChip active={filter} target="closed" label="Closed" />
-        <FilterChip active={filter} target="all" label="All" />
-      </nav>
-
-      {error ? (
-        <p className="rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700">
-          Help inbox couldn&apos;t load right now. We&apos;ve logged the issue — refresh in a moment.
-        </p>
-      ) : null}
-
-      {items.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-ink/15 bg-white/50 p-8 text-center text-sm text-ink/55">
-          <Mail aria-hidden className="mx-auto mb-2 h-6 w-6 text-ink/30" strokeWidth={1.5} />
-          Nothing in this view.
-        </div>
-      ) : (
-        <ul className="space-y-3">
-          {items.map((m) => (
-            <li
-              key={m.message_id}
-              id={`message-${m.message_id}`}
-              className="scroll-mt-24 space-y-3 sn-tile p-4"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div className="min-w-0 space-y-0.5">
-                  <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">
-                    {m.public_id} · {m.topic ?? 'no-topic'} · {m.created_at.slice(0, 10)}
-                  </p>
-                  <p className="text-sm font-semibold text-ink">{m.subject}</p>
-                  <p className="text-xs text-ink/60">
-                    From{' '}
-                    <a
-                      href={`mailto:${m.sender_email}?subject=Re:%20${encodeURIComponent(m.subject)}`}
-                      className="text-mulberry hover:underline"
-                    >
-                      {m.sender_email}
-                    </a>
-                    {m.sender_name ? ` (${m.sender_name})` : ''}
-                    {m.user_id ? ' · signed-in user' : ' · anonymous'}
-                  </p>
-                </div>
-                <div className="flex flex-wrap items-center justify-end gap-1.5">
-                  {m.submitter_vendor_tier ? (
-                    <span
-                      title="Priority support — supplier tier at submission"
-                      className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
-                        TIER_CHIP_TONE[m.submitter_vendor_tier]
-                      }`}
-                    >
-                      {TIER_LABEL[m.submitter_vendor_tier]}
-                    </span>
-                  ) : null}
-                  <span
-                    className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
-                      STATUS_TONE[m.status]
-                    }`}
-                  >
-                    {STATUS_LABEL[m.status]}
-                  </span>
-                </div>
-              </div>
-
-              <p className="whitespace-pre-wrap rounded-md bg-ink/[0.03] p-3 text-sm text-ink/75">
-                {m.body}
-              </p>
-
-              {m.admin_notes ? (
-                <p className="rounded-md bg-warn-50/60 p-3 text-xs text-warn-900">
-                  <span className="font-mono text-[10px] uppercase tracking-[0.15em]">
-                    Admin notes
-                  </span>
-                  <br />
-                  {m.admin_notes}
-                </p>
-              ) : null}
-
-              <form
-                action={setHelpMessageStatus}
-                className="flex flex-col gap-2 border-t border-ink/10 pt-3 sm:flex-row sm:items-end"
-              >
-                <input type="hidden" name="message_id" value={m.message_id} />
-                <label className="flex-1 space-y-1">
-                  <span className="block font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-                    Status
-                  </span>
-                  <select
-                    name="status"
-                    defaultValue={m.status}
-                    className="input-field h-9 py-0 text-sm"
-                  >
-                    <option value="new">New</option>
-                    <option value="in_progress">In progress</option>
-                    <option value="closed">Closed</option>
-                  </select>
-                </label>
-                <label className="flex-1 space-y-1">
-                  <span className="block font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-                    Admin notes
-                  </span>
-                  <input
-                    name="admin_notes"
-                    defaultValue={m.admin_notes ?? ''}
-                    placeholder="e.g. replied via email at 14:32"
-                    className="input-field h-9 py-0 text-sm"
-                  />
-                </label>
-                <SubmitButton
-                  className="inline-flex h-11 items-center justify-center rounded-md bg-mulberry px-3 text-xs font-medium text-cream hover:bg-mulberry-600 disabled:opacity-70"
-                  pendingLabel="Updating…"
-                >
-                  Update
-                </SubmitButton>
-              </form>
-            </li>
-          ))}
-        </ul>
-      )}
+    <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+      {/* The page starts at its content. Replies to a signed-in person reach them IN THE APP
+          (help_ticket_replied); this slice adds no email. */}
+      <PageMasthead title="Messages" />
+      <HelpMessenger threads={threads} filter={filter} openId={openId} failed={Boolean(error)} nowMs={Date.now()} action={setHelpMessageStatus} />
     </div>
-  );
-}
-
-function FilterChip({
-  active,
-  target,
-  label,
-}: {
-  active: string;
-  target: string;
-  label: string;
-}) {
-  const isActive = active === target;
-  return (
-    <a
-      href={`/admin/help?status=${target}`}
-      className={`rounded-full px-3 py-1 text-xs font-medium ${
-        isActive
-          ? 'bg-terracotta text-cream'
-          : 'bg-ink/5 text-ink/70 hover:bg-ink/10'
-      }`}
-    >
-      {label}
-    </a>
   );
 }

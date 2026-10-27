@@ -84,7 +84,7 @@ export const ADMIN_NAV_DESCRIPTIONS: Record<string, string> = {
   approvals: 'A colleague is waiting on your second sign-off.',
   pakanta: "Each couple's custom-song brief for the music team to write.",
   'editorial-review': 'Wedding editorials awaiting an editorial pass before publish.',
-  help: 'Open help-center tickets.',
+  help: 'Shops’ Message Setnayan and help tickets, as one chat.',
 
   // ── Accounts group (key 'directory') ──────────────────────────────────
   users:
@@ -283,7 +283,7 @@ export const ADMIN_NAV_ALIASES: Record<string, string> = {
   vendors: 'suppliers vendors shops businesses',
   venues: 'places locations',
   events: 'weddings bookings',
-  help: 'support tickets questions',
+  help: 'support tickets questions help inbox message setnayan chat',
   seo: 'search google ranking llms',
   receipts: 'invoice or bir official receipt',
   // ── RETIRED NAMES, KEPT FINDABLE (2026-08-26) ────────────────────────────

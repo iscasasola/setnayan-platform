@@ -44,6 +44,10 @@ import { formatCount } from '@/lib/format-number';
 import { addCategoryCore, addServiceCore, moveServiceCore, slugify } from './_components/taxonomy-writes';
 import { recordCollectedTradePhrase } from '@/lib/service-trade-aliases-db';
 import { CATEGORIES_PATH, backHref, type BackState } from './_components/back';
+import { safeNext } from '@/lib/safe-next';
+import { workBackHref } from '@/lib/admin/supplier-work';
+import { setNewTypeCoverage } from '@/lib/admin/event-type-coverage';
+import { parseHubToolsSave } from '@/lib/hub-tools';
 import { clearHomeShelf } from '@/lib/home-shelf-clear';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import { deletionWouldBreakCoupleLinks } from '@/lib/vendor-category-taxonomy';
@@ -88,7 +92,19 @@ function redirectBack(
   if (anchor.startsWith('f-')) next.open = `g:${anchor.slice(2)}`;
   if (override?.show !== undefined) next.show = override.show;
   if (override?.open) next.open = override.open;
+  // ➕ A form posted from ADMIN › WORK (admin supplier slice, owner 2026-10-28 — "done in its row, no jumping") carries
+  // `return_to`: it lands back on Work with the outcome, never on this page. Only a Work address is honoured.
+  const returnTo = workReturnTo(formData);
+  if (returnTo) redirect(workBackHref(returnTo, kind === 'ok' ? 'type-added' : 'refused', msg));
   redirect(backHref(formData, kind, msg, next));
+}
+
+/** `return_to` when it is an Admin › Work address — anything else is ignored (an open redirect is never followed). */
+function workReturnTo(formData: FormData): string | null {
+  const raw = formData.get('return_to');
+  if (typeof raw !== 'string' || !raw) return null;
+  const safe = safeNext(raw, '');
+  return safe === '/admin/work' || safe.startsWith('/admin/work?') ? safe : null;
 }
 
 /**
@@ -1904,13 +1920,73 @@ export async function createEventTypeRoster(formData: FormData): Promise<never> 
     }
     redirectBack(formData, 'error', res.error);
   }
+  // ➕ ITS SUPPLIER COVERAGE, IN THE SAME PRESS (admin supplier slice, owner 2026-10-28: an event-type request's "Add
+  // it" opens the new type's coverage right there). Posted as `cover_group` (one per ticked group) + `cover_set=1`;
+  // without `cover_set` nothing is touched, so the page's own "+ Add" row behaves exactly as before.
+  let coverNote = '';
+  if (formData.get('cover_set') === '1') {
+    const groups = new Set(formData.getAll('cover_group').map(String).filter(Boolean));
+    const { failed } = await setNewTypeCoverage(admin, res.data.key, groups);
+    coverNote = failed > 0 ? ` ${formatCount(failed)} ${failed === 1 ? 'category' : 'categories'} could not be scoped — set them in Scope categories.` : ` Covered by ${formatCount(groups.size)} ${groups.size === 1 ? 'group' : 'groups'}.`;
+  }
   revalidateEventTypeRosterSurfaces();
   redirectBack(
     formData,
     'ok',
-    `${res.data.label} created. It stays hidden from couples until its Status is “In the picker”.`,
+    `${res.data.label} created. It stays hidden from couples until its Status is “In the picker”.${coverNote}`,
     { open: res.data.key },
   );
+}
+
+/**
+ * ➕ ADMIN › CATEGORIES › HUB TOOLS — save ONE category's tool switches + its default scan mode (admin supplier slice,
+ * owner 2026-10-28; DECISION_LOG "HUB TOOLS BY SERVICE — … ONE SHARED LIBRARY"). In place: returns a result for the
+ * client to say "Saved ✓" — a save never resets the screen. The whole decision (known category id, known tools, known
+ * mode) is `parseHubToolsSave` in lib/hub-tools.ts, which a test calls.
+ */
+export async function setCategoryHubTools(formData: FormData): Promise<StudioActionResult> {
+  const user = await requireAdmin();
+  const parsed = parseHubToolsSave({
+    categoryId: formData.get('category_id'),
+    tools: formData.getAll('tool'),
+    scan: formData.get('scan_default'),
+  });
+  if (!parsed) return { ok: false, error: 'That switch names a tool or a scan mode we do not have.' };
+  const admin = createAdminClient();
+  const { data: cat, error: catErr } = await admin
+    .from('service_categories')
+    .select('id, label_en')
+    .eq('id', parsed.categoryId)
+    .eq('tier', 2)
+    .maybeSingle();
+  if (catErr) return { ok: false, error: 'Couldn’t check that category — nothing was saved.' };
+  if (!cat) return { ok: false, error: 'Category not found — nothing was saved.' };
+  const { data: before } = await admin
+    .from('category_hub_tools')
+    .select('tools, scan_default')
+    .eq('category_id', parsed.categoryId)
+    .maybeSingle();
+  const { error } = await admin.from('category_hub_tools').upsert(
+    {
+      category_id: parsed.categoryId,
+      tools: parsed.tools,
+      scan_default: parsed.scan,
+      updated_at: new Date().toISOString(),
+      updated_by: user.id,
+    },
+    { onConflict: 'category_id' },
+  );
+  if (error) return { ok: false, error: 'Couldn’t save — nothing changed. Try again.' };
+  await admin.from('admin_audit_log').insert({
+    action: 'taxonomy.set_hub_tools',
+    target_table: 'category_hub_tools',
+    target_id: parsed.categoryId,
+    before_json: before ?? null,
+    after_json: { tools: parsed.tools, scan_default: parsed.scan },
+    actor_user_id: user.id,
+  });
+  revalidatePath(BASE);
+  return { ok: true, message: 'Saved ✓' };
 }
 
 /**

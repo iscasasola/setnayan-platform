@@ -466,6 +466,10 @@ export type NotificationType =
      booking is made by the couple's ask and the supplier's yes. */
   | 'quote_accepted'
   | 'quote_declined'
+  /* ➕ ADMIN SUPPLIER SLICE (owner 2026-10-28). → the SHOP owner, in the app only (NOT on the email allowlist — owner
+     2026-10-11): Setnayan answered a name / web-address request (approved · declined + reason) or sent a flagged
+     service-card photo back with a reason. Emitted by lib/supplier-request-notify.ts. Enum value: 20271292839996. */
+  | 'supplier_request_answered'
   /* 💸 A CHANGE ORDER — a signed amount on what the couple owes
      (`vendor_change_orders.delta_amount_php`). `proposed` → whichever side did
      NOT raise it, who must accept or decline; `answered` → the side that raised
@@ -596,6 +600,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   schedule_change_requested: 'Schedule request',
   quote_accepted: 'Quote accepted',
   quote_declined: 'Quote declined',
+  supplier_request_answered: 'Setnayan answered your request',
   change_order_proposed: 'Change order',
   change_order_answered: 'Change order answered',
   schedule_shifted: 'Schedule moved',
@@ -807,6 +812,8 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   quote_accepted: 'bg-success-100 text-success-900',
   // A no the supplier can answer with another quote → amber, like every other no.
   quote_declined: 'bg-warn-100 text-warn-900',
+  // An answer that can be yes or no (a decline carries its reason) → the neutral info tone, never a verdict colour.
+  supplier_request_answered: 'bg-sky-100 text-sky-800',
   // Money waiting on a yes → the same action-needed amber as a payment ask. The
   // answer can be yes or no, so it takes amber too rather than claim a verdict
   // the type alone does not carry (same reasoning as part_reopen_answered).
@@ -1054,6 +1061,7 @@ export const NOTIFICATION_TYPE_ICON: Partial<Record<NotificationType, Notificati
   guest_claim_rejected: 'user-plus',
   connection_request: 'user-plus',
   connection_confirmed: 'user-check',
+  supplier_request_answered: 'message',
   vendor_joined: 'user-plus',
   samahan_join: 'user-plus',
   order_quoted: 'receipt',

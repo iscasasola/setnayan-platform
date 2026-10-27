@@ -6,6 +6,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { geocodeNominatim } from '@/lib/geo';
 import { ensureBusinessAlaga } from '@/lib/business-alaga-ensure';
+import { tellShopRequestAnswered } from '@/lib/supplier-request-notify';
+import { pickedReason } from '@/lib/admin/supplier-work';
 import {
   isLockedIdentityFieldKey,
   type LockedIdentityFieldKey,
@@ -259,6 +261,22 @@ export async function applyCorrectionRequest(formData: FormData) {
     .eq('status', 'open');
   if (stampErr) fail(stampErr.message);
 
+  // ➕ The shop is told, in the app (admin supplier slice, owner 2026-10-28). A web address says it forwards.
+  await tellShopRequestAnswered({
+    vendorProfileId: request.vendor_profile_id,
+    title:
+      request.field_key === 'business_slug'
+        ? 'Your new web address is live'
+        : request.field_key === 'business_name'
+          ? 'Your new shop name is live'
+          : 'Your correction was applied',
+    body:
+      request.field_key === 'business_slug'
+        ? `Your page is now setnayan.com/${String(value)}. The old address forwards to it, so printed cards keep working.`
+        : `Setnayan approved your change${request.requested_value ? ` to “${request.requested_value}”` : ''}.`,
+    relatedUrl: '/vendor-dashboard/shop',
+  });
+
   revalidatePath('/admin/corrections');
   revalidatePath('/vendor-dashboard/profile');
   revalidatePath('/vendor-dashboard/shop');
@@ -361,17 +379,39 @@ export async function declineCorrectionRequest(formData: FormData) {
   const requestId = formData.get('request_id');
   if (typeof requestId !== 'string' || !requestId) throw new Error('Invalid input');
 
+  // ➕ The reason the shop reads (admin supplier slice, owner 2026-10-28) — only ever one of the list's own words;
+  // anything else stores nothing. The work list refuses a decline without one before it gets here.
+  const reason = pickedReason('names', formData.get('reason'));
+
   const admin = createAdminClient();
-  const { error } = await admin
+  const { data: declined, error } = await admin
     .from('vendor_correction_requests')
     .update({
       status: 'declined',
       resolved_at: new Date().toISOString(),
       resolved_by: userId,
+      decline_reason: reason,
     })
     .eq('id', Number(requestId))
-    .eq('status', 'open');
+    .eq('status', 'open')
+    .select('vendor_profile_id, field_key, requested_value');
   if (error) fail(error.message);
+
+  // Told only when THIS press declined it (the `.eq('status','open')` claim) — a second press tells nobody twice.
+  const row = (declined ?? [])[0] as { vendor_profile_id: string; field_key: string; requested_value: string | null } | undefined;
+  if (row) {
+    await tellShopRequestAnswered({
+      vendorProfileId: row.vendor_profile_id,
+      title:
+        row.field_key === 'business_slug'
+          ? 'Your web address change was declined'
+          : row.field_key === 'business_name'
+            ? 'Your shop name change was declined'
+            : 'Your correction was declined',
+      body: reason ?? 'Setnayan declined this request.',
+      relatedUrl: '/vendor-dashboard/shop',
+    });
+  }
 
   revalidatePath('/admin/corrections');
   redirect('/admin/corrections?declined=1');

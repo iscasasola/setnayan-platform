@@ -145,7 +145,7 @@ function MessageBubble({
         type="button"
         onClick={() => onArm(armed ? null : m.message_id)}
         aria-expanded={armed}
-        className="rounded-[18px] bg-terracotta px-3 py-2 text-left text-[14.5px] text-white"
+        className="rounded-[18px] bg-terracotta-700 px-3 py-2 text-left text-[14.5px] text-white dark:text-cream"
       >
         <span className="block whitespace-pre-wrap break-words">{m.body}</span>
       </button>
@@ -466,7 +466,7 @@ export function GroupChatroom({
                       overlay={false}
                       pendingLabel=""
                       aria-label="Send"
-                      className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-terracotta text-white"
+                      className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-terracotta-700 text-white dark:text-cream"
                     >
                       <ArrowUp aria-hidden className="h-4 w-4" strokeWidth={2.4} />
                     </SubmitButton>

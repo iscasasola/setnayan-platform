@@ -130,7 +130,7 @@ export function GroupCollage({
         <button
           type="button"
           onClick={onPlay}
-          className="inline-flex min-h-11 items-center gap-1 rounded-full bg-terracotta px-3.5 text-[13px] font-bold text-white"
+          className="inline-flex min-h-11 items-center gap-1 rounded-full bg-terracotta-700 px-3.5 text-[13px] font-bold text-white dark:text-cream"
           data-collage-play=""
         >
           <Play className="h-3.5 w-3.5" aria-hidden fill="currentColor" /> Play

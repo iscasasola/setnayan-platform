@@ -484,18 +484,20 @@ button.pinCount {
   border-left: 1px solid var(--gs-line);
   border-radius: 0 10px 10px 0;
 }
+/* Sized as the approved picture draws them (prototype `compare` / `oneqr`: the number and its word both small, the
+   number bold) — the card stays well under 96 px. */
 .mini > b {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 17px;
+  font-size: 11px;
   font-weight: 650;
   line-height: 1.05;
   font-variant-numeric: tabular-nums;
 }
 .miniWord {
   max-width: 100%;
-  font-size: 10.5px;
+  font-size: 10px;
   color: var(--gs-mute);
   white-space: nowrap;
   overflow: hidden;

@@ -6,15 +6,30 @@ chat file (C2's `lib/chat-file-prepare.ts` — not on main yet; the composer sti
 never a "send original"), supplier chat only inside an event, ONE search in the thumb row (name now, message text = C5),
 isolation per event (event line on every row), "Seen", staff name on supplier messages (stored per message → built).
 
-## State
-- DRAFT PR #7004 (do-not-auto-merge, autoMerge null). C2 (#6997) merged to main and wired (prepare/upload, expiry line,
-  File expired). Lint scripts 32/32 + Ugat screens green; Ugat screens + port baseline regenerated on the merged tree;
-  /dev/chat-lab baselined in no-door (dev-only).
-- Walk (lab 3611, scripts in shots-2026-10-28/chat-c1/scripts — ignored by the repo's `/*` rule, kept local): shots in
-  build/, side-by-side in side/, click-all results in clickall-results.txt. Last click-all: 174 ✅ · 8 ⚠ (need a session)
-  · 2 ❌ (WebKit "Sending…" > 2 s) → fixed by painting the pending bubble outside the form transition; re-walk pending
-  (walk lane queue). Open-time measure pending (dev server hung under load 35; restarted, queued).
-- Pending: full tsc + full unit suite locally (heavy queue) — CI on #7004 runs them too.
+## State — PAUSED 2026-10-28 (owner: free the Mac's queues)
+- DRAFT PR #7004 (label do-not-auto-merge; autoMergeRequest null). C2 (#6997) is on main and wired in (prepare/upload →
+  attachment_ref, 14-day expiry line, "File expired" in the flow and in Files). The chat chip wears `Share` (its PENDING
+  allowlist line was removed). The unmounted `thread-call-launcher.tsx` is deleted (Ugat both-ends); call server code
+  stays for the appointments' join.
+- CI history: typecheck ✅ + production build ✅ (run 40563172885, before the last fixes). The rounds after that fixed: Scrub
+  CSS order, radius tokens, the brief's pinned events select, a peso figure in the fixture, the duplicate `eventDay`, the
+  Ugat orphan, the soft-404 lab (now a Suspense fallback, with no loading.tsx), the ⓘ glyph (back to ⋮), and the
+  composer-compression guard. The LAST push (head 2ac39d4193) has NOT been seen through CI: the watch was stopped for
+  the pause.
+- Local: 32/32 lint scripts ✅, Ugat screens ✅, port baseline ✅ (regenerated on the merged tree). No heavy-lock entry, no
+  dev server, no .next.
+- Walk (lab, scripts in shots-2026-10-28/chat-c1/scripts, kept local because the repo's `/*` ignore covers them):
+  - shots: build/ + side/ (A, B, C, D, E, F, K).
+  - click-all (round 1): 174 ✅ · 8 ⚠ (needs a session) · 2 ❌ (WebKit "Sending…" > 2 s). Those 2 are fixed in code
+    (the bubble paints outside the form transition) but not re-walked.
+  - open-time measure not taken: the dev server hung at load average 35.
+
+## NEXT (on resume)
+1. `gh pr checks 7004`; fix red jobs from their logs (unit shards 2/3 and 3/3 never finished in the last full run).
+2. When the walk lane is free: `shots-2026-10-28/chat-c1/scripts/serve.sh` (background), then wait for "Ready in" in
+   dev.log. Then run `node scripts/walk.mjs`, `node scripts/clickall.mjs`, `node scripts/measure.mjs` and
+   `node scripts/side.mjs`. Afterwards `touch scripts/STOP` and `rm -rf apps/web/.next`.
+3. Fill the PR body's Checks table and click-all list, then report.
 
 ## Decisions taken (not covered by the record)
 - Couple per-event inbox: "Suppliers" chip = every row (all are supplier chats here); Groups/People chips not drawn (C4).

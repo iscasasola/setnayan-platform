@@ -33,3 +33,9 @@ export function labMeDressConfig() {
 }
 
 export const labMeRolePalette = () => labCaleIceRolePalette(true);
+
+/** 🧍 The proxy lab's dress code (`?proxy=1`): cale-ice after Apply, with the Principal Sponsors called at 1:30 PM. */
+export function labProxyDressConfig() {
+  const base = labCaleIceDressConfig(true) as unknown as { groups: Record<string, Record<string, unknown>> } & Record<string, unknown>;
+  return { ...base, groups: { ...base.groups, principal_sponsors: { ...base.groups.principal_sponsors, callTime: '13:30' } } };
+}

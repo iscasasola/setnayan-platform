@@ -401,7 +401,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   );
   const rosterRead = Promise.all([
       // The roster draws requests as their own rows; computeGuestStats leaves them out of every count.
-      fetchGuestsByEventMeasured(supabase, eventId, { includeRequests: true, includePassedAway: true }),
+      fetchGuestsByEventMeasured(supabase, eventId, { includeRequests: true, includePassedAway: true, includeRepresented: true }),
       eventRowRead,
       // 📏 MEASURED (2026-10-11): a refused groups read used to come back as "no groups" and draw every guest
       // without one — the same fault the guest read itself had. Each says whether it happened; see `sideReads` below.

@@ -125,18 +125,26 @@ const summary = (v: View) => `${v.calls} requests, ${v.depth} deep\n  ${v.steps.
   What is left on a warm view is the stamp, the facts, the camera pool's state
   and what is read about the viewer — none of it remembered, on purpose.
 */
+/*
+  🧍 A PROXY STANDS IN (2026-10-27, owner: "catherine sacdalan's invitation will indicate they are proxying for XXX").
+  An INVITED guest's view asks ONE more thing about the viewer — whom they stand in for (`readGuestStandIn`, the
+  reverse of `guests.represented_by_guest_id`): +1 request on every invited view, started beside the others, so no view
+  is deeper. Strangers and the canvas are unchanged — the entourage's "(represented by …)" rides the REMEMBERED read
+  (the stamp's WHEN list gained the column, migration 20271292712479).
+    an invited guest                6 → 7   (10 → 11 on the day) · first view 22 → 23 · with orders 18 → 19 · 26 → 27
+*/
 const PINNED: Record<(typeof VIEWS)[number], { calls: number; depth: number }> = {
-  coldInvitedOnTheDay: { calls: 22, depth: 6 },
+  coldInvitedOnTheDay: { calls: 23, depth: 6 },
   strangerBeforeTheDay: { calls: 3, depth: 3 },
   strangerOnTheDay: { calls: 4, depth: 3 },
-  invitedBeforeTheDay: { calls: 6, depth: 4 },
-  invitedOnTheDay: { calls: 10, depth: 4 },
+  invitedBeforeTheDay: { calls: 7, depth: 4 },
+  invitedOnTheDay: { calls: 11, depth: 4 },
   hostCanvas: { calls: 10, depth: 3 },
   freshAfterAWrite: { calls: 11, depth: 4 },
   warmAgainAfterTheWrite: { calls: 3, depth: 3 },
-  coldWithOrders: { calls: 26, depth: 7 },
+  coldWithOrders: { calls: 27, depth: 7 },
   strangerWithOrders: { calls: 7, depth: 6 },
-  invitedWithOrders: { calls: 18, depth: 6 },
+  invitedWithOrders: { calls: 19, depth: 6 },
 };
 
 const views = () => VIEWS.map((name) => [name, REPORT[name]] as const);

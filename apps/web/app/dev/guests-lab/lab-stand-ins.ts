@@ -48,6 +48,8 @@ export const LAB_GUEST_ACTIONS: Partial<GuestActions> = {
   restoreGuestRsvpAndSeat: async () => ({ ok: true }),
   /* 📸 Their camera / Set… › Papic — local: says every guest was set. */
   setGuestAllotment: async (fd: FormData) => ({ ok: true as const, set: fd.getAll('guest_id').length }),
+  /* 🧍 Proxy ▾ — local: says it was linked (nothing is written). */
+  setGuestProxy: async (_eventId, _holder, move) => ({ ok: true as const, proxyGuestId: move.kind === 'link' ? move.proxyGuestId : null }),
   createGuestGroup: async () => undefined as never,
   addSingleGuest: async (_eventId, draft) => ({
     ok: true,

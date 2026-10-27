@@ -225,6 +225,9 @@ const HELD_STRICT: ReadonlyArray<readonly [string, string]> = [
   //                          owner on an exact string and nothing looser.
   ['lib/category-proposal-flag.ts', 'CATEGORY_PROPOSAL_DRAFT_ENABLED'],
   ['lib/supplier-night-before-email-flag.ts', 'SUPPLIER_NIGHT_BEFORE_EMAIL_ENABLED'],
+  //   chat-file-expiry — permanently deletes people's chat files; the owner
+  //                      arms it on the exact string after reviewing the PR.
+  ['lib/chat-file-expiry-sweep.ts', 'CHAT_FILE_EXPIRY_ENABLED'],
 ];
 
 test('the deliberate holdouts stay strict, and still say why', () => {

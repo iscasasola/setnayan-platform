@@ -89,8 +89,18 @@ export async function sendChatMessage(formData: FormData) {
   const attachment =
     rawAttachment instanceof File && rawAttachment.size > 0 ? rawAttachment : null;
 
+  // A file the phone already uploaded (`lib/chat-file-prepare.ts` →
+  // `/api/upload`): only its ref and name travel here. The core HEADs the
+  // stored object and judges its REAL size — never a size sent by the client.
+  const rawRef = formData.get('attachment_ref');
+  const rawRefName = formData.get('attachment_ref_name');
+  const attachmentRef =
+    !attachment && typeof rawRef === 'string' && rawRef.trim()
+      ? { ref: rawRef.trim(), name: typeof rawRefName === 'string' ? rawRefName : '' }
+      : null;
+
   const supabase = await createClient();
-  const result = await sendChatMessageCore(supabase, { threadId, body, attachment });
+  const result = await sendChatMessageCore(supabase, { threadId, body, attachment, attachmentRef });
   if (!result.ok) {
     // Empty body is a no-op redirect on web (the textarea simply stays put).
     if (result.code === 'empty') {

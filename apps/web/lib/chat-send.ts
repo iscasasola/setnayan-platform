@@ -6,9 +6,16 @@ import { encodeR2Ref } from '@/lib/uploads';
 import {
   CHAT_ATTACHMENT_MIME,
   CHAT_ATTACHMENT_MAX_BYTES,
-  chatAttachmentLimit,
 } from '@/lib/chat-attachment-limits';
-import { R2_BUCKETS, type R2BucketName } from '@/lib/r2';
+import {
+  CHAT_FILE_TYPE_REFUSAL,
+  CHAT_FILE_UPLOAD_FAILED,
+  chatFileLimitFor,
+  judgeStoredChatFile,
+} from '@/lib/chat-file-rules';
+import { R2_BUCKETS, r2Head, type R2BucketName } from '@/lib/r2';
+import { cleanupDelete } from '@/lib/cleanup-delete';
+import { chatAttachmentScope } from '@/lib/cleanup-delete-scope';
 import { triggerVendorActivityRecompute } from '@/lib/vendor-activity';
 import { vendorAutoReplyEnabled } from '@/lib/vendor-autoreply-flag';
 import { runVendorAutoReply } from '@/lib/vendor-autoreply/inbox-hook';
@@ -98,14 +105,29 @@ export type SendMessageResult =
  */
 export async function sendChatMessageCore(
   supabase: SupabaseClient,
-  input: { threadId: string; body: string; attachment?: File | null },
+  input: {
+    threadId: string;
+    body: string;
+    attachment?: File | null;
+    /**
+     * A file the phone already PUT to R2 through `/api/upload` (big files cannot
+     * ride a server action — see `lib/chat-file-rules.ts` § 5). The server HEADs
+     * the object and judges ITS real size and type; the client's claim is never
+     * read. Ignored when `attachment` is also given.
+     */
+    attachmentRef?: { ref: string; name: string } | null;
+  },
 ): Promise<SendMessageResult> {
   const trimmed = input.body.trim();
   // An OPTIONAL attachment rides alongside — or instead of — the text body. A
   // message is valid with body OR attachment OR both. Native callers pass no
   // attachment, so this stays a pure text send for them.
   const hasAttachment = input.attachment instanceof File && input.attachment.size > 0;
-  if (trimmed.length === 0 && !hasAttachment) {
+  const storedRef =
+    !hasAttachment && input.attachmentRef && typeof input.attachmentRef.ref === 'string' && input.attachmentRef.ref
+      ? input.attachmentRef
+      : null;
+  if (trimmed.length === 0 && !hasAttachment && !storedRef) {
     return { ok: false, code: 'empty', message: 'Message can’t be empty.' };
   }
   if (trimmed.length > 4000) {
@@ -121,13 +143,13 @@ export async function sendChatMessageCore(
       return {
         ok: false,
         code: 'attachment_invalid',
-        message: 'That file type isn’t supported — attach an image, PDF, or a common document.',
+        message: CHAT_FILE_TYPE_REFUSAL,
       };
     }
-    // The ceiling depends on WHAT was sent — a photo is compressed in the
-    // browser first, a document never is. One resolver, so the picker, the
-    // composer and this check cannot judge a file by three different limits.
-    const limit = chatAttachmentLimit(mime);
+    // 🔒 THE OWNER'S LIMITS, JUDGED ON WHAT ARRIVED (2026-10-28, CHAT FILES):
+    // video ≤ 50 MB, document/photo ≤ 20 MB — after the phone compressed it
+    // (`lib/chat-file-prepare.ts`). Never trust the client: this is the refusal.
+    const limit = chatFileLimitFor(mime);
     if (file.size > limit.maxBytes) {
       return {
         ok: false,
@@ -312,7 +334,7 @@ export async function sendChatMessageCore(
       return {
         ok: false,
         code: 'attachment_failed',
-        message: 'Couldn’t upload your file. Please try again.',
+        message: CHAT_FILE_UPLOAD_FAILED,
       };
     }
     // ⚠ THE DEV FALLBACK CANNOT CARRY A CHAT FILE ANY MORE. With no R2
@@ -329,7 +351,7 @@ export async function sendChatMessageCore(
       return {
         ok: false,
         code: 'attachment_failed',
-        message: 'Couldn’t upload your file. Please try again.',
+        message: CHAT_FILE_UPLOAD_FAILED,
       };
     }
     attachment = {
@@ -341,6 +363,53 @@ export async function sendChatMessageCore(
       attachment_mime: file.type,
       attachment_size_bytes: file.size,
     };
+  } else if (storedRef) {
+    // A file the phone already PUT to R2 (`/api/upload`, which signs the
+    // content-length). 🔑 MEASURED, NOT CLAIMED: the object's real size and type
+    // come from an R2 HEAD, and the owner's limits are judged on THOSE
+    // (`judgeStoredChatFile`, lib/chat-file-rules.ts). Over the limit → the
+    // sender's own fresh object is deleted, so a refused file is not kept.
+    const ref = storedRef.ref.trim();
+    const own = `r2://${R2_BUCKETS.threadFiles}/`;
+    const key = ref.startsWith(own) ? ref.slice(own.length) : '';
+    let head: { size: number; contentType: string | null } | null = null;
+    if (key) {
+      try {
+        head = await r2Head({ bucket: R2_BUCKETS.threadFiles, key });
+      } catch (caught) {
+        console.error(
+          '[sendChatMessageCore] chat file HEAD failed:',
+          caught instanceof Error ? caught.message : String(caught),
+        );
+        head = null;
+      }
+    }
+    const verdict = judgeStoredChatFile({
+      ref,
+      name: storedRef.name ?? '',
+      threadId: thread.thread_id,
+      userId: user.id,
+      head,
+      allowedMime: CHAT_ATTACHMENT_MIME,
+    });
+    if (!verdict.ok) {
+      if (verdict.discard) {
+        try {
+          await cleanupDelete(ref, chatAttachmentScope(thread.thread_id));
+        } catch (caught) {
+          console.error(
+            '[sendChatMessageCore] refused chat file could not be removed:',
+            caught instanceof Error ? caught.message : String(caught),
+          );
+        }
+      }
+      return {
+        ok: false,
+        code: verdict.message === CHAT_FILE_UPLOAD_FAILED ? 'attachment_failed' : 'attachment_invalid',
+        message: verdict.message,
+      };
+    }
+    attachment = verdict.attachment;
   }
 
   // sender_user_id / sender_role are NOT sent. This insert runs under the

@@ -348,7 +348,7 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
           maxLength={4000}
           placeholder="Message"
           aria-label="Message"
-          className="mx-1 my-[3px] max-h-36 min-h-[38px] min-w-0 flex-1 resize-none rounded-[19px] border-0 bg-ink/[0.06] px-3.5 py-[9px] text-[15px] leading-5 text-ink outline-none placeholder:text-ink/45 focus:ring-2 focus:ring-sn-accent/30"
+          className="mx-1 my-[3px] max-h-36 min-h-[38px] min-w-0 flex-1 resize-none rounded-2xl border-0 bg-ink/[0.06] px-3.5 py-[9px] text-[15px] leading-5 text-ink outline-none placeholder:text-ink/45 focus:ring-2 focus:ring-sn-accent/30"
           data-rides=""
           onFocus={() => setTyping(true)}
           onBlur={() => setTyping(false)}

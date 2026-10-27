@@ -1591,8 +1591,8 @@ export function ChatMessageStream({
           const staffName =
             viewerRole === 'couple' && !mine && run.first && m.sender_user_id ? senderNames[m.sender_user_id] ?? null : null;
           const corner = mine
-            ? `${run.first ? '' : 'rounded-tr-[6px]'} ${run.last ? '' : 'rounded-br-[6px]'}`
-            : `${run.first ? '' : 'rounded-tl-[6px]'} ${run.last ? '' : 'rounded-bl-[6px]'}`;
+            ? `${run.first ? '' : 'rounded-tr-md'} ${run.last ? '' : 'rounded-br-md'}`
+            : `${run.first ? '' : 'rounded-tl-md'} ${run.last ? '' : 'rounded-bl-md'}`;
           return (
             <li
               key={m.message_id}
@@ -1618,7 +1618,7 @@ export function ChatMessageStream({
                 )
               ) : null}
               <div
-                className={`max-w-[75%] rounded-[18px] px-3 py-2 text-[15px] leading-snug ${corner} ${
+                className={`max-w-[75%] rounded-2xl px-3 py-2 text-[15px] leading-snug ${corner} ${
                   mine
                     ? 'bg-sn-accent text-white'
                     : 'bg-ink/[0.06] text-ink'
@@ -1722,7 +1722,7 @@ export function ChatMessageStream({
       {/* ⚡ Sent, not yet stored — your words at once, faded (prototype frame B). */}
       {pendings.map((p) => (
         <li key={p.tempId} className="flex flex-col items-end" data-chat-pending={p.state}>
-          <div className={`max-w-[75%] rounded-[18px] bg-sn-accent px-3 py-2 text-[15px] leading-snug text-white ${p.state === 'failed' ? 'opacity-50' : 'opacity-60'}`}>
+          <div className={`max-w-[75%] rounded-2xl bg-sn-accent px-3 py-2 text-[15px] leading-snug text-white ${p.state === 'failed' ? 'opacity-50' : 'opacity-60'}`}>
             {p.body ? <p className="whitespace-pre-wrap break-words">{p.body}</p> : null}
             {p.fileName ? <p className="truncate text-[13px] text-white/85">📎 {p.fileName}</p> : null}
           </div>

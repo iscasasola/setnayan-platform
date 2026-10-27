@@ -35,7 +35,7 @@ export const LAB_MESSAGES: ChatMessageRow[] = [
   row(1, 'vendor', 'Hi Ana! Congrats on the wedding 🎉', at(8, 12)),
   row(2, 'vendor', 'Do you want both the prep and the reception covered?', at(8, 13)),
   row(3, 'couple', 'Yes, both please. And a same-day edit?', at(8, 20)),
-  row(4, 'couple', 'Budget around ₱80–90k', at(8, 21)),
+  row(4, 'couple', 'Budget around 80–90k', at(8, 21)),
   row(5, 'vendor', 'Here it is — happy to adjust 🙂', at(10, 5)),
   row(6, 'vendor', 'We can also do an ocular at the venue on Saturday.', at(10, 6)),
   { ...row(7, 'vendor', '', at(9, 0)), attachment_name: 'Moodboard-draft.pdf' } as ChatMessageRow, // a file the 90-day rule took

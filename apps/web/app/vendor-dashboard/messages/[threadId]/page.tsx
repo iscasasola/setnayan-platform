@@ -317,7 +317,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   const eventRead = (async () => {
     return await paxAdmin
       .from('events')
-      .select('display_name, event_date, event_date_precision, event_end_date, event_type, region, setnayan_ai_active, created_at, budget_band, mood_feel_key, ceremony_type')
+      .select('display_name, event_date, event_type, region, setnayan_ai_active, created_at, budget_band, mood_feel_key, ceremony_type')
       .eq('event_id', thread.event_id)
       .maybeSingle();
   })();
@@ -929,6 +929,18 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     return conversationRows;
   })();
 
+  // 🗂 The chat-files rule (C2) counts from the event's LAST day and only from a real day — its precision and end.
+  // Its own read (admin, like `eventRead`: the ownership gate above already passed), so the brief's read stays as it is.
+  const eventDayRead = (async () => {
+    const { data, error } = await createAdminClient()
+      .from('events')
+      .select('event_date_precision, event_end_date')
+      .eq('event_id', thread.event_id)
+      .maybeSingle();
+    if (error) logQueryError('VendorThreadPage.eventDay', error, { event_id: thread.event_id }, 'graceful_degrade');
+    return (data ?? null) as { event_date_precision?: string | null; event_end_date?: string | null } | null;
+  })();
+
   // ✓✓ "Seen" under the supplier's last message (owner 2026-10-28, *"yes show seen"*) — one started read, like the
   // rest; it waits for the batch only to know who has written for the couple (`lib/chat-thread-receipts.server.ts`).
   const receiptsRead = (async () => {
@@ -982,6 +994,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     conversationRows,
     dayAnswer,
     receipts,
+    eventDay,
   ] = await Promise.all([
     composerFeeStandingRead,
     composerPapicStandingRead,
@@ -1007,6 +1020,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     conversationRowsRead,
     dayAnswerRead,
     receiptsRead,
+    eventDayRead,
   ]);
 
   const composerGiftBasis = giftBasisFrom(composerPapicStanding);
@@ -1983,8 +1997,8 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
             theirLastReadAt={receipts.theirLastReadAt}
             fileExpiry={{
               eventDate: event?.event_date ?? null,
-              endDate: (event as { event_end_date?: string | null } | null)?.event_end_date ?? null,
-              precision: (event as { event_date_precision?: string | null } | null)?.event_date_precision ?? null,
+              endDate: eventDay?.event_end_date ?? null,
+              precision: eventDay?.event_date_precision ?? null,
             }}
           />
         </ChatBox>

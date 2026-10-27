@@ -59,7 +59,7 @@ export function ThreadArrival() {
                 <li key={r.id} aria-hidden className="my-2 h-20 self-center rounded-2xl bg-ink/[0.05]" style={{ width: '88%' }} />
               ) : (
                 <li key={r.id} className={`flex ${r.mine ? 'justify-end' : 'justify-start pl-[34px]'}`}>
-                  <span className={`max-w-[75%] whitespace-pre-wrap break-words rounded-[18px] px-3 py-2 text-[15px] leading-snug ${r.mine ? 'bg-sn-accent text-white' : 'bg-ink/[0.06] text-ink'}`}>
+                  <span className={`max-w-[75%] whitespace-pre-wrap break-words rounded-2xl px-3 py-2 text-[15px] leading-snug ${r.mine ? 'bg-sn-accent text-white' : 'bg-ink/[0.06] text-ink'}`}>
                     {r.body || (r.file ? `📎 ${r.file}` : '')}
                   </span>
                 </li>
@@ -67,12 +67,12 @@ export function ThreadArrival() {
             )
           : [60, 45, 70, 40].map((w, i) => (
               <li key={i} aria-hidden className={`flex ${i % 2 ? 'justify-end' : 'justify-start pl-[34px]'}`}>
-                <span className="h-9 rounded-[18px] bg-ink/[0.06]" style={{ width: `${w}%` }} />
+                <span className="h-9 rounded-2xl bg-ink/[0.06]" style={{ width: `${w}%` }} />
               </li>
             ))}
       </ol>
       <div className="flex items-center gap-1 border-t border-ink/10 px-3 pt-2 pb-[max(env(safe-area-inset-bottom),0.75rem)]">
-        <span aria-hidden className="h-[38px] flex-1 rounded-[19px] bg-ink/[0.06]" />
+        <span aria-hidden className="h-[38px] flex-1 rounded-2xl bg-ink/[0.06]" />
       </div>
     </div>
   );

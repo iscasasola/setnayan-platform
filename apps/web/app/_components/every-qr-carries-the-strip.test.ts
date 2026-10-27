@@ -90,7 +90,8 @@ test('every link-QR mounts the strip, exactly as many times as it has QRs', () =
 
 test('the supplier’s codes are drawn by the QR card (kind 24), so each carries the strip', () => {
   const page = read('app/vendor-dashboard/invite/_components/qr-codes.tsx');
-  assert.equal(count(page, '<QrCard'), 2, 'the Shortlist and the issued Booked code are not both QR cards');
+  // Three codes (2026-10-28): Shortlist · the issued Booked code · Check a date (`lib/check-a-date-qr.ts`).
+  assert.equal(count(page, '<QrCard'), 3, 'the Shortlist, the issued Booked code and Check a date are not all QR cards');
   assert.match(page, /from '@\/app\/_components\/qr-card'/);
   for (const gone of ['app/vendor-dashboard/invite/page.tsx', 'app/vendor-dashboard/locked-qr/page.tsx']) {
     assert.equal(count(read(gone), 'dangerouslySetInnerHTML'), 0, `${gone} draws a code outside the QR card`);

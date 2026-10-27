@@ -33,7 +33,7 @@ type Props = {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const read = await readCheckADate(slug).catch(() => null);
-  if (!read || read.kind !== 'ok') return { title: 'Check a date · Setnayan', robots: { index: false, follow: false } };
+  if (!read || read.kind !== 'ok') return { title: 'Check a date', robots: { index: false, follow: false } };
   return { title: `Check a date · ${read.shop.name}`, robots: { index: false, follow: true } };
 }
 

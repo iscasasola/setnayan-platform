@@ -230,7 +230,7 @@ export function CheckADateCalendar({
             {CHECK_DATE_WORDS.available}
           </span>
           <span className="inline-flex items-center gap-1.5">
-            <i aria-hidden className="block h-3.5 w-3.5 rounded-[4px]" style={{ backgroundImage: CALENDAR_HATCH }} />
+            <i aria-hidden className="block h-3.5 w-3.5 rounded" style={{ backgroundImage: CALENDAR_HATCH }} />
             {CHECK_DATE_WORDS.not_bookable}
           </span>
         </p>

@@ -34,6 +34,7 @@ import { depositStepHref } from '@/lib/deposit-pay-step';
 import { paymentDoor, type PaymentDoor } from '@/lib/accepted-quote-terms';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { SaveFileLink } from '@/app/_components/save-file-link';
+import { PrintBudgetLink } from './_components/print-budget-link';
 import { YOUR_TEAM_BUDGET_PART, yourTeamBudgetHref } from '@/lib/pillar-parts';
 import { DeniedState } from '@/app/_components/states/denied-state';
 import { resolveBudgetVisibility } from '@/lib/budget-visibility';
@@ -469,15 +470,13 @@ export default async function BudgetPage({ params, searchParams }: Props) {
                   <Share aria-hidden className="h-4 w-4" strokeWidth={1.75} />
                   Budget (.csv)
                 </SaveFileLink>
-                <a
+                <PrintBudgetLink
                   href={`/api/budget/${eventId}/export`}
-                  target="_blank"
-                  rel="noopener"
                   className="inline-flex items-center gap-2 rounded-md border border-ink/15 bg-white/55 px-4 py-2 text-sm font-medium text-ink backdrop-blur-sm transition hover:border-terracotta/50 hover:text-terracotta-700"
                 >
                   <Printer aria-hidden className="h-4 w-4" strokeWidth={1.75} />
                   Print budget
-                </a>
+                </PrintBudgetLink>
               </>
             ) : null}
           </div>

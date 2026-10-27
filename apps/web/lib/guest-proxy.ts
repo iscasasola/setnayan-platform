@@ -19,9 +19,8 @@
  *                             Every dress-code and call-time reader (the card's attire line, Me › Your role / What to
  *                             wear / Arrive by, the ticket's "Arrive by", the checklist, the reminder) passes THIS, never
  *                             `guest.role`, for a guest who stands in. 🔒 lib/a-proxy-wears-the-role.test.ts
- *   · `asOnePair`           — the Guest List's rows: the pair is ONE row (the holder's name and role, the proxy's reply),
- *                             the proxy has no row of their own. Counted by the same `countsTowardEvent`, so List N,
- *                             Attending, No reply and Not coming all count the pair once.
+ *   · `withStandIns`        — the Guest List's rows: TWO rows, linked (owner "B", 2026-10-27) — the holder's says
+ *                             "Represented by …" and is not counted, the proxy's says "Standing in for …" and is.
  *   · `cameAfterAll`        — the holder replied "attending" AFTER the link: the host is asked, nothing is changed.
  *   · the words             — "Represented by …", "Proxy for …", "Standing in for … · Principal Sponsor".
  *
@@ -160,45 +159,30 @@ export function namedAProxy(holder: { represented_by_guest_id?: string | null; p
 
 /** What a Guest List row carries for a pair — drawn on its line 2 and searched. */
 export type PairOnRow = { proxyId: string; proxyName: string };
+/** On the PROXY's own row: who they stand in for. */
+export type StandingInOnRow = { holderId: string; holderName: string };
 
 /**
- * 🧍 THE GUEST LIST'S ROWS — THE PAIR IS ONE ROW (owner: *"not having 2 guests but 1"*; controller's design: the role
- * holder's name and role on line 1, "Represented by <proxy>" on line 2, the reply pill = the PROXY's reply; the proxy
- * has no row of their own; search for either name finds the pair; a reply filter uses the proxy's reply).
+ * 🧍 THE GUEST LIST'S ROWS — TWO ROWS, LINKED, COUNTED ONCE (owner 2026-10-27, after the one-row version hid the proxy:
+ * *"Cannot find her on the list anymore. Seems like she fused with the original guest"* · *"Why does catherine
+ * sacdalan not have a qr code anymore? How can she reply and answer rsvp"* — then, offered A (one row + her ticket on
+ * the holder's card) or B (her own row again, linked): *"B"*).
  *
- * Returns the rows to draw and count: the holder's row stands for the pair, carrying the proxy's reply and invitation
- * stamp (the proxy is the one who comes and is sent an invite) and NO `represented_by_guest_id` — so the same
- * `countsTowardEvent` that counts every other row counts this one ONCE. `pairs` maps each pair row to its proxy.
- * A link whose proxy is not on the list (a refused read) leaves the holder's row as it is — represented, uncounted —
- * rather than inventing a reply.
+ * Every row is drawn as it is. The ROLE HOLDER's row says "Represented by <proxy> · not counted" and keeps
+ * `represented_by_guest_id`, so `countsTowardEvent` leaves it out; the PROXY's row is an ordinary row — their own reply,
+ * their own ticket, their own Invite — that says "Standing in for <holder>". So the pair still counts ONCE (owner: *"not
+ * having 2 guests but 1"*), and the person who comes can be found, invited and answered for. Searching either name finds
+ * both rows. A link whose proxy is not on the list (a refused read) draws nothing extra — the holder stays uncounted.
  */
-export function asOnePair<
-  T extends Linkable & Pick<GuestRow, 'rsvp_status'> & {
-    invitation_sent_at?: string | null;
-    first_name: string;
-    last_name: string;
-    display_name: string | null;
-  },
->(rows: readonly T[]): { rows: T[]; pairs: Map<string, PairOnRow> } {
+export function withStandIns<
+  T extends Linkable & { first_name: string; last_name: string; display_name: string | null },
+>(rows: readonly T[]): { rows: T[]; pairs: Map<string, PairOnRow>; standingIn: Map<string, StandingInOnRow> } {
   const { proxyOf, holderOf } = proxyPairs(rows);
   const pairs = new Map<string, PairOnRow>();
-  const out: T[] = [];
-  for (const r of rows) {
-    if (holderOf.has(r.guest_id)) continue; // the proxy is drawn on their holder's row
-    const proxy = proxyOf.get(r.guest_id);
-    if (!proxy) {
-      out.push(r);
-      continue;
-    }
-    pairs.set(r.guest_id, { proxyId: proxy.guest_id, proxyName: guestDisplayName(proxy) });
-    out.push({
-      ...r,
-      rsvp_status: proxy.rsvp_status,
-      invitation_sent_at: proxy.invitation_sent_at ?? null,
-      represented_by_guest_id: null,
-    });
-  }
-  return { rows: out, pairs };
+  const standingIn = new Map<string, StandingInOnRow>();
+  for (const [holderId, proxy] of proxyOf) pairs.set(holderId, { proxyId: proxy.guest_id, proxyName: guestDisplayName(proxy) });
+  for (const [proxyId, holder] of holderOf) standingIn.set(proxyId, { holderId: holder.guest_id, holderName: guestDisplayName(holder) });
+  return { rows: [...rows], pairs, standingIn };
 }
 
 /**

@@ -7,13 +7,13 @@
  *   · the proxy dresses and arrives as the ROLE — `effectiveRoleOf` feeds the SAME dress-code and call-time readers the
  *     guest page and the ticket use (`guestOutfitOf`, `guestArriveBy`), so the words agree everywhere;
  *   · THE PAIR COUNTS ONCE ("not having 2 guests but 1"): `countsTowardEvent` leaves the represented holder out, the
- *     proxy in; `asOnePair` draws ONE row carrying the proxy's reply, and `computeGuestStats` over it agrees with the raw list;
+ *     proxy in; `withStandIns` draws BOTH rows, linked (owner "B", 2026-10-27), and `computeGuestStats` over them counts the pair once;
  *   · the host is asked — never acted for — when the holder says they can come after all.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  asOnePair,
+  withStandIns,
   cameAfterAll,
   effectiveRoleOf,
   entourageWithProxies,
@@ -97,17 +97,21 @@ test('THE PAIR COUNTS ONCE — the represented holder is listed, the proxy is co
   assert.equal(guestHasTicket(catherine), true);
 });
 
-test('the Guest List draws the pair as ONE row — the holder’s name, the proxy’s reply — and counts it once', () => {
-  const { rows, pairs } = asOnePair([linked, catherine, ben]);
-  assert.deepEqual(rows.map((r) => r.guest_id), ['g-theresa', 'g-ben'], 'the proxy got a row of their own');
-  const pairRow = rows.find((r) => r.guest_id === 'g-theresa')!;
-  assert.equal(pairRow.rsvp_status, 'attending', 'the pair’s pill is not the proxy’s reply');
-  assert.equal(pairRow.invitation_sent_at, catherine.invitation_sent_at, 'the pair’s invitation is the proxy’s');
-  assert.equal(pairs.get('g-theresa')?.proxyName, 'Maria Catherine Sacdalan');
-  // The drawn rows and the raw list say the SAME numbers (List N, Attending, Not coming).
+test('the Guest List draws BOTH rows, linked — the proxy findable with their own reply — and counts the pair once', () => {
+  // Owner 2026-10-27: "Cannot find her on the list anymore. Seems like she fused with the original guest" → "B".
+  const { rows, pairs, standingIn } = withStandIns([linked, catherine, ben]);
+  assert.deepEqual(rows.map((r) => r.guest_id), ['g-theresa', 'g-catherine', 'g-ben'], 'the proxy lost their own row again');
+  const own = rows.find((r) => r.guest_id === 'g-catherine')!;
+  assert.equal(own.rsvp_status, catherine.rsvp_status, 'the proxy row is not their own reply');
+  assert.equal(guestHasTicket(own), true, 'the proxy row has no ticket — the host cannot invite or check her in');
+  assert.equal(rows.find((r) => r.guest_id === 'g-theresa')!.represented_by_guest_id, 'g-catherine', 'the holder row is counted again');
+  assert.equal(pairs.get('g-theresa')?.proxyName, 'Maria Catherine Sacdalan', 'the holder row does not say who represents them');
+  assert.equal(standingIn.get('g-catherine')?.holderId, 'g-theresa', 'the proxy row does not say whom they stand in for');
+  // Two rows, ONE count — the same numbers as the raw list (owner: "not having 2 guests but 1").
   assert.deepEqual(computeGuestStats(rows), computeGuestStats([linked, catherine, ben]));
-  // A link whose proxy is not on the list (a refused read) leaves the holder as they are — uncounted, never a guessed reply.
-  const half = asOnePair([linked, ben]);
+  assert.equal(computeGuestStats(rows).total, 2);
+  // A link whose proxy is not on the list (a refused read) adds nothing — the holder stays uncounted.
+  const half = withStandIns([linked, ben]);
   assert.equal(half.pairs.size, 0);
   assert.equal(computeGuestStats(half.rows).total, 1);
 });

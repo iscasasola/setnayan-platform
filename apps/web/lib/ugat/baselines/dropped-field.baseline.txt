@@ -4,3 +4,6 @@
 #   pnpm --filter @setnayan/web root-map --baseline
 # Never add a line by hand to make CI pass — fix the finding. A fixed one MUST
 # be dropped by re-running the command above — CI fails while it is still listed.
+app/admin/work/_components/supplier-inbox.tsx posts request_answer to setEventTypeStatus	# first run 2026-10-02 · admin console · a person fills a field and the save throws it away
+app/admin/work/_components/supplier-inbox.tsx posts request_id to createEventTypeRoster	# first run 2026-10-02 · admin console · a person fills a field and the save throws it away
+app/admin/work/_components/supplier-inbox.tsx posts request_id to setEventTypeStatus	# first run 2026-10-02 · admin console · a person fills a field and the save throws it away

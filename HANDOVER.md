@@ -7,11 +7,14 @@ never a "send original"), supplier chat only inside an event, ONE search in the 
 isolation per event (event line on every row), "Seen", staff name on supplier messages (stored per message → built).
 
 ## State
-- Built + committed: thread takeover/head/bubbles/composer/＋ sheets/no calls/one Share a file/optimistic send/Seen/
-  staff names; inbox (ChatInbox + ✎ event-suppliers sheet + thumb-row search); ThreadArrival loading; /dev/chat-lab.
-- Guards: 5 new + 7 moved. Sabotage: 15 runs, all red, restored (two guards tightened after a sabotage stayed green).
-- Pending: full tsc + full unit suite (heavy lock queue), merge origin/main, regenerate `pnpm ugat:screens` and
-  `port:baseline` (deliberate removals: RevealToolButton, ThreadCallLauncher), walk + side-by-side shots, PR.
+- DRAFT PR #7004 (do-not-auto-merge, autoMerge null). C2 (#6997) merged to main and wired (prepare/upload, expiry line,
+  File expired). Lint scripts 32/32 + Ugat screens green; Ugat screens + port baseline regenerated on the merged tree;
+  /dev/chat-lab baselined in no-door (dev-only).
+- Walk (lab 3611, scripts in shots-2026-10-28/chat-c1/scripts — ignored by the repo's `/*` rule, kept local): shots in
+  build/, side-by-side in side/, click-all results in clickall-results.txt. Last click-all: 174 ✅ · 8 ⚠ (need a session)
+  · 2 ❌ (WebKit "Sending…" > 2 s) → fixed by painting the pending bubble outside the form transition; re-walk pending
+  (walk lane queue). Open-time measure pending (dev server hung under load 35; restarted, queued).
+- Pending: full tsc + full unit suite locally (heavy queue) — CI on #7004 runs them too.
 
 ## Decisions taken (not covered by the record)
 - Couple per-event inbox: "Suppliers" chip = every row (all are supplier chats here); Groups/People chips not drawn (C4).

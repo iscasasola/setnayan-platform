@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "c71ce26dfa",
+  "generatedFromRef": "a75b478495",
   "routeCount": 475,
   "destinations": 995,
-  "actions": 651,
-  "blocks": 7167,
+  "actions": 652,
+  "blocks": 7166,
   "routes": {
     "/": {
       "files": [
@@ -2773,7 +2773,6 @@
         "HTMLElement",
         "Head",
         "Hidden",
-        "HubToolKey",
         "HubToolsPane",
         "HubToolsSection",
         "Icon",
@@ -4914,6 +4913,7 @@
         "openApplicationDocument",
         "resolveRepostFlag",
         "setEventTypeStatus",
+        "setFolderEventTypeOffered",
         "settleCorrectionFromWorkList",
         "settleHelpFromWorkList",
         "settleVerificationFromWorkList"

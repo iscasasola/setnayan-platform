@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "0dc1345383",
+  "generatedFromRef": "0f40789795",
   "routeCount": 474,
   "destinations": 994,
-  "actions": 643,
-  "blocks": 7111,
+  "actions": 642,
+  "blocks": 7120,
   "routes": {
     "/": {
       "files": [
@@ -5882,6 +5882,7 @@
         "ChecklistItemView",
         "ChecklistPhaseGroup",
         "ChosenRow",
+        "ClusterHead",
         "CohostWelcome",
         "ColorRow",
         "ColourAccessResult",
@@ -6064,6 +6065,7 @@
         "Remaining",
         "ReplyBy",
         "RequestResult",
+        "RequestsRow",
         "Result",
         "RevealChoice",
         "ReviewAxis",
@@ -6415,8 +6417,7 @@
         "/help"
       ],
       "actions": [
-        "removeHost",
-        "setVendorCapturesHidden"
+        "removeHost"
       ],
       "blocks": [
         "AccessPick",
@@ -6470,7 +6471,6 @@
         "Section",
         "SpecialMessageField",
         "SubmitButton",
-        "SupplierPhotosSwitch",
         "Suspense",
         "SwitchTrack",
         "T"
@@ -6841,6 +6841,7 @@
         "MapArrange",
         "MarchResult",
         "Mark",
+        "MenuSettingsButton",
         "MiniTour",
         "Mode",
         "MoreMenu",
@@ -6888,6 +6889,7 @@
         "Spotlight",
         "StatusLine",
         "SubmitButton",
+        "Suspense",
         "SwitchRow",
         "T",
         "ThumbRow",
@@ -9679,6 +9681,7 @@
         "dashboard/[eventId]/vendors/_components/shortlist-categories.tsx",
         "dashboard/[eventId]/vendors/_components/supplier-sheet.tsx",
         "dashboard/[eventId]/vendors/_components/suppliers-mode.tsx",
+        "dashboard/[eventId]/vendors/_components/suppliers-settings-rows.tsx",
         "dashboard/[eventId]/vendors/_components/team-controls.tsx",
         "dashboard/[eventId]/vendors/_components/trusted-circle-badge.tsx",
         "dashboard/[eventId]/vendors/_components/vendor-quickview-inspector.tsx",
@@ -9771,11 +9774,13 @@
         "ChildRail",
         "Chips",
         "CityPick",
+        "ClusterHead",
         "CompareSheet",
         "CompareVerbs",
         "ConnectSupplierModal",
         "ContactShortlistVendorButton",
         "ContactShortlistVendorResult",
+        "CostsRow",
         "Count",
         "CoverBar",
         "CoverCatalogRead",
@@ -9818,6 +9823,7 @@
         "FitLine",
         "FolderIcon",
         "FolderSection",
+        "FormRow",
         "FormRows",
         "GoToFind",
         "HTMLAnchorElement",
@@ -9863,6 +9869,7 @@
         "ManualVendorResult",
         "ManualVenuePin",
         "MarketplaceVendorSuggestion",
+        "MenuSettingsButton",
         "MerkadoGuardBanner",
         "MonthCompare",
         "MoreToCompare",
@@ -9878,6 +9885,7 @@
         "PendingChange",
         "PendingLockProposals",
         "Peso",
+        "PhotosRow",
         "PickMenu",
         "PillSelector",
         "PillarPartPicker",
@@ -9933,6 +9941,7 @@
         "SuppliersMode",
         "SuppliersModeContext.Provider",
         "SuppliersModeState",
+        "SuppliersSettingsRows",
         "SwitchTrack",
         "TeamClearCandidates",
         "TeamDecisionDoorway",

@@ -17,7 +17,7 @@ export function NewEventHead({
   samahan: { communityId: string; name: string } | null;
 }) {
   return (
-    <div className="mb-2 space-y-2">
+    <div className="mb-2 space-y-2 [[data-create-event-in-panel]_&]:hidden" data-new-event-head="">
       {/*
         🔴 `?hub=1`, NOT A BARE `/dashboard`. The board AUTO-JUMPS a couple who
         holds exactly one upcoming event straight back into that event

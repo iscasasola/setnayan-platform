@@ -36,7 +36,10 @@ export function CreateEventPanel({ children }: { children: ReactNode }) {
   }, [router]);
   return (
     <SidePanel open={open} onClose={close} title="New event" size="wide" phone="sheet">
-      {children}
+      {/* 🔑 Inside this panel the page's own "← Back to events · NEW EVENT" head is not drawn — the panel's "New event"
+          title and ✕ already say where you are and how to leave (owner 2026-10-27: keep the title + ✕, drop Back and the
+          gold label). A cold load of /dashboard/create-event keeps its way back. */}
+      <div data-create-event-in-panel="">{children}</div>
     </SidePanel>
   );
 }

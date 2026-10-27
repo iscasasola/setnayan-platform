@@ -24,7 +24,7 @@
 import Link from 'next/link';
 import { OpenFileLink } from '@/app/_components/open-file-link';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Download, FileText } from 'lucide-react';
+import { FileText, Share } from 'lucide-react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/client';
 import {
@@ -1892,7 +1892,7 @@ function AttachmentBlock({
           </span>
         ) : null}
       </span>
-      <Download className="h-4 w-4 shrink-0 opacity-70" strokeWidth={1.75} />
+      <Share aria-hidden className="h-4 w-4 shrink-0 opacity-70" strokeWidth={1.75} />
     </OpenFileLink>
   );
 }

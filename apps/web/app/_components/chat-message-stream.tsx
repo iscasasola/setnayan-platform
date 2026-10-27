@@ -1053,8 +1053,11 @@ export function ChatMessageStream({
     const onPending = (e: Event) => {
       const p = (e as CustomEvent<PendingSend>).detail;
       if (!p || p.threadId !== threadId) return;
-      setPendings((prev) => [...prev.filter((x) => x.tempId !== p.tempId), p]);
       stickToBottomRef.current = true;
+      // 🔑 OUT OF THE FORM'S TRANSITION. The composer dispatches this from inside its form action, and React holds a
+      // state update made there until the whole action settles — measured: the "at once" bubble took ~1 s (Chromium)
+      // and >2 s (WebKit). A task of its own makes it an ordinary update, painted on the next frame.
+      window.setTimeout(() => setPendings((prev) => [...prev.filter((x) => x.tempId !== p.tempId), p]), 0);
     };
     const onSettled = (e: Event) => {
       const d = (e as CustomEvent<{ tempId: string; threadId: string; ok: boolean; reason?: string }>).detail;

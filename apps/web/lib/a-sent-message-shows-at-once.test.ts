@@ -51,6 +51,8 @@ test('the composer paints BEFORE the server answers, and a failure is said in wo
   assert.match(send, /registerRetry\(pending\.tempId/, 'a failed send cannot be tried again');
   const stream = read('app/_components/chat-message-stream.tsx');
   assert.match(stream, /addEventListener\(CHAT_PENDING_EVENT/, 'the stream does not paint pending bubbles');
+  // Out of the form's transition: React holds an update made inside a form action until the action settles.
+  assert.match(stream, /window\.setTimeout\(\(\) => setPendings\(\(prev\) => \[\.\.\.prev\.filter\(\(x\) => x\.tempId !== p\.tempId\), p\]\), 0\)/, 'the pending bubble waits for the send to finish');
   assert.match(stream, /CONFIRM_WINDOW_MS/, 'an ok with no stored row would stay "Sending…" forever — or worse, vanish');
   assert.match(stream, />\s*Try again\s*</, 'a failed send has no Try again');
   assert.match(stream, /LAST_LINE_WORDS\[line\.kind\]/, 'the last line is not drawn from the one rule');

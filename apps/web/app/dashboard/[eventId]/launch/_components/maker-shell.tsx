@@ -46,7 +46,7 @@ import {
   type MakerState,
   type MakerVenuePictures,
 } from './maker-context';
-import { DETAILS_FIRST_ITEM, DETAILS_LT_SECTION_FIRST, detailsLtSection, isDetailsItemKey, movedPageItem, type DetailsItemKey, type DetailsLtSection } from '@/lib/maker-details-items';
+import { DETAILS_FIRST_ITEM, DETAILS_LT_SECTION_FIRST, detailsItemHref, detailsLtSection, isDetailsItemKey, isPrintsItem, movedPageItem, type DetailsItemKey, type DetailsLtSection } from '@/lib/maker-details-items';
 import { makerCameBackToItself, makerDoorLanding, makerLoadNow, makerResumeKey, noteMakerResume, takeMakerResume } from '@/lib/maker-resume';
 import { makerGuestPages } from '@/lib/maker-guest-pages';
 import { SEE_AS, SEE_AS_EDITING, type SeeAs, type SeeAsRoleRow } from '@/lib/see-as';
@@ -90,6 +90,8 @@ import { LOWER_THIRD_GLOBAL_ICON, MakerLowerThird, type LowerThirdPick, type Low
 import { MAKER_LT_HEIGHT, MAKER_LT_TOOL } from '@/lib/maker-phone-room';
 import { MAKER_PAGE_STAGES, makerStageLabel } from './maker-bar';
 import { RSVP_STAGE_KEY } from '@/lib/rsvp-stage-shared';
+import { useRouter } from 'next/navigation';
+import { PRINTS_PAGE_LABEL } from '@/lib/prints-page-href';
 import { useMakerTool, type MakerEventBar, type MakerProLine, type MakerTool } from './maker-context';
 import type { MakerSide } from './maker-bar';
 import { PickSheetContext, type PickSheet } from '../../website/editor/_components/pick-menu-place';
@@ -99,7 +101,7 @@ import { MAKER_LT_HALF } from '@/lib/maker-phone-room';
 import { detailsItemLayout } from '@/lib/maker-details-items';
 import { studioTileItem, type StudioTileKey } from '@/lib/studio-tile-defs';
 import type { StudioTileModel } from '@/lib/studio-tiles';
-import { BookOpen, ClipboardList, Info, PanelsTopLeft, Printer, RotateCcw, Undo, Users } from 'lucide-react';
+import { BookOpen, ClipboardList, Info, PanelsTopLeft, RotateCcw, Undo, Users } from 'lucide-react';
 import { keyboardIsOpen, readKeyboard, subscribeKeyboard } from '@/lib/keyboard-ride';
 
 /**
@@ -185,8 +187,17 @@ export function MakerShell({
   studio: studioGiven = null,
   seeAsRoles = NO_ROLE_ROWS,
   hiddenStages,
+  printsPage = false,
   children,
 }: {
+  /**
+   * 🖨 THE PRINTS PAGE (R8, owner 2026-10-27 "PRINTS LEAVES STUDIO" — `lib/prints-page.ts`): this shell draws Prints
+   * ALONE, at `/dashboard/<id>/prints` — the shipped Prints workspace whole (the swipe carousel, ⚙ Print settings,
+   * Download ▾, View as ▾, every save), full screen as the Studio tile drew it. The top bar keeps ✕ · ↶ · ✓ and names
+   * the page "Prints" where Stages | Studio stood; there is no Studio home, no lower third and no stage. An item that is
+   * not a print opens the Maker (`detailsItemHref`); in the Maker, a print opens this page.
+   */
+  printsPage?: boolean;
   /** 🎭 See as · Role ▾'s rows — this event's guest-list roles (`lib/preview-role.ts`, built on the server). */
   seeAsRoles?: readonly SeeAsRoleRow[];
   /**
@@ -311,17 +322,29 @@ export function MakerShell({
      `lib/there-is-one-maker.test.ts`). Which side the top nav's Stages | Studio shows, and what Studio has open:
      its home of tiles, Look (in the lower third — it must show the page), or a
      tool drawn full screen under its slim Tool ▾ row. */
-  const [side, setSide] = useState<MakerSide>('stages');
+  const [side, setSide] = useState<MakerSide>(printsPage ? 'studio' : 'stages');
   const [studioAt, setStudioAt] = useState<StudioTileKey | 'home'>('home');
   /* ↕ The lower third's height, dragged (px) — null: its default. */
   const [ltPx, setLtPx] = useState<number | null>(null);
   const studioOn = side === 'studio';
-  const studioHomeOn = studioOn && studioAt === 'home';
+  const studioHomeOn = studioOn && studioAt === 'home' && !printsPage;
   const studioTile = studioOn && studioAt !== 'home' ? (studio?.tiles.find((t) => t.key === studioAt) ?? null) : null;
   /** A Studio tool full screen — every one but Look (owner: "No lower-third toolbar in Studio except Look"). */
-  const studioFull = studioTile !== null && studioTile.key !== 'look';
+  const studioFull = printsPage || (studioTile !== null && studioTile.key !== 'look');
   /** Studio covers the page and the lower third (its home, or a full-screen tool). */
   const studioCovers = studioHomeOn || studioFull;
+  /* 🖨 ONE DOOR EACH WAY (R8, `lib/prints-page.ts`): a print opened in the Maker — an old door, a tour, a tab that
+     came back — is the Prints page's; anything but a print opened on the Prints page is the Maker's. Each lands on
+     its own page AT THE SAME ITEM (`detailsItemHref` names both), so no door leads to a page that no longer holds it. */
+  const router = useRouter();
+  const detailsOpen = selection?.kind === 'tool' && selection.key === 'details';
+  const itemElsewhere = hasWork && detailsOpen && detailsItem !== null && isPrintsItem(detailsItem) !== printsPage ? detailsItem : null;
+  useEffect(() => {
+    if (!itemElsewhere) return;
+    const to = detailsItemHref(eventId, itemElsewhere);
+    if (printsPage) router.push(to);
+    else router.replace(to);
+  }, [itemElsewhere, printsPage, eventId, router]);
   /* 🎓 About the Maker (Page ▾) replays the short tour — never on a first open. */
   const [tour, setTour] = useState(false);
   /* 🔦 …and where the Maker's spotlight is mounted (the page's own tour, `lib/host-page-tours.ts`), About the Maker
@@ -356,7 +379,8 @@ export function MakerShell({
     listener below lands every save on the address the couple is already on
     (`lib/maker-stay.ts`). The memory stays for a real reload and a fresh visit.
   */
-  const memoryKey = `sn-maker:${eventId}`;
+  /* 🖨 The Prints page keeps its own memory — it never puts the Maker back on a stage, nor the Maker on a print. */
+  const memoryKey = printsPage ? `sn-maker-prints:${eventId}` : `sn-maker:${eventId}`;
   const restored = useRef(false);
   /** 🔁 Where the Maker was before this page reloaded itself (`lib/maker-resume.ts`) — read once, by the rule below. */
   const cameBack = useRef<{ side: MakerSide; at: string; until: number } | null>(null);
@@ -418,7 +442,8 @@ export function MakerShell({
     const back = takeMakerResume(window.sessionStorage, makerResumeKey(memoryKey), makerCameBackToItself(makerLoadNow()));
     if (back) {
       cameBack.current = { ...back, until: Date.now() + 3000 };
-      if (isDetailsItemKey(back.item)) setDetailsItem(back.item);
+      /* 🖨 …but never across the Prints page's line: a print is put back only there, anything else only in the Maker. */
+      if (isDetailsItemKey(back.item) && isPrintsItem(back.item) === printsPage) setDetailsItem(back.item);
       // Studio's home has no tool selected, so the rule below never runs for it: put its side back here.
       if (back.side === 'studio' && back.at === 'home') setSide('studio');
     }
@@ -703,7 +728,6 @@ export function MakerShell({
       if (act === 'addScene') {
         if (stageAdd?.kind === 'ready') stageAdd.open();
       } else if (act === 'reset') window.dispatchEvent(new Event(MAKER_OPEN_RESET_EVENT));
-      else if (act === 'prints') pressDoor('prints');
       else if (act === 'restore') {
         if (draft?.canRestore) draft.restore();
       } else if (act === 'about') aboutTheMaker();
@@ -733,7 +757,7 @@ export function MakerShell({
           { key: 'theme', label: 'Look', icon: LOWER_THIRD_GLOBAL_ICON.theme },
           { key: 'story', label: 'Story & plans', icon: <BookOpen aria-hidden className="h-5 w-5" strokeWidth={1.75} /> },
           { key: 'details', label: 'Your event', icon: <ClipboardList aria-hidden className="h-5 w-5" strokeWidth={1.75} /> },
-          { key: 'prints', label: MAKER_PRINTS_LABEL, icon: <Printer aria-hidden className="h-5 w-5" strokeWidth={1.75} /> },
+          /* 🖨 No Prints here (R8): Prints is its own page, opened from Home's Prints line. */
         ]
       : []),
     { key: 'settings', label: 'Settings', icon: LOWER_THIRD_GLOBAL_ICON.settings },
@@ -855,9 +879,6 @@ export function MakerShell({
             ? [{ key: 'event-bar', label: 'Event Bar', icon: <PanelsTopLeft aria-hidden className="h-5 w-5" strokeWidth={1.75} />, toggle: true, on: eventBar.on, onPick: eventBar.toggle }]
             : []),
           { key: 'who', label: 'Who can view', icon: <Users aria-hidden className="h-5 w-5" strokeWidth={1.75} />, on: moreOpen, onPick: () => setMoreOpen(true) },
-          ...(hasWork
-            ? [{ key: 'prints', label: MAKER_PRINTS_LABEL, icon: <Printer aria-hidden className="h-5 w-5" strokeWidth={1.75} />, on: openDoor === 'prints', onPick: () => openSection('prints') }]
-            : []),
           ...(draft
             ? [{
                 key: 'restore',
@@ -1054,9 +1075,16 @@ export function MakerShell({
               half you are on reads the stage or the Studio page, the other the plain word; both are dropdowns (a tap
               opens that side's list, a pick goes there), always the same width. It fills its place edge to edge —
               the room the names are measured in (`StudioSideSwitch`). A desktop shows it too (`maker-desk.tsx`). */}
+          {printsPage ? (
+            /* 🖨 The Prints page names itself where Stages | Studio stands — it has no stage and no Studio to switch to. */
+            <h1 data-maker-tool="side" data-bar-item="Prints" data-bar-fill="" data-prints-page-title="" className={`flex min-w-0 flex-1 items-center justify-center truncate text-[16px] font-semibold text-ink ${MAKER_BAR_PHONE.side}`}>
+              {PRINTS_PAGE_LABEL}
+            </h1>
+          ) : (
           <div data-maker-tool="side" data-bar-item="Stages or Studio" data-bar-fill="" className={`flex min-w-0 flex-1 ${MAKER_BAR_PHONE.side}`}>
             <StudioSideSwitch side={side} onPick={pickSide} stage={ltPick} options={page.options} onStage={pickPage} page={studioTile} tiles={studio?.tiles} onOpen={openStudio} />
           </div>
+          )}
 
           {/* The desktop's gap between the side switch and the draft (a phone has no room for one). */}
           <i aria-hidden className="hidden flex-1 lg:block" />
@@ -1155,7 +1183,7 @@ export function MakerShell({
         {/* 🧭 Studio's home and a full-screen Studio tool draw no lower third — the tool's editor
             rests at half the screen instead (room kept for it below), the Logo studio carries its own. */}
         {studioCovers ? (
-          studioFull && studioTile && detailsItemLayout(studioTile.item) !== 'whole' ? (
+          studioFull && (printsPage || (studioTile && detailsItemLayout(studioTile.item) !== 'whole')) ? (
             <div aria-hidden data-maker-studio-room="" className="h-[calc(var(--maker-lt-h)+env(safe-area-inset-bottom))] shrink-0 lg:hidden" />
           ) : null
         ) : (

@@ -18,6 +18,7 @@ import { MakerLabShell } from './maker-lab-shell';
 import { LAB_EDITORIAL_COOKIE, labEditorialDraft, labPostEventRead } from './lab-post-event';
 import { labScrubCanvases, labWidgetsCookie } from './lab-scrub';
 import { STUDIO_TILE_KEYS, STUDIO_TILES } from '@/lib/studio-tiles';
+import { printsPageItem } from '@/lib/prints-page';
 import { LAB_BAR_COOKIE, LAB_OWN_COOKIE, LAB_PASS_COOKIE, LAB_ROWS_COOKIE, labBarFromCookie, labDraftedRows, labOwnKind } from './lab-draft';
 import { labNavigatorInput } from './lab-navigator';
 import { REVEAL_NONE, revealAllowedFor } from '@/lib/reveal-access';
@@ -60,7 +61,6 @@ const LAB_STUDIO_DONE: Record<(typeof STUDIO_TILE_KEYS)[number], boolean | undef
   seats: false,
   gifts: undefined,
   rsvp: true,
-  prints: true,
 };
 /** The Studio pages the lab cannot draw — their tiles are not offered (see `tiles` below). */
 const LAB_STUDIO_NOT_DRAWN: ReadonlyArray<(typeof STUDIO_TILE_KEYS)[number]> = ['seats'];
@@ -193,7 +193,17 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
       /* 🧭 `studio: '1'` ALWAYS (2026-10-26): there is one Maker, and the real launch page always hands Details its Studio
          (`studioDetails`) — without it this lab drew Details' retired one-piece Prints view ("INVITATION SET · The Invitation" +
          its editor sheet), a door no couple has, instead of Studio › Prints. */
-      details={detailsLabNode({ ...sp, studio: '1', shape: 'mj', look: '1', labPass: (await cookies()).get(LAB_PASS_COOKIE)?.value })}
+      details={detailsLabNode({
+        ...sp,
+        /* 🖨 `?prints=1` — THE PRINTS PAGE (R8): the same Maker drawing Prints alone, as `/dashboard/<id>/prints` does —
+           Details on the print the address names, else "On every print" (`printsPageItem`). */
+        ...(sp.prints === '1' ? { tool: 'details', item: printsPageItem({ item: typeof sp.item === 'string' ? sp.item : undefined }) } : {}),
+        studio: '1',
+        shape: 'mj',
+        look: '1',
+        labPass: (await cookies()).get(LAB_PASS_COOKIE)?.value,
+      })}
+      printsPage={sp.prints === '1'}
       /* ✍ `&facts=1` — the fact editors the launch page hands the real Maker (`factEditors`): a tap that opens one in the
          work area is seen as it is on a couple's Maker (the Love Story's moments, 2026-10-19). Off by default. */
       factEditors={sp.facts === '1' ? detailsLabFacts(sp, { specialMessage: LAB_SAMPLE.message, pabuyaMessage: 'Thank you for joining us — every gift is received with thanks.' }) : undefined}
@@ -219,7 +229,7 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
               ? sanitizeHubMainGround({ kind: 'photo', media: '/std/backgrounds/golden-hour.webp', tint: { match: false, frame: ['#f0d5b4', '#291d10'] }, shade: 'dark' })
               : null
       }
-      openDetails={sp.tool === 'details' || typeof sp.guide === 'string'}
+      openDetails={sp.tool === 'details' || typeof sp.guide === 'string' || sp.prints === '1'}
       canvases={canvases}
       ownWords={ownWords}
       typeHere={typeHere}

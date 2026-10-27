@@ -94,11 +94,4 @@ export const STUDIO_PAGE_CARDS: Readonly<Record<StudioTileKey, StudioPageCard>> 
     seenAt: 'On your Event Hub’s reply form, and in the reminder emails.',
     first: 'Set the reply-by date; the questions have good defaults.',
   },
-  prints: {
-    description: 'The invitation set and the printed pieces for the day.',
-    /* The pieces that SHIP (`lib/print-pieces.ts`) — the designer's line named an RSVP card and programmes, which do not. */
-    controls: 'The invitation, the entourage, the details card, the menu, passes, posters, and table signs and place cards — each as a file to print.',
-    seenAt: 'In the hands of your guests and on the tables.',
-    first: 'Download the invitation once Info and Look are done; it carries both.',
-  },
 };

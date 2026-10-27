@@ -9,7 +9,10 @@
  * *"yes add prints as the eleventh tile"*. In the order an event gets made:
  *
  *   Info · Look · Logo · Mood Board & Dress Code · Schedule · Love Story ·
- *   Wedding March · Seat plan · E-Gifts · RSVP · Prints
+ *   Wedding March · Seat plan · E-Gifts · RSVP
+ *
+ * 🖨 PRINTS LEFT (R8, owner 2026-10-27 "PRINTS LEAVES STUDIO"): its own page and a Prints line on Home
+ * (`lib/prints-page.ts`). It was always ✓ (nothing to fill), so "n of N ready" loses one ready and one total.
  *
  * 🔑 NEVER A SECOND TRUTH. A tile is chrome over an editor the Maker already
  * has (each opens its shipped Event Details item, `item`), and its ✓ / Missing
@@ -20,7 +23,7 @@
  * (`hubSetupDone('ask')` — a reply-by date), and the counts the page already
  * read (the seat plan's tables and seated, the E-Gifts manager's own methods).
  * A fact that could not be read makes NO claim (`done: undefined`) — never a
- * "Missing" nobody measured. Prints is always ✓ (nothing to fill).
+ * "Missing" nobody measured.
  *
  * Pure: no I/O, no React. The launch page builds the models on the server
  * (only while the new Maker is on) and hands them to `MakerShell`; the shell
@@ -55,7 +58,6 @@ export const STUDIO_TILE_PARTS: Readonly<Record<StudioTileKey, readonly HubPartI
   seats: [],
   gifts: [],
   rsvp: [],
-  prints: ['prints'],
 };
 
 /** The card's quiet Pro line — every figure a catalogue read; null where the page holds no part (or no price was read). */
@@ -101,7 +103,6 @@ export const STUDIO_TILES: Readonly<Record<StudioTileKey, StudioTileDef>> = {
   seats: { label: 'Seat plan', short: 'Seat plan', item: STUDIO_TILE_ITEM.seats, reads: ['seating'], immersive: true, sub: 'Tables and who sits where' },
   gifts: { label: 'E-Gifts', short: 'E-Gifts', item: STUDIO_TILE_ITEM.gifts, reads: [], sub: 'GCash · Maya · bank · PayPal' },
   rsvp: { label: 'RSVP', short: 'RSVP', item: STUDIO_TILE_ITEM.rsvp, reads: [], sub: 'Reply by · what the form asks' },
-  prints: { label: 'Prints', short: 'Prints', item: STUDIO_TILE_ITEM.prints, reads: [], sub: 'Invitation set · for the day' },
 };
 
 /** One tile, as the Studio home draws it and the Tool ▾ lists it. */
@@ -150,8 +151,6 @@ function tileDone(key: StudioTileKey, input: StudioTilesInput): boolean | undefi
       return input.giftMethods === null ? undefined : input.giftMethods > 0;
     case 'rsvp':
       return input.setup ? (hubSetupDone('ask', input.setup) ?? undefined) : undefined;
-    case 'prints':
-      return true;
     default:
       return readsDone(STUDIO_TILES[key].reads, input.facts);
   }

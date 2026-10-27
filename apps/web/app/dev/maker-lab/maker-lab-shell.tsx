@@ -198,7 +198,10 @@ export function MakerLabShell({
   ownsPro = false,
   storeShellLab = false,
   tourHint = false,
+  printsPage = false,
 }: {
+  /** 🖨 `?prints=1` — the Prints page (R8): the shell draws Prints alone, as `/dashboard/<id>/prints` does. */
+  printsPage?: boolean;
   /** 💎 `?pro=1` — the ✓ bar of an event that owns Event Hub Pro (no Pro list at Apply). */
   ownsPro?: boolean;
   /** 🍎 `?shell=1` — the app-store shell, as the real editor page builds Look for it (`lib/main-background-offered.ts`). */
@@ -458,6 +461,7 @@ export function MakerLabShell({
       /* 🎭 See as · Role ▾ — the wedding's guest-list roles, as the launch page builds them. */
       seeAsRoles={LAB_ROLE_ROWS}
       hiddenStages={hiddenStages}
+      printsPage={printsPage}
     >
       <MakerWork
         eventId={eventId}

@@ -24,6 +24,7 @@ import type { EventTypeProfile } from '@/lib/event-type-profile';
 import { resolveRoleSet } from '@/lib/role-sets';
 import { hasTwoNamedPeople } from '@/lib/two-named-people';
 import { yourEventItems, type YourEventKind } from '@/lib/details-your-event';
+import { printsPageHref } from '@/lib/prints-page-href';
 
 export type HubItemKey = 'address' | 'qr';
 /**
@@ -440,8 +441,12 @@ export const DETAILS_LT_SECTION_FIRST: Readonly<Record<DetailsLtSection, Details
   prints: DETAILS_FIRST_PRINT,
 };
 
-/** The address of one item — every link into Details names its item this way. */
+/**
+ * The address of one item — every link into Details names its item this way. 🖨 A PRINT is no item of the Maker any
+ * more (R8, 2026-10-27 "PRINTS LEAVES STUDIO"): its address is the Prints page's, at the same piece, with the same query.
+ */
 export function detailsItemHref(eventId: string, item: DetailsItemKey, extra = ''): string {
+  if (isPrintsItem(item)) return printsPageHref(eventId, item, extra);
   return `/dashboard/${eventId}/launch?tool=details&item=${item}${extra}`;
 }
 

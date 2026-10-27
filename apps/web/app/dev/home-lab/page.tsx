@@ -463,6 +463,8 @@ export default async function HomeLab({
         papicLeft={papicNow.count}
         papicSizes={LAB_SIZES}
         hubPick={unread ? { ok: false, reason: 'unread' } : LAB_HUB_PICK}
+        /* 🖨 The Prints line (R8) — the couple's, where the event needs its Event Hub details; `&prints=0` drops it. */
+        prints={q.prints !== '0' && (labNeeds ? labNeeds.hubDetails : true)}
         papicCard={q.card === '1' ? labPapicCard(E, q.cardphase, q.fail === '1' || q.unread === '1', q.challenges === '1') : null}
         apple={
           q.store === '1' && q.apple === '1'

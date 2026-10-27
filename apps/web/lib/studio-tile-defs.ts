@@ -4,9 +4,10 @@
  * their status derivation (`lib/studio-tiles.ts` → the guided flow, the setup steps) into its first load
  * (`scripts/check-maker-js-budget.mjs`). `lib/studio-tiles.ts` re-exports all of it — one truth.
  */
-import { EVERY_PRINT_ITEM, LOOK_SECTION_ITEM_KEYS, type DetailsItemKey } from '@/lib/maker-details-items';
+import { LOOK_SECTION_ITEM_KEYS, type DetailsItemKey } from '@/lib/maker-details-items';
 
-export const STUDIO_TILE_KEYS = ['info', 'look', 'logo', 'mood', 'schedule', 'story', 'march', 'seats', 'gifts', 'rsvp', 'prints'] as const;
+export const STUDIO_TILE_KEYS = ['info', 'look', 'logo', 'mood', 'schedule', 'story', 'march', 'seats', 'gifts', 'rsvp'] as const;
+/* 🖨 Prints is no Studio tile (R8, owner 2026-10-27 "PRINTS LEAVES STUDIO"): its own page, `lib/prints-page.ts`. */
 export type StudioTileKey = (typeof STUDIO_TILE_KEYS)[number];
 
 /**
@@ -26,8 +27,6 @@ export const STUDIO_TILE_ITEM: Readonly<Record<StudioTileKey, DetailsItemKey>> =
   seats: 'seating',
   gifts: 'gifts',
   rsvp: 'rsvp',
-  /* 🖨 Prints opens at the head of its form — "On every print", then the Invitation (owner 2026-10-16). */
-  prints: EVERY_PRINT_ITEM,
 };
 
 /**

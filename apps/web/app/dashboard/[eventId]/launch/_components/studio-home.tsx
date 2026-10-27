@@ -1,7 +1,7 @@
 'use client';
 
 import type { ComponentType } from 'react';
-import { Armchair, BookOpen, Clock, FileText, Gift, LayoutGrid, MailCheck, Palette, PersonStanding, Printer } from 'lucide-react';
+import { Armchair, BookOpen, Clock, FileText, Gift, LayoutGrid, MailCheck, Palette, PersonStanding } from 'lucide-react';
 import { PageCard } from '@/app/_components/page-card';
 import type { StudioTileKey, StudioTileModel } from '@/lib/studio-tiles';
 import { formatCount } from '@/lib/format-number';
@@ -55,7 +55,6 @@ export const TILE_ICON: Record<StudioTileKey, TileIcon> = {
   seats: Armchair,
   gifts: Gift,
   rsvp: MailCheck,
-  prints: Printer,
 };
 
 export function StudioHome({ tiles, onOpen }: { tiles: readonly StudioTileModel[]; onOpen: (key: StudioTileKey) => void }) {

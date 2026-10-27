@@ -6,6 +6,7 @@ import { HomeLiveCard } from './home-cards/home-live-card';
 import { HomeMusicCard } from './home-cards/home-music-card';
 import { HomeBoothCard } from './home-cards/home-booth-card';
 import { HomePlannerCard } from './home-cards/home-planner-card';
+import { HomePrintsLine } from './home-prints-line';
 import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
 import type { PapicCardPhase } from '@/lib/papic-home-card';
 
@@ -135,6 +136,12 @@ export type HomeFirstScreenProps = {
    */
   /** 🎛 The Event Hub tile's "Pick what shows" read, ONLY when a dev lab already holds it — Home reads it on the tap. */
   hubPick?: HomeHubPickRead | null;
+  /**
+   * 🖨 THE PRINTS LINE (R8, owner 2026-10-27 "PRINTS LEAVES STUDIO"): drawn where the viewer has Prints to make — the
+   * couple, with an Event Hub, on an event that needs its details (as the Studio tile was offered). Home holds the door
+   * (`HomePrintsLine`); the tool is the Prints page. Absent / false = no line.
+   */
+  prints?: boolean;
   apple?: {
     papic: { status: string; buy: boolean; open?: string | null } | null;
     liveWatch: { status: string; owned: boolean; askReady: boolean; goLive?: string | null } | null;
@@ -157,6 +164,7 @@ export function HomeFirstScreen({
   needs = null,
   apple = null,
   hubPick = null,
+  prints = false,
 }: HomeFirstScreenProps) {
   const noList = needs?.guestList === false;
   const today = homeToday(next, control.guests);
@@ -191,6 +199,9 @@ export function HomeFirstScreen({
               on the next row after the budget widget"; it sat under Today since 2026-10-26). Budget is the control row's
               last tile, so the card follows the row. Your services below no longer draws it. */}
           {papicCard ? <PapicTodayCard card={papicCard} /> : null}
+
+          {/* 🖨 PRINTS — one line that opens its own page (owner 2026-10-27: "Home gets a Prints line that opens it"). */}
+          {prints ? <HomePrintsLine eventId={eventId} /> : null}
 
           {/* YOUR SERVICES — each grows in place with its quick controls; the Event Hub rose into the control row. */}
           <YourServices

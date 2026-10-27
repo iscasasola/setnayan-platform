@@ -25,6 +25,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { stripComments } from '@/lib/strip-comments';
+import { DETAILS_ROWS_MOVED_TO_GUESTS, DETAILS_ROWS_MOVED_TO_SUPPLIERS } from '@/lib/event-settings-record';
 import {
   COULD_NOT_LOAD,
   EVENT_DETAILS_MAP,
@@ -63,8 +64,15 @@ test('every MAP row with an Event Details column renders, in its own section (co
   assert.ok(!EVENT_DETAILS_MAP.some((r) => r.fact === 'theme'), 'a Theme fact came back to Event Details');
   const missing: string[] = [];
   let checked = 0;
+  // ⚙ A fact that MOVED to its menu's ⚙ (settings per menu, owner 2026-10-27 — `DETAILS_ROWS_MOVED_TO_GUESTS`) is shown
+  // THERE, once (`one-home-per-setting.test.ts`), and must be GONE from Event Details — never in two places.
+  const moved = new Set<string>([...Object.keys(DETAILS_ROWS_MOVED_TO_GUESTS), ...Object.keys(DETAILS_ROWS_MOVED_TO_SUPPLIERS)]);
   for (const row of EVENT_DETAILS_MAP) {
     checked += 1;
+    if (moved.has(row.fact)) {
+      assert.ok(!PAGE.includes(`fact="${row.fact}"`), `"${row.fact}" moved to its menu's ⚙ but Event Details still draws it`);
+      continue;
+    }
     if (!sectionBody(row.section).includes(`fact="${row.fact}"`)) {
       missing.push(`${row.asked} "${row.question}" → ${row.section} (fact="${row.fact}")`);
     }

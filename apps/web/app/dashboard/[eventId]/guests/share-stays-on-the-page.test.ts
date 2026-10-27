@@ -15,14 +15,14 @@ import { stripComments } from '@/lib/strip-comments';
 const G = join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests');
 const read = (...p: string[]) => stripComments(readFileSync(join(G, ...p), 'utf8'));
 
-test('the guest list renders the invite panel in its own body for the share tab', () => {
+test('the guest list renders the invite panel as Guests ⚙’s sheet', () => {
   const page = read('page.tsx');
   // ⤷ Maker PR 4f: the third segment is SETUP; until PR 4d builds its rows the
   // shipped panel is its body, handed to GuestsScreen's `setup` slot.
-  assert.match(page, /setup=\{gview === 'share' \? <InvitePanel\b/, 'the Setup tab no longer renders the panel in the body');
-  // (`returnTo` left with the look picker on 2026-09-28 — the panel saves nothing
-  // that redirects now; the theme is chosen in the Maker's Details.)
-  assert.match(page, /<InvitePanel eventId=\{eventId\} \/>/, 'the share tab passes the panel something it no longer takes');
+  // ⚙ 2026-10-27 (settings per menu): the panel is Guests ⚙'s sheet, drawn with the page for the couple (not only on
+  // `?gview=share`), handed the page's own guest read — so the ⚙ opens it in place.
+  assert.match(page, /setup=\{\s*viewer\.isCouple \? \(\s*<Suspense\b[\s\S]{0,300}?<InvitePanel\b/, 'Guests ⚙ no longer renders the panel');
+  assert.match(page, /<InvitePanel eventId=\{eventId\} guestsRead=\{guestsRead\} requests=\{pendingClaimsCount\} \/>/, 'the panel is not handed the page’s own guest read');
 });
 
 test('the invite page renders the moved share panel — no second copy of the invite to drift', () => {

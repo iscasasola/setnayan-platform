@@ -14,7 +14,10 @@
  *     (`MENU_SETTINGS_TIP`): this menu's settings only, the event's own facts are under Home's ⚙.
  *   · HOME HAS NO MENU ⚙ — Home's settings ARE Event Settings, behind the header ⚙ on the cover. Two gears never
  *     share a screen.
- *   · SUPPLIERS — no ⚙ until a supplier-owned setting exists (owner call 3): its entry is `reserved`.
+ *   · SUPPLIERS — was `reserved` (owner call 3: no ⚙ until it owns a setting). REVERSED 2026-10-27 (DECISION_LOG
+ *     "SUPPLIERS GETS ITS ⚙ — THE SUPPLIER SETTINGS MOVE THERE"; owner *"what are the settings for suppliers?"* ·
+ *     *"and move them to suppliers"*): How you see costs, Supplier payments, Budget and the booked suppliers' photos
+ *     moved here from Event Details. Its ⚙ ends the Find · Build · Booked row, which is also its pinned row.
  *
  * This map is the port-control list of DOORS (`SETTINGS_ENTRY`); the rows behind each door are listed by
  * `SETTINGS_ROWS` as each menu's sheet is built (PLAN § 2 · § 7). `live` flips to true in the PR that mounts the
@@ -46,7 +49,7 @@ export const SETTINGS_ENTRY: Record<SettingsMenu, SettingsEntry> = {
     door: 'first-row-gear',
     sheet: 'Guests settings',
     line: 'How guests get in, what you ask, when the list closes.',
-    live: false,
+    live: true,
   },
   hub: {
     door: 'first-row-gear',
@@ -67,10 +70,10 @@ export const SETTINGS_ENTRY: Record<SettingsMenu, SettingsEntry> = {
     live: true,
   },
   suppliers: {
-    door: 'reserved',
+    door: 'first-row-gear',
     sheet: 'Suppliers settings',
-    line: 'Nothing of its own yet.',
-    live: false,
+    line: 'How you see costs, what you owe, their photos.',
+    live: true,
   },
 };
 

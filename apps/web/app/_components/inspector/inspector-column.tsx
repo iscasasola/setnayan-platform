@@ -129,6 +129,18 @@ export function useInspectorContext() {
   return useContext(InspectorContext);
 }
 
+/**
+ * ⚡ ONLY THE WAY IN — a value that never changes while the layout lives (guest card opens fast, 2026-10-28). A list
+ * that opens items (the Guest list: every row) needs `select`, not which item is open; reading the whole context made
+ * it redraw EVERY row on each open and close — measured in /dev/guests-lab at 4× CPU, the 182-row list held the card's
+ * first paint back by over a second. Read this instead; the panel and its parts keep `useInspectorContext`.
+ */
+export type InspectorSelect = Pick<InspectorContextValue, 'select' | 'sheet'>;
+const InspectorSelectContext = createContext<InspectorSelect | null>(null);
+export function useInspectorSelect() {
+  return useContext(InspectorSelectContext);
+}
+
 // ── Viewport gate (≥xl is where the inspector lives) ────────────────────────
 
 const XL_QUERY = '(min-width: 1280px)';
@@ -309,23 +321,35 @@ export function InspectorLayout({
     [paramKey, selectedId, open, select, close, consumePanelFocus, mobileSheet],
   );
 
+  // The way in, stable: it always calls the latest `select`, and its identity never changes (`useInspectorSelect`).
+  const selectNow = useRef(select);
+  useEffect(() => {
+    selectNow.current = select;
+  }, [select]);
+  const way = useMemo<InspectorSelect>(
+    () => ({ select: (id, trigger, h) => selectNow.current(id, trigger, h), sheet: mobileSheet }),
+    [mobileSheet],
+  );
+
   return (
-    <InspectorContext.Provider value={ctx}>
-      <div
-        className={`sn-inspector-shell${className ? ` ${className}` : ''}`}
-        data-open={open ? 'true' : 'false'}
-      >
-        <div className="sn-inspector-master">{master}</div>
-        {/* Persistent rail so the width transition can play on both open AND
-            close (the body inside comes/goes with the server render). */}
-        <div className="sn-inspector-rail" aria-hidden={open ? undefined : true}>
-          {isXl ? shown : serverBody}
+    <InspectorSelectContext.Provider value={way}>
+      <InspectorContext.Provider value={ctx}>
+        <div
+          className={`sn-inspector-shell${className ? ` ${className}` : ''}`}
+          data-open={open ? 'true' : 'false'}
+        >
+          <div className="sn-inspector-master">{master}</div>
+          {/* Persistent rail so the width transition can play on both open AND
+              close (the body inside comes/goes with the server render). */}
+          <div className="sn-inspector-rail" aria-hidden={open ? undefined : true}>
+            {isXl ? shown : serverBody}
+          </div>
         </div>
-      </div>
-      {sheetOpen ? (
-        <InspectorSheet onClose={close}>{shown}</InspectorSheet>
-      ) : null}
-    </InspectorContext.Provider>
+        {sheetOpen ? (
+          <InspectorSheet onClose={close}>{shown}</InspectorSheet>
+        ) : null}
+      </InspectorContext.Provider>
+    </InspectorSelectContext.Provider>
   );
 }
 

@@ -80,7 +80,7 @@ import { Count } from '@/components/count';
 import { SnapCarousel, type CarouselCard } from '@/components/snap-carousel';
 import { formatCount } from '@/lib/format-number';
 import { PickMenu, type PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
-import { InspectorColumn, useInspectorContext } from '@/app/_components/inspector/inspector-column';
+import { InspectorColumn, useInspectorSelect } from '@/app/_components/inspector/inspector-column';
 import { GuestCardAvatar, guestCardEyebrow, guestCardReply, guestCardTitle } from './guest-card-head';
 import type { GuestCardData } from './guest-card-data';
 import { PILL_TRACK_CLASS, PILL_TRACK_GROUND, PillThumb, pillSegClass } from '@/app/_components/pill-selector';
@@ -386,7 +386,8 @@ export function GuestsScreen(props: GuestsScreenProps) {
   const guests = live.guests as unknown as GuestRow[];
   const router = useRouter();
   const [toast, toastNode] = usePeekToast();
-  const inspector = useInspectorContext();
+  /* ⚡ Only the way in (`useInspectorSelect`) — never which card is open, so opening one does not redraw every row. */
+  const inspector = useInspectorSelect();
   const roleNames = useRoleNames();
   // 📋 The fresh, measured List keeps itself on the phone for the next open (`guest-list-copy.ts`).
   useKeepGuestList(

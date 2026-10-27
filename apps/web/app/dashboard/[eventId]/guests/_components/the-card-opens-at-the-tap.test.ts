@@ -13,7 +13,9 @@
  *
  * Held here — properties, each executed or read off the code that decides it:
  *
- *   1 · the row's tap hands the inspector a BODY IT READS ITSELF (`InspectorHeld`): `load` is the one card-only reader
+ *   1 · the list reads only the inspector's stable way in (`useInspectorSelect`) — reading the whole context redrew all
+ *       182 rows on every open, which alone held the head back by over a second at 4× CPU — and
+ *       the row's tap hands the inspector a BODY IT READS ITSELF (`InspectorHeld`): `load` is the one card-only reader
  *       (`openGuestCard` from the Guest list's actions), and `head` draws the person from the row already on screen —
  *       never a bare `select(id)`, which is the full-page navigation.
  *   2 · the head is the card's OWN head: face · eyebrow · name · reply from `guest-card-head.tsx`, the module the card
@@ -31,7 +33,8 @@
  * NOT CLAIMED: the milliseconds — those are the lab walk's (`/dev/guests-lab?part=screen&open=1&many=150`, Playwright,
  * 390 × 844, Chromium CPU 4× + WebKit), in the PR. A source can say what is asked and when; only a browser can time it.
  *
- * SABOTAGE (seen RED, then restored): the row's tap back to `inspector.select(id, el)` → (1).
+ * SABOTAGE (seen RED, then restored): the row's tap back to `inspector.select(id, el)` → (1); the sign-in check back on
+ * the card's own client (`supabase.auth.getUser()`) → (6) and `the-guests-page-asks-once` 1b (3 trips deep).
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -65,6 +68,10 @@ test('1 · a tap on a row hands the inspector the card read alone, and the perso
   assert.match(select[1]!, /load: \(\) => openGuestCard\(eventId, id\)/, 'the held body must be read by the ONE card-only reader');
   assert.match(select[1]!, /head: \(body\) =>[\s\S]*<InspectorColumn[\s\S]*\{body\}[\s\S]*<\/InspectorColumn>/, 'the head must wrap whatever the body says meanwhile');
   assert.match(SCREEN, /const \{ openGuestCard \} = useGuestActions\(\);/, 'the reader must come from the Guest list’s actions (the lab hands in a stand-in)');
+  // The list takes only the way in — the whole context changes on every open, and the list would redraw every row
+  // before the head could paint (measured: over a second at 4× CPU on 182 rows).
+  assert.match(SCREEN, /const inspector = useInspectorSelect\(\);/, 'the list must read only the stable way in (`useInspectorSelect`)');
+  assert.doesNotMatch(SCREEN, /useInspectorContext\(/, 'the list reads the whole inspector context — every open and close redraws every row');
   // The only bare select left is for an id the list does not hold (nothing to draw a head from).
   const bare = [...open.matchAll(/inspector\.select\(id, el\)/g)].length;
   assert.ok(bare <= 1, 'more than one bare select(id) — a row path that waits for the whole page again');

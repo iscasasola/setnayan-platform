@@ -810,6 +810,20 @@ export default async function GuestsLabPage({
     const fail = sp.fail === '1';
     /* `&addMs=N`: an add answers after N ms, as a real one waits on the server (lab-stand-ins.ts › labTimedAdds). */
     const labAddMs = Math.min(10_000, Math.max(0, Number(typeof sp.addMs === 'string' ? sp.addMs : 0) || 0));
+    const labActs = { update: labUpdate, release: labRelease, partnerLink: labPartnerLink };
+    const listCard = (g: GuestRow) => labListCard(g, labActs, labRefuses);
+    /* ⚡ What a tap reads now: ONE card, alone (the lab's stand-in for `openGuestCard`) — an INLINE server action (not
+       exported), so a tap is a real round trip to the server that answers with this card and nothing else. ⚠ Declared
+       BEFORE the JSX that hands it on: Next compiles an inline server action into a binding at its declaration, so it is
+       not hoisted like a plain function — handed on above it, it arrives undefined. */
+    const labMany = Math.min(400, Math.max(0, Number(typeof sp.many === 'string' ? sp.many : 0) || 0));
+    async function labOpenCard(guestId: string) {
+      'use server';
+      const g = planningRoster().concat(manyGuests(labMany)).find((x) => x.guest_id === guestId);
+      return g
+        ? { ok: true as const, card: labListCard(g, labActs, labRefuses) }
+        : { ok: false as const, reason: 'This guest isn’t on your guest list any more.' };
+    }
     const screen = (
                 <section className="sn-col max-w-none flex flex-col gap-6" data-lab-screen="">
                   <LabGuestActions refuse={sp.refuse === '1'} addMs={labAddMs} openCard={labOpenCard}>
@@ -857,18 +871,6 @@ export default async function GuestsLabPage({
        2026-10-28; `&many=150` for a list the size of a real one). `&inspect=<id>` is the page's own address for an open
        card: the lab draws that guest's card on the server, as `guests/page.tsx` does — the cold-load / deep-link path. */
     const openMode = sp.open === '1';
-    const labActs = { update: labUpdate, release: labRelease, partnerLink: labPartnerLink };
-    const listCard = (g: GuestRow) => labListCard(g, labActs, labRefuses);
-    /* ⚡ What a tap reads now: ONE card, alone (the lab's stand-in for `openGuestCard`) — an INLINE server action (not
-       exported), so a tap is a real round trip to the server that answers with this card and nothing else. */
-    const labMany = Math.min(400, Math.max(0, Number(typeof sp.many === 'string' ? sp.many : 0) || 0));
-    async function labOpenCard(guestId: string) {
-      'use server';
-      const g = planningRoster().concat(manyGuests(labMany)).find((x) => x.guest_id === guestId);
-      return g
-        ? { ok: true as const, card: labListCard(g, labActs, labRefuses) }
-        : { ok: false as const, reason: 'This guest isn’t on your guest list any more.' };
-    }
     const inspectedGuest = openMode && typeof sp.inspect === 'string' ? (roster.find((g) => g.guest_id === sp.inspect) ?? null) : null;
     const opened = openMode ? (
       <InspectorLayout

@@ -193,16 +193,9 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
       /* 🧭 `studio: '1'` ALWAYS (2026-10-26): there is one Maker, and the real launch page always hands Details its Studio
          (`studioDetails`) — without it this lab drew Details' retired one-piece Prints view ("INVITATION SET · The Invitation" +
          its editor sheet), a door no couple has, instead of Studio › Prints. */
-      details={detailsLabNode({
-        ...sp,
-        /* 🖨 `?prints=1` — THE PRINTS PAGE (R8): the same Maker drawing Prints alone, as `/dashboard/<id>/prints` does —
-           Details on the print the address names, else "On every print" (`printsPageItem`). */
-        ...(sp.prints === '1' ? { tool: 'details', item: printsPageItem({ item: typeof sp.item === 'string' ? sp.item : undefined }) } : {}),
-        studio: '1',
-        shape: 'mj',
-        look: '1',
-        labPass: (await cookies()).get(LAB_PASS_COOKIE)?.value,
-      })}
+      /* 🖨 `?prints=1` — THE PRINTS PAGE (R8): the same Maker drawing Prints alone, as `/dashboard/<id>/prints` does —
+         Details on the print the address names, else "On every print" (`printsPageItem`). */
+      details={detailsLabNode({ ...sp, studio: '1', shape: 'mj', look: '1', ...(sp.prints === '1' ? { tool: 'details', item: printsPageItem({ item: typeof sp.item === 'string' ? sp.item : undefined }) } : {}), labPass: (await cookies()).get(LAB_PASS_COOKIE)?.value })}
       printsPage={sp.prints === '1'}
       /* ✍ `&facts=1` — the fact editors the launch page hands the real Maker (`factEditors`): a tap that opens one in the
          work area is seen as it is on a couple's Maker (the Love Story's moments, 2026-10-19). Off by default. */

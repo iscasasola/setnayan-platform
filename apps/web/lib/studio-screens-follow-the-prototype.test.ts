@@ -75,9 +75,10 @@ test('1 · no Tool row and no Done band: the top bar says where you are — the 
 test('1b · the Studio home: eleven tiles on the warm page, ✓ / Missing as read', async () => {
   const { StudioHome } = await import(`../${L}/studio-home`);
   const out = await html(React.createElement(StudioHome, { tiles, onOpen: () => {} }));
-  assert.equal((out.match(/data-studio-tile="/g) ?? []).length, 11);
+  /* Counted from the keys (R8 took Prints out): every tile drawn, one Missing (the Seat plan). */
+  assert.equal((out.match(/data-studio-tile="/g) ?? []).length, STUDIO_TILE_KEYS.length);
   assert.ok(out.includes(STUDIO_PAGE_BG), 'the home is not on the prototype’s warm page');
-  assert.match(out, /10 of 11 ready/);
+  assert.ok(out.includes(`${STUDIO_TILE_KEYS.length - 1} of ${STUDIO_TILE_KEYS.length} ready`), 'the head’s count is not the tiles’');
   assert.equal((out.match(/>Missing</g) ?? []).length, 1);
 });
 

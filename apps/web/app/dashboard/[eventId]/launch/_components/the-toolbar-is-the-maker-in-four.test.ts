@@ -196,7 +196,7 @@ test('👁 Preview holds how the page is SEEN: See as · Phone / Desktop · Play
   assert.ok(menu.includes('<ViewAsFreeRow'), 'the internal "view as a free couple" row is lost');
 });
 
-test('📄 Page ▾ holds the rest: Add a scene + Reset at the end of the stage on screen; Prints · Restore · address · who can view · About after Post Event', () => {
+test('📄 Page ▾ holds the rest: Add a scene + Reset at the end of the stage on screen; Restore · address · who can view · About after Post Event', () => {
   const base = makerPageMenu({ stage: 'rsvp', rsvpOpen: false, liveStage: null, pagesOf, shownPage: null, hasWork: true }).options;
   const all = makerPageActions(base, { stage: 'rsvp', addScene: { kind: 'ready', tried: true }, hasWork: true, canRestore: false });
   const keys = all.map((o) => o.key);
@@ -207,13 +207,15 @@ test('📄 Page ▾ holds the rest: Add a scene + Reset at the end of the stage 
   assert.equal(all[lastPage + 1]!.trail?.text, '◆ PRO', 'a tried Add a scene lost its ◆ PRO mark');
   // After Post Event, the "Your Event Hub" line.
   const hub = all.filter((o) => o.group === MAKER_PAGE_HUB_GROUP).map((o) => o.label);
-  assert.deepEqual(hub, ['Prints', 'Restore what guests see', 'Your Event Hub address', 'Who can view', 'About the Maker']);
-  assert.ok(keys.indexOf(MAKER_PAGE_ACTIONS.prints) > Math.max(...all.map((o, i) => (o.group === 'Post Event' ? i : -1))), 'Prints is not after Post Event');
+  /* 🖨 No Prints row (R8, owner 2026-10-27 "PRINTS LEAVES STUDIO"): Prints is its own page, opened from Home. */
+  assert.deepEqual(hub, ['Restore what guests see', 'Your Event Hub address', 'Who can view', 'About the Maker']);
+  assert.ok(!all.some((o) => o.label === 'Prints'), 'Prints is a row of Page ▾ again — it has its own page');
+  assert.ok(keys.indexOf(MAKER_PAGE_ACTIONS.restore) > Math.max(...all.map((o, i) => (o.group === 'Post Event' ? i : -1))), 'Restore is not after Post Event');
   assert.equal(all.find((o) => o.key === MAKER_PAGE_ACTIONS.restore)?.disabledNote, 'Guests already see this.');
   // A refused Add a scene says why; a viewer with no draft has no Reset, Prints or Restore.
   const refused = makerPageActions(base, { stage: 'rsvp', addScene: { kind: 'refused', note: 'Up to 6' }, hasWork: false, canRestore: null });
   assert.equal(refused.find((o) => o.key === MAKER_PAGE_ACTIONS.addScene)?.disabledNote, 'Up to 6');
-  for (const k of [MAKER_PAGE_ACTIONS.reset, MAKER_PAGE_ACTIONS.prints, MAKER_PAGE_ACTIONS.restore]) {
+  for (const k of [MAKER_PAGE_ACTIONS.reset, MAKER_PAGE_ACTIONS.restore]) {
     assert.ok(!refused.some((o) => o.key === k), `${k} offered to a viewer with no draft`);
   }
   // Every action key is read back as its act, and is never a place.
@@ -224,9 +226,10 @@ test('📄 Page ▾ holds the rest: Add a scene + Reset at the end of the stage 
   // The shell runs each act — the same acts ⋯ ran.
   const shell = src('maker-shell.tsx');
   const pick = shell.slice(shell.indexOf('const pickPage = '), shell.indexOf('const pick = makerPagePick(key);'));
-  for (const act of ['stageAdd.open()', 'new Event(MAKER_OPEN_RESET_EVENT)', "pressDoor('prints')", 'draft.restore()', 'aboutTheMaker()', 'setMoreOpen(true)']) {
+  for (const act of ['stageAdd.open()', 'new Event(MAKER_OPEN_RESET_EVENT)', 'draft.restore()', 'aboutTheMaker()', 'setMoreOpen(true)']) {
     assert.ok(pick.includes(act), `Page ▾ no longer runs ${act}`);
   }
+  assert.ok(!pick.includes("pressDoor('prints')"), 'Page ▾ opens Prints in the Maker again — Prints is its own page (R8)');
   // About the Maker replays the Maker's spotlight where it is mounted, else the short slides (2026-10-22).
   assert.match(shell, /const aboutTheMaker = [\s\S]{0,400}else setTour\(true\)/, 'About the Maker lost its short-slides fallback');
   /* The old bar's Page ▾ (which listed these acts as rows) went with the old Maker (2026-10-25); the shell still runs

@@ -215,13 +215,16 @@ test('4 · every control the bottom bar, Page ▾ and the floating Event Bar hel
   const DOORS: Array<[string, RegExp]> = [
     ['Event Bar', /key: 'event-bar'[\s\S]*?toggle: true, on: eventBar\.on, onPick: eventBar\.toggle/],
     ['Who can view', /key: 'who'[\s\S]*?onPick: \(\) => setMoreOpen\(true\)/],
-    ['Prints', /key: 'prints'[\s\S]*?openSection\('prints'\)/],
     ['Restore what guests see', /key: 'restore'[\s\S]*?draft\.restore\(\)/],
     ['Reset this stage…', /key: 'reset'[\s\S]*?new Event\(MAKER_OPEN_RESET_EVENT\)/],
     // About the Maker replays the Maker's spotlight where it is mounted, else the short slides (2026-10-22).
     ['About the Maker', /key: 'about'[\s\S]*?onPick: aboutTheMaker/],
   ];
   for (const [door, re] of DOORS) assert.match(settings, re, `${door} has no home in Settings`);
+  /* 🖨 MOVED (R8, owner 2026-10-27 "PRINTS LEAVES STUDIO"): Prints is no door of the Maker — no Settings row, no menu
+     part. Its home is its own page, opened from Home's Prints line (`lib/prints-has-its-own-page.test.ts`). */
+  assert.doesNotMatch(settings, /key: 'prints'/, 'Prints is a Settings row of the Maker again — it has its own page');
+  assert.doesNotMatch(shellSrc.slice(shellSrc.indexOf('const ltGlobal = ['), shellSrc.indexOf('const openSection')), /key: 'prints'/, 'Prints is a part of the Maker’s menu again');
   // The address is Details › Your Event Hub (a Details item, on the Details door).
   assert.equal(makerDoorOf('address'), 'details');
   // ＋ Add a scene stays the strip's last tile — the strip IS the stage's navigator on a phone.
@@ -303,13 +306,17 @@ test('5 · no tool of the lower third links out of the Maker — the known few a
     /* 🚪 AMENDED 25 Oct (owner, over the Leave-the-Maker sheet: *"It just needs to go back to the event's
        dashboard"*): ✕ is a link again — straight to this event's dashboard, no sheet — so the shell is allowed its
        one ✕ (as before 08 Oct). Held exactly by `the-maker-exit-goes-to-the-event.test.ts`. */
-    const seen = linkOuts(src) - (file.endsWith('maker-shell.tsx') ? 1 : 0); // ✕ Exit is the Maker's one way out, in the top nav
+    /* 🖨 …and the R8 forward (2026-10-27): a print opened in the Maker loads the Prints page (`itemElsewhere`), held exactly below. */
+    const seen = linkOuts(src) - (file.endsWith('maker-shell.tsx') ? 2 : 0); // ✕ Exit is the Maker's one way out, in the top nav
     assert.equal(seen, known, `${file}: ${seen} link(s) out of the Maker, ${known} known${KNOWN_LINK_OUTS[file] ? ` (${KNOWN_LINK_OUTS[file]!.why})` : ''}`);
   }
   assert.ok(scanned >= 15, 'the scan is blind');
   // The Maker's way out: ✕ → this event's dashboard, one link and nothing else (`the-maker-exit-goes-to-the-event.test.ts`).
   const shell = read('app/dashboard/[eventId]/launch/_components/maker-shell.tsx');
   assert.equal((shell.match(/<Link\b/g) ?? []).length, 1, 'the shell links out of the Maker somewhere besides ✕');
+  // 🖨 The shell's one page load: the Prints forward — a print in the Maker, anything else on the Prints page (R8).
+  assert.equal((shell.match(/window\.location\.(?:assign|replace)\(/g) ?? []).length, 2, 'the shell loads another page somewhere besides the Prints forward');
+  assert.match(shell, /const to = detailsItemHref\(eventId, itemElsewhere\);\s*if \(printsPage\) window\.location\.assign\(to\);\s*else window\.location\.replace\(to\);/, 'the Prints forward is not the one page load');
   // The scene sheet and the navigator's notes — in the work area.
   const work = read(`${E}/editor-shell.tsx`);
   const inspector = work.slice(work.indexOf('function Inspector('), work.indexOf('function makerSelectionKey('));
@@ -360,12 +367,10 @@ test('🔑 6 · after Settings › Prints, a later Theme/Details mount lands on 
   }
   // Desktop unchanged: a door's mount still opens its column as before.
   assert.equal(panelOpen(await mount({ detailsDoor: 1, lowerThird: false })), true, 'anti-vacuity: the desktop door no longer opens');
-  // …and the lower third's Prints tile opens on the NAVIGATOR (its print tiles), never as a door press.
+  // …and a menu part opens on the NAVIGATOR, never as a door press. (🖨 Settings' Prints tile, the case this was written
+  // for, MOVED with R8 — Prints is its own page now, `lib/prints-has-its-own-page.test.ts`; the rule stands for every part.)
   const shell = read(`${L}/maker-shell.tsx`);
-  /* Settings' own Prints tile (the menu's Prints row, 2026-10-06, has no onPick of its own). */
-  const settingsRows = shell.slice(shell.indexOf("ltPick === 'settings'"));
-  const prints = settingsRows.slice(settingsRows.indexOf("key: 'prints', label: MAKER_PRINTS_LABEL"));
-  assert.match(prints.slice(0, 300), /onPick: \(\) => openSection\('prints'\)/, 'the Prints tile presses a door again');
+  assert.doesNotMatch(shell.slice(shell.indexOf("ltPick === 'settings'")), /key: 'prints', label: MAKER_PRINTS_LABEL/, 'Settings’ Prints tile is back');
   const nav = shell.slice(shell.indexOf('const openSection'), shell.indexOf('const openSection') + 400);
   assert.ok(nav.includes("select({ kind: 'tool', key: 'details' })"), 'anti-vacuity: openSection was not found');
   assert.doesNotMatch(nav, /setDetailsDoor/, 'opening on the navigator moved the door count');

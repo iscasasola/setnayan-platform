@@ -90,7 +90,6 @@ import { LOWER_THIRD_GLOBAL_ICON, MakerLowerThird, type LowerThirdPick, type Low
 import { MAKER_LT_HEIGHT, MAKER_LT_TOOL } from '@/lib/maker-phone-room';
 import { MAKER_PAGE_STAGES, makerStageLabel } from './maker-bar';
 import { RSVP_STAGE_KEY } from '@/lib/rsvp-stage-shared';
-import { useRouter } from 'next/navigation';
 import { PRINTS_PAGE_LABEL } from '@/lib/prints-page-href';
 import { useMakerTool, type MakerEventBar, type MakerProLine, type MakerTool } from './maker-context';
 import type { MakerSide } from './maker-bar';
@@ -336,15 +335,16 @@ export function MakerShell({
   /* 🖨 ONE DOOR EACH WAY (R8, `lib/prints-page.ts`): a print opened in the Maker — an old door, a tour, a tab that
      came back — is the Prints page's; anything but a print opened on the Prints page is the Maker's. Each lands on
      its own page AT THE SAME ITEM (`detailsItemHref` names both), so no door leads to a page that no longer holds it. */
-  const router = useRouter();
   const detailsOpen = selection?.kind === 'tool' && selection.key === 'details';
   const itemElsewhere = hasWork && detailsOpen && detailsItem !== null && isPrintsItem(detailsItem) !== printsPage ? detailsItem : null;
+  /* A whole-page load, never the router: the two are different pages of the app (the Maker's history entry is replaced —
+     it never held a print; the Prints page's is kept, so Back returns to Prints). */
   useEffect(() => {
     if (!itemElsewhere) return;
     const to = detailsItemHref(eventId, itemElsewhere);
-    if (printsPage) router.push(to);
-    else router.replace(to);
-  }, [itemElsewhere, printsPage, eventId, router]);
+    if (printsPage) window.location.assign(to);
+    else window.location.replace(to);
+  }, [itemElsewhere, printsPage, eventId]);
   /* 🎓 About the Maker (Page ▾) replays the short tour — never on a first open. */
   const [tour, setTour] = useState(false);
   /* 🔦 …and where the Maker's spotlight is mounted (the page's own tour, `lib/host-page-tours.ts`), About the Maker

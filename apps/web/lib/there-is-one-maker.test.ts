@@ -21,6 +21,9 @@
  *   5 · EVERY VIEWER IS DRAWN THE ONE MAKER — the shell rendered for a couple AND for a coordinator (no work), even when
  *       handed the old props `stagesStudio: false, desktopColumns: false`, draws Stages | Studio and none of the old bar.
  *   6 · THE OLD DOOR FORWARDS — `/dashboard/[eventId]/website/editor` opened on its own redirects into the Maker.
+ *
+ * 🖨 The Prints page (R8, 2026-10-27) is NOT a second Maker: it is the one Maker's page drawing Prints alone (`printsPage`,
+ * set only by `/dashboard/<id>/prints`) — the same shell, context and draft bar; only the switch's place names "Prints".
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -69,8 +72,14 @@ test('2 · the shell takes no choice — no prop, and its context says `stagesSt
   assert.match(shell, /\bstagesStudio: true,/, 'the context no longer says the one Maker');
   assert.equal((shell.match(/\bstagesStudio\b/g) ?? []).length, 1, 'the shell names `stagesStudio` somewhere besides its literal');
   assert.doesNotMatch(shell, /\bdesktopColumns\b/, 'the shell branches on desktop columns again');
-  /* The switch is drawn on its own — never inside a ternary or a `&&`. */
-  assert.match(shell, /<\/IconPill>[\s{}]*<div data-maker-tool="side"[^>]*>\s*<StudioSideSwitch /, 'Stages | Studio is no longer drawn unconditionally after Exit');
+  /* The switch is drawn on its own — never inside a ternary or a `&&` — EXCEPT on the Prints page (R8, owner 2026-10-27
+     "PRINTS LEAVES STUDIO"), which is no Maker choice: it is one page of the one Maker, named "Prints" where the switch
+     stands (it has no stage and no Studio to switch to). That ternary may test `printsPage` and nothing else. */
+  assert.match(
+    shell,
+    /<\/IconPill>[\s{}]*(?:\{printsPage \? \([\s\S]{0,600}?data-prints-page-title[\s\S]{0,300}?\) : \(\s*)?<div data-maker-tool="side"[^>]*>\s*<StudioSideSwitch /,
+    'Stages | Studio is no longer drawn unconditionally after Exit',
+  );
   assert.match(shell, /<PickSheetContext\.Provider value=\{makerPickSheet\}>/, 'the one bottom sheet became conditional');
 });
 

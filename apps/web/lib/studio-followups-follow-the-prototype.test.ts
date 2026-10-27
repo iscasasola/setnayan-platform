@@ -257,13 +257,14 @@ test('6 · a Studio tile never leaves the Maker — every tile opens its editor 
   assert.match(look, /if \(item === 'logo'\) \{\s*return look\.logo \? \(\s*<div[^>]*data-details-look="logo">\s*\{look\.logo\}/, 'the Logo tile no longer draws the logo editor in place');
 });
 
-test('7 · each of the 11 tiles opens its OWN editor — Look never opens the Logo it was last on', async () => {
+test('7 · each tile opens its OWN editor — Look never opens the Logo it was last on', async () => {
   const { STUDIO_TILE_KEYS, STUDIO_TILES, studioTileItem } = await import('./studio-tiles');
+  /* 🖨 No Prints tile (R8): Prints is its own page (`lib/prints-has-its-own-page.test.ts`). */
   const want: Record<string, string> = {
     info: 'names', look: 'background', logo: 'logo', mood: 'mood-board', schedule: 'schedule', story: 'love-story',
-    march: 'march', seats: 'seating', gifts: 'gifts', rsvp: 'rsvp', prints: STUDIO_TILES.prints.item,
+    march: 'march', seats: 'seating', gifts: 'gifts', rsvp: 'rsvp',
   };
-  assert.equal(STUDIO_TILE_KEYS.length, 11);
+  assert.deepEqual([...STUDIO_TILE_KEYS].sort(), Object.keys(want).sort(), 'a tile has no editor named here, or one named here is no tile');
   /* Whatever was open before — the worst cases are the other Look-group items. */
   /* ('elements' since the 2026-10-08 restudy — Look's sections are Background · Elements · Music; it was 'colours'.) */
   for (const before of [null, 'logo', 'mood-board', 'hero', 'reveal', 'names', 'elements', 'colours']) {

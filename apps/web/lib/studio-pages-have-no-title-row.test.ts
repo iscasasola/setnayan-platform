@@ -118,7 +118,7 @@ function sameWidth(a: string[], b: string[], who: string): void {
 
 test('(2) in a Studio page, painted for all eleven: "Stages ▾" plain, the page’s full name ▾ picked — equal halves, never truncated, no mark', async () => {
   const { StudioSideSwitch, studioHalfSteps, studioHalfLabel } = await import(`../${PARTS}`);
-  assert.equal(tiles.length, 11);
+  assert.equal(tiles.length, STUDIO_TILE_KEYS.length);
   for (const page of tiles) {
     const html = await paint(h(StudioSideSwitch, { side: 'studio', onPick: () => {}, stage: 'details', options: [], onStage: () => {}, page, tiles, onOpen: () => {} }));
     const stages = halfOf(html, 'stage');
@@ -258,7 +258,7 @@ test('(6) the page list: the Maker’s one sheet, the dropdown’s own rows — 
   assert.deepEqual(trail('info'), { text: '✓', tone: 'ok', label: 'Ready' });
   assert.deepEqual(trail('logo'), { text: 'Missing', tone: 'left' });
   assert.equal(trail('rsvp'), undefined, 'a page nobody measured is marked');
-  assert.deepEqual(studioChooserOptions(tiles.filter((t) => t.key !== 'story' && t.key !== 'march')).map((o: { key: string }) => o.key), ['info', 'look', 'logo', 'mood', 'schedule', 'seats', 'gifts', 'rsvp', 'prints']);
+  assert.deepEqual(studioChooserOptions(tiles.filter((t) => t.key !== 'story' && t.key !== 'march')).map((o: { key: string }) => o.key), ['info', 'look', 'logo', 'mood', 'schedule', 'seats', 'gifts', 'rsvp']);
   const src = read(PARTS);
   assert.doesNotMatch(src, /STUDIO_TILE_KEYS|STUDIO_TILES\b/, 'the chooser keeps a second list of the pages');
   const name = src.slice(src.indexOf('export function StudioSideSwitch('), src.indexOf('const HALF_ROOM ='));

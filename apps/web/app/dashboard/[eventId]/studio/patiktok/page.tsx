@@ -9,7 +9,7 @@ import {
   ArrowLeft,
   CheckCircle2,
   Clock3,
-  Download,
+  Share,
   ExternalLink,
   Film,
   Hash,
@@ -600,7 +600,7 @@ function YourRenders({
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 rounded-md bg-mulberry px-2.5 py-1.5 text-xs font-medium text-cream transition-colors hover:bg-mulberry-600"
                 >
-                  <Download aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                  <Share aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                   Download
                 </a>
               ) : job.status === 'completed' && !owned && saveCardMounted ? (

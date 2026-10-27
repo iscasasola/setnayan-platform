@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
-import { ChevronLeft, ArrowRight, ArrowUpRight, Download } from 'lucide-react';
+import { ChevronLeft, ArrowRight, ArrowUpRight, Share } from 'lucide-react';
 import { Logo } from '@/app/_components/logo';
 import { SaveFileLink } from '@/app/_components/save-file-link';
 import { OpenFileLink } from '@/app/_components/open-file-link';
@@ -237,7 +237,7 @@ function Block({
               filename={(block.href.split('?')[0] ?? '').split('/').pop() || 'download'}
               className="mt-4 inline-flex items-center gap-2 rounded-full bg-mulberry px-5 py-2.5 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-600"
             >
-              <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+              <Share aria-hidden className="h-4 w-4" strokeWidth={1.75} />
               {block.label}
             </SaveFileLink>
           ) : (
@@ -246,7 +246,7 @@ function Block({
               download
               className="mt-4 inline-flex items-center gap-2 rounded-full bg-mulberry px-5 py-2.5 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-600"
             >
-              <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+              <Share aria-hidden className="h-4 w-4" strokeWidth={1.75} />
               {block.label}
             </OpenFileLink>
           )}

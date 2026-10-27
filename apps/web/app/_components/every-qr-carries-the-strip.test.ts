@@ -105,9 +105,9 @@ test('a QR that is not a link carries none of the strip', () => {
   }
 });
 
-test('the strip is Download · Write to NFC · Copy link, in that order', () => {
+test('the strip is Download (the Share mark) · Write to NFC · Copy link, in that order', () => {
   const src = read('app/_components/qr-actions.tsx');
-  const dl = src.indexOf('<Download');
+  const dl = src.indexOf('<Share ');
   const nfc = src.indexOf('<NfcWriteButton');
   const copy = src.indexOf('<CopyButton');
   assert.ok(dl > 0 && nfc > dl && copy > nfc, `order was ${[dl, nfc, copy].join(',')}`);

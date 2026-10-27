@@ -51,13 +51,11 @@ import {
   ChevronsDownUp,
   ChevronsUpDown,
   CircleHelp,
-  ClipboardList,
   Download,
   Ellipsis,
   Heart,
   House,
   ListFilter,
-  ListPlus,
   Mail,
   MessageCircle,
   Minus,
@@ -842,7 +840,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
      From People, Import and Scan in the search results and the menu."*). The field adds (Enter, or the typed results'
      "Add “…” as a guest"); the other ways are ≡ items here — reachable with an empty field — and rows in the typed
      results. ONE list, `ADD_WAYS`, the same openers the add sheet uses. 🔒 search-or-add.test.ts */
-  const addWayIcon: Record<AddWayKey, typeof Users> = { people: Users, details: ClipboardList, import: Upload, paste: ListPlus };
+  const addWayIcon: Record<AddWayKey, typeof Users> = { people: Users, import: Upload };
   const addWays: PickOption[] = writesOff
     ? []
     : ADD_WAYS.map((w) => {

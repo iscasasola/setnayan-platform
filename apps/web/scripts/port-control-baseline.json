@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "ddd08d4e3d",
+  "generatedFromRef": "3bc016d810",
   "routeCount": 474,
-  "destinations": 994,
+  "destinations": 993,
   "actions": 642,
-  "blocks": 7121,
+  "blocks": 7120,
   "routes": {
     "/": {
       "files": [
@@ -6702,7 +6702,6 @@
         "/dashboard/[seg]/guests/claims",
         "/dashboard/[seg]/guests/export",
         "/dashboard/[seg]/guests/import",
-        "/dashboard/[seg]/guests/quick",
         "/dashboard/[seg]/guests/send",
         "/dashboard/[seg]/guests?inspect=[seg]",
         "/dashboard/[seg]/story",
@@ -6851,7 +6850,6 @@
         "OpenAddFromPeopleButton",
         "OpenAddGuestTextButton",
         "OpenDeleteGuestSheet",
-        "OpenQuickAddButton",
         "OutcomeContext.Provider",
         "OverlayBackdrop",
         "PageMasthead",

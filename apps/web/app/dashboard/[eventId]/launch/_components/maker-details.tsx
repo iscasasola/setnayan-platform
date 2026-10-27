@@ -100,6 +100,7 @@ import type { HubMainGround } from '@/lib/hub-canvas';
 import type { MainColourDraft } from '@/lib/main-colours';
 import type { ManagerMethod } from '../../pabuya/_components/pabuya-manager';
 import { studioDetailsGroups, studioFullScreenCss, STUDIO_FORM_HEADS, STUDIO_SUPPLIERS_LINE } from '@/lib/studio-details';
+import { guestsSettingsHref } from '@/lib/event-settings-record';
 import { PRINT_KINDLY_REPLY_TIP, PRINT_SCHEDULE_TIP } from '@/lib/studio-prints-six';
 import type { StudioParent } from './studio-prints-six';
 import { GIFTS_OFF_LINE, GIFTS_OFF_TITLE, studioWishIsGot, type StudioWishList } from '@/lib/wish-list-studio';
@@ -684,6 +685,8 @@ export function MakerDetails(props: MakerDetailsProps) {
             // The Guest list's own invite flow — Guests ⚙, open on Invitations (settings per menu B; was `?gview=share`).
             sendHref: `${base}/guests?settings=1&row=invitations`,
             ...(props.guide.guestsHref ? { guestsHref: props.guide.guestsHref } : {}),
+            // 🗂 R1 — the reply settings' links open Guests ⚙ on their row (`guidedLinkHref`).
+            guestsSettingsHref: guestsSettingsHref(eventId),
           },
           tour: props.guide.tour ?? null,
         }

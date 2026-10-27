@@ -81,6 +81,7 @@ import {
 } from '../../website/editor/_components/canvas-bridge-watch';
 import { SEE_AS, SEE_AS_ANY_ROLE, SEE_AS_EDITING, seeAsDrawingLine, seeAsDrawsMe, seeAsLabel, seeAsRoleDrawingLine, type SeeAs } from '@/lib/see-as';
 import { COVER_OPENING_TAG_ATTR, COVER_OPENING_TAG_CSS, coverOpeningTag, revealPageInk } from './stage-panel/reveal-picture';
+import { guestsSettingsHref } from '@/lib/event-settings-record';
 import type { StudioTileKey } from '@/lib/studio-tiles';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import { MAKER_OPEN_PART_EVENT, MAKER_STAGE_PICK_EVENT, MAKER_STAGE_SAY_EVENT, MAKER_STAGE_TOOL_EVENT, useMaker } from './maker-context';
@@ -190,8 +191,8 @@ const RSVP_TAB_ICON: Record<RsvpStageScene, LucideIcon> = { form: Reply, thanks:
 
 /**
  * A part's ONE door on the RSVP stage is where its content really lives FOR THESE SCREENS: the couple's mark, their
- * names, the date and the place keep their own (Logo · Info · Suppliers); the form and the two notes are the RSVP
- * tool's. The rest — each guest's own name, their ticket, the door's fixed words — has no door: its name, and ⓘ.
+ * names, the date and the place keep their own (Logo · Info · Suppliers); the form and the two notes are the reply's
+ * settings — Guests ⚙ since R1 (owner 2026-10-28; it was Studio › RSVP). The rest — each guest's own name, their ticket, the door's fixed words — has no door: its name, and ⓘ.
  */
 const RSVP_OWN_DOOR: readonly MakerPartKey[] = ['logo', 'names', 'date', 'place'];
 const RSVP_TOOL_PARTS: readonly MakerPartKey[] = ['rsvp', 'yesnote', 'nonote'];
@@ -203,6 +204,8 @@ function rsvpQuietRow(picked: MakerPartKey | null): ReturnType<typeof makerPartQ
 const RSVP_PART_ABOUT: Partial<Record<MakerPartKey, string>> = {
   ename: 'Every reply page opens with these words.',
   heroline: 'Your invitation line. You type it on the Invitation’s Welcome page.',
+  /* 🗂 R1 (owner 2026-10-28): each move updates its own help — the form's settings are Guests ⚙'s now. */
+  rsvp: 'Your RSVP settings — what it asks, the reply-by date, when replies open — live in Guests ⚙. A change here is the same setting.',
 };
 
 /** Ask the RSVP stage: show that screen · open (or fold) the picked part's tools. */
@@ -1239,11 +1242,13 @@ export function StageTools({
   /** 🎞 The picked part's Post Event scene, by its canvas key (`p:<scene>`) — null off Post Event, or on a part that is not one. */
   const canvasOfScene = picked && !rsvpOpen && makerPostEventSceneOf(stageKey, picked) ? makerPartCanvasOn(stageKey, picked) : null;
   useEffect(() => {
-    /* The RSVP stage's screens are the RSVP tool's: its one quiet bar is "Edit the RSVP · Studio ›". */
+    /* The RSVP stage's screens: the form and its two notes have ONE door — the reply's settings, in Guests ⚙ (R1). */
     const q = rsvpOpen ? rsvpQuietRow(picked) : picked && picked !== 'reveal' ? makerPartQuietRow(picked) : null;
     let quiet: StageQuiet | null = null;
     if (q) {
       if ('suppliers' in q.to) quiet = { kind: 'suppliers', words: q.words, href: suppliersHref };
+      /* 🗂 R1 (owner 2026-10-28): the reply's settings left Studio for Guests ⚙ — its door opens that sheet on the row. */
+      else if ('guests' in q.to) quiet = maker ? { kind: 'guests', words: q.words, href: guestsSettingsHref(maker.eventId, q.to.guests) } : null;
       else {
         const to = q.to.studio;
         quiet = {
@@ -1272,7 +1277,7 @@ export function StageTools({
     const story = !rsvpOpen && picked && canvasOfScene ? postEventAbout(postEventSceneNow(canvasOfScene), POST_EVENT_ABOUT) : null;
     const about = (f ? [f.line, f.source?.text].filter(Boolean).join(' ') || null : null) ?? (rsvpOpen && picked ? (RSVP_PART_ABOUT[picked] ?? null) : null) ?? story;
     setStagePanelNow({ picked, quiet, about, line: rsvpLine });
-  }, [picked, rsvpLine, rsvpOpen, rsvpCardEdits, suppliersHref, stageKey, shownPage, onOpenStudio, fixedHere, canvasOfScene, maker?.renderStamp]);
+  }, [picked, rsvpLine, rsvpOpen, rsvpCardEdits, suppliersHref, stageKey, shownPage, onOpenStudio, fixedHere, canvasOfScene, maker?.renderStamp, maker?.eventId]);
   useEffect(() => () => setStagePanelNow({ picked: null, quiet: null, about: null }), []);
 
   /* 🚫 A TOOL WITH NOTHING TO SET ON THE PICKED PART (`makerPartToolWorks`): grey, `aria-disabled`, and a tap says

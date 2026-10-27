@@ -10,6 +10,7 @@ import { useMaker } from './maker-context';
 import {
   roundName,
   stageSteps,
+  type GuidedLinkStep,
   type GuidedPlan,
   type GuidedRound,
   type GuidedScreen,
@@ -38,6 +39,10 @@ import {
  * "Which stage do you want ready?" and Before we start are `stage-picker.tsx`.
  */
 
+/** 🗂 R1 — a reply setting's link: where it lives now (the line under it) and its one door's words. */
+export const GUIDE_GUESTS_LINE = 'In Guests ⚙ — your RSVP settings';
+export const GUIDE_GUESTS_GO = 'Open in Guests ⚙ ›';
+
 export type DetailsGuideActions = {
   /** Round 1 — the Save the Date as guests meet it, with the draft (null: no address yet). */
   previewHref: string | null;
@@ -47,7 +52,19 @@ export type DetailsGuideActions = {
   sendHref: string;
   /** 🧭 The setup's guests' names — the Guest list's template import (`hubSetupGuestsHref`). */
   guestsHref?: string;
+  /** 🗂 R1 — Guests ⚙, open (`guestsSettingsHref`): a reply-setting link adds its row (`guidedLinkHref`). */
+  guestsSettingsHref?: string;
 };
+
+/**
+ * 🗂 WHERE A LINK STEP GOES — the guests' names to the Guest list's import; a reply setting (R1, owner 2026-10-28:
+ * *"RSVP moves into the Guests ⚙ sheet"*) to Guests ⚙ open on its row. Null: that door was not handed in.
+ */
+export function guidedLinkHref(link: Pick<GuidedLinkStep, 'guests'> | null, actions: Pick<DetailsGuideActions, 'guestsHref' | 'guestsSettingsHref'>): string | null {
+  if (!link) return null;
+  if (link.guests) return actions.guestsSettingsHref ? `${actions.guestsSettingsHref}&row=${link.guests}` : null;
+  return actions.guestsHref ?? null;
+}
 
 export type DetailsGuide = {
   plan: GuidedPlan;
@@ -181,28 +198,36 @@ export function GuideReady({
               </button>
             </li>
           ))}
-          {/* 🧭 A setup step with no item of its own (the guests' names): it opens
-              the Guest list's template import, where the names are typed. */}
-          {links.map((l) => (
-            <li key={l.key}>
-              {actions.guestsHref ? (
-                <Link
-                  href={actions.guestsHref}
-                  data-details-guide-ready-step={l.key}
-                  data-state={l.state}
-                  className="sn-press flex min-h-12 w-full items-center justify-between gap-3 text-left text-[14px] text-ink"
-                >
-                  <span className="flex flex-col">
-                    {l.title}
-                    <span className="text-[12px] text-ink/60">{l.unlocks}</span>
-                  </span>
-                  <span className={`shrink-0 text-[13px] font-semibold ${l.state === 'done' ? 'text-success-700' : 'text-terracotta-700'}`}>
-                    {l.state === 'done' ? '✓ set' : 'Add names ›'}
-                  </span>
-                </Link>
-              ) : null}
-            </li>
-          ))}
+          {/* 🧭 A step with no item of its own: the guests' names open the Guest list's template import, where the
+              names are typed; the reply settings (R1) open Guests ⚙ on their row. */}
+          {links.map((l) => {
+            const href = guidedLinkHref(l, actions);
+            return (
+              <li key={l.key}>
+                {href ? (
+                  <Link
+                    href={href}
+                    data-details-guide-ready-step={l.key}
+                    data-guide-link-guests={l.guests}
+                    data-state={l.state}
+                    className="sn-press flex min-h-12 w-full items-center justify-between gap-3 text-left text-[14px] text-ink"
+                  >
+                    <span className="flex flex-col">
+                      {l.title}
+                      <span className="text-[12px] text-ink/60">{l.guests ? GUIDE_GUESTS_LINE : l.unlocks}</span>
+                    </span>
+                    <span
+                      className={`shrink-0 text-[13px] font-semibold ${
+                        l.state === 'done' ? 'text-success-700' : l.state === 'left' ? 'text-terracotta-700' : 'text-ink/55'
+                      }`}
+                    >
+                      {l.state === 'done' ? '✓ set' : l.guests ? (l.state === 'left' ? '○ not yet' : 'Look over') : 'Add names ›'}
+                    </span>
+                  </Link>
+                ) : null}
+              </li>
+            );
+          })}
         </ul>
         <div className="flex flex-wrap items-center gap-2">
           {round === 'save_the_date' ? (
@@ -262,31 +287,33 @@ export function GuideReady({
 export function GuideLinkScreen({
   plan,
   link,
-  href,
+  actions,
   foot,
 }: {
   plan: GuidedPlan;
   link: string;
-  /** Where the names are typed — the Guest list's own import. */
-  href: string | null;
+  /** Where its door goes (`guidedLinkHref`): the names to the Guest list's import, a reply setting to Guests ⚙. */
+  actions: Pick<DetailsGuideActions, 'guestsHref' | 'guestsSettingsHref'> | null;
   foot: ReactNode;
 }) {
   const l = plan.links.find((x) => x.key === link) ?? null;
+  const href = actions ? guidedLinkHref(l, actions) : null;
   return (
     <section data-details-guide-link={link} aria-label={l?.title ?? 'Step'} className="flex min-h-0 flex-1 flex-col">
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5 sm:px-6">
         <div className="mx-auto flex w-full max-w-xl flex-col gap-3">
           <h2 className="font-serif text-2xl text-ink">{l?.title}</h2>
-          <p className={`text-[13px] font-semibold ${l?.state === 'done' ? 'text-success-700' : 'text-terracotta-700'}`}>
-            {l?.state === 'done' ? '✓ set' : '○ not yet'}
+          <p className={`text-[13px] font-semibold ${l?.state === 'done' ? 'text-success-700' : l?.state === 'left' ? 'text-terracotta-700' : 'text-ink/55'}`}>
+            {l?.state === 'done' ? '✓ set' : l?.state === 'left' ? '○ not yet' : 'Look over'}
           </p>
+          {l?.guests ? <p className="text-[14px] text-ink/75">{l.shows}</p> : null}
           {href ? (
             <Link
               href={href}
               data-details-guide-link-go={link}
               className="sn-press inline-flex min-h-11 items-center justify-center self-start rounded-full bg-ink px-5 text-[15px] font-semibold text-cream"
             >
-              {l?.state === 'done' ? 'Open your guest list ›' : 'Add names ›'}
+              {l?.guests ? GUIDE_GUESTS_GO : l?.state === 'done' ? 'Open your guest list ›' : 'Add names ›'}
             </Link>
           ) : null}
         </div>

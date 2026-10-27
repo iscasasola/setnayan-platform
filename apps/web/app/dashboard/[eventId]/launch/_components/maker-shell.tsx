@@ -448,7 +448,7 @@ export function MakerShell({
       if (back.side === 'studio' && back.at === 'home') setSide('studio');
     }
     restored.current = true;
-  }, [memoryKey]);
+  }, [memoryKey, printsPage]);
   useEffect(() => {
     if (!restored.current) return;
     try {

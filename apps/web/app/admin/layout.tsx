@@ -13,6 +13,7 @@ import { runSeoPeriodicJobs } from '@/lib/seo/seo-cron-jobs';
 import { maybeRunRetentionSweep } from '@/lib/retention-sweep';
 import { maybeRunVendorDossierRetention } from '@/lib/vendor-dossier-retention';
 import { maybeRunFaceDataRetention } from '@/lib/face-data-retention';
+import { maybeRunChatFileExpiry } from '@/lib/chat-file-expiry-sweep';
 import { maybeRunPapicCloseSelfieErase } from '@/lib/face-selfie-erase';
 import { maybeRunFaceRescan } from '@/lib/face-rescan';
 import { maybeRunVendorIdentityRetention } from '@/lib/vendor-identity-retention';
@@ -221,6 +222,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // enforced. Fails closed on any unreadable date; switching it off makes it a
   // DRY RUN, not a no-op.
   after(() => maybeRunFaceDataRetention().catch(() => {}));
+  // Chat files 90 days after the event (owner 2026-10-28). OFF until
+  // CHAT_FILE_EXPIRY_ENABLED=true — a dry run until then; see the module.
+  after(() => maybeRunChatFileExpiry().catch(() => {}));
   // 🧽 The face-tagging selfie ends when the event's Papic closes, twelve hours
   // after the event (owner 2026-09-30) — tags stay. CRON-FREE: a ~30-min DB
   // claim, carried by admin AND public traffic so a quiet console cannot hold a

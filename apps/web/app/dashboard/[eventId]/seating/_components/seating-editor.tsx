@@ -15,6 +15,8 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
+  ChevronsDownUp,
+  ChevronsUpDown,
   GripVertical,
   Lock,
   LockOpen,
@@ -209,12 +211,18 @@ import {
   SEAT_PLAN_MAP_PIECE,
   type SeatPlanGuestOptions,
 } from '@/lib/seat-plan-details';
-import { GuestsSeatThumbRow, MoveGuestSheet, PeopleSheet, PhoneSeatPlanFoot, PhoneSeatPlanHead, PhoneTableDock, SeatPlanModePick, StudioSeatPlanHead, StudioSeatPlanTools } from './seat-plan-phone';
+import { MoveGuestSheet, SeatToast, PeopleSheet, PhoneSeatPlanFoot, PhoneSeatPlanHead, PhoneTableDock, SeatPlanModePick, StudioSeatPlanHead, StudioSeatPlanTools } from './seat-plan-phone';
 import { Sheet } from '@/app/_components/sheet';
 import { SeatFacesList, type FaceGuest, type FaceSlot, type FaceUnit } from './seat-faces-list';
 import { GuestCardSheet, SHIPPED_GUEST_CARD } from '../../guests/_components/guest-card-sheet';
 import { PickMenu as SeatPickMenu } from '../../website/editor/_components/pick-menu';
 import { ViewCountRow } from '../../guests/_components/view-summary-cards';
+import { useGuestsLens } from '../../guests/_components/guests-lens';
+import { guestsFilterMenu } from '../../guests/_components/guests-filter-menu';
+import { ThumbRow } from '@/components/thumb-row';
+import { SEARCH_WAIT_MS } from '@/lib/guest-roster-view';
+import { createPortal } from 'react-dom';
+import type { PickOption } from '../../website/editor/_components/pick-menu-types';
 import { BlueprintStudio } from '../../studio/indoor-blueprint/_components/blueprint-studio';
 import { saveEntrance } from '../../studio/indoor-blueprint/actions';
 import { InfoTip } from '@/app/_components/info-tip';
@@ -3879,6 +3887,18 @@ export function SeatingEditor({
   const maker = useMaker();
   /* 🗂 R4: in Guests › Seats the plan IS the view — it is on screen whenever it is drawn (no other item hides it). */
   const inGuests = details?.host === 'guests';
+  /* ⇅ R4 slice 1 · THE GUESTS LENS (`guests-lens.tsx`): in Guests › Seats, while Seats is the view on screen, the shared
+     Show and this view's search DIM the faces they leave out — on the list and on the plan — and the plan draws THE
+     thumb row into the Guests screen's seat. Null anywhere else (the Studio keeps its own chrome). */
+  const lens = useGuestsLens('seats');
+  const [seatQ, setSeatQ] = useState('');
+  const seatQTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (seatQTimer.current) clearTimeout(seatQTimer.current);
+  }, []);
+  const seatFound = useMemo(() => (lens && seatQ ? lens.find(seatQ) : null), [lens, seatQ]);
+  /** A face the shared Show or the typed words leave out — drawn faint, never hidden (its seat is still taken). */
+  const seatDim = (guestId: string): boolean => Boolean(lens) && (!lens!.shows(guestId) || (seatFound !== null && !seatFound.has(guestId)));
   /* 🗂 R4: is the 3D room the view? In Guests it is a client switch over the room streamed with the page; in the Maker
      (no longer drawn) it was the address re-read with the lab in it. */
   const [show3d, setShow3d] = useState(inGuests ? details?.open3d === true : Boolean(details?.lab));
@@ -6405,6 +6425,15 @@ export function SeatingEditor({
      seat tapped is theirs (a blank: they move there; a face: the two trade). A blank tapped with nobody picked raises
      the pop-up bar: Pick a guest ▾. While someone is picked the bar says so, with Cancel. */
   const [faceCard, setFaceCard] = useState<{ id: string; name: string; seated: boolean } | null>(null);
+  /* ⇕ The Seats › List folds, held here so the thumb row's ⇕ opens or folds them all. */
+  const [faceClosed, setFaceClosed] = useState<ReadonlySet<string>>(() => new Set());
+  const toggleFaceFold = (k: string) =>
+    setFaceClosed((c) => {
+      const n = new Set(c);
+      if (n.has(k)) n.delete(k);
+      else n.add(k);
+      return n;
+    });
   const [blankAt, setBlankAt] = useState<{ tableId: string; seat: number } | null>(null);
   const tapFace = (guestId: string) => {
     const g = guests.find((x) => x.guest_id === guestId);
@@ -6533,6 +6562,13 @@ export function SeatingEditor({
   );
   const phoneMore = (
     <>
+      {/* ⇅ R4 slice 1: in Guests the thumb row is the shared one — who sits together lives here, in the head's ⋯. */}
+      {inGuests ? (
+        <>
+          {phoneRules}
+          <MenuDivider />
+        </>
+      ) : null}
       {doorStrip}
       <MenuCaption>Add a table or element</MenuCaption>
       {addMenuBody}
@@ -6625,21 +6661,118 @@ export function SeatingEditor({
       openDetailsEditor();
     }
   };
+  /* ⇅ R4 slice 1 · GUESTS › SEATS' THUMB ROW — THE shared `ThumbRow` (owner 2026-10-29, prototype v12 `renderThumb`):
+     ⇕ (the list's tables, folded or open) · Search guests (dims who it leaves out; Enter goes to the first found) · ⇅ (the
+     shared Show, then the people to seat on a phone) · ＋ Add ▾ — the SAME placeables, handlers and refusals as the plan's
+     own Add menu (`addMenuBody`). Drawn into the Guests screen's seat; the "Pick a guest" bar and the run's toast rise
+     above it. Who-sits-together rules moved to the head's ⋯ (nothing lost). */
+  const goToFound = (words: string) => {
+    if (!lens) return;
+    const hits = lens.find(words);
+    const g = guests.find((x) => hits.has(x.guest_id));
+    if (!g) return;
+    if (view === 'list') {
+      const unit = g.seated_table_id ? displayUnits.find((u) => u.members.some((m) => m.table_id === g.seated_table_id)) : null;
+      const key = unit ? unit.key : 'unseated';
+      setFaceClosed((c) => {
+        if (!c.has(key)) return c;
+        const n = new Set(c);
+        n.delete(key);
+        return n;
+      });
+      requestAnimationFrame(() => document.querySelector(`[data-seat-face="${CSS.escape(g.guest_id)}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }));
+    } else if (g.seated_table_id) {
+      setSelMarker(null);
+      setHighlightId(g.seated_table_id);
+    }
+  };
+  const faceKeys = ['unseated', ...faceUnits.map((u) => u.key)];
+  const facesAllOpen = faceKeys.every((k) => !faceClosed.has(k));
+  const seatAddOptions: PickOption[] = [
+    { key: 'table', label: 'New table…', disabledNote: canEdit ? undefined : 'Tap Edit first' },
+    { key: 'entrance', label: 'Entrance', disabledNote: !canEdit ? 'Tap Edit first' : view !== 'plan' ? 'On the 2D plan' : entrance.enabled ? 'Already on the plan' : undefined },
+    { key: 'service', label: 'Service door', disabledNote: !canEdit ? 'Tap Edit first' : view !== 'plan' ? 'On the 2D plan' : serviceDoor.enabled ? 'Already on the plan' : undefined },
+    { key: 'dance', label: 'Dance floor', disabledNote: !canEdit ? 'Tap Edit first' : view !== 'plan' ? 'On the 2D plan' : dance.enabled ? 'Already on the plan' : undefined },
+    { key: 'cocktail', label: 'Cocktail area', disabledNote: !canEdit ? 'Tap Edit first' : view !== 'plan' ? 'On the 2D plan' : cocktail.enabled ? 'Already on the plan' : undefined },
+    { key: 'sign', label: `Sign · ${signs.length}/24`, disabledNote: !canEdit ? 'Tap Edit first' : view !== 'plan' ? 'On the 2D plan' : signs.length >= 24 ? 'All 24 placed' : undefined },
+    { key: 'booth', label: 'Supplier booth', disabledNote: !canEdit ? 'Tap Edit first' : view !== 'plan' ? 'On the 2D plan' : undefined },
+  ];
+  const onSeatAdd = (k: string) => {
+    if (k === 'table') return addTable();
+    if (k === 'entrance') return addEntrance();
+    if (k === 'service') return addServiceDoor();
+    if (k === 'dance') return addDanceFloor();
+    if (k === 'cocktail') return addCocktailArea();
+    if (k === 'sign') return addSign();
+    if (k === 'booth') return addBooth();
+  };
+  const seatToast = autoRun ? { text: autoRun.text, onUndo: autoRun.undo ? undoAutoRun : null, onDismiss: () => setAutoRun(null) } : null;
+  const seatThumb =
+    lens && lens.slot
+      ? createPortal(
+          <>
+            {seatToast ? <SeatToast toast={seatToast} /> : null}
+            {seatPop}
+            <ThumbRow
+              name="guests-seats"
+              left={
+                view === 'list' && !in3d
+                  ? [
+                      {
+                        icon: facesAllOpen ? ChevronsDownUp : ChevronsUpDown,
+                        label: facesAllOpen ? 'Collapse all' : 'Expand all',
+                        expanded: facesAllOpen,
+                        onClick: () => setFaceClosed(facesAllOpen ? new Set(faceKeys) : new Set()),
+                        testId: 'seats-expand',
+                      },
+                    ]
+                  : []
+              }
+              field={{
+                placeholder: 'Search guests',
+                input: {
+                  defaultValue: seatQ,
+                  enterKeyHint: 'search',
+                  'data-seats-search': '',
+                  onInput: (e) => {
+                    const v = e.currentTarget.value.trim();
+                    if (seatQTimer.current) clearTimeout(seatQTimer.current);
+                    seatQTimer.current = setTimeout(() => setSeatQ(v), SEARCH_WAIT_MS);
+                  },
+                  onKeyDown: (e) => {
+                    if (e.key !== 'Enter' || e.nativeEvent.isComposing) return;
+                    e.preventDefault();
+                    const v = e.currentTarget.value.trim();
+                    setSeatQ(v);
+                    if (v) goToFound(v);
+                  },
+                },
+              }}
+              right={[
+                guestsFilterMenu({
+                  view: 'seats',
+                  filter: lens.filter,
+                  onFilter: lens.setFilter,
+                  hasSides: lens.hasSides,
+                  label: 'Show, or open the people',
+                  extras: peopleInSheet
+                    ? [{ key: 'people', label: unseatedComing > 0 ? `People · ${formatCount(unseatedComing)} to seat` : 'People', group: 'Open' }]
+                    : [],
+                  onExtra: (k) => {
+                    if (k === 'people') setPeopleOpen(true);
+                  },
+                }),
+              ]}
+              action={{ menu: seatAddOptions, label: 'Add to the plan', value: null, onPick: onSeatAdd, mark: 'data-seat-plan-add' }}
+            />
+          </>,
+          lens.slot,
+        )
+      : null;
   const studioPeople = inGuests ? (
     <>
       {faceCardSheet}
-      <GuestsSeatThumbRow
-        pop={seatPop}
-        showAuto={false}
-        onAutoArrange={runAutoArrange}
-        autoDisabled={!canEdit || tables.length === 0}
-        autoBusy={isPending}
-        rules={phoneRules}
-        onAddTable={addTable}
-        addDisabled={!canEdit}
-        people={peopleInSheet ? { unseated: unseatedComing, onOpen: () => setPeopleOpen(true) } : null}
-        toast={autoRun ? { text: autoRun.text, onUndo: autoRun.undo ? undoAutoRun : null, onDismiss: () => setAutoRun(null) } : null}
-      />
+      {seatThumb}
       {peopleInSheet ? (
         <Sheet
           open={peopleOpen}
@@ -7823,8 +7956,9 @@ export function SeatingEditor({
                   return (
                     <div
                       key={i}
-                      className="absolute -translate-x-1/2 -translate-y-1/2"
-                      style={{ left: cx, top: cy, width: CHAIR_PX, height: CHAIR_PX }}
+                      className="absolute -translate-x-1/2 -translate-y-1/2 transition-opacity"
+                      style={{ left: cx, top: cy, width: CHAIR_PX, height: CHAIR_PX, opacity: occupant && seatDim(occupant.guest_id) ? 0.22 : undefined }}
+                      data-seat-dim={occupant && seatDim(occupant.guest_id) ? '' : undefined}
                     >
                       {occupant ? (
                         <button
@@ -8182,7 +8316,16 @@ export function SeatingEditor({
         </>
         ) : inGuests ? (
           /* 🗂 R4 · Guests › Seats › List: each table a foldable header, its people a row of faces and blank seats. */
-          <SeatFacesList units={faceUnits} unseated={comingUnseated.map(faceOf)} pickedId={pickedId} onFace={tapFace} onBlank={tapBlank} />
+          <SeatFacesList
+            units={faceUnits}
+            unseated={comingUnseated.map(faceOf)}
+            pickedId={pickedId}
+            onFace={tapFace}
+            onBlank={tapBlank}
+            closed={faceClosed}
+            onToggle={toggleFaceFold}
+            dim={seatDim}
+          />
         ) : (
           <div className="absolute inset-0 space-y-2 overflow-y-auto p-3">
             {tables.length === 0 ? (

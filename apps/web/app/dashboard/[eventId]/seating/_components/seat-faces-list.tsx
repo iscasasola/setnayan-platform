@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import { Armchair, ChevronDown, UserRound } from 'lucide-react';
 import { formatCount } from '@/lib/format-number';
 
@@ -24,7 +23,7 @@ export type FaceGuest = { id: string; name: string; initials: string; photo: str
 export type FaceSlot = { kind: 'face'; guest: FaceGuest; tableId: string; seat: number } | { kind: 'blank'; tableId: string; seat: number };
 export type FaceUnit = { key: string; label: string; sub: string; seated: number; capacity: number; slots: FaceSlot[] };
 
-function Face({ g, picked, onPress, where }: { g: FaceGuest; picked: boolean; onPress: () => void; where: string }) {
+function Face({ g, picked, onPress, where, dim }: { g: FaceGuest; picked: boolean; onPress: () => void; where: string; dim: boolean }) {
   return (
     <button
       type="button"
@@ -33,9 +32,10 @@ function Face({ g, picked, onPress, where }: { g: FaceGuest; picked: boolean; on
       aria-pressed={picked}
       title={g.name}
       data-seat-face={g.id}
-      className={`sn-press relative inline-flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full text-[13px] font-semibold text-cream ${
+      data-seat-dim={dim ? '' : undefined}
+      className={`sn-press relative inline-flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full text-[13px] font-semibold text-cream transition-opacity ${
         picked ? 'ring-2 ring-terracotta ring-offset-2 ring-offset-cream' : ''
-      }`}
+      } ${dim ? 'opacity-25' : ''}`}
       style={g.photo ? undefined : { backgroundColor: g.color }}
     >
       {g.photo ? (
@@ -89,7 +89,8 @@ function Fold({
           <span className="sn-acc-chip inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full" aria-hidden>
             {icon === 'table' ? <Armchair className="h-[18px] w-[18px]" strokeWidth={1.9} /> : <UserRound className="h-[18px] w-[18px]" strokeWidth={1.9} />}
           </span>
-          <span className="min-w-0 flex-1 truncate text-[14px] font-semibold tracking-[0.04em] text-ink">{label}</span>
+          {/* ✂ A table's name WRAPS, never cut (owner v15 — names are never ellipsized; up to three lines). */}
+          <span className="line-clamp-3 min-w-0 flex-1 text-[14px] font-semibold tracking-[0.04em] text-ink [overflow-wrap:anywhere]">{label}</span>
           <span className="shrink-0 text-[13px] tabular-nums text-ink/60">{tally}</span>
           <ChevronDown aria-hidden className={`h-[18px] w-[18px] shrink-0 text-ink/45 transition-transform ${open ? 'rotate-180' : ''}`} strokeWidth={1.9} />
         </button>
@@ -105,6 +106,9 @@ export function SeatFacesList({
   pickedId,
   onFace,
   onBlank,
+  closed,
+  onToggle,
+  dim = () => false,
 }: {
   units: FaceUnit[];
   /** The coming guests with no chair — faces only (a section has no seats of its own). */
@@ -113,21 +117,19 @@ export function SeatFacesList({
   pickedId: string | null;
   onFace: (guestId: string) => void;
   onBlank: (tableId: string, seat: number) => void;
+  /** ⇕ The folded headers — held by the editor, so the thumb row's ⇕ opens or folds them all (R4 slice 1). */
+  closed: ReadonlySet<string>;
+  onToggle: (key: string) => void;
+  /** ⇅ A face the shared Show or the search leaves out — drawn faint, its seat still taken. */
+  dim?: (guestId: string) => boolean;
 }) {
-  const [closed, setClosed] = useState<ReadonlySet<string>>(() => new Set());
-  const toggle = (k: string) =>
-    setClosed((s) => {
-      const n = new Set(s);
-      if (n.has(k)) n.delete(k);
-      else n.add(k);
-      return n;
-    });
+  const toggle = onToggle;
   return (
     <div data-seat-faces-list="" className="absolute inset-0 overflow-y-auto overscroll-contain px-3 pb-28 pt-1">
       {unseated.length > 0 ? (
         <Fold id="unseated" label="To seat" tally={formatCount(unseated.length)} icon="people" open={!closed.has('unseated')} onToggle={() => toggle('unseated')}>
           {unseated.map((g) => (
-            <Face key={g.id} g={g} picked={pickedId === g.id} onPress={() => onFace(g.id)} where="no seat yet" />
+            <Face key={g.id} g={g} picked={pickedId === g.id} onPress={() => onFace(g.id)} where="no seat yet" dim={dim(g.id)} />
           ))}
         </Fold>
       ) : null}
@@ -140,7 +142,7 @@ export function SeatFacesList({
         <Fold key={u.key} id={u.key} label={u.label} tally={`${formatCount(u.seated)} of ${formatCount(u.capacity)}`} icon="table" open={!closed.has(u.key)} onToggle={() => toggle(u.key)}>
           {u.slots.map((s) =>
             s.kind === 'face' ? (
-              <Face key={`${s.tableId}:${s.seat}`} g={s.guest} picked={pickedId === s.guest.id} onPress={() => onFace(s.guest.id)} where={`${u.label}, seat ${s.seat + 1}`} />
+              <Face key={`${s.tableId}:${s.seat}`} g={s.guest} picked={pickedId === s.guest.id} onPress={() => onFace(s.guest.id)} where={`${u.label}, seat ${s.seat + 1}`} dim={dim(s.guest.id)} />
             ) : (
               <Blank key={`${s.tableId}:${s.seat}`} armed={pickedId !== null} onPress={() => onBlank(s.tableId, s.seat)} label={`${u.label}, empty seat ${s.seat + 1}`} />
             ),

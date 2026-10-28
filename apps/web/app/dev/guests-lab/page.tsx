@@ -86,6 +86,7 @@ import { MakerRsvpSettings } from '@/app/dashboard/[eventId]/launch/_components/
 import { guestsGetInPatch, isGuestsGetIn } from '@/lib/who-can-reply';
 import { renderStyledUrlQrSvg } from '@/lib/qr';
 import { GuestsScreen } from '@/app/dashboard/[eventId]/guests/_components/guests-screen';
+import { parseGuestsFilter } from '@/lib/guests-filter';
 import { GUESTS_VIEWS, parseGuestsView } from '@/lib/guests-views';
 import { LabMarch, LabSeats } from './lab-seats-march';
 import type { TitleWaitingPerson } from '@/app/dashboard/[eventId]/guests/_components/titles-waiting';
@@ -783,6 +784,7 @@ export default async function GuestsLabPage({
                     eventId={EVENT}
                     gview={gview}
                     views={GUESTS_VIEWS}
+                    filter={parseGuestsFilter(sp)}
                     bodies={{
                       seats: <LabSeats guests={roster} seat={typeof sp.seat === 'string' ? sp.seat : undefined} />,
                       march: <LabMarch shape={typeof sp.march === 'string' ? sp.march : null} />,

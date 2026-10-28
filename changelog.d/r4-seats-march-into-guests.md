@@ -82,3 +82,29 @@ preview walk so it is not lost?"*. Seats and March no longer swipe: `ViewCountRo
 count-row height — Seats: Seated · Unseated · Tables · ✨ Auto arrange (the forward tile; it left the thumb row); March:
 Walks · Walking · Not walking (opens the tray) · ▶ Preview, disabled and saying "The walk preview is coming" (no walk
 preview ships yet). Unread counts read "—". Guard: `lib/r4-seats-march-forwards.test.ts` test 8.
+
+## 2026-10-29 · feat(guests): R4 slice 1 — ONE thumb row on every Guests view, ONE shared ⇅ (Show · Group by · Sort)
+
+Owner (prototype v12–v26 `renderThumb` / `filterSheet` / `setShow`): every Guests view wears THE shared
+`components/thumb-row.tsx` — List ⇕ · Search guests · ⇅ (the shipped seats, no ＋) · Map Search · ⇅ · ＋ Add guest ·
+Seats ⇕ (List mode) · Search guests · ⇅ · ＋ Add ▾ (New table · Entrance · Service door · Dance floor · Cocktail area ·
+Sign · Supplier booth — the plan's own Add menu, its handlers and refusals) · March ⇕ · Search guests · ⇅ · ＋ Add a
+walk ▾ (the "Not walking" names; one picked walks alone at the end of their section — the SAME `planMove` as dragging
+them out of the tray, Undo and all).
+- **⇅ is ONE PickMenu** (`guests/_components/guests-filter-menu.tsx`) with Show (Everyone · Attending · Not coming · No
+  reply · To invite) · Group by (List: the five shipped groupings; Map: its four) · Sort (List: Importance · Name ·
+  Table), then each view's shipped items (+1 · Select… · File · ways to add; Seats' People). ✓ marks each section's
+  choice; a dot on the round while anything narrows.
+- **ONE state** (`lib/guests-filter.ts`): the carousel's count doors and every ⇅ write it; List and Map read one Group
+  by; it is kept in the address as `?gshow=` · `?ggroup=` · `?gsort=` (g-prefixed: the page already reads `?group=` — a
+  group id that narrows the server read — and `?sort=`), carried across a view switch, nothing asked of the server.
+- **Seats and March** read it through the Guests lens (`guests/_components/guests-lens.tsx`): a face or a walking name
+  that the Show or the search leaves out is drawn faint (never hidden — its seat is still taken); Enter goes to the first
+  found. They draw the row into the Guests screen's own seat (a portal), so it slides and floats like the List's. Who
+  sits together moved to the Seats head's ⋯ (nothing lost); the bespoke `GuestsSeatThumbRow` is retired.
+- Seats › List table names wrap (up to three lines) instead of being cut.
+- Guards: `lib/guests-filter.test.ts` (6 properties; sabotaged red three ways — a second Show state, Seats off the lens,
+  a pick that swallowed a view's own key), and the List / Map / Sides / Excel / r4 guards re-aimed at the shared ⇅.
+
+SPEC IMPACT: None — the prototype v12–v26 is the record; a DECISION_LOG row for "Map ＋ Add guest is back (supersedes
+2026-10-25's no-＋ on the Map)" is flagged for the owner in the PR body.

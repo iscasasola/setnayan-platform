@@ -31,6 +31,10 @@ import { stripComments } from './strip-comments';
     if (request === 'server-only' || request === 'client-only') return {};
     return load.call(this, request, ...rest);
   };
+  /* ⇅ R4 slice 1: the march draws THE shared thumb row in Guests, whose CSS module is its class names here. */
+  Mod._extensions['.css'] = (m: { exports: unknown }) => {
+    m.exports = new Proxy({}, { get: (_t, k) => (k === '__esModule' ? false : String(k)) });
+  };
 }
 const WEB = join(__dirname, '..');
 const L = 'app/dashboard/[eventId]/launch/_components';

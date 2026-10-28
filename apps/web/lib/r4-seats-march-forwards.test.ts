@@ -240,7 +240,10 @@ test('6 · Guests draws List · Map · Seats · March — the shipped maker unde
     assert.match(html, new RegExp(`data-guests-view-body="${view}"[^>]*><div data-shipped-maker="${view}"`), `${view}: the page's maker is not drawn`);
     assert.match(html, new RegExp(`aria-current="page"[^<]*?data-guests-seg="${view}"`), `${view}: the row does not mark it`);
     assert.doesNotMatch(html, /data-guest-rows=""/, `${view}: the list is drawn under the maker`);
-    assert.doesNotMatch(html, /data-guests-thumb=""/, `${view}: the List's thumb row is drawn under the maker`);
+    // ⇅ R4 slice 1: the screen's thumb seat is drawn under every view — for a maker it is the EMPTY slot the maker portals
+    // THE ThumbRow into (guests-lens.tsx), never the List's own row.
+    assert.match(html, new RegExp(`data-guests-thumb=""[^>]*><div data-guests-thumb-slot="${view}"[^>]*></div></div>`), `${view}: no empty thumb seat for the maker`);
+    assert.doesNotMatch(html, /data-thumb-row="guests"/, `${view}: the List's thumb row is drawn under the maker`);
     assert.doesNotMatch(html, /data-guests-carousel=""/, `${view}: the summary carousel is drawn over the maker`);
   }
   const map = await renderGuestsScreen({ guests, views: GUESTS_VIEWS, gview: 'map' });
@@ -256,7 +259,8 @@ test('6 · Guests draws List · Map · Seats · March — the shipped maker unde
   // …and a switch is a client switch: the view row's press is handled in place, the address follows (`replaceState`).
   const screen = read('app/dashboard/[eventId]/guests/_components/guests-screen.tsx');
   assert.match(screen, /onClick=\{onViewPress\(key\)\}\s*data-guests-seg=\{key\}/, 'a view press navigates (a server round trip) again');
-  assert.match(screen, /window\.history\.replaceState\(window\.history\.state, '', guestsViewHref\(eventId, v\)\);/);
+  // ⇅ …carrying the shared Show · Group by · Sort with it (lib/guests-filter.ts), so a switch keeps what is shown.
+  assert.match(screen, /window\.history\.replaceState\(window\.history\.state, '', hrefWithGuestsFilter\(guestsViewHref\(eventId, v\), filterRef\.current\)\);/);
   assert.match(page, /<GuestsMarch eventId=\{eventId\} \/>/);
 });
 
@@ -283,17 +287,17 @@ test('7 · Seats and March follow the Guests screen: the summary row, ONE mode d
   assert.match(ed, /const seatSummary = inGuests \? \(\s*<ViewCountRow\s+view="seats"/);
   // ONE mode dropdown (List · 2D · 3D) in the head — the shared PickMenu, never a pill row; no desk segment in Guests.
   const phone = read('app/dashboard/[eventId]/seating/_components/seat-plan-phone.tsx');
-  const pick = phone.slice(phone.indexOf('export function SeatPlanModePick('), phone.indexOf('export function GuestsSeatThumbRow('));
+  const pick = phone.slice(phone.indexOf('export function SeatPlanModePick('), phone.indexOf('export function PeopleSheet('));
   assert.match(pick, /<PickMenu label="View"/);
   assert.match(ed, /view=\{inGuests \? <SeatPlanModePick view=\{studioView\} onView=\{onSelectView\} show3D=\{show3D\} \/> : undefined\}/);
   assert.match(ed, /\{isPhone \|\| inGuests \? null : \(\s*<CommandBar>/, 'the desk command bar (its pill segment) is drawn in Guests');
-  // The thumb row holds the verbs — Auto arrange · Rules · + Table (and, on a phone, the people's door).
-  const { GuestsSeatThumbRow } = await import('../app/dashboard/[eventId]/seating/_components/seat-plan-phone');
-  const thumb = renderToStaticMarkup(
-    React.createElement(GuestsSeatThumbRow, { onAutoArrange: () => {}, autoDisabled: false, autoBusy: false, rules: null, onAddTable: () => {}, addDisabled: false, people: { unseated: 9, onOpen: () => {} }, toast: null }),
-  );
-  for (const w of ['Auto arrange', 'Rules', 'Add a table', '9 to seat — open the people']) assert.ok(thumb.includes(w), `the thumb row lost “${w}”`);
-  assert.match(thumb, /data-seat-plan-thumb=""[^>]*bottom-0/, 'the verbs are not at the foot');
+  // ⇅ R4 slice 1: the thumb row is THE shared ThumbRow (guests-seats), drawn into the Guests screen's seat — ⇕ on the
+  // list · Search guests · ⇅ (Show + the people) · ＋ Add ▾ with the plan's own placeables. Rules live in the head's ⋯.
+  assert.match(ed, /<ThumbRow\s+name="guests-seats"/, 'Seats does not draw the shared thumb row');
+  assert.match(ed, /createPortal\(\s*<>[\s\S]{0,200}?<ThumbRow\s+name="guests-seats"[\s\S]*?lens\.slot,/, 'the Seats row is not drawn into the Guests seat');
+  for (const k of ['table', 'entrance', 'service', 'dance', 'cocktail', 'sign', 'booth']) assert.match(ed, new RegExp(`if \\(k === '${k}'\\) return add`), `＋ Add lost ${k}`);
+  assert.match(ed, /\{inGuests \? \(\s*<>\s*\{phoneRules\}/, 'Who sits together left the head’s ⋯ without a home');
+  assert.match(ed, /key: 'people', label: unseatedComing > 0 \? `People · \$\{formatCount\(unseatedComing\)\} to seat`/, 'the phone lost its people door');
   // List mode: each table a foldable header with its faces and one blank per free seat.
   const { SeatFacesList } = await import('../app/dashboard/[eventId]/seating/_components/seat-faces-list');
   const g = (id: string) => ({ id, name: `Guest ${id}`, initials: id.toUpperCase(), photo: null, color: '#999' });
@@ -304,8 +308,14 @@ test('7 · Seats and March follow the Guests screen: the summary row, ONE mode d
       pickedId: null,
       onFace: () => {},
       onBlank: () => {},
+      closed: new Set<string>(),
+      onToggle: () => {},
+      dim: (id: string) => id === 'b',
     }),
   );
+  // ⇅ A face the shared Show / the search leaves out is drawn faint — never hidden (its seat is still taken).
+  assert.match(list, /data-seat-face="b"[^>]*data-seat-dim=""[^>]*opacity-25/, 'a left-out face is not drawn faint');
+  assert.doesNotMatch(list, /data-seat-face="a"[^>]*data-seat-dim/, 'a shown face is dimmed');
   assert.match(list, /class="sn-acc-head"/, 'the list is not the house foldable header');
   assert.match(list, />Table 1<[\s\S]*?>2 of 4</);
   assert.equal((list.match(/data-seat-face="/g) ?? []).length, 3, 'a face is missing');
@@ -313,7 +323,7 @@ test('7 · Seats and March follow the Guests screen: the summary row, ONE mode d
   assert.match(list, /aria-label="Guest a, Table 1, seat 1"/, 'a face is not named for a screen reader');
   // A face — on the plan AND in the list — opens the ONE guest card (the shipped sheet), with Remove · Swap.
   assert.match(ed, /else if \(inGuests\) tapFace\(occupant\.guest_id\);/, 'a face on the 2D plan does not open the card');
-  assert.match(ed, /<SeatFacesList units=\{faceUnits\}[^>]*onFace=\{tapFace\}/, 'a face in the list does not open the card');
+  assert.match(ed, /<SeatFacesList\s+units=\{faceUnits\}[^>]*onFace=\{tapFace\}/, 'a face in the list does not open the card');
   assert.match(ed, /<GuestCardSheet\s+eventId=\{eventId\}\s+person=\{\{ id: faceCard\.id, name: faceCard\.name \}\}\s+open=\{SHIPPED_GUEST_CARD\.seats\}/);
   assert.match(ed, /label="Remove"/);
   assert.match(ed, /label=\{faceCard\.seated \? 'Swap' : 'Seat'\}/);
@@ -346,5 +356,7 @@ test('8 · Seats and March count in ONE fixed row (no swipe) — the view’s fo
   const ed = read('app/dashboard/[eventId]/seating/_components/seating-editor.tsx');
   for (const k of ['seated', 'unseated', 'tables', 'auto']) assert.match(ed, new RegExp(`key: '${k}'`), `Seats lost its ${k} tile`);
   assert.match(ed, /onPress: runAutoArrange,/);
-  assert.match(ed, /<GuestsSeatThumbRow\s+pop=\{seatPop\}\s+showAuto=\{false\}/, 'Auto arrange is drawn twice');
+  // Auto arrange is the count row's tile only — the shared thumb row draws no second one.
+  const thumbPart = ed.slice(ed.indexOf('const seatThumb ='), ed.indexOf('const studioPeople ='));
+  assert.doesNotMatch(thumbPart, /runAutoArrange|AutoArrange/, 'Auto arrange is drawn twice');
 });

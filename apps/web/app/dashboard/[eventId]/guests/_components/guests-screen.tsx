@@ -55,7 +55,6 @@ import {
   Ellipsis,
   Heart,
   House,
-  ListFilter,
   Mail,
   Minus,
   PartyPopper,
@@ -103,7 +102,6 @@ import { normalizeSearchText } from '@/lib/guest-search';
 import {
   isToInvite,
   mayBeInvited,
-  MAP_ARRANGE,
   mapTree,
   hostMaySetReply,
   plusOneFilterMatches,
@@ -112,7 +110,6 @@ import {
   plusOneWordsFrom,
   PLUS_ONE_FILTERS,
   seatRowsByGuest,
-  ROSTER_VIEWS,
   rosterSearchMatches,
   rosterSections,
   rosterStats,
@@ -166,6 +163,17 @@ import { GuestListStatus } from './guest-copy-mark';
 import { TitlesWaiting, type TitleWaitingPerson } from './titles-waiting';
 import { displayPersonName } from '@/lib/person-name-case';
 import { GUESTS_MAKER_VIEWS, GUESTS_VIEW_LABEL, guestsViewHref, isGuestsMakerView, type GuestsMakerView, type GuestsView } from '@/lib/guests-views';
+import {
+  NO_GUESTS_FILTER,
+  hrefWithGuestsFilter,
+  listGroupOf,
+  mapGroupOf,
+  sortGuestsFor,
+  writeGuestsFilter,
+  type GuestsFilter,
+} from '@/lib/guests-filter';
+import { GuestsLensContext, type GuestsLens } from './guests-lens';
+import { guestsFilterMenu } from './guests-filter-menu';
 
 
 export type GuestsScreenProps = {
@@ -266,6 +274,12 @@ export type GuestsScreenProps = {
    * so the page never draws a control that can only fail.
    */
   viewOnly?: boolean;
+  /**
+   * ⇅ R4 slice 1 · the ONE Show · Group by · Sort the address asked for (`?gshow=` · `?ggroup=` · `?gsort=`, parsed by
+   * `parseGuestsFilter`) — shared by the carousel's count doors, the List, the Map, and the Show of Seats and March.
+   * Absent: everyone, each view's own grouping, the shipped order.
+   */
+  filter?: GuestsFilter;
 };
 
 /** 📤 A row's Share: the event's invitation address + words, and guest_id → their own QR token. */
@@ -368,12 +382,14 @@ export function GuestsScreen(props: GuestsScreenProps) {
     copy = null,
     roleSetKey = null,
     viewOnly = false,
+    filter: filterAsked = NO_GUESTS_FILTER,
   } = live;
   /* 🗂 R4 · THE VIEW IS A CLIENT SWITCH (owner 2026-10-29, *"as smooth as possible with fastest load and fewest
      requests"*): List · Map · Seats · March change here, in place — the address follows (`replaceState`, so a reload or
      a shared link lands on the same view) and nothing is asked of the server; every view's data came with the page. A
      new address from the server (a door, Back) is taken as the view. */
   const [gview, setGview] = useState<GuestsView>(gviewAsked);
+  const filterRef = useRef<GuestsFilter>(filterAsked);
   const [seenViews, setSeenViews] = useState<ReadonlySet<GuestsView>>(() => new Set([gviewAsked]));
   useEffect(() => {
     setGview(gviewAsked);
@@ -382,7 +398,8 @@ export function GuestsScreen(props: GuestsScreenProps) {
   const pickView = (v: GuestsView) => {
     setGview(v);
     setSeenViews((s) => (s.has(v) ? s : new Set([...s, v])));
-    window.history.replaceState(window.history.state, '', guestsViewHref(eventId, v));
+    // ⇅ The shared Show · Group by · Sort rides along — a switch keeps what is shown (lib/guests-filter.ts).
+    window.history.replaceState(window.history.state, '', hrefWithGuestsFilter(guestsViewHref(eventId, v), filterRef.current));
   };
   /** A plain press switches in place; a press that asks for a new tab or window keeps the link's own way. */
   const onViewPress = (v: GuestsView) => (e: React.MouseEvent<HTMLAnchorElement>) => {
@@ -514,20 +531,42 @@ export function GuestsScreen(props: GuestsScreenProps) {
   const [plusFilter, setPlusFilter] = useState<PlusOneFilter | null>(null);
   // 👆 The counts are doors (owner 2026-10-21): "N attending · N not coming · N no reply" filter to exactly those guests.
   // ☑ A cold `?select=to-invite` (⚙ › Pick who's link) lands narrowed to To invite, as the in-place press does.
-  const [replyFilter, setReplyFilter] = useState<ReplyFilter | null>(initialSelect ? 'toinvite' : null);
+  /* ⇅ THE ONE SHOW · GROUP BY · SORT (R4 slice 1, owner 2026-10-29 — `lib/guests-filter.ts`): the count doors, the ⇅ of
+     every view, the List and the Map read and write THIS — and the address keeps it (`replaceState`, nothing asked of
+     the server). `replyFilter` is its Show, under the name every door already used. */
+  const [filter, setFilter] = useState<GuestsFilter>(() => (initialSelect ? { ...filterAsked, show: 'toinvite' } : filterAsked));
+  useEffect(() => {
+    filterRef.current = filter;
+    try {
+      const url = new URL(window.location.href);
+      const next = writeGuestsFilter(url.searchParams, filter).toString();
+      if (next === url.searchParams.toString()) return;
+      window.history.replaceState(window.history.state, '', `${url.pathname}${next ? `?${next}` : ''}${url.hash}`);
+    } catch {
+      /* the address keeps its old words; the screen shows the new filter either way */
+    }
+  }, [filter]);
+  const replyFilter = filter.show;
+  const setReplyFilter = useCallback(
+    (next: ReplyFilter | null | ((now: ReplyFilter | null) => ReplyFilter | null)) =>
+      setFilter((f) => ({ ...f, show: typeof next === 'function' ? next(f.show) : next })),
+    [],
+  );
   // A guest found by NAME brings their +1s (`withTheirPlusOnes`) — a +1 is never left behind by a search.
   const visible = useMemo(() => {
     const found = q ? withTheirPlusOnes(q, roster.filter((g) => rosterSearchMatches(q, g, facts)), roster) : roster;
-    return plusFilter || replyFilter
-      ? found.filter((g) => plusOneFilterMatches(g, plusFilter) && replyFilterMatches(g, replyFilter))
-      : found;
-  }, [roster, q, facts, plusFilter, replyFilter]);
+    const narrowed =
+      plusFilter || replyFilter
+        ? found.filter((g) => plusOneFilterMatches(g, plusFilter) && replyFilterMatches(g, replyFilter))
+        : found;
+    // ⇅ Sort re-orders the same rows (Importance = the page's own order); a +1 stays beside their guest.
+    return sortGuestsFor(narrowed, filter.sort, (id) => tableByGuest[id] ?? null) as GuestRow[];
+  }, [roster, q, facts, plusFilter, replyFilter, filter.sort, tableByGuest]);
 
   // ── The one Sort (list) and the one Arrange (map).
-  const views = useMemo(() => ROSTER_VIEWS.filter((v) => hasSides || v.key !== 'side'), [hasSides]);
-  const [view, setView] = useState<RosterView>('role');
-  const arranges = useMemo(() => MAP_ARRANGE.filter((v) => hasSides || v.key !== 'side'), [hasSides]);
-  const [arrange, setArrange] = useState<MapArrange>(hasSides ? 'side' : 'role');
+  // ⇅ Group by is the shared filter's (List: Role by default; the Map its own default where it has no Last name).
+  const view: RosterView = listGroupOf(filter);
+  const arrange: MapArrange = mapGroupOf(filter, hasSides);
 
   const sections = useMemo(() => rosterSections(visible, view, facts), [visible, view, facts]);
 
@@ -538,7 +577,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
     const first = secs.find((x) => !x.celebrants) ?? secs[0];
     return new Set(first ? [first.key] : []);
   };
-  const [open, setOpen] = useState<Set<string>>(() => firstOpen('role'));
+  const [open, setOpen] = useState<Set<string>>(() => firstOpen(listGroupOf(filterAsked)));
   // A refused read drew no sections; when the phone's copy replaces it, open the copy's first section.
   useEffect(() => {
     if (unread) setOpen(firstOpen(view));
@@ -1153,52 +1192,65 @@ export function GuestsScreen(props: GuestsScreenProps) {
     copy?.freshness === 'failed'
       ? []
       : [{ key: GUESTS_EXCEL_KEY, label: excel.label, group: 'File', icon: <Share className="h-[18px] w-[18px]" strokeWidth={1.9} /> }];
-  const sortMenu: ThumbMenu = {
+  /** ⇅ A pick in the shared menu: the one filter changes; a new Group by opens its first heading (as the shipped Sort
+      did) and clears the +1 narrowing; the list goes back to its top. */
+  const pickFilter = (next: GuestsFilter) => {
+    if (listGroupOf(next) !== view) {
+      setPlusFilter(null);
+      setOpen(firstOpen(listGroupOf(next)));
+    }
+    setFilter(next);
+    window.scrollTo({ top: 0 });
+  };
+  /* ⇅ THE LIST'S ROUND (R4 slice 1): Show · Group by · Sort — the shared state — then the shipped ≡ items it held: +1 ·
+     Select… · File · the ways to add. The same seat, the same icon. */
+  const sortMenu: ThumbMenu = guestsFilterMenu({
+    view: 'list',
+    filter,
+    onFilter: pickFilter,
+    hasSides,
     mark: 'data-thumb-sort',
     tour: 'guests-sort',
-    label: 'Sort, select or add',
-    value: plusFilter ? `plus:${plusFilter}` : view,
-    buttonText: plusFilter ? `+1 · ${PLUS_ONE_FILTERS.find((f) => f.key === plusFilter)?.label ?? ''}` : undefined,
-    menu: views
-      .map((v): PickOption => ({ key: v.key, label: v.label, group: 'Sort by', icon: <ListFilter className="h-[18px] w-[18px]" strokeWidth={1.9} /> }))
-      .concat(
-        // 🪑 "+1 ▾ Named · No name yet" (owner 2026-10-21) — offered only when the list has +1s; picking a Sort clears it.
-        plusTally.named + plusTally.unnamed > 0
-          ? PLUS_ONE_FILTERS.map((f) => ({ key: `plus:${f.key}`, label: f.label, group: '+1', icon: <Armchair className="h-[18px] w-[18px]" strokeWidth={1.9} /> }))
-          : [],
-        // ☑ Select lives in this menu (owner 2026-10-22, question 1) — it was the row's fifth round.
-        writesOff ? [] : [{ key: 'select', label: 'Select…', group: 'List', icon: <SquareCheck className="h-[18px] w-[18px]" strokeWidth={1.9} /> }],
-        fileOptions,
-        addWays,
-      ),
-    onPick: (k) => {
+    label: 'Show, sort, select or add',
+    alsoOn: plusFilter !== null,
+    extras: ([] as PickOption[]).concat(
+      // 🪑 "+1 ▾ Named · No name yet" (owner 2026-10-21) — offered only when the list has +1s; a new Group by clears it.
+      plusTally.named + plusTally.unnamed > 0
+        ? PLUS_ONE_FILTERS.map((f) => ({
+            key: `plus:${f.key}`,
+            label: f.label,
+            group: '+1',
+            icon: <Armchair className="h-[18px] w-[18px]" strokeWidth={1.9} />,
+            trail: plusFilter === f.key ? { text: '✓', tone: 'ok' as const, label: 'shown now' } : undefined,
+          }))
+        : [],
+      // ☑ Select lives in this menu (owner 2026-10-22, question 1) — it was the row's fifth round.
+      writesOff ? [] : [{ key: 'select', label: 'Select…', group: 'List', icon: <SquareCheck className="h-[18px] w-[18px]" strokeWidth={1.9} /> }],
+      fileOptions,
+      addWays,
+    ),
+    onExtra: (k) => {
       if (pickedAddWay(k)) return;
       if (k === GUESTS_EXCEL_KEY) return excel.save();
       if (k === 'select') return setSelectMode(true);
       if (k.startsWith('plus:')) {
-        setPlusFilter(k.slice(5) as PlusOneFilter);
+        setPlusFilter((now) => (now === k.slice(5) ? null : (k.slice(5) as PlusOneFilter)));
         window.scrollTo({ top: 0 });
-        return;
       }
-      const next = k as RosterView;
-      setPlusFilter(null);
-      setView(next);
-      setOpen(firstOpen(next));
-      window.scrollTo({ top: 0 });
     },
-  };
-  const arrangeMenu: ThumbMenu = {
+  });
+  /* ⇅ THE MAP'S ROUND: Show · Group by (the SAME state as the List's — v18: the Map has no "Grouped by" chip of its own),
+     then the ways to add. */
+  const arrangeMenu: ThumbMenu = guestsFilterMenu({
+    view: 'map',
+    filter,
+    onFilter: setFilter,
+    hasSides,
     mark: 'data-thumb-arrange',
-    label: 'Arrange the map, or add',
-    value: arrange,
-    menu: arranges
-      .map((v): PickOption => ({ key: v.key, label: v.label, group: 'Arrange by', icon: <ListFilter className="h-[18px] w-[18px]" strokeWidth={1.9} /> }))
-      .concat(addWays),
-    onPick: (k) => {
-      if (pickedAddWay(k)) return;
-      setArrange(k as MapArrange);
-    },
-  };
+    label: 'Show, group or add',
+    extras: addWays,
+    onExtra: (k) => void pickedAddWay(k),
+  });
   /* ⚡ SEARCH OR ADD, ONE ENTER (owner 2026-10-19: "i type a name and it is not found there. when i press enter that should
      add that person there already"). Enter on a line that matches ONE guest opens them; several stay filtered; NOBODY →
      the line is a new guest, on the List at once (the shipped capture-bar grammar, the shipped `addSingleGuest`, through
@@ -1460,7 +1512,16 @@ export function GuestsScreen(props: GuestsScreenProps) {
       />
     );
   } else if (gview === 'map') {
-    thumb = <ThumbRow name="guests-map" field={field} right={[arrangeMenu]} />;
+    /* ＋ THE MAP'S MAIN VERB (R4 slice 1, prototype v12): Add guest — the shipped add sheet; the List keeps its own seats
+       (the field is its add). A viewer who may not write gets no ＋. */
+    thumb = (
+      <ThumbRow
+        name="guests-map"
+        field={field}
+        right={[arrangeMenu]}
+        action={writesOff ? null : { icon: Plus, label: 'Add guest', onClick: () => openAddGuest(''), testId: 'map-add-guest' }}
+      />
+    );
   }
 
   /* ═══ the list ═══ */
@@ -1632,6 +1693,29 @@ export function GuestsScreen(props: GuestsScreenProps) {
 
   const tree = useMemo(() => mapTree(visible, arrange, facts), [visible, arrange, facts]);
 
+  /* ⇅ THE LENS SEATS AND MARCH READ (`guests-lens.tsx`): the view on screen, the row's seat, the shared filter, and the
+     two questions they cannot answer alone — does a guest pass Show, and whom do these words find — answered off THIS
+     list with the shipped rules (`replyFilterMatches`, `rosterSearchMatches`). */
+  const [thumbSlot, setThumbSlot] = useState<HTMLElement | null>(null);
+  const lens = useMemo<GuestsLens>(
+    () => ({
+      view: gview,
+      slot: thumbSlot,
+      filter,
+      setFilter,
+      hasSides,
+      shows: (id) => {
+        const g = rosterById.get(id);
+        return !g || replyFilterMatches(g, filter.show);
+      },
+      find: (words) => {
+        const w = words.trim();
+        return new Set(w ? roster.filter((g) => rosterSearchMatches(w, g, facts)).map((g) => g.guest_id) : []);
+      },
+    }),
+    [gview, thumbSlot, filter, hasSides, rosterById, roster, facts],
+  );
+
   return (
     <GuestListHasSidesContext.Provider value={hasSides}>
       {toastNode}
@@ -1726,15 +1810,18 @@ export function GuestsScreen(props: GuestsScreenProps) {
           </>
         ) : null}
 
-        {/* 🗂 R4: Seats and March — the shipped makers, whole, with their own tools; no list, no thumb row under them.
-            Mounted when first opened, then KEPT (hidden) — a switch back finds them as they were, nothing re-read. */}
-        {GUESTS_MAKER_VIEWS.map((v) =>
-          seenViews.has(v) && props.bodies?.[v] ? (
-            <div key={v} data-guests-view-body={v} className="min-w-0" hidden={gview !== v}>
-              {props.bodies[v]}
-            </div>
-          ) : null,
-        )}
+        {/* 🗂 R4: Seats and March — the shipped makers, whole. Mounted when first opened, then KEPT (hidden) — a switch
+            back finds them as they were, nothing re-read. ⇅ R4 slice 1: they read the lens (the shared Show, the shared
+            search's matches) and draw THE thumb row into this screen's own seat (`thumbSlot`). */}
+        <GuestsLensContext.Provider value={lens}>
+          {GUESTS_MAKER_VIEWS.map((v) =>
+            seenViews.has(v) && props.bodies?.[v] ? (
+              <div key={v} data-guests-view-body={v} className="min-w-0" hidden={gview !== v}>
+                {props.bodies[v]}
+              </div>
+            ) : null,
+          )}
+        </GuestsLensContext.Provider>
         {makerView ? null : gview === 'map' ? (
           <GuestMapCanvas
             rootLabel={rootLabel}
@@ -1748,8 +1835,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
           list
         )}
 
-        {makerView ? null : (
-          <div
+        <div
             // The ONE shared glass row (BUTTON_RULE rule 7, `.sn-glass-row` in
             // globals.css, builder GR): the row tints and blurs what scrolls behind.
             // ONE THUMB ROW (owner 2026-10-22): no band under the List / Map row — each control is its own glass. The
@@ -1759,11 +1845,16 @@ export function GuestsScreen(props: GuestsScreenProps) {
             data-guests-thumb=""
             data-last-seen-hold={selectMode ? '' : undefined}
           >
-            <div ref={thumbRef} style={{ display: 'flex', flex: 1, minWidth: 0 }}>
-              {thumb}
-            </div>
+            {makerView ? (
+              /* 🗂 Seats · March draw their ThumbRow HERE (a portal, `guests-lens.tsx`) — the same seat, glass and slide as
+                 the List's; whatever rises above it (a seat's "Pick a guest" bar, a toast) stacks over it. */
+              <div ref={setThumbSlot} data-guests-thumb-slot={gview} className="pointer-events-none flex min-w-0 flex-1 flex-col gap-2 [&>*]:pointer-events-auto" />
+            ) : (
+              <div ref={thumbRef} style={{ display: 'flex', flex: 1, minWidth: 0 }}>
+                {thumb}
+              </div>
+            )}
           </div>
-        )}
 
         <DeleteGuestSheet
           open={toRemove !== null}

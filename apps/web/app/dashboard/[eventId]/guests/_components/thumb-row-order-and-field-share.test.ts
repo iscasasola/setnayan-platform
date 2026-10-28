@@ -38,7 +38,13 @@ test('List: ⇕ · Search guests · ≡ (Sort, ☑ Select and the ways to add in
   assert.ok(order.every((i) => i > -1), `a control is missing from the thumb row: ${order.join(',')}`);
   assert.deepEqual([...order].sort((a, b) => a - b), order, 'the thumb row is out of order');
   assert.ok(!row.includes('action='), 'the List row has a main verb (the ＋) again');
-  assert.match(SCREEN, /<ThumbRow name="guests-map" field=\{field\} right=\{\[arrangeMenu\]\} \/>/, 'the Map row has a main verb (the ＋) again');
+  // ＋ R4 slice 1 (owner 2026-10-29, prototype v12 + the controller's brief "per-view ＋ main action except Guests ›
+  // List"): the Map's main verb is back — Add guest, the shipped add sheet — and only for someone who may write.
+  assert.match(
+    SCREEN,
+    /name="guests-map"\s+field=\{field\}\s+right=\{\[arrangeMenu\]\}\s+action=\{writesOff \? null : \{ icon: Plus, label: 'Add guest', onClick: \(\) => openAddGuest\(''\)/,
+    'the Map row lost its ＋ Add guest',
+  );
   assert.match(SCREEN, /writesOff \? \[\] : \[\{ key: 'select', label: 'Select…', group: 'List'/, '☑ Select is not in the ≡ menu');
   assert.match(SCREEN, /if \(k === 'select'\) return setSelectMode\(true\);/);
 });

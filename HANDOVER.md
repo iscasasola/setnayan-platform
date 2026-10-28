@@ -19,8 +19,18 @@ Keep the PR DRAFT + `do-not-auto-merge`; never merge/deploy. CI is the gate (no 
   March: Walks · Walking · Not walking (opens the tray) · ▶ Preview (DISABLED + "The walk preview is coming" — no walk
   preview ships). Guard: r4 test 8 (sabotaged red twice).
 
-## NEXT — in the controller's order (none started)
-1. SLICE 1 thumb row on every view = shared `components/thumb-row.tsx`: ⇕ · Search guests · ⇅ ONE PickMenu (Show / Group
+- SLICE 1 (pushed): THE shared ThumbRow on every view + ONE ⇅ (`lib/guests-filter.ts`, `?gshow/ggroup/gsort` — NOT
+  `?group/?sort`, the page reads those as a group id / server order). List keeps its shipped seats (⇕ · field · ⇅ which now
+  opens Show · Group by · Sort then +1 · Select… · File · Add ways); Map ⇅ Show · Group by + ＋ Add guest; Seats and March
+  read the lens (`guests/_components/guests-lens.tsx`) and PORTAL their ThumbRow into the screen's `.lower` seat
+  (`data-guests-thumb-slot`): Seats ⇕ (List) · Search (dims faces, Enter → fold open / table highlighted) · ⇅ Show + People
+  · ＋ Add ▾ (the plan's 7 placeables); March ⇕ (fold all sections) · Search (dims chips) · ⇅ Show · ＋ Add a walk ▾ (tray
+  names → shipped `planMove` out→gap). Rules moved into the Seats head ⋯. `GuestsSeatThumbRow` deleted. Guard
+  `lib/guests-filter.test.ts` (sabotaged 3×). OPEN: Map ＋ returns against 2026-10-25's "no ＋" — the brief + v12 say so;
+  owner DECISION_LOG row still to write.
+
+## NEXT — in the controller's order
+1. ~~SLICE 1~~ DONE (above). Original note: thumb row on every view = shared `components/thumb-row.tsx`: ⇕ · Search guests · ⇅ ONE PickMenu (Show / Group
    by / Sort) = one filter state in the URL shared by carousel cards, List and Map · ＋ (Guests: Add guest; Seats: Add ▾
    Table·Stage·Dance floor·Supplier station·Entrance·Buffet·Sign; March: Add ▾ Walk·Group). Seats today: the bespoke
    `GuestsSeatThumbRow` (seat-plan-phone.tsx) — replace with ThumbRow. Search: reuse the List's `guestMatchesSearch`.

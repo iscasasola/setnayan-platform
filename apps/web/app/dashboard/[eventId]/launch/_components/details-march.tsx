@@ -35,7 +35,11 @@ import {
 } from '@/lib/march-drag';
 import type { MarchResult } from '@/lib/march-result';
 import type { HubDraftPatch } from '@/lib/hub-draft';
-import { Play, RotateCcw } from 'lucide-react';
+import { ChevronsDownUp, ChevronsUpDown, Play, RotateCcw } from 'lucide-react';
+import { ThumbRow } from '@/components/thumb-row';
+import { useGuestsLens } from '../../guests/_components/guests-lens';
+import { guestsFilterMenu } from '../../guests/_components/guests-filter-menu';
+import { SEARCH_WAIT_MS } from '@/lib/guest-roster-view';
 import { ActionButton } from '@/components/action-button';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
 import { plainRefusal } from '../../guests/_components/plain-refusal';
@@ -788,6 +792,94 @@ function MarchMakerBody({
   const walks = shown.reduce((n, s) => n + s.rows.length, 0);
   const people = shown.reduce((n, s) => n + s.rows.reduce((k, r) => k + (r[0] ? 1 : 0) + (r[1] ? 1 : 0), 0), 0);
   const dragging = lifted !== null;
+  /* ⇅ R4 slice 1 · GUESTS › MARCH'S THUMB ROW — THE shared `ThumbRow` (prototype v12 `renderThumb`), drawn into the
+     Guests screen's seat while March is the view (`guests-lens.tsx`): ⇕ (every section folded to its header, or open) ·
+     Search guests (dims who it leaves out; Enter goes to the first found) · ⇅ (the shared Show — a name it leaves out is
+     drawn faint) · ＋ Add a walk ▾ — the "Not walking" names: one picked walks alone at the end of their own section,
+     the SAME move as dragging them out of the tray (`planMove` → `run`), Undo and all. Nothing new is written. */
+  const lens = useGuestsLens('march');
+  const [folded, setFolded] = useState<ReadonlySet<string>>(() => new Set());
+  const [marchQ, setMarchQ] = useState('');
+  const marchQTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (marchQTimer.current) clearTimeout(marchQTimer.current);
+  }, []);
+  const marchFound = useMemo(() => (lens && marchQ ? lens.find(marchQ) : null), [lens, marchQ]);
+  const marchDim = (id: string): boolean => Boolean(lens) && Boolean(id) && (!lens!.shows(id) || (marchFound !== null && !marchFound.has(id)));
+  const allOpen = shown.every((sec) => !folded.has(sec.key));
+  const goToFoundWalker = (words: string) => {
+    if (!lens) return;
+    const hits = lens.find(words);
+    const sec = shown.find((x) => x.rows.some((r) => r.some((p) => p && hits.has(p.id))));
+    const p = sec?.rows.flat().find((x) => x && hits.has(x.id));
+    if (!sec || !p) return;
+    setFolded((f) => {
+      if (!f.has(sec.key)) return f;
+      const n = new Set(f);
+      n.delete(sec.key);
+      return n;
+    });
+    requestAnimationFrame(() => root.current?.querySelector(`[data-march-key="${CSS.escape(p.id)}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }));
+  };
+  const marchThumb =
+    lens && lens.slot
+      ? createPortal(
+          <ThumbRow
+            name="guests-march"
+            left={
+              shown.length > 0
+                ? [
+                    {
+                      icon: allOpen ? ChevronsDownUp : ChevronsUpDown,
+                      label: allOpen ? 'Collapse all' : 'Expand all',
+                      expanded: allOpen,
+                      onClick: () => setFolded(allOpen ? new Set(shown.map((x) => x.key)) : new Set()),
+                      testId: 'march-expand',
+                    },
+                  ]
+                : []
+            }
+            field={{
+              placeholder: 'Search guests',
+              input: {
+                defaultValue: marchQ,
+                enterKeyHint: 'search',
+                'data-march-search': '',
+                onInput: (e) => {
+                  const v = e.currentTarget.value.trim();
+                  if (marchQTimer.current) clearTimeout(marchQTimer.current);
+                  marchQTimer.current = setTimeout(() => setMarchQ(v), SEARCH_WAIT_MS);
+                },
+                onKeyDown: (e) => {
+                  if (e.key !== 'Enter' || e.nativeEvent.isComposing) return;
+                  e.preventDefault();
+                  const v = e.currentTarget.value.trim();
+                  setMarchQ(v);
+                  if (v) goToFoundWalker(v);
+                },
+              },
+            }}
+            right={[guestsFilterMenu({ view: 'march', filter: lens.filter, onFilter: lens.setFilter, hasSides: lens.hasSides, label: 'Show' })]}
+            action={
+              outUnread || shownOut.length === 0
+                ? null
+                : {
+                    menu: shownOut.map((o) => ({ key: o.id, label: o.name, group: o.sectionLabel })),
+                    label: 'Add a walk — someone not walking',
+                    value: null,
+                    mark: 'data-march-add-walk',
+                    onPick: (id) => {
+                      const o = shownOut.find((x) => x.id === id);
+                      if (!o) return;
+                      const sec = shown.find((x) => x.key === o.section);
+                      run(planMove(shown, shownPrinted, { kind: 'out', id }, { kind: 'gap', section: o.section, index: sec ? sec.rows.length : 0 }, shownOut));
+                    },
+                  }
+            }
+          />,
+          lens.slot,
+        )
+      : null;
   const ring = (zone: string) =>
     over?.zone === zone ? (over.ok ? ' ring-2 ring-terracotta-700 ring-offset-1' : ' ring-2 ring-danger-500/60 ring-offset-1') : '';
   let step = 0;
@@ -876,8 +968,8 @@ function MarchMakerBody({
               {sec.rows.length} walk{sec.rows.length === 1 ? '' : 's'}
             </small>
           </p>
-          <Gap zone={`gap|${sec.key}|0`} on={over?.zone === `gap|${sec.key}|0`} ok={over?.ok ?? true} />
-          {sec.rows.map((row, i) => {
+          {folded.has(sec.key) ? null : <Gap zone={`gap|${sec.key}|0`} on={over?.zone === `gap|${sec.key}|0`} ok={over?.ok ?? true} />}
+          {(folded.has(sec.key) ? [] : sec.rows).map((row, i) => {
             step += 1;
             const lead = leadOf(row);
             const walkKey = `walk:${lead}`;
@@ -921,9 +1013,10 @@ function MarchMakerBody({
                           data-march-side={c === 0 ? 'left' : 'right'}
                           aria-label={`${p.name}${p.tag ? `, ${p.tag}` : ''} — step ${step}, ${c === 0 ? 'left' : 'right'}. Enter opens their guest card; Space moves them.`}
                           data-march-card-open={card?.id === p.id && p.id ? '' : undefined}
+                          data-march-dim={marchDim(p.id) ? '' : undefined}
                           className={`${NAME_CHIP} ${
                             p.tag ? 'border-terracotta-700/60 bg-white dark:bg-raised' : 'border-terracotta-700/20 bg-terracotta-700/[0.06]'
-                          } ${lifted === p.id ? 'border-dashed opacity-30' : ''}${carried?.key === p.id ? ' ring-2 ring-ink ring-offset-1' : ''}${card?.id === p.id && p.id ? ' ring-2 ring-terracotta-700 ring-offset-1' : ''}${ring(zone)}`}
+                          } ${lifted === p.id ? 'border-dashed opacity-30' : marchDim(p.id) ? 'opacity-25' : ''}${carried?.key === p.id ? ' ring-2 ring-ink ring-offset-1' : ''}${card?.id === p.id && p.id ? ' ring-2 ring-terracotta-700 ring-offset-1' : ''}${ring(zone)}`}
                         >
                           <span className="font-serif text-[15.5px] leading-tight text-ink [overflow-wrap:anywhere]">{p.name}</span>
                           {p.tag ? (
@@ -963,6 +1056,7 @@ function MarchMakerBody({
           <ActionButton tone="neutral" quiet icon={RotateCcw} label="Put the sections back in their usual order" onClick={() => run(planSectionsDefault(shown, shownPrinted))} />
         </span>
       ) : null}
+      {marchThumb}
       {slot
         ? createPortal(
             <MarchTray

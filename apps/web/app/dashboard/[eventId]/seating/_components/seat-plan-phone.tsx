@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { Armchair, ArrowRight, Check, ChevronDown, ChevronRight, Link2, MoreHorizontal, Plus, RotateCw, Sparkles, Trash2, Ungroup, Users } from 'lucide-react';
+import { Armchair, ArrowRight, Check, ChevronDown, ChevronRight, Link2, MoreHorizontal, RotateCw, Sparkles, Trash2, Ungroup } from 'lucide-react';
 import { formatCount } from '@/lib/format-number';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import type { PickOption } from '../../website/editor/_components/pick-menu-types';
@@ -37,7 +37,7 @@ import { StatusLine } from '@/app/_components/status-line';
  * 🔔 The Auto arrange line (and its Undo) — the template's toast (`PeekToast`: peeks from the top, one Undo action, leaves by itself and tells the editor, which then
  * forgets the line). Its Dismiss ✕ is the toast's own leaving.
  */
-function SeatToast({ toast }: { toast: { text: string; onUndo: (() => void) | null; onDismiss: () => void } }) {
+export function SeatToast({ toast }: { toast: { text: string; onUndo: (() => void) | null; onDismiss: () => void } }) {
   return (
     <PeekToast key={toast.text} data="seat-plan" onGone={toast.onDismiss} action={toast.onUndo ? { label: 'Undo', onPress: toast.onUndo } : undefined}>
       {toast.text}
@@ -414,66 +414,6 @@ export function SeatPlanModePick({ view, onView, show3D }: { view: '2d' | '3d' |
     <span data-tour="seat-plan-view" className="inline-flex shrink-0">
       <PickMenu label="View" value={view} options={views} onPick={(k) => onView(k as '2d' | '3d' | 'list')} dataAttr="data-seat-plan-view" compact className="h-11 border border-ink/15 bg-cream" />
     </span>
-  );
-}
-
-/**
- * 🗂 R4 · GUESTS › SEATS' THUMB ROW (owner 2026-10-28/29, *"follow the screen"*): the plan's verbs in the frosted row at
- * the foot of the screen, like every Guests view — Auto arrange (the forward step) · Rules ▾ (rising over the row) ·
- * + Table · and, on a phone, the people (a door to their sheet, with what is left to seat). The SAME handlers the
- * Studio's tools row and the ⋯ menu call; nothing new is written.
- */
-export function GuestsSeatThumbRow({
-  onAutoArrange,
-  autoDisabled,
-  autoBusy,
-  rules,
-  onAddTable,
-  addDisabled,
-  people,
-  toast,
-  pop,
-  showAuto = true,
-}: {
-  /** Draw Auto arrange here (false where the count row holds it). */
-  showAuto?: boolean;
-  /** 🗂 R4 · the bar that rises just above the row while something is picked (a blank's "Pick a guest", a move). */
-  pop?: ReactNode;
-  onAutoArrange: () => void;
-  autoDisabled: boolean;
-  autoBusy: boolean;
-  rules: ReactNode;
-  onAddTable: () => void;
-  addDisabled: boolean;
-  /** The people's door (a phone) — null where they are the side panel. */
-  people: { unseated: number; onOpen: () => void } | null;
-  toast: { text: string; onUndo: (() => void) | null; onDismiss: () => void } | null;
-}) {
-  return (
-    <div data-seat-plan-thumb="" className="pointer-events-none absolute inset-x-0 bottom-0 z-[46] flex flex-col gap-2 px-3 pb-[max(.75rem,env(safe-area-inset-bottom))]">
-      {toast ? <SeatToast toast={toast} /> : null}
-      {pop}
-      <div role="toolbar" aria-label="Seat plan tools" className="sn-glass-row pointer-events-auto flex items-center gap-2 rounded-full p-1">
-        {/* ✨ Auto arrange is the count row's forward tile now (owner 2026-10-29) — the thumb row keeps it only where no row draws it. */}
-        {showAuto ? <AutoArrange onAutoArrange={onAutoArrange} disabled={autoDisabled} busy={autoBusy} /> : null}
-        <Pop label="Who sits together" align="right" data="data-seat-plan-rules" up button={<>Rules <ChevronDown aria-hidden className="h-3.5 w-3.5 text-ink/45" /></>}>
-          {rules}
-        </Pop>
-        {/* ＋ is the table's door; its word is its name (a phone's row keeps the room for Auto arrange's word). */}
-        <ActionButton tone="neutral" iconOnly icon={Plus} label="Add a table" disabled={addDisabled} onClick={onAddTable} data-seat-plan-add-table="" />
-        {people ? (
-          <ActionButton
-            tone="neutral"
-            icon={Users}
-            /* The count is the word (a 375 row keeps Auto arrange whole); the name says what it is. */
-            label={people.unseated > 0 ? formatCount(people.unseated) : 'People'}
-            name={people.unseated > 0 ? `${formatCount(people.unseated)} to seat — open the people` : 'Open the people'}
-            onClick={people.onOpen}
-            data-seat-plan-people-door=""
-          />
-        ) : null}
-      </div>
-    </div>
   );
 }
 

@@ -111,10 +111,11 @@ test('≡ holds the same ways — ONE list, the imported openers — on the list
   assert.match(SCREEN, /ADD_WAYS\.map\(\(w\) =>/, 'the ≡ items are not read from the one list');
   const sort = SCREEN.slice(SCREEN.indexOf('const sortMenu: ThumbMenu'), SCREEN.indexOf('const arrangeMenu: ThumbMenu'));
   const map = SCREEN.slice(SCREEN.indexOf('const arrangeMenu: ThumbMenu'), SCREEN.indexOf('const [picks, setPicks]'));
-  for (const [name, menu] of [['Sort', sort], ['Arrange', map]] as const) {
-    assert.match(menu, /addWays,?\s*\)/, `${name} ≡ does not list the ways to add`);
-    assert.match(menu, /if \(pickedAddWay\(k\)\) return;/, `${name} ≡ does not open a picked way`);
-  }
+  // ⇅ R4 slice 1: each is the shared ⇅ (`guestsFilterMenu`) whose `extras` end with the ways, opened by `onExtra`.
+  assert.match(sort, /addWays,?\s*\)/, 'Sort ≡ does not list the ways to add');
+  assert.match(sort, /if \(pickedAddWay\(k\)\) return;/, 'Sort ≡ does not open a picked way');
+  assert.match(map, /extras: addWays,/, 'Arrange ≡ does not list the ways to add');
+  assert.match(map, /onExtra: \(k\) => void pickedAddWay\(k\),/, 'Arrange ≡ does not open a picked way');
   assert.match(SCREEN, /openAddWay\(k\.slice\(4\) as AddWayKey, eventId,/, 'a picked way is not opened by the shared opener');
   // The opener imports each sheet's own opener — never an event name typed by hand (capture-bar.tsx says why).
   const opener = SHEET.slice(SHEET.indexOf('export function openAddWay('));

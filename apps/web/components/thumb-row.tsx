@@ -44,8 +44,8 @@
  * bottom padding for the row.
  */
 import { useCallback, useRef, type InputHTMLAttributes, type ReactNode, type Ref } from 'react';
-import { CalendarDays, Search, X } from 'lucide-react';
-import { ActionButton, type ActionButtonProps } from '@/components/action-button';
+import { CalendarDays, Plus, Search, X } from 'lucide-react';
+import { ActionButton, actionButtonClass, type ActionButtonProps } from '@/components/action-button';
 import { rowRides, useRidingRow } from '@/app/_components/typing-band';
 import { useThumbRoom } from '@/lib/thumb-room';
 import { PickMenu, type PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
@@ -79,6 +79,12 @@ export type ThumbMenu = {
   mark?: string;
   /** 🔦 A spotlight tour's anchor token, stamped on the menu's seat as `data-tour`. */
   tour?: string;
+  /**
+   * ⇅ The round's own face instead of the current option's icon — a menu of SEVERAL sections (Guests' Show · Group by ·
+   * Sort, `guests-filter-menu.tsx`) has no one current option to wear. Wrap it in an `aria-hidden` span; the menu's
+   * `label` stays its name.
+   */
+  face?: ReactNode;
 };
 
 /**
@@ -132,6 +138,15 @@ function Round({ r }: { r: ThumbRound }) {
   );
 }
 
+/** ＋ — a main-verb menu's face when it names none. */
+function ActionFace() {
+  return (
+    <span aria-hidden className="inline-flex">
+      <Plus className="h-5 w-5" strokeWidth={2} />
+    </span>
+  );
+}
+
 /** ⌨ The riding decision — the shared row's (`useRidingRow`, typing-band.tsx); kept under this name for the guard. */
 export const thumbRowRides = rowRides;
 
@@ -159,8 +174,8 @@ export function ThumbRow({
   field?: ThumbField | ThumbNode | null;
   /** Rounds after the field — a `ThumbMenu` is the ≡ dropdown. */
   right?: readonly (ThumbRound | ThumbMenu)[];
-  /** THE one main verb — terracotta, last. */
-  action?: ThumbRound | ThumbNode | null;
+  /** THE one main verb — terracotta, last. A `ThumbMenu` is a ＋ that opens its choices (Seats' Add ▾ Table · Entrance…). */
+  action?: ThumbRound | ThumbNode | ThumbMenu | null;
   /** A mode row's own buttons, in place of the seats. */
   children?: ReactNode;
   className?: string;
@@ -252,13 +267,33 @@ export function ThumbRow({
           {right.map((r) =>
             'menu' in r ? (
               <span key={r.label} className={`sn-glass-row ${styles.round} ${styles.menu}`} data-thumb-seat="menu" data-tour={r.tour} {...(r.mark ? { [r.mark]: '' } : {})}>
-                <PickMenu label={r.label} value={r.value} options={r.menu} onPick={r.onPick} buttonText={r.buttonText} />
+                <PickMenu
+                  label={r.label}
+                  value={r.value}
+                  options={r.menu}
+                  onPick={r.onPick}
+                  buttonText={r.buttonText}
+                  trigger={r.face}
+                  className={r.face ? 'inline-flex items-center justify-center rounded-full text-ink' : undefined}
+                />
               </span>
             ) : (
               <Round key={r.label} r={r} />
             ),
           )}
-          {action && 'node' in action ? (
+          {action && 'menu' in action ? (
+            <span className={styles.round} data-thumb-seat="action" data-tour={action.tour} {...(action.mark ? { [action.mark]: '' } : {})}>
+              <PickMenu
+                label={action.label}
+                value={action.value}
+                options={action.menu}
+                onPick={action.onPick}
+                buttonText={action.buttonText}
+                trigger={action.face ?? <ActionFace />}
+                className={actionButtonClass('brand', { filled: true, iconOnly: true, extra: styles.btn })}
+              />
+            </span>
+          ) : action && 'node' in action ? (
             <span className={`${styles.round} ${styles.actionNode}`} data-thumb-seat="action">
               {action.node}
             </span>

@@ -51,6 +51,7 @@ import {
   type ArrangeKey,
 } from '@/lib/roster-arrangement';
 import { resolveRoleSet } from '@/lib/role-sets';
+import { parseGuestsFilter } from '@/lib/guests-filter';
 import { GUESTS_VIEWS, guestsViewHref, parseGuestsView, type GuestsView } from '@/lib/guests-views';
 import { marchOffered } from '@/lib/details-your-event';
 import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
@@ -222,6 +223,10 @@ type Props = {
     gview?: string;
     /** 🗂 R4 — Seats' own view (`3d` · `list` · `map`), carried to the seat plan (`lib/guests-views.ts` `SEAT_VIEWS`). */
     seat?: string;
+    /** ⇅ R4 slice 1 — the shared Show · Group by · Sort (`lib/guests-filter.ts` FILTER_PARAMS), read by the screen only. */
+    gshow?: string;
+    ggroup?: string;
+    gsort?: string;
     /** `1` — Guests ⚙ open (a link's way in; the ⚙ press opens it in place). */
     settings?: string;
     /** With `settings=1`: the row to land on (`SETTINGS_ROWS` key). */
@@ -1090,6 +1095,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       gview={gview}
       views={views}
       bodies={bodies}
+      filter={parseGuestsFilter(search)}
       guests={rosterAll}
       measured={guestsMeasured}
       notLoaded={guestListUnreadLine(sideReads)}

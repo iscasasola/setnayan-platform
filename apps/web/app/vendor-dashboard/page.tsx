@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { DATE_ANSWER_NOTICE } from '@/lib/date-change';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -88,6 +89,13 @@ import { assembleSupplierToday } from '@/lib/supplier-today-view';
 import { displayServiceLabel } from '@/lib/vendors';
 import { MiniTour } from '@/app/_components/mini-tour';
 import { resolveFeeEnforcement } from '@/lib/vendor-event-fee-access.server';
+import { SupplierSetupScreen } from './_components/supplier-setup-screen';
+import { TodaySettings } from './_components/today-settings';
+import { loadDetailsData } from './profile/details-data';
+import { NewServiceMaker } from './services/_components/new-service-maker';
+import { loadKindDetails, loadMakerContext } from '@/lib/service-card-maker.server';
+import { renderUrlQrSvg } from '@/lib/qr';
+import { buildVendorInviteUrl } from '@/lib/vendor-couple-invite';
 
 /**
  * /vendor-dashboard — the vendor Overview (finalized 6-menu-shell prototype).
@@ -587,6 +595,51 @@ export default async function VendorOverviewPage({
   const libraryOpen = moodboardLibraryAccessForProfile(profile, await inspirationPartsRead).allowed;
   const { events: eventsYouRun } = await eventsYouRunP;
 
+  /*
+    🧰 A NEW SHOP'S SIX STEPS, DONE IN PLACE (owner 2026-10-28, DECISION_LOG "SUPPLIER DASHBOARD APPROVED — EVERYTHING IN
+    PLACE, A ⚙ PER PAGE"). Only while the rail is on screen (a shop not yet approved): Your details' own data (the
+    same loader the Your-details page reads), the maker for the "What you offer" sheet while cards are still to go, and
+    the shop's QR. A live shop reads none of it — Today does not grow for the shops that run.
+  */
+  let setup: ReactNode = null;
+  if (firstSteps) {
+    const offerLeft = (firstSteps.offer?.toGo ?? 1) > 0;
+    const [details, makerParts] = await Promise.all([
+      loadDetailsData(supabase, profile).catch(() => null),
+      offerLeft
+        ? loadMakerContext(supabase, vendorProfileId)
+            .then(async (ctx) => ({ ctx, kind: await loadKindDetails(supabase, vendorProfileId, ctx.onlyKind) }))
+            .catch(() => null)
+        : Promise.resolve(null),
+    ]);
+    if (details) {
+      const qrUrl = details.slug ? buildVendorInviteUrl(details.slug) : null;
+      const qrSvg = qrUrl ? await renderUrlQrSvg(qrUrl, 220).catch(() => null) : null;
+      setup = (
+        <SupplierSetupScreen
+          d={details}
+          rail={firstSteps}
+          maker={
+            makerParts ? (
+              <NewServiceMaker
+                vendorProfileId={vendorProfileId}
+                shopName={profile.business_name ?? ''}
+                ctx={makerParts.ctx}
+                details={makerParts.kind}
+                error={null}
+              />
+            ) : (
+              <p className="py-4 text-[13.5px] text-ink/70">The service maker couldn’t load. Refresh to try again.</p>
+            )
+          }
+          qr={qrUrl ? { svg: qrSvg, url: qrUrl } : null}
+          today={todayIso}
+          gear={<TodaySettings />}
+        />
+      );
+    }
+  }
+
   return (
     <div className="mx-auto w-full max-w-6xl tab:max-w-3xl px-4 py-4 sm:px-6 sm:py-10 lg:px-8">
       {/* The toast that says how an answer went (a booking ask · a date change · a payment that never arrived).
@@ -601,6 +654,7 @@ export default async function VendorOverviewPage({
         feeForecasts={feeForecasts}
         cards={[...needsAnswer, ...nothingToAnswer]}
         eventsYouRun={eventsYouRun}
+        setup={setup}
         askStatus={askStatus}
         deskIncomplete={deskIncomplete}
         // 🌱🖼 "Add to the inspiration library" — only for a shop whose trades supply a part (owner 2026-10-19).

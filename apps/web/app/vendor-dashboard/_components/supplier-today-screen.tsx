@@ -1,4 +1,6 @@
+import type { ReactNode } from 'react';
 import { Badge } from '@/app/_components/badge';
+import { TodaySettings } from './today-settings';
 import { BookingFeeBills } from '@/app/_components/booking-fee-notice';
 import type { FeeDisclosure } from '@/lib/booking-fee-disclosure';
 import type { SupplierTodayView } from '@/lib/supplier-today-view';
@@ -54,6 +56,7 @@ export function SupplierTodayScreen({
   actions,
   library = false,
   eventsYouRun = [],
+  setup = null,
 }: {
   view: SupplierTodayView;
   outcome: TodayOutcome | null;
@@ -68,6 +71,8 @@ export function SupplierTodayScreen({
   library?: boolean;
   /** 🗂 The events this person runs as the hosts' coordinator, live (owner 2026-10-28) — empty for everyone else. */
   eventsYouRun?: readonly EventYouRun[];
+  /** 🧰 A new shop's six steps, done in place (`SupplierSetupScreen`) — drawn by the page while the shop is not live. */
+  setup?: ReactNode;
 }) {
   return (
       <SupplierTodayFirstScreen
@@ -122,6 +127,10 @@ export function SupplierTodayScreen({
         shop={view.shop}
         business={view.business}
         library={library}
+        setup={setup}
+        gear={<TodaySettings />}
+        week={view.week}
+        money={view.money}
         alsoWaiting={
           /* The asks and the closed lines, each opening its answer in place — the booking fee is still read BEFORE
              Agree, the receipt before Confirm. The payout nudge is a door row of its own, so not repeated here. */

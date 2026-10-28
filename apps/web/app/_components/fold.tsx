@@ -35,6 +35,8 @@ export function Fold({
   summaryEnd = false,
   danger = false,
   tip,
+  open: openProp,
+  onOpenChange,
 }: {
   /** What the fold is — "More for guests". */
   title: string;
@@ -90,8 +92,22 @@ export function Fold({
    */
   tip?: ReactNode;
   className?: string;
+  /**
+   * CONTROLLED, when the caller decides which fold is open (Today's new-shop steps: a save ticks ✓ and the NEXT one
+   * opens — owner 2026-10-28, "the next opens"). `open` + `onOpenChange` together; absent → the fold keeps its own
+   * state exactly as it always did.
+   */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
+  const [ownOpen, setOwnOpen] = useState(defaultOpen);
+  const controlled = openProp !== undefined;
+  const open = controlled ? openProp : ownOpen;
+  const setOpen = (next: boolean | ((o: boolean) => boolean)) => {
+    const value = typeof next === 'function' ? next(open) : next;
+    if (controlled) onOpenChange?.(value);
+    else setOwnOpen(value);
+  };
   // "Settled" = open AND the height has finished moving. Only then may a popover spill out.
   const [settled, setSettled] = useState(defaultOpen);
   useEffect(() => {

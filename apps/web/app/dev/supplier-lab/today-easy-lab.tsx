@@ -22,6 +22,10 @@ import { splitDesk } from '@/lib/vendor-desk-disposition';
 import { lockAgreeNotice } from '@/lib/lock-answer-notice';
 import { SupplierTodayScreen, type TodayActions } from '@/app/vendor-dashboard/_components/supplier-today-screen';
 import type { TodayOutcome } from '@/app/vendor-dashboard/_components/supplier-today-first-screen';
+import { SupplierSetupScreen } from '@/app/vendor-dashboard/_components/supplier-setup-screen';
+import { TodaySettings } from '@/app/vendor-dashboard/_components/today-settings';
+import { offerProgress } from '@/lib/supplier-setup';
+import { labSetupDetails } from './page-lab';
 
 export const EASY_MOMENTS = ['normal', 'setup', 'ask', 'eventday', 'locked', 'hallask', 'agreed'] as const;
 export type EasyMoment = (typeof EASY_MOMENTS)[number];
@@ -258,7 +262,7 @@ function forecastFor(price: number, freeUsed: number): FeeDisclosure | null {
   );
 }
 
-export function TodayEasyLab({ sup: supKey, moment, actions, library = false, rail = null, logoNext = false, gift: giftMode = null, eventsYouRun = [] }: { sup: EasySupplier; moment: EasyMoment; actions: TodayActions; library?: boolean; /** 🗂 `?s=coord-today` — the events this supplier runs as a coordinator (owner 2026-10-28). */ eventsYouRun?: readonly EventYouRun[]; /** `setup` only — how far along the first steps are: `service` (details done) · `docs` (a service too) — prototype first_run S4 / S5. */ rail?: 'service' | 'docs' | null; /** `&logo=1` on setup: details done, no logo — the logo step is next (2026-10-22). */ logoNext?: boolean; /** 🎁 `&gift=running|soon` — a plan Setnayan gave (personal invite B6 · C2): Pro until 31 Jan 2027, or a week left. */ gift?: 'running' | 'soon' | null }) {
+export function TodayEasyLab({ sup: supKey, moment, actions, library = false, rail = null, logoNext = false, gift: giftMode = null, eventsYouRun = [], docs = 'none', gbb = 2 }: { /** 🧰 setup: how the papers stand (`&docs=checking|fix`) and how many Buffet cards are made (`&gbb=0..3`). */ docs?: 'none' | 'checking' | 'fix'; gbb?: number; sup: EasySupplier; moment: EasyMoment; actions: TodayActions; library?: boolean; /** 🗂 `?s=coord-today` — the events this supplier runs as a coordinator (owner 2026-10-28). */ eventsYouRun?: readonly EventYouRun[]; /** `setup` only — how far along the first steps are: `service` (details done) · `docs` (a service too) — prototype first_run S4 / S5. */ rail?: 'service' | 'docs' | null; /** `&logo=1` on setup: details done, no logo — the logo step is next (2026-10-22). */ logoNext?: boolean; /** 🎁 `&gift=running|soon` — a plan Setnayan gave (personal invite B6 · C2): Pro until 31 Jan 2027, or a week left. */ gift?: 'running' | 'soon' | null }) {
   // 🎁 The gift's end: 31 Jan 2027 23:59:59 Manila for `running`; seven days after the lab's now for `soon`.
   const giftRow = giftMode
     ? { tier_state: 'pro', tier_source: 'admin_comp', tier_expires_at: giftMode === 'soon' ? new Date(NOW + 7 * 86_400_000 - 60_000).toISOString() : '2027-01-31T15:59:59.000Z' }
@@ -279,6 +283,12 @@ export function TodayEasyLab({ sup: supKey, moment, actions, library = false, ra
       : sup.upcoming;
   const bills = setup ? [] : moment === 'locked' && sup.lockedBill ? [sup.lockedBill, ...sup.bills] : moment === 'agreed' ? [bill('rc', sup.ask.card.kind === 'lock_request' ? sup.ask.card.coupleName : 'Couple', feeOf(sup.ask.price), '2026-10-21'), ...sup.bills] : sup.bills;
 
+  const labCards = [
+    { id: 'c1', service: 'catering', title: 'Classic buffet', pricePhp: 450 },
+    { id: 'c2', service: 'catering', title: 'Premium buffet', pricePhp: 650 },
+    { id: 'c3', service: 'catering', title: 'Signature feast', pricePhp: 950 },
+  ].slice(0, Math.max(0, Math.min(3, gbb)));
+  const labOffer = offerProgress(['catering', 'grazing_table'], labCards);
   const firstSteps = setup
     ? buildFirstStepsRail({
         verified: false,
@@ -286,14 +296,16 @@ export function TodayEasyLab({ sup: supKey, moment, actions, library = false, ra
         profileTotal: 6,
         // A `rail` moment has its logo in (its next step is the service or the papers); `&logo=1` has none.
         hasLogo: Boolean(rail) && !logoNext,
-        serviceCount: rail === 'docs' ? 1 : 0,
-        docsStatus: 'none',
+        serviceCount: labCards.length,
+        docsStatus: docs === 'checking' ? 'pending_review' : docs === 'fix' ? 'rejected' : 'none',
         docsIn: 0,
         docsTotal: 4,
         submitMissing: rail ? [] : ['Finish your business profile'],
         customerCount: 0,
         // 🌱🖼 A trade that supplies a part counts the library as a step (personal invite B6).
         inspiration: library ? { count: 0 } : null,
+        // 🧰 Good · Better · Best (owner 2026-10-28) — the prototype's own cards: Buffet catering, Grazing table.
+        offer: labOffer,
       })
     : null;
 
@@ -343,7 +355,30 @@ export function TodayEasyLab({ sup: supKey, moment, actions, library = false, ra
 
   return (
     <div className="min-h-screen bg-cream px-4 pb-32 pt-4" data-supplier-lab="today-easy" data-easy-moment={moment} data-easy-sup={supKey}>
-      <SupplierTodayScreen view={view} outcome={outcome} feeForecasts={forecasts} cards={desk} askStatus="" deskIncomplete={false} actions={actions} eventsYouRun={eventsYouRun} library={library && !firstSteps?.steps.some((st) => st.key === 'inspiration' && st.state !== 'done')} />
+      <SupplierTodayScreen
+        view={view}
+        outcome={outcome}
+        feeForecasts={forecasts}
+        cards={desk}
+        askStatus=""
+        deskIncomplete={false}
+        actions={actions}
+        eventsYouRun={eventsYouRun}
+        library={library && !firstSteps?.steps.some((st) => st.key === 'inspiration' && st.state !== 'done')}
+        setup={
+          firstSteps ? (
+            <SupplierSetupScreen
+              d={labSetupDetails(docs, rail || logoNext ? 'details' : 'fresh')}
+              rail={firstSteps}
+              maker={<p className="py-6 text-center text-[13.5px] text-ink/65" data-lab-maker="">The service maker opens here, over Today — the shipped maker on the real page.</p>}
+              qr={{ svg: null, url: 'https://www.setnayan.com/vendor-invite/titanena' }}
+              today={TODAY}
+              lab
+              gear={<TodaySettings />}
+            />
+          ) : null
+        }
+      />
     </div>
   );
 }

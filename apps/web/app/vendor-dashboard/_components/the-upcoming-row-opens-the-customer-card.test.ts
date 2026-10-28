@@ -228,11 +228,15 @@ test('6 · no supplier-side door onto a customer card is left bare', () => {
 */
 test('7 · a Coming-up row is one link to its own door; the conversation is the event-day card\'s grey Chat, and is conditional', async () => {
   const firstScreen = read('app/vendor-dashboard/_components/supplier-today-first-screen.tsx');
+  // Coming up, and (2026-10-28) the pinned counts' two lists — the week's bookings and who owes what — each row the
+  // shared one-link `TodayRow` opening its own door.
   assert.equal(
     count(firstScreen, /<TodayRow key=\{row\.id\} href=\{row\.href\}/g),
-    1,
-    'a Coming-up row no longer opens the row’s own door',
+    3,
+    'a Coming-up (or week / money) row no longer opens the row’s own door',
   );
+  const coming = firstScreen.slice(firstScreen.indexOf('data-today-coming-up'));
+  assert.equal(count(coming, /<TodayRow key=\{row\.id\} href=\{row\.href\}/g), 1, 'the Coming-up row no longer opens its own door');
   const rowFn = firstScreen.slice(firstScreen.indexOf('export function TodayRow('), firstScreen.indexOf('export type SupplierTodayNumbers'));
   assert.equal(count(rowFn, /<Link\b/g), 1, 'a row holds more than one link — nested anchors do not work');
   assert.equal(count(sections, /row\.threadHref/g), 0, 'the old Upcoming list is back in the desk file');

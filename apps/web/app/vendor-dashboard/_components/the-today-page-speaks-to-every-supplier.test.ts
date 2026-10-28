@@ -128,7 +128,8 @@ test('when payday was not read the number says "couldn\'t load" — never ₱0, 
   assert.equal(owedToYouPhp(null), null);
   const html = await render([booking], { ...EARNINGS, paydayMeasured: false });
   const money = html.slice(html.indexOf('data-today-number="money"'));
-  const tile = text(money.slice(0, money.indexOf('</a>')));
+  // The number is the pinned row's filter <button> (2026-10-28); the tile ends where it does.
+  const tile = text(money.slice(money.indexOf('>') + 1, money.indexOf('</button>')));
   assert.match(tile, /couldn(?:&rsquo;|’|&#x27;|')t load/, `the unread money number does not say so: ${tile}`);
   assert.doesNotMatch(tile, /₱\s*0|\b0\b/, `an unread payday printed a zero: ${tile}`);
   assert.doesNotMatch(tile, /to come in/, 'an unread number still wears the words of a read one');

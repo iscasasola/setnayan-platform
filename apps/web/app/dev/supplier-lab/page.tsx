@@ -5,6 +5,7 @@
  * production builds 404 this route, the same kill-switch as `/dev/home-lab`.
  * It draws the REAL supplier components, so what it shows is what ships.
  *
+ *   ?easy=setup&docs=none|checking|fix&gbb=0..3   🧰 a NEW SHOP's six steps done in place (owner 2026-10-28)
  *   ?easy=<moment>&sup=<supplier>   THE SIMPLER TODAY (owner APPROVE 2026-10-14) on the prototype's own people —
  *                     moments normal · setup · ask · eventday · locked · hallask · agreed; suppliers parish · caterer ·
  *                     studio · venue (`today-easy-lab.tsx`; the same assembly + screen as the page)
@@ -291,7 +292,7 @@ function TodayLab({ state, toast }: { state: TodayState; toast: string | undefin
 export default async function SupplierLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ thumb?: string; s?: string; toast?: string; q?: string; lane?: string; add?: string; open?: string; next?: string; mpage?: string; easy?: string; sup?: string; who?: string; draft?: string; library?: string; view?: string; sent?: string; rail?: string; logo?: string; gift?: string; invited?: string; shell?: string; spot?: string; none?: string; unread?: string }>;
+  searchParams: Promise<{ thumb?: string; s?: string; toast?: string; q?: string; lane?: string; add?: string; open?: string; next?: string; mpage?: string; easy?: string; sup?: string; who?: string; draft?: string; library?: string; view?: string; sent?: string; rail?: string; logo?: string; gift?: string; invited?: string; shell?: string; spot?: string; none?: string; unread?: string; docs?: string; gbb?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -300,7 +301,7 @@ export default async function SupplierLabPage({
     q.shell === '1' ? <SupplierLabShell measure={measure}>{node}</SupplierLabShell> : node;
   if (q.easy && (EASY_MOMENTS as readonly string[]).includes(q.easy)) {
     const sup = (EASY_SUPPLIERS as readonly string[]).includes(q.sup ?? '') ? (q.sup as EasySupplier) : 'studio';
-    return wrap(<TodayEasyLab sup={sup} moment={q.easy as EasyMoment} actions={ACTIONS} library={q.library === '1'} rail={q.rail === 'service' || q.rail === 'docs' ? q.rail : null} logoNext={q.logo === '1'} gift={q.gift === 'running' || q.gift === 'soon' ? q.gift : null} />, 'today');
+    return wrap(<TodayEasyLab sup={sup} moment={q.easy as EasyMoment} actions={ACTIONS} library={q.library === '1'} rail={q.rail === 'service' || q.rail === 'docs' ? q.rail : null} logoNext={q.logo === '1'} gift={q.gift === 'running' || q.gift === 'soon' ? q.gift : null} docs={q.docs === 'checking' || q.docs === 'fix' ? q.docs : 'none'} gbb={q.gbb ? Number(q.gbb) : 2} />, 'today');
   }
   if (q.s && (COORD_STATES as readonly string[]).includes(q.s)) {
     /* 🗂 The coordinator's door (owner 2026-10-28) — `coord-lab.tsx`; `&none=1` = no live coordinator access. */

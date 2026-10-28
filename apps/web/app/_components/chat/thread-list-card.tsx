@@ -87,23 +87,28 @@ export function ThreadListCard({
 export function ThreadListAvatar({
   logoUrl,
   name,
+  size = 'md',
 }: {
   logoUrl: string | null;
   name: string;
+  /** `lg` — the Messenger inbox's 56px round (chat prototype 2026-10-28, frame A). */
+  size?: 'md' | 'lg';
 }) {
   const initials = name
     .split(/\s+/)
     .map((p) => p.charAt(0).toUpperCase())
     .slice(0, 2)
     .join('');
+  const box = size === 'lg' ? 'h-14 w-14' : 'h-10 w-10';
+  const px = size === 'lg' ? 56 : 40;
   if (logoUrl) {
     return (
-      <span className="inline-flex h-10 w-10 shrink-0 overflow-hidden rounded-full border border-ink/10 bg-cream">
+      <span className={`inline-flex ${box} shrink-0 overflow-hidden rounded-full border border-ink/10 bg-cream`}>
         <Image
           src={logoUrl}
           alt=""
-          width={40}
-          height={40}
+          width={px}
+          height={px}
           loading="lazy"
           className="h-full w-full object-cover"
         />
@@ -111,7 +116,7 @@ export function ThreadListAvatar({
     );
   }
   return (
-    <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-terracotta/15 font-mono text-xs font-semibold text-terracotta-700">
+    <span className={`inline-flex ${box} shrink-0 items-center justify-center rounded-full bg-terracotta/15 font-semibold text-terracotta-700 ${size === 'lg' ? 'text-[17px]' : 'font-mono text-xs'}`}>
       {initials || '?'}
     </span>
   );

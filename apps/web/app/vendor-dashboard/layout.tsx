@@ -13,6 +13,7 @@ import { maybeSweepVendorBookingFeeNotifications } from '@/lib/vendor-booking-fe
 import { maybeCatchUpAcknowledgedDeposits } from '@/lib/deposit-acknowledged-effects.server';
 import { maybeCatchUpHandshakesWithoutFee } from '@/lib/booking-fee-mint.server';
 import { maybeRunUnbilledFeeRepair } from '@/lib/unbilled-fee-repair.server';
+import { maybeRunSupplierPagePublish } from '@/lib/supplier-page-notice.server';
 import { maybeRefillPriceBands } from '@/lib/price-band-refill.server';
 import { countUnread } from '@/lib/notifications';
 import { countUnreadMessages } from '@/lib/chat';
@@ -407,6 +408,9 @@ export default async function VendorDashboardLayout({
   // on an admin opening one particular screen. `claim_periodic_job` makes the
   // second mount free — whichever surface is loaded first takes the window.
   after(() => maybeRefillPriceBands().catch(() => {}));
+  // A supplier's event photo goes on its page once the guests' 7-day notice has passed (owner 2026-10-03). Dual-mounted
+  // with the admin layout for the same reason as the two above: it serves suppliers, so it must not wait on an admin.
+  after(() => maybeRunSupplierPagePublish().catch(() => {}));
 
   // Vendor-access gate — canonical rule: a user has access if they own a
   // vendor_profiles row OR sit on any vendor_team_members row. getSwitcherData

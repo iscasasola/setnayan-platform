@@ -13,6 +13,10 @@ import {
   INQUIRY_CUSTOMER_UNKNOWN,
 } from '@/lib/inquiry-customer.server';
 import { ThreadListCard } from '@/app/_components/chat/thread-list-card';
+import { formatLongDate } from '@/lib/format-date';
+import { eventChatTitle } from '@/lib/event-chat-title';
+import { ChatOriginMark } from '@/app/_components/chat/chat-back';
+import { eventTypeLabel } from '@/lib/demand-radar';
 import {
   inquirySourceLabel,
   RETURNING_CUSTOMER_LABEL,
@@ -109,6 +113,7 @@ export default async function VendorMessagesPage({ searchParams }: Props = {}) {
     onScreen.map((t) => t.event_id),
   );
 
+  const nowMs = Date.now();
   const renderRow = (t: (typeof threads)[number]) => {
     const returning =
       t.inquiry_status === 'pending' ? returningFlags.get(t.event_id) : undefined;
@@ -117,10 +122,16 @@ export default async function VendorMessagesPage({ searchParams }: Props = {}) {
         <div className="min-w-0 flex-1">
           <ThreadListCard
             href={`/vendor-dashboard/messages/${t.thread_id}`}
-            title={
-              (inquiryCustomers.get(t.event_id) ?? INQUIRY_CUSTOMER_UNKNOWN)
-                .displayName ?? 'Event'
-            }
+            // The row is the EVENT (owner 2026-10-28, "User's event (date)") — one row per event thread, never merged.
+            title={(() => {
+              const c = inquiryCustomers.get(t.event_id) ?? INQUIRY_CUSTOMER_UNKNOWN;
+              return eventChatTitle({
+                name: c.displayName,
+                kind: c.eventType && c.eventType !== 'unspecified' ? eventTypeLabel(c.eventType) : null,
+                date: c.eventDate ?? t.event?.event_date ?? null,
+                nowMs,
+              });
+            })()}
             badge={
               t.inquiry_status === 'pending' ? (
                 <span className="mt-0.5 inline-block rounded-full bg-mulberry/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-mulberry">
@@ -172,7 +183,9 @@ export default async function VendorMessagesPage({ searchParams }: Props = {}) {
             }
             timestampLine={
               <>
-                {t.event?.event_date ? `${t.event.event_date} · ` : ''}
+                {/* One row per couple-EVENT (owner 2026-10-28, "i want isolation per event"): the title is the event,
+                    this line its date — written as a date, never the raw key. */}
+                <span data-inbox-event-line="">{t.event?.event_date ? `${formatLongDate(t.event.event_date)} · ` : ''}</span>
                 Last activity {formatChatTimestamp(t.updated_at)}
               </>
             }
@@ -188,6 +201,7 @@ export default async function VendorMessagesPage({ searchParams }: Props = {}) {
       id="messages-list"
       className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl scroll-mt-24 px-4 py-10 sm:px-6 lg:px-8"
     >
+      <ChatOriginMark />
       <header className="mb-6 space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Conversations</h1>
         <p className="text-base text-ink/65">

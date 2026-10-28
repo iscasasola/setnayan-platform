@@ -29,7 +29,7 @@ app/[slug]/_components/editorial/post-event-scene-views.tsx :: count :: TEXT —
 # ── IDENTIFIER: digits that must be matched exactly ──
 app/admin/website-media/clear-folder-button.tsx :: count :: IDENTIFIER — "Type 1878 to confirm": the admin types these digits and they are compared with String(count), so a comma would make the delete impossible
 app/admin/website-media/clear-folder-button.tsx :: count :: IDENTIFIER — the same typed-confirmation digits, in the input's aria-label
-app/dashboard/[eventId]/checkout/actions.ts :: chargeTotal.toString() :: IDENTIFIER — an integrity-log error_message recording the raw centavos for a mismatch investigation; never shown to a customer
+app/dashboard/[eventId]/checkout/actions.ts :: regularTotal.toString() :: IDENTIFIER — an integrity-log error_message recording the raw centavos for a mismatch investigation; never shown to a customer
 lib/package-credit.ts :: String(pkg.total_price_centavos) :: IDENTIFIER — a validation failure quoting the malformed stored value verbatim; grouping would misreport it
 lib/package-credit.ts :: String(option.per_pax_delta_centavos) :: IDENTIFIER — a validation failure quoting the malformed stored value verbatim
 

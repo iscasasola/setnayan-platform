@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6745
+# facts: 6758
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     573
-#   col       4945
-#   policy    955
+#   tpriv     574
+#   col       4955
+#   policy    956
 #   view      9
-#   func      259
+#   func      260
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -414,6 +414,7 @@ tpriv	public.songs|authenticated	SIUD
 tpriv	public.stewardship_transfers|anon	SIUD
 tpriv	public.stewardship_transfers|authenticated	SIUD
 tpriv	public.supplier_night_before_email_log|authenticated	SIUD
+tpriv	public.supplier_page_photo_notices|authenticated	S
 tpriv	public.taxonomy_category_requests|authenticated	SIUD
 tpriv	public.thread_calls|anon	SIUD
 tpriv	public.thread_calls|authenticated	SIUD
@@ -4055,6 +4056,16 @@ col	public.supplier_night_before_email_log.event_date	anon=- authenticated=SIU
 col	public.supplier_night_before_email_log.event_vendor_id	anon=- authenticated=SIU
 col	public.supplier_night_before_email_log.resend_id	anon=- authenticated=SIU
 col	public.supplier_night_before_email_log.sent_at	anon=- authenticated=SIU
+col	public.supplier_page_photo_notices.event_id	anon=- authenticated=S
+col	public.supplier_page_photo_notices.notice_id	anon=- authenticated=S
+col	public.supplier_page_photo_notices.noticed_at	anon=- authenticated=S
+col	public.supplier_page_photo_notices.page_ref	anon=- authenticated=S
+col	public.supplier_page_photo_notices.photo_id	anon=- authenticated=S
+col	public.supplier_page_photo_notices.public_from	anon=- authenticated=S
+col	public.supplier_page_photo_notices.published_at	anon=- authenticated=S
+col	public.supplier_page_photo_notices.removed_at	anon=- authenticated=S
+col	public.supplier_page_photo_notices.removed_by	anon=- authenticated=S
+col	public.supplier_page_photo_notices.vendor_profile_id	anon=- authenticated=S
 col	public.taxonomy_category_requests.created_at	anon=- authenticated=SIU
 col	public.taxonomy_category_requests.mapped_to_canonical	anon=- authenticated=SIU
 col	public.taxonomy_category_requests.proposed_by_vendor_id	anon=- authenticated=SIU
@@ -6202,6 +6213,7 @@ policy	public.songs|songs_authenticated_insert	mode=PERMISSIVE cmd=INSERT roles=
 policy	public.songs|songs_public_select	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=true check=NULL
 policy	public.stewardship_transfers|stewardship_transfers_participant_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=(( SELECT is_admin() AS is_admin) OR (from_user_id = ( SELECT auth.uid() AS uid)) OR (to_user_id = ( SELECT auth.uid() AS uid))) check=NULL
 policy	public.supplier_night_before_email_log|supplier_night_before_email_log_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
+policy	public.supplier_page_photo_notices|supplier_page_photo_notices_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.taxonomy_category_request_drafts|taxonomy_category_request_drafts_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.taxonomy_category_requests|taxonomy_category_requests_admin_delete	mode=PERMISSIVE cmd=DELETE roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
 policy	public.taxonomy_category_requests|taxonomy_category_requests_admin_write	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
@@ -6587,6 +6599,7 @@ func	public.event_has_comp_for_sku(p_event_id uuid, p_service_key text)	secdef=y
 func	public.event_host_holds_founder_seat(p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public, pg_temp
 func	public.event_host_is_internal(p_event_id uuid)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.execute_manpower_telemetry_reward(p_vendor_id uuid, p_event_id uuid, p_service_code text)	secdef=no exec=anon,authenticated search_path=UNPINNED
+func	public.file_supplier_page_notice(p_photo_id uuid, p_page_ref text)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.finalize_guest_claim(p_claim_id uuid, p_guest_id uuid, p_reviewer uuid)	secdef=yes exec=anon search_path=public
 func	public.follow_people_names(p_user_ids uuid[])	secdef=yes exec=authenticated search_path=public
 func	public.funnel_benchmark_for_vendor(p_vendor_profile_id uuid, p_category text)	secdef=yes exec=anon,authenticated search_path=public

@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { eventChatTitle } from '@/lib/event-chat-title';
+import { ChatOriginMark } from '@/app/_components/chat/chat-back';
 import type { ReactNode } from 'react';
 import { ChevronRight } from 'lucide-react';
 import {
@@ -115,20 +117,16 @@ function initialsOf(name: string): string {
  * deletion.*
  */
 export function hrefFor(r: RosterRow): string | null {
-  if (r.lane === 'waiting' && r.waitingKind === 'inquiry') {
-    // Accept / decline lives on the thread. The customer card is unreachable
-    // pre-accept — `get_vendor_event_brief` refuses a shop that holds neither an
-    // accepted enquiry nor a booking — so sending them there would be a door
-    // that bounces straight back.
-    if (!r.threadId) return null;
+  // 💬 EVERY ROW WITH A CHAT OPENS THAT EVENT'S CHAT, FULL SCREEN (owner 2026-10-28, verbatim: *"What you do here is to
+  // list down the different events which will jump to chat full screen"*). The list IS the messages: one row per
+  // event, one chat per event. The customer card stays one tap away — the chat's head title opens it — and a booking
+  // ask is answered in the chat (its "They asked to book" → the booking-ask panel, fee shown before Agree).
+  if (r.threadId) {
     const href = `/vendor-dashboard/messages/${r.threadId}`;
     return href;
   }
-  // Every other lane has a customer card, and the booking ask can be ANSWERED
-  // on it (PR-H slice B put Agree / Turn it down there).
-  // 🔒 `?tab=details` IS NOT DECORATION. A bare client route is a CHAT landing
-  // since #5614 — without it every row went to the chat and the customer card
-  // had no door on this page.
+  // No chat (booked outside Setnayan, added by hand): the customer card.
+  // 🔒 `?tab=details` IS NOT DECORATION. A bare client route is a CHAT landing since #5614.
   const href = `/vendor-dashboard/clients/${r.eventId}?tab=details`;
   return href;
 }
@@ -192,7 +190,10 @@ export function RosterRowView({ r, nowMs, query }: { r: RosterRow; nowMs: number
   const href = hrefFor(r);
   const badge = rosterBadge(r);
   const line = rowLine(r, nowMs);
-  const eventLine = [r.kind, fmtDate(r.eventDate, nowMs), r.place, r.returning ? 'returning' : null]
+  // The row is the EVENT (owner 2026-10-28, "User's event (date)"): its title is the event's chat name, the customer
+  // under it — the same couple with two events is two rows, each its own chat.
+  const title = eventChatTitle({ name: r.identityRevealed ? r.title : null, kind: r.kind, date: r.eventDate, nowMs });
+  const eventLine = [r.identityRevealed ? r.title : null, r.place, r.returning ? 'returning' : null]
     .filter(Boolean)
     .join(' · ');
   const inner = (
@@ -210,7 +211,7 @@ export function RosterRowView({ r, nowMs, query }: { r: RosterRow; nowMs: number
       </span>
       <span className="min-w-0">
         <span className="block truncate text-[15px] font-medium leading-tight text-ink">
-          <Marked text={r.title} query={query} />
+          <Marked text={title} query={query} />
         </span>
         <span className="mt-0.5 block truncate text-[13px] text-ink/60">{eventLine}</span>
       </span>
@@ -234,7 +235,7 @@ export function RosterRowView({ r, nowMs, query }: { r: RosterRow; nowMs: number
   const rowClass =
     'grid min-h-[64px] grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-3 border-t border-ink/10 py-2.5';
   return href ? (
-    <Link href={href} className={`sn-press ${rowClass}`} aria-label={`${r.title} — ${nextStepLabel(r)}`} data-customer-row={r.lane}>
+    <Link href={href} className={`sn-press ${rowClass}`} aria-label={`${title} — ${nextStepLabel(r)}`} data-customer-row={r.lane}>
       {inner}
     </Link>
   ) : (
@@ -302,6 +303,8 @@ export function CustomersRoster({
 
   return (
     <div id="customers" className="scroll-mt-24" data-customers-people="">
+      {/* This list opens chats full screen; ‹ there comes back here, in place. */}
+      <ChatOriginMark />
       {/* "WAITING FIRST · Everyone ▾" — the order is said, and the one dropdown narrows it (frame 03). */}
       <div className="flex min-h-11 items-center gap-3" data-customers-eyebrow="" data-tour="customers-filter">
         <span className="home-k2">Waiting first</span>

@@ -2148,6 +2148,25 @@ export const UGAT_JOINTS: UgatJoint[] = [
         name: 'vendor_papic_portfolio_photos_credits_positive',
         mentions: 'credits_spent',
       },
+      // The 7-day guest notice (owner 2026-10-03; built 2026-10-28): an album photo reaches the supplier's PUBLIC page
+      // only through this row — published by `publish_supplier_page_photo` after `public_from`, pulled by a guest's
+      // Remove or by ANY hide of the album row (trigger `a_hidden_album_photo_leaves_the_page`).
+      { kind: 'table', table: 'supplier_page_photo_notices' },
+      { kind: 'fk', table: 'supplier_page_photo_notices', column: 'photo_id', references: 'vendor_papic_portfolio_photos' },
+      { kind: 'unique', table: 'supplier_page_photo_notices', columns: ['photo_id'] },
+      { kind: 'column', table: 'supplier_page_photo_notices', column: 'public_from' },
+      {
+        kind: 'check',
+        table: 'supplier_page_photo_notices',
+        name: 'supplier_page_photo_notices_seven_days',
+        mentions: 'public_from',
+      },
+      {
+        kind: 'check',
+        table: 'supplier_page_photo_notices',
+        name: 'supplier_page_photo_notices_own_folder',
+        mentions: 'page_ref',
+      },
       // THE SHOP WALLET (owner 2026-10-23, option A — one shop wallet). Packs
       // land HERE now, not in one event's grant ledger: one signed, append-only
       // ledger per SHOP (no event column on the money-in side), spent on the

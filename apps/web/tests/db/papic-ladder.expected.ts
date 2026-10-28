@@ -37,28 +37,31 @@ export const PAPIC_LADDER_EXPECTED: readonly (readonly [number, number])[] = [
   //   no-op there, a repair here) and this fixture follows it. Do not "correct"
   //   these back: they are a snapshot of a table the screen can move again
   //   tomorrow, and the catalog is the source of truth, never this file.
-  [100, 70],
-  [200, 140],
-  [300, 210],
-  [400, 280],
-  [500, 350],
-  [1_000, 700],
-  [2_000, 1_400],
-  [3_000, 1_680],
-  [4_000, 2_240],
-  [5_000, 2_800],
-  [6_000, 3_360],
-  [7_000, 3_920],
-  [10_000, 4_500],
-  [20_000, 7_200],
-  [30_000, 10_800],
-  [50_000, 15_000],
+  // 💲 2026-10-28 ("THE ONE PRICE — APP STORE = WEBSITE"): the five App Store packs moved to the owner's App
+  // Store prices (100 · 500 · 1,000 · 5,000 · 10,000), and every other rung moved ×~1.3177 (owner "Yes, ×1.32"),
+  // rounded so the price per credit never rises.
+  [100, 95],
+  [200, 189],
+  [300, 282],
+  [400, 373],
+  [500, 465],
+  [1_000, 929],
+  [2_000, 1_845],
+  [3_000, 2_214],
+  [4_000, 2_952],
+  [5_000, 3_690],
+  [6_000, 4_428],
+  [7_000, 5_166],
+  [10_000, 5_950],
+  [20_000, 9_488],
+  [30_000, 14_232],
+  [50_000, 19_766],
   // ⚖ 100,000 — owner 2026-08-29: *"place an editable row like 50,000 and make
   // the value 24000 php."* An ANCHOR, not a computed rung: computed it would
   // have inherited 50,000's rate and cost ₱30,000, exactly two lots of 50,000,
   // which is the trap that got 40,000 removed. At ₱0.24 a credit it is a real
   // saving and the ladder's never-rises rule still holds.
-  [100_000, 24_000],
+  [100_000, 31_625],
 ] as const;
 
 /** The regular rate the whole ladder is discounted against: ₱1 buys one shot. */

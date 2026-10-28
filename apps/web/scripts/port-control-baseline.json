@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "8e7c2626f2",
-  "routeCount": 476,
-  "destinations": 984,
-  "actions": 643,
-  "blocks": 7194,
+  "generatedFromRef": "06a89888f4",
+  "routeCount": 479,
+  "destinations": 986,
+  "actions": 642,
+  "blocks": 7240,
   "routes": {
     "/": {
       "files": [
@@ -1061,6 +1061,7 @@
         "[slug]/_components/story/your-own-consent.tsx",
         "[slug]/_components/supplier-desk-anchor.ts",
         "[slug]/_components/supplier-desk.tsx",
+        "[slug]/_components/supplier-page-notice-line.tsx",
         "[slug]/_components/supplier-ribbon.tsx",
         "[slug]/_components/tea-ceremony-card.tsx",
         "[slug]/_components/terms-tick.tsx",
@@ -1177,6 +1178,7 @@
         "withdraw"
       ],
       "blocks": [
+        "ActionButton",
         "AddNameInPlace",
         "AdoptSeatSession",
         "AmbientEffectLayer",
@@ -1486,6 +1488,7 @@
         "PhotoMomentsWidget",
         "PhotoMomentsYesAndNo",
         "PhotoNotesScene",
+        "PhotoWithRemove",
         "PhotosHeading",
         "PhotosOfYouGallery",
         "PhotosOfYouLead",
@@ -1512,6 +1515,7 @@
         "ReaderPerson",
         "Relive",
         "Remaining",
+        "RemoveResult",
         "ReplayNode",
         "ReplyCardRow",
         "ReplyForm",
@@ -1642,6 +1646,8 @@
         "SubmitButton",
         "SupplierDesk",
         "SupplierDeskModel",
+        "SupplierGroup",
+        "SupplierPageNoticeLine",
         "SupplierRibbon",
         "SupplierStoriesScene",
         "SupportingStrip",
@@ -7997,6 +8003,7 @@
     },
     "/dashboard/[eventId]/messages": {
       "files": [
+        "dashboard/[eventId]/messages/_components/chat-inbox.tsx",
         "dashboard/[eventId]/messages/_components/start-thread-picker.tsx",
         "dashboard/[eventId]/messages/actions.ts",
         "dashboard/[eventId]/messages/loading.tsx",
@@ -8008,18 +8015,25 @@
         "/dashboard/[seg]/vendors"
       ],
       "actions": [
-        "returnTo",
         "startThreadByVendorEmail"
       ],
       "blocks": [
+        "ChatInbox",
+        "ChatOriginMark",
         "FeedPageSkeleton",
+        "Filter",
+        "HTMLDivElement",
         "Link",
         "PageMasthead",
         "PickMenu",
+        "PillThumb",
+        "Sheet",
         "StartThreadPicker",
         "SubmitButton",
         "ThreadArchiveToggle",
-        "ThreadListAvatar"
+        "ThreadListAvatar",
+        "ThumbDock",
+        "ThumbRow"
       ]
     },
     "/dashboard/[eventId]/messages/[threadId]": {
@@ -8028,7 +8042,6 @@
         "dashboard/[eventId]/messages/[threadId]/page.tsx"
       ],
       "destinations": [
-        "/dashboard/[seg]/messages",
         "/dashboard/[seg]/messages/[seg]",
         "/dashboard/[seg]/vendors"
       ],
@@ -8036,17 +8049,18 @@
         "withdrawInquiry"
       ],
       "blocks": [
+        "BackButton",
         "ChatBox",
         "ChatMessageStream",
         "ChatSafetyBanner",
         "ChatSendForm",
+        "ChatThreadHead",
         "ChatThreadMenu",
         "ConversationColumn",
+        "CoupleThreadToolsSheet",
         "Link",
         "NegotiationComposerMenu",
-        "RevealToolButton",
         "SubmitButton",
-        "ThreadCallLauncher",
         "ThreadInterestChips",
         "ThreadToolHashReveal",
         "ThreadToolPanel"
@@ -11007,6 +11021,50 @@
         "ServicePanel"
       ]
     },
+    "/dev/chat-lab": {
+      "files": [
+        "dev/chat-lab/fixtures.tsx",
+        "dev/chat-lab/page.tsx"
+      ],
+      "destinations": [
+        "/dev/chat-lab",
+        "/dev/chat-lab/t/[seg][seg]"
+      ],
+      "actions": [],
+      "blocks": [
+        "ChatInbox",
+        "LabShell",
+        "StartThreadPicker",
+        "ThreadArchiveToggle"
+      ]
+    },
+    "/dev/chat-lab/t/[threadId]": {
+      "files": [
+        "dev/chat-lab/t/[threadId]/page.tsx"
+      ],
+      "destinations": [
+        "/dev/chat-lab",
+        "/dev/chat-lab/t/[seg]"
+      ],
+      "actions": [],
+      "blocks": [
+        "BackButton",
+        "ChatBox",
+        "ChatMessageStream",
+        "ChatSafetyBanner",
+        "ChatSendForm",
+        "ChatThreadHead",
+        "ChatThreadMenu",
+        "CoupleThreadToolsSheet",
+        "LabShell",
+        "LabThread",
+        "Suspense",
+        "ThreadArrival",
+        "ThreadToolHashReveal",
+        "ThreadToolPanel",
+        "ThreadToolsSheet"
+      ]
+    },
     "/dev/create-for-lab": {
       "files": [
         "dev/create-for-lab/page.tsx"
@@ -11209,6 +11267,7 @@
       "actions": [],
       "blocks": [
         "IapUnlockSheet",
+        "InlineCheckoutDrawer",
         "PapicAddedPreview",
         "PapicCreditsAdded",
         "StudioBuyHero"
@@ -11478,6 +11537,22 @@
         "InviteResult",
         "InviteVendorForm",
         "TeamInviteDoor"
+      ]
+    },
+    "/dev/photo-privacy-lab": {
+      "files": [
+        "dev/photo-privacy-lab/lab-client.tsx",
+        "dev/photo-privacy-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "GuestLineLab",
+        "InfoTip",
+        "PutButtonLab",
+        "PutOnMyPageButton",
+        "PutOnPageResult",
+        "SupplierPageNoticeLine"
       ]
     },
     "/dev/pro-parts-lab": {
@@ -13908,6 +13983,7 @@
         "PickMenu",
         "PutOnPageResult",
         "ShopSegments",
+        "SupplierPageNoticeRow",
         "SupplierSubmit",
         "SupplierThumbRow",
         "SwitchTrack"
@@ -14062,6 +14138,7 @@
         "CalendarGrid",
         "CalendarLegend",
         "CalendarSheet",
+        "ChatOriginMark",
         "CheckADate",
         "ChosenRow",
         "ConfirmForm",
@@ -14305,6 +14382,7 @@
       ],
       "actions": [],
       "blocks": [
+        "ChatOriginMark",
         "Icon",
         "InquiryOutcomesRollup",
         "Link",
@@ -14339,7 +14417,6 @@
         "/vendor-dashboard/clients/[seg]?tab=files",
         "/vendor-dashboard/clients/[seg]?tab=quote",
         "/vendor-dashboard/clients/[seg]?tab=schedule",
-        "/vendor-dashboard/customers?seg=people&open=messages",
         "/vendor-dashboard/messages/[seg]",
         "/vendor-dashboard/proposals"
       ],
@@ -14357,6 +14434,7 @@
       ],
       "blocks": [
         "AnswerAskButton",
+        "BackButton",
         "BookingFeeNotice",
         "ChatBox",
         "ChatInfoRailColumn",
@@ -14364,6 +14442,7 @@
         "ChatMessageStream",
         "ChatPrivacyNotice",
         "ChatSendForm",
+        "ChatThreadHead",
         "ChatThreadMenu",
         "ConversationColumn",
         "Icon",
@@ -14390,12 +14469,12 @@
         "SubmitButton",
         "ThreadAnswerLine",
         "ThreadAttribution",
-        "ThreadCallLauncher",
         "ThreadDayAnswer",
         "ThreadInterestChips",
         "ThreadToolHashReveal",
         "ThreadToolPanel",
         "ThreadToolsSheet",
+        "ToolsSheetButton",
         "VendorEventDayPrepCta",
         "VendorOfferService",
         "VendorPaymentLive"
@@ -14588,6 +14667,7 @@
         "HTMLVideoElement",
         "HostPlaylist",
         "Icon",
+        "InfoTip",
         "Link",
         "LiveReviews",
         "LockedUpsell",

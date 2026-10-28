@@ -30,6 +30,7 @@
  * as `OwnerCapability` — see its doc block for why it is a SEPARATE, additive
  * field and not a third arm of `SiteIdentity`.
  */
+import type { GuestNoticeGroup } from '@/lib/supplier-page-notice';
 import type { PassCardEligibility } from '@/lib/pass-card';
 import type { GuestAccountState } from '@/lib/guest-one-path';
 import type { ChecklistKey } from '@/lib/guest-checklist';
@@ -97,6 +98,12 @@ export type GuestSiteIdentity = {
    * (owner 2026-10-14, DECISION_LOG 🖼). False everywhere else.
    */
   earlyOwnShots: boolean;
+  /**
+   * 📣 Suppliers who will show (or show) photos from this event on their own page, each photo with Remove — the
+   * 7-day guest notice (owner 2026-10-03). Every guest of the event sees it (a supplier's album photo is never
+   * face-tagged, so the ruled "nobody recognised → every guest" branch applies). Empty = none; null = the read failed.
+   */
+  supplierPageNotices: GuestNoticeGroup[] | null;
   /** Event owns CUSTOM_QR_GUEST → advertise the personalized seat pass link
    *  (seat-finding PR4). Additive; the find-my-table link is unaffected. */
   seatPassActive: boolean;
@@ -488,12 +495,12 @@ export function anonymousIdentity(input: {
 export function guestIdentity(
   input: Omit<
     GuestSiteIdentity,
-    'kind' | 'profileDetails' | 'account' | 'didntReply' | 'moreAnswers' | 'checklist' | 'passCard' | 'guestOwnShots' | 'poolGalleryOpen' | 'earlyOwnShots'
+    'kind' | 'profileDetails' | 'account' | 'didntReply' | 'moreAnswers' | 'checklist' | 'passCard' | 'guestOwnShots' | 'poolGalleryOpen' | 'earlyOwnShots' | 'supplierPageNotices'
   > &
     Partial<
       Pick<
         GuestSiteIdentity,
-        'profileDetails' | 'account' | 'didntReply' | 'moreAnswers' | 'checklist' | 'passCard' | 'guestOwnShots' | 'poolGalleryOpen' | 'earlyOwnShots'
+        'profileDetails' | 'account' | 'didntReply' | 'moreAnswers' | 'checklist' | 'passCard' | 'guestOwnShots' | 'poolGalleryOpen' | 'earlyOwnShots' | 'supplierPageNotices'
       >
     >,
 ): GuestSiteIdentity {
@@ -506,6 +513,7 @@ export function guestIdentity(
     guestOwnShots: input.guestOwnShots ?? null,
     poolGalleryOpen: input.poolGalleryOpen === true,
     earlyOwnShots: input.earlyOwnShots === true,
+    supplierPageNotices: input.supplierPageNotices === undefined ? [] : input.supplierPageNotices,
     seatPassActive: input.seatPassActive,
     needsFaceEnroll: input.needsFaceEnroll,
     guestHubData: input.guestHubData,

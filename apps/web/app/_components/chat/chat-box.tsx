@@ -59,9 +59,9 @@ export function ChatBox({
   composer,
   tray,
 }: {
-  /** Counterparty · one muted line · the ⋮ menu. */
+  /** ‹ · avatar · name · the event line · ⓘ. */
   header: ReactNode;
-  /** The one-line safety / privacy notice. */
+  /** The pinned safety line — folds away. */
   notice?: ReactNode;
   /** Cards that must stay in sight (a logged payment to confirm). Usually empty. */
   pinned?: ReactNode;
@@ -72,15 +72,22 @@ export function ChatBox({
   /** The closed tool panels. Zero height until one is revealed. */
   tray?: ReactNode;
 }) {
+  /*
+    💬 MESSENGER-SHAPED (chat prototype 2026-10-28, frame B · owner 2026-10-27 "full screen", "look and feel like
+    Messenger"). `data-chat-takeover` is the whole move: on a phone the thread fixes itself over the shell (globals.css,
+    "AN OPEN CHAT THREAD IS FULL SCREEN"); from 1024 it keeps its place in the page's column with a quiet frame. No
+    `sn-row` card any more — nothing framed but what you press. The automatic minimum stays (no `min-h-0` here; the
+    2026-09-19 note above): when a tool is open the takeover itself scrolls rather than flattening the stream.
+  */
   return (
-    <div data-chat-box className="sn-row flex min-w-0 flex-1 flex-col">
-      <div className="flex items-center gap-2 border-b border-ink/10 px-2 py-2 sm:gap-3 sm:px-3">
+    <div data-chat-box data-chat-takeover="" className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-h-[52px] items-center gap-2 border-b border-ink/10 py-1 pl-1 pr-2 sm:gap-2.5">
         {header}
       </div>
       {notice}
       {pinned}
-      <div className="flex min-h-0 flex-1 flex-col px-2 pt-2 sm:px-3">{children}</div>
-      <div className="border-t border-ink/10 px-2 py-2 sm:px-3">{composer}</div>
+      <div className="flex min-h-0 flex-1 flex-col px-2.5 pt-1">{children}</div>
+      <div className="border-t border-ink/10 px-1.5 pt-1.5 pb-[max(env(safe-area-inset-bottom),0.5rem)]">{composer}</div>
       {tray}
     </div>
   );

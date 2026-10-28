@@ -43,6 +43,11 @@ Owner, verbatim: *"A"* (DECISION_LOG 2026-10-28 "ADMIN SUPPLIER SLICE APPROVED �
 - Migrations: `20271292839996_notification_type_supplier_request_answered.sql` (enum value, own file) ·
   `20271293237246_admin_supplier_slice.sql` (`decline_reason` + `hub_tools` · `category_hub_tool_switches` ·
   `category_hub_settings`, RLS at CREATE: read signed-in, write `is_admin()`). Not applied — the pipeline applies on merge.
+- Screen shape (owner-approved admin redesign, 28 Oct — the 5-tab shell itself is a separate PR): a supplier row
+  opens IN PLACE on a phone and as a RIGHT-SIDE PANEL at tablet (768) and desktop (1280), never a stretched phone
+  layout; every choice is the house dropdown (`FormPick` → `PickMenu`), no raw `<select>`, no raw hex; Messages is
+  drawn with C1's shared `ChatBox` + `ChatThreadHead`. Admin is not on `DARK_READY` yet, so it paints light today;
+  the walk forced dark to prove the screens are ready.
 - Lab: `/dev/admin-supplier-lab` (fixtures; every press caught and said).
 
 SPEC IMPACT: corpus `DECISION_LOG.md` — a BUILT row under "ADMIN SUPPLIER SLICE APPROVED" (what shipped, what waits:

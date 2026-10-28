@@ -1,30 +1,32 @@
-# HANDOVER — Builder AS · admin supplier slice · PAUSED 2026-10-28
+# HANDOVER — Builder AS · admin supplier slice · STOPPED 2026-10-29 (controller: Mac out of memory)
 
-PR **#7006** (draft · `do-not-auto-merge` · autoMergeRequest null) · branch `claude/admin-supplier-slice`.
-Contains 2 migrations (NOT applied): `20271292839996_notification_type_supplier_request_answered.sql`,
-`20271293237246_admin_supplier_slice.sql`. Write-up: `changelog.d/admin-supplier-slice.md`. Corpus DECISION_LOG row
-"ADMIN SUPPLIER SLICE — BUILT (PR #7006…)" pushed (incl. the two coordinator amendments).
+PR **#7006** — draft · `do-not-auto-merge` · auto-merge off · branch `claude/admin-supplier-slice`.
+2 migrations (NOT applied; the pipeline applies on merge): `20271292839996_notification_type_supplier_request_answered.sql`,
+`20271293237246_admin_supplier_slice.sql`. Write-up: `changelog.d/admin-supplier-slice.md`. PR body = the summary.
 
-## Built
-- Work › From suppliers (`app/admin/work/_components/supplier-inbox.tsx`, data `lib/admin/supplier-work(.server).ts`):
-  Documents · Name & address · Flagged cards · Event types (against #7001's `event_type_requests`; absent-table is said;
-  coverage per group opens in the LINKED row via shipped `setFolderEventTypeOffered`) · Messages (in-row reply).
-- Categories › Hub tools: tools are RECORDS (`hub_tools` key·name·one of 8 templates·is_active) + per-category
-  `category_hub_tool_switches` (= SUGGESTED, never a gate — owner amendment) + `category_hub_settings` (scan default).
-- /admin/help redrawn Messenger-style (`app/admin/help/_components/help-messenger.tsx`); nav "Help" → "Messages".
-- Lab `/dev/admin-supplier-lab` (fixtures; `LabSubmitCatcher` says every press). Walk script ready at
-  `/private/tmp/claude-501/as-walk/walk.mjs` (+ `serve.sh`, `sbs.py` for side-by-sides) — scratch, may be gone.
+## Built (all in Work, Categories › Hub tools, /admin/help)
+Documents · Name/address requests (+ `decline_reason`) · Flagged cards (repost match · unverified shop; no price reason) ·
+Event-type requests (against #7001's `event_type_requests`; absent table is said) · Hub tools as records
+(`hub_tools` 8 templates, `category_hub_tool_switches` = SUGGESTED never a gate, `category_hub_settings` scan default) ·
+Messages = Help inbox drawn with C1's `ChatBox` + `ChatThreadHead`. Row detail: in place on a phone, right-side panel
+at ≥768. House dropdown (`FormPick`/`PickMenu`) everywhere, no raw hex/select, one frame per row.
 
-## Checks so far
-- Local: slice tests 18+ pass; all 32 `scripts/lint-*.mjs` pass; check-ugat-screens current; migration timestamps OK;
-  action budget 1225/1225 (net +0). 5 sabotages each went red then green.
-- CI round 1 failures were fixed in `a75b478495` + `9257cd6b9c` (prepared-jobs, menu registry slot, masthead list,
-  FK map, badge bill, Rule-3 lab exemption, number formatting, audit-insert annotation). CI round 2 was RUNNING at pause.
-- Full local typecheck NOT run (heavy queue) — CI's typecheck is the gate.
+## Walked (lab `/dev/admin-supplier-lab`, run 3, 29 Oct 03:17 — cut short by the controller's kill)
+1,421 ✅ · 2 ⚠ of 1,423 (Chromium+WebKit × 375/390/768/1280 × light/dark; WebKit 768-light stopped at 63/89 when the
+server was killed). Both ⚠ = dev-server timing, not the app. Shots + 8 side-by-sides in `shots-2026-10-28/admin/`.
+Walk kit (gitignored, durable): `shots-2026-10-28/admin/_walk/` — `adm-run.sh` (walk lane, lab env, own 54321 stub,
+dev → warm → walk → side-by-sides → stop by PID → release), `adm-walk.mjs`, `adm-sbs.py`, `results.json`.
 
-## Next step (on resume)
-1. `gh pr checks 7006` — fix any red job from its logs, push.
-2. Walk: acquire `walk:as`, run `serve.sh` (port 3100, lab env, 54321 stub), then `node walk.mjs` (Chromium+WebKit ×
-   390/1280 × light/dark, taps every control → `results.json`), then `python3 sbs.py` → `shots-2026-10-28/admin/`.
-   STOP file + release + `rm -rf apps/web/.next` after.
-3. Fill the PR body (walk ✅/⚠, sabotages, counts, shots, house-rule ✓/✗) and report.
+## Checks
+CI was green (26 ✅) on cf228398f9 before main moved. Since then: merged origin/main again (generated files taken from
+main and REGENERATED: admin jobs/map, Ugat screens, port baseline, exposure baseline; FK map re-checked), all
+`scripts/lint-*.mjs` ✅, root map current, action budget 1224/1225. Local typecheck on THIS head was NOT finished
+(stopped on the controller's order) — CI's typecheck is the gate.
+
+## Next (on a quiet Mac / next account)
+1. `gh pr checks 7006` — if CONFLICTING again: merge origin/main, take generated files from main, regenerate
+   (`pnpm -s admin:jobs admin:map ugat:screens port:baseline`; `exposure:baseline` under the heavy lock), push.
+2. Fix any red job from its logs.
+3. Re-run the WebKit 768-light combo only: `ENGINES=webkit WIDTHS=768 SCHEMES=light NO_SBS=1 shots-2026-10-28/admin/_walk/adm-run.sh`
+   (walk lane; it copies nothing over the full results — save `results.json` first).
+4. Hand back: head SHA · CI · walk ✅/⚠ · side-by-sides · check card.

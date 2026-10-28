@@ -2015,8 +2015,9 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       steps: [
         {
           anchor: 'guests-views',
-          title: 'List, Map or Settings',
-          body: 'List is everyone. Map groups them by side, role or group. Settings sends the invitations.',
+          /* 🗂 R1 (owner 2026-10-28): the RSVP settings moved here from the Event Hub's Studio — the tour says where. */
+          title: 'List, Map and ⚙',
+          body: 'List is everyone. Map groups them by side, role or group. ⚙ sends the invitations and holds your RSVP — what it asks and the reply-by date.',
         },
         {
           anchor: 'guests-counts',

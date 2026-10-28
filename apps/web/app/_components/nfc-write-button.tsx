@@ -98,9 +98,18 @@ const ACTION_CLASS =
 export function NfcWriteButton({
   url,
   className,
+  iconOnly = false,
+  name,
 }: {
   url: string;
   className?: string;
+  /**
+   * 🎟 The guest card's ticket row (owner 2026-10-27, "GUEST CARD TICKET ROW = THREE ICON BUTTONS: SHARE · NFC · NEW
+   * QR"): the same writer and sheet, drawn as one neutral 44-px icon button named for its guest.
+   */
+  iconOnly?: boolean;
+  /** The icon button's spoken name (`iconOnly`), e.g. "Write Cita Ramos's link to NFC". */
+  name?: string;
 }) {
   const nfcOn = useNfcEnabled();
   const eligibility = nfcTagEligibility(url);
@@ -209,6 +218,17 @@ export function NfcWriteButton({
 
   return (
     <>
+      {iconOnly ? (
+        <ActionButton
+          tone="neutral"
+          iconOnly
+          icon={Nfc}
+          label="Write to NFC"
+          name={name}
+          onClick={() => void run('write')}
+          data-testid="nfc-write-icon"
+        />
+      ) : (
       <button
         type="button"
         onClick={() => void run('write')}
@@ -224,6 +244,7 @@ export function NfcWriteButton({
         <Nfc aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
         Write to NFC
       </button>
+      )}
 
       <Sheet open={open} onClose={close} labelledById={NFC_TITLE_ID} rise>
         <NfcSheetBody

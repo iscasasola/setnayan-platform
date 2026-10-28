@@ -6,6 +6,8 @@
  *
  *   ?reason=documents|in_review|listing|demo   which banner (default: demo — SetnaProd's state)
  *   ?view=stranger                             the not-found page a stranger gets for the same address
+ *   ?events=N                                  the shop's badge pills under its name, as the page draws them
+ *                                              (`lib/shop-badges.ts`: Verified · the step N reached · ★ 4.8 from 31)
  */
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -13,11 +15,13 @@ import { Wordmark } from '@/app/_components/brand-marks';
 import { TeamPreviewBanner } from '@/app/v/[slug]/_components/team-preview-banner';
 import SlugNotFound from '@/app/[slug]/not-found';
 import { TEAM_PREVIEW_COPY, type ShopPreviewReason } from '@/lib/own-shop-preview';
+import { ShopBadgePill } from '@/app/_components/shop-badge-pill';
+import { shopBadges } from '@/lib/shop-badges';
 
 export default async function ShopPreviewLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ reason?: string; view?: string }>;
+  searchParams: Promise<{ reason?: string; view?: string; events?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
@@ -44,6 +48,20 @@ export default async function ShopPreviewLabPage({
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-ink">SetnaProd</h1>
             <p className="mt-1 text-sm text-ink/60">Pabati · Metro Manila</p>
+            {sp.events !== undefined ? (
+              <div className="mt-2 flex flex-wrap gap-2" data-lab-shop-pills="">
+                {shopBadges({
+                  verified: true,
+                  completedEvents: Number(sp.events) || 0,
+                  trusted: { trusted_avg_rating: 4.8, trusted_review_count: 31 },
+                  inBusinessSinceYear: null,
+                  awards: [],
+                  nowYear: 2026,
+                }).map((b) => (
+                  <ShopBadgePill key={b.key} badge={b} className="w-fit" />
+                ))}
+              </div>
+            ) : null}
           </div>
         </div>
         <div className="mt-8 h-48 rounded-2xl bg-ink/[0.06]" />

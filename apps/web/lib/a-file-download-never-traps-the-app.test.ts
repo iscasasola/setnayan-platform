@@ -98,9 +98,8 @@ test('1 · no `<a download>` on an app screen leaves the tap to the web view', (
  * entry can never excuse a different link in the same file — and an entry whose link is gone fails below.
  */
 const PAGES_NOT_FILES: Record<string, string> = {
-  // "Print budget": without `format=csv` the route answers `text/html` (budgetExportHtml) — a print PAGE, not a file.
-  // How it should open inside the iPhone app is an OPEN OWNER QUESTION (2026-10-27): the in-app sheet is signed out.
-  'href={`/api/budget/${eventId}/export`}': 'app/dashboard/[eventId]/budget/page.tsx',
+  // (2026-10-28: "Print budget" left this list — the owner ruled "signed in": in the app it opens in the app's own view
+  // through `PrintBudgetLink`, which takes over the tap, so the sweep above passes it on its own.)
 };
 
 test('2 · no plain link points straight at a file route', () => {

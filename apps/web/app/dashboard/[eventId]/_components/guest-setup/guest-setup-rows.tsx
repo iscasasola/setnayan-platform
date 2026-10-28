@@ -1,11 +1,15 @@
 'use client';
 
-import { useEffect, useRef, useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition, type MouseEvent } from 'react';
 import { Check, ChevronRight, Copy, Mail, RotateCcw, Share2, SquareCheck, X } from 'lucide-react';
 import { ActionButton, useFitRow } from '@/components/action-button';
 import { Count } from '@/components/count';
-import { FormRow, FormRows } from '@/app/_components/form-row';
-import type { RsvpAskConfig } from '@/lib/rsvp-ask';
+import { ChosenRow, FormRow, FormRows } from '@/app/_components/form-row';
+import { readOneAtATime, type RsvpAskConfig } from '@/lib/rsvp-ask';
+import type { KeepAnswer } from '@/lib/form-row';
+import { HOW_GUESTS_ANSWER_ABOUT, HOW_GUESTS_ANSWER_LABEL, HOW_GUESTS_ANSWER_OPTIONS } from '@/lib/how-guests-answer';
+/* 📬 Replies open ▾ · Replies close ▾ — the Maker's own part, mounted here too (R1: it was the Studio RSVP tile's). */
+import { RepliesWindowRows } from '../../launch/_components/replies-window-rows';
 import {
   GUESTS_GET_IN_LABEL,
   guestsGetInPatch,
@@ -23,7 +27,7 @@ import {
   headcountLockedLine,
   headcountOpenLine,
 } from '@/lib/headcount-row';
-import { useGuestActions } from '../../guests/_components/guest-actions-context';
+import { useGuestActions, usePickWho } from '../../guests/_components/guest-actions-context';
 import { GuestConfirmActions, GuestPopup } from '../../guests/_components/guest-popup';
 import { plainRefusal } from '../../guests/_components/plain-refusal';
 import { GuestsGetIn } from './guests-get-in';
@@ -61,11 +65,17 @@ export type HeadcountView = {
  * → Guests → Setup). Rows, in order, the words left and ONE control right:
  *
  *   1. How guests get in   `GuestsGetIn` (shared with the Maker)
- *   2. Invitations         ✉ Send to N · ☑ Pick who, and the guest's Digital Pass
- *                          (personal choices only)
+ *   2. Invitations         ✉ Send to N · ☑ Pick who (personal choices only). No pass
+ *                          picture here (owner 2026-10-28 "yes": the Event Pass lives
+ *                          in Prints, each guest's ticket on their card)
  *   3. Your one link       link · Copy · Share + the QR (Open · Anyone with the link only)
  *   4. RSVP asks           `RsvpAsks` (shared) — "They reply" choices only
+ *   4b. How guests answer  All at once · One by one (`oneAtATime`) — "They reply" choices only
  *   5. Reply by            `ReplyBy` (shared) — "They reply" choices only
+ *   5b. Replies open/close `RepliesWindowRows` (the Maker's part) — "They reply" choices only
+ *      🗂 4b and 5b MOVED HERE in R1 (owner 2026-10-27/28, "RSVP SETTINGS LIVE IN THE GUESTS ⚙"): the Studio RSVP tile
+ *      was the only other place they lived, and it is gone. The words the reply page says (its eyebrow, question, hint,
+ *      Yes / No) stay the Reply page's — typed on its lines in the Invitation stage, where guests read them.
  *   6. Finalize guest list ✓ Finalize now → one sheet, one way — every list
  *                          (owner 2026-10-07: *"finalize should be inside the
  *                          Setup. not on its current location"* — it left the
@@ -87,7 +97,6 @@ export function GuestSetupRows({
   drafted,
   reply,
   toInvite,
-  passSrc,
   oneLink,
   headcount,
   requests = null,
@@ -101,8 +110,6 @@ export function GuestSetupRows({
   reply: { own: string | null; pricingMode: 'realtime' | 'final_only'; fallback: string | null } | null;
   /** Guests not yet sent an invitation (null = the list could not be read). */
   toInvite: number | null;
-  /** The shipped Digital Pass picture — the first guest who is coming. */
-  passSrc: string;
   oneLink: OneLink;
   headcount: HeadcountView;
   /** Requests to join waiting (null = not counted — the row still opens the list). */
@@ -127,13 +134,13 @@ export function GuestSetupRows({
     setWaiting(drafted);
   }, [configKey, drafted]);
 
-  const save = (patch: RsvpAskConfig, what: string) => {
+  const save = (patch: RsvpAskConfig, what: string): Promise<KeepAnswer> => {
     const next: RsvpAskConfig = { ...latest.current, ...patch };
     latest.current = next;
     setLocal(next); // on screen at the tap
     setError(null);
     const tap = ++newest.current;
-    void (async () => {
+    return (async (): Promise<KeepAnswer> => {
       let refused: string | null = null;
       try {
         const fd = new FormData();
@@ -153,7 +160,15 @@ export function GuestSetupRows({
         /* The action's own words only if they are a plain sentence — never the database's (`plain-refusal.ts`). */
         setError(`${what} did not save, so it is back as it was. ${refused}`);
       }
+      /* The row hears it too — but says nothing of its own: the sheet's one line above already did. */
+      return refused === null ? { ok: true } : { ok: false, error: null };
     })();
+  };
+  /** ❓ How guests answer — the one writer of `oneAtATime` here; picking the stored answer writes nothing. */
+  const oneAtATime = readOneAtATime(local);
+  const pickAnswer = (value: string) => {
+    const next = value === 'one';
+    if (next !== oneAtATime) void save({ oneAtATime: next }, `“${HOW_GUESTS_ANSWER_LABEL}”`);
   };
 
   const getIn = readGuestsGetIn(local);
@@ -167,7 +182,7 @@ export function GuestSetupRows({
       <FormRows data="guest-setup">
         {/* ⚙ THREE CLUSTERS (owner 2026-10-27, settings per menu; prototype § 4): Getting in · Replies · Closing the list. */}
         <ClusterHead name={GUESTS_SETTINGS_CLUSTERS[0]} first />
-        <GuestsGetIn frame={getInFrame} value={getIn} onPick={(v) => save(guestsGetInPatch(v), `“${GUESTS_GET_IN_LABEL}”`)} />
+        <GuestsGetIn frame={getInFrame} value={getIn} onPick={(v) => void save(guestsGetInPatch(v), `“${GUESTS_GET_IN_LABEL}”`)} />
         {waiting ? (
           <p className="-mt-1 pb-2.5 pl-0.5 text-[12.5px] text-ink/55" data-setup-waiting="">
             Saved — guests see it after you Apply in the Event Hub Maker.
@@ -179,10 +194,24 @@ export function GuestSetupRows({
           </p>
         ) : null}
 
-        {personal ? <InvitationsRow eventId={eventId} toInvite={toInvite} passSrc={passSrc} /> : null}
+        {personal ? <InvitationsRow eventId={eventId} toInvite={toInvite} /> : null}
         {getIn === 'one_qr' ? <OneLinkRow link={oneLink} /> : null}
         <ClusterHead name={GUESTS_SETTINGS_CLUSTERS[1]} />
-        {replies ? <RsvpAsks frame={asksFrame} config={local} onToggle={(field, v) => save({ [field]: v }, 'That question')} /> : null}
+        {replies ? <RsvpAsks frame={asksFrame} config={local} onToggle={(field, v) => void save({ [field]: v }, 'That question')} /> : null}
+        {replies ? (
+          /* ❓ Any set of choices is ONE dropdown (owner 2026-09-28, "again") — the same PickMenu-in-a-Form-row as How
+             guests get in and Replies open beside it; what each choice means is behind the ⓘ and on its option. */
+          <ChosenRow
+            data="how-guests-answer"
+            name={HOW_GUESTS_ANSWER_LABEL}
+            about={{ words: HOW_GUESTS_ANSWER_ABOUT }}
+            value={oneAtATime ? 'one' : 'all'}
+            options={HOW_GUESTS_ANSWER_OPTIONS}
+            onPick={pickAnswer}
+            dataAttr="data-setup-answer"
+            attrs={{ 'data-setup-row': 'answer' }}
+          />
+        ) : null}
         {replies ? (
           reply ? (
             <ReplyBy
@@ -198,6 +227,8 @@ export function GuestSetupRows({
             <FormRow data="reply-by" name="Reply by" attrs={{ 'data-setup-row': 'reply-by' }} problem="We couldn’t read it just now." />
           )
         ) : null}
+        {/* 📬 When replies open and close — under the date they can close on, the same one object, drafted. */}
+        {replies ? <RepliesWindowRows config={local} setupRow="replies-window" onSave={(patch, what) => save(patch, what)} /> : null}
         <RequestsRow eventId={eventId} waiting={requests} />
         <ClusterHead name={GUESTS_SETTINGS_CLUSTERS[2]} />
         <FinalizeRow eventId={eventId} view={headcount} />
@@ -234,12 +265,17 @@ function RequestsRow({ eventId, waiting }: { eventId: string; waiting: number | 
   );
 }
 
-/** ✉ INVITATIONS — the shipped one-by-one run (`/guests/send`), and what each guest gets. */
-function InvitationsRow({ eventId, toInvite, passSrc }: { eventId: string; toInvite: number | null; passSrc: string }) {
+/**
+ * ✉ INVITATIONS — the count, the shipped one-by-one run (`/guests/send`) and Pick who. Nothing else: the Event Pass
+ * front/back preview LEFT (owner 2026-10-28, asked "Why is the invitation here? Shouldn't that be on prints?", then
+ * "yes") — the pass lives in Prints (`PRINT_PIECES.pass`) and each guest's ticket on their card.
+ */
+function InvitationsRow({ eventId, toInvite }: { eventId: string; toInvite: number | null }) {
   const { setupDoorHref } = useGuestActions();
+  // ☑ On the Guests screen, Pick who works IN PLACE — closes this sheet, Select on, the list narrowed to To invite.
+  const pickWho = usePickWho();
   const acts = useRef<HTMLSpanElement>(null);
   useFitRow(acts);
-  const [passFailed, setPassFailed] = useState(false);
   return (
     <FormRow
       data="invitations"
@@ -254,24 +290,6 @@ function InvitationsRow({ eventId, toInvite, passSrc }: { eventId: string; toInv
             <Count value={toInvite} id="setup-to-invite" /> to invite.
           </>
         )
-      }
-      /* 🎫 THEIR DIGITAL PASS (owner: *"and show their Digital Pass"*) — the shipped ticket
-          (`/api/hub-print/pass`, the first guest who is coming, their own QR), so the couple
-          sees what each guest gets. A picture that fails says so. */
-      below={
-        <div className="pb-3" data-setup-pass="">
-          {passFailed ? (
-            <p className="text-[13px] text-ink/60">We couldn&rsquo;t draw a Digital Pass just now.</p>
-          ) : (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={passSrc}
-              alt="A guest’s Digital Pass"
-              className="mx-auto block h-auto w-full max-w-[320px] rounded-xl"
-              onError={() => setPassFailed(true)}
-            />
-          )}
-        </div>
       }
     >
       <span ref={acts} className={ACTS}>
@@ -292,6 +310,14 @@ function InvitationsRow({ eventId, toInvite, passSrc }: { eventId: string; toInv
           icon={SquareCheck}
           label="Pick who"
           href={setupDoorHref(eventId, 'pick-who')}
+          onClick={
+            pickWho
+              ? (e: MouseEvent<HTMLAnchorElement>) => {
+                  e.preventDefault();
+                  pickWho();
+                }
+              : undefined
+          }
           data-testid="setup-pick-who"
         />
       </span>

@@ -460,6 +460,12 @@ test('all nine cron-free sweeps still ride on this layout', () => {
       own booked events with nothing to pay.
     */
     'maybeCatchUpHandshakesWithoutFee',
+    /*
+      The 7-day guest notice's publish (2026-10-28, owner 2026-10-03). A supplier's event photo goes on its page only
+      through this job; drop it and every photo waits forever — the private direction, but the supplier's page never
+      fills and nothing says why.
+    */
+    'maybeRunSupplierPagePublish',
   ]) {
     assert.ok(
       new RegExp(`\\b${sweep}\\b`).test(src),
@@ -479,7 +485,8 @@ test('all nine cron-free sweeps still ride on this layout', () => {
     // SUPPLIERS — an admin-only mount would make it wait for an admin page view.
     // 11 since 2026-10-12: `maybeCatchUpHandshakesWithoutFee` (the fee is made
     // at the yes; named in the list above).
-    11,
+    // 12 since 2026-10-28: `maybeRunSupplierPagePublish` (the 7-day guest notice; named above).
+    12,
     'the count of post-response jobs changed',
   );
 });

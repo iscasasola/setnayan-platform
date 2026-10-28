@@ -1,6 +1,7 @@
 /**
  * PUT THIS PHOTO ON MY PAGE (owner 2026-10-15, DECISION_LOG "SIX OWNER ANSWERS" (3)) — one tap from a photo in the
- * private album puts a COPY in the page gallery. What must never break:
+ * private album puts a COPY in the page gallery — after the guests' 7-day notice (owner 2026-10-03; built 2026-10-28).
+ * What must never break:
  *   · the page key is inside THIS shop's own media folder (SEC-1 — the public page signs whatever the column holds);
  *   · only this shop's album lane is a source (a posted id can never pull a stranger's file onto the page);
  *   · the plan's photo cap holds and a second tap never makes a second copy;
@@ -49,25 +50,35 @@ test('3 · the plan’s photo cap holds; a second tap adds nothing', () => {
 test('4 · the action: own client, own album row, refuses taken-down/unscreened, owners only, same pins as the gallery save', () => {
   const a = src('app/vendor-dashboard/collections/actions.ts');
   assert.match(a, /export async function putAlbumPhotoOnMyPage\(/);
-  assert.doesNotMatch(a, /createAdminClient/, 'the album is read past its RLS');
+  assert.doesNotMatch(a, /createAdminClient/, 'the album is read (or the notice filed) past its RLS');
   assert.match(a, /\.from\('vendor_papic_portfolio_photos'\)[\s\S]{0,200}\.eq\('vendor_profile_id', vendorId\)/, 'the album read is not pinned to this shop');
   assert.match(a, /if \(photo\.hidden_at \|\| photo\.nsfw_checked !== true\) return \{ ok: false/, 'a taken-down or unscreened photo can go on the page');
   assert.match(a, /if \(!canManageVendor\(role\)\) return \{ ok: false/, 'a helper can change the page');
   assert.match(a, /pagePhotoKeyFor\(vendorId, albumKey\)/);
   assert.match(a, /parseClientRef\(pageRef, vendorOwnedMediaPolicy\(vendorId\)\)/, 'the SEC-1 pin is missing');
-  // Past the free room the photo is PAID from the shop wallet (owner 2026-10-23), by the same commit as the gallery save.
-  assert.match(a, /addToPageGallery\(row\.portfolio_r2_keys \?\? \[\], pageRef, Infinity\)/, 'the page list is not built from the stored one');
+  // Past the free room the photo is PAID from the shop wallet (owner 2026-10-23) — priced in SQL by
+  // `file_supplier_page_notice`, with the WAITING photos counted (tests/db/a-suppliers-guest-photo-waits-seven-days).
+  assert.match(a, /\.rpc\('file_supplier_page_notice', \{ p_photo_id: photoId, p_page_ref: pageRef \}\)/, 'the tap is not priced');
+  assert.match(a, /answer\?\.status === 'insufficient'\) \{\s*return \{ ok: false, error: portfolioShortText\(/, 'an unpaid photo is not refused out loud');
   assert.match(a, /vendorQrGuardRejects\(\[photo\.r2_object_key\]\)/, 'the QR guard is skipped');
-  assert.match(a, /\.rpc\('shop_portfolio_commit', \{[\s\S]{0,120}p_refs: next\.refs/, 'the page is not written by the priced commit');
-  // The copy happens BEFORE the column names it — the page never points at a file that is not there.
-  assert.ok(a.indexOf('r2Copy(') < a.indexOf('p_refs: next.refs'), 'the column is written before the copy');
+});
+
+test('4b · ⏳ the tap files a 7-day guest notice — it never copies, and never writes the page gallery', () => {
+  const a = src('app/vendor-dashboard/collections/actions.ts');
+  assert.doesNotMatch(a, /\.from\('supplier_page_photo_notices'\)\s*\.insert\(/, 'the tap files a notice past the priced door');
+  assert.doesNotMatch(a, /r2Copy\(/, 'the tap copies the photo into the public folder before the guests were told');
+  assert.doesNotMatch(a, /portfolio_r2_keys:/, 'the tap writes the page gallery — the photo would be public before the 7 days');
+  // A second tap is answered from the notice that exists — never a second notice, never a restarted window.
+  assert.ok(a.indexOf('if (noticeRes.data) return answerForExisting(') > 0, 'a second tap files again');
+  assert.ok(a.indexOf('if (noticeRes.data) return answerForExisting(') < a.indexOf("rpc('file_supplier_page_notice'"), 'the existing notice is not asked before filing');
 });
 
 test('5 · every album photo tile carries the one tap', () => {
   const s = src('app/vendor-dashboard/on-the-day/live/[eventId]/_components/portfolio-album-section.tsx');
-  assert.match(s, /tiles\.map\(\(\{ photo, url \}\) => \([\s\S]{0,900}<PutOnMyPageButton photoId=\{photo\.photoId\} \/>/, 'a photo has no "Put on my page"');
+  assert.match(s, /tiles\.map\(\(\{ photo, url \}\) => \([\s\S]{0,900}<PutOnMyPageButton photoId=\{photo\.photoId\} notice=\{noticeByPhoto\.get\(photo\.photoId\) \?\? null\} \/>/, 'a photo has no "Put on my page"');
   const b = src('app/vendor-dashboard/collections/_components/put-on-my-page-button.tsx');
-  assert.match(b, /useActionState<[^>]*>\(putAlbumPhotoOnMyPage, null\)/);
+  assert.match(b, /action = putAlbumPhotoOnMyPage,/);
+  assert.match(b, /useActionState<[^>]*>\(action, null\)/);
   assert.match(b, /name="photo_id" value=\{photoId\}/);
 });
 
@@ -113,8 +124,9 @@ test('7 · W3 — the tap is offered only to owners/admins, and a QR-refused pho
   assert.match(papic, /const canPutOnPage = canManageVendor\(await resolveVendorRoleForProfile\(/);
   assert.match(papic, /canPutOnPage=\{canPutOnPage\}/);
   const s = src('app/vendor-dashboard/on-the-day/live/[eventId]/_components/portfolio-album-section.tsx');
-  assert.match(s, /\{canPutOnPage \? <PutOnMyPageButton photoId=\{photo\.photoId\} \/> : null\}/, 'a Helper is offered a press that is refused');
+  assert.match(s, /\{canPutOnPage \? <PutOnMyPageButton photoId=\{photo\.photoId\} notice=\{noticeByPhoto\.get\(photo\.photoId\) \?\? null\} \/> : null\}/, 'a Helper is offered a press that is refused');
   const a = src('app/vendor-dashboard/collections/actions.ts');
   assert.ok(a.indexOf('vendorQrGuardRejects([photo.r2_object_key])') > 0, 'the QR guard no longer reads the album photo');
-  assert.ok(a.indexOf('vendorQrGuardRejects(') < a.indexOf('r2Copy('), 'the copy runs before the QR guard — a refused photo leaves an orphan');
+  // The copy now happens only at publish (lib/supplier-page-notice.server.ts); the QR guard runs before anything is filed.
+  assert.ok(a.indexOf('vendorQrGuardRejects(') < a.indexOf("rpc('file_supplier_page_notice'"), 'the notice is filed before the QR guard');
 });

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "1da1fe5197",
-  "routeCount": 478,
+  "generatedFromRef": "efcefcc0aa",
+  "routeCount": 479,
   "destinations": 986,
   "actions": 642,
-  "blocks": 7215,
+  "blocks": 7229,
   "routes": {
     "/": {
       "files": [
@@ -1061,6 +1061,7 @@
         "[slug]/_components/story/your-own-consent.tsx",
         "[slug]/_components/supplier-desk-anchor.ts",
         "[slug]/_components/supplier-desk.tsx",
+        "[slug]/_components/supplier-page-notice-line.tsx",
         "[slug]/_components/supplier-ribbon.tsx",
         "[slug]/_components/tea-ceremony-card.tsx",
         "[slug]/_components/terms-tick.tsx",
@@ -1177,6 +1178,7 @@
         "withdraw"
       ],
       "blocks": [
+        "ActionButton",
         "AddNameInPlace",
         "AdoptSeatSession",
         "AmbientEffectLayer",
@@ -1486,6 +1488,7 @@
         "PhotoMomentsWidget",
         "PhotoMomentsYesAndNo",
         "PhotoNotesScene",
+        "PhotoWithRemove",
         "PhotosHeading",
         "PhotosOfYouGallery",
         "PhotosOfYouLead",
@@ -1512,6 +1515,7 @@
         "ReaderPerson",
         "Relive",
         "Remaining",
+        "RemoveResult",
         "ReplayNode",
         "ReplyCardRow",
         "ReplyForm",
@@ -1642,6 +1646,8 @@
         "SubmitButton",
         "SupplierDesk",
         "SupplierDeskModel",
+        "SupplierGroup",
+        "SupplierPageNoticeLine",
         "SupplierRibbon",
         "SupplierStoriesScene",
         "SupportingStrip",
@@ -11247,6 +11253,7 @@
       "actions": [],
       "blocks": [
         "IapUnlockSheet",
+        "InlineCheckoutDrawer",
         "PapicAddedPreview",
         "PapicCreditsAdded",
         "StudioBuyHero"
@@ -11514,6 +11521,22 @@
         "InviteResult",
         "InviteVendorForm",
         "TeamInviteDoor"
+      ]
+    },
+    "/dev/photo-privacy-lab": {
+      "files": [
+        "dev/photo-privacy-lab/lab-client.tsx",
+        "dev/photo-privacy-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "GuestLineLab",
+        "InfoTip",
+        "PutButtonLab",
+        "PutOnMyPageButton",
+        "PutOnPageResult",
+        "SupplierPageNoticeLine"
       ]
     },
     "/dev/pro-parts-lab": {
@@ -13944,6 +13967,7 @@
         "PickMenu",
         "PutOnPageResult",
         "ShopSegments",
+        "SupplierPageNoticeRow",
         "SupplierSubmit",
         "SupplierThumbRow",
         "SwitchTrack"
@@ -14627,6 +14651,7 @@
         "HTMLVideoElement",
         "HostPlaylist",
         "Icon",
+        "InfoTip",
         "Link",
         "LiveReviews",
         "LockedUpsell",

@@ -1,5 +1,6 @@
 'use server';
 
+import { keepOnlyNoticedAlbumRefs } from '@/lib/put-photo-on-my-page';
 import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
 import { randomUUID } from 'node:crypto';
 import { revalidatePath } from 'next/cache';
@@ -599,9 +600,11 @@ export async function updateVendorProfileField(
         | null;
       // SEC-1: same pinning as the full-profile save. Same fail-closed reasoning —
       // `vendor_profile_id` is the PK of this user's own row, so a missing id pins nothing.
-      const refs = parsePortfolioRefs(
-        formData.getAll('portfolio_r2_keys'),
-        tr?.vendor_profile_id ?? '',
+      // ⏳ An event-album photo reaches the page ONLY through the guests' 7-day notice (owner 2026-10-03) — a save
+      // keeps one already there, never adds one (`keepOnlyNoticedAlbumRefs`).
+      const refs = keepOnlyNoticedAlbumRefs(
+        parsePortfolioRefs(formData.getAll('portfolio_r2_keys'), tr?.vendor_profile_id ?? ''),
+        tr?.portfolio_r2_keys ?? [],
       );
       // QR-in-media guard (owner 2026-07-03): only scan refs NOT already stored
       // (an unchanged re-save costs nothing). Fails OPEN on scanner trouble.

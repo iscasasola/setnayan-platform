@@ -38,6 +38,31 @@ Keep the PR DRAFT + `do-not-auto-merge`; never merge/deploy. CI is the gate (no 
 Also queued (earlier notes): Requests inside Guests; remove Guests ⚙ › Invitations row; Replies open/close not showing in
 the iPhone app (rows render in code — suspect the sheet does not scroll in the app shell; walk with UA + Capacitor stub).
 
+## LATER OWNER RULES (prototype v14–v19, same file — fold into the slices above)
+- v14 (slice 2): ONE menu for page + mode — the segmented Guests · Seats · March; tapping the SELECTED segment (small ▾)
+  opens its modes; NO separate mode pill. Pinned row = LEFT the menu ("Guests · List ▾"), RIGHT the rounds (📤 Share ·
+  ⚙), NO centre name. No visible title (PageMasthead sr-only). Fits 320: segment icons hide < 420, rounds 36 < 360.
+  "With support to the other parts of guests": run every existing guests guard after each slice (Requests, Replies
+  window, Invitations/send, check-in, claims, import, guest card, tours, honest reads).
+- v15 (all views): guest names NEVER ellipsized — wrap to 2–3 lines (line-clamp 3, overflow-wrap:anywhere); march chip
+  min-height 38, radius 19. Guard: no name element carries text-overflow:ellipsis / nowrap. ⚠ `SeatPlanModePick`,
+  `ViewCountRow` labels and `seat-faces-list` titles use `truncate` today — names must not.
+- v16 (slice 2): entering Map / Seats 2D-3D never jumps — scroll smoothly to the pin point; full row rises + fades
+  (translateY(-12px) scale(.98)) while the pinned row rises from +12px, 0.3s cubic-bezier(.2,.8,.2,1); same on scroll
+  past the pin point; respect prefers-reduced-motion.
+- v17: full-screen views (Map, Seats 2D/3D) have NO help line under the canvas (the floating thumb row would cover it);
+  help = one-time tip inside the canvas or an ⓘ. Check: no text box sits under the thumb row.
+- v18: Map has NO own "Grouped by ▾" chip — Group by only in the thumb row's ⇅ (shared with List); Map keeps the
+  "‹ All households" back chip. Slice-6 walk: a SIDE-wall entrance must lie ALONG the wall, inside the floor — check the
+  2D engine's entrance snap for swapped length/thickness and half-length used instead of half-thickness.
+- v19 (slice 6, may follow 7): Seats 2D + 3D show a station for EVERY booked supplier whose service takes a spot at the
+  venue (band, DJ, photo booth, catering, bar, coordinator desk…). Qualification from the ONE taxonomy (Admin ›
+  Categories) — find an existing per-service field first; else one switch there (pnpm migration:new, pipeline only;
+  Ugat + admin maps). Auto-placed in free space, movable, not deletable while booked (toast why); 3D standing tag
+  facing the camera; read in the page's one batched read. DECISION_LOG row for the ruling.
+- v13 slice 8: 📤 Share round → "Share or print" sheet per view, on PR #7032's engine (`lib/share-pdf.ts`) only after it
+  merges; reuse Studio › Prints' table signs / place cards / entrance chart builders.
+
 ## How to prove a slice
 Guard per property (+ one sabotage), port/Ugat/design-rules baselines regenerated (`pnpm port:baseline`,
 `pnpm ugat:screens`, `pnpm --filter @setnayan/web design-rules:baseline --write`, `pnpm root-map --baseline`), all

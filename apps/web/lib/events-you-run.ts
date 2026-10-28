@@ -37,6 +37,7 @@ import { areaCells, coordinatorHasHostAccess } from './people-with-access';
 import type { EventDecisionSummary } from './event-decisions';
 import { formatCount } from './format-number';
 import { FULL_COHOST_SEAT_KINDS, seatIsFullCohost } from './guest-access';
+import { levelOf, type LevelledPermissions } from './coordinator-access-level';
 
 /** The coordinator's seat — the one role this door is for (owner 2026-10-07: "Same as User Host of the event"). */
 export const COORDINATOR_SEAT_ROLE = 'wedding_planner_external';
@@ -49,8 +50,11 @@ export const RUN_SEAT_ROLES: readonly string[] = [COORDINATOR_SEAT_ROLE, ...FULL
 
 /** The word for the seat on the Today row and the customer card's pill. */
 export type RunSeatWord = 'Coordinator' | 'Co-host';
-export const runSeatWord = (roleSubtype: string | null): RunSeatWord =>
-  roleSubtype === COORDINATOR_SEAT_ROLE ? 'Coordinator' : 'Co-host';
+export const runSeatWord = (roleSubtype: string | null, permissions?: ModeratorPermissions | null): RunSeatWord =>
+  // A coordinator the hosts gave FULL access sits on a co-host seat — still their coordinator (owner 2026-10-29).
+  roleSubtype === COORDINATOR_SEAT_ROLE || levelOf({ permissions_json: (permissions ?? null) as LevelledPermissions | null }) !== null
+    ? 'Coordinator'
+    : 'Co-host';
 
 export { EVENTS_YOU_RUN_HREF, EVENTS_YOU_RUN_TIP, EVENTS_YOU_RUN_LEDE } from './events-you-run-words';
 
@@ -135,6 +139,9 @@ export function seatRunsTheEvent(row: CoordinatorSeatRow, now: Date): boolean {
     now,
   });
   if (!perms) return false; // window closed (or no grant at all)
+  // 🔑 The hosts answered LIMITED (owner 2026-10-29, Home's Limited · Full access): she views every part — still her
+  // event to open, inside the same window.
+  if (levelOf({ permissions_json: row.permissions_json as LevelledPermissions | null }) === 'limited') return true;
   return coordinatorHasHostAccess(areaCells(perms));
 }
 
@@ -172,7 +179,7 @@ export function eventYouRunOf(row: CoordinatorSeatRow, todayIso: string): EventY
   const ev = one(row.events);
   if (!ev) return null;
   const name = ev.display_name?.trim() || `${TYPE_WORD(ev.event_type)} you run`;
-  const seatWord = runSeatWord(row.role_subtype);
+  const seatWord = runSeatWord(row.role_subtype, row.permissions_json);
   const day = runDayWord(ev.event_date, ev.event_date_precision);
   const typeWord = TYPE_WORD(ev.event_type);
   const dayPrecise = !ev.event_date_precision || ev.event_date_precision === 'day';
@@ -200,7 +207,7 @@ export function eventYouRunOf(row: CoordinatorSeatRow, todayIso: string): EventY
     });
     const lastWord = last ? runDayWord(last, 'day')?.replace(/^\w+, /, '') : null;
     // A co-host's access does not end after the event — only the coordinator's does, so only it names a day.
-    status = lastWord && seatWord === 'Coordinator' ? `Wrapping up · access until ${lastWord}` : 'Wrapping up';
+    status = lastWord && row.role_subtype === COORDINATOR_SEAT_ROLE ? `Wrapping up · access until ${lastWord}` : 'Wrapping up';
     rank = 2;
   }
   return {

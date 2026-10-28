@@ -18,6 +18,7 @@ import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { AccessRequestsDoorway } from './_components/access-requests-doorway';
+import { CoordinatorLevelCard } from './_components/coordinator-level-card';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowRight, Sparkles, CalendarPlus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -1304,6 +1305,9 @@ export default async function EventHomePage({
       {/* Self-hiding: renders nothing unless a coordinator is waiting on an
           answer (owner ruling 2026-07-27 — the host decides what to share). */}
       <AccessRequestsDoorway eventId={eventId} />
+      {/* 🔑 "<shop> is your coordinator — what can they do?" — Limited · Full access, once, for a connected
+          coordinator the hosts have not answered for (owner 2026-10-29). Self-hiding; owners only. */}
+      <CoordinatorLevelCard eventId={eventId} userId={user.id} />
       {/* 🗓 "Date change: n of N suppliers answered" — self-hiding: renders
           nothing unless the couple asked booked suppliers to move (owner
           2026-10-01, the clashing-date flow). Couple-only by RLS. */}

@@ -30,7 +30,7 @@ import { BackButton } from '@/app/_components/back-button';
 import { SupplierLabShell } from '@/app/dev/_components/supplier-lab-shell';
 import { ChatInfoRailTrigger } from '@/app/vendor-dashboard/messages/[threadId]/_components/chat-info-rail';
 import { THREAD_STAGE_LABEL, THREAD_STAGE_TONE } from '@/lib/vendor-thread-stage';
-import { LAB_MESSAGES, LAB_STAFF } from '@/app/dev/chat-lab/fixtures';
+import { LAB_EVENT, LAB_MESSAGES, LAB_STAFF } from '@/app/dev/chat-lab/fixtures';
 import { dealEntryFor } from '@/lib/deal-entry';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
 import { ChatPrivacyNotice } from '@/app/_components/chat-privacy-notice';
@@ -49,7 +49,6 @@ import { VENDOR_THREAD_PANELS } from '@/lib/vendor-thread-tools';
 import type { ThreadDayAnswer } from '@/lib/thread-day-answer';
 
 const LAB_THREAD = '00000000-0000-4000-8000-0000000000aa';
-const LAB_EVENT = '00000000-0000-4000-8000-000000000000';
 const LAB_EVENT_VENDOR = '00000000-0000-4000-8000-0000000000bb';
 const TODAY = '2026-10-14';
 const DAY = '2026-12-12';

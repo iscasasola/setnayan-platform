@@ -141,13 +141,12 @@ test('the frame, RENDERED: one takeover, and the page column holds nothing but t
   const { ChatBox } = await import('@/app/_components/chat/chat-box');
   const { ChatThreadHead } = await import('@/app/_components/chat/chat-thread-head');
   const h = React.createElement;
+  // `children` goes in the props object (both components REQUIRE it in their prop types — the 3rd-argument form does
+  // not satisfy `createElement`'s overloads under tsc).
   const html = renderToStaticMarkup(
-    h(
-      ChatThreadFrame,
-      { list: h('aside', { 'data-test-list': '' }) },
-      h(
-        ChatBox,
-        {
+    h(ChatThreadFrame, {
+      list: h('aside', { 'data-test-list': '' }),
+      children: h(ChatBox, {
           header: h(ChatThreadHead, {
             back: h('a', { 'data-test-back': '' }),
             name: 'Ana’s Wedding (Dec 12)',
@@ -156,10 +155,9 @@ test('the frame, RENDERED: one takeover, and the page column holds nothing but t
           }),
           notice: h('p', { 'data-test-notice': '' }),
           composer: h('form', { 'data-test-composer': '' }),
-        },
-        h('ul', { 'data-test-stream': '' }),
-      ),
-    ),
+          children: h('ul', { 'data-test-stream': '' }),
+        }),
+    }),
   );
   assert.equal((html.match(/data-chat-takeover=""/g) ?? []).length, 1, 'the frame does not draw exactly one takeover');
   // Frame → [list, section → takeover]. Nothing else at the frame's level (the hash reveal draws nothing).

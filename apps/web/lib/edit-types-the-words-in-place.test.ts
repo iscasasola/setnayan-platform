@@ -31,7 +31,7 @@ import { join } from 'node:path';
 import React from 'react';
 
 import { stripComments } from './strip-comments';
-import { MAKER_PARTS, MAKER_STUDIO_TOOL_LABEL, makerPartQuietRow, makerPartSource, type MakerPartKey } from './maker-parts';
+import { MAKER_GUESTS_DOOR_WORDS, MAKER_PARTS, MAKER_STUDIO_TOOL_LABEL, makerPartQuietRow, makerPartSource, type MakerPartKey } from './maker-parts';
 import { sceneTypeWrite } from './scene-type-words';
 import { typedDisplayName } from './typed-names';
 import { withTypedWords } from './type-in-place';
@@ -167,7 +167,6 @@ test('(3) which parts jump: "Open in Studio › <page>" for what cannot be edite
     ['march', 'Wedding March'],
     ['logo', 'Logo'],
     ['gifts', 'E-Gifts'],
-    ['rsvp', 'RSVP'],
     ['dress', 'Mood Board & Dress Code'],
     ['seats', 'Seat plan'],
   ];
@@ -176,6 +175,8 @@ test('(3) which parts jump: "Open in Studio › <page>" for what cannot be edite
     assert.equal(makerPartSource(k).kind, 'studio');
   }
   for (const k of ['date', 'place', 'venue', 'details'] as const) assert.equal(makerPartQuietRow(k)?.words, 'Change it in Suppliers', `${k}: set by the venue booking`);
+  /* 🗂 R1 (owner 2026-10-28): the RSVP form's settings LEFT Studio — its door is Guests ⚙ (another page, like Suppliers). */
+  for (const k of ['rsvp', 'rsvpcard'] as const) assert.equal(makerPartQuietRow(k)?.words, MAKER_GUESTS_DOOR_WORDS, `${k}: its door is not Guests ⚙`);
   /* EVERY part: a door says one of the three, in the prototype's words — never "Edit the …". */
   let doors = 0;
   for (const k of KEYS) {
@@ -183,7 +184,7 @@ test('(3) which parts jump: "Open in Studio › <page>" for what cannot be edite
     if (!q) continue;
     doors += 1;
     const src = makerPartSource(k);
-    const want = src.kind === 'studio' ? `Open in Studio › ${MAKER_STUDIO_TOOL_LABEL[src.tool]}` : src.kind === 'supplier' ? 'Change it in Suppliers' : 'Open in Studio › Info';
+    const want = src.kind === 'studio' ? `Open in Studio › ${MAKER_STUDIO_TOOL_LABEL[src.tool]}` : src.kind === 'supplier' ? 'Change it in Suppliers' : src.kind === 'guests' ? MAKER_GUESTS_DOOR_WORDS : 'Open in Studio › Info';
     assert.equal(q.words, want, `${k}: “${q.words}”`);
     assert.ok(q.words.length <= 40, `${k}: the door does not fit one row`);
   }

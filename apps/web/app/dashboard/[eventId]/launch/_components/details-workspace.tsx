@@ -999,7 +999,7 @@ export function DetailsWorkspace({
         <GuideLinkScreen
           plan={plan}
           link={at.link}
-          href={guide?.actions.guestsHref ?? null}
+          actions={guide?.actions ?? null}
           foot={
             <GuideFoot
               onBack={backScreen(plan, at) ? () => move(backScreen(plan, at), 'back') : null}

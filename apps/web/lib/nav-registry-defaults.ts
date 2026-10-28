@@ -1556,6 +1556,20 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 3,
   },
   {
+    // 🗂 The rail's spelling of the bar's Events tab (owner 2026-10-28) — joins only while the supplier coordinates
+    // ≥ 1 event, live. `VENDOR_EVENTS_DESTINATION`.
+    key: "vendor.sidebar.events",
+    scope: "vendor",
+    area: "vendor-sidebar",
+    route: "/vendor-dashboard/events",
+    label: "Events",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "ClipboardList",
+    customRef: null,
+    sortOrder: 4,
+  },
+  {
     // My Performance — the flat 6-menu destination. Keys match the sidebar item
     // keys 1:1 so /admin/menus can rename/hide them (previously hardcoded-only,
     // no slot). Default seeded from the group-tree sub-item label ("Overview")
@@ -1672,6 +1686,20 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     lucideName: "CalendarCheck",
     customRef: null,
     sortOrder: 3,
+  },
+  {
+    // 🗂 The bar's FIFTH tab — only while the supplier runs ≥ 1 event, live, as the hosts' coordinator (owner
+    // "approved", 2026-10-28, DECISION_LOG "COORDINATORS GET A DOOR INTO THE EVENTS THEY RUN"). `VENDOR_EVENTS_TAB`.
+    key: "vendor.bottom-nav.events",
+    scope: "vendor",
+    area: "vendor-bottom-nav",
+    route: "/vendor-dashboard/events",
+    label: "Events",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "ClipboardList",
+    customRef: null,
+    sortOrder: 4,
   },
   {
     key: "vendor.topbar.notifications",

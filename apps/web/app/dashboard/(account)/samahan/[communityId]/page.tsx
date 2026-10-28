@@ -41,6 +41,7 @@ import {
   type EventMemberType,
 } from './_components/group-home';
 import { formatCount } from '@/lib/format-number';
+import { PEOPLE_GROUPS_HREF } from '@/lib/people-views';
 
 export const metadata = {
   title: 'Group',
@@ -226,7 +227,7 @@ export default async function SamahanSpacePage({
     <div className="mx-auto w-full max-w-2xl px-4 pb-10 pt-4 sm:px-6 lg:px-8">
       {/* Back — from the group page to every group; from a one-tap view to its group. */}
       {home ? (
-        <Link href="/dashboard/samahan" className={BACK}>
+        <Link href={PEOPLE_GROUPS_HREF} className={BACK}>
           <ArrowLeft aria-hidden className="h-4 w-4 shrink-0" strokeWidth={2} />
           <span className="truncate">Back to Groups</span>
         </Link>

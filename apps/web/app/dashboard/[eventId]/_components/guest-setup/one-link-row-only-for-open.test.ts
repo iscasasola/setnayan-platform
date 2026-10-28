@@ -2,8 +2,9 @@
  * one-link-row-only-for-open.test.ts — "Your one link" (link · Copy · Share +
  * the one QR) renders ONLY for Open · Anyone with the link (owner 2026-10-07:
  * *"this will only show if the settings says one QR link only"*, G27). The two
- * request choices do not show it; the personal choices show Invitations + the
- * Digital Pass instead; the RSVP asks and Reply by show only for "They reply".
+ * request choices do not show it; the personal choices show Invitations instead
+ * (no pass picture since 2026-10-28 — it lives in Prints); the RSVP asks, How
+ * guests answer, Reply by and Replies open · close show only for "They reply".
  *
  * 🛡 Sabotage: render the one-link row for every choice → red.
  */
@@ -16,9 +17,10 @@ const rows = (html: string) => [...html.matchAll(/data-setup-row="([^"]+)"/g)].m
 test('each choice draws exactly its rows', async () => {
   const expected: Record<string, string[]> = {
     // ⚙ Guests ⚙ (2026-10-27): Requests to join is a Replies row in every state; Finalize closes the sheet.
-    list: ['get-in', 'invitations', 'asks', 'reply-by', 'requests', 'finalize'],
+    // 🗂 R1 (owner 2026-10-28): How guests answer and Replies open · close joined Replies — "They reply" choices only.
+    list: ['get-in', 'invitations', 'asks', 'answer', 'reply-by', 'replies-window', 'requests', 'finalize'],
     personal: ['get-in', 'invitations', 'requests', 'finalize'],
-    requests: ['get-in', 'invitations', 'asks', 'reply-by', 'requests', 'finalize'],
+    requests: ['get-in', 'invitations', 'asks', 'answer', 'reply-by', 'replies-window', 'requests', 'finalize'],
     one_qr_approve: ['get-in', 'invitations', 'requests', 'finalize'],
     one_qr: ['get-in', 'one-link', 'requests', 'finalize'],
   };
@@ -28,7 +30,7 @@ test('each choice draws exactly its rows', async () => {
     console.log(`${getIn}: ${got.join(' · ')}`);
     assert.deepEqual(got, want, `${getIn} draws the wrong rows`);
     assert.equal(html.includes('data-setup-one-qr'), getIn === 'one_qr', `${getIn}: the one QR`);
-    assert.equal(html.includes('data-setup-pass'), getIn !== 'one_qr', `${getIn}: the Digital Pass`);
+    assert.equal(html.includes('data-setup-pass'), false, `${getIn}: a pass picture is drawn in Guests ⚙ (it lives in Prints since 2026-10-28)`);
   }
 });
 

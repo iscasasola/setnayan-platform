@@ -40,7 +40,7 @@
  * do not serialize from a server component (same as admin-bottom-nav.tsx).
  */
 
-import { CalendarCheck, ShoppingBag, Store, Users } from 'lucide-react';
+import { CalendarCheck, ClipboardList, ShoppingBag, Store, Users } from 'lucide-react';
 import { BottomNav } from '@/app/_components/nav/bottom-nav';
 import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
 import type { BottomNavItem } from '@/app/_components/nav/types';
@@ -49,6 +49,7 @@ import { canManageVendor, vendorScopedBarKeys } from '@/lib/vendor-role';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
 import { vendorCustomersBadge } from '@/lib/nav-badges';
 import { VENDOR_SHOP_EXTRA_MATCH } from './vendor-nav-destinations';
+import { EVENTS_YOU_RUN_HREF } from '@/lib/events-you-run-words';
 
 export const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
   {
@@ -144,6 +145,22 @@ export const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
 ];
 
 /**
+ * 🗂 THE FIFTH TAB — **Events**, the events this supplier RUNS as the hosts' coordinator (owner "approved",
+ * 2026-10-28, DECISION_LOG "COORDINATORS GET A DOOR INTO THE EVENTS THEY RUN"). It is NOT in
+ * `VENDOR_BOTTOM_NAV_ITEMS` — those four are every supplier's bar — and joins ONLY while `runsEvents` is true: at
+ * least one LIVE coordinator seat (`lib/events-you-run.ts` · `seatRunsTheEvent`). The moment the hosts turn the switch
+ * off, remove them, or the window after the event closes, the next render has no tab — never a dead one.
+ * It is the person's own seat, not the shop's, so a helper who coordinates gets it too. A door, not access.
+ */
+export const VENDOR_EVENTS_TAB: BottomNavItem = {
+  key: 'events',
+  label: 'Events',
+  href: EVENTS_YOU_RUN_HREF,
+  icon: ClipboardList,
+  activeMatch: [EVENTS_YOU_RUN_HREF],
+};
+
+/**
  * The tabs THIS person gets, named as THIS deployment names them, with the live
  * count — pure, so the lab and the guards ask the same function the bar does.
  * Order: role filter → registry labels → badge (a renamed tab keeps its count).
@@ -154,6 +171,7 @@ export function vendorBarItems({
   bookingsBadge,
   threadsBadge,
   eventToday = false,
+  runsEvents = false,
 }: {
   role: VendorTeamRole | null;
   navSlots?: Record<string, NavSlotLite>;
@@ -161,14 +179,18 @@ export function vendorBarItems({
   threadsBadge?: number | null;
   /** One of this shop's days is today — a helper gets the Hub then (owner 2026-10-21, item 6). */
   eventToday?: boolean;
+  /** This person coordinates at least one event, live — the Events tab joins (owner 2026-10-28). */
+  runsEvents?: boolean;
 }): BottomNavItem[] {
   // Role-aware: owner/admin get the four; agent/viewer get Today · Customers,
   // plus the Hub on an event day. FAILS CLOSED — a role that could not be read
   // is not an owner.
   const scoped = vendorScopedBarKeys({ eventToday });
-  const base = canManageVendor(role)
+  const scopedItems = canManageVendor(role)
     ? VENDOR_BOTTOM_NAV_ITEMS
     : VENDOR_BOTTOM_NAV_ITEMS.filter((i) => scoped.has(i.key));
+  // The Events tab rides on the person's own coordinator seat, never the shop's role — last, as drawn.
+  const base = runsEvents === true ? [...scopedItems, VENDOR_EVENTS_TAB] : scopedItems;
   // Nav registry overlay: label + icon per tab from its vendor.bottom-nav.<key>
   // slot (Today keeps key 'profile' for localStorage continuity but maps to the
   // 'home' slot). Fallback = the word in the code; a hidden slot drops the tab;
@@ -196,6 +218,7 @@ export function VendorBottomNav({
   bookingsBadge,
   threadsBadge,
   eventToday = false,
+  runsEvents = false,
 }: {
   role: VendorTeamRole | null;
   navSlots?: Record<string, NavSlotLite>;
@@ -209,6 +232,8 @@ export function VendorBottomNav({
   threadsBadge?: number | null;
   /** One of this shop's days is today (the layout reads it for a helper only). */
   eventToday?: boolean;
+  /** At least one LIVE coordinator seat (`readEventsYouRun`) — the Events tab shows only then. */
+  runsEvents?: boolean;
 }) {
-  return <BottomNav items={vendorBarItems({ role, navSlots, bookingsBadge, threadsBadge, eventToday })} />;
+  return <BottomNav items={vendorBarItems({ role, navSlots, bookingsBadge, threadsBadge, eventToday, runsEvents })} />;
 }

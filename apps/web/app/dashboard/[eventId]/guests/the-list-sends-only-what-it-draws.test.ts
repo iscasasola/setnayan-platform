@@ -89,7 +89,13 @@ test('the screen and every helper it calls read only the fields the page sends',
   const facts: RosterFacts = { hasSides: true, groupsOf: () => ['Fam'], tableOf: () => 'Table 1', songsOf: () => ['song'] };
   for (const gview of ['list', 'map'] as const) {
     for (const q of ['', 'vip', 'attending', 'G2', 'to invite', 'Fam', 'Table 1', '0917']) {
-      await renderGuestsScreen({ guests: wrapped, gview, initialQuery: q });
+      // 📤 With every row's Share drawn — what it sends is read from the row too (name, first name, sent stamp).
+      await renderGuestsScreen({
+        guests: wrapped,
+        gview,
+        initialQuery: q,
+        invite: { base: 'https://x.test/e', tokens: Object.fromEntries(wrapped.map((r) => [r.guest_id, 't'])), facts: {}, template: null },
+      });
     }
   }
   for (const v of ROSTER_VIEWS) rosterSections(wrapped, v.key, facts);
@@ -99,7 +105,7 @@ test('the screen and every helper it calls read only the fields the page sends',
   }
   rosterStats(wrapped);
   for (const r of wrapped) {
-    rowVerbsFor(r, { linked: true, chatHref: 'x' });
+    rowVerbsFor(r, { shareable: true });
     isToInvite(r);
   }
   mapRootLabel(wrapped, 'wedding');

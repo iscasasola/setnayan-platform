@@ -20,7 +20,10 @@
  *       to its address; Seats / March draw the maker the page hands in, with no list and no thumb row under it; Map is
  *       still the guest tree.
  *
- * Sabotage (2026-10-28, each seen red, then restored): see the PR body / changelog fragment.
+ * Sabotage (2026-10-28, each seen red, then restored): 'march' put back in `STUDIO_TILE_KEYS` → 1 red · the launch
+ * page's `if (movedView) redirect(movedView);` removed → 2 red · `/seating`'s forward removed → 3 red · the guided
+ * march's `view: 'march'` removed → 4 red · the `seats` part's source back to a Studio tile → 5 red · Guests'
+ * `{makerView ? (` body switched off → 6 red.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';

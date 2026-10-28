@@ -860,7 +860,7 @@ function MarchMakerBody({
                 <div
                   data-march-flip={walkKey}
                   data-march-walk={step}
-                  className={`grid grid-cols-[2rem_1fr_1fr] items-stretch gap-1.5 rounded-xl bg-white p-1.5 ring-1 ring-ink/10 transition-opacity ${lifted === walkKey ? 'opacity-30' : ''}`}
+                  className={`grid grid-cols-[2rem_1fr_1fr] items-stretch gap-1.5 rounded-xl bg-white p-1.5 ring-1 dark:bg-raised ring-ink/10 transition-opacity ${lifted === walkKey ? 'opacity-30' : ''}`}
                 >
                   <span
                     data-march-drag={`walk|${sec.key}|${lead}`}
@@ -893,7 +893,7 @@ function MarchMakerBody({
                           aria-label={`${p.name}${p.tag ? `, ${p.tag}` : ''} — step ${step}, ${c === 0 ? 'left' : 'right'}. Enter opens their guest card; Space moves them.`}
                           data-march-card-open={card?.id === p.id && p.id ? '' : undefined}
                           className={`${NAME_CHIP} ${
-                            p.tag ? 'border-terracotta-700/60 bg-white' : 'border-terracotta-700/20 bg-terracotta-700/[0.06]'
+                            p.tag ? 'border-terracotta-700/60 bg-white dark:bg-raised' : 'border-terracotta-700/20 bg-terracotta-700/[0.06]'
                           } ${lifted === p.id ? 'border-dashed opacity-30' : ''}${carried?.key === p.id ? ' ring-2 ring-ink ring-offset-1' : ''}${card?.id === p.id && p.id ? ' ring-2 ring-terracotta-700 ring-offset-1' : ''}${ring(zone)}`}
                         >
                           <span className="font-serif text-[15.5px] leading-tight text-ink [overflow-wrap:anywhere]">{p.name}</span>

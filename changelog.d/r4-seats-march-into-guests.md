@@ -31,6 +31,8 @@ yes, inside Seats"* · *"all mapping will be kept"*. R4 of `EVENT_MENU_REORG_BUI
 - **Guards:** `lib/r4-seats-march-forwards.test.ts` (6 tests, each sabotaged red once). Superseded guards re-aimed to the
   new truth (Studio counts, the seat plan's Details wiring, the menu lighting, the guided plan, the part doors).
   Regenerated: port, Ugat screens, root-map and design-rules baselines.
+- **Dark mode:** the march's walk rows and tray chips wore `bg-white` (the Maker draws light only); in Guests they take
+  the house's dark surface (`dark:bg-raised`, the 37-site convention) — walked in the app's dark class.
 - **Lab:** `/dev/guests-lab?part=screen&gview=seats|march` draws both views on fixtures (a fixture id no real event can
   have; nothing is written).
 

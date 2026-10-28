@@ -26,7 +26,7 @@ import type { MarchOut } from '@/lib/march-drag';
 
 export const OUT_CHIP =
   // no-card-ok: a NAME you drag (a pressable chip), not a container.
-  'inline-flex min-h-11 max-w-full cursor-grab select-none items-center rounded-full border border-ink/15 bg-white px-3 text-[13.5px] leading-tight text-ink [-webkit-touch-callout:none] [overflow-wrap:anywhere]';
+  'inline-flex min-h-11 max-w-full cursor-grab select-none items-center rounded-full border border-ink/15 bg-white px-3 text-[13.5px] dark:bg-raised leading-tight text-ink [-webkit-touch-callout:none] [overflow-wrap:anywhere]';
 
 /**
  * The fit itself, on the box as the browser laid it out: every chip shown; if

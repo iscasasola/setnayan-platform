@@ -255,7 +255,10 @@ export function measurePass(doc: PrintDoc, look: PrintLook, name: string | null)
     if (t.meta.size < floor - 0.01) out.push({ rule: 'floor', detail: `"${t.meta.s}" is set at ${t.meta.size.toFixed(2)} pt (floor ${floor} pt)` });
   }
 
-  // (d) never wider than its room, and the name is whole or ends in "…"
+  // (d) never wider than its room, and the name is WHOLE. ✂🚫 Owner 2026-10-29, on the printouts: *"some names get the
+  // ..."* · *"we do not want that"* — a name that ends in "…" is a failure now, not an excuse: it wraps, then steps down
+  // to the floor, and its slot grows (`lib/print-name-fit.ts`). Whitespace is ignored in the comparison, because a word
+  // too long for the room at the floor is broken between letters (every letter still prints).
   for (const t of texts) {
     if (t.meta.maxWidth && t.meta.width > t.meta.maxWidth + 0.05) out.push({ rule: 'clipped', detail: `"${t.meta.s}" is ${t.meta.width.toFixed(1)} pt wide in ${t.meta.maxWidth.toFixed(1)} pt` });
   }
@@ -263,7 +266,9 @@ export function measurePass(doc: PrintDoc, look: PrintLook, name: string | null)
     const drawn = texts.filter(isNameLine).map((t) => t.meta.s);
     const joined = drawn.join(' ').replace(/\s+/g, ' ').trim();
     const want = plainName.replace(/\s+/g, ' ').trim();
-    if (drawn.length && joined !== want && !joined.endsWith('…')) out.push({ rule: 'clipped', detail: `the name prints as "${joined}" — not "${want}", and no ellipsis says so` });
+    const bare = (x: string) => x.replace(/\s+/g, '').toLowerCase();
+    if (drawn.some((d) => d.includes('…'))) out.push({ rule: 'clipped', detail: `the name is cut: it prints as "${joined}" — a name is never shortened with "…"` });
+    else if (drawn.length && bare(joined) !== bare(want)) out.push({ rule: 'clipped', detail: `the name prints as "${joined}" — not "${want}"` });
   }
 
   // (e) contrast

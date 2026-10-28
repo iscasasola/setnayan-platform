@@ -6,7 +6,7 @@ import {
 } from '@/lib/supabase/error-detect';
 import { roleNameOne, type RoleNames } from '@/lib/role-names';
 import { styledName, type NameStyle } from '@/lib/name-style';
-import { realNameParts } from '@/lib/seat-placeholder-words';
+import { isPlaceholderNameWord, realNameParts } from '@/lib/seat-placeholder-words';
 
 export type GuestRole =
   | 'guest'
@@ -1129,6 +1129,24 @@ export function guestFullName(guest: {
   /* Only a row with NO name parts at all falls back to "Shown as" — there is
      no full name for it to replace, and dropping the person is worse. */
   return guest.display_name?.trim() || null;
+}
+
+/**
+ * 🖨 THE NAME A PRINTOUT GIVES A GUEST — the full name (`guestFullName`), and their "Shown as" nickname beside it in
+ * quotes when the couple set one that the full name does not already say: `Ramon Francisco Dela Cruz-Villanueva
+ * “Monching”` (owner 2026-10-29, on the printouts: full names, the nickname beside them). Falls back to the compact
+ * name (`guestDisplayName`) for a row with no parts. Printed WHOLE — never cut (`lib/print-name-fit.ts`).
+ */
+export function guestPrintName(
+  guest: Parameters<typeof guestFullName>[0] & Pick<GuestRow, 'display_name' | 'first_name' | 'last_name'>,
+): string {
+  // An unnamed extra seat ("TBA" / "+1") has no name to print in full — it reads as the list reads it ("+1 · TBA").
+  if (isPlaceholderNameWord('first', guest.first_name) && isPlaceholderNameWord('last', guest.last_name)) return guestDisplayName(guest);
+  const full = guestFullName(guest);
+  if (!full) return guestDisplayName(guest);
+  const nick = guest.display_name?.trim();
+  if (!nick || full.toLowerCase().includes(nick.toLowerCase())) return full;
+  return `${full} “${nick}”`;
 }
 
 /**

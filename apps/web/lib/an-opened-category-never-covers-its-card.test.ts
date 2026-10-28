@@ -172,7 +172,7 @@ test('4 · a page shorter than the screen still gets all the room it needs', () 
   assert.match(make, /pinRoomShortfall\(\{[\s\S]*maxScroll: document\.documentElement\.scrollHeight - window\.innerHeight/, 'the room trusts scrollHeight on a min-height page');
   const loop = /for \(let pass = 0; pass < (\d+); pass \+= 1\) \{([\s\S]*?)\n  \}/.exec(make);
   assert.ok(loop && Number(loop[1]) >= 1, 'the room is never re-read once it is in — a short page stops the row low');
-  assert.match(loop[2], /px \+= missing;\s*holder\.style\.setProperty\(PIN_ROOM_VAR, `\$\{px\}px`\);/, 'the shortfall is read and never added');
+  assert.match(loop?.[2] ?? '', /px \+= missing;\s*holder\.style\.setProperty\(PIN_ROOM_VAR, `\$\{px\}px`\);/, 'the shortfall is read and never added');
 });
 
 test('5 · the lab reads the top bar the way the app does', () => {

@@ -125,7 +125,8 @@ test('newly earned: the highest new milestone, once; dismissed keys keep it quie
   const f = { ...base, completedEvents: 50 };
   const first = newlyEarned(f, []);
   assert.equal(first?.key, 'milestone:50');
-  assert.equal(first?.sentence, 'You earned 50 events · Silver ✓ — your tarp and card can show it');
+  assert.equal(first?.sentence, 'You earned 50 events · Silver');
+  assert.match(first?.detail ?? '', /tarp/, 'the tarp-and-card reason moved into the ⓘ, it did not vanish');
   assert.equal(newlyEarned(f, first!.keys), null, 'dismissed — nothing new');
   const later = newlyEarned({ ...base, completedEvents: 100 }, first!.keys);
   assert.equal(later?.key, 'milestone:100');

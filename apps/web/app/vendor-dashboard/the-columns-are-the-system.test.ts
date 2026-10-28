@@ -75,8 +75,10 @@ test('Hub reads', () => {
 
 test('Customers — People and Dates are the wide stage, Money reads, and the folds below take the same measure', () => {
   const src = read('customers/page.tsx');
-  const col = /className=\{`mx-auto w-full max-w-3xl [^`]*\$\{seg === 'money' \? 'tab:max-w-3xl' : 'tab:max-w-5xl'\}`\}\s*data-customers-seg-open=\{seg\}/.exec(src);
-  assert.ok(col, 'the Customers column no longer picks 48 rem for Money and 64 rem for People · Dates');
+  // 2026-10-29 (owner, "remember to always maximize the screen use"): People takes the whole width from a tablet up
+  // (list + side panel at lg); Dates keeps the wide stage, Money the reading column.
+  const col = /className=\{`mx-auto w-full max-w-3xl [^`]*\$\{seg === 'money' \? 'tab:max-w-3xl' : seg === 'people' \? 'tab:max-w-none' : 'tab:max-w-5xl'\}`\}\s*data-customers-seg-open=\{seg\}/.exec(src);
+  assert.ok(col, 'the Customers column no longer picks 48 rem for Money, 64 rem for Dates and the full width for People');
   assert.doesNotMatch(col![0], /\blg:max-w-/, 'a second (lg) cap fights the system measure');
   assert.match(src, /<FeatureAccordion sections=\{sections\} openKey=\{open\} measure=\{seg === 'money' \? 'reading' : 'wide'\}>/);
   const acc = read('_components/feature-accordion.tsx');

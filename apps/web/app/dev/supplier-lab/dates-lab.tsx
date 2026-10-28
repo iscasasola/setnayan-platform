@@ -11,8 +11,9 @@ import { hallGuests, hallsAnswer, hallsOnDay, joinedCardOnDay } from '@/lib/vend
 import { CheckADate } from '@/app/vendor-dashboard/customers/_components/check-a-date';
 import { formatPhp } from '@/lib/orders';
 import { CustomersCalendar } from '@/app/vendor-dashboard/customers/_components/customers-calendar';
-import { CustomersSegments } from '@/app/vendor-dashboard/customers/_components/customers-segments';
-import { DatesFolds, type DatesWaitlist } from '@/app/vendor-dashboard/customers/_components/dates-folds';
+import { CustomersPin } from '@/app/vendor-dashboard/customers/_components/customers-pin';
+import { CustomersSettings } from '@/app/vendor-dashboard/customers/_components/customers-settings';
+import { DatesFolds, DaysSettings, type DatesWaitlist } from '@/app/vendor-dashboard/customers/_components/dates-folds';
 import { BlockDateAdd } from '@/app/vendor-dashboard/customers/_components/dates-sheets';
 import { DaySheet, type DaySheetData } from '@/app/vendor-dashboard/customers/_components/day-sheet';
 import { OutsideClientAdd } from '@/app/vendor-dashboard/customers/_components/outside-client-add';
@@ -59,7 +60,9 @@ const BOOKINGS = [
   { poolId: 'p-main', bookedDate: '2026-10-31', eventName: 'Santos wedding' },
 ];
 const BLOCKS: DatesBlock[] = [
-  { poolId: null, source: 'manual', startDate: '2026-10-14', endDate: '2026-10-15', label: 'Family trip', clientName: null },
+  { blockId: 'blk-trip', poolId: null, source: 'manual', startDate: '2026-10-14', endDate: '2026-10-15', label: 'Family trip', clientName: null },
+  // One day closed on its own — the day switch reopens exactly this one (2026-10-28).
+  { blockId: 'blk-21', poolId: null, source: 'manual', startDate: '2026-10-21', endDate: '2026-10-21', label: 'Not available', clientName: null },
   // The parish's case (owner 2026-10-14): every Sunday morning, Masses — one row, repeating, part of the day.
   { poolId: null, source: 'manual', startDate: '2026-09-06', endDate: '2026-09-06', label: 'Masses', repeat: 'weekly', repeatUntil: null, dayPart: 'morning' },
   { poolId: 'p-second', source: 'external_client', startDate: '2026-10-17', endDate: '2026-10-17', label: null, clientName: 'Lopez anniversary', clientTime: '15:00' },
@@ -83,6 +86,7 @@ const WAIT_ON: DatesWaitlist = {
 };
 const WAIT_FREE: DatesWaitlist = { ...WAIT_ON, tierCap: 0, on: false, cap: 1, dates: [] };
 
+const ACTIONS_DAY = { addManualBlock, removeBlock };
 const ACTIONS = { removeBlock, updateWaitlistSettings, pickWaitlistCouple, notifyWaitlistSlot, updatePoolCapacity, createCalendar, editCalendar, reassignCategoryPool };
 
 /** A day as the page builds it — the REAL `dayGroupsOf` / `dayAnswerOfGroups` over the fixtures. */
@@ -219,7 +223,7 @@ const LAB_TOASTS = {
   failed: { text: 'That did not go through. Nothing changed — please try again.', tone: 'bad' as const, retry: true },
 };
 
-export async function DatesLab({ state, toast, open }: { state: DatesState; toast?: string; open?: string }) {
+export async function DatesLab({ state, toast, open, gear = false }: { state: DatesState; toast?: string; open?: string; gear?: boolean }) {
   const base = `/dev/supplier-lab?s=${state}`;
   const t = toast && toast in LAB_TOASTS ? LAB_TOASTS[toast as keyof typeof LAB_TOASTS] : null;
 
@@ -287,7 +291,7 @@ export async function DatesLab({ state, toast, open }: { state: DatesState; toas
 
   if (state === 'dates-hallday') {
     return (
-      <div className="min-h-screen bg-cream px-4 pb-32 pt-4" data-supplier-lab={state}>
+      <div className="min-h-screen bg-cream px-4 pb-32 pt-4 sm:px-6 lg:px-8" data-supplier-lab={state}>
         <DaySheet data={labHallDay('2026-12-12')} actions={{ addManualBlock, removeBlock, setCalendarDayState, notifyWaitlistSlot }} />
         <SupplierThumbRow
           name="dates"
@@ -319,7 +323,7 @@ export async function DatesLab({ state, toast, open }: { state: DatesState; toas
 
   if (state === 'dates-day' || state === 'dates-dayblocked' || state === 'dates-sunday') {
     return (
-      <div className="min-h-screen bg-cream px-4 pb-32 pt-4" data-supplier-lab={state}>
+      <div className="min-h-screen bg-cream px-4 pb-32 pt-4 sm:px-6 lg:px-8" data-supplier-lab={state}>
         {t ? <SupplierToast {...t} /> : null}
         <DaySheet
           data={state === 'dates-day' ? DAY() : state === 'dates-sunday' ? DAY_SUNDAY() : DAY_BLOCKED()}
@@ -345,9 +349,50 @@ export async function DatesLab({ state, toast, open }: { state: DatesState; toas
   const pools = venue ? HALLS : state === 'dates-empty' ? [] : state === 'dates-free' ? [MAIN] : [MAIN, SECOND];
   const shown = new Set(pools.map((p) => p.poolId));
   return (
-    <div className="min-h-screen bg-cream px-4 pb-32 pt-4" data-supplier-lab={state}>
+    <div className="min-h-screen bg-cream px-4 pb-32 pt-4 sm:px-6 lg:px-8" data-supplier-lab={state}>
       <div className="space-y-4">
-        <CustomersSegments seg="dates" hrefOf={(s) => (s === 'dates' ? base : `/dev/supplier-lab?s=${s === 'people' ? 'people' : 'dates'}`)} />
+        <CustomersPin
+          seg="dates"
+          hrefs={{ people: '/dev/supplier-lab?s=people', dates: base, money: '/dev/supplier-lab?s=money' }}
+          gear={
+            <CustomersSettings
+              body={
+                gear ? (
+                  <div data-customers-settings-body="">
+                    <p className="home-k2 pt-4">Teams and days</p>
+                    <DaysSettings
+                      month="2026-10"
+                      seg="dates"
+                      calendars={pools.map((p) => ({
+                        poolId: p.poolId,
+                        label: p.label,
+                        name: p.label,
+                        capacity: p.capacity,
+                        isHall: p.isHall === true,
+                        seated: p.seatedCapacity ?? null,
+                        standing: p.standingCapacity ?? null,
+                        line: venue ? '' : p.poolId === 'p-main' ? 'Photo & video' : 'Styling',
+                        serviceIds: [],
+                        categories: [],
+                      }))}
+                      ceiling={state === 'dates-free' ? 1 : 3}
+                      namedCalendars
+                      services={[
+                        { serviceId: 'svc-1', label: 'Photo & video', poolId: 'p-main' },
+                        { serviceId: 'svc-2', label: 'Styling', poolId: 'p-second' },
+                      ]}
+                      slotsHref="/dev/supplier-lab?s=dates"
+                      icsHref="/dev/supplier-lab?s=dates"
+                      approveFirst
+                      venue={venue}
+                      actions={{ updatePoolCapacity: ACTIONS.updatePoolCapacity, createCalendar: ACTIONS.createCalendar, editCalendar: ACTIONS.editCalendar, reassignCategoryPool: ACTIONS.reassignCategoryPool }}
+                    />
+                  </div>
+                ) : null
+              }
+            />
+          }
+        />
         {t ? <SupplierToast {...t} /> : null}
         <div id="calendar">
           {pools.length === 0 ? (
@@ -369,6 +414,7 @@ export async function DatesLab({ state, toast, open }: { state: DatesState; toas
             agents={state === 'dates' ? [{ value: 'tm-marco', label: 'Marco' }] : []}
             agentCategories={{ 'tm-marco': ['styling'] }}
             fetchMonth={null}
+            dayActions={{ addManualBlock: ACTIONS_DAY.addManualBlock, removeBlock: ACTIONS_DAY.removeBlock }}
           />
         </div>
         <DatesFolds
@@ -385,29 +431,7 @@ export async function DatesLab({ state, toast, open }: { state: DatesState; toas
           }
           closuresIncomplete={false}
           waitlist={state === 'dates' ? WAIT_ON : WAIT_FREE}
-          calendars={pools.map((p) => ({
-            poolId: p.poolId,
-            label: p.label,
-            name: p.label,
-            capacity: p.capacity,
-            isHall: p.isHall === true,
-            seated: p.seatedCapacity ?? null,
-            standing: p.standingCapacity ?? null,
-            line: venue ? '' : p.poolId === 'p-main' ? 'Photo & video' : 'Styling',
-            serviceIds: [],
-            categories: [],
-          }))}
-          ceiling={state === 'dates-free' ? 1 : 3}
-          namedCalendars
-          services={[
-            { serviceId: 'svc-1', label: 'Photo & video', poolId: 'p-main' },
-            { serviceId: 'svc-2', label: 'Styling', poolId: 'p-second' },
-          ]}
           qrHref="/dev/supplier-lab?s=qr"
-          slotsHref="/dev/supplier-lab?s=dates"
-          icsHref="/dev/supplier-lab?s=dates"
-          approveFirst
-          venue={venue}
           blockAdd={<BlockDateAdd pools={pools} action={addManualBlock} today={TODAY} month="2026-10" />}
           actions={ACTIONS}
         />

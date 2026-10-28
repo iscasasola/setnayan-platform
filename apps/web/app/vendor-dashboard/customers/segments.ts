@@ -59,7 +59,8 @@ export function customersSegmentOf(sp: Record<string, string | string[] | undefi
 }
 
 /** The folds the hub's one accordion holds — each drawn only under its own segment. */
-const FOLD_KEYS = ['messages', 'bookings', 'proposals', 'contracts'] as const;
+/** 🗑 `messages` left 2026-10-28 — the event list IS the messages (People's rows each open their chat). */
+const FOLD_KEYS = ['bookings', 'proposals', 'contracts'] as const;
 
 /** The fold keys that live in a segment (for the one accordion under it). */
 export function foldsOf(seg: CustomersSegment): string[] {
@@ -70,3 +71,17 @@ export function foldsOf(seg: CustomersSegment): string[] {
 export function customersSegmentHref(seg: CustomersSegment): string {
   return seg === 'people' ? '/vendor-dashboard/customers' : `/vendor-dashboard/customers?seg=${seg}`;
 }
+
+/**
+ * People's four doors — Asking · Talking · Booked · Done (owner 2026-10-28, prototype `custRows()`), drawn by
+ * `CustomersPin`. Here, in the neutral module, because a server page reads the list itself.
+ */
+export type CustomersDoorKey = 'asking' | 'talking' | 'booked' | 'done';
+export const CUSTOMERS_DOORS: readonly CustomersDoorKey[] = ['asking', 'talking', 'booked', 'done'];
+
+/** Every view's own address, as strings (a client row cannot be handed a function). */
+export const CUSTOMER_SEGMENT_HREFS: Readonly<Record<CustomersSegment, string>> = {
+  people: customersSegmentHref('people'),
+  dates: customersSegmentHref('dates'),
+  money: customersSegmentHref('money'),
+};

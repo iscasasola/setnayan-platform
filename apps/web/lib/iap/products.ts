@@ -23,10 +23,14 @@ import { AI_TIER_SKU, type AiPriceTier } from '@/lib/setnayan-ai-type-pricing';
  *       CONSUMABLE applied to that event, never a subscription and never a
  *       non-consumable (Apple sells a non-consumable once per Apple ID, for
  *       life, so a second event could never buy it).
- *   (4) App Store price = web price ÷ 0.85, rounded UP to Apple's next price
- *       point (Apple keeps 15 %). Apple's price points are Apple's — this file
- *       never types one. `appStorePriceFloorPhp` is the floor the owner picks
- *       the point AT OR ABOVE, computed from the live catalogue row.
+ *   (4) ⚠ SUPERSEDED 2026-10-28 (DECISION_LOG "ONE PRICE EVERYWHERE = THE APP
+ *       STORE PRICE"). Was: App Store price = web ÷ 0.85, rounded UP to Apple's
+ *       next point. Now, owner verbatim: *"we make the price in app store and
+ *       website same"* · *"we follow apple prices as our price"* — ONE price: the
+ *       owner picks the Philippine App Store price point and sets the SAME figure
+ *       as the website price in Admin › catalogue. Apple's price points are
+ *       Apple's and the catalogue is the admin's — this file types neither.
+ *       `appStorePriceMatchesWeb` is the check a sale is held to.
  *   (5) Papic credit packs: 100 · 500 · 1,000 · 5,000 · 10,000.
  *
  * 🔑 NO PRICE LIVES HERE. The app shows the price StoreKit returns
@@ -246,8 +250,9 @@ export function iapProductFitsAiTier(product: IapProduct, eventTier: AiPriceTier
 }
 
 /**
- * The catalogue row an Apple price is floored on (ruling 4, web ÷ 0.85) — the product's own code, except a Setnayan AI
- * tier product, which is floored on its tier's row (`AI_TIER_SKU`, the one tier → row map the web charges from).
+ * The catalogue row an Apple price is checked against (ruling 4, one price everywhere) — the product's own code, except a
+ * Setnayan AI tier product, which is checked against its tier's row (`AI_TIER_SKU`, the one tier → row map the web
+ * charges from).
  */
 export function iapPriceRowFor(product: IapProduct): string {
   return product.aiTier ? (AI_TIER_SKU[product.aiTier] ?? product.serviceKey) : product.serviceKey;
@@ -258,21 +263,29 @@ export const IAP_PAPIC_PRODUCTS: readonly IapProduct[] = IAP_PRODUCTS.filter(
   (p) => p.kind === 'papic-credits',
 ).sort((a, b) => (a.credits ?? 0) - (b.credits ?? 0));
 
-/** Apple's cut under the Small Business Program (ruling 4): the app price is web ÷ (1 − 0.15). */
-export const APP_STORE_NET_SHARE = 0.85;
+/**
+ * How far an App Store sale may sit from the website price and still be "the same price" (ruling 4, as superseded
+ * 2026-10-28): ₱0.50.
+ *
+ * Why that figure: Philippine App Store price points are whole pesos, so two DIFFERENT points are at least ₱1 apart —
+ * anything under ₱1 cannot hide a wrong point. What it must absorb is rounding only: Apple reports the price in
+ * milli-units and `chargedPhp` rounds it to the centavo, and the catalogue stores centavos. Half a peso is clear of
+ * both and strictly below the smallest real gap.
+ */
+export const APP_STORE_PRICE_TOLERANCE_PHP = 0.5;
 
 /**
- * The LOWEST App Store price (₱) that still nets the web price after Apple's
- * 15 % — web ÷ 0.85, rounded UP to the centavo. The owner picks Apple's price
- * point AT OR ABOVE this in App Store Connect (ruling 4). Null for a missing or
- * non-positive web price: there is nothing to compute from, and a guessed floor
- * is worse than none.
+ * Is what Apple charged THE website price (ruling 4: one price everywhere)? `webPhp` is what a website buyer pays for
+ * the same item — the catalogue row, grossed by the effective VAT rate (0 today). Null when there is nothing to
+ * compare (a missing or non-positive figure on either side): a guessed verdict is worse than none.
  */
-export function appStorePriceFloorPhp(webPricePhp: number | null | undefined): number | null {
-  if (typeof webPricePhp !== 'number' || !Number.isFinite(webPricePhp) || webPricePhp <= 0) return null;
-  // Work in centavos so 70 / 0.85 = 82.352… rounds to 82.36, never 82.35.
-  const centavos = Math.ceil((Math.round(webPricePhp * 100) * 100) / (APP_STORE_NET_SHARE * 100) - 1e-9);
-  return centavos / 100;
+export function appStorePriceMatchesWeb(
+  applePhp: number | null | undefined,
+  webPhp: number | null | undefined,
+): boolean | null {
+  const ok = (n: number | null | undefined): n is number => typeof n === 'number' && Number.isFinite(n) && n > 0;
+  if (!ok(applePhp) || !ok(webPhp)) return null;
+  return Math.abs(applePhp - webPhp) < APP_STORE_PRICE_TOLERANCE_PHP;
 }
 
 /**

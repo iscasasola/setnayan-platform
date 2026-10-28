@@ -1,5 +1,6 @@
 'use server';
 
+import { keepOnlyNoticedAlbumRefs } from '@/lib/put-photo-on-my-page';
 import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
 import { revalidatePath } from 'next/cache';
 import { parseClientRef, vendorOwnedMediaPolicy } from '@/lib/r2-client-ref';
@@ -610,7 +611,10 @@ export async function updateVendorProfileField(
       // the base is refused — and refused out loud, with nothing saved, instead of
       // the old silent truncation (which also cut a grandfathered shop down on its
       // next re-save). Paying for more with Papic credits is Phase 2.
-      const capped = capPortfolioRefs(parsed, tr?.portfolio_r2_keys ?? [], portfolioMax);
+      // ⏳ An event-album photo reaches the page ONLY through the guests' 7-day notice (owner 2026-10-03) — a save
+      // keeps one already there, never adds one (`keepOnlyNoticedAlbumRefs`).
+      const noticed = keepOnlyNoticedAlbumRefs(parsed, tr?.portfolio_r2_keys ?? []);
+      const capped = capPortfolioRefs(noticed, tr?.portfolio_r2_keys ?? [], portfolioMax);
       if (capped.refused > 0) {
         return {
           ok: false,

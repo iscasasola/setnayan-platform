@@ -24,6 +24,7 @@ import { inviteEnterPath, inviteReplyPath, isInviteReturn } from '@/lib/invite-a
 import { takePhotoOffTheWall, putPhotoBackOnTheWall } from '@/lib/guest-wall-unpost';
 import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 import { emitNotification } from '@/lib/notification-emit';
+import { deleteSupplierPageCopy } from '@/lib/supplier-page-notice.server';
 import { readGuestSessionForEvent, readReplyIdentityForEvent } from '@/lib/guest-one-path.server';
 import { findGuestSeatForUser } from '@/lib/guest-membership-session';
 import { linkGuestSessionToUser } from '@/lib/link-guest-account';
@@ -1578,7 +1579,11 @@ export type TakedownResult =
  */
 export async function askToTakeMyPhotoDown(
   eventId: string,
-  sourceTable: 'papic_photos' | 'papic_guest_captures',
+  /* `vendor_papic_portfolio_photos` (2026-10-28, "OWNER: Agree to all" (1)): a guest who removes a supplier's photo
+     from the supplier's page also asks for the supplier's album copy to come down — the moderator's Hide already
+     reaches that table (TD-1, `REPORTED_PHOTO_TABLES`), and this action first takes it off the supplier's PAGE (below).
+     Before this, no guest could file one: the door did not exist. */
+  sourceTable: 'papic_photos' | 'papic_guest_captures' | 'vendor_papic_portfolio_photos',
   sourceId: string,
   formData: FormData,
 ): Promise<TakedownResult> {
@@ -1597,6 +1602,26 @@ export async function askToTakeMyPhotoDown(
     };
   }
   if (!sourceId) return { ok: false, message: 'Which photo?' };
+
+  /*
+    📣 A SUPPLIER'S PHOTO COMES OFF THE SUPPLIER'S PAGE NOW, NOT AFTER A MODERATOR (owner 2026-10-03, "A SUPPLIER'S
+    OWN PAPIC PHOTOS GO ON ITS PORTFOLIO AUTOMATICALLY AFTER A 7-DAY GUEST NOTICE": "<Supplier> will show this photo
+    on their page · Remove"; Remove keeps working after it went up). `remove_supplier_page_photo` closes the notice and
+    pulls the ref off the page in one write, bound to the event the cookie proved; the copied file is deleted. The
+    request below then asks for the supplier's private album copy to come down too — the moderator's Hide reaches it
+    (TD-1), and the trigger keeps it off the page for good (2026-10-28, "OWNER: Agree to all" (1)).
+  */
+  if (sourceTable === 'vendor_papic_portfolio_photos') {
+    const off = await createAdminClient().rpc('remove_supplier_page_photo', { p_photo_id: sourceId, p_event_id: eventId });
+    if (off.error) {
+      console.error('[takedown] could not take it off the supplier page', off.error);
+      return { ok: false, message: 'We couldn’t remove that just now. Please try again.' };
+    }
+    const row = (Array.isArray(off.data) ? off.data[0] : off.data) as { status?: string; page_ref?: string | null } | null;
+    if (!row || row.status === 'not_found') return { ok: false, message: 'That photo is not on this event any more.' };
+    await deleteSupplierPageCopy(row.page_ref);
+    await revalidateSupplierPageOf(sourceId);
+  }
 
   const note = String(formData.get('note') ?? '')
     .trim()
@@ -1772,6 +1797,21 @@ async function wallPull(
   revalidatePath(`/dashboard/${eventId}`);
   revalidatePath(`/dashboard/${eventId}/live`);
   return { ok: true, state: res.state };
+}
+
+/** The supplier's public page drops a removed photo now, not on its cache's own clock. Best-effort. */
+async function revalidateSupplierPageOf(photoId: string): Promise<void> {
+  try {
+    const { data } = await createAdminClient()
+      .from('vendor_papic_portfolio_photos')
+      .select('vendor_profiles(business_slug)')
+      .eq('photo_id', photoId)
+      .maybeSingle();
+    const slug = (data as { vendor_profiles?: { business_slug?: string | null } | null } | null)?.vendor_profiles?.business_slug;
+    if (slug) revalidatePath(`/v/${slug}`);
+  } catch (err) {
+    console.error('[takedown] could not refresh the supplier page', err);
+  }
 }
 
 /**

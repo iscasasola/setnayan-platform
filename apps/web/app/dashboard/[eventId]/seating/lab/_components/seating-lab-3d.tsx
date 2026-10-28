@@ -46,7 +46,7 @@ import * as THREE from 'three';
 import { Maximize2, Minimize2 } from 'lucide-react';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
 import { SeatingViewSegment } from '@/app/dashboard/[eventId]/seating/_components/seating-frame';
-import { detailsItemHref } from '@/lib/maker-details-items';
+import { guestsViewHref } from '@/lib/guests-views';
 import {
   DropConfirmBubble,
   type DropConfirmState,
@@ -3057,7 +3057,8 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
               // In Details, back to the plan in the same part (`seat` drops the lab).
               if (inMaker) {
                 if (target !== '3d') {
-                  router.push(detailsItemHref(eventId, 'seating', target === 'list' ? '&seat=list' : ''), { scroll: false });
+                  /* 🗂 R4: the seat plan's home is Guests › Seats. */
+                  router.push(guestsViewHref(eventId, 'seats', { seat: target === 'list' ? 'list' : null }), { scroll: false });
                 }
                 return;
               }
@@ -5847,17 +5848,6 @@ function Hud({
                 Hiding it before the day hides the 3D walk until the day. Printed table signs keep working.
               </p>
             ) : null}
-            {/* The door to the control centre — the couple's room as their
-                guests see it, the facts, and what feeds it. This panel keeps
-                the switch; that page explains it. */}
-            {inMaker ? null : (
-              <a
-                href={`/dashboard/${eventId}/plan3d`}
-                className="mt-2 block text-[11px] text-white/55 underline-offset-2 hover:text-white hover:underline"
-              >
-                3D Plan control centre →
-              </a>
-            )}
           </div>
         ) : (
           <div className={`flex min-h-0 flex-1 flex-col p-3 ${glass}`}>

@@ -60,10 +60,8 @@ app/dashboard/[eventId]/launch/page.tsx "Merkado" → /marketplace	# first run 2
 app/dashboard/[eventId]/launch/page.tsx "The page itself" → /dashboard/[eventId]/website/editor	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/launch/page.tsx "The running order" → /dashboard/[eventId]/schedule	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/paperwork/page.tsx "Choose ceremony type" → /dashboard/[eventId]/date-selection	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
-app/dashboard/[eventId]/plan3d/page.tsx "Design panel" → /dashboard/[eventId]/seating/lab	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/story/_components/editorial-editor.tsx "Preview your editorial ↗" → /[slug]	# first run 2026-10-02 · guest app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/studio/_components/addon-detail-view.tsx "Verifying" → /dashboard/[eventId]/orders	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
-app/dashboard/[eventId]/studio/indoor-blueprint/page.tsx "open the guest view" → /[slug]/find-my-table	# first run 2026-10-02 · guest app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/studio/pakanta/page.tsx "love-story details" → /dashboard/[eventId]/details	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/studio/papic/_components/life-flash-card.tsx "Play this day" → /dashboard/life-flash	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/studio/patiktok/booth/page.tsx "Preview template + queue render" → /dashboard/[eventId]/studio/patiktok/[templateId]	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
@@ -106,7 +104,7 @@ app/vendor-dashboard/attributes/page.tsx "Set up profile" → /vendor-dashboard	
 app/vendor-dashboard/clients/[eventId]/_components/vendor-challenge-section.tsx "Turn on Papic Challenges" → /vendor-dashboard/subscription	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
 app/vendor-dashboard/collections/_components/collections-list.tsx "— Apply on Your page" → /vendor-dashboard/website	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
 app/vendor-dashboard/error.tsx "Switch to customer view" → /dashboard	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
-app/vendor-dashboard/messages/[threadId]/page.tsx "Back to Messages" → /vendor-dashboard/customers	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
+app/vendor-dashboard/messages/[threadId]/page.tsx "Files & contracts" → /vendor-dashboard/clients/[eventId]	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
 app/vendor-dashboard/messages/[threadId]/page.tsx "Schedule" → /vendor-dashboard/clients/[eventId]	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
 app/vendor-dashboard/notifications/notifications-view.tsx "Push and email" → /vendor-dashboard/settings	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
 app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/floor-command.tsx "Open the full desk" → /vendor-dashboard/on-the-day	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster

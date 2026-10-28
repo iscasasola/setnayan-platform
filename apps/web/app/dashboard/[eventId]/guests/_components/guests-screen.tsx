@@ -165,13 +165,24 @@ import type { GuestListRow } from '@/lib/guest-list-rows';
 import { GuestListStatus } from './guest-copy-mark';
 import { TitlesWaiting, type TitleWaitingPerson } from './titles-waiting';
 import { displayPersonName } from '@/lib/person-name-case';
+import { GUESTS_VIEW_LABEL, guestsViewHref, isGuestsMakerView, type GuestsView } from '@/lib/guests-views';
 
 
 export type GuestsScreenProps = {
   eventId: string;
   /** The event's role set (`resolveRoleSetKeyForEvent`) — the Add card's Role list. Absent = the wedding set. */
   roleSetKey?: string | null;
-  gview: 'list' | 'map';
+  gview: GuestsView;
+  /**
+   * 🗂 R4 · the views this event has, in the row's order (`lib/guests-views.ts`): List · Map always, Seats where the type
+   * has a seat plan, March where it prints an entourage (the couple's). Absent: List · Map.
+   */
+  views?: readonly GuestsView[];
+  /**
+   * 🗂 R4 · Seats or March — the shipped maker, drawn whole by the page (the seat plan's own page, the march maker),
+   * under the view row and its ⚙. Null on List and Map.
+   */
+  viewBody?: ReactNode;
   /**
    * Every guest, importance-sorted by the page (the honoree first) — ONLY the fields the list draws and
    * searches (`lib/guest-list-rows.ts` GUEST_LIST_ROW_FIELDS), never the whole row.
@@ -304,6 +315,9 @@ function Mark({ mark }: { mark: SectionMark }) {
   return <Icon aria-hidden strokeWidth={1.9} />;
 }
 
+/** The view row without R4's two (a lab or an older caller that names none). */
+const DEFAULT_VIEWS: readonly GuestsView[] = ['list', 'map'];
+
 /** The shell bar's height while it shows — the sticky block sits under it. */
 export function GuestsScreen(props: GuestsScreenProps) {
   // 📋 THE FRESH READ WAS REFUSED → the phone's last copy, said plainly — never "No guests", never fresh.
@@ -329,6 +343,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
   const {
     eventId,
     gview,
+    views: guestsViews = DEFAULT_VIEWS,
     measured,
     notLoaded = null,
     hasSides,
@@ -353,6 +368,8 @@ export function GuestsScreen(props: GuestsScreenProps) {
     roleSetKey = null,
     viewOnly = false,
   } = live;
+  /** 🗂 R4 · Seats or March: a shipped maker drawn whole — no summary, no list, no thumb row of the List's. */
+  const makerView = isGuestsMakerView(gview);
   // 🔒 Nothing that writes is offered while this is the phone's old copy OR the viewer may only look.
   const writesOff = copy !== null || viewOnly;
   // ⚙ Guests settings — opened by the ⚙ in place; a link (`?settings=1&row=…`) opens it with the page. Closing drops
@@ -1056,13 +1073,13 @@ export function GuestsScreen(props: GuestsScreenProps) {
       <span className="sr-only"> {word}</span>
     </button>
   );
-  /** The pinned row's selector: the same views as links, `List · Map` only, small and words only (owner 2026-10-27,
-      "selectors should stay but simplified"). The ⚙ is the full row's own, and stays on screen pinned. */
-  const pinSeg = (key: 'list' | 'map', label: string) => (
+  /** The pinned row's selector: the same views as links, small and words only (owner 2026-10-27, "selectors should
+      stay but simplified"). The ⚙ is the full row's own, and stays on screen pinned. */
+  const pinSeg = (key: GuestsView, label: string) => (
     <Link
       key={key}
       className={`${pillSegClass(gview === key)} ${styles.pinSegChoice}`}
-      href={key === 'list' ? `/dashboard/${eventId}/guests` : `/dashboard/${eventId}/guests?gview=${key}`}
+      href={guestsViewHref(eventId, key)}
       aria-current={gview === key ? 'page' : undefined}
       scroll={false}
       data-guests-pin-seg={key}
@@ -1071,11 +1088,11 @@ export function GuestsScreen(props: GuestsScreenProps) {
     </Link>
   );
 
-  const seg = (key: 'list' | 'map', label: string, count?: number) => (
+  const seg = (key: GuestsView, label: string, count?: number) => (
     <Link
       key={key}
       className={`${pillSegClass(gview === key)} [&>b]:font-medium [&>b]:opacity-80`}
-      href={key === 'list' ? `/dashboard/${eventId}/guests` : `/dashboard/${eventId}/guests?gview=${key}`}
+      href={guestsViewHref(eventId, key)}
       aria-current={gview === key ? 'page' : undefined}
       scroll={false}
       data-guests-seg={key}
@@ -1612,7 +1629,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
               🔒 lib/the-pinned-row-is-one-row.test.ts */}
           {measured && gview === 'list' ? (
             <PinnedSummary
-              segs={[pinSeg('list', 'List'), pinSeg('map', 'Map')]}
+              segs={guestsViews.map((v) => pinSeg(v, GUESTS_VIEW_LABEL[v]))}
               doors={[
                 pinDoor('attending', stats.yes, 'gs-pin-yes', RSVP_ROW_WORDS.attending, Check),
                 pinDoor('declined', stats.no, 'gs-pin-no', RSVP_ROW_WORDS.declined, X),
@@ -1629,8 +1646,10 @@ export function GuestsScreen(props: GuestsScreenProps) {
           <div className="flex items-center gap-2" data-first-row="">
             <nav className={`${PILL_TRACK_CLASS} ${PILL_TRACK_GROUND} min-w-0 flex-1`} aria-label="Guest list views" data-guests-segmented="" data-tour="guests-views">
               <PillThumb />
-              {seg('list', 'List', stats.total)}
-              {seg('map', 'Map')}
+              {/* 🗂 R4 · List · Map · Seats · March — the SAME pill selector extended (owner 2026-10-27 "GUESTS = LIST ·
+                  MAP · SEATS · MARCH"; the approved Guests selector is this segmented row, "PINNED ROWS KEEP THEIR
+                  SELECTORS — SIMPLIFIED"). Each view is a link, so a view is an address an old door can land on. */}
+              {guestsViews.map((v) => seg(v, GUESTS_VIEW_LABEL[v], v === 'list' ? stats.total : undefined))}
             </nav>
             {setup ? (
               <MenuSettingsButton menu="guests" open={settingsOpen} onOpenChange={openSettings} tour="guests-setup">
@@ -1643,7 +1662,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
         </div>
         </div>
 
-        {measured ? (
+        {measured && !makerView ? (
           <>
             <div className={`${styles.summary} ${styles.rise}`} ref={stripRef} data-roster-counts="" data-tour="guests-counts">
               <SnapCarousel cards={summaryCards} label="Guest summary" attrs={{ 'data-guests-carousel': '' }} />
@@ -1683,7 +1702,12 @@ export function GuestsScreen(props: GuestsScreenProps) {
           </>
         ) : null}
 
-        {gview === 'map' ? (
+        {makerView ? (
+          /* 🗂 R4: Seats and March — the shipped makers, whole, with their own tools; no list, no thumb row under them. */
+          <div data-guests-view-body={gview} className="min-w-0">
+            {props.viewBody}
+          </div>
+        ) : gview === 'map' ? (
           <GuestMapCanvas
             rootLabel={rootLabel}
             tree={tree}
@@ -1696,7 +1720,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
           list
         )}
 
-        {(
+        {makerView ? null : (
           <div
             // The ONE shared glass row (BUTTON_RULE rule 7, `.sn-glass-row` in
             // globals.css, builder GR): the row tints and blurs what scrolls behind.

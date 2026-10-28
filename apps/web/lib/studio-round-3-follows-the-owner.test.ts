@@ -260,7 +260,8 @@ test('5 · Seat plan: the map gets the space — one head row, tools in the thum
   assert.match(peek, /hidden=""[^>]*>[\s\S]*data-stub="people"/, 'the people list shows before the sheet is raised');
 
   const ed = read(`${SEAT}/seating-editor.tsx`);
-  assert.match(ed, /const studioSeat = details !== null && isPhone && maker\?\.stagesStudio === true;/);
+  /* 🗂 R4: Guests › Seats draws the same phone seat plan (`host: 'guests'`) — the Studio's frames, now its home. */
+  assert.match(ed, /const studioSeat = details !== null && isPhone && \(maker\?\.stagesStudio === true \|\| inGuests\);/);
   assert.match(ed, /const phoneFoot =\s*isPhone && view === 'plan' && !details\?\.lab && !studioSeat \?/, 'the Studio still draws the 3D door card under the map');
   assert.match(ed, /<SeatPlanPortal name="guests" on=\{!studioSeat\}>/, 'the Studio’s people are drawn in the lower third too');
   assert.match(ed, /<PeopleSheet[\s\S]{0,900}?\{guestsNode\}\s*<\/PeopleSheet>/, 'the people sheet does not hold the editor’s own list');

@@ -1,6 +1,5 @@
-import Link from 'next/link';
+import { BackButton } from '@/app/_components/back-button';
 import { notFound, redirect } from 'next/navigation';
-import { ArrowLeft } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { fetchGuestsByEvent } from '@/lib/guests';
@@ -79,9 +78,8 @@ export default async function EntranceChartPage({ params }: Props) {
 
   return (
     <section className="mx-auto w-full max-w-4xl space-y-5 px-1 py-2">
-      <Link href={`/dashboard/${eventId}/seating`} className="inline-flex min-h-[44px] items-center gap-1.5 text-sm text-ink/60 hover:text-ink">
-        <ArrowLeft className="h-4 w-4 text-sn-accent" /> Seat plan
-      </Link>
+      {/* 🗂 R4: back to Guests › Seats — from the map (`lib/page-home.ts`). */}
+      <BackButton route="/dashboard/[eventId]/seating/chart" params={{ eventId }} />
       <PageMasthead title={metadata.title} />
       <EntranceChart
         eventId={eventId}

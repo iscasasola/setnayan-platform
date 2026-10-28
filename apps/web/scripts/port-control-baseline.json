@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "06a89888f4",
+  "generatedFromRef": "460c82e856",
   "routeCount": 479,
-  "destinations": 986,
-  "actions": 642,
-  "blocks": 7240,
+  "destinations": 981,
+  "actions": 640,
+  "blocks": 7280,
   "routes": {
     "/": {
       "files": [
@@ -6094,6 +6094,7 @@
         "QrActions",
         "QrBody",
         "ReadRefusedNotice",
+        "ReadyForNoSignal",
         "RecordLinkBlock",
         "Remaining",
         "RepliesWindowRows",
@@ -6692,6 +6693,8 @@
         "dashboard/[eventId]/guests/_components/guests-db.harness.ts",
         "dashboard/[eventId]/guests/_components/guests-excel-button.tsx",
         "dashboard/[eventId]/guests/_components/guests-last-copy.tsx",
+        "dashboard/[eventId]/guests/_components/guests-march-head.tsx",
+        "dashboard/[eventId]/guests/_components/guests-march.tsx",
         "dashboard/[eventId]/guests/_components/guests-screen.tsx",
         "dashboard/[eventId]/guests/_components/handed.tsx",
         "dashboard/[eventId]/guests/_components/hear-action.ts",
@@ -6836,6 +6839,8 @@
         "GuestRowLine",
         "GuestSide",
         "GuestsLastCopy",
+        "GuestsMarch",
+        "GuestsMarchHead",
         "GuestsScreen",
         "HTMLButtonElement",
         "HTMLDivElement",
@@ -6879,6 +6884,7 @@
         "Link",
         "MapActionResult",
         "MapArrange",
+        "MarchMaker",
         "MarchResult",
         "Mark",
         "MenuSettingsButton",
@@ -6922,6 +6928,7 @@
         "SaveFileLink",
         "Scrim",
         "SearchAddRow",
+        "SeatingPage",
         "SendInvite",
         "SentOrNotYet",
         "SetRsvpResult",
@@ -6983,12 +6990,14 @@
         "CheckinActionResult",
         "CheckinDesk",
         "CheckinMethod",
+        "DeskSavedMark",
         "GuestAvatar",
         "HTMLVideoElement",
         "Link",
         "LiveRefresher",
         "MediaStream",
         "NotSharedWithYou",
+        "OfflineQueue",
         "ReadRefusedNotice",
         "RoleNamesProvider",
         "TicketCheck",
@@ -7282,6 +7291,7 @@
         "dashboard/[eventId]/launch/_components/details-your-event-parts.tsx",
         "dashboard/[eventId]/launch/_components/details-your-event.tsx",
         "dashboard/[eventId]/launch/_components/guests-see-sheet.tsx",
+        "dashboard/[eventId]/launch/_components/guests-view-door.tsx",
         "dashboard/[eventId]/launch/_components/hub-pro-offer.tsx",
         "dashboard/[eventId]/launch/_components/hub-stage.tsx",
         "dashboard/[eventId]/launch/_components/icon-pill.tsx",
@@ -7404,7 +7414,6 @@
         "/dashboard/[seg]",
         "/dashboard/[seg]/guests",
         "/dashboard/[seg]/launch?tool=hero",
-        "/dashboard/[seg]/plan3d",
         "/dashboard/[seg]/seating/print?format=pdf&guest=[seg]",
         "/dashboard/[seg]/studio/website-pro",
         "/dashboard/[seg]/studio/website-pro?from=maker",
@@ -7474,7 +7483,6 @@
         "Count",
         "CountLine",
         "CoupleSchedulePage",
-        "CoupleSeatingPage",
         "CoverAnimate",
         "CoverLines",
         "CoverSceneSource",
@@ -7545,6 +7553,7 @@
         "GuestsSeeSheet",
         "GuestsSeeTable",
         "GuestsSeeWrites",
+        "GuestsViewDoor",
         "GuideFoot",
         "GuideHead",
         "GuideLinkScreen",
@@ -8299,23 +8308,11 @@
     },
     "/dashboard/[eventId]/plan3d": {
       "files": [
-        "dashboard/[eventId]/plan3d/_components/plan3d-stage.tsx",
-        "dashboard/[eventId]/plan3d/actions.ts",
-        "dashboard/[eventId]/plan3d/loading.tsx",
         "dashboard/[eventId]/plan3d/page.tsx"
       ],
       "destinations": [],
-      "actions": [
-        "publishFromControlCentre",
-        "unpublishFromControlCentre"
-      ],
-      "blocks": [
-        "GridPageSkeleton",
-        "Icon",
-        "Link",
-        "Miniature",
-        "Plan3dStage"
-      ]
+      "actions": [],
+      "blocks": []
     },
     "/dashboard/[eventId]/progress": {
       "files": [
@@ -8497,6 +8494,7 @@
       "files": [
         "dashboard/[eventId]/seating/_components/day-of-editing-banner.tsx",
         "dashboard/[eventId]/seating/_components/drop-confirm-bubble.tsx",
+        "dashboard/[eventId]/seating/_components/seat-plan-in-guests.tsx",
         "dashboard/[eventId]/seating/_components/seat-plan-phone.tsx",
         "dashboard/[eventId]/seating/_components/seat-plan-slots.tsx",
         "dashboard/[eventId]/seating/_components/seating-context-dock.tsx",
@@ -8584,7 +8582,9 @@
         "SaveStatusChip",
         "SeatBadge",
         "SeatPeoplePanel",
+        "SeatPlanInGuests",
         "SeatPlanPortal",
+        "SeatPlanSlot",
         "SeatToast",
         "SeatingEditor",
         "SeatingFrame",
@@ -8611,16 +8611,14 @@
         "dashboard/[eventId]/seating/chart/_components/entrance-chart.tsx",
         "dashboard/[eventId]/seating/chart/page.tsx"
       ],
-      "destinations": [
-        "/dashboard/[seg]/seating"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
         "ActionButton",
+        "BackButton",
         "EntranceChart",
         "HTMLImageElement",
         "Layout",
-        "Link",
         "NotSharedWithYou",
         "PageMasthead",
         "PickMenu",
@@ -8637,7 +8635,6 @@
         "dashboard/[eventId]/seating/lab/page.tsx"
       ],
       "destinations": [
-        "/dashboard/[seg]/plan3d",
         "/dashboard/[seg]/seating/chart"
       ],
       "actions": [
@@ -8717,13 +8714,11 @@
         "dashboard/[eventId]/seating/walkthrough/actions.ts",
         "dashboard/[eventId]/seating/walkthrough/page.tsx"
       ],
-      "destinations": [
-        "/dashboard/[seg]/seating"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
+        "BackButton",
         "FileUpload",
-        "Link",
         "PageMasthead",
         "ReadRefusedNotice",
         "WalkthroughManager",
@@ -8906,21 +8901,15 @@
       "files": [
         "dashboard/[eventId]/studio/indoor-blueprint/_components/blueprint-studio.tsx",
         "dashboard/[eventId]/studio/indoor-blueprint/actions.ts",
-        "dashboard/[eventId]/studio/indoor-blueprint/loading.tsx",
         "dashboard/[eventId]/studio/indoor-blueprint/page.tsx"
       ],
       "destinations": [
-        "/[seg]/find-my-table",
         "/dashboard/[seg]/seating"
       ],
       "actions": [],
       "blocks": [
-        "BlueprintStudio",
-        "BlueprintStudioView",
         "EntrancePos",
         "HTMLDivElement",
-        "Link",
-        "PageMasthead",
         "WayfindingMap"
       ]
     },
@@ -11171,6 +11160,7 @@
       "files": [
         "dev/guests-lab/lab-card-sheet.tsx",
         "dev/guests-lab/lab-guest-actions.tsx",
+        "dev/guests-lab/lab-seats-march.tsx",
         "dev/guests-lab/lab-stand-ins.ts",
         "dev/guests-lab/page.tsx"
       ],
@@ -11189,16 +11179,22 @@
         "GuestRemovalActionsContext.Provider",
         "GuestRow",
         "GuestSetupRows",
+        "GuestsMarchHead",
         "GuestsScreen",
         "InspectorSheetAlone",
         "LabCardSheet",
         "LabGuestActions",
+        "LabMarch",
         "LabPageSpotlight",
+        "LabSeats",
         "LabShell",
         "MakerRsvpSettings",
+        "MarchMaker",
         "NotificationsList",
         "QuickAddSheet",
         "RoleNamesProvider",
+        "SeatPlanInGuests",
+        "SeatingEditor",
         "SendRun",
         "UndoToastHost"
       ]
@@ -11223,6 +11219,7 @@
       "files": [
         "dev/home-lab/apply-pro-sheet-lab.tsx",
         "dev/home-lab/lab-spotlight.tsx",
+        "dev/home-lab/offline-lab.tsx",
         "dev/home-lab/page.tsx"
       ],
       "destinations": [
@@ -11233,6 +11230,7 @@
         "AppleProScreen",
         "ApplyProSheetLab",
         "ChallengeCardRow",
+        "CheckinDesk",
         "CollectionCard",
         "CollectionGrid",
         "CoordinatingLine",
@@ -11245,15 +11243,18 @@
         "LabBoard",
         "LabShell",
         "LabSpotlight",
+        "OfflineLab",
         "PapicBuySheet",
         "PapicCameraHelp",
         "PapicCameraSettings",
         "PapicSwitch",
         "PapicTopBand",
         "ProLockPanel",
+        "ReadyForNoSignalView",
         "SiteMenuBar",
         "SpotlightMount",
         "StanceChip",
+        "SupplierSavedStripView",
         "YourServices",
         "YourShotsGallery"
       ]
@@ -11781,6 +11782,7 @@
         "SuggestBoardActions",
         "SuggestLab",
         "SupplierLabShell",
+        "SupplierSetupScreen",
         "SupplierSubmit",
         "SupplierSuggestBoard",
         "SupplierThumbRow",
@@ -11788,7 +11790,8 @@
         "SupplierTodayScreen",
         "ThumbRow",
         "TodayEasyLab",
-        "TodayLab"
+        "TodayLab",
+        "TodaySettings"
       ]
     },
     "/dev/supplier-plan-lab": {
@@ -13377,10 +13380,14 @@
         "vendor-dashboard/_components/pipeline-pressure-line.tsx",
         "vendor-dashboard/_components/push-notification-registrar.tsx",
         "vendor-dashboard/_components/row-icon.tsx",
+        "vendor-dashboard/_components/setup-days-off-row.tsx",
+        "vendor-dashboard/_components/setup-offer-fold.tsx",
         "vendor-dashboard/_components/source-breakdown.tsx",
         "vendor-dashboard/_components/supplier-avatar-rows.ts",
         "vendor-dashboard/_components/supplier-page-spotlight-mount.tsx",
         "vendor-dashboard/_components/supplier-page-spotlight.tsx",
+        "vendor-dashboard/_components/supplier-setup-folds.tsx",
+        "vendor-dashboard/_components/supplier-setup-screen.tsx",
         "vendor-dashboard/_components/supplier-submit.tsx",
         "vendor-dashboard/_components/supplier-thumb-leave.ts",
         "vendor-dashboard/_components/supplier-thumb-row.tsx",
@@ -13388,7 +13395,10 @@
         "vendor-dashboard/_components/supplier-today-first-screen.tsx",
         "vendor-dashboard/_components/supplier-today-screen.tsx",
         "vendor-dashboard/_components/tier-gate.tsx",
+        "vendor-dashboard/_components/today-counts.tsx",
         "vendor-dashboard/_components/today-figure.tsx",
+        "vendor-dashboard/_components/today-settings.tsx",
+        "vendor-dashboard/_components/undoable-answers.tsx",
         "vendor-dashboard/_components/vendor-bottom-nav.tsx",
         "vendor-dashboard/_components/vendor-nav-destinations.ts",
         "vendor-dashboard/_components/vendor-rail-context.tsx",
@@ -13475,9 +13485,11 @@
         "Connected",
         "ContractDraftBody",
         "CorrectionRequestResult",
+        "CouldNotLoad",
         "Count",
         "CountUp",
         "DateChangeBody",
+        "DateRow",
         "DeleteRequestBody",
         "DisputeBody",
         "EventLockedByFee",
@@ -13486,25 +13498,34 @@
         "FieldSaveResult",
         "Figure",
         "Fold",
+        "FormRow",
         "GuidedTour",
         "HTMLDivElement",
+        "HTMLElement",
+        "HTMLFormElement",
         "I",
         "Icon",
         "Image",
         "InfoTip",
         "InquiryBody",
+        "KeepAnswer",
         "LatLng",
         "Link",
+        "ListDoor",
         "LockBody",
         "LockRequestBody",
         "LockRequestLapsedBody",
         "MarkCompleteBody",
         "MediaTile",
         "MeetingBody",
+        "MenuSettingsButton",
         "MessageBody",
         "MiniTour",
+        "NewServiceMaker",
         "NextCard",
         "NotConnected",
+        "OfflineViewerScript",
+        "OnBody",
         "PageMasthead",
         "PaidMark",
         "PaymentsPausedNote",
@@ -13512,8 +13533,11 @@
         "PayoutReadiness",
         "PeekToast",
         "Pips",
+        "ProfileChecklistEditor",
         "PromoFreeWindowBannerVendor",
         "PushNotificationRegistrar",
+        "PushToggle",
+        "QrCard",
         "QuoteDraftBody",
         "ReviewBody",
         "RowIcon",
@@ -13521,14 +13545,21 @@
         "SVGSVGElement",
         "SaveFileLink",
         "Screen",
+        "SetupDaysOffRow",
+        "SetupFoldKey",
+        "SetupOfferFold",
+        "Sheet",
         "ShopBadgePill",
         "Sk",
         "Spotlight",
         "SpotlightMount",
         "State",
+        "StepChip",
         "SubmitButton",
         "SupplierPageSpotlight",
         "SupplierPageSpotlightMount",
+        "SupplierSetupFolds",
+        "SupplierSetupScreen",
         "SupplierSubmit",
         "SupplierToast",
         "SupplierTodayFirstScreen",
@@ -13538,17 +13569,22 @@
         "TapMark",
         "TermsReacceptSheet",
         "ThumbFit",
+        "TodayCounts",
         "TodayEyebrow",
         "TodayFigure",
+        "TodayFilter",
         "TodayNoteRow",
         "TodayRow",
+        "TodaySettings",
         "TrackRecordRow",
+        "UndoableAnswers",
         "Unread",
         "UnreadBellBadge",
         "UnreadMessagesBadge",
         "VendorBottomNav",
         "VendorDealFacts",
         "VendorRailContext",
+        "VerifySection",
         "ViewReport",
         "WhatsNewFeed"
       ]
@@ -14597,6 +14633,7 @@
         "ShotListStatus",
         "ShotListWriteResult",
         "SongDeskGate",
+        "SupplierSavedStrip",
         "Tag",
         "VendorStatusUpdates"
       ]
@@ -15228,6 +15265,7 @@
     },
     "/vendor-dashboard/services/new": {
       "files": [
+        "vendor-dashboard/services/new/_components/new-service-maker.tsx",
         "vendor-dashboard/services/new/page.tsx"
       ],
       "destinations": [
@@ -15238,6 +15276,7 @@
       "blocks": [
         "CanvasMaker",
         "Link",
+        "NewServiceMaker",
         "RefinementsEditor"
       ]
     },

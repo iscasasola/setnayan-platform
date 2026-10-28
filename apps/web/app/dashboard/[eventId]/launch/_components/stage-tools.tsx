@@ -82,6 +82,7 @@ import {
 import { SEE_AS, SEE_AS_ANY_ROLE, SEE_AS_EDITING, seeAsDrawingLine, seeAsDrawsMe, seeAsLabel, seeAsRoleDrawingLine, type SeeAs } from '@/lib/see-as';
 import { COVER_OPENING_TAG_ATTR, COVER_OPENING_TAG_CSS, coverOpeningTag, revealPageInk } from './stage-panel/reveal-picture';
 import { guestsSettingsHref } from '@/lib/event-settings-record';
+import { guestsViewHref } from '@/lib/guests-views';
 import type { StudioTileKey } from '@/lib/studio-tiles';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import { MAKER_OPEN_PART_EVENT, MAKER_STAGE_PICK_EVENT, MAKER_STAGE_SAY_EVENT, MAKER_STAGE_TOOL_EVENT, useMaker } from './maker-context';
@@ -1251,6 +1252,8 @@ export function StageTools({
       if ('suppliers' in q.to) quiet = { kind: 'suppliers', words: q.words, href: suppliersHref };
       /* 🗂 R1 (owner 2026-10-28): the reply's settings left Studio for Guests ⚙ — its door opens that sheet on the row. */
       else if ('guests' in q.to) quiet = makerEventId ? { kind: 'guests', words: q.words, href: guestsSettingsHref(makerEventId, q.to.guests) } : null;
+      /* 🗂 R4 (owner 2026-10-27/28): the march and the seat plan are Guests' views — the door opens the view. */
+      else if ('guestsView' in q.to) quiet = makerEventId ? { kind: 'guests', words: q.words, href: guestsViewHref(makerEventId, q.to.guestsView) } : null;
       else {
         const to = q.to.studio;
         quiet = {

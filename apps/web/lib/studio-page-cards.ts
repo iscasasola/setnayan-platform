@@ -69,18 +69,6 @@ export const STUDIO_PAGE_CARDS: Readonly<Record<StudioTileKey, StudioPageCard>> 
     seenAt: 'On the Our Love Story page.',
     first: 'Write one moment — how you met — and add a photo.',
   },
-  march: {
-    description: 'Who walks, in what order, down both aisles.',
-    controls: 'The entourage in two columns, dragged into the order they walk; parents, sponsors and the bridal party.',
-    seenAt: 'On your Event Hub, as your entourage, and on The Entourage card.',
-    first: 'Add your parents and sponsors first; the rest fills in as you confirm people.',
-  },
-  seats: {
-    description: 'The tables, and who sits where.',
-    controls: 'Your tables, their sizes and shapes, and each guest’s seat; the room as a map.',
-    seenAt: 'On a guest’s pass (their table), and where guests find their seat on the day.',
-    first: 'Make the tables; seat people once replies are in.',
-  },
   gifts: {
     description: 'How guests can send a gift, and your thank-you.',
     controls: 'Where gifts are received — GCash, Maya, a bank, PayPal, a registry link — and the thank-you message a guest sees after giving.',

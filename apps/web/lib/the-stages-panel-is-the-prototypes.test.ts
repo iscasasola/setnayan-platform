@@ -220,8 +220,9 @@ test('every part with a Studio bar has a door; every focused field exists in the
   const { execSync } = await import('node:child_process');
   for (const k of MAKER_PART_KEYS) {
     const q = makerPartQuietRow(k);
-    /* Suppliers, and Guests ⚙ since R1 (the RSVP form's settings), are other pages of the app — a plain link, no Studio jump. */
-    if (!q || 'suppliers' in q.to || 'guests' in q.to) continue;
+    /* Suppliers, Guests ⚙ since R1 (the RSVP form's settings) and Guests' views since R4 (the march, the seat plan) are
+       other pages of the app — a plain link, no Studio jump. */
+    if (!q || 'suppliers' in q.to || 'guests' in q.to || 'guestsView' in q.to) continue;
     const door = makerPartStudioDoor(k);
     assert.ok(door, `${k}: its "Edit …" bar has a door`);
   }

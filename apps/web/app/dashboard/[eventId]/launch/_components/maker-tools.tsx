@@ -88,11 +88,7 @@ export const MAKER_TOOLS: readonly MakerTool[] = [
     label: 'Mood Board',
     load: () => import(/* webpackChunkName: "maker-mood-board" */ '../../studio/mood-board/_components/mood-board-lazy').then(warmDynamicExports),
   },
-  {
-    key: 'maker:seating',
-    label: 'Seat plan',
-    load: () => import(/* webpackChunkName: "maker-seating" */ '../../seating/_components/seating-lazy').then(warmDynamicExports),
-  },
+  /* (The Seat plan left on 2026-10-28 — R4: it is Guests › Seats, and the Maker draws only its door.) */
   /* (The march's ↑↓ panel left on 2026-10-06 — the Wedding March is the drag maker,
      `details-march.tsx`, warmed with the Details pieces above.) */
   /* The Logo studio turns typed words into outlines with opentype.js — loaded by

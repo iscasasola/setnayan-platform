@@ -54,8 +54,9 @@ const STAND_INS = [
   'app/dashboard/[eventId]/schedule/_components/schedule-lazy.tsx',
   /* (`guests/_components/entourage-lazy.tsx` left this list on 2026-10-06: the Maker
      no longer draws the ↑↓ walking-order panel it stood in for — the Wedding March
-     is the drag maker, `details-march.tsx`, behind `details-lazy.tsx`.) */
-  'app/dashboard/[eventId]/seating/_components/seating-lazy.tsx',
+     is the drag maker, `details-march.tsx`, behind `details-lazy.tsx`.)
+     (`seating/_components/seating-lazy.tsx` left it on 2026-10-28 — R4: the seat plan is Guests › Seats, whose page
+     draws the same stand-in; the Maker draws only its door, `guests-view-door.tsx`.) */
 ];
 const HEAVY = /^(?:three(?:\/.*)?|@react-three\/.+|opentype\.js|fabric(?:\/.*)?)$/;
 
@@ -168,7 +169,7 @@ test('floors — the walk reaches Details, the Mood Board and the Schedule, and 
     'app/dashboard/[eventId]/launch/_components/maker-made-once.tsx',
     'app/dashboard/[eventId]/studio/mood-board/_components/mood-board-editor.tsx',
     'app/dashboard/[eventId]/schedule/page.tsx',
-    'app/dashboard/[eventId]/seating/page.tsx',
+    /* (`seating/page.tsx` left this floor on 2026-10-28 — R4: the seat plan is Guests › Seats; the Maker draws its door.) */
   ]) {
     assert.ok(server.includes(f), `the Maker's server graph no longer reaches ${f} — the walk is not seeing Details`);
   }

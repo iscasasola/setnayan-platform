@@ -9,7 +9,7 @@ import { createClient } from '@/lib/supabase/server';
 import { eventRowOnce, openDashboardEventRow } from '@/lib/event-row-once';
 import { fetchEventViewer, isDelegateWithoutArea, viewerAreaLevel, type EventViewer } from '@/lib/event-viewer.server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { resolveProfileByEvent, resolveRoleSetKeyForEvent } from '@/lib/event-type-profile';
+import { resolveProfileByEvent, resolveRoleSetKeyForEvent, surfaceEnabled } from '@/lib/event-type-profile';
 import { getCurrentUser } from '@/lib/auth';
 import { publicEventPath, resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { sharedJoinLinkState } from '@/lib/shared-join-link';
@@ -51,7 +51,8 @@ import {
   type ArrangeKey,
 } from '@/lib/roster-arrangement';
 import { resolveRoleSet } from '@/lib/role-sets';
-import { detailsItemHref } from '@/lib/maker-details-items';
+import { GUESTS_VIEWS, guestsViewHref, isGuestsMakerView, parseGuestsView, type GuestsView } from '@/lib/guests-views';
+import { marchOffered } from '@/lib/details-your-event';
 import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
 import { fetchAssignments, fetchFloorPlanMeasured, fetchTables } from '@/lib/seating';
 import { measuredOr } from '@/lib/measured-read';
@@ -66,6 +67,8 @@ import { accountNamesByGuest } from '@/lib/linked-profile-names';
 import { withProfileName } from '@/lib/formal-name';
 import { ROLE_SECTION_ORDER } from './_components/role-section-order';
 import { GuestsScreen, type RowInvite } from './_components/guests-screen';
+import { GuestsMarch } from './_components/guests-march';
+import SeatingPage from '../seating/page';
 import type { TitleWaitingPerson } from './_components/titles-waiting';
 import { needsWomanOrMan, ROLES_WHOSE_WORD_NEEDS_GENDER, titleButtonText, titleKey } from '@/lib/guest-title';
 import { mapRootLabel, mayBeInvited } from '@/lib/guest-roster-view';
@@ -217,6 +220,8 @@ type Props = {
     view?: string;
     group?: string;
     gview?: string;
+    /** 🗂 R4 — Seats' own view (`3d` · `list` · `map`), carried to the seat plan (`lib/guests-views.ts` `SEAT_VIEWS`). */
+    seat?: string;
     /** `1` — Guests ⚙ open (a link's way in; the ⚙ press opens it in place). */
     settings?: string;
     /** With `settings=1`: the row to land on (`SETTINGS_ROWS` key). */
@@ -280,14 +285,13 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   const search = await searchParams;
 
   /*
-    🚶 THE WEDDING MARCH LIVES IN THE MAKER NOW (owner 2026-09-29, DECISION_LOG
-    "THE GUEST LIST KEEPS PEOPLE…"): Details › Your event › the march, in the
-    three parts. An old link to the Guest list's march view lands there; the
-    order itself (`guests.entourage_order`, `events.entourage_section_order`)
-    is untouched and the invitation prints it exactly as before.
+    🚶 THE WEDDING MARCH COMES HOME TO GUESTS (R4, owner 2026-10-27/28, DECISION_LOG "GUESTS = LIST · MAP · SEATS ·
+    MARCH"): it lived in the Maker from 2026-09-29; it is Guests › March now. The Guest list's own old march links
+    (`?gview=walk`, `?view=march`) land on it; the order itself (`guests.entourage_order`,
+    `events.entourage_section_order`) is untouched and the invitation prints it exactly as before.
   */
   if (search.gview === 'walk' || search.view === 'march') {
-    redirect(detailsItemHref(eventId, 'march'));
+    redirect(guestsViewHref(eventId, 'march'));
   }
   /*
     ⚖ THE GUESTS · HOSTS · CHECK-IN PARTS ROW IS GONE (owner 2026-09-30,
@@ -647,7 +651,37 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     ? rawView.slice('group:'.length)
     : null;
   const view = legacyGroup ? 'all' : rawView;
-  const gview: 'list' | 'map' = search.gview === 'map' ? 'map' : 'list';
+  /* 🗂 R4 · LIST · MAP · SEATS · MARCH (owner 2026-10-27/28). Seats where the type has a seat plan (the seat rooms'
+     own rule, `surfaceEnabled(…, 'seating')`); March where the role set prints an entourage (`marchOffered`, the
+     Maker's own rule) and only for the couple — the march drafts into THEIR Event Hub draft. A view this event does
+     not have is the List. 🔒 lib/r4-seats-march-forwards.test.ts */
+  const views: GuestsView[] = GUESTS_VIEWS.filter((v) =>
+    v === 'seats'
+      ? surfaceEnabled(eventProfile, 'seating')
+      : v === 'march'
+        ? viewer.isCouple && marchOffered({ offeredRoles: resolveRoleSet(guestRoleSetKey).offeredRoles })
+        : true,
+  );
+  const askedView = parseGuestsView(search.gview);
+  const gview: GuestsView = views.includes(askedView) ? askedView : 'list';
+  /* Seats and March are the shipped makers, drawn whole under the view row — streamed, so the row and its ⚙ are on
+     screen while the plan or the march reads. Seats is the seat plan's own page (`seating/page.tsx`, `host=guests`),
+     which still asks every seat rule itself (the type, the helper's seat-plan area). */
+  const viewBody = !isGuestsMakerView(gview) ? null : (
+    <Suspense
+      fallback={
+        <p role="status" className="px-4 py-10 text-center text-[13px] text-ink/60" data-guests-view-loading={gview}>
+          {gview === 'seats' ? 'Opening your seat plan…' : 'Opening your march…'}
+        </p>
+      }
+    >
+      {gview === 'seats' ? (
+        <SeatingPage params={Promise.resolve({ eventId })} searchParams={Promise.resolve({ host: 'guests', seat: search.seat })} />
+      ) : (
+        <GuestsMarch eventId={eventId} />
+      )}
+    </Suspense>
+  );
   const teamRaw = search.team ?? 'all';
   const teamFilter: 'all' | 'bride' | 'groom' =
     hasSides && (teamRaw === 'bride' || teamRaw === 'groom') ? teamRaw : 'all';
@@ -1042,6 +1076,8 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       eventId={eventId}
       roleSetKey={guestRoleSetKey}
       gview={gview}
+      views={views}
+      viewBody={viewBody}
       guests={rosterAll}
       measured={guestsMeasured}
       notLoaded={guestListUnreadLine(sideReads)}

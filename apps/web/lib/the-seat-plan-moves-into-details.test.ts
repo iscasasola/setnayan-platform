@@ -12,6 +12,10 @@
  *   · "3D SEAT PLANNING STAYS FREE" — the lab in the middle part, never a page away;
  *   · "THE GUEST LIST KEEPS PEOPLE…" — Arrange the room leaves the Guest list.
  *
+ * 🗂 R4 (owner 2026-10-27/28, DECISION_LOG "GUESTS = LIST · MAP · SEATS · MARCH"; *"3D plan: yes, inside Seats"*): the
+ * three parts and every rule below MOVED WHOLE to Guests › Seats (`host: 'guests'`, `seat-plan-in-guests.tsx` holds the
+ * two side columns); the Maker keeps only a door. The column rules are unchanged; the wiring tests say the new home.
+ *
  * The RULES (what each column lists) are executed; the WIRING (which shell the
  * one editor draws, which actions the door calls) is read from the source with
  * comments stripped, so a docblock can never satisfy it.
@@ -177,16 +181,16 @@ test('"+ Seat next unseated" seats the name at the top of Unseated; "Seat at… 
 
 /* ── the wiring — one editor, re-split ────────────────────────────────────── */
 
-test('the seating page lands the couple on Details › Seat plan, and draws the SAME editor there', () => {
+test('the seating page lands everyone on Guests › Seats (R4), and draws the SAME editor there', () => {
   const page = code('seating', 'page.tsx');
   assert.match(
     page,
-    /if \(!inMaker && \(await detailsIsTheDoor\(supabase, eventId, user\.id\)\)\) \{\s*redirect\(detailsDoorHref\(eventId, 'seating',/,
-    '/seating no longer lands the couple on the Details item',
+    /if \(!inMaker\) redirect\(guestsViewHref\(eventId, 'seats', \{ seat: viewParam === 'list' \? 'list' : null \}\)\);/,
+    '/seating no longer lands on Guests › Seats',
   );
   // ONE editor element for both shells — the props are never listed twice.
   assert.equal((page.match(/<SeatingEditor\b/g) ?? []).length, 1, 'a second <SeatingEditor> — the props now drift');
-  assert.match(page, /editorFor\(seatParam === 'list' \? 'list' : 'plan', \{ lab, sides,/);
+  assert.match(page, /editorFor\(seatParam === 'list' \? 'list' : 'plan', \{\s*lab,\s*sides,/);
   // 3D is the lab page itself, streamed in only while it is the view.
   assert.match(page, /seatParam === '3d'[\s\S]{0,260}<SeatingLabPage params=\{Promise\.resolve\(\{ eventId \}\)\} searchParams=\{Promise\.resolve\(\{ maker: '1' \}\)\}/);
 });
@@ -242,14 +246,15 @@ test('3D is drawn IN the middle part and never leaves Details; it does not drop 
   const at = lab.indexOf('if (inMaker) {');
   const seg = lab.slice(at, lab.indexOf('return;', at));
   assert.ok(at > 0 && seg.length > 0, 'the lab has no Details branch for its 2D / List segment');
-  assert.match(seg, /detailsItemHref\(eventId, 'seating'/);
+  assert.match(seg, /guestsViewHref\(eventId, 'seats'/);
   assert.doesNotMatch(seg, /\/seating`/, 'the lab’s 2D/List sends a Details couple to the standalone page');
 });
 
-test('the launch page draws the seating page in Details, only where the type has a seat plan', () => {
+test('the launch page draws only the door to Guests › Seats (R4), only where the type has a seat plan', () => {
   const launch = code('launch', 'page.tsx');
   assert.match(launch, /if \(detailsItemApplies\('seating', eventContext\)\) \{/);
-  assert.match(launch, /<CoupleSeatingPage[\s\S]{0,200}maker: '1', seat: one\(search\.seat\)/);
+  assert.match(launch, /page: <GuestsViewDoor eventId=\{eventId\} view="seats" \/>/);
+  assert.doesNotMatch(launch, /<CoupleSeatingPage/, 'the Maker draws a second copy of the seat plan');
   assert.match(launch, /seatPlan=\{seatPlan\}/);
 });
 
@@ -261,6 +266,6 @@ test('the Indoor Blueprint lives in the Seat plan — its shipped studio in the 
   assert.match(map, /<BlueprintStudio[\s\S]*saveAction=\{async \(fd\) => \{\s*await saveEntrance\(fd\);/, 'not the shipped studio and its own save');
   assert.doesNotMatch(map, /href=/, 'the Guests’ map links out of the Maker');
   const page = code('studio', 'indoor-blueprint', 'page.tsx');
-  assert.match(page, /redirect\(detailsDoorHref\(eventId, 'seating', \{ seat: 'map' \}\)\)/);
+  assert.match(page, /redirect\(guestsViewHref\(eventId, 'seats', \{ seat: 'map' \}\)\)/);
   assert.match(code('seating', 'page.tsx'), /part: seatParam === 'map' \? 'map' : null/);
 });

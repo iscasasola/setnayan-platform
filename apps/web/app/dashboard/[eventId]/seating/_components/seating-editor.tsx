@@ -191,7 +191,7 @@ import { useSeatingLiveRefresh } from './use-seating-live-refresh';
 import { SeatingLockError } from '../seating-lock-error';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
 import { formatCount } from '@/lib/format-number';
-import { detailsItemHref } from '@/lib/maker-details-items';
+import { guestsViewHref } from '@/lib/guests-views';
 import {
   moveTargets,
   nextUnseatedGuest,
@@ -357,6 +357,13 @@ export type SeatingDetailsShell = {
   sides: SeatPlanGuestOptions['sides'];
   /** Open on the Guests' map (the Indoor Blueprint's old address lands here, `?seat=map`). */
   part?: 'map' | null;
+  /**
+   * 🗂 R4 (owner 2026-10-27/28, "GUESTS = LIST · MAP · SEATS · MARCH"): `guests` — drawn by Guests › Seats, not the
+   * Maker. The SAME editor and the same three parts; only who holds the columns changes: Guests' own Seats view draws
+   * the two slots (`seat-plan-in-guests.tsx`), the plan is always on screen there, and a phone gets the Studio's phone
+   * seat plan (the map the screen, the people a pull-up sheet) — the shipped approved frames, never a new layout.
+   */
+  host?: 'maker' | 'guests';
 };
 
 const NEUTRAL = '#B7B1A6';
@@ -3815,8 +3822,11 @@ export function SeatingEditor({
   // Backspace typed on another item must never delete a table left selected
   // here. Under the 3D lab, the 2D selection is not showing either.
   const maker = useMaker();
+  /* 🗂 R4: in Guests › Seats the plan IS the view — it is on screen whenever it is drawn (no other item hides it). */
+  const inGuests = details?.host === 'guests';
   const seatPlanShowing =
     !details ||
+    (inGuests && !details.lab) ||
     (maker?.selection?.kind === 'tool' && maker.selection.key === 'details' && maker.detailsItem === 'seating' && !details.lab);
   // Leaving the plan for another Details item saves a dirty layout first — the
   // cross-projection rule's "auto-save on switch" (the 3D switch already does).
@@ -4324,8 +4334,8 @@ export function SeatingEditor({
   // (which stays mounted — its lock, its guests, its lists), and leaving 3D
   // drops it and re-reads the plan the lab may have changed. `scroll: false`
   // keeps the Maker where it is.
-  const seatViewHref = (seat: '3d' | 'list' | null) =>
-    detailsItemHref(eventId, 'seating', seat ? `&seat=${seat}` : '');
+  /* 🗂 R4: the seat plan's home is Guests › Seats (the Maker's old item forwards there too). */
+  const seatViewHref = (seat: '3d' | 'list' | null) => guestsViewHref(eventId, 'seats', { seat });
   useEffect(() => {
     if (switchAfterSaveRef.current && !isPending && !layoutDirty) {
       switchAfterSaveRef.current = false;
@@ -5728,7 +5738,7 @@ export function SeatingEditor({
      one compact head row, the tools in the thumb zone, the people list a pull-up sheet over the map
      (`seat-plan-phone.tsx`). Every opener of the Details editor (the people, a table, the rules,
      a new table) raises that sheet instead; the guests are drawn there, not in the lower third. */
-  const studioSeat = details !== null && isPhone && maker?.stagesStudio === true;
+  const studioSeat = details !== null && isPhone && (maker?.stagesStudio === true || inGuests);
   const [peopleOpen, setPeopleOpen] = useState(false);
   const openDetailsEditorShipped = useDetailsEditorOpener();
   const openDetailsEditor = () => (studioSeat ? setPeopleOpen(true) : openDetailsEditorShipped());

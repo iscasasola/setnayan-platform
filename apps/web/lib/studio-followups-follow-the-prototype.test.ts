@@ -257,13 +257,13 @@ test('6 · a Studio tile never leaves the Maker — every tile opens its editor 
   assert.match(look, /if \(item === 'logo'\) \{\s*return look\.logo \? \(\s*<div[^>]*data-details-look="logo">\s*\{look\.logo\}/, 'the Logo tile no longer draws the logo editor in place');
 });
 
-test('7 · each of the 10 tiles (RSVP left in R1) opens its OWN editor — Look never opens the Logo it was last on', async () => {
+test('7 · each of the 8 tiles (RSVP left in R1, Wedding March and Seat plan in R4) opens its OWN editor — Look never opens the Logo it was last on', async () => {
   const { STUDIO_TILE_KEYS, STUDIO_TILES, studioTileItem } = await import('./studio-tiles');
   const want: Record<string, string> = {
     info: 'names', look: 'background', logo: 'logo', mood: 'mood-board', schedule: 'schedule', story: 'love-story',
-    march: 'march', seats: 'seating', gifts: 'gifts', prints: STUDIO_TILES.prints.item,
+    gifts: 'gifts', prints: STUDIO_TILES.prints.item,
   };
-  assert.equal(STUDIO_TILE_KEYS.length, 10);
+  assert.equal(STUDIO_TILE_KEYS.length, 8);
   /* Whatever was open before — the worst cases are the other Look-group items. */
   /* ('elements' since the 2026-10-08 restudy — Look's sections are Background · Elements · Music; it was 'colours'.) */
   for (const before of [null, 'logo', 'mood-board', 'hero', 'reveal', 'names', 'elements', 'colours']) {

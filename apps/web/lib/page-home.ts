@@ -161,6 +161,9 @@ export const HOMES: Readonly<Record<string, Entry>> = {
   [`${E}/vendors/[vendorId]/*`]: { home: `${E}/vendors` },
   [`${E}/vendors/packages/[bookingId]`]: { home: `${E}/vendors` },
   [`${E}/details/field/[row]`]: { home: `${E}/details`, label: 'Event details' },
+  // 🗂 R4 (owner 2026-10-27/28, "GUESTS = LIST · MAP · SEATS · MARCH"): the seat plan is Guests › Seats — `/seating`
+  // forwards there, so its pages (the entrance chart, the walkthrough videos, the 3D room's own page) go back to it.
+  [`${E}/seating/*`]: { home: `${E}/guests?gview=seats`, label: 'Seats' },
 
   /* ── a guest of an event — back to THAT event's hub, never the marketing front page ─────────────── */
   '/[slug]/**': { home: '/[slug]' },

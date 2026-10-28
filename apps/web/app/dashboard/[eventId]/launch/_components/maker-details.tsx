@@ -687,6 +687,8 @@ export function MakerDetails(props: MakerDetailsProps) {
             ...(props.guide.guestsHref ? { guestsHref: props.guide.guestsHref } : {}),
             // 🗂 R1 — the reply settings' links open Guests ⚙ on their row (`guidedLinkHref`).
             guestsSettingsHref: guestsSettingsHref(eventId),
+            // 🗂 R4 — the march's and the seat plan's links open their Guests view.
+            guestsViewsHref: `${base}/guests`,
           },
           tour: props.guide.tour ?? null,
         }

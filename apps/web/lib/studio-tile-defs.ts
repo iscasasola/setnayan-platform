@@ -11,7 +11,12 @@ import { EVERY_PRINT_ITEM, LOOK_SECTION_ITEM_KEYS, type DetailsItemKey } from '@
  * the RSVP tile LEFT — its settings live in Guests ⚙ (`lib/event-settings-record.ts` `MAKER_RSVP_MOVED_TO_GUESTS`);
  * only the Reply page stays, inside the Invitation stage. Every old door forwards there (`lib/r1-rsvp-forwards.test.ts`).
  */
-export const STUDIO_TILE_KEYS = ['info', 'look', 'logo', 'mood', 'schedule', 'story', 'march', 'seats', 'gifts', 'prints'] as const;
+/**
+ * 🗂 R4 (owner 2026-10-27/28, same row; *"On guests we have things to move there: March, Seat, Rsvp"*): the Wedding March
+ * and Seat plan tiles LEFT — they are Guests › March and Guests › Seats (`lib/guests-views.ts`), the same makers drawn
+ * whole there; every old door forwards (`lib/r4-seats-march-forwards.test.ts`).
+ */
+export const STUDIO_TILE_KEYS = ['info', 'look', 'logo', 'mood', 'schedule', 'story', 'gifts', 'prints'] as const;
 export type StudioTileKey = (typeof STUDIO_TILE_KEYS)[number];
 
 /**
@@ -27,8 +32,6 @@ export const STUDIO_TILE_ITEM: Readonly<Record<StudioTileKey, DetailsItemKey>> =
   mood: 'mood-board',
   schedule: 'schedule',
   story: 'love-story',
-  march: 'march',
-  seats: 'seating',
   gifts: 'gifts',
   /* 🖨 Prints opens at the head of its form — "On every print", then the Invitation (owner 2026-10-16). */
   prints: EVERY_PRINT_ITEM,

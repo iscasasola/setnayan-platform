@@ -231,9 +231,10 @@ const HOME_PROOF: Record<string, () => boolean> = (() => {
     'mood-board': () =>
       (DETAILS_ITEM_KEYS as readonly string[]).includes('mood-board') &&
       read(EV, 'studio', 'mood-board', 'page.tsx').includes("redirect(detailsItemHref(eventId, 'mood-board'))"),
+    // 🗂 R4: the seat plan is Guests › Seats — its old page lands there, and the Guests row lights it.
     seating: () =>
-      (DETAILS_ITEM_KEYS as readonly string[]).includes('seating') &&
-      read(EV, 'seating', 'page.tsx').includes("redirect(detailsDoorHref(eventId, 'seating'") &&
+      read(EV, 'seating', 'page.tsx').includes("redirect(guestsViewHref(eventId, 'seats'") &&
+      Boolean(row('guests')?.alsoMatch?.includes(`${base}/seating`)) &&
       !row('seat'),
     'landing-page': () => row('launch')?.href === addOnHref('landing-page', EVENT),
     rsvp: () =>
@@ -247,11 +248,10 @@ const HOME_PROOF: Record<string, () => boolean> = (() => {
     'animated-monogram': () =>
       STUDIO_ABSORBED.palogo?.into === 'launch' &&
       fs.existsSync(path.join(EV, 'launch', '_components', 'maker-logo.tsx')),
-    // Details › Seat plan draws the shipped studio in its right part, and the
-    // old page lands there.
+    // Guests › Seats draws the shipped studio in its right part (R4), and the old page lands there.
     'indoor-blueprint': () =>
       read(EV, 'seating', '_components', 'seating-editor.tsx').includes('<BlueprintStudio') &&
-      read(EV, 'studio', 'indoor-blueprint', 'page.tsx').includes("detailsDoorHref(eventId, 'seating', { seat: 'map' })"),
+      read(EV, 'studio', 'indoor-blueprint', 'page.tsx').includes("guestsViewHref(eventId, 'seats', { seat: 'map' })"),
     // Details › Date draws the finder's candidates beside the date row.
     'find-date': () =>
       read(EV, 'launch', '_components', 'details-your-event.tsx').includes('<FindDateCandidates') &&

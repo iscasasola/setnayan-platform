@@ -129,6 +129,11 @@ test('4 · Your details and Today’s setup both hand the rows the rule and the 
   const editor = src('app/vendor-dashboard/shop/_components/profile-checklist-editor.tsx');
   assert.match(editor, /rowAsks\(item\.key, item\.ok, asks\) \? \(\s*<RequestOnlyRow/);
   const row = src('app/vendor-dashboard/shop/_components/editable-row.tsx');
-  assert.match(row, /href="\/vendor-dashboard\/profile#fix"/, 'Ask to change goes somewhere other than the ask card');
-  assert.match(row, /Change asked · waiting/);
+  // Asked IN PLACE (Today's setup is done in place — `setup-is-done-in-place.test.ts`), through the shipped action.
+  const ask = row.slice(row.indexOf('export function RequestOnlyRow'), row.indexOf('function StatusChip'));
+  assert.match(ask, /await requestProfileCorrection\(null, fd\)/, 'the row asks somewhere other than the shipped door');
+  assert.match(ask, /fd\.set\('field_key', field\);/);
+  assert.doesNotMatch(ask, /<a |<Link /, 'Ask to change sends the supplier away');
+  assert.match(ask, /Change asked · waiting/);
+  assert.match(ask, /setSent\(true\);/, 'a sent ask does not say so in place');
 });

@@ -34,4 +34,15 @@ shop, the avatar sheet (sign-out), the event itself (`/dashboard/<id>`), and the
 covered" is the missing step. A helper, a verified shop and an unread row are never held (`legacy_read` now marks the
 fallback profile read). Guard: `lib/basic-setup-gate.test.ts`.
 
+S2 follow-up: "Ask to change" files the request IN PLACE on the row (one line, Send → the shipped
+`requestProfileCorrection`), so Today's setup stays "done in place" (`setup-is-done-in-place.test.ts` unchanged).
+
+**S4 · "What you offer" counts each real service once.** `offerProgress` (`lib/supplier-setup.ts`) takes the coarse set
+(`new Set(VENDOR_CATEGORIES)`, handed in by `lib/vendor-first-steps.server.ts` — the same set
+`syncProfileFromCoverages` preserves beside the leaves): a coarse key beside a leaf is not a service of its own unless
+a card is filed under it; an all-coarse shop keeps its services. An /open-shop stylist (`[makeup_artist, bridal_hmua]`)
+is asked for three cards, not six. A refused card read stays "Couldn’t load" (unchanged). Lab:
+`/dev/supplier-lab?easy=setup&coarse=1`. Guard: `lib/what-you-offer-counts-each-service-once.test.ts`;
+`setup-is-done-in-place.test.ts` passes the set (reason noted).
+
 SPEC IMPACT: DECISION_LOG row "SUPPLIERS READY TO RUN AN EVENT AND FINISH THEIR SHOP" (corpus).

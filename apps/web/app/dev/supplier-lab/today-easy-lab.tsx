@@ -25,6 +25,7 @@ import type { TodayOutcome } from '@/app/vendor-dashboard/_components/supplier-t
 import { SupplierSetupScreen } from '@/app/vendor-dashboard/_components/supplier-setup-screen';
 import { TodaySettings } from '@/app/vendor-dashboard/_components/today-settings';
 import { offerProgress } from '@/lib/supplier-setup';
+import { VENDOR_CATEGORIES } from '@/lib/vendors';
 import { labSetupDetails } from './page-lab';
 
 export const EASY_MOMENTS = ['normal', 'setup', 'ask', 'eventday', 'locked', 'hallask', 'agreed'] as const;
@@ -262,7 +263,7 @@ function forecastFor(price: number, freeUsed: number): FeeDisclosure | null {
   );
 }
 
-export function TodayEasyLab({ sup: supKey, moment, actions, library = false, rail = null, logoNext = false, gift: giftMode = null, eventsYouRun = [], docs = 'none', gbb = 2 }: { /** 🧰 setup: how the papers stand (`&docs=checking|fix`) and how many Buffet cards are made (`&gbb=0..3`). */ docs?: 'none' | 'checking' | 'fix'; gbb?: number; sup: EasySupplier; moment: EasyMoment; actions: TodayActions; library?: boolean; /** 🗂 `?s=coord-today` — the events this supplier runs as a coordinator (owner 2026-10-28). */ eventsYouRun?: readonly EventYouRun[]; /** `setup` only — how far along the first steps are: `service` (details done) · `docs` (a service too) — prototype first_run S4 / S5. */ rail?: 'service' | 'docs' | null; /** `&logo=1` on setup: details done, no logo — the logo step is next (2026-10-22). */ logoNext?: boolean; /** 🎁 `&gift=running|soon` — a plan Setnayan gave (personal invite B6 · C2): Pro until 31 Jan 2027, or a week left. */ gift?: 'running' | 'soon' | null }) {
+export function TodayEasyLab({ sup: supKey, moment, actions, library = false, rail = null, logoNext = false, gift: giftMode = null, eventsYouRun = [], docs = 'none', gbb = 2, coarse = false }: { /** 🔢 `&coarse=1` on setup — an /open-shop shop's [coarse, leaf] services (owner 2026-10-29). */ coarse?: boolean; /** 🧰 setup: how the papers stand (`&docs=checking|fix`) and how many Buffet cards are made (`&gbb=0..3`). */ docs?: 'none' | 'checking' | 'fix'; gbb?: number; sup: EasySupplier; moment: EasyMoment; actions: TodayActions; library?: boolean; /** 🗂 `?s=coord-today` — the events this supplier runs as a coordinator (owner 2026-10-28). */ eventsYouRun?: readonly EventYouRun[]; /** `setup` only — how far along the first steps are: `service` (details done) · `docs` (a service too) — prototype first_run S4 / S5. */ rail?: 'service' | 'docs' | null; /** `&logo=1` on setup: details done, no logo — the logo step is next (2026-10-22). */ logoNext?: boolean; /** 🎁 `&gift=running|soon` — a plan Setnayan gave (personal invite B6 · C2): Pro until 31 Jan 2027, or a week left. */ gift?: 'running' | 'soon' | null }) {
   // 🎁 The gift's end: 31 Jan 2027 23:59:59 Manila for `running`; seven days after the lab's now for `soon`.
   const giftRow = giftMode
     ? { tier_state: 'pro', tier_source: 'admin_comp', tier_expires_at: giftMode === 'soon' ? new Date(NOW + 7 * 86_400_000 - 60_000).toISOString() : '2027-01-31T15:59:59.000Z' }
@@ -288,7 +289,10 @@ export function TodayEasyLab({ sup: supKey, moment, actions, library = false, ra
     { id: 'c2', service: 'catering', title: 'Premium buffet', pricePhp: 650 },
     { id: 'c3', service: 'catering', title: 'Signature feast', pricePhp: 950 },
   ].slice(0, Math.max(0, Math.min(3, gbb)));
-  const labOffer = offerProgress(['catering', 'grazing_table'], labCards);
+  // `&coarse=1` — 🔢 a shop opened through /open-shop ([coarse, leaf], owner 2026-10-29): ONE service, three cards.
+  const labOffer = coarse
+    ? offerProgress(['makeup_artist', 'bridal_hmua'], labCards.map((c) => ({ ...c, service: 'bridal_hmua' })), new Set(VENDOR_CATEGORIES))
+    : offerProgress(['catering', 'grazing_table'], labCards, new Set(VENDOR_CATEGORIES));
   const firstSteps = setup
     ? buildFirstStepsRail({
         verified: false,

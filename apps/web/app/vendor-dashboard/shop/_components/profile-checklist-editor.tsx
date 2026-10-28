@@ -5,7 +5,7 @@ import { Check } from 'lucide-react';
 
 import type { BusinessProfileItem } from '@/lib/vendor-profile';
 import { EditableRow, RequestOnlyRow, ServiceCoverageRow, type ProfileFieldData } from './editable-row';
-import { rowAsks, type LockedIdentityFieldKey } from '@/lib/vendor-corrections';
+import { ADMIN_SET_UP_ROW_FIELD, rowAsks, type LockedIdentityFieldKey } from '@/lib/vendor-corrections';
 import { formatCount } from '@/lib/format-number';
 
 /**
@@ -121,6 +121,7 @@ export function ProfileChecklistEditor({
               key={item.key}
               item={item}
               data={data}
+              field={ADMIN_SET_UP_ROW_FIELD[item.key as keyof typeof ADMIN_SET_UP_ROW_FIELD]}
               pending={rowAsks(item.key, item.ok, asks) === 'pending'}
               flat={flat}
             />

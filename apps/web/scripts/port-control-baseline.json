@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "5928b080fa",
+  "generatedFromRef": "c53e3d5625",
   "routeCount": 475,
-  "destinations": 993,
-  "actions": 642,
-  "blocks": 7175,
+  "destinations": 984,
+  "actions": 643,
+  "blocks": 7181,
   "routes": {
     "/": {
       "files": [
@@ -824,13 +824,10 @@
         "3d_plan/demo/[token]/_components/plan3d-guest-view.tsx",
         "3d_plan/demo/[token]/page.tsx"
       ],
-      "destinations": [
-        "/"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
         "DoorShell",
-        "Link",
         "Phase",
         "Plan3DGuestView",
         "Plan3DSceneLoader"
@@ -3492,7 +3489,7 @@
         "admin/integrations/page.tsx"
       ],
       "destinations": [
-        "/admin/more"
+        "/admin/ugat"
       ],
       "actions": [
         "clearIntegrationSecret",
@@ -4166,7 +4163,7 @@
         "admin/secrets/page.tsx"
       ],
       "destinations": [
-        "/admin/more"
+        "/admin/ugat"
       ],
       "actions": [
         "clearDbSecret",
@@ -8756,9 +8753,9 @@
       ],
       "destinations": [
         "/[seg]?phase=editorial",
+        "/dashboard/[seg]/launch",
         "/dashboard/[seg]/schedule",
         "/dashboard/[seg]/studio/mood-board",
-        "/dashboard/[seg]/website",
         "/dashboard/[seg]/website/living-hero",
         "/dashboard/[seg]/website/our-photos",
         "/dashboard/[seg]/website/privacy",
@@ -8855,7 +8852,7 @@
         "dashboard/[eventId]/studio/guest-columns/page.tsx"
       ],
       "destinations": [
-        "/dashboard/[seg]/website"
+        "/dashboard/[seg]/launch"
       ],
       "actions": [],
       "blocks": [
@@ -10546,7 +10543,7 @@
         "dashboard/[eventId]/website/hero-photo/page.tsx"
       ],
       "destinations": [
-        "/dashboard/[seg]/website",
+        "/dashboard/[seg]/launch",
         "/dashboard/[seg]/website/living-hero"
       ],
       "actions": [
@@ -10769,7 +10766,7 @@
         "dashboard/[eventId]/website/stories/page.tsx"
       ],
       "destinations": [
-        "/dashboard/[seg]/website",
+        "/dashboard/[seg]/launch",
         "/u/[seg]/c/[seg]"
       ],
       "actions": [
@@ -11386,7 +11383,7 @@
         "dev/notifications-lab/page.tsx"
       ],
       "destinations": [
-        "/dev/notifications-lab"
+        "/dashboard"
       ],
       "actions": [],
       "blocks": [
@@ -11613,6 +11610,7 @@
         "/dev/supplier-lab?s=dates-day",
         "/dev/supplier-lab?s=dates-halls",
         "/dev/supplier-lab?s=library&view=review",
+        "/dev/supplier-lab?s=money",
         "/dev/supplier-lab?s=people",
         "/dev/supplier-lab?s=qr",
         "/dev/supplier-lab?s=qr-booked",
@@ -11675,6 +11673,7 @@
         "SearchBox",
         "ShopBadgePill",
         "ShopSegments",
+        "ShopWalletSheet",
         "StylistLibraryEditor",
         "SuggestBoardActions",
         "SuggestLab",
@@ -11927,7 +11926,6 @@
         "host/accept/[token]/page.tsx"
       ],
       "destinations": [
-        "/",
         "/dashboard/[seg]",
         "/login?next=",
         "/login?next=[seg]",
@@ -12364,9 +12362,7 @@
         "panood/cam/[token]/loading.tsx",
         "panood/cam/[token]/page.tsx"
       ],
-      "destinations": [
-        "/"
-      ],
+      "destinations": [],
       "actions": [
         "claimPanoodCamera"
       ],
@@ -12488,9 +12484,7 @@
         "panood/demo/[token]/_components/cam-join-flow.tsx",
         "panood/demo/[token]/page.tsx"
       ],
-      "destinations": [
-        "/"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
         "CamJoinFlow",
@@ -12498,7 +12492,6 @@
         "CameraPublisher",
         "DoorShell",
         "HTMLVideoElement",
-        "Link",
         "MediaStream",
         "PeerConnectionState",
         "Shell",
@@ -12533,9 +12526,7 @@
         "papic/claim/[token]/loading.tsx",
         "papic/claim/[token]/page.tsx"
       ],
-      "destinations": [
-        "/"
-      ],
+      "destinations": [],
       "actions": [
         "claimPapicSeat"
       ],
@@ -12554,7 +12545,6 @@
         "papic/decorate/page.tsx"
       ],
       "destinations": [
-        "/",
         "/papic/guest"
       ],
       "actions": [],
@@ -12575,15 +12565,12 @@
         "papic/demo/[token]/_components/demo-join-flow.tsx",
         "papic/demo/[token]/page.tsx"
       ],
-      "destinations": [
-        "/"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
         "DemoJoinFlow",
         "DoorShell",
         "HTMLVideoElement",
-        "Link",
         "MediaStream",
         "Shell",
         "Step"
@@ -12601,7 +12588,6 @@
         "papic/guest/page.tsx"
       ],
       "destinations": [
-        "/",
         "/[seg]",
         "/papic/guest",
         "/papic/me/[seg]",
@@ -12649,9 +12635,7 @@
         "papic/join/[token]/_components/join-forwarder.tsx",
         "papic/join/[token]/page.tsx"
       ],
-      "destinations": [
-        "/"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
         "AppInstallBanner",
@@ -12684,7 +12668,6 @@
         "papic/me/[token]/page.tsx"
       ],
       "destinations": [
-        "/",
         "/papic/me/[seg]/download",
         "/papic/me/[seg]/photo?id=[seg]&src=[seg]",
         "/papic/me/[seg]/session",
@@ -12729,7 +12712,6 @@
         "papic/pool/page.tsx"
       ],
       "destinations": [
-        "/",
         "/papic/me/[seg]"
       ],
       "actions": [],
@@ -12747,7 +12729,6 @@
         "papic/seat/[token]/page.tsx"
       ],
       "destinations": [
-        "/",
         "/papic/seat/[seg]"
       ],
       "actions": [],
@@ -13184,6 +13165,7 @@
         "/[seg]",
         "/[seg]?reviewsPage=[seg]",
         "/dashboard",
+        "/explore",
         "/login",
         "/signup",
         "/v/[seg]/booth"
@@ -13666,6 +13648,7 @@
         "/vendor-dashboard/clients/[seg]?tab=payments",
         "/vendor-dashboard/clients/[seg]?tab=schedule",
         "/vendor-dashboard/clients/[seg]?tab=schedule&lens=mine",
+        "/vendor-dashboard/customers",
         "/vendor-dashboard/lines",
         "/vendor-dashboard/messages/[seg]",
         "/vendor-dashboard/proposals",
@@ -14013,6 +13996,7 @@
         "vendor-dashboard/customers/_components/money-view.tsx",
         "vendor-dashboard/customers/_components/outside-client-add.tsx",
         "vendor-dashboard/customers/_components/people-more.tsx",
+        "vendor-dashboard/customers/_components/shop-wallet-sheet.tsx",
         "vendor-dashboard/customers/actions.ts",
         "vendor-dashboard/customers/anchors.ts",
         "vendor-dashboard/customers/page.tsx",
@@ -14024,6 +14008,7 @@
         "/vendor-dashboard/clients/[seg]?tab=details",
         "/vendor-dashboard/customers?seg=dates&m=[seg]",
         "/vendor-dashboard/messages/[seg]",
+        "/vendor-dashboard/on-the-day/live/[seg]/papic",
         "/vendor-dashboard/subscription"
       ],
       "actions": [
@@ -14031,6 +14016,7 @@
         "addManualBlock",
         "createAction",
         "editAction",
+        "formAction",
         "importExternalClient",
         "moveAction",
         "removeBlock"
@@ -14042,6 +14028,8 @@
         "BlockDateAdd",
         "BookingFeeBills",
         "BookingsSurface",
+        "BuyAPack",
+        "BuyVendorPapicPortfolioPackState",
         "CalendarDay",
         "CalendarGrid",
         "CalendarLegend",
@@ -14089,6 +14077,7 @@
         "OutsideClient",
         "OutsideClientAdd",
         "OutsideClientRows",
+        "PaymentsPausedNote",
         "PesoCount",
         "PickMenu",
         "PillLink",
@@ -14103,6 +14092,8 @@
         "SearchBox",
         "ShareTeamPick",
         "Sheet",
+        "ShopWalletSheet",
+        "ShopWalletSheetData",
         "SupplierSubmit",
         "SupplierThumbRow",
         "SupplierToast",
@@ -14320,7 +14311,7 @@
         "/vendor-dashboard/clients/[seg]?tab=files",
         "/vendor-dashboard/clients/[seg]?tab=quote",
         "/vendor-dashboard/clients/[seg]?tab=schedule",
-        "/vendor-dashboard/messages",
+        "/vendor-dashboard/customers?seg=people&open=messages",
         "/vendor-dashboard/messages/[seg]",
         "/vendor-dashboard/proposals"
       ],
@@ -15251,6 +15242,7 @@
       ],
       "blocks": [
         "AccordionSkeleton",
+        "ActionButton",
         "ApplicationStatus",
         "AutoReplyCard",
         "AutoReplySaveResult",
@@ -15306,6 +15298,7 @@
         "PillTrack",
         "Pin",
         "PlainInput",
+        "PortfolioForm",
         "PublicLineSaveResult",
         "ReachMap",
         "ReceiptLine",
@@ -15331,6 +15324,7 @@
         "SubmitButton",
         "SubmitResult",
         "SuggestedCoverageActionResult",
+        "SupplierSubmit",
         "Suspense",
         "Switch",
         "SwitchTrack",
@@ -15583,9 +15577,7 @@
         "vendor/claim/[token]/loading.tsx",
         "vendor/claim/[token]/page.tsx"
       ],
-      "destinations": [
-        "/"
-      ],
+      "destinations": [],
       "actions": [
         "declineVendorInviteByToken"
       ],

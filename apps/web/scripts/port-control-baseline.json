@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "0fc5ca762c",
+  "generatedFromRef": "5928b080fa",
   "routeCount": 475,
-  "destinations": 994,
+  "destinations": 993,
   "actions": 642,
-  "blocks": 7159,
+  "blocks": 7175,
   "routes": {
     "/": {
       "files": [
@@ -7100,18 +7100,20 @@
         "dashboard/[eventId]/guests/send/page.tsx"
       ],
       "destinations": [
-        "/dashboard/[seg]/guests",
         "/dashboard/[seg]/invitation"
       ],
       "actions": [],
       "blocks": [
+        "ActionButton",
+        "HTMLDivElement",
+        "Icon",
+        "InfoTip",
         "InviteMessageEditor",
         "Link",
         "NotSharedWithYou",
-        "PickMenu",
-        "SendInviteActions",
         "SendRun",
-        "Who"
+        "SentOrNotYet",
+        "Sheet"
       ]
     },
     "/dashboard/[eventId]/guests/souvenirs": {
@@ -11539,6 +11541,7 @@
       "actions": [],
       "blocks": [
         "Link",
+        "ShopBadgePill",
         "SlugNotFound",
         "TeamPreviewBanner",
         "Wordmark"
@@ -11629,6 +11632,7 @@
         "ActionButton",
         "AutoReplyCard",
         "Badge",
+        "BadgeEarnedLine",
         "BlockDateAdd",
         "BottomDock",
         "BottomNav",
@@ -11669,6 +11673,7 @@
         "QrCodes",
         "ScreenFindingsPanel",
         "SearchBox",
+        "ShopBadgePill",
         "ShopSegments",
         "StylistLibraryEditor",
         "SuggestBoardActions",
@@ -13220,6 +13225,7 @@
         "ServicesGallery",
         "ServicesPricingSection",
         "ShareButton",
+        "ShopBadgePill",
         "SignInHereLink",
         "StarRow",
         "StartServiceInquiryResult",
@@ -13267,6 +13273,7 @@
     },
     "/vendor-dashboard": {
       "files": [
+        "vendor-dashboard/_components/badge-earned-line.tsx",
         "vendor-dashboard/_components/branch-manager.tsx",
         "vendor-dashboard/_components/branch-pin-map.tsx",
         "vendor-dashboard/_components/branch-place-cache.ts",
@@ -13368,6 +13375,7 @@
         "AppPreload",
         "AppRailShell",
         "Badge",
+        "BadgeEarnedLine",
         "BookingFeeBills",
         "BookingFeeNotice",
         "BottomDock",
@@ -13426,7 +13434,9 @@
         "RowIcon",
         "RowSkeleton",
         "SVGSVGElement",
+        "SaveFileLink",
         "Screen",
+        "ShopBadgePill",
         "Sk",
         "Spotlight",
         "SpotlightMount",
@@ -15497,6 +15507,7 @@
     },
     "/vendor-dashboard/website": {
       "files": [
+        "vendor-dashboard/website/_components/badge-tracker.tsx",
         "vendor-dashboard/website/_components/page-parts.tsx",
         "vendor-dashboard/website/_components/use-page-draft.ts",
         "vendor-dashboard/website/_domain-manager.tsx",
@@ -15516,12 +15527,15 @@
         "ActionButton",
         "AutoReplySection",
         "Badge",
+        "BadgeTracker",
+        "Circle",
         "ColourPickerSheet",
         "DatesRow",
         "DomainActionResult",
         "DomainManager",
         "Fold",
         "FormPageSkeleton",
+        "InfoTip",
         "OwnRow",
         "PageData",
         "PageDraft",
@@ -15532,6 +15546,9 @@
         "PickTile",
         "PlanAsk",
         "RowIcon",
+        "SaveFileLink",
+        "SetnayanMark",
+        "ShopBadgePill",
         "ShopSegments",
         "SupplierThumbRow",
         "SwitchRow",

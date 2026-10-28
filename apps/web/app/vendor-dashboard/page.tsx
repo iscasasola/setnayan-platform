@@ -30,6 +30,7 @@ import {
   type VendorEarningsSummary,
 } from '@/lib/vendor-overview';
 import { ServerTimer } from '@/lib/server-timing';
+import { readEventsYouRunWithNeeds } from '@/lib/events-you-run.server';
 import { acceptInquiry, declineInquiry } from '@/lib/chat-actions';
 import {
   vendorAcknowledgeDeposit,
@@ -283,6 +284,10 @@ export default async function VendorOverviewPage({
   const feeEnforcedP = resolveFeeEnforcement();
   // Started early, so a refusal before wave 2 reads it is still handled there.
   feeEnforcedP.catch(() => undefined);
+  // 🗂 "Events you run" (owner "approved", 2026-10-28) — this person's LIVE coordinator seats. The layout started the
+  // same cache()d read for the Events tab, so this is free; started here and read at the end, it adds no trip.
+  // Fails closed: a refused read draws no section (`lib/events-you-run.server.ts`).
+  const eventsYouRunP = readEventsYouRunWithNeeds(supabase, user.id).catch(() => ({ events: [], measured: false }));
   const todayIso = manilaToday();
   const vendorProfileId = profile.vendor_profile_id;
   let data;
@@ -579,6 +584,7 @@ export default async function VendorOverviewPage({
 
   // 🧩 The library door reads the live parts (③0-b) — the same snapshot the real upload gate reads.
   const libraryOpen = moodboardLibraryAccessForProfile(profile, await inspirationPartsRead).allowed;
+  const { events: eventsYouRun } = await eventsYouRunP;
 
   return (
     <div className="mx-auto w-full max-w-6xl tab:max-w-3xl px-4 py-4 sm:px-6 sm:py-10 lg:px-8">
@@ -592,6 +598,7 @@ export default async function VendorOverviewPage({
         outcome={outcome}
         feeForecasts={feeForecasts}
         cards={[...needsAnswer, ...nothingToAnswer]}
+        eventsYouRun={eventsYouRun}
         askStatus={askStatus}
         deskIncomplete={deskIncomplete}
         // 🌱🖼 "Add to the inspiration library" — only for a shop whose trades supply a part (owner 2026-10-19).

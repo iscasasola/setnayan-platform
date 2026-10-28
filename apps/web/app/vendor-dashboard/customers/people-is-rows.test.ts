@@ -212,7 +212,7 @@ test('3c · one pinned row on every view: People draws it with the four counts; 
   const hub = body(PAGE, 'VendorCustomersHub');
   assert.match(
     hub,
-    /\{seg === 'people' \|\| \(seg === 'dates' && search\.day\) \? null : \(\s*<CustomersPin\s+seg=\{seg\}\s+hrefOf=\{customersSegmentHref\}\s+gear=/,
+    /\{seg === 'people' \|\| \(seg === 'dates' && search\.day\) \? null : \(\s*<CustomersPin\s+seg=\{seg\}\s+hrefs=\{CUSTOMER_SEGMENT_HREFS\}\s+gear=/,
     'Dates / Money lost their pinned row (or draw counts they never read)',
   );
 });

@@ -3,11 +3,11 @@
 import { useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
-import { CUSTOMER_SEGMENTS, CUSTOMER_SEGMENT_LABEL, type CustomersSegment } from '../segments';
+import { CUSTOMER_SEGMENTS, CUSTOMER_SEGMENT_LABEL, type CustomersDoorKey, type CustomersSegment } from '../segments';
 
-export type CustomersDoorKey = 'asking' | 'talking' | 'booked' | 'done';
-
-export const CUSTOMERS_DOORS: readonly CustomersDoorKey[] = ['asking', 'talking', 'booked', 'done'];
+// The door keys live in the neutral `segments.ts`: a `'use client'` module hands a server page a REFERENCE, never the
+// array itself (measured: `CUSTOMERS_DOORS.map is not a function` on the first render).
+export type { CustomersDoorKey } from '../segments';
 
 export type CustomersDoor = {
   key: CustomersDoorKey;
@@ -39,7 +39,7 @@ export type CustomersDoor = {
  */
 export function CustomersPin({
   seg,
-  hrefOf,
+  hrefs,
   doors = null,
   panels = null,
   initial = 'asking',
@@ -49,8 +49,9 @@ export function CustomersPin({
   /** A status line between the row and its lists (a payday read that fell short). */
   between?: ReactNode;
   seg: CustomersSegment;
-  /** Each view's own address (a fixture page — the dev lab — hands its own). */
-  hrefOf: (s: CustomersSegment) => string;
+  /** Each view's own address (a fixture page — the dev lab — hands its own). Strings, not a function: a server page
+   *  cannot hand a client row a function. */
+  hrefs: Readonly<Record<CustomersSegment, string>>;
   /** People's four counts; null on Dates and Money. */
   doors?: readonly CustomersDoor[] | null;
   /** Each door's list, drawn by the server. */
@@ -68,7 +69,7 @@ export function CustomersPin({
       <button
         key={d.key}
         type="button"
-        className={`sn-press grid min-h-11 min-w-0 flex-1 content-center gap-0.5 rounded-full px-0.5 py-1 text-center transition-colors duration-200 motion-reduce:transition-none ${
+        className={`sn-press grid min-h-11 min-w-0 max-w-[6.5rem] flex-1 content-center gap-0.5 rounded-full px-0.5 py-1 text-center transition-colors duration-200 motion-reduce:transition-none ${
           pressed ? 'bg-sn-accent' : ''
         }`}
         onClick={() => setOn(d.key)}
@@ -125,11 +126,13 @@ export function CustomersPin({
               compact
               dataAttr="data-customers-picker"
               onPick={(k) => {
-                if (k !== seg) router.push(hrefOf(k as CustomersSegment), { scroll: false });
+                if (k !== seg) router.push(hrefs[k as CustomersSegment], { scroll: false });
               }}
             />
           </span>
           {doors ? (
+            // Doors cap at 6.5rem: on a tablet or a computer the row keeps the phone's proportions instead of
+            // stretching four pills across the page; the space gathers before the ⚙.
             <span className="flex min-w-0 flex-1 items-center gap-0.5" data-customers-doors="" data-tour="customers-filter">
               {doors.map(door)}
             </span>

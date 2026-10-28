@@ -151,11 +151,11 @@ export function MoneyLab({ state, next, open, mpage, wallet: walletState }: { st
   const customers = picture.customers.map((c) => ({ ...c, href: `/dev/supplier-lab?s=people` }));
 
   return (
-    <div className="min-h-screen bg-cream px-4 pb-32 pt-4" data-supplier-lab={state}>
+    <div className="min-h-screen bg-cream px-4 pb-32 pt-4 sm:px-6 lg:px-8" data-supplier-lab={state}>
       <div className="space-y-4">
         <CustomersPin
           seg="money"
-          hrefOf={(s) => (s === 'money' ? base : `/dev/supplier-lab?s=${s}`)}
+          hrefs={{ people: '/dev/supplier-lab?s=people', dates: '/dev/supplier-lab?s=dates', money: base }}
           gear={<CustomersSettings body={null} />}
         />
       </div>

@@ -59,7 +59,7 @@ async function renderPin(over: Record<string, unknown> = {}): Promise<string> {
   return renderToStaticMarkup(
     React.createElement(CustomersPin, {
       seg: 'people',
-      hrefOf: (s: string) => `/x?seg=${s}`,
+      hrefs: { people: '/x?seg=people', dates: '/x?seg=dates', money: '/x?seg=money' },
       doors: [
         { key: 'asking', value: '2', word: 'asking', hot: true },
         { key: 'talking', value: '3', word: 'talking' },

@@ -132,6 +132,8 @@ test('4 · the vendor-org RLS still hides another shop’s codes (the column rid
   const theirBlock = await block(otherShop, otherPool, 'external_client', '2027-04-14');
   await token(otherShop, otherUid, theirBlock);
   await setAuthUid(db, vendorUid);
+  // As the signed-in shop, not the replay's superuser (which bypasses RLS and would make this case vacuous).
+  await db.exec(`SET ROLE authenticated`);
   try {
     const r = await db.query<{ n: number }>(
       `SELECT count(*)::int AS n FROM public.vendor_locked_qr_tokens WHERE vendor_profile_id = $1`,
@@ -143,6 +145,7 @@ test('4 · the vendor-org RLS still hides another shop’s codes (the column rid
     );
     assert.ok(mine.rows[0]!.n >= 1, 'the shop cannot read its own codes’ booking — the row would say nothing');
   } finally {
+    await db.exec(`RESET ROLE`).catch(() => {});
     await setAuthUid(db, null);
   }
 });

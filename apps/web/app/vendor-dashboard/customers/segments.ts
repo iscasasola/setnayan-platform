@@ -71,3 +71,17 @@ export function foldsOf(seg: CustomersSegment): string[] {
 export function customersSegmentHref(seg: CustomersSegment): string {
   return seg === 'people' ? '/vendor-dashboard/customers' : `/vendor-dashboard/customers?seg=${seg}`;
 }
+
+/**
+ * People's four doors — Asking · Talking · Booked · Done (owner 2026-10-28, prototype `custRows()`), drawn by
+ * `CustomersPin`. Here, in the neutral module, because a server page reads the list itself.
+ */
+export type CustomersDoorKey = 'asking' | 'talking' | 'booked' | 'done';
+export const CUSTOMERS_DOORS: readonly CustomersDoorKey[] = ['asking', 'talking', 'booked', 'done'];
+
+/** Every view's own address, as strings (a client row cannot be handed a function). */
+export const CUSTOMER_SEGMENT_HREFS: Readonly<Record<CustomersSegment, string>> = {
+  people: customersSegmentHref('people'),
+  dates: customersSegmentHref('dates'),
+  money: customersSegmentHref('money'),
+};

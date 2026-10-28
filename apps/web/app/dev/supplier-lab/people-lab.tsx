@@ -22,7 +22,8 @@ import {
   type OutsideClient,
   type OutsideCode,
 } from '@/app/vendor-dashboard/customers/_components/people-more';
-import { CUSTOMERS_DOORS, CustomersPin, type CustomersDoorKey } from '@/app/vendor-dashboard/customers/_components/customers-pin';
+import { CustomersPin } from '@/app/vendor-dashboard/customers/_components/customers-pin';
+import { CUSTOMERS_DOORS, type CustomersDoorKey } from '@/app/vendor-dashboard/customers/segments';
 import { CustomersSettings } from '@/app/vendor-dashboard/customers/_components/customers-settings';
 import { DaysSettings } from '@/app/vendor-dashboard/customers/_components/dates-folds';
 import { ChatOriginMark } from '@/app/_components/chat/chat-back';
@@ -243,7 +244,7 @@ export function PeopleLab({
             <ChatOriginMark />
             <CustomersPin
               seg="people"
-              hrefOf={(s) => (s === 'people' ? base : `${base}&seg=${s}`)}
+              hrefs={{ people: base, dates: '/dev/supplier-lab?s=dates', money: '/dev/supplier-lab?s=money' }}
               doors={[
                 { key: 'asking', value: value('asking'), word: 'asking', hot: count('asking') > 0 },
                 { key: 'talking', value: value('talking'), word: 'talking' },

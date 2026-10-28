@@ -291,7 +291,7 @@ export async function DatesLab({ state, toast, open, gear = false }: { state: Da
 
   if (state === 'dates-hallday') {
     return (
-      <div className="min-h-screen bg-cream px-4 pb-32 pt-4" data-supplier-lab={state}>
+      <div className="min-h-screen bg-cream px-4 pb-32 pt-4 sm:px-6 lg:px-8" data-supplier-lab={state}>
         <DaySheet data={labHallDay('2026-12-12')} actions={{ addManualBlock, removeBlock, setCalendarDayState, notifyWaitlistSlot }} />
         <SupplierThumbRow
           name="dates"
@@ -323,7 +323,7 @@ export async function DatesLab({ state, toast, open, gear = false }: { state: Da
 
   if (state === 'dates-day' || state === 'dates-dayblocked' || state === 'dates-sunday') {
     return (
-      <div className="min-h-screen bg-cream px-4 pb-32 pt-4" data-supplier-lab={state}>
+      <div className="min-h-screen bg-cream px-4 pb-32 pt-4 sm:px-6 lg:px-8" data-supplier-lab={state}>
         {t ? <SupplierToast {...t} /> : null}
         <DaySheet
           data={state === 'dates-day' ? DAY() : state === 'dates-sunday' ? DAY_SUNDAY() : DAY_BLOCKED()}
@@ -349,11 +349,11 @@ export async function DatesLab({ state, toast, open, gear = false }: { state: Da
   const pools = venue ? HALLS : state === 'dates-empty' ? [] : state === 'dates-free' ? [MAIN] : [MAIN, SECOND];
   const shown = new Set(pools.map((p) => p.poolId));
   return (
-    <div className="min-h-screen bg-cream px-4 pb-32 pt-4" data-supplier-lab={state}>
+    <div className="min-h-screen bg-cream px-4 pb-32 pt-4 sm:px-6 lg:px-8" data-supplier-lab={state}>
       <div className="space-y-4">
         <CustomersPin
           seg="dates"
-          hrefOf={(s) => (s === 'dates' ? base : `/dev/supplier-lab?s=${s === 'people' ? 'people' : 'money'}`)}
+          hrefs={{ people: '/dev/supplier-lab?s=people', dates: base, money: '/dev/supplier-lab?s=money' }}
           gear={
             <CustomersSettings
               body={

@@ -64,7 +64,8 @@ import {
   type OutsideClient,
   type OutsideCode,
 } from './_components/people-more';
-import { CUSTOMERS_DOORS, CustomersPin, type CustomersDoor, type CustomersDoorKey } from './_components/customers-pin';
+import { CustomersPin, type CustomersDoor } from './_components/customers-pin';
+import { CUSTOMERS_DOORS, type CustomersDoorKey } from './segments';
 import { CustomersSettings } from './_components/customers-settings';
 import { CustomersSettingsBody } from './_components/customers-settings-body';
 import { InquiryOutcomesRollup } from '../messages/_components/inquiry-outcomes-rollup';
@@ -81,7 +82,7 @@ import { DatesFolds } from './_components/dates-folds';
 import { BlockDateAdd } from './_components/dates-sheets';
 import { CheckADate } from './_components/check-a-date';
 import { DaySheet, type DaySheetData } from './_components/day-sheet';
-import { customersSegmentHref, customersSegmentOf, foldsOf } from './segments';
+import { CUSTOMER_SEGMENT_HREFS, customersSegmentOf, foldsOf } from './segments';
 import { keepParamsFrom } from '../_components/list-pager';
 import { SupplierThumbRow } from '../_components/supplier-thumb-row';
 import { SupplierToast, type SupplierOutcomeTone } from '../_components/supplier-toast';
@@ -750,7 +751,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
         <ChatOriginMark />
         <CustomersPin
           seg="people"
-          hrefOf={customersSegmentHref}
+          hrefs={CUSTOMER_SEGMENT_HREFS}
           doors={doors}
           panels={panels}
           initial={initialDoor}
@@ -1407,7 +1408,7 @@ export default async function VendorCustomersHub({ searchParams }: Props) {
           {seg === 'people' || (seg === 'dates' && search.day) ? null : (
             <CustomersPin
               seg={seg}
-              hrefOf={customersSegmentHref}
+              hrefs={CUSTOMER_SEGMENT_HREFS}
               gear={<CustomersSettings body={search.gear === '1' ? <CustomersSettingsBody seg={seg} search={search} /> : null} />}
             />
           )}

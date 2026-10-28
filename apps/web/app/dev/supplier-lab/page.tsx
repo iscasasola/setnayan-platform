@@ -18,6 +18,8 @@
  *   ?s=doors          the rules that are not a customer's ask, as rows — and two unpaid booking fees
  *   ?s=fees           one ask (the Next card) and two unpaid booking fees — the fees carry the "Also waiting" heading
  *   ?s=clear          nothing waiting
+ *   &earned=verified|milestone   🏅 Today's "newly earned" line (`badge-earned-line.tsx`) above the screen, on lab
+ *                     facts handed in as data: URIs — e.g. ?s=clear&earned=verified is the owner's 2026-10-28 phone shot
  *   &toast=1          the outcome: the shared top toast + the status line (&toast=refused · &toast=failed · &toast=note)
  *   ?thumb=people     the frosted thumb row: a search field (≥ 60 %) + Add     (frame 03)
  *   ?thumb=customer   Chat (main) · Quote · Payment · Call                     (frame 06)
@@ -85,7 +87,7 @@ import { COORD_STATES, CoordLab, type CoordState } from './coord-lab';
 import { EASY_MOMENTS, EASY_SUPPLIERS, TodayEasyLab, type EasyMoment, type EasySupplier } from './today-easy-lab';
 import { DATES_STATES, DatesLab, type DatesState } from './dates-lab';
 import { MONEY_STATES, MoneyLab, type MoneyState } from './money-lab';
-import { PAGE_LAB_STATES, PageLab, type PageLabState } from './page-lab';
+import { LabEarnedLine, PAGE_LAB_STATES, PageLab, type PageLabState } from './page-lab';
 import { LibraryLab } from './library-lab';
 import { libraryLab, type LabLibraryAsset } from './library-lab-server';
 import { LAB_LIBRARY_SHOP, LAB_SHOP_PHOTOS } from './library-lab-fixture';
@@ -240,7 +242,7 @@ const ACTIONS: TodayActions = {
   markServiceComplete: vendorMarkServiceComplete,
 };
 
-function TodayLab({ state, toast }: { state: TodayState; toast: string | undefined }) {
+function TodayLab({ state, toast, earned }: { state: TodayState; toast: string | undefined; earned?: string }) {
   const { answer: needsAnswer, news: closed } = splitDesk(state.whatsNew);
   const findability = state.extras
     ? { title: 'Couples can’t find you yet.', body: 'Your shop is approved, but it is not showing in the marketplace.', cta: { label: 'Ask us to list your shop', href: '/help#contact' } }
@@ -277,6 +279,7 @@ function TodayLab({ state, toast }: { state: TodayState; toast: string | undefin
   return (
     <div className="min-h-screen bg-cream px-4 pb-32 pt-4" data-supplier-lab="today">
       {t ? <SupplierToast {...t} line={false} /> : null}
+      {earned ? <LabEarnedLine which={earned} /> : null}
       <SupplierTodayScreen
         view={view}
         outcome={t ? { text: t.text, tone: t.tone } : null}
@@ -293,7 +296,7 @@ function TodayLab({ state, toast }: { state: TodayState; toast: string | undefin
 export default async function SupplierLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ thumb?: string; s?: string; toast?: string; q?: string; lane?: string; add?: string; open?: string; next?: string; mpage?: string; easy?: string; sup?: string; who?: string; draft?: string; library?: string; view?: string; sent?: string; rail?: string; logo?: string; gift?: string; invited?: string; shell?: string; wallet?: string; port?: string; spot?: string; none?: string; unread?: string; docs?: string; gbb?: string; door?: string; block?: string; gear?: string }>;
+  searchParams: Promise<{ thumb?: string; s?: string; toast?: string; q?: string; lane?: string; add?: string; open?: string; next?: string; mpage?: string; easy?: string; sup?: string; who?: string; draft?: string; library?: string; view?: string; sent?: string; rail?: string; logo?: string; gift?: string; invited?: string; shell?: string; wallet?: string; port?: string; spot?: string; none?: string; unread?: string; docs?: string; gbb?: string; earned?: string; door?: string; block?: string; gear?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -361,7 +364,7 @@ export default async function SupplierLabPage({
   if (today)
     return wrap(
       <>
-        <TodayLab state={today} toast={q.toast} />
+        <TodayLab state={today} toast={q.toast} earned={q.earned} />
       </>,
       'today',
     );

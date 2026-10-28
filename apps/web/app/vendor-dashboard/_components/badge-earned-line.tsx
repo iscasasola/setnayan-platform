@@ -4,13 +4,24 @@ import { useEffect, useState } from 'react';
 import { Share } from 'lucide-react';
 import { SaveFileLink } from '@/app/_components/save-file-link';
 import { ShopBadgePill } from '@/app/_components/shop-badge-pill';
+import { InfoTip } from '@/app/_components/info-tip';
 import { newlyEarned, type EarnedNews, type ShopBadgeFacts } from '@/lib/shop-badges';
 
 /**
  * 🏅 "IMPROVES EVERY TIME" — ONE line on Today when a badge is NEWLY earned (owner 2026-10-28: *"we want to build it
  * now so it improves everytime"*):
  *
- *   [pill]  You earned 50 events · Silver ✓ — your tarp and card can show it      Save to print · Got it
+ *   phone (< 768)   [pill]  You earned 50 events · Silver ⓘ
+ *                                              Save to print · Got it
+ *   768 and wider   [pill]  You earned 50 events · Silver ⓘ          Save to print · Got it
+ *
+ * 📱 PHONE FIRST — THE ACTIONS GET THEIR OWN ROW (owner 2026-10-28, live shot at 390: *"mobile view does not look
+ * nice"* — pill, sentence and both buttons in ONE row crushed the sentence into a 5-line column; owner 2026-10-29:
+ * *"always maximize the screen use"*). Row 1 is the pill and ONE short line; the "your tarp and card can show it"
+ * reason is behind the ⓘ (title + one short line visible, the rest in the ⓘ). Row 2 is the two actions, right-aligned.
+ * From `md` (768) they share one row, the sentence taking the space left. If the sentence ever outgrows the room
+ * beside the pill it wraps UNDER the pill at full width (flex-wrap, basis auto) — never into a narrow column.
+ * 🔒 app/vendor-dashboard/_components/the-earned-line-stacks-on-a-phone.test.ts
  *
  * 🔑 "NEWLY" WITHOUT NEW SCHEMA. The badges are worked out live (`lib/shop-badges.ts`, facts from
  * `/api/vendor/badges?view=facts`, fetched AFTER Today has drawn so Today's own reads never grow). What the supplier
@@ -71,10 +82,16 @@ export function BadgeEarnedLine({
     setNews(null);
   };
   return (
-    <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-ink/10 pb-3" data-badge-earned={n.key} role="status">
-      <ShopBadgePill badge={n.badge} size="xs" />
-      <p className="min-w-0 flex-1 text-[14px] font-medium text-ink">{n.sentence}</p>
-      <div className="flex items-center gap-2">
+    <div className="mb-3 border-b border-ink/10 pb-3 md:flex md:items-center md:gap-3" data-badge-earned={n.key} role="status">
+      {/* Row 1 — the pill and ONE short line; the reason is behind the ⓘ. */}
+      <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1.5 md:flex-1" data-badge-earned-head="">
+        <ShopBadgePill badge={n.badge} size="xs" className="shrink-0" />
+        <InfoTip label={n.sentence} labelAs="p" labelClassName="min-w-0 text-[14px] font-medium leading-snug text-ink" align="end" className="min-w-0 flex-auto">
+          {n.detail}
+        </InfoTip>
+      </div>
+      {/* Row 2 on a phone — the actions, right-aligned under the line; beside it from 768. */}
+      <div className="mt-2 flex items-center justify-end gap-2 md:mt-0 md:shrink-0" data-badge-earned-actions="">
         <SaveFileLink
           href={labFiles?.[n.key] ?? `/api/vendor/badges?badge=${encodeURIComponent(n.key)}`}
           filename={`setnayan-${n.key.replace(/[^a-z0-9]+/gi, '-')}.svg`}

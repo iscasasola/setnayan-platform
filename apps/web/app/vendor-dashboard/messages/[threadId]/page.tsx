@@ -92,8 +92,8 @@ import {
 } from './_components/vendor-offer-service';
 import { SendProposalCard } from './_components/send-proposal-card';
 import { ProposalMaker } from '@/app/_components/proposal-maker';
-import { ChatInfoRailColumn, ChatInfoRailTrigger } from './_components/chat-info-rail';
-import { ThreadToolHashReveal } from '@/app/_components/chat/reveal-thread-tool';
+import { ChatInfoRailTrigger } from './_components/chat-info-rail';
+import { ChatThreadFrame } from '@/app/_components/chat/chat-thread-frame';
 import { ChatBox } from '@/app/_components/chat/chat-box';
 import { ChatThreadHead } from '@/app/_components/chat/chat-thread-head';
 import { BackButton } from '@/app/_components/back-button';
@@ -1431,6 +1431,9 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     service: railService,
     threadId,
     eventId: thread.event_id,
+    // Inquiry-source chip (PR-C · owner taxonomy) — PRIVATE to the vendor; NULL resolves to "Website Inquiry". The
+    // returning flag is a COMPANION chip: it combines with any origin, never replaces it.
+    source: { label: sourceChipLabel, returning: thread.is_returning ? RETURNING_CUSTOMER_LABEL : null },
   };
 
   /*
@@ -1499,42 +1502,23 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   const blocked = blockState.blockedByMe || blockState.blockedByThem;
 
   return (
-    <div className="mx-auto flex h-[calc(100dvh-12rem)] min-h-[27rem] w-full max-w-3xl gap-4 px-4 py-6 sm:px-6 lg:max-w-6xl lg:px-8 xl:max-w-[86rem]">
-      {/* LIST · CONVERSATION · CONTEXT (owner 2026-09-08). The list appears at
-          xl, where there is room for all three without squeezing the middle —
-          the whole point was to give the conversation back its space. */}
-      <ConversationColumn
-        rows={conversationRows}
-        activeThreadId={threadId}
-        side="vendor"
-        hrefBase="/vendor-dashboard/messages"
-      />
-      {/* A deep link from the client brief (Quote / Call / Log payment) and the
-          rail's own launchers both land on an id inside a CLOSED disclosure.
-          This opens it; without it those four controls scroll to a collapsed
-          strip and read as doing nothing. */}
-      <ThreadToolHashReveal />
-      <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
-        {lockAnswer ? (
-          <p
-            role={lockAnswer.tone === 'refused' ? 'alert' : 'status'}
-            className={`mb-2 rounded-xl border px-4 py-2.5 text-sm ${
-              lockAnswer.tone === 'refused'
-                ? 'border-danger-300/50 bg-danger-50/60 text-danger-900'
-                : 'border-mulberry/25 bg-mulberry/[0.06] text-ink'
-            }`}
-          >
-            {lockAnswer.text}
-            {lockAnswer.door ? (
-              <>
-                {' '}
-                <Link href={lockAnswer.door.href} className="font-semibold text-sn-accent underline underline-offset-2" data-lock-answer-door="">
-                  {lockAnswer.door.label}
-                </Link>
-              </>
-            ) : null}
-          </p>
-        ) : null}
+    // THE ONE THREAD PAGE (owner 2026-10-29, *"event dashboard chat is full screen. supplier chat not same?"*). The
+    // couple's thread returns this same `ChatThreadFrame` holding one `ChatBox`; the wrapper is the event layout's own
+    // content column, so the chat has the same width on both sides. Every supplier-only thing lives INSIDE the box:
+    // the customer card behind the head's "Customer" (it used to be a 19rem column docked beside the chat from 1024),
+    // the answer to a booking ask in the notice band (it used to sit ABOVE the box, under the phone's takeover).
+    <div className="mx-auto w-full px-4 pb-6 pt-3 sm:px-6 sm:pt-6 lg:px-8">
+    <ChatThreadFrame
+      // LIST · CONVERSATION (owner 2026-09-08) — the list from xl, where there is room for it beside the conversation.
+      list={
+        <ConversationColumn
+          rows={conversationRows}
+          activeThreadId={threadId}
+          side="vendor"
+          hrefBase="/vendor-dashboard/messages"
+        />
+      }
+    >
         <ChatBox
           header={
             <ChatThreadHead
@@ -1570,28 +1554,11 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
                   ) : null}
                 </>
               }
-              below={
-                <>
-                {/* Inquiry-source chip (PR-C · owner taxonomy) — PRIVATE to the
-                    vendor; NULL resolves to "Website Inquiry". The returning
-                    flag is a COMPANION chip: it combines with any origin, never
-                    replaces it. */}
-                <p className="mt-0.5 flex flex-wrap items-center gap-1">
-                  <span className="inline-block rounded-full bg-ink/[0.07] px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/60">
-                    {sourceChipLabel}
-                  </span>
-                  {thread.is_returning ? (
-                    <span className="inline-block rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta-700">
-                      {RETURNING_CUSTOMER_LABEL}
-                    </span>
-                  ) : null}
-                </p>
-                </>
-              }
               actions={
                 <>
-                {/* Mobile: opens the customer info rail as a sheet. Desktop
-                    shows the rail as a docked column instead (see below). */}
+                {/* "Customer" opens the customer card as a sheet, at every width — the same head as the couple's, with
+                    the chat keeping the whole column (the card was a docked column from 1024 until 2026-10-29). The
+                    private inquiry-source and returning chips are on that card now, not a second row under the name. */}
                 <ChatInfoRailTrigger {...railProps} />
                 <ChatThreadMenu
                   threadId={threadId}
@@ -1604,10 +1571,10 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
                   // `?tab=` — a bare link would bounce straight back to this
                   // frame.
                   links={[
-                    { href: `/vendor-dashboard/clients/${thread.event_id}?tab=quote`, label: 'Quote & payments' },
-                    { href: `/vendor-dashboard/clients/${thread.event_id}?tab=files`, label: 'Files & contracts' },
-                    { href: `/vendor-dashboard/clients/${thread.event_id}?tab=schedule`, label: 'Schedule' },
-                    { href: `/vendor-dashboard/clients/${thread.event_id}?tab=details`, label: 'Full customer profile' },
+                    { href: `/vendor-dashboard/clients/${thread.event_id}?tab=quote`, label: 'Quote & payments', icon: 'quote' },
+                    { href: `/vendor-dashboard/clients/${thread.event_id}?tab=files`, label: 'Files & contracts', icon: 'files' },
+                    { href: `/vendor-dashboard/clients/${thread.event_id}?tab=schedule`, label: 'Schedule', icon: 'schedule' },
+                    { href: `/vendor-dashboard/clients/${thread.event_id}?tab=details`, label: 'Full customer profile', icon: 'customer' },
                   ]}
                 />
                 </>
@@ -1616,6 +1583,28 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
           }
           notice={
             <>
+              {/* THE ANSWER TO A BOOKING ASK, with its Pay door — inside the box, so a phone sees it (it sat above the
+                  box until 2026-10-29, where the full-screen takeover covered it). */}
+              {lockAnswer ? (
+                <p
+                  role={lockAnswer.tone === 'refused' ? 'alert' : 'status'}
+                  // A band across the box, like the answer line under it — no frame: nothing here is pressed but the door.
+                  className={`border-b border-ink/10 px-3.5 py-2 text-[13px] ${
+                    lockAnswer.tone === 'refused' ? 'bg-danger-50/60 text-danger-900' : 'bg-mulberry/[0.06] text-ink'
+                  }`}
+                  data-lock-answer=""
+                >
+                  {lockAnswer.text}
+                  {lockAnswer.door ? (
+                    <>
+                      {' '}
+                      <Link href={lockAnswer.door.href} className="font-semibold text-sn-accent underline underline-offset-2" data-lock-answer-door="">
+                        {lockAnswer.door.label}
+                      </Link>
+                    </>
+                  ) : null}
+                </p>
+              ) : null}
               {answerLine}
               <ChatPrivacyNotice inBox viewer="vendor" />
             </>
@@ -2006,11 +1995,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
             }}
           />
         </ChatBox>
-      </section>
-
-      {/* Customer info rail — docked column on lg+ (mobile uses the header
-          trigger + sheet above). Customer Card respine PR-3. */}
-      <ChatInfoRailColumn {...railProps} />
+    </ChatThreadFrame>
     </div>
   );
 }

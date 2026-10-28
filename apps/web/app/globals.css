@@ -10381,6 +10381,13 @@ html.dark .sn-acc-head[data-open] {
     position: relative;
     z-index: 45;
   }
+  /* 🔑 AND THE ROUTE RISE WOULD CAPTURE IT. Both shells' template.tsx wraps a page in `.sn-page-enter`, whose 400ms
+     rise is a TRANSFORM — any transform on an ancestor is the containing block for a fixed child, so for those 400ms
+     the opened thread drew INSIDE the page, under the top bar, then jumped to full screen. The thread arrives as the
+     screen it is; it does not rise. (2026-10-29, one chat for both sides.) */
+  .sn-page-enter:has([data-chat-takeover]) {
+    animation: none;
+  }
   [data-chat-takeover] {
     position: fixed;
     inset: 0;

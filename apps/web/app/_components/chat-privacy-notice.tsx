@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ShieldAlert, ShieldCheck, X } from 'lucide-react';
+import { ChevronDown, ShieldAlert, ShieldCheck, X } from 'lucide-react';
 
 /**
  * Pinned, non-dismissible system notice at the top of every chat thread
@@ -151,7 +151,7 @@ const SAFETY_POINTS = [
   'A supplier rushing you to pay off Setnayan is a red flag — tell us via Help.',
 ] as const;
 
-const SAFETY_IN_BOX = `${NOTE_LINE} border-b border-ink/10 bg-terracotta/[0.04] px-3 py-1 sm:px-4`;
+const SAFETY_IN_BOX = `${NOTE_LINE} border-b border-ink/10 px-3 py-0.5 sm:px-4`;
 const SAFETY_STANDALONE = `${NOTE_LINE} rounded-xl border border-terracotta/25 bg-terracotta/[0.05] px-3 py-1.5`;
 
 export function ChatSafetyBanner({ inBox = false }: { inBox?: boolean }) {
@@ -211,19 +211,21 @@ export function ChatSafetyBanner({ inBox = false }: { inBox?: boolean }) {
           </p>
         )}
       </div>
+      {/* ⌄ folds the line open (chat prototype 2026-10-28, frame B — Messenger's pinned strip); the words are its name. */}
       <button
         type="button"
         onClick={() => setTips((v) => !v)}
         aria-expanded={tips}
-        className={TOGGLE}
+        aria-label={tips ? 'Fewer safety tips' : 'More safety tips'}
+        className="-my-1 grid h-11 w-9 shrink-0 place-items-center rounded-full text-ink/50 hover:bg-ink/5 hover:text-ink"
       >
-        {tips ? 'Less' : 'Tips'}
+        <ChevronDown aria-hidden className={`h-4 w-4 transition-transform ${tips ? 'rotate-180' : ''}`} strokeWidth={2} />
       </button>
       <button
         type="button"
         onClick={onDismiss}
         aria-label="Dismiss safety tips"
-        className="-mr-1 shrink-0 rounded-full p-1 text-ink/40 hover:bg-ink/5 hover:text-ink/70"
+        className="-my-1 -mr-1 grid h-11 w-9 shrink-0 place-items-center rounded-full text-ink/40 hover:bg-ink/5 hover:text-ink/70"
       >
         <X aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
       </button>

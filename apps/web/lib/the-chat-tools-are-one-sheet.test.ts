@@ -20,7 +20,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { stripComments } from './strip-comments';
-import { VENDOR_THREAD_TOOLS, vendorThreadToolRows, type VendorThreadToolsState } from './vendor-thread-tools';
+import { THREAD_TOOL_GROUPS, VENDOR_THREAD_TOOLS, vendorThreadToolRows, type VendorThreadToolsState } from './vendor-thread-tools';
 import { threadDayAnswerOf, threadDayIsOpen, threadDayWords } from './thread-day-answer';
 
 const WEB = join(import.meta.dirname, '..');
@@ -38,22 +38,27 @@ test('the scan read its files', () => {
   assert.ok(SHEET.length > 2_000, 'the tools sheet read short');
 });
 
-test('🔑 1 · every tool of the approved list is a row, in order — Report a problem included', () => {
-  const labels = vendorThreadToolRows(OPEN).map((r) => r.tool.label);
-  assert.deepEqual(labels, [
-    'Send a quote',
-    'Answer their booking ask',
-    'Ask for a payment',
-    'Confirm a payment they sent',
-    'Propose a date or meeting',
-    'Your call time',
-    'Share a file or the contract',
-    'Offer another service',
-    'Call them',
-    'Guest count changed',
-    'Mark won or lost',
-    'Report a problem',
+test('🔑 1 · every tool of the approved list is a row, in order, under its group — Report a problem included', () => {
+  // Chat prototype 2026-10-28, frame D: grouped Money · Plan · Talk & files · Just you; ONE "Share a file"
+  // (owner: "Share a file can be file, photo or video"); 📵 no "Call them" (owner: "remove both voice and video call").
+  const rows = vendorThreadToolRows(OPEN).map((r) => `${r.tool.group} · ${r.tool.label}`);
+  assert.deepEqual(rows, [
+    'money · Send a quote',
+    'money · Answer their booking ask',
+    'money · Ask for a payment',
+    'money · Confirm a payment they sent',
+    'plan · Propose a date or meeting',
+    'plan · Your call time',
+    'plan · Guest count changed',
+    'plan · Offer another service',
+    'talk · Share a file',
+    'you · Mark won or lost',
+    'you · Report a problem',
   ]);
+  assert.equal(VENDOR_THREAD_TOOLS.find((t) => t.key === 'share-file')?.line, 'File · photo · video · the contract');
+  // The sheet draws a group's heading from the one list, in the one order.
+  assert.deepEqual(THREAD_TOOL_GROUPS.map((g) => g.label), ['Money', 'Plan', 'Talk & files', 'Just you']);
+  assert.match(SHEET, /THREAD_TOOL_GROUPS\.find\(/, 'the sheet no longer draws the group headings from the registry');
   assert.equal(VENDOR_THREAD_TOOLS.filter((t) => t.primary).length, 1, 'exactly one primary tool');
   assert.equal(VENDOR_THREAD_TOOLS.find((t) => t.primary)?.key, 'build-quote', 'Send a quote is the primary tool');
 });

@@ -106,7 +106,6 @@ const LABELS: Record<string, string> = {
 const E = '/dashboard/[eventId]';
 const ADMIN_ACCOUNTS = (tab: string) => `/admin/accounts?tab=${tab}`;
 /** `customerLandingHref` (app/vendor-dashboard/customers/anchors.ts) — the folds the old supplier rooms became. */
-const CUSTOMERS_MESSAGES = '/vendor-dashboard/customers?seg=people&open=messages#customer-tools';
 const CUSTOMERS_CONTRACTS = '/vendor-dashboard/customers?seg=money&open=contracts#customer-tools';
 
 /**
@@ -199,7 +198,9 @@ export const HOMES: Readonly<Record<string, Entry>> = {
   '/vendor-dashboard/booking-fees': { home: '/vendor-dashboard/subscription', label: 'Plan' },
   // Clients and Messages became folds of Customers; both old rooms are redirect stubs (audit ❌ ×2, fixed).
   '/vendor-dashboard/clients/[eventId]': { home: '/vendor-dashboard/customers' },
-  '/vendor-dashboard/messages/[threadId]': { home: CUSTOMERS_MESSAGES, label: 'Messages' },
+  // A supplier's chat is ONE EVENT's chat, opened from the Customers events list (owner 2026-10-28: "list down the
+  // different events which will jump to chat full screen") — ‹ goes back to that list, not to a Messages fold.
+  '/vendor-dashboard/messages/[threadId]': { home: '/vendor-dashboard/customers?seg=people', label: 'Customers' },
   '/vendor-dashboard/contracts/*': { home: CUSTOMERS_CONTRACTS, label: 'Contracts' },
   '/vendor-dashboard/calendar/[date]': { home: '/vendor-dashboard/customers?seg=dates', label: 'Dates' },
   // `/services` is a redirect into the Shop (audit ⚠, kept).

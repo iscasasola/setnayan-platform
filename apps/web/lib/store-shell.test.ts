@@ -632,7 +632,7 @@ test('C14 — the upsell lines whose links the guard hid say nothing in the stor
     src('app/vendor-dashboard/shop/_components/voice-match-section.tsx'),
     /if \(!advancedActive && \(await isStoreShellRequest\(\)\)\) return null;/,
   );
-  assert.match(src('app/_components/thread-call-launcher.tsx'), /if \(viewerRole !== 'vendor' \|\| storeShell\) return null;/);
+  // (The chat's call launcher, which carried a store-shell return here, is gone — owner 2026-10-28, no calls in the chat.)
   const otd = src('app/vendor-dashboard/on-the-day/page.tsx');
   assert.match(otd, /\{storeShell\s*\?\s*'Your booking and shop listing are unaffected\.'/);
   assert.match(otd, /\{storeShell \? null : \(\s*<Link\s*href="\/vendor-dashboard\/subscription"/);

@@ -99,6 +99,8 @@ type StepDef = {
   items: readonly string[];
   /** The item's section this step is (`RSVP_PIECES` — the RSVP stage's three settings). */
   piece?: string;
+  /** 🗂 R1: the step is a DOOR to this Guests ⚙ row (a link step), not a screen over its item. */
+  guests?: GuidedGuestsRow;
   optional?: boolean;
   /** Only where guests reply from a list — a setup event whose guests do not reply is not asked it. */
   guestListOnly?: true;
@@ -145,9 +147,12 @@ export const GUIDED_STEPS: readonly StepDef[] = [
     title: 'Love Story',
     shows: () => 'Optional — your story on your page, and a line of it on a card.',
   },
-  { key: 'who', items: ['rsvp'], piece: 'who', title: 'How guests get in', shows: () => 'Who can reply — only the people on your list, or anyone you approve.' },
-  { key: 'rsvp', items: ['rsvp'], piece: 'questions', guestListOnly: true, title: 'What to ask guests', shows: () => 'What guests answer when they reply.' },
-  { key: 'reply-by', items: ['rsvp'], piece: 'reply-by', guestListOnly: true, title: 'Reply by', shows: () => 'The date guests reply by.' },
+  /* 🗂 R1 (owner 2026-10-28, "RSVP moves into the Guests ⚙ sheet"): the three reply settings are DOORS to Guests ⚙ now
+     (`guests` — the sheet's row), never the Maker's RSVP item: a link step, counted the same, opening the sheet on its
+     row. `items` stays the presence check (does this event have a reply at all) and `piece` the RSVP stage's part. */
+  { key: 'who', items: ['rsvp'], piece: 'who', guests: 'get-in', title: 'How guests get in', shows: () => 'Who can reply — only the people on your list, or anyone you approve.' },
+  { key: 'rsvp', items: ['rsvp'], piece: 'questions', guests: 'asks', guestListOnly: true, title: 'What to ask guests', shows: () => 'What guests answer when they reply.' },
+  { key: 'reply-by', items: ['rsvp'], piece: 'reply-by', guests: 'reply-by', guestListOnly: true, title: 'Reply by', shows: () => 'The date guests reply by.' },
   { key: 'venues', items: ['venues'], title: 'Venues', shows: () => 'Shows on your invitation and every print. Not sure yet? Skip it for now.' },
   { key: 'schedule', items: ['schedule'], title: 'Schedule', shows: () => 'The run of the day — on your page and The Finer Details card.' },
   {
@@ -224,18 +229,42 @@ export type GuidedStep = {
 };
 
 /**
- * A setup step with no Details item — the guests' names, which open the Guest
- * list's import (`hubSetupGuestsHref`). Counted with its stages, listed on their
- * Ready screens as a link; never a screen of its own.
+ * 🗂 THE GUESTS ⚙ ROWS A STEP MAY OPEN (R1) — keys of `SETTINGS_ROWS` (`lib/event-settings-record.ts`), restated so
+ * this stays pure and import-light; held equal by `lib/r1-rsvp-forwards.test.ts`.
+ */
+export type GuidedGuestsRow = 'get-in' | 'asks' | 'reply-by';
+
+/**
+ * A step with no Details item of its own — a door to another page: the guests'
+ * names (the Guest list's import, `hubSetupGuestsHref`), and since R1 the three
+ * reply settings (Guests ⚙ on their row, `guests`). Counted with its stages,
+ * listed on their Ready screens as a link, and a screen of the walk whose one
+ * button is that door.
  */
 export type GuidedLinkStep = {
-  key: HubSetupStepKey;
+  key: GuidedStepKey;
+  /** Guests ⚙'s row this link opens; absent — the guests' names (the import). */
+  guests?: GuidedGuestsRow;
   stages: GuidedRound[];
   title: string;
   shows: string;
   unlocks: string;
   state: GuidedStepState;
 };
+
+/**
+ * 🗂 WHERE A LINK STEP GOES — the guests' names to the Guest list's import (`guestsHref`); a reply setting (R1, owner
+ * 2026-10-28: *"RSVP moves into the Guests ⚙ sheet"*) to Guests ⚙ (`guestsSettingsHref`, `?settings=1`) open on its row.
+ * Null: that door was not handed in — the link is not drawn rather than drawn to nowhere.
+ */
+export function guidedLinkHref(
+  link: Pick<GuidedLinkStep, 'guests'> | null,
+  doors: { guestsHref?: string; guestsSettingsHref?: string },
+): string | null {
+  if (!link) return null;
+  if (link.guests) return doors.guestsSettingsHref ? `${doors.guestsSettingsHref}&row=${link.guests}` : null;
+  return doors.guestsHref ?? null;
+}
 
 /**
  * A screen of the flow: the stage picker, a stage's Before we start, a step
@@ -245,14 +274,14 @@ export type GuidedScreen =
   | { kind: 'stages' }
   | { kind: 'before'; round: GuidedRound }
   | { kind: 'step'; step: GuidedStepKey; round: GuidedRound }
-  /** 🧭 A setup step with no item of its own (the guests' names) — a screen of
+  /** 🧭 A step with no item of its own (the guests' names; the reply settings in Guests ⚙ since R1) — a screen of
    *  the walk like every step (owner 2026-10-05: Skip jumped past it to Ready). */
-  | { kind: 'link'; link: HubSetupStepKey; round: GuidedRound }
+  | { kind: 'link'; link: GuidedStepKey; round: GuidedRound }
   | { kind: 'ready'; round: GuidedRound };
 
 export type GuidedPlan = {
   steps: GuidedStep[];
-  /** Setup steps that open a page instead of an item (the guests' names). */
+  /** Steps that open a page instead of an item: the guests' names, and (R1) the reply settings in Guests ⚙. */
   links: GuidedLinkStep[];
   /** The stages that have at least one step, in order (Post Event never — it fills itself). */
   rounds: GuidedRound[];
@@ -334,6 +363,11 @@ export function buildGuidedPlan(items: readonly GuidedItem[], words: GuidedWords
     const here = def.items.map((k) => byKey.get(k)).filter((i): i is GuidedItem => i !== undefined);
     if (here.length === 0) continue;
     const state = sectionState(def.key, setup) ?? stepStateOf(here.map((i) => i.done));
+    /* 🗂 R1: a reply setting is a door to Guests ⚙ — the same fact, the same state, counted with its stages. */
+    if (def.guests) {
+      links.push({ key: def.key, guests: def.guests, stages, title: typeof def.title === 'string' ? def.title : def.title(here[0]!.label), shows: def.shows(words), unlocks: '', state });
+      continue;
+    }
     steps.push({
       key: def.key,
       stages,

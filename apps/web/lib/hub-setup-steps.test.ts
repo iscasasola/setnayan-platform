@@ -36,7 +36,7 @@ import {
   unlockLine,
   type HubSetupFacts,
 } from './hub-setup-steps';
-import { buildGuidedPlan, firstOpenScreen, isUnfinished, stageSteps, type GuidedItem } from './details-guided-flow';
+import { buildGuidedPlan, firstOpenScreen, guidedLinkHref, isUnfinished, stageSteps, type GuidedItem } from './details-guided-flow';
 import { setupProgress } from './stage-setup';
 import { DETAILS_ITEM_KEYS, FREE_PRINT_KEYS, type DetailsItemKey } from './maker-details-items';
 import { pickHomeNext } from './home-first-screen';
@@ -210,18 +210,21 @@ test('🚪 the Maker\'s What\'s left walks the setup in the stages that show it 
   assert.deepEqual(of('venues')?.stages, ['rsvp', 'event']);
   assert.deepEqual(of('love-story')?.stages, ['save_the_date', 'rsvp']);
   assert.deepEqual(of('wear')?.stages, ['rsvp'], 'what everyone wears is not the Dress code’s');
-  assert.deepEqual(plan.links.map((l) => [l.key, l.stages]), [['guests', ['rsvp', 'event']]], 'each guest’s own greeting shows on the Invitation and The Day');
+  /* 🗂 R1 (owner 2026-10-28): the RSVP stage's three settings are links to Guests ⚙ now — before the guests' names. */
+  assert.deepEqual(plan.links.map((l) => [l.key, l.stages]), [['who', ['rsvp-stage']], ['rsvp', ['rsvp-stage']], ['reply-by', ['rsvp-stage']], ['guests', ['rsvp', 'event']]], 'each guest’s own greeting shows on the Invitation and The Day');
   // Every setup step with a part is in the plan; B5–6 is the RSVP stage's own three settings.
   for (const s of steps) {
     if (s.key === 'ask') continue;
     assert.ok(of(s.key) || plan.links.some((l) => l.key === s.key), `${s.key} left the plan`);
   }
   assert.equal(of('ask'), undefined, 'B5–6 is a second step on the RSVP item');
-  assert.deepEqual(stageSteps(plan, 'rsvp-stage').map((s) => s.key), ['who', 'rsvp', 'reply-by']);
+  assert.deepEqual(stageSteps(plan, 'rsvp-stage').map((s) => s.key), [], 'the RSVP stage walks a Maker screen for a setting in Guests ⚙');
+  assert.deepEqual(plan.links.filter((l) => l.stages.includes('rsvp-stage')).map((l) => [l.key, l.guests]), [['who', 'get-in'], ['rsvp', 'asks'], ['reply-by', 'reply-by']]);
   // How guests get in is onboarding's answer — asked once, never again; the reply-by date is B5–6's own fact.
-  assert.equal(of('who')?.state, 'done');
-  assert.equal(of('reply-by')?.state, 'left');
-  assert.equal(buildGuidedPlan(items(), WORDS, hubSetupRound({ ...facts, replyBy: true }, ALL_ITEMS)).steps.find((s) => s.key === 'reply-by')?.state, 'done');
+  const link = (p: typeof plan, k: string) => p.links.find((l) => l.key === k);
+  assert.equal(link(plan, 'who')?.state, 'done');
+  assert.equal(link(plan, 'reply-by')?.state, 'left');
+  assert.equal(link(buildGuidedPlan(items(), WORDS, hubSetupRound({ ...facts, replyBy: true }, ALL_ITEMS)), 'reply-by')?.state, 'done');
   // Each setup item is ONE step — the row it stands for is gone.
   assert.equal(of('schedule'), undefined, 'the Schedule row stayed beside when guests arrive');
   assert.equal(of('colours'), undefined, 'Your colours stayed beside what everyone wears');
@@ -234,12 +237,11 @@ test('🚪 the Maker\'s What\'s left walks the setup in the stages that show it 
   assert.equal(isUnfinished(plan), true);
   // An open event (one QR for everyone): the RSVP stage asks only how guests get in.
   const open = buildGuidedPlan(items(), WORDS, hubSetupRound({ ...facts, guestList: false }, ALL_ITEMS));
-  assert.deepEqual(stageSteps(open, 'rsvp-stage').map((s) => s.key), ['who']);
-  assert.deepEqual(open.links, [], 'an open event is asked for guests’ names');
+  assert.deepEqual(open.links.map((l) => l.key), ['who'], 'an open event is asked for guests’ names, or what to ask');
   // No setup (another type, or the facts unread): the generic rows, as before.
   const before = buildGuidedPlan(items(), WORDS);
   assert.ok(before.steps.some((s) => s.key === 'schedule') && before.steps.some((s) => s.key === 'colours'));
-  assert.deepEqual(before.links, []);
+  assert.deepEqual(before.links.map((l) => l.key), ['who', 'rsvp', 'reply-by'], 'without the setup, only the three reply settings are links (to Guests ⚙)');
 });
 
 test('🚪 only the guests\' names left: the Invitation opens on that step\'s own screen, which links to the import', () => {
@@ -256,9 +258,11 @@ test('🚪 only the guests\' names left: the Invitation opens on that step\'s ow
   // 2026-10-05 (owner: Skip jumped past it): the guests' names is a screen of the walk.
   assert.deepEqual(firstOpenScreen(plan, 'rsvp'), { kind: 'link', link: 'guests', round: 'rsvp' });
   assert.equal(setupProgress(plan).next, 'rsvp');
+  /* 🗂 R1: a link's door is its own (`guidedLinkHref`) — the names open the import, a reply setting Guests ⚙. */
+  assert.equal(guidedLinkHref(plan.links.find((l) => l.key === 'guests')!, { guestsHref: '/import', guestsSettingsHref: '/settings' }), '/import');
   const ready = code(`${D}/launch/_components/details-guide.tsx`);
-  assert.match(ready, /href=\{actions\.guestsHref\}/);
-  assert.match(code(`${D}/launch/_components/details-workspace.tsx`), /href=\{guide\?\.actions\.guestsHref \?\? null\}/, 'the link step’s screen does not open the import');
+  assert.match(ready, /const href = guidedLinkHref\(l, actions\);/);
+  assert.match(code(`${D}/launch/_components/details-workspace.tsx`), /actions=\{guide\?\.actions \?\? null\}/, 'the link step’s screen does not open the import');
   assert.match(code(`${D}/launch/page.tsx`), /guestsHref: hubSetupGuestsHref\(eventId\)/);
 });
 

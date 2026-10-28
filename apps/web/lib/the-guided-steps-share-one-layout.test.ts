@@ -460,10 +460,11 @@ test('(19) Skip goes to the VERY next screen — a link step (the guests’ name
   const nav = keys.map((k) => ({ key: k, label: k, done: false }));
   const facts = { guestList: true, arrival: false, venuesLocked: { ceremony: false, reception: false }, venuesNamed: { ceremony: false, reception: false }, loveStoryMoments: 0, wear: false, replyBy: false, guests: 0 };
   const p = buildGuidedPlan(nav as GuidedItem[], { solemn: false, parentsOffered: true }, hubSetupRound(facts, new Set(keys)));
-  const round = p.rounds.find((r) => p.links.some((l) => l.stages.includes(r)));
+  /* 🗂 R1: the RSVP stage's three settings are link steps too (to Guests ⚙) — this holds the guests' names' stage. */
+  const round = p.rounds.find((r) => p.links.some((l) => l.key === 'guests' && l.stages.includes(r)));
   assert.ok(round, 'anti-vacuity: no stage carries a link step');
   const last = stageSteps(p, round!).at(-1)!;
-  const link = p.links.find((l) => l.stages.includes(round!))!;
+  const link = p.links.find((l) => l.key === 'guests' && l.stages.includes(round!))!;
   const at = { kind: 'step', step: last.key, round: round! } as const;
   assert.deepEqual(skipScreen(p, at), { kind: 'link', link: link.key, round }, 'Skip from the last step jumps past the guests’ names');
   assert.deepEqual(nextScreen(p, at), { kind: 'link', link: link.key, round });

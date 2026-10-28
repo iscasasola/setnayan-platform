@@ -131,7 +131,7 @@ import {
   type SectionMark,
 } from '@/lib/guest-roster-view';
 import { withStandIns, proxyForWords, representedByWords, type PairOnRow as StandInOnRow, type StandingInOnRow } from '@/lib/guest-proxy';
-import { useGuestActions } from './guest-actions-context';
+import { PickWhoContext, useGuestActions } from './guest-actions-context';
 import { useRoleNames } from './role-names-context';
 import { guestOptimistic, useGuestOptimistic } from './guest-optimistic-store';
 import { DeleteGuestSheet, useGuestRemoval } from './guest-delete';
@@ -474,7 +474,8 @@ export function GuestsScreen(props: GuestsScreenProps) {
   // 🪑 The Sort dropdown's "+1 ▾ Named · No name yet" (owner 2026-10-21) — on top of the search, as every filter is.
   const [plusFilter, setPlusFilter] = useState<PlusOneFilter | null>(null);
   // 👆 The counts are doors (owner 2026-10-21): "N attending · N not coming · N no reply" filter to exactly those guests.
-  const [replyFilter, setReplyFilter] = useState<ReplyFilter | null>(null);
+  // ☑ A cold `?select=to-invite` (⚙ › Pick who's link) lands narrowed to To invite, as the in-place press does.
+  const [replyFilter, setReplyFilter] = useState<ReplyFilter | null>(initialSelect ? 'toinvite' : null);
   // A guest found by NAME brings their +1s (`withTheirPlusOnes`) — a +1 is never left behind by a search.
   const visible = useMemo(() => {
     const found = q ? withTheirPlusOnes(q, roster.filter((g) => rosterSearchMatches(q, g, facts)), roster) : roster;
@@ -551,7 +552,9 @@ export function GuestsScreen(props: GuestsScreenProps) {
   // ── Select mode.
   const [selectMode, setSelectMode] = useState(initialSelect);
   useEffect(() => {
-    if (initialSelect) setSelectMode(true);
+    if (!initialSelect) return;
+    setSelectMode(true);
+    setReplyFilter('toinvite');
   }, [initialSelect]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const toggleOne = (id: string) =>
@@ -575,6 +578,21 @@ export function GuestsScreen(props: GuestsScreenProps) {
     setSelectMode(false);
     setSelected(new Set());
   };
+  /* ☑ ⚙ › Invitations' "Pick who", IN PLACE (owner 2026-10-28, "pick who … does not show anything"): the sheet closes,
+     Select turns on, the list narrows to To invite — the carousel's own `toinvite` door. Nothing navigates. On the Map
+     (no rows to pick) it opens the List the cold-load way, which lands in the same state (`initialSelect`).
+     🔒 pick-who-narrows-in-place.test.ts */
+  const pickWho = useCallback(() => {
+    openSettings(false);
+    if (gview !== 'list') {
+      router.push(`/dashboard/${eventId}/guests?select=to-invite`);
+      return;
+    }
+    setSelected(new Set());
+    setSelectMode(true);
+    setReplyFilter('toinvite');
+    window.scrollTo({ top: 0 });
+  }, [openSettings, gview, router, eventId]);
 
   // ── Settled: the rise plays once per page/mode, never on a re-render.
   const [settled, setSettled] = useState(false);
@@ -1616,7 +1634,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
             </nav>
             {setup ? (
               <MenuSettingsButton menu="guests" open={settingsOpen} onOpenChange={openSettings} tour="guests-setup">
-                {setup}
+                <PickWhoContext.Provider value={writesOff ? null : pickWho}>{setup}</PickWhoContext.Provider>
               </MenuSettingsButton>
             ) : null}
           </div>

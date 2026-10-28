@@ -5,6 +5,7 @@ import {
   BarChart3,
   CalendarDays,
   CalendarX,
+  ClipboardList,
   Check,
   ChevronRight,
   Clock,
@@ -50,6 +51,9 @@ import { customerLandingHref } from '@/app/vendor-dashboard/customers/anchors';
 import { customerCardHref } from '@/lib/upcoming-schedule-door';
 import { SupplierSubmit } from './supplier-submit';
 import { TodayFigure } from './today-figure';
+import { EventsYouRunRows } from './events-you-run-rows';
+import type { EventYouRun } from '@/lib/events-you-run';
+import { EVENTS_YOU_RUN_HREF } from '@/lib/events-you-run-words';
 import { INSPIRATION_LIBRARY_HREF, INSPIRATION_LIBRARY_ROW } from '@/lib/inspiration-library-entry';
 
 /**
@@ -143,6 +147,8 @@ function icon(name: SupplierIcon): ReactElement {
 
 /* ── 🔵 THE ROW'S ROUND ICON (prototype `.row .ico`: a 36 px circle on the soft gold wash, the icon in ink) ─────── */
 const ROW_ICONS: Record<TodayRowIcon, LucideIcon> = {
+  // 🗂 An event this supplier runs as the hosts' coordinator (owner 2026-10-28) — the Events tab's own glyph.
+  run: ClipboardList,
   chat: MessageSquare,
   calendar: CalendarDays,
   calx: CalendarX,
@@ -322,6 +328,11 @@ export type SupplierTodayFirstScreenProps = {
   alsoToday?: ReadonlyArray<{ id: string; label: string; line: string | null; href: string; icon: TodayRowIcon }>;
   /** The next three booked events, Setnayan and outside, already worded. */
   comingUp: readonly TodayComingUpRow[];
+  /**
+   * 🗂 "Events you run" (owner "approved", 2026-10-28) — the events this person runs, LIVE, as the hosts'
+   * coordinator (`readEventsYouRun`). Empty = no section at all: only a coordinator ever sees it.
+   */
+  eventsYouRun?: readonly EventYouRun[];
   /** "Also waiting" — the desk's remaining asks, drawn by the page (they post server actions). */
   alsoWaiting?: ReactNode;
   /**
@@ -405,6 +416,7 @@ export function SupplierTodayFirstScreen({
   numbers,
   alsoToday = [],
   comingUp,
+  eventsYouRun = [],
   alsoWaiting,
   alsoWaitingHeaded = false,
   doors = [],
@@ -586,6 +598,15 @@ export function SupplierTodayFirstScreen({
               <TodayRow key={r.id} href={r.href} label={r.label} line={r.line} rowIcon={r.icon} marker={`today-${r.id}`} />
             ))}
           </div>
+        </div>
+      ) : null}
+
+      {/* 🗂 EVENTS YOU RUN — only for a supplier the hosts made their coordinator, while that access is live
+          (owner 2026-10-28). The first three; "All" opens the Events tab, which lists every one. */}
+      {eventsYouRun.length > 0 ? (
+        <div data-today-events-you-run>
+          <TodayEyebrow door={{ label: 'All', href: EVENTS_YOU_RUN_HREF }}>Events you run</TodayEyebrow>
+          <EventsYouRunRows events={eventsYouRun.slice(0, 3)} where="today" />
         </div>
       ) : null}
 

@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { InfoTip } from '@/app/_components/info-tip';
+import { FormPick } from './form-pick';
 import { ageShort } from '@/lib/admin/queue-counts';
 import { formatCount } from '@/lib/format-number';
 import {
@@ -82,32 +83,30 @@ function href(basePath: string, params: Record<string, string | undefined>): str
   return q ? `${path}?${q}` : path!;
 }
 
-function ReasonPick({ list, form, id }: { list: ReasonList; form: string; id: string }) {
+function ReasonPick({ list, form }: { list: ReasonList; form: string; id?: string }) {
   return (
-    <label className="flex min-h-[52px] flex-wrap items-center gap-2.5 border-t border-ink/10 py-1.5" htmlFor={id}>
+    <div className="flex min-h-[52px] flex-wrap items-center gap-2.5 border-t border-ink/10 py-1.5">
       <span className="min-w-[10rem] flex-1 text-[14px] text-ink">
         If it needs a fix — <span className="text-ink/70">the reason they’ll see</span>
       </span>
-      <select id={id} name="reason" form={form} defaultValue="" className={PILL} data-reason-pick={list}>
-        <option value="" disabled>
-          Pick the reason…
-        </option>
-        {SUPPLIER_WORK_REASONS[list].map((r) => (
-          <option key={r} value={r}>
-            {r}
-          </option>
-        ))}
-      </select>
-    </label>
+      <FormPick
+        name="reason"
+        form={form}
+        label="The reason they’ll see"
+        placeholder="Pick the reason…"
+        options={SUPPLIER_WORK_REASONS[list].map((r) => ({ key: r, label: r }))}
+        dataAttr={`data-reason-pick-${list}`}
+      />
+    </div>
   );
 }
 
 function Fact({ name, sub, badge, tone = 'ok' }: { name: string; sub?: string | null; badge?: string; tone?: 'ok' | 'no' | 'wait' }) {
   const toneClass =
     tone === 'ok'
-      ? 'bg-[var(--sn-success-soft,#e4f1e8)] text-success-800'
+      ? 'bg-success-100 text-success-800'
       : tone === 'no'
-        ? 'bg-[var(--sn-danger-soft,#fbe9e2)] text-danger-800'
+        ? 'bg-danger-100 text-danger-800'
         : 'bg-[var(--sn-warning-soft)] text-ink';
   return (
     <div className="flex min-h-[52px] items-center gap-2.5 border-t border-ink/10 py-1.5 first:border-t-0">
@@ -323,19 +322,17 @@ function TypesBody({
         <input type="hidden" name="request_id" value={item.requestId} />
         <input type="hidden" name="request_answer" value="link" />
         <input type="hidden" name="return_to" value={back} />
-        <label className="flex min-h-[52px] flex-wrap items-center gap-2.5 border-t border-ink/10 py-1.5" htmlFor={`type-${link}`}>
+        <div className="flex min-h-[52px] flex-wrap items-center gap-2.5 border-t border-ink/10 py-1.5">
           <span className="min-w-[10rem] flex-1 text-[14px] text-ink">Or it is an existing type</span>
-          <select id={`type-${link}`} name="event_type" defaultValue="" className={PILL} required>
-            <option value="" disabled>
-              Pick the type…
-            </option>
-            {eventTypes.map((t) => (
-              <option key={t.key} value={t.key}>
-                {t.label}
-              </option>
-            ))}
-          </select>
-        </label>
+          <FormPick
+            name="event_type"
+            form={link}
+            label="It is this event type"
+            placeholder="Pick the type…"
+            options={eventTypes.map((t) => ({ key: t.key, label: t.label }))}
+            dataAttr="data-type-pick"
+          />
+        </div>
       </form>
       <div className="mt-2.5 flex flex-wrap gap-2">
         <ActionButton type="submit" form={add} tone="brand" main icon={<PartyPopper />} label="Add the type" />
@@ -350,9 +347,9 @@ function MsgsBody({ item, back }: { item: Extract<SupplierWorkItem, { kind: 'msg
   return (
     <div className="max-w-2xl">
       <div className="flex flex-col gap-1.5 rounded-2xl bg-ink/[0.03] p-3" data-chat-flow="">
-        <p className="max-w-[80%] self-start rounded-2xl bg-[var(--sn-paper,#efe9df)] px-3 py-2 text-[14px] text-ink">{item.body || item.subject}</p>
+        <p className="max-w-[80%] self-start rounded-2xl bg-ink/[0.06] px-3 py-2 text-[14px] text-ink">{item.body || item.subject}</p>
         {item.reply ? (
-          <p className="max-w-[80%] self-end rounded-2xl bg-[var(--sn-accent,#C24E25)] px-3 py-2 text-[14px] text-white">{item.reply}</p>
+          <p className="max-w-[80%] self-end rounded-2xl bg-sn-accent px-3 py-2 text-[14px] text-white">{item.reply}</p>
         ) : null}
       </div>
       <form id={f} action={settleHelpFromWorkList} className="mt-2.5 flex flex-wrap items-center gap-2" data-work-form="msgs-reply">

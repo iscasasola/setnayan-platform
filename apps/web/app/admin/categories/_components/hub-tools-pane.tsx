@@ -15,6 +15,7 @@
  */
 import { useState, useTransition } from 'react';
 import { SwitchRow } from '@/app/_components/form-row';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { InfoTip } from '@/app/_components/info-tip';
 import { SCAN_MODES, type HubToolRecord, type ScanMode } from '@/lib/hub-tools';
 import type { StudioActionResult } from '../actions';
@@ -105,28 +106,18 @@ export function HubToolsPane({ categoryId, categoryLabel, library, tools, scan, 
           <span className="block text-[15px] font-semibold text-ink">Scan default</span>
           <span className="block text-xs text-ink/70">The supplier can change it per event.</span>
         </span>
-        <label className="sr-only" htmlFor={`scan-${categoryId}`}>
-          Scan default
-        </label>
-        <select
-          id={`scan-${categoryId}`}
+        <PickMenu
+          label="Scan default"
           value={mode}
-          disabled={pending}
-          data-hub-scan=""
-          onChange={(e) => {
+          options={SCAN_MODES}
+          onPick={(next) => {
             const before = mode;
-            const next = e.target.value as ScanMode;
-            setMode(next);
-            commit(on, next, () => setMode(before));
+            setMode(next as ScanMode);
+            commit(on, next as ScanMode, () => setMode(before));
           }}
-          className="sn-press-ring h-10 min-h-10 w-[200px] rounded-full border border-ink/15 bg-white px-3.5 text-[14px] font-medium text-ink dark:bg-raised"
-        >
-          {SCAN_MODES.map((m) => (
-            <option key={m.key} value={m.key}>
-              {m.label}
-            </option>
-          ))}
-        </select>
+          dataAttr="data-hub-scan"
+          className="min-h-11"
+        />
       </div>
 
       <p role="status" aria-live="polite" className={`mt-3 min-h-5 text-sm ${line?.ok === false ? 'text-danger-700' : 'text-success-700'}`} data-hub-line="">

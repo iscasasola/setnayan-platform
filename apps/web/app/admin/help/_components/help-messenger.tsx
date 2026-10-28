@@ -3,15 +3,17 @@
  * the left, the open conversation on the right, a reply box at the bottom (admin supplier slice, owner 2026-10-28;
  * prototype `prototypes/admin_supplier_slice_2026-10-28/` msgs.png).
  *
- * ⚠ A RESTYLE, NOT A SECOND CHAT. The redrawn chat (C1, `claude/chat-messenger-look`) has not merged, so this keeps
- * the shipped Help inbox's data and its ONE action (`setHelpMessageStatus`): their message is their bubble, our reply
+ * ⚠ ONE CHAT LOOK, NOT A SECOND CHAT. The conversation is drawn with C1's shared `ChatBox` + `ChatThreadHead`
+ * (merged 2026-10-28, #7004) on the shipped Help inbox's data and its ONE action (`setHelpMessageStatus`): their message is their bubble, our reply
  * (`admin_notes`) is ours. A help ticket holds ONE reply — sending again replaces it (said under the box). When C1
  * lands, this list should open its thread instead.
  *
  * Server Component; the open conversation is `?m=` and the filter `?status=` — plain links.
  */
 import Link from 'next/link';
-import { ArrowLeft, Check, Mail, Send } from 'lucide-react';
+import { Check, ChevronLeft, Mail, Send } from 'lucide-react';
+import { ChatBox } from '@/app/_components/chat/chat-box';
+import { ChatThreadHead } from '@/app/_components/chat/chat-thread-head';
 import { ActionButton } from '@/components/action-button';
 import { ageShort } from '@/lib/admin/queue-counts';
 
@@ -41,8 +43,6 @@ const FILTERS: Array<{ key: string; label: string }> = [
   { key: 'all', label: 'All' },
 ];
 
-const AVATAR_TONES = ['#8a6d4f', '#B5562C', '#3f5f7f', '#5B6E8C', '#2B744A', '#965A00'];
-
 function who(t: HelpThread): string {
   return t.shop_name?.trim() || t.sender_name?.trim() || t.sender_email;
 }
@@ -50,12 +50,6 @@ function who(t: HelpThread): string {
 function initials(name: string): string {
   const parts = name.replace(/[^\p{L}\p{N} ]/gu, ' ').trim().split(/\s+/).filter(Boolean);
   return ((parts[0]?.[0] ?? '?') + (parts[1]?.[0] ?? '')).toUpperCase();
-}
-
-function tone(id: string): string {
-  let h = 0;
-  for (const c of id) h = (h * 31 + c.charCodeAt(0)) >>> 0;
-  return AVATAR_TONES[h % AVATAR_TONES.length]!;
 }
 
 export function HelpMessenger({
@@ -124,7 +118,7 @@ export function HelpMessenger({
                   className={`flex min-h-16 items-center gap-2.5 px-3 py-2.5 ${on ? 'bg-ink/[0.06]' : 'hover:bg-ink/[0.03]'}`}
                   data-help-row={t.message_id}
                 >
-                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-xs font-bold text-white" style={{ background: tone(t.message_id) }} aria-hidden>
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-ink/[0.1] text-xs font-semibold text-ink/75" aria-hidden>
                     {initials(name)}
                   </span>
                   <span className="min-w-0 flex-1">
@@ -139,58 +133,71 @@ export function HelpMessenger({
         </ul>
         <section className={`${open ? 'flex' : 'hidden md:flex'} min-h-[420px] flex-col`} aria-label="Conversation" data-help-thread={open?.message_id ?? ''}>
           {open ? (
-            <>
-              <header className="flex items-center gap-2 border-b border-ink/10 px-3 py-2.5">
-                <Link href={link({})} className="sn-press grid h-10 w-10 place-items-center rounded-full md:hidden" aria-label="Back to the list" data-help-back="">
-                  <ArrowLeft aria-hidden className="h-5 w-5" />
-                </Link>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[15px] font-bold text-ink">{who(open)}</span>
-                  <span className="block truncate text-xs text-ink/70">
-                    {[open.tier_label, open.topic, open.user_id ? 'signed in' : 'no account', open.status === 'closed' ? 'closed' : null]
-                      .filter(Boolean)
-                      .join(' · ')}
-                  </span>
-                </span>
-              </header>
-              <div className="flex flex-1 flex-col gap-1.5 overflow-y-auto p-3.5" data-chat-flow="">
-                <p className="max-w-[78%] self-start whitespace-pre-wrap rounded-2xl bg-[var(--sn-paper,#efe9df)] px-3 py-2 text-[14px] text-ink dark:bg-ink/10">
+            <ChatBox
+              header={
+                <ChatThreadHead
+                  back={
+                    <Link
+                      href={link({})}
+                      aria-label="Back to the list"
+                      className="sn-press grid h-11 w-11 shrink-0 place-items-center rounded-full text-sn-accent md:hidden"
+                      data-help-back=""
+                    >
+                      <ChevronLeft aria-hidden className="h-6 w-6" />
+                    </Link>
+                  }
+                  name={<span className="truncate">{who(open)}</span>}
+                  initials={initials(who(open))}
+                  line={[open.tier_label, open.topic, open.user_id ? 'signed in' : 'no account', open.status === 'closed' ? 'closed' : null]
+                    .filter((x): x is string => Boolean(x))
+                    .map((x) => (
+                      <span key={x}>{x}</span>
+                    ))}
+                  actions={
+                    open.status !== 'closed' ? (
+                      <form action={action} data-help-close="">
+                        <input type="hidden" name="message_id" value={open.message_id} />
+                        <input type="hidden" name="status" value="closed" />
+                        {/* The action writes `admin_notes` from the form — the reply already sent rides along so Close never erases it. */}
+                        <input type="hidden" name="admin_notes" value={open.admin_notes ?? ''} />
+                        <ActionButton type="submit" tone="neutral" quiet icon={<Check />} label="Close" />
+                      </form>
+                    ) : null
+                  }
+                />
+              }
+              composer={
+                <form action={action} className="flex items-center gap-2" data-help-composer="">
+                  <input type="hidden" name="message_id" value={open.message_id} />
+                  <input type="hidden" name="status" value="in_progress" />
+                  <label className="sr-only" htmlFor={`reply-${open.message_id}`}>
+                    Reply to {who(open)}
+                  </label>
+                  <input
+                    id={`reply-${open.message_id}`}
+                    name="admin_notes"
+                    required
+                    maxLength={2000}
+                    placeholder={open.admin_notes ? 'Reply… (replaces your last reply)' : 'Reply…'}
+                    className="h-11 min-w-0 flex-1 rounded-full bg-ink/[0.05] px-4 text-[14px] text-ink placeholder:text-ink/60"
+                  />
+                  <ActionButton type="submit" tone="info" main icon={<Send />} label="Send" />
+                </form>
+              }
+            >
+              <div className="flex flex-1 flex-col gap-1.5 overflow-y-auto py-3" data-chat-flow="">
+                <p className="max-w-[78%] self-start whitespace-pre-wrap rounded-2xl bg-ink/[0.06] px-3 py-2 text-[14px] text-ink">
                   {open.subject && open.subject !== open.body ? <strong className="block">{open.subject}</strong> : null}
                   {open.body}
                 </p>
                 {open.admin_notes ? (
                   <>
-                    <p className="max-w-[78%] self-end whitespace-pre-wrap rounded-2xl bg-[var(--sn-accent,#C24E25)] px-3 py-2 text-[14px] text-white">{open.admin_notes}</p>
+                    <p className="max-w-[78%] self-end whitespace-pre-wrap rounded-2xl bg-sn-accent px-3 py-2 text-[14px] text-white">{open.admin_notes}</p>
                     <span className="self-end text-[11px] text-ink/70">{open.user_id ? 'Sent in the app' : 'Sent'}</span>
                   </>
                 ) : null}
               </div>
-              <form action={action} className="flex items-center gap-2 border-t border-ink/10 p-2.5" data-help-composer="">
-                <input type="hidden" name="message_id" value={open.message_id} />
-                <input type="hidden" name="status" value="in_progress" />
-                <label className="sr-only" htmlFor={`reply-${open.message_id}`}>
-                  Reply to {who(open)}
-                </label>
-                <input
-                  id={`reply-${open.message_id}`}
-                  name="admin_notes"
-                  required
-                  maxLength={2000}
-                  placeholder={open.admin_notes ? 'Reply… (replaces your last reply)' : 'Reply…'}
-                  className="h-10 min-w-0 flex-1 rounded-full bg-ink/[0.05] px-4 text-[14px] text-ink placeholder:text-ink/60"
-                />
-                <ActionButton type="submit" tone="info" main icon={<Send />} label="Send" />
-              </form>
-              {open.status !== 'closed' ? (
-                <form action={action} className="flex justify-end px-2.5 pb-2.5" data-help-close="">
-                  <input type="hidden" name="message_id" value={open.message_id} />
-                  <input type="hidden" name="status" value="closed" />
-                  {/* The action writes `admin_notes` from the form — the reply already sent rides along so Close never erases it. */}
-                  <input type="hidden" name="admin_notes" value={open.admin_notes ?? ''} />
-                  <ActionButton type="submit" tone="neutral" quiet icon={<Check />} label="Close" />
-                </form>
-              ) : null}
-            </>
+            </ChatBox>
           ) : (
             <p className="m-auto p-8 text-center text-sm text-ink/70">Pick a conversation on the left.</p>
           )}

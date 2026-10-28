@@ -451,7 +451,7 @@ export async function buildVendorConversationRows({
       threadId: t.thread_id,
       eventId: t.event_id,
       displayName,
-      initials: initialsFor(displayName),
+      initials: initialsForSupplierName(displayName),
       preview: previewFor(last, 'vendor'),
       timeLabel: formatTime(t.updated_at),
       updatedAt: t.updated_at,
@@ -573,7 +573,12 @@ async function readCoupleStageFacts(
  * name. It replaced the literal 'Supplier', which is exactly what a refused read looked like on the owner's live
  * Chats list (2026-10-28). Lives here, import-free, so the client column can import this module.
  */
-export const SUPPLIER_NAME_UNREADABLE = 'Couldn’t load the supplier’s name';
+export const SUPPLIER_NAME_UNREADABLE = 'Couldn’t load name';
+
+/** The avatar for a row whose name did not load — a question mark, never initials of the sentence ("CL"). */
+export function initialsForSupplierName(name: string): string {
+  return name === SUPPLIER_NAME_UNREADABLE ? '?' : initialsFor(name);
+}
 
 type CoupleThreadInput = {
   thread_id: string;
@@ -645,7 +650,7 @@ export async function buildCoupleConversationRows({
       threadId: t.thread_id,
       eventId,
       displayName,
-      initials: initialsFor(displayName),
+      initials: initialsForSupplierName(displayName),
       preview: previewFor(last, 'couple'),
       timeLabel: formatTime(t.updated_at),
       updatedAt: t.updated_at,

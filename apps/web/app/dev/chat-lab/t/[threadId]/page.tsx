@@ -36,7 +36,7 @@ import {
 } from '@/app/vendor-dashboard/messages/[threadId]/_components/thread-tools-sheet';
 import { CHAT_ATTACH_INPUT_ID } from '@/lib/chat-attach-input-id';
 import { dealEntryFor } from '@/lib/deal-entry';
-import { initialsFor } from '@/lib/conversation-list';
+import { initialsForSupplierName } from '@/lib/conversation-list';
 import { LAB_EVENT, LAB_MESSAGES, LAB_STAFF, LAB_THREADS, LAB_USER } from '../../fixtures';
 
 type LabProps = {
@@ -90,7 +90,7 @@ async function LabThread({ params, searchParams }: LabProps) {
               <ChatThreadHead
                 back={<BackButton href="/dev/chat-lab" label="Chats" variant="chat" />}
                 name={label}
-                initials={initialsFor(label)}
+                initials={initialsForSupplierName(label)}
                 line={
                   <>
                     <span>Photo &amp; video</span>

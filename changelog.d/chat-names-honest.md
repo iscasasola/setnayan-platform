@@ -17,7 +17,7 @@ come back ONLY when the name is revealed (the SQL twin of `isVendorNameRevealed`
 verification × venue × stamp held by the db test). `vendor_profiles` RLS is not widened. `lib/chat-supplier-names.ts`
 runs each row through the same `resolveVendorDisplayName`, so the label is the screen name pre-reveal and the
 business name once revealed. The couple's Chats list, the thread head, the thread's left column, the read receipts'
-reveal flag and the ✎ team picker all read it. A failed read now says "Couldn't load the supplier's name" — never a
+reveal flag and the ✎ team picker all read it. A failed read now says "Couldn’t load name" (avatar "?") — never a
 word that looks like a name. A revealed shop with an empty business name falls back to its screen name instead of
 the resolver's bare 'Supplier'.
 

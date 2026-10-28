@@ -41,7 +41,7 @@ import { COUPLE_THREAD_PANELS, affordancePanelId } from '@/lib/chat-box-tools';
 import { dealEntryFor, threadHasQuote } from '@/lib/deal-entry';
 import { chatNegotiationEnabled } from '@/lib/chat-negotiation-flag';
 import { formatLongDate } from '@/lib/format-date';
-import { initialsFor } from '@/lib/conversation-list';
+import { initialsForSupplierName } from '@/lib/conversation-list';
 import { coupleLockTarget, type CoupleLockTarget } from '@/lib/lock-door';
 import { readBookedMoney } from '@/lib/booked-money-step.server';
 import { firstPaymentSentence } from '@/lib/accepted-quote-terms';
@@ -681,7 +681,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
             <ChatThreadHead
               back={<BackButton route="/dashboard/[eventId]/messages/[threadId]" params={{ eventId, threadId }} label="Chats" variant="chat" />}
               name={vendorLabel}
-              initials={initialsFor(vendorLabel)}
+              initials={initialsForSupplierName(vendorLabel)}
               // ONE muted line: what they asked about · the date · the count this supplier quotes against (Adaptive
               // Pax Pricing, fresh on view — the couple sees what the supplier sees).
               line={

@@ -95,6 +95,7 @@ test('the couple list builder falls back to the honest line, not the word', asyn
   });
   assert.equal(rows.length, 1);
   assert.equal(rows[0]!.displayName, SUPPLIER_NAME_UNREADABLE);
+  assert.equal(rows[0]!.initials, '?', 'an unread name is a question mark, not the initials of the sentence');
 });
 
 const COUPLE_PAGES = [

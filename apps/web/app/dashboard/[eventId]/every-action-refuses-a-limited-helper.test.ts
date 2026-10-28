@@ -85,6 +85,7 @@ const NO_EVENT_WRITE: Record<string, string> = {
   'guests/checkin/actions.ts#checkTicketLive': 'read: a ticket verdict at the door',
   'guests/people-add-actions.ts#listPeopleYouCanInvite': 'read',
   'guests/open-guest-card.tsx#openGuestCard': 'read: renders the guest card',
+  '_components/open-event-settings.tsx#openEventSettings': 'read: renders Home’s Event Settings rows (couple only) — its editors write through their own gated doors',
   'studio/papic/actions.ts#papicBuySizes': 'read: price rungs',
   'checkout/actions.ts#applyVoucherAction': 'read: prices a voucher code, records nothing',
   'studio/live-studio-control/actions.ts#setYoutubeLiveReadyAck': 'writes only the caller’s own users row',

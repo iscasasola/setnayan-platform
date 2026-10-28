@@ -75,7 +75,8 @@ test('5 · every album photo tile carries the one tap', () => {
   const s = src('app/vendor-dashboard/on-the-day/live/[eventId]/_components/portfolio-album-section.tsx');
   assert.match(s, /tiles\.map\(\(\{ photo, url \}\) => \([\s\S]{0,900}<PutOnMyPageButton photoId=\{photo\.photoId\} notice=\{noticeByPhoto\.get\(photo\.photoId\) \?\? null\} \/>/, 'a photo has no "Put on my page"');
   const b = src('app/vendor-dashboard/collections/_components/put-on-my-page-button.tsx');
-  assert.match(b, /useActionState<[^>]*>\(putAlbumPhotoOnMyPage, null\)/);
+  assert.match(b, /action = putAlbumPhotoOnMyPage,/);
+  assert.match(b, /useActionState<[^>]*>\(action, null\)/);
   assert.match(b, /name="photo_id" value=\{photoId\}/);
 });
 

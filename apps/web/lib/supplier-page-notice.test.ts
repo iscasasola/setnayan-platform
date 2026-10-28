@@ -146,6 +146,8 @@ test('8 · the guest sees the line in the Event Hub whenever a notice exists —
   const page = src('app/[slug]/page.tsx');
   assert.match(page, /await readGuestSupplierPageNotices\(event\.event_id\)/);
   const line = src('app/[slug]/_components/supplier-page-notice-line.tsx');
-  assert.match(line, /askToTakeMyPhotoDown\(eventId, 'vendor_papic_portfolio_photos', photo\.photoId, fd\)/);
+  assert.match(line, /return askToTakeMyPhotoDown\(eventId, 'vendor_papic_portfolio_photos', photoId, fd\);/);
+  assert.match(line, /remove = removeFromSupplierPage,/, 'the Event Hub no longer defaults to the real takedown door');
+  assert.doesNotMatch(src('app/[slug]/_components/site-body.tsx'), /<SupplierPageNoticeLine[^>]*remove=/, 'the Event Hub passes a stand-in Remove');
   assert.doesNotMatch(line, /router\.refresh|window\.location|redirect\(/, 'a Remove resets the screen');
 });

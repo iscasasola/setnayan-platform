@@ -19,13 +19,16 @@ import { supplierTileLabel, type SupplierPageNoticeState } from '@/lib/supplier-
 export function PutOnMyPageButton({
   photoId,
   notice = null,
+  action = putAlbumPhotoOnMyPage,
 }: {
   photoId: string;
   /** The photo's notice, when one exists (read by the album section under the supplier's own session). */
   notice?: { state: SupplierPageNoticeState; publicFrom: string } | null;
+  /** Only `/dev/photo-privacy-lab` passes this (a fixture with no session); the album uses the real action. */
+  action?: (prev: PutOnPageResult | null, formData: FormData) => Promise<PutOnPageResult>;
 }) {
   const toast = useToast();
-  const [state, run] = useActionState<PutOnPageResult | null, FormData>(putAlbumPhotoOnMyPage, null);
+  const [state, run] = useActionState<PutOnPageResult | null, FormData>(action, null);
   useEffect(() => {
     if (!state) return;
     if (state.ok) toast.success(state.text);

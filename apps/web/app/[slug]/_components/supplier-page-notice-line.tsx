@@ -21,7 +21,25 @@ import {
  * supplier's page at once and asks for their copy to come down too. A removed photo leaves the list where it stands —
  * the screen never resets. Title + one short line visible; the rest is inside the ⓘ.
  */
-export function SupplierPageNoticeLine({ eventId, groups }: { eventId: string; groups: GuestNoticeGroup[] }) {
+type RemoveResult = { ok: true } | { ok: false; message: string };
+
+/** The one guest takedown door (off the supplier's page now, album copy asked down too). */
+async function removeFromSupplierPage(eventId: string, photoId: string): Promise<RemoveResult> {
+  const fd = new FormData();
+  fd.set('note', 'Removed from the supplier’s page by a guest of this event.');
+  return askToTakeMyPhotoDown(eventId, 'vendor_papic_portfolio_photos', photoId, fd);
+}
+
+export function SupplierPageNoticeLine({
+  eventId,
+  groups,
+  remove = removeFromSupplierPage,
+}: {
+  eventId: string;
+  groups: GuestNoticeGroup[];
+  /** Only `/dev/photo-privacy-lab` passes this (a fixture with no guest session); the Event Hub uses the real door. */
+  remove?: (eventId: string, photoId: string) => Promise<RemoveResult>;
+}) {
   const [removed, setRemoved] = useState<ReadonlySet<string>>(new Set());
   const shown = groups
     .map((g) => ({ ...g, photos: g.photos.filter((p) => !removed.has(p.noticeId)) }))
@@ -43,6 +61,7 @@ export function SupplierPageNoticeLine({ eventId, groups }: { eventId: string; g
             key={g.supplierName + g.photos[0]!.noticeId}
             eventId={eventId}
             group={g}
+            remove={remove}
             onRemoved={(id) => setRemoved((prev) => new Set(prev).add(id))}
           />
         ))
@@ -54,10 +73,12 @@ export function SupplierPageNoticeLine({ eventId, groups }: { eventId: string; g
 function SupplierGroup({
   eventId,
   group,
+  remove,
   onRemoved,
 }: {
   eventId: string;
   group: GuestNoticeGroup;
+  remove: (eventId: string, photoId: string) => Promise<RemoveResult>;
   onRemoved: (noticeId: string) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -78,7 +99,7 @@ function SupplierGroup({
       {open ? (
         <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {group.photos.map((p) => (
-            <PhotoWithRemove key={p.noticeId} eventId={eventId} photo={p} onRemoved={onRemoved} />
+            <PhotoWithRemove key={p.noticeId} eventId={eventId} photo={p} remove={remove} onRemoved={onRemoved} />
           ))}
         </ul>
       ) : null}
@@ -89,10 +110,12 @@ function SupplierGroup({
 function PhotoWithRemove({
   eventId,
   photo,
+  remove,
   onRemoved,
 }: {
   eventId: string;
   photo: GuestNoticeGroup['photos'][number];
+  remove: (eventId: string, photoId: string) => Promise<RemoveResult>;
   onRemoved: (noticeId: string) => void;
 }) {
   const [pending, start] = useTransition();
@@ -116,10 +139,7 @@ function PhotoWithRemove({
         onClick={() =>
           start(async () => {
             setError(null);
-            // The one guest takedown door: off the supplier's page now, and their album copy asked down too.
-            const fd = new FormData();
-            fd.set('note', 'Removed from the supplier’s page by a guest of this event.');
-            const res = await askToTakeMyPhotoDown(eventId, 'vendor_papic_portfolio_photos', photo.photoId, fd);
+            const res = await remove(eventId, photo.photoId);
             if (res.ok) onRemoved(photo.noticeId);
             else setError(res.message);
           })

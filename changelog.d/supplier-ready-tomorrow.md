@@ -77,4 +77,12 @@ a page that never existed — lands on Settings › Notifications (`settings#not
 anchor). Ugat screens, port baseline and root-map baselines regenerated (8 lines removed, none added). Guard:
 `app/vendor-dashboard/no-stub-bounces.test.ts`.
 
+**S8 · The event card saves in place — first pass.** Notes (add · done/reopen · delete) and the challenge save IN
+PLACE: success revalidates the card where it stands, no navigation. A refused note write is now SAID (it was
+swallowed): back to the notes with `?note=error` → "Couldn’t save that — try again". The 15 other actions still
+navigate because each one's OUTCOME rides its redirect as a flag the page/Today prints (sent · error · hall taken ·
+fee held …); converting them needs that word moved into a returned result with a client caller — listed, with
+reasons, in the guard `app/vendor-dashboard/clients/[eventId]/the-event-card-saves-in-place.test.ts` (the list can
+only shrink; a new navigating action fails it).
+
 SPEC IMPACT: DECISION_LOG row "SUPPLIERS READY TO RUN AN EVENT AND FINISH THEIR SHOP" (corpus).

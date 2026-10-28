@@ -58,10 +58,13 @@ export function ActivityFeed({
   eventId,
   events,
   notes,
+  noteFailed = false,
 }: {
   eventId: string;
   events: ActivityEvent[];
   notes: ClientNote[];
+  /** A note write was refused (`?note=error`). */
+  noteFailed?: boolean;
 }) {
   const ordered = [...events].sort((a, b) => b.sortAt - a.sortAt);
   return (
@@ -99,7 +102,7 @@ export function ActivityFeed({
         <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
           Private notes · only your team
         </p>
-        <ClientNotes eventId={eventId} notes={notes} />
+        <ClientNotes eventId={eventId} notes={notes} failed={noteFailed} />
       </div>
     </div>
   );

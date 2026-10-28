@@ -479,6 +479,8 @@ type Props = {
     change_order?: string;
     change_order_resp?: string;
     handover?: string;
+    /** A refused note write (`noteSaved`, actions.ts) — said in the notes list. */
+    note?: string;
     /** vendorMarkServiceComplete's outcome — see VendorCompletionCard. */
     completed?: string;
     /** The payment-ask outcome flag — see PaymentAsksPanel. */
@@ -1846,7 +1848,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           deleted.
         </p>
       ) : null}
-      <ActivityFeed eventId={eventId} events={activityEvents} notes={notes} />
+      <ActivityFeed eventId={eventId} events={activityEvents} notes={notes} noteFailed={search.note === 'error'} />
     </>
   );
 

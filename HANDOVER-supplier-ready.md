@@ -33,6 +33,7 @@ Worktree: ~/Documents/Claude/Projects/wt-supplier-ready · branch claude/supplie
   no migration.
 
 - S7 · no stub bounces (guard app/vendor-dashboard/no-stub-bounces.test.ts; baselines regenerated).
+- S8 (partial): notes + challenge save in place; 15 flag-carrying actions listed in the guard for the next pass.
 
 ## State
 - Draft PR #7041 (label do-not-auto-merge). No migration, no new server action (server-action ceiling untouched).

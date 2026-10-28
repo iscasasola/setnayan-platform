@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "d1ac46a805",
+  "generatedFromRef": "85213ba0df",
   "routeCount": 479,
   "destinations": 981,
   "actions": 640,
-  "blocks": 7293,
+  "blocks": 7294,
   "routes": {
     "/": {
       "files": [
@@ -11773,6 +11773,7 @@
         "Fix",
         "GalleryMedia",
         "KeptNotesFold",
+        "LabEarnedLine",
         "LabSeedDraft",
         "LibraryLab",
         "Link",

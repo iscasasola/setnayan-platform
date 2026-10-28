@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "6ae03a2aac",
+  "generatedFromRef": "eb87356154",
   "routeCount": 479,
   "destinations": 986,
   "actions": 642,
-  "blocks": 7291,
+  "blocks": 7292,
   "routes": {
     "/": {
       "files": [
@@ -5765,6 +5765,7 @@
         "dashboard/[eventId]/_components/home-cards/home-music-card.tsx",
         "dashboard/[eventId]/_components/home-cards/home-planner-card.tsx",
         "dashboard/[eventId]/_components/home-cards/home-whos-here-card.tsx",
+        "dashboard/[eventId]/_components/home-cards/home-whos-here-guest-sheet.tsx",
         "dashboard/[eventId]/_components/home-cards/hub-draft-switch.tsx",
         "dashboard/[eventId]/_components/home-cards/hub-parts-switches.tsx",
         "dashboard/[eventId]/_components/home-cards/hub-pick-actions.ts",
@@ -5985,6 +5986,7 @@
         "GuestConfirmActions",
         "GuestLike",
         "GuestPopup",
+        "GuestSheet",
         "GuestsGetIn",
         "GuestsSeeWrites",
         "HTMLAnchorElement",

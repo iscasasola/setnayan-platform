@@ -16,6 +16,7 @@
  * Held by `lib/whos-here.test.ts` and `tests/db/who-is-viewing-the-hub.db.test.ts`.
  */
 import { envFlagEnabled } from './env-flag';
+import { formatCount } from './format-number';
 
 /** A guest's open is written at most once per this many minutes (the browser AND `record_hub_view` both hold it). */
 export const HUB_SEEN_DEBOUNCE_MIN = 30;
@@ -135,7 +136,7 @@ export function teamWords(peers: readonly TeamPeer[] | null, state: 'joining' | 
   if (state === 'failed') return 'Couldn’t check who else is here';
   if (state === 'joining' || peers === null) return 'Checking who else is here…';
   if (peers.length === 0) return 'Just you right now';
-  return `${peers.length} other${peers.length === 1 ? '' : 's'} here now`;
+  return `${formatCount(peers.length)} other${peers.length === 1 ? '' : 's'} here now`;
 }
 
 /* ─── The guests ───────────────────────────────────────────────────────────── */
@@ -210,12 +211,12 @@ export function hubWords(v: HubViewers | null, enabled: boolean): string {
   if (!v.may_name) {
     // The guests are not this viewer's to see — counted or named — so only the strangers are said, as "other".
     return v.visitors > 0
-      ? `${v.visitors} other visitor${v.visitors === 1 ? '' : 's'} · last ${v.window_minutes} min`
+      ? `${formatCount(v.visitors)} other visitor${v.visitors === 1 ? '' : 's'} · last ${v.window_minutes} min`
       : `No other visitors in the last ${v.window_minutes} minutes`;
   }
   const parts: string[] = [];
-  if (v.guest_total > 0) parts.push(`${v.guest_total} guest${v.guest_total === 1 ? '' : 's'}`);
-  if (v.visitors > 0) parts.push(`${v.visitors} other visitor${v.visitors === 1 ? '' : 's'}`);
+  if (v.guest_total > 0) parts.push(`${formatCount(v.guest_total)} guest${v.guest_total === 1 ? '' : 's'}`);
+  if (v.visitors > 0) parts.push(`${formatCount(v.visitors)} other visitor${v.visitors === 1 ? '' : 's'}`);
   if (parts.length === 0) return `No one opened it in the last ${v.window_minutes} minutes`;
   return `${parts.join(' · ')} · last ${v.window_minutes} min`;
 }

@@ -134,7 +134,14 @@ test('5 · out of the Maker’s first load: only lazy Details pieces import the 
   walk('app');
   assert.deepEqual(
     importers.sort(),
-    [`${L}/details-march.tsx`, `${L}/details-people.tsx`, `${L}/parent-cards.tsx`, `${L}/studio-prints-six.tsx`].sort(),
+    [
+      `${L}/details-march.tsx`,
+      `${L}/details-people.tsx`,
+      `${L}/parent-cards.tsx`,
+      `${L}/studio-prints-six.tsx`,
+      // Home › Who's here (2026-10-29) — not the Maker; loaded by next/dynamic on the first tap of a guest's face.
+      'app/dashboard/[eventId]/_components/home-cards/home-whos-here-guest-sheet.tsx',
+    ].sort(),
     'the card sheet is imported outside the (lazy) Details pieces that open a guest’s card',
   );
   assert.doesNotMatch(read('app/dashboard/[eventId]/launch/page.tsx'), /guest-card|loadGuestCard|GuestCardBody/, 'the Maker’s page reads or draws a guest card up front');

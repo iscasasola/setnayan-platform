@@ -81,7 +81,7 @@ const ENTRY_POINTS: Record<string, 'GuestCard' | 'GuestCardSheet'> = {
   [`${EVENT}/launch/_components/parent-cards.tsx`]: 'GuestCardSheet', // the parents under the march / The Invitation
   [`${EVENT}/launch/_components/studio-prints-six.tsx`]: 'GuestCardSheet', // Studio › Prints' parents
   [`${EVENT}/launch/_components/details-people.tsx`]: 'GuestCardSheet', // Details › Parents & hosts
-  [`${EVENT}/_components/home-cards/home-whos-here-card.tsx`]: 'GuestCardSheet', // Home › Who's here — a guest viewing the Event Hub
+  [`${EVENT}/_components/home-cards/home-whos-here-guest-sheet.tsx`]: 'GuestCardSheet', // Home › Who's here — a guest viewing the Event Hub (lazy)
   'app/dev/details-lab/lab-march-cards.tsx': 'GuestCard', // the march lab's stand-in read
   'app/dev/guests-lab/page.tsx': 'GuestCard', // the Guest list lab
 };

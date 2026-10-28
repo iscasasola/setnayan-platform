@@ -16,7 +16,7 @@
  * timer of its own. A read that fails says so with ⟳ Reload, and the last answer is never redrawn as "nobody".
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { Eye, RotateCw } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { ActionButton } from '@/components/action-button';
@@ -33,8 +33,13 @@ import {
   type HubViewers,
 } from '@/lib/whos-here';
 import { useEventTeamPresence } from '../event-team-presence';
-import { GuestCardSheet, SHIPPED_GUEST_CARD, type GuestCardPerson } from '../../guests/_components/guest-card-sheet';
 import type { GuestCardResult } from '../../guests/_components/guest-card';
+import { formatCount } from '@/lib/format-number';
+
+/** The guest's card — loaded on the first tap, never with Home. */
+const GuestSheet = dynamic(() => import('./home-whos-here-guest-sheet'), { ssr: false });
+
+type GuestCardPerson = { id: string; name: string };
 
 /** Asked again at most this often, whatever pulls it (a burst of arrivals, a flick between tabs). */
 const REREAD_GAP_MS = 20_000;
@@ -43,7 +48,7 @@ export function HomeWhosHereCard({
   eventId,
   initial,
   hubEnabled,
-  openGuest = SHIPPED_GUEST_CARD.home,
+  openGuest,
 }: {
   eventId: string;
   /** The page's own read (`readHubViewers`) — `null` when it failed. */
@@ -53,7 +58,6 @@ export function HomeWhosHereCard({
   /** How a tapped guest's card is read — the shipped action, or a dev lab's stand-in. */
   openGuest?: (eventId: string, guestId: string) => Promise<GuestCardResult>;
 }) {
-  const router = useRouter();
   const team = useEventTeamPresence();
   const [viewers, setViewers] = useState<HubViewers | null>(initial);
   const [failed, setFailed] = useState(initial === null);
@@ -81,9 +85,11 @@ export function HomeWhosHereCard({
         });
         const v = error ? null : parseHubViewers(data);
         // 🔒 A failed read keeps the last answer on screen and SAYS it failed — never an empty list.
+        if (error) console.error('[supabase-error] home-whos-here-card · rpc:event_hub_viewers', error);
         if (v) setViewers(v);
         setFailed(v === null);
-      } catch {
+      } catch (err) {
+        console.error('[whos-here] re-read failed', err);
         setFailed(true);
       } finally {
         setBusy(false);
@@ -114,12 +120,12 @@ export function HomeWhosHereCard({
         </span>
         <span className="min-w-0 flex-1">
           <InfoTip label="Who’s here" labelClassName="sg-name" align="start">
-            Your team: the hosts, co-hosts, helpers and coordinators who have this event open now — a tab left in the
+            On the dashboard: the hosts, co-hosts, helpers and coordinators who have this event open now — a tab left in the
             background drops off after half a minute. Event Hub: guests are named only when they opened it with their own
             invitation; everyone else is a number, never who. The last {WHOS_HERE_WINDOW_MIN} minutes, each device
             counted once per half hour. Only your event’s team sees this card.
           </InfoTip>
-          <span className="sg-brand block truncate">Your team now · the Event Hub, last {WHOS_HERE_WINDOW_MIN} min</span>
+          <span className="sg-brand block truncate">On the dashboard now · the Event Hub, last {WHOS_HERE_WINDOW_MIN} min</span>
         </span>
       </div>
 
@@ -194,7 +200,7 @@ export function HomeWhosHereCard({
             })}
             {moreGuests > 0 ? (
               <li className="px-2 text-[13px] font-medium text-ink/60" data-whos-here-more={moreGuests}>
-                +{moreGuests}
+                +{formatCount(moreGuests)}
               </li>
             ) : null}
           </ul>
@@ -204,14 +210,7 @@ export function HomeWhosHereCard({
       </div>
 
       {open ? (
-        <GuestCardSheet
-          eventId={eventId}
-          person={open}
-          open={openGuest}
-          onClose={() => setOpen(null)}
-          // A save on the card re-reads Home once, so a renamed guest is never shown by an old name.
-          onSaved={() => router.refresh()}
-        />
+        <GuestSheet eventId={eventId} person={open} onClose={() => setOpen(null)} {...(openGuest ? { openGuest } : {})} />
       ) : null}
     </section>
   );

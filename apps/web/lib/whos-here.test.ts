@@ -157,11 +157,13 @@ test('5 · the team’s side is ONE private channel, joined by the layout alone;
   const card = code('app/dashboard/[eventId]/_components/home-cards/home-whos-here-card.tsx');
   assert.equal((card.match(/\.rpc\(/g) ?? []).length, 1, 'the card asks ONE function');
   assert.match(card, /rpc\('event_hub_viewers'/);
-  assert.doesNotMatch(card, /setInterval\(|\.channel\(/, 'no poll loop and no channel of its own');
+  assert.doesNotMatch(card, /setInterval\(|\.channel\(|guest-card-sheet'/, 'no poll loop and no channel of its own');
   assert.match(card, /onTabReturn\(/, 'it re-reads when the tab comes back');
   assert.match(card, /team\?\.pulse/, '…and when someone arrives on or leaves the dashboard');
-  assert.match(card, /openGuest = SHIPPED_GUEST_CARD\.home/, 'a guest face opens the shipped guest card (a lab alone hands a stand-in)');
-  assert.match(card, /open=\{openGuest\}/);
+  assert.match(card, /dynamic\(\(\) => import\('\.\/home-whos-here-guest-sheet'\)/, 'the guest card loads on the first tap, never with Home');
+  const sheet = code('app/dashboard/[eventId]/_components/home-cards/home-whos-here-guest-sheet.tsx');
+  assert.match(sheet, /openGuest = SHIPPED_GUEST_CARD\.home/, 'a guest face opens the shipped guest card (a lab alone hands a stand-in)');
+  assert.match(sheet, /<GuestCardSheet\b[\s\S]*open=\{openGuest\}/);
 });
 
 test('6 · the words are honest — a failure is never "nobody"', () => {

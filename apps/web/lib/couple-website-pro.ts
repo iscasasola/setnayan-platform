@@ -188,6 +188,8 @@ async function hubLegacyPartLines(
     p_codes: [...HUB_PART_PAID_CODES],
   });
   if (error) {
+    // Service role only (like `event_entitlement_facts`): a session client is refused and the grandfather is not
+    // applied — logged, never silent. Gates read through `eventEntitlementClient`, which is the service role.
     console.error('[supabase-error] couple-website-pro: legacy part lines', error);
     return null;
   }

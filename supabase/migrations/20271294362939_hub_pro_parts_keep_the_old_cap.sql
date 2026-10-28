@@ -17,7 +17,10 @@
 --   • CUTOVER: 2026-10-28 16:00 UTC (29 Oct 00:00 PHT) — the day of the ruling. Parts have been refused at checkout
 --              since 26 Oct, so every part line that exists was bought under the old cap.
 --
--- Service role, or a member of the event (`current_event_ids()`), like every other read of an event's bill.
+-- Service role ONLY — exactly like `event_entitlement_facts`: the order rows are the couple's bill, and the app reads
+-- an event's entitlements through the service-role entitlement client (`lib/event-entitlement-client.server.ts`)
+-- after it has checked membership. Any other caller gets NULL, and no EXECUTE grant reaches anon or authenticated
+-- (`exposure-freeze.db.test.ts`).
 
 CREATE OR REPLACE FUNCTION public.event_hub_pro_legacy_part_lines(p_event_id UUID, p_codes TEXT[])
 RETURNS JSONB
@@ -33,8 +36,7 @@ BEGIN
   IF p_event_id IS NULL OR p_codes IS NULL THEN
     RETURN NULL;
   END IF;
-  IF coalesce(auth.role(), '') <> 'service_role'
-     AND NOT (p_event_id IN (SELECT public.current_event_ids())) THEN
+  IF coalesce(auth.role(), '') <> 'service_role' THEN
     RETURN NULL;
   END IF;
   RETURN jsonb_build_object(
@@ -60,5 +62,5 @@ BEGIN
   );
 END;
 $$;
-REVOKE ALL ON FUNCTION public.event_hub_pro_legacy_part_lines(UUID, TEXT[]) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.event_hub_pro_legacy_part_lines(UUID, TEXT[]) TO authenticated, service_role;
+REVOKE ALL ON FUNCTION public.event_hub_pro_legacy_part_lines(UUID, TEXT[]) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.event_hub_pro_legacy_part_lines(UUID, TEXT[]) TO service_role;

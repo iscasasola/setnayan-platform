@@ -596,10 +596,11 @@ export function GuestCardBody({
                 label is the eyebrow's own `.sn-eye`. And plain words: "Me" is
                 the guest's own tab on the Event Hub — a host reading this card
                 does not know that name, so it says where they see it. */}
-            <p className="sn-eye">Their ticket</p>
-            <p className="mt-1 text-[13px] leading-snug text-ink/65">
+            {/* 🎟 "What they see on their phone" lives in the ⓘ beside the eyebrow now (owner 2026-10-27, prototype
+                `send_run_simple_2026-10-27` frame card) — the row under it is Share · NFC · New QR · ⋯. */}
+            <InfoTip label="Their ticket" labelAs="p" labelClassName="sn-eye" align="start">
               {isCouple ? 'A host — nothing to send.' : 'What they see on their phone.'}
-            </p>
+            </InfoTip>
           </div>
           {/* 🕯 Nothing is offered for a guest marked Passed away, and the couple
               do not invite themselves. */}

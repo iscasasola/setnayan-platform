@@ -22,6 +22,8 @@ import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { readEventsYouRun } from '@/lib/events-you-run.server';
+import { CheckinDeskRows } from '../_components/events-you-run-rows';
 import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
 import { WEDDING_TILE_LABEL, type WeddingTile } from '@/lib/taxonomy';
 import { resolveDayOfConsoleKind, type DayOfConsoleKind } from '@/lib/vendor-day-of';
@@ -194,6 +196,9 @@ export default async function VendorOnTheDayPage({
   if (!user) redirect('/login?next=/vendor-dashboard/on-the-day');
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard/verify');
+  // 🎫 The events this person runs as the hosts' coordinator — each gets a Check-in desk door below (owner
+  // 2026-10-28). The layout's cache()d read; started now, read at the render. Fails closed: no rows.
+  const eventsYouRunP = readEventsYouRun(supabase, user.id).catch(() => ({ events: [], measured: false }));
 
   // Q7 (owner 2026-09-11) — the day-of tools' dated end. Unset (the default,
   // since the public-launch date is not decided yet) → this never fires and
@@ -447,6 +452,7 @@ export default async function VendorOnTheDayPage({
     );
   }
 
+  const { events: runEvents } = await eventsYouRunP;
   const DELIVERY_PCT = [0, 60, 100][deliveryStage];
   const DELIVERY_LABEL = ['Not started yet', 'In progress', 'Delivered'][deliveryStage];
 
@@ -493,6 +499,9 @@ export default async function VendorOnTheDayPage({
           </Link>
         </div>
       ) : null}
+
+      {/* 🎫 Check-in desk — for each event this person runs as the coordinator (owner 2026-10-28). Nothing for anyone else. */}
+      <CheckinDeskRows events={runEvents} />
 
       {/* Q7 — shown only once the owner sets an end date; says nothing while
           unset, matching the "no invented deadline" rule. */}

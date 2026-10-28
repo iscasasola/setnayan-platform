@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "9d0d2affff",
+  "generatedFromRef": "3530d46acd",
   "routeCount": 477,
   "destinations": 997,
   "actions": 641,
-  "blocks": 7201,
+  "blocks": 7204,
   "routes": {
     "/": {
       "files": [
@@ -7990,6 +7990,7 @@
       ],
       "blocks": [
         "ChatInbox",
+        "ChatOriginMark",
         "FeedPageSkeleton",
         "Filter",
         "HTMLDivElement",
@@ -14096,6 +14097,7 @@
         "CalendarGrid",
         "CalendarLegend",
         "CalendarSheet",
+        "ChatOriginMark",
         "CheckADate",
         "ChosenRow",
         "ConfirmForm",
@@ -14336,6 +14338,7 @@
       ],
       "actions": [],
       "blocks": [
+        "ChatOriginMark",
         "Icon",
         "InquiryOutcomesRollup",
         "Link",
@@ -14370,7 +14373,7 @@
         "/vendor-dashboard/clients/[seg]?tab=files",
         "/vendor-dashboard/clients/[seg]?tab=quote",
         "/vendor-dashboard/clients/[seg]?tab=schedule",
-        "/vendor-dashboard/messages",
+        "/vendor-dashboard/customers?seg=people",
         "/vendor-dashboard/messages/[seg]",
         "/vendor-dashboard/proposals"
       ],

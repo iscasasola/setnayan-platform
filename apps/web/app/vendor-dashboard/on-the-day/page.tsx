@@ -57,6 +57,7 @@ import { IssuesLog } from './_components/issues-log';
 import { VendorStatusUpdates } from './_components/vendor-status-updates';
 import { ModuleConfigurator, type ConfiguratorModule } from './_components/module-configurator';
 import { EventPicker, type PickerLock } from './_components/event-picker';
+import { SupplierSavedStrip } from '@/app/_components/offline-ready/supplier-saved-strip';
 import { collapseToPickerDays, HUB_OPEN_WINDOW_PLAIN, phTodayIso, pickConfigureDay } from '@/lib/vendor-day-picker';
 import { AccessGrants, type GrantableMember } from './_components/access-grants';
 import { ShopEmpty } from '../_components/kit';
@@ -517,6 +518,14 @@ export default async function VendorOnTheDayPage({
           obsidian focal, § 1.3), or the no-event state. */}
       {todaysBooking ? (
         <div className="sn-tile-dark sn-bloom p-5 sm:p-6">
+          {/* 📶 The saved mark + Update now, top of the event card (EV3, owner 2026-10-28) — this supplier's own copy
+              of the Hub, the event's console and, when they run the hosts' door, its Check-in desk. */}
+          <SupplierSavedStrip
+            viewer={user.id}
+            eventId={todaysBooking.eventId}
+            eventDate={todaysBooking.bookedDate}
+            checkin={runEvents.some((e) => e.eventId === todaysBooking.eventId)}
+          />
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex min-w-0 items-center gap-4">
               <span

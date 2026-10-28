@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "cce508892c",
-  "routeCount": 480,
-  "destinations": 988,
-  "actions": 652,
-  "blocks": 7258,
+  "generatedFromRef": "06a89888f4",
+  "routeCount": 479,
+  "destinations": 986,
+  "actions": 642,
+  "blocks": 7240,
   "routes": {
     "/": {
       "files": [
@@ -2657,7 +2657,6 @@
         "admin/categories/_components/four-level-map.tsx",
         "admin/categories/_components/four-level-model.ts",
         "admin/categories/_components/group-icons.ts",
-        "admin/categories/_components/hub-tools-pane.tsx",
         "admin/categories/_components/in-place.tsx",
         "admin/categories/_components/list-pane.tsx",
         "admin/categories/_components/load-map.ts",
@@ -2788,8 +2787,6 @@
         "HTMLElement",
         "Head",
         "Hidden",
-        "HubToolsPane",
-        "HubToolsSection",
         "Icon",
         "InfoTip",
         "ItemForm",
@@ -2847,7 +2844,6 @@
         "SVGSVGElement",
         "Said",
         "SavePick",
-        "ScanMode",
         "SearchParamsRecord",
         "Section",
         "ServiceBack",
@@ -2858,7 +2854,6 @@
         "StudioActionResult",
         "SubmitButton",
         "SwitchForm",
-        "SwitchRow",
         "SwitchTrack",
         "T",
         "Thumbs",
@@ -3451,24 +3446,20 @@
     },
     "/admin/help": {
       "files": [
-        "admin/help/_components/help-messenger.tsx",
         "admin/help/actions.ts",
         "admin/help/loading.tsx",
         "admin/help/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/admin/help?status=[seg]"
+      ],
       "actions": [
-        "action",
         "setHelpMessageStatus"
       ],
       "blocks": [
-        "ActionButton",
-        "ChatBox",
-        "ChatThreadHead",
-        "HelpMessageRow",
-        "HelpMessenger",
-        "Link",
-        "PageMasthead"
+        "FilterChip",
+        "PageMasthead",
+        "SubmitButton"
       ]
     },
     "/admin/hub-music": {
@@ -4918,41 +4909,13 @@
     },
     "/admin/work": {
       "files": [
-        "admin/work/_components/form-pick.tsx",
-        "admin/work/_components/supplier-inbox.tsx",
         "admin/work/actions.ts",
         "admin/work/page.tsx"
       ],
-      "destinations": [
-        "/admin/help?m=[seg]"
-      ],
-      "actions": [
-        "createEventTypeRoster",
-        "openApplicationDocument",
-        "resolveRepostFlag",
-        "setEventTypeStatus",
-        "setFolderEventTypeOffered",
-        "settleCorrectionFromWorkList",
-        "settleHelpFromWorkList",
-        "settleVerificationFromWorkList"
-      ],
+      "destinations": [],
+      "actions": [],
       "blocks": [
-        "ActionButton",
-        "CardsBody",
-        "DocsBody",
-        "Fact",
-        "FormPick",
-        "Icon",
-        "InfoTip",
-        "Link",
-        "MsgsBody",
-        "NamesBody",
-        "PickMenu",
-        "Preview",
-        "QueuesTriageFeed",
-        "ReasonPick",
-        "SupplierInbox",
-        "TypesBody"
+        "QueuesTriageFeed"
       ]
     },
     "/api/v1": {
@@ -5347,6 +5310,9 @@
         "dashboard/(account)/people/_components/find-or-invite.tsx",
         "dashboard/(account)/people/_components/follow-list-view.tsx",
         "dashboard/(account)/people/_components/found-person-card.tsx",
+        "dashboard/(account)/people/_components/group-chat-rows.tsx",
+        "dashboard/(account)/people/_components/people-groups-view.tsx",
+        "dashboard/(account)/people/_components/people-pinned-row.tsx",
         "dashboard/(account)/people/_components/people-roster-view.tsx",
         "dashboard/(account)/people/_components/people-thumb.tsx",
         "dashboard/(account)/people/_components/people-view-picker.tsx",
@@ -5389,7 +5355,6 @@
         "ConfirmForm",
         "ConnectionTreeSection",
         "CopyButton",
-        "CountDoor",
         "DependentKind",
         "DependentsSection",
         "Drawer",
@@ -5400,6 +5365,7 @@
         "FollowRowItem",
         "FoundPersonCard",
         "Frame",
+        "GroupChatRows",
         "GroupsFoldList",
         "GroupsFoldSection",
         "GuestConfirmActions",
@@ -5416,10 +5382,16 @@
         "Layer",
         "LifeStorySection",
         "Link",
+        "MenuSettingsButton",
         "PageMasthead",
         "PeopleFilter",
+        "PeopleGroupRows",
+        "PeopleGroupsView",
+        "PeoplePinnedRow",
         "PeoplePreview",
         "PeopleRosterView",
+        "PeopleSettings",
+        "PeopleSettingsRows",
         "PeopleThumb",
         "PeopleViewPicker",
         "Person",
@@ -5428,6 +5400,7 @@
         "PersonNameLink",
         "PersonRow",
         "PickMenu",
+        "PinnedRow",
         "PlanTogether",
         "Popover",
         "PreviewRow",
@@ -5435,6 +5408,7 @@
         "SamahanPeopleSection",
         "Spotlight",
         "SubmitButton",
+        "SwitchRow",
         "T",
         "ThumbField",
         "ThumbTool",
@@ -5546,6 +5520,7 @@
     },
     "/dashboard/(account)/samahan": {
       "files": [
+        "dashboard/(account)/samahan/_components/mark-group-read.tsx",
         "dashboard/(account)/samahan/actions.ts",
         "dashboard/(account)/samahan/page.tsx"
       ],
@@ -5562,6 +5537,7 @@
         "dashboard/(account)/samahan/[communityId]/_components/member-actions-menu.tsx",
         "dashboard/(account)/samahan/[communityId]/_components/samahan-identity-header.tsx",
         "dashboard/(account)/samahan/[communityId]/_components/samahan-stories.tsx",
+        "dashboard/(account)/samahan/[communityId]/layout.tsx",
         "dashboard/(account)/samahan/[communityId]/page.tsx"
       ],
       "destinations": [
@@ -5590,6 +5566,7 @@
         "HTMLVideoElement",
         "InfoTip",
         "Link",
+        "MarkGroupRead",
         "MediaRecorder",
         "MediaStream",
         "MemberActionsMenu",
@@ -10902,28 +10879,6 @@
         "NewManualVendorModal"
       ]
     },
-    "/dev/admin-supplier-lab": {
-      "files": [
-        "dev/admin-supplier-lab/fixtures.ts",
-        "dev/admin-supplier-lab/lab-submit-catcher.tsx",
-        "dev/admin-supplier-lab/page.tsx"
-      ],
-      "destinations": [
-        "/admin/verify",
-        "/dev/admin-supplier-lab?view=[seg]"
-      ],
-      "actions": [
-        "setHelpMessageStatus"
-      ],
-      "blocks": [
-        "HelpMessenger",
-        "HubToolsPane",
-        "LabSubmitCatcher",
-        "QueuesTriageFeed",
-        "SP",
-        "SupplierInbox"
-      ]
-    },
     "/dev/art-kit-lab": {
       "files": [
         "dev/art-kit-lab/page.tsx"
@@ -11563,8 +11518,10 @@
         "FoundPersonCard",
         "GroupsFoldList",
         "LabTour",
+        "PeopleGroupsView",
         "PeopleRosterView",
         "RosterPerson",
+        "SecondDegreeStandIn",
         "SpotlightMount",
         "TreeStandIn"
       ]

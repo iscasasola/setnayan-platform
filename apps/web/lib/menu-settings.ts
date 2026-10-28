@@ -27,7 +27,7 @@
  */
 
 /** The menus (and the one Hub tool, Prints) that own a settings sheet. Home is deliberately absent. */
-export type SettingsMenu = 'guests' | 'hub' | 'prints' | 'memories' | 'suppliers';
+export type SettingsMenu = 'guests' | 'hub' | 'prints' | 'memories' | 'suppliers' | 'people';
 
 export type SettingsEntry = {
   /** Where the door sits. Every menu: the right end of its first control row. Suppliers: the spot, reserved. */
@@ -73,6 +73,15 @@ export const SETTINGS_ENTRY: Record<SettingsMenu, SettingsEntry> = {
     door: 'first-row-gear',
     sheet: 'Suppliers settings',
     line: 'How you see costs, what you owe, their photos.',
+    live: true,
+  },
+  // 👥 PEOPLE (owner 2026-10-28, "People and Groups approved"): the account's People page ends its pinned row with ⚙,
+  // the 27 Oct template. Its one row is the People search's own switch — "Can people find you by name?" — the same
+  // `users.discoverable_by_name` the profile's Privacy section writes (also drawn there; one writer, two seats).
+  people: {
+    door: 'first-row-gear',
+    sheet: 'People settings',
+    line: 'Who can find you by name.',
     live: true,
   },
 };

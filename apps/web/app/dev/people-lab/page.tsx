@@ -16,6 +16,11 @@
  *   ?view=following the Following list with its thumb row
  *   ?person=S89U-LABANA0001  the deep link a shell search result writes (owner 2026-10-22) — Ana's card open
  *   ?found=1        the "On Setnayan" card a stranger's result opens (FoundPersonCard, a fixture hit)
+ *   ?view=samahan   People › Groups (owner 2026-10-28): the pinned row Groups ▾ · counts · ＋ New · ⚙ over the chat rows
+ *                   (`PeopleGroupsView`) — prototype user_dash_2026-10-28 C/D. Every view wears the pinned row.
+ *   ?groupsfail=1   the group list refused · ?activityfail=1 the one activity read refused (rows keep their line)
+ *   ?unreadfail=1   the unread counts refused — the Groups door says "Couldn't load", no badge anywhere
+ *   ?long=1         30 extra people, so the page scrolls under the pinned row
  */
 import { notFound } from 'next/navigation';
 import { AccountBottomNav } from '@/app/dashboard/(launcher)/_components/account-bottom-nav';
@@ -23,8 +28,9 @@ import { PeopleRosterView } from '@/app/dashboard/(account)/people/_components/p
 import { FollowListView } from '@/app/dashboard/(account)/people/_components/follow-list-view';
 import { FoundPersonCard } from '@/app/dashboard/(account)/people/_components/found-person-card';
 import { GroupsFoldList, type GroupsFoldRow } from '@/app/dashboard/(account)/people/_components/samahan-people-section';
+import { PeopleGroupsView } from '@/app/dashboard/(account)/people/_components/people-groups-view';
 import type { PeopleRoster, RosterPerson } from '@/lib/people-roster';
-import { peopleViewOptions, type PeopleView } from '@/lib/people-views';
+import { peopleViewOptions, pinnedViewOptions, type PeopleView } from '@/lib/people-views';
 import { TOURS } from '@/lib/tours';
 import { LabTour } from './lab-tour';
 
@@ -44,6 +50,8 @@ const person = (p: Partial<RosterPerson> & Pick<RosterPerson, 'key' | 'name'>): 
   ...p,
 });
 
+const MANY: RosterPerson[] = Array.from({ length: 30 }, (_, i) => person({ key: `x${i}`, name: `Friend ${i + 1}`, relation: 'friend' }));
+
 const PEOPLE: RosterPerson[] = [
   person({ key: 'tb', name: 'Tita Baby', state: 'waiting_you', canLabel: false, storedRelation: 'godchild', fromEvent: { name: 'Cale & Ice', type: 'wedding' }, publicId: 'S89U-LABTIT0001' }),
   person({ key: 'ar', name: 'Ana Reyes', relation: 'parent', samahan: ['Sison family'], publicId: 'S89U-LABANA0001' }),
@@ -54,11 +62,29 @@ const PEOPLE: RosterPerson[] = [
   person({ key: 'pm', name: 'Paolo Mendoza', state: 'waiting_them', relation: 'partner', publicId: 'S89U-LABPAO0001' }),
 ];
 
-/** The Groups section's rows — the same two groups `mySamahan` names below. */
+/** The Groups rows — chat rows (owner 2026-10-28): a ring while stories are live · the last line · its time · the next
+ *  event · an unread badge (owner 2026-10-28, GROUP UNREAD). The prototype's three groups (user_dash_2026-10-28 B–D). */
 const GROUPS: GroupsFoldRow[] = [
-  { communityId: 'lab-sam-1', name: 'Barkada', role: 'organizer', memberCount: 12 },
-  { communityId: 'lab-sam-2', name: 'Sison family', role: 'member', memberCount: 8 },
+  { communityId: 'lab-sam-1', name: 'Barkada ni Ice', role: 'organizer', memberCount: 12, stories: 3, last: { who: 'Mika', body: 'Sino may sasakyan sa Sabado?', when: '2m' }, nextEvent: { label: '15 Nov · Liga ng Barangay' }, unread: 3 },
+  { communityId: 'lab-sam-2', name: 'Sison family', role: 'member', memberCount: 8, stories: 6, last: { who: 'Tita Ces', body: 'Salamat po!', when: '1h' }, nextEvent: { label: '27 Dec · Reunion' }, unread: 1 },
+  { communityId: 'lab-sam-3', name: 'Batch ’14', role: 'member', memberCount: 41, stories: 0, last: { who: 'Paolo', body: 'See you sa Liga!', when: 'Mon' }, nextEvent: null, unread: 0 },
 ];
+
+/** The second degree under the Groups view's rows — a stand-in for the server section (it reads the database). */
+function SecondDegreeStandIn() {
+  return (
+    <div data-lab-second-degree="">
+      <p className="font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-ink/55">Through your groups — second degree</p>
+      <ul className="mt-2 flex flex-wrap gap-2">
+        {['Mika Santos · Barkada ni Ice', 'Tito Ben · Sison family'].map((t) => (
+          <li key={t} className="inline-flex items-center rounded-full border border-ink/10 py-1 pl-3 pr-3 text-xs text-ink/70">
+            {t}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 /** The note an unmarried account's card carries (`spouseAbsenceNote`, lib/people-add.ts) — the owner's sheet had it. */
 const SPOUSE_NOTE =
@@ -71,22 +97,22 @@ const FOLLOWS = [
   { publicId: 'S89U-LABHOS0001', slug: null, name: 'Mika Santos', photoUrl: null, publicProfile: true, connected: false, mutual: false, since: '2026-10-01T00:00:00Z' },
 ];
 
-function roster(kind: 'full' | 'empty' | 'fail'): PeopleRoster {
-  const people = kind === 'full' ? PEOPLE : [];
+function roster(kind: 'full' | 'empty' | 'fail', long = false): PeopleRoster {
+  const people = kind === 'full' ? (long ? [...PEOPLE, ...MANY] : PEOPLE) : [];
   return {
     people,
-    mySamahan: kind === 'full' ? [{ id: 'lab-sam-1', name: 'Barkada' }, { id: 'lab-sam-2', name: 'Sison family' }] : [],
+    mySamahan: kind === 'full' ? GROUPS.map((g) => ({ id: g.communityId, name: g.name })) : [],
     samahanUnavailable: false,
     connectionsUnavailable: kind === 'fail',
     counts: {
       all: people.length,
-      connected: kind === 'full' ? 4 : 0,
+      connected: kind === 'full' ? (long ? 34 : 4) : 0,
       waitingThem: kind === 'full' ? 1 : 0,
       waitingYou: kind === 'full' ? 1 : 0,
       labelAsksForYou: 0,
       unlabelled: kind === 'full' ? 2 : 0,
       alaga: kind === 'full' ? 1 : kind === 'fail' ? null : 0,
-      samahan: kind === 'full' ? 2 : kind === 'fail' ? null : 0,
+      samahan: kind === 'full' ? GROUPS.length : kind === 'fail' ? null : 0,
     },
   };
 }
@@ -123,7 +149,7 @@ export default async function PeopleLabPage({
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
   const kind = sp.fail === '1' ? 'fail' : sp.empty === '1' ? 'empty' : 'full';
-  const r = roster(kind);
+  const r = roster(kind, sp.long === '1');
   const view = (typeof sp.view === 'string' ? sp.view : 'connected') as PeopleView;
   const gates = { showConnections: true, showDependents: true };
   const options = peopleViewOptions(gates, {
@@ -135,10 +161,15 @@ export default async function PeopleLabPage({
     samahan: r.counts.samahan,
   });
   const picker = {
-    view: (['following', 'followers'].includes(view) ? view : 'connected') as PeopleView,
+    view: (['following', 'followers', 'samahan'].includes(view) ? view : 'connected') as PeopleView,
     options: options.filter((o) => o.key !== 'requests' && o.key !== 'alaga').map((o) => (o.key === 'connected' ? { ...o, label: o.label.replace(/^Connected/, 'Your people') } : o)),
     gates,
   };
+  // 📌 The pinned row's picker + People settings (owner 2026-10-28). ?findfail=1 — the setting's read refused.
+  const pin = { options: pinnedViewOptions(options), settings: { findable: sp.findfail === '1' ? null : true } };
+  const groupsRefused = sp.groupsfail === '1' || kind === 'fail';
+  const unreadRefused = sp.unreadfail === '1';
+  const groupRows = groupsRefused || kind === 'empty' ? [] : unreadRefused ? GROUPS.map((g) => ({ ...g, unread: null })) : GROUPS;
   const lovedOnes = (
     <div className="pb-3" data-people-view="alaga">
       <p className="py-2 text-sm text-ink/65">{kind === 'full' ? 'Lola Nena · In your care' : 'No loved ones yet.'}</p>
@@ -154,7 +185,13 @@ export default async function PeopleLabPage({
       <main className="pb-[calc(var(--sn-bottomdock-h,calc(env(safe-area-inset-bottom)+64px))+1.5rem)] lg:pb-0">
         <div className="sn-page-enter">
           <div className="mx-auto w-full max-w-7xl px-4 pb-10 pt-2 sm:px-6 lg:px-8">
-            {view === 'following' || view === 'followers' ? (
+            {view === 'samahan' ? (
+              <div className="mx-auto w-full max-w-3xl pb-24">
+                <PeopleGroupsView rows={groupRows} unreadable={groupsRefused} unreadUnreadable={unreadRefused} activityUnreadable={sp.activityfail === '1'} picker={picker} pin={pin}>
+                  {kind === 'full' ? <SecondDegreeStandIn /> : null}
+                </PeopleGroupsView>
+              </div>
+            ) : view === 'following' || view === 'followers' ? (
               <FollowListView
                 which={view}
                 list={{ rows: kind === 'full' ? FOLLOWS : [], unavailable: kind === 'fail' }}
@@ -167,6 +204,7 @@ export default async function PeopleLabPage({
                 relations={['partner', 'parent', 'child', 'sibling', 'godparent', 'godchild', 'friend']}
                 spouseNote={SPOUSE_NOTE}
                 picker={picker}
+                pin={pin}
                 initialFilter={view === 'requests' ? 'asking' : 'all'}
                 focus={view === 'alaga' ? 'alaga' : null}
                 openPerson={typeof sp.person === 'string' ? sp.person : null}
@@ -174,7 +212,7 @@ export default async function PeopleLabPage({
                   // ?noalaga=1 — an account without Loved ones (the gate off): the People tour's middle stop is skipped.
                   ...(sp.noalaga === '1' ? [] : [{ key: 'alaga' as const, label: 'Loved ones', count: r.counts.alaga, node: lovedOnes }]),
                   // Groups — the REAL section's list (`GroupsFoldList`) on fixture rows (the reader asks the database).
-                  { key: 'groups', label: 'Groups', count: r.counts.samahan, node: <GroupsFoldList groups={kind === 'full' ? GROUPS : []} unreadable={kind === 'fail'} /> },
+                  { key: 'groups', label: 'Groups', count: r.counts.samahan, node: <GroupsFoldList groups={groupRows} unreadable={groupsRefused} activityUnreadable={sp.activityfail === '1'} /> },
                   { key: 'tree', label: 'Your connection tree', count: null, folded: true, node: <TreeStandIn empty={kind !== 'full'} /> },
                 ]}
               />

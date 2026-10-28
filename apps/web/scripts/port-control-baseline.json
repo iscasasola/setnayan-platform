@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "460c82e856",
+  "generatedFromRef": "142446c8f3",
   "routeCount": 479,
   "destinations": 981,
   "actions": 640,
-  "blocks": 7280,
+  "blocks": 7281,
   "routes": {
     "/": {
       "files": [
@@ -11022,6 +11022,7 @@
       "actions": [],
       "blocks": [
         "ChatInbox",
+        "CoupleThreadSupplierRow",
         "LabShell",
         "StartThreadPicker",
         "ThreadArchiveToggle"

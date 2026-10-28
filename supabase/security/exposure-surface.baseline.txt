@@ -9,7 +9,7 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6758
+# facts: 6759
 #   schema    4
 #   rls       0
 #   rlsforce  0
@@ -17,7 +17,7 @@
 #   col       4955
 #   policy    956
 #   view      9
-#   func      260
+#   func      261
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -6567,6 +6567,7 @@ func	public.coordinator_seat_by_guest_qr(p_event_id uuid, p_token text)	secdef=y
 func	public.count_saves_for_vendor(p_vendor_profile_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.count_unread_message_threads()	secdef=yes exec=anon,authenticated search_path=public
 func	public.couple_decide_inspiration_suggestion(p_suggestion_id uuid, p_keep boolean, p_replace_position smallint)	secdef=yes exec=authenticated search_path=public
+func	public.couple_thread_supplier_names(p_event_id uuid)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.couple_undo_kept_inspiration_suggestion(p_suggestion_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.create_vendor_subscription(p_sku_code text, p_addon_token_pack_sku text)	secdef=yes exec=anon,authenticated search_path=UNPINNED
 func	public.current_community_ids()	secdef=yes exec=anon,authenticated search_path=public

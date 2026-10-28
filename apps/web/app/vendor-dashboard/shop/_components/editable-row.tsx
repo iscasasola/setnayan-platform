@@ -82,6 +82,9 @@ const INLINE_DIRECT_KEYS = new Set([
  * The parent owns which row is open (one at a time). `business_documents` is NOT
  * rendered here — the parent renders it as its own verification row.
  */
+/** A flat form row: a hairline between rows, none above the first, no card. */
+const FLAT_ROW = 'border-t border-ink/10 first:border-t-0';
+
 export function EditableRow({
   item,
   data,
@@ -89,10 +92,17 @@ export function EditableRow({
   onOpen,
   onClose,
   onReopenAfterError,
+  flat = false,
 }: {
   item: BusinessProfileItem;
   data: ProfileFieldData;
   isOpen: boolean;
+  /**
+   * 🧾 THE HOUSE FORM ROW (Today's setup steps, owner 2026-10-28 — "frames only on what you press"): no card around
+   * the row — a hairline between rows, label at the left, the answer at the right. The save logic is the same.
+   * Absent → the row is exactly as it was.
+   */
+  flat?: boolean;
   /** Request that THIS row become the open one. */
   onOpen: () => void;
   /** Request that this row close (if it's the open one). */
@@ -191,15 +201,15 @@ export function EditableRow({
 
   if (inlineDirect) {
     return (
-      <li className="rounded-lg border bg-white" style={{ borderColor: 'var(--m-line)' }}>
-        <div className="p-3">
-          <div className="flex items-center gap-3">
+      <li className={flat ? FLAT_ROW : 'rounded-lg border bg-white'} style={flat ? undefined : { borderColor: 'var(--m-line)' }} data-editable-row={flat ? 'flat' : undefined}>
+        <div className={flat ? 'flex min-h-[52px] items-center gap-3 py-2' : 'p-3'}>
+          <div className={flat ? 'flex min-w-0 flex-1 items-center gap-3' : 'flex items-center gap-3'}>
             <StatusChip ok={false} />
             {/* Real <label> — the inline input has no Field wrapper, and every
                 plain-input id equals its item key. */}
             <label
               htmlFor={item.key}
-              className="min-w-0 flex-1 truncate text-sm"
+              className={flat ? 'min-w-0 flex-1 text-sm leading-tight' : 'min-w-0 flex-1 truncate text-sm'}
               style={{ color: 'var(--m-ink)' }}
             >
               {item.label}
@@ -227,7 +237,7 @@ export function EditableRow({
             ref={formRef}
             action={formAction}
             noValidate
-            className="mt-2 pl-9"
+            className={flat ? 'w-[180px] max-w-[50%] flex-none' : 'mt-2 pl-9'}
             onSubmit={() => {
               dirty.current = false;
             }}
@@ -256,10 +266,11 @@ export function EditableRow({
 
   return (
     <li
-      className="overflow-hidden rounded-lg border bg-white"
-      style={{ borderColor: isOpen ? 'var(--m-orange-3)' : 'var(--m-line)' }}
+      className={flat ? FLAT_ROW : 'overflow-hidden rounded-lg border bg-white'}
+      style={flat ? undefined : { borderColor: isOpen ? 'var(--m-orange-3)' : 'var(--m-line)' }}
+      data-editable-row={flat ? 'flat' : undefined}
     >
-      <div className="flex items-center gap-3 p-3">
+      <div className={flat ? 'flex min-h-[52px] items-center gap-3 py-2' : 'flex items-center gap-3 p-3'}>
         <StatusChip ok={item.ok} />
         <span className="min-w-0 flex-1">
           <span
@@ -306,7 +317,7 @@ export function EditableRow({
       <Collapsible open={isOpen}>
         <div
           ref={editorRef}
-          className="border-t px-3 pb-3 pt-3"
+          className={flat ? 'pb-3 pl-9' : 'border-t px-3 pb-3 pt-3'}
           style={{ borderColor: 'var(--m-line)' }}
           onKeyDown={(e) => {
             if (e.key === 'Escape') {
@@ -365,13 +376,16 @@ export function EditableRow({
 export function ServiceCoverageRow({
   item,
   count,
+  flat = false,
 }: {
   item: BusinessProfileItem;
   count: number;
+  /** The house form row — see `EditableRow`'s `flat`. */
+  flat?: boolean;
 }) {
   return (
-    <li className="overflow-hidden rounded-lg border bg-white" style={{ borderColor: 'var(--m-line)' }}>
-      <div className="flex items-center gap-3 p-3">
+    <li className={flat ? FLAT_ROW : 'overflow-hidden rounded-lg border bg-white'} style={flat ? undefined : { borderColor: 'var(--m-line)' }} data-editable-row={flat ? 'flat' : undefined}>
+      <div className={flat ? 'flex min-h-[52px] items-center gap-3 py-2' : 'flex items-center gap-3 p-3'}>
         <StatusChip ok={item.ok} />
         <span className="min-w-0 flex-1">
           <span

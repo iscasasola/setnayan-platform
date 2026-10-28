@@ -194,7 +194,9 @@ test('the maker href is a route that exists and draws the card', () => {
   assert.equal(SERVICE_MAKER_HREF, '/vendor-dashboard/services/new');
   const page = read('app/vendor-dashboard/services/new/page.tsx');
   assert.ok(page.length > 500, 'the maker route read back empty — this check is pointed at nothing');
-  assert.match(page, /<CanvasMaker/, 'the maker route stopped rendering the maker');
+  // The route draws the maker through its one drawing (`NewServiceMaker`, shared with Today's setup sheet, 2026-10-28).
+  assert.match(page, /<NewServiceMaker\b/, 'the maker route stopped rendering its maker');
+  assert.match(read('app/vendor-dashboard/services/new/_components/new-service-maker.tsx'), /<CanvasMaker/, 'the maker route stopped rendering the maker');
 });
 
 test('the picker constants survive, because the canvas-off fallback needs them', () => {

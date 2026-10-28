@@ -55,7 +55,8 @@ test('the Shop makes a service card, and the press opens the maker', () => {
   );
   // The maker route has to be a real page, or the button opens a 404 — the
   // reachability half, kept here because this file owns the button.
-  const maker = read('app/vendor-dashboard/services/new/page.tsx');
+  // The page draws the maker through its one drawing (`NewServiceMaker`, shared with Today's setup sheet, 2026-10-28).
+  const maker = read('app/vendor-dashboard/services/new/page.tsx') + read('app/vendor-dashboard/services/new/_components/new-service-maker.tsx');
   assert.match(maker, /<CanvasMaker/, 'the create route stopped rendering the maker');
   assert.ok(maker.length > 500, 'the maker route read back empty — this check is pointed at nothing');
   // And it must not still offer a wedding.

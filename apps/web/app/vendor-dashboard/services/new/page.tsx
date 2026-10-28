@@ -3,8 +3,7 @@ import { redirect } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { CanvasMaker } from '../_components/canvas-maker';
-import { RefinementsEditor } from '../_components/refinements-editor';
+import { NewServiceMaker } from './_components/new-service-maker';
 import { canvasMakerEnabled } from '@/lib/canvas-maker-flag';
 import { SERVICE_PICKER_HREF } from '@/lib/service-picker-anchor';
 import { loadKindDetails, loadMakerContext } from '@/lib/service-card-maker.server';
@@ -54,44 +53,7 @@ export default async function NewServiceCardPage({
         </Link>
         <h1 className="text-[17px] font-semibold tracking-tight text-ink">New service</h1>
       </div>
-      <CanvasMaker
-        categoryValue=""
-        categoryLabel=""
-        categoryOptions={ctx.categoryOptions}
-        tradeOptions={ctx.tradeOptions}
-        firstCardEver={ctx.firstCardEver}
-        coverageNames={ctx.coverageNames}
-        shopName={profile.business_name ?? ''}
-        otherCategories={ctx.otherCategories}
-        coverages={ctx.coverages}
-        vendorProfileId={profile.vendor_profile_id}
-        claimToken={null}
-        eventTypeOptions={ctx.eventTypeOptions}
-        faithOptions={ctx.faithOptions}
-        coverageAudience={ctx.coverageAudience}
-        coverageAllowed={ctx.coverageAllowed}
-        supplierType={ctx.supplierType}
-        folderOfKind={ctx.folderOfKind}
-        coverageAsk={ctx.coverageAsk}
-        schedules={ctx.schedules}
-        scheduleOfKind={ctx.scheduleOfKind}
-        branches={ctx.branches}
-        detailsKind={details ? ctx.onlyKind : null}
-        detailsSlot={
-          details && ctx.onlyKind ? (
-            <RefinementsEditor
-              canonicalService={ctx.onlyKind}
-              refinements={details.refinements}
-              initial={details.values}
-              leafLabel={ctx.kindLabel(ctx.onlyKind)}
-              bare
-            />
-          ) : null
-        }
-        errorLine={typeof error === 'string' && error.length > 0 ? error : null}
-        returnTo="/vendor-dashboard/services/new"
-        initial={null}
-      />
+      <NewServiceMaker vendorProfileId={profile.vendor_profile_id} shopName={profile.business_name ?? ''} ctx={ctx} details={details} error={typeof error === 'string' && error.length > 0 ? error : null} />
     </div>
   );
 }

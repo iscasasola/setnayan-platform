@@ -24,6 +24,7 @@ import { ActionButton } from '@/components/action-button';
 import type { FeeDisclosure, DueFeeBill, WaivedFeeCharge } from '@/lib/booking-fee-disclosure';
 import { feeIntroducedLine, waivedFeeCopy } from '@/lib/booking-fee-disclosure';
 import { Badge } from '@/app/_components/badge';
+import { InfoTip } from '@/app/_components/info-tip';
 import { VENDOR_BOOKING_FEES_PATH, vendorBookingFeePayPath } from '@/lib/vendor-booking-fees';
 
 /** Border / accent per tone. `good` is the free-booking and no-fee case. */
@@ -167,11 +168,18 @@ export function BookingFeeBillRow({
         >
           <Wallet className="h-[18px] w-[18px]" strokeWidth={1.8} />
         </span>
+        {/* Title + ONE short line visible (owner 2026-10-23 "details go inside the ⓘ"; 2026-10-28 review): the amount
+            and the due day stay; who introduced the couple is said in the title's ⓘ. */}
         <span className="min-w-0">
-          <span className="block truncate text-[15px] font-medium leading-tight text-ink">{copy.headline}</span>
-          <span className="block text-[13px] leading-snug" style={{ color: copy.tone === 'overdue' ? 'rgb(var(--color-danger))' : 'rgb(var(--color-warn))' }}>
+          {introduced ? (
+            <InfoTip label={copy.headline} labelClassName="truncate text-[15px] font-medium leading-tight text-ink" align="start" className="max-w-full">
+              <span data-fee-introduced="">{introduced}</span>
+            </InfoTip>
+          ) : (
+            <span className="block truncate text-[15px] font-medium leading-tight text-ink">{copy.headline}</span>
+          )}
+          <span className="block truncate text-[13px] leading-snug" style={{ color: copy.tone === 'overdue' ? 'rgb(var(--color-danger))' : 'rgb(var(--color-warn))' }}>
             {copy.detail}
-            {introduced ? <span className="text-ink/60" data-fee-introduced=""> · {introduced.replace(/\.$/, '')}</span> : null}
           </span>
         </span>
         <ActionButton

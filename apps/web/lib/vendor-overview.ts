@@ -1063,7 +1063,46 @@ export type VendorEarningsSummary = {
    * "couldn't load" instead of printing ₱0.
    */
   earningsMeasured: boolean;
+  /**
+   * 💰 WHO STILL OWES WHAT — the same payday read the "to come in" total is summed from, cut per booking (owner
+   * 2026-10-28: Today's "₱ to come in" count FILTERS the list in place). Empty when payday was not read — read
+   * `paydayMeasured` first; an empty list over a refused read is never "nobody owes you".
+   */
+  owed: OwedBooking[];
 };
+
+/** One booking with money still to come in — unconfirmed installments with an amount, summed. */
+export type OwedBooking = {
+  eventId: string;
+  eventName: string;
+  owedPhp: number;
+  /** The earliest unconfirmed due date ('YYYY-MM-DD'), or null when none has one. */
+  nextDue: string | null;
+  /** An unconfirmed installment is past due. */
+  overdue: boolean;
+};
+
+/**
+ * Cut the payday installments per booking, most urgent first (overdue, then the nearest due date, undated last).
+ * Pure — the Today list and its "to come in" count come from one read.
+ */
+export function owedBookings(
+  rows: ReadonlyArray<{ event_vendor_id: string; event_id: string; event_name: string; amount_php: number | null; due_date: string | null; confirmed: boolean }>,
+  todayIso: string,
+): OwedBooking[] {
+  const by = new Map<string, OwedBooking>();
+  for (const r of rows) {
+    if (r.confirmed || r.amount_php == null || r.amount_php <= 0) continue;
+    const b = by.get(r.event_vendor_id) ?? { eventId: r.event_id, eventName: r.event_name, owedPhp: 0, nextDue: null, overdue: false };
+    b.owedPhp += r.amount_php;
+    if (r.due_date && (b.nextDue === null || r.due_date < b.nextDue)) b.nextDue = r.due_date;
+    if (r.due_date && r.due_date < todayIso) b.overdue = true;
+    by.set(r.event_vendor_id, b);
+  }
+  return [...by.values()].sort(
+    (a, b) => Number(b.overdue) - Number(a.overdue) || (a.nextDue ?? '9999').localeCompare(b.nextDue ?? '9999'),
+  );
+}
 
 /**
  * Load the vendor's real earnings summary for the Overview bento. Cheap enough
@@ -1079,7 +1118,7 @@ export async function fetchVendorEarningsSummary(
 ): Promise<VendorEarningsSummary> {
   const admin = createAdminClient();
 
-  const [earnings, paydayTotals] = await Promise.all([
+  const [earnings, payday] = await Promise.all([
     // Earnings: the payments couples logged to THIS shop and it confirmed (the
     // same reader as the Earnings page). Fail-soft to [] — see #5650 for the
     // honest-failure half of this tile.
@@ -1102,7 +1141,8 @@ export async function fetchVendorEarningsSummary(
         });
         return null; // unmeasured — never a ₱0 (or a short total) that reads as real
       }
-      return buildPaydayTimeline(read.rows, manilaTodayIso()).totals;
+      const today = manilaTodayIso();
+      return { totals: buildPaydayTimeline(read.rows, today).totals, owed: owedBookings(read.rows, today) };
     })().catch(() => null),
   ]);
 
@@ -1112,9 +1152,10 @@ export async function fetchVendorEarningsSummary(
     earnedThisYearPhp: ytdTotal,
     bookingCount: earnings?.length ?? 0,
     earningsMeasured: earnings !== null,
-    confirmedPhp: paydayTotals?.confirmedPhp ?? 0,
-    expectedPhp: paydayTotals?.expectedPhp ?? 0,
-    paydayMeasured: paydayTotals !== null,
+    confirmedPhp: payday?.totals.confirmedPhp ?? 0,
+    expectedPhp: payday?.totals.expectedPhp ?? 0,
+    paydayMeasured: payday !== null,
+    owed: payday?.owed ?? [],
   };
 }
 

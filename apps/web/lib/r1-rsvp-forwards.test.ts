@@ -129,10 +129,13 @@ test('5 · nothing lost: Guests ⚙ draws what only the tile held, once, beside 
     assert.equal(rows.filter((r) => r === row).length, 1, `Guests ⚙ does not draw "${row}" exactly once`);
   }
   for (const row of settingsRowsOf('guests').filter((r) => SETTINGS_ROWS[r].cluster === 'Replies')) assert.ok(rows.includes(row), `${row} is mapped to Replies but not drawn`);
-  // How guests answer: the two named choices, the stored one pressed — a pill selector (the templates).
-  const pill = html.slice(html.indexOf('data-pill-selector="setup-answer"'));
-  assert.ok(html.includes('data-pill-selector="setup-answer"'), 'How guests answer is not the pill selector');
-  assert.match(pill.slice(0, 1800), /aria-pressed="true"[^>]*data-seg="all"[^>]*>All at once</);
+  // How guests answer: ONE dropdown (owner 2026-09-28, "any set of choices is a dropdown"), the stored choice named —
+  // the same PickMenu-in-a-Form-row as How guests get in and Replies open; never a pill row.
+  const answer = html.slice(html.indexOf('data-setup-row="answer"') - 400, html.indexOf('data-setup-row="answer"') + 4000);
+  assert.match(answer, /data-form-row-kind="chosen"/, 'How guests answer is not the Form row with a dropdown');
+  assert.match(answer, /aria-haspopup="listbox"/, 'How guests answer is not a dropdown');
+  assert.match(answer, /aria-label="[^"]*All at once"[^>]*aria-haspopup="listbox"[^>]*data-setup-answer=""/, 'the dropdown does not name the stored choice');
+  assert.doesNotMatch(html, /data-pill-selector="setup-answer"/, 'How guests answer is a pill row again');
   // Replies open ▾ is the shared part, its row keyed for `?row=replies-window`.
   assert.match(html, /data-rsvp-setting="replies-open"[^>]*data-setup-row="replies-window"|data-setup-row="replies-window"[^>]*data-rsvp-setting="replies-open"/);
   // Every row a moved door names is drawn — `?row=` lands on something.

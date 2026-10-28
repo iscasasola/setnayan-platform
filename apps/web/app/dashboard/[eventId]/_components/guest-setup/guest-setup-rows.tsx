@@ -4,8 +4,7 @@ import { useEffect, useRef, useState, useTransition, type MouseEvent } from 'rea
 import { Check, ChevronRight, Copy, Mail, RotateCcw, Share2, SquareCheck, X } from 'lucide-react';
 import { ActionButton, useFitRow } from '@/components/action-button';
 import { Count } from '@/components/count';
-import { FormRow, FormRows } from '@/app/_components/form-row';
-import { PillSelector } from '@/app/_components/pill-selector';
+import { ChosenRow, FormRow, FormRows } from '@/app/_components/form-row';
 import { readOneAtATime, type RsvpAskConfig } from '@/lib/rsvp-ask';
 import type { KeepAnswer } from '@/lib/form-row';
 import { HOW_GUESTS_ANSWER_ABOUT, HOW_GUESTS_ANSWER_LABEL, HOW_GUESTS_ANSWER_OPTIONS } from '@/lib/how-guests-answer';
@@ -200,17 +199,18 @@ export function GuestSetupRows({
         <ClusterHead name={GUESTS_SETTINGS_CLUSTERS[1]} />
         {replies ? <RsvpAsks frame={asksFrame} config={local} onToggle={(field, v) => void save({ [field]: v }, 'That question')} /> : null}
         {replies ? (
-          /* ❓ Two named things → the pill selector (the templates); what each means is behind the ⓘ. */
-          <FormRow data="how-guests-answer" name={HOW_GUESTS_ANSWER_LABEL} about={{ words: HOW_GUESTS_ANSWER_ABOUT }} attrs={{ 'data-setup-row': 'answer' }}>
-            <PillSelector
-              label={HOW_GUESTS_ANSWER_LABEL}
-              data="setup-answer"
-              grow={false}
-              value={oneAtATime ? 'one' : 'all'}
-              options={HOW_GUESTS_ANSWER_OPTIONS}
-              onPick={pickAnswer}
-            />
-          </FormRow>
+          /* ❓ Any set of choices is ONE dropdown (owner 2026-09-28, "again") — the same PickMenu-in-a-Form-row as How
+             guests get in and Replies open beside it; what each choice means is behind the ⓘ and on its option. */
+          <ChosenRow
+            data="how-guests-answer"
+            name={HOW_GUESTS_ANSWER_LABEL}
+            about={{ words: HOW_GUESTS_ANSWER_ABOUT }}
+            value={oneAtATime ? 'one' : 'all'}
+            options={HOW_GUESTS_ANSWER_OPTIONS}
+            onPick={pickAnswer}
+            dataAttr="data-setup-answer"
+            attrs={{ 'data-setup-row': 'answer' }}
+          />
         ) : null}
         {replies ? (
           reply ? (

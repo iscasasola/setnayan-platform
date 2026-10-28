@@ -7,7 +7,7 @@ RSVP SETTINGS LIVE IN THE GUESTS ⚙").
 - **Studio:** the RSVP tile is gone (`STUDIO_TILE_KEYS` 11 → 10; its card, icon, words and the no-guest-list hide
   rule went with it). Studio's "n of N ready" counts the ten that are there.
 - **Guests ⚙ (the shipped `GuestSetupRows`):** gains the two reply settings ONLY the tile held — **How guests answer**
-  (All at once · One by one, `oneAtATime`, a pill selector) and **Replies open ▾ · Replies close ▾**
+  (All at once · One by one, `oneAtATime`, ONE PickMenu dropdown like the rows beside it) and **Replies open ▾ · Replies close ▾**
   (the Maker's `RepliesWindowRows`, mounted as-is) — beside RSVP asks and Reply by, which were already there. Same
   `rsvp_ask_config` keys, same draft door (`hubDraftAction`); two new `SETTINGS_ROWS` (`answer`, `replies-window`).
   The reply page's own words (eyebrow, question, hint, Yes/No) and the When-yes Celebration stay on the Reply page,

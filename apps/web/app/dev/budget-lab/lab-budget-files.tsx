@@ -12,7 +12,9 @@ export function LabBudgetFiles({ state, children }: { state: string; children: R
   const labFetch: typeof fetch = (input) => {
     const url = new URL(String(input), window.location.origin);
     if (url.pathname.startsWith('/api/budget/') && url.pathname.endsWith('/export')) {
-      return fetch(`/dev/budget-lab/file?format=${url.searchParams.get('format') ?? 'pdf'}&state=${encodeURIComponent(state)}`);
+      return fetch(
+        `/dev/budget-lab/file?format=${url.searchParams.get('format') ?? 'pdf'}&paper=${encodeURIComponent(url.searchParams.get('paper') ?? 'a4')}&state=${encodeURIComponent(state)}`,
+      );
     }
     return Promise.resolve(new Response('BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n', { headers: { 'Content-Type': 'text/calendar' } }));
   };

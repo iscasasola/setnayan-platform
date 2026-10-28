@@ -1,8 +1,9 @@
 import { PrintSaveButton } from '@/app/dashboard/[eventId]/launch/_components/print-save-button';
-import { ShareBudgetButton } from './share-budget-button';
+import { SharePdfButton } from '@/app/_components/share-pdf-button';
 
 /**
- * Budget's files, at the top of the page (the masthead's actions): ONE 📤 Share for the budget — a PDF handed to the
+ * Budget's files, at the top of the page (the masthead's actions): ONE 📤 Share for the budget (the shared
+ * `SharePdfButton`, with `Paper ▾` A4 · Letter · Long bond) — a PDF handed to the
  * phone's share sheet (Print, Files, AirDrop, Messages, Viber…) or downloaded on a computer with Print beside it (owner
  * 2026-10-29, "Print Budget can be just a share button if it has the print and share there as well") — then the
  * spreadsheet and the calendar file, on the same template and the same save (`usePrintSave`): every file is SAVED,
@@ -18,7 +19,12 @@ export function BudgetFileActions({ eventId, fileSlug, moneyAnswered }: { eventI
     <div className="flex flex-wrap items-start gap-2" data-budget-files="">
       {moneyAnswered ? (
         <>
-          <ShareBudgetButton eventId={eventId} fileName={`setnayan-${fileSlug}-budget.pdf`} />
+          <SharePdfButton
+            href={`/api/budget/${eventId}/export?format=pdf`}
+            fileName={`setnayan-${fileSlug}-budget.pdf`}
+            name="Share your budget (PDF)"
+            papers="document"
+          />
           <PrintSaveButton
             variant="action"
             quiet

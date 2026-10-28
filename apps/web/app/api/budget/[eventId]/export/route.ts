@@ -8,6 +8,7 @@ import { resolveAllocationInputs, fetchSavedAllocationPlan } from '@/lib/budget-
 import { buildBudgetLedger, suggestedPlanByBucket } from '@/lib/budget-ledger';
 import { budgetExportCsv } from '@/lib/budget-export';
 import { BudgetUnreadError, budgetPdf } from '@/lib/budget-pdf';
+import { sharePdfPaper } from '@/lib/share-pdf-papers';
 import { printedDate } from '@/lib/print-pieces';
 import { loadVenueBookings, resolveEventVenues, venueNamesLine, type EventVenueColumns } from '@/lib/event-venues';
 
@@ -46,7 +47,8 @@ const EVENT_COLUMNS =
 
 export async function GET(req: Request, { params }: Params) {
   const { eventId } = await params;
-  const wantCsv = new URL(req.url).searchParams.get('format') === 'csv';
+  const q = new URL(req.url).searchParams;
+  const wantCsv = q.get('format') === 'csv';
   const unread = () =>
     new NextResponse("Your budget can't be shared right now — part of it didn't load. Please try again in a few minutes.", {
       status: 503,
@@ -131,6 +133,8 @@ export async function GET(req: Request, { params }: Params) {
       ...input,
       eventDate: printedDate(event.event_date, event.event_date_precision),
       venue: venueNamesLine({ venues, venue_name: event.venue_name ?? null }),
+      // Paper ▾ — A4 (default) · Letter · Long bond; anything else is A4 (`sharePdfPaper`).
+      paper: sharePdfPaper(q.get('paper')),
     });
   } catch (e) {
     if (e instanceof BudgetUnreadError) return unread();

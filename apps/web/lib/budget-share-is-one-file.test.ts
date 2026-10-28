@@ -13,11 +13,15 @@
  *      carries exactly the words drawn as outlines), not from a flag.
  *   4. A long budget paginates without splitting a row: every line's label and its amount land on the SAME page.
  *   5. No device chrome on paper: no "Done", no "Print or save", no button words.
+ *   6. PAPER (owner 2026-10-29, "always use A4?"): A4 (default) · Letter · Long bond each reflow — the sheet is that
+ *      size and no row splits on it; posters take A4…A0 · Custom, landscape included; a document route cannot be asked
+ *      for a poster size.
  *
  * 🛡 SABOTAGE (2026-10-29, each seen RED, then restored):
  *   · `budgetPdf`'s `if (!moneyReadsAllOk(money)) throw new BudgetUnreadError()` removed → test 3 fails
  *     ("a refused suppliers read still made a file");
- *   · a second Share (`<ShareBudgetButton … />` pasted twice) on Budget → test 1 fails ("found 2").
+ *   · a second Share (`<SharePdfButton … />` pasted twice) on Budget → test 1 fails ("found 2");
+ *   · `sheetPoints` drawing every paper as A4 → tests 6 and 6b fail (a Letter page measured 595×842).
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -29,6 +33,7 @@ import { PDFDocument, PDFName, PDFRawStream } from 'pdf-lib';
 
 import { stripComments } from '@/lib/strip-comments';
 import { BudgetUnreadError, budgetPdf, budgetPdfModel, peso } from '@/lib/budget-pdf';
+import { SHARE_PDF_DOCUMENT_PAPERS, SHARE_PDF_POSTER_PAPERS, customPaper, sharePdf, sharePdfPaper, type SharePdfPaper } from '@/lib/share-pdf';
 import type { EventMoney, MoneyLine } from '@/lib/budget-truth';
 import type { BudgetLedger } from '@/lib/budget-ledger';
 
@@ -36,7 +41,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const WEB = resolve(here, '..');
 const read = (rel: string) => stripComments(readFileSync(resolve(WEB, rel), 'utf8'));
 const PAGE = 'app/dashboard/[eventId]/budget/page.tsx';
-const BUTTON = 'app/dashboard/[eventId]/budget/_components/share-budget-button.tsx';
+const BUTTON = 'app/_components/share-pdf-button.tsx';
 const ACTIONS = 'app/dashboard/[eventId]/budget/_components/budget-file-actions.tsx';
 const ROUTE = 'app/api/budget/[eventId]/export/route.ts';
 
@@ -119,9 +124,14 @@ test('1 · Budget shows ONE Share for the budget, on the house template, through
   assert.equal(mounts.length, 1, `Budget must mount its file actions once — found ${mounts.length}`);
   assert.match(page, /<BudgetFileActions eventId=\{eventId\} fileSlug=\{budgetFileSlug\} moneyAnswered=\{money !== null\} \/>/);
   const actions = read(ACTIONS);
-  const shares = [...page.matchAll(/<ShareBudgetButton\b/g), ...actions.matchAll(/<ShareBudgetButton\b/g)];
+  const shares = [...page.matchAll(/<SharePdfButton\b/g), ...actions.matchAll(/<SharePdfButton\b/g)];
   assert.equal(shares.length, 1, `Budget must offer exactly one Share for the budget — found ${shares.length}`);
-  assert.match(actions, /<ShareBudgetButton eventId=\{eventId\} fileName=\{`setnayan-\$\{fileSlug\}-budget\.pdf`\} \/>/, 'Share no longer names the PDF');
+  assert.match(
+    actions,
+    /<SharePdfButton\s+href=\{`\/api\/budget\/\$\{eventId\}\/export\?format=pdf`\}\s+fileName=\{`setnayan-\$\{fileSlug\}-budget\.pdf`\}\s+name="Share your budget \(PDF\)"\s+papers="document"\s*\/>/,
+    'Share no longer fetches the budget PDF with the document papers',
+  );
+  assert.match(actions, /from '@\/app\/_components\/share-pdf-button'/, 'Budget left the shared Share button');
   for (const src of [page, actions]) {
     assert.doesNotMatch(src, /PrintBudgetLink|Print budget|\/export`\}|SaveFileLink/, 'the print PAGE (or a non-template file link) is back on Budget');
   }
@@ -132,8 +142,8 @@ test('1 · Budget shows ONE Share for the budget, on the house template, through
   assert.match(button, /from '@\/app\/dashboard\/\[eventId\]\/launch\/_components\/print-save-button'/, 'Share left the shared save path (usePrintSave)');
   assert.match(button, /const \{ state, save \} = usePrintSave\(\);/);
   assert.match(button, /<ActionButton\b[\s\S]{0,400}?icon=\{state\.k === 'working' \? [\s\S]{0,120}: Share\}/, 'Share is not the house ActionButton with the share icon');
-  assert.match(button, /\/api\/budget\/\$\{eventId\}\/export\?format=pdf/, 'Share does not fetch the PDF');
-  assert.match(button, /onClick=\{\(\) => void save\(href, fileName\)\}/);
+  assert.match(button, /onClick=\{\(\) => void save\(url, fileName\)\}/, 'Share does not save the file it names');
+  assert.match(button, /paper=\$\{encodeURIComponent\(sharePdfPaperParam\(paper\)\)\}/, 'the picked paper does not reach the route');
   // Nothing that opens a page in the app's only view.
   assert.doesNotMatch(button, /location\.assign|location\.href\s*=|openEventHub|<a\b/, 'Share opens a page — the app can be trapped in it');
   // Print (a computer only): after a DOWNLOAD, never inside the app.
@@ -207,3 +217,61 @@ test('5 · no device chrome on paper — no Done, no print button, no back bar',
   for (const w of words) assert.doesNotMatch(w, /‹|\bDone\b|Print or save|Download|Tap to/i, `"${w}" is device chrome printed on paper`);
   assert.ok(words.includes('SETNAYAN') && words.includes('Rosa & Ben'), 'the head lost the mark line or the event name');
 });
+
+function manyRows(n: number): MoneyLine[] {
+  const out: MoneyLine[] = [];
+  for (let i = 1; i <= n; i++) {
+    const k = String(i).padStart(2, '0');
+    out.push(line({ label: `Row ${k} item`, vendorName: `Supplier ${k}`, bucket: ['catering', 'venue', 'photo_video'][i % 3]!, amountPhp: 100_000 + i * 1_111, stillOwedPhp: 100_000 + i * 1_111, dueDate: '2026-12-01' }));
+  }
+  return out;
+}
+
+test('6 · every document paper reflows: the sheet is its size, and no row splits on it', async () => {
+  assert.deepEqual([...SHARE_PDF_DOCUMENT_PAPERS], ['a4', 'letter', 'long'], 'A4 first (the default), then Letter and Long bond');
+  const counts: Record<string, number> = {};
+  for (const paper of SHARE_PDF_DOCUMENT_PAPERS) {
+    const bytes = await budgetPdf({ ...BASE, money: moneyOf(manyRows(48)), ledger: LEDGER, paper });
+    const doc = await PDFDocument.load(bytes);
+    // Literal sizes — never the engine's own table, which a sabotage of it would also move.
+    const want = { a4: { w: 595.28, h: 841.89 }, letter: { w: 612, h: 792 }, long: { w: 612, h: 936 } }[paper as 'a4' | 'letter' | 'long'];
+    for (const p of doc.getPages()) {
+      const { width, height } = p.getSize();
+      assert.ok(Math.abs(width - want.w) < 0.5 && Math.abs(height - want.h) < 0.5, `${paper}: a page is ${width}×${height}, not ${want.w}×${want.h}`);
+    }
+    const pages = await wordsByPage(bytes);
+    counts[paper] = pages.length;
+    for (let i = 1; i <= 48; i++) {
+      const k = String(i).padStart(2, '0');
+      const on = pages.filter((p) => p.includes(`Row ${k} item`));
+      assert.equal(on.length, 1, `${paper}: Row ${k} is on ${on.length} pages`);
+      assert.ok(on[0]!.includes(`Supplier ${k}`) && on[0]!.includes(`PHP ${(100_000 + i * 1_111).toLocaleString('en-PH')}`), `${paper}: Row ${k} split across a page break`);
+    }
+  }
+  assert.ok(counts.long! <= counts.letter!, `long bond (${counts.long}) used more pages than letter (${counts.letter}) — it did not reflow to its height`);
+  // A document route cannot be asked for a poster sheet; anything unknown is A4.
+  assert.equal(sharePdfPaper('letter'), 'letter');
+  assert.equal(sharePdfPaper('LONG'), 'long');
+  assert.equal(sharePdfPaper('a0'), 'a4');
+  assert.equal(sharePdfPaper('custom:1000x1000'), 'a4');
+  assert.equal(sharePdfPaper('nonsense'), 'a4');
+  assert.equal(sharePdfPaper(null), 'a4');
+});
+
+test('6b · poster papers: A4 · A3 · A2 · A1 · A0 · Custom, portrait or landscape', async () => {
+  assert.deepEqual([...SHARE_PDF_POSTER_PAPERS], ['a4', 'a3', 'a2', 'a1', 'a0', 'custom'], 'smallest first, then Custom');
+  assert.equal(sharePdfPaper('a0', SHARE_PDF_POSTER_PAPERS), 'a0');
+  const custom = customPaper(60, 90, 'cm');
+  assert.ok(custom && Math.abs(custom.w - (60 / 2.54) * 72) < 0.05, 'a custom size in cm is not turned into points');
+  assert.equal(customPaper(5, 90, 'cm'), null, 'a side under 10 cm is refused');
+  assert.equal(customPaper(Number.NaN, 90, 'in'), null);
+  const back = sharePdfPaper(`custom:${custom!.w}x${custom!.h}`, SHARE_PDF_POSTER_PAPERS) as Exclude<SharePdfPaper, string>;
+  assert.ok(typeof back === 'object' && Math.abs(back.w - custom!.w) < 0.05, 'a custom size does not survive the query');
+  const doc = { kind: 'Seat plan', title: 'Rosa & Ben', sections: [], generatedAt: BASE.generatedAt };
+  const a3 = await PDFDocument.load(await sharePdf({ ...doc, paper: 'a3', orientation: 'landscape' }));
+  const { width, height } = a3.getPage(0).getSize();
+  assert.ok(width > height && Math.abs(width - 1190.55) < 0.5, `A3 landscape drew ${width}×${height}`);
+  const big = await PDFDocument.load(await sharePdf({ ...doc, paper: custom! }));
+  assert.ok(Math.abs(big.getPage(0).getSize().height - custom!.h) < 0.5, 'a custom sheet is not its size');
+});
+

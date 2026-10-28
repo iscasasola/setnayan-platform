@@ -32,6 +32,8 @@ Worktree: ~/Documents/Claude/Projects/wt-supplier-ready · branch claude/supplie
   cannot Apply. The card asks every connected coordinator with no recorded answer; pressing Full makes Apply work today,
   no migration.
 
+- S7 · no stub bounces (guard app/vendor-dashboard/no-stub-bounces.test.ts; baselines regenerated).
+
 ## State
 - Draft PR #7041 (label do-not-auto-merge). No migration, no new server action (server-action ceiling untouched).
 - DECISION_LOG row pushed to corpus origin/main (1bef8507) — "A SUPPLIER INVITED IN IS READIED"; badge + co-host

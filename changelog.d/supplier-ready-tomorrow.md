@@ -69,4 +69,12 @@ Coordinator); a Limited one keeps it too (view). Guards: `lib/the-hosts-pick-the
 UPDATE policy is `couple_can_update_event`); after the hosts pick FULL ACCESS (the co-host seat) her Apply lands;
 Limited, a limited helper, Undo and self-promotion stay refused. No migration needed.
 
+**S7 · No stub bounces.** Today's quote/contract rows (`overview-sections.tsx`), the customer card's proposals ·
+contracts · "Open chat" with no thread (`clients/[eventId]/page.tsx`), the chat's proposal card, and the Hub's
+no-shop redirect now go STRAIGHT to where the forwarding stubs sent them (`customerLandingHref`, the stubs' own
+anchors table; `/vendor-dashboard/profile#docs`). The slow-reply email's door — `/vendor-dashboard/settings/notifications`,
+a page that never existed — lands on Settings › Notifications (`settings#notifications`, the fold now carries the
+anchor). Ugat screens, port baseline and root-map baselines regenerated (8 lines removed, none added). Guard:
+`app/vendor-dashboard/no-stub-bounces.test.ts`.
+
 SPEC IMPACT: DECISION_LOG row "SUPPLIERS READY TO RUN AN EVENT AND FINISH THEIR SHOP" (corpus).

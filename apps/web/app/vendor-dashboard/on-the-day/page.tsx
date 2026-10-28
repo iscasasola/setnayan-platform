@@ -196,7 +196,8 @@ export default async function VendorOnTheDayPage({
   } = await supabase.auth.getUser();
   if (!user) redirect('/login?next=/vendor-dashboard/on-the-day');
   const profile = await fetchOwnVendorProfile(supabase, user.id);
-  if (!profile) redirect('/vendor-dashboard/verify');
+  // Straight to the documents fold — `/vendor-dashboard/verify` is only a forwarding stub to it (no stub bounce).
+  if (!profile) redirect('/vendor-dashboard/profile#docs');
   // 🎫 The events this person runs as the hosts' coordinator — each gets a Check-in desk door below (owner
   // 2026-10-28). The layout's cache()d read; started now, read at the render. Fails closed: no rows.
   const eventsYouRunP = readEventsYouRun(supabase, user.id).catch(() => ({ events: [], measured: false }));

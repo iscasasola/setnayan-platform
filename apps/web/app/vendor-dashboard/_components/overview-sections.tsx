@@ -12,6 +12,7 @@ import {
   Wallet,
   X,
 } from 'lucide-react';
+import { customerLandingHref } from '../customers/anchors';
 import { ActionButton } from '@/components/action-button';
 import { Badge } from '@/app/_components/badge';
 import { Fold } from '@/app/_components/fold';
@@ -1310,7 +1311,7 @@ function QuoteDraftBody({ card }: { card: Extract<WhatsNewCard, { kind: 'quote_d
         <AgeLine since={card.createdAt} />
       </p>
       <div className="mt-3">
-        <ActionButton tone="brand" main icon={<Send {...ico} />} label="Open the quote" href="/vendor-dashboard/proposals" className={TAP} />
+        <ActionButton tone="brand" main icon={<Send {...ico} />} label="Open the quote" href={customerLandingHref('proposals')} className={TAP} />
       </div>
     </>
   );
@@ -1331,7 +1332,7 @@ function ContractDraftBody({
         <AgeLine since={card.createdAt} />
       </p>
       <div className="mt-3">
-        <ActionButton tone="brand" main icon={<FileText {...ico} />} label="Open the contract" href="/vendor-dashboard/contracts" className={TAP} />
+        <ActionButton tone="brand" main icon={<FileText {...ico} />} label="Open the contract" href={customerLandingHref('contracts')} className={TAP} />
       </div>
     </>
   );

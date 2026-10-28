@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { customerLandingHref } from '../../customers/anchors';
 import { CoupleLogo } from '@/app/_components/couple-logo';
 import { SaveFileLink } from '@/app/_components/save-file-link';
 import { coupleLogoPlays } from '@/lib/couple-logo-plays';
@@ -1582,7 +1583,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         </Link>
       ) : null}
       <Link
-        href="/vendor-dashboard/proposals"
+        href={customerLandingHref('proposals')}
         className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
       >
         <FileText aria-hidden className="h-3.5 w-3.5" /> New quote
@@ -1590,7 +1591,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       <Link
         href={
           hasContract
-            ? '/vendor-dashboard/contracts'
+            ? customerLandingHref('contracts')
             : `/vendor-dashboard/contracts/new?event=${eventId}`
         }
         className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
@@ -1981,7 +1982,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       id: 'chat',
       label: 'Chat',
       icon: <MessageSquare aria-hidden className={tabIconClass} />,
-      href: threadId ? `/vendor-dashboard/messages/${threadId}` : '/vendor-dashboard/messages',
+      href: threadId ? `/vendor-dashboard/messages/${threadId}` : customerLandingHref('messages'),
       node: null,
     },
     {
@@ -2099,7 +2100,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       </ShopCard>
       <div className="grid grid-cols-2 gap-2">
         <a
-          href={threadId ? `/vendor-dashboard/messages/${threadId}` : '/vendor-dashboard/messages'}
+          href={threadId ? `/vendor-dashboard/messages/${threadId}` : customerLandingHref('messages')}
           className={vQuickLinkClass}
         >
           <MessageSquare aria-hidden className="h-3.5 w-3.5" /> Chat
@@ -2309,7 +2310,7 @@ function ReturningMarkerAndActions({
           href={
             threadId
               ? `/vendor-dashboard/messages/${threadId}#build-quote`
-              : '/vendor-dashboard/proposals'
+              : customerLandingHref('proposals')
           }
           className={`${actionBase} border-mulberry bg-mulberry text-cream hover:bg-mulberry-600`}
         >
@@ -3086,7 +3087,7 @@ function QuoteTab(props: {
           href={
             threadId
               ? `/vendor-dashboard/messages/${threadId}#build-quote`
-              : '/vendor-dashboard/proposals'
+              : customerLandingHref('proposals')
           }
           className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-1.5 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
         >

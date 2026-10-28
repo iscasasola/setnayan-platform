@@ -435,7 +435,8 @@ export async function sendVendorSlowResponseEmail(
   if (!contact) return { ok: false, reason: 'send_failed', error: 'supplier contact not found' };
 
   const dashboardUrl = `${APP_URL}/vendor-dashboard`;
-  const notifUrl = `${APP_URL}/vendor-dashboard/settings/notifications`;
+  // Settings › Notifications (the fold that carries the push switch) — `/settings/notifications` never existed.
+  const notifUrl = `${APP_URL}/vendor-dashboard/settings#notifications`;
 
   const text = [
     `Hi ${contact.businessName},`,

@@ -87,7 +87,7 @@ import { COORD_STATES, CoordLab, type CoordState } from './coord-lab';
 import { EASY_MOMENTS, EASY_SUPPLIERS, TodayEasyLab, type EasyMoment, type EasySupplier } from './today-easy-lab';
 import { DATES_STATES, DatesLab, type DatesState } from './dates-lab';
 import { MONEY_STATES, MoneyLab, type MoneyState } from './money-lab';
-import { PAGE_LAB_STATES, PageLab, type PageLabState } from './page-lab';
+import { LabEarnedLine, PAGE_LAB_STATES, PageLab, type PageLabState } from './page-lab';
 import { LibraryLab } from './library-lab';
 import { libraryLab, type LabLibraryAsset } from './library-lab-server';
 import { LAB_LIBRARY_SHOP, LAB_SHOP_PHOTOS } from './library-lab-fixture';
@@ -99,9 +99,6 @@ import { suggestablePartsForShop, supplierTradeWord } from '@/lib/inspiration-su
 import { fallbackInspirationParts } from '@/lib/inspiration-parts';
 import { supplierRoleLine } from '@/lib/inspiration-suggestions';
 import { canonicalServicesForTile } from '@/lib/vendor-counts';
-import { BadgeEarnedLine } from '@/app/vendor-dashboard/_components/badge-earned-line';
-import { badgePrintSvg } from '@/lib/shop-badge-print';
-import { badgesForPrint, type ShopBadgeFacts } from '@/lib/shop-badges';
 
 const PEOPLE_STATES = ['people', 'clash', 'empty', 'fail', 'nopools'] as const;
 
@@ -244,27 +241,6 @@ const ACTIONS: TodayActions = {
   respondMeeting: respondAppointment,
   markServiceComplete: vendorMarkServiceComplete,
 };
-
-/* 🏅 The facts the earned line reads, per lab case: Verified alone (the owner’s live shot) · a 50-event milestone. */
-const EARNED_FACTS: Record<string, ShopBadgeFacts> = {
-  verified: { verified: true, completedEvents: 0, trusted: null, inBusinessSinceYear: null, awards: [], nowYear: 2026 },
-  milestone: { verified: true, completedEvents: 50, trusted: null, inBusinessSinceYear: null, awards: [], nowYear: 2026 },
-};
-
-/** The earned line exactly as Today mounts it (above the screen), its facts and print file handed in as data: URIs. */
-function LabEarnedLine({ which }: { which: string }) {
-  const facts = EARNED_FACTS[which];
-  if (!facts) return null;
-  const files = Object.fromEntries(
-    badgesForPrint(facts).map((b) => [b.key, `data:image/svg+xml;base64,${Buffer.from(badgePrintSvg([b])).toString('base64')}`]),
-  );
-  return (
-    <BadgeEarnedLine
-      factsUrl={`data:application/json,${encodeURIComponent(JSON.stringify({ vendorId: `lab-earned-${which}`, facts }))}`}
-      labFiles={files}
-    />
-  );
-}
 
 function TodayLab({ state, toast, earned }: { state: TodayState; toast: string | undefined; earned?: string }) {
   const { answer: needsAnswer, news: closed } = splitDesk(state.whatsNew);

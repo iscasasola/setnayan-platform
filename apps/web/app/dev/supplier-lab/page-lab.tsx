@@ -37,7 +37,7 @@ import { BadgeEarnedLine } from '@/app/vendor-dashboard/_components/badge-earned
 import { badgePrintSvg } from '@/lib/shop-badge-print';
 import { ShopBadgePill } from '@/app/_components/shop-badge-pill';
 import { MILESTONE_THRESHOLDS } from '@/lib/service-card-record';
-import { badgeTracker, badgesForPrint, nextToEarnLine, shopBadges, trackerSummary, type TrackerFacts } from '@/lib/shop-badges';
+import { badgeTracker, badgesForPrint, nextToEarnLine, shopBadges, trackerSummary, type ShopBadgeFacts, type TrackerFacts } from '@/lib/shop-badges';
 
 export const PAGE_LAB_STATES = ['details', 'page', 'collections', 'avatar', 'badge-today', 'badge-tiers'] as const;
 export type PageLabState = (typeof PAGE_LAB_STATES)[number];
@@ -359,6 +359,29 @@ const LAB_BADGE_EVENTS: Record<Who, { events: number; unreviewed: number; awards
   caterer: { events: 96, unreviewed: 3, awards: [] },
   studio: { events: 50, unreviewed: 2, awards: ["Setnayan's Top Pick"] },
 };
+/* 🏅 The facts the earned line reads, per lab case: Verified alone (the owner’s live shot) · a 50-event milestone. */
+const EARNED_FACTS: Record<string, ShopBadgeFacts> = {
+  verified: { verified: true, completedEvents: 0, trusted: null, inBusinessSinceYear: null, awards: [], nowYear: 2026 },
+  milestone: { verified: true, completedEvents: 50, trusted: null, inBusinessSinceYear: null, awards: [], nowYear: 2026 },
+};
+
+/** The earned line exactly as Today mounts it (above the screen), its facts and print file handed in as data: URIs —
+ *  `?s=clear&earned=verified|milestone` (page.tsx's Today states). Lives here, beside `badge-today`, so the lab's one
+ *  print-file draw stays in one file (lib/every-logo-plays.test.ts's STILL entry for this file). */
+export function LabEarnedLine({ which }: { which: string }) {
+  const facts = EARNED_FACTS[which];
+  if (!facts) return null;
+  const files = Object.fromEntries(
+    badgesForPrint(facts).map((b) => [b.key, `data:image/svg+xml;base64,${Buffer.from(badgePrintSvg([b])).toString('base64')}`]),
+  );
+  return (
+    <BadgeEarnedLine
+      factsUrl={`data:application/json,${encodeURIComponent(JSON.stringify({ vendorId: `lab-earned-${which}`, facts }))}`}
+      labFiles={files}
+    />
+  );
+}
+
 export function labBadgeFacts(who: Who): TrackerFacts {
   const f = FIX[who];
   const b = LAB_BADGE_EVENTS[who];

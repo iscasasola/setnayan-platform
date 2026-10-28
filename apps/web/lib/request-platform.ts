@@ -21,6 +21,7 @@ import { isStoreShellSignals, STORE_SHELL_CLIENT_TYPE_COOKIE } from '@/lib/store
 import { classifyShell, oauthGate, type ClientShell, type OAuthFlags, type OAuthGate } from '@/lib/oauth-shell-gate';
 import { iapAvailable } from '@/lib/iap/iap-gate';
 import { isAppleIapEnabled } from '@/lib/apple-iap-flag';
+import { cachedHubViewer } from '@/lib/hub-request';
 
 export type RequestPlatform = 'web' | 'ios' | 'android';
 
@@ -47,6 +48,9 @@ export function isRequestPlatform(v: unknown): v is RequestPlatform {
 export type { ClientShell } from '@/lib/oauth-shell-gate';
 
 async function readShellSignals(): Promise<{ ua: string; clientType: string } | null> {
+  // 🗄 The cached Event Hub is only ever a web browser's (the middleware keeps the native shells live) — the
+  // same answer as outside a request, without asking it (lib/hub-request.ts).
+  if (cachedHubViewer()) return null;
   try {
     const h = await headers();
     const c = await cookies();
@@ -78,6 +82,7 @@ export async function getOAuthGate(flags: OAuthFlags): Promise<OAuthGate> {
 }
 
 export async function getRequestPlatform(): Promise<RequestPlatform> {
+  if (cachedHubViewer()) return 'web';
   let ua = '';
   let clientType = '';
   try {
@@ -126,6 +131,7 @@ export async function discoverOpensHere(): Promise<boolean> {
  * (build / cron) → false.
  */
 export async function isStoreShellRequest(): Promise<boolean> {
+  if (cachedHubViewer()) return false;
   try {
     const h = await headers();
     const c = await cookies();

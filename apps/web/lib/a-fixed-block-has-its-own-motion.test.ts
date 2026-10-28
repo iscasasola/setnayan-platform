@@ -299,8 +299,11 @@ test('2 · the rules are the Event Hub’s own: both gates, a timed Build in wai
   /* …a timed one has nothing that follows the scroll: nothing more is written. */
   assert.equal(blockLooksCss(readBlockLooks({ block_looks: { announcements: { motion: { in: { fade: true }, during: 'drift' } } } })).split('\n').slice(1, -1).length, 2);
   /* The fact it leans on: on the day the block's root is the sticky wrapper's own child (mark and style beside it). */
+  /* 🗄 EV1 (2026-10-28): the card draws the sticky wrapper itself — it fetches its words, so it is the one that knows
+     whether there is anything to wrap — and the layout hands it the look as a slot. */
   const LAYOUT = src('app/[slug]/layout.tsx');
-  assert.match(LAYOUT, /<div className=\{stage === 'live' \? 'sticky top-0 z-50' : undefined\}>\s*(?:\{\s*\}\s*)?<AnnouncementLook stylePreferences=\{stylePreferences\} \/>\s*<DayOfAnnouncement/, 'the announcement left the sticky wrapper (or its look left it): re-walk the stuck rule');
+  assert.match(LAYOUT, /look=\{<AnnouncementLook stylePreferences=\{stylePreferences\} \/>\}/, 'the announcement’s look left the layout’s hand-over');
+  assert.match(src('app/[slug]/_components/day-of-announcement.tsx'), /<div className=\{stage === 'live' \? 'sticky top-0 z-50' : undefined\}>\s*\{look\}\s*\{card\}\s*<\/div>/, 'the announcement left the sticky wrapper (or its look left it): re-walk the stuck rule');
   /* No other block is held still by being stuck. */
   for (const b of BLOCK_LOOK_BLOCKS) {
     if (b === 'announcements') continue;
@@ -442,7 +445,9 @@ test('4 · a guest’s page: a mark only for a block that has a look, and the on
   const LAYOUT = src('app/[slug]/layout.tsx');
   assert.match(LAYOUT, /stylePreferences = \(event as \{ style_preferences\?: unknown \}\)\.style_preferences;/);
   assert.equal((LAYOUT.match(/<DayOfAnnouncement\s/g) ?? []).length, 1, 'the announcement is drawn from a second place: its look would not reach it');
-  assert.match(LAYOUT, /<AnnouncementLook stylePreferences=\{stylePreferences\} \/>\s*<DayOfAnnouncement\s/);
+  assert.match(LAYOUT, /<DayOfAnnouncement\s[\s\S]*?look=\{<AnnouncementLook stylePreferences=\{stylePreferences\} \/>\}/);
+  // …and the card draws that look right before its root, only when it draws a card.
+  assert.match(src('app/[slug]/_components/day-of-announcement.tsx'), /if \(!text\) return null;[\s\S]*?\{look\}\s*\{card\}/);
   const ANN = src('app/[slug]/_components/announcement-look.tsx');
   assert.match(ANN, /const look = readBlockLooks\(stylePreferences\)\.announcements;\s*if \(!look\) return null;/);
   assert.match(ANN, /<style \{\.\.\.\{ \[BLOCK_LOOKS_STYLE_ATTR\]: '' \}\}>\{blockLooksCss\(\{ announcements: look \}\)\}<\/style>\s*<span hidden \{\.\.\.\{ \[BLOCK_MARK_ATTR\]: 'announcements' \}\} \/>\s*<\/>/, 'the mark is no longer the last thing before the block');

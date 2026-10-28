@@ -254,12 +254,18 @@ test('5 · every Dates form posts the shipped action and comes back to Dates (an
     });
   }
   assert.ok(seen >= 14, `only ${seen} Dates forms were found — the scan is blind`);
-  assert.match(ACTIONS, /if \(returnTo === 'dates'\) \{[\s\S]{0,700}redirect\(`\/vendor-dashboard\/customers\?\$\{params\.toString\(\)\}`\)/, 'the actions do not bring a Dates form back to Dates');
+  assert.match(ACTIONS, /if \(returnTo === 'dates'\) \{[\s\S]{0,2000}const params = new URLSearchParams\(\{ seg: 'dates' \}\);[\s\S]{0,700}redirect\(`\/vendor-dashboard\/customers\?\$\{params\.toString\(\)\}`\)/, 'the actions do not bring a Dates form back to Dates');
+  // 2026-10-28: How many a day / the halls / the schedules live in Customers ⚙ — their saves come back to the ⚙, open.
+  assert.match(ACTIONS, /if \(str\(formData, 'return_fold'\) === 'capacity'\) \{[\s\S]{0,600}params\.set\('gear', '1'\);[\s\S]{0,80}params\.set\('gnotice', notice\);/, 'a ⚙ save does not come back to the open ⚙');
   assert.match(ACTIONS, /new URLSearchParams\(\{ seg: 'dates' \}\)/);
   assert.match(ACTIONS, /\/\^\(block\|waitlist\|capacity\)\$\/\.test\(fold\)/, 'the fold an action came from is not the one open on return');
-  for (const a of ['removeBlock', 'updateWaitlistSettings', 'pickWaitlistCouple', 'notifyWaitlistSlot', 'updatePoolCapacity', 'createCalendar', 'editCalendar', 'reassignCategoryPool']) {
+  for (const a of ['removeBlock', 'updateWaitlistSettings', 'pickWaitlistCouple', 'notifyWaitlistSlot']) {
     assert.match(PAGE, new RegExp(`const DATES_ACTIONS = \\{[\\s\\S]*\\b${a},`), `Dates is not handed the shipped ${a}`);
   }
+  // 2026-10-28: How many a day / the halls / the schedules moved into Customers ⚙ — the same shipped actions, handed
+  // to `DaysSettings` by the ⚙'s body.
+  const GEAR = stripComments(readFileSync(join(process.cwd(), 'app/vendor-dashboard/customers/_components/customers-settings-body.tsx'), 'utf8'));
+  assert.match(GEAR, /actions=\{\{ updatePoolCapacity, createCalendar, editCalendar, reassignCategoryPool \}\}/, 'Customers ⚙ is not handed the shipped schedule actions');
   assert.match(PAGE, /<BlockDateAdd\b[\s\S]{0,160}action=\{addManualBlock\}/, 'Block a date does not post the shipped addManualBlock');
   // The waitlist switch posts the opposite of what it shows; the count form keeps the switch as it is.
   assert.match(FOLDS, /role="switch"\s+aria-checked=\{waitlist\.on\}[\s\S]{0,120}name="waitlist_enabled"\s+value=\{waitlist\.on \? '' : 'on'\}/);

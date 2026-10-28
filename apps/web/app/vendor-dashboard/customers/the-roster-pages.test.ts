@@ -203,14 +203,14 @@ test('anti-vacuity: the stripped sources still hold their code', () => {
 });
 
 test('the page hands the roster the SLICE and the WHOLE-LIST counts', () => {
-  assert.match(pageSrc, /const lanes = groupByLane\(derived\)/, 'lanes are not grouped from every customer');
-  assert.match(pageSrc, /rosterView\(lanes,/, 'the page no longer composes the roster through rosterView');
-  assert.match(pageSrc, /const laneCounts = roster\.laneCounts/, 'the chip counts do not come from rosterView');
-  assert.match(pageSrc, /const rosterPage = roster\.paged/, 'the page is not rosterView’s page');
-  assert.match(pageSrc, /rows=\{rosterPage\.items\}/, 'the roster is not rendered from the page slice');
-  assert.match(pageSrc, /counts=\{laneCounts\}/, 'the chips are not handed the whole-list counts');
-  assert.match(pageSrc, /page:\s*search\.page/, 'the ?page= param no longer reaches the roster');
-  assert.match(pageSrc, /q:\s*search\.q/, 'the ?q= search no longer reaches the roster');
+  // 2026-10-28: one roster per DOOR (Asking · Talking · Booked · Done), each through rosterView over its own lanes —
+  // the doors count EVERY listed customer; each panel renders only its page.
+  assert.match(pageSrc, /const lanes = groupByLane\(listed\)/, 'lanes are not grouped from every listed customer');
+  assert.match(pageSrc, /rosterView\(subset, \{/, 'the page no longer composes each door through rosterView');
+  assert.match(pageSrc, /const laneCounts = Object\.fromEntries\(CUSTOMER_LANES\.map\(\(l\) => \[l, lanes\[l\]\.length\]\)\)/, 'the door counts do not come from the whole lanes');
+  assert.match(pageSrc, /rows=\{v\.paged\.items\}/, 'a door is not rendered from its page slice');
+  assert.match(pageSrc, /page: urlDoor === k \? search\.page : undefined/, 'the ?page= param no longer reaches the door it names');
+  assert.match(pageSrc, /q: search\.q/, 'the ?q= search no longer reaches the roster');
   // The box itself lives in the thumb row now (kind 30) — the shared one, on `?q=`.
   assert.match(pageSrc, /<SearchBox\b[\s\S]{0,200}defaultValue=\{search\.q \?\? ''\}/, 'the thumb row lost the customer search');
 });
@@ -235,17 +235,13 @@ const LISTS: { file: string; pagers: number; renders: RegExp[]; mustNot: RegExp[
     renders: [/\bpageRows\.map\(/, /const bookingsPage = paginate\(visible,/],
     mustNot: [/\bvisible\.map\(/],
   },
-  {
-    file: 'messages/surface.tsx',
-    pagers: 2,
-    renders: [/const activeThreads = activePage\.items/, /const archivedThreads = archivedPage\.items/],
-    mustNot: [/\bthreads\.map\(renderRow\)/],
-  },
+  // 🗑 2026-10-28: the Messages fold (`messages/surface.tsx`, two pagers) is retired — the event list IS the messages.
+  // The chats it alone listed (archived · closed) page on People's own `opage` (people-more.tsx, below).
   // S-PR2: the Clients page (three pagers: booked · in conversation · outside) is retired. Its booked and
   // in-conversation customers ARE roster rows (paged above); the outside clients page on their own `copage`.
   {
     file: 'customers/_components/people-more.tsx',
-    pagers: 1,
+    pagers: 2,
     renders: [/\bpaged\.items\.map\(/],
     mustNot: [],
   },
@@ -273,6 +269,7 @@ test('no two lists on the hub page through the same param', () => {
     for (const m of read(l.file).matchAll(/<ListPager\b[\s\S]*?param="([a-z]+)"/g)) params.push(m[1]!);
   }
   // 8 → 6 (S-PR2): the retired Clients page's three pagers became People's one (`copage`).
-  assert.equal(params.length, 6, `found ${params.length} pager params: ${params.join(',')}`);
+  // 6 → 5 (2026-10-28): the Messages fold's two (`mpage` · `mapage`) became People's one for the chats it alone held (`opage`).
+  assert.equal(params.length, 5, `found ${params.length} pager params: ${params.join(',')}`);
   assert.equal(new Set(params).size, params.length, `two lists share a page param: ${params.join(',')}`);
 });

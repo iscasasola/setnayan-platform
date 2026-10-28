@@ -196,6 +196,9 @@ export function RosterRowView({ r, nowMs, query }: { r: RosterRow; nowMs: number
   const eventLine = [r.identityRevealed ? r.title : null, r.place, r.returning ? 'returning' : null]
     .filter(Boolean)
     .join(' · ');
+  // 📱 A phone's second line is just WHO (the couple's names) — the title already says the kind and the date, and the
+  // place waits for the wider screen (controller review 2026-10-29: "drop the duplicate second line").
+  const whoLine = (r.identityRevealed ? r.title : null) ?? eventLine;
   const inner = (
     <>
       <span
@@ -210,12 +213,24 @@ export function RosterRowView({ r, nowMs, query }: { r: RosterRow; nowMs: number
         {r.identityRevealed ? initialsOf(r.title) : '·'}
       </span>
       <span className="min-w-0">
-        <span className="block truncate text-[15px] font-medium leading-tight text-ink">
+        {/* A phone gives the title two lines before it ever cuts; from md (768) it is one line beside the stage. */}
+        <span className="line-clamp-2 block text-[15px] font-medium leading-tight text-ink md:truncate" data-row-title="">
           <Marked text={title} query={query} />
         </span>
-        <span className="mt-0.5 block truncate text-[13px] text-ink/60">{eventLine}</span>
+        <span className="mt-0.5 block truncate text-[13px] text-ink/60 md:hidden" data-row-who="">{whoLine}</span>
+        <span className="mt-0.5 hidden truncate text-[13px] text-ink/60 md:block">{eventLine}</span>
+        {/* 📱 BELOW 768 THE STAGE STACKS UNDER THE NAME (owner 2026-10-29, "maximize the screen use … no text crushed
+            beside buttons (stack instead)"): the event's chat title keeps the whole width; from md up it sits right. */}
+        <span className="mt-1 flex min-w-0 items-center gap-2 md:hidden" data-row-stage-stacked="">
+          <Badge tone={badge.tone}>{badge.word}</Badge>
+          {line ? (
+            <span className="min-w-0 truncate text-[12.5px] leading-tight text-ink/60" style={{ color: LINE_TONE[line.tone] }}>
+              {line.text}
+            </span>
+          ) : null}
+        </span>
       </span>
-      <span className="flex min-w-0 max-w-[8.5rem] flex-col items-end gap-1 text-right">
+      <span className="hidden min-w-0 max-w-[8.5rem] flex-col items-end gap-1 text-right md:flex">
         <Badge tone={badge.tone} data="customer-stage">
           {badge.word}
         </Badge>
@@ -266,7 +281,16 @@ export function CustomersRoster({
   otherMatches = 0,
   /** Every outside client — the found line counts against everyone the Filter's "Everyone" counts. */
   otherTotal = 0,
+  anchor = 'customers',
+  emptyLine,
 }: {
+  /**
+   * The list's own `id` (and its chat-origin mark). Null when the page draws the list once PER DOOR (Customers'
+   * pinned counts, 2026-10-28) — the page then owns the one `#customers` and the one mark around all four.
+   */
+  anchor?: string | null;
+  /** What an empty door says — "Nobody is waiting on you." — when the door holds nobody at all. */
+  emptyLine?: string;
   rows: RosterRow[];
   counts: Record<CustomerLane, number>;
   nowMs: number;
@@ -302,14 +326,17 @@ export function CustomersRoster({
     .slice(0, 4);
 
   return (
-    <div id="customers" className="scroll-mt-24" data-customers-people="">
+    <div id={anchor ?? undefined} className={anchor ? 'scroll-mt-24' : undefined} data-customers-roster="">
       {/* This list opens chats full screen; ‹ there comes back here, in place. */}
-      <ChatOriginMark />
-      {/* "WAITING FIRST · Everyone ▾" — the order is said, and the one dropdown narrows it (frame 03). */}
-      <div className="flex min-h-11 items-center gap-3" data-customers-eyebrow="" data-tour="customers-filter">
-        <span className="home-k2">Waiting first</span>
-        {filter}
-      </div>
+      {anchor ? <ChatOriginMark /> : null}
+      {/* "WAITING FIRST · Everyone ▾" — the order is said, and the one dropdown narrows it (frame 03). Drawn only for a
+          caller that hands a Filter; Customers' doors filter in place instead (2026-10-28). */}
+      {filter ? (
+        <div className="flex min-h-11 items-center gap-3" data-customers-eyebrow="" data-tour="customers-filter">
+          <span className="home-k2">Waiting first</span>
+          {filter}
+        </div>
+      ) : null}
 
       {/*
         THE EXPOSURE LINE — one warn ROW above the list (plan § 2: "Date-clash
@@ -351,11 +378,14 @@ export function CustomersRoster({
             </p>
           )
         ) : (
-          <p className="border-t border-ink/10 py-4 text-[14px] text-ink/70" data-customers-none="" data-tour="customers-list">
-            {total === 0
-              ? 'No customers yet. When somebody asks about a date, or books you, they show up here — the ones waiting on an answer first.'
-              : 'Nobody in this list right now. Pick Everyone in Filter to see the rest.'}
-          </p>
+          otherTotal > 0 && total === 0 ? null : (
+            <p className="border-t border-ink/10 py-4 text-[14px] text-ink/70" data-customers-none="" data-tour="customers-list">
+              {emptyLine ??
+                (total === 0
+                  ? 'No customers yet. When somebody asks about a date, or books you, they show up here — the ones waiting on an answer first.'
+                  : 'Nobody in this list right now. Pick Everyone in Filter to see the rest.')}
+            </p>
+          )
         )
       ) : (
         <ul data-customers-list="" data-tour="customers-list">

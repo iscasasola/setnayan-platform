@@ -35,6 +35,7 @@ import {
   hubWords,
   nextTeamPeers,
   parseHubViewers,
+  teamPresenceEnabled,
   teamRoleWord,
   teamWords,
   type HubViewers,
@@ -132,6 +133,11 @@ test('5 · the team’s side is ONE private channel, joined by the layout alone;
   assert.match(presence, /supabase\.channel\(eventTeamTopic\(eventId\)/);
   assert.match(presence, /realtime\.setAuth\(/, 'the socket carries the user’s token, or the private predicate sees no one');
   assert.doesNotMatch(presence, /postgres_changes/, 'presence only — the database evaluates nothing per write');
+  assert.match(presence, /if \(!enabled\) return;\s*const supabase = createClient\(\);/, 'switched off (TEAM_PRESENCE_DISABLED), it opens nothing');
+  assert.match(presence, /pauseWhileHidden\(/, 'a hidden tab lets the channel go');
+  assert.equal(teamPresenceEnabled({}), true);
+  assert.equal(teamPresenceEnabled({ TEAM_PRESENCE_DISABLED: '1' }), false);
+  assert.equal(teamWords(null, 'off'), 'Team presence is switched off');
   assert.equal(eventTeamTopic('e1'), 'event-team:e1');
   assert.match(MIGRATION, /p_topic NOT LIKE 'event-team:%'/, 'the predicate parses the same prefix');
   assert.match(MIGRATION, /substring\(p_topic FROM 12\)::uuid/, "'event-team:' is 11 characters");

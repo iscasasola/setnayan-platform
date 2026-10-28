@@ -12,7 +12,11 @@ viewing the event hub?"*
   The last 30 minutes, said in the ⓘ. A failed read says "Couldn't load who's viewing" with ⟳ Reload — never "nobody".
 - **The team half is Realtime presence on ONE private channel per event** (`event-team:{event_id}`), joined once by the
   event layout (`event-team-presence.tsx`), authorised by `event_team_presence_can_access()` (hosts + accepted
-  moderators). Presence only — no `postgres_changes`. A tab hidden for two minutes leaves the list.
+  moderators). Presence only — no `postgres_changes`. A tab hidden for 30 s leaves the list.
+  ⚠ **This is the one live channel a layout reaches** — the 2026-10-21 rule "the chrome is not live"
+  (`lib/a-socket-only-where-something-is-live.test.ts`) now lists it in `LAYOUT_MAY_REACH` with its gate:
+  `TEAM_PRESENCE_DISABLED=1` joins nothing. Cost: one socket per VISIBLE dashboard tab of an event's team (never
+  guests). Flagged for the owner — the alternative is presence on Home only ("who's on Home", not "on the dashboard").
 - **The guest half is one write per guest per 30 minutes, never a connection.** The hub page fires
   `POST /api/hub/seen` once after it draws (`hub-seen-beacon.tsx`, idle callback, `sendBeacon`, remembered in the
   browser's own storage — not a cookie). The route names a guest only from their verified pass; strangers are +1 on a

@@ -49,6 +49,16 @@ export function hubViewsEnabled(env: Record<string, string | undefined> = proces
   return !envFlagEnabled(env.HUB_VIEWS_DISABLED);
 }
 
+/**
+ * 🛑 THE TEAM HALF'S SWITCH — `TEAM_PRESENCE_DISABLED=1` (Vercel env + redeploy): the event layout joins no presence
+ * channel and the card says the team list is switched off. It exists because the channel is the ONE socket the event
+ * layout holds on every dashboard page (`lib/a-socket-only-where-something-is-live.test.ts` → LAYOUT_MAY_REACH, with
+ * this switch as its gate). Default ON.
+ */
+export function teamPresenceEnabled(env: Record<string, string | undefined> = process.env): boolean {
+  return !envFlagEnabled(env.TEAM_PRESENCE_DISABLED);
+}
+
 /** Should this browser tell the server about this open? `last` = what storage remembers (ms), or null. */
 export function hubSeenDue(last: number | null, now: number): boolean {
   if (last === null || !Number.isFinite(last)) return true;
@@ -120,7 +130,8 @@ export function nextTeamPeers(
 }
 
 /** The team line under the card's title. `null` peers = the channel has not answered (never "nobody"). */
-export function teamWords(peers: readonly TeamPeer[] | null, state: 'joining' | 'live' | 'failed'): string {
+export function teamWords(peers: readonly TeamPeer[] | null, state: 'joining' | 'live' | 'failed' | 'off'): string {
+  if (state === 'off') return 'Team presence is switched off';
   if (state === 'failed') return 'Couldn’t check who else is here';
   if (state === 'joining' || peers === null) return 'Checking who else is here…';
   if (peers.length === 0) return 'Just you right now';

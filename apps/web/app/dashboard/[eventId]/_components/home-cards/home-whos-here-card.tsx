@@ -115,7 +115,7 @@ export function HomeWhosHereCard({
         <span className="min-w-0 flex-1">
           <InfoTip label="Who’s here" labelClassName="sg-name" align="start">
             Your team: the hosts, co-hosts, helpers and coordinators who have this event open now — a tab left in the
-            background drops off after two minutes. Event Hub: guests are named only when they opened it with their own
+            background drops off after half a minute. Event Hub: guests are named only when they opened it with their own
             invitation; everyone else is a number, never who. The last {WHOS_HERE_WINDOW_MIN} minutes, each device
             counted once per half hour. Only your event’s team sees this card.
           </InfoTip>

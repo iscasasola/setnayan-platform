@@ -52,7 +52,7 @@ import { homeCoverWords } from '@/lib/home-cover-words';
 import { withPickedDate } from '@/lib/event-anchor';
 import { appPreloadPlan } from '@/lib/app-preload-sets';
 import { EventTeamPresence } from './_components/event-team-presence';
-import { firstName, teamRoleWord, type TeamRole } from '@/lib/whos-here';
+import { firstName, teamPresenceEnabled, teamRoleWord, type TeamRole } from '@/lib/whos-here';
 import { seatIsFullCohost } from '@/lib/guest-access';
 
 /** The layout's own columns of the event row — every one is carried by `DASHBOARD_ROW_CARRIES`. */
@@ -830,6 +830,7 @@ export default async function EventLayout({ children, params }: Props) {
                 {/* 👀 WHO'S HERE — the event's ONE presence channel, joined here so it lives while the person moves
                     between this event's pages (owner 2026-10-29). Home's card reads it; nothing else joins one. */}
                 <EventTeamPresence
+                  enabled={teamPresenceEnabled()}
                   eventId={eventId}
                   me={{ id: user.id, name: firstName(switcherData.displayName), role: teamRole, photo: switcherData.photoUrl ?? null }}
                 >

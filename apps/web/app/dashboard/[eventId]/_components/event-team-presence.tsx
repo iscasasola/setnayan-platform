@@ -14,7 +14,8 @@
  *   · Presence only — no `postgres_changes`, so the database evaluates nothing per write (the WAL cost that made
  *     Realtime the heaviest thing on the day, 2026-10-18 audit). Each member publishes a first name, a role word and
  *     their account photo — nothing about the event or its guests.
- *   · "Here now" means LOOKING: a tab hidden for two minutes leaves (`pauseWhileHidden`), and coming back joins again.
+ *   · "Here now" means LOOKING: a tab hidden for half a minute leaves (`pauseWhileHidden`, the house default), and
+ *     coming back joins again.
  *     When the last channel in a tab goes, realtime-js closes the socket, so a forgotten tab holds nothing.
  *   · Honest: until the channel answers the list is `null` ("Checking…"), and a refused or dropped channel is
  *     `failed` ("Couldn't check") — never an empty list read as "just you".
@@ -27,7 +28,7 @@ import { eventTeamTopic, nextTeamPeers, type TeamMeta, type TeamPeer } from '@/l
 export type EventTeamPresenceState = {
   /** The others on the dashboard now; `null` until the channel has answered. */
   peers: readonly TeamPeer[] | null;
-  state: 'joining' | 'live' | 'failed';
+  state: 'joining' | 'live' | 'failed' | 'off';
   /** Bumped whenever someone arrives or leaves — a cue for the Home card to re-read the hub's viewers. */
   pulse: number;
 };
@@ -39,22 +40,23 @@ export function useEventTeamPresence(): EventTeamPresenceState | null {
   return useContext(Ctx);
 }
 
-/** A tab hidden this long leaves the list ("here now" is somebody looking). */
-const TEAM_HIDDEN_MS = 120_000;
-
 export function EventTeamPresence({
   eventId,
   me,
+  enabled,
   children,
 }: {
   eventId: string;
   me: { id: string } & TeamMeta;
+  /** `teamPresenceEnabled()` — the layout's gate (`TEAM_PRESENCE_DISABLED=1` joins nothing). */
+  enabled: boolean;
   children: ReactNode;
 }) {
-  const [value, setValue] = useState<EventTeamPresenceState>({ peers: null, state: 'joining', pulse: 0 });
+  const [value, setValue] = useState<EventTeamPresenceState>({ peers: null, state: enabled ? 'joining' : 'off', pulse: 0 });
   const peersRef = useRef<readonly TeamPeer[]>([]);
 
   useEffect(() => {
+    if (!enabled) return;
     const supabase = createClient();
     const stop = pauseWhileHidden(
       () => {
@@ -99,10 +101,9 @@ export function EventTeamPresence({
           return supabase.removeChannel(channel);
         };
       },
-      { hiddenMs: TEAM_HIDDEN_MS },
     );
     return stop;
-  }, [eventId, me.id, me.name, me.role, me.photo]);
+  }, [enabled, eventId, me.id, me.name, me.role, me.photo]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

@@ -9,15 +9,17 @@
  * *"yes add prints as the eleventh tile"*. In the order an event gets made:
  *
  *   Info · Look · Logo · Mood Board & Dress Code · Schedule · Love Story ·
- *   Wedding March · Seat plan · E-Gifts · RSVP · Prints
+ *   Wedding March · Seat plan · E-Gifts · Prints
+ *
+ * 🗂 RSVP LEFT (R1, owner 2026-10-28): its settings are Guests ⚙'s now; Studio's "n of N ready" counts the tiles that
+ * are here, so a finished RSVP never reads as a Studio "Missing" and an unfinished one is Guests ⚙'s to say.
  *
  * 🔑 NEVER A SECOND TRUTH. A tile is chrome over an editor the Maker already
  * has (each opens its shipped Event Details item, `item`), and its ✓ / Missing
  * is read from the SAME derivation the Details rows and the guided flow read:
  * `guidedItemDone` over the launch page's one `guidedFactsFrom` (which is what
  * every `DetailsItemModel.done` the plan counts is), `wordsAndPlansItem` for the
- * Schedule's and the Love Story's lines, the RSVP setup step's own done
- * (`hubSetupDone('ask')` — a reply-by date), and the counts the page already
+ * Schedule's and the Love Story's lines, and the counts the page already
  * read (the seat plan's tables and seated, the E-Gifts manager's own methods).
  * A fact that could not be read makes NO claim (`done: undefined`) — never a
  * "Missing" nobody measured. Prints is always ✓ (nothing to fill).
@@ -28,7 +30,6 @@
  */
 import { wordsAndPlansItem, type DetailsItemKey } from '@/lib/maker-details-items';
 import { guidedItemDone, type GuidedDoneFacts } from '@/lib/details-guided-flow';
-import { hubSetupDone, type HubSetupFacts } from '@/lib/hub-setup-steps';
 
 export { STUDIO_TILE_KEYS, STUDIO_TILE_ITEM, studioTileItem, type StudioTileKey } from './studio-tile-defs';
 import { STUDIO_TILE_ITEM, STUDIO_TILE_KEYS, type StudioTileKey } from './studio-tile-defs';
@@ -41,7 +42,7 @@ import { hubPart, type HubPartId } from '@/lib/hub-parts';
  * 💎 STUDIO NESTING (owner 2026-10-22, "Event Hub Pro, part by part"): each Studio card names the Pro parts that live
  * on its page — a quiet "◆ … from ₱500" line, ✓ when owned. Info → Custom address · Look → Style, Background, Motion,
  * Music · Logo → Logo & QR · Love Story → Photos · Prints → Prints. Mood Board & Dress Code, Schedule, Wedding March,
- * Seat plan and E-Gifts show no price (free); RSVP likewise. (Reveal and Post Event live in the Stages, Your own
+ * Seat plan and E-Gifts show no price (free). (Reveal and Post Event live in the Stages, Your own
  * scenes on the stage canvas.)
  */
 export const STUDIO_TILE_PARTS: Readonly<Record<StudioTileKey, readonly HubPartId[]>> = {
@@ -54,7 +55,6 @@ export const STUDIO_TILE_PARTS: Readonly<Record<StudioTileKey, readonly HubPartI
   march: [],
   seats: [],
   gifts: [],
-  rsvp: [],
   prints: ['prints'],
 };
 
@@ -100,7 +100,6 @@ export const STUDIO_TILES: Readonly<Record<StudioTileKey, StudioTileDef>> = {
   march: { label: 'Wedding March', short: 'March', item: STUDIO_TILE_ITEM.march, reads: ['march'], immersive: true, sub: 'Drag the names, two columns' },
   seats: { label: 'Seat plan', short: 'Seat plan', item: STUDIO_TILE_ITEM.seats, reads: ['seating'], immersive: true, sub: 'Tables and who sits where' },
   gifts: { label: 'E-Gifts', short: 'E-Gifts', item: STUDIO_TILE_ITEM.gifts, reads: [], sub: 'GCash · Maya · bank · PayPal' },
-  rsvp: { label: 'RSVP', short: 'RSVP', item: STUDIO_TILE_ITEM.rsvp, reads: [], sub: 'Reply by · what the form asks' },
   prints: { label: 'Prints', short: 'Prints', item: STUDIO_TILE_ITEM.prints, reads: [], sub: 'Invitation set · for the day' },
 };
 
@@ -121,8 +120,6 @@ export type StudioTileModel = {
 export type StudioTilesInput = {
   /** The launch page's ONE derivation of "done" (`guidedFactsFrom`) — the Details rows' own. */
   facts: GuidedDoneFacts;
-  /** The setup's facts (`hubSetupFactsFrom`) — RSVP's reply-by; null where the type has no setup. */
-  setup: HubSetupFacts | null;
   /** E-Gifts switched on, from the E-Gifts manager's own read; null = could not be read. */
   giftMethods: number | null;
   /** The Seat plan row's counts; null = this type has no seat plan. */
@@ -148,8 +145,6 @@ function tileDone(key: StudioTileKey, input: StudioTilesInput): boolean | undefi
   switch (key) {
     case 'gifts':
       return input.giftMethods === null ? undefined : input.giftMethods > 0;
-    case 'rsvp':
-      return input.setup ? (hubSetupDone('ask', input.setup) ?? undefined) : undefined;
     case 'prints':
       return true;
     default:

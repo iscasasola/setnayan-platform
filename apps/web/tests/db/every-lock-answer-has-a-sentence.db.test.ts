@@ -101,9 +101,10 @@ test('the DECLINE RPC cannot answer with anything the supplier is not told about
 
 test('the refusals the supplier can actually act on are worded for them', async () => {
   const fromSql = statusesIn(await functionBody('vendor_agree_to_lock'));
-  // Three the shop owner can DO something about — pinned by name because
+  // Three the shop owner can DO something about (the free-tier 'fully_booked'
+  // was one until 2026-10-28, when the owner removed the booking cap) — pinned by name because
   // wording them as a shrug is the failure mode a completeness check misses.
-  for (const s of ['not_verified', 'resolve_others_first', 'fully_booked']) {
+  for (const s of ['not_verified', 'resolve_others_first', 'daily_limit_reached']) {
     assert.ok(fromSql.includes(s), `${s} is gone from the RPC — re-read this test`);
     assert.equal(lockAgreeNotice(s)!.tone, 'refused');
   }

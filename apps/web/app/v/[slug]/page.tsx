@@ -180,6 +180,9 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { recordVendorProfileView } from '@/lib/record-vendor-view';
 import { shopPageGate } from '@/lib/own-shop-preview';
 import { TeamPreviewBanner } from './_components/team-preview-banner';
+import { ShopBadgePill } from '@/app/_components/shop-badge-pill';
+import { shopBadges, verifiedBadge } from '@/lib/shop-badges';
+import { AWARD_LABELS, fetchVendorCurrentAwards } from '@/lib/spotlight-awards';
 // The compatibility-badge labels — DERIVED, never re-typed here. See the note
 // at their former hand-typed definitions further down this file.
 import {
@@ -1033,6 +1036,20 @@ export async function renderVendorBySlug({
   const finalizedBookingCount = finalizedBookingRead.count;
   const bookingCountMeasured = finalizedBookingRead.measured;
   const expTier = experienceTier(finalizedBookingCount);
+  // 🏅 The pills (lib/shop-badges.ts). Verified has its own gate below (the route's strict `verification_state`), so it
+  // is left out here; the ★ pill keeps the Free-tier star gate it always had. Awards fail soft to none (the shipped
+  // `fetchVendorCurrentAwards` contract).
+  const spotlightAwards = await fetchVendorCurrentAwards(admin, vendor.vendor_profile_id).catch(() => []);
+  const pagePills = shopBadges({
+    verified: false,
+    completedEvents: bookingCountMeasured ? (finalizedBookingCount ?? 0) : null,
+    trusted: trustedReviewStats,
+    inBusinessSinceYear: null,
+    awards: [...new Set(spotlightAwards)].map((a) => AWARD_LABELS[a]),
+    nowYear: new Date().getFullYear(),
+  });
+  const performancePills = pagePills.filter((b) => b.kind === 'milestone' || b.kind === 'award');
+  const ratingPill = pagePills.find((b) => b.kind === 'rating') ?? null;
 
   // Declared + DTI-verified experience (flag + schema gated; soft-probe degrades
   // on 42703 so a pre-migration DB never breaks the profile). Sits alongside the
@@ -2319,14 +2336,20 @@ export async function renderVendorBySlug({
                 availability too. Say what admin review actually does — document
                 review — and nothing more. Never "Verified by Setnayan". */}
             {vendor.verification_state === 'verified' ? (
-              <p
-                className="inline-flex w-fit items-center gap-1 rounded-full border border-link/20 bg-link/[0.08] px-2.5 py-0.5 text-[11px] font-bold text-link"
+              <ShopBadgePill
+                badge={verifiedBadge()}
+                className="w-fit"
                 title="Setnayan reviewed this shop’s business documents before it went public."
-              >
-                <span aria-hidden>✓</span>
-                Verified
-              </p>
+              />
             ) : null}
+            {/* 🏅 THE PERFORMANCE BADGES WEAR THE PILL (owner 2026-10-28) — the milestone medal from the SAME
+                public completed-events count the experience chip states (`finalizedBookingCount`, measured only),
+                in its step's material, and this month's Spotlight Awards. `lib/shop-badges.ts` decides; nothing is stored, so a voided
+                booking un-earns the medal on the next render. The QR on a supplier's card/tarp lands here, so a
+                scan always shows today's badges. */}
+            {performancePills.map((b) => (
+              <ShopBadgePill key={b.key} badge={b} className="w-fit" />
+            ))}
             {/* Experience tier badge (Vendor_Quality_Rating_System §5) — a
                 subtle violet chip stating how many finalized bookings flowed
                 through Setnayan. The profile keeps the honest "New to Setnayan"
@@ -2362,19 +2385,11 @@ export async function renderVendorBySlug({
             {viewerTierCaps.reviewStarsCounted &&
             trustedReviewStats.trusted_review_count > 0 &&
             trustedReviewStats.trusted_avg_rating > 0 ? (
-              <p
-                className="inline-flex w-fit items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-2.5 py-0.5 text-[11px] text-ink/70"
+              <ShopBadgePill
+                badge={ratingPill!}
+                className="w-fit"
                 title={`${formatStarRating(trustedReviewStats.trusted_avg_rating)} average from ${formatCount(trustedReviewStats.trusted_review_count)} review${trustedReviewStats.trusted_review_count === 1 ? '' : 's'} by couples who booked via Setnayan.`}
-              >
-                <Star aria-hidden className="h-3.5 w-3.5 fill-warn-400 text-warn-500" strokeWidth={1.75} />
-                <span className="font-medium text-ink">
-                  {formatStarRating(trustedReviewStats.trusted_avg_rating)}
-                </span>
-                <span aria-hidden>·</span>
-                <span>
-                  {formatCount(trustedReviewStats.trusted_review_count)} review{trustedReviewStats.trusted_review_count === 1 ? '' : 's'}
-                </span>
-              </p>
+              />
             ) : null}
             {/* Favorites chip (owner 2026-07-02: favorites public / viewers
                 vendor-only) — distinct couples who follow or saved this vendor,

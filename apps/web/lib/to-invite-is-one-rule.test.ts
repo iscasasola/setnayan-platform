@@ -167,12 +167,16 @@ test('the two screens that PRINT the number print that number (rendered: the rea
   assert.match(text(setup), new RegExp(`\\b${n} to invite\\.`));
 
   const run = await renderRun(ROSTER);
-  assert.match(text(run), new RegExp(`Not sent yet \\(${n}\\)`), 'the run\'s "Not sent yet" is not the List\'s N');
-  assert.match(text(run.match(/<p[^>]*data-send-run-position=""[^>]*>[\s\S]*?<\/p>/)?.[0] ?? ''), new RegExp(`^ ?1 of ${n} ?$`), 'the run\'s "1 of N" is not the List\'s N');
+  // 📨 The run redrawn simple (owner 2026-10-27): "N sent · M more to invite" — M is the List's N — and "Invite k of all",
+  // counting on from those already sent, so the guests left from the first one are exactly N.
+  assert.match(text(run), new RegExp(`\\b${n} more to invite`), 'the run\'s "more to invite" is not the List\'s N');
+  const eyebrow = /^ ?Invite (\d+) of (\d+) ?$/.exec(text(run.match(/<p[^>]*data-send-run-position=""[^>]*>[\s\S]*?<\/p>/)?.[0] ?? ''));
+  assert.ok(eyebrow, 'the run has no "Invite k of all"');
+  assert.equal(Number(eyebrow![2]) - Number(eyebrow![1]) + 1, n, 'the run\'s guests left are not the List\'s N');
   assert.doesNotMatch(text(run), /\bdan\b|\bfe\b/, 'the run names a guest who declined');
   // Everyone invited → the run says so; it never opens on a declined guest instead.
   const done = await renderRun(ROSTER.map((r) => (TO_INVITE.includes(r.guest_id) ? { ...r, invitation_sent_at: SENT } : r)));
-  assert.match(text(done), /Not sent yet \(0\)/);
+  assert.match(text(done), /\b0 more to invite/);
   assert.match(text(done), /Everyone has their invite\./);
 });
 
@@ -185,7 +189,7 @@ test('a refused read is unknown — never "0 to invite", never "everyone has the
   assert.doesNotMatch(text(setup), /Everyone invited|Send to 0|\b0 to invite/, 'Setup draws a refused read as nobody to invite');
   const run = await renderRun([], { measured: false });
   assert.match(text(run), /We couldn’t load your guest list just now/);
-  assert.doesNotMatch(text(run), /Everyone has their invite|Not sent yet \(0\)/, 'the run draws a refused read as all done');
+  assert.doesNotMatch(text(run), /Everyone has their invite|\b0 more to invite|Not sent yet \(0\)/, 'the run draws a refused read as all done');
 });
 
 test('a +1 with no name rides on their guest’s invitation; named, they are invited like anyone', () => {
@@ -242,8 +246,9 @@ test('every surface is WIRED to the one rule, and none keeps a count of its own'
   assert.match(page, /sendRunGuests\(rows, picked\)/, 'the run page does not ask the one rule who it holds');
   const run = read('app/dashboard/[eventId]/guests/send/_components/send-run.tsx');
   assert.match(run, /runStanding\(queue, sendable, at\)/, 'the run counts off its snapshot, not the latest read');
-  assert.match(run, /runArrivals\(known\.current, sendable, who\)/, 'the run never takes in a guest who came back');
-  assert.match(run, /\{formatCount\(position\)\} of \{formatCount\(total\)\}/);
+  assert.match(run, /runArrivals\(known\.current, sendable, 'unsent'\)/, 'the run never takes in a guest who came back');
+  assert.match(run, /Invite \{formatCount\(before \+ position\)\} of \{formatCount\(sendable\.length\)\}/);
+  assert.match(run, /const before = Math\.max\(0, sendable\.length - total\);/);
   const home = read('lib/home-first-screen.ts');
   assert.match(home, /unsent: rows\.filter\(\(g\) => isToInvite\(g\)\)\.length/, 'Home does not ask the one rule');
   assert.match(read('app/dashboard/[eventId]/page.tsx'), /guests: homeGuestsRead\(guests, guestsMeasured\)/);

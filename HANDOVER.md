@@ -1,3 +1,26 @@
+# HANDOVER — claude/badges-in-the-pill (Builder BP, 2026-10-28) · PR #7021 (draft, do-not-auto-merge)
+
+Contract: corpus `prototypes/calling_cards_20_2026-10-28/pill.html` + `cards20/tiers.html` + `supplier_in_place_2026-10-28`
+(Shop › Awards and badges). Rows: DECISION_LOG 2026-10-28 verified pill / ladder 10 · 50 · 100 · 500 · 1,000 · 5,000 · 10,000.
+
+## State
+- Pure: `lib/shop-badges.ts` (badges · tracker · newlyEarned · badgesForPrint) · `lib/badge-tiers.ts` (7 materials, AA
+  tested) · reads `lib/shop-badges.server.ts` · print `lib/shop-badge-print.ts` + `app/api/vendor/badges/route.ts`.
+- UI: `app/_components/shop-badge-pill.tsx` · tracker `website/_components/badge-tracker.tsx` · Today
+  `_components/badge-earned-line.tsx` (one mount line in `vendor-dashboard/page.tsx`) · public page pills in `/v/[slug]`.
+- Labs: supplier-lab `?s=page&who=caterer` (open Awards and badges) · `?s=badge-today&who=studio` · `?s=badge-tiers`;
+  shop-preview-lab `?events=96`. Walk: `shots-2026-10-28/badges/scripts/{serve.sh,walk.mjs}`.
+
+## Decisions taken
+- Shop-level milestone count = `vendor_public_completed_events_stats.public_completed_count` (the number the shop page's
+  experience chip already states), run through the shipped `milestonesFor`.
+- "Newly earned" = vs. keys dismissed in this browser (localStorage) — no migration, no new server action.
+- Doors (See the couples asking / Ask for reviews) open Customers filtered (lane=waiting / lane=finished); no send.
+- Years stays a chip on the public page (it carries DTI-verified vs self-reported); Verified + ★ became pills.
+- App dark mode is off on these routes; dark grounds verified on the tiers sheet (explicit dark ground) + AA test.
+
+---
+
 # HANDOVER — claude/coordinator-door (Builder CD, 2026-10-28)
 
 Contract: corpus `prototypes/coordinator_door_2026-10-28/` + DECISION_LOG 2026-10-28 "COORDINATORS GET A DOOR".

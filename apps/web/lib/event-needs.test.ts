@@ -111,7 +111,7 @@ test('NULL is never asked = ON — every event made before this reads as it did'
   const all = readEventNeeds({});
   assert.deepEqual(needsHiddenNavKeys(all), []);
   for (const s of ['save_the_date', 'rsvp-stage', 'rsvp', 'event', 'editorial']) assert.equal(needsHidesStage(s, all), false);
-  assert.equal(needsHidesStudioTile('rsvp', all), false);
+  assert.equal(needsHidesStudioTile('gifts', all), false);
 });
 
 test('off is absent: the bar, the Maker stages and the Studio tiles drop it', () => {
@@ -122,7 +122,7 @@ test('off is absent: the bar, the Maker stages and the Studio tiles drop it', ()
     ['event'],
   );
   assert.deepEqual(
-    ['info', 'look', 'logo', 'mood', 'schedule', 'story', 'march', 'seats', 'gifts', 'rsvp', 'prints'].filter((t) => !needsHidesStudioTile(t, simple)),
+    ['info', 'look', 'logo', 'mood', 'schedule', 'story', 'march', 'seats', 'gifts', 'prints'].filter((t) => !needsHidesStudioTile(t, simple)),
     ['info', 'look'],
   );
   const open = readEventNeeds({ guest_list_on: false, suppliers_on: true, hub_details_on: true });
@@ -130,6 +130,8 @@ test('off is absent: the bar, the Maker stages and the Studio tiles drop it', ()
     ['save_the_date', 'rsvp-stage', 'rsvp', 'event', 'editorial'].filter((s) => !needsHidesStage(s, open)),
     ['rsvp', 'event', 'editorial'],
   );
-  assert.equal(needsHidesStudioTile('rsvp', open), true);
+  /* 🗂 R1 (owner 2026-10-28): the RSVP tile left Studio for Guests ⚙ — with no guest list there is no Guests tab, so no
+     RSVP setting is drawn anywhere; no Studio tile is dropped for it any more. */
+  assert.deepEqual(['info', 'look', 'logo', 'mood', 'schedule', 'story', 'march', 'seats', 'gifts', 'prints'].filter((t) => needsHidesStudioTile(t, open)), []);
   assert.deepEqual(switchOnRows(simple, M), ['guests', 'suppliers', 'hub']);
 });

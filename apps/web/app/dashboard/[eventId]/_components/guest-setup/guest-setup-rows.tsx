@@ -4,8 +4,12 @@ import { useEffect, useRef, useState, useTransition, type MouseEvent } from 'rea
 import { Check, ChevronRight, Copy, Mail, RotateCcw, Share2, SquareCheck, X } from 'lucide-react';
 import { ActionButton, useFitRow } from '@/components/action-button';
 import { Count } from '@/components/count';
-import { FormRow, FormRows } from '@/app/_components/form-row';
-import type { RsvpAskConfig } from '@/lib/rsvp-ask';
+import { ChosenRow, FormRow, FormRows } from '@/app/_components/form-row';
+import { readOneAtATime, type RsvpAskConfig } from '@/lib/rsvp-ask';
+import type { KeepAnswer } from '@/lib/form-row';
+import { HOW_GUESTS_ANSWER_ABOUT, HOW_GUESTS_ANSWER_LABEL, HOW_GUESTS_ANSWER_OPTIONS } from '@/lib/how-guests-answer';
+/* 📬 Replies open ▾ · Replies close ▾ — the Maker's own part, mounted here too (R1: it was the Studio RSVP tile's). */
+import { RepliesWindowRows } from '../../launch/_components/replies-window-rows';
 import {
   GUESTS_GET_IN_LABEL,
   guestsGetInPatch,
@@ -66,7 +70,12 @@ export type HeadcountView = {
  *                          in Prints, each guest's ticket on their card)
  *   3. Your one link       link · Copy · Share + the QR (Open · Anyone with the link only)
  *   4. RSVP asks           `RsvpAsks` (shared) — "They reply" choices only
+ *   4b. How guests answer  All at once · One by one (`oneAtATime`) — "They reply" choices only
  *   5. Reply by            `ReplyBy` (shared) — "They reply" choices only
+ *   5b. Replies open/close `RepliesWindowRows` (the Maker's part) — "They reply" choices only
+ *      🗂 4b and 5b MOVED HERE in R1 (owner 2026-10-27/28, "RSVP SETTINGS LIVE IN THE GUESTS ⚙"): the Studio RSVP tile
+ *      was the only other place they lived, and it is gone. The words the reply page says (its eyebrow, question, hint,
+ *      Yes / No) stay the Reply page's — typed on its lines in the Invitation stage, where guests read them.
  *   6. Finalize guest list ✓ Finalize now → one sheet, one way — every list
  *                          (owner 2026-10-07: *"finalize should be inside the
  *                          Setup. not on its current location"* — it left the
@@ -125,13 +134,13 @@ export function GuestSetupRows({
     setWaiting(drafted);
   }, [configKey, drafted]);
 
-  const save = (patch: RsvpAskConfig, what: string) => {
+  const save = (patch: RsvpAskConfig, what: string): Promise<KeepAnswer> => {
     const next: RsvpAskConfig = { ...latest.current, ...patch };
     latest.current = next;
     setLocal(next); // on screen at the tap
     setError(null);
     const tap = ++newest.current;
-    void (async () => {
+    return (async (): Promise<KeepAnswer> => {
       let refused: string | null = null;
       try {
         const fd = new FormData();
@@ -151,7 +160,15 @@ export function GuestSetupRows({
         /* The action's own words only if they are a plain sentence — never the database's (`plain-refusal.ts`). */
         setError(`${what} did not save, so it is back as it was. ${refused}`);
       }
+      /* The row hears it too — but says nothing of its own: the sheet's one line above already did. */
+      return refused === null ? { ok: true } : { ok: false, error: null };
     })();
+  };
+  /** ❓ How guests answer — the one writer of `oneAtATime` here; picking the stored answer writes nothing. */
+  const oneAtATime = readOneAtATime(local);
+  const pickAnswer = (value: string) => {
+    const next = value === 'one';
+    if (next !== oneAtATime) void save({ oneAtATime: next }, `“${HOW_GUESTS_ANSWER_LABEL}”`);
   };
 
   const getIn = readGuestsGetIn(local);
@@ -165,7 +182,7 @@ export function GuestSetupRows({
       <FormRows data="guest-setup">
         {/* ⚙ THREE CLUSTERS (owner 2026-10-27, settings per menu; prototype § 4): Getting in · Replies · Closing the list. */}
         <ClusterHead name={GUESTS_SETTINGS_CLUSTERS[0]} first />
-        <GuestsGetIn frame={getInFrame} value={getIn} onPick={(v) => save(guestsGetInPatch(v), `“${GUESTS_GET_IN_LABEL}”`)} />
+        <GuestsGetIn frame={getInFrame} value={getIn} onPick={(v) => void save(guestsGetInPatch(v), `“${GUESTS_GET_IN_LABEL}”`)} />
         {waiting ? (
           <p className="-mt-1 pb-2.5 pl-0.5 text-[12.5px] text-ink/55" data-setup-waiting="">
             Saved — guests see it after you Apply in the Event Hub Maker.
@@ -180,7 +197,21 @@ export function GuestSetupRows({
         {personal ? <InvitationsRow eventId={eventId} toInvite={toInvite} /> : null}
         {getIn === 'one_qr' ? <OneLinkRow link={oneLink} /> : null}
         <ClusterHead name={GUESTS_SETTINGS_CLUSTERS[1]} />
-        {replies ? <RsvpAsks frame={asksFrame} config={local} onToggle={(field, v) => save({ [field]: v }, 'That question')} /> : null}
+        {replies ? <RsvpAsks frame={asksFrame} config={local} onToggle={(field, v) => void save({ [field]: v }, 'That question')} /> : null}
+        {replies ? (
+          /* ❓ Any set of choices is ONE dropdown (owner 2026-09-28, "again") — the same PickMenu-in-a-Form-row as How
+             guests get in and Replies open beside it; what each choice means is behind the ⓘ and on its option. */
+          <ChosenRow
+            data="how-guests-answer"
+            name={HOW_GUESTS_ANSWER_LABEL}
+            about={{ words: HOW_GUESTS_ANSWER_ABOUT }}
+            value={oneAtATime ? 'one' : 'all'}
+            options={HOW_GUESTS_ANSWER_OPTIONS}
+            onPick={pickAnswer}
+            dataAttr="data-setup-answer"
+            attrs={{ 'data-setup-row': 'answer' }}
+          />
+        ) : null}
         {replies ? (
           reply ? (
             <ReplyBy
@@ -196,6 +227,8 @@ export function GuestSetupRows({
             <FormRow data="reply-by" name="Reply by" attrs={{ 'data-setup-row': 'reply-by' }} problem="We couldn’t read it just now." />
           )
         ) : null}
+        {/* 📬 When replies open and close — under the date they can close on, the same one object, drafted. */}
+        {replies ? <RepliesWindowRows config={local} setupRow="replies-window" onSave={(patch, what) => save(patch, what)} /> : null}
         <RequestsRow eventId={eventId} waiting={requests} />
         <ClusterHead name={GUESTS_SETTINGS_CLUSTERS[2]} />
         <FinalizeRow eventId={eventId} view={headcount} />

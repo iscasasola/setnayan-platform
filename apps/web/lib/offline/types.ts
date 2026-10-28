@@ -30,7 +30,10 @@ export type ServiceCode =
   | 'panood'
   | 'patiktok'
   | 'camera_bridge'
-  | 'live_wall';
+  | 'live_wall'
+  // 🎫 EV3 (owner 2026-10-28, "scans … QUEUE offline and sync later; double claims surfaced, never lost"): a check-in
+  // made at the door with no signal. Not a media service — the same bus, so the scanner has ONE queue, not a second.
+  | 'checkin';
 
 /**
  * Canonical ordered list of ServiceCode values. Use this when iterating
@@ -47,6 +50,7 @@ export const SERVICE_CODES: readonly ServiceCode[] = [
   'patiktok',
   'camera_bridge',
   'live_wall',
+  'checkin',
 ] as const;
 
 /**
@@ -62,6 +66,7 @@ export const SERVICE_LABELS: Record<ServiceCode, string> = {
   patiktok: 'Patiktok — booth video',
   camera_bridge: 'Camera Bridge — DSLR transit',
   live_wall: 'Memory lane — Memories cache',
+  checkin: 'Check-in desk — arrivals scanned with no signal',
 };
 
 /**

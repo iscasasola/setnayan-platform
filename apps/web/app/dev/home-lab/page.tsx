@@ -37,6 +37,9 @@
  *   ?view=apply&screen=none|silent|cancelled|failed|refused|pending|on  🍎 the REAL Apply sheet
  *                                    selling Event Hub Pro through Apple, in each outcome
  *   ?coord=1                         🗂 the coordinator's line on top (owner 2026-10-28) — the REAL `CoordinatingLine`
+ *   ?view=offline[&state=ok|amber|nosignal|failed|saving|none|unsupported][&browser=1][&desk=notes|sent]
+ *                                    📶 EV3 (owner 2026-10-28): the REAL "Ready for no signal" card, the supplier's saved
+ *                                    mark on the event card and the REAL Check-in desk with a stand-in queue (offline-lab.tsx)
  *   ?for=shop|person                 🏷 "For <name>" under the name (owner 22 Oct 2026): the REAL
  *                                    `homeCoverWords` with a subject — SetnaProd (its logo) or Lola Nena (initials)
  *   ?view=board[&for=1][&one=1]      🏷 the Events board's Planning posters (owner 22 Oct 2026): the REAL
@@ -108,6 +111,7 @@ import {
   pickHomeNext,
   type HomeNextInput,
 } from '@/lib/home-first-screen';
+import { OfflineLab } from './offline-lab';
 
 export const dynamic = 'force-dynamic';
 
@@ -224,7 +228,7 @@ const LAB_HUB_PICK: HomeHubPickRead = { ok: true, pinned: null, byDate: 'rsvp' }
 export default async function HomeLab({
   searchParams,
 }: {
-  searchParams: Promise<{ bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; coord?: string; card?: string; cardphase?: string; challenges?: string; open?: string; need?: string }>;
+  searchParams: Promise<{ bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; coord?: string; card?: string; cardphase?: string; challenges?: string; open?: string; need?: string; state?: string; browser?: string; desk?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -360,6 +364,10 @@ export default async function HomeLab({
       </div>
     );
     return q.shell === '1' ? <LabShell eventId={E} gutter={false}>{band}</LabShell> : band;
+  }
+  if (q.view === 'offline') {
+    /* 📶 EV3 — Ready for no signal · the supplier's saved mark · the Check-in desk's offline queue (offline-lab.tsx). */
+    return <OfflineLab state={q.state} browser={q.browser} desk={q.desk} />;
   }
   if (q.view === 'day') {
     /* The event day: the page's own wiring — `homeServices` builds Your services, the console draws its Papic entry. */

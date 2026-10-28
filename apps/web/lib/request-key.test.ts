@@ -137,7 +137,14 @@ test('🔒 the pending ticket is drawn only while pending, and the card says so'
 test('🔒 the door scanner asks the server LIVE on every scan, and check-in itself refuses a request', () => {
   const desk = read('app/dashboard/[eventId]/guests/checkin/_components/checkin-desk.tsx');
   const on = desk.slice(desk.indexOf('const onToken = useCallback('), desk.indexOf('// ---- NFC tag reader'));
-  assert.match(on, /const check = await checkTicketLive\(eventId, token\)/, 'a scan is judged from the list loaded earlier');
+  assert.match(on, /check = await checkTicketLive\(eventId, token\)/, 'a scan is judged from the list loaded earlier');
+  // 📶 NO SIGNAL (EV3, owner 2026-10-28 "scans … QUEUE offline and sync later"): only when the live question cannot be
+  // asked does the list saved on this phone decide — a list that never holds a request (the page drops
+  // `REQUEST_ENTRY_SOURCE` rows), so a pending/declined screenshot is still turned away — and the pick says it was the
+  // saved list. The live check then runs when the queued check-in is sent: `checkInGuest` refuses it (below) and the
+  // desk shows it under "Needs a look".
+  assert.match(on, /if \(!browserOffline\(\)\) \{\s*try \{\s*check = await checkTicketLive/, 'the live check is skipped with signal');
+  assert.match(on, /if \(!check\) \{[\s\S]*?guestByToken\.get\(token\)[\s\S]*?setSavedListPick\(true\)/, 'an offline pick does not say it came from the saved list');
   assert.ok(on.indexOf('checkTicketLive') < on.indexOf('setSelectedId(check.guestId)'), 'a guest is selected before the live answer');
   assert.match(on, /check\.verdict === 'pending' \|\| check\.verdict === 'declined'\) \{\s*setSelectedId\(null\)/);
   assert.match(desk, /DOOR_WORDS\.checkedLive\(/, 'the desk does not say it checked live');

@@ -11,6 +11,7 @@ import { ThreadListAvatar } from '@/app/_components/chat/thread-list-card';
 import { PILL_TRACK_CLASS, PILL_TRACK_GROUND, PillThumb, pillSegClass } from '@/app/_components/pill-selector';
 import { searchInboxRows } from '@/lib/chat-inbox-search';
 import { markChatViewer } from '@/lib/chat-last-known';
+import { ChatOriginMark } from '@/app/_components/chat/chat-back';
 import { formatCount } from '@/lib/format-number';
 
 /**
@@ -145,6 +146,7 @@ export function ChatInbox({
 
   return (
     <div data-chat-inbox="">
+      <ChatOriginMark />
       {/* Mounted FIRST: from 1024 the row is the column's first line (ThumbDock draws it in place); on a phone it is
           portalled onto the bottom dock, where it arrives last. */}
       <ThumbDock>

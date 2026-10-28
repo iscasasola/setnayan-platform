@@ -55,7 +55,8 @@ test('an open thread is full screen on a phone: the takeover rule exists and the
 
 test('the head is ‹ · avatar · name · event line · the chat menu — ONE head component, on both sides', () => {
   const head = read('app/_components/chat/chat-thread-head.tsx');
-  assert.match(head, /aria-label="Back to Chats"/, 'the shared head has no ‹');
+  assert.match(head, /<ChatBack href=\{backHref\} \/>/, 'the shared head has no ‹');
+  assert.match(read('app/_components/chat/chat-back.tsx'), /aria-label="Back to Chats"/, 'the ‹ lost its name');
   assert.match(head, /rounded-full bg-ink\/\[0\.1\]/, 'the shared head has no avatar beside the name');
   assert.match(head, /\[&>\*\+\*\]:before:content-\['·'\]/, 'the muted line lost its separators');
   for (const p of ['app/dashboard/[eventId]/messages/[threadId]/page.tsx', 'app/vendor-dashboard/messages/[threadId]/page.tsx']) {

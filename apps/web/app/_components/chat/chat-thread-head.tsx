@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { ChevronLeft } from 'lucide-react';
+import { ChatBack } from './chat-back';
 
 /**
  * THE ONE CHAT HEAD — ‹ · avatar · name · one muted line · actions (owner 2026-10-28, verbatim: *"Same as our
@@ -15,6 +15,7 @@ import { ChevronLeft } from 'lucide-react';
 export function ChatThreadHead({
   backHref,
   name,
+  nameHref,
   initials,
   line,
   below,
@@ -24,6 +25,8 @@ export function ChatThreadHead({
   backHref: string;
   /** The other side, as it may be shown (anonymity-safe), plus any badge beside it. */
   name: ReactNode;
+  /** Pressing the name opens this (the supplier's customer card for the event). Absent → plain text. */
+  nameHref?: string;
   initials: string;
   /** The one muted line — dot-separated children (service · date · guests). */
   line?: ReactNode;
@@ -34,13 +37,7 @@ export function ChatThreadHead({
 }) {
   return (
     <>
-      <Link
-        href={backHref}
-        aria-label="Back to Chats"
-        className="grid h-11 w-10 shrink-0 place-items-center rounded-full text-sn-accent hover:bg-ink/5"
-      >
-        <ChevronLeft aria-hidden className="h-6 w-6" strokeWidth={2} />
-      </Link>
+      <ChatBack href={backHref} />
       <span
         aria-hidden
         className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-ink/[0.1] text-[13px] font-semibold text-ink/75"
@@ -49,7 +46,15 @@ export function ChatThreadHead({
         {initials}
       </span>
       <div className="min-w-0 flex-1" data-chat-head="">
-        <p className="truncate text-[16px] font-semibold leading-tight text-ink">{name}</p>
+        {nameHref ? (
+          <Link href={nameHref} className="block truncate text-[16px] font-semibold leading-tight text-ink hover:underline" data-chat-head-name="">
+            {name}
+          </Link>
+        ) : (
+          <p className="truncate text-[16px] font-semibold leading-tight text-ink" data-chat-head-name="">
+            {name}
+          </p>
+        )}
         {line ? (
           <p className="flex min-w-0 items-center gap-x-1 truncate text-[12px] leading-tight text-ink/55 [&>*+*]:before:mr-1 [&>*+*]:before:content-['·']">
             {line}

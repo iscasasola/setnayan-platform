@@ -146,9 +146,11 @@ test('5 · the shell draws a link tab as an anchor and never selects it', () => 
 });
 
 test("6 · each frame's ⋮ carries the embedding page's sections", () => {
+  // Read inside the ⋮'s own `links` (2026-10-28: the head's TITLE also opens `?tab=details`, the event's card).
+  const menu = supplierThread.slice(supplierThread.indexOf('<ChatThreadMenu'), supplierThread.indexOf('/>', supplierThread.indexOf('links={[')));
   for (const tab of ['quote', 'files', 'schedule', 'details']) {
     assert.equal(
-      count(supplierThread, new RegExp(`clients/\\$\\{thread\\.event_id\\}\\?tab=${tab}`, 'g')),
+      count(menu, new RegExp(`clients/\\$\\{thread\\.event_id\\}\\?tab=${tab}`, 'g')),
       1,
       `the supplier's ⋮ lost the client page's ${tab} section`,
     );

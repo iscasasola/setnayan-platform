@@ -96,6 +96,7 @@ import { ChatInfoRailColumn, ChatInfoRailTrigger } from './_components/chat-info
 import { ThreadToolHashReveal } from '@/app/_components/chat/reveal-thread-tool';
 import { ChatBox } from '@/app/_components/chat/chat-box';
 import { ChatThreadHead } from '@/app/_components/chat/chat-thread-head';
+import { eventChatTitle } from '@/lib/event-chat-title';
 import { ThreadToolPanel } from '@/app/_components/chat/thread-tool-panel';
 import { affordancePanelId } from '@/lib/chat-box-tools';
 import { dealEntryFor, threadHasQuote } from '@/lib/deal-entry';
@@ -1036,7 +1037,6 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   // Owner ruling 2026-09-08: "we do not need to hide anything, since no more
   // tokens." 'Couple' remains only for a genuinely missing event row.
   const coupleLabel = event?.display_name ?? 'Couple';
-  const headerLabel = coupleLabel;
   const inquiryCity = inquiryCityLabel(event?.region ?? null);
 
   const alreadyOnThread = new Set(
@@ -1537,10 +1537,17 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
         <ChatBox
           header={
             <ChatThreadHead
-              backHref="/vendor-dashboard/messages"
+              backHref="/vendor-dashboard/customers?seg=people"
+              // The chat is the EVENT (owner 2026-10-28, "User's event (date)"); pressing it opens the customer card.
+              nameHref={`/vendor-dashboard/clients/${thread.event_id}?tab=details`}
               name={
                 <>
-                  {headerLabel}
+                  {eventChatTitle({
+                    name: event?.display_name ?? null,
+                    kind: event?.event_type && event.event_type !== 'unspecified' ? eventTypeLabel(event.event_type) : null,
+                    date: event?.event_date ?? null,
+                    nowMs: Date.now(),
+                  })}
                   {founderInquiry ? (
                     <span className="ml-2 inline-block rounded-full bg-terracotta/15 px-2 py-0.5 align-middle font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta-700">
                       {FOUNDER_BADGE_LABEL}

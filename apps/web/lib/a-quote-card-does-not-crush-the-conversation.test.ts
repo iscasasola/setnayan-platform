@@ -73,7 +73,10 @@ test('the column cannot clip its own composer', () => {
     floor. The bare fixed shape — a height with no floor — stays forbidden.
   */
   for (const [rel, name] of [[COUPLE, 'couple'], [VENDOR, 'supplier']] as const) {
-    const s = read(rel);
+    // Since 2026-10-29 the row is the ONE thread frame both pages return (`ChatThreadFrame`): the page must return it,
+    // and the row is read there (page + frame, so a page that bounds a second row of its own is still counted).
+    assert.match(read(rel), /<ChatThreadFrame\b/, `${name}: the page does not return the one thread frame`);
+    const s = read(rel) + read('app/_components/chat/chat-thread-frame.tsx');
     // COUNT the row: exactly one className carries the height AND a rem floor.
     const bounded = s.match(/className="[^"]*\bh-\[calc\(100dvh-12rem\)\][^"]*\bmin-h-\[\d+rem\][^"]*"/g) ?? [];
     assert.equal(

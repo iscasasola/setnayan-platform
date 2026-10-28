@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "13291eed9c",
+  "generatedFromRef": "08a4810037",
   "routeCount": 479,
-  "destinations": 987,
+  "destinations": 990,
   "actions": 642,
-  "blocks": 7290,
+  "blocks": 7310,
   "routes": {
     "/": {
       "files": [
@@ -5292,6 +5292,7 @@
       ],
       "actions": [],
       "blocks": [
+        "ChatOriginMark",
         "Link",
         "LoadingNarration",
         "NotificationsHead",
@@ -5352,6 +5353,7 @@
         "AddAlagaFields",
         "CardGroup",
         "CardLabel",
+        "ChatOriginMark",
         "ConfirmForm",
         "ConnectionTreeSection",
         "CopyButton",
@@ -5533,6 +5535,7 @@
     },
     "/dashboard/(account)/samahan/[communityId]": {
       "files": [
+        "dashboard/(account)/samahan/[communityId]/_components/group-back.tsx",
         "dashboard/(account)/samahan/[communityId]/_components/group-home.tsx",
         "dashboard/(account)/samahan/[communityId]/_components/member-actions-menu.tsx",
         "dashboard/(account)/samahan/[communityId]/_components/samahan-identity-header.tsx",
@@ -5557,6 +5560,7 @@
         "Blob",
         "CopyButton",
         "EventsTab",
+        "GroupBack",
         "GroupEventRow",
         "GroupHome",
         "GroupSectionHead",
@@ -5573,6 +5577,7 @@
         "MembersTab",
         "OverlayBackdrop",
         "PickMenu",
+        "ReturnInPlace",
         "SamahanIdentityHeader",
         "SamahanStories",
         "SubmitButton",
@@ -5744,6 +5749,7 @@
         "dashboard/[eventId]/_components/event-dashboard.tsx",
         "dashboard/[eventId]/_components/event-rail-context.tsx",
         "dashboard/[eventId]/_components/event-rail-match-rows.ts",
+        "dashboard/[eventId]/_components/event-settings-rows.tsx",
         "dashboard/[eventId]/_components/expand-card.tsx",
         "dashboard/[eventId]/_components/feature-us-card.tsx",
         "dashboard/[eventId]/_components/guest-setup/guest-setup-lazy.tsx",
@@ -5776,6 +5782,7 @@
         "dashboard/[eventId]/_components/home-loading-cover.tsx",
         "dashboard/[eventId]/_components/home-parts.tsx",
         "dashboard/[eventId]/_components/home-service-card.tsx",
+        "dashboard/[eventId]/_components/home-settings-gear.tsx",
         "dashboard/[eventId]/_components/home-tile-rotation.ts",
         "dashboard/[eventId]/_components/home-tile.tsx",
         "dashboard/[eventId]/_components/inline-checkout-drawer.tsx",
@@ -5783,6 +5790,7 @@
         "dashboard/[eventId]/_components/nikah-essentials-card.tsx",
         "dashboard/[eventId]/_components/nikah-imam.ts",
         "dashboard/[eventId]/_components/not-shared-with-you.tsx",
+        "dashboard/[eventId]/_components/open-event-settings.tsx",
         "dashboard/[eventId]/_components/overview-inspector-body.tsx",
         "dashboard/[eventId]/_components/papic-home-card.tsx",
         "dashboard/[eventId]/_components/papic-ready-nudge.tsx",
@@ -5948,12 +5956,15 @@
         "EventMonogram",
         "EventRailContext",
         "EventScene",
+        "EventSettingsResult",
+        "EventSettingsRows",
         "EventStudioRow",
         "EventVendorRowInput",
         "ExpandCard",
         "FaceBody",
         "FaceFigure",
         "FaceIconMark",
+        "FactRow",
         "Failed",
         "Figure",
         "FileUpload",
@@ -6004,6 +6015,7 @@
         "HomePlannerCard",
         "HomeReload",
         "HomeServiceCard",
+        "HomeSettingsGear",
         "HomeTile",
         "HomeToday",
         "HomeTodayFold",
@@ -6049,6 +6061,7 @@
         "MarketplaceReviewsData",
         "MarketplaceVendorSuggestion",
         "MatchLogo",
+        "MenuSettingsButton",
         "Metadata",
         "MethodCard",
         "MethodIcon",
@@ -6076,6 +6089,7 @@
         "PapicServiceRow",
         "PapicSwitch",
         "PapicTodayCard",
+        "ParentCards",
         "PaymentDetailsBlock",
         "PaymentPlanRows",
         "PaymentSection",
@@ -8058,6 +8072,7 @@
         "ChatMessageStream",
         "ChatSafetyBanner",
         "ChatSendForm",
+        "ChatThreadFrame",
         "ChatThreadHead",
         "ChatThreadMenu",
         "ConversationColumn",
@@ -8066,7 +8081,6 @@
         "NegotiationComposerMenu",
         "SubmitButton",
         "ThreadInterestChips",
-        "ThreadToolHashReveal",
         "ThreadToolPanel"
       ]
     },
@@ -11062,14 +11076,15 @@
         "ChatMessageStream",
         "ChatSafetyBanner",
         "ChatSendForm",
+        "ChatThreadFrame",
         "ChatThreadHead",
         "ChatThreadMenu",
         "CoupleThreadToolsSheet",
         "LabShell",
         "LabThread",
+        "SupplierLabShell",
         "Suspense",
         "ThreadArrival",
-        "ThreadToolHashReveal",
         "ThreadToolPanel",
         "ThreadToolsSheet"
       ]
@@ -11168,10 +11183,13 @@
       "files": [
         "dev/group-lab/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/dev/people-lab?view=samahan"
+      ],
       "actions": [],
       "blocks": [
         "AccountBottomNav",
+        "GroupBack",
         "GroupHome",
         "SamahanIdentityHeader"
       ]
@@ -11231,6 +11249,7 @@
     "/dev/home-lab": {
       "files": [
         "dev/home-lab/apply-pro-sheet-lab.tsx",
+        "dev/home-lab/lab-event-settings.tsx",
         "dev/home-lab/lab-spotlight.tsx",
         "dev/home-lab/offline-lab.tsx",
         "dev/home-lab/page.tsx"
@@ -11251,7 +11270,9 @@
         "DayPapicRow",
         "EventPoster",
         "EventPosterFacts",
+        "EventSettingsRows",
         "HomeFirstScreen",
+        "HubDraftToolbar",
         "HubProOffer",
         "LabBoard",
         "LabShell",
@@ -11528,6 +11549,7 @@
       "actions": [],
       "blocks": [
         "AccountBottomNav",
+        "ChatOriginMark",
         "FollowListView",
         "FoundPersonCard",
         "GroupsFoldList",
@@ -11687,18 +11709,26 @@
         "dev/supplier-chat-lab/page.tsx"
       ],
       "destinations": [
+        "/dev/supplier-chat-lab",
+        "/dev/supplier-lab",
         "/vendor-dashboard/messages/[seg]"
       ],
       "actions": [],
       "blocks": [
+        "BackButton",
         "ChatBox",
+        "ChatInfoRailTrigger",
+        "ChatMessageStream",
         "ChatPrivacyNotice",
         "ChatSendForm",
+        "ChatThreadFrame",
+        "ChatThreadHead",
+        "ChatThreadMenu",
         "LockRequestAnswer",
         "ProposalMaker",
         "QuickReplies",
+        "SupplierLabShell",
         "ThreadAnswerLine",
-        "ThreadToolHashReveal",
         "ThreadToolPanel",
         "ThreadToolsSheet",
         "VendorOfferService"
@@ -14496,11 +14526,11 @@
         "BackButton",
         "BookingFeeNotice",
         "ChatBox",
-        "ChatInfoRailColumn",
         "ChatInfoRailTrigger",
         "ChatMessageStream",
         "ChatPrivacyNotice",
         "ChatSendForm",
+        "ChatThreadFrame",
         "ChatThreadHead",
         "ChatThreadMenu",
         "ConversationColumn",
@@ -14530,7 +14560,6 @@
         "ThreadAttribution",
         "ThreadDayAnswer",
         "ThreadInterestChips",
-        "ThreadToolHashReveal",
         "ThreadToolPanel",
         "ThreadToolsSheet",
         "ToolsSheetButton",

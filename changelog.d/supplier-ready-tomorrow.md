@@ -85,4 +85,10 @@ fee held …); converting them needs that word moved into a returned result with
 reasons, in the guard `app/vendor-dashboard/clients/[eventId]/the-event-card-saves-in-place.test.ts` (the list can
 only shrink; a new navigating action fails it).
 
+**S9 · Doors to the shipped tools from the supplier dashboard.** 🪑 "Find a guest's seat" — a Hub row for today's
+booked event → the live console's `SeatScanner` (now anchored `#seat-finder`). 📣 "Message everyone" — an Events-page
+row per event she may announce to (`canAnnounce`: a full co-host, or schedule at Edit — the broadcast's own rule; and
+only while `isCoordinatorP3Enabled`) → the couple's shipped announcement sheet on the Schedule, opened on arrival
+(`?announce=1`). No new pattern, no new action. Guard: `app/vendor-dashboard/the-supplier-tools-have-doors.test.ts`.
+
 SPEC IMPACT: DECISION_LOG row "SUPPLIERS READY TO RUN AN EVENT AND FINISH THEIR SHOP" (corpus).

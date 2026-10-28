@@ -32,7 +32,7 @@
  * 🔒 `events-you-run.test.ts` · `app/vendor-dashboard/coordinator-door.test.ts`.
  */
 import { delegateAccessHasExpired, delegateAccessLastDay, permissionsWithinWindow } from './delegate-access-window';
-import type { ModeratorPermissions } from './delegate-areas';
+import { resolveAreaLevel, type ModeratorPermissions } from './delegate-areas';
 import { areaCells, coordinatorHasHostAccess } from './people-with-access';
 import type { EventDecisionSummary } from './event-decisions';
 import { formatCount } from './format-number';
@@ -90,6 +90,12 @@ export type EventYouRun = {
   line: string;
   /** Which seat runs it — the customer card's pill. */
   seatWord: RunSeatWord;
+  /**
+   * 📣 May they "Message everyone" (S9, owner 2026-10-29)? The broadcast's own rule (`resolveBroadcastAuthority` · the
+   * `coordinator_broadcasts` INSERT policies): a full co-host, or a delegate holding `schedule: 'edit'`. The door is
+   * drawn only where the composer would open.
+   */
+  canAnnounce: boolean;
   /** "Wedding · Sat, Dec 12 · Seda Vertis North" (the Events page row) */
   placeLine: string;
   /** What the day is to them: "Today" · "Tomorrow" · "In 45 days" · "Wrapping up · access until Dec 19" · "Date not set yet". */
@@ -215,6 +221,8 @@ export function eventYouRunOf(row: CoordinatorSeatRow, todayIso: string): EventY
     name,
     line: [typeWord, day, seatWord].filter(Boolean).join(' · '),
     seatWord,
+    canAnnounce:
+      (!!row.role_subtype && seatIsFullCohost(row.role_subtype)) || resolveAreaLevel(row.permissions_json, 'schedule') === 'edit',
     placeLine: [typeWord, day, ev.venue_name?.trim() || null].filter(Boolean).join(' · '),
     status,
     needs: NEEDS_UNREAD,

@@ -34,6 +34,7 @@ Worktree: ~/Documents/Claude/Projects/wt-supplier-ready · branch claude/supplie
 
 - S7 · no stub bounces (guard app/vendor-dashboard/no-stub-bounces.test.ts; baselines regenerated).
 - S8 (partial): notes + challenge save in place; 15 flag-carrying actions listed in the guard for the next pass.
+- S9 · seat finder row on the Hub; Message everyone rows on /vendor-dashboard/events (guard the-supplier-tools-have-doors).
 
 ## State
 - Draft PR #7041 (label do-not-auto-merge). No migration, no new server action (server-action ceiling untouched).

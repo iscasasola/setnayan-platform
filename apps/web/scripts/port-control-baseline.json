@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "2d8fda7de7",
+  "generatedFromRef": "afd1799d38",
   "routeCount": 479,
   "destinations": 983,
   "actions": 642,
-  "blocks": 7301,
+  "blocks": 7303,
   "routes": {
     "/": {
       "files": [
@@ -14360,7 +14360,8 @@
       "actions": [],
       "blocks": [
         "EventsYouRunScreen",
-        "Link"
+        "Link",
+        "MessageEveryoneRows"
       ]
     },
     "/vendor-dashboard/help": {
@@ -14651,6 +14652,7 @@
         "NonPhotoConsole",
         "QrActions",
         "RequestsInbox",
+        "SeatFinderRow",
         "ServerRead",
         "SetActionResult",
         "ShopEmpty",

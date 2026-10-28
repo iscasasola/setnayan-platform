@@ -23,7 +23,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { readEventsYouRun } from '@/lib/events-you-run.server';
-import { CheckinDeskRows } from '../_components/events-you-run-rows';
+import { CheckinDeskRows, SeatFinderRow } from '../_components/events-you-run-rows';
 import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
 import { WEDDING_TILE_LABEL, type WeddingTile } from '@/lib/taxonomy';
 import { resolveDayOfConsoleKind, type DayOfConsoleKind } from '@/lib/vendor-day-of';
@@ -504,6 +504,8 @@ export default async function VendorOnTheDayPage({
 
       {/* 🎫 Check-in desk — for each event this person runs as the coordinator (owner 2026-10-28). Nothing for anyone else. */}
       <CheckinDeskRows events={runEvents} />
+      {/* 🪑 Find a guest's seat — today's booked event's shipped scanner, one row (S9, owner 2026-10-29). */}
+      {todaysBooking ? <SeatFinderRow eventId={todaysBooking.eventId} name={coupleName ?? 'Your event today'} /> : null}
 
       {/* Q7 — shown only once the owner sets an end date; says nothing while
           unset, matching the "no invented deadline" rule. */}

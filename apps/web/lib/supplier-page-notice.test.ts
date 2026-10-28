@@ -24,6 +24,8 @@ import {
 } from './supplier-page-notice';
 import { isFromAlbumPageRef, keepOnlyNoticedAlbumRefs, withoutAlbumRefs } from './put-photo-on-my-page';
 import { planCleanupDelete, supplierPageAlbumCopyScope } from './cleanup-delete-scope';
+import { readdirSync } from 'node:fs';
+import { PORTFOLIO_FREE_CREDITS } from './shop-portfolio-credits';
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const src = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
@@ -95,9 +97,9 @@ test('5 · an event-album photo cannot be ADDED to the page by a save, nor put o
   assert.deepEqual(withoutAlbumRefs([OWN_REF, ALBUM_REF]), [OWN_REF]);
 
   const save = src('app/vendor-dashboard/actions.ts');
-  const noticed = save.indexOf('keepOnlyNoticedAlbumRefs(parsed, tr?.portfolio_r2_keys ?? [])');
+  const noticed = save.indexOf("const refs = keepOnlyNoticedAlbumRefs(\n        parsePortfolioRefs(formData.getAll('portfolio_r2_keys')");
   assert.ok(noticed > 0, 'the gallery save no longer drops a newly added album photo');
-  assert.ok(noticed < save.indexOf('capPortfolioRefs(noticed,'), 'the album filter runs after the cap (or not on its input)');
+  assert.ok(noticed < save.indexOf("rpc('shop_portfolio_commit'"), 'the album filter runs after the commit (or not on its input)');
   const cards = src('app/vendor-dashboard/services/actions.ts');
   assert.match(cards, /withoutAlbumRefs\(\[raw\.trim\(\)\]\)/, 'a card cover can carry an event-album photo');
   assert.match(cards, /const showcase_photo_r2_keys = withoutAlbumRefs\(/, 'a card showcase can carry an event-album photo');
@@ -163,4 +165,16 @@ test('9 · the page copy is deleted only inside THIS shop’s from-album folder'
   assert.equal(planCleanupDelete(OWN_REF, scope).ok, false, 'the cleanup can delete the shop’s own uploads');
   assert.equal(planCleanupDelete(ALBUM_REF.replace(SHOP, 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'), scope).ok, false, 'another shop’s copy');
   assert.equal(planCleanupDelete(ALBUM_REF, supplierPageAlbumCopyScope('../x')).ok, false, 'a traversal id widened the scope');
+});
+
+test('10 · the notice is priced with the SAME free room as the gallery save', () => {
+  const dir = join(WEB, '..', '..', 'supabase', 'migrations');
+  const file = readdirSync(dir).find((f) => f.endsWith('_supplier_page_photo_notice.sql'));
+  assert.ok(file, 'the migration is gone');
+  const sql = readFileSync(join(dir, file!), 'utf8');
+  const base = /v_base\s+CONSTANT INTEGER := (\d+);/.exec(sql);
+  assert.ok(base, 'the notice no longer names its free base');
+  assert.equal(Number(base![1]), PORTFOLIO_FREE_CREDITS, 'the notice and the gallery save disagree on the free room');
+  assert.match(sql, /v_free := GREATEST\(v_base, COALESCE\(v_allow, 0\)\);/, 'the personal-invite allowance no longer lifts the free room');
+  assert.match(sql, /public\.shop_papic_wallet_spend\(/, 'the charge no longer goes through the wallet’s one spend door');
 });

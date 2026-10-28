@@ -43,10 +43,18 @@
 --      notice. A hidden album row's ref is pulled now (the live leak); a visible
 --      one is taken off and given the notice it never had — it returns by
 --      itself after 7 days unless somebody in it removes it.
---   6. The supplier files the notice under its OWN session (INSERT policy +
---      column grant on the four request columns only); the trigger re-derives
---      shop + event from the album row and refuses a hidden/unscreened photo,
---      and a CHECK pins the page ref inside the shop's own folder.
+--   6. `file_supplier_page_notice` — the ONE door a notice is filed through,
+--      called under the supplier's OWN session (owner-only, like
+--      `shop_portfolio_commit`). Under the shop wallet's per-shop lock it
+--      prices the photo exactly as the gallery's own save does — the free room
+--      (50, or the shop's personal-invite allowance), then 1 credit a photo
+--      from the shop wallet (owner 2026-10-23) — with the photos still WAITING
+--      counted toward the free room, and files the notice. The charge is taken
+--      at the tap (`shop_papic_wallet_spend`, spend_ref `page-notice:<id>`), so
+--      the publish never charges and nothing goes up unpaid. A charge the
+--      wallet cannot cover files nothing. The trigger re-derives shop + event
+--      from the album row and refuses a hidden/unscreened photo, and a CHECK
+--      pins the page ref inside the shop's own folder.
 --
 -- ⚠ R2 OBJECTS: SQL cannot delete a file. The server deletes the page copy
 --   after a Remove or a honoured takedown (lib/supplier-page-notice.server.ts);
@@ -125,24 +133,15 @@ CREATE POLICY supplier_page_photo_notices_vendor_read
     OR (SELECT public.is_admin())
   );
 
--- The supplier files its own notice ("Put on my page", under its OWN session)
--- — but only the four columns that describe the request. The window, the
--- publish and the removal are never the supplier's to write: the BEFORE INSERT
--- trigger stamps them, and no UPDATE/DELETE is granted at all. The trigger also
--- re-derives the shop and the event from the album row, so the WITH CHECK below
--- sees the album's real owner, not what the request claimed.
-DROP POLICY IF EXISTS supplier_page_photo_notices_vendor_insert
-  ON public.supplier_page_photo_notices;
-CREATE POLICY supplier_page_photo_notices_vendor_insert
-  ON public.supplier_page_photo_notices
-  FOR INSERT TO authenticated
-  WITH CHECK (vendor_profile_id IN (SELECT public.current_vendor_profile_ids()));
-
+-- No write policy and no write grant for anybody's session: a notice is filed
+-- ONLY through `file_supplier_page_notice` (below), which prices it against
+-- the shop wallet under the wallet's own lock. A direct INSERT would put a
+-- photo on the page without the charge past the free room (owner 2026-10-23).
 REVOKE ALL ON TABLE public.supplier_page_photo_notices FROM anon;
 REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
   ON TABLE public.supplier_page_photo_notices FROM authenticated;
-GRANT INSERT (photo_id, vendor_profile_id, event_id, page_ref)
-  ON public.supplier_page_photo_notices TO authenticated;
+DROP POLICY IF EXISTS supplier_page_photo_notices_vendor_insert
+  ON public.supplier_page_photo_notices;
 
 -- ── 2 · THE WINDOW IS STAMPED, NEVER SUPPLIED ───────────────────────────────
 CREATE OR REPLACE FUNCTION public.supplier_page_notice_stamps_the_window()
@@ -315,6 +314,121 @@ END;
 $$;
 REVOKE EXECUTE ON FUNCTION public.remove_supplier_page_photo(UUID, UUID) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.remove_supplier_page_photo(UUID, UUID) TO service_role;
+
+-- ── 6 · FILE A NOTICE, PRICED AGAINST THE SHOP WALLET ───────────────────────
+-- Returns jsonb: status 'ok' | 'exists' (with the notice's dates) | 'already'
+-- (the ref is on the page) | 'insufficient' (charge, balance) | 'not_owner' |
+-- 'refused' | 'not_found'. charge = max(0, (before + w) − max(free, before)),
+-- before = the page's credits + the waiting notices' credits — the same
+-- formula as `shop_portfolio_commit` (charge = after − max(free, kept)), with
+-- the waiting photos counted as already kept.
+CREATE OR REPLACE FUNCTION public.file_supplier_page_notice(p_photo_id UUID, p_page_ref TEXT)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  a        RECORD;
+  v_owner  UUID;
+  v_list   TEXT[];
+  v_allow  INTEGER;
+  -- The owner's free 50 (2026-10-23) — the same constant `shop_portfolio_commit`
+  -- holds, NOT a parameter (a caller that chose it would choose its own price).
+  -- Held equal to PORTFOLIO_FREE_CREDITS by lib/supplier-page-notice.test.ts.
+  v_base   CONSTANT INTEGER := 50;
+  v_free   INTEGER;
+  v_before INTEGER := 0;
+  v_w      INTEGER;
+  v_charge INTEGER;
+  v_bal    INTEGER;
+  v_ref    TEXT;
+  n        RECORD;
+  v_spend  jsonb;
+BEGIN
+  IF p_photo_id IS NULL OR p_page_ref IS NULL OR length(btrim(p_page_ref)) = 0 THEN
+    RETURN jsonb_build_object('status', 'not_found');
+  END IF;
+  SELECT p.vendor_profile_id, p.event_id, p.hidden_at, p.nsfw_checked
+    INTO a
+    FROM public.vendor_papic_portfolio_photos p
+   WHERE p.photo_id = p_photo_id;
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('status', 'not_found');
+  END IF;
+
+  -- The wallet's own lock: this filing, a gallery save and any other spend for
+  -- the same shop take turns.
+  PERFORM pg_advisory_xact_lock(
+    hashtextextended('shop_papic_wallet:' || a.vendor_profile_id::text, 0));
+
+  SELECT vp.user_id, COALESCE(vp.portfolio_r2_keys, ARRAY[]::TEXT[]), vp.portfolio_photo_allowance
+    INTO v_owner, v_list, v_allow
+    FROM public.vendor_profiles vp
+   WHERE vp.vendor_profile_id = a.vendor_profile_id
+   FOR UPDATE;
+  -- Owner-only, exactly as `shop_portfolio_commit` (it spends the shop's wallet).
+  IF v_owner IS DISTINCT FROM auth.uid() AND NOT COALESCE(public.is_admin(), FALSE) THEN
+    RETURN jsonb_build_object('status', 'not_owner');
+  END IF;
+  IF a.hidden_at IS NOT NULL OR a.nsfw_checked IS NOT TRUE THEN
+    RETURN jsonb_build_object('status', 'refused');
+  END IF;
+
+  SELECT sn.notice_id, sn.public_from, sn.published_at, sn.removed_at, sn.removed_by
+    INTO n
+    FROM public.supplier_page_photo_notices sn
+   WHERE sn.photo_id = p_photo_id;
+  IF FOUND THEN
+    RETURN jsonb_build_object('status', 'exists', 'notice_id', n.notice_id, 'public_from', n.public_from,
+      'published_at', n.published_at, 'removed_at', n.removed_at, 'removed_by', n.removed_by, 'charged', 0);
+  END IF;
+  IF p_page_ref = ANY (v_list) THEN
+    RETURN jsonb_build_object('status', 'already');
+  END IF;
+
+  v_free := GREATEST(v_base, COALESCE(v_allow, 0));
+  FOR v_ref IN
+    SELECT DISTINCT r FROM (
+      SELECT unnest(v_list) AS r
+      UNION
+      SELECT sn.page_ref FROM public.supplier_page_photo_notices sn
+       WHERE sn.vendor_profile_id = a.vendor_profile_id
+         AND sn.published_at IS NULL AND sn.removed_at IS NULL
+    ) x WHERE r IS NOT NULL AND length(btrim(r)) > 0
+  LOOP
+    v_before := v_before + public.shop_portfolio_ref_credits(v_ref);
+  END LOOP;
+  v_w := public.shop_portfolio_ref_credits(p_page_ref);
+  v_charge := GREATEST(0, v_before + v_w - GREATEST(v_free, v_before));
+
+  IF v_charge > 0 THEN
+    SELECT COALESCE(SUM(e.delta), 0)::INTEGER INTO v_bal
+      FROM public.shop_papic_wallet_entries e WHERE e.vendor_profile_id = a.vendor_profile_id;
+    IF v_bal < v_charge THEN
+      RETURN jsonb_build_object('status', 'insufficient', 'charge', v_charge, 'balance', v_bal);
+    END IF;
+  END IF;
+
+  INSERT INTO public.supplier_page_photo_notices (photo_id, vendor_profile_id, event_id, page_ref)
+  VALUES (p_photo_id, a.vendor_profile_id, a.event_id, p_page_ref)
+  RETURNING notice_id, public_from, published_at, removed_at, removed_by INTO n;
+
+  IF v_charge > 0 THEN
+    v_spend := public.shop_papic_wallet_spend(
+      a.vendor_profile_id, v_charge, 'portfolio_spend', 'page-notice:' || n.notice_id::text,
+      a.event_id, 1, 0, 'A page photo past the free ' || v_free, auth.uid());
+    IF v_spend->>'status' NOT IN ('ok', 'duplicate') THEN
+      RAISE EXCEPTION 'file_supplier_page_notice: the wallet refused (%)', v_spend->>'status';
+    END IF;
+  END IF;
+
+  RETURN jsonb_build_object('status', 'ok', 'notice_id', n.notice_id, 'public_from', n.public_from,
+    'published_at', n.published_at, 'removed_at', n.removed_at, 'removed_by', n.removed_by, 'charged', v_charge);
+END;
+$$;
+REVOKE EXECUTE ON FUNCTION public.file_supplier_page_notice(UUID, TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.file_supplier_page_notice(UUID, TEXT) TO authenticated, service_role;
 
 -- ── 5 · BACKFILL — the photos that went public with no notice ───────────────
 -- The page ref is the album key re-homed exactly as `pagePhotoKeyFor`

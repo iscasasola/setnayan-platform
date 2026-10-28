@@ -2,6 +2,7 @@
 
 import { keepOnlyNoticedAlbumRefs } from '@/lib/put-photo-on-my-page';
 import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
+import { randomUUID } from 'node:crypto';
 import { revalidatePath } from 'next/cache';
 import { parseClientRef, vendorOwnedMediaPolicy } from '@/lib/r2-client-ref';
 import { findVendorTextViolation } from '@/lib/service-text-integrity';
@@ -15,12 +16,8 @@ import { VENDOR_CATEGORIES } from '@/lib/vendors';
 import {
   tierCaps,
   asVendorTier,
-  capPortfolioRefs,
-  portfolioPhotoCap,
-  portfolioOverCapMessage,
-  PORTFOLIO_ALLOWANCE_UNREAD_SAVE,
 } from '@/lib/vendor-tier-caps';
-import { allowanceForCap, readPortfolioAllowance } from '@/lib/portfolio-allowance.server';
+import { portfolioShortText } from '@/lib/shop-portfolio-credits';
 import { vendorExperienceEnabled } from '@/lib/vendor-experience';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveOwnedActiveShop } from '@/lib/active-shop';
@@ -124,8 +121,8 @@ async function resolveExtraCanonicalSet(): Promise<ReadonlySet<string>> {
  * <FileUpload name="portfolio_r2_keys" multiple/> renders one hidden input
  * per uploaded ref, so `formData.getAll('portfolio_r2_keys')` returns all
  * of them. We accept only well-formed `r2://` refs (cheap defense against a
- * client posting arbitrary strings). The COUNT is decided after, by
- * `capPortfolioRefs` (the free base, grandfathered against the stored list).
+ * client posting arbitrary strings). The COUNT is not a limit any more: past the
+ * free room, each photo is paid from the shop wallet by `shop_portfolio_commit`.
  */
 function parsePortfolioRefs(
   raw: FormDataEntryValue[],
@@ -160,8 +157,8 @@ function parsePortfolioRefs(
     if (out.includes(trimmed)) continue;
     if (!parseClientRef(trimmed, policy)) continue; // not this vendor's own media
     out.push(trimmed);
-    // The photo COUNT is not decided here any more — `capPortfolioRefs` does it,
-    // grandfathered against what is stored (2026-10-23).
+    // The photo COUNT is not decided here — the free room, then the shop wallet
+    // (`shop_portfolio_commit`, 2026-10-23); stored photos are always kept.
   }
   return out;
 }
@@ -329,7 +326,13 @@ function parseServices(
  * arrive as form inputs; value input names match the /profile form so the exact
  * same parse helpers apply.
  */
-export type FieldSaveResult = { ok: true } | { ok: false; error: string };
+/** What a portfolio save took (owner 2026-10-23): new photos, credits charged, the wallet after (null = unread/none). */
+export type PortfolioSaved = { added: number; charged: number; balance: number | null };
+export type FieldSaveResult =
+  | { ok: true; portfolio?: PortfolioSaved }
+  | { ok: false; error: string; walletShort?: { charge: number; balance: number } };
+
+const PORTFOLIO_SAVE_FAILED = 'Couldn’t save your portfolio right now. Nothing was charged — try again.';
 
 const INLINE_PROFILE_FIELDS = new Set([
   'logo',
@@ -403,6 +406,8 @@ export async function updateVendorProfileField(
   let geocodeAddress: string | null = null;
   let newYear: number | null = null;
   let runYearExperienceReset = false;
+  // The portfolio save's own answer (the free room, then the wallet) — handed back so the uploader can say it.
+  let portfolioSaved: PortfolioSaved | null = null;
 
   switch (field) {
     case 'logo': {
@@ -580,48 +585,27 @@ export async function updateVendorProfileField(
       break;
     }
     case 'portfolio': {
-      // Portfolio photos (relocated to My Shop → Website · 2026-07-05). Mirrors
-      // saveVendorProfile's parse + tier cap + QR-guard + repost-hash EXACTLY so
-      // behavior is identical to the retired /profile full-form.
+      // Portfolio photos (relocated to My Shop → Website · 2026-07-05). Same parse (SEC-1 pin) + QR guard +
+      // repost-hash as the retired /profile full-form.
       const { data: tierRow } = await supabase
         .from('vendor_profiles')
-        .select('tier_state, portfolio_r2_keys, vendor_profile_id')
+        .select('portfolio_r2_keys, vendor_profile_id')
         .eq('vendor_profile_id', shopId)
         .maybeSingle();
       const tr = tierRow as
         | {
-            tier_state?: string | null;
             portfolio_r2_keys?: string[] | null;
             vendor_profile_id?: string;
           }
         | null;
-      // 🎁 The shop's own allowance (a personal invite's 100, kept after the gift) lifts the base.
-      // Unread → the base (withholding, never granting), and a refusal that says it could not read — never "50 free".
-      const allowanceRead = await readPortfolioAllowance(supabase, shopId);
-      const portfolioMax = portfolioPhotoCap(tr?.tier_state, allowanceForCap(allowanceRead));
       // SEC-1: same pinning as the full-profile save. Same fail-closed reasoning —
-      // `vendor_profile_id` is the PK of this user's own row, and the patch below
-      // is an UPDATE keyed on `user_id`, so a missing id writes nothing at all.
-      const parsed = parsePortfolioRefs(
-        formData.getAll('portfolio_r2_keys'),
-        tr?.vendor_profile_id ?? '',
-      );
-      // 📸 THE FREE BASE, GRANDFATHERED (owner 2026-10-23, "free 50"). Every photo
-      // already on the row is kept however many there are; only a NEW photo past
-      // the base is refused — and refused out loud, with nothing saved, instead of
-      // the old silent truncation (which also cut a grandfathered shop down on its
-      // next re-save). Paying for more with Papic credits is Phase 2.
+      // `vendor_profile_id` is the PK of this user's own row, so a missing id pins nothing.
       // ⏳ An event-album photo reaches the page ONLY through the guests' 7-day notice (owner 2026-10-03) — a save
       // keeps one already there, never adds one (`keepOnlyNoticedAlbumRefs`).
-      const noticed = keepOnlyNoticedAlbumRefs(parsed, tr?.portfolio_r2_keys ?? []);
-      const capped = capPortfolioRefs(noticed, tr?.portfolio_r2_keys ?? [], portfolioMax);
-      if (capped.refused > 0) {
-        return {
-          ok: false,
-          error: allowanceRead.ok ? portfolioOverCapMessage(portfolioMax) : PORTFOLIO_ALLOWANCE_UNREAD_SAVE,
-        };
-      }
-      const refs = capped.refs;
+      const refs = keepOnlyNoticedAlbumRefs(
+        parsePortfolioRefs(formData.getAll('portfolio_r2_keys'), tr?.vendor_profile_id ?? ''),
+        tr?.portfolio_r2_keys ?? [],
+      );
       // QR-in-media guard (owner 2026-07-03): only scan refs NOT already stored
       // (an unchanged re-save costs nothing). Fails OPEN on scanner trouble.
       const stored = new Set((tr?.portfolio_r2_keys ?? []).filter(Boolean));
@@ -629,7 +613,42 @@ export async function updateVendorProfileField(
       if (toScan.length > 0 && (await vendorQrGuardRejects(toScan))) {
         return { ok: false, error: VENDOR_QR_MEDIA_ERROR };
       }
-      patch = { portfolio_r2_keys: refs };
+      // 💳 THE FREE ROOM, THEN THE SHOP WALLET (owner 2026-10-23, option A). The list and its charge are ONE step:
+      // `shop_portfolio_commit` writes `portfolio_r2_keys` and the wallet row in one transaction under the wallet's
+      // per-shop lock — charge = max(0, after − max(free, kept)), free = 50 or the shop's personal-invite
+      // allowance (read inside, never passed). Stored photos are always kept (grandfathered); a save the wallet
+      // cannot cover writes NOTHING and says so. Replaces the "coming soon" refusal (`capPortfolioRefs`).
+      const commit = await supabase.rpc('shop_portfolio_commit', {
+        p_vendor_profile_id: shopId,
+        p_refs: refs,
+        p_spend_ref: `portfolio:${randomUUID()}`,
+      });
+      const answer = (commit.data ?? null) as
+        | { status?: string; charged?: number; balance?: number | null; charge?: number }
+        | null;
+      if (commit.error || !answer?.status) {
+        console.error('[supabase-error] app/vendor-dashboard/actions.ts · rpc:shop_portfolio_commit', commit.error);
+        return { ok: false, error: PORTFOLIO_SAVE_FAILED };
+      }
+      if (answer.status === 'insufficient') {
+        const charge = Number(answer.charge ?? 0);
+        const balance = Number(answer.balance ?? 0);
+        return { ok: false, error: portfolioShortText(charge, balance), walletShort: { charge, balance } };
+      }
+      if (answer.status === 'not_owner') {
+        return { ok: false, error: 'Only the shop owner can change the portfolio.' };
+      }
+      if (answer.status !== 'ok' && answer.status !== 'duplicate') {
+        return { ok: false, error: PORTFOLIO_SAVE_FAILED };
+      }
+      const charged = Number(answer.charged ?? 0);
+      portfolioSaved = {
+        added: toScan.length,
+        charged: Number.isFinite(charged) ? charged : 0,
+        balance: typeof answer.balance === 'number' ? answer.balance : null,
+      };
+      // The commit already wrote the column; the shared update below only stamps `updated_at`.
+      patch = {};
       // Repost-watch: hash the gallery post-write (cron-free, self-swallowing).
       if (refs.length > 0 && tr?.vendor_profile_id) {
         const vendorProfileId = tr.vendor_profile_id;
@@ -737,7 +756,7 @@ export async function updateVendorProfileField(
       revalidatePath(`/${slug}`);
     }
   }
-  return { ok: true };
+  return portfolioSaved ? { ok: true, portfolio: portfolioSaved } : { ok: true };
 }
 
 /**

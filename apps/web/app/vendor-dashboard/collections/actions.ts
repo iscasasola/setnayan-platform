@@ -4,14 +4,14 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRoleForProfile, canManageVendor } from '@/lib/vendor-role';
-import { portfolioPhotoCap, portfolioOverCapMessage, PORTFOLIO_ALLOWANCE_UNREAD_SAVE } from '@/lib/vendor-tier-caps';
-import { allowanceForCap, readPortfolioAllowance } from '@/lib/portfolio-allowance.server';
+import { portfolioShortText } from '@/lib/shop-portfolio-credits';
+import { formatCount } from '@/lib/format-number';
 import { R2_BUCKETS } from '@/lib/r2';
 import { parseR2Ref } from '@/lib/nsfw-screen';
 import { parseClientRef, vendorOwnedMediaPolicy } from '@/lib/r2-client-ref';
 import { vendorQrGuardRejects } from '@/lib/vendor-qr-media-guard';
 import { VENDOR_QR_MEDIA_ERROR } from '@/lib/vendor-qr-guard-shared';
-import { addToPageGallery, pagePhotoKeyFor } from '@/lib/put-photo-on-my-page';
+import { pagePhotoKeyFor } from '@/lib/put-photo-on-my-page';
 import {
   putOnPageQueuedText,
   supplierPageNoticeState,
@@ -46,8 +46,8 @@ const NOTICE_COLS = 'notice_id, page_ref, public_from, published_at, removed_at,
  *
  * Read AND written with the shop's OWN client: the album's RLS (`vendor_papic_portfolio_photos_vendor_read`) and the
  * notice's insert policy are the boundary, and the notice's trigger stamps the 7 days — a request cannot shorten them.
- * A photo taken down or not yet screened is refused. Owners and admins only — a page is an owner room. The plan's
- * photo cap counts the photos already waiting, so a slot is held for each.
+ * A photo taken down or not yet screened is refused. Owners only (the shop wallet pays past the free room — the same
+ * rule as `shop_portfolio_commit`), and the photos already waiting count toward the free room.
  */
 export async function putAlbumPhotoOnMyPage(_prev: PutOnPageResult | null, formData: FormData): Promise<PutOnPageResult> {
   const photoId = String(formData.get('photo_id') ?? '').trim();
@@ -64,27 +64,18 @@ export async function putAlbumPhotoOnMyPage(_prev: PutOnPageResult | null, formD
   const role = await resolveVendorRoleForProfile(supabase, user.id, vendorId);
   if (!canManageVendor(role)) return { ok: false, error: 'Only the owner or an admin can change your page.' };
 
-  const [photoRes, rowRes, noticeRes, waitingRes] = await Promise.all([
+  const [photoRes, noticeRes] = await Promise.all([
     supabase
       .from('vendor_papic_portfolio_photos')
       .select('photo_id, vendor_profile_id, event_id, r2_object_key, hidden_at, nsfw_checked')
       .eq('photo_id', photoId)
       .eq('vendor_profile_id', vendorId)
       .maybeSingle(),
-    supabase.from('vendor_profiles').select('tier_state, portfolio_r2_keys').eq('vendor_profile_id', vendorId).maybeSingle(),
     supabase.from('supplier_page_photo_notices').select(NOTICE_COLS).eq('photo_id', photoId).eq('vendor_profile_id', vendorId).maybeSingle(),
-    supabase
-      .from('supplier_page_photo_notices')
-      .select('page_ref')
-      .eq('vendor_profile_id', vendorId)
-      .is('published_at', null)
-      .is('removed_at', null),
   ]);
   if (photoRes.error) console.error('[supabase-error] app/vendor-dashboard/collections/actions.ts · from:vendor_papic_portfolio_photos.select', photoRes.error);
-  if (rowRes.error) console.error('[supabase-error] app/vendor-dashboard/collections/actions.ts · from:vendor_profiles.select', rowRes.error);
   if (noticeRes.error) console.error('[supabase-error] app/vendor-dashboard/collections/actions.ts · from:supplier_page_photo_notices.select', noticeRes.error);
-  if (waitingRes.error) console.error('[supabase-error] app/vendor-dashboard/collections/actions.ts · from:supplier_page_photo_notices.select(waiting)', waitingRes.error);
-  if (photoRes.error || rowRes.error || noticeRes.error || waitingRes.error || !rowRes.data) {
+  if (photoRes.error || noticeRes.error) {
     return { ok: false, error: 'We couldn’t load that just now. Nothing was changed — please try again.' };
   }
   const photo = photoRes.data as
@@ -103,34 +94,33 @@ export async function putAlbumPhotoOnMyPage(_prev: PutOnPageResult | null, formD
     return { ok: false, error: 'That photo is not in your album.' };
   }
 
-  const row = rowRes.data as { tier_state?: string | null; portfolio_r2_keys?: string[] | null };
-  const waiting = ((waitingRes.data ?? []) as { page_ref: string }[]).map((w) => w.page_ref);
-  // 🎁 The shop's own allowance (a personal invite's 100, kept) lifts the base — `portfolioPhotoCap`.
-  // Unread → the base, and a refusal that says it could not read (never "50 free").
-  const allowanceRead = await readPortfolioAllowance(supabase, vendorId);
-  const max = portfolioPhotoCap(row.tier_state ?? null, allowanceForCap(allowanceRead));
-  // The photos already waiting hold their slots, so the day they go up the page is not over its cap.
-  const next = addToPageGallery([...(row.portfolio_r2_keys ?? []), ...waiting], pageRef, max);
-  if (next.kind === 'already') return { ok: true, text: 'Already on your page', state: 'on_page', publicFrom: null };
-  if (next.kind === 'full') {
-    // The free base (owner 2026-10-23) — a shop already past it keeps every photo; it just cannot add one more yet.
-    return { ok: false, error: allowanceRead.ok ? portfolioOverCapMessage(max) : PORTFOLIO_ALLOWANCE_UNREAD_SAVE };
-  }
-
   // The QR guard reads the ALBUM photo — the same bytes the page copy will carry — before anything is filed.
   if (await vendorQrGuardRejects([photo.r2_object_key])) return { ok: false, error: VENDOR_QR_MEDIA_ERROR };
 
-  const { data: filed, error: fileErr } = await supabase
-    .from('supplier_page_photo_notices')
-    .insert({ photo_id: photoId, vendor_profile_id: vendorId, event_id: (photoRes.data as { event_id: string }).event_id, page_ref: pageRef })
-    .select(NOTICE_COLS)
-    .maybeSingle();
-  if (fileErr) console.error('[supabase-error] app/vendor-dashboard/collections/actions.ts · from:supplier_page_photo_notices.insert', fileErr);
-  if (fileErr || !filed) {
+  // 💳 FILED AND PRICED IN ONE STEP (`file_supplier_page_notice`, under the wallet's per-shop lock): the notice row
+  // (its trigger stamps the 7 days) and, past the free room, the shop-wallet charge (owner 2026-10-23: 50 free, then
+  // 1 credit a photo). Photos still WAITING count toward the free room, so the day they go up nothing is charged twice
+  // and nothing goes up unpaid. A charge the wallet cannot cover files NOTHING and says so.
+  const filed = await supabase.rpc('file_supplier_page_notice', { p_photo_id: photoId, p_page_ref: pageRef });
+  const answer = (filed.data ?? null) as
+    | (Partial<SupplierPageNoticeRow> & { status?: string; charged?: number; charge?: number; balance?: number | null })
+    | null;
+  if (filed.error) console.error('[supabase-error] app/vendor-dashboard/collections/actions.ts · rpc:file_supplier_page_notice', filed.error);
+  if (answer?.status === 'insufficient') {
+    return { ok: false, error: portfolioShortText(Number(answer.charge ?? 0), Number(answer.balance ?? 0)) };
+  }
+  if (answer?.status === 'not_owner') return { ok: false, error: 'Only the shop owner can change the portfolio.' };
+  if (answer?.status === 'refused') return { ok: false, error: 'That photo can’t go on your page.' };
+  if (filed.error || (answer?.status !== 'ok' && answer?.status !== 'exists') || !answer?.public_from) {
     return { ok: false, error: 'Your page could not be updated just now. Nothing was changed — please try again.' };
   }
+  const charged = Number(answer.charged ?? 0);
+  const said = answerForExisting(answer as SupplierPageNoticeRow);
 
   revalidatePath('/vendor-dashboard/collections');
   revalidatePath(`/vendor-dashboard/on-the-day/live/${(photoRes.data as { event_id: string }).event_id}/papic`);
-  return answerForExisting(filed as SupplierPageNoticeRow);
+  if (said.ok && charged > 0) {
+    return { ...said, text: `${said.text} · ${formatCount(charged)} ${charged === 1 ? 'credit' : 'credits'} from your shop wallet` };
+  }
+  return said;
 }

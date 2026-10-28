@@ -10,7 +10,7 @@ import {
 } from '@/lib/run-of-show';
 import { advanceScheduleBlock, fetchRunOfShowBlocks } from '@/app/_actions/run-of-show';
 import { applyGuestBlockChange, type BlockChange } from '@/lib/run-of-show-live';
-import { herdDelay } from '@/lib/live-day-timing';
+import { herdDelay, jittered } from '@/lib/live-day-timing';
 import { pauseWhileHidden } from '@/lib/tab-return';
 import { useSaveLoader } from '@/components/sd-loader';
 import { DEFAULT_EVENT_TZ } from '@/lib/schedule';
@@ -44,6 +44,10 @@ import { DEFAULT_EVENT_TZ } from '@/lib/schedule';
  */
 /** A guest's re-read (a reconnect, or a change its payload could not settle) lands somewhere in this window. */
 const GUEST_REREAD_SPREAD_MS = 10_000;
+/** A guest's header asks for the run of show this often while looked at (± 20 %) — EV1, no socket for guests. */
+export const GUEST_POLL_MS = 30_000;
+/** …and only while a line of the programme starts within this of now (the day itself). */
+const GUEST_POLL_DAY_WINDOW_MS = 18 * 60 * 60_000;
 
 export function RunOfShowHeader({
   eventId,
@@ -138,8 +142,60 @@ export function RunOfShowHeader({
     [forGuests, refetch, reread],
   );
 
+  /*
+    📵 A GUEST'S PHONE HOLDS NO SOCKET (EV1 · owner 2026-10-28, DECISION_LOG "NO EVENT HUB MAY CRASH": guests never hold
+    a live connection; live/Realtime only for the few event workers). Realtime evaluates the row's RLS for EVERY
+    subscriber on EVERY advance, so a venue of guests each holding `postgres_changes` was the costliest thing on the
+    day. A guest's header now asks `/api/live/run-of-show/<event>` — one remembered answer per event, CDN-held for an
+    open event — every ~30 s (± 20 %) while it is looked at and the programme is today, and the moment it is looked at
+    again. The coordinator, hosts and suppliers keep the socket below.
+  */
+  useEffect(() => {
+    if (!forGuests) return;
+    let alive = true;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    // The badge says what it always said to a guest — "Live" while the header is keeping up, "Syncing" after a
+    // missed ask — now from the last ask rather than a socket's state.
+    setLive(true);
+    const today = () =>
+      blocksRef.current.some((b) => Math.abs(new Date(b.start_at).getTime() - Date.now()) < GUEST_POLL_DAY_WINDOW_MS);
+    const ask = async () => {
+      if (document.visibilityState !== 'visible' || !today()) return;
+      try {
+        const res = await fetch(`/api/live/run-of-show/${encodeURIComponent(eventId)}`);
+        if (!res.ok) throw new Error(String(res.status)); // a refusal or a blip: keep what is shown, ask again later
+        const answer = (await res.json()) as { blocks?: RunOfShowBlock[] };
+        if (alive && Array.isArray(answer.blocks)) setBlocks(answer.blocks);
+        if (alive) setLive(true);
+      } catch {
+        // Venue Wi-Fi — the next ask covers it.
+        if (alive) setLive(false);
+      }
+    };
+    const schedule = () => {
+      timer = setTimeout(() => {
+        timer = null;
+        void ask().finally(() => {
+          if (alive) schedule();
+        });
+      }, jittered(GUEST_POLL_MS));
+    };
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void ask();
+    };
+    schedule();
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      alive = false;
+      if (timer) clearTimeout(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [forGuests, eventId]);
+
   const subscribedOnce = useRef(false);
   useEffect(() => {
+    // Guests never subscribe — see above. Only the event's workers hold this socket.
+    if (forGuests) return;
     const supabase = createClient();
     // 🔌 A pocketed phone lets the channel go after a while (`pauseWhileHidden`) — on the day that is most of the
     // guests' phones. Looking again opens it, and the re-SUBSCRIBED below re-reads (spaced out for guests).
@@ -169,7 +225,7 @@ export function RunOfShowHeader({
         });
       return () => supabase.removeChannel(channel);
     });
-  }, [eventId, onChange, reread]);
+  }, [eventId, onChange, reread, forGuests]);
 
   const { current, next, driftMinutes, allDone, notStarted } = deriveRunOfShow(
     blocks,

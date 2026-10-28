@@ -56,19 +56,21 @@ test('4 · the action: own client, own album row, refuses taken-down/unscreened,
   assert.match(a, /if \(!canManageVendor\(role\)\) return \{ ok: false/, 'a helper can change the page');
   assert.match(a, /pagePhotoKeyFor\(vendorId, albumKey\)/);
   assert.match(a, /parseClientRef\(pageRef, vendorOwnedMediaPolicy\(vendorId\)\)/, 'the SEC-1 pin is missing');
-  // The cap counts the photos already WAITING, so the day they go up the page is not over its cap.
-  assert.match(a, /addToPageGallery\(\[\.\.\.\(row\.portfolio_r2_keys \?\? \[\]\), \.\.\.waiting\], pageRef, max\)/, 'the plan cap is not asked (with the waiting photos)');
+  // Past the free room the photo is PAID from the shop wallet (owner 2026-10-23) — priced in SQL by
+  // `file_supplier_page_notice`, with the WAITING photos counted (tests/db/a-suppliers-guest-photo-waits-seven-days).
+  assert.match(a, /\.rpc\('file_supplier_page_notice', \{ p_photo_id: photoId, p_page_ref: pageRef \}\)/, 'the tap is not priced');
+  assert.match(a, /answer\?\.status === 'insufficient'\) \{\s*return \{ ok: false, error: portfolioShortText\(/, 'an unpaid photo is not refused out loud');
   assert.match(a, /vendorQrGuardRejects\(\[photo\.r2_object_key\]\)/, 'the QR guard is skipped');
 });
 
 test('4b · ⏳ the tap files a 7-day guest notice — it never copies, and never writes the page gallery', () => {
   const a = src('app/vendor-dashboard/collections/actions.ts');
-  assert.match(a, /\.from\('supplier_page_photo_notices'\)\s*\.insert\(/, 'the tap no longer files a notice');
+  assert.doesNotMatch(a, /\.from\('supplier_page_photo_notices'\)\s*\.insert\(/, 'the tap files a notice past the priced door');
   assert.doesNotMatch(a, /r2Copy\(/, 'the tap copies the photo into the public folder before the guests were told');
   assert.doesNotMatch(a, /portfolio_r2_keys:/, 'the tap writes the page gallery — the photo would be public before the 7 days');
   // A second tap is answered from the notice that exists — never a second notice, never a restarted window.
   assert.ok(a.indexOf('if (noticeRes.data) return answerForExisting(') > 0, 'a second tap files again');
-  assert.ok(a.indexOf('if (noticeRes.data) return answerForExisting(') < a.indexOf(".insert("), 'the existing notice is not asked before filing');
+  assert.ok(a.indexOf('if (noticeRes.data) return answerForExisting(') < a.indexOf("rpc('file_supplier_page_notice'"), 'the existing notice is not asked before filing');
 });
 
 test('5 · every album photo tile carries the one tap', () => {
@@ -126,5 +128,5 @@ test('7 · W3 — the tap is offered only to owners/admins, and a QR-refused pho
   const a = src('app/vendor-dashboard/collections/actions.ts');
   assert.ok(a.indexOf('vendorQrGuardRejects([photo.r2_object_key])') > 0, 'the QR guard no longer reads the album photo');
   // The copy now happens only at publish (lib/supplier-page-notice.server.ts); the QR guard runs before anything is filed.
-  assert.ok(a.indexOf('vendorQrGuardRejects(') < a.indexOf('.insert('), 'the notice is filed before the QR guard');
+  assert.ok(a.indexOf('vendorQrGuardRejects(') < a.indexOf("rpc('file_supplier_page_notice'"), 'the notice is filed before the QR guard');
 });

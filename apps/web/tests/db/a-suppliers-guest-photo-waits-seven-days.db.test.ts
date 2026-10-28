@@ -95,15 +95,29 @@ async function asServer<T>(fn: () => Promise<T>): Promise<T> {
   }
 }
 
-async function fileNotice(uid: string, photoId: string, vendor: string, pageRef: string): Promise<string> {
+/** "Put on my page", as the shop owner's own session: the ONE door a notice is filed through. */
+async function fileRpc(uid: string, photoId: string, pageRef: string): Promise<Record<string, unknown>> {
   return asUser(uid, async () => {
-    const r = await db.query<{ notice_id: string }>(
-      `INSERT INTO public.supplier_page_photo_notices (photo_id, vendor_profile_id, event_id, page_ref)
-       VALUES ($1, $2, $3, $4) RETURNING notice_id`,
-      [photoId, vendor, eventId, pageRef],
+    const r = await db.query<{ j: Record<string, unknown> }>(
+      `SELECT public.file_supplier_page_notice($1, $2) AS j`,
+      [photoId, pageRef],
     );
-    return r.rows[0]!.notice_id;
+    return r.rows[0]!.j;
   });
+}
+
+async function fileNotice(uid: string, photoId: string, _vendor: string, pageRef: string): Promise<string> {
+  const j = await fileRpc(uid, photoId, pageRef);
+  assert.equal(j.status, 'ok', `filing refused: ${JSON.stringify(j)}`);
+  return String(j.notice_id);
+}
+
+async function walletBalance(vendor: string): Promise<number> {
+  const r = await db.query<{ b: number }>(
+    `SELECT COALESCE(SUM(delta), 0)::int AS b FROM public.shop_papic_wallet_entries WHERE vendor_profile_id = $1`,
+    [vendor],
+  );
+  return r.rows[0]!.b;
 }
 
 async function pageRefs(vendor: string): Promise<string[]> {
@@ -159,17 +173,11 @@ test('replay applies every migration (no unapplied files)', () => {
   assert.equal(replay.applied, replay.total);
 });
 
-test('1 · the supplier files the notice under its OWN session — and cannot shorten the 7 days or pre-publish', async () => {
+test('1 · the owner files the notice through the ONE door — the 7 days are stamped, never supplied; no direct write', async () => {
   const { photoId, pageRef } = await albumPhoto(vendorA);
-  // Sends a window that already ended AND a publish stamp. Both must be overwritten by the trigger.
-  const noticeId = await asUser(vendorUserA, async () => {
-    const r = await db.query<{ notice_id: string }>(
-      `INSERT INTO public.supplier_page_photo_notices (photo_id, vendor_profile_id, event_id, page_ref)
-       VALUES ($1, $2, $3, $4) RETURNING notice_id`,
-      [photoId, vendorA, eventId, pageRef],
-    );
-    return r.rows[0]!.notice_id;
-  });
+  const j = await fileRpc(vendorUserA, photoId, pageRef);
+  assert.equal(j.status, 'ok');
+  const noticeId = String(j.notice_id);
   const n = await db.query<{ days: number; published_at: string | null }>(
     `SELECT EXTRACT(EPOCH FROM (public_from - NOW())) / 86400 AS days, published_at
        FROM public.supplier_page_photo_notices WHERE notice_id = $1`,
@@ -177,21 +185,24 @@ test('1 · the supplier files the notice under its OWN session — and cannot sh
   );
   assert.ok(Number(n.rows[0]!.days) > 6.99, `the window is ${n.rows[0]!.days} days, not 7`);
   assert.equal(n.rows[0]!.published_at, null);
+  // A second tap answers from the notice that exists — never a second one, never a restarted window.
+  const again = await fileRpc(vendorUserA, photoId, pageRef);
+  assert.equal(again.status, 'exists');
+  assert.equal(String(again.notice_id), noticeId);
 
-  // The supplier's session can write ONLY the four request columns — a supplied window is refused outright.
+  // No session can write the table itself — a direct INSERT would skip the wallet (and could name a window).
   const p2 = await albumPhoto(vendorA);
   await assert.rejects(
     asUser(vendorUserA, () =>
       db.query(
-        `INSERT INTO public.supplier_page_photo_notices (photo_id, vendor_profile_id, event_id, page_ref, public_from)
-         VALUES ($1, $2, $3, $4, NOW())`,
+        `INSERT INTO public.supplier_page_photo_notices (photo_id, vendor_profile_id, event_id, page_ref)
+         VALUES ($1, $2, $3, $4)`,
         [p2.photoId, vendorA, eventId, p2.pageRef],
       ),
     ),
     /permission denied/,
-    'the supplier wrote its own public_from',
+    'a supplier can file a notice past the wallet',
   );
-  // …and can never UPDATE a notice (no publish stamp, no un-removing).
   await assert.rejects(
     asUser(vendorUserA, () =>
       db.query(`UPDATE public.supplier_page_photo_notices SET published_at = NOW() WHERE notice_id = $1`, [noticeId]),
@@ -206,29 +217,53 @@ test('1 · the supplier files the notice under its OWN session — and cannot sh
 
 test('2 · tenancy: never another shop’s album photo, never a ref outside the shop’s own folder', async () => {
   const theirs = await albumPhoto(vendorB);
-  await assert.rejects(
-    asUser(vendorUserA, () =>
-      db.query(
-        `INSERT INTO public.supplier_page_photo_notices (photo_id, vendor_profile_id, event_id, page_ref)
-         VALUES ($1, $2, $3, $4)`,
-        [theirs.photoId, vendorA, eventId, theirs.pageRef.replace(vendorB, vendorA)],
-      ),
-    ),
-    /row-level security|own_folder|violates/,
-    'shop A queued shop B’s album photo for its page',
-  );
+  const j = await fileRpc(vendorUserA, theirs.photoId, theirs.pageRef.replace(vendorB, vendorA));
+  assert.equal(j.status, 'not_owner', 'shop A queued shop B’s album photo for its page');
   const mine = await albumPhoto(vendorA);
   await assert.rejects(
-    asUser(vendorUserA, () =>
-      db.query(
-        `INSERT INTO public.supplier_page_photo_notices (photo_id, vendor_profile_id, event_id, page_ref)
-         VALUES ($1, $2, $3, $4)`,
-        [mine.photoId, vendorA, eventId, `r2://setnayan-media/vendors/${vendorB}/portfolio/from-album/x.jpg`],
-      ),
-    ),
+    fileRpc(vendorUserA, mine.photoId, `r2://setnayan-media/vendors/${vendorB}/portfolio/from-album/x.jpg`),
     /supplier_page_photo_notices_own_folder/,
     'a notice can name a file in another shop’s folder',
   );
+});
+
+test('2b · 💳 past the free room a page photo costs 1 credit from the shop wallet — and the WAITING photos count', async () => {
+  // A fresh shop: 49 photos on the page + 1 waiting = the free 50 used. The next one is past it.
+  const userC = await newUser('vendor-c-spn@test.test', 'vendor');
+  const vendorC = await vendorOf(userC, 'Notice Studio C');
+  const own = Array.from({ length: 49 }, (_, i) => `r2://setnayan-media/vendors/${vendorC}/portfolio/own-${i}.jpg`);
+  await db.query(`UPDATE public.vendor_profiles SET portfolio_r2_keys = $2 WHERE vendor_profile_id = $1`, [vendorC, own]);
+  const waiting = await albumPhoto(vendorC);
+  const w = await fileRpc(userC, waiting.photoId, waiting.pageRef);
+  assert.equal(w.status, 'ok');
+  assert.equal(Number(w.charged), 0, 'the 50th photo (inside the free room) was charged');
+
+  // 51st — counting the waiting one — costs a credit. An empty wallet files NOTHING.
+  const next = await albumPhoto(vendorC);
+  const short = await fileRpc(userC, next.photoId, next.pageRef);
+  assert.equal(short.status, 'insufficient', `a photo past the free room went in unpaid: ${JSON.stringify(short)}`);
+  assert.equal(Number(short.charge), 1);
+  const none = await db.query(`SELECT 1 FROM public.supplier_page_photo_notices WHERE photo_id = $1`, [next.photoId]);
+  assert.equal(none.rows.length, 0, 'a refused charge still filed the notice');
+
+  await db.query(
+    `INSERT INTO public.shop_papic_wallet_entries (vendor_profile_id, delta, kind, note) VALUES ($1, 5, 'comp', 'test')`,
+    [vendorC],
+  );
+  const paid = await fileRpc(userC, next.photoId, next.pageRef);
+  assert.equal(paid.status, 'ok');
+  assert.equal(Number(paid.charged), 1, 'the photo past the free room was not charged');
+  assert.equal(await walletBalance(vendorC), 4);
+  const row = await db.query<{ kind: string; delta: number }>(
+    `SELECT kind, delta FROM public.shop_papic_wallet_entries WHERE vendor_profile_id = $1 AND spend_ref = $2`,
+    [vendorC, `page-notice:${paid.notice_id}`],
+  );
+  assert.deepEqual(row.rows[0], { kind: 'portfolio_spend', delta: -1 });
+
+  // The publish never charges again — the photo was paid at the tap.
+  await sevenDaysPass(String(paid.notice_id));
+  assert.equal(await publish(String(paid.notice_id)), true);
+  assert.equal(await walletBalance(vendorC), 4, 'the publish charged a photo that was already paid');
 });
 
 test('3 · after 7 days with nobody removing it, it goes up — and a takedown pulls it straight back off', async () => {
@@ -287,7 +322,9 @@ test('5 · a guest’s Remove — before it goes up it never does; after, it com
   assert.ok(!(await pageRefs(vendorA)).includes(before_.pageRef));
 
   // The supplier cannot re-post it by tapping again — one notice per photo, ever.
-  await assert.rejects(fileNotice(vendorUserA, before_.photoId, vendorA, before_.pageRef), /duplicate key|unique/i);
+  const again = await fileRpc(vendorUserA, before_.photoId, before_.pageRef);
+  assert.equal(again.status, 'exists', 'a removed photo was filed a second time');
+  assert.equal(again.removed_by, 'guest');
 
   // Remove keeps working after it went up (ruling (4)).
   const afterUp = await albumPhoto(vendorA);

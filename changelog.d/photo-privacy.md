@@ -8,7 +8,7 @@ GETS THE ONE-LINE 7-DAY NOTICE" (2). In-app only — no new email.
 same second, and nobody in it was told. A guest's takedown hid the album row but left the page copy up.
 `askToTakeMyPhotoDown` could not reach a supplier's photo at all.
 
-- Migration `supplier_page_photo_notice`: `supplier_page_photo_notices` (RLS at create; the supplier files its own
+- Migration `20271294058580_supplier_page_photo_notice` (re-allocated after #6892's wallet migrations): `supplier_page_photo_notices` (RLS at create; the supplier files its own
   notice under its own session, four columns only). A trigger stamps `noticed_at` / `public_from = now() + 7 days` and a
   CHECK pins the 7 days, so a request cannot shorten them; another CHECK pins the page ref inside the shop's own folder.
   `publish_supplier_page_photo` (service role) puts the ref on the page only after the window, if nobody removed it and
@@ -17,8 +17,13 @@ same second, and nobody in it was told. A guest's takedown hid the album row but
   write. `remove_supplier_page_photo` (service role) is the guest's Remove, bound to the event the cookie proved.
   Backfill: page copies that went up with no notice come off — hidden ones for good, visible ones into a fresh 7-day
   notice (they return by themselves).
-- The tap now files the notice ("Goes on your page Nov 4 — the guests are told first"); the album tile shows
-  Goes up · On your page · A guest asked to keep it off. The photo cap counts waiting photos.
+- The tap now files the notice through ONE priced door, `file_supplier_page_notice` (owner-only, under the shop
+  wallet's per-shop lock): the shop wallet's free room (50, or the personal-invite allowance), then 1 credit a photo
+  (owner 2026-10-23, #6892) — with the photos still WAITING counted toward the free room. The credit is taken at the
+  tap (`shop_papic_wallet_spend`, spend_ref `page-notice:<id>`); the publish never charges. An empty wallet files
+  nothing and says so. No session can INSERT the table directly. Toast: "Goes on your page Nov 4 — the guests are
+  told first[ · 1 credit from your shop wallet]"; the album tile shows Goes up · On your page · A guest asked to keep
+  it off.
 - Event Hub (Gallery): one quiet line per supplier — "<Supplier> will show N photos from this event on their page" ·
   See them · each photo with Remove. Every guest of the event sees it (a supplier's album photo is never face-tagged,
   so the ruled no-recognised-faces branch applies). Not gated on the day.

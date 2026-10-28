@@ -13,6 +13,7 @@ import {
   HUB_PARTS_ORDER_KEY,
   HUB_PART_PAID_CODES,
   HUB_PART_SKUS,
+  hubLegacyPartLinesFrom,
   hubOwnershipFrom,
   hubPartOfPaidCode,
   hubPart,
@@ -144,14 +145,55 @@ export function eventHubOwnership(
       .map((r) => hubPartOfPaidCode(r.service_key))
       .filter((p): p is HubPartId => p !== null);
     const prices = paidParts.length === 0 ? null : await hubPartPrices(supabase);
-    return hubOwnershipFrom({
+    const own = hubOwnershipFrom({
       fullHeld: false,
       partHeld: (id) => heldSku(hubPart(id).sku),
       paidParts,
       prices: prices?.parts ?? new Map(),
       fullPrice: prices?.full ?? null,
     });
+    // 4. ⚖ The old cap, kept (owner 2026-10-28): asked ONLY for an event that has paid parts and has not reached
+    //    today's price — the few part-holders of 22–26 Oct — so no other event pays for the extra read.
+    if (own.full || paidParts.length === 0) return own;
+    const legacy = await hubLegacyPartLines(supabase, eventId);
+    if (!legacy) return own;
+    return hubOwnershipFrom({
+      fullHeld: false,
+      partHeld: (id) => heldSku(hubPart(id).sku),
+      paidParts,
+      prices: prices?.parts ?? new Map(),
+      fullPrice: prices?.full ?? null,
+      legacy: {
+        capPhp: legacy.capPhp,
+        paidParts: legacy.lines
+          .filter((r) => counts(r.status))
+          .map((r) => hubPartOfPaidCode(r.service_key))
+          .filter((p): p is HubPartId => p !== null),
+      },
+    });
   });
+}
+
+/**
+ * ⚖ The part lines this event bought BEFORE Full Pro moved to its one price, and the old cap they are measured against
+ * (owner 2026-10-28, "Keep their full Pro") — one RPC, `event_hub_pro_legacy_part_lines`; the cap and the cutover live
+ * only in that migration. Null on any failure: the grandfather is then not applied (logged, never silent).
+ */
+async function hubLegacyPartLines(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<{ capPhp: number; lines: ReadonlyArray<{ service_key: string; status: string | null }> } | null> {
+  const { data, error } = await supabase.rpc('event_hub_pro_legacy_part_lines', {
+    p_event_id: eventId,
+    p_codes: [...HUB_PART_PAID_CODES],
+  });
+  if (error) {
+    // Service role only (like `event_entitlement_facts`): a session client is refused and the grandfather is not
+    // applied — logged, never silent. Gates read through `eventEntitlementClient`, which is the service role.
+    console.error('[supabase-error] couple-website-pro: legacy part lines', error);
+    return null;
+  }
+  return hubLegacyPartLinesFrom(data);
 }
 
 /**

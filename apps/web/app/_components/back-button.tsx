@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, ChevronLeft } from 'lucide-react';
+import { ReturnInPlace } from '@/app/_components/chat/chat-back';
 import { pageBackLink } from '@/lib/page-home';
 
 /**
@@ -39,6 +40,12 @@ export function BackButton(
         href?: never;
         label?: string;
         className?: string;
+        /**
+         * `chat` — the chat head's ‹ (owner 2026-10-28, the Messenger look): a 44 round chevron in the accent, its
+         * label the accessible name, and it RETURNS IN PLACE — when the tab came to the chat from a chat list, ‹ is
+         * the browser's back, so the list comes back where it was scrolled (`chat/chat-back.tsx`).
+         */
+        variant?: 'pill' | 'chat';
       }
     | {
         /** @deprecated pass `route` — see the docblock. */
@@ -47,6 +54,7 @@ export function BackButton(
         params?: never;
         label?: string;
         className?: string;
+        variant?: 'pill' | 'chat';
       },
 ) {
   const { className = '' } = props;
@@ -60,6 +68,20 @@ export function BackButton(
   } else {
     href = props.href;
     label = props.label ?? 'Back';
+  }
+  if (props.variant === 'chat') {
+    return (
+      <ReturnInPlace>
+        <Link
+          href={href}
+          aria-label={`Back to ${label}`}
+          className={`grid h-11 w-11 shrink-0 place-items-center rounded-full text-sn-accent hover:bg-ink/5 ${className}`}
+          data-chat-back=""
+        >
+          <ChevronLeft aria-hidden className="h-6 w-6" strokeWidth={2} />
+        </Link>
+      </ReturnInPlace>
+    );
   }
   return (
     <Link

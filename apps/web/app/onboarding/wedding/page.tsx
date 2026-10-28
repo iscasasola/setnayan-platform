@@ -41,6 +41,7 @@ import { getInPlanningWedding } from '@/app/dashboard/(account)/create-event/wed
 import { OnboardingShell } from './_components/onboarding-shell';
 import { buildOnboardingPricing } from './_components/onboarding-pricing';
 import { fetchOnboardingDiscountPct } from '@/lib/onboarding-discount-server';
+import { setupPriceAppliesForCreateFlow } from '@/lib/welcome-discount.server';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { CREATION_ASKS, resolveSetupSteps } from '@/lib/onboarding/flow-config';
 import { setupViewForProfile } from '@/lib/onboarding/setup-view';
@@ -148,7 +149,14 @@ export default async function OnboardingWeddingPage({
   // The authoritative charge is still recomputed server-side at order time by
   // resolvePaxPricedOrderCentavos in submitOrderAction (unchanged).
   // The sign-up discount is the ONE admin number (d18), never a typed constant.
-  const pricing = buildOnboardingPricing(customerSkus, bundles, null, await fetchOnboardingDiscountPct());
+  // 💲 …but only while the set-up price applies to this buyer at all (owner
+  // 2026-10-28, "ONE PRICE EVERYWHERE"): with the welcome switch on, an account
+  // that has bought before sees the regular price here — the same question the
+  // services card and the bill ask (`setupPriceAppliesForCreateFlow`).
+  const setupPct = (await setupPriceAppliesForCreateFlow(user?.id ?? null))
+    ? await fetchOnboardingDiscountPct()
+    : 0;
+  const pricing = buildOnboardingPricing(customerSkus, bundles, null, setupPct);
 
   // Date-anchor model: pre-select the faith on a Religious wedding from the
   // user's OWN profile religion (reference-only, opt-in). Only when it maps to

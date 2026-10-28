@@ -10362,6 +10362,44 @@ html.dark .sn-acc-head[data-open] {
   transition: color 200ms ease;
 }
 
+/*
+ * 💬 AN OPEN CHAT THREAD IS FULL SCREEN ON A PHONE (owner 2026-10-27, verbatim: *"We want it full screen like the first
+ * photo"*; chat prototype 2026-10-28 frame B) — no top bar, no bottom tabs, no card frame. The thread's own head
+ * (‹ · avatar · name · event line · ⓘ) is at the top and its composer at the bottom, edge to edge.
+ *
+ * 🔑 THE NAMED PAGE WOULD CAPTURE IT. The event and shop trees' `<main>` (`.sn-vt-page`) carries `view-transition-name`
+ * at rest, which makes it the containing block for a `position: fixed` child AND a stacking context below the top bar
+ * (the trap the guests-glass and open-panel rules above record). So while a thread is open the name is off (it comes
+ * back for the bottom-nav slide, `html[data-sn-nav-dir]`) and the page is lifted above the shell's chrome, and the
+ * thread fixes itself to the screen. Sheets are portalled to <body> at z 50, above it. From 1024 the thread stays in
+ * the page's column with its own quiet frame. Held by `lib/the-chat-is-messenger-shaped.test.ts`.
+ */
+@media (max-width: 1023.98px) {
+  html:not([data-sn-nav-dir]) .sn-vt-page:has([data-chat-takeover]) {
+    view-transition-name: none;
+    isolation: isolate;
+    position: relative;
+    z-index: 45;
+  }
+  [data-chat-takeover] {
+    position: fixed;
+    inset: 0;
+    z-index: 45;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background-color: rgb(var(--color-cream));
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+}
+@media (min-width: 1024px) {
+  [data-chat-takeover] {
+    border: 1px solid rgb(var(--color-ink) / 0.1);
+    border-radius: 1rem;
+    background-color: rgb(var(--color-cream));
+  }
+}
+
+
 /* ══ 🎚 SCRUB — A HELD HAND-OVER (owner 2026-10-09, approved on `review/scrub-prototype.html`: *"them must be on the same
    position to create that keynote like transistion"* · *"let it enter on the last 20% of the build out"* · *"element
    run completely normal. we only control the effect"*).

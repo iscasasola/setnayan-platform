@@ -56,10 +56,12 @@ export function ChatThreadMenu({
         }}
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label="Conversation options"
-        className="grid h-9 w-9 place-items-center rounded-full text-ink/60 hover:bg-ink/5 hover:text-ink"
+        aria-label="About this chat"
+        /* The head's one action (chat prototype 2026-10-28, frame B draws ⓘ; no 📞, no video). It stays ⋮: the house
+           keeps the ⓘ glyph for InfoTip/Explain only (`there-is-one-info-dot.test.ts`) — a menu is not a tip. */
+        className="grid h-11 w-11 place-items-center rounded-full text-ink/60 hover:bg-ink/5 hover:text-ink"
       >
-        <MoreVertical aria-hidden className="h-5 w-5 text-sn-accent" strokeWidth={2} />
+        <MoreVertical aria-hidden className="h-[22px] w-[22px] text-sn-accent" strokeWidth={1.9} />
       </button>
 
       {open ? (

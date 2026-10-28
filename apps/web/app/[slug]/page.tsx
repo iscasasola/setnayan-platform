@@ -65,7 +65,9 @@ import { yourGuestsFor } from './_lib/plus-one-seats.server';
 import { GuestMe } from './_components/guest-me';
 import { passCardEligibilityFor, plusOnePassCardIds } from '@/lib/pass-card.server';
 import { PASS_CARD_ROUTE, type PassCardEligibility } from '@/lib/pass-card';
-import { appleWalletLink } from '@/lib/wallet-pass';
+import { appleWalletLink, appleWalletLinkFor } from '@/lib/wallet-pass';
+import { hubUaFacts } from '@/lib/hub-view-key';
+import { cachedHubViewer } from '@/lib/hub-request';
 import { appleWalletOffered } from '@/lib/wallet-pass-config.server';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { celebrantsForViewer } from '@/lib/event-celebrants.server';
@@ -177,16 +179,16 @@ import { isCoordinatorPrepReleaseEnabled } from '@/lib/coordinator-prep-release'
 import { withGuestReadLimit, withGuestReadLimitQuiet } from '@/lib/read-limit';
 import { hostAsksForCanvas, openSharedEventReads } from '@/lib/event-shared-reads';
 
-// Task #13 (Phase 1 day-of PWA fix, 2026-05-22) — swap `dynamic = 'force-dynamic'`
-// for ISR so this surface can be CDN-cached AND served from SHELL_CACHE when a
-// guest reloads at a venue with weak WiFi. 60s revalidate window is acceptable
-// for V1 pilot — guest invitation content changes infrequently; RSVP submit is
-// a server action that still revalidates fresh.
-//
-// V1.1 follow-up: per-guest table-assignment preload via guest-session-scoped
-// Cache API write — see Task #9 audit findings (CLAUDE.md decision-log row
-// 2026-05-22).
-export const revalidate = 60;
+/* 🗄 THIS ROUTE IS THE LIVE RENDER — AND IT ALWAYS WAS (EV1, 2026-10-28).
+
+   `export const revalidate = 60` stood here since Task #13 (2026-05-22), promising a CDN-cached page. It was DEAD:
+   this page reads the viewer's cookies and the address's query, so Next rendered it on every request regardless —
+   measured by the 2026-10-18 event-day load audit. The cache now lives in a sibling route,
+   `app/[slug]/cached/[key]/page.tsx`, which renders this SAME page function for a viewer named in its address and
+   reads nothing else from the request; the middleware sends a guest or a stranger there (`lib/hub-view-key.ts`). What
+   still lands HERE is everyone the cache cannot answer — a signed-in account, a host's preview, a one-shot flash in
+   the query, the native app — so this route says what it is: rendered per request. */
+export const dynamic = 'force-dynamic';
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -563,7 +565,9 @@ async function publicInvitationPage({ params, searchParams }: Props) {
   //       would loop /u/a/b → /b → /u/a/b forever;
   //   (b) the Host is a custom BYO domain — there the bare URL is canonical
   //       (sny.theirdomain.com/{slug}); bouncing to /u/ would be wrong.
-  if (isUserNestingCutoverEnabled()) {
+  // 🗄 Never on the cached hub (the middleware does not send a request there while the cutover is on), so the
+  // `headers()` read below is the live render's alone.
+  if (isUserNestingCutoverEnabled() && !cachedHubViewer()) {
     const reqHeaders = await headers();
     const viaNesting = reqHeaders.get('x-sn-u-nesting') === '1';
     const host = (reqHeaders.get('host') ?? '').toLowerCase();
@@ -1667,10 +1671,10 @@ async function invitationBody({
   /* ⛔ THE ANNOUNCEMENT IS LOADED BY `[slug]/layout.tsx` NOW (2026-09-22), not
      here. It used to be read on this page and handed to SiteBody — which is
      why it reached ONE of the twelve guest pages. The layout wraps all twelve
-     and carries the guests-only gate that the guest tree used to provide
-     structurally. Do not re-add the read here: `loadDayOfBroadcast` is
-     cache()-wrapped, so a second call would be free but the second MOUNT would
-     double the banner on this page. */
+     and mounts the card; since EV1 (2026-10-28) the card asks
+     `GET /{slug}/announcement`, which carries the guests-only gate. Do not re-add
+     a read here: it would make this page read the viewer for a banner the
+     layout already draws, and a second MOUNT would double it. */
 
   // Shared SiteBody props — identical for every identity tier. The per-tier
   // delta travels in the `identity` union (see _lib/site-identity.ts): the
@@ -2334,15 +2338,21 @@ async function invitationBody({
       : null;
   // Read before the slot is built: the slot is a function now (Me's answer to
   // "lead with the reply?" comes from the body), and a function cannot await.
-  const meUserAgent = (await headers()).get('user-agent');
+  // 🗄 On the cached hub the request is never read (lib/hub-request.ts): the device facts come from its address, there
+  // is no user agent to hand Me (only a HOST's Me reads it, and a host is never served the cache), and no Terms
+  // cookie (a request carrying one keeps the live render — `HUB_LIVE_COOKIES`).
+  const hubViewer = cachedHubViewer();
+  const meUserAgent = hubViewer ? null : (await headers()).get('user-agent');
   // 🍎 "Add to Apple Wallet" beside "Save my ticket" (lib/wallet-pass.ts) — only for a real ticket (`GuestTicket` draws
   // it under the Save it draws, and nowhere else), on an iPhone, and only while the pass can be SIGNED right now
   // (`appleWalletOffered` — on for everyone, owner 2026-10-25). In the Setnayan app it opens the in-app browser sheet.
   const meAppleWallet =
     passCard === 'pass' && !isEditorCanvas
-      ? appleWalletLink(meUserAgent, invitationUrl, await appleWalletOffered(), { storeShell: await isStoreShellRequest() })
+      ? hubViewer
+        ? appleWalletLinkFor(hubViewer.ua ?? hubUaFacts(null), invitationUrl, await appleWalletOffered(), { storeShell: false })
+        : appleWalletLink(meUserAgent, invitationUrl, await appleWalletOffered(), { storeShell: await isStoreShellRequest() })
       : null;
-  const meTermsCarried = rsvpTermsCarried((await cookies()).get(RSVP_TERMS_COOKIE)?.value);
+  const meTermsCarried = rsvpTermsCarried(hubViewer ? undefined : (await cookies()).get(RSVP_TERMS_COOKIE)?.value);
   // ✉ `replyHref` — set when Me leads with the reply (`meLeadsWithReply`,
   // decided in SiteBody from the plan it resolves): the ticket waits for a Yes.
   /* 👁 THE PARTS THE COUPLE HID ON THIS STAGE ("What guests see", pass 2 — `config_json.part_show` on the hero row).

@@ -25,7 +25,8 @@ export type PapicRungRow = {
 const peso = (n: number) => `₱${n.toLocaleString('en-PH')}`;
 
 /**
- * FIVE PRICES IN, SIXTEEN OUT.
+ * EVERY PRICE TYPED (owner 2026-10-28, "No use the price agreed and what i inputed") — was five in, sixteen out.
+ * The computed-row drawing below stays for a rung the catalogue adds that has no anchor yet.
  *
  * ⚠ THE ELEVEN COMPUTED RUNGS MUST READ AS RESULTS. They are rendered as plain
  * text on a tinted row with a padlock, never as an input — a computed price in a
@@ -99,8 +100,8 @@ export function PapicLadderEditor({
     <div>
       <p className="mb-5 max-w-prose text-sm leading-relaxed text-ink/70">
         Shots are sold <strong>by the shot</strong>, with a bulk saving that deepens as the
-        number grows. You set <strong>five</strong> prices; the other eleven work themselves out
-        from the nearest one below them. The At set-up column follows the one sign-up discount.
+        number grows. You set <strong>every</strong> price — none is worked out for you, so a
+        save keeps exactly what you typed. The At set-up column follows the one sign-up discount.
       </p>
 
       <form action={ladderFormAction}>

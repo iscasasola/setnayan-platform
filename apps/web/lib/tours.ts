@@ -1188,7 +1188,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         {
           anchor: 'people-counts',
           title: 'Your people, counted',
-          body: 'Connected, waiting for them, asking you. Tap a number to see just those people.',
+          body: 'Connected, and anyone asking you. Tap a number to see just those people. Invite and ⚙ People settings end the row.',
         },
         {
           anchor: 'people-loved-ones',

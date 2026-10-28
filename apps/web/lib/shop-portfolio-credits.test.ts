@@ -87,10 +87,13 @@ test('3 · 🚨 both portfolio writers go through shop_portfolio_commit — neve
   assert.match(portfolioCase, /\.rpc\('shop_portfolio_commit'/, 'the gallery save no longer charges the wallet');
   assert.doesNotMatch(portfolioCase, /patch = \{ portfolio_r2_keys/, 'the gallery save writes the column past the wallet');
   assert.match(portfolioCase, /status === 'insufficient'/, 'a short wallet is not refused out loud');
+  // "Put on my page" (2026-10-28, the 7-day guest notice): the tap is priced by `file_supplier_page_notice` — the same
+  // free room and the wallet's one spend door, waiting photos counted — and NEVER writes the column; the photo
+  // reaches the list only through `publish_supplier_page_photo` after the guests' 7 days (already paid).
   const c = src('app/vendor-dashboard/collections/actions.ts');
-  assert.match(c, /\.rpc\('shop_portfolio_commit'/, '"Put on my page" no longer charges the wallet');
-  assert.doesNotMatch(c, /\.update\(\{ portfolio_r2_keys/, '"Put on my page" writes the column past the wallet');
-  assert.ok(c.indexOf('r2Copy(') < c.indexOf("rpc('shop_portfolio_commit'"), 'the list names a photo before it is copied');
+  assert.match(c, /\.rpc\('file_supplier_page_notice'/, '"Put on my page" no longer charges the wallet');
+  assert.doesNotMatch(c, /\.update\(\{ portfolio_r2_keys|portfolio_r2_keys:/, '"Put on my page" writes the column past the wallet');
+  assert.doesNotMatch(c, /r2Copy\(/, '"Put on my page" copies the photo before the guests were told');
 });
 
 test('4 · an unread wallet pays for nothing — and says so instead of a number', () => {

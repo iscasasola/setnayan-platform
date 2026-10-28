@@ -108,10 +108,13 @@ export const AI_TIER_SKU: Readonly<Record<AiPriceTier, string | null>> = {
  * This is what an event pays to switch Setnayan AI on AFTER onboarding.
  */
 export const AI_TIER_FALLBACK_PHP: Readonly<Record<AiPriceTier, number>> = {
-  A: 2499,
-  B: 1499,
-  C: 899,
-  D: 199,
+  // 💲 2026-10-28 (DECISION_LOG "THE ONE PRICE — APP STORE = WEBSITE"): the
+  // owner's App Store prices, which the catalogue now carries too (migration
+  // `*_one_price_app_store_equals_website.sql`). Was 2499 / 1499 / 899 / 199.
+  A: 3300,
+  B: 1980,
+  C: 1190,
+  D: 265,
   E: 0,
 };
 
@@ -131,21 +134,15 @@ export const AI_TIER_FALLBACK_PHP: Readonly<Record<AiPriceTier, number>> = {
  * than to zero or to full price.
  */
 export const AI_TIER_ONBOARDING_FALLBACK_PHP: Readonly<Record<AiPriceTier, number>> = {
-  A: 1499,
-  B: 899,
-  // ⚖ MOVED 2026-08-28 BY THE OWNER'S SINGLE-DISCOUNT RULING, not by a code
-  // decision: all four bands now share ONE sign-up discount of 40%, replacing
-  // four per-band discounts that had drifted to 40.02 / 40.03 / 44.49 / 50.25.
-  // At 40% and whole-peso rounding, A and B are unchanged and these two move:
-  //   C  ₱899 → ₱539  (was ₱499)
-  //   D  ₱199 → ₱119  (was  ₱99)
-  // He was shown this arithmetic and chose the number knowing it. These
-  // constants are the LAST-RESORT values used only when the catalog row is
-  // unreadable, so they must track the catalog or an outage would charge the
-  // old price — which is what ai-tier-ladder-matches-the-catalog.db.test.ts
-  // exists to catch, and what it caught here.
-  C: 539,
-  D: 119,
+  // 💲 2026-10-28: the rows carry NO sign-up override any more — the sign-up
+  // price is the house dial (40%) of the new regular price, as every other
+  // product's is (`houseSignupPricePhp`). 40% off 3300 / 1980 / 1190 / 265:
+  // (Was 1499 / 899 / 539 / 119 — the per-row overrides of the 2026-08-28
+  // single-discount ruling, set against the old prices.)
+  A: 1980,
+  B: 1188,
+  C: 714,
+  D: 159,
   E: 0,
 };
 

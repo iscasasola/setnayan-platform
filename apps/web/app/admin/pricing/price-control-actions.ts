@@ -211,7 +211,7 @@ export async function savePapicLadder(
   const { userId: adminUserId } = await requireAdminAction();
   const admin = createAdminClient();
 
-  // The five typed prices, read by the shot count they anchor.
+  // The typed prices — every priced rung since 2026-10-28 — read by the shot count they anchor.
   const anchors: [number, number][] = [];
   for (const shots of PAPIC_ANCHOR_SHOTS) {
     const raw = Number(String(formData.get(`anchor_${shots}`) ?? '').trim());

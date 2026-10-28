@@ -3,6 +3,7 @@ import { after } from 'next/server';
 import { maybeRunLockRequestExpiry } from '@/lib/lock-request-expiry';
 import { maybeRunDeletionRequestNudge } from '@/lib/deletion-request-nudge';
 import { maybeRunUnbilledFeeRepair } from '@/lib/unbilled-fee-repair.server';
+import { maybeRunSupplierPagePublish } from '@/lib/supplier-page-notice.server';
 import { maybeRefillPriceBands } from '@/lib/price-band-refill.server';
 import { createClient } from '@/lib/supabase/server';
 import { runSocialFlush } from '@/lib/social/flush';
@@ -273,6 +274,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // …) and writes it to email_deliveries, which the home strip and the
   // Notifications tab read. Bounded (20 per run); never throws.
   after(() => maybeRunEmailDeliveryCheck().catch(() => {}));
+  // A supplier's event photo goes on its page once the guests' 7-day notice has passed (owner 2026-10-03) —
+  // CRON-FREE, dual-mounted with the supplier layout; hourly claim; never throws.
+  after(() => maybeRunSupplierPagePublish().catch(() => {}));
 
   const displayName = profile?.display_name ?? profile?.email ?? 'Setnayan Team';
 

@@ -2148,6 +2148,25 @@ export const UGAT_JOINTS: UgatJoint[] = [
         name: 'vendor_papic_portfolio_photos_credits_positive',
         mentions: 'credits_spent',
       },
+      // The 7-day guest notice (owner 2026-10-03; built 2026-10-28): an album photo reaches the supplier's PUBLIC page
+      // only through this row — published by `publish_supplier_page_photo` after `public_from`, pulled by a guest's
+      // Remove or by ANY hide of the album row (trigger `a_hidden_album_photo_leaves_the_page`).
+      { kind: 'table', table: 'supplier_page_photo_notices' },
+      { kind: 'fk', table: 'supplier_page_photo_notices', column: 'photo_id', references: 'vendor_papic_portfolio_photos' },
+      { kind: 'unique', table: 'supplier_page_photo_notices', columns: ['photo_id'] },
+      { kind: 'column', table: 'supplier_page_photo_notices', column: 'public_from' },
+      {
+        kind: 'check',
+        table: 'supplier_page_photo_notices',
+        name: 'supplier_page_photo_notices_seven_days',
+        mentions: 'public_from',
+      },
+      {
+        kind: 'check',
+        table: 'supplier_page_photo_notices',
+        name: 'supplier_page_photo_notices_own_folder',
+        mentions: 'page_ref',
+      },
       // THE SHOP WALLET (owner 2026-10-23, option A — one shop wallet). Packs
       // land HERE now, not in one event's grant ledger: one signed, append-only
       // ledger per SHOP (no event column on the money-in side), spent on the
@@ -2775,7 +2794,28 @@ export const UGAT_JOINTS: UgatJoint[] = [
     guardedBy:
       'INSERT policy demands user_id = auth.uid() AND membership (nobody posts in another member\u2019s voice); UPDATE policy scopes take-down to the author; samahan_messages_author_field_guard freezes every field except deleted_at.',
     traps:
-      'Take-down is SOFT \u2014 readers MUST filter `deleted_at IS NULL`; a query that forgets shows messages their authors withdrew. Retention follows the 5-year CHAT rule via purge_expired_chat \u2014 no new sweep was added, and adding one would be a second definition of when a message is old.',
+      'Take-down is SOFT \u2014 readers MUST filter `deleted_at IS NULL`; a query that forgets shows messages their authors withdrew. Retention follows the 5-year CHAT rule via purge_expired_chat \u2014 no new sweep was added, and adding one would be a second definition of when a message is old. What a member has READ is samahan_reads (J57), never the samahan_message notices \u2014 those are collapsed hourly and cleared only by \u201cMark read\u201d.',
+  },
+  {
+    id: 'J57',
+    claims: [
+      { kind: 'table', table: 'samahan_reads' },
+      { kind: 'fk', table: 'samahan_reads', column: 'community_id', references: 'communities' },
+      { kind: 'column', table: 'samahan_reads', column: 'last_read_at' },
+    ],
+    chain: 12,
+    pair: ['TYPE-SAMAHAN', 'TYPE-USERS'],
+    title: 'Group \u2194 User (what you have read \u2014 group unread)',
+    joint: 'samahan_reads',
+    cardinality: 'One marker per (group, member); none until the member first opens the group',
+    implementedBy:
+      'samahan_reads.last_read_at (owner 2026-10-28, \u201cGROUP UNREAD\u201d). samahan_unread_counts() counts other members\u2019 live messages newer than the marker \u2014 or than joined_at when there is none \u2014 for every group in ONE call; People \u203a Groups draws a bold line + count badge and the pinned row\u2019s \u201cN unread\u201d door (lib/people-group-rows.ts).',
+    writtenBy:
+      'mark_samahan_read(community_id) \u2014 called from the browser (MarkGroupRead, the group page\u2019s layout) when the group opens and when it is left; one small write, never a live connection',
+    guardedBy:
+      'Pattern A (self), READ-only over REST (SELECT grant + self policy; no INSERT/UPDATE grant). The one write is mark_samahan_read() (SECURITY DEFINER), which writes only the caller\u2019s own marker and refuses a group they are not in. tests/db/samahan-unread-is-yours.db.test.ts.',
+    traps:
+      'A missing marker counts from joined_at, NOT the epoch \u2014 otherwise every old group lights with its whole history the day this shipped. A refused count is \u201cCouldn\u2019t load\u201d on the row, never a 0.',
   },
   {
     /**

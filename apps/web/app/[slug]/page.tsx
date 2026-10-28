@@ -1,3 +1,4 @@
+import { readGuestSupplierPageNotices } from '@/lib/supplier-page-notice.server';
 import { loadGiftPage, type GiftPageEvent } from './pabuya/_lib/gift-page.server';
 import { sampleBoardFor } from '@/lib/sample-board.server';
 import { asksForHostCanvas, asksForEditorBridge, canvasOnlyScene, canvasStylePreview, canvasTriedTheme, previewWayBackHref } from './_lib/editor-canvas';
@@ -2152,6 +2153,11 @@ async function invitationBody({
     : false;
   const photosLeftThePage = eventIsPast && dayOfPhase !== 'live' && dayOfPhase !== 'post';
 
+  // 📣 The 7-day guest notice (owner 2026-10-03): suppliers who will show photos from this event on their own page.
+  // Read on the service role only because the guest-session cookie already proved this event (loadGuestContext);
+  // never in the Maker's canvas, which is the couple editing, not a guest arriving. null = the read failed.
+  const supplierPageNotices = isEditorCanvas ? [] : await readGuestSupplierPageNotices(event.event_id);
+
   // (eventVendorCredits — "vendors who made this day" — now resolves inside
   // loadGuestContext, destructured above.)
   // The guest's reply either landed or it did not, and until now BOTH outcomes
@@ -2531,6 +2537,7 @@ async function invitationBody({
           guestOwnShots,
           poolGalleryOpen,
           earlyOwnShots,
+          supplierPageNotices,
           seatPassActive,
           needsFaceEnroll,
           guestHubData,

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "1da1fe5197",
-  "routeCount": 478,
+  "generatedFromRef": "06a89888f4",
+  "routeCount": 479,
   "destinations": 986,
   "actions": 642,
-  "blocks": 7215,
+  "blocks": 7240,
   "routes": {
     "/": {
       "files": [
@@ -1061,6 +1061,7 @@
         "[slug]/_components/story/your-own-consent.tsx",
         "[slug]/_components/supplier-desk-anchor.ts",
         "[slug]/_components/supplier-desk.tsx",
+        "[slug]/_components/supplier-page-notice-line.tsx",
         "[slug]/_components/supplier-ribbon.tsx",
         "[slug]/_components/tea-ceremony-card.tsx",
         "[slug]/_components/terms-tick.tsx",
@@ -1177,6 +1178,7 @@
         "withdraw"
       ],
       "blocks": [
+        "ActionButton",
         "AddNameInPlace",
         "AdoptSeatSession",
         "AmbientEffectLayer",
@@ -1486,6 +1488,7 @@
         "PhotoMomentsWidget",
         "PhotoMomentsYesAndNo",
         "PhotoNotesScene",
+        "PhotoWithRemove",
         "PhotosHeading",
         "PhotosOfYouGallery",
         "PhotosOfYouLead",
@@ -1512,6 +1515,7 @@
         "ReaderPerson",
         "Relive",
         "Remaining",
+        "RemoveResult",
         "ReplayNode",
         "ReplyCardRow",
         "ReplyForm",
@@ -1642,6 +1646,8 @@
         "SubmitButton",
         "SupplierDesk",
         "SupplierDeskModel",
+        "SupplierGroup",
+        "SupplierPageNoticeLine",
         "SupplierRibbon",
         "SupplierStoriesScene",
         "SupportingStrip",
@@ -5304,6 +5310,9 @@
         "dashboard/(account)/people/_components/find-or-invite.tsx",
         "dashboard/(account)/people/_components/follow-list-view.tsx",
         "dashboard/(account)/people/_components/found-person-card.tsx",
+        "dashboard/(account)/people/_components/group-chat-rows.tsx",
+        "dashboard/(account)/people/_components/people-groups-view.tsx",
+        "dashboard/(account)/people/_components/people-pinned-row.tsx",
         "dashboard/(account)/people/_components/people-roster-view.tsx",
         "dashboard/(account)/people/_components/people-thumb.tsx",
         "dashboard/(account)/people/_components/people-view-picker.tsx",
@@ -5346,7 +5355,6 @@
         "ConfirmForm",
         "ConnectionTreeSection",
         "CopyButton",
-        "CountDoor",
         "DependentKind",
         "DependentsSection",
         "Drawer",
@@ -5357,6 +5365,7 @@
         "FollowRowItem",
         "FoundPersonCard",
         "Frame",
+        "GroupChatRows",
         "GroupsFoldList",
         "GroupsFoldSection",
         "GuestConfirmActions",
@@ -5373,10 +5382,16 @@
         "Layer",
         "LifeStorySection",
         "Link",
+        "MenuSettingsButton",
         "PageMasthead",
         "PeopleFilter",
+        "PeopleGroupRows",
+        "PeopleGroupsView",
+        "PeoplePinnedRow",
         "PeoplePreview",
         "PeopleRosterView",
+        "PeopleSettings",
+        "PeopleSettingsRows",
         "PeopleThumb",
         "PeopleViewPicker",
         "Person",
@@ -5385,6 +5400,7 @@
         "PersonNameLink",
         "PersonRow",
         "PickMenu",
+        "PinnedRow",
         "PlanTogether",
         "Popover",
         "PreviewRow",
@@ -5392,6 +5408,7 @@
         "SamahanPeopleSection",
         "Spotlight",
         "SubmitButton",
+        "SwitchRow",
         "T",
         "ThumbField",
         "ThumbTool",
@@ -5503,6 +5520,7 @@
     },
     "/dashboard/(account)/samahan": {
       "files": [
+        "dashboard/(account)/samahan/_components/mark-group-read.tsx",
         "dashboard/(account)/samahan/actions.ts",
         "dashboard/(account)/samahan/page.tsx"
       ],
@@ -5519,6 +5537,7 @@
         "dashboard/(account)/samahan/[communityId]/_components/member-actions-menu.tsx",
         "dashboard/(account)/samahan/[communityId]/_components/samahan-identity-header.tsx",
         "dashboard/(account)/samahan/[communityId]/_components/samahan-stories.tsx",
+        "dashboard/(account)/samahan/[communityId]/layout.tsx",
         "dashboard/(account)/samahan/[communityId]/page.tsx"
       ],
       "destinations": [
@@ -5547,6 +5566,7 @@
         "HTMLVideoElement",
         "InfoTip",
         "Link",
+        "MarkGroupRead",
         "MediaRecorder",
         "MediaStream",
         "MemberActionsMenu",
@@ -11247,6 +11267,7 @@
       "actions": [],
       "blocks": [
         "IapUnlockSheet",
+        "InlineCheckoutDrawer",
         "PapicAddedPreview",
         "PapicCreditsAdded",
         "StudioBuyHero"
@@ -11497,8 +11518,10 @@
         "FoundPersonCard",
         "GroupsFoldList",
         "LabTour",
+        "PeopleGroupsView",
         "PeopleRosterView",
         "RosterPerson",
+        "SecondDegreeStandIn",
         "SpotlightMount",
         "TreeStandIn"
       ]
@@ -11514,6 +11537,22 @@
         "InviteResult",
         "InviteVendorForm",
         "TeamInviteDoor"
+      ]
+    },
+    "/dev/photo-privacy-lab": {
+      "files": [
+        "dev/photo-privacy-lab/lab-client.tsx",
+        "dev/photo-privacy-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "GuestLineLab",
+        "InfoTip",
+        "PutButtonLab",
+        "PutOnMyPageButton",
+        "PutOnPageResult",
+        "SupplierPageNoticeLine"
       ]
     },
     "/dev/pro-parts-lab": {
@@ -13944,6 +13983,7 @@
         "PickMenu",
         "PutOnPageResult",
         "ShopSegments",
+        "SupplierPageNoticeRow",
         "SupplierSubmit",
         "SupplierThumbRow",
         "SwitchTrack"
@@ -14627,6 +14667,7 @@
         "HTMLVideoElement",
         "HostPlaylist",
         "Icon",
+        "InfoTip",
         "Link",
         "LiveReviews",
         "LockedUpsell",

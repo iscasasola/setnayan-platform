@@ -24,15 +24,15 @@ import type { EventSettingsResult } from './open-event-settings';
  *   · Closing forgets the rows; the next press reads them fresh.
  */
 /** The shipped reader — the one action, loaded at the first press (Home's first load carries no server door for it). */
-const SHIPPED_EVENT_SETTINGS = async (eventId: string): Promise<EventSettingsResult> => (await import('./open-event-settings')).openEventSettings(eventId);
+const readEventSettings = async (eventId: string): Promise<EventSettingsResult> => (await import('./open-event-settings')).openEventSettings(eventId);
 
 export function HomeSettingsGear({
   eventId,
-  opener = SHIPPED_EVENT_SETTINGS,
+  rows,
 }: {
   eventId: string;
-  /** How the rows are read — the shipped action, or the Home lab's fixture (`/dev/home-lab`, a dev-only action). */
-  opener?: (eventId: string) => Promise<EventSettingsResult>;
+  /** The Home lab's rows, already drawn on its fixture (`/dev/home-lab`) — then nothing is read. Absent = read at the press. */
+  rows?: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const [got, setGot] = useState<{ body: ReactNode } | { reason: string } | null>(null);
@@ -43,14 +43,18 @@ export function HomeSettingsGear({
       setGot(null);
       return;
     }
+    if (rows !== undefined) {
+      setGot({ body: rows });
+      return;
+    }
     let live = true;
-    opener(eventId)
+    readEventSettings(eventId)
       .then((r) => live && setGot(r.ok ? { body: r.body } : { reason: r.reason }))
       .catch(() => live && setGot({ reason: 'Event settings couldn’t open just now. Nothing was changed — close it and try again.' }));
     return () => {
       live = false;
     };
-  }, [open, eventId, reads, opener]);
+  }, [open, eventId, reads, rows]);
 
   /* A field that saved and asked for its one render (a new parent, a venue the list must redraw): re-read the rows. */
   useEffect(() => {

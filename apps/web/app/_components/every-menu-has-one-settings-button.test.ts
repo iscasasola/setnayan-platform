@@ -23,8 +23,8 @@
  * 3 red; the ⚙ moved before the count → 3 red ("right end"); `data-first-row` dropped → 3 red; `live: false` on
  * memories → 2 red; a `<MenuSettingsButton` in `home-first-screen.tsx` → 4 red.
  * Sabotage (2026-10-29, Home's ⚙, each run and reverted): `invisible` back on the gear wrapper → 4 red; the gear mount
- * removed from the band → 2 + 4 red; a second `<MenuSettingsButton menu="home"` in `home-first-screen.tsx` → 2 + 4 red;
- * `eventSettings` not passed by the Home page → 4 red.
+ * removed from the band → 4 red (+ the pinned-row Home test); a second `<MenuSettingsButton menu="home"` in `home-first-screen.tsx` → 2 + 4 red;
+ * `eventSettings` not passed by the Home page → 4 red. `invisible` also turns the pinned-row Home test red.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';

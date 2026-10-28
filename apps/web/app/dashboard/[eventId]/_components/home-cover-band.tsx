@@ -4,7 +4,7 @@ import { forTagWords, type ForTag } from '@/lib/for-tag';
 import { ForTagMark } from '@/app/_components/for-tag-mark';
 import { HomeCoverPin } from './home-cover-pin';
 import { HomeSettingsGear } from './home-settings-gear';
-import type { EventSettingsResult } from './open-event-settings';
+import type { ReactNode } from 'react';
 
 /**
  * home-cover-band.tsx — THE EVENT HOME'S COVER BAND (the name and the date line),
@@ -33,14 +33,14 @@ export function HomeCoverBand({
   cover,
   ground = null,
   settingsFor,
-  settingsOpen,
+  settingsRows,
 }: {
   cover: HomeCoverWords;
   ground?: HomeCover | null;
   /** ⚙ The event whose Event Settings the ⚙ opens — the couple's Home only. The loading screen passes none. */
   settingsFor?: string;
-  /** The Home lab's stand-in for the rows' read (dev only); absent = the shipped action. */
-  settingsOpen?: (eventId: string) => Promise<EventSettingsResult>;
+  /** The Home lab's rows, already drawn on its fixture; absent = the ⚙ reads them at the press. */
+  settingsRows?: ReactNode;
 }) {
   const gear = Boolean(settingsFor);
   return (
@@ -73,7 +73,7 @@ export function HomeCoverBand({
           {cover.forWho ? <HomeForLine tag={cover.forWho} /> : null}
         </div>
         <HomeCoverPin name={cover.name} date={cover.shortDate} gear={gear} />
-        {settingsFor ? <HomeSettingsGear eventId={settingsFor} opener={settingsOpen} /> : null}
+        {settingsFor ? <HomeSettingsGear eventId={settingsFor} rows={settingsRows} /> : null}
       </div>
   );
 }

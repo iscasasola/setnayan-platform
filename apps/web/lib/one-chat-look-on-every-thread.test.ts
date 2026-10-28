@@ -192,6 +192,9 @@ test('the frame is the full-screen takeover on a phone — the top bar and the b
   assert.match(rule, /\[data-chat-takeover\] \{\s*position: fixed;\s*inset: 0;\s*z-index: 45;/);
   // Above the bottom dock (z 30) and the shell's top bar; below the sheets (z 50) that open over it.
   assert.ok(45 > 30 && 45 < 50);
-  // The route rise is a transform, and a transformed ancestor captures a fixed child: the thread does not rise.
-  assert.match(rule, /\.sn-page-enter:has\(\[data-chat-takeover\]\) \{\s*animation: none;/, 'the route rise draws the thread inside the page first');
+  // The route rise is a transform, and a transformed ancestor captures a fixed child: on a phone the thread does not rise.
+  const still = css.indexOf('.sn-page-enter:has([data-chat-takeover])');
+  assert.ok(still > 0, 'the route rise draws the thread inside the page first');
+  const media = css.lastIndexOf('@media', still);
+  assert.match(css.slice(media, still + 80), /^@media \(max-width: 1023\.98px\) \{\s*\.sn-page-enter:has\(\[data-chat-takeover\]\) \{ animation: none; \}/, 'the thread still rises on a phone');
 });

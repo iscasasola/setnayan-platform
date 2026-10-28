@@ -85,6 +85,11 @@ const GUEST_FACING: Record<string, GuestRead> = {
     why: 'the day-of "has anything changed?" stamp the guests’ hub, seat and find-seat pages poll (live-day polling, 2026-10-18) — only a stamp leaves it, but it must move only for lines a guest may see. Service-role.',
     reads: 1,
   },
+  'app/api/live/run-of-show/[eventId]/route.ts': {
+    why: 'the guests’ "Now · Up next" header, asked on a timer instead of a Realtime socket (EV1, 2026-10-28) — read exactly as a cookie-only guest’s own read (the anonymous client), fenced the same way, one remembered answer per event.',
+    reads: 1,
+    ownShape: true,
+  },
   'app/_actions/run-of-show.ts': {
     why: 'fetchRunOfShowBlocks — the realtime refetch behind the guests’ "Now · Up next" header. The visitor’s own session; the anonymous policy does not ask audience, so the action does when the header says forGuests.',
     reads: 1,

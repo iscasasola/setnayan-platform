@@ -18,6 +18,8 @@ import { userNestingRewritePath } from '@/lib/u-nesting';
 import { mayRefreshGuestPass } from '@/lib/guest-pass-hop';
 import { legacyRedirectTarget } from '@/lib/legacy-redirects';
 import { recordSiteVisit } from '@/lib/visits/record-visit';
+import { hubViewRewritePath } from '@/lib/hub-view-route';
+import { HUB_BUST_COOKIE, isHubViewPath } from '@/lib/hub-view-key';
 import {
   isStoreShellSignals,
   isStoreShellWebOnlyPath,
@@ -230,6 +232,25 @@ export async function middleware(request: NextRequest) {
     });
   }
   await refreshGuestSessionCookie(request, response);
+  // 🗄 A GUEST'S OWN WRITE GIVES THEM A FRESH EVENT HUB (EV1, lib/hub-view-key.ts). Any write carrying a guest pass —
+  // a reply, a plus-one's name, a photo — moves this small cookie, which is part of the cached hub's key, so that
+  // guest's next open is drawn afresh instead of from a copy made before their write. Nobody else's copy moves.
+  if (
+    request.method !== 'GET' &&
+    request.method !== 'HEAD' &&
+    request.method !== 'OPTIONS' &&
+    (request.cookies.has(GUEST_SESSION_COOKIE_NAME) || request.cookies.has(GUEST_PASS_BOOK_COOKIE_NAME))
+  ) {
+    response.cookies.set({
+      name: HUB_BUST_COOKIE,
+      value: Date.now().toString(36),
+      httpOnly: true,
+      secure: true,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 60 * 60 * 24 * 7,
+    });
+  }
   // VISITS (owner 2026-10-22: traffic in our own admin, no cookies) — one page
   // view counted AFTER the response is on its way; never on the critical path.
   // Everything that is not a view (store shell, bots, /admin, prefetches,
@@ -425,6 +446,23 @@ async function middlewareCore(request: NextRequest) {
       );
       return NextResponse.redirect(redirectUrl);
     }
+  }
+
+  // 🗄 THE CACHED EVENT HUB (EV1 · owner 2026-10-28: "Our priority is not crash any event hub most specially during
+  // their event"). Its own address is never served to the outside — only this rewrite reaches it.
+  // (A LAB build may ask it directly — `HUB_VIEW_LAB_DIRECT=1`, never set on Vercel — to show the copy being served the
+  // way Vercel's edge serves it after this rewrite; `next start` hands the route its ORIGINAL url, so a rewrite there
+  // always renders. See scripts/load-test-event-day.mjs.)
+  if (isHubViewPath(pathname) && process.env.HUB_VIEW_LAB_DIRECT !== '1') return new NextResponse('Not found', { status: 404 });
+  // A guest's or a stranger's `/{slug}` — no session, no host preview, no one-shot flash — is answered from the copy
+  // cached for THEIR key (lib/hub-view-route.ts); everyone else falls through to the live render below. Before
+  // `updateSession` on purpose: such a request carries no Supabase session, so there is nothing for it to refresh.
+  const hubView = await hubViewRewritePath(request);
+  if (hubView) {
+    const rewrite = request.nextUrl.clone();
+    rewrite.pathname = hubView;
+    for (const k of [...rewrite.searchParams.keys()]) if (k !== '_rsc') rewrite.searchParams.delete(k);
+    return NextResponse.rewrite(rewrite);
   }
 
   const { response, user } = await updateSession(request);

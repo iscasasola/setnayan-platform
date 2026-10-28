@@ -386,9 +386,15 @@ test('🔑 14 · a masked supplier’s real name never reaches the column', () =
     /listDisplayNames\.set\(/.test(couplePage),
     'the couple page stopped resolving the column’s names',
   );
+  // Since 2026-10-28 the name arrives through `nameForThread` (lib/chat-supplier-names.ts), which runs the
+  // resolver on `couple_thread_supplier_names` — the RLS-refused embed printed "Supplier" for hidden shops.
   assert.ok(
-    couplePage.includes('resolveVendorDisplayName'),
+    /listDisplayNames\.set\([^)]*nameForThread\(/.test(couplePage),
     'the column’s names stopped going through the anonymity resolver',
+  );
+  assert.ok(
+    /resolveVendorDisplayName\s*\(/.test(read('lib/chat-supplier-names.ts')),
+    'the one supplier-name reader stopped calling the anonymity resolver',
   );
   // The column and the builder must not know what a business_name or a logo is.
   for (const rel of [COLUMN, BUILDER]) {

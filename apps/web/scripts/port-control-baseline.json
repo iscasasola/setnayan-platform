@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "0dc8e87064",
-  "routeCount": 480,
-  "destinations": 988,
-  "actions": 652,
-  "blocks": 7278,
+  "generatedFromRef": "a6ffcf9137",
+  "routeCount": 479,
+  "destinations": 986,
+  "actions": 642,
+  "blocks": 7250,
   "routes": {
     "/": {
       "files": [
@@ -2657,7 +2657,6 @@
         "admin/categories/_components/four-level-map.tsx",
         "admin/categories/_components/four-level-model.ts",
         "admin/categories/_components/group-icons.ts",
-        "admin/categories/_components/hub-tools-pane.tsx",
         "admin/categories/_components/in-place.tsx",
         "admin/categories/_components/list-pane.tsx",
         "admin/categories/_components/load-map.ts",
@@ -2788,8 +2787,6 @@
         "HTMLElement",
         "Head",
         "Hidden",
-        "HubToolsPane",
-        "HubToolsSection",
         "Icon",
         "InfoTip",
         "ItemForm",
@@ -2847,7 +2844,6 @@
         "SVGSVGElement",
         "Said",
         "SavePick",
-        "ScanMode",
         "SearchParamsRecord",
         "Section",
         "ServiceBack",
@@ -2858,7 +2854,6 @@
         "StudioActionResult",
         "SubmitButton",
         "SwitchForm",
-        "SwitchRow",
         "SwitchTrack",
         "T",
         "Thumbs",
@@ -3451,24 +3446,20 @@
     },
     "/admin/help": {
       "files": [
-        "admin/help/_components/help-messenger.tsx",
         "admin/help/actions.ts",
         "admin/help/loading.tsx",
         "admin/help/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/admin/help?status=[seg]"
+      ],
       "actions": [
-        "action",
         "setHelpMessageStatus"
       ],
       "blocks": [
-        "ActionButton",
-        "ChatBox",
-        "ChatThreadHead",
-        "HelpMessageRow",
-        "HelpMessenger",
-        "Link",
-        "PageMasthead"
+        "FilterChip",
+        "PageMasthead",
+        "SubmitButton"
       ]
     },
     "/admin/hub-music": {
@@ -4918,41 +4909,13 @@
     },
     "/admin/work": {
       "files": [
-        "admin/work/_components/form-pick.tsx",
-        "admin/work/_components/supplier-inbox.tsx",
         "admin/work/actions.ts",
         "admin/work/page.tsx"
       ],
-      "destinations": [
-        "/admin/help?m=[seg]"
-      ],
-      "actions": [
-        "createEventTypeRoster",
-        "openApplicationDocument",
-        "resolveRepostFlag",
-        "setEventTypeStatus",
-        "setFolderEventTypeOffered",
-        "settleCorrectionFromWorkList",
-        "settleHelpFromWorkList",
-        "settleVerificationFromWorkList"
-      ],
+      "destinations": [],
+      "actions": [],
       "blocks": [
-        "ActionButton",
-        "CardsBody",
-        "DocsBody",
-        "Fact",
-        "FormPick",
-        "Icon",
-        "InfoTip",
-        "Link",
-        "MsgsBody",
-        "NamesBody",
-        "PickMenu",
-        "Preview",
-        "QueuesTriageFeed",
-        "ReasonPick",
-        "SupplierInbox",
-        "TypesBody"
+        "QueuesTriageFeed"
       ]
     },
     "/api/v1": {
@@ -10919,28 +10882,6 @@
         "NewManualVendorModal"
       ]
     },
-    "/dev/admin-supplier-lab": {
-      "files": [
-        "dev/admin-supplier-lab/fixtures.ts",
-        "dev/admin-supplier-lab/lab-submit-catcher.tsx",
-        "dev/admin-supplier-lab/page.tsx"
-      ],
-      "destinations": [
-        "/admin/verify",
-        "/dev/admin-supplier-lab?view=[seg]"
-      ],
-      "actions": [
-        "setHelpMessageStatus"
-      ],
-      "blocks": [
-        "HelpMessenger",
-        "HubToolsPane",
-        "LabSubmitCatcher",
-        "QueuesTriageFeed",
-        "SP",
-        "SupplierInbox"
-      ]
-    },
     "/dev/art-kit-lab": {
       "files": [
         "dev/art-kit-lab/page.tsx"
@@ -11095,6 +11036,7 @@
       "actions": [],
       "blocks": [
         "ChatInbox",
+        "CoupleThreadSupplierRow",
         "LabShell",
         "StartThreadPicker",
         "ThreadArchiveToggle"

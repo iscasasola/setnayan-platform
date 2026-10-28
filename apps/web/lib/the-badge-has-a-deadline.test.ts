@@ -127,17 +127,8 @@ const BADGE_SITE_BILL: ReadonlyMap<string, { count: number; why: string }> = new
     { count: 2, why: 'Both feed resolveVendorDisplayName/isVendorNameRevealed (name-reveal). The badge field (enrichmentByVendorId.is_verified) now calls hasVerifiedBadge.' },
   ],
   [
-    'app/dashboard/[eventId]/messages/[threadId]/page.tsx',
-    { count: 3, why: 'Two feed resolveVendorDisplayName (name-reveal); the third feeds isVendorNameRevealed for the chat\'s shop-staff first names (C1 2026-10-28 — a masked shop shows none). No "Verified" badge renders on this page.' },
-  ],
-  [
     'lib/messages-team-picker.ts',
     { count: 1, why: 'Feeds resolveVendorDisplayName only (name-reveal) — the Messages team picker lists names, no "Verified" badge renders.' },
-  ],
-  [
-    'app/dashboard/[eventId]/messages/page.tsx',
-    // 2 → 1 on 2026-10-01 (P3): the name and the logo now share ONE `isVerified`.
-    { count: 1, why: 'Feeds resolveVendorDisplayName + isVendorNameRevealed (name/logo reveal) — no "Verified" badge renders on this page.' },
   ],
   [
     'app/tour/vendors/page.tsx',

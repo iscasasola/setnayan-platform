@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6783
+# facts: 6759
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     577
-#   col       4971
-#   policy    962
+#   tpriv     574
+#   col       4955
+#   policy    956
 #   view      9
-#   func      260
+#   func      261
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -60,8 +60,6 @@ tpriv	public.canonical_service_schemas|anon	SIUD
 tpriv	public.canonical_service_schemas|authenticated	SIUD
 tpriv	public.canonical_service_taxonomy|anon	SIUD
 tpriv	public.canonical_service_taxonomy|authenticated	SIUD
-tpriv	public.category_hub_settings|authenticated	S
-tpriv	public.category_hub_tool_switches|authenticated	S
 tpriv	public.chat_message_flags|authenticated	SIUD
 tpriv	public.chat_messages|anon	SD
 tpriv	public.chat_messages|authenticated	SD
@@ -244,7 +242,6 @@ tpriv	public.hiring_roadmap|authenticated	SIUD
 tpriv	public.homepage_background_videos|anon	SIUD
 tpriv	public.homepage_background_videos|authenticated	SIUD
 tpriv	public.hub_music_tracks|authenticated	IUD
-tpriv	public.hub_tools|authenticated	S
 tpriv	public.inquiry_outcome_reason_codes|anon	SIUD
 tpriv	public.inquiry_outcome_reason_codes|authenticated	SIUD
 tpriv	public.inquiry_outcomes|authenticated	SIUD
@@ -841,13 +838,6 @@ col	public.canonical_service_taxonomy.secondary_tiles	anon=SIU authenticated=SIU
 col	public.canonical_service_taxonomy.sort_order	anon=SIU authenticated=SIU
 col	public.canonical_service_taxonomy.tile_id	anon=SIU authenticated=SIU
 col	public.canonical_service_taxonomy.updated_at	anon=SIU authenticated=SIU
-col	public.category_hub_settings.category_id	anon=- authenticated=S
-col	public.category_hub_settings.scan_default	anon=- authenticated=S
-col	public.category_hub_settings.updated_at	anon=- authenticated=S
-col	public.category_hub_settings.updated_by	anon=- authenticated=S
-col	public.category_hub_tool_switches.category_id	anon=- authenticated=S
-col	public.category_hub_tool_switches.created_at	anon=- authenticated=S
-col	public.category_hub_tool_switches.tool_key	anon=- authenticated=S
 col	public.chat_message_flags.action_taken	anon=- authenticated=SIU
 col	public.chat_message_flags.categories	anon=- authenticated=SIU
 col	public.chat_message_flags.created_at	anon=- authenticated=SIU
@@ -2605,14 +2595,6 @@ col	public.hub_music_tracks.sort_order	anon=- authenticated=SIU
 col	public.hub_music_tracks.title	anon=- authenticated=SIU
 col	public.hub_music_tracks.track_id	anon=- authenticated=SIU
 col	public.hub_music_tracks.updated_at	anon=- authenticated=SIU
-col	public.hub_tools.created_at	anon=- authenticated=S
-col	public.hub_tools.is_active	anon=- authenticated=S
-col	public.hub_tools.label	anon=- authenticated=S
-col	public.hub_tools.sort_order	anon=- authenticated=S
-col	public.hub_tools.template	anon=- authenticated=S
-col	public.hub_tools.tool_key	anon=- authenticated=S
-col	public.hub_tools.updated_at	anon=- authenticated=S
-col	public.hub_tools.updated_by	anon=- authenticated=S
 col	public.inquiry_outcome_reason_codes.applies_to	anon=SIU authenticated=SIU
 col	public.inquiry_outcome_reason_codes.created_at	anon=SIU authenticated=SIU
 col	public.inquiry_outcome_reason_codes.is_active	anon=SIU authenticated=SIU
@@ -4459,7 +4441,6 @@ col	public.vendor_contracts.uploaded_by_user_id	anon=SIU authenticated=SIU
 col	public.vendor_contracts.vendor_profile_id	anon=SIU authenticated=SIU
 col	public.vendor_correction_requests.created_at	anon=SIU authenticated=SIU
 col	public.vendor_correction_requests.current_value	anon=SIU authenticated=SIU
-col	public.vendor_correction_requests.decline_reason	anon=SIU authenticated=SIU
 col	public.vendor_correction_requests.field_key	anon=SIU authenticated=SIU
 col	public.vendor_correction_requests.id	anon=SIU authenticated=SIU
 col	public.vendor_correction_requests.note	anon=SIU authenticated=SIU
@@ -5623,10 +5604,6 @@ policy	public.canonical_service_schemas|canonical_service_schemas_admin_write	mo
 policy	public.canonical_service_schemas|canonical_service_schemas_read_all	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=true check=NULL
 policy	public.canonical_service_taxonomy|canonical_service_taxonomy_admin_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.canonical_service_taxonomy|canonical_service_taxonomy_read_all	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=true check=NULL
-policy	public.category_hub_settings|category_hub_settings_admin_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
-policy	public.category_hub_settings|category_hub_settings_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=true check=NULL
-policy	public.category_hub_tool_switches|category_hub_tool_switches_admin_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
-policy	public.category_hub_tool_switches|category_hub_tool_switches_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=true check=NULL
 policy	public.chat_message_flags|chat_message_flags_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
 policy	public.chat_message_flags|chat_message_flags_admin_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.chat_messages|chat_messages_block_guard	mode=RESTRICTIVE cmd=INSERT roles=authenticated using=NULL check=(NOT (EXISTS ( SELECT 1 FROM blocked_users b WHERE (((( SELECT auth.uid() AS uid) = b.blocker_user_id) OR (( SELECT auth.uid() AS uid) = b.blocked_user_id)) AND ( CASE WHEN (b.blocker_user_id = ( SELECT auth.uid() AS uid)) THEN b.blocked_user_id ELSE b.blocker_user_id END IN ( SELECT em.user_id FROM event_members em WHERE ((em.event_id = chat_messages.event_id) AND (em.member_type = 'couple'::member_type)) UNION SELECT vp.user_id FROM vendor_profiles vp WHERE (vp.vendor_profile_id = chat_messages.vendor_profile_id)))))))
@@ -5982,8 +5959,6 @@ policy	public.hiring_roadmap|hiring_roadmap_owner_write	mode=PERMISSIVE cmd=ALL 
 policy	public.homepage_background_videos|homepage_background_videos_read_all	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=true check=NULL
 policy	public.hub_music_tracks|hub_music_tracks_admin_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.hub_music_tracks|hub_music_tracks_read_published	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(is_published = true) check=NULL
-policy	public.hub_tools|hub_tools_admin_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
-policy	public.hub_tools|hub_tools_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=true check=NULL
 policy	public.inquiry_outcome_reason_codes|reason_codes_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.inquiry_outcome_reason_codes|reason_codes_read_active	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=(is_active = true) check=NULL
 policy	public.inquiry_outcomes|inquiry_outcomes_org_delete	mode=PERMISSIVE cmd=DELETE roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=NULL
@@ -6592,6 +6567,7 @@ func	public.coordinator_seat_by_guest_qr(p_event_id uuid, p_token text)	secdef=y
 func	public.count_saves_for_vendor(p_vendor_profile_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.count_unread_message_threads()	secdef=yes exec=anon,authenticated search_path=public
 func	public.couple_decide_inspiration_suggestion(p_suggestion_id uuid, p_keep boolean, p_replace_position smallint)	secdef=yes exec=authenticated search_path=public
+func	public.couple_thread_supplier_names(p_event_id uuid)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.couple_undo_kept_inspiration_suggestion(p_suggestion_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.create_vendor_subscription(p_sku_code text, p_addon_token_pack_sku text)	secdef=yes exec=anon,authenticated search_path=UNPINNED
 func	public.current_community_ids()	secdef=yes exec=anon,authenticated search_path=public

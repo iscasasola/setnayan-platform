@@ -278,6 +278,30 @@ function detailsFixture(who: Who): DetailsData {
  * 🎁 A shop fresh from Setnayan's personal invite (prototype `supplier_personal_invite_2026-10-23` frame B4): the
  * admin staged the name, the category and the email; nothing else is in yet. `?s=details&invited=1`.
  */
+/**
+ * 🧰 A NEW SHOP, for Today's six steps (`?easy=setup`, owner 2026-10-28): fresh from the invite (B4) — name and email
+ * in, the rest to do; `docs` sets how its papers stand (none · checking · fix, with the admin's reason).
+ */
+export function labSetupDetails(docs: 'none' | 'checking' | 'fix' = 'none', stage: 'fresh' | 'details' = 'fresh'): DetailsData {
+  const d = invitedDetailsFixture();
+  const checklist = stage === 'details' ? d.checklist.map((i) => ({ ...i, ok: true })) : d.checklist;
+  const status = docs === 'checking' ? 'pending_review' : docs === 'fix' ? 'rejected' : null;
+  return {
+    ...d,
+    checklist,
+    profileComplete: stage === 'details',
+    fieldsLeft: checklist.filter((i) => !i.ok && i.key !== 'logo').length,
+    docsIn: docs === 'none' ? 0 : docs === 'fix' ? 3 : 4,
+    verify: {
+      ...d.verify,
+      status,
+      requiredIn: docs === 'none' ? 0 : docs === 'fix' ? 3 : 4,
+      requiredDocsIn: docs === 'checking',
+      decisionReason: docs === 'fix' ? 'The BIR 2303 photo is cut off at the bottom — upload the whole page.' : null,
+    } as DetailsData['verify'],
+  };
+}
+
 function invitedDetailsFixture(): DetailsData {
   const base = detailsFixture('caterer');
   const has = new Set(['business_name', 'contact_email', 'services']);

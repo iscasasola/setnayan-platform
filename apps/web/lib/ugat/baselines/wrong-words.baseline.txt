@@ -100,8 +100,8 @@ app/v/[slug]/page.tsx "Philippines" → /[slug]	# first run 2026-10-02 · guest 
 app/v/[slug]/page.tsx "Plan with Setnayan" → /signup	# first run 2026-10-02 · sign-in & onboarding · a "Messages" row that opens the roster
 app/v/[slug]/page.tsx "Setnayan supplier" → /	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
 app/v/[slug]/page.tsx "Setnayan supplier" → /[slug]	# first run 2026-10-02 · guest app · a "Messages" row that opens the roster
+app/vendor-dashboard/_components/supplier-today-first-screen.tsx "All dates" → /vendor-dashboard/customers	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
 app/vendor-dashboard/_components/supplier-today-first-screen.tsx "checked in" → /vendor-dashboard/on-the-day	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
-app/vendor-dashboard/_components/supplier-today-first-screen.tsx "this week" → /vendor-dashboard/customers	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
 app/vendor-dashboard/attributes/page.tsx "Set up profile" → /vendor-dashboard	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
 app/vendor-dashboard/clients/[eventId]/_components/vendor-challenge-section.tsx "Turn on Papic Challenges" → /vendor-dashboard/subscription	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
 app/vendor-dashboard/collections/_components/collections-list.tsx "— Apply on Your page" → /vendor-dashboard/website	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster

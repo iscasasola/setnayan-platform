@@ -26,6 +26,7 @@ export function ProfileChecklistEditor({
   data,
   isVerified,
   showProgress = true,
+  flat = false,
 }: {
   items: BusinessProfileItem[];
   data: ProfileFieldData;
@@ -35,6 +36,8 @@ export function ProfileChecklistEditor({
    * progress line — so the per-editor badge, count and bar step aside there. Default: exactly as it was.
    */
   showProgress?: boolean;
+  /** 🧾 House form rows — no card around each row (Today's setup steps, owner 2026-10-28). Absent → as it was. */
+  flat?: boolean;
 }) {
   const [openKey, setOpenKey] = useState<string | null>(null);
 
@@ -99,12 +102,12 @@ export function ProfileChecklistEditor({
       </div>
       ) : null}
 
-      <ul className="space-y-2">
+      <ul className={flat ? '' : 'space-y-2'}>
         {items.map((item) =>
           // "Services covered" is taxonomy-driven — it jumps to the Coverage
           // flow instead of editing a column inline (owner 2026-07-03).
           item.key === 'services' ? (
-            <ServiceCoverageRow key={item.key} item={item} count={data.services.length} />
+            <ServiceCoverageRow key={item.key} item={item} count={data.services.length} flat={flat} />
           ) : (
             <EditableRow
               key={item.key}
@@ -117,6 +120,7 @@ export function ProfileChecklistEditor({
               // different row meanwhile — a late rejection must never steal the
               // open slot from (and force-commit) the row they moved to.
               onReopenAfterError={() => setOpenKey((cur) => (cur === null ? item.key : cur))}
+              flat={flat}
             />
           ),
         )}

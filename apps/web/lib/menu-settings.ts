@@ -27,7 +27,7 @@
  */
 
 /** The menus (and the one Hub tool, Prints) that own a settings sheet. Home is deliberately absent. */
-export type SettingsMenu = 'guests' | 'hub' | 'prints' | 'memories' | 'suppliers' | 'people';
+export type SettingsMenu = 'guests' | 'hub' | 'prints' | 'memories' | 'suppliers' | 'people' | 'today';
 
 export type SettingsEntry = {
   /** Where the door sits. Every menu: the right end of its first control row. Suppliers: the spot, reserved. */
@@ -38,6 +38,11 @@ export type SettingsEntry = {
   line: string;
   /** Mounted on main yet. Flipped in the PR that mounts it; the guard follows. */
   live: boolean;
+  /**
+   * The ⓘ under the sheet's title, when it is not the couple menus' shared sentence (`MENU_SETTINGS_TIP` speaks of
+   * "the event's own facts … under ⚙ on Home", which a supplier's page has no Home for).
+   */
+  tip?: string;
 };
 
 /** The ⓘ every menu sheet carries, word for word (prototype § 1). */
@@ -83,6 +88,18 @@ export const SETTINGS_ENTRY: Record<SettingsMenu, SettingsEntry> = {
     sheet: 'People settings',
     line: 'Who can find you by name.',
     live: true,
+  },
+  /**
+   * 🧰 THE SUPPLIER'S TODAY ⚙ (owner 2026-10-28, DECISION_LOG "SUPPLIER DASHBOARD APPROVED — EVERYTHING IN PLACE, A ⚙
+   * PER PAGE": "Today ⚙ notifications + run-the-day"). It ends Today's pinned counts row — and, on a new shop, the
+   * "Get your shop live" row (one component, `TodaySettings`, one mount of this door).
+   */
+  today: {
+    door: 'first-row-gear',
+    sheet: 'Today settings',
+    line: 'How Setnayan reaches you.',
+    live: true,
+    tip: 'Settings for Today only. Your shop’s own settings stay with your shop.',
   },
 };
 

@@ -63,7 +63,7 @@ export function MenuSettingsButton({
             <div data-menu-settings-sheet={menu}>
               <p className="px-4 pt-3 text-[12.5px] text-ink/60" data-menu-settings-line="">
                 <InfoTip label={entry.line} align="start">
-                  {MENU_SETTINGS_TIP}
+                  {entry.tip ?? MENU_SETTINGS_TIP}
                 </InfoTip>
               </p>
               {children}

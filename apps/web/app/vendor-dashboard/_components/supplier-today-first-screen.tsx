@@ -521,10 +521,16 @@ export function SupplierTodayFirstScreen({
           ) : null}
     </UndoableAnswers>
   );
-  /* The "waiting" count's list: the same block — said in words when nothing waits — and the door to all of it. */
+  /* The "waiting" count's list: the same block — said in words when nothing waits — and the door to all of it.
+     🪞 SAID ONCE (owner 2026-10-28, live shot: "Nothing waiting · No bookings yet…" on the Next card, then "✓ Nothing
+     waiting on you" right under it). When the Next card IS the empty state (`clear` — reached only after the desk read
+     in full; an unread desk is `unread` and says "couldn't load") the row would repeat it, so it is not drawn. Under any
+     other card (a fee, payday, tomorrow…) the row still says the list is empty — nothing above has said so.
+     🔒 app/vendor-dashboard/_components/empty-today-says-it-once.test.ts */
+  const sayNothingWaiting = nothingWaiting && next.kind !== 'clear';
   const waitingPanel = (
     <>
-      {nothingWaiting ? (
+      {sayNothingWaiting ? (
         <div className="[&>*:first-child]:border-t-0">
           <TodayNoteRow label="Nothing waiting on you" line="New asks land here first" rowIcon="check" marker="waiting-empty" />
         </div>

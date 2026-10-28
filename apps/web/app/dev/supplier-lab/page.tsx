@@ -18,6 +18,8 @@
  *   ?s=doors          the rules that are not a customer's ask, as rows — and two unpaid booking fees
  *   ?s=fees           one ask (the Next card) and two unpaid booking fees — the fees carry the "Also waiting" heading
  *   ?s=clear          nothing waiting
+ *   &earned=verified|milestone   🏅 Today's "newly earned" line (`badge-earned-line.tsx`) above the screen, on lab
+ *                     facts handed in as data: URIs — e.g. ?s=clear&earned=verified is the owner's 2026-10-28 phone shot
  *   &toast=1          the outcome: the shared top toast + the status line (&toast=refused · &toast=failed · &toast=note)
  *   ?thumb=people     the frosted thumb row: a search field (≥ 60 %) + Add     (frame 03)
  *   ?thumb=customer   Chat (main) · Quote · Payment · Call                     (frame 06)
@@ -97,6 +99,9 @@ import { suggestablePartsForShop, supplierTradeWord } from '@/lib/inspiration-su
 import { fallbackInspirationParts } from '@/lib/inspiration-parts';
 import { supplierRoleLine } from '@/lib/inspiration-suggestions';
 import { canonicalServicesForTile } from '@/lib/vendor-counts';
+import { BadgeEarnedLine } from '@/app/vendor-dashboard/_components/badge-earned-line';
+import { badgePrintSvg } from '@/lib/shop-badge-print';
+import { badgesForPrint, type ShopBadgeFacts } from '@/lib/shop-badges';
 
 const PEOPLE_STATES = ['people', 'clash', 'empty', 'fail', 'nopools'] as const;
 
@@ -240,7 +245,28 @@ const ACTIONS: TodayActions = {
   markServiceComplete: vendorMarkServiceComplete,
 };
 
-function TodayLab({ state, toast }: { state: TodayState; toast: string | undefined }) {
+/* 🏅 The facts the earned line reads, per lab case: Verified alone (the owner’s live shot) · a 50-event milestone. */
+const EARNED_FACTS: Record<string, ShopBadgeFacts> = {
+  verified: { verified: true, completedEvents: 0, trusted: null, inBusinessSinceYear: null, awards: [], nowYear: 2026 },
+  milestone: { verified: true, completedEvents: 50, trusted: null, inBusinessSinceYear: null, awards: [], nowYear: 2026 },
+};
+
+/** The earned line exactly as Today mounts it (above the screen), its facts and print file handed in as data: URIs. */
+function LabEarnedLine({ which }: { which: string }) {
+  const facts = EARNED_FACTS[which];
+  if (!facts) return null;
+  const files = Object.fromEntries(
+    badgesForPrint(facts).map((b) => [b.key, `data:image/svg+xml;base64,${Buffer.from(badgePrintSvg([b])).toString('base64')}`]),
+  );
+  return (
+    <BadgeEarnedLine
+      factsUrl={`data:application/json,${encodeURIComponent(JSON.stringify({ vendorId: `lab-earned-${which}`, facts }))}`}
+      labFiles={files}
+    />
+  );
+}
+
+function TodayLab({ state, toast, earned }: { state: TodayState; toast: string | undefined; earned?: string }) {
   const { answer: needsAnswer, news: closed } = splitDesk(state.whatsNew);
   const findability = state.extras
     ? { title: 'Couples can’t find you yet.', body: 'Your shop is approved, but it is not showing in the marketplace.', cta: { label: 'Ask us to list your shop', href: '/help#contact' } }
@@ -277,6 +303,7 @@ function TodayLab({ state, toast }: { state: TodayState; toast: string | undefin
   return (
     <div className="min-h-screen bg-cream px-4 pb-32 pt-4" data-supplier-lab="today">
       {t ? <SupplierToast {...t} line={false} /> : null}
+      {earned ? <LabEarnedLine which={earned} /> : null}
       <SupplierTodayScreen
         view={view}
         outcome={t ? { text: t.text, tone: t.tone } : null}
@@ -293,7 +320,7 @@ function TodayLab({ state, toast }: { state: TodayState; toast: string | undefin
 export default async function SupplierLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ thumb?: string; s?: string; toast?: string; q?: string; lane?: string; add?: string; open?: string; next?: string; mpage?: string; easy?: string; sup?: string; who?: string; draft?: string; library?: string; view?: string; sent?: string; rail?: string; logo?: string; gift?: string; invited?: string; shell?: string; wallet?: string; port?: string; spot?: string; none?: string; unread?: string; docs?: string; gbb?: string }>;
+  searchParams: Promise<{ thumb?: string; s?: string; toast?: string; q?: string; lane?: string; add?: string; open?: string; next?: string; mpage?: string; easy?: string; sup?: string; who?: string; draft?: string; library?: string; view?: string; sent?: string; rail?: string; logo?: string; gift?: string; invited?: string; shell?: string; wallet?: string; port?: string; spot?: string; none?: string; unread?: string; docs?: string; gbb?: string; earned?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -361,7 +388,7 @@ export default async function SupplierLabPage({
   if (today)
     return wrap(
       <>
-        <TodayLab state={today} toast={q.toast} />
+        <TodayLab state={today} toast={q.toast} earned={q.earned} />
       </>,
       'today',
     );

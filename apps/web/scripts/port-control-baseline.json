@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "eaf3a2189f",
+  "generatedFromRef": "c53e3d5625",
   "routeCount": 475,
-  "destinations": 982,
-  "actions": 642,
-  "blocks": 7172,
+  "destinations": 984,
+  "actions": 643,
+  "blocks": 7181,
   "routes": {
     "/": {
       "files": [
@@ -11610,6 +11610,7 @@
         "/dev/supplier-lab?s=dates-day",
         "/dev/supplier-lab?s=dates-halls",
         "/dev/supplier-lab?s=library&view=review",
+        "/dev/supplier-lab?s=money",
         "/dev/supplier-lab?s=people",
         "/dev/supplier-lab?s=qr",
         "/dev/supplier-lab?s=qr-booked",
@@ -11672,6 +11673,7 @@
         "SearchBox",
         "ShopBadgePill",
         "ShopSegments",
+        "ShopWalletSheet",
         "StylistLibraryEditor",
         "SuggestBoardActions",
         "SuggestLab",
@@ -13994,6 +13996,7 @@
         "vendor-dashboard/customers/_components/money-view.tsx",
         "vendor-dashboard/customers/_components/outside-client-add.tsx",
         "vendor-dashboard/customers/_components/people-more.tsx",
+        "vendor-dashboard/customers/_components/shop-wallet-sheet.tsx",
         "vendor-dashboard/customers/actions.ts",
         "vendor-dashboard/customers/anchors.ts",
         "vendor-dashboard/customers/page.tsx",
@@ -14005,6 +14008,7 @@
         "/vendor-dashboard/clients/[seg]?tab=details",
         "/vendor-dashboard/customers?seg=dates&m=[seg]",
         "/vendor-dashboard/messages/[seg]",
+        "/vendor-dashboard/on-the-day/live/[seg]/papic",
         "/vendor-dashboard/subscription"
       ],
       "actions": [
@@ -14012,6 +14016,7 @@
         "addManualBlock",
         "createAction",
         "editAction",
+        "formAction",
         "importExternalClient",
         "moveAction",
         "removeBlock"
@@ -14023,6 +14028,8 @@
         "BlockDateAdd",
         "BookingFeeBills",
         "BookingsSurface",
+        "BuyAPack",
+        "BuyVendorPapicPortfolioPackState",
         "CalendarDay",
         "CalendarGrid",
         "CalendarLegend",
@@ -14070,6 +14077,7 @@
         "OutsideClient",
         "OutsideClientAdd",
         "OutsideClientRows",
+        "PaymentsPausedNote",
         "PesoCount",
         "PickMenu",
         "PillLink",
@@ -14084,6 +14092,8 @@
         "SearchBox",
         "ShareTeamPick",
         "Sheet",
+        "ShopWalletSheet",
+        "ShopWalletSheetData",
         "SupplierSubmit",
         "SupplierThumbRow",
         "SupplierToast",
@@ -15232,6 +15242,7 @@
       ],
       "blocks": [
         "AccordionSkeleton",
+        "ActionButton",
         "ApplicationStatus",
         "AutoReplyCard",
         "AutoReplySaveResult",
@@ -15287,6 +15298,7 @@
         "PillTrack",
         "Pin",
         "PlainInput",
+        "PortfolioForm",
         "PublicLineSaveResult",
         "ReachMap",
         "ReceiptLine",
@@ -15312,6 +15324,7 @@
         "SubmitButton",
         "SubmitResult",
         "SuggestedCoverageActionResult",
+        "SupplierSubmit",
         "Suspense",
         "Switch",
         "SwitchTrack",

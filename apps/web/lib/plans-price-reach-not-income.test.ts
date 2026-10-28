@@ -11,7 +11,8 @@
  *   2 · no tier carries a per-day booking limit or a weekly answering limit — and NO shipped code reads either cap to
  *       refuse anything (the readers are named below, each one display-only);
  *   3 · the portfolio base is PORTFOLIO_FREE_BASE on every tier, it is grandfathered (stored photos always survive),
- *       and the one writer that saves the gallery goes through `capPortfolioRefs`;
+ *       and past it the gallery save PAYS from the shop wallet (`shop_portfolio_commit`, shop wallet PR 2/2 —
+ *       `shop-portfolio-credits.test.ts` + the db test hold the price) instead of refusing;
  *   4 · couples per date is WHITELIST_PER_DATE_ALL_PLANS on every tier, in TypeScript AND in the latest SQL definition
  *       of `vendor_tier_limit` (the database is the gate);
  *   5 · Free answers couples, is searchable once verified, and shows its real name once verified.
@@ -153,13 +154,14 @@ test('3b · capPortfolioRefs keeps every stored photo and refuses only NEW ones 
   assert.deepEqual(under.refs, fresh.slice(0, 50), 'order is the supplier’s');
 });
 
-test('3c · the gallery save goes through capPortfolioRefs and refuses out loud', () => {
+test('3c · the gallery save keeps the free base, grandfathered, and pays past it — never truncates', () => {
   const src = stripComments(readFileSync(join(WEB, 'app/vendor-dashboard/actions.ts'), 'utf8'));
   const portfolioCase = src.slice(src.indexOf("case 'portfolio':"), src.indexOf("case 'gallery_videos':"));
   assert.ok(portfolioCase.length > 100, "the portfolio case of updateVendorProfileField moved — re-point this guard");
-  assert.match(portfolioCase, /capPortfolioRefs\(/, 'the gallery save no longer goes through the grandfathered cap');
-  // The owner's words, with the shop's own number (`portfolioOverCapMessage` — a personal invite's 100, 2026-10-23).
-  assert.match(portfolioCase, /portfolioOverCapMessage\(portfolioMax\)|PORTFOLIO_OVER_BASE_MESSAGE/, 'a refused photo is no longer refused with the owner’s words');
+  // Owner 2026-10-23 (option A): past the free base the photo is paid from the shop wallet in ONE step with the
+  // list (`shop_portfolio_commit` — grandfathered, the free base read inside the function), not refused.
+  assert.match(portfolioCase, /\.rpc\('shop_portfolio_commit'/, 'the gallery save no longer goes through the priced commit');
+  assert.match(portfolioCase, /status === 'insufficient'/, 'a save the wallet cannot cover is no longer refused out loud');
   assert.equal(portfolioOverCapMessage(PORTFOLIO_FREE_BASE), PORTFOLIO_OVER_BASE_MESSAGE, 'at the base the refusal is the owner’s sentence, byte for byte');
   // The old silent truncation must not come back inside the parser.
   const parser = src.slice(src.indexOf('function parsePortfolioRefs('), src.indexOf('function parseVideoLinks('));

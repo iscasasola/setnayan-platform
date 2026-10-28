@@ -2759,7 +2759,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     writtenBy:
       'mark_samahan_read(community_id) \u2014 called from the browser (MarkGroupRead, the group page\u2019s layout) when the group opens and when it is left; one small write, never a live connection',
     guardedBy:
-      'Pattern A (self): a member reads and writes only their own marker, and the WITH CHECK demands membership. tests/db/samahan-unread-is-yours.db.test.ts.',
+      'Pattern A (self), READ-only over REST (SELECT grant + self policy; no INSERT/UPDATE grant). The one write is mark_samahan_read() (SECURITY DEFINER), which writes only the caller\u2019s own marker and refuses a group they are not in. tests/db/samahan-unread-is-yours.db.test.ts.',
     traps:
       'A missing marker counts from joined_at, NOT the epoch \u2014 otherwise every old group lights with its whole history the day this shipped. A refused count is \u201cCouldn\u2019t load\u201d on the row, never a 0.',
   },

@@ -8,8 +8,9 @@
 -- group marks it read — ONE small write, never a live connection.
 --
 -- The shape is chat_thread_reads' (20260728000000): one row per (group, member),
--- the member's own row only (Pattern A — self). The WITH CHECK also demands
--- membership, so nobody writes a marker on a group they are not in.
+-- the member's own row only (Pattern A — self, read-only over REST). The one
+-- write is mark_samahan_read(), which demands membership, so nobody writes a
+-- marker on a group they are not in.
 --
 -- WHY NOT a column on community_members: that table's UPDATE policy is the
 -- organizer's (roles), and a member's read state is not a roster fact. A
@@ -35,31 +36,39 @@ CREATE INDEX IF NOT EXISTS samahan_reads_user_idx ON public.samahan_reads (user_
 
 ALTER TABLE public.samahan_reads ENABLE ROW LEVEL SECURITY;
 
--- Default-ACL hygiene: close everything, grant exactly what the policy scopes.
--- No DELETE: a marker goes with the membership (CASCADE) or the account.
+-- Default-ACL hygiene: close everything, then grant the least that works. A
+-- member only ever READS their marker (the counts and the RA 10173 export); the
+-- one WRITE is mark_samahan_read() below, so the table carries no INSERT/UPDATE
+-- grant at all — nothing can be written to it over REST. No DELETE: a marker
+-- goes with the membership (CASCADE) or the account.
 REVOKE ALL ON public.samahan_reads FROM anon, authenticated;
-GRANT SELECT, INSERT, UPDATE ON public.samahan_reads TO authenticated;
+GRANT SELECT ON public.samahan_reads TO authenticated;
 
--- Pattern A (self): a member reads and writes only their own marker, and only on
--- a group they belong to.
+-- Pattern A (self): a member reads only their own marker.
 DROP POLICY IF EXISTS samahan_reads_self ON public.samahan_reads;
 CREATE POLICY samahan_reads_self ON public.samahan_reads
-  FOR ALL TO authenticated
-  USING (user_id = (SELECT auth.uid()))
-  WITH CHECK (
-    user_id = (SELECT auth.uid())
-    AND community_id IN (SELECT public.current_community_ids())
-  );
+  FOR SELECT TO authenticated
+  USING (user_id = (SELECT auth.uid()));
 
--- Opening a group: the marker moves to the server's NOW (never the browser's
--- clock). SECURITY INVOKER — the policy above is the gate.
+-- Opening a group: the caller's OWN marker moves to the server's NOW (never the
+-- browser's clock). SECURITY DEFINER because the table has no write grant; the
+-- function writes only (p_community_id, auth.uid()) and refuses a group the
+-- caller is not a member of — the membership check IS the gate.
 CREATE OR REPLACE FUNCTION public.mark_samahan_read(p_community_id UUID)
 RETURNS VOID
-LANGUAGE SQL SECURITY INVOKER VOLATILE SET search_path = public
+LANGUAGE plpgsql SECURITY DEFINER VOLATILE SET search_path = public
 AS $$
+BEGIN
+  IF auth.uid() IS NULL OR NOT EXISTS (
+    SELECT 1 FROM public.community_members
+     WHERE community_id = p_community_id AND user_id = auth.uid()
+  ) THEN
+    RAISE EXCEPTION 'not a member of this group' USING ERRCODE = '42501';
+  END IF;
   INSERT INTO public.samahan_reads (community_id, user_id, last_read_at)
   VALUES (p_community_id, auth.uid(), NOW())
   ON CONFLICT (community_id, user_id) DO UPDATE SET last_read_at = EXCLUDED.last_read_at;
+END;
 $$;
 
 -- Every group the caller is in, with how many messages from OTHER members are

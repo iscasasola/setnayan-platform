@@ -9,7 +9,7 @@
  *       group they are not in; a stranger's counts list no group.
  *
  * Sabotage (2026-10-28, each reverted): `AND m.user_id <> auth.uid()` dropped → 1 red; the COALESCE fallback set to
- * 'epoch' → 1 red; the WITH CHECK's membership half dropped → 3 red.
+ * 'epoch' → 1 red; mark_samahan_read's membership check dropped → 3 red.
  */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';

@@ -9,7 +9,7 @@
  * The desk is the REAL `CheckinDesk` with a stand-in queue (it keeps scans in memory; "send" empties it) — so a walk can
  * go offline (Playwright `setOffline`) and press Mark arrived, and come back online, without any database.
  */
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { CheckinDesk, type DeskGuest } from '@/app/dashboard/[eventId]/guests/checkin/_components/checkin-desk';
 import { ReadyForNoSignalView, type ReadyRow } from '@/app/_components/offline-ready/ready-for-no-signal';
@@ -72,7 +72,14 @@ function stubQueue(desk: string | undefined) {
 }
 
 export function OfflineLab({ state, browser, desk }: { state?: string; browser?: string; desk?: string }) {
-  const now = useMemo(() => Date.now(), []);
+  // The clock is read in the browser only — a server and a phone a few seconds apart would draw different times.
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => setNow(Date.now()), []);
+  const queue = useMemo(() => {
+    const q = stubQueue(desk);
+    return () => Promise.resolve(q as never);
+  }, [desk]);
+  if (now === null) return <div className="min-h-screen bg-cream" data-lab-offline-loading="" />;
   const phase: SavedPhase = state === 'failed' ? 'failed' : state === 'saving' ? 'saving' : state === 'none' ? 'none' : state === 'unsupported' ? 'unsupported' : 'saved';
   const savedAt = state === 'none' || state === 'unsupported' ? null : state === 'amber' ? now - 9 * HOUR : now - 40 * 60_000;
   const mark = savedMark({ phase, savedAt, now, online: state !== 'nosignal', eventDay: true });
@@ -84,10 +91,6 @@ export function OfflineLab({ state, browser, desk }: { state?: string; browser?:
     { key: 'run', label: 'Run of show', value: state === 'failed' ? null : '24 moments', ok: state !== 'failed' },
     { key: 'desk', label: 'Check-in desk', value: 'Ready', ok: true },
   ];
-  const queue = useMemo(() => {
-    const q = stubQueue(desk);
-    return () => Promise.resolve(q as never);
-  }, [desk]);
   return (
     <div className="mx-auto min-h-screen w-full max-w-xl space-y-8 bg-cream px-4 pb-28 pt-4" data-lab-offline="">
       <section aria-label="Coordinator · Home › Today">

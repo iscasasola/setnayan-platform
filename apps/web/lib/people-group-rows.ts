@@ -15,8 +15,8 @@ import { manilaToday, shapeGroupRows, type GroupActivityRow, type GroupChatRow }
  *   · `samahan_stories`  — the stories still inside their 24 h (RLS hides the rest; filtered here as well);
  *   · `events`           — the group's upcoming events (from Manila's today, not archived; the earliest is picked
  *                          when the row is shaped).
- * Then ONE names read (admin client, `user_id → display_name` only — the split `fetchSamahanMessages` uses, for the
- * same RA 10173 reason) for the authors of those last lines. Two requests whatever the number of groups.
+ * Beside it, ONE unread call (`samahan_unread_counts()`, every group at once). Then ONE names read (admin client, `user_id → display_name` only — the split `fetchSamahanMessages` uses, for the
+ * same RA 10173 reason) for the authors of those last lines. Three requests whatever the number of groups.
  * 🔒 lib/people-group-rows.test.ts counts the requests on a fake fetch.
  *
  * 🔴 A REFUSED READ IS NOT A QUIET GROUP. The activity read failing returns `activityUnreadable: true`; the rows keep
@@ -24,6 +24,8 @@ import { manilaToday, shapeGroupRows, type GroupActivityRow, type GroupChatRow }
  */
 export type PeopleGroupRows = {
   rows: GroupChatRow[];
+  /** The unread counts were refused — the pinned row says "Couldn't load", never 0. */
+  unreadUnreadable: boolean;
   /** The group LIST was refused (or came back empty while the roster's count says otherwise — the caller decides). */
   listEmpty: boolean;
   /** The one activity read was refused — no row may say "No messages yet". */
@@ -61,6 +63,19 @@ export async function readGroupActivity(
   return (data ?? []) as unknown as GroupActivityRow[];
 }
 
+/**
+ * 🔴 Unread per group (owner 2026-10-28, "GROUP UNREAD") — ONE call, `samahan_unread_counts()` (migration samahan_reads):
+ * others' live messages newer than your marker, or than when you joined. null = refused.
+ */
+export async function readUnreadCounts(supabase: SupabaseClient): Promise<Map<string, number> | null> {
+  const { data, error } = await supabase.rpc('samahan_unread_counts');
+  if (error) {
+    logQueryError('readUnreadCounts', error, {}, 'graceful_degrade');
+    return null;
+  }
+  return new Map(((data ?? []) as Array<{ community_id: string; unread: number }>).map((r) => [r.community_id, Number(r.unread) || 0]));
+}
+
 /** Display names for the authors of the last lines — one read, names only. */
 export async function readSpeakerNames(admin: SupabaseClient, userIds: readonly string[]): Promise<Map<string, string>> {
   const names = new Map<string, string>();
@@ -78,13 +93,17 @@ export const readPeopleGroupRows = cache(
   async (supabase: SupabaseClient, admin: SupabaseClient, userId: string): Promise<PeopleGroupRows> => {
     const now = new Date();
     const groups = (await fetchUserCommunities(supabase, userId)).filter((c) => !c.archived);
-    const activity = await readGroupActivity(supabase, groups.map((g) => g.community_id), now);
+    const [activity, unread] = await Promise.all([
+      readGroupActivity(supabase, groups.map((g) => g.community_id), now),
+      groups.length > 0 ? readUnreadCounts(supabase) : Promise.resolve(new Map<string, number>()),
+    ]);
     const authors = [
       ...new Set((activity ?? []).flatMap((a) => (a.samahan_messages ?? []).slice(0, 1).map((m) => m.user_id)).filter((id) => id !== userId)),
     ];
     const names = await readSpeakerNames(admin, authors);
     return {
-      rows: shapeGroupRows(groups, activity, names, userId, now),
+      rows: shapeGroupRows(groups, activity, names, userId, now, unread),
+      unreadUnreadable: unread === null,
       listEmpty: groups.length === 0,
       activityUnreadable: activity === null,
     };

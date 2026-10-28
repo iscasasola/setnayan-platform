@@ -11,14 +11,18 @@
  *   3 · COUNTS ARE FILTERS — every door is a `aria-pressed` button whose tap sets the face's filter; a note replaces the
  *       doors (a refusal never shows a 0);
  *   4 · ROWS LINK TO THE GROUP — every group row opens `/dashboard/samahan/<id>`; the ring is drawn only with live
- *       stories; and NO UNREAD STATE is drawn (there is no read marker — `lib/people-group-rows-shape.ts`).
+ *       stories; UNREAD (owner 2026-10-28) = a bold last line + a count badge on exactly the unread rows (none on a 0 or
+ *       a refused count); the Groups row's one door is "N unread" and a refusal says "Couldn't load";
+ *   5 · OPENING A GROUP MARKS IT READ — the group route's layout mounts `MarkGroupRead`, whose ONE `mark_samahan_read`
+ *       call runs in an effect (never during render, so a link prefetch cannot mark a group read), no live connection.
  * (No second "New group": the-buttons-live-together.test.ts. One batched read: lib/people-group-rows.test.ts. One line
  * at 390: lib/the-pinned-row-is-one-row.test.ts + the Playwright walk.)
  *
  * Sabotage (2026-10-28, each reverted): a second `<PeoplePinnedRow` in the roster's head → 1 red; an Invite `<button>`
  * added beside the row in the Groups head → 1 red; a second action rendered by `PinnedRow` → 2 red; the ⚙ moved before
  * the action → 2 red; a door's `onTap` made a no-op `() => {}` → 3 red; the group row's href changed to
- * `/dashboard/samahan` → 4 red; an unread badge `<span data-unread>` added to the row → 4 red.
+ * `/dashboard/samahan` → 4 red. Unread (2026-10-28): the badge drawn on `unread !== null` (so 0 shows) → 4 red; the
+ * "Couldn't load" note dropped → 3 red; the rpc moved out of the effect into the body → 5 red.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -112,31 +116,57 @@ test('3 · the counts are filter doors — a tap filters; a note replaces them',
   assert.match(noted, /role="status"[^>]*data-pinned-note="">Not loaded just now</);
   for (const [file, setter] of [
     ['people-roster-view.tsx', /onTap: \(\) => setFilter\(filter === '(connected|asking)' \? 'all' : '\1'\)/g],
-    ['people-groups-view.tsx', /onTap: \(\) => setFilter\((?:'all'|filter === 'stories' \? 'all' : 'stories')\)/g],
+    ['people-groups-view.tsx', /onTap: \(\) => setFilter\(filter === 'unread' \? 'all' : 'unread'\)/g],
   ] as const) {
     const block = head(read('_components', file));
     const doorsSrc = block.slice(block.indexOf('doors={['), block.indexOf('action={'));
     const n = count(doorsSrc, /\{ key: '/g);
-    assert.equal(n, 2, `${file}: the row has ${n} doors, want 2`);
+    // People: connected · asking you. Groups: ONE door, "N unread" (owner 2026-10-28 — it replaced "with stories" and
+    // the "N groups" count, so the row fits at 360).
+    const want = file === 'people-roster-view.tsx' ? 2 : 1;
+    assert.equal(n, want, `${file}: the row has ${n} doors, want ${want}`);
     assert.equal(count(doorsSrc, setter), n, `${file}: a door does not filter the list`);
   }
+  // Groups: a refused unread count is said ("Couldn't load") — the note is set before any door can draw a 0.
+  const groups = head(read('_components', 'people-groups-view.tsx'));
+  assert.match(groups, /note=\{[^}]*unreadUnreadable \? 'Couldn’t load'/, 'a refused unread count can reach the row as a number');
+  assert.match(groups, /\{ key: 'unread', n: unreadGroups, word: 'unread'/, 'the Groups door is not "N unread"');
 });
 
-test('4 · every group row opens its chatroom; the ring is live stories; no unread state', async () => {
+test('4 · every group row opens its chatroom; the ring is live stories; unread = bold line + badge', async () => {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { GroupChatRows } = await import('./_components/group-chat-rows');
   const rows = [
-    { communityId: 'g1', name: 'Barkada ni Ice', role: 'organizer', memberCount: 12, stories: 3, last: { who: 'Mika', body: 'Sino?', when: '2m' }, nextEvent: { label: '15 Nov · Liga' } },
-    { communityId: 'g2', name: 'Batch 14', role: 'member', memberCount: null, stories: 0, last: null, nextEvent: null },
+    { communityId: 'g1', name: 'Barkada ni Ice', role: 'organizer', memberCount: 12, stories: 3, last: { who: 'Mika', body: 'Sino?', when: '2m' }, nextEvent: { label: '15 Nov · Liga' }, unread: 3 },
+    { communityId: 'g2', name: 'Batch 14', role: 'member', memberCount: null, stories: 0, last: { who: 'Paolo', body: 'See you', when: 'Mon' }, nextEvent: null, unread: 0 },
+    { communityId: 'g3', name: 'Refused', role: 'member', memberCount: 4, stories: 0, last: { who: 'Ana', body: 'Hi', when: '1h' }, nextEvent: null, unread: null },
+    { communityId: 'g4', name: 'Busy', role: 'member', memberCount: 4, stories: 0, last: { who: 'Ana', body: 'Lots', when: '1m' }, nextEvent: null, unread: 140 },
   ];
   const html = renderToStaticMarkup(React.createElement(GroupChatRows, { rows } as never));
   const hrefs = [...html.matchAll(/<a [^>]*data-people-group-row[^>]*>/g)].map((m) => /href="([^"]+)"/.exec(m[0])?.[1]);
-  assert.deepEqual(hrefs, ['/dashboard/samahan/g1', '/dashboard/samahan/g2'], 'a group row does not open its chatroom');
-  assert.deepEqual([...html.matchAll(/data-group-ring="(\w+)"/g)].map((m) => m[1]), ['live', 'none'], 'the ring is not the live stories');
+  assert.deepEqual(hrefs, ['/dashboard/samahan/g1', '/dashboard/samahan/g2', '/dashboard/samahan/g3', '/dashboard/samahan/g4'], 'a group row does not open its chatroom');
+  assert.deepEqual([...html.matchAll(/data-group-ring="(\w+)"/g)].map((m) => m[1]), ['live', 'none', 'none', 'none'], 'the ring is not the live stories');
+  // Unread: the badge (99+ past ninety-nine) and a bold line — on the unread rows only; a refused count (null) draws none.
+  const badges = [...html.matchAll(/data-group-unread-badge=""[^>]*>([^<]+)</g)].map((m) => m[1]);
+  assert.deepEqual(badges, ['3', '99+'], 'the unread badges are not exactly the unread rows (a 0 or a refusal drew one?)');
+  const lines = [...html.matchAll(/<span class="([^"]*)" data-group-line="">/g)].map((m) => /font-semibold/.test(m[1]!));
+  assert.deepEqual(lines, [true, false, false, true], 'the bold last line is not exactly the unread rows');
   assert.match(html, /Mika: Sino\?/);
   assert.match(html, /15 Nov · Liga/);
-  assert.doesNotMatch(html, /unread|data-unread|data-badge/i, 'an unread state is drawn — there is no read marker to back it');
   const refused = renderToStaticMarkup(React.createElement(GroupChatRows, { rows, activityUnreadable: true } as never));
   assert.doesNotMatch(refused, /No messages yet/, 'a refused read says "No messages yet"');
   assert.match(refused, /data-group-activity="refused"/);
+});
+
+test('5 · opening a group marks it read — one RPC from an effect, mounted by the group route, never on a prefetch', () => {
+  const GROUP = join(HERE, '..', 'samahan');
+  const layout = stripComments(readFileSync(join(GROUP, '[communityId]', 'layout.tsx'), 'utf8'));
+  assert.match(layout, /\{children\}\s*<MarkGroupRead communityId=\{communityId\} \/>/, 'the group route does not mount the read marker');
+  const mark = stripComments(readFileSync(join(GROUP, '_components', 'mark-group-read.tsx'), 'utf8'));
+  assert.match(mark, /^'use client';/, 'the marker is not a client component — a server render would write on a prefetch');
+  const effect = mark.slice(mark.indexOf('useEffect('), mark.indexOf('}, [communityId]);'));
+  assert.match(effect, /\.rpc\('mark_samahan_read', \{ p_community_id: communityId \}\)/, 'the marker does not call mark_samahan_read');
+  assert.equal(count(mark, /\.rpc\(/g), 1, 'more than one write');
+  assert.equal(count(mark.slice(0, mark.indexOf('useEffect(')), /\.rpc\(/g), 0, 'the write runs during render (a prefetch would mark the group read)');
+  assert.doesNotMatch(mark, /\.channel\(|subscribe\(/, 'the marker opens a live connection');
 });

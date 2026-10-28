@@ -2740,7 +2740,28 @@ export const UGAT_JOINTS: UgatJoint[] = [
     guardedBy:
       'INSERT policy demands user_id = auth.uid() AND membership (nobody posts in another member\u2019s voice); UPDATE policy scopes take-down to the author; samahan_messages_author_field_guard freezes every field except deleted_at.',
     traps:
-      'Take-down is SOFT \u2014 readers MUST filter `deleted_at IS NULL`; a query that forgets shows messages their authors withdrew. Retention follows the 5-year CHAT rule via purge_expired_chat \u2014 no new sweep was added, and adding one would be a second definition of when a message is old. \u26d4 THERE IS NO READ MARKER: nothing records what a member has read (People \u203a Groups, 2026-10-28, shows each group\u2019s last line and time from ONE embedded read \u2014 lib/people-group-rows.ts \u2014 and deliberately NO unread badge). The samahan_message notices are collapsed hourly and cleared only by \u201cMark read\u201d, so they are not one either.',
+      'Take-down is SOFT \u2014 readers MUST filter `deleted_at IS NULL`; a query that forgets shows messages their authors withdrew. Retention follows the 5-year CHAT rule via purge_expired_chat \u2014 no new sweep was added, and adding one would be a second definition of when a message is old. What a member has READ is samahan_reads (J57), never the samahan_message notices \u2014 those are collapsed hourly and cleared only by \u201cMark read\u201d.',
+  },
+  {
+    id: 'J57',
+    claims: [
+      { kind: 'table', table: 'samahan_reads' },
+      { kind: 'fk', table: 'samahan_reads', column: 'community_id', references: 'communities' },
+      { kind: 'column', table: 'samahan_reads', column: 'last_read_at' },
+    ],
+    chain: 12,
+    pair: ['TYPE-SAMAHAN', 'TYPE-USERS'],
+    title: 'Group \u2194 User (what you have read \u2014 group unread)',
+    joint: 'samahan_reads',
+    cardinality: 'One marker per (group, member); none until the member first opens the group',
+    implementedBy:
+      'samahan_reads.last_read_at (owner 2026-10-28, \u201cGROUP UNREAD\u201d). samahan_unread_counts() counts other members\u2019 live messages newer than the marker \u2014 or than joined_at when there is none \u2014 for every group in ONE call; People \u203a Groups draws a bold line + count badge and the pinned row\u2019s \u201cN unread\u201d door (lib/people-group-rows.ts).',
+    writtenBy:
+      'mark_samahan_read(community_id) \u2014 called from the browser (MarkGroupRead, the group page\u2019s layout) when the group opens and when it is left; one small write, never a live connection',
+    guardedBy:
+      'Pattern A (self): a member reads and writes only their own marker, and the WITH CHECK demands membership. tests/db/samahan-unread-is-yours.db.test.ts.',
+    traps:
+      'A missing marker counts from joined_at, NOT the epoch \u2014 otherwise every old group lights with its whole history the day this shipped. A refused count is \u201cCouldn\u2019t load\u201d on the row, never a 0.',
   },
   {
     /**

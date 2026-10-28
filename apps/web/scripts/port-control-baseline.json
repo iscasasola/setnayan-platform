@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "589d597457",
+  "generatedFromRef": "3e185887d0",
   "routeCount": 475,
   "destinations": 994,
   "actions": 642,
-  "blocks": 7182,
+  "blocks": 7183,
   "routes": {
     "/": {
       "files": [
@@ -5505,6 +5505,7 @@
     },
     "/dashboard/(account)/samahan": {
       "files": [
+        "dashboard/(account)/samahan/_components/mark-group-read.tsx",
         "dashboard/(account)/samahan/actions.ts",
         "dashboard/(account)/samahan/page.tsx"
       ],
@@ -5521,6 +5522,7 @@
         "dashboard/(account)/samahan/[communityId]/_components/member-actions-menu.tsx",
         "dashboard/(account)/samahan/[communityId]/_components/samahan-identity-header.tsx",
         "dashboard/(account)/samahan/[communityId]/_components/samahan-stories.tsx",
+        "dashboard/(account)/samahan/[communityId]/layout.tsx",
         "dashboard/(account)/samahan/[communityId]/page.tsx"
       ],
       "destinations": [
@@ -5549,6 +5551,7 @@
         "HTMLVideoElement",
         "InfoTip",
         "Link",
+        "MarkGroupRead",
         "MediaRecorder",
         "MediaStream",
         "MemberActionsMenu",

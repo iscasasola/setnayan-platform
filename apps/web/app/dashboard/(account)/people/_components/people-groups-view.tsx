@@ -14,19 +14,18 @@ import ps from './people-screen.module.css';
  * people-groups-view.tsx — PEOPLE › GROUPS (owner 2026-10-28, "People and Groups approved"; prototype
  * `prototypes/user_dash_2026-10-28/` frames C–D): the same pinned row as People, its own counts and action —
  *
- *   Groups ▾ · N groups · N with stories · ＋ New · ⚙
+ *   Groups ▾ · N unread · ＋ New · ⚙
  *
- * then one chat row per group (`GroupChatRows`), then what the page hands in (the second degree, unchanged), then the
- * shipped thumb row. ＋ New in the row is the view's ONE way to make a group — the "New group" button that headed this
- * view is gone (it would be the second). The doors filter: "with stories" shows the ringed rows; "groups" shows all.
- *
- * ⛔ The approved drawing's second door is "unread". There is no per-person read marker for a group
- * (`lib/people-group-rows-shape.ts`), so that door would count something else; "with stories" — the ring the rows
- * already draw — takes its seat until a read marker exists. 🔒 people/the-people-pinned-row.test.ts
+ * (owner 2026-10-28, "APPROVED — … GROUP UNREAD": the "N unread" door replaces the build's interim "with stories" door
+ * AND the "N groups" count, so the row fits at 360.) Then one chat row per group (`GroupChatRows`), then what the page
+ * hands in (the second degree, unchanged), then the shipped thumb row. ＋ New in the row is the view's ONE way to make a
+ * group — the "New group" button that headed this view is gone (it would be the second). "N unread" filters to the
+ * unread groups; tap again for all. A refused count says "Couldn't load" — never 0. 🔒 people/the-people-pinned-row.test.ts
  */
 export function PeopleGroupsView({
   rows,
   unreadable,
+  unreadUnreadable,
   activityUnreadable,
   picker,
   pin,
@@ -35,6 +34,8 @@ export function PeopleGroupsView({
   rows: readonly GroupChatRow[];
   /** The group list was refused — said, never drawn as "No group yet". */
   unreadable: boolean;
+  /** The unread counts were refused — the door says "Couldn't load", never 0. */
+  unreadUnreadable: boolean;
   activityUnreadable: boolean;
   picker: PeoplePickerProps;
   pin: PeoplePinProps;
@@ -43,9 +44,10 @@ export function PeopleGroupsView({
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
   useShellBarOffset(rootRef);
-  const [filter, setFilter] = useState<'all' | 'stories'>('all');
-  const live = rows.filter((r) => r.stories > 0).length;
-  const shown = filter === 'stories' ? rows.filter((r) => r.stories > 0) : rows;
+  const [filter, setFilter] = useState<'all' | 'unread'>('all');
+  const isUnread = (r: GroupChatRow) => r.unread !== null && r.unread > 0;
+  const unreadGroups = rows.filter(isUnread).length;
+  const shown = filter === 'unread' ? rows.filter(isUnread) : rows;
 
   return (
     <div ref={rootRef} className={`${gs.screen} ${ps.people}`} data-people-view="samahan" data-people-screen="groups">
@@ -55,12 +57,9 @@ export function PeopleGroupsView({
           view="samahan"
           options={pin.options}
           gates={picker.gates}
-          note={unreadable ? 'Not loaded just now' : rows.length === 0 ? 'No group yet' : null}
+          note={unreadable ? 'Not loaded just now' : rows.length === 0 ? 'No group yet' : unreadUnreadable ? 'Couldn’t load' : null}
           doors={[
-            { key: 'groups', n: rows.length, word: rows.length === 1 ? 'group' : 'groups', on: false, onTap: () => setFilter('all') },
-            ...(live > 0
-              ? [{ key: 'stories', n: live, word: 'with stories', hot: true, on: filter === 'stories', onTap: () => setFilter(filter === 'stories' ? 'all' : 'stories') }]
-              : []),
+            { key: 'unread', n: unreadGroups, word: 'unread', hot: unreadGroups > 0, on: filter === 'unread', onTap: () => setFilter(filter === 'unread' ? 'all' : 'unread') },
           ]}
           action={{ kind: 'new-group' }}
           settings={pin.settings}

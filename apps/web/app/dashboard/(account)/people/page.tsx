@@ -298,6 +298,7 @@ export default async function PeoplePage({
           <PeopleGroupsView
             rows={groupRows.rows}
             unreadable={groupRows.listEmpty && (roster?.counts.samahan ?? null) !== 0}
+            unreadUnreadable={groupRows.unreadUnreadable}
             activityUnreadable={groupRows.activityUnreadable}
             picker={picker}
             pin={pin}

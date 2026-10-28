@@ -19,6 +19,7 @@
  *   ?view=samahan   People › Groups (owner 2026-10-28): the pinned row Groups ▾ · counts · ＋ New · ⚙ over the chat rows
  *                   (`PeopleGroupsView`) — prototype user_dash_2026-10-28 C/D. Every view wears the pinned row.
  *   ?groupsfail=1   the group list refused · ?activityfail=1 the one activity read refused (rows keep their line)
+ *   ?unreadfail=1   the unread counts refused — the Groups door says "Couldn't load", no badge anywhere
  *   ?long=1         30 extra people, so the page scrolls under the pinned row
  */
 import { notFound } from 'next/navigation';
@@ -62,11 +63,11 @@ const PEOPLE: RosterPerson[] = [
 ];
 
 /** The Groups rows — chat rows (owner 2026-10-28): a ring while stories are live · the last line · its time · the next
- *  event. The prototype's three groups (user_dash_2026-10-28 B–D). No unread badge — there is no read marker. */
+ *  event · an unread badge (owner 2026-10-28, GROUP UNREAD). The prototype's three groups (user_dash_2026-10-28 B–D). */
 const GROUPS: GroupsFoldRow[] = [
-  { communityId: 'lab-sam-1', name: 'Barkada ni Ice', role: 'organizer', memberCount: 12, stories: 3, last: { who: 'Mika', body: 'Sino may sasakyan sa Sabado?', when: '2m' }, nextEvent: { label: '15 Nov · Liga ng Barangay' } },
-  { communityId: 'lab-sam-2', name: 'Sison family', role: 'member', memberCount: 8, stories: 6, last: null, nextEvent: { label: '27 Dec · Reunion' } },
-  { communityId: 'lab-sam-3', name: 'Batch ’14', role: 'member', memberCount: 41, stories: 0, last: { who: 'Paolo', body: 'See you sa Liga!', when: 'Mon' }, nextEvent: null },
+  { communityId: 'lab-sam-1', name: 'Barkada ni Ice', role: 'organizer', memberCount: 12, stories: 3, last: { who: 'Mika', body: 'Sino may sasakyan sa Sabado?', when: '2m' }, nextEvent: { label: '15 Nov · Liga ng Barangay' }, unread: 3 },
+  { communityId: 'lab-sam-2', name: 'Sison family', role: 'member', memberCount: 8, stories: 6, last: { who: 'Tita Ces', body: 'Salamat po!', when: '1h' }, nextEvent: { label: '27 Dec · Reunion' }, unread: 1 },
+  { communityId: 'lab-sam-3', name: 'Batch ’14', role: 'member', memberCount: 41, stories: 0, last: { who: 'Paolo', body: 'See you sa Liga!', when: 'Mon' }, nextEvent: null, unread: 0 },
 ];
 
 /** The second degree under the Groups view's rows — a stand-in for the server section (it reads the database). */
@@ -167,7 +168,8 @@ export default async function PeopleLabPage({
   // 📌 The pinned row's picker + People settings (owner 2026-10-28). ?findfail=1 — the setting's read refused.
   const pin = { options: pinnedViewOptions(options), settings: { findable: sp.findfail === '1' ? null : true } };
   const groupsRefused = sp.groupsfail === '1' || kind === 'fail';
-  const groupRows = groupsRefused || kind === 'empty' ? [] : GROUPS;
+  const unreadRefused = sp.unreadfail === '1';
+  const groupRows = groupsRefused || kind === 'empty' ? [] : unreadRefused ? GROUPS.map((g) => ({ ...g, unread: null })) : GROUPS;
   const lovedOnes = (
     <div className="pb-3" data-people-view="alaga">
       <p className="py-2 text-sm text-ink/65">{kind === 'full' ? 'Lola Nena · In your care' : 'No loved ones yet.'}</p>
@@ -185,7 +187,7 @@ export default async function PeopleLabPage({
           <div className="mx-auto w-full max-w-7xl px-4 pb-10 pt-2 sm:px-6 lg:px-8">
             {view === 'samahan' ? (
               <div className="mx-auto w-full max-w-3xl pb-24">
-                <PeopleGroupsView rows={groupRows} unreadable={groupsRefused} activityUnreadable={sp.activityfail === '1'} picker={picker} pin={pin}>
+                <PeopleGroupsView rows={groupRows} unreadable={groupsRefused} unreadUnreadable={unreadRefused} activityUnreadable={sp.activityfail === '1'} picker={picker} pin={pin}>
                   {kind === 'full' ? <SecondDegreeStandIn /> : null}
                 </PeopleGroupsView>
               </div>

@@ -7,11 +7,10 @@
  * its name · the LAST MESSAGE line (the shipped `samahan_messages`, "Mika: …") and its time · a NEXT-EVENT chip (the
  * group's own `events.community_id`). Tap → the group's chatroom.
  *
- * ⛔ NO UNREAD STATE. The prototype draws an unread badge and a bold line. Nothing in the schema says what a person
- * has READ in a group: `community_members` has no read marker, and the `samahan_message` notices are collapsed per
- * hour and cleared only by "Mark read" in the tray (`lib/samahan-notice-rules.ts`) — opening the group clears
- * nothing. A badge built on either would count something other than unread messages. So the row shows the last line
- * and its time, and no unread state, until a read marker exists (an owner call — it is a migration).
+ * 🔴 UNREAD (owner 2026-10-28, "APPROVED — … GROUP UNREAD"): `samahan_reads` is the per-member read marker (migration
+ * 20271293905043); `samahan_unread_counts()` counts other members' live messages newer than it, for every group in one
+ * call. An unread row draws its last line bold and a count badge. A refused count is `null` — never a 0 — and the
+ * pinned row says "Couldn't load". (NOT the `samahan_message` notices: collapsed hourly, cleared only by "Mark read".)
  *
  * Neutral module (no `server-only`): the reader (`people-group-rows.ts`), the rows and `/dev/people-lab` share it,
  * and a unit test executes it.
@@ -29,6 +28,8 @@ export type GroupChatRow = {
   last: { who: string; body: string; when: string } | null;
   /** The group's next event — "15 Nov · Liga ng Barangay". */
   nextEvent: { label: string } | null;
+  /** Messages from others since you last opened the group. null = the count was refused (never drawn as 0). */
+  unread: number | null;
 };
 
 /** The one read's rows, as PostgREST returns the embedded resources. */
@@ -47,6 +48,11 @@ export type GroupBase = {
   member_count: number;
   archived: boolean;
 };
+
+/** The badge's words — 99+ past ninety-nine. */
+export function unreadBadge(n: number): string {
+  return n > 99 ? '99+' : String(n);
+}
 
 /** "2m", "1h", "3d", then "15 Nov" — the notice row's own clock (`relativeTimeShort`, lib/notifications.ts), no " ago". */
 export function chatWhen(iso: string, now: Date): string {
@@ -85,6 +91,8 @@ export function shapeGroupRows(
   names: ReadonlyMap<string, string>,
   viewerId: string,
   now: Date,
+  /** `samahan_unread_counts()` by group; null = the count was refused. */
+  unread: ReadonlyMap<string, number> | null = null,
 ): GroupChatRow[] {
   const byId = new Map((activity ?? []).map((a) => [a.community_id, a] as const));
   const today = manilaToday(now);
@@ -106,6 +114,7 @@ export function shapeGroupRows(
         stories: a?.samahan_stories?.length ?? 0,
         last: msg ? { who: speaker(msg.user_id, viewerId, names), body: msg.body.replace(/\s+/g, ' ').trim(), when: chatWhen(msg.created_at, now) } : null,
         nextEvent: next ? { label: `${eventDay(next.event_date!)} · ${next.display_name}` } : null,
+        unread: unread ? (unread.get(g.community_id) ?? 0) : null,
       };
     });
 }

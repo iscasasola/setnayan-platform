@@ -5,7 +5,8 @@
  * Held here, executed on a REAL supabase-js client whose `fetch` is a fake that counts requests:
  *   1 · ONE request for every row's activity, whatever the number of groups — newest message, live stories and the
  *       next event embedded per group (`communities?select=…samahan_messages(…)…`), with the per-group limits;
- *   2 · ONE names read for the last lines' authors (names only), and none when there is nobody to name;
+ *   2 · ONE names read for the last lines' authors (names only), and none when there is nobody to name; ONE unread call
+ *       for every group (`samahan_unread_counts()`, owner 2026-10-28), a refusal null — never 0;
  *   3 · the shapes: "You:" for your own line, the first name otherwise; the ring counts live stories; a refused read is
  *       NOT a quiet group (no row says "No messages yet" over it); a past or archived event is no "next event";
  *   4 · the reader never asks per row (no `await` inside a loop over the groups).
@@ -100,6 +101,27 @@ test('1b · a refused activity read is null — never []', async () => {
   }
 });
 
+test('2a · unread for every group is ONE call; a refusal is null, never 0', async () => {
+  const { readUnreadCounts } = await import('@/lib/people-group-rows');
+  const { client, urls } = fakeSupabase(() => [{ community_id: 'g1', unread: 3 }, { community_id: 'g2', unread: 0 }]);
+  const m = await readUnreadCounts(client);
+  assert.equal(urls.length, 1);
+  assert.match(urls[0]!.pathname, /\/rest\/v1\/rpc\/samahan_unread_counts$/, 'unread is not the one samahan_unread_counts() call');
+  assert.equal(m!.get('g1'), 3);
+  const refused = fakeSupabase(() => null, 403);
+  const orig = console.error;
+  console.error = () => {};
+  try {
+    assert.equal(await readUnreadCounts(refused.client), null, 'a refused unread read is not null');
+  } finally {
+    console.error = orig;
+  }
+  // Shaped: a counted group with no entry is 0; a refused map makes every row null.
+  const base: GroupBase[] = [{ community_id: 'g1', name: 'A', role: 'member', member_count: 2, archived: false }, { community_id: 'g9', name: 'B', role: 'member', member_count: 2, archived: false }];
+  assert.deepEqual(shapeGroupRows(base, [], new Map(), 'me', NOW, m).map((r) => r.unread), [3, 0]);
+  assert.deepEqual(shapeGroupRows(base, [], new Map(), 'me', NOW, null).map((r) => r.unread), [null, null]);
+});
+
 test('2 · the authors’ names are ONE read, names only', async () => {
   const { readSpeakerNames } = await import('@/lib/people-group-rows');
   const { client, urls } = fakeSupabase(() => [{ user_id: 'u2', display_name: 'Mika Santos' }]);
@@ -154,6 +176,7 @@ test('4 · the reader never asks per row', () => {
   const reader = src.slice(src.indexOf('export const readPeopleGroupRows'));
   assert.ok(reader.length > 100, 'the reader moved — re-anchor this guard');
   assert.doesNotMatch(reader, /for\s*\(|\.map\(\s*async|\.forEach\(\s*async/, 'the reader loops over the groups with a read inside');
-  assert.equal((reader.match(/await readGroupActivity\(/g) ?? []).length, 1, 'the activity is not read exactly once');
+  assert.equal((reader.match(/readGroupActivity\(supabase/g) ?? []).length, 1, 'the activity is not read exactly once');
   assert.equal((reader.match(/await readSpeakerNames\(/g) ?? []).length, 1, 'the names are not read exactly once');
+  assert.equal((reader.match(/readUnreadCounts\(supabase\)/g) ?? []).length, 1, 'unread is not read exactly once');
 });

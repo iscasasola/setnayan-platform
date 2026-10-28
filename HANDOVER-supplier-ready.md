@@ -43,5 +43,15 @@ Worktree: ~/Documents/Claude/Projects/wt-supplier-ready · branch claude/supplie
 - Walk: ~/Documents/Claude/Projects/shots-2026-10-29/supplier-ready/ (run-walk.sh takes the walk lock, one dev
   server on :3488, rm .next, release). Results in walk.log.
 
+## Walks (shots-2026-10-29/supplier-ready/, walk.log + walk2.log)
+- Walk 1: 14 lab states × 390 WebKit + 1280 Chromium × light/dark = 56 loads, all 200, no page errors, no sideways
+  scroll. Walk 2: Home level card + Message everyone + seat finder, 20 loads (2 cold-compile timeouts at 390 light,
+  re-taken fine in dark + 1280). Pressing Full access in the lab (dummy Supabase) → the refusal is said and the ask
+  comes back. Labs render light in dark mode (the lab pages are not themed). Next dev overlay shows "3 Issues" on lab
+  pages (dev console noise, not investigated).
+- Full unit suite locally: 28,456 pass / 2 fail → both fixed (bind membership error; client-landing floor 27→24).
+
 ## Next
-- Read walk.log + screenshots; fix anything found; CI on #7041.
+- CI on #7041 (merged origin/main e631dd51; maps regenerated). Server actions 1225 = ceiling, none added.
+- S8 remainder: 15 flag-carrying actions in the-event-card-saves-in-place.test.ts STILL_NAVIGATES.
+- Delete this HANDOVER file before merge if not wanted on main.

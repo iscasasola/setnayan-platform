@@ -50,8 +50,8 @@ function importsOf(src: string): string[] {
   const statement = /^[ \t]*(?:import|export)\s+(type\s+)?(?:[^;'"]*?\sfrom\s+)?['"]([^'"]+)['"]/gm;
   const dynamic = /import\(\s*(?:\/\*[\s\S]*?\*\/\s*)?['"]([^'"]+)['"]\s*\)/g;
   let m: RegExpExecArray | null;
-  while ((m = statement.exec(src))) if (!m[1]) out.push(m[2]);
-  while ((m = dynamic.exec(src))) out.push(m[1]);
+  while ((m = statement.exec(src))) if (!m[1] && m[2]) out.push(m[2]);
+  while ((m = dynamic.exec(src))) if (m[1]) out.push(m[1]);
   return out;
 }
 

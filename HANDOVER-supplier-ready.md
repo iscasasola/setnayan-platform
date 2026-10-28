@@ -25,6 +25,12 @@ Worktree: ~/Documents/Claude/Projects/wt-supplier-ready · branch claude/supplie
   (badge-earned-line.tsx, mounted in vendor-dashboard/page.tsx) STAYS — no ruling moves it; it announces a NEW badge
   once, the performance page is where they live. The full tracker stays on Shop › Page (website/_components/badge-tracker.tsx).
 
+## State
+- Draft PR #7041 (label do-not-auto-merge). No migration, no new server action (server-action ceiling untouched).
+- DECISION_LOG row pushed to corpus origin/main (1bef8507) — "A SUPPLIER INVITED IN IS READIED"; badge + co-host
+  rulings were already recorded by the controller (rows "BADGES LIVE ON THEIR SHOP PERFORMANCE PAGE", "ONLY TWO LEVELS").
+- Walk: ~/Documents/Claude/Projects/shots-2026-10-29/supplier-ready/ (run-walk.sh takes the walk lock, one dev
+  server on :3488, rm .next, release). Results in walk.log.
+
 ## Next
-- S5 report (stylist taxonomy) · lints + check-ugat-screens · walk · DECISION_LOG · draft PR basic-setup gate · S4 offerProgress · S5 stylist check
-- Then lints, walk, draft PR (+ do-not-auto-merge label).
+- Read walk.log + screenshots; fix anything found; CI on #7041.

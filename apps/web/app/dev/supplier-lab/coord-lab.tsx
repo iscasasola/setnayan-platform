@@ -9,6 +9,10 @@
  *                       here is a faithful stand-in of the shipped identity block + action row)
  *   ?s=coord-hub        the supplier Hub's Check-in desk rows (owner 2026-10-28, "coordinators can also scan qr codes")
  *   &unread=1           the attention read refused — every row says it could not load
+ *   ?s=coord-hold&at=/vendor-dashboard/shop   🧰 the REAL `BasicSetupHold` (owner 2026-10-29, "basic setup first") for
+ *                       a coordinator whose admin-made shop is not set up yet, judged at `at` (default Shop): a held
+ *                       page draws "Finish your basic setup first"; an open one (`at=/vendor-dashboard/events`,
+ *                       `/vendor-dashboard/customers`) draws its stand-in body, as it would ship
  *   &none=1             the no-access case: every seat Off / expired / removed → no rows, no tab, no button
  *   &cohost=1           👥 a supplier who is ONLY a co-host (owner 2026-10-29): every coordinator seat Off, one live
  *                       co-host seat → the tab, the row ("· Co-host") and the card's Co-host pill, from the same rule
@@ -29,8 +33,11 @@ import { COORDINATOR_SEAT_ROLE, eventsYouRun, withNeeds, type CoordinatorSeatRow
 import { summarizeEventDecisions, type EventDecisionSummary } from '@/lib/event-decisions';
 import { CheckinDeskRows } from '@/app/vendor-dashboard/_components/events-you-run-rows';
 import { TodayEasyLab } from './today-easy-lab';
+import { BasicSetupHold } from '@/app/vendor-dashboard/_components/basic-setup-hold';
+import { basicSetupHoldOf } from '@/lib/basic-setup-gate';
+import type { BusinessProfileItem } from '@/lib/vendor-profile';
 
-export const COORD_STATES = ['coord-today', 'coord-events', 'coord-customer', 'coord-hub'] as const;
+export const COORD_STATES = ['coord-today', 'coord-events', 'coord-customer', 'coord-hub', 'coord-hold'] as const;
 export type CoordState = (typeof COORD_STATES)[number];
 
 const LAB_TODAY = '2026-10-14';
@@ -78,13 +85,43 @@ function labNeeds(unread: boolean): Map<string, EventDecisionSummary | null> {
   ]);
 }
 
-export function CoordLab({ state, none, unread = false, cohost = false, actions }: { state: CoordState; none: boolean; unread?: boolean; cohost?: boolean; actions: TodayActions }) {
+/** 🧰 The coordinator's admin-made shop, not set up yet: name in (wrong — she asks to change it), the rest to do. */
+const LAB_HOLD_CHECKLIST: BusinessProfileItem[] = [
+  { key: 'logo', label: 'Logo', surface: 'profile', ok: false },
+  { key: 'business_name', label: 'Shop name', surface: 'profile', ok: true },
+  { key: 'business_owner_name', label: 'Business owner', surface: 'profile', ok: true },
+  { key: 'maps_pin', label: 'Company address', surface: 'profile', ok: false },
+  { key: 'contact_phone', label: 'Contact number', surface: 'profile', ok: true },
+  { key: 'contact_email', label: 'Company email', surface: 'profile', ok: true },
+  { key: 'in_business_since_year', label: 'EST', surface: 'profile', ok: false },
+  { key: 'services', label: 'Services covered', surface: 'profile', ok: true },
+];
+
+export function CoordLab({ state, none, unread = false, cohost = false, at, actions }: { state: CoordState; none: boolean; unread?: boolean; cohost?: boolean; at?: string; actions: TodayActions }) {
   const runs = withNeeds(eventsYouRun(labSeats(none, cohost), LAB_NOW, LAB_TODAY), labNeeds(unread));
   const bar = (
     <BottomDock boundary="tab">
       <CoordLabBar runsEvents={runs.length > 0} />
     </BottomDock>
   );
+  if (state === 'coord-hold') {
+    const hold = basicSetupHoldOf({ measured: true, canManage: true, verified: false, checklist: { items: LAB_HOLD_CHECKLIST, complete: false } });
+    const where = at && at.startsWith('/vendor-dashboard') ? at : '/vendor-dashboard/shop';
+    return (
+      <div className="min-h-screen bg-cream px-4 pb-32 pt-4" data-coord-lab="hold" data-at={where}>
+        <BasicSetupHold hold={hold} at={where}>
+          {where.startsWith('/vendor-dashboard/events') ? (
+            <EventsYouRunScreen events={runs} measured />
+          ) : (
+            <p className="text-[15px] text-ink/70" data-lab-stand-in="open-page">
+              {where} — open while the shop is being set up (the shipped page draws here).
+            </p>
+          )}
+        </BasicSetupHold>
+        {bar}
+      </div>
+    );
+  }
   if (state === 'coord-today') {
     return (
       <div data-coord-lab="today" data-runs={runs.length}>

@@ -15,8 +15,18 @@ import { BASIC_SETUP_HOME, basicSetupLine, pageIsHeld, type BasicSetupHold } fro
  * run, chat, the account) renders as it always did. The rule is `pageIsHeld` (`lib/basic-setup-gate.ts`); this only
  * draws it. Wraps the page body only — the top bar (sign-out under the avatar) and the bottom bar stay.
  */
-export function BasicSetupHold({ hold, children }: { hold: BasicSetupHold | null; children: ReactNode }) {
-  const pathname = usePathname() ?? '';
+export function BasicSetupHold({
+  hold,
+  children,
+  at,
+}: {
+  hold: BasicSetupHold | null;
+  children: ReactNode;
+  /** /dev only — the address to judge instead of the browser's (the lab draws the supplier pages at /dev/…). */
+  at?: string;
+}) {
+  const live = usePathname() ?? '';
+  const pathname = at ?? live;
   const seg = useSearchParams()?.get('seg') ?? null;
   if (!pageIsHeld(pathname, hold, seg) || !hold) return <>{children}</>;
   return (

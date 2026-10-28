@@ -24,4 +24,14 @@ on the shop name. Lab: `/dev/supplier-lab?s=details&invited=1[&asked=1]`. Guard:
 `lib/a-shop-setnayan-set-up-asks-to-rename.test.ts`; `correction-queue-has-an-intake` and `the-badge-has-a-deadline`
 updated with reasons.
 
+**S3 · Basic setup first.** `lib/basic-setup-gate.ts` decides once (`basicSetupHoldOf` in
+`app/vendor-dashboard/layout.tsx`, from the shop row and the `verification_state` probe the layout already reads — no
+new request): an UNVERIFIED shop's owner/admin whose shipped `businessProfileChecklist` is incomplete is held on the
+setup. `BasicSetupHold` wraps the page body only and draws "Finish your basic setup first" (title + one line of what is
+left, details in the ⓘ) with one button, "Back to setup" → Today's six steps. Open while held: Today, Your details,
+documents, Events you run, Messages + Customers' People list, Notifications, Settings, Help, Helpers, Plan, Switch
+shop, the avatar sheet (sign-out), the event itself (`/dashboard/<id>`), and the shop's Coverage while "Services
+covered" is the missing step. A helper, a verified shop and an unread row are never held (`legacy_read` now marks the
+fallback profile read). Guard: `lib/basic-setup-gate.test.ts`.
+
 SPEC IMPACT: DECISION_LOG row "SUPPLIERS READY TO RUN AN EVENT AND FINISH THEIR SHOP" (corpus).

@@ -92,6 +92,12 @@ export type VendorProfileRow = {
    */
   created_by_admin_user_id?: string | null;
   /**
+   * Set ONLY on the legacy-fallback read (the FULL projection failed): the basic-setup columns it omits were
+   * back-filled as null, so "missing" there is unmeasured — the basic-setup hold (`lib/basic-setup-gate.ts`) holds
+   * nobody on such a row.
+   */
+  legacy_read?: true;
+  /**
    * Iteration 0043 — wedding-type compatibility tags.
    *
    * NULL = "open to all" (legacy vendors who pre-date 0043 default here).
@@ -219,6 +225,7 @@ async function selectVendorProfileBy(
   if (!fallback.data) return null;
   return {
     ...(fallback.data as Record<string, unknown>),
+    legacy_read: true,
     compatible_ceremony_types: null,
     compatible_venue_settings: null,
     event_types: ['wedding'],

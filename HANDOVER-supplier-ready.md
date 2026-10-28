@@ -10,7 +10,9 @@ Worktree: ~/Documents/Claude/Projects/wt-supplier-ready · branch claude/supplie
   identityLockRefusal / rowAsks; actions.ts updateVendorProfileField; RequestOnlyRow in editable-row.tsx; ask card
   requestOnly; lab `?s=details&invited=1&asked=1`). Guard lib/a-shop-setnayan-set-up-asks-to-rename.test.ts green,
   two sabotages red.
+- S3 · basic setup first (lib/basic-setup-gate.ts + app/vendor-dashboard/_components/basic-setup-hold.tsx, one mount
+  in layout.tsx). Guard lib/basic-setup-gate.test.ts green, three sabotages red.
 
 ## Next
-- S3 basic-setup gate · S4 offerProgress · S5 stylist check
+- (S3 done) basic-setup gate · S4 offerProgress · S5 stylist check
 - Then lints, walk, draft PR (+ do-not-auto-merge label).

@@ -5,8 +5,7 @@
  *
  * The properties held here (each sabotaged RED, then restored — see the PR body):
  *   1. EVERY FIRST-RUN SCREEN CARRIES THE SHIPPED WORDMARK: sign-up, the You card, "What do you need?" (the
- *      generic wizard and the Get-together form), and the open-shop wizard (one line above its four segments, so
- *      on every step) draw `FirstRunBrand` — which is the shipped `Wordmark`, never a redraw. The event-type picker
+ *      generic wizard and the Get-together form) draw `FirstRunBrand` — which is the shipped `Wordmark`, never a redraw. The event-type picker
  *      draws NONE: it sits under the account bar, whose top bar already shows the mark + "Setnayan" at every
  *      width (2026-10-21) — one wordmark per screen, never two.
  *   2. A BRAND-NEW COUPLE'S DONE LANDS ON THE PICKER: `youCardOnward` swaps the default board for the event-type
@@ -20,7 +19,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { stripComments } from './strip-comments';
 import { FIRST_EVENT_PATH, youCardOnward } from './signup-landing';
 import { SIGNED_IN_LANDING } from './sign-in-landing';
@@ -40,13 +39,14 @@ test('1 · every first-run screen draws the shipped wordmark', () => {
     'app/signup/you/_components/you-card.tsx',
     'app/onboarding/[type]/_components/generic-onboarding.tsx',
     'app/onboarding/simple/page.tsx',
-    'app/open-shop/_components/open-shop-wizard.tsx',
   ]) {
     assert.match(read(f), /<FirstRunBrand\b/, `${f} has no SETNAYAN brand line`);
   }
-  // The open-shop line is above the segments — outside every step's panel, so all four carry it.
-  const wiz = read('app/open-shop/_components/open-shop-wizard.tsx');
-  assert.ok(wiz.indexOf('<FirstRunBrand') > 0 && wiz.indexOf('<FirstRunBrand') < wiz.indexOf('role="progressbar"'), 'the brand line is inside one step');
+  // The open-shop wizard moved INSIDE THE APP SHELL (owner 2026-10-29, "inside the app"): its page lives in
+  // `app/(shell)/`, whose top bar already says SETNAYAN at every width — so, like the event-type picker below, it
+  // draws NO second brand line (one wordmark per screen, never two).
+  assert.ok(existsSync('app/(shell)/open-shop/page.tsx'), 'the open-shop page left the app shell');
+  assert.doesNotMatch(read('app/open-shop/_components/open-shop-wizard.tsx'), /<FirstRunBrand\b/, 'the shop wizard says SETNAYAN twice (the top bar already does)');
   // The onboarding header no longer hand-draws a copy of the mark.
   assert.doesNotMatch(read('app/onboarding/[type]/_components/generic-onboarding.tsx'), /fill="#cb9e4b"/, 'a hand-drawn mark is back');
   // The sign-up and You cards put it ABOVE the eyebrow.

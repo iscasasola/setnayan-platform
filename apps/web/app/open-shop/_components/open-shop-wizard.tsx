@@ -27,7 +27,6 @@ import { OAuthButtonRow } from '@/app/_components/oauth-button-row';
 import { DesktopOAuthButtons } from '@/app/_components/desktop-oauth-buttons';
 import { NativeOAuthButtons } from '@/app/_components/native-oauth-buttons';
 import { SignInHereLink } from '@/app/_components/auth/sign-in-here-link';
-import { FirstRunBrand } from '@/app/_components/first-run-brand';
 import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 import { TERMS_FIELD, TERMS_REQUIRED_MESSAGE } from '@/lib/terms-agreement';
 import { OPEN_SHOP_ACCOUNT_ERRORS, OPEN_SHOP_PASSWORD_MIN } from '@/lib/open-shop-account';
@@ -92,6 +91,8 @@ import { inBusinessSinceChoices } from '@/lib/in-business-since';
 /** Four steps, one question each. See `validateStep` for why not six or two. */
 export type Step = 1 | 2 | 3 | 4;
 const TOTAL_STEPS = 4;
+/** Each step's name — the screen's one heading, and the laptop's step list. A name, never a sentence (less is more). */
+const STEP_NAME: Record<Step, string> = { 1: 'Your shop', 2: 'What you do', 3: 'Who you are', 4: 'Where you are' };
 
 export function OpenShopWizard({
   mode,
@@ -312,13 +313,22 @@ export function OpenShopWizard({
       return;
     }
     setBanner(null);
-    setStep((n) => (n < TOTAL_STEPS ? ((n + 1) as Step) : n));
+    const to = (step < TOTAL_STEPS ? step + 1 : step) as Step;
+    setStep(to);
+    // ↩ RESUME WHERE YOU LEFT OFF: every step change parks what was typed (same one-hour, same-tab draft the OAuth
+    // round trip uses, never the password), so a reload — or the phone dropping the tab — reopens on this step with
+    // every box as it was.
+    saveDraft({ step: to });
   };
 
-  const back = () => {
+  /** Back to an EARLIER step (the Back button, or a passed step in the laptop's step list). Never forward. */
+  const goTo = (n: Step) => {
+    if (n >= step) return;
     setBanner(null);
-    setStep((n) => (n > 1 ? ((n - 1) as Step) : n));
+    setStep(n);
+    saveDraft({ step: n });
   };
+  const back = () => goTo((step > 1 ? step - 1 : 1) as Step);
 
   /**
    * The final gate. Walks EVERY step, not just the last one — a vendor can reach
@@ -352,14 +362,17 @@ export function OpenShopWizard({
    * server actions; their submit bubbles to the wrapper below in React's tree.
    * Also called by `submitGate` (`atSubmit`) with the address the form sends.
    */
-  const saveDraft = (at?: { atSubmit: true }) => {
+  const saveDraft = (opts?: { atSubmit?: true; step?: Step }) => {
+    const at = opts?.atSubmit ? opts : undefined;
     const read = (name: string) =>
       (formRef.current?.elements.namedItem(name) as HTMLInputElement | null)?.value ?? '';
     try {
       sessionStorage.setItem(
         OPEN_SHOP_DRAFT_KEY,
         serializeOpenShopDraft({
-          step: at ? step : 3,
+          // Submit parks the step it was on; a step change parks the step it moved to; the OAuth row (no step
+          // given) parks step 3, where its buttons live.
+          step: at ? step : (opts?.step ?? 3),
           shopName,
           logoUrl,
           service,
@@ -384,12 +397,19 @@ export function OpenShopWizard({
     let raw: string | null = null;
     try {
       raw = sessionStorage.getItem(OPEN_SHOP_DRAFT_KEY);
-      if (raw) sessionStorage.removeItem(OPEN_SHOP_DRAFT_KEY);
     } catch {
       return;
     }
     const d = parseOpenShopDraft(raw);
-    if (!d || !restoresOnThisLoad(d, Boolean(error))) return;
+    const restore = !!d && restoresOnThisLoad(d, Boolean(error));
+    // A draft that will not be restored is dropped, and so is a submit-time one (it is for the ONE refusal reload).
+    // A step draft STAYS: a second reload must resume on the same step too (it is replaced at the next step change).
+    try {
+      if (raw && (!restore || d?.atSubmit)) sessionStorage.removeItem(OPEN_SHOP_DRAFT_KEY);
+    } catch {
+      // Storage refused — the draft simply is not cleaned up; it expires on its own (one hour).
+    }
+    if (!d || !restore) return;
     if (d.shopName) setShopName(d.shopName);
     if (d.logoUrl) setLogoUrl(d.logoUrl);
     if (d.service) {
@@ -414,11 +434,68 @@ export function OpenShopWizard({
   }, []);
 
   return (
-    <main className="flex min-h-[70vh] items-center justify-center px-4 py-10">
-      <div
-        className="w-full max-w-lg rounded-2xl border p-5 sm:p-7"
-        style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
-      >
+    /* ── INSIDE THE APP, NOT THE OLD WEBSITE CARD (owner 2026-10-29, DECISION_LOG "FIVE OPEN CALLS ANSWERED" (1):
+       "inside the app"; 2026-10-28 "NO PRIMARY SERVICE … THE OLD SUPPLIER ENTRY IS AN OLD-WEBSITE SHELL") ──────────
+       The page lives in `app/(shell)/open-shop/`, so the shared app shell (top bar · rail · drawer) wraps it — the same
+       shell as `/start`, the couple's own "Start your event" door. This used to be a bordered card floating in the
+       middle of a blank page: that card was the old-website look the owner rejected. Now the screen is the step:
+       full width on a phone, Back / Continue in the thumb zone (a frosted bar pinned to the bottom), and on a laptop
+       the four steps run down the left with the step itself using the rest of the width.
+       🔒 app/open-shop/lives-in-the-app-shell.test.ts */
+    <main
+      data-open-shop=""
+      className="mx-auto w-full max-w-6xl px-4 pt-4 sm:px-6 lg:grid lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-10 lg:px-8 lg:pt-8"
+    >
+      {/* The four steps, down the left on a laptop (maximise the screen — never a centred phone strip). A step you
+          have passed is pressable, to go back to it; a step ahead is not (Continue checks each one on the way). */}
+      <nav aria-label="Steps" className="hidden lg:block" data-open-shop-steps="">
+        <ol className="sticky top-24 space-y-1">
+          {([1, 2, 3, 4] as Step[]).map((n) => {
+            const passed = n < step;
+            const here = n === step;
+            const chip = (
+              <span
+                aria-hidden
+                className="grid h-8 w-8 flex-none place-items-center rounded-full text-[13px] font-semibold"
+                style={
+                  here
+                    ? { background: 'var(--m-orange-deep)', color: 'var(--m-paper)' }
+                    : passed
+                      ? { background: 'color-mix(in srgb, rgb(var(--color-ok)) 14%, transparent)', color: 'rgb(var(--color-ok))' }
+                      : { background: 'var(--m-paper-2)', color: 'var(--m-slate-3)' }
+                }
+              >
+                {passed ? '✓' : formatCount(n)}
+              </span>
+            );
+            return (
+              <li key={n}>
+                {passed ? (
+                  <button
+                    type="button"
+                    onClick={() => goTo(n)}
+                    className="flex min-h-11 w-full items-center gap-3 rounded-full pr-3 text-left text-sm hover:bg-ink/5"
+                    style={{ color: 'var(--m-ink)' }}
+                  >
+                    {chip}
+                    {STEP_NAME[n]}
+                  </button>
+                ) : (
+                  <span
+                    className="flex min-h-11 items-center gap-3 text-sm"
+                    style={{ color: here ? 'var(--m-ink)' : 'var(--m-slate-3)', fontWeight: here ? 600 : 400 }}
+                    aria-current={here ? 'step' : undefined}
+                  >
+                    {chip}
+                    {STEP_NAME[n]}
+                  </span>
+                )}
+              </li>
+            );
+          })}
+        </ol>
+      </nav>
+      <div className="min-w-0 max-w-3xl">
         {/* ── PROGRESS, NOT PROSE (owner 2026-08-10) ────────────────────────
             The storefront icon, the "Open your shop" headline, the "Free during
             launch" blurb and the "How couples reach you" title are all gone —
@@ -428,12 +505,15 @@ export function OpenShopWizard({
 
             "Step 1 of 2" is replaced by four segments that fill. The SHAPE
             carries the count, so no words have to; `aria-valuenow` + the label
-            keep that fact available to a screen reader, which cannot see it. */}
-        {/* The brand line (owner 2026-10-21, "make sure there is Setnayan"): the shipped wordmark, small, on every
-            step — it sits above the four segments, so it is the same line on all four. */}
-        <FirstRunBrand className="mb-4" color="var(--m-ink)" size={13} />
+            keep that fact available to a screen reader, which cannot see it.
+
+            The step's NAME rides under the segments as the page's one heading (a
+            screen in the app shell owns one <h1>) — the name only, never a line of
+            prose under it, so "less is more" still holds. The brand line that sat
+            above the segments is gone: the shell's top bar already says SETNAYAN
+            (one wordmark per screen, the /start rule). */}
         <div
-          className="mb-6 flex gap-1.5"
+          className="mb-2 flex gap-1.5"
           role="progressbar"
           aria-valuemin={1}
           aria-valuemax={TOTAL_STEPS}
@@ -456,6 +536,9 @@ export function OpenShopWizard({
             </span>
           ))}
         </div>
+        <h1 className="text-lg font-semibold" style={{ color: 'var(--m-ink)' }} data-open-shop-step={step}>
+          {STEP_NAME[step]}
+        </h1>
 
         {banner && (
           <p
@@ -895,7 +978,37 @@ export function OpenShopWizard({
               sign-up door. `rounded-full` overrides `.button-primary`'s
               `rounded-md`; Back is the round icon beside it. Held by
               app/open-shop/both-sign-up-doors-wear-one-button.test.ts. */}
-          <div className="flex items-center gap-2 pt-1">
+          {/* WHAT "FREE" MEANS, SAID ON THE STEP WHERE THEY COMMIT.
+              🔴 Owner, 2026-09-20, as a supplier who had just been billed:
+              "as a vendor i do not know i have to pay." The button says FREE
+              and it is true — joining costs nothing. What was missing is the
+              other half: a booking fee exists, and it starts at booking six.
+              Last step only: a disclosure on step 1 is read by nobody, and
+              repeating it on four steps is a wall of text, not a disclosure.
+              `feeNotice` is composed by `bookingFeeJoinDisclosure` from the
+              LIVE schedule — never a rate typed here. It sits ABOVE the button
+              (2026-10-29): the buttons are pinned to the thumb zone now, so a
+              line after them would scroll out from under the one press it is
+              about. Unframed — nothing in it is pressable. */}
+          {step === TOTAL_STEPS && feeNotice ? (
+            <div data-testid="open-shop-fee-disclosure" className="border-t pt-3" style={{ borderColor: 'var(--m-line)' }}>
+              <p className="text-sm font-semibold text-ink">{feeNotice.headline}</p>
+              <p className="mt-0.5 text-sm text-ink/70">{feeNotice.detail}</p>
+            </div>
+          ) : null}
+
+          {/* 👍 THE THUMB ZONE (house rule: tools live in the lower third). On a phone the Back / Continue row is pinned
+              to the bottom of the screen on a frosted bar, so the next press is always under the thumb however long
+              the step is (the services checklist is long). From the laptop width it sits in the flow, under the step. */}
+          <div
+            data-open-shop-thumb=""
+            className="sticky bottom-0 z-20 -mx-4 flex items-center gap-2 border-t px-4 pt-3 backdrop-blur sm:-mx-6 sm:px-6 lg:static lg:mx-0 lg:border-t-0 lg:px-0 lg:pt-1 lg:backdrop-blur-none"
+            style={{
+              borderColor: 'var(--m-line)',
+              background: 'color-mix(in srgb, var(--m-paper) 92%, transparent)',
+              paddingBottom: 'max(12px, env(safe-area-inset-bottom))',
+            }}
+          >
             {step > 1 ? (
               <button
                 type="button"
@@ -925,27 +1038,6 @@ export function OpenShopWizard({
               </SubmitButton>
             )}
           </div>
-
-          {/* WHAT "FREE" MEANS, SAID ON THE STEP WHERE THEY COMMIT.
-              🔴 Owner, 2026-09-20, as a supplier who had just been billed:
-              "as a vendor i do not know i have to pay." The button says FREE
-              and it is true — joining costs nothing. What was missing is the
-              other half: a booking fee exists, and it starts at booking six.
-              Last step only: a disclosure on step 1 is read by nobody, and
-              repeating it on four steps is a wall of text, not a disclosure.
-              `feeNotice` is composed by `bookingFeeJoinDisclosure` from the
-              LIVE schedule — never a rate typed here. */}
-          {step === TOTAL_STEPS && feeNotice ? (
-            <div
-              data-testid="open-shop-fee-disclosure"
-              className="mt-3 rounded-xl border p-3"
-              style={{ borderColor: 'var(--m-line)' }}
-            >
-              <p className="text-sm font-semibold text-ink">{feeNotice.headline}</p>
-              <p className="mt-0.5 text-sm text-ink/70">{feeNotice.detail}</p>
-            </div>
-          ) : null}
-
         </form>
 
       </div>

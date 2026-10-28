@@ -20,6 +20,6 @@ test('opening a shop ends on Today', () => {
 });
 
 test('a person who already has a shop is sent to Today too', () => {
-  const page = strip(read('app/open-shop/page.tsx'));
+  const page = strip(read('app/(shell)/open-shop/page.tsx'));
   assert.match(page, /if \(row\?\.business_name\?\.trim\(\)\) redirect\('\/vendor-dashboard'\);/);
 });

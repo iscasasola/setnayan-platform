@@ -23,7 +23,7 @@ import { readFileSync } from 'node:fs';
 
 const ACTIONS = readFileSync('app/open-shop/actions.ts', 'utf8');
 const WIZARD = readFileSync('app/open-shop/_components/open-shop-wizard.tsx', 'utf8');
-const PAGE = readFileSync('app/open-shop/page.tsx', 'utf8');
+const PAGE = readFileSync('app/(shell)/open-shop/page.tsx', 'utf8');
 // The city + address inputs live in CityPin, not the wizard — a field the
 // wizard validates may legitimately be rendered by a child component.
 const CITY_PIN = readFileSync('app/open-shop/_components/city-pin.tsx', 'utf8');

@@ -39,7 +39,7 @@ test('order is the vocab’s own and `enabled` is untouched — suppliers may pr
 
 // ── the callers are a source fact, so they are read ────────────────────────
 const SUPPLIER_SIDE = [
-  'app/open-shop/page.tsx',
+  'app/(shell)/open-shop/page.tsx',
   'app/open-shop/actions.ts',
   // The doors into the maker read the roster through their ONE loader (2026-10-14).
   'lib/service-card-maker.server.ts',

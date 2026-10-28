@@ -107,7 +107,7 @@ const BASELINE = new Set([
  */
 const FALSE_POSITIVES = new Map([
   [
-    'app/open-shop/page.tsx',
+    'app/(shell)/open-shop/page.tsx',
     'The `logoUrl: row?.logo_url` here is the WIZARD FORM DEFAULT — the stored ' +
       'reference the vendor saves back, seeded into useState and used for the ' +
       'required-field check. The picture comes from `logoDisplayMap`, built ' +

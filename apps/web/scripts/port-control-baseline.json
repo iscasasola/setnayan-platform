@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "5dcea85e11",
+  "generatedFromRef": "cd137db2ee",
   "routeCount": 479,
-  "destinations": 987,
-  "actions": 642,
-  "blocks": 7286,
+  "destinations": 985,
+  "actions": 641,
+  "blocks": 7264,
   "routes": {
     "/": {
       "files": [
@@ -363,6 +363,16 @@
       "blocks": [
         "DoorwayPage",
         "SpotlightSection"
+      ]
+    },
+    "/(shell)/open-shop": {
+      "files": [
+        "(shell)/open-shop/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "OpenShopWizard"
       ]
     },
     "/(shell)/pa3d": {
@@ -12414,50 +12424,6 @@
         "WeddingCountdown",
         "WeddingVenues",
         "WelcomeMoments"
-      ]
-    },
-    "/open-shop": {
-      "files": [
-        "open-shop/_components/address-preview.tsx",
-        "open-shop/_components/city-pin.tsx",
-        "open-shop/_components/open-shop-wizard.tsx",
-        "open-shop/_components/service-picker.tsx",
-        "open-shop/actions.ts",
-        "open-shop/address-actions.ts",
-        "open-shop/city-actions.ts",
-        "open-shop/page.tsx"
-      ],
-      "destinations": [
-        "/privacy",
-        "/terms"
-      ],
-      "actions": [
-        "becomeVendor"
-      ],
-      "blocks": [
-        "AddressCheck",
-        "AddressPreview",
-        "CityPin",
-        "DesktopOAuthButtons",
-        "DetectedCity",
-        "FileUpload",
-        "FirstRunBrand",
-        "HTMLDivElement",
-        "HTMLFormElement",
-        "HTMLInputElement",
-        "LeafletMap",
-        "LeafletMarker",
-        "LeafletModule",
-        "LocatedAddress",
-        "NativeOAuthButtons",
-        "OAuthButtonRow",
-        "OpenShopWizard",
-        "PickMenu",
-        "ServicePicker",
-        "SignInHereLink",
-        "Step",
-        "SubmitButton",
-        "TurnstileField"
       ]
     },
     "/our-story": {

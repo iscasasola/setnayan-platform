@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchVendorServicePickerVocab } from '@/lib/vendor-service-vocab';
 import { getVendorServableEventTypes } from '@/lib/event-types-db';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
-import { OpenShopWizard } from './_components/open-shop-wizard';
+import { OpenShopWizard } from '@/app/open-shop/_components/open-shop-wizard';
 import { getOpenShopServiceTree } from '@/lib/open-shop-service-tree';
 import { readBookingFeeJoinSchedule } from '@/lib/booking-fee-disclosure.server';
 import { bookingFeeJoinDisclosure } from '@/lib/booking-fee-disclosure';

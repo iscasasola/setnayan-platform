@@ -64,6 +64,7 @@
  *                                    stopped (Next card) · no photos yet (Next card) · low on the day
  */
 import { CoordinatingLine } from '@/app/dashboard/[eventId]/_components/coordinating-line';
+import { labOpenEventSettings } from './lab-event-settings';
 import { PapicBuySheet } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-buy-sheet';
 import { PapicCameraSettings, PapicSwitch } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-camera-settings';
 import { ChallengeCardRow } from '@/app/dashboard/[eventId]/studio/papic/_components/challenge-card-row';
@@ -470,6 +471,9 @@ export default async function HomeLab({
     <div className="mx-auto min-h-screen w-full bg-cream px-4 pb-6 pt-3 sm:px-6 sm:pt-6 lg:px-8">
       <HomeFirstScreen
         eventId={E}
+        /* ⚙ Event Settings on the cover — its rows drawn on the lab's fixture (`lab-event-settings.tsx`), no database. */
+        eventSettings
+        eventSettingsOpen={labOpenEventSettings}
         cover={{ eyebrow: F.eyebrow, shortDate: F.shortDate, name: F.name, ...(labForWho ? { forWho: labForWho } : {}) }}
         next={next}
         control={labControl}

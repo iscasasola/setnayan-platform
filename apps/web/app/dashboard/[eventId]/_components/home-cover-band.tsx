@@ -3,6 +3,8 @@ import type { HomeCoverWords } from '@/lib/home-cover-words';
 import { forTagWords, type ForTag } from '@/lib/for-tag';
 import { ForTagMark } from '@/app/_components/for-tag-mark';
 import { HomeCoverPin } from './home-cover-pin';
+import { HomeSettingsGear } from './home-settings-gear';
+import type { EventSettingsResult } from './open-event-settings';
 
 /**
  * home-cover-band.tsx — THE EVENT HOME'S COVER BAND (the name and the date line),
@@ -20,20 +22,27 @@ import { HomeCoverPin } from './home-cover-pin';
  * words fade and `<names> · <date>` takes their place in the bottom 52 px (`home-cover-pin.tsx`). The loading screen
  * draws this same band, so the hand-over cannot jump. No selector on Home, and no ⚙ on its cover AT REST (24 Oct).
  *
- * ⚙ THE PINNED LINE ENDS WITH HOME'S ⚙ (owner 2026-10-27, "EVERY MENU'S ⚙ RIDES ITS PINNED ROW TOO": *"headeer ana
- * and miguel has the event settings"*): `<names> · <date> · ⚙`, the ⚙ opening Event Details — drawn only once the band
- * has stuck (`visibility` follows `data-collapsed`), so at rest the Countdown is still the one door on screen.
+ * ⚙ HOME'S ⚙ — EVENT SETTINGS — AT THE BAND'S RIGHT END, AT REST AND PINNED (owner 2026-10-29, verbatim: *"on event
+ * dashboard> home the header does not show the settings icon like the other pages with settings icon. keep it there"*;
+ * amends 27 Oct's "drawn only once the band has stuck"). ONE mount (`home-settings-gear.tsx`, `MenuSettingsButton
+ * menu="home"`) in the band's bottom 52 px: at rest it ends the name's row, stuck it ends `<names> · <date> · ⚙` — the
+ * same spot, so it never moves. It opens the Event Settings sheet (names · date · venues · parents), not a page: the
+ * Countdown stays Home's one door to Event Details. Only the couple gets it (`settingsFor`); the loading screen none.
  */
 export function HomeCoverBand({
   cover,
   ground = null,
-  settingsHref,
+  settingsFor,
+  settingsOpen,
 }: {
   cover: HomeCoverWords;
   ground?: HomeCover | null;
-  /** ⚙ Event Details' address — the pinned line's ⚙ (27 Oct). The loading screen passes none: its band never pins. */
-  settingsHref?: string;
+  /** ⚙ The event whose Event Settings the ⚙ opens — the couple's Home only. The loading screen passes none. */
+  settingsFor?: string;
+  /** The Home lab's stand-in for the rows' read (dev only); absent = the shipped action. */
+  settingsOpen?: (eventId: string) => Promise<EventSettingsResult>;
 }) {
+  const gear = Boolean(settingsFor);
   return (
       <div
         data-home-cover={ground?.kind ?? 'colour'}
@@ -55,7 +64,7 @@ export function HomeCoverBand({
             <span className="absolute inset-0 block" style={{ background: ground.scrim }} />
           </span>
         ) : null}
-        <div className="relative min-w-0 transition-[opacity,transform] duration-200 ease-sn group-data-[collapsed]/cover:-translate-y-2.5 group-data-[collapsed]/cover:opacity-0 motion-reduce:transition-none motion-reduce:group-data-[collapsed]/cover:translate-y-0">
+        <div className={`relative min-w-0 ${gear ? 'pr-[54px]' : ''} transition-[opacity,transform] duration-200 ease-sn group-data-[collapsed]/cover:-translate-y-2.5 group-data-[collapsed]/cover:opacity-0 motion-reduce:transition-none motion-reduce:group-data-[collapsed]/cover:translate-y-0`}>
           {/* The page's one h1. Screen-reader only: the name is drawn once, below, for the eye — and
               BEFORE the eyebrow, so `lint-page-masthead` does not read a label-over-h1. */}
           <h1 className="sr-only">{cover.name}</h1>
@@ -63,7 +72,8 @@ export function HomeCoverBand({
           <p aria-hidden className="text-[26px] font-semibold leading-[1.1] tracking-[-0.01em]">{cover.name}</p>
           {cover.forWho ? <HomeForLine tag={cover.forWho} /> : null}
         </div>
-        <HomeCoverPin name={cover.name} date={cover.shortDate} settingsHref={settingsHref} />
+        <HomeCoverPin name={cover.name} date={cover.shortDate} gear={gear} />
+        {settingsFor ? <HomeSettingsGear eventId={settingsFor} opener={settingsOpen} /> : null}
       </div>
   );
 }

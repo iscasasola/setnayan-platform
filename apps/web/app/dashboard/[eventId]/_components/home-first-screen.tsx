@@ -16,6 +16,7 @@ import type { HomeCover } from '@/lib/home-cover';
 import type { HomeCoverWords } from '@/lib/home-cover-words';
 import { HomeToday, HomeTodayFold } from './home-parts';
 import { HomeCoverBand } from './home-cover-band';
+import type { EventSettingsResult } from './open-event-settings';
 import { HomeControlRow } from './home-control-row';
 import type { HomeHubPickRead } from './home-cards/hub-pick-types';
 import { homeToday, type HomeControlInput } from './home-control-faces';
@@ -101,6 +102,13 @@ export type HomeFirstScreenProps = {
   control: HomeControlInput;
   /** Papic · Setnayan AI · … with their status — already filtered (store shell). */
   services: HomeService[];
+  /**
+   * ⚙ EVENT SETTINGS ON THE COVER (owner 2026-10-29, *"keep it there"*): the band ends with Home's ⚙, at rest and pinned.
+   * Only the couple (they change the event's own facts); absent = none (a helper, the labs that do not ask for it).
+   */
+  eventSettings?: boolean;
+  /** The Home lab's stand-in for Event Settings' read (`/dev/home-lab?settings=1`, dev only); absent = the shipped action. */
+  eventSettingsOpen?: (eventId: string) => Promise<EventSettingsResult>;
   /** 🖼 The Event Hub's main background under the name (`lib/home-cover.ts`); null = today's colour. */
   ground?: HomeCover | null;
   /** 🎨 Papic's credits left, for the Buy more sheet's "You have N" and "After this". */
@@ -149,6 +157,8 @@ export function HomeFirstScreen({
   next,
   control,
   services,
+  eventSettings = false,
+  eventSettingsOpen,
   ground = null,
   papicLeft = null,
   papicSizes = null,
@@ -164,7 +174,7 @@ export function HomeFirstScreen({
     <section data-home-first-screen aria-label="Home" className="flex w-full flex-col gap-3">
       {/* 🖼 The cover wears the Event Hub's main background (owner 2026-10-07, #6394), the words in the hub's own
           measured ink over its veil (`lib/home-cover.ts`). */}
-      <HomeCoverBand cover={cover} ground={ground} settingsHref={`/dashboard/${eventId}/details`} />
+      <HomeCoverBand cover={cover} ground={ground} settingsFor={eventSettings ? eventId : undefined} settingsOpen={eventSettingsOpen} />
 
       {/* 📅 "Later" beside the verb folds the Today line for today, on this device (owner 2026-10-23). */}
       <HomeTodayFold eventId={eventId} kind={next.kind}>

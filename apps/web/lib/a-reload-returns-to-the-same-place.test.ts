@@ -124,7 +124,8 @@ test('3 · rule 3 stands for a cold door; the page’s own reload goes back wher
   assert.deepEqual(makerDoorLanding({ side: 'stages', at: 'look' }, TILES), { side: 'stages', at: 'home', keep: false });
   // Studio's home, or a tool this event does not have: Studio's home.
   assert.deepEqual(makerDoorLanding({ side: 'studio', at: 'home' }, TILES), { side: 'studio', at: 'home', keep: false });
-  assert.deepEqual(makerDoorLanding({ side: 'studio', at: 'prints' }, TILES.filter((t) => t !== 'prints')), { side: 'studio', at: 'home', keep: false });
+  /* 🖨 Prints left Studio (R8): a tab that came back on its old tile lands on Studio's home. */
+  assert.deepEqual(makerDoorLanding({ side: 'studio', at: 'prints' }, TILES), { side: 'studio', at: 'home', keep: false });
   assert.deepEqual(makerDoorLanding({ side: 'studio', at: '__proto__' }, TILES), { side: 'studio', at: 'home', keep: false });
 });
 

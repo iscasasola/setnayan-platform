@@ -18,6 +18,7 @@ import { fetchVendorServices } from '@/lib/vendor-services';
 import { VENDOR_CATEGORIES, type VendorCategory } from '@/lib/vendors';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { sanitizeLockSchedule } from '@/lib/vendor-locked-qr';
+import { NOT_AVAILABLE_COLUMNS, blockOnDay, notAvailableShapeOf } from '@/lib/not-available';
 import { getVendorAvailableDays, formatDayKey } from '@/lib/vendor-availability';
 
 function toAmount(v: FormDataEntryValue | null): number | null {
@@ -140,15 +141,14 @@ export async function issueLockedQr(formData: FormData): Promise<void> {
   if (blockId) {
     const { data: held } = await supabase
       .from('vendor_calendar_blocks')
-      .select('blocked_at, blocked_until')
+      .select(`blocked_at, blocked_until, ${NOT_AVAILABLE_COLUMNS}`)
       .eq('block_id', blockId)
       .eq('vendor_profile_id', vendorProfileId)
       .eq('block_source', 'external_client')
       .maybeSingle();
     if (!held) fail('issue');
-    const phDay = (iso: string) => new Date(iso).toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
-    const h = held as { blocked_at: string; blocked_until: string };
-    ownOutsideDay = eventDate >= phDay(h.blocked_at) && eventDate <= phDay(h.blocked_until);
+    // The ONE rule for "is this day inside that block" (`lib/not-available.ts`) — never a hand-made range check.
+    ownOutsideDay = blockOnDay(notAvailableShapeOf(held as { blocked_at: string; blocked_until: string }), eventDate as string);
   }
   const bookDate = new Date(`${eventDate}T00:00:00`);
   const freeDays = ownOutsideDay ? null : await getVendorAvailableDays(

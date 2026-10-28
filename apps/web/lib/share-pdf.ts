@@ -581,11 +581,19 @@ export async function sharePdf(d: SharePdfDoc): Promise<Uint8Array> {
       const asideW = aside ? measure(J, aside, 7.8) + 10 : 0;
       const firstCol = at.length ? (at[0]!.align === 'right' ? at[0]!.x - s.columns[0]!.width : at[0]!.x) : W - MX;
       const room = firstCol - 12 - MX;
-      const name = wrap(F, continued ? `${s.title} (continued)` : s.title, 13, Math.max(110, room - asideW), 1)[0] ?? '';
+      const title = continued ? `${s.title} (continued)` : s.title;
+      // The aside rides the title's line when both fit; otherwise the title keeps its words and the aside takes a
+      // small line of its own under it — a heading is never cut short for its footnote.
+      const besideFits = !aside || measure(F, title, 13) + asideW <= room;
+      const name = wrap(F, title, 13, Math.max(110, besideFits ? room - asideW : room), 1)[0] ?? '';
       const nameW = draw(pen, F, name, MX, y + 12, 13, INK);
-      if (aside) draw(pen, J, aside, MX + nameW + 10, y + 12, 7.8, FAINT);
+      if (aside && besideFits) draw(pen, J, aside, MX + nameW + 10, y + 12, 7.8, FAINT);
       s.columns.forEach((c, i) => draw(pen, J, c.label.toUpperCase(), at[i]!.x, y + 12, 6.8, FAINT, { align: at[i]!.align, tracking: 1.1 }));
       y += 19;
+      if (aside && !besideFits) {
+        draw(pen, J, aside, MX, y + 4, 7.8, FAINT);
+        y += 11;
+      }
       if (rows.length) {
         rule(pen, y, INK, 0.6);
         y += 2;

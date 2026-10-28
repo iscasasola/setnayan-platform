@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Ban, ExternalLink, Flag, MoreVertical, RotateCcw, X } from 'lucide-react';
-import { blockUser, reportUser, unblockUser } from '@/lib/chat-actions';
+import { Archive, ArchiveRestore, Ban, ExternalLink, Flag, MoreVertical, RotateCcw, X } from 'lucide-react';
+import { archiveThread, blockUser, reportUser, unarchiveThread, unblockUser } from '@/lib/chat-actions';
 import { useOneOpen } from '@/lib/one-open';
 
 // Apple Guideline 1.2 (UGC safety): an in-app way to REPORT abusive content and
@@ -25,7 +25,14 @@ export function ChatThreadMenu({
   returnTo,
   blockedByMe,
   links = [],
+  archive = null,
 }: {
+  /**
+   * ARCHIVE — the supplier's chat (owner 2026-10-28: Customers' list IS the messages, so archive moved from the
+   * retired Messages fold's rows into the chat it archives). The shipped `archiveThread` / `unarchiveThread`; it comes
+   * back to `returnTo`. Null → no item (a caller that does not offer it, or could not read the state).
+   */
+  archive?: { archived: boolean; returnTo: string } | null;
   threadId: string;
   returnTo: string;
   blockedByMe: boolean;
@@ -90,6 +97,30 @@ export function ChatThreadMenu({
                     {l.label}
                   </Link>
                 ))}
+                {archive ? (
+                  <form action={archive.archived ? unarchiveThread : archiveThread}>
+                    <input type="hidden" name="thread_id" value={threadId} />
+                    <input type="hidden" name="return_to" value={archive.returnTo} />
+                    <button
+                      type="submit"
+                      role="menuitem"
+                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm text-ink hover:bg-ink/5"
+                      data-chat-archive={archive.archived ? 'unarchive' : 'archive'}
+                    >
+                      {archive.archived ? (
+                        <>
+                          <ArchiveRestore aria-hidden className="h-4 w-4 text-ink/60" strokeWidth={2} />
+                          Move back to your list
+                        </>
+                      ) : (
+                        <>
+                          <Archive aria-hidden className="h-4 w-4 text-ink/60" strokeWidth={2} />
+                          Archive this chat
+                        </>
+                      )}
+                    </button>
+                  </form>
+                ) : null}
                 <button
                   type="button"
                   role="menuitem"

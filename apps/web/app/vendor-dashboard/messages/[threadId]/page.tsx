@@ -1498,6 +1498,31 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
   */
   const blocked = blockState.blockedByMe || blockState.blockedByThem;
 
+  /*
+    📦 ARCHIVE LIVES IN THE CHAT NOW (owner 2026-10-28: the Customers list IS the messages, so the Messages fold and
+    its per-row archive button are gone). ⋮ › "Archive this chat" takes it off Customers' list (into "Archived and
+    closed chats"); a new message brings it back on its own. Read AFTER the mark-read write, which upserts the same
+    row — the shop's own marker (RLS scopes it), archived ⇔ marked no earlier than the last message (`lib/chat.ts`).
+    ⚠ Unread → no archive item at all, never one that claims the wrong state.
+  */
+  await markedRead;
+  const { data: archiveMark, error: archiveMarkError } = await supabase
+    .from('chat_thread_reads')
+    .select('archived_at')
+    .eq('thread_id', threadId)
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (archiveMarkError) {
+    logQueryError('VendorThreadPage.archiveMark', archiveMarkError, { thread_id: threadId }, 'graceful_degrade');
+  }
+  const archivedAt = (archiveMark as { archived_at?: string | null } | null)?.archived_at ?? null;
+  const threadArchive = archiveMarkError
+    ? null
+    : {
+        archived: Boolean(archivedAt && new Date(archivedAt).getTime() >= new Date(thread.updated_at).getTime()),
+        returnTo: '/vendor-dashboard/customers',
+      };
+
   return (
     <div className="mx-auto flex h-[calc(100dvh-12rem)] min-h-[27rem] w-full max-w-3xl gap-4 px-4 py-6 sm:px-6 lg:max-w-6xl lg:px-8 xl:max-w-[86rem]">
       {/* LIST · CONVERSATION · CONTEXT (owner 2026-09-08). The list appears at
@@ -1597,6 +1622,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
                   threadId={threadId}
                   returnTo={`/vendor-dashboard/messages/${threadId}`}
                   blockedByMe={blockState.blockedByMe}
+                  archive={threadArchive}
                   // The client page's sections live behind ⋮ (One Chat Box,
                   // 2026-09-18). That page used to embed its own copy of this
                   // conversation; it now sends a chat landing HERE, and these

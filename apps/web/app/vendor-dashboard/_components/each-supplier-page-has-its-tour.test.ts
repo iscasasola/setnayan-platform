@@ -42,7 +42,8 @@ const DRAWN: Record<(typeof SUPPLIER_PAGE_TOURS)[number], string[]> = {
   vendor_hub_v1: ['hub-next-days', 'hub-empty', 'hub-day-launch', 'hub-setup'],
   // + Owner 2026-10-25, "the spotlight tour is missing so many parts for each page".
   vendor_today_v2: ['supplier-messages', 'today-numbers', 'today-coming-up', 'today-shop'],
-  vendor_people_v1: ['customers-segments', 'customers-filter', 'customers-search', 'customers-add'],
+  // 2026-10-28: People ▾ · the four counts · ⚙ are the pinned row now — the ⚙ is its own stop.
+  vendor_people_v1: ['customers-segments', 'customers-filter', 'customers-gear', 'customers-search', 'customers-add'],
   vendor_collections_v1: ['collections-filter', 'collections-list', 'collections-add'],
 };
 

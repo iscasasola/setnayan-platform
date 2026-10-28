@@ -12,6 +12,7 @@ import { buildCustomerCalendarMonth, type CustomerCalendarMonth } from '@/lib/ve
 import { dayLongWords, dayRowsOf, daySheetHref, dayStateOf, nearWord, type DatesBlock, type DatesBooking } from '@/lib/vendor-dates';
 import { fetchCustomerCalendarMonth } from '../actions';
 import { DatesRow } from './dates-row';
+import { DayOpenSwitch } from './day-open-switch';
 
 /**
  * CUSTOMERS › DATES — the month (S-PR3; plan § 2 "one month grid (booked · holding · blocked), the day's rows under
@@ -57,7 +58,13 @@ export function CustomersCalendar({
   agentCategories = {},
   fetchMonth = fetchCustomerCalendarMonth,
   halls = false,
+  dayActions = null,
 }: {
+  /**
+   * The picked day's "You can take bookings" switch (2026-10-28) — the shipped `addManualBlock` / `removeBlock`, in
+   * place. Absent → no switch (the dev lab's fixtures without actions).
+   */
+  dayActions?: { addManualBlock: (fd: FormData) => void | Promise<void>; removeBlock: (fd: FormData) => void | Promise<void> } | null;
   /** Every schedule is a venue's hall (2026-10-14 🏛) — the dropdown says "All halls" and each hall by its name. */
   halls?: boolean;
   /** The first-painted month's raw day states + waiting list (server-fetched). */
@@ -241,6 +248,7 @@ export function CustomersCalendar({
           />
         ))}
       </div>
+      {dayActions ? <DayOpenSwitch day={picked} today={todayIso} blocks={blocks} actions={dayActions} /> : null}
     </div>
   );
 }

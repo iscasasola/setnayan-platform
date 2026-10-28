@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "b74dfe545b",
-  "routeCount": 480,
-  "destinations": 988,
-  "actions": 652,
-  "blocks": 7307,
+  "generatedFromRef": "5dcea85e11",
+  "routeCount": 479,
+  "destinations": 987,
+  "actions": 642,
+  "blocks": 7286,
   "routes": {
     "/": {
       "files": [
@@ -2657,7 +2657,6 @@
         "admin/categories/_components/four-level-map.tsx",
         "admin/categories/_components/four-level-model.ts",
         "admin/categories/_components/group-icons.ts",
-        "admin/categories/_components/hub-tools-pane.tsx",
         "admin/categories/_components/in-place.tsx",
         "admin/categories/_components/list-pane.tsx",
         "admin/categories/_components/load-map.ts",
@@ -2788,8 +2787,6 @@
         "HTMLElement",
         "Head",
         "Hidden",
-        "HubToolsPane",
-        "HubToolsSection",
         "Icon",
         "InfoTip",
         "ItemForm",
@@ -2847,7 +2844,6 @@
         "SVGSVGElement",
         "Said",
         "SavePick",
-        "ScanMode",
         "SearchParamsRecord",
         "Section",
         "ServiceBack",
@@ -2858,7 +2854,6 @@
         "StudioActionResult",
         "SubmitButton",
         "SwitchForm",
-        "SwitchRow",
         "SwitchTrack",
         "T",
         "Thumbs",
@@ -3451,24 +3446,20 @@
     },
     "/admin/help": {
       "files": [
-        "admin/help/_components/help-messenger.tsx",
         "admin/help/actions.ts",
         "admin/help/loading.tsx",
         "admin/help/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/admin/help?status=[seg]"
+      ],
       "actions": [
-        "action",
         "setHelpMessageStatus"
       ],
       "blocks": [
-        "ActionButton",
-        "ChatBox",
-        "ChatThreadHead",
-        "HelpMessageRow",
-        "HelpMessenger",
-        "Link",
-        "PageMasthead"
+        "FilterChip",
+        "PageMasthead",
+        "SubmitButton"
       ]
     },
     "/admin/hub-music": {
@@ -4918,41 +4909,13 @@
     },
     "/admin/work": {
       "files": [
-        "admin/work/_components/form-pick.tsx",
-        "admin/work/_components/supplier-inbox.tsx",
         "admin/work/actions.ts",
         "admin/work/page.tsx"
       ],
-      "destinations": [
-        "/admin/help?m=[seg]"
-      ],
-      "actions": [
-        "createEventTypeRoster",
-        "openApplicationDocument",
-        "resolveRepostFlag",
-        "setEventTypeStatus",
-        "setFolderEventTypeOffered",
-        "settleCorrectionFromWorkList",
-        "settleHelpFromWorkList",
-        "settleVerificationFromWorkList"
-      ],
+      "destinations": [],
+      "actions": [],
       "blocks": [
-        "ActionButton",
-        "CardsBody",
-        "DocsBody",
-        "Fact",
-        "FormPick",
-        "Icon",
-        "InfoTip",
-        "Link",
-        "MsgsBody",
-        "NamesBody",
-        "PickMenu",
-        "Preview",
-        "QueuesTriageFeed",
-        "ReasonPick",
-        "SupplierInbox",
-        "TypesBody"
+        "QueuesTriageFeed"
       ]
     },
     "/api/v1": {
@@ -10919,28 +10882,6 @@
         "NewManualVendorModal"
       ]
     },
-    "/dev/admin-supplier-lab": {
-      "files": [
-        "dev/admin-supplier-lab/fixtures.ts",
-        "dev/admin-supplier-lab/lab-submit-catcher.tsx",
-        "dev/admin-supplier-lab/page.tsx"
-      ],
-      "destinations": [
-        "/admin/verify",
-        "/dev/admin-supplier-lab?view=[seg]"
-      ],
-      "actions": [
-        "setHelpMessageStatus"
-      ],
-      "blocks": [
-        "HelpMessenger",
-        "HubToolsPane",
-        "LabSubmitCatcher",
-        "QueuesTriageFeed",
-        "SP",
-        "SupplierInbox"
-      ]
-    },
     "/dev/art-kit-lab": {
       "files": [
         "dev/art-kit-lab/page.tsx"
@@ -11806,25 +11747,28 @@
         "BottomDock",
         "BottomNav",
         "BranchPanel",
+        "ChatOriginMark",
         "CheckADate",
         "CheckinDeskRows",
         "CollectionsList",
         "CoordLab",
         "CoordLabBar",
         "CustomersCalendar",
-        "CustomersPick",
+        "CustomersPin",
         "CustomersRoster",
-        "CustomersSegments",
+        "CustomersSettings",
         "DatesFolds",
         "DatesLab",
         "DaySheet",
         "DaySheetData",
+        "DaysSettings",
         "DetailsScreen",
         "DomainManager",
         "EventsYouRunScreen",
         "Fix",
         "GalleryMedia",
         "KeptNotesFold",
+        "LabEarnedLine",
         "LabSeedDraft",
         "LibraryLab",
         "Link",
@@ -11834,12 +11778,14 @@
         "MoneyView",
         "OpenFoldButton",
         "OpenTheirEvent",
+        "OtherChatsFold",
         "OutsideClientAdd",
         "OutsideClientRows",
         "PageLab",
         "PageParts",
         "PeopleLab",
         "QrCodes",
+        "RosterRow",
         "ScreenFindingsPanel",
         "SearchBox",
         "ShopBadgePill",
@@ -14191,11 +14137,14 @@
         "vendor-dashboard/customers/_components/check-a-date.tsx",
         "vendor-dashboard/customers/_components/customers-calendar.tsx",
         "vendor-dashboard/customers/_components/customers-pick.tsx",
+        "vendor-dashboard/customers/_components/customers-pin.tsx",
         "vendor-dashboard/customers/_components/customers-roster.tsx",
-        "vendor-dashboard/customers/_components/customers-segments.tsx",
+        "vendor-dashboard/customers/_components/customers-settings-body.tsx",
+        "vendor-dashboard/customers/_components/customers-settings.tsx",
         "vendor-dashboard/customers/_components/dates-folds.tsx",
         "vendor-dashboard/customers/_components/dates-row.tsx",
         "vendor-dashboard/customers/_components/dates-sheets.tsx",
+        "vendor-dashboard/customers/_components/day-open-switch.tsx",
         "vendor-dashboard/customers/_components/day-sheet.tsx",
         "vendor-dashboard/customers/_components/money-figures.tsx",
         "vendor-dashboard/customers/_components/money-log.tsx",
@@ -14213,7 +14162,10 @@
       "destinations": [
         "/vendor-dashboard/clients/[seg]",
         "/vendor-dashboard/clients/[seg]?tab=details",
+        "/vendor-dashboard/customers?door=talking",
         "/vendor-dashboard/customers?seg=dates&m=[seg]",
+        "/vendor-dashboard/invite?mode=locked&date=[seg]&block=[seg]",
+        "/vendor-dashboard/invite?mode=locked&issued=[seg]&block=[seg]",
         "/vendor-dashboard/messages/[seg]",
         "/vendor-dashboard/on-the-day/live/[seg]/papic",
         "/vendor-dashboard/subscription"
@@ -14252,16 +14204,21 @@
         "CustomersCalendar",
         "CustomersDates",
         "CustomersDay",
+        "CustomersDoorKey",
         "CustomersMoney",
         "CustomersPick",
+        "CustomersPin",
         "CustomersPipeline",
         "CustomersRoster",
-        "CustomersSegments",
+        "CustomersSettings",
+        "CustomersSettingsBody",
         "DateRow",
         "DatesFolds",
         "DatesRow",
+        "DayOpenSwitch",
         "DayPart",
         "DaySheet",
+        "DaysSettings",
         "FeatureAccordion",
         "Fill",
         "Fold",
@@ -14271,25 +14228,29 @@
         "HTMLFormElement",
         "HTMLInputElement",
         "HallSheet",
+        "InfoTip",
+        "InquiryOutcomesRollup",
         "KeptNotesFold",
         "Link",
         "ListPager",
         "Marked",
-        "MessagesSurface",
+        "MenuSettingsButton",
         "MiniTour",
         "MoneyFill",
         "MoneyLog",
         "MoneyRow",
         "MoneyView",
         "MonthInputs",
+        "OtherChat",
+        "OtherChatsFold",
         "OutsideClient",
         "OutsideClientAdd",
         "OutsideClientRows",
+        "OutsideCodeBlock",
+        "PaymentOptionsSurface",
         "PaymentsPausedNote",
         "PesoCount",
         "PickMenu",
-        "PillLink",
-        "PillTrack",
         "ProposalsSurface",
         "R",
         "RepeatRule",
@@ -14306,7 +14267,9 @@
         "SupplierThumbRow",
         "SupplierToast",
         "Suspense",
+        "SwitchRow",
         "SwitchTrack",
+        "ThreadArchiveToggle",
         "ThumbRow",
         "TypedRow",
         "WaivedFeeRows"
@@ -14475,25 +14438,12 @@
       "files": [
         "vendor-dashboard/messages/_components/inquiry-outcomes-rollup.tsx",
         "vendor-dashboard/messages/loading.tsx",
-        "vendor-dashboard/messages/page.tsx",
-        "vendor-dashboard/messages/surface.tsx"
+        "vendor-dashboard/messages/page.tsx"
       ],
-      "destinations": [
-        "/vendor-dashboard",
-        "/vendor-dashboard/messages",
-        "/vendor-dashboard/messages/[seg]"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
-        "ChatOriginMark",
-        "Icon",
-        "InquiryOutcomesRollup",
-        "Link",
-        "ListPager",
-        "RevealList",
-        "ShopEmpty",
-        "ThreadArchiveToggle",
-        "ThreadListCard"
+        "Icon"
       ]
     },
     "/vendor-dashboard/messages/[threadId]": {
@@ -14520,6 +14470,7 @@
         "/vendor-dashboard/clients/[seg]?tab=files",
         "/vendor-dashboard/clients/[seg]?tab=quote",
         "/vendor-dashboard/clients/[seg]?tab=schedule",
+        "/vendor-dashboard/customers",
         "/vendor-dashboard/messages/[seg]",
         "/vendor-dashboard/proposals"
       ],

@@ -123,9 +123,6 @@ export default async function PapicJoinPage({ params, searchParams }: Props) {
            actually know here. */
         sub="This Papic link doesn't open a camera right now. Ask whoever sent it to re-share your link and try again."
       >
-        <Link href="/" className="button-secondary">
-          Back to Setnayan
-        </Link>
       </DoorShell>
     );
   }

@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { everyCopyIsNowStale } from '@/lib/a-withdrawal-reaches-every-copy.server';
 import { hideReportedPhoto, isSupplierOwned, type ReportedPhotoTable } from '@/lib/hide-a-reported-photo';
 import { tellTheSupplierItCameDown } from '@/lib/tell-the-supplier-it-came-down';
+import { deletePageCopyAfterTakedown } from '@/lib/supplier-page-notice.server';
 
 // Shared admin gate (require-admin.ts) — identical contract to the local
 // requireAdmin this file used to duplicate (login redirect · Forbidden throw).
@@ -156,6 +157,16 @@ export async function resolveReport(formData: FormData) {
     lane exists to end, pointed at the other party. Fail-soft: the photograph
     is already down, and a failed notice must not read as a failed takedown.
   */
+  /*
+    …AND IT COMES OFF THE SUPPLIER'S PUBLIC PAGE TOO (owner 2026-10-28, "OWNER: Agree to all" (1)). An album photo can
+    sit on the supplier's page as a COPY ("Put on my page"). Hiding the album row fires the trigger
+    `a_hidden_album_photo_leaves_the_page`, which already pulled the copy's ref off the page in the same write; this
+    deletes the copied FILE, which SQL cannot. Fail-soft: the photo is off every page before this runs.
+  */
+  if (hiddenIn === 'vendor_papic_portfolio_photos') {
+    await deletePageCopyAfterTakedown(admin, report.target_id as string);
+  }
+
   if (isSupplierOwned(hiddenIn) && report.event_id) {
     await tellTheSupplierItCameDown(
       admin,

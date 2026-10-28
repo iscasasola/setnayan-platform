@@ -117,9 +117,10 @@ test('1c · the row is the one tap: no button inside it, and it names its next s
   const html = await render(FIXTURE);
   assert.doesNotMatch(html, /<button\b/, 'a button is drawn inside the roster rows');
   assert.doesNotMatch(html, /data-row-next/, 'the next-step pill is back inside the row');
-  assert.match(html, /aria-label="Ana &amp; Miguel — Reply"/);
-  assert.match(html, /aria-label="Katrina Ocampo — See the quote"/);
-  assert.match(html, /aria-label="Jun &amp; Liza Cruz — See the day"/);
+  // 2026-10-28 · a row is the EVENT — "<first name>'s <Kind> (<Mon D>)" (lib/event-chat-title.ts), the customer under it.
+  assert.match(html, /aria-label="Ana(&#x27;|')s [A-Za-z]+ \([^)]*\) — Reply"/);
+  assert.match(html, /aria-label="Katrina(&#x27;|')s [A-Za-z]+ \([^)]*\) — See the quote"/);
+  assert.match(html, /aria-label="Jun(&#x27;|')s Wedding \(Oct 4\) — See the day"/);
 });
 
 test('1d · one dropdown (Filter, in the "Waiting first" eyebrow) — Show ▾, ⋯ and the in-list search form are gone', async () => {

@@ -22,7 +22,19 @@ import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/p
 import { contactShortlistVendor } from '../../vendors/_actions/contact-shortlist-vendor';
 import type { TeamPick } from '@/lib/messages-team-picker';
 
-export function StartThreadPicker({ eventId, team }: { eventId: string; team: readonly TeamPick[] }) {
+export function StartThreadPicker({
+  eventId,
+  team,
+  variant = 'menu',
+}: {
+  eventId: string;
+  team: readonly TeamPick[];
+  /**
+   * `rows` — the ✎ "Message a supplier" sheet (chat prototype 2026-10-28, frame K): this event's suppliers as a list of
+   * rows (avatar · name), each opening the SAME `contactShortlistVendor`. `menu` — the shipped dropdown.
+   */
+  variant?: 'menu' | 'rows';
+}) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [picked, setPicked] = useState<string | null>(null);
@@ -52,6 +64,40 @@ export function StartThreadPicker({ eventId, team }: { eventId: string; team: re
       }
     });
   };
+
+  if (variant === 'rows') {
+    return (
+      <div data-start-thread-picker="rows">
+        <ul>
+          {team.map((t) => (
+            <li key={t.vendorId}>
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => open(t.vendorId)}
+                className="sn-press flex min-h-[60px] w-full items-center gap-3 py-2 text-left disabled:opacity-60"
+              >
+                <span aria-hidden className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-terracotta/15 text-[13px] font-semibold text-terracotta-700">
+                  {t.name
+                    .split(/\s+/)
+                    .map((w) => w.charAt(0).toUpperCase())
+                    .slice(0, 2)
+                    .join('')}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-[16px] font-medium text-ink">{t.name}</span>
+                {pending && picked === t.vendorId ? <Loader2 aria-hidden className="h-4 w-4 animate-spin text-ink/50" /> : null}
+              </button>
+            </li>
+          ))}
+        </ul>
+        {err ? (
+          <p role="alert" className="mt-2 text-xs text-danger-700">
+            {err}
+          </p>
+        ) : null}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-2" data-start-thread-picker>

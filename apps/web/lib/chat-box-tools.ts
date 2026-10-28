@@ -30,10 +30,11 @@ import {
 
 /**
  * The panels BOTH sides mount. The supplier mounts all of
- * `VENDOR_THREAD_PANELS`; the couple mounts exactly these two, because they are
- * the only tools a couple has on a conversation.
+ * `VENDOR_THREAD_PANELS`; the couple mounts exactly this one — since 2026-10-28
+ * the call panel is gone from the chat (owner: *"remove both voice and video
+ * call"*).
  */
-export const SHARED_THREAD_PANEL_IDS = ['deal-or-meeting', 'thread-call'] as const;
+export const SHARED_THREAD_PANEL_IDS = ['deal-or-meeting'] as const;
 export type SharedThreadPanelId = (typeof SHARED_THREAD_PANEL_IDS)[number];
 
 function panelById(id: string): VendorThreadPanel {
@@ -44,25 +45,49 @@ function panelById(id: string): VendorThreadPanel {
   return panel;
 }
 
-/** The couple's panel list — the shared two, in the shared order, same objects. */
+/** The couple's panel list — the shared ones, in the shared order, same objects. */
 export const COUPLE_THREAD_PANELS: readonly VendorThreadPanel[] =
   SHARED_THREAD_PANEL_IDS.map(panelById);
 
 /**
- * The composer-row icons. `toolKey` names an entry of `VENDOR_THREAD_TOOLS`,
- * whose `reveal` list is the ordered set of ids to open — `voice-call` reveals
- * the Voice button inside the call panel and falls back to the panel itself
- * when a locked plan renders no button. Neither icon dials or sends anything:
- * an affordance opens a panel, the panel is where the act happens.
+ * The tools a ＋ can open on the couple's side. Since 2026-10-28 (chat prototype frame C) the couple's composer has
+ * ONE ＋, like the supplier's, and these are its rows: "Deal or meeting" (the shared panel) and the ONE "Share a file"
+ * (owner, verbatim: *"Share a file can be file, photo or video"*) — the composer's own picker.
+ *
+ * 📵 THERE IS NO `call` KEY ANY MORE (owner 2026-10-28: *"remove both voice and video call"*). The composer's 📞 and
+ * the head's call buttons are gone with it; `lib/the-chat-has-no-calls.test.ts` executes this map.
  */
-export type ChatBoxAffordanceKey = 'deal' | 'call';
+export type ChatBoxAffordanceKey = 'deal';
 
 export const CHAT_BOX_AFFORDANCES: Readonly<
   Record<ChatBoxAffordanceKey, { toolKey: string; label: string }>
 > = {
   deal: { toolKey: 'deal-or-meeting', label: 'Deal or meeting' },
-  call: { toolKey: 'voice-call', label: 'Voice or video call' },
 };
+
+/** One row of the couple's ＋ sheet. `reveal` opens a panel on the page; `attach` opens the composer's picker. */
+export type CoupleThreadTool =
+  | { key: 'deal-or-meeting'; label: string; line: string; icon: 'deal'; reveal: readonly string[]; attach?: never }
+  | { key: 'share-file'; label: string; line: string; icon: 'file'; attach: true; reveal?: never };
+
+/**
+ * The couple's ＋ rows, in order. `dealReveal` is what `dealEntryFor` decided this thread's deal opens (before a quote
+ * the couple's is a meeting request); null when the deal panel is not mounted (negotiation off, composer shut).
+ */
+export function coupleThreadTools(dealReveal: readonly string[] | null): CoupleThreadTool[] {
+  const rows: CoupleThreadTool[] = [];
+  if (dealReveal) {
+    rows.push({
+      key: 'deal-or-meeting',
+      label: CHAT_BOX_AFFORDANCES.deal.label,
+      line: 'Propose a tasting, ocular or a deal',
+      icon: 'deal',
+      reveal: dealReveal,
+    });
+  }
+  rows.push({ key: 'share-file', label: 'Share a file', line: 'File · photo · video', icon: 'file', attach: true });
+  return rows;
+}
 
 /** The ids an affordance opens, first present wins. Throws on a bad key. */
 export function affordanceReveal(key: ChatBoxAffordanceKey): readonly string[] {

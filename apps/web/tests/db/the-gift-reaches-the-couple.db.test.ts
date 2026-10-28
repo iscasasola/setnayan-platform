@@ -6,8 +6,8 @@
  *   ① THE ARITHMETIC, on the REAL ladder the migrations seed (which is
  *     production's — tests/db/papic-ladder.expected.ts). The owner's own sanity
  *     numbers are asserted here and nowhere else, so no rung price is re-typed:
- *     ₱20k → 571 · ₱50k → 1,429 · ₱100k → 3,571 · ₱500k → 6,429 · ₱1M → 14,074
- *     · ₱3.35M and above → 50,000, the charge stopping at the 50,000 rung.
+ *     ₱20k → 429 · ₱50k → 1,078 · ₱100k → 2,420 · ₱500k → 4,878 · ₱1M → 8,661 (the 2026-10-28 one-price ladder)
+ *     · ₱4.54M and above → 50,000, the charge stopping at the 50,000 rung (was ₱3.35M before 2026-10-28).
  *   ② THE MIRROR — the TS the quote uses and the SQL the bill uses agree at
  *     every amount swept. Two copies of a rule drift; this is the fence.
  *   ③ THE CAP IS CREDITS — reprice the 50,000 rung and the cap is still 50,000
@@ -246,33 +246,36 @@ after(async () => {
 // ── ① THE ARITHMETIC, ON THE REAL LADDER ────────────────────────────────────
 
 test("① the owner's sanity numbers, from the live catalog — nothing re-typed", async () => {
+  // 💲 2026-10-28 ("THE ONE PRICE" + "Yes, ×1.32"): the Papic ladder moved ×~1.32, so the same 40% of the fee buys
+  // fewer photos and the floor and cap move out. Was ₱3,500 → 100 · ₱20k → 571 · ₱50k → 1,429 · ₱100k → 3,571 ·
+  // ₱500k → 6,429 · ₱1M → 14,074 · ₱3.35M → the cap.
   const expected: Array<[number, number]> = [
-    [3_500, 100], // the floor: fee ₱175, 40% ₱70, exactly the 100-credit rung
-    [20_000, 571],
-    [50_000, 1_429],
-    [100_000, 3_571],
-    [500_000, 6_429],
-    [1_000_000, 14_074],
-    [3_350_000, GIFT_CAP_CREDITS],
+    [4_750, 100], // the floor: fee ₱237.50, 40% ₱95, exactly the 100-credit rung
+    [20_000, 429],
+    [50_000, 1_078],
+    [100_000, 2_420],
+    [500_000, 4_878],
+    [1_000_000, 8_661],
+    [4_541_500, GIFT_CAP_CREDITS],
   ];
   for (const [booking, photos] of expected) {
     const g = await sqlGiftForBooking(booking);
     assert.equal(g.credits, photos, `₱${booking.toLocaleString()} booking → ${photos} photos`);
   }
-  // THE FLOOR: one peso below ₱3,500 there is no gift at all, and no charge.
-  const below = await sqlGiftForBooking(3_499);
+  // THE FLOOR: one peso below ₱4,750 there is no gift at all, and no charge.
+  const below = await sqlGiftForBooking(4_749);
   assert.deepEqual(below, { credits: 0, charge_centavos: 0, capped: false });
 });
 
 test('① the charge is 40% of the fee (floored) until the cap, then the 50,000 rung — never more', async () => {
   const capPrice = await rungPriceCentavos(GIFT_CAP_CREDITS);
-  for (const booking of [3_500, 20_000, 50_000, 1_000_000, 3_000_000]) {
+  for (const booking of [4_750, 20_000, 50_000, 1_000_000, 3_000_000]) {
     const fee = await sqlFeeCentavos(booking);
     const g = await sqlGiftForFee(fee);
     assert.equal(g.charge_centavos, Math.floor((fee * GIFT_SHARE_OF_FEE_PCT) / 100));
     assert.equal(g.capped, false);
   }
-  for (const booking of [3_350_000, 5_000_000, 10_000_000]) {
+  for (const booking of [4_541_500, 5_000_000, 10_000_000]) {
     const g = await sqlGiftForBooking(booking);
     assert.equal(g.credits, GIFT_CAP_CREDITS);
     assert.equal(g.charge_centavos, capPrice, 'above the cap the supplier pays the 50,000 rung, not 40%');
@@ -362,7 +365,7 @@ test('④ a card that said YES: the charge carries the gift BESIDE the fee, and 
   const fee = await sqlFeeCentavos(50_000);
   assert.equal(c.amount, fee, 'amount_charged_centavos STAYS the booking fee alone');
   assert.equal(c.offered, true);
-  assert.equal(c.credits, 1_429, '₱50,000 → 1,429 free photos');
+  assert.equal(c.credits, 1_078, '₱50,000 → 1,078 free photos');
   assert.equal(c.gift, Math.floor((fee * 40) / 100), 'the gift costs 40% of the fee');
 
   // The SQL minter (the path an amended booking takes) bills fee + gift.
@@ -371,7 +374,7 @@ test('④ a card that said YES: the charge carries the gift BESIDE the fee, and 
   assert.ok(order, 'an order exists for the charge');
   assert.equal(Number(order.requested_total_php) * 100, fee + c.gift, 'the supplier pays fee + gift');
   assert.ok(
-    order.description.includes(setnayanGiftBillClause(fee, 1_429, c.gift)),
+    order.description.includes(setnayanGiftBillClause(fee, 1_078, c.gift)),
     `the bill names the photos: ${order.description}`,
   );
 });
@@ -414,7 +417,7 @@ test('④ no gift: a card that said no · another shop’s card · no card · th
   const e = await newEvent('no-control');
   const ev = await newBooking(e, vendorProfileId, 50_000, { serviceId: mine });
   await openCharge(ev);
-  assert.equal((await chargesFor(ev))[0]!.credits, 1_429);
+  assert.equal((await chargesFor(ev))[0]!.credits, 1_078);
 });
 
 test('④ below the floor a yes card bills no gift', async () => {
@@ -440,7 +443,7 @@ test('⑤ granted when the money CLEARS — once, into the SHARED pot', async ()
   const evId = await newBooking(eventId, vendorProfileId, 100_000, { serviceId: card });
   await openCharge(evId);
   const [c] = await chargesFor(evId);
-  assert.equal(c!.credits, 3_571);
+  assert.equal(c!.credits, 2_420);
   await db.query(`SELECT public.booking_fee_upsert_vendor_order($1)`, [c!.charge_id]);
   const order = (await orderFor(c!.charge_id))!;
 
@@ -458,10 +461,10 @@ test('⑤ granted when the money CLEARS — once, into the SHARED pot', async ()
   await db.query(`UPDATE public.orders SET status = 'paid' WHERE order_id = $1`, [order.order_id]);
   const g = await grant(c!.charge_id, order.order_id);
   assert.equal(g.granted, true);
-  assert.equal(g.credits, 3_571);
+  assert.equal(g.credits, 2_420);
   const rows = await potGrants(eventId);
   assert.equal(rows.length, 1);
-  assert.equal(rows[0]!.points, 3_571);
+  assert.equal(rows[0]!.points, 2_420);
   assert.equal(rows[0]!.seat_id, null, 'the SHARED pot, not a camera');
   assert.equal(rows[0]!.order_id, order.order_id, 'tied to the paid bill, so a reversal takes it back');
 
@@ -470,7 +473,7 @@ test('⑤ granted when the money CLEARS — once, into the SHARED pot', async ()
     [eventId],
   );
   assert.equal(pool.rows[0]!.applies, true);
-  assert.ok(pool.rows[0]!.granted_points >= 3_571, 'the pot counts the gift');
+  assert.ok(pool.rows[0]!.granted_points >= 2_420, 'the pot counts the gift');
 
   // A re-approval lands nothing new.
   assert.equal((await grant(c!.charge_id, order.order_id)).reason, 'already_granted');
@@ -486,7 +489,7 @@ test('⑥ pending: a price change re-sizes the gift; paid: it is frozen and a de
   const eventId = await newEvent('freeze-6');
   const evId = await newBooking(eventId, vendorProfileId, 20_000, { serviceId: card });
   await openCharge(evId);
-  assert.equal((await chargesFor(evId))[0]!.credits, 571);
+  assert.equal((await chargesFor(evId))[0]!.credits, 429);
 
   // The supplier flips the card to NO after the bill opened — the snapshot holds.
   await db.query(`UPDATE public.vendor_services SET includes_setnayan_gift = false WHERE vendor_service_id = $1`, [card]);
@@ -494,7 +497,7 @@ test('⑥ pending: a price change re-sizes the gift; paid: it is frozen and a de
   await db.query(`UPDATE public.event_vendors SET total_cost_php = 50000 WHERE vendor_id = $1`, [evId]);
   let [c] = await chargesFor(evId);
   assert.equal(c!.offered, true, 'the yes/no is a snapshot, never re-read');
-  assert.equal(c!.credits, 1_429, 'pending gift re-sized with the re-derived fee');
+  assert.equal(c!.credits, 1_078, 'pending gift re-sized with the re-derived fee');
 
   // Paid → frozen.
   await db.query(`SELECT public.booking_fee_settle_charge($1, 'manual', NULL)`, [c!.charge_id]);
@@ -502,7 +505,7 @@ test('⑥ pending: a price change re-sizes the gift; paid: it is frozen and a de
   const all = await chargesFor(evId);
   const primary = all.find((x) => x.kind === 'primary')!;
   assert.equal(primary.status, 'paid');
-  assert.equal(primary.credits, 1_429, 'a paid gift does not move');
+  assert.equal(primary.credits, 1_078, 'a paid gift does not move');
   const delta = all.find((x) => x.kind === 'amendment_delta');
   assert.ok(delta, 'a price rise after payment opens a supplementary fee charge');
   assert.equal(delta.credits, 0, 'the supplementary charge carries no gift');
@@ -515,7 +518,7 @@ test('⑥ pending: a price change re-sizes the gift; paid: it is frozen and a de
     [primary.charge_id],
   );
   [c] = (await chargesFor(evId)).filter((x) => x.kind === 'primary');
-  assert.equal(c!.credits, 1_429);
+  assert.equal(c!.credits, 1_078);
   assert.equal(c!.offered, true);
 });
 

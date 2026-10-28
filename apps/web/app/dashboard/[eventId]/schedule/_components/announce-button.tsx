@@ -15,7 +15,7 @@
  * a delegate holding `schedule: 'edit'`). The day-of Overview box stays.
  *
  * ⚠ WHEN A GUEST SEES IT IS STATED, NOT IMPLIED. The guest-side reader
- * (`app/[slug]/_lib/loaders.ts` → `loadDayOfBroadcast`) shows the latest
+ * (`app/[slug]/announcement/route.ts`, asked by the card) shows the latest
  * announcement, to identified guests only, AS SOON AS IT IS SENT — owner
  * 2026-09-28 (DECISION_LOG "OWNER ANSWERS — ANNOUNCEMENTS…", item 1). Before
  * the day it sits at the top of the guest's Invitation in the calm look; on

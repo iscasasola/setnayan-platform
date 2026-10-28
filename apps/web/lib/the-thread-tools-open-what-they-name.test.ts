@@ -124,20 +124,11 @@ test('🔑 4 · the ids that are NOT panels are really minted', () => {
     1,
     'the guest-count band lost its id — "Guest count changed" would land nowhere',
   );
-  // The call buttons' ids exist only because the thread page opts in; the
-  // launcher mints none by default (it is mounted on three other screens).
-  assert.equal(
-    (page.match(/buttonIdPrefix="thread-call"/g) ?? []).length,
-    1,
-    'the call launcher stopped minting thread-call-voice / thread-call-video',
-  );
-  for (const id of ['thread-call-voice', 'thread-call-video']) {
-    const suffix = id.replace('thread-call-', '');
-    assert.ok(
-      read('app/_components/thread-call-launcher.tsx').includes(`-${suffix}\``),
-      `the launcher no longer builds the ${id} id`,
-    );
-  }
+  // 📵 2026-10-28 (owner: "remove both voice and video call"): the call panel and its two Start-button anchors left
+  // the chat, so nothing here may name them any more — a launcher or anchor still saying `thread-call` would scroll
+  // to nothing.
+  assert.equal((page.match(/buttonIdPrefix="thread-call"/g) ?? []).length, 0, 'the chat mints call-button ids again');
+  for (const id of ANCHOR_IDS) assert.ok(!id.startsWith('thread-call'), `a call anchor (${id}) is back in the list`);
 });
 
 test('🔑 5 · the sheet opens panels through revealThreadTool, never a hash — and the rail launches nothing', () => {

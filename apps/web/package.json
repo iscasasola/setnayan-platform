@@ -38,6 +38,7 @@
     "render:papic-looks": "tsx scripts/render-papic-looks.ts",
     "admin:jobs": "tsx scripts/gen-admin-jobs.ts",
     "admin:map": "tsx scripts/gen-admin-map.ts",
+    "design-rules:baseline": "tsx scripts/gen-design-rules-baseline.ts",
     "test:unit": "tsx --test $TEST_SHARD_FLAG \"lib/**/*.test.ts\" \"app/**/*.test.ts\"",
     "test:db": "tsx --test \"tests/db/*.db.test.ts\"",
     "test:event-type-coverage": "tsx --test tests/db/event-type-coverage.db.test.ts",

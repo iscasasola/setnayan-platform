@@ -61,7 +61,12 @@ const GATED_ACTIONS = [
   'app/vendor-dashboard/on-the-day/shot-list-actions.ts',
   'app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/actions.ts',
   'app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/access-actions.ts',
-  'app/vendor-dashboard/on-the-day/live/[eventId]/papic/portfolio-pack-actions.ts',
+  // ⬅ `papic/portfolio-pack-actions.ts` LEFT THIS LIST 2026-10-23: the Papic
+  // credit pack became a SHOP purchase (owner, option A — one shop wallet). Its
+  // order carries no event (`eventId: null`), so there is no event whose fee
+  // could lock it; the credits are spent per event later, and the event's own
+  // Papic page is gated above (item 3). Gating a shop purchase on one event's
+  // fee would refuse a shop for a bill on a different wedding.
 ];
 
 test('every gated PAGE resolves the gate and renders a locked screen', () => {

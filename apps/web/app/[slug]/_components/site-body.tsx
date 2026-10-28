@@ -149,6 +149,7 @@ import { songRequestCardShows, type SongRequestDoor } from '@/lib/guest-song-req
 import { SELFIE_LIFETIME_LINE, SIGN_OUT_ERASES_SELFIE } from '@/lib/face-selfie-lifetime';
 import { SignOutOfInvitation } from './sign-out-of-invitation';
 import { PhotosOfYouGallery } from './photos-of-you-gallery';
+import { SupplierPageNoticeLine } from './supplier-page-notice-line';
 import { YourShotsGallery } from './your-shots-gallery';
 import { YourSeatBlock } from './your-seat-block';
 import { SeatDoorLine } from './seat-door-line';
@@ -2704,6 +2705,7 @@ export async function SiteBody({
       guestOwnShots,
       poolGalleryOpen,
       earlyOwnShots,
+      supplierPageNotices,
       seatPassActive,
       needsFaceEnroll,
       guestHubData,
@@ -3729,6 +3731,12 @@ export async function SiteBody({
                   everyoneHref={null}
                   cameraHref={guestCameraHref}
                 />
+              ) : null}
+              {/* 📣 THE 7-DAY GUEST NOTICE (owner 2026-10-03): a supplier at this event will show photos from it on its
+                  own page — one quiet line per supplier, "See them", each photo with Remove. Not gated on the day: a
+                  supplier may put a photo up months later, and the notice must reach the guest whenever it does. */}
+              {supplierPageNotices && supplierPageNotices.length > 0 ? (
+                <SupplierPageNoticeLine eventId={event.event_id} groups={supplierPageNotices} />
               ) : null}</>, { chapters: true, className: 'space-y-12', id: tabs.on ? SITE_MENU_ANCHORS.gallery : undefined })}
 
               {/* (The "Keep this event for good" note that stood here folded into the

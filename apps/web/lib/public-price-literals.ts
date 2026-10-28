@@ -87,7 +87,7 @@ export const PUBLIC_PRICE_LITERALS: readonly PriceLiteral[] = [
   },
   {
     file: 'app/_components/app-store/studio-card-demo.tsx',
-    literal: '₱2,500',
+    literal: '₱3,300',
     sku: 'PAKANTA',
     reason: 'Music Maker demo frame checkout button.',
   },

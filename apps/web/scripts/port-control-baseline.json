@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "0f6826708d",
-  "routeCount": 476,
-  "destinations": 995,
-  "actions": 652,
-  "blocks": 7200,
+  "generatedFromRef": "efcefcc0aa",
+  "routeCount": 479,
+  "destinations": 986,
+  "actions": 642,
+  "blocks": 7229,
   "routes": {
     "/": {
       "files": [
@@ -824,13 +824,10 @@
         "3d_plan/demo/[token]/_components/plan3d-guest-view.tsx",
         "3d_plan/demo/[token]/page.tsx"
       ],
-      "destinations": [
-        "/"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
         "DoorShell",
-        "Link",
         "Phase",
         "Plan3DGuestView",
         "Plan3DSceneLoader"
@@ -1064,6 +1061,7 @@
         "[slug]/_components/story/your-own-consent.tsx",
         "[slug]/_components/supplier-desk-anchor.ts",
         "[slug]/_components/supplier-desk.tsx",
+        "[slug]/_components/supplier-page-notice-line.tsx",
         "[slug]/_components/supplier-ribbon.tsx",
         "[slug]/_components/tea-ceremony-card.tsx",
         "[slug]/_components/terms-tick.tsx",
@@ -1092,6 +1090,7 @@
         "[slug]/_components/your-shot-tile.tsx",
         "[slug]/_components/your-shots-gallery.tsx",
         "[slug]/_lib/album-door.server.ts",
+        "[slug]/_lib/announcement-stage.ts",
         "[slug]/_lib/back-cover.server.ts",
         "[slug]/_lib/belongs-to-this-event.ts",
         "[slug]/_lib/cover-scene-layer.ts",
@@ -1112,6 +1111,7 @@
         "[slug]/_lib/icon-source.ts",
         "[slug]/_lib/invitation-card.ts",
         "[slug]/_lib/jump-marks.ts",
+        "[slug]/_lib/latest-announcement.server.ts",
         "[slug]/_lib/loaders.ts",
         "[slug]/_lib/loading-stage.ts",
         "[slug]/_lib/main-ground-layer.tsx",
@@ -1139,7 +1139,6 @@
         "[slug]/_lib/types.ts",
         "[slug]/_lib/your-own-day.server.ts",
         "[slug]/actions.ts",
-        "[slug]/announcement-actions.ts",
         "[slug]/avatar-actions.ts",
         "[slug]/error.tsx",
         "[slug]/layout.tsx",
@@ -1179,6 +1178,7 @@
         "withdraw"
       ],
       "blocks": [
+        "ActionButton",
         "AddNameInPlace",
         "AdoptSeatSession",
         "AmbientEffectLayer",
@@ -1393,6 +1393,7 @@
         "KitStyle",
         "KwentoClip",
         "KwentoWall",
+        "LatestAnnouncement",
         "Layer",
         "LeadArticle",
         "LeadMedia",
@@ -1487,6 +1488,7 @@
         "PhotoMomentsWidget",
         "PhotoMomentsYesAndNo",
         "PhotoNotesScene",
+        "PhotoWithRemove",
         "PhotosHeading",
         "PhotosOfYouGallery",
         "PhotosOfYouLead",
@@ -1513,6 +1515,7 @@
         "ReaderPerson",
         "Relive",
         "Remaining",
+        "RemoveResult",
         "ReplayNode",
         "ReplyCardRow",
         "ReplyForm",
@@ -1643,6 +1646,8 @@
         "SubmitButton",
         "SupplierDesk",
         "SupplierDeskModel",
+        "SupplierGroup",
+        "SupplierPageNoticeLine",
         "SupplierRibbon",
         "SupplierStoriesScene",
         "SupportingStrip",
@@ -1738,6 +1743,16 @@
         "OrbitControls",
         "Row",
         "Swatch"
+      ]
+    },
+    "/[slug]/cached/[key]": {
+      "files": [
+        "[slug]/cached/[key]/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "Resolved"
       ]
     },
     "/[slug]/everyone": {
@@ -2642,7 +2657,6 @@
         "admin/categories/_components/four-level-map.tsx",
         "admin/categories/_components/four-level-model.ts",
         "admin/categories/_components/group-icons.ts",
-        "admin/categories/_components/hub-tools-pane.tsx",
         "admin/categories/_components/in-place.tsx",
         "admin/categories/_components/list-pane.tsx",
         "admin/categories/_components/load-map.ts",
@@ -2773,8 +2787,6 @@
         "HTMLElement",
         "Head",
         "Hidden",
-        "HubToolsPane",
-        "HubToolsSection",
         "Icon",
         "InfoTip",
         "ItemForm",
@@ -2832,7 +2844,6 @@
         "SVGSVGElement",
         "Said",
         "SavePick",
-        "ScanMode",
         "SearchParamsRecord",
         "Section",
         "ServiceBack",
@@ -2843,7 +2854,6 @@
         "StudioActionResult",
         "SubmitButton",
         "SwitchForm",
-        "SwitchRow",
         "SwitchTrack",
         "T",
         "Thumbs",
@@ -3436,22 +3446,20 @@
     },
     "/admin/help": {
       "files": [
-        "admin/help/_components/help-messenger.tsx",
         "admin/help/actions.ts",
         "admin/help/loading.tsx",
         "admin/help/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/admin/help?status=[seg]"
+      ],
       "actions": [
-        "action",
         "setHelpMessageStatus"
       ],
       "blocks": [
-        "ActionButton",
-        "HelpMessageRow",
-        "HelpMessenger",
-        "Link",
-        "PageMasthead"
+        "FilterChip",
+        "PageMasthead",
+        "SubmitButton"
       ]
     },
     "/admin/hub-music": {
@@ -3499,7 +3507,7 @@
         "admin/integrations/page.tsx"
       ],
       "destinations": [
-        "/admin/more"
+        "/admin/ugat"
       ],
       "actions": [
         "clearIntegrationSecret",
@@ -4173,7 +4181,7 @@
         "admin/secrets/page.tsx"
       ],
       "destinations": [
-        "/admin/more"
+        "/admin/ugat"
       ],
       "actions": [
         "clearDbSecret",
@@ -4901,38 +4909,13 @@
     },
     "/admin/work": {
       "files": [
-        "admin/work/_components/supplier-inbox.tsx",
         "admin/work/actions.ts",
         "admin/work/page.tsx"
       ],
-      "destinations": [
-        "/admin/help?m=[seg]"
-      ],
-      "actions": [
-        "createEventTypeRoster",
-        "openApplicationDocument",
-        "resolveRepostFlag",
-        "setEventTypeStatus",
-        "setFolderEventTypeOffered",
-        "settleCorrectionFromWorkList",
-        "settleHelpFromWorkList",
-        "settleVerificationFromWorkList"
-      ],
+      "destinations": [],
+      "actions": [],
       "blocks": [
-        "ActionButton",
-        "CardsBody",
-        "DocsBody",
-        "Fact",
-        "Icon",
-        "InfoTip",
-        "Link",
-        "MsgsBody",
-        "NamesBody",
-        "Preview",
-        "QueuesTriageFeed",
-        "ReasonPick",
-        "SupplierInbox",
-        "TypesBody"
+        "QueuesTriageFeed"
       ]
     },
     "/api/v1": {
@@ -8006,6 +7989,7 @@
     },
     "/dashboard/[eventId]/messages": {
       "files": [
+        "dashboard/[eventId]/messages/_components/chat-inbox.tsx",
         "dashboard/[eventId]/messages/_components/start-thread-picker.tsx",
         "dashboard/[eventId]/messages/actions.ts",
         "dashboard/[eventId]/messages/loading.tsx",
@@ -8017,18 +8001,25 @@
         "/dashboard/[seg]/vendors"
       ],
       "actions": [
-        "returnTo",
         "startThreadByVendorEmail"
       ],
       "blocks": [
+        "ChatInbox",
+        "ChatOriginMark",
         "FeedPageSkeleton",
+        "Filter",
+        "HTMLDivElement",
         "Link",
         "PageMasthead",
         "PickMenu",
+        "PillThumb",
+        "Sheet",
         "StartThreadPicker",
         "SubmitButton",
         "ThreadArchiveToggle",
-        "ThreadListAvatar"
+        "ThreadListAvatar",
+        "ThumbDock",
+        "ThumbRow"
       ]
     },
     "/dashboard/[eventId]/messages/[threadId]": {
@@ -8037,7 +8028,6 @@
         "dashboard/[eventId]/messages/[threadId]/page.tsx"
       ],
       "destinations": [
-        "/dashboard/[seg]/messages",
         "/dashboard/[seg]/messages/[seg]",
         "/dashboard/[seg]/vendors"
       ],
@@ -8045,17 +8035,18 @@
         "withdrawInquiry"
       ],
       "blocks": [
+        "BackButton",
         "ChatBox",
         "ChatMessageStream",
         "ChatSafetyBanner",
         "ChatSendForm",
+        "ChatThreadHead",
         "ChatThreadMenu",
         "ConversationColumn",
+        "CoupleThreadToolsSheet",
         "Link",
         "NegotiationComposerMenu",
-        "RevealToolButton",
         "SubmitButton",
-        "ThreadCallLauncher",
         "ThreadInterestChips",
         "ThreadToolHashReveal",
         "ThreadToolPanel"
@@ -8788,9 +8779,9 @@
       ],
       "destinations": [
         "/[seg]?phase=editorial",
+        "/dashboard/[seg]/launch",
         "/dashboard/[seg]/schedule",
         "/dashboard/[seg]/studio/mood-board",
-        "/dashboard/[seg]/website",
         "/dashboard/[seg]/website/living-hero",
         "/dashboard/[seg]/website/our-photos",
         "/dashboard/[seg]/website/privacy",
@@ -8887,7 +8878,7 @@
         "dashboard/[eventId]/studio/guest-columns/page.tsx"
       ],
       "destinations": [
-        "/dashboard/[seg]/website"
+        "/dashboard/[seg]/launch"
       ],
       "actions": [],
       "blocks": [
@@ -10578,7 +10569,7 @@
         "dashboard/[eventId]/website/hero-photo/page.tsx"
       ],
       "destinations": [
-        "/dashboard/[seg]/website",
+        "/dashboard/[seg]/launch",
         "/dashboard/[seg]/website/living-hero"
       ],
       "actions": [
@@ -10801,7 +10792,7 @@
         "dashboard/[eventId]/website/stories/page.tsx"
       ],
       "destinations": [
-        "/dashboard/[seg]/website",
+        "/dashboard/[seg]/launch",
         "/u/[seg]/c/[seg]"
       ],
       "actions": [
@@ -10872,28 +10863,6 @@
         "LabCard",
         "LabRecord",
         "NewManualVendorModal"
-      ]
-    },
-    "/dev/admin-supplier-lab": {
-      "files": [
-        "dev/admin-supplier-lab/fixtures.ts",
-        "dev/admin-supplier-lab/lab-submit-catcher.tsx",
-        "dev/admin-supplier-lab/page.tsx"
-      ],
-      "destinations": [
-        "/admin/verify",
-        "/dev/admin-supplier-lab?view=[seg]"
-      ],
-      "actions": [
-        "setHelpMessageStatus"
-      ],
-      "blocks": [
-        "HelpMessenger",
-        "HubToolsPane",
-        "LabSubmitCatcher",
-        "QueuesTriageFeed",
-        "SP",
-        "SupplierInbox"
       ]
     },
     "/dev/art-kit-lab": {
@@ -11036,6 +11005,50 @@
         "PartPanel",
         "SearchParamsRecord",
         "ServicePanel"
+      ]
+    },
+    "/dev/chat-lab": {
+      "files": [
+        "dev/chat-lab/fixtures.tsx",
+        "dev/chat-lab/page.tsx"
+      ],
+      "destinations": [
+        "/dev/chat-lab",
+        "/dev/chat-lab/t/[seg][seg]"
+      ],
+      "actions": [],
+      "blocks": [
+        "ChatInbox",
+        "LabShell",
+        "StartThreadPicker",
+        "ThreadArchiveToggle"
+      ]
+    },
+    "/dev/chat-lab/t/[threadId]": {
+      "files": [
+        "dev/chat-lab/t/[threadId]/page.tsx"
+      ],
+      "destinations": [
+        "/dev/chat-lab",
+        "/dev/chat-lab/t/[seg]"
+      ],
+      "actions": [],
+      "blocks": [
+        "BackButton",
+        "ChatBox",
+        "ChatMessageStream",
+        "ChatSafetyBanner",
+        "ChatSendForm",
+        "ChatThreadHead",
+        "ChatThreadMenu",
+        "CoupleThreadToolsSheet",
+        "LabShell",
+        "LabThread",
+        "Suspense",
+        "ThreadArrival",
+        "ThreadToolHashReveal",
+        "ThreadToolPanel",
+        "ThreadToolsSheet"
       ]
     },
     "/dev/create-for-lab": {
@@ -11240,6 +11253,7 @@
       "actions": [],
       "blocks": [
         "IapUnlockSheet",
+        "InlineCheckoutDrawer",
         "PapicAddedPreview",
         "PapicCreditsAdded",
         "StudioBuyHero"
@@ -11440,7 +11454,7 @@
         "dev/notifications-lab/page.tsx"
       ],
       "destinations": [
-        "/dev/notifications-lab"
+        "/dashboard"
       ],
       "actions": [],
       "blocks": [
@@ -11507,6 +11521,22 @@
         "InviteResult",
         "InviteVendorForm",
         "TeamInviteDoor"
+      ]
+    },
+    "/dev/photo-privacy-lab": {
+      "files": [
+        "dev/photo-privacy-lab/lab-client.tsx",
+        "dev/photo-privacy-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "GuestLineLab",
+        "InfoTip",
+        "PutButtonLab",
+        "PutOnMyPageButton",
+        "PutOnPageResult",
+        "SupplierPageNoticeLine"
       ]
     },
     "/dev/pro-parts-lab": {
@@ -11667,6 +11697,7 @@
         "/dev/supplier-lab?s=dates-day",
         "/dev/supplier-lab?s=dates-halls",
         "/dev/supplier-lab?s=library&view=review",
+        "/dev/supplier-lab?s=money",
         "/dev/supplier-lab?s=people",
         "/dev/supplier-lab?s=qr",
         "/dev/supplier-lab?s=qr-booked",
@@ -11729,6 +11760,7 @@
         "SearchBox",
         "ShopBadgePill",
         "ShopSegments",
+        "ShopWalletSheet",
         "StylistLibraryEditor",
         "SuggestBoardActions",
         "SuggestLab",
@@ -11981,7 +12013,6 @@
         "host/accept/[token]/page.tsx"
       ],
       "destinations": [
-        "/",
         "/dashboard/[seg]",
         "/login?next=",
         "/login?next=[seg]",
@@ -12418,9 +12449,7 @@
         "panood/cam/[token]/loading.tsx",
         "panood/cam/[token]/page.tsx"
       ],
-      "destinations": [
-        "/"
-      ],
+      "destinations": [],
       "actions": [
         "claimPanoodCamera"
       ],
@@ -12542,9 +12571,7 @@
         "panood/demo/[token]/_components/cam-join-flow.tsx",
         "panood/demo/[token]/page.tsx"
       ],
-      "destinations": [
-        "/"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
         "CamJoinFlow",
@@ -12552,7 +12579,6 @@
         "CameraPublisher",
         "DoorShell",
         "HTMLVideoElement",
-        "Link",
         "MediaStream",
         "PeerConnectionState",
         "Shell",
@@ -12587,9 +12613,7 @@
         "papic/claim/[token]/loading.tsx",
         "papic/claim/[token]/page.tsx"
       ],
-      "destinations": [
-        "/"
-      ],
+      "destinations": [],
       "actions": [
         "claimPapicSeat"
       ],
@@ -12608,7 +12632,6 @@
         "papic/decorate/page.tsx"
       ],
       "destinations": [
-        "/",
         "/papic/guest"
       ],
       "actions": [],
@@ -12629,15 +12652,12 @@
         "papic/demo/[token]/_components/demo-join-flow.tsx",
         "papic/demo/[token]/page.tsx"
       ],
-      "destinations": [
-        "/"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
         "DemoJoinFlow",
         "DoorShell",
         "HTMLVideoElement",
-        "Link",
         "MediaStream",
         "Shell",
         "Step"
@@ -12655,7 +12675,6 @@
         "papic/guest/page.tsx"
       ],
       "destinations": [
-        "/",
         "/[seg]",
         "/papic/guest",
         "/papic/me/[seg]",
@@ -12703,9 +12722,7 @@
         "papic/join/[token]/_components/join-forwarder.tsx",
         "papic/join/[token]/page.tsx"
       ],
-      "destinations": [
-        "/"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
         "AppInstallBanner",
@@ -12738,7 +12755,6 @@
         "papic/me/[token]/page.tsx"
       ],
       "destinations": [
-        "/",
         "/papic/me/[seg]/download",
         "/papic/me/[seg]/photo?id=[seg]&src=[seg]",
         "/papic/me/[seg]/session",
@@ -12783,7 +12799,6 @@
         "papic/pool/page.tsx"
       ],
       "destinations": [
-        "/",
         "/papic/me/[seg]"
       ],
       "actions": [],
@@ -12801,7 +12816,6 @@
         "papic/seat/[token]/page.tsx"
       ],
       "destinations": [
-        "/",
         "/papic/seat/[seg]"
       ],
       "actions": [],
@@ -13238,6 +13252,7 @@
         "/[seg]",
         "/[seg]?reviewsPage=[seg]",
         "/dashboard",
+        "/explore",
         "/login",
         "/signup",
         "/v/[seg]/booth"
@@ -13720,6 +13735,7 @@
         "/vendor-dashboard/clients/[seg]?tab=payments",
         "/vendor-dashboard/clients/[seg]?tab=schedule",
         "/vendor-dashboard/clients/[seg]?tab=schedule&lens=mine",
+        "/vendor-dashboard/customers",
         "/vendor-dashboard/lines",
         "/vendor-dashboard/messages/[seg]",
         "/vendor-dashboard/proposals",
@@ -13951,6 +13967,7 @@
         "PickMenu",
         "PutOnPageResult",
         "ShopSegments",
+        "SupplierPageNoticeRow",
         "SupplierSubmit",
         "SupplierThumbRow",
         "SwitchTrack"
@@ -14067,6 +14084,7 @@
         "vendor-dashboard/customers/_components/money-view.tsx",
         "vendor-dashboard/customers/_components/outside-client-add.tsx",
         "vendor-dashboard/customers/_components/people-more.tsx",
+        "vendor-dashboard/customers/_components/shop-wallet-sheet.tsx",
         "vendor-dashboard/customers/actions.ts",
         "vendor-dashboard/customers/anchors.ts",
         "vendor-dashboard/customers/page.tsx",
@@ -14078,6 +14096,7 @@
         "/vendor-dashboard/clients/[seg]?tab=details",
         "/vendor-dashboard/customers?seg=dates&m=[seg]",
         "/vendor-dashboard/messages/[seg]",
+        "/vendor-dashboard/on-the-day/live/[seg]/papic",
         "/vendor-dashboard/subscription"
       ],
       "actions": [
@@ -14085,6 +14104,7 @@
         "addManualBlock",
         "createAction",
         "editAction",
+        "formAction",
         "importExternalClient",
         "moveAction",
         "removeBlock"
@@ -14096,10 +14116,13 @@
         "BlockDateAdd",
         "BookingFeeBills",
         "BookingsSurface",
+        "BuyAPack",
+        "BuyVendorPapicPortfolioPackState",
         "CalendarDay",
         "CalendarGrid",
         "CalendarLegend",
         "CalendarSheet",
+        "ChatOriginMark",
         "CheckADate",
         "ChosenRow",
         "ConfirmForm",
@@ -14143,6 +14166,7 @@
         "OutsideClient",
         "OutsideClientAdd",
         "OutsideClientRows",
+        "PaymentsPausedNote",
         "PesoCount",
         "PickMenu",
         "PillLink",
@@ -14157,6 +14181,8 @@
         "SearchBox",
         "ShareTeamPick",
         "Sheet",
+        "ShopWalletSheet",
+        "ShopWalletSheetData",
         "SupplierSubmit",
         "SupplierThumbRow",
         "SupplierToast",
@@ -14340,6 +14366,7 @@
       ],
       "actions": [],
       "blocks": [
+        "ChatOriginMark",
         "Icon",
         "InquiryOutcomesRollup",
         "Link",
@@ -14374,7 +14401,6 @@
         "/vendor-dashboard/clients/[seg]?tab=files",
         "/vendor-dashboard/clients/[seg]?tab=quote",
         "/vendor-dashboard/clients/[seg]?tab=schedule",
-        "/vendor-dashboard/messages",
         "/vendor-dashboard/messages/[seg]",
         "/vendor-dashboard/proposals"
       ],
@@ -14392,6 +14418,7 @@
       ],
       "blocks": [
         "AnswerAskButton",
+        "BackButton",
         "BookingFeeNotice",
         "ChatBox",
         "ChatInfoRailColumn",
@@ -14399,6 +14426,7 @@
         "ChatMessageStream",
         "ChatPrivacyNotice",
         "ChatSendForm",
+        "ChatThreadHead",
         "ChatThreadMenu",
         "ConversationColumn",
         "Icon",
@@ -14425,12 +14453,12 @@
         "SubmitButton",
         "ThreadAnswerLine",
         "ThreadAttribution",
-        "ThreadCallLauncher",
         "ThreadDayAnswer",
         "ThreadInterestChips",
         "ThreadToolHashReveal",
         "ThreadToolPanel",
         "ThreadToolsSheet",
+        "ToolsSheetButton",
         "VendorEventDayPrepCta",
         "VendorOfferService",
         "VendorPaymentLive"
@@ -14623,6 +14651,7 @@
         "HTMLVideoElement",
         "HostPlaylist",
         "Icon",
+        "InfoTip",
         "Link",
         "LiveReviews",
         "LockedUpsell",
@@ -15305,6 +15334,7 @@
       ],
       "blocks": [
         "AccordionSkeleton",
+        "ActionButton",
         "ApplicationStatus",
         "AutoReplyCard",
         "AutoReplySaveResult",
@@ -15360,6 +15390,7 @@
         "PillTrack",
         "Pin",
         "PlainInput",
+        "PortfolioForm",
         "PublicLineSaveResult",
         "ReachMap",
         "ReceiptLine",
@@ -15385,6 +15416,7 @@
         "SubmitButton",
         "SubmitResult",
         "SuggestedCoverageActionResult",
+        "SupplierSubmit",
         "Suspense",
         "Switch",
         "SwitchTrack",
@@ -15637,9 +15669,7 @@
         "vendor/claim/[token]/loading.tsx",
         "vendor/claim/[token]/page.tsx"
       ],
-      "destinations": [
-        "/"
-      ],
+      "destinations": [],
       "actions": [
         "declineVendorInviteByToken"
       ],

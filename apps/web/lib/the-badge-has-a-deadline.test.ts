@@ -128,7 +128,7 @@ const BADGE_SITE_BILL: ReadonlyMap<string, { count: number; why: string }> = new
   ],
   [
     'app/dashboard/[eventId]/messages/[threadId]/page.tsx',
-    { count: 2, why: 'Both feed resolveVendorDisplayName (name-reveal) — no "Verified" badge renders on this page.' },
+    { count: 3, why: 'Two feed resolveVendorDisplayName (name-reveal); the third feeds isVendorNameRevealed for the chat\'s shop-staff first names (C1 2026-10-28 — a masked shop shows none). No "Verified" badge renders on this page.' },
   ],
   [
     'lib/messages-team-picker.ts',

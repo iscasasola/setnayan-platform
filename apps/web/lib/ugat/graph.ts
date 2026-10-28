@@ -2148,6 +2148,60 @@ export const UGAT_JOINTS: UgatJoint[] = [
         name: 'vendor_papic_portfolio_photos_credits_positive',
         mentions: 'credits_spent',
       },
+      // The 7-day guest notice (owner 2026-10-03; built 2026-10-28): an album photo reaches the supplier's PUBLIC page
+      // only through this row — published by `publish_supplier_page_photo` after `public_from`, pulled by a guest's
+      // Remove or by ANY hide of the album row (trigger `a_hidden_album_photo_leaves_the_page`).
+      { kind: 'table', table: 'supplier_page_photo_notices' },
+      { kind: 'fk', table: 'supplier_page_photo_notices', column: 'photo_id', references: 'vendor_papic_portfolio_photos' },
+      { kind: 'unique', table: 'supplier_page_photo_notices', columns: ['photo_id'] },
+      { kind: 'column', table: 'supplier_page_photo_notices', column: 'public_from' },
+      {
+        kind: 'check',
+        table: 'supplier_page_photo_notices',
+        name: 'supplier_page_photo_notices_seven_days',
+        mentions: 'public_from',
+      },
+      {
+        kind: 'check',
+        table: 'supplier_page_photo_notices',
+        name: 'supplier_page_photo_notices_own_folder',
+        mentions: 'page_ref',
+      },
+      // THE SHOP WALLET (owner 2026-10-23, option A — one shop wallet). Packs
+      // land HERE now, not in one event's grant ledger: one signed, append-only
+      // ledger per SHOP (no event column on the money-in side), spent on the
+      // portfolio past the free 50 and on an event once that event's own pot is
+      // empty. Spends go only through shop_papic_wallet_spend (locks the shop,
+      // refuses what the balance cannot cover, one row per spend_ref) — and, for
+      // the portfolio, shop_portfolio_commit, which writes portfolio_r2_keys and
+      // the 'portfolio_spend' row in ONE transaction under the same lock.
+      { kind: 'table', table: 'shop_papic_wallet_entries' },
+      { kind: 'column', table: 'vendor_profiles', column: 'portfolio_r2_keys' },
+      {
+        kind: 'fk',
+        table: 'shop_papic_wallet_entries',
+        column: 'vendor_profile_id',
+        references: 'vendor_profiles',
+      },
+      { kind: 'fk', table: 'shop_papic_wallet_entries', column: 'order_id', references: 'orders' },
+      { kind: 'fk', table: 'shop_papic_wallet_entries', column: 'event_id', references: 'events' },
+      { kind: 'column', table: 'shop_papic_wallet_entries', column: 'delta' },
+      { kind: 'column', table: 'shop_papic_wallet_entries', column: 'kind' },
+      { kind: 'column', table: 'shop_papic_wallet_entries', column: 'spend_ref' },
+      {
+        kind: 'check',
+        table: 'shop_papic_wallet_entries',
+        name: 'shop_papic_wallet_entries_sign_matches_kind',
+        mentions: 'delta',
+      },
+      {
+        kind: 'check',
+        table: 'shop_papic_wallet_entries',
+        name: 'shop_papic_wallet_entries_kind_allowed',
+        mentions: 'kind',
+      },
+      // The wallet holds credits, never a price — the ₱ is the catalogue's.
+      { kind: 'no_column', table: 'shop_papic_wallet_entries', column: 'price_php' },
     ],
     chain: 18,
     pair: ['TYPE-PAPIC', 'TYPE-VENDORS'],
@@ -2158,7 +2212,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     implementedBy:
       'vendor_papic_portfolio_credit_grants.(vendor_profile_id, event_id) → vendor_profiles + events, order_id → orders for the purchase; allowance = MAX(tier gift, SUM(grants.credits)) − points(vendor_papic_captures) − credits(vendor_papic_portfolio_photos), computed only by allowancePointsFor / captureAllowance in lib/vendor-papic-tier.ts plus the portfolio-spend fold in fetchVendorPapicPortfolioCredits (lib/vendor-papic-grants.ts)',
     writtenBy:
-      'lib/sku-activation.ts on admin payment approval — grantVendorPapicCreditsForBookingFee inside the vendor_booking_fee__ hook (floor(fee × 5%), cap 1,000, no floor; only a status=paid charge earns) and grantVendorPapicPortfolioPack for vendor_papic_portfolio_pack (25→100 since 2026-09-06) — SHIPPED 2026-09-05; the tier row by admin comp; captures by /api/vendor/papic-capture; portfolio imports by /api/vendor/papic-portfolio-import (G3, SHIPPED 2026-09-06) — the vendor’s OWN RLS client mints the row (booked-event insert policy), the credit check happens in the route, and the background NSFW screen runs on the service-role admin client so a session can never rewrite its own screen result',
+      'lib/sku-activation.ts on admin payment approval — grantVendorPapicCreditsForBookingFee inside the vendor_booking_fee__ hook (floor(fee × 5%), cap 1,000, no floor; only a status=paid charge earns) and grantVendorPapicPortfolioPack for vendor_papic_portfolio_pack (25→100 since 2026-09-06; since 2026-10-23 into shop_papic_wallet_entries, the SHOP wallet, not an event) — SHIPPED 2026-09-05; the tier row by admin comp; captures by /api/vendor/papic-capture; portfolio imports by /api/vendor/papic-portfolio-import (G3, SHIPPED 2026-09-06) — the vendor’s OWN RLS client mints the row (booked-event insert policy), the credit check happens in the route, and the background NSFW screen runs on the service-role admin client so a session can never rewrite its own screen result',
     guardedBy:
       'ledger: SELECT for the owning vendor (current_vendor_profile_ids) or admin, NO write policy, anon revoked, authenticated holds SELECT only; partial UNIQUE (order_id, source) WHERE order_id IS NOT NULL; the couple has no read on it at all — a supplier’s credits are not the host’s to see. Portfolio album: SELECT + INSERT for the owning vendor on a BOOKED event (current_vendor_booked_event_ids), no UPDATE/DELETE for authenticated, anon revoked — pinned by tests/db/vendor-papic-portfolio-is-not-the-host-gallery.db.test.ts',
     traps:

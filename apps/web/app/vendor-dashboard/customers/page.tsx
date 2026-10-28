@@ -1051,6 +1051,8 @@ async function CustomersDates({ search }: { search: Awaited<Props['searchParams'
           // Only what the month and the day's rows read — a block's contact and note never cross the wire.
           bookings={bookings.map((b) => ({ poolId: b.poolId, bookedDate: b.bookedDate, eventName: b.eventName }))}
           blocks={blocks.map((k) => ({
+            // A closure's id (the day switch reopens a one-day closure by it); an outside booking's never crosses.
+            blockId: k.source === 'manual' ? k.blockId : undefined,
             poolId: k.poolId,
             source: k.source,
             startDate: k.startDate,
@@ -1065,6 +1067,7 @@ async function CustomersDates({ search }: { search: Awaited<Props['searchParams'
           agents={agents}
           agentCategories={agentCategories}
           halls={pools.every((p) => p.isHall) && pools.length > 0}
+          dayActions={{ addManualBlock, removeBlock }}
         />
       </div>
 

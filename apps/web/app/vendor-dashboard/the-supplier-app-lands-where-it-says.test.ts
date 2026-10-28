@@ -58,7 +58,8 @@ test('1a · each landing resolves to an open fold + a fragment the hub really re
   const hub = read('app/vendor-dashboard/customers/page.tsx');
   assert.ok(hub.length > 5000, 'read the real hub (an empty read is a green lie)');
   const folds = new Set([...hub.matchAll(/\bkey: '(\w+)',\s*\n\s*label:/g)].map((m) => m[1]));
-  assert.ok(folds.has('messages') && folds.has('proposals') && folds.has('contracts'), `hub folds not found: ${[...folds]}`);
+  // 2026-10-28: Messages is not a fold — the event list IS the messages; its landing is People's own `#customers`.
+  assert.ok(!folds.has('messages') && folds.has('proposals') && folds.has('contracts'), `hub folds not as expected: ${[...folds]}`);
   for (const key of LANDINGS) {
     const { fold, anchor } = CUSTOMER_LANDINGS[key];
     const href = customerLandingHref(key);
@@ -78,7 +79,7 @@ test('1a · each landing resolves to an open fold + a fragment the hub really re
     assert.equal(customersSegmentOf(Object.fromEntries(seg)), CUSTOMER_LANDINGS[key].seg, `${key}: ${href} opens the wrong segment`);
   }
   // The exact targets the owner named.
-  assert.equal(customerLandingHref('messages'), '/vendor-dashboard/customers?seg=people&open=messages#customer-tools');
+  assert.equal(customerLandingHref('messages'), '/vendor-dashboard/customers?seg=people#customers');
   assert.equal(customerLandingHref('proposals'), '/vendor-dashboard/customers?seg=money&open=proposals#customer-tools');
   assert.equal(customerLandingHref('contracts'), '/vendor-dashboard/customers?seg=money&open=contracts#customer-tools');
   assert.equal(customerLandingHref('payday'), '/vendor-dashboard/customers?seg=money#payday');

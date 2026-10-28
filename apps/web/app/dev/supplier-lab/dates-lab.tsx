@@ -60,7 +60,9 @@ const BOOKINGS = [
   { poolId: 'p-main', bookedDate: '2026-10-31', eventName: 'Santos wedding' },
 ];
 const BLOCKS: DatesBlock[] = [
-  { poolId: null, source: 'manual', startDate: '2026-10-14', endDate: '2026-10-15', label: 'Family trip', clientName: null },
+  { blockId: 'blk-trip', poolId: null, source: 'manual', startDate: '2026-10-14', endDate: '2026-10-15', label: 'Family trip', clientName: null },
+  // One day closed on its own — the day switch reopens exactly this one (2026-10-28).
+  { blockId: 'blk-21', poolId: null, source: 'manual', startDate: '2026-10-21', endDate: '2026-10-21', label: 'Not available', clientName: null },
   // The parish's case (owner 2026-10-14): every Sunday morning, Masses — one row, repeating, part of the day.
   { poolId: null, source: 'manual', startDate: '2026-09-06', endDate: '2026-09-06', label: 'Masses', repeat: 'weekly', repeatUntil: null, dayPart: 'morning' },
   { poolId: 'p-second', source: 'external_client', startDate: '2026-10-17', endDate: '2026-10-17', label: null, clientName: 'Lopez anniversary', clientTime: '15:00' },
@@ -84,6 +86,7 @@ const WAIT_ON: DatesWaitlist = {
 };
 const WAIT_FREE: DatesWaitlist = { ...WAIT_ON, tierCap: 0, on: false, cap: 1, dates: [] };
 
+const ACTIONS_DAY = { addManualBlock, removeBlock };
 const ACTIONS = { removeBlock, updateWaitlistSettings, pickWaitlistCouple, notifyWaitlistSlot, updatePoolCapacity, createCalendar, editCalendar, reassignCategoryPool };
 
 /** A day as the page builds it — the REAL `dayGroupsOf` / `dayAnswerOfGroups` over the fixtures. */
@@ -411,6 +414,7 @@ export async function DatesLab({ state, toast, open, gear = false }: { state: Da
             agents={state === 'dates' ? [{ value: 'tm-marco', label: 'Marco' }] : []}
             agentCategories={{ 'tm-marco': ['styling'] }}
             fetchMonth={null}
+            dayActions={{ addManualBlock: ACTIONS_DAY.addManualBlock, removeBlock: ACTIONS_DAY.removeBlock }}
           />
         </div>
         <DatesFolds

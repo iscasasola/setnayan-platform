@@ -346,8 +346,18 @@ function phDate(iso: string): string {
  *  notify there too (a no-waiter date is a cheap no-op). */
 export async function removeBlock(formData: FormData): Promise<void> {
   const { supabase, profile } = await requireVendor();
+  /*
+    🧰 IN PLACE (owner 2026-10-28 — Customers › Dates' "You can take bookings" switch under the picked day; a save
+    never resets the screen): the same delete, but the answer is the call's own — success returns, a refusal THROWS —
+    and nothing redirects, so the month and the picked day stay. `addManualBlock`'s twin; one action, two callers.
+  */
+  const inPlace = str(formData, 'return_to') === 'inplace';
+  const fail = (notice: string): never => {
+    if (inPlace) throw new Error(notice);
+    return backToCalendar(formData, notice);
+  };
   const blockId = str(formData, 'block_id');
-  if (!blockId) backToCalendar(formData, 'save_failed');
+  if (!blockId) fail('save_failed');
 
   // Snapshot the freed date range before the row disappears.
   const { data: blockRow } = await supabase
@@ -363,7 +373,7 @@ export async function removeBlock(formData: FormData): Promise<void> {
     .eq('block_id', blockId)
     .eq('vendor_profile_id', profile.vendor_profile_id)
     .in('block_source', ['manual', 'external_client']);
-  if (error) backToCalendar(formData, 'save_failed');
+  if (error) fail('save_failed');
 
   const range = blockRow as { blocked_at: string; blocked_until: string; repeat_rule?: string; repeat_until?: string | null; day_part?: string } | null;
   if (range) {
@@ -384,6 +394,7 @@ export async function removeBlock(formData: FormData): Promise<void> {
   }
 
   revalidateScheduleSurfaces();
+  if (inPlace) return;
   backToCalendar(formData, 'block_removed');
 }
 

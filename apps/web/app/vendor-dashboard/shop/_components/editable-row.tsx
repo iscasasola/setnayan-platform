@@ -476,7 +476,7 @@ export function RequestOnlyRow({
 
   return (
     <li
-      className={flat ? FLAT_ROW : 'overflow-hidden rounded-lg border bg-white'}
+      className={flat ? FLAT_ROW : 'overflow-hidden rounded-lg border bg-white'} // no-card-ok: the EditableRow's own shell, beside it in the same list; it opens an ask in place
       style={flat ? undefined : { borderColor: open ? 'var(--m-orange-3)' : 'var(--m-line)' }}
       data-editable-row={flat ? 'flat' : undefined}
       data-request-only={pending ? 'pending' : 'ask'}

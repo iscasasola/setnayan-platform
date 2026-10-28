@@ -218,6 +218,10 @@ test('🔒 the team reads it, nobody else — and a helper without the guest lis
   assert.equal(helper.may_name, false, 'told it may not name — never drawn as "no guests"');
   assert.equal(helper.guest_total, 0, '🔒 no guest row is visible without the guest list');
   assert.ok(helper.visitors >= 50, 'the stranger count is the team’s');
+  const helperDirect = await as('authenticated', () => db.query(`SELECT guest_id FROM public.hub_guest_views WHERE event_id = $1`, [eventId]), helperNoList);
+  assert.equal(helperDirect.rows.length, 0, '🔒 …and the table itself hands them no row (the policy asks the guests table)');
+  const coordDirect = await as('authenticated', () => db.query(`SELECT guest_id FROM public.hub_guest_views WHERE event_id = $1`, [eventId]), coordinator);
+  assert.ok(coordDirect.rows.length >= 2, 'positive control: the coordinator with the guest list reads the rows');
 
   await assert.rejects(viewersAs(null, eventId), /permission denied/, '🔒 anon cannot even call the read');
   for (const [who, uid] of [['a guest who signed in', guestUser], ['another couple', otherHost]] as const) {

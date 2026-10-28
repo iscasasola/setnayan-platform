@@ -115,9 +115,10 @@ test('3 · the beacon never costs the guest their cached hub — the cache-bust 
 test('4 · a name only through the guest’s own pass — the body is the slug, the guest id is the verified pass’s', () => {
   const route = code('app/api/hub/seen/route.ts');
   assert.doesNotMatch(route, /body as \{[^}]*guest/i, 'the body is never asked for a guest');
-  const owners = [...route.matchAll(/(\w+)\??\.guest_id\b/g)].map((m) => m[1]);
-  assert.ok(owners.length > 0, 'premise: the route names a guest id');
-  assert.deepEqual([...new Set(owners)], ['session'], 'a guest id is only ever the verified session’s');
+  const anyGuestId = (route.match(/\.guest_id\b|\[['"]guest_id['"]\]/g) ?? []).length;
+  const sessions = (route.match(/\bsession\.guest_id\b/g) ?? []).length;
+  assert.ok(sessions > 0, 'premise: the route names the session’s guest id');
+  assert.equal(anyGuestId, sessions, 'a guest id is only ever the verified session’s — never the body’s');
   assert.match(route, /readGuestPassStanding\(\{ eventId \}\)/, 'the pass, checked for THIS event');
   assert.match(route, /session && session\.event_id === eventId \? session\.guest_id : null/);
   assert.match(route, /standing === 'host_preview'\) return done\(\)/, 'a host’s "Open as <guest>" is not a guest');

@@ -93,6 +93,9 @@ BEGIN
     EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_admin_write', t);
     EXECUTE format('CREATE POLICY %I ON public.%I FOR ALL TO authenticated USING ((SELECT public.is_admin())) WITH CHECK ((SELECT public.is_admin()))', t || '_admin_write', t);
     EXECUTE format('REVOKE ALL ON public.%I FROM anon', t);
+    -- Writes go through the service client after requireAdmin() only; a signed-in account gets READ, never a
+    -- write grant the policy would then have to refuse (the exposure surface stays read-only for authenticated).
+    EXECUTE format('REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.%I FROM authenticated', t);
   END LOOP;
 END $$;
 
@@ -129,7 +132,7 @@ INSERT INTO public.hub_tools (tool_key, label, template, sort_order) VALUES
   ('set_list', 'Set list', 'ordered_list', 290),
   ('tech_rider', 'Tech rider', 'checklist', 300),
   ('ceremony_details', 'Ceremony details', 'checklist', 310),
-  ('live_studio', 'Live Studio', 'media', 320),
+  ('live_watch', 'Live Watch', 'media', 320),
   ('rehearsal_and_cues', 'Rehearsal & cues', 'live_timeline', 330),
   ('insured_people_list', 'Insured people list', 'per_person', 340),
   ('proofs_and_approval', 'Proofs & approval', 'checklist', 350),

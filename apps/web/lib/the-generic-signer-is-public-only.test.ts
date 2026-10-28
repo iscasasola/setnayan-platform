@@ -258,6 +258,7 @@ const RAW_SIGNER_CALLERS: Record<string, string> = {
   'lib/std-bg-image.ts': 'gated by publicBucketServeRef first',
   'lib/std-video-gate.ts': 'parseClientRef(stdVideo*/stdSealed policy) first',
   'lib/vendor-image-repost-watch.ts': 'server-side byte fetch for analysis; never served',
+  'lib/admin/supplier-work.server.ts': 'admin-only preview of a verification paper: bucket from resolveDocumentLocation against R2_BUCKETS + the same shop-folder refusal as openApplicationDocument; images only; called only after requireAdmin()',
   'lib/vendor-qr-media-guard.ts': 'server-side byte fetch for analysis; never served',
   'lib/background-videos.ts': 'admin-curated media',
   'app/admin/app-performance/actions.ts': 'admin-only, named bucket',

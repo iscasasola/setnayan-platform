@@ -169,6 +169,11 @@ const PURGED_WITHOUT_SUBJECT_COLUMN: ReadonlySet<string> = new Set([
  * "not looked at yet".
  */
 const DELIBERATE_EXCLUSIONS: Record<string, string> = {
+  // ── added 2026-10-28 with the tables (admin supplier slice, migration 20271293237246) ──
+  hub_tools:
+    'Setnayan-authored tool library. `updated_by` is the ADMIN who last edited a tool — an actor stamp, nullable + ON DELETE SET NULL; no person is the subject of a tool.',
+  category_hub_settings:
+    'Setnayan configuration per supplier category (default scan mode). `updated_by` is the ADMIN who saved it — an actor stamp, nullable + ON DELETE SET NULL.',
   // ── added 2026-09-03 with the table itself (BA7) ──
   // The ONLY subject-identifying column is `created_by_user_id`, declared
   // nullable + ON DELETE SET NULL in the migration that creates it

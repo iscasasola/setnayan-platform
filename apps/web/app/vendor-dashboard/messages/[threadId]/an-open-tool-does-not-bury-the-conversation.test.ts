@@ -51,6 +51,13 @@
  * now reaches the frame; see `app/_components/chat/an-open-tool-cannot-flatten-
  * the-stream.test.ts`.
  *
+ * ── 2026-10-29 · THE ROW AND THE COLUMN LIVE IN THE ONE THREAD FRAME ─────────
+ * Both thread pages now return `ChatThreadFrame` (`app/_components/chat/chat-thread-frame.tsx`; owner, *"event
+ * dashboard chat is full screen. supplier chat not same?"*) — the fixed-height row and the scrolling column are the
+ * frame's, written once for both sides. The two tests below read them THERE, and first require this page to return
+ * the frame, so the property is unchanged: a page that drops the frame, or a frame that loses the height or the
+ * scroll, still fails.
+ *
  * ⚠ SCOPE, STATED. This reads SOURCE: it proves the classes that produce the
  * measured layout are present, not that a browser paints them.
  */
@@ -71,11 +78,12 @@ const SRC = stripComments(RAW);
 const BOX = stripComments(readFileSync(join(WEB, 'app/_components/chat/chat-box.tsx'), 'utf8'));
 const STREAM = stripComments(readFileSync(join(WEB, 'app/_components/chat-message-stream.tsx'), 'utf8'));
 const PANEL = stripComments(readFileSync(join(WEB, 'app/_components/chat/thread-tool-panel.tsx'), 'utf8'));
+const FRAME = stripComments(readFileSync(join(WEB, 'app/_components/chat/chat-thread-frame.tsx'), 'utf8'));
 
 /** The className of the element that opens immediately before `anchor`. */
 function classOfElementBefore(src: string, anchor: string, tag: string): string {
   const at = src.indexOf(anchor);
-  assert.ok(at !== -1, `anchor ${anchor} not found in page.tsx`);
+  assert.ok(at !== -1, `anchor ${anchor} not found`);
   const open = src.lastIndexOf(`<${tag} className="`, at);
   assert.ok(open !== -1, `no <${tag} className="…"> before ${anchor}`);
   const start = open + `<${tag} className="`.length;
@@ -94,7 +102,9 @@ test('the anchor: page.tsx was read and is not a stub', () => {
 });
 
 test('the row keeps a FIXED height, so a long thread scrolls inside its own box', () => {
-  const row = classOfElementBefore(SRC, '<ConversationColumn', 'div');
+  // The row is the one thread frame's (2026-10-29): this page must return it, and the row is read there.
+  assert.match(SRC, /<ChatThreadFrame\b/, 'the page no longer returns the one thread frame');
+  const row = classOfElementBefore(FRAME, '{list ?? null}', 'div');
   assert.ok(
     has(row, 'h-[calc(100dvh-12rem)]'),
     `the row lost its fixed height (${row}). A min-h row lets an 80-message thread grow the page ` +
@@ -104,7 +114,8 @@ test('the row keeps a FIXED height, so a long thread scrolls inside its own box'
 });
 
 test('the conversation column scrolls itself when an open tool needs more room', () => {
-  const section = classOfElementBefore(SRC, '<ChatBox', 'section');
+  assert.match(SRC, /<ChatThreadFrame\b/, 'the page no longer returns the one thread frame');
+  const section = classOfElementBefore(FRAME, '{children}', 'section');
   assert.ok(has(section, 'overflow-y-auto'), `the conversation column does not scroll (${section}) — an open tool overflows the row again`);
   assert.ok(has(section, 'min-h-0'), `the column has no min-h-0 (${section}) — it can grow past the row instead of scrolling`);
 });

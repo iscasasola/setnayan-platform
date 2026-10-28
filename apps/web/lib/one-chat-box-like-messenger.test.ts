@@ -155,7 +155,9 @@ test('the deal menu is a tool panel, not a card of its own — and no call launc
       /open=\{\s*\(?t\.id === affordancePanelId\('deal'\) && composeMode === 'deal'\)?\s*(\}|\|\|)/,
       `${name}: ?compose=deal does not open the panel`,
     );
-    assert.equal(count(s, /<ThreadToolHashReveal\s*\/>/g), 1, `${name}: nothing honours a #panel hash`);
+    // The hash opener is in the ONE thread frame both pages return (`ChatThreadFrame`, 2026-10-29).
+    assert.match(s, /<ChatThreadFrame\b/, `${name}: the page does not return the one thread frame`);
+    assert.equal(count(s + read('app/_components/chat/chat-thread-frame.tsx'), /<ThreadToolHashReveal\s*\/>/g), 1, `${name}: nothing honours a #panel hash`);
   }
   assert.match(read(COUPLE), /COUPLE_THREAD_PANELS\.filter\(/, "the couple's tray is not drawn from the shared list");
   assert.equal(count(read(VENDOR), /VENDOR_THREAD_PANELS\.map\(/g), 1);

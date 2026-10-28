@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "e9652e6e04",
+  "generatedFromRef": "c337d1767f",
   "routeCount": 477,
   "destinations": 998,
   "actions": 641,
-  "blocks": 7196,
+  "blocks": 7198,
   "routes": {
     "/": {
       "files": [
@@ -8022,6 +8022,7 @@
         "ChatMessageStream",
         "ChatSafetyBanner",
         "ChatSendForm",
+        "ChatThreadHead",
         "ChatThreadMenu",
         "ConversationColumn",
         "CoupleThreadToolsSheet",
@@ -11019,11 +11020,11 @@
         "ChatMessageStream",
         "ChatSafetyBanner",
         "ChatSendForm",
+        "ChatThreadHead",
         "ChatThreadMenu",
         "CoupleThreadToolsSheet",
         "LabShell",
         "LabThread",
-        "Link",
         "Suspense",
         "ThreadArrival",
         "ThreadToolHashReveal",
@@ -14392,6 +14393,7 @@
         "ChatMessageStream",
         "ChatPrivacyNotice",
         "ChatSendForm",
+        "ChatThreadHead",
         "ChatThreadMenu",
         "ConversationColumn",
         "Icon",

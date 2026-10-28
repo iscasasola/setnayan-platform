@@ -28,7 +28,6 @@ import { stripComments } from './strip-comments';
 
 (globalThis as unknown as { React: unknown }).React = React;
 {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const Mod = require('node:module');
   const load = Mod._load;
   Mod._load = function (request: string, ...rest: unknown[]) {

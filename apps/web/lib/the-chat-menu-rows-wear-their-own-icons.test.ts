@@ -18,7 +18,6 @@ import { stripComments } from './strip-comments';
 (globalThis as unknown as { React: unknown }).React = React;
 {
   // The menu imports the chat's server actions; their `server-only` marker is inert under node.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const Mod = require('node:module');
   const load = Mod._load;
   Mod._load = function (request: string, ...rest: unknown[]) {

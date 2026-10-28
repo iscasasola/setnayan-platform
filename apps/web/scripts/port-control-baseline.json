@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "79344fcdf2",
+  "generatedFromRef": "abb1f29fe8",
   "routeCount": 474,
-  "destinations": 993,
+  "destinations": 990,
   "actions": 642,
-  "blocks": 7138,
+  "blocks": 7137,
   "routes": {
     "/": {
       "files": [
@@ -5499,16 +5499,10 @@
       ],
       "destinations": [
         "/dashboard/samahan/[seg]",
-        "/dashboard/samahan/[seg]?tab=usapan",
-        "/dashboard/samahan/new"
+        "/dashboard/samahan/[seg]?tab=usapan"
       ],
       "actions": [],
-      "blocks": [
-        "CommunityRow",
-        "Link",
-        "PageMasthead",
-        "QuietStart"
-      ]
+      "blocks": []
     },
     "/dashboard/(account)/samahan/[communityId]": {
       "files": [
@@ -5519,8 +5513,7 @@
         "dashboard/(account)/samahan/[communityId]/page.tsx"
       ],
       "destinations": [
-        "/dashboard/people",
-        "/dashboard/samahan"
+        "/dashboard/people"
       ],
       "actions": [
         "deleteSamahanMessage",
@@ -5615,7 +5608,6 @@
         "/dashboard/notifications",
         "/dashboard/people",
         "/dashboard/profile",
-        "/dashboard/samahan",
         "/dashboard/samahan/[seg]",
         "/dashboard?hub=1",
         "/vendor-dashboard"
@@ -5650,6 +5642,7 @@
         "ForTagMark",
         "GlassEventCard",
         "HTMLDialogElement",
+        "HTMLDivElement",
         "Icon",
         "Image",
         "ImpactLines",
@@ -6679,6 +6672,7 @@
         "dashboard/[eventId]/guests/_components/role-section-order.ts",
         "dashboard/[eventId]/guests/_components/search-add-card.tsx",
         "dashboard/[eventId]/guests/_components/send-invite.tsx",
+        "dashboard/[eventId]/guests/_components/sent-or-not-yet.tsx",
         "dashboard/[eventId]/guests/_components/title-picker.tsx",
         "dashboard/[eventId]/guests/_components/titles-waiting.tsx",
         "dashboard/[eventId]/guests/_components/undo-store.ts",
@@ -6753,6 +6747,7 @@
         "CardToggleProps",
         "ChangeAccessLink",
         "ChosenRow",
+        "ConfirmDialog",
         "CoordinatorColourDomains",
         "CoordinatorGrantChips",
         "Count",
@@ -6890,6 +6885,7 @@
         "Scrim",
         "SearchAddRow",
         "SendInvite",
+        "SentOrNotYet",
         "SetRsvpResult",
         "Sheet",
         "SnapCarousel",

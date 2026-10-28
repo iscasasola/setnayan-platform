@@ -21,6 +21,35 @@ Contract: corpus `prototypes/calling_cards_20_2026-10-28/pill.html` + `cards20/t
 
 ---
 
+# HANDOVER — claude/coordinator-door (Builder CD, 2026-10-28)
+
+Contract: corpus `prototypes/coordinator_door_2026-10-28/` + DECISION_LOG 2026-10-28 "COORDINATORS GET A DOOR".
+
+## State
+- Rule: `lib/events-you-run.ts` (`seatRunsTheEvent`, `eventsYouRun`) · read: `lib/events-you-run.server.ts` (cache()d,
+  own session, fails closed) · words: `lib/events-you-run-words.ts` (no imports — the client bar/rail use it).
+- Today: `supplier-today-first-screen.tsx` section `data-today-events-you-run`; rows `_components/events-you-run-rows.tsx`.
+- Tab: `VENDOR_EVENTS_TAB` (bar) + `VENDOR_EVENTS_DESTINATION` (rail), `runsEvents` from the supplier layout.
+- Page: `app/vendor-dashboard/events/page.tsx` → `_components/events-you-run-screen.tsx`.
+- Customer card: `clients/[eventId]/_components/open-their-event.tsx`, both shells, + Coordinator Badge.
+- Inside: `app/dashboard/[eventId]/_components/coordinating-line.tsx`, drawn by the event layout (`coordinatorSeat`).
+- Lab: `/dev/supplier-lab?s=coord-today|coord-events|coord-customer[&none=1]`, `/dev/home-lab?coord=1&shell=1`.
+- Walk + sabotage scripts: `shots-2026-10-28/coord/scripts/` (serve.sh · walk.mjs · sabotage.py · proto.mjs).
+
+- Needs line (owner follow-up 28 Oct): `readEventsYouRunWithNeeds` (Today + Events page only) → board's attention
+  read; `checklistOverdueCount` in lib/checklist.ts mirrors the launcher's pinned inline math.
+- Check-in desk: coordinating line (`checkInHref`, layout's `coordinatorCheckInP`) + Hub `CheckinDeskRows`.
+
+## Decisions taken (not covered by the record)
+- Needs words: "N things need you · <top>" only when total > top count, else the top line; measured zero =
+  "Nothing needs you right now"; refused = "Couldn’t load what needs you". The countdown stays as `status` (Hub rows).
+- Switch OFF counts as no access (prototype note D: "access-toggle off … = it leaves the list").
+- The tab is the person's own seat, so a scoped helper who coordinates gets it too.
+- The line shows only when the coordinator also has a shop (a non-supplier planner has no shop to go back to).
+- Events page reached after access ended: "No events to run right now." + Back to Today (no error, no redirect).
+
+---
+
 # HANDOVER — claude/chat-files-rule (Builder C2, 2026-10-28)
 
 Contract: DECISION_LOG 2026-10-28 "CHAT FILES" + owner amendment "alway compress files when sending on chat. never keep

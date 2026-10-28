@@ -1,4 +1,7 @@
 import { notFound, redirect } from 'next/navigation';
+import { COORDINATOR_SEAT_ROLE } from '@/lib/events-you-run';
+import { CoordinatingLine } from './_components/coordinating-line';
+import { applyDelegateAccessWindow } from '@/lib/delegate-access-window.server';
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { sweepGuardNotifications } from '@/lib/setnayan-ai-notify';
@@ -132,6 +135,14 @@ export default async function EventLayout({ children, params }: Props) {
   // from the SAME seat row that admits a delegate below — no extra trip. Every page then says it once, in place
   // (`ViewOnlyLine`), and every server action refuses the rest (`refuseLimitedHelper`, lib/host-gate.ts).
   let limitedHelper: { editable: DelegateArea[] } | null = null;
+  // 🗂 Admitted through the COORDINATOR's seat (owner "approved", 2026-10-28) — read off the SAME seat row that admits
+  // a delegate below, no extra trip. Only decides whether to draw the "Coordinating … · Back to your shop" line; the
+  // admission itself is the shipped check above and below, untouched.
+  let coordinatorSeat = false;
+  // 🎫 …and whether that seat may open the shipped Check-in desk (owner 2026-10-28: "coordinators can also scan qr
+  // codes for attendance in the reception"). The desk's OWN rule — the guest list shared, inside the window
+  // (`isDelegateWithoutArea` over `applyDelegateAccessWindow`) — asked of the same seat, started now, read at the line.
+  let coordinatorCheckInP: Promise<boolean> = Promise.resolve(false);
   if (!membership || membership.member_type !== 'couple') {
     // Delegate path (feature-access program Phase 2, 2026-06-12): an
     // accepted, non-removed event_moderators row admits the user — this is
@@ -187,6 +198,12 @@ export default async function EventLayout({ children, params }: Props) {
       notFound();
     }
     const seat = moderator as { role_subtype?: string | null; permissions_json?: ModeratorPermissions | null };
+    coordinatorSeat = seat.role_subtype === COORDINATOR_SEAT_ROLE;
+    if (coordinatorSeat) {
+      coordinatorCheckInP = applyDelegateAccessWindow(supabase, eventId, seat.permissions_json ?? null, false)
+        .then((p) => resolveAreaLevel(p, 'guest_list') !== null)
+        .catch(() => false);
+    }
     if (seat.role_subtype === 'viewer') {
       // What the host set to Edit for them in Event Details › Event access (owner 2026-10-26) — the line names it.
       limitedHelper = {
@@ -617,6 +634,8 @@ export default async function EventLayout({ children, params }: Props) {
     storeShell,
   };
 
+  // 🎫 The desk door on the coordinating line — false for everyone but a coordinator whose guest list is shared.
+  const coordinatorCheckIn = await coordinatorCheckInP;
   return (
     <>
       {/*
@@ -770,6 +789,14 @@ export default async function EventLayout({ children, params }: Props) {
               so the last ~30px of every page hid behind it. Desktop gets 0 —
               the rail's grid is the offset there. */}
           <div data-shell-main>
+            {/* 🗂 A supplier running this event as the hosts' coordinator — the one slim dark line (owner
+                2026-10-28). Only for a seat-admitted coordinator who has a shop to go back to. */}
+            {coordinatorSeat && switcherData.context.hasVendor ? (
+              <CoordinatingLine
+                eventName={(event.display_name as string | null) ?? null}
+                checkInHref={coordinatorCheckIn ? `/dashboard/${eventId}/guests/checkin` : null}
+              />
+            ) : null}
             {/* ↕ MOBILE PORTRAIT STARTS HIGHER (owner 2026-09-25: *"big space on
                 top"*). Every event page ALREADY opens with its own
                 `py-6` container, and most follow an sr-only masthead with a

@@ -1,3 +1,4 @@
+import { formatCount } from '@/lib/format-number';
 /**
  * THE 7-DAY GUEST NOTICE BEFORE A SUPPLIER'S EVENT PHOTO GOES ON ITS PAGE — pure (words, states, grouping).
  *
@@ -83,7 +84,7 @@ export type GuestNoticeGroup = {
 export function guestNoticeLine(group: GuestNoticeGroup): string {
   const n = group.photos.length;
   const name = group.supplierName.trim() || 'A supplier';
-  const photos = n === 1 ? 'a photo' : `${n} photos`;
+  const photos = n === 1 ? 'a photo' : `${formatCount(n)} photos`;
   const allUp = n > 0 && group.photos.every((p) => p.onPage);
   return allUp
     ? `${name} shows ${photos} from this event on their page`

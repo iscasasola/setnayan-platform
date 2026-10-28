@@ -74,3 +74,11 @@ Owner on #7028's side-by-sides (28–29 Oct): *"the label of 20 walks, 34 walkin
 Not built in this PR (follow-ups, flagged): the 2D table pop-up toolbar's Duplicate (the engine has no duplicate — the
 table's shipped dock holds Type · seats −/+ · Rotate · Edit chairs · Link · Delete), March's groups as foldable headers,
 the pinned-row dropdown in the shared row, and Guests › Requests (an immediately-following PR).
+
+## 2026-10-29 · feat(guests): R4 slice 3 — ONE fixed count row on Seats and March
+
+Owner (prototype v12): *"walks walking and not walking needs to be fixed together, maybe we can use this row to add the
+preview walk so it is not lost?"*. Seats and March no longer swipe: `ViewCountRow` draws equal tiles at the prototype's
+count-row height — Seats: Seated · Unseated · Tables · ✨ Auto arrange (the forward tile; it left the thumb row); March:
+Walks · Walking · Not walking (opens the tray) · ▶ Preview, disabled and saying "The walk preview is coming" (no walk
+preview ships yet). Unread counts read "—". Guard: `lib/r4-seats-march-forwards.test.ts` test 8.

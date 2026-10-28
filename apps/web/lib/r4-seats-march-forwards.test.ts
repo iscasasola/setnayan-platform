@@ -24,7 +24,7 @@
  * page's `if (movedView) redirect(movedView);` removed → 2 red · `/seating`'s forward removed → 3 red · the guided
  * march's `view: 'march'` removed → 4 red · the `seats` part's source back to a Studio tile → 5 red · Guests'
  * `{makerView ? (` body switched off → 6 red · the 2D face's `tapFace` removed → 7 red · Not walking counted over an unread
- * tray → 7 red.
+ * tray → 7 red · Preview enabled before it ships → 8 red · an unread tile drawn as 0 → 8 red.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -277,10 +277,10 @@ test('7 · Seats and March follow the Guests screen: the summary row, ONE mode d
   assert.doesNotMatch(row, /<button[^>]*data-view-count="out"/, 'an unread count is still a door');
   // The march and the seat plan draw it (never the old plain line), from their own counts.
   const march = read('app/dashboard/[eventId]/launch/_components/details-march.tsx');
-  assert.match(march, /\{guests \? \(\s*<ViewSummaryCards\s+view="march"/);
+  assert.match(march, /\{guests \? \([\s\S]{0,300}?<ViewCountRow\s+view="march"/);
   assert.match(march, /value: outUnread \? null : shownOut\.length/, 'Not walking reads 0 over an unread tray');
   const ed = read('app/dashboard/[eventId]/seating/_components/seating-editor.tsx');
-  assert.match(ed, /const seatSummary = inGuests \? \(\s*<ViewSummaryCards\s+view="seats"/);
+  assert.match(ed, /const seatSummary = inGuests \? \(\s*<ViewCountRow\s+view="seats"/);
   // ONE mode dropdown (List · 2D · 3D) in the head — the shared PickMenu, never a pill row; no desk segment in Guests.
   const phone = read('app/dashboard/[eventId]/seating/_components/seat-plan-phone.tsx');
   const pick = phone.slice(phone.indexOf('export function SeatPlanModePick('), phone.indexOf('export function GuestsSeatThumbRow('));
@@ -317,4 +317,34 @@ test('7 · Seats and March follow the Guests screen: the summary row, ONE mode d
   assert.match(ed, /<GuestCardSheet\s+eventId=\{eventId\}\s+person=\{\{ id: faceCard\.id, name: faceCard\.name \}\}\s+open=\{SHIPPED_GUEST_CARD\.seats\}/);
   assert.match(ed, /label="Remove"/);
   assert.match(ed, /label=\{faceCard\.seated \? 'Swap' : 'Seat'\}/);
+});
+
+test('8 · Seats and March count in ONE fixed row (no swipe) — the view’s forward step is its last tile', async () => {
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { ViewCountRow } = await import('../app/dashboard/[eventId]/guests/_components/view-summary-cards');
+  const row = renderToStaticMarkup(
+    React.createElement(ViewCountRow, {
+      view: 'march',
+      tiles: [
+        { key: 'walks', word: 'walks', value: 20 },
+        { key: 'walking', word: 'walking', value: 34 },
+        { key: 'out', word: 'not walking', value: null, onPress: () => {} },
+        { key: 'preview', word: 'Preview', main: true, icon: React.createElement('svg'), disabled: true, about: 'coming' },
+      ],
+    }),
+  );
+  assert.doesNotMatch(row, /data-snap-carousel/, 'the counts swipe again');
+  assert.equal((row.match(/data-view-tile="/g) ?? []).length, 4, 'not four tiles in one row');
+  assert.match(row, /grid-template-columns:repeat\(4, minmax\(0, 1fr\)\)/, 'the tiles are not one row of equal widths');
+  assert.match(row, /data-view-tile="out"[^>]*>[\s\S]*?—[\s\S]*?couldn’t read/, 'an unread count reads as a number');
+  assert.match(row, /disabled=""[^>]*data-view-tile="preview"|data-view-tile="preview"[^>]*disabled/, 'Preview claims to work before it ships');
+  // The views draw it: March's four, Seats' four with ✨ Auto arrange as the forward tile (and no second one in the thumb row).
+  const march = read('app/dashboard/[eventId]/launch/_components/details-march.tsx');
+  for (const k of ['walks', 'walking', 'out', 'preview']) assert.match(march, new RegExp(`key: '${k}'`), `March lost its ${k} tile`);
+  // No walk preview ships yet: the tile stays, disabled, saying so — never a button that does nothing.
+  assert.match(march, /key: 'preview', word: 'Preview', main: true, icon: <Play[^>]*\/>, disabled: true, about: 'The walk preview is coming'/);
+  const ed = read('app/dashboard/[eventId]/seating/_components/seating-editor.tsx');
+  for (const k of ['seated', 'unseated', 'tables', 'auto']) assert.match(ed, new RegExp(`key: '${k}'`), `Seats lost its ${k} tile`);
+  assert.match(ed, /onPress: runAutoArrange,/);
+  assert.match(ed, /<GuestsSeatThumbRow\s+pop=\{seatPop\}\s+showAuto=\{false\}/, 'Auto arrange is drawn twice');
 });

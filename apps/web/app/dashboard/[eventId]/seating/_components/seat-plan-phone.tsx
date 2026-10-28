@@ -433,7 +433,10 @@ export function GuestsSeatThumbRow({
   people,
   toast,
   pop,
+  showAuto = true,
 }: {
+  /** Draw Auto arrange here (false where the count row holds it). */
+  showAuto?: boolean;
   /** 🗂 R4 · the bar that rises just above the row while something is picked (a blank's "Pick a guest", a move). */
   pop?: ReactNode;
   onAutoArrange: () => void;
@@ -451,7 +454,8 @@ export function GuestsSeatThumbRow({
       {toast ? <SeatToast toast={toast} /> : null}
       {pop}
       <div role="toolbar" aria-label="Seat plan tools" className="sn-glass-row pointer-events-auto flex items-center gap-2 rounded-full p-1">
-        <AutoArrange onAutoArrange={onAutoArrange} disabled={autoDisabled} busy={autoBusy} />
+        {/* ✨ Auto arrange is the count row's forward tile now (owner 2026-10-29) — the thumb row keeps it only where no row draws it. */}
+        {showAuto ? <AutoArrange onAutoArrange={onAutoArrange} disabled={autoDisabled} busy={autoBusy} /> : null}
         <Pop label="Who sits together" align="right" data="data-seat-plan-rules" up button={<>Rules <ChevronDown aria-hidden className="h-3.5 w-3.5 text-ink/45" /></>}>
           {rules}
         </Pop>

@@ -35,14 +35,14 @@ import {
 } from '@/lib/march-drag';
 import type { MarchResult } from '@/lib/march-result';
 import type { HubDraftPatch } from '@/lib/hub-draft';
-import { RotateCcw } from 'lucide-react';
+import { Play, RotateCcw } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
 import { plainRefusal } from '../../guests/_components/plain-refusal';
 import { formatCount } from '@/lib/format-number';
 import { MarchTray } from './details-march-tray';
 /* 🗂 R4: the Guests summary row loads with Guests › March only — never with the Maker's march (`view-summary-lazy.tsx`). */
-import { ViewSummaryCards } from './view-summary-lazy';
+import { ViewCountRow } from './view-summary-lazy';
 import { GuestCardSheet, SHIPPED_GUEST_CARD, type GuestCardPerson } from '../../guests/_components/guest-card-sheet';
 import type { GuestCardResult } from '../../guests/_components/guest-card';
 
@@ -814,37 +814,20 @@ function MarchMakerBody({
       className={`${guests ? 'min-w-0 ' : 'mx-auto max-w-2xl '}flex w-full select-none flex-col pb-6 ${dragging ? 'cursor-grabbing' : ''}`}
     >
       {guests ? (
-        <ViewSummaryCards
+        /* 🗂 R4 · the fixed count row (owner 2026-10-29): Walks · Walking · Not walking (opens the tray) · ▶ Preview. No
+           walk preview ships yet — the tile is there, disabled, and says so, so the step is not lost. */
+        <ViewCountRow
           view="march"
-          label="March summary"
-          cards={[
+          tiles={[
+            { key: 'walks', word: walks === 1 ? 'walk' : 'walks', value: walks },
+            { key: 'walking', word: 'walking', value: people },
             {
-              key: 'walking',
-              label: 'Wedding March',
-              big: `${formatCount(people)} walking`,
-              sub: `in ${formatCount(walks)} ${walks === 1 ? 'walk' : 'walks'}`,
-              tip: (
-                <>
-                  Two columns, the left and the right of the aisle — drag a name to swap, to join a walk, or to the tray when they do not walk. Tap a
-                  name for their guest card. Guests see the march once you press ✓ Apply in your Event Hub.
-                </>
-              ),
+              key: 'out',
+              word: 'not walking',
+              value: outUnread ? null : shownOut.length,
+              onPress: () => document.querySelector('[data-march-tray-slot]')?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
             },
-            {
-              key: 'counts',
-              label: 'Walks, walking and not walking',
-              counts: [
-                { key: 'walks', word: walks === 1 ? 'Walk' : 'Walks', value: walks },
-                { key: 'walking', word: 'Walking', value: people },
-                {
-                  key: 'out',
-                  word: 'Not walking',
-                  value: outUnread ? null : shownOut.length,
-                  onPress: () => document.querySelector('[data-march-tray-slot]')?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
-                },
-              ],
-              tip: <>A walk is one numbered row. Tap “Not walking” for the people who stay seated.</>,
-            },
+            { key: 'preview', word: 'Preview', main: true, icon: <Play aria-hidden strokeWidth={2} />, disabled: true, about: 'The walk preview is coming' },
           ]}
         />
       ) : (

@@ -8,3 +8,4 @@ import dynamic from 'next/dynamic';
  * travels in its own chunk.
  */
 export const ViewSummaryCards = dynamic(() => import('../../guests/_components/view-summary-cards').then((m) => m.ViewSummaryCards));
+export const ViewCountRow = dynamic(() => import('../../guests/_components/view-summary-cards').then((m) => m.ViewCountRow));

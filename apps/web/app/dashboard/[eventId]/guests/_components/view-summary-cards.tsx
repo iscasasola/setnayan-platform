@@ -84,3 +84,56 @@ export function ViewSummaryCards({ cards, label, view }: { cards: ViewSummaryCar
     </div>
   );
 }
+
+/**
+ * 🗂 R4 · THE FIXED COUNT ROW (owner 2026-10-29, on the Guests prototype v12 — *"walks walking and not walking needs to be
+ * fixed together, maybe we can use this row to add the preview walk so it is not lost?"*; Seats: Seated · Unseated ·
+ * Tables · ✨ Auto arrange). Seats and March do not swipe: their counts are ONE row of equal tiles, the prototype's
+ * `.fixedrow` / `.tile` at its one count-row height (`--count-h`, clamp(56px, 7.4cqh, 66px)), and the row's last tile is
+ * the view's one forward step (terracotta). Every tile is a door (a frame only on what you press). A count nobody could
+ * read is "—", never 0. Four tiles fit at 375 without truncation (labels ellipsize, numbers never do).
+ */
+export type CountTile =
+  | { key: string; word: string; value: number | null; onPress?: () => void }
+  | { key: string; word: string; main: true; icon: ReactNode; onPress?: () => void; disabled?: boolean; about?: string };
+
+export function ViewCountRow({ view, tiles }: { view: string; tiles: CountTile[] }) {
+  return (
+    <div
+      data-view-count-row={view}
+      className="grid gap-[5px] py-2"
+      style={{ gridTemplateColumns: `repeat(${tiles.length}, minmax(0, 1fr))` }}
+    >
+      {tiles.map((t) =>
+        'main' in t ? (
+          <button
+            key={t.key}
+            type="button"
+            onClick={t.onPress}
+            disabled={t.disabled || !t.onPress}
+            title={t.about}
+            aria-label={t.about ? `${t.word} — ${t.about}` : t.word}
+            data-view-tile={t.key}
+            className="sn-press flex h-[clamp(56px,7.4cqh,66px)] min-w-0 flex-col items-center justify-center gap-0.5 rounded-[14px] border border-sn-accent bg-sn-accent px-1 text-sn-on-accent disabled:opacity-45 [&_svg]:h-[18px] [&_svg]:w-[18px]"
+          >
+            {t.icon}
+            <span className="max-w-full truncate text-[11px] font-medium">{t.word}</span>
+          </button>
+        ) : (
+          <button
+            key={t.key}
+            type="button"
+            onClick={t.onPress}
+            disabled={!t.onPress || t.value === null}
+            data-view-tile={t.key}
+            aria-label={t.value === null ? `${t.word} — couldn’t read` : `${t.value} ${t.word}`}
+            className="sn-press flex h-[clamp(56px,7.4cqh,66px)] min-w-0 flex-col items-start justify-center gap-px rounded-[14px] border border-ink/10 bg-cream px-[7px] text-left text-ink dark:bg-raised"
+          >
+            <span className="text-[21px] font-medium leading-[1.05] tabular-nums">{t.value === null ? '—' : <Count value={t.value} id={`gs-${view}-tile-${t.key}`} />}</span>
+            <span className="max-w-full truncate text-[10.5px] tracking-[-0.01em] text-ink/55">{t.value === null ? 'couldn’t read' : t.word}</span>
+          </button>
+        ),
+      )}
+    </div>
+  );
+}

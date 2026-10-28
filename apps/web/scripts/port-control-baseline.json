@@ -1,5 +1,5 @@
 {
-  "generatedFromRef": "deecb3632f",
+  "generatedFromRef": "3964d61fc5",
   "routeCount": 479,
   "destinations": 982,
   "actions": 640,
@@ -7924,8 +7924,8 @@
         "ViewAsFreeKeeper",
         "ViewAsFreeRow",
         "ViewAsFreeStrip",
+        "ViewCountRow",
         "ViewReport",
-        "ViewSummaryCards",
         "Waiting",
         "WebsiteEditorPage",
         "WhatsLeftDoor",
@@ -8618,7 +8618,7 @@
         "T",
         "TableType",
         "TypedRow",
-        "ViewSummaryCards"
+        "ViewCountRow"
       ]
     },
     "/dashboard/[eventId]/seating/chart": {

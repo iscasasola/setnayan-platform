@@ -214,7 +214,7 @@ import { Sheet } from '@/app/_components/sheet';
 import { SeatFacesList, type FaceGuest, type FaceSlot, type FaceUnit } from './seat-faces-list';
 import { GuestCardSheet, SHIPPED_GUEST_CARD } from '../../guests/_components/guest-card-sheet';
 import { PickMenu as SeatPickMenu } from '../../website/editor/_components/pick-menu';
-import { ViewSummaryCards } from '../../guests/_components/view-summary-cards';
+import { ViewCountRow } from '../../guests/_components/view-summary-cards';
 import { BlueprintStudio } from '../../studio/indoor-blueprint/_components/blueprint-studio';
 import { saveEntrance } from '../../studio/indoor-blueprint/actions';
 import { InfoTip } from '@/app/_components/info-tip';
@@ -6587,27 +6587,32 @@ export function SeatingEditor({
      the plan this editor holds, never typed: the units (linked tables once), who is coming and seated, who is coming and
      still to seat (that count is the door to them). */
   const seatedComing = guests.filter((g) => g.seated_table_id && g.rsvp_status !== 'declined').length;
+  /* 🗂 R4 · the fixed count row (owner 2026-10-29, prototype v12): Seated · Unseated · Tables · ✨ Auto arrange — every tile a
+     door: Seated and Unseated open the list (Unseated narrowed to who is left), Tables the plan, Auto arrange the shipped
+     run. Counted here from the plan this editor holds; guests who said no are not counted. */
   const seatSummary = inGuests ? (
-    <ViewSummaryCards
+    <ViewCountRow
       view="seats"
-      label="Seat plan summary"
-      cards={[
+      tiles={[
+        { key: 'seated', word: 'seated', value: seatedComing, onPress: () => onSelectView('list') },
         {
-          key: 'seated',
-          label: 'Seat plan',
-          big: `${formatCount(seatedComing)} seated`,
-          sub: `${formatCount(unseatedComing)} still to seat`,
-          tip: <>Counted from your plan just now — guests who said no are not counted. Drag a guest onto a chair, or tap Auto arrange to seat everyone by your rules.</>,
+          key: 'unseated',
+          word: 'unseated',
+          value: unseatedComing,
+          onPress: () => {
+            onSelectView('list');
+            openUnseated();
+          },
         },
+        { key: 'tables', word: displayUnits.length === 1 ? 'table' : 'tables', value: displayUnits.length, onPress: () => onSelectView('2d') },
         {
-          key: 'counts',
-          label: 'Tables, seated and to seat',
-          counts: [
-            { key: 'tables', word: displayUnits.length === 1 ? 'Table' : 'Tables', value: displayUnits.length },
-            { key: 'seated', word: 'Seated', value: seatedComing },
-            { key: 'unseated', word: 'To seat', value: unseatedComing, onPress: openUnseated, pressed: onlyUnseated },
-          ],
-          tip: <>Linked tables count once. Tap “To seat” to list just the guests without a chair.</>,
+          key: 'auto',
+          word: isPending ? 'Arranging…' : 'Auto arrange',
+          main: true,
+          icon: <Sparkles aria-hidden strokeWidth={2} />,
+          onPress: runAutoArrange,
+          disabled: !canEdit || tables.length === 0 || isPending,
+          about: canEdit ? undefined : 'Tap Edit first — only one person arranges at a time',
         },
       ]}
     />
@@ -6625,6 +6630,7 @@ export function SeatingEditor({
       {faceCardSheet}
       <GuestsSeatThumbRow
         pop={seatPop}
+        showAuto={false}
         onAutoArrange={runAutoArrange}
         autoDisabled={!canEdit || tables.length === 0}
         autoBusy={isPending}

@@ -568,6 +568,13 @@ async function readCoupleStageFacts(
   return facts;
 }
 
+/**
+ * What a couple's row says when its supplier's name could not be read — honest, and never mistakable for a shop's
+ * name. It replaced the literal 'Supplier', which is exactly what a refused read looked like on the owner's live
+ * Chats list (2026-10-28). Lives here, import-free, so the client column can import this module.
+ */
+export const SUPPLIER_NAME_UNREADABLE = 'Couldn’t load the supplier’s name';
+
 type CoupleThreadInput = {
   thread_id: string;
   vendor_profile_id: string;
@@ -626,7 +633,7 @@ export async function buildCoupleConversationRows({
     threads.length > 0 ? await readCoupleStageFacts(supabase, eventId) : emptyCoupleStageFacts();
 
   return threads.map((t) => {
-    const displayName = displayNames.get(t.vendor_profile_id) || 'Supplier';
+    const displayName = displayNames.get(t.vendor_profile_id) || SUPPLIER_NAME_UNREADABLE;
     const last = lastMessages.get(t.thread_id);
     const stage = resolveThreadStage({
       completed: completed.has(t.vendor_profile_id),

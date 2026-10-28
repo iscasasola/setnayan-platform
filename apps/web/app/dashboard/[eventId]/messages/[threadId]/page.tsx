@@ -9,8 +9,7 @@ import { interestLabeller } from '@/lib/thread-interest-labels.server';
 import { sendChatMessage, markThreadRead } from '@/lib/chat-actions';
 import { getThreadBlockState } from '@/lib/chat-block';
 import { withdrawInquiry } from '@/app/dashboard/[eventId]/messages/actions';
-import { isVendorNameRevealed, resolveVendorDisplayName } from '@/lib/vendors';
-import { isTrueNameTier } from '@/lib/vendor-tier-caps';
+import { nameForThread, readCoupleThreadSupplierNames } from '@/lib/chat-supplier-names';
 import { canonicalServiceToPlanGroupId } from '@/lib/wedding-plan-groups';
 import { closingCopy } from '@/lib/thread-closing-copy';
 import { resolveLivePax } from '@/lib/pax';
@@ -143,32 +142,16 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     await markThreadRead(threadId);
   })();
 
-  // Anonymity surface per CLAUDE.md 2026-05-30 row — pull screen_name +
-  // name_revealed_at + services + location_city so the header label and
-  // the <ChatMessageStream> counterpartyLabel render through the canonical
-  // `resolveVendorDisplayName` helper. Free/Verified vendors pre-first-reply
-  // surface as their Bark screen_name; Pro/Enterprise + revealed + venue
-  // vendors surface as business_name. Single resolver call drives both
-  // surfaces so the header pill and the in-thread sender attribution stay
-  // in lock-step.
-  const vendorRead = (async () => {
-    const { data: vendor, error: vendorError } = await supabase
-      .from('vendor_profiles')
-      .select(
-        'business_name, logo_url, tagline, screen_name, name_revealed_at, services, location_city, tier_state, verification_state',
-      )
-      .eq('vendor_profile_id', thread.vendor_profile_id)
-      .maybeSingle();
-    if (vendorError) {
-      logQueryError(
-        'CoupleThreadPage.vendor',
-        vendorError,
-        { event_id: eventId },
-        'graceful_degrade',
-      );
-    }
-    return vendor;
-  })();
+  // Anonymity surface per CLAUDE.md 2026-05-30 row — the header label, the
+  // <ChatMessageStream> counterpartyLabel, the receipts and the left column all
+  // read ONE answer: `couple_thread_supplier_names` (lib/chat-supplier-names.ts),
+  // run through the canonical `resolveVendorDisplayName`. NOT a `vendor_profiles`
+  // read: under the couple's RLS that refuses every shop that is not public +
+  // verified, and this page then titled the conversation "Supplier" (owner, live,
+  // 2026-10-28). Pre-reveal the label is the screen name; the real name and logo
+  // arrive only once revealed. A failed read says so — never a generic word.
+  const supplierNamesRead = readCoupleThreadSupplierNames(supabase, thread.event_id);
+  const vendorRead = supplierNamesRead.then((names) => nameForThread(names, threadId));
 
   // Server-render the first batch so the page is useful on first paint and
   // remains SEO-friendly. The <ChatMessageStream> client component takes
@@ -290,23 +273,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     standingNowMs,
   ).then((extras) => extras.get(thread.vendor_profile_id));
 
-  const vendorLabelRead = (async () => {
-    const vendor = await vendorRead;
-    return vendor
-      ? resolveVendorDisplayName({
-          business_name: vendor.business_name ?? null,
-          name_revealed_at: vendor.name_revealed_at ?? null,
-          services: vendor.services ?? null,
-          screen_name: vendor.screen_name ?? null,
-          // Phase C: Pro/Enterprise reveal real business_name day-1. Open-it-up
-          // lock: a VERIFIED vendor's name is never gated (any tier).
-          isPaidTier: isTrueNameTier(vendor.tier_state ?? null),
-          is_verified: vendor.verification_state === 'verified',
-          primary_canonical_service: vendor.services?.[0] ?? null,
-          location_city: vendor.location_city ?? null,
-        })
-      : 'Supplier';
-  })();
+  const vendorLabelRead = vendorRead.then((v) => v.name);
 
   // THE NEXT MONEY STEP ON THE BOOKED QUOTE (owner, live, 2026-09-20: "i do
   // not see the confirmation here and the payment action?"). Read through the
@@ -484,24 +451,10 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
        header above and the Messages list already run. The column receives a name
        that is already safe to print, and the avatar is its INITIALS, never the
        logo: a logo is exactly as identifying as the name it stands for. */
+    const listNames = await supplierNamesRead;
     const listDisplayNames = new Map<string, string>();
     for (const t of listVisible) {
-      const v = t.vendor;
-      listDisplayNames.set(
-        t.vendor_profile_id,
-        v
-          ? resolveVendorDisplayName({
-              business_name: v.business_name ?? null,
-              name_revealed_at: v.name_revealed_at ?? null,
-              services: v.services ?? null,
-              screen_name: v.screen_name ?? null,
-              isPaidTier: isTrueNameTier(v.tier_state ?? null),
-              is_verified: v.verification_state === 'verified',
-              primary_canonical_service: v.services?.[0] ?? null,
-              location_city: v.location_city ?? null,
-            })
-          : 'Supplier',
-      );
+      listDisplayNames.set(t.vendor_profile_id, nameForThread(listNames, t.thread_id).name);
     }
 
     const conversationRows = await buildCoupleConversationRows({
@@ -532,14 +485,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
       viewerUserId: user.id,
       vendorProfileId: thread.vendor_profile_id,
       messages: msgs,
-      revealed: v
-        ? isVendorNameRevealed({
-            name_revealed_at: v.name_revealed_at ?? null,
-            isPaidTier: isTrueNameTier(v.tier_state ?? null),
-            is_verified: v.verification_state === 'verified',
-            services: v.services ?? null,
-          })
-        : false,
+      revealed: v.revealed,
     });
   })();
 
@@ -653,7 +599,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
   // folder + leaf for a `#group-<id>` hash (plan-budget-accordion useEffect).
   // Fail-soft: unknown / unmappable canonical service → plain link, never a
   // broken anchor.
-  const primaryCanonicalService = vendor?.services?.[0] ?? null;
+  const primaryCanonicalService = vendor.primaryService;
   const similarGroupId = primaryCanonicalService
     ? canonicalServiceToPlanGroupId(primaryCanonicalService)
     : null;

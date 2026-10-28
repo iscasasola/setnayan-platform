@@ -723,7 +723,7 @@ test('a card that said YES to the gift → the order is fee + gift and names the
   const [order] = await ordersForCharge(res.chargeId);
   assert.ok(order);
   assert.equal(Number(order.requested_total_php), feePhp + giftPhp);
-  assert.match(order.description, /\+ your Setnayan gift for your couple: 1,429 free Papic photos, ₱1,000/);
+  assert.match(order.description, /\+ your Setnayan gift for your couple: 1,078 free Papic photos, ₱1,000/);
   assert.match(order.description, /^Setnayan booking fee \(/);
 
   const [payment] = await paymentsLinkedToChargeOrder(res.chargeId);

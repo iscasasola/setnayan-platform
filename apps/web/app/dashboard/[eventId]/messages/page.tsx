@@ -32,8 +32,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ThreadListAvatar } from '@/app/_components/chat/thread-list-card';
 import { ThreadArchiveToggle } from '@/app/_components/chat/thread-archive-toggle';
-import { resolveVendorDisplayName, isVendorNameRevealed } from '@/lib/vendors';
-import { isTrueNameTier } from '@/lib/vendor-tier-caps';
+import { nameForThread, readCoupleThreadSupplierNames } from '@/lib/chat-supplier-names';
 import { buildCoupleConversationRows, type ConversationRow } from '@/lib/conversation-list';
 import { interestLabeller } from '@/lib/thread-interest-labels.server';
 import { coupleUnreadCount, isActiveInboxThread, readCoupleUnread } from '@/lib/couple-inbox';
@@ -65,6 +64,7 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
 
   // Newest first — `fetchCoupleThreads` orders by updated_at desc.
   const threads = await fetchCoupleThreads(supabase, eventId);
+  const namesRead = readCoupleThreadSupplierNames(supabase, eventId);
   const threadIds = threads.map((t) => t.thread_id);
   const returnTo = `/dashboard/${eventId}/messages`;
 
@@ -103,7 +103,7 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
     logQueryError('CoupleMessagesPage.teamNames', profRes.error, { event_id: eventId }, 'graceful_degrade');
   }
   const teamReadFailed = Boolean(teamRes.error);
-  const team = teamPicksForMessages(teamRows, (profRes.data ?? []) as TeamProfile[]);
+  const team = teamPicksForMessages(teamRows, (profRes.data ?? []) as TeamProfile[], (await namesRead).byShop);
 
   // Viber-style archive split (Data Retention Schedule 2026-07-11). Archiving
   // deletes nothing; displaced and removed threads fold into Archived too.
@@ -155,38 +155,20 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
   }
 
   // 🔒 Anonymity-aware name AND logo (CLAUDE.md 2026-05-30 row · Data Flow Map
-  // audit gap #6): one resolver for the label, the SAME reveal predicate for the
-  // logo, so they can never drift. Pre-reveal the avatar is initials.
+  // audit gap #6) — read through `couple_thread_supplier_names`, NOT the thread's
+  // `vendor_profiles` embed. The embed is a read under the couple's RLS, which
+  // refuses every shop that is not public + verified; the page then printed
+  // 'Supplier' for that NULL (owner, live, 2026-10-28: "the 1 supplier is not
+  // named on chat"). The function answers for every thread, sends the real name
+  // and logo only once revealed, and the label is the same
+  // `resolveVendorDisplayName` (lib/chat-supplier-names.ts). A failed read says so.
+  const supplierNames = await namesRead;
   const displayNames = new Map<string, string>();
   const logoByVendor = new Map<string, string | null>();
   for (const t of threads) {
-    const v = t.vendor;
-    const isPaidTier = isTrueNameTier(v?.tier_state ?? null);
-    const isVerified = v?.verification_state === 'verified';
-    displayNames.set(
-      t.vendor_profile_id,
-      v
-        ? resolveVendorDisplayName({
-            business_name: v.business_name ?? null,
-            name_revealed_at: v.name_revealed_at ?? null,
-            services: v.services ?? null,
-            screen_name: v.screen_name ?? null,
-            isPaidTier,
-            is_verified: isVerified,
-            primary_canonical_service: v.services?.[0] ?? null,
-            location_city: v.location_city ?? null,
-          })
-        : 'Supplier',
-    );
-    const revealed = v
-      ? isVendorNameRevealed({
-          name_revealed_at: v.name_revealed_at ?? null,
-          isPaidTier,
-          is_verified: isVerified,
-          services: v.services ?? null,
-        })
-      : false;
-    logoByVendor.set(t.vendor_profile_id, revealed ? v?.logo_url ?? null : null);
+    const label = nameForThread(supplierNames, t.thread_id);
+    displayNames.set(t.vendor_profile_id, label.name);
+    logoByVendor.set(t.vendor_profile_id, label.logoUrl);
   }
 
   const rows = await buildCoupleConversationRows({

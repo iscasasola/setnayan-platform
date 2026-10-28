@@ -2,6 +2,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import type { ReactNode } from 'react';
 import { ArrowRight } from 'lucide-react';
+import { SUPPLIER_NAME_UNREADABLE } from '@/lib/conversation-list';
 
 /**
  * <ThreadListCard> — shared thread-row card for the MESSAGES-LIST pages.
@@ -94,11 +95,15 @@ export function ThreadListAvatar({
   /** `lg` — the Messenger inbox's 56px round (chat prototype 2026-10-28, frame A). */
   size?: 'md' | 'lg';
 }) {
-  const initials = name
-    .split(/\s+/)
-    .map((p) => p.charAt(0).toUpperCase())
-    .slice(0, 2)
-    .join('');
+  // A name that did not load is a question mark, never the initials of the sentence that says so ("CL").
+  const initials =
+    name === SUPPLIER_NAME_UNREADABLE
+      ? '?'
+      : name
+          .split(/\s+/)
+          .map((p) => p.charAt(0).toUpperCase())
+          .slice(0, 2)
+          .join('');
   const box = size === 'lg' ? 'h-14 w-14' : 'h-10 w-10';
   const px = size === 'lg' ? 56 : 40;
   if (logoUrl) {

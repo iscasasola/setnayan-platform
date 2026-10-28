@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "06a89888f4",
+  "generatedFromRef": "a6ffcf9137",
   "routeCount": 479,
   "destinations": 986,
   "actions": 642,
-  "blocks": 7240,
+  "blocks": 7250,
   "routes": {
     "/": {
       "files": [
@@ -6094,6 +6094,7 @@
         "QrActions",
         "QrBody",
         "ReadRefusedNotice",
+        "ReadyForNoSignal",
         "RecordLinkBlock",
         "Remaining",
         "RepliesWindowRows",
@@ -6983,12 +6984,14 @@
         "CheckinActionResult",
         "CheckinDesk",
         "CheckinMethod",
+        "DeskSavedMark",
         "GuestAvatar",
         "HTMLVideoElement",
         "Link",
         "LiveRefresher",
         "MediaStream",
         "NotSharedWithYou",
+        "OfflineQueue",
         "ReadRefusedNotice",
         "RoleNamesProvider",
         "TicketCheck",
@@ -11033,6 +11036,7 @@
       "actions": [],
       "blocks": [
         "ChatInbox",
+        "CoupleThreadSupplierRow",
         "LabShell",
         "StartThreadPicker",
         "ThreadArchiveToggle"
@@ -11223,6 +11227,7 @@
       "files": [
         "dev/home-lab/apply-pro-sheet-lab.tsx",
         "dev/home-lab/lab-spotlight.tsx",
+        "dev/home-lab/offline-lab.tsx",
         "dev/home-lab/page.tsx"
       ],
       "destinations": [
@@ -11233,6 +11238,7 @@
         "AppleProScreen",
         "ApplyProSheetLab",
         "ChallengeCardRow",
+        "CheckinDesk",
         "CollectionCard",
         "CollectionGrid",
         "CoordinatingLine",
@@ -11245,15 +11251,18 @@
         "LabBoard",
         "LabShell",
         "LabSpotlight",
+        "OfflineLab",
         "PapicBuySheet",
         "PapicCameraHelp",
         "PapicCameraSettings",
         "PapicSwitch",
         "PapicTopBand",
         "ProLockPanel",
+        "ReadyForNoSignalView",
         "SiteMenuBar",
         "SpotlightMount",
         "StanceChip",
+        "SupplierSavedStripView",
         "YourServices",
         "YourShotsGallery"
       ]
@@ -13505,6 +13514,7 @@
         "MiniTour",
         "NextCard",
         "NotConnected",
+        "OfflineViewerScript",
         "PageMasthead",
         "PaidMark",
         "PaymentsPausedNote",
@@ -14597,6 +14607,7 @@
         "ShotListStatus",
         "ShotListWriteResult",
         "SongDeskGate",
+        "SupplierSavedStrip",
         "Tag",
         "VendorStatusUpdates"
       ]

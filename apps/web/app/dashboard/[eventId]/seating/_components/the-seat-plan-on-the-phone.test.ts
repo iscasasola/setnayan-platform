@@ -207,7 +207,8 @@ test('7 · REACHABLE: Guests › Seats → the editor → on a phone the head, �
   const ed = editor();
   /* The Studio's phone draws its compact head (studio round 3, 2026-10-08); every other phone the shipped one. */
   assert.match(ed, /\{studioSeat \? studioHead : isPhone \? phoneHead : doorStrip\}/, 'a phone still gets the desk bar instead of its head');
-  assert.match(ed, /\{isPhone \? null : \(\s*<CommandBar>/);
+  /* 🗂 R4: Guests › Seats draws no desk command bar at any width — its verbs are the head's ⋯ and the thumb row. */
+  assert.match(ed, /\{isPhone \|\| inGuests \? null : \(\s*<CommandBar>/);
   /* ⋯'s menu is one copy (`phoneMore`), drawn by the shipped head and the Studio's (2026-10-08). */
   const more = ed.slice(ed.indexOf('const phoneMore = ('), ed.indexOf('const phoneTrailing = ('));
   assert.match(ed, /<PhoneSeatPlanHead[\s\S]{0,600}?more=\{phoneMore\}/, 'the phone head no longer draws ⋯’s menu');

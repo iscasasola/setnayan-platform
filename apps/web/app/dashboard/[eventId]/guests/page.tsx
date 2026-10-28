@@ -51,7 +51,7 @@ import {
   type ArrangeKey,
 } from '@/lib/roster-arrangement';
 import { resolveRoleSet } from '@/lib/role-sets';
-import { GUESTS_VIEWS, guestsViewHref, isGuestsMakerView, parseGuestsView, type GuestsView } from '@/lib/guests-views';
+import { GUESTS_VIEWS, guestsViewHref, parseGuestsView, type GuestsView } from '@/lib/guests-views';
 import { marchOffered } from '@/lib/details-your-event';
 import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
 import { fetchAssignments, fetchFloorPlanMeasured, fetchTables } from '@/lib/seating';
@@ -664,24 +664,36 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   );
   const askedView = parseGuestsView(search.gview);
   const gview: GuestsView = views.includes(askedView) ? askedView : 'list';
-  /* Seats and March are the shipped makers, drawn whole under the view row — streamed, so the row and its ⚙ are on
-     screen while the plan or the march reads. Seats is the seat plan's own page (`seating/page.tsx`, `host=guests`),
-     which still asks every seat rule itself (the type, the helper's seat-plan area). */
-  const viewBody = !isGuestsMakerView(gview) ? null : (
-    <Suspense
-      fallback={
-        <p role="status" className="px-4 py-10 text-center text-[13px] text-ink/60" data-guests-view-loading={gview}>
-          {gview === 'seats' ? 'Opening your seat plan…' : 'Opening your march…'}
-        </p>
-      }
-    >
-      {gview === 'seats' ? (
-        <SeatingPage params={Promise.resolve({ eventId })} searchParams={Promise.resolve({ host: 'guests', seat: search.seat })} />
-      ) : (
-        <GuestsMarch eventId={eventId} />
-      )}
-    </Suspense>
+  /* Seats and March are the shipped makers, drawn whole under the view row. 🗂 R4 (owner 2026-10-29, *"fastest load and
+     fewest requests"*): BOTH are streamed with the page — their reads run in parallel on the server, behind the list —
+     so a switch between List · Map · Seats · March is a client switch that asks the server for nothing; each maker's
+     code loads the first time its view is opened. Seats is the seat plan's own page (`seating/page.tsx`,
+     `host=guests`), which still asks every seat rule itself (the type, the helper's seat-plan area). */
+  const viewLoading = (v: 'seats' | 'march') => (
+    <p role="status" className="px-4 py-10 text-center text-[13px] text-ink/60" data-guests-view-loading={v}>
+      {v === 'seats' ? 'Opening your seat plan…' : 'Opening your march…'}
+    </p>
   );
+  const bodies = {
+    ...(views.includes('seats')
+      ? {
+          seats: (
+            <Suspense fallback={viewLoading('seats')}>
+              <SeatingPage params={Promise.resolve({ eventId })} searchParams={Promise.resolve({ host: 'guests', seat: gview === 'seats' ? search.seat : undefined })} />
+            </Suspense>
+          ),
+        }
+      : {}),
+    ...(views.includes('march')
+      ? {
+          march: (
+            <Suspense fallback={viewLoading('march')}>
+              <GuestsMarch eventId={eventId} />
+            </Suspense>
+          ),
+        }
+      : {}),
+  };
   const teamRaw = search.team ?? 'all';
   const teamFilter: 'all' | 'bride' | 'groom' =
     hasSides && (teamRaw === 'bride' || teamRaw === 'groom') ? teamRaw : 'all';
@@ -1077,7 +1089,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       roleSetKey={guestRoleSetKey}
       gview={gview}
       views={views}
-      viewBody={viewBody}
+      bodies={bodies}
       guests={rosterAll}
       measured={guestsMeasured}
       notLoaded={guestListUnreadLine(sideReads)}

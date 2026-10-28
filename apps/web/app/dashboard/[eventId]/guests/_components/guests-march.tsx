@@ -5,7 +5,6 @@ import { readHubDraft } from '@/lib/hub-draft-store';
 import { marchSections, marchTray, printedSectionOrder } from '@/lib/march-sections';
 import { marchAsDrafted } from '@/lib/march-as-drafted';
 import type { MarchStep } from '@/lib/march-drag';
-import { GuestsMarchHead } from './guests-march-head';
 /* ⚡ The march maker loads when the March is opened — never with the Guest list (`details-lazy.tsx`, its lazy chunk). */
 import { MarchMaker } from '../../launch/_components/details-lazy';
 
@@ -51,17 +50,12 @@ export async function GuestsMarch({ eventId }: { eventId: string }) {
     march.unread === true,
   );
   return (
-    <div data-guests-march="" className="flex min-w-0 flex-col gap-4 pb-6">
-      <GuestsMarchHead />
-      <MarchMaker
-        eventId={eventId}
-        sections={shown.sections}
-        printed={shown.printed}
-        out={shown.out}
-        draftUnread={shown.draftUnread === true}
-      />
+    /* 🖥 The width is used (owner 2026-10-29, *"always maximize the screen use"*): from 1024 the "Not walking" tray is the
+       side panel beside the walks, never under a centred strip; on a phone it follows the walks. */
+    <div data-guests-march="" className="grid min-w-0 gap-4 pb-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+      <MarchMaker eventId={eventId} sections={shown.sections} printed={shown.printed} out={shown.out} draftUnread={shown.draftUnread === true} guests />
       {/* 🚶 The "Not walking" tray's place — the maker draws the tray INTO it (one state, one drag). */}
-      <div data-march-tray-slot="" className="flex min-h-0 flex-col" />
+      <div data-march-tray-slot="" className="flex min-h-0 flex-col lg:sticky lg:top-4" />
     </div>
   );
 }

@@ -39,6 +39,8 @@ import { RotateCcw } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
 import { plainRefusal } from '../../guests/_components/plain-refusal';
+import { formatCount } from '@/lib/format-number';
+import { ViewSummaryCards } from '../../guests/_components/view-summary-cards';
 import { MarchTray } from './details-march-tray';
 import { GuestCardSheet, SHIPPED_GUEST_CARD, type GuestCardPerson } from '../../guests/_components/guest-card-sheet';
 import type { GuestCardResult } from '../../guests/_components/guest-card';
@@ -189,6 +191,12 @@ type MarchMakerProps = {
   openCard?: (eventId: string, guestId: string) => Promise<GuestCardResult>;
   /** 🪪 The lab's re-read after a card saved (the Maker's one refresh otherwise). */
   onCardSaved?: () => void;
+  /**
+   * 🗂 R4 · Guests › March (owner 2026-10-28: *"the label of 20 walks, 34 walking can be like the carousel row of
+   * guests"*): the counts are the Guests summary row (`view-summary-cards.tsx`) instead of the one plain line, and the
+   * columns use the width they are given (never a centred phone strip on a desk).
+   */
+  guests?: boolean;
 };
 
 /** The one line the march draws when it cannot be shown — with Retry, which draws it again from the server's copy. */
@@ -257,6 +265,7 @@ function MarchMakerBody({
   lab = false,
   openCard = openCardShipped,
   onCardSaved,
+  guests = false,
 }: MarchMakerProps) {
   /* The drop, drawn before the server answers; null = the server's march. */
   const [mine, setMine] = useState<Shown | null>(null);
@@ -801,11 +810,47 @@ function MarchMakerBody({
         if ((e.target as HTMLElement).closest('[data-march-drag]')) e.preventDefault();
       }}
       onDragStart={(e) => e.preventDefault()}
-      className={`mx-auto flex w-full max-w-2xl select-none flex-col pb-6 ${dragging ? 'cursor-grabbing' : ''}`}
+      className={`${guests ? '' : 'mx-auto max-w-2xl '}flex w-full select-none flex-col pb-6 ${dragging ? 'cursor-grabbing' : ''}`}
     >
-      <p className="px-1 pb-1 text-xs text-ink/60" data-march-count="">
-        {walks} walk{walks === 1 ? '' : 's'} · {people} walking
-      </p>
+      {guests ? (
+        <ViewSummaryCards
+          view="march"
+          label="March summary"
+          cards={[
+            {
+              key: 'walking',
+              label: 'Wedding March',
+              big: `${formatCount(people)} walking`,
+              sub: `in ${formatCount(walks)} ${walks === 1 ? 'walk' : 'walks'}`,
+              tip: (
+                <>
+                  Two columns, the left and the right of the aisle — drag a name to swap, to join a walk, or to the tray when they do not walk. Tap a
+                  name for their guest card. Guests see the march once you press ✓ Apply in your Event Hub.
+                </>
+              ),
+            },
+            {
+              key: 'counts',
+              label: 'Walks, walking and not walking',
+              counts: [
+                { key: 'walks', word: walks === 1 ? 'Walk' : 'Walks', value: walks },
+                { key: 'walking', word: 'Walking', value: people },
+                {
+                  key: 'out',
+                  word: 'Not walking',
+                  value: outUnread ? null : shownOut.length,
+                  onPress: () => document.querySelector('[data-march-tray-slot]')?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+                },
+              ],
+              tip: <>A walk is one numbered row. Tap “Not walking” for the people who stay seated.</>,
+            },
+          ]}
+        />
+      ) : (
+        <p className="px-1 pb-1 text-xs text-ink/60" data-march-count="">
+          {walks} walk{walks === 1 ? '' : 's'} · {people} walking
+        </p>
+      )}
       <div aria-hidden className="grid grid-cols-[2rem_1fr_1fr] gap-1.5 px-1.5 pt-1 font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta-800">
         <span />
         <span className="text-center">Left</span>

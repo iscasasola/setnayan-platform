@@ -23,7 +23,8 @@
  * Sabotage (2026-10-28, each seen red, then restored): 'march' put back in `STUDIO_TILE_KEYS` → 1 red · the launch
  * page's `if (movedView) redirect(movedView);` removed → 2 red · `/seating`'s forward removed → 3 red · the guided
  * march's `view: 'march'` removed → 4 red · the `seats` part's source back to a Studio tile → 5 red · Guests'
- * `{makerView ? (` body switched off → 6 red.
+ * `{makerView ? (` body switched off → 6 red · the 2D face's `tapFace` removed → 7 red · Not walking counted over an unread
+ * tray → 7 red.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -231,7 +232,11 @@ test('6 · Guests draws List · Map · Seats · March — the shipped maker unde
   assert.match(list, /data-guests-segmented=""/, 'the view row is not the shipped pill selector');
   assert.match(list, /data-guest-rows=""/, 'anti-vacuity: the List drew no rows');
   for (const view of GUESTS_MAKER_VIEWS) {
-    const html = await renderGuestsScreen({ guests, views: GUESTS_VIEWS, gview: view, viewBody: React.createElement('div', { 'data-shipped-maker': view }) });
+    const bodies = { seats: React.createElement('div', { 'data-shipped-maker': 'seats' }), march: React.createElement('div', { 'data-shipped-maker': 'march' }) };
+    const html = await renderGuestsScreen({ guests, views: GUESTS_VIEWS, gview: view, bodies });
+    // Only the view asked for is mounted on arrival — the other maker waits for its first switch (then is kept).
+    const other = view === 'seats' ? 'march' : 'seats';
+    assert.doesNotMatch(html, new RegExp(`data-shipped-maker="${other}"`), `${view}: the other maker is mounted before it is opened`);
     assert.match(html, new RegExp(`data-guests-view-body="${view}"[^>]*><div data-shipped-maker="${view}"`), `${view}: the page's maker is not drawn`);
     assert.match(html, new RegExp(`aria-current="page"[^<]*?data-guests-seg="${view}"`), `${view}: the row does not mark it`);
     assert.doesNotMatch(html, /data-guest-rows=""/, `${view}: the list is drawn under the maker`);
@@ -245,6 +250,71 @@ test('6 · Guests draws List · Map · Seats · March — the shipped maker unde
   const page = read('app/dashboard/[eventId]/guests/page.tsx');
   assert.match(page, /v === 'seats'\s*\? surfaceEnabled\(eventProfile, 'seating'\)/);
   assert.match(page, /viewer\.isCouple && marchOffered\(/);
-  assert.match(page, /<SeatingPage params=\{Promise\.resolve\(\{ eventId \}\)\} searchParams=\{Promise\.resolve\(\{ host: 'guests', seat: search\.seat \}\)\} \/>/);
+  assert.match(page, /<SeatingPage params=\{Promise\.resolve\(\{ eventId \}\)\} searchParams=\{Promise\.resolve\(\{ host: 'guests', seat: gview === 'seats' \? search\.seat : undefined \}\)\} \/>/);
+  // 🗂 Both makers are streamed with the page (one load, no request on a switch) — handed in as `bodies`.
+  assert.match(page, /bodies=\{bodies\}/);
+  // …and a switch is a client switch: the view row's press is handled in place, the address follows (`replaceState`).
+  const screen = read('app/dashboard/[eventId]/guests/_components/guests-screen.tsx');
+  assert.match(screen, /onClick=\{onViewPress\(key\)\}\s*data-guests-seg=\{key\}/, 'a view press navigates (a server round trip) again');
+  assert.match(screen, /window\.history\.replaceState\(window\.history\.state, '', guestsViewHref\(eventId, v\)\);/);
   assert.match(page, /<GuestsMarch eventId=\{eventId\} \/>/);
+});
+
+test('7 · Seats and March follow the Guests screen: the summary row, ONE mode dropdown, the thumb row, faces that open the card', async () => {
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  // The summary row is the Guests carousel's own cards — and a count nobody could read is said, never a 0.
+  const { ViewSummaryCards } = await import('../app/dashboard/[eventId]/guests/_components/view-summary-cards');
+  const row = renderToStaticMarkup(
+    React.createElement(ViewSummaryCards, {
+      view: 'march',
+      label: 'March summary',
+      cards: [{ key: 'counts', label: 'Counts', tip: 'x', counts: [{ key: 'walks', word: 'Walks', value: 20 }, { key: 'out', word: 'Not walking', value: null, onPress: () => {} }] }],
+    }),
+  );
+  assert.match(row, /data-snap-carousel=""/, 'the summary row is not the shared carousel');
+  assert.match(row, /data-view-count="walks"[\s\S]*?20/);
+  assert.match(row, /data-view-count="out"[\s\S]*?—[\s\S]*?couldn’t read/, 'an unread count reads as a number');
+  assert.doesNotMatch(row, /<button[^>]*data-view-count="out"/, 'an unread count is still a door');
+  // The march and the seat plan draw it (never the old plain line), from their own counts.
+  const march = read('app/dashboard/[eventId]/launch/_components/details-march.tsx');
+  assert.match(march, /\{guests \? \(\s*<ViewSummaryCards\s+view="march"/);
+  assert.match(march, /value: outUnread \? null : shownOut\.length/, 'Not walking reads 0 over an unread tray');
+  const ed = read('app/dashboard/[eventId]/seating/_components/seating-editor.tsx');
+  assert.match(ed, /const seatSummary = inGuests \? \(\s*<ViewSummaryCards\s+view="seats"/);
+  // ONE mode dropdown (List · 2D · 3D) in the head — the shared PickMenu, never a pill row; no desk segment in Guests.
+  const phone = read('app/dashboard/[eventId]/seating/_components/seat-plan-phone.tsx');
+  const pick = phone.slice(phone.indexOf('export function SeatPlanModePick('), phone.indexOf('export function GuestsSeatThumbRow('));
+  assert.match(pick, /<PickMenu label="View"/);
+  assert.match(ed, /view=\{inGuests \? <SeatPlanModePick view=\{studioView\} onView=\{onSelectView\} show3D=\{show3D\} \/> : undefined\}/);
+  assert.match(ed, /\{isPhone \|\| inGuests \? null : \(\s*<CommandBar>/, 'the desk command bar (its pill segment) is drawn in Guests');
+  // The thumb row holds the verbs — Auto arrange · Rules · + Table (and, on a phone, the people's door).
+  const { GuestsSeatThumbRow } = await import('../app/dashboard/[eventId]/seating/_components/seat-plan-phone');
+  const thumb = renderToStaticMarkup(
+    React.createElement(GuestsSeatThumbRow, { onAutoArrange: () => {}, autoDisabled: false, autoBusy: false, rules: null, onAddTable: () => {}, addDisabled: false, people: { unseated: 9, onOpen: () => {} }, toast: null }),
+  );
+  for (const w of ['Auto arrange', 'Rules', 'Table', '9 to seat']) assert.ok(thumb.includes(w), `the thumb row lost “${w}”`);
+  assert.match(thumb, /data-seat-plan-thumb=""[^>]*bottom-0/, 'the verbs are not at the foot');
+  // List mode: each table a foldable header with its faces and one blank per free seat.
+  const { SeatFacesList } = await import('../app/dashboard/[eventId]/seating/_components/seat-faces-list');
+  const g = (id: string) => ({ id, name: `Guest ${id}`, initials: id.toUpperCase(), photo: null, color: '#999' });
+  const list = renderToStaticMarkup(
+    React.createElement(SeatFacesList, {
+      units: [{ key: 't1', label: 'Table 1', sub: 'Round', seated: 2, capacity: 4, slots: [{ kind: 'face', guest: g('a'), tableId: 't1', seat: 0 }, { kind: 'face', guest: g('b'), tableId: 't1', seat: 1 }, { kind: 'blank', tableId: 't1', seat: 2 }, { kind: 'blank', tableId: 't1', seat: 3 }] }],
+      unseated: [g('c')],
+      pickedId: null,
+      onFace: () => {},
+      onBlank: () => {},
+    }),
+  );
+  assert.match(list, /class="sn-acc-head"/, 'the list is not the house foldable header');
+  assert.match(list, />Table 1<[\s\S]*?>2 of 4</);
+  assert.equal((list.match(/data-seat-face="/g) ?? []).length, 3, 'a face is missing');
+  assert.equal((list.match(/data-seat-blank=""/g) ?? []).length, 2, '"2 of 4" does not draw two blanks');
+  assert.match(list, /aria-label="Guest a, Table 1, seat 1"/, 'a face is not named for a screen reader');
+  // A face — on the plan AND in the list — opens the ONE guest card (the shipped sheet), with Remove · Swap.
+  assert.match(ed, /else if \(inGuests\) tapFace\(occupant\.guest_id\);/, 'a face on the 2D plan does not open the card');
+  assert.match(ed, /<SeatFacesList units=\{faceUnits\}[^>]*onFace=\{tapFace\}/, 'a face in the list does not open the card');
+  assert.match(ed, /<GuestCardSheet\s+eventId=\{eventId\}\s+person=\{\{ id: faceCard\.id, name: faceCard\.name \}\}\s+open=\{SHIPPED_GUEST_CARD\.seats\}/);
+  assert.match(ed, /label="Remove"/);
+  assert.match(ed, /label=\{faceCard\.seated \? 'Swap' : 'Seat'\}/);
 });

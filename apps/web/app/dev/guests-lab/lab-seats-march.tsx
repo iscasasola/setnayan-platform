@@ -4,7 +4,6 @@ import { SeatingEditor } from '@/app/dashboard/[eventId]/seating/_components/sea
 import { SeatPlanInGuests } from '@/app/dashboard/[eventId]/seating/_components/seat-plan-in-guests';
 import { MarchMaker } from '@/app/dashboard/[eventId]/launch/_components/details-lazy';
 import { labMarchSections } from '@/app/dev/details-lab/march-fixture';
-import { GuestsMarchHead } from '@/app/dashboard/[eventId]/guests/_components/guests-march-head';
 import { parseSeatView } from '@/lib/guests-views';
 
 /**
@@ -108,12 +107,11 @@ export function LabSeats({ guests, seat }: { guests: readonly { guest_id: string
 export function LabMarch({ shape }: { shape?: string | null }) {
   const m = labMarchSections(shape);
   /* The same frame as `guests/_components/guests-march.tsx` (a server component that reads the event, so the lab
-     draws its body here on the fixture): the one line, the maker, the tray's slot. */
+     draws its body here on the fixture): the maker with its summary row, the tray’s slot. */
   return (
-    <div data-guests-march="" className="flex min-w-0 flex-col gap-4 pb-6">
-      <GuestsMarchHead />
-      <MarchMaker eventId="S89E-LABGUESTS1" sections={m.sections} printed={m.printed} out={m.out} lab />
-      <div data-march-tray-slot="" className="flex min-h-0 flex-col" />
+    <div data-guests-march="" className="grid min-w-0 gap-4 pb-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+      <MarchMaker eventId="S89E-LABGUESTS1" sections={m.sections} printed={m.printed} out={m.out} lab guests />
+      <div data-march-tray-slot="" className="flex min-h-0 flex-col lg:sticky lg:top-4" />
     </div>
   );
 }

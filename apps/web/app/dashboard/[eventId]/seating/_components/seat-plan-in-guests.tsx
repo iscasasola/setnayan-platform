@@ -26,14 +26,25 @@ const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : use
 export function SeatPlanInGuests({ children, seat }: { children: ReactNode; seat: SeatView | null }) {
   const ref = useRef<HTMLDivElement>(null);
   const [top, setTop] = useState<number | null>(null);
+  /* 📐 Full-bleed on a phone (owner 2026-10-29, *"always maximize the screen use"*): the plan takes the page's side
+     gutters too — the column's own edges, measured, never a guessed number; from 768 it keeps the column (the side panel
+     beside it uses the width). */
+  const [bleed, setBleed] = useState<{ l: number; r: number }>({ l: 0, r: 0 });
 
   useIsoLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const measure = () => setTop(Math.max(0, Math.round(el.getBoundingClientRect().top + window.scrollY)));
+    const measure = () => {
+      if (el.offsetParent === null) return; // hidden (another Guests view is showing) — measured again when shown
+      setTop(Math.max(0, Math.round(el.getBoundingClientRect().top + window.scrollY)));
+      const col = el.parentElement?.getBoundingClientRect();
+      const phone = window.innerWidth < 768;
+      setBleed(phone && col ? { l: Math.max(0, Math.round(col.left)), r: Math.max(0, Math.round(window.innerWidth - col.right)) } : { l: 0, r: 0 });
+    };
     measure();
     window.addEventListener('resize', measure);
     const ro = new ResizeObserver(measure);
+    ro.observe(el);
     if (el.parentElement) ro.observe(el.parentElement);
     return () => {
       window.removeEventListener('resize', measure);
@@ -46,7 +57,11 @@ export function SeatPlanInGuests({ children, seat }: { children: ReactNode; seat
       ref={ref}
       data-seat-plan-guests={seat ?? 'plan'}
       className="flex min-h-[420px] min-w-0 overflow-hidden"
-      style={{ height: top === null ? '70dvh' : `calc(100dvh - ${top}px - var(--sn-bottomdock-h, 0px))` }}
+      style={{
+        height: top === null ? '70dvh' : `calc(100dvh - ${top}px - var(--sn-bottomdock-h, 0px))`,
+        marginLeft: bleed.l ? -bleed.l : undefined,
+        marginRight: bleed.r ? -bleed.r : undefined,
+      }}
     >
       {/* On a phone neither slot is drawn — the guests are the editor's own sheet there, and the place's rows are
           what a tap on the plan picks; from 768 the guests column is the right part, from 1024 the place is the left. */}

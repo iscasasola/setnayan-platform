@@ -273,8 +273,10 @@ export default async function SeatingPage({ params, searchParams }: Props) {
   const sideWord = (side: 'bride' | 'groom' | 'both') =>
     side === 'both' ? 'Both sides' : `${people![side === 'bride' ? 0 : 1]}'s side`;
   const sides = people ? SIDE_ORDER.map((side) => ({ side, label: sideWord(side) })) : null;
+  /* 🗂 R4: in Guests › Seats the 3D room is ALWAYS streamed with the page and opened in place (a client switch, no new
+     request); its code loads only when it is first opened (`SeatingLabLoader`'s own dynamic import). */
   const lab =
-    seatParam === '3d' && process.env.NEXT_PUBLIC_SEATING_3D !== 'false' ? (
+    (inGuests || seatParam === '3d') && process.env.NEXT_PUBLIC_SEATING_3D !== 'false' ? (
       <Suspense fallback={<p className="p-6 text-sm text-ink/60">Opening the 3D room…</p>}>
         <SeatingLabPage params={Promise.resolve({ eventId })} searchParams={Promise.resolve({ maker: '1' })} />
       </Suspense>
@@ -284,6 +286,7 @@ export default async function SeatingPage({ params, searchParams }: Props) {
     sides,
     part: seatParam === 'map' ? 'map' : null,
     host: inGuests ? 'guests' : 'maker',
+    open3d: seatParam === '3d',
   });
   /* 🗂 R4: Guests › Seats holds the columns the Maker held — the same editor, drawn whole. */
   if (inGuests) {

@@ -34,6 +34,8 @@ export type GuestCardPerson = { id: string; name: string };
  */
 export const SHIPPED_GUEST_CARD = {
   march: async (eventId: string, guestId: string): Promise<GuestCardResult> => (await import('../open-guest-card')).openGuestCard(eventId, guestId, 'march'),
+  /* 🗂 R4 · Guests › Seats (owner 2026-10-29, *"tapping a seat can show a guest card"*): a face on the plan or the list. */
+  seats: async (eventId: string, guestId: string): Promise<GuestCardResult> => (await import('../open-guest-card')).openGuestCard(eventId, guestId, 'seats'),
   invitation: async (eventId: string, guestId: string): Promise<GuestCardResult> =>
     (await import('../open-guest-card')).openGuestCard(eventId, guestId, 'invitation'),
 } as const;
@@ -47,9 +49,12 @@ export function GuestCardSheet({
   open: opener,
   onClose,
   onSaved,
+  actions,
 }: {
   eventId: string;
   person: GuestCardPerson;
+  /** 🗂 R4 · the surface's own verbs for this person, drawn over their card (Guests › Seats: Remove · Swap). */
+  actions?: ReactNode;
   /** How the card is read — the shipped action (`openGuestCard`), or a dev lab's stand-in. */
   open: (eventId: string, guestId: string) => Promise<GuestCardResult>;
   onClose: () => void;
@@ -91,6 +96,11 @@ export function GuestCardSheet({
             saved.current = true;
           }}
         >
+          {actions ? (
+            <div data-guest-card-actions="" className="flex flex-wrap items-center gap-2 px-4 pb-1 pt-3">
+              {actions}
+            </div>
+          ) : null}
           {got !== null && 'card' in got ? (
             got.card
           ) : (

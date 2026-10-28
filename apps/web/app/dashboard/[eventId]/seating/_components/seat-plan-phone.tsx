@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { Armchair, ArrowRight, Check, ChevronDown, ChevronRight, Link2, MoreHorizontal, RotateCw, Sparkles, Trash2, Ungroup } from 'lucide-react';
+import { Armchair, ArrowRight, Check, ChevronDown, ChevronRight, Link2, MoreHorizontal, Plus, RotateCw, Sparkles, Trash2, Ungroup, Users } from 'lucide-react';
 import { formatCount } from '@/lib/format-number';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import type { PickOption } from '../../website/editor/_components/pick-menu-types';
@@ -61,12 +61,15 @@ function Pop({
   children,
   align = 'left',
   data,
+  up = false,
 }: {
   button: ReactNode;
   label: string;
   children: ReactNode;
   align?: 'left' | 'right';
   data: string;
+  /** 🗂 R4: opened from the thumb row at the foot of the screen, the menu rises above it. */
+  up?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const oneOpenId = useOneOpen(open, setOpen); // one open at a time — lib/one-open.ts; what opens inside is its child
@@ -92,7 +95,7 @@ function Pop({
               onClick={(e) => {
                 if ((e.target as HTMLElement).closest('[data-close]')) setOpen(false);
               }}
-              className={`absolute ${align === 'right' ? 'right-0' : 'left-0'} z-50 mt-1 w-[min(20rem,calc(100vw-2rem))] max-h-[65dvh] overflow-y-auto overscroll-contain rounded-xl bg-cream p-2 shadow-lg`}
+              className={`absolute ${align === 'right' ? 'right-0' : 'left-0'} z-50 ${up ? 'bottom-full mb-1' : 'mt-1'} w-[min(20rem,calc(100vw-2rem))] max-h-[65dvh] overflow-y-auto overscroll-contain rounded-xl bg-cream p-2 shadow-lg`}
             >
               {children}
             </div>
@@ -310,19 +313,30 @@ export function StudioSeatPlanHead({
   countLabel,
   more,
   trailing,
+  view,
 }: {
-  countLabel: string;
+  /** Null in Guests › Seats (R4) — the counts are the summary row's, never said twice. */
+  countLabel: string | null;
   more: ReactNode;
   trailing?: ReactNode;
+  /** 🗂 R4: the plan's ONE mode dropdown (List · 2D · 3D) in the pinned row — Guests › Seats. */
+  view?: ReactNode;
 }) {
   return (
     <div data-seat-plan-studio-head="" className="flex h-11 shrink-0 items-center gap-2 border-b border-ink/10 bg-cream px-3">
       <h2 className="min-w-0 truncate text-[15px] font-semibold text-ink">
-        Seat plan <span className="font-normal text-ink/55">· </span>
-        <span data-seat-plan-count="" className="font-normal tabular-nums text-ink/60">
-          {countLabel}
-        </span>
+        Seat plan
+        {countLabel !== null ? (
+          <>
+            {' '}
+            <span className="font-normal text-ink/55">· </span>
+            <span data-seat-plan-count="" className="font-normal tabular-nums text-ink/60">
+              {countLabel}
+            </span>
+          </>
+        ) : null}
       </h2>
+      {view}
       <span className="flex-1" />
       {trailing}
       <Pop
@@ -383,6 +397,74 @@ export function StudioSeatPlanTools({
         <span data-tour="seat-plan-view" className="inline-flex">
           <PickMenu label="View" value={view} options={views} onPick={(k) => onView(k as '2d' | '3d' | 'list')} dataAttr="data-seat-plan-view" compact className="h-11 border border-ink/15 bg-cream" />
         </span>
+      </div>
+    </div>
+  );
+}
+
+/** 🗂 R4 · The plan's three modes as ONE dropdown (owner rule: any set of choices is a dropdown) — the SAME options the
+ *  Studio's tools row offered, now in the pinned row of Guests › Seats. */
+export function SeatPlanModePick({ view, onView, show3D }: { view: '2d' | '3d' | 'list'; onView: (v: '2d' | '3d' | 'list') => void; show3D: boolean }) {
+  const views: PickOption[] = [
+    { key: '2d', label: '2D' },
+    ...(show3D ? [{ key: '3d', label: '3D' }] : []),
+    { key: 'list', label: 'List' },
+  ];
+  return (
+    <span data-tour="seat-plan-view" className="inline-flex shrink-0">
+      <PickMenu label="View" value={view} options={views} onPick={(k) => onView(k as '2d' | '3d' | 'list')} dataAttr="data-seat-plan-view" compact className="h-11 border border-ink/15 bg-cream" />
+    </span>
+  );
+}
+
+/**
+ * 🗂 R4 · GUESTS › SEATS' THUMB ROW (owner 2026-10-28/29, *"follow the screen"*): the plan's verbs in the frosted row at
+ * the foot of the screen, like every Guests view — Auto arrange (the forward step) · Rules ▾ (rising over the row) ·
+ * + Table · and, on a phone, the people (a door to their sheet, with what is left to seat). The SAME handlers the
+ * Studio's tools row and the ⋯ menu call; nothing new is written.
+ */
+export function GuestsSeatThumbRow({
+  onAutoArrange,
+  autoDisabled,
+  autoBusy,
+  rules,
+  onAddTable,
+  addDisabled,
+  people,
+  toast,
+  pop,
+}: {
+  /** 🗂 R4 · the bar that rises just above the row while something is picked (a blank's "Pick a guest", a move). */
+  pop?: ReactNode;
+  onAutoArrange: () => void;
+  autoDisabled: boolean;
+  autoBusy: boolean;
+  rules: ReactNode;
+  onAddTable: () => void;
+  addDisabled: boolean;
+  /** The people's door (a phone) — null where they are the side panel. */
+  people: { unseated: number; onOpen: () => void } | null;
+  toast: { text: string; onUndo: (() => void) | null; onDismiss: () => void } | null;
+}) {
+  return (
+    <div data-seat-plan-thumb="" className="pointer-events-none absolute inset-x-0 bottom-0 z-[46] flex flex-col gap-2 px-3 pb-[max(.75rem,env(safe-area-inset-bottom))]">
+      {toast ? <SeatToast toast={toast} /> : null}
+      {pop}
+      <div role="toolbar" aria-label="Seat plan tools" className="sn-glass-row pointer-events-auto flex items-center gap-2 rounded-full p-1">
+        <AutoArrange onAutoArrange={onAutoArrange} disabled={autoDisabled} busy={autoBusy} />
+        <Pop label="Who sits together" align="right" data="data-seat-plan-rules" up button={<>Rules <ChevronDown aria-hidden className="h-3.5 w-3.5 text-ink/45" /></>}>
+          {rules}
+        </Pop>
+        <ActionButton tone="neutral" icon={Plus} label="Table" disabled={addDisabled} onClick={onAddTable} data-seat-plan-add-table="" />
+        {people ? (
+          <ActionButton
+            tone="neutral"
+            icon={Users}
+            label={people.unseated > 0 ? `${formatCount(people.unseated)} to seat` : 'People'}
+            onClick={people.onOpen}
+            data-seat-plan-people-door=""
+          />
+        ) : null}
       </div>
     </div>
   );

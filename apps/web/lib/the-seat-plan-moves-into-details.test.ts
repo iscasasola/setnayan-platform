@@ -204,7 +204,7 @@ test('in Details the editor draws no panel column, no fixed drawer, no fixed she
   assert.match(ed, /<SeatPlanPortal name="place" on>\s*\{placeList\}/, 'the place is not drawn into the navigator');
   // The right part's JSX is named a NODE (\`guestsNode\`, train m): \`guestsPart\` read as a guest COUNT to T4.
   /* In the new Maker's Studio on a phone the guests are the pull-up sheet over the map instead (owner 2026-10-08). */
-  assert.match(ed, /<SeatPlanPortal name="guests" on=\{!studioSeat\}>\s*\{guestsNode\}/, 'the guests are not drawn into the right part');
+  assert.match(ed, /<SeatPlanPortal name="guests" on=\{!peopleInSheet\}>\s*\{guestsNode\}/, 'the guests are not drawn into the right part');
   assert.match(ed, /<SeatingFrame fill=\{details !== null\}>/);
   assert.match(ed, /<FrameBody single=\{details !== null\}>/);
   // Every existing verb stays in the ONE command bar (Add · Auto Arrange · Share & print).
@@ -238,16 +238,18 @@ test('"Show guests their seats early" opens with publishSeating and closes with 
 
 test('3D is drawn IN the middle part and never leaves Details; it does not drop the 2D editor’s lock', () => {
   const ed = code('seating', '_components', 'seating-editor.tsx');
-  assert.match(ed, /\{details\?\.lab \? \(\s*<div data-seat-plan-3d=""/);
+  /* 🗂 R4: in Guests the room is mounted when first opened and kept (hidden while 2D or List shows). */
+  assert.match(ed, /\{details\?\.lab && \(!inGuests \|\| seen3d\) \? \([\s\S]{0,300}?<div data-seat-plan-3d="" hidden=\{!in3d\}/);
   const view = ed.slice(ed.indexOf('const onSelectView = '), ed.indexOf('const onSelectView = ') + 900);
-  assert.match(view, /if \(details\) router\.push\(seatViewHref\('3d'\), \{ scroll: false \}\);/);
+  /* 🗂 R4: in Guests the 3D room is a client switch over the room streamed with the page (`go3d`), no new request. */
+  assert.match(view, /if \(details\) go3d\(\);/);
+  assert.match(ed, /const go3d = \(\) => \{\s*if \(inGuests\) \{\s*setShow3d\(true\);\s*setSeen3d\(true\);\s*window\.history\.replaceState/);
   const lab = stripComments(readFileSync(join(APP, 'seating', 'lab', '_components', 'seating-lab-3d.tsx'), 'utf8'));
   assert.match(lab, /useSeatingLock\(eventId, me\.name, null, \{ releaseOnUnmount: !inMaker \}\)/);
-  const at = lab.indexOf('if (inMaker) {');
-  const seg = lab.slice(at, lab.indexOf('return;', at));
-  assert.ok(at > 0 && seg.length > 0, 'the lab has no Details branch for its 2D / List segment');
-  assert.match(seg, /guestsViewHref\(eventId, 'seats'/);
-  assert.doesNotMatch(seg, /\/seating`/, 'the lab’s 2D/List sends a Details couple to the standalone page');
+  /* 🗂 R4: inside Guests › Seats the room draws no mode switch of its own — the pinned row's ONE dropdown (List · 2D · 3D)
+     is the way out, a client switch; standalone, its segment leaves for Guests › Seats. */
+  assert.match(lab, /viewSegment=\{\s*inMaker \? null : \(/, 'the room draws a second mode switch inside Guests › Seats');
+  assert.match(lab, /router\.push\(guestsViewHref\(eventId, 'seats'\)\)/);
 });
 
 test('the launch page draws only the door to Guests › Seats (R4), only where the type has a seat plan', () => {

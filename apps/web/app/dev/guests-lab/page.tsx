@@ -783,13 +783,10 @@ export default async function GuestsLabPage({
                     eventId={EVENT}
                     gview={gview}
                     views={GUESTS_VIEWS}
-                    viewBody={
-                      gview === 'seats' ? (
-                        <LabSeats guests={roster} seat={typeof sp.seat === 'string' ? sp.seat : undefined} />
-                      ) : gview === 'march' ? (
-                        <LabMarch shape={typeof sp.march === 'string' ? sp.march : null} />
-                      ) : null
-                    }
+                    bodies={{
+                      seats: <LabSeats guests={roster} seat={typeof sp.seat === 'string' ? sp.seat : undefined} />,
+                      march: <LabMarch shape={typeof sp.march === 'string' ? sp.march : null} />,
+                    }}
                     guests={empty || fail ? [] : sp.oneqr === '1' ? roster.filter((g) => g.role === 'bride' || g.role === 'groom') : roster}
                     measured={!fail}
                     hasSides

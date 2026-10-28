@@ -165,7 +165,7 @@ import type { GuestListRow } from '@/lib/guest-list-rows';
 import { GuestListStatus } from './guest-copy-mark';
 import { TitlesWaiting, type TitleWaitingPerson } from './titles-waiting';
 import { displayPersonName } from '@/lib/person-name-case';
-import { GUESTS_VIEW_LABEL, guestsViewHref, isGuestsMakerView, type GuestsView } from '@/lib/guests-views';
+import { GUESTS_MAKER_VIEWS, GUESTS_VIEW_LABEL, guestsViewHref, isGuestsMakerView, type GuestsMakerView, type GuestsView } from '@/lib/guests-views';
 
 
 export type GuestsScreenProps = {
@@ -179,10 +179,11 @@ export type GuestsScreenProps = {
    */
   views?: readonly GuestsView[];
   /**
-   * 🗂 R4 · Seats or March — the shipped maker, drawn whole by the page (the seat plan's own page, the march maker),
-   * under the view row and its ⚙. Null on List and Map.
+   * 🗂 R4 · Seats and March — the shipped makers, drawn whole by the page (the seat plan's own page, the march maker) and
+   * streamed WITH it, so a switch to either asks the server for nothing (owner 2026-10-29, *"fewest requests"*). Each is
+   * mounted the first time its view is opened, and kept (hidden) after.
    */
-  viewBody?: ReactNode;
+  bodies?: Partial<Record<GuestsMakerView, ReactNode>>;
   /**
    * Every guest, importance-sorted by the page (the honoree first) — ONLY the fields the list draws and
    * searches (`lib/guest-list-rows.ts` GUEST_LIST_ROW_FIELDS), never the whole row.
@@ -342,7 +343,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
     : props;
   const {
     eventId,
-    gview,
+    gview: gviewAsked,
     views: guestsViews = DEFAULT_VIEWS,
     measured,
     notLoaded = null,
@@ -368,6 +369,27 @@ export function GuestsScreen(props: GuestsScreenProps) {
     roleSetKey = null,
     viewOnly = false,
   } = live;
+  /* 🗂 R4 · THE VIEW IS A CLIENT SWITCH (owner 2026-10-29, *"as smooth as possible with fastest load and fewest
+     requests"*): List · Map · Seats · March change here, in place — the address follows (`replaceState`, so a reload or
+     a shared link lands on the same view) and nothing is asked of the server; every view's data came with the page. A
+     new address from the server (a door, Back) is taken as the view. */
+  const [gview, setGview] = useState<GuestsView>(gviewAsked);
+  const [seenViews, setSeenViews] = useState<ReadonlySet<GuestsView>>(() => new Set([gviewAsked]));
+  useEffect(() => {
+    setGview(gviewAsked);
+    setSeenViews((s) => (s.has(gviewAsked) ? s : new Set([...s, gviewAsked])));
+  }, [gviewAsked]);
+  const pickView = (v: GuestsView) => {
+    setGview(v);
+    setSeenViews((s) => (s.has(v) ? s : new Set([...s, v])));
+    window.history.replaceState(window.history.state, '', guestsViewHref(eventId, v));
+  };
+  /** A plain press switches in place; a press that asks for a new tab or window keeps the link's own way. */
+  const onViewPress = (v: GuestsView) => (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+    e.preventDefault();
+    pickView(v);
+  };
   /** 🗂 R4 · Seats or March: a shipped maker drawn whole — no summary, no list, no thumb row of the List's. */
   const makerView = isGuestsMakerView(gview);
   // 🔒 Nothing that writes is offered while this is the phone's old copy OR the viewer may only look.
@@ -1082,6 +1104,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
       href={guestsViewHref(eventId, key)}
       aria-current={gview === key ? 'page' : undefined}
       scroll={false}
+      onClick={onViewPress(key)}
       data-guests-pin-seg={key}
     >
       {label}
@@ -1095,6 +1118,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
       href={guestsViewHref(eventId, key)}
       aria-current={gview === key ? 'page' : undefined}
       scroll={false}
+      onClick={onViewPress(key)}
       data-guests-seg={key}
     >
       {label}
@@ -1702,12 +1726,16 @@ export function GuestsScreen(props: GuestsScreenProps) {
           </>
         ) : null}
 
-        {makerView ? (
-          /* 🗂 R4: Seats and March — the shipped makers, whole, with their own tools; no list, no thumb row under them. */
-          <div data-guests-view-body={gview} className="min-w-0">
-            {props.viewBody}
-          </div>
-        ) : gview === 'map' ? (
+        {/* 🗂 R4: Seats and March — the shipped makers, whole, with their own tools; no list, no thumb row under them.
+            Mounted when first opened, then KEPT (hidden) — a switch back finds them as they were, nothing re-read. */}
+        {GUESTS_MAKER_VIEWS.map((v) =>
+          seenViews.has(v) && props.bodies?.[v] ? (
+            <div key={v} data-guests-view-body={v} className="min-w-0" hidden={gview !== v}>
+              {props.bodies[v]}
+            </div>
+          ) : null,
+        )}
+        {makerView ? null : gview === 'map' ? (
           <GuestMapCanvas
             rootLabel={rootLabel}
             tree={tree}

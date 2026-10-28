@@ -3050,22 +3050,18 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
         venueSetting={venueSetting}
         venueLabel={venueLabel}
         rolePalette={rolePalette}
+        /* 🗂 R4: inside Guests › Seats the plan's ONE mode dropdown (List · 2D · 3D) is the pinned row's — the room
+           draws no second switch of its own. Standalone, its segment leaves for the plan. */
         viewSegment={
-          <SeatingViewSegment
-            active="3d"
-            onSelect={(target) => {
-              // In Details, back to the plan in the same part (`seat` drops the lab).
-              if (inMaker) {
-                if (target !== '3d') {
-                  /* 🗂 R4: the seat plan's home is Guests › Seats. */
-                  router.push(guestsViewHref(eventId, 'seats', { seat: target === 'list' ? 'list' : null }), { scroll: false });
-                }
-                return;
-              }
-              if (target === '2d') router.push(`/dashboard/${eventId}/seating`);
-              else if (target === 'list') router.push(`/dashboard/${eventId}/seating?view=list`);
-            }}
-          />
+          inMaker ? null : (
+            <SeatingViewSegment
+              active="3d"
+              onSelect={(target) => {
+                if (target === '2d') router.push(guestsViewHref(eventId, 'seats'));
+                else if (target === 'list') router.push(guestsViewHref(eventId, 'seats', { seat: 'list' }));
+              }}
+            />
+          )
         }
         mode={mode}
         setMode={setMode}

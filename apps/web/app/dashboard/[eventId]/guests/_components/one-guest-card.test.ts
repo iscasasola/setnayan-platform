@@ -77,7 +77,8 @@ const ENTRY_POINTS: Record<string, 'GuestCard' | 'GuestCardSheet'> = {
   [`${EVENT}/guests/page.tsx`]: 'GuestCard', // the Guest list's panel (`?inspect=`) — rail ≥ 1280, sheet below
   [`${EVENT}/guests/[guestId]/page.tsx`]: 'GuestCard', // the standalone route (deep links, a failed save's landing)
   [`${EVENT}/guests/open-guest-card.tsx`]: 'GuestCard', // the one in-place read (the march, the parents)
-  [`${EVENT}/launch/_components/details-march.tsx`]: 'GuestCardSheet', // the Wedding March
+  [`${EVENT}/launch/_components/details-march.tsx`]: 'GuestCardSheet', // the Wedding March (Guests › March since R4)
+  [`${EVENT}/seating/_components/seating-editor.tsx`]: 'GuestCardSheet', // Guests › Seats — a face on the plan or the list (R4)
   [`${EVENT}/launch/_components/parent-cards.tsx`]: 'GuestCardSheet', // the parents under the march / The Invitation
   [`${EVENT}/launch/_components/studio-prints-six.tsx`]: 'GuestCardSheet', // Studio › Prints' parents
   [`${EVENT}/launch/_components/details-people.tsx`]: 'GuestCardSheet', // Details › Parents & hosts

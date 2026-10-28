@@ -261,12 +261,14 @@ test('5 · Seat plan: the map gets the space — one head row, tools in the thum
 
   const ed = read(`${SEAT}/seating-editor.tsx`);
   /* 🗂 R4: Guests › Seats draws the same phone seat plan (`host: 'guests'`) — the Studio's frames, now its home. */
-  assert.match(ed, /const studioSeat = details !== null && isPhone && \(maker\?\.stagesStudio === true \|\| inGuests\);/);
-  assert.match(ed, /const phoneFoot =\s*isPhone && view === 'plan' && !details\?\.lab && !studioSeat \?/, 'the Studio still draws the 3D door card under the map');
-  assert.match(ed, /<SeatPlanPortal name="guests" on=\{!studioSeat\}>/, 'the Studio’s people are drawn in the lower third too');
+  /* 🗂 R4: Guests › Seats wears this chrome at every width; only a phone puts the people in a sheet (`peopleInSheet`). */
+  assert.match(ed, /const studioSeat = details !== null && \(\(isPhone && maker\?\.stagesStudio === true\) \|\| inGuests\);/);
+  assert.match(ed, /const peopleInSheet = studioSeat && isPhone;/);
+  assert.match(ed, /const phoneFoot =\s*isPhone && view === 'plan' && !in3d && !studioSeat \?/, 'the Studio still draws the 3D door card under the map');
+  assert.match(ed, /<SeatPlanPortal name="guests" on=\{!peopleInSheet\}>/, 'the Studio’s people are drawn in the lower third too');
   assert.match(ed, /<PeopleSheet[\s\S]{0,900}?\{guestsNode\}\s*<\/PeopleSheet>/, 'the people sheet does not hold the editor’s own list');
-  assert.match(ed, /const openDetailsEditor = \(\) => \(studioSeat \? setPeopleOpen\(true\) : openDetailsEditorShipped\(\)\);/, 'a table tap / Rules / the people do not raise the sheet in the Studio');
-  assert.match(ed, /if \(studioSeat && seatPieceKey\) setPeopleOpen\(true\);/, 'tapping a table does not raise the sheet');
+  assert.match(ed, /const openDetailsEditor = \(\) => \(peopleInSheet \? setPeopleOpen\(true\) : openDetailsEditorShipped\(\)\);/, 'a table tap / Rules / the people do not raise the sheet in the Studio');
+  assert.match(ed, /if \(peopleInSheet && seatPieceKey\) setPeopleOpen\(true\);/, 'tapping a table does not raise the sheet');
   assert.match(ed, /const ro = new ResizeObserver\(fit\);\s*ro\.observe\(region\);/, 'the room is not fitted to the map’s box on open');
   assert.match(ed, /\$\{studioSeat \? 'top-3' : 'bottom-\[64px\] lg:bottom-3'\}/, 'the zoom controls sit under the thumb-zone tools');
   /* Behaviour kept: the same handlers. */

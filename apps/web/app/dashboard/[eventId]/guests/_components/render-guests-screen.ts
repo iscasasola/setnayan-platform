@@ -48,8 +48,8 @@ export async function renderGuestsScreen(opts: {
   gview?: 'list' | 'map' | 'seats' | 'march';
   /** 🗂 R4 · the views the row offers (`lib/guests-views.ts`); absent → List · Map. */
   views?: readonly ('list' | 'map' | 'seats' | 'march')[];
-  /** 🗂 R4 · what Seats / March draw (the page hands the shipped maker). */
-  viewBody?: unknown;
+  /** 🗂 R4 · what Seats / March draw (the page hands the shipped makers, streamed with it). */
+  bodies?: unknown;
   /** ⚙ Guests settings' rows — present → the ⚙ draws (the page hands them to the couple only). */
   setup?: unknown;
   /** `?settings=1` — the sheet open with the page. */
@@ -109,7 +109,7 @@ export async function renderGuestsScreen(opts: {
           viewOnly: opts.viewOnly ?? false,
           invite: opts.invite ?? null,
           ...(opts.views ? { views: opts.views } : {}),
-          ...(opts.viewBody !== undefined ? { viewBody: opts.viewBody } : {}),
+          ...(opts.bodies !== undefined ? { bodies: opts.bodies } : {}),
         } as never),
       ),
     ),

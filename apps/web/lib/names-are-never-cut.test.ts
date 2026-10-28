@@ -107,8 +107,8 @@ test('3 · the seat plan prints the whole name — in the legend and in the unse
 
 test('4 · the entrance chart prints the whole name — by table and A to Z', () => {
   const people: SeatPlanPerson[] = [
-    { ...GUEST, guest_id: 'long', plus_one_of_guest_id: null, rsvp_status: 'attending' },
-    ...Array.from({ length: 30 }, (_, i) => ({ guest_id: `g${i}`, first_name: `Guest${i}`, last_name: 'Santos', display_name: null, name_suffix: null, plus_one_of_guest_id: null, rsvp_status: 'attending' })),
+    { ...GUEST, guest_id: 'long', plus_one_of_guest_id: null, rsvp_status: 'attending' as const },
+    ...Array.from({ length: 30 }, (_, i): SeatPlanPerson => ({ guest_id: `g${i}`, first_name: `Guest${i}`, last_name: 'Santos', display_name: null, name_suffix: null, plus_one_of_guest_id: null, rsvp_status: 'attending' })),
   ];
   const tables = [
     { table_id: 't1', table_label: 'Table 1', link_group_id: null, link_group_label: null },

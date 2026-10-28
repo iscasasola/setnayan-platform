@@ -96,3 +96,12 @@ test('the copy belongs to one viewer: another account’s registry never reads a
   assert.equal(parseOfflineRegistry({ v: 2, viewer: 'ana', events: {} }), null);
   assert.equal(parseOfflineRegistry('nonsense'), null);
 });
+
+test('the saved copy on screen says so — never "Saved for offline", with signal or without', () => {
+  const at = Date.parse('2026-11-14T14:10:00+08:00');
+  const off = savedMark({ phase: 'saved', savedAt: at, now: NOON, online: false, eventDay: true, onCopy: at });
+  assert.equal(off.text, 'No signal · showing the copy from 2:10 PM');
+  const back = savedMark({ phase: 'saved', savedAt: at, now: NOON, online: true, eventDay: true, onCopy: at });
+  assert.equal(back.tone, 'amber');
+  assert.match(back.text, /^Showing the copy from 2:10 PM · load the latest/);
+});

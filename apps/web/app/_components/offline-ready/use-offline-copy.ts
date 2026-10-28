@@ -19,6 +19,7 @@ import {
   offlineSavingOpen,
   parseOfflineRegistry,
   savedAtFor,
+  savedCopyOnScreen,
   type SavedPhase,
 } from '@/lib/offline-copies';
 
@@ -88,7 +89,10 @@ export type OfflineCopy = {
   /** Inside the event's window (T-3 days → the day after). Outside it nothing is kept or offered. */
   open: boolean;
   installed: boolean;
-  /** "Update now" — forces a fresh copy of every page. Resolves true only when every page landed. */
+  /** The page on screen is the saved copy (saved at this time) — the worker opened it with no signal. */
+  onCopy: number | null;
+  /** "Update now" — forces a fresh copy of every page. Resolves true only when every page landed. On the saved copy it
+   *  loads the page again instead (network-first: the latest with signal, the copy without). */
   update: () => Promise<boolean>;
 };
 
@@ -112,6 +116,7 @@ export function useOfflineCopy({
   const [online, setOnline] = useState(true);
   const [now, setNow] = useState(() => Date.now());
   const [installed, setInstalled] = useState(false);
+  const [onCopy, setOnCopy] = useState<number | null>(null);
   const busy = useRef(false);
   const key = paths.join('|');
   const open = offlineSavingOpen(eventDate, now, eventEndDate);
@@ -143,6 +148,8 @@ export function useOfflineCopy({
   useEffect(() => {
     let alive = true;
     setInstalled(runsAsInstalledApp());
+    const copyAt = savedCopyOnScreen();
+    setOnCopy(copyAt);
     const isOnline = typeof navigator === 'undefined' ? true : navigator.onLine !== false;
     setOnline(isOnline);
     if (!workerSupported()) {
@@ -153,8 +160,9 @@ export function useOfflineCopy({
       if (!alive) return;
       setSavedAt(kept);
       setPhase(kept !== null ? 'saved' : 'none');
-      // ALWAYS ON: every open with signal refreshes the copy (the worker skips pages it saved < 30 min ago).
-      if (auto && isOnline) void save(false);
+      // ALWAYS ON: every open with signal refreshes the copy (the worker skips pages it saved < 30 min ago). Not from
+      // the copy itself: it was opened because the network failed — a save now would only fail too.
+      if (auto && isOnline && copyAt === null) void save(false);
     });
     const goOnline = () => {
       setOnline(true);
@@ -173,6 +181,12 @@ export function useOfflineCopy({
     };
   }, [viewer, eventId, key, auto, save]);
 
-  const update = useCallback(() => save(true), [save]);
-  return { phase, savedAt, online, now, open, installed, update };
+  const update = useCallback(async () => {
+    if (onCopy !== null) {
+      window.location.reload();
+      return false;
+    }
+    return save(true);
+  }, [save, onCopy]);
+  return { phase, savedAt, online, now, open, installed, onCopy, update };
 }

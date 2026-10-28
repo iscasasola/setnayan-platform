@@ -27,7 +27,7 @@ export function DeskSavedMark({
   return (
     <div className="mt-2" data-desk-saved="">
       <SavedMarkLine
-        mark={savedMark({ phase: copy.phase, savedAt: copy.savedAt, now: copy.now, online: copy.online, eventDay })}
+        mark={savedMark({ phase: copy.phase, savedAt: copy.savedAt, now: copy.now, online: copy.online, eventDay, onCopy: copy.onCopy })}
         busy={copy.phase === 'saving'}
       />
     </div>

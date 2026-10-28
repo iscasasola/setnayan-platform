@@ -269,6 +269,17 @@ test('no signal: each kept view opens from the copy, not /offline.html', async (
   assert.ok(cold.body?.includes(`>${DESK}<`), `a cold worker opened ${cold.body}`);
 });
 
+test('the copy says it is the copy — its <html> carries when it was saved; a network answer never does', async () => {
+  const w = boot();
+  await w.saveFor(ANA, E1, [HOME]);
+  const online = await w.nav(HOME);
+  assert.doesNotMatch(online.body ?? '', /data-sn-saved-copy/, 'a page fresh from the network was marked as the copy');
+  w.server.down = true;
+  const off = await w.nav(HOME);
+  const at = (await w.registry()).events[E1].pages[HOME];
+  assert.match(off.body ?? '', new RegExp(`<html data-sn-saved-copy="${at}"`), `the copy is not marked: ${off.body?.slice(0, 80)}`);
+});
+
 test('the browser says it is offline: the copy opens at once, with no request', async () => {
   const w = boot({ ua: SAFARI_UA });
   await w.saveFor(ANA, E1, [HOME]);

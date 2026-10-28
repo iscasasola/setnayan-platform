@@ -203,8 +203,15 @@ export function savedMark(input: {
   online: boolean;
   /** The event is today — only then does an old copy turn amber. */
   eventDay: boolean;
+  /** The page on screen IS the saved copy (`savedCopyOnScreen()`), saved at this time. */
+  onCopy?: number | null;
 }): SavedMark {
-  const { phase, savedAt, now, online, eventDay } = input;
+  const { phase, savedAt, now, online, eventDay, onCopy = null } = input;
+  if (onCopy !== null) {
+    return online
+      ? { tone: 'amber', text: `Showing the copy from ${clockWords(onCopy)} · load the latest when the signal is back` }
+      : { tone: 'amber', text: `No signal · showing the copy from ${clockWords(onCopy)}` };
+  }
   if (phase === 'unsupported') {
     return { tone: 'bad', text: 'This browser can’t keep a copy · use the Setnayan app or Add to Home Screen' };
   }
@@ -237,3 +244,13 @@ export const OFFLINE_COPIES_WIPE_SCRIPT =
   `try{if(!${AUTH_COOKIE}.test(document.cookie)){` +
   `if(self.caches)caches.delete(${JSON.stringify(OFFLINE_COPIES_CACHE)});` +
   `var c=navigator.serviceWorker&&navigator.serviceWorker.controller;if(c)c.postMessage({type:"OFFLINE_FORGET"})}}catch(e){}`;
+
+/**
+ * When the document on screen is the SAVED COPY the worker opened with no signal, the time it was saved; else null.
+ * The worker marks the copy's <html> (`data-sn-saved-copy`) as it opens it — a page fresh from the server never has it.
+ */
+export function savedCopyOnScreen(): number | null {
+  if (typeof document === 'undefined') return null;
+  const at = Number(document.documentElement?.dataset?.snSavedCopy);
+  return Number.isFinite(at) && at > 0 ? at : null;
+}

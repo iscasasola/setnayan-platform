@@ -59,9 +59,10 @@ test('a scan waits for the account that made it; a gave-up scan leaves a note', 
     };
     h.setCheckinViewer('ben');
     const waits = await h.syncOne(item);
-    assert.equal(waits.ok, false, 'Ben’s phone sent Ana’s scan');
+    // Refused BEFORE any request — not merely a send that happened to fail.
+    assert.deepEqual(waits, { ok: false, error: 'Waiting for the account that scanned it.' }, 'Ben’s phone tried to send Ana’s scan');
     h.setCheckinViewer(null);
-    assert.equal((await h.syncOne(item)).ok, false, 'a scan was sent with nobody signed in at the desk');
+    assert.deepEqual(await h.syncOne(item), { ok: false, error: 'Waiting for the account that scanned it.' }, 'a scan was sent with nobody signed in at the desk');
     h.noteGaveUp(item);
     const notes = h.readCheckinNotes('ana', 'E1');
     assert.equal(notes.length, 1);

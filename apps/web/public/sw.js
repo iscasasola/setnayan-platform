@@ -1012,14 +1012,19 @@ async function saveOfflineCopies(data) {
   return { ok: failed.length === 0, savedAt: savedAt === Infinity ? null : savedAt, failed };
 }
 
-// The copy of `path` the current viewer keeps, or null.
+// The copy of `path` the current viewer keeps, or null. It is marked on its <html> element
+// (`data-sn-saved-copy="<saved at ms>"`; the root <html> carries suppressHydrationWarning) so the page KNOWS it is the
+// copy: its mark says so, and its day-of refresh tick stands still instead of reloading the copy every 45 s.
 async function offlineCopyResponse(path) {
   const reg = await loadOfflineRegistry();
   const at = offlineCopySavedAt(reg, path, Date.now());
   if (at === null) return null;
   try {
     const cache = await caches.open(OFFLINE_PAGES_CACHE);
-    return (await cache.match(offlinePageKey(path))) || null;
+    const kept = await cache.match(offlinePageKey(path));
+    if (!kept) return null;
+    const html = (await kept.text()).replace(/<html(?=[\s>])/i, `<html data-sn-saved-copy="${at}"`);
+    return new Response(html, { status: 200, headers: kept.headers });
   } catch {
     return null;
   }

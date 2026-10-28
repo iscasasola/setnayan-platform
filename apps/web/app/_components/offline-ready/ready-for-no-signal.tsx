@@ -47,9 +47,10 @@ export function ReadyForNoSignal({
       checkin={checkin}
       host={host}
       rows={rows}
-      mark={savedMark({ phase: copy.phase, savedAt: copy.savedAt, now: copy.now, online: copy.online, eventDay: true })}
+      mark={savedMark({ phase: copy.phase, savedAt: copy.savedAt, now: copy.now, online: copy.online, eventDay: true, onCopy: copy.onCopy })}
       busy={copy.phase === 'saving'}
-      canUpdate={copy.phase !== 'saving' && copy.online && copy.phase !== 'unsupported'}
+      canUpdate={copy.onCopy !== null || (copy.phase !== 'saving' && copy.online && copy.phase !== 'unsupported')}
+      updateLabel={copy.onCopy !== null ? 'Load the latest' : 'Update now'}
       installed={copy.installed}
       onUpdate={() => void copy.update()}
     />
@@ -67,6 +68,7 @@ export function ReadyForNoSignalView({
   canUpdate,
   installed,
   onUpdate,
+  updateLabel = 'Update now',
 }: {
   eventId: string;
   checkin: boolean;
@@ -77,6 +79,8 @@ export function ReadyForNoSignalView({
   canUpdate: boolean;
   installed: boolean;
   onUpdate: () => void;
+  /** "Load the latest" when the page on screen is the saved copy. */
+  updateLabel?: string;
 }) {
   const e = encodeURIComponent(eventId);
   const prints: Record<string, string> = {
@@ -136,7 +140,7 @@ export function ReadyForNoSignalView({
         tone="brand"
         main
         icon={RefreshCw}
-        label="Update now"
+        label={updateLabel}
         className="w-full justify-center"
         disabled={!canUpdate}
         onClick={onUpdate}

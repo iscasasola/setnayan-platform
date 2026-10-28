@@ -278,7 +278,8 @@ export function MoveGuestSheet({
             {initial}
           </span>
           <span className="min-w-0">
-            <span className="block truncate text-[15px] text-ink">{fullName}</span>
+            {/* ✂ A guest's name wraps, never cut (owner v15). */}
+            <span className="line-clamp-3 block text-[15px] text-ink [overflow-wrap:anywhere]">{fullName}</span>
             <span className="block truncate text-[12px] text-ink/55">{sub}</span>
           </span>
         </div>
@@ -324,7 +325,8 @@ export function StudioSeatPlanHead({
 }) {
   return (
     <div data-seat-plan-studio-head="" className="flex h-11 shrink-0 items-center gap-2 border-b border-ink/10 bg-cream px-3">
-      <h2 className="min-w-0 truncate text-[15px] font-semibold text-ink">
+      {/* ✂ The head's words never cut — the mode dropdown beside it keeps its whole word too (owner v15). */}
+      <h2 className="shrink-0 whitespace-nowrap text-[15px] font-semibold text-ink">
         Seat plan
         {countLabel !== null ? (
           <>

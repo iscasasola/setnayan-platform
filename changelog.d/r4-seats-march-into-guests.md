@@ -108,3 +108,11 @@ them out of the tray, Undo and all).
 
 SPEC IMPACT: None — the prototype v12–v26 is the record; a DECISION_LOG row for "Map ＋ Add guest is back (supersedes
 2026-10-25's no-＋ on the Map)" is flagged for the owner in the PR body.
+
+## 2026-10-29 · fix(guests): R4 — Seats and March words wrap, never cut
+
+Owner (prototype v15, "names never ellipsized"): the Seats › List table names, the count tiles' words, the move sheet's
+guest name and the seat head's title (beside its mode dropdown) wrap (line-clamp, `overflow-wrap:anywhere`) instead of
+ending in "…". Guard `lib/guests-words-are-never-cut.test.ts`, anchored per element, sabotaged once.
+
+SPEC IMPACT: None.

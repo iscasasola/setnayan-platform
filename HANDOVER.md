@@ -29,6 +29,11 @@ Keep the PR DRAFT + `do-not-auto-merge`; never merge/deploy. CI is the gate (no 
   `lib/guests-filter.test.ts` (sabotaged 3×). OPEN: Map ＋ returns against 2026-10-25's "no ＋" — the brief + v12 say so;
   owner DECISION_LOG row still to write.
 
+- SLICE 4 part (pushed): words wrap, never cut — Seats › List table names, the count tiles' words, the move sheet's
+  guest name, the seat head's title (`lib/guests-words-are-never-cut.test.ts`, sabotaged once). The rest of slice 4
+  (sticky group headers · header tap = select + toolbar Rename · ＋ Add guest here · second tap folds + unselects · the
+  card loses its Group row) is NOT started.
+
 ## NEXT — in the controller's order
 1. ~~SLICE 1~~ DONE (above). Original note: thumb row on every view = shared `components/thumb-row.tsx`: ⇕ · Search guests · ⇅ ONE PickMenu (Show / Group
    by / Sort) = one filter state in the URL shared by carousel cards, List and Map · ＋ (Guests: Add guest; Seats: Add ▾

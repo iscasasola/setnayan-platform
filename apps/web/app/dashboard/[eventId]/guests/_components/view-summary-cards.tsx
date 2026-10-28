@@ -117,7 +117,8 @@ export function ViewCountRow({ view, tiles }: { view: string; tiles: CountTile[]
             className="sn-press flex h-[clamp(56px,7.4cqh,66px)] min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl border border-sn-accent bg-sn-accent px-1 text-sn-on-accent disabled:opacity-45 [&_svg]:h-[18px] [&_svg]:w-[18px]" // no-card-ok: a pressable count tile (a door), not a container
           >
             {t.icon}
-            <span className="max-w-full truncate text-[11px] font-medium">{t.word}</span>
+            {/* ✂ Words wrap, never cut (owner v15) — two short lines at most at 320. */}
+            <span className="line-clamp-2 max-w-full text-center text-[11px] font-medium leading-tight [overflow-wrap:anywhere]">{t.word}</span>
           </button>
         ) : (
           <button
@@ -130,7 +131,7 @@ export function ViewCountRow({ view, tiles }: { view: string; tiles: CountTile[]
             className="sn-press flex h-[clamp(56px,7.4cqh,66px)] min-w-0 flex-col items-start justify-center gap-px rounded-xl border border-ink/10 bg-cream px-[7px] text-left text-ink dark:bg-raised" // no-card-ok: a pressable count tile (a door), not a container
           >
             <span className="text-[21px] font-medium leading-[1.05] tabular-nums">{t.value === null ? '—' : <Count value={t.value} id={`gs-${view}-tile-${t.key}`} />}</span>
-            <span className="max-w-full truncate text-[10.5px] tracking-[-0.01em] text-ink/55">{t.value === null ? 'couldn’t read' : t.word}</span>
+            <span className="line-clamp-2 max-w-full text-[10.5px] leading-tight tracking-[-0.01em] text-ink/55 [overflow-wrap:anywhere]">{t.value === null ? 'couldn’t read' : t.word}</span>
           </button>
         ),
       )}

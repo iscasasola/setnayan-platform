@@ -51,6 +51,8 @@ const NEXT_DIR = args['next-dir'] ?? '.next';
  * Needs the server started with HUB_VIEW_LAB_DIRECT=1 (a lab switch — never set on Vercel).
  */
 const EDGE = args.edge === '1';
+/** The event's stamp — part of the cached copy's key (`--edge 1`), read from the stand-in before the run. */
+let REV = '0';
 const SECRET = process.env.GUEST_SESSION_SECRET ?? '';
 
 for (const u of [BASE, STUB]) {
@@ -165,7 +167,6 @@ function noteSeen(g, body) {
   }
 }
 
-let REV = '0';
 const hubUrl = (g) =>
   EDGE ? `${BASE}/${SLUG}/cached/v1.${REV}.g${g.guest_id.replace(/-/g, '')}${hubMac(g.guest_id, g.qr_token)}.000x.-.-` : `${BASE}/${SLUG}`;
 

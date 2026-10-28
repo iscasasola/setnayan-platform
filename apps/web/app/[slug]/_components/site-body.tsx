@@ -85,6 +85,8 @@ import { SupplierRibbon } from './supplier-ribbon';
 import type { SupplierDeskModel } from '../_lib/supplier-desk.server';
 import { StdFilmHandoff } from './std-film-handoff';
 import { StdViewBeacon } from './std-view-beacon';
+import { HubSeenBeacon } from './hub-seen-beacon';
+import { hubViewsEnabled } from '@/lib/whos-here';
 import { BackgroundMusic } from './background-music';
 import { EditorialContent } from './editorial/editorial-content';
 import type { PostEventDraft } from '@/lib/post-event-draft';
@@ -4504,6 +4506,10 @@ export async function SiteBody({
           mounted by page.tsx, after the guest's own section, because this
           component is not the last thing on a guest's page. */}
       {plan.stdViewBeacon ? <StdViewBeacon slug={event.slug} /> : null}
+      {/* 👀 WHO'S HERE (owner 2026-10-29): one count of this open for the event's team, after the page has drawn and at
+          most once per device per half hour — never on the Maker's canvas or a sample, and never a live connection.
+          The team's own looks are dropped by the route (`app/api/hub/seen/route.ts`). */}
+      {!isEditorCanvas && !event.is_sample && hubViewsEnabled() ? <HubSeenBeacon slug={event.slug} /> : null}
       <RevealOverlayServer
         /* 🎬 The opening is the preview tab's and the guests' — never the
            Maker's canvas, where it replayed on every reload (a Guest bars tap

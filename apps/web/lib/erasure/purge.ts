@@ -1359,6 +1359,15 @@ export async function purgeUserGuestBiometrics(
     }
   }
 
+  // ── WHEN THIS SUBJECT LAST OPENED AN EVENT HUB (Who's here, 2026-10-29) ──
+  // One timestamp per guest row, a day at most — the subject's own, so it goes whole. It rides this step because the
+  // subject's guest identities are resolved here (`hub_guest_views` has no user column). Self-contained: a failure is
+  // audited and the steps below still run.
+  {
+    const { error: hvErr } = await admin.from('hub_guest_views').delete().in('guest_id', guestIds);
+    if (hvErr) await auditFail('hub-guest-views-delete', hvErr.message);
+  }
+
   // Pull enrolment asset refs (ALL rows, incl. superseded/revoked — every selfie
   // this subject ever enrolled for these events must go) before deleting.
   const { data: enrols, error: eErr } = await admin

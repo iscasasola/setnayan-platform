@@ -22,6 +22,8 @@ import { readGuestCard } from './_components/guest-card-read';
 const RETURN_TO = {
   march: (eventId: string) => `/dashboard/${eventId}/launch?tool=details&item=march`,
   invitation: (eventId: string) => `/dashboard/${eventId}/launch?tool=details&item=invitation`,
+  // 👀 Home › Who's here — a face of a guest viewing the Event Hub (owner 2026-10-29).
+  home: (eventId: string) => `/dashboard/${eventId}`,
 } as const;
 
 const COULD_NOT_OPEN = 'Their guest card couldn’t open just now — try again.';

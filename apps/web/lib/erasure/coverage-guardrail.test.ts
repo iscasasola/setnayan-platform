@@ -135,6 +135,9 @@ const PURGED_WITHOUT_SUBJECT_COLUMN: ReadonlySet<string> = new Set([
   // 2026-10-08). No user column at all, so the detector cannot see it; erasure
   // reaches it through the subject's guest ids and removes the screenshot.
   'event_gift_records',
+  // Keyed by guest_id — when a guest last opened the Event Hub with their own pass (Who's here, 2026-10-29). No user
+  // column, so the detector cannot see it; erasure deletes it through the subject's guest ids.
+  'hub_guest_views',
   'vendor_push_tokens', // keyed by vendor_profile_id
   // Keyed by vendor_profile_id. Its ONLY *_user_id column is `admin_user_id` —
   // the reviewing staff member, which the detector correctly treats as a staff

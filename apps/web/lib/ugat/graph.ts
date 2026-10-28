@@ -3501,6 +3501,46 @@ export const UGAT_JOINTS: UgatJoint[] = [
     guardedBy: 'RLS at CREATE TABLE — authenticated SELECT only (anon no grant; no write policy) · triggers inspiration_part_services_keep_categories + inspiration_parts_rehome_keeps_categories double-write inspiration_part_categories · tests/db/part-eligibility-is-unchanged-by-the-move.db.test.ts (old = new, the derivation, the double write, RLS, FKs) · tests/db/a-supplier-suggests-only-to-its-own-parts.db.test.ts (the suggestion door reads these rows)',
     traps: 'Re-homing a part moves its HEADING, not its door: who may add a photo is these rows alone. A service added to the taxonomy reaches NO part until an admin links it. The derived categories are “every service linked” first, then a linked service’s own tile — NOT the plan’s literal “home ∪ tile_id of the services”, which would have renamed the trades of all 11 attire parts on ship day (the Filipiniana & Barongs cross-view has no tile of its own). The cross-view’s ten keys still live in inspiration_category_service_pairs() until ③0-a writes them as secondary_tiles rows.',
   },
+  {
+    /**
+     * 👀 WHO'S HERE (owner 2026-10-29: *"which guest is viewing the event hub?"*; migration 20271295895751). The Event
+     * Hub's opens, as the event's team sees them on Home: a guest NAMED only through their own pass, everyone else a
+     * number per quarter-hour. The dashboard half (the team on it now) is Realtime presence and stores nothing.
+     *
+     * 🔑 CLAIMED AS ABSENCES: the stranger counter has no person, cookie, hash or device column — the day someone adds
+     * one this joint goes red and the privacy question gets asked again.
+     */
+    id: 'J58',
+    claims: [
+      { kind: 'table', table: 'hub_guest_views' },
+      { kind: 'table', table: 'hub_visitor_buckets' },
+      { kind: 'fk', table: 'hub_guest_views', column: 'guest_id', references: 'guests' },
+      { kind: 'fk', table: 'hub_guest_views', column: 'event_id', references: 'events' },
+      { kind: 'fk', table: 'hub_visitor_buckets', column: 'event_id', references: 'events' },
+      { kind: 'column', table: 'hub_guest_views', column: 'last_seen_at' },
+      { kind: 'column', table: 'hub_visitor_buckets', column: 'bucket_start' },
+      { kind: 'column', table: 'hub_visitor_buckets', column: 'opens' },
+      { kind: 'check', table: 'hub_visitor_buckets', name: 'hub_visitor_buckets_quarter_chk', mentions: 'bucket_start' },
+      { kind: 'no_column', table: 'hub_visitor_buckets', column: 'guest_id' },
+      { kind: 'no_column', table: 'hub_visitor_buckets', column: 'user_id' },
+      { kind: 'no_column', table: 'hub_visitor_buckets', column: 'visitor' },
+      { kind: 'no_column', table: 'hub_guest_views', column: 'user_id' },
+    ],
+    chain: 3,
+    pair: ['TYPE-EVENTS', 'TYPE-GUESTS'],
+    title: 'Event ↔ Guest (who is viewing the Event Hub — Home › Who’s here)',
+    joint: 'hub_guest_views',
+    cardinality:
+      'One row per guest (their last open, moved at most once per 30 minutes) · one counter per event per quarter-hour for everyone else · both kept a day',
+    implementedBy:
+      'hub_guest_views (guest_id PK → guests CASCADE · event_id · last_seen_at) + hub_visitor_buckets (event_id · bucket_start = a 15-minute bin · opens). Read by event_hub_viewers(event, window) — SECURITY INVOKER, one call, the Home card (home-whos-here-card.tsx). The team half is the private presence channel event-team:{event_id} (event-team-presence.tsx, joined once by the event layout), authorised by event_team_presence_can_access()',
+    writtenBy:
+      'ONLY record_hub_view(event, guest) — SECURITY DEFINER, service role only — from POST /api/hub/seen, which the hub page fires once after it draws (hub-seen-beacon.tsx, once per device per 30 minutes). The guest id comes from the verified pass, never the body; the team’s own looks are dropped',
+    guardedBy:
+      'RLS at CREATE TABLE: SELECT for the team (current_couple_event_ids ∪ current_moderator_event_ids) and, for a named row, only where the caller may read that guest (the guests policies); no INSERT/UPDATE/DELETE grant to any browser role · tests/db/who-is-viewing-the-hub.db.test.ts · lib/whos-here.test.ts',
+    traps:
+      'The card’s window is the debounce (30 min), never less — a 15-minute window would drop a guest who is still looking. The beacon path is exempt from the hub cache-bust cookie (HUB_BUST_EXEMPT_PATHS); without it every open would cost that guest their cached hub. HUB_VIEWS_DISABLED=1 is the kill switch.',
+  },
 ];
 
 const UGAT_JOINT_PAIR_INDEX: Record<string, UgatJoint[]> = {};

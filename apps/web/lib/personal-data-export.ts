@@ -7,6 +7,7 @@ import { listOutcome, singleOutcome, collectIncomplete } from '@/lib/export-inte
 import { VENDOR_PROFILE_EXPORT_SELECT } from '@/lib/export-vendor-profile-columns';
 import { readOwnFaceEnrollments } from '@/lib/export-own-face-enrollments';
 import { readOwnGiftRecords } from '@/lib/export-own-gift-records';
+import { readOwnHubViews } from '@/lib/export-own-hub-views';
 import { displayUrlForPrivateStoredAsset } from '@/lib/uploads';
 import { budgetPaymentProofPolicy } from '@/lib/r2-client-ref';
 import {
@@ -284,6 +285,7 @@ export async function buildPersonalDataExport(
     paymentsRes,
     faceEnrollmentsRes,
     giftRecordsRes,
+    hubViewsRes,
     dependentsRes,
     godparentsRes,
     communityMembershipsRes,
@@ -438,6 +440,9 @@ export async function buildPersonalDataExport(
     // this file. The screenshot itself is not copied into the file; the row
     // says whether one is held.
     readOwnGiftRecords(supabase, admin, user.id),
+    // When the subject last opened an Event Hub with their own invitation (Who's here, 2026-10-29) — the one
+    // timestamp a host's Home shows, kept a day at most. Scoped to the subject's own guest ids, exactly as above.
+    readOwnHubViews(supabase, admin, user.id),
     // RA 10173 (2026-07-17) — Alaga (dependents) records: what the subject
     // stores as a guardian, what they claimed as their own profile, and what
     // they handed over (read-only history). Spouse-SHARED rows the OTHER
@@ -814,6 +819,7 @@ export async function buildPersonalDataExport(
   const payments = listOutcome('payments', paymentsRes);
   const faceEnrollments = listOutcome('face_enrollments', faceEnrollmentsRes);
   const giftRecords = listOutcome('gifts_you_said_you_sent', giftRecordsRes, adminUnavailable);
+  const hubViews = listOutcome('event_hub_opens', hubViewsRes, adminUnavailable);
   const dependents = listOutcome('alaga_dependents', dependentsRes);
   const godparents = listOutcome('alaga_godparents', godparentsRes);
   const communityMemberships = listOutcome('samahan_memberships', communityMembershipsRes);
@@ -930,6 +936,7 @@ export async function buildPersonalDataExport(
     payments,
     faceEnrollments,
     giftRecords,
+    hubViews,
     dependents,
     godparents,
     communityMemberships,
@@ -1012,6 +1019,9 @@ export async function buildPersonalDataExport(
     // the money. A screenshot you attached is held privately for that host
     // (`screenshot_held`); it is not copied into this file.
     gifts_you_said_you_sent: giftRecords.rows,
+    // When you last opened an event's Event Hub with your own invitation — what its hosts' "Who's here" card
+    // showed. One time per event, deleted after a day.
+    event_hub_opens: hubViews.rows,
     // RA 10173 (2026-07-17) — Alaga records (guardian-stored, claimed-as-own,
     // and handed-over history) + godparent edges. Consent stamps included.
     alaga_dependents: dependents.rows,

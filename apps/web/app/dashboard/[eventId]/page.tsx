@@ -14,6 +14,9 @@ import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { readHomeChecklist, readHomeHub, readHomeSuppliers } from '@/lib/home-control.server';
 import { composeHomeControl } from './_components/home-control-faces';
 import { startAhead } from '@/lib/start-ahead';
+import { readHubViewers } from '@/lib/whos-here.server';
+import { hubViewsEnabled } from '@/lib/whos-here';
+import { HomeWhosHereCard } from './_components/home-cards/home-whos-here-card';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -663,6 +666,9 @@ export default async function EventHomePage({
   // Every path renders the first screen, so every path awaits it; a refusal still keeps
   // today's colour. 🔒 app/dashboard/[eventId]/the-home-second-reads-start-together.test.ts
   const homeCoverRead = startAhead(homeCoverFor(eventId).catch(() => null));
+  // 👀 WHO'S HERE (owner 2026-10-29) — the guests viewing the Event Hub, ONE call (`event_hub_viewers`), started with
+  // the rest. The team half needs no read: it is the layout's presence channel.
+  const whosHereRead = startAhead(readHubViewers(supabase, eventId));
   // "FOR <NAME>" under the name (owner 22 Oct 2026) — only when this event is for a subject the
   // VIEWER holds (their shop, a loved one; `readForTags` re-reads it under owner = viewer, on the
   // viewer's own client). A refusal is null: no line, never a guessed name.
@@ -1044,6 +1050,7 @@ export default async function EventHomePage({
   /* 🖼 The header wears the Event Hub's main background (owner 2026-10-07); a
      refused read keeps today's colour, never a broken Home. */
   const homeCover = await homeCoverRead;
+  const whosHereCard = <HomeWhosHereCard eventId={eventId} initial={await whosHereRead} hubEnabled={hubViewsEnabled()} />;
   /*
     🎛 THE CONTROL ROW'S FACTS (owner-approved 2026-10-24) — every number from the reader the page already ran:
     the countdown from `homeFacts`, the guests from `rosterStats` (the Guests summary's own counts), the money from the
@@ -1087,6 +1094,7 @@ export default async function EventHomePage({
       services={homeServiceRowAll}
       papicLeft={papicNow.count}
       papicCard={papicCard}
+      whosHere={whosHereCard}
       serviceCards={serviceCards}
       apple={
         appleFacts
@@ -1355,6 +1363,8 @@ export default async function EventHomePage({
           }
         />
       ) : null}
+      {/* 👀 Who's here on the day — the team on the dashboard and the guests opening the Event Hub (owner 2026-10-29). */}
+      {dayOfActive ? whosHereCard : null}
 
       {/* Day-of takeover (council verdict Phase 6, owner sign-off #4). On the
        *  day itself the planning stack RECEDES: it is still one tap away, but
@@ -1441,6 +1451,8 @@ export default async function EventHomePage({
             summary={afterSummary}
             storeShell={storeShell}
           />
+
+          {whosHereCard}
 
           {/* 🧾 Your services after the day — the summary's "Your services" card scrolls here (More left
               the bar, owner 22 Oct 2026). None in the store shell, exactly as on the first screen. */}

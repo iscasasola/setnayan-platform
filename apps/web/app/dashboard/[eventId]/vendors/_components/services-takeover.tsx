@@ -126,7 +126,7 @@ const SECTION_HEADING: Record<BudgetBuildTab, string> = {
 const LANDING_CSS =
   '[data-budget-build-takeover] .slcat [id^="slfold-"]{scroll-margin-top:calc(var(--stick-h,150px) + 14px)}' +
   '[data-budget-build-takeover] .slcat [id^="sltile-"]{scroll-margin-top:var(--stick-h,150px)}' +
-  '[data-budget-build-takeover] .slcat .cat.open>.cat-collapse>.cat-body,[data-budget-build-takeover] .slcat .cat.open .cat-body :is(.vcw,[id]){scroll-margin-top:calc(var(--stick-h,150px) + var(--cat-head-h,0px))}' +
+  '[data-budget-build-takeover] .slcat .cat.open>.cat-collapse>.cat-body,[data-budget-build-takeover] .slcat .cat.open .cat-body :is(.vcw,[id]){scroll-margin-top:calc(var(--stick-h,150px) + var(--cat-head-h,0px) + var(--cat-mode-h,0px))}' +
   '[data-budget-build-takeover] [id^="svc-"]{scroll-margin-top:calc(var(--stick-h,150px) + 8px)}' +
   // THE PINNED BLOCK TRAVELS WITH THE APP'S TOP BAR. On a phone the bar slides
   // away as the page scrolls down and back as it scrolls up — `.fd-topwrap` in

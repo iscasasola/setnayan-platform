@@ -14,6 +14,8 @@
  * The old page is preserved at page.flat-list.bak.tsx.txt (not compiled).
  */
 
+import { getInspirationParts } from '@/lib/inspiration-parts-db';
+import { findInspirationPartsByTile } from '@/lib/find-inspiration';
 import { Spotlight } from '@/app/_components/spotlight';
 import { HOST_PAGE_TOURS, HOST_PAGE_TOURS_AFTER } from '@/lib/host-page-tours';
 import { redirect } from 'next/navigation';
@@ -325,7 +327,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // every view runs it.
   after(() => sweepRipeReviewRequests(eventId, user.id));
 
-  const [vendorsRead, eventCtx, photoMaps, changeLines, hubDraft, openDateChange] = await Promise.all([
+  const [vendorsRead, eventCtx, photoMaps, changeLines, hubDraft, openDateChange, inspirationParts] = await Promise.all([
     // MEASURED, so a refused read reaches the screen as "Couldn't load your
     // team" — never as an empty team (lib/event-vendors-read.ts).
     readEventVendorsMeasured(supabase, eventId),
@@ -366,6 +368,9 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     readHubDraft(supabase, eventId).catch(() => null),
     // …and a date change asked of a booked supplier shows here too (answer 10). One row when there is none.
     readOpenDateChange(supabase, eventId).catch(() => ({ ok: false as const })),
+    // 💡 Find's Inspiration box: Admin › Categories' parts (React-cached, 3 small reads), so every category knows its
+    // parts on THIS render and opening one asks nothing (`lib/find-inspiration.ts`).
+    getInspirationParts(),
   ]);
   // ⛔ A REFUSED TEAM READ STOPS HERE. Every surface below — the rows, the
   // bench, Picks, Plans — is built from these rows, and each would draw the
@@ -2298,6 +2303,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         starterTiles={[...popularTilesFor(ev?.event_type ?? null)]}
         // The bottom search, tapped empty: the Find page's own category list.
         findPanel={findPanel}
+        inspirationPartsByTile={findInspirationPartsByTile(inspirationParts)}
         // Each pick's own service card (name · offer · price · what's included).
         // Null = the read failed: the cards then say nothing about a service
         // card, rather than "Price on request".

@@ -20,6 +20,7 @@
  *   &added=1            "Add your own": the row the walk leaves under Catering
  *   &links=fail         …and the claim-link read fails (the rows must say so)
  *   &planned=1          HMUA and Florist are "in your plan" with nobody yet (the row's state word)
+ *   &inspo=fail|none|slow  💡 the Inspiration box's photo read (Catering has 100 photos; `inspiration-fixtures.ts`)
  *   &covers=1           Seda's row also covers Cake and Catering ("Also covers") — the venue's name
  *                       then shows, locked, under those two rows as well (the owner's 2026-10-21 report),
  *                       "· with Reception" — on Find's rows and on Build's lines (?tab=build&covers=1)
@@ -238,6 +239,7 @@ export default async function SuppliersLabPage({
       sheetFail={one('sheetfail') === '1'}
       slow={one('slow') === '1'}
       writeFail={one('writefail') === '1'}
+      inspo={one('inspo')}
       folders={folders}
       eventId={LAB_EVENT}
       standings={LAB_STANDINGS}

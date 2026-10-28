@@ -209,7 +209,16 @@ export type GalleryQuery = {
   q?: string;
   fromServices?: string[];
   near?: string;
+  /**
+   * 💡 FIND'S INSPIRATION BOX (2026-10-29, owner-approved prototype "Find at scale"): "All parts" of one supplier
+   * category is ONE ranged read over every part that category supplies — never one request per part. Every key is
+   * validated like `slotKey`; `slotKey` is then the first of them. ABSENT on every Studio call (unchanged).
+   */
+  slotKeys?: string[];
 };
+
+/** How many parts one "All parts" read may span — a category supplies a handful; this is the ceiling, not a guess. */
+export const GALLERY_MAX_SLOT_KEYS = 40;
 
 /**
  * Clamp an untrusted page request. `null` = this slot has no supplier trade,
@@ -218,6 +227,7 @@ export type GalleryQuery = {
 export function normalizeGalleryQuery(
   input: {
     slotKey?: unknown;
+    slotKeys?: unknown;
     limit?: unknown;
     offset?: unknown;
     q?: unknown;
@@ -226,10 +236,15 @@ export function normalizeGalleryQuery(
   },
   parts: InspirationPartsSnapshot,
 ): GalleryQuery | null {
-  const slotKey = input.slotKey;
-  if (typeof slotKey !== 'string') return null;
-  if (!inspirationPart(parts, slotKey)) return null;
-  if (!slotHasSupplierTrade(slotKey, parts)) return null;
+  const browsable = (k: unknown): k is string =>
+    typeof k === 'string' && Boolean(inspirationPart(parts, k)) && slotHasSupplierTrade(k, parts);
+  let slotKeys: string[] | undefined;
+  if (Array.isArray(input.slotKeys)) {
+    slotKeys = [...new Set(input.slotKeys.filter(browsable))].slice(0, GALLERY_MAX_SLOT_KEYS);
+    if (slotKeys.length === 0) return null;
+  }
+  const slotKey = slotKeys ? slotKeys[0] : input.slotKey;
+  if (!browsable(slotKey)) return null;
 
   const rawLimit = Number(input.limit ?? GALLERY_PAGE_SIZE);
   const limit = Number.isFinite(rawLimit)
@@ -242,6 +257,7 @@ export function normalizeGalleryQuery(
     : 0;
 
   const out: GalleryQuery = { slotKey, limit, offset };
+  if (slotKeys) out.slotKeys = slotKeys;
   const q = cleanGallerySearch(input.q);
   if (q) out.q = q;
   if (isGalleryFromKey(input.from) && input.from !== 'everyone') {
@@ -286,6 +302,10 @@ export type GalleryAsset = {
    * raw event id is not).
    */
   isEventLinked: boolean;
+  /** The part this photo is tagged to (`asset_subtype`) — what Find's tile and viewer name it by. */
+  partKey: string;
+  /** The shop's own name alone (the credit carries the trade too) — what Find's supplier sheet is titled. */
+  shopName: string;
 };
 
 export type GalleryPage = {
@@ -333,6 +353,8 @@ export type RawGalleryRow = {
   ranges: ReadonlyArray<{ slot_id: number; sampled_hex: string }>;
   /** The generated column, not `source_event_id` — see GalleryAsset.isEventLinked. */
   is_event_linked: boolean | null;
+  /** The part the photo is tagged to — selected so a read over several parts credits each row by its own. */
+  asset_subtype?: string | null;
 };
 
 /**
@@ -371,15 +393,18 @@ export function shapeGalleryPage(
     const hexes = [...row.ranges]
       .sort((a, b) => a.slot_id - b.slot_id)
       .map((r) => r.sampled_hex);
+    const partKey = row.asset_subtype || slot;
     assets.push({
       assetId: row.asset_id,
       imageUrl: galleryImageUrl(row.storage_path),
       label: row.label?.trim() ?? '',
-      credit: creditLine(shopName, tradeLabelForCredit(slot, row.shop?.services ?? null, parts)),
+      credit: creditLine(shopName, tradeLabelForCredit(partKey, row.shop?.services ?? null, parts)),
       vendorProfileId,
       shopSlug: row.shop?.business_slug?.trim() || null,
       swatches: hexes.length === 0 ? [] : Array.from({ length: 6 }, (_, i) => hexes[i % hexes.length]!),
       isEventLinked: row.is_event_linked === true,
+      partKey,
+      shopName,
     });
   }
   return { assets, withheld };

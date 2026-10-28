@@ -13,6 +13,8 @@ import { MoreRowStandInCtx, ShortlistCategories } from '@/app/dashboard/[eventId
 import { BenchWritesStandInCtx, type BenchWrites } from '@/app/dashboard/[eventId]/vendors/_components/bench-local';
 import { AddOwnStandInCtx } from '@/app/dashboard/[eventId]/_components/add-your-own-walk';
 import { LAB_CLAIM_URL, LAB_MARKET, labNameMatches, labSheet } from './fixtures';
+import { InspirationReadStandInCtx } from '@/app/dashboard/[eventId]/vendors/_components/find-inspiration';
+import { LAB_INSPIRATION_PARTS, labInspirationRead } from './inspiration-fixtures';
 
 export function LabBench({
   fail,
@@ -20,8 +22,11 @@ export function LabBench({
   slow,
   writeFail,
   claimQrSvg,
+  inspo = null,
   ...props
 }: ComponentProps<typeof ShortlistCategories> & {
+  /** 💡 `&inspo=fail|none|slow` — the Inspiration box's one read (`inspiration-fixtures.ts`). */
+  inspo?: string | null;
   fail: boolean;
   sheetFail: boolean;
   slow: boolean;
@@ -84,7 +89,9 @@ export function LabBench({
         return { results: rows, freeDaysByProfileId: {}, noProbeWindow: true, serviceCardByProfileId: m?.cards ?? {} };
       }}
     >
-      <ShortlistCategories {...props} />
+      <InspirationReadStandInCtx.Provider value={labInspirationRead(inspo)}>
+        <ShortlistCategories inspirationPartsByTile={LAB_INSPIRATION_PARTS} {...props} />
+      </InspirationReadStandInCtx.Provider>
     </MoreRowStandInCtx.Provider>
     </AddOwnStandInCtx.Provider>
     </BenchWritesStandInCtx.Provider>

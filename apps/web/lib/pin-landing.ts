@@ -31,6 +31,10 @@
 export const STICK_LINE_VAR = '--stick-h';
 /** The custom property each OPEN category carries: its own head's measured height, in px. */
 export const CAT_HEAD_VAR = '--cat-head-h';
+/** …and the height of its pinned Services · Inspiration switch, 0 when it has none. */
+export const CAT_MODE_VAR = '--cat-mode-h';
+/** The switch itself (`shortlist-categories.tsx`). */
+export const CAT_MODE_SELECTOR = '.cat-mode';
 
 /** The person took the scroll — the page stops steering it. */
 const HANDS_ON = ['wheel', 'touchstart', 'pointerdown', 'keydown'] as const;
@@ -140,18 +144,23 @@ export function measureOpenHeads(holder: HTMLElement | null, openRow: string, he
   const write = (row: HTMLElement) => {
     const h = row.querySelector<HTMLElement>(head);
     if (h) row.style.setProperty(CAT_HEAD_VAR, `${h.offsetHeight}px`);
+    // 💡 The Services · Inspiration switch pinned under the head (Find's Inspiration box) — part of the same block.
+    const m = row.querySelector<HTMLElement>(CAT_MODE_SELECTOR);
+    row.style.setProperty(CAT_MODE_VAR, `${m ? m.offsetHeight : 0}px`);
   };
   rows.forEach(write);
   if (typeof ResizeObserver === 'undefined') return () => {};
   const ro = new ResizeObserver((entries) => {
     for (const e of entries) {
-      const row = (e.target as HTMLElement).parentElement;
+      const row = (e.target as HTMLElement).closest<HTMLElement>(openRow);
       if (row) write(row);
     }
   });
   for (const row of rows) {
     const h = row.querySelector<HTMLElement>(head);
     if (h) ro.observe(h);
+    const m = row.querySelector<HTMLElement>(CAT_MODE_SELECTOR);
+    if (m) ro.observe(m);
   }
   return () => ro.disconnect();
 }

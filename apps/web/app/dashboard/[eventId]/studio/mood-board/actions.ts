@@ -841,6 +841,8 @@ export async function shareMoodBoardWithVendors(
  */
 export async function fetchGalleryAssets(input: {
   slotKey: string;
+  /** 💡 Find's Inspiration box: every part of one supplier category in ONE read (`GalleryQuery.slotKeys`). */
+  slotKeys?: string[];
   limit?: number;
   offset?: number;
   /** 🔍 Studio's Search ideas › — words · From ▾ · Near ▾ (all cleaned by `normalizeGalleryQuery`). */
@@ -867,18 +869,19 @@ export async function fetchGalleryAssets(input: {
     .from('moodboard_library_assets')
     .select(
       shopFiltered
-        ? `asset_id, label, storage_path, vendor_profile_id, is_event_linked,
+        ? `asset_id, label, storage_path, vendor_profile_id, is_event_linked, asset_subtype,
        shop:vendor_profiles!inner ( business_name, services, business_slug, hq_region ),
        ranges:moodboard_asset_color_ranges ( slot_id, sampled_hex )`
-        : `asset_id, label, storage_path, vendor_profile_id, is_event_linked,
+        : `asset_id, label, storage_path, vendor_profile_id, is_event_linked, asset_subtype,
        shop:vendor_profiles ( business_name, services, business_slug ),
        ranges:moodboard_asset_color_ranges ( slot_id, sampled_hex )`,
       { count: 'exact' },
     )
     .eq('asset_type', SUPPLIER_GALLERY_ASSET_TYPE)
-    .eq('asset_subtype', query.slotKey)
     .not('approved_at', 'is', null)
     .is('retired_at', null);
+  // A board's own shelf by its own key; Find's "All parts" = every part of one category, still ONE ranged read.
+  gallery = query.slotKeys ? gallery.in('asset_subtype', query.slotKeys) : gallery.eq('asset_subtype', query.slotKey);
   // The words are cleaned to letters, digits and spaces (`cleanGallerySearch`), so no filter syntax rides in.
   if (query.q) gallery = gallery.ilike('label', `%${query.q}%`);
   if (query.fromServices) gallery = gallery.overlaps('shop.services', query.fromServices);

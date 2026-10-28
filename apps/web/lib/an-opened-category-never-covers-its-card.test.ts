@@ -22,6 +22,7 @@ import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
 import {
   CAT_HEAD_VAR,
+  CAT_MODE_VAR,
   MAX_RELANDS,
   PIN_LANDING_ATTR,
   STICK_LINE_VAR,
@@ -153,11 +154,12 @@ test('3 · the row lands ON the line; its body and cards clear the line plus the
     'an opened row lands off the line — the head jumps a strip as the page moves',
   );
   assert.doesNotMatch(SHELL, /\[id\^="sltile-"\][^{]*\{scroll-margin-top:calc\(var\(--stick-h,150px\) \+ 14px\)/, 'the 14 px strip is back');
-  const cards = /\.cat\.open>\.cat-collapse>\.cat-body,[^{]*\.cat\.open \.cat-body :is\(\.vcw,\[id\]\)\{scroll-margin-top:calc\(var\(--stick-h,150px\) \+ var\((--[a-z-]+),0px\)\)\}/.exec(
+  const cards = /\.cat\.open>\.cat-collapse>\.cat-body,[^{]*\.cat\.open \.cat-body :is\(\.vcw,\[id\]\)\{scroll-margin-top:calc\(var\(--stick-h,150px\) \+ var\((--[a-z-]+),0px\) \+ var\((--[a-z-]+),0px\)\)\}/.exec(
     SHELL,
   );
   assert.ok(cards, 'a card scrolled to inside an open category lands under its head');
   assert.equal(cards[1], CAT_HEAD_VAR, 'the cards clear a head height nobody writes');
+  assert.equal(cards[2], CAT_MODE_VAR, 'the cards clear a pinned switch height nobody writes');
   // The head pins where the row lands.
   assert.match(BENCH, /\.cat\.open>\.cat-head-row\{position:sticky;top:var\(--stick-h,150px\)/, 'the head pins somewhere the row does not land');
 });

@@ -120,6 +120,9 @@ import { isExploreReplanEnabled } from '@/lib/explore-replan-flag';
 import { benchFolderAnchorId, benchTileAnchorId, scrollBenchAnchor } from '@/lib/bench-anchors';
 import { dropPinRoom, makeRoomToPin } from '@/lib/pin-room';
 import { holdLandingLine, measureOpenHeads } from '@/lib/pin-landing';
+import type { FindCategoryView, FindInspirationPart } from '@/lib/find-inspiration';
+import { FindInspiration } from './find-inspiration';
+import { ISeg, ISegmented } from '@/app/dashboard/[eventId]/website/editor/_components/inspector-kit';
 import { usePublishCoverRing, useCoverHeaderOwnsTheCount } from './cover-ring';
 import { benchSearchScopeForTile } from '@/lib/bench-category-search';
 import { CategorySearchOverlay } from './category-search-overlay';
@@ -372,6 +375,12 @@ const SLCAT_CSS = `
    2026-10-08). Same duration, same curve as the bar, so they travel as one. */
 .slcat .fold.flat .cat.open>.cat-head-row{transition:top .3s ease-out}
 html.dark .slcat .fold.flat .cat.open>.cat-head-row{background:#17160F}
+/* 💡 SERVICES · INSPIRATION pins UNDER the open head (prototype "Find at scale" v2: header → mode switch, one stacked
+   block, heights measured — '--cat-head-h' by 'measureOpenHeads'). The body clips with 'overflow:clip', not 'hidden':
+   'hidden' makes the body a scroll container, and a sticky child of a scroll container sticks to IT, i.e. never. */
+.slcat .fold.flat .cat.open>.cat-collapse>.cat-body{overflow:clip}
+.slcat .fold.flat .cat.open .cat-mode{position:sticky;top:calc(var(--stick-h,150px) + var(--cat-head-h,0px));z-index:3;display:flex;padding:6px 0 8px;background:var(--sn-canvas);transition:top .3s ease-out}
+.slcat .cat-svc[hidden]{display:none}
 .slcat .fold.flat .cat.open .cat-collapse{transition-delay:.12s}
 .slcat .fold.flat .cat.open .cat-ic{animation:slcat-pop 420ms var(--ease)}
 @keyframes slcat-pop{0%{transform:scale(1)}35%{transform:scale(1.28) rotate(-6deg)}60%{transform:scale(.92) rotate(4deg)}100%{transform:scale(1) rotate(0)}}
@@ -2526,6 +2535,9 @@ type SheetDoor = {
 };
 const SheetDoorCtx = createContext<SheetDoor | null>(null);
 
+/** No category has parts (the lab, or a page that passed none). */
+const NO_PARTS: Readonly<Record<string, readonly FindInspirationPart[]>> = {};
+
 /** What each category's marketplace read answered, for this visit. */
 const MORE_SEEN = new Map<string, Awaited<ReturnType<typeof fetchInlineMoreRow>>>();
 
@@ -2561,6 +2573,7 @@ export function ShortlistCategories({
   benchArrangement,
   standings = {},
   findPanel = null,
+  inspirationPartsByTile = NO_PARTS,
 }: {
   /**
    * Unread messages per chat thread for this event, and whether we know them.
@@ -2689,8 +2702,17 @@ export function ShortlistCategories({
    * nothing, as before.
    */
   findPanel?: ReactNode;
+  /**
+   * 💡 THE INSPIRATION BOX (owner 2026-10-29, "where are the inspiration box"; prototype "Find at scale" v2): each
+   * category's parts, worked out once on the server from Admin › Categories (`findInspirationPartsByTile`). A
+   * category with none draws no Services · Inspiration switch.
+   */
+  inspirationPartsByTile?: Readonly<Record<string, readonly FindInspirationPart[]>>;
 }) {
   const router = useRouter();
+  // 💡 Which view each open category shows — Services (the shipped body) or Inspiration. Services stays mounted while
+  // Inspiration shows (`hidden`), so switching back asks nothing again.
+  const [viewByTile, setViewByTile] = useState<Readonly<Record<string, FindCategoryView>>>({});
 
   // ── A PRESS ANSWERS IN PLACE (owner 2026-10-12, `bench-local.ts`) ─────────
   // A removed supplier leaves THIS list at once and for the visit, whatever
@@ -3404,7 +3426,7 @@ export function ShortlistCategories({
   // Each open category carries its own head's height (`--cat-head-h`), so a card scrolled to lands under the head.
   useEffect(
     () => measureOpenHeads(benchRef.current, '.cat.open', ':scope > .cat-head-row'),
-    [openTile, openAll, folded],
+    [openTile, openAll, folded, viewByTile],
   );
   // Nothing open → no room held: the page is its own length again.
   useEffect(() => {
@@ -4037,6 +4059,59 @@ export function ShortlistCategories({
                       ) : null}
                       <div className="cat-collapse">
                         <div className="cat-body">
+                          {/* 💡 SERVICES · INSPIRATION (prototype "Find at scale" v2) — pinned under the head while
+                              the category is open; the head + this switch are one stacked block. */}
+                          {replan && tileOpen && (inspirationPartsByTile[t.tile]?.length ?? 0) > 0 ? (
+                            <div className="cat-mode" data-cat-mode={t.tile}>
+                              <ISegmented label={`${t.label}: services or inspiration`}>
+                                <ISeg
+                                  on={(viewByTile[t.tile] ?? 'services') === 'services'}
+                                  data="services"
+                                  onClick={() => setViewByTile((cur) => ({ ...cur, [t.tile]: 'services' }))}
+                                >
+                                  Services
+                                </ISeg>
+                                <ISeg
+                                  on={viewByTile[t.tile] === 'inspiration'}
+                                  data="inspiration"
+                                  onClick={() => setViewByTile((cur) => ({ ...cur, [t.tile]: 'inspiration' }))}
+                                >
+                                  Inspiration
+                                </ISeg>
+                              </ISegmented>
+                            </div>
+                          ) : null}
+                          {replan && tileOpen && viewByTile[t.tile] === 'inspiration' && inspirationPartsByTile[t.tile]?.length ? (
+                            <FindInspiration
+                              eventId={eventId}
+                              tile={t.tile}
+                              label={t.label}
+                              parts={inspirationPartsByTile[t.tile]!}
+                              onOpenShop={(a) =>
+                                sheetDoor.open({
+                                  vendorId: null,
+                                  vendorProfileId: a.vendorProfileId,
+                                  name: a.shopName,
+                                  nameWithheld: false,
+                                  tile: t.tile,
+                                  categoryLabel: t.label,
+                                  city: null,
+                                  rating: null,
+                                  reviewCount: null,
+                                  verified: true,
+                                  card: null,
+                                  cardsRead: false,
+                                  coverUrl: a.imageUrl,
+                                  stateLine: null,
+                                  fits: [],
+                                  threadId: null,
+                                  booked: false,
+                                  onPage: sheetDoor.onPage(a.vendorProfileId, t.tile),
+                                })
+                              }
+                            />
+                          ) : null}
+                          <div className="cat-svc" hidden={replan && tileOpen && viewByTile[t.tile] === 'inspiration' && Boolean(inspirationPartsByTile[t.tile]?.length)}>
                           {scopedNone && (rowBooked || Boolean(coveredGroup)) ? (
                             <p className="scope-none" role="status">
                               Nobody called “{query.trim()}” in {t.label} yet — add them as your own.
@@ -4346,6 +4421,7 @@ export function ShortlistCategories({
                               ) : null}
                             </div>
                           ) : null}
+                          </div>
                         </div>
                       </div>
                     </div>

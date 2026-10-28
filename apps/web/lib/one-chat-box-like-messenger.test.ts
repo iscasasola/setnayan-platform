@@ -186,8 +186,17 @@ test('the header keeps the counterparty, one muted line with the service, and th
   // 2026-10-28 · the head is ONE shared component (`ChatThreadHead`, owner: "Same as our chatbox"); the way back and
   // the dot separators live in it, the line's content stays with each page.
   const head = read('app/_components/chat/chat-thread-head.tsx');
-  assert.match(head, /<ChatBack href=\{backHref\} \/>/, 'no way back to the list on a phone');
-  assert.match(read('app/_components/chat/chat-back.tsx'), /aria-label="Back to Chats"/, 'the way back lost its name');
+  // The ‹ is the shared BackButton (variant "chat") the page passes in — its link from lib/page-home.ts.
+  assert.match(head, /\{back\}/, 'the shared head has no ‹');
+  const bb = read('app/_components/back-button.tsx');
+  assert.match(bb, /aria-label=\{`Back to \$\{label\}`\}/, 'the chat ‹ lost its name');
+  assert.match(bb, /<ReturnInPlace>/, 'the chat ‹ no longer returns to the list in place');
+  for (const [p, route] of [
+    ['app/dashboard/[eventId]/messages/[threadId]/page.tsx', '/dashboard/[eventId]/messages/[threadId]'],
+    ['app/vendor-dashboard/messages/[threadId]/page.tsx', '/vendor-dashboard/messages/[threadId]'],
+  ] as const) {
+    assert.ok(read(p).includes(`<BackButton route="${route}"`) && /variant="chat"/.test(read(p)), `${p}: the ‹ is not BackButton route= (this page)`);
+  }
   assert.match(head, /\[&>\*\+\*\]:before:content-\['·'\]/, 'the muted line lost its separators');
   for (const [rel, name] of PAGES) {
     const s = read(rel);

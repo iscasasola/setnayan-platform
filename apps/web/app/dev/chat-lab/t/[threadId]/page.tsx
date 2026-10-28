@@ -23,6 +23,7 @@ import { ThreadArrival } from '@/app/_components/chat/thread-arrival';
 import { LabShell } from '@/app/dev/_components/lab-shell';
 import { ChatBox } from '@/app/_components/chat/chat-box';
 import { ChatThreadHead } from '@/app/_components/chat/chat-thread-head';
+import { BackButton } from '@/app/_components/back-button';
 import { ChatSafetyBanner } from '@/app/_components/chat-privacy-notice';
 import { ChatMessageStream } from '@/app/_components/chat-message-stream';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
@@ -87,7 +88,7 @@ async function LabThread({ params, searchParams }: LabProps) {
           <ChatBox
             header={
               <ChatThreadHead
-                backHref="/dev/chat-lab"
+                back={<BackButton href="/dev/chat-lab" label="Chats" variant="chat" />}
                 name={label}
                 initials={initialsFor(label)}
                 line={

@@ -55,8 +55,17 @@ test('an open thread is full screen on a phone: the takeover rule exists and the
 
 test('the head is ‹ · avatar · name · event line · the chat menu — ONE head component, on both sides', () => {
   const head = read('app/_components/chat/chat-thread-head.tsx');
-  assert.match(head, /<ChatBack href=\{backHref\} \/>/, 'the shared head has no ‹');
-  assert.match(read('app/_components/chat/chat-back.tsx'), /aria-label="Back to Chats"/, 'the ‹ lost its name');
+  // The ‹ is the shared BackButton (variant "chat") the page passes in — its link from lib/page-home.ts.
+  assert.match(head, /\{back\}/, 'the shared head has no ‹');
+  const bb = read('app/_components/back-button.tsx');
+  assert.match(bb, /aria-label=\{`Back to \$\{label\}`\}/, 'the chat ‹ lost its name');
+  assert.match(bb, /<ReturnInPlace>/, 'the chat ‹ no longer returns to the list in place');
+  for (const [p, route] of [
+    ['app/dashboard/[eventId]/messages/[threadId]/page.tsx', '/dashboard/[eventId]/messages/[threadId]'],
+    ['app/vendor-dashboard/messages/[threadId]/page.tsx', '/vendor-dashboard/messages/[threadId]'],
+  ] as const) {
+    assert.ok(read(p).includes(`<BackButton route="${route}"`) && /variant="chat"/.test(read(p)), `${p}: the ‹ is not BackButton route= (this page)`);
+  }
   assert.match(head, /rounded-full bg-ink\/\[0\.1\]/, 'the shared head has no avatar beside the name');
   assert.match(head, /\[&>\*\+\*\]:before:content-\['·'\]/, 'the muted line lost its separators');
   for (const p of ['app/dashboard/[eventId]/messages/[threadId]/page.tsx', 'app/vendor-dashboard/messages/[threadId]/page.tsx']) {

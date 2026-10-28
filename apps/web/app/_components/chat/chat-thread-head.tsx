@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { ChatBack } from './chat-back';
 
 /**
  * THE ONE CHAT HEAD — ‹ · avatar · name · one muted line · actions (owner 2026-10-28, verbatim: *"Same as our
@@ -13,7 +12,7 @@ import { ChatBack } from './chat-back';
  * identifying as the name it stands for, and the name here is already the reveal-safe one.
  */
 export function ChatThreadHead({
-  backHref,
+  back,
   name,
   nameHref,
   initials,
@@ -21,8 +20,11 @@ export function ChatThreadHead({
   below,
   actions,
 }: {
-  /** Where ‹ goes — the side's Chats inbox. */
-  backHref: string;
+  /**
+   * The ‹ — the page's own `<BackButton route="<this page>" variant="chat" />` (its link from `lib/page-home.ts`, the
+   * one map of where every back goes), passed in so the route is written in the page that owns it.
+   */
+  back: ReactNode;
   /** The other side, as it may be shown (anonymity-safe), plus any badge beside it. */
   name: ReactNode;
   /** Pressing the name opens this (the supplier's customer card for the event). Absent → plain text. */
@@ -37,7 +39,7 @@ export function ChatThreadHead({
 }) {
   return (
     <>
-      <ChatBack href={backHref} />
+      {back}
       <span
         aria-hidden
         className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-ink/[0.1] text-[13px] font-semibold text-ink/75"

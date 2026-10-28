@@ -98,9 +98,6 @@ export default async function PanoodCameraJoinPage({ params, searchParams }: Pro
            type-neutral and true everywhere. */
         sub="Another operator already joined as this camera. Ask the host to send you a fresh camera link and you'll be good to go."
       >
-        <Link href="/" className="button-secondary">
-          Back to Setnayan
-        </Link>
       </DoorShell>
     );
   }
@@ -130,9 +127,6 @@ export default async function PanoodCameraJoinPage({ params, searchParams }: Pro
         title="This link isn't active."
         sub="The host may have reissued this camera. Ask them for your latest camera link and try again."
       >
-        <Link href="/" className="button-secondary">
-          Back to Setnayan
-        </Link>
       </DoorShell>
     );
   }

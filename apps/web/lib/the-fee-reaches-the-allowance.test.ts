@@ -118,7 +118,9 @@ test('🚨 the pack door is registered — ₱500 lands the pack credits on appr
   );
   const fn = /async function grantVendorPapicPortfolioPack[\s\S]*?\n}/.exec(src)?.[0] ?? '';
   assert.ok(
-    /credits: VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS/.test(fn),
+    // Since the shop wallet (2026-10-23, option A) the pack lands as a SIGNED wallet row (`delta:`), not an event
+    // grant (`credits:`) — either way it must be the declared pack size, never a literal.
+    /(?:credits|delta): VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS\b/.test(fn),
     'the pack grants a number other than the declared pack size',
   );
 });

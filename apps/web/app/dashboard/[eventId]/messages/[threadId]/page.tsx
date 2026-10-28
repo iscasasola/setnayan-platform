@@ -32,6 +32,7 @@ import { ThreadInterestChips } from '@/app/_components/thread-interest-chips';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ChatBox } from '@/app/_components/chat/chat-box';
 import { ChatThreadHead } from '@/app/_components/chat/chat-thread-head';
+import { BackButton } from '@/app/_components/back-button';
 import { ThreadToolPanel } from '@/app/_components/chat/thread-tool-panel';
 import { CoupleThreadToolsSheet } from '@/app/vendor-dashboard/messages/[threadId]/_components/thread-tools-sheet';
 import { CHAT_ATTACH_INPUT_ID } from '@/lib/chat-attach-input-id';
@@ -732,7 +733,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
         <ChatBox
           header={
             <ChatThreadHead
-              backHref={`/dashboard/${eventId}/messages`}
+              back={<BackButton route="/dashboard/[eventId]/messages/[threadId]" params={{ eventId, threadId }} label="Chats" variant="chat" />}
               name={vendorLabel}
               initials={initialsFor(vendorLabel)}
               // ONE muted line: what they asked about · the date · the count this supplier quotes against (Adaptive

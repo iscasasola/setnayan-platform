@@ -96,6 +96,7 @@ import { ChatInfoRailColumn, ChatInfoRailTrigger } from './_components/chat-info
 import { ThreadToolHashReveal } from '@/app/_components/chat/reveal-thread-tool';
 import { ChatBox } from '@/app/_components/chat/chat-box';
 import { ChatThreadHead } from '@/app/_components/chat/chat-thread-head';
+import { BackButton } from '@/app/_components/back-button';
 import { eventChatTitle } from '@/lib/event-chat-title';
 import { ThreadToolPanel } from '@/app/_components/chat/thread-tool-panel';
 import { affordancePanelId } from '@/lib/chat-box-tools';
@@ -1537,7 +1538,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
         <ChatBox
           header={
             <ChatThreadHead
-              backHref="/vendor-dashboard/customers?seg=people"
+              back={<BackButton route="/vendor-dashboard/messages/[threadId]" params={{ threadId }} variant="chat" />}
               // The chat is the EVENT (owner 2026-10-28, "User's event (date)"); pressing it opens the customer card.
               nameHref={`/vendor-dashboard/clients/${thread.event_id}?tab=details`}
               name={

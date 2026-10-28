@@ -27,7 +27,7 @@ import { PAPIC_LADDER_EXPECTED } from '../tests/db/papic-ladder.expected';
 
 const ALL_SHOTS = PAPIC_LADDER_EXPECTED.map(([shots]) => shots);
 
-test('the six anchors reproduce ALL SEVENTEEN live prices, to the peso', () => {
+test('the anchors reproduce ALL SEVENTEEN live prices, to the peso — the editor’s output IS the live ladder', () => {
   for (const [shots, expectedPhp] of PAPIC_LADDER_EXPECTED) {
     assert.equal(
       papicPriceAt(shots),
@@ -38,13 +38,14 @@ test('the six anchors reproduce ALL SEVENTEEN live prices, to the peso', () => {
   }
 });
 
-test('exactly six rungs are typed; the other eleven are computed', () => {
+test('every priced rung is typed — a Save never recomputes the owner’s prices (owner 2026-10-28)', () => {
   const ladder = buildPapicLadder(ALL_SHOTS);
   const anchors = ladder.filter((r) => r.isAnchor);
   const computed = ladder.filter((r) => !r.isAnchor);
 
-  assert.equal(anchors.length, 6, 'the owner types six prices');
-  assert.equal(computed.length, 11, 'eleven rungs must compute');
+  // ⚖ "No use the price agreed and what i inputed": all seventeen are typed; was six typed, eleven computed.
+  assert.equal(anchors.length, PAPIC_LADDER_EXPECTED.length, 'the owner types every price');
+  assert.equal(computed.length, 0, 'no rung may compute — it would overwrite a typed (App Store) price on Save');
   assert.equal(
     anchors.length + computed.length,
     PAPIC_LADDER_EXPECTED.length,
@@ -56,12 +57,12 @@ test('exactly six rungs are typed; the other eleven are computed', () => {
   );
 });
 
-test('the per-credit rate steps down through the six bands the owner set', () => {
+test('the per-credit rate never rises through the owner’s ladder', () => {
   // The rate is what an anchor actually controls, so it is asserted directly
   // rather than inferred from the totals.
   const expectedBands: [number, number][] = [
     // 💲 2026-10-28 one-price ladder (was 0.70 · 0.56 · 0.45 · 0.36 · 0.30 · 0.24).
-    [100, 0.95], [2_000, 0.95],
+    [100, 0.95], [500, 0.93], [1_000, 0.929], [2_000, 0.9225],
     [3_000, 0.738], [7_000, 0.738],
     [10_000, 0.595],
     [20_000, 0.4744], [30_000, 0.4744],
@@ -76,14 +77,15 @@ test('the per-credit rate steps down through the six bands the owner set', () =>
   }
 });
 
-test('THE FIFTH ANCHOR IS LOAD-BEARING — dropping it moves two real prices', () => {
+test('AN ANCHOR IS LOAD-BEARING — dropping 20,000 makes it cost two 10,000s', () => {
   // The owner's first cut had four anchors. This is the measurement that bought
   // the fifth, kept as a test so nobody "simplifies" it back.
   const withoutFifth = PAPIC_ANCHORS_DEFAULT.filter(([s]) => s !== 20_000);
 
   // 💲 2026-10-28 one-price ladder (was 9,000 / 13,500 / 7,200 / 10,800 / 9,000).
   assert.equal(papicPriceAt(20_000, withoutFifth), 11_900, '20,000 would inherit 0.595');
-  assert.equal(papicPriceAt(30_000, withoutFifth), 17_850, '30,000 would inherit 0.595');
+  // 30,000 is its own anchor since 2026-10-28, so only 20,000 moves.
+  assert.equal(papicPriceAt(30_000, withoutFifth), 14_232, '30,000 is typed — it does not move');
   assert.equal(papicPriceAt(20_000), 9_488, 'with the fifth anchor it stays ₱9,488');
   assert.equal(papicPriceAt(30_000), 14_232, 'with the fifth anchor it stays ₱14,232');
 

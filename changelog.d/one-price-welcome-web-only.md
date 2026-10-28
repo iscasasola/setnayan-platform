@@ -39,6 +39,10 @@ Owner ruling 2026-10-28 (DECISION_LOG "ONE PRICE EVERYWHERE = THE APP STORE PRIC
   `20271294362939_hub_pro_parts_keep_the_old_cap.sql` adds `event_hub_pro_legacy_part_lines` — the part lines bought
   before 2026-10-28 16:00 UTC and the old ₱5,000 cap (the only place either lives); `eventHubOwnership` applies it
   through `hubOwnershipFrom({ legacy })` with today's status rule. No order is rewritten.
+- **Every Papic rung is typed** (owner, "No use the price agreed and what i inputed"): the admin ladder editor's anchor
+  set is all seventeen priced rungs (`PAPIC_ANCHOR_SHOTS`, seed `PAPIC_ANCHORS_DEFAULT` = his prices), so a Save never
+  recomputes them — the 500 and 1,000 rungs are App Store prices. The guard still asserts the editor's output equals
+  the live ladder, to the peso.
 
-SPEC IMPACT: Implements DECISION_LOG 2026-10-28 "ONE PRICE EVERYWHERE" + "THE ONE PRICE — APP STORE = WEBSITE"; corpus rows added 2026-10-28 for "THE REST OF THE PAPIC WEB LADDER × ~1.32" and "EVENT HUB PRO PART-HOLDERS KEEP THEIR FULL PRO" (no corpus edit needed — the rows already
+SPEC IMPACT: Implements DECISION_LOG 2026-10-28 "ONE PRICE EVERYWHERE" + "THE ONE PRICE — APP STORE = WEBSITE"; corpus rows added 2026-10-28 for "THE REST OF THE PAPIC WEB LADDER × ~1.32" "EVENT HUB PRO PART-HOLDERS KEEP THEIR FULL PRO" and "EVERY PAPIC RUNG IS TYPED" (no corpus edit needed — the rows already
 records the ruling; open owner items listed in the PR).

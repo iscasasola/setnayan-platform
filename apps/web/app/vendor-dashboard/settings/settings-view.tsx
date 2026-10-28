@@ -55,6 +55,7 @@ export function SettingsView({
 
         <div className="border-t border-ink/10" data-settings-fold="notifications">
           <Fold
+            anchor="notifications"
             title="Notifications"
             line={unread > 0 ? `${formatCount(unread)} new` : 'Nothing new'}
             lead={<span className="mr-1 flex">{ic(Bell)}</span>}

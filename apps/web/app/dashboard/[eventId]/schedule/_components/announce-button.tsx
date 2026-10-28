@@ -27,7 +27,7 @@
  */
 
 import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Megaphone, Send } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { sendCoordinatorBroadcast } from '../../_actions/day-of-broadcast';
@@ -73,7 +73,9 @@ export function AnnounceButton({
   recent: CoordinatorBroadcastItem[] | null;
 }) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  // 📣 `?announce=1` — the supplier's "Message everyone" door (S9, owner 2026-10-29) lands with the sheet open.
+  const arrivedToAnnounce = useSearchParams()?.get('announce') === '1';
+  const [open, setOpen] = useState(arrivedToAnnounce);
   const [text, setText] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);

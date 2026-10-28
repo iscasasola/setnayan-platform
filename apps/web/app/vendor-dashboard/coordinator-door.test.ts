@@ -116,16 +116,17 @@ test('2 · Today draws "Events you run" only when the live read has a row', () =
 
 test('3 · "Open their event" and the Coordinator pill — only for an event THIS person runs, on both shells', () => {
   const card = src('app/vendor-dashboard/clients/[eventId]/page.tsx');
+  // (2026-10-29: `.some` → `.find`, so the pill can say WHICH seat — Coordinator or Co-host — from the same row.)
   assert.match(
     card,
-    /const runsThisEvent = \(await eventsYouRunP\)\.events\.some\(\(e\) => e\.eventId === eventId\)/,
+    /const runThisEvent = \(await eventsYouRunP\)\.events\.find\(\(e\) => e\.eventId === eventId\) \?\? null;\s*const runsThisEvent = runThisEvent !== null;/,
     'the button is not decided by the live read for THIS event',
   );
   const mounts = [...card.matchAll(/<OpenTheirEvent\b/g)].length;
   const gated = [...card.matchAll(/runsThisEvent \? \(?\s*(?:<div[^>]*>\s*)?<OpenTheirEvent\b/g)].length;
   assert.equal(mounts, 2, 'expected one door per shell (flag-off action row, flag-on header)');
   assert.equal(gated, mounts, 'a door is drawn without runsThisEvent');
-  assert.match(card, /runsThisEvent \? \(\s*<Badge tone="quiet" data="coordinator">Coordinator<\/Badge>/);
+  assert.match(card, /runsThisEvent \? \(\s*<Badge tone="quiet" data="coordinator">\{runThisEvent\?\.seatWord \?\? 'Coordinator'\}<\/Badge>/);
   const btn = src('app/vendor-dashboard/clients/[eventId]/_components/open-their-event.tsx');
   assert.match(btn, /href=\{`\/dashboard\/\$\{eventId\}`\}/, 'the door is not the shipped event dashboard');
   assert.match(btn, /min-h-11/, 'the door is under 44 px');
@@ -164,6 +165,11 @@ test('4 · the coordinating line renders only for a seat-admitted coordinator wi
 test('5 · no new permission path — the shipped window, the hosts’ switch, the person’s own session', () => {
   const rule = src('lib/events-you-run.ts');
   assert.match(rule, /permissionsWithinWindow\(row\.permissions_json/, 'the live rule does not apply the shipped window');
+  // 👥 (owner 2026-10-29) A co-host seat is a run seat only through the SHIPPED full-co-host rule (the SQL mirror),
+  // and still inside the shipped window — never a new kind list of our own.
+  assert.match(rule, /if \(!row\.role_subtype \|\| !seatIsFullCohost\(row\.role_subtype\)\) return false;/, 'a non-co-host seat slips through');
+  assert.match(rule, /RUN_SEAT_ROLES: readonly string\[\] = \[COORDINATOR_SEAT_ROLE, \.\.\.FULL_COHOST_SEAT_KINDS\]/);
+  assert.match(src('lib/events-you-run.server.ts'), /\.in\('role_subtype', \[\.\.\.RUN_SEAT_ROLES\]\)/, 'the read asks for other seats');
   assert.match(rule, /coordinatorHasHostAccess\(areaCells\(perms\)\)/, 'the live rule ignores the hosts’ switch');
   assert.match(rule, /href: `\/dashboard\/\$\{ev\.event_id\}`/, 'a row opens somewhere other than the event dashboard');
   const read = src('lib/events-you-run.server.ts');

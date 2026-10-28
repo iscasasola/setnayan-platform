@@ -6,6 +6,7 @@
  * It draws the REAL supplier components, so what it shows is what ships.
  *
  *   ?easy=setup&docs=none|checking|fix&gbb=0..3   🧰 a NEW SHOP's six steps done in place (owner 2026-10-28)
+ *                     &coarse=1  🔢 an /open-shop shop ([coarse, leaf]) — ONE service, three cards (owner 2026-10-29)
  *   ?easy=<moment>&sup=<supplier>   THE SIMPLER TODAY (owner APPROVE 2026-10-14) on the prototype's own people —
  *                     moments normal · setup · ask · eventday · locked · hallask · agreed; suppliers parish · caterer ·
  *                     studio · venue (`today-easy-lab.tsx`; the same assembly + screen as the page)
@@ -47,7 +48,7 @@
  *                     only · upload or "Choose from your shop's photos" · &sent=1 one waiting · &sup=stylist|gown
  *                     (`suggest-lab.tsx`, stand-in writes; /dev/details-lab?look=1&studio=1&suggest=1 is the couple's side)
  *   ?s=coord-today · coord-events · coord-customer  🗂 the coordinator's door (owner 2026-10-28, `coord-lab.tsx`);
- *                     &none=1 the no-access case
+ *                     &none=1 the no-access case   &cohost=1 👥 a supplier who is only a co-host (owner 2026-10-29)
  *   ?s=details · page · collections  &who=parish|caterer|studio — Your details · Your page · Your collections (step 5,
  *                     `page-lab.tsx`; &draft=1 on page seeds a waiting change)
  *
@@ -296,7 +297,7 @@ function TodayLab({ state, toast, earned }: { state: TodayState; toast: string |
 export default async function SupplierLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ thumb?: string; s?: string; toast?: string; q?: string; lane?: string; add?: string; open?: string; next?: string; mpage?: string; easy?: string; sup?: string; who?: string; draft?: string; library?: string; view?: string; sent?: string; rail?: string; logo?: string; gift?: string; invited?: string; shell?: string; wallet?: string; port?: string; spot?: string; none?: string; unread?: string; docs?: string; gbb?: string; earned?: string; door?: string; block?: string; gear?: string }>;
+  searchParams: Promise<{ thumb?: string; s?: string; toast?: string; q?: string; lane?: string; add?: string; open?: string; next?: string; mpage?: string; easy?: string; sup?: string; who?: string; draft?: string; library?: string; view?: string; sent?: string; rail?: string; logo?: string; gift?: string; invited?: string; shell?: string; wallet?: string; port?: string; spot?: string; none?: string; unread?: string; cohost?: string; asked?: string; coarse?: string; at?: string; docs?: string; gbb?: string; earned?: string; door?: string; block?: string; gear?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -305,11 +306,11 @@ export default async function SupplierLabPage({
     q.shell === '1' ? <SupplierLabShell measure={measure}>{node}</SupplierLabShell> : node;
   if (q.easy && (EASY_MOMENTS as readonly string[]).includes(q.easy)) {
     const sup = (EASY_SUPPLIERS as readonly string[]).includes(q.sup ?? '') ? (q.sup as EasySupplier) : 'studio';
-    return wrap(<TodayEasyLab sup={sup} moment={q.easy as EasyMoment} actions={ACTIONS} library={q.library === '1'} rail={q.rail === 'service' || q.rail === 'docs' ? q.rail : null} logoNext={q.logo === '1'} gift={q.gift === 'running' || q.gift === 'soon' ? q.gift : null} docs={q.docs === 'checking' || q.docs === 'fix' ? q.docs : 'none'} gbb={q.gbb ? Number(q.gbb) : 2} />, 'today');
+    return wrap(<TodayEasyLab sup={sup} moment={q.easy as EasyMoment} actions={ACTIONS} library={q.library === '1'} rail={q.rail === 'service' || q.rail === 'docs' ? q.rail : null} logoNext={q.logo === '1'} gift={q.gift === 'running' || q.gift === 'soon' ? q.gift : null} docs={q.docs === 'checking' || q.docs === 'fix' ? q.docs : 'none'} gbb={q.gbb ? Number(q.gbb) : 2} coarse={q.coarse === '1'} />, 'today');
   }
   if (q.s && (COORD_STATES as readonly string[]).includes(q.s)) {
     /* 🗂 The coordinator's door (owner 2026-10-28) — `coord-lab.tsx`; `&none=1` = no live coordinator access. */
-    return <CoordLab state={q.s as CoordState} none={q.none === '1'} unread={q.unread === '1'} actions={ACTIONS} />;
+    return <CoordLab state={q.s as CoordState} none={q.none === '1'} unread={q.unread === '1'} cohost={q.cohost === '1'} at={q.at} actions={ACTIONS} />;
   }
   if (q.s === 'suggest') {
     /* 🤝🖼 A booked florist on a lab couple's Palette (prototype frames 1–2) — `&sent=1` one photo already waiting;
@@ -355,7 +356,7 @@ export default async function SupplierLabPage({
     return wrap(<DatesLab state={q.s as DatesState} toast={q.toast} open={q.open} gear={q.gear === '1'} />, 'wide');
   }
   if (q.s && (PAGE_LAB_STATES as readonly string[]).includes(q.s)) {
-    return wrap(<PageLab state={q.s as PageLabState} who={q.who} draft={q.draft === '1'} invited={q.invited === '1'} port={q.port} />, 'own');
+    return wrap(<PageLab state={q.s as PageLabState} who={q.who} draft={q.draft === '1'} invited={q.invited === '1'} asked={q.asked === '1'} port={q.port} />, 'own');
   }
   if (q.s && (MONEY_STATES as readonly string[]).includes(q.s)) {
     return wrap(<MoneyLab state={q.s as MoneyState} next={q.next} open={q.open} mpage={q.mpage} wallet={q.wallet} />, 'reading');

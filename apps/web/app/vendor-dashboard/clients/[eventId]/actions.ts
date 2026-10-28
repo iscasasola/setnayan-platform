@@ -372,16 +372,27 @@ export async function createClientNote(formData: FormData) {
     typeof remindRaw === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(remindRaw) ? remindRaw : null;
 
   // RLS (vendor_client_notes_org_all) enforces the org scope on WITH CHECK.
-  await supabase.from('vendor_client_notes').insert({
+  const { error } = await supabase.from('vendor_client_notes').insert({
     vendor_profile_id: profile.vendor_profile_id,
     event_id: eventId,
     author_user_id: user.id,
     body: (body as string).trim().slice(0, 2000),
     remind_at: remindAt,
   });
+  noteSaved(eventId as string, error, 'createClientNote');
+}
 
+/**
+ * 💾 A NOTE SAVES IN PLACE (owner 2026-10-29: "it should not jump to old pages but everything working similar to event
+ * dashboard"). Success re-reads the card where it stands — no navigation, so the screen never resets. A refused write
+ * is SAID: back to the notes with `?note=error`, which the notes list prints ("Couldn’t save that — try again").
+ */
+function noteSaved(eventId: string, error: { message: string } | null, where: string): void {
+  if (error) {
+    console.error(`[supabase-error] clients/actions: ${where}`, error);
+    redirect(vendorClientSurfaceHref(eventId, 'notes', { shellOn: isRelationshipWorkspaceEnabled(), query: { note: 'error' } }));
+  }
   revalidatePath(`/vendor-dashboard/clients/${eventId}`);
-  redirect(vendorClientSurfaceHref(eventId, 'notes', { shellOn: isRelationshipWorkspaceEnabled() }));
 }
 
 /** Toggle a note's done/reopened state. Team-shared: any org member may flip. */
@@ -400,13 +411,11 @@ export async function toggleClientNoteDone(formData: FormData) {
   if (!user) redirect('/login');
 
   // RLS scopes the UPDATE to the caller's own org's notes — no extra gate here.
-  await supabase
+  const { error } = await supabase
     .from('vendor_client_notes')
     .update({ done_at: done ? new Date().toISOString() : null, updated_at: new Date().toISOString() })
     .eq('note_id', noteId);
-
-  revalidatePath(`/vendor-dashboard/clients/${eventId}`);
-  redirect(vendorClientSurfaceHref(eventId, 'notes', { shellOn: isRelationshipWorkspaceEnabled() }));
+  noteSaved(eventId as string, error, 'toggleClientNoteDone');
 }
 
 /** Delete a private note. Team-shared: any org member may remove any org note. */
@@ -424,10 +433,8 @@ export async function deleteClientNote(formData: FormData) {
   if (!user) redirect('/login');
 
   // RLS scopes the DELETE to the caller's own org's notes.
-  await supabase.from('vendor_client_notes').delete().eq('note_id', noteId);
-
-  revalidatePath(`/vendor-dashboard/clients/${eventId}`);
-  redirect(vendorClientSurfaceHref(eventId, 'notes', { shellOn: isRelationshipWorkspaceEnabled() }));
+  const { error } = await supabase.from('vendor_client_notes').delete().eq('note_id', noteId);
+  noteSaved(eventId as string, error, 'deleteClientNote');
 }
 
 export async function suggestScheduleChange(formData: FormData) {
@@ -598,8 +605,8 @@ export async function createVendorChallengeAction(formData: FormData) {
     }
   }
 
+  // 💾 Saved in place — the revalidated list shows the new challenge (its own feedback, as before); no navigation.
   revalidatePath(`/vendor-dashboard/clients/${eventId}`);
-  redirect(vendorClientSurfaceHref(eventId, 'brief', { shellOn: isRelationshipWorkspaceEnabled() }));
 }
 
 // ==========================================================================

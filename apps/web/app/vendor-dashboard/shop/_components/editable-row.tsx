@@ -9,7 +9,8 @@ import { Field } from '@/app/_components/forms/field';
 import { FileUpload } from '@/app/_components/file-upload';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import type { BusinessProfileItem } from '@/lib/vendor-profile';
-import { updateVendorProfileField, type FieldSaveResult } from '../../actions';
+import { requestProfileCorrection, updateVendorProfileField, type FieldSaveResult } from '../../actions';
+import type { LockedIdentityFieldKey } from '@/lib/vendor-corrections';
 import { Collapsible } from '../../_components/collapsible';
 
 // Type-only — the leaflet RUNTIME is dynamically imported inside HqAddressControl
@@ -418,6 +419,121 @@ export function ServiceCoverageRow({
           <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
         </Link>
       </div>
+    </li>
+  );
+}
+
+/**
+ * 🏷 A ROW THAT CHANGES BY REQUEST (owner 2026-10-29: "the name of her shop is wrong so i want her to be able to send
+ * a request shop name change"). A filled shop name / address on a shop Setnayan set up — or any verified shop — is
+ * not saved here (`identityLockRefusal` would refuse it). The row shows the value and asks IN PLACE: "Ask to change"
+ * opens one line under it ("What it should be" · Send), which files the SHIPPED request (`requestProfileCorrection` →
+ * `vendor_correction_requests` → /admin/corrections). Sent, it says "Change asked · waiting" and offers nothing twice;
+ * the screen never resets.
+ */
+export function RequestOnlyRow({
+  item,
+  data,
+  field,
+  pending: pendingAtLoad,
+  flat = false,
+}: {
+  item: BusinessProfileItem;
+  data: ProfileFieldData;
+  /** The locked field this row's request is filed under (`ADMIN_SET_UP_ROW_FIELD`). */
+  field: LockedIdentityFieldKey;
+  /** A request for this field is already waiting on Setnayan. */
+  pending: boolean;
+  flat?: boolean;
+}) {
+  const toast = useToast();
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState('');
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+  const pending = pendingAtLoad || sent;
+  const inputId = `ask-${item.key}`;
+
+  async function send() {
+    if (!value.trim()) {
+      toast.error('Tell us what it should say.');
+      return;
+    }
+    const fd = new FormData();
+    fd.set('field_key', field);
+    fd.set('requested_value', value);
+    setSending(true);
+    const res = await requestProfileCorrection(null, fd);
+    setSending(false);
+    if (!res.ok) {
+      toast.error(res.error);
+      return;
+    }
+    toast.success('Sent. Setnayan will review it and let you know.');
+    setSent(true);
+    setOpen(false);
+  }
+
+  return (
+    <li
+      className={flat ? FLAT_ROW : 'overflow-hidden rounded-lg border bg-white'} // no-card-ok: the EditableRow's own shell, beside it in the same list; it opens an ask in place
+      style={flat ? undefined : { borderColor: open ? 'var(--m-orange-3)' : 'var(--m-line)' }}
+      data-editable-row={flat ? 'flat' : undefined}
+      data-request-only={pending ? 'pending' : 'ask'}
+    >
+      <div className={flat ? 'flex min-h-[52px] items-center gap-3 py-2' : 'flex items-center gap-3 p-3'}>
+        <StatusChip ok={item.ok} />
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm" style={{ color: 'var(--m-slate)' }}>
+            {item.label}
+          </span>
+          <RowPreview itemKey={item.key} data={data} />
+        </span>
+        {pending ? (
+          <span className="shrink-0 text-xs" style={{ color: 'var(--m-slate-3)' }} data-request-waiting="">
+            Change asked · waiting
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setOpen((o) => !o)}
+            aria-expanded={open}
+            className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-terracotta-700 transition-colors hover:bg-[color:var(--m-orange-4)]"
+          >
+            {open ? 'Close' : 'Ask to change'}
+          </button>
+        )}
+      </div>
+      <Collapsible open={open && !pending}>
+        <div className={flat ? 'space-y-2 pb-3 pl-9' : 'space-y-2 border-t px-3 pb-3 pt-3'} style={{ borderColor: 'var(--m-line)' }}>
+          <label htmlFor={inputId} className="block text-xs" style={{ color: 'var(--m-slate-3)' }}>
+            What it should be — Setnayan checks it, then changes it for you.
+          </label>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              id={inputId}
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  void send();
+                }
+              }}
+              className="input-field min-w-0 flex-1 text-sm"
+            />
+            <button
+              type="button"
+              onClick={() => void send()}
+              disabled={sending}
+              className="button-primary inline-flex min-h-11 items-center gap-1.5 px-3 text-sm disabled:opacity-50"
+            >
+              {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} aria-hidden /> : null}
+              Send
+            </button>
+          </div>
+        </div>
+      </Collapsible>
     </li>
   );
 }

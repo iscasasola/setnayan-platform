@@ -393,7 +393,7 @@ export function SendRun({
           </>
           ) : null}
         </div>
-        <ActionButton tone="brand" quiet label="Done for now" href={home} data-testid="send-run-done-for-now" />
+        <ActionButton tone="brand" quiet icon={Check} label="Done for now" href={home} data-testid="send-run-done-for-now" />
       </div>
 
       <div className="mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col">{body}</div>

@@ -11,7 +11,7 @@
  */
 import { plusOneHasNoName } from '@/lib/extra-seats';
 import { realNameParts } from '@/lib/seat-placeholder-words';
-import { GROUP_CATEGORY_LABELS, SIDE_LABELS, guestRoleLabel, type GuestRole } from '@/lib/guests';
+import { GROUP_CATEGORY_LABELS, SIDE_LABELS, guestRoleLabel, type GuestGroupCategory, type GuestRole, type GuestSide } from '@/lib/guests';
 import type { RoleNames } from '@/lib/role-names';
 import { formatCount } from '@/lib/format-number';
 
@@ -30,14 +30,14 @@ export type RunGuestPage = {
 type PageRow = {
   guest_id: string;
   role: GuestRole;
-  side: 'bride' | 'groom' | 'both';
-  group_category: keyof typeof GROUP_CATEGORY_LABELS;
+  side: GuestSide;
+  group_category: GuestGroupCategory;
   mobile: string | null;
   plus_one_count?: number | null;
   plus_one_of_guest_id?: string | null;
   first_name: string | null;
   last_name: string | null;
-  plus_one_name_confirmed_at: string | null;
+  plus_one_name_confirmed_at?: string | null;
   created_at?: string | null;
 };
 

@@ -19,7 +19,13 @@ import { CoordinatorLevelAsk } from './coordinator-level-ask';
  */
 export async function CoordinatorLevelCard({ eventId, userId }: { eventId: string; userId: string }) {
   const supabase = await createClient();
-  const { data: me } = await eventMemberTypeOnce(supabase, eventId, userId);
+  const { data: me, error: meError } = await eventMemberTypeOnce(supabase, eventId, userId);
+  // Who is looking could not be read — the card is for owners only, so it is not drawn for an unknown viewer (the
+  // layout's own gate, which reads this same answer, has already let them in or not).
+  if (meError) {
+    logQueryError('CoordinatorLevelCard.membership', meError, { event_id: eventId }, 'graceful_degrade');
+    return null;
+  }
   if ((me as { member_type?: string | null } | null)?.member_type !== 'couple') return null;
 
   const { data, error } = await supabase

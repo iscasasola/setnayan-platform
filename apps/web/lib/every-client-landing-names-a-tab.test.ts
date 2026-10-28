@@ -111,7 +111,10 @@ test('every client-page redirect in the clients tree goes through the rule', () 
   // 27 at the time of writing (22 in actions.ts + 5 sibling page bails). The
   // assertion is a FLOOR, not the number — a new action may add more, but
   // silently dropping them all back to literals must not read as a pass.
-  assert.ok(calls >= 27, `expected at least 27 rule-built landings, found ${calls}`);
+  // 2026-10-29 (S8, owner "it should not jump to old pages"): notes and the challenge now SAVE IN PLACE — four success
+  // redirects removed (only the notes' failure still lands, through one `noteSaved` call) — so the floor is 24.
+  // Those saves are held by `clients/[eventId]/the-event-card-saves-in-place.test.ts`, never by this count.
+  assert.ok(calls >= 24, `expected at least 24 rule-built landings, found ${calls}`);
 });
 
 test('a surface resolves to a tab the shell it is aimed at actually renders', () => {

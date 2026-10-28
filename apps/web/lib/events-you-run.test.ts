@@ -11,6 +11,7 @@ import assert from 'node:assert/strict';
 
 import { COORDINATOR_AREAS, type ModeratorPermissions } from './delegate-areas';
 import { COORDINATOR_ON_AREAS } from './people-with-access';
+import { FULL_COHOST_SEAT_KINDS, seatIsFullCohost } from './guest-access';
 import { summarizeEventDecisions } from './event-decisions';
 import {
   NEEDS_NOTHING,
@@ -18,6 +19,7 @@ import {
   needsLine,
   withNeeds,
   COORDINATOR_SEAT_ROLE,
+  RUN_SEAT_ROLES,
   coordinatingWords,
   eventYouRunOf,
   eventsYouRun,
@@ -74,7 +76,9 @@ test('🔑 each way the access ends takes the door away', () => {
     ['never accepted', seat({ accepted_at: null })],
     ['the window after the event closed (7 days)', seat({}, { event_date: '2026-10-20' })],
     ['a helper seat, not the coordinator’s', seat({ role_subtype: 'viewer' })],
-    ['a co-host seat', seat({ role_subtype: 'co_host' })],
+    // (A co-host seat used to be on this list; owner 2026-10-29 widened the door to a live co-host — see below.)
+    ['an unknown seat kind', seat({ role_subtype: 'photographer' })],
+    ['no seat kind at all', seat({ role_subtype: null })],
     ['the event row is not readable', seat({ events: null })],
   ];
   for (const [why, row] of cases) {
@@ -139,4 +143,51 @@ test('⛔ a refused read is said — never “nothing needs you”', () => {
 test('the row carries the event’s date fields for the overdue count', () => {
   const [e] = eventsYouRun([seat({}, { date_candidates: ['2026-12-12'], created_at: '2026-06-01T00:00:00Z' })], NOW, TODAY);
   assert.deepEqual(e!.anchor, { event_type: 'wedding', event_date: '2026-12-12', date_candidates: ['2026-12-12'], date_window_start: null, created_at: '2026-06-01T00:00:00Z' });
+});
+
+/* ── 👥 A LIVE CO-HOST SEAT RUNS THE EVENT TOO (owner 2026-10-29: "This is similar to adding them as a cohost which
+   is already in effect. They only need a way to access it and have that menu for them on their account.") ──────── */
+
+const cohost = (over: Partial<CoordinatorSeatRow> = {}, ev: Partial<NonNullable<CoordinatorSeatRow['events']> & object> = {}) =>
+  seat({ role_subtype: 'co_host', permissions_json: { edit_all: true, checkout: true, invite_hosts: true, remove_hosts: true }, ...over }, ev);
+
+test('👥 a live co-host seat gets the door — row word "Co-host", the same event dashboard', () => {
+  assert.equal(seatRunsTheEvent(cohost(), NOW), true);
+  const [e] = eventsYouRun([cohost()], NOW, TODAY);
+  assert.ok(e);
+  assert.equal(e.href, '/dashboard/e-1');
+  assert.equal(e.line, 'Wedding · Sat, Dec 12 · Co-host');
+  assert.equal(e.seatWord, 'Co-host');
+  // The coordinator's row still says Coordinator.
+  assert.equal(eventsYouRun([seat()], NOW, TODAY)[0]!.seatWord, 'Coordinator');
+  // Every full co-host kind (the SQL `seat_is_full_cohost` mirror) is a run seat; the read asks for each.
+  for (const k of FULL_COHOST_SEAT_KINDS) {
+    assert.equal(seatRunsTheEvent(cohost({ role_subtype: k }), NOW), true, `${k} is a full co-host but gets no door`);
+    assert.ok(RUN_SEAT_ROLES.includes(k), `the read never asks for ${k}`);
+  }
+  assert.ok(RUN_SEAT_ROLES.includes(COORDINATOR_SEAT_ROLE));
+  assert.ok(!RUN_SEAT_ROLES.includes('viewer'), 'a limited helper views — it does not run the event');
+  assert.equal(seatIsFullCohost('viewer'), false);
+});
+
+test('👥 a co-host seat needs no switch — every area is theirs — but each way the seat ends takes the door', () => {
+  // The hosts' coordinator switch is a coordinator thing: a co-host carries no `areas`, and still runs the event.
+  assert.equal(seatRunsTheEvent(cohost({ permissions_json: null }), NOW), true);
+  const cases: Array<[string, CoordinatorSeatRow]> = [
+    ['removed (the guest’s Access set to None)', cohost({ removed_at: '2026-10-20T00:00:00Z' })],
+    ['not joined yet', cohost({ accepted_at: null })],
+    ['the event row is not readable', cohost({ events: null })],
+    ['a week after the event (the list’s limit)', cohost({}, { event_date: '2026-10-20' })],
+  ];
+  for (const [why, row] of cases) {
+    assert.equal(seatRunsTheEvent(row, NOW), false, `${why}: the co-host door is still drawn`);
+    assert.deepEqual(eventsYouRun([row], NOW, TODAY), [], `${why}: still listed`);
+  }
+});
+
+test('👥 after the event a co-host row never claims their access ends — only a coordinator’s does', () => {
+  const [c] = eventsYouRun([cohost({}, { event_date: '2026-10-24' })], NOW, TODAY);
+  assert.equal(c!.status, 'Wrapping up');
+  const [k] = eventsYouRun([seat({}, { event_date: '2026-10-24' })], NOW, TODAY);
+  assert.equal(k!.status, 'Wrapping up · access until Oct 31');
 });

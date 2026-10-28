@@ -2,14 +2,14 @@ import { cache } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { manilaToday } from '@/lib/std-views';
-import { COORDINATOR_SEAT_ROLE, eventsYouRun, withNeeds, type CoordinatorSeatRow, type EventYouRun } from './events-you-run';
+import { RUN_SEAT_ROLES, eventsYouRun, withNeeds, type CoordinatorSeatRow, type EventYouRun } from './events-you-run';
 import { readEventDecisionCounts, readEventUnreadCounts, summarizeEventDecisions, type EventDecisionSummary } from './event-decisions';
 import { checklistOverdueCount, readChecklistItems } from './checklist';
 
 /**
  * events-you-run.server.ts — the ONE read behind the coordinator's door (owner "approved", 2026-10-28).
  *
- * The signed-in person's own coordinator seats, as THEMSELVES (the user client, their RLS — the same row
+ * The signed-in person's own coordinator AND co-host seats (owner 2026-10-29 — `RUN_SEAT_ROLES`), as THEMSELVES (the user client, their RLS — the same row
  * `app/dashboard/[eventId]/layout.tsx` reads to admit them), with the event's name, date and place embedded. The rule
  * that turns a row into a door is pure and lives in `events-you-run.ts`.
  *
@@ -29,7 +29,7 @@ export const readEventsYouRun = cache(
          events:event_id ( event_id, display_name, event_type, event_date, event_end_date, event_date_precision, venue_name, date_candidates, date_window_start, created_at )`,
       )
       .eq('user_id', userId)
-      .eq('role_subtype', COORDINATOR_SEAT_ROLE)
+      .in('role_subtype', [...RUN_SEAT_ROLES])
       .not('accepted_at', 'is', null)
       .is('removed_at', null);
     if (error) {

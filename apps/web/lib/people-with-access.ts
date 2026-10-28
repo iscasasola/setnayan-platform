@@ -31,6 +31,7 @@ import {
 } from './delegate-areas';
 import { delegateAccessHasExpired, delegateAccessLastDay } from './delegate-access-window';
 import { ACCESS_LEVEL_LABEL, CREATOR_WORD, guestAccessState, seatIsFullCohost, type GuestAccessState } from './guest-access';
+import { levelOf, type CoordinatorAccessLevel, type LevelledPermissions } from './coordinator-access-level';
 
 /** The hired planner's seat kind (`lib/planner-seats.ts` PLANNER_SEAT_ROLE). */
 const PLANNER_ROLE = 'wedding_planner_external';
@@ -93,6 +94,12 @@ export type PersonRow = {
   /** A booked planner nobody has invited to plan yet. */
   canInviteAsCoordinator: boolean;
   vendorId: string | null;
+  /**
+   * 🔑 The coordinator's level (owner 2026-10-29, "only TWO levels — Limited and Full"): the hosts' recorded answer,
+   * or 'unanswered' for a coordinator seat not asked yet. Absent for everyone who is not (or was not) the coordinator.
+   * Drives the Limited · Full access pick on the row — the place the Home card's answer stays changeable.
+   */
+  coordinatorLevel?: CoordinatorAccessLevel | 'unanswered';
 };
 
 export type EventWindowInput = {
@@ -155,12 +162,15 @@ export function buildPeopleWithAccess(input: {
     const seat = seats.find((s) => s.userId === h.userId && seatIsFullCohost(s.roleSubtype));
     if (seat) used.add(seat.moderatorId);
     const guest = seat?.guestId ? seatGuests.get(seat.guestId) : undefined;
+    // 🔑 A coordinator the hosts gave FULL access sits on a co-host seat — still named their coordinator.
+    const wasCoordinator = seat ? levelOf({ permissions_json: seat.permissions as LevelledPermissions | null }) : null;
     rows.push({
       key: `host:${h.userId}`,
       kind: 'co_host',
       name: h.name,
       // The creator is the Host; everyone else here is a Co-host (owner 2026-10-04).
       roleWord: h.isCreator ? CREATOR_WORD : 'Co-host',
+      ...(wasCoordinator ? { coordinatorLevel: wasCoordinator, roleWord: 'Coordinator' } : null),
       moderatorId: seat?.moderatorId ?? null,
       guestId: guest?.guestId ?? null,
       access:
@@ -229,6 +239,7 @@ export function buildPeopleWithAccess(input: {
         kind: 'coordinator',
         name,
         roleWord: 'Coordinator',
+        coordinatorLevel: levelOf({ permissions_json: seat.permissions as LevelledPermissions | null }) ?? 'unanswered',
         moderatorId: seat.moderatorId,
         guestId: null,
         access: null,

@@ -308,6 +308,23 @@ export function nextToEarnLine(completedEvents: number | null): string | null {
   return l.next === null ? null : `Next to earn: ${COUNT.format(l.next)} events · ${stepName(l.next)} · ${COUNT.format(l.toGo!)} to go`;
 }
 
+/* ── Shop › How it is going — the badges shelf (owner 2026-10-29) ───────────────────────────────────────────── */
+
+/**
+ * 🏅 THE BADGES ON THE PERFORMANCE PAGE (owner 2026-10-29: *"Their badges will be on the supplier shop performance
+ * page"*): every badge the shop wears today (`shopBadges` — the same pills the shop page and the print file draw) and
+ * the next step with how far it is (`nextToEarnLine`). Honest: `null` facts (the read refused) → no pills and "—",
+ * never "no badges"; an uncounted milestone → "—" for the next step, never "0 to go".
+ */
+export type BadgeShelf = { measured: boolean; pills: ShopBadge[]; next: string };
+
+export function badgeShelf(f: ShopBadgeFacts | null): BadgeShelf {
+  if (f === null) return { measured: false, pills: [], next: '—' };
+  const pills = shopBadges(f);
+  if (f.completedEvents === null) return { measured: true, pills, next: 'Next to earn: —' };
+  return { measured: true, pills, next: nextToEarnLine(f.completedEvents) ?? 'Every milestone earned' };
+}
+
 /* ── "Improves every time" — the Today line ──────────────────────────────────────────────────────────────── */
 
 /**

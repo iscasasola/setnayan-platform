@@ -16,7 +16,8 @@ import type { EarningsView } from '@/lib/vendor-earnings-view';
 import { feeDueCopy, type DueFeeBill, type WaivedFeeCharge } from '@/lib/booking-fee-disclosure';
 import { moneyPicture, moneyWindowOf, moneyYear, type MoneyWindow } from '@/lib/vendor-money';
 import { paginate } from '@/lib/paginate';
-import { CustomersSegments } from '@/app/vendor-dashboard/customers/_components/customers-segments';
+import { CustomersPin } from '@/app/vendor-dashboard/customers/_components/customers-pin';
+import { CustomersSettings } from '@/app/vendor-dashboard/customers/_components/customers-settings';
 import { MoneyView } from '@/app/vendor-dashboard/customers/_components/money-view';
 import { MoneyLog } from '@/app/vendor-dashboard/customers/_components/money-log';
 import { ThumbRow } from '@/components/thumb-row';
@@ -150,9 +151,13 @@ export function MoneyLab({ state, next, open, mpage, wallet: walletState }: { st
   const customers = picture.customers.map((c) => ({ ...c, href: `/dev/supplier-lab?s=people` }));
 
   return (
-    <div className="min-h-screen bg-cream px-4 pb-32 pt-4" data-supplier-lab={state}>
+    <div className="min-h-screen bg-cream px-4 pb-32 pt-4 sm:px-6 lg:px-8" data-supplier-lab={state}>
       <div className="space-y-4">
-        <CustomersSegments seg="money" hrefOf={(s) => (s === 'money' ? base : `/dev/supplier-lab?s=${s}`)} />
+        <CustomersPin
+          seg="money"
+          hrefs={{ people: '/dev/supplier-lab?s=people', dates: '/dev/supplier-lab?s=dates', money: base }}
+          gear={<CustomersSettings body={null} />}
+        />
       </div>
       <MoneyView
         data={{

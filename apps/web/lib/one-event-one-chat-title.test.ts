@@ -32,7 +32,9 @@ test('the same person, two events → two titles (never merged)', () => {
 test('the Customers row, the supplier inbox row and the supplier thread head all read the one formatter', () => {
   for (const rel of [
     'app/vendor-dashboard/customers/_components/customers-roster.tsx',
-    'app/vendor-dashboard/messages/surface.tsx',
+    // 2026-10-28: the supplier inbox (the Messages fold) IS the Customers list now; its archived and closed chats are
+    // named on the Customers page itself.
+    'app/vendor-dashboard/customers/page.tsx',
     'app/vendor-dashboard/messages/[threadId]/page.tsx',
   ]) {
     const s = read(rel);

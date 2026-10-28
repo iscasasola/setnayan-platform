@@ -1,7 +1,12 @@
-import { X } from 'lucide-react';
+import type { ReactNode } from 'react';
+import Link from 'next/link';
+import { ChevronRight, QrCode, X } from 'lucide-react';
 import { Fold } from '@/app/_components/fold';
-import { Badge } from '@/app/_components/badge';
+import { Badge, type BadgeTone } from '@/app/_components/badge';
 import { ConfirmForm } from '@/app/_components/confirm-form';
+import { InfoTip } from '@/app/_components/info-tip';
+import { ActionButton } from '@/components/action-button';
+import { ThreadArchiveToggle } from '@/app/_components/chat/thread-archive-toggle';
 import { ListPager } from '../../_components/list-pager';
 import { SupplierSubmit } from '../../_components/supplier-submit';
 import type { Paged } from '@/lib/paginate';
@@ -26,6 +31,22 @@ import { formatCount } from '@/lib/format-number';
  * shipped `removeBlock` (handed in — this file imports no action).
  */
 
+/**
+ * THEIR ONE-TIME CODE (owner 2026-10-28, "a booked-outside customer's row holds THEIR one-time code ('Send their
+ * code'; Linked / Code sent / Not linked)"). The code is the shipped Locked QR; `vendor_locked_qr_tokens.block_id`
+ * names the outside booking it was made for, and its `status` says whether they used it.
+ *
+ *   · `unread` — the codes could not be read: the row says so and offers nothing (never "Not linked" over a refusal);
+ *   · `none`   — no live code for this booking: "Not linked" · Send their code;
+ *   · `sent`   — a code is waiting to be scanned: "Code sent" · Send again (the same code, shown again to share);
+ *   · `linked` — they scanned it: their event is on Setnayan, booked with this shop.
+ */
+export type OutsideCode =
+  | { state: 'unread' }
+  | { state: 'none' }
+  | { state: 'sent'; token: string; madeAt: string }
+  | { state: 'linked'; usedAt: string | null };
+
 export type OutsideClient = {
   blockId: string;
   name: string;
@@ -35,7 +56,28 @@ export type OutsideClient = {
   schedule: string;
   contact: string | null;
   note: string | null;
+  /** Their one-time code. Absent (an older caller) reads as unread — never as "Not linked". */
+  code?: OutsideCode;
 };
+
+const CODE_BADGE: Record<OutsideCode['state'], { word: string; tone: BadgeTone }> = {
+  unread: { word: 'Outside', tone: 'quiet' },
+  none: { word: 'Not linked', tone: 'quiet' },
+  sent: { word: 'Code sent', tone: 'wait' },
+  linked: { word: 'Linked', tone: 'ok' },
+};
+
+/** "Send their code" opens the SHIPPED one-time-code maker with this booking's day filled and the booking named. */
+export function sendCodeHref(c: Pick<OutsideClient, 'blockId' | 'startDate'>): string {
+  const href = `/vendor-dashboard/invite?mode=locked&date=${c.startDate.slice(0, 10)}&block=${c.blockId}`;
+  return href;
+}
+
+/** "Send again" shows the same code again, ready to share — it never makes a second one. */
+export function sendAgainHref(token: string, blockId: string): string {
+  const href = `/vendor-dashboard/invite?mode=locked&issued=${token}&block=${blockId}`;
+  return href;
+}
 
 function fmtDate(iso: string, thisYear: string | null = null): string {
   return new Date(`${iso.slice(0, 10)}T00:00:00`).toLocaleDateString('en-PH', {
@@ -66,7 +108,10 @@ export function OutsideClientRows({
   removeBlock,
   headed,
   nowMs,
+  openBlock = null,
 }: {
+  /** The booking just added (`?block=`) — its row opens with "Send their code" right there. */
+  openBlock?: string | null;
   /** One page of the shop's outside clients (already searched). */
   paged: Paged<OutsideClient>;
   /** The blocks read could not prove it reached every one. */
@@ -84,12 +129,16 @@ export function OutsideClientRows({
   return (
     <div id="outside" className="scroll-mt-24" data-customers-outside="">
       {headed ? <p className="home-k2 mt-4">Outside Setnayan</p> : null}
-      {paged.items.map((c) => (
-        <div key={c.blockId} className="border-t border-ink/10 first-of-type:border-t-0" data-outside-row="">
+      {paged.items.map((c) => {
+        const code: OutsideCode = c.code ?? { state: 'unread' };
+        const badge = CODE_BADGE[code.state];
+        return (
+        <div key={c.blockId} className="border-t border-ink/10 first-of-type:border-t-0" data-outside-row="" data-outside-code={code.state}>
           <Fold
             title={c.name}
-            line={`${outsideDates(c, nowMs)} · ${c.schedule}`}
+            line={`${outsideDates(c, nowMs)} · ${c.schedule} · booked outside`}
             data="outside-client"
+            defaultOpen={openBlock === c.blockId}
             lead={
               <span
                 aria-hidden
@@ -98,12 +147,13 @@ export function OutsideClientRows({
                 {initialsOf(c.name)}
               </span>
             }
-            aside={<Badge tone="quiet" data="customer-stage">Outside</Badge>}
+            aside={<Badge tone={badge.tone} data="customer-stage">{badge.word}</Badge>}
           >
             <div className="pb-3 pl-[3.75rem] text-[13.5px] text-ink/70">
               <p>Holds {outsideDates(c, nowMs)} on {c.schedule}. Not a Setnayan booking — no chat, no reviews.</p>
               {c.contact ? <p className="mt-1">{c.contact}</p> : null}
               {c.note ? <p className="mt-1 whitespace-pre-wrap text-ink/60">{c.note}</p> : null}
+              <OutsideCodeBlock c={c} code={code} nowMs={nowMs} />
               <ConfirmForm
                 action={removeBlock}
                 title="Remove this outside client?"
@@ -118,7 +168,8 @@ export function OutsideClientRows({
             </div>
           </Fold>
         </div>
-      ))}
+        );
+      })}
       <ListPager paged={paged} param="copage" keepParams={keepParams} hash="outside" noun="outside clients" incomplete={incomplete} />
     </div>
   );
@@ -143,6 +194,131 @@ export function KeptNotesFold({ notes }: { notes: readonly KeptNote[] }) {
             </li>
           ))}
         </ul>
+      </Fold>
+    </div>
+  );
+}
+
+/**
+ * THEIR ONE-TIME CODE, inside the outside booking's row — one line of state (its ⓘ holds how it works) and one button.
+ * Linked says what to do next: their Setnayan booking holds the day now, so this outside entry can go.
+ */
+function OutsideCodeBlock({ c, code, nowMs }: { c: OutsideClient; code: OutsideCode; nowMs?: number }) {
+  if (code.state === 'unread') {
+    return (
+      <p role="status" className="mt-3 text-[13px]" style={{ color: 'rgb(var(--color-warn))' }} data-outside-code-unread="">
+        We couldn&rsquo;t check their one-time code just now. Reload to try again.
+      </p>
+    );
+  }
+  const y = nowMs === undefined ? null : new Date(nowMs + 8 * 3_600_000).toISOString().slice(0, 4);
+  const line =
+    code.state === 'linked'
+      ? code.usedAt
+        ? `They scanned it ${fmtDate(code.usedAt, y)} — booked with you on Setnayan`
+        : 'They scanned it — booked with you on Setnayan'
+      : code.state === 'sent'
+        ? `Made ${fmtDate(code.madeAt, y)} · waiting for them to scan`
+        : 'Not on Setnayan yet';
+  return (
+    <div className="mt-3 border-t border-ink/10 pt-3" data-outside-code-block="">
+      <p className="flex items-center gap-2 text-[14px] font-medium text-ink">
+        <QrCode aria-hidden className="h-4 w-4 text-ink/60" strokeWidth={1.75} />
+        <InfoTip label="Their one-time code" labelClassName="text-[14px] font-medium text-ink" align="start">
+          One code for this customer, and it works once. They scan it and their event joins Setnayan already booked with
+          you — the date, the payments you agreed and your chat come with it. Once it is used, their Setnayan booking
+          holds the day, so you can remove this outside entry.
+        </InfoTip>
+      </p>
+      <p className="mt-0.5 text-[13px] text-ink/60" data-outside-code-line="">
+        {line}
+      </p>
+      {code.state === 'none' ? (
+        <div className="mt-2">
+          <ActionButton tone="brand" main icon={<QrCode aria-hidden strokeWidth={1.9} />} label="Send their code" href={sendCodeHref(c)} />
+        </div>
+      ) : code.state === 'sent' ? (
+        <div className="mt-2">
+          <ActionButton tone="neutral" icon={<QrCode aria-hidden strokeWidth={1.9} />} label="Send again" href={sendAgainHref(code.token, c.blockId)} />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** One chat that is not on the list — archived by you, or closed (turned down, they booked someone else, withdrawn). */
+export type OtherChat = {
+  threadId: string;
+  /** The event's chat name — "Indalecio's Wedding (Dec 18)". */
+  title: string;
+  /** Why it is here — "Archived" · "You turned it down" · "They booked someone else" · "They withdrew" · "An older chat". */
+  why: string;
+  /** Archived by the shop — it can come back to the list. */
+  archived: boolean;
+};
+
+/**
+ * ARCHIVED AND CLOSED CHATS — what the retired Messages fold held that the event list does not (owner 2026-10-28:
+ * the event list IS the messages, so the separate Messages fold is gone; no chat may become unreachable).
+ *
+ *   · every chat that is NOT a row above: the ones the shop archived, and the closed ones — turned down, booked
+ *     someone else, withdrawn, an older chat on the same event. Each opens its chat, full screen.
+ *   · an archived one comes back to the list with the shipped `ThreadArchiveToggle` (archive itself is in each chat's
+ *     ⋮ menu); a new message brings it back on its own.
+ *   · "Why you won and lost" — the shop's own logged outcomes (`InquiryOutcomesRollup`), handed in; drawn only when
+ *     any are logged.
+ *
+ * Drawn only from a read that happened: the page hides it after a refused threads read rather than say "none".
+ */
+export function OtherChatsFold({
+  paged,
+  keepParams,
+  returnTo,
+  rollup = null,
+  incomplete = false,
+}: {
+  paged: Paged<OtherChat>;
+  /** Every param but `opage`. */
+  keepParams: string;
+  /** Where the archive toggle comes back to. */
+  returnTo: string;
+  rollup?: ReactNode;
+  incomplete?: boolean;
+}) {
+  const archived = paged.items.filter((c) => c.archived).length;
+  if (paged.total === 0 && !rollup) return null;
+  return (
+    <div id="chats" className="mt-4 scroll-mt-24 border-t border-ink/10" data-other-chats="">
+      <Fold
+        title="Archived and closed chats"
+        line={`${formatCount(paged.total)} chat${paged.total === 1 ? '' : 's'} not on your list`}
+        data="other-chats"
+        anchor="chats"
+      >
+        <div className="pb-3">
+          {rollup}
+          <ul data-other-chats-list="">
+            {paged.items.map((c) => (
+              <li key={c.threadId} className="flex items-center gap-1 border-t border-ink/10 first:border-t-0" data-other-chat={c.archived ? 'archived' : 'closed'}>
+                <Link
+                  href={`/vendor-dashboard/messages/${c.threadId}`}
+                  className="sn-press grid min-h-[56px] min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-2"
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate text-[15px] font-medium text-ink">{c.title}</span>
+                    <span className="block truncate text-[13px] text-ink/60">{c.why}</span>
+                  </span>
+                  <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-sn-accent" strokeWidth={2} />
+                </Link>
+                {c.archived ? <ThreadArchiveToggle threadId={c.threadId} returnTo={returnTo} archived /> : null}
+              </li>
+            ))}
+          </ul>
+          {archived > 0 ? (
+            <p className="pt-2 text-[12.5px] text-ink/60">A new message brings an archived chat back to your list on its own.</p>
+          ) : null}
+          <ListPager paged={paged} param="opage" keepParams={keepParams} hash="chats" noun="chats" incomplete={incomplete} />
+        </div>
       </Fold>
     </div>
   );

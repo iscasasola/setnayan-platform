@@ -34,6 +34,10 @@ import { CalendarSheet, HallSheet, ShareTeamPick, type DatesService } from './da
  *                calendar. With Named Calendars off: which services share a team (one dropdown each).
  *   QR codes › — the one QR page (Shortlist · Booked one-use, its ledger inside).
  *
+ * 2026-10-28 (owner "okay" on `supplier_in_place_2026-10-28`, "How many a day · Exact time slots · Phone calendar
+ * moved to Customers ⚙"): Your halls, How many a day and More settings LEFT these folds for `DaysSettings` (below),
+ * which Customers ⚙ draws — the same rows and the same actions, moved. Dates keeps Not available · Waiting list · QR.
+ *
  * Server component: every word arrives read; nothing here is fetched.
  */
 
@@ -91,16 +95,8 @@ export function DatesFolds({
   closures,
   closuresIncomplete,
   waitlist,
-  calendars,
-  ceiling,
-  namedCalendars,
-  services,
   qrHref,
-  slotsHref,
-  icsHref,
-  approveFirst,
   blockAdd,
-  venue = false,
   actions,
 }: {
   today: string;
@@ -110,34 +106,14 @@ export function DatesFolds({
   closures: DatesClosure[];
   closuresIncomplete: boolean;
   waitlist: DatesWaitlist;
-  calendars: DatesCalendar[];
-  /** The plan's most events a day (clamped by the action too). */
-  ceiling: number;
-  namedCalendars: boolean;
-  services: DatesService[];
   qrHref: string;
-  /** Exact time slots live on each card in the Shop (every plan since 2026-10-14). */
-  slotsHref: string;
-  /** Every booking as a phone-calendar file. */
-  icsHref: string;
-  /**
-   * Every couple's ask already waits for the shop's yes (the lock handshake is on) — "Approve first" is ON for every
-   * schedule, shown as a state, never a switch that would change nothing (a fake door).
-   */
-  approveFirst: boolean;
   /** The "Mark days not available" button + sheet (`BlockDateAdd`, a client island). */
   blockAdd: ReactNode;
-  /** The shop is a venue (it sells a venue kind, or has a hall) — it may list its halls (owner 2026-10-14 🏛). */
-  venue?: boolean;
   actions: {
     removeBlock: Action;
     updateWaitlistSettings: Action;
     pickWaitlistCouple: Action;
     notifyWaitlistSlot: Action;
-    updatePoolCapacity: Action;
-    createCalendar: Action;
-    editCalendar: Action;
-    reassignCategoryPool: Action;
   };
 }) {
   const back = (fold: string) => (
@@ -147,9 +123,6 @@ export function DatesFolds({
       <input type="hidden" name="return_month" value={month} />
     </>
   );
-  // A venue's halls have their own fold; "How many a day" holds the other schedules.
-  const halls = calendars.filter((c) => c.isHall);
-  const schedules = calendars.filter((c) => !c.isHall);
   const capMax = waitlist.unlimited ? 99 : Math.max(waitlist.tierCap, waitlist.grandfathered, 1);
 
   return (
@@ -296,6 +269,69 @@ export function DatesFolds({
         </Fold>
       </div>
 
+      {/* ── QR CODES › (frames 10 · 40) ── */}
+      <DatesRow
+        data="qr"
+        lead={<RowTile><QrCode strokeWidth={1.75} /></RowTile>}
+        title="QR codes"
+        line="They scan · they are listed"
+        href={qrHref}
+      />
+
+    </div>
+  );
+}
+
+/**
+ * ⚙ TEAMS AND DAYS — the part of Customers ⚙ that shapes the calendar (owner 2026-10-28, prototype `custSettings()`:
+ * "How many a day · Exact time slots · Phone calendar moved to Customers ⚙"). These are the SAME rows Dates drew as
+ * its "Your halls" and "How many a day" folds and "More settings" rows, moved — not redrawn: every write is the shipped
+ * action from `calendar/actions.ts`, and comes back to Customers with the ⚙ still open (`return_fold=capacity` →
+ * `gear=1`, `return_seg` = the view it was opened on).
+ */
+export function DaysSettings({
+  month,
+  seg,
+  calendars,
+  ceiling,
+  namedCalendars,
+  services,
+  slotsHref,
+  icsHref,
+  approveFirst,
+  venue = false,
+  actions,
+}: {
+  month: string;
+  /** The view the ⚙ was opened on — a save comes back to it. */
+  seg: string;
+  calendars: DatesCalendar[];
+  ceiling: number;
+  namedCalendars: boolean;
+  services: DatesService[];
+  slotsHref: string;
+  icsHref: string;
+  approveFirst: boolean;
+  venue?: boolean;
+  actions: {
+    updatePoolCapacity: Action;
+    createCalendar: Action;
+    editCalendar: Action;
+    reassignCategoryPool: Action;
+  };
+}) {
+  const back = (fold: string) => (
+    <>
+      <input type="hidden" name="return_to" value="dates" />
+      <input type="hidden" name="return_fold" value={fold} />
+      <input type="hidden" name="return_month" value={month} />
+      <input type="hidden" name="return_seg" value={seg} />
+    </>
+  );
+  const halls = calendars.filter((c) => c.isHall);
+  const schedules = calendars.filter((c) => !c.isHall);
+  return (
+    <div className="border-t border-ink/10" data-days-settings="">
       {/* ── YOUR HALLS (prototype section 9 "Halls setup") — each hall its own schedule with its guests; free on every
           plan; a card says which halls it uses. ── */}
       {venue ? (
@@ -304,7 +340,7 @@ export function DatesFolds({
             lead={<RowTile><MapPin strokeWidth={1.75} /></RowTile>}
             title="Your halls"
             line={halls.length > 0 ? `${halls.map((h) => h.label).join(' · ')} · free on every plan` : 'Add your first hall · free on every plan'}
-            defaultOpen={open === 'capacity'}
+            defaultOpen
             data="dates-halls"
           >
             <div className="pb-3">
@@ -313,7 +349,7 @@ export function DatesFolds({
                   key={h.poolId}
                   data="hall"
                   lead={<RowTile><MapPin strokeWidth={1.75} /></RowTile>}
-                  title={<HallSheet hall={{ poolId: h.poolId, name: h.name, capacity: h.capacity, seated: h.seated ?? null, standing: h.standing ?? null }} createAction={actions.createCalendar} editAction={actions.editCalendar} month={month} />}
+                  title={<HallSheet hall={{ poolId: h.poolId, name: h.name, capacity: h.capacity, seated: h.seated ?? null, standing: h.standing ?? null }} createAction={actions.createCalendar} editAction={actions.editCalendar} month={month} returnSeg={seg} />}
                   line={hallGuests({ seated: h.seated ?? null, standing: h.standing ?? null }) || 'Add its guests'}
                   badge={{ tone: 'ok', word: 'Free on every plan' }}
                 />
@@ -325,7 +361,7 @@ export function DatesFolds({
                 line="Every plan takes as many a day as you set"
               />
               <div className="mt-3">
-                <HallSheet createAction={actions.createCalendar} editAction={actions.editCalendar} month={month} />
+                <HallSheet createAction={actions.createCalendar} editAction={actions.editCalendar} month={month} returnSeg={seg} />
               </div>
             </div>
           </Fold>
@@ -335,7 +371,7 @@ export function DatesFolds({
       {/* ── HOW MANY A DAY ── (a venue whose schedules are all halls has only Your halls) */}
       {venue && schedules.length === 0 ? null : (
       <div className="border-b border-ink/10" data-dates-fold="capacity">
-        <Fold lead={<RowTile><Users strokeWidth={1.75} /></RowTile>} title="How many a day" line={capacityLine(schedules)} defaultOpen={open === 'capacity'} data="dates-capacity">
+        <Fold lead={<RowTile><Users strokeWidth={1.75} /></RowTile>} title="How many a day" line={capacityLine(schedules)} defaultOpen={!venue} data="dates-capacity">
           <div className="pb-3">
             {schedules.length === 0 ? (
               <p className="py-2 text-[13.5px] text-ink/60" data-dates-not-set="">
@@ -354,7 +390,7 @@ export function DatesFolds({
                         ceiling={ceiling}
                         createAction={actions.createCalendar}
                         editAction={actions.editCalendar}
-                        month={month}
+                        month={month} returnSeg={seg}
                         trigger={c.label}
                       />
                     ) : (
@@ -391,7 +427,7 @@ export function DatesFolds({
             ) : null}
             {namedCalendars ? (
               <div className="mt-3">
-                <CalendarSheet services={services} ceiling={ceiling} createAction={actions.createCalendar} editAction={actions.editCalendar} month={month} />
+                <CalendarSheet services={services} ceiling={ceiling} createAction={actions.createCalendar} editAction={actions.editCalendar} month={month} returnSeg={seg} />
               </div>
             ) : schedules.length > 1 ? (
               <div className="mt-2" data-dates-share-team="">
@@ -405,7 +441,7 @@ export function DatesFolds({
                       value={c.poolId}
                       pools={schedules.map((p) => ({ poolId: p.poolId, label: p.label }))}
                       moveAction={actions.reassignCategoryPool}
-                      month={month}
+                      month={month} returnSeg={seg}
                     />
                   )),
                 )}
@@ -416,19 +452,8 @@ export function DatesFolds({
       </div>
       )}
 
-      {/* ── QR CODES › (frames 10 · 40) ── */}
-      <DatesRow
-        data="qr"
-        lead={<RowTile><QrCode strokeWidth={1.75} /></RowTile>}
-        title="QR codes"
-        line="They scan · they are listed"
-        href={qrHref}
-      />
-
       {/* ── MORE SETTINGS (prototype datesBody) ── */}
-      <p className="home-k2 mt-6" data-dates-more-settings="">
-        More settings
-      </p>
+      
       <DatesRow
         data="slots"
         lead={<RowTile><CalendarClock strokeWidth={1.75} /></RowTile>}

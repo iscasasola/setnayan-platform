@@ -2,7 +2,7 @@
  * THE CHAT ⋮ ROWS WEAR THEIR OWN ICONS (owner 2026-10-29, live in the iPhone app, verbatim: *"when i press the ... on
  * upper right i see quote payments files, etc with the same icon"*). Every link in the thread's ⋮ wore the one ↗.
  *
- *   1. RENDERED: every picture the menu can draw is a different drawing — from each other AND from Report and Block;
+ *   1. RENDERED: every picture the menu can draw is a different drawing — from each other AND from Archive, Report, Block;
  *   2. the menu draws the row's own picture (no shared ↗ is left in the file);
  *   3. on both thread pages, every row the ⋮ is handed names a picture, and no two rows on one page share one.
  */
@@ -12,7 +12,7 @@ import React from 'react';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { Ban, Flag, RotateCcw } from 'lucide-react';
+import { Archive, ArchiveRestore, Ban, Flag, RotateCcw } from 'lucide-react';
 import { stripComments } from './strip-comments';
 
 (globalThis as unknown as { React: unknown }).React = React;
@@ -32,12 +32,12 @@ const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8')
 /** The drawing itself — the SVG's inner shapes, without the attributes every lucide icon shares. */
 const drawing = (Icon: React.ComponentType) => renderToStaticMarkup(React.createElement(Icon)).replace(/^<svg[^>]*>/, '');
 
-test('1 · rendered: every menu picture is its own drawing, and none is Report’s or Block’s', async () => {
+test('1 · rendered: every menu picture is its own drawing, and none is Archive’s, Report’s or Block’s', async () => {
   const { CHAT_MENU_ICONS } = await import('@/app/_components/chat-thread-menu');
   const keys = Object.keys(CHAT_MENU_ICONS) as (keyof typeof CHAT_MENU_ICONS)[];
   assert.ok(keys.length >= 5, `only ${keys.length} pictures`);
   const seen = new Map<string, string>();
-  for (const [name, Icon] of [...keys.map((k) => [k, CHAT_MENU_ICONS[k]] as const), ['report', Flag], ['block', Ban], ['unblock', RotateCcw]] as const) {
+  for (const [name, Icon] of [...keys.map((k) => [k, CHAT_MENU_ICONS[k]] as const), ['archive', Archive], ['unarchive', ArchiveRestore], ['report', Flag], ['block', Ban], ['unblock', RotateCcw]] as const) {
     const d = drawing(Icon as React.ComponentType);
     assert.ok(d.length > 20, `${name} drew nothing`);
     assert.ok(!seen.has(d), `${name} draws the same picture as ${seen.get(d)}`);

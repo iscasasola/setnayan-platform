@@ -296,7 +296,7 @@ function TodayLab({ state, toast, earned }: { state: TodayState; toast: string |
 export default async function SupplierLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ thumb?: string; s?: string; toast?: string; q?: string; lane?: string; add?: string; open?: string; next?: string; mpage?: string; easy?: string; sup?: string; who?: string; draft?: string; library?: string; view?: string; sent?: string; rail?: string; logo?: string; gift?: string; invited?: string; shell?: string; wallet?: string; port?: string; spot?: string; none?: string; unread?: string; docs?: string; gbb?: string; earned?: string }>;
+  searchParams: Promise<{ thumb?: string; s?: string; toast?: string; q?: string; lane?: string; add?: string; open?: string; next?: string; mpage?: string; easy?: string; sup?: string; who?: string; draft?: string; library?: string; view?: string; sent?: string; rail?: string; logo?: string; gift?: string; invited?: string; shell?: string; wallet?: string; port?: string; spot?: string; none?: string; unread?: string; docs?: string; gbb?: string; earned?: string; door?: string; block?: string; gear?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -349,10 +349,10 @@ export default async function SupplierLabPage({
     );
   }
   if (q.s && (PEOPLE_STATES as readonly string[]).includes(q.s)) {
-    return wrap(<PeopleLab variant={q.s} q={q.q} lane={q.lane} toast={q.toast} add={q.add === '1'} />, 'own');
+    return wrap(<PeopleLab variant={q.s} q={q.q} lane={q.lane} toast={q.toast} add={q.add === '1'} door={q.door} block={q.block} gear={q.gear === '1'} />, 'own');
   }
   if (q.s && (DATES_STATES as readonly string[]).includes(q.s)) {
-    return wrap(<DatesLab state={q.s as DatesState} toast={q.toast} open={q.open} />, 'wide');
+    return wrap(<DatesLab state={q.s as DatesState} toast={q.toast} open={q.open} gear={q.gear === '1'} />, 'wide');
   }
   if (q.s && (PAGE_LAB_STATES as readonly string[]).includes(q.s)) {
     return wrap(<PageLab state={q.s as PageLabState} who={q.who} draft={q.draft === '1'} invited={q.invited === '1'} port={q.port} />, 'own');

@@ -15,6 +15,9 @@ import { TIER_CAPS } from '@/lib/vendor-tier-caps';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { pageSavedFrom, type PageSaved } from '@/lib/supplier-page-draft';
 import type { DomainRow } from './actions';
+import { readShopTrackerFacts } from '@/lib/shop-badges.server';
+import { badgeTracker, nextToEarnLine, shopBadges, trackerSummary } from '@/lib/shop-badges';
+import type { BadgeTrackerData } from './_components/badge-tracker';
 
 /**
  * YOUR PAGE — what the page editor needs, read once (simpler supplier dashboard step 5).
@@ -58,6 +61,8 @@ export type PageData = {
   tier: string | null;
   storeShell: boolean;
   plans: PagePlanLine[];
+  /** 🏅 Awards and badges (`lib/shop-badges.ts`), read on every visit — nothing about a badge is stored. */
+  badges: BadgeTrackerData & { summary: string };
 };
 
 type OwnRow = Record<string, unknown> & {
@@ -168,8 +173,10 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
     }),
   ).then((xs) => xs.filter((x): x is { key: string; url: string } => x !== null));
   const shellRead = isStoreShellRequest();
+  // 🏅 The badges' facts — the shop's own id, the service-role client (the public stats views + its own row).
+  const badgesRead = readShopTrackerFacts(vendorId);
 
-  const [own, stats, reviews, stories, domains, vocab, portfolio, storeShell] = await Promise.all([
+  const [own, stats, reviews, stories, domains, vocab, portfolio, storeShell, badgeFacts] = await Promise.all([
     ownRead,
     statsRead,
     reviewsRead,
@@ -178,6 +185,7 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
     vocabRead,
     portfolioRead,
     shellRead,
+    badgesRead,
   ]);
 
   const microsite = micrositeFromRow(own);
@@ -230,5 +238,11 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
     tier,
     storeShell,
     plans: pagePlanLines(),
+    badges: {
+      summary: trackerSummary(badgeFacts),
+      pills: shopBadges(badgeFacts),
+      next: nextToEarnLine(badgeFacts.completedEvents),
+      rows: badgeTracker(badgeFacts),
+    },
   };
 }

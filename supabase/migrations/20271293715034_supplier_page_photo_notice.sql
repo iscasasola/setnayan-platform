@@ -293,17 +293,18 @@ BEGIN
   END IF;
 
   IF n.removed_at IS NULL THEN
-    UPDATE public.supplier_page_photo_notices
+    UPDATE public.supplier_page_photo_notices sn
        SET removed_at = NOW(), removed_by = 'guest'
-     WHERE notice_id = n.notice_id;
+     WHERE sn.notice_id = n.notice_id;
   END IF;
 
   -- Pull the ref whether or not the notice was already closed: a Remove must
   -- never leave the photo on the page because an earlier close did not.
-  UPDATE public.vendor_profiles
-     SET portfolio_r2_keys = array_remove(portfolio_r2_keys, n.page_ref)
-   WHERE vendor_profile_id = n.vendor_profile_id
-     AND n.page_ref = ANY (COALESCE(portfolio_r2_keys, ARRAY[]::text[]));
+  -- (Qualified: `vendor_profile_id` / `page_ref` are also this function's OUT columns.)
+  UPDATE public.vendor_profiles vp
+     SET portfolio_r2_keys = array_remove(vp.portfolio_r2_keys, n.page_ref)
+   WHERE vp.vendor_profile_id = n.vendor_profile_id
+     AND n.page_ref = ANY (COALESCE(vp.portfolio_r2_keys, ARRAY[]::text[]));
 
   RETURN QUERY SELECT
     CASE WHEN n.removed_at IS NULL THEN 'removed' ELSE 'already' END,

@@ -44,7 +44,7 @@ import { StatusLine } from '@/app/_components/status-line';
  * `href` + `download` stay on the anchor so a click before hydration (or with
  * scripting off) still gets the file the old way.
  */
-export type PrintSaveState = { k: 'idle' } | { k: 'working' } | { k: 'ready'; file: File } | { k: 'saved'; via: 'share' | 'download' } | { k: 'error'; message: string };
+export type PrintSaveState = { k: 'idle' } | { k: 'working' } | { k: 'ready'; file: File } | { k: 'saved'; via: 'share' | 'download'; file: File } | { k: 'error'; message: string };
 type State = PrintSaveState;
 
 /** A phone or tablet that can share this file. A desktop browser that can also
@@ -89,7 +89,7 @@ export function usePrintSave(): { state: PrintSaveState; save: (href: string, fi
     if (canShare(file)) {
       try {
         await navigator.share({ files: [file] });
-        setState({ k: 'saved', via: 'share' });
+        setState({ k: 'saved', via: 'share', file });
         return;
       } catch (e) {
         // Dismissed — they saw the sheet; nothing to say.
@@ -105,7 +105,7 @@ export function usePrintSave(): { state: PrintSaveState; save: (href: string, fi
       }
     }
     downloadBlob(file);
-    setState({ k: 'saved', via: 'download' });
+    setState({ k: 'saved', via: 'download', file });
   };
 
   const save = async (href: string, fileName: string) => {

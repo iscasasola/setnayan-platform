@@ -1,5 +1,6 @@
 'use client';
 
+import { customerLandingHref } from '../../../customers/anchors';
 import Link from 'next/link';
 import { useState } from 'react';
 import {
@@ -129,7 +130,7 @@ export function SendProposalCard({
         {/* Under the builder now (SUP-H): a shop with no template still has
             the builder above, so this must not read as "you cannot quote". */}
         Quote the same thing often?{' '}
-        <Link href="/vendor-dashboard/proposals" className="font-medium text-mulberry underline hover:text-mulberry-600">
+        <Link href={customerLandingHref('proposals')} className="font-medium text-mulberry underline hover:text-mulberry-600">
           Save a quote template
         </Link>{' '}
         and sending it is one tap from any chat.

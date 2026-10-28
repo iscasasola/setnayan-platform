@@ -98,8 +98,8 @@ test('1 · no `<a download>` on an app screen leaves the tap to the web view', (
  * entry can never excuse a different link in the same file — and an entry whose link is gone fails below.
  */
 const PAGES_NOT_FILES: Record<string, string> = {
-  // (2026-10-28: "Print budget" left this list — the owner ruled "signed in": in the app it opens in the app's own view
-  // through `PrintBudgetLink`, which takes over the tap, so the sweep above passes it on its own.)
+  // (2026-10-28: "Print budget" left this list. 2026-10-29: the print page itself is gone — Budget's Share hands the
+  // device a PDF through `usePrintSave` (`ShareBudgetButton`), a button with no href at all.)
 };
 
 test('2 · no plain link points straight at a file route', () => {

@@ -19,6 +19,10 @@
  *   ?state=setnayan  the first supplier is ON Setnayan: Chat opens their thread,
  *                    Record a payment goes to Amount to pay
  *   ?state=traditions a Muslim + Chinese event: the Target's ⓘ carries both notes
+ *
+ * The page's file actions (📤 Share · spreadsheet · calendar — `BudgetFileActions`) sit on top, as on the page; their
+ * files come from `/dev/budget-lab/file` (the REAL PDF / CSV builders over this fixture), never from a route that reads
+ * the database. `?state=failed` → Share says the route's own refusal.
  */
 import { LabShell } from '@/app/dev/_components/lab-shell';
 import { notFound } from 'next/navigation';
@@ -29,6 +33,8 @@ import { bookedBudgetBlock } from '@/lib/booked-budget';
 import { costCategoryOptions } from '@/lib/event-costs';
 import { depositStepHref } from '@/lib/deposit-pay-step';
 import { TraditionNotes } from '@/app/dashboard/[eventId]/budget/_components/tradition-notes';
+import { BudgetFileActions } from '@/app/dashboard/[eventId]/budget/_components/budget-file-actions';
+import { LabBudgetFiles } from './lab-budget-files';
 import { labMoney, LAB_NOW, LAB_PAYMENTS } from './fixture';
 import { LabPageSpotlight } from '@/app/dev/_components/lab-page-spotlight';
 import { TOURS } from '@/lib/tours';
@@ -93,6 +99,12 @@ export default async function BudgetLabPage({
       style={q.shell === '1' ? undefined : { maxWidth: 720, margin: '0 auto', padding: '8px 16px 96px' }}
       data-budget-lab={state}
     >
+      {/* 📤 Budget's REAL file actions (Share · spreadsheet · calendar), their files answered by the lab's stand-in. */}
+      <LabBudgetFiles state={state}>
+        <div className="mb-4">
+          <BudgetFileActions eventId={E} fileSlug="mara-jun" moneyAnswered={state !== 'unread'} />
+        </div>
+      </LabBudgetFiles>
       <BudgetScreen
         eventId={E}
         canEdit={state !== 'view'}

@@ -5,6 +5,8 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { readEventsYouRunWithNeeds } from '@/lib/events-you-run.server';
 import { EventsYouRunScreen } from '../_components/events-you-run-screen';
+import { MessageEveryoneRows } from '../_components/events-you-run-rows';
+import { isCoordinatorP3Enabled } from '@/lib/coordinator-broadcasts-server';
 
 /**
  * /vendor-dashboard/events — 🗂 **Events you run**, the fifth tab (owner "approved", 2026-10-28; DECISION_LOG
@@ -20,10 +22,16 @@ export const dynamic = 'force-dynamic';
 export default async function EventsYouRunPage() {
   const [supabase, user] = await Promise.all([createClient(), getCurrentUser()]);
   if (!user) redirect('/login');
-  const { events, measured } = await readEventsYouRunWithNeeds(supabase, user.id);
+  // 📣 The announcement flag rides beside the one read (no extra round trip): the door shows only where the composer opens.
+  const [{ events, measured }, announceOn] = await Promise.all([
+    readEventsYouRunWithNeeds(supabase, user.id),
+    isCoordinatorP3Enabled().catch(() => false),
+  ]);
   return (
     <div className="mx-auto w-full max-w-6xl tab:max-w-3xl px-4 py-4 sm:px-6 sm:py-10 lg:px-8">
       <EventsYouRunScreen events={events} measured={measured} />
+      {/* 📣 Message everyone — the couple's shipped announcement sheet, for each event they may announce to (S9). */}
+      <MessageEveryoneRows events={events} enabled={announceOn} />
       {events.length === 0 ? (
         <Link
           href="/vendor-dashboard"

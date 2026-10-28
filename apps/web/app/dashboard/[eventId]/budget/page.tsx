@@ -1,6 +1,5 @@
 import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
 import { redirect } from 'next/navigation';
-import { Share, Printer } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { isChineseWedding, isMuslimWedding } from '@/lib/chinese-wedding';
 import { getCurrentUser } from '@/lib/auth';
@@ -33,8 +32,7 @@ import { costCategoryOptions } from '@/lib/event-costs';
 import { depositStepHref } from '@/lib/deposit-pay-step';
 import { paymentDoor, type PaymentDoor } from '@/lib/accepted-quote-terms';
 import { PageMasthead } from '@/app/_components/page-masthead';
-import { SaveFileLink } from '@/app/_components/save-file-link';
-import { PrintBudgetLink } from './_components/print-budget-link';
+import { BudgetFileActions } from './_components/budget-file-actions';
 import { YOUR_TEAM_BUDGET_PART, yourTeamBudgetHref } from '@/lib/pillar-parts';
 import { DeniedState } from '@/app/_components/states/denied-state';
 import { resolveBudgetVisibility } from '@/lib/budget-visibility';
@@ -444,42 +442,9 @@ export default async function BudgetPage({ params, searchParams }: Props) {
         className="scroll-mt-24"
         title="Budget"
         actions={
-          <div className="flex flex-wrap gap-2">
-            {/* 📥 Both files are SAVED, never shown in place — the app's web view ignores `download` and renders a
-                file with no way back (owner 2026-10-27). SaveFileLink: fetch with the session → share sheet / download. */}
-            <SaveFileLink
-              href={`/api/budget/${eventId}/ics`}
-              filename={`setnayan-${budgetFileSlug}-budget.ics`}
-              className="inline-flex items-center gap-2 rounded-md border border-ink/15 bg-white/55 px-4 py-2 text-sm font-medium text-ink backdrop-blur-sm transition hover:border-terracotta/50 hover:text-terracotta-700"
-            >
-              <Share aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-              Export upcoming dates (.ics)
-            </SaveFileLink>
-            {/* SUP-64 · the same books as this page, to print or to open in a
-                spreadsheet. Agreed money only — see lib/budget-export.ts.
-                Offered only when the resolver answered: with no `money` the
-                route can only say "try again", so the button would be a
-                promise the page already knows it cannot keep. */}
-            {money ? (
-              <>
-                <SaveFileLink
-                  href={`/api/budget/${eventId}/export?format=csv`}
-                  filename={`setnayan-${budgetFileSlug}-budget.csv`}
-                  className="inline-flex items-center gap-2 rounded-md border border-ink/15 bg-white/55 px-4 py-2 text-sm font-medium text-ink backdrop-blur-sm transition hover:border-terracotta/50 hover:text-terracotta-700"
-                >
-                  <Share aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                  Budget (.csv)
-                </SaveFileLink>
-                <PrintBudgetLink
-                  href={`/api/budget/${eventId}/export`}
-                  className="inline-flex items-center gap-2 rounded-md border border-ink/15 bg-white/55 px-4 py-2 text-sm font-medium text-ink backdrop-blur-sm transition hover:border-terracotta/50 hover:text-terracotta-700"
-                >
-                  <Printer aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                  Print budget
-                </PrintBudgetLink>
-              </>
-            ) : null}
-          </div>
+          /* 📤 Share (the budget as a PDF) · the spreadsheet · the calendar file — `BudgetFileActions`. Share and the
+             spreadsheet only when the resolver answered: with no `money` the route can only say "try again". */
+          <BudgetFileActions eventId={eventId} fileSlug={budgetFileSlug} moneyAnswered={money !== null} />
         }
       />
 

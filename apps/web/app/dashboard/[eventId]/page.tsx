@@ -18,6 +18,7 @@ import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { AccessRequestsDoorway } from './_components/access-requests-doorway';
+import { CoordinatorLevelCard } from './_components/coordinator-level-card';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowRight, Sparkles, CalendarPlus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -89,6 +90,15 @@ import { DayOfModeGrid } from './_components/day-of-mode/grid';
 import { SetDateNudge } from './_components/set-date-nudge';
 import { readHomeGuide } from './_components/details-guide-home-card';
 import { DayPapicRow, HomeFirstScreen, YourServices } from './_components/home-first-screen';
+/* 🛑 KEEP. WITHOUT THIS LINE HOME'S ⚙ CRASHES HOME (2026-10-29, the fix after #7036). The ⚙ reads Event Settings with a
+   server action (`openEventSettings`) that RETURNS RENDERED ROWS: the Maker's editors (`details-lazy.tsx`,
+   `details-go.tsx`). Next can only send a client component in an action's answer when THIS ROUTE's server files reach
+   it: it builds the route's client manifest from the route's SERVER imports, and the ⚙ reaches the action only from the
+   browser (`import()`), which records nothing. So on a real event the action answered 200 with every editor as an
+   error ("Could not find the module … in the React Client Manifest") and Home fell to "Something on our end didn't
+   work". This side-effect import puts the action, and so the editors it draws, in Home's server graph.
+   🔒 `_components/the-settings-sheet-is-in-homes-graph.test.ts`. */
+import './_components/open-event-settings';
 import { rosterStats } from '@/lib/guest-roster-view';
 import { homeCoverFor } from '@/lib/home-cover.server';
 import { DateChangeDoorway } from './_components/date-change-doorway';
@@ -1306,6 +1316,9 @@ export default async function EventHomePage({
       {/* Self-hiding: renders nothing unless a coordinator is waiting on an
           answer (owner ruling 2026-07-27 — the host decides what to share). */}
       <AccessRequestsDoorway eventId={eventId} />
+      {/* 🔑 "<shop> is your coordinator — what can they do?" — Limited · Full access, once, for a connected
+          coordinator the hosts have not answered for (owner 2026-10-29). Self-hiding; owners only. */}
+      <CoordinatorLevelCard eventId={eventId} userId={user.id} />
       {/* 🗓 "Date change: n of N suppliers answered" — self-hiding: renders
           nothing unless the couple asked booked suppliers to move (owner
           2026-10-01, the clashing-date flow). Couple-only by RLS. */}

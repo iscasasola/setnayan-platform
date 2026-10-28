@@ -239,14 +239,20 @@ test('4 · every link into a print is the page’s — and the guest card’s re
   assert.doesNotMatch(route, /\/dashboard\/\$\{eventId\}\/launch/, 'a print save returns to the Maker again');
 });
 
-test('4 · one door each way inside the app: a print in the Maker loads the page; anything else on the page loads the Maker', () => {
+test('4 · one door each way inside the app: a print in the Maker loads the page; anything else on the page loads the Maker', async () => {
   const shell = read(`${L}/_components/maker-shell.tsx`);
-  assert.match(
-    shell,
-    /const itemElsewhere = hasWork && detailsItem !== null && isPrintsItem\(detailsItem\) !== printsPage \? detailsItem : null;/,
-    'the shell no longer tells a print in the Maker (or a non-print on the Prints page) apart',
-  );
-  assert.match(shell, /const to = detailsItemHref\(eventId, itemElsewhere\);\s*if \(printsPage\) window\.location\.assign\(to\);\s*else window\.location\.replace\(to\);/);
+  assert.match(shell, /usePrintsForward\(eventId, \{ hasWork, printsPage, detailsItem \}\);/, 'the shell no longer forwards an item across the Prints line');
+  const fwd = read(`${L}/_components/prints-forward.ts`);
+  assert.match(fwd, /const to = detailsItemHref\(eventId, itemElsewhere\);\s*if \(printsPage\) window\.location\.assign\(to\);\s*else window\.location\.replace\(to\);/);
+  const { printsItemElsewhere } = await import(`../${L}/_components/prints-forward`);
+  const at = (printsPage: boolean, detailsItem: string | null, hasWork = true) => printsItemElsewhere({ hasWork, printsPage, detailsItem });
+  assert.equal(at(false, 'menu'), 'menu', 'a print in the Maker stays in the Maker');
+  assert.equal(at(false, 'every-print'), 'every-print');
+  assert.equal(at(false, 'names'), null, 'a Maker item leaves the Maker');
+  assert.equal(at(true, 'love-story'), 'love-story', 'a Maker item stays on the Prints page');
+  assert.equal(at(true, 'pass'), null, 'a print leaves the Prints page');
+  assert.equal(at(false, null), null);
+  assert.equal(at(false, 'menu', false), null, 'a viewer with no work is forwarded');
   /* A tab that came back puts a print back only on the Prints page — never the Maker on a print. */
   assert.match(shell, /if \(isDetailsItemKey\(back\.item\) && isPrintsItem\(back\.item\) === printsPage\) setDetailsItem\(back\.item\);/);
   /* …and the two pages keep separate memories. */

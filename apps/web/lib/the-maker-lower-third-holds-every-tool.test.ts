@@ -306,17 +306,16 @@ test('5 · no tool of the lower third links out of the Maker — the known few a
     /* 🚪 AMENDED 25 Oct (owner, over the Leave-the-Maker sheet: *"It just needs to go back to the event's
        dashboard"*): ✕ is a link again — straight to this event's dashboard, no sheet — so the shell is allowed its
        one ✕ (as before 08 Oct). Held exactly by `the-maker-exit-goes-to-the-event.test.ts`. */
-    /* 🖨 …and the R8 forward (2026-10-27): a print opened in the Maker loads the Prints page (`itemElsewhere`), held exactly below. */
-    const seen = linkOuts(src) - (file.endsWith('maker-shell.tsx') ? 2 : 0); // ✕ Exit is the Maker's one way out, in the top nav
+    const seen = linkOuts(src) - (file.endsWith('maker-shell.tsx') ? 1 : 0); // ✕ Exit is the Maker's one way out, in the top nav
     assert.equal(seen, known, `${file}: ${seen} link(s) out of the Maker, ${known} known${KNOWN_LINK_OUTS[file] ? ` (${KNOWN_LINK_OUTS[file]!.why})` : ''}`);
   }
   assert.ok(scanned >= 15, 'the scan is blind');
   // The Maker's way out: ✕ → this event's dashboard, one link and nothing else (`the-maker-exit-goes-to-the-event.test.ts`).
   const shell = read('app/dashboard/[eventId]/launch/_components/maker-shell.tsx');
   assert.equal((shell.match(/<Link\b/g) ?? []).length, 1, 'the shell links out of the Maker somewhere besides ✕');
-  // 🖨 The shell's one page load: the Prints forward — a print in the Maker, anything else on the Prints page (R8).
-  assert.equal((shell.match(/window\.location\.(?:assign|replace)\(/g) ?? []).length, 2, 'the shell loads another page somewhere besides the Prints forward');
-  assert.match(shell, /const to = detailsItemHref\(eventId, itemElsewhere\);\s*if \(printsPage\) window\.location\.assign\(to\);\s*else window\.location\.replace\(to\);/, 'the Prints forward is not the one page load');
+  // 🖨 The R8 forward is no tool: an item crossing to the Prints page (or back) — `prints-forward.ts`, held by
+  // `prints-has-its-own-page.test.ts`. The shell itself loads no page.
+  assert.equal((shell.match(/window\.location\.(?:assign|replace)\(/g) ?? []).length, 0, 'the shell loads another page itself');
   // The scene sheet and the navigator's notes — in the work area.
   const work = read(`${E}/editor-shell.tsx`);
   const inspector = work.slice(work.indexOf('function Inspector('), work.indexOf('function makerSelectionKey('));

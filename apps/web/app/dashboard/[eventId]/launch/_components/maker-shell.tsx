@@ -46,7 +46,7 @@ import {
   type MakerState,
   type MakerVenuePictures,
 } from './maker-context';
-import { DETAILS_FIRST_ITEM, DETAILS_LT_SECTION_FIRST, detailsItemHref, detailsLtSection, isDetailsItemKey, isPrintsItem, movedPageItem, type DetailsItemKey, type DetailsLtSection } from '@/lib/maker-details-items';
+import { DETAILS_FIRST_ITEM, DETAILS_LT_SECTION_FIRST, detailsLtSection, isDetailsItemKey, isPrintsItem, movedPageItem, type DetailsItemKey, type DetailsLtSection } from '@/lib/maker-details-items';
 import { makerCameBackToItself, makerDoorLanding, makerLoadNow, makerResumeKey, noteMakerResume, takeMakerResume } from '@/lib/maker-resume';
 import { makerGuestPages } from '@/lib/maker-guest-pages';
 import { SEE_AS, SEE_AS_EDITING, type SeeAs, type SeeAsRoleRow } from '@/lib/see-as';
@@ -91,6 +91,7 @@ import { MAKER_LT_HEIGHT, MAKER_LT_TOOL } from '@/lib/maker-phone-room';
 import { MAKER_PAGE_STAGES, makerStageLabel } from './maker-bar';
 import { RSVP_STAGE_KEY } from '@/lib/rsvp-stage-shared';
 import { PRINTS_PAGE_LABEL } from '@/lib/prints-page-href';
+import { usePrintsForward } from './prints-forward';
 import { useMakerTool, type MakerEventBar, type MakerProLine, type MakerTool } from './maker-context';
 import type { MakerSide } from './maker-bar';
 import { PickSheetContext, type PickSheet } from '../../website/editor/_components/pick-menu-place';
@@ -332,21 +333,9 @@ export function MakerShell({
   const studioFull = printsPage || (studioTile !== null && studioTile.key !== 'look');
   /** Studio covers the page and the lower third (its home, or a full-screen tool). */
   const studioCovers = studioHomeOn || studioFull;
-  /* 🖨 ONE DOOR EACH WAY (R8, `lib/prints-page.ts`): a print opened in the Maker — an old door, a tour, a tab that
-     came back — is the Prints page's; anything but a print opened on the Prints page is the Maker's. Each lands on
-     its own page AT THE SAME ITEM (`detailsItemHref` names both), so no door leads to a page that no longer holds it. */
-  /* Read from the ITEM alone, never whether Details is still open: the Stages side's landing rule (`makerDoorLanding`)
-     drops the selection in the same commit a cold door names its item, and the forward must not lose that race. The
-     item is only ever set while Details is open (the workspace tells it), so nothing stale can trigger it. */
-  const itemElsewhere = hasWork && detailsItem !== null && isPrintsItem(detailsItem) !== printsPage ? detailsItem : null;
-  /* A whole-page load, never the router: the two are different pages of the app (the Maker's history entry is replaced —
-     it never held a print; the Prints page's is kept, so Back returns to Prints). */
-  useEffect(() => {
-    if (!itemElsewhere) return;
-    const to = detailsItemHref(eventId, itemElsewhere);
-    if (printsPage) window.location.assign(to);
-    else window.location.replace(to);
-  }, [itemElsewhere, printsPage, eventId]);
+  /* 🖨 ONE DOOR EACH WAY (R8): a print opened here loads the Prints page; anything else on the Prints page loads the Maker —
+     never a switch (`./prints-forward.ts`). */
+  usePrintsForward(eventId, { hasWork, printsPage, detailsItem });
   /* 🎓 About the Maker (Page ▾) replays the short tour — never on a first open. */
   const [tour, setTour] = useState(false);
   /* 🔦 …and where the Maker's spotlight is mounted (the page's own tour, `lib/host-page-tours.ts`), About the Maker

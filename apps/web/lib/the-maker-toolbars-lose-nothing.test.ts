@@ -104,7 +104,7 @@ const STRIP: ReadonlyArray<readonly [string, keyof typeof HOME, readonly string[
   // the same Maker page drawing Prints alone — opened from Home's Prints line; a print opened in the Maker forwards there.
   ['Prints (Page ▾ / Settings) — MOVED to its own page, opened from Home', 'printsHome', ['printsPageHref(eventId)', 'PRINTS_PAGE_LABEL']],
   ['…the page: the shipped Maker page, drawing Prints alone', 'printsPage', ['<LaunchHubPage', '[PRINTS_PAGE_SURFACE]: true']],
-  ['…a print opened in the Maker lands there', 'topBar', ['detailsItemHref(eventId, itemElsewhere)']],
+  ['…a print opened in the Maker lands there', 'topBar', ['usePrintsForward(eventId, { hasWork, printsPage, detailsItem })']],
   ['Look — the Look part of Details (Studio › Look; the old bar door went 2026-10-25)', 'topBar', ['MAKER_LOOK_LABEL', "pressDoor('look')"]],
   // ── Scene inspector ──
   ['Background: No background · Full colour · Opaque glass · Frosted glass · Photo · Snippet', 'background', ["'No background'", "'Plain'", "'Opaque'", "'Frosted'", "'Upload media'", "kind: 'snippet'"]],

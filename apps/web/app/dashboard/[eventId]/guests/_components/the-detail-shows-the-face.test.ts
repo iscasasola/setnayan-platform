@@ -29,13 +29,17 @@ import { stripComments } from '@/lib/strip-comments';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const read = (p: string) => stripComments(readFileSync(join(HERE, p), 'utf8'));
 const BODY = read('guest-card-body.tsx');
+/* 🪪 The face is drawn by `GuestCardAvatar`, which lives with the card's head (`guest-card-head.tsx`, 2026-10-28 — so the
+   Guest list can draw the head at the tap) and is re-exported and drawn by the body. */
+const FACE = read('guest-card-head.tsx');
 const ROSTER = readFileSync(resolve(HERE, '..', 'page.tsx'), 'utf8');
 const ROUTE = readFileSync(resolve(HERE, '..', '[guestId]', 'page.tsx'), 'utf8');
 
 test('the body renders a photo when it has one, and initials when it does not', () => {
-  assert.ok(/photoDisplayUrl \?/.test(BODY), 'the face must be conditional on having one');
-  assert.ok(/guestInitials\(guest\)/.test(BODY), 'initials remain the fallback — never a blank circle');
-  assert.ok(/<img/.test(BODY), 'a photo must actually render');
+  assert.ok(/<GuestCardAvatar guest=\{guest\} photoDisplayUrl=\{photoDisplayUrl\}/.test(BODY), 'the body must draw the face it is handed');
+  assert.ok(/photoDisplayUrl \?/.test(FACE), 'the face must be conditional on having one');
+  assert.ok(/guestInitials\(guest\)/.test(FACE), 'initials remain the fallback — never a blank circle');
+  assert.ok(/<img/.test(FACE), 'a photo must actually render');
 });
 
 test('it takes a RESOLVED url, never the stored column', () => {

@@ -79,7 +79,9 @@ import { Count } from '@/components/count';
 import { SnapCarousel, type CarouselCard } from '@/components/snap-carousel';
 import { formatCount } from '@/lib/format-number';
 import { PickMenu, type PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
-import { useInspectorContext } from '@/app/_components/inspector/inspector-column';
+import { InspectorColumn, useInspectorSelect } from '@/app/_components/inspector/inspector-column';
+import { GuestCardAvatar, guestCardEyebrow, guestCardReply, guestCardTitle } from './guest-card-head';
+import type { GuestCardData } from './guest-card-data';
 import { PILL_TRACK_CLASS, PILL_TRACK_GROUND, PillThumb, pillSegClass } from '@/app/_components/pill-selector';
 import { GuestPopup } from './guest-popup';
 import { GUESTS_EXCEL_KEY, useGuestsExcel } from './guests-excel-button';
@@ -393,7 +395,8 @@ export function GuestsScreen(props: GuestsScreenProps) {
   const guests = live.guests as unknown as GuestRow[];
   const router = useRouter();
   const [toast, toastNode] = usePeekToast();
-  const inspector = useInspectorContext();
+  /* ⚡ Only the way in (`useInspectorSelect`) — never which card is open, so opening one does not redraw every row. */
+  const inspector = useInspectorSelect();
   const roleNames = useRoleNames();
   // 📋 The fresh, measured List keeps itself on the phone for the next open (`guest-list-copy.ts`).
   useKeepGuestList(
@@ -687,9 +690,41 @@ export function GuestsScreen(props: GuestsScreenProps) {
   useRowState(thumbRef, [selectMode, gview, q && visible.length === 0, selected.size, view, arrange]);
 
   // ── Open a guest's card — the page's inspector (the same panel as before).
+  /* ⚡ AT THE TAP (guest card opens fast, owner 2026-10-27: ~2 s on his iPhone). The sheet opens with THIS guest's head —
+     face · eyebrow · name · reply, in the card's own words (`guest-card-head.tsx`), from the row already on screen — and
+     only the body waits, for ONE card read (`openGuestCard`), never a re-render of the whole list. Measured in
+     /dev/guests-lab?part=screen&open=1&many=150 (390 × 844, Chromium 4× CPU): tap → name 3,153 ms → one frame.
+     🔒 guests/_components/the-card-opens-at-the-tap.test.ts */
+  const { openGuestCard } = useGuestActions();
   const openCard = (id: string, el: HTMLElement) => {
-    if (inspector) inspector.select(id, el);
-    else router.push(`/dashboard/${eventId}/guests/${id}`);
+    if (!inspector) {
+      router.push(`/dashboard/${eventId}/guests/${id}`);
+      return;
+    }
+    const g = byId.get(id);
+    if (!g) {
+      inspector.select(id, el);
+      return;
+    }
+    const plusOneOf = plusWords.get(id)?.card ?? null;
+    const standIn = standIns.get(id);
+    const title = guestCardTitle(g, plusOneOf);
+    inspector.select(id, el, {
+      load: () => openGuestCard(eventId, id),
+      head: (body) => (
+        <InspectorColumn
+          eyebrow={guestCardEyebrow(g, { hasSides, roleNames, plusOneOf })}
+          title={title}
+          badge={guestCardReply(g, standIn ? ({ representedBy: { name: standIn.proxyName } } as GuestCardData['proxy']) : undefined)}
+          lead={<GuestCardAvatar guest={g} photoDisplayUrl={faceByGuest[id] ?? null} size="head" />}
+          pinSlot
+          swapKey={id}
+          ariaLabel={`${title} details`}
+        >
+          {body}
+        </InspectorColumn>
+      ),
+    });
   };
 
   // ── Remove: the one warning, then the shipped soft delete with Undo.

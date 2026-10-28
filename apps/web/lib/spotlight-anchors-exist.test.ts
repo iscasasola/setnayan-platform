@@ -85,6 +85,9 @@ test('each `tour` prop a home hands on is stamped as a real data-tour (2026-10-2
     [join('app', '_components', 'unread-messages-badge.tsx'), /data-tour=\{tour\}/],
     [join('app', 'vendor-dashboard', '_components', 'open-fold-button.tsx'), /tour=\{tour\}/],
     [join('components', 'action-button.tsx'), /data-tour=\{(?:props|p)\.tour\}/],
+    // 📌 the shared pinned row's doors (People's counts, 2026-10-28) — handed on by People's row.
+    [join('app', '_components', 'pinned-row', 'pinned-row.tsx'), /data-tour=\{doorsTour\}/],
+    [join('app', 'dashboard', '(account)', 'people', '_components', 'people-pinned-row.tsx'), /doorsTour=\{tour\}/],
   ];
   for (const [f, re] of hops) {
     const src = SOURCES.find((x) => x.f === f)?.src;

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "efcefcc0aa",
+  "generatedFromRef": "06a89888f4",
   "routeCount": 479,
   "destinations": 986,
   "actions": 642,
-  "blocks": 7229,
+  "blocks": 7240,
   "routes": {
     "/": {
       "files": [
@@ -5310,6 +5310,9 @@
         "dashboard/(account)/people/_components/find-or-invite.tsx",
         "dashboard/(account)/people/_components/follow-list-view.tsx",
         "dashboard/(account)/people/_components/found-person-card.tsx",
+        "dashboard/(account)/people/_components/group-chat-rows.tsx",
+        "dashboard/(account)/people/_components/people-groups-view.tsx",
+        "dashboard/(account)/people/_components/people-pinned-row.tsx",
         "dashboard/(account)/people/_components/people-roster-view.tsx",
         "dashboard/(account)/people/_components/people-thumb.tsx",
         "dashboard/(account)/people/_components/people-view-picker.tsx",
@@ -5352,7 +5355,6 @@
         "ConfirmForm",
         "ConnectionTreeSection",
         "CopyButton",
-        "CountDoor",
         "DependentKind",
         "DependentsSection",
         "Drawer",
@@ -5363,6 +5365,7 @@
         "FollowRowItem",
         "FoundPersonCard",
         "Frame",
+        "GroupChatRows",
         "GroupsFoldList",
         "GroupsFoldSection",
         "GuestConfirmActions",
@@ -5379,10 +5382,16 @@
         "Layer",
         "LifeStorySection",
         "Link",
+        "MenuSettingsButton",
         "PageMasthead",
         "PeopleFilter",
+        "PeopleGroupRows",
+        "PeopleGroupsView",
+        "PeoplePinnedRow",
         "PeoplePreview",
         "PeopleRosterView",
+        "PeopleSettings",
+        "PeopleSettingsRows",
         "PeopleThumb",
         "PeopleViewPicker",
         "Person",
@@ -5391,6 +5400,7 @@
         "PersonNameLink",
         "PersonRow",
         "PickMenu",
+        "PinnedRow",
         "PlanTogether",
         "Popover",
         "PreviewRow",
@@ -5398,6 +5408,7 @@
         "SamahanPeopleSection",
         "Spotlight",
         "SubmitButton",
+        "SwitchRow",
         "T",
         "ThumbField",
         "ThumbTool",
@@ -5509,6 +5520,7 @@
     },
     "/dashboard/(account)/samahan": {
       "files": [
+        "dashboard/(account)/samahan/_components/mark-group-read.tsx",
         "dashboard/(account)/samahan/actions.ts",
         "dashboard/(account)/samahan/page.tsx"
       ],
@@ -5525,6 +5537,7 @@
         "dashboard/(account)/samahan/[communityId]/_components/member-actions-menu.tsx",
         "dashboard/(account)/samahan/[communityId]/_components/samahan-identity-header.tsx",
         "dashboard/(account)/samahan/[communityId]/_components/samahan-stories.tsx",
+        "dashboard/(account)/samahan/[communityId]/layout.tsx",
         "dashboard/(account)/samahan/[communityId]/page.tsx"
       ],
       "destinations": [
@@ -5553,6 +5566,7 @@
         "HTMLVideoElement",
         "InfoTip",
         "Link",
+        "MarkGroupRead",
         "MediaRecorder",
         "MediaStream",
         "MemberActionsMenu",
@@ -11504,8 +11518,10 @@
         "FoundPersonCard",
         "GroupsFoldList",
         "LabTour",
+        "PeopleGroupsView",
         "PeopleRosterView",
         "RosterPerson",
+        "SecondDegreeStandIn",
         "SpotlightMount",
         "TreeStandIn"
       ]

@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6751
+# facts: 6758
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     573
-#   col       4952
-#   policy    955
+#   tpriv     574
+#   col       4955
+#   policy    956
 #   view      9
-#   func      258
+#   func      260
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -380,6 +380,7 @@ tpriv	public.renewal_reminder_log|authenticated	SIUD
 tpriv	public.reveal_studio_config|anon	SIUD
 tpriv	public.reveal_studio_config|authenticated	SIUD
 tpriv	public.samahan_messages|authenticated	SIU
+tpriv	public.samahan_reads|authenticated	S
 tpriv	public.samahan_stories|authenticated	S
 tpriv	public.scan_events|anon	SIUD
 tpriv	public.scan_events|authenticated	SIUD
@@ -3809,6 +3810,9 @@ col	public.samahan_messages.deleted_at	anon=- authenticated=SIU
 col	public.samahan_messages.id	anon=- authenticated=SIU
 col	public.samahan_messages.message_id	anon=- authenticated=SIU
 col	public.samahan_messages.user_id	anon=- authenticated=SIU
+col	public.samahan_reads.community_id	anon=- authenticated=S
+col	public.samahan_reads.last_read_at	anon=- authenticated=S
+col	public.samahan_reads.user_id	anon=- authenticated=S
 col	public.samahan_stories.clip_bytes	anon=- authenticated=S
 col	public.samahan_stories.community_id	anon=- authenticated=S
 col	public.samahan_stories.created_at	anon=- authenticated=S
@@ -6170,6 +6174,7 @@ policy	public.reveal_studio_config|reveal_studio_config_read_all	mode=PERMISSIVE
 policy	public.samahan_messages|samahan_message_author_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=(user_id = ( SELECT auth.uid() AS uid)) check=(user_id = ( SELECT auth.uid() AS uid))
 policy	public.samahan_messages|samahan_message_member_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((community_id IN ( SELECT current_community_ids() AS current_community_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.samahan_messages|samahan_message_member_write	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((user_id = ( SELECT auth.uid() AS uid)) AND (community_id IN ( SELECT current_community_ids() AS current_community_ids)))
+policy	public.samahan_reads|samahan_reads_self	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(user_id = ( SELECT auth.uid() AS uid)) check=NULL
 policy	public.samahan_stories|samahan_story_member_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(((community_id IN ( SELECT current_community_ids() AS current_community_ids)) AND (expires_at > now())) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.scan_events|admin_writes_scan_events	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=( SELECT is_admin() AS is_admin)
 policy	public.scan_events|couple_reads_scan_events	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
@@ -6628,6 +6633,7 @@ func	public.is_limited_helper(p_event_id uuid)	secdef=yes exec=authenticated sea
 func	public.join_entourage_line(p_event_id uuid, p_anchor uuid, p_joiner uuid)	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.link_creator_offer_deliverable(p_offer_id uuid, p_chapter_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.live_studio_guest_rtc_can_access(p_topic text)	secdef=yes exec=authenticated search_path=public, pg_temp
+func	public.mark_samahan_read(p_community_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.mark_vendor_contact_confirmed(p_application_id uuid, p_channel text)	secdef=yes exec=authenticated search_path=public
 func	public.min_n_ok(p_count integer, p_floor integer)	secdef=no exec=anon,authenticated search_path=UNPINNED
 func	public.moderator_area_level(p_event_id uuid, p_area text)	secdef=yes exec=anon,authenticated search_path=public
@@ -6690,6 +6696,7 @@ func	public.review_is_booked_through_setnayan(p_event_id uuid, p_vendor_profile_
 func	public.review_via_vendor_import(p_event_id uuid, p_vendor_profile_id uuid)	secdef=yes exec=anon,authenticated search_path=public, extensions
 func	public.rls_auto_enable()	secdef=yes exec=anon,authenticated search_path=pg_catalog
 func	public.rotate_guest_qr_token(p_guest_id uuid, p_actor_kind text, p_reason text)	secdef=yes exec=authenticated search_path=public
+func	public.samahan_unread_counts()	secdef=no exec=authenticated search_path=public
 func	public.service_card_records(p_service_ids uuid[])	secdef=yes exec=authenticated search_path=public
 func	public.set_coordinator_colour_access(p_event_id uuid, p_user_id uuid, p_domain text, p_active boolean)	secdef=yes exec=authenticated search_path=public
 func	public.set_entourage_order(p_event_id uuid, p_guest_ids uuid[], p_orders integer[])	secdef=no exec=authenticated search_path=public, pg_temp

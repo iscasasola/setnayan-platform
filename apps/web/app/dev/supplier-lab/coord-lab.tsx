@@ -13,6 +13,8 @@
  *                       a coordinator whose admin-made shop is not set up yet, judged at `at` (default Shop): a held
  *                       page draws "Finish your basic setup first"; an open one (`at=/vendor-dashboard/events`,
  *                       `/vendor-dashboard/customers`) draws its stand-in body, as it would ship
+ *   ?s=coord-badges     🏅 Shop › How it is going's "Your badges" (owner 2026-10-29) — the REAL `YourBadges` over
+ *                       `badgeShelf`; `&unread=1` = the read refused ("Couldn’t load" · "—")
  *   &none=1             the no-access case: every seat Off / expired / removed → no rows, no tab, no button
  *   &cohost=1           👥 a supplier who is ONLY a co-host (owner 2026-10-29): every coordinator seat Off, one live
  *                       co-host seat → the tab, the row ("· Co-host") and the card's Co-host pill, from the same rule
@@ -34,10 +36,12 @@ import { summarizeEventDecisions, type EventDecisionSummary } from '@/lib/event-
 import { CheckinDeskRows } from '@/app/vendor-dashboard/_components/events-you-run-rows';
 import { TodayEasyLab } from './today-easy-lab';
 import { BasicSetupHold } from '@/app/vendor-dashboard/_components/basic-setup-hold';
+import { YourBadges } from '@/app/vendor-dashboard/performance/_components/your-badges';
+import { badgeShelf } from '@/lib/shop-badges';
 import { basicSetupHoldOf } from '@/lib/basic-setup-gate';
 import type { BusinessProfileItem } from '@/lib/vendor-profile';
 
-export const COORD_STATES = ['coord-today', 'coord-events', 'coord-customer', 'coord-hub', 'coord-hold'] as const;
+export const COORD_STATES = ['coord-today', 'coord-events', 'coord-customer', 'coord-hub', 'coord-hold', 'coord-badges'] as const;
 export type CoordState = (typeof COORD_STATES)[number];
 
 const LAB_TODAY = '2026-10-14';
@@ -104,6 +108,22 @@ export function CoordLab({ state, none, unread = false, cohost = false, at, acti
       <CoordLabBar runsEvents={runs.length > 0} />
     </BottomDock>
   );
+  if (state === 'coord-badges') {
+    const shelf = badgeShelf(
+      unread
+        ? null
+        : { verified: true, completedEvents: 46, trusted: { trusted_avg_rating: 4.8, trusted_review_count: 12 }, inBusinessSinceYear: 2019, awards: [], nowYear: 2026 },
+    );
+    return (
+      <div className="min-h-screen bg-cream px-4 pb-32 pt-4" data-coord-lab="badges">
+        <h1 className="sn-h1">How is my business doing</h1>
+        <div className="mt-8">
+          <YourBadges shelf={shelf} />
+        </div>
+        {bar}
+      </div>
+    );
+  }
   if (state === 'coord-hold') {
     const hold = basicSetupHoldOf({ measured: true, canManage: true, verified: false, checklist: { items: LAB_HOLD_CHECKLIST, complete: false } });
     const where = at && at.startsWith('/vendor-dashboard') ? at : '/vendor-dashboard/shop';

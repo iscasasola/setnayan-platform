@@ -37,7 +37,7 @@ export function GroupChatRows({ rows, activityUnreadable = false }: { rows: read
           return (
           <li key={g.communityId}>
             <Link
-              href={`/dashboard/samahan/${g.communityId}`}
+              href={g.labHref ?? `/dashboard/samahan/${g.communityId}`}
               className="flex min-h-[72px] items-center gap-3 border-t border-ink/10 py-2.5 transition-colors hover:bg-ink/[0.03]"
               data-people-group-row=""
               data-group-stories={g.stories > 0 ? String(g.stories) : undefined}

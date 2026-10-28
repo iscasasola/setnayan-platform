@@ -129,7 +129,7 @@ function PeopleSettingsRows({ settings }: { settings: PeopleSettings }) {
         }}
       />
       {error ? (
-        <p role="alert" className="pt-2 text-[13px] text-red-700 dark:text-red-300">
+        <p role="alert" className="pt-2 text-[13px] text-danger-700">
           {error}
         </p>
       ) : null}

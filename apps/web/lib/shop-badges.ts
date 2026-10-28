@@ -322,7 +322,15 @@ export function earnedKeys(f: ShopBadgeFacts): string[] {
   return keys;
 }
 
-export type EarnedNews = { key: string; badge: ShopBadge; sentence: string; keys: string[] };
+/**
+ * `sentence` is the ONE short line Today shows beside the pill ("You earned SETNAYAN Verified" — the pill already wears
+ * the ✓); `detail` is what sits behind its ⓘ (owner rule: title + one short line visible, the rest in the ⓘ). Owner
+ * 2026-10-28 on the phone: the old one-sentence "… ✓ — your tarp and card can show it" was crushed into a 5-line column.
+ */
+export type EarnedNews = { key: string; badge: ShopBadge; sentence: string; detail: string; keys: string[] };
+
+/** What the earned line's ⓘ says — the reason to press Save to print. */
+export const EARNED_DETAIL = 'Your tarp and calling card can show it — Save to print gives you the file.';
 
 /**
  * The ONE thing to say on Today: the newest earned badge the supplier has not yet dismissed — the highest milestone
@@ -348,5 +356,5 @@ export function newlyEarned(f: ShopBadgeFacts, seen: readonly string[]): EarnedN
         ? (shopBadges(f).find((b) => b.key === award) ?? VERIFIED)
         : VERIFIED;
   const what = badge.kind === 'milestone' ? `${COUNT.format(milestone!)} events · ${stepName(milestone!)}` : badge.label;
-  return { key: badge.key, badge, sentence: `You earned ${what} ✓ — your tarp and card can show it`, keys };
+  return { key: badge.key, badge, sentence: `You earned ${what}`, detail: EARNED_DETAIL, keys };
 }

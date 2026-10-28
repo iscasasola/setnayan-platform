@@ -55,11 +55,12 @@ test('4 · the action: own client, own album row, refuses taken-down/unscreened,
   assert.match(a, /if \(!canManageVendor\(role\)\) return \{ ok: false/, 'a helper can change the page');
   assert.match(a, /pagePhotoKeyFor\(vendorId, albumKey\)/);
   assert.match(a, /parseClientRef\(pageRef, vendorOwnedMediaPolicy\(vendorId\)\)/, 'the SEC-1 pin is missing');
-  assert.match(a, /addToPageGallery\(row\.portfolio_r2_keys \?\? \[\], pageRef, max\)/, 'the plan cap is not asked');
+  // Past the free room the photo is PAID from the shop wallet (owner 2026-10-23), by the same commit as the gallery save.
+  assert.match(a, /addToPageGallery\(row\.portfolio_r2_keys \?\? \[\], pageRef, Infinity\)/, 'the page list is not built from the stored one');
   assert.match(a, /vendorQrGuardRejects\(\[photo\.r2_object_key\]\)/, 'the QR guard is skipped');
-  assert.match(a, /\.update\(\{ portfolio_r2_keys: next\.refs \}\)/);
+  assert.match(a, /\.rpc\('shop_portfolio_commit', \{[\s\S]{0,120}p_refs: next\.refs/, 'the page is not written by the priced commit');
   // The copy happens BEFORE the column names it — the page never points at a file that is not there.
-  assert.ok(a.indexOf('r2Copy(') < a.indexOf('portfolio_r2_keys: next.refs'), 'the column is written before the copy');
+  assert.ok(a.indexOf('r2Copy(') < a.indexOf('p_refs: next.refs'), 'the column is written before the copy');
 });
 
 test('5 · every album photo tile carries the one tap', () => {

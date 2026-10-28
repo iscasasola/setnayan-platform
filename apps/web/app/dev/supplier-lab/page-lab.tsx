@@ -390,7 +390,23 @@ function pageFixture(who: Who): PageClientData {
   };
 }
 
-export function PageLab({ state, who: rawWho, draft, invited = false }: { state: PageLabState; who?: string; draft?: boolean; /** 🎁 `&invited=1` on details — fresh from a personal invite (B4). */ invited?: boolean }) {
+/**
+ * 💳 `&port=48|50|spend|short|unread` on collections — the portfolio priced by the free room, then the shop wallet
+ * (frames port-48 · port-50 · port-spend · F3 · F1). Fake refs with flat tile images; nothing is stored.
+ */
+function labPortfolio(who: string, port: string | undefined) {
+  // One flat 1×1 PNG stands in for every photo (a still raster — never an SVG, which would read as a logo draw).
+  const tile = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGO4dm4fAATgAmPxoKUWAAAAAElFTkSuQmCC';
+  const ref = (k: string) => `r2://setnayan-media/vendors/lab-${who}/portfolio/${k}.jpg`;
+  const count = port === '48' || port === 'unread' ? 48 : port ? 50 : 0;
+  const refs = Array.from({ length: count }, (_, i) => ref(`p${i}`));
+  const picked = port === 'spend' || port === 'short' ? ['n1', 'n2', 'n3'].map(ref) : undefined;
+  const displayMap = Object.fromEntries([...refs, ...(picked ?? [])].map((r) => [r, tile]));
+  const walletBalance = port === 'unread' ? null : port === 'short' ? 1 : 128;
+  return { refs, picked, displayMap, walletBalance };
+}
+
+export function PageLab({ state, who: rawWho, draft, invited = false, port }: { state: PageLabState; who?: string; draft?: boolean; /** 🎁 `&invited=1` on details — fresh from a personal invite (B4). */ invited?: boolean; port?: string }) {
   const who: Who = rawWho === 'caterer' || rawWho === 'studio' ? rawWho : 'parish';
   if (state === 'badge-tiers') {
     /* 🏅 Every step's pill (the material climbs) on a light and a dark ground, and the Verified pill on the four
@@ -490,6 +506,7 @@ export function PageLab({ state, who: rawWho, draft, invited = false }: { state:
   }
   const f = FIX[who];
   const saved = pageSavedFrom(DEFAULT_MICROSITE, f.services, []);
+  const lp = labPortfolio(who, port);
   return (
     <>
       <section className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-32 pt-4 sm:px-6" data-supplier-collections="">
@@ -502,9 +519,11 @@ export function PageLab({ state, who: rawWho, draft, invited = false }: { state:
           gallery={
             <GalleryMedia
               vendorProfileId={`lab-${who}`}
-              portfolioRefs={[]}
-              portfolioDisplayMap={{}}
+              portfolioRefs={lp.refs}
+              portfolioDisplayMap={lp.displayMap}
               portfolioMax={PORTFOLIO_FREE_BASE}
+              walletBalance={lp.walletBalance}
+              labPicked={lp.picked}
               galleryVideoLinks={[]}
               igConfigured={false}
               igConnection={null}

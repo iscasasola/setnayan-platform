@@ -5,8 +5,8 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRoleForProfile, canManageVendor } from '@/lib/vendor-role';
-import { portfolioPhotoCap, portfolioOverCapMessage, PORTFOLIO_ALLOWANCE_UNREAD_SAVE } from '@/lib/vendor-tier-caps';
-import { allowanceForCap, readPortfolioAllowance } from '@/lib/portfolio-allowance.server';
+import { randomUUID } from 'node:crypto';
+import { portfolioShortText } from '@/lib/shop-portfolio-credits';
 import { R2_BUCKETS, r2Copy } from '@/lib/r2';
 import { parseR2Ref } from '@/lib/nsfw-screen';
 import { parseClientRef, vendorOwnedMediaPolicy } from '@/lib/r2-client-ref';
@@ -20,8 +20,8 @@ export type PutOnPageResult = { ok: true; text: string } | { ok: false; error: s
 /**
  * PUT THIS PHOTO ON MY PAGE (owner 2026-10-15, DECISION_LOG "SIX OWNER ANSWERS" (3)) — one tap from a photo in the
  * shop's private album (`vendor_papic_portfolio_photos`). Copies the photo into the shop's own media folder and adds it
- * to the page gallery (`vendor_profiles.portfolio_r2_keys`) — the SAME column, cap, QR guard and repost watch the
- * gallery's own save (`saveVendorWebsiteField('portfolio')`) uses. It shows on the page while the page's Photos part is
+ * to the page gallery (`vendor_profiles.portfolio_r2_keys`) — the SAME column, price (the free room, then the shop wallet — `shop_portfolio_commit`), QR guard and repost watch the
+ * gallery's own save (`updateVendorProfileField('portfolio')`) uses. It shows on the page while the page's Photos part is
  * on (Your page), like every gallery photo.
  *
  * Read with the shop's OWN client: the album's RLS (`vendor_papic_portfolio_photos_vendor_read`) is the boundary. A
@@ -49,7 +49,7 @@ export async function putAlbumPhotoOnMyPage(_prev: PutOnPageResult | null, formD
       .eq('photo_id', photoId)
       .eq('vendor_profile_id', vendorId)
       .maybeSingle(),
-    supabase.from('vendor_profiles').select('tier_state, portfolio_r2_keys').eq('vendor_profile_id', vendorId).maybeSingle(),
+    supabase.from('vendor_profiles').select('portfolio_r2_keys').eq('vendor_profile_id', vendorId).maybeSingle(),
   ]);
   if (photoRes.error) console.error('[supabase-error] app/vendor-dashboard/collections/actions.ts · from:vendor_papic_portfolio_photos.select', photoRes.error);
   if (rowRes.error) console.error('[supabase-error] app/vendor-dashboard/collections/actions.ts · from:vendor_profiles.select', rowRes.error);
@@ -70,17 +70,12 @@ export async function putAlbumPhotoOnMyPage(_prev: PutOnPageResult | null, formD
     return { ok: false, error: 'That photo is not in your album.' };
   }
 
-  const row = rowRes.data as { tier_state?: string | null; portfolio_r2_keys?: string[] | null };
-  // 🎁 The shop's own allowance (a personal invite's 100, kept) lifts the base — `portfolioPhotoCap`.
-  // Unread → the base, and a refusal that says it could not read (never "50 free").
-  const allowanceRead = await readPortfolioAllowance(supabase, vendorId);
-  const max = portfolioPhotoCap(row.tier_state ?? null, allowanceForCap(allowanceRead));
-  const next = addToPageGallery(row.portfolio_r2_keys ?? [], pageRef, max);
+  const row = rowRes.data as { portfolio_r2_keys?: string[] | null };
+  // 💳 No cap here any more: past the free room the photo is paid from the shop wallet (owner 2026-10-23, option A)
+  // by `shop_portfolio_commit` below — the same one step the gallery's own save takes.
+  const next = addToPageGallery(row.portfolio_r2_keys ?? [], pageRef, Infinity);
   if (next.kind === 'already') return { ok: true, text: 'Already on your page' };
-  if (next.kind === 'full') {
-    // The free base (owner 2026-10-23) — a shop already past it keeps every photo; it just cannot add one more yet.
-    return { ok: false, error: allowanceRead.ok ? portfolioOverCapMessage(max) : PORTFOLIO_ALLOWANCE_UNREAD_SAVE };
-  }
+  if (next.kind === 'full') return { ok: false, error: 'Your page could not be updated just now. Nothing was changed — please try again.' };
 
   // The QR guard reads the ALBUM photo — the same bytes the copy will carry — BEFORE the copy, so a refused photo
   // leaves no orphan object in the shop's page folder (supplier batch walk, W3).
@@ -92,19 +87,25 @@ export async function putAlbumPhotoOnMyPage(_prev: PutOnPageResult | null, formD
     return { ok: false, error: 'The photo could not be copied just now. Nothing was changed — please try again.' };
   }
 
-  const { data: updated, error: upErr } = await supabase
-    .from('vendor_profiles')
-    .update({ portfolio_r2_keys: next.refs })
-    .eq('vendor_profile_id', vendorId)
-    .select('vendor_profile_id');
-  if (upErr) console.error('[supabase-error] app/vendor-dashboard/collections/actions.ts · from:vendor_profiles.update', upErr);
-  if (upErr || !updated || updated.length === 0) {
+  // The list and its charge in ONE step (free room first, then the shop wallet) — never a bare column write.
+  const commit = await supabase.rpc('shop_portfolio_commit', {
+    p_vendor_profile_id: vendorId,
+    p_refs: next.refs,
+    p_spend_ref: `portfolio:${randomUUID()}`,
+  });
+  const answer = (commit.data ?? null) as { status?: string; charged?: number; balance?: number | null; charge?: number } | null;
+  if (commit.error) console.error('[supabase-error] app/vendor-dashboard/collections/actions.ts · rpc:shop_portfolio_commit', commit.error);
+  if (answer?.status === 'insufficient') {
+    return { ok: false, error: portfolioShortText(Number(answer.charge ?? 0), Number(answer.balance ?? 0)) };
+  }
+  if (commit.error || (answer?.status !== 'ok' && answer?.status !== 'duplicate')) {
     return { ok: false, error: 'Your page could not be updated just now. Nothing was changed — please try again.' };
   }
+  const charged = Number(answer?.charged ?? 0);
 
   after(() => hashAndScanVendorImages({ vendorProfileId: vendorId, refs: next.refs, surface: 'portfolio' }));
   revalidatePath('/vendor-dashboard/collections');
   revalidatePath('/vendor-dashboard/website');
   if (profile.business_slug) revalidatePath(`/v/${profile.business_slug}`);
-  return { ok: true, text: 'On your page' };
+  return { ok: true, text: charged > 0 ? `On your page · ${charged} ${charged === 1 ? 'credit' : 'credits'} from your shop wallet` : 'On your page' };
 }

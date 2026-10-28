@@ -349,7 +349,7 @@ function MsgsBody({ item, back }: { item: Extract<SupplierWorkItem, { kind: 'msg
       <div className="flex flex-col gap-1.5 rounded-2xl bg-ink/[0.03] p-3" data-chat-flow="">
         <p className="max-w-[80%] self-start rounded-2xl bg-ink/[0.06] px-3 py-2 text-[14px] text-ink">{item.body || item.subject}</p>
         {item.reply ? (
-          <p className="max-w-[80%] self-end rounded-2xl bg-sn-accent px-3 py-2 text-[14px] text-white">{item.reply}</p>
+          <p className="max-w-[80%] self-end rounded-2xl bg-sn-accent px-3 py-2 text-[14px] text-sn-on-accent">{item.reply}</p>
         ) : null}
       </div>
       <form id={f} action={settleHelpFromWorkList} className="mt-2.5 flex flex-wrap items-center gap-2" data-work-form="msgs-reply">

@@ -192,7 +192,7 @@ export function HelpMessenger({
                 </p>
                 {open.admin_notes ? (
                   <>
-                    <p className="max-w-[78%] self-end whitespace-pre-wrap rounded-2xl bg-sn-accent px-3 py-2 text-[14px] text-white">{open.admin_notes}</p>
+                    <p className="max-w-[78%] self-end whitespace-pre-wrap rounded-2xl bg-sn-accent px-3 py-2 text-[14px] text-sn-on-accent">{open.admin_notes}</p>
                     <span className="self-end text-[11px] text-ink/70">{open.user_id ? 'Sent in the app' : 'Sent'}</span>
                   </>
                 ) : null}

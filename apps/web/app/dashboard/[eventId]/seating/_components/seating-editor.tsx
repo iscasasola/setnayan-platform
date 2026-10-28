@@ -159,6 +159,7 @@ import {
   addSeatingConstraint,
   assignGroup,
   assignGuest,
+  swapSeats,
   autoArrange,
   buildSeatingDraft,
   createTable,
@@ -1210,11 +1211,11 @@ export function SeatingEditor({
 
   // --- seat / move / unseat -------------------------------------------------
   /**
-   * 🗂 R4 · SWAP (owner 2026-10-29, *"tapping picks a guest or removes that guest or swaps it to another"*): two people
-   * trade chairs — or, with one of them unseated, the seated one's chair. The SAME two shipped writes, in order (free B's
-   * chair, seat A there, seat B in A's), each drawn at once; no new action.
+   * 🗂 R4 · SWAP (owner 2026-10-29, *"tapping picks a guest or removes that guest or swaps it to another"*): two seated
+   * people trade chairs through the SHIPPED atomic swap (`swapSeats` → `swap_seat_assignments`, the 3D room's own); with
+   * one of them unseated, the seated one's chair changes hands through the shipped unseat + seat. Each drawn at once.
    */
-  const swapSeats = (aId: string, bId: string) => {
+  const tradeSeats = (aId: string, bId: string) => {
     if (!canEdit || aId === bId) return;
     const a = guests.find((g) => g.guest_id === aId);
     const b = guests.find((g) => g.guest_id === bId);
@@ -1235,10 +1236,19 @@ export function SeatingEditor({
       else applyGuestOpt({ type: 'unseat', guestId: aId });
       if (ta) applyGuestOpt({ type: 'seat', guestId: bId, tableId: ta, seat: sa });
       else applyGuestOpt({ type: 'unseat', guestId: bId });
-      if (tb) await runGated(() => unassignGuest(form(bId)));
-      if (tb) await runGated(() => assignGuest(form(aId, tb, sb)));
-      else await runGated(() => unassignGuest(form(aId)));
-      if (ta) await runGated(() => assignGuest(form(bId, ta, sa)));
+      if (ta && tb) {
+        const fd = form(aId);
+        fd.delete('guest_id');
+        fd.set('guest_a_id', aId);
+        fd.set('guest_b_id', bId);
+        await runGated(() => swapSeats(fd));
+      } else if (tb) {
+        await runGated(() => unassignGuest(form(bId)));
+        await runGated(() => assignGuest(form(aId, tb, sb)));
+      } else if (ta) {
+        await runGated(() => unassignGuest(form(aId)));
+        await runGated(() => assignGuest(form(bId, ta, sa)));
+      }
     });
   };
 
@@ -6400,7 +6410,7 @@ export function SeatingEditor({
     const g = guests.find((x) => x.guest_id === guestId);
     if (!g) return;
     if (pickedId && pickedId !== guestId) {
-      swapSeats(pickedId, guestId);
+      tradeSeats(pickedId, guestId);
       return;
     }
     setBlankAt(null);

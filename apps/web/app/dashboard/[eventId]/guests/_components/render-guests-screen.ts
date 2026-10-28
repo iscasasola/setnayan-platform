@@ -66,6 +66,8 @@ export async function renderGuestsScreen(opts: {
   oneQr?: boolean;
   /** 📤 Each row's Share (`RowInvite`): the address, the words, and guest_id → token. Absent → no row draws Share. */
   invite?: unknown;
+  /** ☑ `?select=to-invite` — ⚙ › Pick who's cold link: Select on, the list narrowed to To invite. */
+  initialSelect?: boolean;
 }): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { AppRouterContext } = await import('next/dist/shared/lib/app-router-context.shared-runtime');
@@ -95,7 +97,7 @@ export async function renderGuestsScreen(opts: {
           oneQr: opts.oneQr ?? false,
           rootLabel: 'A & B',
           initialQuery: opts.initialQuery ?? '',
-          initialSelect: false,
+          initialSelect: opts.initialSelect ?? false,
           setup: opts.setup ?? null,
           settingsOpen: opts.settingsOpen ?? false,
           empty: opts.empty ?? null,

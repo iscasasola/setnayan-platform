@@ -144,14 +144,6 @@ const AGREE: Record<string, (ctx: LockAnswerContext) => LockAnswerNotice> = {
         (free.length > 0 ? `Offer ${orList(free)} instead — ${free.length === 1 ? 'it is' : 'they are'} free that day — or turn this one down.` : 'Every hall is taken that day — turn this one down so the couple can look elsewhere.'),
     };
   },
-  fully_booked: () => ({
-    // Mirrors the database's own HINT on `free_tier_booking_cap`, read out of
-    // production: a free shop holds a fixed number of live bookings at once.
-    // No number is printed here — the cap is decided in SQL and a second copy
-    // of it would drift.
-    tone: 'refused',
-    text: 'You are holding as many live bookings at once as a free shop can. Finish one of your current events to free a slot, or move to a paid plan to take on more.',
-  }),
   error: () => ({
     tone: 'refused',
     text: 'That did not go through. Nothing changed — please try again.',

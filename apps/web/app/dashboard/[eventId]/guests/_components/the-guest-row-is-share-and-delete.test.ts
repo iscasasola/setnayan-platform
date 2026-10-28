@@ -83,11 +83,13 @@ test('3 · ONE SENDER: Share is the shipped Invite cell as one icon; its press r
 
   const icon = CELL.slice(CELL.indexOf("if (layout === 'icon') {"));
   assert.ok(icon.length > 100, "the cell's icon layout is gone");
-  assert.match(icon.slice(0, icon.indexOf('</ActionButton>') > 0 ? icon.indexOf('</ActionButton>') : 600), /onClick=\{rowShare\}/);
-  const rowShare = CELL.slice(CELL.indexOf('async function rowShare()'));
+  assert.match(icon.slice(0, icon.indexOf('</ActionButton>') > 0 ? icon.indexOf('</ActionButton>') : 600), /onClick=\{\(\) => void rowShare\(\)\}/);
+  const rowShare = CELL.slice(CELL.indexOf('async function rowShare('));
   const fn = rowShare.slice(0, rowShare.indexOf('\n  }\n'));
   assert.match(fn, /await shareInvite\(null, message\)/, 'the row does not share through the one shareInvite');
-  assert.match(fn, /invite\('body'\)/, 'a computer gets no sheet');
+  // (`at` — the card's ticket-row Share may be pressed from its pinned copy in the panel's head; the row's is 'body'.)
+  assert.match(fn, /invite\(at\)/, 'a computer gets no sheet');
+  assert.match(CELL, /async function rowShare\(at: 'body' \| 'head' = 'body'\)/);
   // Nothing in the cell calls the share sheet itself — `shareInvite` (send-invite.tsx) is the one caller.
   assert.doesNotMatch(CELL, /\bnav(?:igator)?\.share\(/, 'the cell calls navigator.share itself — a second sender');
 });

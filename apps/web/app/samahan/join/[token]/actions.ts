@@ -99,7 +99,7 @@ export async function acceptCommunityInvite(formData: FormData) {
     }),
   );
 
-  revalidatePath('/dashboard/samahan');
+  revalidatePath('/dashboard/people');
   revalidatePath(`/dashboard/samahan/${invite.community_id}`);
   redirect(`/dashboard/samahan/${invite.community_id}?joined=1`);
 }

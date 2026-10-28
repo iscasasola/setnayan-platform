@@ -27,6 +27,7 @@
  *                   dock: &gview=map for the map, &q=… to search, &empty=1 for
  *                   an empty list, &fail=1 for a refused read
  *   &req=0          (screen) no requests to join waiting — the carousel's card ① says "No requests waiting"
+ *   &select=to-invite (screen) ⚙ › Pick who's cold link — Select on, the list narrowed to To invite
  *   &oneqr=1        (screen) a one-link event with no list to walk (just the couple): card ② reads
  *                   "One link for everyone · Share" (owner 2026-10-27, "THE SEND RUN ALSO SERVES A ONE-QR EVENT")
  *   &low=1          push the card's ticket row to the bottom of a short phone
@@ -42,8 +43,9 @@
  *                   `SendRun` over `sendRunGuests`; its "Not sent yet (N)" is
  *                   the List's "N to invite" and Setup's "Send to N". The QR
  *                   and the ticket are a real event's, so they do not draw here.
- *   ?part=rsvp      the Maker's Studio › RSVP (`MakerRsvpSettings studio`) on the
- *                   same fixture, so the two doors can be compared side by side
+ *   ?part=rsvp      the Maker's RSVP panel (`MakerRsvpSettings studio`) on the same fixture — the
+ *                   Studio RSVP tile that opened it LEFT in R1 (owner 2026-10-28; its settings are Guests ⚙'s,
+ *                   ?part=setup); kept so the before/after can be compared side by side
  *   &typed=1        (screen) two names typed all lower case — the list shows them cased (displayPersonName)
  *   &marked=1       (card · screen) replies the host set — "Attending · Marked by you", the rows' quiet "marked"
  *   &sides=1        (card · screen) cale-ice's own groups as measured 2026-10-20 — Childhood + College (groom),
@@ -803,6 +805,7 @@ export default async function GuestsLabPage({
                     titlesWaiting={sp.titles === '1' ? LAB_TITLES_WAITING : []}
                     rootLabel="Maria & Jose"
                     initialQuery={typeof sp.q === 'string' ? sp.q : ''}
+                    initialSelect={sp.select === 'to-invite'}
                     setup={setupRows}
                     settingsOpen={part === 'setup' || sp.settings === '1'}
                     settingsRow={typeof sp.row === 'string' ? sp.row : null}

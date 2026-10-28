@@ -122,7 +122,11 @@ const listOf = (html: string, key: string) => {
 test('1 · one sticky row: three pressed-or-not counts, exactly one on, and Today’s ⚙ at its right end — no link', async () => {
   const { html } = await draw();
   const at = html.indexOf('data-today-numbers');
-  const row = html.slice(html.lastIndexOf('<div', at), html.indexOf('data-today-list="waiting"'));
+  // The row is FIRST, the Next card under it (approved prototype) — the row ends where the card begins.
+  const row = html.slice(html.lastIndexOf('<div', at), html.indexOf('data-today-next'));
+  assert.ok(at < html.indexOf('data-today-next'), 'the pinned counts row is not above the Next card');
+  // Pressed = the prototype's filled pill (the accent fill, the on-accent ink).
+  assert.match(row, /class="[^"]*rounded-full[^"]*bg-sn-accent"[^>]*aria-pressed="true"/, 'the pressed count is not the filled pill');
   assert.match(row, /class="sticky top-0[^"]*"/, 'the counts row is not sticky');
   assert.match(row, /data-pinned-row=""/);
   const keys = [...row.matchAll(/<button[^>]*aria-pressed="(true|false)"[^>]*data-today-number="(\w+)"/g)].map((m) => [m[2], m[1]]);

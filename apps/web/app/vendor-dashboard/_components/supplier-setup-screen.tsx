@@ -64,7 +64,7 @@ export function SupplierSetupScreen({
     return d.checklist.filter((i) => keys.includes(i.key));
   };
   const editor = (k: 'name' | 'details' | 'logo') => (
-    <ProfileChecklistEditor items={rows(k)} data={d.profileFields} isVerified={d.isVerified} showProgress={false} />
+    <ProfileChecklistEditor items={rows(k)} data={d.profileFields} isVerified={d.isVerified} showProgress={false} flat />
   );
   const daysMarked = rail.steps.find((s) => s.key === 'not_available')?.meter ?? null;
 

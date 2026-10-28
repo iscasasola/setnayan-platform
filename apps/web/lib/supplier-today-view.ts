@@ -157,6 +157,8 @@ export type SupplierTodayView = {
   bills: DueFeeBill[];
   billCopy: (b: DueFeeBill) => FeeDisclosure;
   lockLine: string | null;
+  /** The lock line's few visible words (its whole sentence goes in the ⓘ) — the GATE's own answer, never a guess. */
+  lockWord: string;
   shop: { name: string; line: string; pill: ShopPill };
   business: { line: string | null };
 };
@@ -363,6 +365,7 @@ export function assembleSupplierToday(input: SupplierTodayInput): SupplierTodayV
     bills,
     billCopy: (b) => feeRowCopy(b, todayIso),
     lockLine,
+    lockWord: input.feeEnforced ? 'Locked until the fee is paid' : 'Your booking is not affected',
     shop: { name: input.shop.name, line: shopLine, pill },
     business: {
       line: input.verified ? businessLine({ views: input.views, asked: input.inquiries28 }) : 'Couples see your shop once you are live',

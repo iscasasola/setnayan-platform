@@ -409,9 +409,10 @@ const PILL_TONE: Record<ShopPill, BadgeTone> = { Checking: 'wait', Live: 'ok', '
  * number; an unread payday says "couldn't load" where the money would be —
  * never ₱0, and never a number that quietly is not there.
  *
- * 🔒 THE NEXT CARD IS THE FIRST THING YOU CAN TAP. Nothing tappable is drawn
- * above it; `the-today-page-speaks-to-every-supplier.test.ts` renders this and
- * fails if a link or button comes before the Next card's own.
+ * 🔒 THE PINNED ROW, THEN THE NEXT CARD (re-aimed 2026-10-28 to the owner-approved prototype
+ * `supplier_in_place_2026-10-28`: "the pinned counts row FIRST, then today's live event as the dark card, then the
+ * task rows"). Nothing but the row's three counts and its ⚙ is drawn above the Next card, and the first tap after the
+ * row is the card's own button — `the-today-page-speaks-to-every-supplier.test.ts`.
  */
 export function SupplierTodayFirstScreen({
   next,
@@ -533,84 +534,98 @@ export function SupplierTodayFirstScreen({
     </>
   );
 
+  /*
+    ① THE NEXT CARD, ITS STATUS LINE AND "THEN" — on a running shop they sit UNDER the pinned counts row (owner-approved
+    prototype `supplier_in_place_2026-10-28`, 2026-10-28 review: "the pinned counts row FIRST, then today's live event as
+    the dark card, then the task rows"). `data-today-after-next` marks where the card's part ends.
+  */
+  const cardBlock = (
+    <>
+          {/* ① THE ONE NEXT CARD — the shared card, drawn with the button rule's row. On a new shop the steps above ARE
+              the setup card, so it is drawn only when something outranks setup (a couple's ask). */}
+          {setup && next.kind === 'setup' ? null : (
+            <NextCard
+              marker="data-today-next"
+              kind={next.kind}
+              title={next.title}
+              body={next.body}
+              action={next.action}
+              href={nextHref(next.target)}
+              bad={unread}
+              day={day}
+              soft
+              counter={counter}
+              meta={meta}
+              who={who}
+              eyebrow={eyebrow}
+              rows={answerOnCard}
+              actions={actions}
+              note={
+                dateChange
+                  ? 'Unlocking releases this booking. Any payment is settled by the cancellation terms on the booking — Setnayan never decides a refund.'
+                  : (nextNote ?? undefined)
+              }
+            />
+          )}
+
+          {/* THE ANSWER'S STATUS LINE — the whole sentence, under the card it answered (the prototype's place), with the
+              door it asks for: after an Agree whose couple's news waits on the fee, "Pay the booking fee". */}
+          {outcome ? (
+            <div
+              role="status"
+              data-supplier-outcome={outcome.tone}
+              className={`mb-1 flex items-center gap-3 border-t border-ink/10 py-2.5 text-[13.5px] leading-snug ${outcome.tone === 'bad' ? 'text-[rgb(var(--color-danger))]' : 'text-ink/80'}`}
+            >
+              <span className="min-w-0 flex-1">{outcome.text}</span>
+              {outcome.door ? (
+                <ActionButton
+                  tone="neutral"
+                  icon={<Wallet aria-hidden="true" strokeWidth={1.9} />}
+                  label={outcome.door.label}
+                  href={outcome.door.href}
+                  className="min-h-11 shrink-0"
+                />
+              ) : null}
+            </div>
+          ) : null}
+
+          {/* 🛤 THEN — the short road after the Next card while the shop is being set up (owner 2026-10-21, prototype
+              first_run_you_and_next_steps S4): the next steps of the shipped rail, in its own order, each a door; the
+              approval says what it is and is pressed by nobody. Hairline rows, no boxes. */}
+          {then.length > 0 && !setup ? (
+            <div data-today-then>
+              <TodayEyebrow>Then</TodayEyebrow>
+              <div className="[&>*:first-child]:border-t-0">
+                {then.map((s) =>
+                  s.href ? (
+                    <TodayRow key={s.key} href={s.href} label={`${formatCount(s.n)} · ${s.title}`} line={null} marker={`then-${s.key}`} />
+                  ) : (
+                    <TodayNoteRow key={s.key} label={`${formatCount(s.n)} · ${s.title}`} line={null} rowIcon="check" marker={`then-${s.key}`} />
+                  ),
+                )}
+              </div>
+            </div>
+          ) : null}
+      <div data-today-after-next="" hidden />
+    </>
+  );
+
   return (
     <section data-today-first-screen aria-label="Today" className="mx-auto flex w-full max-w-xl tab:max-w-none flex-col">
       {/* 🧰 A NEW SHOP: the six steps, done in place — the top of Today (owner 2026-10-28). */}
       {setup}
 
-      {/* ① THE ONE NEXT CARD — the shared card, drawn with the button rule's row. On a new shop the steps above ARE
-          the setup card, so it is drawn only when something outranks setup (a couple's ask). */}
-      {setup && next.kind === 'setup' ? null : (
-        <NextCard
-          marker="data-today-next"
-          kind={next.kind}
-          title={next.title}
-          body={next.body}
-          action={next.action}
-          href={nextHref(next.target)}
-          bad={unread}
-          day={day}
-          soft
-          counter={counter}
-          meta={meta}
-          who={who}
-          eyebrow={eyebrow}
-          rows={answerOnCard}
-          actions={actions}
-          note={
-            dateChange
-              ? 'Unlocking releases this booking. Any payment is settled by the cancellation terms on the booking — Setnayan never decides a refund.'
-              : (nextNote ?? undefined)
-          }
-        />
-      )}
-
-      {/* THE ANSWER'S STATUS LINE — the whole sentence, under the card it answered (the prototype's place), with the
-          door it asks for: after an Agree whose couple's news waits on the fee, "Pay the booking fee". */}
-      {outcome ? (
-        <div
-          role="status"
-          data-supplier-outcome={outcome.tone}
-          className={`mb-1 flex items-center gap-3 border-t border-ink/10 py-2.5 text-[13.5px] leading-snug ${outcome.tone === 'bad' ? 'text-[rgb(var(--color-danger))]' : 'text-ink/80'}`}
-        >
-          <span className="min-w-0 flex-1">{outcome.text}</span>
-          {outcome.door ? (
-            <ActionButton
-              tone="neutral"
-              icon={<Wallet aria-hidden="true" strokeWidth={1.9} />}
-              label={outcome.door.label}
-              href={outcome.door.href}
-              className="min-h-11 shrink-0"
-            />
-          ) : null}
-        </div>
-      ) : null}
-
-      {/* 🛤 THEN — the short road after the Next card while the shop is being set up (owner 2026-10-21, prototype
-          first_run_you_and_next_steps S4): the next steps of the shipped rail, in its own order, each a door; the
-          approval says what it is and is pressed by nobody. Hairline rows, no boxes. */}
-      {then.length > 0 && !setup ? (
-        <div data-today-then>
-          <TodayEyebrow>Then</TodayEyebrow>
-          <div className="[&>*:first-child]:border-t-0">
-            {then.map((s) =>
-              s.href ? (
-                <TodayRow key={s.key} href={s.href} label={`${formatCount(s.n)} · ${s.title}`} line={null} marker={`then-${s.key}`} />
-              ) : (
-                <TodayNoteRow key={s.key} label={`${formatCount(s.n)} · ${s.title}`} line={null} rowIcon="check" marker={`then-${s.key}`} />
-              ),
-            )}
-          </div>
-        </div>
-      ) : null}
+      {/* A new shop: the Next card (only when something outranks setup) sits under the six steps. */}
+      {setup ? cardBlock : null}
 
       {/* ② THE PINNED ROW — waiting · this week · ₱ to come in · ⚙ (owner 2026-10-28). Each count FILTERS the list
           under it, in place; a count that could not be read says so, never 0 / ₱0. On an event day the last two are
           the day's own (next moment · checked in), each a door to the Event Hub, as before. A new shop has no row. */}
       {setup ? null : numbers.day ? (
+        <>
         <div className="flex items-center gap-1">
           <div className="min-w-0 flex-1">
-          <div className="mt-3 grid grid-cols-3 gap-1 border-y border-ink/10 py-3" data-today-numbers data-first-row="" data-tour="today-numbers">
+          <div className="mb-3 grid grid-cols-3 gap-1 border-y border-ink/10 py-3" data-today-numbers data-first-row="" data-tour="today-numbers">
             <Link href="/vendor-dashboard/customers?lane=waiting#customers" className="grid gap-0.5 text-center" data-today-number="waiting">
               {numbers.waiting === null ? (
                 <Unread />
@@ -642,8 +657,11 @@ export function SupplierTodayFirstScreen({
           </div>
           {gear}
         </div>
+        {cardBlock}
+        </>
       ) : (
         <TodayCounts
+          between={cardBlock}
           waiting={numbers.waiting}
           waitingNow={numbers.waitingNow}
           thisWeek={numbers.thisWeek}

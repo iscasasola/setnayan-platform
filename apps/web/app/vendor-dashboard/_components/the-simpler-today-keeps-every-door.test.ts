@@ -145,7 +145,7 @@ async function draw(o: Opt = {}): Promise<{ html: string; view: import('@/lib/su
   );
   return { html, view };
 }
-const cardOf = (html: string) => html.slice(html.indexOf('data-today-next'), html.indexOf('data-today-numbers'));
+const cardOf = (html: string) => html.slice(html.indexOf('data-today-next'), html.indexOf('data-today-after-next'));
 
 /* ═══ 1 · LIVE's NINE RULES ═══════════════════════════════════════════════ */
 
@@ -250,11 +250,16 @@ test('4 · every unpaid fee has its Pay and its introduced line; the lock is sai
   assert.equal(rows.length, 2, 'not every unpaid fee is a row');
   for (const b of bills) assert.ok(html.includes(`href="${vendorBookingFeePayPath(b.orderId)}"`), `${b.coupleName}: no Pay`);
   const t = text(html);
-  assert.match(t, /Booking fee · Lim & Tan wedding ₱4,250\.00 · due Tue 20 Oct · Setnayan introduced this couple to you on Oct 12, 2026/);
+  // Title + ONE short line visible (2026-10-28 review): the amount and the due day under the title; who introduced
+  // the couple is said in the title's ⓘ — still on the row, never dropped.
+  assert.match(t, /Booking fee · Lim & Tan wedding i Setnayan introduced this couple to you on Oct 12, 2026\. ₱4,250\.00 · due Tue 20 Oct/);
+  assert.match(rows[0]!, /role="tooltip"[^>]*>[\s\S]*?data-fee-introduced=""/, 'the introduced line is not in the title’s ⓘ');
   assert.match(t, /Booking fee · Cruz wedding ₱4,250\.00 · overdue since Sat 10 Oct/);
   // The lock: once, the gate's own sentence.
   assert.equal((html.match(/data-fee-lock-line=""/g) ?? []).length, 1);
   assert.match(t, /this event’s details and day-of tools stay locked until the fee is settled/);
+  // …as one short line, the whole sentence in its ⓘ.
+  assert.match(html, /data-fee-lock-line=""[^>]*>[\s\S]*?Locked until the fee is paid[\s\S]*?role="tooltip"/, 'the lock sentence is not behind its ⓘ');
   // Enforced → said for a bill that is only due.
   assert.match(text((await draw({ desk: [INQUIRY], feeBills: [bills[0]!] })).html), /stay locked until the fee is settled/);
   // Not enforced → said only once a bill is overdue.
@@ -275,8 +280,8 @@ test('5 · after Agree with the news held: the shipped sentence and "Pay the boo
   assert.equal(said.text, 'You said yes. Pay the booking fee and we’ll tell the couple their booking is confirmed.');
   const { html } = await draw({ desk: [INQUIRY], outcome: { text: said.text, tone: 'ok', door: said.door ?? null } });
   const at = html.indexOf('role="status" data-supplier-outcome="ok"');
-  assert.ok(at > html.indexOf('data-today-next') && at < html.indexOf('data-today-numbers'), 'the status line is not under the card');
-  const line = html.slice(at, html.indexOf('data-today-numbers'));
+  assert.ok(at > html.indexOf('data-today-next') && at < html.indexOf('data-today-after-next'), 'the status line is not under the card');
+  const line = html.slice(at, html.indexOf('data-today-after-next'));
   assert.match(text(line), /You said yes\. Pay the booking fee and we’ll tell the couple/);
   assert.match(line, /href="\/vendor-dashboard\/booking-fees"[\s\S]*Pay the booking fee/);
   assert.match(code('app/vendor-dashboard/page.tsx'), /door: lockAnswer\.door \?\? null,/);
@@ -295,7 +300,8 @@ test('6 · the event day: Run the day · Chat, waiting · next moment · checked
   assert.match(card, /data-next-day=""/);
   assert.match(text(card), /Today · live since 12:00 Jun & Liza Cruz Makati · 150 guests/);
   assert.match(text(card), /Run the day.*Chat/);
-  const nums = text(html.slice(html.indexOf('data-today-numbers'), html.indexOf('data-today-coming-up')));
+  // The pinned row comes FIRST, the day's card under it (approved prototype, 2026-10-28).
+  const nums = text(html.slice(html.indexOf('data-today-numbers'), html.indexOf('data-today-next')));
   assert.match(nums, /waiting on you.*3:30 next moment.*118 checked in/);
   assert.match(text(html), /Also today Schedule 12:00 Ceremony · 3:30 Reception Event Hub/);
   // Today's event is on the card, not again under Coming up.

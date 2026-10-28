@@ -179,6 +179,12 @@ test('4 · drawn: N of 6 · the bar · the first open · ⚙ in the first row ·
     const own = body.slice(0, end > 0 ? end : undefined).replace(/<a [^>]*href="\/vendor-dashboard\/services"[^>]*>/g, '');
     assert.doesNotMatch(own, /<a [^>]*href="\/vendor-dashboard\/(profile|services|shop)/, `step ${k} links away instead of doing it here`);
   }
+  // House FORM ROWS, not cards (2026-10-28 review: "frames only on what you press"): the mounted editor's rows are flat.
+  for (const k of ['name', 'details', 'logo']) {
+    const body = setup.slice(setup.indexOf(`data-setup-body="${k}"`), setup.indexOf('data-setup-body=', setup.indexOf(`data-setup-body="${k}"`) + 20));
+    assert.ok((body.match(/data-editable-row="flat"/g) ?? []).length > 0, `step ${k} has no form rows`);
+    assert.doesNotMatch(body, /<li class="[^"]*rounded-lg border/, `step ${k} draws a card around a row again`);
+  }
   // Step 6: the shop's QR (Share · Save) and the days-off row.
   const qr = setup.slice(setup.indexOf('data-setup-body="qr"'));
   assert.match(qr, /data-qr-card="setup-shop"/, 'step 6 lost the shop’s QR');

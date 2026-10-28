@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Badge } from '@/app/_components/badge';
 import { TodaySettings } from './today-settings';
+import { InfoTip } from '@/app/_components/info-tip';
 import { BookingFeeBills } from '@/app/_components/booking-fee-notice';
 import type { FeeDisclosure } from '@/lib/booking-fee-disclosure';
 import type { SupplierTodayView } from '@/lib/supplier-today-view';
@@ -156,8 +157,12 @@ export function SupplierTodayScreen({
           <>
             <BookingFeeBills today bills={view.bills} copyFor={view.billCopy} />
             {view.lockLine ? (
+              /* Said once, for every bill — one short line visible, the whole sentence in its ⓘ (owner 2026-10-28
+                 review: "title + one short line visible; everything else in the ⓘ"). */
               <p data-fee-lock-line="" className="pb-2 pl-[46px] text-[12.5px] leading-snug text-ink/60">
-                {view.lockLine}
+                <InfoTip label={view.lockWord} align="start">
+                  {view.lockLine}
+                </InfoTip>
               </p>
             ) : null}
           </>

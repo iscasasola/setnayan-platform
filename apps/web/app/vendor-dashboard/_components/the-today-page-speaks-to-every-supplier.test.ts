@@ -155,14 +155,28 @@ test('on an event day the one Next card is "Run the day" (owner answer 2) — an
 // ── 🔒 THE NEXT CARD IS THE FIRST THING YOU CAN TAP ────────────────────────
 
 test('the first link or button on the first screen is the Next card’s button', async () => {
+  /*
+    RE-AIMED 2026-10-28 — THE OWNER-APPROVED PROTOTYPE SUPERSEDES THE OLD ORDER. `supplier_in_place_2026-10-28` (DECISION_LOG
+    "SUPPLIER DASHBOARD APPROVED — EVERYTHING IN PLACE, A ⚙ PER PAGE"; controller review of #7026: "the pinned counts row
+    FIRST, then today's live event as the dark card, then the task rows") puts the pinned counts row above the card. So
+    the promise is now: NOTHING but the pinned row (its three counts and its ⚙) comes before the Next card, and the first
+    tap AFTER the row is the Next card's own button.
+  */
   const html = await render();
   const next = html.indexOf('data-today-next');
-  const firstTap = html.search(/<(a|button)\b/);
   assert.ok(next >= 0, 'the Next card did not render');
-  assert.ok(firstTap > next, 'something you can tap comes before the Next card');
-  // …and the button is INSIDE the card: the first tap target sits before the
-  // card's closing </div>.
-  assert.ok(firstTap < html.indexOf('</div>', next), 'the first tap target is not the Next card’s own button');
+  const rowAt = html.indexOf('data-today-numbers');
+  assert.ok(rowAt >= 0 && rowAt < next, 'the pinned counts row is not above the Next card');
+  const before = html.slice(0, next);
+  const taps = [...before.matchAll(/<(a|button)\b[^>]*>/g)].map((m) => m[0]);
+  const ok = (t: string) => /data-today-number="(waiting|week|money)"/.test(t) || /aria-label="Today settings"/.test(t);
+  assert.deepEqual(taps.filter((t) => !ok(t)), [], 'something besides the pinned row can be tapped before the Next card');
+  // Its three counts (this test draws the first screen alone, so the page's ⚙ may or may not be handed in).
+  assert.equal(taps.filter((t) => /data-today-number=/.test(t)).length, 3, 'the pinned row is not its three counts');
+  assert.ok(taps.filter((t) => /aria-label="Today settings"/.test(t)).length <= 1, 'more than one ⚙ before the Next card');
+  // …and the first tap after the row is INSIDE the card, before its closing </div>.
+  const firstTap = next + html.slice(next).search(/<(a|button)\b/);
+  assert.ok(firstTap < html.indexOf('</div>', next), 'the first tap after the pinned row is not the Next card’s own button');
 });
 
 test('Today renders the first screen before anything tappable on the page', () => {

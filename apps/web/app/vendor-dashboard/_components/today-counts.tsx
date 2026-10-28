@@ -28,6 +28,7 @@ export function TodayCounts({
   toComeIn,
   panels,
   gear,
+  between = null,
   initial = 'waiting',
 }: {
   /** Already worded ("3", "2+"), or null = the desk could not be read. */
@@ -39,14 +40,16 @@ export function TodayCounts({
   panels: Readonly<Record<TodayFilter, ReactNode>>;
   /** Today's ⚙ (`TodaySettings`) — the row's right end. */
   gear: ReactNode;
+  /** What sits between the row and its lists — Today's Next card (the prototype: the row FIRST, then the card). */
+  between?: ReactNode;
   initial?: TodayFilter;
 }) {
   const [on, setOn] = useState<TodayFilter>(initial);
   const door = (key: TodayFilter, value: string | null, word: string, hot = false) => (
     <button
       type="button"
-      className={`sn-press grid min-h-11 flex-1 content-center gap-0.5 rounded-md px-1 py-1 text-center transition-colors duration-200 motion-reduce:transition-none ${
-        on === key ? 'bg-[color-mix(in_srgb,rgb(var(--color-mulberry))_12%,transparent)]' : ''
+      className={`sn-press grid min-h-11 flex-1 content-center gap-0.5 rounded-full px-1 py-1 text-center transition-colors duration-200 motion-reduce:transition-none ${
+        on === key ? 'bg-sn-accent' : ''
       }`}
       onClick={() => setOn(key)}
       aria-pressed={on === key}
@@ -57,23 +60,24 @@ export function TodayCounts({
     >
       {value === null ? (
         <>
-          <span className="block text-[20px] font-semibold leading-none" style={{ color: 'rgb(var(--color-warn))' }} aria-hidden>
+          <span className="block text-[20px] font-semibold leading-none" style={{ color: on === key ? 'rgb(var(--sn-on-accent))' : 'rgb(var(--color-warn))' }} aria-hidden>
             —
           </span>
-          <span className="block text-[11.5px] text-ink/60" data-today-unread="">
+          <span className={`block text-[11.5px] ${on === key ? 'text-[rgb(var(--sn-on-accent))]' : 'text-ink/60'}`} data-today-unread="">
             couldn&rsquo;t load
           </span>
         </>
       ) : (
         <>
+          {/* Pressed = the prototype's filled pill: the accent fill, the number and word in the on-accent ink. */}
           <span
-            className={`block text-[20px] font-semibold leading-none tabular-nums ${hot ? 'text-sn-accent' : 'text-ink'} ${
-              on === key ? 'underline decoration-2 underline-offset-4' : ''
+            className={`block text-[20px] font-semibold leading-none tabular-nums ${
+              on === key ? 'text-[rgb(var(--sn-on-accent))]' : hot ? 'text-sn-accent' : 'text-ink'
             }`}
           >
             <TodayFigure word={value} id={`today-${key}`} />
           </span>
-          <span className="block text-[11.5px] text-ink/60">{word}</span>
+          <span className={`block text-[11.5px] ${on === key ? 'text-[rgb(var(--sn-on-accent))]' : 'text-ink/60'}`}>{word}</span>
         </>
       )}
     </button>
@@ -82,7 +86,7 @@ export function TodayCounts({
   return (
     <>
       <div
-        className="sticky top-0 z-[5] -mx-4 mt-3 border-b border-ink/10 px-4 py-1.5 sm:-mx-6 sm:px-6"
+        className="sticky top-0 z-[5] -mx-4 mb-3 border-b border-ink/10 px-4 py-1.5 sm:-mx-6 sm:px-6"
         style={{ background: 'var(--sn-canvas)' }}
         data-today-numbers=""
         data-pinned-row=""
@@ -96,6 +100,7 @@ export function TodayCounts({
           {gear}
         </div>
       </div>
+      {between}
       {(['waiting', 'week', 'money'] as const).map((key) => (
         <div key={key} id={`today-list-${key}`} data-today-list={key} hidden={on !== key}>
           {panels[key]}

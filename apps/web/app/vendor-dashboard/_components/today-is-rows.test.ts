@@ -344,7 +344,7 @@ test('2c · a delete request that IS the Next card keeps its row, open — the c
 test('2d · a date change IS answered on the Next card — Move · Unlock, the shipped fields, the refund sentence before the press', async () => {
   const html = await render({ needsAnswer: [REPLY, MOVE, BOOKING] });
   const at = html.indexOf('data-today-next="answer"');
-  const card = html.slice(at, html.indexOf('data-today-numbers'));
+  const card = html.slice(at, html.indexOf('data-today-after-next'));
   assert.match(text(card), /Date change request/);
   const forms = card.match(/<form[\s\S]*?<\/form>/g) ?? [];
   assert.equal(forms.length, 2, 'not exactly two answers on the card');
@@ -478,11 +478,11 @@ test('5 · every main verb is terracotta, the icon says what kind of press it is
   // ✅ A booking ask is answered ON the card (simpler Today 2026-10-14): Agree posts the shipped form, terracotta;
   // no grey Chat that lands by accident while the ask carries no thread id — and Chat when it does.
   const agree = await render({ needsAnswer: [BOOKING] });
-  const card = agree.slice(agree.indexOf('data-today-next'), agree.indexOf('data-today-numbers'));
+  const card = agree.slice(agree.indexOf('data-today-next'), agree.indexOf('data-today-after-next'));
   assert.equal((card.match(/<a\b/g) ?? []).length, 0, 'a button with nowhere named to go');
   assert.match(card, /<form[\s\S]*name="vendor_id" value="ev-rc"[\s\S]*class="ab ab-brand ab-main[^"]*"[\s\S]*Agree to this booking/, 'Agree is not the card’s own terracotta answer');
   const chat = await render({ needsAnswer: [{ ...BOOKING, threadId: 't-rc' } as WhatsNewCard] });
-  const chatCard = chat.slice(chat.indexOf('data-today-next'), chat.indexOf('data-today-numbers'));
+  const chatCard = chat.slice(chat.indexOf('data-today-next'), chat.indexOf('data-today-after-next'));
   assert.match(chatCard, /<a[^>]*class="ab ab-neutral[^"]*"[^>]*href="\/vendor-dashboard\/messages\/t-rc"|<a[^>]*href="\/vendor-dashboard\/messages\/t-rc"[^>]*class="ab ab-neutral[^"]*"/, 'no grey Chat to the couple’s thread');
   // Every answer in the rows is the button rule — a door is an ActionButton, a form's submit a SupplierSubmit —
   // and the main verb of each is terracotta, unless it takes something away for good (the delete look).
@@ -503,8 +503,8 @@ test('6 · the three outcome notices are the shared TOP toast + a status line �
   assert.match(page, /door: lockAnswer\.door \?\? null,/, 'the status line lost the Pay door the fee-held sentence asks for');
   const said = await render({ needsAnswer: [REPLY], outcome: { text: 'You said yes. Pay the booking fee and we’ll tell the couple their booking is confirmed.', tone: 'ok', door: { label: 'Pay the booking fee', href: '/vendor-dashboard/booking-fees' } } });
   const statusAt = said.indexOf('role="status" data-supplier-outcome="ok"');
-  assert.ok(statusAt > said.indexOf('data-today-next') && statusAt < said.indexOf('data-today-numbers'), 'the status line is not between the Next card and the numbers');
-  assert.match(said.slice(statusAt, said.indexOf('data-today-numbers')), /href="\/vendor-dashboard\/booking-fees"[\s\S]*Pay the booking fee/, 'the status line has no Pay door');
+  assert.ok(statusAt > said.indexOf('data-today-next') && statusAt < said.indexOf('data-today-after-next'), 'the status line is not between the Next card and the numbers');
+  assert.match(said.slice(statusAt, said.indexOf('data-today-after-next')), /href="\/vendor-dashboard\/booking-fees"[\s\S]*Pay the booking fee/, 'the status line has no Pay door');
   const outcome = page.slice(page.indexOf('const outcome:'), page.indexOf('return (', page.indexOf('const outcome:')));
   for (const src of ['lockAnswer.text', 'dateAnswer', 'depositAnswer']) assert.ok(outcome.includes(src), `the ${src} notice is no longer said`);
   assert.match(outcome, /lockAnswer\.tone === 'ok' \? 'ok' : lockAnswer\.tone === 'noop' \? 'note' : 'bad'/, 'a refused booking answer is not drawn as a failure');
@@ -586,11 +586,13 @@ test('8 · the Next card has no frame and no fill; every tap mark is terracotta;
   // 📌 2026-10-28: on a normal day the three numbers are the pinned row's FILTERS — buttons that say they are pressed
   // (`aria-pressed`), no arrow (they open nothing; the list is right under them). The event day keeps its three links,
   // each with its small terracotta mark.
-  const nums = html.slice(html.indexOf('data-today-numbers'), html.indexOf('data-today-list="waiting"'));
+  const nums = html.slice(html.indexOf('data-today-numbers'), html.indexOf('data-today-next'));
   assert.equal((nums.match(/<button[^>]*aria-pressed="(?:true|false)"[^>]*data-today-number=/g) ?? []).length, 3, 'a number stopped being a filter');
   assert.equal((nums.match(/aria-pressed="true"/g) ?? []).length, 1, 'not exactly one filter is on');
-  // The waiting number wears the accent token, never a colour written on the page.
-  assert.match(nums, /data-today-number="waiting"[\s\S]*?class="[^"]*text-sn-accent[^"]*"/, 'the waiting number is not the accent');
+  // Pressed = the filled pill (the accent fill, the on-accent ink); a waiting count NOT pressed wears the accent.
+  // Tokens only, never a colour written on the page.
+  assert.match(nums, /bg-sn-accent"[^>]*aria-pressed="true"[^>]*data-today-number="waiting"[\s\S]*?text-\[rgb\(var\(--sn-on-accent\)\)\]/, 'the pressed count is not the filled pill');
+  assert.match(code('app/vendor-dashboard/_components/today-counts.tsx'), /hot \? 'text-sn-accent'/, 'a waiting count lost its accent');
   const first = code('app/vendor-dashboard/_components/supplier-today-first-screen.tsx');
   assert.doesNotMatch(first, /mulberry|text-ink\/45|#[0-9a-fA-F]{3,8}\b/, 'the first screen writes a colour by hand again');
   // (c) A STATE is the shared Badge (soft fill, no border) — this page draws no pill of its own.

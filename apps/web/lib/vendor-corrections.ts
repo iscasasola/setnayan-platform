@@ -85,6 +85,113 @@ export const VERIFIED_LOCK_ERROR =
   'Your shop is verified, so these details are locked. Request a correction instead.';
 
 // ---------------------------------------------------------------------------
+// 🏷 A SHOP SETNAYAN SET UP CHANGES ITS NAME AND ADDRESS BY REQUEST
+// (owner 2026-10-29: "the name of her shop is wrong so i want her to be able to
+// send a request shop name change … I will create their shop manually on the
+// suppliers").
+//
+// A shop an admin pre-created (`createAdminVendorInvite` stamps
+// `created_by_admin_user_id`, kept for audit after the claim) carries a name —
+// and maybe an address — Setnayan typed. The supplier may still FILL a blank
+// one (owner: "I want her to create her address"), but may not OVERWRITE one:
+// she asks through the SAME `vendor_correction_requests` door a verified shop
+// uses, and an admin applies it on /admin/corrections. Not a second feature —
+// the verified lock's own path, with one more reason to take it.
+//
+// A shop the admin made for THEMSELVES (`created_by_admin_user_id = user_id`,
+// the owner's own all-services shop) is not "set up by Setnayan" for anyone
+// else, so it keeps today's inline edit. Everything else (unverified,
+// self-opened shops) is unchanged.
+// ---------------------------------------------------------------------------
+
+/** The checklist row key → the locked field it writes (`maps_pin` writes `hq_address`). */
+export const ADMIN_SET_UP_ROW_FIELD = {
+  business_name: 'business_name',
+  maps_pin: 'hq_address',
+} as const satisfies Record<string, LockedIdentityFieldKey>;
+
+export type IdentityLockInput = {
+  public_visibility?: string | null;
+  created_by_admin_user_id?: string | null;
+  user_id?: string | null;
+  business_name?: string | null;
+  hq_address?: string | null;
+};
+
+export type IdentityLock = {
+  /** Verified — every identity field changes by request (owner 2026-07-02). */
+  verified: boolean;
+  /** Pre-created by an admin for somebody else (owner 2026-10-29). */
+  setUpBySetnayan: boolean;
+  /** Which locked fields this shop changes ONLY by request, today. */
+  requestOnly: LockedIdentityFieldKey[];
+};
+
+/** The one rule — pure, so the server refusal, My Shop's rows and the ask card all read it. */
+export function identityLockOf(row: IdentityLockInput | null | undefined): IdentityLock {
+  const verified = row?.public_visibility === 'verified';
+  const by = row?.created_by_admin_user_id ?? null;
+  const setUpBySetnayan = by !== null && by !== (row?.user_id ?? null);
+  if (verified) return { verified, setUpBySetnayan, requestOnly: [...LOCKED_IDENTITY_FIELD_KEYS] };
+  const requestOnly: LockedIdentityFieldKey[] = ['business_slug'];
+  if (setUpBySetnayan) {
+    // Only a value that is THERE is Setnayan's to protect — a blank one is hers to create.
+    if (row?.business_name?.trim()) requestOnly.push('business_name');
+    if (row?.hq_address?.trim()) requestOnly.push('hq_address');
+  }
+  return { verified, setUpBySetnayan, requestOnly };
+}
+
+/**
+ * May the inline editor write this checklist/inline FIELD (`business_name`, `maps_pin`, …)? Null = yes; otherwise
+ * the refusal to show. The verified refusal is unchanged.
+ */
+export function identityLockRefusal(lock: IdentityLock, inlineField: string): string | null {
+  if (lock.verified) return VERIFIED_LOCK_ERROR;
+  const writes = (ADMIN_SET_UP_ROW_FIELD as Record<string, LockedIdentityFieldKey>)[inlineField];
+  if (writes && lock.requestOnly.includes(writes)) return ADMIN_SET_UP_LOCK_ERROR;
+  return null;
+}
+
+/**
+ * Does THIS checklist row change by request? Only a FILLED name / address row whose field is request-only — a blank
+ * one is hers to create (owner 2026-10-29: "I want her to create her address"). 'pending' once a request is waiting.
+ */
+export function rowAsks(
+  rowKey: string,
+  filled: boolean,
+  asks: { requestOnly: readonly LockedIdentityFieldKey[]; pending: readonly string[] } | undefined,
+): 'ask' | 'pending' | null {
+  if (!asks || !filled) return null;
+  const field = (ADMIN_SET_UP_ROW_FIELD as Record<string, LockedIdentityFieldKey>)[rowKey];
+  if (!field || !asks.requestOnly.includes(field)) return null;
+  return asks.pending.includes(field) ? 'pending' : 'ask';
+}
+
+/** The refusal for a shop Setnayan set up — names the remedy that IS on the screen. */
+export const ADMIN_SET_UP_LOCK_ERROR =
+  'Setnayan set up your shop, so its name and address change by request. Ask us under “Something wrong?”.';
+
+/**
+ * This shop's lock, read as the supplier (`vendor_profiles_self` — `created_by_admin_user_id` is off
+ * `authenticated`'s column allowlist on the table). Defensive like `fetchVerifiedLock`: a refused read means NOT
+ * locked (a probe hiccup never bricks a save), and the reason reaches the logs.
+ */
+export async function fetchIdentityLock(supabase: SupabaseClient, vendorProfileId: string): Promise<IdentityLock> {
+  try {
+    const { data, error } = await supabase
+      .from('vendor_profiles_self')
+      .select('public_visibility, created_by_admin_user_id, user_id, business_name, hq_address')
+      .eq('vendor_profile_id', vendorProfileId)
+      .maybeSingle();
+    if (error) console.error('[supabase-error] lib/vendor-corrections.ts · from:vendor_profiles_self.select', error);
+    return identityLockOf((data as IdentityLockInput | null) ?? null);
+  } catch {
+    return identityLockOf(null);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Row type + reads
 // ---------------------------------------------------------------------------
 

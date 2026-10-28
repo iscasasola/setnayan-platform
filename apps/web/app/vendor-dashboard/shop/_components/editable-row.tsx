@@ -422,6 +422,57 @@ export function ServiceCoverageRow({
   );
 }
 
+/**
+ * 🏷 A ROW THAT CHANGES BY REQUEST (owner 2026-10-29: "the name of her shop is wrong so i want her to be able to send
+ * a request shop name change"). A filled shop name / address on a shop Setnayan set up — or any verified shop — is
+ * not saved here (`identityLockRefusal` would refuse it); the row shows the value and the ONE way to change it: the
+ * shipped ask card ("Something wrong?", `#fix` on Your details). Once asked it says so, and offers nothing twice.
+ */
+export function RequestOnlyRow({
+  item,
+  data,
+  pending,
+  flat = false,
+}: {
+  item: BusinessProfileItem;
+  data: ProfileFieldData;
+  /** A request for this field is already waiting on Setnayan. */
+  pending: boolean;
+  flat?: boolean;
+}) {
+  return (
+    <li
+      className={flat ? FLAT_ROW : 'overflow-hidden rounded-lg border bg-white'}
+      style={flat ? undefined : { borderColor: 'var(--m-line)' }}
+      data-editable-row={flat ? 'flat' : undefined}
+      data-request-only={pending ? 'pending' : 'ask'}
+    >
+      <div className={flat ? 'flex min-h-[52px] items-center gap-3 py-2' : 'flex items-center gap-3 p-3'}>
+        <StatusChip ok={item.ok} />
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm" style={{ color: 'var(--m-slate)' }}>
+            {item.label}
+          </span>
+          <RowPreview itemKey={item.key} data={data} />
+        </span>
+        {pending ? (
+          <span className="shrink-0 text-xs" style={{ color: 'var(--m-slate-3)' }}>
+            Change asked · waiting
+          </span>
+        ) : (
+          <Link
+            href="/vendor-dashboard/profile#fix"
+            className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-terracotta-700 transition-colors hover:bg-[color:var(--m-orange-4)]"
+          >
+            Ask to change
+            <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+          </Link>
+        )}
+      </div>
+    </li>
+  );
+}
+
 function StatusChip({ ok }: { ok: boolean }) {
   return (
     <span

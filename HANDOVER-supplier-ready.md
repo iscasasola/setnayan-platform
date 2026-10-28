@@ -6,6 +6,11 @@ Worktree: ~/Documents/Claude/Projects/wt-supplier-ready · branch claude/supplie
 - S1 · Events you run for a live co-host seat (lib/events-you-run.ts, .server.ts, -words.ts lede, customer card pill,
   supplier-lab `?s=coord-today|coord-events|coord-customer&cohost=1`). Tests green; two sabotages red (rule, read).
 
+- S2 · name/address by request for a shop Setnayan set up (lib/vendor-corrections.ts identityLockOf /
+  identityLockRefusal / rowAsks; actions.ts updateVendorProfileField; RequestOnlyRow in editable-row.tsx; ask card
+  requestOnly; lab `?s=details&invited=1&asked=1`). Guard lib/a-shop-setnayan-set-up-asks-to-rename.test.ts green,
+  two sabotages red.
+
 ## Next
-- S2 name/address change by request for admin-created shops · S3 basic-setup gate · S4 offerProgress · S5 stylist check
+- S3 basic-setup gate · S4 offerProgress · S5 stylist check
 - Then lints, walk, draft PR (+ do-not-auto-merge label).

@@ -13,4 +13,15 @@ until the same seven days after the event a coordinator's window gives. The read
 up", never "access until" (a co-host's access does not end). A limited helper (`viewer`) gets no door. No new
 permission path, no migration. Guards: `lib/events-you-run.test.ts`, `app/vendor-dashboard/coordinator-door.test.ts`.
 
+**S2 · A shop Setnayan set up changes its name and address BY REQUEST.** One rule, `identityLockOf`
+(`lib/vendor-corrections.ts`): a shop an admin pre-created for someone else (`created_by_admin_user_id` set and not
+the shop's own owner) may FILL a blank name/address but not overwrite a filled one; verified shops unchanged (every
+identity field); self-opened shops unchanged. The inline save refuses through `identityLockRefusal` (read off
+`vendor_profiles_self`); the request is the shipped `requestProfileCorrection` → `vendor_correction_requests` →
+/admin/corrections door. Your details and Today's setup draw a filled request-only row as "Ask to change" (→
+`/vendor-dashboard/profile#fix`) or "Change asked · waiting"; the ask card offers exactly the rule's fields and starts
+on the shop name. Lab: `/dev/supplier-lab?s=details&invited=1[&asked=1]`. Guard:
+`lib/a-shop-setnayan-set-up-asks-to-rename.test.ts`; `correction-queue-has-an-intake` and `the-badge-has-a-deadline`
+updated with reasons.
+
 SPEC IMPACT: DECISION_LOG row "SUPPLIERS READY TO RUN AN EVENT AND FINISH THEIR SHOP" (corpus).

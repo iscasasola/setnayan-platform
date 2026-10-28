@@ -27,7 +27,7 @@ import { openRailDetails } from '@/lib/payment-channels';
 import { tierCaps, asVendorTier, isTierAtLeast } from '@/lib/vendor-tier-caps';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { fetchVendorServicePickerVocab } from '@/lib/vendor-service-vocab';
-import { fetchCorrectionRequests, type VendorCorrectionRequestRow } from '@/lib/vendor-corrections';
+import { fetchCorrectionRequests, identityLockOf, type LockedIdentityFieldKey, type VendorCorrectionRequestRow } from '@/lib/vendor-corrections';
 import {
   fetchPendingSignupCoverageSuggestion,
   type PendingCoverageSuggestion,
@@ -77,6 +77,14 @@ export type DetailsData = {
   socialFeatureOptOut: boolean;
   socialAlreadyFeatured: boolean;
   openCorrections: VendorCorrectionRequestRow[];
+  /**
+   * 🏷 The locked fields this shop changes ONLY by request today (`identityLockOf`, owner 2026-10-29): the web
+   * address always; every identity field once verified; a name/address Setnayan set up. The ask card offers these;
+   * My Shop's rows for them become "Ask to change" (or "Asked · waiting") instead of a save the server refuses.
+   */
+  requestOnly: LockedIdentityFieldKey[];
+  /** Setnayan pre-created this shop for them (says why the name asks). */
+  setUpBySetnayan: boolean;
   pendingCoverageSuggestion: PendingCoverageSuggestion | null;
   verify: VerifySummary;
   verifyMeasured: boolean;
@@ -280,6 +288,7 @@ export async function loadDetailsData(
   };
   const requiredIn = verify.requiredIn;
   const isVerified = profile.public_visibility === 'verified';
+  const lock = identityLockOf(profile);
   const tier = own.tier_state ?? null;
 
   const profileFields: ProfileFieldData = {
@@ -339,6 +348,8 @@ export async function loadDetailsData(
     socialFeatureOptOut: own.social_feature_opt_out === true,
     socialAlreadyFeatured: own.social_featured_at != null,
     openCorrections,
+    requestOnly: lock.requestOnly,
+    setUpBySetnayan: lock.setUpBySetnayan,
     pendingCoverageSuggestion: suggestion,
     verify,
     verifyMeasured,

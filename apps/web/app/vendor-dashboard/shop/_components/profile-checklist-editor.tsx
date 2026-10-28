@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { Check } from 'lucide-react';
 
 import type { BusinessProfileItem } from '@/lib/vendor-profile';
-import { EditableRow, ServiceCoverageRow, type ProfileFieldData } from './editable-row';
+import { EditableRow, RequestOnlyRow, ServiceCoverageRow, type ProfileFieldData } from './editable-row';
+import { rowAsks, type LockedIdentityFieldKey } from '@/lib/vendor-corrections';
 import { formatCount } from '@/lib/format-number';
 
 /**
@@ -27,6 +28,7 @@ export function ProfileChecklistEditor({
   isVerified,
   showProgress = true,
   flat = false,
+  asks,
 }: {
   items: BusinessProfileItem[];
   data: ProfileFieldData;
@@ -38,6 +40,12 @@ export function ProfileChecklistEditor({
   showProgress?: boolean;
   /** 🧾 House form rows — no card around each row (Today's setup steps, owner 2026-10-28). Absent → as it was. */
   flat?: boolean;
+  /**
+   * 🏷 Which fields change only BY REQUEST (`DetailsData.requestOnly`, from `identityLockOf`) and which already have
+   * one waiting (the open requests' `field_key`s). A filled name / address row in that list becomes "Ask to change"
+   * (or "Change asked · waiting") instead of a save the server would refuse. Absent → every row as it was.
+   */
+  asks?: { requestOnly: readonly LockedIdentityFieldKey[]; pending: readonly string[] };
 }) {
   const [openKey, setOpenKey] = useState<string | null>(null);
 
@@ -108,6 +116,14 @@ export function ProfileChecklistEditor({
           // flow instead of editing a column inline (owner 2026-07-03).
           item.key === 'services' ? (
             <ServiceCoverageRow key={item.key} item={item} count={data.services.length} flat={flat} />
+          ) : rowAsks(item.key, item.ok, asks) ? (
+            <RequestOnlyRow
+              key={item.key}
+              item={item}
+              data={data}
+              pending={rowAsks(item.key, item.ok, asks) === 'pending'}
+              flat={flat}
+            />
           ) : (
             <EditableRow
               key={item.key}
@@ -128,3 +144,4 @@ export function ProfileChecklistEditor({
     </div>
   );
 }
+

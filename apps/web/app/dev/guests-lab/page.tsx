@@ -43,8 +43,9 @@
  *                   `SendRun` over `sendRunGuests`; its "Not sent yet (N)" is
  *                   the List's "N to invite" and Setup's "Send to N". The QR
  *                   and the ticket are a real event's, so they do not draw here.
- *   ?part=rsvp      the Maker's Studio › RSVP (`MakerRsvpSettings studio`) on the
- *                   same fixture, so the two doors can be compared side by side
+ *   ?part=rsvp      the Maker's RSVP panel (`MakerRsvpSettings studio`) on the same fixture — the
+ *                   Studio RSVP tile that opened it LEFT in R1 (owner 2026-10-28; its settings are Guests ⚙'s,
+ *                   ?part=setup); kept so the before/after can be compared side by side
  *   &typed=1        (screen) two names typed all lower case — the list shows them cased (displayPersonName)
  *   &marked=1       (card · screen) replies the host set — "Attending · Marked by you", the rows' quiet "marked"
  *   &sides=1        (card · screen) cale-ice's own groups as measured 2026-10-20 — Childhood + College (groom),

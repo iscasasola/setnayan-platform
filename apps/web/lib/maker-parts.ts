@@ -257,10 +257,20 @@ export type MakerPartSource =
   | { kind: 'info'; field: MakerInfoField }
   | { kind: 'studio'; tool: MakerStudioTool }
   | { kind: 'supplier'; fact: 'date' | 'venue' }
+  /** 🗂 R1 (owner 2026-10-28): the reply's settings live in Guests ⚙ — the part's door opens that sheet on its row. */
+  | { kind: 'guests'; row: MakerGuestsRow }
   | { kind: 'tool' };
 
 /** The Studio tools a part's quiet row opens — `lib/studio-tiles.ts` `STUDIO_TILE_KEYS`, restated so this stays import-light. */
-export type MakerStudioTool = 'logo' | 'mood' | 'schedule' | 'story' | 'march' | 'seats' | 'gifts' | 'rsvp';
+export type MakerStudioTool = 'logo' | 'mood' | 'schedule' | 'story' | 'march' | 'seats' | 'gifts';
+/**
+ * 🗂 THE GUESTS ⚙ ROWS A PART'S DOOR MAY OPEN (R1, owner 2026-10-28: *"RSVP moves into the Guests ⚙ sheet"*) — keys of
+ * `SETTINGS_ROWS` (`lib/event-settings-record.ts`), restated so this stays import-light; held equal by
+ * `lib/r1-rsvp-forwards.test.ts`. The reply's form and its two notes were "Open in Studio › RSVP" until the tile left.
+ */
+export type MakerGuestsRow = 'asks';
+/** The door's words — the menu and its ⚙, as the app says it everywhere ("Guests ⚙"). */
+export const MAKER_GUESTS_DOOR_WORDS = 'RSVP settings in Guests';
 export const MAKER_STUDIO_TOOL_LABEL: Record<MakerStudioTool, string> = {
   logo: 'Logo',
   mood: 'Mood Board & Dress Code',
@@ -269,7 +279,6 @@ export const MAKER_STUDIO_TOOL_LABEL: Record<MakerStudioTool, string> = {
   march: 'Wedding March',
   seats: 'Seat plan',
   gifts: 'E-Gifts',
-  rsvp: 'RSVP',
 };
 
 /** A part's layouts: the shipped styles of the scene it is drawn in, or none. */
@@ -278,7 +287,7 @@ export type MakerPartLayouts = { kind: 'scene'; type: string } | { kind: 'none' 
 export type MakerPartDef = {
   /** The tile's word. */
   label: string;
-  /** One string: `info:<field>` · `studio:<tool>` · `supplier:date|venue` · `tool` (see the docblock). */
+  /** One string: `info:<field>` · `studio:<tool>` · `supplier:date|venue` · `guests:<row>` · `tool` (see the docblock). */
   source: string;
   /** The canvas's key for the section it is drawn in — null: not drawn by the canvas yet. */
   canvas: string | null;
@@ -311,10 +320,10 @@ export const MAKER_PARTS: Readonly<Record<MakerPartKey, MakerPartDef>> = {
   place: { label: 'Place', source: 'supplier:venue', canvas: 'f:hero', el: 'venue', layouts: scene('hero_venue') },
   countdown: { label: 'Countdown', source: 'info:countdown_line', canvas: 'w:countdown', layouts: scene('countdown') },
   message: { label: 'Message', source: 'info:special_message', canvas: 'w:special_message', layouts: scene('special_message') },
-  rsvp: { label: 'RSVP', source: 'studio:rsvp', canvas: 'f:rsvp', layouts: scene('rsvp') },
+  rsvp: { label: 'RSVP', source: 'guests:asks', canvas: 'f:rsvp', layouts: scene('rsvp') },
   greeting: { label: 'Greeting', source: 'info:greeting', canvas: 'f:greeting', layouts: NONE },
   /* The Invitation's doorway to the RSVP stage (Reply / Change my reply) — drawn in PR 6. */
-  rsvpcard: { label: 'Reply card', source: 'studio:rsvp', canvas: null, layouts: NONE },
+  rsvpcard: { label: 'Reply card', source: 'guests:asks', canvas: null, layouts: NONE },
   opening: { label: 'Opening line', source: 'info:opening_line', canvas: null, layouts: NONE },
   /* The Welcome's own short notes (2026-10-06 full pass) — not drawn on the Invitation's Welcome yet. */
   reminders: { label: 'Reminders', source: 'tool', canvas: null, layouts: NONE },
@@ -408,6 +417,7 @@ export function makerPartSource(key: MakerPartKey): MakerPartSource {
   if (kind === 'info' && (MAKER_INFO_FIELDS as readonly string[]).includes(value ?? '')) return { kind: 'info', field: value as MakerInfoField };
   if (kind === 'studio' && value && value in MAKER_STUDIO_TOOL_LABEL) return { kind: 'studio', tool: value as MakerStudioTool };
   if (kind === 'supplier' && (value === 'date' || value === 'venue')) return { kind: 'supplier', fact: value };
+  if (kind === 'guests' && value === 'asks') return { kind: 'guests', row: value };
   throw new Error(`maker-parts: "${key}" names no source the Maker knows ("${raw}")`);
 }
 
@@ -419,10 +429,12 @@ export function makerPartSource(key: MakerPartKey): MakerPartSource {
  * (A part whose words the page draws is typed right in Edit instead — `stage-panel/part-words.ts`; its door is
  * only drawn where the page draws no such words.)
  */
-export function makerPartQuietRow(key: MakerPartKey): { words: string; to: { studio: MakerStudioTool | 'info' } | { suppliers: 'date' | 'venue' } } | null {
+export function makerPartQuietRow(key: MakerPartKey): { words: string; to: { studio: MakerStudioTool | 'info' } | { suppliers: 'date' | 'venue' } | { guests: MakerGuestsRow } } | null {
   const src = makerPartSource(key);
   if (src.kind === 'studio') return { words: `Open in Studio › ${MAKER_STUDIO_TOOL_LABEL[src.tool]}`, to: { studio: src.tool } };
   if (src.kind === 'supplier') return { words: 'Change it in Suppliers', to: { suppliers: src.fact } };
+  /* 🗂 R1: the reply's settings are Guests ⚙'s — another page of the app, like Suppliers: a plain door to the sheet's row. */
+  if (src.kind === 'guests') return { words: MAKER_GUESTS_DOOR_WORDS, to: { guests: src.row } };
   /* DECISION_LOG 2026-10-06 rule 6: the Info door stays on every text part. */
   if (src.kind === 'info') return { words: 'Open in Studio › Info', to: { studio: 'info' } };
   return null;
@@ -532,6 +544,7 @@ export function makerPartToolWhy(key: MakerPartKey | null, tool: MakerPartTool):
   if (tool === 'bg' && key && makerPartParent(key) === MAKER_COVER_SCENE) return MAKER_COVER_WORD_BG_WHY;
   const src = key ? makerPartSource(key) : null;
   if (src?.kind === 'studio') return 'Nothing to change here — edit it in Studio.';
+  if (src?.kind === 'guests') return 'Nothing to change here — set it in Guests ⚙.';
   return `${MAKER_PART_TOOL_LABEL[tool]} has nothing to change on this part.`;
 }
 
@@ -842,6 +855,6 @@ export const MAKER_PART_FOCUS: Partial<Record<MakerPartKey, string>> = {
 /** Where a part's Style bar goes: its Studio tile, and the field focused there (or null). */
 export function makerPartStudioDoor(key: MakerPartKey): { tile: MakerStudioTool | 'info'; focus: string | null } | null {
   const q = makerPartQuietRow(key);
-  if (!q || 'suppliers' in q.to) return null;
+  if (!q || !('studio' in q.to)) return null;
   return { tile: q.to.studio, focus: MAKER_PART_FOCUS[key] ?? null };
 }

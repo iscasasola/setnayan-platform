@@ -124,7 +124,7 @@ export function useDeskRowsTop(desk: boolean, rows: RefObject<HTMLElement | null
 /** Where a part comes from, as the parts column says it under its name (the approved frame: Studio · Suppliers). */
 function partSourceWord(key: MakerPartKey): string | null {
   const src = makerPartSource(key);
-  return src.kind === 'studio' ? 'Studio' : src.kind === 'supplier' ? 'Suppliers' : null;
+  return src.kind === 'studio' ? 'Studio' : src.kind === 'supplier' ? 'Suppliers' : src.kind === 'guests' ? 'Guests' : null;
 }
 
 const STEP =

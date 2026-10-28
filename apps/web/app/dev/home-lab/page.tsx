@@ -36,6 +36,7 @@
  *                                    (the app reads the catalogue; a lab has none, so the figure is omitted).
  *   ?view=apply&screen=none|silent|cancelled|failed|refused|pending|on  🍎 the REAL Apply sheet
  *                                    selling Event Hub Pro through Apple, in each outcome
+ *   ?coord=1                         🗂 the coordinator's line on top (owner 2026-10-28) — the REAL `CoordinatingLine`
  *   ?for=shop|person                 🏷 "For <name>" under the name (owner 22 Oct 2026): the REAL
  *                                    `homeCoverWords` with a subject — SetnaProd (its logo) or Lola Nena (initials)
  *   ?view=board[&for=1][&one=1]      🏷 the Events board's Planning posters (owner 22 Oct 2026): the REAL
@@ -59,6 +60,7 @@
  *                                    2026-10-14): before the window · on · running low ·
  *                                    stopped (Next card) · no photos yet (Next card) · low on the day
  */
+import { CoordinatingLine } from '@/app/dashboard/[eventId]/_components/coordinating-line';
 import { PapicBuySheet } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-buy-sheet';
 import { PapicCameraSettings, PapicSwitch } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-camera-settings';
 import { ChallengeCardRow } from '@/app/dashboard/[eventId]/studio/papic/_components/challenge-card-row';
@@ -222,7 +224,7 @@ const LAB_HUB_PICK: HomeHubPickRead = { ok: true, pinned: null, byDate: 'rsvp' }
 export default async function HomeLab({
   searchParams,
 }: {
-  searchParams: Promise<{ bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; card?: string; cardphase?: string; challenges?: string; open?: string; need?: string }>;
+  searchParams: Promise<{ bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; coord?: string; card?: string; cardphase?: string; challenges?: string; open?: string; need?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -453,6 +455,10 @@ export default async function HomeLab({
        sm:pt-6): the cover band cancels exactly that gutter to run edge to edge, so a lab that pads by less draws
        a band that overflows (sweep 2026-10-19 C13: 16 px past the right edge at 1280 — the lab's, not the Home's).
        Held by `lib/the-home-cover-band-fits-its-gutter.test.ts`. */
+    <>
+    {/* `&coord=1` — 🗂 a supplier inside an event they run as the hosts' coordinator (owner 2026-10-28): the REAL
+        line the event layout draws above every page for that viewer, over the couple's own Home. */}
+    {q.coord === '1' ? <CoordinatingLine eventName={F.name} checkInHref={`/dashboard/${E}/guests/checkin`} /> : null}
     <div className="mx-auto min-h-screen w-full bg-cream px-4 pb-6 pt-3 sm:px-6 sm:pt-6 lg:px-8">
       <HomeFirstScreen
         eventId={E}
@@ -500,6 +506,7 @@ export default async function HomeLab({
         })}
       />
     </div>
+    </>
   );
   /* `&spot=1` — 👋 the host spotlight's first run over this Home: the once-only welcome, then the shipped steps. */
   const lit = q.spot === '1' ? (

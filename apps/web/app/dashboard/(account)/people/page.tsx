@@ -96,7 +96,7 @@ const FENCE_ERROR: Record<string, string> = {
 export default async function PeoplePage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; saved?: string; removed?: string; view?: string; person?: string }>;
+  searchParams: Promise<{ error?: string; saved?: string; removed?: string; view?: string; person?: string; left?: string; archived?: string }>;
 }) {
   const showConnections = peopleConnectionsEnabled();
   // Dependents (minors' SPI) surface only when the env flag AND the
@@ -222,6 +222,12 @@ export default async function PeoplePage({
       {personNotice ? (
         <p role="status" className="mb-3 text-sm text-ink/65" data-person-notice="">
           {personNotice}
+        </p>
+      ) : null}
+      {/* 👥 Back from leaving or archiving a group (the old Groups index forwards here with the note). */}
+      {sp.left === '1' || sp.archived === '1' ? (
+        <p role="status" className="mb-3 text-sm text-ink/65" data-group-notice="">
+          {sp.left === '1' ? 'You left the group.' : 'The group was archived. Members keep their accounts and events.'}
         </p>
       ) : null}
       {found ? <FoundPersonCard key={found.publicId} hit={found} /> : null}

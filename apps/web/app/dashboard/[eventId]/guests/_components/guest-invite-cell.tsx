@@ -138,7 +138,7 @@ export function GuestInviteCell({
    * DELETE"). On a phone it opens the phone's own share sheet at once; on a computer it opens this same sheet.
    */
   layout?: 'card' | 'row' | 'phone' | 'icon';
-  /** The ⋯ menu, drawn right beside Invite (`GuestMoreMenu`). */
+  /** The card's NFC · New QR · ⋯ (`GuestMoreMenu`), drawn after Share on the ticket row. */
   more?: React.ReactNode;
   /** Whether an account holds this invitation; null = not measured, so not said. */
   linked?: boolean | null;
@@ -208,6 +208,8 @@ export function GuestInviteCell({
         <>
           <span className="text-success-700">✓</span> Sent {sentDay}
         </>
+      ) : layout === 'card' ? (
+        'Not sent yet'
       ) : (
         'Not sent'
       )}
@@ -223,7 +225,7 @@ export function GuestInviteCell({
         <div className="flex items-center gap-1.5">
           <span
             className="text-xs text-ink/45"
-            title={`${first} has no personal link yet — New QR in ⋯ gives them one.`}
+            title={`${first} has no personal link yet — New QR gives them one.`}
           >
             No link yet
           </span>
@@ -300,14 +302,14 @@ export function GuestInviteCell({
     A computer — no share sheet where Messenger and Viber live — and a phone whose sheet refuses get THIS cell's sheet:
     the app rows + Copy message · Copy ticket · Mark as sent · Copy invitation link. Never a second sender.
   */
-  async function rowShare() {
+  async function rowShare(at: 'body' | 'head' = 'body') {
     if (isTouchDevice() && typeof navigator.share === 'function') {
       setSaid(null);
       const out = await shareInvite(null, message);
       if (out === 'shared') return mark(true);
       if (out === 'closed') return;
     }
-    invite('body');
+    invite(at);
     setTouch(false);
   }
 
@@ -542,12 +544,62 @@ export function GuestInviteCell({
           icon={Share}
           label="Share"
           name={sentAt ? `Share ${guest.fullName}’s invitation — sent ${sentDay}` : `Share ${guest.fullName}’s invitation`}
-          onClick={rowShare}
+          onClick={() => void rowShare()}
           disabled={pending}
         />
         {sheet}
         {askBack}
       </span>
+    );
+  }
+
+  /* 🎟 THE CARD'S TICKET ROW — SHARE · NFC · NEW QR, then ⋯ (owner 2026-10-27, DECISION_LOG "GUEST CARD TICKET ROW = THREE
+     ICON BUTTONS" + "APPROVED — ONE SEND BUTTON FOR EVERY INVITE"; owner 2026-10-28 "guest card still does not ahve that one
+     share button"). Share is the row's ONE Send (`rowShare`): a phone → its own share sheet with this guest's message and
+     link, an app taking it stamps Sent ✓; a computer (or a refused sheet) → this cell's sheet, the shipped app rows + Copy.
+     NFC · New QR · ⋯ are the `more` the card hands in (`GuestMoreMenu`). The big "Invite ▾" left the card.
+     🔒 guests/_components/the-ticket-row-is-three-icons.test.ts */
+  if (layout === 'card') {
+    const shareName = sentAt ? `Share ${guest.fullName}’s invitation — sent ${sentDay}` : `Share ${guest.fullName}’s invitation`;
+    return (
+      <div className="space-y-1" data-guest-invite-pair="card">
+        <div className="flex items-center gap-1.5" data-guest-ticket-row="">
+          <span className="contents" data-guest-invite-cell="" data-sent={sentAt ? 'true' : undefined}>
+            <ActionButton
+              ref={ref}
+              tone="neutral"
+              iconOnly
+              icon={Share}
+              label="Share"
+              name={shareName}
+              onClick={() => void rowShare('body')}
+              disabled={pending}
+              data-testid="guest-card-share"
+            />
+          </span>
+          {more ? <Handed>{more}</Handed> : null}
+        </div>
+        {status}
+        {pin.pinned && pin.slot
+          ? createPortal(
+              <span className="sn-inspector-pin" data-guest-invite-pinned="">
+                <ActionButton
+                  ref={pinRef}
+                  tone="neutral"
+                  iconOnly
+                  icon={Share}
+                  label="Share"
+                  name={shareName}
+                  onClick={() => void rowShare('head')}
+                  disabled={pending}
+                />
+              </span>,
+              pin.slot,
+            )
+          : null}
+        {sheet}
+        {askBack}
+      </div>
     );
   }
 
@@ -570,33 +622,11 @@ export function GuestInviteCell({
             onClick={() => invite('body')}
             disabled={pending}
             aria-haspopup="dialog"
-            /* ▾ on the card — Invite opens its send choices (owner-approved prototype `guest_card_groups_and_papic_2026-10-23.html`). */
-            caret={layout === 'card'}
             className="relative z-20"
           />
         </span>
-        {more ? <Handed>{more}</Handed> : null}
       </div>
       {status}
-      {pin.pinned && pin.slot
-        ? createPortal(
-            <span className="sn-inspector-pin" data-guest-invite-pinned="">
-              <ActionButton
-                ref={pinRef}
-                tone="brand"
-                main
-                icon={Send}
-                label="Invite"
-                name={sentAt ? `Invite ${guest.fullName} — sent ${sentDay}` : `Invite ${guest.fullName}`}
-                onClick={() => invite('head')}
-                disabled={pending}
-                aria-haspopup="dialog"
-                caret
-              />
-            </span>,
-            pin.slot,
-          )
-        : null}
       {sheet}
       {askBack}
     </div>

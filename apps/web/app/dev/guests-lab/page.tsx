@@ -27,6 +27,7 @@
  *                   dock: &gview=map for the map, &q=… to search, &empty=1 for
  *                   an empty list, &fail=1 for a refused read
  *   &req=0          (screen) no requests to join waiting — the carousel's card ① says "No requests waiting"
+ *   &select=to-invite (screen) ⚙ › Pick who's cold link — Select on, the list narrowed to To invite
  *   &oneqr=1        (screen) a one-link event with no list to walk (just the couple): card ② reads
  *                   "One link for everyone · Share" (owner 2026-10-27, "THE SEND RUN ALSO SERVES A ONE-QR EVENT")
  *   &low=1          push the card's ticket row to the bottom of a short phone
@@ -803,6 +804,7 @@ export default async function GuestsLabPage({
                     titlesWaiting={sp.titles === '1' ? LAB_TITLES_WAITING : []}
                     rootLabel="Maria & Jose"
                     initialQuery={typeof sp.q === 'string' ? sp.q : ''}
+                    initialSelect={sp.select === 'to-invite'}
                     setup={setupRows}
                     settingsOpen={part === 'setup' || sp.settings === '1'}
                     settingsRow={typeof sp.row === 'string' ? sp.row : null}

@@ -143,8 +143,9 @@ test('6c · the pinned Invite is the SAME cell’s button, drawn only while its 
   assert.match(CELL, /useHeadPin\(ref, layout === 'card'\)/, 'only the card’s Invite pins, observed on the body button itself');
   const portal = CELL.slice(CELL.indexOf('createPortal(') - 40, CELL.indexOf('pin.slot,') + 9);
   assert.match(portal, /^[\s\S]*\{pin\.pinned && pin\.slot\s*\?\s*createPortal\(/, 'the copy must be drawn ONLY while pinned');
-  assert.match(portal, /onClick=\{\(\) => invite\('head'\)\}/, 'the copy must run the same invite()');
-  assert.match(portal, /\bcaret\b/, 'the copy is Invite ▾');
+  // 🎟 Since 2026-10-28 the card's send is the ONE Share (ticket row: Share · NFC · New QR) — the copy runs the same rowShare().
+  assert.match(portal, /onClick=\{\(\) => void rowShare\('head'\)\}/, 'the copy must run the same rowShare()');
+  assert.match(portal, /icon=\{Share\}/, 'the copy is the Share icon');
   assert.equal((CELL.match(/createPortal\(/g) ?? []).length, 1, 'one portal — the header copy');
   assert.match(CELL, /<Popover anchorRef=\{from === 'head' && pin\.pinned \? pinRef : ref\}/, 'the sheet opens under whichever Invite was pressed');
   const pin = rule('.sn-inspector-pin');
@@ -159,10 +160,11 @@ test('7 · on a phone the pinned Invite is a 44px round button (glyph + ▾), na
   const phone = m![1]!;
   assert.match(phone, /\.sn-inspector-pin \.ab \{ width: 44px; min-width: 44px; height: 44px; padding: 0; gap: 0; \}/, 'a 44px round button');
   assert.match(phone, /\.sn-inspector-pin \.ab \.lbl \{ display: none; \}/, 'the word is hidden on a phone');
-  assert.match(phone, /\.sn-inspector-pin \.ab \[data-caret\]/, 'the ▾ stays');
+  // (The ▾ rule stays in the CSS for any caret button; the pinned Share has none — it is one icon.)
   assert.match(phone, /\.sn-inspector-sheet \.sn-inspector-head \{ gap: 8px; \}/, 'the header’s spacing tightens on a phone');
   // The SAME button: it keeps its word for its name, and its caret.
   const portal = CELL.slice(CELL.indexOf('createPortal(') - 40, CELL.indexOf('pin.slot,') + 9);
-  assert.match(portal, /name=\{sentAt \? `Invite \$\{guest\.fullName\} — sent \$\{sentDay\}` : `Invite \$\{guest\.fullName\}`\}/, 'its name still says who it invites');
-  assert.match(portal, /label="Invite"/);
+  assert.match(portal, /name=\{shareName\}/, 'its name still says who it is for');
+  assert.match(CELL, /const shareName = sentAt \? `Share \$\{guest\.fullName\}’s invitation — sent \$\{sentDay\}` : `Share \$\{guest\.fullName\}’s invitation`;/);
+  assert.match(portal, /label="Share"/);
 });

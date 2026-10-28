@@ -26,6 +26,7 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { AppPreload } from '@/app/_components/app-preload';
 import { appPreloadPlan, hostedEventOf } from '@/lib/app-preload-sets';
 import { VendorBottomNav } from './_components/vendor-bottom-nav';
+import { readEventsYouRun } from '@/lib/events-you-run.server';
 import { BottomDock } from '@/app/_components/nav/bottom-nav';
 import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
 import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
@@ -192,6 +193,14 @@ export default async function VendorDashboardLayout({
     })
     .catch(() => 0);
 
+  // 🗂 THE COORDINATOR'S DOOR (owner "approved", 2026-10-28): does this person run any event, live, as the hosts'
+  // coordinator? One read of their OWN seats (`lib/events-you-run.server.ts`, cache()d — Today, the Events page and
+  // the customer card reuse it). Started here, beside the batch, so it adds no trip. FAILS CLOSED: a refused read is
+  // no tab, never a dead one.
+  const runsEventsPromise = readEventsYouRun(supabase, user.id)
+    .then((r) => r.events.length > 0)
+    .catch(() => false);
+
   // Single parallel batch for all chrome data with no inter-dependency. The
   // nav-registry overrides (getNavSlotMap) used to run sequentially near the
   // bottom of the layout — it has no dependency on anything, so it joins the
@@ -206,6 +215,7 @@ export default async function VendorDashboardLayout({
     tierProbe,
     threadsUnread,
     bookingsPending,
+    runsEvents,
   ] =
     await timer.track('chrome', () => Promise.all([
       supabase
@@ -241,6 +251,8 @@ export default async function VendorDashboardLayout({
       countUnreadMessages(supabase, user.id),
       // Bookings badge — pending-inquiry count (chained on the vendor profile).
       bookingsPendingPromise,
+      // The Events tab — at least one LIVE coordinator seat (started above).
+      runsEventsPromise,
     ]));
   const profile = profileRes.data;
   // 🔁 Asked once when the agreement on record is not to the Terms in force; a failed read is not asked.
@@ -546,6 +558,7 @@ export default async function VendorDashboardLayout({
             planHref={storeShell ? null : '/vendor-dashboard/subscription'}
             tier={vendorTier}
             eventToday={eventToday}
+            runsEvents={runsEvents}
           />
         }
         topBarSlot={topBar}
@@ -638,6 +651,7 @@ export default async function VendorDashboardLayout({
           bookingsBadge={bookingsPending}
           threadsBadge={threadsUnread}
           eventToday={eventToday}
+          runsEvents={runsEvents}
         />
       </BottomDock>
       {/* 📲 What the account has, preloaded once the page is idle — the supplier

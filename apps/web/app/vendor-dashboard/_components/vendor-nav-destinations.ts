@@ -97,7 +97,8 @@
  * `vendor-bar-is-four.test.ts` holds the four, on the bar and here.
  */
 
-import { CalendarCheck, ShoppingBag, Store, Users } from 'lucide-react';
+import { CalendarCheck, ClipboardList, ShoppingBag, Store, Users } from 'lucide-react';
+import { EVENTS_YOU_RUN_HREF } from '@/lib/events-you-run-words';
 import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
 import type { NavGroup, NavItem, NavBadge } from '@/app/_components/nav/types';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
@@ -184,6 +185,20 @@ export const VENDOR_SHOP_EXTRA_MATCH: readonly string[] = [
 ];
 
 /**
+ * 🗂 THE EVENTS ROW — the rail's spelling of the bar's fifth tab (`VENDOR_EVENTS_TAB`, owner "approved",
+ * 2026-10-28): the events this person runs as the hosts' coordinator. Joins ONLY while `runsEvents` is true, after the
+ * role filter (it is the person's own seat, not the shop's), last — the same rule, the same word, the same room as the
+ * phone (`coordinator-door.test.ts`).
+ */
+export const VENDOR_EVENTS_DESTINATION: NavItem = {
+  key: 'events',
+  label: 'Events',
+  href: EVENTS_YOU_RUN_HREF,
+  icon: ClipboardList,
+  matchPrefix: EVENTS_YOU_RUN_HREF,
+};
+
+/**
  * Every (key, href) the rail's ONE `activeRailKey` resolution weighs: the rows
  * themselves, the rooms that light a row they do not start with, and the Plan
  * row. Pure, so a test asks the rail's own list which row a URL lights instead
@@ -229,8 +244,11 @@ export function resolveVendorDestinations({
   bookingsBadge = 0,
   threadsBadge = 0,
   eventToday = false,
+  runsEvents = false,
 }: {
   role: VendorTeamRole | null;
+  /** At least one LIVE coordinator seat — the Events row joins (owner 2026-10-28). */
+  runsEvents?: boolean;
   /**
    * One of this shop's days is today. Only a scoped teammate's rows read it —
    * they get the Hub on that day (owner 2026-10-21, item 6); an owner always has it.
@@ -250,7 +268,7 @@ export function resolveVendorDestinations({
     is the same rule the phone's bottom bar uses.
   */
   const scoped = filterVendorNavGroups(vendorNavGroups(), role, { eventToday });
-  const items = scoped[0]?.items ?? [];
+  const items = [...(scoped[0]?.items ?? []), ...(runsEvents === true ? [VENDOR_EVENTS_DESTINATION] : [])];
 
   /*
     THE ADMIN'S RENAME, OR THE WORD IN THE CODE. The phone bar already reads

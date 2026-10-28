@@ -10,7 +10,7 @@
  *       ONE plain line · and the ⓘ as its OWN 44-px button BESIDE the card's button, never inside it.
  *   (2) ITS STATE HAS ITS WORD — Ready / Missing as a badge; "Full screen" a small tag; a fact that could not be
  *       read is SAID on the card, with no badge.
- *   (3) THE STUDIO HOME — eleven cards, each with a DISTINCT mark, its line and its ⓘ; the tile's own marks
+ *   (3) THE STUDIO HOME — ten cards (RSVP left in R1), each with a DISTINCT mark, its line and its ⓘ; the tile's own marks
  *       (`data-studio-tile`, `data-studio-done`) and the ready count kept; one column on a phone, two from 768 px.
  *   (4) THE WORDS — eleven lines that are sentences (never nouns joined by dots), in the house's words.
  *   (5) IT ASKS NOTHING — opening the home, a card or an ⓘ adds no request and no preload; the card knows no screen
@@ -104,27 +104,27 @@ const tiles = (over: Partial<Record<string, { done?: boolean | undefined; status
     status: over[key]?.status ?? STUDIO_TILES[key].sub,
   }));
 
-test('(3) the Studio home: eleven cards, eleven DISTINCT marks, the tile’s own marks and the count kept; one column, two from 768', async () => {
+test('(3) the Studio home: ten cards (RSVP left for Guests ⚙ in R1), ten DISTINCT marks, the tile’s own marks and the count kept; one column, two from 768', async () => {
   const { StudioHome, TILE_ICON } = await import(`../${HOME}`);
-  const html = await paint(h(StudioHome, { tiles: tiles({ logo: { done: false }, gifts: { done: undefined, status: STUDIO_TILE_UNREAD }, rsvp: { done: undefined } }), onOpen: () => {} }));
-  assert.equal(count(html, /data-page-card="/g), 11);
-  assert.deepEqual([...html.matchAll(/data-studio-tile="([a-z]+)"/g)].map((m) => m[1]), [...STUDIO_TILE_KEYS], 'the cards are not the eleven, in the owner’s order');
+  const html = await paint(h(StudioHome, { tiles: tiles({ logo: { done: false }, gifts: { done: undefined, status: STUDIO_TILE_UNREAD } }), onOpen: () => {} }));
+  assert.equal(count(html, /data-page-card="/g), 10);
+  assert.deepEqual([...html.matchAll(/data-studio-tile="([a-z]+)"/g)].map((m) => m[1]), [...STUDIO_TILE_KEYS], 'the cards are not the ten, in the owner’s order');
   // The shipped marks: ✓ / Missing / no claim, and the count.
   assert.equal(count(html, /data-studio-done="yes"/g), 8);
   assert.equal(count(html, /data-studio-done="no"/g), 1);
-  assert.equal(count(html, /data-studio-done="unread"/g), 2);
-  assert.match(html, /data-studio-ready="">8 of 11 ready</);
+  assert.equal(count(html, /data-studio-done="unread"/g), 1);
+  assert.match(html, /data-studio-ready="">8 of 10 ready</);
   assert.equal(count(html, />Ready</g), 8);
   assert.equal(count(html, />Missing</g), 1);
   assert.equal(count(html, />Could not be read just now</g), 1, 'a fact that could not be read looks like an untouched page');
   // "Full screen" on the two that take the screen — a small tag.
   const tagged = [...html.matchAll(/data-studio-tile="([a-z]+)"[\s\S]*?<\/button>/g)].filter((m) => m[0].includes('data-page-card-tag')).map((m) => m[1]);
   assert.deepEqual(tagged, ['march', 'seats']);
-  // THE CLAIM: eleven DISTINCT marks (Look and the Mood Board shared one) — compared as drawn.
+  // THE CLAIM: ten DISTINCT marks (Look and the Mood Board shared one) — compared as drawn.
   const marks = [...html.matchAll(/data-page-card-mark=""[^>]*>(<svg[\s\S]*?<\/svg>)/g)].map((m) => m[1]!.replace(/\s+/g, ' '));
-  assert.equal(marks.length, 11, 'anti-vacuity: the marks were not found');
-  assert.equal(new Set(marks).size, 11, 'two pages share one mark');
-  assert.equal(new Set(Object.values(TILE_ICON)).size, 11);
+  assert.equal(marks.length, 10, 'anti-vacuity: the marks were not found');
+  assert.equal(new Set(marks).size, 10, 'two pages share one mark');
+  assert.equal(new Set(Object.values(TILE_ICON)).size, 10);
   // ONE list of marks: "Studio ▾" in the top nav draws each page with the card's own mark (it had Look and the Mood
   // Board on the same four squares).
   const parts = read('app/dashboard/[eventId]/launch/_components/stages-studio-parts.tsx');
@@ -132,13 +132,13 @@ test('(3) the Studio home: eleven cards, eleven DISTINCT marks, the tile’s own
   assert.match(parts, /const Icon = TILE_ICON\[t\.key\];/, 'the chooser keeps a second list of marks');
   const { studioChooserOptions } = await import('../app/dashboard/[eventId]/launch/_components/stages-studio-parts');
   const drawn = await Promise.all(studioChooserOptions(tiles()).map((o) => paint(o.icon as React.ReactElement)));
-  assert.equal(new Set(drawn.map((d) => d.replace(/class="[^"]*"/, ''))).size, 11, 'two pages share one mark in the chooser');
+  assert.equal(new Set(drawn.map((d) => d.replace(/class="[^"]*"/, ''))).size, 10, 'two pages share one mark in the chooser');
   // Each has its line and its own ⓘ.
   for (const key of STUDIO_TILE_KEYS) {
     if (key !== 'gifts') assert.ok(html.includes(STUDIO_PAGE_CARDS[key].description.replace(/’/g, '’')), `${key} has no line`);
     assert.ok(html.includes(`aria-label="About ${STUDIO_TILES[key].label.replace(/&/g, '&amp;')}"`), `${key} has no ⓘ`);
   }
-  assert.equal(count(html, /data-explain=""/g), 11);
+  assert.equal(count(html, /data-explain=""/g), 10);
   // One column on a phone; two only from 768 px.
   assert.match(html, /<ul data-studio-cards="" class="grid grid-cols-1 gap-2 md:grid-cols-2 /, 'the home is two columns on a phone (a sentence and a 44-px ⓘ do not fit)');
   assert.doesNotMatch(html, /class="grid grid-cols-2/);

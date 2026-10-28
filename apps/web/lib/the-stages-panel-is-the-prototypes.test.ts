@@ -220,7 +220,8 @@ test('every part with a Studio bar has a door; every focused field exists in the
   const { execSync } = await import('node:child_process');
   for (const k of MAKER_PART_KEYS) {
     const q = makerPartQuietRow(k);
-    if (!q || 'suppliers' in q.to) continue;
+    /* Suppliers, and Guests ⚙ since R1 (the RSVP form's settings), are other pages of the app — a plain link, no Studio jump. */
+    if (!q || 'suppliers' in q.to || 'guests' in q.to) continue;
     const door = makerPartStudioDoor(k);
     assert.ok(door, `${k}: its "Edit …" bar has a door`);
   }

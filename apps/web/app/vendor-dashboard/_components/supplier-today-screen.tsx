@@ -3,6 +3,7 @@ import { BookingFeeBills } from '@/app/_components/booking-fee-notice';
 import type { FeeDisclosure } from '@/lib/booking-fee-disclosure';
 import type { SupplierTodayView } from '@/lib/supplier-today-view';
 import type { WhatsNewCard } from '@/lib/vendor-overview';
+import type { EventYouRun } from '@/lib/events-you-run';
 import { formatPesoCompact } from '@/lib/vendors-plan-budget';
 import { LockRequestBody, WhatsNewFeed } from './overview-sections';
 import { SupplierTodayFirstScreen, TodayNoteRow, type TodayOutcome } from './supplier-today-first-screen';
@@ -52,6 +53,7 @@ export function SupplierTodayScreen({
   deskIncomplete,
   actions,
   library = false,
+  eventsYouRun = [],
 }: {
   view: SupplierTodayView;
   outcome: TodayOutcome | null;
@@ -64,6 +66,8 @@ export function SupplierTodayScreen({
   actions: TodayActions;
   /** 🌱🖼 Draw "Add to the inspiration library" under the Shop row (the shop's trades supply a part). */
   library?: boolean;
+  /** 🗂 The events this person runs as the hosts' coordinator, live (owner 2026-10-28) — empty for everyone else. */
+  eventsYouRun?: readonly EventYouRun[];
 }) {
   return (
       <SupplierTodayFirstScreen
@@ -112,6 +116,7 @@ export function SupplierTodayScreen({
         }}
         alsoToday={view.alsoToday}
         comingUp={view.comingUp}
+        eventsYouRun={eventsYouRun}
         alsoWaitingHeaded={view.alsoWaitingHeaded}
         doors={view.doors}
         shop={view.shop}

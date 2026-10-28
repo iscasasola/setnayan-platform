@@ -267,8 +267,21 @@ export function measurePass(doc: PrintDoc, look: PrintLook, name: string | null)
     const joined = drawn.join(' ').replace(/\s+/g, ' ').trim();
     const want = plainName.replace(/\s+/g, ' ').trim();
     const bare = (x: string) => x.replace(/\s+/g, '').toLowerCase();
+    // WHOLE = some run of consecutive lines, read in drawing order, spells the name letter for letter. (A wrapped name's
+    // short lines — "Dela", or the last letters of a word broken at the floor — are part of the run though they are
+    // too short to be recognised as name lines on their own.)
+    const target = bare(want);
+    let whole = false;
+    for (let i = 0; i < texts.length && !whole; i++) {
+      let acc = '';
+      for (let j = i; j < texts.length; j++) {
+        acc += bare(texts[j]!.meta.s);
+        if (acc === target) whole = true;
+        if (whole || !target.startsWith(acc)) break;
+      }
+    }
     if (drawn.some((d) => d.includes('…'))) out.push({ rule: 'clipped', detail: `the name is cut: it prints as "${joined}" — a name is never shortened with "…"` });
-    else if (drawn.length && bare(joined) !== bare(want)) out.push({ rule: 'clipped', detail: `the name prints as "${joined}" — not "${want}"` });
+    else if (drawn.length && !whole) out.push({ rule: 'clipped', detail: `the name prints as "${joined}" — not "${want}"` });
   }
 
   // (e) contrast

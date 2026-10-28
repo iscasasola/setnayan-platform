@@ -1139,10 +1139,12 @@ export function guestFullName(guest: {
  */
 export function guestPrintName(
   guest: Parameters<typeof guestFullName>[0] & Pick<GuestRow, 'display_name' | 'first_name' | 'last_name'>,
+  /** The event's Name style (`lib/name-style.ts`) — omitted = Full, as `guestFullName`. */
+  style?: NameStyle,
 ): string {
   // An unnamed extra seat ("TBA" / "+1") has no name to print in full — it reads as the list reads it ("+1 · TBA").
   if (isPlaceholderNameWord('first', guest.first_name) && isPlaceholderNameWord('last', guest.last_name)) return guestDisplayName(guest);
-  const full = guestFullName(guest);
+  const full = guestFullName(guest, style);
   if (!full) return guestDisplayName(guest);
   const nick = guest.display_name?.trim();
   if (!nick || full.toLowerCase().includes(nick.toLowerCase())) return full;

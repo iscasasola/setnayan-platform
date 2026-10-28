@@ -19,16 +19,38 @@
  *     provides them the initial information they received", so an Off coordinator has no event to run and no door.
  *
  * Any of those false → the row, the Events tab and "Open their event" all go, at the next render. Never a dead tab.
+ *
+ * 👥 …AND A LIVE CO-HOST SEAT (owner 2026-10-29: *"This is similar to adding them as a cohost which is already in
+ * effect. They only need a way to access it and have that menu for them on their account."*). A supplier the hosts
+ * made a CO-HOST from the guest list (`event_moderators.role_subtype` a full co-host kind — `seatIsFullCohost`, the
+ * mirror of SQL `seat_is_full_cohost`) is a `couple` member of the event, admitted by the dashboard's membership
+ * check, with every area. The door is drawn for that seat too, while it is joined (`user_id` theirs, `accepted_at`
+ * stamped by `activate_guest_seats`), not removed, and its event readable — and, so the list never grows forever,
+ * only until the same seven days after the event a coordinator's window gives (a co-host's ACCESS does not end there;
+ * only the list row goes, so this still draws for fewer people than the dashboard admits). A limited helper
+ * (`viewer`) views; it does not run the event — no door.
  * 🔒 `events-you-run.test.ts` · `app/vendor-dashboard/coordinator-door.test.ts`.
  */
-import { delegateAccessLastDay, permissionsWithinWindow } from './delegate-access-window';
+import { delegateAccessHasExpired, delegateAccessLastDay, permissionsWithinWindow } from './delegate-access-window';
 import type { ModeratorPermissions } from './delegate-areas';
 import { areaCells, coordinatorHasHostAccess } from './people-with-access';
 import type { EventDecisionSummary } from './event-decisions';
 import { formatCount } from './format-number';
+import { FULL_COHOST_SEAT_KINDS, seatIsFullCohost } from './guest-access';
 
 /** The coordinator's seat — the one role this door is for (owner 2026-10-07: "Same as User Host of the event"). */
 export const COORDINATOR_SEAT_ROLE = 'wedding_planner_external';
+
+/**
+ * Every seat kind that can run an event: the coordinator's, and each full co-host kind. The server read asks for
+ * exactly these (`.in('role_subtype', RUN_SEAT_ROLES)`); `seatRunsTheEvent` decides which of them is live.
+ */
+export const RUN_SEAT_ROLES: readonly string[] = [COORDINATOR_SEAT_ROLE, ...FULL_COHOST_SEAT_KINDS];
+
+/** The word for the seat on the Today row and the customer card's pill. */
+export type RunSeatWord = 'Coordinator' | 'Co-host';
+export const runSeatWord = (roleSubtype: string | null): RunSeatWord =>
+  roleSubtype === COORDINATOR_SEAT_ROLE ? 'Coordinator' : 'Co-host';
 
 export { EVENTS_YOU_RUN_HREF, EVENTS_YOU_RUN_TIP, EVENTS_YOU_RUN_LEDE } from './events-you-run-words';
 
@@ -60,8 +82,10 @@ export type EventYouRun = {
   eventId: string;
   /** The couple's names ("Claire & Indalecio") — never blank. */
   name: string;
-  /** "Wedding · Sat, Dec 12 · Coordinator" (the Today row) */
+  /** "Wedding · Sat, Dec 12 · Coordinator" — or "· Co-host" (the Today row) */
   line: string;
+  /** Which seat runs it — the customer card's pill. */
+  seatWord: RunSeatWord;
   /** "Wedding · Sat, Dec 12 · Seda Vertis North" (the Events page row) */
   placeLine: string;
   /** What the day is to them: "Today" · "Tomorrow" · "In 45 days" · "Wrapping up · access until Dec 19" · "Date not set yet". */
@@ -88,10 +112,21 @@ const one = <T,>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ?
  * customer card's "Open their event" all ask it, so they cannot disagree.
  */
 export function seatRunsTheEvent(row: CoordinatorSeatRow, now: Date): boolean {
-  if (row.role_subtype !== COORDINATOR_SEAT_ROLE) return false;
   if (!row.accepted_at || row.removed_at) return false;
   const ev = one(row.events);
   if (!ev) return false; // the event row is not readable to them — no door to draw
+  if (row.role_subtype !== COORDINATOR_SEAT_ROLE) {
+    // 👥 A full co-host: every area is theirs (a `couple` member). Live while joined and not removed; listed until
+    // the same seven days after the event (the list's limit, not their access's).
+    if (!row.role_subtype || !seatIsFullCohost(row.role_subtype)) return false;
+    return !delegateAccessHasExpired({
+      isCouple: false,
+      eventDate: ev.event_date,
+      eventEndDate: ev.event_end_date,
+      precision: ev.event_date_precision,
+      now,
+    });
+  }
   const perms = permissionsWithinWindow(row.permissions_json, {
     isCouple: false,
     eventDate: ev.event_date,
@@ -137,6 +172,7 @@ export function eventYouRunOf(row: CoordinatorSeatRow, todayIso: string): EventY
   const ev = one(row.events);
   if (!ev) return null;
   const name = ev.display_name?.trim() || `${TYPE_WORD(ev.event_type)} you run`;
+  const seatWord = runSeatWord(row.role_subtype);
   const day = runDayWord(ev.event_date, ev.event_date_precision);
   const typeWord = TYPE_WORD(ev.event_type);
   const dayPrecise = !ev.event_date_precision || ev.event_date_precision === 'day';
@@ -163,13 +199,15 @@ export function eventYouRunOf(row: CoordinatorSeatRow, todayIso: string): EventY
       precision: ev.event_date_precision,
     });
     const lastWord = last ? runDayWord(last, 'day')?.replace(/^\w+, /, '') : null;
-    status = lastWord ? `Wrapping up · access until ${lastWord}` : 'Wrapping up';
+    // A co-host's access does not end after the event — only the coordinator's does, so only it names a day.
+    status = lastWord && seatWord === 'Coordinator' ? `Wrapping up · access until ${lastWord}` : 'Wrapping up';
     rank = 2;
   }
   return {
     eventId: ev.event_id,
     name,
-    line: [typeWord, day, 'Coordinator'].filter(Boolean).join(' · '),
+    line: [typeWord, day, seatWord].filter(Boolean).join(' · '),
+    seatWord,
     placeLine: [typeWord, day, ev.venue_name?.trim() || null].filter(Boolean).join(' · '),
     status,
     needs: NEEDS_UNREAD,

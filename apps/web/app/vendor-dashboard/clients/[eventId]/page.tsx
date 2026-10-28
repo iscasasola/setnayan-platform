@@ -1331,8 +1331,9 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // "This couple" only when there is genuinely no name. The brief names the
   // couple at every stage (20271235469220); a blank string is not a name.
   const eventName = coupleNameOrFallback(brief.event.display_name);
-  // "Open their event" + the Coordinator pill — only with LIVE coordinator access to THIS event (`seatRunsTheEvent`).
-  const runsThisEvent = (await eventsYouRunP).events.some((e) => e.eventId === eventId);
+  // "Open their event" + the seat pill (Coordinator · Co-host) — only with a LIVE seat on THIS event (`seatRunsTheEvent`).
+  const runThisEvent = (await eventsYouRunP).events.find((e) => e.eventId === eventId) ?? null;
+  const runsThisEvent = runThisEvent !== null;
   const metaBits = [
     fmtShortDate(brief.event.event_date) || null,
     brief.event.venue_name ?? brief.event.region ?? null,
@@ -1531,7 +1532,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         <WaivedFeeRows charges={clientWaived} />
         <div className="mt-2 flex flex-wrap items-center gap-2">
           {runsThisEvent ? (
-            <Badge tone="quiet" data="coordinator">Coordinator</Badge>
+            <Badge tone="quiet" data="coordinator">{runThisEvent?.seatWord ?? 'Coordinator'}</Badge>
           ) : null}
           <span
             className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${stagePill.cls}`}

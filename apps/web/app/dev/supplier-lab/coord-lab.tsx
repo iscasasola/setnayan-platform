@@ -10,6 +10,8 @@
  *   ?s=coord-hub        the supplier Hub's Check-in desk rows (owner 2026-10-28, "coordinators can also scan qr codes")
  *   &unread=1           the attention read refused — every row says it could not load
  *   &none=1             the no-access case: every seat Off / expired / removed → no rows, no tab, no button
+ *   &cohost=1           👥 a supplier who is ONLY a co-host (owner 2026-10-29): every coordinator seat Off, one live
+ *                       co-host seat → the tab, the row ("· Co-host") and the card's Co-host pill, from the same rule
  *   frame D (inside the event) is `/dev/home-lab?coord=1&shell=1` — the REAL `CoordinatingLine` over the couple's Home.
  *
  * The seats run through the SHIPPED rule (`eventsYouRun`), so `&none=1` is the rule saying no — not the lab hiding.
@@ -37,9 +39,9 @@ const LAB_NOW = new Date('2026-10-14T02:00:00Z');
 const ON: ModeratorPermissions = { edit_all: false, checkout: false, invite_hosts: false, remove_hosts: false, areas: { ...COORDINATOR_AREAS } };
 const OFF: ModeratorPermissions = { ...ON, areas: { guest_list: null, seat_plan: null, schedule: null, vendors: null, invitations: null } };
 
-const seat = (id: string, name: string, type: string, date: string, venue: string, perms: ModeratorPermissions, removed = false): CoordinatorSeatRow => ({
+const seat = (id: string, name: string, type: string, date: string, venue: string, perms: ModeratorPermissions, removed = false, role: string = COORDINATOR_SEAT_ROLE): CoordinatorSeatRow => ({
   event_id: id,
-  role_subtype: COORDINATOR_SEAT_ROLE,
+  role_subtype: role,
   permissions_json: perms,
   accepted_at: '2026-09-01T00:00:00Z',
   removed_at: removed ? '2026-10-10T00:00:00Z' : null,
@@ -47,7 +49,15 @@ const seat = (id: string, name: string, type: string, date: string, venue: strin
 });
 
 /** The prototype's three, live — plus a seat the hosts switched Off, one removed, one past its window. */
-function labSeats(none: boolean): CoordinatorSeatRow[] {
+function labSeats(none: boolean, cohost = false): CoordinatorSeatRow[] {
+  if (cohost) {
+    // 👥 Only a co-host: the coordinator seats Off, one full co-host seat live, one co-host seat removed.
+    return [
+      seat('lab-claire', 'Claire & Indalecio', 'wedding', '2026-12-12', 'Seda Vertis North', OFF, false, 'co_host'),
+      seat('lab-off', 'Dizon wedding', 'wedding', '2026-11-21', 'Manila', OFF),
+      seat('lab-gone', 'Lim & Tan', 'wedding', '2026-11-28', 'Makati', OFF, true, 'co_host'),
+    ];
+  }
   const live = none ? OFF : ON;
   return [
     seat('lab-claire', 'Claire & Indalecio', 'wedding', '2026-12-12', 'Seda Vertis North', live),
@@ -68,8 +78,8 @@ function labNeeds(unread: boolean): Map<string, EventDecisionSummary | null> {
   ]);
 }
 
-export function CoordLab({ state, none, unread = false, actions }: { state: CoordState; none: boolean; unread?: boolean; actions: TodayActions }) {
-  const runs = withNeeds(eventsYouRun(labSeats(none), LAB_NOW, LAB_TODAY), labNeeds(unread));
+export function CoordLab({ state, none, unread = false, cohost = false, actions }: { state: CoordState; none: boolean; unread?: boolean; cohost?: boolean; actions: TodayActions }) {
+  const runs = withNeeds(eventsYouRun(labSeats(none, cohost), LAB_NOW, LAB_TODAY), labNeeds(unread));
   const bar = (
     <BottomDock boundary="tab">
       <CoordLabBar runsEvents={runs.length > 0} />
@@ -113,7 +123,7 @@ export function CoordLab({ state, none, unread = false, actions }: { state: Coor
           <h1 className="text-xl font-semibold text-ink">Claire &amp; Indalecio</h1>
           <p className="mt-0.5 truncate text-sm text-ink/55">Sat, Dec 12 · Seda Vertis North</p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            {claire ? <Badge tone="quiet" data="coordinator">Coordinator</Badge> : null}
+            {claire ? <Badge tone="quiet" data="coordinator">{claire.seatWord}</Badge> : null}
             <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-800">Booked</span>
           </div>
         </div>

@@ -26,5 +26,5 @@ ONLY"; build plan `EVENT_MENU_REORG_BUILD_PLAN_2026-10-27.md` step 7b.
 - Home line placed after the Papic card, before Your services.
 
 ## Merge note
-- R1 (RSVP leaves Studio) edits the same `STUDIO_TILE_KEYS` line and some of the same test arrays → expect a one-line
-  conflict there; the Studio count assertions here are DERIVED (`STUDIO_TILE_KEYS.length`), so they stay true after both.
+- R1 (#7019, RSVP leaves Studio) merged first; main merged in here — the Studio is now 9 tiles (no RSVP, no Prints).
+  Count assertions here are DERIVED from `STUDIO_TILE_KEYS`.

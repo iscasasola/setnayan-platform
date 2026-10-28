@@ -72,7 +72,7 @@ test('1 · no Tool row and no Done band: the top bar says where you are — the 
   assert.match(read('app/dashboard/[eventId]/studio/mood-board/_components/mood-board-studio.tsx'), /\{rowEnd \? createPortal\(bar, rowEnd\) : bar\}/, 'the Mood Board’s ✨ Auto has nowhere to be drawn without the row');
 });
 
-test('1b · the Studio home: eleven tiles on the warm page, ✓ / Missing as read', async () => {
+test('1b · the Studio home: ten tiles (RSVP left in R1) on the warm page, ✓ / Missing as read', async () => {
   const { StudioHome } = await import(`../${L}/studio-home`);
   const out = await html(React.createElement(StudioHome, { tiles, onOpen: () => {} }));
   /* Counted from the keys (R8 took Prints out): every tile drawn, one Missing (the Seat plan). */

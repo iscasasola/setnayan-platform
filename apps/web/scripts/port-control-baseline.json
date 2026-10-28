@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "910c244099",
-  "routeCount": 475,
-  "destinations": 993,
+  "generatedFromRef": "01fc1655eb",
+  "routeCount": 476,
+  "destinations": 994,
   "actions": 642,
-  "blocks": 7147,
+  "blocks": 7175,
   "routes": {
     "/": {
       "files": [
@@ -5499,16 +5499,10 @@
       ],
       "destinations": [
         "/dashboard/samahan/[seg]",
-        "/dashboard/samahan/[seg]?tab=usapan",
-        "/dashboard/samahan/new"
+        "/dashboard/samahan/[seg]?tab=usapan"
       ],
       "actions": [],
-      "blocks": [
-        "CommunityRow",
-        "Link",
-        "PageMasthead",
-        "QuietStart"
-      ]
+      "blocks": []
     },
     "/dashboard/(account)/samahan/[communityId]": {
       "files": [
@@ -5519,8 +5513,7 @@
         "dashboard/(account)/samahan/[communityId]/page.tsx"
       ],
       "destinations": [
-        "/dashboard/people",
-        "/dashboard/samahan"
+        "/dashboard/people"
       ],
       "actions": [
         "deleteSamahanMessage",
@@ -5615,7 +5608,6 @@
         "/dashboard/notifications",
         "/dashboard/people",
         "/dashboard/profile",
-        "/dashboard/samahan",
         "/dashboard/samahan/[seg]",
         "/dashboard?hub=1",
         "/vendor-dashboard"
@@ -5702,6 +5694,7 @@
         "dashboard/[eventId]/_components/checklist/checklist-full.tsx",
         "dashboard/[eventId]/_components/cohost-welcome.tsx",
         "dashboard/[eventId]/_components/connect-supplier-modal.tsx",
+        "dashboard/[eventId]/_components/coordinating-line.tsx",
         "dashboard/[eventId]/_components/coordinator-colour-domains.tsx",
         "dashboard/[eventId]/_components/coordinator-seat-controls.tsx",
         "dashboard/[eventId]/_components/customer-bottom-nav.tsx",
@@ -5839,6 +5832,7 @@
         "/login?next=[seg]",
         "/signup?next=[seg]",
         "/v/[seg]",
+        "/vendor-dashboard",
         "/wall/[seg]"
       ],
       "actions": [
@@ -5899,6 +5893,7 @@
         "ConfirmForm",
         "ContactCard",
         "ContactShortlistVendorButton",
+        "CoordinatingLine",
         "CoordinatorBroadcastCard",
         "CoordinatorBroadcastStub",
         "CopyButton",
@@ -6004,6 +5999,7 @@
         "InspectorLayout",
         "InspectorTrigger",
         "InvitationsRow",
+        "KeepAnswer",
         "LastSeenCapture",
         "LastSeenFallback",
         "LastSeenScope",
@@ -6073,6 +6069,7 @@
         "ReadRefusedNotice",
         "RecordLinkBlock",
         "Remaining",
+        "RepliesWindowRows",
         "ReplyBy",
         "RequestResult",
         "RequestsRow",
@@ -7300,6 +7297,7 @@
         "dashboard/[eventId]/launch/_components/print-paper.tsx",
         "dashboard/[eventId]/launch/_components/print-preview.tsx",
         "dashboard/[eventId]/launch/_components/print-save-button.tsx",
+        "dashboard/[eventId]/launch/_components/prints-forward.ts",
         "dashboard/[eventId]/launch/_components/prints-view-store.ts",
         "dashboard/[eventId]/launch/_components/pro-quiet-line.tsx",
         "dashboard/[eventId]/launch/_components/qr-look-controls.tsx",
@@ -11169,6 +11167,7 @@
         "ChallengeCardRow",
         "CollectionCard",
         "CollectionGrid",
+        "CoordinatingLine",
         "DayOfModeGrid",
         "DayPapicRow",
         "EventPoster",
@@ -11555,6 +11554,7 @@
       "actions": [],
       "blocks": [
         "Link",
+        "ShopBadgePill",
         "SlugNotFound",
         "TeamPreviewBanner",
         "Wordmark"
@@ -11605,6 +11605,8 @@
     },
     "/dev/supplier-lab": {
       "files": [
+        "dev/supplier-lab/coord-lab-bar.tsx",
+        "dev/supplier-lab/coord-lab.tsx",
         "dev/supplier-lab/dates-lab.tsx",
         "dev/supplier-lab/lab-seed-draft.tsx",
         "dev/supplier-lab/library-lab-fixture.ts",
@@ -11631,6 +11633,7 @@
         "/dev/supplier-lab?thumb=people",
         "/help",
         "/vendor-dashboard/clients/[seg]?tab=details",
+        "/vendor-dashboard/messages/t-lab-claire",
         "/vendor-dashboard/subscription"
       ],
       "actions": [
@@ -11641,10 +11644,17 @@
         "AccountSwitcher",
         "ActionButton",
         "AutoReplyCard",
+        "Badge",
+        "BadgeEarnedLine",
         "BlockDateAdd",
+        "BottomDock",
+        "BottomNav",
         "BranchPanel",
         "CheckADate",
+        "CheckinDeskRows",
         "CollectionsList",
+        "CoordLab",
+        "CoordLabBar",
         "CustomersCalendar",
         "CustomersPick",
         "CustomersRoster",
@@ -11655,6 +11665,7 @@
         "DaySheetData",
         "DetailsScreen",
         "DomainManager",
+        "EventsYouRunScreen",
         "Fix",
         "GalleryMedia",
         "KeptNotesFold",
@@ -11666,6 +11677,7 @@
         "MoneyLog",
         "MoneyView",
         "OpenFoldButton",
+        "OpenTheirEvent",
         "OutsideClientAdd",
         "OutsideClientRows",
         "PageLab",
@@ -11674,6 +11686,7 @@
         "QrCodes",
         "ScreenFindingsPanel",
         "SearchBox",
+        "ShopBadgePill",
         "ShopSegments",
         "StylistLibraryEditor",
         "SuggestBoardActions",
@@ -13225,6 +13238,7 @@
         "ServicesGallery",
         "ServicesPricingSection",
         "ShareButton",
+        "ShopBadgePill",
         "SignInHereLink",
         "StarRow",
         "StartServiceInquiryResult",
@@ -13272,11 +13286,14 @@
     },
     "/vendor-dashboard": {
       "files": [
+        "vendor-dashboard/_components/badge-earned-line.tsx",
         "vendor-dashboard/_components/branch-manager.tsx",
         "vendor-dashboard/_components/branch-pin-map.tsx",
         "vendor-dashboard/_components/branch-place-cache.ts",
         "vendor-dashboard/_components/collapsible.tsx",
         "vendor-dashboard/_components/event-locked-by-fee.tsx",
+        "vendor-dashboard/_components/events-you-run-rows.tsx",
+        "vendor-dashboard/_components/events-you-run-screen.tsx",
         "vendor-dashboard/_components/feature-accordion.tsx",
         "vendor-dashboard/_components/instagram-connect-card.tsx",
         "vendor-dashboard/_components/kit.tsx",
@@ -13371,6 +13388,7 @@
         "AppPreload",
         "AppRailShell",
         "Badge",
+        "BadgeEarnedLine",
         "BookingFeeBills",
         "BookingFeeNotice",
         "BottomDock",
@@ -13391,6 +13409,7 @@
         "DeleteRequestBody",
         "DisputeBody",
         "EventLockedByFee",
+        "EventsYouRunRows",
         "FeedCard",
         "FieldSaveResult",
         "Figure",
@@ -13400,6 +13419,7 @@
         "I",
         "Icon",
         "Image",
+        "InfoTip",
         "InquiryBody",
         "LatLng",
         "Link",
@@ -13427,7 +13447,9 @@
         "RowIcon",
         "RowSkeleton",
         "SVGSVGElement",
+        "SaveFileLink",
         "Screen",
+        "ShopBadgePill",
         "Sk",
         "Spotlight",
         "SpotlightMount",
@@ -13627,6 +13649,7 @@
         "vendor-dashboard/clients/[eventId]/_components/customer-card-nav.tsx",
         "vendor-dashboard/clients/[eventId]/_components/customer-card-notes.tsx",
         "vendor-dashboard/clients/[eventId]/_components/customer-money-fold.tsx",
+        "vendor-dashboard/clients/[eventId]/_components/open-their-event.tsx",
         "vendor-dashboard/clients/[eventId]/_components/payment-asks-panel.tsx",
         "vendor-dashboard/clients/[eventId]/_components/script-composer.tsx",
         "vendor-dashboard/clients/[eventId]/_components/script-tab.tsx",
@@ -13640,6 +13663,7 @@
         "vendor-dashboard/clients/[eventId]/script-actions.ts"
       ],
       "destinations": [
+        "/dashboard/[seg]",
         "/proposals/[seg]",
         "/vendor-dashboard/activities",
         "/vendor-dashboard/clients",
@@ -13686,6 +13710,7 @@
         "AppointmentsSection",
         "AskAccess",
         "AskSubmit",
+        "Badge",
         "BoardPart",
         "BookingAskOutcomeLine",
         "BookingFeeBills",
@@ -13716,6 +13741,7 @@
         "LockAnswerLine",
         "LockRequestAnswer",
         "NamedColourDot",
+        "OpenTheirEvent",
         "OverviewTab",
         "PaymentAsksPanel",
         "PaymentHistoryList",
@@ -14165,6 +14191,19 @@
       "actions": [],
       "blocks": []
     },
+    "/vendor-dashboard/events": {
+      "files": [
+        "vendor-dashboard/events/page.tsx"
+      ],
+      "destinations": [
+        "/vendor-dashboard"
+      ],
+      "actions": [],
+      "blocks": [
+        "EventsYouRunScreen",
+        "Link"
+      ]
+    },
     "/vendor-dashboard/help": {
       "files": [
         "vendor-dashboard/help/page.tsx"
@@ -14444,6 +14483,7 @@
       "blocks": [
         "AccessGrants",
         "CaptureCard",
+        "CheckinDeskRows",
         "CompactDayOf",
         "ConfigureEventView",
         "Ctx",
@@ -15480,6 +15520,7 @@
     },
     "/vendor-dashboard/website": {
       "files": [
+        "vendor-dashboard/website/_components/badge-tracker.tsx",
         "vendor-dashboard/website/_components/page-parts.tsx",
         "vendor-dashboard/website/_components/use-page-draft.ts",
         "vendor-dashboard/website/_domain-manager.tsx",
@@ -15499,12 +15540,15 @@
         "ActionButton",
         "AutoReplySection",
         "Badge",
+        "BadgeTracker",
+        "Circle",
         "ColourPickerSheet",
         "DatesRow",
         "DomainActionResult",
         "DomainManager",
         "Fold",
         "FormPageSkeleton",
+        "InfoTip",
         "OwnRow",
         "PageData",
         "PageDraft",
@@ -15515,6 +15559,9 @@
         "PickTile",
         "PlanAsk",
         "RowIcon",
+        "SaveFileLink",
+        "SetnayanMark",
+        "ShopBadgePill",
         "ShopSegments",
         "SupplierThumbRow",
         "SwitchRow",

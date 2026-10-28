@@ -87,11 +87,4 @@ export const STUDIO_PAGE_CARDS: Readonly<Record<StudioTileKey, StudioPageCard>> 
     seenAt: 'On the E-Gifts page of your Event Hub.',
     first: 'Add one way to give; write the thank-you later.',
   },
-  rsvp: {
-    description: 'What the reply form asks, and the date to reply by.',
-    /* The designer's line named "meal, plus-one, song requests" — not checked against what the form ships; said without the list. */
-    controls: 'What the reply form asks your guests, who may reply, and the reply-by date.',
-    seenAt: 'On your Event Hub’s reply form, and in the reminder emails.',
-    first: 'Set the reply-by date; the questions have good defaults.',
-  },
 };

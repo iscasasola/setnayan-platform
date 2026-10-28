@@ -100,6 +100,7 @@ import { detailsItemApplies, detailsItemFor, makerHasWork, makerToolFor, schedul
 import { guidedPlanFromFacts, isUnfinished, parseGuideParam } from '@/lib/details-guided-flow';
 import { parentsOffered } from '@/lib/details-your-event';
 import { countSetupGuests, guidedFactsFrom, readBackgroundChosen, guidedPresent, hubSetupFactsFrom, readGuidedPlan, setupRoundFor, type SetupScheduleBlock } from './_components/details-guided-progress';
+import { makerItemMovedHref } from '@/lib/event-settings-record';
 import { hubSetupApplies, hubSetupGuestsHref, type HubSetupFacts } from '@/lib/hub-setup-steps';
 import { formatBlockTime } from '@/lib/schedule';
 import { isCoordinatorP3Enabled } from '@/lib/coordinator-broadcasts-server';
@@ -294,6 +295,10 @@ const one = (v: string | string[] | undefined): string | undefined =>
 export default async function LaunchHubPage({ params, searchParams }: Props) {
   const { eventId } = await params;
   const search = searchParams ? await searchParams : {};
+  /* 🗂 R1 (owner 2026-10-28, "all mapping will be kept"): the Studio RSVP tile's item left for Guests ⚙ — its old address
+     (`?tool=details&item=rsvp`) lands on the sheet's row, before anything is read (`MAKER_ITEMS_MOVED_TO_GUESTS`). */
+  const movedItem = makerItemMovedHref(eventId, one(search.item));
+  if (movedItem) redirect(movedItem);
   const user = await getCurrentUser();
   if (!user) redirect('/login');
   const supabase = await createClient();
@@ -1687,16 +1692,15 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         });
       }
       /* 🗂 STUDIO'S TILES — their ✓ / Missing from the SAME facts the rows above read
-         (`guided`, the setup's reply-by, the seat counts, the E-Gifts manager's own read). */
+         (`guided`, the seat counts, the E-Gifts manager's own read). RSVP is no tile since R1 — Guests ⚙. */
       const gifts = await egiftAllP;
       studio = {
         tiles: studioTiles({
           pro: studioPro,
           facts: guided,
-          setup: setupFacts,
           giftMethods: gifts.read ? gifts.methods.filter((m) => m.is_enabled).length : null,
           seat: seatPlan ? { tables: seatPlan.tables, seated: seatPlan.seated } : null,
-          offered: (item) => (item === 'seating' ? seatPlan !== null : item === 'rsvp' ? rsvpItem !== null : detailsItemApplies(item, eventContext)),
+          offered: (item) => (item === 'seating' ? seatPlan !== null : detailsItemApplies(item, eventContext)),
           marchLabel: yourEvent ? yourEventLabel('march', yourEvent.kind) : undefined,
         }).filter((t) => !needsHidesStudioTile(t.key, eventNeeds)),
       };

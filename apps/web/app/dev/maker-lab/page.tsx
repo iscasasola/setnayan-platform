@@ -48,7 +48,7 @@ const EVENT = '00000000-0000-4000-8000-000000000000';
 /**
  * 🧪 The Studio cards' states in the lab — a stand-in for what the server measures on a real event (`studioTiles`):
  * a MIX, so a Ready card, a Missing one and a page nobody could measure (no badge) are each on screen, and the head's
- * "n of 11 ready" can be read against them (6 here). Fixture only — nothing is read or written.
+ * "n of N ready" can be read against them (5 here). Fixture only — nothing is read or written.
  */
 const LAB_STUDIO_DONE: Record<(typeof STUDIO_TILE_KEYS)[number], boolean | undefined> = {
   info: true,
@@ -60,7 +60,6 @@ const LAB_STUDIO_DONE: Record<(typeof STUDIO_TILE_KEYS)[number], boolean | undef
   march: false,
   seats: false,
   gifts: undefined,
-  rsvp: true,
 };
 /** The Studio pages the lab cannot draw — their tiles are not offered (see `tiles` below). */
 const LAB_STUDIO_NOT_DRAWN: ReadonlyArray<(typeof STUDIO_TILE_KEYS)[number]> = ['seats'];

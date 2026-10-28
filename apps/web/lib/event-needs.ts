@@ -253,11 +253,11 @@ export function needsHidesStage(stage: string, n: EventNeedsRead): boolean {
 
 /**
  * The Studio tiles this event drops (`studioTiles` keys): "cover + photos only" keeps Info · Look
- * (prototype frame 2: "two Studio tiles (Info · Look/colours)"); no guest list drops RSVP.
+ * (prototype frame 2: "two Studio tiles (Info · Look/colours)"). (No guest list dropped the RSVP tile; the tile left
+ * Studio for Guests ⚙ in R1, owner 2026-10-28.)
  */
 export function needsHidesStudioTile(tile: string, n: EventNeedsRead): boolean {
   if (!n.hubDetails) return tile !== 'info' && tile !== 'look';
-  if (!n.guestList) return tile === 'rsvp';
   return false;
 }
 

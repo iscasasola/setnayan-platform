@@ -44,6 +44,7 @@ import {
   parseGuideParam,
   progressLabel,
   skipScreen,
+  stageLinks,
   stageSteps,
   startScreen,
   stepStateOf,
@@ -90,7 +91,10 @@ test('(1) each stage walks its own facts, in the approved order; Post Event is n
   const plan = fresh();
   assert.deepEqual(plan.rounds, ['save_the_date', 'rsvp-stage', 'rsvp', 'event'], 'the stages walked are not the four (Post Event fills itself)');
   assert.deepEqual(keysOf(plan, 'save_the_date'), ['names', 'date', 'theme', 'logo', 'hero', 'love-story']);
-  assert.deepEqual(keysOf(plan, 'rsvp-stage'), ['who', 'rsvp', 'reply-by'], 'the RSVP stage is not its three settings');
+  /* 🗂 R1 (owner 2026-10-28, "RSVP moves into the Guests ⚙ sheet"): the RSVP stage's three settings are LINKS to Guests ⚙
+     now — no screen over the Maker's RSVP item — counted with the stage as before. */
+  assert.deepEqual(keysOf(plan, 'rsvp-stage'), [], 'the RSVP stage still walks a Maker screen for a setting that moved');
+  assert.deepEqual(stageLinks(plan, 'rsvp-stage').map((l) => [l.key, l.guests]), [['who', 'get-in'], ['rsvp', 'asks'], ['reply-by', 'reply-by']], 'the RSVP stage is not its three settings, each a door to its Guests ⚙ row');
   assert.deepEqual(keysOf(plan, 'rsvp'), [
     'names', 'date', 'theme', 'logo', 'hero', 'love-story', 'venues', 'schedule', 'parents', 'march', 'colours', 'message',
   ]);
@@ -103,11 +107,9 @@ test('(1) each stage walks its own facts, in the approved order; Post Event is n
   assert.deepEqual(by.colours, ['mood-board']);
   assert.deepEqual(by.hero, ['hero']);
   assert.deepEqual(by.message, ['special-message']);
-  // RSVP's three settings are ONE item, each its own section (`RSVP_PIECES`).
-  for (const [k, piece] of [['who', 'who'], ['rsvp', 'questions'], ['reply-by', 'reply-by']] as const) {
-    assert.deepEqual(by[k], ['rsvp']);
-    assert.equal(plan.steps.find((s) => s.key === k)!.piece, piece, `${k} does not open on its own section`);
-  }
+  // RSVP's three settings open no Maker item any more (R1) — never a step over `rsvp`.
+  for (const k of ['who', 'rsvp', 'reply-by'] as const) assert.equal(by[k], undefined, `${k} is a Maker step again`);
+  assert.equal(plan.steps.some((s) => s.items.includes('rsvp')), false, 'a guided step still opens the Maker’s RSVP item');
   // The march's name is its item's (the event type writes it) — never typed here.
   assert.equal(plan.steps.find((s) => s.key === 'march')!.title, 'Wedding March');
   assert.equal(progressLabel(plan, { kind: 'step', step: 'theme', round: 'save_the_date' }), 'Save the Date · 3 of 6');
@@ -125,8 +127,8 @@ test('(2) a step’s state is its items’ own done — done · left · a look-o
   assert.equal(stepStateOf([undefined]), 'check', 'nothing to fill is a look-over, never "done" or "left"');
   assert.equal(stepStateOf([true, undefined]), 'done');
   const plan = fresh();
-  assert.equal(plan.steps.find((s) => s.key === 'rsvp')!.state, 'check');
-  assert.equal(plan.steps.find((s) => s.key === 'who')!.state, 'check', 'without the setup’s facts, how guests get in makes no claim');
+  assert.equal(plan.links.find((s) => s.key === 'rsvp')!.state, 'check');
+  assert.equal(plan.links.find((s) => s.key === 'who')!.state, 'check', 'without the setup’s facts, how guests get in makes no claim');
   assert.equal(plan.steps.find((s) => s.key === 'names')!.state, 'left');
   assert.deepEqual(plan.steps.find((s) => s.key === 'names')!.left, ['names'], 'the step does not open on what is still left');
 });
@@ -185,7 +187,7 @@ test('(3) Next goes to the next UNFINISHED step of the stage, never over a look-
   assert.deepEqual(nextScreen(plan, { kind: 'step', step: 'names', round: STD }), { kind: 'step', step: 'logo', round: STD }, 'Next did not skip the done date and theme');
   assert.deepEqual(nextScreen(plan, { kind: 'step', step: 'love-story', round: STD }), { kind: 'ready', round: STD }, 'the stage does not end on its Ready');
   // The RSVP stage: three look-overs — Next stops at each.
-  assert.deepEqual(nextScreen(plan, { kind: 'step', step: 'who', round: 'rsvp-stage' }), { kind: 'step', step: 'rsvp', round: 'rsvp-stage' }, 'Next skipped a look-over');
+  assert.deepEqual(nextScreen(plan, { kind: 'link', link: 'who', round: 'rsvp-stage' }), { kind: 'link', link: 'rsvp', round: 'rsvp-stage' }, 'Next skipped a look-over');
   // From a Ready screen: back to the stages — never on into another stage by itself.
   assert.deepEqual(nextScreen(plan, { kind: 'ready', round: STD }), { kind: 'stages' });
   assert.equal(nextScreen(plan, { kind: 'stages' }), null, 'the picker has a Next — a stage is picked, not walked into');

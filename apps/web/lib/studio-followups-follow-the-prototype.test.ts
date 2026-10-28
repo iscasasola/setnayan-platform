@@ -262,7 +262,7 @@ test('7 · each tile opens its OWN editor — Look never opens the Logo it was l
   /* 🖨 No Prints tile (R8): Prints is its own page (`lib/prints-has-its-own-page.test.ts`). */
   const want: Record<string, string> = {
     info: 'names', look: 'background', logo: 'logo', mood: 'mood-board', schedule: 'schedule', story: 'love-story',
-    march: 'march', seats: 'seating', gifts: 'gifts', rsvp: 'rsvp',
+    march: 'march', seats: 'seating', gifts: 'gifts',
   };
   assert.deepEqual([...STUDIO_TILE_KEYS].sort(), Object.keys(want).sort(), 'a tile has no editor named here, or one named here is no tile');
   /* Whatever was open before — the worst cases are the other Look-group items. */

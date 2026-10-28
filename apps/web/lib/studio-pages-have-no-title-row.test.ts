@@ -70,7 +70,7 @@ const tiles: StudioTileModel[] = STUDIO_TILE_KEYS.map((key) => ({
   short: STUDIO_TILES[key].short,
   item: STUDIO_TILES[key].item,
   immersive: STUDIO_TILES[key].immersive === true,
-  done: key === 'logo' ? false : key === 'rsvp' ? undefined : true,
+  done: key === 'logo' ? false : key === 'gifts' ? undefined : true,
   status: STUDIO_TILES[key].sub,
 }));
 /** The top bar's own source in the shell: from `<header data-maker-toolbar` to its `</header>`. */
@@ -116,7 +116,7 @@ function sameWidth(a: string[], b: string[], who: string): void {
   assert.equal(room(a), room(b), `${who}: the two halves do not have the same room`);
 }
 
-test('(2) in a Studio page, painted for all eleven: "Stages ▾" plain, the page’s full name ▾ picked — equal halves, never truncated, no mark', async () => {
+test('(2) in a Studio page, painted for all ten (RSVP left in R1): "Stages ▾" plain, the page’s full name ▾ picked — equal halves, never truncated, no mark', async () => {
   const { StudioSideSwitch, studioHalfSteps, studioHalfLabel } = await import(`../${PARTS}`);
   assert.equal(tiles.length, STUDIO_TILE_KEYS.length);
   for (const page of tiles) {
@@ -257,8 +257,8 @@ test('(6) the page list: the Maker’s one sheet, the dropdown’s own rows — 
   const trail = (k: string) => opts.find((o) => o.key === k)!.trail;
   assert.deepEqual(trail('info'), { text: '✓', tone: 'ok', label: 'Ready' });
   assert.deepEqual(trail('logo'), { text: 'Missing', tone: 'left' });
-  assert.equal(trail('rsvp'), undefined, 'a page nobody measured is marked');
-  assert.deepEqual(studioChooserOptions(tiles.filter((t) => t.key !== 'story' && t.key !== 'march')).map((o: { key: string }) => o.key), ['info', 'look', 'logo', 'mood', 'schedule', 'seats', 'gifts', 'rsvp']);
+  assert.equal(trail('gifts'), undefined, 'a page nobody measured is marked');
+  assert.deepEqual(studioChooserOptions(tiles.filter((t) => t.key !== 'story' && t.key !== 'march')).map((o: { key: string }) => o.key), ['info', 'look', 'logo', 'mood', 'schedule', 'seats', 'gifts']);
   const src = read(PARTS);
   assert.doesNotMatch(src, /STUDIO_TILE_KEYS|STUDIO_TILES\b/, 'the chooser keeps a second list of the pages');
   const name = src.slice(src.indexOf('export function StudioSideSwitch('), src.indexOf('const HALF_ROOM ='));

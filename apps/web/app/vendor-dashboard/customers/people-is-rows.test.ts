@@ -250,3 +250,16 @@ test('5 · an outside client opens in place and its Remove asks once, posts the 
   assert.match(MORE, /· booked outside`/, 'an outside client is not said to be booked outside');
   assert.match(MORE, /<ListPager paged=\{paged\} param="copage"/, 'the outside clients are not paged');
 });
+
+test('1f · below 768 the title owns the width — two lines before it cuts, the stage stacked under it, WHO on line two', async () => {
+  // Controller review 2026-10-29 (owner: "maximize the screen", never squeeze text beside badges).
+  const html = await render([FIXTURE[2]!]);
+  const title = /<span class="([^"]*)" data-row-title="">/.exec(html);
+  assert.ok(title, 'the row title is not marked');
+  assert.match(title[1]!, /(?:^|\s)line-clamp-2(?:\s|$)/, 'a phone title cuts on one line');
+  assert.match(title[1]!, /(?:^|\s)md:truncate(?:\s|$)/);
+  assert.doesNotMatch(title[1]!.replace('md:truncate', ''), /(?:^|\s)truncate(?:\s|$)/, 'the title truncates below 768');
+  assert.match(html, /<span class="[^"]*\bmd:hidden\b[^"]*" data-row-stage-stacked="">/, 'the stage does not stack under the title below 768');
+  assert.match(html, /<span class="hidden [^"]*\bmd:flex\b[^"]*">/, 'the stage column shows beside the title below 768');
+  assert.match(html, /data-row-who="">Jun &amp; Liza Cruz<\/span>/, 'line two on a phone is not just the couple');
+});

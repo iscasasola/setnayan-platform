@@ -196,6 +196,9 @@ export function RosterRowView({ r, nowMs, query }: { r: RosterRow; nowMs: number
   const eventLine = [r.identityRevealed ? r.title : null, r.place, r.returning ? 'returning' : null]
     .filter(Boolean)
     .join(' · ');
+  // 📱 A phone's second line is just WHO (the couple's names) — the title already says the kind and the date, and the
+  // place waits for the wider screen (controller review 2026-10-29: "drop the duplicate second line").
+  const whoLine = (r.identityRevealed ? r.title : null) ?? eventLine;
   const inner = (
     <>
       <span
@@ -210,13 +213,15 @@ export function RosterRowView({ r, nowMs, query }: { r: RosterRow; nowMs: number
         {r.identityRevealed ? initialsOf(r.title) : '·'}
       </span>
       <span className="min-w-0">
-        <span className="block truncate text-[15px] font-medium leading-tight text-ink">
+        {/* A phone gives the title two lines before it ever cuts; from md (768) it is one line beside the stage. */}
+        <span className="line-clamp-2 block text-[15px] font-medium leading-tight text-ink md:truncate" data-row-title="">
           <Marked text={title} query={query} />
         </span>
-        <span className="mt-0.5 block truncate text-[13px] text-ink/60">{eventLine}</span>
-        {/* 📱 ON A PHONE THE STAGE STACKS UNDER THE NAME (owner 2026-10-29, "maximize the screen use … no text crushed
-            beside buttons (stack instead)"): the event's chat title keeps the whole width; from sm up it sits right. */}
-        <span className="mt-1 flex min-w-0 items-center gap-2 sm:hidden" data-row-stage-stacked="">
+        <span className="mt-0.5 block truncate text-[13px] text-ink/60 md:hidden" data-row-who="">{whoLine}</span>
+        <span className="mt-0.5 hidden truncate text-[13px] text-ink/60 md:block">{eventLine}</span>
+        {/* 📱 BELOW 768 THE STAGE STACKS UNDER THE NAME (owner 2026-10-29, "maximize the screen use … no text crushed
+            beside buttons (stack instead)"): the event's chat title keeps the whole width; from md up it sits right. */}
+        <span className="mt-1 flex min-w-0 items-center gap-2 md:hidden" data-row-stage-stacked="">
           <Badge tone={badge.tone}>{badge.word}</Badge>
           {line ? (
             <span className="min-w-0 truncate text-[12.5px] leading-tight text-ink/60" style={{ color: LINE_TONE[line.tone] }}>
@@ -225,7 +230,7 @@ export function RosterRowView({ r, nowMs, query }: { r: RosterRow; nowMs: number
           ) : null}
         </span>
       </span>
-      <span className="hidden min-w-0 max-w-[8.5rem] flex-col items-end gap-1 text-right sm:flex">
+      <span className="hidden min-w-0 max-w-[8.5rem] flex-col items-end gap-1 text-right md:flex">
         <Badge tone={badge.tone} data="customer-stage">
           {badge.word}
         </Badge>

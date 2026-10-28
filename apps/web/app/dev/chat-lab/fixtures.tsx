@@ -38,6 +38,6 @@ export const LAB_MESSAGES: ChatMessageRow[] = [
   row(4, 'couple', 'Budget around 80–90k', at(8, 21)),
   row(5, 'vendor', 'Here it is — happy to adjust 🙂', at(10, 5)),
   row(6, 'vendor', 'We can also do an ocular at the venue on Saturday.', at(10, 6)),
-  { ...row(7, 'vendor', '', at(9, 0)), attachment_name: 'Moodboard-draft.pdf' } as ChatMessageRow, // a file the 90-day rule took
+  { ...row(7, 'vendor', '', at(10, 20)), attachment_name: 'Moodboard-draft.pdf' } as ChatMessageRow, // a file the 90-day rule took
   row(8, 'couple', 'Saturday works for us!', at(10, 30)),
 ];

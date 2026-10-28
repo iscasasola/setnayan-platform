@@ -214,7 +214,7 @@ function ToolsSheetButton({ rows, sheetMark }: { rows: SheetRow[]; sheetMark: st
         aria-haspopup="dialog"
         title="Tools"
         data-thread-tools-open=""
-        className="sn-press inline-flex h-11 w-10 shrink-0 items-center justify-center rounded-full text-sn-accent hover:bg-ink/[0.05]"
+        className="sn-press inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sn-accent hover:bg-ink/[0.05]"
       >
         <PlusCircle aria-hidden className="h-[22px] w-[22px]" strokeWidth={1.9} />
       </button>

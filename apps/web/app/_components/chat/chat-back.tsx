@@ -19,7 +19,7 @@ export function ChatBack({ href }: { href: string }) {
     <Link
       href={href}
       aria-label="Back to Chats"
-      className="grid h-11 w-10 shrink-0 place-items-center rounded-full text-sn-accent hover:bg-ink/5"
+      className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-sn-accent hover:bg-ink/5"
       onClick={(e) => {
         let from: string | null = null;
         try {

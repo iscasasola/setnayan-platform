@@ -306,7 +306,7 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
           className={
             attachInputId
               ? 'sr-only'
-              : 'inline-flex h-11 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-sn-accent hover:bg-ink/[0.05]'
+              : 'inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-sn-accent hover:bg-ink/[0.05]'
           }
           title="Share a file"
         >
@@ -328,12 +328,12 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
             so the field takes their room; both hand the file to the ONE input above. */}
         {!hasDraft ? (
           <>
-            <label className="inline-flex h-11 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-sn-accent hover:bg-ink/[0.05]" title="Camera" data-chat-camera="">
+            <label className="inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-sn-accent hover:bg-ink/[0.05]" title="Camera" data-chat-camera="">
               <span className="sr-only">Camera</span>
               <Camera aria-hidden className="h-[22px] w-[22px]" strokeWidth={1.9} />
               <input ref={cameraRef} type="file" accept={MEDIA_ACCEPT} capture="environment" className="sr-only" onChange={(e) => takeShortcut(e.currentTarget)} />
             </label>
-            <label className="inline-flex h-11 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-sn-accent hover:bg-ink/[0.05]" title="Photo" data-chat-photo="">
+            <label className="inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-sn-accent hover:bg-ink/[0.05]" title="Photo" data-chat-photo="">
               <span className="sr-only">Photo</span>
               <ImageIcon aria-hidden className="h-[22px] w-[22px]" strokeWidth={1.9} />
               <input ref={photoRef} type="file" accept={MEDIA_ACCEPT} className="sr-only" onChange={(e) => takeShortcut(e.currentTarget)} />

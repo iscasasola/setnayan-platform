@@ -45,4 +45,11 @@ is asked for three cards, not six. A refused card read stays "Couldn’t load" (
 `/dev/supplier-lab?easy=setup&coarse=1`. Guard: `lib/what-you-offer-counts-each-service-once.test.ts`;
 `setup-is-done-in-place.test.ts` passes the set (reason noted).
 
+**S6 · The shop's badges on Shop › How it is going.** Owner: *"Their badges will be on the supplier shop performance
+page"*. `/vendor-dashboard/performance` now draws "Your badges" under the plain-words top (and on the tier upsell):
+every badge worn today through THE one `ShopBadgePill`, and "Next to earn: 50 events · Silver · 4 to go"
+(`badgeShelf` → `shopBadges` + `nextToEarnLine`, `lib/shop-badges.ts`). Read once (`readShopBadgeFacts`), awaited
+inside the page's Batch A — no extra round trip. A refused read: "Couldn’t load your badges" · "—". Today's "You
+earned …" line stays. Guard: `app/vendor-dashboard/performance/your-badges-are-on-the-page.test.ts`.
+
 SPEC IMPACT: DECISION_LOG row "SUPPLIERS READY TO RUN AN EVENT AND FINISH THEIR SHOP" (corpus).

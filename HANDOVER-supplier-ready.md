@@ -17,6 +17,14 @@ Worktree: ~/Documents/Claude/Projects/wt-supplier-ready · branch claude/supplie
   passes VENDOR_CATEGORIES). Guard lib/what-you-offer-counts-each-service-once.test.ts; sabotages red.
 - S2 row asks in place now (RequestOnlyRow has its own Send).
 
+- S5 (report only): an EVENT stylist picks Group "Styling, flowers & lights" (design) › Category "Stylist / Decorator"
+  (stylist_decorator) › Service stylist_decorator (or decorator_general). A HAIR/MAKE-UP stylist: "Attire, hair &
+  make-up" (look) › "HMUA" (hmua) › bridal_hair_stylist / bridal_hmua. Labels from migrations
+  20271139755588 (group labels) + 20270520996335 (tree); confirm in Admin › Categories (admin may have renamed).
+- S6 · badges on /vendor-dashboard/performance (YourBadges + badgeShelf; Batch A). Rule 0: Today's earned line
+  (badge-earned-line.tsx, mounted in vendor-dashboard/page.tsx) STAYS — no ruling moves it; it announces a NEW badge
+  once, the performance page is where they live. The full tracker stays on Shop › Page (website/_components/badge-tracker.tsx).
+
 ## Next
 - S5 report (stylist taxonomy) · lints + check-ugat-screens · walk · DECISION_LOG · draft PR basic-setup gate · S4 offerProgress · S5 stylist check
 - Then lints, walk, draft PR (+ do-not-auto-merge label).

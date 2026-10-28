@@ -8,6 +8,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { CATEGORIES_PATH, backHref } from './_components/back';
 import { nextEventTypes } from '@/lib/event-type-scope';
+import { workBackHref, workReturnTo } from '@/lib/admin/supplier-work';
 import {
   isCelebrantShape,
   surfacesStrandedWithoutWebsite,
@@ -108,6 +109,9 @@ function cleanOptional(raw: FormDataEntryValue | null, max = 300): string | null
  * ════════════════════════════════════════════════════════════════════════ */
 
 function scopedRedirect(formData: FormData, eventType: string, kind: 'ok' | 'error', msg: string): never {
+  // ➕ Scope categories pressed from ADMIN › WORK's event-type row (admin supplier slice, 2026-10-28) lands back on Work.
+  const returnTo = workReturnTo(formData.get('return_to'));
+  if (returnTo) redirect(workBackHref(returnTo, kind === 'ok' ? 'saved' : 'refused', msg));
   redirect(backHref(formData, kind, msg, { list: 'event-types', open: eventType }));
 }
 

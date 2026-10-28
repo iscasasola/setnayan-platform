@@ -30,6 +30,10 @@ import { MixedFaithPanel, ReligionPanel } from './_components/religion-panel';
 import { RequestRow } from './_components/request-row';
 import { backRecord } from './_components/ui';
 import { GROUP_DEFAULT_ICON } from './_components/group-icons';
+import { HubToolsPane } from './_components/hub-tools-pane';
+import { setCategoryHubTools } from './actions';
+import { hubToolsFor, isHubToolTemplate, nameKey, type HubToolRecord, type HubToolTemplate } from '@/lib/hub-tools';
+import type { Category } from './_components/model';
 
 /**
  * Categories & event types — ONE admin page for supplier categories, event
@@ -55,6 +59,7 @@ const LIST_LABEL: Record<CategoriesList, string> = {
   categories: 'Supplier categories',
   'event-types': 'Event types',
   religions: 'Religions',
+  'hub-tools': 'Hub tools',
 };
 
 const SHOW_LABEL: Record<string, string> = {
@@ -338,7 +343,9 @@ export default async function CategoriesPage({ searchParams }: { searchParams: P
         </div>
       ) : null}
 
-      {mapMode && cats && mapData ? (
+      {state.list === 'hub-tools' && cats ? (
+        <HubToolsSection cats={cats} open={state.open} listHrefs={{ categories: listHref('categories'), 'event-types': listHref('event-types'), religions: listHref('religions'), 'hub-tools': listHref('hub-tools') }} />
+      ) : mapMode && cats && mapData ? (
         <div data-pane="map">
           {/* ── the toolbar: List ▾ · search · Show ▾ · Download ▾ (Download sits where "+ Add" was, PLAN § 7.5) ── */}
           <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -346,7 +353,7 @@ export default async function CategoriesPage({ searchParams }: { searchParams: P
               label="List"
               value={state.list}
               choices={(Object.keys(LIST_LABEL) as CategoriesList[]).map((k) => ({ key: k, label: LIST_LABEL[k] }))}
-              hrefs={{ categories: listHref('categories'), 'event-types': listHref('event-types'), religions: listHref('religions') }}
+              hrefs={{ categories: listHref('categories'), 'event-types': listHref('event-types'), religions: listHref('religions'), 'hub-tools': listHref('hub-tools') }}
             />
             <form method="get" action="/admin/categories" className="flex min-w-[220px] flex-1 items-center gap-2" role="search">
               {state.show ? <input type="hidden" name="show" value={state.show} /> : null}
@@ -409,7 +416,7 @@ export default async function CategoriesPage({ searchParams }: { searchParams: P
               label="List"
               value={state.list}
               choices={(Object.keys(LIST_LABEL) as CategoriesList[]).map((k) => ({ key: k, label: LIST_LABEL[k] }))}
-              hrefs={{ categories: listHref('categories'), 'event-types': listHref('event-types'), religions: listHref('religions') }}
+              hrefs={{ categories: listHref('categories'), 'event-types': listHref('event-types'), religions: listHref('religions'), 'hub-tools': listHref('hub-tools') }}
             />
             {state.list !== 'categories' ? (
               <Link
@@ -468,6 +475,93 @@ export default async function CategoriesPage({ searchParams }: { searchParams: P
           )}
         </section>
       </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * ➕ ADMIN › CATEGORIES › HUB TOOLS (admin supplier slice, owner 2026-10-28). The List ▾ and Category ▾ are the
+ * shipped `NavPick`; the switches + scan pick are `HubToolsPane`, saving in place. A category nobody saved reads the
+ * approved seed (`hubToolsFor`); a refused read is SAID, never drawn as "all switches off".
+ */
+async function HubToolsSection({
+  cats,
+  open,
+  listHrefs,
+}: {
+  cats: { categories: readonly Category[]; groups: readonly { id: string; label: string }[] };
+  open: string;
+  listHrefs: Record<string, string>;
+}) {
+  const ordered = cats.groups.flatMap((g) =>
+    cats.categories.filter((c) => c.groupId === g.id).sort((a, b) => a.sortOrder - b.sortOrder),
+  );
+  const wanted = open.startsWith('c:') ? open.slice(2) : '';
+  const current =
+    ordered.find((c) => c.id === wanted) ?? ordered.find((c) => nameKey(c.label) === 'catering') ?? ordered[0] ?? null;
+  const admin = createAdminClient();
+  // The library is RECORDS (`hub_tools`, each with its template); a category's answer is its settings row + switches.
+  const [libRead, setRead, swRead] = current
+    ? await Promise.all([
+        admin.from('hub_tools').select('tool_key, label, template').eq('is_active', true).order('sort_order'),
+        admin.from('category_hub_settings').select('scan_default').eq('category_id', current.id).maybeSingle(),
+        admin.from('category_hub_tool_switches').select('tool_key').eq('category_id', current.id),
+      ])
+    : [null, null, null];
+  const library: HubToolRecord[] = ((libRead?.data ?? []) as Array<{ tool_key: string; label: string; template: string }>)
+    .filter((r) => isHubToolTemplate(r.template))
+    .map((r) => ({ key: r.tool_key, label: r.label, template: r.template as HubToolTemplate }));
+  const readOk = Boolean(current && libRead && !libRead.error && setRead && !setRead.error && swRead && !swRead.error);
+  const answer =
+    current && readOk
+      ? hubToolsFor(
+          current.label,
+          setRead!.data
+            ? { scan_default: (setRead!.data as { scan_default: string }).scan_default, tools: ((swRead!.data ?? []) as Array<{ tool_key: string }>).map((r) => r.tool_key) }
+            : null,
+          library,
+        )
+      : null;
+  return (
+    <div data-pane="hub-tools">
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <NavPick
+          label="List"
+          value="hub-tools"
+          choices={(Object.keys(LIST_LABEL) as CategoriesList[]).map((k) => ({ key: k, label: LIST_LABEL[k] }))}
+          hrefs={listHrefs}
+        />
+      </div>
+      <div className="flex min-h-[52px] max-w-xl items-center gap-3 border-b border-ink/10">
+        <span className="flex-1 text-[15px] font-semibold text-ink">Category</span>
+        {current ? (
+          <NavPick
+            label="Category"
+            value={current.id}
+            buttonText={current.label}
+            choices={ordered.map((c) => ({ key: c.id, label: c.label }))}
+            hrefs={Object.fromEntries(ordered.map((c) => [c.id, categoriesHref({ list: 'hub-tools', open: `c:${c.id}` })]))}
+          />
+        ) : null}
+      </div>
+      {!current ? (
+        <p className="px-1 py-8 text-sm text-ink/70">No categories yet.</p>
+      ) : !answer ? (
+        <p role="alert" className="mt-3 rounded-xl bg-[var(--sn-warning-soft)] px-4 py-2.5 text-sm text-ink">
+          Couldn’t read this category’s Hub tools — nothing below would be true. Refresh to try again.
+        </p>
+      ) : (
+        <HubToolsPane
+          key={current.id}
+          categoryId={current.id}
+          categoryLabel={current.label}
+          library={library}
+          tools={answer.tools}
+          scan={answer.scan}
+          source={answer.source}
+          save={setCategoryHubTools}
+        />
       )}
     </div>
   );

@@ -2054,7 +2054,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "admin",
     area: "admin-sidebar",
     route: "/admin/help",
-    label: "Help",
+    label: "Messages",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "LifeBuoy",

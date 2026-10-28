@@ -131,6 +131,10 @@ const KNOWN_UNRESOLVED_TABLES: Record<string, string> = {
   reel_music_tracks:
     'ordinary TABLE in prod (relkind=r) that readSchema() does not pick up — a real ' +
     'parser gap, not a phantom. Worth closing; it is not a drive-by.',
+  event_type_requests:
+    'NOT IN THIS TREE YET — PR #7001 (migration 20271294233183) creates it. Admin › Work reads it in ' +
+    'lib/admin/supplier-work.server.ts and treats 42P01/PGRST205 as "absent", which the screen SAYS (never an empty ' +
+    'list). DELETE this entry and lower the ceiling to 2 when #7001 merges — T11 then resolves it from the migration.',
   t: "not a query — the scanner reads the literal .from('t') in its own doc comment " +
     'at select-column-scan.ts:2. The extractor does not strip block comments.',
 };
@@ -150,8 +154,11 @@ const KNOWN_UNRESOLVED_TABLES: Record<string, string> = {
  * 12 → 2 on 2026-10-26: `readDeclaredViews()` taught T11 every view and matview a migration declares (T11b proves the
  * forms it reads), so the ten view entries were deleted — including `vendor_profiles_self`, whose name the parser now
  * sees even though its projection is still built in a DO block (its own two guards still cover the columns).
+ *
+ * 2 → 3 on 2026-10-28 for `event_type_requests` (admin supplier slice, PR #7006): built against PR #7001's table
+ * before it merges; the read degrades to a said "absent". Back to 2 the moment #7001 lands.
  */
-const KNOWN_UNRESOLVED_CEILING = 2;
+const KNOWN_UNRESOLVED_CEILING = 3;
 
 /** Relations named by a `.from()` that the migration schema cannot resolve. */
 function unresolvedTables(): Map<string, string[]> {

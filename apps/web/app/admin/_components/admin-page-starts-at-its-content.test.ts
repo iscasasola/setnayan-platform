@@ -343,7 +343,7 @@ const PORTED: Array<{ file: string; namesItself: string }> = [
     file: 'vendor-recommendations/page.tsx',
     namesItself: 'title="Supplier recommendations"',
   },
-  { file: 'help/page.tsx', namesItself: 'title="Help inbox"' },
+  { file: 'help/page.tsx', namesItself: 'title="Messages"' },
   { file: 'integrations/page.tsx', namesItself: 'title="Integrations"' },
   { file: 'secrets/page.tsx', namesItself: 'title="Secrets & Rotation"' },
   // ── PR 4/4 · the judgement queues ───────────────────────────────────────

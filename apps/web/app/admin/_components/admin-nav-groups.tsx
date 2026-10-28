@@ -280,7 +280,7 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
       },
       {
         key: 'help',
-        label: 'Help',
+        label: 'Messages',
         href: '/admin/help',
         icon: LifeBuoy,
       },

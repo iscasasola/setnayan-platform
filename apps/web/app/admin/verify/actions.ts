@@ -23,6 +23,8 @@ import { vendorExperienceEnabled } from '@/lib/vendor-experience';
 import { deadlineAtApproval, permitDeadlineFrom } from '@/lib/verified-badge';
 import { emitNotification } from '@/lib/notification-emit';
 import { plainRefusal } from '@/lib/admin/plain-refusal';
+import { safeNext } from '@/lib/safe-next';
+import { pickedReason, workBackHref } from '@/lib/admin/supplier-work';
 import {
   DEEP_SEARCH_MODEL,
   DEEP_SEARCH_LITE_MODEL,
@@ -381,7 +383,10 @@ type ApplicationDecisionInput = {
   permitDeadlineIso?: string | null;
 };
 
-export async function applyApplicationDecision(
+/* 🔒 NOT EXPORTED (2026-10-28, admin supplier slice). It was exported only so the work list could call it — which
+   made the badge's decision engine a public server-action route with NO admin gate of its own (every caller checks,
+   the engine does not). Its one outside caller now lives in this file (`settleVerificationFromWorkList`). */
+async function applyApplicationDecision(
   input: ApplicationDecisionInput,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const admin = createAdminClient();
@@ -604,6 +609,49 @@ export async function applyApplicationDecision(
   }
 
   return { ok: true };
+}
+
+/**
+ * VERIFY FROM THE WORK LIST — Approve, or "Needs a fix" with a reason from the list (owner 2026-10-28, ADMIN SUPPLIER
+ * SLICE: "Approve, or Needs a fix with a reason from a list — the shop sees it on its setup step 5"). Moved here from
+ * `app/admin/work/actions.ts` (was `approveVerificationFromWorkList`) so the decision engine above could stop being
+ * an exported route — +0 actions.
+ *
+ * ⚠ THIS IS THE BADGE COUPLES TRUST, so it reuses the SAME engine the verify page uses — never a hand-written status.
+ * "Needs a fix" is the engine's `rejected` (the shop's step 5 reads it as "Needs a fix" + `decision_reason`).
+ *
+ * 🔑 A NEEDS-A-FIX WITHOUT A REASON FROM THE LIST IS REFUSED — the shop would be told "fix it" with nothing to fix.
+ * The refusal returns to the SAME list with the reason in the URL; the admin never leaves Work.
+ */
+export async function settleVerificationFromWorkList(formData: FormData): Promise<void> {
+  const actor = await requireAdmin();
+  const back = safeNext(formData.get('back'), '/admin/work');
+  const applicationId = readFormString(formData, 'application_id');
+  const decision = readFormString(formData, 'decision') || 'approve';
+  if (!applicationId) redirect(workBackHref(back, 'missing'));
+  if (decision !== 'approve' && decision !== 'needs_fix') {
+    throw new Error('Choose approve or needs_fix.');
+  }
+  const reason = decision === 'needs_fix' ? pickedReason('docs', formData.get('reason')) : null;
+  if (decision === 'needs_fix' && !reason) {
+    redirect(workBackHref(back, 'refused', 'Pick the reason the shop will see.'));
+  }
+
+  const result = await applyApplicationDecision({
+    actor,
+    applicationId,
+    decision: decision === 'approve' ? 'approved' : 'rejected',
+    reason,
+  });
+  if (!result.ok) redirect(workBackHref(back, 'refused', result.error));
+
+  revalidatePath('/admin/work');
+  revalidatePath('/admin');
+  revalidatePath('/admin/verify');
+  revalidatePath('/admin/vendors');
+  revalidatePath('/explore');
+  revalidatePath('/vendor-dashboard/verify');
+  redirect(workBackHref(back, decision === 'approve' ? 'approved' : 'sent-back'));
 }
 
 export async function approveApplication(formData: FormData) {

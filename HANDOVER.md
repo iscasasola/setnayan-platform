@@ -34,6 +34,19 @@ Keep the PR DRAFT + `do-not-auto-merge`; never merge/deploy. CI is the gate (no 
   (sticky group headers · header tap = select + toolbar Rename · ＋ Add guest here · second tap folds + unselects · the
   card loses its Group row) is NOT started.
 
+- Slice 1 follow-up (pushed): the makers take THE row from the lens (`lens.ThumbRow`) — importing `thumb-row.tsx` into
+  details-march / seating-editor pulled its CSS module into the Maker's lazy pieces and broke ~10 render tests; march hooks
+  sit above its `if (!anyone)` early return (eslint rules-of-hooks). Full unit suite 28,432/0 locally; CI typecheck ·
+  eslint · unit · build green on cb2993ee45. Walk shots: `shots-2026-10-29/guests-build/{base,after,after2}` + `SBS-*.png`.
+
+### Slice 2 notes for whoever picks it up (not started)
+- The first row lives in `guests-screen.tsx` (`data-first-row`, `seg()` / `pinSeg()` / `PinnedSummary`, CSS `.stick` ·
+  `.pinned[data-collapsed]` · `.face/.faceAlt` in guests-screen.module.css; guard `lib/the-pinned-row-is-one-row.test.ts`).
+- Seats' mode lives in the seats editor (`SeatPlanModePick` in `StudioSeatPlanHead`, `onSelectView`, `studioView`) — to
+  move it into the Guests first row, give the lens a REVERSE channel (seats registers `{ mode, setMode, show3D }`), not a
+  second state. 📤 round waits for #7032 (slice 8) — draw no 📤 until then.
+- PageMasthead is in `guests/page.tsx` (titleNode = "N guests"); v14 wants it sr-only.
+
 ## NEXT — in the controller's order
 1. ~~SLICE 1~~ DONE (above). Original note: thumb row on every view = shared `components/thumb-row.tsx`: ⇕ · Search guests · ⇅ ONE PickMenu (Show / Group
    by / Sort) = one filter state in the URL shared by carousel cards, List and Map · ＋ (Guests: Add guest; Seats: Add ▾

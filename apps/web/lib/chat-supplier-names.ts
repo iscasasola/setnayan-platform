@@ -71,7 +71,14 @@ export function threadSupplierName(row: CoupleThreadSupplierRow | null | undefin
   // name, else "<Service> · <City>".
   const name = resolveVendorDisplayName(
     realName
-      ? { business_name: realName, name_revealed_at: 'revealed', isPaidTier: true, services: null }
+      ? {
+          business_name: realName,
+          name_revealed_at: 'revealed',
+          isPaidTier: true,
+          services: null,
+          primary_canonical_service: row.primary_service,
+          location_city: row.location_city,
+        }
       : {
           business_name: null,
           name_revealed_at: null,

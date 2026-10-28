@@ -50,9 +50,9 @@ test('every headline count on Today has a destination', () => {
   const counts = stripComments(readFileSync(join(WEB, 'app/vendor-dashboard/_components/today-counts.tsx'), 'utf8'));
   assert.equal((counts.match(/aria-pressed=\{on === key\}/g) ?? []).length, 1, 'a count is no longer a filter (aria-pressed)');
   for (const word of ["'waiting'", "'this week'", "'to come in'"]) assert.ok(counts.includes(word), `the ${word} count is gone`);
-  // Each filtered list ends with its door: the week → Dates, the money → Payday (here), waiting → Customers (below).
+  // Each filtered list ends with its door: the week → Dates, the money → Money in · Payday (here), waiting → Customers (below).
   assert.match(block, /<ListDoor label="All dates" href="\/vendor-dashboard\/customers\?seg=dates" \/>/, 'the week list lost its door');
-  assert.match(block, /<ListDoor label="Payday" href=\{customerLandingHref\('payday'\)\} \/>/, 'the money list lost its door');
+  assert.match(block, /<ListDoor label="Money in" href=\{customerLandingHref\('payday'\)\} \/>/, 'the money list lost its door');
   assert.match(src(), /<ListDoor label="All customers" href="\/vendor-dashboard\/customers\?lane=waiting#customers" \/>/, 'the waiting list lost its door');
   // 🌑 On an event day the row is the day's own: waiting · next moment · checked in — each a link, as before.
   const links = block.match(/<Link\b[^>]*>/g) ?? [];

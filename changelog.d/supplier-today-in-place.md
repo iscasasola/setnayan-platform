@@ -29,8 +29,9 @@ nothing on it was redrawn and every shipped door stays.
 Guards: `setup-is-done-in-place.test.ts` · `the-counts-filter-in-place.test.ts` · `tasks-finish-in-the-row.test.ts`
 (15 sabotages, each RED, restored). Updated to the new truth (each says why in place): `a-count-you-can-tap-goes-somewhere`,
 `today-is-rows` (1e · 4 · 8), `the-today-page-speaks-to-every-supplier`, `the-upcoming-row-opens-the-customer-card`,
-`the-supplier-app-lands-where-it-says` (1d), `spotlight-anchors-exist` (today-money's home), three maker guards (read the
-page with its drawing).
+`the-supplier-app-lands-where-it-says` (1d), `money-reads-are-honest`, `spotlight-anchors-exist` (today-money's home),
+four maker guards (read the page with its drawing). The setup reads hang off the one shop-row read, so Today stays
+≤ 8 trips deep (`the-supplier-today-reads-together`). Ugat screens map regenerated.
 
 SPEC IMPACT: corpus `DECISION_LOG.md` — an "AS BUILT" row under the 2026-10-28 supplier-dashboard approval (what
 shipped, what waits on data that does not exist: per-paper document states, per-kind notification switches + quiet

@@ -299,6 +299,21 @@ export default async function VendorOverviewPage({
   const eventsYouRunP = readEventsYouRunWithNeeds(supabase, user.id).catch(() => ({ events: [], measured: false }));
   const todayIso = manilaToday();
   const vendorProfileId = profile.vendor_profile_id;
+  /*
+    🧰 A shop not yet approved draws its six steps in place (below). Their reads hang off the ONE shop-row read — they
+    start the moment it says "not verified", beside the slow desk read, never a wave after it
+    (`the-supplier-today-reads-together.test.ts`). An approved shop reads none of it.
+  */
+  const shopRowP = readTodayShopRow(supabase, vendorProfileId);
+  const settingUpP = shopRowP.then((row) => !row?.verified).catch(() => false);
+  const setupDetailsP = settingUpP.then((yes) => (yes ? loadDetailsData(supabase, profile).catch(() => null) : null));
+  const setupMakerP = settingUpP.then((yes) =>
+    yes
+      ? loadMakerContext(supabase, vendorProfileId)
+          .then(async (ctx) => ({ ctx, kind: await loadKindDetails(supabase, vendorProfileId, ctx.onlyKind) }))
+          .catch(() => null)
+      : null,
+  );
   let data;
   let spotlightAwards;
   let shopRow: TodayShopRow | null;
@@ -320,7 +335,7 @@ export default async function VendorOverviewPage({
         profile.services ?? [],
       ),
       fetchVendorCurrentAwards(supabase, vendorProfileId).catch(() => []),
-      readTodayShopRow(supabase, vendorProfileId),
+      shopRowP,
       readTodaySchedules(supabase, vendorProfileId, todayIso),
     ]));
   } catch (err) {
@@ -604,14 +619,7 @@ export default async function VendorOverviewPage({
   let setup: ReactNode = null;
   if (firstSteps) {
     const offerLeft = (firstSteps.offer?.toGo ?? 1) > 0;
-    const [details, makerParts] = await Promise.all([
-      loadDetailsData(supabase, profile).catch(() => null),
-      offerLeft
-        ? loadMakerContext(supabase, vendorProfileId)
-            .then(async (ctx) => ({ ctx, kind: await loadKindDetails(supabase, vendorProfileId, ctx.onlyKind) }))
-            .catch(() => null)
-        : Promise.resolve(null),
-    ]);
+    const [details, makerParts] = await Promise.all([setupDetailsP, offerLeft ? setupMakerP : Promise.resolve(null)]);
     if (details) {
       const qrUrl = details.slug ? buildVendorInviteUrl(details.slug) : null;
       const qrSvg = qrUrl ? await renderUrlQrSvg(qrUrl, 220).catch(() => null) : null;

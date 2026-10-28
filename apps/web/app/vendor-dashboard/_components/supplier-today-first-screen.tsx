@@ -678,7 +678,7 @@ export function SupplierTodayFirstScreen({
                     ))
                   )}
                 </div>
-                <ListDoor label="Payday" href={customerLandingHref('payday')} />
+                <ListDoor label="Money in" href={customerLandingHref('payday')} />
               </div>
             ),
           }}

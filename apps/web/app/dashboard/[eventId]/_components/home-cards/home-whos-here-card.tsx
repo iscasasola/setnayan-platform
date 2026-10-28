@@ -34,6 +34,7 @@ import {
 } from '@/lib/whos-here';
 import { useEventTeamPresence } from '../event-team-presence';
 import { GuestCardSheet, SHIPPED_GUEST_CARD, type GuestCardPerson } from '../../guests/_components/guest-card-sheet';
+import type { GuestCardResult } from '../../guests/_components/guest-card';
 
 /** Asked again at most this often, whatever pulls it (a burst of arrivals, a flick between tabs). */
 const REREAD_GAP_MS = 20_000;
@@ -42,12 +43,15 @@ export function HomeWhosHereCard({
   eventId,
   initial,
   hubEnabled,
+  openGuest = SHIPPED_GUEST_CARD.home,
 }: {
   eventId: string;
   /** The page's own read (`readHubViewers`) — `null` when it failed. */
   initial: HubViewers | null;
   /** `hubViewsEnabled()` — false when the beacon is switched off (`HUB_VIEWS_DISABLED`). */
   hubEnabled: boolean;
+  /** How a tapped guest's card is read — the shipped action, or a dev lab's stand-in. */
+  openGuest?: (eventId: string, guestId: string) => Promise<GuestCardResult>;
 }) {
   const router = useRouter();
   const team = useEventTeamPresence();
@@ -119,6 +123,8 @@ export function HomeWhosHereCard({
         </span>
       </div>
 
+      {/* The two halves side by side from md (the width is there to use), stacked on a phone. */}
+      <div className="md:grid md:grid-cols-2 md:gap-6">
       {/* ── ON THE DASHBOARD ─────────────────────────────────────────────── */}
       <div className="mt-3 min-w-0" data-whos-here-team={teamState}>
         <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-ink/55">On the dashboard</p>
@@ -141,7 +147,10 @@ export function HomeWhosHereCard({
       </div>
 
       {/* ── VIEWING THE EVENT HUB ────────────────────────────────────────── */}
-      <div className="mt-3 min-w-0 border-t border-ink/10 pt-3" data-whos-here-hub={failed ? 'unread' : 'read'}>
+      <div
+        className="mt-3 min-w-0 border-t border-ink/10 pt-3 md:border-l md:border-t-0 md:pl-6 md:pt-0"
+        data-whos-here-hub={failed ? 'unread' : 'read'}
+      >
         <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-ink/55">Viewing the Event Hub</p>
         <div className="mt-0.5 flex flex-wrap items-center justify-between gap-2">
           <p role="status" className="min-w-0 text-[13.5px] text-ink/75" data-whos-here-hub-words="">
@@ -192,11 +201,13 @@ export function HomeWhosHereCard({
         ) : null}
       </div>
 
+      </div>
+
       {open ? (
         <GuestCardSheet
           eventId={eventId}
           person={open}
-          open={SHIPPED_GUEST_CARD.home}
+          open={openGuest}
           onClose={() => setOpen(null)}
           // A save on the card re-reads Home once, so a renamed guest is never shown by an old name.
           onSaved={() => router.refresh()}

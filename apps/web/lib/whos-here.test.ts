@@ -154,7 +154,8 @@ test('5 · the team’s side is ONE private channel, joined by the layout alone;
   assert.doesNotMatch(card, /setInterval\(|\.channel\(/, 'no poll loop and no channel of its own');
   assert.match(card, /onTabReturn\(/, 'it re-reads when the tab comes back');
   assert.match(card, /team\?\.pulse/, '…and when someone arrives on or leaves the dashboard');
-  assert.match(card, /SHIPPED_GUEST_CARD\.home/, 'a guest face opens the shipped guest card');
+  assert.match(card, /openGuest = SHIPPED_GUEST_CARD\.home/, 'a guest face opens the shipped guest card (a lab alone hands a stand-in)');
+  assert.match(card, /open=\{openGuest\}/);
 });
 
 test('6 · the words are honest — a failure is never "nobody"', () => {

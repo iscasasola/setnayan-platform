@@ -106,3 +106,8 @@ export function EventTeamPresence({
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
+
+/** DEV-ONLY stand-in for the channel (`/dev/home-lab?whos=…` — production 404s the labs): a fixed team list. */
+export function EventTeamPresenceLab({ value, children }: { value: EventTeamPresenceState; children: ReactNode }) {
+  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+}

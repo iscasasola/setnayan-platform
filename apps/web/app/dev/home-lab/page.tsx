@@ -112,6 +112,63 @@ import {
   type HomeNextInput,
 } from '@/lib/home-first-screen';
 import { OfflineLab } from './offline-lab';
+import { HomeWhosHereCard } from '@/app/dashboard/[eventId]/_components/home-cards/home-whos-here-card';
+import { EventTeamPresenceLab } from '@/app/dashboard/[eventId]/_components/event-team-presence';
+import { labOpenMarchCard } from '@/app/dev/details-lab/lab-march-cards';
+import type { HubViewers } from '@/lib/whos-here';
+
+/**
+ * 👀 `?whos=live|alone|joining|failed|unread|nonames|off|busy` — Home › Who's here (owner 2026-10-29) on fixtures: the
+ * REAL card, a stand-in team list (no channel) and a stand-in viewers read. Guest faces open the march lab's guest card
+ * (`labOpenMarchCard` — its ids are maria-and-jose's people).
+ */
+function labWhosHere(eventId: string, mode: string) {
+  const team =
+    mode === 'joining'
+      ? { peers: null, state: 'joining' as const, pulse: 0 }
+      : mode === 'failed'
+        ? { peers: null, state: 'failed' as const, pulse: 0 }
+        : mode === 'alone'
+          ? { peers: [], state: 'live' as const, pulse: 0 }
+          : {
+              peers: [
+                { id: 'u-claire', name: 'Claire', role: 'Co-host' as const, photo: null },
+                { id: 'u-jen', name: 'Jen', role: 'Coordinator' as const, photo: null },
+                ...(mode === 'busy' ? [{ id: 'u-kim', name: 'Kimberly', role: 'Helper' as const, photo: null }, { id: 'u-ric', name: 'Ric', role: 'Host' as const, photo: null }] : []),
+              ],
+              state: 'live' as const,
+              pulse: 0,
+            };
+  const ago = (m: number) => new Date(Date.now() - m * 60_000).toISOString();
+  const names: Array<[string, string | null, string]> = [
+    ['p12', 'Ninong Ricardo', 'Ricardo'],
+    ['p6', 'Tita Carmen', 'Carmen'],
+    ['p11', null, 'Daniel'],
+    ['p10', 'Ate Ana', 'Ana Reyes'],
+    ['p5', 'Tito Fidel', 'Fidel'],
+    ['p7', null, 'Noel'],
+    ['p3', null, 'Eduardo'],
+  ];
+  const viewers: HubViewers | null =
+    mode === 'unread'
+      ? null
+      : {
+          team: true,
+          may_name: mode !== 'nonames',
+          window_minutes: 30,
+          guest_total: mode === 'nonames' ? 0 : mode === 'alone' ? 0 : mode === 'busy' ? 12 : names.length,
+          visitors: mode === 'alone' ? 0 : 30,
+          guests:
+            mode === 'nonames' || mode === 'alone'
+              ? []
+              : names.map(([id, display, first], i) => ({ guest_id: id, first_name: first, last_name: null, display_name: display, photo_url: null, seen_at: ago(i * 3) })),
+        };
+  return (
+    <EventTeamPresenceLab value={team}>
+      <HomeWhosHereCard eventId={eventId} initial={viewers} hubEnabled={mode !== 'off'} openGuest={labOpenMarchCard} />
+    </EventTeamPresenceLab>
+  );
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -228,7 +285,7 @@ const LAB_HUB_PICK: HomeHubPickRead = { ok: true, pinned: null, byDate: 'rsvp' }
 export default async function HomeLab({
   searchParams,
 }: {
-  searchParams: Promise<{ bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; coord?: string; card?: string; cardphase?: string; challenges?: string; open?: string; need?: string; state?: string; browser?: string; desk?: string }>;
+  searchParams: Promise<{ bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; coord?: string; card?: string; cardphase?: string; challenges?: string; open?: string; need?: string; state?: string; browser?: string; desk?: string; whos?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -478,6 +535,7 @@ export default async function HomeLab({
         papicSizes={LAB_SIZES}
         hubPick={unread ? { ok: false, reason: 'unread' } : LAB_HUB_PICK}
         papicCard={q.card === '1' ? labPapicCard(E, q.cardphase, q.fail === '1' || q.unread === '1', q.challenges === '1') : null}
+        whosHere={q.whos ? labWhosHere(E, q.whos) : null}
         apple={
           q.store === '1' && q.apple === '1'
             ? {

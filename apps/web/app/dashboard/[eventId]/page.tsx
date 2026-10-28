@@ -1050,7 +1050,8 @@ export default async function EventHomePage({
   /* 🖼 The header wears the Event Hub's main background (owner 2026-10-07); a
      refused read keeps today's colour, never a broken Home. */
   const homeCover = await homeCoverRead;
-  const whosHereCard = <HomeWhosHereCard eventId={eventId} initial={await whosHereRead} hubEnabled={hubViewsEnabled()} />;
+  const whosHere = await whosHereRead;
+  const whosHereCard = <HomeWhosHereCard eventId={eventId} initial={whosHere} hubEnabled={hubViewsEnabled()} />;
   /*
     🎛 THE CONTROL ROW'S FACTS (owner-approved 2026-10-24) — every number from the reader the page already ran:
     the countdown from `homeFacts`, the guests from `rosterStats` (the Guests summary's own counts), the money from the

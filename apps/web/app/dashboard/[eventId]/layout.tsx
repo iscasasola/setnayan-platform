@@ -827,6 +827,12 @@ export default async function EventLayout({ children, params }: Props) {
                   INSTANTLY, THEN REFRESHES"). Context only — the store loads
                   with those pages, never with this layout. */}
               <LastSeenScope userId={user.id} eventId={eventId}>
+                {/* 👀 WHO'S HERE — the event's ONE presence channel, joined here so it lives while the person moves
+                    between this event's pages (owner 2026-10-29). Home's card reads it; nothing else joins one. */}
+                <EventTeamPresence
+                  eventId={eventId}
+                  me={{ id: user.id, name: firstName(switcherData.displayName), role: teamRole, photo: switcherData.photoUrl ?? null }}
+                >
                 {/* ⚡ The Home's cover words, from THIS read of the event — its loading screen
                     draws the couple's names at the tap (home-loading-cover.tsx, 2026-10-16). */}
                 <HomeCoverWordsProvider
@@ -837,15 +843,9 @@ export default async function EventLayout({ children, params }: Props) {
                     ),
                   )}
                 >
-                  {/* 👀 WHO'S HERE — the event's ONE presence channel, joined here so it lives while the person moves
-                      between this event's pages (owner 2026-10-29). Home's card reads it; nothing else joins one. */}
-                  <EventTeamPresence
-                    eventId={eventId}
-                    me={{ id: user.id, name: firstName(switcherData.displayName), role: teamRole, photo: switcherData.photoUrl ?? null }}
-                  >
-                    {children}
-                  </EventTeamPresence>
+                  {children}
                 </HomeCoverWordsProvider>
+                </EventTeamPresence>
               </LastSeenScope>
             </div>
           </div>

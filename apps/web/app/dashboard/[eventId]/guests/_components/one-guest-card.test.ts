@@ -81,6 +81,7 @@ const ENTRY_POINTS: Record<string, 'GuestCard' | 'GuestCardSheet'> = {
   [`${EVENT}/launch/_components/parent-cards.tsx`]: 'GuestCardSheet', // the parents under the march / The Invitation
   [`${EVENT}/launch/_components/studio-prints-six.tsx`]: 'GuestCardSheet', // Studio › Prints' parents
   [`${EVENT}/launch/_components/details-people.tsx`]: 'GuestCardSheet', // Details › Parents & hosts
+  [`${EVENT}/_components/home-cards/home-whos-here-card.tsx`]: 'GuestCardSheet', // Home › Who's here — a guest viewing the Event Hub
   'app/dev/details-lab/lab-march-cards.tsx': 'GuestCard', // the march lab's stand-in read
   'app/dev/guests-lab/page.tsx': 'GuestCard', // the Guest list lab
 };
@@ -97,6 +98,7 @@ test('2 · EVERY entry point opens the one card — `GuestCard`, or `GuestCardSh
   const sheet = SRC.get(SHEET)!;
   assert.match(sheet, /\(await import\('\.\.\/open-guest-card'\)\)\.openGuestCard\(eventId, guestId, 'march'\)/);
   assert.match(sheet, /\(await import\('\.\.\/open-guest-card'\)\)\.openGuestCard\(eventId, guestId, 'invitation'\)/);
+  assert.match(sheet, /\(await import\('\.\.\/open-guest-card'\)\)\.openGuestCard\(eventId, guestId, 'home'\)/);
   assert.match(SRC.get(`${EVENT}/guests/open-guest-card.tsx`)!, /<GuestCard frame="panel"/);
   /* A surface that opens a guest's sheet is an entry point — a new one must be listed (and so read) here. */
   const sheetUsers = ALL.filter((f) => f !== SHEET && /<GuestCardSheet\b/.test(SRC.get(f)!));

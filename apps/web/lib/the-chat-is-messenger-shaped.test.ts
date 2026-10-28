@@ -53,13 +53,17 @@ test('an open thread is full screen on a phone: the takeover rule exists and the
   assert.doesNotMatch(read('app/_components/chat/chat-box.tsx'), /\bsn-row\b/, 'the thread is a framed card again');
 });
 
-test('the head is ‹ · avatar · name · event line · ⓘ — on both sides', () => {
+test('the head is ‹ · avatar · name · event line · the chat menu — ONE head component, on both sides', () => {
+  const head = read('app/_components/chat/chat-thread-head.tsx');
+  assert.match(head, /aria-label="Back to Chats"/, 'the shared head has no ‹');
+  assert.match(head, /rounded-full bg-ink\/\[0\.1\]/, 'the shared head has no avatar beside the name');
+  assert.match(head, /\[&>\*\+\*\]:before:content-\['·'\]/, 'the muted line lost its separators');
   for (const p of ['app/dashboard/[eventId]/messages/[threadId]/page.tsx', 'app/vendor-dashboard/messages/[threadId]/page.tsx']) {
     const s = read(p);
-    const head = s.slice(s.indexOf('header={'), s.indexOf('notice={'));
-    assert.match(head, /aria-label="Back to Chats"/, `${p}: no ‹`);
-    assert.match(head, /rounded-full bg-ink\/\[0\.1\]/, `${p}: no avatar beside the name`);
-    assert.equal((head.match(/<ChatThreadMenu\b/g) ?? []).length, 1, `${p}: the ⓘ is not the head's one action`);
+    const at = s.indexOf('header={');
+    const h = s.slice(at, s.indexOf('notice={', at));
+    assert.match(h, /^header=\{\s*<ChatThreadHead\b/, `${p}: the head is not the shared ChatThreadHead`);
+    assert.equal((h.match(/<ChatThreadMenu\b/g) ?? []).length, 1, `${p}: the chat menu is not the head's action`);
   }
   assert.match(read('app/_components/chat-thread-menu.tsx'), /aria-label="About this chat"/);
 });

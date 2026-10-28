@@ -183,14 +183,16 @@ test('ONE ＋ on each side opens every tool — no icon beside it, the paperclip
 });
 
 test('the header keeps the counterparty, one muted line with the service, and the way back', () => {
+  // 2026-10-28 · the head is ONE shared component (`ChatThreadHead`, owner: "Same as our chatbox"); the way back and
+  // the dot separators live in it, the line's content stays with each page.
+  const head = read('app/_components/chat/chat-thread-head.tsx');
+  assert.match(head, /aria-label="Back to Chats"/, 'no way back to the list on a phone');
+  assert.match(head, /\[&>\*\+\*\]:before:content-\['·'\]/, 'the muted line lost its separators');
   for (const [rel, name] of PAGES) {
     const s = read(rel);
+    assert.equal(count(s, /<ChatThreadHead\b/g), 1, `${name}: the head is not the shared ChatThreadHead`);
     assert.equal(count(s, /<ThreadInterestChips\b/g), 1, `${name}: interest chips mounted ${count(s, /<ThreadInterestChips\b/g)} times`);
     assert.match(s, /<ThreadInterestChips [^>]*\bcompact\b/, `${name}: the service is a bordered row again, not the muted line`);
-    assert.match(s, /aria-label="Back to Chats"/, `${name}: no way back to the list on a phone`);
-    // The muted line dot-separates whatever it carries, so a missing service
-    // or date leaves no stray "·".
-    assert.match(s, /\[&>\*\+\*\]:before:content-\['·'\]/, `${name}: the muted line lost its separators`);
   }
   assert.match(read(COUPLE), /formatLongDate\(eventDate\)/, "the couple's header shows a raw date or none");
   assert.match(read(VENDOR), /Planning for \{guestCountLine\(guestCounts\)\}/);

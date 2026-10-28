@@ -30,8 +30,8 @@ import { ChatThreadMenu } from '@/app/_components/chat-thread-menu';
 import { ChatSafetyBanner } from '@/app/_components/chat-privacy-notice';
 import { ThreadInterestChips } from '@/app/_components/thread-interest-chips';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { ChevronLeft } from 'lucide-react';
 import { ChatBox } from '@/app/_components/chat/chat-box';
+import { ChatThreadHead } from '@/app/_components/chat/chat-thread-head';
 import { ThreadToolPanel } from '@/app/_components/chat/thread-tool-panel';
 import { CoupleThreadToolsSheet } from '@/app/vendor-dashboard/messages/[threadId]/_components/thread-tools-sheet';
 import { CHAT_ATTACH_INPUT_ID } from '@/lib/chat-attach-input-id';
@@ -731,29 +731,14 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
       <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
         <ChatBox
           header={
-            <>
-              <Link
-                href={`/dashboard/${eventId}/messages`}
-                aria-label="Back to Chats"
-                className="grid h-11 w-10 shrink-0 place-items-center rounded-full text-sn-accent hover:bg-ink/5"
-              >
-                <ChevronLeft aria-hidden className="h-6 w-6" strokeWidth={2} />
-              </Link>
-              {/* Initials, never the logo — a logo is exactly as identifying as
-                  the name it stands for, and the name here is already the
-                  reveal-safe one. */}
-              <span
-                aria-hidden
-                className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-ink/[0.1] text-[13px] font-semibold text-ink/75"
-              >
-                {initialsFor(vendorLabel)}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-[16px] font-semibold leading-tight text-ink">{vendorLabel}</p>
-                {/* ONE muted line: what they asked about · the date · the count
-                    this vendor is quoting against (Adaptive Pax Pricing, fresh
-                    on view — the couple sees what the vendor sees). */}
-                <p className="flex min-w-0 items-center gap-x-1 truncate text-[12px] leading-tight text-ink/55 [&>*+*]:before:mr-1 [&>*+*]:before:content-['·']">
+            <ChatThreadHead
+              backHref={`/dashboard/${eventId}/messages`}
+              name={vendorLabel}
+              initials={initialsFor(vendorLabel)}
+              // ONE muted line: what they asked about · the date · the count this supplier quotes against (Adaptive
+              // Pax Pricing, fresh on view — the couple sees what the supplier sees).
+              line={
+                <>
                   <ThreadInterestChips supabase={supabase} threadId={threadId} compact />
                   {eventDate ? <span>{formatLongDate(eventDate)}</span> : null}
                   {headerPax ? (
@@ -764,31 +749,33 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
                         : ''}
                     </span>
                   ) : null}
-                </p>
-              </div>
-              <ChatThreadMenu
-                threadId={threadId}
-                returnTo={`/dashboard/${eventId}/messages/${threadId}`}
-                blockedByMe={blockState.blockedByMe}
-                // The workspace's sections, behind ⋮ (One Chat Box, 2026-09-18).
-                // That page used to embed its own copy of this conversation and
-                // now sends a chat landing HERE; these are the way back to what
-                // it still holds. Only once the workspace route is known — it is
-                // keyed by `event_vendors.vendor_id`, resolved above for the
-                // Lock button, and null on a thread with no row yet.
-                links={
-                  workspaceHref
-                    ? [
-                        { href: `${workspaceHref}?tab=quote`, label: 'Quote' },
-                        { href: `${workspaceHref}?tab=payments`, label: 'Payments' },
-                        { href: `${workspaceHref}?tab=files`, label: 'Files' },
-                        { href: `${workspaceHref}?tab=schedule`, label: 'Schedule' },
-                        { href: `${workspaceHref}?tab=details`, label: 'Booking details' },
-                      ]
-                    : []
-                }
-              />
-            </>
+                </>
+              }
+              actions={
+                <ChatThreadMenu
+                  threadId={threadId}
+                  returnTo={`/dashboard/${eventId}/messages/${threadId}`}
+                  blockedByMe={blockState.blockedByMe}
+                  // The workspace's sections, behind ⋮ (One Chat Box, 2026-09-18).
+                  // That page used to embed its own copy of this conversation and
+                  // now sends a chat landing HERE; these are the way back to what
+                  // it still holds. Only once the workspace route is known — it is
+                  // keyed by `event_vendors.vendor_id`, resolved above for the
+                  // Lock button, and null on a thread with no row yet.
+                  links={
+                    workspaceHref
+                      ? [
+                          { href: `${workspaceHref}?tab=quote`, label: 'Quote' },
+                          { href: `${workspaceHref}?tab=payments`, label: 'Payments' },
+                          { href: `${workspaceHref}?tab=files`, label: 'Files' },
+                          { href: `${workspaceHref}?tab=schedule`, label: 'Schedule' },
+                          { href: `${workspaceHref}?tab=details`, label: 'Booking details' },
+                        ]
+                      : []
+                  }
+                />
+              }
+            />
           }
           notice={<ChatSafetyBanner inBox />}
           composer={

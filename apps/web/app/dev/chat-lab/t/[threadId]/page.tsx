@@ -20,10 +20,9 @@
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import { ThreadArrival } from '@/app/_components/chat/thread-arrival';
-import Link from 'next/link';
-import { ChevronLeft } from 'lucide-react';
 import { LabShell } from '@/app/dev/_components/lab-shell';
 import { ChatBox } from '@/app/_components/chat/chat-box';
+import { ChatThreadHead } from '@/app/_components/chat/chat-thread-head';
 import { ChatSafetyBanner } from '@/app/_components/chat-privacy-notice';
 import { ChatMessageStream } from '@/app/_components/chat-message-stream';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
@@ -87,23 +86,19 @@ async function LabThread({ params, searchParams }: LabProps) {
         <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
           <ChatBox
             header={
-              <>
-                <Link href="/dev/chat-lab" aria-label="Back to Chats" className="grid h-11 w-10 shrink-0 place-items-center rounded-full text-sn-accent hover:bg-ink/5">
-                  <ChevronLeft aria-hidden className="h-6 w-6" strokeWidth={2} />
-                </Link>
-                <span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-ink/[0.1] text-[13px] font-semibold text-ink/75">
-                  {initialsFor(label)}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[16px] font-semibold leading-tight text-ink">{label}</p>
-                  <p className="flex min-w-0 items-center gap-x-1 truncate text-[12px] leading-tight text-ink/55 [&>*+*]:before:mr-1 [&>*+*]:before:content-['·']">
+              <ChatThreadHead
+                backHref="/dev/chat-lab"
+                name={label}
+                initials={initialsFor(label)}
+                line={
+                  <>
                     <span>Photo &amp; video</span>
                     <span>December 18, 2026</span>
                     <span className="whitespace-nowrap">~230 guests</span>
-                  </p>
-                </div>
-                <ChatThreadMenu threadId={threadId} returnTo={`/dev/chat-lab/t/${threadId}`} blockedByMe={false} links={[]} />
-              </>
+                  </>
+                }
+                actions={<ChatThreadMenu threadId={threadId} returnTo={`/dev/chat-lab/t/${threadId}`} blockedByMe={false} links={[]} />}
+              />
             }
             notice={<ChatSafetyBanner inBox />}
             composer={

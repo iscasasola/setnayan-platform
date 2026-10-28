@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { CalendarDays, ChevronLeft } from 'lucide-react';
+import { CalendarDays } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { ServerTimer } from '@/lib/server-timing';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -95,6 +95,7 @@ import { ProposalMaker } from '@/app/_components/proposal-maker';
 import { ChatInfoRailColumn, ChatInfoRailTrigger } from './_components/chat-info-rail';
 import { ThreadToolHashReveal } from '@/app/_components/chat/reveal-thread-tool';
 import { ChatBox } from '@/app/_components/chat/chat-box';
+import { ChatThreadHead } from '@/app/_components/chat/chat-thread-head';
 import { ThreadToolPanel } from '@/app/_components/chat/thread-tool-panel';
 import { affordancePanelId } from '@/lib/chat-box-tools';
 import { dealEntryFor, threadHasQuote } from '@/lib/deal-entry';
@@ -1535,34 +1536,23 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
         ) : null}
         <ChatBox
           header={
-            <>
-              <Link
-                href="/vendor-dashboard/messages"
-                aria-label="Back to Chats"
-                className="grid h-11 w-10 shrink-0 place-items-center rounded-full text-sn-accent hover:bg-ink/5"
-              >
-                <ChevronLeft aria-hidden className="h-6 w-6" strokeWidth={2} />
-              </Link>
-              <span
-                aria-hidden
-                className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-ink/[0.1] text-[13px] font-semibold text-ink/75"
-              >
-                {railInitials}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-[16px] font-semibold leading-tight text-ink">
+            <ChatThreadHead
+              backHref="/vendor-dashboard/messages"
+              name={
+                <>
                   {headerLabel}
                   {founderInquiry ? (
                     <span className="ml-2 inline-block rounded-full bg-terracotta/15 px-2 py-0.5 align-middle font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta-700">
                       {FOUNDER_BADGE_LABEL}
                     </span>
                   ) : null}
-                </p>
-                {/* ONE muted line: what they asked about · the date, as a date
-                    ("December 18, 2026", never the raw ISO key — owner
-                    2026-09-08) · the live count, naming the inquiry count
-                    whenever the two differ, either way. */}
-                <p className="flex min-w-0 items-center gap-x-1 truncate text-[12px] leading-tight text-ink/55 [&>*+*]:before:mr-1 [&>*+*]:before:content-['·']">
+                </>
+              }
+              initials={railInitials}
+              // ONE muted line: what they asked about · the date, as a date ("December 18, 2026", never the raw ISO
+              // key — owner 2026-09-08) · the live count, naming the inquiry count whenever the two differ.
+              line={
+                <>
                   <ThreadInterestChips supabase={supabase} threadId={threadId} compact />
                   {event?.event_date ? <span>{formatLongDate(event.event_date)}</span> : null}
                   {guestCountLine(guestCounts) ? (
@@ -1570,7 +1560,10 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
                       Planning for {guestCountLine(guestCounts)}
                     </span>
                   ) : null}
-                </p>
+                </>
+              }
+              below={
+                <>
                 {/* Inquiry-source chip (PR-C · owner taxonomy) — PRIVATE to the
                     vendor; NULL resolves to "Website Inquiry". The returning
                     flag is a COMPANION chip: it combines with any origin, never
@@ -1585,8 +1578,10 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
                     </span>
                   ) : null}
                 </p>
-              </div>
-              <div className="flex shrink-0 items-center gap-1">
+                </>
+              }
+              actions={
+                <>
                 {/* Mobile: opens the customer info rail as a sheet. Desktop
                     shows the rail as a docked column instead (see below). */}
                 <ChatInfoRailTrigger {...railProps} />
@@ -1607,8 +1602,9 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
                     { href: `/vendor-dashboard/clients/${thread.event_id}?tab=details`, label: 'Full customer profile' },
                   ]}
                 />
-              </div>
-            </>
+                </>
+              }
+            />
           }
           notice={
             <>

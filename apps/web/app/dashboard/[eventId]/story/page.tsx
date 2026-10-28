@@ -141,7 +141,7 @@ export default async function EditorialEditorPage({
             change.
           </p>
           <Link
-            href={`/dashboard/${eventId}/website`}
+            href={`/dashboard/${eventId}/launch`}
             className="sn-press mt-5 inline-flex items-center gap-2 rounded-full border border-ink/15 px-4 py-2 text-sm font-bold text-ink transition-colors hover:border-terracotta"
           >
             Back to your page
@@ -583,7 +583,7 @@ export default async function EditorialEditorPage({
   return (
     <div className="mx-auto max-w-[1010px] px-4 py-8 sm:px-6 lg:px-8">
       <Link
-        href={`/dashboard/${eventId}/website`}
+        href={`/dashboard/${eventId}/launch`}
         className="mb-6 inline-flex items-center gap-1.5 text-sm text-ink/65 transition-colors hover:text-burgundy focus-visible:text-burgundy focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
       >
         <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />

@@ -119,6 +119,15 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
       'that device. Disclose that it is held; do not hand over the keys.',
   },
   {
+    table: 'shop_papic_wallet_entries',
+    decision: 'excluded',
+    why:
+      'The SHOP wallet — a business\'s Papic-credit ledger keyed to the shop (vendor_profile_id), ' +
+      'not to a person (owner 2026-10-23, option A). `created_by` is an actor stamp on who pressed a ' +
+      'spend or wrote an admin credit; the row says nothing about that person, the shop owner reads ' +
+      'every row on Customers › Money, and erasure clears the stamp (lib/erasure/coverage.ts).',
+  },
+  {
     table: 'hub_music_tracks',
     decision: 'excluded',
     why:

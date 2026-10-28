@@ -42,10 +42,8 @@ const LIVE: Record<string, string> = {
   'app/_components/thread-call-launcher.tsx': 'an incoming call rings on an open thread — only when calling is unlocked',
   'app/_components/appointment-join.tsx': 'Join on a confirmed online appointment, inside its join window',
   'lib/call-webrtc.ts': 'call signalling, only while in a call',
-  'app/_components/run-of-show-header.tsx': 'the day-of now / next header (lets go after 30 s hidden)',
-  'app/[slug]/_components/day-of-announcement.tsx':
-    "the coordinator's announcement to guests, mounted only once one was sent (lets go after 30 s hidden)",
-  'app/dashboard/[eventId]/_actions/day-of-broadcast.ts': 'SERVER: sends one announcement ping — no browser socket',
+  'app/_components/run-of-show-header.tsx':
+    "the day-of now / next header — the event's WORKERS only (coordinator, hosts, suppliers); a guest's header polls (EV1) (lets go after 30 s hidden)",
   'app/dashboard/[eventId]/seating/_components/use-seating-live-refresh.ts':
     "a view-only seat plan follows the editor's changes (lets go after 30 s hidden)",
   'app/dashboard/[eventId]/seating/_components/use-seating-presence.ts': 'co-planners on the seat plan — presence',
@@ -66,11 +64,6 @@ const LIVE: Record<string, string> = {
  * pattern that must still be there. Reachable is not subscribed: each of these opens its channel only behind the gate.
  */
 const LAYOUT_MAY_REACH: Record<string, { why: string; gateFile: string; gate: RegExp }> = {
-  'app/[slug]/_components/day-of-announcement.tsx': {
-    why: "the guests' tree layout mounts it only once a coordinator announcement exists",
-    gateFile: 'app/[slug]/layout.tsx',
-    gate: /\{broadcast && eventId \? \(/,
-  },
   'app/_components/demo-session/use-demo-channel.ts': {
     why: "the home page's Papic demo overlay — a channel only while the overlay is open with a paired session",
     gateFile: 'app/_components/home/papic-demo-overlay.tsx',
@@ -85,6 +78,10 @@ const LAYOUT_MAY_REACH: Record<string, { why: string; gateFile: string; gate: Re
 
 /** Files that must never open a channel: the chrome on every page, and pages where nothing is live. */
 const NEVER_LIVE = [
+  // 📵 EV1 (2026-10-28, DECISION_LOG "NO EVENT HUB MAY CRASH"): guests never hold a live connection — the coordinator's
+  // words reach them by a small gated ask on a timer (`/{slug}/announcement`), and the writer sends no ping.
+  'app/[slug]/_components/day-of-announcement.tsx',
+  'app/dashboard/[eventId]/_actions/day-of-broadcast.ts',
   'app/_components/unread-bell-badge.tsx',
   'app/_components/unread-messages-badge.tsx',
   'app/dashboard/[eventId]/budget/_components/budget-summary.tsx',

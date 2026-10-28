@@ -1529,7 +1529,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
           header={
             <>
               <Link
-                href="/vendor-dashboard/messages"
+                href="/vendor-dashboard/customers?seg=people&open=messages#customer-tools"
                 aria-label="Back to Messages"
                 className="grid h-11 w-9 shrink-0 place-items-center rounded-full text-ink/60 hover:bg-ink/5 hover:text-ink"
               >

@@ -754,6 +754,11 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     why: 'Which admin last swapped a homepage clip. Six seeded rows of marketing config.',
   },
   {
+    table: 'shop_papic_wallet_entries',
+    column: 'created_by',
+    why: 'Who pressed a shop-wallet spend or wrote an admin credit row. The ledger is the SHOP’s money record (owner 2026-10-23, option A) and stays; the stamp goes.',
+  },
+  {
     table: 'hub_music_tracks',
     column: 'created_by',
     why: 'Which admin uploaded an Event Hub music track. The track is Setnayan’s own catalogue and stays; the stamp goes.',

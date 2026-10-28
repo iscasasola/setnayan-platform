@@ -14,7 +14,6 @@
  */
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { Footprints, MapPin } from 'lucide-react';
 import { Plan3DSceneLoader } from '@/app/_components/plan3d/plan3d-scene-loader';
 import type { Plan3DScene, Plan3DGuest } from '@/app/_actions/plan3d-demo-actions';
@@ -135,18 +134,6 @@ export function Plan3DGuestView({ scene, guest }: { scene: Plan3DScene; guest: P
                 </span>
               </button>
             </div>
-            <Link
-              href="/"
-              style={{
-                display: 'inline-block',
-                marginTop: 12,
-                fontSize: 13,
-                color: '#8C6932',
-                textDecoration: 'underline',
-              }}
-            >
-              Back to Setnayan
-            </Link>
           </>
         ) : (
           /* roam */
@@ -171,18 +158,6 @@ export function Plan3DGuestView({ scene, guest }: { scene: Plan3DScene; guest: P
                 </span>
               </button>
             </div>
-            <Link
-              href="/"
-              style={{
-                display: 'inline-block',
-                marginTop: 12,
-                fontSize: 13,
-                color: '#8C6932',
-                textDecoration: 'underline',
-              }}
-            >
-              Back to Setnayan
-            </Link>
           </>
         )}
       </div>

@@ -2153,8 +2153,11 @@ export const UGAT_JOINTS: UgatJoint[] = [
       // ledger per SHOP (no event column on the money-in side), spent on the
       // portfolio past the free 50 and on an event once that event's own pot is
       // empty. Spends go only through shop_papic_wallet_spend (locks the shop,
-      // refuses what the balance cannot cover, one row per spend_ref).
+      // refuses what the balance cannot cover, one row per spend_ref) — and, for
+      // the portfolio, shop_portfolio_commit, which writes portfolio_r2_keys and
+      // the 'portfolio_spend' row in ONE transaction under the same lock.
       { kind: 'table', table: 'shop_papic_wallet_entries' },
+      { kind: 'column', table: 'vendor_profiles', column: 'portfolio_r2_keys' },
       {
         kind: 'fk',
         table: 'shop_papic_wallet_entries',

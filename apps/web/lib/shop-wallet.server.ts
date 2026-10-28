@@ -51,6 +51,21 @@ const asKind = (k: string): ShopWalletKind | null =>
   (SHOP_WALLET_KINDS as readonly string[]).includes(k) ? (k as ShopWalletKind) : null;
 
 /**
+ * The balance alone — for the portfolio uploader, which quotes it beside the Save ("wallet 128 → 125"). Same sum,
+ * same RLS client; a failed read is `null` (the uploader then saves free photos only), never 0.
+ */
+export async function fetchShopWalletBalance(client: SupabaseClient, vendorProfileId: string): Promise<number | null> {
+  if (!vendorProfileId) return null;
+  const { data, error } = await client.rpc('shop_papic_wallet_balance', { p_vendor_profile_id: vendorProfileId });
+  if (error) {
+    console.error('[supabase-error] shop-wallet: balance read', error);
+    return null;
+  }
+  const n = Number(data);
+  return Number.isFinite(n) ? Math.trunc(n) : null;
+}
+
+/**
  * The shop's wallet: balance (the SQL sum — every row, not just the history
  * page), the newest history rows, and the newest pack order not yet approved.
  * A failed balance read → `balance: null`; a failed pending read → no pending

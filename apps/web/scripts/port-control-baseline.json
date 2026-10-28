@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "06a89888f4",
-  "routeCount": 479,
-  "destinations": 986,
-  "actions": 642,
-  "blocks": 7240,
+  "generatedFromRef": "0dc8e87064",
+  "routeCount": 480,
+  "destinations": 988,
+  "actions": 652,
+  "blocks": 7278,
   "routes": {
     "/": {
       "files": [
@@ -2657,6 +2657,7 @@
         "admin/categories/_components/four-level-map.tsx",
         "admin/categories/_components/four-level-model.ts",
         "admin/categories/_components/group-icons.ts",
+        "admin/categories/_components/hub-tools-pane.tsx",
         "admin/categories/_components/in-place.tsx",
         "admin/categories/_components/list-pane.tsx",
         "admin/categories/_components/load-map.ts",
@@ -2787,6 +2788,8 @@
         "HTMLElement",
         "Head",
         "Hidden",
+        "HubToolsPane",
+        "HubToolsSection",
         "Icon",
         "InfoTip",
         "ItemForm",
@@ -2844,6 +2847,7 @@
         "SVGSVGElement",
         "Said",
         "SavePick",
+        "ScanMode",
         "SearchParamsRecord",
         "Section",
         "ServiceBack",
@@ -2854,6 +2858,7 @@
         "StudioActionResult",
         "SubmitButton",
         "SwitchForm",
+        "SwitchRow",
         "SwitchTrack",
         "T",
         "Thumbs",
@@ -3446,20 +3451,24 @@
     },
     "/admin/help": {
       "files": [
+        "admin/help/_components/help-messenger.tsx",
         "admin/help/actions.ts",
         "admin/help/loading.tsx",
         "admin/help/page.tsx"
       ],
-      "destinations": [
-        "/admin/help?status=[seg]"
-      ],
+      "destinations": [],
       "actions": [
+        "action",
         "setHelpMessageStatus"
       ],
       "blocks": [
-        "FilterChip",
-        "PageMasthead",
-        "SubmitButton"
+        "ActionButton",
+        "ChatBox",
+        "ChatThreadHead",
+        "HelpMessageRow",
+        "HelpMessenger",
+        "Link",
+        "PageMasthead"
       ]
     },
     "/admin/hub-music": {
@@ -4909,13 +4918,41 @@
     },
     "/admin/work": {
       "files": [
+        "admin/work/_components/form-pick.tsx",
+        "admin/work/_components/supplier-inbox.tsx",
         "admin/work/actions.ts",
         "admin/work/page.tsx"
       ],
-      "destinations": [],
-      "actions": [],
+      "destinations": [
+        "/admin/help?m=[seg]"
+      ],
+      "actions": [
+        "createEventTypeRoster",
+        "openApplicationDocument",
+        "resolveRepostFlag",
+        "setEventTypeStatus",
+        "setFolderEventTypeOffered",
+        "settleCorrectionFromWorkList",
+        "settleHelpFromWorkList",
+        "settleVerificationFromWorkList"
+      ],
       "blocks": [
-        "QueuesTriageFeed"
+        "ActionButton",
+        "CardsBody",
+        "DocsBody",
+        "Fact",
+        "FormPick",
+        "Icon",
+        "InfoTip",
+        "Link",
+        "MsgsBody",
+        "NamesBody",
+        "PickMenu",
+        "Preview",
+        "QueuesTriageFeed",
+        "ReasonPick",
+        "SupplierInbox",
+        "TypesBody"
       ]
     },
     "/api/v1": {
@@ -6094,6 +6131,7 @@
         "QrActions",
         "QrBody",
         "ReadRefusedNotice",
+        "ReadyForNoSignal",
         "RecordLinkBlock",
         "Remaining",
         "RepliesWindowRows",
@@ -6983,12 +7021,14 @@
         "CheckinActionResult",
         "CheckinDesk",
         "CheckinMethod",
+        "DeskSavedMark",
         "GuestAvatar",
         "HTMLVideoElement",
         "Link",
         "LiveRefresher",
         "MediaStream",
         "NotSharedWithYou",
+        "OfflineQueue",
         "ReadRefusedNotice",
         "RoleNamesProvider",
         "TicketCheck",
@@ -10879,6 +10919,28 @@
         "NewManualVendorModal"
       ]
     },
+    "/dev/admin-supplier-lab": {
+      "files": [
+        "dev/admin-supplier-lab/fixtures.ts",
+        "dev/admin-supplier-lab/lab-submit-catcher.tsx",
+        "dev/admin-supplier-lab/page.tsx"
+      ],
+      "destinations": [
+        "/admin/verify",
+        "/dev/admin-supplier-lab?view=[seg]"
+      ],
+      "actions": [
+        "setHelpMessageStatus"
+      ],
+      "blocks": [
+        "HelpMessenger",
+        "HubToolsPane",
+        "LabSubmitCatcher",
+        "QueuesTriageFeed",
+        "SP",
+        "SupplierInbox"
+      ]
+    },
     "/dev/art-kit-lab": {
       "files": [
         "dev/art-kit-lab/page.tsx"
@@ -11223,6 +11285,7 @@
       "files": [
         "dev/home-lab/apply-pro-sheet-lab.tsx",
         "dev/home-lab/lab-spotlight.tsx",
+        "dev/home-lab/offline-lab.tsx",
         "dev/home-lab/page.tsx"
       ],
       "destinations": [
@@ -11233,6 +11296,7 @@
         "AppleProScreen",
         "ApplyProSheetLab",
         "ChallengeCardRow",
+        "CheckinDesk",
         "CollectionCard",
         "CollectionGrid",
         "CoordinatingLine",
@@ -11245,15 +11309,18 @@
         "LabBoard",
         "LabShell",
         "LabSpotlight",
+        "OfflineLab",
         "PapicBuySheet",
         "PapicCameraHelp",
         "PapicCameraSettings",
         "PapicSwitch",
         "PapicTopBand",
         "ProLockPanel",
+        "ReadyForNoSignalView",
         "SiteMenuBar",
         "SpotlightMount",
         "StanceChip",
+        "SupplierSavedStripView",
         "YourServices",
         "YourShotsGallery"
       ]
@@ -13505,6 +13572,7 @@
         "MiniTour",
         "NextCard",
         "NotConnected",
+        "OfflineViewerScript",
         "PageMasthead",
         "PaidMark",
         "PaymentsPausedNote",
@@ -14597,6 +14665,7 @@
         "ShotListStatus",
         "ShotListWriteResult",
         "SongDeskGate",
+        "SupplierSavedStrip",
         "Tag",
         "VendorStatusUpdates"
       ]

@@ -122,6 +122,8 @@ export function daySheetHref(day: string): string {
 
 export type DatesBooking = { poolId: string; bookedDate: string; eventName: string };
 export type DatesBlock = {
+  /** A closure's own id (Customers › Dates' day switch reopens a one-day closure by it). Absent = not handed over. */
+  blockId?: string;
   poolId: string | null;
   source: 'manual' | 'setnayan_booking' | 'synced_calendar' | 'external_client';
   startDate: string;

@@ -19,7 +19,7 @@ import { mayRefreshGuestPass } from '@/lib/guest-pass-hop';
 import { legacyRedirectTarget } from '@/lib/legacy-redirects';
 import { recordSiteVisit } from '@/lib/visits/record-visit';
 import { hubViewRewritePath } from '@/lib/hub-view-route';
-import { HUB_BUST_COOKIE, isHubViewPath } from '@/lib/hub-view-key';
+import { HUB_BUST_COOKIE, HUB_BUST_EXEMPT_PATHS, isHubViewPath } from '@/lib/hub-view-key';
 import {
   isStoreShellSignals,
   isStoreShellWebOnlyPath,
@@ -239,6 +239,8 @@ export async function middleware(request: NextRequest) {
     request.method !== 'GET' &&
     request.method !== 'HEAD' &&
     request.method !== 'OPTIONS' &&
+    // 👀 …except a write no guest page shows — the Who's-here beacon fires on every open (lib/hub-view-key.ts).
+    !HUB_BUST_EXEMPT_PATHS.includes(request.nextUrl.pathname) &&
     (request.cookies.has(GUEST_SESSION_COOKIE_NAME) || request.cookies.has(GUEST_PASS_BOOK_COOKIE_NAME))
   ) {
     response.cookies.set({

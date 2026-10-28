@@ -51,6 +51,9 @@ import { HomeCoverWordsProvider } from './_components/home-loading-cover';
 import { homeCoverWords } from '@/lib/home-cover-words';
 import { withPickedDate } from '@/lib/event-anchor';
 import { appPreloadPlan } from '@/lib/app-preload-sets';
+import { EventTeamPresence } from './_components/event-team-presence';
+import { firstName, teamPresenceEnabled, teamRoleWord, type TeamRole } from '@/lib/whos-here';
+import { seatIsFullCohost } from '@/lib/guest-access';
 
 /** The layout's own columns of the event row — every one is carried by `DASHBOARD_ROW_CARRIES`. */
 const LAYOUT_EVENT_COLUMNS =
@@ -143,6 +146,9 @@ export default async function EventLayout({ children, params }: Props) {
   // codes for attendance in the reception"). The desk's OWN rule — the guest list shared, inside the window
   // (`isDelegateWithoutArea` over `applyDelegateAccessWindow`) — asked of the same seat, started now, read at the line.
   let coordinatorCheckInP: Promise<boolean> = Promise.resolve(false);
+  // 👀 Who's here (owner 2026-10-29): the role word this person wears on the dashboard's presence — a couple row is
+  // the Host; a seat is Coordinator · Co-host · Helper (`teamRoleWord`). Read off the SAME rows that admit them.
+  let teamRole: TeamRole = 'Host';
   if (!membership || membership.member_type !== 'couple') {
     // Delegate path (feature-access program Phase 2, 2026-06-12): an
     // accepted, non-removed event_moderators row admits the user — this is
@@ -199,6 +205,7 @@ export default async function EventLayout({ children, params }: Props) {
     }
     const seat = moderator as { role_subtype?: string | null; permissions_json?: ModeratorPermissions | null };
     coordinatorSeat = seat.role_subtype === COORDINATOR_SEAT_ROLE;
+    teamRole = teamRoleWord({ kind: 'seat', coordinator: coordinatorSeat, fullCohost: seatIsFullCohost(seat.role_subtype ?? '') });
     if (coordinatorSeat) {
       coordinatorCheckInP = applyDelegateAccessWindow(supabase, eventId, seat.permissions_json ?? null, false)
         .then((p) => resolveAreaLevel(p, 'guest_list') !== null)
@@ -820,6 +827,13 @@ export default async function EventLayout({ children, params }: Props) {
                   INSTANTLY, THEN REFRESHES"). Context only — the store loads
                   with those pages, never with this layout. */}
               <LastSeenScope userId={user.id} eventId={eventId}>
+                {/* 👀 WHO'S HERE — the event's ONE presence channel, joined here so it lives while the person moves
+                    between this event's pages (owner 2026-10-29). Home's card reads it; nothing else joins one. */}
+                <EventTeamPresence
+                  enabled={teamPresenceEnabled()}
+                  eventId={eventId}
+                  me={{ id: user.id, name: firstName(switcherData.displayName), role: teamRole, photo: switcherData.photoUrl ?? null }}
+                >
                 {/* ⚡ The Home's cover words, from THIS read of the event — its loading screen
                     draws the couple's names at the tap (home-loading-cover.tsx, 2026-10-16). */}
                 <HomeCoverWordsProvider
@@ -832,6 +846,7 @@ export default async function EventLayout({ children, params }: Props) {
                 >
                   {children}
                 </HomeCoverWordsProvider>
+                </EventTeamPresence>
               </LastSeenScope>
             </div>
           </div>

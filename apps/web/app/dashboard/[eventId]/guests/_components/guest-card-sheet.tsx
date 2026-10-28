@@ -36,6 +36,7 @@ export const SHIPPED_GUEST_CARD = {
   march: async (eventId: string, guestId: string): Promise<GuestCardResult> => (await import('../open-guest-card')).openGuestCard(eventId, guestId, 'march'),
   invitation: async (eventId: string, guestId: string): Promise<GuestCardResult> =>
     (await import('../open-guest-card')).openGuestCard(eventId, guestId, 'invitation'),
+  home: async (eventId: string, guestId: string): Promise<GuestCardResult> => (await import('../open-guest-card')).openGuestCard(eventId, guestId, 'home'),
 } as const;
 
 /** The card's layer on <body>: above the Maker's full-screen shell (`z-[80]`), under the card's own dropdowns (`z-[95]`). */

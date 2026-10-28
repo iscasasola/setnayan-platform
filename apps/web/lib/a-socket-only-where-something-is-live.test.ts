@@ -56,6 +56,8 @@ const LIVE: Record<string, string> = {
   'lib/panood-webrtc.ts': 'Panood / Live Studio camera signalling',
   'lib/panood-guest-webrtc.ts': 'Panood guest-pick camera signalling',
   'app/admin/connection-logs/connection-logs-client.tsx': 'admin only — the live connection log',
+  'app/dashboard/[eventId]/_components/event-team-presence.tsx':
+    "Home › Who's here (owner 2026-10-29) — the event team on the dashboard now: presence only (no postgres_changes), private, lets go after 30 s hidden",
 };
 
 /**
@@ -63,6 +65,16 @@ const LIVE: Record<string, string> = {
  * pattern that must still be there. Reachable is not subscribed: each of these opens its channel only behind the gate.
  */
 const LAYOUT_MAY_REACH: Record<string, { why: string; gateFile: string; gate: RegExp }> = {
+  // ⚠ THE ONE EXCEPTION THAT IS NOT "REACHABLE, NOT SUBSCRIBED" (2026-10-29, Who's here). The owner asked who of the
+  // team is "on the dashboard" — ANY page of it — so the presence channel has to live where every event page is: the
+  // event layout. Its cost is bounded, not zero: one socket per VISIBLE dashboard tab of an event's TEAM (a handful of
+  // people, never guests), presence only (no database evaluation per write), let go 30 s after the tab is hidden, and
+  // OFF entirely with `TEAM_PRESENCE_DISABLED=1` — the gate below. Flagged to the owner in PR #7031.
+  'app/dashboard/[eventId]/_components/event-team-presence.tsx': {
+    why: "the event team's presence — every dashboard page of the event, only while the tab is visible, off with TEAM_PRESENCE_DISABLED",
+    gateFile: 'app/dashboard/[eventId]/layout.tsx',
+    gate: /<EventTeamPresence\s+enabled=\{teamPresenceEnabled\(\)\}/,
+  },
   'app/_components/demo-session/use-demo-channel.ts': {
     why: "the home page's Papic demo overlay — a channel only while the overlay is open with a paired session",
     gateFile: 'app/_components/home/papic-demo-overlay.tsx',

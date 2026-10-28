@@ -59,7 +59,8 @@ export function customersSegmentOf(sp: Record<string, string | string[] | undefi
 }
 
 /** The folds the hub's one accordion holds — each drawn only under its own segment. */
-const FOLD_KEYS = ['messages', 'bookings', 'proposals', 'contracts'] as const;
+/** 🗑 `messages` left 2026-10-28 — the event list IS the messages (People's rows each open their chat). */
+const FOLD_KEYS = ['bookings', 'proposals', 'contracts'] as const;
 
 /** The fold keys that live in a segment (for the one accordion under it). */
 export function foldsOf(seg: CustomersSegment): string[] {

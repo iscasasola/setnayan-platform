@@ -29,8 +29,11 @@ function toAmount(v: FormDataEntryValue | null): number | null {
   return Number.isFinite(n) && n >= 0 ? n : null;
 }
 
-function fail(reason: string): never {
-  redirect(`/vendor-dashboard/invite?mode=locked&error=${reason}`);
+/** A code made for one outside booking (Customers › People, "Send their code") keeps naming it through a refusal. */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function failTo(reason: string, blockId: string | null): never {
+  redirect(`/vendor-dashboard/invite?mode=locked&error=${reason}${blockId ? `&block=${blockId}` : ''}`);
 }
 
 /** Parse a hidden JSON-array field into a clean string[] (empty on any junk). */
@@ -58,6 +61,13 @@ function parseStringArray(v: FormDataEntryValue | null): string[] {
 */
 
 export async function issueLockedQr(formData: FormData): Promise<void> {
+  // The outside booking this code is for (Customers › People › "Send their code"), when it came from one. The
+  // database refuses a booking that is not this shop's own outside booking (trigger
+  // `vendor_locked_qr_block_is_own_outside`); here it is only shape-checked and carried through every refusal.
+  const rawBlock = String(formData.get('block_id') ?? '').trim();
+  const blockId = UUID_RE.test(rawBlock) ? rawBlock : null;
+  // Typed on the NAME (not only the arrow) so a call narrows like the old function did — TS needs that for `never`.
+  const fail: (reason: string) => never = (reason) => failTo(reason, blockId);
   const supabase = await createClient();
   const {
     data: { user },
@@ -122,8 +132,26 @@ export async function issueLockedQr(formData: FormData): Promise<void> {
   // it cannot be issued for a date the vendor is no longer free on (already
   // booked -> auto-blocked, or manually blocked). Reuse the exact availability
   // source couples see; fail-open on a query error (matches getVendorAvailableDays).
+  //
+  // 🔑 ONE EXCEPTION, AND IT IS THE SAME BOOKING: a code made for an outside booking (`block_id`) on a day that booking
+  // already holds. That day reads "taken" precisely BECAUSE of this customer's own outside booking — refusing would make
+  // "Send their code" impossible on the one date it exists for. Any other date still goes through the check.
+  let ownOutsideDay = false;
+  if (blockId) {
+    const { data: held } = await supabase
+      .from('vendor_calendar_blocks')
+      .select('blocked_at, blocked_until')
+      .eq('block_id', blockId)
+      .eq('vendor_profile_id', vendorProfileId)
+      .eq('block_source', 'external_client')
+      .maybeSingle();
+    if (!held) fail('issue');
+    const phDay = (iso: string) => new Date(iso).toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
+    const h = held as { blocked_at: string; blocked_until: string };
+    ownOutsideDay = eventDate >= phDay(h.blocked_at) && eventDate <= phDay(h.blocked_until);
+  }
   const bookDate = new Date(`${eventDate}T00:00:00`);
-  const freeDays = await getVendorAvailableDays(
+  const freeDays = ownOutsideDay ? null : await getVendorAvailableDays(
     supabase,
     vendorProfileId,
     bookDate,
@@ -214,11 +242,12 @@ export async function issueLockedQr(formData: FormData): Promise<void> {
       proof_r2_key: proofRef,
       remembrance_r2_key: remembranceRef,
       source_contract_id: sourceContractId,
+      block_id: blockId,
     })
     .select('token')
     .single();
 
   if (error || !inserted) fail('issue');
 
-  redirect(`/vendor-dashboard/invite?mode=locked&issued=${inserted.token}`);
+  redirect(`/vendor-dashboard/invite?mode=locked&issued=${inserted.token}${blockId ? `&block=${blockId}` : ''}`);
 }

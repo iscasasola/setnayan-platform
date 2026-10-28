@@ -2144,19 +2144,24 @@ export const TOURS: Record<TourKey, TourDefinition> = {
   vendor_people_v1: {
     key: 'vendor_people_v1',
     label: 'Supplier — Customers page spotlight',
-    blurb: 'People · Dates · Money, Filter, search and ＋ an outside client.',
+    blurb: 'People ▾, the four counts, ⚙, search and ＋ an outside booking.',
     slides: [],
     spotlight: {
       steps: [
         {
           anchor: 'customers-segments',
-          title: 'People · Dates · Money',
-          body: 'Your customers, your calendar, and your payments.',
+          title: 'People ▾',
+          body: 'Switch between your customers, your calendar and your payments.',
         },
         {
           anchor: 'customers-filter',
-          title: 'Filter',
-          body: 'Waiting on you, talking, booked, done — or your outside clients.',
+          title: 'Asking · Talking · Booked · Done',
+          body: 'Tap a count to show those customers right here. Each event is one row — tap it to open its chat.',
+        },
+        {
+          anchor: 'customers-gear',
+          title: 'Customers settings',
+          body: 'How you get paid, how many a day, your teams and your phone calendar.',
         },
         {
           anchor: 'customers-search',
@@ -2165,8 +2170,8 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         },
         {
           anchor: 'customers-add',
-          title: 'Add an outside client',
-          body: '＋ adds a booking from outside Setnayan, free, so the date is held.',
+          title: 'Add an outside booking',
+          body: '＋ adds a booking from outside Setnayan, free, so the date is held — then send them their one-time code.',
         },
       ],
       finale: {

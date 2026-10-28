@@ -93,7 +93,8 @@ export const CONVERTED: readonly Converted[] = [
      as ONE dropdown (`SUPPLIER_DASHBOARD_REDESIGN_2026-10-08_fable.md` § 2 "one 'QR codes' (Shortlist · Booked —
      one dropdown)"; frames 10 · 40). The card file is deleted; the page's dropdown is held by
      `app/vendor-dashboard/customers/dates-is-one-calendar.test.ts`. */
-  { area: 'supplier', what: 'Customers views (People | Dates | Money)', file: `${V}/customers/_components/customers-segments.tsx`, anchor: 'aria-label="Customers views"', via: 'track', thumb: 'slides', gone: 'rounded-full border border-ink/15 bg-white/70 p-0.5' },
+  // 2026-10-28: Customers views (People | Dates | Money) left the pill track for ONE PickMenu in Customers' pinned row
+  // (owner "any set of choices is a dropdown"; DECISION_LOG "SUPPLIER DASHBOARD APPROVED — … A ⚙ PER PAGE").
   { area: 'supplier', what: 'Discount unit (% | ₱)', file: `${V}/services/_components/service-list-editors.tsx`, anchor: 'aria-label="Discount unit"', via: 'track', thumb: 'slides', gone: "background: on ? 'var(--m-ink)' : 'var(--m-paper-2)'" },
   { area: 'supplier', what: 'How a payment is set (% of total | Fixed ₱)', file: `${V}/services/_components/payment-schedule-editor.tsx`, anchor: 'data-payment-amount-kind=""', via: 'track', thumb: 'slides', gone: 'inline-flex overflow-hidden rounded-md border border-ink/20' },
   { area: 'supplier', what: 'Billing term (Every 28 days | Yearly)', file: `${V}/subscription/custom/_components/custom-configurator.tsx`, anchor: 'aria-label="Billing term"', via: 'track', thumb: 'waits', why: RADIO, gone: 'rounded-lg border border-ink/12 p-1' },

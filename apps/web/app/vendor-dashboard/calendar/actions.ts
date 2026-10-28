@@ -97,7 +97,7 @@ async function requireVendor() {
   return { supabase, profile };
 }
 
-function backToCalendar(formData: FormData, notice: string): never {
+function backToCalendar(formData: FormData, notice: string, block: string | null = null): never {
   const month = str(formData, 'return_month');
   const pool = str(formData, 'return_pool');
   const returnTo = str(formData, 'return_to');
@@ -120,6 +120,19 @@ function backToCalendar(formData: FormData, notice: string): never {
   // is said by the toast. `open` names the fold the form lived in, so it is the
   // one open on return.
   if (returnTo === 'dates') {
+    // ⚙ 2026-10-28 (owner "okay" on `supplier_in_place_2026-10-28`): How many a day, the halls and the schedules moved
+    // into Customers ⚙. A save made there comes back to the view the ⚙ was opened on WITH THE ⚙ STILL OPEN
+    // (`gear=1`), the answer said inside the sheet (`gnotice`) — never a fold that is no longer on Dates.
+    if (str(formData, 'return_fold') === 'capacity') {
+      const seg = str(formData, 'return_seg');
+      const params = new URLSearchParams();
+      if (seg === 'dates' || seg === 'money') params.set('seg', seg);
+      else if (seg !== 'people') params.set('seg', 'dates');
+      if (/^\d{4}-\d{2}$/.test(month) && params.get('seg') === 'dates') params.set('m', month);
+      params.set('gear', '1');
+      params.set('gnotice', notice);
+      redirect(`/vendor-dashboard/customers?${params.toString()}`);
+    }
     const params = new URLSearchParams({ seg: 'dates' });
     if (/^\d{4}-\d{2}$/.test(month)) params.set('m', month);
     const day = str(formData, 'return_date');
@@ -136,7 +149,10 @@ function backToCalendar(formData: FormData, notice: string): never {
   // browser when this shipped — its stub forwards to the same place.
   if (returnTo === 'people') {
     const params = new URLSearchParams({ seg: 'people', notice });
-    redirect(`/vendor-dashboard/customers?${params.toString()}#customers`);
+    // 🔑 The new outside booking, so People opens ITS row with "Send their code" right there (owner 2026-10-28:
+    // the one-time code is "also offered right after Add outside booking").
+    if (block) params.set('block', block);
+    redirect(`/vendor-dashboard/customers?${params.toString()}${block ? '#outside' : '#customers'}`);
   }
 
   const back = returnTo === 'clients' ? 'clients' : 'calendar';
@@ -307,7 +323,8 @@ export async function importExternalClient(formData: FormData): Promise<void> {
   }
 
   revalidateScheduleSurfaces();
-  backToCalendar(formData, 'client_imported');
+  const newBlock = (data as { block_id?: string } | null)?.block_id ?? null;
+  backToCalendar(formData, 'client_imported', typeof newBlock === 'string' ? newBlock : null);
 }
 
 /** PH civil date (YYYY-MM-DD) of a stored timestamptz (blocks are written in

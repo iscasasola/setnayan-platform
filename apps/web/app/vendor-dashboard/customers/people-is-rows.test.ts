@@ -123,11 +123,12 @@ test('1c · the row is the one tap: no button inside it, and it names its next s
   assert.match(html, /aria-label="Jun(&#x27;|')s Wedding \(Oct 4\) — See the day"/);
 });
 
-test('1d · one dropdown (Filter, in the "Waiting first" eyebrow) — Show ▾, ⋯ and the in-list search form are gone', async () => {
-  const html = await render(FIXTURE, { filter: React.createElement('i', { 'data-filter-slot': '' }) });
-  const eyebrow = html.slice(html.indexOf('data-customers-eyebrow'), html.indexOf('</div>', html.indexOf('data-customers-eyebrow')));
-  assert.match(eyebrow, /Waiting first/);
-  assert.match(eyebrow, /data-filter-slot/, 'Filter ▾ is not in the eyebrow');
+test('1d · the doors filter in place — no Filter ▾ eyebrow, no Show ▾, no ⋯, no in-list search form', async () => {
+  // 2026-10-28: Asking · Talking · Booked · Done are the pinned row's doors (`customers-pin.tsx`); the roster draws
+  // no "Waiting first · Filter ▾" eyebrow unless a caller hands it a Filter — and the Customers page hands none.
+  const html = await render(FIXTURE);
+  assert.doesNotMatch(html, /data-customers-eyebrow/, 'the roster still draws the Filter eyebrow with no Filter');
+  assert.doesNotMatch(PAGE, /<CustomersPick\b|filter=\{/, 'the page hands the roster a Filter ▾ again — the doors filter in place');
   assert.doesNotMatch(html, /role="search"|data-customers-more|data-customers-show/, 'a second control is back in the roster');
   assert.doesNotMatch(ROSTER, /\bshowPick\b|ROSTER_SHOW|MoreHorizontal/, 'Show ▾ or the ⋯ menu is back in the roster');
   assert.doesNotMatch(PAGE, /ROSTER_SHOW|label="Show"/, 'the page hands the roster a Show ▾ again');
@@ -182,7 +183,8 @@ test('3 · three segments, one address each; every old landing opens the segment
   const all = CUSTOMER_SEGMENTS.flatMap((s) => foldsOf(s));
   // S-PR3: Dates has no accordion fold — its tools are its own folds (Block days · Waitlist · Capacity).
   // S-PR4: the Bookings queue is a fold under Money (it alone carries "Add to prep schedule").
-  assert.deepEqual([...all].sort(), ['bookings', 'contracts', 'messages', 'proposals']);
+  // 2026-10-28: Messages is no longer a fold — the event list IS the messages (people-chats-not-a-fold.test.ts).
+  assert.deepEqual([...all].sort(), ['bookings', 'contracts', 'proposals']);
   assert.match(PAGE, /const sections = CUSTOMER_SECTIONS\.filter\(\(s\) => folds\.includes\(s\.key\)\)/, 'a fold is drawn outside its segment');
   // The ids the landings name are drawn only under their segment.
   // S-PR4: Money is the last branch of the segment switch (its rows wear `#payday`); `#bookings` is drawn only on Money.
@@ -204,20 +206,22 @@ test('3b · each segment reads only what it draws (owner: "the fewest requests")
   assert.match(hub, /seg === 'dates' \? \([\s\S]{0,240}<CustomersDay\b[\s\S]{0,120}<CustomersDates\b/, 'Dates (the month, or one day) is not drawn only on Dates');
 });
 
-test('3c · "People 3" — the count is the waiting count People has just measured, and only People draws a number', () => {
-  assert.match(PAGE, /<CustomersSegments seg="people" waiting=\{laneCounts\.waiting\} \/>/);
-  // Money and the Dates month draw the bare words; one day (a sub-page, frame 35) draws its own back row instead.
-  assert.match(PAGE, /\{seg === 'people' \|\| \(seg === 'dates' && search\.day\) \? null : <CustomersSegments seg=\{seg\} \/>\}/, 'Dates / Money draw a count they never read');
+test('3c · one pinned row on every view: People draws it with the four counts; Dates and Money with the view ▾ and ⚙ only', () => {
+  const people = body(PAGE, 'CustomersPipeline');
+  assert.match(people, /<CustomersPin\s+seg="people"[\s\S]{0,120}doors=\{doors\}[\s\S]{0,40}panels=\{panels\}/, 'People does not draw the counts row');
+  const hub = body(PAGE, 'VendorCustomersHub');
+  assert.match(
+    hub,
+    /\{seg === 'people' \|\| \(seg === 'dates' && search\.day\) \? null : \(\s*<CustomersPin\s+seg=\{seg\}\s+hrefOf=\{customersSegmentHref\}\s+gear=/,
+    'Dates / Money lost their pinned row (or draw counts they never read)',
+  );
 });
 
-test('3d · People · Dates · Money are 44-px presses — the box itself, not only the reach (batch-5 walk: they measured 38)', async () => {
-  const { renderToStaticMarkup } = await import('react-dom/server');
-  const { CustomersSegments } = await import('./_components/customers-segments');
-  const html = renderToStaticMarkup(React.createElement(CustomersSegments, { seg: 'people', hrefOf: (s: string) => `/x?seg=${s}` } as never));
-  const links = html.match(/<a [^>]*data-customers-seg="[a-z]+"[^>]*>/g) ?? [];
-  assert.equal(links.length, CUSTOMER_SEGMENTS.length, 'the segments did not draw');
-  // The shared pill is min-h-[38px]; a min-h-11 beside it loses the cascade — only a HEIGHT makes the box 44.
-  for (const a of links) assert.match(a, /class="[^"]*(?:^|\s)h-11(?:\s|")/, `a segment is not a 44-px box: ${a}`);
+test('3d · the view is ONE dropdown (People ▾ · Dates · Money), 44 px — never a pill row', async () => {
+  const PIN = code('_components', 'customers-pin.tsx');
+  assert.match(PIN, /<PickMenu\b[\s\S]{0,200}options=\{CUSTOMER_SEGMENTS\.map/, 'the views are not one PickMenu');
+  assert.doesNotMatch(PIN, /<PillTrack\b|<PillLink\b/, 'the views are a pill row again');
+  assert.match(PIN, /min-h-11/, 'a door is under 44 px');
 });
 
 // ── 4 · HONEST MONEY ──────────────────────────────────────────────────────
@@ -239,6 +243,9 @@ test('5 · an outside client opens in place and its Remove asks once, posts the 
   assert.match(remove, /action=\{removeBlock\}/);
   assert.match(remove, /name="return_to" value="people"/);
   assert.match(remove, /<SupplierSubmit tone="danger"/, 'Remove is not the delete look');
-  assert.match(MORE, /<Badge tone="quiet" data="customer-stage">Outside<\/Badge>/, 'an outside client is not marked Outside');
+  // 2026-10-28: the row's badge is their one-time code's state (Linked / Code sent / Not linked); "booked outside" is
+  // said in the row's line, and "Outside" is the badge only when the codes could not be read.
+  assert.match(MORE, /<Badge tone=\{badge\.tone\} data="customer-stage">\{badge\.word\}<\/Badge>/, 'an outside client lost its stage badge');
+  assert.match(MORE, /· booked outside`/, 'an outside client is not said to be booked outside');
   assert.match(MORE, /<ListPager paged=\{paged\} param="copage"/, 'the outside clients are not paged');
 });

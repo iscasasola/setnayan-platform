@@ -266,7 +266,16 @@ export function CustomersRoster({
   otherMatches = 0,
   /** Every outside client — the found line counts against everyone the Filter's "Everyone" counts. */
   otherTotal = 0,
+  anchor = 'customers',
+  emptyLine,
 }: {
+  /**
+   * The list's own `id` (and its chat-origin mark). Null when the page draws the list once PER DOOR (Customers'
+   * pinned counts, 2026-10-28) — the page then owns the one `#customers` and the one mark around all four.
+   */
+  anchor?: string | null;
+  /** What an empty door says — "Nobody is waiting on you." — when the door holds nobody at all. */
+  emptyLine?: string;
   rows: RosterRow[];
   counts: Record<CustomerLane, number>;
   nowMs: number;
@@ -302,14 +311,17 @@ export function CustomersRoster({
     .slice(0, 4);
 
   return (
-    <div id="customers" className="scroll-mt-24" data-customers-people="">
+    <div id={anchor ?? undefined} className={anchor ? 'scroll-mt-24' : undefined} data-customers-roster="">
       {/* This list opens chats full screen; ‹ there comes back here, in place. */}
-      <ChatOriginMark />
-      {/* "WAITING FIRST · Everyone ▾" — the order is said, and the one dropdown narrows it (frame 03). */}
-      <div className="flex min-h-11 items-center gap-3" data-customers-eyebrow="" data-tour="customers-filter">
-        <span className="home-k2">Waiting first</span>
-        {filter}
-      </div>
+      {anchor ? <ChatOriginMark /> : null}
+      {/* "WAITING FIRST · Everyone ▾" — the order is said, and the one dropdown narrows it (frame 03). Drawn only for a
+          caller that hands a Filter; Customers' doors filter in place instead (2026-10-28). */}
+      {filter ? (
+        <div className="flex min-h-11 items-center gap-3" data-customers-eyebrow="" data-tour="customers-filter">
+          <span className="home-k2">Waiting first</span>
+          {filter}
+        </div>
+      ) : null}
 
       {/*
         THE EXPOSURE LINE — one warn ROW above the list (plan § 2: "Date-clash
@@ -351,11 +363,14 @@ export function CustomersRoster({
             </p>
           )
         ) : (
-          <p className="border-t border-ink/10 py-4 text-[14px] text-ink/70" data-customers-none="" data-tour="customers-list">
-            {total === 0
-              ? 'No customers yet. When somebody asks about a date, or books you, they show up here — the ones waiting on an answer first.'
-              : 'Nobody in this list right now. Pick Everyone in Filter to see the rest.'}
-          </p>
+          otherTotal > 0 && total === 0 ? null : (
+            <p className="border-t border-ink/10 py-4 text-[14px] text-ink/70" data-customers-none="" data-tour="customers-list">
+              {emptyLine ??
+                (total === 0
+                  ? 'No customers yet. When somebody asks about a date, or books you, they show up here — the ones waiting on an answer first.'
+                  : 'Nobody in this list right now. Pick Everyone in Filter to see the rest.')}
+            </p>
+          )
         )
       ) : (
         <ul data-customers-list="" data-tour="customers-list">

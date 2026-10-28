@@ -27,7 +27,7 @@
  */
 
 /** The menus (and the one Hub tool, Prints) that own a settings sheet. Home is deliberately absent. */
-export type SettingsMenu = 'guests' | 'hub' | 'prints' | 'memories' | 'suppliers' | 'people' | 'today';
+export type SettingsMenu = 'guests' | 'hub' | 'prints' | 'memories' | 'suppliers' | 'people' | 'today' | 'customers';
 
 export type SettingsEntry = {
   /** Where the door sits. Every menu: the right end of its first control row. Suppliers: the spot, reserved. */
@@ -100,6 +100,17 @@ export const SETTINGS_ENTRY: Record<SettingsMenu, SettingsEntry> = {
     line: 'How Setnayan reaches you.',
     live: true,
     tip: 'Settings for Today only. Your shop’s own settings stay with your shop.',
+  },
+  /**
+   * 👥 THE SUPPLIER'S CUSTOMERS ⚙ (owner 2026-10-28, same row: "Customers ⚙ getting paid + booking terms + teams/days").
+   * It ends Customers' pinned row on People, Dates and Money (one component, `CustomersSettings`, one mount).
+   */
+  customers: {
+    door: 'first-row-gear',
+    sheet: 'Customers settings',
+    line: 'How you get paid, your teams and days.',
+    live: true,
+    tip: 'Settings for Customers only. What couples see on your page stays with your Shop.',
   },
 };
 

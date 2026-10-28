@@ -193,8 +193,9 @@ test('the date-clash count is computed over EVERY customer, not the filtered lis
   // warning vanish the moment a shop pressed "Booked" — a warning that
   // disappears when you look away is worse than no warning.
   assert.ok(
-    /holdingByDate\(derived\)/.test(pageSrc),
-    'holdingByDate is no longer computed over the full derived set',
+    // 2026-10-28: over every LISTED customer — `derived` less only the chats the shop archived (`listed`).
+    /holdingByDate\(listed\)/.test(pageSrc) && /const listed = derived\.filter\(\(r\) => !archivedOff\.has\(r\.eventId\)\)/.test(pageSrc),
+    'holdingByDate is no longer computed over the full listed set',
   );
   assert.ok(
     !/holdingByDate\(rosterRows\)/.test(pageSrc),
@@ -262,7 +263,8 @@ test('the retired "Book of business" lives ON People — outside clients and kep
   const people = stripComments(readFileSync(join(HERE, '_components', 'people-more.tsx'), 'utf8'));
   assert.match(pageSrc, /\.filter\(\(b\) => b\.source === 'external_client'\)/, 'People no longer reads the outside clients');
   assert.match(pageSrc, /const outsidePage = paginate\(/, 'the outside clients are not paged before they render');
-  assert.match(pageSrc, /\{showOutside \? \(\s*<OutsideClientRows\b/, 'the outside clients are not drawn on People');
+  // 2026-10-28: under the Booked door (they are booked customers), after the Setnayan rows.
+  assert.match(pageSrc, /\{isBooked \? \(\s*<OutsideClientRows\b/, 'the outside clients are not drawn on People');
   assert.match(people, /removeBlock/, 'an outside client can no longer be removed');
   assert.match(pageSrc, /keptNotesMeasured && keptNotes\.length > 0 \?[\s\S]{0,300}<KeptNotesFold\b/, 'the kept notes are not drawn on People');
   assert.equal(/\?open=clients/.test(rosterSrc + pageSrc), false, 'a door still names the retired Clients fold');

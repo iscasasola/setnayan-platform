@@ -42,6 +42,8 @@ type Props = {
   vendorProfileId: string;
   /** Server-decided (vendorPaywallApplies): saving a link asks for Pro. */
   linkAsks: boolean;
+  /** Mounted in Customers ⚙ — the save comes back there, sheet open (`return_to=customers`). */
+  returnTo?: { to: 'customers'; seg: string } | null;
 };
 
 const TYPE_TILES: ReadonlyArray<{
@@ -55,7 +57,7 @@ const TYPE_TILES: ReadonlyArray<{
   { key: 'link', label: 'Payment link', hint: 'Maya, PayPal, Stripe…', icon: Link2 },
 ];
 
-export function AddPaymentMethod({ vendorProfileId, linkAsks }: Props) {
+export function AddPaymentMethod({ vendorProfileId, linkAsks, returnTo = null }: Props) {
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<PaymentMethodType>('bank');
   const [linkDraft, setLinkDraft] = useState('');
@@ -81,6 +83,12 @@ export function AddPaymentMethod({ vendorProfileId, linkAsks }: Props) {
       action={addPaymentMethod}
       className="space-y-5 sn-tile p-5"
     >
+      {returnTo ? (
+        <>
+          <input type="hidden" name="return_to" value={returnTo.to} />
+          <input type="hidden" name="return_seg" value={returnTo.seg} />
+        </>
+      ) : null}
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-0.5">
           <h3 className="text-base font-semibold text-ink">Add a payment option</h3>

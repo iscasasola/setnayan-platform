@@ -1,5 +1,5 @@
 /**
- * every-menu-has-one-settings-button.test.ts — ONE ⚙ PER MENU, IN ONE SPOT, AND NONE ON HOME.
+ * every-menu-has-one-settings-button.test.ts — ONE ⚙ PER MENU, IN ONE SPOT — HOME'S ON ITS COVER, AT REST TOO.
  *
  * Owner, 2026-10-26: *"Settings button must all be located at ideally the same spot per menu for consistency"*;
  * approved 2026-10-27 (`prototypes/settings_per_menu_2026-10-26/` PLAN.md § 1 · § 7 guard 2). The door is ONE
@@ -13,11 +13,18 @@
  *       "SUPPLIERS GETS ITS ⚙ — THE SUPPLIER SETTINGS MOVE THERE", *"and move them to suppliers"*), so it is now held
  *       LIVE, mounted once, in its Find · Build · Booked row (`data-first-row`);
  *   3 · Memories RENDERS exactly one ⚙, inside its first row, at the row's right end — and none for a guest;
- *   4 · Home mounts no menu ⚙ (its ⚙ is the cover's, which opens Event Settings).
+ *   4 · HOME RENDERS ITS ONE ⚙ — Event Settings — at rest (owner 2026-10-29, verbatim: *"on event dashboard> home the
+ *       header does not show the settings icon like the other pages with settings icon. keep it there"*). Was "Home
+ *       mounts no menu ⚙" (its ⚙ was a link inside the pinned line, `invisible` until the band stuck). Now: the
+ *       couple's Home renders exactly ONE `data-menu-settings="home"`, mounted only in the cover band, the band's last
+ *       element (its right end), never hidden; no other Home file mounts a ⚙ — two gears never share a screen.
  *
  * Sabotage (2026-10-27, each run and reverted): a second `<MenuSettingsButton menu="memories"` in the gallery → 2 and
  * 3 red; the ⚙ moved before the count → 3 red ("right end"); `data-first-row` dropped → 3 red; `live: false` on
  * memories → 2 red; a `<MenuSettingsButton` in `home-first-screen.tsx` → 4 red.
+ * Sabotage (2026-10-29, Home's ⚙, each run and reverted): `invisible` back on the gear wrapper → 4 red; the gear mount
+ * removed from the band → 4 red (+ the pinned-row Home test); a second `<MenuSettingsButton menu="home"` in `home-first-screen.tsx` → 2 + 4 red;
+ * `eventSettings` not passed by the Home page → 4 red. `invisible` also turns the pinned-row Home test red.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -143,9 +150,28 @@ test('3 · Memories renders one ⚙, at the right end of its first row — and n
   assert.equal(count(await renderMemories(false), /data-menu-settings="/g), 0, 'a guest sees the Memories ⚙');
 });
 
-test('4 · Home mounts no menu ⚙ — its ⚙ is the cover’s', () => {
+test('4 · Home renders its ONE ⚙ — Event Settings — on the cover, at rest, and mounts no other', async () => {
   const home = SOURCES.filter((s) => /^dashboard\/\[eventId\]\/(page\.tsx|_components\/home-|_components\/home-cards\/)/.test(s.path));
   assert.ok(home.length >= 5, `only ${home.length} Home files found — this check would pass vacuously`);
-  const offenders = home.filter((s) => /MenuSettingsButton|menu-settings-button/.test(s.code)).map((s) => s.path);
-  assert.deepEqual(offenders, [], `Home mounts a menu ⚙: ${offenders.join(' · ')}`);
+  const mounting = home.filter((s) => /<MenuSettingsButton\b/.test(s.code)).map((s) => s.path);
+  assert.deepEqual(mounting, ['dashboard/[eventId]/_components/home-settings-gear.tsx'], `Home's ⚙ is mounted elsewhere: ${mounting.join(' · ')}`);
+  assert.match(
+    home.find((s) => s.path === 'dashboard/[eventId]/_components/home-settings-gear.tsx')!.code,
+    /<MenuSettingsButton menu="home"/,
+    'Home’s one ⚙ is not the Event Settings door (menu="home")',
+  );
+  // The couple's Home page hands the first screen its ⚙ — a helper's does not.
+  assert.match(home.find((s) => s.path === 'dashboard/[eventId]/page.tsx')!.code, /eventSettings=\{viewerMemberType === 'couple'\}/, 'the Home page does not hand the couple its ⚙');
+
+  const { drawHome, loadHome } = await import('../dashboard/[eventId]/home-render.harness');
+  await loadHome();
+  const html = drawHome({ eventSettings: true });
+  assert.equal(count(html, /data-menu-settings="/g), 1, 'the couple’s Home does not render exactly one ⚙');
+  assert.equal(count(html, /data-menu-settings="home"/g), 1, 'the ⚙ the Home renders is not Event Settings');
+  const band = elementAround(html, html.indexOf('data-home-cover='));
+  assert.equal(count(band, /data-menu-settings="home"/g), 1, 'Home’s ⚙ is not on the cover band');
+  const wrap = elementAround(band, band.indexOf('data-home-settings-gear'));
+  assert.ok(band.endsWith(`${wrap}</div>`), 'something is drawn after Home’s ⚙ — it is not at the band’s right end');
+  assert.doesNotMatch(wrap.slice(0, wrap.indexOf('>')), /\binvisible\b|\bhidden\b|opacity-0/, 'Home’s ⚙ is hidden at rest');
+  assert.equal(count(drawHome({}), /data-menu-settings="/g), 0, 'a Home without `eventSettings` (a helper) renders a ⚙');
 });

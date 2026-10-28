@@ -429,7 +429,13 @@ export function SupplierInbox({ read, kind, itemKey, basePath, eventTypes, nowMs
             const Icon = ICON[item.kind];
             const rowBack = href(back, { kind });
             return (
-              <li key={item.key} className="sn-tile overflow-hidden" data-work-item={item.key}>
+              <li
+                key={item.key}
+                /* An open row never lifts on hover: a transform on an ancestor makes it the containing block of the
+                   fixed side panel, which then draws inside the row instead of at the window's right edge. */
+                className={`sn-tile overflow-hidden ${open ? '!transform-none' : ''}`}
+                data-work-item={item.key}
+              >
                 <Link
                   href={href(back, { kind, item: open ? undefined : item.key })}
                   aria-expanded={open}

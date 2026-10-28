@@ -59,7 +59,10 @@ export function HelpMessenger({
   failed,
   nowMs,
   action,
+  basePath = '/admin/help',
 }: {
+  /** Where the list, filters and conversations link — the page itself (the lab passes its own address). */
+  basePath?: string;
   threads: readonly HelpThread[];
   filter: string;
   openId: string | null;
@@ -69,12 +72,15 @@ export function HelpMessenger({
 }) {
   const open = threads.find((t) => t.message_id === openId) ?? null;
   const link = (params: { status?: string; m?: string }) => {
-    const p = new URLSearchParams();
+    const [path, base = ''] = basePath.split('?');
+    const p = new URLSearchParams(base);
+    p.delete('status');
+    p.delete('m');
     const st = params.status ?? filter;
     if (st && st !== 'open') p.set('status', st);
     if (params.m) p.set('m', params.m);
     const q = p.toString();
-    return q ? `/admin/help?${q}` : '/admin/help';
+    return q ? `${path}?${q}` : path!;
   };
   return (
     <div data-help-messenger="">

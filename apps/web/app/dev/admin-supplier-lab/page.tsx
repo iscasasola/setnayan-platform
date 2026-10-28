@@ -93,6 +93,7 @@ export default async function AdminSupplierLabPage({ searchParams }: { searchPar
             failed={one(sp.fail) === 'msgs'}
             nowMs={now}
             action={setHelpMessageStatus}
+            basePath="/dev/admin-supplier-lab?view=msgs"
           />
         </div>
       ) : null}

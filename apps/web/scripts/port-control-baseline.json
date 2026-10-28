@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "5dcea85e11",
+  "generatedFromRef": "b7cb21aa07",
   "routeCount": 479,
-  "destinations": 987,
+  "destinations": 989,
   "actions": 642,
-  "blocks": 7286,
+  "blocks": 7292,
   "routes": {
     "/": {
       "files": [
@@ -8057,6 +8057,7 @@
         "ChatMessageStream",
         "ChatSafetyBanner",
         "ChatSendForm",
+        "ChatThreadFrame",
         "ChatThreadHead",
         "ChatThreadMenu",
         "ConversationColumn",
@@ -8065,7 +8066,6 @@
         "NegotiationComposerMenu",
         "SubmitButton",
         "ThreadInterestChips",
-        "ThreadToolHashReveal",
         "ThreadToolPanel"
       ]
     },
@@ -11057,14 +11057,15 @@
         "ChatMessageStream",
         "ChatSafetyBanner",
         "ChatSendForm",
+        "ChatThreadFrame",
         "ChatThreadHead",
         "ChatThreadMenu",
         "CoupleThreadToolsSheet",
         "LabShell",
         "LabThread",
+        "SupplierLabShell",
         "Suspense",
         "ThreadArrival",
-        "ThreadToolHashReveal",
         "ThreadToolPanel",
         "ThreadToolsSheet"
       ]
@@ -11682,18 +11683,26 @@
         "dev/supplier-chat-lab/page.tsx"
       ],
       "destinations": [
+        "/dev/supplier-chat-lab",
+        "/dev/supplier-lab",
         "/vendor-dashboard/messages/[seg]"
       ],
       "actions": [],
       "blocks": [
+        "BackButton",
         "ChatBox",
+        "ChatInfoRailTrigger",
+        "ChatMessageStream",
         "ChatPrivacyNotice",
         "ChatSendForm",
+        "ChatThreadFrame",
+        "ChatThreadHead",
+        "ChatThreadMenu",
         "LockRequestAnswer",
         "ProposalMaker",
         "QuickReplies",
+        "SupplierLabShell",
         "ThreadAnswerLine",
-        "ThreadToolHashReveal",
         "ThreadToolPanel",
         "ThreadToolsSheet",
         "VendorOfferService"
@@ -14491,11 +14500,11 @@
         "BackButton",
         "BookingFeeNotice",
         "ChatBox",
-        "ChatInfoRailColumn",
         "ChatInfoRailTrigger",
         "ChatMessageStream",
         "ChatPrivacyNotice",
         "ChatSendForm",
+        "ChatThreadFrame",
         "ChatThreadHead",
         "ChatThreadMenu",
         "ConversationColumn",
@@ -14525,7 +14534,6 @@
         "ThreadAttribution",
         "ThreadDayAnswer",
         "ThreadInterestChips",
-        "ThreadToolHashReveal",
         "ThreadToolPanel",
         "ThreadToolsSheet",
         "ToolsSheetButton",

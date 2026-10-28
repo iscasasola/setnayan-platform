@@ -7030,6 +7030,14 @@ html.dark :is(.m-btn-primary, .m-btn-orange, .sn-btn-primary) { color: rgb(var(-
  * startViewTransition, so the plain rise is all they ever run. */
 html:active-view-transition .sn-page-enter { animation: none; }
 
+/* 💬 AN OPEN CHAT THREAD DOES NOT RISE ON A PHONE (2026-10-29, one chat for both sides). The rise is a TRANSFORM, and
+ * any transform on an ancestor is the containing block for a fixed child — so for those 400ms the thread's full-screen
+ * takeover (`[data-chat-takeover]`, the open-thread rule further down) drew INSIDE the page, under
+ * the top bar, then jumped to full screen. The thread arrives as the screen it is. */
+@media (max-width: 1023.98px) {
+  .sn-page-enter:has([data-chat-takeover]) { animation: none; }
+}
+
 /* Live-state dot — the ONE sanctioned infinite pulse on genuinely-live signals
  * (unread bell, day-of live dot, active livestream, the Watch "quiet" dot). */
 .sn-live-dot { animation: sn-pulse 1.9s infinite; }

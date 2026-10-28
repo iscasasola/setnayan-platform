@@ -431,9 +431,10 @@ export function SupplierInbox({ read, kind, itemKey, basePath, eventTypes, nowMs
             return (
               <li
                 key={item.key}
-                /* These rows never lift on hover: a transform on an ancestor (even mid-transition) makes it the
-                   containing block of the fixed side panel, which then draws inside the row, not at the window edge. */
-                className="sn-tile overflow-hidden !transform-none !transition-none"
+                /* One frame only — the row's own pressable `sn-row` (frames only on what you press; a tile around it
+                   drew a box in a box on a phone). Never a transform here: a transformed ancestor (even mid-
+                   transition) becomes the containing block of the fixed side panel and pins it inside the row. */
+                className="!transform-none !transition-none"
                 data-work-item={item.key}
               >
                 <Link

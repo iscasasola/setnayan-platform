@@ -136,7 +136,7 @@ function DocsBody({ item, back }: { item: Extract<SupplierWorkItem, { kind: 'doc
   const a = `ok-${item.applicationId}`;
   const b = `fix-${item.applicationId}`;
   return (
-    <div className="grid gap-4 md:grid-cols-2">
+    <div className="grid gap-4">
       <div>
         <Preview url={first?.previewUrl ?? null} alt={first ? `${first.label} — ${item.shopName}` : ''} empty="No photo to preview — a PDF opens with Open below." />
         <ul className="mt-2 flex flex-wrap gap-2">
@@ -222,7 +222,7 @@ function CardsBody({ item, back }: { item: Extract<SupplierWorkItem, { kind: 'ca
   const a = `pub-${item.flagId}`;
   const b = `fix-c${item.flagId}`;
   return (
-    <div className="grid gap-4 md:grid-cols-2">
+    <div className="grid gap-4">
       <div className="grid grid-cols-2 gap-2">
         <Preview url={item.flaggedUrl} alt={`Their photo — ${item.shopName}`} empty="Their photo" />
         <Preview url={item.sourceUrl} alt={`Matched photo — ${item.matchShopName}`} empty={`Matched photo (${item.matchShopName})`} />
@@ -454,7 +454,30 @@ export function SupplierInbox({ read, kind, itemKey, basePath, eventTypes, nowMs
                   )}
                 </Link>
                 {open ? (
-                  <div className="border-t border-ink/10 px-3.5 pb-4 pt-3 sm:pl-[3.75rem]" data-work-body={item.kind}>
+                  /* 📐 Phone: the row opens in place. Tablet + desktop (owner-approved admin redesign, 28 Oct): the SAME
+                     body is a right-side panel beside the list — never a stretched phone layout. One element, so every
+                     `form=` id stays unique. */
+                  <div
+                    role="region"
+                    aria-label={item.title}
+                    className="border-t border-ink/10 px-3.5 pb-4 pt-3 sm:pl-[3.75rem] md:fixed md:inset-y-0 md:right-0 md:z-40 md:w-[min(480px,56vw)] md:overflow-y-auto md:border-t-0 md:bg-cream md:p-5 md:pt-4 md:shadow-2xl dark:md:bg-raised"
+                    data-work-body={item.kind}
+                  >
+                    <div className="mb-3 hidden items-start gap-3 md:flex">
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[17px] font-semibold text-ink">{item.title}</span>
+                        <span className="block text-[13px] text-ink/70">{item.line}</span>
+                      </span>
+                      <Link
+                        href={href(back, { kind, item: undefined })}
+                        scroll={false}
+                        aria-label="Close"
+                        className="sn-press grid h-10 w-10 shrink-0 place-items-center rounded-full"
+                        data-work-close=""
+                      >
+                        <X aria-hidden className="h-5 w-5 text-ink/70" />
+                      </Link>
+                    </div>
                     {item.kind === 'docs' ? <DocsBody item={item} back={rowBack} /> : null}
                     {item.kind === 'names' ? <NamesBody item={item} back={rowBack} /> : null}
                     {item.kind === 'cards' ? <CardsBody item={item} back={rowBack} /> : null}

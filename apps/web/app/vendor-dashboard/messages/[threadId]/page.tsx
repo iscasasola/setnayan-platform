@@ -1512,6 +1512,9 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     .eq('thread_id', threadId)
     .eq('user_id', user.id)
     .maybeSingle();
+  if (archiveMarkError) {
+    logQueryError('VendorThreadPage.archiveMark', archiveMarkError, { thread_id: threadId }, 'graceful_degrade');
+  }
   const archivedAt = (archiveMark as { archived_at?: string | null } | null)?.archived_at ?? null;
   const threadArchive = archiveMarkError
     ? null

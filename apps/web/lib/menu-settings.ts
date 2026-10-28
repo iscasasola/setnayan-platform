@@ -108,7 +108,7 @@ export const SETTINGS_ENTRY: Record<SettingsMenu, SettingsEntry> = {
   customers: {
     door: 'first-row-gear',
     sheet: 'Customers settings',
-    line: 'How you get paid, your teams and days.',
+    line: 'How you get paid, your schedules and days.',
     live: true,
     tip: 'Settings for Customers only. What couples see on your page stays with your Shop.',
   },

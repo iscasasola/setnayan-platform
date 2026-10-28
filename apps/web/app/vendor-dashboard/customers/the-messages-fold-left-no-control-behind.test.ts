@@ -52,7 +52,7 @@ test('1 · Messages is not a fold any more, on any view — and its landing is P
   assert.doesNotMatch(PAGE, /MessagesSurface|key: 'messages'/, 'the Messages fold is back on the Customers page');
   assert.equal(existsSync(join(VD, 'messages', 'surface.tsx')), false, 'the retired Messages surface came back');
   assert.deepEqual(CUSTOMER_LANDINGS.messages, { seg: 'people', fold: null, anchor: '#customers' }, 'a Messages link does not land on the list');
-  assert.match(PAGE, /<div id="customers" className="scroll-mt-24" data-customers-people="">/, 'People has no #customers list to land on');
+  assert.match(PAGE, /<div id="customers" className="min-w-0 scroll-mt-24" data-customers-people="">/, 'People has no #customers list to land on');
 });
 
 test('2 · archive moved INTO the chat — ⋮ › Archive this chat / Move back to your list, the shipped actions', () => {

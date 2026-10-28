@@ -105,7 +105,8 @@ test('1 · rows are hairlines with a terracotta arrow — no tile, no box around
 test('1b · the stage is the shared Badge — soft fill, no border (look call 7)', async () => {
   const html = await render(FIXTURE);
   const badges = html.match(/<span data-badge="[a-z]+"[^>]*>[^<]*<\/span>/g) ?? [];
-  assert.equal(badges.length, 3, `expected 3 badges, found ${badges.length}`);
+  // 2026-10-29: each row draws its stage twice — stacked under the name on a phone, at the right from sm up.
+  assert.equal(badges.length, 6, `expected 3 rows × 2 badges, found ${badges.length}`);
   for (const b of badges) assert.doesNotMatch(b, /border/, `a stage badge has a border: ${b}`);
   assert.match(html, />Asked</);
   assert.match(html, />Quoted</, 'a talking row with a quote out does not say Quoted');

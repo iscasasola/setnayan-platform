@@ -214,8 +214,18 @@ export function RosterRowView({ r, nowMs, query }: { r: RosterRow; nowMs: number
           <Marked text={title} query={query} />
         </span>
         <span className="mt-0.5 block truncate text-[13px] text-ink/60">{eventLine}</span>
+        {/* 📱 ON A PHONE THE STAGE STACKS UNDER THE NAME (owner 2026-10-29, "maximize the screen use … no text crushed
+            beside buttons (stack instead)"): the event's chat title keeps the whole width; from sm up it sits right. */}
+        <span className="mt-1 flex min-w-0 items-center gap-2 sm:hidden" data-row-stage-stacked="">
+          <Badge tone={badge.tone}>{badge.word}</Badge>
+          {line ? (
+            <span className="min-w-0 truncate text-[12.5px] leading-tight text-ink/60" style={{ color: LINE_TONE[line.tone] }}>
+              {line.text}
+            </span>
+          ) : null}
+        </span>
       </span>
-      <span className="flex min-w-0 max-w-[8.5rem] flex-col items-end gap-1 text-right">
+      <span className="hidden min-w-0 max-w-[8.5rem] flex-col items-end gap-1 text-right sm:flex">
         <Badge tone={badge.tone} data="customer-stage">
           {badge.word}
         </Badge>

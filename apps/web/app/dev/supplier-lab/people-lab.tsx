@@ -237,10 +237,12 @@ export function PeopleLab({
   return (
     <div className="min-h-screen bg-cream" data-supplier-lab="people">
       {/* <main>: the thumb row measures it on a computer, as it measures the dashboard's own column. */}
-      <main className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-6 pt-4 sm:px-6 lg:px-8 tab:max-w-5xl">
+      <main className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-6 pt-4 sm:px-6 lg:px-8 tab:max-w-none">
         <div className="pb-24">
           {notice ? <SupplierToast text={notice.text} tone={notice.tone} retry={'retry' in notice} retryHref={`${base}&add=1`} /> : null}
-          <div id="customers" className="scroll-mt-24" data-customers-people="">
+          {/* The page's own layout (customers/page.tsx): one column on a phone; list + side panel from lg. */}
+          <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)] lg:items-start lg:gap-10" data-customers-people-layout="">
+          <div id="customers" className="min-w-0 scroll-mt-24" data-customers-people="">
             <ChatOriginMark />
             <CustomersPin
               seg="people"
@@ -263,10 +265,13 @@ export function PeopleLab({
               }
             />
           </div>
+          <aside className="min-w-0 lg:sticky lg:top-4 lg:pt-1" data-customers-side="">
           {variant !== 'empty' ? (
             <OtherChatsFold paged={paginate(OTHER_CHATS, undefined)} keepParams={keep([])} returnTo={base} />
           ) : null}
           {variant !== 'empty' ? <KeptNotesFold notes={KEPT} /> : null}
+          </aside>
+          </div>
         </div>
       </main>
       <SupplierThumbRow

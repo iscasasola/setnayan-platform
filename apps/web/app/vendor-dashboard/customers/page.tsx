@@ -207,6 +207,19 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
 
   // The roster's reads, in parallel. Each helper is the SAME one the
   // dedicated pages use — one source of truth per surface.
+  /*
+    ⚡ STARTED NOW, AWAITED WHERE THEY ARE DRAWN (owner 2026-10-29, "fastest load and fewest requests"): the won/lost
+    roll-up and the kept notes depend on nothing else on this page, so they ride alongside the roster's reads instead
+    of waiting behind them — one round of parallel reads, not a waterfall.
+  */
+  const outcomeRollupRead = fetchVendorOutcomeRollup(supabase, vendorProfileId);
+  const keptNotesRead = supabase
+    .from('vendor_client_notes')
+    .select('note_id, body, created_at')
+    .eq('vendor_profile_id', profile.vendor_profile_id)
+    .is('event_id', null)
+    .order('created_at', { ascending: false })
+    .limit(50);
   const [pools, bookings, blocksRead, threadsRead, paydayRes] = await Promise.all([
     // The schedules an outside client can hold a date on (the Add sheet).
     fetchVendorPools(supabase, vendorProfileId),
@@ -706,7 +719,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
     });
   const othersPage = paginate(others, search.opage);
   // Won & Lost Reasons roll-up — the shop's own logged outcomes. Ownership-gated RPC; null until any is logged.
-  const outcomeRollup = await fetchVendorOutcomeRollup(supabase, vendorProfileId);
+  const outcomeRollup = await outcomeRollupRead;
 
   /*
     KEPT NOTES — the supplier's own CRM notes whose event was deleted.
@@ -721,13 +734,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
     🔑 A FAILED READ IS NOT AN EMPTY ONE. The error is checked and the fold is
     HIDDEN on failure rather than saying "nothing kept".
   */
-  const { data: keptNoteRows, error: keptNotesError } = await supabase
-    .from('vendor_client_notes')
-    .select('note_id, body, created_at')
-    .eq('vendor_profile_id', profile.vendor_profile_id)
-    .is('event_id', null)
-    .order('created_at', { ascending: false })
-    .limit(50);
+  const { data: keptNoteRows, error: keptNotesError } = await keptNotesRead;
   if (keptNotesError) {
     logQueryError('VendorCustomersPage.keptNotes', keptNotesError, { vendorProfileId }, 'graceful_degrade');
   }
@@ -746,8 +753,12 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
     <>
       {notice ? <SupplierToast text={notice.text} tone={notice.tone} retry={notice.retry} retryHref="/vendor-dashboard/customers?add=outside" /> : null}
 
+      {/* 🖥 MAXIMIZE THE SCREEN (owner 2026-10-29: "remember to always maximize the screen use"): on a phone one column;
+          from a computer (lg) the list takes the width and the chats-not-on-the-list + kept notes sit in a side
+          panel beside it — never a centred phone strip. */}
+      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)] lg:items-start lg:gap-10" data-customers-people-layout="">
       {/* `#customers` is where the search and every old roster link land; the chats this list opens come back here. */}
-      <div id="customers" className="scroll-mt-24" data-customers-people="">
+      <div id="customers" className="min-w-0 scroll-mt-24" data-customers-people="">
         <ChatOriginMark />
         <CustomersPin
           seg="people"
@@ -767,6 +778,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
         />
       </div>
 
+      <aside className="min-w-0 lg:sticky lg:top-4 lg:pt-1" data-customers-side="">
       {/* Drawn only from a threads read that happened — after a refusal it would be a false "none". */}
       {threadsRead.complete || others.length > 0 ? (
         <OtherChatsFold
@@ -783,6 +795,8 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
       {keptNotesMeasured && keptNotes.length > 0 ? (
         <KeptNotesFold notes={keptNotes.map((n) => ({ noteId: n.note_id, body: n.body, createdAt: n.created_at }))} />
       ) : null}
+      </aside>
+      </div>
 
       {/* 📱 THE THUMB ROW — the ONE row (owner 2026-10-22): "Search customers" · ＋ Add, each its own glass, no band. */}
       <SupplierThumbRow
@@ -1399,7 +1413,9 @@ export default async function VendorCustomersHub({ searchParams }: Props) {
     <>
       <section className="min-h-full">
         <div
-          className={`mx-auto w-full max-w-3xl space-y-4 px-4 pb-6 pt-4 sm:px-6 lg:px-8 ${seg === 'money' ? 'tab:max-w-3xl' : 'tab:max-w-5xl'}`}
+          // People uses the whole width from a tablet up (owner 2026-10-29, "maximize the screen use"); Money keeps its
+          // reading measure, Dates its month's.
+          className={`mx-auto w-full max-w-3xl space-y-4 px-4 pb-6 pt-4 sm:px-6 lg:px-8 ${seg === 'money' ? 'tab:max-w-3xl' : seg === 'people' ? 'tab:max-w-none' : 'tab:max-w-5xl'}`}
           data-customers-seg-open={seg}
         >
           <h1 className="sr-only">Customers</h1>

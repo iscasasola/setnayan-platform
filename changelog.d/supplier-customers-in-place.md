@@ -30,6 +30,11 @@ Extends the shipped Customers page — rows, chat titles, the full-screen chat (
 - **Dates**: under the picked day's rows, "You can take bookings" (`DayOpenSwitch`) — off writes the shipped all-day
   closure, on removes that one-day closure, both in place (`return_to=inplace`, now also on `removeBlock`); a day closed
   by a repeat or a longer closure says by what and is changed on its own sheet.
+- **Maximize the screen** (owner 2026-10-29): People uses the full width from a tablet; from lg the list and a side
+  panel (archived/closed chats · kept notes) sit side by side; on a phone a row's stage stacks under the event's chat
+  title instead of crushing it.
+- **Fewest requests** (owner 2026-10-29): a count filter makes ZERO requests (it was one RSC round trip on main); the
+  won/lost roll-up and kept notes now ride the first parallel round of reads instead of trailing it.
 - Tours: the People spotlight gains its ⚙ stop; copy says the doors and the code.
 - Dev lab: `/dev/supplier-lab?s=people[&door=booked&block=blk-1&gear=1]` · `?s=dates[&gear=1]` · `?s=money`.
 

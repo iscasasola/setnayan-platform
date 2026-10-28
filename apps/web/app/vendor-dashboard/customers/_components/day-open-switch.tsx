@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { SwitchRow } from '@/app/_components/form-row';
 import { blockClosesDay } from '@/lib/not-available';
 import type { DatesBlock } from '@/lib/vendor-dates';
@@ -33,7 +32,6 @@ export function DayOpenSwitch({
   blocks: readonly DatesBlock[];
   actions: { addManualBlock: Action; removeBlock: Action };
 }) {
-  const router = useRouter();
   const [pending, start] = useTransition();
   const closing = blocks.filter((b) => b.source === 'manual' && b.poolId === null && blockClosesDay(b, day));
   const read = closing.length === 0;
@@ -76,8 +74,8 @@ export function DayOpenSwitch({
           }
           start(async () => {
             try {
+              // Both actions revalidate Customers themselves — the page re-reads once, no extra refresh.
               await (next ? actions.removeBlock(fd) : actions.addManualBlock(fd));
-              router.refresh();
             } catch {
               setOn(!next);
               setProblem('That didn’t save — nothing changed. Try again.');

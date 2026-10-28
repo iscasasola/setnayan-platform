@@ -2161,7 +2161,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         {
           anchor: 'customers-gear',
           title: 'Customers settings',
-          body: 'How you get paid, how many a day, your teams and your phone calendar.',
+          body: 'How you get paid, how many a day, your schedules and your phone calendar.',
         },
         {
           anchor: 'customers-search',

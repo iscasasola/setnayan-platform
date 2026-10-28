@@ -23,7 +23,9 @@ import { UnreadMessagesBadge } from '@/app/_components/unread-messages-badge';
 import { customerLandingHref } from './customers/anchors';
 import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
 import { VendorRailContext } from './_components/vendor-rail-context';
-import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { businessProfileChecklist, fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { basicSetupHoldOf } from '@/lib/basic-setup-gate';
+import { BasicSetupHold } from './_components/basic-setup-hold';
 import { AppPreload } from '@/app/_components/app-preload';
 import { appPreloadPlan, hostedEventOf } from '@/lib/app-preload-sets';
 import { VendorBottomNav } from './_components/vendor-bottom-nav';
@@ -286,6 +288,21 @@ export default async function VendorDashboardLayout({
     for a month. The music-only rule itself is untouched and still enforced
     where it matters, on the Repertoire surface and in the hub that offers it.
   */
+
+  // 🧰 BASIC SETUP FIRST (owner 2026-10-29: "complete the basic setup of their shop. Which is a must before they can
+  // do anything"). ONE decision for the whole tree, from the shop row already read above (no new request): an owner
+  // or admin whose `businessProfileChecklist` is not complete is held on the setup — `BasicSetupHold` draws "Finish
+  // your basic setup first" on every page but the open ones (`lib/basic-setup-gate.ts`). A helper, an unread row,
+  // and a complete shop are never held.
+  const setupHold = basicSetupHoldOf({
+    // Measured = the shop row in full AND the probe that carries `verification_state` (Today's own "verified" — it
+    // draws the six steps only while that is not 'verified', so the hold uses the same word).
+    measured: !!vendorProfile && !vendorProfile.legacy_read && tierProbe.dealFacts !== null,
+    canManage: canManageVendor(vendorRole),
+    verified:
+      tierProbe.dealFacts?.verification_state === 'verified' || vendorProfile?.public_visibility === 'verified',
+    checklist: vendorProfile ? businessProfileChecklist(vendorProfile) : null,
+  });
 
   // The name the rail's context group announces the shop by. Never blank and
   // never an id — a rail heading reading `s89v-…` is worse than a plain word.
@@ -642,7 +659,7 @@ export default async function VendorDashboardLayout({
                 PROMO_FREE_WINDOWS_ENABLED is off or nothing is granting THIS
                 vendor right now). */}
             <PromoFreeWindowBannerVendor facts={tierProbe.dealFacts} />
-            {children}
+            <BasicSetupHold hold={setupHold}>{children}</BasicSetupHold>
           </div>
         </main>
       </div>

@@ -4,6 +4,7 @@
  * the caterer, the studio). Drawn only by `/dev/supplier-lab` (404 in production).
  *
  *   ?s=details&who=parish|caterer|studio      Your details (the parish: 4 of 6 · left: documents · how clients pay you)
+ *   ?s=details&invited=1[&asked=1]            🏷 a shop Setnayan set up: the name asks to change (asked = waiting)
  *   ?s=page&who=…                             Your page   (&draft=1 seeds a waiting change, as if one were made)
  *   ?s=collections&who=…                      Your collections
  *   ?s=avatar                                 the account panel with the supplier's rows (press the avatar)
@@ -245,6 +246,8 @@ function detailsFixture(who: Who): DetailsData {
     socialFeatureOptOut: false,
     socialAlreadyFeatured: false,
     openCorrections: [],
+    requestOnly: ['business_slug'],
+    setUpBySetnayan: false,
     pendingCoverageSuggestion: null,
     verify,
     verifyMeasured: true,
@@ -302,7 +305,7 @@ export function labSetupDetails(docs: 'none' | 'checking' | 'fix' = 'none', stag
   };
 }
 
-function invitedDetailsFixture(): DetailsData {
+function invitedDetailsFixture(asked = false): DetailsData {
   const base = detailsFixture('caterer');
   const has = new Set(['business_name', 'contact_email', 'services']);
   const checklist = base.checklist.map((i) => ({ ...i, ok: has.has(i.key) }));
@@ -339,6 +342,27 @@ function invitedDetailsFixture(): DetailsData {
     }),
     fromInvite: true,
     hasLogo: false,
+    // 🏷 Setnayan set this shop up (owner 2026-10-29): the name it typed changes by request; the blank address is
+    // hers to create. `&asked=1` — a name change already waiting on Setnayan.
+    requestOnly: ['business_slug', 'business_name'],
+    setUpBySetnayan: true,
+    openCorrections: asked
+      ? [
+          {
+            id: 1,
+            public_id: 'S89C-LABASKED01',
+            vendor_profile_id: 'lab-invited',
+            field_key: 'business_name',
+            current_value: 'Tita Nena’s Catering',
+            requested_value: 'Tita Nena’s Kitchen',
+            note: null,
+            status: 'open',
+            created_at: '2026-10-29T01:00:00Z',
+            resolved_at: null,
+            resolved_by: null,
+          },
+        ]
+      : [],
   };
 }
 
@@ -453,7 +477,7 @@ function labPortfolio(who: string, port: string | undefined) {
   return { refs, picked, displayMap, walletBalance };
 }
 
-export function PageLab({ state, who: rawWho, draft, invited = false, port }: { state: PageLabState; who?: string; draft?: boolean; /** 🎁 `&invited=1` on details — fresh from a personal invite (B4). */ invited?: boolean; port?: string }) {
+export function PageLab({ state, who: rawWho, draft, invited = false, asked = false, port }: { state: PageLabState; who?: string; draft?: boolean; /** 🎁 `&invited=1` on details — fresh from a personal invite (B4). */ invited?: boolean; /** 🏷 `&asked=1` with invited — a name change waiting. */ asked?: boolean; port?: string }) {
   const who: Who = rawWho === 'caterer' || rawWho === 'studio' ? rawWho : 'parish';
   if (state === 'badge-tiers') {
     /* 🏅 Every step's pill (the material climbs) on a light and a dark ground, and the Verified pill on the four
@@ -516,7 +540,7 @@ export function PageLab({ state, who: rawWho, draft, invited = false, port }: { 
     );
   }
   if (state === 'details') {
-    const d = invited ? invitedDetailsFixture() : detailsFixture(who);
+    const d = invited ? invitedDetailsFixture(asked) : detailsFixture(who);
     return (
       <DetailsScreen
         d={d}

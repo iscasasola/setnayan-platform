@@ -67,7 +67,7 @@ export const ACCESS_SEAT_KIND: Readonly<Record<Exclude<GuestAccessLevel, 'none'>
 };
 
 /** Mirrors public.seat_is_full_cohost (20271251336140). Keep the two in step. */
-const FULL_COHOST_KINDS: ReadonlySet<string> = new Set([
+export const FULL_COHOST_SEAT_KINDS = [
   'co_host',
   'host',
   'bride',
@@ -75,7 +75,8 @@ const FULL_COHOST_KINDS: ReadonlySet<string> = new Set([
   'partner1',
   'partner2',
   'celebrant',
-]);
+] as const;
+const FULL_COHOST_KINDS: ReadonlySet<string> = new Set(FULL_COHOST_SEAT_KINDS);
 
 /** Mirrors lib/role-groups HONOREE_ORDER and the SQL's celebrant list. */
 const CELEBRANT_ROLES: ReadonlySet<string> = new Set(['celebrant', 'bride', 'groom']);

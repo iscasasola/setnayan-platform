@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { customerLandingHref } from '../../customers/anchors';
 import { CoupleLogo } from '@/app/_components/couple-logo';
 import { SaveFileLink } from '@/app/_components/save-file-link';
 import { coupleLogoPlays } from '@/lib/couple-logo-plays';
@@ -478,6 +479,8 @@ type Props = {
     change_order?: string;
     change_order_resp?: string;
     handover?: string;
+    /** A refused note write (`noteSaved`, actions.ts) — said in the notes list. */
+    note?: string;
     /** vendorMarkServiceComplete's outcome — see VendorCompletionCard. */
     completed?: string;
     /** The payment-ask outcome flag — see PaymentAsksPanel. */
@@ -1331,8 +1334,9 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // "This couple" only when there is genuinely no name. The brief names the
   // couple at every stage (20271235469220); a blank string is not a name.
   const eventName = coupleNameOrFallback(brief.event.display_name);
-  // "Open their event" + the Coordinator pill — only with LIVE coordinator access to THIS event (`seatRunsTheEvent`).
-  const runsThisEvent = (await eventsYouRunP).events.some((e) => e.eventId === eventId);
+  // "Open their event" + the seat pill (Coordinator · Co-host) — only with a LIVE seat on THIS event (`seatRunsTheEvent`).
+  const runThisEvent = (await eventsYouRunP).events.find((e) => e.eventId === eventId) ?? null;
+  const runsThisEvent = runThisEvent !== null;
   const metaBits = [
     fmtShortDate(brief.event.event_date) || null,
     brief.event.venue_name ?? brief.event.region ?? null,
@@ -1531,7 +1535,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         <WaivedFeeRows charges={clientWaived} />
         <div className="mt-2 flex flex-wrap items-center gap-2">
           {runsThisEvent ? (
-            <Badge tone="quiet" data="coordinator">Coordinator</Badge>
+            <Badge tone="quiet" data="coordinator">{runThisEvent?.seatWord ?? 'Coordinator'}</Badge>
           ) : null}
           <span
             className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${stagePill.cls}`}
@@ -1581,7 +1585,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         </Link>
       ) : null}
       <Link
-        href="/vendor-dashboard/proposals"
+        href={customerLandingHref('proposals')}
         className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
       >
         <FileText aria-hidden className="h-3.5 w-3.5" /> New quote
@@ -1589,7 +1593,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       <Link
         href={
           hasContract
-            ? '/vendor-dashboard/contracts'
+            ? customerLandingHref('contracts')
             : `/vendor-dashboard/contracts/new?event=${eventId}`
         }
         className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
@@ -1844,7 +1848,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           deleted.
         </p>
       ) : null}
-      <ActivityFeed eventId={eventId} events={activityEvents} notes={notes} />
+      <ActivityFeed eventId={eventId} events={activityEvents} notes={notes} noteFailed={search.note === 'error'} />
     </>
   );
 
@@ -1980,7 +1984,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       id: 'chat',
       label: 'Chat',
       icon: <MessageSquare aria-hidden className={tabIconClass} />,
-      href: threadId ? `/vendor-dashboard/messages/${threadId}` : '/vendor-dashboard/messages',
+      href: threadId ? `/vendor-dashboard/messages/${threadId}` : customerLandingHref('messages'),
       node: null,
     },
     {
@@ -2098,7 +2102,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       </ShopCard>
       <div className="grid grid-cols-2 gap-2">
         <a
-          href={threadId ? `/vendor-dashboard/messages/${threadId}` : '/vendor-dashboard/messages'}
+          href={threadId ? `/vendor-dashboard/messages/${threadId}` : customerLandingHref('messages')}
           className={vQuickLinkClass}
         >
           <MessageSquare aria-hidden className="h-3.5 w-3.5" /> Chat
@@ -2308,7 +2312,7 @@ function ReturningMarkerAndActions({
           href={
             threadId
               ? `/vendor-dashboard/messages/${threadId}#build-quote`
-              : '/vendor-dashboard/proposals'
+              : customerLandingHref('proposals')
           }
           className={`${actionBase} border-mulberry bg-mulberry text-cream hover:bg-mulberry-600`}
         >
@@ -3085,7 +3089,7 @@ function QuoteTab(props: {
           href={
             threadId
               ? `/vendor-dashboard/messages/${threadId}#build-quote`
-              : '/vendor-dashboard/proposals'
+              : customerLandingHref('proposals')
           }
           className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-1.5 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
         >

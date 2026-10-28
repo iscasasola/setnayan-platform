@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "08a4810037",
+  "generatedFromRef": "fdc10bb26c",
   "routeCount": 479,
-  "destinations": 990,
+  "destinations": 986,
   "actions": 642,
-  "blocks": 7310,
+  "blocks": 7329,
   "routes": {
     "/": {
       "files": [
@@ -5730,6 +5730,8 @@
         "dashboard/[eventId]/_components/connect-supplier-modal.tsx",
         "dashboard/[eventId]/_components/coordinating-line.tsx",
         "dashboard/[eventId]/_components/coordinator-colour-domains.tsx",
+        "dashboard/[eventId]/_components/coordinator-level-ask.tsx",
+        "dashboard/[eventId]/_components/coordinator-level-card.tsx",
         "dashboard/[eventId]/_components/coordinator-seat-controls.tsx",
         "dashboard/[eventId]/_components/customer-bottom-nav.tsx",
         "dashboard/[eventId]/_components/customer-nav-config.ts",
@@ -5932,6 +5934,8 @@
         "CoordinatingLine",
         "CoordinatorBroadcastCard",
         "CoordinatorBroadcastStub",
+        "CoordinatorLevelAsk",
+        "CoordinatorLevelCard",
         "CopyButton",
         "CopyRow",
         "Count",
@@ -6045,6 +6049,7 @@
         "LatLng",
         "LeafSuggestion",
         "LeafSuggestions",
+        "LevelSeat",
         "LifecyclePhase",
         "LineItemSection",
         "Link",
@@ -6128,6 +6133,7 @@
         "RsvpAskField",
         "RsvpAsks",
         "SDLoader",
+        "Said",
         "SavePakantaIntakeResult",
         "SaveToContinue",
         "Screen",
@@ -6481,6 +6487,8 @@
         "ButtonsLookRow",
         "ClaimAccessCard",
         "ColorsPanel",
+        "CoordinatorAccessLevel",
+        "CoordinatorLevelPick",
         "CoordinatorSwitch",
         "CouldNotOpen",
         "DetailsForm",
@@ -11266,6 +11274,7 @@
         "CollectionCard",
         "CollectionGrid",
         "CoordinatingLine",
+        "CoordinatorLevelAsk",
         "DayOfModeGrid",
         "DayPapicRow",
         "EventPoster",
@@ -11778,6 +11787,7 @@
         "AutoReplyCard",
         "Badge",
         "BadgeEarnedLine",
+        "BasicSetupHold",
         "BlockDateAdd",
         "BottomDock",
         "BottomNav",
@@ -11808,6 +11818,7 @@
         "LibraryLab",
         "Link",
         "LockedQrGenerator",
+        "MessageEveryoneRows",
         "MoneyLab",
         "MoneyLog",
         "MoneyView",
@@ -11823,6 +11834,7 @@
         "RosterRow",
         "ScreenFindingsPanel",
         "SearchBox",
+        "SeatFinderRow",
         "ShopBadgePill",
         "ShopSegments",
         "ShopWalletSheet",
@@ -11839,7 +11851,8 @@
         "ThumbRow",
         "TodayEasyLab",
         "TodayLab",
-        "TodaySettings"
+        "TodaySettings",
+        "YourBadges"
       ]
     },
     "/dev/supplier-plan-lab": {
@@ -13410,6 +13423,7 @@
     "/vendor-dashboard": {
       "files": [
         "vendor-dashboard/_components/badge-earned-line.tsx",
+        "vendor-dashboard/_components/basic-setup-hold.tsx",
         "vendor-dashboard/_components/branch-manager.tsx",
         "vendor-dashboard/_components/branch-pin-map.tsx",
         "vendor-dashboard/_components/branch-place-cache.ts",
@@ -13470,7 +13484,6 @@
         "/vendor-dashboard/clients/[seg]?tab=quote",
         "/vendor-dashboard/clients/[seg]?tab=schedule",
         "/vendor-dashboard/collections",
-        "/vendor-dashboard/contracts",
         "/vendor-dashboard/customers",
         "/vendor-dashboard/customers?add=outside",
         "/vendor-dashboard/customers?lane=waiting",
@@ -13481,7 +13494,6 @@
         "/vendor-dashboard/on-the-day",
         "/vendor-dashboard/performance",
         "/vendor-dashboard/profile",
-        "/vendor-dashboard/proposals",
         "/vendor-dashboard/reviews",
         "/vendor-dashboard/settings",
         "/vendor-dashboard/shop",
@@ -13519,6 +13531,7 @@
         "AppRailShell",
         "Badge",
         "BadgeEarnedLine",
+        "BasicSetupHold",
         "BookingFeeBills",
         "BookingFeeNotice",
         "BottomDock",
@@ -13838,7 +13851,6 @@
         "/vendor-dashboard/customers",
         "/vendor-dashboard/lines",
         "/vendor-dashboard/messages/[seg]",
-        "/vendor-dashboard/proposals",
         "/vendor-dashboard/subscription"
       ],
       "actions": [
@@ -14385,7 +14397,8 @@
       "actions": [],
       "blocks": [
         "EventsYouRunScreen",
-        "Link"
+        "Link",
+        "MessageEveryoneRows"
       ]
     },
     "/vendor-dashboard/help": {
@@ -14506,8 +14519,7 @@
         "/vendor-dashboard/clients/[seg]?tab=quote",
         "/vendor-dashboard/clients/[seg]?tab=schedule",
         "/vendor-dashboard/customers",
-        "/vendor-dashboard/messages/[seg]",
-        "/vendor-dashboard/proposals"
+        "/vendor-dashboard/messages/[seg]"
       ],
       "actions": [
         "acceptInquiry",
@@ -14676,6 +14688,7 @@
         "NonPhotoConsole",
         "QrActions",
         "RequestsInbox",
+        "SeatFinderRow",
         "ServerRead",
         "SetActionResult",
         "ShopEmpty",
@@ -14938,6 +14951,7 @@
         "vendor-dashboard/performance/_components/service-scope-select-client.tsx",
         "vendor-dashboard/performance/_components/service-scope-selector.tsx",
         "vendor-dashboard/performance/_components/verified-median-card.tsx",
+        "vendor-dashboard/performance/_components/your-badges.tsx",
         "vendor-dashboard/performance/page.tsx"
       ],
       "destinations": [
@@ -14964,6 +14978,7 @@
         "GrowthRecsCard",
         "HTMLDivElement",
         "HealthCompositeCard",
+        "InfoTip",
         "InquiryHandlingCard",
         "Link",
         "MomentumCard",
@@ -14986,6 +15001,8 @@
         "SectionEyebrow",
         "ServiceScopeSelectClient",
         "ServiceScopeSelector",
+        "ShopBadgeFacts",
+        "ShopBadgePill",
         "ShopCard",
         "ShopSegments",
         "SourceBreakdown",
@@ -14994,7 +15011,8 @@
         "ToggleButton",
         "VendorTierGate",
         "VendorTierTeaser",
-        "VerifiedMedianCard"
+        "VerifiedMedianCard",
+        "YourBadges"
       ]
     },
     "/vendor-dashboard/profile": {
@@ -15503,6 +15521,7 @@
         "ReceiptLine",
         "RegNumberSaveResult",
         "RegistrationNumberLine",
+        "RequestOnlyRow",
         "Row",
         "RowPreview",
         "ServiceCoverageRow",

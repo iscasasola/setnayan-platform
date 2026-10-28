@@ -69,6 +69,8 @@ export function DetailsScreen({
   const rest = line.slice(head.length);
   const services = d.profileFields.services.map((s) => d.profileFields.serviceLabels?.[s] ?? s);
   const docsState = row('docs').state;
+  // 🏷 Rows that change by request (owner 2026-10-29) and the asks already waiting — the ask card's own inputs.
+  const asks = { requestOnly: d.requestOnly, pending: d.openCorrections.map((r) => r.field_key) };
 
   return (
     <>
@@ -111,6 +113,7 @@ export function DetailsScreen({
                 data={d.profileFields}
                 isVerified={d.isVerified}
                 showProgress={false}
+                asks={asks}
               />
               {/* The exact start date (optional) — moved from My Shop's Profile tile with its own Save. */}
               <form action={updateBusinessStartDate} className="pt-1">
@@ -150,6 +153,7 @@ export function DetailsScreen({
                 data={d.profileFields}
                 isVerified={d.isVerified}
                 showProgress={false}
+                asks={asks}
               />
               <VenueTypeCard initialVenueType={d.venueType} />
               <VenueMatchCard
@@ -179,6 +183,7 @@ export function DetailsScreen({
                 data={d.profileFields}
                 isVerified={d.isVerified}
                 showProgress={false}
+                asks={asks}
               />
               {branchBody}
             </div>
@@ -198,6 +203,7 @@ export function DetailsScreen({
                 data={d.profileFields}
                 isVerified={d.isVerified}
                 showProgress={false}
+                asks={asks}
               />
               <p className="flex flex-wrap gap-2" data-details-confirmed="">
                 <Badge tone={d.verify.phoneConfirmedAt ? 'ok' : 'quiet'} data="phone-confirmed">
@@ -274,7 +280,13 @@ export function DetailsScreen({
 
           <Fold anchor="fix" data="details-fix" title="Something wrong?" line="Ask us to correct it" lead={<RowIcon icon={MessageSquareWarning} />}>
             <div className="pb-4">
-              <RequestCorrectionCard currentSlug={d.slug} isVerified={d.isVerified} openRequests={d.openCorrections} />
+              <RequestCorrectionCard
+                currentSlug={d.slug}
+                isVerified={d.isVerified}
+                requestOnly={d.requestOnly}
+                setUpBySetnayan={d.setUpBySetnayan}
+                openRequests={d.openCorrections}
+              />
             </div>
           </Fold>
         </div>

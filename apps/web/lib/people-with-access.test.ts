@@ -193,6 +193,10 @@ test('ONE mechanism: outside People with access — and the guest card’s Acces
     'app/dashboard/[eventId]/hosts/actions.ts',
     'app/dashboard/[eventId]/guests/[guestId]/access-actions.ts',
     'app/dashboard/[eventId]/guests/_components/guest-access-pick.tsx',
+    // RE-AIMED 2026-10-29 (owner, verbatim: "The event should show to pick what kind of access do we want to give the
+    // coordinator. On the home."): Home's one-time Limited · Full access card is a third DOOR to the same
+    // `setDelegateArea` (area `access_level`); People with access keeps the same pick, changeable.
+    'app/dashboard/[eventId]/_components/coordinator-level-ask.tsx',
   ]);
   const offenders: string[] = [];
   const walk = (dir: string) => {

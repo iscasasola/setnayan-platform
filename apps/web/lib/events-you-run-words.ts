@@ -10,4 +10,5 @@ export const EVENTS_YOU_RUN_HREF = '/vendor-dashboard/events';
 export const EVENTS_YOU_RUN_TIP = 'An event leaves this list when its hosts turn your access off, or after the event.';
 
 /** The line under the Events page's heading (prototype frame B). */
-export const EVENTS_YOU_RUN_LEDE = 'Events where the hosts made you their coordinator.';
+/** …or a co-host (owner 2026-10-29: "similar to adding them as a cohost"). */
+export const EVENTS_YOU_RUN_LEDE = 'Events where the hosts made you their coordinator or a co-host.';

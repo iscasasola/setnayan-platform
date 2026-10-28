@@ -86,6 +86,10 @@ import { PerformanceControls } from './_components/performance-controls';
 import { Reanimate } from './_components/reanimate';
 import { formatCount } from '@/lib/format-number';
 import { BusinessDoing, type DoingWindow } from './_components/business-doing';
+import { YourBadges } from './_components/your-badges';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { readShopBadgeFacts } from '@/lib/shop-badges.server';
+import { badgeShelf, type ShopBadgeFacts } from '@/lib/shop-badges';
 import { barHeights, businessSentence, fromLine, ratingLine, replyLine } from '@/lib/business-doing';
 
 export const metadata = { title: 'How is my business doing · Supplier' };
@@ -193,7 +197,17 @@ export default async function PerformanceHome({
   const tier = await resolveVendorTier(supabase, profile.vendor_profile_id);
   const gateOn = isVendorFeatureGateEnabled();
 
+  // 🏅 THE SHOP'S BADGES (owner 2026-10-29: "Their badges will be on the supplier shop performance page") — every
+  // tier, the upsell included. Started HERE so it rides beside Batch A (below) rather than adding a round trip; a
+  // refused read is `null` → "Couldn’t load your badges" · "—", never "none" (`badgeShelf`).
+  const badgeFactsRead: Promise<ShopBadgeFacts | null> = safeRead(
+    readShopBadgeFacts(createAdminClient(), profile.vendor_profile_id),
+    null,
+    'badges',
+  );
+
   if (gateOn && !canSeePerformanceTrends(tier)) {
+    const gatedShelf = badgeShelf(await badgeFactsRead);
     return (
       <>
         {/* Shop › How it is going — the segment stays on the upsell too, so a
@@ -201,6 +215,9 @@ export default async function PerformanceHome({
             2026-10-21, item 2). */}
         <div className="mx-auto w-full max-w-3xl px-4 pt-4 sm:px-6">
           <ShopSegments on="insights" />
+          <div className="mt-6">
+            <YourBadges shelf={gatedShelf} />
+          </div>
         </div>
       <VendorTierGate
         feature="My Performance"
@@ -251,6 +268,7 @@ export default async function PerformanceHome({
     inquiriesBySourceDay,
     marketRegionRow,
     pricePosition,
+    badgeFacts,
   ] = await Promise.all([
     safeRead(
       supabase
@@ -380,7 +398,10 @@ export default async function PerformanceHome({
           'price_position',
         )
       : Promise.resolve(null),
+    // 🏅 The badges, started above — awaited in this same batch (no extra round trip).
+    badgeFactsRead,
   ]);
+  const shelf = badgeShelf(badgeFacts);
 
   const hqRegion =
     (marketRegionRow as { hq_region?: string | null } | null)?.hq_region ?? null;
@@ -766,6 +787,10 @@ export default async function PerformanceHome({
             rating={ratingLine(statsRow as { review_avg_bayesian?: number | null; review_count?: number | null } | null)}
             more={doingMore}
           />
+        </div>
+        {/* 🏅 YOUR BADGES (owner 2026-10-29) — under the plain-words top, before the cards. */}
+        <div className="mt-8">
+          <YourBadges shelf={shelf} />
         </div>
       </div>
 

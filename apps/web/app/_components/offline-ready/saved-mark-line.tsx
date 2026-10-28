@@ -11,10 +11,10 @@ import type { SavedMark } from '@/lib/offline-copies';
  * `data-offline-mark` carries the tone so a walk and a guard can read it without parsing words.
  */
 const TONE: Record<SavedMark['tone'], { light: string; dark: string }> = {
-  ok: { light: 'text-success-700', dark: 'text-[#8fd6a9]' },
-  amber: { light: 'text-[#965A00] dark:text-[#e8b45a]', dark: 'text-[#f2c879]' },
+  ok: { light: 'text-success-700', dark: 'text-success-300' },
+  amber: { light: 'text-warn-800', dark: 'text-warn-300' },
   muted: { light: 'text-ink/60', dark: 'text-[rgba(251,251,250,0.66)]' },
-  bad: { light: 'text-danger-700', dark: 'text-[#ff9b92]' },
+  bad: { light: 'text-danger-700', dark: 'text-danger-300' },
 };
 
 export function SavedMarkLine({ mark, busy = false, onDark = false }: { mark: SavedMark; busy?: boolean; onDark?: boolean }) {

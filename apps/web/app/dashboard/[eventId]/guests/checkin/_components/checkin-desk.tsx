@@ -522,19 +522,19 @@ export function CheckinDesk({
       {/* 📶 THE QUEUE LINE (EV3, prototype frame "Supplier · Hub › Scan"): "● No signal · N scans saved on this phone"
           → "✓ Back online · N sent". Shown only when there is something to say. */}
       {!online ? (
-        <p role="status" data-desk-queue="offline" className="flex items-center gap-1.5 text-[13.5px] font-semibold text-[#965A00] dark:text-[#e8b45a]">
+        <p role="status" data-desk-queue="offline" className="flex items-center gap-1.5 text-[13.5px] font-semibold text-warn-800">
           <CircleDot aria-hidden className="h-4 w-4 shrink-0" strokeWidth={2} />
-          No signal · {queued.size === 0 ? 'scans will be saved on this phone' : `${queued.size} scan${queued.size === 1 ? '' : 's'} saved on this phone`}
+          No signal · {queued.size === 0 ? 'scans will be saved on this phone' : `${formatCount(queued.size)} scan${queued.size === 1 ? '' : 's'} saved on this phone`}
         </p>
       ) : queued.size > 0 ? (
-        <p role="status" data-desk-queue="waiting" className="flex items-center gap-1.5 text-[13.5px] font-semibold text-[#965A00] dark:text-[#e8b45a]">
+        <p role="status" data-desk-queue="waiting" className="flex items-center gap-1.5 text-[13.5px] font-semibold text-warn-800">
           <CircleDot aria-hidden className="h-4 w-4 shrink-0" strokeWidth={2} />
-          {queued.size} scan{queued.size === 1 ? '' : 's'} saved on this phone · sending when Setnayan answers
+          {formatCount(queued.size)} scan{queued.size === 1 ? '' : 's'} saved on this phone · sending when Setnayan answers
         </p>
       ) : sent !== null ? (
         <p role="status" data-desk-queue="sent" className="flex items-center gap-1.5 text-[13.5px] font-semibold text-success-700">
           <CircleCheck aria-hidden className="h-4 w-4 shrink-0" strokeWidth={2} />
-          Back online · {sent} sent
+          Back online · {formatCount(sent)} sent
         </p>
       ) : null}
 
@@ -778,7 +778,7 @@ export function CheckinDesk({
                   <CircleCheck className="h-4 w-4" /> {DOOR_WORDS.valid}
                 </p>
               ) : savedListPick ? (
-                <p className="inline-flex items-center gap-1 text-sm font-semibold text-[#965A00] dark:text-[#e8b45a]" data-door-verdict="saved-list">
+                <p className="inline-flex items-center gap-1 text-sm font-semibold text-warn-800" data-door-verdict="saved-list">
                   <CircleDot className="h-4 w-4" /> On this phone’s saved list · checked live when the signal is back
                 </p>
               ) : null}

@@ -33,7 +33,7 @@ import type { TodayActions } from '@/app/vendor-dashboard/_components/supplier-t
 import { COORDINATOR_AREAS, type ModeratorPermissions } from '@/lib/delegate-areas';
 import { COORDINATOR_SEAT_ROLE, eventsYouRun, withNeeds, type CoordinatorSeatRow } from '@/lib/events-you-run';
 import { summarizeEventDecisions, type EventDecisionSummary } from '@/lib/event-decisions';
-import { CheckinDeskRows } from '@/app/vendor-dashboard/_components/events-you-run-rows';
+import { CheckinDeskRows, MessageEveryoneRows, SeatFinderRow } from '@/app/vendor-dashboard/_components/events-you-run-rows';
 import { TodayEasyLab } from './today-easy-lab';
 import { BasicSetupHold } from '@/app/vendor-dashboard/_components/basic-setup-hold';
 import { YourBadges } from '@/app/vendor-dashboard/performance/_components/your-badges';
@@ -154,6 +154,8 @@ export function CoordLab({ state, none, unread = false, cohost = false, at, acti
     return (
       <div className="min-h-screen bg-cream px-4 pb-32 pt-4" data-coord-lab="events" data-runs={runs.length}>
         <EventsYouRunScreen events={runs} measured />
+        {/* 📣 S9 — the REAL Message everyone rows, as the Events page mounts them (flag on in the lab). */}
+        <MessageEveryoneRows events={runs} enabled />
         {bar}
       </div>
     );
@@ -165,6 +167,8 @@ export function CoordLab({ state, none, unread = false, cohost = false, at, acti
       <div className="min-h-screen bg-cream px-4 pb-32 pt-4" data-coord-lab="hub" data-runs={runs.length}>
         <h1 className="sr-only">Event Hub</h1>
         <CheckinDeskRows events={runs} />
+        {/* 🪑 S9 — the REAL seat-finder row the Hub draws for today's booked event. */}
+        {runs[0] ? <SeatFinderRow eventId={runs[0].eventId} name={runs[0].name} /> : null}
         {runs.length === 0 ? <p className="text-[15px] text-ink/70">No event today</p> : null}
         {bar}
       </div>

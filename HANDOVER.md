@@ -95,6 +95,16 @@ parts unchanged.
    the iPhone-app "Replies open/close not showing" — walk with UA + window.Capacitor stub and fix the real cause.
 Order 1 → 11. Ship nothing yourself.
 
+## NAMES (owner, v24–v26)
+- Everywhere a guest is named in Guests (list rows, March chips, peek, search results, guest card head, swap sheet): the
+  FULL name (name_prefix + first + last, from the shipped name helper) with the nickname (`guests.display_name`, no new
+  column) beside it in muted quotes; search matches the nickname too. Extend the ONE helper (Rule 0: lib/guest-title /
+  `guestDisplayName` / `displayPersonName`); every surface reads it. Wrap to 3 lines, never ellipsize.
+- v26: March — the two pills of one walk always share one height (row align-items: stretch, pill align-self: stretch,
+  content centred); same anywhere two name pills sit side by side.
+- After EACH green + walked slice: tell the controller with a check card (he batches to live); #7028 goes
+  ready-for-review only when he says; slice 8 waits for #7032 (skip to 9, come back); report progress every 2 slices.
+
 ## How to prove a slice
 Guard per property (+ one sabotage), port/Ugat/design-rules baselines regenerated (`pnpm port:baseline`,
 `pnpm ugat:screens`, `pnpm --filter @setnayan/web design-rules:baseline --write`, `pnpm root-map --baseline`), all

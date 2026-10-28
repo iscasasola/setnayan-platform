@@ -13,7 +13,8 @@
  *     (no Invite), pins once"): at rest the first row is NOT sticky — it scrolls away with the summary carousel under it;
  *     once the carousel has gone the block pins (fixed, in a holder that keeps its height). No Invite in the pinned row.
  *   · HOME — the cover band pins with a NEGATIVE top; stuck, one line `<names> · <date> · ⚙`. No selector; the ⚙
- *     (Event Details) is its one control.
+ *     (Event Settings) is its one control — ONE mount at the band's right end, drawn AT REST too (owner 2026-10-29,
+ *     *"keep it there"*), the pinned line leaving it room.
  *
  * ⚙ EVERY PINNED ROW ENDS WITH ITS MENU'S ⚙ (owner 2026-10-27, "EVERY MENU'S ⚙ RIDES ITS PINNED ROW TOO" and "THE
  * PINNED ROW IS THE APP-WIDE TEMPLATE": selector or name line · counts · one action · ⚙). Guests' ⚙ is ONE mounted
@@ -143,20 +144,36 @@ test('Suppliers — only Find · Build · Booked · ⚙ pins; the date · place 
   assert.equal(count(tail, /<(?!\/|MenuSettingsButton\b)[A-Za-z]/g), 0, 'something besides the ⚙ is drawn after the selector');
 });
 
-test('Home — the cover pins as one line: names · date · ⚙, the ⚙ its one control', async () => {
+test('Home — the cover pins as one line: names · date · ⚙, the ⚙ its one control, drawn at rest too', async () => {
   const band = read('_components', 'home-cover-band.tsx');
   assert.match(band, /\bsticky top-\[calc\(var\(--home-bar\)-var\(--home-band-h\)\+52px\)\]/, 'the cover band does not pin with a negative top');
-  assert.match(band, /<HomeCoverPin name=\{cover\.name\} date=\{cover\.shortDate\} settingsHref=\{settingsHref\} \/>/);
-  assert.match(read('_components', 'home-first-screen.tsx'), /<HomeCoverBand [^>]*settingsHref=\{`\/dashboard\/\$\{eventId\}\/details`\}/, 'the Home does not hand its pinned line the ⚙');
+  assert.match(band, /<HomeCoverPin name=\{cover\.name\} date=\{cover\.shortDate\} gear=\{gear\} \/>/);
+  assert.match(read('_components', 'home-first-screen.tsx'), /<HomeCoverBand [^>]*settingsFor=\{eventSettings \? eventId : undefined\}/, 'the Home does not hand its band the ⚙');
   const pin = read('_components', 'home-cover-pin.tsx');
-  assert.doesNotMatch(pin, /<button\b|<Link\b|<select\b|<nav\b/, 'the Home pin grew a control besides its ⚙ — Home has no selector');
+  assert.doesNotMatch(pin, /<button\b|<Link\b|<select\b|<nav\b|<a\b|ActionButton|MenuSettingsButton/, 'the Home pin grew a control — its ⚙ is the band’s one mount');
   const { renderToStaticMarkup } = await import('react-dom/server');
-  const { HomeCoverPin } = await import('@/app/dashboard/[eventId]/_components/home-cover-pin');
-  const html = renderToStaticMarkup(React.createElement(HomeCoverPin, { name: 'Cale & Ice', date: 'Dec 5', settingsHref: '/dashboard/e1/details' }));
-  assert.match(html, /^<span data-home-cover-pin=""[^>]*\bh-\[52px\]/, 'the pinned line is not one 52-px line');
-  // <names> · <date> · ⚙ — the ⚙ the LAST thing in the line, its one control, opening Event Details.
-  assert.match(html, /Cale &amp; Ice<\/span><span[^>]*>Dec 5<\/span><span data-home-pin-gear=""[^>]*><a\b[^>]*href="\/dashboard\/e1\/details"[^>]*>(?:(?!<a\b|<button\b).)*<\/a><\/span><\/span>$/, 'the pinned line does not end with its ⚙');
-  assert.equal(count(html, /<(a|button)\b/g), 1, 'the pinned line holds another control besides its ⚙');
+  const { HomeCoverBand } = await import('@/app/dashboard/[eventId]/_components/home-cover-band');
+  const html = renderToStaticMarkup(
+    React.createElement(HomeCoverBand, { cover: { name: 'Cale & Ice', eyebrow: 'Wedding · 5 Dec 2026', shortDate: 'Dec 5' }, settingsFor: 'e1' }),
+  );
+  assert.match(html, /<span data-home-cover-pin=""[^>]*\bh-\[52px\]/, 'the pinned line is not one 52-px line');
+  // <names> · <date>, then room for the ⚙ — the line itself holds no control.
+  const line = /<span data-home-cover-pin="[^"]*"[^>]*>(.*?)<\/span><\/span>/.exec(html);
+  assert.ok(line, 'no pinned line drawn');
+  assert.match(line![1]!, /Cale &amp; Ice<\/span><span[^>]*>Dec 5$/, 'the pinned line is not <names> · <date>');
+  assert.match(line![0], /^<span data-home-cover-pin=""[^>]*\bpr-\[54px\]/, 'the pinned line runs under the ⚙ — it leaves it no room');
+  // ⚙ ONE control in the band, the LAST thing drawn (its right end), and NEVER hidden at rest (owner 2026-10-29).
+  assert.equal(count(html, /<(a|button)\b/g), 1, 'the band holds another control besides its ⚙');
+  assert.equal(count(html, /data-menu-settings="home"/g), 1, 'the band does not draw Home’s ⚙ exactly once');
+  const gear = /<span data-home-settings-gear="" class="([^"]*)">(.*)<\/span><\/div>$/.exec(html);
+  assert.ok(gear, 'Home’s ⚙ is not the band’s last element — it is not at the right end');
+  assert.match(gear![1]!, /\babsolute\b[^"]*\bbottom-1\b[^"]*\bright-4\b/, 'the ⚙ is not on the pinned line’s spot (bottom 52 px, right end)');
+  assert.doesNotMatch(gear![1]!, /\binvisible\b|\bhidden\b|opacity-0/, 'Home’s ⚙ is hidden at rest — the owner asked to keep it there');
+  assert.match(gear![2]!, /<button[^>]*aria-label="Event settings"/, 'the ⚙ is not named "Event settings"');
+  // The loading screen's band (no event to open) draws no ⚙ and leaves no room for one.
+  const loading = renderToStaticMarkup(React.createElement(HomeCoverBand, { cover: { name: 'Cale & Ice', eyebrow: 'Wedding', shortDate: 'Dec 5' } }));
+  assert.equal(count(loading, /<(a|button)\b/g), 0, 'the loading band draws a control');
+  assert.doesNotMatch(loading, /pr-\[54px\]/, 'the loading band leaves room for a ⚙ it does not draw');
 });
 
 /*

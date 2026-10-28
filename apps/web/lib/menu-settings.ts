@@ -12,8 +12,11 @@
  *     the first control row is the title row.
  *   · THE SHEET — titled "<Menu> settings"; under the title, one short line whose ⓘ holds the shared sentence
  *     (`MENU_SETTINGS_TIP`): this menu's settings only, the event's own facts are under Home's ⚙.
- *   · HOME HAS NO MENU ⚙ — Home's settings ARE Event Settings, behind the header ⚙ on the cover. Two gears never
- *     share a screen.
+ *   · HOME'S ⚙ IS EVENT SETTINGS — the same door, at the right end of the cover band (its pinned line's right end once
+ *     it has stuck), drawn AT REST too (owner 2026-10-29, verbatim: *"on event dashboard> home the header does not show
+ *     the settings icon like the other pages with settings icon. keep it there"* — it was `invisible` until the band
+ *     stuck). Its sheet is the event's own facts: names · date · venues · parents (DECISION_LOG 2026-10-27 "INFO SPLITS
+ *     BY WHAT IT IS ABOUT"). Still one gear per screen: Home mounts no other.
  *   · SUPPLIERS — was `reserved` (owner call 3: no ⚙ until it owns a setting). REVERSED 2026-10-27 (DECISION_LOG
  *     "SUPPLIERS GETS ITS ⚙ — THE SUPPLIER SETTINGS MOVE THERE"; owner *"what are the settings for suppliers?"* ·
  *     *"and move them to suppliers"*): How you see costs, Supplier payments, Budget and the booked suppliers' photos
@@ -26,12 +29,16 @@
  * Neutral module (no `'use client'`): the guard and the client button both read it.
  */
 
-/** The menus (and the one Hub tool, Prints) that own a settings sheet. Home is deliberately absent. */
-export type SettingsMenu = 'guests' | 'hub' | 'prints' | 'memories' | 'suppliers' | 'people' | 'today' | 'customers';
+/** The menus (and the one Hub tool, Prints) that own a settings sheet — Home's is Event Settings. */
+export type SettingsMenu = 'home' | 'guests' | 'hub' | 'prints' | 'memories' | 'suppliers' | 'people' | 'today' | 'customers';
 
 export type SettingsEntry = {
-  /** Where the door sits. Every menu: the right end of its first control row. Suppliers: the spot, reserved. */
-  door: 'first-row-gear' | 'reserved';
+  /**
+   * Where the door sits. Every menu: the right end of its first control row. Home: the right end of its cover band —
+   * the band IS Home's first row (no selector), and the same spot is its pinned line's right end. `reserved`: the spot,
+   * held empty.
+   */
+  door: 'first-row-gear' | 'cover-gear' | 'reserved';
   /** The sheet's title — and the ⚙'s accessible name. */
   sheet: string;
   /** The one short line under the sheet's title (its ⓘ holds `MENU_SETTINGS_TIP`). */
@@ -50,6 +57,18 @@ export const MENU_SETTINGS_TIP =
   'Settings for this menu only. The event’s own facts — names, date, venues, money, who helps — are under ⚙ on Home.';
 
 export const SETTINGS_ENTRY: Record<SettingsMenu, SettingsEntry> = {
+  /**
+   * 🏠 HOME › EVENT SETTINGS (owner 2026-10-29, "keep it there"; DECISION_LOG 2026-10-27 "APPROVED — SETTINGS PER MENU":
+   * *"Home's header ⚙ = Event Settings only"* · "INFO SPLITS BY WHAT IT IS ABOUT": names · date · venues · parents). The
+   * sheet's rows are the editors those facts already have (`open-event-settings.tsx`) — never a second editor.
+   */
+  home: {
+    door: 'cover-gear',
+    sheet: 'Event settings',
+    line: 'Names, date, venues and parents.',
+    live: true,
+    tip: 'The event’s own facts. Each menu — Guests, Suppliers, Memories — keeps its own settings under its own ⚙.',
+  },
   guests: {
     door: 'first-row-gear',
     sheet: 'Guests settings',

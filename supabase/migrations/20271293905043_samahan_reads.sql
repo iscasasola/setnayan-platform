@@ -45,9 +45,9 @@ GRANT SELECT, INSERT, UPDATE ON public.samahan_reads TO authenticated;
 DROP POLICY IF EXISTS samahan_reads_self ON public.samahan_reads;
 CREATE POLICY samahan_reads_self ON public.samahan_reads
   FOR ALL TO authenticated
-  USING (user_id = auth.uid())
+  USING (user_id = (SELECT auth.uid()))
   WITH CHECK (
-    user_id = auth.uid()
+    user_id = (SELECT auth.uid())
     AND community_id IN (SELECT public.current_community_ids())
   );
 

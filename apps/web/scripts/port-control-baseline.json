@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "62e5514830",
+  "generatedFromRef": "20b5950ee0",
   "routeCount": 479,
   "destinations": 986,
   "actions": 642,
-  "blocks": 7323,
+  "blocks": 7329,
   "routes": {
     "/": {
       "files": [
@@ -6277,10 +6277,10 @@
     },
     "/dashboard/[eventId]/budget": {
       "files": [
+        "dashboard/[eventId]/budget/_components/budget-file-actions.tsx",
         "dashboard/[eventId]/budget/_components/budget-screen.tsx",
         "dashboard/[eventId]/budget/_components/budget-sheets.tsx",
         "dashboard/[eventId]/budget/_components/budget-summary.tsx",
-        "dashboard/[eventId]/budget/_components/print-budget-link.tsx",
         "dashboard/[eventId]/budget/_components/share-budget-band-toggle.tsx",
         "dashboard/[eventId]/budget/_components/suggest-milestones-button.tsx",
         "dashboard/[eventId]/budget/_components/tradition-notes.tsx",
@@ -6290,8 +6290,8 @@
         "dashboard/[eventId]/budget/page.tsx"
       ],
       "destinations": [
-        "/api/budget/[seg]/export",
         "/api/budget/[seg]/export?format=csv",
+        "/api/budget/[seg]/export?format=pdf",
         "/api/budget/[seg]/ics",
         "/dashboard/[seg]/messages"
       ],
@@ -6302,6 +6302,7 @@
         "ActionButton",
         "AddExpenseSheet",
         "BodyPortal",
+        "BudgetFileActions",
         "BudgetScreen",
         "BudgetSheetState",
         "BudgetSheets",
@@ -6332,14 +6333,14 @@
         "PageMasthead",
         "Peso",
         "PickMenu",
-        "PrintBudgetLink",
+        "PrintSaveButton",
         "R",
         "RecordCostResult",
         "RecordSheet",
-        "SaveFileLink",
         "SetEventBudgetResult",
         "SetShareBudgetBandResult",
         "ShareBudgetBandToggle",
+        "SharePdfButton",
         "Sheet",
         "Spotlight",
         "SuggestMilestonesResult",
@@ -11005,6 +11006,7 @@
     "/dev/budget-lab": {
       "files": [
         "dev/budget-lab/fixture.ts",
+        "dev/budget-lab/lab-budget-files.tsx",
         "dev/budget-lab/page.tsx"
       ],
       "destinations": [
@@ -11012,9 +11014,12 @@
       ],
       "actions": [],
       "blocks": [
+        "BudgetFileActions",
         "BudgetScreen",
+        "LabBudgetFiles",
         "LabPageSpotlight",
         "LabShell",
+        "PrintFetchProvider",
         "TraditionNotes"
       ]
     },
@@ -11813,6 +11818,7 @@
         "LibraryLab",
         "Link",
         "LockedQrGenerator",
+        "MessageEveryoneRows",
         "MoneyLab",
         "MoneyLog",
         "MoneyView",
@@ -11828,6 +11834,7 @@
         "RosterRow",
         "ScreenFindingsPanel",
         "SearchBox",
+        "SeatFinderRow",
         "ShopBadgePill",
         "ShopSegments",
         "ShopWalletSheet",

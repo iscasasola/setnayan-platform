@@ -9,7 +9,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { stripComments } from '@/lib/strip-comments';
-import { budgetExportCsv, budgetExportHtml, csvText, exportableLines } from '@/lib/budget-export';
+import { budgetExportCsv, csvText, exportableLines } from '@/lib/budget-export';
 import type { EventMoney, MoneyLine } from '@/lib/budget-truth';
 import type { BudgetLedger } from '@/lib/budget-ledger';
 
@@ -62,7 +62,6 @@ const input = { eventName: 'Rosa & <Ben>', money, ledger, generatedAt: new Date(
 test('estimates never reach the export — BA2 holds on paper', () => {
   assert.equal(exportableLines(money).length, 2);
   assert.ok(!budgetExportCsv(input).includes('A QUOTE NOBODY AGREED TO'), 'a quote leaked into the CSV');
-  assert.ok(!budgetExportHtml({ ...input, backHref: '/x' }).includes('A QUOTE NOBODY AGREED TO'), 'a quote leaked into the print page');
   assert.ok(!budgetExportCsv(input).includes('800000'), 'the estimated total leaked into the CSV');
 });
 
@@ -85,12 +84,6 @@ test('a typed label can never run as a spreadsheet formula', () => {
   assert.ok(!/(^|,)\+cmd/m.test(csv), 'a formula cell survived in the supplier column');
 });
 
-test('the print page escapes what couples and suppliers typed', () => {
-  const html = budgetExportHtml({ ...input, backHref: '/x' });
-  assert.ok(html.includes('Rosa &amp; &lt;Ben&gt;'));
-  assert.ok(!html.includes('<Ben>'));
-});
-
 test('the route checks budget access before it reads any money, and never prints ₱0 for "unknown"', () => {
   const s = stripComments(readFileSync(ROUTE, 'utf8'));
   const gate = s.indexOf('resolveBudgetVisibility(');
@@ -98,20 +91,8 @@ test('the route checks budget access before it reads any money, and never prints
   assert.ok(gate > 0 && read > 0, 'route no longer calls resolveBudgetVisibility / resolveEventMoney');
   assert.ok(gate < read, 'money is read before the access check — a refusal on the screen only');
   assert.match(s, /if \(!access\.mayRead\)[\s\S]{0,200}?status: 403/);
-  assert.match(s, /if \(!money\)[\s\S]{0,200}?status: 503/, 'a missing resolver must refuse, not export zeroes');
+  // A missing resolver — or one whose reads were not all answered (its totals a floor, not a fact) — refuses.
+  assert.match(s, /if \(!money \|\| !moneyReadsAllOk\(money\)\) return unread\(\);/, 'a missing or partial resolver must refuse, not export zeroes');
+  assert.match(s, /const unread = \(\) =>[\s\S]{0,240}?status: 503/, 'the refusal is no longer a 503');
   assert.match(s, /buildBudgetLedger\(\{[\s\S]*?suggestedPlanByBucket\(\{/, 'the export stopped using the page’s ledger');
-});
-
-test('in the app the print page opens SIGNED IN, with a way back, and carries no file link (owner 2026-10-28 "signed in")', () => {
-  const html = budgetExportHtml({ ...input, backHref: '/dashboard/e1/budget' });
-  // The app's own view has no browser chrome: the bar leads with Done, back to Budget.
-  assert.match(html, /<div class="bar"><a href="\/dashboard\/e1\/budget" data-print-done>‹ Done<\/a>/, 'the print page has no way back to Budget');
-  // A file link here renders the file in the app's view with no way back (owner 2026-10-27) — Budget's CSV button saves it.
-  assert.doesNotMatch(html, /format=csv|download/i, 'the print page carries a file link again');
-  assert.match(html, /viewport-fit=cover/, 'the Done bar can sit under the phone notch');
-  const link = stripComments(readFileSync(resolve(here, '../app/dashboard/[eventId]/budget/_components/print-budget-link.tsx'), 'utf8'));
-  assert.match(link, /isNativePlatform\?\.\(\)\) return;[\s\S]{0,80}e\.preventDefault\(\);\s*window\.location\.assign\(href\);/, 'in the app Print budget does not open in the app’s own (signed-in) view');
-  assert.doesNotMatch(link, /openEventHub/, 'Print budget opens the signed-OUT in-app sheet');
-  const page = stripComments(readFileSync(resolve(here, '../app/dashboard/[eventId]/budget/page.tsx'), 'utf8'));
-  assert.match(page, /<PrintBudgetLink\s+href=\{`\/api\/budget\/\$\{eventId\}\/export`\}/, 'Budget lost its Print link, or it is a bare new-tab link again');
 });

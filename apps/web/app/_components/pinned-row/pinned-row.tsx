@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { PickMenu, type PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
@@ -80,7 +80,33 @@ export function PinnedRow({
   data?: Readonly<Record<`data-${string}`, string>>;
 }) {
   const rowRef = useRef<HTMLDivElement>(null);
+  const doorsRef = useRef<HTMLSpanElement>(null);
   const [stuck, setStuck] = useState(false);
+  // 📏 THE FIT PASS (the house rule: "a row of buttons shrinks together"): when the doors cannot show their words — a
+  // 375-px phone with "34 connected · 1 asking you" — the action drops to its icon (still named, still 44 px), before
+  // paint, so nothing flashes. It tries the word again once the row has grown. Measured 2026-10-28: at 375 the
+  // "asking you" door was cut to "1 asl" beside the worded Invite.
+  const [tight, setTight] = useState(false);
+  const tightAt = useRef(0);
+  const doorsSig = doors.map((d) => `${d.n}${d.word}`).join('|');
+  useLayoutEffect(() => {
+    const row = rowRef.current;
+    const box = doorsRef.current;
+    if (!row || !box || typeof ResizeObserver === 'undefined') return;
+    const fit = () => {
+      const w = row.clientWidth;
+      if (!tight && box.scrollWidth > box.clientWidth + 1) {
+        tightAt.current = w;
+        setTight(true);
+      } else if (tight && w > tightAt.current + 40) {
+        setTight(false);
+      }
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(row);
+    return () => ro.disconnect();
+  }, [tight, doorsSig, note]);
 
   // Stuck = the nearest sticky/fixed ancestor sits at its pinned top. One passive listener, read once per frame.
   useEffect(() => {
@@ -119,7 +145,7 @@ export function PinnedRow({
           onPick={picker.onPick}
         />
       </span>
-      <span className={pr.pinDoors} data-pinned-doors="" data-tour={doorsTour}>
+      <span ref={doorsRef} className={pr.pinDoors} data-pinned-doors="" data-tour={doorsTour}>
         {note ? (
           <span className={pr.pinNote} role="status" data-pinned-note="">
             {note}
@@ -141,13 +167,15 @@ export function PinnedRow({
         )}
       </span>
       <span className={pr.pinSpace} aria-hidden />
-      <span className={pr.pinAct} data-pinned-action={action.mark}>
+      <span className={pr.pinAct} data-pinned-action={action.mark} data-pinned-tight={tight ? '' : undefined}>
         {action.href !== undefined ? (
-          <ActionButton tone="brand" main icon={action.icon} label={action.label} name={action.ariaLabel} href={action.href} />
+          <ActionButton tone="brand" main={!tight} filled={tight} iconOnly={tight} icon={action.icon} label={action.label} name={action.ariaLabel} href={action.href} />
         ) : (
           <ActionButton
             tone="brand"
-            main
+            main={!tight}
+            filled={tight}
+            iconOnly={tight}
             icon={action.icon}
             label={action.label}
             name={action.ariaLabel}

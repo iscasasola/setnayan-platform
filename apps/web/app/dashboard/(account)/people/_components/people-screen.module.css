@@ -268,3 +268,15 @@
 .groupRingLive {
   background: conic-gradient(rgb(var(--color-terracotta)), rgb(var(--color-mulberry)), rgb(var(--color-terracotta)));
 }
+/* The face is opaque (the page ground under the gold wash), so the ring never shows through the initials. */
+.groupDisc {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--m-r-full);
+  border: 2px solid rgb(var(--color-cream));
+  background: linear-gradient(rgb(var(--color-terracotta) / 0.16), rgb(var(--color-terracotta) / 0.16)), rgb(var(--color-cream));
+  font-size: 13px;
+  font-weight: 700;
+}

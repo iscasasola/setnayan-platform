@@ -44,7 +44,7 @@ export function GroupChatRows({ rows, activityUnreadable = false }: { rows: read
               data-group-unread={unread ? String(g.unread) : undefined}
             >
               <span aria-hidden className={`${ps.groupRing} ${g.stories > 0 ? ps.groupRingLive : ''}`} data-group-ring={g.stories > 0 ? 'live' : 'none'}>
-                <span className="grid h-full w-full place-items-center rounded-full border-2 border-cream bg-gold/[0.14] text-[13px] font-bold text-gold-deep">
+                <span className={`${ps.groupDisc} text-gold-deep`}>
                   {groupInitials(g.name)}
                 </span>
               </span>

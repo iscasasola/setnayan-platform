@@ -166,7 +166,7 @@ test('Home — the cover pins as one line: names · date · ⚙, the ⚙ its one
  * gives (they shrink and clip, never push the action or the ⚙ to a second line). The Playwright walk in
  * `/dev/people-lab` measures the same at 375 and 390 (the row's box is 44 px tall, its action and ⚙ on its line).
  *
- * Sabotage (2026-10-28, each reverted): `flex-wrap: wrap` on `.pin` → red; `height: 44px` → `min-height` → red; the
+ * Sabotage (2026-10-28, each reverted): the action's `iconOnly={tight}` removed → red; `flex-wrap: wrap` on `.pin` → red; `height: 44px` → `min-height` → red; the
  * doors' `min-width: 0` dropped → red; People drawing its own row instead of `<PinnedRow` → red.
  */
 test('the shared pinned row is ONE line — 44 px, never wraps, the doors give way — and People wears it', () => {
@@ -186,6 +186,12 @@ test('the shared pinned row is ONE line — 44 px, never wraps, the doors give w
   assert.match(doors, /overflow: hidden;/);
   assert.match(rule('.pinAct'), /flex: 0 0 auto;/, 'the action can be squeezed');
   assert.match(rule('.pinPick'), /flex: 0 0 auto;/, 'the picker can be squeezed');
+  // 📏 The fit pass (measured 2026-10-28: at 375 "1 asking you" was cut to "1 asl" beside a worded Invite): when the
+  // doors overflow, the action drops to its icon — before paint — and tries the word again once the row grows.
+  const row = stripComments(readFileSync(join(process.cwd(), 'app', '_components', 'pinned-row', 'pinned-row.tsx'), 'utf8'));
+  assert.match(row, /useLayoutEffect\(/, 'the fit pass does not run before paint');
+  assert.match(row, /box\.scrollWidth > box\.clientWidth/, 'the fit pass does not measure the doors overflowing');
+  assert.equal((row.match(/iconOnly=\{tight\}/g) ?? []).length, 2, 'the action does not drop to its icon when the doors overflow');
   const people = stripComments(readFileSync(join(process.cwd(), 'app', 'dashboard', '(account)', 'people', '_components', 'people-pinned-row.tsx'), 'utf8'));
   assert.match(people, /<PinnedRow\b/, 'People draws its own pinned row instead of the shared one');
   assert.doesNotMatch(people, /className=\{?[^>]*\bpin(Door|Act|Doors)\b/, 'People re-draws a piece of the shared row');

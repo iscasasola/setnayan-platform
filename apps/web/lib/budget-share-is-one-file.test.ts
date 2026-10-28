@@ -13,6 +13,7 @@
  *      carries exactly the words drawn as outlines), not from a flag.
  *   4. A long budget paginates without splitting a row: every line's label and its amount land on the SAME page.
  *   5. No device chrome on paper: no "Done", no "Print or save", no button words.
+ *   7. NOTHING IS CUT: a long name wraps whole in a row, a heading, a total and the title (owner 2026-10-29).
  *   6. PAPER (owner 2026-10-29, "always use A4?"): A4 (default) · Letter · Long bond each reflow — the sheet is that
  *      size and no row splits on it; posters take A4…A0 · Custom, landscape included; a document route cannot be asked
  *      for a poster size.
@@ -273,5 +274,32 @@ test('6b · poster papers: A4 · A3 · A2 · A1 · A0 · Custom, portrait or lan
   assert.ok(width > height && Math.abs(width - 1190.55) < 0.5, `A3 landscape drew ${width}×${height}`);
   const big = await PDFDocument.load(await sharePdf({ ...doc, paper: custom! }));
   assert.ok(Math.abs(big.getPage(0).getSize().height - custom!.h) < 0.5, 'a custom sheet is not its size');
+});
+
+test('7 · ✂🚫 nothing in the engine is cut — a long name wraps whole, in a row, a heading and the title', async () => {
+  // Owner 2026-10-29, on the printouts: "some names get the ..." · "we do not want that".
+  const LONG = 'Ninong Ramon Francisco Dela Cruz-Villanueva “Monching”';
+  const bytes = await sharePdf({
+    kind: 'Guest list',
+    title: `${LONG} & Maria Clara Santos-Dela Cruz y Bautista`,
+    sections: [
+      {
+        title: `Table of ${LONG}`,
+        aside: '10 seats',
+        columns: [{ label: 'Side', width: 70 }, { label: 'Meal', width: 70, align: 'left' }],
+        rows: [{ main: LONG, sub: `Plus one: ${LONG}`, cells: ['Bride', 'Fish'] }, { main: 'Supercalifragilisticexpialidociousmagnificentlylongsinglewordname', cells: ['', ''] }],
+        total: { label: `Total · ${LONG}`, cells: ['1', ''] },
+      },
+    ],
+    generatedAt: BASE.generatedAt,
+  });
+  const words = (await wordsByPage(bytes)).flat();
+  assert.deepEqual(words.filter((w) => w.includes('…')), [], 'the engine cut something');
+  // The invisible text layer is WinAnsi Helvetica: curly quotes are written straight there.
+  const all = words.join(' ').replace(/\s+/g, '');
+  const want = (s: string) => s.replace(/[“”]/g, '"').replace(/\s+/g, '');
+  for (const s of [LONG, `Plus one: ${LONG}`, `Table of ${LONG}`, 'Supercalifragilisticexpialidociousmagnificentlylongsinglewordname']) {
+    assert.ok(all.includes(want(s)), `"${s}" is not whole on the page`);
+  }
 });
 

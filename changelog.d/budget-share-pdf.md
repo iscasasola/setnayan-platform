@@ -18,6 +18,8 @@ maximize every other method to share that file? Buttons not shown on design temp
   (`Paper ▾`, remembered per device). Budget is its first view (`lib/budget-pdf.ts` maps the budget to a `SharePdfDoc`). Head (event · date as precise as the Hub holds it ·
   the Hub's venues), Target · Agreed · Paid · Owed with one meter, each category as a section with its lines and its
   total, planned-only categories, and "Generated … · Page n of N" on every page. Rows never split across pages.
+- ✂🚫 Nothing in the engine is ever cut with "…" (owner 2026-10-29, "we do not want that"): rows, headings, totals and
+  the title wrap onto as many lines as they take; a too-long word breaks between letters.
 - 🛑 Honest reads: `budgetPdf` refuses when any money read was refused, and the export route now refuses a PARTIAL
   resolver too (before, only a missing one) — for the CSV as well. An absent target prints "—", never ₱0.
 - The export route serves the PDF (default / `?format=pdf`) or the CSV; the HTML page is gone.

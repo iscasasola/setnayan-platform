@@ -41,8 +41,9 @@
  * ── WHAT EVERY FILE GETS (the view cannot opt out — that is the template) ───
  *   page 1   the Setnayan mark + SETNAYAN · the kind · the title in Fraunces · the meta line · the summary figures
  *            (eyebrow + figure, one terracotta rule above, an optional meter and notes)
- *   then     sections: a heading (+ aside) carrying the column labels, rows (a main line wrapping to two lines, a soft
- *            sub line, right-aligned figures), an optional total row. A row is NEVER split across pages, a heading
+ *   then     sections: a heading (+ aside) carrying the column labels, rows (main words and a soft sub line, each
+ *            wrapped onto as many lines as they take — NOTHING IS EVER CUT with "…", owner 2026-10-29), right-aligned
+ *            figures, an optional total row. A row is NEVER split across pages, a heading
  *            never sits alone at a page's foot, and a section that runs on is headed "(continued)".
  *   last     the notes
  *   every    page: a slim head (mark · title · kind) after page 1, and "Generated <date> · setnayan.com" + "Page n of N".
@@ -112,7 +113,7 @@ export type SharePdfColumn = { label: string; width: number; align?: 'left' | 'r
 export type SharePdfCell = string | { text: string; tone?: SharePdfTone };
 
 export type SharePdfRow = {
-  /** The row's main words (wraps to two lines, then "…"). */
+  /** The row's main words — wrapped onto as many lines as they take; never cut. */
   main: string;
   /** A soft line under it (a supplier, a +1) — one line. */
   sub?: string | null;
@@ -384,33 +385,48 @@ function draw(
   return w;
 }
 
-/** Wrap to at most `maxLines`, the last one ending "…" when the words run out of room. */
-export function wrap(f: Face, s: string, size: number, maxW: number, maxLines: number): string[] {
-  const words = s.trim().split(/\s+/).filter(Boolean);
+/**
+ * ✂🚫 NOTHING ON THESE PAGES IS CUT (owner 2026-10-29, on the printouts: *"some names get the ..."* · *"we do not
+ * want that"*). Words wrap onto as many lines as they take and the row or heading grows to hold them; a single word
+ * wider than its room is broken between letters — every letter still prints. There is no "…" anywhere in this engine.
+ */
+export function wrap(f: Face, s: string, size: number, maxW: number): string[] {
   const lines: string[] = [];
   let cur = '';
-  let i = 0;
-  for (; i < words.length; i++) {
-    const next = cur ? `${cur} ${words[i]}` : words[i]!;
-    if (!cur || measure(f, next, size) <= maxW) {
+  for (const word of s.trim().split(/\s+/).filter(Boolean)) {
+    const next = cur ? `${cur} ${word}` : word;
+    if (measure(f, next, size) <= maxW) {
       cur = next;
       continue;
     }
-    lines.push(cur);
-    cur = words[i]!;
-    if (lines.length === maxLines) break;
-  }
-  const truncated = i < words.length;
-  if (!truncated && cur) lines.push(cur);
-  return lines.map((l, n) => {
-    let line = l;
-    const last = n === lines.length - 1;
-    if (measure(f, line, size) > maxW || (last && truncated)) {
-      while (line.length > 1 && measure(f, `${line}…`, size) > maxW) line = line.slice(0, -1).trimEnd();
-      line = `${line}…`;
+    if (cur) lines.push(cur);
+    cur = '';
+    if (measure(f, word, size) <= maxW) {
+      cur = word;
+      continue;
     }
-    return line;
-  });
+    // One word wider than the room: break it between letters.
+    let rest = [...word];
+    while (rest.length) {
+      let n = 1;
+      while (n < rest.length && measure(f, rest.slice(0, n + 1).join(''), size) <= maxW) n += 1;
+      if (n === rest.length) {
+        cur = rest.join('');
+        rest = [];
+      } else {
+        lines.push(rest.slice(0, n).join(''));
+        rest = rest.slice(n);
+      }
+    }
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+
+/** The size (down to 6 pt, the print minimum) at which `s` fits one line in `maxW`; at 6 pt it wraps instead. */
+function fitSize(f: Face, s: string, size: number, maxW: number): number {
+  const w = measure(f, s, size);
+  return w <= maxW ? size : Math.max(6, (size * maxW) / w);
 }
 
 // ── figures ──────────────────────────────────────────────────────────────────
@@ -509,12 +525,12 @@ export async function sharePdf(d: SharePdfDoc): Promise<Uint8Array> {
   y += 30;
   rule(pen, y, HAIR);
   y += 38;
-  for (const line of wrap(F, d.title, 26, W - 2 * MX, 2)) {
+  for (const line of wrap(F, d.title, 26, W - 2 * MX)) {
     draw(pen, F, line, MX, y, 26, INK);
     y += 30;
   }
   const meta = (d.meta ?? []).filter((s): s is string => Boolean(s && s.trim()));
-  for (const line of meta.length ? wrap(J, meta.join('  ·  '), 10.5, W - 2 * MX, 2) : []) {
+  for (const line of meta.length ? wrap(J, meta.join('  ·  '), 10.5, W - 2 * MX) : []) {
     draw(pen, J, line, MX, y - 6, 10.5, SOFT);
     y += 15;
   }
@@ -562,9 +578,13 @@ export async function sharePdf(d: SharePdfDoc): Promise<Uint8Array> {
     pen = newPage();
     y = TOP;
     drawMark(pen.page, H, MX, y, 11);
-    draw(pen, J, wrap(J, d.title, 8.5, W - 2 * MX - 120, 1)[0] ?? '', MX + 17, y + 8.6, 8.5, SOFT);
+    // The event's name, whole: smaller first, then onto a second line — never cut.
+    const room = W - 2 * MX - 120;
+    const ts = fitSize(J, d.title, 8.5, room);
+    const tl = wrap(J, d.title, ts, room);
+    tl.forEach((l, i) => draw(pen, J, l, MX + 17, y + 8.6 + i * ts * 1.2, ts, SOFT));
     draw(pen, J, d.kind.toUpperCase(), W - MX, y + 8.6, 8, TERRACOTTA, { align: 'right', tracking: 2 });
-    y += 22;
+    y += 22 + (tl.length - 1) * ts * 1.2;
     rule(pen, y, HAIR);
     y += 24;
   };
@@ -572,8 +592,8 @@ export async function sharePdf(d: SharePdfDoc): Promise<Uint8Array> {
   for (const s of d.sections) {
     const { mainW, at } = layoutColumns(W, s.columns);
     const rows = s.rows.map((r) => {
-      const main = wrap(J, r.main || '—', MAIN_SIZE, mainW, 2);
-      const sub = r.sub ? wrap(J, r.sub, SUB_SIZE, mainW, 1) : [];
+      const main = wrap(J, r.main || '—', MAIN_SIZE, mainW);
+      const sub = r.sub ? wrap(J, r.sub, SUB_SIZE, mainW) : [];
       return { r, main, sub, h: ROW_PAD * 2 + main.length * 12 + sub.length * 10.5 };
     });
     const head = (continued: boolean) => {
@@ -585,11 +605,12 @@ export async function sharePdf(d: SharePdfDoc): Promise<Uint8Array> {
       // The aside rides the title's line when both fit; otherwise the title keeps its words and the aside takes a
       // small line of its own under it — a heading is never cut short for its footnote.
       const besideFits = !aside || measure(F, title, 13) + asideW <= room;
-      const name = wrap(F, title, 13, Math.max(110, besideFits ? room - asideW : room), 1)[0] ?? '';
-      const nameW = draw(pen, F, name, MX, y + 12, 13, INK);
-      if (aside && besideFits) draw(pen, J, aside, MX + nameW + 10, y + 12, 7.8, FAINT);
+      const names = wrap(F, title, 13, Math.max(110, besideFits ? room - asideW : room));
+      let nameW = 0;
+      names.forEach((l, i) => (nameW = draw(pen, F, l, MX, y + 12 + i * 15, 13, INK)));
+      if (aside && besideFits) draw(pen, J, aside, MX + nameW + 10, y + 12 + (names.length - 1) * 15, 7.8, FAINT);
       s.columns.forEach((c, i) => draw(pen, J, c.label.toUpperCase(), at[i]!.x, y + 12, 6.8, FAINT, { align: at[i]!.align, tracking: 1.1 }));
-      y += 19;
+      y += 19 + (names.length - 1) * 15;
       if (aside && !besideFits) {
         draw(pen, J, aside, MX, y + 4, 7.8, FAINT);
         y += 11;
@@ -635,12 +656,13 @@ export async function sharePdf(d: SharePdfDoc): Promise<Uint8Array> {
     if (s.total) {
       rule(pen, y, INK, 0.6);
       const ty = y + 15;
-      draw(pen, J, wrap(J, s.total.label.toUpperCase(), 7, mainW, 1)[0] ?? '', MX, ty, 7, SOFT, { tracking: 1.1 });
+      const tl = wrap(J, s.total.label.toUpperCase(), 7, mainW);
+      tl.forEach((l, i) => draw(pen, J, l, MX, ty + i * 9, 7, SOFT));
       s.columns.forEach((_, k) => {
         const cell = cellOf(s.total!.cells[k]);
         if (cell.text) draw(pen, J, cell.text, at[k]!.x, ty, MAIN_SIZE, toneColor(cell.tone), { align: at[k]!.align });
       });
-      y += TOTAL_H;
+      y += TOTAL_H + (tl.length - 1) * 9;
     } else if (rows.length) {
       rule(pen, y, HAIR, 0.4);
     }

@@ -5,7 +5,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.55em;
-  border-radius: 999px;
+  border-radius: var(--m-r-full);
   padding: 0.38em 1.15em 0.38em 0.42em;
   position: relative;
   line-height: 1;
@@ -17,7 +17,7 @@
 .edge {
   position: absolute;
   inset: 0;
-  border-radius: 999px;
+  border-radius: var(--m-r-full);
   padding: 1.4px;
   background: linear-gradient(115deg, #8a6a2c, #d9b866 18%, #f6e7b0 28%, #b88d3b 42%, #e9cf86 58%, #8e6b2b 74%, #e6c97d);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);

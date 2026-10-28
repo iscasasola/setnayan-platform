@@ -153,7 +153,9 @@ test('every form with a Google button beside a typed email + password mounts the
     const code = stripComments(readFileSync(file, 'utf8'));
     const rel = relative(WEB, file);
     if (!googleButton.test(code)) continue;
-    if (!/name="email"/.test(code) || !/type="password"/.test(code)) continue;
+    // A password box is now `<PasswordField>` (lib/one-password-field.test.ts);
+    // a raw `type="password"` is still recognised so a stray one is held too.
+    if (!/name="email"/.test(code) || !/type="password"|<PasswordField\b/.test(code)) continue;
     if (NOT_YET.has(rel)) continue;
     doors.push(rel);
     const at = code.indexOf('<GoogleAddressDoor');
@@ -163,8 +165,11 @@ test('every form with a Google button beside a typed email + password mounts the
     assert.ok(formStart >= 0 && formEnd > at, `${rel}: the door must sit INSIDE the email form`);
     const form = code.slice(formStart, formEnd);
     assert.ok(form.indexOf('name="email"') < form.indexOf('<GoogleAddressDoor'), `${rel}: the door goes after the email box`);
-    // The password box (or its wrapper) and the submit fold away with it.
-    const pw = form.indexOf('type="password"');
+    // The password box (or its wrapper) and the submit fold away with it. The
+    // mark may sit on a wrapper above the box or inside the box's own tag
+    // (`wrapperProps={{ 'data-password-only': '' }}`), so look up to the tag's end.
+    const pwAt = form.search(/type="password"|<PasswordField\b/);
+    const pw = pwAt < 0 ? -1 : form.indexOf('/>', pwAt);
     const marked = form.lastIndexOf('data-password-only', pw);
     assert.ok(pw > 0 && marked > form.indexOf('<GoogleAddressDoor'), `${rel}: the password box must be data-password-only`);
     assert.match(form, /<SubmitButton[^>]*data-password-only/, `${rel}: the password submit must fold away too`);

@@ -41,6 +41,10 @@ export const SETTINGS_ROWS = {
    * plan's "Guest list closes ›" row is this row: Reply by, in Replies. "Closing the list" holds Finalize.
    */
   'reply-by': { menu: 'guests', cluster: 'Replies', writer: 'updatePaxSettings' },
+  /* 🗂 R1 (owner 2026-10-27/28, "RSVP SETTINGS LIVE IN THE GUESTS ⚙"): the two reply settings ONLY the Studio RSVP tile
+     held — moved here, the same `rsvp_ask_config` keys through the same draft door; the tile is gone. */
+  answer: { menu: 'guests', cluster: 'Replies', writer: 'hubDraftAction' },
+  'replies-window': { menu: 'guests', cluster: 'Replies', writer: 'hubDraftAction' },
   requests: { menu: 'guests', cluster: 'Replies', writer: '/guests/claims' },
   finalize: { menu: 'guests', cluster: 'Closing the list', writer: 'setGuestListFinalized' },
   /* ── Suppliers ⚙ (owner 2026-10-27, "SUPPLIERS GETS ITS ⚙ — THE SUPPLIER SETTINGS MOVE THERE"; reverses call 3) ── */
@@ -76,6 +80,22 @@ export const DETAILS_ROWS_MOVED_TO_GUESTS = {
   'reply-by': 'reply-by',
   'list-closes': 'reply-by',
 } as const satisfies Record<string, SettingsRowKey>;
+
+/**
+ * 🗂 R1 · THE MAKER'S RSVP DOORS THAT LEFT FOR GUESTS ⚙ (owner 2026-10-28: *"all mapping will be kept"*). The Studio RSVP
+ * tile opened the Maker's Event Details item `rsvp`; its address — `/launch?tool=details&item=rsvp` (bookmarks, an old
+ * tour, a remembered link) — now lands on Guests ⚙ open on the row (`makerItemMovedHref`, the launch page's first
+ * step). Only the Reply page stays in the Maker: the Invitation stage's RSVP screens.
+ */
+export const MAKER_ITEMS_MOVED_TO_GUESTS = {
+  rsvp: 'asks',
+} as const satisfies Record<string, SettingsRowKey>;
+
+/** Where a Maker item address that moved now lands — Guests ⚙ on its row — or null when the item did not move. */
+export function makerItemMovedHref(eventId: string, item: string | undefined): string | null {
+  if (!item || !Object.prototype.hasOwnProperty.call(MAKER_ITEMS_MOVED_TO_GUESTS, item)) return null;
+  return guestsSettingsHref(eventId, MAKER_ITEMS_MOVED_TO_GUESTS[item as keyof typeof MAKER_ITEMS_MOVED_TO_GUESTS]);
+}
 
 /** Suppliers ⚙, open — and, with a row, scrolled to it. */
 export function suppliersSettingsHref(eventId: string, row?: SettingsRowKey): string {

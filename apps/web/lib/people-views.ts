@@ -67,6 +67,13 @@ export function resolvePeopleView(raw: string | null | undefined, g: PeopleViewG
   return (open as string[]).includes(want) ? (want as PeopleView) : defaultPeopleView(g);
 }
 
+/**
+ * 👥 People › Groups — where every group page, action and old link returns (owner 2026-10-28: *"an issue on groups is
+ * it makes us go back to groups which was not part of people. it did not return to people"*). The old standalone
+ * `/dashboard/samahan` index forwards here. `resolvePeopleView` opens Groups from `?view=samahan`.
+ */
+export const PEOPLE_GROUPS_HREF = '/dashboard/people?view=samahan';
+
 /** The URL of a view. The default view is the bare page, so the bell's
  *  `/dashboard/people` and the Connected row are one address. */
 export function peopleViewHref(view: PeopleView, g: PeopleViewGates): string {

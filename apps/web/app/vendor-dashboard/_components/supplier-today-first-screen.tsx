@@ -488,11 +488,6 @@ export function SupplierTodayFirstScreen({
   const nothingWaiting = !alsoWaitingHeaded && doors.length === 0 && !hasBills;
   const waitingBlock = (
     <UndoableAnswers>
-      {nothingWaiting ? (
-        <div className="[&>*:first-child]:border-t-0">
-          <TodayNoteRow label="Nothing waiting on you" line="New asks land here first" rowIcon="check" marker="waiting-empty" />
-        </div>
-      ) : null}
           {alsoWaiting}
           {doors.length > 0 ? (
             <div data-today-doors className={alsoWaitingHeaded ? undefined : '[&>*:first-of-type]:border-t-0'}>
@@ -523,8 +518,19 @@ export function SupplierTodayFirstScreen({
               {bills}
             </div>
           ) : null}
-      <ListDoor label="All customers" href="/vendor-dashboard/customers?lane=waiting#customers" />
     </UndoableAnswers>
+  );
+  /* The "waiting" count's list: the same block — said in words when nothing waits — and the door to all of it. */
+  const waitingPanel = (
+    <>
+      {nothingWaiting ? (
+        <div className="[&>*:first-child]:border-t-0">
+          <TodayNoteRow label="Nothing waiting on you" line="New asks land here first" rowIcon="check" marker="waiting-empty" />
+        </div>
+      ) : null}
+      {waitingBlock}
+      <ListDoor label="All customers" href="/vendor-dashboard/customers?lane=waiting#customers" />
+    </>
   );
 
   return (
@@ -644,7 +650,7 @@ export function SupplierTodayFirstScreen({
           toComeIn={numbers.toComeIn}
           gear={gear}
           panels={{
-            waiting: waitingBlock,
+            waiting: waitingPanel,
             week: (
               <div data-today-week="">
                 <div className="[&>*:first-child]:border-t-0">
@@ -718,7 +724,7 @@ export function SupplierTodayFirstScreen({
 
       {/* ④ ALSO WAITING — here on an event day and on a new shop; on any other day it is the "waiting" list under the
           pinned counts (above). */}
-      {numbers.day || setup ? waitingBlock : null}
+      {(numbers.day || setup) && !nothingWaiting ? waitingBlock : null}
 
       {/* ⑤ THE SHOP ROW — its state (Checking · Live · Not yet) — and how business is doing. */}
       <div data-today-shop data-tour="today-shop">

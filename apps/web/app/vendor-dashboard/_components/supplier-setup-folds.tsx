@@ -57,7 +57,7 @@ export function SupplierSetupFolds({
         <p className="home-k2 flex-1">Get your shop live</p>
         {gear}
       </div>
-      <p className="text-[17px] font-semibold text-ink" data-setup-headline="" aria-live="polite">
+      <p className="text-[24px] font-bold leading-tight text-ink" data-setup-headline="" aria-live="polite">
         {setupHeadline(view)}
       </p>
       <div
@@ -70,7 +70,7 @@ export function SupplierSetupFolds({
         data-setup-bar={view.done}
       >
         <span
-          className="block h-full rounded-full bg-sn-accent transition-[width] duration-500 ease-out motion-reduce:transition-none"
+          className="block h-full rounded-full bg-[rgb(var(--color-ok))] transition-[width] duration-500 ease-out motion-reduce:transition-none"
           style={{ width: `${pct}%` }}
         />
       </div>
@@ -85,7 +85,7 @@ export function SupplierSetupFolds({
             line={f.line}
             open={open === f.key}
             onOpenChange={(o) => setOpen(o ? f.key : open === f.key ? null : open)}
-            lead={<StepChip n={f.n} done={f.done} />}
+            lead={<StepChip n={f.n} done={f.done} open={open === f.key} />}
             aside={
               f.badge ? (
                 <Badge tone={f.badge.tone} data={`setup-${f.key}`}>
@@ -113,16 +113,21 @@ export function SupplierSetupFolds({
 }
 
 /** The step's round chip — its number, or ✓ once the saved fact says it is done (prototype `.chip`). */
-function StepChip({ n, done }: { n: number; done: boolean }) {
+function StepChip({ n, done, open }: { n: number; done: boolean; open: boolean }) {
+  // ✓ green once done · the open step in the accent (prototype `.step.open .chip`) · otherwise the soft gold wash.
   return (
     <span
       aria-hidden
       data-setup-chip={done ? 'done' : String(n)}
-      className={`grid h-9 w-9 flex-none place-items-center rounded-full text-[14px] font-semibold ${done ? 'text-[rgb(var(--color-ok))]' : 'text-ink/70'}`}
+      className={`grid h-9 w-9 flex-none place-items-center rounded-full text-[14px] font-semibold transition-colors duration-200 motion-reduce:transition-none ${
+        done ? 'text-[rgb(var(--color-ok))]' : open ? 'bg-sn-accent text-[rgb(var(--sn-on-accent))]' : 'text-ink/70'
+      }`}
       style={{
         background: done
           ? 'color-mix(in srgb, rgb(var(--color-ok)) 14%, transparent)'
-          : 'color-mix(in srgb, rgb(var(--color-gild)) 16%, transparent)',
+          : open
+            ? undefined
+            : 'color-mix(in srgb, rgb(var(--color-gild)) 16%, transparent)',
       }}
     >
       {done ? <Check className="h-[18px] w-[18px]" strokeWidth={2.2} /> : formatCount(n)}

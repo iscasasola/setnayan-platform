@@ -169,11 +169,15 @@ test('the Overview passes the payday measurement through to what it prints', () 
   assert.equal(all(s, 'toComeIn: view.numbers.toComeInPhp === null ? null : formatPesoCompact(view.numbers.toComeInPhp * 100)').length, 1, 'an unread payday is no longer handed on as "not read"');
   assert.equal(all(s, "=== null ? '—'").length, 0, 'the bare dash is back — an unread payday must be said in words');
   assert.equal(all(s, 'earnings.confirmedPhp').length, 0, 'Today prints a payday figure again without asking whether payday was read');
+  // 📌 Since 2026-10-28 the number is the pinned row's filter (`TodayCounts`): the first screen hands the null on, and
+  // the count says "couldn't load" in its own place (its list says so too — `the-counts-filter-in-place.test.ts`).
   const screen = src('app/vendor-dashboard/_components/supplier-today-first-screen.tsx');
-  assert.match(screen, /numbers\.toComeIn === null \? \(\s*<Unread \/>/, 'the first screen no longer says "couldn’t load" for an unread payday');
-  assert.match(screen, /couldn&rsquo;t load/, 'the unread number lost its words');
+  assert.match(screen, /toComeIn=\{numbers\.toComeIn\}/, 'the first screen no longer hands an unread payday on as unread');
+  const counts = src('app/vendor-dashboard/_components/today-counts.tsx');
+  assert.match(counts, /\{value === null \? \(/, 'the pinned count no longer says when it could not read');
+  assert.match(counts, /couldn&rsquo;t load/, 'the unread number lost its words');
   const today = src('lib/supplier-today.ts');
   assert.equal(all(today, 'if (!earnings || !earnings.paydayMeasured) return null;').length, 1);
   const lib = src('lib/vendor-overview.ts');
-  assert.equal(all(lib, 'paydayMeasured: paydayTotals !== null').length, 1);
+  assert.equal(all(lib, 'paydayMeasured: payday !== null').length, 1);
 });

@@ -108,6 +108,9 @@ export function Fold({
     if (controlled) onOpenChange?.(value);
     else setOwnOpen(value);
   };
+  // The anchor below opens through the newest setter (a controlled fold's changes every render).
+  const setOpenRef = useRef(setOpen);
+  setOpenRef.current = setOpen;
   // "Settled" = open AND the height has finished moving. Only then may a popover spill out.
   const [settled, setSettled] = useState(defaultOpen);
   useEffect(() => {
@@ -127,7 +130,7 @@ export function Fold({
     if (!anchor) return;
     const apply = () => {
       if (window.location.hash !== `#${anchor}`) return;
-      setOpen(true);
+      setOpenRef.current(true);
       requestAnimationFrame(() => box.current?.scrollIntoView({ block: 'start' }));
     };
     apply();

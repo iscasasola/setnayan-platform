@@ -347,8 +347,9 @@ export function assembleSupplierToday(input: SupplierTodayInput): SupplierTodayV
     comingUp: ahead.slice(0, 3).map((a) => a.row),
     week: [...todayRow, ...week],
     money:
-      input.earnings && input.earnings.paydayMeasured
-        ? (input.earnings.owed ?? []).map((o) => ({
+      // Not read (an event day reads no payday) or not cut per booking → unknown, said so — never an empty list.
+      input.earnings && input.earnings.paydayMeasured && input.earnings.owed
+        ? input.earnings.owed.map((o) => ({
             id: `owed-${o.eventId}`,
             href: customerCardHref(o.eventId, 'quote'),
             label: o.eventName,

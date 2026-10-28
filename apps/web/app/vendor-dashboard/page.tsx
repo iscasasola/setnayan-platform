@@ -92,7 +92,7 @@ import { resolveFeeEnforcement } from '@/lib/vendor-event-fee-access.server';
 import { SupplierSetupScreen } from './_components/supplier-setup-screen';
 import { TodaySettings } from './_components/today-settings';
 import { loadDetailsData } from './profile/details-data';
-import { NewServiceMaker } from './services/_components/new-service-maker';
+import { NewServiceMaker } from './services/new/_components/new-service-maker';
 import { loadKindDetails, loadMakerContext } from '@/lib/service-card-maker.server';
 import { renderUrlQrSvg } from '@/lib/qr';
 import { buildVendorInviteUrl } from '@/lib/vendor-couple-invite';

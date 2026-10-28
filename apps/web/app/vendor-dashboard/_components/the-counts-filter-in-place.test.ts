@@ -152,8 +152,10 @@ test('2 · each count shows ITS list in place — the week list is what "this we
   assert.deepEqual(labels, ['Ocampo debut', 'Cruz wedding'], 'the money list is not who owes, most urgent first');
   assert.match(text(money), /₱15,000 · overdue/);
   assert.match(text(money), /₱42,000 · due/);
-  const sum = (view.money ?? []).length;
-  assert.equal(sum, 2);
+  assert.equal((view.money ?? []).length, 2);
+  // The list IS the total: what the rows owe adds up to "to come in" (booked less confirmed) — one read, one answer.
+  const { owedToYouPhp } = await import('@/lib/supplier-today');
+  assert.equal(owedToYouPhp({ confirmedPhp: 78000, expectedPhp: 135000, paydayMeasured: true }), 42000 + 15000, 'the money list does not add up to "to come in"');
   assert.match(money, /data-today-list-door=""/, 'the money list has no door to Payday');
 });
 

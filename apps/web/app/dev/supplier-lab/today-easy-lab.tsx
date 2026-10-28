@@ -321,7 +321,15 @@ export function TodayEasyLab({ sup: supKey, moment, actions, library = false, ra
     findability: null,
     feeBills: bills,
     feeEnforced: true, // production measured 2026-10-14: the fee lock IS enforced
-    earnings: { confirmedPhp: 0, expectedPhp: setup ? 0 : sup.owedPhp, paydayMeasured: true },
+    earnings: {
+      confirmedPhp: 0,
+      expectedPhp: setup ? 0 : sup.owedPhp,
+      paydayMeasured: true,
+      // 💰 Who owes it — the same total, cut per booking (the "to come in" count's list, 2026-10-28).
+      owed: !setup && sup.owedPhp > 0 && sup.upcoming[0]
+        ? [{ eventId: sup.upcoming[0].eventId, eventName: sup.upcoming[0].eventName, owedPhp: sup.owedPhp, nextDue: '2026-10-30', overdue: false }]
+        : [],
+    },
     credit: setup || !sup.credit ? null : { ...sup.credit, href: '/vendor-dashboard/subscription' },
     gift: labGiftDoor ? { ...labGiftDoor, href: '/vendor-dashboard/subscription' } : null,
     payoutReadiness: setup ? 'unreadable' : sup.payout,

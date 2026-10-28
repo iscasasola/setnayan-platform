@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Plus } from 'lucide-react';
 import { Badge } from '@/app/_components/badge';
+import { ActionButton } from '@/components/action-button';
 import { Sheet } from '@/app/_components/sheet';
 import { formatCount } from '@/lib/format-number';
 import { formatPhp } from '@/lib/orders';
@@ -75,16 +76,21 @@ export function SetupOfferFold({ services, maker }: { services: readonly OfferFo
                   {formatCount(Math.min(s.cards.length, CARDS_PER_SERVICE))} of {formatCount(CARDS_PER_SERVICE)}
                 </span>
               </span>
+              {s.cards.length === 0 ? (
+                /* Nothing made yet for this service: one Start, the prototype's "＋ Start" (the maker, as a sheet). */
+                <ActionButton tone="neutral" icon={Plus} label="Start" name={`Start — ${s.label}`} onClick={() => setOpen(true)} aria-haspopup="dialog" data-testid={`setup-start-${s.service}`} />
+              ) : null}
               <Badge tone={s.toGo > 0 ? 'wait' : 'ok'} data="setup-service">
                 {s.toGo > 0 ? toGoWord(s.toGo) : `${formatCount(CARDS_PER_SERVICE)} of ${formatCount(CARDS_PER_SERVICE)} ✓`}
               </Badge>
             </div>
+            {s.cards.length === 0 ? null : (
             <div className="grid grid-cols-3 gap-2">
               {SERVICE_TIERS.map((tier, i) => {
                 const c = s.cards[i];
                 return c ? (
                   <div key={tier} data-setup-card={tier} className="min-w-0 px-1 py-2">
-                    <small className="block text-[10.5px] font-semibold uppercase tracking-[0.08em] text-ink/55">{tier}</small>
+                    <small className="block text-[10.5px] font-semibold uppercase tracking-[0.08em] text-sn-accent">{tier}</small>
                     <b className="block truncate text-[13.5px] font-semibold text-ink">{c.title?.trim() || s.label}</b>
                     <span className="block text-[12.5px] text-ink/65">{c.pricePhp == null ? 'No price yet' : `from ${formatPhp(c.pricePhp)}`}</span>
                   </div>
@@ -93,6 +99,7 @@ export function SetupOfferFold({ services, maker }: { services: readonly OfferFo
                 );
               })}
             </div>
+            )}
           </div>
         ))
       )}

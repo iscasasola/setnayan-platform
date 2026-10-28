@@ -1,5 +1,5 @@
-import { CanvasMaker } from './canvas-maker';
-import { RefinementsEditor } from './refinements-editor';
+import { CanvasMaker } from '../../_components/canvas-maker';
+import { RefinementsEditor } from '../../_components/refinements-editor';
 import type { MakerContext, loadKindDetails } from '@/lib/service-card-maker.server';
 
 /**

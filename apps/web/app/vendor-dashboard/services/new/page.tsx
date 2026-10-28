@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { NewServiceMaker } from '../_components/new-service-maker';
+import { NewServiceMaker } from './_components/new-service-maker';
 import { canvasMakerEnabled } from '@/lib/canvas-maker-flag';
 import { SERVICE_PICKER_HREF } from '@/lib/service-picker-anchor';
 import { loadKindDetails, loadMakerContext } from '@/lib/service-card-maker.server';

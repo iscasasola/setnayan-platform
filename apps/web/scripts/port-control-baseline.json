@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "2a2466e4a6",
+  "generatedFromRef": "5dcea85e11",
   "routeCount": 479,
   "destinations": 987,
   "actions": 642,
-  "blocks": 7283,
+  "blocks": 7286,
   "routes": {
     "/": {
       "files": [
@@ -11768,6 +11768,7 @@
         "Fix",
         "GalleryMedia",
         "KeptNotesFold",
+        "LabEarnedLine",
         "LabSeedDraft",
         "LibraryLab",
         "Link",
@@ -14143,6 +14144,7 @@
         "vendor-dashboard/customers/_components/dates-folds.tsx",
         "vendor-dashboard/customers/_components/dates-row.tsx",
         "vendor-dashboard/customers/_components/dates-sheets.tsx",
+        "vendor-dashboard/customers/_components/day-open-switch.tsx",
         "vendor-dashboard/customers/_components/day-sheet.tsx",
         "vendor-dashboard/customers/_components/money-figures.tsx",
         "vendor-dashboard/customers/_components/money-log.tsx",
@@ -14213,6 +14215,7 @@
         "DateRow",
         "DatesFolds",
         "DatesRow",
+        "DayOpenSwitch",
         "DayPart",
         "DaySheet",
         "DaysSettings",
@@ -14264,6 +14267,7 @@
         "SupplierThumbRow",
         "SupplierToast",
         "Suspense",
+        "SwitchRow",
         "SwitchTrack",
         "ThreadArchiveToggle",
         "ThumbRow",

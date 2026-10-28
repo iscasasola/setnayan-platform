@@ -1083,6 +1083,8 @@ export default async function EventHomePage({
     <HomeFirstScreen
       eventId={eventId}
       cover={homeCover0}
+      /* ⚙ Event Settings on the cover — the couple's, who change the event's own facts (owner 2026-10-29). */
+      eventSettings={viewerMemberType === 'couple'}
       next={homeNext}
       control={homeControl}
       services={homeServiceRowAll}

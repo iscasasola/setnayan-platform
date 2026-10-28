@@ -68,6 +68,7 @@
 import { CoordinatingLine } from '@/app/dashboard/[eventId]/_components/coordinating-line';
 import { CoordinatorLevelAsk } from '@/app/dashboard/[eventId]/_components/coordinator-level-ask';
 import { levelCardTitle } from '@/lib/coordinator-access-level';
+import { labEventSettingsRows } from './lab-event-settings';
 import { PapicBuySheet } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-buy-sheet';
 import { PapicCameraSettings, PapicSwitch } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-camera-settings';
 import { ChallengeCardRow } from '@/app/dashboard/[eventId]/studio/papic/_components/challenge-card-row';
@@ -482,6 +483,9 @@ export default async function HomeLab({
       ) : null}
       <HomeFirstScreen
         eventId={E}
+        /* ⚙ Event Settings on the cover — its rows drawn on the lab's fixture (`lab-event-settings.tsx`), no database. */
+        eventSettings
+        eventSettingsRows={labEventSettingsRows(E)}
         cover={{ eyebrow: F.eyebrow, shortDate: F.shortDate, name: F.name, ...(labForWho ? { forWho: labForWho } : {}) }}
         next={next}
         control={labControl}

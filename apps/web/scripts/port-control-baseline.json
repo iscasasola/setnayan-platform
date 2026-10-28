@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "2c59636712",
+  "generatedFromRef": "842538d537",
   "routeCount": 479,
   "destinations": 986,
   "actions": 642,
-  "blocks": 7288,
+  "blocks": 7291,
   "routes": {
     "/": {
       "files": [
@@ -5980,6 +5980,7 @@
         "GovernedFieldResult",
         "GroupIcon",
         "GuestCardPerson",
+        "GuestCardResult",
         "GuestCardSheet",
         "GuestConfirmActions",
         "GuestLike",
@@ -11259,7 +11260,9 @@
         "DayPapicRow",
         "EventPoster",
         "EventPosterFacts",
+        "EventTeamPresenceLab",
         "HomeFirstScreen",
+        "HomeWhosHereCard",
         "HubProOffer",
         "LabBoard",
         "LabShell",

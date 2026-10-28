@@ -209,7 +209,7 @@ export function EditableRow({
                 plain-input id equals its item key. */}
             <label
               htmlFor={item.key}
-              className="min-w-0 flex-1 truncate text-sm"
+              className={flat ? 'min-w-0 flex-1 text-sm leading-tight' : 'min-w-0 flex-1 truncate text-sm'}
               style={{ color: 'var(--m-ink)' }}
             >
               {item.label}
@@ -237,7 +237,7 @@ export function EditableRow({
             ref={formRef}
             action={formAction}
             noValidate
-            className={flat ? 'w-[200px] max-w-[55%] flex-none' : 'mt-2 pl-9'}
+            className={flat ? 'w-[180px] max-w-[50%] flex-none' : 'mt-2 pl-9'}
             onSubmit={() => {
               dirty.current = false;
             }}

@@ -33,6 +33,12 @@ Guards: `setup-is-done-in-place.test.ts` · `the-counts-filter-in-place.test.ts`
 four maker guards (read the page with its drawing). The setup reads hang off the one shop-row read, so Today stays
 ≤ 8 trips deep (`the-supplier-today-reads-together`). Ugat screens map regenerated.
 
+Review round (controller, 2026-10-28): the setup steps' mounted editor draws house FORM ROWS (`flat` on
+`ProfileChecklistEditor` / `EditableRow` — a hairline between rows, label left · answer right, no card; same save
+logic); the pinned counts row is FIRST and the Next card sits under it (the first-tap guard re-aimed to the approved
+prototype, with the reason); the fee row is title + one line (amount · due), the "introduced" sentence in the title's
+ⓘ and the lock sentence behind one short line's ⓘ; the pressed count is the prototype's filled pill.
+
 SPEC IMPACT: corpus `DECISION_LOG.md` — an "AS BUILT" row under the 2026-10-28 supplier-dashboard approval (what
 shipped, what waits on data that does not exist: per-paper document states, per-kind notification switches + quiet
 hours, Run-the-day defaults).

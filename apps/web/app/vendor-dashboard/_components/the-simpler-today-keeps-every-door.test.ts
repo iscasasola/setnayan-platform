@@ -254,6 +254,8 @@ test('4 · every unpaid fee has its Pay and its introduced line; the lock is sai
   // the couple is said in the title's ⓘ — still on the row, never dropped.
   assert.match(t, /Booking fee · Lim & Tan wedding i Setnayan introduced this couple to you on Oct 12, 2026\. ₱4,250\.00 · due Tue 20 Oct/);
   assert.match(rows[0]!, /role="tooltip"[^>]*>[\s\S]*?data-fee-introduced=""/, 'the introduced line is not in the title’s ⓘ');
+  const visibleLine = rows[0]!.match(/<span class="block truncate text-\[13px\][^"]*"[^>]*>([\s\S]*?)<\/span>/)?.[1] ?? '';
+  assert.match(visibleLine, /^₱4,250\.00 · due Tue 20 Oct$/, `the row's one visible line is more than the amount and the day: ${visibleLine}`);
   assert.match(t, /Booking fee · Cruz wedding ₱4,250\.00 · overdue since Sat 10 Oct/);
   // The lock: once, the gate's own sentence.
   assert.equal((html.match(/data-fee-lock-line=""/g) ?? []).length, 1);

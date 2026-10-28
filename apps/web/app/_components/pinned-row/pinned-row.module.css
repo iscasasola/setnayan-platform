@@ -1,0 +1,109 @@
+/*
+ * pinned-row.module.css — the app's ONE pinned row (owner 2026-10-27 template; 2026-10-28 People; part 2 next).
+ * House pieces only (owner 2026-10-28, "follow our design format templates"): the picker is the shipped `PickMenu`
+ * as it is, the action is the shared `ActionButton` (button-rule tones), the ⚙ is `MenuSettingsButton`. This file only
+ * lays them on one line and draws the count doors the way the Guests pinned row draws its doors (`button.pinCount` in
+ * guests-screen.module.css): no frame, the number bold, pressed = the number underlined. Colour tokens only.
+ * 🔒 lib/the-pinned-row-is-one-row.test.ts (one line at 390) · people/the-people-pinned-row.test.ts
+ */
+
+/* ONE 44-px line inside the page's sticky block, the same box at rest and pinned — nothing under it moves. Once the
+   page has scrolled under it (`data-stuck`, written by the row) a divider fades in under it (opacity only, 220 ms;
+   none under reduced motion). */
+.pin {
+  position: relative;
+  display: flex;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  align-items: center;
+  gap: 4px;
+  height: 44px;
+  min-width: 0;
+}
+.pin::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -8px;
+  height: 1px;
+  background: rgb(var(--color-ink) / 0.1);
+  opacity: 0;
+  transition: opacity 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  pointer-events: none;
+}
+.pin[data-stuck]::after {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pin::after {
+    transition: none;
+  }
+}
+.pinPick {
+  display: inline-flex;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+/* The doors are the part that gives: they shrink and clip, never push the action or the ⚙ off the line. */
+.pinDoors {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+}
+/* A count door — the Guests pinned row's door: no frame, a 44-px target, the number bold, the word quiet. */
+.pinDoor {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  min-height: 44px;
+  align-self: stretch;
+  align-items: center;
+  padding: 0 5px;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 13.5px;
+  white-space: nowrap;
+  color: rgb(var(--color-ink) / 0.7);
+  cursor: pointer;
+}
+.pinDoor b {
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: rgb(var(--color-ink));
+  text-underline-offset: 4px;
+  text-decoration-thickness: 2px;
+}
+.pinDoor.hot,
+.pinDoor.hot b {
+  color: rgb(var(--color-mulberry-700));
+}
+/* Pressed = filtering to this door: the number underlined (the Guests door's pressed look). */
+.pinDoor[aria-pressed='true'] b {
+  text-decoration-line: underline;
+}
+.pinDoor:focus-visible {
+  outline: 2px solid rgb(var(--color-mulberry));
+  outline-offset: -2px;
+  border-radius: var(--m-r-sm);
+}
+.pinNote {
+  font-size: 13px;
+  color: rgb(var(--color-ink) / 0.6);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pinSpace {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.pinAct {
+  display: inline-flex;
+  flex: 0 0 auto;
+}

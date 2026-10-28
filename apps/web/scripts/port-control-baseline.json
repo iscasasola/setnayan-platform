@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "fd7a578bc9",
+  "generatedFromRef": "a6ffcf9137",
   "routeCount": 479,
   "destinations": 986,
   "actions": 642,
-  "blocks": 7230,
+  "blocks": 7250,
   "routes": {
     "/": {
       "files": [
@@ -5310,6 +5310,9 @@
         "dashboard/(account)/people/_components/find-or-invite.tsx",
         "dashboard/(account)/people/_components/follow-list-view.tsx",
         "dashboard/(account)/people/_components/found-person-card.tsx",
+        "dashboard/(account)/people/_components/group-chat-rows.tsx",
+        "dashboard/(account)/people/_components/people-groups-view.tsx",
+        "dashboard/(account)/people/_components/people-pinned-row.tsx",
         "dashboard/(account)/people/_components/people-roster-view.tsx",
         "dashboard/(account)/people/_components/people-thumb.tsx",
         "dashboard/(account)/people/_components/people-view-picker.tsx",
@@ -5352,7 +5355,6 @@
         "ConfirmForm",
         "ConnectionTreeSection",
         "CopyButton",
-        "CountDoor",
         "DependentKind",
         "DependentsSection",
         "Drawer",
@@ -5363,6 +5365,7 @@
         "FollowRowItem",
         "FoundPersonCard",
         "Frame",
+        "GroupChatRows",
         "GroupsFoldList",
         "GroupsFoldSection",
         "GuestConfirmActions",
@@ -5379,10 +5382,16 @@
         "Layer",
         "LifeStorySection",
         "Link",
+        "MenuSettingsButton",
         "PageMasthead",
         "PeopleFilter",
+        "PeopleGroupRows",
+        "PeopleGroupsView",
+        "PeoplePinnedRow",
         "PeoplePreview",
         "PeopleRosterView",
+        "PeopleSettings",
+        "PeopleSettingsRows",
         "PeopleThumb",
         "PeopleViewPicker",
         "Person",
@@ -5391,6 +5400,7 @@
         "PersonNameLink",
         "PersonRow",
         "PickMenu",
+        "PinnedRow",
         "PlanTogether",
         "Popover",
         "PreviewRow",
@@ -5398,6 +5408,7 @@
         "SamahanPeopleSection",
         "Spotlight",
         "SubmitButton",
+        "SwitchRow",
         "T",
         "ThumbField",
         "ThumbTool",
@@ -5509,6 +5520,7 @@
     },
     "/dashboard/(account)/samahan": {
       "files": [
+        "dashboard/(account)/samahan/_components/mark-group-read.tsx",
         "dashboard/(account)/samahan/actions.ts",
         "dashboard/(account)/samahan/page.tsx"
       ],
@@ -5525,6 +5537,7 @@
         "dashboard/(account)/samahan/[communityId]/_components/member-actions-menu.tsx",
         "dashboard/(account)/samahan/[communityId]/_components/samahan-identity-header.tsx",
         "dashboard/(account)/samahan/[communityId]/_components/samahan-stories.tsx",
+        "dashboard/(account)/samahan/[communityId]/layout.tsx",
         "dashboard/(account)/samahan/[communityId]/page.tsx"
       ],
       "destinations": [
@@ -5553,6 +5566,7 @@
         "HTMLVideoElement",
         "InfoTip",
         "Link",
+        "MarkGroupRead",
         "MediaRecorder",
         "MediaStream",
         "MemberActionsMenu",
@@ -6080,6 +6094,7 @@
         "QrActions",
         "QrBody",
         "ReadRefusedNotice",
+        "ReadyForNoSignal",
         "RecordLinkBlock",
         "Remaining",
         "RepliesWindowRows",
@@ -6969,12 +6984,14 @@
         "CheckinActionResult",
         "CheckinDesk",
         "CheckinMethod",
+        "DeskSavedMark",
         "GuestAvatar",
         "HTMLVideoElement",
         "Link",
         "LiveRefresher",
         "MediaStream",
         "NotSharedWithYou",
+        "OfflineQueue",
         "ReadRefusedNotice",
         "RoleNamesProvider",
         "TicketCheck",
@@ -11210,6 +11227,7 @@
       "files": [
         "dev/home-lab/apply-pro-sheet-lab.tsx",
         "dev/home-lab/lab-spotlight.tsx",
+        "dev/home-lab/offline-lab.tsx",
         "dev/home-lab/page.tsx"
       ],
       "destinations": [
@@ -11220,6 +11238,7 @@
         "AppleProScreen",
         "ApplyProSheetLab",
         "ChallengeCardRow",
+        "CheckinDesk",
         "CollectionCard",
         "CollectionGrid",
         "CoordinatingLine",
@@ -11232,15 +11251,18 @@
         "LabBoard",
         "LabShell",
         "LabSpotlight",
+        "OfflineLab",
         "PapicBuySheet",
         "PapicCameraHelp",
         "PapicCameraSettings",
         "PapicSwitch",
         "PapicTopBand",
         "ProLockPanel",
+        "ReadyForNoSignalView",
         "SiteMenuBar",
         "SpotlightMount",
         "StanceChip",
+        "SupplierSavedStripView",
         "YourServices",
         "YourShotsGallery"
       ]
@@ -11505,8 +11527,10 @@
         "FoundPersonCard",
         "GroupsFoldList",
         "LabTour",
+        "PeopleGroupsView",
         "PeopleRosterView",
         "RosterPerson",
+        "SecondDegreeStandIn",
         "SpotlightMount",
         "TreeStandIn"
       ]
@@ -13490,6 +13514,7 @@
         "MiniTour",
         "NextCard",
         "NotConnected",
+        "OfflineViewerScript",
         "PageMasthead",
         "PaidMark",
         "PaymentsPausedNote",
@@ -14582,6 +14607,7 @@
         "ShotListStatus",
         "ShotListWriteResult",
         "SongDeskGate",
+        "SupplierSavedStrip",
         "Tag",
         "VendorStatusUpdates"
       ]

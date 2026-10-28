@@ -65,6 +65,7 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
   { table: 'community_members', decision: 'exported', as: 'samahan_memberships' },
   { table: 'samahan_stories', decision: 'exported', as: 'samahan_stories' },
   { table: 'samahan_messages', decision: 'exported', as: 'samahan_messages' },
+  { table: 'samahan_reads', decision: 'exported', as: 'samahan_memberships' },
   { table: 'vendor_profiles', decision: 'exported', as: 'vendor_profile' },
   { table: 'papic_free_grant_claims', decision: 'exported', as: 'papic_free_grant' },
   { table: 'event_deletion_requests', decision: 'exported', as: 'event_deletion_requests' },

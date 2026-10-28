@@ -48,6 +48,7 @@ import { Spotlight } from '@/app/_components/spotlight';
 import { SupplierPageSpotlight } from './_components/supplier-page-spotlight';
 import { completeTour } from '@/lib/tour-actions';
 import { SERVICE_MAKER_HREF } from '@/lib/service-picker-anchor';
+import { OfflineViewerScript } from '@/app/_components/offline-ready/offline-viewer-script';
 
 /**
  * Vendor dashboard layout — the shop, under the ONE shell.
@@ -521,6 +522,8 @@ export default async function VendorDashboardLayout({
 
   return (
     <div className="app-surface">
+      {/* 📶 Tell the worker who is signed in — any other account's saved event pages are erased (EV3). */}
+      <OfflineViewerScript viewer={user.id} />
       {/*
         ── ONE SHELL, SLICE 2 (2026-08-14) ──────────────────────────────────
         The shared front-door rail wraps the vendor tree, carrying this

@@ -483,9 +483,11 @@ export async function buildPersonalDataExport(
     // RA 10173 (2026-07-17) — samahan memberships: the group's user-chosen
     // name, the subject's role, and when they joined. No kind/category exists
     // by design (owner 2026-07-17 — the platform never classifies groups).
+    // + (2026-10-28, group unread) when the subject last READ each group — `samahan_reads`, their own marker only
+    // (RLS: Pattern A self), embedded under the group so it rides the same row.
     supabase
       .from('community_members')
-      .select('role, joined_at, communities(public_id, name)')
+      .select('role, joined_at, communities(public_id, name, samahan_reads(last_read_at))')
       .eq('user_id', user.id)
       .order('joined_at', { ascending: true }),
     // RA 10173 (2026-08-24) — samahan stories the subject posted that are

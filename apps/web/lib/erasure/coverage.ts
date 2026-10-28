@@ -1318,6 +1318,11 @@ export const OWN_ROW_DELETES: ReadonlyArray<{
     why: 'The subject’s own read cursors. Pseudonymous, no counterparty value — the thread itself is untouched.',
   },
   {
+    table: 'samahan_reads',
+    column: 'user_id',
+    why: 'The subject’s own group read markers (group unread, 2026-10-28). No counterparty value — the group and its messages are untouched. CASCADE + NOT NULL as well.',
+  },
+  {
     table: 'guest_saved_vendors',
     column: 'user_id',
     why: 'The subject’s private saved-vendor list, keyed to them alone.',

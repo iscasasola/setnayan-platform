@@ -1,11 +1,13 @@
 'use client';
 
+import { useState } from 'react';
 import { ChevronDown, Printer, RefreshCw } from 'lucide-react';
 
 import { ActionButton } from '@/components/action-button';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { coordinatorOfflinePaths, savedMark, type SavedMark } from '@/lib/offline-copies';
+import { saveFileToDevice } from '@/lib/save-to-device';
 
 import { SavedMarkLine } from './saved-mark-line';
 import { useOfflineCopy } from './use-offline-copy';
@@ -88,16 +90,28 @@ export function ReadyForNoSignalView({
     chart: `/dashboard/${e}/seating/print?chart=table&format=pdf`,
     'chart-az': `/dashboard/${e}/seating/print?chart=az&format=pdf`,
   };
-  const download = (key: string) => {
+  // 🖨 The print is drawn by the server (it needs signal — that is why it is printed BEFORE the venue), then handed
+  // to the device the house way (`saveFileToDevice`: the share sheet on a phone, a download on a computer).
+  const [printing, setPrinting] = useState<string | null>(null);
+  const [printNote, setPrintNote] = useState<string | null>(null);
+  const download = async (key: string) => {
     const href = prints[key];
-    if (!href) return;
-    const a = document.createElement('a');
-    a.href = href;
-    a.rel = 'noopener';
-    a.download = '';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+    if (!href || printing) return;
+    setPrinting(key);
+    setPrintNote(null);
+    try {
+      const res = await fetch(href, { credentials: 'same-origin' });
+      if (!res.ok) throw new Error(String(res.status));
+      const blob = await res.blob();
+      const named = /filename="?([^";]+)"?/i.exec(res.headers.get('Content-Disposition') ?? '')?.[1];
+      const result = await saveFileToDevice(new File([blob], named || `${key}.pdf`, { type: blob.type || 'application/pdf' }));
+      if (result === 'failed') setPrintNote('Couldn’t hand the file to this phone — try again.');
+      else if (result === 'expired') setPrintNote('The file is ready — press Print once more to save it.');
+    } catch {
+      setPrintNote('Couldn’t make the file — printing needs signal. Try again before you leave.');
+    } finally {
+      setPrinting(null);
+    }
   };
 
   return (
@@ -168,9 +182,14 @@ export function ReadyForNoSignalView({
             { key: 'chart', label: 'Seat chart · by table', icon: <Printer aria-hidden className="h-4 w-4" strokeWidth={1.75} /> },
             { key: 'chart-az', label: 'Seat chart · A to Z', icon: <Printer aria-hidden className="h-4 w-4" strokeWidth={1.75} /> },
           ]}
-          onPick={download}
+          onPick={(key) => void download(key)}
         />
       </div>
+      {printing ? (
+        <p role="status" className="text-[12.5px] text-ink/60">Making the file…</p>
+      ) : printNote ? (
+        <p role="alert" className="text-[12.5px] font-semibold text-danger-700">{printNote}</p>
+      ) : null}
 
       <details className="group border-t border-ink/10 pt-1" data-ready-fold="">
         <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 text-[15px] font-semibold text-ink">

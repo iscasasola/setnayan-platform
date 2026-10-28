@@ -119,6 +119,7 @@ import {
 import { isExploreReplanEnabled } from '@/lib/explore-replan-flag';
 import { benchFolderAnchorId, benchTileAnchorId, scrollBenchAnchor } from '@/lib/bench-anchors';
 import { dropPinRoom, makeRoomToPin } from '@/lib/pin-room';
+import { holdLandingLine, measureOpenHeads } from '@/lib/pin-landing';
 import { usePublishCoverRing, useCoverHeaderOwnsTheCount } from './cover-ring';
 import { benchSearchScopeForTile } from '@/lib/bench-category-search';
 import { CategorySearchOverlay } from './category-search-overlay';
@@ -3387,11 +3388,24 @@ export function ShortlistCategories({
       land();
     };
     row?.addEventListener('transitionend', settle);
+    // 📌 THE LINE MOVES BECAUSE OF THE LANDING (owner 2026-10-29, "it made the service card not placed properly"): a
+    // landing that scrolls up brings the phone's top bar back, `--stick-h` grows, and the head pinned over its own first
+    // card. The landing holds its line until the person scrolls (`lib/pin-landing.ts`).
+    const release = holdLandingLine(benchRef.current?.closest<HTMLElement>('[data-budget-build-takeover]') ?? null, land, {
+      row,
+      holder: benchRef.current,
+    });
     return () => {
       cancelAnimationFrame(frame);
       row?.removeEventListener('transitionend', settle);
+      release();
     };
   }, [landing]);
+  // Each open category carries its own head's height (`--cat-head-h`), so a card scrolled to lands under the head.
+  useEffect(
+    () => measureOpenHeads(benchRef.current, '.cat.open', ':scope > .cat-head-row'),
+    [openTile, openAll, folded],
+  );
   // Nothing open → no room held: the page is its own length again.
   useEffect(() => {
     if (!openTile && !openAll) dropPinRoom(benchRef.current);

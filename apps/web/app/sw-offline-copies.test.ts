@@ -89,7 +89,7 @@ function boot(o: { ua?: string; host?: string } = {}) {
       if (a.length) super(...(a as [string]));
       else super(clock.now);
     }
-    static now() {
+    static override now() {
       return clock.now;
     }
   }

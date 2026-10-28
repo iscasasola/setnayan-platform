@@ -52,6 +52,7 @@ test('2 · the supplier is told it is not public yet, and when it will be', () =
 
 test('3 · the guest’s one quiet line per supplier — the ruled words, counted from what is shown', () => {
   const g = {
+    key: 'v1',
     supplierName: 'Lumen Studio',
     photos: [
       { noticeId: 'a', photoId: 'pa', url: null, onPage: false, publicFrom: '2026-11-04T02:00:00Z' },
@@ -79,6 +80,9 @@ test('4 · grouping: removed notices leave the list; published ones stay (Remove
   assert.deepEqual(g[0]!.photos.map((p) => p.noticeId), ['1', '2']);
   assert.equal(g[0]!.photos[1]!.onPage, true);
   assert.equal(g[1]!.supplierName, 'A supplier');
+  assert.equal(g[0]!.key, 'v1', 'the group key is not the supplier — a Remove would remount and close the open list');
+  // Walk finding 2026-10-28: keyed on the FIRST photo, removing it remounted the group and closed "See them".
+  assert.match(src('app/[slug]/_components/supplier-page-notice-line.tsx'), /key=\{g\.key\}/);
 });
 
 test('5 · an event-album photo cannot be ADDED to the page by a save, nor put on a service card', () => {

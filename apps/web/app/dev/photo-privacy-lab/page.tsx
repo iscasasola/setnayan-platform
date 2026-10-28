@@ -28,6 +28,7 @@ const PAST = '2026-10-20T02:00:00Z';
 
 const GROUPS: GuestNoticeGroup[] = [
   {
+    key: 'v-lumen',
     supplierName: 'Lumen Studio',
     photos: [
       { noticeId: 'n1', photoId: 'p1', url: pic(0), onPage: false, publicFrom: SOON },
@@ -35,7 +36,7 @@ const GROUPS: GuestNoticeGroup[] = [
       { noticeId: 'n3', photoId: 'p3', url: pic(2), onPage: true, publicFrom: PAST },
     ],
   },
-  { supplierName: 'Bloom & Co', photos: [{ noticeId: 'n4', photoId: 'p4', url: pic(3), onPage: true, publicFrom: PAST }] },
+  { key: 'v-bloom', supplierName: 'Bloom & Co', photos: [{ noticeId: 'n4', photoId: 'p4', url: pic(3), onPage: true, publicFrom: PAST }] },
 ];
 
 export default async function PhotoPrivacyLabPage() {

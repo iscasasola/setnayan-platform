@@ -76,6 +76,8 @@ export type GuestNoticePhoto = {
 
 /** One supplier's line in a guest's Event Hub. */
 export type GuestNoticeGroup = {
+  /** Stable per supplier (its profile id) — the list's React key, so a Remove never remounts the open group. */
+  key: string;
   supplierName: string;
   photos: GuestNoticePhoto[];
 };
@@ -117,7 +119,7 @@ export function groupGuestNotices(rows: ReadonlyArray<GuestNoticeInputRow>): Gue
     if (r.removed_at) continue;
     let g = by.get(r.vendor_profile_id);
     if (!g) {
-      g = { supplierName: (r.supplier_name ?? '').trim() || 'A supplier', photos: [] };
+      g = { key: r.vendor_profile_id, supplierName: (r.supplier_name ?? '').trim() || 'A supplier', photos: [] };
       by.set(r.vendor_profile_id, g);
     }
     g.photos.push({ noticeId: r.notice_id, photoId: r.photo_id, url: r.url, onPage: r.published_at != null, publicFrom: r.public_from });

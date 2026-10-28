@@ -58,7 +58,7 @@ export function SupplierPageNoticeLine({
       ) : (
         shown.map((g) => (
           <SupplierGroup
-            key={g.supplierName + g.photos[0]!.noticeId}
+            key={g.key}
             eventId={eventId}
             group={g}
             remove={remove}

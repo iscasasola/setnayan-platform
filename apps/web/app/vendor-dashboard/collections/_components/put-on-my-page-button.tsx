@@ -1,7 +1,7 @@
 'use client';
 
 import { useActionState, useEffect } from 'react';
-import { Check, Clock, Store } from 'lucide-react';
+import { Check, Clock, EyeOff, Store } from 'lucide-react';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { SupplierSubmit } from '../../_components/supplier-submit';
 import { putAlbumPhotoOnMyPage, type PutOnPageResult } from '../actions';
@@ -37,7 +37,7 @@ export function PutOnMyPageButton({
 
   const now = state?.ok ? { state: state.state, publicFrom: state.publicFrom ?? '' } : notice;
   if (now && now.state !== 'taken_down') {
-    const Icon = now.state === 'on_page' ? Check : Clock;
+    const Icon = now.state === 'on_page' ? Check : now.state === 'removed_by_guest' ? EyeOff : Clock;
     return (
       <p
         data-put-on-my-page={photoId}

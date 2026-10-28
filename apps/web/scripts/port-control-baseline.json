@@ -1,5 +1,5 @@
 {
-  "generatedFromRef": "5dcea85e11",
+  "generatedFromRef": "cd137db2ee",
   "routeCount": 479,
   "destinations": 987,
   "actions": 642,
@@ -6260,8 +6260,8 @@
         "dashboard/[eventId]/budget/_components/budget-screen.tsx",
         "dashboard/[eventId]/budget/_components/budget-sheets.tsx",
         "dashboard/[eventId]/budget/_components/budget-summary.tsx",
-        "dashboard/[eventId]/budget/_components/print-budget-link.tsx",
         "dashboard/[eventId]/budget/_components/share-budget-band-toggle.tsx",
+        "dashboard/[eventId]/budget/_components/share-budget-button.tsx",
         "dashboard/[eventId]/budget/_components/suggest-milestones-button.tsx",
         "dashboard/[eventId]/budget/_components/tradition-notes.tsx",
         "dashboard/[eventId]/budget/actions.ts",
@@ -6270,8 +6270,8 @@
         "dashboard/[eventId]/budget/page.tsx"
       ],
       "destinations": [
-        "/api/budget/[seg]/export",
         "/api/budget/[seg]/export?format=csv",
+        "/api/budget/[seg]/export?format=pdf",
         "/api/budget/[seg]/ics",
         "/dashboard/[seg]/messages"
       ],
@@ -6312,14 +6312,14 @@
         "PageMasthead",
         "Peso",
         "PickMenu",
-        "PrintBudgetLink",
+        "PrintSaveButton",
         "R",
         "RecordCostResult",
         "RecordSheet",
-        "SaveFileLink",
         "SetEventBudgetResult",
         "SetShareBudgetBandResult",
         "ShareBudgetBandToggle",
+        "ShareBudgetButton",
         "Sheet",
         "Spotlight",
         "SuggestMilestonesResult",

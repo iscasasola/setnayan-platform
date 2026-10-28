@@ -23,6 +23,7 @@ import {
   SUPPLIER_PAGE_NOTICE_DAYS,
 } from './supplier-page-notice';
 import { isFromAlbumPageRef, keepOnlyNoticedAlbumRefs, withoutAlbumRefs } from './put-photo-on-my-page';
+import { planCleanupDelete, supplierPageAlbumCopyScope } from './cleanup-delete-scope';
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const src = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
@@ -116,7 +117,7 @@ test('6 · a takedown reaches the page copy’s FILE; the guest’s Remove is ga
   assert.ok(gate < pull, 'the Remove writes before it checks who is asking');
   assert.match(fn, /p_photo_id: sourceId, p_event_id: eventId/, 'the Remove is not bound to the event the cookie proved');
   assert.ok(pull < fn.indexOf(".from('user_reports')"), 'the page copy waits for a moderator — Remove must be immediate');
-  assert.match(fn, /await deleteSupplierPageCopy\(row\.page_ref\);/, 'the copied file stays after a Remove');
+  assert.match(fn, /await deleteSupplierPageCopy\(row\.vendor_profile_id, row\.page_ref\);/, 'the copied file stays after a Remove');
   assert.match(guest, /sourceTable: 'papic_photos' \| 'papic_guest_captures' \| 'vendor_papic_portfolio_photos'/);
 });
 
@@ -126,7 +127,7 @@ test('7 · the publish copies FIRST and asks SQL second; a refusal deletes the c
   const copy = body.indexOf('await r2Copy(');
   const rpc = body.indexOf("rpc('publish_supplier_page_photo'");
   assert.ok(copy > 0 && rpc > copy, 'the ref can reach the page before the file exists');
-  assert.match(body, /if \(ok === true\) published \+= 1;\s*else await deleteSupplierPageCopy\(n\.page_ref\);/, 'a refused publish leaves a copy behind');
+  assert.match(body, /if \(ok === true\) published \+= 1;\s*else await deleteSupplierPageCopy\(n\.vendor_profile_id, n\.page_ref\);/, 'a refused publish leaves a copy behind');
   assert.match(s, /runClaimedJob\('supplier-page-photo-publish', SUPPLIER_PAGE_PUBLISH_GAP_MS,/);
   // Dual-mounted: it serves suppliers, so it must not wait on an admin opening the console.
   assert.match(src('app/vendor-dashboard/layout.tsx'), /after\(\(\) => maybeRunSupplierPagePublish\(\)\.catch\(\(\) => \{\}\)\);/);
@@ -150,4 +151,12 @@ test('8 · the guest sees the line in the Event Hub whenever a notice exists —
   assert.match(line, /remove = removeFromSupplierPage,/, 'the Event Hub no longer defaults to the real takedown door');
   assert.doesNotMatch(src('app/[slug]/_components/site-body.tsx'), /<SupplierPageNoticeLine[^>]*remove=/, 'the Event Hub passes a stand-in Remove');
   assert.doesNotMatch(line, /router\.refresh|window\.location|redirect\(/, 'a Remove resets the screen');
+});
+
+test('9 · the page copy is deleted only inside THIS shop’s from-album folder', () => {
+  const scope = supplierPageAlbumCopyScope(SHOP);
+  assert.equal(planCleanupDelete(ALBUM_REF, scope).ok, true, 'the shop’s own page copy cannot be deleted');
+  assert.equal(planCleanupDelete(OWN_REF, scope).ok, false, 'the cleanup can delete the shop’s own uploads');
+  assert.equal(planCleanupDelete(ALBUM_REF.replace(SHOP, 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'), scope).ok, false, 'another shop’s copy');
+  assert.equal(planCleanupDelete(ALBUM_REF, supplierPageAlbumCopyScope('../x')).ok, false, 'a traversal id widened the scope');
 });

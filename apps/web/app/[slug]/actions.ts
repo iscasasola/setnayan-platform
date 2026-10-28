@@ -1617,9 +1617,9 @@ export async function askToTakeMyPhotoDown(
       console.error('[takedown] could not take it off the supplier page', off.error);
       return { ok: false, message: 'We couldn’t remove that just now. Please try again.' };
     }
-    const row = (Array.isArray(off.data) ? off.data[0] : off.data) as { status?: string; page_ref?: string | null } | null;
+    const row = (Array.isArray(off.data) ? off.data[0] : off.data) as { status?: string; page_ref?: string | null; vendor_profile_id?: string | null } | null;
     if (!row || row.status === 'not_found') return { ok: false, message: 'That photo is not on this event any more.' };
-    await deleteSupplierPageCopy(row.page_ref);
+    await deleteSupplierPageCopy(row.vendor_profile_id, row.page_ref);
     await revalidateSupplierPageOf(sourceId);
   }
 

@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6721
+# facts: 6734
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     571
-#   col       4930
-#   policy    953
+#   tpriv     572
+#   col       4940
+#   policy    955
 #   view      9
 #   func      254
 #
@@ -412,6 +412,7 @@ tpriv	public.songs|authenticated	SIUD
 tpriv	public.stewardship_transfers|anon	SIUD
 tpriv	public.stewardship_transfers|authenticated	SIUD
 tpriv	public.supplier_night_before_email_log|authenticated	SIUD
+tpriv	public.supplier_page_photo_notices|authenticated	S
 tpriv	public.taxonomy_category_requests|authenticated	SIUD
 tpriv	public.thread_calls|anon	SIUD
 tpriv	public.thread_calls|authenticated	SIUD
@@ -4038,6 +4039,16 @@ col	public.supplier_night_before_email_log.event_date	anon=- authenticated=SIU
 col	public.supplier_night_before_email_log.event_vendor_id	anon=- authenticated=SIU
 col	public.supplier_night_before_email_log.resend_id	anon=- authenticated=SIU
 col	public.supplier_night_before_email_log.sent_at	anon=- authenticated=SIU
+col	public.supplier_page_photo_notices.event_id	anon=- authenticated=SI
+col	public.supplier_page_photo_notices.notice_id	anon=- authenticated=S
+col	public.supplier_page_photo_notices.noticed_at	anon=- authenticated=S
+col	public.supplier_page_photo_notices.page_ref	anon=- authenticated=SI
+col	public.supplier_page_photo_notices.photo_id	anon=- authenticated=SI
+col	public.supplier_page_photo_notices.public_from	anon=- authenticated=S
+col	public.supplier_page_photo_notices.published_at	anon=- authenticated=S
+col	public.supplier_page_photo_notices.removed_at	anon=- authenticated=S
+col	public.supplier_page_photo_notices.removed_by	anon=- authenticated=S
+col	public.supplier_page_photo_notices.vendor_profile_id	anon=- authenticated=SI
 col	public.taxonomy_category_requests.created_at	anon=- authenticated=SIU
 col	public.taxonomy_category_requests.mapped_to_canonical	anon=- authenticated=SIU
 col	public.taxonomy_category_requests.proposed_by_vendor_id	anon=- authenticated=SIU
@@ -6183,6 +6194,8 @@ policy	public.songs|songs_authenticated_insert	mode=PERMISSIVE cmd=INSERT roles=
 policy	public.songs|songs_public_select	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=true check=NULL
 policy	public.stewardship_transfers|stewardship_transfers_participant_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=(( SELECT is_admin() AS is_admin) OR (from_user_id = ( SELECT auth.uid() AS uid)) OR (to_user_id = ( SELECT auth.uid() AS uid))) check=NULL
 policy	public.supplier_night_before_email_log|supplier_night_before_email_log_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
+policy	public.supplier_page_photo_notices|supplier_page_photo_notices_vendor_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))
+policy	public.supplier_page_photo_notices|supplier_page_photo_notices_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.taxonomy_category_request_drafts|taxonomy_category_request_drafts_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.taxonomy_category_requests|taxonomy_category_requests_admin_delete	mode=PERMISSIVE cmd=DELETE roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
 policy	public.taxonomy_category_requests|taxonomy_category_requests_admin_write	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)

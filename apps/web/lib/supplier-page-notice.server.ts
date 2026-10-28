@@ -3,7 +3,11 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { isR2Configured, r2Copy, r2Delete, r2SignedGet, R2_BUCKETS } from '@/lib/r2';
+import { isR2Configured, r2Copy, R2_BUCKETS } from '@/lib/r2';
+import { presignClientRef } from '@/lib/r2-client-ref.server';
+import { cleanupDelete } from '@/lib/cleanup-delete';
+import { supplierPageAlbumCopyScope } from '@/lib/cleanup-delete-scope';
+import { albumLaneOf } from '@/lib/put-photo-on-my-page';
 import { parseR2Ref } from '@/lib/nsfw-screen';
 import { runClaimedJob } from '@/lib/periodic-jobs';
 import { SUPPLIER_PAGE_PUBLISH_GAP_MS } from '@/lib/periodic-job-registry';
@@ -19,13 +23,16 @@ import { groupGuestNotices, type GuestNoticeGroup } from '@/lib/supplier-page-no
  * takedown is honoured. Words and grouping are pure, in `lib/supplier-page-notice.ts`.
  */
 
-/** Delete the page copy of an album photo. Best-effort: the ref is already off the page; an orphan is unreachable. */
-export async function deleteSupplierPageCopy(pageRef: string | null | undefined): Promise<void> {
-  if (!pageRef || !isR2Configured()) return;
-  const { bucket, key } = parseR2Ref(pageRef);
-  if (bucket !== R2_BUCKETS.media || !key.includes('/portfolio/from-album/')) return;
+/**
+ * Delete the page copy of an album photo — through the cleanup executor, scoped to THIS shop's `from-album/` folder
+ * (`supplierPageAlbumCopyScope`), so a ref read from a row can never delete anything else. Best-effort: the ref is
+ * already off the page; an orphan is unreachable (nothing signs a ref no gallery names).
+ */
+export async function deleteSupplierPageCopy(vendorProfileId: string | null | undefined, pageRef: string | null | undefined): Promise<void> {
+  if (!pageRef || !vendorProfileId || !isR2Configured()) return;
   try {
-    await r2Delete({ bucket: R2_BUCKETS.media, key });
+    const done = await cleanupDelete(pageRef, supplierPageAlbumCopyScope(vendorProfileId));
+    if (done === 'refused') console.error('[supplier-page-notice] refused to delete a page copy outside the shop folder');
   } catch (err) {
     console.error('[supplier-page-notice] could not delete the page copy', err);
   }
@@ -39,14 +46,15 @@ export async function deletePageCopyAfterTakedown(admin: SupabaseClient, photoId
   if (!photoId) return;
   const { data, error } = await admin
     .from('supplier_page_photo_notices')
-    .select('page_ref')
+    .select('page_ref, vendor_profile_id')
     .eq('photo_id', photoId)
     .maybeSingle();
   if (error) {
     logQueryError('supplierPageNotice.afterTakedown', error, { photoId });
     return;
   }
-  await deleteSupplierPageCopy((data as { page_ref?: string } | null)?.page_ref);
+  const row = data as { page_ref?: string; vendor_profile_id?: string } | null;
+  await deleteSupplierPageCopy(row?.vendor_profile_id, row?.page_ref);
 }
 
 /**
@@ -82,10 +90,10 @@ export async function readGuestSupplierPageNotices(eventId: string): Promise<Gue
     ((data ?? []) as unknown as Row[])
       .filter((r) => r.vendor_papic_portfolio_photos && !r.vendor_papic_portfolio_photos.hidden_at)
       .map(async (r) => {
+        // Signed only inside THIS shop's own album lane (the policy-validated signer), never the bucket a row names.
         const ref = r.vendor_papic_portfolio_photos?.r2_object_key ?? '';
-        const { key } = parseR2Ref(ref);
         const url = ref && isR2Configured()
-          ? await r2SignedGet({ bucket: R2_BUCKETS.media, key, expiresIn: 3600 }).catch(() => null)
+          ? await presignClientRef(ref, { bucket: R2_BUCKETS.media, prefixes: [albumLaneOf(r.vendor_profile_id)] }).catch(() => null)
           : null;
         return {
           notice_id: r.notice_id,
@@ -111,7 +119,7 @@ export async function publishDueSupplierPagePhotos(limit = 50): Promise<number> 
   const admin = createAdminClient();
   const { data, error } = await admin
     .from('supplier_page_photo_notices')
-    .select('notice_id, page_ref, vendor_papic_portfolio_photos(r2_object_key, hidden_at)')
+    .select('notice_id, page_ref, vendor_profile_id, vendor_papic_portfolio_photos(r2_object_key, hidden_at)')
     .is('published_at', null)
     .is('removed_at', null)
     .lte('public_from', new Date().toISOString())
@@ -121,6 +129,7 @@ export async function publishDueSupplierPagePhotos(limit = 50): Promise<number> 
   type Due = {
     notice_id: string;
     page_ref: string;
+    vendor_profile_id: string;
     vendor_papic_portfolio_photos: { r2_object_key: string | null; hidden_at: string | null } | null;
   };
   let published = 0;
@@ -142,7 +151,7 @@ export async function publishDueSupplierPagePhotos(limit = 50): Promise<number> 
       continue;
     }
     if (ok === true) published += 1;
-    else await deleteSupplierPageCopy(n.page_ref);
+    else await deleteSupplierPageCopy(n.vendor_profile_id, n.page_ref);
   }
   return published;
 }

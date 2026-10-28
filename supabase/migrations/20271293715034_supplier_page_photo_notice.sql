@@ -272,7 +272,7 @@ GRANT EXECUTE ON FUNCTION public.publish_supplier_page_photo(UUID) TO service_ro
 -- ref so the server can delete the copy; status 'removed' | 'already' |
 -- 'not_found'.
 CREATE OR REPLACE FUNCTION public.remove_supplier_page_photo(p_photo_id UUID, p_event_id UUID)
-RETURNS TABLE (status TEXT, page_ref TEXT, photo_id UUID)
+RETURNS TABLE (status TEXT, page_ref TEXT, photo_id UUID, vendor_profile_id UUID)
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public, pg_temp
@@ -288,7 +288,7 @@ BEGIN
    FOR UPDATE;
 
   IF NOT FOUND THEN
-    RETURN QUERY SELECT 'not_found'::text, NULL::text, NULL::uuid;
+    RETURN QUERY SELECT 'not_found'::text, NULL::text, NULL::uuid, NULL::uuid;
     RETURN;
   END IF;
 
@@ -308,7 +308,8 @@ BEGIN
   RETURN QUERY SELECT
     CASE WHEN n.removed_at IS NULL THEN 'removed' ELSE 'already' END,
     n.page_ref,
-    n.photo_id;
+    n.photo_id,
+    n.vendor_profile_id;
 END;
 $$;
 REVOKE EXECUTE ON FUNCTION public.remove_supplier_page_photo(UUID, UUID) FROM PUBLIC, anon, authenticated;

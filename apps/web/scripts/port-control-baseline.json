@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "cd137db2ee",
+  "generatedFromRef": "73555a878c",
   "routeCount": 479,
   "destinations": 987,
   "actions": 642,
-  "blocks": 7286,
+  "blocks": 7290,
   "routes": {
     "/": {
       "files": [
@@ -6257,6 +6257,7 @@
     },
     "/dashboard/[eventId]/budget": {
       "files": [
+        "dashboard/[eventId]/budget/_components/budget-file-actions.tsx",
         "dashboard/[eventId]/budget/_components/budget-screen.tsx",
         "dashboard/[eventId]/budget/_components/budget-sheets.tsx",
         "dashboard/[eventId]/budget/_components/budget-summary.tsx",
@@ -6282,6 +6283,7 @@
         "ActionButton",
         "AddExpenseSheet",
         "BodyPortal",
+        "BudgetFileActions",
         "BudgetScreen",
         "BudgetSheetState",
         "BudgetSheets",
@@ -10983,6 +10985,7 @@
     "/dev/budget-lab": {
       "files": [
         "dev/budget-lab/fixture.ts",
+        "dev/budget-lab/lab-budget-files.tsx",
         "dev/budget-lab/page.tsx"
       ],
       "destinations": [
@@ -10990,9 +10993,12 @@
       ],
       "actions": [],
       "blocks": [
+        "BudgetFileActions",
         "BudgetScreen",
+        "LabBudgetFiles",
         "LabPageSpotlight",
         "LabShell",
+        "PrintFetchProvider",
         "TraditionNotes"
       ]
     },

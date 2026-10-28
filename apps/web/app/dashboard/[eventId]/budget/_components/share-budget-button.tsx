@@ -54,9 +54,17 @@ export function ShareBudgetButton({ eventId, fileName }: { eventId: string; file
           Your PDF is ready.
         </span>
       ) : state.k === 'saved' && state.via === 'download' ? (
-        <span role="status" className="text-xs text-ink/60">
-          Sent to your downloads.
-        </span>
+        isNativeApp() ? (
+          // 🪤 An app view with no share sheet (Android's web view has none) has no Downloads folder either: the
+          // "download" saved nothing, so this must not read as success.
+          <span role="alert" className="max-w-[18rem] text-xs text-danger-700">
+            This app can&rsquo;t share files on this phone yet — open setnayan.com in your browser to share it.
+          </span>
+        ) : (
+          <span role="status" className="text-xs text-ink/60">
+            Sent to your downloads.
+          </span>
+        )
       ) : null}
     </span>
   );

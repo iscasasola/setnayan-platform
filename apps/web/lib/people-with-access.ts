@@ -169,8 +169,8 @@ export function buildPeopleWithAccess(input: {
       kind: 'co_host',
       name: h.name,
       // The creator is the Host; everyone else here is a Co-host (owner 2026-10-04).
-      roleWord: h.isCreator ? CREATOR_WORD : wasCoordinator ? 'Coordinator' : 'Co-host',
-      ...(wasCoordinator ? { coordinatorLevel: wasCoordinator } : null),
+      roleWord: h.isCreator ? CREATOR_WORD : 'Co-host',
+      ...(wasCoordinator ? { coordinatorLevel: wasCoordinator, roleWord: 'Coordinator' } : null),
       moderatorId: seat?.moderatorId ?? null,
       guestId: guest?.guestId ?? null,
       access:

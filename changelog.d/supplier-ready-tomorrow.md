@@ -52,4 +52,21 @@ every badge worn today through THE one `ShopBadgePill`, and "Next to earn: 50 ev
 inside the page's Batch A — no extra round trip. A refused read: "Couldn’t load your badges" · "—". Today's "You
 earned …" line stays. Guard: `app/vendor-dashboard/performance/your-badges-are-on-the-page.test.ts`.
 
+**S4b · The hosts pick their coordinator's access on Home — Limited or Full.** Owner: *"Once the coordinator accepts,
+and connected to the event. The event should show to pick what kind of access do we want to give the coordinator. On
+the home."* · *"only TWO levels"*. Home draws "<shop> is your coordinator — what can they do?" (owners only,
+self-hiding, a refused read said) for every CONNECTED coordinator seat with no recorded answer — the answer is
+`permissions_json.access_level`, a key no existing seat carries, so the live coordinator (old `{seat_plan: view}`
+grant) is asked once. Limited = the coordinator's seat with view on every part; Full = the CO-HOST seat (`co_host` →
+`couple` member). The seat-as-it-was is kept (`prior`) so Undo (the toast's pill) restores it exactly. Written
+through the EXISTING `setDelegateArea` (area `access_level`) — no new server action. Changeable in Event details ›
+Access (a Limited · Full access pick on the row). Events you run: a Full coordinator keeps the door (row word
+Coordinator); a Limited one keeps it too (view). Guards: `lib/the-hosts-pick-their-coordinators-access.test.ts`;
+`people-with-access.test.ts` allow-list + reason.
+
+**S4c · Can a coordinator Apply the Event Hub? Measured.** `tests/db/a-full-access-coordinator-can-apply-the-hub.db.test.ts`
+(PGlite): a coordinator member — narrow grant, "Same access as you" ON or Off — writes ZERO `events` rows (the only
+UPDATE policy is `couple_can_update_event`); after the hosts pick FULL ACCESS (the co-host seat) her Apply lands;
+Limited, a limited helper, Undo and self-promotion stay refused. No migration needed.
+
 SPEC IMPACT: DECISION_LOG row "SUPPLIERS READY TO RUN AN EVENT AND FINISH THEIR SHOP" (corpus).

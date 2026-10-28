@@ -25,6 +25,13 @@ Worktree: ~/Documents/Claude/Projects/wt-supplier-ready · branch claude/supplie
   (badge-earned-line.tsx, mounted in vendor-dashboard/page.tsx) STAYS — no ruling moves it; it announces a NEW badge
   once, the performance page is where they live. The full tracker stays on Shop › Page (website/_components/badge-tracker.tsx).
 
+- S4b · Home Limited · Full access card (lib/coordinator-access-level.ts; _components/coordinator-level-card.tsx +
+  coordinator-level-ask.tsx; setDelegateArea branch `access_level`; People with access pick). Lab /dev/home-lab?level=1.
+- S4c · db test proves: switch ON does NOT let a coordinator Apply (0 rows); Full (co-host seat) does. DEVIATION from the
+  controller's S4c note "switch ON counts as chosen = Full": NOT done — it would hide the card from exactly the seat that
+  cannot Apply. The card asks every connected coordinator with no recorded answer; pressing Full makes Apply work today,
+  no migration.
+
 ## State
 - Draft PR #7041 (label do-not-auto-merge). No migration, no new server action (server-action ceiling untouched).
 - DECISION_LOG row pushed to corpus origin/main (1bef8507) — "A SUPPLIER INVITED IN IS READIED"; badge + co-host

@@ -12,14 +12,6 @@ import assert from 'node:assert/strict';
 import React from 'react';
 
 (globalThis as unknown as { React: unknown }).React = React;
-/* ⇅ R4 slice 1: the march draws THE shared thumb row in Guests (`components/thumb-row.tsx`), whose CSS module is its class
-   names here — `styles.row` → "row" (the same stub as the Guests screen's harness, `render-guests-screen.ts`). */
-{
-  const Mod = require('node:module');
-  Mod._extensions['.css'] = (m: { exports: unknown }) => {
-    m.exports = new Proxy({}, { get: (_t, k) => (k === '__esModule' ? false : String(k)) });
-  };
-}
 
 test('the march maker renders the owner-shaped march, every walk numbered', async () => {
   const { renderToString } = await import('react-dom/server');

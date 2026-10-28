@@ -115,6 +115,7 @@ test('6 · every Guests view draws THE shared ThumbRow', () => {
   assert.match(screen, /<ThumbRow\s+name="guests"/, 'List');
   assert.match(screen, /name="guests-map"/, 'Map');
   assert.match(screen, /<GuestsLensContext\.Provider value=\{lens\}>/, 'Seats and March get no lens');
+  assert.match(screen, /slot: thumbSlot,\s*ThumbRow,/, 'the lens does not hand the makers THE row');
   assert.match(screen, /data-guests-thumb-slot=\{gview\}/, 'no seat for the makers’ row');
   const seats = read('app/dashboard/[eventId]/seating/_components/seating-editor.tsx');
   const march = read('app/dashboard/[eventId]/launch/_components/details-march.tsx');
@@ -123,7 +124,9 @@ test('6 · every Guests view draws THE shared ThumbRow', () => {
     ['guests-march', march, 'march'],
   ] as const) {
     assert.match(src, new RegExp(`useGuestsLens\\('${view}'\\)`), `${view} does not read the lens`);
-    assert.match(src, new RegExp(`<ThumbRow\\s+name="${name}"`), `${view} does not draw the shared row`);
+    assert.match(src, new RegExp(`<lens\\.ThumbRow\\s+name="${name}"`), `${view} does not draw the shared row`);
+    // Handed down by the lens, never imported: the maker is also the Maker's lazy piece (its CSS module would follow).
+    assert.doesNotMatch(src, /from '@\/components\/thumb-row'/, `${view} imports the row instead of taking the lens’s`);
     assert.match(src, /guestsFilterMenu\(\{\s*view: '(seats|march)',\s*filter: lens\.filter,\s*onFilter: lens\.setFilter,/, `${view}’s ⇅ is not the shared Show`);
     assert.match(src, /lens\.slot,\s*\)\s*: null;/, `${view} draws its row somewhere else`);
   }

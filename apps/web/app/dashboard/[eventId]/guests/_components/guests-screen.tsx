@@ -633,7 +633,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
     if (!initialSelect) return;
     setSelectMode(true);
     setReplyFilter('toinvite');
-  }, [initialSelect]);
+  }, [initialSelect, setReplyFilter]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const toggleOne = (id: string) =>
     setSelected((prev) => {
@@ -670,7 +670,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
     setSelectMode(true);
     setReplyFilter('toinvite');
     window.scrollTo({ top: 0 });
-  }, [openSettings, gview, router, eventId]);
+  }, [openSettings, gview, router, eventId, setReplyFilter]);
 
   // ── Settled: the rise plays once per page/mode, never on a re-render.
   const [settled, setSettled] = useState(false);
@@ -1701,6 +1701,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
     () => ({
       view: gview,
       slot: thumbSlot,
+      ThumbRow,
       filter,
       setFilter,
       hasSides,

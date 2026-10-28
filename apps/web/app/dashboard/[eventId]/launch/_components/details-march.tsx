@@ -36,7 +36,6 @@ import {
 import type { MarchResult } from '@/lib/march-result';
 import type { HubDraftPatch } from '@/lib/hub-draft';
 import { ChevronsDownUp, ChevronsUpDown, Play, RotateCcw } from 'lucide-react';
-import { ThumbRow } from '@/components/thumb-row';
 import { useGuestsLens } from '../../guests/_components/guests-lens';
 import { guestsFilterMenu } from '../../guests/_components/guests-filter-menu';
 import { SEARCH_WAIT_MS } from '@/lib/guest-roster-view';
@@ -302,6 +301,16 @@ function MarchMakerBody({
   const [toast, setToast] = useState<Toast | null>(null);
   /* ⌨ What the keyboard is holding, and what it last did (said aloud). */
   const [carried, setCarried] = useState<{ source: MarchSource; key: string; name: string } | null>(null);
+  /* ⇅ R4 slice 1 — the Guests lens and the thumb row's own state (drawn below, as `marchThumb`); every hook here, above
+     the empty march's early return. */
+  const lens = useGuestsLens('march');
+  const [folded, setFolded] = useState<ReadonlySet<string>>(() => new Set());
+  const [marchQ, setMarchQ] = useState('');
+  const marchQTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (marchQTimer.current) clearTimeout(marchQTimer.current);
+  }, []);
+  const marchFound = useMemo(() => (lens && marchQ ? lens.find(marchQ) : null), [lens, marchQ]);
   const [heard, setHeard] = useState('');
   /* 🪪 The person whose guest card is open over the march (a tap on their name). */
   const [card, setCard] = useState<GuestCardPerson | null>(null);
@@ -797,14 +806,6 @@ function MarchMakerBody({
      Search guests (dims who it leaves out; Enter goes to the first found) · ⇅ (the shared Show — a name it leaves out is
      drawn faint) · ＋ Add a walk ▾ — the "Not walking" names: one picked walks alone at the end of their own section,
      the SAME move as dragging them out of the tray (`planMove` → `run`), Undo and all. Nothing new is written. */
-  const lens = useGuestsLens('march');
-  const [folded, setFolded] = useState<ReadonlySet<string>>(() => new Set());
-  const [marchQ, setMarchQ] = useState('');
-  const marchQTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => {
-    if (marchQTimer.current) clearTimeout(marchQTimer.current);
-  }, []);
-  const marchFound = useMemo(() => (lens && marchQ ? lens.find(marchQ) : null), [lens, marchQ]);
   const marchDim = (id: string): boolean => Boolean(lens) && Boolean(id) && (!lens!.shows(id) || (marchFound !== null && !marchFound.has(id)));
   const allOpen = shown.every((sec) => !folded.has(sec.key));
   const goToFoundWalker = (words: string) => {
@@ -824,7 +825,7 @@ function MarchMakerBody({
   const marchThumb =
     lens && lens.slot
       ? createPortal(
-          <ThumbRow
+          <lens.ThumbRow
             name="guests-march"
             left={
               shown.length > 0

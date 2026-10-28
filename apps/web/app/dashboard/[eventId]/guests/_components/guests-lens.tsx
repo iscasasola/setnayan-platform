@@ -13,6 +13,7 @@
  */
 import { createContext, useContext } from 'react';
 import type { GuestsFilter } from '@/lib/guests-filter';
+import type { ThumbRow } from '@/components/thumb-row';
 import type { GuestsView } from '@/lib/guests-views';
 
 export type GuestsLens = {
@@ -29,6 +30,11 @@ export type GuestsLens = {
    * (removed since) is never dimmed — the lens does not judge what it cannot read.
    */
   shows: (guestId: string) => boolean;
+  /**
+   * THE shared row component, handed down — so a maker draws it without importing it (the march and the seat plan are
+   * also the Maker's lazy pieces; importing the row there would pull its CSS module into every place they load).
+   */
+  ThumbRow: typeof ThumbRow;
   /** The guests the shipped search finds for these words (`rosterSearchMatches` — names, nickname, role, group…). */
   find: (words: string) => ReadonlySet<string>;
 };

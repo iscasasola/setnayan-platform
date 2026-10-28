@@ -219,7 +219,6 @@ import { PickMenu as SeatPickMenu } from '../../website/editor/_components/pick-
 import { ViewCountRow } from '../../guests/_components/view-summary-cards';
 import { useGuestsLens } from '../../guests/_components/guests-lens';
 import { guestsFilterMenu } from '../../guests/_components/guests-filter-menu';
-import { ThumbRow } from '@/components/thumb-row';
 import { SEARCH_WAIT_MS } from '@/lib/guest-roster-view';
 import { createPortal } from 'react-dom';
 import type { PickOption } from '../../website/editor/_components/pick-menu-types';
@@ -6713,7 +6712,7 @@ export function SeatingEditor({
           <>
             {seatToast ? <SeatToast toast={seatToast} /> : null}
             {seatPop}
-            <ThumbRow
+            <lens.ThumbRow
               name="guests-seats"
               left={
                 view === 'list' && !in3d

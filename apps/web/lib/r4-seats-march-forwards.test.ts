@@ -293,8 +293,8 @@ test('7 · Seats and March follow the Guests screen: the summary row, ONE mode d
   assert.match(ed, /\{isPhone \|\| inGuests \? null : \(\s*<CommandBar>/, 'the desk command bar (its pill segment) is drawn in Guests');
   // ⇅ R4 slice 1: the thumb row is THE shared ThumbRow (guests-seats), drawn into the Guests screen's seat — ⇕ on the
   // list · Search guests · ⇅ (Show + the people) · ＋ Add ▾ with the plan's own placeables. Rules live in the head's ⋯.
-  assert.match(ed, /<ThumbRow\s+name="guests-seats"/, 'Seats does not draw the shared thumb row');
-  assert.match(ed, /createPortal\(\s*<>[\s\S]{0,200}?<ThumbRow\s+name="guests-seats"[\s\S]*?lens\.slot,/, 'the Seats row is not drawn into the Guests seat');
+  assert.match(ed, /<lens\.ThumbRow\s+name="guests-seats"/, 'Seats does not draw the shared thumb row');
+  assert.match(ed, /createPortal\(\s*<>[\s\S]{0,200}?<lens\.ThumbRow\s+name="guests-seats"[\s\S]*?lens\.slot,/, 'the Seats row is not drawn into the Guests seat');
   for (const k of ['table', 'entrance', 'service', 'dance', 'cocktail', 'sign', 'booth']) assert.match(ed, new RegExp(`if \\(k === '${k}'\\) return add`), `＋ Add lost ${k}`);
   assert.match(ed, /\{inGuests \? \(\s*<>\s*\{phoneRules\}/, 'Who sits together left the head’s ⋯ without a home');
   assert.match(ed, /key: 'people', label: unseatedComing > 0 \? `People · \$\{formatCount\(unseatedComing\)\} to seat`/, 'the phone lost its people door');

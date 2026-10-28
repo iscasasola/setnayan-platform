@@ -109,7 +109,7 @@ export function LabMarch({ shape }: { shape?: string | null }) {
   /* The same frame as `guests/_components/guests-march.tsx` (a server component that reads the event, so the lab
      draws its body here on the fixture): the maker with its summary row, the tray’s slot. */
   return (
-    <div data-guests-march="" className="grid min-w-0 gap-4 pb-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+    <div data-guests-march="" className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4 pb-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
       <MarchMaker eventId="S89E-LABGUESTS1" sections={m.sections} printed={m.printed} out={m.out} lab guests />
       <div data-march-tray-slot="" className="flex min-h-0 flex-col lg:sticky lg:top-4" />
     </div>

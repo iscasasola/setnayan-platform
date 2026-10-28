@@ -40,8 +40,9 @@ import { ActionButton } from '@/components/action-button';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
 import { plainRefusal } from '../../guests/_components/plain-refusal';
 import { formatCount } from '@/lib/format-number';
-import { ViewSummaryCards } from '../../guests/_components/view-summary-cards';
 import { MarchTray } from './details-march-tray';
+/* 🗂 R4: the Guests summary row loads with Guests › March only — never with the Maker's march (`view-summary-lazy.tsx`). */
+import { ViewSummaryCards } from './view-summary-lazy';
 import { GuestCardSheet, SHIPPED_GUEST_CARD, type GuestCardPerson } from '../../guests/_components/guest-card-sheet';
 import type { GuestCardResult } from '../../guests/_components/guest-card';
 
@@ -810,7 +811,7 @@ function MarchMakerBody({
         if ((e.target as HTMLElement).closest('[data-march-drag]')) e.preventDefault();
       }}
       onDragStart={(e) => e.preventDefault()}
-      className={`${guests ? '' : 'mx-auto max-w-2xl '}flex w-full select-none flex-col pb-6 ${dragging ? 'cursor-grabbing' : ''}`}
+      className={`${guests ? 'min-w-0 ' : 'mx-auto max-w-2xl '}flex w-full select-none flex-col pb-6 ${dragging ? 'cursor-grabbing' : ''}`}
     >
       {guests ? (
         <ViewSummaryCards

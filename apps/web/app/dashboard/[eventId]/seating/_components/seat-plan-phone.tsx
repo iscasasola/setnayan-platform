@@ -455,12 +455,15 @@ export function GuestsSeatThumbRow({
         <Pop label="Who sits together" align="right" data="data-seat-plan-rules" up button={<>Rules <ChevronDown aria-hidden className="h-3.5 w-3.5 text-ink/45" /></>}>
           {rules}
         </Pop>
-        <ActionButton tone="neutral" icon={Plus} label="Table" disabled={addDisabled} onClick={onAddTable} data-seat-plan-add-table="" />
+        {/* ＋ is the table's door; its word is its name (a phone's row keeps the room for Auto arrange's word). */}
+        <ActionButton tone="neutral" iconOnly icon={Plus} label="Add a table" disabled={addDisabled} onClick={onAddTable} data-seat-plan-add-table="" />
         {people ? (
           <ActionButton
             tone="neutral"
             icon={Users}
-            label={people.unseated > 0 ? `${formatCount(people.unseated)} to seat` : 'People'}
+            /* The count is the word (a 375 row keeps Auto arrange whole); the name says what it is. */
+            label={people.unseated > 0 ? formatCount(people.unseated) : 'People'}
+            name={people.unseated > 0 ? `${formatCount(people.unseated)} to seat — open the people` : 'Open the people'}
             onClick={people.onOpen}
             data-seat-plan-people-door=""
           />

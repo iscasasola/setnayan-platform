@@ -292,7 +292,7 @@ test('7 · Seats and March follow the Guests screen: the summary row, ONE mode d
   const thumb = renderToStaticMarkup(
     React.createElement(GuestsSeatThumbRow, { onAutoArrange: () => {}, autoDisabled: false, autoBusy: false, rules: null, onAddTable: () => {}, addDisabled: false, people: { unseated: 9, onOpen: () => {} }, toast: null }),
   );
-  for (const w of ['Auto arrange', 'Rules', 'Table', '9 to seat']) assert.ok(thumb.includes(w), `the thumb row lost “${w}”`);
+  for (const w of ['Auto arrange', 'Rules', 'Add a table', '9 to seat — open the people']) assert.ok(thumb.includes(w), `the thumb row lost “${w}”`);
   assert.match(thumb, /data-seat-plan-thumb=""[^>]*bottom-0/, 'the verbs are not at the foot');
   // List mode: each table a foldable header with its faces and one blank per free seat.
   const { SeatFacesList } = await import('../app/dashboard/[eventId]/seating/_components/seat-faces-list');

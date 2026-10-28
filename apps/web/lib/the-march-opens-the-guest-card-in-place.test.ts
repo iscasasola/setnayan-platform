@@ -134,7 +134,8 @@ test('5 · out of the Maker’s first load: only lazy Details pieces import the 
   walk('app');
   assert.deepEqual(
     importers.sort(),
-    [`${L}/details-march.tsx`, `${L}/details-people.tsx`, `${L}/parent-cards.tsx`, `${L}/studio-prints-six.tsx`].sort(),
+    /* 🗂 R4: Guests › Seats' faces open the card too — from the seat plan's own lazy chunk (`seating-lazy.tsx`). */
+    [`${L}/details-march.tsx`, `${L}/details-people.tsx`, `${L}/parent-cards.tsx`, `${L}/studio-prints-six.tsx`, 'app/dashboard/[eventId]/seating/_components/seating-editor.tsx'].sort(),
     'the card sheet is imported outside the (lazy) Details pieces that open a guest’s card',
   );
   assert.doesNotMatch(read('app/dashboard/[eventId]/launch/page.tsx'), /guest-card|loadGuestCard|GuestCardBody/, 'the Maker’s page reads or draws a guest card up front');

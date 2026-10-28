@@ -41,3 +41,36 @@ the rest of Guests? · the Parents & hosts list that sat under the Maker's march
 
 SPEC IMPACT: `~/Documents/Claude/Projects/Setnayan/EVENT_MENU_REORG_BUILD_PLAN_2026-10-27.md` row 6 (R4) marked built
 (draft PR, not live); DECISION_LOG 2026-10-27 "GUESTS = LIST · MAP · SEATS · MARCH" — the Seats + March half built.
+
+## 2026-10-29 · feat(guests): R4 round 2 — Seats and March follow the Guests screen; views switch with no request
+
+Owner on #7028's side-by-sides (28–29 Oct): *"the label of 20 walks, 34 walking can be like the carousel row of guests"* ·
+*"improve the way the seats are created on list, 2d and 3d … follow the screen"* · *"always maximize the screen use"* ·
+*"fastest load and fewest requests"* · *"tapping a seat can show a guest card"*.
+
+- **Summary row:** March and Seats lead with the Guests carousel's OWN cards (`view-summary-cards.tsx`, the shared
+  `SnapCarousel` + `guests-screen.module.css`): March — "34 walking · in 20 walks" · Walks · Walking · Not walking (a door
+  to the tray); Seats — "19 seated · 9 still to seat" · Tables · Seated · To seat (a door to them). A count nobody could
+  read says "—, couldn't read", never 0. The loose "Drag the names ⓘ" heading went into the card's ⓘ.
+- **Seats wears the Guests chrome at every width:** head (Seat plan · ONE mode dropdown List · 2D · 3D — the shared
+  PickMenu · Edit · ⋯) → the summary row → the plan → the frosted thumb row at the foot (Auto arrange · Rules ▾ · ＋ ·
+  on a phone the people's door). The desk command bar and the room's own pill segment are not drawn in Guests. Phone:
+  the people are the house `Sheet`; ≥768 the side panel; ≥1024 place · plan · people.
+- **Seats › List = foldable tables of faces** (`seat-faces-list.tsx`, the house `.sn-acc-head`): "Table 3 · 8 of 10",
+  the guests as faces (photo, else initials), one dashed blank per free seat; "To seat" leads. A face — in the list AND on
+  the 2D plan — opens the SHIPPED guest card (`GuestCardSheet`, new `seats` reader) with Remove · Swap; a blank raises the
+  pop-up bar "Pick a guest ▾"; Swap picks them up and the next seat tapped is theirs (blank: move; face: trade — built
+  from the two shipped writes, `swapSeats`).
+- **No request on a switch:** List · Map · Seats · March switch in place (`replaceState`); both makers are streamed with
+  the page and mounted on first open, then kept. Seats' List ↔ 2D ↔ 3D likewise — the 3D room is streamed with the
+  page and its code loads on first open; leaving it re-reads the plan once (`router.refresh`, the room may have moved a
+  table).
+- **Screen use:** Seats is full-bleed on a phone; March uses the width (the tray is a side panel from 1024) and no
+  longer overflows at 375. Dark mode on the march rows (`dark:bg-raised`).
+- Guards: `lib/r4-seats-march-forwards.test.ts` test 7 (summary row + honest unread · ONE mode dropdown · thumb-row verbs
+  · faces + blanks · a face opens the one card), sabotaged red twice; the one-card, lazy-pieces and one-render guards
+  re-aimed.
+
+Not built in this PR (follow-ups, flagged): the 2D table pop-up toolbar's Duplicate (the engine has no duplicate — the
+table's shipped dock holds Type · seats −/+ · Rotate · Edit chairs · Link · Delete), March's groups as foldable headers,
+the pinned-row dropdown in the shared row, and Guests › Requests (an immediately-following PR).

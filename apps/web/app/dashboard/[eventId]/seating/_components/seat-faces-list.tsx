@@ -67,7 +67,7 @@ function Blank({ onPress, label, armed }: { onPress: () => void; label: string; 
 function Fold({
   id,
   label,
-  count,
+  tally,
   icon,
   open,
   onToggle,
@@ -75,7 +75,8 @@ function Fold({
 }: {
   id: string;
   label: string;
-  count: string;
+  /** Already formatted ("8 of 10", `formatCount`). */
+  tally: string;
   icon: 'table' | 'people';
   open: boolean;
   onToggle: () => void;
@@ -89,7 +90,7 @@ function Fold({
             {icon === 'table' ? <Armchair className="h-[18px] w-[18px]" strokeWidth={1.9} /> : <UserRound className="h-[18px] w-[18px]" strokeWidth={1.9} />}
           </span>
           <span className="min-w-0 flex-1 truncate text-[14px] font-semibold tracking-[0.04em] text-ink">{label}</span>
-          <span className="shrink-0 text-[13px] tabular-nums text-ink/60">{count}</span>
+          <span className="shrink-0 text-[13px] tabular-nums text-ink/60">{tally}</span>
           <ChevronDown aria-hidden className={`h-[18px] w-[18px] shrink-0 text-ink/45 transition-transform ${open ? 'rotate-180' : ''}`} strokeWidth={1.9} />
         </button>
       </div>
@@ -124,7 +125,7 @@ export function SeatFacesList({
   return (
     <div data-seat-faces-list="" className="absolute inset-0 overflow-y-auto overscroll-contain px-3 pb-28 pt-1">
       {unseated.length > 0 ? (
-        <Fold id="unseated" label="To seat" count={formatCount(unseated.length)} icon="people" open={!closed.has('unseated')} onToggle={() => toggle('unseated')}>
+        <Fold id="unseated" label="To seat" tally={formatCount(unseated.length)} icon="people" open={!closed.has('unseated')} onToggle={() => toggle('unseated')}>
           {unseated.map((g) => (
             <Face key={g.id} g={g} picked={pickedId === g.id} onPress={() => onFace(g.id)} where="no seat yet" />
           ))}
@@ -136,7 +137,7 @@ export function SeatFacesList({
         </p>
       ) : null}
       {units.map((u) => (
-        <Fold key={u.key} id={u.key} label={u.label} count={`${formatCount(u.seated)} of ${formatCount(u.capacity)}`} icon="table" open={!closed.has(u.key)} onToggle={() => toggle(u.key)}>
+        <Fold key={u.key} id={u.key} label={u.label} tally={`${formatCount(u.seated)} of ${formatCount(u.capacity)}`} icon="table" open={!closed.has(u.key)} onToggle={() => toggle(u.key)}>
           {u.slots.map((s) =>
             s.kind === 'face' ? (
               <Face key={`${s.tableId}:${s.seat}`} g={s.guest} picked={pickedId === s.guest.id} onPress={() => onFace(s.guest.id)} where={`${u.label}, seat ${s.seat + 1}`} />

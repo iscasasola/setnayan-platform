@@ -4400,6 +4400,7 @@ export function SeatingEditor({
     if (inGuests) {
       setShow3d(false);
       window.history.replaceState(window.history.state, '', seatViewHref(seat));
+      // one-render: keep (other-frame) — the 3D room saved its moves through its own lock; the 2D plan re-reads them once.
       router.refresh();
     } else router.push(seatViewHref(seat), { scroll: false });
   };
@@ -6465,7 +6466,10 @@ export function SeatingEditor({
         person={{ id: faceCard.id, name: faceCard.name }}
         open={SHIPPED_GUEST_CARD.seats}
         onClose={() => setFaceCard(null)}
-        onSaved={() => router.refresh()}
+        onSaved={() => {
+          // one-render: keep (other-frame) — the guest card saved in its own sheet; the faces re-read its name and photo.
+          router.refresh();
+        }}
         actions={
           canEdit ? (
             <>

@@ -59,6 +59,9 @@ export function PaperPicker({
           if (k in SHARE_PDF_PAPERS) onPick(k as keyof typeof SHARE_PDF_PAPERS);
         }}
         dataAttr="data-paper"
+        // A pill with a hairline, like the Share button beside it: the house dropdown's bare white-on-white pill read as
+        // plain words on the page ("a frame only on what you press" — and this is pressed).
+        className="border border-ink/15"
       />
       {custom && kind === 'poster' ? (
         <span className="inline-flex items-center gap-1.5" data-paper-custom="">

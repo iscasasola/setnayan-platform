@@ -63,6 +63,38 @@ the iPhone app (rows render in code — suspect the sheet does not scroll in the
 - v13 slice 8: 📤 Share round → "Share or print" sheet per view, on PR #7032's engine (`lib/share-pdf.ts`) only after it
   merges; reuse Studio › Prints' table signs / place cards / entrance chart builders.
 
+## ⚠ THE BASE IS LIVE, NOT THE PROTOTYPE (owner correction, v23) — read before ANY visual slice
+The prototype REDREW the guest rows and the carousel — do NOT copy those. Keep exactly as shipped: (a) the live guest
+row (every label/chip/badge, row Share + Delete); (b) the live SnapCarousel cards (incl. Invite N › and +1s) — apply only
+the one-count-height rule; (c) the live List thumb row ⇕ · ☑ Select · "Search or add" (the field adds a guest) · Sort/⇅,
+and Select mode (✉ Invite N · Set ▾ · Remove · Done). No extra ＋ on Guests › List. 📤 in the top row = Share/print only.
+Screenshot the live lab (`/dev/guests-lab?part=screen`) before each visual slice; side-by-sides must show the live
+parts unchanged.
+
+## MORE OWNER RULES (v20–v22)
+- v20: 3D colours ONLY from the room palette (`lib/room-palette.ts` resolveRoomPalette → Lab3DPalette) — already so;
+  never hard-code. Tapping a guest on Map / 2D / 3D shows a PEEK card (avatar · name · role · group · seat · Open);
+  Open = the full guest card with Remove / Move-or-swap. Peek AND card: from the BOTTOM on a portrait phone, a RIGHT
+  side panel in landscape and ≥1024 — one shared Sheet/side-panel rule.
+- Group header tap (List groups, Map circles): select + open + toolbar Rename · ＋ Add guest here (lands in that
+  group), Undo. v21: tapping the SELECTED header again folds it AND unselects (toolbar drops); ⇕ still independent.
+- v22: REMOVE the group/role rename row from the shipped guest card (Rule 0: check whether it renames or assigns; remove
+  only the rename); renaming lives on the header toolbar; port baseline regenerated with reason "moved to the group
+  header toolbar".
+
+## SLICES 9–11 (after 8, same branch, one commit + push + HANDOVER each)
+9. 2D editing on the SHIPPED engine: venue Free (floor grows) or Fixed W×H (refuse outside); stage + dance floor
+   corner-resize; entrances snap to an edge, lie along it, width handles, dotted walk path to a selected/searched seat;
+   ＋ Add ▾ lands in free space (spiral search, no overlap); Duplicate; Link/Unlink as one unit; Type ▾ / Seats ▾
+   refuse on overlap. Extend footprintsOverlap / Link / five types — never a second engine; columns via
+   pnpm migration:new.
+10. Map = the prototype's mind map (≤6 hubs on a ring + "Other households · N" drill-in, "‹ All households", couple
+   centre, 36 px faces, same canvas controller as 2D, hold-drag a face to another circle, circle toolbar Rename ·
+   ＋ Add guest here · Sit together ▾, fit on grouping change; grouping = the shared ⇅ Group by).
+11. Requests inside Guests; remove the Guests ⚙ Invitations row (sendHref / SETTINGS_ROWS / pick-who / tour ripples);
+   the iPhone-app "Replies open/close not showing" — walk with UA + window.Capacitor stub and fix the real cause.
+Order 1 → 11. Ship nothing yourself.
+
 ## How to prove a slice
 Guard per property (+ one sabotage), port/Ugat/design-rules baselines regenerated (`pnpm port:baseline`,
 `pnpm ugat:screens`, `pnpm --filter @setnayan/web design-rules:baseline --write`, `pnpm root-map --baseline`), all

@@ -108,7 +108,8 @@ export function PinnedRow({
     return () => ro.disconnect();
   }, [tight, doorsSig, note]);
 
-  // Stuck = the nearest sticky/fixed ancestor sits at its pinned top. One passive listener, read once per frame.
+  // Stuck = the nearest sticky/fixed ancestor sits at its pinned top. One passive CAPTURE listener (the page may
+  // scroll the window or an inner column), read once per frame.
   useEffect(() => {
     const row = rowRef.current;
     let block: HTMLElement | null = row?.parentElement ?? null;
@@ -119,15 +120,15 @@ export function PinnedRow({
     const read = () => {
       raf = 0;
       const top = parseFloat(getComputedStyle(el).top) || 0;
-      setStuck(window.scrollY > 0 && el.getBoundingClientRect().top <= top + 0.5);
+      setStuck(el.getBoundingClientRect().top <= top + 0.5);
     };
     const onScroll = () => {
       if (!raf) raf = requestAnimationFrame(read);
     };
     read();
-    window.addEventListener('scroll', onScroll, { passive: true });
+    document.addEventListener('scroll', onScroll, { passive: true, capture: true });
     return () => {
-      window.removeEventListener('scroll', onScroll);
+      document.removeEventListener('scroll', onScroll, { capture: true });
       if (raf) cancelAnimationFrame(raf);
     };
   }, []);

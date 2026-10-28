@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "3e185887d0",
+  "generatedFromRef": "7fb969b191",
   "routeCount": 475,
-  "destinations": 994,
+  "destinations": 993,
   "actions": 642,
-  "blocks": 7183,
+  "blocks": 7186,
   "routes": {
     "/": {
       "files": [
@@ -7114,18 +7114,20 @@
         "dashboard/[eventId]/guests/send/page.tsx"
       ],
       "destinations": [
-        "/dashboard/[seg]/guests",
         "/dashboard/[seg]/invitation"
       ],
       "actions": [],
       "blocks": [
+        "ActionButton",
+        "HTMLDivElement",
+        "Icon",
+        "InfoTip",
         "InviteMessageEditor",
         "Link",
         "NotSharedWithYou",
-        "PickMenu",
-        "SendInviteActions",
         "SendRun",
-        "Who"
+        "SentOrNotYet",
+        "Sheet"
       ]
     },
     "/dashboard/[eventId]/guests/souvenirs": {

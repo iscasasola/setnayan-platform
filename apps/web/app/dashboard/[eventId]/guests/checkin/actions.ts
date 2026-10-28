@@ -16,8 +16,23 @@ import { limitedHelperRefusal } from '@/lib/host-gate';
 export type CheckinMethod = 'qr_scan' | 'nfc_tap' | 'manual_search';
 
 export type CheckinActionResult =
-  | { ok: true; checkedInAt: string }
-  | { ok: false; error: string };
+  /** `already` — this guest was checked in before this call (another phone, or an earlier send); `checkedInAt` is
+   *  that earlier time, which stands. The offline queue turns it into a note (EV3: "double claims surfaced"). */
+  | { ok: true; checkedInAt: string; already?: true }
+  /** `refused` — a NO that will not change by trying again (not on the list, not confirmed, not door crew); without
+   *  it the failure is a transient one the offline queue retries. */
+  | { ok: false; error: string; refused?: true };
+
+/** How far back a scan made with no signal may be dated: the event day and the night after, never the future. */
+const SCANNED_AT_WINDOW_MS = 36 * 60 * 60 * 1000;
+
+/** A door-side scan time from the offline queue, if it is a believable one; else null (the server's own now). */
+function scannedAtOrNull(at: string | undefined, nowMs: number = Date.now()): string | null {
+  if (typeof at !== 'string') return null;
+  const ms = Date.parse(at);
+  if (!Number.isFinite(ms) || ms > nowMs + 2 * 60_000 || ms < nowMs - SCANNED_AT_WINDOW_MS) return null;
+  return new Date(Math.min(ms, nowMs)).toISOString();
+}
 
 export type UndoActionResult = { ok: true } | { ok: false; error: string };
 
@@ -51,19 +66,24 @@ async function onlyOrganizerOrCoordinator(eventId: string, can: string): Promise
   return `Only ${who} or a coordinator can ${can}.`;
 }
 
-/** Check a guest in. Idempotent — a second call reports the existing time. */
+/**
+ * Check a guest in. Idempotent — a second call reports the existing time (`already`).
+ * `scannedAt` — a scan made with no signal, sent later by the offline queue (EV3): the guest arrived THEN, not when
+ * the signal came back. Believed only inside the last 36 hours and never in the future; otherwise the server's now.
+ */
 export async function checkInGuest(
   eventId: string,
   guestId: string,
   method: CheckinMethod,
+  scannedAt?: string,
 ): Promise<CheckinActionResult> {
   const helperRefusal = await limitedHelperRefusal(eventId, 'guest_list');
-  if (helperRefusal) return { ok: false, error: helperRefusal };
+  if (helperRefusal) return { ok: false, error: helperRefusal, refused: true };
   let user;
   try {
     user = await assertDoorCrew(eventId);
   } catch {
-    return { ok: false, error: await onlyOrganizerOrCoordinator(eventId, 'check guests in') };
+    return { ok: false, error: await onlyOrganizerOrCoordinator(eventId, 'check guests in'), refused: true };
   }
 
   const supabase = await createClient();
@@ -77,13 +97,14 @@ export async function checkInGuest(
     .eq('event_id', eventId)
     .is('deleted_at', null)
     .maybeSingle();
-  if (!guest) return { ok: false, error: 'That guest is not on this event’s list.' };
+  if (!guest) return { ok: false, error: 'That guest is not on this event’s list.', refused: true };
   // 🔓 A request the couple has not accepted admits nobody — asked here, live,
   // not only by the desk's screen (owner 2026-09-29, frame H2).
   if (doorVerdict(guest as never).kind !== 'valid') {
-    return { ok: false, error: 'Not confirmed yet — the couple hasn’t accepted this request.' };
+    return { ok: false, error: 'Not confirmed yet — the couple hasn’t accepted this request.', refused: true };
   }
 
+  const at = scannedAtOrNull(scannedAt);
   const { data: inserted, error } = await supabase
     .from('guest_checkins')
     .insert({
@@ -91,6 +112,7 @@ export async function checkInGuest(
       guest_id: guestId,
       checked_in_by_user_id: user.id,
       method,
+      ...(at ? { checked_in_at: at } : {}),
     })
     .select('checked_in_at')
     .single();
@@ -105,7 +127,7 @@ export async function checkInGuest(
         .eq('guest_id', guestId)
         .maybeSingle();
       if (existing) {
-        return { ok: true, checkedInAt: existing.checked_in_at };
+        return { ok: true, checkedInAt: existing.checked_in_at, already: true };
       }
     }
     return { ok: false, error: 'Couldn’t check that guest in — try again.' };

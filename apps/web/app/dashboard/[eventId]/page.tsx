@@ -83,6 +83,8 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { findSameDayVendors, type SameDayVendor } from '@/lib/same-day-vendors';
 import { EventDayPrepCta } from '@/app/_components/event-day-prep-cta';
 import { AutoPreloadOnEventDay } from '@/app/_components/auto-preload-on-event-day';
+import { ReadyForNoSignal, type ReadyRow } from '@/app/_components/offline-ready/ready-for-no-signal';
+import { formatCount } from '@/lib/format-number';
 import { DayOfModeGrid } from './_components/day-of-mode/grid';
 import { SetDateNudge } from './_components/set-date-nudge';
 import { readHomeGuide } from './_components/details-guide-home-card';
@@ -375,6 +377,10 @@ export default async function EventHomePage({
     let dayOfNearbyTables: EventTableRow[] = [];
     // A refused table read must not read as "no seat plan" — the card says it could not load.
     let dayOfTablesFailed = false;
+    // 📶 For "Ready for no signal" (EV3): how many tables, and whether the run of show was READ — a refused schedule
+    // read is `[]` below, and must not be drawn as "0 moments ✓".
+    let dayOfTableCount = 0;
+    let dayOfBlocksFailed = false;
     let dayOfSameDayVendors: SameDayVendor[] = [];
     // LIVE_WALL ownership for the day-of grid's photo-wall card. Same predicate
     // /wall/[eventId] gates on, so the card and the destination can never disagree.
@@ -385,7 +391,10 @@ export default async function EventHomePage({
       // The schedule is read ONCE and shared: the grid shows it, and the P3
       // call-time count below derives from it, so that count waits on this
       // promise rather than on the whole day-of batch.
-      const blocksRead = fetchScheduleBlocks(supabase, eventId).catch(() => []);
+      const blocksRead = fetchScheduleBlocks(supabase, eventId).catch(() => {
+        dayOfBlocksFailed = true;
+        return [];
+      });
 
       // LIVE_WALL — resolve ownership server-side so the client grid can hide the
       // card. Best-effort; a throw leaves it false. Started beside the three
@@ -464,6 +473,7 @@ export default async function EventHomePage({
       dayOfSameDayVendors = sameDayRes;
       const tables = tablesRes.value;
       dayOfTablesFailed = !tablesRes.measured;
+      dayOfTableCount = tables.length;
       // The canonical 2026-05-09 catalog replaces the variable-capacity 'head_table'
       // with three fixed family_head_12/14/16 variants. Day-of UI keeps surfacing
       // a single "head table" by picking the first family_head_* row found.
@@ -477,6 +487,8 @@ export default async function EventHomePage({
       dayOfHeadTable,
       dayOfNearbyTables,
       dayOfTablesFailed,
+      dayOfTableCount,
+      dayOfBlocksFailed,
       dayOfSameDayVendors,
       dayOfLiveWallActive,
       dayOfBroadcast,
@@ -762,6 +774,8 @@ export default async function EventHomePage({
       dayOfHeadTable,
       dayOfNearbyTables,
       dayOfTablesFailed,
+      dayOfTableCount,
+      dayOfBlocksFailed,
       dayOfSameDayVendors,
       dayOfLiveWallActive,
       dayOfBroadcast,
@@ -1240,6 +1254,29 @@ export default async function EventHomePage({
     </>
   );
 
+  // 📶 Ready for no signal (EV3): who runs the door (the desk's own gate — couple or coordinator — and a guest list this
+  // viewer can actually read), and what is on this phone, each count only when READ.
+  const doorCrew =
+    (viewerMemberType === 'couple' || viewerMemberType === 'coordinator') && guestsMeasured && guests.length > 0;
+  const readyRows: ReadyRow[] = dayOfActive
+    ? [
+        { key: 'guests', label: 'Guest list', value: guestsMeasured ? formatCount(guests.length) : null, ok: guestsMeasured && guests.length > 0 },
+        {
+          key: 'seats',
+          label: 'Seat plan',
+          value: dayOfTablesFailed ? null : `${formatCount(dayOfTableCount)} table${dayOfTableCount === 1 ? '' : 's'}`,
+          ok: !dayOfTablesFailed && dayOfTableCount > 0,
+        },
+        {
+          key: 'run',
+          label: 'Run of show',
+          value: dayOfBlocksFailed ? null : `${formatCount(dayOfBlocks.length)} moment${dayOfBlocks.length === 1 ? '' : 's'}`,
+          ok: !dayOfBlocksFailed && dayOfBlocks.length > 0,
+        },
+        ...(doorCrew ? [{ key: 'desk', label: 'Check-in desk', value: 'Ready', ok: true }] : []),
+      ]
+    : [];
+
   const hasOverlays =
     !event.event_date || isChineseEvent || canRecur || Boolean(aiOffer) || papicNudgeVisible;
 
@@ -1272,6 +1309,19 @@ export default async function EventHomePage({
           2026-10-01, the clashing-date flow). Couple-only by RLS. */}
       <DateChangeDoorway eventId={eventId} />
       <AutoPreloadOnEventDay eventId={eventId} eventDate={event.event_date} finished={afterActive} />
+      {/* 📶 READY FOR NO SIGNAL — Home › Today, the event day only (EV3, owner 2026-10-28, DECISION_LOG "OFFLINE
+          SAVING IS ALWAYS ON"). Every count is what this render READ: a refused read says "Couldn’t read", never ✓. */}
+      {dayOfActive ? (
+        <ReadyForNoSignal
+          viewer={user.id}
+          eventId={eventId}
+          eventDate={event.event_date as string | null}
+          eventEndDate={(event as { event_end_date?: string | null }).event_end_date ?? null}
+          checkin={doorCrew}
+          host={viewerMemberType === 'couple'}
+          rows={readyRows}
+        />
+      ) : null}
       {dayOfActive ? (
         <DayOfModeGrid
           eventId={eventId}

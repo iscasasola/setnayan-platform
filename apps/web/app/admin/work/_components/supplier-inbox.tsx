@@ -264,12 +264,12 @@ function TypesBody({
       <div className="max-w-2xl">
         <Fact name={`Added as ${linked}`} sub="Couples cannot pick it yet. Putting it in the picker tells everyone who asked, in the app." badge="Hidden" tone="wait" />
         {/* SUPPLIER COVERAGE, RIGHT HERE — the shipped Scope categories switch, one group at a time. */}
-        <p className="border-t border-ink/10 py-2 text-[14px] text-ink" data-type-coverage="">
+        <div className="border-t border-ink/10 py-2 text-[14px] text-ink" data-type-coverage="">
           <InfoTip label="Suppliers it covers" align="start">
             The same switch as Event types › Scope categories: a covered group offers this type on every one of its
             categories. Hide a group that has nothing to do with it.
           </InfoTip>
-        </p>
+        </div>
         {item.coverage === null ? (
           <p role="alert" className="mb-2 rounded-card bg-[var(--sn-warning-soft)] p-3 text-sm text-ink">
             Couldn’t read which suppliers cover it — refresh to try again.
@@ -411,12 +411,12 @@ export function SupplierInbox({ read, kind, itemKey, basePath, eventTypes, nowMs
         </p>
       ) : null}
       {read.absent.includes('types') && (!kind || kind === 'types') ? (
-        <p className="mb-3 text-xs text-ink/70" data-work-absent="types">
+        <div className="mb-3 text-xs text-ink/70" data-work-absent="types">
           <InfoTip label="Event-type asks arrive with the Create Event update." align="start">
             “Can’t find yours? Ask us to add it” stores its asks in a table that ships with that update (PR #7001). Until
             then nobody can ask, so there is nothing to show — this is not a failed read.
           </InfoTip>
-        </p>
+        </div>
       ) : null}
       {shown.length === 0 && unread.length === 0 ? (
         <p className="sn-tile p-5 text-center text-sm text-ink/70" data-work-clear="">
@@ -431,9 +431,9 @@ export function SupplierInbox({ read, kind, itemKey, basePath, eventTypes, nowMs
             return (
               <li
                 key={item.key}
-                /* An open row never lifts on hover: a transform on an ancestor makes it the containing block of the
-                   fixed side panel, which then draws inside the row instead of at the window's right edge. */
-                className={`sn-tile overflow-hidden ${open ? '!transform-none' : ''}`}
+                /* These rows never lift on hover: a transform on an ancestor (even mid-transition) makes it the
+                   containing block of the fixed side panel, which then draws inside the row, not at the window edge. */
+                className="sn-tile overflow-hidden !transform-none !transition-none"
                 data-work-item={item.key}
               >
                 <Link

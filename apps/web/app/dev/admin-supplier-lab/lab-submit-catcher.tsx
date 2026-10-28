@@ -31,7 +31,7 @@ export function LabSubmitCatcher() {
     return () => window.removeEventListener('submit', onSubmit, true);
   }, []);
   return (
-    <p role="status" data-lab-said="" className="fixed inset-x-0 bottom-0 z-50 bg-ink px-4 py-2 text-xs text-cream">
+    <p role="status" data-lab-said="" className="fixed inset-x-0 top-0 z-[60] bg-ink px-4 py-1 text-[11px] text-cream opacity-90 pointer-events-none">
       {said ?? 'Lab — presses are caught here; nothing leaves this page.'}
     </p>
   );

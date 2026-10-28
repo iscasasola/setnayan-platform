@@ -80,13 +80,13 @@ export function HubToolsPane({ categoryId, categoryLabel, library, tools, scan, 
 
   return (
     <section aria-label={`Hub tools · ${categoryLabel}`} data-hub-tools={categoryId}>
-      <p className="mt-2 max-w-[90ch] text-[14px] text-ink/70">
+      <div className="mt-2 max-w-[90ch] text-[14px] text-ink/70">
         <InfoTip label={`Suggested for ${categoryLabel}`} labelAs="h2" labelClassName="text-[15px] font-semibold text-ink" align="start">
           Suggestions, never gates: every supplier can pick ANY tool and customise it. These are the ones a {categoryLabel}{' '}
           supplier sees first (“Popular for this category”). Every tool is one of eight shared templates (Checklist ·
           Per-person sheet · Live timeline · Counter · Ordered list · Plan · Media · Log). {SOURCE_WORDS[source]}
         </InfoTip>
-      </p>
+      </div>
 
       <div className="mt-3 grid gap-x-8 sm:grid-cols-2" data-hub-tool-list="">
         {library.map((t) => (

@@ -13,7 +13,8 @@ import { manilaToday, shapeGroupRows, type GroupActivityRow, type GroupChatRow }
  * per request), ONE request to `communities` embeds, per group:
  *   · `samahan_messages` — the newest live message (ordered, limited to 1 PER GROUP by PostgREST's embedded limit);
  *   · `samahan_stories`  — the stories still inside their 24 h (RLS hides the rest; filtered here as well);
- *   · `events`           — the group's next event (from Manila's today, not archived, earliest, 1 per group).
+ *   · `events`           — the group's upcoming events (from Manila's today, not archived; the earliest is picked
+ *                          when the row is shaped).
  * Then ONE names read (admin client, `user_id → display_name` only — the split `fetchSamahanMessages` uses, for the
  * same RA 10173 reason) for the authors of those last lines. Two requests whatever the number of groups.
  * 🔒 lib/people-group-rows.test.ts counts the requests on a fake fetch.
@@ -50,8 +51,9 @@ export async function readGroupActivity(
     .limit(99, { referencedTable: 'samahan_stories' })
     .eq('events.archived', false)
     .gte('events.event_date', manilaToday(now))
-    .order('event_date', { referencedTable: 'events', ascending: true })
-    .limit(1, { referencedTable: 'events' });
+    // The earliest of these is picked in `shapeGroupRows` (a group holds a handful of upcoming events), so no embedded
+    // order is asked of PostgREST here.
+    .limit(20, { referencedTable: 'events' });
   if (error) {
     logQueryError('readGroupActivity', error, { groups: ids.length }, 'graceful_degrade');
     return null;

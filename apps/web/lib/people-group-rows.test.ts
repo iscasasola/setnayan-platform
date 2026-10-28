@@ -79,7 +79,7 @@ test('1 · every row’s activity is ONE request, with the per-group limits', as
   assert.equal(u.searchParams.get('samahan_messages.order'), 'created_at.desc');
   assert.equal(u.searchParams.get('samahan_messages.deleted_at'), 'is.null', 'a taken-down message can be the last line');
   assert.equal(u.searchParams.get('samahan_stories.expires_at'), `gt.${NOW.toISOString()}`, 'an expired story can draw the ring');
-  assert.equal(u.searchParams.get('events.limit'), '1');
+  assert.ok(Number(u.searchParams.get('events.limit')) > 1, 'the events are limited to one without an order — the "next" one would be arbitrary');
   assert.equal(u.searchParams.get('events.event_date'), 'gte.2026-10-28', 'the next event is not counted from Manila’s today');
   assert.equal(u.searchParams.get('events.archived'), 'eq.false');
   // No groups → no request at all.

@@ -1,9 +1,9 @@
-## 2026-10-30 · feat(supplier-shop): Shop › Details · Services · Page · Gallery · Analytics on the v13 frame — one ▾, each section's figures on its pinned row, a row per service with its tools
+## 2026-10-30 · feat(supplier-shop): Shop › Details · Services · Page · Portfolio · Analytics on the v13 frame — one ▾, each section's figures on its pinned row, a row per service with its tools
 
 Supplier dashboard v13 (owner *"Approved."*, 2026-10-29), slice S5 — the Shop tab's sections, extended in place:
 
-- **Shop ▾ is five sections, from ONE source** — `shop/_components/shop-sections.ts`: Details · Services · Page · Gallery ·
-  Analytics, each with the prototype's one-line hint. The bar's page menu from 701 (`supplier-page-menu.tsx`) reads the
+- **Shop ▾ is five sections, from ONE source** — `shop/_components/shop-sections.ts`: Details · Services · Page · Portfolio ·
+  Analytics (the prototype says "Gallery"; the owner's 2026-10-23 no-"gallery" rule wins — key `gallery`), each with the prototype's one-line hint. The bar's page menu from 701 (`supplier-page-menu.tsx`) reads the
   same list. "How it is going" is now **Analytics** (the key `insights` stays — tour, rail and guards key on it).
   Details (`/profile`) and Portfolio (`/collections`, plus its Albums screen) light their own section instead of Page.
 - **The pills became Shop's pinned row** (`ShopSegments`): the section ▾ (one dropdown — five pills do not fit 390 px),

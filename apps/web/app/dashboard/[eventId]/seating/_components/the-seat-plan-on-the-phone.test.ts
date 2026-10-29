@@ -18,7 +18,7 @@
  *   4 · "Move … to…" lists only tables with room (a linked unit is one row).
  *   5 · Auto arrange places NEW tables only in free space — placed tables stay.
  *   6 · Undo is an intent of the same action (no new server action).
- *   7 · REACHABLE: Details › Your event › Seat plan (maker=1) → this editor →
+ *   7 · REACHABLE: Guests › Seats (R4 — `host=guests`; the Maker's old item forwards there) → this editor →
  *       on a phone the head (not the desk bar), ⋯ → Share & print → the A3.
  *
  * 🪤 `globalThis.React` is set BEFORE the dynamic imports (tsconfig "jsx":
@@ -201,13 +201,14 @@ test('6 · Undo is an intent of autoArrange — no new server action', () => {
   assert.match(ed, /data-auto-changed=\{t\.table_id\}/, 'the gold ring on changed tables is gone');
 });
 
-test('7 · REACHABLE: Details › Seat plan → the editor → on a phone the head, ⋯ → Share & print → the A3', () => {
+test('7 · REACHABLE: Guests › Seats → the editor → on a phone the head, ⋯ → Share & print → the A3', () => {
   const page = code('page.tsx');
-  assert.match(page, /if \(inMaker\) \{[\s\S]*editorFor\(/, 'the Maker no longer draws the editor');
+  assert.match(page, /const editor = editorFor\([\s\S]{0,200}host: inGuests \? 'guests' : 'maker',[\s\S]*if \(inGuests\) \{\s*return \(\s*<SeatPlanInGuests/, 'Guests › Seats no longer draws the editor');
   const ed = editor();
   /* The Studio's phone draws its compact head (studio round 3, 2026-10-08); every other phone the shipped one. */
   assert.match(ed, /\{studioSeat \? studioHead : isPhone \? phoneHead : doorStrip\}/, 'a phone still gets the desk bar instead of its head');
-  assert.match(ed, /\{isPhone \? null : \(\s*<CommandBar>/);
+  /* 🗂 R4: Guests › Seats draws no desk command bar at any width — its verbs are the head's ⋯ and the thumb row. */
+  assert.match(ed, /\{isPhone \|\| inGuests \? null : \(\s*<CommandBar>/);
   /* ⋯'s menu is one copy (`phoneMore`), drawn by the shipped head and the Studio's (2026-10-08). */
   const more = ed.slice(ed.indexOf('const phoneMore = ('), ed.indexOf('const phoneTrailing = ('));
   assert.match(ed, /<PhoneSeatPlanHead[\s\S]{0,600}?more=\{phoneMore\}/, 'the phone head no longer draws ⋯’s menu');

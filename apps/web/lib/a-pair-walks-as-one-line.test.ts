@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import { DETAILS_ITEM_GROUPS, detailsItemHref } from './maker-details-items';
+import { makerItemMovedToViewHref } from './guests-views';
 import { yourEventItems, yourEventLabel } from './details-your-event';
 import { stripComments } from './strip-comments';
 import assert from 'node:assert/strict';
@@ -324,10 +325,11 @@ test('🔑 there is a LABELLED way in — the march is an item of Details › St
   assert.ok(group?.keys.includes('march'), 'Details › Story & plans has no march');
   assert.equal(yourEventLabel('march', WEDDING_KIND), 'Wedding March', 'the item has no readable label');
   assert.equal(detailsItemHref('E', 'march'), '/dashboard/E/launch?tool=details&item=march');
-  // An old Guest list link lands on it.
-  assert.match(stripComments(PAGE), /if \(search\.gview === 'walk' \|\| search\.view === 'march'\) \{\s*redirect\(detailsItemHref\(eventId, 'march'\)\);/);
-  // ⤷ Maker PR 4f: the doors are List · Map · Setup (SWITCHER = guests-screen.tsx); no march.
-  assert.doesNotMatch(stripComments(SWITCHER), /seg\('(?:walk|march)'/i);
+  // 🗂 R4 (owner 2026-10-27/28): the march's home is Guests › March — its Maker address and the old Guest list links
+  // land there (lib/r4-seats-march-forwards.test.ts holds every door); the Guest list's view row offers it.
+  assert.equal(makerItemMovedToViewHref('E', 'march'), '/dashboard/E/guests?gview=march');
+  assert.match(stripComments(PAGE), /if \(search\.gview === 'walk' \|\| search\.view === 'march'\) \{\s*redirect\(guestsViewHref\(eventId, 'march'\)\);/);
+  assert.match(stripComments(SWITCHER), /guestsViews\.map\(\(v\) => seg\(v, GUESTS_VIEW_LABEL\[v\]/);
 });
 
 test('🚶 the Wedding March is ONE item whose page is the drag maker — never a list of its names (owner 2026-10-06)', () => {
@@ -342,7 +344,10 @@ test('🚶 the Wedding March is ONE item whose page is the drag maker — never 
   }
   const PARTS = stripComments(readFileSync(join(LAUNCH, 'details-your-event-parts.tsx'), 'utf8'));
   assert.doesNotMatch(PARTS, /march:\s*<MarchPieces|\bMarchPieces\b/, 'the navigator lists the march’s lines again');
-  assert.match(PARTS, /march: \(\s*<MarchMaker\s+eventId=\{eventId\}\s+sections=\{input\.march\.sections\}/, 'the item’s page is not the maker');
+  // 🗂 R4: the maker is drawn whole by Guests › March (and the dev lab); the Maker's item is its door.
+  assert.match(PARTS, /march: input\.march\.lab \? \(\s*<MarchMaker\s+eventId=\{eventId\}\s+sections=\{input\.march\.sections\}/, 'the lab’s item page is not the maker');
+  const GM = stripComments(readFileSync(join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests', '_components', 'guests-march.tsx'), 'utf8'));
+  assert.match(GM, /<MarchMaker\s+eventId=\{eventId\}\s+sections=\{shown\.sections\}/, 'Guests › March is not the maker');
   // No toolbar, no buttons, no ↑↓ in the maker — a drag of a name is the only edit.
   // (The keyboard's ↑ / ↓ keys move a HELD name — they are keys, not drawn arrows.)
   assert.doesNotMatch(MARCH_UI, /<ArrowUp|<ArrowDown|Walk earlier|Walk later|PickMenu|<button[^>]*>\s*(Move|Swap|Pair|Add)\b/);

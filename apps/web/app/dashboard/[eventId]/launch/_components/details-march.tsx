@@ -21,6 +21,7 @@ import {
   keyTarget,
   leadOf,
   planMove,
+  planSectionOut,
   planSectionsDefault,
   readSource,
   sectionsMoved,
@@ -35,11 +36,17 @@ import {
 } from '@/lib/march-drag';
 import type { MarchResult } from '@/lib/march-result';
 import type { HubDraftPatch } from '@/lib/hub-draft';
-import { RotateCcw } from 'lucide-react';
+import { ChevronsDownUp, ChevronsUpDown, Play, RotateCcw } from 'lucide-react';
+import { useGuestsLens } from '../../guests/_components/guests-lens';
+import { guestsFilterMenu } from '../../guests/_components/guests-filter-menu';
+import { SEARCH_WAIT_MS } from '@/lib/guest-roster-view';
 import { ActionButton } from '@/components/action-button';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
 import { plainRefusal } from '../../guests/_components/plain-refusal';
+import { formatCount } from '@/lib/format-number';
 import { MarchTray } from './details-march-tray';
+/* 🗂 R4: the Guests summary row loads with Guests › March only — never with the Maker's march (`view-summary-lazy.tsx`). */
+import { ViewCountRow } from './view-summary-lazy';
 import { GuestCardSheet, SHIPPED_GUEST_CARD, type GuestCardPerson } from '../../guests/_components/guest-card-sheet';
 import type { GuestCardResult } from '../../guests/_components/guest-card';
 
@@ -189,6 +196,12 @@ type MarchMakerProps = {
   openCard?: (eventId: string, guestId: string) => Promise<GuestCardResult>;
   /** 🪪 The lab's re-read after a card saved (the Maker's one refresh otherwise). */
   onCardSaved?: () => void;
+  /**
+   * 🗂 R4 · Guests › March (owner 2026-10-28: *"the label of 20 walks, 34 walking can be like the carousel row of
+   * guests"*): the counts are the Guests summary row (`view-summary-cards.tsx`) instead of the one plain line, and the
+   * columns use the width they are given (never a centred phone strip on a desk).
+   */
+  guests?: boolean;
 };
 
 /** The one line the march draws when it cannot be shown — with Retry, which draws it again from the server's copy. */
@@ -257,6 +270,7 @@ function MarchMakerBody({
   lab = false,
   openCard = openCardShipped,
   onCardSaved,
+  guests = false,
 }: MarchMakerProps) {
   /* The drop, drawn before the server answers; null = the server's march. */
   const [mine, setMine] = useState<Shown | null>(null);
@@ -288,6 +302,19 @@ function MarchMakerBody({
   const [toast, setToast] = useState<Toast | null>(null);
   /* ⌨ What the keyboard is holding, and what it last did (said aloud). */
   const [carried, setCarried] = useState<{ source: MarchSource; key: string; name: string } | null>(null);
+  /* ⇅ R4 slice 1 — the Guests lens and the thumb row's own state (drawn below, as `marchThumb`); every hook here, above
+     the empty march's early return. */
+  const lens = useGuestsLens('march');
+  const [folded, setFolded] = useState<ReadonlySet<string>>(() => new Set());
+  /* 🏷 R4 slice 5 — the SELECTED walk group (owner 2026-10-29, prototype v13 `marchSel`): a tap on its header selects it,
+     opens it and raises the toolbar (Rename · ＋ Walk · Delete); a tap on the SELECTED header folds it AND unselects it. */
+  const [marchSel, setMarchSel] = useState<string | null>(null);
+  const [marchQ, setMarchQ] = useState('');
+  const marchQTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (marchQTimer.current) clearTimeout(marchQTimer.current);
+  }, []);
+  const marchFound = useMemo(() => (lens && marchQ ? lens.find(marchQ) : null), [lens, marchQ]);
   const [heard, setHeard] = useState('');
   /* 🪪 The person whose guest card is open over the march (a tap on their name). */
   const [card, setCard] = useState<GuestCardPerson | null>(null);
@@ -778,6 +805,148 @@ function MarchMakerBody({
   const walks = shown.reduce((n, s) => n + s.rows.length, 0);
   const people = shown.reduce((n, s) => n + s.rows.reduce((k, r) => k + (r[0] ? 1 : 0) + (r[1] ? 1 : 0), 0), 0);
   const dragging = lifted !== null;
+  /* ⇅ R4 slice 1 · GUESTS › MARCH'S THUMB ROW — THE shared `ThumbRow` (prototype v12 `renderThumb`), drawn into the
+     Guests screen's seat while March is the view (`guests-lens.tsx`): ⇕ (every section folded to its header, or open) ·
+     Search guests (dims who it leaves out; Enter goes to the first found) · ⇅ (the shared Show — a name it leaves out is
+     drawn faint) · ＋ Add a walk ▾ — the "Not walking" names: one picked walks alone at the end of their own section,
+     the SAME move as dragging them out of the tray (`planMove` → `run`), Undo and all. Nothing new is written. */
+  const marchDim = (id: string): boolean => Boolean(lens) && Boolean(id) && (!lens!.shows(id) || (marchFound !== null && !marchFound.has(id)));
+  const allOpen = shown.every((sec) => !folded.has(sec.key));
+  const goToFoundWalker = (words: string) => {
+    if (!lens) return;
+    const hits = lens.find(words);
+    const sec = shown.find((x) => x.rows.some((r) => r.some((p) => p && hits.has(p.id))));
+    const p = sec?.rows.flat().find((x) => x && hits.has(x.id));
+    if (!sec || !p) return;
+    setFolded((f) => {
+      if (!f.has(sec.key)) return f;
+      const n = new Set(f);
+      n.delete(sec.key);
+      return n;
+    });
+    requestAnimationFrame(() => root.current?.querySelector(`[data-march-key="${CSS.escape(p.id)}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }));
+  };
+  const marchThumb =
+    lens && lens.slot
+      ? createPortal(
+          <lens.ThumbRow
+            name="guests-march"
+            left={
+              shown.length > 0
+                ? [
+                    {
+                      icon: allOpen ? ChevronsDownUp : ChevronsUpDown,
+                      label: allOpen ? 'Collapse all' : 'Expand all',
+                      expanded: allOpen,
+                      onClick: () => setFolded(allOpen ? new Set(shown.map((x) => x.key)) : new Set()),
+                      testId: 'march-expand',
+                    },
+                  ]
+                : []
+            }
+            field={{
+              placeholder: 'Search guests',
+              input: {
+                defaultValue: marchQ,
+                enterKeyHint: 'search',
+                'data-march-search': '',
+                onInput: (e) => {
+                  const v = e.currentTarget.value.trim();
+                  if (marchQTimer.current) clearTimeout(marchQTimer.current);
+                  marchQTimer.current = setTimeout(() => setMarchQ(v), SEARCH_WAIT_MS);
+                },
+                onKeyDown: (e) => {
+                  if (e.key !== 'Enter' || e.nativeEvent.isComposing) return;
+                  e.preventDefault();
+                  const v = e.currentTarget.value.trim();
+                  setMarchQ(v);
+                  if (v) goToFoundWalker(v);
+                },
+              },
+            }}
+            right={[guestsFilterMenu({ view: 'march', filter: lens.filter, onFilter: lens.setFilter, hasSides: lens.hasSides, label: 'Show' })]}
+            action={
+              outUnread || shownOut.length === 0
+                ? null
+                : {
+                    menu: shownOut.map((o) => ({ key: o.id, label: o.name, group: o.sectionLabel })),
+                    label: 'Add a walk — someone not walking',
+                    value: null,
+                    mark: 'data-march-add-walk',
+                    onPick: (id) => {
+                      const o = shownOut.find((x) => x.id === id);
+                      if (!o) return;
+                      const sec = shown.find((x) => x.key === o.section);
+                      run(planMove(shown, shownPrinted, { kind: 'out', id }, { kind: 'gap', section: o.section, index: sec ? sec.rows.length : 0 }, shownOut));
+                    },
+                  }
+            }
+          />,
+          lens.slot,
+        )
+      : null;
+  /* 🏷 The selected group's toolbar — THE List's toolbar (`lens.HeadToolbar`), drawn in the thumb row's seat above it. Its
+     verbs are shipped moves only: Rename = the section's heading word (`lens.renameSection`, the List's door); ＋ Walk = a
+     name from "Not walking" into THIS group's end (the same `planMove` as the thumb row's ＋ and the tray drag); Delete =
+     everyone in it to "Not walking" (`planSectionOut` — the tray drag, for each, one Undo). The groom's and the bride's
+     sides always walk: no Delete there. ＋ Group is NOT here — a march group IS an entourage section (the guest's role
+     decides it); a group of one's own has no home in the data yet (flagged for the owner). */
+  const headTools = guests && lens?.HeadToolbar ? lens.HeadToolbar : null;
+  const tapHead = (key: string) => {
+    if (marchSel === key) {
+      setMarchSel(null);
+      setFolded((f) => new Set([...f, key]));
+      return;
+    }
+    setMarchSel(key);
+    setFolded((f) => {
+      if (!f.has(key)) return f;
+      const n = new Set(f);
+      n.delete(key);
+      return n;
+    });
+    // The toolbar rises from the bottom: the selected header is brought to the middle, never left under it.
+    requestAnimationFrame(() =>
+      root.current?.querySelector(`[data-march-section="${CSS.escape(key)}"]`)?.scrollIntoView({ block: 'center', behavior: reduced() ? 'auto' : 'smooth' }),
+    );
+  };
+  const selSec = marchSel ? (shown.find((x) => x.key === marchSel) ?? null) : null;
+  const HeadTools = headTools;
+  const marchHeadTools =
+    HeadTools && lens?.slot && selSec
+      ? createPortal(
+          <div className="order-first" data-march-head-tools={selSec.key}>
+            <HeadTools
+              label={selSec.label}
+              count={selSec.rows.length}
+              line={`${selSec.rows.length} walk${selSec.rows.length === 1 ? '' : 's'} · ${selSec.rows.reduce((k, r) => k + (r[0] ? 1 : 0) + (r[1] ? 1 : 0), 0)} walking`}
+              rename={lens?.sectionWords?.(selSec.key) ?? null}
+              onRename={async (text) => (lens?.renameSection ? lens.renameSection(selSec.key, text) : null)}
+              addWord="Walk"
+              addMenuAlways
+              add={outUnread ? null : (() => {
+                const here = shownOut.filter((o) => o.section === selSec.key).map((o) => ({ key: o.id, label: o.name }));
+                return here.length ? here : null;
+              })()}
+              adding={false}
+              onAdd={(id) => {
+                if (!id) return;
+                run(planMove(shown, shownPrinted, { kind: 'out', id }, { kind: 'gap', section: selSec.key, index: selSec.rows.length }, shownOut));
+              }}
+              onDelete={
+                isMarchOnlyGroup(selSec.key)
+                  ? undefined
+                  : () => {
+                      setMarchSel(null);
+                      run(planSectionOut(shown, shownPrinted, shownOut, selSec.key));
+                    }
+              }
+              onClose={() => setMarchSel(null)}
+            />
+          </div>,
+          lens.slot,
+        )
+      : null;
   const ring = (zone: string) =>
     over?.zone === zone ? (over.ok ? ' ring-2 ring-terracotta-700 ring-offset-1' : ' ring-2 ring-danger-500/60 ring-offset-1') : '';
   let step = 0;
@@ -801,16 +970,38 @@ function MarchMakerBody({
         if ((e.target as HTMLElement).closest('[data-march-drag]')) e.preventDefault();
       }}
       onDragStart={(e) => e.preventDefault()}
-      className={`mx-auto flex w-full max-w-2xl select-none flex-col pb-6 ${dragging ? 'cursor-grabbing' : ''}`}
+      className={`${guests ? 'min-w-0 ' : 'mx-auto max-w-2xl '}flex w-full select-none flex-col pb-6 ${dragging ? 'cursor-grabbing' : ''}`}
     >
-      <p className="px-1 pb-1 text-xs text-ink/60" data-march-count="">
-        {walks} walk{walks === 1 ? '' : 's'} · {people} walking
-      </p>
-      <div aria-hidden className="grid grid-cols-[2rem_1fr_1fr] gap-1.5 px-1.5 pt-1 font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta-800">
-        <span />
-        <span className="text-center">Left</span>
-        <span className="text-center">Right</span>
-      </div>
+      {guests ? (
+        /* 🗂 R4 · the fixed count row (owner 2026-10-29): Walks · Walking · Not walking (opens the tray) · ▶ Preview. No
+           walk preview ships yet — the tile is there, disabled, and says so, so the step is not lost. */
+        <ViewCountRow
+          view="march"
+          tiles={[
+            { key: 'walks', word: walks === 1 ? 'walk' : 'walks', value: walks },
+            { key: 'walking', word: 'walking', value: people },
+            {
+              key: 'out',
+              word: 'not walking',
+              value: outUnread ? null : shownOut.length,
+              onPress: () => document.querySelector('[data-march-tray-slot]')?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+            },
+            { key: 'preview', word: 'Preview', main: true, icon: <Play aria-hidden strokeWidth={2} />, disabled: true, about: 'The walk preview is coming' },
+          ]}
+        />
+      ) : (
+        <p className="px-1 pb-1 text-xs text-ink/60" data-march-count="">
+          {walks} walk{walks === 1 ? '' : 's'} · {people} walking
+        </p>
+      )}
+      {/* No LEFT / RIGHT words in Guests (owner 2026-10-29, prototype v13 — the two pills ARE the two sides). */}
+      {guests ? null : (
+        <div aria-hidden className="grid grid-cols-[2rem_1fr_1fr] gap-1.5 px-1.5 pt-1 font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta-800">
+          <span />
+          <span className="text-center">Left</span>
+          <span className="text-center">Right</span>
+        </div>
+      )}
       {shown.length === 0 ? (
         /* Nobody walks yet, but the tray holds people: the whole march is where they land. */
         <div
@@ -838,7 +1029,18 @@ function MarchMakerBody({
             role={fixed ? undefined : 'button'}
             aria-pressed={fixed ? undefined : carried?.key === sectionKey}
             aria-label={fixed ? undefined : `${sec.label} — drag to move the whole section`}
-            className={`mt-3 flex min-h-9 items-baseline gap-2 rounded-lg px-1 pt-1 font-mono text-[10.5px] uppercase tracking-[0.18em] text-ink/65 ${
+            data-march-head=""
+            data-march-head-selected={marchSel === sec.key ? '' : undefined}
+            onClick={headTools ? (e) => {
+              // A pointer's tap (a keyboard's activate, detail 0, is the root's pick-up). A drag never ends in a click here.
+              if (e.detail === 0) return;
+              tapHead(sec.key);
+            } : undefined}
+            className={`${
+              /* 📌 R4 slice 4 — in Guests, a walk group's header sticks under the pinned row while its walks pass (the
+                 prototype's `.acc-h` sticky); the Maker's own march keeps its plain line. */
+              guests ? 'sticky top-[calc(var(--gs-top,0px)+var(--gs-stick-h,60px))] z-[5] bg-[var(--gs-paper,rgb(var(--color-cream)))] ' : ''
+            }${marchSel === sec.key ? 'text-terracotta-800 underline decoration-2 underline-offset-4' : 'text-ink/65'} mt-3 flex min-h-9 items-baseline gap-2 rounded-lg px-1 pt-1 font-mono text-[10.5px] uppercase tracking-[0.18em] ${
               fixed ? '' : 'cursor-grab touch-pan-y [-webkit-touch-callout:none]'
             }${carried?.key === sectionKey ? ' ring-2 ring-ink' : ''}${ring(`section|${sec.key}`)}`}
           >
@@ -847,20 +1049,25 @@ function MarchMakerBody({
               {sec.rows.length} walk{sec.rows.length === 1 ? '' : 's'}
             </small>
           </p>
-          <Gap zone={`gap|${sec.key}|0`} on={over?.zone === `gap|${sec.key}|0`} ok={over?.ok ?? true} />
-          {sec.rows.map((row, i) => {
+          {folded.has(sec.key) ? null : <Gap zone={`gap|${sec.key}|0`} on={over?.zone === `gap|${sec.key}|0`} ok={over?.ok ?? true} />}
+          {(folded.has(sec.key) ? [] : sec.rows).map((row, i) => {
             step += 1;
             const lead = leadOf(row);
             const walkKey = `walk:${lead}`;
             /* 🚶 Drawn across the aisle by role and side (owner 2026-10-06 — Ninong left,
                Ninang right; the groom's crew left, the bride's right): `acrossTheAisle`. */
             const laid = acrossTheAisle(row);
+            /* 🚶 R4 slice 5 (owner 2026-10-29, prototype v13 `.m-pair.solo`): in Guests a lone walker's pill spans BOTH
+               sides; the other side opens (grows back, animated) only while something is being moved, so a name can
+               be dropped beside them — and closes again after. Both pills of a walk share one height (stretch). */
+            const solo = guests && (laid[0] === null) !== (laid[1] === null);
+            const hideEmpty = solo && !dragging && !carried;
             return (
               <div key={lead || i} className="flex flex-col">
                 <div
                   data-march-flip={walkKey}
                   data-march-walk={step}
-                  className={`grid grid-cols-[2rem_1fr_1fr] items-stretch gap-1.5 rounded-xl bg-white p-1.5 ring-1 ring-ink/10 transition-opacity ${lifted === walkKey ? 'opacity-30' : ''}`}
+                  className={`grid ${guests ? 'grid-cols-[2rem_minmax(0,1fr)]' : 'grid-cols-[2rem_1fr_1fr]'} items-stretch gap-1.5 rounded-xl bg-white p-1.5 ring-1 dark:bg-raised ring-ink/10 transition-opacity ${lifted === walkKey ? 'opacity-30' : ''}`}
                 >
                   <span
                     data-march-drag={`walk|${sec.key}|${lead}`}
@@ -874,8 +1081,11 @@ function MarchMakerBody({
                   >
                     {step}
                   </span>
+                  <PairBox guests={guests}>
                   {[0, 1].map((c) => {
                     const p = laid[c as 0 | 1];
+                    /* In Guests each side is a flex slot: the second keeps a gap unless the empty side is closed. */
+                    const slot = guests ? ` min-w-0 flex-1 basis-0${c === 1 && !hideEmpty ? ' ml-1.5' : ''}` : '';
                     if (p) {
                       const zone = `name|${p.id}`;
                       return (
@@ -892,9 +1102,10 @@ function MarchMakerBody({
                           data-march-side={c === 0 ? 'left' : 'right'}
                           aria-label={`${p.name}${p.tag ? `, ${p.tag}` : ''} — step ${step}, ${c === 0 ? 'left' : 'right'}. Enter opens their guest card; Space moves them.`}
                           data-march-card-open={card?.id === p.id && p.id ? '' : undefined}
-                          className={`${NAME_CHIP} ${
-                            p.tag ? 'border-terracotta-700/60 bg-white' : 'border-terracotta-700/20 bg-terracotta-700/[0.06]'
-                          } ${lifted === p.id ? 'border-dashed opacity-30' : ''}${carried?.key === p.id ? ' ring-2 ring-ink ring-offset-1' : ''}${card?.id === p.id && p.id ? ' ring-2 ring-terracotta-700 ring-offset-1' : ''}${ring(zone)}`}
+                          data-march-dim={marchDim(p.id) ? '' : undefined}
+                          className={`${NAME_CHIP}${slot} ${
+                            p.tag ? 'border-terracotta-700/60 bg-white dark:bg-raised' : 'border-terracotta-700/20 bg-terracotta-700/[0.06]'
+                          } ${lifted === p.id ? 'border-dashed opacity-30' : marchDim(p.id) ? 'opacity-25' : ''}${carried?.key === p.id ? ' ring-2 ring-ink ring-offset-1' : ''}${card?.id === p.id && p.id ? ' ring-2 ring-terracotta-700 ring-offset-1' : ''}${ring(zone)}`}
                         >
                           <span className="font-serif text-[15.5px] leading-tight text-ink [overflow-wrap:anywhere]">{p.name}</span>
                           {p.tag ? (
@@ -912,14 +1123,21 @@ function MarchMakerBody({
                         tabIndex={anchor?.id && carried ? 0 : undefined}
                         role={anchor?.id ? 'button' : undefined}
                         aria-label={anchor ? `Walk beside ${anchor.name}` : undefined}
+                        aria-hidden={hideEmpty || undefined}
+                        data-march-empty-side={guests ? (hideEmpty ? 'closed' : 'open') : undefined}
                         className={`flex min-h-11 items-center justify-center rounded-lg border-[1.5px] border-dashed px-2 text-center text-[11px] leading-tight transition-colors ${
                           dragging ? 'border-terracotta-700/40 text-terracotta-800' : 'border-ink/15 text-ink/50'
+                        }${slot}${
+                          guests
+                            ? ` overflow-hidden transition-[flex-grow,opacity,margin,padding] duration-300 ease-[cubic-bezier(.2,.8,.2,1)] motion-reduce:transition-none${hideEmpty ? ' pointer-events-none !grow-0 !border-0 !px-0 opacity-0' : ''}`
+                            : ''
                         }${ring(zone)}`}
                       >
                         {dragging || carried ? 'walk together' : 'walks alone'}
                       </div>
                     );
                   })}
+                  </PairBox>
                 </div>
                 <Gap zone={`gap|${sec.key}|${i + 1}`} on={over?.zone === `gap|${sec.key}|${i + 1}`} ok={over?.ok ?? true} />
               </div>
@@ -934,6 +1152,8 @@ function MarchMakerBody({
           <ActionButton tone="neutral" quiet icon={RotateCcw} label="Put the sections back in their usual order" onClick={() => run(planSectionsDefault(shown, shownPrinted))} />
         </span>
       ) : null}
+      {marchThumb}
+      {marchHeadTools}
       {slot
         ? createPortal(
             <MarchTray
@@ -974,6 +1194,17 @@ function MarchMakerBody({
 }
 
 /** The gap between two walks — a gold line where the drop would land. */
+/** 🚶 In Guests the walk's two sides sit in ONE flex row (so a lone walker can span both); in the Maker they stay grid cells. */
+function PairBox({ guests, children }: { guests: boolean; children: ReactNode }) {
+  return guests ? (
+    <div className="flex min-w-0 items-stretch" data-march-pair="">
+      {children}
+    </div>
+  ) : (
+    <>{children}</>
+  );
+}
+
 function Gap({ zone, on, ok }: { zone: string; on: boolean; ok: boolean }) {
   return (
     <div data-march-drop={zone} aria-hidden className={`relative mx-1 transition-[height] duration-200 ${on ? 'h-5' : 'h-2.5'}`}>

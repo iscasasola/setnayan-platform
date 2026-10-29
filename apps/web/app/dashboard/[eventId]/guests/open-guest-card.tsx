@@ -30,7 +30,9 @@ import { readGuestCard, type GuestCardRead } from './_components/guest-card-read
  * answers drawn pieces).
  */
 const RETURN_TO = {
-  march: (eventId: string) => `/dashboard/${eventId}/launch?tool=details&item=march`,
+  /* 🗂 R4: the march and the seat plan are Guests' views — a failed save lands back on the view it was pressed on. */
+  march: (eventId: string) => `/dashboard/${eventId}/guests?gview=march`,
+  seats: (eventId: string) => `/dashboard/${eventId}/guests?gview=seats`,
   invitation: (eventId: string) => `/dashboard/${eventId}/launch?tool=details&item=invitation`,
 } as const;
 

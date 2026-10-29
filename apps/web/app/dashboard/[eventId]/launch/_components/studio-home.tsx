@@ -1,7 +1,7 @@
 'use client';
 
 import type { ComponentType } from 'react';
-import { Armchair, BookOpen, Clock, FileText, Gift, LayoutGrid, Palette, PersonStanding, Printer } from 'lucide-react';
+import { BookOpen, Clock, FileText, Gift, LayoutGrid, Palette, Printer } from 'lucide-react';
 import { PageCard } from '@/app/_components/page-card';
 import type { StudioTileKey, StudioTileModel } from '@/lib/studio-tiles';
 import { formatCount } from '@/lib/format-number';
@@ -51,8 +51,6 @@ export const TILE_ICON: Record<StudioTileKey, TileIcon> = {
   mood: LayoutGrid,
   schedule: Clock,
   story: BookOpen,
-  march: PersonStanding,
-  seats: Armchair,
   gifts: Gift,
   prints: Printer,
 };

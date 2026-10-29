@@ -46,7 +46,7 @@ import * as THREE from 'three';
 import { Maximize2, Minimize2 } from 'lucide-react';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
 import { SeatingViewSegment } from '@/app/dashboard/[eventId]/seating/_components/seating-frame';
-import { detailsItemHref } from '@/lib/maker-details-items';
+import { guestsViewHref } from '@/lib/guests-views';
 import {
   DropConfirmBubble,
   type DropConfirmState,
@@ -3050,21 +3050,18 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
         venueSetting={venueSetting}
         venueLabel={venueLabel}
         rolePalette={rolePalette}
+        /* 🗂 R4: inside Guests › Seats the plan's ONE mode dropdown (List · 2D · 3D) is the pinned row's — the room
+           draws no second switch of its own. Standalone, its segment leaves for the plan. */
         viewSegment={
-          <SeatingViewSegment
-            active="3d"
-            onSelect={(target) => {
-              // In Details, back to the plan in the same part (`seat` drops the lab).
-              if (inMaker) {
-                if (target !== '3d') {
-                  router.push(detailsItemHref(eventId, 'seating', target === 'list' ? '&seat=list' : ''), { scroll: false });
-                }
-                return;
-              }
-              if (target === '2d') router.push(`/dashboard/${eventId}/seating`);
-              else if (target === 'list') router.push(`/dashboard/${eventId}/seating?view=list`);
-            }}
-          />
+          inMaker ? null : (
+            <SeatingViewSegment
+              active="3d"
+              onSelect={(target) => {
+                if (target === '2d') router.push(guestsViewHref(eventId, 'seats'));
+                else if (target === 'list') router.push(guestsViewHref(eventId, 'seats', { seat: 'list' }));
+              }}
+            />
+          )
         }
         mode={mode}
         setMode={setMode}
@@ -5847,17 +5844,6 @@ function Hud({
                 Hiding it before the day hides the 3D walk until the day. Printed table signs keep working.
               </p>
             ) : null}
-            {/* The door to the control centre — the couple's room as their
-                guests see it, the facts, and what feeds it. This panel keeps
-                the switch; that page explains it. */}
-            {inMaker ? null : (
-              <a
-                href={`/dashboard/${eventId}/plan3d`}
-                className="mt-2 block text-[11px] text-white/55 underline-offset-2 hover:text-white hover:underline"
-              >
-                3D Plan control centre →
-              </a>
-            )}
           </div>
         ) : (
           <div className={`flex min-h-0 flex-1 flex-col p-3 ${glass}`}>

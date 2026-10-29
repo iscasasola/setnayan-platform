@@ -787,8 +787,9 @@ export function GuestCardBody({
                   options={roleOptions}
                   solo={SINGLETON_GUEST_ROLES}
                 />
-                {/* 🏷 Rename this role · Rename this section (owner 2026-09-30 / 2026-10-19) — the Guests pages' kit only. */}
-                {K.Rename ? <K.Rename eventId={eventId} role={guest.role} names={roleNames} /> : null}
+                {/* 🏷 The role's and the section's own words are renamed on the List's selected header now (R4 slice 4,
+                    owner 2026-10-29: "the renaming of that group will be removed since it will be set on when the
+                    highlighted group/role is pressed") — `section-head-toolbar.tsx`. The card keeps the role PICK. */}
                 {/* 🧍 "Proxy ▾" — only for a guest who HOLDS A ROLE (owner: "this only works if they have role and not guest"). */}
                 {ProxyRow && proxy && (proxy.offer || representedBy || proxy.unread) ? (
                   <ProxyRow eventId={eventId} guestId={guest.guest_id} firstName={callName} proxy={proxy} variant={variant} />

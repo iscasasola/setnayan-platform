@@ -326,7 +326,7 @@ test('13 · a People match not on the list: Enter adds the FIRST one, through th
   assert.match(h, /addPerson\(known\[0\]!\)/, 'Enter does not add the first People match');
   const add = fnBody(src, 'const addPerson = (');
   assert.match(add, /guestAdds\.enqueue\(/, 'a People add skips the ordered queue');
-  assert.match(add, /addGuestsFromPeople\(eventId, \[\{ key: p\.key \}\], picks\.side, \{[\s\S]*refresh: false/, 'a People add is not the shipped add, with the picks and no redraw');
+  assert.match(add, /addGuestsFromPeople\(eventId, \[\{ key: p\.key \}\], addPicks\.side, \{[\s\S]*refresh: false/, 'a People add is not the shipped add, with the picks and no redraw');
   assert.match(src, /listPeopleYouCanInvite\(eventId\)/, 'the box does not read the SAME People the sheet reads');
   assert.match(read('search-add-card.tsx'), /From your People · not on this list yet/);
   assert.match(src, /`Not them\? Add “\$\{q\}” as new`/);

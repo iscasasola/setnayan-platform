@@ -85,7 +85,7 @@ const RECORD: Readonly<Record<string, ReadonlyArray<readonly [MakerPartKey, stri
   home: [
     ['venue', 'Change it in Suppliers', true],
     ['dress', 'Open in Studio › Mood Board & Dress Code', true],
-    ['march', 'Open in Studio › Wedding March', true],
+    ['march', 'Open in Guests › March', true], // 🗂 R4: the march is Guests › March (the prototype drew Studio)
     ['bring', 'Open in Studio › Info', true],
   ],
   camera: [['camera', 'grey', true]],
@@ -94,7 +94,7 @@ const RECORD: Readonly<Record<string, ReadonlyArray<readonly [MakerPartKey, stri
     ['myphotos', null, true],
   ],
   me: [
-    ['seats', 'Open in Studio › Seat plan', true],
+    ['seats', 'Open in Guests › Seats', true], // 🗂 R4: the seat plan is Guests › Seats
     ['pass', 'Open in Studio › Prints', false],
   ],
 };

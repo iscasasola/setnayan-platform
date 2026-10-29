@@ -38,7 +38,7 @@ import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
  * 🔔 The Auto arrange line (and its Undo) — the template's toast (`PeekToast`: peeks from the top, one Undo action, leaves by itself and tells the editor, which then
  * forgets the line). Its Dismiss ✕ is the toast's own leaving.
  */
-function SeatToast({ toast }: { toast: { text: string; onUndo: (() => void) | null; onDismiss: () => void } }) {
+export function SeatToast({ toast }: { toast: { text: string; onUndo: (() => void) | null; onDismiss: () => void } }) {
   return (
     <PeekToast key={toast.text} data="seat-plan" onGone={toast.onDismiss} action={toast.onUndo ? { label: 'Undo', onPress: toast.onUndo } : undefined}>
       {toast.text}
@@ -62,12 +62,15 @@ function Pop({
   children,
   align = 'left',
   data,
+  up = false,
 }: {
   button: ReactNode;
   label: string;
   children: ReactNode;
   align?: 'left' | 'right';
   data: string;
+  /** 🗂 R4: opened from the thumb row at the foot of the screen, the menu rises above it. */
+  up?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const oneOpenId = useOneOpen(open, setOpen); // one open at a time — lib/one-open.ts; what opens inside is its child
@@ -93,7 +96,7 @@ function Pop({
               onClick={(e) => {
                 if ((e.target as HTMLElement).closest('[data-close]')) setOpen(false);
               }}
-              className={`absolute ${align === 'right' ? 'right-0' : 'left-0'} z-50 mt-1 w-[min(20rem,calc(100vw-2rem))] max-h-[65dvh] overflow-y-auto overscroll-contain rounded-xl bg-cream p-2 shadow-lg`}
+              className={`absolute ${align === 'right' ? 'right-0' : 'left-0'} z-50 ${up ? 'bottom-full mb-1' : 'mt-1'} w-[min(20rem,calc(100vw-2rem))] max-h-[65dvh] overflow-y-auto overscroll-contain rounded-xl bg-cream p-2 shadow-lg`}
             >
               {children}
             </div>
@@ -276,7 +279,8 @@ export function MoveGuestSheet({
             {initial}
           </span>
           <span className="min-w-0">
-            <span className="block truncate text-[15px] text-ink">{fullName}</span>
+            {/* ✂ A guest's name wraps, never cut (owner v15). */}
+            <span className="line-clamp-3 block text-[15px] text-ink [overflow-wrap:anywhere]">{fullName}</span>
             <span className="block truncate text-[12px] text-ink/55">{sub}</span>
           </span>
         </div>
@@ -311,19 +315,31 @@ export function StudioSeatPlanHead({
   countLabel,
   more,
   trailing,
+  view,
 }: {
-  countLabel: string;
+  /** Null in Guests › Seats (R4) — the counts are the summary row's, never said twice. */
+  countLabel: string | null;
   more: ReactNode;
   trailing?: ReactNode;
+  /** 🗂 R4: the plan's ONE mode dropdown (List · 2D · 3D) in the pinned row — Guests › Seats. */
+  view?: ReactNode;
 }) {
   return (
     <div data-seat-plan-studio-head="" className="flex h-11 shrink-0 items-center gap-2 border-b border-ink/10 bg-cream px-3">
-      <h2 className="min-w-0 truncate text-[15px] font-semibold text-ink">
-        Seat plan <span className="font-normal text-ink/55">· </span>
-        <span data-seat-plan-count="" className="font-normal tabular-nums text-ink/60">
-          {countLabel}
-        </span>
+      {/* ✂ The head's words never cut — the mode dropdown beside it keeps its whole word too (owner v15). */}
+      <h2 className="shrink-0 whitespace-nowrap text-[15px] font-semibold text-ink">
+        Seat plan
+        {countLabel !== null ? (
+          <>
+            {' '}
+            <span className="font-normal text-ink/55">· </span>
+            <span data-seat-plan-count="" className="font-normal tabular-nums text-ink/60">
+              {countLabel}
+            </span>
+          </>
+        ) : null}
       </h2>
+      {view}
       <span className="flex-1" />
       {trailing}
       <Pop
@@ -386,6 +402,21 @@ export function StudioSeatPlanTools({
         </span>
       </div>
     </div>
+  );
+}
+
+/** 🗂 R4 · The plan's three modes as ONE dropdown (owner rule: any set of choices is a dropdown) — the SAME options the
+ *  Studio's tools row offered, now in the pinned row of Guests › Seats. */
+export function SeatPlanModePick({ view, onView, show3D }: { view: '2d' | '3d' | 'list'; onView: (v: '2d' | '3d' | 'list') => void; show3D: boolean }) {
+  const views: PickOption[] = [
+    { key: '2d', label: '2D' },
+    ...(show3D ? [{ key: '3d', label: '3D' }] : []),
+    { key: 'list', label: 'List' },
+  ];
+  return (
+    <span data-tour="seat-plan-view" className="inline-flex shrink-0">
+      <PickMenu label="View" value={view} options={views} onPick={(k) => onView(k as '2d' | '3d' | 'list')} dataAttr="data-seat-plan-view" compact className="h-11 border border-ink/15 bg-cream" />
+    </span>
   );
 }
 

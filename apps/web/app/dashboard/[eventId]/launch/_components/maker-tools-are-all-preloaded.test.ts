@@ -43,6 +43,7 @@ const LAYOUTS = ['app/layout.tsx', 'app/dashboard/layout.tsx', 'app/dashboard/[e
  * would accept; a panel the couple taps belongs in MAKER_TOOLS instead.
  */
 const NOT_A_TOOL: Record<string, string> = {
+  'app/dashboard/[eventId]/guests/_components/view-summary-cards.tsx': "Guests › March's summary row (R4, 2026-10-28) — not a Maker panel: the march maker loads it only when drawn in Guests (`guests` prop); the Maker's own march draws its one plain line and never fetches it, so preloading it would only add a download",
   'app/dashboard/[eventId]/_components/open-event-settings.tsx': "Home's ⚙ Event Settings read (owner 2026-10-29, \"keep it there\") — a server action the Home cover's ⚙ import()s when it is PRESSED; nothing in the Maker opens it, and preloading a server action would only add a request; not a Maker panel",
   'app/dashboard/[eventId]/guests/checkin/actions.ts': "the Check-in desk's server action, import()ed by the offline daemon's check-in handler (EV3, 2026-10-28) only when the daemon sends a door scan that was queued with no signal — nothing in the Maker opens it; the daemon reaches the Maker's graph through the shared offline queue, and preloading a server action would only add a request; not a panel",
   'app/_components/notifications/notifications-list.tsx': "the bell's notifications pop-over (2026-10-25, owner: \"a pop up to see the notifications and an option to view all\") — not a Maker panel: the top bar's bell import()s the list when it is PRESSED, on every page, and draws a loading row until it answers; nothing in the Maker opens it, and preloading it would put it in the Maker's first load",
@@ -75,9 +76,7 @@ const NOT_A_TOOL: Record<string, string> = {
   '@ffmpeg/ffmpeg': 'video compression of a picked file — megabytes of WebAssembly, never on a hunch',
   '@ffmpeg/util': 'video compression of a picked file (with @ffmpeg/ffmpeg)',
   jsqr: 'reads a QR inside a picked image (upload pipeline)',
-  'app/dashboard/[eventId]/seating/lab/_components/seating-lab-3d.tsx': 'the 3D seat view (three.js, ~150KB+) — opened by its own 3D button; three.js stays out of every preload',
   'app/_components/plan3d/plan3d-scene.tsx': 'the 3D plan view (three.js) — same reason',
-  'app/_components/plan3d/kit/cinematic.tsx': 'the 3D plan view (three.js) — same reason',
   'app/papic/actions.ts': 'Papic camera/offline handlers (the service-worker drain), not the Maker',
   'lib/clip-poster.ts': 'Papic camera/offline handlers, not the Maker',
   'app/_components/home/HomeOverlays.tsx': 'the marketing site’s overlays — not the signed-in app',

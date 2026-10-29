@@ -20,6 +20,7 @@
  *     (`guests-screen.tsx`). 1 and 2 hold for the add sheet; 3 retires with the
  *     ⋯; 4 holds for the new segmented control.
  */
+import { GUESTS_VIEW_LABEL } from '@/lib/guests-views';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -57,7 +58,7 @@ test('2 · the dark behind a guest sheet is the app\'s ONE pop-up dark — no wa
   }
 });
 
-test('4 · the doors are ONE segmented control — List · Map, one word each, then the ⚙ (Settings became the ⚙, owner 2026-10-27)', () => {
+test('4 · the doors are ONE segmented control — List · Map · Seats · March, one word each, then the ⚙ (Settings became the ⚙, owner 2026-10-27; R4 2026-10-28)', () => {
   const navAt = SCREEN.lastIndexOf('<nav', SCREEN.indexOf('aria-label="Guest list views"'));
   const nav = SCREEN.slice(navAt, SCREEN.indexOf('</nav>', navAt));
   // 2026-10-08: the doors are drawn by the app's ONE pill selector (owner: "adjust all pill selectors to this"),
@@ -66,8 +67,11 @@ test('4 · the doors are ONE segmented control — List · Map, one word each, t
   assert.match(nav, /<PillThumb \/>/, 'the doors lost the thumb that slides between them');
   assert.match(SCREEN, /className=\{`\$\{pillSegClass\(gview === key\)\} /, 'a door does not wear the pill selector’s look');
   assert.doesNotMatch(SCREEN, /styles\.seg\b/, 'the doors are drawn by this screen’s own CSS again');
-  const words = [...nav.matchAll(/seg\('(\w+)', '([^']+)'/g)].map((m) => m[2]);
-  assert.deepEqual(words, ['List', 'Map'], `the segments read ${words.join(' · ')}`);
+  // 🗂 R4: the row draws the views this event has, each in its one word (`lib/guests-views.ts`) — List · Map · Seats · March.
+  assert.match(nav, /\{guestsViews\.map\(\(v\) => seg\(v, GUESTS_VIEW_LABEL\[v\]/, 'the segments are not the views’ own words');
+  const words = Object.values(GUESTS_VIEW_LABEL);
+  assert.deepEqual(words, ['List', 'Map', 'Seats', 'March'], `the segments read ${words.join(' · ')}`);
+  assert.ok(words.every((w) => !/\s/.test(w)), 'a segment says more than one word');
   // The "Settings" segment is the menu's ⚙ now — right after the pill, in the same first row.
   assert.match(SCREEN.slice(navAt), /^[\s\S]*?<\/nav>\s*\{setup \? \(\s*<MenuSettingsButton menu="guests"/, 'the ⚙ does not follow the List · Map pill');
 });

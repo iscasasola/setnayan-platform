@@ -42,6 +42,9 @@ import {
 /** 🗂 R1 — a reply setting's link: where it lives now (the line under it) and its one door's words. */
 export const GUIDE_GUESTS_LINE = 'In Guests ⚙ — your RSVP settings';
 export const GUIDE_GUESTS_GO = 'Open in Guests ⚙ ›';
+/** 🗂 R4 — a Guests view's link (the march, the seat plan): its line and its button, as the view row says them. */
+export const GUIDE_VIEW_LINE: Readonly<Record<'march' | 'seats', string>> = { march: 'In Guests › March', seats: 'In Guests › Seats' };
+export const GUIDE_VIEW_GO: Readonly<Record<'march' | 'seats', string>> = { march: 'Open Guests › March ›', seats: 'Open Guests › Seats ›' };
 
 export type DetailsGuideActions = {
   /** Round 1 — the Save the Date as guests meet it, with the draft (null: no address yet). */
@@ -54,6 +57,8 @@ export type DetailsGuideActions = {
   guestsHref?: string;
   /** 🗂 R1 — Guests ⚙, open (`guestsSettingsHref`): a reply-setting link adds its row (`guidedLinkHref`). */
   guestsSettingsHref?: string;
+  /** 🗂 R4 — the Guests page: the march's and the seat plan's links open its view (`guidedLinkHref`). */
+  guestsViewsHref?: string;
 };
 
 
@@ -199,13 +204,13 @@ export function GuideReady({
                   <Link
                     href={href}
                     data-details-guide-ready-step={l.key}
-                    data-guide-link-guests={l.guests}
+                    data-guide-link-guests={l.guests ?? l.view}
                     data-state={l.state}
                     className="sn-press flex min-h-12 w-full items-center justify-between gap-3 text-left text-[14px] text-ink"
                   >
                     <span className="flex flex-col">
                       {l.title}
-                      <span className="text-[12px] text-ink/60">{l.guests ? GUIDE_GUESTS_LINE : l.unlocks}</span>
+                      <span className="text-[12px] text-ink/60">{l.guests ? GUIDE_GUESTS_LINE : l.view ? GUIDE_VIEW_LINE[l.view] : l.unlocks}</span>
                     </span>
                     <span
                       className={`shrink-0 text-[13px] font-semibold ${
@@ -284,7 +289,7 @@ export function GuideLinkScreen({
   plan: GuidedPlan;
   link: string;
   /** Where its door goes (`guidedLinkHref`): the names to the Guest list's import, a reply setting to Guests ⚙. */
-  actions: Pick<DetailsGuideActions, 'guestsHref' | 'guestsSettingsHref'> | null;
+  actions: Pick<DetailsGuideActions, 'guestsHref' | 'guestsSettingsHref' | 'guestsViewsHref'> | null;
   foot: ReactNode;
 }) {
   const l = plan.links.find((x) => x.key === link) ?? null;
@@ -297,14 +302,14 @@ export function GuideLinkScreen({
           <p className={`text-[13px] font-semibold ${l?.state === 'done' ? 'text-success-700' : l?.state === 'left' ? 'text-terracotta-700' : 'text-ink/55'}`}>
             {l?.state === 'done' ? '✓ set' : l?.state === 'left' ? '○ not yet' : 'Look over'}
           </p>
-          {l?.guests ? <p className="text-[14px] text-ink/75">{l.shows}</p> : null}
+          {l?.guests || l?.view ? <p className="text-[14px] text-ink/75">{l.shows}</p> : null}
           {href ? (
             <Link
               href={href}
               data-details-guide-link-go={link}
               className="sn-press inline-flex min-h-11 items-center justify-center self-start rounded-full bg-ink px-5 text-[15px] font-semibold text-cream"
             >
-              {l?.guests ? GUIDE_GUESTS_GO : l?.state === 'done' ? 'Open your guest list ›' : 'Add names ›'}
+              {l?.guests ? GUIDE_GUESTS_GO : l?.view ? GUIDE_VIEW_GO[l.view] : l?.state === 'done' ? 'Open your guest list ›' : 'Add names ›'}
             </Link>
           ) : null}
         </div>

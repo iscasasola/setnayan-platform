@@ -10,7 +10,8 @@ import { ChineseSpecialistNudge } from '../../date-selection/_components/chinese
 import type { YourEventInput } from './details-your-event-parts';
 import type { VenueSlot } from './details-your-event';
 import { marchSections, marchTray, printedSectionOrder } from '@/lib/march-sections';
-import { replayMarch, type MarchOut, type MarchSection, type MarchStep } from '@/lib/march-drag';
+import type { MarchStep } from '@/lib/march-drag';
+import { marchAsDrafted } from '@/lib/march-as-drafted';
 import { readYourEventFacts } from './details-your-event-facts';
 import { loadEntourageSectionOrder, loadEventNameStyle } from '@/app/[slug]/_lib/loaders';
 import { nameStyleOfPrintDetails } from '@/lib/name-style';
@@ -209,25 +210,6 @@ export async function loadYourEvent({
       marchUnread,
     ),
   };
-}
-
-/**
- * 🚶 The march as the couple is arranging it: the live march (what guests see)
- * with the draft's moves laid on, step by step, the way each shipped action
- * leaves it (`replayMarch`). An unread draft is said — never drawn as "no moves",
- * which would let the next drop plan against a march the couple did not draft.
- */
-function marchAsDrafted(
-  live: { sections: MarchSection[]; printed: string[]; out: MarchOut[] | null },
-  drafted: MarchStep[][] | null | undefined,
-  marchUnread = false,
-): YourEventInput['march'] {
-  // An unread MARCH is the same refusal as an unread draft: a full march must never read "Nobody walks yet".
-  if (marchUnread) return { ...live, draftUnread: true, marchUnread: true };
-  if (drafted === null) return { ...live, draftUnread: true };
-  if (!drafted?.length) return live;
-  const shown = replayMarch({ sections: live.sections, printed: live.printed, out: live.out ?? [] }, drafted.flat());
-  return { sections: shown.sections, printed: shown.printed, out: live.out === null ? null : shown.out };
 }
 
 /** 📍 Where each venue card's own details draft into (`HUB_DRAFT_VENUE_COLUMNS`). */

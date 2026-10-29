@@ -56,13 +56,9 @@ const LAB_STUDIO_DONE: Record<(typeof STUDIO_TILE_KEYS)[number], boolean | undef
   mood: true,
   schedule: true,
   story: false,
-  march: false,
-  seats: false,
   gifts: undefined,
   prints: true,
 };
-/** The Studio pages the lab cannot draw — their tiles are not offered (see `tiles` below). */
-const LAB_STUDIO_NOT_DRAWN: ReadonlyArray<(typeof STUDIO_TILE_KEYS)[number]> = ['seats'];
 const LAB_STILLS = ['ballroom', 'starlit', 'fairy-lights', 'rose-archway', 'seascape', 'sunrise', 'aurora', 'peonies', 'bridgerton'];
 const LAB_CLIPS = ['jack-jill-vclip', 'jack-rose-vclip', 'maria-juan-vclip', 'john-jane-vclip', 'peter-mary-vclip'];
 
@@ -250,10 +246,8 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
       /* 🧭 The Maker on the lab's fixtures — there is one Maker (2026-10-25), so `?studio=1` / `&desk=1` are no longer
          needed (still accepted: they change nothing). Its cards' states are the lab's stand-in, `LAB_STUDIO_DONE`. */
       studio={{
-        /* 🪑 No Seat plan tile: the lab's Studio draws no seat plan (`MakerDetails` is handed none), and a tile
-           with nothing behind it opened the Wedding March under the name "Seat plan" (P03). The real Maker
-           drops such a tile the same way (`lib/studio-tiles.ts` `studioTiles` — `offered`). */
-        tiles: STUDIO_TILE_KEYS.filter((key) => !LAB_STUDIO_NOT_DRAWN.includes(key)).map((key) => ({
+        /* 🗂 R4: no Seat plan or Wedding March tile — both are Guests' views now (`lib/studio-tile-defs.ts`). */
+        tiles: STUDIO_TILE_KEYS.map((key) => ({
           key,
           label: STUDIO_TILES[key].label,
           short: STUDIO_TILES[key].short,

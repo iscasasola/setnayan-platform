@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "11410de730",
+  "generatedFromRef": "6139f502ee",
   "routeCount": 479,
-  "destinations": 986,
-  "actions": 642,
-  "blocks": 7334,
+  "destinations": 981,
+  "actions": 640,
+  "blocks": 7356,
   "routes": {
     "/": {
       "files": [
@@ -6024,6 +6024,7 @@
         "HomeTile",
         "HomeToday",
         "HomeTodayFold",
+        "HomeTodayItem",
         "HubDraftDock",
         "HubDraftSwitch",
         "HubPartsSwitches",
@@ -6050,6 +6051,7 @@
         "LatLng",
         "LeafSuggestion",
         "LeafSuggestions",
+        "LevelAsk",
         "LevelSeat",
         "LifecyclePhase",
         "LineItemSection",
@@ -6171,6 +6173,7 @@
         "SwitchTrack",
         "TinyAction",
         "TodayFold.Provider",
+        "TodaySheetItem",
         "TypedRow",
         "UnreadBellBadge",
         "UnreadMessagesBadge",
@@ -6179,6 +6182,7 @@
         "UpdateMatchCriteriaResult",
         "UseSongButton",
         "VeilReveal",
+        "VendorAvatar",
         "VendorCategoryProgress",
         "VendorDirectPay",
         "VendorLogo",
@@ -6690,6 +6694,7 @@
         "dashboard/[eventId]/guests/_components/guest-card-change-words.ts",
         "dashboard/[eventId]/guests/_components/guest-card-data.ts",
         "dashboard/[eventId]/guests/_components/guest-card-error-copy.ts",
+        "dashboard/[eventId]/guests/_components/guest-card-in-place.tsx",
         "dashboard/[eventId]/guests/_components/guest-card-kit.ts",
         "dashboard/[eventId]/guests/_components/guest-card-read.ts",
         "dashboard/[eventId]/guests/_components/guest-card-rows.tsx",
@@ -6717,7 +6722,10 @@
         "dashboard/[eventId]/guests/_components/guest-ticket-parts.tsx",
         "dashboard/[eventId]/guests/_components/guests-db.harness.ts",
         "dashboard/[eventId]/guests/_components/guests-excel-button.tsx",
+        "dashboard/[eventId]/guests/_components/guests-filter-menu.tsx",
         "dashboard/[eventId]/guests/_components/guests-last-copy.tsx",
+        "dashboard/[eventId]/guests/_components/guests-lens.tsx",
+        "dashboard/[eventId]/guests/_components/guests-march.tsx",
         "dashboard/[eventId]/guests/_components/guests-screen.tsx",
         "dashboard/[eventId]/guests/_components/handed.tsx",
         "dashboard/[eventId]/guests/_components/hear-action.ts",
@@ -6733,6 +6741,7 @@
         "dashboard/[eventId]/guests/_components/role-names-context.tsx",
         "dashboard/[eventId]/guests/_components/role-section-order.ts",
         "dashboard/[eventId]/guests/_components/search-add-card.tsx",
+        "dashboard/[eventId]/guests/_components/section-head-toolbar.tsx",
         "dashboard/[eventId]/guests/_components/send-invite.tsx",
         "dashboard/[eventId]/guests/_components/sent-or-not-yet.tsx",
         "dashboard/[eventId]/guests/_components/title-picker.tsx",
@@ -6742,6 +6751,7 @@
         "dashboard/[eventId]/guests/_components/use-peek-toast.tsx",
         "dashboard/[eventId]/guests/_components/use-row-state.ts",
         "dashboard/[eventId]/guests/_components/use-shell-bar-offset.ts",
+        "dashboard/[eventId]/guests/_components/view-summary-cards.tsx",
         "dashboard/[eventId]/guests/entourage-order-actions.ts",
         "dashboard/[eventId]/guests/finalize-actions.ts",
         "dashboard/[eventId]/guests/group-edit-actions.ts",
@@ -6801,7 +6811,6 @@
         "CardInvitedToProps",
         "CardLockedProps",
         "CardPickProps",
-        "CardRenameProps",
         "CardRolesProps",
         "CardSubmitProps",
         "CardTipProps",
@@ -6813,6 +6822,7 @@
         "CoordinatorColourDomains",
         "CoordinatorGrantChips",
         "Count",
+        "CountCell",
         "Ctx",
         "DeleteControl",
         "DeleteGuestFlow",
@@ -6823,6 +6833,7 @@
         "Explain",
         "FactRow",
         "File",
+        "FilterFace",
         "Fix",
         "Fold",
         "FormData",
@@ -6843,6 +6854,7 @@
         "GuestCardAvatar",
         "GuestCardBody",
         "GuestCardData",
+        "GuestCardOpened",
         "GuestCardRead",
         "GuestCardResult",
         "GuestConfirmActions",
@@ -6861,8 +6873,14 @@
         "GuestRow",
         "GuestRowLine",
         "GuestSide",
+        "GuestsFilter",
         "GuestsLastCopy",
+        "GuestsLens",
+        "GuestsLensContext.Provider",
+        "GuestsMarch",
         "GuestsScreen",
+        "GuestsView",
+        "HTMLAnchorElement",
         "HTMLButtonElement",
         "HTMLDivElement",
         "HTMLElement",
@@ -6893,7 +6911,6 @@
         "K.List",
         "K.Locked",
         "K.Pick",
-        "K.Rename",
         "K.Roles",
         "K.SaveState",
         "K.Submit",
@@ -6904,7 +6921,7 @@
         "LastSeenCapture",
         "Link",
         "MapActionResult",
-        "MapArrange",
+        "MarchMaker",
         "MarchResult",
         "Mark",
         "MenuSettingsButton",
@@ -6939,15 +6956,16 @@
         "QuickGroupResult",
         "QuickRoleResult",
         "RenameRoleResult",
-        "ReplyFilter",
         "RestoreResult",
         "RoleNamesContext.Provider",
         "RoleNamesProvider",
-        "RosterView",
         "Said",
         "SaveFileLink",
         "Scrim",
         "SearchAddRow",
+        "SeatingPage",
+        "SectionHeadToolbar",
+        "SectionHeadTools",
         "SendInvite",
         "SentOrNotYet",
         "SetRsvpResult",
@@ -7310,6 +7328,7 @@
         "dashboard/[eventId]/launch/_components/details-your-event-parts.tsx",
         "dashboard/[eventId]/launch/_components/details-your-event.tsx",
         "dashboard/[eventId]/launch/_components/guests-see-sheet.tsx",
+        "dashboard/[eventId]/launch/_components/guests-view-door.tsx",
         "dashboard/[eventId]/launch/_components/hub-pro-offer.tsx",
         "dashboard/[eventId]/launch/_components/hub-stage.tsx",
         "dashboard/[eventId]/launch/_components/icon-pill.tsx",
@@ -7420,6 +7439,7 @@
         "dashboard/[eventId]/launch/_components/theme-pick-context.ts",
         "dashboard/[eventId]/launch/_components/theme-preview-overlay.tsx",
         "dashboard/[eventId]/launch/_components/view-as-free.tsx",
+        "dashboard/[eventId]/launch/_components/view-summary-lazy.tsx",
         "dashboard/[eventId]/launch/loading.tsx",
         "dashboard/[eventId]/launch/maker-page-reads.harness.ts",
         "dashboard/[eventId]/launch/page.tsx",
@@ -7432,7 +7452,6 @@
         "/dashboard/[seg]",
         "/dashboard/[seg]/guests",
         "/dashboard/[seg]/launch?tool=hero",
-        "/dashboard/[seg]/plan3d",
         "/dashboard/[seg]/seating/print?format=pdf&guest=[seg]",
         "/dashboard/[seg]/studio/website-pro",
         "/dashboard/[seg]/studio/website-pro?from=maker",
@@ -7502,7 +7521,6 @@
         "Count",
         "CountLine",
         "CoupleSchedulePage",
-        "CoupleSeatingPage",
         "CoverAnimate",
         "CoverLines",
         "CoverSceneSource",
@@ -7573,6 +7591,7 @@
         "GuestsSeeSheet",
         "GuestsSeeTable",
         "GuestsSeeWrites",
+        "GuestsViewDoor",
         "GuideFoot",
         "GuideHead",
         "GuideLinkScreen",
@@ -7595,6 +7614,7 @@
         "HTMLTextAreaElement",
         "HTMLUListElement",
         "HalfSheetSlimBar",
+        "HeadTools",
         "HeroPartSheet",
         "HubCoverGround",
         "HubDraftDock",
@@ -7720,6 +7740,7 @@
         "PageCard",
         "PageMasthead",
         "PaidMark",
+        "PairBox",
         "PanelSwitch",
         "ParentCardDoor",
         "ParentCards",
@@ -7940,6 +7961,7 @@
         "ViewAsFreeKeeper",
         "ViewAsFreeRow",
         "ViewAsFreeStrip",
+        "ViewCountRow",
         "ViewReport",
         "Waiting",
         "WebsiteEditorPage",
@@ -8327,23 +8349,11 @@
     },
     "/dashboard/[eventId]/plan3d": {
       "files": [
-        "dashboard/[eventId]/plan3d/_components/plan3d-stage.tsx",
-        "dashboard/[eventId]/plan3d/actions.ts",
-        "dashboard/[eventId]/plan3d/loading.tsx",
         "dashboard/[eventId]/plan3d/page.tsx"
       ],
       "destinations": [],
-      "actions": [
-        "publishFromControlCentre",
-        "unpublishFromControlCentre"
-      ],
-      "blocks": [
-        "GridPageSkeleton",
-        "Icon",
-        "Link",
-        "Miniature",
-        "Plan3dStage"
-      ]
+      "actions": [],
+      "blocks": []
     },
     "/dashboard/[eventId]/progress": {
       "files": [
@@ -8525,6 +8535,8 @@
       "files": [
         "dashboard/[eventId]/seating/_components/day-of-editing-banner.tsx",
         "dashboard/[eventId]/seating/_components/drop-confirm-bubble.tsx",
+        "dashboard/[eventId]/seating/_components/seat-faces-list.tsx",
+        "dashboard/[eventId]/seating/_components/seat-plan-in-guests.tsx",
         "dashboard/[eventId]/seating/_components/seat-plan-phone.tsx",
         "dashboard/[eventId]/seating/_components/seat-plan-slots.tsx",
         "dashboard/[eventId]/seating/_components/seating-context-dock.tsx",
@@ -8560,6 +8572,7 @@
         "AutoArrangeResult",
         "BannerSlot",
         "BarMenu",
+        "Blank",
         "BlueprintStudio",
         "BoardPageSkeleton",
         "BoothIcon",
@@ -8576,10 +8589,13 @@
         "DrawerSnap",
         "DropConfirmBubble",
         "DropConfirmState",
+        "Face",
+        "Fold",
         "FormRow",
         "FormRows",
         "Fragment",
         "FrameBody",
+        "GuestCardSheet",
         "GuestConfirmActions",
         "GuestPopup",
         "HTMLDivElement",
@@ -8611,8 +8627,13 @@
         "RoleSeating",
         "SaveStatusChip",
         "SeatBadge",
+        "SeatFacesList",
         "SeatPeoplePanel",
+        "SeatPickMenu",
+        "SeatPlanInGuests",
+        "SeatPlanModePick",
         "SeatPlanPortal",
+        "SeatPlanSlot",
         "SeatToast",
         "SeatingEditor",
         "SeatingFrame",
@@ -8622,6 +8643,7 @@
         "Section",
         "ShapeGlyph",
         "ShapePicker",
+        "Sheet",
         "Spotlight",
         "StatusLine",
         "Step",
@@ -8631,7 +8653,8 @@
         "SwitchRow",
         "T",
         "TableType",
-        "TypedRow"
+        "TypedRow",
+        "ViewCountRow"
       ]
     },
     "/dashboard/[eventId]/seating/chart": {
@@ -8639,16 +8662,14 @@
         "dashboard/[eventId]/seating/chart/_components/entrance-chart.tsx",
         "dashboard/[eventId]/seating/chart/page.tsx"
       ],
-      "destinations": [
-        "/dashboard/[seg]/seating"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
         "ActionButton",
+        "BackButton",
         "EntranceChart",
         "HTMLImageElement",
         "Layout",
-        "Link",
         "NotSharedWithYou",
         "PageMasthead",
         "PickMenu",
@@ -8665,7 +8686,6 @@
         "dashboard/[eventId]/seating/lab/page.tsx"
       ],
       "destinations": [
-        "/dashboard/[seg]/plan3d",
         "/dashboard/[seg]/seating/chart"
       ],
       "actions": [
@@ -8745,13 +8765,11 @@
         "dashboard/[eventId]/seating/walkthrough/actions.ts",
         "dashboard/[eventId]/seating/walkthrough/page.tsx"
       ],
-      "destinations": [
-        "/dashboard/[seg]/seating"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
+        "BackButton",
         "FileUpload",
-        "Link",
         "PageMasthead",
         "ReadRefusedNotice",
         "WalkthroughManager",
@@ -8934,21 +8952,15 @@
       "files": [
         "dashboard/[eventId]/studio/indoor-blueprint/_components/blueprint-studio.tsx",
         "dashboard/[eventId]/studio/indoor-blueprint/actions.ts",
-        "dashboard/[eventId]/studio/indoor-blueprint/loading.tsx",
         "dashboard/[eventId]/studio/indoor-blueprint/page.tsx"
       ],
       "destinations": [
-        "/[seg]/find-my-table",
         "/dashboard/[seg]/seating"
       ],
       "actions": [],
       "blocks": [
-        "BlueprintStudio",
-        "BlueprintStudioView",
         "EntrancePos",
         "HTMLDivElement",
-        "Link",
-        "PageMasthead",
         "WayfindingMap"
       ]
     },
@@ -11209,6 +11221,7 @@
       "files": [
         "dev/guests-lab/lab-card-sheet.tsx",
         "dev/guests-lab/lab-guest-actions.tsx",
+        "dev/guests-lab/lab-seats-march.tsx",
         "dev/guests-lab/lab-stand-ins.ts",
         "dev/guests-lab/page.tsx"
       ],
@@ -11231,12 +11244,17 @@
         "InspectorSheetAlone",
         "LabCardSheet",
         "LabGuestActions",
+        "LabMarch",
         "LabPageSpotlight",
+        "LabSeats",
         "LabShell",
         "MakerRsvpSettings",
+        "MarchMaker",
         "NotificationsList",
         "QuickAddSheet",
         "RoleNamesProvider",
+        "SeatPlanInGuests",
+        "SeatingEditor",
         "SendRun",
         "UndoToastHost"
       ]

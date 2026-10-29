@@ -460,17 +460,20 @@ test('(19) Skip goes to the VERY next screen — a link step (the guests’ name
   const nav = keys.map((k) => ({ key: k, label: k, done: false }));
   const facts = { guestList: true, arrival: false, venuesLocked: { ceremony: false, reception: false }, venuesNamed: { ceremony: false, reception: false }, loveStoryMoments: 0, wear: false, replyBy: false, guests: 0 };
   const p = buildGuidedPlan(nav as GuidedItem[], { solemn: false, parentsOffered: true }, hubSetupRound(facts, new Set(keys)));
-  /* 🗂 R1: the RSVP stage's three settings are link steps too (to Guests ⚙) — this holds the guests' names' stage. */
+  /* 🗂 R1: the RSVP stage's three settings are link steps too (to Guests ⚙) — this holds the guests' names' stage.
+     🗂 R4: the march is a link of that stage too (to Guests › March) — Skip lands on the stage's FIRST link screen. */
   const round = p.rounds.find((r) => p.links.some((l) => l.key === 'guests' && l.stages.includes(r)));
   assert.ok(round, 'anti-vacuity: no stage carries a link step');
   const last = stageSteps(p, round!).at(-1)!;
-  const link = p.links.find((l) => l.key === 'guests' && l.stages.includes(round!))!;
+  const link = p.links.find((l) => l.stages.includes(round!))!;
+  assert.ok(p.links.filter((l) => l.stages.includes(round!)).some((l) => l.key === 'guests'), 'the guests’ names left the stage');
   const at = { kind: 'step', step: last.key, round: round! } as const;
   assert.deepEqual(skipScreen(p, at), { kind: 'link', link: link.key, round }, 'Skip from the last step jumps past the guests’ names');
   assert.deepEqual(nextScreen(p, at), { kind: 'link', link: link.key, round });
   assert.ok(guidedScreens(p, round!).some((sc) => sc.kind === 'link'), 'the link step is not a screen');
   const total = stageSteps(p, round!).length + p.links.filter((l) => l.stages.includes(round!)).length;
-  assert.match(progressLabel(p, { kind: 'link', link: link.key, round: round! }), new RegExp(`${total} of ${total}$`), 'the link step is not counted in its place');
+  const place = stageSteps(p, round!).length + 1; // the stage's first link screen comes right after its steps
+  assert.match(progressLabel(p, { kind: 'link', link: link.key, round: round! }), new RegExp(`${place} of ${total}$`), 'the link step is not counted in its place');
   const ws = read(`${L}/details-workspace.tsx`);
   assert.match(ws, /\{plan && at\?\.kind === 'link' \? \(\s*<GuideLinkScreen/, 'the link screen is not drawn');
 });

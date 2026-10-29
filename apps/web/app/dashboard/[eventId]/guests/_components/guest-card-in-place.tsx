@@ -18,7 +18,7 @@ import { GuestCard, type GuestCardResult } from './guest-card';
  * (`maker-tools.tsx`), so the card's code rides no route's first load.
  * 🔒 `app/dashboard/[eventId]/_components/the-settings-sheet-is-in-homes-graph.test.ts`
  */
-export async function openGuestCardInPlace(eventId: string, guestId: string, at: 'march' | 'invitation'): Promise<GuestCardResult> {
+export async function openGuestCardInPlace(eventId: string, guestId: string, at: 'march' | 'seats' | 'invitation'): Promise<GuestCardResult> {
   const r = await openGuestCard(eventId, guestId, at);
   if (!r.ok) return r;
   return {

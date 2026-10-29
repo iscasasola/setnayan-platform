@@ -35,7 +35,9 @@ test('the open section’s header pins under the sticky block', () => {
 test('rule 6: scrolled into → back to its first row; top in view → fold; shut → open and land', () => {
   const fn = SCREEN.slice(SCREEN.indexOf('const tapSection = '), SCREEN.indexOf('\n  };\n', SCREEN.indexOf('const tapSection = ')));
   const back = fn.indexOf("el.scrollIntoView({ block: 'start', behavior: 'smooth' });\n      return;");
-  const fold = fn.indexOf('next.delete(key)');
+  // The TOGGLE's fold (the last one): R4 slice 4 put the selected header's own fold first (v21 — a tap on the SELECTED
+  // header folds it and unselects it; its first tap already went back to the top) — held by lib/guest-section-head.test.ts.
+  const fold = fn.lastIndexOf('next.delete(key)');
   assert.ok(back > -1 && fold > -1, 'a branch of rule 6 is missing');
   assert.ok(back < fold, 'a tap on a scrolled-into section folds it instead of going back to its top');
   assert.match(fn, /if \(isOpen\(key\) && top < stickBottom - 2\)/, 'the first tap does not test whether the section is scrolled into');

@@ -24,7 +24,8 @@
  *   ?part=rows      (retired with the old GuestListMultiselect — redirects to part=screen)
  *   ?part=screen    Guests › List and Map (Maker PR 4f) — the whole screen on
  *                   maria-and-jose's roster, with a stand-in shell bar and
- *                   dock: &gview=map for the map, &q=… to search, &empty=1 for
+ *                   dock: &gview=map for the map (R4: &gview=seats [&seat=3d|list|map] · &gview=march [&march=owner]
+ *                   — the shipped makers, Guests › Seats and Guests › March), &q=… to search, &empty=1 for
  *                   an empty list, &fail=1 for a refused read
  *   &req=0          (screen) no requests to join waiting — the carousel's card ① says "No requests waiting"
  *   &select=to-invite (screen) ⚙ › Pick who's cold link — Select on, the list narrowed to To invite
@@ -88,6 +89,9 @@ import { MakerRsvpSettings } from '@/app/dashboard/[eventId]/launch/_components/
 import { guestsGetInPatch, isGuestsGetIn } from '@/lib/who-can-reply';
 import { renderStyledUrlQrSvg } from '@/lib/qr';
 import { GuestsScreen } from '@/app/dashboard/[eventId]/guests/_components/guests-screen';
+import { parseGuestsFilter } from '@/lib/guests-filter';
+import { GUESTS_VIEWS, parseGuestsView } from '@/lib/guests-views';
+import { LabMarch, LabSeats } from './lab-seats-march';
 import type { TitleWaitingPerson } from '@/app/dashboard/[eventId]/guests/_components/titles-waiting';
 import { titleButtonText, titleKey } from '@/lib/guest-title';
 import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
@@ -783,7 +787,9 @@ export default async function GuestsLabPage({
     };
     const tables = [...new Set(MJ_ROSTER.map((r) => r[4]))].map((label, i) => ({ tableId: `t-${i}`, label }));
     const tableByGuest = Object.fromEntries(MJ_ROSTER.map(([, , , , table], i) => [`g-mj-${i}`, table]).filter((_, i) => i % 3 !== 2));
-    const gview = sp.gview === 'map' ? 'map' : 'list';
+    /* 🗂 R4 · `&gview=seats` (with `&seat=3d|list|map`) and `&gview=march` (`&march=owner` for the owner-shaped one) —
+       the shipped makers drawn the way the page draws them (`lab-seats-march.tsx`). */
+    const gview = parseGuestsView(typeof sp.gview === 'string' ? sp.gview : null);
     const empty = sp.empty === '1';
     const fail = sp.fail === '1';
     /* `&addMs=N`: an add answers after N ms, as a real one waits on the server (lab-stand-ins.ts › labTimedAdds). */
@@ -794,6 +800,12 @@ export default async function GuestsLabPage({
                   <GuestsScreen
                     eventId={EVENT}
                     gview={gview}
+                    views={GUESTS_VIEWS}
+                    filter={parseGuestsFilter(sp)}
+                    bodies={{
+                      seats: <LabSeats guests={roster} seat={typeof sp.seat === 'string' ? sp.seat : undefined} />,
+                      march: <LabMarch shape={typeof sp.march === 'string' ? sp.march : null} />,
+                    }}
                     guests={empty || fail ? [] : sp.oneqr === '1' ? roster.filter((g) => g.role === 'bride' || g.role === 'groom') : roster}
                     measured={!fail}
                     hasSides

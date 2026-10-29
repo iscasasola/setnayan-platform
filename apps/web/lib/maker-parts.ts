@@ -259,10 +259,24 @@ export type MakerPartSource =
   | { kind: 'supplier'; fact: 'date' | 'venue' }
   /** 🗂 R1 (owner 2026-10-28): the reply's settings live in Guests ⚙ — the part's door opens that sheet on its row. */
   | { kind: 'guests'; row: MakerGuestsRow }
+  /** 🗂 R4 (owner 2026-10-27/28): the march and the seat plan are Guests' views — the part's door opens that view. */
+  | { kind: 'guests-view'; view: MakerGuestsView }
   | { kind: 'tool' };
 
 /** The Studio tools a part's quiet row opens — `lib/studio-tiles.ts` `STUDIO_TILE_KEYS`, restated so this stays import-light. */
-export type MakerStudioTool = 'logo' | 'mood' | 'schedule' | 'story' | 'march' | 'seats' | 'gifts';
+export type MakerStudioTool = 'logo' | 'mood' | 'schedule' | 'story' | 'gifts';
+/**
+ * 🗂 THE GUESTS VIEWS A PART'S DOOR MAY OPEN (R4, owner 2026-10-27/28, "GUESTS = LIST · MAP · SEATS · MARCH") —
+ * `lib/guests-views.ts` `GUESTS_MAKER_VIEWS`, restated so this stays import-light; held equal by
+ * `lib/r4-seats-march-forwards.test.ts`. The march, a guest's role and their seat were "Open in Studio › Wedding March ·
+ * Seat plan" until those tiles left.
+ */
+export type MakerGuestsView = 'march' | 'seats';
+/** Each view door's words — the menu and the view, as the view row says them. */
+export const MAKER_GUESTS_VIEW_DOOR_WORDS: Readonly<Record<MakerGuestsView, string>> = {
+  march: 'Open in Guests › March',
+  seats: 'Open in Guests › Seats',
+};
 /**
  * 🗂 THE GUESTS ⚙ ROWS A PART'S DOOR MAY OPEN (R1, owner 2026-10-28: *"RSVP moves into the Guests ⚙ sheet"*) — keys of
  * `SETTINGS_ROWS` (`lib/event-settings-record.ts`), restated so this stays import-light; held equal by
@@ -276,8 +290,6 @@ export const MAKER_STUDIO_TOOL_LABEL: Record<MakerStudioTool, string> = {
   mood: 'Mood Board & Dress Code',
   schedule: 'Schedule',
   story: 'Love Story',
-  march: 'Wedding March',
-  seats: 'Seat plan',
   gifts: 'E-Gifts',
 };
 
@@ -287,7 +299,7 @@ export type MakerPartLayouts = { kind: 'scene'; type: string } | { kind: 'none' 
 export type MakerPartDef = {
   /** The tile's word. */
   label: string;
-  /** One string: `info:<field>` · `studio:<tool>` · `supplier:date|venue` · `guests:<row>` · `tool` (see the docblock). */
+  /** One string: `info:<field>` · `studio:<tool>` · `supplier:date|venue` · `guests:<row>` · `guests-view:march|seats` · `tool` (see the docblock). */
   source: string;
   /** The canvas's key for the section it is drawn in — null: not drawn by the canvas yet. */
   canvas: string | null;
@@ -331,16 +343,16 @@ export const MAKER_PARTS: Readonly<Record<MakerPartKey, MakerPartDef>> = {
   schedule: { label: 'Schedule', source: 'studio:schedule', canvas: 'w:schedule', layouts: scene('schedule') },
   venue: { label: 'Venue', source: 'supplier:venue', canvas: 'w:venue_map', layouts: scene('venue_map') },
   dress: { label: 'Dress code', source: 'studio:mood', canvas: 'w:dress_code', layouts: scene('dress_code') },
-  march: { label: 'Wedding March', source: 'studio:march', canvas: 'f:entourage', layouts: scene('entourage') },
+  march: { label: 'Wedding March', source: 'guests-view:march', canvas: 'f:entourage', layouts: scene('entourage') },
   bring: { label: 'What to bring', source: 'info:what_to_bring', canvas: 'w:what_to_bring', layouts: scene('what_to_bring') },
   story: { label: 'Love Story', source: 'studio:story', canvas: 'w:our_love_story', layouts: scene('our_love_story') },
   /* 👤 FOR EACH GUEST — one part per fact, from that guest's own row (owner 2026-10-06); drawn in PR 6. */
-  myrole: { label: 'Your role', source: 'studio:march', canvas: null, layouts: scene('my_role'), my: 'role' },
+  myrole: { label: 'Your role', source: 'guests-view:march', canvas: null, layouts: scene('my_role'), my: 'role' },
   /* The Invitation's "Guest's look" stand-in (`f:look`) IS this part on the canvas — each guest's own outfit and colours. */
   mywear: { label: 'What to wear', source: 'studio:mood', canvas: 'f:look', layouts: scene('my_wear'), my: 'wear' },
   myarrive: { label: 'Arrive by', source: 'studio:schedule', canvas: null, layouts: scene('my_arrive'), my: 'arrive' },
   myguests: { label: 'Coming with you', source: 'tool', canvas: null, layouts: scene('my_guests'), my: 'guests' },
-  seats: { label: 'Your seat', source: 'studio:seats', canvas: 'f:find_your_seat', layouts: scene('find_your_seat') },
+  seats: { label: 'Your seat', source: 'guests-view:seats', canvas: 'f:find_your_seat', layouts: scene('find_your_seat') },
   pass: { label: 'Digital pass', source: 'tool', canvas: 'f:pass', layouts: NONE },
   announce: { label: 'Announcements', source: 'tool', canvas: 'f:announcements', layouts: scene('announcements') },
   /* 📷 ONE camera (owner 2026-10-24) — no look to pick; a Pro event's dress is the Logo & QR part's. */
@@ -418,6 +430,7 @@ export function makerPartSource(key: MakerPartKey): MakerPartSource {
   if (kind === 'studio' && value && value in MAKER_STUDIO_TOOL_LABEL) return { kind: 'studio', tool: value as MakerStudioTool };
   if (kind === 'supplier' && (value === 'date' || value === 'venue')) return { kind: 'supplier', fact: value };
   if (kind === 'guests' && value === 'asks') return { kind: 'guests', row: value };
+  if (kind === 'guests-view' && (value === 'march' || value === 'seats')) return { kind: 'guests-view', view: value };
   throw new Error(`maker-parts: "${key}" names no source the Maker knows ("${raw}")`);
 }
 
@@ -429,12 +442,16 @@ export function makerPartSource(key: MakerPartKey): MakerPartSource {
  * (A part whose words the page draws is typed right in Edit instead — `stage-panel/part-words.ts`; its door is
  * only drawn where the page draws no such words.)
  */
-export function makerPartQuietRow(key: MakerPartKey): { words: string; to: { studio: MakerStudioTool | 'info' } | { suppliers: 'date' | 'venue' } | { guests: MakerGuestsRow } } | null {
+export function makerPartQuietRow(
+  key: MakerPartKey,
+): { words: string; to: { studio: MakerStudioTool | 'info' } | { suppliers: 'date' | 'venue' } | { guests: MakerGuestsRow } | { guestsView: MakerGuestsView } } | null {
   const src = makerPartSource(key);
   if (src.kind === 'studio') return { words: `Open in Studio › ${MAKER_STUDIO_TOOL_LABEL[src.tool]}`, to: { studio: src.tool } };
   if (src.kind === 'supplier') return { words: 'Change it in Suppliers', to: { suppliers: src.fact } };
   /* 🗂 R1: the reply's settings are Guests ⚙'s — another page of the app, like Suppliers: a plain door to the sheet's row. */
   if (src.kind === 'guests') return { words: MAKER_GUESTS_DOOR_WORDS, to: { guests: src.row } };
+  /* 🗂 R4: the march and the seat plan are Guests' views — another page of the app: a plain door to the view. */
+  if (src.kind === 'guests-view') return { words: MAKER_GUESTS_VIEW_DOOR_WORDS[src.view], to: { guestsView: src.view } };
   /* DECISION_LOG 2026-10-06 rule 6: the Info door stays on every text part. */
   if (src.kind === 'info') return { words: 'Open in Studio › Info', to: { studio: 'info' } };
   return null;
@@ -545,6 +562,7 @@ export function makerPartToolWhy(key: MakerPartKey | null, tool: MakerPartTool):
   const src = key ? makerPartSource(key) : null;
   if (src?.kind === 'studio') return 'Nothing to change here — edit it in Studio.';
   if (src?.kind === 'guests') return 'Nothing to change here — set it in Guests ⚙.';
+  if (src?.kind === 'guests-view') return 'Nothing to change here — arrange it in Guests.';
   return `${MAKER_PART_TOOL_LABEL[tool]} has nothing to change on this part.`;
 }
 

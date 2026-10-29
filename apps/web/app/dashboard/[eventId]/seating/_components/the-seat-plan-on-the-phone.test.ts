@@ -220,3 +220,33 @@ test('7 · REACHABLE: Guests › Seats → the editor → on a phone the head, �
   const maker = readFileSync(join(process.cwd(), 'app', 'dashboard', '[eventId]', 'launch', '_components', 'maker-details.tsx'), 'utf8');
   assert.match(maker, /bodies\.seating = \(/, 'Details no longer hosts the Seat plan');
 });
+
+test('8 · Guests › Seats pop-ups on a phone (owner, live iPhone 2026-10-29): the sheet names the piece on the ✕ row, keeps its gutter, draws ONE ✕, and the marker steps are buttons', () => {
+  const src = editor();
+  // the people sheet: its heading is the picked piece's name, on the ✕'s row, clear of it; the body in the 16 px gutter
+  const sheet = src.slice(src.indexOf('labelledById="seat-plan-people-title"'), src.indexOf('</Sheet>', src.indexOf('labelledById="seat-plan-people-title"')));
+  assert.match(sheet, /className="flex min-w-0 flex-col gap-2 px-4 pb-4" data-seat-plan-people="sheet"/, 'the Seats sheet lost its 16 px gutter');
+  assert.match(sheet, /<div className="flex min-h-11 items-center pr-10 pt-3">\s*<h2 id="seat-plan-people-title"/, 'the sheet heading is not on the ✕ row');
+  assert.match(sheet, /\{dockInline \? pieceName\(\) :/, 'a picked table or piece is not named in the sheet heading');
+  // the dock drawn inside that sheet draws no name row and no second ✕
+  assert.match(src, /const dockInSheet = inGuests && isPhone;/, 'the dock no longer knows it sits in the Guests sheet');
+  const docks = [...src.matchAll(/onDismiss=\{([^}]*)\}/g)].map((m) => m[1]!).filter((d) => /clearSelection/.test(d));
+  assert.ok(docks.length >= 2, 'the read-only and marker docks moved — re-aim');
+  for (const d of docks) assert.match(d, /!dockInSheet/, `a dock inside the Guests sheet draws a second ✕ (${d})`);
+  // the marker's Done / Remove on a phone are THE ActionButton — never a bordered box that reads as a field
+  const marker = src.slice(src.indexOf("if (dockPrimary === 'marker' && selM) {"), src.indexOf("if (dockPrimary === 'notice' && !notice && autoRun) {"));
+  assert.ok(marker.length > 200, 'the marker dock moved — re-aim this guard');
+  assert.match(marker, /const doneBtn = big \? \(\s*<span className="ml-auto inline-flex">\s*<ActionButton tone="brand" main icon=\{Check\} label="Done"/, 'the marker Done is not the shared filled step on a phone');
+  assert.match(marker, /const removeBtn = big \? \(\s*<ActionButton tone="danger"/, 'the marker Remove is not the shared button on a phone');
+  assert.match(marker, /\{big \? <div className="flex flex-wrap items-center gap-2">\{mBody\}<\/div> : mBody\}/, 'the marker steps are stretched one per line again');
+  assert.match(marker, /\{big \? 'The stage stays on the plan — drag it to move it\.' : '· permanent'\}/, 'the Stage says an orphan "· permanent" on a phone');
+});
+
+test('9 · a guest card opened from a seat: its verbs at the foot (never clipped above the card), the whole screen on a phone, Back closes it', () => {
+  const card = stripComments(readFileSync(join(process.cwd(), 'app/dashboard/[eventId]/guests/_components/guest-card-sheet.tsx'), 'utf8'));
+  const actionsAt = card.indexOf('data-guest-card-actions');
+  assert.ok(actionsAt > card.indexOf('<InspectorColumn eyebrow="Guest"'), 'the surface verbs are drawn above the card again — the sticky head clips them');
+  const css = readFileSync(join(process.cwd(), 'app/globals.css'), 'utf8');
+  assert.match(css, /@media \(max-width: 700\.98px\) \{\s*\.sn-inspector-sheet\.sn-inspector-sheet--alone \{\s*left: 0;/, 'a card with no list behind it is offset by a dim strip on a phone');
+  assert.match(css, /\.sn-inspector-sheet \[data-guest-card-actions\] \{\s*position: sticky;/, 'the card verbs are not pinned to the sheet foot');
+});

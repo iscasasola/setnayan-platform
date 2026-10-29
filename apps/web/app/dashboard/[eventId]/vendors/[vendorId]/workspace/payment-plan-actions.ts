@@ -29,8 +29,11 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { agreedTotalNow, fetchChangeLinesByVendor } from '@/lib/agreed-total-and-its-changes';
 import {
+  PLAN_PRESENT_FIELD,
   buildCouplePaymentPlan,
+  couplePlanUpsert,
   onLockAnchorIso,
+  planSaveStep,
   type CouplePlanRowInput,
 } from '@/lib/self-added-payment-plan';
 import { manilaTodayIso } from '@/lib/vendor-cashflow';
@@ -154,19 +157,34 @@ export async function saveSelfAddedPaymentPlan(formData: FormData): Promise<void
     });
   }
 
-  const built = buildCouplePaymentPlan({ rows, totalPhp, lockDateIso, eventDateIso });
+  // Every payment removed (or left blank) on a sheet that carried the plan:
+  // the couple's plan is NO payments, written as such — not a refusal, and not
+  // the old plan silently kept (owner 2026-10-29: "properly update and save").
+  // A caller without the editor (`plan_present`) still gets PLAN_EMPTY.
+  const step = planSaveStep({
+    editorPresent: formData.get(PLAN_PRESENT_FIELD) === '1',
+    postedLabels: rows.map((r) => r.label),
+    postedValues: rows.map((r) => r.value),
+  });
+  const built =
+    step === 'clear'
+      ? ({ ok: true, instances: [] } as const)
+      : buildCouplePaymentPlan({ rows, totalPhp, lockDateIso, eventDateIso });
   if (!built.ok) throw new Error(built.message);
 
   // One plan per booking — the table's own UNIQUE (event_id, event_vendor_id).
   const { data: written, error } = await supabase
     .from('event_vendor_payment_plan')
+    // `couplePlanUpsert` also writes `is_default_seeded: false` — a plan typed
+    // over the lock's 50/50 estimate is the couple's now, and must not be
+    // treated (or re-locked away) as an estimate.
     .upsert(
-      {
-        event_id: eventId,
-        event_vendor_id: vendorId,
-        instances_json: built.instances,
-        updated_at: new Date().toISOString(),
-      },
+      couplePlanUpsert({
+        eventId,
+        vendorId,
+        instances: built.instances,
+        nowIso: new Date().toISOString(),
+      }),
       { onConflict: 'event_id,event_vendor_id' },
     )
     .select('plan_id');

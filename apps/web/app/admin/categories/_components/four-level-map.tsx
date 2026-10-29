@@ -28,10 +28,8 @@
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition, type DragEvent, type FormEvent, type ReactNode, type RefObject } from 'react';
 import { useRouter } from 'next/navigation';
-import { X } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
-import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
-import { useModalA11y } from '@/lib/use-modal-a11y';
+import { Sheet } from '@/app/_components/sheet';
 import { formatCount } from '@/lib/format-number';
 import { moveTileToFolder } from '../actions';
 import { addTradeAlias } from '../search-word-actions';
@@ -561,6 +559,9 @@ export function FourLevelMap({ data, start, q, show, drawer, counts, groupDefaul
   const needs = needsCount(data);
   const drawerOpen = Boolean(drawerItem) || Boolean(picker);
   const drawerLevel: Level = picker ? 'part' : LEVEL_OF[drawerItem.slice(0, 1)] ?? 'category';
+  /* ‹ names the level the drawer goes back to — the category it stands in, else its group, else the whole map. */
+  const backLabel =
+    (sel.c ? categoryById(data, sel.c)?.label : undefined) ?? (sel.g ? groupById(data, sel.g)?.label : undefined) ?? 'Categories';
 
   return (
     <div data-four-level-map="">
@@ -657,7 +658,13 @@ export function FourLevelMap({ data, start, q, show, drawer, counts, groupDefaul
       )}
 
       {/* ── drawer · picker ─────────────────────────────────────────────────── */}
-      <MapDrawer open={drawerOpen} onClose={closeDrawer} label={picker ? 'Pick parts' : LEVEL_WORD[drawerLevel]}>
+      <MapDrawer
+        open={drawerOpen}
+        onClose={closeDrawer}
+        label={picker ? 'Pick parts' : LEVEL_WORD[drawerLevel]}
+        back={{ label: backLabel, onBack: closeDrawer }}
+        ownsHistory={Boolean(drawerItem)}
+      >
         {picker ? (
           <PartPicker
             data={data}
@@ -1208,30 +1215,38 @@ function PhoneMap({
 
 // ── the drawer frame (server panel, or the picker) ─────────────────────────────
 
-function MapDrawer({ open, onClose, label, children }: { open: boolean; onClose: () => void; label: string; children: ReactNode }) {
-  const ref = useRef<HTMLDivElement>(null);
-  useModalA11y({ open, onClose, containerRef: ref });
-  if (!open) return null;
+/**
+ * 🔝 THE DRAWER IS THE SHARED SHEET (owner, live phone 2026-10-29: *"when i tapped the massage chair. it opened the pop up
+ * for massage chair category. and i cannot go back"*). It was its own `fixed inset-0 z-50` box drawn INSIDE the page —
+ * and the page (`<main class="sn-vt-page">`) is a stacking context, so on a phone the admin shell's top bar painted over
+ * its ✕ row and the bottom bar over its foot: no way out. Now it is `Sheet` (drawn on <body>, over every bar), with a
+ * ‹ in its pinned header that goes back to the map standing on the level it was opened from (`closeDrawer`, which
+ * already writes `?in=…&at=…`). The phone's Back: a drawer opened by a tap owns its own history entry (`?open=`), so Back
+ * pops that and the map follows the address; the parts picker has no address, so the sheet takes one for it.
+ * ⚠ Its CONTENTS are untouched — the drawer's sections are being redesigned separately.
+ */
+function MapDrawer({
+  open,
+  onClose,
+  label,
+  back,
+  ownsHistory,
+  children,
+}: {
+  open: boolean;
+  onClose: () => void;
+  label: string;
+  back: { label: string; onBack: () => void };
+  /** The drawer has an address of its own (`?open=`) — Back already steps out of it. */
+  ownsHistory: boolean;
+  children: ReactNode;
+}) {
   return (
-    <div ref={ref} role="dialog" aria-modal="true" aria-labelledby="map-drawer-label" data-map-drawer="" className="fixed inset-0 z-50 flex h-[100dvh] justify-end">
-      <OverlayBackdrop onClose={onClose} />
-      <div className="relative flex h-full w-full flex-col bg-cream lg:w-[min(30rem,100vw)] lg:rounded-l-3xl lg:border-l lg:border-ink/10 lg:shadow-[-30px_0_80px_-40px_rgba(26,26,26,0.4)]">
-        <header className="flex min-h-[52px] shrink-0 items-center justify-between gap-2 border-b border-ink/10 px-5">
-          <p id="map-drawer-label" className="font-mono text-[11px] uppercase tracking-[0.2em] text-mulberry">
-            {label}
-          </p>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="inline-flex h-11 w-11 items-center justify-center rounded-full text-ink/55 hover:bg-ink/5 hover:text-ink"
-          >
-            <X aria-hidden className="h-4 w-4" strokeWidth={2} />
-          </button>
-        </header>
-        <div className="flex-1 overflow-y-auto px-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-3">{children}</div>
+    <Sheet open={open} onClose={onClose} labelledById="map-drawer-label" title={label} wide backCloses={!ownsHistory} back={back}>
+      <div data-map-drawer="" className="px-5 pb-6 pt-3">
+        {children}
       </div>
-    </div>
+    </Sheet>
   );
 }
 

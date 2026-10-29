@@ -20,6 +20,17 @@ on the 2d"* → on accents, *"these doesn't need placement. just activate and it
 - **Accents** — a sheet (from the room's ✨ or the 2D ⋯ › 3D room › Accents…): one row per accent the room draws, a switch
   and one style dropdown; booked-supplier offers (Add it / No thanks) on top. Same `saveReceptionDesign` (with its base)
   and `dismissRoomSuggestion`, same supplier-agreed freeze.
+- **The Reception Designer is retired** (`reception-design-editor.tsx` deleted — the Ugat both-ends check caught it
+  mounted nowhere). Every choice it edited has a row in the Accents sheet: the room-drawn accents under "In the 3D
+  room", every other reception choice (stage setup, linens, chairs, feast, program, booths, who is in the concept
+  image…) under "For your concept and suppliers"; the couple's inspiration photo under its zone (reference only), the
+  "The 3D room draws X" disclosure for a combination, and WHO + WHEN on a supplier-agreed zone all came along. One funnel
+  (`choose()`) refuses a frozen zone, the cap and a "nothing here" collision. Guards repointed to the sheet:
+  `the-3d-plan-locks-what-the-supplier-agreed`, `the-reference-photo-belongs-to-the-zone`, `the-room-offers-what-you-booked`,
+  `the-room-says-what-it-is-not-showing`, `the-room-seats-your-guest-list`, `two-hosts-every-writer-sends-its-base`;
+  to the 2D switch: `a-published-plan-can-be-taken-down`; to "no lock / no floor write": `the-seat-plan-moves-into-details`,
+  `two-hosts-round-3-writers`; to the page's attire chain: `the-room-reads-the-resolved-board`; to the ⓘ legend:
+  `the-room-draws-what-the-couple-saved`; the phone dock's handlers: `the-seat-plan-table-sheet-wears-the-templates`.
 - **Moved to 2D** (controller calls under the ruling): "Swap with another table…" (table ⋯ / phone dock → confirm →
   `swapTableOccupants`); "Show supplier suggestions in 3D" (seat settings, `setGhostBoothsEnabled`, flag-gated); the
   per-category × of the ghost booths is gone.

@@ -216,8 +216,8 @@ type Props = {
   themeName?: string | null;
   /** `events.moodboard_style_family` (migration 20271197327520) — which theme
    *  family produced this board, or null when the couple hasn't applied a
-   *  template. Passed straight down to ReceptionDesignEditor, which is where
-   *  the decor AI-image layer pilot resolves it. */
+   *  template. Fed the retired Reception Designer's decor AI-image layer pilot;
+   *  the view-only room (2026-10-30) does not read it. */
   styleFamily: MoodboardStyleFamily | null;
   /** Room archetype (events.venue_setting) — swaps the room shell + floor tone. */
   venueSetting: string;
@@ -415,10 +415,9 @@ type Mover = { gid: string; name: string; spec: FigureSpec; path: Vec2[]; target
 // figure for free. `faceY` is the heading it settles into while dancing.
 type Dancer = { gid: string; name: string; spec: FigureSpec; path: Vec2[]; spot: Vec2; faceY: number };
 
-/* 👁 View-only since 2026-10-30: the rules, groups and the reception editor's inputs (keepApart, priorityOrder, groups,
-   inspirationByPart, styleFamily) still ride `Props` from the page, and the room reads none of them — their editors live
-   on the 2D plan. */
-export default function SeatingLab3D({ eventId, inMaker = false, tables: initialTables, floor: floorProp, guests, rolePalette, receptionDesign, finalizedByPart, bookedSuggestions, dismissedSuggestions, themeName, venueSetting, monogram, animatedMonogram, me, floorExtras, sceneObjects, booths, signs, ghostBooths, ghostBoothsEnabled }: Props) {
+/* 👁 View-only since 2026-10-30: the rules, the groups and the decor-layer family (keepApart, priorityOrder, groups,
+   styleFamily) still ride `Props` from the page, and the room reads none of them — their editors live on the 2D plan. */
+export default function SeatingLab3D({ eventId, inMaker = false, tables: initialTables, floor: floorProp, guests, rolePalette, receptionDesign, inspirationByPart, finalizedByPart, bookedSuggestions, dismissedSuggestions, themeName, venueSetting, monogram, animatedMonogram, me, floorExtras, sceneObjects, booths, signs, ghostBooths, ghostBoothsEnabled }: Props) {
   const router = useRouter();
   // 👁 The floor is the server's (the 2D plan edits it); the room only draws it.
   const floor = floorProp;
@@ -1396,6 +1395,7 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
         onChange={setDesign}
         venueSetting={venueSetting}
         finalizedByPart={finalizedByPart}
+        inspirationByPart={inspirationByPart}
         bookedSuggestions={bookedSuggestions}
         dismissedSuggestions={dismissedSuggestions}
       />

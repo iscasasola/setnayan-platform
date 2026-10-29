@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "abfb68f499",
+  "generatedFromRef": "990c32c3db",
   "routeCount": 479,
   "destinations": 986,
   "actions": 639,
-  "blocks": 7400,
+  "blocks": 7398,
   "routes": {
     "/": {
       "files": [
@@ -8689,7 +8689,6 @@
     "/dashboard/[eventId]/seating/lab": {
       "files": [
         "dashboard/[eventId]/seating/lab/_components/accents-sheet.tsx",
-        "dashboard/[eventId]/seating/lab/_components/reception-design-editor.tsx",
         "dashboard/[eventId]/seating/lab/_components/room-view-tools.tsx",
         "dashboard/[eventId]/seating/lab/_components/seating-lab-3d.tsx",
         "dashboard/[eventId]/seating/lab/_components/seating-lab-loader.tsx",
@@ -8711,7 +8710,6 @@
         "Crowd",
         "DanceFloorMural",
         "DancerToken",
-        "DecorLayerCatalog",
         "DemandTail",
         "DustMotes",
         "EmoteBubbles",
@@ -8733,7 +8731,6 @@
         "MouseEvent",
         "MoverToken",
         "OrbitControls",
-        "PartId",
         "PickMenu",
         "RemotePlayers",
         "RoomShell",

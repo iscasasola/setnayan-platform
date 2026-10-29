@@ -13,14 +13,22 @@
  * never overwrite each other; `dismissRoomSuggestion` for a No thanks), the same supplier-agreed lock (a zone a supplier
  * agreed to build is shown, frozen, with who agreed), and the room updates in place through `onChange` — a save never
  * resets the screen.
+ *
+ * 🏠 NOTHING LOSES ITS ONLY HOME. The Reception Designer edited every reception choice, and some of them the room never
+ * draws (the stage setup, linens, chairs, the feast, the program, booths, who is in the concept image…) — they feed the
+ * concept image, the printed concept and the suppliers' brief. They are listed here too, under "For your concept and
+ * suppliers", the same row shape. The couple's own inspiration photo for a zone sits under its row, REFERENCE ONLY —
+ * never composited into the render.
  */
 
 import { useMemo, useRef, useState, useTransition } from 'react';
 import {
   RECEPTION_PARTS,
   DEFAULT_DESIGN,
+  MAX_SELECTIONS_PER_ATTRIBUTE,
   selAll,
   venueZoneApplies,
+  type Attribute,
   type AttributeValue,
   type PartId,
   type ReceptionDesign,
@@ -54,6 +62,18 @@ function offOption(part: PartId, attr: string): string | null {
   return (ex.find((o) => o.id === 'bare' || o.id === 'none') ?? ex[0])?.id ?? null;
 }
 
+/** "Agreed with Sampaguita Studio on 12 Sep 2026 — frozen": WHO and WHEN, never a control that just stops responding. */
+function agreedLine(a: { vendorName: string | null; agreedAt: string | null }): string {
+  const t = a.agreedAt ? Date.parse(a.agreedAt) : Number.NaN;
+  const on = Number.isNaN(t) ? null : new Date(t).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  return `Agreed${a.vendorName ? ` with ${a.vendorName}` : ''}${on ? ` on ${on}` : ''} — frozen`;
+}
+
+/** Every other reception choice (not drawn in the room) — the concept image's and the suppliers' brief's. */
+const CONCEPT_CHOICES: ReadonlyArray<readonly [PartId, string]> = RECEPTION_PARTS.flatMap((p) =>
+  p.attributes.map((a) => [p.id, a.id] as const),
+).filter(([p, a]) => !ROOM_ACCENTS.some(([rp, ra]) => rp === p && ra === a));
+
 export function AccentsSheet({
   open,
   onClose,
@@ -62,6 +82,7 @@ export function AccentsSheet({
   onChange,
   venueSetting,
   finalizedByPart,
+  inspirationByPart,
   bookedSuggestions,
   dismissedSuggestions,
 }: {
@@ -72,6 +93,8 @@ export function AccentsSheet({
   onChange: (next: ReceptionDesign) => void;
   venueSetting: string | null;
   finalizedByPart?: Record<string, { vendorName: string | null; agreedAt: string | null }>;
+  /** The couple's own photos per zone (`event_inspiration_assets`), shown under the row — reference only. */
+  inspirationByPart?: Record<string, string[]>;
   bookedSuggestions?: BookedZoneCandidate[];
   dismissedSuggestions?: string[];
 }) {
@@ -112,6 +135,30 @@ export function AccentsSheet({
     });
   }
 
+  /** THE ONE FUNNEL every pick and every "Add it" goes through — a frozen zone, the per-attribute cap and a "nothing
+   *  here" option beside a real one are refused HERE, so no control can route around them. */
+  function choose(part: PartId, attrDef: Attribute, optionId: string) {
+    if (finalizedByPart?.[part]) return;
+    if (attrDef.multi !== true) {
+      commit(part, attrDef.id, optionId);
+      return;
+    }
+    const isExclusive = (id: string) => attrDef.options.find((o) => o.id === id)?.exclusive === true;
+    const current = selAll(design, part, attrDef.id);
+    let next: string[];
+    if (isExclusive(optionId)) {
+      next = [optionId];
+    } else if (current.includes(optionId)) {
+      next = current.filter((id) => id !== optionId);
+      if (next.length === 0) return; // never leave an attribute with nothing
+    } else {
+      const kept = current.filter((id) => !isExclusive(id));
+      if (kept.length >= MAX_SELECTIONS_PER_ATTRIBUTE) return; // at the cap
+      next = [...kept, optionId];
+    }
+    commit(part, attrDef.id, next.length === 1 ? next[0]! : next);
+  }
+
   const [dismissedLocal, setDismissedLocal] = useState<string[]>(dismissedSuggestions ?? []);
   const selectedTilesByZone = useMemo(() => {
     const out = new Map<PartId, ReadonlySet<string>>();
@@ -137,13 +184,11 @@ export function AccentsSheet({
     [bookedSuggestions, dismissedLocal, finalizedByPart, selectedTilesByZone],
   );
 
-  /** Add it — the offer's option joins its zone (a multi zone keeps what it had). */
-  function accept(sg: BookedZoneCandidate) {
-    const a = RECEPTION_PARTS.find((p) => p.id === sg.zone)?.attributes.find((x) => x.id === sg.attr);
-    if (!a) return;
-    if (a.multi !== true) return commit(sg.zone, a.id, sg.optionId);
-    const kept = selAll(design, sg.zone, a.id).filter((id) => !a.options.find((o) => o.id === id)?.exclusive);
-    commit(sg.zone, a.id, kept.includes(sg.optionId) ? kept : [...kept, sg.optionId]);
+  /** Add it — routed through `choose()`, the same funnel as every pick (a multi zone keeps what it had). */
+  function acceptSuggestion(sg: BookedZoneCandidate) {
+    const attrDef = RECEPTION_PARTS.find((p) => p.id === sg.zone)?.attributes.find((a) => a.id === sg.attr);
+    if (!attrDef) return;
+    choose(sg.zone, attrDef, sg.optionId);
   }
   function dismiss(sg: BookedZoneCandidate) {
     setDismissedLocal((prev) => (prev.includes(sg.dismissKey) ? prev : [...prev, sg.dismissKey]));
@@ -162,6 +207,99 @@ export function AccentsSheet({
     });
   }
 
+  /** One choice, one row: a switch when it can be "nothing here", ONE dropdown for its look, the reference photo. */
+  function row(partId: PartId, attrId: string, inRoom: boolean) {
+    const part = RECEPTION_PARTS.find((p) => p.id === partId)!;
+    const attr = part.attributes.find((x) => x.id === attrId)!;
+    const looks = attr.options.filter((o) => !o.exclusive);
+    const chosen = selAll(design, partId, attrId);
+    const onIds = chosen.filter((id) => looks.some((o) => o.id === id));
+    const off = offOption(partId, attrId);
+    const isOn = onIds.length > 0;
+    const agreed = finalizedByPart?.[partId] ?? null;
+    const key = `${partId}.${attrId}`;
+    const name =
+      attrId === 'centerpiece' ? 'Centerpieces' : part.attributes.length > 1 ? `${part.label} · ${attr.label}` : part.label;
+    const photos = attrId === part.attributes[0]!.id ? inspirationByPart?.[partId] ?? [] : [];
+    const menu =
+      looks.length > 1 ? (
+        <PickMenu
+          label={`${name} style`}
+          value={onIds[0] ?? null}
+          picked={attr.multi ? onIds : undefined}
+          options={looks.map((o) => ({ key: o.id, label: o.label }))}
+          onPick={(id) => choose(partId, attr, id)}
+          dataAttr="data-room-accent-style"
+        />
+      ) : null;
+    /* WHAT THE ROOM IS NOT SHOWING: a combination is the couple's to pick, the room draws ONE of it — and says which. */
+    const primary = attr.options.find((o) => o.id === chosen[0]);
+    const disclosure =
+      inRoom && attr.multi === true && chosen.length > 1 && primary ? (
+        <span className="block text-xs text-ink/60">The 3D room draws {primary.label}; the rest go to your concept and suppliers.</span>
+      ) : null;
+    const peopleNote =
+      partId === 'people' ? (
+        <span className="block text-xs text-ink/60">
+          Who your concept image shows — the 3D room seats whoever is on your guest list.
+        </span>
+      ) : null;
+    const strip =
+      photos.length > 0 ? (
+        <span className="flex gap-1.5 pt-1" data-room-accent-photos="">
+          {photos.slice(0, 3).map((url) => (
+            // eslint-disable-next-line @next/next/no-img-element -- a signed reference thumbnail, never optimised or composited
+            <img key={url} src={url} alt="" loading="lazy" referrerPolicy="no-referrer" className="h-12 w-12 shrink-0 rounded-lg object-cover" />
+          ))}
+        </span>
+      ) : null;
+    const below = (
+      <>
+        {isOn || !off ? menu : null}
+        {disclosure}
+        {peopleNote}
+        {strip}
+      </>
+    );
+    return (
+      <div key={key} data-room-accent={key}>
+        {off ? (
+          <SwitchRow
+            name={name}
+            on={isOn}
+            disabled={Boolean(agreed)}
+            note={agreed ? agreedLine(agreed) : undefined}
+            onChange={(next) => {
+              if (next) {
+                const back =
+                  lastOn.current.get(key) ??
+                  (looks.find((o) => o.id === (DEFAULT_DESIGN[partId]?.[attrId] as string))?.id ?? looks[0]!.id);
+                if (agreed) return;
+                commit(partId, attrId, back);
+              } else {
+                if (agreed) return;
+                lastOn.current.set(key, chosen.length === 1 ? chosen[0]! : chosen);
+                choose(partId, attr, off);
+              }
+            }}
+            below={below}
+          />
+        ) : (
+          <div className="flex min-h-14 flex-col justify-center gap-1 py-2">
+            <span className="flex items-center justify-between gap-3">
+              <span className="text-sm font-medium text-ink">{name}</span>
+              {menu}
+            </span>
+            {agreed ? <span className="block text-xs text-ink/55">{agreedLine(agreed)}</span> : null}
+            {disclosure}
+            {peopleNote}
+            {strip}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <Sheet open={open} onClose={onClose} labelledById="room-accents-title" title="Accents">
       <div data-room-accents-sheet="" className="space-y-1 px-5 pb-5 pt-3">
@@ -172,7 +310,7 @@ export function AccentsSheet({
               You&rsquo;ve booked <span className="font-medium text-ink">{sg.vendorName}</span> — add{' '}
               <span className="font-medium text-ink">{sg.optionLabel}</span>?
             </span>
-            <button type="button" onClick={() => accept(sg)} className="min-h-11 rounded-full border border-terracotta px-4 font-medium text-ink hover:bg-terracotta/10">
+            <button type="button" onClick={() => acceptSuggestion(sg)} className="min-h-11 rounded-full border border-terracotta px-4 font-medium text-ink hover:bg-terracotta/10">
               Add it
             </button>
             <button type="button" onClick={() => dismiss(sg)} className="min-h-11 rounded-full border border-ink/15 px-4 text-ink/60 hover:border-ink/30">
@@ -180,65 +318,11 @@ export function AccentsSheet({
             </button>
           </div>
         ))}
-        {ROOM_ACCENTS.filter(([part]) => venueZoneApplies(venueSetting, part)).map(([partId, attrId]) => {
-          const part = RECEPTION_PARTS.find((p) => p.id === partId)!;
-          const attr = part.attributes.find((a) => a.id === attrId)!;
-          const looks = attr.options.filter((o) => !o.exclusive);
-          const chosen = selAll(design, partId, attrId);
-          const onIds = chosen.filter((id) => looks.some((o) => o.id === id));
-          const off = offOption(partId, attrId);
-          const isOn = onIds.length > 0;
-          const agreed = finalizedByPart?.[partId] ?? null;
-          const key = `${partId}.${attrId}`;
-          const name = attrId === 'centerpiece' ? 'Centerpieces' : part.label;
-          const menu =
-            looks.length > 1 ? (
-              <PickMenu
-                label={`${name} style`}
-                value={onIds[0] ?? null}
-                picked={attr.multi ? onIds : undefined}
-                options={looks.map((o) => ({ key: o.id, label: o.label }))}
-                onPick={(id) => {
-                  if (agreed) return;
-                  if (!attr.multi) return commit(partId, attrId, id);
-                  const next = onIds.includes(id) ? onIds.filter((x) => x !== id) : [...onIds, id];
-                  if (next.length === 0) return;
-                  commit(partId, attrId, next.length === 1 ? next[0]! : next);
-                }}
-                dataAttr="data-room-accent-style"
-              />
-            ) : null;
-          return (
-            <div key={key} data-room-accent={key}>
-              {off ? (
-                <SwitchRow
-                  name={name}
-                  on={isOn}
-                  disabled={Boolean(agreed)}
-                  note={agreed ? `Agreed with ${agreed.vendorName ?? 'your supplier'} — frozen` : undefined}
-                  onChange={(next) => {
-                    if (next) {
-                      const back = lastOn.current.get(key) ?? (looks.find((o) => o.id === (DEFAULT_DESIGN[partId]?.[attrId] as string))?.id ?? looks[0]!.id);
-                      commit(partId, attrId, back);
-                    } else {
-                      lastOn.current.set(key, chosen.length === 1 ? chosen[0]! : chosen);
-                      commit(partId, attrId, off);
-                    }
-                  }}
-                  below={isOn ? menu : null}
-                />
-              ) : (
-                <div className="flex min-h-14 items-center justify-between gap-3 py-2">
-                  <span className="text-sm font-medium text-ink">
-                    {name}
-                    {agreed ? <span className="block text-xs font-normal text-ink/55">Agreed with {agreed.vendorName ?? 'your supplier'} — frozen</span> : null}
-                  </span>
-                  {menu}
-                </div>
-              )}
-            </div>
-          );
-        })}
+        <h3 className="pt-2 text-xs font-semibold uppercase tracking-wide text-ink/50">In the 3D room</h3>
+        {ROOM_ACCENTS.filter(([part]) => venueZoneApplies(venueSetting, part)).map(([p, a]) => row(p, a, true))}
+        <h3 className="pt-5 text-xs font-semibold uppercase tracking-wide text-ink/50">For your concept and suppliers</h3>
+        <p className="pb-1 text-xs text-ink/55">Not drawn in 3D — they shape your concept image and what your suppliers see.</p>
+        {CONCEPT_CHOICES.filter(([part]) => venueZoneApplies(venueSetting, part)).map(([p, a]) => row(p, a, false))}
         {elsewhere ? <p className="pt-2 text-xs text-ink/60">{elsewhere}</p> : null}
         {error ? <p role="alert" className="pt-2 text-sm text-danger-700">{error}</p> : null}
       </div>

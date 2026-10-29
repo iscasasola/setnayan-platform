@@ -11,6 +11,7 @@ import { ActionButton } from '@/components/action-button';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
 import { ChosenRow, FormRow, FormRows, TypedRow } from '@/app/_components/form-row';
 import { StatusLine } from '@/app/_components/status-line';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 /**
  * 📱 THE SEAT PLAN ON A PHONE — its chrome (owner 2026-10-01, DECISION_LOG
@@ -269,7 +270,7 @@ export function MoveGuestSheet({
   if (typeof document === 'undefined') return null;
   return createPortal(
     <div data-seat-plan-move="" className="fixed inset-0 z-[80] flex flex-col justify-end">
-      <button type="button" aria-label="Close" onClick={onClose} className="absolute inset-0 bg-ink/35" />
+      <OverlayBackdrop onClose={onClose} />
       <div role="dialog" aria-label={`Move ${firstName} to…`} className="relative flex flex-col gap-3 rounded-t-2xl bg-cream px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 shadow-xl">
         <span aria-hidden className="mx-auto h-1 w-10 rounded-full bg-ink/15" />
         <h3 className="font-display text-xl text-ink">Move {firstName} to…</h3>

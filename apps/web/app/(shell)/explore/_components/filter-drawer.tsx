@@ -41,6 +41,7 @@ import { useId, useRef } from 'react';
 import Link from 'next/link';
 import { X } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 export type FilterDrawerProps = {
   /** Open / closed state owned by the parent (StickyMarketplaceHeader). */
@@ -170,12 +171,7 @@ export function FilterDrawer({
     >
       {/* Backdrop — click closes the drawer. bg-ink/40 gives the standard
           dim-out without becoming opaque. */}
-      <button
-        type="button"
-        aria-label="Close filters"
-        onClick={onClose}
-        className="absolute inset-0 h-full w-full cursor-pointer bg-ink/40 backdrop-blur-sm"
-      />
+      <OverlayBackdrop onClose={() => onClose?.()} label="Close filters" />
 
       {/* Panel — slide-up sheet on mobile (anchored bottom, max-h-[90vh]),
           right-side drawer on desktop (anchored right, w-[420px]). max-h

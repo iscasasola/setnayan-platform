@@ -15,6 +15,7 @@ import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
 import { HUB_LOOK_PRO_NOTE, HUB_LOOK_ROW } from '@/lib/studio-hub-look-row';
 import type { StudioPaper } from './print-paper';
 import { setPrintSettingsOpen, usePrintSettingsOpen, useRegisterSlide, type AllInOneF, type SlideTicketStyle } from './prints-view-store';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 export type { AllInOneF } from './prints-view-store';
 
 /**
@@ -76,7 +77,7 @@ export function StudioPrintSettings({ sections, form, lead = null }: { sections:
   useModalA11y({ open, onClose: () => setOpen(false), containerRef: sheet });
   const panel = (
     <div data-print-settings-layer="" hidden={!open} className={open ? 'fixed inset-0 z-[86]' : 'hidden'}>
-      <button type="button" aria-label="Close print settings" tabIndex={-1} onClick={() => setOpen(false)} className="absolute inset-0 bg-ink/35" />
+      <OverlayBackdrop onClose={() => setOpen(false)} label="Close print settings" tabIndex={-1} />
       <div
         ref={sheet}
         role="dialog"

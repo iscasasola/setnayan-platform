@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { Check, Copy } from 'lucide-react';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 /**
  * "COPY MY LINK" and "OPEN IN YOUR BROWSER" — the guest's OWN invitation link,
@@ -125,7 +126,7 @@ export function OpenInBrowser({ link }: { link: string }) {
       </button>
       {open ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center">
-          <button type="button" aria-label="Close" onClick={() => setOpen(false)} className="absolute inset-0 bg-ink/40" />
+          <OverlayBackdrop onClose={() => setOpen(false)} />
           <div
             ref={sheetRef}
             role="dialog"

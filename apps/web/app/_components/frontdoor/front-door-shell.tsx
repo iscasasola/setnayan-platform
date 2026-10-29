@@ -1251,7 +1251,7 @@ export function FrontDoorShell({
       <div className="fd-body">
         {railOpen ? (
           <div
-            className="fd-scrim"
+            className="fd-scrim sn-popup-dark"
             /* Fades out alongside the drawer rather than blinking away a step
                ahead of it — one event, not two. */
             data-closing={railClosing ? 'true' : 'false'}

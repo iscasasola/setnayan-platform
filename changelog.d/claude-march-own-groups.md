@@ -19,6 +19,12 @@ named, ordered, holding walks — beside the role-based sections.
   (SECURITY INVOKER). Order rides the existing `events.entourage_section_order`. The march only — the invitation's
   entourage still prints everyone under their role. Ugat J50 claims extended.
 - Guards: `lib/march-own-groups.test.ts`, `tests/db/march-own-groups.db.test.ts` (each sabotaged red, restored).
+- Fix round (side-by-side at 390): the selected group's verbs (Rename · ＋ Walk ▾ · ＋ Group · Delete) sit on ONE row —
+  compact pills (9 px sides, 16 px icons), `flex-nowrap` + the house fit pass (`useFitRow`) below that, never a cut word
+  (guard `lib/guest-section-head.test.ts` (5)). The toast no longer draws over the shell's top bar: `PeekToast` now
+  lands under the shell's bar (`.shell-topbar`, while it is on screen) and any marked pinned row stacked right under it
+  (Guests' View row, `data-peek-toast-under`) — so every toast, on every screen with that bar, sits on the content
+  (guard `lib/the-toast-peeks-from-the-top.test.ts` (9), sabotaged red twice).
 
 SPEC IMPACT: None — implements the 2026-10-29 DECISION_LOG row as ruled (no new decision). The data home is new schema
 (`march_groups`, `march_walks.march_group`), recorded here and on the Ugat map.

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { Check, ChevronDown, Pencil, Plus, Trash2, X } from 'lucide-react';
-import { ActionButton, actionButtonClass } from '@/components/action-button';
+import { ActionButton, actionButtonClass, useFitRow } from '@/components/action-button';
 import { PickMenu, type PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { formatCount } from '@/lib/format-number';
 import { guestRoleLabel, type GuestRole } from '@/lib/guests';
@@ -77,6 +77,8 @@ export function SectionHeadToolbar({
   const [err, setErr] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const box = useRef<HTMLInputElement>(null);
+  const verbs = useRef<HTMLDivElement>(null);
+  useFitRow(verbs);
   useEffect(() => {
     if (editing) box.current?.focus();
   }, [editing]);
@@ -105,7 +107,7 @@ export function SectionHeadToolbar({
   };
 
   return (
-    <div className="sn-glass-bare flex min-w-0 flex-col gap-1.5 rounded-2xl p-2 ring-1 ring-ink/10" data-section-head-toolbar="" role="toolbar" aria-label={`${label} — group actions`}>
+    <div className="sn-glass-bare flex min-w-0 flex-col gap-1.5 rounded-2xl p-1.5 ring-1 ring-ink/10" data-section-head-toolbar="" role="toolbar" aria-label={`${label} — group actions`}>
       {editing && rename ? (
         <div className="flex min-w-0 items-center gap-2" data-section-head-rename="">
           <input
@@ -148,7 +150,10 @@ export function SectionHeadToolbar({
             </span>
             <ActionButton tone="neutral" quiet iconOnly icon={X} label={`Unselect ${label}`} onClick={onClose} data-testid="section-head-close" />
           </div>
-          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+          {/* ONE ROW of verbs (owner's prototype v13 `renderToolbar`: Rename · ＋ Walk · ＋ Group · Delete on one line at
+              390): compact pills (9 px sides, 16 px icons, 4 px gaps — every word whole), never a wrap; below that the house fit
+              pass (`useFitRow`) drops icons, then secondary words, AS ONE — a word is never cut. */}
+          <div ref={verbs} className="flex min-w-0 flex-nowrap items-center gap-1 [&_.ab]:gap-1 [&_.ab]:px-[9px] [&_.ab_svg]:size-4" data-section-head-verbs="">
             {rename ? (
               <ActionButton
                 tone="neutral"

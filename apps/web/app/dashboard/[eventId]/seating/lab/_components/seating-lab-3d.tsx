@@ -912,14 +912,29 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
       /* blocked / unsupported — no-op */
     }
   }, [phoneGpu]);
-  // The in-page full screen is left with Esc as well as the ⤢ (a phone keyboard, an iPad's).
+  // The in-page full screen is left with Esc as well as the ⤢ (a phone keyboard, an iPad's). While it is on, <html>
+  // says so — `globals.css` lifts the page above the shell's bars on that attribute.
   useEffect(() => {
     if (!inPageFull) return;
+    document.documentElement.setAttribute('data-room-fullscreen', 'in-page');
+    /* 📱 The iOS web view CLIPS a fixed box to an ancestor's `overflow: hidden` (measured in the Simulator's WKWebView:
+       the grown room painted only inside its old slot — desktop WebKit did not). So, while it lasts, the room's own
+       ancestors stop clipping; each gets its inline style back on the way out. */
+    const opened: Array<[HTMLElement, string]> = [];
+    for (let el = wrapperRef.current?.parentElement ?? null; el && el !== document.body; el = el.parentElement) {
+      opened.push([el, el.style.cssText]);
+      el.style.overflow = 'visible';
+      el.style.contain = 'none';
+    }
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setInPageFull(false);
     };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.documentElement.removeAttribute('data-room-fullscreen');
+      for (const [el, css] of opened) el.style.cssText = css;
+    };
   }, [inPageFull]);
   useEffect(() => {
     const sync = () => {

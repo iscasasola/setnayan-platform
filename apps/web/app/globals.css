@@ -2752,15 +2752,26 @@ html:not([data-sn-nav-dir]) .sn-vt-page:has([data-guests-thumb]) {
  * ⤢ THE 3D ROOM'S IN-PAGE FULL SCREEN CLEARS THE SHELL (owner, iPhone app, 2026-10-30: *"3d crashed again. when i tried
  * to press the full screen icon"*). On a phone the room's full screen is NOT the Fullscreen API (the app's web view
  * handed the live WebGL canvas to WebKit's native element full screen); it is the SAME element grown to the viewport —
- * `fixed inset-0`, `[data-room-fullscreen='in-page']` in `seating-lab-3d.tsx`. `<main>` is a stacking context
- * (`isolation` / its view-transition name), so the room could only rise to the page's own level and the shell's top bar
- * and bottom bar painted OVER it — over its own ⤢, so there was no way back. While it is full screen the page's
- * stacking context is lifted above the chrome (the open-panel rule's shape, above) and its name is off, so it is
- * never the containing block of the fixed room. Measured in the lab, WebKit 390 × 844.
+ * `fixed inset-0`, `div[data-room-fullscreen='in-page']` in `seating-lab-3d.tsx`, which also sets
+ * `html[data-room-fullscreen]` while it lasts.
+ *
+ * 🔑 Z-INDEX COULD NOT DO IT. `<main>` is a stacking context, so the room could only rise to the page's level; lifting
+ * `<main>` above the shell (the open-panel rule's shape, above) worked in desktop WebKit and NOT in the iOS 26 web view
+ * (Simulator WKWebView, measured: the shell's bars and the plan's own rows still painted over the room — over its ⤢,
+ * so there was no way back). So everything else on the page is made INVISIBLE instead: `visibility: hidden` on <body>,
+ * `visible` again on the room and on what opens over it (a sheet, a dropdown's list — both portalled to <body>). Hidden
+ * boxes neither paint nor take taps, whatever their stacking. The page's view-transition name is off meanwhile, so
+ * <main> is never the containing block of the fixed room.
  */
-.sn-vt-page:has([data-room-fullscreen='in-page']) {
-  position: relative;
-  z-index: 130;
+html[data-room-fullscreen] body {
+  visibility: hidden;
+}
+html[data-room-fullscreen] div[data-room-fullscreen='in-page'],
+html[data-room-fullscreen] [data-sheet],
+html[data-room-fullscreen] [data-pick-side] {
+  visibility: visible;
+}
+html[data-room-fullscreen] .sn-vt-page {
   view-transition-name: none;
 }
 

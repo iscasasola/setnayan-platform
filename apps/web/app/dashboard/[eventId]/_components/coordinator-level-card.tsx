@@ -1,12 +1,15 @@
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { eventMemberTypeOnce } from '@/lib/event-membership-once';
-import { COORDINATOR_ROLE, levelCardTitle, seatAsksForLevel, type LevelSeat } from '@/lib/coordinator-access-level';
+import { COORDINATOR_ROLE, seatAsksForLevel, type LevelSeat } from '@/lib/coordinator-access-level';
 import { peopleWithAccessHref } from '@/lib/people-with-access-href';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { CoordinatorLevelAsk } from './coordinator-level-ask';
 
 /**
- * 🔑 "<shop> IS YOUR COORDINATOR — WHAT CAN THEY DO?" — Home's one card (owner 2026-10-29: *"Once the coordinator
+ * 🔑 "<shop> JOINED AS YOUR COORDINATOR" — a line in Home's TODAY list, under the cover (owner 2026-10-29, *"The popup
+ * for the access and other popups above the header can be presented better"*: it used to stack above the cover; it is
+ * now the FIRST Today line, and its press opens the house Sheet — `coordinator-level-ask.tsx`). Home's one ask (owner 2026-10-29: *"Once the coordinator
  * accepts, and connected to the event. The event should show to pick what kind of access do we want to give the
  * coordinator. On the home."* · *"Since our coordinator is already booked and they connected already, that command
  * should initiate"*). Self-hiding, like `AccessRequestsDoorway` beside it: drawn ONLY for the event's owners (a
@@ -44,22 +47,60 @@ export async function CoordinatorLevelCard({ eventId, userId }: { eventId: strin
   );
   if (seats.length === 0) return null;
 
-  // The shop's name — the seat's own label first; else the shop the coordinator owns (a public column).
-  const unnamed = seats.filter((s) => !s.display_label?.trim()).map((s) => s.user_id!);
-  const shopNames = new Map<string, string>();
-  if (unnamed.length > 0) {
-    const { data: shops, error: shopError } = await supabase
-      .from('vendor_profiles')
-      .select('user_id, business_name')
-      .in('user_id', unnamed);
-    if (shopError) logQueryError('CoordinatorLevelCard.shopNames', shopError, { event_id: eventId }, 'graceful_degrade');
-    for (const r of (shops ?? []) as Array<{ user_id: string | null; business_name: string | null }>) {
-      if (r.user_id && r.business_name?.trim()) shopNames.set(r.user_id, r.business_name.trim());
-    }
+  /*
+    🏷 THE SHOP'S NAME — never the bare word "coordinator" (owner 2026-10-29). Tried in order, each a couple-readable
+    source: the seat's own label (the promote/invite doors write the booking's name there) → the shop itself
+    (`vendor_profiles`, readable once the shop is public) → the shop's own ACCESS REQUEST on this event (the seat the
+    "asked for access" door upserts carries NO label — the owner's live coordinator) and that shop's BOOKING here
+    (`event_vendors.vendor_name`, the couple's own row). The three reads run together, only while a coordinator waits
+    on the hosts — never on an ordinary Home load. The logo rides with the shop read (a public shop's logo).
+  */
+  const users = [...new Set(seats.map((s) => s.user_id!))];
+  const [shopsRes, asksRes, bookedRes] = await Promise.all([
+    supabase.from('vendor_profiles').select('user_id, business_name, logo_url').in('user_id', users),
+    supabase
+      .from('event_access_requests')
+      .select('requester_user_id, vendor_profile_id, record:event_vendors!event_access_requests_event_vendor_id_fkey(vendor_name)')
+      .eq('event_id', eventId)
+      .in('requester_user_id', users),
+    supabase
+      .from('event_vendors')
+      .select('vendor_name, marketplace_vendor_id, linked_vendor_profile_id')
+      .eq('event_id', eventId),
+  ]);
+  if (shopsRes.error) logQueryError('CoordinatorLevelCard.shops', shopsRes.error, { event_id: eventId }, 'graceful_degrade');
+  if (asksRes.error) logQueryError('CoordinatorLevelCard.asks', asksRes.error, { event_id: eventId }, 'graceful_degrade');
+  if (bookedRes.error) logQueryError('CoordinatorLevelCard.booked', bookedRes.error, { event_id: eventId }, 'graceful_degrade');
+
+  const shopOf = new Map<string, { name: string | null; logo: string | null }>();
+  for (const r of (shopsRes.data ?? []) as Array<{ user_id: string | null; business_name: string | null; logo_url: string | null }>) {
+    if (r.user_id) shopOf.set(r.user_id, { name: r.business_name?.trim() || null, logo: r.logo_url ?? null });
   }
-  const asks = seats.map((s) => ({
-    moderatorId: s.moderator_id,
-    title: levelCardTitle(s.display_label?.trim() || shopNames.get(s.user_id!) || null),
-  }));
+  const bookedName = new Map<string, string>();
+  for (const b of (bookedRes.data ?? []) as Array<{ vendor_name: string | null; marketplace_vendor_id: string | null; linked_vendor_profile_id: string | null }>) {
+    const n = b.vendor_name?.trim();
+    if (!n) continue;
+    for (const id of [b.marketplace_vendor_id, b.linked_vendor_profile_id]) if (id && !bookedName.has(id)) bookedName.set(id, n);
+  }
+  const askedName = new Map<string, string>();
+  for (const r of (asksRes.data ?? []) as unknown as Array<{
+    requester_user_id: string | null;
+    vendor_profile_id: string | null;
+    record: { vendor_name: string | null } | null;
+  }>) {
+    const n = r.record?.vendor_name?.trim() || (r.vendor_profile_id ? bookedName.get(r.vendor_profile_id) : undefined);
+    if (r.requester_user_id && n && !askedName.has(r.requester_user_id)) askedName.set(r.requester_user_id, n);
+  }
+
+  const asks = await Promise.all(
+    seats.map(async (s) => {
+      const shop = shopOf.get(s.user_id!);
+      return {
+        moderatorId: s.moderator_id,
+        shop: s.display_label?.trim() || shop?.name || askedName.get(s.user_id!) || null,
+        logoUrl: shop?.logo ? await displayUrlForStoredAsset(shop.logo) : null,
+      };
+    }),
+  );
   return <CoordinatorLevelAsk eventId={eventId} asks={asks} unread={false} accessHref={peopleWithAccessHref(eventId)} />;
 }

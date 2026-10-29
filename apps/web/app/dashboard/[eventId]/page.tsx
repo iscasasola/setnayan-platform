@@ -1083,6 +1083,30 @@ export default async function EventHomePage({
       !isStoreShellHiddenAddon(appleThankYouEntry.key, iap) &&
       addOnOfferedForEvent(appleThankYouEntry, needsProfile, (event as { community_id?: string | null }).community_id ?? null),
   );
+  /*
+    ☀ THE TODAY ASKS — every prompt that waits on the hosts (owner 2026-10-29, verbatim: *"The popup for the access and
+    other popups above the header can be presented better"*). They used to stack ABOVE the cover band; NOTHING renders
+    above Home's cover now — the cover is the top of Home — and each is a line of the Today list under it
+    (`HomeTodayItem`), in this order: what waits on the hosts first (the coordinator's access, then access requests),
+    then what is under way (a date change), then the event-day offer. Each self-hides and says a refused read. Held by
+    `the-cover-is-the-top-of-home.test.ts`.
+  */
+  const todayAsks = (
+    <>
+      {/* 🔑 "<shop> joined as your coordinator · Pick their access" — once, for a connected coordinator the hosts have
+          not answered for (owner 2026-10-29). Owners only; the press opens the house Sheet. */}
+      <CoordinatorLevelCard eventId={eventId} userId={user.id} />
+      {/* Self-hiding: renders nothing unless someone is waiting on an answer (owner ruling 2026-07-27 — the host
+          decides what to share). */}
+      <AccessRequestsDoorway eventId={eventId} />
+      {/* 🗓 "Date change: n of N suppliers answered" — self-hiding: renders nothing unless the couple asked booked
+          suppliers to move (owner 2026-10-01, the clashing-date flow). Couple-only by RLS. */}
+      <DateChangeDoorway eventId={eventId} />
+      {/* "EVENT DAY SOON" was rendering for a full day AFTER the celebration — its own window is T-3d..T+1d and it
+          never asked whether the day had been and gone. It is TOLD, from the one resolver. */}
+      <EventDayPrepCta eventId={eventId} eventDate={event.event_date} finished={afterActive} />
+    </>
+  );
   const homeFirstScreen = (
     <>
     {/* 🍎 The App Store net (lib/iap/native-store.ts): on Home — where the app
@@ -1092,6 +1116,7 @@ export default async function EventHomePage({
     <HomeFirstScreen
       eventId={eventId}
       cover={homeCover0}
+      asks={todayAsks}
       /* ⚙ Event Settings on the cover — the couple's, who change the event's own facts (owner 2026-10-29). */
       eventSettings={viewerMemberType === 'couple'}
       next={homeNext}
@@ -1308,21 +1333,9 @@ export default async function EventHomePage({
       {/* 🧩 Home's services grow in place (owner 2026-10-23) — their first-visit spotlight, after the journey; only
           where the cards are drawn (the couple, on the web). No price in any step. */}
       {serviceCards && !(dayOfActive || afterActive) ? <Spotlight tourKey={HOST_PAGE_TOURS.home} after={HOST_PAGE_TOURS_AFTER} replay="page" /> : null}
-      {/* "EVENT DAY SOON" was rendering for a full day AFTER the celebration —
-          its own window is T-3d..T+1d and it never asked whether the day had
-          been and gone. It is TOLD, from the one resolver, rather than given a
-          third opinion of its own. */}
-      <EventDayPrepCta eventId={eventId} eventDate={event.event_date} finished={afterActive} />
-      {/* Self-hiding: renders nothing unless a coordinator is waiting on an
-          answer (owner ruling 2026-07-27 — the host decides what to share). */}
-      <AccessRequestsDoorway eventId={eventId} />
-      {/* 🔑 "<shop> is your coordinator — what can they do?" — Limited · Full access, once, for a connected
-          coordinator the hosts have not answered for (owner 2026-10-29). Self-hiding; owners only. */}
-      <CoordinatorLevelCard eventId={eventId} userId={user.id} />
-      {/* 🗓 "Date change: n of N suppliers answered" — self-hiding: renders
-          nothing unless the couple asked booked suppliers to move (owner
-          2026-10-01, the clashing-date flow). Couple-only by RLS. */}
-      <DateChangeDoorway eventId={eventId} />
+      {/* ☀ The day-of console and the after page draw no cover, so the Today asks lead them here; before the day they
+          are lines of the Today list UNDER the cover (`todayAsks` above — nothing renders above Home's cover). */}
+      {dayOfActive || afterActive ? todayAsks : null}
       <AutoPreloadOnEventDay eventId={eventId} eventDate={event.event_date} finished={afterActive} />
       {/* 📶 READY FOR NO SIGNAL — Home › Today, the event day only (EV3, owner 2026-10-28, DECISION_LOG "OFFLINE
           SAVING IS ALWAYS ON"). Every count is what this render READ: a refused read says "Couldn’t read", never ✓. */}

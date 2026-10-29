@@ -29,15 +29,18 @@ import type { GuestCardResult } from './guest-card';
 export type GuestCardPerson = { id: string; name: string };
 
 /**
- * The shipped readers, by surface — the one action (`openGuestCard`), loaded at the first tap (opening a surface reaches for
- * no server door). Module constants, so a sheet's read does not re-run on every render of the surface that opened it.
+ * The shipped readers, by surface — the one action (`openGuestCard`) and THE card drawn from its answer in the browser
+ * (`guest-card-in-place.tsx`), loaded at the first tap (opening a surface reaches for no server door). Never a card drawn
+ * by the action: the routes this opens on cannot send one (see `guest-card-in-place.tsx`). Module constants, so a
+ * sheet's read does not re-run on every render of the surface that opened it.
  */
 export const SHIPPED_GUEST_CARD = {
-  march: async (eventId: string, guestId: string): Promise<GuestCardResult> => (await import('../open-guest-card')).openGuestCard(eventId, guestId, 'march'),
-  /* 🗂 R4 · Guests › Seats (owner 2026-10-29, *"tapping a seat can show a guest card"*): a face on the plan or the list. */
-  seats: async (eventId: string, guestId: string): Promise<GuestCardResult> => (await import('../open-guest-card')).openGuestCard(eventId, guestId, 'seats'),
+  march: async (eventId: string, guestId: string): Promise<GuestCardResult> => (await import('./guest-card-in-place')).openGuestCardInPlace(eventId, guestId, 'march'),
+  /* 🗂 R4 · Guests › Seats (owner 2026-10-29, *"tapping a seat can show a guest card"*): a face on the plan or the list —
+     the same in-place read, its DATA drawn in the browser (`guest-card-in-place.tsx`). */
+  seats: async (eventId: string, guestId: string): Promise<GuestCardResult> => (await import('./guest-card-in-place')).openGuestCardInPlace(eventId, guestId, 'seats'),
   invitation: async (eventId: string, guestId: string): Promise<GuestCardResult> =>
-    (await import('../open-guest-card')).openGuestCard(eventId, guestId, 'invitation'),
+    (await import('./guest-card-in-place')).openGuestCardInPlace(eventId, guestId, 'invitation'),
 } as const;
 
 /** The card's layer on <body>: above the Maker's full-screen shell (`z-[80]`), under the card's own dropdowns (`z-[95]`). */

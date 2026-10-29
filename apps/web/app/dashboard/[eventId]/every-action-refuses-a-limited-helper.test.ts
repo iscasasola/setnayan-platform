@@ -84,7 +84,7 @@ const NO_EVENT_WRITE: Record<string, string> = {
   'seating/actions.ts#getReceptionDecorLayerCatalog': 'read: catalogue',
   'guests/checkin/actions.ts#checkTicketLive': 'read: a ticket verdict at the door',
   'guests/people-add-actions.ts#listPeopleYouCanInvite': 'read',
-  'guests/open-guest-card.tsx#openGuestCard': 'read: renders the guest card',
+  'guests/open-guest-card.tsx#openGuestCard': 'read: the guest card’s data (drawn in the browser)',
   '_components/open-event-settings.tsx#openEventSettings': 'read: renders Home’s Event Settings rows (couple only) — its editors write through their own gated doors',
   'studio/papic/actions.ts#papicBuySizes': 'read: price rungs',
   'checkout/actions.ts#applyVoucherAction': 'read: prices a voucher code, records nothing',

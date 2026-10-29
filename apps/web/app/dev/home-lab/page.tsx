@@ -36,8 +36,10 @@
  *                                    (the app reads the catalogue; a lab has none, so the figure is omitted).
  *   ?view=apply&screen=none|silent|cancelled|failed|refused|pending|on  🍎 the REAL Apply sheet
  *                                    selling Event Hub Pro through Apple, in each outcome
- *   ?level=1 | level=unread          🔑 "<shop> is your coordinator — what can they do?" (owner 2026-10-29) — the REAL
- *                                    `CoordinatorLevelAsk` (Limited · Full access; the lab's presses write nothing real)
+ *   ?level=1 | level=unread          🔑 "<shop> joined as your coordinator" (owner 2026-10-29) — the REAL
+ *                                    `CoordinatorLevelAsk`, FIRST in the Today list under the cover (never above it);
+ *                                    its press opens the house Sheet, Limited · Full access (the lab's presses write
+ *                                    nothing real). `&shop=long` a long shop name (never cut) · `&shop=none` no name read
  *   ?coord=1                         🗂 the coordinator's line on top (owner 2026-10-28) — the REAL `CoordinatingLine`
  *   ?view=offline[&state=ok|amber|nosignal|failed|saving|none|unsupported][&browser=1][&desk=notes|sent]
  *                                    📶 EV3 (owner 2026-10-28): the REAL "Ready for no signal" card, the supplier's saved
@@ -67,7 +69,6 @@
  */
 import { CoordinatingLine } from '@/app/dashboard/[eventId]/_components/coordinating-line';
 import { CoordinatorLevelAsk } from '@/app/dashboard/[eventId]/_components/coordinator-level-ask';
-import { levelCardTitle } from '@/lib/coordinator-access-level';
 import { labEventSettingsRows } from './lab-event-settings';
 import { PapicBuySheet } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-buy-sheet';
 import { PapicCameraSettings, PapicSwitch } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-camera-settings';
@@ -233,7 +234,7 @@ const LAB_HUB_PICK: HomeHubPickRead = { ok: true, pinned: null, byDate: 'rsvp' }
 export default async function HomeLab({
   searchParams,
 }: {
-  searchParams: Promise<{ bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; coord?: string; level?: string; card?: string; cardphase?: string; challenges?: string; open?: string; need?: string; state?: string; browser?: string; desk?: string }>;
+  searchParams: Promise<{ bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; coord?: string; level?: string; shop?: string; card?: string; cardphase?: string; challenges?: string; open?: string; need?: string; state?: string; browser?: string; desk?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -473,16 +474,25 @@ export default async function HomeLab({
         line the event layout draws above every page for that viewer, over the couple's own Home. */}
     {q.coord === '1' ? <CoordinatingLine eventName={F.name} checkInHref={`/dashboard/${E}/guests/checkin`} /> : null}
     <div className="mx-auto min-h-screen w-full bg-cream px-4 pb-6 pt-3 sm:px-6 sm:pt-6 lg:px-8">
-      {q.level === '1' || q.level === 'unread' ? (
-        <CoordinatorLevelAsk
-          eventId={E}
-          asks={[{ moderatorId: 'lab-seat', title: levelCardTitle('Glam by Ana Events') }]}
-          unread={q.level === 'unread'}
-          accessHref={`/dashboard/${E}/details#people-with-access`}
-        />
-      ) : null}
       <HomeFirstScreen
         eventId={E}
+        /* ☀ The Today asks — under the cover, first in the Today list (owner 2026-10-29). */
+        asks={
+          q.level === '1' || q.level === 'unread' ? (
+            <CoordinatorLevelAsk
+              eventId={E}
+              asks={[
+                {
+                  moderatorId: 'lab-seat',
+                  shop: q.shop === 'none' ? null : q.shop === 'long' ? 'The Wedding Project Events & Coordination by Ana Marie' : 'The Wedding Project',
+                  logoUrl: null,
+                },
+              ]}
+              unread={q.level === 'unread'}
+              accessHref={`/dashboard/${E}/details#people-with-access`}
+            />
+          ) : null
+        }
         /* ⚙ Event Settings on the cover — its rows drawn on the lab's fixture (`lab-event-settings.tsx`), no database. */
         eventSettings
         eventSettingsRows={labEventSettingsRows(E)}

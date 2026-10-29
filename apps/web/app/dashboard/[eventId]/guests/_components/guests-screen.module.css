@@ -819,6 +819,15 @@ button.ico {
 .open > .barWrap .ico {
   animation: gs-catpop 420ms var(--gs-ease);
 }
+/* 🏷 THE SELECTED HEADER (R4 slice 4, owner 2026-10-29): its chip carries a ring and its words go full ink — "open" is
+   already the terracotta chip (`.sn-acc-head[data-open]`), so selected must read as one step more, not a second colour. */
+.bar[data-section-selected] .ico::before {
+  outline: 2px solid rgb(var(--sn-accent));
+  outline-offset: 2px;
+}
+.bar[data-section-selected] .lab {
+  color: var(--gs-ink);
+}
 
 /* ═══ a guest row ═══ */
 /* ➡ ONE LINE PER GUEST (owner 2026-10-20: "edit and remove button can be in a row? on the right side?"): avatar ·
@@ -1122,6 +1131,27 @@ button.ico {
 }
 .lower > * {
   pointer-events: auto;
+}
+/* 🏷 The selected header's toolbar (R4 slice 4): rises just above the thumb row, on the row's own side gutters
+   (`padding-inline: inherit`), so it never moves the row. Leaves with the row while the row is away. */
+.headTools {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  padding-inline: inherit;
+  animation: gs-tools-up 250ms var(--gs-ease);
+}
+@keyframes gs-tools-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .headTools {
+    animation: none;
+  }
 }
 /* From 701, not 1024 (owner 2026-10-19): the couple dashboard's dock is gone from 701 (`BottomDock boundary="tab"`), so this row takes its desktop place on the same line instead of sitting on a dock that is no longer there.
    🖥 Its edges are the READING COLUMN's (owner 2026-10-20, "is the desktop view done fixing?"): `--gs-left`/`--gs-right`

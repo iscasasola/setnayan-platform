@@ -116,3 +116,26 @@ guest name and the seat head's title (beside its mode dropdown) wrap (line-clamp
 ending in "…". Guard `lib/guests-words-are-never-cut.test.ts`, anchored per element, sabotaged once.
 
 SPEC IMPACT: None.
+
+## 2026-10-29 · feat(guests): R4 slice 4 — a pressed group header selects, with Rename · ＋ Add guest here; headers stay in sight
+
+Owner (prototype v20–v22): *"i like the concept of adding guests directly on the highlighted category"* · *"the renaming
+of that group will be removed since it will be set on when the highlighted group/role is pressed"* · a tap on the
+SELECTED header folds it and unselects it.
+- **List**: tapping a group header selects it (ringed chip), opens it, and raises a toolbar just above the thumb row —
+  the group's name and count · ✎ Rename (in place: Enter keeps, Esc drops) · ＋ Add guest here (one role → a button;
+  several, e.g. Groomsmen = Best man · Best woman · Groomsman → a dropdown) · ✕. ＋ sets where the next typed name lands
+  (role, side or own group) and the box says "Add to …"; ✕ or a second tap on the header ends it. What a header offers
+  is `lib/guest-section-head.ts`: Rename only where ONE word renames the heading through a shipped door (`renameRole`,
+  `renameSection`, `editGuestGroupInPlace`); ＋ only where the added name actually lands in that heading. The
+  celebrants, a last-name letter and the reply headings (but To invite) keep the plain fold toggle. No new server action.
+- **The guest card lost "Rename this role / Rename this section"** (`CardRename`) — RENAMES only; the card's Role and
+  Group PICKS (which assign) stay. Port baseline regenerated: `K.Rename` / `CardRenameProps` removed — reason: moved to
+  the group header toolbar.
+- **Sticky headers**: Seats › List table headers stay at the top of the list's scroll; a March group's header sticks under
+  the pinned row in Guests (the Maker's own march unchanged). The List's open header was already pinned under the row.
+- Guard `lib/guest-section-head.test.ts` (4 properties; sabotaged red twice — a two-section heading renamed by its first
+  section, and a second tap that kept the section open); the card-form / section-names / role-words / r4 / pop-unfold
+  guards re-aimed at the moved door.
+
+SPEC IMPACT: None — prototype v20–v22 is the record.

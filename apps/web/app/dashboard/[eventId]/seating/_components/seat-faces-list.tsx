@@ -84,7 +84,9 @@ function Fold({
 }) {
   return (
     <section data-seat-fold={id} data-open={open ? 'true' : 'false'} className="min-w-0">
-      <div className="sn-acc-head" data-open={open ? '' : undefined}>
+      {/* 📌 STICKY UNDER THE TOP (R4 slice 4, prototype `.acc-h{position:sticky}`): an open table's header stays at the top
+          of this list's own scroll while its seats pass under it, on the list's own ground. */}
+      <div className="sn-acc-head sticky top-0 z-[2] bg-[var(--gs-paper,rgb(var(--color-cream)))]" data-open={open ? '' : undefined} data-seat-fold-head="">
         <button type="button" aria-expanded={open} onClick={onToggle} className="flex min-h-12 w-full items-center gap-3 px-1 text-left">
           <span className="sn-acc-chip inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full" aria-hidden>
             {icon === 'table' ? <Armchair className="h-[18px] w-[18px]" strokeWidth={1.9} /> : <UserRound className="h-[18px] w-[18px]" strokeWidth={1.9} />}

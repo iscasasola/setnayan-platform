@@ -325,10 +325,10 @@ test('one list of fields: every field the card\'s body names is drawn and posted
     if (!new RegExp(`name="${f}"`).test(tplAll)) lacking.push(`${f}: the templated card does not post it`);
   }
   assert.deepEqual(lacking, []);
-  /* ONE kit: the card's leaves are the templates' (`TEMPLATE_KIT`), the hand-drawn kit is gone, and the Guests pages'
-     "Rename this section" is on every card now. */
+  /* ONE kit: the card's leaves are the templates' (`TEMPLATE_KIT`), the hand-drawn kit is gone. "Rename this role /
+     section" LEFT the card (R4 slice 4, owner 2026-10-29) — it is the List's selected header's Rename now. */
   const rows = stripComments(readFileSync(join(HERE, 'guest-card-template-kit.ts'), 'utf8'));
-  assert.match(rows, /TEMPLATE_KIT: CardKit = \{[^}]*\bRename\b[^}]*\}/, 'the card lost "Rename this section"');
+  assert.doesNotMatch(rows, /TEMPLATE_KIT: CardKit = \{[^}]*\bRename\b[^}]*\}/, 'the card grew its rename row back');
   assert.match(body, /const K: CardKit = TEMPLATE_KIT;/, 'the card draws its leaves with something other than the templates');
   assert.doesNotMatch(body, /\bOLD_KIT\b|\bkit\?: CardKit\b/, 'a second kit (or a way to hand one in) is back');
 });

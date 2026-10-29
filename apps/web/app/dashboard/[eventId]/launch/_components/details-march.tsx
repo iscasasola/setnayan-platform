@@ -960,7 +960,12 @@ function MarchMakerBody({
             role={fixed ? undefined : 'button'}
             aria-pressed={fixed ? undefined : carried?.key === sectionKey}
             aria-label={fixed ? undefined : `${sec.label} — drag to move the whole section`}
-            className={`mt-3 flex min-h-9 items-baseline gap-2 rounded-lg px-1 pt-1 font-mono text-[10.5px] uppercase tracking-[0.18em] text-ink/65 ${
+            data-march-head=""
+            className={`${
+              /* 📌 R4 slice 4 — in Guests, a walk group's header sticks under the pinned row while its walks pass (the
+                 prototype's `.acc-h` sticky); the Maker's own march keeps its plain line. */
+              guests ? 'sticky top-[calc(var(--gs-top,0px)+var(--gs-stick-h,60px))] z-[5] bg-[var(--gs-paper,rgb(var(--color-cream)))] ' : ''
+            }mt-3 flex min-h-9 items-baseline gap-2 rounded-lg px-1 pt-1 font-mono text-[10.5px] uppercase tracking-[0.18em] text-ink/65 ${
               fixed ? '' : 'cursor-grab touch-pan-y [-webkit-touch-callout:none]'
             }${carried?.key === sectionKey ? ' ring-2 ring-ink' : ''}${ring(`section|${sec.key}`)}`}
           >

@@ -94,6 +94,7 @@ import {
   replyMarkedByHost,
   RSVP_ROW_WORDS,
   SIDE_LABELS,
+  type GuestRole,
   type GuestRow,
   type GuestSide,
 } from '@/lib/guests';
@@ -140,7 +141,10 @@ import { GuestListHasSidesContext } from './guest-list-has-sides-context';
 import { ADD_WAYS, openAddGuest, openAddWay, type AddWayKey } from './add-guest-sheet';
 import { AddDoors } from './capture-bar';
 import { SearchAddRow, searchAddLabel } from '@/components/search-add-row';
-import { guestAdds, NEEDS_BOTH_NAMES, queueTypedGuest, useGuestAdds } from './guest-add-queue';
+import { guestAdds, NEEDS_BOTH_NAMES, queueTypedGuest, useGuestAdds, type AddPicks } from './guest-add-queue';
+import { SectionHeadTools } from './section-head-toolbar';
+import { sectionHeadDoors, sectionHeadSelectable, type SectionHeadAdd } from '@/lib/guest-section-head';
+import { resolveRoleSet } from '@/lib/role-sets';
 import { JustAdded } from './just-added';
 import { hearAction } from './hear-action';
 import { AddCardPicks, PeopleHits, picksForAdd, useAddPicks, type PersonHit } from './search-add-card';
@@ -656,6 +660,19 @@ export function GuestsScreen(props: GuestsScreenProps) {
     setSelectMode(false);
     setSelected(new Set());
   };
+
+  /* 🏷 THE SELECTED HEADER (R4 slice 4, owner 2026-10-29 — prototype v20/v21): a tap on a List group's header selects
+     it, opens it and raises its toolbar (Rename · ＋ Add guest here — `section-head-toolbar.tsx`); a tap on the SELECTED
+     header folds it AND unselects it. ⇕ stays independent. Only a header with a door is selectable
+     (`lib/guest-section-head.ts`); the celebrants, a letter or a reply keep the shipped fold toggle. Select mode and a
+     viewer who may not write keep it too. `addHere` = the thumb row's box is adding INTO the selected group. */
+  const [hubSel, setHubSel] = useState<string | null>(null);
+  const [addHere, setAddHere] = useState<{ key: string; picks: SectionHeadAdd & { role?: GuestRole } } | null>(null);
+  const hubSection = gview === 'list' && !selectMode && hubSel ? (sections.find((x) => x.key === hubSel) ?? null) : null;
+  const unselectHead = () => {
+    setHubSel(null);
+    setAddHere(null);
+  };
   /* ☑ ⚙ › Invitations' "Pick who", IN PLACE (owner 2026-10-28, "pick who … does not show anything"): the sheet closes,
      Select turns on, the list narrows to To invite — the carousel's own `toinvite` door. Nothing navigates. On the Map
      (no rows to pick) it opens the List the cold-load way, which lands in the same state (`initialSelect`).
@@ -876,6 +893,22 @@ export function GuestsScreen(props: GuestsScreenProps) {
   // row; open with its top in view → fold; shut → open and land its first row.
   const tapSection = (key: string, el: HTMLElement | null) => {
     if (!el) return;
+    // 🏷 A selectable header: the first tap selects (and opens), a tap on the SELECTED one folds AND unselects.
+    const selectable = !selectMode && !writesOff && sectionHeadSelectable(headDoorsOf(key));
+    if (selectable && hubSel === key) {
+      unselectHead();
+      if (!q)
+        setOpen((prev) => {
+          const next = new Set(prev);
+          next.delete(key);
+          return next;
+        });
+      return;
+    }
+    if (selectable) {
+      setHubSel(key);
+      setAddHere(null);
+    }
     const top = el.getBoundingClientRect().top;
     const stickBottom = stickRef.current?.getBoundingClientRect().bottom ?? 0;
     if (isOpen(key) && top < stickBottom - 2) {
@@ -883,6 +916,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
       return;
     }
     if (q) return; // a search holds every hit open
+    if (selectable && open.has(key)) return; // selecting an open header keeps it open
     const opening = !open.has(key);
     setOpen((prev) => {
       const next = new Set(prev);
@@ -1263,6 +1297,18 @@ export function GuestsScreen(props: GuestsScreenProps) {
   const [picks, setPicks] = useAddPicks(hasSides);
   const [madeGroups, setMadeGroups] = useState<{ group_id: string; label: string; team_side: 'bride' | 'groom' | 'both' }[]>([]);
   const allGroups = useMemo(() => [...groups, ...madeGroups.filter((m) => !groups.some((g) => g.group_id === m.group_id))], [groups, madeGroups]);
+  /* 🏷 What a selected header can do (`lib/guest-section-head.ts`), and the picks a name typed now takes: the box's
+     sticky picks, with the selected group's own (its role, side or group) laid on while ＋ Add guest here is on. */
+  const headDoorsOf = (key: string) => sectionHeadDoors(key, { groups: allGroups, offeredRoles: resolveRoleSet(roleSetKey ?? 'wedding').offeredRoles });
+  const herePicks = addHere && hubSection && addHere.key === hubSection.key ? addHere.picks : null;
+  const addPicks: AddPicks = herePicks
+    ? {
+        ...picks,
+        ...(herePicks.role ? { role: herePicks.role } : {}),
+        ...(herePicks.side ? { side: herePicks.side } : {}),
+        ...(herePicks.groupIds ? { groupIds: [...herePicks.groupIds] } : {}),
+      }
+    : picks;
   // 🧑‍🤝‍🧑 THE COUPLE'S PEOPLE (owner 2026-10-20: "search also searches the people connected to them. From People.") — the
   // SAME read the "Add from your people" sheet makes (`listPeopleYouCanInvite`), once, when the box is first used.
   const { listPeopleYouCanInvite, addGuestsFromPeople } = useGuestActions();
@@ -1292,21 +1338,21 @@ export function GuestsScreen(props: GuestsScreenProps) {
   };
   const peopleHits = q ? peopleFor(q) : [];
   const addPerson = (p: PersonHit) => {
-    const sent = picksForAdd(picks, allGroups, roleNames);
+    const sent = picksForAdd(addPicks, allGroups, roleNames);
     guestAdds.enqueue({
       eventId,
       name: p.name,
       detail: sent.detail,
       run: async () => {
-        const r = await addGuestsFromPeople(eventId, [{ key: p.key }], picks.side, {
-          role: picks.role,
-          groupCategory: picks.category,
+        const r = await addGuestsFromPeople(eventId, [{ key: p.key }], addPicks.side, {
+          role: addPicks.role,
+          groupCategory: addPicks.category,
           groupLabels: [...(sent.groupLabels ?? [])],
-          plusOnes: picks.plus,
+          plusOnes: addPicks.plus,
           refresh: false,
         });
         return r.ok
-          ? { ok: true, guest: { guest_id: r.guestIds?.[0] ?? '', first_name: p.name, last_name: p.lastName, side: picks.side, role: picks.role } }
+          ? { ok: true, guest: { guest_id: r.guestIds?.[0] ?? '', first_name: p.name, last_name: p.lastName, side: addPicks.side, role: addPicks.role } }
           : { ok: false, error: r.error };
       },
     });
@@ -1328,7 +1374,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
       setNeeds(`${v} is already added.`, v);
       return 'already';
     }
-    const res = queueTypedGuest(eventId, v, picks.side, addSingleGuest, guestAdds, picksForAdd(picks, allGroups, roleNames));
+    const res = queueTypedGuest(eventId, v, addPicks.side, addSingleGuest, guestAdds, picksForAdd(addPicks, allGroups, roleNames));
     if (!res.ok) {
       if (res.error) setNeeds(res.error, v);
       return res.error || 'empty';
@@ -1352,6 +1398,8 @@ export function GuestsScreen(props: GuestsScreenProps) {
      behaviour is unchanged: the same input, the same one-Enter grammar. */
   const field: ThumbField = {
     placeholder: 'Search guests',
+    // 🏷 ＋ Add guest here (R4 slice 4): the box says where a name typed now lands.
+    ...(herePicks && hubSection ? { placeholder: `Add to ${hubSection.label}` } : {}),
     label: 'Search guests or add',
     tour: 'guests-add',
     inputRef: fieldRef,
@@ -1575,8 +1623,10 @@ export function GuestsScreen(props: GuestsScreenProps) {
                 type="button"
                 className={styles.bar}
                 aria-expanded={opened}
+                aria-pressed={hubSection?.key === sec.key ? true : undefined}
                 onClick={(e) => tapSection(sec.key, e.currentTarget.closest('section'))}
                 data-section-head=""
+                data-section-selected={hubSection?.key === sec.key ? '' : undefined}
               >
                 {selectMode ? null : (
                   <span className={`${styles.ico} sn-acc-chip`} aria-hidden>
@@ -1855,6 +1905,28 @@ export function GuestsScreen(props: GuestsScreenProps) {
                 {thumb}
               </div>
             )}
+            {/* 🏷 R4 slice 4: the selected header's toolbar rises just above the thumb row, in its seat. */}
+            {hubSection && !writesOff ? (
+              <div className={styles.headTools} data-section-head-tools={hubSection.key}>
+                <SectionHeadTools
+                  eventId={eventId}
+                  section={{ key: hubSection.key, label: hubSection.label, count: hubSection.guests.length }}
+                  groups={allGroups}
+                  roleSetKey={roleSetKey}
+                  roleNames={roleNames}
+                  adding={herePicks !== null}
+                  onAdd={(p) => {
+                    setAddHere({ key: hubSection.key, picks: p });
+                    fieldRef.current?.focus();
+                  }}
+                  onRenamed={(next) => {
+                    setHubSel(next);
+                    setOpen((prev) => new Set([...prev, next]));
+                  }}
+                  onClose={unselectHead}
+                />
+              </div>
+            ) : null}
           </div>
 
         <DeleteGuestSheet

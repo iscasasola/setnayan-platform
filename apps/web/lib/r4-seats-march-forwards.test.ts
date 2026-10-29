@@ -316,7 +316,7 @@ test('7 · Seats and March follow the Guests screen: the summary row, ONE mode d
   // ⇅ A face the shared Show / the search leaves out is drawn faint — never hidden (its seat is still taken).
   assert.match(list, /data-seat-face="b"[^>]*data-seat-dim=""[^>]*opacity-25/, 'a left-out face is not drawn faint');
   assert.doesNotMatch(list, /data-seat-face="a"[^>]*data-seat-dim/, 'a shown face is dimmed');
-  assert.match(list, /class="sn-acc-head"/, 'the list is not the house foldable header');
+  assert.match(list, /class="sn-acc-head[ "]/, 'the list is not the house foldable header');
   assert.match(list, />Table 1<[\s\S]*?>2 of 4</);
   assert.equal((list.match(/data-seat-face="/g) ?? []).length, 3, 'a face is missing');
   assert.equal((list.match(/data-seat-blank=""/g) ?? []).length, 2, '"2 of 4" does not draw two blanks');

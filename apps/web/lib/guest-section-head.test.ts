@@ -1,0 +1,95 @@
+/**
+ * guest-section-head.test.ts — A GUEST-LIST HEADER, PRESSED, SELECTS; ITS TOOLBAR ONLY OFFERS WHAT IS TRUE
+ * (R4 slice 4, owner 2026-10-29 — Guests prototype v20–v22).
+ *
+ * ⚖ *"i like the concept of adding guests directly on the highlighted category"* · *"the renaming of that group will be
+ * removed since it will be set on when the highlighted group/role is pressed"* · tapping the SELECTED header again folds
+ * it AND unselects it.
+ *
+ * Properties held:
+ *   (1) the doors — a header offers Rename only where ONE word renames it, through the shipped door, and ＋ Add guest
+ *       here only where a name added now LANDS in it; a header with neither is not selectable; the celebrants never;
+ *   (2) the screen — a tap on the SELECTED header folds it and unselects it; a name typed while ＋ is on is added with
+ *       the selected group's picks (role · side · group), never the bare sticky picks;
+ *   (3) the card has no rename row of its own (it moved here) — and keeps its Role pick;
+ *   (4) the headers stay in sight while their rows pass: List (already), Seats › List tables, March groups.
+ *
+ * 🛡 Sabotaged (2026-10-29): `roleGroupRenameDoor` taking the FIRST section part (Bearers & Flower Girl renamed by
+ * "Bearers") → red on (1); `tapSection`'s second tap keeping the section open → red on (2).
+ */
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { stripComments } from '@/lib/strip-comments';
+import { sectionHeadDoors, sectionHeadSelectable } from '@/lib/guest-section-head';
+import { resolveRoleSet } from '@/lib/role-sets';
+import { roleGroupOf } from '@/lib/role-groups';
+
+const offeredRoles = resolveRoleSet('wedding').offeredRoles;
+const groups = [
+  { group_id: 'g1', label: 'Barkada' },
+  { group_id: 'g2', label: 'Office' },
+  { group_id: 'g3', label: 'Office' },
+];
+const doors = (key: string) => sectionHeadDoors(key, { groups, offeredRoles });
+const code = (rel: string) => stripComments(readFileSync(join(process.cwd(), rel), 'utf8'));
+
+test('(1) a header offers Rename only through ONE shipped word, and ＋ only where the name lands', () => {
+  // Named after a role → that role's word.
+  assert.deepEqual(doors('role:groomsmen').rename, { kind: 'role', role: 'groomsman' });
+  assert.deepEqual(doors('role:bridesmaids').rename, { kind: 'role', role: 'bridesmaid' });
+  // One section → that section's heading; VIP · Immediate Family → Immediate Family.
+  assert.deepEqual(doors('role:principal_sponsors').rename, { kind: 'section', section: 'principal_sponsors' });
+  assert.deepEqual(doors('role:vip_family').rename, { kind: 'section', section: 'immediate_family' });
+  // Two sections → no one word, no Rename.
+  assert.equal(doors('role:bearers_flower_girl').rename, null);
+  assert.equal(doors('role:guest').rename, null);
+  // Every role an add offers lands in THAT heading.
+  for (const grp of ['groomsmen', 'bridesmaids', 'principal_sponsors', 'secondary_sponsors', 'bearers_flower_girl', 'vip_family'] as const) {
+    const roles = doors(`role:${grp}`).add?.roles ?? [];
+    assert.ok(roles.length > 0, `${grp}: no role lands here`);
+    for (const r of roles) assert.equal(roleGroupOf(r), grp, `${grp}: ＋ offers ${r}, which lands elsewhere`);
+  }
+  assert.deepEqual(doors('role:guest').add, { roles: ['guest'] });
+  // An own group: its one id renames it and is joined; two of one name → neither.
+  assert.deepEqual(doors('group:Barkada'), { rename: { kind: 'group', groupId: 'g1' }, add: { groupIds: ['g1'] } });
+  assert.deepEqual(doors('group:Office'), { rename: null, add: null });
+  assert.deepEqual(doors('group:none'), { rename: null, add: { groupIds: [] } });
+  // A side → that side; a new guest is "To invite"; a reply or a letter is decided elsewhere.
+  assert.deepEqual(doors('side:groom'), { rename: null, add: { side: 'groom' } });
+  assert.deepEqual(doors('rsvp:to_invite'), { rename: null, add: {} });
+  for (const k of ['rsvp:attending', 'rsvp:declined', 'last_name:S', 'celebrants', 'group:Office']) {
+    assert.equal(sectionHeadSelectable(doors(k)), false, `${k} is selectable with nothing true to offer`);
+  }
+});
+
+test('(2) the second tap folds AND unselects; a name typed while ＋ is on takes the group’s picks', () => {
+  const screen = code('app/dashboard/[eventId]/guests/_components/guests-screen.tsx');
+  const tap = screen.slice(screen.indexOf('const tapSection = '), screen.indexOf('// ── The counts'));
+  assert.ok(tap.length > 200, 'tapSection moved — this guard is blind');
+  const second = tap.slice(tap.indexOf('hubSel === key'), tap.indexOf('if (selectable) {'));
+  assert.match(second, /unselectHead\(\)/, 'a tap on the selected header does not unselect it');
+  assert.match(second, /next\.delete\(key\)/, 'a tap on the selected header does not fold it');
+  assert.match(tap, /if \(selectable\) \{\s*setHubSel\(key\);/, 'a tap does not select the header');
+  // Every add from the box reads `addPicks` (the sticky picks with the selected group's laid on).
+  assert.match(screen, /queueTypedGuest\(eventId, v, addPicks\.side, addSingleGuest, guestAdds, picksForAdd\(addPicks, /);
+  assert.match(screen, /const sent = picksForAdd\(addPicks, allGroups, roleNames\);/);
+  assert.doesNotMatch(screen, /picksForAdd\(picks,/, 'an add still reads the bare sticky picks');
+});
+
+test('(3) the card has no rename row — it keeps its Role pick', () => {
+  const body = code('app/dashboard/[eventId]/guests/_components/guest-card-body.tsx');
+  assert.doesNotMatch(body, /K\.Rename\b/);
+  assert.match(body, /<K\.Roles\b/, 'the card lost its Role pick — only the RENAME was to go');
+  assert.doesNotMatch(code('app/dashboard/[eventId]/guests/_components/guest-card-rows.tsx'), /Rename this (role|section)/);
+});
+
+test('(4) the headers stay in sight under the pinned row: Seats › List tables and March groups', () => {
+  const seats = code('app/dashboard/[eventId]/seating/_components/seat-faces-list.tsx');
+  assert.match(seats, /className="sn-acc-head sticky top-0 [^"]*bg-\[/, 'a Seats table header scrolls away with its seats');
+  const march = code('app/dashboard/[eventId]/launch/_components/details-march.tsx');
+  assert.match(march, /guests \? 'sticky top-\[calc\(var\(--gs-top,0px\)\+var\(--gs-stick-h,60px\)\)\][^']*bg-\[/, 'a March group header scrolls away in Guests');
+  const css = code('app/dashboard/[eventId]/guests/_components/guests-screen.module.css');
+  assert.match(css, /\.sec\.open > \.barWrap \{\s*position: sticky;/, 'a List group header scrolls away');
+});

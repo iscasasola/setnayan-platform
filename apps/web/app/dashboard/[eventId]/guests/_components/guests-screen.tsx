@@ -246,6 +246,14 @@ export type GuestsScreenProps = {
   faceByGuest: Record<string, string>;
   /** Requests to join waiting (from the event link). */
   requests: number;
+  /**
+   * 📥 R4 slice 11 — REQUESTS INSIDE GUESTS: the shipped Requests page drawn in place (`guests/claims/page.tsx` with
+   * `maker=1`, as the Event Hub Maker draws it — each Accept · Decline · Link stays put), streamed with the page. Shown
+   * by the List's ⇅ Show "Asking to join" and the Total card's door. Absent → those doors open `/guests/claims`.
+   */
+  requestsBody?: ReactNode;
+  /** `?gshow=requests` — open on the requests. */
+  initialAsking?: boolean;
   /** 🪪 People whose printed word waits on Woman or Man (`needsWomanOrMan`) — the List's "N people need…" row. */
   titlesWaiting?: TitleWaitingPerson[];
   /** The map's root — the couple's names. */
@@ -397,6 +405,8 @@ export function GuestsScreen(props: GuestsScreenProps) {
     songsByGuest,
     faceByGuest,
     requests,
+    requestsBody = null,
+    initialAsking = false,
     titlesWaiting = [],
     rootLabel,
     initialQuery = '',
@@ -597,6 +607,12 @@ export function GuestsScreen(props: GuestsScreenProps) {
   /* ⇅ THE ONE SHOW · GROUP BY · SORT (R4 slice 1, owner 2026-10-29 — `lib/guests-filter.ts`): the count doors, the ⇅ of
      every view, the List and the Map read and write THIS — and the address keeps it (`replaceState`, nothing asked of
      the server). `replyFilter` is its Show, under the name every door already used. */
+  /* 📥 Asking to join — the List shows the requests in place (slice 11). */
+  const [asking, setAsking] = useState<boolean>(initialAsking && requestsBody !== null);
+  const openAsking = () => {
+    setAsking(true);
+    window.scrollTo({ top: 0 });
+  };
   const [filter, setFilter] = useState<GuestsFilter>(() => (initialSelect ? { ...filterAsked, show: 'toinvite' } : filterAsked));
   useEffect(() => {
     filterRef.current = filter;
@@ -1117,7 +1133,15 @@ export function GuestsScreen(props: GuestsScreenProps) {
           style={{ '--gs-yes': pct(stats.yes), '--gs-no': pct(stats.no) } as React.CSSProperties}
         >
           <Link
-            href={`/dashboard/${eventId}/guests/claims`}
+            href={requestsBody ? `/dashboard/${eventId}/guests?gshow=requests` : `/dashboard/${eventId}/guests/claims`}
+            onClick={
+              requestsBody
+                ? (e) => {
+                    e.preventDefault();
+                    openAsking();
+                  }
+                : undefined
+            }
             className={styles.cardDoor}
             aria-label={`${formatCount(stats.total)} guests, ${replied}% replied, ${formatCount(requests)} ${requests === 1 ? 'request' : 'requests'} to join — open requests`}
             data-requests-door=""
@@ -1366,6 +1390,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
   /** ⇅ A pick in the shared menu: the one filter changes; a new Group by opens its first heading (as the shipped Sort
       did) and clears the +1 narrowing; the list goes back to its top. */
   const pickFilter = (next: GuestsFilter) => {
+    setAsking(false);
     if (listGroupOf(next) !== view) {
       setPlusFilter(null);
       setOpen(firstOpen(listGroupOf(next)));
@@ -1383,7 +1408,17 @@ export function GuestsScreen(props: GuestsScreenProps) {
     mark: 'data-thumb-sort',
     tour: 'guests-sort',
     label: 'Show, sort, select or add',
-    alsoOn: plusFilter !== null,
+    alsoOn: plusFilter !== null || asking,
+    showExtras: requestsBody
+      ? [
+          {
+            key: 'asking',
+            label: `Asking to join · ${formatCount(requests)}`,
+            group: 'Show',
+            trail: asking ? { text: '✓', tone: 'ok' as const, label: 'shown now' } : undefined,
+          },
+        ]
+      : [],
     extras: ([] as PickOption[]).concat(
       // 🪑 "+1 ▾ Named · No name yet" (owner 2026-10-21) — offered only when the list has +1s; a new Group by clears it.
       plusTally.named + plusTally.unnamed > 0
@@ -1404,6 +1439,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
       if (pickedAddWay(k)) return;
       if (k === GUESTS_EXCEL_KEY) return excel.save();
       if (k === 'select') return setSelectMode(true);
+      if (k === 'asking') return asking ? setAsking(false) : openAsking();
       if (k.startsWith('plus:')) {
         setPlusFilter((now) => (now === k.slice(5) ? null : (k.slice(5) as PlusOneFilter)));
         window.scrollTo({ top: 0 });
@@ -1698,7 +1734,20 @@ export function GuestsScreen(props: GuestsScreenProps) {
   }
 
   /* ═══ the list ═══ */
-  const list = (
+  /* 📥 Asking to join, in place (slice 11): the shipped Requests rows (Accept · Decline · Link, each with Undo), under a
+     slim head that names them and goes back to everyone. */
+  const askingList = asking && requestsBody ? (
+    <div data-guests-asking="" className={styles.rise}>
+      <div className="flex min-h-11 items-center gap-2 px-1 pb-2">
+        <span className="min-w-0 flex-1 text-sm font-medium text-ink">
+          Asking to join · <Count value={requests} id="gs-asking" />
+        </span>
+        <ActionButton tone="neutral" icon={X} label="Everyone" onClick={() => setAsking(false)} data-guests-asking-close="" />
+      </div>
+      {requestsBody}
+    </div>
+  ) : null;
+  const list = askingList ?? (
     <div ref={listRef} data-guest-rows="">
       {/* 👤 Requests to join are card ① of the summary carousel now (owner 2026-10-27) — no strip here. */}
       {titlesWaiting.length > 0 && !writesOff ? (

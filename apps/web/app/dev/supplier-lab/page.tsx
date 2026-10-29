@@ -51,6 +51,8 @@
  *                     (`suggest-lab.tsx`, stand-in writes; /dev/details-lab?look=1&studio=1&suggest=1 is the couple's side)
  *   ?s=coord-today · coord-events · coord-customer  🗂 the coordinator's door (owner 2026-10-28, `coord-lab.tsx`);
  *                     &none=1 the no-access case   &cohost=1 👥 a supplier who is only a co-host (owner 2026-10-29)
+ *   ?s=hub            🗓 the supplier's Hub, set up (v13, `hub-lab.tsx`): &seg=setup|crew|pages · &ev=ic (today, you run
+ *                     it) · rf (your service only) · lk (locked by its booking fee) · mj (run, no day of yours)
  *   ?s=details · page · collections  &who=parish|caterer|studio — Your details · Your page · Your collections (step 5,
  *                     `page-lab.tsx`; &draft=1 on page seeds a waiting change)
  *
@@ -88,6 +90,7 @@ import type { DueFeeBill } from '@/lib/booking-fee-disclosure';
 import { PeopleLab } from './people-lab';
 import { ChatAskLab } from './chat-lab';
 import { COORD_STATES, CoordLab, type CoordState } from './coord-lab';
+import { HubLab } from './hub-lab';
 import { EASY_MOMENTS, EASY_SUPPLIERS, TodayEasyLab, type EasyMoment, type EasySupplier } from './today-easy-lab';
 import { DATES_STATES, DatesLab, type DatesState } from './dates-lab';
 import { MONEY_STATES, MoneyLab, type MoneyState } from './money-lab';
@@ -300,7 +303,7 @@ function TodayLab({ state, toast, earned }: { state: TodayState; toast: string |
 export default async function SupplierLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ thumb?: string; s?: string; toast?: string; q?: string; lane?: string; add?: string; open?: string; next?: string; mpage?: string; easy?: string; sup?: string; who?: string; draft?: string; library?: string; view?: string; sent?: string; rail?: string; logo?: string; gift?: string; invited?: string; shell?: string; wallet?: string; port?: string; spot?: string; none?: string; unread?: string; cohost?: string; asked?: string; coarse?: string; at?: string; docs?: string; gbb?: string; earned?: string; door?: string; block?: string; gear?: string }>;
+  searchParams: Promise<{ thumb?: string; s?: string; toast?: string; q?: string; lane?: string; add?: string; open?: string; next?: string; mpage?: string; easy?: string; sup?: string; who?: string; draft?: string; library?: string; view?: string; sent?: string; rail?: string; logo?: string; gift?: string; invited?: string; shell?: string; wallet?: string; port?: string; spot?: string; none?: string; unread?: string; cohost?: string; asked?: string; coarse?: string; at?: string; docs?: string; gbb?: string; earned?: string; door?: string; block?: string; gear?: string; seg?: string; ev?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -314,6 +317,7 @@ export default async function SupplierLabPage({
     if (s.startsWith('money')) return '/vendor-dashboard/customers?seg=money';
     if (s === 'page' || s === 'collections') return '/vendor-dashboard/website';
     if (s === 'details') return '/vendor-dashboard/profile';
+    if (s === 'hub') return '/vendor-dashboard/on-the-day';
     return '/vendor-dashboard';
   })();
   const wrap = (node: ReactNode, measure: SupplierLabMeasure) =>
@@ -327,6 +331,10 @@ export default async function SupplierLabPage({
   if (q.easy && (EASY_MOMENTS as readonly string[]).includes(q.easy)) {
     const sup = (EASY_SUPPLIERS as readonly string[]).includes(q.sup ?? '') ? (q.sup as EasySupplier) : 'studio';
     return wrap(<TodayEasyLab sup={sup} moment={q.easy as EasyMoment} actions={ACTIONS} library={q.library === '1'} rail={q.rail === 'service' || q.rail === 'docs' ? q.rail : null} logoNext={q.logo === '1'} gift={q.gift === 'running' || q.gift === 'soon' ? q.gift : null} docs={q.docs === 'checking' || q.docs === 'fix' ? q.docs : 'none'} gbb={q.gbb ? Number(q.gbb) : 2} coarse={q.coarse === '1'} />, 'today');
+  }
+  if (q.s === 'hub') {
+    /* 🗓 The supplier's Hub, set up (v13, owner 2026-10-29) — `hub-lab.tsx`; &seg=setup|crew|pages · &ev=ic|rf|lk|mj. */
+    return wrap(<HubLab seg={q.seg} ev={q.ev} />, 'own');
   }
   if (q.s && (COORD_STATES as readonly string[]).includes(q.s)) {
     /* 🗂 The coordinator's door (owner 2026-10-28) — `coord-lab.tsx`; `&none=1` = no live coordinator access. */

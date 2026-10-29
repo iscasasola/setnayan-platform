@@ -92,7 +92,8 @@ test('(1) no row is added: nothing is drawn over a Studio page — no title row,
   assert.match(shell, /className="sn-glass-bare relative z-20 flex shrink-0 flex-nowrap items-center gap-x-1 px-2 py-1 max-lg:h-\[52px\] lg:gap-1\.5 lg:px-2\.5"/, 'the top bar’s shape changed, or it is hidden on some page');
   // Over the work area the Studio draws its home of cards, and nothing else.
   /* `pending={latePending}` (2026-10-23): the home's tiles may still be on their way (`lib/maker-late.ts`) — the cover says loading. */
-  assert.match(shell, /\{studioHomeOn \? \(\s*<StudioCover tiles=\{studio\?\.tiles \?\? null\} pending=\{latePending\} onOpen=\{openStudio\} \/>\s*\) : null\}/);
+  /* 🎛 (2026-10-30) The home's cards are Studio ▾'s pages (`studioMenu`, STUDIO_MENU_KEYS) — no longer every page. */
+  assert.match(shell, /\{studioHomeOn \? \(\s*<StudioCover tiles=\{studioMenu\} pending=\{latePending\} onOpen=\{openStudio\} \/>\s*\) : null\}/);
   const css = studioFullScreenCss();
   assert.ok(css.includes('{--maker-lt-h:calc(100dvh - 44px)}'), 'a form page still leaves room for a row (52 px of nothing)');
   assert.doesNotMatch(css, /100dvh - 96px/);
@@ -148,14 +149,14 @@ test('(2) in a Studio page, painted for all eight (RSVP left in R1, Wedding Marc
   // How a name steps down when it does not fit: tighter first — a word is shortened only after that; never cut.
   const mood = tiles.find((t) => t.key === 'mood')!;
   assert.deepEqual(studioHalfSteps(mood.label, mood.short, 'Studio'), [
-    { words: 'Mood Board & Dress Code', tight: false },
-    { words: 'Mood Board & Dress Code', tight: true },
-    { words: 'Mood Board', tight: false },
-    { words: 'Mood Board', tight: true },
+    { words: 'Palette + Dress Code', tight: false },
+    { words: 'Palette + Dress Code', tight: true },
+    { words: 'Palette', tight: false },
+    { words: 'Palette', tight: true },
     { words: 'Studio', tight: false },
   ]);
   assert.deepEqual(studioHalfSteps('Info', 'Info', 'Studio'), [{ words: 'Info', tight: false }, { words: 'Info', tight: true }, { words: 'Studio', tight: false }]);
-  assert.deepEqual(tiles.filter((t) => t.short !== t.label).map((t) => [t.label, t.short]), [['Mood Board & Dress Code', 'Mood Board']], 'a second page has a short name (or the Mood Board lost its own)');
+  assert.deepEqual(tiles.filter((t) => t.short !== t.label).map((t) => [t.label, t.short]), [['Palette + Dress Code', 'Palette']], 'a second page has a short name (or Palette + Dress Code lost its own)');
   // Measured before paint; another name in the half starts from its full name again; a resize measures again.
   const src = read(PARTS);
   assert.match(src, /if \(!el \|\| el\.scrollWidth <= el\.clientWidth \|\| step >= steps\.length - 1\) return;\s*setAt\(\(a\) => \(\{ of, step: step \+ 1, tried: a\.tried \}\)\);/);
@@ -204,7 +205,7 @@ test('(3) in a stage, painted for all five: the stage’s name ▾ picked, "Stud
   // HERE ✓ only on the side you are on: from Studio no stage is "here".
   assert.match(menu, /const on = s === stage && \(bar\?\.here \?\? true\);/, 'the stage is ticked in the list opened from the Studio side');
   // The shell hands the bar what the panel is handed: its pick, its pages, its own page door.
-  assert.match(read(SHELL), /<StudioSideSwitch side=\{side\} onPick=\{pickSide\} stage=\{ltPick\} options=\{page\.options\} onStage=\{pickPage\} page=\{studioTile\} tiles=\{studio\?\.tiles\} onOpen=\{openStudio\} \/>/);
+  assert.match(read(SHELL), /<StudioSideSwitch side=\{side\} onPick=\{pickSide\} stage=\{ltPick\} options=\{page\.options\} onStage=\{pickPage\} page=\{studioTile\} tiles=\{studioMenu \?\? undefined\} onOpen=\{openStudio\} \/>/);
 });
 
 test('(4) a ▾ opens its list and never changes side — only a pick does; no ✕ — the switch leads the bar', async () => {
@@ -266,7 +267,7 @@ test('(6) the page list: the Maker’s one sheet, the dropdown’s own rows — 
   const name = src.slice(src.indexOf('export function StudioSideSwitch('), src.indexOf('const HALF_ROOM ='));
   assert.ok(name.length > 3000, 'anti-vacuity: the pill was not found');
   // The pop-up rule: the Maker's ONE sheet (dark, blurred, nothing behind works), over everything.
-  assert.match(name, /createPortal\(\s*<MakerSheet label="Studio pages" onClose=\{\(\) => shut\('pages'\)\}>/);
+  assert.match(name, /createPortal\(\s*<MakerSheet label="Studio pages" aside=\{`\$\{formatCount\(tiles\.filter\(\(t\) => t\.done === true\)\.length\)\} of \$\{formatCount\(tiles\.length\)\} ready`\} onClose=\{\(\) => shut\('pages'\)\}>/);
   // The dropdown's own looks — never a second look for a list of choices.
   for (const fn of ['pickOptionClass(Boolean(o.hint), on)', 'pickTickClass(false, Boolean(o.trail))', 'pickTrailClass(o.trail.tone, false)']) assert.ok(name.includes(fn), `the list does not wear the dropdown’s ${fn}`);
   // Ticked only in the list of the side you are on: from the Stages side no page is "here".

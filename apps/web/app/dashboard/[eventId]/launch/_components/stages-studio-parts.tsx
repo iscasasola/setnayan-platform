@@ -19,6 +19,7 @@ import { StageItemMenu, type StagePageOption } from './stage-item-menu';
 import { StudioHome, TILE_ICON } from './studio-home';
 import { GuestsSeeSheet } from './guests-see-sheet';
 import { MAKER_OPEN_GUESTS_SEE_EVENT, useMaker } from './maker-context';
+import { formatCount } from '@/lib/format-number';
 import { MakerDesk } from './maker-desk';
 import { useIsDesktop } from '@/lib/use-responsive';
 
@@ -151,7 +152,8 @@ export function StudioSideSwitch({
       {/* THIS EVENT'S STUDIO PAGES — the dropdown's own rows (its looks: `pick-menu-place.ts`), in the Maker's one sheet. */}
       {list === 'pages' && typeof document !== 'undefined'
         ? createPortal(
-            <MakerSheet label="Studio pages" onClose={() => shut('pages')}>
+            /* 🎛 "n of N ready" at the list's heading (LOCKED 2026-10-09 decision 6) — of the pages it lists. */
+            <MakerSheet label="Studio pages" aside={`${formatCount(tiles.filter((t) => t.done === true).length)} of ${formatCount(tiles.length)} ready`} onClose={() => shut('pages')}>
               <ul role="listbox" aria-label="Studio pages" data-pick-side="sheet" className="p-0.5">
                 {studioChooserOptions(tiles).map((o) => {
                   const on = o.key === here?.key;
@@ -374,10 +376,13 @@ export function MakerSheet({
   children,
   everyWidth = false,
   tall = false,
+  aside = null,
 }: {
   label: string;
   onClose: () => void;
   children: ReactNode;
+  /** A quiet state at the heading's right — Studio ▾'s "n of N ready" (LOCKED 2026-10-09 decision 6). */
+  aside?: ReactNode;
   /** A whole table, not a short list ("What guests see"): the sheet takes nearly the full height. */
   tall?: boolean;
   /** Shown on a desktop too — for a sheet every width needs ("What guests see"). Every other sheet stays a
@@ -451,7 +456,10 @@ export function MakerSheet({
         className={`absolute inset-x-0 bottom-0 flex ${tall ? 'h-[92dvh]' : 'max-h-[62dvh]'} flex-col rounded-t-3xl bg-white px-2 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-1 shadow-[0_-18px_40px_-18px_rgba(30,26,18,.45)] ring-1 ring-ink/10 focus:outline-none lg:mx-auto lg:max-w-md`}
       >
         <span aria-hidden className="mx-auto mb-1.5 mt-1 h-1 w-10 shrink-0 rounded-full bg-ink/15" />
-        <p className="shrink-0 px-3 pb-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-ink/55">{label}</p>
+        <p className="flex shrink-0 items-baseline gap-2 px-3 pb-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-ink/55">
+          {label}
+          {aside ? <span className="ml-auto" data-maker-sheet-aside="">{aside}</span> : null}
+        </p>
         <div className={`min-h-0 flex-1 overflow-y-auto overscroll-contain${tall ? ' bg-inherit' : ''}`}>{children}</div>
       </div>
     </div>

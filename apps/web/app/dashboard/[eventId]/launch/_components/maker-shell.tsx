@@ -97,7 +97,7 @@ import { HubSettingsGear, LowerThirdGrab, MakerSheet, MakerTour, MakerUpdating, 
 import { MAKER_IN_THE_APP_CSS, MAKER_LT_HALF } from '@/lib/maker-phone-room';
 import { detailsItemLayout } from '@/lib/maker-details-items';
 import type { LookSection } from '@/lib/maker-look-sections';
-import { studioTileItem, type StudioTileKey } from '@/lib/studio-tile-defs';
+import { isStudioMenuKey, studioTileItem, type StudioTileKey } from '@/lib/studio-tile-defs';
 import type { StudioTileModel } from '@/lib/studio-tiles';
 import { BookOpen, ClipboardList, Info, PanelsTopLeft, Printer, RotateCcw, Undo, Users } from 'lucide-react';
 import { keyboardIsOpen, readKeyboard, subscribeKeyboard } from '@/lib/keyboard-ride';
@@ -324,6 +324,9 @@ export function MakerShell({
   const studioOn = side === 'studio';
   const studioHomeOn = studioOn && studioAt === 'home';
   const studioTile = studioOn && studioAt !== 'home' ? (studio?.tiles.find((t) => t.key === studioAt) ?? null) : null;
+  /* 🎛 STUDIO ▾ IS LOOK AND WORDS ONLY (owner 2026-10-27/30, `STUDIO_MENU_KEYS`): the pages it lists — and the Studio
+     home's cards. Look and E-Gifts open from the ⚙, the others from their own doors; each is still a page here. */
+  const studioMenu = useMemo(() => studio?.tiles.filter((t) => isStudioMenuKey(t.key)) ?? null, [studio]);
   /** A Studio tool full screen — every one but Look (owner: "No lower-third toolbar in Studio except Look"). */
   const studioFull = studioTile !== null && studioTile.key !== 'look';
   /** Studio covers the page and the lower third (its home, or a full-screen tool). */
@@ -857,7 +860,8 @@ export function MakerShell({
   };
   /** The lower third's ONE item ▾ (owner 2026-10-06): the five stages — or, in Studio › Look, the eleven tools. */
   const ltItemMenu = studioOn ? (
-    <StudioToolMenu tiles={studio?.tiles ?? []} value="look" onOpen={openStudio} dataAttr="data-lt-item-menu" />
+    /* Look's own item ▾ lists Studio ▾'s pages — and Look, the page it is on (opened from the ⚙, never listed there). */
+    <StudioToolMenu tiles={[...(studioMenu ?? []), ...(studio?.tiles.filter((t) => t.key === 'look') ?? [])]} value="look" onOpen={openStudio} dataAttr="data-lt-item-menu" />
   ) : (
     <PickMenu
       label="Stage"
@@ -1068,7 +1072,7 @@ export function MakerShell({
               opens that side's list, a pick goes there), always the same width. It fills its place edge to edge —
               the room the names are measured in (`StudioSideSwitch`). A desktop shows it too (`maker-desk.tsx`). */}
           <div data-maker-tool="side" data-bar-item="Stages or Studio" data-bar-fill="" className={`flex min-w-0 flex-1 ${MAKER_BAR_PHONE.side}`}>
-            <StudioSideSwitch side={side} onPick={pickSide} stage={ltPick} options={page.options} onStage={pickPage} page={studioTile} tiles={studio?.tiles} onOpen={openStudio} />
+            <StudioSideSwitch side={side} onPick={pickSide} stage={ltPick} options={page.options} onStage={pickPage} page={studioTile} tiles={studioMenu ?? undefined} onOpen={openStudio} />
           </div>
 
           {/* The desktop's gap between the side switch and the draft (a phone has no room for one). */}
@@ -1181,7 +1185,7 @@ export function MakerShell({
           {/* 🧭 STUDIO, over the work area: its HOME of cards (`studio-home.tsx`, loaded when first opened). A Studio PAGE draws
               nothing here: where you are is said in the top bar's pill (`StudioSideSwitch`, above) — no row is added. */}
           {studioHomeOn ? (
-            <StudioCover tiles={studio?.tiles ?? null} pending={latePending} onOpen={openStudio} />
+            <StudioCover tiles={studioMenu} pending={latePending} onOpen={openStudio} />
           ) : null}
         </div>
 

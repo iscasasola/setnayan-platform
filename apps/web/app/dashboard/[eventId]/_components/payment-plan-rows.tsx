@@ -134,6 +134,10 @@ export function PaymentPlanRows({
   return <RulePlanRows totalPhp={totalPhp} initial={initial} disabled={disabled} />;
 }
 
+/** The record card's fields — the prototype's size (14 px, 40 px tall), not the dense percent rows' 12 px. */
+const DCELL =
+  'min-h-10 rounded-lg border border-ink/15 bg-cream px-3 py-2 text-[14px] text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none disabled:opacity-60';
+
 const STARTER: ReadonlyArray<Omit<Row, 'key'>> = [
   { label: 'First payment', kind: 'percent', value: '50', anchor: 'on_lock', days: '0' },
   { label: 'Balance', kind: 'percent', value: '50', anchor: 'before_event', days: '7' },
@@ -256,7 +260,7 @@ function DatedPlanRows({
                   placeholder="First payment"
                   aria-label={`Payment ${i + 1} name`}
                   onChange={(e) => patch(r.key, { label: e.target.value })}
-                  className={`${CELL} min-w-0 flex-1`}
+                  className={`${DCELL} min-w-0 flex-1`}
                 />
                 {r.settled ? (
                   <span className="shrink-0 text-[11.5px] font-medium text-[rgb(var(--color-ok))]">Paid</span>
@@ -278,10 +282,10 @@ function DatedPlanRows({
                   disabled={disabled || r.settled}
                   aria-label={`Payment ${i + 1} due date`}
                   onChange={(e) => patch(r.key, { dueIso: e.target.value })}
-                  className={`${CELL} min-w-0 flex-1`}
+                  className={`${DCELL} min-w-0 flex-1`}
                 />
                 <span className="relative w-[44%] shrink-0">
-                  <span aria-hidden className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-ink/45">₱</span>
+                  <span aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[14px] text-ink/45">₱</span>
                   <input
                     type="text"
                     inputMode="decimal"
@@ -294,7 +298,7 @@ function DatedPlanRows({
                       const n = planAmountNumber(e.target.value);
                       if (Number.isFinite(n) && n > 0) patch(r.key, { amount: amountWords(n) });
                     }}
-                    className={`${CELL} w-full pl-5 text-right tabular-nums`}
+                    className={`${DCELL} w-full pl-7 text-right tabular-nums`}
                   />
                 </span>
               </div>

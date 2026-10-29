@@ -89,7 +89,7 @@ export function HubEventMenu({
 const UP_QUERY = '(min-width: 701px)';
 
 /** The pinned row's Hub slot while the window is wide enough for it — else null (the menu is drawn in place). */
-function usePinLeadSlot(): HTMLElement | null {
+export function usePinLeadSlot(): HTMLElement | null {
   const [box, setBox] = useState<HTMLElement | null>(null);
   useEffect(() => {
     if (typeof window.matchMedia !== 'function') return;

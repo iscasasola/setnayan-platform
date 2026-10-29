@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "1cce679b5d",
+  "generatedFromRef": "dbab20d0",
   "routeCount": 479,
-  "destinations": 985,
+  "destinations": 986,
   "actions": 640,
-  "blocks": 7402,
+  "blocks": 7405,
   "routes": {
     "/": {
       "files": [
@@ -13354,10 +13354,12 @@
       "files": [
         "v/[slug]/_components/add-shop-to-event-data.ts",
         "v/[slug]/_components/anon-inquiry-composer.tsx",
+        "v/[slug]/_components/events-by-kind.tsx",
         "v/[slug]/_components/inquiry-composer.tsx",
         "v/[slug]/_components/service-details-sheet.tsx",
         "v/[slug]/_components/services-gallery.tsx",
         "v/[slug]/_components/share-button.tsx",
+        "v/[slug]/_components/shop-since-line.tsx",
         "v/[slug]/_components/team-preview-banner.tsx",
         "v/[slug]/_components/venue-matched-events.tsx",
         "v/[slug]/_components/verified-price-card.tsx",
@@ -13373,7 +13375,8 @@
         "/explore",
         "/login",
         "/signup",
-        "/v/[seg]/booth"
+        "/v/[seg]/booth",
+        "/v/[seg]/dates"
       ],
       "actions": [
         "joinVendorWaitlist"
@@ -13388,6 +13391,7 @@
         "ComingSoonBanner",
         "DemoVendorBanner",
         "DirectionsMenu",
+        "EventsByKindButton",
         "FilterChip",
         "HTMLDivElement",
         "Image",
@@ -13413,7 +13417,9 @@
         "ServicesGallery",
         "ServicesPricingSection",
         "ShareButton",
+        "Sheet",
         "ShopBadgePill",
+        "ShopSinceLine",
         "SignInHereLink",
         "StarRow",
         "StartServiceInquiryResult",

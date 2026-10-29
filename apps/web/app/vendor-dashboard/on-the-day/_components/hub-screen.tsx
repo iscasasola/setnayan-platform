@@ -16,6 +16,8 @@ import {
 } from '@/lib/hub-events';
 import type { RunOfShowBlock } from '@/lib/run-of-show';
 import { HUB_OPEN_WINDOW_PLAIN } from '@/lib/vendor-day-picker';
+import { formatWallClock } from '@/lib/schedule-datetime-local';
+import { ActionButton } from '@/components/action-button';
 
 /**
  * 🗓 THE SUPPLIER'S HUB — SET UP (supplier dashboard v13, owner "Approved." 2026-10-29; prototype `renderHub`:
@@ -128,15 +130,16 @@ export function HubEventCard({
         </p>
       </div>
       {open ? (
-        <Link
-          href={`/vendor-dashboard/on-the-day/live/${event.eventId}`}
-          data-tour="hub-day-launch"
-          data-hub-open=""
-          className="sn-press flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-sn-accent px-4 text-[15px] font-semibold text-white"
-        >
-          <Play aria-hidden className="h-4 w-4" strokeWidth={2} />
-          Open the Event Hub
-        </Link>
+        <div className="[&>a]:w-full" data-hub-open="">
+          <ActionButton
+            tone="brand"
+            main
+            icon={<Play aria-hidden strokeWidth={1.9} />}
+            label="Open the Event Hub"
+            href={`/vendor-dashboard/on-the-day/live/${event.eventId}`}
+            tour="hub-day-launch"
+          />
+        </div>
       ) : (
         <p className="text-[13px] text-ink/65" data-hub-opens="">
           {event.lock
@@ -167,23 +170,9 @@ export function HubLockRow({ lock }: { lock: HubLock }) {
         Locked
       </p>
       <p className="text-[13.5px] text-ink/70">{lock.headline}</p>
-      {lock.cta ? (
-        <Link
-          href={lock.payHref}
-          className="sn-press inline-flex min-h-11 items-center gap-1.5 rounded-full bg-sn-accent px-4 text-[14px] font-semibold text-white"
-        >
-          {lock.cta} <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={2} />
-        </Link>
-      ) : null}
+      {lock.cta ? <ActionButton tone="brand" main icon={<ArrowRight aria-hidden strokeWidth={1.9} />} label={lock.cta} href={lock.payHref} /> : null}
     </div>
   );
-}
-
-/** "1:00 PM" in Manila — a moment's start, as the run of show says it. */
-function momentTime(iso: string): string {
-  const t = Date.parse(iso);
-  if (Number.isNaN(t)) return '—';
-  return new Date(t).toLocaleTimeString('en-PH', { hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Manila' });
 }
 
 /**
@@ -214,7 +203,7 @@ export function HubRunOfShow({
       ) : (
         shown.map((b) => (
           <div key={b.block_id} className="grid min-h-12 grid-cols-[72px_minmax(0,1fr)] items-center gap-3 border-b border-ink/10 py-2">
-            <span className="text-[13.5px] tabular-nums text-ink/65">{momentTime(b.start_at)}</span>
+            <span className="text-[13.5px] tabular-nums text-ink/65">{formatWallClock(b.start_at) || '—'}</span>
             <span className="min-w-0">
               <span className="block truncate text-[14.5px] text-ink">{b.label}</span>
               {b.location ? <span className="block truncate text-[12.5px] text-ink/60">{b.location}</span> : null}

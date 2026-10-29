@@ -34,7 +34,7 @@ export type CustomersDoor = {
  *     Dates ▾ · Money ▾, each its own address (`?seg=`), so Back works and a link can name one.
  *   · NO ACTION ON THE ROW: the approved prototype puts ＋ Add (an outside booking) in the thumb bar with the search
  *     ("Search and ＋ Add live in the thumb bar"), and one Add is one door — never two.
- *   · Dates and Money draw the same row without counts (they have their own figures under it).
+ *   · Dates, Money and QR draw the same row with their own figures in the doors' place (`figures`, v13).
  *   · HONEST: a count the page could not read says "couldn't load" in the number's place — never 0.
  *
  * 🔒 customers/the-customers-counts-filter-in-place.test.ts
@@ -49,7 +49,13 @@ export function CustomersPin({
   between = null,
   after = null,
   columns = null,
+  figures = null,
 }: {
+  /**
+   * 📌 Dates · Money · QR's own figures on this row, in the doors' place (`customers-figures.tsx`, v13 2026-10-29) — the
+   * same tiles, folded by the same `usePinFold`. Null on Events (its doors are the figures).
+   */
+  figures?: ReactNode;
   /** What follows the lists in the same column (People's other chats and kept notes). */
   after?: ReactNode;
   /**
@@ -165,6 +171,8 @@ export function CustomersPin({
             <span className="flex min-w-0 flex-1 items-center gap-0.5" data-customers-doors="" data-tour="customers-filter">
               {doors.map(door)}
             </span>
+          ) : figures ? (
+            figures
           ) : (
             <span className="flex-1" aria-hidden />
           )}

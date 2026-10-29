@@ -12,6 +12,9 @@ import { CheckADate } from '@/app/vendor-dashboard/customers/_components/check-a
 import { formatPhp } from '@/lib/orders';
 import { CustomersCalendar } from '@/app/vendor-dashboard/customers/_components/customers-calendar';
 import { CustomersPin } from '@/app/vendor-dashboard/customers/_components/customers-pin';
+import { CustomersFigures } from '@/app/vendor-dashboard/customers/_components/customers-figures';
+import { datesFiguresOf } from '@/app/vendor-dashboard/customers/dates-figures';
+import { buildCustomerCalendarMonth } from '@/lib/vendor-customers';
 import { CustomersSettings } from '@/app/vendor-dashboard/customers/_components/customers-settings';
 import { DatesFolds, DaysSettings, type DatesWaitlist } from '@/app/vendor-dashboard/customers/_components/dates-folds';
 import { BlockDateAdd } from '@/app/vendor-dashboard/customers/_components/dates-sheets';
@@ -348,12 +351,41 @@ export async function DatesLab({ state, toast, open, gear = false }: { state: Da
   const venue = state === 'dates-halls';
   const pools = venue ? HALLS : state === 'dates-empty' ? [] : state === 'dates-free' ? [MAIN] : [MAIN, SECOND];
   const shown = new Set(pools.map((p) => p.poolId));
+  const labBookings = venue ? HALL_BOOKINGS : BOOKINGS.filter((b) => shown.has(b.poolId));
+  const labBlocks = venue ? HALL_BLOCKS : state === 'dates-empty' ? [] : BLOCKS.filter((b) => b.poolId === null || shown.has(b.poolId));
+  const labDayStates = state === 'dates' ? [{ dayStateId: 'ds-1', poolId: 'p-second', stateDate: '2026-10-21', dayState: 'locked' as const, note: null }] : [];
+  const labWaitlist = state === 'dates' ? WAITLIST : [];
+  const labAsks = state === 'dates-empty' ? [] : ASKS;
+  const labMonth = venue ? '2026-12' : '2026-10';
+  // The pinned row's first figures — the page's own count (`dates-figures.ts`) over the lab's month.
+  const labFigures = datesFiguresOf(buildCustomerCalendarMonth(pools, labBookings, labBlocks, labDayStates, labWaitlist, labMonth, TODAY, labAsks).days, true);
+  const folds = (
+    <DatesFolds
+      today={TODAY}
+      month="2026-10"
+      open={open ?? null}
+      closures={
+        state === 'dates-empty'
+          ? []
+          : [
+              { blockId: 'blk-1', label: 'Masses', startDate: '2026-09-06', endDate: '2026-09-06', scope: 'every schedule', repeat: 'weekly', repeatUntil: null, dayPart: 'morning' },
+              { blockId: 'blk-0', label: 'Family trip', startDate: '2026-10-14', endDate: '2026-10-15', scope: 'every schedule' },
+            ]
+      }
+      closuresIncomplete={false}
+      waitlist={state === 'dates' ? WAIT_ON : WAIT_FREE}
+      qrHref="/dev/supplier-lab?s=qr"
+      blockAdd={<BlockDateAdd pools={pools} action={addManualBlock} today={TODAY} month="2026-10" />}
+      actions={ACTIONS}
+    />
+  );
   return (
     <div className="min-h-screen bg-cream px-4 pb-32 pt-4 sm:px-6 lg:px-8" data-supplier-lab={state}>
       <div className="space-y-4">
         <CustomersPin
           seg="dates"
           hrefs={{ people: '/dev/supplier-lab?s=people', dates: base, money: '/dev/supplier-lab?s=money' }}
+          figures={<CustomersFigures live figures={labFigures} label="This month" />}
           gear={
             <CustomersSettings
               body={
@@ -401,40 +433,23 @@ export async function DatesLab({ state, toast, open, gear = false }: { state: Da
             </p>
           ) : null}
           <CustomersCalendar
-            initialDayStates={state === 'dates' ? [{ dayStateId: 'ds-1', poolId: 'p-second', stateDate: '2026-10-21', dayState: 'locked', note: null }] : []}
-            initialWaitlist={state === 'dates' ? WAITLIST : []}
-            inquiries={state === 'dates-empty' ? [] : ASKS}
-            initialMonth={venue ? '2026-12' : '2026-10'}
+            initialDayStates={labDayStates}
+            initialWaitlist={labWaitlist}
+            inquiries={labAsks}
+            initialMonth={labMonth}
             initialDay={venue ? '2026-12-12' : '2026-10-03'}
             halls={venue}
             todayIso={TODAY}
             pools={pools}
-            bookings={venue ? HALL_BOOKINGS : BOOKINGS.filter((b) => shown.has(b.poolId))}
-            blocks={venue ? HALL_BLOCKS : state === 'dates-empty' ? [] : BLOCKS.filter((b) => b.poolId === null || shown.has(b.poolId))}
+            bookings={labBookings}
+            blocks={labBlocks}
             agents={state === 'dates' ? [{ value: 'tm-marco', label: 'Marco' }] : []}
             agentCategories={{ 'tm-marco': ['styling'] }}
             fetchMonth={null}
             dayActions={{ addManualBlock: ACTIONS_DAY.addManualBlock, removeBlock: ACTIONS_DAY.removeBlock }}
+            after={folds}
           />
         </div>
-        <DatesFolds
-          today={TODAY}
-          month="2026-10"
-          open={open ?? null}
-          closures={
-            state === 'dates-empty'
-              ? []
-              : [
-                  { blockId: 'blk-1', label: 'Masses', startDate: '2026-09-06', endDate: '2026-09-06', scope: 'every schedule', repeat: 'weekly', repeatUntil: null, dayPart: 'morning' },
-                  { blockId: 'blk-0', label: 'Family trip', startDate: '2026-10-14', endDate: '2026-10-15', scope: 'every schedule' },
-                ]
-          }
-          closuresIncomplete={false}
-          waitlist={state === 'dates' ? WAIT_ON : WAIT_FREE}
-          qrHref="/dev/supplier-lab?s=qr"
-          blockAdd={<BlockDateAdd pools={pools} action={addManualBlock} today={TODAY} month="2026-10" />}
-          actions={ACTIONS}
-        />
       </div>
       <SupplierThumbRow name="dates" label="Date tools">
         {pools.length > 0 ? <CheckADate /> : null}

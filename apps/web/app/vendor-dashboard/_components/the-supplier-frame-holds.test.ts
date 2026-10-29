@@ -20,6 +20,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { stripComments } from '@/lib/strip-comments';
 import { supplierPageMenuOf } from './supplier-page-menu';
 import { CUSTOMER_SEGMENTS, CUSTOMER_SEGMENT_HREFS, CUSTOMER_SEGMENT_LABEL } from '../customers/segments';
 import { SHOP_SEGMENT_HREF, SHOP_SEGMENT_LABEL } from '../shop/_components/shop-segments';
@@ -27,7 +28,7 @@ import { SHOP_SEGMENT_HREF, SHOP_SEGMENT_LABEL } from '../shop/_components/shop-
 const WEB = join(__dirname, '..', '..', '..');
 const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
 /** Comments out — a property lives in the code, not in the note about it. */
-const code = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+const code = (src: string) => stripComments(src);
 
 test('1 · the supplier tree hands the shell ONE pinned bar, led by the page menu', () => {
   const layout = code(read('app/vendor-dashboard/layout.tsx'));
@@ -53,7 +54,7 @@ test('2 · from 701 the bar sits over the content column, the rail runs the wind
   assert.match(block, /@media \(min-width: 1100px\) and \(max-width: 1279\.98px\) \{\s*\.fd\[data-pinned-bar\] \{\s*--fd-rail: 240px;/, 'the full rail no longer starts at 1100');
   assert.match(block, /^\.fd-pinlead,\s*\.fd-pintools \{\s*display: none;/m, 'the seats must be hidden below 701 (the phone is untouched)');
   // Nothing of the block may reach a phone: every rule that names the opt-in sits inside a ≥701 query.
-  const outside = block.replace(/\/\*[\s\S]*?\*\//g, '').replace(/@media[^{]*\{(?:[^{}]*\{[^}]*\})*[^{}]*\}/g, '');
+  const outside = stripComments(block).replace(/@media[^{]*\{(?:[^{}]*\{[^}]*\})*[^{}]*\}/g, '');
   assert.doesNotMatch(outside, /\[data-pinned-bar\]/, 'a pinned-bar rule escaped its media query and reaches the phone');
 });
 

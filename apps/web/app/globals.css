@@ -6757,10 +6757,11 @@ div:has(> [data-apply-pro-sheet]),
   z-index: var(--sn-z-base);
   isolation: isolate;
 }
-/* 👤 The face, left of the name (owner 2026-10-26), and a long eyebrow / name is cut before it ever meets ✕ or the pin. */
+/* 👤 The face, left of the name (owner 2026-10-26); a long eyebrow / name wraps beside ✕ and the pin. */
 .sn-inspector-lead { display: inline-flex; flex: none; }
 .sn-inspector-shell--card .sn-inspector-head .sn-eye,
-.sn-inspector-sheet .sn-inspector-head .sn-eye { display: block; max-width: 100%; overflow: clip; text-overflow: ellipsis; white-space: nowrap; line-height: 1.2; }
+/* ✂ …WRAPS, never cut (owner 2026-10-29, "GROOM'S…" on a seat's card — Guests v15: names and their words wrap). */
+.sn-inspector-sheet .sn-inspector-head .sn-eye { display: block; max-width: 100%; white-space: normal; overflow-wrap: anywhere; line-height: 1.2; }
 /* 📌 The pinned Invite (`useHeadPin`): a slot that takes no room until something is drawn in it, and a short fade in. */
 .sn-inspector-pin-slot { display: inline-flex; flex: none; align-items: center; }
 .sn-inspector-pin-slot:empty { display: none; }
@@ -6836,6 +6837,31 @@ div:has(> [data-apply-pro-sheet]),
 }
 /* 🪪 The guest card opened with no list behind it (`InspectorSheetAlone` — the Wedding March, the parents): the same sheet,
  * and at ≥ 1280 still the 440 panel — there is no rail to hand it to (owner 2026-10-24, one guest card everywhere). */
+/* 📱 …and on a PHONE it is the whole screen (owner, live iPhone 2026-10-29: a seat's card sat offset with a dim strip on
+ * its left). The peek strip is the list's way back — "tap that space returns to the guestlist" — and with no list behind
+ * this card it was a strip of nothing; ✕, Escape and the phone's Back close it (`InspectorSheetAlone`). */
+@media (max-width: 700.98px) {
+  .sn-inspector-sheet.sn-inspector-sheet--alone {
+    left: 0;
+    border-left: 0;
+    border-radius: 0;
+    padding-left: max(1.25rem, var(--sn-safe-l));
+  }
+}
+/* 🧰 A surface's verbs on the card (Guests › Seats: Remove · Swap) — pinned to the sheet's foot, in the thumb zone, on
+ * the paper, bleeding to the sheet's edges like the header does at its top. */
+.sn-inspector-sheet [data-guest-card-actions] {
+  position: sticky;
+  bottom: calc(-1 * max(1.25rem, env(safe-area-inset-bottom)));
+  z-index: var(--sn-z-sticky);
+  margin: 16px calc(-1 * max(1.25rem, var(--sn-safe-r))) calc(-1 * max(1.25rem, env(safe-area-inset-bottom))) -1.25rem;
+  padding: 12px max(1.25rem, var(--sn-safe-r)) max(12px, env(safe-area-inset-bottom)) 1.25rem;
+  background: var(--sn-paper, #fffdf8);
+  border-top: 1px solid var(--sn-hairline);
+}
+@media (max-width: 700.98px) {
+  .sn-inspector-sheet--alone [data-guest-card-actions] { margin-left: calc(-1 * max(1.25rem, var(--sn-safe-l))); padding-left: max(1.25rem, var(--sn-safe-l)); }
+}
 @media (min-width: 1280px) {
   .sn-inspector-peek.sn-inspector-peek--alone { display: block; }
   .sn-inspector-sheet.sn-inspector-sheet--alone { display: block; left: auto; width: 27.5rem; }

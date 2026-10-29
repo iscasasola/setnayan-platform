@@ -31,7 +31,8 @@ import { isChineseWedding } from '@/lib/chinese-wedding';
 import { Spotlight } from '@/app/_components/spotlight';
 import { HOST_PAGE_TOURS, HOST_PAGE_TOURS_AFTER, MAKER_INNER_TOURS_AFTER } from '@/lib/host-page-tours';
 import { guestsViewHref, parseSeatView } from '@/lib/guests-views';
-import { SIDE_ORDER } from '@/lib/guests';
+import { PASSED_AWAY, REPRESENTED_BY, REQUEST_ENTRY_SOURCE, SIDE_ORDER } from '@/lib/guests';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { peopleLabels } from '@/lib/details-your-event';
 import type { SeatingDetailsShell, SeatingGuest, SeatingGroup } from './_components/seating-editor';
 /* ⚡ The editor loads when the Seat plan is opened — never with the Maker (`seating-lazy.tsx`). */
@@ -100,7 +101,7 @@ export default async function SeatingPage({ params, searchParams }: Props) {
     return <NotSharedWithYou title="Seating chart" thing="seat plan" />;
   }
 
-  const [tables, assignments, guests, groupsRaw, memberships, floorPlan, booths, signs, eventRow, constraints, roleSet, bookedVendors, venueRoomSize, roleNames] =
+  const [tables, assignments, guests, groupsRaw, memberships, floorPlan, booths, signs, eventRow, constraints, roleSet, bookedVendors, venueRoomSize, roleNames, avatarCount] =
     await Promise.all([
       fetchTables(supabase, eventId),
       fetchAssignments(supabase, eventId),
@@ -112,7 +113,7 @@ export default async function SeatingPage({ params, searchParams }: Props) {
       fetchSigns(supabase, eventId),
       supabase
         .from('events')
-        .select('event_date, event_date_precision, ceremony_type, secondary_ceremony_type, gender_separation, seating_autoplace_enabled, seating_group_adjacency')
+        .select('event_date, event_date_precision, ceremony_type, secondary_ceremony_type, gender_separation, seating_autoplace_enabled, seating_group_adjacency, slug, timezone')
         .eq('event_id', eventId)
         .maybeSingle(),
       fetchSeatingConstraints(supabase, eventId),
@@ -126,7 +127,19 @@ export default async function SeatingPage({ params, searchParams }: Props) {
       // The couple's own role words — the Auto Arrange "sit together" toggles
       // name each role set the way they do ("Bride's Crew & Groom's Crew").
       loadRoleNames(supabase, eventId, 'SeatingPage.roleNames'),
+      // 🧊 The 3D Plan's "Made an avatar" fact (behind ⓘ in the Seats ⋯ menu) — the retired /plan3d page's own count,
+      // a head-only count in the same round trip. A refusal is "—", never 0 (`withAvatar: null` below).
+      supabase
+        .from('guests')
+        .select('guest_id', { count: 'exact', head: true })
+        .eq('event_id', eventId)
+        .neq('entry_source', REQUEST_ENTRY_SOURCE)
+        .eq(PASSED_AWAY, false)
+        .is(REPRESENTED_BY, null)
+        .not('avatar_config', 'is', null),
     ]);
+  if (avatarCount.error) logQueryError('SeatingPage.avatars', avatarCount.error, { event_id: eventId }, 'graceful_degrade');
+  const eventFacts = eventRow.data as { slug?: string | null; timezone?: string | null } | null;
   const eventDate = (eventRow.data?.event_date as string | null) ?? null;
   // 🪑 From the event's day guests always see their seats (lib/guests-may-see-seats.ts);
   // the switch's words say so.
@@ -240,6 +253,12 @@ export default async function SeatingPage({ params, searchParams }: Props) {
       constraints={constraints}
       eventDate={eventDate}
       seatDayHasCome={seatsDayHasCome}
+      plan3d={{
+        slug: eventFacts?.slug ?? null,
+        timezone: eventFacts?.timezone ?? null,
+        eventMeasured: !eventRow.error,
+        withAvatar: avatarCount.error ? null : avatarCount.count ?? 0,
+      }}
       genderSeparationNote={genderSeparationNote}
       seatShortfall={seatShortfall}
       nonDeclinedCount={nonDeclinedCount}

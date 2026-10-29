@@ -1,9 +1,11 @@
 'use client';
 
 import { useRef, type ReactNode } from 'react';
-import { X } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { ChevronLeft, X } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { useBackCloses } from '@/lib/use-back-closes';
+import { usePortalHost } from '@/lib/use-portal-host';
 import { OverlayBackdrop } from './overlay-backdrop';
 import { useShellBoundary, type ShellBoundary } from './shell-boundary';
 
@@ -67,7 +69,18 @@ import { useShellBoundary, type ShellBoundary } from './shell-boundary';
 //   - body scroll locked while open (no background scrolling under
 //     the sheet)
 //   - backdrop click closes
+//   - the phone's Back closes it (`useBackCloses`, one history entry of its own)
 //   - close-button is always rendered with a 44×44px hit target (the template's floor, 2026-10-12)
+//
+// 🔝 DRAWN ON TOP OF THE WHOLE SCREEN — THE SHEET PORTALS ITSELF (owner, live iPhone 2026-10-29: *"the pop up is
+// behind the bottom nav"*). A `fixed inset-0 z-50` box can only rise as high as its nearest stacking context, and every
+// event page lives inside one — `<main class="sn-vt-page">` carries a `view-transition-name`. Rendered in place, the
+// Home coordinator sheet and the Guests › Seats table sheet painted UNDER the bottom bar and the top bar (the "Full
+// access" row unreachable). Some callers had learned to wrap the sheet in `createPortal` themselves; the ones that
+// did not were trapped. Now the sheet is drawn into <body> by itself (`usePortalHost`), so no caller can get it wrong
+// — a caller's own portal around it still works (a portal inside a portal lands on <body> once). On the server and the
+// very first client render there is no <body> to reach yet, so a sheet open at mount is drawn in place for that one
+// frame (the server's HTML and the first paint agree), then moves. 🔒 `lib/every-overlay-is-drawn-on-top.test.ts`.
 //
 // NOT handled here (consumer's responsibility):
 //   - the heading element itself — consumer renders it so it can
@@ -133,6 +146,12 @@ export type SheetProps = {
    * for one sheet would make Back press twice.
    */
   backCloses?: boolean;
+  /**
+   * ‹ A way BACK drawn at the left of the `title` row — for a sheet that is one step inside a place (Admin › Categories'
+   * drawer: ‹ the level it was opened from; owner 2026-10-29, *"add a back button properly"*). It names where it goes;
+   * the ✕ still closes. Needs `title` (it lives in that row). Default none: every other caller renders as before.
+   */
+  back?: { label: string; onBack: () => void };
   children: ReactNode;
 };
 
@@ -144,6 +163,7 @@ export function Sheet({
   wide = false,
   rise = false,
   backCloses = true,
+  back,
   children,
 }: SheetProps) {
   // Esc-to-close + the page held still and inert behind it + focus management (focus-in, Tab trap, restore on close)
@@ -153,10 +173,11 @@ export function Sheet({
   const close = backCloses ? viaBack : onClose;
   useModalA11y({ open, onClose: close, containerRef: dialogRef });
   const at = SHEET_AT[useShellBoundary()];
+  const host = usePortalHost();
 
   if (!open) return null;
 
-  return (
+  const sheet = (
     <div
       ref={dialogRef}
       role="dialog"
@@ -176,10 +197,22 @@ export function Sheet({
         className={`${rise ? 'sn-rise ' : ''}${at.panel} ${wide ? at.wide : at.narrow}`}
       >
         {title ? (
-          <header className="flex items-center justify-between gap-3 border-b border-ink/10 px-5 py-3">
+          <header className={`flex items-center justify-between gap-3 border-b border-ink/10 py-3 ${back ? 'pl-2 pr-5' : 'px-5'}`}>
+            {back ? (
+              <button
+                type="button"
+                onClick={back.onBack}
+                aria-label={`Back to ${back.label}`}
+                data-sheet-back=""
+                className="inline-flex min-h-11 min-w-0 items-center gap-1 rounded-full pl-1 pr-3 text-left text-[14px] font-semibold text-ink hover:bg-ink/5"
+              >
+                <ChevronLeft aria-hidden className="h-5 w-5 shrink-0 text-ink/60" strokeWidth={2} />
+                <span className="min-w-0 [overflow-wrap:anywhere]">{back.label}</span>
+              </button>
+            ) : null}
             <p
               id={labelledById}
-              className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta"
+              className={`font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta${back ? ' ml-auto shrink-0' : ''}`}
             >
               {title}
             </p>
@@ -208,4 +241,5 @@ export function Sheet({
       </div>
     </div>
   );
+  return host ? createPortal(sheet, host) : sheet;
 }

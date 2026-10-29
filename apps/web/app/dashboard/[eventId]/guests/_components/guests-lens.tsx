@@ -15,6 +15,7 @@ import { createContext, useContext } from 'react';
 import type { GuestsFilter } from '@/lib/guests-filter';
 import type { ThumbRow } from '@/components/thumb-row';
 import type { GuestsView } from '@/lib/guests-views';
+import type { SectionHeadToolbar } from './section-head-toolbar';
 
 export type GuestsLens = {
   /** The view on screen — a kept-hidden maker draws no row. */
@@ -37,6 +38,14 @@ export type GuestsLens = {
   ThumbRow: typeof ThumbRow;
   /** The guests the shipped search finds for these words (`rosterSearchMatches` — names, nickname, role, group…). */
   find: (words: string) => ReadonlySet<string>;
+  /**
+   * 🏷 R4 slice 5 — the SELECTED header's toolbar, handed down like `ThumbRow` (the List's own, `section-head-toolbar.tsx`),
+   * and the one door that renames an entourage section's heading (`renameSection`, the ONE writer of `events.role_names`,
+   * the list taking the word at once). Absent = no toolbar (a viewer who may only look).
+   */
+  HeadToolbar?: typeof SectionHeadToolbar;
+  sectionWords?: (key: string) => { current: string; usual: string | null } | null;
+  renameSection?: (key: string, text: string) => Promise<string | null>;
 };
 
 export const GuestsLensContext = createContext<GuestsLens | null>(null);

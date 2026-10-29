@@ -317,7 +317,8 @@ export function planDrop(
       ok: true,
       next: withRows(sections, a.s, rows),
       steps: [{ kind: 'join', section: sec.key, anchor: target.anchor, joiner: source.id }],
-      said: `${A} walks with ${b.person.name}${left ? ` · ${left.name} walks alone` : ''}`,
+      // 🚶 A walk emptied by the move closes up (owner 2026-10-29, prototype v13: "empty walk removed") — said, with Undo.
+      said: `${A} walks with ${b.person.name}${left ? ` · ${left.name} walks alone` : ' · empty walk removed'}`,
       undo: restoreSteps(sec.key, rows, sec.rows),
     };
   }
@@ -560,6 +561,41 @@ function planOut(sections: readonly MarchSection[], out: readonly MarchOut[], id
     // Back in, then the section exactly as it was. They come back UNPLACED — where the server sorts
     // them among other unplaced lines nobody can predict — so the order is always written.
     undo: [back, ...withOrder(sec.key, restoreSteps(sec.key, [...rows, alone(sec.key, p)], sec.rows), sec.rows)],
+  };
+}
+
+/**
+ * 🗑 A WHOLE MARCH GROUP OUT (R4 slice 5, owner 2026-10-29 — prototype v13 `mgDel`): everyone in the section moves to
+ * "Not walking", in walk order — the SAME step as dragging each name onto the tray (`planOut`, `setMarchWalking`), one
+ * Undo for all. The section then has no walks and leaves the march; anyone dragged back brings it back. The groom's and
+ * the bride's sides (they always walk) are refused in words.
+ */
+export function planSectionOut(sections: readonly MarchSection[], printed: readonly string[], out: readonly MarchOut[], key: string): MarchMove | null {
+  const sec = sections.find((x) => x.key === key);
+  if (!sec) return null;
+  if (isMarchOnlyGroup(key)) return { ok: false, reason: `${sec.label} always walks — move people out one by one instead.` };
+  const ids = sec.rows.flatMap((r) => r.filter((p): p is MarchPerson => p !== null).map((p) => p.id));
+  if (ids.length === 0) return null;
+  let now: readonly MarchSection[] = sections;
+  let tray: readonly MarchOut[] = out;
+  const steps: MarchStep[] = [];
+  for (const id of ids) {
+    const p = planOut(now, tray, id);
+    if (!p) continue;
+    if (!p.ok) return p;
+    now = p.sections;
+    tray = p.out ?? tray;
+    steps.push(...p.steps);
+  }
+  const back = ids.map((id): MarchStep => ({ kind: 'walking', section: key, guest: id, walks: true }));
+  return {
+    ok: true,
+    sections: [...now],
+    printed: [...printed],
+    out: [...tray],
+    steps,
+    said: `${sec.label}: ${ids.length === 1 ? 'the one walker is' : `all ${ids.length} are`} not walking now`,
+    undo: [...back, ...withOrder(key, restoreSteps(key, ids.map((id) => alone(key, sec.rows.flat().find((x) => x?.id === id)!)), sec.rows), sec.rows)],
   };
 }
 

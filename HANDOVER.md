@@ -45,6 +45,12 @@ Keep the PR DRAFT + `do-not-auto-merge`; never merge/deploy. CI is the gate (no 
   to stick under. Guard `lib/guest-section-head.test.ts` (sabotaged 3×). Shots `shots-2026-10-29/guests-build/s4b/` +
   `SBS-s4-*.png`. Known, left for slice 2: at 320 the List's pinned summary face collides with March/counts (shipped).
   NOT built: header select on Seats tables (no prototype toolbar for it).
+- SLICE 5 (pushed, walked 390/1280/320 light+dark — `shots-2026-10-29/guests-build/s5`, `SBS-s5-*`): Guests › March —
+  no LEFT/RIGHT; lone walker spans (`PairBox` flex, `hideEmpty = solo && !dragging && !carried`, the side grows back
+  during a move); "· empty walk removed"; header tap = select + toolbar via `lens.HeadToolbar` (Rename = `lens.renameSection`
+  · ＋ Walk ▾ from the tray, this group only · Delete = `planSectionOut`, not on fixed sides); second tap folds+unselects.
+  ＋ Group NOT built (owner question: march groups are role sections; no "own group" in data). Guard
+  `lib/march-groups-in-guests.test.ts`.
 - Slice 1 follow-up (pushed): the makers take THE row from the lens (`lens.ThumbRow`) — importing `thumb-row.tsx` into
   details-march / seating-editor pulled its CSS module into the Maker's lazy pieces and broke ~10 render tests; march hooks
   sit above its `if (!anyone)` early return (eslint rules-of-hooks). Full unit suite 28,432/0 locally; CI typecheck ·

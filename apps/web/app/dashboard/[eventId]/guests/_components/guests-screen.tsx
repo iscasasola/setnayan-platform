@@ -142,7 +142,11 @@ import { ADD_WAYS, openAddGuest, openAddWay, type AddWayKey } from './add-guest-
 import { AddDoors } from './capture-bar';
 import { SearchAddRow, searchAddLabel } from '@/components/search-add-row';
 import { guestAdds, NEEDS_BOTH_NAMES, queueTypedGuest, useGuestAdds, type AddPicks } from './guest-add-queue';
-import { SectionHeadTools } from './section-head-toolbar';
+import { SectionHeadToolbar, SectionHeadTools } from './section-head-toolbar';
+import { renameSection } from '../role-name-actions';
+import { useSetRoleNames } from './role-names-context';
+import { isRenamableSection, sectionUsualHeading } from '@/lib/entourage';
+import { sectionName } from '@/lib/role-names';
 import { sectionHeadDoors, sectionHeadSelectable, type SectionHeadAdd } from '@/lib/guest-section-head';
 import { resolveRoleSet } from '@/lib/role-sets';
 import { JustAdded } from './just-added';
@@ -455,6 +459,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
   const [toast, toastNode] = usePeekToast();
   const inspector = useInspectorContext();
   const roleNames = useRoleNames();
+  const setRoleNames = useSetRoleNames();
   // 📋 The fresh, measured List keeps itself on the phone for the next open (`guest-list-copy.ts`).
   useKeepGuestList(
     { guests: live.guests, hasSides, groupsByGuest, tableByGuest, faceByGuest, requests, rootLabel, roleNames },
@@ -1774,8 +1779,21 @@ export function GuestsScreen(props: GuestsScreenProps) {
         const w = words.trim();
         return new Set(w ? roster.filter((g) => rosterSearchMatches(w, g, facts)).map((g) => g.guest_id) : []);
       },
+      ...(writesOff
+        ? {}
+        : {
+            HeadToolbar: SectionHeadToolbar,
+            sectionWords: (key: string) =>
+              isRenamableSection(key) ? { current: sectionName(key, roleNames) ?? '', usual: sectionUsualHeading(key, roleNames) } : null,
+            renameSection: async (key: string, text: string) => {
+              const res = await hearAction(() => renameSection(eventId, key, text));
+              if (!res.ok) return plainRefusal('reason' in res ? res.reason : res.error, 'The new name was not saved — nothing was changed.');
+              setRoleNames(res.names);
+              return null;
+            },
+          }),
     }),
-    [gview, thumbSlot, filter, hasSides, rosterById, roster, facts],
+    [gview, thumbSlot, filter, hasSides, rosterById, roster, facts, writesOff, roleNames, setRoleNames, eventId],
   );
 
   return (

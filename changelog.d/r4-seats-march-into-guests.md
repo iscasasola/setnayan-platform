@@ -141,3 +141,22 @@ SELECTED header folds it and unselects it.
   guards re-aimed at the moved door.
 
 SPEC IMPACT: None — prototype v20–v22 is the record.
+
+## 2026-10-29 · feat(guests): R4 slice 5 — Guests › March: a lone walker spans both sides, a pressed group has Rename · ＋ Walk · Delete
+
+Owner (prototype v13/v26, controller order 2026-10-29):
+- **No LEFT / RIGHT words** in Guests (the Maker's march keeps them).
+- **A lone walker's pill spans both sides**; the other side opens — animated (flex-grow) — only while a name is being
+  moved, so it can be dropped beside them, and closes after. Both pills of a walk sit in one stretching row (one height).
+- **A walk emptied by a move says so** — "… · empty walk removed", with the shipped Undo (it already closed up).
+- **Drop between rows = a new walk** — already shipped (the gap drop); unchanged.
+- **Tap a group header** = select (underlined) + open + the List's toolbar (handed through the Guests lens): ✎ Rename
+  (the section's heading word — `renameSection`, the List's own door), ＋ Walk ▾ (someone of THIS group from "Not
+  walking", the same `planMove` as the tray drag; shown only when the tray holds one), 🗑 Delete (everyone in it to
+  "Not walking" — `planSectionOut`, the tray step for each, one Undo; never on the groom's / bride's sides). A tap on the
+  selected header folds it and unselects it.
+- NOT built: **＋ Group** — a march group IS an entourage section (the guest's role decides it); a group of the couple's
+  own has no home in the data. Flagged for the owner.
+- Guard `lib/march-groups-in-guests.test.ts` (3 properties; sabotaged red twice).
+
+SPEC IMPACT: None — prototype v13/v26 is the record; ＋ Group needs an owner ruling (flagged in the PR body).

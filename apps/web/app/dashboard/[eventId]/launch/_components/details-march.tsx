@@ -21,6 +21,7 @@ import {
   keyTarget,
   leadOf,
   planMove,
+  planSectionOut,
   planSectionsDefault,
   readSource,
   sectionsMoved,
@@ -305,6 +306,9 @@ function MarchMakerBody({
      the empty march's early return. */
   const lens = useGuestsLens('march');
   const [folded, setFolded] = useState<ReadonlySet<string>>(() => new Set());
+  /* 🏷 R4 slice 5 — the SELECTED walk group (owner 2026-10-29, prototype v13 `marchSel`): a tap on its header selects it,
+     opens it and raises the toolbar (Rename · ＋ Walk · Delete); a tap on the SELECTED header folds it AND unselects it. */
+  const [marchSel, setMarchSel] = useState<string | null>(null);
   const [marchQ, setMarchQ] = useState('');
   const marchQTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => {
@@ -881,6 +885,68 @@ function MarchMakerBody({
           lens.slot,
         )
       : null;
+  /* 🏷 The selected group's toolbar — THE List's toolbar (`lens.HeadToolbar`), drawn in the thumb row's seat above it. Its
+     verbs are shipped moves only: Rename = the section's heading word (`lens.renameSection`, the List's door); ＋ Walk = a
+     name from "Not walking" into THIS group's end (the same `planMove` as the thumb row's ＋ and the tray drag); Delete =
+     everyone in it to "Not walking" (`planSectionOut` — the tray drag, for each, one Undo). The groom's and the bride's
+     sides always walk: no Delete there. ＋ Group is NOT here — a march group IS an entourage section (the guest's role
+     decides it); a group of one's own has no home in the data yet (flagged for the owner). */
+  const headTools = guests && lens?.HeadToolbar ? lens.HeadToolbar : null;
+  const tapHead = (key: string) => {
+    if (marchSel === key) {
+      setMarchSel(null);
+      setFolded((f) => new Set([...f, key]));
+      return;
+    }
+    setMarchSel(key);
+    setFolded((f) => {
+      if (!f.has(key)) return f;
+      const n = new Set(f);
+      n.delete(key);
+      return n;
+    });
+    // The toolbar rises from the bottom: the selected header is brought to the middle, never left under it.
+    requestAnimationFrame(() =>
+      root.current?.querySelector(`[data-march-section="${CSS.escape(key)}"]`)?.scrollIntoView({ block: 'center', behavior: reduced() ? 'auto' : 'smooth' }),
+    );
+  };
+  const selSec = marchSel ? (shown.find((x) => x.key === marchSel) ?? null) : null;
+  const HeadTools = headTools;
+  const marchHeadTools =
+    HeadTools && lens?.slot && selSec
+      ? createPortal(
+          <div className="order-first" data-march-head-tools={selSec.key}>
+            <HeadTools
+              label={selSec.label}
+              count={selSec.rows.length}
+              line={`${selSec.rows.length} walk${selSec.rows.length === 1 ? '' : 's'} · ${selSec.rows.reduce((k, r) => k + (r[0] ? 1 : 0) + (r[1] ? 1 : 0), 0)} walking`}
+              rename={lens?.sectionWords?.(selSec.key) ?? null}
+              onRename={async (text) => (lens?.renameSection ? lens.renameSection(selSec.key, text) : null)}
+              addWord="Walk"
+              addMenuAlways
+              add={outUnread ? null : (() => {
+                const here = shownOut.filter((o) => o.section === selSec.key).map((o) => ({ key: o.id, label: o.name }));
+                return here.length ? here : null;
+              })()}
+              adding={false}
+              onAdd={(id) => {
+                if (!id) return;
+                run(planMove(shown, shownPrinted, { kind: 'out', id }, { kind: 'gap', section: selSec.key, index: selSec.rows.length }, shownOut));
+              }}
+              onDelete={
+                isMarchOnlyGroup(selSec.key)
+                  ? undefined
+                  : () => {
+                      setMarchSel(null);
+                      run(planSectionOut(shown, shownPrinted, shownOut, selSec.key));
+                    }
+              }
+              onClose={() => setMarchSel(null)}
+            />
+          </div>,
+          lens.slot,
+        )
+      : null;
   const ring = (zone: string) =>
     over?.zone === zone ? (over.ok ? ' ring-2 ring-terracotta-700 ring-offset-1' : ' ring-2 ring-danger-500/60 ring-offset-1') : '';
   let step = 0;
@@ -928,11 +994,14 @@ function MarchMakerBody({
           {walks} walk{walks === 1 ? '' : 's'} · {people} walking
         </p>
       )}
-      <div aria-hidden className="grid grid-cols-[2rem_1fr_1fr] gap-1.5 px-1.5 pt-1 font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta-800">
-        <span />
-        <span className="text-center">Left</span>
-        <span className="text-center">Right</span>
-      </div>
+      {/* No LEFT / RIGHT words in Guests (owner 2026-10-29, prototype v13 — the two pills ARE the two sides). */}
+      {guests ? null : (
+        <div aria-hidden className="grid grid-cols-[2rem_1fr_1fr] gap-1.5 px-1.5 pt-1 font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta-800">
+          <span />
+          <span className="text-center">Left</span>
+          <span className="text-center">Right</span>
+        </div>
+      )}
       {shown.length === 0 ? (
         /* Nobody walks yet, but the tray holds people: the whole march is where they land. */
         <div
@@ -961,11 +1030,17 @@ function MarchMakerBody({
             aria-pressed={fixed ? undefined : carried?.key === sectionKey}
             aria-label={fixed ? undefined : `${sec.label} — drag to move the whole section`}
             data-march-head=""
+            data-march-head-selected={marchSel === sec.key ? '' : undefined}
+            onClick={headTools ? (e) => {
+              // A pointer's tap (a keyboard's activate, detail 0, is the root's pick-up). A drag never ends in a click here.
+              if (e.detail === 0) return;
+              tapHead(sec.key);
+            } : undefined}
             className={`${
               /* 📌 R4 slice 4 — in Guests, a walk group's header sticks under the pinned row while its walks pass (the
                  prototype's `.acc-h` sticky); the Maker's own march keeps its plain line. */
               guests ? 'sticky top-[calc(var(--gs-top,0px)+var(--gs-stick-h,60px))] z-[5] bg-[var(--gs-paper,rgb(var(--color-cream)))] ' : ''
-            }mt-3 flex min-h-9 items-baseline gap-2 rounded-lg px-1 pt-1 font-mono text-[10.5px] uppercase tracking-[0.18em] text-ink/65 ${
+            }${marchSel === sec.key ? 'text-terracotta-800 underline decoration-2 underline-offset-4' : 'text-ink/65'} mt-3 flex min-h-9 items-baseline gap-2 rounded-lg px-1 pt-1 font-mono text-[10.5px] uppercase tracking-[0.18em] ${
               fixed ? '' : 'cursor-grab touch-pan-y [-webkit-touch-callout:none]'
             }${carried?.key === sectionKey ? ' ring-2 ring-ink' : ''}${ring(`section|${sec.key}`)}`}
           >
@@ -982,12 +1057,17 @@ function MarchMakerBody({
             /* 🚶 Drawn across the aisle by role and side (owner 2026-10-06 — Ninong left,
                Ninang right; the groom's crew left, the bride's right): `acrossTheAisle`. */
             const laid = acrossTheAisle(row);
+            /* 🚶 R4 slice 5 (owner 2026-10-29, prototype v13 `.m-pair.solo`): in Guests a lone walker's pill spans BOTH
+               sides; the other side opens (grows back, animated) only while something is being moved, so a name can
+               be dropped beside them — and closes again after. Both pills of a walk share one height (stretch). */
+            const solo = guests && (laid[0] === null) !== (laid[1] === null);
+            const hideEmpty = solo && !dragging && !carried;
             return (
               <div key={lead || i} className="flex flex-col">
                 <div
                   data-march-flip={walkKey}
                   data-march-walk={step}
-                  className={`grid grid-cols-[2rem_1fr_1fr] items-stretch gap-1.5 rounded-xl bg-white p-1.5 ring-1 dark:bg-raised ring-ink/10 transition-opacity ${lifted === walkKey ? 'opacity-30' : ''}`}
+                  className={`grid ${guests ? 'grid-cols-[2rem_minmax(0,1fr)]' : 'grid-cols-[2rem_1fr_1fr]'} items-stretch gap-1.5 rounded-xl bg-white p-1.5 ring-1 dark:bg-raised ring-ink/10 transition-opacity ${lifted === walkKey ? 'opacity-30' : ''}`}
                 >
                   <span
                     data-march-drag={`walk|${sec.key}|${lead}`}
@@ -1001,8 +1081,11 @@ function MarchMakerBody({
                   >
                     {step}
                   </span>
+                  <PairBox guests={guests}>
                   {[0, 1].map((c) => {
                     const p = laid[c as 0 | 1];
+                    /* In Guests each side is a flex slot: the second keeps a gap unless the empty side is closed. */
+                    const slot = guests ? ` min-w-0 flex-1 basis-0${c === 1 && !hideEmpty ? ' ml-1.5' : ''}` : '';
                     if (p) {
                       const zone = `name|${p.id}`;
                       return (
@@ -1020,7 +1103,7 @@ function MarchMakerBody({
                           aria-label={`${p.name}${p.tag ? `, ${p.tag}` : ''} — step ${step}, ${c === 0 ? 'left' : 'right'}. Enter opens their guest card; Space moves them.`}
                           data-march-card-open={card?.id === p.id && p.id ? '' : undefined}
                           data-march-dim={marchDim(p.id) ? '' : undefined}
-                          className={`${NAME_CHIP} ${
+                          className={`${NAME_CHIP}${slot} ${
                             p.tag ? 'border-terracotta-700/60 bg-white dark:bg-raised' : 'border-terracotta-700/20 bg-terracotta-700/[0.06]'
                           } ${lifted === p.id ? 'border-dashed opacity-30' : marchDim(p.id) ? 'opacity-25' : ''}${carried?.key === p.id ? ' ring-2 ring-ink ring-offset-1' : ''}${card?.id === p.id && p.id ? ' ring-2 ring-terracotta-700 ring-offset-1' : ''}${ring(zone)}`}
                         >
@@ -1040,14 +1123,21 @@ function MarchMakerBody({
                         tabIndex={anchor?.id && carried ? 0 : undefined}
                         role={anchor?.id ? 'button' : undefined}
                         aria-label={anchor ? `Walk beside ${anchor.name}` : undefined}
+                        aria-hidden={hideEmpty || undefined}
+                        data-march-empty-side={guests ? (hideEmpty ? 'closed' : 'open') : undefined}
                         className={`flex min-h-11 items-center justify-center rounded-lg border-[1.5px] border-dashed px-2 text-center text-[11px] leading-tight transition-colors ${
                           dragging ? 'border-terracotta-700/40 text-terracotta-800' : 'border-ink/15 text-ink/50'
+                        }${slot}${
+                          guests
+                            ? ` overflow-hidden transition-[flex-grow,opacity,margin,padding] duration-300 ease-[cubic-bezier(.2,.8,.2,1)] motion-reduce:transition-none${hideEmpty ? ' pointer-events-none !grow-0 !border-0 !px-0 opacity-0' : ''}`
+                            : ''
                         }${ring(zone)}`}
                       >
                         {dragging || carried ? 'walk together' : 'walks alone'}
                       </div>
                     );
                   })}
+                  </PairBox>
                 </div>
                 <Gap zone={`gap|${sec.key}|${i + 1}`} on={over?.zone === `gap|${sec.key}|${i + 1}`} ok={over?.ok ?? true} />
               </div>
@@ -1063,6 +1153,7 @@ function MarchMakerBody({
         </span>
       ) : null}
       {marchThumb}
+      {marchHeadTools}
       {slot
         ? createPortal(
             <MarchTray
@@ -1103,6 +1194,17 @@ function MarchMakerBody({
 }
 
 /** The gap between two walks — a gold line where the drop would land. */
+/** 🚶 In Guests the walk's two sides sit in ONE flex row (so a lone walker can span both); in the Maker they stay grid cells. */
+function PairBox({ guests, children }: { guests: boolean; children: ReactNode }) {
+  return guests ? (
+    <div className="flex min-w-0 items-stretch" data-march-pair="">
+      {children}
+    </div>
+  ) : (
+    <>{children}</>
+  );
+}
+
 function Gap({ zone, on, ok }: { zone: string; on: boolean; ok: boolean }) {
   return (
     <div data-march-drop={zone} aria-hidden className={`relative mx-1 transition-[height] duration-200 ${on ? 'h-5' : 'h-2.5'}`}>

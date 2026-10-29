@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useTransition } from 'react';
-import { Check, ChevronDown, Pencil, Plus, X } from 'lucide-react';
+import { Check, ChevronDown, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { ActionButton, actionButtonClass } from '@/components/action-button';
 import { PickMenu, type PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { formatCount } from '@/lib/format-number';
@@ -40,9 +40,21 @@ export function SectionHeadToolbar({
   onRename,
   onAdd,
   onClose,
+  line,
+  addWord = 'Add guest here',
+  addMenuAlways = false,
+  onDelete,
 }: {
   label: string;
   count: number;
+  /** The small words beside the name, in place of "N guests" (the March: "3 walks · 5 walking"). */
+  line?: string;
+  /** The ＋'s word ("Walk" in the March). */
+  addWord?: string;
+  /** ＋ always opens its list, even with one choice (the March's ＋ Walk names who walks). */
+  addMenuAlways?: boolean;
+  /** 🗑 The group's Delete (the March: everyone in it to Not walking, one Undo). Absent = none. */
+  onDelete?: () => void;
   /** The word the box starts with, and whether an empty box is allowed (= the usual word again). Null = no Rename. */
   rename: { current: string; usual: string | null } | null;
   /** The roles a name added here takes (one = plain ＋; several = ＋ ▾); null = no add here. [] = an add with no role pick. */
@@ -122,7 +134,7 @@ export function SectionHeadToolbar({
               <b className="font-semibold">{label}</b>
               <span className="text-ink/60">
                 {' · '}
-                {adding ? 'type a name below — it lands here' : `${formatCount(count)} ${count === 1 ? 'guest' : 'guests'}`}
+                {adding ? 'type a name below — it lands here' : (line ?? `${formatCount(count)} ${count === 1 ? 'guest' : 'guests'}`)}
               </span>
             </span>
             <ActionButton tone="neutral" quiet iconOnly icon={X} label={`Unselect ${label}`} onClick={onClose} data-testid="section-head-close" />
@@ -141,26 +153,27 @@ export function SectionHeadToolbar({
                 data-testid="section-head-rename"
               />
             ) : null}
-            {add === null ? null : add.length > 1 ? (
+            {add === null ? null : add.length > 1 || (addMenuAlways && add.length > 0) ? (
               <PickMenu
-                label={`Add guest to ${label}`}
+                label={`${addWord} — ${label}`}
                 value={null}
                 options={add}
                 onPick={(k) => onAdd(k)}
                 dataAttr="data-section-head-add"
-                buttonText="Add guest here"
+                buttonText={addWord}
                 className={actionButtonClass('brand', { main: true })}
                 trigger={
                   <>
                     <Plus aria-hidden strokeWidth={1.9} />
-                    <span className="lbl">Add guest here</span>
+                    <span className="lbl">{addWord}</span>
                     <ChevronDown aria-hidden className="-mr-0.5 h-4 w-4 shrink-0" strokeWidth={2} />
                   </>
                 }
               />
             ) : (
-              <ActionButton tone="brand" main icon={Plus} label="Add guest here" onClick={() => onAdd(add[0]?.key ?? null)} data-testid="section-head-add" />
+              <ActionButton tone="brand" main icon={Plus} label={addWord} onClick={() => onAdd(add[0]?.key ?? null)} data-testid="section-head-add" />
             )}
+            {onDelete ? <ActionButton tone="danger" icon={Trash2} label="Delete" onClick={onDelete} data-testid="section-head-delete" /> : null}
           </div>
         </>
       )}

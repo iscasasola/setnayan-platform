@@ -100,7 +100,6 @@
   "app/vendor-dashboard/contracts/[contractId]/page.tsx": 1,
   "app/vendor-dashboard/contracts/new/page.tsx": 1,
   "app/vendor-dashboard/moodboard-library/page.tsx": 1,
-  "app/vendor-dashboard/on-the-day/live/[eventId]/page.tsx": 1,
   "app/vendor-dashboard/packages/[packageId]/page.tsx": 1,
   "app/vendor-dashboard/services/[serviceId]/page.tsx": 1,
   "app/vendor-dashboard/services/new/[category]/page.tsx": 1,

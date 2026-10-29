@@ -130,35 +130,42 @@
   gap: 8px;
   min-width: 0;
   transition:
-    opacity 220ms var(--gs-ease),
-    transform 220ms var(--gs-ease),
+    opacity 300ms var(--gs-glide),
+    transform 300ms var(--gs-glide),
     visibility 0s linear 0s;
 }
+/* 🎚 THE GLIDE (owner 2026-10-29, prototype v16 + "remember to animate them properly"): pinning — on a scroll, or on
+   entering a full-screen view — the FULL row rises and fades (−12 px, 0.98) while the slim row rises in from +12 px,
+   0.3 s on the prototype's curve; back again in reverse. Never a jump. Reduced motion: no travel, no fade (below). */
+.screen {
+  --gs-glide: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
 .stick.pinned [data-first-row] > [data-guests-segmented] {
+  transform-origin: 50% 0;
   transition:
-    opacity 220ms var(--gs-ease),
-    transform 220ms var(--gs-ease),
+    opacity 300ms var(--gs-glide),
+    transform 300ms var(--gs-glide),
     visibility 0s linear 0s;
 }
 .faceAlt {
   opacity: 0;
-  transform: translateY(6px);
+  transform: translateY(12px);
   visibility: hidden;
   pointer-events: none;
   transition:
-    opacity 220ms var(--gs-ease),
-    transform 220ms var(--gs-ease),
-    visibility 0s linear 220ms;
+    opacity 300ms var(--gs-glide),
+    transform 300ms var(--gs-glide),
+    visibility 0s linear 300ms;
 }
 .stick.pinned[data-collapsed] [data-first-row] > [data-guests-segmented] {
   opacity: 0;
-  transform: translateY(-6px);
+  transform: translateY(-12px) scale(0.98);
   visibility: hidden;
   pointer-events: none;
   transition:
-    opacity 220ms var(--gs-ease),
-    transform 220ms var(--gs-ease),
-    visibility 0s linear 220ms;
+    opacity 300ms var(--gs-glide),
+    transform 300ms var(--gs-glide),
+    visibility 0s linear 300ms;
 }
 .stick[data-collapsed] .faceAlt {
   opacity: 1;
@@ -166,9 +173,68 @@
   visibility: visible;
   pointer-events: auto;
   transition:
-    opacity 220ms var(--gs-ease),
-    transform 220ms var(--gs-ease),
+    opacity 300ms var(--gs-glide),
+    transform 300ms var(--gs-glide),
     visibility 0s linear 0s;
+}
+/* 🎚 THE VIEW'S OWN ROUNDS in the top row (Seats: Edit · ⋯ — owner v14, "RIGHT action rounds only"): 40-px rounds, the
+   word in the button's name (an icon-only `.ab` still reads "Edit"); while they are there the three segments size to
+   their words instead of thirds, so "Guests · Seats ▾ · March" keeps every word whole beside them. Under 360 the rounds
+   are 36 (prototype v14's fit). */
+.stick [data-guests-view-rounds] :global(.ab) {
+  width: 40px;
+  min-width: 40px;
+  padding: 0;
+  gap: 0;
+}
+.stick [data-guests-view-rounds] :global(.ab .lbl) {
+  display: none;
+}
+.stick:has([data-guests-view-rounds]:not(:empty)) [data-guests-segmented] > * {
+  flex: 1 1 auto;
+  padding-inline: 8px;
+}
+@media (max-width: 359px) {
+  .stick [data-guests-view-rounds] :global(.ab),
+  .stick [data-guests-view-rounds] [data-seat-plan-more] {
+    width: 36px;
+    min-width: 36px;
+    height: 36px;
+  }
+  .stick:has([data-guests-view-rounds]:not(:empty)) [data-guests-segmented] > *,
+  .stick:has([data-guests-view-rounds]:not(:empty)) [data-guests-seg-menu] > button {
+    padding-inline: 4px;
+  }
+}
+/* 📌 The slim row's ONE menu ("Guests · List ▾") — the shared PickMenu, never cut. */
+.pinMenu {
+  display: flex;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+/* 🗺 FULL SCREEN (Map · Seats 2D · 3D — `data-guests-full`): the count row folds away in the same glide (rises, fades,
+   gives its height back), so the map takes the screen under the slim row. Seats' fixed row and the Map's carousel. */
+.screen [data-view-count-row],
+.screen[data-guests-screen='map'] .summary {
+  max-height: 240px;
+  transition:
+    max-height 300ms var(--gs-glide),
+    opacity 300ms var(--gs-glide),
+    transform 300ms var(--gs-glide),
+    padding 300ms var(--gs-glide),
+    margin 300ms var(--gs-glide);
+}
+.screen[data-guests-full] [data-view-count-row],
+.screen[data-guests-full][data-guests-screen='map'] .summary {
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(-12px);
+  padding-top: 0;
+  padding-bottom: 0;
+  margin-top: 0;
+  margin-bottom: 0;
+  overflow: hidden;
+  pointer-events: none;
 }
 .stick.pinned[data-collapsed] {
   box-shadow: 0 1px 0 var(--gs-line);
@@ -177,7 +243,7 @@
    first row's right end and is never faded — the summary face stops 52 px short (44 + the row's 8-px gap), so the SAME
    mounted button ends the row at rest and pinned. 🔒 lib/the-pinned-row-is-one-row.test.ts */
 .stick.pinned[data-has-gear] .face {
-  right: 52px;
+  right: calc(52px + var(--gs-rounds-w, 0px));
 }
 /* 52 px fewer for the face: at 390 the three counts and Invite sat touching — the counts close up a little. */
 .stick.pinned[data-has-gear] .pinCounts {
@@ -1142,27 +1208,6 @@ button.ico {
 .lower > * {
   pointer-events: auto;
 }
-/* 🏷 The selected header's toolbar (R4 slice 4): rises just above the thumb row, on the row's own side gutters
-   (`padding-inline: inherit`), so it never moves the row. Leaves with the row while the row is away. */
-.headTools {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 100%;
-  padding-inline: inherit;
-  animation: gs-tools-up 250ms var(--gs-ease);
-}
-@keyframes gs-tools-up {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .headTools {
-    animation: none;
-  }
-}
 /* From 701, not 1024 (owner 2026-10-19): the couple dashboard's dock is gone from 701 (`BottomDock boundary="tab"`), so this row takes its desktop place on the same line instead of sitting on a dock that is no longer there.
    🖥 Its edges are the READING COLUMN's (owner 2026-10-20, "is the desktop view done fixing?"): `--gs-left`/`--gs-right`
    are this screen's own box, kept current by `dock-follows-column.ts` — never the stage's. Held by
@@ -1403,7 +1448,11 @@ button.node {
   .faceAlt,
   .stick.pinned [data-first-row] > [data-guests-segmented],
   .stick.pinned[data-collapsed] [data-first-row] > [data-guests-segmented],
-  .stick[data-collapsed] .faceAlt {
+  .stick[data-collapsed] .faceAlt,
+  .screen [data-view-count-row],
+  .screen[data-guests-screen='map'] .summary,
+  .screen[data-guests-full] [data-view-count-row],
+  .screen[data-guests-full][data-guests-screen='map'] .summary {
     transform: none;
     transition: none;
   }

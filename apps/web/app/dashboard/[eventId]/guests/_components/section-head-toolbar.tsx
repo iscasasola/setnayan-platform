@@ -5,13 +5,12 @@ import { Check, ChevronDown, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { ActionButton, actionButtonClass } from '@/components/action-button';
 import { PickMenu, type PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { formatCount } from '@/lib/format-number';
-import { guestRoleLabel, type GuestRole } from '@/lib/guests';
 import { clashWords } from '@/lib/group-name-clash';
 import { roleNameMany, sectionName, type RoleNames } from '@/lib/role-names';
 import { sectionUsualHeading } from '@/lib/entourage';
 import { resolveRoleSet } from '@/lib/role-sets';
 import { ROLE_GROUP_LABELS, type RoleGroup } from '@/lib/role-groups';
-import { sectionHeadDoors, type SectionHeadAdd } from '@/lib/guest-section-head';
+import { sectionHeadDoors } from '@/lib/guest-section-head';
 import { renameRole, renameSection, type RenameRoleResult } from '../role-name-actions';
 import { useGuestActions } from './guest-actions-context';
 import { useSetRoleNames } from './role-names-context';
@@ -187,38 +186,45 @@ export function SectionHeadToolbar({
 }
 
 /**
- * The toolbar for ONE selected section of the List — its doors read off `sectionHeadDoors` (lib/guest-section-head.ts),
- * its Rename run through the shipped doors: a role's word (`renameRole`), a section's heading (`renameSection`) — both
- * the ONE writer of `events.role_names`, and the list takes the new word at once (`useSetRoleNames`) — or an own group's
- * name (`editGuestGroupInPlace`, which revalidates the list). The add hands the screen the picks a name typed now needs.
+ * ✎ A LIST GROUP, RENAMED ON ITS OWN ROW (owner 2026-10-29 ~21:55, on the live List: *"remove the pop up and just have a
+ * button on the row to rename it. this is the pencil icon. remove tha dd guests here."*). The List's header no longer
+ * selects and raises a toolbar: a tap folds and unfolds it, as it did before slice 4; a ✎ on the row renames it IN PLACE —
+ * the row becomes the name box (Enter keeps, Esc drops). "＋ Add guest here" is gone. Only a header ONE word renames gets a
+ * ✎ (`sectionHeadDoors(...).rename`), and the word goes through the shipped door — a role's word (`renameRole`), a
+ * section's heading (`renameSection`) — both the ONE writer of `events.role_names`, the list taking the word at once
+ * (`useSetRoleNames`) — or an own group's name (`editGuestGroupInPlace`, which revalidates the list). No new server action.
+ * (The March keeps its own header toolbar, `SectionHeadToolbar` above — unchanged.)
  */
-export function SectionHeadTools({
+export function SectionRenameInPlace({
   eventId,
   section,
   groups,
   roleSetKey,
   roleNames,
-  adding,
-  onAdd,
+  editing,
+  onEdit,
+  onDone,
   onRenamed,
-  onClose,
 }: {
   eventId: string;
-  section: { key: string; label: string; count: number };
+  section: { key: string; label: string };
   groups: readonly { group_id: string; label: string }[];
   roleSetKey: string | null | undefined;
   roleNames: RoleNames | null | undefined;
-  adding: boolean;
-  /** What a name typed now takes so it lands in this section. */
-  onAdd: (picks: SectionHeadAdd & { role?: GuestRole }) => void;
+  /** The row is the name box right now (the screen hides the header's own words meanwhile). */
+  editing: boolean;
+  onEdit: () => void;
+  onDone: () => void;
   /** A group renamed → its section's new key (the List is keyed by the group's name). */
   onRenamed: (nextKey: string) => void;
-  onClose: () => void;
 }) {
   const setNames = useSetRoleNames();
   const { editGuestGroupInPlace } = useGuestActions();
-  const doors = sectionHeadDoors(section.key, { groups, offeredRoles: resolveRoleSet(roleSetKey ?? 'wedding').offeredRoles });
-  const door = doors.rename;
+  const [draft, setDraft] = useState('');
+  const [err, setErr] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  const box = useRef<HTMLInputElement>(null);
+  const door = sectionHeadDoors(section.key, { groups, offeredRoles: resolveRoleSet(roleSetKey ?? 'wedding').offeredRoles }).rename;
   const rename =
     door === null
       ? null
@@ -226,15 +232,24 @@ export function SectionHeadTools({
         ? { current: roleNameMany(door.role, roleNames) ?? '', usual: ROLE_GROUP_LABELS[section.key.slice('role:'.length) as RoleGroup] ?? section.label }
         : door.kind === 'section'
           ? { current: sectionName(door.section, roleNames) ?? '', usual: sectionUsualHeading(door.section, roleNames) ?? section.label }
-          : { current: section.label, usual: null };
+          : { current: section.label, usual: null as string | null };
+  useEffect(() => {
+    if (!editing || !rename) return;
+    setDraft(rename.current || rename.usual || '');
+    setErr(null);
+    box.current?.focus();
+    // Only opening the box decides its first words — not every render of the same edit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing]);
+  if (door === null || rename === null) return null;
+
   const words = async (run: () => Promise<RenameRoleResult>): Promise<string | null> => {
     const res = await hearAction(run);
     if (!res.ok) return plainRefusal('reason' in res ? res.reason : res.error, 'The new name was not saved — nothing was changed.');
     setNames(res.names);
     return null;
   };
-  const onRename = async (text: string): Promise<string | null> => {
-    if (door === null) return null;
+  const send = async (text: string): Promise<string | null> => {
     if (door.kind === 'role') return words(() => renameRole(eventId, door.role, text, null));
     if (door.kind === 'section') return words(() => renameSection(eventId, door.section, text));
     const res = await hearAction(() => editGuestGroupInPlace(eventId, door.groupId, { op: 'rename', label: text }));
@@ -245,23 +260,59 @@ export function SectionHeadTools({
     onRenamed(`group:${res.group.label}`);
     return null;
   };
-  const add = doors.add;
-  const options: readonly PickOption[] | null =
-    add === null ? null : (add.roles ?? []).map((r) => ({ key: r, label: guestRoleLabel(r, roleNames) }));
+  const keep = () => {
+    const text = draft.trim();
+    if (text === (rename.current || rename.usual || '').trim()) return onDone();
+    if (!text && rename.usual === null) return setErr('A group needs a name.');
+    // The usual word typed back = no word of their own (blank is what the doors store for it).
+    const out = rename.usual !== null && text === rename.usual ? '' : text;
+    start(async () => {
+      const refused = await send(out);
+      if (refused) return setErr(refused);
+      setErr(null);
+      onDone();
+    });
+  };
+
+  if (!editing) {
+    return (
+      <ActionButton tone="neutral" quiet iconOnly icon={Pencil} label={`Rename ${section.label}`} onClick={onEdit} data-testid="section-rename" />
+    );
+  }
   return (
-    <SectionHeadToolbar
-      label={section.label}
-      count={section.count}
-      rename={rename}
-      add={options}
-      adding={adding}
-      onRename={onRename}
-      onAdd={(k) => {
-        if (!add) return;
-        const picks = { side: add.side, groupIds: add.groupIds };
-        onAdd(k ? { ...picks, role: k as GuestRole } : picks);
-      }}
-      onClose={onClose}
-    />
+    <div className="flex min-w-0 flex-1 flex-col gap-1 py-1" data-section-rename={section.key}>
+      <div className="flex min-w-0 items-center gap-2">
+        <input
+          ref={box}
+          value={draft}
+          onChange={(e) => {
+            setDraft(e.target.value);
+            setErr(null);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+              e.preventDefault();
+              keep();
+            } else if (e.key === 'Escape') {
+              e.preventDefault();
+              setErr(null);
+              onDone();
+            }
+          }}
+          placeholder={rename.usual ?? 'Group name'}
+          aria-label={`New name for ${section.label}`}
+          autoComplete="off"
+          maxLength={rename.usual === null ? 64 : 40}
+          className="input-field min-w-0 flex-1"
+        />
+        <ActionButton tone="brand" main icon={Check} label={pending ? 'Saving…' : 'Save'} waiting={pending} onClick={keep} />
+        <ActionButton tone="neutral" quiet iconOnly icon={X} label="Cancel rename" disabled={pending} onClick={() => { setErr(null); onDone(); }} />
+      </div>
+      {err ? (
+        <p role="alert" className="px-1 text-[12.5px] text-danger-700" data-section-rename-error="">
+          {err}
+        </p>
+      ) : null}
+    </div>
   );
 }

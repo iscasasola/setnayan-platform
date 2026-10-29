@@ -64,18 +64,34 @@ test('(1) a header offers Rename only through ONE shipped word, and ＋ only whe
   }
 });
 
-test('(2) the second tap folds AND unselects; a name typed while ＋ is on takes the group’s picks', () => {
+/**
+ * (2) ✎ ON THE ROW, NO POP-UP (owner 2026-10-29 ~21:55, on the live List: "remove the pop up and just have a button on the
+ * row to rename it. this is the pencil icon. remove tha dd guests here."). Supersedes slice 4's select + toolbar on the
+ * List (the March keeps its own toolbar — untouched). 🛡 Sabotaged (2026-10-29): the header tap selecting again → red.
+ */
+test('(2) the List header tap only folds; a ✎ on the row renames in place; ＋ Add guest here is gone', () => {
   const screen = code('app/dashboard/[eventId]/guests/_components/guests-screen.tsx');
   const tap = screen.slice(screen.indexOf('const tapSection = '), screen.indexOf('// ── The counts'));
   assert.ok(tap.length > 200, 'tapSection moved — this guard is blind');
-  const second = tap.slice(tap.indexOf('hubSel === key'), tap.indexOf('if (selectable) {'));
-  assert.match(second, /unselectHead\(\)/, 'a tap on the selected header does not unselect it');
-  assert.match(second, /next\.delete\(key\)/, 'a tap on the selected header does not fold it');
-  assert.match(tap, /if \(selectable\) \{\s*setHubSel\(key\);/, 'a tap does not select the header');
-  // Every add from the box reads `addPicks` (the sticky picks with the selected group's laid on).
+  assert.doesNotMatch(tap, /setHubSel|selectable|unselectHead/, 'a header tap selects again (the pop-up toolbar is back)');
+  assert.match(tap, /next\.add\(key\)/, 'a header tap no longer opens a group');
+  assert.match(tap, /next\.delete\(key\)/, 'a header tap no longer folds a group');
+  // No toolbar on the List — no SectionHeadTools / SectionHeadToolbar drawn by the screen itself, no "Add to …" box.
+  assert.doesNotMatch(screen, /<SectionHeadTools\b|<SectionHeadToolbar\b|data-section-head-tools|Add to \$\{/, 'the List draws the pop-up toolbar again');
+  assert.doesNotMatch(screen, /herePicks|setAddHere/, '＋ Add guest here is back');
+  // The ✎ sits on the row, beside the header (never inside its button), and the word goes through the shipped doors.
+  assert.match(screen, /<SectionRenameInPlace\b[\s\S]{0,400}?editing=\{renaming === sec\.key\}/, 'the row has no ✎ rename');
+  assert.match(screen, /\{renaming === sec\.key \? null : \(\s*<button\s+type="button"\s+className=\{styles\.bar\}/, 'renaming does not turn the row into the name box');
+  const tools = code('app/dashboard/[eventId]/guests/_components/section-head-toolbar.tsx');
+  const pen = tools.slice(tools.indexOf('export function SectionRenameInPlace('));
+  assert.match(pen, /icon=\{Pencil\}/, 'the row button is not the pencil');
+  assert.match(pen, /renameRole\(eventId, door\.role, text, null\)/);
+  assert.match(pen, /renameSection\(eventId, door\.section, text\)/);
+  assert.match(pen, /editGuestGroupInPlace\(eventId, door\.groupId, \{ op: 'rename', label: text \}\)/);
+  assert.match(pen, /if \(door === null \|\| rename === null\) return null;/, 'a header no word renames grew a ✎');
+  // Every add from the box reads `addPicks` — now the sticky picks themselves.
+  assert.match(screen, /const addPicks: AddPicks = picks;/);
   assert.match(screen, /queueTypedGuest\(eventId, v, addPicks\.side, addSingleGuest, guestAdds, picksForAdd\(addPicks, /);
-  assert.match(screen, /const sent = picksForAdd\(addPicks, allGroups, roleNames\);/);
-  assert.doesNotMatch(screen, /picksForAdd\(picks,/, 'an add still reads the bare sticky picks');
 });
 
 test('(3) the card has no rename row — it keeps its Role pick', () => {
@@ -96,5 +112,5 @@ test('(4) the headers stay in sight under the pinned row: Seats › List tables 
   assert.match(css, /\.screen:is\(\[data-guests-screen='seats'\], \[data-guests-screen='march'\]\) \.stick\.pinned\[data-pinned\] \{\s*position: fixed;/, 'in Seats / March the row scrolls away and the headers stick under nothing');
   const screen = code('app/dashboard/[eventId]/guests/_components/guests-screen.tsx');
   assert.match(screen, /if \(maker\) return hold\.getBoundingClientRect\(\)\.top <= bar;/, 'Seats / March never pin the row');
-  assert.match(screen, /st\.toggleAttribute\(maker \? 'data-pinned' : 'data-collapsed', on\)/);
+  assert.match(screen, /if \(maker\) st\.toggleAttribute\('data-pinned', on\);\s*st\.toggleAttribute\('data-collapsed', on\);/);
 });

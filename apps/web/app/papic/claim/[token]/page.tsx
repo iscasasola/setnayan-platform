@@ -63,9 +63,6 @@ export default async function PapicClaimPage({ params, searchParams }: Props) {
         title="This seat's already taken."
         sub="Someone else in the crew already claimed this one. Ask the host to send you a fresh seat link and you'll be good to go."
       >
-        <Link href="/" className="button-secondary">
-          Back to Setnayan
-        </Link>
       </DoorShell>
     );
   }
@@ -101,9 +98,6 @@ export default async function PapicClaimPage({ params, searchParams }: Props) {
         title="This link isn't active."
         sub="The host may have reissued this seat. Ask them for your latest claim link and try again."
       >
-        <Link href="/" className="button-secondary">
-          Back to Setnayan
-        </Link>
       </DoorShell>
     );
   }

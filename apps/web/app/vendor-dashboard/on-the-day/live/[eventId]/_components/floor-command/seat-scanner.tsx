@@ -61,7 +61,18 @@ export function SeatScanner({ eventId }: { eventId: string }) {
           setOutcome(resolveSeatScan(scan, null));
           return;
         }
-        const res = await floorSeatByQr(eventId, scan.token);
+        // 📶 NO SIGNAL (EV3): finding a seat asks Setnayan — the host shares one table label per scan, never the list —
+        // so with no signal it says so instead of failing as if the code were wrong. Nothing is queued: it is a question,
+        // not a change to send later.
+        let res: Awaited<ReturnType<typeof floorSeatByQr>>;
+        try {
+          if (typeof navigator !== 'undefined' && navigator.onLine === false) throw new Error('offline');
+          res = await floorSeatByQr(eventId, scan.token);
+        } catch {
+          setLookupError('No signal — finding a seat needs signal. The printed seat chart has every table.');
+          setOutcome(null);
+          return;
+        }
         if (!res.ok) {
           setLookupError(res.error);
           setOutcome(null);

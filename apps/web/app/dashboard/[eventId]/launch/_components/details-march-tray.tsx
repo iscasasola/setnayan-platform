@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import type { MarchOut } from '@/lib/march-drag';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 /**
  * 🚶 THE "NOT WALKING" TRAY (owner, live iPhone 2026-10-06, DECISION_LOG "THE
@@ -26,7 +27,7 @@ import type { MarchOut } from '@/lib/march-drag';
 
 export const OUT_CHIP =
   // no-card-ok: a NAME you drag (a pressable chip), not a container.
-  'inline-flex min-h-11 max-w-full cursor-grab select-none items-center rounded-full border border-ink/15 bg-white px-3 text-[13.5px] leading-tight text-ink [-webkit-touch-callout:none] [overflow-wrap:anywhere]';
+  'inline-flex min-h-11 max-w-full cursor-grab select-none items-center rounded-full border border-ink/15 bg-white px-3 text-[13.5px] dark:bg-raised leading-tight text-ink [-webkit-touch-callout:none] [overflow-wrap:anywhere]';
 
 /**
  * The fit itself, on the box as the browser laid it out: every chip shown; if
@@ -184,7 +185,7 @@ export function MarchTray({
               data-march-tray-sheet=""
               className={`fixed inset-0 z-[95] flex flex-col justify-end ${lifted || carded ? 'pointer-events-none invisible' : ''}`}
             >
-              <button type="button" aria-label="Close the list" onClick={() => setAll(false)} className="absolute inset-0 bg-ink/30" />
+              <OverlayBackdrop onClose={() => setAll(false)} label="Close the list" />
               <div
                 role="dialog"
                 aria-label="Not walking — everyone"

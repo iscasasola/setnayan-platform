@@ -36,8 +36,10 @@ const BASE = {
 
 test('🔑 the owner’s message: name, the couple’s wedding, the date, their own link, the Event Hub', () => {
   const msg = buildGuestInviteMessage(BASE)!;
-  assert.match(msg, /^Hi Maria! 💌 You’re invited to Indalecio & Claire’s wedding on Friday, December 18\./);
-  assert.match(msg, /tap to reply:\nhttps:\/\/www\.setnayan\.com\/cale-ice\?invite=abc123\n/);
+  assert.match(msg, /^Hi Maria! 💌\n\nWith joyful hearts, we invite you to celebrate Indalecio & Claire’s wedding with us on Friday, December 18\./);
+  // 💌 signed by the couple (owner 2026-10-29)
+  assert.match(msg, /With love,\nIndalecio & Claire$/);
+  assert.match(msg, /it only takes a minute:\nhttps:\/\/www\.setnayan\.com\/cale-ice\?invite=abc123\n/);
   assert.match(msg, /opens our Event Hub anytime, and it’s your pass at the door/);
   assert.match(msg, /This link is just for you, so please don’t forward it\./);
 });
@@ -107,7 +109,7 @@ test('a wake is written in the solemn register — no "!", no 💌, no "invited"
 test('a missing, partial or unreadable date elides — never "on ." or "Invalid Date"', () => {
   for (const eventDate of [null, '', 'not-a-date', '2026-02-31']) {
     const msg = buildGuestInviteMessage({ ...BASE, eventDate })!;
-    assert.match(msg, /You’re invited to Indalecio & Claire’s wedding\./, String(eventDate));
+    assert.match(msg, /celebrate Indalecio & Claire’s wedding with us\./, String(eventDate));
     assert.doesNotMatch(msg, /Invalid Date|null|undefined| on \./);
   }
   // A date set only to the month is not written as a day.
@@ -128,7 +130,7 @@ test('a nameless guest still gets a sendable message — "Hi!", never "Hi !"', (
 test('🛡 ESCAPING: a value is printed as typed and never expands — one pass, function replacer', () => {
   const msg = buildGuestInviteMessage({ ...BASE, firstName: '{link} $& $1', hostsName: '{date} & {name}' })!;
   assert.match(msg, /^Hi \{link\} \$& \$1! /);
-  assert.match(msg, /invited to \{date\} & \{name\}’s wedding/);
+  assert.match(msg, /celebrate \{date\} & \{name\}’s wedding/);
   assert.equal(msg.split(BASE.inviteUrl).length - 1, 1, 'a name that says {link} pasted the link again');
 });
 
@@ -165,4 +167,17 @@ test('the group-chat message: reply with your full name, and we’ll confirm you
   assert.match(msg, /Tap the link, reply with your full name, and we’ll confirm you:\nhttps:/);
   assert.doesNotMatch(msg, /QR|just for you/, 'the shared link is not a personal key and must not say so');
   assert.equal(msg.split(url).length - 1, 1);
+});
+
+test('💌 no names to sign with → no bare "With love," (owner 2026-10-29 wording)', () => {
+  const msg = buildGuestInviteMessage({ firstName: 'Maria', inviteUrl: 'https://www.setnayan.com/x?invite=1', eventWord: 'wedding' });
+  assert.ok(msg);
+  assert.doesNotMatch(msg!, /With love|\{hosts\}/);
+});
+
+test('💌 a guest passing their invite on keeps the plain wording — never signs as the couple', () => {
+  const msg = buildGuestInviteMessage({ firstName: 'Ben', hostsName: 'Indalecio & Claire', eventWord: 'wedding', inviteUrl: 'https://www.setnayan.com/x?invite=2', voice: 'guest' });
+  assert.ok(msg);
+  assert.doesNotMatch(msg!, /With love/);
+  assert.match(msg!, /You’re invited to/);
 });

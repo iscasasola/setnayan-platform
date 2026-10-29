@@ -16,6 +16,10 @@ import { stripComments } from '@/lib/strip-comments';
  * in its new home: on a phone the Details navigator — the only way to the
  * item, and to the march's own lines — must not be hidden.
  *
+ * 🗂 R4 (owner 2026-10-27/28, DECISION_LOG "GUESTS = LIST · MAP · SEATS · MARCH"): the march COMES HOME to Guests —
+ * Guests › March, a view of the same row as List · Map, at every width (the view row is never `hidden`). The old
+ * Guest list links (`?gview=walk`, `?view=march`) land on it.
+ *
  * ⚠ A REACHABILITY TEST, NOT A LAYOUT ONE.
  */
 
@@ -23,12 +27,16 @@ const GUESTS = join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests');
 const LAUNCH = join(process.cwd(), 'app', 'dashboard', '[eventId]', 'launch', '_components');
 const read = (dir: string, ...p: string[]) => stripComments(readFileSync(join(dir, ...p), 'utf8'));
 
-test('the Wedding March has one home — Details — and the Guest list hands old links to it', () => {
-  // ⤷ Maker PR 4f: the doors are List · Map · Setup (guests-screen.tsx); no march.
+test('the Wedding March has one home — Guests › March (R4) — and the Guest list hands old links to it', () => {
+  // ⤷ R4: the view row draws every view the event has, March among them, at every width.
   const screen = read(GUESTS, '_components', 'guests-screen.tsx');
-  assert.doesNotMatch(screen, /seg\('(?:walk|march)'/i, 'the Guest list offers the march again');
+  // 🎚 2026-10-29: the row is the TOPS (Guests ▾ · Seats ▾ · March) — March is offered where the event's views have it.
+  assert.match(screen, /\{tops\.map\(\(t\) => seg\(t\)\)\}/, 'the Guest list’s view row is not the tops’ own list');
+  assert.match(screen, /const tops = GUESTS_TOPS\.filter\(\(t\) => t === 'guests' \|\| guestsViews\.includes\(t\)\);/, 'March is not offered where the event has it');
+  const row = screen.slice(screen.lastIndexOf('<nav', screen.indexOf('aria-label="Guest list views"')), screen.indexOf('aria-label="Guest list views"'));
+  assert.doesNotMatch(row, /\bhidden\b/, 'the view row is hidden at some width — a phone could not reach the March');
   const page = read(GUESTS, 'page.tsx');
-  assert.match(page, /redirect\(detailsItemHref\(eventId, 'march'\)\)/, 'an old ?gview=walk link no longer lands on Details');
+  assert.match(page, /redirect\(guestsViewHref\(eventId, 'march'\)\)/, 'an old ?gview=walk link no longer lands on Guests › March');
   // ⤷ 2026-09-30 (Fix E): the phone carousel was deleted; the phone draws the
   // same head as the computer, so no phone-only link to a march view can exist.
   assert.doesNotMatch(page, /gview:\s*'walk'|gview=walk/, 'the roster links to a march view that no longer exists');

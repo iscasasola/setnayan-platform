@@ -97,7 +97,7 @@ async function requireVendor() {
   return { supabase, profile };
 }
 
-function backToCalendar(formData: FormData, notice: string): never {
+function backToCalendar(formData: FormData, notice: string, block: string | null = null): never {
   const month = str(formData, 'return_month');
   const pool = str(formData, 'return_pool');
   const returnTo = str(formData, 'return_to');
@@ -120,6 +120,19 @@ function backToCalendar(formData: FormData, notice: string): never {
   // is said by the toast. `open` names the fold the form lived in, so it is the
   // one open on return.
   if (returnTo === 'dates') {
+    // ⚙ 2026-10-28 (owner "okay" on `supplier_in_place_2026-10-28`): How many a day, the halls and the schedules moved
+    // into Customers ⚙. A save made there comes back to the view the ⚙ was opened on WITH THE ⚙ STILL OPEN
+    // (`gear=1`), the answer said inside the sheet (`gnotice`) — never a fold that is no longer on Dates.
+    if (str(formData, 'return_fold') === 'capacity') {
+      const seg = str(formData, 'return_seg');
+      const params = new URLSearchParams();
+      if (seg === 'dates' || seg === 'money') params.set('seg', seg);
+      else if (seg !== 'people') params.set('seg', 'dates');
+      if (/^\d{4}-\d{2}$/.test(month) && params.get('seg') === 'dates') params.set('m', month);
+      params.set('gear', '1');
+      params.set('gnotice', notice);
+      redirect(`/vendor-dashboard/customers?${params.toString()}`);
+    }
     const params = new URLSearchParams({ seg: 'dates' });
     if (/^\d{4}-\d{2}$/.test(month)) params.set('m', month);
     const day = str(formData, 'return_date');
@@ -136,7 +149,10 @@ function backToCalendar(formData: FormData, notice: string): never {
   // browser when this shipped — its stub forwards to the same place.
   if (returnTo === 'people') {
     const params = new URLSearchParams({ seg: 'people', notice });
-    redirect(`/vendor-dashboard/customers?${params.toString()}#customers`);
+    // 🔑 The new outside booking, so People opens ITS row with "Send their code" right there (owner 2026-10-28:
+    // the one-time code is "also offered right after Add outside booking").
+    if (block) params.set('block', block);
+    redirect(`/vendor-dashboard/customers?${params.toString()}${block ? '#outside' : '#customers'}`);
   }
 
   const back = returnTo === 'clients' ? 'clients' : 'calendar';
@@ -166,6 +182,17 @@ function revalidateScheduleSurfaces() {
  */
 export async function addManualBlock(formData: FormData): Promise<void> {
   const { supabase, profile } = await requireVendor();
+  /*
+    🧰 IN PLACE (owner 2026-10-28 — Today's setup step 6, "Days you can't take", a save never resets the screen): the
+    same row, but the answer is the call's own — success returns, a refusal THROWS (the row says it did not save) —
+    and nothing redirects, so Today stays exactly where it is while the re-read rail ticks the step. One action, two
+    callers: a second exported action would be one more Vercel route (`lint-server-action-budget`).
+  */
+  const inPlace = str(formData, 'return_to') === 'inplace';
+  const fail = (notice: string): never => {
+    if (inPlace) throw new Error(notice);
+    return backToCalendar(formData, notice);
+  };
 
   const label = str(formData, 'label') || 'Unavailable';
   const scope = str(formData, 'scope'); // 'org' | pool_id
@@ -174,7 +201,7 @@ export async function addManualBlock(formData: FormData): Promise<void> {
   const repeat = asRepeatRule(str(formData, 'repeat_rule'));
   const dayPart = asDayPart(str(formData, 'day_part'));
   if (!DATE_RE.test(startDate) || !DATE_RE.test(endDate) || endDate < startDate) {
-    backToCalendar(formData, 'bad_dates');
+    fail('bad_dates');
   }
 
   let poolId: string | null = null;
@@ -187,32 +214,48 @@ export async function addManualBlock(formData: FormData): Promise<void> {
       .eq('pool_id', scope)
       .eq('vendor_profile_id', profile.vendor_profile_id)
       .maybeSingle();
-    if (!pool) backToCalendar(formData, 'bad_pool');
+    if (!pool) fail('bad_pool');
     poolId = scope;
   }
 
-  // Day-grain PH civil time. All day: 00:00 → 23:30 (30-min granularity CHECK;
-  // 23:30 keeps the ::date overlap on the same civil day). A part of the day:
-  // its hours (evening ends 23:30, the last half-hour the CHECK allows).
-  const [fromHm, toHm] = DAY_PART_STORED[dayPart];
-  const repeats = repeat !== 'once';
-  const lastDay = repeats ? startDate : endDate;
-  const { error } = await supabase.from('vendor_calendar_blocks').insert({
-    vendor_profile_id: profile.vendor_profile_id,
-    pool_id: poolId,
-    blocked_at: `${startDate}T${fromHm}:00+08:00`,
-    blocked_until: `${lastDay}T${toHm}:00+08:00`,
-    block_label: label.slice(0, 120),
-    block_source: 'manual',
-    is_private: true,
-    repeat_rule: repeat,
-    repeat_until: repeats && endDate > startDate ? endDate : null,
-    day_part: dayPart,
-  });
-  if (error) backToCalendar(formData, 'save_failed');
+  const { error } = await insertManualBlock(supabase, profile.vendor_profile_id, { poolId, startDate, endDate, label, repeat, dayPart });
+  if (error) fail('save_failed');
 
   revalidateScheduleSurfaces();
+  if (inPlace) {
+    revalidatePath('/vendor-dashboard');
+    return;
+  }
   backToCalendar(formData, 'block_added');
+}
+
+/**
+ * ONE manual block written — the insert `addManualBlock` makes, shared with Today's setup step so the two can never
+ * write a different row for the same "I can't take this day".
+ *
+ * Day-grain PH civil time. All day: 00:00 → 23:30 (30-min granularity CHECK; 23:30 keeps the ::date overlap on the
+ * same civil day). A part of the day: its hours (evening ends 23:30, the last half-hour the CHECK allows).
+ */
+async function insertManualBlock(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+  b: { poolId: string | null; startDate: string; endDate: string; label: string; repeat: ReturnType<typeof asRepeatRule>; dayPart: ReturnType<typeof asDayPart> },
+) {
+  const [fromHm, toHm] = DAY_PART_STORED[b.dayPart];
+  const repeats = b.repeat !== 'once';
+  const lastDay = repeats ? b.startDate : b.endDate;
+  return supabase.from('vendor_calendar_blocks').insert({
+    vendor_profile_id: vendorProfileId,
+    pool_id: b.poolId,
+    blocked_at: `${b.startDate}T${fromHm}:00+08:00`,
+    blocked_until: `${lastDay}T${toHm}:00+08:00`,
+    block_label: b.label.slice(0, 120),
+    block_source: 'manual',
+    is_private: true,
+    repeat_rule: b.repeat,
+    repeat_until: repeats && b.endDate > b.startDate ? b.endDate : null,
+    day_part: b.dayPart,
+  });
 }
 
 /** The stored hours of each part of the day (PH civil time; the table allows :00/:30 only). */
@@ -280,7 +323,8 @@ export async function importExternalClient(formData: FormData): Promise<void> {
   }
 
   revalidateScheduleSurfaces();
-  backToCalendar(formData, 'client_imported');
+  const newBlock = (data as { block_id?: string } | null)?.block_id ?? null;
+  backToCalendar(formData, 'client_imported', typeof newBlock === 'string' ? newBlock : null);
 }
 
 /** PH civil date (YYYY-MM-DD) of a stored timestamptz (blocks are written in
@@ -302,8 +346,18 @@ function phDate(iso: string): string {
  *  notify there too (a no-waiter date is a cheap no-op). */
 export async function removeBlock(formData: FormData): Promise<void> {
   const { supabase, profile } = await requireVendor();
+  /*
+    🧰 IN PLACE (owner 2026-10-28 — Customers › Dates' "You can take bookings" switch under the picked day; a save
+    never resets the screen): the same delete, but the answer is the call's own — success returns, a refusal THROWS —
+    and nothing redirects, so the month and the picked day stay. `addManualBlock`'s twin; one action, two callers.
+  */
+  const inPlace = str(formData, 'return_to') === 'inplace';
+  const fail = (notice: string): never => {
+    if (inPlace) throw new Error(notice);
+    return backToCalendar(formData, notice);
+  };
   const blockId = str(formData, 'block_id');
-  if (!blockId) backToCalendar(formData, 'save_failed');
+  if (!blockId) fail('save_failed');
 
   // Snapshot the freed date range before the row disappears.
   const { data: blockRow } = await supabase
@@ -319,7 +373,7 @@ export async function removeBlock(formData: FormData): Promise<void> {
     .eq('block_id', blockId)
     .eq('vendor_profile_id', profile.vendor_profile_id)
     .in('block_source', ['manual', 'external_client']);
-  if (error) backToCalendar(formData, 'save_failed');
+  if (error) fail('save_failed');
 
   const range = blockRow as { blocked_at: string; blocked_until: string; repeat_rule?: string; repeat_until?: string | null; day_part?: string } | null;
   if (range) {
@@ -340,6 +394,7 @@ export async function removeBlock(formData: FormData): Promise<void> {
   }
 
   revalidateScheduleSurfaces();
+  if (inPlace) return;
   backToCalendar(formData, 'block_removed');
 }
 

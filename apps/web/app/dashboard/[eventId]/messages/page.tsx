@@ -8,6 +8,13 @@
  * Booked pill; newest first; one search on top; a tap opens the One Chat Box
  * (`messages/[threadId]`, untouched). Archived stays folded below.
  *
+ * 2026-10-28 · MESSENGER-SHAPED (chat prototype frame A; owner "look and feel like Messenger", "thumb bar",
+ * "search will always be the same", "i want isolation per event", "users can only chat a supplier inside an
+ * event"): the list is `ChatInbox` — big title, All · Unread · Suppliers, frameless rows that each carry their event
+ * line, and the ONE search in the frosted thumb row with ✎ beside it. ✎ opens "Message a supplier": THIS event's
+ * suppliers only (`StartThreadPicker` rows → the shipped `contactShortlistVendor`). The `?q=` server search is gone —
+ * the field filters the rows already here (`lib/chat-inbox-search.ts`, the seam message-text search will use).
+ *
  * Nothing new is stored or computed here: the rows are the SAME
  * `buildCoupleConversationRows` the thread page's left column builds (stage,
  * last line), the service tag is the same `interestLabeller`, and unread is
@@ -16,7 +23,7 @@
  */
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { MessageSquare, Plus, Search } from 'lucide-react';
+import { MessageSquare, Plus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
@@ -25,9 +32,8 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ThreadListAvatar } from '@/app/_components/chat/thread-list-card';
 import { ThreadArchiveToggle } from '@/app/_components/chat/thread-archive-toggle';
-import { resolveVendorDisplayName, isVendorNameRevealed } from '@/lib/vendors';
-import { isTrueNameTier } from '@/lib/vendor-tier-caps';
-import { buildCoupleConversationRows, matchesSearch, type ConversationRow } from '@/lib/conversation-list';
+import { nameForThread, readCoupleThreadSupplierNames } from '@/lib/chat-supplier-names';
+import { buildCoupleConversationRows, type ConversationRow } from '@/lib/conversation-list';
 import { interestLabeller } from '@/lib/thread-interest-labels.server';
 import { coupleUnreadCount, isActiveInboxThread, readCoupleUnread } from '@/lib/couple-inbox';
 import { startThreadByVendorEmail } from './actions';
@@ -36,6 +42,8 @@ import { formatCount } from '@/lib/format-number';
 import { findDoorHref } from '@/lib/suppliers-shell';
 import { teamPicksForMessages, type TeamProfile, type TeamRow } from '@/lib/messages-team-picker';
 import { StartThreadPicker } from './_components/start-thread-picker';
+import { ChatInbox, type InboxRow } from './_components/chat-inbox';
+import { formatLongDate } from '@/lib/format-date';
 
 export const metadata = { title: 'Chats' };
 
@@ -44,7 +52,6 @@ type Props = {
   searchParams: Promise<{
     error?: string;
     prefill_vendor_email?: string;
-    q?: string;
   }>;
 };
 
@@ -57,6 +64,7 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
 
   // Newest first — `fetchCoupleThreads` orders by updated_at desc.
   const threads = await fetchCoupleThreads(supabase, eventId);
+  const namesRead = readCoupleThreadSupplierNames(supabase, eventId);
   const threadIds = threads.map((t) => t.thread_id);
   const returnTo = `/dashboard/${eventId}/messages`;
 
@@ -66,6 +74,8 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
   // 🔴 AN UNREAD TEAM IS NOT AN EMPTY TEAM. A refused read must not tell a
   // couple with five suppliers to "add a supplier first" — `teamReadFailed`
   // reaches the render and says what actually happened.
+  // The event line every row carries (owner 2026-10-28, "i want isolation per event") — its name and date.
+  const eventRowRead = supabase.from('events').select('display_name, event_date').eq('event_id', eventId).maybeSingle();
   const teamRes = await supabase
     .from('event_vendors')
     .select('vendor_id, marketplace_vendor_id')
@@ -93,7 +103,7 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
     logQueryError('CoupleMessagesPage.teamNames', profRes.error, { event_id: eventId }, 'graceful_degrade');
   }
   const teamReadFailed = Boolean(teamRes.error);
-  const team = teamPicksForMessages(teamRows, (profRes.data ?? []) as TeamProfile[]);
+  const team = teamPicksForMessages(teamRows, (profRes.data ?? []) as TeamProfile[], (await namesRead).byShop);
 
   // Viber-style archive split (Data Retention Schedule 2026-07-11). Archiving
   // deletes nothing; displaced and removed threads fold into Archived too.
@@ -145,38 +155,20 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
   }
 
   // 🔒 Anonymity-aware name AND logo (CLAUDE.md 2026-05-30 row · Data Flow Map
-  // audit gap #6): one resolver for the label, the SAME reveal predicate for the
-  // logo, so they can never drift. Pre-reveal the avatar is initials.
+  // audit gap #6) — read through `couple_thread_supplier_names`, NOT the thread's
+  // `vendor_profiles` embed. The embed is a read under the couple's RLS, which
+  // refuses every shop that is not public + verified; the page then printed
+  // 'Supplier' for that NULL (owner, live, 2026-10-28: "the 1 supplier is not
+  // named on chat"). The function answers for every thread, sends the real name
+  // and logo only once revealed, and the label is the same
+  // `resolveVendorDisplayName` (lib/chat-supplier-names.ts). A failed read says so.
+  const supplierNames = await namesRead;
   const displayNames = new Map<string, string>();
   const logoByVendor = new Map<string, string | null>();
   for (const t of threads) {
-    const v = t.vendor;
-    const isPaidTier = isTrueNameTier(v?.tier_state ?? null);
-    const isVerified = v?.verification_state === 'verified';
-    displayNames.set(
-      t.vendor_profile_id,
-      v
-        ? resolveVendorDisplayName({
-            business_name: v.business_name ?? null,
-            name_revealed_at: v.name_revealed_at ?? null,
-            services: v.services ?? null,
-            screen_name: v.screen_name ?? null,
-            isPaidTier,
-            is_verified: isVerified,
-            primary_canonical_service: v.services?.[0] ?? null,
-            location_city: v.location_city ?? null,
-          })
-        : 'Supplier',
-    );
-    const revealed = v
-      ? isVendorNameRevealed({
-          name_revealed_at: v.name_revealed_at ?? null,
-          isPaidTier,
-          is_verified: isVerified,
-          services: v.services ?? null,
-        })
-      : false;
-    logoByVendor.set(t.vendor_profile_id, revealed ? v?.logo_url ?? null : null);
+    const label = nameForThread(supplierNames, t.thread_id);
+    displayNames.set(t.vendor_profile_id, label.name);
+    logoByVendor.set(t.vendor_profile_id, label.logoUrl);
   }
 
   const rows = await buildCoupleConversationRows({
@@ -197,146 +189,116 @@ export default async function CoupleMessagesPage({ params, searchParams }: Props
   const rowById = new Map(rows.map((r) => [r.threadId, r]));
   const vendorOf = new Map(threads.map((t) => [t.thread_id, t.vendor_profile_id]));
 
-  const q = (search.q ?? '').trim().slice(0, 80);
-  const shown = (list: typeof threads) =>
-    list
-      .map((t) => rowById.get(t.thread_id))
-      .filter((r): r is ConversationRow => r != null && matchesSearch(r, q));
-
   // The SAME count the Suppliers header's badge shows.
   const unreadCount = coupleUnreadCount(unread, threads);
 
-  const renderRow = (r: ConversationRow, archived: boolean) => {
-    const vendorId = vendorOf.get(r.threadId) ?? '';
-    const booked = r.stage === 'booked' || r.stage === 'completed';
-    return (
-      <li key={r.threadId} className="flex items-center gap-1 border-t border-ink/10" data-inbox-row={r.unread ? 'unread' : 'read'}>
-        <Link href={`/dashboard/${eventId}/messages/${r.threadId}`} className="flex min-w-0 flex-1 items-center gap-3 py-3">
-          <ThreadListAvatar logoUrl={logoByVendor.get(vendorId) ?? null} name={r.displayName} />
-          <span className="min-w-0 flex-1">
-            <span className="flex items-baseline gap-2">
-              <span className={`min-w-0 flex-1 truncate text-[15px] text-ink ${r.unread ? 'font-semibold' : 'font-medium'}`}>
-                {r.displayName}
-              </span>
-              <span className="shrink-0 text-[12px] text-ink/50">{r.timeLabel}</span>
-            </span>
-            <span className="flex items-center gap-2 text-[12.5px] text-ink/55">
-              {r.labels[0] ? <span className="truncate">{r.labels[0]}</span> : null}
-              {booked ? (
-                <span className="shrink-0 rounded-full bg-ink/5 px-2 py-0.5 text-[11px] font-medium text-ink/60">
-                  Booked
-                </span>
-              ) : null}
-            </span>
-            <span className="flex items-center gap-2">
-              <span className={`min-w-0 flex-1 truncate text-[13.5px] ${r.unread ? 'font-semibold text-ink' : 'text-ink/60'}`}>
-                {r.preview}
-              </span>
-              {r.unread ? (
-                <span aria-label="Unread" className="h-2.5 w-2.5 shrink-0 rounded-full bg-mulberry" />
-              ) : null}
-            </span>
-          </span>
-        </Link>
-        <ThreadArchiveToggle threadId={r.threadId} returnTo={returnTo} archived={archived} />
-      </li>
-    );
-  };
+  const eventRes = await eventRowRead;
+  if (eventRes.error) {
+    logQueryError('CoupleMessagesPage.event', eventRes.error, { event_id: eventId }, 'graceful_degrade');
+  }
+  const ev = (eventRes.data ?? null) as { display_name?: string | null; event_date?: string | null } | null;
+  // Short, beside the supplier's name (frame L): "Dec 18 · Ana & Miguel". The sheet's scope line uses the long date.
+  const eventLine = [
+    ev?.event_date
+      ? new Date(`${ev.event_date.slice(0, 10)}T00:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
+      : null,
+    ev?.display_name?.trim() || null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  const eventLineLong = [ev?.event_date ? formatLongDate(ev.event_date) : null, ev?.display_name?.trim() || null]
+    .filter(Boolean)
+    .join(' · ');
 
-  const activeRows = shown(activeThreads);
-  const archivedRows = shown(archivedThreads);
+  const archivedIds = new Set(archivedThreads.map((t) => t.thread_id));
+  const toInboxRow = (r: ConversationRow): InboxRow => {
+    const vendorId = vendorOf.get(r.threadId) ?? '';
+    const archivedRow = archivedIds.has(r.threadId);
+    return {
+      threadId: r.threadId,
+      href: `/dashboard/${eventId}/messages/${r.threadId}`,
+      name: r.displayName,
+      logoUrl: logoByVendor.get(vendorId) ?? null,
+      preview: r.preview,
+      timeLabel: r.timeLabel,
+      unread: r.unread,
+      eventLine,
+      archived: archivedRow,
+      archive: <ThreadArchiveToggle threadId={r.threadId} returnTo={returnTo} archived={archivedRow} />,
+    };
+  };
+  const inboxRows = [...activeThreads, ...archivedThreads]
+    .map((t) => rowById.get(t.thread_id))
+    .filter((r): r is ConversationRow => r != null)
+    .map(toInboxRow);
 
   return (
-    <section className="mx-auto w-full max-w-2xl space-y-4">
+    <section className="mx-auto w-full max-w-2xl">
       <PageMasthead title="Chats" />
-      <header>
-        <h2 aria-hidden className="font-display text-[28px] leading-none text-ink">
+      <header className="mb-1">
+        <h2 aria-hidden className="font-display text-[30px] font-semibold leading-tight text-ink">
           Chats
         </h2>
         {unreadCount ? (
-          <p className="mt-1 text-[13px] text-ink/60" data-inbox-unread={unreadCount}>
+          <p className="sr-only" data-inbox-unread={unreadCount}>
             {formatCount(unreadCount)} unread
           </p>
         ) : null}
       </header>
 
       {search.error ? (
-        <p role="alert" className="rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700">
+        <p role="alert" className="mb-3 rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta">
           {search.error}
         </p>
       ) : null}
 
-      {threads.length > 0 ? (
-        <form method="get" action={returnTo} role="search">
-          <label className="flex items-center gap-2 rounded-md border border-ink/15 bg-paper px-3 py-2">
-            <Search className="h-4 w-4 shrink-0 text-ink/45" aria-hidden />
-            <input
-              name="q"
-              defaultValue={q}
-              placeholder="Search a supplier or a message"
-              className="min-w-0 flex-1 bg-transparent text-[15px] text-ink outline-none placeholder:text-ink/40"
-            />
-          </label>
-        </form>
-      ) : null}
-
-      {threads.length === 0 ? (
-        <div className="py-10 text-center">
-          <MessageSquare aria-hidden className="mx-auto mb-2 h-6 w-6 text-ink/30" strokeWidth={1.5} />
-          <p className="text-sm font-medium text-ink">No chats yet.</p>
-          <p className="mx-auto mt-1 max-w-md text-xs text-ink/60">
-            Pick one of your suppliers below, or tap Ask for a quote on a supplier&rsquo;s page.
-          </p>
-          <div className="mt-4">
-            <Link href={findDoorHref(eventId)} className="button-secondary">
-              Find a supplier
-            </Link>
-          </div>
-        </div>
-      ) : (
-        <>
-          {activeRows.length > 0 ? (
-            <ul>{activeRows.map((r) => renderRow(r, false))}</ul>
-          ) : (
-            <p className="py-6 text-center text-sm text-ink/60">
-              {q ? `No chat matches “${q}”.` : 'No active chats — everything’s in Archived below.'}
+      <ChatInbox
+        rows={inboxRows}
+        viewerId={user.id}
+        empty={
+          <div className="py-10 text-center">
+            <MessageSquare aria-hidden className="mx-auto mb-2 h-6 w-6 text-ink/30" strokeWidth={1.5} />
+            <p className="text-sm font-medium text-ink">No chats yet.</p>
+            <p className="mx-auto mt-1 max-w-md text-xs text-ink/60">
+              Tap ✎ to message one of this event&rsquo;s suppliers, or Ask for a quote on a supplier&rsquo;s page.
             </p>
-          )}
+            <div className="mt-4">
+              <Link href={findDoorHref(eventId)} className="button-secondary">
+                Find a supplier
+              </Link>
+            </div>
+          </div>
+        }
+        newMessage={
+          <>
+            <p className="mb-2 mt-1 text-[13px] text-ink/60" data-new-message-scope="">
+              {eventLineLong ? `${eventLineLong} — ` : ''}this event&rsquo;s suppliers only
+            </p>
+            {teamReadFailed ? (
+              <p role="alert" className="text-sm text-ink/70">
+                We couldn&rsquo;t load your suppliers just now &mdash; this does not mean it is
+                empty. Reload in a moment.
+              </p>
+            ) : team.length > 0 ? (
+              <StartThreadPicker eventId={eventId} team={team} variant="rows" />
+            ) : (
+              <p className="text-sm text-ink/70">
+                None of your suppliers can be messaged yet. Add one from Setnayan to{' '}
+                <Link
+                  href={`/dashboard/${eventId}/vendors`}
+                  className="font-medium text-sn-accent underline underline-offset-2"
+                >
+                  Suppliers
+                </Link>{' '}
+                and you can message them from here.
+              </p>
+            )}
+          </>
+        }
+      />
 
-          {archivedRows.length > 0 ? (
-            <details>
-              <summary className="cursor-pointer list-none py-3 text-[13px] font-medium text-ink/60 hover:text-ink">
-                Archived · <span className="font-mono">{archivedRows.length}</span>
-              </summary>
-              <ul>{archivedRows.map((r) => renderRow(r, true))}</ul>
-            </details>
-          ) : null}
-        </>
-      )}
-
-      {/* Start a conversation — from the suppliers on Your Team (#6179), folded
-          to the bottom of the inbox (#6234). */}
-      <section className="sn-tile p-5">
-        <h2 className="sn-eye mb-3">Start a conversation</h2>
-        {teamReadFailed ? (
-          <p role="alert" className="text-sm text-ink/70">
-            We couldn&rsquo;t load your suppliers just now &mdash; this does not mean it is
-            empty. Reload in a moment.
-          </p>
-        ) : team.length > 0 ? (
-          <StartThreadPicker eventId={eventId} team={team} />
-        ) : (
-          <p className="text-sm text-ink/70">
-            None of your suppliers can be messaged yet. Add one from Setnayan to{' '}
-            <Link
-              href={`/dashboard/${eventId}/vendors`}
-              className="font-medium text-mulberry underline underline-offset-2"
-            >
-              Suppliers
-            </Link>{' '}
-            and you can message them from here.
-          </p>
-        )}
+      {/* ✎ "Message a supplier" (the thumb row) replaced the "Start a conversation" tile (#6179/#6234). */}
+      <section>
         {/* The old email box, kept for ONE arrival only: the budget card's
             Message link for a supplier the couple typed in by hand carries the
             address THEY typed (`prefill_vendor_email` — never a Setnayan shop's,

@@ -754,6 +754,11 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     why: 'Which admin last swapped a homepage clip. Six seeded rows of marketing config.',
   },
   {
+    table: 'shop_papic_wallet_entries',
+    column: 'created_by',
+    why: 'Who pressed a shop-wallet spend or wrote an admin credit row. The ledger is the SHOP’s money record (owner 2026-10-23, option A) and stays; the stamp goes.',
+  },
+  {
     table: 'hub_music_tracks',
     column: 'created_by',
     why: 'Which admin uploaded an Event Hub music track. The track is Setnayan’s own catalogue and stays; the stamp goes.',
@@ -1311,6 +1316,11 @@ export const OWN_ROW_DELETES: ReadonlyArray<{
     table: 'chat_thread_reads',
     column: 'user_id',
     why: 'The subject’s own read cursors. Pseudonymous, no counterparty value — the thread itself is untouched.',
+  },
+  {
+    table: 'samahan_reads',
+    column: 'user_id',
+    why: 'The subject’s own group read markers (group unread, 2026-10-28). No counterparty value — the group and its messages are untouched. CASCADE + NOT NULL as well.',
   },
   {
     table: 'guest_saved_vendors',

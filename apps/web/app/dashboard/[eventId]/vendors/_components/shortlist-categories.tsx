@@ -119,6 +119,7 @@ import {
 import { isExploreReplanEnabled } from '@/lib/explore-replan-flag';
 import { benchFolderAnchorId, benchTileAnchorId, scrollBenchAnchor } from '@/lib/bench-anchors';
 import { dropPinRoom, makeRoomToPin } from '@/lib/pin-room';
+import { holdLandingLine, measureOpenHeads } from '@/lib/pin-landing';
 import { usePublishCoverRing, useCoverHeaderOwnsTheCount } from './cover-ring';
 import { benchSearchScopeForTile } from '@/lib/bench-category-search';
 import { CategorySearchOverlay } from './category-search-overlay';
@@ -269,6 +270,7 @@ import {
   saveCategoryRequirements,
 } from '../requirements-actions';
 import { countNoun, formatCount } from '@/lib/format-number';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 const SLCAT_CSS = `
 .slcat{--paper:var(--m-paper,#FBFBFA);--ink:var(--m-ink,#1B1A17);--ink-soft:#4F535B;
@@ -3387,11 +3389,24 @@ export function ShortlistCategories({
       land();
     };
     row?.addEventListener('transitionend', settle);
+    // 📌 THE LINE MOVES BECAUSE OF THE LANDING (owner 2026-10-29, "it made the service card not placed properly"): a
+    // landing that scrolls up brings the phone's top bar back, `--stick-h` grows, and the head pinned over its own first
+    // card. The landing holds its line until the person scrolls (`lib/pin-landing.ts`).
+    const release = holdLandingLine(benchRef.current?.closest<HTMLElement>('[data-budget-build-takeover]') ?? null, land, {
+      row,
+      holder: benchRef.current,
+    });
     return () => {
       cancelAnimationFrame(frame);
       row?.removeEventListener('transitionend', settle);
+      release();
     };
   }, [landing]);
+  // Each open category carries its own head's height (`--cat-head-h`), so a card scrolled to lands under the head.
+  useEffect(
+    () => measureOpenHeads(benchRef.current, '.cat.open', ':scope > .cat-head-row'),
+    [openTile, openAll, folded],
+  );
   // Nothing open → no room held: the page is its own length again.
   useEffect(() => {
     if (!openTile && !openAll) dropPinRoom(benchRef.current);
@@ -4530,12 +4545,7 @@ export function ShortlistCategories({
             role="status"
             aria-label={`Loading your saved request for ${reqTarget.label}`}
           >
-            <button
-              type="button"
-              aria-label="Close"
-              onClick={closeReqModal}
-              className="absolute inset-0 bg-ink/40 backdrop-blur-sm"
-            />
+            <OverlayBackdrop onClose={closeReqModal} />
             <div className="relative z-10 flex w-full items-center justify-center rounded-t-3xl border border-ink/10 bg-cream px-5 py-10 tab:w-full tab:max-w-lg tab:rounded-2xl">
               <span
                 className="h-6 w-6 animate-spin rounded-full border-2 border-mulberry border-t-transparent"

@@ -47,10 +47,18 @@ test('no page of the four tabs keeps a slab of its own (xl:max-w-7xl · 2xl:max-
   }
 });
 
-test('Today reads — every render path is the 48-rem column, and the first screen fills it', () => {
+test('Today reads — every side path is the 48-rem column; the working Today fills the frame with its two columns', () => {
   const cols = columns(read('page.tsx'));
   assert.ok(cols.length >= 4, `read ${cols.length} Today columns — the four render paths each carry one`);
-  for (const c of cols) assert.match(c, /\btab:max-w-3xl\b/, `a Today column is not the reading column: "${c}"`);
+  /*
+    🖥 v13 (owner "Approved.", 2026-10-29): the working Today is the TWO COLUMNS from 701 — the lists left, the opened row
+    right (`SupplierOpenScope` in `TodayCounts`) — so its one column gives up the 48-rem cap there (`tab:max-w-none`), as
+    Customers › People does. Every other render path (the team member's landing, the unavailable page) still reads.
+  */
+  const wide = cols.filter((c) => /\btab:max-w-none\b/.test(c));
+  assert.equal(wide.length, 1, `exactly the working Today fills the frame — found ${wide.length}: ${wide.join(' | ')}`);
+  for (const c of cols.filter((x) => !wide.includes(x))) assert.match(c, /\btab:max-w-3xl\b/, `a Today side path is not the reading column: "${c}"`);
+  assert.match(read('_components/today-counts.tsx'), /<SupplierOpenScope name="today"/, 'the working Today lost its two columns');
   // The first screen kept its phone 36 rem below 701 and gives it up from 701, so the measure IS the column.
   assert.match(
     read('_components/supplier-today-first-screen.tsx'),
@@ -75,8 +83,10 @@ test('Hub reads', () => {
 
 test('Customers — People and Dates are the wide stage, Money reads, and the folds below take the same measure', () => {
   const src = read('customers/page.tsx');
-  const col = /className=\{`mx-auto w-full max-w-3xl [^`]*\$\{seg === 'money' \? 'tab:max-w-3xl' : 'tab:max-w-5xl'\}`\}\s*data-customers-seg-open=\{seg\}/.exec(src);
-  assert.ok(col, 'the Customers column no longer picks 48 rem for Money and 64 rem for People · Dates');
+  // 2026-10-29 (owner, "remember to always maximize the screen use"): People takes the whole width from a tablet up
+  // (list + side panel at lg); Dates keeps the wide stage, Money the reading column.
+  const col = /className=\{`mx-auto w-full max-w-3xl [^`]*\$\{seg === 'money' \? 'tab:max-w-3xl' : seg === 'people' \? 'tab:max-w-none' : 'tab:max-w-5xl'\}`\}\s*data-customers-seg-open=\{seg\}/.exec(src);
+  assert.ok(col, 'the Customers column no longer picks 48 rem for Money, 64 rem for Dates and the full width for People');
   assert.doesNotMatch(col![0], /\blg:max-w-/, 'a second (lg) cap fights the system measure');
   assert.match(src, /<FeatureAccordion sections=\{sections\} openKey=\{open\} measure=\{seg === 'money' \? 'reading' : 'wide'\}>/);
   const acc = read('_components/feature-accordion.tsx');

@@ -23,12 +23,18 @@ const BAR_CSS =
   'font-size:14px;font-weight:600;letter-spacing:.18em;color:#A9834B;background:rgba(255,255,255,.55);' +
   '-webkit-backdrop-filter:blur(18px) saturate(1.4);backdrop-filter:blur(18px) saturate(1.4);' +
   'border-bottom:1px solid rgba(26,26,26,.1);transition:transform .3s ease-out}' +
-  '@media (max-width:767.98px){.sl-lab-bar[data-hidden="true"]{transform:translateY(-100%)}}';
+  // Slid away where the REAL bar is (`front-door.css`: below 1024, except the event tree's 701–1023 tab band) —
+  // it was `max-width:767.98px`, which no real page has.
+  '@media (max-width:700.98px){.sl-lab-bar[data-hidden="true"]{transform:translateY(-100%)}}';
 
 export function SuppliersLabStage({ children }: { children: ReactNode }) {
   const hidden = useHideOnScroll(true);
   return (
-    <div className="sn-ambient min-h-screen">
+    // 🪤 THE APP'S OWN TWO ATTRIBUTES. `shellBarShows` (`use-shell-bar-offset.ts`) reads `[data-chrome='app']` and
+    // `[data-boundary='tab']` to know whether a `data-hidden` bar is really off screen. Without them the lab's bar
+    // counted as SHOWING while it was slid away, so `--sup-top` never dropped to 0 here as it does on a phone — and
+    // the opened category's head never moved the way the owner saw it move (2026-10-29).
+    <div className="sn-ambient min-h-screen" data-chrome="app" data-boundary="tab">
       <style>{BAR_CSS}</style>
       <div className="shell-topbar sl-lab-bar" data-hidden={hidden ? 'true' : 'false'} data-lab-bar="">
         SETNAYAN

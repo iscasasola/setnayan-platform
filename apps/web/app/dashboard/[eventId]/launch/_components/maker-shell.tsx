@@ -103,6 +103,7 @@ import { studioTileItem, type StudioTileKey } from '@/lib/studio-tile-defs';
 import type { StudioTileModel } from '@/lib/studio-tiles';
 import { BookOpen, ClipboardList, Info, PanelsTopLeft, RotateCcw, Undo, Users } from 'lucide-react';
 import { keyboardIsOpen, readKeyboard, subscribeKeyboard } from '@/lib/keyboard-ride';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 /**
  * THE EVENT HUB MAKER — the full-screen shell (Phase 1 of
@@ -1399,13 +1400,9 @@ function MoreSheet({ open, onClose, children }: { open: boolean; onClose: () => 
   useMakerTool(open, { key: 'more', name: 'Your Event Hub', close: onClose });
   return (
     <div hidden={!open} className="lg:absolute lg:inset-0 lg:z-40">
-      <button
-        type="button"
-        aria-label="Close"
-        onClick={onClose}
-        /* The dimmed page behind the desktop's side sheet — a desktop's only. */
-        className="hidden h-full w-full cursor-default bg-ink/25 backdrop-blur-[2px] lg:absolute lg:inset-0 lg:block"
-      />
+      {/* The dimmed page behind the desktop's side sheet — a desktop's only, inside the Maker's frame (absolute). The
+          one scrim (`<OverlayBackdrop>`): the same dark and blur as every other pop-up (owner 2026-10-29). */}
+      <OverlayBackdrop onClose={onClose} className="hidden lg:absolute lg:block" />
       <aside
         ref={sheetRef}
         hidden={!open}

@@ -44,7 +44,6 @@ const COUPLE = 'app/dashboard/[eventId]/messages/[threadId]/page.tsx';
 const VENDOR = 'app/vendor-dashboard/messages/[threadId]/page.tsx';
 const BOX = 'app/_components/chat/chat-box.tsx';
 const PANEL = 'app/_components/chat/thread-tool-panel.tsx';
-const BUTTON = 'app/_components/chat/reveal-tool-button.tsx';
 const SEND = 'app/_components/chat-send-form.tsx';
 const NOTICE = 'app/_components/chat-privacy-notice.tsx';
 const VIEWS = 'app/_components/chat-thread-views.tsx';
@@ -58,7 +57,7 @@ const PAGES = [
 const count = (s: string, re: RegExp) => (s.match(re) ?? []).length;
 
 test('the scan reads every file (an empty read is a green lie)', () => {
-  for (const rel of [COUPLE, VENDOR, BOX, PANEL, BUTTON, SEND, NOTICE, VIEWS, STREAM]) {
+  for (const rel of [COUPLE, VENDOR, BOX, PANEL, SEND, NOTICE, VIEWS, STREAM]) {
     assert.ok(read(rel).length > 500, `${rel} read as too short — the scan is not reading it`);
   }
 });
@@ -76,12 +75,12 @@ test('every composer icon opens a panel the tool list knows', () => {
     }
     assert.ok(panelIds.has(affordancePanelId(key)), `${key} does not end on a panel`);
   }
-  // The call icon lands on the Voice button, and falls back to the panel.
-  assert.deepEqual([...affordanceReveal('call')], ['thread-call-voice', 'thread-call']);
+  // 📵 2026-10-28 (owner: "remove both voice and video call") — the deal is the ONLY affordance; no call key.
+  assert.deepEqual(Object.keys(CHAT_BOX_AFFORDANCES), ['deal']);
   assert.deepEqual([...affordanceReveal('deal')], ['deal-or-meeting']);
 });
 
-test("the couple's panels are the shared two, taken from the supplier's list — no second spelling", () => {
+test("the couple's panels are the shared one, taken from the supplier's list — no second spelling", () => {
   assert.deepEqual(
     COUPLE_THREAD_PANELS.map((p) => p.id),
     [...SHARED_THREAD_PANEL_IDS],
@@ -92,11 +91,8 @@ test("the couple's panels are the shared two, taken from the supplier's list —
   // Both are reachable from the supplier's rail as well (one mechanism, two doors).
   const reached = new Set(VENDOR_THREAD_TOOLS.flatMap((t) => (t.reveal ? [...t.reveal] : [])));
   for (const id of SHARED_THREAD_PANEL_IDS) assert.ok(reached.has(id), `no rail launcher reaches ${id}`);
-  // And the two icons cover exactly the two shared panels.
-  assert.deepEqual(
-    new Set([affordancePanelId('deal'), affordancePanelId('call')]),
-    new Set(SHARED_THREAD_PANEL_IDS),
-  );
+  // And the one affordance covers exactly the shared panel.
+  assert.deepEqual(new Set([affordancePanelId('deal')]), new Set(SHARED_THREAD_PANEL_IDS));
 });
 
 /* ── 2 · both pages: one frame, everything inside it ────────────────────── */
@@ -133,22 +129,19 @@ test('the stream is flush inside the frame — no card inside the card', () => {
   assert.match(stream, /flush \? '[^']+' : '[^']*rounded-xl border[^']*'/);
 });
 
-test('the call launcher and the deal menu are tool panels, not cards of their own', () => {
+test('the deal menu is a tool panel, not a card of its own — and no call launcher mounts (📵 2026-10-28)', () => {
   for (const [rel, name] of PAGES) {
     const s = read(rel);
     const a = s.indexOf('const toolNodes');
     const b = s.indexOf('\n  };', a);
     assert.ok(a > 0 && b > a, `${name}: no toolNodes object`);
     const nodes = s.slice(a, b);
-    for (const [what, re] of [
-      ['ThreadCallLauncher', /<ThreadCallLauncher\b/g],
-      ['NegotiationComposerMenu', /<NegotiationComposerMenu\b/g],
-    ] as const) {
+    for (const [what, re] of [['NegotiationComposerMenu', /<NegotiationComposerMenu\b/g]] as const) {
       assert.equal(count(s, re), 1, `${name}: ${what} mounted ${count(s, re)} times`);
       assert.equal(count(nodes, re), 1, `${name}: ${what} is mounted outside toolNodes — a card again`);
     }
     assert.match(nodes, /<NegotiationComposerMenu\s+embedded\b/, `${name}: the deal menu is not embedded`);
-    assert.equal(count(s, /buttonIdPrefix="thread-call"/g), 1, `${name}: the call buttons mint no ids`);
+    assert.equal(count(s, /<ThreadCallLauncher\b/g), 0, `${name}: a call launcher is mounted in the chat again`);
     for (const id of SHARED_THREAD_PANEL_IDS) {
       assert.ok(nodes.includes(`'${id}':`), `${name}: no body for panel ${id}`);
     }
@@ -162,52 +155,56 @@ test('the call launcher and the deal menu are tool panels, not cards of their ow
       /open=\{\s*\(?t\.id === affordancePanelId\('deal'\) && composeMode === 'deal'\)?\s*(\}|\|\|)/,
       `${name}: ?compose=deal does not open the panel`,
     );
-    assert.equal(count(s, /<ThreadToolHashReveal\s*\/>/g), 1, `${name}: nothing honours a #panel hash`);
+    // The hash opener is in the ONE thread frame both pages return (`ChatThreadFrame`, 2026-10-29).
+    assert.match(s, /<ChatThreadFrame\b/, `${name}: the page does not return the one thread frame`);
+    assert.equal(count(s + read('app/_components/chat/chat-thread-frame.tsx'), /<ThreadToolHashReveal\s*\/>/g), 1, `${name}: nothing honours a #panel hash`);
   }
   assert.match(read(COUPLE), /COUPLE_THREAD_PANELS\.filter\(/, "the couple's tray is not drawn from the shared list");
   assert.equal(count(read(VENDOR), /VENDOR_THREAD_PANELS\.map\(/g), 1);
 });
 
-test('the composer row carries the deal and call icons (couple) · the one grey ＋ (supplier), and nothing else new', () => {
-  // The couple's row: attach · message · 🧾 · 📞 · send — unchanged.
-  {
-    const s = read(COUPLE);
-    const a = s.indexOf('accessories={');
-    assert.ok(a > 0, 'couple: the composer has no accessories');
-    const b = s.indexOf('</>', a);
-    const row = s.slice(a, b);
-    assert.equal(count(row, /<RevealToolButton affordance="deal"/g), 1, 'couple: no deal icon on the row');
-    assert.equal(count(row, /<RevealToolButton affordance="call"/g), 1, 'couple: no call icon on the row');
-    // Two icons on the row, and none anywhere else — the row is at its ceiling.
-    assert.equal(count(s, /<RevealToolButton\b/g), 2, `couple: ${count(s, /<RevealToolButton\b/g)} RevealToolButtons (expected 2)`);
+test('ONE ＋ on each side opens every tool — no icon beside it, the paperclip is the sheet\'s Share a file (2026-10-28)', () => {
+  // Chat prototype frame B: ＋ · 📷 · 🖼 · message · send, on BOTH sides. The ＋ opens the side's sheet (frames C, D);
+  // the 🧾 / 📞 icons are gone; the file input stays, by id, so the sheet's "Share a file" opens the same picker.
+  for (const [rel, name, sheet] of [
+    [COUPLE, 'couple', /lead=\{<CoupleThreadToolsSheet\b/g],
+    [VENDOR, 'supplier', /lead=\{<ThreadToolsSheet\b/g],
+  ] as const) {
+    const s = read(rel);
+    assert.equal(count(s, /<RevealToolButton\b/g), 0, `${name}: a composer icon is back beside the ＋ — two doors to one list`);
+    assert.equal(count(s, /accessories=\{/g), 0, `${name}: the composer carries accessories again`);
+    assert.equal(count(s, sheet), 1, `${name}: the ＋ is not the composer's lead`);
+    assert.equal(count(s, /attachInputId=\{CHAT_ATTACH_INPUT_ID\}/g), 1, `${name}: the attach input lost the id its sheet row opens`);
   }
-  // The supplier's row (simpler supplier dashboard step 4, 2026-10-14): ＋ · message · Send. The ＋ opens ONE sheet of
-  // every tool; the 🧾 / 📞 icons and the paperclip button moved into it (the file input stays, by id).
-  {
-    const s = read(VENDOR);
-    assert.equal(count(s, /<RevealToolButton\b/g), 0, 'supplier: a composer icon is back beside the ＋ — two doors to one list');
-    assert.equal(count(s, /accessories=\{/g), 0, 'supplier: the composer carries accessories again');
-    assert.equal(count(s, /lead=\{<ThreadToolsSheet\b/g), 1, 'supplier: the ＋ is not the composer\'s lead');
-    assert.equal(count(s, /attachInputId=\{CHAT_ATTACH_INPUT_ID\}/g), 1, 'supplier: the attach input lost the id its sheet row opens');
-  }
-  const btn = read(BUTTON);
-  assert.match(btn, /type="button"/, 'a reveal button that is not type=button would submit the send form');
-  assert.doesNotMatch(btn, /<form\b/, 'a form inside the send form is a nested form');
-  assert.match(btn, /h-11 w-11/, 'the tap target dropped below 44px');
   const send = read(SEND);
-  assert.match(send, /\{accessories && !hasDraft \? accessories : null\}/, 'the icons no longer step aside for a draft');
+  assert.doesNotMatch(send, /\baccessories\b/, 'the composer grew an accessories slot again');
+  // 📷 · 🖼 are shortcuts into the ONE attachment input, and they step aside while a message is being written.
+  assert.equal(count(send, /name="attachment"/g), 1, 'a second file input posts its own attachment — the shortcuts must hand over to the one');
+  assert.match(send, /\{!hasDraft \? \(/, 'the camera and photo shortcuts no longer step aside for a draft');
   assert.ok(count(send, /setHasDraft\(/g) >= 2, 'hasDraft is never cleared after a send');
 });
 
 test('the header keeps the counterparty, one muted line with the service, and the way back', () => {
+  // 2026-10-28 · the head is ONE shared component (`ChatThreadHead`, owner: "Same as our chatbox"); the way back and
+  // the dot separators live in it, the line's content stays with each page.
+  const head = read('app/_components/chat/chat-thread-head.tsx');
+  // The ‹ is the shared BackButton (variant "chat") the page passes in — its link from lib/page-home.ts.
+  assert.match(head, /\{back\}/, 'the shared head has no ‹');
+  const bb = read('app/_components/back-button.tsx');
+  assert.match(bb, /aria-label=\{`Back to \$\{label\}`\}/, 'the chat ‹ lost its name');
+  assert.match(bb, /<ReturnInPlace>/, 'the chat ‹ no longer returns to the list in place');
+  for (const [p, route] of [
+    ['app/dashboard/[eventId]/messages/[threadId]/page.tsx', '/dashboard/[eventId]/messages/[threadId]'],
+    ['app/vendor-dashboard/messages/[threadId]/page.tsx', '/vendor-dashboard/messages/[threadId]'],
+  ] as const) {
+    assert.ok(read(p).includes(`<BackButton route="${route}"`) && /variant="chat"/.test(read(p)), `${p}: the ‹ is not BackButton route= (this page)`);
+  }
+  assert.match(head, /\[&>\*\+\*\]:before:content-\['·'\]/, 'the muted line lost its separators');
   for (const [rel, name] of PAGES) {
     const s = read(rel);
+    assert.equal(count(s, /<ChatThreadHead\b/g), 1, `${name}: the head is not the shared ChatThreadHead`);
     assert.equal(count(s, /<ThreadInterestChips\b/g), 1, `${name}: interest chips mounted ${count(s, /<ThreadInterestChips\b/g)} times`);
     assert.match(s, /<ThreadInterestChips [^>]*\bcompact\b/, `${name}: the service is a bordered row again, not the muted line`);
-    assert.match(s, /aria-label="Back to Messages"/, `${name}: no way back to the list on a phone`);
-    // The muted line dot-separates whatever it carries, so a missing service
-    // or date leaves no stray "·".
-    assert.match(s, /\[&>\*\+\*\]:before:content-\['·'\]/, `${name}: the muted line lost its separators`);
   }
   assert.match(read(COUPLE), /formatLongDate\(eventDate\)/, "the couple's header shows a raw date or none");
   assert.match(read(VENDOR), /Planning for \{guestCountLine\(guestCounts\)\}/);
@@ -235,7 +232,7 @@ test('the notice is one line: the couple may dismiss it and it is remembered; th
 
 test('the frame and the panel: one scroll region, tools cost nothing closed', () => {
   const box = read(BOX);
-  assert.match(box, /className="flex min-h-0 flex-1 flex-col px-2 pt-2 sm:px-3">\{children\}/, 'the conversation slot is no longer the flex-1 / min-h-0 child');
+  assert.match(box, /className="flex min-h-0 flex-1 flex-col px-2\.5 pt-1">\{children\}/, 'the conversation slot is no longer the flex-1 / min-h-0 child');
   assert.doesNotMatch(box, /overflow-hidden/, 'a frame that hides overflow clips its own composer on a short phone');
   const panel = read(PANEL);
   assert.match(panel, /\[&:not\(\[open\]\)\]:hidden/, 'a closed panel takes space again');

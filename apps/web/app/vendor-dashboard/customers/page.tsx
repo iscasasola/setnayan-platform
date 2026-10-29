@@ -1,10 +1,9 @@
 import { redirect } from 'next/navigation';
-import { Suspense } from 'react';
-import { ClipboardList, FileSignature, FileText, MessageSquare } from 'lucide-react';
+import { Suspense, type ReactNode } from 'react';
+import { ClipboardList, FileSignature, FileText } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
 import { formatPhp } from '@/lib/orders';
 import { fetchVendorThreadsDetailed } from '@/lib/chat';
 import { readAllPages, readInChunks } from '@/lib/read-all-pages';
@@ -13,7 +12,6 @@ import {
   fetchVendorDayStates,
   fetchVendorPoolBookings,
   fetchVendorPools,
-  fetchVendorServicesForPicker,
 } from '@/lib/vendor-schedule';
 import {
   asksByDate,
@@ -58,8 +56,25 @@ import { filterBySearch, paginate, parseSearchParam } from '@/lib/paginate';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { formatCount } from '@/lib/format-number';
 import { CustomersRoster, type RosterRow } from './_components/customers-roster';
-import { CustomersPick } from './_components/customers-pick';
-import { KeptNotesFold, OutsideClientRows, type OutsideClient } from './_components/people-more';
+import { readSupplierEventLines } from '@/lib/supplier-event-lines.server';
+import { stageOfLane } from '@/lib/supplier-event-lines';
+import { acceptInquiry, declineInquiry } from '@/lib/chat-actions';
+import {
+  KeptNotesFold,
+  OtherChatsFold,
+  OutsideClientRows,
+  type OtherChat,
+  type OutsideClient,
+  type OutsideCode,
+} from './_components/people-more';
+import { CustomersPin, type CustomersDoor } from './_components/customers-pin';
+import { CUSTOMERS_DOORS, type CustomersDoorKey } from './segments';
+import { CustomersSettings } from './_components/customers-settings';
+import { CustomersSettingsBody } from './_components/customers-settings-body';
+import { InquiryOutcomesRollup } from '../messages/_components/inquiry-outcomes-rollup';
+import { fetchVendorOutcomeRollup } from '@/lib/inquiry-outcomes';
+import { eventChatTitle } from '@/lib/event-chat-title';
+import { ChatOriginMark } from '@/app/_components/chat/chat-back';
 import { OutsideClientAdd } from './_components/outside-client-add';
 import { MiniTour } from '@/app/_components/mini-tour';
 import { SearchBox } from '@/app/_components/search-box';
@@ -70,22 +85,17 @@ import { DatesFolds } from './_components/dates-folds';
 import { BlockDateAdd } from './_components/dates-sheets';
 import { CheckADate } from './_components/check-a-date';
 import { DaySheet, type DaySheetData } from './_components/day-sheet';
-import { customersSegmentOf, foldsOf } from './segments';
-import { CustomersSegments } from './_components/customers-segments';
+import { CUSTOMER_SEGMENT_HREFS, customersSegmentOf, foldsOf } from './segments';
 import { keepParamsFrom } from '../_components/list-pager';
 import { SupplierThumbRow } from '../_components/supplier-thumb-row';
 import { SupplierToast, type SupplierOutcomeTone } from '../_components/supplier-toast';
 import {
   addManualBlock,
-  createCalendar,
-  editCalendar,
   importExternalClient,
   notifyWaitlistSlot,
   pickWaitlistCouple,
-  reassignCategoryPool,
   removeBlock,
   setCalendarDayState,
-  updatePoolCapacity,
   updateWaitlistSettings,
 } from '../calendar/actions';
 import {
@@ -95,7 +105,6 @@ import {
 } from '../_components/feature-accordion';
 import BookingsSurface from '../bookings/surface';
 import { CustomersMoney } from './_components/money-segment';
-import MessagesSurface from '../messages/surface';
 import ContractsSurface from '../contracts/surface';
 import ProposalsSurface from '../proposals/surface';
 
@@ -147,19 +156,22 @@ type Props = {
     tab?: string;
     /** Dates › one day (frame 35). */
     day?: string;
+    /** People's door (`asking · talking · booked · done`) a pager link keeps. */
+    door?: string;
+    /** The archived-and-closed chats' page. */
+    opage?: string;
+    /** An outside booking just added (or a code just made for it) — its row opens. */
+    block?: string;
+    /** Customers ⚙ is open (`customers-settings.tsx`) — the sheet's rows are read and drawn. */
+    gear?: string;
+    /** A save inside the ⚙ — its answer (`calendar/actions.ts` · `payment-options/actions.ts`). */
+    gnotice?: string;
+    gmsg?: string;
+    gerror?: string;
   }>;
 };
 
 type SP = Record<string, string | string[] | undefined>;
-
-/** Filter ▾'s words — the stage, as the row's badge says it. */
-const LANE_FILTER_LABEL: Record<CustomerLane, string> = {
-  waiting: 'Waiting on you',
-  holding: 'Holding',
-  talking: 'Talking',
-  booked: 'Booked',
-  finished: 'Done',
-};
 
 /*
   🗑 `STATUS_PILL` LIVED HERE AND IS DELETED. It mapped five statuses —
@@ -182,13 +194,6 @@ const PEOPLE_NOTICES: Record<string, { tone: SupplierOutcomeTone; text: string; 
   save_failed: { tone: 'bad', text: 'That did not go through. Nothing changed — please try again.', retry: true },
 };
 
-/** The kinds a shop sells that make it a venue with halls (owner 2026-10-14 🏛). */
-const VENUE_KINDS = new Set(['venue', 'religious_venue']);
-
-function categoryLabel(key: string): string {
-  return (VENDOR_CATEGORY_LABEL as Record<string, string>)[key] ?? key.replace(/_/g, ' ');
-}
-
 /* ═══ PEOPLE ═══════════════════════════════════════════════════════════════ */
 
 async function CustomersPipeline({ search }: { search: Awaited<Props['searchParams']> }) {
@@ -205,6 +210,19 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
 
   // The roster's reads, in parallel. Each helper is the SAME one the
   // dedicated pages use — one source of truth per surface.
+  /*
+    ⚡ STARTED NOW, AWAITED WHERE THEY ARE DRAWN (owner 2026-10-29, "fastest load and fewest requests"): the won/lost
+    roll-up and the kept notes depend on nothing else on this page, so they ride alongside the roster's reads instead
+    of waiting behind them — one round of parallel reads, not a waterfall.
+  */
+  const outcomeRollupRead = fetchVendorOutcomeRollup(supabase, vendorProfileId);
+  const keptNotesRead = supabase
+    .from('vendor_client_notes')
+    .select('note_id, body, created_at')
+    .eq('vendor_profile_id', profile.vendor_profile_id)
+    .is('event_id', null)
+    .order('created_at', { ascending: false })
+    .limit(50);
   const [pools, bookings, blocksRead, threadsRead, paydayRes] = await Promise.all([
     // The schedules an outside client can hold a date on (the Add sheet).
     fetchVendorPools(supabase, vendorProfileId),
@@ -428,80 +446,33 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
     if (row) derived.push(row);
   }
 
-  const lanes = groupByLane(derived);
   /*
-    Computed over EVERY derived customer, never over the page on screen —
-    filtering to a lane must not make a date clash disappear. That is the
+    📦 ARCHIVED CHATS LEAVE THE LIST — the retired Messages fold's split, kept (owner 2026-10-28: the event list IS
+    the messages). A conversation the shop archived (or the couple withdrew) steps out of Talking / Holding into
+    "Archived and closed chats" at the foot of the page. ⛔ NEVER a row that waits on the shop (Asking — the same
+    question Today counts) and never a booking (Booked / Done — a customer is a fact, not a chat state).
+  */
+  const archivedOff = new Set<string>();
+  for (const r of derived) {
+    if (r.lane !== 'talking' && r.lane !== 'holding') continue;
+    const t = threadByEvent.get(r.eventId);
+    if (t && (t.archived || t.archived_at != null)) archivedOff.add(r.eventId);
+  }
+  const listed = derived.filter((r) => !archivedOff.has(r.eventId));
+
+  const lanes = groupByLane(listed);
+  /*
+    Computed over EVERY listed customer, never over the door on screen —
+    filtering to a door must not make a date clash disappear. That is the
     difference between a warning and a decoration.
   */
-  const holdingPerDate = holdingByDate(derived);
-
-  /*
-    COUNT, NARROW, SEARCH, PAGE — in that order, in one pure step
-    (`./roster-view.ts`, executed by `the-roster-pages.test.ts`). The Filter ▾
-    options count EVERYONE; only one page of 20 reaches the render.
-  */
-  const outsideOnly = search.lane === 'outside';
-  const roster = rosterView(lanes, {
-    lane: search.lane,
-    q: search.q,
-    page: search.page,
-    decorate: (r): RosterRow => {
-      const t = threadByEvent.get(r.eventId);
-      const type = eventTypeByEvent.get(r.eventId);
-      return {
-        ...r,
-        note: moneyNote(r, moneyByEvent.get(r.eventId) ?? null, paydayIncomplete),
-        kind: type && type !== 'unspecified' ? eventTypeLabel(type) : null,
-        quoted: false,
-        returning: Boolean(t?.is_returning),
-      };
-    },
-  });
-  const laneCounts = roster.laneCounts;
-  const activeLane = roster.activeLane;
-  const rosterPage = roster.paged;
-
-  /*
-    QUOTED — which of the rows ON THIS PAGE already have a quote out with the
-    couple (sent / viewed, not a draft). ONE batched read over the page's
-    talking rows, never one per row. The retired Clients page drew this; the
-    roster says it now ("Quoted · quote pending").
-    ⚠ Refused, the set stays empty and every such row says "no quote yet" —
-    so the refusal is logged, and the rows' quote word is withheld instead of
-    claiming one way or the other.
-  */
-  const talkingIds = rosterPage.items.filter((r) => r.lane === 'talking').map((r) => r.eventId);
-  let quotedRead: 'ok' | 'failed' = 'ok';
-  if (talkingIds.length > 0) {
-    const { data: quoted, error: quotedError } = await supabase
-      .from('vendor_proposals')
-      .select('event_id')
-      .eq('vendor_profile_id', vendorProfileId)
-      .in('event_id', talkingIds)
-      .in('status', ['sent', 'viewed']);
-    if (quotedError) {
-      quotedRead = 'failed';
-      logQueryError('VendorCustomersPage.quoted', quotedError, { vendorProfileId }, 'graceful_degrade');
-    }
-    const quotedIds = new Set(((quoted ?? []) as { event_id: string }[]).map((q) => q.event_id));
-    // The page's own decorated rows (made by `decorate` above, one per row on
-    // screen) — filled in place, so the render is still handed the slice.
-    for (const r of rosterPage.items) {
-      if (quotedIds.has(r.eventId)) r.quoted = true;
-      else if (quotedRead === 'failed' && r.lane === 'talking') r.note = { text: 'couldn’t load', tone: 'quiet' };
-    }
-  }
-
-  // A read that could not prove it reached every row — said on screen, never
-  // shown as a shorter list.
-  const rosterIncomplete =
-    !threadsRead.complete || !evRead.complete || Boolean(evRead.error) || eventRowsErrorSeen;
+  const holdingPerDate = holdingByDate(listed);
 
   /*
     OUTSIDE CLIENTS — the shop's `external_client` blocks: dates sold outside
     Setnayan, held on one of its schedules. Searched by name with the roster's
-    own word, paged on their own (`copage`).
+    own word, paged on their own (`copage`). They are BOOKED customers, so they
+    sit under the Booked door, after the Setnayan rows.
   */
   const poolLabel = new Map(pools.map((p) => [p.poolId, p.label]));
   const outsideAll: OutsideClient[] = blocksRead.blocks
@@ -516,8 +487,259 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
       note: b.clientNote ?? null,
     }));
   const outsideMatched = filterBySearch(outsideAll, parseSearchParam(search.q), (c) => c.name);
-  const showOutside = outsideOnly || !activeLane;
-  const outsidePage = paginate(showOutside ? outsideMatched : [], search.copage);
+  const outsidePage = paginate(outsideMatched, search.copage);
+
+  /*
+    🎟 THEIR ONE-TIME CODE, for the outside rows ON THIS PAGE only (owner 2026-10-28: "a booked-outside customer's
+    row holds THEIR one-time code — Linked / Code sent / Not linked"). The code is the shipped Locked QR; its
+    `block_id` names the outside booking it was made for. ONE read for the page's rows.
+    ⚠ A REFUSED READ IS NOT "NOT LINKED": every row then says it could not check, and offers nothing.
+  */
+  const codeByBlock = new Map<string, OutsideCode>();
+  let codesMeasured = true;
+  const pageBlockIds = outsidePage.items.map((c) => c.blockId);
+  if (pageBlockIds.length > 0) {
+    const { data: codeRows, error: codeError } = await supabase
+      .from('vendor_locked_qr_tokens')
+      .select('block_id, token, status, created_at, claimed_at')
+      .eq('vendor_profile_id', vendorProfileId)
+      .in('block_id', pageBlockIds)
+      .order('created_at', { ascending: false });
+    if (codeError) {
+      codesMeasured = false;
+      logQueryError('VendorCustomersPage.outsideCodes', codeError, { vendorProfileId }, 'graceful_degrade');
+    }
+    for (const c of (codeRows ?? []) as { block_id: string; token: string; status: string; created_at: string; claimed_at: string | null }[]) {
+      const had = codeByBlock.get(c.block_id);
+      // Used beats waiting; the newest waiting code is the one to send again; a voided one is no code.
+      if (c.status === 'claimed') codeByBlock.set(c.block_id, { state: 'linked', usedAt: c.claimed_at });
+      else if (c.status === 'pending' && (!had || had.state === 'none')) codeByBlock.set(c.block_id, { state: 'sent', token: c.token, madeAt: c.created_at });
+    }
+  }
+  const outsidePaged = {
+    ...outsidePage,
+    items: outsidePage.items.map((c) => ({
+      ...c,
+      code: codesMeasured ? (codeByBlock.get(c.blockId) ?? ({ state: 'none' } as const)) : ({ state: 'unread' } as const),
+    })),
+  };
+
+  /*
+    📌 THE FOUR DOORS (owner 2026-10-28, prototype `custRows()`): Asking · Talking · Booked · Done. Each is a filter
+    drawn IN PLACE (`CustomersPin`) — the server draws all four lists and the door shows one. A door is the roster's
+    lanes, read by the ONE derivation, never re-decided here:
+      Asking  = waiting (a question or a booking ask waits on the shop)
+      Talking = holding + talking (holding first — they have gone quiet)
+      Booked  = booked + the outside bookings
+      Done    = finished
+  */
+  const DOOR_LANES: Record<CustomersDoorKey, CustomerLane[]> = {
+    asking: ['waiting'],
+    talking: ['holding', 'talking'],
+    booked: ['booked'],
+    done: ['finished'],
+  };
+  const laneCounts = Object.fromEntries(CUSTOMER_LANES.map((l) => [l, lanes[l].length])) as Record<CustomerLane, number>;
+  const doorCount = (k: CustomersDoorKey) =>
+    DOOR_LANES[k].reduce((n, l) => n + laneCounts[l], 0) + (k === 'booked' ? outsideAll.length : 0);
+
+  // A read that could not prove it reached every row — said on screen, never shown as a shorter list.
+  const rosterIncomplete =
+    !threadsRead.complete || !evRead.complete || Boolean(evRead.error) || eventRowsErrorSeen;
+  const outsideIncomplete = !blocksRead.complete;
+  /** "3" · "12+" when a read fell short · null (couldn't load) when it fell short with nothing to show. */
+  const doorValue = (k: CustomersDoorKey): string | null => {
+    const n = doorCount(k);
+    const short = rosterIncomplete || (k === 'booked' && outsideIncomplete);
+    if (!short) return formatCount(n);
+    return n > 0 ? `${formatCount(n)}+` : null;
+  };
+
+  const LANE_DOOR: Record<string, CustomersDoorKey> = {
+    waiting: 'asking',
+    holding: 'talking',
+    talking: 'talking',
+    booked: 'booked',
+    outside: 'booked',
+    finished: 'done',
+  };
+  const urlDoor = (CUSTOMERS_DOORS as readonly string[]).includes(search.door ?? '')
+    ? (search.door as CustomersDoorKey)
+    : search.lane && LANE_DOOR[search.lane]
+      ? LANE_DOOR[search.lane]
+      : search.block
+        ? 'booked'
+        : null;
+
+  const sp = search as Record<string, string | undefined>;
+  const decorate = (r: PipelineCustomer): RosterRow => {
+    const t = threadByEvent.get(r.eventId);
+    const type = eventTypeByEvent.get(r.eventId);
+    return {
+      ...r,
+      note: moneyNote(r, moneyByEvent.get(r.eventId) ?? null, paydayIncomplete),
+      kind: type && type !== 'unspecified' ? eventTypeLabel(type) : null,
+      quoted: false,
+      returning: Boolean(t?.is_returning),
+    };
+  };
+  const noLanes = Object.fromEntries(CUSTOMER_LANES.map((l) => [l, [] as PipelineCustomer[]])) as Record<CustomerLane, PipelineCustomer[]>;
+  /*
+    COUNT, NARROW, SEARCH, PAGE — per door, in that order, in the one pure step (`./roster-view.ts`). Only the door the
+    address names (`?door=`) takes `?page=`; the others draw their first page. Each door's pager keeps the door.
+  */
+  const views = Object.fromEntries(
+    CUSTOMERS_DOORS.map((k) => {
+      const subset = { ...noLanes };
+      for (const l of DOOR_LANES[k]) subset[l] = lanes[l];
+      return [
+        k,
+        rosterView(subset, {
+          lane: undefined,
+          q: search.q,
+          page: urlDoor === k ? search.page : undefined,
+          decorate,
+        }),
+      ];
+    }),
+  ) as Record<CustomersDoorKey, ReturnType<typeof rosterView<RosterRow>>>;
+
+  /*
+    QUOTED — which of the TALKING rows on screen already have a quote out with the couple (sent / viewed, not a
+    draft). ONE batched read, never one per row. Refused, the rows' quote word is withheld ("couldn't load").
+  */
+  const talkingIds = views.talking.paged.items.filter((r) => r.lane === 'talking').map((r) => r.eventId);
+  let quotedRead: 'ok' | 'failed' = 'ok';
+  if (talkingIds.length > 0) {
+    const { data: quoted, error: quotedError } = await supabase
+      .from('vendor_proposals')
+      .select('event_id')
+      .eq('vendor_profile_id', vendorProfileId)
+      .in('event_id', talkingIds)
+      .in('status', ['sent', 'viewed']);
+    if (quotedError) {
+      quotedRead = 'failed';
+      logQueryError('VendorCustomersPage.quoted', quotedError, { vendorProfileId }, 'graceful_degrade');
+    }
+    const quotedIds = new Set(((quoted ?? []) as { event_id: string }[]).map((q) => q.event_id));
+    for (const r of views.talking.paged.items) {
+      if (quotedIds.has(r.eventId)) r.quoted = true;
+      else if (quotedRead === 'failed' && r.lane === 'talking') r.note = { text: 'couldn’t load', tone: 'quiet' };
+    }
+  }
+
+  /*
+    📋 EVERY ROW OPENS TO ITS EVENT (supplier dashboard v13, APPROVED 2026-10-29: "One row per event; opened = the fixed
+    lines + For your service"). The lines of every row ON SCREEN — each door's one page, never the whole roster — in ONE
+    batched read (`readSupplierEventLines`: one parallel round + the names). Opening a row reads nothing. Refused → each
+    row says its details couldn't load, and its chat still opens.
+  */
+  const onScreen = CUSTOMERS_DOORS.flatMap((k) => views[k].paged.items);
+  const linesRead = await readSupplierEventLines(rosterAdmin, {
+    vendorProfileId,
+    shopServices: (profile.services ?? null) as string[] | null,
+    events: onScreen.map((r) => ({ eventId: r.eventId, stage: stageOfLane(r.lane) })),
+    vouched: new Set(bookedByEvent.keys()),
+  }).catch(() => null);
+  const lines = linesRead ? Object.fromEntries(linesRead) : {};
+
+  /*
+    The door a visit opens on: the one the address names (a pager link, an old `?lane=` filter, a new outside
+    booking's `?block=`), else — under a search — the first door with a match, else Asking when anyone is waiting
+    ("the roster opens on who is waiting"), else the first door with anyone in it.
+  */
+  const q = (search.q ?? '').trim();
+  const firstHit = q
+    ? CUSTOMERS_DOORS.find((k) => views[k].paged.total > 0 || (k === 'booked' && outsideMatched.length > 0))
+    : undefined;
+  const initialDoor: CustomersDoorKey =
+    urlDoor ?? firstHit ?? (doorCount('asking') > 0 ? 'asking' : (CUSTOMERS_DOORS.find((k) => doorCount(k) > 0) ?? 'asking'));
+
+  const DOOR_EMPTY: Record<CustomersDoorKey, string> = {
+    asking: 'Nobody is waiting on you. When somebody asks about a date, they show up here first.',
+    talking: 'No one you are talking with right now.',
+    booked: 'No bookings yet. A booking from outside Setnayan goes here too — add it with Add.',
+    done: 'No finished events yet.',
+  };
+  const pagerKeep = (k: CustomersDoorKey) =>
+    [keepParamsFrom(sp, ['page', 'notice', 'add', 'door', 'lane', 'block', 'gear']), `door=${k}`].filter(Boolean).join('&');
+  const doorTotal = (k: CustomersDoorKey) => doorCount(k);
+
+  const panels = Object.fromEntries(
+    CUSTOMERS_DOORS.map((k) => {
+      const v = views[k];
+      const isBooked = k === 'booked';
+      const counts = { ...Object.fromEntries(CUSTOMER_LANES.map((l) => [l, 0])), ...Object.fromEntries(DOOR_LANES[k].map((l) => [l, laneCounts[l]])) } as Record<CustomerLane, number>;
+      return [
+        k,
+        <>
+          <CustomersRoster
+            rows={v.paged.items}
+            paged={v.paged}
+            query={search.q ?? ''}
+            incomplete={rosterIncomplete}
+            pagerKeepParams={pagerKeep(k)}
+            counts={counts}
+            nowMs={rosterNowMs}
+            holdingPerDate={holdingPerDate}
+            otherMatches={isBooked ? outsideMatched.length : 0}
+            otherTotal={isBooked ? outsideAll.length : 0}
+            anchor={null}
+            emptyLine={doorTotal(k) === 0 ? DOOR_EMPTY[k] : undefined}
+            lines={lines}
+            answers={{ acceptInquiry, declineInquiry }}
+          />
+          {isBooked ? (
+            <OutsideClientRows
+              paged={outsidePaged}
+              incomplete={outsideIncomplete}
+              keepParams={[keepParamsFrom(sp, ['copage', 'notice', 'add', 'door', 'lane', 'gear']), 'door=booked'].filter(Boolean).join('&')}
+              removeBlock={removeBlock}
+              headed={v.paged.items.length > 0}
+              nowMs={rosterNowMs}
+              openBlock={search.block ?? null}
+            />
+          ) : null}
+        </>,
+      ];
+    }),
+  ) as Record<CustomersDoorKey, ReactNode>;
+
+  /*
+    ARCHIVED AND CLOSED CHATS — every chat that is not a row above, so retiring the Messages fold leaves no chat
+    unreachable: the ones the shop archived, and the closed ones (turned down, booked someone else, withdrawn, an older
+    chat on the same event). Newest first (the threads read is), paged on `opage`.
+  */
+  const listedThreads = new Set(listed.map((r) => r.threadId).filter(Boolean) as string[]);
+  const others: OtherChat[] = threads
+    .filter((t) => !listedThreads.has(t.thread_id))
+    .map((t) => {
+      const type = eventTypeByEvent.get(t.event_id);
+      return {
+        threadId: t.thread_id,
+        title: eventChatTitle({
+          name: eventNameByEvent.get(t.event_id) ?? null,
+          kind: type && type !== 'unspecified' ? eventTypeLabel(type) : null,
+          date: eventDateByEvent.get(t.event_id) ?? null,
+          nowMs: rosterNowMs,
+        }),
+        why: t.archived
+          ? 'Archived'
+          : t.archived_at != null
+            ? 'They withdrew'
+            : t.inquiry_status === 'displaced'
+              ? 'They booked someone else'
+              : t.inquiry_status === 'declined'
+                ? 'You turned it down'
+                : threadByEvent.get(t.event_id)?.thread_id !== t.thread_id
+                  ? 'An older chat on this event'
+                  : 'Closed',
+        archived: Boolean(t.archived),
+      };
+    });
+  const othersPage = paginate(others, search.opage);
+  // Won & Lost Reasons roll-up — the shop's own logged outcomes. Ownership-gated RPC; null until any is logged.
+  const outcomeRollup = await outcomeRollupRead;
 
   /*
     KEPT NOTES — the supplier's own CRM notes whose event was deleted.
@@ -532,92 +754,68 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
     🔑 A FAILED READ IS NOT AN EMPTY ONE. The error is checked and the fold is
     HIDDEN on failure rather than saying "nothing kept".
   */
-  const { data: keptNoteRows, error: keptNotesError } = await supabase
-    .from('vendor_client_notes')
-    .select('note_id, body, created_at')
-    .eq('vendor_profile_id', profile.vendor_profile_id)
-    .is('event_id', null)
-    .order('created_at', { ascending: false })
-    .limit(50);
+  const { data: keptNoteRows, error: keptNotesError } = await keptNotesRead;
   if (keptNotesError) {
     logQueryError('VendorCustomersPage.keptNotes', keptNotesError, { vendorProfileId }, 'graceful_degrade');
   }
   const keptNotesMeasured = !keptNotesError;
   const keptNotes = (keptNoteRows ?? []) as Array<{ note_id: string; body: string; created_at: string }>;
 
-  /*
-    Filter ▾ — each option is a LINK the server builds (a filter you can share,
-    Back works). Picking resets both pages and keeps the search.
-  */
-  const sp = search as Record<string, string | undefined>;
-  const pickHref = (value: string | null): string => {
-    const q = new URLSearchParams(keepParamsFrom(sp, ['page', 'copage', 'lane', 'notice', 'add']));
-    if (value) q.set('lane', value);
-    const qs = q.toString();
-    return qs ? `?${qs}#customers` : '?#customers';
-  };
-  const everyone = CUSTOMER_LANES.reduce((n, l) => n + laneCounts[l], 0) + outsideAll.length;
   const notice = search.notice ? PEOPLE_NOTICES[search.notice] : undefined;
+  const doors: CustomersDoor[] = [
+    { key: 'asking', value: doorValue('asking'), word: 'asking', hot: doorCount('asking') > 0 },
+    { key: 'talking', value: doorValue('talking'), word: 'talking' },
+    { key: 'booked', value: doorValue('booked'), word: 'booked' },
+    { key: 'done', value: doorValue('done'), word: 'done' },
+  ];
 
   return (
     <>
-      <CustomersSegments seg="people" waiting={laneCounts.waiting} />
       {notice ? <SupplierToast text={notice.text} tone={notice.tone} retry={notice.retry} retryHref="/vendor-dashboard/customers?add=outside" /> : null}
 
-      {paydayIncomplete ? (
-        <p role="status" className="mb-2 text-[13px] text-ink/70">
-          Some payments couldn&rsquo;t load, so your customers&rsquo; money lines say so instead of a figure. Reload the
-          page to try again.
-        </p>
-      ) : null}
-
-      <CustomersRoster
-        rows={rosterPage.items}
-        paged={rosterPage}
-        query={search.q ?? ''}
-        incomplete={rosterIncomplete}
-        pagerKeepParams={keepParamsFrom(sp, ['page', 'notice', 'add'])}
-        counts={laneCounts}
-        nowMs={rosterNowMs}
-        holdingPerDate={holdingPerDate}
-        hidden={outsideOnly}
-        otherMatches={outsidePage.total}
-        otherTotal={outsideAll.length}
-        filter={
-          <CustomersPick
-            label="Filter"
-            value={outsideOnly ? 'outside' : (activeLane ?? 'all')}
-            dataAttr="data-customers-filter"
-            className="!min-h-11"
-            options={[
-              { key: 'all', label: `Everyone · ${formatCount(everyone)}`, href: pickHref(null) },
-              ...CUSTOMER_LANES.map((l) => ({
-                key: l,
-                label: `${LANE_FILTER_LABEL[l]} · ${formatCount(laneCounts[l])}`,
-                href: pickHref(l),
-              })),
-              { key: 'outside', label: `Outside · ${formatCount(outsideAll.length)}`, href: pickHref('outside') },
-            ]}
-          />
-        }
-      />
-
-      {showOutside ? (
-        <OutsideClientRows
-          paged={outsidePage}
-          incomplete={!blocksRead.complete}
-          keepParams={keepParamsFrom(sp, ['copage', 'notice', 'add'])}
-          removeBlock={removeBlock}
-          headed={!outsideOnly && rosterPage.items.length > 0}
-          nowMs={rosterNowMs}
+      {/* 🖥 MAXIMIZE THE SCREEN (owner 2026-10-29) — THE TWO COLUMNS (supplier dashboard v13): from 701 the events sit
+          left and the opened event is drawn right (`CustomersPin` → `SupplierOpenScope`); the chats not on the list and
+          the kept notes follow the list in the left column. On a phone, one column and a row opens in place. */}
+      {/* `#customers` is where the search and every old roster link land; the chats this list opens come back here. */}
+      <div id="customers" className="min-w-0 scroll-mt-24" data-customers-people="">
+        <ChatOriginMark />
+        <CustomersPin
+          seg="people"
+          hrefs={CUSTOMER_SEGMENT_HREFS}
+          doors={doors}
+          panels={panels}
+          initial={initialDoor}
+          gear={<CustomersSettings body={search.gear === '1' ? <CustomersSettingsBody seg="people" search={search} /> : null} />}
+          columns={{ rest: 'No events here yet. When somebody asks about a date, or books you, their event shows up here.' }}
+          between={
+            paydayIncomplete ? (
+              <p role="status" className="mb-2 text-[13px] text-ink/70">
+                Some payments couldn&rsquo;t load, so your customers&rsquo; money lines say so instead of a figure. Reload
+                the page to try again.
+              </p>
+            ) : null
+          }
+          after={
+            <div className="mt-6 space-y-2" data-customers-side="">
+              {/* Drawn only from a threads read that happened — after a refusal it would be a false "none". */}
+              {threadsRead.complete || others.length > 0 ? (
+                <OtherChatsFold
+                  paged={othersPage}
+                  keepParams={keepParamsFrom(sp, ['opage', 'notice', 'add', 'gear'])}
+                  returnTo="/vendor-dashboard/customers?door=talking"
+                  rollup={<InquiryOutcomesRollup rollup={outcomeRollup} />}
+                  incomplete={!threadsRead.complete}
+                />
+              ) : null}
+              {/* KEPT NOTES — drawn ONLY from a read that happened AND found some: an empty fold would be noise, and
+                  after a refused read a false "none". */}
+              {keptNotesMeasured && keptNotes.length > 0 ? (
+                <KeptNotesFold notes={keptNotes.map((n) => ({ noteId: n.note_id, body: n.body, createdAt: n.created_at }))} />
+              ) : null}
+            </div>
+          }
         />
-      ) : null}
-
-      {/* KEPT NOTES — drawn ONLY from a read that happened AND found some: an
-          empty fold would be noise, and after a refused read a false "none". */}
-      {keptNotesMeasured && keptNotes.length > 0 ? (
-        <KeptNotesFold notes={keptNotes.map((n) => ({ noteId: n.note_id, body: n.body, createdAt: n.created_at }))} />
-      ) : null}
+      </div>
 
       {/* 📱 THE THUMB ROW — the ONE row (owner 2026-10-22): "Search customers" · ＋ Add, each its own glass, no band. */}
       <SupplierThumbRow
@@ -631,7 +829,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
                 <SearchBox
                   placeholder="Search customers"
                   defaultValue={search.q ?? ''}
-                  keep={keepParamsFrom(sp, ['q', 'page', 'copage', 'notice', 'add'])}
+                  keep={keepParamsFrom(sp, ['q', 'page', 'copage', 'notice', 'add', 'door', 'lane', 'block', 'gear'])}
                   hash="#customers"
                   data="customers"
                   tour="customers-search"
@@ -645,7 +843,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
                   action={importExternalClient}
                   startOpen={search.add === 'outside'}
                   today={todayIso}
-                  setupHref="/vendor-dashboard/customers?seg=dates&open=capacity"
+                  setupHref="/vendor-dashboard/customers?seg=dates&gear=1"
                   tour="customers-add"
                 />
               ),
@@ -717,10 +915,6 @@ const DATES_ACTIONS = {
   updateWaitlistSettings,
   pickWaitlistCouple,
   notifyWaitlistSlot,
-  updatePoolCapacity,
-  createCalendar,
-  editCalendar,
-  reassignCategoryPool,
 };
 
 /**
@@ -765,11 +959,10 @@ async function CustomersDates({ search }: { search: Awaited<Props['searchParams'
   const todayIso = manilaTodayIso();
   const thisMonth = todayIso.slice(0, 7);
   const month = /^\d{4}-\d{2}$/.test(search.m ?? '') ? (search.m as string) : thisMonth;
-  const namedCalendars = process.env.NEXT_PUBLIC_NAMED_CALENDARS_ENABLED !== 'false';
   const notice = search.notice ? DATES_NOTICES[search.notice] : undefined;
   const openFold = search.open === 'availability' ? 'capacity' : (search.open ?? null);
 
-  const [pools, bookings, blocksRead, dayStates, monthWaitlist, upcomingWaitlist, threadsRead, services, pickerServices, teamRows, settingsRead, pickedRead] =
+  const [pools, bookings, blocksRead, dayStates, monthWaitlist, upcomingWaitlist, threadsRead, services, teamRows, settingsRead, pickedRead] =
     await Promise.all([
       fetchVendorPools(supabase, vendorProfileId),
       // CAPACITY, not the room: the month counts these against each pool's seats (pool-grain, as
@@ -783,7 +976,6 @@ async function CustomersDates({ search }: { search: Awaited<Props['searchParams'
       fetchVendorWaitlist(supabase, vendorProfileId, todayIso),
       fetchVendorThreadsDetailed(supabase, vendorProfileId),
       fetchVendorServices(supabase, vendorProfileId),
-      namedCalendars ? fetchVendorServicesForPicker(supabase, vendorProfileId) : Promise.resolve([]),
       fetchVendorTeam(supabase, vendorProfileId),
       // ONE read for the plan and the waitlist settings (tier_state is excluded from the profile select).
       supabase
@@ -820,8 +1012,6 @@ async function CustomersDates({ search }: { search: Awaited<Props['searchParams'
   for (const r of (pickedRead.data ?? []) as { requested_date: string }[]) {
     pickedByDate.set(r.requested_date, (pickedByDate.get(r.requested_date) ?? 0) + 1);
   }
-  // The most events a day — the database's 50, the same clamp `updatePoolCapacity` applies. No plan limit (2026-10-23).
-  const ceiling = DAILY_CAPACITY_MAX;
 
   // Team (Pro+): one person's calendars in the month's dropdown — the services they are assigned narrow the pools.
   const agentsEnabled = tierCaps(tier).agentAccounts > 0;
@@ -867,8 +1057,6 @@ async function CustomersDates({ search }: { search: Awaited<Props['searchParams'
       scope: b.poolId === null ? 'every schedule' : (poolLabelOf.get(b.poolId) ?? 'one schedule'),
     }));
   const initialDay = todayIso.startsWith(month) ? todayIso : `${month}-01`;
-  // A VENUE lists its halls (owner 2026-10-14 🏛): it already has a hall, or it sells a venue.
-  const venue = pools.some((p) => p.isHall) || services.some((s) => VENUE_KINDS.has(String(s.category ?? '')));
 
   return (
     <>
@@ -883,7 +1071,7 @@ async function CustomersDates({ search }: { search: Awaited<Props['searchParams'
         ) : null}
         {pools.length === 0 ? (
           <p className="mb-2 text-[13.5px] text-ink/70" data-dates-no-calendar="">
-            Schedule not set — open How many a day below to make one.
+            Schedule not set — open ⚙ › How many a day to make one.
           </p>
         ) : null}
         <CustomersCalendar
@@ -897,6 +1085,8 @@ async function CustomersDates({ search }: { search: Awaited<Props['searchParams'
           // Only what the month and the day's rows read — a block's contact and note never cross the wire.
           bookings={bookings.map((b) => ({ poolId: b.poolId, bookedDate: b.bookedDate, eventName: b.eventName }))}
           blocks={blocks.map((k) => ({
+            // A closure's id (the day switch reopens a one-day closure by it); an outside booking's never crosses.
+            blockId: k.source === 'manual' ? k.blockId : undefined,
             poolId: k.poolId,
             source: k.source,
             startDate: k.startDate,
@@ -911,6 +1101,7 @@ async function CustomersDates({ search }: { search: Awaited<Props['searchParams'
           agents={agents}
           agentCategories={agentCategories}
           halls={pools.every((p) => p.isHall) && pools.length > 0}
+          dayActions={{ addManualBlock, removeBlock }}
         />
       </div>
 
@@ -930,26 +1121,7 @@ async function CustomersDates({ search }: { search: Awaited<Props['searchParams'
           pickedMeasured: !pickedRead.error,
           dates: upcomingWaitlist.map((w) => ({ ...w, picked: pickedByDate.get(w.requestedDate) ?? 0 })),
         }}
-        calendars={pools.map((p) => ({
-          poolId: p.poolId,
-          label: p.label,
-          name: p.calendarName ?? p.label,
-          capacity: p.capacity,
-          isHall: p.isHall === true,
-          seated: p.seatedCapacity ?? null,
-          standing: p.standingCapacity ?? null,
-          line: p.categories.map(categoryLabel).join(', '),
-          serviceIds: p.serviceIds,
-          categories: p.categories.map((c) => ({ key: c, label: categoryLabel(c) })),
-        }))}
-        ceiling={ceiling}
-        namedCalendars={namedCalendars}
-        services={pickerServices.map((s) => ({ serviceId: s.serviceId, label: s.label, poolId: s.poolId }))}
         qrHref="/vendor-dashboard/invite"
-        slotsHref="/vendor-dashboard/shop"
-        icsHref="/vendor-dashboard/customers/calendar.ics"
-        approveFirst={isLockHandshakeEnabled()}
-        venue={venue}
         blockAdd={<BlockDateAdd pools={pools.map((p) => ({ poolId: p.poolId, label: p.label }))} action={addManualBlock} today={todayIso} month={month} />}
         actions={DATES_ACTIONS}
       />
@@ -969,7 +1141,7 @@ async function CustomersDates({ search }: { search: Awaited<Props['searchParams'
                   pools={pools.map((p) => ({ poolId: p.poolId, label: p.label }))}
                   action={importExternalClient}
                   today={todayIso}
-                  setupHref="/vendor-dashboard/customers?seg=dates&open=capacity"
+                  setupHref="/vendor-dashboard/customers?seg=dates&gear=1"
                   returnTo="dates"
                   tour="dates-add"
                   halls={pools.length > 0 && pools.every((p) => p.isHall)}
@@ -1182,7 +1354,7 @@ async function CustomersDay({ day, search }: { day: string; search: Awaited<Prop
                   pools={pools.map((p) => ({ poolId: p.poolId, label: p.label }))}
                   action={importExternalClient}
                   today={todayIso}
-                  setupHref="/vendor-dashboard/customers?seg=dates&open=capacity"
+                  setupHref="/vendor-dashboard/customers?seg=dates&gear=1"
                   returnTo="dates"
                   halls={pools.length > 0 && pools.every((p) => p.isHall)}
                   day={day}
@@ -1200,8 +1372,10 @@ async function CustomersDay({ day, search }: { day: string; search: Awaited<Prop
 
 /* ═══ THE FOLDS — one accordion, each fold under its own segment ══════════ */
 
-// Messages folds under People (the envelope lands on it); Quotes and Contracts
-// under Money (papers about a deal; S-PR5 moves them onto the customer card).
+// Quotes and Contracts fold under Money (papers about a deal; S-PR5 moves them onto the customer card).
+// 🗑 MESSAGES IS NO LONGER A FOLD (owner 2026-10-28: "the event list IS the messages" — one row per event, each opening
+// its chat full screen). What only it held lives on People now: archived and closed chats + the won/lost roll-up in
+// "Archived and closed chats", and Archive itself in each chat's ⋮ menu.
 // Dates has no accordion: its tools are its own folds (S-PR3, `dates-folds.tsx`).
 const CUSTOMER_SECTIONS: AccordionSection[] = [
   {
@@ -1211,12 +1385,6 @@ const CUSTOMER_SECTIONS: AccordionSection[] = [
     label: 'Bookings',
     sub: 'Each booking’s status and prep items',
     icon: <ClipboardList className="h-4 w-4" strokeWidth={1.75} />,
-  },
-  {
-    key: 'messages',
-    label: 'Messages',
-    sub: 'Your conversations — reply, reveal, and log outcomes',
-    icon: <MessageSquare className="h-4 w-4" strokeWidth={1.75} />,
   },
   {
     key: 'proposals',
@@ -1237,8 +1405,6 @@ async function CustomerSectionBody({ open, sp }: { open: string; sp: SP }) {
   switch (open) {
     case 'bookings':
       return <BookingsSurface searchParams={pass as never} />;
-    case 'messages':
-      return <MessagesSurface searchParams={pass as never} />;
     case 'proposals':
       return <ProposalsSurface searchParams={pass as never} />;
     case 'contracts':
@@ -1266,11 +1432,21 @@ export default async function VendorCustomersHub({ searchParams }: Props) {
     <>
       <section className="min-h-full">
         <div
-          className={`mx-auto w-full max-w-3xl space-y-4 px-4 pb-6 pt-4 sm:px-6 lg:px-8 ${seg === 'money' ? 'tab:max-w-3xl' : 'tab:max-w-5xl'}`}
+          // People uses the whole width from a tablet up (owner 2026-10-29, "maximize the screen use"); Money keeps its
+          // reading measure, Dates its month's.
+          className={`mx-auto w-full max-w-3xl space-y-4 px-4 pb-6 pt-4 sm:px-6 lg:px-8 ${seg === 'money' ? 'tab:max-w-3xl' : seg === 'people' ? 'tab:max-w-none' : 'tab:max-w-5xl'}`}
           data-customers-seg-open={seg}
         >
           <h1 className="sr-only">Customers</h1>
-          {seg === 'people' || (seg === 'dates' && search.day) ? null : <CustomersSegments seg={seg} />}
+          {/* 📌 People draws its own pinned row (with the four counts); Dates and Money draw the same row — the view ▾
+              and the ⚙ — over their own figures. One day (Dates › a day) has its own back-headed sheet instead. */}
+          {seg === 'people' || (seg === 'dates' && search.day) ? null : (
+            <CustomersPin
+              seg={seg}
+              hrefs={CUSTOMER_SEGMENT_HREFS}
+              gear={<CustomersSettings body={search.gear === '1' ? <CustomersSettingsBody seg={seg} search={search} /> : null} />}
+            />
+          )}
           {seg === 'people' ? (
             <div className="pb-24">
               <CustomersPipeline search={search} />

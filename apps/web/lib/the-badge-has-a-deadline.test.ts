@@ -123,17 +123,8 @@ const BADGE_SITE_BILL: ReadonlyMap<string, { count: number; why: string }> = new
     { count: 2, why: 'Both feed resolveVendorDisplayName/isVendorNameRevealed (name-reveal). The badge field (enrichmentByVendorId.is_verified) now calls hasVerifiedBadge.' },
   ],
   [
-    'app/dashboard/[eventId]/messages/[threadId]/page.tsx',
-    { count: 2, why: 'Both feed resolveVendorDisplayName (name-reveal) — no "Verified" badge renders on this page.' },
-  ],
-  [
     'lib/messages-team-picker.ts',
     { count: 1, why: 'Feeds resolveVendorDisplayName only (name-reveal) — the Messages team picker lists names, no "Verified" badge renders.' },
-  ],
-  [
-    'app/dashboard/[eventId]/messages/page.tsx',
-    // 2 → 1 on 2026-10-01 (P3): the name and the logo now share ONE `isVerified`.
-    { count: 1, why: 'Feeds resolveVendorDisplayName + isVendorNameRevealed (name/logo reveal) — no "Verified" badge renders on this page.' },
   ],
   [
     'app/tour/vendors/page.tsx',
@@ -197,7 +188,7 @@ const BADGE_SITE_BILL: ReadonlyMap<string, { count: number; why: string }> = new
   ],
   [
     'lib/vendor-corrections.ts',
-    { count: 1, why: "fetchVerifiedLock — whether THIS vendor's own identity fields are locked from editing (app/vendor-dashboard/actions.ts). The shop's own dashboard concern, not a couple-facing badge." },
+    { count: 2, why: "fetchVerifiedLock + identityLockOf (2026-10-29, a shop Setnayan set up asks to rename) — whether THIS vendor's own identity fields are locked from editing (app/vendor-dashboard/actions.ts). The shop's own dashboard concern, not a couple-facing badge." },
   ],
 ]);
 

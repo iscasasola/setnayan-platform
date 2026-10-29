@@ -81,7 +81,13 @@ export type ChargeSource =
   | 'setnayan_ai_event_type'
   | 'setnayan_ai_comeback'
   /** 💎 Event Hub Pro, part by part (owner 2026-10-22) — parts at their catalogue sum, or the rest to everything. */
-  | 'hub_parts';
+  | 'hub_parts'
+  /**
+   * 💲 The website-only welcome price (owner 2026-10-28, "ONE PRICE EVERYWHERE") — an account's FIRST purchase at
+   * the shipped set-up rule, applied to the figure one of the sources above ALREADY resolved. Never a source of its
+   * own: `lib/welcome-discount.server.ts` seals it only from an `ok` authority result.
+   */
+  | 'welcome_first_purchase';
 
 export type ChargeRefusal =
   /** No resolver owns this service_key. A NEW key must fail the sale, never fall

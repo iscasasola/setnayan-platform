@@ -71,9 +71,10 @@ export const CONVERTED: readonly Converted[] = [
   { area: 'couple', what: 'Seat plan dock (Door | Walk-through · With entrance | Separate)', file: `${D}/seating/_components/seating-editor.tsx`, anchor: 'role="group" aria-label={label} className="shrink-0"', via: 'track', thumb: 'slides', gone: 'overflow-hidden rounded-lg border border-ink/15 text-[11px]' },
   { area: 'couple', what: 'How to make your mark (Create your own | Upload your monogram)', file: `${D}/monogram/mark-toggle.tsx`, anchor: 'aria-label="How to make your mark"', via: 'classes', thumb: 'slides', gone: 'rounded-xl bg-ink/5 p-1' },
   { area: 'couple', what: 'Schedule view (Journey | Preparation | Event Day)', file: `${D}/schedule/_components/schedule-mode-toggle.tsx`, anchor: 'data-schedule-view-switch=""', via: 'classes', thumb: 'slides', gone: 'rounded-lg px-' },
-  { area: 'couple', what: 'Guest list views (List | Map | Setup)', file: `${D}/guests/_components/guests-screen.tsx`, anchor: 'aria-label="Guest list views"', via: 'classes', thumb: 'slides', gone: 'styles.seg' },
-  // 2026-10-27 (owner, "On the pinned the selectors should stay but simplified"): the pinned row's small List | Map is its own selector, drawn by the same template.
-  { area: 'couple', what: 'Guest list views, pinned (List | Map)', file: `${D}/guests/_components/guests-screen.tsx`, anchor: 'aria-label="Guest list views, pinned"', via: 'classes', thumb: 'slides', gone: 'styles.seg' },
+  { area: 'couple', what: 'Guest list views (Guests ▾ | Seats ▾ | March)', file: `${D}/guests/_components/guests-screen.tsx`, anchor: 'aria-label="Guest list views"', via: 'classes', thumb: 'slides', gone: 'styles.seg' },
+  // 2026-10-29 (owner, prototype v14 "pinned row = LEFT one menu (page + mode in one dropdown)"): the pinned row's small
+  // List | Map pill is RETIRED — the slim row holds ONE PickMenu ("Guests · List ▾"), a dropdown, not a pill selector, so
+  // it leaves this table on purpose (any set of choices is a dropdown). The full row above it is still this template.
   { area: 'couple', what: 'How moments are made (Automatic | I choose)', file: `${D}/story/_components/make-it-yours.tsx`, anchor: 'aria-label="How moments are made"', via: 'classes', thumb: 'slides', gone: 'className={s.seg}' },
   { area: 'couple', what: 'Preview device (iPhone | MacBook)', file: `${D}/_components/device-frame.tsx`, anchor: 'data-device-toggle=""', via: 'track', thumb: 'slides', gone: 'rounded-full border border-ink/10 bg-cream p-1' },
   { area: 'couple', what: 'How the video plays (Fill | Fit to screen)', file: `${D}/_components/std-media-picker.tsx`, anchor: 'data-std-video-fit=""', via: 'classes', thumb: 'slides', gone: 'inline-flex rounded-xl border border-ink/15 bg-cream p-0.5' },
@@ -93,7 +94,8 @@ export const CONVERTED: readonly Converted[] = [
      as ONE dropdown (`SUPPLIER_DASHBOARD_REDESIGN_2026-10-08_fable.md` § 2 "one 'QR codes' (Shortlist · Booked —
      one dropdown)"; frames 10 · 40). The card file is deleted; the page's dropdown is held by
      `app/vendor-dashboard/customers/dates-is-one-calendar.test.ts`. */
-  { area: 'supplier', what: 'Customers views (People | Dates | Money)', file: `${V}/customers/_components/customers-segments.tsx`, anchor: 'aria-label="Customers views"', via: 'track', thumb: 'slides', gone: 'rounded-full border border-ink/15 bg-white/70 p-0.5' },
+  // 2026-10-28: Customers views (People | Dates | Money) left the pill track for ONE PickMenu in Customers' pinned row
+  // (owner "any set of choices is a dropdown"; DECISION_LOG "SUPPLIER DASHBOARD APPROVED — … A ⚙ PER PAGE").
   { area: 'supplier', what: 'Discount unit (% | ₱)', file: `${V}/services/_components/service-list-editors.tsx`, anchor: 'aria-label="Discount unit"', via: 'track', thumb: 'slides', gone: "background: on ? 'var(--m-ink)' : 'var(--m-paper-2)'" },
   { area: 'supplier', what: 'How a payment is set (% of total | Fixed ₱)', file: `${V}/services/_components/payment-schedule-editor.tsx`, anchor: 'data-payment-amount-kind=""', via: 'track', thumb: 'slides', gone: 'inline-flex overflow-hidden rounded-md border border-ink/20' },
   { area: 'supplier', what: 'Billing term (Every 28 days | Yearly)', file: `${V}/subscription/custom/_components/custom-configurator.tsx`, anchor: 'aria-label="Billing term"', via: 'track', thumb: 'waits', why: RADIO, gone: 'rounded-lg border border-ink/12 p-1' },
@@ -188,7 +190,9 @@ test('(2)(3) every converted selector is drawn by the template — its track, it
   // dropdown in the plan's rows (owner-APPROVED prototype SCREENS.plan; held by
   // app/vendor-dashboard/subscription/the-plan-is-rows.test.ts). A selector that no longer exists, not a line removed
   // to go green.
-  assert.ok(CONVERTED.length >= 29, `anti-vacuity: only ${CONVERTED.length} selectors are held`);
+  // 28, not 29: the Guests pinned row's small List | Map pill was RETIRED on purpose (2026-10-29, owner v14 — the slim row
+  // is ONE dropdown now; see its note in CONVERTED). Every other selector is still held.
+  assert.ok(CONVERTED.length >= 28, `anti-vacuity: only ${CONVERTED.length} selectors are held`);
   const report: string[] = [];
   for (const c of CONVERTED) {
     const faults = pillFaults(read(c.file), c);

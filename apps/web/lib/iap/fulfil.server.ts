@@ -7,7 +7,9 @@ import { appendLedger } from '@/lib/ledger';
 import { activateOrderSku, deactivateOrderSku } from '@/lib/sku-activation';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { formatPhp } from '@/lib/php';
-import { APP_STORE_CHANNEL_KEY, appStorePriceFloorPhp, iapPriceRowFor, type IapProduct } from './products';
+import { APP_STORE_CHANNEL_KEY, appStorePriceMatchesWeb, iapPriceRowFor, type IapProduct } from './products';
+import { getEffectiveVatRatePct } from '@/lib/platform-settings';
+import { computeVatFromBase } from '@/lib/receipts';
 import { chargedPhp, type AppleTransaction } from './apple-transaction';
 
 /**
@@ -373,19 +375,22 @@ export async function fulfilAppleTransaction(
     if (linkErr) console.error('[iap] could not link the purchase intent to its order:', linkErr.message);
   }
 
-  // 💰 The owner's floor (ruling 4): an App Store price below web ÷ 0.85 is a
-  // mis-set price point in App Store Connect. The customer paid — they keep
-  // what they bought — and the owner is told.
-  if (activatedNow && tx.currency === 'PHP') {
-    const floor = appStorePriceFloorPhp(amount.catalogPhp);
+  // 💰 ONE PRICE EVERYWHERE (ruling 4 as superseded 2026-10-28, owner: "we make the price in app store and website
+  // same"): what Apple charged must BE the website price — the catalogue row grossed by the effective VAT rate (0
+  // today), the figure a website buyer pays. A difference either way is a price point in App Store Connect and a
+  // catalogue row that disagree. The customer paid — they keep what they bought — and the owner is told which side
+  // is off. (The old check was "below web ÷ 0.85"; under one price it would have fired on every sale.)
+  if (activatedNow && tx.currency === 'PHP' && amount.catalogPhp !== null) {
     const php = chargedPhp(tx);
-    if (floor !== null && php !== null && php < floor) {
+    const webPhp = computeVatFromBase(amount.catalogPhp, await getEffectiveVatRatePct(admin)).gross;
+    if (appStorePriceMatchesWeb(php, webPhp) === false) {
+      const direction = (php ?? 0) > webPhp ? 'above' : 'below';
       await insertFaultLog({
         event_type: 'OTHER',
-        element_name: 'App Store price below the ÷0.85 floor',
+        element_name: 'App Store price differs from the catalogue price',
         file_path: 'lib/iap/fulfil.server.ts',
-        error_message: `${tx.product.productId} sold for ${formatPhp(php)} — the floor is ${formatPhp(floor)} (web ${formatPhp(amount.catalogPhp ?? 0)} ÷ 0.85). Raise its price point in App Store Connect.`,
-        payload_snapshot: { productId: tx.product.productId, chargedPhp: php, floorPhp: floor },
+        error_message: `${tx.product.productId} sold for ${formatPhp(php ?? 0)} in the app — ${direction} the website price ${formatPhp(webPhp)}. One price everywhere: set the catalogue row or the App Store Connect price point so they are the same.`,
+        payload_snapshot: { productId: tx.product.productId, chargedPhp: php, webPhp, catalogPhp: amount.catalogPhp },
       });
     }
   }

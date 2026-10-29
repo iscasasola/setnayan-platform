@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6721
+# facts: 6770
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     571
-#   col       4930
-#   policy    953
+#   tpriv     575
+#   col       4962
+#   policy    958
 #   view      9
-#   func      254
+#   func      262
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -270,6 +270,7 @@ tpriv	public.live_studio_roam_zones|anon	SIUD
 tpriv	public.live_studio_roam_zones|authenticated	SIUD
 tpriv	public.manpower_gigs|authenticated	SIUD
 tpriv	public.manual_payment_logs|authenticated	SIUD
+tpriv	public.march_groups|authenticated	SIUD
 tpriv	public.march_not_walking|authenticated	SID
 tpriv	public.march_walks|authenticated	SIUD
 tpriv	public.market_funnel_bands|authenticated	SIUD
@@ -380,6 +381,7 @@ tpriv	public.renewal_reminder_log|authenticated	SIUD
 tpriv	public.reveal_studio_config|anon	SIUD
 tpriv	public.reveal_studio_config|authenticated	SIUD
 tpriv	public.samahan_messages|authenticated	SIU
+tpriv	public.samahan_reads|authenticated	S
 tpriv	public.samahan_stories|authenticated	S
 tpriv	public.scan_events|anon	SIUD
 tpriv	public.scan_events|authenticated	SIUD
@@ -398,6 +400,7 @@ tpriv	public.setnayan_pay_methods|anon	SIUD
 tpriv	public.setnayan_pay_methods|authenticated	SIUD
 tpriv	public.shared_attribute_groups|anon	SIUD
 tpriv	public.shared_attribute_groups|authenticated	SIUD
+tpriv	public.shop_papic_wallet_entries|authenticated	S
 tpriv	public.site_visit_days|authenticated	S
 tpriv	public.site_widgets|anon	SIUD
 tpriv	public.site_widgets|authenticated	SIUD
@@ -412,6 +415,7 @@ tpriv	public.songs|authenticated	SIUD
 tpriv	public.stewardship_transfers|anon	SIUD
 tpriv	public.stewardship_transfers|authenticated	SIUD
 tpriv	public.supplier_night_before_email_log|authenticated	SIUD
+tpriv	public.supplier_page_photo_notices|authenticated	S
 tpriv	public.taxonomy_category_requests|authenticated	SIUD
 tpriv	public.thread_calls|anon	SIUD
 tpriv	public.thread_calls|authenticated	SIUD
@@ -2786,12 +2790,18 @@ col	public.manual_payment_logs.id	anon=- authenticated=SIU
 col	public.manual_payment_logs.items_ordered	anon=- authenticated=SIU
 col	public.manual_payment_logs.payment_status	anon=- authenticated=SIU
 col	public.manual_payment_logs.reference_number	anon=- authenticated=SIU
+col	public.march_groups.created_at	anon=- authenticated=SIU
+col	public.march_groups.event_id	anon=- authenticated=SIU
+col	public.march_groups.group_key	anon=- authenticated=SIU
+col	public.march_groups.label	anon=- authenticated=SIU
+col	public.march_groups.updated_at	anon=- authenticated=SIU
 col	public.march_not_walking.created_at	anon=- authenticated=SI
 col	public.march_not_walking.event_id	anon=- authenticated=SI
 col	public.march_not_walking.guest_id	anon=- authenticated=SI
 col	public.march_walks.created_at	anon=- authenticated=SIU
 col	public.march_walks.event_id	anon=- authenticated=SIU
 col	public.march_walks.guest_id	anon=- authenticated=SIU
+col	public.march_walks.march_group	anon=- authenticated=SIU
 col	public.march_walks.place_in_walk	anon=- authenticated=SIU
 col	public.march_walks.updated_at	anon=- authenticated=SIU
 col	public.march_walks.walk_no	anon=- authenticated=SIU
@@ -3807,6 +3817,9 @@ col	public.samahan_messages.deleted_at	anon=- authenticated=SIU
 col	public.samahan_messages.id	anon=- authenticated=SIU
 col	public.samahan_messages.message_id	anon=- authenticated=SIU
 col	public.samahan_messages.user_id	anon=- authenticated=SIU
+col	public.samahan_reads.community_id	anon=- authenticated=S
+col	public.samahan_reads.last_read_at	anon=- authenticated=S
+col	public.samahan_reads.user_id	anon=- authenticated=S
 col	public.samahan_stories.clip_bytes	anon=- authenticated=S
 col	public.samahan_stories.community_id	anon=- authenticated=S
 col	public.samahan_stories.created_at	anon=- authenticated=S
@@ -3947,6 +3960,18 @@ col	public.shared_attribute_groups.display_name_en	anon=SIU authenticated=SIU
 col	public.shared_attribute_groups.display_name_tl	anon=SIU authenticated=SIU
 col	public.shared_attribute_groups.group_name	anon=SIU authenticated=SIU
 col	public.shared_attribute_groups.updated_at	anon=SIU authenticated=SIU
+col	public.shop_papic_wallet_entries.clips	anon=- authenticated=S
+col	public.shop_papic_wallet_entries.created_at	anon=- authenticated=S
+col	public.shop_papic_wallet_entries.created_by	anon=- authenticated=S
+col	public.shop_papic_wallet_entries.delta	anon=- authenticated=S
+col	public.shop_papic_wallet_entries.entry_id	anon=- authenticated=S
+col	public.shop_papic_wallet_entries.event_id	anon=- authenticated=S
+col	public.shop_papic_wallet_entries.kind	anon=- authenticated=S
+col	public.shop_papic_wallet_entries.note	anon=- authenticated=S
+col	public.shop_papic_wallet_entries.order_id	anon=- authenticated=S
+col	public.shop_papic_wallet_entries.photos	anon=- authenticated=S
+col	public.shop_papic_wallet_entries.spend_ref	anon=- authenticated=S
+col	public.shop_papic_wallet_entries.vendor_profile_id	anon=- authenticated=S
 col	public.site_visit_days.country	anon=- authenticated=S
 col	public.site_visit_days.day	anon=- authenticated=S
 col	public.site_visit_days.device	anon=- authenticated=S
@@ -4038,6 +4063,16 @@ col	public.supplier_night_before_email_log.event_date	anon=- authenticated=SIU
 col	public.supplier_night_before_email_log.event_vendor_id	anon=- authenticated=SIU
 col	public.supplier_night_before_email_log.resend_id	anon=- authenticated=SIU
 col	public.supplier_night_before_email_log.sent_at	anon=- authenticated=SIU
+col	public.supplier_page_photo_notices.event_id	anon=- authenticated=S
+col	public.supplier_page_photo_notices.notice_id	anon=- authenticated=S
+col	public.supplier_page_photo_notices.noticed_at	anon=- authenticated=S
+col	public.supplier_page_photo_notices.page_ref	anon=- authenticated=S
+col	public.supplier_page_photo_notices.photo_id	anon=- authenticated=S
+col	public.supplier_page_photo_notices.public_from	anon=- authenticated=S
+col	public.supplier_page_photo_notices.published_at	anon=- authenticated=S
+col	public.supplier_page_photo_notices.removed_at	anon=- authenticated=S
+col	public.supplier_page_photo_notices.removed_by	anon=- authenticated=S
+col	public.supplier_page_photo_notices.vendor_profile_id	anon=- authenticated=S
 col	public.taxonomy_category_requests.created_at	anon=- authenticated=SIU
 col	public.taxonomy_category_requests.mapped_to_canonical	anon=- authenticated=SIU
 col	public.taxonomy_category_requests.proposed_by_vendor_id	anon=- authenticated=SIU
@@ -4650,6 +4685,7 @@ col	public.vendor_lock_proposals.proposed_by_user_id	anon=- authenticated=SIU
 col	public.vendor_lock_proposals.resolved_at	anon=- authenticated=SIU
 col	public.vendor_lock_proposals.resolved_by_user_id	anon=- authenticated=SIU
 col	public.vendor_lock_proposals.status	anon=- authenticated=SIU
+col	public.vendor_locked_qr_tokens.block_id	anon=SIU authenticated=SIU
 col	public.vendor_locked_qr_tokens.category	anon=SIU authenticated=SIU
 col	public.vendor_locked_qr_tokens.claimed_at	anon=SIU authenticated=SIU
 col	public.vendor_locked_qr_tokens.claimed_by_user_id	anon=SIU authenticated=SIU
@@ -5974,6 +6010,8 @@ policy	public.manpower_gigs|manpower_gigs_host_posts_open	mode=PERMISSIVE cmd=IN
 policy	public.manpower_gigs|manpower_gigs_host_reads_own_event	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT event_members.event_id FROM event_members WHERE ((event_members.user_id = ( SELECT auth.uid() AS uid)) AND (event_members.member_type = 'couple'::member_type)))) check=NULL
 policy	public.manpower_gigs|manpower_gigs_team_admin	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=NULL
 policy	public.manpower_gigs|manpower_gigs_vendor_reads_own	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_profile_id IN ( SELECT vendor_profiles.vendor_profile_id FROM vendor_profiles WHERE (vendor_profiles.user_id = ( SELECT auth.uid() AS uid)))) check=NULL
+policy	public.march_groups|march_groups_host_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR ( SELECT is_admin() AS is_admin) OR (event_id IN ( SELECT l.event_id FROM current_moderator_area_levels('guest_list'::text) l(event_id, level) WHERE (l.level = 'edit'::text)))) check=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR ( SELECT is_admin() AS is_admin) OR (event_id IN ( SELECT l.event_id FROM current_moderator_area_levels('guest_list'::text) l(event_id, level) WHERE (l.level = 'edit'::text))))
+policy	public.march_groups|march_groups_moderator_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT l.event_id FROM current_moderator_area_levels('guest_list'::text) l(event_id, level) WHERE (l.level IS NOT NULL))) check=NULL
 policy	public.march_not_walking|march_not_walking_host_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR ( SELECT is_admin() AS is_admin) OR (event_id IN ( SELECT l.event_id FROM current_moderator_area_levels('guest_list'::text) l(event_id, level) WHERE (l.level = 'edit'::text)))) check=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR ( SELECT is_admin() AS is_admin) OR (event_id IN ( SELECT l.event_id FROM current_moderator_area_levels('guest_list'::text) l(event_id, level) WHERE (l.level = 'edit'::text))))
 policy	public.march_not_walking|march_not_walking_moderator_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT l.event_id FROM current_moderator_area_levels('guest_list'::text) l(event_id, level) WHERE (l.level IS NOT NULL))) check=NULL
 policy	public.march_walks|march_walks_host_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR ( SELECT is_admin() AS is_admin) OR (event_id IN ( SELECT l.event_id FROM current_moderator_area_levels('guest_list'::text) l(event_id, level) WHERE (l.level = 'edit'::text)))) check=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR ( SELECT is_admin() AS is_admin) OR (event_id IN ( SELECT l.event_id FROM current_moderator_area_levels('guest_list'::text) l(event_id, level) WHERE (l.level = 'edit'::text))))
@@ -6146,6 +6184,7 @@ policy	public.reveal_studio_config|reveal_studio_config_read_all	mode=PERMISSIVE
 policy	public.samahan_messages|samahan_message_author_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=(user_id = ( SELECT auth.uid() AS uid)) check=(user_id = ( SELECT auth.uid() AS uid))
 policy	public.samahan_messages|samahan_message_member_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((community_id IN ( SELECT current_community_ids() AS current_community_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.samahan_messages|samahan_message_member_write	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((user_id = ( SELECT auth.uid() AS uid)) AND (community_id IN ( SELECT current_community_ids() AS current_community_ids)))
+policy	public.samahan_reads|samahan_reads_self	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(user_id = ( SELECT auth.uid() AS uid)) check=NULL
 policy	public.samahan_stories|samahan_story_member_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(((community_id IN ( SELECT current_community_ids() AS current_community_ids)) AND (expires_at > now())) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.scan_events|admin_writes_scan_events	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=( SELECT is_admin() AS is_admin)
 policy	public.scan_events|couple_reads_scan_events	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
@@ -6168,6 +6207,7 @@ policy	public.setnayan_ai_guard_log|couple_reads_setnayan_ai_guard_log	mode=PERM
 policy	public.setnayan_pay_methods|setnayan_pay_methods_read_all	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=true check=NULL
 policy	public.shared_attribute_groups|shared_attribute_groups_admin_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.shared_attribute_groups|shared_attribute_groups_read_all	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=true check=NULL
+policy	public.shop_papic_wallet_entries|shop_papic_wallet_entries_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.site_visit_days|site_visit_days_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
 policy	public.site_widgets|site_widgets_admin_write_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=( SELECT is_admin() AS is_admin)
 policy	public.site_widgets|site_widgets_admin_write_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
@@ -6183,6 +6223,7 @@ policy	public.songs|songs_authenticated_insert	mode=PERMISSIVE cmd=INSERT roles=
 policy	public.songs|songs_public_select	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=true check=NULL
 policy	public.stewardship_transfers|stewardship_transfers_participant_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=(( SELECT is_admin() AS is_admin) OR (from_user_id = ( SELECT auth.uid() AS uid)) OR (to_user_id = ( SELECT auth.uid() AS uid))) check=NULL
 policy	public.supplier_night_before_email_log|supplier_night_before_email_log_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
+policy	public.supplier_page_photo_notices|supplier_page_photo_notices_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.taxonomy_category_request_drafts|taxonomy_category_request_drafts_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.taxonomy_category_requests|taxonomy_category_requests_admin_delete	mode=PERMISSIVE cmd=DELETE roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
 policy	public.taxonomy_category_requests|taxonomy_category_requests_admin_write	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
@@ -6536,6 +6577,7 @@ func	public.coordinator_seat_by_guest_qr(p_event_id uuid, p_token text)	secdef=y
 func	public.count_saves_for_vendor(p_vendor_profile_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.count_unread_message_threads()	secdef=yes exec=anon,authenticated search_path=public
 func	public.couple_decide_inspiration_suggestion(p_suggestion_id uuid, p_keep boolean, p_replace_position smallint)	secdef=yes exec=authenticated search_path=public
+func	public.couple_thread_supplier_names(p_event_id uuid)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.couple_undo_kept_inspiration_suggestion(p_suggestion_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.create_vendor_subscription(p_sku_code text, p_addon_token_pack_sku text)	secdef=yes exec=anon,authenticated search_path=UNPINNED
 func	public.current_community_ids()	secdef=yes exec=anon,authenticated search_path=public
@@ -6568,6 +6610,7 @@ func	public.event_has_comp_for_sku(p_event_id uuid, p_service_key text)	secdef=y
 func	public.event_host_holds_founder_seat(p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public, pg_temp
 func	public.event_host_is_internal(p_event_id uuid)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.execute_manpower_telemetry_reward(p_vendor_id uuid, p_event_id uuid, p_service_code text)	secdef=no exec=anon,authenticated search_path=UNPINNED
+func	public.file_supplier_page_notice(p_photo_id uuid, p_page_ref text)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.finalize_guest_claim(p_claim_id uuid, p_guest_id uuid, p_reviewer uuid)	secdef=yes exec=anon search_path=public
 func	public.follow_people_names(p_user_ids uuid[])	secdef=yes exec=authenticated search_path=public
 func	public.funnel_benchmark_for_vendor(p_vendor_profile_id uuid, p_category text)	secdef=yes exec=anon,authenticated search_path=public
@@ -6601,6 +6644,7 @@ func	public.is_limited_helper(p_event_id uuid)	secdef=yes exec=authenticated sea
 func	public.join_entourage_line(p_event_id uuid, p_anchor uuid, p_joiner uuid)	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.link_creator_offer_deliverable(p_offer_id uuid, p_chapter_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.live_studio_guest_rtc_can_access(p_topic text)	secdef=yes exec=authenticated search_path=public, pg_temp
+func	public.mark_samahan_read(p_community_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.mark_vendor_contact_confirmed(p_application_id uuid, p_channel text)	secdef=yes exec=authenticated search_path=public
 func	public.min_n_ok(p_count integer, p_floor integer)	secdef=no exec=anon,authenticated search_path=UNPINNED
 func	public.moderator_area_level(p_event_id uuid, p_area text)	secdef=yes exec=anon,authenticated search_path=public
@@ -6663,9 +6707,11 @@ func	public.review_is_booked_through_setnayan(p_event_id uuid, p_vendor_profile_
 func	public.review_via_vendor_import(p_event_id uuid, p_vendor_profile_id uuid)	secdef=yes exec=anon,authenticated search_path=public, extensions
 func	public.rls_auto_enable()	secdef=yes exec=anon,authenticated search_path=pg_catalog
 func	public.rotate_guest_qr_token(p_guest_id uuid, p_actor_kind text, p_reason text)	secdef=yes exec=authenticated search_path=public
+func	public.samahan_unread_counts()	secdef=no exec=authenticated search_path=public
 func	public.service_card_records(p_service_ids uuid[])	secdef=yes exec=authenticated search_path=public
 func	public.set_coordinator_colour_access(p_event_id uuid, p_user_id uuid, p_domain text, p_active boolean)	secdef=yes exec=authenticated search_path=public
 func	public.set_entourage_order(p_event_id uuid, p_guest_ids uuid[], p_orders integer[])	secdef=no exec=authenticated search_path=public, pg_temp
+func	public.set_march_group(p_event_id uuid, p_guest_id uuid, p_group text)	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.set_march_walking(p_event_id uuid, p_guest_id uuid, p_walks boolean)	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.set_service_slot_day_capacity(p_slot_id uuid, p_reserved_date date, p_seats integer)	secdef=yes exec=authenticated search_path=public
 func	public.set_vendor_calendar_day_state(p_vendor_profile_id uuid, p_pool_id uuid, p_state_date date, p_day_state text, p_note text)	secdef=yes exec=anon,authenticated search_path=public
@@ -6674,6 +6720,9 @@ func	public.setnayan_ai_price_tier(p_event_type text)	secdef=no exec=anon,authen
 func	public.settle_event_date_change(p_request_id uuid, p_action text, p_event_vendor_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.settle_vendor_deposit_dispute(p_event_vendor_id uuid, p_outcome text, p_note text)	secdef=yes exec=authenticated search_path=public
 func	public.settle_vendor_payment_dispute(p_payment_id uuid, p_outcome text, p_note text)	secdef=yes exec=authenticated search_path=public
+func	public.shop_papic_wallet_balance(p_vendor_profile_id uuid)	secdef=no exec=authenticated search_path=public, pg_temp
+func	public.shop_portfolio_commit(p_vendor_profile_id uuid, p_refs text[], p_spend_ref text)	secdef=yes exec=authenticated search_path=public, pg_temp
+func	public.shop_portfolio_ref_credits(p_ref text)	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.story_dial_bucket_counts(p_event_id uuid, p_window_start timestamp with time zone, p_window_end timestamp with time zone, p_bucket_minutes integer)	secdef=no exec=authenticated search_path=public
 func	public.supersede_prior_vendor_proposals(p_event_id uuid, p_vendor_profile_id uuid, p_keep_proposal_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.swap_entourage_places(p_event_id uuid, p_a uuid, p_b uuid)	secdef=no exec=authenticated search_path=public, pg_temp

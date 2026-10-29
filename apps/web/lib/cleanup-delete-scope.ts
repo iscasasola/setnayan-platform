@@ -338,6 +338,18 @@ export function profilePhotoScope(userId: unknown): CleanupScope {
   return mintScope(`users:${u}`, [{ bucket: MEDIA, prefixes: [`profile-photo/${u}/`] }]);
 }
 
+/**
+ * A supplier's PAGE COPY of one of its event-album photos — `putAlbumPhotoOnMyPage` names it
+ * `vendors/<vendor_profile_id>/portfolio/from-album/…` (`pagePhotoKeyFor`) and the 7-day notice publishes it there.
+ * Deleted when a guest removes it or a takedown is honoured (lib/supplier-page-notice.server.ts). Only that folder:
+ * the shop's own uploads beside it are never this cleanup's to touch.
+ */
+export function supplierPageAlbumCopyScope(vendorProfileId: unknown): CleanupScope {
+  const v = safeId(vendorProfileId);
+  if (!v) return emptyScope('supplier_page_photo_notices');
+  return mintScope(`supplier_page_photo_notices:${v}`, [{ bucket: MEDIA, prefixes: [`vendors/${v}/portfolio/from-album/`] }]);
+}
+
 /** A shop's logo — `vendors/<vendor_profile_id>/logo/…` in media. */
 export function vendorLogoScope(vendorProfileId: unknown): CleanupScope {
   const v = safeId(vendorProfileId);

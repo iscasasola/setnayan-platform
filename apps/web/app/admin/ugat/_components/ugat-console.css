@@ -955,7 +955,7 @@
 .ug-scrim {
   position: fixed;
   inset: 0;
-  background: rgba(25, 25, 25, 0.28);
+  /* The colour and blur are the one scrim's (`.sn-popup-dark` on the element, owner 2026-10-29). */
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.2s;

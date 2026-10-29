@@ -73,7 +73,7 @@ export default async function HeroPhotoEditorPage({
     <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
       {/* Back link */}
       <Link
-        href={`/dashboard/${eventId}/website`}
+        href={`/dashboard/${eventId}/launch`}
         className="mb-6 inline-flex items-center gap-1.5 text-sm text-ink/65 transition-colors hover:text-burgundy focus-visible:text-burgundy focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
       >
         <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />
@@ -187,7 +187,7 @@ export default async function HeroPhotoEditorPage({
 
           <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
             <Link
-              href={`/dashboard/${eventId}/website`}
+              href={`/dashboard/${eventId}/launch`}
               className="inline-flex items-center justify-center rounded-lg border border-ink/15 bg-white px-4 py-2 text-sm font-semibold text-ink/75 transition-colors hover:border-ink/25 hover:bg-cream focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
             >
               Cancel

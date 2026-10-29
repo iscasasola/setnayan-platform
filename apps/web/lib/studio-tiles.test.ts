@@ -42,22 +42,19 @@ function facts(over: Partial<GuidedDoneFacts> = {}, moments: { story: number | n
 
 const all = (): boolean => true;
 function input(over: Partial<StudioTilesInput> = {}): StudioTilesInput {
-  return { facts: facts(), giftMethods: 2, seat: { tables: 12, seated: 0 }, offered: all, ...over };
+  return { facts: facts(), giftMethods: 2, offered: all, ...over };
 }
 
-test('1 · the tiles, in the order an event gets made — and Prints is not one of them (R8)', () => {
-  assert.deepEqual(
-    [...STUDIO_TILE_KEYS],
-    ['info', 'look', 'logo', 'mood', 'schedule', 'story', 'march', 'seats', 'gifts'],
-  );
+test('1 · seven tiles, in the order an event gets made — RSVP (R1), Wedding March and Seat plan (R4) are gone, and Prints is not one of them (R8)', () => {
+  assert.deepEqual([...STUDIO_TILE_KEYS], ['info', 'look', 'logo', 'mood', 'schedule', 'story', 'gifts']);
   const tiles = studioTiles(input());
   assert.equal(tiles.length, STUDIO_TILE_KEYS.length);
   assert.deepEqual(
     tiles.map((t) => t.label),
-    ['Info', 'Look', 'Logo', 'Mood Board & Dress Code', 'Schedule', 'Love Story', 'Wedding March', 'Seat plan', 'E-Gifts'],
+    ['Info', 'Look', 'Logo', 'Mood Board & Dress Code', 'Schedule', 'Love Story', 'E-Gifts'],
   );
   assert.ok(!tiles.some((t) => (t.key as string) === 'prints' || t.label === 'Prints'), 'Prints is a Studio tile again — it has its own page (R8)');
-  assert.deepEqual(tiles.filter((t) => t.immersive).map((t) => t.key), ['march', 'seats'], 'only the Wedding March and the Seat plan go full screen');
+  assert.deepEqual(tiles.filter((t) => t.immersive).map((t) => t.key), [], 'the two full-screen tiles left for Guests (R4)');
 });
 
 test('2 · each tile opens a real Event Details item', () => {
@@ -74,8 +71,6 @@ test('3 · ✓ / Missing IS the shipped "done" — the same function the Details
     assert.equal(done('look'), item('theme'));
     assert.equal(done('logo'), item('logo'));
     assert.equal(done('mood'), item('mood-board'));
-    assert.equal(done('march'), item('march'));
-    assert.equal(done('seats'), item('seating'));
     assert.equal(done('schedule'), wordsAndPlansItem('schedule', f.words).done);
     assert.equal(done('story'), wordsAndPlansItem('love-story', f.words).done);
     assert.equal(done('info'), item('names')! && item('date')! && item('venues')!);
@@ -85,20 +80,18 @@ test('3 · ✓ / Missing IS the shipped "done" — the same function the Details
   const t = studioTiles(input({ facts: f }));
   assert.equal(t.find((x) => x.key === 'schedule')!.status, wordsAndPlansItem('schedule', f.words).sub);
   assert.equal(t.find((x) => x.key === 'story')!.status, wordsAndPlansItem('love-story', f.words).sub);
-  assert.equal(t.find((x) => x.key === 'seats')!.status, '12 tables · 0 seated');
   assert.equal(t.find((x) => x.key === 'gifts')!.status, '2 ways to give');
   assert.equal(t.find((x) => x.key === 'gifts')!.done, true);
 });
 
 test('4 · a fact that was not read makes no claim — never a Missing nobody measured', () => {
   const tiles = studioTiles(
-    input({ facts: facts({ yourEvent: null, seatPlanArranged: null }, { story: null, schedule: null }), giftMethods: null, seat: { tables: null, seated: null } }),
+    input({ facts: facts({ yourEvent: null, seatPlanArranged: null }, { story: null, schedule: null }), giftMethods: null }),
   );
-  for (const k of ['info', 'march', 'seats', 'story', 'schedule', 'gifts'] as const) {
+  for (const k of ['info', 'story', 'schedule', 'gifts'] as const) {
     assert.equal(tiles.find((t) => t.key === k)!.done, undefined, `${k} claims a done it never read`);
   }
   assert.equal(tiles.find((t) => t.key === 'gifts')!.status, 'Could not be read just now');
-  assert.equal(tiles.find((t) => t.key === 'seats')!.status, 'Could not be read just now');
 });
 
 test('5 · "n of N ready" counts only what is really done; an event without an item has no tile for it', () => {
@@ -106,8 +99,6 @@ test('5 · "n of N ready" counts only what is really done; an event without an i
   const { ready, total } = studioReady(tiles);
   assert.equal(total, STUDIO_TILE_KEYS.length, 'a tile counted that is not drawn');
   assert.equal(ready, tiles.filter((t) => t.done === true).length);
-  const birthday = studioTiles(input({ offered: (k) => !['love-story', 'march', 'seating'].includes(k) }));
+  const birthday = studioTiles(input({ offered: (k) => !['love-story'].includes(k) }));
   assert.deepEqual(birthday.map((t) => t.key), ['info', 'look', 'logo', 'mood', 'schedule', 'gifts']);
-  // The march in the type's own words.
-  assert.equal(studioTiles(input({ marchLabel: 'Grand March' })).find((t) => t.key === 'march')!.label, 'Grand March');
 });

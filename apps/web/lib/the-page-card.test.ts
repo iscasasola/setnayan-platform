@@ -104,7 +104,7 @@ const tiles = (over: Partial<Record<string, { done?: boolean | undefined; status
     status: over[key]?.status ?? STUDIO_TILES[key].sub,
   }));
 
-test('(3) the Studio home: ten cards (RSVP left for Guests ⚙ in R1), ten DISTINCT marks, the tile’s own marks and the count kept; one column, two from 768', async () => {
+test('(3) the Studio home: eight cards (RSVP left for Guests ⚙ in R1; Wedding March and Seat plan for Guests’ views in R4), eight DISTINCT marks, the tile’s own marks and the count kept; one column, two from 768', async () => {
   const { StudioHome, TILE_ICON } = await import(`../${HOME}`);
   const html = await paint(h(StudioHome, { tiles: tiles({ logo: { done: false }, gifts: { done: undefined, status: STUDIO_TILE_UNREAD } }), onOpen: () => {} }));
   /* 🖨 Counted from the keys, never typed (R8 took Prints out — `lib/prints-has-its-own-page.test.ts`). */
@@ -120,10 +120,10 @@ test('(3) the Studio home: ten cards (RSVP left for Guests ⚙ in R1), ten DISTI
   assert.equal(count(html, />Ready</g), N - 2);
   assert.equal(count(html, />Missing</g), 1);
   assert.equal(count(html, />Could not be read just now</g), 1, 'a fact that could not be read looks like an untouched page');
-  // "Full screen" on the two that take the screen — a small tag.
+  // "Full screen" was the tag of the two that took the screen — both are Guests' views since R4, so none is tagged.
   const tagged = [...html.matchAll(/data-studio-tile="([a-z]+)"[\s\S]*?<\/button>/g)].filter((m) => m[0].includes('data-page-card-tag')).map((m) => m[1]);
-  assert.deepEqual(tagged, ['march', 'seats']);
-  // THE CLAIM: ten DISTINCT marks (Look and the Mood Board shared one) — compared as drawn.
+  assert.deepEqual(tagged, []);
+  // THE CLAIM: eight DISTINCT marks (Look and the Mood Board shared one) — compared as drawn.
   const marks = [...html.matchAll(/data-page-card-mark=""[^>]*>(<svg[\s\S]*?<\/svg>)/g)].map((m) => m[1]!.replace(/\s+/g, ' '));
   assert.equal(marks.length, N, 'anti-vacuity: the marks were not found');
   assert.equal(new Set(marks).size, N, 'two pages share one mark');

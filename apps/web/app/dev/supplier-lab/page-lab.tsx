@@ -4,6 +4,7 @@
  * the caterer, the studio). Drawn only by `/dev/supplier-lab` (404 in production).
  *
  *   ?s=details&who=parish|caterer|studio      Your details (the parish: 4 of 6 · left: documents · how clients pay you)
+ *   ?s=details&invited=1[&asked=1]            🏷 a shop Setnayan set up: the name asks to change (asked = waiting)
  *   ?s=page&who=…                             Your page   (&draft=1 seeds a waiting change, as if one were made)
  *   ?s=collections&who=…                      Your collections
  *   ?s=avatar                                 the account panel with the supplier's rows (press the avatar)
@@ -32,12 +33,14 @@ import { OpenFoldButton } from '@/app/vendor-dashboard/_components/open-fold-but
 import { AccountSwitcher } from '@/app/_components/account-switcher/account-switcher';
 import { supplierAvatarRows } from '@/app/vendor-dashboard/_components/supplier-avatar-rows';
 import { LabSeedDraft } from './lab-seed-draft';
-import { PORTFOLIO_FREE_BASE } from '@/lib/vendor-tier-caps';
+import { PORTFOLIO_FREE_BASE, tierCaps } from '@/lib/vendor-tier-caps';
+import { deepSearchBand } from '@/lib/deep-search-findings';
+import type { DeepSearchOffer, LastDeepSearch } from '@/lib/vendor-deep-search-offer';
 import { BadgeEarnedLine } from '@/app/vendor-dashboard/_components/badge-earned-line';
 import { badgePrintSvg } from '@/lib/shop-badge-print';
 import { ShopBadgePill } from '@/app/_components/shop-badge-pill';
 import { MILESTONE_THRESHOLDS } from '@/lib/service-card-record';
-import { badgeTracker, badgesForPrint, nextToEarnLine, shopBadges, trackerSummary, type TrackerFacts } from '@/lib/shop-badges';
+import { badgeTracker, badgesForPrint, nextToEarnLine, shopBadges, trackerSummary, type ShopBadgeFacts, type TrackerFacts } from '@/lib/shop-badges';
 
 export const PAGE_LAB_STATES = ['details', 'page', 'collections', 'avatar', 'badge-today', 'badge-tiers'] as const;
 export type PageLabState = (typeof PAGE_LAB_STATES)[number];
@@ -117,7 +120,7 @@ const FIX: Record<Who, Fixture> = {
       { label: 'BDO', provider: 'BDO' },
     ],
     about: 'Home-style Filipino buffet since 2014.',
-    outerKm: 60,
+    outerKm: 30,
     tier: 'solo',
     rating: 4.7,
     reviews: 19,
@@ -151,7 +154,7 @@ const FIX: Record<Who, Fixture> = {
       { label: 'GCash', provider: 'GCash' },
     ],
     about: 'Documentary wedding films and stills since 2019.',
-    outerKm: 300,
+    outerKm: 50,
     tier: 'pro',
     rating: 4.8,
     reviews: 31,
@@ -168,6 +171,48 @@ const FIX: Record<Who, Fixture> = {
     },
   },
 };
+
+/** 🔎 The Deep Search card's offer, as `loadDeepSearchOffer` would answer for this plan (band on, nothing run yet). */
+function labDeepSearchOffer(tier: string, verified: boolean): DeepSearchOffer {
+  const band = deepSearchBand({ tiered: true, catalogPhp: 0 });
+  const pro = tier === 'pro' || tier === 'enterprise' || tier === 'custom';
+  const price = pro ? band.growthPhp : band.entryPhp;
+  return {
+    eligible: verified,
+    tier,
+    isFreeNow: verified && pro,
+    hasFreeAllowance: pro,
+    pricePhp: price,
+    cyclePricePhp: price,
+    band,
+    periodDays: 28,
+    openRails: [{ id: 'gcash', label: 'GCash' }] as unknown as DeepSearchOffer['openRails'],
+  };
+}
+
+/** The studio ran one search (its PDF is offered); the caterer never has; the parish is not verified. */
+function labLastDeepSearch(who: Who): LastDeepSearch {
+  if (who !== 'studio') return { measured: true, last: null };
+  return {
+    measured: true,
+    last: {
+      usedAt: '2026-10-20T03:00:00Z',
+      status: 'complete',
+      dossierId: 1,
+      createdAt: '2026-10-20T03:00:00Z',
+      dossier: {
+        business_summary: 'Documentary wedding films and stills, Makati.',
+        detected_services: ['Wedding film', 'Same-day edit', 'Photo coverage', 'Prenup shoot'],
+        price_signals: [{ label: 'Full-day film', price: 'PHP 85,000', source_url: null }],
+        web_presence: [{ platform: 'Instagram', url: null, note: '4,120 followers' }],
+        ads_findings: null,
+        consistency_flags: ['An old phone number on a 2023 listing'],
+        category_match: 'match',
+        confidence: 'high',
+      },
+    },
+  };
+}
 
 function detailsFixture(who: Who): DetailsData {
   const f = FIX[who];
@@ -245,6 +290,8 @@ function detailsFixture(who: Who): DetailsData {
     socialFeatureOptOut: false,
     socialAlreadyFeatured: false,
     openCorrections: [],
+    requestOnly: ['business_slug'],
+    setUpBySetnayan: false,
     pendingCoverageSuggestion: null,
     verify,
     verifyMeasured: true,
@@ -256,15 +303,21 @@ function detailsFixture(who: Who): DetailsData {
       tier: f.tier,
       hqLat: 14.5547,
       hqLng: 121.0244,
-      reachKm: 50,
-      innerRadiusKm: f.outerKm ? 30 : null,
+      // The plan's own reach (Free 0 · Solo 30 · Pro 50) — the lab draws what the shop's plan really allows.
+      reachKm: tierCaps(f.tier).serviceRadiusKm,
+      innerRadiusKm: f.outerKm ? 10 : null,
       outerRadiusKm: f.outerKm,
+      isVerified: f.verified,
+      tierMeasured: true,
       branches: [],
       branchFeePhp: 0,
       branchAutoRadius: 25,
       branchPay: { accounts: [], open: [] } as unknown as DetailsData['branch']['branchPay'],
     },
     pay: { methods, measured: true },
+    deepSearch: labDeepSearchOffer(f.tier, f.verified),
+    lastDeepSearch: labLastDeepSearch(who),
+    onSetnayanSince: '2026-10-03T02:00:00Z',
     logoUnavailable: false,
     progress: detailsProgress({
       checklist,
@@ -278,7 +331,31 @@ function detailsFixture(who: Who): DetailsData {
  * 🎁 A shop fresh from Setnayan's personal invite (prototype `supplier_personal_invite_2026-10-23` frame B4): the
  * admin staged the name, the category and the email; nothing else is in yet. `?s=details&invited=1`.
  */
-function invitedDetailsFixture(): DetailsData {
+/**
+ * 🧰 A NEW SHOP, for Today's six steps (`?easy=setup`, owner 2026-10-28): fresh from the invite (B4) — name and email
+ * in, the rest to do; `docs` sets how its papers stand (none · checking · fix, with the admin's reason).
+ */
+export function labSetupDetails(docs: 'none' | 'checking' | 'fix' = 'none', stage: 'fresh' | 'details' = 'fresh'): DetailsData {
+  const d = invitedDetailsFixture();
+  const checklist = stage === 'details' ? d.checklist.map((i) => ({ ...i, ok: true })) : d.checklist;
+  const status = docs === 'checking' ? 'pending_review' : docs === 'fix' ? 'rejected' : null;
+  return {
+    ...d,
+    checklist,
+    profileComplete: stage === 'details',
+    fieldsLeft: checklist.filter((i) => !i.ok && i.key !== 'logo').length,
+    docsIn: docs === 'none' ? 0 : docs === 'fix' ? 3 : 4,
+    verify: {
+      ...d.verify,
+      status,
+      requiredIn: docs === 'none' ? 0 : docs === 'fix' ? 3 : 4,
+      requiredDocsIn: docs === 'checking',
+      decisionReason: docs === 'fix' ? 'The BIR 2303 photo is cut off at the bottom — upload the whole page.' : null,
+    } as DetailsData['verify'],
+  };
+}
+
+function invitedDetailsFixture(asked = false): DetailsData {
   const base = detailsFixture('caterer');
   const has = new Set(['business_name', 'contact_email', 'services']);
   const checklist = base.checklist.map((i) => ({ ...i, ok: has.has(i.key) }));
@@ -315,6 +392,27 @@ function invitedDetailsFixture(): DetailsData {
     }),
     fromInvite: true,
     hasLogo: false,
+    // 🏷 Setnayan set this shop up (owner 2026-10-29): the name it typed changes by request; the blank address is
+    // hers to create. `&asked=1` — a name change already waiting on Setnayan.
+    requestOnly: ['business_slug', 'business_name'],
+    setUpBySetnayan: true,
+    openCorrections: asked
+      ? [
+          {
+            id: 1,
+            public_id: 'S89C-LABASKED01',
+            vendor_profile_id: 'lab-invited',
+            field_key: 'business_name',
+            current_value: 'Tita Nena’s Catering',
+            requested_value: 'Tita Nena’s Kitchen',
+            note: null,
+            status: 'open',
+            created_at: '2026-10-29T01:00:00Z',
+            resolved_at: null,
+            resolved_by: null,
+          },
+        ]
+      : [],
   };
 }
 
@@ -335,6 +433,29 @@ const LAB_BADGE_EVENTS: Record<Who, { events: number; unreviewed: number; awards
   caterer: { events: 96, unreviewed: 3, awards: [] },
   studio: { events: 50, unreviewed: 2, awards: ["Setnayan's Top Pick"] },
 };
+/* 🏅 The facts the earned line reads, per lab case: Verified alone (the owner’s live shot) · a 50-event milestone. */
+const EARNED_FACTS: Record<string, ShopBadgeFacts> = {
+  verified: { verified: true, completedEvents: 0, trusted: null, inBusinessSinceYear: null, awards: [], nowYear: 2026 },
+  milestone: { verified: true, completedEvents: 50, trusted: null, inBusinessSinceYear: null, awards: [], nowYear: 2026 },
+};
+
+/** The earned line exactly as Today mounts it (above the screen), its facts and print file handed in as data: URIs —
+ *  `?s=clear&earned=verified|milestone` (page.tsx's Today states). Lives here, beside `badge-today`, so the lab's one
+ *  print-file draw stays in one file (lib/every-logo-plays.test.ts's STILL entry for this file). */
+export function LabEarnedLine({ which }: { which: string }) {
+  const facts = EARNED_FACTS[which];
+  if (!facts) return null;
+  const files = Object.fromEntries(
+    badgesForPrint(facts).map((b) => [b.key, `data:image/svg+xml;base64,${Buffer.from(badgePrintSvg([b])).toString('base64')}`]),
+  );
+  return (
+    <BadgeEarnedLine
+      factsUrl={`data:application/json,${encodeURIComponent(JSON.stringify({ vendorId: `lab-earned-${which}`, facts }))}`}
+      labFiles={files}
+    />
+  );
+}
+
 export function labBadgeFacts(who: Who): TrackerFacts {
   const f = FIX[who];
   const b = LAB_BADGE_EVENTS[who];
@@ -390,7 +511,23 @@ function pageFixture(who: Who): PageClientData {
   };
 }
 
-export function PageLab({ state, who: rawWho, draft, invited = false }: { state: PageLabState; who?: string; draft?: boolean; /** 🎁 `&invited=1` on details — fresh from a personal invite (B4). */ invited?: boolean }) {
+/**
+ * 💳 `&port=48|50|spend|short|unread` on collections — the portfolio priced by the free room, then the shop wallet
+ * (frames port-48 · port-50 · port-spend · F3 · F1). Fake refs with flat tile images; nothing is stored.
+ */
+function labPortfolio(who: string, port: string | undefined) {
+  // One flat 1×1 PNG stands in for every photo (a still raster — never an SVG, which would read as a logo draw).
+  const tile = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGO4dm4fAATgAmPxoKUWAAAAAElFTkSuQmCC';
+  const ref = (k: string) => `r2://setnayan-media/vendors/lab-${who}/portfolio/${k}.jpg`;
+  const count = port === '48' || port === 'unread' ? 48 : port ? 50 : 0;
+  const refs = Array.from({ length: count }, (_, i) => ref(`p${i}`));
+  const picked = port === 'spend' || port === 'short' ? ['n1', 'n2', 'n3'].map(ref) : undefined;
+  const displayMap = Object.fromEntries([...refs, ...(picked ?? [])].map((r) => [r, tile]));
+  const walletBalance = port === 'unread' ? null : port === 'short' ? 1 : 128;
+  return { refs, picked, displayMap, walletBalance };
+}
+
+export function PageLab({ state, who: rawWho, draft, invited = false, asked = false, port }: { state: PageLabState; who?: string; draft?: boolean; /** 🎁 `&invited=1` on details — fresh from a personal invite (B4). */ invited?: boolean; /** 🏷 `&asked=1` with invited — a name change waiting. */ asked?: boolean; port?: string }) {
   const who: Who = rawWho === 'caterer' || rawWho === 'studio' ? rawWho : 'parish';
   if (state === 'badge-tiers') {
     /* 🏅 Every step's pill (the material climbs) on a light and a dark ground, and the Verified pill on the four
@@ -453,7 +590,7 @@ export function PageLab({ state, who: rawWho, draft, invited = false }: { state:
     );
   }
   if (state === 'details') {
-    const d = invited ? invitedDetailsFixture() : detailsFixture(who);
+    const d = invited ? invitedDetailsFixture(asked) : detailsFixture(who);
     return (
       <DetailsScreen
         d={d}
@@ -490,6 +627,7 @@ export function PageLab({ state, who: rawWho, draft, invited = false }: { state:
   }
   const f = FIX[who];
   const saved = pageSavedFrom(DEFAULT_MICROSITE, f.services, []);
+  const lp = labPortfolio(who, port);
   return (
     <>
       <section className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-32 pt-4 sm:px-6" data-supplier-collections="">
@@ -502,9 +640,11 @@ export function PageLab({ state, who: rawWho, draft, invited = false }: { state:
           gallery={
             <GalleryMedia
               vendorProfileId={`lab-${who}`}
-              portfolioRefs={[]}
-              portfolioDisplayMap={{}}
+              portfolioRefs={lp.refs}
+              portfolioDisplayMap={lp.displayMap}
               portfolioMax={PORTFOLIO_FREE_BASE}
+              walletBalance={lp.walletBalance}
+              labPicked={lp.picked}
               galleryVideoLinks={[]}
               igConfigured={false}
               igConnection={null}

@@ -11,9 +11,7 @@ import { Chips } from '@/app/_components/chips';
 import { Fold } from '@/app/_components/fold';
 import { FactRow, FORM_PICK_CLASS, FormRow, FormRows, SwitchRow, TypedRow, usePillWidth } from '@/app/_components/form-row';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
-import { INVITED_TO_BLOCKS, INVITED_TO_LABELS, ROLE_LABELS, defaultInvitedToForRole, type GuestRole, type InvitedToBlock } from '@/lib/guests';
-import { entourageGroupOfRole, sectionUsualHeading } from '@/lib/entourage';
-import { isRenamableRole, roleNameOne, sectionName } from '@/lib/role-names';
+import { INVITED_TO_BLOCKS, INVITED_TO_LABELS, defaultInvitedToForRole, type GuestRole, type InvitedToBlock } from '@/lib/guests';
 import type {
   CardBoxProps,
   CardDoorProps,
@@ -24,7 +22,6 @@ import type {
   CardLockedProps,
   CardFactProps,
   CardPickProps,
-  CardRenameProps,
   CardRolesProps,
   CardSubmitProps,
   CardTitleProps,
@@ -37,8 +34,6 @@ import { TitlePicker } from './title-picker';
 import { splitPickText, useSplitPick, withMainMark } from './card-fields';
 import { ROLE_DONE_NOTE } from '@/lib/guest-group-role-pick';
 import { GuestGroupPicker, type OwnGroup } from './guest-group-picker';
-import { renameRole, renameSection, type RenameRoleResult } from '../role-name-actions';
-import { useSetRoleNames } from './role-names-context';
 
 /**
  * guest-card-rows.tsx — THE GUEST CARD'S LEAF CONTROLS, DRAWN BY THE APP'S TEMPLATES (step 4B, 2026-10-09).
@@ -403,66 +398,3 @@ export function CardSaveState({ copy }: { copy?: Record<string, string> }) {
   );
 }
 
-/**
- * 🏷 "Rename this role" · "Rename this section" — two typed Form rows under the Role dropdown (owner 2026-09-30: *"Bride'smaid
- * can be renamed as what - for us we picked Bride's Crew"*; owner 2026-10-19: *"Immediate Family change it to VIP."* →
- * *"on guests?"*). Each pill shows the couple's word, or the usual one; tapping opens the field; keeping writes the EVENT's
- * word through the shipped action (`role-name-actions.ts` → the one writer of `events.role_names`) and the list takes it at
- * once (`useSetRoleNames`). Blank = the usual word again.
- *
- * 🔑 NOT PART OF THE CARD'S FORM: the word is the event's, not this guest's, so nothing here posts with the card and its
- * typing never wakes the card's autosave (the events stop here).
- */
-export function CardRename({ eventId, role, names }: CardRenameProps) {
-  const setNames = useSetRoleNames();
-  const keep = async (run: () => Promise<RenameRoleResult>) => {
-    let res: RenameRoleResult;
-    try {
-      res = await run();
-    } catch {
-      return { ok: false as const, error: 'Could not save — check your connection and try again.' };
-    }
-    if (!res.ok) return { ok: false as const, error: res.reason };
-    setNames(res.names);
-    return { ok: true as const };
-  };
-  const roleWord = role in ROLE_LABELS && isRenamableRole(role) ? { key: role, usual: ROLE_LABELS[role as GuestRole], word: roleNameOne(role, names) } : null;
-  /* The section this role PRINTS under (the invitation's heading) — the one the couple sees renamed. */
-  const sectionKey = entourageGroupOfRole(role);
-  const usualHeading = sectionKey ? sectionUsualHeading(sectionKey, names) : null;
-  const section = sectionKey && usualHeading ? { key: sectionKey, usual: usualHeading, word: sectionName(sectionKey, names) } : null;
-  if (!roleWord && !section) return null;
-  const stop = (e: { stopPropagation: () => void }) => e.stopPropagation();
-  return (
-    <div data-card-rename="" onInput={stop} onChange={stop} className="contents">
-      {roleWord ? (
-        <TypedRow
-          name="Rename this role"
-          value={roleWord.word ?? ''}
-          empty={roleWord.usual}
-          placeholder={roleWord.usual}
-          maxLength={40}
-          autoCapitalize="words"
-          data="card-rename-role"
-          pillAttrs={{ 'data-rename-role': roleWord.key }}
-          about={{ words: `What you call a ${roleWord.usual} — everywhere for your event. Leave it empty for “${roleWord.usual}”.` }}
-          onKeep={(text) => keep(() => renameRole(eventId, roleWord.key, text, names[roleWord.key as GuestRole]?.many ?? null))}
-        />
-      ) : null}
-      {section ? (
-        <TypedRow
-          name="Rename this section"
-          value={section.word ?? ''}
-          empty={section.usual}
-          placeholder={section.usual}
-          maxLength={40}
-          autoCapitalize="words"
-          data="card-rename-section"
-          pillAttrs={{ 'data-rename-section': section.key }}
-          about={{ words: `The heading over this part of your entourage — on the invitation, the Wedding March and the guest list. Leave it empty for “${section.usual}”.` }}
-          onKeep={(text) => keep(() => renameSection(eventId, section.key, text))}
-        />
-      ) : null}
-    </div>
-  );
-}

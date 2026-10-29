@@ -3526,6 +3526,17 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
   --sn-z-scrim:  74;
   --sn-z-panel:  75;
 
+  /* 🌫 THE SCRIM — the dark behind anything popped up over the page (`.sn-popup-dark`, `<OverlayBackdrop>`, the side
+     panel's and the guest card's scrims all read these; nothing else may draw one — `lib/one-scrim.test.ts`). The
+     page's ink at 42 % under a 6-px blur: the house popup dark's own figures (owner 2026-10-08, INTERACTION_RULES § 9),
+     now one value instead of six. `-solid` = the deeper dark ALONE where blur is unsupported or the device asks for
+     less transparency. `-blur` = the partial blur that keeps the eye on the pop-up (owner 2026-10-29). `-fade` = how
+     long it takes to fade out on a tap. Dark mode flips them on `html.dark` just below. */
+  --sn-scrim: rgb(var(--color-ink) / 0.42);
+  --sn-scrim-solid: rgb(var(--color-ink) / 0.55);
+  --sn-scrim-blur: 6px;
+  --sn-scrim-fade: 200ms;
+
   /* The one continuous canvas — the same warm white `.sn-ambient` paints
      (owner 2026-07-28). Named so a page can reach for the ground by name. */
   --sn-canvas: #F7F5F0;
@@ -3568,6 +3579,11 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
   --sn-glass-row-blur: blur(16px) saturate(1.3);
 }
 html.dark {
+  /* 🌙 The scrim in dark mode: `--color-ink` turns LIGHT under html.dark, so the ink-based dark would LIGHTEN the
+     page behind a pop-up. A fixed black instead, a little deeper (the ground is already dark). */
+  --sn-scrim: rgb(0 0 0 / 0.55);
+  --sn-scrim-solid: rgb(0 0 0 / 0.68);
+
   /* Dark pairs ship with the tokens so they are not a trap for whoever turns
      dark mode on. Nothing sets `html.dark` today (light lock 2026-06-04; the
      switch, PR 3, only sets it on routes an area PR has swept).
@@ -5939,46 +5955,65 @@ html[data-maker-guest] [data-maker-opening-tag] { display: none !important; }
  * still ends `.sn-popup-dark {`. Held by `lib/every-stages-popup-follows-the-rule.test.ts`. */
 div:has(> [data-apply-pro-sheet]),
 .sn-popup-dark {
-  background-color: rgb(var(--color-ink) / 0.42);
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
+  background-color: var(--sn-scrim);
+  -webkit-backdrop-filter: blur(var(--sn-scrim-blur));
+  backdrop-filter: blur(var(--sn-scrim-blur));
 }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   div:has(> [data-apply-pro-sheet]),
   .sn-popup-dark {
-    background-color: rgb(var(--color-ink) / 0.55);
+    background-color: var(--sn-scrim-solid);
   }
 }
 @media (prefers-reduced-transparency: reduce) {
   div:has(> [data-apply-pro-sheet]),
   .sn-popup-dark {
-    background-color: rgb(var(--color-ink) / 0.55);
+    background-color: var(--sn-scrim-solid);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
 }
-/* 🌙 DARK MODE (2026-10-12): `--color-ink` turns LIGHT under html.dark, so the ink-based dark above would LIGHTEN the
- * page behind a pop-up. In dark it is a fixed black, a little deeper (the ground is already dark). Light is unchanged. */
-html.dark div:has(> [data-apply-pro-sheet]),
-html.dark .sn-popup-dark {
-  background-color: rgb(0 0 0 / 0.55);
+/* 🌙 DARK MODE: the values flip on the TOKENS (`html.dark { --sn-scrim … }` beside `:root`'s), so every scrim follows
+ * with no html.dark rule of its own. */
+
+/* 🌫 THE ONE SCRIM — NO EDGE, NO FLASH, ONE BLUR (owner 2026-10-29, verbatim: *"our scrim when tapped sometime show that
+ * the corners/edges brighten showing it is a frame of the screen that pressed. And the darkness of each scrims from
+ * different places are different."* · *"make sure future scrims are connected to our design. So i dont want it to show
+ * edges. Tapping on it will just fade cleanly. When the scrim is on, i want a partial blur to keep focus on the pop
+ * up."*). The edges were the press DIP: the scrim is a full-screen <button>, `PressFeel` scaled it to .93 on the tap,
+ * and the shrunken dark bared an undimmed frame of the page round the screen. `PressFeel` now skips a scrim
+ * (`SCRIM_SELECTOR`), and here the stylesheet takes off everything else that could outline it: the press scale and
+ * dimming, a focus ring, a tap highlight, a border, a radius, a shadow, a text selection. Every scrim wears
+ * `.sn-popup-dark` (or is one of the two named panels' scrims below, which read the same tokens).
+ * A SECOND scrim over a first (`[data-scrim-stacked]`, set by `OverlayBackdrop`) dims but does not blur again — one
+ * blurred layer at a time, so two sheets never stack two blurs on a phone.
+ * 🔒 `lib/one-scrim.test.ts`. Recorded: corpus `INTERACTION_RULES.md` § 9 "Anything popped up over the page". */
+.sn-popup-dark, .sn-side-panel-scrim, .sn-inspector-peek {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  border: 0;
+  border-radius: 0;
+  outline: none;
+  box-shadow: none;
 }
-/* The side panel's and the guest card's backdrops are the same dark in dark mode (2026-10-25). */
-html.dark .sn-inspector-peek,
-html.dark .sn-side-panel-scrim {
-  background-color: rgb(0 0 0 / 0.55);
+.sn-popup-dark:is(:active, :focus, :focus-visible),
+.sn-side-panel-scrim:is(:active, :focus, :focus-visible),
+.sn-inspector-peek:is(:active, :focus, :focus-visible) {
+  scale: none !important;
+  filter: none !important;
+  outline: none !important;
+  box-shadow: none !important;
 }
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  html.dark div:has(> [data-apply-pro-sheet]),
-  html.dark .sn-popup-dark {
-    background-color: rgb(0 0 0 / 0.68);
-  }
+.sn-popup-dark[data-scrim-stacked] {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
-@media (prefers-reduced-transparency: reduce) {
-  html.dark div:has(> [data-apply-pro-sheet]),
-  html.dark .sn-popup-dark {
-    background-color: rgb(0 0 0 / 0.68);
-  }
+/* The fade the scrim leaves on: `OverlayBackdrop` lays a still copy where it was and fades THAT out over
+ * `--sn-scrim-fade` (an unmounted element cannot animate), so a tap closes the pop-up and the dark melts away. */
+.sn-popup-dark[data-scrim-leaving] {
+  pointer-events: none;
 }
 
 /* `.sn-canvas-drift` — the brief's "barely-perceptible, slow-moving gradient".
@@ -6080,9 +6115,9 @@ html.dark .sn-side-panel-scrim {
   inset: 0;
   z-index: var(--sn-z-scrim);
   border: 0;
-  background: rgb(var(--color-ink) / 0.42);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  background: var(--sn-scrim);
+  backdrop-filter: blur(var(--sn-scrim-blur));
+  -webkit-backdrop-filter: blur(var(--sn-scrim-blur));
   /* The house popup dark (owner 2026-10-25): the same dark and blur as `.sn-popup-dark`; a drag on it moves nothing. */
   touch-action: none;
   overscroll-behavior: none;
@@ -6643,9 +6678,9 @@ html.dark .sn-side-panel-scrim {
   inset: 0;
   z-index: 74;
   border: 0;
-  background: rgb(var(--color-ink) / 0.42);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  background: var(--sn-scrim);
+  backdrop-filter: blur(var(--sn-scrim-blur));
+  -webkit-backdrop-filter: blur(var(--sn-scrim-blur));
   /* The house popup dark (owner 2026-10-25): the same dark and blur as `.sn-popup-dark`; a drag on it moves nothing. */
   touch-action: none;
   overscroll-behavior: none;
@@ -6722,10 +6757,11 @@ html.dark .sn-side-panel-scrim {
   z-index: var(--sn-z-base);
   isolation: isolate;
 }
-/* 👤 The face, left of the name (owner 2026-10-26), and a long eyebrow / name is cut before it ever meets ✕ or the pin. */
+/* 👤 The face, left of the name (owner 2026-10-26); a long eyebrow / name wraps beside ✕ and the pin. */
 .sn-inspector-lead { display: inline-flex; flex: none; }
 .sn-inspector-shell--card .sn-inspector-head .sn-eye,
-.sn-inspector-sheet .sn-inspector-head .sn-eye { display: block; max-width: 100%; overflow: clip; text-overflow: ellipsis; white-space: nowrap; line-height: 1.2; }
+/* ✂ …WRAPS, never cut (owner 2026-10-29, "GROOM'S…" on a seat's card — Guests v15: names and their words wrap). */
+.sn-inspector-sheet .sn-inspector-head .sn-eye { display: block; max-width: 100%; white-space: normal; overflow-wrap: anywhere; line-height: 1.2; }
 /* 📌 The pinned Invite (`useHeadPin`): a slot that takes no room until something is drawn in it, and a short fade in. */
 .sn-inspector-pin-slot { display: inline-flex; flex: none; align-items: center; }
 .sn-inspector-pin-slot:empty { display: none; }
@@ -6801,6 +6837,31 @@ html.dark .sn-side-panel-scrim {
 }
 /* 🪪 The guest card opened with no list behind it (`InspectorSheetAlone` — the Wedding March, the parents): the same sheet,
  * and at ≥ 1280 still the 440 panel — there is no rail to hand it to (owner 2026-10-24, one guest card everywhere). */
+/* 📱 …and on a PHONE it is the whole screen (owner, live iPhone 2026-10-29: a seat's card sat offset with a dim strip on
+ * its left). The peek strip is the list's way back — "tap that space returns to the guestlist" — and with no list behind
+ * this card it was a strip of nothing; ✕, Escape and the phone's Back close it (`InspectorSheetAlone`). */
+@media (max-width: 700.98px) {
+  .sn-inspector-sheet.sn-inspector-sheet--alone {
+    left: 0;
+    border-left: 0;
+    border-radius: 0;
+    padding-left: max(1.25rem, var(--sn-safe-l));
+  }
+}
+/* 🧰 A surface's verbs on the card (Guests › Seats: Remove · Swap) — pinned to the sheet's foot, in the thumb zone, on
+ * the paper, bleeding to the sheet's edges like the header does at its top. */
+.sn-inspector-sheet [data-guest-card-actions] {
+  position: sticky;
+  bottom: calc(-1 * max(1.25rem, env(safe-area-inset-bottom)));
+  z-index: var(--sn-z-sticky);
+  margin: 16px calc(-1 * max(1.25rem, var(--sn-safe-r))) calc(-1 * max(1.25rem, env(safe-area-inset-bottom))) -1.25rem;
+  padding: 12px max(1.25rem, var(--sn-safe-r)) max(12px, env(safe-area-inset-bottom)) 1.25rem;
+  background: var(--sn-paper, #fffdf8);
+  border-top: 1px solid var(--sn-hairline);
+}
+@media (max-width: 700.98px) {
+  .sn-inspector-sheet--alone [data-guest-card-actions] { margin-left: calc(-1 * max(1.25rem, var(--sn-safe-l))); padding-left: max(1.25rem, var(--sn-safe-l)); }
+}
 @media (min-width: 1280px) {
   .sn-inspector-peek.sn-inspector-peek--alone { display: block; }
   .sn-inspector-sheet.sn-inspector-sheet--alone { display: block; left: auto; width: 27.5rem; }
@@ -6962,7 +7023,7 @@ html.dark :is(.m-btn-primary, .m-btn-orange, .sn-btn-primary) { color: rgb(var(-
  * template inherits the fix — copy BOTH lines if you duplicate the pattern. */
 
 /* ---------- overlays ---------- */
-.sn-scrim { background:rgba(27,26,23,.14); backdrop-filter:blur(7px); -webkit-backdrop-filter:blur(7px); animation:sn-fade .3s both; }
+.sn-scrim { background:var(--sn-scrim); backdrop-filter:blur(var(--sn-scrim-blur)); -webkit-backdrop-filter:blur(var(--sn-scrim-blur)); animation:sn-fade var(--sn-scrim-fade) both; }
 .sn-modal { animation:sn-scale-in .4s both var(--sn-ease-out); }
 /* route change: main { animation:sn-fade .32s both; } */
 
@@ -7029,6 +7090,14 @@ html.dark :is(.m-btn-primary, .m-btn-orange, .sn-btn-primary) { color: rgb(var(-
  * suppress the rise. Browsers without :active-view-transition also lack
  * startViewTransition, so the plain rise is all they ever run. */
 html:active-view-transition .sn-page-enter { animation: none; }
+
+/* 💬 AN OPEN CHAT THREAD DOES NOT RISE ON A PHONE (2026-10-29, one chat for both sides). The rise is a TRANSFORM, and
+ * any transform on an ancestor is the containing block for a fixed child — so for those 400ms the thread's full-screen
+ * takeover (`[data-chat-takeover]`, the open-thread rule further down) drew INSIDE the page, under
+ * the top bar, then jumped to full screen. The thread arrives as the screen it is. */
+@media (max-width: 1023.98px) {
+  .sn-page-enter:has([data-chat-takeover]) { animation: none; }
+}
 
 /* Live-state dot — the ONE sanctioned infinite pulse on genuinely-live signals
  * (unread bell, day-of live dot, active livestream, the Watch "quiet" dot). */
@@ -8003,6 +8072,16 @@ html.dark :is(.hc-today, .hc-tile) { background: rgb(var(--color-raised)); }
   .hc-today { height: 48px; padding-left: 16px; font-size: 15px; }
   .hc-today-k { font-size: 10.5px; }
   .hc-today-arrow { width: 34px; height: 34px; }
+}
+/* ☀ A TODAY ITEM (owner 2026-10-29) — the Today line's pill for a prompt that waits on the hosts; it WRAPS, so a
+   shop's full name is never cut (the Today line itself stays one line). `hc-warn` = a read that failed, said. */
+.hc-today.hc-today-item { height: auto; min-height: 44px; padding-top: 6px; padding-bottom: 6px; border-radius: 22px; }
+.hc-today.hc-today-item .hc-today-t { overflow: visible; white-space: normal; text-overflow: clip; overflow-wrap: anywhere; line-height: 1.3; }
+.hc-today.hc-today-item:disabled { opacity: 0.6; }
+.hc-today.hc-warn :is(.hc-today-k, .hc-today-arrow) { color: rgb(var(--color-warn)); }
+.hc-today.hc-warn .hc-today-arrow { background: color-mix(in srgb, rgb(var(--color-warn)) 12%, transparent); }
+@media (min-width: 768px) {
+  .hc-today.hc-today-item { min-height: 48px; border-radius: 24px; }
 }
 /* The ring the Today line leaves on the widget it names (1.8 s). */
 [data-home-spot] { outline: 2px solid rgb(var(--color-mulberry)) !important; outline-offset: 3px; }
@@ -10361,6 +10440,44 @@ html.dark .sn-acc-head[data-open] {
   color: var(--sn-acc-chip-ink);
   transition: color 200ms ease;
 }
+
+/*
+ * 💬 AN OPEN CHAT THREAD IS FULL SCREEN ON A PHONE (owner 2026-10-27, verbatim: *"We want it full screen like the first
+ * photo"*; chat prototype 2026-10-28 frame B) — no top bar, no bottom tabs, no card frame. The thread's own head
+ * (‹ · avatar · name · event line · ⓘ) is at the top and its composer at the bottom, edge to edge.
+ *
+ * 🔑 THE NAMED PAGE WOULD CAPTURE IT. The event and shop trees' `<main>` (`.sn-vt-page`) carries `view-transition-name`
+ * at rest, which makes it the containing block for a `position: fixed` child AND a stacking context below the top bar
+ * (the trap the guests-glass and open-panel rules above record). So while a thread is open the name is off (it comes
+ * back for the bottom-nav slide, `html[data-sn-nav-dir]`) and the page is lifted above the shell's chrome, and the
+ * thread fixes itself to the screen. Sheets are portalled to <body> at z 50, above it. From 1024 the thread stays in
+ * the page's column with its own quiet frame. Held by `lib/the-chat-is-messenger-shaped.test.ts`.
+ */
+@media (max-width: 1023.98px) {
+  html:not([data-sn-nav-dir]) .sn-vt-page:has([data-chat-takeover]) {
+    view-transition-name: none;
+    isolation: isolate;
+    position: relative;
+    z-index: 45;
+  }
+  [data-chat-takeover] {
+    position: fixed;
+    inset: 0;
+    z-index: 45;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background-color: rgb(var(--color-cream));
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+}
+@media (min-width: 1024px) {
+  [data-chat-takeover] {
+    border: 1px solid rgb(var(--color-ink) / 0.1);
+    border-radius: 1rem;
+    background-color: rgb(var(--color-cream));
+  }
+}
+
 
 /* ══ 🎚 SCRUB — A HELD HAND-OVER (owner 2026-10-09, approved on `review/scrub-prototype.html`: *"them must be on the same
    position to create that keynote like transistion"* · *"let it enter on the last 20% of the build out"* · *"element

@@ -96,9 +96,14 @@ test('(1) each stage walks its own facts, in the approved order; Post Event is n
   assert.deepEqual(keysOf(plan, 'rsvp-stage'), [], 'the RSVP stage still walks a Maker screen for a setting that moved');
   assert.deepEqual(stageLinks(plan, 'rsvp-stage').map((l) => [l.key, l.guests]), [['who', 'get-in'], ['rsvp', 'asks'], ['reply-by', 'reply-by']], 'the RSVP stage is not its three settings, each a door to its Guests ⚙ row');
   assert.deepEqual(keysOf(plan, 'rsvp'), [
-    'names', 'date', 'theme', 'logo', 'hero', 'love-story', 'venues', 'schedule', 'parents', 'march', 'colours', 'message',
+    'names', 'date', 'theme', 'logo', 'hero', 'love-story', 'venues', 'schedule', 'parents', 'colours', 'message',
   ]);
-  assert.deepEqual(keysOf(plan, 'event'), ['names', 'date', 'theme', 'logo', 'hero', 'venues', 'schedule', 'parents', 'march']);
+  assert.deepEqual(keysOf(plan, 'event'), ['names', 'date', 'theme', 'logo', 'hero', 'venues', 'schedule', 'parents']);
+  /* 🗂 R4 (owner 2026-10-27/28): the march is Guests › March — a LINK step of the stages that show it (a door to the
+     view), counted with them as before, never a screen over the Maker's march item. */
+  for (const st of ['rsvp', 'event'] as const) {
+    assert.deepEqual(stageLinks(plan, st).filter((l) => l.view).map((l) => [l.key, l.view]), [['march', 'march']], `${st}: the march is not its door to Guests › March`);
+  }
   assert.deepEqual(keysOf(plan, 'editorial'), []);
   const screens = guidedScreens(plan, 'save_the_date').map((s) => (s.kind === 'step' ? s.step : s.kind));
   assert.deepEqual(screens, ['before', 'names', 'date', 'theme', 'logo', 'hero', 'love-story', 'ready'], 'a stage is not Before · steps · Ready');
@@ -111,9 +116,9 @@ test('(1) each stage walks its own facts, in the approved order; Post Event is n
   for (const k of ['who', 'rsvp', 'reply-by'] as const) assert.equal(by[k], undefined, `${k} is a Maker step again`);
   assert.equal(plan.steps.some((s) => s.items.includes('rsvp')), false, 'a guided step still opens the Maker’s RSVP item');
   // The march's name is its item's (the event type writes it) — never typed here.
-  assert.equal(plan.steps.find((s) => s.key === 'march')!.title, 'Wedding March');
+  assert.equal(plan.links.find((s) => s.key === 'march')!.title, 'Wedding March');
   assert.equal(progressLabel(plan, { kind: 'step', step: 'theme', round: 'save_the_date' }), 'Save the Date · 3 of 6');
-  assert.equal(progressLabel(plan, { kind: 'step', step: 'theme', round: 'rsvp' }), 'Invitation · 3 of 12', 'a shared step counts in the stage being walked');
+  assert.equal(progressLabel(plan, { kind: 'step', step: 'theme', round: 'rsvp' }), 'Invitation · 3 of 12', 'a shared step counts in the stage being walked (the march, a link since R4, still counts)');
   assert.equal(progressLabel(plan, { kind: 'ready', round: 'rsvp' }), 'Invitation · Apply', 'a Ready screen with steps left says "done"');
   assert.equal(progressLabel(plan, { kind: 'stages' }), 'Which stage?');
 });
@@ -140,14 +145,19 @@ test('(2) a step whose item this event lacks is not in the plan — a birthday, 
   );
   const keys = birthday.steps.map((s) => s.key);
   for (const k of ['names', 'march', 'love-story'] as const) assert.ok(!keys.includes(k), `a birthday is asked for ${k}`);
+  assert.ok(!birthday.links.some((l) => l.key === 'march'), 'a birthday is sent to a march');
   assert.equal(birthday.steps.find((s) => s.key === 'parents')!.shows, 'Optional — who guests reply to.', 'a birthday is told about parents');
-  assert.ok(!fresh().steps.some((s) => s.key === 'seat-plan'), 'the Seat plan step shows before its item exists');
+  assert.ok(!fresh().links.some((s) => s.key === 'seat-plan'), 'the Seat plan step shows before its item exists');
   const withSeat = buildGuidedPlan(
     [...items(WEDDING_ITEMS, () => false), { key: SEAT_PLAN_STEP_ITEMS[0] as DetailsItemKey, label: 'Seat plan', done: false }],
     WORDS,
   );
-  assert.deepEqual(stageSteps(withSeat, 'event').map((s) => s.key).slice(-1), ['seat-plan'], 'The Day does not end on the Seat plan');
-  assert.deepEqual(withSeat.steps.find((s) => s.key === 'seat-plan')!.stages, ['event'], 'the Seat plan shows on another stage');
+  /* 🗂 R4: the Seat plan is Guests › Seats — The Day's door to it (a link step), counted with The Day, never a screen. */
+  assert.ok(!withSeat.steps.some((s) => s.key === 'seat-plan'), 'the Seat plan is a Maker screen again');
+  const seat = withSeat.links.find((s) => s.key === 'seat-plan')!;
+  assert.equal(seat.view, 'seats', 'the Seat plan is not a door to Guests › Seats');
+  assert.deepEqual(seat.stages, ['event'], 'the Seat plan shows on another stage');
+  assert.equal(seat.state, 'left');
 });
 
 test('(2) tripwire: every seat item Details gains is known to the Seat plan step', () => {

@@ -13,6 +13,7 @@ import { maybeSweepVendorBookingFeeNotifications } from '@/lib/vendor-booking-fe
 import { maybeCatchUpAcknowledgedDeposits } from '@/lib/deposit-acknowledged-effects.server';
 import { maybeCatchUpHandshakesWithoutFee } from '@/lib/booking-fee-mint.server';
 import { maybeRunUnbilledFeeRepair } from '@/lib/unbilled-fee-repair.server';
+import { maybeRunSupplierPagePublish } from '@/lib/supplier-page-notice.server';
 import { maybeRefillPriceBands } from '@/lib/price-band-refill.server';
 import { countUnread } from '@/lib/notifications';
 import { countUnreadMessages } from '@/lib/chat';
@@ -22,7 +23,9 @@ import { UnreadMessagesBadge } from '@/app/_components/unread-messages-badge';
 import { customerLandingHref } from './customers/anchors';
 import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
 import { VendorRailContext } from './_components/vendor-rail-context';
-import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { businessProfileChecklist, fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { basicSetupHoldOf } from '@/lib/basic-setup-gate';
+import { BasicSetupHold } from './_components/basic-setup-hold';
 import { AppPreload } from '@/app/_components/app-preload';
 import { appPreloadPlan, hostedEventOf } from '@/lib/app-preload-sets';
 import { VendorBottomNav } from './_components/vendor-bottom-nav';
@@ -47,6 +50,11 @@ import { Spotlight } from '@/app/_components/spotlight';
 import { SupplierPageSpotlight } from './_components/supplier-page-spotlight';
 import { completeTour } from '@/lib/tour-actions';
 import { SERVICE_MAKER_HREF } from '@/lib/service-picker-anchor';
+import { OfflineViewerScript } from '@/app/_components/offline-ready/offline-viewer-script';
+import { Suspense } from 'react';
+import { SupplierPageMenu } from './_components/supplier-page-menu';
+/* 📌 The supplier frame from 701 — the page picker stepping aside for the bar's menu, and the two columns. */
+import './_components/supplier-frame.css';
 
 /**
  * Vendor dashboard layout — the shop, under the ONE shell.
@@ -285,6 +293,21 @@ export default async function VendorDashboardLayout({
     where it matters, on the Repertoire surface and in the hub that offers it.
   */
 
+  // 🧰 BASIC SETUP FIRST (owner 2026-10-29: "complete the basic setup of their shop. Which is a must before they can
+  // do anything"). ONE decision for the whole tree, from the shop row already read above (no new request): an owner
+  // or admin whose `businessProfileChecklist` is not complete is held on the setup — `BasicSetupHold` draws "Finish
+  // your basic setup first" on every page but the open ones (`lib/basic-setup-gate.ts`). A helper, an unread row,
+  // and a complete shop are never held.
+  const setupHold = basicSetupHoldOf({
+    // Measured = the shop row in full AND the probe that carries `verification_state` (Today's own "verified" — it
+    // draws the six steps only while that is not 'verified', so the hold uses the same word).
+    measured: !!vendorProfile && !vendorProfile.legacy_read && tierProbe.dealFacts !== null,
+    canManage: canManageVendor(vendorRole),
+    verified:
+      tierProbe.dealFacts?.verification_state === 'verified' || vendorProfile?.public_visibility === 'verified',
+    checklist: vendorProfile ? businessProfileChecklist(vendorProfile) : null,
+  });
+
   // The name the rail's context group announces the shop by. Never blank and
   // never an id — a rail heading reading `s89v-…` is worse than a plain word.
   const vendorSidebarName =
@@ -407,6 +430,9 @@ export default async function VendorDashboardLayout({
   // on an admin opening one particular screen. `claim_periodic_job` makes the
   // second mount free — whichever surface is loaded first takes the window.
   after(() => maybeRefillPriceBands().catch(() => {}));
+  // A supplier's event photo goes on its page once the guests' 7-day notice has passed (owner 2026-10-03). Dual-mounted
+  // with the admin layout for the same reason as the two above: it serves suppliers, so it must not wait on an admin.
+  after(() => maybeRunSupplierPagePublish().catch(() => {}));
 
   // Vendor-access gate — canonical rule: a user has access if they own a
   // vendor_profiles row OR sit on any vendor_team_members row. getSwitcherData
@@ -517,6 +543,8 @@ export default async function VendorDashboardLayout({
 
   return (
     <div className="app-surface">
+      {/* 📶 Tell the worker who is signed in — any other account's saved event pages are erased (EV3). */}
+      <OfflineViewerScript viewer={user.id} />
       {/*
         ── ONE SHELL, SLICE 2 (2026-08-14) ──────────────────────────────────
         The shared front-door rail wraps the vendor tree, carrying this
@@ -535,6 +563,18 @@ export default async function VendorDashboardLayout({
            couple's line, handed to the shell AND the dock below: the 72-px strip replaces the phone's bar from 701,
            every Sheet is the 440 right panel from 701. Below 701 nothing moves. */
         boundary="tab"
+        /* 📌 FROM 701 THE BAR IS THE PAGE'S PINNED ROW (supplier dashboard v13, owner 2026-10-29 "desktop mode is
+           wrong" · "and tablet"; prototype approved). The rail runs the window's full height (≥1100 icon + word, 701–1099
+           the 72-px strip) and the ONE bar sits over the content column: the page menu ▾ LEFT; the page's search · ⇅ · ＋
+           (its thumb row, moved up) and this layout's own cluster RIGHT — the same bell, ✉ and avatar, not copies. The
+           phone (<701) is untouched. `supplier-page-menu.tsx` · 🔒 the-supplier-frame-holds.test.ts */
+        pinnedBar={{
+          lead: (
+            <Suspense fallback={null}>
+              <SupplierPageMenu />
+            </Suspense>
+          ),
+        }}
         /* FOCUS (owner 2026-09-21): inside the shop the rail is its own menu
            plus one row back to My Home. */
         focus={{ href: '/dashboard', label: 'My Home', caption: 'Home' }}
@@ -635,7 +675,7 @@ export default async function VendorDashboardLayout({
                 PROMO_FREE_WINDOWS_ENABLED is off or nothing is granting THIS
                 vendor right now). */}
             <PromoFreeWindowBannerVendor facts={tierProbe.dealFacts} />
-            {children}
+            <BasicSetupHold hold={setupHold}>{children}</BasicSetupHold>
           </div>
         </main>
       </div>

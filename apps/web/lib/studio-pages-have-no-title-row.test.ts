@@ -116,7 +116,7 @@ function sameWidth(a: string[], b: string[], who: string): void {
   assert.equal(room(a), room(b), `${who}: the two halves do not have the same room`);
 }
 
-test('(2) in a Studio page, painted for all ten (RSVP left in R1): "Stages ▾" plain, the page’s full name ▾ picked — equal halves, never truncated, no mark', async () => {
+test('(2) in a Studio page, painted for all eight (RSVP left in R1, Wedding March and Seat plan in R4): "Stages ▾" plain, the page’s full name ▾ picked — equal halves, never truncated, no mark', async () => {
   const { StudioSideSwitch, studioHalfSteps, studioHalfLabel } = await import(`../${PARTS}`);
   assert.equal(tiles.length, STUDIO_TILE_KEYS.length);
   for (const page of tiles) {
@@ -153,7 +153,7 @@ test('(2) in a Studio page, painted for all ten (RSVP left in R1): "Stages ▾" 
     { words: 'Studio', tight: false },
   ]);
   assert.deepEqual(studioHalfSteps('Info', 'Info', 'Studio'), [{ words: 'Info', tight: false }, { words: 'Info', tight: true }, { words: 'Studio', tight: false }]);
-  assert.deepEqual(tiles.filter((t) => t.short !== t.label).map((t) => [t.label, t.short]), [['Mood Board & Dress Code', 'Mood Board'], ['Wedding March', 'March']], 'a third page has a short name (or one of the two lost its own)');
+  assert.deepEqual(tiles.filter((t) => t.short !== t.label).map((t) => [t.label, t.short]), [['Mood Board & Dress Code', 'Mood Board']], 'a second page has a short name (or the Mood Board lost its own)');
   // Measured before paint; another name in the half starts from its full name again; a resize measures again.
   const src = read(PARTS);
   assert.match(src, /if \(!el \|\| el\.scrollWidth <= el\.clientWidth \|\| step >= steps\.length - 1\) return;\s*setAt\(\(a\) => \(\{ of, step: step \+ 1, tried: a\.tried \}\)\);/);
@@ -258,7 +258,7 @@ test('(6) the page list: the Maker’s one sheet, the dropdown’s own rows — 
   assert.deepEqual(trail('info'), { text: '✓', tone: 'ok', label: 'Ready' });
   assert.deepEqual(trail('logo'), { text: 'Missing', tone: 'left' });
   assert.equal(trail('gifts'), undefined, 'a page nobody measured is marked');
-  assert.deepEqual(studioChooserOptions(tiles.filter((t) => t.key !== 'story' && t.key !== 'march')).map((o: { key: string }) => o.key), ['info', 'look', 'logo', 'mood', 'schedule', 'seats', 'gifts']);
+  assert.deepEqual(studioChooserOptions(tiles.filter((t) => t.key !== 'story')).map((o: { key: string }) => o.key), ['info', 'look', 'logo', 'mood', 'schedule', 'gifts']);
   const src = read(PARTS);
   assert.doesNotMatch(src, /STUDIO_TILE_KEYS|STUDIO_TILES\b/, 'the chooser keeps a second list of the pages');
   const name = src.slice(src.indexOf('export function StudioSideSwitch('), src.indexOf('const HALF_ROOM ='));

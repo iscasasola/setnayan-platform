@@ -77,6 +77,7 @@ const GUEST_ONLY_FIELDS = [
   'saveFlash',
   'faceMode',
   'faceTaggingAskable',
+  'supplierPageNotices',
 ] as const satisfies readonly GuestOnlyKeys[];
 
 test('anonymousIdentity() output carries exactly the five anonymous keys (none guest-derived)', () => {
@@ -239,6 +240,9 @@ test('guestIdentity() output carries exactly the guest keys, and no more', () =>
     'seatMap',
     'seatPassActive',
     'showClaimAccountCta',
+    // supplierPageNotices (2026-10-28) — suppliers who will show photos from THIS event on their page, each with
+    // Remove (the 7-day guest notice). About the event this guest belongs to; never an owner capability.
+    'supplierPageNotices',
   ]);
   assert.equal(identity.kind, 'guest');
 });

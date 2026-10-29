@@ -11,12 +11,13 @@
  * Held here, as properties (not phrasings):
  *   1 · the rail draws NO link to `/details` and no row of the `event` group —
  *       so `/details` can never light a rail row that is no longer drawn;
- *   2 · the Home cover band RENDERS exactly one link to `/details`, and it names
- *       "Event Details";
+ *   2 · the Home cover band draws NO link (its ⚙ — owner 2026-10-29 — is a button opening the Event Settings
+ *       sheet in place); the Countdown widget is Home's one door to `/details`;
  *   3 · nothing the event's Home or rail draws still says "Event settings".
  *
  * The Details page's own "Event settings" section heading lives under
- * `details/` and is out of this guard's reach on purpose.
+ * `details/` and is out of this guard's reach on purpose. So does the Event Settings SHEET's title (owner 2026-10-29,
+ * Home's ⚙): it comes from `lib/menu-settings.ts`, and it names the sheet of the event's facts — not Event Details.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -76,17 +77,19 @@ test('2 · Home has exactly one door to Event Details — the Countdown widget (
   // control center (`home_control_center_2026-10-24_fable.html`) draws the cover without it: the Countdown is the door.
   const html = renderToStaticMarkup(React.createElement(HomeCoverBand, { cover: { name: 'Cale & Ice', eyebrow: 'Wedding · 14 Feb 2027' } }));
   assert.equal([...html.matchAll(/<a\b/g)].length, 0, 'the cover band draws a door again — a second door to Event Details');
-  // ⚙ AMENDED 2026-10-27 (owner, "EVERY MENU'S ⚙ RIDES ITS PINNED ROW TOO"): the PINNED line ends with Home's ⚙, the one
-  // door the band may draw — inside the pinned line, and `invisible` until the band has stuck, so at rest the Countdown
-  // is still the only door on screen. Its name is the page's own ("Event Details"), never a second name.
-  const pinned = renderToStaticMarkup(
-    React.createElement(HomeCoverBand, { cover: { name: 'Cale & Ice', eyebrow: 'Wedding · 14 Feb 2027' }, settingsHref: '/dashboard/EVT123/details' }),
+  // ⚙ AMENDED 2026-10-27 (owner, "EVERY MENU'S ⚙ RIDES ITS PINNED ROW TOO") and AGAIN 2026-10-29 (owner, verbatim: *"on
+  // event dashboard> home the header does not show the settings icon like the other pages with settings icon. keep it
+  // there"*): the couple's band ends with Home's ⚙, drawn AT REST — and it is no longer a door to Event Details. It is a
+  // BUTTON that opens the Event Settings SHEET in place (names · date · venues · parents, `open-event-settings.tsx`), so
+  // the band still draws NO link at all and the Countdown stays the one door to Event Details.
+  const withGear = renderToStaticMarkup(
+    React.createElement(HomeCoverBand, { cover: { name: 'Cale & Ice', eyebrow: 'Wedding · 14 Feb 2027' }, settingsFor: 'EVT123' }),
   );
-  const doors = [...pinned.matchAll(/<a\b[^>]*>/g)].map((m) => m[0]);
-  assert.equal(doors.length, 1, `the pinned band draws ${doors.length} doors — it draws exactly its ⚙`);
-  assert.match(doors[0] ?? '', /href="\/dashboard\/EVT123\/details"/, 'the pinned ⚙ does not open Event Details');
-  assert.match(doors[0] ?? '', /aria-label="Event Details"/, 'the pinned ⚙ is not named for the page it opens');
-  assert.match(pinned, /<span data-home-pin-gear="" class="[^"]*\binvisible\b[^"]*group-data-\[collapsed\]\/cover:visible/, 'the pinned ⚙ shows at rest — a second door beside the Countdown');
+  assert.equal([...withGear.matchAll(/<a\b/g)].length, 0, 'the couple’s band draws a link — a second door to Event Details');
+  const buttons = [...withGear.matchAll(/<button\b[^>]*>/g)].map((m) => m[0]);
+  assert.equal(buttons.length, 1, `the couple’s band draws ${buttons.length} buttons — it draws exactly its ⚙`);
+  assert.match(buttons[0] ?? '', /aria-haspopup="dialog"/, 'Home’s ⚙ does not open a sheet in place');
+  assert.match(buttons[0] ?? '', /aria-label="Event settings"/, 'Home’s ⚙ is not named for the sheet it opens');
   const { tiles } = homeControlTiles(fixtureControl('EVT123'));
   const toDetails = tiles.filter((t) => [t.door, ...t.faces.flatMap((f) => [f.href, f.action?.href ?? ''])].some((h) => DETAILS_HREF.test(h)));
   assert.deepEqual(toDetails.map((t) => t.key), ['count'], 'a widget other than the Countdown opens Event Details');

@@ -1,6 +1,11 @@
-import Link from 'next/link';
+import { eventChatTitle } from '@/lib/event-chat-title';
+import { ChatOriginMark } from '@/app/_components/chat/chat-back';
 import type { ReactNode } from 'react';
-import { ChevronRight } from 'lucide-react';
+import { FileText, MessageSquare } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { SupplierOpenRow } from '../../_components/supplier-open-row';
+import { EventLinesBody, InquiryAnswers } from '../../_components/event-lines';
+import type { EventLines } from '@/lib/supplier-event-lines';
 import {
   CUSTOMER_LANES,
   waitingDays,
@@ -115,20 +120,16 @@ function initialsOf(name: string): string {
  * deletion.*
  */
 export function hrefFor(r: RosterRow): string | null {
-  if (r.lane === 'waiting' && r.waitingKind === 'inquiry') {
-    // Accept / decline lives on the thread. The customer card is unreachable
-    // pre-accept — `get_vendor_event_brief` refuses a shop that holds neither an
-    // accepted enquiry nor a booking — so sending them there would be a door
-    // that bounces straight back.
-    if (!r.threadId) return null;
+  // 💬 EVERY ROW WITH A CHAT OPENS THAT EVENT'S CHAT, FULL SCREEN (owner 2026-10-28, verbatim: *"What you do here is to
+  // list down the different events which will jump to chat full screen"*). The list IS the messages: one row per
+  // event, one chat per event. The customer card stays one tap away — the chat's head title opens it — and a booking
+  // ask is answered in the chat (its "They asked to book" → the booking-ask panel, fee shown before Agree).
+  if (r.threadId) {
     const href = `/vendor-dashboard/messages/${r.threadId}`;
     return href;
   }
-  // Every other lane has a customer card, and the booking ask can be ANSWERED
-  // on it (PR-H slice B put Agree / Turn it down there).
-  // 🔒 `?tab=details` IS NOT DECORATION. A bare client route is a CHAT landing
-  // since #5614 — without it every row went to the chat and the customer card
-  // had no door on this page.
+  // No chat (booked outside Setnayan, added by hand): the customer card.
+  // 🔒 `?tab=details` IS NOT DECORATION. A bare client route is a CHAT landing since #5614.
   const href = `/vendor-dashboard/clients/${r.eventId}?tab=details`;
   return href;
 }
@@ -181,65 +182,101 @@ function Marked({ text, query }: { text: string; query: string }): ReactNode {
   );
 }
 
-const LINE_TONE: Record<'quiet' | 'ok' | 'warn', string | undefined> = {
-  quiet: undefined,
-  ok: 'rgb(var(--color-ok))',
-  warn: 'rgb(var(--color-warn))',
+/** The inquiry answers a Customers row can give in place — the shipped `acceptInquiry` / `declineInquiry`, handed in. */
+export type RosterAnswers = {
+  acceptInquiry: (formData: FormData) => void | Promise<void>;
+  declineInquiry: (formData: FormData) => void | Promise<void>;
 };
 
-/** One customer — avatar · name · event line · badge + one line · the arrow. No box. */
-export function RosterRowView({ r, nowMs, query }: { r: RosterRow; nowMs: number; query: string }) {
+/**
+ * One EVENT — avatar · its chat title · who + its one line · the stage · ▾ (supplier dashboard v13, APPROVED 2026-10-29:
+ * "Customers ▾ — Events · Dates · Money · QR. One row per event; opened = the fixed lines + For your service"). No box.
+ *
+ * 🔁 IT OPENS NOW, it no longer jumps (the 2026-10-28 "jump to chat full screen" row, superseded by the approved v13):
+ * the row is the shared `SupplierOpenRow` — in place on a phone, in the right column from 701 — and opened it shows the
+ * event's fixed lines (`EventLinesBody`) and its door: Open the chat (where a booking ask is answered, the fee read
+ * before Agree), or, for an inquiry, Decline · Ask a question · Accept in place.
+ */
+export function RosterRowView({
+  r,
+  nowMs,
+  query,
+  lines = null,
+  answers = null,
+}: {
+  r: RosterRow;
+  nowMs: number;
+  query: string;
+  /** The event's fixed lines, from the page's one batched read. Null → said, never blank. */
+  lines?: EventLines | null;
+  answers?: RosterAnswers | null;
+}) {
   const href = hrefFor(r);
   const badge = rosterBadge(r);
   const line = rowLine(r, nowMs);
-  const eventLine = [r.kind, fmtDate(r.eventDate, nowMs), r.place, r.returning ? 'returning' : null]
+  // The row is the EVENT (owner 2026-10-28, "User's event (date)"): its title is the event's chat name, the customer
+  // under it — the same couple with two events is two rows, each its own chat.
+  const title = eventChatTitle({ name: r.identityRevealed ? r.title : null, kind: r.kind, date: r.eventDate, nowMs });
+  const eventLine = [r.identityRevealed ? r.title : null, r.place, r.returning ? 'returning' : null]
     .filter(Boolean)
     .join(' · ');
-  const inner = (
-    <>
-      <span
-        aria-hidden
-        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-ink/[0.06] text-[13px] font-semibold text-ink/70"
-      >
-        {/*
-          Only a genuinely NAMELESS event wears the neutral mark — initials of
-          the fallback word would read like a name. Nothing is masked any more
-          (owner 2026-09-08, 2026-09-19).
-        */}
-        {r.identityRevealed ? initialsOf(r.title) : '·'}
-      </span>
-      <span className="min-w-0">
-        <span className="block truncate text-[15px] font-medium leading-tight text-ink">
-          <Marked text={r.title} query={query} />
-        </span>
-        <span className="mt-0.5 block truncate text-[13px] text-ink/60">{eventLine}</span>
-      </span>
-      <span className="flex min-w-0 max-w-[8.5rem] flex-col items-end gap-1 text-right">
-        <Badge tone={badge.tone} data="customer-stage">
-          {badge.word}
-        </Badge>
-        {line ? (
-          <span className="line-clamp-2 max-w-full text-[12.5px] leading-tight text-ink/60" style={{ color: LINE_TONE[line.tone] }} data-row-line="">
-            {line.text}
-          </span>
-        ) : null}
-      </span>
-      {href ? (
-        <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-sn-accent" strokeWidth={2} />
-      ) : (
-        <span aria-hidden className="w-4" />
-      )}
-    </>
+  const who = (r.identityRevealed ? r.title : null) ?? eventLine;
+  const rowWords = [who, line?.text].filter(Boolean).join(' · ');
+  const inquiry = r.waitingKind === 'inquiry' && r.threadId && answers ? { threadId: r.threadId, ...answers } : null;
+  const avatar = (
+    <span
+      aria-hidden
+      className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-ink/[0.06] text-[13px] font-semibold text-ink/70"
+    >
+      {/* Only a genuinely NAMELESS event wears the neutral mark — initials of the fallback word would read like a name. */}
+      {r.identityRevealed ? initialsOf(r.title) : '·'}
+    </span>
   );
-  const rowClass =
-    'grid min-h-[64px] grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-3 border-t border-ink/10 py-2.5';
-  return href ? (
-    <Link href={href} className={`sn-press ${rowClass}`} aria-label={`${r.title} — ${nextStepLabel(r)}`} data-customer-row={r.lane}>
-      {inner}
-    </Link>
-  ) : (
-    <div className={rowClass} data-customer-row={r.lane}>
-      {inner}
+  return (
+    <div className="border-t border-ink/10" data-customer-row={r.lane}>
+      <SupplierOpenRow
+        id={`customer-${r.eventId}`}
+        data="customer-row"
+        title={title}
+        titleNode={<Marked text={title} query={query} />}
+        line={rowWords}
+        lead={avatar}
+        aside={
+          <Badge tone={badge.tone} data="customer-stage">
+            {badge.word}
+          </Badge>
+        }
+      >
+        <div className="pb-3" data-customer-opened={r.lane}>
+          {lines ? (
+            <EventLinesBody lines={lines} />
+          ) : (
+            <p role="status" className="py-2 text-[13.5px]" style={{ color: 'rgb(var(--color-warn))' }}>
+              This event&rsquo;s details couldn&rsquo;t load. Refresh to try again — the chat still opens.
+            </p>
+          )}
+          {inquiry ? (
+            <InquiryAnswers
+              threadId={inquiry.threadId}
+              returnTo="/vendor-dashboard/customers"
+              acceptInquiry={inquiry.acceptInquiry}
+              declineInquiry={inquiry.declineInquiry}
+            />
+          ) : href ? (
+            <div className="flex flex-wrap items-center justify-end gap-2 border-t border-ink/10 pt-3">
+              <ActionButton
+                tone="brand"
+                main
+                icon={r.threadId ? <MessageSquare aria-hidden="true" strokeWidth={1.9} /> : <FileText aria-hidden="true" strokeWidth={1.9} />}
+                label={r.threadId ? 'Open the chat' : 'Open their card'}
+                name={`${title} — ${nextStepLabel(r)}`}
+                href={href}
+                className="min-h-11"
+              />
+            </div>
+          ) : null}
+        </div>
+      </SupplierOpenRow>
     </div>
   );
 }
@@ -265,7 +302,22 @@ export function CustomersRoster({
   otherMatches = 0,
   /** Every outside client — the found line counts against everyone the Filter's "Everyone" counts. */
   otherTotal = 0,
+  anchor = 'customers',
+  emptyLine,
+  lines = {},
+  answers = null,
 }: {
+  /** 📋 Each event's fixed lines, keyed by event id — an opened row shows them (supplier dashboard v13). */
+  lines?: Readonly<Record<string, EventLines>>;
+  /** The inquiry answers an Asking row gives in place. */
+  answers?: RosterAnswers | null;
+  /**
+   * The list's own `id` (and its chat-origin mark). Null when the page draws the list once PER DOOR (Customers'
+   * pinned counts, 2026-10-28) — the page then owns the one `#customers` and the one mark around all four.
+   */
+  anchor?: string | null;
+  /** What an empty door says — "Nobody is waiting on you." — when the door holds nobody at all. */
+  emptyLine?: string;
   rows: RosterRow[];
   counts: Record<CustomerLane, number>;
   nowMs: number;
@@ -301,12 +353,17 @@ export function CustomersRoster({
     .slice(0, 4);
 
   return (
-    <div id="customers" className="scroll-mt-24" data-customers-people="">
-      {/* "WAITING FIRST · Everyone ▾" — the order is said, and the one dropdown narrows it (frame 03). */}
-      <div className="flex min-h-11 items-center gap-3" data-customers-eyebrow="" data-tour="customers-filter">
-        <span className="home-k2">Waiting first</span>
-        {filter}
-      </div>
+    <div id={anchor ?? undefined} className={anchor ? 'scroll-mt-24' : undefined} data-customers-roster="">
+      {/* This list opens chats full screen; ‹ there comes back here, in place. */}
+      {anchor ? <ChatOriginMark /> : null}
+      {/* "WAITING FIRST · Everyone ▾" — the order is said, and the one dropdown narrows it (frame 03). Drawn only for a
+          caller that hands a Filter; Customers' doors filter in place instead (2026-10-28). */}
+      {filter ? (
+        <div className="flex min-h-11 items-center gap-3" data-customers-eyebrow="" data-tour="customers-filter">
+          <span className="home-k2">Waiting first</span>
+          {filter}
+        </div>
+      ) : null}
 
       {/*
         THE EXPOSURE LINE — one warn ROW above the list (plan § 2: "Date-clash
@@ -348,17 +405,20 @@ export function CustomersRoster({
             </p>
           )
         ) : (
-          <p className="border-t border-ink/10 py-4 text-[14px] text-ink/70" data-customers-none="" data-tour="customers-list">
-            {total === 0
-              ? 'No customers yet. When somebody asks about a date, or books you, they show up here — the ones waiting on an answer first.'
-              : 'Nobody in this list right now. Pick Everyone in Filter to see the rest.'}
-          </p>
+          otherTotal > 0 && total === 0 ? null : (
+            <p className="border-t border-ink/10 py-4 text-[14px] text-ink/70" data-customers-none="" data-tour="customers-list">
+              {emptyLine ??
+                (total === 0
+                  ? 'No customers yet. When somebody asks about a date, or books you, they show up here — the ones waiting on an answer first.'
+                  : 'Nobody in this list right now. Pick Everyone in Filter to see the rest.')}
+            </p>
+          )
         )
       ) : (
         <ul data-customers-list="" data-tour="customers-list">
           {rows.map((r) => (
             <li key={`${r.lane}:${r.eventId}`} className="[&:first-child>*]:border-t-0">
-              <RosterRowView r={r} nowMs={nowMs} query={q} />
+              <RosterRowView r={r} nowMs={nowMs} query={q} lines={lines[r.eventId] ?? null} answers={answers} />
             </li>
           ))}
         </ul>

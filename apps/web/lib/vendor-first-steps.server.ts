@@ -7,6 +7,11 @@ import { moodboardLibraryAccessForProfile } from '@/lib/moodboard-library-access
 import { getInspirationParts } from '@/lib/inspiration-parts-db';
 
 import { businessProfileChecklist, profileGaps, type VendorProfileRow } from '@/lib/vendor-profile';
+import { offerProgress, type SetupCard } from '@/lib/supplier-setup';
+import { VENDOR_CATEGORIES } from '@/lib/vendors';
+
+/** The coarse profile categories (`syncProfileFromCoverages` preserves the same set beside the leaves). */
+const COARSE_SERVICE_KEYS: ReadonlySet<string> = new Set<string>(VENDOR_CATEGORIES);
 import {
   fetchLatestApplication,
   countCompleteRequiredSlots,
@@ -70,10 +75,10 @@ export async function fetchVendorFirstStepsState(
     const open = moodboardLibraryAccessForProfile(profile, parts).allowed;
     return { open, count: open ? await countOwnLibraryPhotos((profile as { user_id?: string | null }).user_id ?? null) : undefined };
   });
-  const [application, serviceCount, customerCount, registrationNumberOnFile, shopWideDaysOff, library] =
+  const [application, serviceRead, customerCount, registrationNumberOnFile, shopWideDaysOff, library] =
     await Promise.all([
       fetchLatestApplication(supabase, vendorProfileId).catch(() => null),
-      countVendorServices(supabase, vendorProfileId),
+      readVendorServiceCards(supabase, vendorProfileId),
       countVendorCustomers(supabase, vendorProfileId),
       hasRegistrationNumber(supabase, vendorProfileId),
       // Step 4 — a shop-wide day off belongs to no schedule, so Today's schedules read cannot see it. Asked only
@@ -95,7 +100,11 @@ export async function fetchVendorFirstStepsState(
     profileDone: details.filter((i) => i.ok).length,
     profileTotal: details.length,
     hasLogo: !gaps.logoMissing,
-    serviceCount,
+    serviceCount: serviceRead.count,
+    // 🔢 Each real service once — never the coarse profile category beside its own leaf (owner 2026-10-29).
+    offer: serviceRead.cards
+      ? offerProgress((profile as { services?: string[] | null }).services ?? [], serviceRead.cards, COARSE_SERVICE_KEYS)
+      : null,
     docsStatus: (application?.status as VerificationAppStatus | undefined) ?? 'none',
     // 🔢 One count: the four required papers (owner 2026-10-22) — never every upload.
     docsIn: countCompleteRequiredSlots(uploads),
@@ -145,20 +154,27 @@ async function countOwnLibraryPhotos(userId: string | null): Promise<number | un
  * card and left it unlisted HAS done the step. Filtering here would reset their
  * progress for using a feature exactly as intended.
  */
-async function countVendorServices(
+async function readVendorServiceCards(
   supabase: SupabaseClient,
   vendorProfileId: string,
-): Promise<number> {
-  const { count, error } = await supabase
+): Promise<{ count: number; cards: SetupCard[] | null }> {
+  // 🔢 The cards themselves (not a head count) — "What you offer" counts them PER SERVICE (Good · Better · Best,
+  // owner 2026-10-28). Still one read. Every card counts, listed or not, as before.
+  const { data, error } = await supabase
     .from('vendor_services')
-    .select('vendor_service_id', { count: 'exact', head: true })
-    .eq('vendor_profile_id', vendorProfileId);
-  // `count === null` means NOT MEASURED, never zero — but for this rail both
-  // land on "step not done", which is the safe direction (see the header).
-  if (error) {
-    console.error('[supabase-error] lib/vendor-first-steps.server.ts · from:vendor_services.select', error);
+    .select('vendor_service_id, category, title, starting_price_php')
+    .eq('vendor_profile_id', vendorProfileId)
+    .limit(500);
+  // A refused read is NOT MEASURED, never zero: the step reads "not done" (the safe side, see the header) and the
+  // fold says it could not load — `cards: null`, never an empty list that would read as "no cards".
+  if (error || !data) {
+    if (error) console.error('[supabase-error] lib/vendor-first-steps.server.ts · from:vendor_services.select', error);
+    return { count: 0, cards: null };
   }
-  return error || count == null ? 0 : count;
+  const cards = (data as Array<{ vendor_service_id: string; category: string; title: string | null; starting_price_php: number | null }>).map(
+    (r) => ({ id: r.vendor_service_id, service: r.category, title: r.title, pricePhp: r.starting_price_php }),
+  );
+  return { count: cards.length, cards };
 }
 
 /**

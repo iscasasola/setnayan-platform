@@ -65,6 +65,7 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
   { table: 'community_members', decision: 'exported', as: 'samahan_memberships' },
   { table: 'samahan_stories', decision: 'exported', as: 'samahan_stories' },
   { table: 'samahan_messages', decision: 'exported', as: 'samahan_messages' },
+  { table: 'samahan_reads', decision: 'exported', as: 'samahan_memberships' },
   { table: 'vendor_profiles', decision: 'exported', as: 'vendor_profile' },
   { table: 'papic_free_grant_claims', decision: 'exported', as: 'papic_free_grant' },
   { table: 'event_deletion_requests', decision: 'exported', as: 'event_deletion_requests' },
@@ -116,6 +117,15 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
       'Holds a browser push endpoint plus its encryption keys. The endpoint IS personal, but it ' +
       'is also a live delivery credential; exporting it lets anyone holding the file push to ' +
       'that device. Disclose that it is held; do not hand over the keys.',
+  },
+  {
+    table: 'shop_papic_wallet_entries',
+    decision: 'excluded',
+    why:
+      'The SHOP wallet — a business\'s Papic-credit ledger keyed to the shop (vendor_profile_id), ' +
+      'not to a person (owner 2026-10-23, option A). `created_by` is an actor stamp on who pressed a ' +
+      'spend or wrote an admin credit; the row says nothing about that person, the shop owner reads ' +
+      'every row on Customers › Money, and erasure clears the stamp (lib/erasure/coverage.ts).',
   },
   {
     table: 'hub_music_tracks',

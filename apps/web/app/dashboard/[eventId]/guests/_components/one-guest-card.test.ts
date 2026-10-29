@@ -76,8 +76,9 @@ test('1 · ONE component draws a guest’s card: only `GuestCard` renders (or im
 const ENTRY_POINTS: Record<string, 'GuestCard' | 'GuestCardSheet'> = {
   [`${EVENT}/guests/page.tsx`]: 'GuestCard', // the Guest list's panel (`?inspect=`) — rail ≥ 1280, sheet below
   [`${EVENT}/guests/[guestId]/page.tsx`]: 'GuestCard', // the standalone route (deep links, a failed save's landing)
-  [`${EVENT}/guests/open-guest-card.tsx`]: 'GuestCard', // the one in-place read (the march, the parents)
-  [`${EVENT}/launch/_components/details-march.tsx`]: 'GuestCardSheet', // the Wedding March
+  [`${EVENT}/guests/_components/guest-card-in-place.tsx`]: 'GuestCard', // the one in-place read's card (the march, the seats, the parents), drawn in the browser
+  [`${EVENT}/launch/_components/details-march.tsx`]: 'GuestCardSheet', // the Wedding March (Guests › March since R4)
+  [`${EVENT}/seating/_components/seating-editor.tsx`]: 'GuestCardSheet', // Guests › Seats — a face on the plan or the list (R4)
   [`${EVENT}/launch/_components/parent-cards.tsx`]: 'GuestCardSheet', // the parents under the march / The Invitation
   [`${EVENT}/launch/_components/studio-prints-six.tsx`]: 'GuestCardSheet', // Studio › Prints' parents
   [`${EVENT}/launch/_components/details-people.tsx`]: 'GuestCardSheet', // Details › Parents & hosts
@@ -93,11 +94,14 @@ test('2 · EVERY entry point opens the one card — `GuestCard`, or `GuestCardSh
     assert.match(src!, new RegExp(`import \\{[^}]*\\b${door}\\b[^}]*\\} from '[^']*/${from}';`), `${file} does not import ${door}`);
     assert.match(src!, new RegExp(`<${door}\\b`), `${file} imports ${door} but does not open it`);
   }
-  /* The sheet's shipped readers ARE the one action, which draws THE card. */
+  /* The sheet's shipped readers ARE the one action, whose answer draws THE card — in the browser (the action answers data:
+     `the-settings-sheet-is-in-homes-graph.test.ts`). */
   const sheet = SRC.get(SHEET)!;
-  assert.match(sheet, /\(await import\('\.\.\/open-guest-card'\)\)\.openGuestCard\(eventId, guestId, 'march'\)/);
-  assert.match(sheet, /\(await import\('\.\.\/open-guest-card'\)\)\.openGuestCard\(eventId, guestId, 'invitation'\)/);
-  assert.match(SRC.get(`${EVENT}/guests/open-guest-card.tsx`)!, /<GuestCard frame="panel"/);
+  assert.match(sheet, /\(await import\('\.\/guest-card-in-place'\)\)\.openGuestCardInPlace\(eventId, guestId, 'march'\)/);
+  assert.match(sheet, /\(await import\('\.\/guest-card-in-place'\)\)\.openGuestCardInPlace\(eventId, guestId, 'invitation'\)/);
+  const inPlace = SRC.get(`${EVENT}/guests/_components/guest-card-in-place.tsx`)!;
+  assert.match(inPlace, /const r = await openGuestCard\(eventId, guestId, at\);/, 'the in-place card is not read by the one action');
+  assert.match(inPlace, /<GuestCard frame="panel"/);
   /* A surface that opens a guest's sheet is an entry point — a new one must be listed (and so read) here. */
   const sheetUsers = ALL.filter((f) => f !== SHEET && /<GuestCardSheet\b/.test(SRC.get(f)!));
   const cardUsers = ALL.filter((f) => f !== CARD && /<GuestCard\b/.test(SRC.get(f)!));

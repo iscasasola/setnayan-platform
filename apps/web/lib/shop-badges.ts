@@ -308,6 +308,23 @@ export function nextToEarnLine(completedEvents: number | null): string | null {
   return l.next === null ? null : `Next to earn: ${COUNT.format(l.next)} events · ${stepName(l.next)} · ${COUNT.format(l.toGo!)} to go`;
 }
 
+/* ── Shop › How it is going — the badges shelf (owner 2026-10-29) ───────────────────────────────────────────── */
+
+/**
+ * 🏅 THE BADGES ON THE PERFORMANCE PAGE (owner 2026-10-29: *"Their badges will be on the supplier shop performance
+ * page"*): every badge the shop wears today (`shopBadges` — the same pills the shop page and the print file draw) and
+ * the next step with how far it is (`nextToEarnLine`). Honest: `null` facts (the read refused) → no pills and "—",
+ * never "no badges"; an uncounted milestone → "—" for the next step, never "0 to go".
+ */
+export type BadgeShelf = { measured: boolean; pills: ShopBadge[]; next: string };
+
+export function badgeShelf(f: ShopBadgeFacts | null): BadgeShelf {
+  if (f === null) return { measured: false, pills: [], next: '—' };
+  const pills = shopBadges(f);
+  if (f.completedEvents === null) return { measured: true, pills, next: 'Next to earn: —' };
+  return { measured: true, pills, next: nextToEarnLine(f.completedEvents) ?? 'Every milestone earned' };
+}
+
 /* ── "Improves every time" — the Today line ──────────────────────────────────────────────────────────────── */
 
 /**
@@ -322,7 +339,15 @@ export function earnedKeys(f: ShopBadgeFacts): string[] {
   return keys;
 }
 
-export type EarnedNews = { key: string; badge: ShopBadge; sentence: string; keys: string[] };
+/**
+ * `sentence` is the ONE short line Today shows beside the pill ("You earned SETNAYAN Verified" — the pill already wears
+ * the ✓); `detail` is what sits behind its ⓘ (owner rule: title + one short line visible, the rest in the ⓘ). Owner
+ * 2026-10-28 on the phone: the old one-sentence "… ✓ — your tarp and card can show it" was crushed into a 5-line column.
+ */
+export type EarnedNews = { key: string; badge: ShopBadge; sentence: string; detail: string; keys: string[] };
+
+/** What the earned line's ⓘ says — the reason to press Save to print. */
+export const EARNED_DETAIL = 'Your tarp and calling card can show it — Save to print gives you the file.';
 
 /**
  * The ONE thing to say on Today: the newest earned badge the supplier has not yet dismissed — the highest milestone
@@ -348,5 +373,5 @@ export function newlyEarned(f: ShopBadgeFacts, seen: readonly string[]): EarnedN
         ? (shopBadges(f).find((b) => b.key === award) ?? VERIFIED)
         : VERIFIED;
   const what = badge.kind === 'milestone' ? `${COUNT.format(milestone!)} events · ${stepName(milestone!)}` : badge.label;
-  return { key: badge.key, badge, sentence: `You earned ${what} ✓ — your tarp and card can show it`, keys };
+  return { key: badge.key, badge, sentence: `You earned ${what}`, detail: EARNED_DETAIL, keys };
 }

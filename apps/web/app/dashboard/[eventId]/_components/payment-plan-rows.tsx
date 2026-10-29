@@ -41,6 +41,7 @@ import { ArrowDown, ArrowUp, CalendarClock, Plus, Trash2 } from 'lucide-react';
 // inspects functions NAMED like converters; the rule is the intent, not the
 // scan's reach.
 import { formatPhp } from '@/lib/php';
+import { PLAN_PRESENT_FIELD, planPreviewTotal } from '@/lib/self-added-payment-plan';
 import { ActionButton } from '@/components/action-button';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 
@@ -97,8 +98,11 @@ export function PaymentPlanRows({
   initial?: ReadonlyArray<Omit<Row, 'key'>>;
   disabled?: boolean;
 }) {
+  // `initial` given (even EMPTY) is the saved plan, exactly — a plan saved
+  // with no payments re-opens with none, not with the 50/50 starter below.
+  // The starter is only for a supplier with no saved plan at all.
   const [rows, setRows] = useState<Row[]>(() =>
-    (initial && initial.length > 0
+    (initial
       ? initial
       : [
           { label: 'First payment', kind: 'percent' as const, value: '50', anchor: 'on_lock' as const, days: '0' },
@@ -133,22 +137,24 @@ export function PaymentPlanRows({
     });
   }
 
-  /** Preview only — the server re-computes and is the authority. */
-  const scheduled = useMemo(() => {
-    let sum = 0;
-    for (const r of rows) {
-      const n = Number(r.value);
-      if (!Number.isFinite(n) || n <= 0) continue;
-      if (r.kind === 'fixed') sum += n;
-      else if (totalPhp != null) sum += (totalPhp * n) / 100;
-    }
-    return sum;
-  }, [rows, totalPhp]);
+  /** Preview only — the server re-computes and is the authority. It reads each
+   *  amount the SAME way the server does (`planAmountNumber`), so "100,000"
+   *  counts here exactly as it counts there; this used to `Number()` it to NaN
+   *  and drop the row from the total while the screen showed it. */
+  const scheduled = useMemo(() => planPreviewTotal(rows, totalPhp), [rows, totalPhp]);
 
   const covered = totalPhp != null && Math.abs(scheduled - totalPhp) <= 1;
 
   return (
     <div className="space-y-2">
+      {/* 📮 Says "the plan editor was here", so a save can tell a plan emptied
+          to no payments from a form that never carried one. */}
+      <input type="hidden" name={PLAN_PRESENT_FIELD} value="1" />
+      {rows.length === 0 ? (
+        <p data-plan-none="" className="text-[12.5px] text-ink/55">
+          No payments — saving keeps it that way.
+        </p>
+      ) : null}
       <div className="space-y-1.5">
         {rows.map((r, i) => (
           /* ── TWO LINES PER PAYMENT, NOT SIX COLUMNS (2026-09-21) ──────────
@@ -202,7 +208,9 @@ export function PaymentPlanRows({
                   iconOnly
                   icon={Trash2}
                   label={`Remove payment ${i + 1}`}
-                  disabled={disabled || rows.length <= 1}
+                  // The last payment can go too — a plan typed down to none is
+                  // saved as none (`planSaveStep` 'clear').
+                  disabled={disabled}
                   onClick={() => remove(r.key)}
                 />
               </span>

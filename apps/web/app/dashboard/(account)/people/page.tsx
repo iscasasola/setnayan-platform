@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { Clock, Users, HeartHandshake, UserPlus } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
 import { peopleConnectionsEnabled } from '@/lib/people-connections';
@@ -8,6 +7,7 @@ import { getFollowCounts, getFollowers, getFollowing } from '@/lib/people-follow
 import {
   defaultPeopleView,
   peopleViewOptions,
+  pinnedViewOptions,
   resolvePeopleView,
   type PeopleView,
   type PeopleViewGates,
@@ -16,6 +16,7 @@ import { offerableRelations, spouseAbsenceNote, type SpouseContext } from '@/lib
 import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { Spotlight } from '@/app/_components/spotlight';
+import { ChatOriginMark } from '@/app/_components/chat/chat-back';
 import { PeopleRosterView } from './_components/people-roster-view';
 import { PeopleThumb } from './_components/people-thumb';
 import { FollowListView } from './_components/follow-list-view';
@@ -23,6 +24,12 @@ import { AddAlagaButton } from './_components/add-alaga-button';
 import { DependentsSection } from './_components/dependents-section';
 import { GroupsFoldSection, SamahanPeopleSection } from './_components/samahan-people-section';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { PeopleGroupsView } from './_components/people-groups-view';
+import type { PeopleSettings } from './_components/people-pinned-row';
+import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { readPeopleGroupRows, type PeopleGroupRows } from '@/lib/people-group-rows';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { YourStorySection } from './_components/your-story-section';
 import { ConnectionTreeSection } from './_components/connection-tree-section';
 import { FoundPersonCard } from './_components/found-person-card';
@@ -133,7 +140,7 @@ export default async function PeoplePage({
   // same round as the roster instead of one after another (the spouse rule
   // alone was three more trips after the roster had come back).
   const notMarried: SpouseContext = { civilStatus: null, weddingHasHappened: false };
-  const [roster, followCounts, followList, spouseCtx] = await Promise.all([
+  const [roster, followCounts, followList, spouseCtx, settings, groupRows] = await Promise.all([
     user ? getPeopleRoster(user.id) : Promise.resolve(null),
     user ? getFollowCounts(user.id) : Promise.resolve({ following: null, followers: null }),
     user && view === 'following'
@@ -144,6 +151,13 @@ export default async function PeoplePage({
     user && (view === 'connected' || view === 'requests' || view === 'alaga')
       ? getSpouseContext(user.id)
       : Promise.resolve(notMarried),
+    // ⚙ People settings' one value (the pinned row's ⚙, owner 2026-10-28).
+    user ? readPeopleSettings(user.id) : Promise.resolve<PeopleSettings>({ findable: null }),
+    // 👥 The Groups view's chat rows — ONE batched read for every row (lib/people-group-rows.ts). The list's
+    // Groups section reads the same rows in its own server section (`GroupsFoldSection`); never both in one view.
+    user && view === 'samahan'
+      ? (async () => readPeopleGroupRows(await createClient(), createAdminClient(), user.id))()
+      : Promise.resolve<PeopleGroupRows | null>(null),
   ]);
 
   // THE PERSON THE LINK NAMES. Somebody on your list → their roster card (`openPerson`). Anybody else →
@@ -192,6 +206,10 @@ export default async function PeoplePage({
     gates,
   };
 
+  // 📌 THE PINNED ROW'S PICKER (owner 2026-10-28): People · Groups · Following · Followers · Loved ones, as "People ▾" /
+  // "Groups ▾" — the same `?view=` keys as the ≡ list and the rail.
+  const pin = { options: pinnedViewOptions(options), settings };
+
   // LOVED ONES — "Add a loved one" at the head of its own section, its only home (owner 2026-09-28, and
   // 2026-10-22: a folded section in the list, like Family and Friends — a business alaga included).
   const lovedOnes = showDependents ? (
@@ -206,6 +224,8 @@ export default async function PeoplePage({
   return (
     <div className="mx-auto w-full max-w-7xl px-4 pb-10 pt-2 sm:px-6 lg:px-8">
       <PageMasthead title="People" />
+      {/* 👥 ‹ from a group comes back HERE, in place — this view, this scroll (owner 2026-10-29; chat/chat-back.tsx). */}
+      <ChatOriginMark />
       {/* First visit only — the SPOTLIGHT (owner rule 2026-09-25: every feature gets a first-visit tour; 2026-10-10:
           "our tour is a spotlight tour"). It replaces the carousel `customer_people_v1`, switched off since 2026-10-03,
           whose words described the dropdown this page lost on 2026-10-22. After the host's journey, so two never stack. */}
@@ -239,6 +259,7 @@ export default async function PeoplePage({
           relations={offerableRelations(spouseCtx)}
           spouseNote={spouseAbsenceNote(spouseCtx)}
           picker={picker}
+          pin={pin}
           initialFilter={view === 'requests' ? 'asking' : 'all'}
           focus={view === 'alaga' ? 'alaga' : null}
           openPerson={onList ? personParam : null}
@@ -272,17 +293,21 @@ export default async function PeoplePage({
         />
       ) : null}
 
-      {/* GROUPS — "New group" at the head of its own view, its only home. It goes to the page that already
-          creates one; nothing here is a new destination. Samahan is live product and never flag-gated. */}
-      {view === 'samahan' ? (
-        <div data-people-view="samahan" className="mx-auto w-full max-w-3xl pb-24">
-          <div className="mb-5 mt-2" data-view-door="samahan">
-            <Link href="/dashboard/samahan/new" className="button-secondary inline-flex min-h-11 items-center text-sm">
-              New group
-            </Link>
-          </div>
-          <SamahanPeopleSection heading={false} />
-          <PeopleThumb picker={picker} />
+      {/* GROUPS (owner 2026-10-28, "People and Groups approved"): the pinned row — Groups ▾ · counts · ＋ New · ⚙ — then
+          the chat rows, then the second degree as shipped. ＋ New in the row is the view's ONE way to make a group (the
+          "New group" button that headed this view would be the second). Samahan is live product, never flag-gated. */}
+      {view === 'samahan' && groupRows ? (
+        <div className="mx-auto w-full max-w-3xl pb-24">
+          <PeopleGroupsView
+            rows={groupRows.rows}
+            unreadable={groupRows.listEmpty && (roster?.counts.samahan ?? null) !== 0}
+            unreadUnreadable={groupRows.unreadUnreadable}
+            activityUnreadable={groupRows.activityUnreadable}
+            picker={picker}
+            pin={pin}
+          >
+            <SamahanPeopleSection heading={false} listed={false} />
+          </PeopleGroupsView>
         </div>
       ) : null}
 
@@ -294,6 +319,20 @@ export default async function PeoplePage({
       ) : null}
     </div>
   );
+}
+
+/**
+ * ⚙ People settings' value — `users.discoverable_by_name`, the profile's own column (default on, as the profile reads
+ * it). A refused read is NULL: the sheet says it could not read, never draws the switch "off".
+ */
+async function readPeopleSettings(userId: string): Promise<PeopleSettings> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from('users').select('discoverable_by_name').eq('user_id', userId).maybeSingle();
+  if (error || !data) {
+    if (error) logQueryError('PeoplePage.readPeopleSettings', error, {}, 'graceful_degrade');
+    return { findable: null };
+  }
+  return { findable: ((data as { discoverable_by_name: boolean | null }).discoverable_by_name ?? true) as boolean };
 }
 
 /** The honest, non-interactive "coming soon" preview (flag OFF — production today). */

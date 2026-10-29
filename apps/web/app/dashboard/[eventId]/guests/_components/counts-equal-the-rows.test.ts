@@ -75,7 +75,8 @@ test('the screen reads its counts off the same list as its rows', () => {
   // (A search's hits may bring their +1s with them — `withTheirPlusOnes`, still over the same `roster`.)
   // (…and the count doors' filters narrow THAT same list — `found`, never a second read.)
   assert.match(SCREEN, /const visible = useMemo\(\s*\(\) => \(q \? (withTheirPlusOnes\(q, )?roster\.filter\([^;]*\), roster\)|const visible = useMemo\(\(\) => \(q \? roster\.filter|const visible = useMemo\(\(\) => \{\s*const found = q \? withTheirPlusOnes\(q, roster\.filter\([^;]*\), roster\) : roster;/, 'the rows are not drawn from the same `roster`');
-  assert.match(SCREEN, /\{measured \? \(/, 'an unmeasured read prints counts instead of saying nothing');
+  // (R4: Seats and March draw their maker instead — `!makerView` — never counts over a seat plan or a march.)
+  assert.match(SCREEN, /\{measured(?: && !makerView)? \? \(/, 'an unmeasured read prints counts instead of saying nothing');
 });
 
 test('Count and Fill never sit on their start value when no frame runs', () => {

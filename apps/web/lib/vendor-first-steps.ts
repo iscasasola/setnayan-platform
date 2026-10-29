@@ -41,6 +41,7 @@
 import { SERVICE_MAKER_HREF } from './service-picker-anchor';
 import { formatCount } from '@/lib/format-number';
 import { INSPIRATION_LIBRARY_HREF, INSPIRATION_LIBRARY_ROW } from './inspiration-library-entry';
+import { toGoWord, type OfferProgress } from './supplier-setup';
 
 export type FirstStepKey =
   | 'shop_details'
@@ -131,6 +132,12 @@ export type FirstStepsInput = {
    * absent = not measured = not done. Absent object = the step is not drawn (the six steps, as before).
    */
   inspiration?: { count?: number } | null;
+  /**
+   * 🔢 GOOD · BETTER · BEST (owner 2026-10-28, DECISION_LOG "SUPPLIER DASHBOARD APPROVED — EVERYTHING IN PLACE"):
+   * "What you offer" is done at three cards per service (`CARDS_PER_SERVICE`), not at the first card. The cards per
+   * service (`offerProgress`). Absent = not measured → the step falls back to "a card is up" — the rule it had.
+   */
+  offer?: OfferProgress | null;
 };
 
 export type FirstStepsRail = {
@@ -144,6 +151,8 @@ export type FirstStepsRail = {
   current: FirstStep | null;
   /** True once the shop is verified — the rail has served its purpose. */
   complete: boolean;
+  /** The cards per service the "What you offer" step was measured on (Today's setup fold draws them); null = not read. */
+  offer: OfferProgress | null;
 };
 
 /** Documents are out of the vendor's hands while Setnayan reviews them. */
@@ -221,11 +230,14 @@ export function buildFirstStepsRail(input: FirstStepsInput): FirstStepsRail {
       href: SERVICE_MAKER_HREF,
       cta: 'Add a service',
       meter:
-        serviceCount > 0
-          ? `${formatCount(serviceCount)} service${serviceCount === 1 ? '' : 's'} up`
-          : null,
+        input.offer && input.offer.toGo > 0 && serviceCount > 0
+          ? toGoWord(input.offer.toGo)
+          : serviceCount > 0
+            ? `${formatCount(serviceCount)} service${serviceCount === 1 ? '' : 's'} up`
+            : null,
       blockedBy: null,
-      done: serviceCount > 0,
+      // ≥ 3 cards per service once the cards were read (Good · Better · Best); the first card, when they were not.
+      done: serviceCount > 0 && (input.offer ? input.offer.toGo === 0 : true),
       waiting: false,
     },
     ...(input.inspiration
@@ -350,6 +362,7 @@ export function buildFirstStepsRail(input: FirstStepsInput): FirstStepsRail {
     actionable: steps.filter((s) => s.key !== 'go_live').length,
     current: steps.find((s) => s.state === 'now') ?? null,
     complete: verified,
+    offer: input.offer ?? null,
   };
 }
 

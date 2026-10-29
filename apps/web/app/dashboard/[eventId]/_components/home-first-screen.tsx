@@ -100,8 +100,21 @@ export type HomeFirstScreenProps = {
   next: HomeNext;
   /** 🎛 Every upper widget's facts, already read (`home-control-faces.ts` words them). */
   control: HomeControlInput;
+  /**
+   * ☀ THE TODAY ASKS (owner 2026-10-29: *"The popup for the access and other popups above the header can be presented
+   * better"*) — every prompt that waits on the hosts, as `HomeTodayItem` lines, drawn FIRST in the Today list under the
+   * cover; each self-hides. Nothing renders above the cover: the cover is the top of Home. Absent = none (a lab).
+   */
+  asks?: ReactNode;
   /** Papic · Setnayan AI · … with their status — already filtered (store shell). */
   services: HomeService[];
+  /**
+   * ⚙ EVENT SETTINGS ON THE COVER (owner 2026-10-29, *"keep it there"*): the band ends with Home's ⚙, at rest and pinned.
+   * Only the couple (they change the event's own facts); absent = none (a helper, the labs that do not ask for it).
+   */
+  eventSettings?: boolean;
+  /** The Home lab's Event Settings rows, already drawn on its fixture (`/dev/home-lab`); absent = read at the press. */
+  eventSettingsRows?: ReactNode;
   /** 🖼 The Event Hub's main background under the name (`lib/home-cover.ts`); null = today's colour. */
   ground?: HomeCover | null;
   /** 🎨 Papic's credits left, for the Buy more sheet's "You have N" and "After this". */
@@ -155,7 +168,10 @@ export function HomeFirstScreen({
   cover,
   next,
   control,
+  asks = null,
   services,
+  eventSettings = false,
+  eventSettingsRows,
   ground = null,
   papicLeft = null,
   papicSizes = null,
@@ -172,11 +188,15 @@ export function HomeFirstScreen({
     <section data-home-first-screen aria-label="Home" className="flex w-full flex-col gap-3">
       {/* 🖼 The cover wears the Event Hub's main background (owner 2026-10-07, #6394), the words in the hub's own
           measured ink over its veil (`lib/home-cover.ts`). */}
-      <HomeCoverBand cover={cover} ground={ground} settingsHref={`/dashboard/${eventId}/details`} />
+      <HomeCoverBand cover={cover} ground={ground} settingsFor={eventSettings ? eventId : undefined} settingsRows={eventSettingsRows} />
 
       {/* 📅 "Later" beside the verb folds the Today line for today, on this device (owner 2026-10-23). */}
       <HomeTodayFold eventId={eventId} kind={next.kind}>
         <div data-home-column className="mx-auto flex w-full max-w-xl flex-col gap-3 md:max-w-none">
+          {/* ☀ THE TODAY ASKS — what waits on the hosts, before the Today line (the coordinator's access first). */}
+          <div className="contents" data-home-today-asks="">
+            {asks}
+          </div>
           {/* ☀ TODAY — one line, on top: the shipped picker's ONE thing (`pickHomeNext`), and where it lives. */}
           <HomeToday target={today.target} words={today.words} tail={today.tail} calm={today.calm} />
 

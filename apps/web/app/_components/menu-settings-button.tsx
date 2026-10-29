@@ -16,7 +16,9 @@
  *     `every-menu-has-one-settings-button.test.ts` counts.
  *   · Drawn into <body> while open: the dashboard's page wrapper captures `position: fixed`.
  *
- * Home never mounts this — Home's ⚙ is the cover's, and it opens Event Settings.
+ * 🏠 HOME mounts it too (owner 2026-10-29, *"keep it there"*): `menu="home"`, Event Settings, at the right end of the
+ * cover band (`home-settings-gear.tsx`). `cover` draws it in the cover's own ink (`.home-cover-ab`, the glass pill the
+ * cover's buttons wear) — same component, same 44 px, only the colour follows the band it sits on.
  */
 import { useEffect, useId, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
@@ -31,6 +33,7 @@ export function MenuSettingsButton({
   open,
   onOpenChange,
   tour,
+  cover = false,
   children,
 }: {
   menu: SettingsMenu;
@@ -38,6 +41,8 @@ export function MenuSettingsButton({
   onOpenChange: (open: boolean) => void;
   /** 🔦 The spotlight tour's anchor on the ⚙ (`data-tour`), when the menu's tour points at it. */
   tour?: string;
+  /** Drawn on a coloured cover band (Home): the cover's ink, never the page's (`.home-cover-ab`). */
+  cover?: boolean;
   /** The sheet's rows — the shipped controls. */
   children: ReactNode;
 }) {
@@ -55,6 +60,7 @@ export function MenuSettingsButton({
           aria-haspopup="dialog"
           aria-expanded={open}
           tour={tour}
+          className={cover ? 'home-cover-ab' : undefined}
         />
       </span>
       {open ? (
@@ -63,7 +69,7 @@ export function MenuSettingsButton({
             <div data-menu-settings-sheet={menu}>
               <p className="px-4 pt-3 text-[12.5px] text-ink/60" data-menu-settings-line="">
                 <InfoTip label={entry.line} align="start">
-                  {MENU_SETTINGS_TIP}
+                  {entry.tip ?? MENU_SETTINGS_TIP}
                 </InfoTip>
               </p>
               {children}

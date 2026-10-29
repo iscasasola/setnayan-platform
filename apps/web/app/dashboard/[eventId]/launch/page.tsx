@@ -75,7 +75,7 @@ import { celebrationColours } from '@/lib/rsvp-celebration';
 import { boardSwatches } from '@/lib/mood-board-palette-set';
 import OurStoryEditorPage from '../website/our-story/page';
 import CoupleSchedulePage from '../schedule/page';
-import CoupleSeatingPage from '../seating/page';
+import { GuestsViewDoor } from './_components/guests-view-door';
 import RequestsPage from '../guests/claims/page';
 import type { LoveStoryBlob } from '../website/our-story/_components/story-fields';
 import { resolveMoments } from '@/lib/love-story-moments';
@@ -101,6 +101,7 @@ import { guidedPlanFromFacts, isUnfinished, parseGuideParam } from '@/lib/detail
 import { parentsOffered } from '@/lib/details-your-event';
 import { countSetupGuests, guidedFactsFrom, readBackgroundChosen, guidedPresent, hubSetupFactsFrom, readGuidedPlan, setupRoundFor, type SetupScheduleBlock } from './_components/details-guided-progress';
 import { makerItemMovedHref } from '@/lib/event-settings-record';
+import { makerItemMovedToViewHref } from '@/lib/guests-views';
 import { hubSetupApplies, hubSetupGuestsHref, type HubSetupFacts } from '@/lib/hub-setup-steps';
 import { formatBlockTime } from '@/lib/schedule';
 import { isCoordinatorP3Enabled } from '@/lib/coordinator-broadcasts-server';
@@ -155,7 +156,6 @@ import { TimelineRowsLoading } from '@/app/_components/timeline-states';
 import { manualLaunchPhase } from '@/lib/invitation-widgets';
 import { publicEventPath } from '@/lib/public-event-url';
 import { studioTiles, type StudioTileModel } from '@/lib/studio-tiles';
-import { yourEventLabel } from '@/lib/details-your-event';
 
 // ⭐ THE ONLY SURFACE THAT MAY DECLARE THIS NAME (owner ruling 2026-09-02 —
 // "if it is the same then adjust"). `/website` wore `title: 'Event Hub'` too
@@ -299,6 +299,11 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
      (`?tool=details&item=rsvp`) lands on the sheet's row, before anything is read (`MAKER_ITEMS_MOVED_TO_GUESTS`). */
   const movedItem = makerItemMovedHref(eventId, one(search.item));
   if (movedItem) redirect(movedItem);
+  /* 🗂 R4 (owner 2026-10-27/28): the Seat plan and Wedding March items left for Guests › Seats and Guests › March — their
+     old address (`?tool=details&item=seating|march`, carrying `seat`) lands on the view, before anything is read
+     (`MAKER_ITEMS_MOVED_TO_GUESTS_VIEWS`, lib/r4-seats-march-forwards.test.ts). */
+  const movedView = makerItemMovedToViewHref(eventId, one(search.item), one(search.seat));
+  if (movedView) redirect(movedView);
   const user = await getCurrentUser();
   if (!user) redirect('/login');
   const supabase = await createClient();
@@ -1632,14 +1637,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         if (seatTablesRes.error) logQueryError('LaunchPage.seatTables', seatTablesRes.error, { event_id: eventId }, 'graceful_degrade');
         if (seatSeatedRes.error) logQueryError('LaunchPage.seatSeated', seatSeatedRes.error, { event_id: eventId }, 'graceful_degrade');
         seatPlan = {
-          page: (
-            <Suspense fallback={<p className="p-6 text-sm text-ink/60">Opening your seat plan…</p>}>
-              <CoupleSeatingPage
-                params={Promise.resolve({ eventId })}
-                searchParams={Promise.resolve({ maker: '1', seat: one(search.seat) })}
-              />
-            </Suspense>
-          ),
+          /* 🗂 R4: the seat plan is Guests › Seats — the Maker draws its door, never a second copy of the editor. */
+          page: <GuestsViewDoor eventId={eventId} view="seats" />,
           tables: seatTablesRes.error ? null : (seatTablesRes.count ?? 0),
           seated: seatSeatedRes.error ? null : (seatSeatedRes.count ?? 0),
           open: seatDoorRes,
@@ -1692,16 +1691,15 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         });
       }
       /* 🗂 STUDIO'S TILES — their ✓ / Missing from the SAME facts the rows above read
-         (`guided`, the seat counts, the E-Gifts manager's own read). RSVP is no tile since R1 — Guests ⚙. */
+         (`guided`, the E-Gifts manager's own read). RSVP is no tile since R1 — Guests ⚙; Wedding March and Seat plan
+         are none since R4 — Guests › March and Guests › Seats. */
       const gifts = await egiftAllP;
       studio = {
         tiles: studioTiles({
           pro: studioPro,
           facts: guided,
           giftMethods: gifts.read ? gifts.methods.filter((m) => m.is_enabled).length : null,
-          seat: seatPlan ? { tables: seatPlan.tables, seated: seatPlan.seated } : null,
-          offered: (item) => (item === 'seating' ? seatPlan !== null : detailsItemApplies(item, eventContext)),
-          marchLabel: yourEvent ? yourEventLabel('march', yourEvent.kind) : undefined,
+          offered: (item) => detailsItemApplies(item, eventContext),
         }).filter((t) => !needsHidesStudioTile(t.key, eventNeeds)),
       };
       const guidedPresentHere = guidedPresent({

@@ -46,7 +46,7 @@ import * as THREE from 'three';
 import { Maximize2, Minimize2 } from 'lucide-react';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
 import { SeatingViewSegment } from '@/app/dashboard/[eventId]/seating/_components/seating-frame';
-import { detailsItemHref } from '@/lib/maker-details-items';
+import { guestsViewHref } from '@/lib/guests-views';
 import {
   DropConfirmBubble,
   type DropConfirmState,
@@ -247,6 +247,14 @@ import { boothHitVolume, templateBoothObstacles } from '@/app/_components/plan3d
 import { BoothVendorCard } from '@/app/_components/plan3d/booth-vendor-card';
 import { DanceFloorMural } from '@/app/_components/plan3d/dance-floor-mural';
 import { formatCount } from '@/lib/format-number';
+import { PHONE_3D, canvasDpr } from '@/lib/phone-gpu-budget';
+import {
+  usePhoneGpu,
+  useHasSize,
+  useWebglContextLost,
+  DemandTail,
+  ContextLostNotice,
+} from '@/app/_components/plan3d/phone-gpu-budget';
 
 type Props = {
   eventId: string;
@@ -522,6 +530,11 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
   // live-updating. The flow still COMPLETES when reduced — we drop the easing
   // and snap to the same final state, firing the same completion callbacks.
   const reduced = usePrefersReducedMotion();
+  // 📱 A phone runs the phone tier (`phone-gpu-budget.tsx`, owner 2026-10-29 — *"When i pressed 3d plan"* → the app
+  // crashed): the guest walk's 'low' quality, no Tier B composer, a capped pixel ratio and an on-demand render loop.
+  // A computer keeps the desktop tier exactly as it was.
+  const phoneGpu = usePhoneGpu();
+  const sceneQuality = phoneGpu ? PHONE_3D.quality : 'high';
   const room = useMemo(() => roomSize(floor), [floor]);
   const [mode, setMode] = useState<'build' | 'play'>('build');
   const [paletteKey, setPaletteKey] = useState('mood');
@@ -567,15 +580,15 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
   }, [floor.dance, room]);
   // Cinematic Tier B (Fable §3.5) — true postprocessing (Bloom + DoF + grain +
   // composer vignette), mounted ONLY when Play needs it: Play mode && this
-  // surface's quality knob ('high' — the lab always runs the desktop tier; the
-  // phone guest walk runs 'low' and NEVER loads the chunk) && motion OK (house
+  // surface's quality knob ('high' on a computer; on a phone the lab runs the
+  // phone tier and, like the phone guest walk, NEVER loads the chunk) && motion OK (house
   // law: reduced = static grade, no composer) && not perf-degraded. The
   // degrade latch is ONE-WAY for the session — PerformanceMonitor inside the
   // pass fires onDegrade once on sustained decline, we unmount to Tier A and
   // never remount, so there is no incline/decline thrash by construction.
   const [fxDegraded, setFxDegraded] = useState(false);
   const onFxDegrade = useCallback(() => setFxDegraded(true), []);
-  const cinematicFx = mode === 'play' && !reduced && !fxDegraded;
+  const cinematicFx = mode === 'play' && !reduced && !fxDegraded && !phoneGpu;
   // Live world position of the followed walk-in — written by the Walker's
   // frame loop (nulled on unmount), read by the Tier B DepthOfField so focus
   // eases onto whoever is walking to their seat. A ref, never state: the DoF
@@ -660,6 +673,12 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
   const lastPointerRef = useRef<{ cx: number; cy: number }>({ cx: 0, cy: 0 });
   // The lab surface (fullscreen target + the bubble's positioning container).
   const wrapperRef = useRef<HTMLDivElement>(null);
+  // 📱 No GPU context while the room is hidden: R4 keeps this room mounted after its first open (behind `hidden` while
+  // 2D or List shows); a 0×0 wrapper unmounts the Canvas, which releases its WebGL context. The room itself — its
+  // lock, its mode, its picks — stays mounted.
+  const roomOnScreen = useHasSize(wrapperRef);
+  // 📱 When the browser takes WebGL away (a phone out of GPU memory), say so and offer the 2D plan — never a dead canvas.
+  const webgl = useWebglContextLost();
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [camBusy, setCamBusy] = useState(false);
   // Game-pad "walk the room" mode (Play only). The on-screen sticks write into
@@ -2690,6 +2709,19 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
   // budget. Under 60, the per-table camera-distance check inside TableMesh
   // still demotes far-away tables. Documented at the TableMesh useFrame.
   const crowdLow = guests.length > 60;
+  // 📱 Nothing is moving on its own: Build, no camera ease, no drag, no walk-in, crowd, mover or dancer. On a phone the
+  // loop then draws only on demand (`DemandTail` keeps it drawing through each change and its ease); anything that
+  // moves on its own puts it back to every frame.
+  const sceneSettled =
+    mode === 'build' &&
+    !camBusy &&
+    !draggingId &&
+    !draggingZone &&
+    !walker &&
+    !crowd &&
+    !walking &&
+    movers.length === 0 &&
+    dancers.length === 0;
 
   // The single walk-in carries the SAME dressed figure as its seated self —
   // the same spec OBJECT (tokenByGuest is the one spec source per guest), so
@@ -2704,12 +2736,29 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
       ref={wrapperRef}
       className={`relative w-full overflow-hidden bg-[#11131a] ${inMaker ? 'h-full' : 'h-[82vh] rounded-2xl border border-ink/10'}`}
     >
+      {webgl.lost ? (
+        <ContextLostNotice
+          onShow2d={() => {
+            const href = guestsViewHref(eventId, 'seats');
+            // In Guests the room is a client switch over the 2D plan, so a fresh load is the way out that also frees
+            // the memory; standalone, the plan is another page.
+            if (inMaker) window.location.assign(href);
+            else router.push(href);
+          }}
+          onRetry={webgl.retry}
+        />
+      ) : null}
+      {roomOnScreen && !webgl.lost ? (
       <Canvas
+        key={webgl.attempt}
         shadows
-        dpr={[1, 1.5]}
+        dpr={canvasDpr(phoneGpu, 1.5)}
+        frameloop={phoneGpu && sceneSettled ? 'demand' : 'always'}
+        onCreated={webgl.onCreated}
         camera={{ position: [0, room.d * 1.05 + 6, room.d * 0.95 + 6], fov: 42 }}
-        gl={{ antialias: true, powerPreference: 'high-performance', ...RECOMMENDED_TONEMAP }}
+        gl={{ antialias: true, powerPreference: phoneGpu ? 'default' : 'high-performance', ...RECOMMENDED_TONEMAP }}
       >
+        {phoneGpu ? <DemandTail busy={!sceneSettled} /> : null}
         <color attach="background" args={[mode === 'play' ? '#0c0e14' : '#13151c']} />
         {/* Play's fog is the golden-hour tune (warmed toward the key, far
             plane pulled in a touch); Build keeps the studio's neutral haze. */}
@@ -2728,7 +2777,7 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
             flips the cinematic golden-hour grade (Fable §3.5 Tier A). */}
         <SceneLighting
           palette={palette}
-          quality="high"
+          quality={sceneQuality}
           room={room}
           grade={mode === 'play' ? 'play' : 'standard'}
         />
@@ -2748,14 +2797,14 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
         {/* Wave 2b: archetype room shell (garden greenery / chapel windows /
             barn trusses / beach horizon / rooftop parapet) + the mood-board
             reception treatments. Both recolour with the active palette. */}
-        <VenueShell archetype={archetype} room={room} palette={palette} quality="high" />
+        <VenueShell archetype={archetype} room={room} palette={palette} quality={sceneQuality} />
         <VenueDecor
           design={design}
           floor={floor}
           tables={tables}
           room={room}
           palette={palette}
-          quality="high"
+          quality={sceneQuality}
           archetype={archetype}
         />
 
@@ -2767,7 +2816,7 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
             honour the house law and simply don't mount when motion is
             reduced. */}
         {mode === 'play' && !ceilingDecorOccupied(design, archetype) ? (
-          <StringLights room={room} palette={palette} quality="high" />
+          <StringLights room={room} palette={palette} quality={sceneQuality} />
         ) : null}
         {mode === 'play' && !reduced ? (
           <DustMotes center={moteZone.center} size={moteZone.size} palette={palette} />
@@ -2953,6 +3002,7 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
           target={[0, 0.5, 0]}
         />
       </Canvas>
+      ) : null}
 
       {/* Explicit fullscreen control (owner 2026-07-17 · Lab chrome rules) —
           bottom-right, ≥44px, kit glass; motion respects reduced-motion (a plain
@@ -3050,21 +3100,18 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
         venueSetting={venueSetting}
         venueLabel={venueLabel}
         rolePalette={rolePalette}
+        /* 🗂 R4: inside Guests › Seats the plan's ONE mode dropdown (List · 2D · 3D) is the pinned row's — the room
+           draws no second switch of its own. Standalone, its segment leaves for the plan. */
         viewSegment={
-          <SeatingViewSegment
-            active="3d"
-            onSelect={(target) => {
-              // In Details, back to the plan in the same part (`seat` drops the lab).
-              if (inMaker) {
-                if (target !== '3d') {
-                  router.push(detailsItemHref(eventId, 'seating', target === 'list' ? '&seat=list' : ''), { scroll: false });
-                }
-                return;
-              }
-              if (target === '2d') router.push(`/dashboard/${eventId}/seating`);
-              else if (target === 'list') router.push(`/dashboard/${eventId}/seating?view=list`);
-            }}
-          />
+          inMaker ? null : (
+            <SeatingViewSegment
+              active="3d"
+              onSelect={(target) => {
+                if (target === '2d') router.push(guestsViewHref(eventId, 'seats'));
+                else if (target === 'list') router.push(guestsViewHref(eventId, 'seats', { seat: 'list' }));
+              }}
+            />
+          )
         }
         mode={mode}
         setMode={setMode}
@@ -5847,17 +5894,6 @@ function Hud({
                 Hiding it before the day hides the 3D walk until the day. Printed table signs keep working.
               </p>
             ) : null}
-            {/* The door to the control centre — the couple's room as their
-                guests see it, the facts, and what feeds it. This panel keeps
-                the switch; that page explains it. */}
-            {inMaker ? null : (
-              <a
-                href={`/dashboard/${eventId}/plan3d`}
-                className="mt-2 block text-[11px] text-white/55 underline-offset-2 hover:text-white hover:underline"
-              >
-                3D Plan control centre →
-              </a>
-            )}
           </div>
         ) : (
           <div className={`flex min-h-0 flex-1 flex-col p-3 ${glass}`}>

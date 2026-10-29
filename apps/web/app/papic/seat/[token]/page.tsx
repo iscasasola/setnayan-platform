@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { CircleAlert } from 'lucide-react';
 import { DoorShell } from '@/app/_components/door/door-shell';
@@ -72,9 +71,6 @@ export default async function PapicSeatPage({ params, searchParams }: Props) {
         title="This seat was reissued."
         sub="The host handed this seat to someone else. Ask them for a fresh claim link if you'd still like to shoot."
       >
-        <Link href="/" className="button-secondary">
-          Back to Setnayan
-        </Link>
       </DoorShell>
     );
   }

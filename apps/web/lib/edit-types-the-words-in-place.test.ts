@@ -31,7 +31,7 @@ import { join } from 'node:path';
 import React from 'react';
 
 import { stripComments } from './strip-comments';
-import { MAKER_GUESTS_DOOR_WORDS, MAKER_PARTS, MAKER_STUDIO_TOOL_LABEL, makerPartQuietRow, makerPartSource, type MakerPartKey } from './maker-parts';
+import { MAKER_GUESTS_DOOR_WORDS, MAKER_GUESTS_VIEW_DOOR_WORDS, MAKER_PARTS, MAKER_STUDIO_TOOL_LABEL, makerPartQuietRow, makerPartSource, type MakerPartKey } from './maker-parts';
 import { sceneTypeWrite } from './scene-type-words';
 import { typedDisplayName } from './typed-names';
 import { withTypedWords } from './type-in-place';
@@ -164,11 +164,9 @@ test('(3) which parts jump: "Open in Studio › <page>" for what cannot be edite
   const jumps: Array<[MakerPartKey, string]> = [
     ['schedule', 'Schedule'],
     ['story', 'Love Story'],
-    ['march', 'Wedding March'],
     ['logo', 'Logo'],
     ['gifts', 'E-Gifts'],
     ['dress', 'Mood Board & Dress Code'],
-    ['seats', 'Seat plan'],
   ];
   for (const [k, page] of jumps) {
     assert.equal(makerPartQuietRow(k)?.words, `Open in Studio › ${page}`, `${k}: its door`);
@@ -177,6 +175,10 @@ test('(3) which parts jump: "Open in Studio › <page>" for what cannot be edite
   for (const k of ['date', 'place', 'venue', 'details'] as const) assert.equal(makerPartQuietRow(k)?.words, 'Change it in Suppliers', `${k}: set by the venue booking`);
   /* 🗂 R1 (owner 2026-10-28): the RSVP form's settings LEFT Studio — its door is Guests ⚙ (another page, like Suppliers). */
   for (const k of ['rsvp', 'rsvpcard'] as const) assert.equal(makerPartQuietRow(k)?.words, MAKER_GUESTS_DOOR_WORDS, `${k}: its door is not Guests ⚙`);
+  /* 🗂 R4 (owner 2026-10-27/28): the Wedding March and the Seat plan LEFT Studio — their doors are Guests' views. */
+  for (const [k, v] of [['march', 'march'], ['myrole', 'march'], ['seats', 'seats']] as const) {
+    assert.equal(makerPartQuietRow(k)?.words, MAKER_GUESTS_VIEW_DOOR_WORDS[v], `${k}: its door is not Guests › ${v}`);
+  }
   /* EVERY part: a door says one of the three, in the prototype's words — never "Edit the …". */
   let doors = 0;
   for (const k of KEYS) {
@@ -184,7 +186,16 @@ test('(3) which parts jump: "Open in Studio › <page>" for what cannot be edite
     if (!q) continue;
     doors += 1;
     const src = makerPartSource(k);
-    const want = src.kind === 'studio' ? `Open in Studio › ${MAKER_STUDIO_TOOL_LABEL[src.tool]}` : src.kind === 'supplier' ? 'Change it in Suppliers' : src.kind === 'guests' ? MAKER_GUESTS_DOOR_WORDS : 'Open in Studio › Info';
+    const want =
+      src.kind === 'studio'
+        ? `Open in Studio › ${MAKER_STUDIO_TOOL_LABEL[src.tool]}`
+        : src.kind === 'supplier'
+          ? 'Change it in Suppliers'
+          : src.kind === 'guests'
+            ? MAKER_GUESTS_DOOR_WORDS
+            : src.kind === 'guests-view'
+              ? MAKER_GUESTS_VIEW_DOOR_WORDS[src.view]
+              : 'Open in Studio › Info';
     assert.equal(q.words, want, `${k}: “${q.words}”`);
     assert.ok(q.words.length <= 40, `${k}: the door does not fit one row`);
   }

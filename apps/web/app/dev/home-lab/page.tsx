@@ -36,7 +36,14 @@
  *                                    (the app reads the catalogue; a lab has none, so the figure is omitted).
  *   ?view=apply&screen=none|silent|cancelled|failed|refused|pending|on  🍎 the REAL Apply sheet
  *                                    selling Event Hub Pro through Apple, in each outcome
+ *   ?level=1 | level=unread          🔑 "<shop> joined as your coordinator" (owner 2026-10-29) — the REAL
+ *                                    `CoordinatorLevelAsk`, FIRST in the Today list under the cover (never above it);
+ *                                    its press opens the house Sheet, Limited · Full access (the lab's presses write
+ *                                    nothing real). `&shop=long` a long shop name (never cut) · `&shop=none` no name read
  *   ?coord=1                         🗂 the coordinator's line on top (owner 2026-10-28) — the REAL `CoordinatingLine`
+ *   ?view=offline[&state=ok|amber|nosignal|failed|saving|none|unsupported][&browser=1][&desk=notes|sent]
+ *                                    📶 EV3 (owner 2026-10-28): the REAL "Ready for no signal" card, the supplier's saved
+ *                                    mark on the event card and the REAL Check-in desk with a stand-in queue (offline-lab.tsx)
  *   ?for=shop|person                 🏷 "For <name>" under the name (owner 22 Oct 2026): the REAL
  *                                    `homeCoverWords` with a subject — SetnaProd (its logo) or Lola Nena (initials)
  *   ?view=board[&for=1][&one=1]      🏷 the Events board's Planning posters (owner 22 Oct 2026): the REAL
@@ -61,6 +68,8 @@
  *                                    stopped (Next card) · no photos yet (Next card) · low on the day
  */
 import { CoordinatingLine } from '@/app/dashboard/[eventId]/_components/coordinating-line';
+import { CoordinatorLevelAsk } from '@/app/dashboard/[eventId]/_components/coordinator-level-ask';
+import { labEventSettingsRows } from './lab-event-settings';
 import { PapicBuySheet } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-buy-sheet';
 import { PapicCameraSettings, PapicSwitch } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-camera-settings';
 import { ChallengeCardRow } from '@/app/dashboard/[eventId]/studio/papic/_components/challenge-card-row';
@@ -108,6 +117,7 @@ import {
   pickHomeNext,
   type HomeNextInput,
 } from '@/lib/home-first-screen';
+import { OfflineLab } from './offline-lab';
 
 export const dynamic = 'force-dynamic';
 
@@ -224,7 +234,7 @@ const LAB_HUB_PICK: HomeHubPickRead = { ok: true, pinned: null, byDate: 'rsvp' }
 export default async function HomeLab({
   searchParams,
 }: {
-  searchParams: Promise<{ bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; coord?: string; card?: string; cardphase?: string; challenges?: string; open?: string; need?: string; prints?: string }>;
+  searchParams: Promise<{ bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; coord?: string; level?: string; shop?: string; card?: string; cardphase?: string; challenges?: string; open?: string; need?: string; state?: string; browser?: string; desk?: string; prints?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -361,6 +371,10 @@ export default async function HomeLab({
     );
     return q.shell === '1' ? <LabShell eventId={E} gutter={false}>{band}</LabShell> : band;
   }
+  if (q.view === 'offline') {
+    /* 📶 EV3 — Ready for no signal · the supplier's saved mark · the Check-in desk's offline queue (offline-lab.tsx). */
+    return <OfflineLab state={q.state} browser={q.browser} desk={q.desk} />;
+  }
   if (q.view === 'day') {
     /* The event day: the page's own wiring — `homeServices` builds Your services, the console draws its Papic entry. */
     const store = q.store === '1';
@@ -462,6 +476,26 @@ export default async function HomeLab({
     <div className="mx-auto min-h-screen w-full bg-cream px-4 pb-6 pt-3 sm:px-6 sm:pt-6 lg:px-8">
       <HomeFirstScreen
         eventId={E}
+        /* ☀ The Today asks — under the cover, first in the Today list (owner 2026-10-29). */
+        asks={
+          q.level === '1' || q.level === 'unread' ? (
+            <CoordinatorLevelAsk
+              eventId={E}
+              asks={[
+                {
+                  moderatorId: 'lab-seat',
+                  shop: q.shop === 'none' ? null : q.shop === 'long' ? 'The Wedding Project Events & Coordination by Ana Marie' : 'The Wedding Project',
+                  logoUrl: null,
+                },
+              ]}
+              unread={q.level === 'unread'}
+              accessHref={`/dashboard/${E}/details#people-with-access`}
+            />
+          ) : null
+        }
+        /* ⚙ Event Settings on the cover — its rows drawn on the lab's fixture (`lab-event-settings.tsx`), no database. */
+        eventSettings
+        eventSettingsRows={labEventSettingsRows(E)}
         cover={{ eyebrow: F.eyebrow, shortDate: F.shortDate, name: F.name, ...(labForWho ? { forWho: labForWho } : {}) }}
         next={next}
         control={labControl}

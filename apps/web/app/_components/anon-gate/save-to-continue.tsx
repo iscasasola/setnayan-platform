@@ -29,6 +29,7 @@ import { useRef, type ReactNode } from 'react';
 import Link from 'next/link';
 import { ShieldCheck, UserPlus, LogIn, X } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 /** Which gated action triggered the prompt — drives one contextual line. */
 export type SaveGateAction = 'message' | 'order' | 'unlock' | 'generic';
@@ -75,12 +76,7 @@ export function SaveToContinue({
       aria-labelledby="save-to-continue-title"
     >
       {/* Backdrop — click dismisses. */}
-      <button
-        type="button"
-        aria-label="Close"
-        onClick={onClose}
-        className="absolute inset-0 bg-ink/40 backdrop-blur-sm"
-      />
+      <OverlayBackdrop onClose={onClose} />
 
       {/* Panel */}
       <div className="relative z-10 flex max-h-[90vh] w-full flex-col overflow-hidden rounded-t-3xl border border-ink/10 bg-cream shadow-[0_-30px_80px_-40px_rgba(26,26,26,0.4)] sm:max-h-[85vh] sm:w-full sm:max-w-md sm:rounded-2xl sm:shadow-[0_30px_80px_-40px_rgba(26,26,26,0.4)]">

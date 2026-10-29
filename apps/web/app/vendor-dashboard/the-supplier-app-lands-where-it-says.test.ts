@@ -58,7 +58,8 @@ test('1a · each landing resolves to an open fold + a fragment the hub really re
   const hub = read('app/vendor-dashboard/customers/page.tsx');
   assert.ok(hub.length > 5000, 'read the real hub (an empty read is a green lie)');
   const folds = new Set([...hub.matchAll(/\bkey: '(\w+)',\s*\n\s*label:/g)].map((m) => m[1]));
-  assert.ok(folds.has('messages') && folds.has('proposals') && folds.has('contracts'), `hub folds not found: ${[...folds]}`);
+  // 2026-10-28: Messages is not a fold — the event list IS the messages; its landing is People's own `#customers`.
+  assert.ok(!folds.has('messages') && folds.has('proposals') && folds.has('contracts'), `hub folds not as expected: ${[...folds]}`);
   for (const key of LANDINGS) {
     const { fold, anchor } = CUSTOMER_LANDINGS[key];
     const href = customerLandingHref(key);
@@ -78,7 +79,7 @@ test('1a · each landing resolves to an open fold + a fragment the hub really re
     assert.equal(customersSegmentOf(Object.fromEntries(seg)), CUSTOMER_LANDINGS[key].seg, `${key}: ${href} opens the wrong segment`);
   }
   // The exact targets the owner named.
-  assert.equal(customerLandingHref('messages'), '/vendor-dashboard/customers?seg=people&open=messages#customer-tools');
+  assert.equal(customerLandingHref('messages'), '/vendor-dashboard/customers?seg=people#customers');
   assert.equal(customerLandingHref('proposals'), '/vendor-dashboard/customers?seg=money&open=proposals#customer-tools');
   assert.equal(customerLandingHref('contracts'), '/vendor-dashboard/customers?seg=money&open=contracts#customer-tools');
   assert.equal(customerLandingHref('payday'), '/vendor-dashboard/customers?seg=money#payday');
@@ -121,11 +122,16 @@ test('1c · the Next card’s Send quote / Send contract / Payday buttons land o
 });
 
 test('1d · the "to come in" number lands on payday, in view', async () => {
+  // 📌 2026-10-28 (owner: the counts FILTER the list in place): the number is a filter now — it shows who still owes
+  // what, right under the row — and that list ends with the door to Payday, the same landing it used to be.
   const html = await renderToday({ to: 'today' });
   const tiles = html.slice(html.indexOf('data-today-numbers'), html.indexOf('data-today-coming-up'));
-  const owed = tiles.match(/<a [^>]*href="([^"]+)"[^>]*>(?:(?!<\/a>).)*to come in/s);
-  assert.ok(owed, 'the to-come-in number did not render as a link');
-  assert.equal(owed[1], customerLandingHref('payday'));
+  assert.match(tiles, /<button[^>]*data-today-number="money"[^>]*>(?:(?!<\/button>).)*to come in/s, 'the to-come-in number is not its filter');
+  const list = tiles.slice(tiles.indexOf('data-today-list="money"'));
+  assert.ok(list.length > 0, 'the money list is not drawn');
+  const door = list.match(/data-today-list-door=""[^>]*>\s*<a [^>]*href="([^"]+)"/);
+  assert.ok(door, 'the money list has no door to Payday');
+  assert.equal(door[1]!.replace(/&amp;/g, '&'), customerLandingHref('payday'));
 });
 
 test('1e · the redirect stubs name their fold too (old links, emails, notifications)', async () => {

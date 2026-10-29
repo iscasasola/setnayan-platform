@@ -366,17 +366,18 @@ export const TOOL_HOMES: Readonly<Record<string, ToolHome>> = {
   compare: { home: 'Suppliers — its Compare tab' },
   // Catalogue tools.
   'mood-board': { home: 'the Event Hub Maker — Look › Mood Board', needsWebsite: true },
-  // Train n (2026-09-29): the Seat plan row left the menu — its home is
-  // Details › Your event › Seat plan, and its old page lands there.
-  seating: { home: 'the Event Hub Maker — Event Details › Your event › Seat plan', needsWebsite: true },
+  // Train n (2026-09-29): the Seat plan row left the menu. 🗂 R4 (2026-10-28): its home is Guests › Seats — for every
+  // event, Maker or not — and its old page lands there.
+  seating: { home: 'Guests — Seats' },
   'landing-page': { home: 'the Event Hub Maker menu row', needsWebsite: true },
   'save-the-date': { home: 'the Event Hub Maker — Save the Date', needsWebsite: true },
   rsvp: { home: 'the Event Hub Maker — the invitation editor', needsWebsite: true },
   'animated-monogram': { home: 'the Event Hub Maker — Logo', needsWebsite: true },
   // 🗺 Owner-approved 2026-09-29: "it's the same room" — the Indoor Blueprint is
-  // a piece of Details › Seat plan (the shipped studio, drawn in its right part);
-  // its old address lands there for the couple of an Event Hub event.
-  'indoor-blueprint': { home: "the Event Hub Maker — Event Details › Seat plan › Guests' map", needsWebsite: true },
+  // a piece of the Seat plan (the shipped studio, drawn in its right part); since
+  // R4 (owner 2026-10-28, "3D plan: yes, inside Seats") that is Guests › Seats, and
+  // its old address lands there for every event with a seat plan.
+  'indoor-blueprint': { home: "Guests — Seats › Guests' map" },
   // 📅 Details › Date draws the date finder beside the date row
   // (`details-date-finder.tsx`, owner 2026-09-29 "THE DATE FINDER LIVES IN STEP 2").
   'find-date': { home: 'the Event Hub Maker — Event Details › Date', needsWebsite: true },

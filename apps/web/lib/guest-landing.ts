@@ -159,18 +159,19 @@ export function landingMessage(input: InviteEventFacts & {
   now?: Date;
 }): string {
   const template = sanitizeInviteTemplate(input.template) ?? defaultInviteTemplate({ solemn: input.solemn });
-  const first =
-    template
-      .split(/\n\s*\n/)
-      .map((p) => p.trim())
-      .find((p) => p && !/\{link\}/i.test(p)) ?? '';
+  // The opening = every paragraph BEFORE the one that carries the link (ours is "Hi {name}! 💌" + "With joyful
+  // hearts…", owner 2026-10-29), joined into one line; a couple's one-paragraph opening reads exactly as before.
+  const paras = template.split(/\n\s*\n/).map((p) => p.trim());
+  const linkAt = paras.findIndex((p) => /\{link\}/i.test(p));
+  const before = (linkAt >= 0 ? paras.slice(0, linkAt) : paras.slice(0, 1)).filter(Boolean);
+  const first = before.join(' ').replace(/\s*\n\s*/g, ' ');
   const name = (input.formalName ?? '').replace(/\s+/g, ' ').trim();
   const date = formatInviteDate(input.eventDate, input.datePrecision, input.now);
   let t = first;
   if (!name) t = t.replace(/[ \t]*\{name\}/gi, '');
   if (!date) t = t.replace(/[ \t]+on[ \t]+\{date\}/gi, '').replace(/[ \t]*\{date\}/gi, '');
   const filled = t
-    .replace(/\{(name|event|date|link)\}/gi, (_m, key: string) => {
+    .replace(/\{(name|event|date|link|hosts)\}/gi, (_m, key: string) => {
       const k = key.toLowerCase();
       if (k === 'name') return name;
       if (k === 'event') return inviteEventPhrase(input, 'hosts');
@@ -328,7 +329,22 @@ export type InAppHandoff =
 
 export function inAppHandoff(userAgent: string | null | undefined, personalLink: string): InAppHandoff {
   const ua = userAgent ?? '';
-  if (!isInAppWebview(ua)) return { kind: 'none' };
+  const os = deviceOs(ua);
+  return inAppHandoffFor(
+    { inApp: isInAppWebview(ua), os: os === 'android' ? 'android' : os === 'iphone' || os === 'ipad' ? 'ios' : 'other' },
+    personalLink,
+  );
+}
+
+/**
+ * `inAppHandoff` from the two facts it reads off the user agent — so the cached Event Hub (`lib/hub-view-key.ts`
+ * `HubUaFacts`, carried in its address) decides exactly as the live render does, without the request.
+ */
+export function inAppHandoffFor(
+  facts: { inApp: boolean; os: 'ios' | 'android' | 'other' },
+  personalLink: string,
+): InAppHandoff {
+  if (!facts.inApp) return { kind: 'none' };
   let url: URL;
   try {
     url = new URL(personalLink);
@@ -337,14 +353,13 @@ export function inAppHandoff(userAgent: string | null | undefined, personalLink:
   }
   if (url.protocol !== 'https:') return { kind: 'none' };
   const rest = `${url.host}${url.pathname}${url.search}`;
-  const os = deviceOs(ua);
-  if (os === 'android') {
+  if (facts.os === 'android') {
     return {
       kind: 'android',
       href: `intent://${rest}#Intent;scheme=https;S.browser_fallback_url=${encodeURIComponent(url.toString())};end`,
     };
   }
-  if (os === 'iphone' || os === 'ipad') {
+  if (facts.os === 'ios') {
     return {
       kind: 'ios',
       safariHref: `x-safari-${url.toString()}`,

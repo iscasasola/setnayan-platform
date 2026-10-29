@@ -100,6 +100,16 @@
   width: var(--gs-pin-w, 100%);
   animation: gs-pin-in 220ms var(--gs-ease);
 }
+/* 📌 Seats · March (R4 slice 4): the same block pins under the bar with its FULL face once it gets there (`data-pinned`,
+   written by the screen) — a March group's header then sticks under it. */
+.screen:is([data-guests-screen='seats'], [data-guests-screen='march']) .stick.pinned[data-pinned] {
+  position: fixed;
+  top: var(--gs-top, 0px);
+  left: var(--gs-pin-l, 0px);
+  width: var(--gs-pin-w, 100%);
+  box-shadow: 0 1px 0 var(--gs-line);
+  animation: gs-pin-in 220ms var(--gs-ease);
+}
 @keyframes gs-pin-in {
   from {
     opacity: 0;
@@ -120,35 +130,42 @@
   gap: 8px;
   min-width: 0;
   transition:
-    opacity 220ms var(--gs-ease),
-    transform 220ms var(--gs-ease),
+    opacity 300ms var(--gs-glide),
+    transform 300ms var(--gs-glide),
     visibility 0s linear 0s;
 }
+/* 🎚 THE GLIDE (owner 2026-10-29, prototype v16 + "remember to animate them properly"): pinning — on a scroll, or on
+   entering a full-screen view — the FULL row rises and fades (−12 px, 0.98) while the slim row rises in from +12 px,
+   0.3 s on the prototype's curve; back again in reverse. Never a jump. Reduced motion: no travel, no fade (below). */
+.screen {
+  --gs-glide: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
 .stick.pinned [data-first-row] > [data-guests-segmented] {
+  transform-origin: 50% 0;
   transition:
-    opacity 220ms var(--gs-ease),
-    transform 220ms var(--gs-ease),
+    opacity 300ms var(--gs-glide),
+    transform 300ms var(--gs-glide),
     visibility 0s linear 0s;
 }
 .faceAlt {
   opacity: 0;
-  transform: translateY(6px);
+  transform: translateY(12px);
   visibility: hidden;
   pointer-events: none;
   transition:
-    opacity 220ms var(--gs-ease),
-    transform 220ms var(--gs-ease),
-    visibility 0s linear 220ms;
+    opacity 300ms var(--gs-glide),
+    transform 300ms var(--gs-glide),
+    visibility 0s linear 300ms;
 }
 .stick.pinned[data-collapsed] [data-first-row] > [data-guests-segmented] {
   opacity: 0;
-  transform: translateY(-6px);
+  transform: translateY(-12px) scale(0.98);
   visibility: hidden;
   pointer-events: none;
   transition:
-    opacity 220ms var(--gs-ease),
-    transform 220ms var(--gs-ease),
-    visibility 0s linear 220ms;
+    opacity 300ms var(--gs-glide),
+    transform 300ms var(--gs-glide),
+    visibility 0s linear 300ms;
 }
 .stick[data-collapsed] .faceAlt {
   opacity: 1;
@@ -156,9 +173,68 @@
   visibility: visible;
   pointer-events: auto;
   transition:
-    opacity 220ms var(--gs-ease),
-    transform 220ms var(--gs-ease),
+    opacity 300ms var(--gs-glide),
+    transform 300ms var(--gs-glide),
     visibility 0s linear 0s;
+}
+/* 🎚 THE VIEW'S OWN ROUNDS in the top row (Seats: Edit · ⋯ — owner v14, "RIGHT action rounds only"): 40-px rounds, the
+   word in the button's name (an icon-only `.ab` still reads "Edit"); while they are there the three segments size to
+   their words instead of thirds, so "Guests · Seats ▾ · March" keeps every word whole beside them. Under 360 the rounds
+   are 36 (prototype v14's fit). */
+.stick [data-guests-view-rounds] :global(.ab) {
+  width: 40px;
+  min-width: 40px;
+  padding: 0;
+  gap: 0;
+}
+.stick [data-guests-view-rounds] :global(.ab .lbl) {
+  display: none;
+}
+.stick:has([data-guests-view-rounds]:not(:empty)) [data-guests-segmented] > * {
+  flex: 1 1 auto;
+  padding-inline: 8px;
+}
+@media (max-width: 359px) {
+  .stick [data-guests-view-rounds] :global(.ab),
+  .stick [data-guests-view-rounds] [data-seat-plan-more] {
+    width: 36px;
+    min-width: 36px;
+    height: 36px;
+  }
+  .stick:has([data-guests-view-rounds]:not(:empty)) [data-guests-segmented] > *,
+  .stick:has([data-guests-view-rounds]:not(:empty)) [data-guests-seg-menu] > button {
+    padding-inline: 4px;
+  }
+}
+/* 📌 The slim row's ONE menu ("Guests · List ▾") — the shared PickMenu, never cut. */
+.pinMenu {
+  display: flex;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+/* 🗺 FULL SCREEN (Map · Seats 2D · 3D — `data-guests-full`): the count row folds away in the same glide (rises, fades,
+   gives its height back), so the map takes the screen under the slim row. Seats' fixed row and the Map's carousel. */
+.screen [data-view-count-row],
+.screen[data-guests-screen='map'] .summary {
+  max-height: 240px;
+  transition:
+    max-height 300ms var(--gs-glide),
+    opacity 300ms var(--gs-glide),
+    transform 300ms var(--gs-glide),
+    padding 300ms var(--gs-glide),
+    margin 300ms var(--gs-glide);
+}
+.screen[data-guests-full] [data-view-count-row],
+.screen[data-guests-full][data-guests-screen='map'] .summary {
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(-12px);
+  padding-top: 0;
+  padding-bottom: 0;
+  margin-top: 0;
+  margin-bottom: 0;
+  overflow: hidden;
+  pointer-events: none;
 }
 .stick.pinned[data-collapsed] {
   box-shadow: 0 1px 0 var(--gs-line);
@@ -167,7 +243,7 @@
    first row's right end and is never faded — the summary face stops 52 px short (44 + the row's 8-px gap), so the SAME
    mounted button ends the row at rest and pinned. 🔒 lib/the-pinned-row-is-one-row.test.ts */
 .stick.pinned[data-has-gear] .face {
-  right: 52px;
+  right: calc(52px + var(--gs-rounds-w, 0px));
 }
 /* 52 px fewer for the face: at 390 the three counts and Invite sat touching — the counts close up a little. */
 .stick.pinned[data-has-gear] .pinCounts {
@@ -819,6 +895,15 @@ button.ico {
 .open > .barWrap .ico {
   animation: gs-catpop 420ms var(--gs-ease);
 }
+/* 🏷 THE SELECTED HEADER (R4 slice 4, owner 2026-10-29): its chip carries a ring and its words go full ink — "open" is
+   already the terracotta chip (`.sn-acc-head[data-open]`), so selected must read as one step more, not a second colour. */
+.bar[data-section-selected] .ico::before {
+  outline: 2px solid rgb(var(--sn-accent));
+  outline-offset: 2px;
+}
+.bar[data-section-selected] .lab {
+  color: var(--gs-ink);
+}
 
 /* ═══ a guest row ═══ */
 /* ➡ ONE LINE PER GUEST (owner 2026-10-20: "edit and remove button can be in a row? on the right side?"): avatar ·
@@ -1363,7 +1448,11 @@ button.node {
   .faceAlt,
   .stick.pinned [data-first-row] > [data-guests-segmented],
   .stick.pinned[data-collapsed] [data-first-row] > [data-guests-segmented],
-  .stick[data-collapsed] .faceAlt {
+  .stick[data-collapsed] .faceAlt,
+  .screen [data-view-count-row],
+  .screen[data-guests-screen='map'] .summary,
+  .screen[data-guests-full] [data-view-count-row],
+  .screen[data-guests-full][data-guests-screen='map'] .summary {
     transform: none;
     transition: none;
   }

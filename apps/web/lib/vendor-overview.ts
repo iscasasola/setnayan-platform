@@ -36,6 +36,7 @@ import { computeMonthlySubtotals, fetchVendorLedgerEarnings } from '@/lib/vendor
 import { buildPaydayTimeline, manilaTodayIso } from '@/lib/vendor-cashflow';
 import { readVendorPaydayInstallments } from '@/lib/vendor-payday-read';
 import { readInChunks } from '@/lib/read-all-pages';
+import { recordedDepositPhp } from '@/lib/paid-to-vendor';
 import {
   readDeclinedDepositIds,
   readBookingsAwaitingCompletion,
@@ -162,6 +163,9 @@ export type WhatsNewCard =
       /** Vendor-visible deposit proof URL, when the couple attached one. */
       proofUrl: string | null;
       recordedAt: string;
+      /** What they say they paid (₱), and how — their own words (`deposit_paid_php` · `deposit_method_label`). */
+      amountPhp?: number | null;
+      method?: string | null;
     }
   /*
     THE BOOKING ASK WHOSE WINDOW CLOSED. Its own kind, because it is not a
@@ -651,6 +655,7 @@ export async function fetchVendorOverviewData(
     whatsNew.push(
       buildInquiryCard({
         threadId: t.thread_id,
+        eventId: t.event_id,
         createdAt: t.created_at,
         eventDate: t.event?.event_date ?? meta?.eventDate ?? null,
         eventType: meta?.eventType ?? null,
@@ -745,6 +750,8 @@ export async function fetchVendorOverviewData(
       eventDate: meta?.eventDate ?? null,
       proofUrl: lr.proofUrl,
       recordedAt: lr.recordedAt,
+      amountPhp: lr.amountPhp,
+      method: lr.method,
     });
   }
 
@@ -1063,7 +1070,46 @@ export type VendorEarningsSummary = {
    * "couldn't load" instead of printing ₱0.
    */
   earningsMeasured: boolean;
+  /**
+   * 💰 WHO STILL OWES WHAT — the same payday read the "to come in" total is summed from, cut per booking (owner
+   * 2026-10-28: Today's "₱ to come in" count FILTERS the list in place). Empty when payday was not read — read
+   * `paydayMeasured` first; an empty list over a refused read is never "nobody owes you".
+   */
+  owed: OwedBooking[];
 };
+
+/** One booking with money still to come in — unconfirmed installments with an amount, summed. */
+export type OwedBooking = {
+  eventId: string;
+  eventName: string;
+  owedPhp: number;
+  /** The earliest unconfirmed due date ('YYYY-MM-DD'), or null when none has one. */
+  nextDue: string | null;
+  /** An unconfirmed installment is past due. */
+  overdue: boolean;
+};
+
+/**
+ * Cut the payday installments per booking, most urgent first (overdue, then the nearest due date, undated last).
+ * Pure — the Today list and its "to come in" count come from one read.
+ */
+export function owedBookings(
+  rows: ReadonlyArray<{ event_vendor_id: string; event_id: string; event_name: string; amount_php: number | null; due_date: string | null; confirmed: boolean }>,
+  todayIso: string,
+): OwedBooking[] {
+  const by = new Map<string, OwedBooking>();
+  for (const r of rows) {
+    if (r.confirmed || r.amount_php == null || r.amount_php <= 0) continue;
+    const b = by.get(r.event_vendor_id) ?? { eventId: r.event_id, eventName: r.event_name, owedPhp: 0, nextDue: null, overdue: false };
+    b.owedPhp += r.amount_php;
+    if (r.due_date && (b.nextDue === null || r.due_date < b.nextDue)) b.nextDue = r.due_date;
+    if (r.due_date && r.due_date < todayIso) b.overdue = true;
+    by.set(r.event_vendor_id, b);
+  }
+  return [...by.values()].sort(
+    (a, b) => Number(b.overdue) - Number(a.overdue) || (a.nextDue ?? '9999').localeCompare(b.nextDue ?? '9999'),
+  );
+}
 
 /**
  * Load the vendor's real earnings summary for the Overview bento. Cheap enough
@@ -1079,7 +1125,7 @@ export async function fetchVendorEarningsSummary(
 ): Promise<VendorEarningsSummary> {
   const admin = createAdminClient();
 
-  const [earnings, paydayTotals] = await Promise.all([
+  const [earnings, payday] = await Promise.all([
     // Earnings: the payments couples logged to THIS shop and it confirmed (the
     // same reader as the Earnings page). Fail-soft to [] — see #5650 for the
     // honest-failure half of this tile.
@@ -1102,7 +1148,8 @@ export async function fetchVendorEarningsSummary(
         });
         return null; // unmeasured — never a ₱0 (or a short total) that reads as real
       }
-      return buildPaydayTimeline(read.rows, manilaTodayIso()).totals;
+      const today = manilaTodayIso();
+      return { totals: buildPaydayTimeline(read.rows, today).totals, owed: owedBookings(read.rows, today) };
     })().catch(() => null),
   ]);
 
@@ -1112,9 +1159,10 @@ export async function fetchVendorEarningsSummary(
     earnedThisYearPhp: ytdTotal,
     bookingCount: earnings?.length ?? 0,
     earningsMeasured: earnings !== null,
-    confirmedPhp: paydayTotals?.confirmedPhp ?? 0,
-    expectedPhp: paydayTotals?.expectedPhp ?? 0,
-    paydayMeasured: paydayTotals !== null,
+    confirmedPhp: payday?.totals.confirmedPhp ?? 0,
+    expectedPhp: payday?.totals.expectedPhp ?? 0,
+    paydayMeasured: payday !== null,
+    owed: payday?.owed ?? [],
   };
 }
 
@@ -1251,6 +1299,8 @@ type LockRequest = {
   coupleName: string | null;
   proofUrl: string | null;
   recordedAt: string;
+  amountPhp: number | null;
+  method: string | null;
 };
 
 /**
@@ -1367,6 +1417,26 @@ async function fetchLockRequests(
       vendor_profile_id: vendorProfileId,
     });
   }
+  /*
+    💸 WHAT THEY SAY THEY PAID, AND HOW (supplier dashboard v13: "Payment logged = amount · method · receipt"). The
+    couple's "Record deposit" writes the PAYMENT LOG (`event_vendor_payments`, its deposit row stamped
+    `is_deposit_record`), never the legacy column — so it is read from the log, through the ONE deposit rule
+    (`recordedDepositPhp`, `lib/paid-to-vendor.ts`). ONE read for every row on the desk. Refused → each row simply says
+    less (no amount), never ₱0.
+  */
+  const loggedBy = new Map<string, Array<{ amount_php: number | string | null; is_deposit_record: boolean | null; method: string | null }>>();
+  const lockIds = read.rows.map((r) => r.vendor_id);
+  if (lockIds.length > 0) {
+    const { data: logged, error: loggedError } = await admin
+      .from('event_vendor_payments')
+      .select('vendor_id, amount_php, is_deposit_record, method')
+      .in('vendor_id', lockIds)
+      .eq('is_deposit_record', true);
+    if (loggedError) logQueryError('vendor-overview:lockLogged', loggedError, { vendor_profile_id: vendorProfileId }, 'graceful_degrade');
+    for (const l of (logged ?? []) as Array<{ vendor_id: string; amount_php: number | string | null; is_deposit_record: boolean | null; method: string | null }>) {
+      loggedBy.set(l.vendor_id, [...(loggedBy.get(l.vendor_id) ?? []), l]);
+    }
+  }
   const rows = await Promise.all(
     read.rows.map(async (r) => ({
       eventId: r.event_id,
@@ -1379,6 +1449,8 @@ async function fetchLockRequests(
       // deposit folder, never the stored value (lib/deposit-proof.server.ts).
       proofUrl: await depositProofDisplayUrl(r.deposit_proof_url, r.event_id),
       recordedAt: r.deposit_recorded_at,
+      amountPhp: recordedDepositPhp(loggedBy.get(r.vendor_id) ?? [], null),
+      method: (loggedBy.get(r.vendor_id) ?? []).find((l) => l.method?.trim())?.method?.trim() ?? null,
     })),
   );
   return { rows, complete: read.complete };

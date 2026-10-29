@@ -21,12 +21,13 @@
  * Signing and zipping: lib/wallet-pass-pkpass.ts. Reads: lib/wallet-pass.server.ts.
  */
 import { createHash } from 'node:crypto';
-import { inAppHandoff } from './guest-landing';
+import { inAppHandoffFor } from './guest-landing';
+import { hubUaFacts, type HubUaFacts } from './hub-view-key';
 import { APPLE_WALLET_ROUTE, PASS_CARD_REFUSED, PASS_CARD_WORDS, decidePassCardAccess, type PassCardRow, type PassCardVerdict } from './pass-card';
 import { printLookFor, CLASSIC_PRINT_THEME } from './print-pieces';
 import { publicEventUrl } from './public-event-url';
 import { buildInvitationUrl } from './qr';
-import { isAppleTouchDevice, mightBeIpadSafari } from './apple-device';
+import { isAppleTouchDevice } from './apple-device';
 
 // ─── Who may add one ────────────────────────────────────────────────────────
 
@@ -367,11 +368,24 @@ export function appleWalletLink(
   offered: boolean,
   opts: { storeShell?: boolean } = {},
 ): AppleWalletLink | null {
+  return appleWalletLinkFor(hubUaFacts(userAgent), personalLink, offered, opts);
+}
+
+/**
+ * `appleWalletLink` from the four facts it reads off the user agent (`hubUaFacts`) — the cached Event Hub carries
+ * them in its address (`lib/hub-view-key.ts`) and decides here exactly as the live render does.
+ */
+export function appleWalletLinkFor(
+  ua: HubUaFacts,
+  personalLink: string,
+  offered: boolean,
+  opts: { storeShell?: boolean } = {},
+): AppleWalletLink | null {
   if (!offered) return null;
-  if (!appleWalletDevice(userAgent)) {
+  if (!ua.appleTouch) {
     // 📱 A "Macintosh" may be iPad Safari — only the browser can tell (`touchOnly`). Not inside an app's web view (the
     // Setnayan iPad app carries its own marker and is caught above; any other in-app browser cannot add a pass).
-    if (!opts.storeShell && mightBeIpadSafari(userAgent) && inAppHandoff(userAgent, personalLink).kind === 'none') {
+    if (!opts.storeShell && ua.maybeIpadSafari && inAppHandoffFor(ua, personalLink).kind === 'none') {
       return { kind: 'download', href: APPLE_WALLET_ROUTE, label: PASS_CARD_WORDS.appleWallet, touchOnly: true };
     }
     return null;
@@ -379,7 +393,7 @@ export function appleWalletLink(
   if (opts.storeShell) {
     return /^https:\/\//.test(personalLink) ? { kind: 'sheet', href: personalLink, label: PASS_CARD_WORDS.appleWalletInAppSheet } : null;
   }
-  const inApp = inAppHandoff(userAgent, personalLink);
+  const inApp = inAppHandoffFor(ua, personalLink);
   if (inApp.kind === 'ios') return { kind: 'safari', href: inApp.safariHref, label: PASS_CARD_WORDS.appleWalletInApp };
   if (inApp.kind !== 'none') return null;
   return { kind: 'download', href: APPLE_WALLET_ROUTE, label: PASS_CARD_WORDS.appleWallet };

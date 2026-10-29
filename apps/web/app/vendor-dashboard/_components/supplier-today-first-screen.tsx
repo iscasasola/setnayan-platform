@@ -52,6 +52,9 @@ import { customerCardHref } from '@/lib/upcoming-schedule-door';
 import { SupplierSubmit } from './supplier-submit';
 import { TodayFigure } from './today-figure';
 import { EventsYouRunRows } from './events-you-run-rows';
+import { TodayCounts } from './today-counts';
+import { UndoableAnswers } from './undoable-answers';
+import { SupplierOpenRow } from './supplier-open-row';
 import type { EventYouRun } from '@/lib/events-you-run';
 import { EVENTS_YOU_RUN_HREF } from '@/lib/events-you-run-words';
 import { INSPIRATION_LIBRARY_HREF, INSPIRATION_LIBRARY_ROW } from '@/lib/inspiration-library-entry';
@@ -361,6 +364,17 @@ export type SupplierTodayFirstScreenProps = {
    * trades supply a part (`moodboardLibraryAccessForProfile`) — a row that led to a refusal would be a broken door.
    */
   library?: boolean;
+  /**
+   * 🧰 A NEW SHOP'S SIX STEPS, done in place (owner 2026-10-28 — `SupplierSetupScreen`). When given, it is the top of
+   * Today: it takes the setup Next card's place (and its "Then"), and the pinned counts step aside — a shop still
+   * being set up has nothing to count yet; a couple's ask, if one came in, is still listed under it.
+   */
+  setup?: ReactNode;
+  /** 📌 Today's ⚙ (`TodaySettings`) — the end of the pinned counts row. */
+  gear?: ReactNode;
+  /** The lists the pinned counts filter to (`assembleSupplierToday`): the week's bookings and who owes what. */
+  week?: readonly TodayComingUpRow[];
+  money?: ReadonlyArray<{ id: string; href: string; label: string; line: string; overdue: boolean }> | null;
 };
 
 const DOOR_ICON: Record<SupplierWaitingDoor['id'], TodayRowIcon> = {
@@ -396,9 +410,10 @@ const PILL_TONE: Record<ShopPill, BadgeTone> = { Checking: 'wait', Live: 'ok', '
  * number; an unread payday says "couldn't load" where the money would be —
  * never ₱0, and never a number that quietly is not there.
  *
- * 🔒 THE NEXT CARD IS THE FIRST THING YOU CAN TAP. Nothing tappable is drawn
- * above it; `the-today-page-speaks-to-every-supplier.test.ts` renders this and
- * fails if a link or button comes before the Next card's own.
+ * 🔒 THE PINNED ROW, THEN THE NEXT CARD (re-aimed 2026-10-28 to the owner-approved prototype
+ * `supplier_in_place_2026-10-28`: "the pinned counts row FIRST, then today's live event as the dark card, then the
+ * task rows"). Nothing but the row's three counts and its ⚙ is drawn above the Next card, and the first tap after the
+ * row is the card's own button — `the-today-page-speaks-to-every-supplier.test.ts`.
  */
 export function SupplierTodayFirstScreen({
   next,
@@ -425,6 +440,10 @@ export function SupplierTodayFirstScreen({
   shop,
   business = null,
   library = false,
+  setup = null,
+  gear = null,
+  week = [],
+  money = null,
 }: SupplierTodayFirstScreenProps) {
   const day = next.kind === 'run_day';
   const unread = next.kind === 'unread';
@@ -466,129 +485,143 @@ export function SupplierTodayFirstScreen({
     </>
   );
 
-  return (
-    <section data-today-first-screen aria-label="Today" className="mx-auto flex w-full max-w-xl tab:max-w-none flex-col">
-      {/* ① THE ONE NEXT CARD — the shared card, drawn with the button rule's row. */}
-      <NextCard
-        marker="data-today-next"
-        kind={next.kind}
-        title={next.title}
-        body={next.body}
-        action={next.action}
-        href={nextHref(next.target)}
-        bad={unread}
-        day={day}
-        soft
-        counter={counter}
-        meta={meta}
-        who={who}
-        eyebrow={eyebrow}
-        rows={answerOnCard}
-        actions={actions}
-        note={
-          dateChange
-            ? 'Unlocking releases this booking. Any payment is settled by the cancellation terms on the booking — Setnayan never decides a refund.'
-            : (nextNote ?? undefined)
-        }
-      />
-
-      {/* THE ANSWER'S STATUS LINE — the whole sentence, under the card it answered (the prototype's place), with the
-          door it asks for: after an Agree whose couple's news waits on the fee, "Pay the booking fee". */}
-      {outcome ? (
-        <div
-          role="status"
-          data-supplier-outcome={outcome.tone}
-          className={`mb-1 flex items-center gap-3 border-t border-ink/10 py-2.5 text-[13.5px] leading-snug ${outcome.tone === 'bad' ? 'text-[rgb(var(--color-danger))]' : 'text-ink/80'}`}
-        >
-          <span className="min-w-0 flex-1">{outcome.text}</span>
-          {outcome.door ? (
-            <ActionButton
-              tone="neutral"
-              icon={<Wallet aria-hidden="true" strokeWidth={1.9} />}
-              label={outcome.door.label}
-              href={outcome.door.href}
-              className="min-h-11 shrink-0"
-            />
-          ) : null}
-        </div>
-      ) : null}
-
-      {/* 🛤 THEN — the short road after the Next card while the shop is being set up (owner 2026-10-21, prototype
-          first_run_you_and_next_steps S4): the next steps of the shipped rail, in its own order, each a door; the
-          approval says what it is and is pressed by nobody. Hairline rows, no boxes. */}
-      {then.length > 0 ? (
-        <div data-today-then>
-          <TodayEyebrow>Then</TodayEyebrow>
-          <div className="[&>*:first-child]:border-t-0">
-            {then.map((s) =>
-              s.href ? (
-                <TodayRow key={s.key} href={s.href} label={`${formatCount(s.n)} · ${s.title}`} line={null} marker={`then-${s.key}`} />
-              ) : (
-                <TodayNoteRow key={s.key} label={`${formatCount(s.n)} · ${s.title}`} line={null} rowIcon="check" marker={`then-${s.key}`} />
-              ),
-            )}
-          </div>
-        </div>
-      ) : null}
-
-      {/* ② THREE NUMBERS — each goes to the list it counts, and counts up to it. A read that failed says so in words,
-          in the number's own place — never 0, never ₱0. On an event day: waiting · next moment · checked in. */}
-      <div className="mt-3 grid grid-cols-3 gap-1 border-y border-ink/10 py-3" data-today-numbers data-tour="today-numbers">
-        <Link href="/vendor-dashboard/customers?lane=waiting#customers" className="grid gap-0.5 text-center" data-today-number="waiting">
-          {numbers.waiting === null ? (
-            <Unread />
-          ) : (
-            <>
-              {/* Something waits → the number wears the app's accent (the token, never a colour written here). */}
-              <span className={`block text-[26px] font-semibold leading-none tabular-nums ${numbers.waitingNow ? 'text-sn-accent' : 'text-ink'}`}>
-                <Figure word={numbers.waiting} id="today-waiting" />
-              </span>
-              <span className="block text-[11.5px] text-ink/60">waiting on you</span>
-            </>
-          )}
-          <TapMark />
-        </Link>
-        {numbers.day ? (
-          <>
-            <Link href="/vendor-dashboard/on-the-day" className="grid gap-0.5 text-center" data-today-number="next-moment">
-              <span className="block text-[26px] font-semibold leading-none tabular-nums text-ink">{numbers.day.next ?? '—'}</span>
-              <span className="block text-[11.5px] text-ink/60">next moment</span>
-              <TapMark />
-            </Link>
-            <Link href="/vendor-dashboard/on-the-day" className="grid gap-0.5 text-center" data-today-number="checked-in">
-              <span className="block text-[26px] font-semibold leading-none tabular-nums text-ink">
-                {numbers.day.checkedIn === null ? '—' : <Figure word={numbers.day.checkedIn} id="today-checked-in" />}
-              </span>
-              <span className="block text-[11.5px] text-ink/60">checked in</span>
-              <TapMark />
-            </Link>
-          </>
-        ) : (
-          <>
-            <Link href="/vendor-dashboard/customers?seg=dates" className="grid gap-0.5 text-center" data-today-number="week">
-              <span className="block text-[26px] font-semibold leading-none tabular-nums text-ink">
-                <Figure word={numbers.thisWeek} id="today-week" />
-              </span>
-              <span className="block text-[11.5px] text-ink/60">this week</span>
-              <TapMark />
-            </Link>
-            <Link href={customerLandingHref('payday')} className="grid gap-0.5 text-center" data-today-number="money" data-money="" data-tour="today-money">
-              {numbers.toComeIn === null ? (
-                <Unread />
-              ) : (
-                <>
-                  <span className="block text-[26px] font-semibold leading-none tabular-nums text-ink">
-                    <Figure word={numbers.toComeIn} id="today-money" />
-                  </span>
-                  <span className="block text-[11.5px] text-ink/60">to come in</span>
-                </>
+  /* ④ ALSO WAITING — the rest of the queue: the asks (answered in place, each held for Undo), then the rules that are
+     not a customer's ask, each a door, then the unpaid booking fees. */
+  const nothingWaiting = !alsoWaitingHeaded && doors.length === 0 && !hasBills;
+  const waitingBlock = (
+    <UndoableAnswers>
+          {alsoWaiting}
+          {doors.length > 0 ? (
+            <div data-today-doors className={alsoWaitingHeaded ? undefined : '[&>*:first-of-type]:border-t-0'}>
+              {alsoWaitingHeaded ? null : <TodayEyebrow>Also waiting</TodayEyebrow>}
+              {doors.map((d) =>
+                d.button ? (
+                  /* A door with its own small grey button (prototype "Where couples pay you · Set up"). */
+                  <div key={d.id} data-today-row={d.id} className="home-row !grid-cols-[36px_minmax(0,1fr)_auto] min-h-11">
+                    <RowIcon name={DOOR_ICON[d.id]} />
+                    <span className="min-w-0">
+                      <span className="home-t block truncate text-[15px] leading-tight text-ink">{d.label}</span>
+                      <span className="block truncate text-[13px]" style={{ color: LINE_TONE.warn }}>
+                        {d.line}
+                      </span>
+                    </span>
+                    <ActionButton tone="neutral" icon={<Plus aria-hidden="true" strokeWidth={1.9} />} label={d.button} name={`${d.button} — ${d.label}`} href={nextHref(d.target)} className="min-h-11 shrink-0" />
+                  </div>
+                ) : (
+                  <TodayRow key={d.id} href={nextHref(d.target)} label={d.label} line={d.line} lineTone="warn" marker={d.id} rowIcon={DOOR_ICON[d.id]} />
+                ),
               )}
-              <TapMark />
-            </Link>
-          </>
-        )}
-      </div>
+            </div>
+          ) : null}
 
+          {hasBills ? (
+            <div data-today-bills className={alsoWaitingHeaded || doors.length > 0 ? undefined : '[&>div:first-of-type]:border-t-0'}>
+              {alsoWaitingHeaded || doors.length > 0 ? null : <TodayEyebrow>Also waiting</TodayEyebrow>}
+              {bills}
+            </div>
+          ) : null}
+    </UndoableAnswers>
+  );
+  /* The "waiting" count's list: the same block — said in words when nothing waits — and the door to all of it.
+     🪞 SAID ONCE (owner 2026-10-28, live shot: "Nothing waiting · No bookings yet…" on the Next card, then "✓ Nothing
+     waiting on you" right under it). When the Next card IS the empty state (`clear` — reached only after the desk read
+     in full; an unread desk is `unread` and says "couldn't load") the row would repeat it, so it is not drawn. Under any
+     other card (a fee, payday, tomorrow…) the row still says the list is empty — nothing above has said so.
+     🔒 app/vendor-dashboard/_components/empty-today-says-it-once.test.ts */
+  const sayNothingWaiting = nothingWaiting && next.kind !== 'clear';
+  const waitingPanel = (
+    <>
+      {sayNothingWaiting ? (
+        <div className="[&>*:first-child]:border-t-0">
+          <TodayNoteRow label="Nothing waiting on you" line="New asks land here first" rowIcon="check" marker="waiting-empty" />
+        </div>
+      ) : null}
+      {waitingBlock}
+      <ListDoor label="All customers" href="/vendor-dashboard/customers?lane=waiting#customers" />
+    </>
+  );
+
+  /*
+    ① THE NEXT CARD, ITS STATUS LINE AND "THEN" — on a running shop they sit UNDER the pinned counts row (owner-approved
+    prototype `supplier_in_place_2026-10-28`, 2026-10-28 review: "the pinned counts row FIRST, then today's live event as
+    the dark card, then the task rows"). `data-today-after-next` marks where the card's part ends.
+  */
+  const cardBlock = (
+    <>
+          {/* ① THE ONE NEXT CARD — the shared card, drawn with the button rule's row. On a new shop the steps above ARE
+              the setup card, so it is drawn only when something outranks setup (a couple's ask). */}
+          {setup && next.kind === 'setup' ? null : (
+            <NextCard
+              marker="data-today-next"
+              kind={next.kind}
+              title={next.title}
+              body={next.body}
+              action={next.action}
+              href={nextHref(next.target)}
+              bad={unread}
+              day={day}
+              soft
+              counter={counter}
+              meta={meta}
+              who={who}
+              eyebrow={eyebrow}
+              rows={answerOnCard}
+              actions={actions}
+              note={
+                dateChange
+                  ? 'Unlocking releases this booking. Any payment is settled by the cancellation terms on the booking — Setnayan never decides a refund.'
+                  : (nextNote ?? undefined)
+              }
+            />
+          )}
+
+          {/* THE ANSWER'S STATUS LINE — the whole sentence, under the card it answered (the prototype's place), with the
+              door it asks for: after an Agree whose couple's news waits on the fee, "Pay the booking fee". */}
+          {outcome ? (
+            <div
+              role="status"
+              data-supplier-outcome={outcome.tone}
+              className={`mb-1 flex items-center gap-3 border-t border-ink/10 py-2.5 text-[13.5px] leading-snug ${outcome.tone === 'bad' ? 'text-[rgb(var(--color-danger))]' : 'text-ink/80'}`}
+            >
+              <span className="min-w-0 flex-1">{outcome.text}</span>
+              {outcome.door ? (
+                <ActionButton
+                  tone="neutral"
+                  icon={<Wallet aria-hidden="true" strokeWidth={1.9} />}
+                  label={outcome.door.label}
+                  href={outcome.door.href}
+                  className="min-h-11 shrink-0"
+                />
+              ) : null}
+            </div>
+          ) : null}
+
+          {/* 🛤 THEN — the short road after the Next card while the shop is being set up (owner 2026-10-21, prototype
+              first_run_you_and_next_steps S4): the next steps of the shipped rail, in its own order, each a door; the
+              approval says what it is and is pressed by nobody. Hairline rows, no boxes. */}
+          {then.length > 0 && !setup ? (
+            <div data-today-then>
+              <TodayEyebrow>Then</TodayEyebrow>
+              <div className="[&>*:first-child]:border-t-0">
+                {then.map((s) =>
+                  s.href ? (
+                    <TodayRow key={s.key} href={s.href} label={`${formatCount(s.n)} · ${s.title}`} line={null} marker={`then-${s.key}`} />
+                  ) : (
+                    <TodayNoteRow key={s.key} label={`${formatCount(s.n)} · ${s.title}`} line={null} rowIcon="check" marker={`then-${s.key}`} />
+                  ),
+                )}
+              </div>
+            </div>
+          ) : null}
+      <div data-today-after-next="" hidden />
+    </>
+  );
+
+  /* 🖥 On a running shop's ordinary day everything under the pinned row sits in the LEFT column from 701 (the opened row
+     is drawn on the right — `SupplierOpenScope` in `TodayCounts`); an event day and a new shop keep one column. */
+  const inColumns = !setup && !numbers.day;
+  const tail = (
+    <>
       {/* 🌑 ALSO TODAY — on an event day, the day's own rows (prototype: Schedule · the Event Hub's tools). */}
       {alsoToday.length > 0 ? (
         <div data-today-also-today>
@@ -626,38 +659,9 @@ export function SupplierTodayFirstScreen({
         )}
       </div>
 
-      {/* ④ ALSO WAITING — the rest of the queue: the asks (answered in place),
-          then the rules that are not a customer's ask, each a door. */}
-      {alsoWaiting}
-      {doors.length > 0 ? (
-        <div data-today-doors className={alsoWaitingHeaded ? undefined : '[&>*:first-of-type]:border-t-0'}>
-          {alsoWaitingHeaded ? null : <TodayEyebrow>Also waiting</TodayEyebrow>}
-          {doors.map((d) =>
-            d.button ? (
-              /* A door with its own small grey button (prototype "Where couples pay you · Set up"). */
-              <div key={d.id} data-today-row={d.id} className="home-row !grid-cols-[36px_minmax(0,1fr)_auto] min-h-11">
-                <RowIcon name={DOOR_ICON[d.id]} />
-                <span className="min-w-0">
-                  <span className="home-t block truncate text-[15px] leading-tight text-ink">{d.label}</span>
-                  <span className="block truncate text-[13px]" style={{ color: LINE_TONE.warn }}>
-                    {d.line}
-                  </span>
-                </span>
-                <ActionButton tone="neutral" icon={<Plus aria-hidden="true" strokeWidth={1.9} />} label={d.button} name={`${d.button} — ${d.label}`} href={nextHref(d.target)} className="min-h-11 shrink-0" />
-              </div>
-            ) : (
-              <TodayRow key={d.id} href={nextHref(d.target)} label={d.label} line={d.line} lineTone="warn" marker={d.id} rowIcon={DOOR_ICON[d.id]} />
-            ),
-          )}
-        </div>
-      ) : null}
-
-      {hasBills ? (
-        <div data-today-bills className={alsoWaitingHeaded || doors.length > 0 ? undefined : '[&>div:first-of-type]:border-t-0'}>
-          {alsoWaitingHeaded || doors.length > 0 ? null : <TodayEyebrow>Also waiting</TodayEyebrow>}
-          {bills}
-        </div>
-      ) : null}
+      {/* ④ ALSO WAITING — here on an event day and on a new shop; on any other day it is the "waiting" list under the
+          pinned counts (above). */}
+      {(numbers.day || setup) && !nothingWaiting ? waitingBlock : null}
 
       {/* ⑤ THE SHOP ROW — its state (Checking · Live · Not yet) — and how business is doing. */}
       <div data-today-shop data-tour="today-shop">
@@ -687,7 +691,167 @@ export function SupplierTodayFirstScreen({
           ) : null}
         </div>
       </div>
+    </>
+  );
+
+  return (
+    <section data-today-first-screen aria-label="Today" className="mx-auto flex w-full max-w-xl tab:max-w-none flex-col">
+      {/* 🧰 A NEW SHOP: the six steps, done in place — the top of Today (owner 2026-10-28). */}
+      {setup}
+
+      {/* A new shop: the Next card (only when something outranks setup) sits under the six steps. */}
+      {setup ? cardBlock : null}
+
+      {/* ② THE PINNED ROW — waiting · this week · ₱ to come in · ⚙ (owner 2026-10-28). Each count FILTERS the list
+          under it, in place; a count that could not be read says so, never 0 / ₱0. On an event day the last two are
+          the day's own (next moment · checked in), each a door to the Event Hub, as before. A new shop has no row. */}
+      {setup ? null : numbers.day ? (
+        <>
+        <div className="flex items-center gap-1">
+          <div className="min-w-0 flex-1">
+          <div className="mb-3 grid grid-cols-3 gap-1 border-y border-ink/10 py-3" data-today-numbers data-first-row="" data-tour="today-numbers">
+            <Link href="/vendor-dashboard/customers?lane=waiting#customers" className="grid gap-0.5 text-center" data-today-number="waiting">
+              {numbers.waiting === null ? (
+                <Unread />
+              ) : (
+                <>
+                  {/* Something waits → the number wears the app's accent (the token, never a colour written here). */}
+                  <span className={`block text-[26px] font-semibold leading-none tabular-nums ${numbers.waitingNow ? 'text-sn-accent' : 'text-ink'}`}>
+                    <Figure word={numbers.waiting} id="today-waiting" />
+                  </span>
+                  <span className="block text-[11.5px] text-ink/60">waiting on you</span>
+                </>
+              )}
+              <TapMark />
+            </Link>
+            {/* 🌑 The day's own two — the next moment and who checked in — each opens the Event Hub. */}
+            <Link href="/vendor-dashboard/on-the-day" className="grid gap-0.5 text-center" data-today-number="next-moment">
+              <span className="block text-[26px] font-semibold leading-none tabular-nums text-ink">{numbers.day.next ?? '—'}</span>
+              <span className="block text-[11.5px] text-ink/60">next moment</span>
+              <TapMark />
+            </Link>
+            <Link href="/vendor-dashboard/on-the-day" className="grid gap-0.5 text-center" data-today-number="checked-in">
+              <span className="block text-[26px] font-semibold leading-none tabular-nums text-ink">
+                {numbers.day.checkedIn === null ? '—' : <Figure word={numbers.day.checkedIn} id="today-checked-in" />}
+              </span>
+              <span className="block text-[11.5px] text-ink/60">checked in</span>
+              <TapMark />
+            </Link>
+          </div>
+          </div>
+          {gear}
+        </div>
+        {cardBlock}
+        </>
+      ) : (
+        <TodayCounts
+          between={cardBlock}
+          waiting={numbers.waiting}
+          waitingNow={numbers.waitingNow}
+          thisWeek={numbers.thisWeek}
+          toComeIn={numbers.toComeIn}
+          gear={gear}
+          after={tail}
+          panels={{
+            waiting: waitingPanel,
+            week: (
+              <div data-today-week="">
+                <div className="[&>*:first-child]:border-t-0">
+                  {week.length === 0 ? (
+                    <TodayNoteRow label="Nothing booked this week" line={null} rowIcon="calendar" marker="week-empty" />
+                  ) : (
+                    week.map((row) => (
+                      <OpenedRow
+                        key={row.id}
+                        id={`week-${row.id}`}
+                        marker={row.outside ? 'week-outside' : 'week'}
+                        icon="calendar"
+                        label={row.label}
+                        line={row.line}
+                        door={{ label: row.outside ? 'Open the booking' : 'Open the day', href: row.href }}
+                      />
+                    ))
+                  )}
+                </div>
+                <ListDoor label="All dates" href="/vendor-dashboard/customers?seg=dates" />
+              </div>
+            ),
+            money: (
+              <div data-today-money-list="">
+                <div className="[&>*:first-child]:border-t-0">
+                  {money === null ? (
+                    <TodayNoteRow label="Payments couldn’t load" line="Refresh to try again — nothing is lost" rowIcon="peso" marker="money-unread" />
+                  ) : money.length === 0 ? (
+                    <TodayNoteRow label="Nothing to come in" line="Every booked payment is in" rowIcon="peso" marker="money-empty" />
+                  ) : (
+                    money.map((row) => (
+                      <OpenedRow
+                        key={row.id}
+                        id={`money-${row.id}`}
+                        marker="money"
+                        icon="peso"
+                        label={row.label}
+                        line={row.line}
+                        overdue={row.overdue}
+                        door={{ label: 'See their payments', href: row.href }}
+                      />
+                    ))
+                  )}
+                </div>
+                <ListDoor label="Money in" href={customerLandingHref('payday')} />
+              </div>
+            ),
+          }}
+        />
+      )}
+
+      {inColumns ? null : tail}
     </section>
+  );
+}
+
+/**
+ * 🗂 A WEEK OR MONEY ROW THAT OPENS (supplier dashboard v13 — owner 2026-10-29: "where is the expand look of these
+ * rows?"): the shared row (`SupplierOpenRow`), in place on a phone and in the right column from 701. Opened, it says
+ * the whole line (never cut) and its one door — the day, the booking or the payments it came from. Nothing is read on
+ * open: the row already carries it.
+ */
+function OpenedRow({ id, marker, icon: mark, label, line, overdue = false, door }: {
+  id: string;
+  marker: string;
+  icon: TodayRowIcon;
+  label: string;
+  line: string | null;
+  overdue?: boolean;
+  door: { label: string; href: string };
+}) {
+  return (
+    <div data-today-row={marker} className="border-t border-ink/10">
+      <SupplierOpenRow id={id} data="today-row" title={label} line={line ?? ''} lead={<RowIcon name={mark} />}>
+        <div className="pb-3 pl-3" data-today-opened={marker}>
+          {line ? (
+            <p className="text-[14.5px] leading-snug" style={overdue ? { color: LINE_TONE.danger } : undefined}>
+              {line}
+            </p>
+          ) : null}
+          <div className="mt-3 flex justify-end">
+            <ActionButton tone="brand" main icon={icon(mark === 'peso' ? 'wallet' : 'calendar')} label={door.label} href={door.href} className="min-h-11" />
+          </div>
+        </div>
+      </SupplierOpenRow>
+    </div>
+  );
+}
+
+/** The end of a filtered list — the door to the whole of it (the count still goes somewhere). */
+function ListDoor({ label, href }: { label: string; href: string }) {
+  return (
+    <p className="flex justify-end" data-today-list-door="">
+      <Link href={href} className="inline-flex min-h-11 items-center gap-0.5 text-[12.5px] font-medium text-sn-accent">
+        {label}
+        <ChevronRight aria-hidden className="h-3.5 w-3.5 text-sn-accent" strokeWidth={2} />
+      </Link>
+    </p>
   );
 }
 

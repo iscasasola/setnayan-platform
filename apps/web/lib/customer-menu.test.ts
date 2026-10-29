@@ -69,16 +69,16 @@ test('each tab lights the pages it now holds', () => {
     studioRows: [...STUDIO, { key: 'pa3d', href: `${BASE}/seating/lab`, name: '3D Plan' }],
   });
   const lit = (key: string) => tree.find((m) => m.key === key)!.activeMatch as string[];
-  // Guest list: Hosts, the event QR, People.
-  for (const p of ['/guests', '/hosts', '/event-qr', '/people']) {
+  // Guest list: Hosts, the event QR, People — and since R4 the seat plan (Guests › Seats) with its 3D view.
+  for (const p of ['/guests', '/hosts', '/event-qr', '/people', '/seating']) {
     assert.ok(lit('guests').includes(`${BASE}${p}`), `Guest list does not light ${p}`);
   }
   assert.ok(lit('explore').includes(`${BASE}/budget`), 'Your Team does not light /budget');
-  // The Maker — and the Seat plan (Details › Your event › Seat plan, train n)
-  // with its 3D view.
-  for (const p of ['/launch', '/website', '/story', '/schedule', '/seating', '/plan3d']) {
+  // The Maker (the seat plan left it for Guests › Seats in R4).
+  for (const p of ['/launch', '/website', '/story', '/schedule']) {
     assert.ok(lit('launch').includes(`${BASE}${p}`), `the Maker does not light ${p}`);
   }
+  assert.ok(!lit('launch').includes(`${BASE}/seating`), 'the Maker still lights the seat plan — two tabs light one page');
   // This event's photo sources (/galleries) belong to its Memories tab since 23 Oct 2026.
   assert.ok(lit('memories').includes(`${BASE}/memories`), 'Memories does not light itself');
   assert.ok(lit('memories').includes(`${BASE}/galleries`), 'Memories does not light Galleries');

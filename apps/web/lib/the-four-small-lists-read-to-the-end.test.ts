@@ -326,7 +326,8 @@ test('screens: an unfinished payday read is said, and its rows are never summed'
 
   const customers = read('app/vendor-dashboard/customers/page.tsx');
   assert.match(customers, /const paydayRows = paydayIncomplete \? \[\] : paydayRes\.rows;/);
-  assert.match(customers, /\{paydayIncomplete \? \(\s*<p role="status"[^>]*>\s*Some payments couldn&rsquo;t load/);
+  // 2026-10-28: People says it between its pinned row and its lists (`CustomersPin between=`).
+  assert.match(customers, /(?:\{|between=\{\s*)paydayIncomplete \? \(\s*<p role="status"[^>]*>\s*Some payments couldn&rsquo;t load/);
 
   const client = read('app/vendor-dashboard/clients/[eventId]/page.tsx');
   assert.equal((client.match(/<LedgerUnreadableNote \/>/g) ?? []).length, 2, 'Quote + Payments tabs');
@@ -351,7 +352,9 @@ test('screens: blocks, unread and booked each say so when their read comes up sh
   // which counts the threads read) and their outside clients are People's (said short by the blocks read).
   assert.match(customers, /const rosterIncomplete =\s*!threadsRead\.complete \|\| !evRead\.complete/);
   assert.match(customers, /incomplete=\{rosterIncomplete\}/);
-  assert.match(customers, /<OutsideClientRows[\s\S]{0,120}incomplete=\{!blocksRead\.complete\}/);
+  // 2026-10-28: under the Booked door — `outsideIncomplete` is the blocks read's own word.
+  assert.match(customers, /const outsideIncomplete = !blocksRead\.complete;/);
+  assert.match(customers, /<OutsideClientRows[\s\S]{0,120}incomplete=\{outsideIncomplete\}/);
 });
 
 test('screens: the Earned tile and the payouts totals never print a short or unread total', () => {

@@ -19,6 +19,7 @@ import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { AccessRequestsDoorway } from './_components/access-requests-doorway';
+import { CoordinatorLevelCard } from './_components/coordinator-level-card';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowRight, Sparkles, CalendarPlus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -84,10 +85,21 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { findSameDayVendors, type SameDayVendor } from '@/lib/same-day-vendors';
 import { EventDayPrepCta } from '@/app/_components/event-day-prep-cta';
 import { AutoPreloadOnEventDay } from '@/app/_components/auto-preload-on-event-day';
+import { ReadyForNoSignal, type ReadyRow } from '@/app/_components/offline-ready/ready-for-no-signal';
+import { formatCount } from '@/lib/format-number';
 import { DayOfModeGrid } from './_components/day-of-mode/grid';
 import { SetDateNudge } from './_components/set-date-nudge';
 import { readHomeGuide } from './_components/details-guide-home-card';
 import { DayPapicRow, HomeFirstScreen, YourServices } from './_components/home-first-screen';
+/* 🛑 KEEP. WITHOUT THIS LINE HOME'S ⚙ CRASHES HOME (2026-10-29, the fix after #7036). The ⚙ reads Event Settings with a
+   server action (`openEventSettings`) that RETURNS RENDERED ROWS: the Maker's editors (`details-lazy.tsx`,
+   `details-go.tsx`). Next can only send a client component in an action's answer when THIS ROUTE's server files reach
+   it: it builds the route's client manifest from the route's SERVER imports, and the ⚙ reaches the action only from the
+   browser (`import()`), which records nothing. So on a real event the action answered 200 with every editor as an
+   error ("Could not find the module … in the React Client Manifest") and Home fell to "Something on our end didn't
+   work". This side-effect import puts the action, and so the editors it draws, in Home's server graph.
+   🔒 `_components/the-settings-sheet-is-in-homes-graph.test.ts`. */
+import './_components/open-event-settings';
 import { rosterStats } from '@/lib/guest-roster-view';
 import { homeCoverFor } from '@/lib/home-cover.server';
 import { DateChangeDoorway } from './_components/date-change-doorway';
@@ -376,6 +388,10 @@ export default async function EventHomePage({
     let dayOfNearbyTables: EventTableRow[] = [];
     // A refused table read must not read as "no seat plan" — the card says it could not load.
     let dayOfTablesFailed = false;
+    // 📶 For "Ready for no signal" (EV3): how many tables, and whether the run of show was READ — a refused schedule
+    // read is `[]` below, and must not be drawn as "0 moments ✓".
+    let dayOfTableCount = 0;
+    let dayOfBlocksFailed = false;
     let dayOfSameDayVendors: SameDayVendor[] = [];
     // LIVE_WALL ownership for the day-of grid's photo-wall card. Same predicate
     // /wall/[eventId] gates on, so the card and the destination can never disagree.
@@ -386,7 +402,10 @@ export default async function EventHomePage({
       // The schedule is read ONCE and shared: the grid shows it, and the P3
       // call-time count below derives from it, so that count waits on this
       // promise rather than on the whole day-of batch.
-      const blocksRead = fetchScheduleBlocks(supabase, eventId).catch(() => []);
+      const blocksRead = fetchScheduleBlocks(supabase, eventId).catch(() => {
+        dayOfBlocksFailed = true;
+        return [];
+      });
 
       // LIVE_WALL — resolve ownership server-side so the client grid can hide the
       // card. Best-effort; a throw leaves it false. Started beside the three
@@ -465,6 +484,7 @@ export default async function EventHomePage({
       dayOfSameDayVendors = sameDayRes;
       const tables = tablesRes.value;
       dayOfTablesFailed = !tablesRes.measured;
+      dayOfTableCount = tables.length;
       // The canonical 2026-05-09 catalog replaces the variable-capacity 'head_table'
       // with three fixed family_head_12/14/16 variants. Day-of UI keeps surfacing
       // a single "head table" by picking the first family_head_* row found.
@@ -478,6 +498,8 @@ export default async function EventHomePage({
       dayOfHeadTable,
       dayOfNearbyTables,
       dayOfTablesFailed,
+      dayOfTableCount,
+      dayOfBlocksFailed,
       dayOfSameDayVendors,
       dayOfLiveWallActive,
       dayOfBroadcast,
@@ -763,6 +785,8 @@ export default async function EventHomePage({
       dayOfHeadTable,
       dayOfNearbyTables,
       dayOfTablesFailed,
+      dayOfTableCount,
+      dayOfBlocksFailed,
       dayOfSameDayVendors,
       dayOfLiveWallActive,
       dayOfBroadcast,
@@ -1060,6 +1084,30 @@ export default async function EventHomePage({
       !isStoreShellHiddenAddon(appleThankYouEntry.key, iap) &&
       addOnOfferedForEvent(appleThankYouEntry, needsProfile, (event as { community_id?: string | null }).community_id ?? null),
   );
+  /*
+    ☀ THE TODAY ASKS — every prompt that waits on the hosts (owner 2026-10-29, verbatim: *"The popup for the access and
+    other popups above the header can be presented better"*). They used to stack ABOVE the cover band; NOTHING renders
+    above Home's cover now — the cover is the top of Home — and each is a line of the Today list under it
+    (`HomeTodayItem`), in this order: what waits on the hosts first (the coordinator's access, then access requests),
+    then what is under way (a date change), then the event-day offer. Each self-hides and says a refused read. Held by
+    `the-cover-is-the-top-of-home.test.ts`.
+  */
+  const todayAsks = (
+    <>
+      {/* 🔑 "<shop> joined as your coordinator · Pick their access" — once, for a connected coordinator the hosts have
+          not answered for (owner 2026-10-29). Owners only; the press opens the house Sheet. */}
+      <CoordinatorLevelCard eventId={eventId} userId={user.id} />
+      {/* Self-hiding: renders nothing unless someone is waiting on an answer (owner ruling 2026-07-27 — the host
+          decides what to share). */}
+      <AccessRequestsDoorway eventId={eventId} />
+      {/* 🗓 "Date change: n of N suppliers answered" — self-hiding: renders nothing unless the couple asked booked
+          suppliers to move (owner 2026-10-01, the clashing-date flow). Couple-only by RLS. */}
+      <DateChangeDoorway eventId={eventId} />
+      {/* "EVENT DAY SOON" was rendering for a full day AFTER the celebration — its own window is T-3d..T+1d and it
+          never asked whether the day had been and gone. It is TOLD, from the one resolver. */}
+      <EventDayPrepCta eventId={eventId} eventDate={event.event_date} finished={afterActive} />
+    </>
+  );
   const homeFirstScreen = (
     <>
     {/* 🍎 The App Store net (lib/iap/native-store.ts): on Home — where the app
@@ -1069,6 +1117,9 @@ export default async function EventHomePage({
     <HomeFirstScreen
       eventId={eventId}
       cover={homeCover0}
+      asks={todayAsks}
+      /* ⚙ Event Settings on the cover — the couple's, who change the event's own facts (owner 2026-10-29). */
+      eventSettings={viewerMemberType === 'couple'}
       next={homeNext}
       control={homeControl}
       services={homeServiceRowAll}
@@ -1244,6 +1295,29 @@ export default async function EventHomePage({
     </>
   );
 
+  // 📶 Ready for no signal (EV3): who runs the door (the desk's own gate — couple or coordinator — and a guest list this
+  // viewer can actually read), and what is on this phone, each count only when READ.
+  const doorCrew =
+    (viewerMemberType === 'couple' || viewerMemberType === 'coordinator') && guestsMeasured && guests.length > 0;
+  const readyRows: ReadyRow[] = dayOfActive
+    ? [
+        { key: 'guests', label: 'Guest list', value: guestsMeasured ? formatCount(guests.length) : null, ok: guestsMeasured && guests.length > 0 },
+        {
+          key: 'seats',
+          label: 'Seat plan',
+          value: dayOfTablesFailed ? null : `${formatCount(dayOfTableCount)} table${dayOfTableCount === 1 ? '' : 's'}`,
+          ok: !dayOfTablesFailed && dayOfTableCount > 0,
+        },
+        {
+          key: 'run',
+          label: 'Run of show',
+          value: dayOfBlocksFailed ? null : `${formatCount(dayOfBlocks.length)} moment${dayOfBlocks.length === 1 ? '' : 's'}`,
+          ok: !dayOfBlocksFailed && dayOfBlocks.length > 0,
+        },
+        ...(doorCrew ? [{ key: 'desk', label: 'Check-in desk', value: 'Ready', ok: true }] : []),
+      ]
+    : [];
+
   const hasOverlays =
     !event.event_date || isChineseEvent || canRecur || Boolean(aiOffer) || papicNudgeVisible;
 
@@ -1263,19 +1337,23 @@ export default async function EventHomePage({
       {/* 🧩 Home's services grow in place (owner 2026-10-23) — their first-visit spotlight, after the journey; only
           where the cards are drawn (the couple, on the web). No price in any step. */}
       {serviceCards && !(dayOfActive || afterActive) ? <Spotlight tourKey={HOST_PAGE_TOURS.home} after={HOST_PAGE_TOURS_AFTER} replay="page" /> : null}
-      {/* "EVENT DAY SOON" was rendering for a full day AFTER the celebration —
-          its own window is T-3d..T+1d and it never asked whether the day had
-          been and gone. It is TOLD, from the one resolver, rather than given a
-          third opinion of its own. */}
-      <EventDayPrepCta eventId={eventId} eventDate={event.event_date} finished={afterActive} />
-      {/* Self-hiding: renders nothing unless a coordinator is waiting on an
-          answer (owner ruling 2026-07-27 — the host decides what to share). */}
-      <AccessRequestsDoorway eventId={eventId} />
-      {/* 🗓 "Date change: n of N suppliers answered" — self-hiding: renders
-          nothing unless the couple asked booked suppliers to move (owner
-          2026-10-01, the clashing-date flow). Couple-only by RLS. */}
-      <DateChangeDoorway eventId={eventId} />
+      {/* ☀ The day-of console and the after page draw no cover, so the Today asks lead them here; before the day they
+          are lines of the Today list UNDER the cover (`todayAsks` above — nothing renders above Home's cover). */}
+      {dayOfActive || afterActive ? todayAsks : null}
       <AutoPreloadOnEventDay eventId={eventId} eventDate={event.event_date} finished={afterActive} />
+      {/* 📶 READY FOR NO SIGNAL — Home › Today, the event day only (EV3, owner 2026-10-28, DECISION_LOG "OFFLINE
+          SAVING IS ALWAYS ON"). Every count is what this render READ: a refused read says "Couldn’t read", never ✓. */}
+      {dayOfActive ? (
+        <ReadyForNoSignal
+          viewer={user.id}
+          eventId={eventId}
+          eventDate={event.event_date as string | null}
+          eventEndDate={(event as { event_end_date?: string | null }).event_end_date ?? null}
+          checkin={doorCrew}
+          host={viewerMemberType === 'couple'}
+          rows={readyRows}
+        />
+      ) : null}
       {dayOfActive ? (
         <DayOfModeGrid
           eventId={eventId}

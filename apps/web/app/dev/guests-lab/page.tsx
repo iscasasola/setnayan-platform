@@ -24,7 +24,8 @@
  *   ?part=rows      (retired with the old GuestListMultiselect — redirects to part=screen)
  *   ?part=screen    Guests › List and Map (Maker PR 4f) — the whole screen on
  *                   maria-and-jose's roster, with a stand-in shell bar and
- *                   dock: &gview=map for the map, &q=… to search, &empty=1 for
+ *                   dock: &gview=map for the map (R4: &gview=seats [&seat=3d|list|map] · &gview=march [&march=owner]
+ *                   — the shipped makers, Guests › Seats and Guests › March), &q=… to search, &empty=1 for
  *                   an empty list, &fail=1 for a refused read
  *   &req=0          (screen) no requests to join waiting — the carousel's card ① says "No requests waiting"
  *   &select=to-invite (screen) ⚙ › Pick who's cold link — Select on, the list narrowed to To invite
@@ -39,7 +40,7 @@
  *                   SAMPLE event's pass (`?sample=1`, the public sample door) —
  *                   a lab has no event of its own. Saves go nowhere real: the
  *                   fixture event id fails the host fence, and a refusal says so.
- *   ?part=run       the send run (`/guests/send`) on the same roster — the REAL
+ *   ?part=run       (&ids=a,b · &oneqr=1 · &fail=1) the send run (`/guests/send`) on the same roster — the REAL
  *                   `SendRun` over `sendRunGuests`; its "Not sent yet (N)" is
  *                   the List's "N to invite" and Setup's "Send to N". The QR
  *                   and the ticket are a real event's, so they do not draw here.
@@ -47,6 +48,9 @@
  *                   Studio RSVP tile that opened it LEFT in R1 (owner 2026-10-28; its settings are Guests ⚙'s,
  *                   ?part=setup); kept so the before/after can be compared side by side
  *   &typed=1        (screen) two names typed all lower case — the list shows them cased (displayPersonName)
+ *   &answered=1     (screen · run) the owner's 2026-10-29 shape: half the guests nothing was sent to have ANSWERED
+ *                   anyway (said yes in person — "Kat Arroyo · Attending", never stamped). They are not "to invite":
+ *                   the List's To invite, the run's "more to invite" and its queue all leave them out
  *   &marked=1       (card · screen) replies the host set — "Attending · Marked by you", the rows' quiet "marked"
  *   &sides=1        (card · screen) cale-ice's own groups as measured 2026-10-20 — Childhood + College (groom),
  *                   Family + Relatives (one bride, one groom) — plus one both-sides group, so the ONE Group list's
@@ -74,7 +78,8 @@ import type { GuestCardData } from '@/app/dashboard/[eventId]/guests/_components
 import { guestOutfitOf, guestOutfitWords } from '@/lib/guest-outfit';
 import { guestDisplayName, guestFullName, type GuestRow } from '@/lib/guests';
 import { DEFAULT_NAME_STYLE } from '@/lib/name-style';
-import { sendRunGuests, toInviteCount } from '@/lib/guest-roster-view';
+import { hasReplied, sendRunGuests, toInviteCount } from '@/lib/guest-roster-view';
+import { runGuestPage } from '@/lib/send-run-page';
 import { plusOneOfWords } from '@/lib/plus-one-of';
 import { plusOneSeatLines, plusOneSeatPeople } from '@/lib/extra-seats';
 import { invitationLinkOn } from '@/lib/invitation-link';
@@ -84,6 +89,9 @@ import { MakerRsvpSettings } from '@/app/dashboard/[eventId]/launch/_components/
 import { guestsGetInPatch, isGuestsGetIn } from '@/lib/who-can-reply';
 import { renderStyledUrlQrSvg } from '@/lib/qr';
 import { GuestsScreen } from '@/app/dashboard/[eventId]/guests/_components/guests-screen';
+import { parseGuestsFilter } from '@/lib/guests-filter';
+import { GUESTS_VIEWS, parseGuestsView, parseSeatView } from '@/lib/guests-views';
+import { LabMarch, LabSeats } from './lab-seats-march';
 import type { TitleWaitingPerson } from '@/app/dashboard/[eventId]/guests/_components/titles-waiting';
 import { titleButtonText, titleKey } from '@/lib/guest-title';
 import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
@@ -322,6 +330,19 @@ function planningRoster(): GuestRow[] {
       plus_one_allowed: i === 6,
     }),
   ).map((g) => (g.invitation_sent_at === null && g.rsvp_status !== 'declined' ? { ...g, rsvp_status: 'pending' as const } : g));
+}
+
+/**
+ * 💬 `&answered=1` — the owner's 2026-10-29 shape: every other guest nothing was sent to has answered anyway (marked
+ * Attending by the host). Stand-in data; nothing is read.
+ */
+function withAnsweredUnsent(roster: GuestRow[]): GuestRow[] {
+  let k = 0;
+  return roster.map((g) =>
+    g.invitation_sent_at === null && g.rsvp_status === 'pending' && g.role !== 'bride' && g.role !== 'groom' && k++ % 2 === 0
+      ? { ...g, rsvp_status: 'attending' as const, rsvp_set_by: 'host' as const }
+      : g,
+  );
 }
 
 /**
@@ -736,7 +757,8 @@ export default async function GuestsLabPage({
   }
 
   if (part === 'screen' || part === 'setup') {
-    const roster00 = sp.plusones === '1' ? withPlusOnes(planningRoster(), sp.backfilled === '1', sp.paired === '1') : planningRoster();
+    const roster000 = sp.answered === '1' ? withAnsweredUnsent(planningRoster()) : planningRoster();
+    const roster00 = sp.plusones === '1' ? withPlusOnes(roster000, sp.backfilled === '1', sp.paired === '1') : roster000;
     /* 📜 `&many=N` — N more guests after maria-and-jose's (owner 2026-10-24, live: a search on a long list left the hit
        above the screen), so a search can be walked on a list a phone has to scroll. */
     const roster0 = roster00
@@ -765,7 +787,9 @@ export default async function GuestsLabPage({
     };
     const tables = [...new Set(MJ_ROSTER.map((r) => r[4]))].map((label, i) => ({ tableId: `t-${i}`, label }));
     const tableByGuest = Object.fromEntries(MJ_ROSTER.map(([, , , , table], i) => [`g-mj-${i}`, table]).filter((_, i) => i % 3 !== 2));
-    const gview = sp.gview === 'map' ? 'map' : 'list';
+    /* 🗂 R4 · `&gview=seats` (with `&seat=3d|list|map`) and `&gview=march` (`&march=owner` for the owner-shaped one) —
+       the shipped makers drawn the way the page draws them (`lab-seats-march.tsx`). */
+    const gview = parseGuestsView(typeof sp.gview === 'string' ? sp.gview : null);
     const empty = sp.empty === '1';
     const fail = sp.fail === '1';
     /* `&addMs=N`: an add answers after N ms, as a real one waits on the server (lab-stand-ins.ts › labTimedAdds). */
@@ -776,6 +800,13 @@ export default async function GuestsLabPage({
                   <GuestsScreen
                     eventId={EVENT}
                     gview={gview}
+                    seat={gview === 'seats' ? parseSeatView(typeof sp.seat === 'string' ? sp.seat : null) : null}
+                    views={GUESTS_VIEWS}
+                    filter={parseGuestsFilter(sp)}
+                    bodies={{
+                      seats: <LabSeats guests={roster} seat={typeof sp.seat === 'string' ? sp.seat : undefined} />,
+                      march: <LabMarch shape={typeof sp.march === 'string' ? sp.march : null} />,
+                    }}
                     guests={empty || fail ? [] : sp.oneqr === '1' ? roster.filter((g) => g.role === 'bride' || g.role === 'groom') : roster}
                     measured={!fail}
                     hasSides
@@ -871,28 +902,46 @@ export default async function GuestsLabPage({
   }
 
   if (part === 'run') {
-    // The REAL run over the REAL rule's list (`sendRunGuests`) — the page's own two lines.
+    // The REAL run over the REAL rule's list (`sendRunGuests`), full screen (owner 2026-10-27, "THE SEND RUN, REDRAWN
+    // SIMPLE"): each guest as a page (`runGuestPage`). `&ids=a,b` — Select's "Invite N"; `&oneqr=1` — a one-link event
+    // (the event's ONE link and a stand-in QR); ✕ and Done for now land on the lab's Guest list.
     const failed = sp.fail === '1';
-    const runGuests = sendRunGuests(failed ? [] : planningRoster()).map((g) => ({
+    const roster = failed ? [] : sp.answered === '1' ? withAnsweredUnsent(planningRoster()) : planningRoster();
+    const ids = typeof sp.ids === 'string' ? sp.ids.split(',').filter(Boolean) : [];
+    const runGuests = sendRunGuests(roster, ids).map((g) => ({
       guestId: g.guest_id,
       formalName: guestFullName(g, DEFAULT_NAME_STYLE),
       firstName: g.first_name,
       fullName: guestDisplayName(g),
       inviteUrl: invitationLinkOn(LAB_HUB, g.guest_id),
       sentAt: g.invitation_sent_at,
+      replied: hasReplied(g),
+      page: runGuestPage(g, roster, null, true),
     }));
+    const oneLink =
+      sp.oneqr === '1'
+        ? {
+            url: `${LAB_HUB}/invite`,
+            qrSvg:
+              '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 21 21"><rect width="21" height="21" fill="#fff"/><path d="M1 1h7v7H1zM13 1h7v7h-7zM1 13h7v7H1z" fill="none" stroke="#1E1A12" stroke-width="1.4"/><path d="M3 3h3v3H3zM15 3h3v3h-3zM3 15h3v3H3zM10 2h1v3h-1zM10 10h3v1h-3zM14 13h2v2h-2zM17 17h2v2h-2zM11 15h2v3h-2z" fill="#1E1A12"/></svg>',
+          }
+        : null;
     return (
       <div className="sn-ambient min-h-screen">
         <main className="sn-vt-page">
-          <div className="mx-auto w-full max-w-xl px-4 pb-24 pt-4 sm:px-6" data-lab-run="">
-            <h1 className="mt-1 text-2xl font-semibold tracking-tight text-ink">Send invites one by one</h1>
-            <SendRun
-              eventId={EVENT}
-              guests={runGuests}
-              measured={!failed}
-              facts={{ hostsName: 'Maria & Jose', eventWord: 'wedding', eventDate: '2026-12-12', datePrecision: 'day' }}
-              template={null}
-            />
+          <div data-lab-run="">
+            <LabGuestActions refuse={sp.refuse === '1'}>
+              <SendRun
+                eventId={EVENT}
+                guests={runGuests}
+                measured={!failed}
+                facts={{ hostsName: 'Maria & Jose', eventWord: 'wedding', eventDate: '2026-12-12', datePrecision: 'day' }}
+                template={null}
+                oneLink={oneLink}
+                picked={ids.length > 0}
+                guestsHref="/dev/guests-lab?part=screen"
+              />
+            </LabGuestActions>
           </div>
         </main>
         <DockStandIn />

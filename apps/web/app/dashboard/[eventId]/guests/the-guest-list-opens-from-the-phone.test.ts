@@ -116,7 +116,8 @@ test('4 · the copy’s first draw is the list’s own first draw — at most RO
   const html = await renderGuestsScreen({ guests: back!.rows as never, copy: { freshness: 'updating', savedAt: Date.now() } });
   const rows = (html.match(/data-guest-row=""/g) ?? []).length;
   assert.ok(rows > 0 && rows <= ROW_WINDOW, `${rows} rows drawn first (window ${ROW_WINDOW})`);
-  assert.match(html, /List<b[^>]*>.*?200/s, '"List 200" — the copy’s own count');
+  // 🎚 2026-10-29: the count rides the Guests ▾ segment (the old "List 200").
+  assert.match(html, /data-guests-seg="guests"[\s\S]*?Guests<\/span><b[^>]*>.*?200/s, '"Guests 200" — the copy’s own count');
 });
 
 test('5 · saved, read back and drawn, the copy shows the same people', () => {

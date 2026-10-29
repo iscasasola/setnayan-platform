@@ -5,6 +5,8 @@
  * production builds 404 this route, the same kill-switch as `/dev/home-lab`.
  * It draws the REAL supplier components, so what it shows is what ships.
  *
+ *   ?easy=setup&docs=none|checking|fix&gbb=0..3   🧰 a NEW SHOP's six steps done in place (owner 2026-10-28)
+ *                     &coarse=1  🔢 an /open-shop shop ([coarse, leaf]) — ONE service, three cards (owner 2026-10-29)
  *   ?easy=<moment>&sup=<supplier>   THE SIMPLER TODAY (owner APPROVE 2026-10-14) on the prototype's own people —
  *                     moments normal · setup · ask · eventday · locked · hallask · agreed; suppliers parish · caterer ·
  *                     studio · venue (`today-easy-lab.tsx`; the same assembly + screen as the page)
@@ -17,10 +19,14 @@
  *   ?s=doors          the rules that are not a customer's ask, as rows — and two unpaid booking fees
  *   ?s=fees           one ask (the Next card) and two unpaid booking fees — the fees carry the "Also waiting" heading
  *   ?s=clear          nothing waiting
+ *   &earned=verified|milestone   🏅 Today's "newly earned" line (`badge-earned-line.tsx`) above the screen, on lab
+ *                     facts handed in as data: URIs — e.g. ?s=clear&earned=verified is the owner's 2026-10-28 phone shot
  *   &toast=1          the outcome: the shared top toast + the status line (&toast=refused · &toast=failed · &toast=note)
  *   ?thumb=people     the frosted thumb row: a search field (≥ 60 %) + Add     (frame 03)
  *   ?thumb=customer   Chat (main) · Quote · Payment · Call                     (frame 06)
  *   ?thumb=money      Log a payment — a form's submit through the button rule  (frame 05)
+ *   ?s=chat-ask       💬 the chat on a couple's FIRST message — their ask at the top: the event's fixed lines, Decline ·
+ *                     Ask a question · Accept (supplier dashboard v13, `chat-lab.tsx`)
  *   ?s=people         Customers › People (S-PR2): segments, rows, outside clients, kept notes, search + Add (frame 03)
  *     &q=ana · &lane=outside|waiting|… · &add=1 (the Add sheet) · &toast=added|removed|failed
  *   ?s=clash          two couples holding one Saturday — the warn row above the list
@@ -34,6 +40,7 @@
  *                     This year, Log a payment (frame 05)  &next=next|all · &open=log
  *   ?s=money-waived   every fee waived (frame 30)   ?s=money-locked  the year on a plan without it
  *   ?s=money-empty    no payment plan yet           ?s=money-fail    nothing could be read — said, never ₱0 (frame 15)
+ *   &wallet=checking|resubmit|unread   the shop-wallet row's states   &open=wallet|wallet-unavailable|wallet-paused|wallet-empty  its sheet
  *   ?s=library        🌱🖼 the inspiration library (owner 2026-10-19) on a lab shop — upload · from your shop's photos · the
  *                     screen's refusal; &view=review the lab's Approve; then /dev/details-lab?look=1&studio=1&library=1
  *                     is the couple's Search ideas on the same memory (`library-lab-server.ts`). &library=1 on ?easy=…
@@ -43,7 +50,7 @@
  *                     only · upload or "Choose from your shop's photos" · &sent=1 one waiting · &sup=stylist|gown
  *                     (`suggest-lab.tsx`, stand-in writes; /dev/details-lab?look=1&studio=1&suggest=1 is the couple's side)
  *   ?s=coord-today · coord-events · coord-customer  🗂 the coordinator's door (owner 2026-10-28, `coord-lab.tsx`);
- *                     &none=1 the no-access case
+ *                     &none=1 the no-access case   &cohost=1 👥 a supplier who is only a co-host (owner 2026-10-29)
  *   ?s=details · page · collections  &who=parish|caterer|studio — Your details · Your page · Your collections (step 5,
  *                     `page-lab.tsx`; &draft=1 on page seeds a waiting change)
  *
@@ -79,11 +86,12 @@ import type { TodayActions } from '@/app/vendor-dashboard/_components/supplier-t
 import { splitDesk } from '@/lib/vendor-desk-disposition';
 import type { DueFeeBill } from '@/lib/booking-fee-disclosure';
 import { PeopleLab } from './people-lab';
+import { ChatAskLab } from './chat-lab';
 import { COORD_STATES, CoordLab, type CoordState } from './coord-lab';
 import { EASY_MOMENTS, EASY_SUPPLIERS, TodayEasyLab, type EasyMoment, type EasySupplier } from './today-easy-lab';
 import { DATES_STATES, DatesLab, type DatesState } from './dates-lab';
 import { MONEY_STATES, MoneyLab, type MoneyState } from './money-lab';
-import { PAGE_LAB_STATES, PageLab, type PageLabState } from './page-lab';
+import { LabEarnedLine, PAGE_LAB_STATES, PageLab, type PageLabState } from './page-lab';
 import { LibraryLab } from './library-lab';
 import { libraryLab, type LabLibraryAsset } from './library-lab-server';
 import { LAB_LIBRARY_SHOP, LAB_SHOP_PHOTOS } from './library-lab-fixture';
@@ -238,7 +246,7 @@ const ACTIONS: TodayActions = {
   markServiceComplete: vendorMarkServiceComplete,
 };
 
-function TodayLab({ state, toast }: { state: TodayState; toast: string | undefined }) {
+function TodayLab({ state, toast, earned }: { state: TodayState; toast: string | undefined; earned?: string }) {
   const { answer: needsAnswer, news: closed } = splitDesk(state.whatsNew);
   const findability = state.extras
     ? { title: 'Couples can’t find you yet.', body: 'Your shop is approved, but it is not showing in the marketplace.', cta: { label: 'Ask us to list your shop', href: '/help#contact' } }
@@ -275,6 +283,7 @@ function TodayLab({ state, toast }: { state: TodayState; toast: string | undefin
   return (
     <div className="min-h-screen bg-cream px-4 pb-32 pt-4" data-supplier-lab="today">
       {t ? <SupplierToast {...t} line={false} /> : null}
+      {earned ? <LabEarnedLine which={earned} /> : null}
       <SupplierTodayScreen
         view={view}
         outcome={t ? { text: t.text, tone: t.tone } : null}
@@ -291,20 +300,37 @@ function TodayLab({ state, toast }: { state: TodayState; toast: string | undefin
 export default async function SupplierLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ thumb?: string; s?: string; toast?: string; q?: string; lane?: string; add?: string; open?: string; next?: string; mpage?: string; easy?: string; sup?: string; who?: string; draft?: string; library?: string; view?: string; sent?: string; rail?: string; logo?: string; gift?: string; invited?: string; shell?: string; spot?: string; none?: string; unread?: string }>;
+  searchParams: Promise<{ thumb?: string; s?: string; toast?: string; q?: string; lane?: string; add?: string; open?: string; next?: string; mpage?: string; easy?: string; sup?: string; who?: string; draft?: string; library?: string; view?: string; sent?: string; rail?: string; logo?: string; gift?: string; invited?: string; shell?: string; wallet?: string; port?: string; spot?: string; none?: string; unread?: string; cohost?: string; asked?: string; coarse?: string; at?: string; docs?: string; gbb?: string; earned?: string; door?: string; block?: string; gear?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
   /* &shell=1 — the REAL One Shell around the body, as the dashboard draws it (rail · strip from 701 · the 440 panel). */
+  /* 📌 The address each state draws, so the pinned row's page menu ▾ names it (v13 frame, 2026-10-29). */
+  const labPage = (() => {
+    const s = q.s ?? '';
+    if (/^(people|clash|empty|fail|nopools)$/.test(s)) return '/vendor-dashboard/customers';
+    if (s === 'chat-ask') return '/vendor-dashboard/customers';
+    if (s.startsWith('dates') || s.startsWith('qr')) return '/vendor-dashboard/customers?seg=dates';
+    if (s.startsWith('money')) return '/vendor-dashboard/customers?seg=money';
+    if (s === 'page' || s === 'collections') return '/vendor-dashboard/website';
+    if (s === 'details') return '/vendor-dashboard/profile';
+    return '/vendor-dashboard';
+  })();
   const wrap = (node: ReactNode, measure: SupplierLabMeasure) =>
-    q.shell === '1' ? <SupplierLabShell measure={measure}>{node}</SupplierLabShell> : node;
+    q.shell === '1' ? (
+      <SupplierLabShell measure={measure} page={labPage}>
+        {node}
+      </SupplierLabShell>
+    ) : (
+      node
+    );
   if (q.easy && (EASY_MOMENTS as readonly string[]).includes(q.easy)) {
     const sup = (EASY_SUPPLIERS as readonly string[]).includes(q.sup ?? '') ? (q.sup as EasySupplier) : 'studio';
-    return wrap(<TodayEasyLab sup={sup} moment={q.easy as EasyMoment} actions={ACTIONS} library={q.library === '1'} rail={q.rail === 'service' || q.rail === 'docs' ? q.rail : null} logoNext={q.logo === '1'} gift={q.gift === 'running' || q.gift === 'soon' ? q.gift : null} />, 'today');
+    return wrap(<TodayEasyLab sup={sup} moment={q.easy as EasyMoment} actions={ACTIONS} library={q.library === '1'} rail={q.rail === 'service' || q.rail === 'docs' ? q.rail : null} logoNext={q.logo === '1'} gift={q.gift === 'running' || q.gift === 'soon' ? q.gift : null} docs={q.docs === 'checking' || q.docs === 'fix' ? q.docs : 'none'} gbb={q.gbb ? Number(q.gbb) : 2} coarse={q.coarse === '1'} />, 'today');
   }
   if (q.s && (COORD_STATES as readonly string[]).includes(q.s)) {
     /* 🗂 The coordinator's door (owner 2026-10-28) — `coord-lab.tsx`; `&none=1` = no live coordinator access. */
-    return <CoordLab state={q.s as CoordState} none={q.none === '1'} unread={q.unread === '1'} actions={ACTIONS} />;
+    return <CoordLab state={q.s as CoordState} none={q.none === '1'} unread={q.unread === '1'} cohost={q.cohost === '1'} at={q.at} actions={ACTIONS} />;
   }
   if (q.s === 'suggest') {
     /* 🤝🖼 A booked florist on a lab couple's Palette (prototype frames 1–2) — `&sent=1` one photo already waiting;
@@ -343,23 +369,27 @@ export default async function SupplierLabPage({
       </div>
     );
   }
+  if (q.s === 'chat-ask') {
+    /* 💬 The chat on a couple's first message — their ask at the top (supplier dashboard v13, `chat-lab.tsx`). */
+    return wrap(<ChatAskLab />, 'own');
+  }
   if (q.s && (PEOPLE_STATES as readonly string[]).includes(q.s)) {
-    return wrap(<PeopleLab variant={q.s} q={q.q} lane={q.lane} toast={q.toast} add={q.add === '1'} />, 'own');
+    return wrap(<PeopleLab variant={q.s} q={q.q} lane={q.lane} toast={q.toast} add={q.add === '1'} door={q.door} block={q.block} gear={q.gear === '1'} />, 'own');
   }
   if (q.s && (DATES_STATES as readonly string[]).includes(q.s)) {
-    return wrap(<DatesLab state={q.s as DatesState} toast={q.toast} open={q.open} />, 'wide');
+    return wrap(<DatesLab state={q.s as DatesState} toast={q.toast} open={q.open} gear={q.gear === '1'} />, 'wide');
   }
   if (q.s && (PAGE_LAB_STATES as readonly string[]).includes(q.s)) {
-    return wrap(<PageLab state={q.s as PageLabState} who={q.who} draft={q.draft === '1'} invited={q.invited === '1'} />, 'own');
+    return wrap(<PageLab state={q.s as PageLabState} who={q.who} draft={q.draft === '1'} invited={q.invited === '1'} asked={q.asked === '1'} port={q.port} />, 'own');
   }
   if (q.s && (MONEY_STATES as readonly string[]).includes(q.s)) {
-    return wrap(<MoneyLab state={q.s as MoneyState} next={q.next} open={q.open} mpage={q.mpage} />, 'reading');
+    return wrap(<MoneyLab state={q.s as MoneyState} next={q.next} open={q.open} mpage={q.mpage} wallet={q.wallet} />, 'reading');
   }
   const today = q.s ? TODAY[q.s] : undefined;
   if (today)
     return wrap(
       <>
-        <TodayLab state={today} toast={q.toast} />
+        <TodayLab state={today} toast={q.toast} earned={q.earned} />
       </>,
       'today',
     );

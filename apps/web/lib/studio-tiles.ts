@@ -1,5 +1,5 @@
 /**
- * lib/studio-tiles.ts — THE STUDIO HOME'S ELEVEN TILES (owner 2026-10-06,
+ * lib/studio-tiles.ts — THE STUDIO HOME'S TILES (owner 2026-10-06,
  * DECISION_LOG "STUDIO OPENS ON A HOME OF TEN TILES…" + "PRINTS IS THE ELEVENTH
  * STUDIO TILE"; prototype `maker_two_dropdowns_owner_wireframe_2026-10-06_fable.html`
  * `SHOME` / `studioHome()`; plan `EVENT_HUB_MAKER_STAGES_STUDIO_BUILD_PLAN_2026-10-06.md` PR 1).
@@ -13,6 +13,9 @@
  *
  * 🗂 RSVP LEFT (R1, owner 2026-10-28): its settings are Guests ⚙'s now; Studio's "n of N ready" counts the tiles that
  * are here, so a finished RSVP never reads as a Studio "Missing" and an unfinished one is Guests ⚙'s to say.
+ * 🗂 WEDDING MARCH AND SEAT PLAN LEFT (R4, owner 2026-10-27/28): they are Guests › March and Guests › Seats — the same
+ * makers, drawn whole there. Their ✓ is still counted where the guided flow counts it (a link step to the Guests view,
+ * `lib/details-guided-flow.ts`), never as a Studio "Missing".
  *
  * 🖨 PRINTS LEFT (R8, owner 2026-10-27 "PRINTS LEAVES STUDIO"): its own page and a Prints line on Home
  * (`lib/prints-page.ts`). It was always ✓ (nothing to fill), so "n of N ready" loses one ready and one total.
@@ -23,7 +26,7 @@
  * `guidedItemDone` over the launch page's one `guidedFactsFrom` (which is what
  * every `DetailsItemModel.done` the plan counts is), `wordsAndPlansItem` for the
  * Schedule's and the Love Story's lines, and the counts the page already
- * read (the seat plan's tables and seated, the E-Gifts manager's own methods).
+ * read (the E-Gifts manager's own methods).
  * A fact that could not be read makes NO claim (`done: undefined`) — never a
  * "Missing" nobody measured.
  *
@@ -55,8 +58,6 @@ export const STUDIO_TILE_PARTS: Readonly<Record<StudioTileKey, readonly HubPartI
   mood: [],
   schedule: [],
   story: ['photos'],
-  march: [],
-  seats: [],
   gifts: [],
 };
 
@@ -85,7 +86,8 @@ type StudioTileDef = {
   item: DetailsItemKey;
   /** The items whose `done` this tile reads (all must be read, and all true). */
   reads: readonly DetailsItemKey[];
-  /** Wedding March and Seat plan: the top nav hides, ✓ Done returns (owner: "yes for those 2"). */
+  /** A tile whose page takes the whole screen — the top nav hides, ✓ Done returns (owner: "yes for those 2" — the
+   *  Wedding March and Seat plan, both Guests' views since R4; none is left). */
   immersive?: true;
   /** What it holds, in the prototype's words — the status line where no count says more. */
   sub: string;
@@ -99,8 +101,6 @@ export const STUDIO_TILES: Readonly<Record<StudioTileKey, StudioTileDef>> = {
   mood: { label: 'Mood Board & Dress Code', short: 'Mood Board', item: STUDIO_TILE_ITEM.mood, reads: ['mood-board'], sub: 'Five colours · attire by role' },
   schedule: { label: 'Schedule', short: 'Schedule', item: STUDIO_TILE_ITEM.schedule, reads: ['schedule'], sub: 'Times and moments' },
   story: { label: 'Love Story', short: 'Love Story', item: STUDIO_TILE_ITEM.story, reads: ['love-story'], sub: 'Chapters with a photo' },
-  march: { label: 'Wedding March', short: 'March', item: STUDIO_TILE_ITEM.march, reads: ['march'], immersive: true, sub: 'Drag the names, two columns' },
-  seats: { label: 'Seat plan', short: 'Seat plan', item: STUDIO_TILE_ITEM.seats, reads: ['seating'], immersive: true, sub: 'Tables and who sits where' },
   gifts: { label: 'E-Gifts', short: 'E-Gifts', item: STUDIO_TILE_ITEM.gifts, reads: [], sub: 'GCash · Maya · bank · PayPal' },
 };
 
@@ -123,12 +123,8 @@ export type StudioTilesInput = {
   facts: GuidedDoneFacts;
   /** E-Gifts switched on, from the E-Gifts manager's own read; null = could not be read. */
   giftMethods: number | null;
-  /** The Seat plan row's counts; null = this type has no seat plan. */
-  seat: { tables: number | null; seated: number | null } | null;
   /** Does this event draw the item (the type's own rule, `detailsItemApplies`, and what was read)? */
   offered: (item: DetailsItemKey) => boolean;
-  /** The march's name in the event type's own words (`yourEventLabel('march', kind)`). */
-  marchLabel?: string;
   /** 💎 What the event holds of Event Hub Pro and each part's price — null in the store shell (no web price). */
   pro?: { owned: readonly HubPartId[]; full: boolean; pricePhp: Partial<Record<HubPartId, number>> } | null;
 };
@@ -158,13 +154,6 @@ function tileStatus(key: StudioTileKey, input: StudioTilesInput): string {
       return wordsAndPlansItem('schedule', input.facts.words).sub ?? def.sub;
     case 'story':
       return wordsAndPlansItem('love-story', input.facts.words).sub ?? def.sub;
-    case 'seats': {
-      const t = input.seat?.tables ?? null;
-      const n = input.seat?.seated ?? null;
-      if (!input.seat) return def.sub;
-      if (t === null || n === null) return UNREAD;
-      return t === 0 ? 'No tables yet' : `${t} ${t === 1 ? 'table' : 'tables'} · ${n} seated`;
-    }
     case 'gifts': {
       const n = input.giftMethods;
       if (n === null) return UNREAD;
@@ -181,8 +170,8 @@ export function studioTiles(input: StudioTilesInput): StudioTileModel[] {
     const def = STUDIO_TILES[key];
     return {
       key,
-      label: key === 'march' && input.marchLabel ? input.marchLabel : def.label,
-      short: key === 'march' && input.marchLabel ? input.marchLabel.split(' ').slice(-1)[0]! : def.short,
+      label: def.label,
+      short: def.short,
       item: def.item,
       immersive: def.immersive === true,
       done: tileDone(key, input),

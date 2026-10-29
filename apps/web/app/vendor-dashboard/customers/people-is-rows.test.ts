@@ -87,25 +87,30 @@ const FIXTURE = [
 
 // ── 1 · THE LOOK ──────────────────────────────────────────────────────────
 
-test('1 · rows are hairlines with a terracotta arrow — no tile, no box around a row (look call 8)', async () => {
+test('1 · rows are hairlines that OPEN — the shared fold head, its terracotta ▾, no tile, no box (v13 · look call 8)', async () => {
+  // 🔁 v13 (owner "Approved.", 2026-10-29: "One row per event; opened = the fixed lines + For your service"): a row is
+  // no longer a door to the chat — it is the shared `SupplierOpenRow` (the `Fold`), opening in place on a phone and in
+  // the right column from 701. Still a hairline row, still no box.
   const html = await render(FIXTURE);
-  const rows = html.match(/<a [^>]*data-customer-row="[a-z]+"[^>]*>/g) ?? [];
-  assert.equal(rows.length, 3, `expected 3 row doors, found ${rows.length}`);
+  const rows = html.match(/<div [^>]*data-customer-row="[a-z]+"[^>]*>/g) ?? [];
+  assert.equal(rows.length, 3, `expected 3 rows, found ${rows.length}`);
   for (const r of rows) {
     assert.match(r, /border-t border-ink\/10/, `a row is not a hairline: ${r}`);
     assert.doesNotMatch(r, /rounded|sn-tile|shadow|bg-white|border-ink\/1[5-9]|(?:^|[\s"])border(?:[\s"]|$)|border-[blrxy]\b/, `a row is drawn as a box: ${r}`);
   }
   assert.doesNotMatch(html, /sn-tile/, 'the list sits in a tile again');
-  // The arrow: one per row door, the accent, never grey.
-  const arrows = html.match(/<svg[^>]*lucide-chevron-right[^>]*>/g) ?? [];
-  assert.equal(arrows.length, 3, 'a row lost its arrow');
-  for (const a of arrows) assert.match(a, /text-sn-accent/, `a row arrow is not terracotta: ${a}`);
+  assert.equal((html.match(/data-fold-head=""/g) ?? []).length, 3, 'a row is not the shared fold head');
+  // The ▾: one per row, the accent, never grey.
+  const arrows = html.match(/<svg[^>]*lucide-chevron-down[^>]*>/g) ?? [];
+  assert.equal(arrows.length, 3, 'a row lost its ▾');
+  for (const a of arrows) assert.match(a, /text-sn-accent/, `a row ▾ is not terracotta: ${a}`);
 });
 
 test('1b · the stage is the shared Badge — soft fill, no border (look call 7)', async () => {
   const html = await render(FIXTURE);
   const badges = html.match(/<span data-badge="[a-z]+"[^>]*>[^<]*<\/span>/g) ?? [];
-  assert.equal(badges.length, 3, `expected 3 badges, found ${badges.length}`);
+  // v13: each row draws its stage once, at the right of its head (the fold's `aside` — hidden while the head pins slim).
+  assert.equal(badges.length, 3, `expected 3 rows × 1 badge, found ${badges.length}`);
   for (const b of badges) assert.doesNotMatch(b, /border/, `a stage badge has a border: ${b}`);
   assert.match(html, />Asked</);
   assert.match(html, />Quoted</, 'a talking row with a quote out does not say Quoted');
@@ -113,20 +118,26 @@ test('1b · the stage is the shared Badge — soft fill, no border (look call 7)
   assert.doesNotMatch(ROSTER, /border:\s*`1px solid/, 'the roster hand-draws a bordered pill again');
 });
 
-test('1c · the row is the one tap: no button inside it, and it names its next step', async () => {
+test('1c · the row opens; its door says its next step and goes where the step is taken', async () => {
   const html = await render(FIXTURE);
-  assert.doesNotMatch(html, /<button\b/, 'a button is drawn inside the roster rows');
   assert.doesNotMatch(html, /data-row-next/, 'the next-step pill is back inside the row');
-  assert.match(html, /aria-label="Ana &amp; Miguel — Reply"/);
-  assert.match(html, /aria-label="Katrina Ocampo — See the quote"/);
-  assert.match(html, /aria-label="Jun &amp; Liza Cruz — See the day"/);
+  // Opened, each row's ONE door names its next step (its accessible name) — the chat, where a booking ask is answered.
+  // 2026-10-28 · a row is the EVENT — "<first name>'s <Kind> (<Mon D>)" (lib/event-chat-title.ts), the customer under it.
+  assert.match(html, /aria-label="Ana(&#x27;|')s [A-Za-z]+ \([^)]*\) — Reply"/);
+  assert.match(html, /aria-label="Katrina(&#x27;|')s [A-Za-z]+ \([^)]*\) — See the quote"/);
+  assert.match(html, /aria-label="Jun(&#x27;|')s Wedding \(Oct 4\) — See the day"/);
+  // No button nested in a head: the head is one button, the door lives in the opened body.
+  for (const head of html.match(/<button[^>]*data-fold-head=""[\s\S]*?<\/button>/g) ?? []) {
+    assert.doesNotMatch(head.slice(1), /<button\b|<a\b/, 'a control is nested inside a row head');
+  }
 });
 
-test('1d · one dropdown (Filter, in the "Waiting first" eyebrow) — Show ▾, ⋯ and the in-list search form are gone', async () => {
-  const html = await render(FIXTURE, { filter: React.createElement('i', { 'data-filter-slot': '' }) });
-  const eyebrow = html.slice(html.indexOf('data-customers-eyebrow'), html.indexOf('</div>', html.indexOf('data-customers-eyebrow')));
-  assert.match(eyebrow, /Waiting first/);
-  assert.match(eyebrow, /data-filter-slot/, 'Filter ▾ is not in the eyebrow');
+test('1d · the doors filter in place — no Filter ▾ eyebrow, no Show ▾, no ⋯, no in-list search form', async () => {
+  // 2026-10-28: Asking · Talking · Booked · Done are the pinned row's doors (`customers-pin.tsx`); the roster draws
+  // no "Waiting first · Filter ▾" eyebrow unless a caller hands it a Filter — and the Customers page hands none.
+  const html = await render(FIXTURE);
+  assert.doesNotMatch(html, /data-customers-eyebrow/, 'the roster still draws the Filter eyebrow with no Filter');
+  assert.doesNotMatch(PAGE, /<CustomersPick\b|filter=\{/, 'the page hands the roster a Filter ▾ again — the doors filter in place');
   assert.doesNotMatch(html, /role="search"|data-customers-more|data-customers-show/, 'a second control is back in the roster');
   assert.doesNotMatch(ROSTER, /\bshowPick\b|ROSTER_SHOW|MoreHorizontal/, 'Show ▾ or the ⋯ menu is back in the roster');
   assert.doesNotMatch(PAGE, /ROSTER_SHOW|label="Show"/, 'the page hands the roster a Show ▾ again');
@@ -181,7 +192,8 @@ test('3 · three segments, one address each; every old landing opens the segment
   const all = CUSTOMER_SEGMENTS.flatMap((s) => foldsOf(s));
   // S-PR3: Dates has no accordion fold — its tools are its own folds (Block days · Waitlist · Capacity).
   // S-PR4: the Bookings queue is a fold under Money (it alone carries "Add to prep schedule").
-  assert.deepEqual([...all].sort(), ['bookings', 'contracts', 'messages', 'proposals']);
+  // 2026-10-28: Messages is no longer a fold — the event list IS the messages (people-chats-not-a-fold.test.ts).
+  assert.deepEqual([...all].sort(), ['bookings', 'contracts', 'proposals']);
   assert.match(PAGE, /const sections = CUSTOMER_SECTIONS\.filter\(\(s\) => folds\.includes\(s\.key\)\)/, 'a fold is drawn outside its segment');
   // The ids the landings name are drawn only under their segment.
   // S-PR4: Money is the last branch of the segment switch (its rows wear `#payday`); `#bookings` is drawn only on Money.
@@ -203,20 +215,22 @@ test('3b · each segment reads only what it draws (owner: "the fewest requests")
   assert.match(hub, /seg === 'dates' \? \([\s\S]{0,240}<CustomersDay\b[\s\S]{0,120}<CustomersDates\b/, 'Dates (the month, or one day) is not drawn only on Dates');
 });
 
-test('3c · "People 3" — the count is the waiting count People has just measured, and only People draws a number', () => {
-  assert.match(PAGE, /<CustomersSegments seg="people" waiting=\{laneCounts\.waiting\} \/>/);
-  // Money and the Dates month draw the bare words; one day (a sub-page, frame 35) draws its own back row instead.
-  assert.match(PAGE, /\{seg === 'people' \|\| \(seg === 'dates' && search\.day\) \? null : <CustomersSegments seg=\{seg\} \/>\}/, 'Dates / Money draw a count they never read');
+test('3c · one pinned row on every view: People draws it with the four counts; Dates and Money with the view ▾ and ⚙ only', () => {
+  const people = body(PAGE, 'CustomersPipeline');
+  assert.match(people, /<CustomersPin\s+seg="people"[\s\S]{0,120}doors=\{doors\}[\s\S]{0,40}panels=\{panels\}/, 'People does not draw the counts row');
+  const hub = body(PAGE, 'VendorCustomersHub');
+  assert.match(
+    hub,
+    /\{seg === 'people' \|\| \(seg === 'dates' && search\.day\) \? null : \(\s*<CustomersPin\s+seg=\{seg\}\s+hrefs=\{CUSTOMER_SEGMENT_HREFS\}\s+gear=/,
+    'Dates / Money lost their pinned row (or draw counts they never read)',
+  );
 });
 
-test('3d · People · Dates · Money are 44-px presses — the box itself, not only the reach (batch-5 walk: they measured 38)', async () => {
-  const { renderToStaticMarkup } = await import('react-dom/server');
-  const { CustomersSegments } = await import('./_components/customers-segments');
-  const html = renderToStaticMarkup(React.createElement(CustomersSegments, { seg: 'people', hrefOf: (s: string) => `/x?seg=${s}` } as never));
-  const links = html.match(/<a [^>]*data-customers-seg="[a-z]+"[^>]*>/g) ?? [];
-  assert.equal(links.length, CUSTOMER_SEGMENTS.length, 'the segments did not draw');
-  // The shared pill is min-h-[38px]; a min-h-11 beside it loses the cascade — only a HEIGHT makes the box 44.
-  for (const a of links) assert.match(a, /class="[^"]*(?:^|\s)h-11(?:\s|")/, `a segment is not a 44-px box: ${a}`);
+test('3d · the view is ONE dropdown (People ▾ · Dates · Money), 44 px — never a pill row', async () => {
+  const PIN = code('_components', 'customers-pin.tsx');
+  assert.match(PIN, /<PickMenu\b[\s\S]{0,200}options=\{CUSTOMER_SEGMENTS\.map/, 'the views are not one PickMenu');
+  assert.doesNotMatch(PIN, /<PillTrack\b|<PillLink\b/, 'the views are a pill row again');
+  assert.match(PIN, /min-h-11/, 'a door is under 44 px');
 });
 
 // ── 4 · HONEST MONEY ──────────────────────────────────────────────────────
@@ -238,6 +252,19 @@ test('5 · an outside client opens in place and its Remove asks once, posts the 
   assert.match(remove, /action=\{removeBlock\}/);
   assert.match(remove, /name="return_to" value="people"/);
   assert.match(remove, /<SupplierSubmit tone="danger"/, 'Remove is not the delete look');
-  assert.match(MORE, /<Badge tone="quiet" data="customer-stage">Outside<\/Badge>/, 'an outside client is not marked Outside');
+  // 2026-10-28: the row's badge is their one-time code's state (Linked / Code sent / Not linked); "booked outside" is
+  // said in the row's line, and "Outside" is the badge only when the codes could not be read.
+  assert.match(MORE, /<Badge tone=\{badge\.tone\} data="customer-stage">\{badge\.word\}<\/Badge>/, 'an outside client lost its stage badge');
+  assert.match(MORE, /· booked outside`/, 'an outside client is not said to be booked outside');
   assert.match(MORE, /<ListPager paged=\{paged\} param="copage"/, 'the outside clients are not paged');
+});
+
+test('1f · the title owns the width — two lines before it cuts at every width, WHO first on the line under it', async () => {
+  // Controller review 2026-10-29 (owner: "maximize the screen"; house rule "names never cut"). v13: the head is the
+  // shared fold's, its title wraps to two lines (`wrap`), and the stage is the head's one badge at the right.
+  const html = await render([FIXTURE[2]!]);
+  const head = /<button[^>]*data-fold-head=""[\s\S]*?<\/button>/.exec(html)?.[0] ?? '';
+  assert.ok(head, 'the row head is gone');
+  assert.match(head, /<span class="line-clamp-2 block leading-snug">/, 'the row title cuts on one line');
+  assert.match(head, /data-fold-sub="">Jun &amp; Liza Cruz/, 'the line under the title does not start with the couple');
 });

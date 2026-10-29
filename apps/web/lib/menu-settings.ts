@@ -12,8 +12,11 @@
  *     the first control row is the title row.
  *   · THE SHEET — titled "<Menu> settings"; under the title, one short line whose ⓘ holds the shared sentence
  *     (`MENU_SETTINGS_TIP`): this menu's settings only, the event's own facts are under Home's ⚙.
- *   · HOME HAS NO MENU ⚙ — Home's settings ARE Event Settings, behind the header ⚙ on the cover. Two gears never
- *     share a screen.
+ *   · HOME'S ⚙ IS EVENT SETTINGS — the same door, at the right end of the cover band (its pinned line's right end once
+ *     it has stuck), drawn AT REST too (owner 2026-10-29, verbatim: *"on event dashboard> home the header does not show
+ *     the settings icon like the other pages with settings icon. keep it there"* — it was `invisible` until the band
+ *     stuck). Its sheet is the event's own facts: names · date · venues · parents (DECISION_LOG 2026-10-27 "INFO SPLITS
+ *     BY WHAT IT IS ABOUT"). Still one gear per screen: Home mounts no other.
  *   · SUPPLIERS — was `reserved` (owner call 3: no ⚙ until it owns a setting). REVERSED 2026-10-27 (DECISION_LOG
  *     "SUPPLIERS GETS ITS ⚙ — THE SUPPLIER SETTINGS MOVE THERE"; owner *"what are the settings for suppliers?"* ·
  *     *"and move them to suppliers"*): How you see costs, Supplier payments, Budget and the booked suppliers' photos
@@ -26,18 +29,27 @@
  * Neutral module (no `'use client'`): the guard and the client button both read it.
  */
 
-/** The menus (and the one Hub tool, Prints) that own a settings sheet. Home is deliberately absent. */
-export type SettingsMenu = 'guests' | 'hub' | 'prints' | 'memories' | 'suppliers';
+/** The menus (and the one Hub tool, Prints) that own a settings sheet — Home's is Event Settings. */
+export type SettingsMenu = 'home' | 'guests' | 'hub' | 'prints' | 'memories' | 'suppliers' | 'people' | 'today' | 'customers';
 
 export type SettingsEntry = {
-  /** Where the door sits. Every menu: the right end of its first control row. Suppliers: the spot, reserved. */
-  door: 'first-row-gear' | 'reserved';
+  /**
+   * Where the door sits. Every menu: the right end of its first control row. Home: the right end of its cover band —
+   * the band IS Home's first row (no selector), and the same spot is its pinned line's right end. `reserved`: the spot,
+   * held empty.
+   */
+  door: 'first-row-gear' | 'cover-gear' | 'reserved';
   /** The sheet's title — and the ⚙'s accessible name. */
   sheet: string;
   /** The one short line under the sheet's title (its ⓘ holds `MENU_SETTINGS_TIP`). */
   line: string;
   /** Mounted on main yet. Flipped in the PR that mounts it; the guard follows. */
   live: boolean;
+  /**
+   * The ⓘ under the sheet's title, when it is not the couple menus' shared sentence (`MENU_SETTINGS_TIP` speaks of
+   * "the event's own facts … under ⚙ on Home", which a supplier's page has no Home for).
+   */
+  tip?: string;
 };
 
 /** The ⓘ every menu sheet carries, word for word (prototype § 1). */
@@ -45,6 +57,18 @@ export const MENU_SETTINGS_TIP =
   'Settings for this menu only. The event’s own facts — names, date, venues, money, who helps — are under ⚙ on Home.';
 
 export const SETTINGS_ENTRY: Record<SettingsMenu, SettingsEntry> = {
+  /**
+   * 🏠 HOME › EVENT SETTINGS (owner 2026-10-29, "keep it there"; DECISION_LOG 2026-10-27 "APPROVED — SETTINGS PER MENU":
+   * *"Home's header ⚙ = Event Settings only"* · "INFO SPLITS BY WHAT IT IS ABOUT": names · date · venues · parents). The
+   * sheet's rows are the editors those facts already have (`open-event-settings.tsx`) — never a second editor.
+   */
+  home: {
+    door: 'cover-gear',
+    sheet: 'Event settings',
+    line: 'Names, date, venues and parents.',
+    live: true,
+    tip: 'The event’s own facts. Each menu — Guests, Suppliers, Memories — keeps its own settings under its own ⚙.',
+  },
   guests: {
     door: 'first-row-gear',
     sheet: 'Guests settings',
@@ -74,6 +98,38 @@ export const SETTINGS_ENTRY: Record<SettingsMenu, SettingsEntry> = {
     sheet: 'Suppliers settings',
     line: 'How you see costs, what you owe, their photos.',
     live: true,
+  },
+  // 👥 PEOPLE (owner 2026-10-28, "People and Groups approved"): the account's People page ends its pinned row with ⚙,
+  // the 27 Oct template. Its one row is the People search's own switch — "Can people find you by name?" — the same
+  // `users.discoverable_by_name` the profile's Privacy section writes (also drawn there; one writer, two seats).
+  people: {
+    door: 'first-row-gear',
+    sheet: 'People settings',
+    line: 'Who can find you by name.',
+    live: true,
+  },
+  /**
+   * 🧰 THE SUPPLIER'S TODAY ⚙ (owner 2026-10-28, DECISION_LOG "SUPPLIER DASHBOARD APPROVED — EVERYTHING IN PLACE, A ⚙
+   * PER PAGE": "Today ⚙ notifications + run-the-day"). It ends Today's pinned counts row — and, on a new shop, the
+   * "Get your shop live" row (one component, `TodaySettings`, one mount of this door).
+   */
+  today: {
+    door: 'first-row-gear',
+    sheet: 'Today settings',
+    line: 'How Setnayan reaches you.',
+    live: true,
+    tip: 'Settings for Today only. Your shop’s own settings stay with your shop.',
+  },
+  /**
+   * 👥 THE SUPPLIER'S CUSTOMERS ⚙ (owner 2026-10-28, same row: "Customers ⚙ getting paid + booking terms + teams/days").
+   * It ends Customers' pinned row on People, Dates and Money (one component, `CustomersSettings`, one mount).
+   */
+  customers: {
+    door: 'first-row-gear',
+    sheet: 'Customers settings',
+    line: 'How you get paid, your schedules and days.',
+    live: true,
+    tip: 'Settings for Customers only. What couples see on your page stays with your Shop.',
   },
 };
 

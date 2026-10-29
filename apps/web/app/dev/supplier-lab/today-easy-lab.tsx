@@ -22,6 +22,12 @@ import { splitDesk } from '@/lib/vendor-desk-disposition';
 import { lockAgreeNotice } from '@/lib/lock-answer-notice';
 import { SupplierTodayScreen, type TodayActions } from '@/app/vendor-dashboard/_components/supplier-today-screen';
 import type { TodayOutcome } from '@/app/vendor-dashboard/_components/supplier-today-first-screen';
+import { SupplierSetupScreen } from '@/app/vendor-dashboard/_components/supplier-setup-screen';
+import { TodaySettings } from '@/app/vendor-dashboard/_components/today-settings';
+import { offerProgress } from '@/lib/supplier-setup';
+import { VENDOR_CATEGORIES } from '@/lib/vendors';
+import { labSetupDetails } from './page-lab';
+import { forYourServicePages, type EventLines } from '@/lib/supplier-event-lines';
 
 export const EASY_MOMENTS = ['normal', 'setup', 'ask', 'eventday', 'locked', 'hallask', 'agreed'] as const;
 export type EasyMoment = (typeof EASY_MOMENTS)[number];
@@ -54,6 +60,7 @@ const inquiry = (id: string, name: string, date: string, msg: string, hoursAgo: 
   kind: 'inquiry',
   id: `inq-${id}`,
   threadId: `t-${id}`,
+  eventId: id,
   title: 'New inquiry — New customer',
   descriptor: name,
   eventDate: date,
@@ -63,6 +70,78 @@ const inquiry = (id: string, name: string, date: string, msg: string, hoursAgo: 
   messageExcerpt: msg,
   createdAt: ago(hoursAgo),
 });
+/**
+ * 📋 Each lab inquiry's EVENT LINES (supplier dashboard v13) — what the page's `readSupplierEventLines` returns, on the
+ * prototype's own people: the hosts with the one who asked marked, the service asked for, the shop's other services in
+ * categories the event added, and the event's pages for this shop's service (`forYourServicePages`, the shipped rule).
+ */
+const lines = (
+  id: string,
+  o: { type: string; celebrant: string; hosts: Array<[string, boolean]>; location: string | null; date: string; pax: number; requested: string[]; offer?: Array<[string, string | null]>; services: string[]; booked?: Array<[string, string]>; first?: string },
+): EventLines => ({
+  eventId: id,
+  threadId: `t-${id}`,
+  stage: 'asking',
+  read: true,
+  type: o.type,
+  celebrant: o.celebrant,
+  location: o.location,
+  date: o.date,
+  pax: o.pax,
+  hosts: o.hosts.map(([name, askedYou]) => ({ name, askedYou })),
+  requested: o.requested.map((name) => ({ name })),
+  alsoOffer: (o.offer ?? []).map(([name, from], i) => ({ serviceId: `${id}-o${i}`, name, from })),
+  alsoBooked: (o.booked ?? []).map(([name, service]) => ({ name, service })),
+  forYou: forYourServicePages({ eventId: id, stage: 'asking', shopServices: o.services, eventTiles: null }),
+  firstEvent: o.first ? { title: o.first, href: `/vendor-dashboard/messages/t-${id}-first` } : null,
+});
+export const LAB_EVENT_LINES: Readonly<Record<string, EventLines>> = {
+  am: lines('am', {
+    type: 'Wedding',
+    celebrant: 'Ana & Miguel',
+    hosts: [['Tita Mina Reyes', true], ['Ana Reyes', false], ['Miguel Santos', false]],
+    location: 'Blue Leaf Filipinas, Pasay',
+    date: 'Sat, Dec 12, 2026',
+    pax: 150,
+    requested: ['Photo & video · Full day'],
+    offer: [['Same-day edit', null]],
+    services: ['photo_video'],
+    booked: [['Casa Alegria Events', 'Reception venue']],
+  }),
+  dc: lines('dc', {
+    type: 'Wedding',
+    celebrant: 'Dela Cruz',
+    hosts: [['Bea Dela Cruz', true]],
+    location: null,
+    date: 'Sat, Dec 12, 2026',
+    pax: 120,
+    requested: ['Church wedding · 3 PM'],
+    services: ['ceremony_venue'],
+  }),
+  ko: lines('ko', {
+    type: 'Birthday',
+    celebrant: 'Katrina Ocampo',
+    hosts: [['Katrina Ocampo', true], ['Lito Ocampo', false]],
+    location: 'Tagaytay',
+    date: 'Sat, Dec 19, 2026',
+    pax: 80,
+    requested: ['Buffet catering'],
+    offer: [['Grazing table', null]],
+    services: ['catering', 'grazing_table'],
+    first: 'Katrina Ocampo · Debut · Sat, Mar 14, 2026',
+  }),
+  sl: lines('sl', {
+    type: 'Wedding',
+    celebrant: 'Santos & Lim',
+    hosts: [['Carla Santos', true], ['Paolo Lim', false]],
+    location: 'Casa Alegria Events · Hall A + B',
+    date: 'Sat, Dec 12, 2026',
+    pax: 300,
+    requested: ['Reception hall'],
+    services: ['reception_venue'],
+  }),
+};
+
 const ask = (id: string, name: string, date: string, hoursAgo: number): WhatsNewCard => ({
   kind: 'lock_request',
   id: `lockreq-ev-${id}`,
@@ -258,7 +337,7 @@ function forecastFor(price: number, freeUsed: number): FeeDisclosure | null {
   );
 }
 
-export function TodayEasyLab({ sup: supKey, moment, actions, library = false, rail = null, logoNext = false, gift: giftMode = null, eventsYouRun = [] }: { sup: EasySupplier; moment: EasyMoment; actions: TodayActions; library?: boolean; /** 🗂 `?s=coord-today` — the events this supplier runs as a coordinator (owner 2026-10-28). */ eventsYouRun?: readonly EventYouRun[]; /** `setup` only — how far along the first steps are: `service` (details done) · `docs` (a service too) — prototype first_run S4 / S5. */ rail?: 'service' | 'docs' | null; /** `&logo=1` on setup: details done, no logo — the logo step is next (2026-10-22). */ logoNext?: boolean; /** 🎁 `&gift=running|soon` — a plan Setnayan gave (personal invite B6 · C2): Pro until 31 Jan 2027, or a week left. */ gift?: 'running' | 'soon' | null }) {
+export function TodayEasyLab({ sup: supKey, moment, actions, library = false, rail = null, logoNext = false, gift: giftMode = null, eventsYouRun = [], docs = 'none', gbb = 2, coarse = false }: { /** 🔢 `&coarse=1` on setup — an /open-shop shop's [coarse, leaf] services (owner 2026-10-29). */ coarse?: boolean; /** 🧰 setup: how the papers stand (`&docs=checking|fix`) and how many Buffet cards are made (`&gbb=0..3`). */ docs?: 'none' | 'checking' | 'fix'; gbb?: number; sup: EasySupplier; moment: EasyMoment; actions: TodayActions; library?: boolean; /** 🗂 `?s=coord-today` — the events this supplier runs as a coordinator (owner 2026-10-28). */ eventsYouRun?: readonly EventYouRun[]; /** `setup` only — how far along the first steps are: `service` (details done) · `docs` (a service too) — prototype first_run S4 / S5. */ rail?: 'service' | 'docs' | null; /** `&logo=1` on setup: details done, no logo — the logo step is next (2026-10-22). */ logoNext?: boolean; /** 🎁 `&gift=running|soon` — a plan Setnayan gave (personal invite B6 · C2): Pro until 31 Jan 2027, or a week left. */ gift?: 'running' | 'soon' | null }) {
   // 🎁 The gift's end: 31 Jan 2027 23:59:59 Manila for `running`; seven days after the lab's now for `soon`.
   const giftRow = giftMode
     ? { tier_state: 'pro', tier_source: 'admin_comp', tier_expires_at: giftMode === 'soon' ? new Date(NOW + 7 * 86_400_000 - 60_000).toISOString() : '2027-01-31T15:59:59.000Z' }
@@ -279,6 +358,15 @@ export function TodayEasyLab({ sup: supKey, moment, actions, library = false, ra
       : sup.upcoming;
   const bills = setup ? [] : moment === 'locked' && sup.lockedBill ? [sup.lockedBill, ...sup.bills] : moment === 'agreed' ? [bill('rc', sup.ask.card.kind === 'lock_request' ? sup.ask.card.coupleName : 'Couple', feeOf(sup.ask.price), '2026-10-21'), ...sup.bills] : sup.bills;
 
+  const labCards = [
+    { id: 'c1', service: 'catering', title: 'Classic buffet', pricePhp: 450 },
+    { id: 'c2', service: 'catering', title: 'Premium buffet', pricePhp: 650 },
+    { id: 'c3', service: 'catering', title: 'Signature feast', pricePhp: 950 },
+  ].slice(0, Math.max(0, Math.min(3, gbb)));
+  // `&coarse=1` — 🔢 a shop opened through /open-shop ([coarse, leaf], owner 2026-10-29): ONE service, three cards.
+  const labOffer = coarse
+    ? offerProgress(['makeup_artist', 'bridal_hmua'], labCards.map((c) => ({ ...c, service: 'bridal_hmua' })), new Set(VENDOR_CATEGORIES))
+    : offerProgress(['catering', 'grazing_table'], labCards, new Set(VENDOR_CATEGORIES));
   const firstSteps = setup
     ? buildFirstStepsRail({
         verified: false,
@@ -286,14 +374,16 @@ export function TodayEasyLab({ sup: supKey, moment, actions, library = false, ra
         profileTotal: 6,
         // A `rail` moment has its logo in (its next step is the service or the papers); `&logo=1` has none.
         hasLogo: Boolean(rail) && !logoNext,
-        serviceCount: rail === 'docs' ? 1 : 0,
-        docsStatus: 'none',
+        serviceCount: labCards.length,
+        docsStatus: docs === 'checking' ? 'pending_review' : docs === 'fix' ? 'rejected' : 'none',
         docsIn: 0,
         docsTotal: 4,
         submitMissing: rail ? [] : ['Finish your business profile'],
         customerCount: 0,
         // 🌱🖼 A trade that supplies a part counts the library as a step (personal invite B6).
         inspiration: library ? { count: 0 } : null,
+        // 🧰 Good · Better · Best (owner 2026-10-28) — the prototype's own cards: Buffet catering, Grazing table.
+        offer: labOffer,
       })
     : null;
 
@@ -309,7 +399,15 @@ export function TodayEasyLab({ sup: supKey, moment, actions, library = false, ra
     findability: null,
     feeBills: bills,
     feeEnforced: true, // production measured 2026-10-14: the fee lock IS enforced
-    earnings: { confirmedPhp: 0, expectedPhp: setup ? 0 : sup.owedPhp, paydayMeasured: true },
+    earnings: {
+      confirmedPhp: 0,
+      expectedPhp: setup ? 0 : sup.owedPhp,
+      paydayMeasured: true,
+      // 💰 Who owes it — the same total, cut per booking (the "to come in" count's list, 2026-10-28).
+      owed: !setup && sup.owedPhp > 0 && sup.upcoming[0]
+        ? [{ eventId: sup.upcoming[0].eventId, eventName: sup.upcoming[0].eventName, owedPhp: sup.owedPhp, nextDue: '2026-10-30', overdue: false }]
+        : [],
+    },
     credit: setup || !sup.credit ? null : { ...sup.credit, href: '/vendor-dashboard/subscription' },
     gift: labGiftDoor ? { ...labGiftDoor, href: '/vendor-dashboard/subscription' } : null,
     payoutReadiness: setup ? 'unreadable' : sup.payout,
@@ -343,7 +441,31 @@ export function TodayEasyLab({ sup: supKey, moment, actions, library = false, ra
 
   return (
     <div className="min-h-screen bg-cream px-4 pb-32 pt-4" data-supplier-lab="today-easy" data-easy-moment={moment} data-easy-sup={supKey}>
-      <SupplierTodayScreen view={view} outcome={outcome} feeForecasts={forecasts} cards={desk} askStatus="" deskIncomplete={false} actions={actions} eventsYouRun={eventsYouRun} library={library && !firstSteps?.steps.some((st) => st.key === 'inspiration' && st.state !== 'done')} />
+      <SupplierTodayScreen
+        view={view}
+        outcome={outcome}
+        feeForecasts={forecasts}
+        cards={desk}
+        askStatus=""
+        deskIncomplete={false}
+        actions={actions}
+        eventsYouRun={eventsYouRun}
+        eventLines={LAB_EVENT_LINES}
+        library={library && !firstSteps?.steps.some((st) => st.key === 'inspiration' && st.state !== 'done')}
+        setup={
+          firstSteps ? (
+            <SupplierSetupScreen
+              d={labSetupDetails(docs, rail || logoNext ? 'details' : 'fresh')}
+              rail={firstSteps}
+              maker={<p className="py-6 text-center text-[13.5px] text-ink/65" data-lab-maker="">The service maker opens here, over Today — the shipped maker on the real page.</p>}
+              qr={{ svg: null, url: 'https://www.setnayan.com/vendor-invite/titanena' }}
+              today={TODAY}
+              lab
+              gear={<TodaySettings />}
+            />
+          ) : null
+        }
+      />
     </div>
   );
 }

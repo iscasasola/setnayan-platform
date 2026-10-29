@@ -117,7 +117,7 @@ test('6 · the route never sends an empty file for a refused read, and keeps the
     /\{ key: GUESTS_EXCEL_KEY, label: excel\.label, group: 'File', icon: <Share\b/,
     'Save as Excel is not a ≡ choice wearing the share icon',
   );
-  const sortMenu = screen.slice(screen.indexOf('const sortMenu: ThumbMenu = {'), screen.indexOf('const arrangeMenu: ThumbMenu = {'));
+  const sortMenu = screen.slice(screen.indexOf('const sortMenu: ThumbMenu = '), screen.indexOf('const arrangeMenu: ThumbMenu = '));
   assert.match(sortMenu, /\bfileOptions,/, 'the List’s ≡ does not offer Save as Excel');
   assert.match(sortMenu, /if \(k === GUESTS_EXCEL_KEY\) return excel\.save\(\);/, 'picking Save as Excel does not save the file');
   // 🐞 Owner 27 Oct (iPhone app): the bare `<a download>` RENDERED the CSV in the app's only view, no close button,

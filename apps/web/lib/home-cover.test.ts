@@ -68,8 +68,9 @@ test('the Home header is drawn from it, and the page reads it from the PUBLISHED
   // The band moved to its own file (2026-10-16) so the Home's loading screen draws the same one;
   // the Home still draws it, handed the ground.
   const first = stripComments(readFileSync(join(__dirname, '../app/dashboard/[eventId]/_components/home-first-screen.tsx'), 'utf8'));
-  // (2026-10-27: + the pinned line's ⚙ address — `settingsHref`, "EVERY MENU'S ⚙ RIDES ITS PINNED ROW TOO".)
-  assert.match(first, /<HomeCoverBand cover=\{cover\} ground=\{ground\} settingsHref=\{`\/dashboard\/\$\{eventId\}\/details`\} \/>/);
+  // (2026-10-27: + the pinned line's ⚙ address; 2026-10-29: the ⚙ is Event Settings, the couple's, at rest too —
+  // `settingsFor`, owner *"keep it there"*.)
+  assert.match(first, /<HomeCoverBand cover=\{cover\} ground=\{ground\} settingsFor=\{eventSettings \? eventId : undefined\} settingsRows=\{eventSettingsRows\} \/>/);
   const card = stripComments(readFileSync(join(__dirname, '../app/dashboard/[eventId]/_components/home-cover-band.tsx'), 'utf8'));
   assert.match(card, /data-home-cover=\{ground\?\.kind \?\? 'colour'\}/);
   assert.match(card, /style=\{\{ background: ground\.scrim \}\}/, 'the picture has no veil under the words');

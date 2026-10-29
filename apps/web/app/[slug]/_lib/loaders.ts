@@ -43,6 +43,7 @@ import {
   ENTOURAGE_COUPLE_FIELDS,
   ENTOURAGE_PARENT_FIELDS,
   ENTOURAGE_ROLES,
+  MARCH_GUEST_FIELDS,
   MARCH_ROLES,
   type EntourageGroup,
   type EntourageGuestRow,
@@ -66,7 +67,6 @@ import { HUB_PART_IDS, type HubPartId } from '@/lib/hub-parts';
 import { eventPapicGuestActive, fetchGuestQuota } from '@/lib/papic-guest';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { asPapicStyle, type PapicStyle } from '@/lib/papic-photo-styles';
-import type { AnnouncementStage } from '@/lib/coordinator-broadcasts';
 import { resolveFaceMode, type PapicFaceMode } from '@/lib/papic-face-mode';
 import { resolveFaceTagging } from '@/lib/face-tagging-gate';
 import { guestCaptureGate, GUEST_CAPTURE_GATE_COLUMNS } from '@/lib/papic-guest-window';
@@ -580,64 +580,10 @@ export const loadHostPreviewDraft = cache(
  * instance, so every surface in one request shares the single query.
  */
 
-/**
- * Day-of announcements for the GUEST side.
- *
- * ── THE HALF THAT WAS MISSING ───────────────────────────────────────────────
- * The composer has shipped for months: `coordinator-broadcast-card.tsx` on the
- * couple's day-of screen writes `coordinator_broadcasts`, the Data Privacy
- * control `coordinator_day_of_broadcast` is ACTIVE in production, and the table
- * is live. But nothing on the guest site ever read it — every "broadcast" under
- * app/[slug] is the Panood LIVESTREAM, not an announcement. So a coordinator
- * could write "phones down, the ceremony is starting" and only the couple's own
- * dashboard would show it. This is the receiver.
- *
- * AS SOON AS IT IS SENT, UNTIL THE EVENT IS OVER (owner 2026-09-28, superseding
- * the live-window-only rule that stood here). The Schedule's Announce can be
- * sent a week early, and a guest who opens their Invitation that week sees it
- * at the top. The caller passes the resolved `AnnouncementStage`
- * (lib/coordinator-broadcasts.ts) and this returns nothing once the event has
- * ENDED — so "we are running late" from the wedding day still cannot haunt the
- * Post Event page forever. That is the one gate left here; it is deliberately
- * the conservative one.
- *
- * ONE, NOT A FEED. The guest gets the latest only. A scrollback of operational
- * chatter is the coordinator's business, not a guest's — and a feed on the
- * event page would compete with the couple's own words.
- *
- * Admin client for the same reason as the widget registry above: this page
- * renders for visitors with no RLS session. The read is scoped to one event and
- * returns nothing but the announcement text and when it was sent.
- */
-export const loadDayOfBroadcast = cache(
-  async (
-    admin: AdminClient,
-    eventId: string,
-    stage: AnnouncementStage,
-  ): Promise<{ body: string; createdAt: string } | null> => {
-    if (stage === 'after') return null;
-    const { data, error } = await admin
-      .from('coordinator_broadcasts')
-      .select('body, created_at')
-      .eq('event_id', eventId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    // Best-effort, exactly like fetchLatestBroadcasts: a missing relation or a
-    // read error must never take the wedding page down on the day.
-    if (error) {
-      console.error(
-        '[supabase-error] app/[slug]/_lib/loaders.ts · from:coordinator_broadcasts.select',
-        error,
-      );
-    }
-    if (error || !data) return null;
-    const row = data as { body: string; created_at: string };
-    const body = row.body?.trim();
-    if (!body) return null;
-    return { body, createdAt: row.created_at };
-  },
-);
+/* 📣 `loadDayOfBroadcast` LIVED HERE — the layout's read of the coordinator's announcement. Gone with EV1
+   (2026-10-28): the layout reads no viewer any more (so the Event Hub under it can be cached), and the card asks
+   `GET /{slug}/announcement`, which reads through `_lib/latest-announcement.server.ts` (one remembered answer per
+   event, the guests-only gate per phone). */
 
 /**
  * Per-event widget registry from migration 20260607030000_invitation_widgets.sql.
@@ -2401,16 +2347,24 @@ export const loadMarch = cache(
     eventId: string,
   ): Promise<{ walking: EntourageGroup[]; out: EntourageGroup[] | null; unread?: true }> => {
     const roles = MARCH_ROLES;
-    const [guestRes, trayRes] = await Promise.all([
+    const [guestRes, trayRes, ownRes] = await Promise.all([
       admin
         .from('guests')
         // + the parent fields (gender, attire): a parent told by them reads "Mother of the Groom" on the march too, as on every print.
-        .select(`${ENTOURAGE_COLUMNS}, side, ${ENTOURAGE_PARENT_FIELDS}`)
+        // + 🏷 the walk row's own group (`MARCH_GUEST_FIELDS`) — the march only; a print never asks it.
+        .select(`${MARCH_GUEST_FIELDS}, side, ${ENTOURAGE_PARENT_FIELDS}`)
         .eq('event_id', eventId)
         .is('deleted_at', null)
         .or(`role.in.(${roles.join(',')}),extra_roles.ov.{${roles.join(',')}}`),
       admin.from('march_not_walking').select('guest_id').eq('event_id', eventId),
+      /* 🏷 The couple's own march groups (owner 2026-10-29). Unread is never "none": a march drawn without them would put
+         their walkers back in their role sections — a different march — so it is said like an unread march. */
+      admin.from('march_groups').select('group_key, label').eq('event_id', eventId),
     ]);
+    if (ownRes.error) {
+      logQueryError('loadMarch own groups', ownRes.error, { event_id: eventId }, 'graceful_degrade');
+      return { walking: [], out: null, unread: true };
+    }
     if (guestRes.error) {
       logQueryError('loadMarch', guestRes.error, { event_id: eventId }, 'graceful_degrade');
       // `unread`: the march itself was not read — said in the Maker, never drawn as "Nobody walks yet" (2026-10-23).
@@ -2424,7 +2378,8 @@ export const loadMarch = cache(
       loadEventRoleNames(admin, eventId),
       loadEventNameStyle(admin, eventId),
     ]);
-    const build = (these: EntourageGuestRow[]) => buildEntourage(these, order, names, style, { march: true });
+    const own = ((ownRes.data ?? []) as Array<{ group_key: string; label: string }>).map((g) => ({ key: g.group_key, label: g.label }));
+    const build = (these: EntourageGuestRow[]) => buildEntourage(these, order, names, style, { march: true, own });
     if (!outIds) return { walking: build(rows), out: null };
     return {
       walking: build(rows.filter((r) => !r.guest_id || !outIds.has(r.guest_id))),

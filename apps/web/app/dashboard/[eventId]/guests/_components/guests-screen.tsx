@@ -55,7 +55,6 @@ import {
   Ellipsis,
   Heart,
   House,
-  ListFilter,
   Mail,
   Minus,
   PartyPopper,
@@ -103,7 +102,6 @@ import { normalizeSearchText } from '@/lib/guest-search';
 import {
   isToInvite,
   mayBeInvited,
-  MAP_ARRANGE,
   mapTree,
   hostMaySetReply,
   plusOneFilterMatches,
@@ -112,7 +110,6 @@ import {
   plusOneWordsFrom,
   PLUS_ONE_FILTERS,
   seatRowsByGuest,
-  ROSTER_VIEWS,
   rosterSearchMatches,
   rosterSections,
   rosterStats,
@@ -143,7 +140,13 @@ import { GuestListHasSidesContext } from './guest-list-has-sides-context';
 import { ADD_WAYS, openAddGuest, openAddWay, type AddWayKey } from './add-guest-sheet';
 import { AddDoors } from './capture-bar';
 import { SearchAddRow, searchAddLabel } from '@/components/search-add-row';
-import { guestAdds, NEEDS_BOTH_NAMES, queueTypedGuest, useGuestAdds } from './guest-add-queue';
+import { guestAdds, NEEDS_BOTH_NAMES, queueTypedGuest, useGuestAdds, type AddPicks } from './guest-add-queue';
+import { SectionHeadToolbar, SectionRenameInPlace } from './section-head-toolbar';
+import { renameSection } from '../role-name-actions';
+import { useSetRoleNames } from './role-names-context';
+import { isRenamableSection, sectionUsualHeading } from '@/lib/entourage';
+import { sectionName } from '@/lib/role-names';
+import { resolveRoleSet } from '@/lib/role-sets';
 import { JustAdded } from './just-added';
 import { hearAction } from './hear-action';
 import { AddCardPicks, PeopleHits, picksForAdd, useAddPicks, type PersonHit } from './search-add-card';
@@ -165,13 +168,57 @@ import type { GuestListRow } from '@/lib/guest-list-rows';
 import { GuestListStatus } from './guest-copy-mark';
 import { TitlesWaiting, type TitleWaitingPerson } from './titles-waiting';
 import { displayPersonName } from '@/lib/person-name-case';
+import {
+  GUESTS_MAKER_VIEWS,
+  GUESTS_TOPS,
+  GUESTS_TOP_LABEL,
+  GUESTS_VIEW_LABEL,
+  SEAT_MODES,
+  SEAT_MODE_MENU_LABEL,
+  guestsViewHref,
+  isFullScreenView,
+  isGuestsMakerView,
+  pinnedMenuWords,
+  seatModeOf,
+  seatOfMode,
+  topOfView,
+  type GuestsMakerView,
+  type GuestsTop,
+  type GuestsView,
+  type SeatMode,
+  type SeatView,
+} from '@/lib/guests-views';
+import {
+  NO_GUESTS_FILTER,
+  hrefWithGuestsFilter,
+  listGroupOf,
+  mapGroupOf,
+  sortGuestsFor,
+  writeGuestsFilter,
+  type GuestsFilter,
+} from '@/lib/guests-filter';
+import { GuestsLensContext, type GuestsLens, type SeatsChannel } from './guests-lens';
+import { guestsFilterMenu } from './guests-filter-menu';
 
 
 export type GuestsScreenProps = {
   eventId: string;
   /** The event's role set (`resolveRoleSetKeyForEvent`) — the Add card's Role list. Absent = the wedding set. */
   roleSetKey?: string | null;
-  gview: 'list' | 'map';
+  gview: GuestsView;
+  /**
+   * 🗂 R4 · the views this event has, in the row's order (`lib/guests-views.ts`): List · Map always, Seats where the type
+   * has a seat plan, March where it prints an entourage (the couple's). Absent: List · Map.
+   */
+  views?: readonly GuestsView[];
+  /** 🎚 The Seats mode the address asked for (`seat=`) — the top row's Seats ▾ and the full-screen rule read it at once. */
+  seat?: SeatView | null;
+  /**
+   * 🗂 R4 · Seats and March — the shipped makers, drawn whole by the page (the seat plan's own page, the march maker) and
+   * streamed WITH it, so a switch to either asks the server for nothing (owner 2026-10-29, *"fewest requests"*). Each is
+   * mounted the first time its view is opened, and kept (hidden) after.
+   */
+  bodies?: Partial<Record<GuestsMakerView, ReactNode>>;
   /**
    * Every guest, importance-sorted by the page (the honoree first) — ONLY the fields the list draws and
    * searches (`lib/guest-list-rows.ts` GUEST_LIST_ROW_FIELDS), never the whole row.
@@ -254,6 +301,12 @@ export type GuestsScreenProps = {
    * so the page never draws a control that can only fail.
    */
   viewOnly?: boolean;
+  /**
+   * ⇅ R4 slice 1 · the ONE Show · Group by · Sort the address asked for (`?gshow=` · `?ggroup=` · `?gsort=`, parsed by
+   * `parseGuestsFilter`) — shared by the carousel's count doors, the List, the Map, and the Show of Seats and March.
+   * Absent: everyone, each view's own grouping, the shipped order.
+   */
+  filter?: GuestsFilter;
 };
 
 /** 📤 A row's Share: the event's invitation address + words, and guest_id → their own QR token. */
@@ -304,6 +357,9 @@ function Mark({ mark }: { mark: SectionMark }) {
   return <Icon aria-hidden strokeWidth={1.9} />;
 }
 
+/** The view row without R4's two (a lab or an older caller that names none). */
+const DEFAULT_VIEWS: readonly GuestsView[] = ['list', 'map'];
+
 /** The shell bar's height while it shows — the sticky block sits under it. */
 export function GuestsScreen(props: GuestsScreenProps) {
   // 📋 THE FRESH READ WAS REFUSED → the phone's last copy, said plainly — never "No guests", never fresh.
@@ -328,7 +384,9 @@ export function GuestsScreen(props: GuestsScreenProps) {
     : props;
   const {
     eventId,
-    gview,
+    gview: gviewAsked,
+    views: guestsViews = DEFAULT_VIEWS,
+    seat: seatAsked = null,
     measured,
     notLoaded = null,
     hasSides,
@@ -352,7 +410,67 @@ export function GuestsScreen(props: GuestsScreenProps) {
     copy = null,
     roleSetKey = null,
     viewOnly = false,
+    filter: filterAsked = NO_GUESTS_FILTER,
   } = live;
+  /* 🗂 R4 · THE VIEW IS A CLIENT SWITCH (owner 2026-10-29, *"as smooth as possible with fastest load and fewest
+     requests"*): List · Map · Seats · March change here, in place — the address follows (`replaceState`, so a reload or
+     a shared link lands on the same view) and nothing is asked of the server; every view's data came with the page. A
+     new address from the server (a door, Back) is taken as the view. */
+  const [gview, setGview] = useState<GuestsView>(gviewAsked);
+  const filterRef = useRef<GuestsFilter>(filterAsked);
+  const [seenViews, setSeenViews] = useState<ReadonlySet<GuestsView>>(() => new Set([gviewAsked]));
+  useEffect(() => {
+    setGview(gviewAsked);
+    setSeenViews((s) => (s.has(gviewAsked) ? s : new Set([...s, gviewAsked])));
+  }, [gviewAsked]);
+  /* 🎚 R4 slice 2 · THE TOP ROW (owner 2026-10-29: "Guests ▾ List·Map · Seats ▾ List·2D·3D · March"). Guests remembers
+     its last mode (List or Map) so its segment goes back to it; Seats' mode is the SEAT PLAN's own state — it reports it
+     here through the lens (`registerSeats`), and a mode picked while the plan is not on screen waits for it. */
+  const [guestsMode, setGuestsMode] = useState<'list' | 'map'>(gviewAsked === 'map' ? 'map' : 'list');
+  const [seatMode, setSeatMode] = useState<SeatMode>(seatModeOf(seatAsked));
+  const [seatShow3D, setSeatShow3D] = useState(process.env.NEXT_PUBLIC_SEATING_3D !== 'false');
+  /** The top row's seat for the view's own rounds (Seats' Edit · ⋯) — the plan portals them in. */
+  const [toolsSlot, setToolsSlot] = useState<HTMLElement | null>(null);
+  const seatsApi = useRef<SeatsChannel | null>(null);
+  const seatWanted = useRef<SeatMode | null>(null);
+  const registerSeats = useCallback((api: SeatsChannel | null) => {
+    seatsApi.current = api;
+    if (!api) return;
+    setSeatShow3D(api.show3D);
+    const want = seatWanted.current;
+    seatWanted.current = null;
+    if (want && want !== api.mode) api.setMode(want);
+    else setSeatMode(api.mode);
+  }, []);
+  const pickView = (v: GuestsView, seat?: SeatMode) => {
+    setGview(v);
+    if (v === 'list' || v === 'map') setGuestsMode(v);
+    setSeenViews((s) => (s.has(v) ? s : new Set([...s, v])));
+    // ⇅ The shared Show · Group by · Sort rides along — a switch keeps what is shown (lib/guests-filter.ts).
+    const at = guestsViewHref(eventId, v, { seat: v === 'seats' ? seatOfMode(seat ?? seatMode) : null });
+    window.history.replaceState(window.history.state, '', hrefWithGuestsFilter(at, filterRef.current));
+  };
+  /** Seats › a mode: the plan's own switch when it is on screen; otherwise open Seats and hand the plan the mode. */
+  const chooseSeat = (m: SeatMode) => {
+    if (gview === 'seats' && seatsApi.current) {
+      seatsApi.current.setMode(m);
+      return;
+    }
+    seatWanted.current = m;
+    setSeatMode(m);
+    pickView('seats', m);
+  };
+  /** A segment pressed: Guests goes back to its last mode, Seats to the plan's, March to the March. */
+  const onTopPress = (t: GuestsTop) => (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+    e.preventDefault();
+    if (t === 'seats') chooseSeat(seatMode);
+    else pickView(t === 'guests' ? guestsMode : 'march');
+  };
+  /** 🗺 Map, Seats › 2D and Seats › 3D are auto-pinned FULL SCREEN (`isFullScreenView`). */
+  const fullView = isFullScreenView(gview, seatMode);
+  /** 🗂 R4 · Seats or March: a shipped maker drawn whole — no summary, no list, no thumb row of the List's. */
+  const makerView = isGuestsMakerView(gview);
   // 🔒 Nothing that writes is offered while this is the phone's old copy OR the viewer may only look.
   const writesOff = copy !== null || viewOnly;
   // ⚙ Guests settings — opened by the ⚙ in place; a link (`?settings=1&row=…`) opens it with the page. Closing drops
@@ -395,6 +513,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
   const [toast, toastNode] = usePeekToast();
   const inspector = useInspectorContext();
   const roleNames = useRoleNames();
+  const setRoleNames = useSetRoleNames();
   // 📋 The fresh, measured List keeps itself on the phone for the next open (`guest-list-copy.ts`).
   useKeepGuestList(
     { guests: live.guests, hasSides, groupsByGuest, tableByGuest, faceByGuest, requests, rootLabel, roleNames },
@@ -475,20 +594,42 @@ export function GuestsScreen(props: GuestsScreenProps) {
   const [plusFilter, setPlusFilter] = useState<PlusOneFilter | null>(null);
   // 👆 The counts are doors (owner 2026-10-21): "N attending · N not coming · N no reply" filter to exactly those guests.
   // ☑ A cold `?select=to-invite` (⚙ › Pick who's link) lands narrowed to To invite, as the in-place press does.
-  const [replyFilter, setReplyFilter] = useState<ReplyFilter | null>(initialSelect ? 'toinvite' : null);
+  /* ⇅ THE ONE SHOW · GROUP BY · SORT (R4 slice 1, owner 2026-10-29 — `lib/guests-filter.ts`): the count doors, the ⇅ of
+     every view, the List and the Map read and write THIS — and the address keeps it (`replaceState`, nothing asked of
+     the server). `replyFilter` is its Show, under the name every door already used. */
+  const [filter, setFilter] = useState<GuestsFilter>(() => (initialSelect ? { ...filterAsked, show: 'toinvite' } : filterAsked));
+  useEffect(() => {
+    filterRef.current = filter;
+    try {
+      const url = new URL(window.location.href);
+      const next = writeGuestsFilter(url.searchParams, filter).toString();
+      if (next === url.searchParams.toString()) return;
+      window.history.replaceState(window.history.state, '', `${url.pathname}${next ? `?${next}` : ''}${url.hash}`);
+    } catch {
+      /* the address keeps its old words; the screen shows the new filter either way */
+    }
+  }, [filter]);
+  const replyFilter = filter.show;
+  const setReplyFilter = useCallback(
+    (next: ReplyFilter | null | ((now: ReplyFilter | null) => ReplyFilter | null)) =>
+      setFilter((f) => ({ ...f, show: typeof next === 'function' ? next(f.show) : next })),
+    [],
+  );
   // A guest found by NAME brings their +1s (`withTheirPlusOnes`) — a +1 is never left behind by a search.
   const visible = useMemo(() => {
     const found = q ? withTheirPlusOnes(q, roster.filter((g) => rosterSearchMatches(q, g, facts)), roster) : roster;
-    return plusFilter || replyFilter
-      ? found.filter((g) => plusOneFilterMatches(g, plusFilter) && replyFilterMatches(g, replyFilter))
-      : found;
-  }, [roster, q, facts, plusFilter, replyFilter]);
+    const narrowed =
+      plusFilter || replyFilter
+        ? found.filter((g) => plusOneFilterMatches(g, plusFilter) && replyFilterMatches(g, replyFilter))
+        : found;
+    // ⇅ Sort re-orders the same rows (Importance = the page's own order); a +1 stays beside their guest.
+    return sortGuestsFor(narrowed, filter.sort, (id) => tableByGuest[id] ?? null) as GuestRow[];
+  }, [roster, q, facts, plusFilter, replyFilter, filter.sort, tableByGuest]);
 
   // ── The one Sort (list) and the one Arrange (map).
-  const views = useMemo(() => ROSTER_VIEWS.filter((v) => hasSides || v.key !== 'side'), [hasSides]);
-  const [view, setView] = useState<RosterView>('role');
-  const arranges = useMemo(() => MAP_ARRANGE.filter((v) => hasSides || v.key !== 'side'), [hasSides]);
-  const [arrange, setArrange] = useState<MapArrange>(hasSides ? 'side' : 'role');
+  // ⇅ Group by is the shared filter's (List: Role by default; the Map its own default where it has no Last name).
+  const view: RosterView = listGroupOf(filter);
+  const arrange: MapArrange = mapGroupOf(filter, hasSides);
 
   const sections = useMemo(() => rosterSections(visible, view, facts), [visible, view, facts]);
 
@@ -499,7 +640,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
     const first = secs.find((x) => !x.celebrants) ?? secs[0];
     return new Set(first ? [first.key] : []);
   };
-  const [open, setOpen] = useState<Set<string>>(() => firstOpen('role'));
+  const [open, setOpen] = useState<Set<string>>(() => firstOpen(listGroupOf(filterAsked)));
   // A refused read drew no sections; when the phone's copy replaces it, open the copy's first section.
   useEffect(() => {
     if (unread) setOpen(firstOpen(view));
@@ -555,7 +696,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
     if (!initialSelect) return;
     setSelectMode(true);
     setReplyFilter('toinvite');
-  }, [initialSelect]);
+  }, [initialSelect, setReplyFilter]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const toggleOne = (id: string) =>
     setSelected((prev) => {
@@ -578,6 +719,11 @@ export function GuestsScreen(props: GuestsScreenProps) {
     setSelectMode(false);
     setSelected(new Set());
   };
+
+  /* ✎ A LIST GROUP RENAMED ON ITS ROW (owner 2026-10-29 ~21:55: "remove the pop up and just have a button on the row to
+     rename it. this is the pencil icon. remove tha dd guests here."): the header tap folds and unfolds again (no select,
+     no toolbar, no ＋ Add guest here); the ✎ on the row turns the row into the name box (`SectionRenameInPlace`). */
+  const [renaming, setRenaming] = useState<string | null>(null);
   /* ☑ ⚙ › Invitations' "Pick who", IN PLACE (owner 2026-10-28, "pick who … does not show anything"): the sheet closes,
      Select turns on, the list narrows to To invite — the carousel's own `toinvite` door. Nothing navigates. On the Map
      (no rows to pick) it opens the List the cold-load way, which lands in the same state (`initialSelect`).
@@ -592,7 +738,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
     setSelectMode(true);
     setReplyFilter('toinvite');
     window.scrollTo({ top: 0 });
-  }, [openSettings, gview, router, eventId]);
+  }, [openSettings, gview, router, eventId, setReplyFilter]);
 
   // ── Settled: the rise plays once per page/mode, never on a re-render.
   const [settled, setSettled] = useState(false);
@@ -640,10 +786,21 @@ export function GuestsScreen(props: GuestsScreenProps) {
     const strip = stripRef.current;
     const root = rootRef.current;
     if (!st) return;
-    if (!strip || !hold || !root || gview !== 'list') {
+    /* 📌 R4 slice 4: Seats and March pin the SAME row (full face — no summary face there) once it reaches the bar, so a
+       March group's header has a row to stick under (`data-pinned`; the List keeps its two-face `data-collapsed`). */
+    const maker = isGuestsMakerView(gview);
+    /* 🗺 FULL SCREEN (Map · Seats 2D · 3D): the row is the slim pinned row from the start — nothing scrolls there. */
+    if (fullView) {
+      st.removeAttribute('data-pinned');
+      st.setAttribute('data-collapsed', '');
+      return;
+    }
+    if (!maker) st.removeAttribute('data-pinned');
+    if (!hold || !root || (!maker && (!strip || gview !== 'list'))) {
       st.removeAttribute('data-collapsed');
       return;
     }
+    if (maker) st.removeAttribute('data-collapsed');
     let raf = 0;
     let last: boolean | null = null;
     let place = '';
@@ -651,9 +808,17 @@ export function GuestsScreen(props: GuestsScreenProps) {
       raf = 0;
       // The shell bar's height while it shows (`useShellBarOffset` writes it inline) — the row pins under it.
       const bar = parseFloat(root.style.getPropertyValue('--gs-top')) || 0;
-      const on = strip.getBoundingClientRect().bottom <= bar + st.offsetHeight + 2;
+      const pinnedNow = (): boolean => {
+        if (maker) return hold.getBoundingClientRect().top <= bar;
+        if (!strip) return false;
+        const on = strip.getBoundingClientRect().bottom <= bar + st.offsetHeight + 2;
+        return on;
+      };
+      const on = pinnedNow();
       if (on !== last) {
         last = on;
+        /* 🎚 Slice 2: pinned, EVERY view shows the slim face (the one menu · 📤 · ⚙) — Seats and March pin fixed too. */
+        if (maker) st.toggleAttribute('data-pinned', on);
         st.toggleAttribute('data-collapsed', on);
       }
       // Pinned, the row is `position: fixed` — it takes its holder's column edges (the desk's rail, a card column).
@@ -680,7 +845,40 @@ export function GuestsScreen(props: GuestsScreenProps) {
       window.removeEventListener('scroll', soon);
       window.removeEventListener('resize', soon);
     };
-  }, [gview, measured]);
+  }, [gview, measured, fullView]);
+
+  /* 🎚 The slim face stops short of the view's rounds AND the ⚙ (`--gs-rounds-w`, measured — Seats' Edit · ⋯ come and go). */
+  useEffect(() => {
+    const st = stickRef.current;
+    const el = toolsSlot;
+    if (!st || !el) return;
+    const sync = () => st.style.setProperty('--gs-rounds-w', `${el.offsetWidth ? el.offsetWidth + 8 : 0}px`);
+    sync();
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(sync) : null;
+    ro?.observe(el);
+    return () => ro?.disconnect();
+  }, [toolsSlot]);
+
+  /* 🗺 ENTERING A FULL-SCREEN VIEW GLIDES (owner 2026-10-29, "remember to animate them properly"; prototype v16): the page
+     scrolls smoothly back to the top while the full row rises and fades and the slim row rises in (0.3 s, CSS on
+     `data-collapsed`), the count row folds away (`data-guests-full`), and the map takes the room it left — the canvases
+     measure their height once the fold has played (a `resize`, which the map and the seat plan already listen for).
+     Reduced motion: no scroll animation, no glide. */
+  const fullFirst = useRef(true);
+  useEffect(() => {
+    const first = fullFirst.current;
+    fullFirst.current = false;
+    if (!fullView || first) return;
+    const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (window.scrollY > 0) window.scrollTo({ top: 0, behavior: still ? 'auto' : 'smooth' });
+  }, [fullView]);
+  useEffect(() => {
+    const t = window.setTimeout(() => window.dispatchEvent(new Event('resize')), 320);
+    return () => window.clearTimeout(t);
+  }, [fullView, gview]);
+  useEffect(() => {
+    setSeatMode(seatModeOf(seatAsked));
+  }, [seatAsked]);
 
   // ── ONE state for every guest row, and one for the thumb row (rules 3a/3b, G36).
   useRowState(listRef, [sections, selectMode, gview, drawnKey]);
@@ -1056,33 +1254,86 @@ export function GuestsScreen(props: GuestsScreenProps) {
       <span className="sr-only"> {word}</span>
     </button>
   );
-  /** The pinned row's selector: the same views as links, `List · Map` only, small and words only (owner 2026-10-27,
-      "selectors should stay but simplified"). The ⚙ is the full row's own, and stays on screen pinned. */
-  const pinSeg = (key: 'list' | 'map', label: string) => (
-    <Link
-      key={key}
-      className={`${pillSegClass(gview === key)} ${styles.pinSegChoice}`}
-      href={key === 'list' ? `/dashboard/${eventId}/guests` : `/dashboard/${eventId}/guests?gview=${key}`}
-      aria-current={gview === key ? 'page' : undefined}
-      scroll={false}
-      data-guests-pin-seg={key}
-    >
-      {label}
-    </Link>
-  );
-
-  const seg = (key: 'list' | 'map', label: string, count?: number) => (
-    <Link
-      key={key}
-      className={`${pillSegClass(gview === key)} [&>b]:font-medium [&>b]:opacity-80`}
-      href={key === 'list' ? `/dashboard/${eventId}/guests` : `/dashboard/${eventId}/guests?gview=${key}`}
-      aria-current={gview === key ? 'page' : undefined}
-      scroll={false}
-      data-guests-seg={key}
-    >
-      {label}
-      {count !== undefined && measured ? <b><Count value={count} id={`gs-seg-${key}`} /></b> : null}
-    </Link>
+  /* 🎚 R4 slice 2 · THE TOP ROW (owner 2026-10-29, confirmed ~18:35: *"Guests ▾ List·Map · Seats ▾ List·2D·3D · March"*;
+     prototype v14 `renderTop`): ONE segmented row of the three — the SAME pill selector, each segment still a link (an
+     address an old door lands on) — and the SELECTED one, where it has modes, carries a small ▾ that opens them (the
+     shared PickMenu). A plain press switches in place; a press asking for a new tab keeps the link's way. */
+  const tops = GUESTS_TOPS.filter((t) => t === 'guests' || guestsViews.includes(t));
+  const guestModes: PickOption[] = guestsViews.filter((v) => v === 'list' || v === 'map').map((v) => ({ key: v, label: GUESTS_VIEW_LABEL[v] }));
+  const seatModes: PickOption[] = SEAT_MODES.filter((m) => m !== '3d' || seatShow3D).map((m) => ({ key: m, label: SEAT_MODE_MENU_LABEL[m] }));
+  const topHref = (t: GuestsTop) =>
+    t === 'seats' ? guestsViewHref(eventId, 'seats', { seat: seatOfMode(seatMode) }) : guestsViewHref(eventId, t === 'guests' ? guestsMode : 'march');
+  const seg = (t: GuestsTop) => {
+    const on = topOfView(gview) === t;
+    const modes = t === 'guests' ? guestModes : t === 'seats' ? seatModes : [];
+    /* The guest count rides the Guests segment while it is the one on screen (the old "List 32"). */
+    const count = t === 'guests' && on && measured ? <b><Count value={stats.total} id="gs-seg-guests" /></b> : null;
+    if (on && modes.length > 1) {
+      return (
+        /* The segment's look is the pill's; its PRESS is the menu's button (the pill's own `sn-hit` expander would lie over
+           the button and take the tap — so the wrapper drops it and the button carries it). */
+        <span key={t} className={`${pillSegClass(true).replace(/\bsn-(hit|press)\b/g, '')} !p-0`} aria-current="page" data-guests-seg={t} data-guests-seg-menu="">
+          <PickMenu
+            label={`${GUESTS_TOP_LABEL[t]} — how to see it`}
+            value={t === 'guests' ? gview : seatMode}
+            options={modes}
+            onPick={(k) => (t === 'guests' ? pickView(k as GuestsView) : chooseSeat(k as SeatMode))}
+            dataAttr="data-guests-mode"
+            buttonText={GUESTS_TOP_LABEL[t]}
+            className="sn-press sn-hit relative z-[2] flex h-full min-h-[38px] w-full items-center justify-center gap-1 rounded-full px-2.5 [&>b]:font-medium [&>b]:opacity-80"
+            trigger={
+              <>
+                <span>{GUESTS_TOP_LABEL[t]}</span>
+                {count}
+                <ChevronDown aria-hidden className="h-3.5 w-3.5 shrink-0 opacity-70" strokeWidth={2.2} />
+              </>
+            }
+          />
+        </span>
+      );
+    }
+    return (
+      <Link
+        key={t}
+        className={`${pillSegClass(on)} [&>b]:font-medium [&>b]:opacity-80`}
+        href={topHref(t)}
+        aria-current={on ? 'page' : undefined}
+        scroll={false}
+        onClick={onTopPress(t)}
+        data-guests-seg={t}
+      >
+        {GUESTS_TOP_LABEL[t]}
+        {count}
+      </Link>
+    );
+  };
+  /** 📌 The slim pinned row's ONE menu (owner v14: LEFT one menu — page + mode in one dropdown, the groups listed). */
+  const pinMenuOptions: PickOption[] = [
+    ...guestModes.map((o) => ({ key: `guests:${o.key}`, label: o.label, group: GUESTS_TOP_LABEL.guests })),
+    ...(tops.includes('seats') ? seatModes.map((o) => ({ key: `seats:${o.key}`, label: o.label, group: GUESTS_TOP_LABEL.seats })) : []),
+    ...(tops.includes('march') ? [{ key: 'march', label: GUESTS_TOP_LABEL.march, group: GUESTS_TOP_LABEL.march }] : []),
+  ];
+  const pinMenuValue = gview === 'seats' ? `seats:${seatMode}` : gview === 'march' ? 'march' : `guests:${gview}`;
+  const pinMenu = (
+    <PickMenu
+      label="Guests — what you see"
+      value={pinMenuValue}
+      options={pinMenuOptions}
+      onPick={(k) => {
+        if (k === 'march') pickView('march');
+        else if (k.startsWith('seats:')) chooseSeat(k.slice(6) as SeatMode);
+        else pickView(k.slice(7) as GuestsView);
+      }}
+      dataAttr="data-guests-pin-menu"
+      buttonText={pinnedMenuWords(gview, seatMode)}
+      className="sn-press sn-hit inline-flex h-10 min-w-0 shrink items-center gap-1.5 rounded-full bg-ink/[0.06] px-3 text-[14px] font-medium text-ink dark:bg-white/[0.08]"
+      trigger={
+        <>
+          <span className="min-w-0 whitespace-nowrap">{pinnedMenuWords(gview, seatMode)}</span>
+          <ChevronDown aria-hidden className="h-3.5 w-3.5 shrink-0 text-ink/55" strokeWidth={2.2} />
+        </>
+      }
+    />
   );
 
   /* ═══ the thumb row ═══ */
@@ -1112,52 +1363,65 @@ export function GuestsScreen(props: GuestsScreenProps) {
     copy?.freshness === 'failed'
       ? []
       : [{ key: GUESTS_EXCEL_KEY, label: excel.label, group: 'File', icon: <Share className="h-[18px] w-[18px]" strokeWidth={1.9} /> }];
-  const sortMenu: ThumbMenu = {
+  /** ⇅ A pick in the shared menu: the one filter changes; a new Group by opens its first heading (as the shipped Sort
+      did) and clears the +1 narrowing; the list goes back to its top. */
+  const pickFilter = (next: GuestsFilter) => {
+    if (listGroupOf(next) !== view) {
+      setPlusFilter(null);
+      setOpen(firstOpen(listGroupOf(next)));
+    }
+    setFilter(next);
+    window.scrollTo({ top: 0 });
+  };
+  /* ⇅ THE LIST'S ROUND (R4 slice 1): Show · Group by · Sort — the shared state — then the shipped ≡ items it held: +1 ·
+     Select… · File · the ways to add. The same seat, the same icon. */
+  const sortMenu: ThumbMenu = guestsFilterMenu({
+    view: 'list',
+    filter,
+    onFilter: pickFilter,
+    hasSides,
     mark: 'data-thumb-sort',
     tour: 'guests-sort',
-    label: 'Sort, select or add',
-    value: plusFilter ? `plus:${plusFilter}` : view,
-    buttonText: plusFilter ? `+1 · ${PLUS_ONE_FILTERS.find((f) => f.key === plusFilter)?.label ?? ''}` : undefined,
-    menu: views
-      .map((v): PickOption => ({ key: v.key, label: v.label, group: 'Sort by', icon: <ListFilter className="h-[18px] w-[18px]" strokeWidth={1.9} /> }))
-      .concat(
-        // 🪑 "+1 ▾ Named · No name yet" (owner 2026-10-21) — offered only when the list has +1s; picking a Sort clears it.
-        plusTally.named + plusTally.unnamed > 0
-          ? PLUS_ONE_FILTERS.map((f) => ({ key: `plus:${f.key}`, label: f.label, group: '+1', icon: <Armchair className="h-[18px] w-[18px]" strokeWidth={1.9} /> }))
-          : [],
-        // ☑ Select lives in this menu (owner 2026-10-22, question 1) — it was the row's fifth round.
-        writesOff ? [] : [{ key: 'select', label: 'Select…', group: 'List', icon: <SquareCheck className="h-[18px] w-[18px]" strokeWidth={1.9} /> }],
-        fileOptions,
-        addWays,
-      ),
-    onPick: (k) => {
+    label: 'Show, sort, select or add',
+    alsoOn: plusFilter !== null,
+    extras: ([] as PickOption[]).concat(
+      // 🪑 "+1 ▾ Named · No name yet" (owner 2026-10-21) — offered only when the list has +1s; a new Group by clears it.
+      plusTally.named + plusTally.unnamed > 0
+        ? PLUS_ONE_FILTERS.map((f) => ({
+            key: `plus:${f.key}`,
+            label: f.label,
+            group: '+1',
+            icon: <Armchair className="h-[18px] w-[18px]" strokeWidth={1.9} />,
+            trail: plusFilter === f.key ? { text: '✓', tone: 'ok' as const, label: 'shown now' } : undefined,
+          }))
+        : [],
+      // ☑ Select lives in this menu (owner 2026-10-22, question 1) — it was the row's fifth round.
+      writesOff ? [] : [{ key: 'select', label: 'Select…', group: 'List', icon: <SquareCheck className="h-[18px] w-[18px]" strokeWidth={1.9} /> }],
+      fileOptions,
+      addWays,
+    ),
+    onExtra: (k) => {
       if (pickedAddWay(k)) return;
       if (k === GUESTS_EXCEL_KEY) return excel.save();
       if (k === 'select') return setSelectMode(true);
       if (k.startsWith('plus:')) {
-        setPlusFilter(k.slice(5) as PlusOneFilter);
+        setPlusFilter((now) => (now === k.slice(5) ? null : (k.slice(5) as PlusOneFilter)));
         window.scrollTo({ top: 0 });
-        return;
       }
-      const next = k as RosterView;
-      setPlusFilter(null);
-      setView(next);
-      setOpen(firstOpen(next));
-      window.scrollTo({ top: 0 });
     },
-  };
-  const arrangeMenu: ThumbMenu = {
+  });
+  /* ⇅ THE MAP'S ROUND: Show · Group by (the SAME state as the List's — v18: the Map has no "Grouped by" chip of its own),
+     then the ways to add. */
+  const arrangeMenu: ThumbMenu = guestsFilterMenu({
+    view: 'map',
+    filter,
+    onFilter: setFilter,
+    hasSides,
     mark: 'data-thumb-arrange',
-    label: 'Arrange the map, or add',
-    value: arrange,
-    menu: arranges
-      .map((v): PickOption => ({ key: v.key, label: v.label, group: 'Arrange by', icon: <ListFilter className="h-[18px] w-[18px]" strokeWidth={1.9} /> }))
-      .concat(addWays),
-    onPick: (k) => {
-      if (pickedAddWay(k)) return;
-      setArrange(k as MapArrange);
-    },
-  };
+    label: 'Show, group or add',
+    extras: addWays,
+    onExtra: (k) => void pickedAddWay(k),
+  });
   /* ⚡ SEARCH OR ADD, ONE ENTER (owner 2026-10-19: "i type a name and it is not found there. when i press enter that should
      add that person there already"). Enter on a line that matches ONE guest opens them; several stay filtered; NOBODY →
      the line is a new guest, on the List at once (the shipped capture-bar grammar, the shipped `addSingleGuest`, through
@@ -1170,6 +1434,8 @@ export function GuestsScreen(props: GuestsScreenProps) {
   const [picks, setPicks] = useAddPicks(hasSides);
   const [madeGroups, setMadeGroups] = useState<{ group_id: string; label: string; team_side: 'bride' | 'groom' | 'both' }[]>([]);
   const allGroups = useMemo(() => [...groups, ...madeGroups.filter((m) => !groups.some((g) => g.group_id === m.group_id))], [groups, madeGroups]);
+  /** The picks a name typed now takes — the box's sticky picks (＋ Add guest here left with the header toolbar). */
+  const addPicks: AddPicks = picks;
   // 🧑‍🤝‍🧑 THE COUPLE'S PEOPLE (owner 2026-10-20: "search also searches the people connected to them. From People.") — the
   // SAME read the "Add from your people" sheet makes (`listPeopleYouCanInvite`), once, when the box is first used.
   const { listPeopleYouCanInvite, addGuestsFromPeople } = useGuestActions();
@@ -1199,21 +1465,21 @@ export function GuestsScreen(props: GuestsScreenProps) {
   };
   const peopleHits = q ? peopleFor(q) : [];
   const addPerson = (p: PersonHit) => {
-    const sent = picksForAdd(picks, allGroups, roleNames);
+    const sent = picksForAdd(addPicks, allGroups, roleNames);
     guestAdds.enqueue({
       eventId,
       name: p.name,
       detail: sent.detail,
       run: async () => {
-        const r = await addGuestsFromPeople(eventId, [{ key: p.key }], picks.side, {
-          role: picks.role,
-          groupCategory: picks.category,
+        const r = await addGuestsFromPeople(eventId, [{ key: p.key }], addPicks.side, {
+          role: addPicks.role,
+          groupCategory: addPicks.category,
           groupLabels: [...(sent.groupLabels ?? [])],
-          plusOnes: picks.plus,
+          plusOnes: addPicks.plus,
           refresh: false,
         });
         return r.ok
-          ? { ok: true, guest: { guest_id: r.guestIds?.[0] ?? '', first_name: p.name, last_name: p.lastName, side: picks.side, role: picks.role } }
+          ? { ok: true, guest: { guest_id: r.guestIds?.[0] ?? '', first_name: p.name, last_name: p.lastName, side: addPicks.side, role: addPicks.role } }
           : { ok: false, error: r.error };
       },
     });
@@ -1235,7 +1501,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
       setNeeds(`${v} is already added.`, v);
       return 'already';
     }
-    const res = queueTypedGuest(eventId, v, picks.side, addSingleGuest, guestAdds, picksForAdd(picks, allGroups, roleNames));
+    const res = queueTypedGuest(eventId, v, addPicks.side, addSingleGuest, guestAdds, picksForAdd(addPicks, allGroups, roleNames));
     if (!res.ok) {
       if (res.error) setNeeds(res.error, v);
       return res.error || 'empty';
@@ -1419,7 +1685,16 @@ export function GuestsScreen(props: GuestsScreenProps) {
       />
     );
   } else if (gview === 'map') {
-    thumb = <ThumbRow name="guests-map" field={field} right={[arrangeMenu]} />;
+    /* ＋ THE MAP'S MAIN VERB (R4 slice 1, prototype v12): Add guest — the shipped add sheet; the List keeps its own seats
+       (the field is its add). A viewer who may not write gets no ＋. */
+    thumb = (
+      <ThumbRow
+        name="guests-map"
+        field={field}
+        right={[arrangeMenu]}
+        action={writesOff ? null : { icon: Plus, label: 'Add guest', onClick: () => openAddGuest(''), testId: 'map-add-guest' }}
+      />
+    );
   }
 
   /* ═══ the list ═══ */
@@ -1469,6 +1744,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
                   {allSel ? <Check aria-hidden strokeWidth={2.2} /> : null}
                 </button>
               ) : null}
+              {renaming === sec.key ? null : (
               <button
                 type="button"
                 className={styles.bar}
@@ -1492,6 +1768,24 @@ export function GuestsScreen(props: GuestsScreenProps) {
                 ) : null}
                 <ChevronDown className={styles.chev} style={selectMode ? { marginLeft: 0, flex: '0 0 auto' } : { flex: '0 0 auto' }} aria-hidden strokeWidth={1.9} width={18} height={18} />
               </button>
+              )}
+              {/* ✎ Rename on the row itself — only where one word renames this header (`sectionHeadDoors`). */}
+              {selectMode || writesOff ? null : (
+                <SectionRenameInPlace
+                  eventId={eventId}
+                  section={{ key: sec.key, label: sec.label }}
+                  groups={allGroups}
+                  roleSetKey={roleSetKey}
+                  roleNames={roleNames}
+                  editing={renaming === sec.key}
+                  onEdit={() => setRenaming(sec.key)}
+                  onDone={() => setRenaming(null)}
+                  onRenamed={(next) => {
+                    setRenaming(null);
+                    setOpen((prev) => (prev.has(sec.key) ? new Set([...prev, next]) : prev));
+                  }}
+                />
+              )}
             </div>
             <div className={styles.fold}>
               <div>
@@ -1591,6 +1885,45 @@ export function GuestsScreen(props: GuestsScreenProps) {
 
   const tree = useMemo(() => mapTree(visible, arrange, facts), [visible, arrange, facts]);
 
+  /* ⇅ THE LENS SEATS AND MARCH READ (`guests-lens.tsx`): the view on screen, the row's seat, the shared filter, and the
+     two questions they cannot answer alone — does a guest pass Show, and whom do these words find — answered off THIS
+     list with the shipped rules (`replyFilterMatches`, `rosterSearchMatches`). */
+  const [thumbSlot, setThumbSlot] = useState<HTMLElement | null>(null);
+  const lens = useMemo<GuestsLens>(
+    () => ({
+      view: gview,
+      slot: thumbSlot,
+      ThumbRow,
+      filter,
+      setFilter,
+      hasSides,
+      shows: (id) => {
+        const g = rosterById.get(id);
+        return !g || replyFilterMatches(g, filter.show);
+      },
+      find: (words) => {
+        const w = words.trim();
+        return new Set(w ? roster.filter((g) => rosterSearchMatches(w, g, facts)).map((g) => g.guest_id) : []);
+      },
+      registerSeats,
+      toolsSlot,
+      ...(writesOff
+        ? {}
+        : {
+            HeadToolbar: SectionHeadToolbar,
+            sectionWords: (key: string) =>
+              isRenamableSection(key) ? { current: sectionName(key, roleNames) ?? '', usual: sectionUsualHeading(key, roleNames) } : null,
+            renameSection: async (key: string, text: string) => {
+              const res = await hearAction(() => renameSection(eventId, key, text));
+              if (!res.ok) return plainRefusal('reason' in res ? res.reason : res.error, 'The new name was not saved — nothing was changed.');
+              setRoleNames(res.names);
+              return null;
+            },
+          }),
+    }),
+    [gview, thumbSlot, toolsSlot, registerSeats, filter, hasSides, rosterById, roster, facts, writesOff, roleNames, setRoleNames, eventId],
+  );
+
   return (
     <GuestListHasSidesContext.Provider value={hasSides}>
       {toastNode}
@@ -1599,27 +1932,32 @@ export function GuestsScreen(props: GuestsScreenProps) {
         className={styles.screen}
         data-settled={settled ? 'true' : 'false'}
         data-guests-screen={gview}
+        data-guests-full={fullView ? '' : undefined}
         data-guests-copy={copy ? copy.freshness : undefined}
       >
         {/* 📌 The holder keeps the block's height in the flow while the block itself is pinned (fixed) — pinning moves
             nothing under it (`--gs-stick-h`, measured off the block). */}
         <div ref={holdRef} className={styles.stickHold} data-guests-stick-hold="">
-        <div ref={stickRef} className={`${styles.stick} ${styles.pinned}`} data-guests-stick="" data-has-gear={setup ? '' : undefined}>
+        {/* 🔔 `data-peek-toast-under`: a toast lands UNDER this row (and the shell's bar above it), never on its controls. */}
+        <div ref={stickRef} className={`${styles.stick} ${styles.pinned}`} data-guests-stick="" data-has-gear={setup ? '' : undefined} data-peek-toast-under="">
           {/* 📌 ONE PINNED ROW, TWO FACES, PINNED ONCE (owner 2026-10-27, Guests B + "selectors should stay but
               simplified" + "the selector … pin only the new way"): 44 px — the summary face is laid over the full pill
               (absolute, the pill's own box), so the swap moves nothing. At rest the block scrolls with the page; it pins
               only once the carousel has gone. The summary is drawn by `PinnedSummary` (below) from the SAME doors.
               🔒 lib/the-pinned-row-is-one-row.test.ts */}
-          {measured && gview === 'list' ? (
-            <PinnedSummary
-              segs={[pinSeg('list', 'List'), pinSeg('map', 'Map')]}
-              doors={[
-                pinDoor('attending', stats.yes, 'gs-pin-yes', RSVP_ROW_WORDS.attending, Check),
-                pinDoor('declined', stats.no, 'gs-pin-no', RSVP_ROW_WORDS.declined, X),
-                pinDoor('none', stats.none, 'gs-pin-none', RSVP_ROW_WORDS.pending, CircleHelp),
-              ]}
-            />
-          ) : null}
+          {/* 🎚 Slice 2: the slim face on EVERY view — the one menu ("Guests · List ▾"), and on the List its ✓ ✕ ? doors. */}
+          <PinnedSummary
+            menu={pinMenu}
+            doors={
+              measured && gview === 'list'
+                ? [
+                    pinDoor('attending', stats.yes, 'gs-pin-yes', RSVP_ROW_WORDS.attending, Check),
+                    pinDoor('declined', stats.no, 'gs-pin-no', RSVP_ROW_WORDS.declined, X),
+                    pinDoor('none', stats.none, 'gs-pin-none', RSVP_ROW_WORDS.pending, CircleHelp),
+                  ]
+                : []
+            }
+          />
           {/* 🎚 THE ONE PILL SELECTOR (owner 2026-10-08: "adjust all pill selectors to this") — the app's template
               draws the track, the views and the terracotta thumb that slides between them. Still links.
               ⚙ THE FIRST ROW: List · Map, then the menu's ⚙ at its right end (owner 2026-10-27, settings per menu — the
@@ -1629,9 +1967,14 @@ export function GuestsScreen(props: GuestsScreenProps) {
           <div className="flex items-center gap-2" data-first-row="">
             <nav className={`${PILL_TRACK_CLASS} ${PILL_TRACK_GROUND} min-w-0 flex-1`} aria-label="Guest list views" data-guests-segmented="" data-tour="guests-views">
               <PillThumb />
-              {seg('list', 'List', stats.total)}
-              {seg('map', 'Map')}
+              {/* 🗂 R4 · List · Map · Seats · March — the SAME pill selector extended (owner 2026-10-27 "GUESTS = LIST ·
+                  MAP · SEATS · MARCH"; the approved Guests selector is this segmented row, "PINNED ROWS KEEP THEIR
+                  SELECTORS — SIMPLIFIED"). Each view is a link, so a view is an address an old door can land on. */}
+              {tops.map((t) => seg(t))}
             </nav>
+            {/* 🎚 The view's own rounds (Seats: Edit · ⋯ — the plan draws them here, `lens.toolsSlot`), left of the ⚙; on
+                both faces, never faded. */}
+            <span ref={setToolsSlot} className="flex shrink-0 items-center gap-1.5 empty:hidden" data-guests-view-rounds="" />
             {setup ? (
               <MenuSettingsButton menu="guests" open={settingsOpen} onOpenChange={openSettings} tour="guests-setup">
                 <PickWhoContext.Provider value={writesOff ? null : pickWho}>{setup}</PickWhoContext.Provider>
@@ -1643,7 +1986,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
         </div>
         </div>
 
-        {measured ? (
+        {measured && !makerView ? (
           <>
             <div className={`${styles.summary} ${styles.rise}`} ref={stripRef} data-roster-counts="" data-tour="guests-counts">
               <SnapCarousel cards={summaryCards} label="Guest summary" attrs={{ 'data-guests-carousel': '' }} />
@@ -1683,7 +2026,19 @@ export function GuestsScreen(props: GuestsScreenProps) {
           </>
         ) : null}
 
-        {gview === 'map' ? (
+        {/* 🗂 R4: Seats and March — the shipped makers, whole. Mounted when first opened, then KEPT (hidden) — a switch
+            back finds them as they were, nothing re-read. ⇅ R4 slice 1: they read the lens (the shared Show, the shared
+            search's matches) and draw THE thumb row into this screen's own seat (`thumbSlot`). */}
+        <GuestsLensContext.Provider value={lens}>
+          {GUESTS_MAKER_VIEWS.map((v) =>
+            seenViews.has(v) && props.bodies?.[v] ? (
+              <div key={v} data-guests-view-body={v} className="min-w-0" hidden={gview !== v}>
+                {props.bodies[v]}
+              </div>
+            ) : null,
+          )}
+        </GuestsLensContext.Provider>
+        {makerView ? null : gview === 'map' ? (
           <GuestMapCanvas
             rootLabel={rootLabel}
             tree={tree}
@@ -1696,8 +2051,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
           list
         )}
 
-        {(
-          <div
+        <div
             // The ONE shared glass row (BUTTON_RULE rule 7, `.sn-glass-row` in
             // globals.css, builder GR): the row tints and blurs what scrolls behind.
             // ONE THUMB ROW (owner 2026-10-22): no band under the List / Map row — each control is its own glass. The
@@ -1707,11 +2061,16 @@ export function GuestsScreen(props: GuestsScreenProps) {
             data-guests-thumb=""
             data-last-seen-hold={selectMode ? '' : undefined}
           >
-            <div ref={thumbRef} style={{ display: 'flex', flex: 1, minWidth: 0 }}>
-              {thumb}
-            </div>
+            {makerView ? (
+              /* 🗂 Seats · March draw their ThumbRow HERE (a portal, `guests-lens.tsx`) — the same seat, glass and slide as
+                 the List's; whatever rises above it (a seat's "Pick a guest" bar, a toast) stacks over it. */
+              <div ref={setThumbSlot} data-guests-thumb-slot={gview} className="pointer-events-none flex min-w-0 flex-1 flex-col gap-2 [&>*]:pointer-events-auto" />
+            ) : (
+              <div ref={thumbRef} style={{ display: 'flex', flex: 1, minWidth: 0 }}>
+                {thumb}
+              </div>
+            )}
           </div>
-        )}
 
         <DeleteGuestSheet
           open={toRemove !== null}
@@ -1792,14 +2151,13 @@ const PILL: Record<GuestRow['rsvp_status'] | 'toinvite', { cls: string; word: st
     `List · Map` (the shipped pill, small, words only) · the three reply doors; the ⚙ is the block's own. Every part is
     built by the screen from the SAME doors as the carousel (`pickReply`, `data-reply-filter`); this only lays them in
     one 44-px row over the full pill. Hidden until the carousel has scrolled under the row. */
-function PinnedSummary({ segs, doors }: { segs: ReactNode[]; doors: ReactNode[] }) {
+function PinnedSummary({ menu, doors }: { menu: ReactNode; doors: ReactNode[] }) {
   return (
     <div className={`${styles.face} ${styles.faceAlt}`} data-guests-pin-face="summary">
-      <nav className={`${PILL_TRACK_CLASS} ${PILL_TRACK_GROUND} ${styles.pinSeg}`} aria-label="Guest list views, pinned" data-guests-pin-segmented="">
-        <PillThumb />
-        {segs}
-      </nav>
-      <span className={styles.pinCounts}>{doors}</span>
+      <span className={styles.pinMenu} data-guests-pin-segmented="">
+        {menu}
+      </span>
+      {doors.length ? <span className={styles.pinCounts}>{doors}</span> : null}
     </div>
   );
 }

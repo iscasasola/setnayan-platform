@@ -23,7 +23,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { readEventsYouRun } from '@/lib/events-you-run.server';
-import { CheckinDeskRows } from '../_components/events-you-run-rows';
+import { CheckinDeskRows, SeatFinderRow } from '../_components/events-you-run-rows';
 import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
 import { WEDDING_TILE_LABEL, type WeddingTile } from '@/lib/taxonomy';
 import { resolveDayOfConsoleKind, type DayOfConsoleKind } from '@/lib/vendor-day-of';
@@ -57,6 +57,7 @@ import { IssuesLog } from './_components/issues-log';
 import { VendorStatusUpdates } from './_components/vendor-status-updates';
 import { ModuleConfigurator, type ConfiguratorModule } from './_components/module-configurator';
 import { EventPicker, type PickerLock } from './_components/event-picker';
+import { SupplierSavedStrip } from '@/app/_components/offline-ready/supplier-saved-strip';
 import { collapseToPickerDays, HUB_OPEN_WINDOW_PLAIN, phTodayIso, pickConfigureDay } from '@/lib/vendor-day-picker';
 import { AccessGrants, type GrantableMember } from './_components/access-grants';
 import { ShopEmpty } from '../_components/kit';
@@ -195,7 +196,8 @@ export default async function VendorOnTheDayPage({
   } = await supabase.auth.getUser();
   if (!user) redirect('/login?next=/vendor-dashboard/on-the-day');
   const profile = await fetchOwnVendorProfile(supabase, user.id);
-  if (!profile) redirect('/vendor-dashboard/verify');
+  // Straight to the documents fold — `/vendor-dashboard/verify` is only a forwarding stub to it (no stub bounce).
+  if (!profile) redirect('/vendor-dashboard/profile#docs');
   // 🎫 The events this person runs as the hosts' coordinator — each gets a Check-in desk door below (owner
   // 2026-10-28). The layout's cache()d read; started now, read at the render. Fails closed: no rows.
   const eventsYouRunP = readEventsYouRun(supabase, user.id).catch(() => ({ events: [], measured: false }));
@@ -502,6 +504,8 @@ export default async function VendorOnTheDayPage({
 
       {/* 🎫 Check-in desk — for each event this person runs as the coordinator (owner 2026-10-28). Nothing for anyone else. */}
       <CheckinDeskRows events={runEvents} />
+      {/* 🪑 Find a guest's seat — today's booked event's shipped scanner, one row (S9, owner 2026-10-29). */}
+      {todaysBooking ? <SeatFinderRow eventId={todaysBooking.eventId} name={coupleName ?? 'Your event today'} /> : null}
 
       {/* Q7 — shown only once the owner sets an end date; says nothing while
           unset, matching the "no invented deadline" rule. */}
@@ -517,6 +521,14 @@ export default async function VendorOnTheDayPage({
           obsidian focal, § 1.3), or the no-event state. */}
       {todaysBooking ? (
         <div className="sn-tile-dark sn-bloom p-5 sm:p-6">
+          {/* 📶 The saved mark + Update now, top of the event card (EV3, owner 2026-10-28) — this supplier's own copy
+              of the Hub, the event's console and, when they run the hosts' door, its Check-in desk. */}
+          <SupplierSavedStrip
+            viewer={user.id}
+            eventId={todaysBooking.eventId}
+            eventDate={todaysBooking.bookedDate}
+            checkin={runEvents.some((e) => e.eventId === todaysBooking.eventId)}
+          />
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex min-w-0 items-center gap-4">
               <span

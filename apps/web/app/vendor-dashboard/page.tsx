@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { DATE_ANSWER_NOTICE } from '@/lib/date-change';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -83,11 +84,20 @@ import {
   type FeeDisclosure,
 } from '@/lib/booking-fee-disclosure';
 import { SupplierTodayScreen } from './_components/supplier-today-screen';
+import { readSupplierEventLines } from '@/lib/supplier-event-lines.server';
+import type { EventLines } from '@/lib/supplier-event-lines';
 import { SupplierToast } from './_components/supplier-toast';
 import { assembleSupplierToday } from '@/lib/supplier-today-view';
 import { displayServiceLabel } from '@/lib/vendors';
 import { MiniTour } from '@/app/_components/mini-tour';
 import { resolveFeeEnforcement } from '@/lib/vendor-event-fee-access.server';
+import { SupplierSetupScreen } from './_components/supplier-setup-screen';
+import { TodaySettings } from './_components/today-settings';
+import { loadDetailsData } from './profile/details-data';
+import { NewServiceMaker } from './services/new/_components/new-service-maker';
+import { loadKindDetails, loadMakerContext } from '@/lib/service-card-maker.server';
+import { renderUrlQrSvg } from '@/lib/qr';
+import { buildVendorInviteUrl } from '@/lib/vendor-couple-invite';
 
 /**
  * /vendor-dashboard — the vendor Overview (finalized 6-menu-shell prototype).
@@ -291,6 +301,21 @@ export default async function VendorOverviewPage({
   const eventsYouRunP = readEventsYouRunWithNeeds(supabase, user.id).catch(() => ({ events: [], measured: false }));
   const todayIso = manilaToday();
   const vendorProfileId = profile.vendor_profile_id;
+  /*
+    🧰 A shop not yet approved draws its six steps in place (below). Their reads hang off the ONE shop-row read — they
+    start the moment it says "not verified", beside the slow desk read, never a wave after it
+    (`the-supplier-today-reads-together.test.ts`). An approved shop reads none of it.
+  */
+  const shopRowP = readTodayShopRow(supabase, vendorProfileId);
+  const settingUpP = shopRowP.then((row) => !row?.verified).catch(() => false);
+  const setupDetailsP = settingUpP.then((yes) => (yes ? loadDetailsData(supabase, profile, { deepSearch: false }).catch(() => null) : null));
+  const setupMakerP = settingUpP.then((yes) =>
+    yes
+      ? loadMakerContext(supabase, vendorProfileId)
+          .then(async (ctx) => ({ ctx, kind: await loadKindDetails(supabase, vendorProfileId, ctx.onlyKind) }))
+          .catch(() => null)
+      : null,
+  );
   let data;
   let spotlightAwards;
   let shopRow: TodayShopRow | null;
@@ -312,7 +337,7 @@ export default async function VendorOverviewPage({
         profile.services ?? [],
       ),
       fetchVendorCurrentAwards(supabase, vendorProfileId).catch(() => []),
-      readTodayShopRow(supabase, vendorProfileId),
+      shopRowP,
       readTodaySchedules(supabase, vendorProfileId, todayIso),
     ]));
   } catch (err) {
@@ -360,6 +385,22 @@ export default async function VendorOverviewPage({
     needsAnswer.length,
     oldestAskWaitDays(needsAnswer, cardTimestamp, new Date()),
   );
+
+  /*
+    📋 EVERY INQUIRY ROW OPENS TO ITS EVENT (supplier dashboard v13, owner 2026-10-29: "for inquiries. we can say what
+    service they are requesting for…" · "where is the expand look of these rows?"): the fixed lines, read ONCE for every
+    inquiry on the desk (`readSupplierEventLines` — one parallel round + the names), started here so it rides beside
+    wave 2. Opening a row reads nothing. Refused → the rows open to the shipped answer alone.
+  */
+  const inquiryEvents = needsAnswer.flatMap((c) => (c.kind === 'inquiry' && c.eventId ? [{ eventId: c.eventId, stage: 'asking' as const }] : []));
+  const eventLinesP: Promise<Map<string, EventLines>> =
+    inquiryEvents.length > 0
+      ? readSupplierEventLines(createAdminClient(), {
+          vendorProfileId,
+          shopServices: (profile.services ?? null) as string[] | null,
+          events: inquiryEvents,
+        }).catch(() => new Map<string, EventLines>())
+      : Promise.resolve(new Map<string, EventLines>());
 
   // S19 · can a couple see anywhere to pay this shop? Asked only when a booking ask is on screen or the shop holds
   // an upcoming booking (2026-09-19) — a booked couple owes a deposit. `unreadable` renders nothing.
@@ -586,9 +627,48 @@ export default async function VendorOverviewPage({
   // 🧩 The library door reads the live parts (③0-b) — the same snapshot the real upload gate reads.
   const libraryOpen = moodboardLibraryAccessForProfile(profile, await inspirationPartsRead).allowed;
   const { events: eventsYouRun } = await eventsYouRunP;
+  const eventLines = Object.fromEntries(await eventLinesP);
+
+  /*
+    🧰 A NEW SHOP'S SIX STEPS, DONE IN PLACE (owner 2026-10-28, DECISION_LOG "SUPPLIER DASHBOARD APPROVED — EVERYTHING IN
+    PLACE, A ⚙ PER PAGE"). Only while the rail is on screen (a shop not yet approved): Your details' own data (the
+    same loader the Your-details page reads), the maker for the "What you offer" sheet while cards are still to go, and
+    the shop's QR. A live shop reads none of it — Today does not grow for the shops that run.
+  */
+  let setup: ReactNode = null;
+  if (firstSteps) {
+    const offerLeft = (firstSteps.offer?.toGo ?? 1) > 0;
+    const [details, makerParts] = await Promise.all([setupDetailsP, offerLeft ? setupMakerP : Promise.resolve(null)]);
+    if (details) {
+      const qrUrl = details.slug ? buildVendorInviteUrl(details.slug) : null;
+      const qrSvg = qrUrl ? await renderUrlQrSvg(qrUrl, 220).catch(() => null) : null;
+      setup = (
+        <SupplierSetupScreen
+          d={details}
+          rail={firstSteps}
+          maker={
+            makerParts ? (
+              <NewServiceMaker
+                vendorProfileId={vendorProfileId}
+                shopName={profile.business_name ?? ''}
+                ctx={makerParts.ctx}
+                details={makerParts.kind}
+                error={null}
+              />
+            ) : (
+              <p className="py-4 text-[13.5px] text-ink/70">The service maker couldn’t load. Refresh to try again.</p>
+            )
+          }
+          qr={qrUrl ? { svg: qrSvg, url: qrUrl } : null}
+          today={todayIso}
+          gear={<TodaySettings />}
+        />
+      );
+    }
+  }
 
   return (
-    <div className="mx-auto w-full max-w-6xl tab:max-w-3xl px-4 py-4 sm:px-6 sm:py-10 lg:px-8">
+    <div className="mx-auto w-full max-w-6xl tab:max-w-none px-4 py-4 sm:px-6 sm:py-10 lg:px-8">
       {/* The toast that says how an answer went (a booking ask · a date change · a payment that never arrived).
           A refusal is the whole point: without it the supplier presses Agree, is refused, and sees the same page
           with no explanation. Its lasting status line is drawn by the screen, under the Next card. */}
@@ -601,6 +681,8 @@ export default async function VendorOverviewPage({
         feeForecasts={feeForecasts}
         cards={[...needsAnswer, ...nothingToAnswer]}
         eventsYouRun={eventsYouRun}
+        eventLines={eventLines}
+        setup={setup}
         askStatus={askStatus}
         deskIncomplete={deskIncomplete}
         // 🌱🖼 "Add to the inspiration library" — only for a shop whose trades supply a part (owner 2026-10-19).

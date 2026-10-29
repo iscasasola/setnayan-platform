@@ -21,11 +21,26 @@ import { parseClientRef, vendorPaymentQrPolicy } from '@/lib/r2-client-ref';
  */
 const LANDING = '/vendor-dashboard/profile';
 
-function flash(msg: string): never {
-  redirect(`${LANDING}?msg=${encodeURIComponent(msg)}#pay`);
+/**
+ * ⚙ CUSTOMERS SETTINGS mounts this same editor ("Getting paid", owner 2026-10-28: "Customers ⚙ = getting paid + …").
+ * A save made THERE comes back THERE — Customers with its ⚙ still open (`gear=1`) and the answer said inside the sheet
+ * — never to Your details ("a save never resets the screen"). `return_to=customers` + `return_seg` say so; anything
+ * else lands where it always has.
+ */
+function landingOf(formData: FormData): (kind: 'msg' | 'error', msg: string) => string {
+  if (formData.get('return_to') === 'customers') {
+    const seg = String(formData.get('return_seg') ?? '');
+    const segQ = seg === 'dates' || seg === 'money' ? `seg=${seg}&` : '';
+    return (kind, msg) => `/vendor-dashboard/customers?${segQ}gear=1&g${kind}=${encodeURIComponent(msg)}`;
+  }
+  return (kind, msg) => `${LANDING}?${kind}=${encodeURIComponent(msg)}#pay`;
 }
-function fail(msg: string): never {
-  redirect(`${LANDING}?error=${encodeURIComponent(msg)}#pay`);
+function answers(formData: FormData): { flash: (msg: string) => never; fail: (msg: string) => never } {
+  const to = landingOf(formData);
+  return {
+    flash: (msg) => redirect(to('msg', msg)),
+    fail: (msg) => redirect(to('error', msg)),
+  };
 }
 
 function str(raw: FormDataEntryValue | null, max = 200): string | null {
@@ -46,6 +61,10 @@ async function requireVendor() {
 }
 
 export async function addPaymentMethod(formData: FormData) {
+  // Typed on the NAMES so each call still narrows like the old module-level functions did.
+  const answer = answers(formData);
+  const flash: (msg: string) => never = answer.flash;
+  const fail: (msg: string) => never = answer.fail;
   const { supabase, vendorProfileId } = await requireVendor();
 
   const methodType = str(formData.get('method_type')) as PaymentMethodType | null;
@@ -149,6 +168,7 @@ export async function addPaymentMethod(formData: FormData) {
   }
 
   revalidatePath(LANDING);
+  revalidatePath('/vendor-dashboard/customers');
   flash(
     approved
       ? 'Payment option saved — it’s now on your clients’ payment screen.'
@@ -157,6 +177,10 @@ export async function addPaymentMethod(formData: FormData) {
 }
 
 export async function deletePaymentMethod(formData: FormData) {
+  // Typed on the NAMES so each call still narrows like the old module-level functions did.
+  const answer = answers(formData);
+  const flash: (msg: string) => never = answer.flash;
+  const fail: (msg: string) => never = answer.fail;
   const { supabase, vendorProfileId } = await requireVendor();
   const id = str(formData.get('payment_method_id'), 64);
   if (!id) fail('Missing payment option.');
@@ -167,10 +191,15 @@ export async function deletePaymentMethod(formData: FormData) {
     .eq('vendor_profile_id', vendorProfileId);
   if (error) fail(error.message);
   revalidatePath(LANDING);
+  revalidatePath('/vendor-dashboard/customers');
   flash('Payment option removed.');
 }
 
 export async function setPrimaryPaymentMethod(formData: FormData) {
+  // Typed on the NAMES so each call still narrows like the old module-level functions did.
+  const answer = answers(formData);
+  const flash: (msg: string) => never = answer.flash;
+  const fail: (msg: string) => never = answer.fail;
   const { supabase, vendorProfileId } = await requireVendor();
   const id = str(formData.get('payment_method_id'), 64);
   if (!id) fail('Missing payment option.');
@@ -188,10 +217,15 @@ export async function setPrimaryPaymentMethod(formData: FormData) {
     .eq('vendor_profile_id', vendorProfileId);
   if (error) fail(error.message);
   revalidatePath(LANDING);
+  revalidatePath('/vendor-dashboard/customers');
   flash('Primary payment option updated.');
 }
 
 export async function togglePaymentMethodShown(formData: FormData) {
+  // Typed on the NAMES so each call still narrows like the old module-level functions did.
+  const answer = answers(formData);
+  const flash: (msg: string) => never = answer.flash;
+  const fail: (msg: string) => never = answer.fail;
   const { supabase, vendorProfileId } = await requireVendor();
   const id = str(formData.get('payment_method_id'), 64);
   const currentlyShown = str(formData.get('is_shown')) === 'true';
@@ -203,5 +237,6 @@ export async function togglePaymentMethodShown(formData: FormData) {
     .eq('vendor_profile_id', vendorProfileId);
   if (error) fail(error.message);
   revalidatePath(LANDING);
+  revalidatePath('/vendor-dashboard/customers');
   flash(!currentlyShown ? 'Now showing to clients.' : 'Hidden from clients.');
 }

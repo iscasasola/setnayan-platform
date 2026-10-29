@@ -301,6 +301,14 @@ button.pinCount {
 .pinCount[data-pin-dot='none'] svg {
   color: rgb(var(--color-ink) / 0.5);
 }
+/* 📌 Seats' pinned counts (owner 30 Oct): seated in the "attending" green, unseated and tables quiet. */
+.pinCount[data-pin-dot='seated'] svg {
+  color: var(--gs-ok);
+}
+.pinCount[data-pin-dot='unseated'] svg,
+.pinCount[data-pin-dot='tables'] svg {
+  color: rgb(var(--color-ink) / 0.5);
+}
 .pinCount[aria-pressed='true'] b {
   text-decoration: underline;
   text-decoration-thickness: 2px;

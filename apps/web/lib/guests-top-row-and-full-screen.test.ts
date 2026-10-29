@@ -118,3 +118,39 @@ test('(4) 2D edge to edge in Guests: the floor fills the cell around the untouch
   // Fit measures the FLOOR (fitW / fitH), the property pinned here; #7060 may cap it at the old opening zoom.
   assert.match(ed, /const z1 = (?:Math\.min\(PLAN_ZOOM_MAX_FLOOR, )?clampZoom\(Math\.min\(fitW \/ bw, fitH \/ bh\) \* 0\.86\)\)?;/);
 });
+
+/*
+ * (5) 📌 THE COUNTS RIDE THE PINNED ROW ON EVERY GUESTS AND SEATS VIEW (owner 30 Oct, with phone shots of Guests · Map,
+ * Seats · 2D and Seats · 3D: *"Seat ls should be pinned on top row and on map and 3d"* → *"Like this one"* — the List's
+ * ✓ ✕ ?). One face, one door shape: Guests (List · Map) the reply doors; Seats (List · 2D · 3D) the plan's OWN seat counts
+ * (seated · unseated · tables — the Seats count row's, reported up the lens, never counted by the screen); March none.
+ * 🛡 Sabotaged (2026-10-30): the Map dropped from `pinDoors` → red; the counts left out of `registerSeats` → red.
+ */
+test('(5) the pinned row carries the counts on every Guests and Seats view — reply doors on Guests, seat counts on Seats', async () => {
+  const { renderGuestsScreen, guestRow } = await import('../app/dashboard/[eventId]/guests/_components/render-guests-screen');
+  const guests = [guestRow(), guestRow({ rsvp_status: 'attending' } as never)];
+  const face = (html: string) => {
+    const at = html.indexOf('data-guests-pin-face="summary"');
+    return html.slice(at, html.indexOf('data-guests-segmented', at) > 0 ? html.indexOf('data-guests-segmented', at) : at + 4000);
+  };
+  for (const gview of ['list', 'map'] as const) {
+    const doors = [...face(await renderGuestsScreen({ guests, views: GUESTS_VIEWS, gview })).matchAll(/data-reply-filter="(\w+)"/g)].map((m) => m[1]);
+    assert.deepEqual(doors, ['attending', 'declined', 'none'], `Guests › ${gview}: the pinned row lost its ✓ ✕ ?`);
+  }
+  const march = face(await renderGuestsScreen({ guests, views: GUESTS_VIEWS, gview: 'march', bodies: { march: null } }));
+  assert.doesNotMatch(march, /data-reply-filter|data-seat-count/, 'March carries counts it was not asked for');
+  // Seats: the screen draws exactly the counts the plan reports — the plan counts them where its count row does.
+  const screen = read('app/dashboard/[eventId]/guests/_components/guests-screen.tsx');
+  assert.match(screen, /measured && \(gview === 'list' \|\| gview === 'map'\)/, 'the Map has no reply doors on its pinned row');
+  assert.match(screen, /gview === 'seats' && seatCounts\s*\? \[\s*pinSeatDoor\('seated', seatCounts\.seated,[\s\S]*?pinSeatDoor\('unseated', seatCounts\.unseated,[\s\S]*?pinSeatDoor\('tables', seatCounts\.tables,/);
+  assert.match(screen, /setSeatCounts\(api\.counts \?\? null\);/);
+  assert.match(screen, /<PinnedSummary\s+menu=\{pinMenu\}\s+doors=\{pinDoors\}/, 'the pinned face does not draw the counts');
+  const ed = read('app/dashboard/[eventId]/seating/_components/seating-editor.tsx');
+  assert.match(ed, /counts: \{ seated: seatedComing, unseated: unseatedComing, tables: tableCount \}/, 'the plan does not report its seat counts');
+  assert.match(ed, /\{ key: 'seated', word: 'seated', value: seatedComing,/, 'the pinned seated count is not the count row’s');
+  assert.match(ed, /\}, \[registerSeats, studioView, show3D, seatedComing, unseatedComing, tableCount\]\);/, 'a count change never reaches the pinned row');
+  // One line at 390: the counts give way inside the face (min-width: 0), never wrap.
+  const css = readFileSync(join(process.cwd(), 'app/dashboard/[eventId]/guests/_components/guests-screen.module.css'), 'utf8');
+  assert.match(css, /\.pinCounts \{[^}]*min-width: 0;/);
+  assert.match(css, /button\.pinCount \{[^}]*white-space: nowrap;/);
+});

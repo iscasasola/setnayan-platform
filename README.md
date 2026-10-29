@@ -4,3 +4,4 @@ Supplier dashboard v13, builder S6 (Hub). Each PNG is the approved prototype (le
 supplier dev lab on a local dev server (right), at 390 / 820 / 1280 px. Never merge this branch.
 
 - `s6a/` — Hub › Set up · Crew · The event's pages (`/dev/supplier-lab?s=hub&shell=1&seg=…&ev=…`)
+- `s6c/` — Hub › Crew (crew QR · Allow · Member/Helper) and the crew phone (`/join/crew/[token]`: name · waiting · Member · Helper) — `/dev/supplier-lab?s=hub&seg=crew&shell=1` · `?s=crew-phone&state=…`

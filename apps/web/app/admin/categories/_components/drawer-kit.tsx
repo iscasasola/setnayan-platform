@@ -282,7 +282,7 @@ type AddDoor =
  * The LAST-ROW ADD (the map's own shape): a dashed "＋ Add …" row; a press turns it into a field; Enter (or leaving
  * it) adds, Esc lets it go. The list redraws with the new row in place.
  */
-export function AddRow({ text, placeholder, door, what }: { text: string; placeholder: string; door: AddDoor; what: string }) {
+export function DrawerAddRow({ text, placeholder, door, what }: { text: string; placeholder: string; door: AddDoor; what: string }) {
   const [editing, setEditing] = useState(false);
   const [v, setV] = useState('');
   const { pending, run, local } = useInPlace();

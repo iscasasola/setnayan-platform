@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "187f0b23dd",
+  "generatedFromRef": "8ce58bfc6c",
   "routeCount": 479,
   "destinations": 981,
   "actions": 621,
-  "blocks": 7377,
+  "blocks": 7378,
   "routes": {
     "/": {
       "files": [
@@ -2757,6 +2757,7 @@
         "DesktopColumns",
         "Dot",
         "DownloadPick",
+        "DrawerAddRow",
         "DrawerMore",
         "DrawerSayProvider",
         "EditorPack",

@@ -42,7 +42,7 @@ import { WhatSuppliersFillIn } from './what-suppliers-fill-in';
 import type { MapData } from './four-level-model';
 import { cardsOf, partsHomedIn, partsOfService, servicesOf, cardHeld, plural } from './four-level-model';
 import { CategoryCards, CategoryParts, FilesShopsAs, ServiceCards, ServiceParts } from './map-panels';
-import { AddRow, ChipPress, DeadlineInPlace, InPlaceFields, InPlaceSwitch, LastMinuteInPlace, Row } from './drawer-kit';
+import { DrawerAddRow, ChipPress, DeadlineInPlace, InPlaceFields, InPlaceSwitch, LastMinuteInPlace, Row } from './drawer-kit';
 import { PanelFold, PanelHead, Quiet, Says } from './panel-kit';
 import { LevelIcon } from './map-rows';
 
@@ -171,7 +171,7 @@ export function GroupPanel({ group, data, state }: { group: Group; data: Categor
             </Link>
           ))}
         </div>
-        <AddRow text={`Add a category to ${group.label}`} placeholder="New category name" door={{ op: 'addCategory', groupId: group.id }} what="Category" />
+        <DrawerAddRow text={`Add a category to ${group.label}`} placeholder="New category name" door={{ op: 'addCategory', groupId: group.id }} what="Category" />
       </PanelFold>
 
       <PanelFold id="vis" title="Visibility" summary={`${shows} · shown`} last={plan.length === 0}>
@@ -294,7 +294,7 @@ export function CategoryPanel({
             </li>
           ))}
         </ul>
-        <AddRow text={`Add a service to ${category.label}`} placeholder="New service name" door={{ op: 'addService', categoryId: category.id }} what="Service" />
+        <DrawerAddRow text={`Add a service to ${category.label}`} placeholder="New service name" door={{ op: 'addService', categoryId: category.id }} what="Service" />
       </PanelFold>
 
       {map ? (
@@ -533,7 +533,7 @@ export function ServicePanel({
             </li>
           ))}
         </ul>
-        <AddRow text="Add a word" placeholder="A word couples type" door={{ form: 'word-add', hidden: { canonical_service: service.canonical }, field: 'phrase' }} what="Search word" />
+        <DrawerAddRow text="Add a word" placeholder="A word couples type" door={{ form: 'word-add', hidden: { canonical_service: service.canonical }, field: 'phrase' }} what="Search word" />
       </PanelFold>
 
       <PanelFold id="marks" title="Marks" summary={onMarks.length ? onMarks.join(' · ') : 'None'}>

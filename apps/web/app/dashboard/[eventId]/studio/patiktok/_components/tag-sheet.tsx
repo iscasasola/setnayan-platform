@@ -32,6 +32,7 @@ import { parsePapicTagScan } from '@/lib/papic-tag';
 import { makeQrDetector } from '@/lib/qr-scan';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { useCameraThatComesBack } from '@/lib/use-camera-that-comes-back';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 export type BoothGuest = {
   guestId: string;
@@ -234,12 +235,7 @@ export function TagSheet({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
-      <button
-        type="button"
-        aria-label="Close"
-        onClick={onClose}
-        className="absolute inset-0 bg-ink/50"
-      />
+      <OverlayBackdrop onClose={onClose} />
       <div
         ref={dialogRef}
         role="dialog"

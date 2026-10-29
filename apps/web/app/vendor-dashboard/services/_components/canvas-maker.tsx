@@ -104,6 +104,7 @@ import {
   type CoverageServesResult,
 } from '../coverage-actions';
 import { formatCount } from '@/lib/format-number';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -1900,12 +1901,10 @@ function CanvasSheet({
 
   return createPortal(
     <div hidden={!open} className="fixed inset-0 z-40">
-      <button
-        type="button"
-        aria-label="Close"
-        onClick={onClose}
-        className="absolute inset-0 bg-ink/40 backdrop-blur-sm lg:cursor-default lg:bg-transparent lg:backdrop-blur-none"
-      />
+      {/* Phone: the one scrim (`<OverlayBackdrop>`, owner 2026-10-29). Desktop: the canvas stays clear beside the sheet
+          (it is the live preview), so a clear catcher closes it instead. */}
+      <OverlayBackdrop onClose={onClose} className="lg:hidden" />
+      <button type="button" aria-label="Close" tabIndex={-1} onClick={onClose} className="absolute inset-0 hidden cursor-default lg:block" />
       <div
         ref={dialogRef}
         role="dialog"

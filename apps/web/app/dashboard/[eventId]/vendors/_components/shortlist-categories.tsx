@@ -270,6 +270,7 @@ import {
   saveCategoryRequirements,
 } from '../requirements-actions';
 import { countNoun, formatCount } from '@/lib/format-number';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 const SLCAT_CSS = `
 .slcat{--paper:var(--m-paper,#FBFBFA);--ink:var(--m-ink,#1B1A17);--ink-soft:#4F535B;
@@ -4544,12 +4545,7 @@ export function ShortlistCategories({
             role="status"
             aria-label={`Loading your saved request for ${reqTarget.label}`}
           >
-            <button
-              type="button"
-              aria-label="Close"
-              onClick={closeReqModal}
-              className="absolute inset-0 bg-ink/40 backdrop-blur-sm"
-            />
+            <OverlayBackdrop onClose={closeReqModal} />
             <div className="relative z-10 flex w-full items-center justify-center rounded-t-3xl border border-ink/10 bg-cream px-5 py-10 tab:w-full tab:max-w-lg tab:rounded-2xl">
               <span
                 className="h-6 w-6 animate-spin rounded-full border-2 border-mulberry border-t-transparent"

@@ -50,6 +50,7 @@ import { CardRecordSection } from '@/app/_components/card-record-section';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { focusServiceInquiry } from '@/lib/service-inquiry-focus';
 import type { ServiceCard } from './services-gallery';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 /**
  * How the sheet's "Inquire about this" behaves, decided SERVER-side because
@@ -102,12 +103,7 @@ export function ServiceDetailsSheet({
       aria-labelledby="service-details-title"
     >
       {/* Translucent backdrop — click closes */}
-      <button
-        type="button"
-        aria-label="Close"
-        onClick={onClose}
-        className="absolute inset-0 bg-ink/40 backdrop-blur-sm"
-      />
+      <OverlayBackdrop onClose={onClose} />
 
       <div className="relative z-10 flex max-h-[90vh] w-full flex-col overflow-hidden rounded-t-3xl border border-ink/10 bg-cream shadow-[0_-30px_80px_-40px_rgba(26,26,26,0.4)] sm:max-h-[85vh] sm:w-full sm:max-w-lg sm:rounded-2xl sm:shadow-[0_30px_80px_-40px_rgba(26,26,26,0.4)]">
         {/* ── Header — the claim + the price, exactly as the card states them ── */}

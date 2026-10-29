@@ -201,7 +201,7 @@ const HAND =
 /* The sample's own CSS, scoped to `.sn-spot-*`. Colours come from the --m-* family so the tip
    card turns dark with the page (`html.dark`); the dim and the white ring are the same in both. */
 const CSS_TEXT = `
-.sn-spot-ring{position:fixed;z-index:2147483001;border-radius:var(--m-r-full,999px);box-shadow:0 0 0 9999px rgba(15,17,21,.64);outline:3px solid #fff;outline-offset:4px;transition:all .75s cubic-bezier(.65,0,.35,1);pointer-events:none}
+.sn-spot-ring{position:fixed;z-index:2147483001;border-radius:var(--m-r-full,999px);box-shadow:0 0 0 9999px var(--sn-scrim);outline:3px solid #fff;outline-offset:4px;transition:all .75s cubic-bezier(.65,0,.35,1);pointer-events:none}
 .sn-spot-ring::after{content:"";position:absolute;inset:-10px;border-radius:inherit;border:2px solid rgba(255,255,255,.6);animation:sn-spot-pulse 1.6s ease-out infinite}
 @keyframes sn-spot-pulse{0%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.2)}}
 .sn-spot-block{position:fixed;z-index:2147483000;touch-action:none}
@@ -221,7 +221,7 @@ const CSS_TEXT = `
 .sn-spot-finger{position:fixed;z-index:2147483002;width:34px;height:34px;pointer-events:none;opacity:0;transition:left .8s cubic-bezier(.2,.8,.2,1),top .8s cubic-bezier(.2,.8,.2,1),opacity .3s}
 .sn-spot-finger.tap{animation:sn-spot-tap .9s ease-in-out infinite}
 @keyframes sn-spot-tap{50%{transform:scale(.8)}}
-.sn-spot-done{position:fixed;inset:0;z-index:2147483004;display:flex;align-items:center;justify-content:center;background:rgba(15,17,21,.6);padding:16px}
+.sn-spot-done{position:fixed;inset:0;z-index:2147483004;display:flex;align-items:center;justify-content:center;background:var(--sn-scrim);-webkit-backdrop-filter:blur(var(--sn-scrim-blur));backdrop-filter:blur(var(--sn-scrim-blur));padding:16px}
 .sn-spot-done .sn-spot-tip{position:static;text-align:center;width:100%;max-width:420px}
 .sn-spot-confetti{position:fixed;inset:0;z-index:2147483005;pointer-events:none;overflow:hidden}
 .sn-spot-confetti i{position:absolute;top:-12px;width:8px;height:12px;border-radius:var(--m-r-xs,4px);animation:sn-spot-fall 1.8s ease-in forwards}

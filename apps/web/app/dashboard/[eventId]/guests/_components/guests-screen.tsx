@@ -71,6 +71,10 @@ import {
   X,
 } from 'lucide-react';
 import { ActionButton, actionButtonClass } from '@/components/action-button';
+import { GUESTS_SHOW } from '@/lib/guests-filter';
+import { MAP_ARRANGE, ROSTER_VIEWS } from '@/lib/guest-roster-view';
+import { guestsShareItems } from '@/lib/guests-share-sheet';
+import { GuestsShareRound } from './guests-share-round';
 import { InfoTip } from '@/app/_components/info-tip';
 import { ThumbRow, type ThumbField, type ThumbMenu } from '@/components/thumb-row';
 import { useThumbRowArrivesLast } from '@/lib/thumb-row-arrives-last';
@@ -197,10 +201,6 @@ import {
   writeGuestsFilter,
   type GuestsFilter,
 } from '@/lib/guests-filter';
-import { GUESTS_SHOW } from '@/lib/guests-filter';
-import { MAP_ARRANGE, ROSTER_VIEWS } from '@/lib/guest-roster-view';
-import { guestsShareItems } from '@/lib/guests-share-sheet';
-import { GuestsShareRound } from './guests-share-round';
 import { GuestsLensContext, type GuestsLens, type SeatsChannel } from './guests-lens';
 import { guestsFilterMenu } from './guests-filter-menu';
 

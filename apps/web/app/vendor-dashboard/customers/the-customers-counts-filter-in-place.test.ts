@@ -175,7 +175,7 @@ test('5 · one row per EVENT — one thread per event, every row keyed by its ev
       holdingPerDate: new Map(), anchor: null,
     } as never),
   );
-  const links = html.match(/<a [^>]*data-customer-row="booked"[^>]*>/g) ?? [];
+  const links = html.match(/<div [^>]*data-customer-row="booked"[^>]*>/g) ?? [];
   assert.equal(links.length, 2, 'one couple with two events is not two rows');
   assert.match(html, /href="\/vendor-dashboard\/messages\/t1"/);
   assert.match(html, /href="\/vendor-dashboard\/messages\/t2"/, 'each event row does not open its own chat');

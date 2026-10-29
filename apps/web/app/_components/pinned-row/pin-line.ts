@@ -10,7 +10,7 @@
  *   · the shell's bar, while it shows (on a phone it slides away on scroll; from 701 on the supplier tree it is the
  *     pinned row and never does), and
  *   · a page's own sticky row (`main [data-pinned-row]`) while it is stuck.
- * An open fold's head (`fold.tsx`) and (from S3) the right column sit on this line, so they ride flush under
+ * An open fold's head (`fold.tsx`) and the right column (`SupplierColumns`) sit on this line, so they ride flush under
  * whatever is pinned instead of behind it — and follow it as the bar comes and goes.
  *
  * Shared, not per-consumer: ONE passive capture scroll listener + resize for the page, started by the first user and

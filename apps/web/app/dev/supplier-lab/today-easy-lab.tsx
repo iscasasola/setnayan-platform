@@ -27,6 +27,7 @@ import { TodaySettings } from '@/app/vendor-dashboard/_components/today-settings
 import { offerProgress } from '@/lib/supplier-setup';
 import { VENDOR_CATEGORIES } from '@/lib/vendors';
 import { labSetupDetails } from './page-lab';
+import { forYourServicePages, type EventLines } from '@/lib/supplier-event-lines';
 
 export const EASY_MOMENTS = ['normal', 'setup', 'ask', 'eventday', 'locked', 'hallask', 'agreed'] as const;
 export type EasyMoment = (typeof EASY_MOMENTS)[number];
@@ -59,6 +60,7 @@ const inquiry = (id: string, name: string, date: string, msg: string, hoursAgo: 
   kind: 'inquiry',
   id: `inq-${id}`,
   threadId: `t-${id}`,
+  eventId: id,
   title: 'New inquiry — New customer',
   descriptor: name,
   eventDate: date,
@@ -68,6 +70,78 @@ const inquiry = (id: string, name: string, date: string, msg: string, hoursAgo: 
   messageExcerpt: msg,
   createdAt: ago(hoursAgo),
 });
+/**
+ * 📋 Each lab inquiry's EVENT LINES (supplier dashboard v13) — what the page's `readSupplierEventLines` returns, on the
+ * prototype's own people: the hosts with the one who asked marked, the service asked for, the shop's other services in
+ * categories the event added, and the event's pages for this shop's service (`forYourServicePages`, the shipped rule).
+ */
+const lines = (
+  id: string,
+  o: { type: string; celebrant: string; hosts: Array<[string, boolean]>; location: string | null; date: string; pax: number; requested: string[]; offer?: Array<[string, string | null]>; services: string[]; booked?: Array<[string, string]>; first?: string },
+): EventLines => ({
+  eventId: id,
+  threadId: `t-${id}`,
+  stage: 'asking',
+  read: true,
+  type: o.type,
+  celebrant: o.celebrant,
+  location: o.location,
+  date: o.date,
+  pax: o.pax,
+  hosts: o.hosts.map(([name, askedYou]) => ({ name, askedYou })),
+  requested: o.requested.map((name) => ({ name })),
+  alsoOffer: (o.offer ?? []).map(([name, from], i) => ({ serviceId: `${id}-o${i}`, name, from })),
+  alsoBooked: (o.booked ?? []).map(([name, service]) => ({ name, service })),
+  forYou: forYourServicePages({ eventId: id, stage: 'asking', shopServices: o.services, eventTiles: null }),
+  firstEvent: o.first ? { title: o.first, href: `/vendor-dashboard/messages/t-${id}-first` } : null,
+});
+export const LAB_EVENT_LINES: Readonly<Record<string, EventLines>> = {
+  am: lines('am', {
+    type: 'Wedding',
+    celebrant: 'Ana & Miguel',
+    hosts: [['Tita Mina Reyes', true], ['Ana Reyes', false], ['Miguel Santos', false]],
+    location: 'Blue Leaf Filipinas, Pasay',
+    date: 'Sat, Dec 12, 2026',
+    pax: 150,
+    requested: ['Photo & video · Full day'],
+    offer: [['Same-day edit', null]],
+    services: ['photo_video'],
+    booked: [['Casa Alegria Events', 'Reception venue']],
+  }),
+  dc: lines('dc', {
+    type: 'Wedding',
+    celebrant: 'Dela Cruz',
+    hosts: [['Bea Dela Cruz', true]],
+    location: null,
+    date: 'Sat, Dec 12, 2026',
+    pax: 120,
+    requested: ['Church wedding · 3 PM'],
+    services: ['ceremony_venue'],
+  }),
+  ko: lines('ko', {
+    type: 'Birthday',
+    celebrant: 'Katrina Ocampo',
+    hosts: [['Katrina Ocampo', true], ['Lito Ocampo', false]],
+    location: 'Tagaytay',
+    date: 'Sat, Dec 19, 2026',
+    pax: 80,
+    requested: ['Buffet catering'],
+    offer: [['Grazing table', null]],
+    services: ['catering', 'grazing_table'],
+    first: 'Katrina Ocampo · Debut · Sat, Mar 14, 2026',
+  }),
+  sl: lines('sl', {
+    type: 'Wedding',
+    celebrant: 'Santos & Lim',
+    hosts: [['Carla Santos', true], ['Paolo Lim', false]],
+    location: 'Casa Alegria Events · Hall A + B',
+    date: 'Sat, Dec 12, 2026',
+    pax: 300,
+    requested: ['Reception hall'],
+    services: ['reception_venue'],
+  }),
+};
+
 const ask = (id: string, name: string, date: string, hoursAgo: number): WhatsNewCard => ({
   kind: 'lock_request',
   id: `lockreq-ev-${id}`,
@@ -376,6 +450,7 @@ export function TodayEasyLab({ sup: supKey, moment, actions, library = false, ra
         deskIncomplete={false}
         actions={actions}
         eventsYouRun={eventsYouRun}
+        eventLines={LAB_EVENT_LINES}
         library={library && !firstSteps?.steps.some((st) => st.key === 'inspiration' && st.state !== 'done')}
         setup={
           firstSteps ? (

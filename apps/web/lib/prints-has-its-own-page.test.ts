@@ -153,6 +153,26 @@ test('2 · the shell draws Prints alone: "Prints" where Stages | Studio stood, �
   assert.match(read(`${L}/_components/stages-studio-parts.tsx`), /export function PrintsPageDesk\(\) \{\s*const wide = useIsDesktop\('lg'\);\s*return useMaker\(\)\?\.stagesStudio === true && wide \? <MakerDesk \/> : null;/);
 });
 
+test('2b · the Prints page opens with its editor up — a phone shows the carousel, never an empty warm page', async () => {
+  /* The workspace opens its editor sheet at mount only when a door was pressed and no lower third holds it
+     (`details-workspace.tsx` — `door > 0 && !maker?.lowerThird`). The carousel lives in that sheet: closed, a phone
+     drew the bare page (walked 390, 2026-10-30). The Prints page IS the door, so it mounts with one pressed. */
+  const { MakerContext } = await import(`../${L}/_components/maker-context`);
+  function Probe() {
+    const m = React.useContext(MakerContext) as { detailsDoor?: number; lowerThird?: boolean } | null;
+    return React.createElement('i', { 'data-probe-door': String(m?.detailsDoor ?? 'none'), 'data-probe-lt': String(m?.lowerThird ?? 'none') });
+  }
+  const opened = (html: string) => {
+    const m = /data-probe-door="([^"]*)" data-probe-lt="([^"]*)"/.exec(html);
+    assert.ok(m, 'anti-vacuity: the workspace probe was not drawn');
+    return Number(m[1]) > 0 && m[2] === 'false';
+  };
+  const details = { page: React.createElement(Probe), controls: null };
+  assert.equal(opened(await paintShell({ printsPage: true, details })), true, 'the Prints page mounts its workspace with the editor closed — a phone shows nothing');
+  /* …and the Maker keeps its rule: a mount never opens the tool on its own (only a door pressed while mounted). */
+  assert.equal(opened(await paintShell({ details })), false, 'the Maker opens its editor on mount now');
+});
+
 /* ══ 3 · HOME HOLDS THE DOOR ══════════════════════════════════════════════════════════════════════════════════════════ */
 
 test('3 · Home draws one Prints line that opens the page — only where Prints has work; never a bottom tab', async () => {

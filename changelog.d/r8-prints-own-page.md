@@ -32,6 +32,9 @@ line that opens it. No new bottom tab."* — and 2026-10-28 *"all mapping will b
   stamp). Labs: `/dev/maker-lab?prints=1[&item=<print>]` is the Prints page; `/dev/home-lab` draws the line (`&prints=0` drops it).
 - **Guards** — `lib/prints-has-its-own-page.test.ts` (9 tests, one per move; 11 sabotages, each RED). Re-aimed: the Studio
   tile, toolbar, lower-third and one-Maker guards now hold Prints as MOVED (counts derived from `STUDIO_TILE_KEYS`, never typed).
+- **Fix (2026-10-30, walked 390 after merging main)** — the Prints page opened on a bare warm page on a phone: the carousel
+  lives in the workspace's editor sheet, which opens at mount only when a door was pressed. The page now mounts with its
+  door pressed (`maker-shell.tsx` `detailsDoor`), as the Studio tile did; guard 2b (sabotage → RED).
 
 SPEC IMPACT: `DECISION_LOG.md` — new row "BUILT — R8 · PRINTS HAS ITS OWN PAGE" (2026-10-28); `EVENT_MENU_REORG_BUILD_PLAN_2026-10-27.md`
 step 7b marked built (PR). No ruling changed.

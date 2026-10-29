@@ -291,8 +291,9 @@ export function MakerShell({
      Details on its item — from the address, from memory, or from a door in
      the Maker (`movedSelection`). */
   const [detailsItem, setDetailsItem] = useState<DetailsItemKey | null>(() => movedSelection(initialSelection).item);
-  /* 📱 Each door press opens the item's editor sheet on a phone (`MakerState.detailsDoor`). */
-  const [detailsDoor, setDetailsDoor] = useState(0);
+  /* 📱 Each door press opens the item's editor sheet on a phone (`MakerState.detailsDoor`). The Prints page IS a door
+     pressed (R8): its workspace mounts with the editor up — the carousel lives in it — as the Studio tile opened it. */
+  const [detailsDoor, setDetailsDoor] = useState(printsPage ? 1 : 0);
   /* 🎨 Each time Look is opened — a door press, or Theme picked in the lower third. */
   const [lookVisit, setLookVisit] = useState(0);
   const takeLookVisit = useMemo(() => lookVisitTaker(), []);

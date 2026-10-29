@@ -169,9 +169,7 @@ export function CoordinatorLevelAsk({
                   onClick={() => answer(openFor, level)}
                   disabled={busy}
                   data-testid={`coordinator-level-${level}`}
-                  className={`sn-press flex min-h-14 w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left transition disabled:opacity-60 ${
-                    primary ? 'border-mulberry bg-mulberry text-cream' : 'border-ink/15 bg-cream text-ink hover:border-ink/30'
-                  }`}
+                  className={`sn-press flex min-h-14 w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left transition disabled:opacity-60 ${primary ? 'border-mulberry bg-mulberry text-cream' : 'border-ink/15 bg-cream text-ink hover:border-ink/30'}`} // no-card-ok: each choice row is a <button> (it gives that access)
                 >
                   <Icon aria-hidden className={`h-5 w-5 shrink-0 ${primary ? 'text-cream' : 'text-mulberry'}`} strokeWidth={1.9} />
                   <span className="min-w-0 flex-1">

@@ -126,6 +126,18 @@ describe('2 · removing every payment saves a plan with none', () => {
     assert.equal(planSaveStep({ editorPresent: true, postedLabels: ['Balance'], postedValues: [''] }), 'save');
   });
 
+  it('the save action writes a cleared plan as no payments, instead of refusing it', () => {
+    const here = path.dirname(fileURLToPath(import.meta.url));
+    const src = stripComments(
+      readFileSync(
+        path.join(here, '..', 'app', 'dashboard', '[eventId]', 'vendors', '[vendorId]', 'workspace', 'payment-plan-actions.ts'),
+        'utf8',
+      ),
+    );
+    assert.match(src, /planSaveStep\(\{\s*editorPresent:\s*formData\.get\(PLAN_PRESENT_FIELD\) === '1'/);
+    assert.match(src, /step === 'clear'\s*\?\s*\(\{\s*ok:\s*true,\s*instances:\s*\[\]\s*\}/);
+  });
+
   it('without the editor an empty plan is still refused, as before', () => {
     const r = build([]);
     assert.equal(r.ok, false);

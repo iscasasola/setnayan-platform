@@ -243,7 +243,7 @@ export default async function VendorOnTheDayPage({
               on the day, {HUB_OPEN_WINDOW_PLAIN}.
             </p>
             <div className="mt-4 flex justify-center">
-              <ActionButton tone="brand" main icon={ArrowRight} label="See your customers" href="/vendor-dashboard/customers" />
+              <ActionButton tone="brand" main icon={<ArrowRight aria-hidden strokeWidth={1.9} />} label="See your customers" href="/vendor-dashboard/customers" />
             </div>
           </ShopEmpty>
         </div>

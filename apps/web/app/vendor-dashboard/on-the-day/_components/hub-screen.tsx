@@ -134,7 +134,7 @@ export function HubEventCard({
           <ActionButton
             tone="brand"
             main
-            icon={Play}
+            icon={<Play aria-hidden strokeWidth={1.9} />}
             label="Open the Event Hub"
             href={`/vendor-dashboard/on-the-day/live/${event.eventId}`}
             tour="hub-day-launch"
@@ -170,7 +170,7 @@ export function HubLockRow({ lock }: { lock: HubLock }) {
         Locked
       </p>
       <p className="text-[13.5px] text-ink/70">{lock.headline}</p>
-      {lock.cta ? <ActionButton tone="brand" main icon={ArrowRight} label={lock.cta} href={lock.payHref} /> : null}
+      {lock.cta ? <ActionButton tone="brand" main icon={<ArrowRight aria-hidden strokeWidth={1.9} />} label={lock.cta} href={lock.payHref} /> : null}
     </div>
   );
 }

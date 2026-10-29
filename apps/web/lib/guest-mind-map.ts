@@ -104,7 +104,7 @@ export function mindMapHubs(tree: readonly MapBranch[], drill: MindDrill | null 
     : Math.max(
         150,
         laid.reduce((a, h) => a + h.ext * 2 + 30, 0) / (2 * Math.PI) + 40,
-        maxExt + COUPLE_R + 24,
+        maxExt + COUPLE_R + 60, // the label and "+N more" under a hub stay clear of the couple
         n > 1 ? (2 * maxExt + 40) / (2 * Math.sin(Math.PI / n)) : 0,
       );
   laid.forEach((h, i) => {

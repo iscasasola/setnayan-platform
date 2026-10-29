@@ -113,7 +113,8 @@ test('1b · the stage is the shared Badge — soft fill, no border (look call 7)
   // v13: each row draws its stage once, at the right of its head (the fold's `aside` — hidden while the head pins slim).
   assert.equal(badges.length, 3, `expected 3 rows × 1 badge, found ${badges.length}`);
   for (const b of badges) assert.doesNotMatch(b, /border/, `a stage badge has a border: ${b}`);
-  assert.match(html, />Asked</);
+  // 2026-10-30: "Asking" — the prototype's word and its count's (was "Asked").
+  assert.match(html, />Asking</);
   assert.match(html, />Quoted</, 'a talking row with a quote out does not say Quoted');
   assert.match(html, />Booked</);
   assert.doesNotMatch(ROSTER, /border:\s*`1px solid/, 'the roster hand-draws a bordered pill again');
@@ -221,7 +222,7 @@ test('3b · each segment reads only what it draws (owner: "the fewest requests")
   assert.match(hub, /seg === 'dates' \? \([\s\S]{0,240}<CustomersDay\b[\s\S]{0,120}<CustomersDates\b/, 'Dates (the month, or one day) is not drawn only on Dates');
 });
 
-test('3c · one pinned row on every view: Events draws it with the four counts; Dates and Money with the view ▾ and ⚙ only', () => {
+test('3c · one pinned row on every view: Events draws it with the three counts; Dates and Money with the view ▾ and ⚙ only', () => {
   const people = body(PAGE, 'CustomersPipeline');
   assert.match(people, /<CustomersPin\s+seg="events"[\s\S]{0,120}doors=\{doors\}[\s\S]{0,40}panels=\{panels\}/, 'Events does not draw the counts row');
   const hub = body(PAGE, 'VendorCustomersHub');

@@ -16,6 +16,8 @@
  * redirect stubs and the folds do). Those keys are mapped here, ONCE.
  */
 
+import type { CustomerLane } from '@/lib/vendor-customer-pipeline';
+
 /*
   🗂 CUSTOMERS ARE EVENTS, NOT PEOPLE (owner 2026-10-29, DECISION_LOG "CUSTOMERS ARE EVENTS, NOT PEOPLE": *"is the they
   event the customer and not just the people? because a people can have multiple events? and in one event, can have
@@ -106,11 +108,49 @@ export function customersSegmentHref(seg: CustomersSegment): string {
 }
 
 /**
- * Events' four doors — Asking · Talking · Booked · Done (owner 2026-10-28, prototype `custRows()`), drawn by
- * `CustomersPin`. Here, in the neutral module, because a server page reads the list itself.
+ * Events' THREE counts — Asking · Booked · Done (approved v13 prototype + DECISION_LOG 2026-10-29 "EVERY SUPPLIER-DASHBOARD
+ * PAGE: THE TOP ROWS COMPRESS…": "Customers › Events → Asking · Booked · Done"; controller call 2026-10-30). They were
+ * four (Asking · Talking · Booked · Done, 2026-10-28); TALKING FOLDS INTO ASKING — both are events not booked yet, and
+ * each row's badge still says which (Asking · Holding · Talking · Quoted · Booking).
+ *
+ * 🔑 THE LIST OPENS WITH EVERY EVENT (`all`), no count pressed — like the prototype's five rows. A count FILTERS in place;
+ * pressing it again shows every event. Opening on Asking alone made a supplier's booked events look gone.
+ *
+ * Here, in the neutral module, because a server page reads the list itself.
  */
-export type CustomersDoorKey = 'asking' | 'talking' | 'booked' | 'done';
-export const CUSTOMERS_DOORS: readonly CustomersDoorKey[] = ['asking', 'talking', 'booked', 'done'];
+
+export type CustomersDoorKey = 'asking' | 'booked' | 'done';
+export const CUSTOMERS_DOORS: readonly CustomersDoorKey[] = ['asking', 'booked', 'done'];
+/** Every list the page draws: every event, then one per count. */
+export type CustomersListKey = 'all' | CustomersDoorKey;
+export const CUSTOMERS_LISTS: readonly CustomersListKey[] = ['all', 'asking', 'booked', 'done'];
+
+/** Which roster lanes each list holds — `all` every lane, waiting first (the outside bookings join Booked and All). */
+export const CUSTOMERS_LIST_LANES: Readonly<Record<CustomersListKey, readonly CustomerLane[]>> = {
+  all: ['waiting', 'holding', 'talking', 'booked', 'finished'],
+  asking: ['waiting', 'holding', 'talking'],
+  booked: ['booked'],
+  done: ['finished'],
+};
+
+/**
+ * The count an address names, if any — `?door=` (the old `talking` → Asking), an older `?lane=` filter, or a just-added
+ * outside booking (`?block=` → Booked). Null = no count pressed: every event.
+ */
+export function customersDoorOf(sp: { door?: string; lane?: string; block?: string }): CustomersDoorKey | null {
+  const door = sp.door === 'talking' ? 'asking' : sp.door;
+  if ((CUSTOMERS_DOORS as readonly string[]).includes(door ?? '')) return door as CustomersDoorKey;
+  const LANE_DOOR: Record<string, CustomersDoorKey> = {
+    waiting: 'asking',
+    holding: 'asking',
+    talking: 'asking',
+    booked: 'booked',
+    outside: 'booked',
+    finished: 'done',
+  };
+  if (sp.lane && LANE_DOOR[sp.lane]) return LANE_DOOR[sp.lane]!;
+  return sp.block ? 'booked' : null;
+}
 
 /** Every view's own address, as strings (a client row cannot be handed a function). */
 export const CUSTOMER_SEGMENT_HREFS: Readonly<Record<CustomersSegment, string>> = {

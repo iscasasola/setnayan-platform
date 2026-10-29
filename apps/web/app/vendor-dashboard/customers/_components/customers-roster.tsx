@@ -49,7 +49,8 @@ import { formatCount } from '@/lib/format-number';
 
 /** The stage, as the badge says it — one word or two. */
 const LANE_BADGE: Record<CustomerLane, { word: string; tone: BadgeTone }> = {
-  waiting: { word: 'Asked', tone: 'wait' },
+  // "Asking" — the prototype's word and its count's (v13; controller call 2026-10-30). It was "Asked".
+  waiting: { word: 'Asking', tone: 'wait' },
   holding: { word: 'Holding', tone: 'wait' },
   talking: { word: 'Talking', tone: 'quiet' },
   booked: { word: 'Booked', tone: 'ok' },
@@ -237,7 +238,14 @@ export function RosterRowView({
   query,
   lines = null,
   answers = null,
+  list = null,
 }: {
+  /**
+   * Which of the page's lists draws this row (`asking` · `booked` · `done`) — null on the every-event list. The same
+   * event is drawn in two lists (All and its count), so the row's handle carries the list: one opened row, one copy
+   * beside the list, never the hidden list's twin as well.
+   */
+  list?: string | null;
   r: RosterRow;
   nowMs: number;
   query: string;
@@ -265,7 +273,7 @@ export function RosterRowView({
   return (
     <div className="border-t border-ink/10" data-customer-row={r.lane}>
       <SupplierOpenRow
-        id={`customer-${r.eventId}`}
+        id={list ? `customer-${list}-${r.eventId}` : `customer-${r.eventId}`}
         data="customer-row"
         title={title}
         titleNode={<Marked text={title} query={query} />}
@@ -337,7 +345,10 @@ export function CustomersRoster({
   emptyLine,
   lines = {},
   answers = null,
+  list = null,
 }: {
+  /** Which list this is (a count's key), null for every event — the rows' handles carry it (`RosterRowView`). */
+  list?: string | null;
   /** 📋 Each event's fixed lines, keyed by event id — an opened row shows them (supplier dashboard v13). */
   lines?: Readonly<Record<string, EventLines>>;
   /** The inquiry answers an Asking row gives in place. */
@@ -449,7 +460,7 @@ export function CustomersRoster({
         <ul data-customers-list="" data-tour="customers-list">
           {rows.map((r) => (
             <li key={`${r.lane}:${r.eventId}`} className="[&:first-child>*]:border-t-0">
-              <RosterRowView r={r} nowMs={nowMs} query={q} lines={lines[r.eventId] ?? null} answers={answers} />
+              <RosterRowView r={r} nowMs={nowMs} query={q} lines={lines[r.eventId] ?? null} answers={answers} list={list} />
             </li>
           ))}
         </ul>

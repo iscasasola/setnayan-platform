@@ -109,9 +109,15 @@ export function OutsideClientRows({
   headed,
   nowMs,
   openBlock = null,
+  anchor = 'outside',
 }: {
   /** The booking just added (`?block=`) — its row opens with "Send their code" right there. */
   openBlock?: string | null;
+  /**
+   * The list's `id` — `#outside`, where an Add lands. Null on the every-event list: the same rows are drawn under Booked
+   * too, and one page holds one `#outside`.
+   */
+  anchor?: string | null;
   /** One page of the shop's outside clients (already searched). */
   paged: Paged<OutsideClient>;
   /** The blocks read could not prove it reached every one. */
@@ -127,7 +133,7 @@ export function OutsideClientRows({
 }) {
   if (paged.total === 0 && !incomplete) return null;
   return (
-    <div id="outside" className="scroll-mt-24" data-customers-outside="">
+    <div id={anchor ?? undefined} className="scroll-mt-24" data-customers-outside="">
       {headed ? <p className="home-k2 mt-4">Outside Setnayan</p> : null}
       {paged.items.map((c) => {
         const code: OutsideCode = c.code ?? { state: 'unread' };

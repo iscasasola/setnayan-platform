@@ -68,7 +68,14 @@ import {
   type OutsideCode,
 } from './_components/people-more';
 import { CustomersPin, type CustomersDoor } from './_components/customers-pin';
-import { CUSTOMERS_DOORS, type CustomersDoorKey } from './segments';
+import {
+  CUSTOMERS_DOORS,
+  CUSTOMERS_LISTS,
+  CUSTOMERS_LIST_LANES,
+  customersDoorOf,
+  type CustomersDoorKey,
+  type CustomersListKey,
+} from './segments';
 import { CustomersSettings } from './_components/customers-settings';
 import { CustomersSettingsBody } from './_components/customers-settings-body';
 import { InquiryOutcomesRollup } from '../messages/_components/inquiry-outcomes-rollup';
@@ -533,20 +540,16 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
   };
 
   /*
-    📌 THE FOUR DOORS (owner 2026-10-28, prototype `custRows()`): Asking · Talking · Booked · Done. Each is a filter
-    drawn IN PLACE (`CustomersPin`) — the server draws all four lists and the door shows one. A door is the roster's
-    lanes, read by the ONE derivation, never re-decided here:
-      Asking  = waiting (a question or a booking ask waits on the shop)
-      Talking = holding + talking (holding first — they have gone quiet)
+    📌 EVERY EVENT, THEN THREE COUNTS (approved v13 + DECISION_LOG 2026-10-29 "Customers › Events → Asking · Booked ·
+    Done"; controller call 2026-10-30 — they were four, Talking a door of its own). The list OPENS WITH EVERY EVENT; each
+    count is a filter drawn IN PLACE (`CustomersPin`) — the server draws all four lists and the row shows one. A list is
+    the roster's lanes, read by the ONE derivation, never re-decided here (`CUSTOMERS_LIST_LANES`):
+      All     = every lane, waiting first + the outside bookings
+      Asking  = waiting + holding + talking (not booked yet — the row's badge says which)
       Booked  = booked + the outside bookings
       Done    = finished
   */
-  const DOOR_LANES: Record<CustomersDoorKey, CustomerLane[]> = {
-    asking: ['waiting'],
-    talking: ['holding', 'talking'],
-    booked: ['booked'],
-    done: ['finished'],
-  };
+  const DOOR_LANES = CUSTOMERS_LIST_LANES;
   const laneCounts = Object.fromEntries(CUSTOMER_LANES.map((l) => [l, lanes[l].length])) as Record<CustomerLane, number>;
   const doorCount = (k: CustomersDoorKey) =>
     DOOR_LANES[k].reduce((n, l) => n + laneCounts[l], 0) + (k === 'booked' ? outsideAll.length : 0);
@@ -563,21 +566,9 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
     return n > 0 ? `${formatCount(n)}+` : null;
   };
 
-  const LANE_DOOR: Record<string, CustomersDoorKey> = {
-    waiting: 'asking',
-    holding: 'talking',
-    talking: 'talking',
-    booked: 'booked',
-    outside: 'booked',
-    finished: 'done',
-  };
-  const urlDoor = (CUSTOMERS_DOORS as readonly string[]).includes(search.door ?? '')
-    ? (search.door as CustomersDoorKey)
-    : search.lane && LANE_DOOR[search.lane]
-      ? LANE_DOOR[search.lane]
-      : search.block
-        ? 'booked'
-        : null;
+  // The count the address names (`?door=` — the old `talking` is Asking now —, an older `?lane=`, a new outside
+  // booking's `?block=`), else none: every event.
+  const urlDoor = customersDoorOf(search);
 
   const sp = search as Record<string, string | undefined>;
   const decorate = (r: PipelineCustomer): RosterRow => {
@@ -593,11 +584,12 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
   };
   const noLanes = Object.fromEntries(CUSTOMER_LANES.map((l) => [l, [] as PipelineCustomer[]])) as Record<CustomerLane, PipelineCustomer[]>;
   /*
-    COUNT, NARROW, SEARCH, PAGE — per door, in that order, in the one pure step (`./roster-view.ts`). Only the door the
-    address names (`?door=`) takes `?page=`; the others draw their first page. Each door's pager keeps the door.
+    COUNT, NARROW, SEARCH, PAGE — per list, in that order, in the one pure step (`./roster-view.ts`). Only the list the
+    address names (`?door=`, none = every event) takes `?page=`; the others draw their first page. Each pager keeps its
+    list.
   */
   const views = Object.fromEntries(
-    CUSTOMERS_DOORS.map((k) => {
+    CUSTOMERS_LISTS.map((k) => {
       const subset = { ...noLanes };
       for (const l of DOOR_LANES[k]) subset[l] = lanes[l];
       return [
@@ -605,18 +597,20 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
         rosterView(subset, {
           lane: undefined,
           q: search.q,
-          page: urlDoor === k ? search.page : undefined,
+          page: (urlDoor ?? 'all') === k ? search.page : undefined,
           decorate,
         }),
       ];
     }),
-  ) as Record<CustomersDoorKey, ReturnType<typeof rosterView<RosterRow>>>;
+  ) as Record<CustomersListKey, ReturnType<typeof rosterView<RosterRow>>>;
 
   /*
     QUOTED — which of the TALKING rows on screen already have a quote out with the couple (sent / viewed, not a
     draft). ONE batched read, never one per row. Refused, the rows' quote word is withheld ("couldn't load").
   */
-  const talkingIds = views.talking.paged.items.filter((r) => r.lane === 'talking').map((r) => r.eventId);
+  // The talking rows on screen — under Asking and on the every-event list (each list decorates its own copy of a row).
+  const talkingRows = [...views.asking.paged.items, ...views.all.paged.items].filter((r) => r.lane === 'talking');
+  const talkingIds = [...new Set(talkingRows.map((r) => r.eventId))];
   let quotedRead: 'ok' | 'failed' = 'ok';
   if (talkingIds.length > 0) {
     const { data: quoted, error: quotedError } = await supabase
@@ -630,9 +624,9 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
       logQueryError('VendorCustomersPage.quoted', quotedError, { vendorProfileId }, 'graceful_degrade');
     }
     const quotedIds = new Set(((quoted ?? []) as { event_id: string }[]).map((q) => q.event_id));
-    for (const r of views.talking.paged.items) {
+    for (const r of talkingRows) {
       if (quotedIds.has(r.eventId)) r.quoted = true;
-      else if (quotedRead === 'failed' && r.lane === 'talking') r.note = { text: 'couldn’t load', tone: 'quiet' };
+      else if (quotedRead === 'failed') r.note = { text: 'couldn’t load', tone: 'quiet' };
     }
   }
 
@@ -642,7 +636,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
     batched read (`readSupplierEventLines`: one parallel round + the names). Opening a row reads nothing. Refused → each
     row says its details couldn't load, and its chat still opens.
   */
-  const onScreen = CUSTOMERS_DOORS.flatMap((k) => views[k].paged.items);
+  const onScreen = CUSTOMERS_LISTS.flatMap((k) => views[k].paged.items);
   const linesRead = await readSupplierEventLines(rosterAdmin, {
     vendorProfileId,
     shopServices: (profile.services ?? null) as string[] | null,
@@ -652,31 +646,31 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
   const lines = linesRead ? Object.fromEntries(linesRead) : {};
 
   /*
-    The door a visit opens on: the one the address names (a pager link, an old `?lane=` filter, a new outside
-    booking's `?block=`), else — under a search — the first door with a match, else Asking when anyone is waiting
-    ("the roster opens on who is waiting"), else the first door with anyone in it.
+    🗂 THE LIST A VISIT OPENS ON: the count the address names (a pager link, an old `?lane=` filter, a new outside
+    booking's `?block=`), else NONE — every event, waiting first (approved v13; controller call 2026-10-30: opening on
+    Asking alone made a supplier's booked events look gone). A search narrows every list; the every-event one shows all
+    its matches.
   */
-  const q = (search.q ?? '').trim();
-  const firstHit = q
-    ? CUSTOMERS_DOORS.find((k) => views[k].paged.total > 0 || (k === 'booked' && outsideMatched.length > 0))
-    : undefined;
-  const initialDoor: CustomersDoorKey =
-    urlDoor ?? firstHit ?? (doorCount('asking') > 0 ? 'asking' : (CUSTOMERS_DOORS.find((k) => doorCount(k) > 0) ?? 'asking'));
+  const initialDoor: CustomersDoorKey | null = urlDoor;
+  const allTotal = CUSTOMERS_DOORS.reduce((n, k) => n + doorCount(k), 0);
 
-  const DOOR_EMPTY: Record<CustomersDoorKey, string> = {
-    asking: 'Nobody is waiting on you. When somebody asks about a date, they show up here first.',
-    talking: 'No one you are talking with right now.',
+  const DOOR_EMPTY: Record<CustomersListKey, string> = {
+    all: 'No events yet. When somebody asks about a date, or books you, their event shows up here — the ones waiting on you first.',
+    asking: 'Nobody is asking right now. When somebody asks about a date, their event shows up here first.',
     booked: 'No bookings yet. A booking from outside Setnayan goes here too — add it with Add.',
     done: 'No finished events yet.',
   };
-  const pagerKeep = (k: CustomersDoorKey) =>
-    [keepParamsFrom(sp, ['page', 'notice', 'add', 'door', 'lane', 'block', 'gear']), `door=${k}`].filter(Boolean).join('&');
-  const doorTotal = (k: CustomersDoorKey) => doorCount(k);
+  const pagerKeep = (k: CustomersListKey) =>
+    [keepParamsFrom(sp, ['page', 'notice', 'add', 'door', 'lane', 'block', 'gear']), k === 'all' ? '' : `door=${k}`]
+      .filter(Boolean)
+      .join('&');
+  const doorTotal = (k: CustomersListKey) => (k === 'all' ? allTotal : doorCount(k));
 
   const panels = Object.fromEntries(
-    CUSTOMERS_DOORS.map((k) => {
+    CUSTOMERS_LISTS.map((k) => {
       const v = views[k];
-      const isBooked = k === 'booked';
+      // The outside bookings are booked events: under Booked, and on the every-event list after the Setnayan rows.
+      const isBooked = k === 'booked' || k === 'all';
       const counts = { ...Object.fromEntries(CUSTOMER_LANES.map((l) => [l, 0])), ...Object.fromEntries(DOOR_LANES[k].map((l) => [l, laneCounts[l]])) } as Record<CustomerLane, number>;
       return [
         k,
@@ -696,22 +690,26 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
             emptyLine={doorTotal(k) === 0 ? DOOR_EMPTY[k] : undefined}
             lines={lines}
             answers={{ acceptInquiry, declineInquiry }}
+            list={k === 'all' ? null : k}
           />
           {isBooked ? (
             <OutsideClientRows
               paged={outsidePaged}
               incomplete={outsideIncomplete}
-              keepParams={[keepParamsFrom(sp, ['copage', 'notice', 'add', 'door', 'lane', 'gear']), 'door=booked'].filter(Boolean).join('&')}
+              keepParams={[keepParamsFrom(sp, ['copage', 'notice', 'add', 'door', 'lane', 'gear']), k === 'all' ? '' : 'door=booked'].filter(Boolean).join('&')}
               removeBlock={removeBlock}
               headed={v.paged.items.length > 0}
               nowMs={rosterNowMs}
-              openBlock={search.block ?? null}
+              // A just-added booking opens under Booked (where `?block=` lands); the every-event list keeps it shut and
+              // leaves the page's one `#outside` to Booked.
+              openBlock={k === 'booked' ? (search.block ?? null) : null}
+              anchor={k === 'booked' ? 'outside' : null}
             />
           ) : null}
         </>,
       ];
     }),
-  ) as Record<CustomersDoorKey, ReactNode>;
+  ) as Record<CustomersListKey, ReactNode>;
 
   /*
     ARCHIVED AND CLOSED CHATS — every chat that is not a row above, so retiring the Messages fold leaves no chat
@@ -772,7 +770,6 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
   const notice = search.notice ? EVENTS_NOTICES[search.notice] : undefined;
   const doors: CustomersDoor[] = [
     { key: 'asking', value: doorValue('asking'), word: 'asking', hot: doorCount('asking') > 0 },
-    { key: 'talking', value: doorValue('talking'), word: 'talking' },
     { key: 'booked', value: doorValue('booked'), word: 'booked' },
     { key: 'done', value: doorValue('done'), word: 'done' },
   ];
@@ -813,7 +810,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
                 <OtherChatsFold
                   paged={othersPage}
                   keepParams={keepParamsFrom(sp, ['opage', 'notice', 'add', 'gear'])}
-                  returnTo="/vendor-dashboard/customers?door=talking"
+                  returnTo="/vendor-dashboard/customers?door=asking"
                   rollup={<InquiryOutcomesRollup rollup={outcomeRollup} />}
                   incomplete={!threadsRead.complete}
                 />

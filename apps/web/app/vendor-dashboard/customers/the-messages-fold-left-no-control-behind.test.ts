@@ -85,7 +85,7 @@ test('3 · every chat not on the list is reachable — archived and closed, each
     React.createElement(OtherChatsFold, {
       paged: { items, page: 1, pageCount: 1, total: 2, start: 1, end: 2 },
       keepParams: '',
-      returnTo: '/vendor-dashboard/customers?door=talking',
+      returnTo: '/vendor-dashboard/customers?door=asking',
     } as never),
   );
   assert.match(html, /href="\/vendor-dashboard\/messages\/ta"/);
@@ -145,8 +145,12 @@ test('6 · the code names its booking end to end — offered right after Add, ca
   const CAL = code('calendar', 'actions.ts');
   assert.match(CAL, /const newBlock = \(data as \{ block_id\?: string \} \| null\)\?\.block_id \?\? null;/, 'Add does not hand back the new booking');
   assert.match(CAL, /if \(block\) params\.set\('block', block\);/, 'People is not told which booking was just added');
-  assert.match(PAGE, /openBlock=\{search\.block \?\? null\}/, 'the new booking’s row does not open with its code');
-  assert.match(PAGE, /: search\.block\s*\? 'booked'/, 'a new outside booking does not open the Booked door');
+  // 2026-10-30: the outside rows are drawn under Booked AND on the every-event list; the new booking opens under Booked
+  // (where `?block=` lands), never twice.
+  assert.match(PAGE, /openBlock=\{k === 'booked' \? \(search\.block \?\? null\) : null\}/, 'the new booking’s row does not open with its code');
+  // The door an address names is decided once, in `segments.ts` (`customersDoorOf`): a new booking's `?block=` → Booked.
+  assert.match(PAGE, /const urlDoor = customersDoorOf\(search\);/, 'the page decides the opening door itself again');
+  assert.match(code('customers', 'segments.ts'), /return sp\.block \? 'booked' : null;/, 'a new outside booking does not open the Booked door');
   const GEN = code('invite', '_components', 'locked-qr-generator.tsx');
   assert.match(GEN, /\{blockId \? <input type="hidden" name="block_id" value=\{blockId\} \/> : null\}/, 'the maker drops the booking');
   const ISSUE = code('invite', 'actions.ts');

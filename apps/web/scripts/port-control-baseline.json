@@ -1,5 +1,5 @@
 {
-  "generatedFromRef": "a6f1740da6",
+  "generatedFromRef": "0c2d7622b0",
   "routeCount": 479,
   "destinations": 985,
   "actions": 640,
@@ -14271,7 +14271,7 @@
         "/vendor-dashboard/clients/[seg]",
         "/vendor-dashboard/clients/[seg]?tab=details",
         "/vendor-dashboard/customers",
-        "/vendor-dashboard/customers?door=talking",
+        "/vendor-dashboard/customers?door=asking",
         "/vendor-dashboard/customers?seg=dates&m=[seg]",
         "/vendor-dashboard/invite?mode=locked&date=[seg]&block=[seg]",
         "/vendor-dashboard/invite?mode=locked&issued=[seg]&block=[seg]",

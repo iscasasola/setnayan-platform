@@ -2144,7 +2144,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
   vendor_people_v1: {
     key: 'vendor_people_v1',
     label: 'Supplier — Customers page spotlight',
-    blurb: 'Events ▾, the four counts, ⚙, search and ＋ an outside booking.',
+    blurb: 'Events ▾, the three counts, ⚙, search and ＋ an outside booking.',
     slides: [],
     spotlight: {
       steps: [
@@ -2155,8 +2155,8 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         },
         {
           anchor: 'customers-filter',
-          title: 'Asking · Talking · Booked · Done',
-          body: 'Tap a count to show those events right here. Each event is one row — tap it to see everyone hosting it.',
+          title: 'Asking · Booked · Done',
+          body: 'Every event is listed. Tap a count to show only those; tap it again to see them all. Tap an event to see everyone hosting it.',
         },
         {
           anchor: 'customers-gear',

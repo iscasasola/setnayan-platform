@@ -60,14 +60,14 @@ async function renderPin(over: Record<string, unknown> = {}): Promise<string> {
     React.createElement(CustomersPin, {
       seg: 'events',
       hrefs: { events: '/x', dates: '/x?seg=dates', money: '/x?seg=money' },
+      // 2026-10-30 (controller call on the approved v13 + DECISION_LOG 2026-10-29 "Customers › Events → Asking · Booked ·
+      // Done"): THREE counts, and the list opens on EVERY event — no count pressed.
       doors: [
         { key: 'asking', value: '2', word: 'asking', hot: true },
-        { key: 'talking', value: '3', word: 'talking' },
         { key: 'booked', value: '4', word: 'booked' },
         { key: 'done', value: '1', word: 'done' },
       ],
-      panels: { asking: panel('asking'), talking: panel('talking'), booked: panel('booked'), done: panel('done') },
-      initial: 'talking',
+      panels: { all: panel('all'), asking: panel('asking'), booked: panel('booked'), done: panel('done') },
       gear: React.createElement('span', { 'data-menu-settings': 'customers' }, React.createElement('button', { type: 'button' }, '⚙')),
       ...over,
     } as never),
@@ -104,7 +104,7 @@ test('1 · one sticky pinned row — the view ▾ is one dropdown, the ⚙ ends 
 test('2 · each count is a press that filters in place — a button with aria-pressed, never a link', async () => {
   const html = await renderPin();
   const doors = html.match(/<(?:a|button)\b[^>]*data-customers-door="[a-z]+"[^>]*>/g) ?? [];
-  assert.equal(doors.length, 4, `expected 4 doors, found ${doors.length}`);
+  assert.equal(doors.length, 3, `expected 3 doors, found ${doors.length}`);
   for (const d of doors) {
     assert.match(d, /^<button\b/, `a door navigates instead of filtering: ${d}`);
     assert.match(d, /aria-pressed="(true|false)"/, `a door does not say whether it is filtering: ${d}`);
@@ -112,19 +112,29 @@ test('2 · each count is a press that filters in place — a button with aria-pr
   }
   assert.deepEqual(
     doors.map((d) => /data-customers-door="([a-z]+)"/.exec(d)![1]),
-    ['asking', 'talking', 'booked', 'done'],
-    'the doors are not Asking · Talking · Booked · Done, in that order',
+    ['asking', 'booked', 'done'],
+    'the doors are not Asking · Booked · Done, in that order',
   );
-  assert.equal(count(html, /aria-pressed="true"/g), 1, 'not exactly one door is pressed');
-  assert.match(html, /aria-pressed="true"[^>]*data-customers-door="talking"/, 'the opening door is not the one asked for');
+  // Opens with NO count pressed — every event listed (a supplier opening Customers must see their booked events too).
+  assert.equal(count(html, /aria-pressed="true"/g), 0, 'a count is pressed on arrival — the list does not open on every event');
+  // An address that names a count opens on it.
+  const named = await renderPin({ initial: 'booked' });
+  assert.equal(count(named, /aria-pressed="true"/g), 1, 'not exactly one door is pressed');
+  assert.match(named, /aria-pressed="true"[^>]*data-customers-door="booked"/, 'the opening door is not the one asked for');
+  // Pressing the pressed count again shows every event.
+  assert.match(PIN, /onClick=\{\(\) => setOn\(pressed \? null : d\.key\)\}/, 'pressing a pressed count does not go back to every event');
 });
 
-test('3 · all four lists are drawn and exactly one shows — the pressed door’s', async () => {
-  const html = await renderPin({ initial: 'booked' });
-  const lists = [...html.matchAll(/<div id="customers-list-([a-z]+)" data-customers-list-for="[a-z]+"( hidden="")?>/g)];
-  assert.equal(lists.length, 4, `expected 4 lists, found ${lists.length}`);
+test('3 · every event + the three counts’ lists are drawn and exactly one shows — every event, or the pressed door’s', async () => {
+  const listsOf = (html: string) => [...html.matchAll(/<div id="customers-list-([a-z]+)" data-customers-list-for="[a-z]+"( hidden="")?>/g)];
+  const atRest = listsOf(await renderPin());
+  assert.equal(atRest.length, 4, `expected 4 lists (all + 3 counts), found ${atRest.length}`);
+  assert.deepEqual(atRest.filter((m) => !m[2]).map((m) => m[1]), ['all'], 'the list does not open on every event');
+  const lists = listsOf(await renderPin({ initial: 'booked' }));
   const shown = lists.filter((m) => !m[2]).map((m) => m[1]);
   assert.deepEqual(shown, ['booked'], `the lists shown are ${shown.join(', ') || 'none'} — only the pressed door’s should be`);
+  // The page opens on every event unless the address names a count.
+  assert.match(PAGE, /const initialDoor: CustomersDoorKey \| null = urlDoor;/, 'the page picks a count for a visit that named none');
   // Dates and Money draw the same row with no counts and no lists.
   const plain = await renderPin({ seg: 'money', doors: null, panels: null });
   assert.equal(count(plain, /data-customers-door=/g), 0, 'Money draws counts it never read');
@@ -135,8 +145,7 @@ test('4 · honest: an unread count says "couldn’t load", never 0 — and the p
   const html = await renderPin({
     doors: [
       { key: 'asking', value: null, word: 'asking' },
-      { key: 'talking', value: '3+', word: 'talking' },
-      { key: 'booked', value: '4', word: 'booked' },
+      { key: 'booked', value: '4+', word: 'booked' },
       { key: 'done', value: '1', word: 'done' },
     ],
   });
@@ -144,7 +153,7 @@ test('4 · honest: an unread count says "couldn’t load", never 0 — and the p
   assert.match(asking, /couldn’t load|couldn&#x27;t load|couldn&rsquo;t load/, 'an unread count does not say so');
   assert.doesNotMatch(asking, />0</, 'an unread count shows 0');
   // The page: a short read with nobody → null ("couldn't load"); with somebody → "N+"; only a complete read is plain.
-  const fn = PAGE.slice(PAGE.indexOf('const doorValue = '), PAGE.indexOf('const LANE_DOOR'));
+  const fn = PAGE.slice(PAGE.indexOf('const doorValue = '), PAGE.indexOf('const urlDoor'));
   assert.ok(fn.length > 50, 'doorValue is gone — the scan is blind');
   assert.match(fn, /if \(!short\) return formatCount\(n\);/);
   assert.match(fn, /return n > 0 \? `\$\{formatCount\(n\)\}\+` : null;/, 'a short read is worded as a plain number');

@@ -33,8 +33,12 @@ couple on the line under it, the search said "Search customers", and an opened r
 - Tour copy (`vendor_people_v1` keeps its key — it is the seen-mark suppliers already hold) says Events ▾.
 - Dev lab: `/dev/supplier-lab?s=events` draws the approved v13's own five events (Indalecio & Claire twice).
 
-Doors kept as four (Asking · Talking · Booked · Done) per the build brief; v13 and the 29 Oct pinned-row ruling show three
-(Asking · Booked · Done) — flagged for the owner, not changed.
+- **Opens with every event; three counts** (controller call 2026-10-30, following v13 and the 29 Oct pinned-row ruling
+  "Customers › Events → Asking · Booked · Done"): the list opens with EVERY event, no count pressed (opening on Asking
+  alone made a supplier's booked events look gone); the counts are Asking · Booked · Done — Talking folds into Asking (not
+  booked yet; the row's badge still says Asking / Holding / Talking / Quoted / Booking). A count filters in place;
+  pressing it again shows every event. Old `?door=talking` / `?lane=` links land on the count that holds them now
+  (`customersDoorOf`). The waiting badge says "Asking" (was "Asked").
 
 No migration · no new server action · no new table.
 

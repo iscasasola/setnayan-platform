@@ -24,7 +24,13 @@ import {
   type OutsideCode,
 } from '@/app/vendor-dashboard/customers/_components/people-more';
 import { CustomersPin } from '@/app/vendor-dashboard/customers/_components/customers-pin';
-import { CUSTOMERS_DOORS, type CustomersDoorKey } from '@/app/vendor-dashboard/customers/segments';
+import {
+  CUSTOMERS_LISTS,
+  CUSTOMERS_LIST_LANES,
+  customersDoorOf,
+  type CustomersDoorKey,
+  type CustomersListKey,
+} from '@/app/vendor-dashboard/customers/segments';
 import { CustomersSettings } from '@/app/vendor-dashboard/customers/_components/customers-settings';
 import { DaysSettings } from '@/app/vendor-dashboard/customers/_components/dates-folds';
 import { ChatOriginMark } from '@/app/_components/chat/chat-back';
@@ -205,29 +211,26 @@ export function PeopleLab({
       note: variant === 'fail' && (r.lane === 'booked' || r.lane === 'finished') ? { text: 'couldn’t load', tone: 'quiet' } : (f.money ?? null),
     };
   };
-  // The page's own door → lanes split (`customers/page.tsx` DOOR_LANES), on the prototype's people.
-  const DOOR_LANES: Record<CustomersDoorKey, CustomerLane[]> = { asking: ['waiting'], talking: ['holding', 'talking'], booked: ['booked'], done: ['finished'] };
+  // The page's own list → lanes split (`CUSTOMERS_LIST_LANES`, the one table), on the prototype's people.
+  const DOOR_LANES = CUSTOMERS_LIST_LANES;
   const none = Object.fromEntries(CUSTOMER_LANES.map((l) => [l, [] as PipelineCustomer[]])) as Record<CustomerLane, PipelineCustomer[]>;
   const views = Object.fromEntries(
-    CUSTOMERS_DOORS.map((k) => {
+    CUSTOMERS_LISTS.map((k) => {
       const subset = { ...none };
       for (const l of DOOR_LANES[k]) subset[l] = lanes[l];
       return [k, rosterView(subset, { lane: undefined, q, page: undefined, decorate })];
     }),
-  ) as Record<CustomersDoorKey, ReturnType<typeof rosterView<RosterRow>>>;
+  ) as Record<CustomersListKey, ReturnType<typeof rosterView<RosterRow>>>;
   const outsideMatched = filterBySearch(outsideAll, parseSearchParam(q), (c) => c.name);
   const outsidePage = paginate(outsideMatched, undefined);
   const outsidePaged = {
     ...outsidePage,
     items: outsidePage.items.map((c) => ({ ...c, code: variant === 'fail' ? ({ state: 'unread' } as const) : CODES[c.blockId] })),
   };
-  const count = (k: CustomersDoorKey) => DOOR_LANES[k].reduce((n, l) => n + lanes[l].length, 0) + (k === 'booked' ? outsideAll.length : 0);
-  const LANE_DOOR: Record<string, CustomersDoorKey> = { waiting: 'asking', holding: 'talking', talking: 'talking', booked: 'booked', outside: 'booked', finished: 'done' };
-  const initial: CustomersDoorKey =
-    ((CUSTOMERS_DOORS as readonly string[]).includes(door ?? '') ? (door as CustomersDoorKey) : null) ??
-    (lane ? LANE_DOOR[lane] : undefined) ??
-    (block ? 'booked' : undefined) ??
-    (count('asking') > 0 ? 'asking' : (CUSTOMERS_DOORS.find((k) => count(k) > 0) ?? 'asking'));
+  const count = (k: CustomersListKey) =>
+    DOOR_LANES[k].reduce((n, l) => n + lanes[l].length, 0) + (k === 'booked' || k === 'all' ? outsideAll.length : 0);
+  // The page's own rule: the count the address names, else none — every event (approved v13).
+  const initial: CustomersDoorKey | null = customersDoorOf({ door, lane, block });
   const keep = (drop: string[]) => {
     const p = new URLSearchParams({ s: variant });
     if (q && !drop.includes('q')) p.set('q', q);
@@ -241,8 +244,9 @@ export function PeopleLab({
     return n > 0 ? `${formatCount(n)}+` : null;
   };
   const panels = Object.fromEntries(
-    CUSTOMERS_DOORS.map((k) => {
+    CUSTOMERS_LISTS.map((k) => {
       const v = views[k];
+      const isBooked = k === 'booked' || k === 'all';
       const counts = Object.fromEntries(CUSTOMER_LANES.map((l) => [l, DOOR_LANES[k].includes(l) ? lanes[l].length : 0])) as Record<CustomerLane, number>;
       return [
         k,
@@ -252,32 +256,34 @@ export function PeopleLab({
             paged={v.paged}
             query={q ?? ''}
             incomplete={variant === 'fail'}
-            pagerKeepParams={`${keep([])}&door=${k}`}
+            pagerKeepParams={k === 'all' ? keep([]) : `${keep([])}&door=${k}`}
             counts={counts}
             nowMs={NOW}
             holdingPerDate={holdingByDate(fixtures)}
-            otherMatches={k === 'booked' ? outsideMatched.length : 0}
-            otherTotal={k === 'booked' ? outsideAll.length : 0}
+            otherMatches={isBooked ? outsideMatched.length : 0}
+            otherTotal={isBooked ? outsideAll.length : 0}
             anchor={null}
             emptyLine={count(k) === 0 ? 'Nobody here yet.' : undefined}
             lines={Object.fromEntries(fixtures.map((f) => [f.eventId, labLines(f)]))}
             answers={{ acceptInquiry, declineInquiry }}
+            list={k === 'all' ? null : k}
           />
-          {k === 'booked' ? (
+          {isBooked ? (
             <OutsideClientRows
               paged={outsidePaged}
               incomplete={variant === 'fail'}
-              keepParams={`${keep([])}&door=booked`}
+              keepParams={k === 'all' ? keep([]) : `${keep([])}&door=booked`}
               removeBlock={removeBlock}
               headed={v.paged.items.length > 0}
               nowMs={NOW}
-              openBlock={block ?? null}
+              openBlock={k === 'booked' ? (block ?? null) : null}
+              anchor={k === 'booked' ? 'outside' : null}
             />
           ) : null}
         </>,
       ];
     }),
-  ) as Record<CustomersDoorKey, React.ReactNode>;
+  ) as Record<CustomersListKey, React.ReactNode>;
   const gearBody = gear ? (
     <div data-customers-settings-body="">
       <p className="home-k2 pt-2">Getting paid</p>
@@ -315,7 +321,6 @@ export function PeopleLab({
               hrefs={{ events: base, dates: '/dev/supplier-lab?s=dates', money: '/dev/supplier-lab?s=money' }}
               doors={[
                 { key: 'asking', value: value('asking'), word: 'asking', hot: count('asking') > 0 },
-                { key: 'talking', value: value('talking'), word: 'talking' },
                 { key: 'booked', value: value('booked'), word: 'booked' },
                 { key: 'done', value: value('done'), word: 'done' },
               ]}

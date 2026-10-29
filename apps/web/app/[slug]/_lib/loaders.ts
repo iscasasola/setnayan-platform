@@ -2361,9 +2361,12 @@ export const loadMarch = cache(
          their walkers back in their role sections — a different march — so it is said like an unread march. */
       admin.from('march_groups').select('group_key, label').eq('event_id', eventId),
     ]);
-    if (guestRes.error || ownRes.error) {
-      if (ownRes.error) logQueryError('loadMarch own groups', ownRes.error, { event_id: eventId }, 'graceful_degrade');
-      if (guestRes.error) logQueryError('loadMarch', guestRes.error, { event_id: eventId }, 'graceful_degrade');
+    if (ownRes.error) {
+      logQueryError('loadMarch own groups', ownRes.error, { event_id: eventId }, 'graceful_degrade');
+      return { walking: [], out: null, unread: true };
+    }
+    if (guestRes.error) {
+      logQueryError('loadMarch', guestRes.error, { event_id: eventId }, 'graceful_degrade');
       // `unread`: the march itself was not read — said in the Maker, never drawn as "Nobody walks yet" (2026-10-23).
       return { walking: [], out: null, unread: true };
     }

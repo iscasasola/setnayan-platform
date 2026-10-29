@@ -72,14 +72,11 @@ export function marchSections(groups: readonly EntourageGroup[]): MarchSection[]
     };
   };
   return groups
-    .map((g, gi) => {
-      const own = isOwnMarchGroup(g.key);
-      return {
-        key: g.key,
-        label: g.label,
-        rows: kept[gi]!.map((row) => [person(row[0], row, g.names, own), person(row[1], row, g.names, own)] as const),
-      };
-    })
+    .map((g, gi) => ({
+      key: g.key,
+      label: g.label,
+      rows: kept[gi]!.map((row) => [person(row[0], row, g.names, isOwnMarchGroup(g.key)), person(row[1], row, g.names, isOwnMarchGroup(g.key))] as const),
+    }))
     // 🏷 The couple's own group stays drawn with nobody in it — a group just made is empty until a name is dragged in.
     .filter((sec) => sec.rows.length > 0 || isOwnMarchGroup(sec.key));
 }

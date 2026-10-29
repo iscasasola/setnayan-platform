@@ -974,6 +974,7 @@ export const UGAT_TYPES: UgatTypeMeta[] = [
       { key: 'fk', name: '(event_id, guest_id)', note: 'composite → guests, ON DELETE CASCADE — a walker is always a guest OF THIS EVENT' },
       { key: '', name: 'walk_no', note: 'the walk AND its place: rows sharing it walk together; unique per walk across the event, not per section' },
       { key: '', name: 'place_in_walk', note: 'who is named first inside a walk when the section has no columns' },
+      { key: 'fk', name: 'march_group', note: 'the couple’s own march group they walk in (march_groups; NULL = their role’s section) — the march only, never printed' },
     ],
     edges: [
       { verb: 'lines up', to: 'TYPE-GUESTS' },
@@ -3289,6 +3290,15 @@ export const UGAT_JOINTS: UgatJoint[] = [
       { kind: 'fk', table: 'march_not_walking', column: 'guest_id', references: 'guests' },
       { kind: 'unique', table: 'march_not_walking', columns: ['event_id', 'guest_id'] },
       { kind: 'no_column', table: 'march_not_walking', column: 'walk_no' },
+      /* 🏷 The couple's OWN march groups (owner 2026-10-29, "if they have a custom way of marching they can customize
+         it"): a named group (march_groups), and the walk row saying who walks in it (march_walks.march_group) — the
+         march only, never a guest column and never printed. */
+      { kind: 'table', table: 'march_groups' },
+      { kind: 'fk', table: 'march_groups', column: 'event_id', references: 'events' },
+      { kind: 'unique', table: 'march_groups', columns: ['event_id', 'group_key'] },
+      { kind: 'column', table: 'march_groups', column: 'label' },
+      { kind: 'column', table: 'march_walks', column: 'march_group' },
+      { kind: 'no_column', table: 'guests', column: 'march_group' },
     ],
     chain: 2,
     pair: ['TYPE-MARCH', 'TYPE-GUESTS'],
@@ -3296,7 +3306,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     joint: 'march_walks',
     cardinality: 'One walk row per guest per event; a walk = the rows sharing a walk_no (1, 2 or more people)',
     implementedBy: 'march_walks — composite FK (event_id, guest_id) → guests ON DELETE CASCADE',
-    writtenBy: 'join_entourage_line · swap_entourage_places · set_entourage_order · unpair_guest · set_march_walking (the "Not walking" tray: march_not_walking, never also a march_walks row) — all SECURITY INVOKER, all writing the march\u2019s own tables only (the Maker\u2019s Wedding March)',
+    writtenBy: 'join_entourage_line · swap_entourage_places · set_entourage_order · unpair_guest · set_march_walking (the "Not walking" tray: march_not_walking, never also a march_walks row) · set_march_group (into / out of the couple\u2019s own march_groups, which the Event Hub draft\u2019s Apply makes, names and deletes — guests/march-group-step.ts) — all SECURITY INVOKER, all writing the march\u2019s own tables only (the Maker\u2019s Wedding March)',
     guardedBy: 'RLS on march_walks — the hosts (current_couple_event_ids, never the member-wide current_event_ids) + admin + a guest-list editor; the public invitation reads it with the service role',
     traps: 'guests is SOFT-deleted, so the CASCADE fires only on a real delete: a removed guest keeps a walk row, and readers drop them because they read through guests WHERE deleted_at IS NULL. guests.pair_with_guest_id + entourage_order still EXIST but are retired for the march — nothing writes them; a reader that still asks them gets frozen 2026-10-01 data.',
   },

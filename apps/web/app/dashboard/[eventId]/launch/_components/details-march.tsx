@@ -931,8 +931,8 @@ function MarchMakerBody({
   const selSec = marchSel ? (shown.find((x) => x.key === marchSel) ?? null) : null;
   /** 🏷 ＋ Group: a new group of the couple's own after `after` (the selected group), else after the last section. */
   const addGroup = (after: string | null) => {
-    const movable = shown.filter((x) => !isMarchOnlyGroup(x.key));
-    const at = after ?? movable[movable.length - 1]?.key ?? null;
+    const movable = shown.map((x) => x.key).filter((k) => !isMarchOnlyGroup(k));
+    const at = after ?? movable[movable.length - 1] ?? null;
     const key = newOwnGroupKey();
     run(planGroupAdd(shown, shownPrinted, shownOut, key, newOwnGroupLabel(shown), at));
     setMarchSel(key);

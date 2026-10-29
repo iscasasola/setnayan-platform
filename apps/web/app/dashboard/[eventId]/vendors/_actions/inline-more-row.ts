@@ -43,6 +43,7 @@ import { fetchMarketCategoryCards, firstCardPerSupplier } from '@/lib/bench-serv
 import { withholdCardNames, type BenchServiceCard } from '@/lib/bench-service-card';
 import { readCardRefusals } from '@/lib/bench-bookable-days.server';
 import { readServiceLabels, serviceLabelOf } from '@/lib/service-labels';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import {
   keepFreeCards,
   legacyServiceFor,
@@ -237,6 +238,7 @@ export async function fetchInlineMoreRow(input: {
       .select('event_date, event_date_precision, date_candidates')
       .eq('event_id', eventId)
       .maybeSingle();
+    if (evErr) logQueryError('inline-more-row: events dates', evErr, { event_id: eventId });
     if (evErr || !ev) datesRead = false;
     else {
       const row = ev as {
@@ -278,6 +280,7 @@ export async function fetchInlineMoreRow(input: {
       .from('vendor_public_completed_events_stats')
       .select('vendor_profile_id, public_completed_count')
       .in('vendor_profile_id', results.map((r) => r.vendorProfileId));
+    if (doneErr) logQueryError('inline-more-row: vendor_public_completed_events_stats', doneErr, { event_id: eventId });
     performers = doneErr
       ? null
       : ((done ?? []) as { vendor_profile_id: string | null; public_completed_count: number | string | null }[])

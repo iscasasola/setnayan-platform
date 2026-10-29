@@ -921,8 +921,24 @@ export const ENTOURAGE_ROLES: readonly GuestRole[] = PRINTED.flatMap((g) => [...
 /** Everyone the Wedding MARCH reads — the published roles + the couple (`marchOnly`). */
 export const MARCH_ROLES: readonly GuestRole[] = [...new Set(GROUPS.flatMap((g) => [...g.roles]))];
 
+/**
+ * 🏷 THE MARCH'S OWN READ — `ENTOURAGE_COLUMNS` with the walk row's `march_group` too (owner 2026-10-29, custom March
+ * groups: which of the couple's OWN groups a walker walks in). Asked only by the march's readers (`loadMarch`, the
+ * march actions' fresh reads) — never by a print, which keeps everyone under their role.
+ * Spelled out (a select scanner cannot read a `.replace(…)`), and deliberately NOT named `*_COLUMNS`: `lint:dup-rule`
+ * takes a `*_COLUMNS` list as the reference for its table (see `ENTOURAGE_COLUMNS`' "DO NOT WIDEN" note).
+ * `march-own-groups.test.ts` holds it equal to `ENTOURAGE_COLUMNS` + `march_group`.
+ */
+export const MARCH_GUEST_FIELDS =
+  'guest_id, display_name, name_prefix, first_name, middle_name, last_name, name_suffix, role, extra_roles, march:march_walks(walk_no, place_in_walk, march_group)';
+
 /** One `march_walks` row, as a guest read embeds it. */
-export type MarchSpot = { walk_no: number; place_in_walk?: number | null };
+export type MarchSpot = {
+  walk_no: number;
+  place_in_walk?: number | null;
+  /** 🏷 `march_walks.march_group` — the couple's own march group they walk in (asked by `MARCH_GUEST_FIELDS` only). */
+  march_group?: string | null;
+};
 
 /** The walk row of a guest read, whichever shape PostgREST returned it in. */
 export function marchSpotOf(row: Pick<EntourageGuestRow, 'march'>): MarchSpot | null {
@@ -1160,6 +1176,29 @@ export function entourageLines(
   const spec = GROUPS.find((g) => g.key === groupKey);
   if (!spec) return [];
   return orderLines(pairUp(peopleForSpec(rows, spec, style), spec.sides), spec);
+}
+
+/**
+ * 🏷 ONE MARCH SECTION'S LINES — what the march draws and what its moves are asked against (`readMarchLines`), so the
+ * maker and the server read one membership (owner 2026-10-29, custom March groups):
+ *   · an own group (`isOwnMarchGroup`) holds the walkers whose walk row names it (`march_walks.march_group`), paired by
+ *     their walks, in walk order (anyone unplaced after, by role then surname — the march's usual default);
+ *   · a role section holds its roles' people MINUS anyone walking in an own group.
+ * With no own groups this is `entourageLines` exactly. A print never calls it.
+ */
+export function marchSectionLines(rows: readonly EntourageGuestRow[], groupKey: string, style?: NameStyle): EntourageRow[] {
+  const groupOf = (r: EntourageGuestRow) => marchSpotOf(r)?.march_group ?? null;
+  if (!isOwnMarchGroup(groupKey)) return entourageLines(rows.filter((r) => groupOf(r) === null), groupKey, style);
+  const spec: GroupSpec = { key: groupKey, label: '', roles: MARCH_ROLES };
+  const seen = new Set<string>();
+  // A person holding two roles is one walker: kept once, under their first role.
+  const people = peopleForSpec(rows.filter((r) => groupOf(r) === groupKey), spec, style).filter((p) => {
+    if (!p.id) return true;
+    if (seen.has(p.id)) return false;
+    seen.add(p.id);
+    return true;
+  });
+  return orderLines(pairUp(people, undefined), spec);
 }
 
 /**
@@ -1415,10 +1454,53 @@ export function orderedGroupKeys(saved?: readonly string[] | null): string[] {
  * drawn twice. Owner 2026-10-06: *"Groom + his parents first, bride + her
  * parents last."*
  */
-export function marchGroupKeys(saved?: readonly string[] | null): string[] {
-  const middle = orderedGroupKeys(saved).filter((k) => !MARCH_REPLACED.has(k));
+export function marchGroupKeys(saved?: readonly string[] | null, own: readonly string[] = []): string[] {
+  const middle = marchOrderKeys(saved, own).filter((k) => !MARCH_REPLACED.has(k));
   const at = (where: 'first' | 'last') => MARCH_ONLY.filter((g) => g.marchOnly!.at === where).map((g) => g.key);
   return [...at('first'), ...middle, ...at('last')];
+}
+
+/**
+ * 🏷 THE COUPLE'S OWN MARCH GROUPS (owner 2026-10-29: *"yes. so if they have a custom way of marching they can
+ * customize it."*) — `march_groups`: named sections beyond the role-based ones, drawn in the march only (never
+ * printed). Their keys carry their own shape (`own_` + base-36), so one can never be mistaken for a built-in section.
+ */
+export type OwnMarchGroup = { key: string; label: string };
+const OWN_GROUP_KEY = /^own_[0-9a-z]{6,24}$/;
+/** Is this key one of the couple's own march groups (`march_groups.group_key`)? */
+export function isOwnMarchGroup(key: string): boolean {
+  return OWN_GROUP_KEY.test(key);
+}
+/** The longest heading an own group may have (`march_groups.label`'s CHECK). */
+export const OWN_GROUP_LABEL_MAX = 64;
+
+/**
+ * 🏷 The march's section order WITH the couple's own groups in their place — the full list the section moves step
+ * through (`moveEntourageSection` → `nextSectionOrder`). The built-in sections are `orderedGroupKeys(saved)`, as ever;
+ * each own group stands right after whatever came before it in the saved list (an own group never saved yet — just
+ * made — goes last). An own key the event no longer has is dropped, as a retired built-in key is.
+ */
+export function marchOrderKeys(saved: readonly string[] | null | undefined, own: readonly string[]): string[] {
+  const out = orderedGroupKeys(saved);
+  const mine = new Set(own);
+  const list = saved ?? [];
+  for (const [i, key] of list.entries()) {
+    if (!mine.has(key) || out.includes(key)) continue;
+    let at = -1;
+    for (let j = i - 1; j >= 0 && at === -1; j--) at = out.indexOf(list[j]!);
+    out.splice(at + 1, 0, key);
+  }
+  for (const key of own) if (!out.includes(key)) out.push(key);
+  return out;
+}
+
+/**
+ * 🏷 The march section a role walks in when its holder is in none of the couple's own groups — where someone taken
+ * out of an own group goes back to (the couple's sides for the couple and their parents, else the printed group).
+ */
+export function marchHomeOf(role: string, names?: RoleNames | null): OwnMarchGroup | null {
+  const spec = GROUPS.find((g) => !MARCH_REPLACED.has(g.key) && (g.roles as readonly string[]).includes(role));
+  return spec ? { key: spec.key, label: groupHeading(spec, names, new Set([role as GuestRole])) } : null;
 }
 
 /** Is this section the march's own (never printed)? */
@@ -1440,15 +1522,27 @@ export function buildEntourage(
   names?: RoleNames | null,
   /** `events.print_details.name_style` — the event's Name style (owner 2026-09-30). Omitted → Full. */
   style?: NameStyle,
-  /** 🚶 The Maker's march: the couple's sides too (`marchGroupKeys`). Omitted → what prints. */
-  opts?: { march?: boolean },
+  /**
+   * 🚶 The Maker's march: the couple's sides too (`marchGroupKeys`). Omitted → what prints.
+   * 🏷 `own` (the march only): the couple's own groups (`march_groups`) — each drawn in its place, EVEN EMPTY (a group
+   * just made holds nobody until a name is dragged in), and holding the walkers whose walk row names it; those walkers
+   * leave their role's section in the march (they still print under it — a print never passes `own`).
+   */
+  opts?: { march?: boolean; own?: readonly OwnMarchGroup[] },
 ): EntourageGroup[] {
   const groups: EntourageGroup[] = [];
   const byKey = new Map(GROUPS.map((g) => [g.key, g]));
-  for (const key of opts?.march ? marchGroupKeys(sectionOrder) : orderedGroupKeys(sectionOrder)) {
+  const own = opts?.march ? (opts.own ?? []) : [];
+  const ownByKey = new Map(own.map((g) => [g.key, g]));
+  for (const key of opts?.march ? marchGroupKeys(sectionOrder, own.map((g) => g.key)) : orderedGroupKeys(sectionOrder)) {
+    const mine = ownByKey.get(key);
+    if (mine) {
+      groups.push({ key, label: mine.label, rows: marchSectionLines(rows, key, style), names: names ?? {} });
+      continue;
+    }
     const spec = byKey.get(key)!;
-    // The SAME function the dashboard reorders with — see `entourageLines`.
-    const built = entourageLines(rows, spec.key, style);
+    // The SAME function the dashboard reorders with — see `entourageLines` (in the march: `marchSectionLines`).
+    const built = opts?.march ? marchSectionLines(rows, spec.key, style) : entourageLines(rows, spec.key, style);
     if (built.length === 0) continue;
     const present = new Set<string>();
     for (const line of built) for (const p of line) if (p) present.add(p.role);

@@ -49,7 +49,8 @@ Keep the PR DRAFT + `do-not-auto-merge`; never merge/deploy. CI is the gate (no 
   no LEFT/RIGHT; lone walker spans (`PairBox` flex, `hideEmpty = solo && !dragging && !carried`, the side grows back
   during a move); "· empty walk removed"; header tap = select + toolbar via `lens.HeadToolbar` (Rename = `lens.renameSection`
   · ＋ Walk ▾ from the tray, this group only · Delete = `planSectionOut`, not on fixed sides); second tap folds+unselects.
-  ＋ Group NOT built (owner question: march groups are role sections; no "own group" in data). Guard
+  ＋ Group BUILT 2026-10-29 (branch claude/march-own-groups: `march_groups` + `march_walks.march_group`, drafted
+  `group-add/-name/-drop` + `regroup` steps; guard `lib/march-own-groups.test.ts`). Guard
   `lib/march-groups-in-guests.test.ts`.
 - SLICE 6 part 1 (pushed, walked 390/1280/320 light+dark — `s6/`): Guests › Seats 2D canvas frameless (`seating-editor.tsx`
   canvas border only `!inGuests`; 3D was already frameless via `inMaker`). Owner 2026-10-29 "remove it": the room outline

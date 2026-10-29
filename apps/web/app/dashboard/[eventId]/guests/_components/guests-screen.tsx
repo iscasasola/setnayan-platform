@@ -1938,7 +1938,8 @@ export function GuestsScreen(props: GuestsScreenProps) {
         {/* 📌 The holder keeps the block's height in the flow while the block itself is pinned (fixed) — pinning moves
             nothing under it (`--gs-stick-h`, measured off the block). */}
         <div ref={holdRef} className={styles.stickHold} data-guests-stick-hold="">
-        <div ref={stickRef} className={`${styles.stick} ${styles.pinned}`} data-guests-stick="" data-has-gear={setup ? '' : undefined}>
+        {/* 🔔 `data-peek-toast-under`: a toast lands UNDER this row (and the shell's bar above it), never on its controls. */}
+        <div ref={stickRef} className={`${styles.stick} ${styles.pinned}`} data-guests-stick="" data-has-gear={setup ? '' : undefined} data-peek-toast-under="">
           {/* 📌 ONE PINNED ROW, TWO FACES, PINNED ONCE (owner 2026-10-27, Guests B + "selectors should stay but
               simplified" + "the selector … pin only the new way"): 44 px — the summary face is laid over the full pill
               (absolute, the pill's own box), so the swap moves nothing. At rest the block scrolls with the page; it pins

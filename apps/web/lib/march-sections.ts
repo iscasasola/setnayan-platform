@@ -6,7 +6,7 @@
  * `lib/march-drag.ts` (which the client imports) so the role words it reads do
  * not ride into the Maker's bundle.
  */
-import { columnOfRole, ENTOURAGE_GROUP_KEYS, entourageGroupOfRole, isMarchOnlyGroup, orderedGroupKeys, type EntourageGroup, type EntouragePerson } from '@/lib/entourage';
+import { columnOfRole, ENTOURAGE_GROUP_KEYS, entourageGroupOfRole, isMarchOnlyGroup, isOwnMarchGroup, marchHomeOf, marchOrderKeys, type EntourageGroup, type EntouragePerson } from '@/lib/entourage';
 import { guestRoleLabel } from '@/lib/guests';
 import type { MarchOut, MarchPerson, MarchSection } from '@/lib/march-drag';
 
@@ -56,25 +56,29 @@ export function marchSections(groups: readonly EntourageGroup[]): MarchSection[]
   }
   const tied = (p: EntouragePerson, row: readonly (EntouragePerson | null)[]) =>
     typeof p.walk === 'number' && [...(byWalk.get(p.walk) ?? [])].some((id) => !row.some((x) => x?.id === id));
-  const person = (p: EntouragePerson | null, row: readonly (EntouragePerson | null)[], names: EntourageGroup['names']): MarchPerson | null =>
-    p
-      ? {
-          id: p.id ?? '',
-          name: p.name,
-          role: p.role,
-          // The two people the event is for wear their word (the march's only role line).
-          tag: p.role === 'groom' || p.role === 'bride' ? guestRoleLabel(p.role, names) : null,
-          ...(tied(p, row) ? { tied: true } : {}),
-          ...(p.side ? { side: p.side } : {}),
-        }
-      : null;
+  const person = (p: EntouragePerson | null, row: readonly (EntouragePerson | null)[], names: EntourageGroup['names'], own: boolean): MarchPerson | null => {
+    if (!p) return null;
+    // 🏷 In one of the couple's own groups: the section their role puts them in, where taking them out sends them.
+    const home = own ? marchHomeOf(p.role, names) : null;
+    return {
+      id: p.id ?? '',
+      name: p.name,
+      role: p.role,
+      // The two people the event is for wear their word (the march's only role line).
+      tag: p.role === 'groom' || p.role === 'bride' ? guestRoleLabel(p.role, names) : null,
+      ...(tied(p, row) ? { tied: true } : {}),
+      ...(p.side ? { side: p.side } : {}),
+      ...(home ? { home } : {}),
+    };
+  };
   return groups
     .map((g, gi) => ({
       key: g.key,
       label: g.label,
-      rows: kept[gi]!.map((row) => [person(row[0], row, g.names), person(row[1], row, g.names)] as const),
+      rows: kept[gi]!.map((row) => [person(row[0], row, g.names, isOwnMarchGroup(g.key)), person(row[1], row, g.names, isOwnMarchGroup(g.key))] as const),
     }))
-    .filter((sec) => sec.rows.length > 0);
+    // 🏷 The couple's own group stays drawn with nobody in it — a group just made is empty until a name is dragged in.
+    .filter((sec) => sec.rows.length > 0 || isOwnMarchGroup(sec.key));
 }
 
 /**
@@ -86,7 +90,14 @@ export function marchSections(groups: readonly EntourageGroup[]): MarchSection[]
  */
 export function printedSectionOrder(groups: readonly EntourageGroup[], saved: readonly string[] | null): string[] {
   const present = new Set<string>();
+  const own: string[] = [];
   for (const g of groups) {
+    // 🏷 The couple's own groups are always steps of the section order (even empty), in their saved place.
+    if (isOwnMarchGroup(g.key)) {
+      if (!own.includes(g.key)) own.push(g.key);
+      present.add(g.key);
+      continue;
+    }
     if (!isMarchOnlyGroup(g.key)) {
       if (g.rows.length) present.add(g.key);
       continue;
@@ -96,7 +107,7 @@ export function printedSectionOrder(groups: readonly EntourageGroup[], saved: re
       if (k && ENTOURAGE_GROUP_KEYS.includes(k)) present.add(k);
     }
   }
-  return orderedGroupKeys(saved).filter((k) => present.has(k));
+  return marchOrderKeys(saved, own).filter((k) => present.has(k));
 }
 
 /**

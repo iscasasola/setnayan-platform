@@ -9,5 +9,3 @@ Promote the existing cross-event account hub to the flagship "Memories Hub" name
 Registry-compliant (the chokepoint still consumes `navSlots`); no BottomNav fork; no route/schema change. Part of `03_Strategy/App_Shell_Memories_Hub_Plan_2026-06-28.md` (PR 1). Subsequent PRs promote Memories Hub to a primary focus + the 4-focus nav remap.
 
 SPEC IMPACT: Recorded in `03_Strategy/App_Shell_Memories_Hub_Plan_2026-06-28.md` + DECISION_LOG 2026-06-28. In-app label only.
-
-- Fix (CI ugat-both-ends): the two-column `SupplierColumns` is not shipped in this PR — no page mounts it yet, and a component no page mounts is a wish. It arrives with S3 (Today + Customers › Events), the first page with a right column to show.

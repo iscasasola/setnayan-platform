@@ -23,3 +23,5 @@ COMPRESS"; *"remember to animate them properly."* Builder S1 (the shell) — the
 Guards: `the-supplier-frame-holds.test.ts`, `a-top-row-folds-on-scroll.test.ts`, `the-open-fold-head-pins-slim.test.ts`.
 
 SPEC IMPACT: None — builds the approved v13 frame and the 2026-10-29 rulings already in DECISION_LOG; no new decision.
+
+- Fix (CI ugat-both-ends): the two-column `SupplierColumns` is not shipped in this PR — no page mounts it yet, and a component no page mounts is a wish. It arrives with S3 (Today + Customers › Events), the first page with a right column to show.

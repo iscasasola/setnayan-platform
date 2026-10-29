@@ -499,7 +499,14 @@ export function StudioHubSettings({
   qrShown = true,
   qrLook = null,
   livePath = null,
+  bare = false,
 }: {
+  /**
+   * ⚙ DRAWN IN THE HUB'S ⚙ EVENT HUB SETTINGS (owner 2026-10-30, DECISION_LOG "EVENT HUB PRO (look redesign)"; 27 Oct
+   * "INFO SPLITS BY WHAT IT IS ABOUT": the Hub's address stays in Event Hub ⚙): the same rows, open — no "More for
+   * guests" fold around them, and the "these change right away" line is the group's ⓘ (the sheet draws it).
+   */
+  bare?: boolean;
   eventId: string;
   slug: string | null;
   hub: StudioHubFacts | null;
@@ -553,14 +560,15 @@ export function StudioHubSettings({
       }
     });
   };
-  return (
-    <Fold data="more-for-guests" title="More for guests" summary="the address, who can view, the QR">
-      <div data-studio-hub="" {...STUDIO_INFO_ROWS} className="flex flex-col pb-2">
+  const body = (
+      <div data-studio-hub="" data-studio-hub-bare={bare ? '' : undefined} {...STUDIO_INFO_ROWS} className="flex flex-col pb-2">
         {/* 🟠 ONE line, once, for the whole group — never a line per row. The address's own "Guests see this right
-            away" (`HubSavesImmediately`) steps aside for it here. */}
-        <p data-studio-live-line="" className="pb-2 text-[12.5px] font-medium leading-snug text-warn-700">
-          {STUDIO_LIVE_LINE}
-        </p>
+            away" (`HubSavesImmediately`) steps aside for it here. (In the ⚙ it is the group's ⓘ.) */}
+        {bare ? null : (
+          <p data-studio-live-line="" className="pb-2 text-[12.5px] font-medium leading-snug text-warn-700">
+            {STUDIO_LIVE_LINE}
+          </p>
+        )}
         <FormRows data="your-event-hub">
           <FormRow
             data="address"
@@ -629,6 +637,12 @@ export function StudioHubSettings({
           </p>
         ) : null}
       </div>
+  );
+  return bare ? (
+    body
+  ) : (
+    <Fold data="more-for-guests" title="More for guests" summary="the address, who can view, the QR">
+      {body}
     </Fold>
   );
 }

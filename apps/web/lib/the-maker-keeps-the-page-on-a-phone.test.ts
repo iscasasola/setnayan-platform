@@ -279,7 +279,7 @@ test('🧰 every Maker tool sits in the lower third — none dims the page or fl
   // the pinned row's ⚙ — the house door every menu has (`MenuSettingsButton`), never a sheet of the Maker's own.
   const shellSrc = stripComments(read(`${L}/maker-shell.tsx`));
   assert.doesNotMatch(shellSrc, /function MoreSheet\b/, 'the Maker’s own "Your Event Hub" sheet is back beside the ⚙');
-  assert.match(shellSrc, /<HubSettingsGear open=\{moreOpen\} onOpenChange=\{setMoreOpen\}>/, '"Your Event Hub" is not the ⚙’s sheet');
+  assert.match(shellSrc, /<HubSettingsGear\s+open=\{moreOpen\}\s+onOpenChange=\{setMoreOpen\}/, '"Your Event Hub" is not the ⚙’s sheet');
   assert.match(stripComments(read(`${L}/hub-settings.tsx`)), /<MenuSettingsButton menu="hub" open=\{open\} onOpenChange=\{onOpenChange\}>/, 'the Hub’s ⚙ is not the house door');
   // The scene sheet is the Maker's half sheet, in its lower-third shape.
   assert.match(stripComments(read(`${E}/editor-shell.tsx`)), /<MakerHalfSheet\s+label="Inspector"/, 'the scene sheet is no longer the half sheet');

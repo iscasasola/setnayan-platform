@@ -62,6 +62,9 @@ test('3 · Studio › Info draws ONE dropdown over the shipped actions — no se
   /* …and Info is where it is drawn: MakerDetails mounts it only under `studio`. */
   const details = read('app/dashboard/[eventId]/launch/_components/maker-details.tsx');
   const block = details.slice(details.indexOf('if (props.studio) {'));
-  assert.match(block, /<StudioTool\s+part="hub"\s+eventId=\{eventId\}\s+slug=\{slug\}\s+hub=\{st\.hub\}/);
+  /* (Built by `hubSettingsEditor` since 2026-10-30 — the same rows, also drawn open in the Hub's ⚙.) */
+  assert.match(block, /editors\.address = hubSettingsEditor\(props, \{ bare: false \}\);/);
+  const builder = details.slice(details.indexOf('export function hubSettingsEditor('), details.indexOf('export function MakerDetails('));
+  assert.match(builder, /if \(!st\) return null;[\s\S]*<StudioTool\s+part="hub"\s+eventId=\{eventId\}\s+slug=\{slug\}\s+hub=\{st\.hub\}/);
   assert.doesNotMatch(details, /OpenBrowsePanel/, 'Details draws the old Open browsing panel');
 });

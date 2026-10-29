@@ -12,7 +12,7 @@ import { makerSceneLabel } from '@/lib/maker-scene-list';
 import { themeBackgroundName } from '@/lib/invite-themes';
 import { hubMovingBackgroundIds, sanitizeHubMainGround } from '@/lib/hub-canvas';
 import { resolveThemeGround } from '@/app/[slug]/_lib/theme-ground';
-import { detailsLabFacts, detailsLabNode, labChurchVenues } from '../details-lab/details-lab-node';
+import { detailsLabFacts, detailsLabHubSettings, detailsLabNode, labChurchVenues } from '../details-lab/details-lab-node';
 import { LAB_SAMPLE } from './guest/lab-sample';
 import { MakerLabShell } from './maker-lab-shell';
 import { LAB_EDITORIAL_COOKIE, labEditorialDraft, labPostEventRead } from './lab-post-event';
@@ -194,6 +194,8 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
          (`studioDetails`) — without it this lab drew Details' retired one-piece Prints view ("INVITATION SET · The Invitation" +
          its editor sheet), a door no couple has, instead of Studio › Prints. */
       details={detailsLabNode({ ...sp, studio: '1', shape: 'mj', look: '1', labPass: (await cookies()).get(LAB_PASS_COOKIE)?.value })}
+      /* ⚙ "Your Event Hub" for the Hub's ⚙ (owner 2026-10-30) — the launch page's builder on the lab's fixtures. */
+      hubSettings={detailsLabHubSettings(sp)}
       /* ✍ `&facts=1` — the fact editors the launch page hands the real Maker (`factEditors`): a tap that opens one in the
          work area is seen as it is on a couple's Maker (the Love Story's moments, 2026-10-19). Off by default. */
       factEditors={sp.facts === '1' ? detailsLabFacts(sp, { specialMessage: LAB_SAMPLE.message, pabuyaMessage: 'Thank you for joining us — every gift is received with thanks.' }) : undefined}

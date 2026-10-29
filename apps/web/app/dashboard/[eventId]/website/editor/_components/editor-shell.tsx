@@ -253,7 +253,8 @@ const MAIN_ROWS = ['music'];
 
 /** The canvas's "Event Bar" switch (was "Guest bars"), remembered for this browser session. */
 const GUEST_BARS_KEY = 'setnayan:maker-guest-bars';
-const MORE_ROWS = ['go-live', 'visibility', 'launch-phase', 'open-browse'];
+/* (The old "Your Event Hub" rows — go-live · visibility · launch-phase · open-browse — are no longer drawn by the work
+   area: the Hub's ⚙ holds the shipped Studio rows for the same columns, 2026-10-30.) */
 
 export function MakerWork({
   eventId,
@@ -2476,8 +2477,6 @@ export function MakerWork({
     );
   }
 
-  const moreRows = MORE_ROWS.filter((k) => rows[k]);
-
   /* ══ NO MADE-ONCE PAGE IS DRAWN HERE ANY MORE ═══════════════════════════
      Owner 2026-09-25: *"we do not want a pop up for details, logo, hero, reveal
      and love story. we want their actual page to be on the body of the editor
@@ -3589,20 +3588,13 @@ export function MakerWork({
         <button type="submit" data-op="down" formAction={moveDownAction} tabIndex={-1} />
       </form>
 
-      {/* The address rows live in the ⋯ sheet, with the rest of "your Event Hub". */}
+      {/* ⚙ The Hub's ⚙ Event Hub settings: its "Your Event Hub" group is the shipped Studio rows (address · Go live · who can
+          view · which version · Event Bar · the QR — `StudioHubSettings`, owner 2026-10-30), so the old navigator's rows
+          and their QR card are no longer drawn beside them (one setting, one place); only the Event Hub Pro line is the
+          work area's to add. */}
       {moreHost
         ? createPortal(
-            <>
-              {moreRows.map((key) => (
-                <RowBlock key={key} row={rows[key]!} />
-              ))}
-              <MoreExtras
-                liveHref={publicLandingUrl}
-                proUnlockHref={proUnlockHref}
-                proPriceLabel={proPriceLabel}
-                showProCta={showProCta}
-              />
-            </>,
+            <MoreExtras liveHref={null} proUnlockHref={proUnlockHref} proPriceLabel={proPriceLabel} showProCta={showProCta} />,
             moreHost,
           )
         : null}

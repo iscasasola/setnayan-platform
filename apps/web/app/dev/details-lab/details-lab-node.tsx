@@ -38,7 +38,7 @@
  */
 import { passCardDesignFrom } from '@/lib/pass-card';
 import { fallbackInspirationParts } from '@/lib/inspiration-parts';
-import { MakerDetails, detailsFactEditors } from '@/app/dashboard/[eventId]/launch/_components/maker-details';
+import { MakerDetails, detailsFactEditors, hubSettingsEditor } from '@/app/dashboard/[eventId]/launch/_components/maker-details';
 import { pickableInviteThemes } from '@/lib/invite-themes';
 import { formatFor, parsePrintDetails } from '@/lib/print-pieces';
 import { detailsItemFor } from '@/lib/maker-details-items';
@@ -137,6 +137,31 @@ export function detailsLabFacts(
 }
 
 /** The lab's Event Details page — also mounted whole inside the Maker lab (`/dev/maker-lab`). */
+/**
+ * ⚙ "Your Event Hub" for the Hub's ⚙ Event Hub settings in the Maker lab (owner 2026-10-30) — the SAME builder the
+ * launch page hands the Maker (`hubSettingsEditor`, open), on the lab's own Your Event Hub fixtures (`?studio=1`'s).
+ */
+export function detailsLabHubSettings(sp: Record<string, string | string[] | undefined>) {
+  const pro = sp.pro === '1';
+  return hubSettingsEditor(
+    {
+      eventId: EVENT,
+      slug: LAB_SAMPLE.slug,
+      slugAction: updateEventSlug.bind(null, EVENT, 'launch'),
+      qr: { ownsPro: pro, style: {}, inks: ['#1A1A1A'], storeShell: false },
+      qrStyleAction: updateQrStyle.bind(null, EVENT),
+      studio: {
+        hub: { visibility: 'unlisted', pinned: null, openBrowse: false, launched: false, scheduledAt: null },
+        egiftMethods: null,
+        whatToBring: null,
+        livePath: `/${LAB_SAMPLE.slug}`,
+        qrShown: true,
+      },
+    },
+    { bare: true },
+  );
+}
+
 export function detailsLabNode(sp: Record<string, string | string[] | undefined>) {
   const one = (k: string) => (typeof sp[k] === 'string' ? (sp[k] as string) : undefined);
   const pro = one('pro') === '1';

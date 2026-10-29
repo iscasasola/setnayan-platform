@@ -65,6 +65,7 @@ export async function AppRailShell({
   variant = 'app',
   bleed,
   boundary,
+  pinnedBar,
 }: {
   children: React.ReactNode;
   /**
@@ -130,6 +131,8 @@ export async function AppRailShell({
   bleed?: boolean;
   /** Where this tree stops being a phone — pure pass-through, see `shell-boundary.tsx`. */
   boundary?: ShellBoundary;
+  /** 📌 From 701 the bar is the page's pinned row (page menu ▾ left) — pure pass-through, see `front-door-shell.tsx`. */
+  pinnedBar?: { lead: React.ReactNode };
 }) {
   const [account, navLabels, discoverOpen] = await Promise.all([
     resolveRailAccount(),
@@ -162,6 +165,7 @@ export async function AppRailShell({
       variant={variant}
       bleed={bleed}
       boundary={boundary}
+      pinnedBar={pinnedBar}
       /*
         Only the public route group has full-bleed routes. The signed-in trees
         get `undefined` and pass `bleed` explicitly if they ever need it.

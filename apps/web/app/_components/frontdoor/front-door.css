@@ -3096,3 +3096,104 @@ html.dark .fd {
   line-height: 1.45;
   color: var(--fd-m1);
 }
+
+/* ── 📌 THE BAR IS THE PAGE'S PINNED ROW (supplier dashboard v13, owner 2026-10-29) ─────────────────────────────────
+   Owner: "desktop mode is wrong" · "and tablet"; prototype v13 approved ("Approved."), DECISION_LOG 2026-10-29
+   "SUPPLIER DASHBOARD — LAST ROUND OF OWNER NOTES" item 12. OPT-IN by one attribute, `data-pinned-bar`, written on
+   `.fd` by the shell's `pinnedBar` prop — one tree today (`vendor-dashboard/layout.tsx`).
+
+     · ≥1100   the full rail (240, icon + word) · the bar over the content column only: page menu ▾ LEFT, the page's
+               search · ⇅ · ＋ and the action rounds RIGHT, no wordmark, no centre title.
+     · 701–1099 the same, with the 72-px icon strip.
+     · <701    NOTHING here applies — the phone keeps its bar, its search and its bottom tabs as shipped.
+
+   🔑 STILL ONE BAR: the same `<header>` changes its seat; nothing is drawn twice. The rail rises to the top of the
+   window (`margin-top: -bar`, sticky at 0) because the bar no longer spans it.
+   🔒 vendor-dashboard/_components/the-supplier-frame-holds.test.ts */
+.fd-pinlead,
+.fd-pintools {
+  display: none;
+}
+@media (min-width: 701px) {
+  .fd[data-chrome='app'][data-pinned-bar] .fd-topwrap {
+    margin-left: var(--fd-rail);
+  }
+  .fd[data-chrome='app'][data-pinned-bar] .fd-topbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-left: 16px;
+  }
+  .fd[data-chrome='app'][data-pinned-bar] .fd-topleft,
+  .fd[data-chrome='app'][data-pinned-bar] .fd-searchwrap {
+    display: none;
+  }
+  .fd[data-chrome='app'][data-pinned-bar] .fd-pinlead {
+    display: flex;
+    align-items: center;
+    flex: 0 1 auto;
+    min-width: 0;
+  }
+  .fd[data-chrome='app'][data-pinned-bar] .fd-pintools {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .fd[data-chrome='app'][data-pinned-bar] .fd-topright {
+    flex: none;
+  }
+  /* The shop's name is the rail's first line now; the bar carries rounds only. */
+  .fd[data-chrome='app'][data-pinned-bar] [data-supplier-shell-shop] {
+    display: none;
+  }
+  /* The rail is its own column, top to bottom of the window. Specific enough to beat the tab band's
+     `.fd[data-boundary='tab'] .fd-rail[data-open='…']` and the app's `min-height` floor. */
+  .fd[data-chrome='app'][data-pinned-bar] .fd-rail,
+  .fd[data-chrome='app'][data-pinned-bar] .fd-rail[data-open] {
+    position: sticky;
+    top: 0;
+    margin-top: calc(-1 * var(--fd-bar));
+    max-height: 100vh;
+    min-height: 100vh;
+  }
+  /* A page's own sticky rows ride UNDER the bar (it never hides from 701), never behind it. */
+  .fd[data-chrome='app'][data-pinned-bar] main [data-pinned-row] {
+    top: var(--fd-bar);
+  }
+}
+/* ≥1100: the full rail — icon + word — a band earlier than the app's 1280 (the prototype's line). The 1024–1279 strip
+   rules above hide the words; this undoes exactly those, for the opted-in tree only. */
+@media (min-width: 1100px) and (max-width: 1279.98px) {
+  .fd[data-pinned-bar] {
+    --fd-rail: 240px;
+  }
+  .fd[data-pinned-bar] .fd-rail {
+    padding: 10px 8px 40px;
+  }
+  .fd[data-pinned-bar] .fd-rlabel {
+    display: flex;
+  }
+  .fd[data-pinned-bar] .fd-rail .fd-label-text,
+  .fd[data-pinned-bar] .fd-rail .fd-ct,
+  .fd[data-pinned-bar] .fd-rctx,
+  .fd[data-pinned-bar] .fd-rail .fd-mchev,
+  .fd[data-pinned-bar] .fd-notice,
+  .fd[data-pinned-bar] .fd-smallprint {
+    display: revert;
+  }
+  .fd[data-pinned-bar] .fd-row {
+    flex-direction: row;
+    gap: 12px;
+    padding: 0 12px;
+    font-size: 14px;
+    min-height: 44px;
+    text-align: left;
+    justify-content: flex-start;
+  }
+  .fd[data-pinned-bar] .fd-row .fd-icon-caption {
+    display: none;
+  }
+}

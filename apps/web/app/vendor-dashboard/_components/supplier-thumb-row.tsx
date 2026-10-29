@@ -30,6 +30,14 @@
  *
  * Loaded only by supplier routes: nothing imports it outside
  * `app/vendor-dashboard/**`.
+ *
+ * 📌 FROM 701 IT MOVES UP INTO THE PINNED ROW (supplier dashboard v13, owner 2026-10-29: "pinned row on top (search +
+ * ＋ move up)"; prototype "wide: the thumb row's search + ⇅ + ＋ move UP into the pinned row"). Where the shell has
+ * opened the bar's tools box (`[data-pin-tools]`, the `pinnedBar` tree), the SAME controls portal into it instead of
+ * floating at the foot — no glass there (it sits on the bar), the field a pill, the rounds 40 px. Below 701, or on a tree
+ * without the box, nothing changes. On a phone the floating row gains a soft fade behind it so the rows under it show
+ * through instead of being cut by its edge (v13 "soft fade behind the floating thumb row").
+ * 🔒 the-supplier-frame-holds.test.ts
  */
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
@@ -59,6 +67,7 @@ export function SupplierThumbRow({
   const [mounted, setMounted] = useState(false);
   const [on, setOn] = useState(false);
   const pathname = usePathname();
+  const upTo = usePinTools();
 
   // Slides up once the page has rendered (two frames: mount, then move).
   useEffect(() => {
@@ -111,6 +120,14 @@ export function SupplierThumbRow({
   }, [mounted]);
 
   if (!mounted) return null;
+  if (upTo) {
+    return createPortal(
+      <div className={styles.up} data-supplier-thumb={name} data-thumb-up="" role={row ? undefined : 'toolbar'} aria-label={row ? undefined : label}>
+        {row ?? <ThumbFit>{children}</ThumbFit>}
+      </div>,
+      upTo,
+    );
+  }
   if (row) {
     return createPortal(
       <div ref={rowRef} className={styles.lower} data-supplier-thumb={name} data-on={on ? 'true' : 'false'}>
@@ -153,4 +170,24 @@ function ThumbFit({ children }: { children: ReactNode }) {
       {children}
     </div>
   );
+}
+
+/** The width at which the thumb row lives in the pinned row — the shell's 701 line (`boundary="tab"`). */
+const UP_QUERY = '(min-width: 701px)';
+
+/**
+ * The pinned row's tools box, while the window is wide enough for the row to live there — else null (the row floats).
+ * Re-read when the width crosses the line, so turning a tablet moves the row with it.
+ */
+function usePinTools(): HTMLElement | null {
+  const [box, setBox] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return;
+    const mq = window.matchMedia(UP_QUERY);
+    const read = () => setBox(mq.matches ? document.querySelector<HTMLElement>('[data-pin-tools]') : null);
+    read();
+    mq.addEventListener('change', read);
+    return () => mq.removeEventListener('change', read);
+  }, []);
+  return box;
 }

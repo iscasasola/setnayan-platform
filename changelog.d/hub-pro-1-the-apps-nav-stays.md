@@ -17,6 +17,8 @@ THE SAME SHAPE AS HOME · GUESTS · SUPPLIERS"; prototype `prototypes/build-cont
   Its sheet is what the Maker's own "Your Event Hub" sheet held (Go live · who can view · which version · open browsing ·
   the QR · the Pro line); Settings › Who can view opens the same sheet. `MoreSheet` is deleted; the work area portals into
   the ⚙'s body through the context (`moreHost`). ↺ Undo · ✓ Apply stay on the row (call 3).
+- A sheet open over the Maker (⚙, the bell, the account panel) hides the picked part's frame, which is drawn high on
+  `<body>` and painted crisp over the sheet's dimmed page (seen in the lab at 390 and 1280).
 - `/dev/maker-lab` draws the Maker inside the REAL app chrome (`LabShell`, Hub lit).
 
 Guards amended where the 30 Oct row amends LOCKED behaviour (the ✕, the full-screen root): the-toolbar-is-the-maker-in-four

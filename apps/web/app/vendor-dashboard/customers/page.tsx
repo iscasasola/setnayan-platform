@@ -1454,16 +1454,9 @@ export default async function VendorCustomersHub({ searchParams }: Props) {
           data-customers-seg-open={seg}
         >
           <h1 className="sr-only">Customers</h1>
-          {/* 📌 Each view draws its own pinned row: People with its four counts; Dates with the month's figures and Money
-              with Received · To come in · Overdue (v13, `customers-figures.tsx`). One day (Dates › a day) has its own
-              back-headed sheet instead. */}
-          {seg === 'people' || seg === 'dates' || seg === 'money' ? null : (
-            <CustomersPin
-              seg={seg}
-              hrefs={CUSTOMER_SEGMENT_HREFS}
-              gear={<CustomersSettings body={search.gear === '1' ? <CustomersSettingsBody seg={seg} search={search} /> : null} />}
-            />
-          )}
+          {/* 📌 Each view draws its own pinned row, over what it read: People with its four counts; Dates with the
+              month's figures (`CustomersDates`) and Money with Received · To come in · Overdue (`CustomersMoney`) — v13,
+              `customers-figures.tsx`. One day (Dates › a day) has its own back-headed sheet instead. */}
           {seg === 'people' ? (
             <div className="pb-24">
               <CustomersPipeline search={search} />

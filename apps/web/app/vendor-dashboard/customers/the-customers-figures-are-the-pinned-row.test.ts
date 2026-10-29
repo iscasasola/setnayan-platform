@@ -33,7 +33,7 @@ test('1 · Dates counts days by the month’s marks; unread closures make "days 
   const month = buildCustomerCalendarMonth(
     [POOL],
     [{ poolId: 'p1', bookedDate: '2026-10-03', eventName: 'Reyes debut' }],
-    [{ poolId: null, source: 'manual', startDate: '2026-10-14', endDate: '2026-10-15', label: 'Trip', clientName: null, clientTime: null }],
+    [{ poolId: null, source: 'manual', startDate: '2026-10-14', endDate: '2026-10-15' }],
     [],
     [],
     '2026-10',

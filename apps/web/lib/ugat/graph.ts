@@ -290,6 +290,7 @@ export const UGAT_TYPES: UgatTypeMeta[] = [
       { key: '', name: 'folder_id', note: 'DENORM ⚠ no FK' },
       { key: '', name: 'leaf_key', note: 'string, cards glue to it 🔴' },
       { key: '', name: 'coarse_category', note: 'tier-2 → the vendor_category its bookings are filed as (③0-c)' },
+      { key: '', name: 'one_per_event', note: 'tier-2 switch: a couple books ONE of it per event (owner 2026-10-29) — drives event_vendors.hard_single_group' },
       { key: '', name: 'sort_order', note: 'a service\u2019s place among its category on /admin/categories (Order \u25be, ③b); other readers still list A\u2013Z' },
     ],
     edges: [
@@ -1771,6 +1772,9 @@ export const UGAT_JOINTS: UgatJoint[] = [
       // ③0-c (2026-10-26): the coarse `event_vendors.category` a booking is stored with is
       // answered by the category's own row — no longer by a code map.
       { kind: 'column', table: 'service_categories', column: 'coarse_category' },
+      // 2026-10-29: "one per event" is a switch on the category, and the booking's lock key is written from it.
+      { kind: 'column', table: 'service_categories', column: 'one_per_event' },
+      { kind: 'column', table: 'event_vendors', column: 'hard_single_group' },
     ],
     chain: 7,
     pair: ['TYPE-EVENTS', 'TYPE-VENDORS'],
@@ -1782,7 +1786,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     writtenBy: 'Vendor-add flow on the couple dashboard · CSV import · admin-assisted booking entry',
     guardedBy: 'current_event_ids() for the couple side; vendor side reads via current_vendor_ids() when vendor_org_id is set',
     traps:
-      'Org FK (vendor_org_id) is SET-NULL nullable — a booking can point at an off-platform vendor with no org row. category_key DOES have a real FK. The coarse `category` enum is resolved from service_categories.coarse_category (③0-c, 2026-10-26; read through getTaxonomy(), lib/vendor-branch-category.ts BRANCH_TO_VENDOR_CATEGORY is only the seed/fallback) — a NEW category inherits its group\'s most common sibling value on insert (trigger service_categories_inherit_coarse_category, ③0-c part 2; ties → first sibling by sort_order); one left with no value files its bookings under misc. Deleting a category a couple-side VendorCategory is anchored on is REFUSED (deletionWouldBreakCoupleLinks).',
+      'Org FK (vendor_org_id) is SET-NULL nullable — a booking can point at an off-platform vendor with no org row. category_key DOES have a real FK. The coarse `category` enum is resolved from service_categories.coarse_category (③0-c, 2026-10-26; read through getTaxonomy(), lib/vendor-branch-category.ts BRANCH_TO_VENDOR_CATEGORY is only the seed/fallback) — a NEW category inherits its group\'s most common sibling value on insert (trigger service_categories_inherit_coarse_category, ③0-c part 2; ties → first sibling by sort_order); one left with no value files its bookings under misc. Deleting a category a couple-side VendorCategory is anchored on is REFUSED (deletionWouldBreakCoupleLinks). ONE PER EVENT (owner 2026-10-29): `hard_single_group` is NOT generated any more — trigger event_vendors_one_per_event_key writes it on every insert/update from service_categories.one_per_event (the switched-on tier-2 category filed under the booking\'s coarse category), and flipping the switch re-keys the bookings (service_categories_one_per_event_follow); a flip ON that would put two confirmed bookings in one slot is refused by event_vendors_hard_single_lock_uniq. The app reads the same switch (lib/one-per-event.ts) — no list in code.',
   },
   {
     id: 'J8',

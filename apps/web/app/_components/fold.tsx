@@ -37,6 +37,7 @@ export function Fold({
   tip,
   open: openProp,
   onOpenChange,
+  pin = false,
 }: {
   /** What the fold is — "More for guests". */
   title: string;
@@ -99,6 +100,15 @@ export function Fold({
    */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  /**
+   * 📌 THE OPEN HEAD PINS (owner 2026-10-29, Admin › Categories panels approved — prototype
+   * `carry-2026-10-29/admin-categories-proto`, strips `strip-pin-*`): while this fold is open and its head has scrolled
+   * past the top of the scrolling box, the head stays there, SLIM (40 px, the summary faded), so the person always
+   * sees which fold they are in; scrolling back lets it go. The change moves at the family's speed; nothing moves
+   * under "reduce motion". A press on a pinned head takes the person back to the fold's top instead of shutting it.
+   * The head is sticky inside the fold, so it leaves with the fold's last row. Absent → the head is exactly as it was.
+   */
+  pin?: boolean;
 }) {
   const [ownOpen, setOwnOpen] = useState(defaultOpen);
   const controlled = openProp !== undefined;
@@ -126,6 +136,34 @@ export function Fold({
   const scope = useOneOpen(open, setOpen);
   const id = useId();
   const box = useRef<HTMLDivElement>(null);
+  const sentinel = useRef<HTMLDivElement>(null);
+  const [stuck, setStuck] = useState(false);
+  useEffect(() => {
+    if (!pin || !open) {
+      setStuck(false);
+      return;
+    }
+    const el = sentinel.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return;
+    /* The box that scrolls (a sheet's body, the page) — the head pins to ITS top. */
+    let root: HTMLElement | null = el.parentElement;
+    while (root && !/(auto|scroll)/.test(getComputedStyle(root).overflowY)) root = root.parentElement;
+    const io = new IntersectionObserver(
+      ([e]) => {
+        if (!e) return;
+        const top = e.rootBounds?.top ?? 0;
+        setStuck(!e.isIntersecting && e.boundingClientRect.top < top);
+      },
+      { root, threshold: 0 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [pin, open]);
+  const pinned = pin && open && stuck;
+  const toTop = () => {
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    box.current?.scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
+  };
   useEffect(() => {
     if (!anchor) return;
     const apply = () => {
@@ -145,8 +183,9 @@ export function Fold({
       aria-expanded={open}
       aria-controls={id}
       aria-label={tipped ? (summary ? `${title} · ${summary}` : title) : undefined}
-      onClick={() => setOpen((o) => !o)}
-      className={`sn-press flex min-h-[52px] items-center gap-2 text-left text-[15px] font-semibold text-ink ${leadPress || tipped ? 'min-w-0 flex-1' : 'w-full'}`}
+      data-fold-pinned={pinned ? '' : undefined}
+      onClick={() => (pinned ? toTop() : setOpen((o) => !o))}
+      className={`sn-press flex items-center gap-2 text-left font-semibold text-ink ${pin ? 'transition-[min-height,font-size] duration-300 ease-sn motion-reduce:transition-none' : ''} ${pinned ? 'min-h-10 text-[13.5px]' : 'min-h-[52px] text-[15px]'} ${leadPress || tipped ? 'min-w-0 flex-1' : 'w-full'}`}
     >
       {lead}
       {tipped ? (
@@ -154,7 +193,7 @@ export function Fold({
       ) : summaryEnd ? (
         <>
           <span className={`shrink-0 font-medium ${danger ? 'text-danger-700' : ''}`}>{title}</span>
-          <span className="ml-auto min-w-0 flex-1 truncate text-right text-[13.5px] font-normal text-ink/55">{summary}</span>
+          <span className={`ml-auto min-w-0 flex-1 truncate text-right text-[13.5px] font-normal text-ink/55 ${pin ? 'transition-opacity duration-300 motion-reduce:transition-none' : ''} ${pinned ? 'opacity-0' : ''}`}>{summary}</span>
         </>
       ) : line !== undefined ? (
         <span className="min-w-0 flex-1">
@@ -179,7 +218,15 @@ export function Fold({
       data-fold-open={open ? '' : undefined}
       className={anchor ? `scroll-mt-24 ${className}` : className}
     >
-      {leadPress ? (
+      {pin ? <div ref={sentinel} aria-hidden data-fold-sentinel="" className="h-px -mb-px" /> : null}
+      {pin ? (
+        <div
+          data-fold-pin=""
+          className={`${open ? 'sticky top-0 z-[3] bg-cream' : ''} transition-shadow duration-300 motion-reduce:transition-none ${pinned ? 'shadow-[0_1px_0_rgb(var(--color-ink)/0.1)]' : ''}`}
+        >
+          {head}
+        </div>
+      ) : leadPress ? (
         <div className="flex items-center gap-2" data-fold-row="">
           {leadPress}
           {head}

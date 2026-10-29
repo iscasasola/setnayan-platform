@@ -42,10 +42,8 @@ import {
   type VendorCategory,
   type VendorStatus,
 } from '@/lib/vendors';
-import {
-  HARD_SINGLE_PICK_GROUPS,
-  planGroupForCategory,
-} from '@/lib/wedding-plan-groups';
+import { planGroupForCategory } from '@/lib/wedding-plan-groups';
+import { isOnePerEventGroup, readOnePerEventGroups } from '@/lib/one-per-event';
 import { releaseForcedDate } from '@/lib/release-forced-date';
 import { notifyWaitlistIfBookingReleased } from '@/lib/vendor-waitlist';
 import { CONFIRMED_VENDOR_STATUSES, recomputeReceptionAnchor } from '@/lib/events';
@@ -626,11 +624,10 @@ export async function deleteVendor(formData: FormData) {
 // hard-single conflict / error states without the "thrown error → page-fault"
 // UX that synchronous form actions produce.
 //
-// Hard-single conflict gate: per CLAUDE.md 2026-05-09 saturation rules + the
-// HARD_SINGLE_PICK_GROUPS set in lib/wedding-plan-groups.ts. As of the 22-card
-// grid expansion (2026-05-22), the hard-single set covers: ceremony_venue +
-// reception_venue + officiant + coordinator + host_mc + led_background — each
-// allows only ONE locked vendor at a time. If the host tries to lock a second
+// Hard-single conflict gate: per CLAUDE.md 2026-05-09 saturation rules. Which
+// groups allow only ONE locked vendor at a time is the category's "One per
+// event" switch (`service_categories.one_per_event`, owner 2026-10-29 — read
+// through lib/one-per-event.ts; LED is multi since that ruling). If the host tries to lock a second
 // vendor in one of those groups, the action returns 'hard_single_conflict'
 // with the existing locked vendor's info; the UI then offers a Switch flow
 // that (a) reverts the existing locked vendor to 'considering' and
@@ -660,7 +657,14 @@ export type LockMilestone = {
 };
 
 export type FinalizeVendorResult =
-  | { status: 'ok'; vendorId: string; lockedStatus: string; milestone: LockMilestone }
+  | {
+      status: 'ok';
+      vendorId: string;
+      lockedStatus: string;
+      milestone: LockMilestone;
+      /** The category is One per event (`service_categories.one_per_event`) — the client asks "add another?" only when not. */
+      onePerEvent: boolean;
+    }
   // PR-H: the press was an ASK, not a booking. The supplier now has 48 HOURS to
   // agree or decline; nothing downstream has fired and no money is owed. Only
   // reachable with NEXT_PUBLIC_LOCK_HANDSHAKE_ENABLED on AND a marketplace
@@ -1171,7 +1175,13 @@ export async function finalizeVendor(
   // write. The two write paths below convert a lost-the-race 23505 into the
   // same modal.
   const groupId = planGroupForCategory(targetCategory);
-  const isHardSingle = !!(groupId && HARD_SINGLE_PICK_GROUPS.has(groupId));
+  // ONE PER EVENT is read, not listed (owner 2026-10-29). A refused read must not lock as if "none" were one per
+  // event — say so and stop; the database guard would refuse a second booking anyway.
+  const onePerEvent = await readOnePerEventGroups(supabase);
+  if (!onePerEvent.ok) {
+    return { status: 'error', message: 'Couldn’t check this category just now — try the lock again.' };
+  }
+  const isHardSingle = isOnePerEventGroup(groupId, onePerEvent.groups);
   const groupCategories: VendorCategory[] = isHardSingle
     ? VENDOR_CATEGORIES.filter((c) => planGroupForCategory(c) === groupId)
     : [];
@@ -2856,7 +2866,7 @@ export async function finalizeVendor(
   // remaining caller disappears.
   // ----------------------------------------------------------------------
 
-  return { status: 'ok', vendorId, lockedStatus: LOCKED_STATUS, milestone };
+  return { status: 'ok', vendorId, lockedStatus: LOCKED_STATUS, milestone, onePerEvent: isHardSingle };
 }
 
 // ============================================================================
@@ -3168,10 +3178,16 @@ export async function revertVendorToConsidering(
     typeof revertedCategory === 'string' && isValidCategory(revertedCategory)
       ? planGroupForCategory(revertedCategory)
       : null;
+  const revertOnePerEvent = revertGroupId ? await readOnePerEventGroups(supabase) : null;
+  if (revertOnePerEvent && !revertOnePerEvent.ok) {
+    // eslint-disable-next-line no-console
+    console.warn(`[revertVendorToConsidering] One per event unreadable — revive skipped for event_id=${eventId} vendor_id=${vendorId}`);
+  }
   if (
     isPaymentGatedLockEnabled() &&
     revertGroupId &&
-    HARD_SINGLE_PICK_GROUPS.has(revertGroupId)
+    revertOnePerEvent?.ok &&
+    isOnePerEventGroup(revertGroupId, revertOnePerEvent.groups)
   ) {
     try {
       const revertGroupCategories = VENDOR_CATEGORIES.filter(

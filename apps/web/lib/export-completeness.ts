@@ -56,6 +56,14 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
   { table: 'chat_messages', decision: 'exported', as: 'chat_messages_authored' },
   { table: 'orders', decision: 'exported', as: 'orders' },
   { table: 'payments', decision: 'exported', as: 'payments' },
+  // 📱 A crew member's own passes onto a shop's Event Hub (2026-10-29) — the name they typed, their role, whether
+  // they were let in. Read on `crew_user_id`.
+  { table: 'vendor_crew_passes', decision: 'exported', as: 'crew_passes' },
+  {
+    table: 'vendor_crew_codes',
+    decision: 'excluded',
+    why: 'A shop’s crew QR for one event — a bearer credential (whoever holds the token can ask to join), keyed by `created_by` only as the issuing admin’s stamp. The admin’s act is the SHOP’s record; exporting the live token would hand out a working door.',
+  },
   { table: 'guest_face_enrollments', decision: 'exported', as: 'face_enrollments' },
   // A guest's "I sent it" (E-Gifts wish list, 2026-10-08) — keyed to a guest, like
   // the face records; scoped to the subject's own guest ids.

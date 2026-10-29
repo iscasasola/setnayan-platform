@@ -21,7 +21,7 @@ import { GetVerifiedLine } from '../../_components/get-verified-line';
 /** The fold's one line. */
 export function deepSearchFoldLine(last: LastDeepSearch): string {
   if (!last.measured) return 'Your last search couldn’t be read just now';
-  if (!last.last) return 'Not run yet · see what the web says first';
+  if (!last.last) return 'Not run yet';
   const when = shortDate(last.last.usedAt);
   switch (last.last.status) {
     case 'complete':
@@ -34,6 +34,8 @@ export function deepSearchFoldLine(last: LastDeepSearch): string {
       return `Last search ${when} · no longer kept`;
   }
 }
+
+const countWords = (n: number, one: string, many: string) => `${formatCount(n)} ${n === 1 ? one : many}`;
 
 const shortDate = (iso: string) =>
   new Date(iso).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'Asia/Manila' });
@@ -70,6 +72,9 @@ export function DeepSearchCard({
 
   return (
     <div className="space-y-3 pb-4" data-deep-search-card="">
+      <p className="text-[17px] font-medium leading-snug text-ink" data-deep-search-title="">
+        See what the web says about your shop
+      </p>
       <p className="text-sm text-ink/70">
         We search the web for <b className="font-medium text-ink">{businessName}</b> — never other shops — and show you what we found.
         Nothing on your page changes on its own: you choose what to use.
@@ -108,8 +113,12 @@ export function DeepSearchCard({
             <span className="block text-[15px] font-medium leading-snug text-ink">{deepSearchFoldLine(last)}</span>
             {found ? (
               <span className="mt-0.5 block text-[13px] text-ink/60">
-                {formatCount(found.services)} services · {formatCount(found.prices)} prices · {formatCount(found.presence)} places ·{' '}
-                {formatCount(found.flags)} to double-check
+                {[
+                  countWords(found.services, 'service', 'services'),
+                  countWords(found.prices, 'price', 'prices'),
+                  countWords(found.presence, 'place', 'places'),
+                  `${formatCount(found.flags)} to double-check`,
+                ].join(' · ')}
               </span>
             ) : null}
           </span>

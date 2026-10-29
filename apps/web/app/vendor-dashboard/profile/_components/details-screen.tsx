@@ -251,7 +251,7 @@ export function DetailsScreen({
               anchor="deep-search"
               lead={<RowIcon icon={Globe} />}
               data="details-deep-search"
-              title="See what the web says about your shop"
+              title="Deep Search"
               line={deepSearchFoldLine(d.lastDeepSearch)}
               aside={
                 !d.deepSearch.eligible ? (

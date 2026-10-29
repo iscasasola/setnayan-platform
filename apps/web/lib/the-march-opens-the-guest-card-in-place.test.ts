@@ -39,6 +39,7 @@ const MARCH = read(`${L}/details-march.tsx`);
 const G = 'app/dashboard/[eventId]/guests';
 const SHEET = read(`${G}/_components/guest-card-sheet.tsx`);
 const ACTION = read(`${G}/open-guest-card.tsx`);
+const IN_PLACE = read(`${G}/_components/guest-card-in-place.tsx`);
 
 test('1 · a tap (let go where it was pressed, never having wandered) on a walking name or a tray chip opens their card; Enter too; Space still moves', () => {
   const up = MARCH.slice(MARCH.indexOf('const onUp = useCallback('), MARCH.indexOf('const onCancel = useCallback('));
@@ -69,7 +70,7 @@ test('1 · a tap (let go where it was pressed, never having wandered) on a walki
 test('1b · the march draws the card for the tapped person, with the reader it was handed (the lab’s) or the shipped one', async () => {
   assert.match(MARCH, /openCard = openCardShipped,/);
   assert.match(MARCH, /const openCardShipped = SHIPPED_GUEST_CARD\.march;/);
-  assert.match(SHEET, /march: async \(eventId: string, guestId: string\): Promise<GuestCardResult> => \(await import\('\.\.\/open-guest-card'\)\)\.openGuestCard\(eventId, guestId, 'march'\)/, 'the card’s read is no longer loaded at the first tap');
+  assert.match(SHEET, /march: async \(eventId: string, guestId: string\): Promise<GuestCardResult> => \(await import\('\.\/guest-card-in-place'\)\)\.openGuestCardInPlace\(eventId, guestId, 'march'\)/, 'the card’s read is no longer loaded at the first tap');
   assert.match(MARCH, /<GuestCardSheet eventId=\{eventId\} person=\{card\} open=\{openCard\} onClose=\{\(\) => setCard\(null\)\} onSaved=\{onCardSaved\} \/>/);
   // OUTSIDE the drag's section: a key typed in the card must never reach the drag's handlers.
   assert.match(MARCH, /<\/section>\s*(?:\{\s*\}\s*)?\{card && card\.id \? \(\s*<GuestCardSheet/, 'the card is drawn inside the march’s section — its keys and presses would reach the drag');
@@ -91,11 +92,15 @@ test('1b · the march draws the card for the tapped person, with the reader it w
 test('2 · the card is THE guest card — `GuestCard`, the Guest list’s panel — read by the one card reader, once', () => {
   assert.match(ACTION, /^'use server';/);
   assert.match(ACTION, /const read = await readGuestCard\(supabase, eventId, guestId, user\.id\);/, 'the card is not read by the one card reader');
-  assert.match(ACTION, /<GuestCard frame="panel" eventId=\{eventId\} \{\.\.\.read\}/, 'the march draws a card other than THE guest card');
-  assert.doesNotMatch(ACTION, /GuestCardBody|\bkit=\{|actions=\{/, 'the march’s card is drawn around the one card, or takes other writes');
+  /* The action answers the card's DATA; the browser draws THE card from it (a drawn answer cannot be sent on the routes the
+     march opens on — the-settings-sheet-is-in-homes-graph.test.ts). */
+  assert.match(ACTION, /return \{ ok: true, read, returnTo: RETURN_TO\[at\]\(eventId\) \};/, 'the action no longer answers the card’s data');
+  assert.doesNotMatch(stripComments(ACTION), /(?<![\w$.])<[A-Z]/, 'the action draws again — its answer cannot be sent on the Maker, the editor, a Details field or Home');
+  assert.match(IN_PLACE, /<GuestCard frame="panel" eventId=\{eventId\} \{\.\.\.r\.read\}/, 'the march draws a card other than THE guest card');
+  for (const src of [ACTION, IN_PLACE]) assert.doesNotMatch(src, /GuestCardBody|\bkit=\{|actions=\{/, 'the march’s card is drawn around the one card, or takes other writes');
   assert.match(ACTION, /if \(!isUuid\(eventId\) \|\| !isUuid\(guestId\) \|\| !\(at in RETURN_TO\)\)/);
   // The address a failed save lands on is the server's, never the browser's.
-  assert.match(ACTION, /returnTo=\{RETURN_TO\[at\]\(eventId\)\}/);
+  assert.match(IN_PLACE, /returnTo=\{r\.returnTo\}/);
   // A refusal is a sentence, never the database's words.
   assert.match(ACTION, /catch \{\s*return \{ ok: false, reason: COULD_NOT_OPEN \};/);
   assert.doesNotMatch(ACTION, /\.message\b/, 'a thrown error’s words could reach the couple');

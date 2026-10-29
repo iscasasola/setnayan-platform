@@ -95,3 +95,12 @@ test('4 · from 701 the thumb row moves up into the bar; on a phone it floats ov
   const css = read('app/vendor-dashboard/_components/supplier-thumb-row.module.css');
   assert.match(css, /@media \(max-width: 700\.98px\) \{\s*\.lower::before \{[^}]*linear-gradient\(/, 'the phone lost the soft fade behind the thumb row');
 });
+
+test('5 · the two columns: a required pane, never drawn on a phone', () => {
+  const cols = code(read('app/vendor-dashboard/_components/supplier-columns.tsx'));
+  assert.match(cols, /pane: ReactNode;/, 'the right column must be required — never an empty right column');
+  assert.doesNotMatch(cols, /pane\?:/, 'the right column became optional');
+  const css = read('app/vendor-dashboard/_components/supplier-frame.css');
+  assert.match(css, /^\.sn-cols-pane \{\s*display: none;/m, 'the pane must not draw on a phone');
+  assert.match(css, /@media \(min-width: 1100px\) \{\s*\.sn-cols \{\s*grid-template-columns: minmax\(0, 5fr\) minmax\(0, 6fr\);/, 'the ≥1100 split is no longer 5 : 6');
+});

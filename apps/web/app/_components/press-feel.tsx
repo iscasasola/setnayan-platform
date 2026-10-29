@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { SCRIM_SELECTOR } from '@/lib/scrim';
 
 /**
  * PressFeel — ONE press feel for every control the app owns, from ONE listener.
@@ -26,9 +27,16 @@ const SPRING = 'cubic-bezier(.34,1.56,.64,1)';
 
 type Pressed = { closest(selector: string): unknown; matches(selector: string): boolean };
 
-/** May this control wear the press? Not in the guest's Event Hub, and not when it cannot be pressed. */
+/**
+ * 🌫 A SCRIM IS NEVER PRESSED (owner 2026-10-29: *"our scrim when tapped sometime show that the corners/edges brighten
+ * showing it is a frame of the screen that pressed"*). The dark behind a pop-up is a full-screen <button>; the dip
+ * shrank it to .93 and bared an undimmed frame of the page round the screen. A tap on it closes the pop-up and the
+ * dark fades — that is its whole answer. The one list of what a scrim is: `SCRIM_SELECTOR` (`lib/scrim.ts`).
+ */
+
+/** May this control wear the press? Not in the guest's Event Hub, not a scrim, and not when it cannot be pressed. */
 export function pressable(el: Pressed): boolean {
-  return !el.closest('.sn-editorial') && !el.matches(':disabled, [aria-disabled="true"]');
+  return !el.closest('.sn-editorial') && !el.matches(SCRIM_SELECTOR) && !el.matches(':disabled, [aria-disabled="true"]');
 }
 
 /** The family's one speed, read from the token (`700ms` → 700; `0.7s` → 700). */

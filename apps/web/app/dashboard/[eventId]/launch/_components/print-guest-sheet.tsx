@@ -12,6 +12,7 @@ import { formatCount } from '@/lib/format-number';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { GUEST_SEARCH_FROM, guestPickGroups, type PrintGuest } from '@/lib/studio-prints-settings';
 import { groupHeadClass, pickOptionClass, pickTickClass } from '../../website/editor/_components/pick-menu-place';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 /**
  * 👤 VIEW AS ▾ — WHICH GUEST (owner 2026-10-17, prototype `prints_settings_and_downloads_2026-10-17.html` `openGuests`; controller
@@ -44,7 +45,7 @@ export function GuestPickSheet({
   const searchable = guests.length > GUEST_SEARCH_FROM;
   const node = (
     <div data-print-guest-sheet-layer="" className="fixed inset-0 z-[96]">
-      <button type="button" aria-label="Close" tabIndex={-1} onClick={onClose} className="absolute inset-0 bg-ink/35" />
+      <OverlayBackdrop onClose={onClose} tabIndex={-1} />
       <div
         ref={box}
         role="dialog"

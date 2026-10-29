@@ -431,12 +431,17 @@ test('A WRITTEN MINUTE NEVER LOSES THE INSTANT THAT PLACES IT', () => {
   }
 });
 
-test('the backdrop on the allowlist imports nothing', () => {
-  const src = readFileSync(resolve(HERE, '../../../_components/overlay-backdrop.tsx'), 'utf8');
-  const imports = [...src.matchAll(/from\s+['"]([^'"]+)['"]/g)].map((m) => m[1]!);
+test('the backdrop on the allowlist reaches nothing but React and the scrim’s own constants', () => {
+  /* Since the one scrim (owner 2026-10-29) it imports React (a layout effect: the fade-out and the one-blur rule) and
+     `lib/scrim.ts` (a selector string and a number parser) — and THAT file imports nothing at all. No fetch, no
+     client, no route, by construction. */
+  const imports = (rel: string) =>
+    [...readFileSync(resolve(HERE, rel), 'utf8').matchAll(/from\s+['"]([^'"]+)['"]/g)].map((m) => m[1]!);
+  const backdrop = imports('../../../_components/overlay-backdrop.tsx');
   assert.deepEqual(
-    imports,
-    [],
-    `overlay-backdrop.tsx imports ${imports.join(', ')}. It is on story-clock's allowlist BECAUSE it reaches nothing.`,
+    backdrop,
+    ['react', '@/lib/scrim'],
+    `overlay-backdrop.tsx imports ${backdrop.join(', ')}. It is on story-clock's allowlist BECAUSE it reaches nothing.`,
   );
+  assert.deepEqual(imports('../../../../lib/scrim.ts'), [], 'lib/scrim.ts imports something — the backdrop now reaches it');
 });

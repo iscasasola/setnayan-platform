@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import type { MarchOut } from '@/lib/march-drag';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 /**
  * 🚶 THE "NOT WALKING" TRAY (owner, live iPhone 2026-10-06, DECISION_LOG "THE
@@ -184,7 +185,7 @@ export function MarchTray({
               data-march-tray-sheet=""
               className={`fixed inset-0 z-[95] flex flex-col justify-end ${lifted || carded ? 'pointer-events-none invisible' : ''}`}
             >
-              <button type="button" aria-label="Close the list" onClick={() => setAll(false)} className="absolute inset-0 bg-ink/30" />
+              <OverlayBackdrop onClose={() => setAll(false)} label="Close the list" />
               <div
                 role="dialog"
                 aria-label="Not walking — everyone"

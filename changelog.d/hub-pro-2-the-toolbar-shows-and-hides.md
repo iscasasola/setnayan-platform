@@ -8,6 +8,9 @@ THE APP'S NAV STAYS; THE EDITING TOOLBAR SHOWS AND HIDES; THREE OPEN CALLS SETTL
   the page: something is always picked), a scroll of the page (a finger or a wheel only — the canvas says
   `pageScroll`, never for the Maker's own scrolling of a pick into view), and a swipe down on the toolbar (40 px; never
   from a field, a slider or a card strip). Never while a scene is held, never in the ▶-held guest preview.
+- **Nothing else closes on that tap** (`aGroundTapStows`, lib/element-sheet-state.ts): the work area's part sheet and the
+  lower third's tool used to close on a tap on the ground, which let the part go under the stowed toolbar (seen in the
+  lab) — on the Stages side of a phone they now stay, so the head brings back the same part, the same tool.
 - **Shows** on arrival (call 2), and comes back for any part picked (the picked one tapped again too), any tool
   picked, and a tap on its head.
 - **Stowed, its own head is left** — the 14 px handle and the "You're editing · … ▴" line, one named 44 px button

@@ -121,7 +121,8 @@ export function postedRule(row: DatedRow, dates: PlanDates, totalPhp: number | n
   const r = row.rule;
   // ── amount ──
   let kind: 'percent' | 'fixed' = 'fixed';
-  let value = row.amount.trim();
+  // What is SAVED is the plain number — the field shows "100,000", the plan stores "100000".
+  let value = Number.isFinite(typed) ? String(typed) : row.amount.trim();
   if (r && r.kind === 'percent') {
     const ruleSays = ruleAmountPhp('percent', r.value, totalPhp);
     if (row.amount.trim() === '' && ruleSays == null) {

@@ -53,6 +53,7 @@ import {
   type PlanDates,
 } from '@/lib/record-card-plan';
 import { replotAmounts } from '@/lib/plan-replot';
+import { formatPesoTyping } from '@/lib/peso-as-you-type';
 import { ActionButton } from '@/components/action-button';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 
@@ -293,10 +294,19 @@ function DatedPlanRows({
                     disabled={disabled || r.settled}
                     placeholder="0"
                     aria-label={`Payment ${i + 1} amount`}
-                    onChange={(e) => patch(r.key, { amount: e.target.value })}
-                    onBlur={(e) => {
-                      const n = planAmountNumber(e.target.value);
-                      if (Number.isFinite(n) && n > 0) patch(r.key, { amount: amountWords(n) });
+                    onChange={(e) => {
+                      // 💱 Commas as it is typed — the number pad has no comma key (owner 2026-10-30). The caret stays
+                      // after the digit just typed; the plan posts the plain number (`postedRule`).
+                      const el = e.target;
+                      const f = formatPesoTyping(el.value, el.selectionStart ?? el.value.length);
+                      patch(r.key, { amount: f.text });
+                      requestAnimationFrame(() => {
+                        try {
+                          el.setSelectionRange(f.caret, f.caret);
+                        } catch {
+                          /* the row was removed */
+                        }
+                      });
                     }}
                     className={`${DCELL} w-full pl-7 text-right tabular-nums`}
                   />
@@ -476,7 +486,20 @@ function RulePlanRows({
                 disabled={disabled}
                 placeholder="50"
                 aria-label={`Payment ${i + 1} amount`}
-                onChange={(e) => patch(r.key, { value: e.target.value })}
+                onChange={(e) => {
+                  // Commas as it is typed (owner 2026-10-30: the number pad has no comma key); the save reads the
+                  // plain number (`planAmountNumber`). The ₱ / % choice is the PickMenu beside it, never a typed sign.
+                  const el = e.target;
+                  const f = formatPesoTyping(el.value, el.selectionStart ?? el.value.length);
+                  patch(r.key, { value: f.text });
+                  requestAnimationFrame(() => {
+                    try {
+                      el.setSelectionRange(f.caret, f.caret);
+                    } catch {
+                      /* the row was removed */
+                    }
+                  });
+                }}
                 className={`${CELL} w-20 shrink-0`}
               />
               {/* 🪤 THE FORM STILL POSTS `plan_kind` — one per row, in row order

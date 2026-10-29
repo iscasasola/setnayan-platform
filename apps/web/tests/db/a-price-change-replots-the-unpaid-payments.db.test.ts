@@ -205,8 +205,9 @@ test('the kept plans are written only by the re-plot — a couple session cannot
  * writer, `ensureAutoShareInvite`. Opening the card twice must make ONE link, not two, and write nothing the second time.
  */
 test('a self-added supplier gets ONE claim link, however many times the card opens', async () => {
-  const { ensureAutoShareInvite } = await import('../../lib/vendor-invites');
+  // The `server-only` shim is installed by importing the PGlite client FIRST, before the production writer loads.
   const { makeAdminClient } = await import('./supabase-over-pglite');
+  const { ensureAutoShareInvite } = await import('../../lib/vendor-invites');
   const client = makeAdminClient(db);
   const { eventId, vendorId } = await seed('auto-link');
   const u = await db.query<{ id: string }>(

@@ -32,6 +32,12 @@ Place · Services. One form, one Save, every live field and control kept.
   The card's head always shows it ready (QR · Copy · Share); "No link yet / Create their link" is gone, and a link
   that could not be made is said in place with Try again. Guards: `their-claim-link-is-automatic.test.ts` + the db test.
 
+- **A peso amount gets its commas as it is typed** (owner 2026-10-30: "cannot place commas because it only shows number
+  pad now with period"). The plan rows' amounts (record card and add sheet) and every `TypedRow amount` (the price)
+  format 100000 → 100,000 while typing, the caret kept after the digit just typed; the number pad stays; what is saved
+  is the plain number (`lib/peso-as-you-type.ts`, guard `a-peso-amount-gets-its-commas-as-typed.test.ts`). The record
+  card's rows take pesos only; the add sheet's ₱ / % choice is its PickMenu, never a typed sign.
+
 Migration: `20271297090101_a_price_change_replots_the_unpaid_payments.sql` (two JSONB columns, four functions, three
 triggers — one keeps the kept plans written only by the re-plot) — not applied by hand.
 

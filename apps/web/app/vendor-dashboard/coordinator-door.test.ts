@@ -12,9 +12,13 @@
  *   3 · "Open their event" (and the Coordinator pill) on the customer card show only when THIS event is one they run;
  *   4 · the "Coordinating … · Back to your shop" line renders only for a viewer the event layout admitted through the
  *       coordinator's seat, and only after its shipped admission check;
- *   5 · NO NEW PERMISSION PATH: every door is the shipped `/dashboard/<id>` address, the read is the person's own
- *       session (no admin client), the live rule is the shipped window + the hosts' switch, the admission query is
- *       unchanged, and no server action was added for any of it.
+ *   5 · NO NEW PERMISSION PATH: every door is the shipped `/dashboard/<id>` address, the SEATS are read on the
+ *       person's own session, the live rule is the shipped window + the hosts' switch, the admission query is
+ *       unchanged, and no server action was added for any of it;
+ *   8 · 🛑 ONLY EVENTS THIS SHOP SERVES (fixed 2026-10-29 — the owner's own wedding was listed under his shop as
+ *       "Co-host"): every row also needs a live `event_vendors` row pointing at the ACTIVE shop, read with the admin
+ *       client scoped by the session-resolved shop id (event_vendors has no vendor SELECT policy), and a co-host seat
+ *       counts only when it is the hosts' "Full access" answer. A host's own event never appears.
  *
  * SABOTAGE (each seen red once, then restored — the PR body has the runs).
  */
@@ -30,6 +34,7 @@ import type { VendorTeamRole } from '@/lib/vendor-team';
 import { barItemsForShell } from '@/app/_components/nav/bottom-nav';
 import { isStoreShellWebOnlyPath } from '@/lib/store-shell';
 import { EVENTS_YOU_RUN_HREF } from '@/lib/events-you-run-words';
+import { eventsYouRun, type CoordinatorSeatRow } from '@/lib/events-you-run';
 import { COORDINATOR_ON_AREAS } from '@/lib/people-with-access';
 import { VENDOR_BOTTOM_NAV_ITEMS, VENDOR_EVENTS_TAB, vendorBarItems } from './_components/vendor-bottom-nav';
 import { resolveVendorDestinations } from './_components/vendor-nav-destinations';
@@ -173,8 +178,13 @@ test('5 · no new permission path — the shipped window, the hosts’ switch, t
   assert.match(rule, /coordinatorHasHostAccess\(areaCells\(perms\)\)/, 'the live rule ignores the hosts’ switch');
   assert.match(rule, /href: `\/dashboard\/\$\{ev\.event_id\}`/, 'a row opens somewhere other than the event dashboard');
   const read = src('lib/events-you-run.server.ts');
-  assert.doesNotMatch(read, /createAdminClient|supabase\/admin|service_role/i, 'the door read must be the person’s own session');
-  assert.match(read, /\.eq\('user_id', userId\)/);
+  // The SEATS are the person's own (their session, their RLS) — the admin client reads ONE column of ONE table (§8).
+  assert.match(
+    read,
+    /await supabase\s*\.from\('event_moderators'\)[\s\S]*?\.eq\('user_id', userId\)/,
+    'the seat read must be the person’s own session',
+  );
+  assert.doesNotMatch(read, /service_role/i);
   // The event layout must not consult the door to ADMIT anyone — the door follows access, never the reverse.
   assert.doesNotMatch(src('app/dashboard/[eventId]/layout.tsx'), /readEventsYouRun|seatRunsTheEvent|eventsYouRun\(/);
   // +0 server actions: none of the door's files is a server-action module.
@@ -271,4 +281,54 @@ test('7 · the supplier Hub opens the desk for each event they run — and for n
   const rows = src('app/vendor-dashboard/_components/events-you-run-rows.tsx');
   assert.match(rows, /checkinDeskHref = \(eventId: string\) => `\/dashboard\/\$\{eventId\}\/guests\/checkin`/, 'the Hub opens something other than the shipped desk');
   assert.match(rows, /const live = events\.filter\(\(e\) => e\.rank !== 2\);\s*if \(live\.length === 0\) return null;/, 'rows drawn with no live event');
+});
+
+/* ══ 8 · only events THIS SHOP serves (fixed 2026-10-29) ═══════════════════════ */
+
+test('8 · the read hands the rule the events THIS SHOP is on — the active shop, its live rows, failing closed', () => {
+  const read = src('lib/events-you-run.server.ts');
+  // The shop is the ONE active-shop resolver, on the person's own session — never a client-supplied id.
+  assert.match(read, /resolveActiveShop\(supabase, userId\)\)\?\.vendorProfileId/, 'the shop is not the session’s active shop');
+  // The admin client reads event_vendors ONLY, scoped by that shop, to the seat read's events, live rows only.
+  const adminFroms = [...read.matchAll(/admin\s*\.from\('([a-z_]+)'\)/g)].map((m) => m[1]);
+  assert.deepEqual(adminFroms, ['event_vendors'], 'the admin client reads something other than the shop’s own event_vendors rows');
+  assert.equal([...read.matchAll(/createAdminClient\(\)/g)].length, 1, 'a second admin client appeared in the door read');
+  assert.match(
+    read,
+    /admin\s*\.from\('event_vendors'\)\s*\.select\('event_id'\)\s*\.eq\('marketplace_vendor_id', shopId\)\s*\.in\('event_id', eventIds\)\s*\.is\('archived_at', null\);/,
+    'the bond read is not scoped to this shop’s live rows on these events (or selects more than event_id)',
+  );
+  // Refused → fails closed (measured: false), never a list of every seat.
+  assert.match(read, /if \(served === null\) return \{ events: \[\], measured: false \};/);
+  assert.match(read, /return \{ events: eventsYouRun\(seats, new Date\(\), manilaToday\(\), served\), measured: true \};/);
+  assert.match(read, /catch \(e\) \{\s*logQueryError\('readEventsYouRun\.activeShop'[\s\S]*?return null;/, 'a refused shop read does not fail closed');
+  assert.match(read, /logQueryError\('readEventsYouRun\.shopEvents'[\s\S]*?return null;/, 'a refused bond read does not fail closed');
+  // The rule requires the set — no default that would list every seat.
+  const rule = src('lib/events-you-run.ts');
+  assert.match(rule, /shopEventIds: ReadonlySet<string>,\s*\): EventYouRun\[\]/, 'the shop’s events must be a required argument');
+  assert.match(rule, /if \(!shopServesTheEvent\(r, shopEventIds\)\) continue;/, 'the list ignores the shop’s events');
+  assert.match(
+    rule,
+    /if \(levelOf\(\{ permissions_json: row\.permissions_json as LevelledPermissions \| null \}\) !== 'full'\) return false;/,
+    'a co-host seat runs the event without the hosts’ Full-access answer',
+  );
+});
+
+test('8 · 🛑 REGRESSION — a host’s own event never appears under their shop’s Events you run', () => {
+  const now = new Date('2026-10-29T00:00:00Z');
+  const ev = { event_id: 'own', display_name: 'Indalecio & Claire', event_type: 'wedding', event_date: '2026-12-18', event_end_date: null, event_date_precision: 'day', venue_name: null };
+  const hostsOwnSeat: CoordinatorSeatRow = {
+    event_id: 'own',
+    role_subtype: 'co_host',
+    permissions_json: { edit_all: true, checkout: true, invite_hosts: true, remove_hosts: true },
+    accepted_at: '2026-06-01T00:00:00Z',
+    removed_at: null,
+    events: ev,
+  };
+  assert.deepEqual(eventsYouRun([hostsOwnSeat], now, '2026-10-29', new Set()), [], 'the host’s own event is listed under his shop');
+  assert.deepEqual(eventsYouRun([hostsOwnSeat], now, '2026-10-29', new Set(['own'])), [], 'a partner’s co-host seat is read as a supplier’s');
+  // The event's REAL coordinator (another shop's person, Full access) still gets it — through their own shop's bond.
+  const realCoordinator: CoordinatorSeatRow = { ...hostsOwnSeat, permissions_json: { ...hostsOwnSeat.permissions_json!, access_level: 'full' } as CoordinatorSeatRow['permissions_json'] };
+  assert.equal(eventsYouRun([realCoordinator], now, '2026-10-29', new Set(['own'])).length, 1);
+  assert.deepEqual(eventsYouRun([realCoordinator], now, '2026-10-29', new Set()), [], 'a shop not on the event lists it');
 });

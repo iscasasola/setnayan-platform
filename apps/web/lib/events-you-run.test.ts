@@ -24,11 +24,14 @@ import {
   eventYouRunOf,
   eventsYouRun,
   seatRunsTheEvent,
+  shopServesTheEvent,
   type CoordinatorSeatRow,
 } from './events-you-run';
 
 const NOW = new Date('2026-10-28T04:00:00Z');
 const TODAY = '2026-10-28';
+/** (a) The events THIS SHOP is on (a live `event_vendors` row pointing at the active shop) — every fixture event. */
+const SERVED: ReadonlySet<string> = new Set(['e-1', 'a', 'b', 'c', 'd', 'e']);
 
 /** The grant every coordinator seat is created with — `lib/coordinator-grant.ts`, `hosts/actions.ts`. */
 const ON: ModeratorPermissions = { edit_all: false, checkout: false, invite_hosts: false, remove_hosts: false, areas: { ...COORDINATOR_AREAS } };
@@ -59,7 +62,7 @@ const seat = (over: Partial<CoordinatorSeatRow> = {}, ev: Partial<NonNullable<Co
 
 test('a live coordinator seat runs the event — and its door is the couple’s own dashboard', () => {
   assert.equal(seatRunsTheEvent(seat(), NOW), true);
-  const [e] = eventsYouRun([seat()], NOW, TODAY);
+  const [e] = eventsYouRun([seat()], NOW, TODAY, SERVED);
   assert.ok(e);
   assert.equal(e.href, '/dashboard/e-1', 'the door must be the shipped event dashboard address, nothing new');
   assert.equal(e.name, 'Claire & Indalecio');
@@ -83,7 +86,7 @@ test('🔑 each way the access ends takes the door away', () => {
   ];
   for (const [why, row] of cases) {
     assert.equal(seatRunsTheEvent(row, NOW), false, `${why}: the door is still drawn`);
-    assert.deepEqual(eventsYouRun([row], NOW, TODAY), [], `${why}: still listed`);
+    assert.deepEqual(eventsYouRun([row], NOW, TODAY, SERVED), [], `${why}: still listed`);
   }
 });
 
@@ -103,7 +106,7 @@ test('upcoming first (soonest first), then undated, then the ones wrapping up', 
     seat({ event_id: 'd' }, { event_id: 'd', display_name: 'Reyes debut', event_date: '2026-11-17' }),
     seat({ event_id: 'e' }, { event_id: 'e', display_name: 'Today one', event_date: TODAY }),
   ];
-  const list = eventsYouRun(rows, NOW, TODAY);
+  const list = eventsYouRun(rows, NOW, TODAY, SERVED);
   assert.deepEqual(list.map((e) => e.name), ['Today one', 'Reyes debut', 'Santos 50th', 'No date', 'After']);
   assert.equal(list[0]!.status, 'Today');
   assert.match(list[4]!.status, /^Wrapping up · access until Oct 31$/);
@@ -111,7 +114,7 @@ test('upcoming first (soonest first), then undated, then the ones wrapping up', 
 });
 
 test('one row per event, even if two seats name it', () => {
-  assert.equal(eventsYouRun([seat(), seat()], NOW, TODAY).length, 1);
+  assert.equal(eventsYouRun([seat(), seat()], NOW, TODAY, SERVED).length, 1);
 });
 
 test('a name is never blank', () => {
@@ -132,7 +135,7 @@ test('the line is the events board’s own summary — total first only when it 
 
 test('⛔ a refused read is said — never “nothing needs you”', () => {
   assert.equal(needsLine(null), NEEDS_UNREAD);
-  const rows = eventsYouRun([seat()], NOW, TODAY);
+  const rows = eventsYouRun([seat()], NOW, TODAY, SERVED);
   // Before the read lands, and for an event the read did not answer, the row says it could not load.
   assert.equal(rows[0]!.needs, NEEDS_UNREAD);
   assert.equal(withNeeds(rows, new Map())[0]!.needs, NEEDS_UNREAD);
@@ -141,25 +144,31 @@ test('⛔ a refused read is said — never “nothing needs you”', () => {
 });
 
 test('the row carries the event’s date fields for the overdue count', () => {
-  const [e] = eventsYouRun([seat({}, { date_candidates: ['2026-12-12'], created_at: '2026-06-01T00:00:00Z' })], NOW, TODAY);
+  const [e] = eventsYouRun([seat({}, { date_candidates: ['2026-12-12'], created_at: '2026-06-01T00:00:00Z' })], NOW, TODAY, SERVED);
   assert.deepEqual(e!.anchor, { event_type: 'wedding', event_date: '2026-12-12', date_candidates: ['2026-12-12'], date_window_start: null, created_at: '2026-06-01T00:00:00Z' });
 });
 
 /* ── 👥 A LIVE CO-HOST SEAT RUNS THE EVENT TOO (owner 2026-10-29: "This is similar to adding them as a cohost which
    is already in effect. They only need a way to access it and have that menu for them on their account.") ──────── */
 
-const cohost = (over: Partial<CoordinatorSeatRow> = {}, ev: Partial<NonNullable<CoordinatorSeatRow['events']> & object> = {}) =>
-  seat({ role_subtype: 'co_host', permissions_json: { edit_all: true, checkout: true, invite_hosts: true, remove_hosts: true }, ...over }, ev);
+/** The co-host seat the hosts granted a SUPPLIER through Home's "Full access" (`levelWrite('full')`). */
+const FULL_ACCESS = { edit_all: true, checkout: true, invite_hosts: true, remove_hosts: true, access_level: 'full' } as ModeratorPermissions;
+/** A genuine co-host's seat — the partner / family kind, no supplier answer recorded on it. */
+const GENUINE_COHOST: ModeratorPermissions = { edit_all: true, checkout: true, invite_hosts: true, remove_hosts: true };
 
-test('👥 a live co-host seat gets the door — row word "Co-host", the same event dashboard', () => {
+const cohost = (over: Partial<CoordinatorSeatRow> = {}, ev: Partial<NonNullable<CoordinatorSeatRow['events']> & object> = {}) =>
+  seat({ role_subtype: 'co_host', permissions_json: FULL_ACCESS, ...over }, ev);
+
+test('👥 a live "Full access" co-host seat gets the door — the same event dashboard', () => {
   assert.equal(seatRunsTheEvent(cohost(), NOW), true);
-  const [e] = eventsYouRun([cohost()], NOW, TODAY);
+  const [e] = eventsYouRun([cohost()], NOW, TODAY, SERVED);
   assert.ok(e);
   assert.equal(e.href, '/dashboard/e-1');
-  assert.equal(e.line, 'Wedding · Sat, Dec 12 · Co-host');
-  assert.equal(e.seatWord, 'Co-host');
+  // The hosts gave their COORDINATOR full access — still their coordinator (owner 2026-10-29, `runSeatWord`).
+  assert.equal(e.line, 'Wedding · Sat, Dec 12 · Coordinator');
+  assert.equal(e.seatWord, 'Coordinator');
   // The coordinator's row still says Coordinator.
-  assert.equal(eventsYouRun([seat()], NOW, TODAY)[0]!.seatWord, 'Coordinator');
+  assert.equal(eventsYouRun([seat()], NOW, TODAY, SERVED)[0]!.seatWord, 'Coordinator');
   // Every full co-host kind (the SQL `seat_is_full_cohost` mirror) is a run seat; the read asks for each.
   for (const k of FULL_COHOST_SEAT_KINDS) {
     assert.equal(seatRunsTheEvent(cohost({ role_subtype: k }), NOW), true, `${k} is a full co-host but gets no door`);
@@ -170,9 +179,9 @@ test('👥 a live co-host seat gets the door — row word "Co-host", the same ev
   assert.equal(seatIsFullCohost('viewer'), false);
 });
 
-test('👥 a co-host seat needs no switch — every area is theirs — but each way the seat ends takes the door', () => {
+test('👥 a Full-access co-host seat needs no switch — every area is theirs — but each way the seat ends takes the door', () => {
   // The hosts' coordinator switch is a coordinator thing: a co-host carries no `areas`, and still runs the event.
-  assert.equal(seatRunsTheEvent(cohost({ permissions_json: null }), NOW), true);
+  assert.equal(seatRunsTheEvent(cohost({ permissions_json: FULL_ACCESS }), NOW), true);
   const cases: Array<[string, CoordinatorSeatRow]> = [
     ['removed (the guest’s Access set to None)', cohost({ removed_at: '2026-10-20T00:00:00Z' })],
     ['not joined yet', cohost({ accepted_at: null })],
@@ -181,13 +190,51 @@ test('👥 a co-host seat needs no switch — every area is theirs — but each 
   ];
   for (const [why, row] of cases) {
     assert.equal(seatRunsTheEvent(row, NOW), false, `${why}: the co-host door is still drawn`);
-    assert.deepEqual(eventsYouRun([row], NOW, TODAY), [], `${why}: still listed`);
+    assert.deepEqual(eventsYouRun([row], NOW, TODAY, SERVED), [], `${why}: still listed`);
   }
 });
 
 test('👥 after the event a co-host row never claims their access ends — only a coordinator’s does', () => {
-  const [c] = eventsYouRun([cohost({}, { event_date: '2026-10-24' })], NOW, TODAY);
+  const [c] = eventsYouRun([cohost({}, { event_date: '2026-10-24' })], NOW, TODAY, SERVED);
   assert.equal(c!.status, 'Wrapping up');
-  const [k] = eventsYouRun([seat({}, { event_date: '2026-10-24' })], NOW, TODAY);
+  const [k] = eventsYouRun([seat({}, { event_date: '2026-10-24' })], NOW, TODAY, SERVED);
   assert.equal(k!.status, 'Wrapping up · access until Oct 31');
+});
+
+/* ── 🛑 ONLY EVENTS THIS SHOP SERVES, ONLY THROUGH A SEAT A SUPPLIER GETS (fixed 2026-10-29) ─────────────────────────
+   The owner opened his shop's Today and found his OWN wedding — "Indalecio & Claire · Wedding · Co-host · 29 tasks
+   overdue" — under "Events you run". His shop was not on that event (its coordinator was another shop); his account
+   holds a genuine co-host seat on his own event. A row now needs (a) this shop on the event AND (b) a supplier's seat. */
+
+test('🛑 REGRESSION — a host’s own event never appears under their shop’s Events you run', () => {
+  // The host's own seat on the wedding he hosts: a genuine co-host (no supplier answer recorded), joined, live.
+  const hostsOwnSeat = cohost({ permissions_json: GENUINE_COHOST }, { display_name: 'Indalecio & Claire', event_date: '2026-12-18' });
+  // His shop is NOT on the event (the booked coordinator is a different shop) …
+  assert.deepEqual(eventsYouRun([hostsOwnSeat], NOW, TODAY, new Set()), [], 'the host’s own event is listed under his shop');
+  // … and even if it were (say he once added his own shop to his own wedding), a partner’s seat is not a supplier’s.
+  assert.deepEqual(eventsYouRun([hostsOwnSeat], NOW, TODAY, SERVED), [], 'a genuine co-host seat is listed as an event the shop runs');
+  assert.equal(seatRunsTheEvent(hostsOwnSeat, NOW), false);
+  for (const k of FULL_COHOST_SEAT_KINDS) {
+    assert.equal(seatRunsTheEvent(cohost({ role_subtype: k, permissions_json: GENUINE_COHOST }), NOW), false, `${k} with no supplier answer runs the event`);
+    assert.equal(seatRunsTheEvent(cohost({ role_subtype: k, permissions_json: null }), NOW), false, `${k} with no grant runs the event`);
+  }
+  // A Limited answer on a co-host seat is not Full access either.
+  assert.equal(seatRunsTheEvent(cohost({ permissions_json: { ...GENUINE_COHOST, access_level: 'limited' } as ModeratorPermissions }), NOW), false);
+});
+
+test('🛑 (a) a live supplier seat is listed ONLY when this shop is on the event', () => {
+  for (const [why, row] of [
+    ['a live coordinator seat', seat()],
+    ['a live Full-access co-host seat', cohost()],
+  ] as const) {
+    assert.equal(eventsYouRun([row], NOW, TODAY, SERVED).length, 1, `${why} on an event this shop serves is not listed`);
+    assert.deepEqual(eventsYouRun([row], NOW, TODAY, new Set()), [], `${why} is listed on an event this shop is not on`);
+    assert.deepEqual(eventsYouRun([row], NOW, TODAY, new Set(['some-other-event'])), [], `${why} borrowed another event’s bond`);
+  }
+  // The bond is read off the seat's own event: an unreadable event never borrows one.
+  assert.equal(shopServesTheEvent(seat({ events: null }), SERVED), false);
+  assert.equal(shopServesTheEvent(seat({ event_id: 'e-1' }, { event_id: 'other' }), SERVED), false);
+  // Mixed: two seats, one event the shop serves — exactly that one.
+  const mixed = eventsYouRun([seat(), seat({ event_id: 'z' }, { event_id: 'z', display_name: 'Not ours' })], NOW, TODAY, new Set(['e-1']));
+  assert.deepEqual(mixed.map((e) => e.eventId), ['e-1']);
 });

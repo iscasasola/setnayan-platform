@@ -58,7 +58,9 @@ COMMENT ON TABLE public.march_groups IS
   'the key''s place in events.entourage_section_order. Members: march_walks.march_group. Written by the Event '
   'Hub draft''s Apply (guests/march-group-step.ts), read by loadMarch.';
 
--- Who may read and write it — exactly the hosts who arrange the march (`march_walks`' own terms, verbatim).
+-- Who may read and write it — exactly the hosts who arrange the march: `march_walks`' own terms, in the form they
+-- read TODAY (20271281556823 rls_checks_once_per_query — each per-statement call asked once, never per row; held by
+-- `policies-ask-once-per-query.db.test.ts`).
 REVOKE ALL ON public.march_groups FROM PUBLIC;
 REVOKE ALL ON public.march_groups FROM anon;
 REVOKE ALL ON public.march_groups FROM authenticated;
@@ -70,19 +72,19 @@ CREATE POLICY march_groups_host_all ON public.march_groups
   FOR ALL TO authenticated
   USING (
     event_id IN (SELECT public.current_couple_event_ids())
-    OR public.is_admin()
-    OR public.moderator_area_level(event_id, 'guest_list') = 'edit'
+    OR (SELECT public.is_admin())
+    OR event_id IN (SELECT l.event_id FROM public.current_moderator_area_levels('guest_list') l WHERE l.level = 'edit')
   )
   WITH CHECK (
     event_id IN (SELECT public.current_couple_event_ids())
-    OR public.is_admin()
-    OR public.moderator_area_level(event_id, 'guest_list') = 'edit'
+    OR (SELECT public.is_admin())
+    OR event_id IN (SELECT l.event_id FROM public.current_moderator_area_levels('guest_list') l WHERE l.level = 'edit')
   );
 
 DROP POLICY IF EXISTS march_groups_moderator_read ON public.march_groups;
 CREATE POLICY march_groups_moderator_read ON public.march_groups
   FOR SELECT TO authenticated
-  USING (public.moderator_area_level(event_id, 'guest_list') IS NOT NULL);
+  USING (event_id IN (SELECT l.event_id FROM public.current_moderator_area_levels('guest_list') l WHERE l.level IS NOT NULL));
 
 CREATE OR REPLACE FUNCTION public.touch_march_groups()
 RETURNS TRIGGER

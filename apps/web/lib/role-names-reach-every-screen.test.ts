@@ -149,7 +149,8 @@ const SHOWS_THE_USUAL_WORD_ON_PURPOSE: Array<[file: string, line: string, why: s
   ['lib/guest-search.ts', 'out.push(ROLE_LABELS[r], guestRoleLabel(r, names),', 'search matches the usual word AND theirs'],
   ['lib/guest-search.ts', 'out.push(ROLE_GROUP_LABELS[grp], roleGroupLabel(grp, names));', 'search matches the usual group heading AND theirs'],
   ['app/dashboard/[eventId]/guests/page.tsx', ': ROLE_GROUP_LABELS[grp];', 'a SORT KEY — renamed only where the heading is drawn'],
-  // (2026-10-29 — the card's "Rename this role" row left the card for the List's selected header, R4 slice 4.)
+  // 🏷 2026-10-29 (R4 slice 4): the List header's Rename — the usual word is the box's "empty = the usual word", beside theirs.
+  ['app/dashboard/[eventId]/guests/_components/section-head-toolbar.tsx', 'usual: ROLE_GROUP_LABELS[', 'the header rename’s usual word, beside the couple’s (`roleNameMany`)'],
 ];
 
 test('every screen that shows a role word is handed the couple’s words', () => {

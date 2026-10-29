@@ -717,6 +717,16 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     why: 'Which admin ruled on the appeal. A staff stamp; the appeal itself is the reviewer’s and is deleted.',
   },
   {
+    table: 'vendor_crew_codes',
+    column: 'created_by',
+    why: 'Which shop admin issued the crew QR. The QR is the SHOP’s; deleting on this would end every crew pass of a third party.',
+  },
+  {
+    table: 'vendor_crew_passes',
+    column: 'decided_by',
+    why: 'Which shop admin allowed or removed a crew phone. An actor stamp on the CREW MEMBER’s row; nulling it removes nobody.',
+  },
+  {
     table: 'vendor_event_access_grants',
     column: 'granted_by',
     why: 'Who issued the access grant. Deleting on this would revoke a THIRD PARTY’s access — the event_delegates lesson.',
@@ -980,6 +990,11 @@ export const SUBJECT_ROW_DELETES: ReadonlyArray<{
     table: 'vendor_review_appeals',
     column: 'reviewer_user_id',
     why: 'CASCADE + NOT NULL — the appeal is a dossier about this reviewer’s own review. Nulling is impossible and would void the statement.',
+  },
+  {
+    table: 'vendor_crew_passes',
+    column: 'crew_user_id',
+    why: 'CASCADE + NOT NULL — the row is THIS person’s crew pass for one event (the name they typed, their role). Its decided_by side is an actor stamp and is nulled instead.',
   },
   {
     table: 'vendor_event_access_grants',

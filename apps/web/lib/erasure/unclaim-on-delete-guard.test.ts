@@ -63,6 +63,8 @@ const NOT_ROTATED: Record<string, string> = {
     'The nulled column is photo_set_by_user_id — WHO SET THE GUEST’S PHOTO, not a claimer. qr_token identifies a guest so paparazzi can tag them; it is meant to keep working and is not a claim credential. Deleting the account of whoever set a photo must not invalidate that guest’s seat at the wedding.',
   community_invite_tokens:
     'The nulled column is created_by — the invite’s AUTHOR, not its claimer. An invite is exactly as valid after its author leaves as before; nothing about the token’s reach changes, so there is no unclaim to pair a rotation with.',
+  vendor_crew_codes:
+    'The nulled column is created_by — the shop admin who ISSUED the crew QR, not a claimer; the QR belongs to the SHOP (vendor_profile_id, cascades with it). Nulling it UNLOCKS nothing: crew_seat_by_guest_qr asks the hosts’ seat-plan answer OF the issuer, and a NULL issuer fails that gate closed (seat_plan_not_shared). Replacing the QR (replaceCrewQr) is the shop’s own lever.',
   vendor_creator_offers:
     'Matched on reach_token_ref, which the schema comment calls an "opaque handle for the reservation (audit / spec field)" — the vendor TOKEN CURRENCY, not a bearer QR. The nulled column is holder_user_id (who pays). No credential exists here to revoke.',
 };

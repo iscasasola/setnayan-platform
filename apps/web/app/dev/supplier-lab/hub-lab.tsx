@@ -31,6 +31,10 @@ import { ModuleConfigurator } from '@/app/vendor-dashboard/on-the-day/_component
 import { AccessGrants } from '@/app/vendor-dashboard/on-the-day/_components/access-grants';
 import { CheckinDeskRows, MessageEveryoneRows, SeatFinderRow } from '@/app/vendor-dashboard/_components/events-you-run-rows';
 import type { EventYouRun } from '@/lib/events-you-run';
+import QRCode from 'qrcode';
+import { CrewPanel } from '@/app/vendor-dashboard/on-the-day/_components/crew-panel';
+import { CrewEventHub, CrewNameForm, CrewStatus } from '@/app/join/crew/[token]/_components/crew-screens';
+import { CREW_STATUS_WORDS } from '@/lib/crew-pass';
 
 export const HUB_LAB_TODAY = '2026-12-18';
 
@@ -91,7 +95,7 @@ const runRow = (e: HubEvent): EventYouRun => ({
   date: e.date,
 });
 
-export function HubLab({ seg: rawSeg, ev }: { seg?: string; ev?: string }) {
+export async function HubLab({ seg: rawSeg, ev }: { seg?: string; ev?: string }) {
   const seg: HubSegment = hubSegmentOf(rawSeg);
   const list = hubEvents({ days: DAYS, runs: RUNS, locks: { lk: LOCK }, today: HUB_LAB_TODAY });
   const event = pickHubEvent(list, ev ?? null)!;
@@ -108,7 +112,19 @@ export function HubLab({ seg: rawSeg, ev }: { seg?: string; ev?: string }) {
   let body;
   if (event.lock) body = <HubLockRow lock={event.lock} />;
   else if (seg === 'crew') {
+    const labQrUrl = 'https://www.setnayan.com/join/crew/0123456789abcdef0123456789abcdef';
+    const labQrSvg = await QRCode.toString(labQrUrl, { type: 'svg', errorCorrectionLevel: 'M', margin: 1, width: 240 });
     body = event.booked ? (
+      <div>
+        <CrewPanel
+          eventId={event.eventId}
+          eventName={event.name}
+          qr={{ url: labQrUrl, svg: labQrSvg, endsWords: 'ends Dec 19, 12:00 AM' }}
+          passes={[
+            { passId: 'p-joy', name: 'Ate Joy Mendoza', role: 'member', status: 'allowed' },
+            { passId: 'p-ben', name: 'Kuya Ben', role: 'helper', status: 'waiting' },
+          ]}
+        />
       <AccessGrants
         eventId={event.eventId}
         members={[
@@ -117,6 +133,7 @@ export function HubLab({ seg: rawSeg, ev }: { seg?: string; ev?: string }) {
           { userId: 'u-ben', name: 'Kuya Ben', roleLabel: 'Viewer', isOwnerAdmin: false, granted: false },
         ]}
       />
+      </div>
     ) : (
       <p className="py-3 text-[14px] text-ink/65">No day of yours on this event — there is no Event Hub for a crew to join.</p>
     );
@@ -176,5 +193,35 @@ export function HubLab({ seg: rawSeg, ev }: { seg?: string; ev?: string }) {
         {body}
       </HubScreen>
     </div>
+  );
+}
+
+/**
+ * /dev/supplier-lab?s=crew-phone&state=name|waiting|member|helper|ended — 📱 the CREW PHONE's screens (owner 2026-10-29),
+ * drawn with the REAL `crew-screens.tsx` over the prototype's people. The scanner is the shipped `SeatScanner` look,
+ * stood in by its Scan button (the real one carries a server action this lab does not mount).
+ */
+export const CREW_PHONE_STATES = ['name', 'waiting', 'member', 'helper', 'ended'] as const;
+export function CrewPhoneLab({ state }: { state?: string }) {
+  if (state === 'name') return <CrewNameForm token={'0'.repeat(32)} shopWords="The Wedding Project" />;
+  if (state === 'waiting') return <CrewStatus {...CREW_STATUS_WORDS.waiting} waiting />;
+  if (state === 'ended') return <CrewStatus {...CREW_STATUS_WORDS.ended} />;
+  const role = state === 'member' ? 'member' : 'helper';
+  return (
+    <CrewEventHub
+      scanner={
+        <div className="rounded-2xl bg-ink/[0.04] p-4 text-center text-[14px] text-ink/65" data-lab-scanner="">
+          Scan a guest’s pass — their table shows here.
+        </div>
+      }
+      eventName="Indalecio & Claire"
+      shopName="The Wedding Project"
+      dayWords="Fri, Dec 18, 2026"
+      place="Seda Vertis North, Quezon City"
+      name={role === 'member' ? 'Ate Joy Mendoza' : 'Kuya Ben'}
+      role={role}
+      blocks={BLOCKS}
+      endsWords="ends Dec 19, 12:00 AM"
+    />
   );
 }

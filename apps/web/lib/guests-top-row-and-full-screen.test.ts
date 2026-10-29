@@ -115,5 +115,6 @@ test('(4) 2D edge to edge in Guests: the floor fills the cell around the untouch
   assert.match(ed, /\.\.\.\(scaledBox\s*\? \{ width: `\$\{scaledBox\.w\}px`, height: `\$\{scaledBox\.h\}px` \}/);
   // Fit fills the floor (the cell) in Guests.
   assert.match(ed, /const cell = inGuests \? regionRef\.current\?\.getBoundingClientRect\(\) : null;/);
-  assert.match(ed, /const z1 = clampZoom\(Math\.min\(fitW \/ bw, fitH \/ bh\) \* 0\.86\);/);
+  // Fit measures the FLOOR (fitW / fitH), the property pinned here; #7060 may cap it at the old opening zoom.
+  assert.match(ed, /const z1 = (?:Math\.min\(PLAN_ZOOM_MAX_FLOOR, )?clampZoom\(Math\.min\(fitW \/ bw, fitH \/ bh\) \* 0\.86\)\)?;/);
 });

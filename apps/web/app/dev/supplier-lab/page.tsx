@@ -25,6 +25,8 @@
  *   ?thumb=people     the frosted thumb row: a search field (≥ 60 %) + Add     (frame 03)
  *   ?thumb=customer   Chat (main) · Quote · Payment · Call                     (frame 06)
  *   ?thumb=money      Log a payment — a form's submit through the button rule  (frame 05)
+ *   ?s=chat-ask       💬 the chat on a couple's FIRST message — their ask at the top: the event's fixed lines, Decline ·
+ *                     Ask a question · Accept (supplier dashboard v13, `chat-lab.tsx`)
  *   ?s=people         Customers › People (S-PR2): segments, rows, outside clients, kept notes, search + Add (frame 03)
  *     &q=ana · &lane=outside|waiting|… · &add=1 (the Add sheet) · &toast=added|removed|failed
  *   ?s=clash          two couples holding one Saturday — the warn row above the list
@@ -84,6 +86,7 @@ import type { TodayActions } from '@/app/vendor-dashboard/_components/supplier-t
 import { splitDesk } from '@/lib/vendor-desk-disposition';
 import type { DueFeeBill } from '@/lib/booking-fee-disclosure';
 import { PeopleLab } from './people-lab';
+import { ChatAskLab } from './chat-lab';
 import { COORD_STATES, CoordLab, type CoordState } from './coord-lab';
 import { EASY_MOMENTS, EASY_SUPPLIERS, TodayEasyLab, type EasyMoment, type EasySupplier } from './today-easy-lab';
 import { DATES_STATES, DatesLab, type DatesState } from './dates-lab';
@@ -306,6 +309,7 @@ export default async function SupplierLabPage({
   const labPage = (() => {
     const s = q.s ?? '';
     if (/^(people|clash|empty|fail|nopools)$/.test(s)) return '/vendor-dashboard/customers';
+    if (s === 'chat-ask') return '/vendor-dashboard/customers';
     if (s.startsWith('dates') || s.startsWith('qr')) return '/vendor-dashboard/customers?seg=dates';
     if (s.startsWith('money')) return '/vendor-dashboard/customers?seg=money';
     if (s === 'page' || s === 'collections') return '/vendor-dashboard/website';
@@ -364,6 +368,10 @@ export default async function SupplierLabPage({
         />
       </div>
     );
+  }
+  if (q.s === 'chat-ask') {
+    /* 💬 The chat on a couple's first message — their ask at the top (supplier dashboard v13, `chat-lab.tsx`). */
+    return wrap(<ChatAskLab />, 'own');
   }
   if (q.s && (PEOPLE_STATES as readonly string[]).includes(q.s)) {
     return wrap(<PeopleLab variant={q.s} q={q.q} lane={q.lane} toast={q.toast} add={q.add === '1'} door={q.door} block={q.block} gear={q.gear === '1'} />, 'own');

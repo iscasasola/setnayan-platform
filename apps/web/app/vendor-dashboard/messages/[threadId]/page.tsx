@@ -39,6 +39,9 @@ import {
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { displayServiceLabel } from '@/lib/vendors';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { readSupplierEventLines } from '@/lib/supplier-event-lines.server';
+import { EventLinesBody, InquiryAnswers } from '../../_components/event-lines';
+import { InfoTip } from '@/app/_components/info-tip';
 import { VENDOR_PACKAGE_SELECT } from '@/lib/vendor-packages';
 import { fetchOwnPaymentMethods } from '@/lib/vendor-payment-methods';
 import { sendChatMessage, acceptInquiry, declineInquiry, markThreadRead } from '@/lib/chat-actions';
@@ -231,6 +234,22 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
 
   const thread = await fetchThreadById(supabase, threadId);
   if (!thread || thread.vendor_profile_id !== profile.vendor_profile_id) notFound();
+
+  /*
+    📋 THEIR ASK, AT THE TOP OF THE CHAT (supplier dashboard v13, APPROVED 2026-10-29 — "the inquiry card at the top of a
+    first chat"): a pending inquiry opens on the event's fixed lines and Accept · Decline · Ask, the same lines Today and
+    Customers draw (`readSupplierEventLines`). Started now, beside every other read; only for a pending inquiry.
+  */
+  const askLinesRead =
+    thread.inquiry_status === 'pending'
+      ? readSupplierEventLines(createAdminClient(), {
+          vendorProfileId: profile.vendor_profile_id,
+          shopServices: (profile.services ?? null) as string[] | null,
+          events: [{ eventId: thread.event_id, stage: 'asking' }],
+        })
+          .then((m) => m.get(thread.event_id) ?? null)
+          .catch(() => null)
+      : Promise.resolve(null);
 
   // ═══ EVERY READ BELOW STARTS AT ONCE (perf, 2026-09-29) ══════════════════
   // The 2026-07-01 batch below took the first fourteen reads off the serial
@@ -1500,6 +1519,7 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
     panel past 55dvh.
   */
   const blocked = blockState.blockedByMe || blockState.blockedByThem;
+  const askLines = await askLinesRead;
 
   /*
     📦 ARCHIVE LIVES IN THE CHAT NOW (owner 2026-10-28: the Customers list IS the messages, so the Messages fold and
@@ -1643,6 +1663,28 @@ export default async function VendorThreadPage({ params, searchParams }: Props) 
               id="pending-payments"
               className="max-h-[40dvh] space-y-2 overflow-y-auto scroll-mt-24 border-b border-ink/10 px-3 py-2 empty:hidden sm:px-4"
             >
+      {/* 📋 THEIR ASK — the inquiry card at the top of a first chat (supplier dashboard v13): the event's fixed lines, then
+          Decline · Ask a question · Accept (Accept starts a quote here). The band under the conversation keeps the
+          shipped "Talk to them" — the same answer, one more door. */}
+      {askLines && thread.inquiry_status === 'pending' ? (
+        <section data-chat-inquiry-card="" aria-label="Their ask" className="pb-2">
+          <p className="home-k2 pt-1">
+            <InfoTip label="Their ask" align="start">
+              What they asked, read from their event before you answer. Accept says yes and starts a quote; Ask a question
+              says yes and opens the chat to type; Decline tells them kindly. Nothing is booked until they ask to book.
+            </InfoTip>
+          </p>
+          <EventLinesBody lines={askLines} />
+          <InquiryAnswers
+            threadId={threadId}
+            returnTo={`/vendor-dashboard/messages/${threadId}`}
+            pinned
+            acceptTo={`/vendor-dashboard/messages/${threadId}?compose=quote`}
+            acceptInquiry={acceptInquiry}
+            declineInquiry={declineInquiry}
+          />
+        </section>
+      ) : null}
       {showDayPrep ? (
         <VendorEventDayPrepCta
           threadId={threadId}

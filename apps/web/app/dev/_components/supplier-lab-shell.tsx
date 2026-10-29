@@ -27,7 +27,7 @@ import '@/app/vendor-dashboard/_components/supplier-frame.css';
 
 /** The pages' own outermost columns — `vendor-dashboard/page.tsx` (Today) and `customers/page.tsx`. */
 const COLUMN = {
-  today: 'mx-auto w-full max-w-6xl tab:max-w-3xl px-4 py-4 sm:px-6 sm:py-10 lg:px-8',
+  today: 'mx-auto w-full max-w-6xl tab:max-w-none px-4 py-4 sm:px-6 sm:py-10 lg:px-8',
   reading: 'mx-auto w-full max-w-3xl space-y-4 px-4 pb-6 pt-4 sm:px-6 lg:px-8 tab:max-w-3xl',
   wide: 'mx-auto w-full max-w-3xl space-y-4 px-4 pb-6 pt-4 sm:px-6 lg:px-8 tab:max-w-5xl',
 } as const;

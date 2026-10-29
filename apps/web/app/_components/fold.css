@@ -48,3 +48,7 @@
     animation: none;
   }
 }
+/* A slim pinned head keeps its one action out of the way — the line is the name and the ▾. */
+[data-fold-pin][data-slim] [data-fold-end] {
+  display: none;
+}

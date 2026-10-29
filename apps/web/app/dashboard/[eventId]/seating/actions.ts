@@ -630,6 +630,8 @@ export async function setGhostBoothsEnabled(formData: FormData) {
   if (error) throw new Error(error.message);
 
   revalidatePath(`/dashboard/${eventId}/seating/lab`);
+  // The switch lives in the seat settings of Guests › Seats now (the room is view-only, 2026-10-30).
+  revalidatePath(`/dashboard/${eventId}/guests`);
 }
 
 /** Per-booth dismiss: hide the ghost booth for one vendor category (the "×"). */

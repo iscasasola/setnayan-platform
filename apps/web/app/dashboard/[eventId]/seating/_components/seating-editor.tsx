@@ -188,7 +188,11 @@ import {
   updateTablePosition,
   updateTableRotation,
   updateTableType,
+  swapTableOccupants,
+  setGhostBoothsEnabled,
 } from '../actions';
+import { SEAT_PLAN_SHOW_VIEW_EVENT } from '@/lib/seat-plan-views';
+import { PLAN3D_BOOTH_ADS_ENABLED } from '@/lib/ghost-booths';
 import { useSeatingPresence } from './use-seating-presence';
 import { lockSaysViewOnly, useSeatingLock } from './use-seating-lock';
 import { useSeatingLiveRefresh } from './use-seating-live-refresh';
@@ -359,6 +363,12 @@ type Props = {
   /** The two policy toggles are plain server-action forms, passed down verbatim. */
   setSeatingAutoplace: (formData: FormData) => void | Promise<void>;
   setSeatingGroupAdjacency: (formData: FormData) => void | Promise<void>;
+  /**
+   * 🏷 "Show supplier suggestions in 3D" (the dashed ghost booths, flag `NEXT_PUBLIC_PLAN3D_BOOTH_ADS`). Its switch left
+   * the 3D room when the room became view-only (owner 2026-10-30) and lives here with the other seat settings. Absent
+   * (undefined) = the flag is off or the page did not read it — no switch is drawn.
+   */
+  ghostBoothsEnabled?: boolean;
   /** Initial view — 'list' when the lab's mirrored segment links here (?view=list). */
   initialView?: 'plan' | 'list';
   /**
@@ -454,6 +464,7 @@ export function SeatingEditor({
   toSeatReserved,
   setSeatingAutoplace,
   setSeatingGroupAdjacency,
+  ghostBoothsEnabled,
   initialView = 'plan',
   details = null,
 }: Props) {
@@ -979,6 +990,11 @@ export function SeatingEditor({
   const [moveTo, setMoveTo] = useState<string | null>(null);
   // 🔗 "Link…" — the table waiting for the next one tapped to join it.
   const [linkFrom, setLinkFrom] = useState<string | null>(null);
+  /* ⇄ SWAP WITH ANOTHER TABLE… — arm table A, tap table B, confirm: every guest at A goes to B and B's to A, seat
+     numbers travelling with them, in ONE atomic write (`swapTableOccupants` → `swap_table_assignments`). It was the 3D
+     room's "Swap two tables" until the room became view-only (owner 2026-10-30); its home is now here. */
+  const [swapFrom, setSwapFrom] = useState<string | null>(null);
+  const [confirmSwap, setConfirmSwap] = useState<{ a: string; b: string } | null>(null);
   // 📱 A press on the plan on a phone is a TAP (planPress): what was pressed,
   // and where, so a pan or a pinch that starts on it is not taken as a tap.
   const tapRef = useRef<{ kind: 'table' | 'booth' | 'sign' | 'stage' | 'entrance' | 'service' | 'dance' | 'cocktail'; id: string; sx: number; sy: number } | null>(null);
@@ -1936,6 +1952,28 @@ export function SeatingEditor({
   // PR (owner 2026-07-16 — this PR connects tables by drag-snap POSITIONING, not
   // by linking); `doLinkTables` / the link gestures are retired. Existing
   // `link_group_id` data is left intact and can still be un-grouped here.
+  const armSwap = (t: EventTableRow) => {
+    setLinkFrom(null);
+    setSwapFrom((cur) => (cur === t.table_id ? null : t.table_id));
+    if (swapFrom !== t.table_id) setNotice(`Now tap the table to swap guests with “${t.table_label}”.`);
+  };
+  const doSwapTables = (a: string, b: string) => {
+    setConfirmSwap(null);
+    if (!canEdit || a === b) return;
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('lock_id', lock.lockId ?? '');
+    fd.set('table_id_a', a);
+    fd.set('table_id_b', b);
+    startTransition(async () => {
+      try {
+        await swapTableOccupants(fd);
+        setNotice('Swapped — each table now seats the other’s guests, in the same chairs.');
+      } catch (err) {
+        if (!handleLockLost(err)) setNotice('Couldn’t swap those tables — please try again.');
+      }
+    });
+  };
   const doUnlink = (tableId: string) => {
     if (!canEdit) return;
     const fd = new FormData();
@@ -2727,6 +2765,11 @@ export function SeatingEditor({
         return place(t.table_id, free >= 0 ? free : null);
       }
       if (linkFrom && linkFrom !== t.table_id) return linkTablesByTap(linkFrom, t.table_id);
+      if (swapFrom && swapFrom !== t.table_id) {
+        setConfirmSwap({ a: swapFrom, b: t.table_id });
+        setSwapFrom(null);
+        return;
+      }
       return selectTable(t.table_id);
     }
     if (pickedId || pickedGroupId) return;
@@ -4434,6 +4477,13 @@ export function SeatingEditor({
       window.history.replaceState(window.history.state, '', seatViewHref('3d'));
     } else router.push(seatViewHref('3d'), { scroll: false });
   };
+  /* ✨ Accents… (the ⋯'s 3D room row): the room, with its Accents sheet open over it — you see each accent while you
+     switch it. `&accents=1` is read by the room (`seating-lab-3d.tsx`), which closes the sheet back to the room. */
+  const openAccents = () => {
+    setShow3d(true);
+    setSeen3d(true);
+    window.history.replaceState(window.history.state, '', `${seatViewHref('3d')}&accents=1`);
+  };
   const leave3d = (seat: 'list' | null) => {
     if (inGuests) {
       setShow3d(false);
@@ -4467,6 +4517,18 @@ export function SeatingEditor({
     if (in3d) leave3d(target === 'list' ? 'list' : null);
     else if (inGuests) window.history.replaceState(window.history.state, '', seatViewHref(target === 'list' ? 'list' : null));
   };
+  /* 👁 "Switch to 2D" from inside the view-only room (its ⓘ) — the room cannot reach `onSelectView`, so it asks. */
+  const onSelectViewRef = useRef(onSelectView);
+  onSelectViewRef.current = onSelectView;
+  useEffect(() => {
+    if (!inGuests) return;
+    const onAsk = (e: Event) => {
+      const v = (e as CustomEvent<string>).detail;
+      if (v === '2d' || v === 'list') onSelectViewRef.current(v);
+    };
+    window.addEventListener(SEAT_PLAN_SHOW_VIEW_EVENT, onAsk);
+    return () => window.removeEventListener(SEAT_PLAN_SHOW_VIEW_EVENT, onAsk);
+  }, [inGuests]);
 
   // Banner slot (verdict §1, row 2): ONE single-line strip max. Priority
   // DayOf > capacity shortfall > walima; the losers collapse into a "N notices"
@@ -5178,6 +5240,35 @@ export function SeatingEditor({
           />
         </>
       ) : null}
+      {/* ✨ THE 3D ROOM'S SETTINGS (owner 2026-10-30 — the room is view-only; what it adds on is switched here or in its
+          own Accents tool, and nothing is placed). */}
+      {details?.lab || ghostBoothsEnabled !== undefined ? (
+        <>
+          <MenuDivider />
+          <MenuCaption>3D room</MenuCaption>
+          {details?.lab && inGuests ? (
+            <MenuRow icon={Sparkles} label="Accents…" hint="Switch the room's ceiling, backdrop, walls… on or off" onClick={openAccents} />
+          ) : null}
+          {PLAN3D_BOOTH_ADS_ENABLED && ghostBoothsEnabled !== undefined ? (
+            <form action={setGhostBoothsEnabled} className="px-1" data-ghost-booths-switch="">
+              <input type="hidden" name="event_id" value={eventId} />
+              <input type="hidden" name="enabled" value={ghostBoothsEnabled ? 'false' : 'true'} />
+              <button type="submit" className="flex w-full items-start gap-2.5 rounded-lg px-3 py-2 text-left hover:bg-ink/[0.04]">
+                <Store className="mt-0.5 h-4 w-4 shrink-0 text-ink/55" strokeWidth={1.75} />
+                <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span className="flex items-center gap-2 text-sm font-medium text-ink">
+                    Show supplier suggestions in 3D
+                    <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase ${ghostBoothsEnabled ? 'bg-success-100 text-success-700' : 'bg-ink/5 text-ink/50'}`}>
+                      {ghostBoothsEnabled ? 'On' : 'Off'}
+                    </span>
+                  </span>
+                  <span className="text-[11px] leading-snug text-ink/55">Dashed booths for the suppliers you have not booked yet.</span>
+                </span>
+              </button>
+            </form>
+          ) : null}
+        </>
+      ) : null}
     </>
   );
   const shareMenuBody = (
@@ -5381,6 +5472,9 @@ export function SeatingEditor({
             </button>
             <button type="button" role="menuitem" onClick={() => { setDockOverflow(false); rotateTable(t, 180); }} className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-ink hover:bg-ink/[0.04]">
               Rotate 180°
+            </button>
+            <button type="button" role="menuitem" data-seat-plan-swap="" onClick={() => { setDockOverflow(false); armSwap(t); }} className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm text-ink hover:bg-ink/[0.04]">
+              Swap with another table…
             </button>
             {t.link_group_id ? (
               <button type="button" role="menuitem" onClick={() => { setDockOverflow(false); doUnlink(t.table_id); }} className="flex w-full items-center gap-1.5 rounded-lg px-3 py-2 text-left text-sm text-mulberry hover:bg-mulberry/[0.06]">
@@ -5616,8 +5710,10 @@ export function SeatingEditor({
             setLinkFrom((cur) => (cur === st.table_id ? null : st.table_id));
             if (linkFrom !== st.table_id) setNotice(`Now tap the table to join to “${st.table_label}”.`);
           }}
+          swapPressed={swapFrom === st.table_id}
+          onSwap={() => armSwap(st)}
           seatPeople={!details ? seatPeopleBtn(true) : null}
-          onDone={() => { setLinkFrom(null); clearSelection(); }}
+          onDone={() => { setLinkFrom(null); setSwapFrom(null); clearSelection(); }}
           onDelete={() => requestRemoveTable(st)}
         />
       ) : (
@@ -8724,6 +8820,29 @@ export function SeatingEditor({
 
       {/* delete-table confirm — shown only when seated guests would be released. THE CENTRED CONFIRM BOX (the approved template, `GuestPopup kind="confirm"`: dark and blurred
           behind, nothing behind works, a tap on the dark keeps): Cancel first, the doing answer second — same handlers as the bottom sheet it replaced. */}
+      {confirmSwap ? (
+        <GuestPopup kind="confirm" onClose={() => setConfirmSwap(null)} labelledById="seat-swap-confirm-title">
+          {(() => {
+            const ta = tables.find((x) => x.table_id === confirmSwap.a);
+            const tb = tables.find((x) => x.table_id === confirmSwap.b);
+            return (
+              <div className="space-y-3" data-seat-plan-swap-confirm="">
+                <h3 id="seat-swap-confirm-title" className="font-display text-xl text-ink">
+                  Swap {ta?.table_label ?? 'this table'} and {tb?.table_label ?? 'that table'}?
+                </h3>
+                <p className="text-sm leading-relaxed text-ink/70">
+                  The <span className="font-semibold">{formatCount(seatedAt(confirmSwap.a))}</span> at {ta?.table_label} move to {tb?.table_label}, and the{' '}
+                  <span className="font-semibold">{formatCount(seatedAt(confirmSwap.b))}</span> at {tb?.table_label} move to {ta?.table_label} — each keeps their chair number.
+                </p>
+                <GuestConfirmActions
+                  keep={<ActionButton tone="neutral" icon={X} label="Cancel" onClick={() => setConfirmSwap(null)} />}
+                  go={<ActionButton tone="brand" main icon={Check} label="Swap tables" onClick={() => doSwapTables(confirmSwap.a, confirmSwap.b)} />}
+                />
+              </div>
+            );
+          })()}
+        </GuestPopup>
+      ) : null}
       {confirmDelete ? (
         <GuestPopup kind="confirm" onClose={() => setConfirmDelete(null)} labelledById="seat-delete-confirm-title">
           {(() => {

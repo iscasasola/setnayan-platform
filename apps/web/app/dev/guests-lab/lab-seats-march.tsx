@@ -5,6 +5,7 @@ import { SeatPlanInGuests } from '@/app/dashboard/[eventId]/seating/_components/
 import { MarchMaker } from '@/app/dashboard/[eventId]/launch/_components/details-lazy';
 import { labMarchSections } from '@/app/dev/details-lab/march-fixture';
 import { parseSeatView } from '@/lib/guests-views';
+import { LabRoom3D } from './lab-room-3d';
 
 /**
  * 🗂 R4 · THE LAB'S GUESTS › SEATS AND GUESTS › MARCH — the SHIPPED makers, drawn the way `guests/page.tsx` draws them
@@ -32,7 +33,7 @@ const LAB_TABLES: EventTableRow[] = [
   removed_seats: [],
 }));
 
-export function LabSeats({ guests, seat }: { guests: readonly { guest_id: string; first_name: string | null; last_name: string | null; role: string; side: string; rsvp_status: string | null }[]; seat: string | undefined }) {
+export function LabSeats({ guests, seat, big = false }: { guests: readonly { guest_id: string; first_name: string | null; last_name: string | null; role: string; side: string; rsvp_status: string | null }[]; seat: string | undefined; /** `&big=1` — the 3D room on the 25-table / 230-guest synthetic plan. */ big?: boolean }) {
   async function labPolicy(formData: FormData) {
     'use server';
     void formData;
@@ -89,7 +90,9 @@ export function LabSeats({ guests, seat }: { guests: readonly { guest_id: string
         setSeatingGroupAdjacency={labPolicy}
         initialView={view === 'list' ? 'list' : 'plan'}
         details={{
-          lab: null,
+          /* 🧊 The SHIPPED 3D room on synthetic data (`lab-room-3d.tsx`), opened in place like Guests › Seats. */
+          lab: <LabRoom3D big={big} />,
+          open3d: view === '3d',
           sides: [
             { side: 'groom', label: "Jose's side" },
             { side: 'bride', label: "Maria's side" },

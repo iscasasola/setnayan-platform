@@ -25,7 +25,8 @@
  *   ?part=screen    Guests › List and Map (Maker PR 4f) — the whole screen on
  *                   maria-and-jose's roster, with a stand-in shell bar and
  *                   dock: &gview=map for the map (R4: &gview=seats [&seat=3d|list|map] · &gview=march [&march=owner]
- *                   — the shipped makers, Guests › Seats and Guests › March), &q=… to search, &empty=1 for
+ *                   — with &seat=3d the SHIPPED 3D room on synthetic data; &big=1 its 25-table / 230-guest plan, the phone
+ *                   budget's measuring size — the shipped makers, Guests › Seats and Guests › March), &q=… to search, &empty=1 for
  *                   an empty list, &fail=1 for a refused read
  *   &req=0          (screen) no requests to join waiting — the carousel's card ① says "No requests waiting"
  *   &select=to-invite (screen) ⚙ › Pick who's cold link — Select on, the list narrowed to To invite
@@ -803,7 +804,7 @@ export default async function GuestsLabPage({
                     views={GUESTS_VIEWS}
                     filter={parseGuestsFilter(sp)}
                     bodies={{
-                      seats: <LabSeats guests={roster} seat={typeof sp.seat === 'string' ? sp.seat : undefined} />,
+                      seats: <LabSeats guests={roster} seat={typeof sp.seat === 'string' ? sp.seat : undefined} big={sp.big === '1'} />,
                       march: <LabMarch shape={typeof sp.march === 'string' ? sp.march : null} />,
                     }}
                     guests={empty || fail ? [] : sp.oneqr === '1' ? roster.filter((g) => g.role === 'bride' || g.role === 'groom') : roster}

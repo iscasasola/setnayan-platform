@@ -40,6 +40,7 @@ import { SeatingEditor } from './_components/seating-lazy';
 import { loadRoleNames } from '@/lib/role-names.server';
 import { roleSeatingLabels } from '@/lib/role-seating-labels';
 import { setSeatingAutoplace, setSeatingGroupAdjacency } from './actions';
+import { PLAN3D_BOOTH_ADS_ENABLED } from '@/lib/ghost-booths';
 import SeatingLabPage from './lab/page';
 import { SeatPlanInGuests } from './_components/seat-plan-in-guests';
 
@@ -220,6 +221,14 @@ export default async function SeatingPage({ params, searchParams }: Props) {
   const adjacencyEnabled =
     (eventRow.data as { seating_group_adjacency?: boolean | null } | null)
       ?.seating_group_adjacency ?? true;
+  // 🏷 "Show supplier suggestions in 3D" — the ghost booths' one switch, in the seat settings since the room became
+  // view-only (owner 2026-10-30). Read only while the flag is on; a refused read draws no switch (never a false Off).
+  let ghostBoothsEnabled: boolean | undefined;
+  if (PLAN3D_BOOTH_ADS_ENABLED) {
+    const gb = await supabase.from('event_floor_plan').select('ghost_booths_enabled').eq('event_id', eventId).maybeSingle();
+    if (gb.error) logQueryError('SeatingPage.ghostBooths', gb.error, { event_id: eventId }, 'graceful_degrade');
+    else ghostBoothsEnabled = (gb.data?.ghost_booths_enabled as boolean | null | undefined) ?? true;
+  }
   const nonDeclinedCount = seatingGuests.filter((g) => g.rsvp_status !== 'declined').length;
   const totalSeats = tables.reduce(
     (sum, t) => sum + effectiveCapacity(t.capacity, t.removed_seats),
@@ -269,6 +278,7 @@ export default async function SeatingPage({ params, searchParams }: Props) {
       toSeatReserved={toSeatCount}
       setSeatingAutoplace={setSeatingAutoplace}
       setSeatingGroupAdjacency={setSeatingGroupAdjacency}
+      ghostBoothsEnabled={ghostBoothsEnabled}
       initialView={initialView}
       details={details}
       me={{

@@ -51,6 +51,28 @@ Keep the PR DRAFT + `do-not-auto-merge`; never merge/deploy. CI is the gate (no 
   · ＋ Walk ▾ from the tray, this group only · Delete = `planSectionOut`, not on fixed sides); second tap folds+unselects.
   ＋ Group NOT built (owner question: march groups are role sections; no "own group" in data). Guard
   `lib/march-groups-in-guests.test.ts`.
+- SLICE 6 part 1 (pushed, walked 390/1280/320 light+dark — `s6/`): Guests › Seats 2D canvas frameless (`seating-editor.tsx`
+  canvas border only `!inGuests`; 3D was already frameless via `inMaker`). The rounded outline still seen is the venue
+  FLOOR (`scaledBox`) — confirm with the owner whether the floor's wall line stays (prototype draws the floor edge). Guard `lib/seats-in-guests-are-frameless.test.ts`.
+  ### SLICE 6 — the rest, Rule 0 done (2026-10-29), NOT built
+  E = `seating/_components/seating-editor.tsx`, L = `seating/lab/_components/seating-lab-3d.tsx` (3D room = lab page `?maker=1`).
+  · (a) confirm sheet: swap = `tradeSeats` (E) → `swapSeats` (`seating/actions.ts`, RPC `swap_seat_assignments`); move =
+    `moveGuestId`/`doMove`/`MoveGuestSheet` (seat-plan-phone.tsx, phone only). NO undo for a manual swap/move (only Auto
+    arrange's `undoAutoRun`). NO "why here" helper: build pure `lib/seat-why.ts` from `guestTier`/`roleTier`/
+    `ROLE_TIER_LABELS` (lib/seating.ts), group, `event_seating_constraints` keep_apart (`solveSeatPlan` violations),
+    `locked`; suggestions from `lib/seat-suggest.ts` `suggestTableFor`. `event_seat_assignments` has NO placed_by — only
+    `locked` (hand-placed); "auto vs you" needs owner + column. Undo = swap again.
+  · (c) 3D gestures: drei `OrbitControls` in L (enabled guards `!draggingId && !draggingZone && !camBusy && !walking`);
+    smallest delta `touches={{ONE: TOUCH.PAN, TWO: TOUCH.DOLLY_ROTATE}}` + a 2-finger vertical delta → polar (tilt).
+  · (d) peek: no peek card exists; face tap → `tapFace` → `faceCard` → `GuestCardSheet` directly. Reuse
+    `InspectorSheetAlone` (inspector-column.tsx; bottom < 701, right panel ≥ 701 — width only, no orientation query).
+    No 3D chair tap exists yet.
+  · (e) palette: L still hard-codes `#11131a #0c0e14 #13151c #2b2e37 #3a3d47 #d8b45a #d9534f #6f9b6a`;
+    `lib/seating-3d.ts` (18 hex) and `lib/plan3d-room.ts` (8) too — add neutral/status tokens to `resolveRoomPalette`.
+  · (f) stations: `event_floor_booths` + `BOOTH_CATALOG`/`boothTypeForVendorCategory`/`fetchBooths` (lib/seating.ts),
+    `saveBooths` (validates `BOOKED_VENDOR_STATUSES`). NO per-service "takes a spot" field anywhere — needs
+    `pnpm migration:new` (column on `service_categories` or `canonical_service_taxonomy`) + Admin › Categories toggle +
+    Ugat/admin maps + DECISION_LOG row. Pipeline only, never a direct apply.
 - Slice 1 follow-up (pushed): the makers take THE row from the lens (`lens.ThumbRow`) — importing `thumb-row.tsx` into
   details-march / seating-editor pulled its CSS module into the Maker's lazy pieces and broke ~10 render tests; march hooks
   sit above its `if (!anyone)` early return (eslint rules-of-hooks). Full unit suite 28,432/0 locally; CI typecheck ·

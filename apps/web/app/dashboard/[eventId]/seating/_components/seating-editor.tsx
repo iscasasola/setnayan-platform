@@ -7243,7 +7243,9 @@ export function SeatingEditor({
           onPointerMove={onCanvasPointerMove}
           onPointerUp={onCanvasPointerUp}
           onPointerCancel={onCanvasPointerUp}
-          className="absolute inset-0 m-auto cursor-grab touch-none overflow-hidden border border-ink/15 bg-ink/[0.02] active:cursor-grabbing"
+          /* 🖼 Frameless in Guests (R4 slice 6, owner: "2D/3D frameless edge to edge") — the floor is the page; the Studio
+             keeps its hairline. */
+          className={`absolute inset-0 m-auto cursor-grab touch-none overflow-hidden ${inGuests ? '' : 'border border-ink/15 '}bg-ink/[0.02] active:cursor-grabbing`}
           style={{
             backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(30,34,41,0.06) 1px, transparent 0)',
             backgroundSize: `${gridPx}px ${gridPx}px`,

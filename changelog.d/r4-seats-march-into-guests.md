@@ -160,3 +160,12 @@ Owner (prototype v13/v26, controller order 2026-10-29):
 - Guard `lib/march-groups-in-guests.test.ts` (3 properties; sabotaged red twice).
 
 SPEC IMPACT: None — prototype v13/v26 is the record; ＋ Group needs an owner ruling (flagged in the PR body).
+
+## 2026-10-29 · fix(guests): R4 slice 6 part 1 — Guests › Seats 2D canvas has no frame
+
+Owner ("2D/3D frameless edge to edge"): the 2D canvas's hairline border is drawn only outside Guests (the Studio keeps
+it); the 3D room was already frameless there (`inMaker`). The venue floor's own outline stays — it is the room's wall.
+Guard `lib/seats-in-guests-are-frameless.test.ts` (sabotaged once). The rest of slice 6 (confirm sheet with "why here",
+peek card, 3D gestures, palette tokens, booked-supplier stations) is mapped in HANDOVER, not built.
+
+SPEC IMPACT: None.

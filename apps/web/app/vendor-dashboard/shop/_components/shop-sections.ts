@@ -1,5 +1,5 @@
 /**
- * SHOP'S SECTIONS — Details · Services · Page · Gallery · Analytics, ONCE (supplier dashboard v13, APPROVED 2026-10-29;
+ * SHOP'S SECTIONS — Details · Services · Page · Portfolio · Analytics, ONCE (supplier dashboard v13, APPROVED 2026-10-29;
  * prototype `pickMenu(..., {title:'Shop'})`, its words for each line). A plain module — no client boundary — so the
  * pinned row (`shop-segments.tsx`), the bar's page menu from 701 (`supplier-page-menu.tsx`), the tour router and the
  * guards all read the SAME list. Each section keeps its own address, so a bookmark, a back press and a link from
@@ -25,7 +25,9 @@ export const SHOP_SEGMENT_LABEL: Readonly<Record<ShopSegment, string>> = {
   details: 'Details',
   services: 'Services',
   page: 'Page',
-  gallery: 'Gallery',
+  // 🖼 "Portfolio", not the prototype's "Gallery": owner 2026-10-23 — no "gallery" in the UI; a supplier's own photos
+  // are their Portfolio (`lib/no-gallery-word.test.ts`). The KEY stays `gallery` (the prototype's own section name).
+  gallery: 'Portfolio',
   insights: 'Analytics',
 };
 

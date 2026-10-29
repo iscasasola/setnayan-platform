@@ -1428,7 +1428,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
   vendor_shop_v1: {
     key: 'vendor_shop_v1',
     label: 'Supplier — Shop mini-tour',
-    blurb: 'Details, Services, Page, Gallery and Analytics — the five parts of Shop.',
+    blurb: 'Details, Services, Page, Portfolio and Analytics — the five parts of Shop.',
     slides: [
       {
         Icon: Briefcase,
@@ -1447,7 +1447,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
           // v13 (S5): the segments are ONE ▾ now (Details · Services · Page · Gallery · Analytics) — a dropdown is not a
           // doorway Next can walk through, so this stop asks; the next two light when the supplier picks Page.
           anchor: 'shop-segments',
-          title: 'Details · Services · Page · Gallery · Analytics',
+          title: 'Details · Services · Page · Portfolio · Analytics',
           body: 'Every part of your shop is in this one menu. Open it and pick Page.',
           hint: 'Pick Page — or press Next',
         },

@@ -31,7 +31,7 @@ const read = (rel: string) => stripComments(readFileSync(join(VD, rel), 'utf8'))
 test('1 · the five sections, in the approved order and words — and the bar menu lists exactly them', () => {
   assert.deepEqual(
     SHOP_SEGMENT_ORDER.map((s) => SHOP_SEGMENT_LABEL[s]),
-    ['Details', 'Services', 'Page', 'Gallery', 'Analytics'],
+    ['Details', 'Services', 'Page', 'Portfolio', 'Analytics'],
   );
   for (const s of SHOP_SEGMENT_ORDER) {
     const m = supplierPageMenuOf(SHOP_SEGMENT_HREF[s], null);

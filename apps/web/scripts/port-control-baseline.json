@@ -1,5 +1,5 @@
 {
-  "generatedFromRef": "4694a12e8e",
+  "generatedFromRef": "6891386a89",
   "routeCount": 479,
   "destinations": 984,
   "actions": 621,
@@ -6766,6 +6766,7 @@
         "dashboard/[eventId]/guests/loading.tsx",
         "dashboard/[eventId]/guests/map-actions.ts",
         "dashboard/[eventId]/guests/march-actions.ts",
+        "dashboard/[eventId]/guests/march-group-step.ts",
         "dashboard/[eventId]/guests/march-step.ts",
         "dashboard/[eventId]/guests/open-guest-card.tsx",
         "dashboard/[eventId]/guests/page.tsx",

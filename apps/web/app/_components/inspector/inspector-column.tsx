@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { createPortal } from 'react-dom';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { useBackCloses } from '@/lib/use-back-closes';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { X, ArrowUpRight } from 'lucide-react';
 import {
@@ -319,7 +320,10 @@ function InspectorSheet({
  * list would: ✕ and Escape close it, focus goes to its heading once. Unlike the list's sheet it stays at ≥ 1280 too
  * (`.sn-inspector-sheet--alone`): there is no rail to hand the card to.
  */
-export function InspectorSheetAlone({ onClose, layer, children }: { onClose: () => void; layer?: string; children: ReactNode }) {
+export function InspectorSheetAlone({ onClose: onClosed, layer, children }: { onClose: () => void; layer?: string; children: ReactNode }) {
+  /* ← The phone's Back closes it (owner 2026-10-29, a guest card opened from a seat: no list behind it, so no address of
+     its own to step back from). ✕, Escape and the scrim step back through the same one history entry. */
+  const onClose = useBackCloses(true, onClosed);
   const focused = useRef(false);
   const ctx = useMemo<InspectorContextValue>(
     () => ({
@@ -528,7 +532,8 @@ export function InspectorColumn({
           <h2
             ref={headingRef}
             tabIndex={-1}
-            className="sn-inspector-title mt-1 truncate outline-none"
+            /* ✂ A name wraps, never cut (owner, Guests v15 — "Rosario Bernaldo's +1 · T…" on a seat's card, 2026-10-29). */
+            className="sn-inspector-title mt-1 outline-none [overflow-wrap:anywhere]"
           >
             {title}
           </h2>

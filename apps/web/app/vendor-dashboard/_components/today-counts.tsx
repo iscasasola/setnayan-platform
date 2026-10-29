@@ -1,7 +1,9 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
+import { usePinFold } from '@/app/_components/pinned-row/use-pin-fold';
 import { TodayFigure } from './today-figure';
+import { SupplierOpenScope } from './supplier-open-row';
 
 export type TodayFilter = 'waiting' | 'week' | 'money';
 
@@ -29,8 +31,11 @@ export function TodayCounts({
   panels,
   gear,
   between = null,
+  after = null,
   initial = 'waiting',
 }: {
+  /** What follows the lists in the same column (Events you run · Coming up · the Shop row). */
+  after?: ReactNode;
   /** Already worded ("3", "2+"), or null = the desk could not be read. */
   waiting: string | null;
   waitingNow: boolean;
@@ -45,6 +50,9 @@ export function TodayCounts({
   initial?: TodayFilter;
 }) {
   const [on, setOn] = useState<TodayFilter>(initial);
+  // 📌 Folds into one slim line once the page runs under it (owner 2026-10-29, the shared `usePinFold`).
+  const pinRef = useRef<HTMLDivElement>(null);
+  usePinFold(pinRef);
   const door = (key: TodayFilter, value: string | null, word: string, hot = false) => (
     <button
       type="button"
@@ -56,14 +64,15 @@ export function TodayCounts({
       aria-controls={`today-list-${key}`}
       data-today-number={key}
       data-today-filter={key}
+      data-pin-door=""
       data-tour={key === 'money' ? 'today-money' : undefined}
     >
       {value === null ? (
         <>
-          <span className="block text-[20px] font-semibold leading-none" style={{ color: on === key ? 'rgb(var(--sn-on-accent))' : 'rgb(var(--color-warn))' }} aria-hidden>
+          <span className="block text-[20px] font-semibold leading-none" style={{ color: on === key ? 'rgb(var(--sn-on-accent))' : 'rgb(var(--color-warn))' }} aria-hidden data-pin-n="">
             —
           </span>
-          <span className={`block text-[11.5px] ${on === key ? 'text-[rgb(var(--sn-on-accent))]' : 'text-ink/60'}`} data-today-unread="">
+          <span className={`block text-[11.5px] ${on === key ? 'text-[rgb(var(--sn-on-accent))]' : 'text-ink/60'}`} data-today-unread="" data-pin-w="">
             couldn&rsquo;t load
           </span>
         </>
@@ -74,10 +83,13 @@ export function TodayCounts({
             className={`block text-[20px] font-semibold leading-none tabular-nums ${
               on === key ? 'text-[rgb(var(--sn-on-accent))]' : hot ? 'text-sn-accent' : 'text-ink'
             }`}
+            data-pin-n=""
           >
             <TodayFigure word={value} id={`today-${key}`} />
           </span>
-          <span className={`block text-[11.5px] ${on === key ? 'text-[rgb(var(--sn-on-accent))]' : 'text-ink/60'}`}>{word}</span>
+          <span className={`block text-[11.5px] ${on === key ? 'text-[rgb(var(--sn-on-accent))]' : 'text-ink/60'}`} data-pin-w="">
+            {word}
+          </span>
         </>
       )}
     </button>
@@ -86,9 +98,11 @@ export function TodayCounts({
   return (
     <>
       <div
+        ref={pinRef}
         className="sticky top-0 z-[5] -mx-4 mb-3 border-b border-ink/10 px-4 py-1.5 sm:-mx-6 sm:px-6"
         style={{ background: 'var(--sn-canvas)' }}
         data-today-numbers=""
+        data-pin-fold=""
         data-pinned-row=""
         data-first-row=""
         data-tour="today-numbers"
@@ -100,12 +114,18 @@ export function TodayCounts({
           {gear}
         </div>
       </div>
-      {between}
-      {(['waiting', 'week', 'money'] as const).map((key) => (
-        <div key={key} id={`today-list-${key}`} data-today-list={key} hidden={on !== key}>
-          {panels[key]}
-        </div>
-      ))}
+      {/* 🖥 THE TWO COLUMNS (supplier dashboard v13, 2026-10-29): from 701 the lists sit left and the opened row is drawn
+          on the right (`SupplierOpenScope`); on a phone the row opens in place. The count filter re-seats the right
+          column on the first row it shows. */}
+      <SupplierOpenScope name="today" paneLabel="The opened row" rest="Nothing waiting on you." watch={on}>
+        {between}
+        {(['waiting', 'week', 'money'] as const).map((key) => (
+          <div key={key} id={`today-list-${key}`} data-today-list={key} hidden={on !== key}>
+            {panels[key]}
+          </div>
+        ))}
+        {after}
+      </SupplierOpenScope>
     </>
   );
 }

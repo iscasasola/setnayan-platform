@@ -87,26 +87,30 @@ const FIXTURE = [
 
 // ── 1 · THE LOOK ──────────────────────────────────────────────────────────
 
-test('1 · rows are hairlines with a terracotta arrow — no tile, no box around a row (look call 8)', async () => {
+test('1 · rows are hairlines that OPEN — the shared fold head, its terracotta ▾, no tile, no box (v13 · look call 8)', async () => {
+  // 🔁 v13 (owner "Approved.", 2026-10-29: "One row per event; opened = the fixed lines + For your service"): a row is
+  // no longer a door to the chat — it is the shared `SupplierOpenRow` (the `Fold`), opening in place on a phone and in
+  // the right column from 701. Still a hairline row, still no box.
   const html = await render(FIXTURE);
-  const rows = html.match(/<a [^>]*data-customer-row="[a-z]+"[^>]*>/g) ?? [];
-  assert.equal(rows.length, 3, `expected 3 row doors, found ${rows.length}`);
+  const rows = html.match(/<div [^>]*data-customer-row="[a-z]+"[^>]*>/g) ?? [];
+  assert.equal(rows.length, 3, `expected 3 rows, found ${rows.length}`);
   for (const r of rows) {
     assert.match(r, /border-t border-ink\/10/, `a row is not a hairline: ${r}`);
     assert.doesNotMatch(r, /rounded|sn-tile|shadow|bg-white|border-ink\/1[5-9]|(?:^|[\s"])border(?:[\s"]|$)|border-[blrxy]\b/, `a row is drawn as a box: ${r}`);
   }
   assert.doesNotMatch(html, /sn-tile/, 'the list sits in a tile again');
-  // The arrow: one per row door, the accent, never grey.
-  const arrows = html.match(/<svg[^>]*lucide-chevron-right[^>]*>/g) ?? [];
-  assert.equal(arrows.length, 3, 'a row lost its arrow');
-  for (const a of arrows) assert.match(a, /text-sn-accent/, `a row arrow is not terracotta: ${a}`);
+  assert.equal((html.match(/data-fold-head=""/g) ?? []).length, 3, 'a row is not the shared fold head');
+  // The ▾: one per row, the accent, never grey.
+  const arrows = html.match(/<svg[^>]*lucide-chevron-down[^>]*>/g) ?? [];
+  assert.equal(arrows.length, 3, 'a row lost its ▾');
+  for (const a of arrows) assert.match(a, /text-sn-accent/, `a row ▾ is not terracotta: ${a}`);
 });
 
 test('1b · the stage is the shared Badge — soft fill, no border (look call 7)', async () => {
   const html = await render(FIXTURE);
   const badges = html.match(/<span data-badge="[a-z]+"[^>]*>[^<]*<\/span>/g) ?? [];
-  // 2026-10-29: each row draws its stage twice — stacked under the name on a phone, at the right from sm up.
-  assert.equal(badges.length, 6, `expected 3 rows × 2 badges, found ${badges.length}`);
+  // v13: each row draws its stage once, at the right of its head (the fold's `aside` — hidden while the head pins slim).
+  assert.equal(badges.length, 3, `expected 3 rows × 1 badge, found ${badges.length}`);
   for (const b of badges) assert.doesNotMatch(b, /border/, `a stage badge has a border: ${b}`);
   assert.match(html, />Asked</);
   assert.match(html, />Quoted</, 'a talking row with a quote out does not say Quoted');
@@ -114,14 +118,18 @@ test('1b · the stage is the shared Badge — soft fill, no border (look call 7)
   assert.doesNotMatch(ROSTER, /border:\s*`1px solid/, 'the roster hand-draws a bordered pill again');
 });
 
-test('1c · the row is the one tap: no button inside it, and it names its next step', async () => {
+test('1c · the row opens; its door says its next step and goes where the step is taken', async () => {
   const html = await render(FIXTURE);
-  assert.doesNotMatch(html, /<button\b/, 'a button is drawn inside the roster rows');
   assert.doesNotMatch(html, /data-row-next/, 'the next-step pill is back inside the row');
+  // Opened, each row's ONE door names its next step (its accessible name) — the chat, where a booking ask is answered.
   // 2026-10-28 · a row is the EVENT — "<first name>'s <Kind> (<Mon D>)" (lib/event-chat-title.ts), the customer under it.
   assert.match(html, /aria-label="Ana(&#x27;|')s [A-Za-z]+ \([^)]*\) — Reply"/);
   assert.match(html, /aria-label="Katrina(&#x27;|')s [A-Za-z]+ \([^)]*\) — See the quote"/);
   assert.match(html, /aria-label="Jun(&#x27;|')s Wedding \(Oct 4\) — See the day"/);
+  // No button nested in a head: the head is one button, the door lives in the opened body.
+  for (const head of html.match(/<button[^>]*data-fold-head=""[\s\S]*?<\/button>/g) ?? []) {
+    assert.doesNotMatch(head.slice(1), /<button\b|<a\b/, 'a control is nested inside a row head');
+  }
 });
 
 test('1d · the doors filter in place — no Filter ▾ eyebrow, no Show ▾, no ⋯, no in-list search form', async () => {
@@ -251,15 +259,12 @@ test('5 · an outside client opens in place and its Remove asks once, posts the 
   assert.match(MORE, /<ListPager paged=\{paged\} param="copage"/, 'the outside clients are not paged');
 });
 
-test('1f · below 768 the title owns the width — two lines before it cuts, the stage stacked under it, WHO on line two', async () => {
-  // Controller review 2026-10-29 (owner: "maximize the screen", never squeeze text beside badges).
+test('1f · the title owns the width — two lines before it cuts at every width, WHO first on the line under it', async () => {
+  // Controller review 2026-10-29 (owner: "maximize the screen"; house rule "names never cut"). v13: the head is the
+  // shared fold's, its title wraps to two lines (`wrap`), and the stage is the head's one badge at the right.
   const html = await render([FIXTURE[2]!]);
-  const title = /<span class="([^"]*)" data-row-title="">/.exec(html);
-  assert.ok(title, 'the row title is not marked');
-  assert.match(title[1]!, /(?:^|\s)line-clamp-2(?:\s|$)/, 'a phone title cuts on one line');
-  assert.match(title[1]!, /(?:^|\s)md:truncate(?:\s|$)/);
-  assert.doesNotMatch(title[1]!.replace('md:truncate', ''), /(?:^|\s)truncate(?:\s|$)/, 'the title truncates below 768');
-  assert.match(html, /<span class="[^"]*\bmd:hidden\b[^"]*" data-row-stage-stacked="">/, 'the stage does not stack under the title below 768');
-  assert.match(html, /<span class="hidden [^"]*\bmd:flex\b[^"]*">/, 'the stage column shows beside the title below 768');
-  assert.match(html, /data-row-who="">Jun &amp; Liza Cruz<\/span>/, 'line two on a phone is not just the couple');
+  const head = /<button[^>]*data-fold-head=""[\s\S]*?<\/button>/.exec(html)?.[0] ?? '';
+  assert.ok(head, 'the row head is gone');
+  assert.match(head, /<span class="line-clamp-2 block leading-snug">/, 'the row title cuts on one line');
+  assert.match(head, /data-fold-sub="">Jun &amp; Liza Cruz/, 'the line under the title does not start with the couple');
 });

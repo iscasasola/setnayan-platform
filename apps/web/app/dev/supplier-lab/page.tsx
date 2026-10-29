@@ -25,6 +25,8 @@
  *   ?thumb=people     the frosted thumb row: a search field (≥ 60 %) + Add     (frame 03)
  *   ?thumb=customer   Chat (main) · Quote · Payment · Call                     (frame 06)
  *   ?thumb=money      Log a payment — a form's submit through the button rule  (frame 05)
+ *   ?s=chat-ask       💬 the chat on a couple's FIRST message — their ask at the top: the event's fixed lines, Decline ·
+ *                     Ask a question · Accept (supplier dashboard v13, `chat-lab.tsx`)
  *   ?s=people         Customers › People (S-PR2): segments, rows, outside clients, kept notes, search + Add (frame 03)
  *     &q=ana · &lane=outside|waiting|… · &add=1 (the Add sheet) · &toast=added|removed|failed
  *   ?s=clash          two couples holding one Saturday — the warn row above the list
@@ -84,6 +86,7 @@ import type { TodayActions } from '@/app/vendor-dashboard/_components/supplier-t
 import { splitDesk } from '@/lib/vendor-desk-disposition';
 import type { DueFeeBill } from '@/lib/booking-fee-disclosure';
 import { PeopleLab } from './people-lab';
+import { ChatAskLab } from './chat-lab';
 import { COORD_STATES, CoordLab, type CoordState } from './coord-lab';
 import { EASY_MOMENTS, EASY_SUPPLIERS, TodayEasyLab, type EasyMoment, type EasySupplier } from './today-easy-lab';
 import { DATES_STATES, DatesLab, type DatesState } from './dates-lab';
@@ -302,8 +305,25 @@ export default async function SupplierLabPage({
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
   /* &shell=1 — the REAL One Shell around the body, as the dashboard draws it (rail · strip from 701 · the 440 panel). */
+  /* 📌 The address each state draws, so the pinned row's page menu ▾ names it (v13 frame, 2026-10-29). */
+  const labPage = (() => {
+    const s = q.s ?? '';
+    if (/^(people|clash|empty|fail|nopools)$/.test(s)) return '/vendor-dashboard/customers';
+    if (s === 'chat-ask') return '/vendor-dashboard/customers';
+    if (s.startsWith('dates') || s.startsWith('qr')) return '/vendor-dashboard/customers?seg=dates';
+    if (s.startsWith('money')) return '/vendor-dashboard/customers?seg=money';
+    if (s === 'page' || s === 'collections') return '/vendor-dashboard/website';
+    if (s === 'details') return '/vendor-dashboard/profile';
+    return '/vendor-dashboard';
+  })();
   const wrap = (node: ReactNode, measure: SupplierLabMeasure) =>
-    q.shell === '1' ? <SupplierLabShell measure={measure}>{node}</SupplierLabShell> : node;
+    q.shell === '1' ? (
+      <SupplierLabShell measure={measure} page={labPage}>
+        {node}
+      </SupplierLabShell>
+    ) : (
+      node
+    );
   if (q.easy && (EASY_MOMENTS as readonly string[]).includes(q.easy)) {
     const sup = (EASY_SUPPLIERS as readonly string[]).includes(q.sup ?? '') ? (q.sup as EasySupplier) : 'studio';
     return wrap(<TodayEasyLab sup={sup} moment={q.easy as EasyMoment} actions={ACTIONS} library={q.library === '1'} rail={q.rail === 'service' || q.rail === 'docs' ? q.rail : null} logoNext={q.logo === '1'} gift={q.gift === 'running' || q.gift === 'soon' ? q.gift : null} docs={q.docs === 'checking' || q.docs === 'fix' ? q.docs : 'none'} gbb={q.gbb ? Number(q.gbb) : 2} coarse={q.coarse === '1'} />, 'today');
@@ -348,6 +368,10 @@ export default async function SupplierLabPage({
         />
       </div>
     );
+  }
+  if (q.s === 'chat-ask') {
+    /* 💬 The chat on a couple's first message — their ask at the top (supplier dashboard v13, `chat-lab.tsx`). */
+    return wrap(<ChatAskLab />, 'own');
   }
   if (q.s && (PEOPLE_STATES as readonly string[]).includes(q.s)) {
     return wrap(<PeopleLab variant={q.s} q={q.q} lane={q.lane} toast={q.toast} add={q.add === '1'} door={q.door} block={q.block} gear={q.gear === '1'} />, 'own');

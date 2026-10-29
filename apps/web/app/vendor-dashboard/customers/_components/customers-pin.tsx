@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { usePinFold } from '@/app/_components/pinned-row/use-pin-fold';
 import { CUSTOMER_SEGMENTS, CUSTOMER_SEGMENT_LABEL, type CustomersDoorKey, type CustomersSegment } from '../segments';
+import { SupplierOpenScope } from '../../_components/supplier-open-row';
 
 // The door keys live in the neutral `segments.ts`: a `'use client'` module hands a server page a REFERENCE, never the
 // array itself (measured: `CUSTOMERS_DOORS.map is not a function` on the first render).
@@ -45,7 +47,16 @@ export function CustomersPin({
   initial = 'asking',
   gear,
   between = null,
+  after = null,
+  columns = null,
 }: {
+  /** What follows the lists in the same column (People's other chats and kept notes). */
+  after?: ReactNode;
+  /**
+   * 🖥 THE TWO COLUMNS (supplier dashboard v13, 2026-10-29): the lists on the left and the opened event on the right from
+   * 701 (`SupplierOpenScope`) — `rest` is what the right column says when no row can open. Absent → one column.
+   */
+  columns?: { rest: ReactNode } | null;
   /** A status line between the row and its lists (a payday read that fell short). */
   between?: ReactNode;
   seg: CustomersSegment;
@@ -62,6 +73,9 @@ export function CustomersPin({
 }) {
   const router = useRouter();
   const [on, setOn] = useState<CustomersDoorKey>(initial);
+  // 📌 Folds into one slim line once the page runs under it (owner 2026-10-29, the shared `usePinFold`).
+  const pinRef = useRef<HTMLDivElement>(null);
+  usePinFold(pinRef);
 
   const door = (d: CustomersDoor) => {
     const pressed = on === d.key;
@@ -76,6 +90,7 @@ export function CustomersPin({
         aria-pressed={pressed}
         aria-controls={`customers-list-${d.key}`}
         data-customers-door={d.key}
+        data-pin-door=""
       >
         {d.value === null ? (
           <>
@@ -83,10 +98,11 @@ export function CustomersPin({
               className="block text-[20px] font-semibold leading-none"
               style={{ color: pressed ? 'rgb(var(--sn-on-accent))' : 'rgb(var(--color-warn))' }}
               aria-hidden
+              data-pin-n=""
             >
               —
             </span>
-            <span className={`block truncate text-[11.5px] ${pressed ? 'text-[rgb(var(--sn-on-accent))]' : 'text-ink/60'}`} data-customers-unread="">
+            <span className={`block truncate text-[11.5px] ${pressed ? 'text-[rgb(var(--sn-on-accent))]' : 'text-ink/60'}`} data-customers-unread="" data-pin-w="">
               couldn&rsquo;t load
             </span>
           </>
@@ -96,22 +112,35 @@ export function CustomersPin({
               className={`block text-[20px] font-semibold leading-none tabular-nums ${
                 pressed ? 'text-[rgb(var(--sn-on-accent))]' : d.hot ? 'text-sn-accent' : 'text-ink'
               }`}
+              data-pin-n=""
             >
               {d.value}
             </span>
-            <span className={`block truncate text-[11.5px] ${pressed ? 'text-[rgb(var(--sn-on-accent))]' : 'text-ink/60'}`}>{d.word}</span>
+            <span className={`block truncate text-[11.5px] ${pressed ? 'text-[rgb(var(--sn-on-accent))]' : 'text-ink/60'}`} data-pin-w="">
+              {d.word}
+            </span>
           </>
         )}
       </button>
     );
   };
 
+  const lists = panels
+    ? (['asking', 'talking', 'booked', 'done'] as const).map((key) => (
+        <div key={key} id={`customers-list-${key}`} data-customers-list-for={key} hidden={on !== key}>
+          {panels[key]}
+        </div>
+      ))
+    : null;
+
   return (
     <>
       <div
+        ref={pinRef}
         className="sticky top-0 z-[5] -mx-4 mb-3 border-b border-ink/10 px-4 py-1.5 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
         style={{ background: 'var(--sn-canvas)' }}
         data-customers-pin={seg}
+        data-pin-fold=""
         data-pinned-row=""
         data-first-row=""
         data-tour="customers-segments"
@@ -142,14 +171,19 @@ export function CustomersPin({
           {gear}
         </div>
       </div>
-      {between}
-      {panels
-        ? (['asking', 'talking', 'booked', 'done'] as const).map((key) => (
-            <div key={key} id={`customers-list-${key}`} data-customers-list-for={key} hidden={on !== key}>
-              {panels[key]}
-            </div>
-          ))
-        : null}
+      {columns ? (
+        <SupplierOpenScope name={`customers-${seg}`} paneLabel="The opened event" rest={columns.rest} watch={on}>
+          {between}
+          {lists}
+          {after}
+        </SupplierOpenScope>
+      ) : (
+        <>
+          {between}
+          {lists}
+          {after}
+        </>
+      )}
     </>
   );
 }

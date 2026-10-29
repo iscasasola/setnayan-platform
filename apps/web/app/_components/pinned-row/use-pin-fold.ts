@@ -38,15 +38,18 @@ export function usePinFold(ref: RefObject<HTMLElement | null>): void {
     const el = ref.current;
     if (!el) return;
     let raf = 0;
-    let stuckAt: number | null = null;
+    // Where the row sits in the page when nothing pins it — re-read every frame it is NOT stuck, so a jump of the scroll
+    // (a fling, a restored position, a link) still knows where it stuck instead of counting from where it landed.
+    let natural: number | null = null;
     let folded = false;
     const read = () => {
       raf = 0;
       const top = parseFloat(getComputedStyle(el).top) || 0;
-      const stuck = el.getBoundingClientRect().top <= top + 0.5;
+      const r = el.getBoundingClientRect();
       const y = window.scrollY;
-      if (!stuck) stuckAt = null;
-      else if (stuckAt === null) stuckAt = y;
+      const stuck = r.top <= top + 0.5;
+      if (!stuck || natural === null) natural = r.top + y;
+      const stuckAt = stuck ? Math.max(0, natural - top) : null;
       const next = pinFoldNext(folded, stuckAt, y);
       if (next !== folded) {
         folded = next;

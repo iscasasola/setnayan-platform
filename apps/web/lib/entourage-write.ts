@@ -44,7 +44,7 @@ import {
   MARCH_COLUMNS,
   MARCH_GROUP_KEYS,
   isOwnMarchGroup,
-  marchLines,
+  marchSectionLines,
   marchOrderKeys,
   type EntourageGuestRow,
   type EntourageRow,
@@ -76,7 +76,7 @@ export async function readMarchLines(
   | { ok: false; reason: string }
 > {
   // 🚶 The march's own sections too (the couple's sides, owner 2026-10-06) — every key `entourageLines` knows — and 🏷 the
-  // couple's own groups (owner 2026-10-29), whose walkers `marchLines` reads off their walk rows.
+  // couple's own groups (owner 2026-10-29), whose walkers `marchSectionLines` reads off their walk rows.
   if (!MARCH_GROUP_KEYS.includes(groupKey) && !isOwnMarchGroup(groupKey)) {
     return { ok: false, reason: 'That part of the entourage does not exist.' };
   }
@@ -91,14 +91,14 @@ export async function readMarchLines(
   return {
     ok: true,
     supabase,
-    lines: marchLines(walkersOf((data ?? []) as EntourageGuestRow[], tray), groupKey),
+    lines: marchSectionLines(walkersOf((data ?? []) as EntourageGuestRow[], tray), groupKey),
   };
 }
 
 /**
  * 🚶 THE SECTION ORDER'S FRESH READ — `full`: every march section in the saved order (the couple's own groups in their
  * place, `marchOrderKeys`); `visible`: the ones a section move steps over — the printed groups with someone walking in
- * them (read as the march reads them, `marchLines`, so a section emptied into an own group is not a step) and every own
+ * them (read as the march reads them, `marchSectionLines`, so a section emptied into an own group is not a step) and every own
  * group, even empty. Shared by `moveEntourageSection` (march-actions.ts) and the own-group writes
  * (guests/march-group-step.ts) — one read, so the maker's prediction and the server's step can never disagree.
  */
@@ -121,7 +121,7 @@ export async function readAllGroups(
     ok: true,
     full,
     own,
-    visible: new Set(full.filter((k) => isOwnMarchGroup(k) || marchLines(all, k).length > 0)),
+    visible: new Set(full.filter((k) => isOwnMarchGroup(k) || marchSectionLines(all, k).length > 0)),
   };
 }
 

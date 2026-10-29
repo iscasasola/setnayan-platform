@@ -1185,7 +1185,7 @@ export function entourageLines(
  *   · a role section holds its roles' people MINUS anyone walking in an own group.
  * With no own groups this is `entourageLines` exactly. A print never calls it.
  */
-export function marchLines(rows: readonly EntourageGuestRow[], groupKey: string, style?: NameStyle): EntourageRow[] {
+export function marchSectionLines(rows: readonly EntourageGuestRow[], groupKey: string, style?: NameStyle): EntourageRow[] {
   const groupOf = (r: EntourageGuestRow) => marchSpotOf(r)?.march_group ?? null;
   if (!isOwnMarchGroup(groupKey)) return entourageLines(rows.filter((r) => groupOf(r) === null), groupKey, style);
   const spec: GroupSpec = { key: groupKey, label: '', roles: MARCH_ROLES };
@@ -1536,12 +1536,12 @@ export function buildEntourage(
   for (const key of opts?.march ? marchGroupKeys(sectionOrder, own.map((g) => g.key)) : orderedGroupKeys(sectionOrder)) {
     const mine = ownByKey.get(key);
     if (mine) {
-      groups.push({ key, label: mine.label, rows: marchLines(rows, key, style), names: names ?? {} });
+      groups.push({ key, label: mine.label, rows: marchSectionLines(rows, key, style), names: names ?? {} });
       continue;
     }
     const spec = byKey.get(key)!;
-    // The SAME function the dashboard reorders with — see `entourageLines` (in the march: `marchLines`).
-    const built = opts?.march ? marchLines(rows, spec.key, style) : entourageLines(rows, spec.key, style);
+    // The SAME function the dashboard reorders with — see `entourageLines` (in the march: `marchSectionLines`).
+    const built = opts?.march ? marchSectionLines(rows, spec.key, style) : entourageLines(rows, spec.key, style);
     if (built.length === 0) continue;
     const present = new Set<string>();
     for (const line of built) for (const p of line) if (p) present.add(p.role);

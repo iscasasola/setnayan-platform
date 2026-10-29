@@ -75,11 +75,16 @@ export const SETTINGS_ENTRY: Record<SettingsMenu, SettingsEntry> = {
     line: 'How guests get in, what you ask, when the list closes.',
     live: true,
   },
+  /**
+   * 🎛 THE EVENT HUB ⚙ (owner 2026-10-30, DECISION_LOG "EVENT HUB PRO (look redesign) — THE APP'S NAV STAYS"): the
+   * right end of the Hub's pinned row — [Stage ▾ | Studio ▾] · ↺ · ✓ · ⚙ (`maker-shell.tsx`). Its sheet is "Your Event
+   * Hub": Go live · who can view · which version · open browsing · the QR — what the Maker's "Your Event Hub" sheet held.
+   */
   hub: {
     door: 'first-row-gear',
     sheet: 'Event Hub settings',
     line: 'What guests see, your address and QR, the look, the tools.',
-    live: false,
+    live: true,
   },
   prints: {
     door: 'first-row-gear',

@@ -15,7 +15,6 @@ import type { LifecyclePhase, WidgetType } from '@/lib/invitation-widgets';
 import type { RowStatus } from './rail-rows';
 import { unlockLabel } from './unlock-label';
 import {
-  MAKER_MORE_ROWS_ID,
   MAKER_OPEN_PART_EVENT,
   MAKER_STAGE_TOOL_EVENT,
   MAKER_STAGE_PICK_EVENT,
@@ -512,7 +511,9 @@ export function MakerWork({
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropAt, setDropAt] = useState<string | null>(null);
   const [menuFor, setMenuFor] = useState<string | null>(null);
-  const [moreHost, setMoreHost] = useState<HTMLElement | null>(null);
+  /* ⚙ "Your Event Hub"'s rows are drawn into the Maker's ⚙ Event Hub settings sheet while it is open (the shell hands
+     its body over as `moreHost`, null shut) — no longer a sheet kept mounted to be found by id. */
+  const moreHost = maker?.moreHost ?? null;
   /* ＋ ADD A SCENE — one sheet, two doors: the toolbar's ＋ (the shell draws it
      from what is registered below) and "+ Add a scene" at the end of the
      navigator. Both open this. */
@@ -816,10 +817,6 @@ export function MakerWork({
       );
     }
   }, [initialScene, initialOpenRow, scenes, rows, select, setMakerItem]);
-
-  useEffect(() => {
-    setMoreHost(document.getElementById(MAKER_MORE_ROWS_ID));
-  }, []);
 
   /* ＋ ADD A SCENE — the shell's ＋ (desktop) and More ▾ row (phone) cannot know
      whether a scene may be added here, so the work area REGISTERS the answer

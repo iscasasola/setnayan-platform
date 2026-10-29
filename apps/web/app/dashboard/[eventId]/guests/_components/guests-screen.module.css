@@ -100,6 +100,16 @@
   width: var(--gs-pin-w, 100%);
   animation: gs-pin-in 220ms var(--gs-ease);
 }
+/* 📌 Seats · March (R4 slice 4): the same block pins under the bar with its FULL face once it gets there (`data-pinned`,
+   written by the screen) — a March group's header then sticks under it. */
+.screen:is([data-guests-screen='seats'], [data-guests-screen='march']) .stick.pinned[data-pinned] {
+  position: fixed;
+  top: var(--gs-top, 0px);
+  left: var(--gs-pin-l, 0px);
+  width: var(--gs-pin-w, 100%);
+  box-shadow: 0 1px 0 var(--gs-line);
+  animation: gs-pin-in 220ms var(--gs-ease);
+}
 @keyframes gs-pin-in {
   from {
     opacity: 0;

@@ -10,6 +10,7 @@ import { clashWords } from '@/lib/group-name-clash';
 import { roleNameMany, sectionName, type RoleNames } from '@/lib/role-names';
 import { sectionUsualHeading } from '@/lib/entourage';
 import { resolveRoleSet } from '@/lib/role-sets';
+import { ROLE_GROUP_LABELS, type RoleGroup } from '@/lib/role-groups';
 import { sectionHeadDoors, type SectionHeadAdd } from '@/lib/guest-section-head';
 import { renameRole, renameSection, type RenameRoleResult } from '../role-name-actions';
 import { useGuestActions } from './guest-actions-context';
@@ -70,10 +71,12 @@ export function SectionHeadToolbar({
   const keep = () => {
     if (!rename) return;
     const text = draft.trim();
-    if (text === rename.current.trim()) return setEditing(false);
+    if (text === (rename.current || rename.usual || '').trim()) return setEditing(false);
     if (!text && rename.usual === null) return setErr('A group needs a name.');
+    // The usual word typed back = no word of their own (blank is what the doors store for it).
+    const send = rename.usual !== null && text === rename.usual ? '' : text;
     start(async () => {
-      const refused = await onRename(text);
+      const refused = await onRename(send);
       if (refused) return setErr(refused);
       setEditing(false);
       setErr(null);
@@ -81,7 +84,7 @@ export function SectionHeadToolbar({
   };
 
   return (
-    <div className="sn-glass-bare flex min-w-0 flex-col gap-1.5 rounded-[18px] p-2 ring-1 ring-ink/10" data-section-head-toolbar="" role="toolbar" aria-label={`${label} — group actions`}>
+    <div className="sn-glass-bare flex min-w-0 flex-col gap-1.5 rounded-2xl p-2 ring-1 ring-ink/10" data-section-head-toolbar="" role="toolbar" aria-label={`${label} — group actions`}>
       {editing && rename ? (
         <div className="flex min-w-0 items-center gap-2" data-section-head-rename="">
           <input
@@ -111,48 +114,55 @@ export function SectionHeadToolbar({
           <ActionButton tone="neutral" quiet iconOnly icon={X} label="Cancel rename" disabled={pending} onClick={() => { setEditing(false); setErr(null); }} />
         </div>
       ) : (
-        <div className="flex min-w-0 items-center gap-1.5 overflow-x-auto [scrollbar-width:none]">
-          <span className="min-w-0 flex-1 px-1.5">
-            <span className="line-clamp-2 text-[14px] font-semibold leading-tight text-ink [overflow-wrap:anywhere]">{label}</span>
-            <span className="block text-[12px] text-ink/60">
-              {adding ? 'Type a name below — it lands here' : `${formatCount(count)} ${count === 1 ? 'guest' : 'guests'}`}
+        <>
+          {/* The group on one line (its whole name, wrapped — never cut), ✕ at its end; the verbs on the line under it,
+              so neither squeezes the other at 320. */}
+          <div className="flex min-w-0 items-center gap-2 pl-1.5">
+            <span className="min-w-0 flex-1 text-[13.5px] leading-tight text-ink [overflow-wrap:anywhere]">
+              <b className="font-semibold">{label}</b>
+              <span className="text-ink/60">
+                {' · '}
+                {adding ? 'type a name below — it lands here' : `${formatCount(count)} ${count === 1 ? 'guest' : 'guests'}`}
+              </span>
             </span>
-          </span>
-          {rename ? (
-            <ActionButton
-              tone="neutral"
-              icon={Pencil}
-              label="Rename"
-              onClick={() => {
-                setDraft(rename.current);
-                setErr(null);
-                setEditing(true);
-              }}
-              data-testid="section-head-rename"
-            />
-          ) : null}
-          {add === null ? null : add.length > 1 ? (
-            <PickMenu
-              label={`Add guest to ${label}`}
-              value={null}
-              options={add}
-              onPick={(k) => onAdd(k)}
-              dataAttr="data-section-head-add"
-              buttonText="Add guest here"
-              className={actionButtonClass('brand', { main: true })}
-              trigger={
-                <>
-                  <Plus aria-hidden strokeWidth={1.9} />
-                  <span className="lbl">Add guest here</span>
-                  <ChevronDown aria-hidden className="-mr-0.5 h-4 w-4 shrink-0" strokeWidth={2} />
-                </>
-              }
-            />
-          ) : (
-            <ActionButton tone="brand" main icon={Plus} label="Add guest here" onClick={() => onAdd(add[0]?.key ?? null)} data-testid="section-head-add" />
-          )}
-          <ActionButton tone="neutral" quiet iconOnly icon={X} label={`Unselect ${label}`} onClick={onClose} data-testid="section-head-close" />
-        </div>
+            <ActionButton tone="neutral" quiet iconOnly icon={X} label={`Unselect ${label}`} onClick={onClose} data-testid="section-head-close" />
+          </div>
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+            {rename ? (
+              <ActionButton
+                tone="neutral"
+                icon={Pencil}
+                label="Rename"
+                onClick={() => {
+                  setDraft(rename.current || rename.usual || '');
+                  setErr(null);
+                  setEditing(true);
+                }}
+                data-testid="section-head-rename"
+              />
+            ) : null}
+            {add === null ? null : add.length > 1 ? (
+              <PickMenu
+                label={`Add guest to ${label}`}
+                value={null}
+                options={add}
+                onPick={(k) => onAdd(k)}
+                dataAttr="data-section-head-add"
+                buttonText="Add guest here"
+                className={actionButtonClass('brand', { main: true })}
+                trigger={
+                  <>
+                    <Plus aria-hidden strokeWidth={1.9} />
+                    <span className="lbl">Add guest here</span>
+                    <ChevronDown aria-hidden className="-mr-0.5 h-4 w-4 shrink-0" strokeWidth={2} />
+                  </>
+                }
+              />
+            ) : (
+              <ActionButton tone="brand" main icon={Plus} label="Add guest here" onClick={() => onAdd(add[0]?.key ?? null)} data-testid="section-head-add" />
+            )}
+          </div>
+        </>
       )}
       {err ? (
         <p role="alert" className="px-1.5 text-[12.5px] text-danger-700" data-section-head-error="">
@@ -200,7 +210,7 @@ export function SectionHeadTools({
     door === null
       ? null
       : door.kind === 'role'
-        ? { current: roleNameMany(door.role, roleNames) ?? '', usual: section.label }
+        ? { current: roleNameMany(door.role, roleNames) ?? '', usual: ROLE_GROUP_LABELS[section.key.slice('role:'.length) as RoleGroup] ?? section.label }
         : door.kind === 'section'
           ? { current: sectionName(door.section, roleNames) ?? '', usual: sectionUsualHeading(door.section, roleNames) ?? section.label }
           : { current: section.label, usual: null };

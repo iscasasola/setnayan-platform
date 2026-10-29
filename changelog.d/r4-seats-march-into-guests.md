@@ -134,7 +134,9 @@ SELECTED header folds it and unselects it.
   the group header toolbar.
 - **Sticky headers**: Seats › List table headers stay at the top of the list's scroll; a March group's header sticks under
   the pinned row in Guests (the Maker's own march unchanged). The List's open header was already pinned under the row.
-- Guard `lib/guest-section-head.test.ts` (4 properties; sabotaged red twice — a two-section heading renamed by its first
+- **Seats and March pin the row**: the full Guests · Seats · March row now pins under the bar once scrolled to it
+  (`data-pinned`), so a March group header has a row to stick under (it scrolled away before).
+- Guard `lib/guest-section-head.test.ts` (4 properties; sabotaged red three times — incl. Seats/March never pinning — a two-section heading renamed by its first
   section, and a second tap that kept the section open); the card-form / section-names / role-words / r4 / pop-unfold
   guards re-aimed at the moved door.
 

@@ -29,11 +29,22 @@ Keep the PR DRAFT + `do-not-auto-merge`; never merge/deploy. CI is the gate (no 
   `lib/guests-filter.test.ts` (sabotaged 3×). OPEN: Map ＋ returns against 2026-10-25's "no ＋" — the brief + v12 say so;
   owner DECISION_LOG row still to write.
 
-- SLICE 4 part (pushed): words wrap, never cut — Seats › List table names, the count tiles' words, the move sheet's
+- SLICE 4 part 1 (pushed): words wrap, never cut — Seats › List table names, the count tiles' words, the move sheet's
   guest name, the seat head's title (`lib/guests-words-are-never-cut.test.ts`, sabotaged once). The rest of slice 4
   (sticky group headers · header tap = select + toolbar Rename · ＋ Add guest here · second tap folds + unselects · the
   card loses its Group row) is NOT started.
 
+- SLICE 4 (pushed, walked 390 WebKit · 1280 · 320, light + `html.dark`): List header tap = select (ringed chip) + open +
+  toolbar above the thumb row (`guests/_components/section-head-toolbar.tsx`: name · count · ✕ / ✎ Rename in place ·
+  ＋ Add guest here — one role = button, several = ▾). What a header offers = `lib/guest-section-head.ts` (Rename only via
+  ONE shipped word: `renameRole` / `renameSection` / `editGuestGroupInPlace`; ＋ only where the name lands; celebrants,
+  letters, replies but To invite keep the fold toggle). ＋ lays the group's picks on the box (`addPicks`) and the box says
+  "Add to …". Second tap on the selected header = fold + unselect. The card's `CardRename` (Rename this role / section —
+  RENAMES only) is gone; Role + Group PICKS stay. Seats › List table headers sticky in their scroller; March group
+  headers sticky under the row in Guests; Seats/March now PIN the full row under the bar (`data-pinned`) so there is a row
+  to stick under. Guard `lib/guest-section-head.test.ts` (sabotaged 3×). Shots `shots-2026-10-29/guests-build/s4b/` +
+  `SBS-s4-*.png`. Known, left for slice 2: at 320 the List's pinned summary face collides with March/counts (shipped).
+  NOT built: header select on Seats tables (no prototype toolbar for it).
 - Slice 1 follow-up (pushed): the makers take THE row from the lens (`lens.ThumbRow`) — importing `thumb-row.tsx` into
   details-march / seating-editor pulled its CSS module into the Maker's lazy pieces and broke ~10 render tests; march hooks
   sit above its `if (!anyone)` early return (eslint rules-of-hooks). Full unit suite 28,432/0 locally; CI typecheck ·
@@ -47,7 +58,10 @@ Keep the PR DRAFT + `do-not-auto-merge`; never merge/deploy. CI is the gate (no 
   second state. 📤 round waits for #7032 (slice 8) — draw no 📤 until then.
 - PageMasthead is in `guests/page.tsx` (titleNode = "N guests"); v14 wants it sr-only.
 
-## NEXT — in the controller's order
+## NEXT — CONTROLLER ORDER (2026-10-29, owner "Build as many as you can on the guests page"):
+slice 5 (March) → 6 (Seats) → 2 (top row) → 7 → 9 → 10, one commit + push + HANDOVER each. (Older list below.)
+
+## NEXT — in the controller's order (older)
 1. ~~SLICE 1~~ DONE (above). Original note: thumb row on every view = shared `components/thumb-row.tsx`: ⇕ · Search guests · ⇅ ONE PickMenu (Show / Group
    by / Sort) = one filter state in the URL shared by carousel cards, List and Map · ＋ (Guests: Add guest; Seats: Add ▾
    Table·Stage·Dance floor·Supplier station·Entrance·Buffet·Sign; March: Add ▾ Walk·Group). Seats today: the bespoke

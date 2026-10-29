@@ -735,10 +735,15 @@ export function GuestsScreen(props: GuestsScreenProps) {
     const strip = stripRef.current;
     const root = rootRef.current;
     if (!st) return;
-    if (!strip || !hold || !root || gview !== 'list') {
+    /* 📌 R4 slice 4: Seats and March pin the SAME row (full face — no summary face there) once it reaches the bar, so a
+       March group's header has a row to stick under (`data-pinned`; the List keeps its two-face `data-collapsed`). */
+    const maker = isGuestsMakerView(gview);
+    if (!maker) st.removeAttribute('data-pinned');
+    if (!hold || !root || (!maker && (!strip || gview !== 'list'))) {
       st.removeAttribute('data-collapsed');
       return;
     }
+    if (maker) st.removeAttribute('data-collapsed');
     let raf = 0;
     let last: boolean | null = null;
     let place = '';
@@ -746,10 +751,16 @@ export function GuestsScreen(props: GuestsScreenProps) {
       raf = 0;
       // The shell bar's height while it shows (`useShellBarOffset` writes it inline) — the row pins under it.
       const bar = parseFloat(root.style.getPropertyValue('--gs-top')) || 0;
-      const on = strip.getBoundingClientRect().bottom <= bar + st.offsetHeight + 2;
+      const pinnedNow = (): boolean => {
+        if (maker) return hold.getBoundingClientRect().top <= bar;
+        if (!strip) return false;
+        const on = strip.getBoundingClientRect().bottom <= bar + st.offsetHeight + 2;
+        return on;
+      };
+      const on = pinnedNow();
       if (on !== last) {
         last = on;
-        st.toggleAttribute('data-collapsed', on);
+        st.toggleAttribute(maker ? 'data-pinned' : 'data-collapsed', on);
       }
       // Pinned, the row is `position: fixed` — it takes its holder's column edges (the desk's rail, a card column).
       const r = hold.getBoundingClientRect();

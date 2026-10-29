@@ -109,6 +109,22 @@ export default async function AddYourOwnLabPage({
             inclusions: '',
             price: priced,
             planRows,
+            planSaved: planRows.length > 0,
+            // The record card's dated rows (2026-10-29): what "after you book" counts from, and the event date.
+            planDates: { lockIso: '2026-10-29', eventIso: '2026-12-18' },
+            planSeqs: planRows.map((_, i) => i),
+            // `&paid=1` — the first payment is logged, so the card keeps it as it is.
+            settledSeqs: sp.paid === '1' ? [0] : [],
+            // `&replot=1` — a price change already re-plotted this plan once.
+            lastReplot: sp.replot === '1' && priced ? { fromPhp: Math.round(Number(priced) * 0.9), toPhp: Number(priced), at: '2026-10-29T00:00:00Z' } : null,
+            // `&ways=1` — How to pay them, already added.
+            payWays:
+              sp.ways === '1'
+                ? [
+                    { method: 'gcash', details: 'Maria Santos · 0917 555 1234', qr: null, qrUrl: null },
+                    { method: 'bank', details: 'BPI · Tita Baby’s Catering · 1234-5678-90', qr: null, qrUrl: null },
+                  ]
+                : [],
           }}
         />
       </main>

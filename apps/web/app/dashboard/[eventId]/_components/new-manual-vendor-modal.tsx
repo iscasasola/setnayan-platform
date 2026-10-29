@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -42,6 +43,11 @@ import { ServicesCoveredPicker } from './services-covered-picker';
 import { PaymentPlanRows } from './payment-plan-rows';
 import type { CoverCatalogFolder } from '@/lib/shortlist-taxonomy';
 import { OWN_RECORD_PILL } from '@/lib/add-your-own';
+import { Fold } from '@/app/_components/fold';
+import { InfoTip } from '@/app/_components/info-tip';
+import { PayWaysEditor } from './pay-ways-editor';
+import { formatPhp } from '@/lib/php';
+import { payWaysSummary } from '@/lib/self-added-pay-ways';
 
 /** A Form row's keep: the sheet's own Save sends the form, so keeping has nothing to write. */
 const KEEP = () => ({ ok: true as const });
@@ -162,6 +168,17 @@ export function NewManualVendorModal({
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const formRef = useRef<HTMLFormElement | null>(null);
+  // ── THE RECORD CARD'S FOLD LINES (Booked prototype v4: "the closed rows never lie") ──
+  // Each closed fold says in one line what is inside, following what is typed: read from the form itself, so the
+  // line is the posted answer and never a second copy of it.
+  const [lines, setLines] = useState(() => recordLines(edit, categoryLabel, null));
+  const [planLine, setPlanLine] = useState<{ text: string; warn: boolean } | null>(null);
+  const [payLine, setPayLine] = useState<string | null>(() => payWaysSummary(edit?.payWays ?? []));
+  const onPlanLine = useCallback((text: string, warn: boolean) => setPlanLine({ text, warn }), []);
+  const onPayLine = useCallback((t: string | null) => setPayLine(t), []);
+  const readLines = () => {
+    if (edit && formRef.current) setLines(recordLines(edit, categoryLabel, new FormData(formRef.current)));
+  };
 
   // Post-save step (owner 2026-06-11: adding your own vendor must be easy to
   // manage — price + invite land HERE, zero navigation). Set after the manual
@@ -433,6 +450,31 @@ export function NewManualVendorModal({
   return createPortal(
     <Sheet open onClose={dismiss} labelledById="new-manual-vendor-heading" rise>
       <div className="px-5 pt-5" data-add-manual-sheet="">
+        {edit && !created ? (
+          /* ── THE RECORD CARD'S HEAD (Booked prototype v4, owner-approved 2026-10-29) — like the guest card's top:
+             who they are, whose record this is (ⓘ), then their claim link as the ticket row. ── */
+          <div className="space-y-3 pr-10" data-record-card-head="">
+            <div className="flex items-center gap-3">
+              <VendorLogo logoUrl={null} name={nameQuery.trim() || edit.name || 'Supplier'} large />
+              <div className="min-w-0 flex-1">
+                <p className="sn-eye">{categoryLabel}</p>
+                <h2 id="new-manual-vendor-heading" className="break-words text-[20px] font-semibold leading-tight tracking-[-0.01em] text-ink">
+                  {nameQuery.trim() || edit.name || 'Supplier'}
+                </h2>
+                <span data-own-record-pill="" className={`text-[12.5px] font-medium ${edit.claimAsk ? 'text-success-800 dark:text-success-200' : 'text-warn-800 dark:text-warn-200'}`}>
+                  <InfoTip label={edit.claimAsk ? '✓ Joined through your link' : OWN_RECORD_PILL} align="start" ariaLabel="About this record">
+                    {edit.claimAsk
+                      ? 'They joined Setnayan through your link — approve them and their card, price and plan become theirs; what you see here came from your record.'
+                      : 'Your own record of what you agreed with them — not a booking on Setnayan. Suppliers you add yourself aren’t verified by Setnayan; we add them free so you can manage your whole plan in one place 💛 — just vet them yourself before booking.'}
+                  </InfoTip>
+                </span>
+              </div>
+            </div>
+            {mode.kind === 'manual' && !edit.claimAsk ? (
+              <RecordLinkBlock eventId={eventId} vendorId={edit.vendorId} vendorName={edit.name || 'them'} />
+            ) : null}
+          </div>
+        ) : (
         <header className="pr-10">
           <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">{categoryLabel}</p>
           <h2 id="new-manual-vendor-heading" className="text-[20px] font-semibold tracking-[-0.01em] text-ink">
@@ -453,6 +495,7 @@ export function NewManualVendorModal({
             </p>
           ) : null}
         </header>
+        )}
 
         {created ? (
           <PostSaveStep
@@ -464,7 +507,7 @@ export function NewManualVendorModal({
             onDone={onCreated}
           />
         ) : (
-        <form ref={formRef} onSubmit={handleSubmit} className="mt-3" encType="multipart/form-data">
+        <form ref={formRef} onSubmit={handleSubmit} onInput={readLines} onChange={readLines} className="mt-3" encType="multipart/form-data">
           <input type="hidden" name="event_id" value={eventId} />
           {/* The category rides along so `createManualVendor` can re-ask the
               address rule server-side. The modal is always opened FROM a
@@ -485,6 +528,37 @@ export function NewManualVendorModal({
               currentCategory={category}
               onCancel={handleCancelLink}
               disabled={pending}
+            />
+          ) : edit ? (
+            <RecordCardFolds
+              eventId={eventId}
+              edit={edit}
+              category={category}
+              categoryLabel={categoryLabel}
+              coverCatalog={coverCatalog}
+              addressRequired={addressRequired}
+              pending={pending}
+              nameKept={nameKept}
+              priceKept={priceKept}
+              priceNumber={priceNumber}
+              lines={lines}
+              planLine={planLine}
+              payLine={payLine}
+              onPlanLine={onPlanLine}
+              onPayLine={onPayLine}
+              onName={(t) => {
+                setNameQuery(t);
+              }}
+              onNameKeep={(t) => {
+                setNameKept(t);
+                setNameQuery(t);
+              }}
+              onPriceType={(t) => setPriceInput(t)}
+              onPriceKeep={(t) => {
+                setPriceKept(t);
+                setPriceInput(t);
+              }}
+              onMoved={() => setMoved(true)}
             />
           ) : (
             <>
@@ -552,7 +626,7 @@ export function NewManualVendorModal({
                   <TypedRow
                     name="Contact person"
                     fieldName="contact_person"
-                    value={edit?.contactPerson ?? ''}
+                    value=""
                     placeholder="e.g. Marcel Santos"
                     // A record made by the four-step walk may hold only one of the
                     // two contacts; editing it must not demand the other.
@@ -566,7 +640,7 @@ export function NewManualVendorModal({
                   <TypedRow
                     name="Contact number"
                     fieldName="contact_number"
-                    value={edit?.contactNumber ?? ''}
+                    value=""
                     placeholder="+63 9XX XXX XXXX"
                     required={!isEdit}
                     maxLength={32}
@@ -596,8 +670,8 @@ export function NewManualVendorModal({
                 <AddressPinField
                   required={addressRequired}
                   disabled={pending}
-                  initialAddress={edit?.address}
-                  initialPin={edit?.pin ?? null}
+                  initialAddress={undefined}
+                  initialPin={null}
                 />
               </div>
 
@@ -616,14 +690,14 @@ export function NewManualVendorModal({
                 <ServicesCoveredPicker
                   eventId={eventId}
                   category={category}
-                  homeTile={edit?.homeTile}
+                  homeTile={undefined}
                   ownLabel={categoryLabel}
                   catalog={coverCatalog}
-                  initialSelected={edit?.covers ?? []}
+                  initialSelected={[]}
                   disabled={pending}
                   // Only a supplier already on the event can be moved — an add
                   // files them under the row the sheet was opened from.
-                  move={edit ? { vendorId: edit.vendorId, name: edit.name.trim() || 'This supplier', claimAsk: edit.claimAsk } : undefined}
+                  move={undefined}
                   onMoved={() => setMoved(true)}
                 />
               </div>
@@ -633,7 +707,7 @@ export function NewManualVendorModal({
                   <TypedRow
                     name="Inclusions"
                     fieldName="inclusions"
-                    value={edit?.inclusions ?? ''}
+                    value=""
                     long
                     maxLength={2000}
                     placeholder={'e.g.\nBallroom, 6am–12mn\nTables and chairs'}
@@ -671,7 +745,7 @@ export function NewManualVendorModal({
                   disabled={pending}
                   // A SAVED plan re-opens exactly as saved — even one saved with
                   // no payments; only a supplier with no plan yet gets the starter.
-                  initial={edit && (edit.planRows.length > 0 || edit.planSaved) ? edit.planRows : undefined}
+                  initial={undefined}
                 />
               </div>
 
@@ -692,11 +766,7 @@ export function NewManualVendorModal({
               record sheet ends with it) — the same panel the walk's last step
               and the card's Connect show. Opening the record only READS the
               link; making one is the panel's own button. */}
-          {edit && mode.kind === 'manual' ? (
-            <div className="border-t border-ink/10 py-3">
-              <RecordLinkBlock eventId={eventId} vendorId={edit.vendorId} vendorName={edit.name || 'them'} />
-            </div>
-          ) : null}
+          {/* THEIR CLAIM LINK moved to the record card's HEAD (Booked prototype v4) — see `RecordLinkBlock` above. */}
 
           {/* PINNED FOOTER — the primary action never scrolls away on a long
               sheet (the sheet scrolls inside itself; this sticks to its foot).
@@ -746,6 +816,239 @@ export function NewManualVendorModal({
   );
 }
 
+/** The one line each closed fold of the record card shows — read from the form, so it is what Save will post. */
+type RecordLines = { contact: string | null; price: string | null; place: string | null; services: string };
+
+function recordLines(edit: SelfAddedSupplierPrefill | undefined, categoryLabel: string, fd: FormData | null): RecordLines {
+  if (!edit) return { contact: null, price: null, place: null, services: categoryLabel };
+  const get = (k: string, fallback: string) => (fd && fd.has(k) ? String(fd.get(k) ?? '') : fallback).trim();
+  const contact = [get('contact_person', edit.contactPerson), get('contact_number', edit.contactNumber)].filter(Boolean).join(' · ');
+  const priceN = Number(get('total_cost_php', edit.price).replace(/[^\d.]/g, ''));
+  const inc = get('inclusions', edit.inclusions)
+    .split('\n')
+    .filter((x) => x.trim()).length;
+  const price =
+    Number.isFinite(priceN) && priceN > 0
+      ? `${formatPhp(priceN)}${inc ? ` · ${inc} inclusion${inc === 1 ? '' : 's'}` : ''}`
+      : null;
+  const addr = get('address', edit.address);
+  const tail = addr.split(',').slice(-2).join(',').replace(/^,?\s*/, '').trim();
+  const covers = fd ? fd.getAll('covers').length : edit.covers.length;
+  return {
+    contact: contact || null,
+    price,
+    place: addr ? tail || addr : null,
+    services: covers ? `${categoryLabel} + ${covers} more` : categoryLabel,
+  };
+}
+
+/** Today in the browser, as YYYY-MM-DD — only the fallback for a prefill that carried no plan dates. */
+function todayIso(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/**
+ * THE RECORD CARD'S GROUPS (Booked prototype v4, owner-approved 2026-10-29 — "a cleaner redesign for it like a guest
+ * card"): the guest card's folds — title at the left, the one-line summary at the right, one open at a time — over
+ * EVERY field and control the record sheet had. Contact · Price (+ Inclusions) · Payment plan · How to pay them ·
+ * Place · Services. Every field still posts into the ONE form the ONE Save sends (`updateSelfAddedSupplier`); a shut
+ * fold keeps its fields mounted (`Fold`), so nothing is lost by not opening it.
+ */
+function RecordCardFolds({
+  eventId,
+  edit,
+  category,
+  categoryLabel,
+  coverCatalog,
+  addressRequired,
+  pending,
+  nameKept,
+  priceKept,
+  priceNumber,
+  lines,
+  planLine,
+  payLine,
+  onPlanLine,
+  onPayLine,
+  onName,
+  onNameKeep,
+  onPriceType,
+  onPriceKeep,
+  onMoved,
+}: {
+  eventId: string;
+  edit: SelfAddedSupplierPrefill;
+  category: string;
+  categoryLabel: string;
+  coverCatalog?: readonly CoverCatalogFolder[];
+  addressRequired: boolean;
+  pending: boolean;
+  nameKept: string;
+  priceKept: string;
+  priceNumber: number | null;
+  lines: RecordLines;
+  planLine: { text: string; warn: boolean } | null;
+  payLine: string | null;
+  onPlanLine: (text: string, warn: boolean) => void;
+  onPayLine: (line: string | null) => void;
+  onName: (t: string) => void;
+  onNameKeep: (t: string) => void;
+  onPriceType: (t: string) => void;
+  onPriceKeep: (t: string) => void;
+  onMoved: () => void;
+}) {
+  const row = (last = false) => `px-0.5 ${last ? '' : 'border-b border-ink/10'}`;
+  const keptTotal = Number(priceKept.replace(/,/g, ''));
+  return (
+    <div data-record-card-folds="" className="border-t border-ink/10">
+      <Fold title="Contact" summary={lines.contact ?? 'Add who to call'} summaryEnd defaultOpen className={row()} data="record-contact">
+        <FormRows width="wide" data="add-manual-contact">
+          <TypedRow
+            name="Supplier name"
+            fieldName="business_name"
+            value={nameKept}
+            empty="Their name"
+            placeholder="e.g. Tito Marcel"
+            required
+            maxLength={128}
+            autoCapitalize="words"
+            attrs={{ 'data-manual-field': 'business_name' }}
+            onType={onName}
+            onKeep={(t) => {
+              onNameKeep(t);
+              return { ok: true as const };
+            }}
+          />
+          <TypedRow
+            name="Contact person"
+            fieldName="contact_person"
+            value={edit.contactPerson}
+            placeholder="e.g. Marcel Santos"
+            maxLength={128}
+            autoCapitalize="words"
+            about={{ words: 'Who to call · usually the same as Supplier name.' }}
+            attrs={{ 'data-manual-field': 'contact_person' }}
+            onKeep={KEEP}
+          />
+          <TypedRow
+            name="Contact number"
+            fieldName="contact_number"
+            value={edit.contactNumber}
+            placeholder="+63 9XX XXX XXXX"
+            maxLength={32}
+            inputMode="tel"
+            about={{ words: 'Mobile preferred · e.g. +63 917 555 1234' }}
+            attrs={{ 'data-manual-field': 'contact_number' }}
+            onKeep={KEEP}
+          />
+        </FormRows>
+      </Fold>
+
+      <Fold title="Price" summary={lines.price ?? 'Set the price'} summaryEnd className={row()} data="record-price">
+        <FormRows width="wide" data="add-manual-terms">
+          <TypedRow
+            name="Price"
+            fieldName="total_cost_php"
+            value={priceKept}
+            amount
+            placeholder="80000"
+            about={{ words: 'What you agreed, in pesos. The payment plan has to add up to it — change it and the unpaid payments re-split to match.' }}
+            attrs={{ 'data-manual-field': 'total_cost_php' }}
+            onType={onPriceType}
+            onKeep={(t) => {
+              onPriceKeep(t);
+              return { ok: true as const };
+            }}
+          />
+          <TypedRow
+            name="Inclusions"
+            fieldName="inclusions"
+            value={edit.inclusions}
+            long
+            maxLength={2000}
+            placeholder={'e.g.\nBallroom, 6am–12mn\nTables and chairs'}
+            about={{ words: 'One per line — what the price covers.' }}
+            attrs={{ 'data-manual-field': 'inclusions' }}
+            onKeep={KEEP}
+          />
+        </FormRows>
+      </Fold>
+
+      <Fold
+        title="Payment plan"
+        summary={planLine?.text ?? 'No payments yet'}
+        summaryEnd
+        className={row()}
+        data="record-plan"
+        popovers
+      >
+        <div className="pb-3">
+          <PaymentPlanRows
+            totalPhp={priceNumber}
+            disabled={pending}
+            // A SAVED plan re-opens exactly as saved — even one saved with no payments; only a supplier with no plan
+            // yet gets the starter.
+            initial={edit.planRows.length > 0 || edit.planSaved ? edit.planRows : undefined}
+            dated={{
+              dates: edit.planDates ?? { lockIso: todayIso(), eventIso: null },
+              seqs: edit.planSeqs,
+              settledSeqs: edit.settledSeqs,
+              keptTotalPhp: Number.isFinite(keptTotal) && keptTotal > 0 ? keptTotal : null,
+              lastReplot: edit.lastReplot ?? null,
+              onLine: onPlanLine,
+            }}
+          />
+        </div>
+      </Fold>
+
+      <Fold
+        title="How to pay them"
+        summary={payLine ?? 'Not added yet'}
+        summaryEnd
+        className={row()}
+        data="record-pay"
+        tip="Where you send the money — a photo of their QR, the account details, or both — so you are not digging through messages on the day. Setnayan does not send or track it; nothing here creates a payment."
+        popovers
+      >
+        <div className="pb-3">
+          <PayWaysEditor eventId={eventId} initial={edit.payWays === undefined ? [] : edit.payWays} disabled={pending} onSummary={onPayLine} />
+        </div>
+      </Fold>
+
+      <Fold title="Place" summary={lines.place ?? 'Add their address'} summaryEnd className={row()} data="record-place">
+        <div className="pb-3">
+          <AddressPinField required={addressRequired} disabled={pending} initialAddress={edit.address} initialPin={edit.pin ?? null} />
+        </div>
+      </Fold>
+
+      <Fold
+        title="Services"
+        summary={lines.services}
+        summaryEnd
+        className={row(true)}
+        data="record-services"
+        tip={`${categoryLabel} is the category you added them under. Tick any other service their price covers — one booking, one price, counted once across all of them.`}
+        popovers
+      >
+        <div className="pb-3">
+          <ServicesCoveredPicker
+            eventId={eventId}
+            category={category}
+            homeTile={edit.homeTile}
+            ownLabel={categoryLabel}
+            catalog={coverCatalog}
+            initialSelected={edit.covers}
+            disabled={pending}
+            move={{ vendorId: edit.vendorId, name: edit.name.trim() || 'This supplier', claimAsk: edit.claimAsk }}
+            onMoved={onMoved}
+          />
+        </div>
+      </Fold>
+    </div>
+  );
+}
+
 /**
  * The record's claim link — read first (three states, like `ConnectSupplierModal`:
  * still reading · no link yet · the link), so a couple who only opened their
@@ -783,7 +1086,7 @@ function RecordLinkBlock({
       </p>
     );
   }
-  return <SupplierConnectPanel eventId={eventId} vendorId={vendorId} vendorName={vendorName} initial={invite} />;
+  return <SupplierConnectPanel eventId={eventId} vendorId={vendorId} vendorName={vendorName} initial={invite} layout="top" />;
 }
 
 // ============================================================================

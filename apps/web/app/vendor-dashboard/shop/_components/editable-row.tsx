@@ -17,6 +17,7 @@ import { Collapsible } from '../../_components/collapsible';
 // (browser only; leaflet touches `window` at module scope so it must never SSR).
 import type { Map as LeafletMap, Marker as LeafletMarker, LeafletMouseEvent } from 'leaflet';
 import { formatCount } from '@/lib/format-number';
+import { IN_BUSINESS_SINCE_HELP, IN_BUSINESS_SINCE_LABEL, inBusinessSinceLine } from '@/lib/in-business-since';
 
 type LeafletModule = typeof import('leaflet');
 
@@ -285,6 +286,7 @@ export function EditableRow({
         <button
           ref={triggerRef}
           type="button"
+          data-edit-field={item.key}
           onClick={() => {
             if (isOpen) {
               selfCollapse.current = true;
@@ -605,7 +607,8 @@ function textPreview(key: string, data: ProfileFieldData): string | null {
     case 'contact_email':
       return data.contact_email || null;
     case 'in_business_since_year':
-      return data.in_business_since_year || null;
+      // 🗓 "2023 · 3 years" — the year AND what couples read from it (owner 2026-10-29, "Since" is two lines).
+      return inBusinessSinceLine(data.in_business_since_year, new Date().getFullYear()) ?? (data.in_business_since_year || null);
     case 'venue_size':
       return data.venue_width_m && data.venue_length_m
         ? `${data.venue_width_m} × ${data.venue_length_m} m` +
@@ -696,10 +699,10 @@ function FieldControl({
     case 'in_business_since_year':
       return (
         <Field
-          label="EST"
+          label={IN_BUSINESS_SINCE_LABEL}
           htmlFor="in_business_since_year"
           required
-          help="The year your business was established. Shown to couples as “X years in business.”"
+          help={`${IN_BUSINESS_SINCE_HELP}, as “N years in business.”`}
         >
           <PlainInput itemKey={item.key} data={data} onDirty={onDirty} />
         </Field>

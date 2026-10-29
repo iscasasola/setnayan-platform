@@ -42,12 +42,18 @@ test('filled from real facts, it reads exactly as approved', () => {
     buildSupplierInviteMessage(FULL),
     [
       'Hi Liza! 👋',
+      '',
       "You're part of the team behind our wedding on Friday, December 18, and we're so glad to have you as our Stylist / Decorator.",
+      '',
       "We're bringing everything together on Setnayan. Tap to join our event — it only takes a minute:",
       'https://www.setnayan.com/vendor/claim/abc123',
+      '',
       "Our date, venue, schedule and payments in one place, plus your own card and price. It's free for you.",
+      '',
       'This link was made just for our event, so please keep it between us.',
+      '',
       "Let's make it unforgettable. ✨",
+      '',
       'Indalecio & Claire',
     ].join('\n'),
   );

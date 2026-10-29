@@ -36,7 +36,9 @@ export const SUPPLIER_INVITE_LINES = [
   '{hosts}',
 ] as const;
 
-export const SUPPLIER_INVITE_TEMPLATE = SUPPLIER_INVITE_LINES.join('\n');
+/* Laid out like the guest invite (lib/guest-invite-message.ts): a blank line between paragraphs, and the link on the
+   line right under the sentence that asks for the tap. */
+export const SUPPLIER_INVITE_TEMPLATE = SUPPLIER_INVITE_LINES.map((line, i) => (i === 0 ? line : line === '{link}' ? `\n${line}` : `\n\n${line}`)).join('');
 
 export type SupplierInviteFacts = {
   /** The shop's name as the couple recorded it. */
@@ -77,7 +79,7 @@ export function buildSupplierInviteMessage(
   const service = (ctx.service ?? '').trim();
   const hosts = (ctx.hostsName ?? '').trim();
   let t = SUPPLIER_INVITE_TEMPLATE;
-  if (!hosts) t = t.replace(/\n\{hosts\}$/, '');
+  if (!hosts) t = t.replace(/\n+\{hosts\}$/, '');
   if (!supplier) t = t.replace(' {supplier}', '');
   if (!date) t = t.replace(' on {date}', '');
   if (!service) t = t.replace(' as our {service}', '');

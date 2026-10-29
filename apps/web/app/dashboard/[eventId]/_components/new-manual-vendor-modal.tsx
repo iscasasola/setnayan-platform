@@ -20,7 +20,9 @@ import {
   searchMarketplaceVendorsByName,
   updateVendorCosts,
   type MarketplaceVendorSuggestion,
+  type UpdateSelfAddedSupplierResult,
 } from '../vendors/actions';
+import { priceDigitsForSheet } from '@/lib/self-added-payment-plan';
 import { VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
 import {
   MANUAL_VENUE_ADDRESS_HINT,
@@ -113,6 +115,12 @@ type Props = {
    * reads the same list for this event (`loadCoverCatalog`).
    */
   coverCatalog?: readonly CoverCatalogFolder[];
+  /**
+   * The edit save — `updateSelfAddedSupplier` unless a dev lab hands in a
+   * stand-in (it has no session, so the real one cannot answer there). The
+   * sheet treats the answer identically either way.
+   */
+  saveRecord?: (fd: FormData) => Promise<UpdateSelfAddedSupplierResult>;
 };
 
 // State machine for the modal's primary action.
@@ -132,6 +140,7 @@ export function NewManualVendorModal({
   categoryLabel,
   edit,
   coverCatalog,
+  saveRecord,
   onClose,
   onCreated,
 }: Props) {
@@ -186,7 +195,8 @@ export function NewManualVendorModal({
   const [nameQuery, setNameQuery] = useState(edit?.name ?? '');
   /** The KEPT name and price (the rows' pills). The live words follow the typing; a ✕ puts them back to these. */
   const [nameKept, setNameKept] = useState(edit?.name ?? '');
-  const [priceKept, setPriceKept] = useState((edit?.price ?? '').replace(/[^\d]/g, ''));
+  // Whole pesos — stripping every non-digit from "80000.5" read ₱800,005.
+  const [priceKept, setPriceKept] = useState(priceDigitsForSheet(edit?.price));
   const [suggestions, setSuggestions] = useState<
     ReadonlyArray<MarketplaceVendorSuggestion>
   >([]);
@@ -362,8 +372,11 @@ export function NewManualVendorModal({
         ? nameEntry.trim()
         : 'Your supplier';
     if (edit) {
+      // A fresh press clears the last answer, so the same sentence coming back
+      // is read again rather than looking like nothing happened.
+      setErrorMsg(null);
       startTransition(async () => {
-        const result = await updateSelfAddedSupplier(fd);
+        const result = await (saveRecord ?? updateSelfAddedSupplier)(fd);
         if (result.status === 'not_signed_in') {
           const next = encodeURIComponent(window.location.pathname + window.location.search);
           window.location.href = `/login?next=${next}`;
@@ -656,7 +669,9 @@ export function NewManualVendorModal({
                 <PaymentPlanRows
                   totalPhp={priceNumber}
                   disabled={pending}
-                  initial={edit && edit.planRows.length > 0 ? edit.planRows : undefined}
+                  // A SAVED plan re-opens exactly as saved — even one saved with
+                  // no payments; only a supplier with no plan yet gets the starter.
+                  initial={edit && (edit.planRows.length > 0 || edit.planSaved) ? edit.planRows : undefined}
                 />
               </div>
 
@@ -683,16 +698,24 @@ export function NewManualVendorModal({
             </div>
           ) : null}
 
+          {/* PINNED FOOTER — the primary action never scrolls away on a long
+              sheet (the sheet scrolls inside itself; this sticks to its foot).
+              🔴 THE ANSWER TO A SAVE LIVES IN HERE, beside the button that asked
+              (2026-10-29). It was a paragraph ABOVE this footer, at the very end
+              of the form — under the heads-up note and the claim-link panel —
+              so a couple who pressed Save from the payment plan, on a phone,
+              saw the button go "Saving…" and back, and nothing else: the
+              sentence naming why their plan was refused sat a screen below
+              (owner: "did not save properly"). Pinned with the button, it is in
+              view wherever the sheet is scrolled. */}
+          <div data-record-sheet-footer="" className="sticky bottom-0 z-10 -mx-5 border-t border-ink/10 bg-cream px-5 py-3">
           {errorMsg ? (
-            <p role="alert" className="flex items-center gap-1.5 pb-2 text-[12.5px] font-medium text-danger-800 dark:text-danger-200">
-              <AlertCircle aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-              {errorMsg}
+            <p role="alert" data-record-sheet-said="" className="flex items-start gap-1.5 pb-2.5 text-[12.5px] font-medium leading-snug text-danger-800 dark:text-danger-200">
+              <AlertCircle aria-hidden className="mt-px h-3.5 w-3.5 shrink-0" strokeWidth={2} />
+              <span className="min-w-0">{errorMsg}</span>
             </p>
           ) : null}
-
-          {/* PINNED FOOTER — the primary action never scrolls away on a long
-              sheet (the sheet scrolls inside itself; this sticks to its foot). */}
-          <div className="sticky bottom-0 z-10 -mx-5 flex items-center justify-end gap-2 border-t border-ink/10 bg-cream px-5 py-3">
+          <div className="flex items-center justify-end gap-2">
             <ActionButton tone="neutral" icon={X} label="Cancel" onClick={moved ? onCreated : onClose} disabled={pending} />
             <ActionButton
               tone="brand"
@@ -713,6 +736,7 @@ export function NewManualVendorModal({
               disabled={pending}
               className="flex-1 sm:flex-none"
             />
+          </div>
           </div>
         </form>
         )}

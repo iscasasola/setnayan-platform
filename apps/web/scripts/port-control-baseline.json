@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "bfe81bc5b4",
+  "generatedFromRef": "2816dfab8d",
   "routeCount": 479,
   "destinations": 981,
   "actions": 640,
-  "blocks": 7356,
+  "blocks": 7360,
   "routes": {
     "/": {
       "files": [
@@ -2816,7 +2816,6 @@
         "OptionCard",
         "OptionGrid",
         "OrderPick",
-        "OverlayBackdrop",
         "PageMasthead",
         "PartHiddenSwitch",
         "PartPanel",
@@ -2852,6 +2851,7 @@
         "ServicePanel",
         "ServiceParts",
         "ServiceRow",
+        "Sheet",
         "StudioActionResult",
         "SubmitButton",
         "SwitchForm",
@@ -6180,6 +6180,7 @@
         "UpcomingItem",
         "UpcomingItemSource",
         "UpdateMatchCriteriaResult",
+        "UpdateSelfAddedSupplierResult",
         "UseSongButton",
         "VeilReveal",
         "VendorAvatar",
@@ -8537,6 +8538,7 @@
         "dashboard/[eventId]/seating/_components/day-of-editing-banner.tsx",
         "dashboard/[eventId]/seating/_components/drop-confirm-bubble.tsx",
         "dashboard/[eventId]/seating/_components/seat-faces-list.tsx",
+        "dashboard/[eventId]/seating/_components/seat-plan-facts.tsx",
         "dashboard/[eventId]/seating/_components/seat-plan-in-guests.tsx",
         "dashboard/[eventId]/seating/_components/seat-plan-phone.tsx",
         "dashboard/[eventId]/seating/_components/seat-plan-slots.tsx",
@@ -8603,6 +8605,7 @@
         "HTMLElement",
         "HoldButton",
         "Icon",
+        "InfoTip",
         "KeepApartAdder",
         "LockBroadcast",
         "MemberRow",
@@ -8631,6 +8634,7 @@
         "SeatFacesList",
         "SeatPeoplePanel",
         "SeatPickMenu",
+        "SeatPlanFacts",
         "SeatPlanInGuests",
         "SeatPlanModePick",
         "SeatPlanPortal",
@@ -10918,7 +10922,8 @@
         "CoupleLinkDoor",
         "LabCard",
         "LabRecord",
-        "NewManualVendorModal"
+        "NewManualVendorModal",
+        "UpdateSelfAddedSupplierResult"
       ]
     },
     "/dev/art-kit-lab": {

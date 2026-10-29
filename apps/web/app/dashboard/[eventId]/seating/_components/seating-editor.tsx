@@ -7263,11 +7263,14 @@ export function SeatingEditor({
           <DropConfirmBubble state={dropConfirm} onConfirm={onDropConfirm} onCancel={onDropCancel} />
           {/* world layer — pan/zoom applied to its transform directly via refs */}
           <div ref={worldRef} className="absolute inset-0 will-change-transform" style={{ transformOrigin: '0 0' }}>
-          {/* room outline (walls) + metric labels, when a venue size is set */}
-          {venueScaled ? (
+          {/* room outline (walls) + metric labels, when a venue size is set.
+              🖼 In Guests (owner 2026-10-29, "remove it" — R4 slice 6): no rounded outline on the frameless floor; the edge
+              is drawn only for a FIXED room (the couple's own saved size — then it is a wall), square, never for the
+              suggested / free board. The Studio keeps its blueprint as it was. */}
+          {venueScaled && (!inGuests || (floorPlan.venue_width_m !== null && floorPlan.venue_length_m !== null)) ? (
             <>
               {/* Blueprint (directive 2026-07-15): hairline walls, mono dims. */}
-              <div className="pointer-events-none absolute inset-0 rounded-lg border border-ink/30" />
+              <div className={`pointer-events-none absolute inset-0 border border-ink/30 ${inGuests ? '' : 'rounded-lg'}`} data-seat-room-wall="" />
               <span className="pointer-events-none absolute left-1/2 top-1 -translate-x-1/2 rounded bg-cream/80 px-1.5 font-mono text-[9px] font-medium tracking-tight text-ink/55">
                 {venue.width} m
               </span>

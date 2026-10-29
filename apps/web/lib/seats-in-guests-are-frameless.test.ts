@@ -19,3 +19,9 @@ test('the 2D canvas draws its border only outside Guests', () => {
   assert.match(tag, /\$\{inGuests \? '' : 'border border-ink\/15 '\}/, 'the Guests floor has a frame');
   assert.doesNotMatch(tag.replace(/\$\{inGuests \? '' : 'border border-ink\/15 '\}/, ''), /\bborder\b/, 'a second border is drawn');
 });
+
+test('the room\u2019s outline: in Guests only for a FIXED (saved) room, square — never the suggested / free board', () => {
+  const src = stripComments(readFileSync(join(process.cwd(), 'app/dashboard/[eventId]/seating/_components/seating-editor.tsx'), 'utf8'));
+  assert.match(src, /\{venueScaled && \(!inGuests \|\| \(floorPlan\.venue_width_m !== null && floorPlan\.venue_length_m !== null\)\) \? \(/, 'Guests draws the wall for a room nobody fixed');
+  assert.match(src, /className=\{`pointer-events-none absolute inset-0 border border-ink\/30 \$\{inGuests \? '' : 'rounded-lg'\}`\} data-seat-room-wall=""/, 'the Guests wall is rounded');
+});

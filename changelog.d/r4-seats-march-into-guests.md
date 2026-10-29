@@ -169,3 +169,11 @@ Guard `lib/seats-in-guests-are-frameless.test.ts` (sabotaged once). The rest of 
 peek card, 3D gestures, palette tokens, booked-supplier stations) is mapped in HANDOVER, not built.
 
 SPEC IMPACT: None.
+
+## 2026-10-29 · fix(guests): R4 slice 6 — the frameless floor draws no rounded outline
+
+Owner ("remove it"): in Guests › Seats the room's outline is drawn only for a FIXED room (the couple's saved size — then
+it is a wall), square; the suggested / free board has none. The Studio keeps its blueprint. Guard
+`lib/seats-in-guests-are-frameless.test.ts` (sabotaged once).
+
+SPEC IMPACT: None.

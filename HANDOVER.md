@@ -52,8 +52,10 @@ Keep the PR DRAFT + `do-not-auto-merge`; never merge/deploy. CI is the gate (no 
   ＋ Group NOT built (owner question: march groups are role sections; no "own group" in data). Guard
   `lib/march-groups-in-guests.test.ts`.
 - SLICE 6 part 1 (pushed, walked 390/1280/320 light+dark — `s6/`): Guests › Seats 2D canvas frameless (`seating-editor.tsx`
-  canvas border only `!inGuests`; 3D was already frameless via `inMaker`). The rounded outline still seen is the venue
-  FLOOR (`scaledBox`) — confirm with the owner whether the floor's wall line stays (prototype draws the floor edge). Guard `lib/seats-in-guests-are-frameless.test.ts`.
+  canvas border only `!inGuests`; 3D was already frameless via `inMaker`). Owner 2026-10-29 "remove it": the room outline
+  (`data-seat-room-wall`) is drawn in Guests only for a FIXED (saved) room, square; never for the suggested/free board.
+  OWNER ANSWERS 2026-10-29: ＋ Group in March WANTED (custom march groups → data home via `pnpm migration:new`, Ugat node;
+  own slice); "who placed this seat" column OK (auto/arrange vs couple) for the swap-why sheet; Map ＋ Add guest KEPT. Guard `lib/seats-in-guests-are-frameless.test.ts`.
   ### SLICE 6 — the rest, Rule 0 done (2026-10-29), NOT built
   E = `seating/_components/seating-editor.tsx`, L = `seating/lab/_components/seating-lab-3d.tsx` (3D room = lab page `?maker=1`).
   · (a) confirm sheet: swap = `tradeSeats` (E) → `swapSeats` (`seating/actions.ts`, RPC `swap_seat_assignments`); move =

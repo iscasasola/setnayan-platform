@@ -23,7 +23,7 @@ import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
 import { supplierPageMenuOf } from './supplier-page-menu';
 import { CUSTOMER_SEGMENTS, CUSTOMER_SEGMENT_HREFS, CUSTOMER_SEGMENT_LABEL } from '../customers/segments';
-import { SHOP_SEGMENT_HREF, SHOP_SEGMENT_LABEL } from '../shop/_components/shop-segments';
+import { SHOP_SEGMENT_HREF, SHOP_SEGMENT_LABEL } from '../shop/_components/shop-sections';
 
 const WEB = join(__dirname, '..', '..', '..');
 const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');

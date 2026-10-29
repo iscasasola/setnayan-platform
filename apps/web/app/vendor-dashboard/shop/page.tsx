@@ -34,6 +34,9 @@ import { INSPIRATION_LIBRARY_HREF, INSPIRATION_LIBRARY_ROW } from '@/lib/inspira
 import { packageAuthoringEnabled } from '@/lib/package-authoring-flag';
 import { vendorAutoReplyEnabled } from '@/lib/vendor-autoreply-flag';
 import { DatesRow } from '../customers/_components/dates-row';
+import { ShopServiceRows } from './_components/shop-service-rows';
+import { resolveCoverageLabels } from '@/lib/vendor-coverages';
+import { servicesFigures, shopServiceRows, type ShopCardLite, type ShopCoverageLite, type ShopServiceRow } from '@/lib/shop-services-summary';
 
 /** Your details, and its papers fold — where every "finish your profile" / "get verified" link on this page goes. */
 const DETAILS_HREF = '/vendor-dashboard/profile';
@@ -95,6 +98,8 @@ type ShopData = {
   };
   /** 🌱🖼 The shop's trades supply an inspiration part — "Add to the inspiration library" is drawn (owner 2026-10-19). */
   libraryOpen: boolean;
+  /** 🧰 One row per service (v13 Shop › Services) — `null` = the read failed, said as such, never "no services". */
+  serviceRows: ShopServiceRow[] | null;
 };
 
 type VerifyStatus = 'draft' | 'pending_review' | 'in_review' | 'approved' | 'rejected' | 'withdrawn' | null;
@@ -191,11 +196,42 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     }
   })();
 
+  // 🧰 v13 Shop › Services: the services (coverage rows) and the few columns of their cards the rows count — one
+  // read each, beside the others. The cards list under it keeps its own full read (`VendorServicesManager`).
+  const serviceRowsRead = (async (): Promise<ShopServiceRow[] | null> => {
+    try {
+      const [cov, cards, labels] = await Promise.all([
+        supabase.from('vendor_coverages').select('id,canonical_service').eq('vendor_profile_id', vendorId).order('created_at', { ascending: true }),
+        supabase
+          .from('vendor_services')
+          .select(
+            'vendor_service_id,coverage_id,category,is_active,starting_price_php,added_pax_price_php,pricing_basis,per_pax_price_php,min_pax,base_pax,hour_base_php,min_hours,extra_hour_php',
+          )
+          .eq('vendor_profile_id', vendorId)
+          .order('created_at', { ascending: true }),
+        resolveCoverageLabels(),
+      ]);
+      if (cov.error || cards.error) {
+        logQueryError('VendorShopPage.serviceRows', cov.error ?? cards.error, { vendorId }, 'graceful_degrade');
+        return null;
+      }
+      return shopServiceRows(
+        (cov.data ?? []) as ShopCoverageLite[],
+        (cards.data ?? []) as ShopCardLite[],
+        (cs) => labels.leafLabel(cs),
+      );
+    } catch (err) {
+      logQueryError('VendorShopPage.serviceRows', err, { vendorId });
+      return null;
+    }
+  })();
+
   // ─── THE ONE WAIT ────────────────────────────────────────────────────────
-  const [tier, verifyApp, { logoUrl, logoUnavailable }] = await Promise.all([
+  const [tier, verifyApp, { logoUrl, logoUnavailable }, serviceRows] = await Promise.all([
     tierRead,
     verifyAppRead,
     logoRead,
+    serviceRowsRead,
   ]);
 
   const completion = businessProfileChecklist(profile);
@@ -225,6 +261,7 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     },
     // The shared predicate, off the profile already read — no second query (lib/moodboard-library-access.ts).
     libraryOpen: moodboardLibraryAccessForProfile(profile, await getInspirationParts()).allowed,
+    serviceRows,
   };
 }
 
@@ -300,9 +337,10 @@ async function ShopHome({
 
   return (
     <section className="mx-auto w-full max-w-6xl tab:max-w-3xl space-y-8 px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
-      {/* Shop › Services · Page · How it is going (step 5) — Page is the door to Your page, details and collections. */}
+      {/* 📌 Shop ▾ + Services' three figures — the pinned row (v13), then one row per service with its tools. */}
+      <ShopSegments on="services" figures={servicesFigures(data.serviceRows)} />
       <div className="mx-auto max-w-3xl">
-        <ShopSegments on="services" />
+        <ShopServiceRows rows={data.serviceRows} />
       </div>
       <HeroCard data={data} publicPath={publicPath} />
 

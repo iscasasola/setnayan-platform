@@ -1392,7 +1392,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: Settings,
         title: 'Four places, nothing hidden',
-        body: 'The bar is Today, Customers, Shop and Hub. Messages open from the envelope at the top, How it is going is in Shop, and Settings is under your profile picture.',
+        body: 'The bar is Today, Customers, Shop and Hub. Messages open from the envelope at the top, Analytics is in Shop, and Settings is under your profile picture.',
       },
     ],
   },
@@ -1428,7 +1428,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
   vendor_shop_v1: {
     key: 'vendor_shop_v1',
     label: 'Supplier — Shop mini-tour',
-    blurb: 'Services, Page and Insights — the three segments of Shop.',
+    blurb: 'Details, Services, Page, Gallery and Analytics — the five parts of Shop.',
     slides: [
       {
         Icon: Briefcase,
@@ -1444,10 +1444,12 @@ export const TOURS: Record<TourKey, TourDefinition> = {
     spotlight: {
       steps: [
         {
+          // v13 (S5): the segments are ONE ▾ now (Details · Services · Page · Gallery · Analytics) — a dropdown is not a
+          // doorway Next can walk through, so this stop asks; the next two light when the supplier picks Page.
           anchor: 'shop-segments',
-          title: 'Services · Page · How it is going',
-          body: 'What you sell, how your page looks to couples, and how it is doing. Tap Page.',
-          go: true,
+          title: 'Details · Services · Page · Gallery · Analytics',
+          body: 'Every part of your shop is in this one menu. Open it and pick Page.',
+          hint: 'Pick Page — or press Next',
         },
         {
           anchor: 'shop-page-list',

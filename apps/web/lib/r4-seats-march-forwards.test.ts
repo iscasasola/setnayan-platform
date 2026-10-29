@@ -283,7 +283,7 @@ test('7 · Seats and March follow the Guests screen: the summary row, ONE mode d
   assert.match(march, /value: outUnread \? null : shownOut\.length/, 'Not walking reads 0 over an unread tray');
   const ed = read('app/dashboard/[eventId]/seating/_components/seating-editor.tsx');
   // 📌 Seats' counts ride the ONE top row (owner 2026-10-30) — the four tiles are gone (lib/guests-top-row-and-full-screen.test.ts (6)).
-  assert.match(ed, /const seatCounts =\s*inGuests && lens\?\.countsSlot/);
+  assert.match(ed, /const seatCountsSlot =\s*inGuests && lens\?\.countsSlot/);
   // 🎚 Slice 2: ONE mode dropdown (List · 2D · 3D) — the Guests top row's Seats ▾ (the shared PickMenu, never a pill row);
   // the "Seat plan · 2D ▾" head is gone in Guests, its Edit · ⋯ ride the top row (portal into `lens.toolsSlot`), and the
   // mode's ONE state stays the plan's (`lens.registerSeats`). No desk segment in Guests.

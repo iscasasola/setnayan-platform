@@ -161,7 +161,7 @@ test('(5) every view wears the SAME one row — one ▾ naming the view, no segm
 test('(6) Seats\' counts ride the one row on every mode, each a door where its tile was; Auto arrange is in the ⋯', () => {
   const ed = read('app/dashboard/[eventId]/seating/_components/seating-editor.tsx');
   assert.doesNotMatch(ed, /<ViewCountRow\b/, 'the four big Seats tiles are back');
-  const at = ed.indexOf('const seatCounts =');
+  const at = ed.indexOf('const seatCountsSlot =');
   assert.ok(at > -1, 'Seats draws no counts into the row');
   const body = ed.slice(at, ed.indexOf('lens.countsSlot,', at) + 20);
   assert.match(body, /inGuests && lens\?\.countsSlot\s*\?\s*createPortal\(/, 'the counts are not drawn into the row’s count seat');
@@ -170,7 +170,7 @@ test('(6) Seats\' counts ride the one row on every mode, each a door where its t
   assert.match(body, /value=\{unseatedComing\}[^]*?onSelectView\('list'\);\s*openUnseated\(\);/, 'unseated does not open who is left');
   assert.match(body, /value=\{displayUnits\.length\}[^]*?onPress=\{\(\) => onSelectView\('2d'\)\}/, 'tables does not open the plan');
   // It is drawn whatever the mode (the portal is mounted with the editor, never gated on the 2D/3D/List view).
-  assert.match(ed, /\{seatToolRounds\}\s*\{seatCounts\}/);
+  assert.match(ed, /\{seatToolRounds\}\s*\{seatCountsSlot\}/);
   // ✨ Auto arrange — the same run, the same refusals — first in the ⋯.
   const more = ed.slice(ed.indexOf('const phoneMore = ('), ed.indexOf('const phoneTrailing = ('));
   assert.match(more, /inGuests \? \([\s\S]*?<MenuRow\s+icon=\{Sparkles\}[\s\S]*?onClick=\{runAutoArrange\}\s*disabled=\{!canEdit \|\| tables\.length === 0 \|\| isPending\}/, 'Auto arrange is not in the ⋯');

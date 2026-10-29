@@ -6722,7 +6722,7 @@ export function SeatingEditor({
      (`PinCountDoor`) into the row's count seat (`lens.countsSlot`); each opens where its tile did — Seated the list,
      Unseated the list narrowed to who is left, Tables the 2D plan. ✨ Auto arrange moved into the ⋯ (`phoneMore`).
      Counted here from the plan this editor holds; guests who said no are not counted. */
-  const seatCounts =
+  const seatCountsSlot =
     inGuests && lens?.countsSlot
       ? createPortal(
           <>
@@ -6945,7 +6945,7 @@ export function SeatingEditor({
           summary row, then the editing space, the verbs at the foot. */}
       {studioSeat ? studioHead : isPhone ? phoneHead : doorStrip}
       {seatToolRounds}
-      {seatCounts}
+      {seatCountsSlot}
       {/* ═══════════ ROW 1 — COMMAND BAR (the page's only blurred surface) ═══════════ */}
       {isPhone || inGuests ? null : (
       <CommandBar>

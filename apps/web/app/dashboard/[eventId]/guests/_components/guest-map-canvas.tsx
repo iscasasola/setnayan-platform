@@ -224,7 +224,7 @@ export function GuestMapCanvas({
               <button
                 type="button"
                 className={styles.mindMore}
-                style={{ left: X(h.x), top: Y(h.y + h.ext - 6) }}
+                style={{ left: X(h.x), top: Y(h.y + h.ext + 36) }}
                 onClick={() => {
                   setHubSel(null);
                   setDrill({ kind: 'hub', key: h.key });

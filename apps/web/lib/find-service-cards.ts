@@ -20,6 +20,7 @@
  */
 import type { BenchServiceCard } from './bench-service-card';
 import { refusalKey } from './bench-bookable-days';
+import { formatCount } from './format-number';
 
 /** One supplier's card in a category's list. */
 export type FindCardRow = {
@@ -243,22 +244,22 @@ export function freeOnWords(availability: FindAvailability, days: readonly strin
 
 /** "1 card" · "19 cards" — the word where the line counts CARDS (owner 2026-10-29, the approved "cards" count word). */
 export function cardsWord(n: number): string {
-  return `${n} card${n === 1 ? '' : 's'}`;
+  return `${formatCount(n)} card${n === 1 ? '' : 's'}`;
 }
 
 /** "All 4 services" · "2 of 4 services" · "Lechonero" — what the ✎ has left showing. */
 export function servicesScopeWords(listed: readonly FindService[], hidden: readonly string[]): string {
   const showing = listed.filter((s) => !hidden.includes(s.key));
   if (listed.length === 0) return '';
-  if (showing.length === listed.length) return listed.length === 1 ? (listed[0] as FindService).label : `All ${listed.length} services`;
+  if (showing.length === listed.length) return listed.length === 1 ? (listed[0] as FindService).label : `All ${formatCount(listed.length)} services`;
   if (showing.length === 1) return (showing[0] as FindService).label;
-  return `${showing.length} of ${listed.length} services`;
+  return `${formatCount(showing.length)} of ${formatCount(listed.length)} services`;
 }
 
 /** The ✎'s own words while any service is hidden ("2 of 4"), else null (the bare pencil). */
 export function pencilWords(listed: readonly FindService[], hidden: readonly string[]): string | null {
   const showing = listed.filter((s) => !hidden.includes(s.key)).length;
-  return showing < listed.length ? `${showing} of ${listed.length}` : null;
+  return showing < listed.length ? `${formatCount(showing)} of ${formatCount(listed.length)}` : null;
 }
 
 /* ── Best for your event (owner 2026-10-29: "#1 -#10 match must be performers only. we will not show if there are no

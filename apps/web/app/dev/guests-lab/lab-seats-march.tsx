@@ -111,8 +111,8 @@ export function LabSeats({ guests, seat }: { guests: readonly { guest_id: string
   );
 }
 
-export function LabMarch({ shape }: { shape?: string | null }) {
-  const m = labMarchSections(shape);
+export function LabMarch({ shape, nicks = false }: { shape?: string | null; nicks?: boolean }) {
+  const m = labMarchSections(shape, { nicks });
   /* The same frame as `guests/_components/guests-march.tsx` (a server component that reads the event, so the lab
      draws its body here on the fixture): the maker with its summary row, the tray’s slot. */
   return (

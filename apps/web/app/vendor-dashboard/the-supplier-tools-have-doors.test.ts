@@ -47,8 +47,11 @@ test('📣 Message everyone opens the shipped announcement sheet — only where 
     events: ev,
   });
   const now = new Date('2026-10-29T00:00:00Z');
-  assert.equal(eventsYouRun([row('wedding_planner_external', 'edit')], now, '2026-10-29')[0]!.canAnnounce, true);
-  assert.equal(eventsYouRun([row('co_host', null)], now, '2026-10-29')[0]!.canAnnounce, true);
+  const served = new Set(['e1']); // this shop is on the event (rule (a), `readEventsYouRun`)
+  assert.equal(eventsYouRun([row('wedding_planner_external', 'edit')], now, '2026-10-29', served)[0]!.canAnnounce, true);
+  // The co-host seat a supplier gets is the hosts' "Full access" answer (`access_level: 'full'`).
+  const fullCohost = { ...row('co_host', null), permissions_json: { ...row('co_host', null).permissions_json!, access_level: 'full' } as CoordinatorSeatRow['permissions_json'] };
+  assert.equal(eventsYouRun([fullCohost], now, '2026-10-29', served)[0]!.canAnnounce, true);
   const viewOnly = { ...row('wedding_planner_external', 'view'), permissions_json: { edit_all: false, checkout: false, invite_hosts: false, remove_hosts: false, areas: { guest_list: 'view', seat_plan: 'view', schedule: 'view', vendors: 'view' }, access_level: 'limited' } as CoordinatorSeatRow['permissions_json'] };
-  assert.equal(eventsYouRun([viewOnly], now, '2026-10-29')[0]!.canAnnounce, false, 'a Limited coordinator is offered a send the database refuses');
+  assert.equal(eventsYouRun([viewOnly], now, '2026-10-29', served)[0]!.canAnnounce, false, 'a Limited coordinator is offered a send the database refuses');
 });

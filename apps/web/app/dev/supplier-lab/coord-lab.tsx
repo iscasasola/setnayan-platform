@@ -16,8 +16,8 @@
  *   ?s=coord-badges     🏅 Shop › How it is going's "Your badges" (owner 2026-10-29) — the REAL `YourBadges` over
  *                       `badgeShelf`; `&unread=1` = the read refused ("Couldn’t load" · "—")
  *   &none=1             the no-access case: every seat Off / expired / removed → no rows, no tab, no button
- *   &cohost=1           👥 a supplier who is ONLY a co-host (owner 2026-10-29): every coordinator seat Off, one live
- *                       co-host seat → the tab, the row ("· Co-host") and the card's Co-host pill, from the same rule
+ *   &cohost=1           👥 a supplier the hosts gave FULL ACCESS (owner 2026-10-29 — the co-host seat, `access_level:
+ *                       'full'`): every coordinator seat Off, one live Full-access seat → the tab and the row, same rule
  *   frame D (inside the event) is `/dev/home-lab?coord=1&shell=1` — the REAL `CoordinatingLine` over the couple's Home.
  *
  * The seats run through the SHIPPED rule (`eventsYouRun`), so `&none=1` is the rule saying no — not the lab hiding.
@@ -50,6 +50,11 @@ const LAB_NOW = new Date('2026-10-14T02:00:00Z');
 const ON: ModeratorPermissions = { edit_all: false, checkout: false, invite_hosts: false, remove_hosts: false, areas: { ...COORDINATOR_AREAS } };
 const OFF: ModeratorPermissions = { ...ON, areas: { guest_list: null, seat_plan: null, schedule: null, vendors: null, invitations: null } };
 
+/** The co-host seat a supplier gets: the hosts' "Full access" answer (`levelWrite('full')`). */
+const FULL = { edit_all: true, checkout: true, invite_hosts: true, remove_hosts: true, access_level: 'full' } as ModeratorPermissions;
+/** The lab shop is on every lab event (rule (a): a live `event_vendors` row pointing at the shop). */
+const LAB_SHOP_EVENTS: ReadonlySet<string> = new Set(['lab-claire', 'lab-reyes', 'lab-santos', 'lab-off', 'lab-past', 'lab-gone']);
+
 const seat = (id: string, name: string, type: string, date: string, venue: string, perms: ModeratorPermissions, removed = false, role: string = COORDINATOR_SEAT_ROLE): CoordinatorSeatRow => ({
   event_id: id,
   role_subtype: role,
@@ -64,7 +69,7 @@ function labSeats(none: boolean, cohost = false): CoordinatorSeatRow[] {
   if (cohost) {
     // 👥 Only a co-host: the coordinator seats Off, one full co-host seat live, one co-host seat removed.
     return [
-      seat('lab-claire', 'Claire & Indalecio', 'wedding', '2026-12-12', 'Seda Vertis North', OFF, false, 'co_host'),
+      seat('lab-claire', 'Claire & Indalecio', 'wedding', '2026-12-12', 'Seda Vertis North', FULL, false, 'co_host'),
       seat('lab-off', 'Dizon wedding', 'wedding', '2026-11-21', 'Manila', OFF),
       seat('lab-gone', 'Lim & Tan', 'wedding', '2026-11-28', 'Makati', OFF, true, 'co_host'),
     ];
@@ -102,7 +107,7 @@ const LAB_HOLD_CHECKLIST: BusinessProfileItem[] = [
 ];
 
 export function CoordLab({ state, none, unread = false, cohost = false, at, actions }: { state: CoordState; none: boolean; unread?: boolean; cohost?: boolean; at?: string; actions: TodayActions }) {
-  const runs = withNeeds(eventsYouRun(labSeats(none, cohost), LAB_NOW, LAB_TODAY), labNeeds(unread));
+  const runs = withNeeds(eventsYouRun(labSeats(none, cohost), LAB_NOW, LAB_TODAY, LAB_SHOP_EVENTS), labNeeds(unread));
   const bar = (
     <BottomDock boundary="tab">
       <CoordLabBar runsEvents={runs.length > 0} />

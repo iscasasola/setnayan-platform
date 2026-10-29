@@ -308,7 +308,7 @@ export default async function VendorOverviewPage({
   */
   const shopRowP = readTodayShopRow(supabase, vendorProfileId);
   const settingUpP = shopRowP.then((row) => !row?.verified).catch(() => false);
-  const setupDetailsP = settingUpP.then((yes) => (yes ? loadDetailsData(supabase, profile).catch(() => null) : null));
+  const setupDetailsP = settingUpP.then((yes) => (yes ? loadDetailsData(supabase, profile, { deepSearch: false }).catch(() => null) : null));
   const setupMakerP = settingUpP.then((yes) =>
     yes
       ? loadMakerContext(supabase, vendorProfileId)

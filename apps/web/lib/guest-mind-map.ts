@@ -96,7 +96,17 @@ export function mindMapHubs(tree: readonly MapBranch[], drill: MindDrill | null 
     return { ...h, shown, more: h.guests.length - shown.length, rings, ext: rings.length ? rings[rings.length - 1]! + FACE_R + 4 : 40, x: 0, y: 0 };
   });
   const n = laid.length;
-  const ringR = single ? 0 : Math.max(150, laid.reduce((a, h) => a + h.ext * 2 + 30, 0) / (2 * Math.PI) + 40);
+  // The ring: the prototype's (room for every hub around it), and never so tight that a hub's faces reach the couple or
+  // two neighbours touch (a chord between them at least both reaches apart).
+  const maxExt = laid.reduce((m, h) => Math.max(m, h.ext), 0);
+  const ringR = single
+    ? 0
+    : Math.max(
+        150,
+        laid.reduce((a, h) => a + h.ext * 2 + 30, 0) / (2 * Math.PI) + 40,
+        maxExt + COUPLE_R + 24,
+        n > 1 ? (2 * maxExt + 40) / (2 * Math.sin(Math.PI / n)) : 0,
+      );
   laid.forEach((h, i) => {
     const a = (i / n) * Math.PI * 2 - Math.PI / 2;
     h.x = single ? 0 : Math.cos(a) * ringR;
@@ -115,7 +125,7 @@ export function mindMapBounds(hubs: readonly MindHub[]): { minX: number; minY: n
     minX = Math.min(minX, h.x - h.ext - 20);
     maxX = Math.max(maxX, h.x + h.ext + 20);
     minY = Math.min(minY, h.y - h.ext - 14);
-    maxY = Math.max(maxY, h.y + h.ext + 36);
+    maxY = Math.max(maxY, h.y + h.ext + 52);
   }
   return { minX, minY, width: maxX - minX, height: maxY - minY };
 }

@@ -21,7 +21,7 @@ import { stripComments } from '@/lib/strip-comments';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const RAW = readFileSync(join(HERE, '_components/shortlist-categories.tsx'), 'utf8');
 const BENCH = stripComments(RAW);
-const CSS = RAW.slice(RAW.indexOf('const SLCAT_CSS = `'), RAW.indexOf('`;', RAW.indexOf('const SLCAT_CSS = `'))).replace(/\/\*[\s\S]*?\*\//g, '');
+const CSS = stripComments(RAW.slice(RAW.indexOf('const SLCAT_CSS = `'), RAW.indexOf('`;', RAW.indexOf('const SLCAT_CSS = `'))));
 
 test('the ✎ stays mounted on its row and is inert while the row is closed', () => {
   const at = BENCH.indexOf('className="cat-svc-slot"');

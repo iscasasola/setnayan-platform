@@ -43,7 +43,7 @@
  * the page column pads by it (`lib/thumb-room.ts`, `lib/a-thumb-row-leaves-room.test.ts`) — a host never adds its own
  * bottom padding for the row.
  */
-import { useCallback, useRef, type InputHTMLAttributes, type ReactNode, type Ref } from 'react';
+import { useCallback, useId, useRef, type InputHTMLAttributes, type ReactNode, type Ref } from 'react';
 import { CalendarDays, Plus, Search, X } from 'lucide-react';
 import { ActionButton, actionButtonClass, type ActionButtonProps } from '@/components/action-button';
 import { rowRides, useRidingRow } from '@/app/_components/typing-band';
@@ -188,6 +188,10 @@ export function ThumbRow({
   const FieldIcon = field && 'kind' in field && field.kind === 'date' ? CalendarDays : Search;
   const rowRef = useRef<HTMLDivElement>(null);
   const ownInput = useRef<HTMLInputElement | null>(null);
+  /* The field's label holds the ✕ button too, so it names its input outright (a bare <label> controls its FIRST
+     labelable child — the button would take the row's press). The host's own id wins. */
+  const ownId = useId();
+  const inputId = (field && !('node' in field) && field.input?.id) || ownId;
   /* ⌨ The ONE riding row (`useRidingRow`): the search band, and a tap away closes the keyboard. */
   const ride = useRidingRow(rowRef, { rides, mode: Boolean(children), place: field && !('node' in field) ? field.placeholder : undefined });
   /* ⬇ A FLOATING ROW LEAVES ROOM FOR ITSELF (owner 2026-10-25, *"the suppliers page does not scroll up anymore"*): it
@@ -231,12 +235,13 @@ export function ThumbRow({
               {field.node}
             </span>
           ) : field ? (
-            <label data-glass-row="thumb-row-field" className={`sn-glass-row ${styles.field}`} data-thumb-seat="field" data-tour={field.tour} data-rides={rides ? '' : undefined} onFocus={onFieldFocus} onBlur={onFieldBlur} onInput={onFieldInput}>
+            <label htmlFor={inputId} data-glass-row="thumb-row-field" className={`sn-glass-row ${styles.field}`} data-thumb-seat="field" data-tour={field.tour} data-rides={rides ? '' : undefined} onFocus={onFieldFocus} onBlur={onFieldBlur} onInput={onFieldInput}>
               <FieldIcon className={styles.glyph} strokeWidth={1.9} aria-hidden />
               <input
                 type={field.kind === 'date' ? 'date' : 'search'}
                 autoComplete="off"
                 {...field.input}
+                id={inputId}
                 ref={setInputRef}
                 placeholder={field.placeholder}
                 aria-label={field.label ?? field.placeholder}

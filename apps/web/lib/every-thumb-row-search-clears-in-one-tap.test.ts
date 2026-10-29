@@ -35,14 +35,14 @@ const { ThumbRow } = require('@/components/thumb-row') as typeof RowMod;
 
 const ROOT = join(__dirname, '..');
 const ROW = stripComments(readFileSync(join(ROOT, 'components/thumb-row.tsx'), 'utf8'));
-const CSS = readFileSync(join(ROOT, 'components/thumb-row.module.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+const CSS = stripComments(readFileSync(join(ROOT, 'components/thumb-row.module.css'), 'utf8'));
 
 describe('every thumb-row search clears in one tap', () => {
   it('draws the ✕ INSIDE the search field, after the input — and none on a date field', () => {
     const html = renderToStaticMarkup(createElement(ThumbRow, { name: 'probe', field: { placeholder: 'Search guests' } }));
     const field = /<label[^>]*data-thumb-seat="field"[^>]*>([\s\S]*?)<\/label>/.exec(html);
     assert.ok(field, 'the row lost its field');
-    const inner = field[1];
+    const inner = field[1] ?? '';
     const input = inner.indexOf('<input');
     const clear = inner.search(/<button[^>]*data-thumb-clear=""/);
     assert.ok(input >= 0, 'the field lost its input');

@@ -1042,18 +1042,18 @@ html.dark .slcat .mrerr{color:#E39A9A}
 /* the pinned category head is the page's own ground, in both themes */
 .slcat .fold.flat .cat.open>.cat-head-row{background:var(--sn-canvas)}
 /* THE OPEN CATEGORY IS TINTED, AT EVERY WIDTH (owner 2026-10-30, final Suppliers design — the prototype's
-   \`.cat.open .hf .r{background:var(--pill)}\`): one soft step of ink over the page's ground, opaque, so the pinned head
+   '.cat.open .hf .r{background:var(--pill)}'): one soft step of ink over the page's ground, opaque, so the pinned head
    still hides what scrolls under it. Tokens only — it follows the theme. */
 .slcat .fold.flat .cat.open>.cat-head-row{background:color-mix(in srgb,rgb(var(--color-ink)) 5%,var(--sn-canvas))}
-/* ✎ — the prototype's \`.svcpick\`: a framed pill (it is pressed), terracotta while a service is hidden ("✎ 2 of 4").
+/* ✎ — the prototype's '.svcpick': a framed pill (it is pressed), terracotta while a service is hidden ("✎ 2 of 4").
    Its slot is on every row that has one, collapsed to nothing on a closed row and grown in on the open one — width,
-   fade and a small slide from the right, at the prototype's own timing (\`.cat-h .svcpick\`: .34s, the fade .14s late);
-   on first mount it enters from the same collapsed look (\`@starting-style\`). */
+   fade and a small slide from the right, at the prototype's own timing ('.cat-h .svcpick': .34s, the fade .14s late);
+   on first mount it enters from the same collapsed look ('@starting-style'). */
 .slcat .cat-svc-slot{display:inline-flex;flex:0 0 auto;align-items:center;max-width:220px;opacity:1;transform:none;margin-left:6px;overflow:hidden;transition:max-width .34s cubic-bezier(.2,.8,.2,1),opacity .22s ease .14s,transform .34s cubic-bezier(.2,.8,.2,1) .06s,margin .34s}
 @starting-style{.slcat .cat.open .cat-svc-slot{max-width:0;opacity:0;transform:translateX(10px) scale(.86);margin-left:0}}
 .slcat .cat:not(.open) .cat-svc-slot{max-width:0;opacity:0;transform:translateX(10px) scale(.86);margin-left:0;pointer-events:none;transition-delay:0s}
 .slcat .cat-svc-slot .cat-svc{border:1px solid var(--line);border-radius:var(--m-r-full);background:var(--card)}
-/* NAMES NEVER CUT (the prototype's \`.cat.open>.cat-h .hf .tag{display:none}\`): on a phone the open row makes room for
+/* NAMES NEVER CUT (the prototype's '.cat.open>.cat-h .hf .tag{display:none}'): on a phone the open row makes room for
    its ✎ by dropping its state word — the list right under it says the same — so "Catering" never breaks mid-word. */
 @media (max-width:1023.98px){.slcat .cat.open>.cat-head-row [data-row-state]{display:none}}
 .slcat .cat-svc-slot .cat-svc.on{border-color:rgb(var(--sn-accent));color:rgb(var(--sn-accent))}

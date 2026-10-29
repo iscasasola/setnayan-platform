@@ -2582,9 +2582,9 @@ function MoreToCompare({
       {counted && shown > 0 ? (
         <div className="mrnote mrcount" data-find-count="">
           <span>
-            {left > 0 ? `Showing ${page.shownCards} of ${cardsWord(page.totalCards)}` : cardsWord(page.totalCards)}
-            {scopeWords ? ` · ${scopeWords}` : ''}
-            {freeWords ? ` · ${freeWords}` : ''}
+            {[left > 0 ? `Showing ${page.shownCards} of ${cardsWord(page.totalCards)}` : null, scopeWords || null, freeWords]
+              .filter(Boolean)
+              .join(' · ')}
             {filtersOn(filters) > 0 ? ` · Filters · ${filtersOn(filters)} · ` : ''}
           </span>
           {filtersOn(filters) > 0 ? (

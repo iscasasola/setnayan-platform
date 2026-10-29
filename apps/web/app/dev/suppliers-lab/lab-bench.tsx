@@ -99,6 +99,7 @@ export function LabBench({
             services: all.services,
             availability: all.availability,
             availabilityDays: all.availabilityDays,
+            performers: all.performers,
           };
         }
         const m = LAB_MARKET[tile];

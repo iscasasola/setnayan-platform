@@ -74,6 +74,7 @@ export function labFind(
   services: FindService[];
   availability: FindAvailability;
   availabilityDays: string[];
+  performers: string[] | null;
 } | null {
   const plan = PLANS[tile];
   if (!plan) return null;
@@ -120,5 +121,7 @@ export function labFind(
     services: plan.services,
     availability: opts.dates === 'none' ? 'no_date' : opts.dates === 'unread' ? 'unread' : 'checked',
     availabilityDays: days,
+    // Performers: a shop with a delivered Setnayan event — here, every shop rated by more than 40 couples.
+    performers: opts.dates === 'perffail' ? null : results.filter((r) => (r.reviewCount ?? 0) > 40).map((r) => r.vendorProfileId),
   };
 }

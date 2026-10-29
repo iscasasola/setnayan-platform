@@ -1,11 +1,10 @@
 import { ActionButton } from '@/components/action-button';
 import type { ReactNode } from 'react';
-import { Hourglass, LogIn, QrCode, Send, ShieldCheck } from 'lucide-react';
+import { Hourglass, LogIn, QrCode, ShieldCheck } from 'lucide-react';
 import { HubRunOfShow } from '@/app/vendor-dashboard/on-the-day/_components/hub-screen';
-import { SupplierSubmit } from '@/app/vendor-dashboard/_components/supplier-submit';
 import type { RunOfShowBlock } from '@/lib/run-of-show';
 import { CREW_ROLE_LABEL, CREW_ROLE_TOOLS_WORDS, crewRoleOpens, type CrewRole } from '@/lib/crew-pass';
-import { joinCrew } from '../actions';
+import { CrewJoinForm } from './crew-name-form';
 
 /**
  * 📱 THE CREW PHONE'S SCREENS (owner 2026-10-29, DECISION_LOG "CREW JOIN THE SUPPLIER'S EVENT HUB BY QR — AND SEE ONLY
@@ -22,7 +21,7 @@ export function CrewFrame({ children }: { children: ReactNode }) {
 }
 
 /** "No account: first scan asks a name." */
-export function CrewNameForm({ token, shopWords, problem }: { token: string; shopWords: string; problem?: string | null }) {
+export function CrewNameForm({ token, shopWords, anonymous }: { token: string; shopWords: string; anonymous: boolean }) {
   return (
     <CrewFrame>
       <div className="space-y-4" data-crew-state="name">
@@ -32,26 +31,7 @@ export function CrewNameForm({ token, shopWords, problem }: { token: string; sho
           {shopWords} will see your name and tap Allow. Then this phone opens their Event Hub for this event — only the
           tools you need on the day.
         </p>
-        {problem ? (
-          <p role="alert" className="text-[13.5px] font-semibold text-danger-700">
-            {problem}
-          </p>
-        ) : null}
-        <form action={joinCrew} className="space-y-3">
-          <input type="hidden" name="token" value={token} />
-          <label className="block">
-            <span className="block pb-1 text-[13px] text-ink/65">Your name</span>
-            <input
-              className="h-12 w-full rounded-xl border border-ink/15 bg-white px-4 text-[16px] text-ink dark:bg-raised"
-              name="name"
-              required
-              maxLength={60}
-              autoComplete="name"
-              placeholder="Kuya Ben"
-            />
-          </label>
-          <SupplierSubmit tone="brand" main icon={<Send aria-hidden strokeWidth={1.9} />} label="Ask to join" pendingLabel="Asking…" />
-        </form>
+        <CrewJoinForm token={token} anonymous={anonymous} />
       </div>
     </CrewFrame>
   );
@@ -100,7 +80,7 @@ export function CrewEventHub({
   endsWords,
   scanner,
 }: {
-  /** The crew's scanner — `<SeatScanner via="crew" />`, handed in by the page (it carries a server action). */
+  /** The crew's scanner — the shipped seat scanner on the crew door, handed in by the page (it carries a server action). */
   scanner: ReactNode;
   eventName: string;
   shopName: string;

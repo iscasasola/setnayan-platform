@@ -6,8 +6,8 @@
  *
  *   1. the crew's page lives OUTSIDE the supplier dashboard and draws none of its frame — no bar, no rail, no
  *      Today / Customers / Shop, no settings;
- *   2. it reads the event (with the admin client) ONLY after the database said the pass is effective, and every one of
- *      those reads is scoped to that ONE event (or the pass's own shop's name);
+ *   2. it reads the event (with the admin client) ONLY after the database said the pass is effective AND the shop's
+ *      booking fee gate is open, and every one of those reads is scoped to that ONE event (or the pass's shop's name);
  *   3. the role decides the tools, rendered: a Helper gets the scanner only, a Member the run of show too;
  *   4. the scanner asks the CREW door (`crew_seat_by_guest_qr`), never the coordinator's.
  */
@@ -41,8 +41,11 @@ test('2 · the event is read only after the pass is proven effective — and onl
   const s = src(PAGE);
   const proven = s.indexOf('if (!pass.effective) return');
   const admin = s.indexOf('createAdminClient()');
+  const fee = s.indexOf("if (feeGate.stage !== 'unlocked') return");
   assert.ok(proven > 0, 'the page never asks whether the pass opens anything now');
-  assert.ok(admin > proven, 'the admin client is made before the pass is proven');
+  assert.ok(fee > proven, 'the shop’s booking-fee gate is not asked for its crew');
+  assert.match(s, /const feeGate = await resolveEventFeeGate\(pass\.vendor_profile_id, eventId\);/, 'the fee gate is not the SHOP’s');
+  assert.ok(admin > fee, 'the admin client is made before the pass and the fee are proven');
   assert.equal([...s.matchAll(/createAdminClient\(\)/g)].length, 1, 'a second admin client appeared');
   const reads = [...s.matchAll(/admin\s*\.from\('([a-z_]+)'\)([\s\S]*?)(?=admin\s*\.from|\]\);)/g)];
   assert.deepEqual(reads.map((m) => m[1]).sort(), ['event_schedule_blocks', 'events', 'vendor_profiles']);
@@ -88,6 +91,7 @@ test('4 · the crew scanner asks the crew door, never the coordinator’s', () =
   assert.match(lookup, /if \(via === 'crew'\) \{\s*const \{ data, error \} = await supabase\.rpc\('crew_seat_by_guest_qr', \{ p_event_id: eventId, p_token: token \}\);/, 'the crew lookup is not the crew door');
   assert.match(src(PAGE), /scanner=\{<SeatScanner eventId=\{eventId\} via="crew" \/>\}/);
   assert.doesNotMatch(src(SCREENS), /SeatScanner|floorSeatByQr/, 'the crew screens reach a scanner of their own');
-  const actions = src('app/join/crew/[token]/actions.ts');
-  assert.doesNotMatch(actions, /coordinator_seat_by_guest_qr|createAdminClient/, 'the crew’s action reaches past the database’s gates');
+  const form = src('app/join/crew/[token]/_components/crew-name-form.tsx');
+  assert.match(form, /supabase\.rpc\('crew_pass_request', \{ p_token: token, p_name: name \}\)/, 'joining is not the database’s door');
+  assert.doesNotMatch(form, /coordinator_seat_by_guest_qr|createAdminClient|from\('vendor_crew_passes'\)/, 'the join form reaches past the database’s door');
 });

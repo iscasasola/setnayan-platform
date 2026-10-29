@@ -18,14 +18,18 @@ Builder S6, slice 3 of 3 — stacked on the Hub set-up slice.
     `moderator_area_level_of` — the shipped hosts' rule asked of a named person (callable by nobody).
   - A crew pass is read by NO existing policy and writes no grant, membership or moderator row: a crew phone reads
     nothing but its own pass.
-- **Hub › Crew** (`crew-panel.tsx`, `crew-actions.ts`) — "Crew for the day": each phone with its state and role ▾
+- **Hub › Crew** (`crew-panel.tsx`, `lib/crew-writes.ts`) — "Crew for the day": each phone with its state and role ▾
   (Member · Helper · Remove), **Allow** on a waiting one, the removed ones with "Let back in"; the crew QR with Share ·
-  Save · Show, and More ▾ (Replace the QR · Turn it off). For the shop's owner and admins only.
-- **The crew phone** — `/join/crew/[token]`, outside the supplier dashboard: a name (an anonymous account when
+  Save · Show, and More ▾ (Replace the QR · Turn it off). For the shop's owner and admins only. The writes are plain
+  table writes on the caller's own session — NO new server action (the route budget sits at its ceiling); the
+  database is the whole boundary.
+- **The crew phone** — `/join/crew/[token]`, outside the supplier dashboard: a name (asked in the browser through
+  `crew_pass_request` — no server action; an anonymous account when
   `NEXT_PUBLIC_CREW_PASS_ANON_ENABLED` is on — OFF by default; else sign in and come back), then "Waiting for the Allow"
   (re-asks every 15 s while looked at), then THE CREW'S EVENT HUB: this event only — the scanner (the shipped
-  `SeatScanner`, `via="crew"`), and for a Member the run of show. Read with the admin client only after the database
-  said the pass is effective, each read scoped to that one event.
+  `SeatScanner` through the shipped `floorSeatByQr(…, 'crew')`), and for a Member the run of show. Read with the admin
+  client only after the database said the pass is effective AND the shop's booking-fee gate is open (the shop's gate,
+  as for its day-of grantees), each read scoped to that one event.
 - RA 10173: the crew member's own passes join the personal-data export (`crew_passes`); erasure classifies the new
   columns (the pass is deleted with its person; the issuer / decider stamps are nulled — the triggers let a stamp go to
   NULL so an account can always be erased, proven in the DB test).

@@ -6,6 +6,7 @@ import { hubDayWords } from '@/lib/hub-events';
 import type { RunOfShowBlock } from '@/lib/run-of-show';
 import { CREW_STATUS_WORDS, crewRequestStatusOf, crewRoleOf, crewRoleOpens, isCrewToken } from '@/lib/crew-pass';
 import { crewPassAnonEnabled } from '@/lib/crew-pass-flag';
+import { resolveEventFeeGate } from '@/lib/vendor-event-fee-access.server';
 import { CrewEventHub, CrewNameForm, CrewSignIn, CrewStatus } from './_components/crew-screens';
 import { CrewWaitingRefresh } from './_components/crew-waiting-refresh';
 import { SeatScanner } from '@/app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/seat-scanner';
@@ -19,6 +20,7 @@ export const dynamic = 'force-dynamic';
  * frame (Today · Customers · Shop · Hub) is exactly what they must not see.
  *
  *   no session          → the name form (an anonymous account when that is switched on; else sign in, then back here);
+ *   the shop's booking fee still unpaid → "Not open yet" (the shop's gate, as for its day-of grantees);
  *   asked, waiting      → "Waiting for the Allow" — the page re-asks quietly every 15 s while it is looked at;
  *   allowed, in time    → THE CREW'S EVENT HUB: this event, the tools the role opens, nothing else;
  *   removed · over · dead QR · their own team · too many waiting → one sentence each.
@@ -30,27 +32,16 @@ export const dynamic = 'force-dynamic';
  * is read by any other policy). The scanner asks the database itself (`crew_seat_by_guest_qr`).
  * 🔒 app/join/crew/the-crew-sees-only-the-event-hub.test.ts · tests/db/crew-pass-sees-only-its-event.db.test.ts
  */
-export default async function CrewJoinPage({
-  params,
-  searchParams,
-}: {
-  params: Promise<{ token: string }>;
-  searchParams: Promise<{ state?: string }>;
-}) {
-  const [{ token }, { state }] = await Promise.all([params, searchParams]);
+export default async function CrewJoinPage({ params }: { params: Promise<{ token: string }> }) {
+  const { token } = await params;
   if (!isCrewToken(token)) return <CrewStatus {...CREW_STATUS_WORDS.invalid} />;
-  const problem =
-    state === 'error'
-      ? 'Something went wrong — try once more.'
-      : state === 'verify'
-        ? 'The quick check did not finish — tap Ask to join again.'
-        : null;
+  const anonymous = crewPassAnonEnabled();
 
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return crewPassAnonEnabled() ? <CrewNameForm token={token} shopWords="The shop" problem={problem} /> : <CrewSignIn token={token} />;
+  if (!user) return anonymous ? <CrewNameForm token={token} shopWords="The shop" anonymous /> : <CrewSignIn token={token} />;
 
   // Where this phone stands — asked with no name, so nothing is written by looking.
   const { data: asked, error: askedError } = await supabase.rpc('crew_pass_request', { p_token: token, p_name: '' });
@@ -60,7 +51,7 @@ export default async function CrewJoinPage({
   }
   const answer = (asked ?? {}) as { status?: unknown; event_id?: string };
   const status = crewRequestStatusOf(answer.status);
-  if (status === 'needs_name') return <CrewNameForm token={token} shopWords="The shop" problem={problem} />;
+  if (status === 'needs_name') return <CrewNameForm token={token} shopWords="The shop" anonymous={anonymous} />;
   if (status === 'waiting') {
     return (
       <CrewStatus {...CREW_STATUS_WORDS.waiting} waiting>
@@ -78,6 +69,10 @@ export default async function CrewJoinPage({
   if (passError) logQueryError('CrewJoin.pass', passError, { eventId }, 'graceful_degrade');
   if (passError || !pass) return <CrewStatus title="Couldn’t open the Event Hub" line="Open this page again in a moment — nothing was lost." />;
   if (!pass.effective) return <CrewStatus {...CREW_STATUS_WORDS.ended} />;
+  // THE BOOKING FEE UNLOCKS THE EVENT (owner 2026-09-20) — for the shop's crew too, exactly as for its day-of
+  // grantees: the gate is the SHOP's, and a crew member has no fee of their own and is never asked to pay one.
+  const feeGate = await resolveEventFeeGate(pass.vendor_profile_id, eventId);
+  if (feeGate.stage !== 'unlocked') return <CrewStatus {...CREW_STATUS_WORDS.locked} />;
 
   // ── The pass is proven: ONE event's name and, for a Member, its run of show. ──
   const role = crewRoleOf(pass.crew_role);

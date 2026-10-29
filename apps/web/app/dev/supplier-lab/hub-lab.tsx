@@ -118,6 +118,7 @@ export async function HubLab({ seg: rawSeg, ev }: { seg?: string; ev?: string })
     body = event.booked ? (
       <div>
         <CrewPanel
+          shopId="lab-shop"
           eventId={event.eventId}
           eventName={event.name}
           qr={{ url: labQrUrl, svg: labQrSvg, endsWords: 'ends Dec 19, 12:00 AM' }}
@@ -204,7 +205,7 @@ export async function HubLab({ seg: rawSeg, ev }: { seg?: string; ev?: string })
  */
 export const CREW_PHONE_STATES = ['name', 'waiting', 'member', 'helper', 'ended'] as const;
 export function CrewPhoneLab({ state }: { state?: string }) {
-  if (state === 'name') return <CrewNameForm token={'0'.repeat(32)} shopWords="The Wedding Project" />;
+  if (state === 'name') return <CrewNameForm token={'0'.repeat(32)} shopWords="The Wedding Project" anonymous={false} />;
   if (state === 'waiting') return <CrewStatus {...CREW_STATUS_WORDS.waiting} waiting />;
   if (state === 'ended') return <CrewStatus {...CREW_STATUS_WORDS.ended} />;
   const role = state === 'member' ? 'member' : 'helper';

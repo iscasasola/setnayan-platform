@@ -7,8 +7,8 @@
  * Share · Save · Show. A forwarded QR admits nobody: every new phone waits here for the Allow. The pass ends after the
  * event by itself (the database's rule, not this screen's).
  *
- * Every press runs the shipped-shape server action (`crew-actions.ts`) under the caller's own RLS and answers in the
- * row; a refused one says why and the row goes back.
+ * Every press writes on the caller's own session (`lib/crew-writes.ts` — the database is the boundary) and answers in
+ * the row; a refused one says why and the row goes back.
  */
 import { useState, useTransition } from 'react';
 import { Check, Download, Expand, QrCode, Send } from 'lucide-react';
@@ -17,18 +17,23 @@ import { Explain } from '@/app/_components/explain';
 import { Sheet } from '@/app/_components/sheet';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { CREW_ROLE_LABEL, CREW_ROLE_TOOLS_WORDS, crewRowLine, type CrewRole, type CrewStatus } from '@/lib/crew-pass';
-import { changeCrew } from '../crew-actions';
+import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
+import { changeCrew, type CrewChange } from '@/lib/crew-writes';
 
 export type CrewPanelPass = { passId: string; name: string; role: CrewRole; status: CrewStatus };
 export type CrewPanelQr = { url: string; svg: string; endsWords: string };
 
 export function CrewPanel({
+  shopId,
   eventId,
   eventName,
   qr,
   passes,
   unreadable = false,
 }: {
+  /** The shop whose crew this is — the writes name it; the database checks the caller is its admin. */
+  shopId: string;
   eventId: string;
   eventName: string;
   /** The event's crew QR, drawn server-side — null when it has not been made yet. */
@@ -42,13 +47,19 @@ export function CrewPanel({
   const [pending, start] = useTransition();
   const [showing, setShowing] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  const router = useRouter();
+  const write = async (change: CrewChange) => {
+    const res = await changeCrew(createClient(), shopId, eventId, change);
+    if (res.ok) router.refresh();
+    return res;
+  };
 
   const decide = (p: CrewPanelPass, next: Partial<Pick<CrewPanelPass, 'status' | 'role'>>) => {
     const before = rows;
     setRows(rows.map((r) => (r.passId === p.passId ? { ...r, ...next } : r)));
     setError(null);
     start(async () => {
-      const res = await changeCrew(eventId, {
+      const res = await write({
         kind: 'decide',
         passId: p.passId,
         status: next.status === 'allowed' || next.status === 'removed' ? next.status : undefined,
@@ -164,7 +175,7 @@ export function CrewPanel({
                 { key: 'replace', label: 'Replace the QR', hint: 'The printed one stops working; phones already in stay in' },
                 { key: 'off', label: 'Turn the crew QR off', hint: 'Every phone on the crew leaves the Event Hub' },
               ]}
-              onPick={(k) => run(() => changeCrew(eventId, { kind: k === 'replace' ? 'replace' : 'off' }))}
+              onPick={(k) => run(() => write({ kind: k === 'replace' ? 'replace' : 'off' }))}
             />
           </div>
           <Sheet open={showing} onClose={() => setShowing(false)} labelledById="crew-qr-show" rise>
@@ -183,7 +194,7 @@ export function CrewPanel({
           <p className="mt-2 text-[15px] font-medium text-ink">No crew QR yet</p>
           <p className="text-[12.5px] text-ink/60">Make one for this event — your crew scan it with any phone.</p>
           <div className="mt-3 flex justify-center">
-            <ActionButton tone="brand" main icon={QrCode} label="Make the crew QR" disabled={pending} onClick={() => run(() => changeCrew(eventId, { kind: 'make' }))} />
+            <ActionButton tone="brand" main icon={QrCode} label="Make the crew QR" disabled={pending} onClick={() => run(() => write({ kind: 'make' }))} />
           </div>
         </div>
       )}

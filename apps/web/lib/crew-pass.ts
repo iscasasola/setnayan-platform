@@ -40,7 +40,8 @@ export const crewRequestStatusOf = (raw: unknown): CrewRequestStatus =>
   (STATUSES as readonly unknown[]).includes(raw) ? (raw as CrewRequestStatus) : 'invalid';
 
 /** The crew phone's one line for every state that is not the Event Hub itself. */
-export const CREW_STATUS_WORDS: Readonly<Record<Exclude<CrewRequestStatus, 'allowed' | 'needs_name'>, { title: string; line: string }>> = {
+export const CREW_STATUS_WORDS: Readonly<Record<Exclude<CrewRequestStatus, 'allowed' | 'needs_name'> | 'locked', { title: string; line: string }>> = {
+  locked: { title: 'Not open yet', line: 'The shop’s Event Hub for this event opens once their booking is settled. Ask them — there is nothing for you to pay.' },
   waiting: { title: 'Waiting for the Allow', line: 'The shop sees your name now. This page opens the Event Hub the moment they tap Allow.' },
   removed: { title: 'Not on the crew', line: 'The shop took this phone off the crew for this event. Ask them if that is a mistake.' },
   ended: { title: 'This event is over', line: 'Crew passes end after the event. Thank you for helping.' },

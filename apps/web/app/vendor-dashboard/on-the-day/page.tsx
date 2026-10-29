@@ -790,7 +790,7 @@ async function readCrew({
     role: crewRoleOf(p.crew_role),
     status: p.status === 'allowed' || p.status === 'removed' ? p.status : 'waiting',
   }));
-  return <CrewPanel eventId={event.eventId} eventName={event.name} qr={qr} passes={passes} unreadable={unreadable} />;
+  return <CrewPanel shopId={vendorProfileId} eventId={event.eventId} eventName={event.name} qr={qr} passes={passes} unreadable={unreadable} />;
 }
 
 /**

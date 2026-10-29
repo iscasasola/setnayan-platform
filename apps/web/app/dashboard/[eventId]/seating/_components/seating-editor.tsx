@@ -6690,15 +6690,31 @@ export function SeatingEditor({
     inGuests && lens?.toolsSlot ? createPortal(<SeatPlanToolRounds more={phoneMore} trailing={phoneTrailing} />, lens.toolsSlot) : null;
   const onSelectViewRef = useRef(onSelectView);
   onSelectViewRef.current = onSelectView;
-  const registerSeats = inGuests ? lens?.registerSeats : undefined;
-  useEffect(() => {
-    if (!registerSeats) return;
-    registerSeats({ mode: studioView, setMode: (m) => onSelectViewRef.current(m), show3D });
-  }, [registerSeats, studioView, show3D]);
   /* 🗂 R4 · Guests › Seats' summary row — the Guests carousel's own cards (`view-summary-cards.tsx`), counted here from
      the plan this editor holds, never typed: the units (linked tables once), who is coming and seated, who is coming and
      still to seat (that count is the door to them). */
   const seatedComing = guests.filter((g) => g.seated_table_id && g.rsvp_status !== 'declined').length;
+  /* 📌 The plan reports its mode AND its seat counts up the lens (owner 30 Oct, *"Seat ls should be pinned on top row and on
+     map and 3d"* → *"Like this one"*): the Guests top row's pinned face draws the SAME three counts as this view's count
+     row — seated · unseated · tables, counted here, never in the screen — and a pressed count does what its tile does. */
+  const registerSeats = inGuests ? lens?.registerSeats : undefined;
+  const openUnseatedRef = useRef(openUnseated);
+  openUnseatedRef.current = openUnseated;
+  const tableCount = displayUnits.length;
+  useEffect(() => {
+    if (!registerSeats) return;
+    registerSeats({
+      mode: studioView,
+      setMode: (m) => onSelectViewRef.current(m),
+      show3D,
+      counts: { seated: seatedComing, unseated: unseatedComing, tables: tableCount },
+      onCount: (k) => {
+        if (k === 'tables') return onSelectViewRef.current('2d');
+        onSelectViewRef.current('list');
+        if (k === 'unseated') openUnseatedRef.current();
+      },
+    });
+  }, [registerSeats, studioView, show3D, seatedComing, unseatedComing, tableCount]);
   /* 🗂 R4 · the fixed count row (owner 2026-10-29, prototype v12): Seated · Unseated · Tables · ✨ Auto arrange — every tile a
      door: Seated and Unseated open the list (Unseated narrowed to who is left), Tables the plan, Auto arrange the shipped
      run. Counted here from the plan this editor holds; guests who said no are not counted. */

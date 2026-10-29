@@ -55,6 +55,7 @@ import {
   Ellipsis,
   Heart,
   House,
+  LayoutGrid,
   Mail,
   Minus,
   PartyPopper,
@@ -66,6 +67,7 @@ import {
   Tag,
   Upload,
   User,
+  UserMinus,
   Users,
   Trash2,
   X,
@@ -197,7 +199,7 @@ import {
   writeGuestsFilter,
   type GuestsFilter,
 } from '@/lib/guests-filter';
-import { GuestsLensContext, type GuestsLens, type SeatsChannel } from './guests-lens';
+import { GuestsLensContext, type GuestsLens, type SeatCounts, type SeatsChannel } from './guests-lens';
 import { guestsFilterMenu } from './guests-filter-menu';
 
 
@@ -432,11 +434,14 @@ export function GuestsScreen(props: GuestsScreenProps) {
   /** The top row's seat for the view's own rounds (Seats' Edit · ⋯) — the plan portals them in. */
   const [toolsSlot, setToolsSlot] = useState<HTMLElement | null>(null);
   const seatsApi = useRef<SeatsChannel | null>(null);
+  /* 📌 The seat plan's counts, for the pinned face on Seats (it reports them; the screen never counts seats). */
+  const [seatCounts, setSeatCounts] = useState<SeatCounts | null>(null);
   const seatWanted = useRef<SeatMode | null>(null);
   const registerSeats = useCallback((api: SeatsChannel | null) => {
     seatsApi.current = api;
     if (!api) return;
     setSeatShow3D(api.show3D);
+    setSeatCounts(api.counts ?? null);
     const want = seatWanted.current;
     seatWanted.current = null;
     if (want && want !== api.mode) api.setMode(want);
@@ -1254,6 +1259,39 @@ export function GuestsScreen(props: GuestsScreenProps) {
       <span className="sr-only"> {word}</span>
     </button>
   );
+  /** 📌 A pinned SEAT count (owner 30 Oct, "Like this one" — the List's doors, on Seats): the same small door shape — a
+      mark and the number, the word for a screen reader — pressing it does what the Seats count row's tile does. */
+  const pinSeatDoor = (k: keyof SeatCounts, value: number, word: string, Mark: typeof Check) => (
+    <button
+      key={k}
+      type="button"
+      className={styles.pinCount}
+      onClick={() => seatsApi.current?.onCount?.(k)}
+      data-seat-count={k}
+      data-pin-dot={k}
+    >
+      <Mark aria-hidden strokeWidth={2.2} />
+      <b><Count value={value} id={`gs-pin-${k}`} /></b>
+      <span className="sr-only"> {word}</span>
+    </button>
+  );
+  /** 📌 THE PINNED FACE'S COUNTS ON EVERY GUESTS AND SEATS VIEW (owner 30 Oct, *"Seat ls should be pinned on top row and
+      on map and 3d"* → *"Like this one"*, the List): Guests (List · Map) carry the reply doors ✓ ✕ ?; Seats (List · 2D ·
+      3D) carry the plan's seat counts — seated · unseated · tables. March carries none. 🔒 lib/guests-top-row-and-full-screen.test.ts */
+  const pinDoors: ReactNode[] =
+    measured && (gview === 'list' || gview === 'map')
+      ? [
+          pinDoor('attending', stats.yes, 'gs-pin-yes', RSVP_ROW_WORDS.attending, Check),
+          pinDoor('declined', stats.no, 'gs-pin-no', RSVP_ROW_WORDS.declined, X),
+          pinDoor('none', stats.none, 'gs-pin-none', RSVP_ROW_WORDS.pending, CircleHelp),
+        ]
+      : gview === 'seats' && seatCounts
+        ? [
+            pinSeatDoor('seated', seatCounts.seated, 'seated', Armchair),
+            pinSeatDoor('unseated', seatCounts.unseated, 'unseated', UserMinus),
+            pinSeatDoor('tables', seatCounts.tables, seatCounts.tables === 1 ? 'table' : 'tables', LayoutGrid),
+          ]
+        : [];
   /* 🎚 R4 slice 2 · THE TOP ROW (owner 2026-10-29, confirmed ~18:35: *"Guests ▾ List·Map · Seats ▾ List·2D·3D · March"*;
      prototype v14 `renderTop`): ONE segmented row of the three — the SAME pill selector, each segment still a link (an
      address an old door lands on) — and the SELECTED one, where it has modes, carries a small ▾ that opens them (the
@@ -1948,15 +1986,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
           {/* 🎚 Slice 2: the slim face on EVERY view — the one menu ("Guests · List ▾"), and on the List its ✓ ✕ ? doors. */}
           <PinnedSummary
             menu={pinMenu}
-            doors={
-              measured && gview === 'list'
-                ? [
-                    pinDoor('attending', stats.yes, 'gs-pin-yes', RSVP_ROW_WORDS.attending, Check),
-                    pinDoor('declined', stats.no, 'gs-pin-no', RSVP_ROW_WORDS.declined, X),
-                    pinDoor('none', stats.none, 'gs-pin-none', RSVP_ROW_WORDS.pending, CircleHelp),
-                  ]
-                : []
-            }
+            doors={pinDoors}
           />
           {/* 🎚 THE ONE PILL SELECTOR (owner 2026-10-08: "adjust all pill selectors to this") — the app's template
               draws the track, the views and the terracotta thumb that slides between them. Still links.

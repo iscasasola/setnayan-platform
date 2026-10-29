@@ -56,7 +56,20 @@ export type GuestsLens = {
   toolsSlot?: HTMLElement | null;
 };
 
-export type SeatsChannel = { mode: SeatMode; setMode: (mode: SeatMode) => void; show3D: boolean };
+export type SeatsChannel = {
+  mode: SeatMode;
+  setMode: (mode: SeatMode) => void;
+  show3D: boolean;
+  /**
+   * 📌 The plan's own seat counts (the Seats count row's — coming guests seated · coming guests unseated · tables, linked
+   * tables once), drawn on the Guests top row's pinned face on every Seats mode (owner 30 Oct: *"Seat ls should be pinned
+   * on top row and on map and 3d"*). Optional: a plan that has not counted yet draws no doors.
+   */
+  counts?: SeatCounts;
+  /** A pressed pinned count does what its count-row tile does (Seated / Unseated → the list, Tables → the plan). */
+  onCount?: (k: keyof SeatCounts) => void;
+};
+export type SeatCounts = { seated: number; unseated: number; tables: number };
 
 export const GuestsLensContext = createContext<GuestsLens | null>(null);
 

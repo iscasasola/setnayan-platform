@@ -16,6 +16,7 @@
 import type { ReactNode } from 'react';
 import { Eye, Footprints, Maximize2, Minimize2, Play, Sparkles, Square, Users } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
+import { formatCount } from '@/lib/format-number';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 
 /** One round glass tool: 44 px, a frame because it is pressable. */
@@ -66,7 +67,7 @@ export function RoomViewTools(p: RoomViewToolsProps) {
         <div className="flex flex-wrap gap-2">
           {p.dancingCount > 0 ? (
             <button type="button" onClick={p.onClearFloor} className={TOOL}>
-              Sit everyone down · {p.dancingCount}
+              Sit everyone down · {formatCount(p.dancingCount)}
             </button>
           ) : null}
           {p.sayHi}

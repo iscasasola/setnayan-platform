@@ -77,7 +77,8 @@ test('🚨 no app or lib code holds a list of the one-per-event groups', () => {
 
 test('every place that decides "one per event" reads the switch', () => {
   const finalize = stripComments(read('app/dashboard/[eventId]/vendors/actions.ts'));
-  assert.match(finalize, /readOnePerEventGroups\(supabase\)/, 'finalizeVendor must read the switch');
+  assert.match(finalize, /const onePerEvent = await readOnePerEventGroups\(supabase\);/, 'finalizeVendor must read the switch');
+  assert.match(finalize, /const isHardSingle = isOnePerEventGroup\(groupId, onePerEvent\.groups\);/, 'finalizeVendor must decide from what it read');
   assert.match(finalize, /if \(!onePerEvent\.ok\)\s*\{\s*return \{ status: 'error'/, 'an unreadable switch must refuse the lock, not allow it as if "none"');
   const page = stripComments(read('app/dashboard/[eventId]/vendors/page.tsx'));
   assert.match(page, /readOnePerEventGroups\(supabase\)/, 'the Suppliers page must read the switch');

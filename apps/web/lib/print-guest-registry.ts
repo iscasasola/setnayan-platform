@@ -17,6 +17,7 @@
  */
 import { RSVP_LABELS, guestDisplayName, plusOneSeats, type GuestRow } from '@/lib/guests';
 import { PLACEHOLDER_FIRST_NAME } from '@/lib/extra-seats';
+import { isPlaceholderNameWord, realNameParts } from '@/lib/seat-placeholder-words';
 import { layoutReport, type ReportColumn, type ReportRow } from '@/lib/print-report';
 import type { PrintDoc } from '@/lib/print-layout';
 import { formatCount } from '@/lib/format-number';
@@ -58,21 +59,30 @@ const NOT_AT_THE_DESK = new Set(['bride', 'groom']);
 
 /**
  * A guest's desk name and the key it is filed under — "Cruz, Ana" under
- * "Cruz Ana"; a custom display name as written, under itself. ONE rule for
+ * "Cruz Ana", with the couple's "Shown as" nickname beside it ("Cruz, Ana “Tita Baby”"); a row with no name
+ * parts, its "Shown as" as written, under itself. ONE rule for
  * every A-to-Z print: the registry and the entrance seating chart's A to Z
  * (`lib/print-entrance-chart.ts`) both sort by it.
  */
-export function surnameFirst(g: Pick<RegistryGuest, 'first_name' | 'last_name' | 'display_name' | 'name_suffix'>): { label: string; key: string } {
-  const last = (g.last_name ?? '').trim();
-  const first = (g.first_name ?? '').trim();
+export function surnameFirst(
+  g: Pick<RegistryGuest, 'first_name' | 'last_name' | 'display_name' | 'name_suffix'> & { name_prefix?: string | null; middle_name?: string | null },
+): { label: string; key: string } {
+  // A stand-in part ("TBA" / "+1") is not a name (lib/seat-placeholder-words.ts).
+  const { first, last } = realNameParts(g.first_name, g.last_name);
   const custom = g.display_name?.trim();
-  // A custom display name ("Tita Baby") is how the couple knows them — print it
-  // as written and file it under itself.
-  if (custom && custom !== `${first} ${last}`.trim()) return { label: custom, key: custom };
-  if (last && first) {
+  const unnamed = isPlaceholderNameWord('first', g.first_name) && isPlaceholderNameWord('last', g.last_name);
+  if (last && first && !unnamed) {
     const suffix = g.name_suffix?.trim();
-    return { label: `${last}, ${first}${suffix ? ` ${suffix}` : ''}`, key: `${last} ${first}` };
+    const prefix = g.name_prefix?.trim();
+    const middle = g.middle_name?.trim();
+    const label = `${last}, ${[prefix, first, middle].filter(Boolean).join(' ')}${suffix ? ` ${suffix}` : ''}`;
+    // 🖨 The full name, filed by surname, with the couple's "Shown as" nickname BESIDE it (owner 2026-10-29, on the
+    // printouts: full names, the nickname beside them) — it used to REPLACE the name and file under itself.
+    const nick = custom && !`${prefix ?? ''} ${first} ${middle ?? ''} ${last}`.toLowerCase().includes(custom.toLowerCase()) ? custom : null;
+    return { label: nick ? `${label} “${nick}”` : label, key: `${last} ${first}` };
   }
+  // No name parts: the "Shown as" name is all there is — print it as written and file it under itself.
+  if (custom) return { label: custom, key: custom };
   const only = guestDisplayName(g) || 'Guest';
   return { label: only, key: only };
 }

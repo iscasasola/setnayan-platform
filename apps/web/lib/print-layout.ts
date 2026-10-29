@@ -18,6 +18,7 @@
  * NOT `server-only`: it reads fonts with node:fs, which the Node test runner can
  * do, so the tests measure real layouts instead of flags.
  */
+import { fitName } from '@/lib/print-name-fit';
 import { loadOtFont, type OtFont } from '@/lib/glyph-path';
 import { LOGO_FONT_OUTLINE, pinLogoFaceWeight, type OtFace } from '@/lib/logo-fonts';
 import type { HubFontKey } from '@/lib/hub-fonts';
@@ -1934,7 +1935,7 @@ function layoutPass(ctx: Ctx, rawPass: PrintPass, fmt: PrintFormat = PRINT_FORMA
     let small = false;
     const nameLines = (s: string, at: number) => {
       // The couple is the pass's secondary line (the guest's name is its first): it may go to the 6 pt floor before it is cut.
-      const spec = (wd: number): FitSpec => ({ font: look.headFont, size, maxWidth: wd, floor: Math.min(size, PRINT_MIN_BODY_PT), wrapBelow: Math.min(size, Math.max(8, size * 0.62)), maxLines: 2, caps: look.capsNames });
+      const spec = (wd: number): FitSpec => ({ font: look.headFont, size, maxWidth: wd, floor: Math.min(size, PRINT_MIN_BODY_PT), wrapBelow: Math.min(size, Math.max(8, size * 0.62)), maxLines: 2, caps: look.capsNames, name: true });
       let fit = fitWords(s, spec(widthAt(at, size)));
       if (fit.lines.some((l) => l.endsWith('…'))) cut = true;
       if (fit.size < 8) small = true;
@@ -2059,7 +2060,7 @@ function layoutPass(ctx: Ctx, rawPass: PrintPass, fmt: PrintFormat = PRINT_FORMA
   // The Guest list toggle: a couple may print passes without names (hand-written, or for walk-ins).
   if (data.details.guestNames !== false && pass.name) {
     const size = 10.5 * k;
-    const fit = fitWords(pass.name, { font: look.headFont, size, maxWidth: stubInner, floor: 8, wrapBelow: Math.max(8, size * 0.8), maxLines: 2 });
+    const fit = fitWords(pass.name, { font: look.headFont, size, maxWidth: stubInner, floor: 8, wrapBelow: Math.max(8, size * 0.8), maxLines: 2, name: true });
     const first = Math.max(34 * k, stubY + 4 * k + fit.size);
     stubY = drawFit(ops, fit, sx, first, { font: look.headFont, size: fit.size, color: look.heading, align: 'center', lead: 1.12 }) + fit.size * DESC_EM;
   }
@@ -2190,12 +2191,29 @@ function fitLine(ops: PrintOp[], raw: string, x: number, y: number, o: TextOpts)
  *      below `floor`);
  *   3. up to `maxLines` lines — balanced, at the largest size from `wrapBelow`
  *      down to the floor at which every line fits;
- *   4. at the floor, the last line ends in "…" — a name is never cut silently
- *      and never runs into its neighbour.
+ *   4. at the floor, the last line ends in "…" — never silently, never into its
+ *      neighbour; and a PERSON'S NAME (`name: true`) is never cut at all: it wraps
+ *      into as many lines as it takes (`lib/print-name-fit.ts`).
  * The words are measured exactly as `text` will draw them (printable, caps,
  * tracking), so a line this returns never needs `text`'s own shrink.
  */
-export type FitSpec = { font: PrintFontKey; size: number; maxWidth: number; floor: number; wrapBelow?: number; maxLines?: number; caps?: boolean; tracking?: number; minTracking?: number };
+export type FitSpec = {
+  font: PrintFontKey;
+  size: number;
+  maxWidth: number;
+  floor: number;
+  wrapBelow?: number;
+  maxLines?: number;
+  caps?: boolean;
+  tracking?: number;
+  minTracking?: number;
+  /**
+   * ✂🚫 A PERSON'S NAME (owner 2026-10-29, "same goes to the print outs where some names get the ..." · "we do not want
+   * that"): step 4 never cuts it — at the floor it wraps into as many lines as it takes (`lib/print-name-fit.ts`), a word
+   * too long for the room broken between letters, and the slot grows. `maxLines` only bounds steps 1–3.
+   */
+  name?: boolean;
+};
 export type Fitted = { lines: string[]; size: number; tracking?: number };
 export function fitWords(raw: string, f: FitSpec): Fitted {
   // 1b. a spaced-caps label (SCAN AT THE DOOR) closes its letter-spacing before it wraps or is cut.
@@ -2254,7 +2272,9 @@ function fitWordsAt(raw: string, f: FitSpec): Fitted {
       }
     }
   }
-  // At the floor: as many words as fit on each line, the last one ending in "…".
+  // A name at the floor: every word, on as many lines as it takes — never "…".
+  if (f.name) return { lines: fitName(s, { size: floor, floor, maxWidth: room, width: (t, z) => w(t, z) }).lines, size: floor };
+  // Anything else at the floor: as many words as fit on each line, the last one ending in "…".
   const size = floor;
   const lines: string[] = [];
   let rest = [...words];
@@ -2553,7 +2573,7 @@ function layoutPassCardClassic(ctx: Ctx, pass: PrintPass, fmt: PrintFormat): Pri
   cardMark(ops, look, data, w / 2, pad + X(20), X(20), false);
   const couple = data.names.second ? `${data.names.first} & ${data.names.second}` : data.names.first;
   const coupleO = { font: look.scriptFont ?? look.headFont, size: X(22), color: look.heading, align: 'center' as const, caps: look.capsNames, tracking: 0.03, layer: foil };
-  const coupleFit = fitWords(couple, { font: coupleO.font, size: coupleO.size, maxWidth: inner, floor: 8, wrapBelow: X(22) * 0.7, maxLines: 2, caps: look.capsNames, tracking: 0.03 });
+  const coupleFit = fitWords(couple, { font: coupleO.font, size: coupleO.size, maxWidth: inner, floor: 8, wrapBelow: X(22) * 0.7, maxLines: 2, caps: look.capsNames, tracking: 0.03, name: true });
   // A couple too long for one line takes two, and the card below moves down by the second.
   const coupleLast = drawFit(ops, coupleFit, w / 2, pad + X(64), { ...coupleO, size: coupleFit.size, lead: 1.1 });
   const coupleBottom = coupleLast + lineInk(coupleFit.lines[coupleFit.lines.length - 1] ?? '', { ...coupleO, size: coupleFit.size }).bottom;
@@ -2570,7 +2590,7 @@ function layoutPassCardClassic(ctx: Ctx, pass: PrintPass, fmt: PrintFormat): Pri
   // sure the name's ascenders and any 2-line name never touch it") — measured
   // from the name's own outline, so an Á or an Ñ is held off it too.
   const nameO = { font: look.headFont, size: X(28), color: look.heading, align: 'center' as const };
-  const nameFit = fitWords(pass.name, { font: nameO.font, size: nameO.size, maxWidth: inner, floor: 8, wrapBelow: X(28) * 0.6, maxLines: 2 });
+  const nameFit = fitWords(pass.name, { font: nameO.font, size: nameO.size, maxWidth: inner, floor: 8, wrapBelow: X(28) * 0.6, maxLines: 2, name: true });
   const nameTop = lineInk(nameFit.lines[0] ?? '', { ...nameO, size: nameFit.size }).top;
   const nameY = Math.max(ruleY + X(30), diamondFoot + X(5) - nameTop);
   const nameLast = drawFit(ops, nameFit, w / 2, nameY, { ...nameO, size: nameFit.size, lead: 1.08 });
@@ -2699,7 +2719,7 @@ function layoutPassCardTicket(ctx: Ctx, pass: PrintPass, fmt: PrintFormat): Prin
   fitLine(ops, PASS_CARD_WORDS.kind, w - pad, pad + X(30), kindO);
   const couple = data.names.second ? `${data.names.first} & ${data.names.second}` : data.names.first;
   const coupleO = { font: look.headFont, size: X(24), color: look.heading, align: 'left' as const, caps: look.capsNames, layer: foil };
-  const coupleFit = fitWords(couple, { font: coupleO.font, size: coupleO.size, maxWidth: room, floor: 8, wrapBelow: X(24) * 0.62, maxLines: 2, caps: look.capsNames });
+  const coupleFit = fitWords(couple, { font: coupleO.font, size: coupleO.size, maxWidth: room, floor: 8, wrapBelow: X(24) * 0.62, maxLines: 2, caps: look.capsNames, name: true });
   const coupleLast = drawFit(ops, coupleFit, pad, pad + X(80), { ...coupleO, size: coupleFit.size, lead: 1.08 });
   const date = cardWhen(data, false);
   let topBottom = coupleLast + lineInk(coupleFit.lines[coupleFit.lines.length - 1] ?? '', { ...coupleO, size: coupleFit.size }).bottom;
@@ -2718,7 +2738,7 @@ function layoutPassCardTicket(ctx: Ctx, pass: PrintPass, fmt: PrintFormat): Prin
   // The largest name that stays below the couple and the date (a long couple
   // on two lines and a long name on two lines meet in the middle otherwise).
   const placeName = (sz: number) => {
-    const fit = fitWords(pass.name, { font: nameO.font, size: sz, maxWidth: room, floor: Math.min(sz, 8), wrapBelow: sz * 0.6, maxLines: 2 });
+    const fit = fitWords(pass.name, { font: nameO.font, size: sz, maxWidth: room, floor: Math.min(sz, 8), wrapBelow: sz * 0.6, maxLines: 2, name: true });
     const b = fitBaselines(fit, pad, 0, { ...nameO, size: fit.size, lead: 1.06 });
     const first = nameY - b[b.length - 1]!;
     return { fit, first, top: first + lineInk(fit.lines[0] ?? '', { ...nameO, size: fit.size }).top };
@@ -2823,7 +2843,7 @@ function layoutPassCardPoster(ctx: Ctx, pass: PrintPass, fmt: PrintFormat): Prin
   cardMark(ops, look, data, pad + X(17), top + X(17), X(17), true);
   const couple = data.names.second ? `${data.names.first} & ${data.names.second}` : data.names.first;
   const cO = { font: look.headFont, size: X(19), color: '#ffffff', align: 'left' as const, caps: look.capsNames };
-  const cFit = fitWords(couple, { font: cO.font, size: cO.size, maxWidth: room - X(44), floor: 8, wrapBelow: X(19) * 0.65, maxLines: 2, caps: look.capsNames });
+  const cFit = fitWords(couple, { font: cO.font, size: cO.size, maxWidth: room - X(44), floor: 8, wrapBelow: X(19) * 0.65, maxLines: 2, caps: look.capsNames, name: true });
   const cBases = fitBaselines(cFit, pad + X(44), 0, { ...cO, size: cFit.size, lead: 1.08 });
   // one line sits level with the mark as before; two lines centre on it
   const cFirst = cFit.lines.length > 1 ? top + X(17) - cBases[cBases.length - 1]! / 2 + cFit.size * 0.33 : top + X(24);
@@ -2842,7 +2862,7 @@ function layoutPassCardPoster(ctx: Ctx, pass: PrintPass, fmt: PrintFormat): Prin
   const nO = { font: look.headFont, size: X(36), color: '#ffffff', align: 'left' as const };
   // A two-line name grows UP the band, never into the couple and the date.
   const placeName = (sz: number) => {
-    const fit = fitWords(pass.name, { font: nO.font, size: sz, maxWidth: room, floor: Math.min(sz, 8), wrapBelow: sz * 0.6, maxLines: 2 });
+    const fit = fitWords(pass.name, { font: nO.font, size: sz, maxWidth: room, floor: Math.min(sz, 8), wrapBelow: sz * 0.6, maxLines: 2, name: true });
     const b = fitBaselines(fit, pad, 0, { ...nO, size: fit.size, lead: 1.06 });
     const first = nameY - b[b.length - 1]!;
     return { fit, first, top: first + lineInk(fit.lines[0] ?? '', { ...nO, size: fit.size }).top };

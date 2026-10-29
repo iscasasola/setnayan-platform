@@ -6,7 +6,7 @@
  *     NAME (wraps, never cut), ONE count line, and an ⓘ holding the developer key ("key massage-chair" lives in
  *     the ⓘ, not on the page — house rule: title + one short line, the rest in the ⓘ);
  *   · `PanelFold` — the guest card's fold (`Fold summaryEnd`): title left · one-line summary right · chevron ·
- *     hairline · ONE OPEN AT A TIME · the open head PINS slim under the drawer's pinned row (`pin`). A danger fold
+ *     hairline · ONE OPEN AT A TIME · the open head PINS slim under the drawer's pinned row (every open `Fold` does this app-wide since #7051's `useSlimPin`). A danger fold
  *     (Delete · Combine) is red and always last.
  *
  * Server-safe (no 'use client'): `Fold` and `InfoTip` are the shared client parts, used as they are.
@@ -100,7 +100,6 @@ export function PanelFold({
       title={title}
       summary={summary}
       summaryEnd
-      pin
       popovers
       danger={danger}
       defaultOpen={open}

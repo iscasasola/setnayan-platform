@@ -123,7 +123,10 @@ import { stampManualLeakMatch } from '@/lib/manual-add-leak.server';
 import { saveSelfAddedServiceCard, updateHostServiceDetails } from './[vendorId]/workspace/actions';
 import { saveSelfAddedPaymentPlan } from './[vendorId]/workspace/payment-plan-actions';
 import {
+  PLAN_PRESENT_FIELD,
+  partialSaveSentence,
   planInstancesToRows,
+  planSaveStep,
   type EditablePlanRow,
 } from '@/lib/self-added-payment-plan';
 import { geocodeAddressWithCity } from '@/lib/geo';
@@ -5591,6 +5594,9 @@ export type SelfAddedSupplierPrefill = {
   /** The HEADLINE price the couple edits — see the note where it is read. */
   price: string;
   planRows: EditablePlanRow[];
+  /** A plan row EXISTS — so an empty `planRows` means "saved with no payments",
+   *  not "no plan yet" (which opens on the 50/50 starter). */
+  planSaved?: boolean;
 };
 
 export type LoadSelfAddedSupplierResult =
@@ -5650,7 +5656,7 @@ export async function loadSelfAddedSupplier(
       : Promise.resolve({ data: null, error: null }),
     supabase
       .from('event_vendor_payment_plan')
-      .select('instances_json')
+      .select('instances_json, is_default_seeded')
       .eq('event_id', eventId)
       .eq('event_vendor_id', vendorId)
       .maybeSingle(),
@@ -5698,7 +5704,13 @@ export async function loadSelfAddedSupplier(
       claimAsk,
       inclusions: Array.isArray(row.host_inclusions) ? row.host_inclusions.join('\n') : '',
       price,
-      planRows: planInstancesToRows((planRes.data as { instances_json?: unknown } | null)?.instances_json),
+      // The lock's own 50/50 estimate comes back as its rule (on lock · 14 days
+      // before), not as two blank-dated rows every later save would refuse.
+      planRows: planInstancesToRows(
+        (planRes.data as { instances_json?: unknown } | null)?.instances_json,
+        { defaultSeeded: (planRes.data as { is_default_seeded?: boolean | null } | null)?.is_default_seeded === true },
+      ),
+      planSaved: planRes.data != null,
     },
   };
 }
@@ -5745,7 +5757,8 @@ export async function updateSelfAddedSupplier(
     return { status: 'error', message: msg || 'Could not save their details.' };
   }
 
-  const warnings: string[] = [];
+  /** What did not save, and — when it has one the couple can act on — why. */
+  const warnings: Array<{ what: string; why?: string }> = [];
 
   // 2 · The booking's own name, which is what the bench card prints.
   const name = formData.get('business_name');
@@ -5756,7 +5769,7 @@ export async function updateSelfAddedSupplier(
       .eq('event_id', eventId)
       .eq('vendor_id', vendorId)
       .is('marketplace_vendor_id', null);
-    if (error) warnings.push('the name on your suppliers list');
+    if (error) warnings.push({ what: 'the name on your suppliers list' });
   }
 
   // 3 · Price — price-only, so nothing else on the row moves.
@@ -5769,7 +5782,7 @@ export async function updateSelfAddedSupplier(
     costFd.set('price_only', '1');
     await updateVendorCosts(costFd);
   } catch {
-    warnings.push('the price');
+    warnings.push({ what: 'the price' });
   }
 
   // 3b · THE PRICE CHECK (owner 2026-10-10: "10% allowance +-"). The record
@@ -5814,35 +5827,48 @@ export async function updateSelfAddedSupplier(
     }
     await updateHostServiceDetails(detailsFd);
   } catch {
-    warnings.push('what they cover');
+    warnings.push({ what: 'what they cover' });
   }
 
-  // 5 · The payment plan, when the sheet sent one.
-  const hasPlanRows = formData
-    .getAll('plan_label')
-    .some((l) => typeof l === 'string' && l.trim().length > 0);
-  if (hasPlanRows) {
+  // 5 · The payment plan — saved as typed, INCLUDING typed down to none.
+  //     🔴 A plan whose payments were all removed used to skip this step and
+  //     report "saved" while the OLD plan stayed (and came back on the next
+  //     open). `planSaveStep` tells an untouched form from an emptied one by
+  //     the editor's own presence; `saveSelfAddedPaymentPlan` writes the
+  //     emptied plan as no payments.
+  //     ⚖ AFTER the price (step 3): the plan is checked against the price
+  //     typed in this same save, never the one it replaces.
+  const planStep = planSaveStep({
+    editorPresent: formData.get(PLAN_PRESENT_FIELD) === '1',
+    postedLabels: formData.getAll('plan_label'),
+    postedValues: formData.getAll('plan_value'),
+  });
+  if (planStep !== 'skip') {
     try {
       const planFd = new FormData();
       planFd.set('event_id', eventId);
       planFd.set('vendor_id', vendorId);
+      planFd.set(PLAN_PRESENT_FIELD, '1');
       for (const k of ['plan_label', 'plan_value', 'plan_kind', 'plan_anchor', 'plan_days']) {
         for (const v of formData.getAll(k)) planFd.append(k, typeof v === 'string' ? v : '');
       }
       await saveSelfAddedPaymentPlan(planFd);
     } catch (e) {
       // The plan's own refusal ("₱60,000 of ₱80,000") is the only sentence
-      // that says what to fix, so it is passed through, not summarised.
+      // that says what to fix, so it is passed through as the WHY, after
+      // naming what did not save.
       const msg = e instanceof Error ? e.message : '';
-      warnings.push(msg && !msg.startsWith('An error occurred') ? msg : 'the payment plan');
+      warnings.push({
+        what: 'the payment plan',
+        ...(msg && !msg.startsWith('An error occurred') ? { why: msg } : {}),
+      });
     }
   }
 
   revalidatePath(`/dashboard/${eventId}`, 'layout');
   revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
-  return warnings.length === 0
-    ? { status: 'ok' }
-    : { status: 'ok', warning: `Saved — except ${warnings.join(' and ')}.` };
+  const warning = partialSaveSentence(warnings);
+  return warning ? { status: 'ok', warning } : { status: 'ok' };
 }
 
 export type SupplierInviteView = { url: string; qrSvg: string } | null;

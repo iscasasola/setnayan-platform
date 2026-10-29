@@ -36,6 +36,7 @@ import { formatPhp } from '@/lib/php';
 import {
   MAX_SCHEDULE_ITEMS,
   computePlanInstances,
+  defaultPaymentScheduleRows,
   pctToBps,
   phpToCentavos,
   type DueAnchor,
@@ -119,9 +120,51 @@ export function planShortfallMessage(scheduledPhp: number, totalPhp: number): st
     : `Your payments add up to ${formatPhp(scheduledPhp)}, which is ${formatPhp(-diff)} more than the ${formatPhp(totalPhp)} price.`;
 }
 
+/**
+ * THE AMOUNT A COUPLE TYPED, AS A NUMBER — the one reading, shared by the
+ * sheet's running total and the server's check. (2026-10-29)
+ *
+ * 🔴 THE BUG THIS CLOSES. The owner, on a ₱395,000 stylist: *"i tried fixing
+ * the payment plans there but did not save properly"*. A peso amount is typed
+ * the way pesos are written — "100,000", "₱295,000" — and `Number("100,000")`
+ * is NaN. So the server refused the whole plan with "Every payment needs an
+ * amount above zero" (about a row that plainly had one), and the running total
+ * quietly skipped the row, so even the preview disagreed with the screen.
+ *
+ * Only the marks money is WRITTEN with are dropped — thousands commas, the peso
+ * sign, a percent sign, spaces. Anything else ("1o0", "100k") still reads as
+ * NaN and is still refused: guessing at a typo is how a plan ends up saying an
+ * amount nobody typed. Blank is NaN too (never a silent 0).
+ */
+export function planAmountNumber(raw: string): number {
+  const t = String(raw ?? '').replace(/[,\s₱%]/g, '').replace(/^PHP/i, '');
+  if (t.length === 0) return NaN;
+  return Number(t);
+}
+
+/**
+ * What the sheet's running total shows — the SAME reading the server checks.
+ * A percent row with no price adds nothing (the footer says "Set a price
+ * first"); a row that does not read as an amount adds nothing either, and the
+ * server then names it.
+ */
+export function planPreviewTotal(
+  rows: ReadonlyArray<{ kind: 'percent' | 'fixed'; value: string }>,
+  totalPhp: number | null,
+): number {
+  let sum = 0;
+  for (const r of rows) {
+    const n = planAmountNumber(r.value);
+    if (!Number.isFinite(n) || n <= 0) continue;
+    if (r.kind === 'fixed') sum += n;
+    else if (totalPhp != null) sum += (totalPhp * n) / 100;
+  }
+  return sum;
+}
+
 /** A synthetic schedule row. Only the fields `computePlanInstances` reads. */
 function toScheduleRow(r: CouplePlanRowInput, seq: number): PaymentScheduleItemRow {
-  const n = Number(r.value);
+  const n = planAmountNumber(r.value);
   return {
     // 🔑 SYNTHETIC IDS, NEVER PERSISTED. `computePlanInstances` takes the
     // vendor-side ROW type, and these three keys are part of that shape
@@ -178,7 +221,7 @@ export function buildCouplePaymentPlan(opts: {
 
   for (const r of rows) {
     if (r.label.trim().length === 0) return { ok: false, message: PLAN_LABEL_REQUIRED };
-    const n = Number(r.value);
+    const n = planAmountNumber(r.value);
     if (!Number.isFinite(n) || n <= 0) return { ok: false, message: PLAN_AMOUNT_REQUIRED };
     if (r.amount_kind === 'percent' && n > 100) {
       return { ok: false, message: 'A percentage cannot be more than 100.' };
@@ -253,8 +296,19 @@ export type EditablePlanRow = {
   days: string;
 };
 
-export function planInstancesToRows(instances: unknown): EditablePlanRow[] {
+export function planInstancesToRows(
+  instances: unknown,
+  opts: {
+    /**
+     * The plan row's `is_default_seeded` — Setnayan's own 50/50 ESTIMATE,
+     * seeded by the lock (`freezePaymentPlanAtBooking`) for a priced supplier
+     * with no plan. Its rule is not unknown: it is `defaultPaymentScheduleRows`.
+     */
+    defaultSeeded?: boolean;
+  } = {},
+): EditablePlanRow[] {
   if (!Array.isArray(instances)) return [];
+  const seeded = opts.defaultSeeded === true ? defaultPaymentScheduleRows() : null;
   return instances.flatMap((raw): EditablePlanRow[] => {
     if (!raw || typeof raw !== 'object') return [];
     const i = raw as Partial<CouplePlanInstance>;
@@ -263,9 +317,134 @@ export function planInstancesToRows(instances: unknown): EditablePlanRow[] {
     if (a && (a.due_anchor === 'on_lock' || a.due_anchor === 'before_event')) {
       return [{ label, kind: a.amount_kind === 'fixed' ? 'fixed' : 'percent', value: String(a.value ?? ''), anchor: a.due_anchor, days: String(a.due_offset_days ?? '0') }];
     }
+    // 🔴 THE LOCK'S ESTIMATE CAME BACK WITH NO DUE DATES (2026-10-29). Locking a
+    // priced supplier the couple added seeds a 50/50 estimate with no `authored`
+    // rule, so the record sheet re-opened it as two blank-dated rows — and from
+    // then on EVERY save of the sheet, even a new phone number, was refused
+    // "Every payment needs a due date" for a plan the couple never touched. The
+    // estimate's rule is known exactly (it is the default schedule), so it comes
+    // back as that rule, matched by its `seq`.
+    const rule = seeded?.find((d) => d.seq === i.seq) ?? null;
+    if (rule && rule.due_anchor) {
+      return [{ label, kind: 'percent', value: String((rule.percent_bps ?? 0) / 100), anchor: rule.due_anchor, days: String(rule.due_offset_days ?? 0) }];
+    }
+    // A legacy PERCENT instance keeps its percent (it carries `percent_bps`), so
+    // the share still follows the price; its day is the one thing unknown.
+    if (i.amount_kind === 'percent' && typeof i.percent_bps === 'number' && i.percent_bps > 0) {
+      return [{ label, kind: 'percent', value: String(i.percent_bps / 100), anchor: '', days: '0' }];
+    }
     const amt = typeof i.amount_php === 'number' ? i.amount_php : null;
     return [{ label, kind: 'fixed' as const, value: amt == null ? '' : String(amt), anchor: '' as const, days: '0' }];
   });
+}
+
+/**
+ * The row the couple's own save writes into `event_vendor_payment_plan`.
+ *
+ * 🔴 `is_default_seeded: false` IS THE FIX, NOT A DEFAULT (2026-10-29). Lock a
+ * priced supplier the couple added and `freezePaymentPlanAtBooking` seeds a
+ * 50/50 ESTIMATE flagged `is_default_seeded = true`. The couple's save used to
+ * upsert only `instances_json`, so the flag SURVIVED their plan — and the flag
+ * is what two readers act on:
+ *   · `lockMayOverwritePlan` lets a re-lock replace a default-seeded plan, so
+ *     the plan they typed was thrown away for another generic 50/50;
+ *   · the Booked row skips a default-seeded plan's instalments as "estimated",
+ *     so their real next payment was never shown as due.
+ * A plan the couple typed is theirs; it says so on the row.
+ */
+export function couplePlanUpsert(args: {
+  eventId: string;
+  vendorId: string;
+  instances: readonly CouplePlanInstance[];
+  nowIso: string;
+}): {
+  event_id: string;
+  event_vendor_id: string;
+  instances_json: readonly CouplePlanInstance[];
+  is_default_seeded: false;
+  updated_at: string;
+} {
+  return {
+    event_id: args.eventId,
+    event_vendor_id: args.vendorId,
+    instances_json: args.instances,
+    is_default_seeded: false,
+    updated_at: args.nowIso,
+  };
+}
+
+/**
+ * WHAT A SAVE DOES WITH THE PLAN ROWS THE SHEET POSTED. (2026-10-29)
+ *
+ * Owner: *"the payment scheme there should properly update and save"* — which
+ * includes taking payments OFF, down to none.
+ *
+ *  · 'save'  — some row has a name or an amount: build it and write it, or
+ *              refuse it and say why.
+ *  · 'clear' — the plan editor was on the sheet (`plan_present`) and every
+ *              payment was removed or left blank: the couple's plan is now NO
+ *              payments, and that is written (`instances_json = []`).
+ *  · 'skip'  — the sheet carried no plan editor at all: nothing was asked.
+ *
+ * 🔴 THE BUG THIS CLOSES. Emptying the plan used to post no `plan_label`, the
+ * save read that as "nothing asked", and the OLD plan stayed — the sheet closed
+ * as saved and the next open showed every payment the couple had just removed.
+ * "Has rows?" could not tell an untouched form from an emptied one; the
+ * editor's own presence can.
+ *
+ * A row counts when it has a name OR an amount — the same filter
+ * `buildCouplePaymentPlan` applies — so an amount with no name is refused for
+ * its missing name, never mistaken for an empty plan and cleared.
+ */
+export type PlanSaveStep = 'save' | 'clear' | 'skip';
+
+export const PLAN_PRESENT_FIELD = 'plan_present';
+
+export function planSaveStep(args: {
+  /** Did the form carry the plan editor (`plan_present=1`)? */
+  editorPresent: boolean;
+  postedLabels: readonly unknown[];
+  postedValues: readonly unknown[];
+}): PlanSaveStep {
+  const filled = (v: unknown) => typeof v === 'string' && v.trim().length > 0;
+  if (args.postedLabels.some(filled) || args.postedValues.some(filled)) return 'save';
+  return args.editorPresent ? 'clear' : 'skip';
+}
+
+/**
+ * The one sentence the record sheet shows when part of a save did not land.
+ *
+ * 🔑 THE REASON IS ITS OWN SENTENCE. This was `Saved — except ${parts}.`, with a
+ * plan's refusal dropped in as a "part" — so a couple read "Saved — except Your
+ * payments add up to ₱100,000 of ₱395,000 — ₱295,000 is unaccounted for.." and
+ * had to work out which field it meant. Now: what did not save, then why.
+ */
+export function partialSaveSentence(
+  parts: ReadonlyArray<{ what: string; why?: string | null }>,
+): string | null {
+  if (parts.length === 0) return null;
+  const whats = parts.map((p) => p.what);
+  const list = whats.length <= 1 ? whats.join('') : `${whats.slice(0, -1).join(', ')} and ${whats[whats.length - 1]}`;
+  const whys = parts
+    .map((p) => (p.why ?? '').trim())
+    .filter((w) => w.length > 0)
+    .map((w) => (/[.!?]$/.test(w) ? w : `${w}.`));
+  return [`Saved — except ${list}.`, ...whys].join(' ');
+}
+
+/**
+ * The price the record sheet starts from, as the whole-peso digits its amount
+ * field holds. `String(Number('80000.50'))` is "80000.5", and stripping every
+ * non-digit from THAT glued the centavos on — ₱800,005, a hundred times the
+ * price, written back by the next save. The field takes whole pesos, so it
+ * starts from the whole pesos.
+ */
+export function priceDigitsForSheet(price: string | null | undefined): string {
+  const t = String(price ?? '').replace(/,/g, '').trim();
+  if (t.length === 0) return '';
+  const n = Number(t);
+  if (!Number.isFinite(n) || n <= 0) return t.replace(/[^\d]/g, '');
+  return String(Math.trunc(n));
 }
 
 /**
@@ -297,7 +476,9 @@ export function planInstancesToRows(instances: unknown): EditablePlanRow[] {
  *
  * ⚖ Why this can be told apart without a new column: the only writers of a
  * non-empty, NON-default-seeded plan on an off-platform booking are the
- * couple's (`saveSelfAddedPaymentPlan`, never sets `is_default_seeded`). The
+ * couple's (`saveSelfAddedPaymentPlan`, which writes `is_default_seeded: false`
+ * through `couplePlanUpsert` — so its plan stays protected here even when it
+ * was typed over the lock's own estimate). The
  * lock snapshot on such a booking writes either `[]` or a default-seeded
  * estimate. If a third writer ever appears, this truth table is where it must
  * be added — `self-added-payment-plan.test.ts` executes it.

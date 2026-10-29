@@ -91,7 +91,9 @@ test('4 · the crew scanner asks the crew door, never the coordinator’s', () =
   assert.match(lookup, /if \(via === 'crew'\) \{\s*const \{ data, error \} = await supabase\.rpc\('crew_seat_by_guest_qr', \{ p_event_id: eventId, p_token: token \}\);/, 'the crew lookup is not the crew door');
   assert.match(src(PAGE), /scanner=\{<SeatScanner eventId=\{eventId\} via="crew" \/>\}/);
   assert.doesNotMatch(src(SCREENS), /SeatScanner|floorSeatByQr/, 'the crew screens reach a scanner of their own');
-  const form = src('app/join/crew/[token]/_components/crew-name-form.tsx');
-  assert.match(form, /supabase\.rpc\('crew_pass_request', \{ p_token: token, p_name: name \}\)/, 'joining is not the database’s door');
-  assert.doesNotMatch(form, /coordinator_seat_by_guest_qr|createAdminClient|from\('vendor_crew_passes'\)/, 'the join form reaches past the database’s door');
+  const join = src('lib/crew-join-client.ts');
+  assert.match(join, /supabase\.rpc\('crew_pass_request', \{ p_token: token, p_name: name \}\)/, 'joining is not the database’s door');
+  for (const f of ['lib/crew-join-client.ts', 'app/join/crew/[token]/_components/crew-name-form.tsx']) {
+    assert.doesNotMatch(src(f), /coordinator_seat_by_guest_qr|createAdminClient|from\('vendor_crew_passes'\)/, `${f} reaches past the database’s door`);
+  }
 });

@@ -15,9 +15,12 @@ text is not touched.
   team behind {event} on {date} … / {hosts}", one line per " / ", filled from real facts — the contact's first name
   (else the shop), "our wedding", the guest message's date rule, the row they were added under, their claim link, the
   hosts. An absent fact takes its lead-in with it.
-- **The link is automatic**: the Share's one request (`prepareSupplierShare`) gets it through the ONE writer
-  (`createManualVendorInvite`), which returns the live link or makes it for an older supplier — no "create link" step.
-- **The digital card** (`lib/supplier-card.ts`, `/api/supplier-card`): the approved prototype
+- **The link is automatic, and the Share is ONE request**: `createManualVendorInvite({ …, withShare: true })` — the
+  ONE link writer returns the live link (or makes it for an older supplier: no "create link" step) together with the
+  message and the card (`supplierSharePayload`, lib/supplier-share.server.ts). No new server action and no new route:
+  the server-action budget sits at its ceiling (`lint-server-action-budget`), and each route is a Vercel route. Asked
+  for on the record card's open, and on the service card's first touch — never for a whole page of cards.
+- **The digital card** (`lib/supplier-card.ts`, handed back as a PNG data address): the approved prototype
   (`build-contracts-2026-10-30/supplier-digital-card/`) as a 1080 × 1440 PNG — shop name · contact · covers · invited
   by · event · date · the claim-link QR — laid out in the guest ticket's own `PrintDoc` vocabulary and flattened by
   the ticket's own `renderPassCardPng`. Cormorant + Jost outlines from the repo's own files; a missing fact is left
@@ -26,7 +29,7 @@ text is not touched.
 Guards: `lib/the-supplier-invite-text-is-the-approved-one.test.ts` (the exact text) ·
 `lib/the-supplier-card-is-the-prototype.test.ts` (a real render: size, facts, QR decode) ·
 `app/dashboard/[eventId]/_components/a-self-added-supplier-shares-its-invite.test.ts` (Share only for self-added, on
-both cards, through `shareInvite` and the one link writer; the card route only reads).
+both cards, through `shareInvite` and the one link writer; reading the facts writes nothing).
 
 No migration. No email — the message leaves from the couple's own phone.
 

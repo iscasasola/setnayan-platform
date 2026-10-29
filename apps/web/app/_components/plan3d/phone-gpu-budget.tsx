@@ -130,7 +130,7 @@ export function ContextLostNotice({ onShow2d, onRetry }: { onShow2d?: () => void
     <div
       role="status"
       data-webgl-lost=""
-      className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-[#11131a] px-6 text-center"
+      className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black/85 px-6 text-center"
     >
       <p className="max-w-xs text-sm text-white/85">3D needs more memory than this device has free right now.</p>
       {onShow2d ? (

@@ -367,7 +367,7 @@ export function BookedRowList({ eventId, rows, firstOpen = null }: { eventId: st
       {list}
       <aside
         className="sticky top-[calc(var(--stick-h,150px)+12px)] mt-2 min-w-0 border-l border-ink/10 pl-6 lg:pl-8"
-        aria-label={openRow ? openRow.name : 'Your team'}
+        aria-label={openRow ? openRow.name : 'Your suppliers'}
         data-booked-detail={openRow?.vendorId ?? ''}
       >
         {openRow ? (

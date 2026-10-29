@@ -28,6 +28,8 @@ couple on the line under it, the search said "Search customers", and an opened r
   couple's own word when renamed), Co-host (their seat), or Host (made the event); the booked coordinator joins — "You ·
   Coordinator" when it is this shop. Two more reads in the existing second round (`guests` roles, `event_moderators`
   seats); a refused role read drops the word, never the names.
+- The row's line may take two lines (opt-in `lineWrap` on `Fold` / `SupplierOpenRow`, Customers rows only) so the money is
+  never cut to "…" on a phone, as v13 draws it.
 - Tour copy (`vendor_people_v1` keeps its key — it is the seen-mark suppliers already hold) says Events ▾.
 - Dev lab: `/dev/supplier-lab?s=events` draws the approved v13's own five events (Indalecio & Claire twice).
 

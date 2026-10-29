@@ -1,0 +1,34 @@
+# Full-screen dialogs still drawn INSIDE the page (no portal) — each can be covered by a page bar on a phone.
+# Guard: app/_components/an-open-panel-clears-the-top-bar.test.ts. This list only shrinks: portal one (or move it onto the
+# shared Sheet) and take its line off. Never add a line.
+app/[slug]/_components/selfie-capture.tsx
+app/[slug]/_components/story/relive.tsx
+app/[slug]/find-seat/_components/door-pass.tsx
+app/_components/anon-gate/save-to-continue.tsx
+app/_components/app-store/choose-plan-sheet.tsx
+app/_components/guided-tour-card.tsx
+app/_components/report-page-button.tsx
+app/_components/requirements-modal.tsx
+app/admin/fraud/_components/wipe-ban-dialog.tsx
+app/dashboard/(account)/samahan/[communityId]/_components/samahan-stories.tsx
+app/dashboard/[eventId]/_components/cohost-welcome.tsx
+app/dashboard/[eventId]/_components/inline-checkout-drawer.tsx
+app/dashboard/[eventId]/_components/vendor-direct-pay.tsx
+app/dashboard/[eventId]/invitation/_components/guest-invite-modal.tsx
+app/dashboard/[eventId]/launch/_components/maker-tour.tsx
+app/dashboard/[eventId]/launch/_components/theme-preview-overlay.tsx
+app/dashboard/[eventId]/monogram/mark-everywhere.tsx
+app/dashboard/[eventId]/schedule/_components/emcee-script-button.tsx
+app/dashboard/[eventId]/schedule/_components/prep-item-controls.tsx
+app/dashboard/[eventId]/sponsors/_components/add-sponsor-modal.tsx
+app/dashboard/[eventId]/sponsors/_components/edit-sponsor-modal.tsx
+app/dashboard/[eventId]/sponsors/_components/invitation-template-modal.tsx
+app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/consent-gated-invite-form.tsx
+app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/quote-bridge.tsx
+app/dashboard/[eventId]/vendors/_components/cancel-booking-button.tsx
+app/papic/_components/papic-buy-shell.tsx
+app/pay/[reference]/_components/pay-panel.tsx
+app/tour/budget/_components/tour-budget-planner.tsx
+app/v/[slug]/_components/service-details-sheet.tsx
+app/vendor-dashboard/bookings/_components/vendor-prep-add.tsx
+app/vendor-dashboard/on-the-day/_components/guest-review-qr.tsx

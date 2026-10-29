@@ -35,6 +35,11 @@ test('1 · it hides on a tap on the empty page, a scroll of the page, a swipe do
   assert.match(TOOLS, /d\.t === RSVP_GROUND_MESSAGE\) stowRef\.current\(\);/, 'the RSVP stage’s ground does not put it away');
   assert.match(TOOLS, /stowRef\.current = \(\) => \{\s*if \(!desk && !held\) setStowed\(true\);\s*\};/, 'it may stow on a desktop, or while a scene is held');
   assert.match(TOOLS, /if \(desk\) setStowed\(false\);/, 'a desktop’s column can be left stowed');
+  // …and nothing else closes on that same tap: the part's tool is kept (a closed tool lets the part go — seen in the lab).
+  const SHEET_STATE = read('lib/element-sheet-state.ts');
+  assert.match(SHEET_STATE, /export function aGroundTapStows\(\): boolean \{[\s\S]*?window\.innerWidth < 1024 && document\.querySelector\('\[data-stage-tools\]'\) !== null;/);
+  assert.match(read('app/dashboard/[eventId]/launch/_components/maker-sheet.tsx'), /if \(aGroundTapStows\(\)\) return;/, 'the lower third’s tool closes on the tap that stows it');
+  assert.match(read('app/dashboard/[eventId]/website/editor/_components/editor-shell.tsx'), /\(data\.t === 'tapOutside' && !aGroundTapStows\(\)\)/, 'the part’s sheet closes on the tap that stows it');
   // The swipe: down by more than its distance, never from a field, a slider or a card strip.
   assert.equal(STAGE_BAR_SWIPE_PX, 40);
   assert.match(TOOLS, /y - swipe\.current > STAGE_BAR_SWIPE_PX/, 'a swipe down does not put it away');

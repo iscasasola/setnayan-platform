@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import { Fragment, useCallback, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react';
-import { ELEMENT_SHEET_CLOSED, elementSheetStep, type ElementSheetEvent, type ElementSheetState } from '@/lib/element-sheet-state';
+import { ELEMENT_SHEET_CLOSED, aGroundTapStows, elementSheetStep, type ElementSheetEvent, type ElementSheetState } from '@/lib/element-sheet-state';
 import { Eye, EyeOff, Lock, Palette, PanelsTopLeft, PencilLine, QrCode } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PUBLIC_STAGE_LABELS, PUBLIC_STAGE_ORDER } from '@/lib/public-site-stage-labels';
@@ -1196,8 +1196,11 @@ export function MakerWork({
       /* 🧰 THE PART'S TOOLS ON A PHONE ARE THE LOWER THIRD'S (owner 2026-10-05,
          "approve"): a tap on the canvas that hits no part CLOSES them — the
          navigator comes back — and the tap goes on to select what it hit. */
+      /* 🫥 …EXCEPT IN THE STAGES MAKER (owner 2026-10-30, "hides on a tap on empty page"): there a tap on the ground puts
+         the toolbar AWAY with the part still picked and its tools as they were (`stage-tools.tsx` stows) — closing them
+         here would let the part go (`aGroundTapStows`). */
       const phoneSheet = (window.innerWidth < 1024 || stagesStudioRef.current) && elementRef.current !== null;
-      if (data?.source === 'setnayan-site' && phoneSheet && (data.t === 'tapOutside' || (data.t === 'edit' && !isHubElementKey(data.el)))) {
+      if (data?.source === 'setnayan-site' && phoneSheet && ((data.t === 'tapOutside' && !aGroundTapStows()) || (data.t === 'edit' && !isHubElementKey(data.el)))) {
         const was = elementRef.current!;
         sheetDo({ t: 'close' });
         postToShownCanvases({ source: 'setnayan-editor', t: 'markEl', key: was.key, el: null });

@@ -146,6 +146,10 @@ export function PaymentPlanRows({
   }, [rows, totalPhp]);
 
   const covered = totalPhp != null && Math.abs(scheduled - totalPhp) <= 1;
+  /* What is still unscheduled (+) or over (−). Said in the total line so the
+     couple reads the exact figure to type into the last payment, not only
+     that the two numbers differ. */
+  const gap = totalPhp == null ? 0 : totalPhp - scheduled;
 
   return (
     <div className="space-y-2">
@@ -215,7 +219,7 @@ export function PaymentPlanRows({
                 value={r.label}
                 disabled={disabled}
                 maxLength={60}
-                placeholder="First payment"
+                placeholder="Name it, e.g. Balance"
                 aria-label={`Payment ${i + 1} name`}
                 onChange={(e) => patch(r.key, { label: e.target.value })}
                 className={`${CELL} min-w-0 flex-1`}
@@ -226,7 +230,11 @@ export function PaymentPlanRows({
                 inputMode="decimal"
                 value={r.value}
                 disabled={disabled}
-                placeholder="50"
+                /* 🔑 NEVER A BARE NUMBER (2026-10-29). This read "50", and on a
+                   real ₱395,000 plan an EMPTY Balance row was read as "50 %":
+                   the server refused it as "needs an amount" and the couple
+                   believed it saved. A placeholder must not look like a value. */
+                placeholder="Amount"
                 aria-label={`Payment ${i + 1} amount`}
                 onChange={(e) => patch(r.key, { value: e.target.value })}
                 className={`${CELL} w-20 shrink-0`}
@@ -281,7 +289,7 @@ export function PaymentPlanRows({
         <ActionButton tone="neutral" icon={Plus} label="Add payment" onClick={add} disabled={disabled} />
       ) : null}
 
-      <div className="flex items-center justify-between gap-2 border-t border-ink/10 pt-2 text-[11px]">
+      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 border-t border-ink/10 pt-2 text-[11px]">
         <span className="flex items-center gap-1 text-ink/55">
           <CalendarClock aria-hidden className="h-3 w-3" strokeWidth={1.9} />
           Dates settle against your booking date and event date.
@@ -289,7 +297,12 @@ export function PaymentPlanRows({
         <span className={covered ? 'font-medium text-[rgb(var(--color-ok))]' : 'font-medium text-[rgb(var(--color-warn))]'}>
           {totalPhp == null
             ? 'Set a price first'
-            : `${formatPhp(scheduled)} of ${formatPhp(totalPhp)}`}
+            : `${formatPhp(scheduled)} of ${formatPhp(totalPhp)}` +
+              (covered
+                ? ''
+                : gap > 0
+                  ? ` · ${formatPhp(gap)} left`
+                  : ` · ${formatPhp(-gap)} over`)}
         </span>
       </div>
     </div>

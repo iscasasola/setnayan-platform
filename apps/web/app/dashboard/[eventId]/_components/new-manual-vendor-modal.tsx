@@ -683,16 +683,21 @@ export function NewManualVendorModal({
             </div>
           ) : null}
 
+          {/* PINNED FOOTER — the primary action never scrolls away on a long
+              sheet (the sheet scrolls inside itself; this sticks to its foot).
+              🔑 THE REFUSAL LIVES IN HERE, beside Save (2026-10-29). It sat in
+              the scroll above this footer, below the plan, the heads-up and the
+              link block — so a couple who pressed Save from the middle of the
+              plan saw nothing happen. Their plan was refused ("₱207,000 of
+              ₱395,000") and the sheet looked exactly like a save in progress. */}
+          <div className="sticky bottom-0 z-10 -mx-5 space-y-2 border-t border-ink/10 bg-cream px-5 py-3">
           {errorMsg ? (
-            <p role="alert" className="flex items-center gap-1.5 pb-2 text-[12.5px] font-medium text-danger-800 dark:text-danger-200">
-              <AlertCircle aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+            <p role="alert" className="flex items-start gap-1.5 text-[12.5px] font-medium text-danger-800 dark:text-danger-200">
+              <AlertCircle aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2} />
               {errorMsg}
             </p>
           ) : null}
-
-          {/* PINNED FOOTER — the primary action never scrolls away on a long
-              sheet (the sheet scrolls inside itself; this sticks to its foot). */}
-          <div className="sticky bottom-0 z-10 -mx-5 flex items-center justify-end gap-2 border-t border-ink/10 bg-cream px-5 py-3">
+          <div className="flex items-center justify-end gap-2">
             <ActionButton tone="neutral" icon={X} label="Cancel" onClick={moved ? onCreated : onClose} disabled={pending} />
             <ActionButton
               tone="brand"
@@ -713,6 +718,7 @@ export function NewManualVendorModal({
               disabled={pending}
               className="flex-1 sm:flex-none"
             />
+          </div>
           </div>
         </form>
         )}

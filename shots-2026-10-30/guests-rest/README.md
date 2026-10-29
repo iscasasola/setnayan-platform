@@ -9,8 +9,9 @@ Branch `shots/guests-rest` = `origin/main` + every slice branch merged, run in t
 | SBS-names-* · SBS-names-march-* | full name + “nickname” (lab `&nicks=1`) |
 | SBS-preview-* | March ▶ Preview playing (walk 3 ringed, the bar) |
 | SBS-swap-* | Seats › List swap confirm with "why here" (lab lock answered by the capture script) |
-| SBS-share-* · SBS-share-seats-* | 📤 Share or print — List and Seats sheets |
+| SBS-share-* · SBS-share-seats-* | 📤 Share or print — List and Seats sheets (⚠ shot with the round placed in the top row; the PR ships the round UNPLACED — the row belongs to another builder now) |
 | SBS-settings-* | Guests ⚙ without the Invitations row (prototype: its settings sheet) |
 | SBS-requests-* | Asking to join, in place (lab stand-in for the Requests page body) |
 | SBS-peek-map-* · SBS-peek-2d-* | a tap on the Map / 2D peeks first |
-| PIN-* | pinned top row counts on List · Map · Seats 2D · Seats List · 3D (390), 320, 1280 |
+| SBS-map-mind-* · SBS-map-mind-role-* | Guests › Map as a mind map (hubs around the couple, faces on rings) |
+| ~~PIN-*~~ | **WITHDRAWN** — pinned top-row counts. The controller moved that row to another builder (2026-10-30); no PR carries it. Kept only as a record. |

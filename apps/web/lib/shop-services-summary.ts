@@ -18,7 +18,8 @@
  * Pure: the page reads, this words. 🔒 lib/shop-services-summary.test.ts
  */
 import { DAY_OF_MODULES, familiesForServices, resolveDayOfFamily, type DayOfFamily } from '@/lib/vendor-dayof-modules';
-import { serviceReach, type ServicePricingRow } from '@/lib/service-reach';
+import { serviceReach } from '@/lib/service-reach';
+import type { ServicePricingRow } from '@/lib/smart-sort';
 import { formatCount } from '@/lib/format-number';
 import type { PinFigure } from '@/lib/pin-figure';
 

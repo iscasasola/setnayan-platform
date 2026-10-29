@@ -231,6 +231,12 @@ export default async function PerformanceHome({
     );
   }
 
+  // 📌 v13: the pinned row's three figures — the last 30 days and the 60, read with the HONEST reader (`totals: null`
+  // on a refusal, never zeros), so "the 30 days before" is the difference and an unread window says "—". Started here,
+  // awaited after Batch A — they run beside it. After the upsell's return, so a plan without the funnel reads none of it.
+  const pinNowRead = fetchVendorFunnelTotalsResult(supabase, profile.vendor_profile_id, isoDaysAgo(30)).catch(() => ({ totals: null, error: null }));
+  const pinSince60Read = fetchVendorFunnelTotalsResult(supabase, profile.vendor_profile_id, isoDaysAgo(60)).catch(() => ({ totals: null, error: null }));
+
   const canAdvanced = !gateOn || canSeePerformanceAdvanced(tier); // Pro+
   const canMarket = !gateOn || canSeeMarketIntel(tier); // Pro-and-up (2026-07-11)
 
@@ -271,8 +277,6 @@ export default async function PerformanceHome({
     marketRegionRow,
     pricePosition,
     badgeFacts,
-    pinNow,
-    pinSince60,
   ] = await Promise.all([
     safeRead(
       supabase
@@ -404,11 +408,9 @@ export default async function PerformanceHome({
       : Promise.resolve(null),
     // 🏅 The badges, started above — awaited in this same batch (no extra round trip).
     badgeFactsRead,
-    // 📌 v13: the pinned row's three figures — the last 30 days and the 60, read with the HONEST reader (`totals: null`
-    // on a refusal, never zeros), so "the 30 days before" is the difference and an unread window says "—".
-    fetchVendorFunnelTotalsResult(supabase, profile.vendor_profile_id, isoDaysAgo(30)).catch(() => ({ totals: null, error: null })),
-    fetchVendorFunnelTotalsResult(supabase, profile.vendor_profile_id, isoDaysAgo(60)).catch(() => ({ totals: null, error: null })),
   ]);
+  // Started before Batch A (beside the badges), so this wait costs no extra round trip.
+  const [pinNow, pinSince60] = await Promise.all([pinNowRead, pinSince60Read]);
   const pinFigures = analyticsFigures(
     pinNow.totals,
     pinNow.totals && pinSince60.totals

@@ -99,11 +99,6 @@ export function GuestCardSheet({
             saved.current = true;
           }}
         >
-          {actions ? (
-            <div data-guest-card-actions="" className="flex flex-wrap items-center gap-2 px-4 pb-1 pt-3">
-              {actions}
-            </div>
-          ) : null}
           {got !== null && 'card' in got ? (
             got.card
           ) : (
@@ -119,6 +114,15 @@ export function GuestCardSheet({
               )}
             </InspectorColumn>
           )}
+          {/* 🧰 THE SURFACE'S VERBS AT THE CARD'S FOOT, pinned in the thumb zone (globals.css `[data-guest-card-actions]`) —
+              the approved Guests prototype's place for Remove · Move or swap. Drawn ABOVE the card they were clipped: the
+              card's heading takes focus on open and the sheet scrolled to it, under the sticky header (owner, live iPhone
+              2026-10-29). */}
+          {actions ? (
+            <div data-guest-card-actions="" className="flex flex-wrap items-center justify-end gap-2">
+              {actions}
+            </div>
+          ) : null}
         </div>
       </InspectorSheetAlone>
       {/* The host portals itself to <body> (z-[100]), over the card. */}

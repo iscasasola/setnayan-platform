@@ -225,6 +225,8 @@ import type { PickOption } from '../../website/editor/_components/pick-menu-type
 import { BlueprintStudio } from '../../studio/indoor-blueprint/_components/blueprint-studio';
 import { saveEntrance } from '../../studio/indoor-blueprint/actions';
 import { InfoTip } from '@/app/_components/info-tip';
+import { resolvePlan3dFacts } from '@/lib/plan3d-control';
+import { SeatPlanFacts } from './seat-plan-facts';
 import { PillButton, PillTrack } from '@/app/_components/pill-track';
 import { DetailsPieceButton, useDetailsEditorOpener, useDetailsPiece } from '../../launch/_components/details-go';
 import { useMaker } from '../../launch/_components/maker-context';
@@ -336,6 +338,12 @@ type Props = {
   /** 🪑 Has the event's day begun (Manila)? From then guests always see their
    *  seats — `seatDayHasCome` in lib/guests-may-see-seats.ts, read server-side. */
   seatDayHasCome?: boolean;
+  /**
+   * 🧊 The 3D Plan's facts that the plan itself does not hold (owner 2026-10-29, *"put it behind (i)"*) — read by the
+   * page: the event's link and time zone, whether that read succeeded, and how many guests made an avatar (`null` =
+   * that count was not read, so the fact says "—", never 0). Omitted (a lab): the same honest "—".
+   */
+  plan3d?: { slug: string | null; timezone: string | null; eventMeasured: boolean; withAvatar: number | null };
   /** Walima gender-separation advisory (null when not requested). */
   genderSeparationNote: string | null;
   /** How many non-declined guests exceed total effective seats (0 = enough). */
@@ -435,6 +443,7 @@ export function SeatingEditor({
   me,
   eventDate,
   seatDayHasCome = false,
+  plan3d,
   genderSeparationNote,
   seatShortfall,
   nonDeclinedCount,
@@ -5392,6 +5401,22 @@ export function SeatingEditor({
   // Details on a phone, IN THE FLOW at the top of the guests part (`inline`),
   // never a sheet fixed over the Maker.
   const sheetVariant: 'sheet' | 'inline' = details ? 'inline' : 'sheet';
+  /* 🪪 What the picked piece is called — one answer for the read-only dock and for the Guests sheet's heading. */
+  const pieceName = (): string => {
+    if (selTable) return selTable.table_label;
+    if (!selM) return '';
+    if (selM.kind === 'booth') return booths.find((x) => x.booth_id === selM.id)?.label ?? 'Booth';
+    if (selM.kind === 'sign') return signs.find((x) => x.sign_id === selM.id)?.label ?? 'Sign';
+    if (selM.kind === 'dance') return 'Dance floor';
+    if (selM.kind === 'service') return 'Service door';
+    if (selM.kind === 'cocktail') return cocktail.label;
+    if (selM.kind === 'entrance') return entrance.kind === 'tunnel' ? 'Walk-through' : 'Entrance';
+    return selM.kind.charAt(0).toUpperCase() + selM.kind.slice(1);
+  };
+  /* 🧾 IN GUESTS › SEATS ON A PHONE THE PIECE'S CONTROLS LIVE IN THE PEOPLE SHEET (owner, live iPhone 2026-10-29: the
+     Stage showed TWO ✕). That sheet names the piece in its own heading and owns the ✕ — so the dock drawn inside it
+     draws neither its name row nor a second ✕. */
+  const dockInSheet = inGuests && isPhone;
   const dockNode: React.ReactNode = (() => {
     if (dockPrimary === null) return null;
     const edge = computeDockEdge();
@@ -5401,21 +5426,14 @@ export function SeatingEditor({
     // Take-over button. Disabled looks disabled; the old silent no-op dies.
     if (!canEdit && (dockPrimary === 'table' || dockPrimary === 'marker')) {
       let glyph: React.ReactNode = null;
-      let name = '';
+      const name = pieceName();
       let summary: string | null = null;
       if (selTable) {
         glyph = <ShapeGlyph shape={shapeHintFor(selTable.table_type)} className="h-3.5 w-3.5" />;
-        name = selTable.table_label;
         summary = `${seatedAt(selTable.table_id)}/${effectiveCapacity(selTable.capacity, selTable.removed_seats)}`;
-      } else if (selM) {
-        name = selM.kind === 'booth'
-          ? (booths.find((x) => x.booth_id === selM.id)?.label ?? 'Booth')
-          : selM.kind === 'sign'
-            ? (signs.find((x) => x.sign_id === selM.id)?.label ?? 'Sign')
-            : selM.kind.charAt(0).toUpperCase() + selM.kind.slice(1);
       }
       return (
-        <ContextDock variant={isPhone ? sheetVariant : 'dock'} edge={isPhone ? 'bottom' : edge} tone="neutral" glyph={glyph} name={name} boundsRef={regionRef} onDismiss={isPhone ? clearSelection : undefined}>
+        <ContextDock variant={isPhone ? sheetVariant : 'dock'} edge={isPhone ? 'bottom' : edge} tone="neutral" glyph={dockInSheet ? undefined : glyph} name={dockInSheet ? undefined : name} boundsRef={regionRef} onDismiss={isPhone && !dockInSheet ? clearSelection : undefined}>
           {summary ? <span className="px-1 font-mono text-[11px] tabular-nums text-ink/60">{summary} seated</span> : null}
           <ActionButton tone="neutral" icon={Eye} label={lock.status === 'stale_takeover_available' ? 'Take over' : 'Edit'} disabled={lock.status === 'acquiring'} onClick={lock.acquire} />
           {!isPhone ? (
@@ -5639,12 +5657,20 @@ export function SeatingEditor({
     if (dockPrimary === 'marker' && selM) {
       const big = isPhone;
       const actBtn = `inline-flex shrink-0 items-center gap-1 rounded-lg border font-medium ${big ? 'h-11 px-3 text-sm' : 'h-8 px-2.5 text-xs'}`;
-      const removeBtn = (
+      /* 📱 On a phone the marker's two steps are THE shared ActionButton — Done the filled step, as on the table's sheet
+         (`PhoneTableDock`) — never a bare bordered box, which in the sheet's column read as a text field (owner 2026-10-29). */
+      const removeBtn = big ? (
+        <ActionButton tone="danger" icon={Trash2} label="Remove" onClick={removeSelectedMarker} />
+      ) : (
         <button type="button" onClick={removeSelectedMarker} className={`${actBtn} border-danger-300 text-danger-600 hover:bg-danger-50`}>
-          <Trash2 className={big ? 'h-5 w-5' : 'h-4 w-4'} /> Remove
+          <Trash2 className="h-4 w-4" /> Remove
         </button>
       );
-      const doneBtn = (
+      const doneBtn = big ? (
+        <span className="ml-auto inline-flex">
+          <ActionButton tone="brand" main icon={Check} label="Done" onClick={clearSelection} />
+        </span>
+      ) : (
         <button type="button" onClick={clearSelection} aria-label="Done" className={`${actBtn} border-ink/15 text-ink/60 hover:bg-ink/5`}>
           Done
         </button>
@@ -5764,12 +5790,14 @@ export function SeatingEditor({
           </>
         );
       } else {
-        // stage — honest permanence: no remove.
+        // stage — honest permanence: no remove. Said as a sentence beside Done, never an orphan "· permanent" line.
         glyph = <span className="font-mono text-[9px] font-semibold uppercase tracking-wide text-ink/50">Stage</span>;
         name = 'Stage';
         mBody = (
           <>
-            <span className="px-1 text-[11px] text-ink/45">· permanent</span>
+            <span data-seat-stage-stays="" className={big ? 'min-w-0 flex-1 text-[13.5px] text-ink/65' : 'px-1 text-[11px] text-ink/45'}>
+              {big ? 'The stage stays on the plan — drag it to move it.' : '· permanent'}
+            </span>
             {doneBtn}
           </>
         );
@@ -5780,13 +5808,14 @@ export function SeatingEditor({
           variant={isPhone ? sheetVariant : 'dock'}
           edge={isPhone ? 'bottom' : edge}
           tone="neutral"
-          glyph={glyph}
-          name={name}
+          glyph={dockInSheet ? undefined : glyph}
+          name={dockInSheet ? undefined : name}
           boundsRef={regionRef}
           panel={panel}
-          onDismiss={isPhone ? clearSelection : undefined}
+          onDismiss={isPhone && !dockInSheet ? clearSelection : undefined}
         >
-          {mBody}
+          {/* 📱 One wrapping row on a phone — the sheet's column would stretch each step into its own full-width line. */}
+          {big ? <div className="flex flex-wrap items-center gap-2">{mBody}</div> : mBody}
         </ContextDock>
       );
     }
@@ -5951,6 +5980,24 @@ export function SeatingEditor({
       </FormRows>
     </div>
   ) : null;
+  /* 🧊 THE 3D PLAN'S FACTS, BEHIND ⓘ (owner 2026-10-29, *"put it behind (i)"*) — the four facts the retired 3D Plan page
+     showed (`lib/plan3d-control.ts`, restored as it was), counted from the plan this editor holds and the page's reads.
+     The status follows the switch above as it flips. Next to that switch in the Seats ⋯ menu; the switch stays the one
+     way to show the seats early. */
+  const plan3dFacts = details
+    ? resolvePlan3dFacts(
+        { measured: plan3d?.eventMeasured ?? true, slug: plan3d?.slug ?? null, eventDate, timezone: plan3d?.timezone ?? null },
+        {
+          measured: true,
+          published: doorOpen || seatDayHasCome,
+          publishedAt: doorOpen ? floorPlan.published_at ?? null : null,
+          tables: tables.length,
+          seated: guests.filter((g) => g.seated_table_id !== null).length,
+        },
+        { shared: true, measured: true, total: guests.length, withAvatar: plan3d?.withAvatar ?? null },
+      )
+    : null;
+  const plan3dFactsRow = plan3dFacts ? <SeatPlanFacts facts={plan3dFacts} /> : null;
 
   // LEFT — the place. Tapping a row picks it on the plan (the 2D plan: leaving
   // 3D or the list for it). A guest or group picked on the right is SEATED by
@@ -6569,6 +6616,7 @@ export function SeatingEditor({
         </>
       ) : null}
       {doorStrip}
+      {plan3dFactsRow}
       <MenuCaption>Add a table or element</MenuCaption>
       {addMenuBody}
       <MenuDivider />
@@ -6781,10 +6829,15 @@ export function SeatingEditor({
           }}
           labelledById="seat-plan-people-title"
         >
-          <div className="flex flex-col gap-2 px-1 pb-4" data-seat-plan-people="sheet">
-            <h2 id="seat-plan-people-title" className="text-[15px] font-semibold text-ink">
-              {formatCount(guests.length)} {guests.length === 1 ? 'guest' : 'guests'} · {formatCount(unseatedComing)} to seat
-            </h2>
+          {/* 📐 THE SHEET'S OWN HEAD AND GUTTER (owner, live iPhone 2026-10-29): the heading sits on the ✕'s row (clear of it,
+              `pr-14`) — the picked table's or piece's NAME when one is picked, the people's count otherwise — and the body
+              keeps the house 16 px from both edges, so nothing runs flush to the glass or is clipped at the right. */}
+          <div className="flex min-w-0 flex-col gap-2 px-4 pb-4" data-seat-plan-people="sheet">
+            <div className="flex min-h-11 items-center pr-10 pt-3">
+              <h2 id="seat-plan-people-title" className="min-w-0 text-[17px] font-semibold leading-snug text-ink [overflow-wrap:anywhere]">
+                {dockInline ? pieceName() : `${formatCount(guests.length)} ${guests.length === 1 ? 'guest' : 'guests'} · ${formatCount(unseatedComing)} to seat`}
+              </h2>
+            </div>
             {guestsNode}
           </div>
         </Sheet>
@@ -7983,10 +8036,16 @@ export function SeatingEditor({
                           {/* Blueprint seat slot (directive 2026-07-15) — a seat
                               footprint tinted in the guest's colour, NOT a chair
                               illustration. Identity + selection clarity stay on
-                              the SeatBadge above it. */}
+                              the SeatBadge above it.
+                              ⭕ ROUND, like the chair it stands for (owner, live 2026-10-29: *"the different seats have
+                              color issues making each seat square"* — the July footprint was a `rounded-sm` square, and
+                              once the floor went frameless every tinted square read as a coloured tile). The approved
+                              Guests prototype draws every seat as a circle in the guest's colour; a blank one, dashed.
+                              🔒 lib/seats-in-guests-are-frameless.test.ts. */}
                           <span
                             aria-hidden
-                            className="absolute inset-[10%] rounded-sm border"
+                            data-seat-chair="taken"
+                            className="absolute inset-[10%] rounded-full border"
                             style={{
                               borderColor: colorFor(occupant),
                               backgroundColor: colorFor(occupant),
@@ -8015,7 +8074,7 @@ export function SeatingEditor({
                           {/* Blueprint empty-seat slot — a footprint outline, not
                               a chair. `border-current` inherits the pick/idle
                               colour so the affordance stays obvious. */}
-                          <span className="block h-[70%] w-[70%] rounded-sm border border-current" />
+                          <span data-seat-chair="blank" className="block h-[70%] w-[70%] rounded-full border border-dashed border-current" />
                         </button>
                       )}
                       {/* §3 — delete this chair. ONLY in edit-chairs mode now (no

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "edcb2561ee",
+  "generatedFromRef": "e77ec98fd3",
   "routeCount": 479,
   "destinations": 985,
   "actions": 640,
-  "blocks": 7403,
+  "blocks": 7402,
   "routes": {
     "/": {
       "files": [
@@ -6883,7 +6883,6 @@
         "GuestsMarch",
         "GuestsScreen",
         "GuestsView",
-        "HTMLAnchorElement",
         "HTMLButtonElement",
         "HTMLDivElement",
         "HTMLElement",
@@ -6948,7 +6947,7 @@
         "Pick",
         "PickMenu",
         "PickWhoContext.Provider",
-        "PillThumb",
+        "PinCountDoor",
         "PinnedSummary",
         "PlusOneFilter",
         "Popover",
@@ -8627,6 +8626,7 @@
         "PickMenu",
         "PillButton",
         "PillTrack",
+        "PinCountDoor",
         "Pop",
         "PresenceMeta",
         "PriorityOrder",
@@ -8660,8 +8660,7 @@
         "SwitchRow",
         "T",
         "TableType",
-        "TypedRow",
-        "ViewCountRow"
+        "TypedRow"
       ]
     },
     "/dashboard/[eventId]/seating/chart": {

@@ -29,6 +29,7 @@
  */
 import type { MarchResult } from './march-result';
 import type { MarchStep } from './march-drag';
+import { isOwnMarchGroup, OWN_GROUP_LABEL_MAX } from './entourage';
 
 /**
  * How many drafted moves the march holds before Apply. Every Undo state of the
@@ -45,6 +46,11 @@ const MAX_STEPS_PER_MOVE = 120;
 const MAX_LEADS = 400;
 
 const id = (v: unknown): string | null => (typeof v === 'string' && v.length > 0 && v.length <= 80 ? v : null);
+/** 🏷 An own group's heading: trimmed, 1–64 characters (`march_groups.label`'s CHECK). */
+const groupLabel = (v: unknown): string | null => {
+  const t = typeof v === 'string' ? v.trim() : '';
+  return t.length > 0 && t.length <= OWN_GROUP_LABEL_MAX ? t : null;
+};
 
 /** One posted or stored step → a step, or null when it is not one of the shipped moves. */
 export function sanitizeMarchStep(raw: unknown): MarchStep | null {
@@ -78,6 +84,22 @@ export function sanitizeMarchStep(raw: unknown): MarchStep | null {
     case 'walking': {
       const guest = id(r.guest);
       return guest && typeof r.walks === 'boolean' ? { kind: 'walking', section, guest, walks: r.walks } : null;
+    }
+    /* 🏷 The couple's own groups (owner 2026-10-29): only an own group's key may be made, named or dropped. */
+    case 'group-add': {
+      const label = groupLabel(r.label);
+      const after = r.after === null ? null : id(r.after);
+      return isOwnMarchGroup(section) && label && (r.after === null || after) ? { kind: 'group-add', section, label, after } : null;
+    }
+    case 'group-name': {
+      const label = groupLabel(r.label);
+      return isOwnMarchGroup(section) && label ? { kind: 'group-name', section, label } : null;
+    }
+    case 'group-drop':
+      return isOwnMarchGroup(section) ? { kind: 'group-drop', section } : null;
+    case 'regroup': {
+      const guest = id(r.guest);
+      return guest ? { kind: 'regroup', section, guest } : null;
     }
     default:
       return null;

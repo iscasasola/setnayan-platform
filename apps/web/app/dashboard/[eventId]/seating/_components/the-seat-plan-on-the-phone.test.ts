@@ -31,8 +31,26 @@ import React from 'react';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
-import { moveTargets, planPress, seatPlanHeadline, seatPlanRoomName } from '@/lib/seat-plan-details';
-import { checkPlacement, DEFAULT_FLOOR_PLAN, shapeHintFor, solveAutoLayout, tableGeometry, type EventTableRow } from '@/lib/seating';
+import {
+  moveTargets,
+  planMaxZoom,
+  planPress,
+  PLAN_ZOOM_MAX_FLOOR,
+  SEAT_NAME_PX,
+  SEAT_NAME_PX_AT_MAX_ZOOM,
+  seatPlanHeadline,
+  seatPlanRoomName,
+} from '@/lib/seat-plan-details';
+import {
+  checkPlacement,
+  DEFAULT_FLOOR_PLAN,
+  DEFAULT_ROOM_M,
+  shapeHintFor,
+  solveAutoLayout,
+  TABLE_FOOTPRINT_M,
+  tableGeometry,
+  type EventTableRow,
+} from '@/lib/seating';
 
 (globalThis as unknown as { React: unknown }).React = React;
 
@@ -249,4 +267,42 @@ test('9 · a guest card opened from a seat: its verbs at the foot (never clipped
   const css = readFileSync(join(process.cwd(), 'app/globals.css'), 'utf8');
   assert.match(css, /@media \(max-width: 700\.98px\) \{\s*\.sn-inspector-sheet\.sn-inspector-sheet--alone \{\s*left: 0;/, 'a card with no list behind it is offset by a dim strip on a phone');
   assert.match(css, /\.sn-inspector-sheet \[data-guest-card-actions\] \{\s*position: sticky;/, 'the card verbs are not pinned to the sheet foot');
+});
+
+test('10 · zoomed all the way in, a seat name reads at body size (owner 2026-10-30, "names on the seats are normal font size")', () => {
+  // On screen a name is SEAT_NAME_PX × zoom × tableScale (the editor's to-scale factor). Every table type, on a
+  // 358 / 390 px phone and an 820 px tablet canvas of the free board, must reach ≥ 13 px at the closest zoom.
+  const caps: Record<keyof typeof TABLE_FOOTPRINT_M, number> = {
+    round_8: 8, round_10: 10, round_12: 12, long_banquet_6: 6, long_banquet_8: 8, long_banquet_10: 10,
+    family_head_12: 12, family_head_14: 14, family_head_16: 16, sweetheart_2: 2, serpentine: 10,
+  };
+  const scaleOf = (type: keyof typeof TABLE_FOOTPRINT_M, canvasW: number) =>
+    (TABLE_FOOTPRINT_M[type] * (canvasW / DEFAULT_ROOM_M.w)) / tableGeometry(shapeHintFor(type), caps[type]).box.w;
+  for (const w of [358, 390, 820]) {
+    const types = Object.keys(caps) as (keyof typeof TABLE_FOOTPRINT_M)[];
+    const zMax = planMaxZoom(types.map((t) => scaleOf(t, w)));
+    for (const t of types) {
+      const px = SEAT_NAME_PX * zMax * scaleOf(t, w);
+      assert.ok(px >= 13, `${t} on a ${w} px canvas: a seat name is only ${px.toFixed(1)} px at the closest zoom`);
+    }
+    // a plan of just round tables of 8 (the common case) on the 390 phone: names land at ~13.5 px, not 5
+    if (w === 390) {
+      const z = planMaxZoom([scaleOf('round_8', 390)]);
+      const px = SEAT_NAME_PX * z * scaleOf('round_8', 390);
+      assert.ok(px >= 13 && px <= 15, `round tables on a 390 px phone: ${px.toFixed(1)} px at the closest zoom`);
+      assert.ok(z > 6, `the 2D plan's closest zoom on a phone fell back to ${z.toFixed(2)} (it was a fixed 2.6, names ~5 px)`);
+    }
+  }
+  assert.equal(SEAT_NAME_PX_AT_MAX_ZOOM, 13.5);
+  assert.equal(planMaxZoom([]), PLAN_ZOOM_MAX_FLOOR, 'no tables: the old cap stands');
+  assert.equal(planMaxZoom([5]), PLAN_ZOOM_MAX_FLOOR, 'never closer-capped than before');
+
+  // the editor clamps every zoom (pinch · wheel · + −) to THAT cap, and Fit still opens where it always did
+  const ed = editor();
+  assert.doesNotMatch(ed, /const ZOOM_MAX = /, 'a fixed 2D zoom cap is back');
+  assert.match(ed, /const clampZoom = \(z: number\) => Math\.max\(ZOOM_MIN, Math\.min\(zoomMaxRef\.current, z\)\);/);
+  assert.match(ed, /zoomMaxRef\.current = planMaxZoom\(\s*metricPpm\s*\?\s*tables\.map\(/, 'the cap is not computed from this canvas + tables');
+  assert.match(ed, /const z1 = Math\.min\(PLAN_ZOOM_MAX_FLOOR, clampZoom\(Math\.min\(rect\.width \/ bw, rect\.height \/ bh\) \* 0\.86\)\);/, 'Fit no longer opens at the old frame');
+  // the name the cap is sized for is the one drawn: SEAT_NAME_PX on the seat label
+  assert.match(ed, new RegExp(`absolute z-10 line-clamp-2 break-words text-\\[${SEAT_NAME_PX}px\\]`), 'the seat name size moved — planMaxZoom sizes for the wrong text');
 });

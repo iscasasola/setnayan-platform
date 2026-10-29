@@ -5988,9 +5988,7 @@ div:has(> [data-apply-pro-sheet]),
  * A SECOND scrim over a first (`[data-scrim-stacked]`, set by `OverlayBackdrop`) dims but does not blur again — one
  * blurred layer at a time, so two sheets never stack two blurs on a phone.
  * 🔒 `lib/one-scrim.test.ts`. Recorded: corpus `INTERACTION_RULES.md` § 9 "Anything popped up over the page". */
-.sn-popup-dark,
-.sn-side-panel-scrim,
-.sn-inspector-peek {
+.sn-popup-dark, .sn-side-panel-scrim, .sn-inspector-peek {
   -webkit-tap-highlight-color: transparent;
   -webkit-user-select: none;
   user-select: none;

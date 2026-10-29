@@ -200,7 +200,9 @@ import {
   moveTargets,
   nextUnseatedGuest,
   parseSeatPlanPiece,
+  planMaxZoom,
   planPress,
+  PLAN_ZOOM_MAX_FLOOR,
   ROOM_PRESETS,
   seatAtChoices,
   seatPlanGuestSections,
@@ -854,6 +856,9 @@ export function SeatingEditor({
   // state only tracks `detail` (the level-of-detail flip) which changes rarely.
   const worldRef = useRef<HTMLDivElement>(null);
   const zoomRef = useRef(1);
+  // 🔍 The closest the 2D plan zooms — set every render from the canvas + tables (planMaxZoom); a ref so the
+  // wheel listener (bound once per view) never clamps to a stale cap.
+  const zoomMaxRef = useRef(PLAN_ZOOM_MAX_FLOOR);
   const panRef = useRef({ x: 0, y: 0 });
   const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
   const panStartRef = useRef<{ px: number; py: number; sx: number; sy: number } | null>(null);
@@ -2827,9 +2832,19 @@ export function SeatingEditor({
   };
 
   const ZOOM_MIN = 0.1; // low enough that Fit frames even a large free auto-grow board
-  const ZOOM_MAX = 2.6;
+  // Owner 2026-10-30, "make it zoom a bit more so the names on the seats are normal font size": the closest zoom
+  // is where every table's seat names read at body size on THIS canvas (a fixed 2.6 left them ~5 px on a phone).
+  zoomMaxRef.current = planMaxZoom(
+    metricPpm
+      ? tables.map(
+          (t) =>
+            (TABLE_FOOTPRINT_M[t.table_type] * metricPpm) /
+            tableGeometry(shapeHintFor(t.table_type), t.capacity, t.link_group_id != null).box.w,
+        )
+      : [],
+  );
   const DETAIL_AT = 0.72; // chairs appear at/above this zoom; pucks below
-  const clampZoom = (z: number) => Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z));
+  const clampZoom = (z: number) => Math.max(ZOOM_MIN, Math.min(zoomMaxRef.current, z));
 
   // Apply the world transform straight to the DOM (no per-frame re-render);
   // only flip `detail` state when crossing the level-of-detail threshold.
@@ -4116,7 +4131,8 @@ export function SeatingEditor({
     const cell = inGuests ? regionRef.current?.getBoundingClientRect() : null;
     const fitW = cell && cell.width > 0 ? cell.width : rect.width;
     const fitH = cell && cell.height > 0 ? cell.height : rect.height;
-    const z1 = clampZoom(Math.min(fitW / bw, fitH / bh) * 0.86);
+    // Fit opens no closer than it always did — only a pinch / + goes past the old cap (#7060).
+    const z1 = Math.min(PLAN_ZOOM_MAX_FLOOR, clampZoom(Math.min(fitW / bw, fitH / bh) * 0.86));
     const cx = (minX + maxX) / 2;
     const cy = (minY + maxY) / 2;
     applyView(z1, { x: rect.width / 2 - z1 * cx, y: rect.height / 2 - z1 * cy });

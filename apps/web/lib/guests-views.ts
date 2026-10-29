@@ -90,3 +90,49 @@ export const SEAT_PAGES_MOVED_TO_SEATS = {
   plan3d: '3d',
   'studio/indoor-blueprint': 'map',
 } as const satisfies Record<string, SeatView | null>;
+
+/**
+ * 🎚 THE TOP ROW — ONE MENU FOR THE PAGE AND ITS MODE (owner 2026-10-29, slice 2, confirmed ~18:35: *"Guests ▾ List·Map ·
+ * Seats ▾ List·2D·3D · March"*; prototype v14 `renderTop` / `viewMenu`). Three segments; the SELECTED one (Guests or
+ * Seats) carries a small ▾ that opens its modes. The four views above stay the addresses — this only groups them.
+ */
+export const GUESTS_TOPS = ['guests', 'seats', 'march'] as const;
+export type GuestsTop = (typeof GUESTS_TOPS)[number];
+export const GUESTS_TOP_LABEL: Readonly<Record<GuestsTop, string>> = { guests: 'Guests', seats: 'Seats', march: 'March' };
+
+/** Which segment a view sits under — List and Map are both Guests. */
+export function topOfView(v: GuestsView): GuestsTop {
+  return v === 'seats' ? 'seats' : v === 'march' ? 'march' : 'guests';
+}
+
+/** Seats' three modes in the menu (List · 2D · 3D). The guests' map to their table (`seat=map`) is the 2D family. */
+export const SEAT_MODES = ['list', '2d', '3d'] as const;
+export type SeatMode = (typeof SEAT_MODES)[number];
+export const SEAT_MODE_LABEL: Readonly<Record<SeatMode, string>> = { list: 'List', '2d': '2D', '3d': '3D' };
+/** The menu's longer words for each mode (prototype v14: "2D floor plan" · "3D room"). */
+export const SEAT_MODE_MENU_LABEL: Readonly<Record<SeatMode, string>> = { list: 'List', '2d': '2D floor plan', '3d': '3D room' };
+
+export function seatModeOf(seat: SeatView | null | undefined): SeatMode {
+  return seat === '3d' ? '3d' : seat === 'list' ? 'list' : '2d';
+}
+
+/** The `seat=` a mode is carried as (2D is the bare Seats address). */
+export function seatOfMode(mode: SeatMode): SeatView | null {
+  return mode === '2d' ? null : mode;
+}
+
+/**
+ * 🗺 AUTO-PINNED FULL SCREEN (owner 2026-10-29 ~18:35: *"3d map, 2d map and guest map are all auto pinned full screen"*):
+ * Guests › Map, Seats › 2D and Seats › 3D. Entering one glides the top row and the count row into the ONE slim pinned row,
+ * and the map fills the rest of the screen. Lists (Guests › List, Seats › List, March) scroll and pin as before.
+ */
+export function isFullScreenView(view: GuestsView, seatMode: SeatMode): boolean {
+  return view === 'map' || (view === 'seats' && seatMode !== 'list');
+}
+
+/** The pinned row's one menu: its words ("Guests · List", "Seats · 3D", "March"). */
+export function pinnedMenuWords(view: GuestsView, seatMode: SeatMode): string {
+  if (view === 'march') return GUESTS_TOP_LABEL.march;
+  if (view === 'seats') return `${GUESTS_TOP_LABEL.seats} · ${SEAT_MODE_LABEL[seatMode]}`;
+  return `${GUESTS_TOP_LABEL.guests} · ${GUESTS_VIEW_LABEL[view]}`;
+}

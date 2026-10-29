@@ -90,7 +90,8 @@ export function LabSeats({ guests, seat, big = false }: { guests: readonly { gue
         setSeatingGroupAdjacency={labPolicy}
         initialView={view === 'list' ? 'list' : 'plan'}
         details={{
-          /* 🧊 The SHIPPED 3D room on synthetic data (`lab-room-3d.tsx`), opened in place like Guests › Seats. */
+          /* 🧊 The SHIPPED 3D room on synthetic data (`lab-room-3d.tsx`), opened in place like Guests › Seats — it replaces
+             #7055's stand-in box, so the lab walks Seats › 3D's full screen, the auto-pin and the glide on the real room. */
           lab: <LabRoom3D big={big} />,
           open3d: view === '3d',
           sides: [
@@ -100,6 +101,7 @@ export function LabSeats({ guests, seat, big = false }: { guests: readonly { gue
           ],
           part: view === 'map' ? 'map' : null,
           host: 'guests',
+          open3d: seat === '3d',
         }}
         me={{ id: 'lab-user', name: 'Maria' }}
       />

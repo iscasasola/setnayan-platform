@@ -63,6 +63,7 @@ function Pop({
   align = 'left',
   data,
   up = false,
+  round = false,
 }: {
   button: ReactNode;
   label: string;
@@ -71,6 +72,8 @@ function Pop({
   data: string;
   /** 🗂 R4: opened from the thumb row at the foot of the screen, the menu rises above it. */
   up?: boolean;
+  /** 🎚 A 40-px round (the Guests top row's rounds), not a word pill. */
+  round?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const oneOpenId = useOneOpen(open, setOpen); // one open at a time — lib/one-open.ts; what opens inside is its child
@@ -84,7 +87,7 @@ function Pop({
           aria-label={label}
           onClick={() => setOpen((v) => !v)}
           {...{ [data]: '' }}
-          className="sn-press inline-flex h-11 items-center gap-1 rounded-full border border-ink/15 bg-cream px-3.5 text-[13px] font-medium text-ink"
+          className={`sn-press inline-flex items-center rounded-full border border-ink/15 bg-cream text-[13px] font-medium text-ink ${round ? 'h-10 w-10 justify-center' : 'h-11 gap-1 px-3.5'}`}
         >
           {button}
         </button>
@@ -407,15 +410,19 @@ export function StudioSeatPlanTools({
 
 /** 🗂 R4 · The plan's three modes as ONE dropdown (owner rule: any set of choices is a dropdown) — the SAME options the
  *  Studio's tools row offered, now in the pinned row of Guests › Seats. */
-export function SeatPlanModePick({ view, onView, show3D }: { view: '2d' | '3d' | 'list'; onView: (v: '2d' | '3d' | 'list') => void; show3D: boolean }) {
-  const views: PickOption[] = [
-    { key: '2d', label: '2D' },
-    ...(show3D ? [{ key: '3d', label: '3D' }] : []),
-    { key: 'list', label: 'List' },
-  ];
+/**
+ * 🎚 R4 slice 2 — Seats' own rounds in the GUESTS TOP ROW (owner 2026-10-29: the "Seat plan · 2D ▾" sub-row is replaced
+ * by the top row's Seats ▾). What that head held besides its mode — Edit (or the save chip) and ⋯ (who sits together,
+ * the doors, the 3D Plan facts, add, share & print, the room) — rides the top row, left of the ⚙: the SAME nodes the
+ * head drew, never a copy. The ⋯ is a 40-px round there (the row's rounds are action rounds — 📤 ⚙ — owner v14).
+ */
+export function SeatPlanToolRounds({ more, trailing }: { more: ReactNode; trailing?: ReactNode }) {
   return (
-    <span data-tour="seat-plan-view" className="inline-flex shrink-0">
-      <PickMenu label="View" value={view} options={views} onPick={(k) => onView(k as '2d' | '3d' | 'list')} dataAttr="data-seat-plan-view" compact className="h-11 border border-ink/15 bg-cream" />
+    <span className="flex shrink-0 items-center gap-1.5" data-seat-plan-rounds="">
+      {trailing}
+      <Pop label="More seat-plan tools" align="right" data="data-seat-plan-more" round button={<MoreHorizontal aria-hidden className="h-5 w-5" strokeWidth={1.75} />}>
+        {more}
+      </Pop>
     </span>
   );
 }

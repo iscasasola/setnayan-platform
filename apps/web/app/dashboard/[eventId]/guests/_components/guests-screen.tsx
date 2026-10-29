@@ -2194,7 +2194,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
             )}
             {/* 👁 The Map's peek rises just above the thumb row, in the toolbar's seat (slice 6d). */}
             {peek && gview === 'map' && byId.get(peek.id) ? (
-              <div className={styles.headTools} data-guests-peek-seat="">
+              <div className={styles.peekSeat} data-guests-peek-seat="">
                 {(() => {
                   const g = byId.get(peek.id)!;
                   return (

@@ -41,7 +41,7 @@ test('1 · the peek: face · name · line · Open · ✕, never cut', () => {
 test('2 · Guests › Map: a face peeks; Open is the List’s card', () => {
   const screen = src('app/dashboard/[eventId]/guests/_components/guests-screen.tsx');
   assert.match(screen, /<GuestMapCanvas[\s\S]{0,300}onOpen=\{\(id, el\) => setPeek\(\{ id, el \}\)\}/, 'a Map face opens the card at once');
-  assert.match(screen, /\{peek && gview === 'map' && byId\.get\(peek\.id\) \? \(\s*<div className=\{styles\.headTools\} data-guests-peek-seat="">/);
+  assert.match(screen, /\{peek && gview === 'map' && byId\.get\(peek\.id\) \? \(\s*<div className=\{styles\.peekSeat\} data-guests-peek-seat="">/);
   assert.match(screen, /setPeek\(null\);\s*openCard\(g\.guest_id, peek\.el\);/);
 });
 

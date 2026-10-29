@@ -1633,3 +1633,24 @@ button.countsDoor[aria-pressed='true'] {
   font-weight: 600;
   text-decoration-thickness: 2px;
 }
+
+/* 👁 The Map's peek (slice 6d): rises just above the thumb row, inside its seat — the map stays in view. */
+.peekSeat {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  padding-inline: inherit;
+  animation: gs-peek-up 250ms var(--gs-ease);
+}
+@keyframes gs-peek-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .peekSeat {
+    animation: none;
+  }
+}

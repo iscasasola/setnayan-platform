@@ -5,9 +5,11 @@ reader selected the whole relation in one request; PostgREST caps a request at 1
 so Admin › Categories › Reception › Events Place showed only its 2 old parts and the couple's Mood Board, the
 supplier's Part ▾, collections, the seating lab and the wizard lost every link past row 1,000.
 
-- New `lib/inspiration-parts-read.ts` (`readEveryPartRow`, `readInspirationPartTables`) pages the three relations
+- `lib/inspiration-parts-db.ts` gains `readEveryPartRow` / `readInspirationPartTables`, which page the three relations
   through the existing `readAllPages`, ordered by each relation's unique key and proved against the server's exact
   count. A failed page or a read that stops short is an error, never a partial list.
+- The chains stay literal `.from('…')` in that file so the Ugat screens map (two imports deep) still sees the
+  tables on every screen that reads them.
 - `getInspirationParts()` (fallback on error), `loadMapData` ("Couldn't load the parts" on error) and
   `addPartCore` (refuses the add on error) read through it.
 - `tests/db/supabase-over-pglite.ts` models `.range()`, `select(…, { count: 'exact' })`, appended `.order()`s and

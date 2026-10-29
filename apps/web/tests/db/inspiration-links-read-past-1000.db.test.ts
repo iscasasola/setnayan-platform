@@ -22,7 +22,7 @@ import assert from 'node:assert/strict';
 import type { PGlite } from '@electric-sql/pglite';
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
 import { makeAdminClient } from './supabase-over-pglite';
-import { readEveryPartRow, readInspirationPartTables, type PartTablesClient } from '../../lib/inspiration-parts-read';
+import { readEveryPartRow, readInspirationPartTables, type PartTablesClient } from '../../lib/inspiration-parts-db';
 import { snapshotFromPartRows } from '../../lib/inspiration-parts';
 
 type LoadMap = typeof import('../../app/admin/categories/_components/load-map');

@@ -16,7 +16,7 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { publicUrlForStoredAsset } from '@/lib/uploads';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { readEveryPartRow, type PartTablesClient } from '@/lib/inspiration-parts-read';
+import { readEveryPartRow, type PartTablesClient } from '@/lib/inspiration-parts-db';
 import type { CategoriesData } from './load';
 import type { MapCard, MapData, MapPart, MapService } from './four-level-model';
 
@@ -27,7 +27,7 @@ const PUBLIC = 'verified';
 
 export async function loadMapData(admin: Admin, cats: CategoriesData): Promise<MapData> {
   /*
-    📄 The parts and their links are read to the END (`lib/inspiration-parts-read.ts`). One un-ranged select of
+    📄 The parts and their links are read to the END (`lib/inspiration-parts-db.ts`). One un-ranged select of
     `inspiration_part_services` was capped by PostgREST at 1,000 of ~2,769 rows with `error: null` (PR #7058's
     seed), and Reception › Events Place showed only its 2 old parts. A read that stops short is an error here,
     so the Parts column says "Couldn't load the parts" instead of drawing the first thousand links as all of them.

@@ -13,20 +13,21 @@
  *       unbounded. The PROPERTY, not a phrasing: a `.from('<relation>')` chain that SELECTs must be narrowed to one
  *       part (`slot_key` / `home_category_id` filter, `.single()`/`.maybeSingle()`), a head count, or ranged with an
  *       exact count; and the relation's name may not be held anywhere a `.from()` scan cannot see it (a constant
- *       passed to `.from(T)`), except the helper's own table, whose one chain is held to the same property.
+ *       passed to `.from(T)`). The helper itself names each relation in a literal, ranged, counted `.from('…')` chain,
+ *       so it is held to the same rule as everyone else (and the Ugat screens scan still sees the tables).
  *
  *       (A schema map that runs no query — the Ugat graph's `table:` / `references:` entries — names them as data.)
  *
  * 🛡 Sabotaged 2026-10-30 (builder): (1) the old one-request select put back into `getInspirationParts` → B red;
  * (2) `const T = 'inspiration_part_services'; sb.from(T).select(…)` → B red ("held outside a .from()");
- * (3) the helper's `if (!read.complete)` branch removed → A red ("a read with no count…"). All restored.
+ * (3) the helper's `if (!read.complete)` branch removed → A3 + A5 red. All restored.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
-import { readEveryPartRow, readInspirationPartTables, type PartPageQuery, type PartTablesClient } from './inspiration-parts-read';
+import { readEveryPartRow, readInspirationPartTables, type PartPageQuery, type PartTablesClient } from './inspiration-parts-db';
 
 // ── A · the helper ─────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -95,7 +96,7 @@ test('A3 · a read with no count cannot prove it finished → an error, no rows'
 test('A4 · a page that fails mid-read → an error naming the relation, no rows', async () => {
   const { client } = fakeServer({ inspiration_part_services: links(2769) }, { failAtPage: 1 });
   const got = await readEveryPartRow(client, 'services');
-  assert.match(String(got.error), /inspiration_part_services: boom/);
+  assert.match(String(got.error), /\(services\): boom/);
   assert.equal(got.rows.length, 0);
 });
 
@@ -115,7 +116,7 @@ test('A5 · the snapshot read pages all three relations and fails as one', async
 // ── B · the source guard ───────────────────────────────────────────────────────────────────────────────────────
 
 const RELATIONS = ['inspiration_parts', 'inspiration_part_services', 'inspiration_part_categories_derived', 'inspiration_part_categories'];
-const HELPER = 'lib/inspiration-parts-read.ts';
+const HELPER = 'lib/inspiration-parts-db.ts';
 const WEB = join(__dirname, '..');
 const ROOTS = ['app', 'lib', 'components', 'models', 'types'];
 
@@ -192,7 +193,6 @@ function scan(): { findings: Finding[]; fromChains: number; files: Set<string> }
       }
       if (/target_table:\s*$/.test(before)) continue; // an audit label, not a read
       if (/headCount\([^,()]+,\s*$/.test(before)) continue; // a head count
-      if (file === HELPER) continue; // PART_RELATIONS — its one chain is held below
       // A schema map (the Ugat graph) names the relation as DATA about the schema — `table:` / `references:` /
       // `name:` / `joint:` — in a file that runs no query at all. Only there; a constant in a file that queries, or a
       // bare `const T = '…'`, is still a reader this guard cannot see.
@@ -202,7 +202,7 @@ function scan(): { findings: Finding[]; fromChains: number; files: Set<string> }
       const line = src.slice(lineStart, at);
       if (m[1] === '`' && (/^\s*(\*|\/\/|\/\*)/.test(line) || /\/\/|\/\*/.test(line))) continue;
       if (m[1] === '`' && isInsideBlockComment(src, at)) continue;
-      findings.push({ file, relation, why: 'the name is held outside a .from() — a reader this guard cannot see (use lib/inspiration-parts-read.ts)' });
+      findings.push({ file, relation, why: 'the name is held outside a .from() — a reader this guard cannot see (use lib/inspiration-parts-db.ts)' });
     }
   }
   return { findings, fromChains, files };
@@ -244,16 +244,13 @@ test('B1 · no reader of the inspiration-part relations selects them unbounded',
   assert.deepEqual(
     findings.map((f) => `${f.file} · ${f.relation} · ${f.why}`),
     [],
-    'read these relations through lib/inspiration-parts-read.ts (readEveryPartRow / readInspirationPartTables)',
+    'read these relations through lib/inspiration-parts-db.ts (readEveryPartRow / readInspirationPartTables)',
   );
 });
 
-test("B2 · the helper's own one chain is ranged, counted, ordered and paged by readAllPages", () => {
+test("B2 · the helper pages each relation through readAllPages, one literal chain per relation", () => {
   const src = readFileSync(join(WEB, HELPER), 'utf8');
-  const chains = [...src.matchAll(/\.from\(/g)];
-  assert.equal(chains.length, 1, 'the helper grew a second .from() — hold it to the same property');
-  assert.match(src, /\.from\(spec\.table\)\.select\([^)]*\{ count: 'exact' \}\)/);
-  assert.match(src, /q\.order\(col, \{ ascending: true \}\)/);
-  assert.match(src, /q\.range\(from, to\)/);
+  const chains = [...src.matchAll(/\.from\(\s*'(inspiration_[a-z_]+)'\s*\)/g)].map((m) => m[1]);
+  assert.deepEqual(chains.sort(), ['inspiration_part_categories_derived', 'inspiration_part_services', 'inspiration_parts']);
   assert.match(src, /import \{ readAllPages \} from '\.\/read-all-pages'/);
 });

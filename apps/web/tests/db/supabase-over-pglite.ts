@@ -82,7 +82,7 @@ const SERVER_ONLY_STUB = path.join(process.cwd(), '__server_only_stub__.js');
  *       foreign key is returned as an error, never guessed around
  *   await .from(t).update(row).eq(...)
  *   await .from(t).upsert(row, { onConflict: 'a,b' })
- * …and, since 2026-10-30, the PAGED read of lib/inspiration-parts-read.ts:
+ * …and, since 2026-10-30, the PAGED read of lib/inspiration-parts-db.ts (readEveryPartRow):
  *   .from(t).select(cols, { count: 'exact' }).order(a).order(b).range(from, to)
  *       — orders APPEND (as PostgREST's do), `.range` is OFFSET/LIMIT, the count is the
  *       whole match's `count(*)`; and `makeAdminClient(pg, { maxRows })` caps every

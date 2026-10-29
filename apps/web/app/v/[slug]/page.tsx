@@ -98,6 +98,12 @@ import {
 } from '@/lib/vendor-packages';
 import { packageCreditEnabled } from '@/lib/package-credit-flag';
 import { ShareButton } from './_components/share-button';
+import {
+  SHOP_ARTICLE_WIDTH,
+  SHOP_CARD_COLUMN_CLASS,
+  SHOP_CARD_SECTION_CLASS,
+  SHOP_COLUMNS_CLASS,
+} from './_components/shop-columns';
 import { verifiedMedianEnabled } from '@/lib/verified-median-flag';
 import { fetchVendorVerifiedMedian } from '@/lib/verified-median-read';
 import { VerifiedPriceCard } from './_components/verified-price-card';
@@ -2150,7 +2156,7 @@ export async function renderVendorBySlug({
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
       <header className="border-b border-ink/5">
-        <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
+        <div className={`mx-auto flex w-full ${SHOP_ARTICLE_WIDTH} items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8`}>
           {/* v2.1 visual treatment per CLAUDE-CODE-BRIEF-v2.1 § 8 design
               system. Wordmark from @/app/_components/brand-marks is the
               canonical brand mark across /, /vendors, /login, /signup,
@@ -2181,9 +2187,9 @@ export async function renderVendorBySlug({
 
       <article
         className={`mx-auto w-full px-4 py-12 sm:px-6 sm:py-16 lg:px-8 ${
-          /* Pro and up maximize the screen width (owner 2026-07-03); Free/Solo
-             stay at a comfortable single-column reading width. */
-          premiumLayout ? 'max-w-screen-2xl' : 'max-w-3xl'
+          /* 🖥 EVERY PLAN MAXIMIZES THE SCREEN (supplier website by plan, owner-approved 2026-10-30; owner
+             2026-10-29 "always maximize the screen"). Was: Pro+ only (2026-07-03), Free/Solo at max-w-3xl. */
+          SHOP_ARTICLE_WIDTH
         }`}
         /* Pro accent (My Shop → Website) retints the accent ramp for THIS
            vendor's content only — scoped to the article so the Setnayan header
@@ -2258,18 +2264,21 @@ export async function renderVendorBySlug({
             />
           </div>
         ) : null}
-        {/* Premium 2-column (Pro/Enterprise): story content left, a sticky
-            Inquire rail right. Free/Solo get the clean single column (no grid,
-            no rail). Collapses to one column on mobile for every tier. */}
+        {/* 🃏 THE CARD COLUMN BESIDE THE PAGE — every plan, tablet and up (supplier website by plan, owner-approved
+            2026-10-30; the "universal" calling card 2026-09-10 §C). The shop's card (name, badges, facts, actions,
+            map, addresses) is a sticky column — 300 px on a tablet, 360 px on a computer — and everything else reads
+            beside it, full width. It replaces the Pro-only sticky Inquire rail: every fact and button that rail
+            repeated (rating, Inquire, Share, city, events, years) is in the card itself, so on every plan the card
+            stays on screen as the page scrolls. A phone keeps the one column. */}
         <div
-          className={
-            premiumLayout
-              ? 'lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start lg:gap-10'
-              : ''
-          }
+          data-shop-columns=""
+          className={SHOP_COLUMNS_CLASS}
         >
-          <div className="min-w-0">
-        <section className="flex flex-col items-start gap-6 border-b border-ink/10 pb-8 sm:flex-row">
+          <div
+            data-shop-card-column=""
+            className={SHOP_CARD_COLUMN_CLASS}
+          >
+        <section className={SHOP_CARD_SECTION_CLASS}>
           <Logo logoUrl={logoDisplayUrl} name={displayLabel} />
           <div className="min-w-0 space-y-2">
             {/* v2.1 visual treatment per CLAUDE-CODE-BRIEF-v2.1 § 8 design
@@ -2297,7 +2306,7 @@ export async function renderVendorBySlug({
                 duplicating them here in that case. */}
             {cinematicHero ? null : (
               <>
-                <h1 className="font-serif text-4xl font-normal italic tracking-[-0.02em] text-ink sm:text-5xl">
+                <h1 className="font-serif text-4xl font-normal italic tracking-[-0.02em] text-ink sm:text-5xl md:text-4xl lg:text-5xl">
                   {displayLabel}
                 </h1>
                 {vendor.tagline ? (
@@ -2547,9 +2556,7 @@ export async function renderVendorBySlug({
                 Enterprise shop with no way to share it at all. */}
             {bookable ? (
               <div
-                className={`flex flex-wrap items-center gap-2 pt-4 ${
-                  premiumLayout ? 'lg:hidden' : ''
-                }`}
+                className="flex flex-wrap items-center gap-2 pt-4"
               >
                 {cinematicHero ? null : (
                   <a href="#get-in-touch" className="button-primary inline-flex items-center gap-2">
@@ -2621,6 +2628,8 @@ export async function renderVendorBySlug({
             ) : null}
           </div>
         </section>
+          </div>
+          <div data-shop-body-column="" className="min-w-0">
 
         {/* About — the vendor's own intro (My Shop → Website editor). Optional
             override; hidden when unset so the page keeps its auto-composed
@@ -3300,68 +3309,6 @@ export async function renderVendorBySlug({
         </section>
           </div>
 
-          {/* Sticky Inquire rail — Pro/Enterprise, desktop only. Rating + the
-              primary Inquire / Share CTAs + at-a-glance, following the
-              scroll. (Free/Solo use the inline Inquire actions above.) */}
-          {premiumLayout && bookable ? (
-            <aside className="hidden lg:block">
-              <div className="sticky top-6 space-y-4 rounded-2xl border border-ink/10 bg-cream/50 p-5">
-                {/* ANTI-FRAUD (2026-07-05): sticky rail rating reads TRUSTED stat. */}
-                {viewerTierCaps.reviewStarsCounted &&
-                trustedReviewStats.trusted_review_count > 0 &&
-                trustedReviewStats.trusted_avg_rating > 0 ? (
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-2xl font-semibold text-ink">
-                      {formatStarRating(trustedReviewStats.trusted_avg_rating)}
-                    </span>
-                    <Star aria-hidden className="h-4 w-4 fill-warn-400 text-warn-500" strokeWidth={1.75} />
-                    <span className="text-sm text-ink/60">
-                      {formatCount(trustedReviewStats.trusted_review_count)} review{trustedReviewStats.trusted_review_count === 1 ? '' : 's'}
-                    </span>
-                  </div>
-                ) : null}
-
-                <a
-                  href="#get-in-touch"
-                  className="button-primary flex w-full items-center justify-center gap-2"
-                >
-                  <Send className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-                  Inquire
-                </a>
-                <ShareButton
-                  title={displayLabel}
-                  className="button-secondary flex w-full items-center justify-center gap-2"
-                />
-                <p className="text-center text-xs text-ink/50">
-                  Starts a masked chat in your Setnayan inbox.
-                </p>
-
-                <dl className="space-y-2 border-t border-ink/10 pt-3 text-sm text-ink/70">
-                  {vendor.location_city ? (
-                    <div className="flex items-center gap-2">
-                      <MapPin aria-hidden className="h-4 w-4 text-ink/40" strokeWidth={1.75} />
-                      <dd>{vendor.location_city}</dd>
-                    </div>
-                  ) : null}
-                  {finalizedBookingCount && finalizedBookingCount > 0 ? (
-                    <div className="flex items-center gap-2">
-                      <CalendarCheck aria-hidden className="h-4 w-4 text-ink/40" strokeWidth={1.75} />
-                      <dd>
-                        {formatCount(finalizedBookingCount)} event{finalizedBookingCount === 1 ? '' : 's'} through
-                        Setnayan
-                      </dd>
-                    </div>
-                  ) : null}
-                  {declaredExp?.years != null ? (
-                    <div className="flex items-center gap-2">
-                      <BadgeCheck aria-hidden className="h-4 w-4 text-ink/40" strokeWidth={1.75} />
-                      <dd>{declaredExp.years} years in business</dd>
-                    </div>
-                  ) : null}
-                </dl>
-              </div>
-            </aside>
-          ) : null}
         </div>
 
         <footer className="mt-8 flex flex-wrap items-center justify-between gap-2 border-t border-ink/10 pt-6 text-xs text-ink/50">

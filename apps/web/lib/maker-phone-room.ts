@@ -53,6 +53,10 @@ export const MAKER_IN_THE_APP_CSS =
   '[data-maker-shell]{right:0;top:var(--maker-app-top,var(--fd-bar,0px));left:var(--maker-app-left,0px);' +
   'bottom:var(--maker-app-bottom,max(0px,calc(var(--sn-bottomdock-h,calc(env(safe-area-inset-bottom) + 64px)) - env(safe-area-inset-bottom))))}' +
   '@media (min-width:701px){[data-maker-shell]{left:var(--maker-app-left,var(--fd-rail,0px));bottom:var(--maker-app-bottom,0px)}}' +
+  /* 🗨 A SHEET OPEN OVER THE MAKER (⚙ Event Hub settings, the app's bell and account panels — all on <body>, over the
+     shell): the picked part's frame (`[data-part-edges]`, drawn high on <body> to sit on the canvas) steps out of sight
+     under it — it painted crisp over the sheet's dimmed page (seen in the lab, 390 and 1280). */
+  'html:has([data-sheet]) [data-part-edges]{visibility:hidden!important}' +
   /* Each bar's own slide (the top bar's hide-on-scroll, the nav's keyboard slide) carries it — no motion of ours. */
   'html:has([data-maker-shell][data-stage-previewing]) .shell-topbar{transform:translateY(-100%)}' +
   'html:has([data-maker-shell][data-stage-previewing]) [data-bottom-dock]{transform:translateY(100%)}';

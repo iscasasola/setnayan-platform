@@ -47,6 +47,8 @@ test('2 · the app’s nav stays on screen — the shell sits in its room; Home 
   assert.match(MAKER_IN_THE_APP_CSS, /top:var\(--maker-app-top,/, 'the shell does not start under the app’s top bar');
   assert.match(MAKER_IN_THE_APP_CSS, /bottom:var\(--maker-app-bottom,/, 'the shell does not end above the app’s bottom nav');
   assert.doesNotMatch(MAKER_IN_THE_APP_CSS, /z-index/, 'the shell lifts itself over the app’s chrome');
+  // A sheet on <body> (⚙, the bell, the account panel) covers the Maker — the picked part's frame steps under it.
+  assert.match(MAKER_IN_THE_APP_CSS, /html:has\(\[data-sheet\]\) \[data-part-edges\]\{visibility:hidden!important\}/, 'the part’s frame paints over an open sheet');
   const home = buildCustomerMenuTree('e1').find((m) => m.key === 'home');
   assert.equal(home?.href, '/dashboard/e1', 'the app’s Home tab is not the event’s dashboard — the ✕’s old door is lost');
   assert.ok(buildCustomerMenuTree('e1', { websiteEnabled: true }).some((m) => m.key === 'launch'), 'the bottom nav has no Hub tab to stand on');

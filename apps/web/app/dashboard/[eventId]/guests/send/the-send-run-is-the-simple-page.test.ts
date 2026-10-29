@@ -84,7 +84,9 @@ test('1 · the RENDERED run: the guest as a page, the status, ONE Send + Invite 
   const html = await paint({ guests: [guest('Sent', { sentAt: '2026-10-20T00:00:00Z' }), guest('Cita'), guest('Dan')] });
   assert.match(html, /data-send-run=""/);
   assert.match(html, /<b[^>]*>1<\/b> sent · <b[^>]*>2<\/b> more to invite/, 'the status line');
-  assert.match(html, /Invite 2 of 3/, 'the eyebrow counts on from those already sent');
+  // 💬 "Invite k of N" is k of who is LEFT to invite (owner 2026-10-29: the run said "Invite 104 of 200" with 105 left),
+  // never of everyone — the status line beside it already says how many are sent.
+  assert.match(html, /Invite 1 of 2/, 'the eyebrow counts more than who is left to invite');
   assert.match(html, /data-send-run-name="">Cita Ramos</);
   assert.match(html, /data-send-run-role="">Principal Sponsor \(Ninang\)</);
   assert.doesNotMatch(html.slice(html.indexOf('data-send-run-role')), /^[^>]*terracotta/, 'the role pill is tinted');

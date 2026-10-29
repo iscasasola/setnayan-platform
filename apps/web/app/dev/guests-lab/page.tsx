@@ -48,6 +48,9 @@
  *                   Studio RSVP tile that opened it LEFT in R1 (owner 2026-10-28; its settings are Guests ⚙'s,
  *                   ?part=setup); kept so the before/after can be compared side by side
  *   &typed=1        (screen) two names typed all lower case — the list shows them cased (displayPersonName)
+ *   &answered=1     (screen · run) the owner's 2026-10-29 shape: half the guests nothing was sent to have ANSWERED
+ *                   anyway (said yes in person — "Kat Arroyo · Attending", never stamped). They are not "to invite":
+ *                   the List's To invite, the run's "more to invite" and its queue all leave them out
  *   &marked=1       (card · screen) replies the host set — "Attending · Marked by you", the rows' quiet "marked"
  *   &sides=1        (card · screen) cale-ice's own groups as measured 2026-10-20 — Childhood + College (groom),
  *                   Family + Relatives (one bride, one groom) — plus one both-sides group, so the ONE Group list's
@@ -75,7 +78,7 @@ import type { GuestCardData } from '@/app/dashboard/[eventId]/guests/_components
 import { guestOutfitOf, guestOutfitWords } from '@/lib/guest-outfit';
 import { guestDisplayName, guestFullName, type GuestRow } from '@/lib/guests';
 import { DEFAULT_NAME_STYLE } from '@/lib/name-style';
-import { sendRunGuests, toInviteCount } from '@/lib/guest-roster-view';
+import { hasReplied, sendRunGuests, toInviteCount } from '@/lib/guest-roster-view';
 import { runGuestPage } from '@/lib/send-run-page';
 import { plusOneOfWords } from '@/lib/plus-one-of';
 import { plusOneSeatLines, plusOneSeatPeople } from '@/lib/extra-seats';
@@ -327,6 +330,19 @@ function planningRoster(): GuestRow[] {
       plus_one_allowed: i === 6,
     }),
   ).map((g) => (g.invitation_sent_at === null && g.rsvp_status !== 'declined' ? { ...g, rsvp_status: 'pending' as const } : g));
+}
+
+/**
+ * 💬 `&answered=1` — the owner's 2026-10-29 shape: every other guest nothing was sent to has answered anyway (marked
+ * Attending by the host). Stand-in data; nothing is read.
+ */
+function withAnsweredUnsent(roster: GuestRow[]): GuestRow[] {
+  let k = 0;
+  return roster.map((g) =>
+    g.invitation_sent_at === null && g.rsvp_status === 'pending' && g.role !== 'bride' && g.role !== 'groom' && k++ % 2 === 0
+      ? { ...g, rsvp_status: 'attending' as const, rsvp_set_by: 'host' as const }
+      : g,
+  );
 }
 
 /**
@@ -741,7 +757,8 @@ export default async function GuestsLabPage({
   }
 
   if (part === 'screen' || part === 'setup') {
-    const roster00 = sp.plusones === '1' ? withPlusOnes(planningRoster(), sp.backfilled === '1', sp.paired === '1') : planningRoster();
+    const roster000 = sp.answered === '1' ? withAnsweredUnsent(planningRoster()) : planningRoster();
+    const roster00 = sp.plusones === '1' ? withPlusOnes(roster000, sp.backfilled === '1', sp.paired === '1') : roster000;
     /* 📜 `&many=N` — N more guests after maria-and-jose's (owner 2026-10-24, live: a search on a long list left the hit
        above the screen), so a search can be walked on a list a phone has to scroll. */
     const roster0 = roster00
@@ -888,7 +905,7 @@ export default async function GuestsLabPage({
     // SIMPLE"): each guest as a page (`runGuestPage`). `&ids=a,b` — Select's "Invite N"; `&oneqr=1` — a one-link event
     // (the event's ONE link and a stand-in QR); ✕ and Done for now land on the lab's Guest list.
     const failed = sp.fail === '1';
-    const roster = failed ? [] : planningRoster();
+    const roster = failed ? [] : sp.answered === '1' ? withAnsweredUnsent(planningRoster()) : planningRoster();
     const ids = typeof sp.ids === 'string' ? sp.ids.split(',').filter(Boolean) : [];
     const runGuests = sendRunGuests(roster, ids).map((g) => ({
       guestId: g.guest_id,
@@ -897,6 +914,7 @@ export default async function GuestsLabPage({
       fullName: guestDisplayName(g),
       inviteUrl: invitationLinkOn(LAB_HUB, g.guest_id),
       sentAt: g.invitation_sent_at,
+      replied: hasReplied(g),
       page: runGuestPage(g, roster, null, true),
     }));
     const oneLink =
@@ -919,6 +937,7 @@ export default async function GuestsLabPage({
                 facts={{ hostsName: 'Maria & Jose', eventWord: 'wedding', eventDate: '2026-12-12', datePrecision: 'day' }}
                 template={null}
                 oneLink={oneLink}
+                picked={ids.length > 0}
                 guestsHref="/dev/guests-lab?part=screen"
               />
             </LabGuestActions>

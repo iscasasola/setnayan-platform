@@ -138,7 +138,7 @@ test('4 · the door into the event follows the answer', () => {
   const before = { role_subtype: 'wedding_planner_external', permissions_json: NARROW };
   const full = asRow(levelWrite('full', before, T));
   assert.equal(seatRunsTheEvent(full, now), true, 'Full access lost the door');
-  assert.equal(eventsYouRun([full], now, '2026-10-29')[0]!.seatWord, 'Coordinator', 'a Full coordinator is called a co-host');
+  assert.equal(eventsYouRun([full], now, '2026-10-29', new Set(['e-1']))[0]!.seatWord, 'Coordinator', 'a Full coordinator is called a co-host');
   const limited = asRow(levelWrite('limited', before, T));
   assert.equal(seatRunsTheEvent(limited, now), true, 'Limited lost the door into the event she may view');
 });

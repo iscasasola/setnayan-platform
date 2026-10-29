@@ -93,3 +93,70 @@
     transition: none;
   }
 }
+
+/* 📱 A soft fade behind the floating row on a phone, so the rows under it show through instead of being cut by its
+   edge (supplier dashboard v13, owner 2026-10-29). Behind the controls, never over them; it slides with the row. */
+@media (max-width: 700.98px) {
+  .lower::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -2px;
+    height: 96px;
+    background: linear-gradient(
+      to top,
+      var(--sn-canvas) 0,
+      color-mix(in srgb, var(--sn-canvas) 86%, transparent) 55%,
+      transparent 100%
+    );
+    pointer-events: none;
+    z-index: -1;
+  }
+}
+
+/* 📌 FROM 701, IN THE PINNED ROW (`[data-pin-tools]`): the same controls, seated on the bar — no float, no glass, no
+   slide. The field is a pill up to 320 px; every control stays 44 px (the house floor — the prototype's 40 yields to
+   it); the neutral rounds sit on the pill ground; the one main verb keeps its colour (prototype v13 `.vr-tools`). Doubled class = enough weight over the floating row's own glass rules. */
+.up {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.up.up :global([data-thumb-row]) {
+  width: auto;
+  flex: 1 1 auto;
+  justify-content: flex-end;
+}
+.up.up :global([data-thumb-row]) > :global(.sn-glass-row),
+.up.up :global([data-thumb-row]) > :global([data-thumb-seat='action']) {
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.up.up :global([data-thumb-row]) > :global(.sn-glass-row:not([data-thumb-seat='action'])) {
+  background: rgb(var(--color-ink) / 0.06);
+}
+.up.up :global([data-thumb-seat='field']) {
+  flex: 0 1 320px;
+  min-width: 150px;
+}
+.up.up .thumb {
+  flex: 0 1 auto;
+  justify-content: flex-end;
+}
+.up.up .thumb :is(input, textarea, [data-fit-field]):not([data-fit-field] *) {
+  flex: 0 1 320px;
+  min-width: 150px;
+}
+.up.up .thumb :is(input, textarea, [data-fit-field]):not([data-fit-field] *):not([data-search-box]),
+.up.up .thumb :global(.ab-neutral:not(.ab-main)),
+.up.up .thumb :global(.ab:not(.ab-main):not(.ab-neutral)) {
+  background: rgb(var(--color-ink) / 0.06);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  -webkit-mask-image: none;
+}

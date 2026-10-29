@@ -12,4 +12,5 @@ Branch `shots/guests-rest` = `origin/main` + every slice branch merged, run in t
 | SBS-share-* · SBS-share-seats-* | 📤 Share or print — List and Seats sheets |
 | SBS-settings-* | Guests ⚙ without the Invitations row (prototype: its settings sheet) |
 | SBS-requests-* | Asking to join, in place (lab stand-in for the Requests page body) |
+| SBS-peek-map-* · SBS-peek-2d-* | a tap on the Map / 2D peeks first |
 | PIN-* | pinned top row counts on List · Map · Seats 2D · Seats List · 3D (390), 320, 1280 |

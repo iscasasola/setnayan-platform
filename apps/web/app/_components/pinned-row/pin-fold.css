@@ -1,0 +1,49 @@
+/*
+ * pin-fold.css — a page's top count row, folded into ONE slim pinned line once the page runs under it (owner
+ * 2026-10-29, "pinning the top rows to a compressed single row"; prototype v13 `#counts.mini`). The row writes
+ * `data-folded` itself (`use-pin-fold.ts`); this only draws it. Every count keeps a 44-px tap target — only the tile
+ * folds: the number and its word sit side by side, smaller. Colour tokens only; nothing moves under reduced motion.
+ */
+[data-pin-fold] {
+  transition:
+    padding var(--sn-pin-glide-ms) var(--sn-pin-glide-ease),
+    box-shadow var(--sn-pin-glide-ms) ease;
+}
+/* 🎞 THE GLIDE (owner 2026-10-29, "remember to animate them properly" — `pin-glide.css`): the slim line rises in as the
+   tiles go; scrolling back, the tiles come down into place. `data-pin-was` (written by the row once it has folded) keeps
+   the first paint still — nothing glides on arrival. */
+[data-pin-fold][data-folded] > * {
+  animation: sn-pin-rise var(--sn-pin-glide-ms) var(--sn-pin-glide-ease);
+}
+[data-pin-fold][data-pin-was]:not([data-folded]) > * {
+  animation: sn-pin-drop var(--sn-pin-glide-ms) var(--sn-pin-glide-ease);
+}
+[data-pin-fold][data-folded] {
+  padding-top: 2px;
+  padding-bottom: 2px;
+  box-shadow: 0 6px 14px -10px rgb(var(--color-ink) / 0.35);
+}
+[data-pin-fold][data-folded] [data-pin-door] {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+[data-pin-fold][data-folded] [data-pin-n] {
+  font-size: 15px;
+}
+[data-pin-fold][data-folded] [data-pin-w] {
+  font-size: 11.5px;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-pin-fold] {
+    transition: none;
+  }
+  [data-pin-fold][data-folded] > *,
+  [data-pin-fold][data-pin-was]:not([data-folded]) > * {
+    animation: none;
+  }
+}

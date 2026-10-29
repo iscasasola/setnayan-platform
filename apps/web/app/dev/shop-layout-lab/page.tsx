@@ -20,11 +20,8 @@ import {
 import { verifiedBadge } from '@/lib/shop-badges';
 
 const NAME = 'Sampaguita Table';
-const CARDS = [
-  ['Plated dinner', 'from ₱1,450 per head'],
-  ['Family-style feast', 'from ₱1,150 per head'],
-  ['Grazing table', 'from ₱18,000'],
-];
+/** Stand-in service titles only — no prices: a typed peso figure is never invented, even in a lab. */
+const CARDS = ['Plated dinner', 'Family-style feast', 'Grazing table'];
 
 export default async function ShopLayoutLabPage() {
   if (process.env.NODE_ENV === 'production') notFound();
@@ -66,7 +63,7 @@ export default async function ShopLayoutLabPage() {
                   </a>
                   <ShareButton title={NAME} className="button-secondary inline-flex items-center gap-2" />
                 </div>
-                <div className="h-[220px] rounded-xl border border-ink/10 bg-ink/[0.05]" aria-label="Map stand-in" />
+                <div className="h-[220px] rounded-xl bg-ink/[0.05]" aria-label="Map stand-in" />
               </div>
             </section>
           </div>
@@ -74,13 +71,10 @@ export default async function ShopLayoutLabPage() {
             <section className="space-y-4 border-b border-ink/10 py-8">
               <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">Services &amp; pricing · stand-in</h2>
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                {CARDS.map(([t, p]) => (
-                  <div key={t} className="overflow-hidden rounded-2xl border border-ink/10 bg-cream">
+                {CARDS.map((t) => (
+                  <div key={t} className="overflow-hidden rounded-2xl bg-ink/[0.03]">
                     <div className="h-40 bg-ink/[0.06]" />
-                    <div className="space-y-1 p-4">
-                      <p className="font-medium text-ink">{t}</p>
-                      <p className="text-sm text-ink/60">{p}</p>
-                    </div>
+                    <p className="p-4 font-medium text-ink">{t}</p>
                   </div>
                 ))}
               </div>
@@ -95,7 +89,7 @@ export default async function ShopLayoutLabPage() {
             </section>
             <section id="reviews" className="space-y-3 border-b border-ink/10 py-8">
               <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">Reviews · stand-in</h2>
-              <div className="h-32 rounded-xl border border-ink/10" />
+              <div className="h-32 rounded-xl bg-ink/[0.04]" />
             </section>
           </div>
         </div>

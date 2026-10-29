@@ -106,4 +106,8 @@ export const MAKER_TOOLS: readonly MakerTool[] = [
   /* 👤 Studio › Prints' View as ▾ sheet with "Search guests" (2026-10-17) — its own small chunk, so the shared PickMenu never grows;
      warmed here so the first tap on View as ▾ never waits for it. */
   { key: 'maker:prints-guest-sheet', label: 'Guest picker', load: () => import(/* webpackChunkName: "prints-guest-sheet" */ './print-guest-sheet').then(warmDynamicExports) },
+  /* 🪪 THE guest card a walker or a parent opens in place (2026-10-29): drawn in the browser from the one read's answer
+     (`guest-card-in-place.tsx` — the action may not answer it drawn here), so its code is warmed here and a tap waits
+     only for the person's own read. */
+  { key: 'maker:guest-card', label: 'Guest card', load: () => import('../../guests/_components/guest-card-in-place').then(warmDynamicExports) },
 ];

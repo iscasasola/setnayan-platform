@@ -52,7 +52,7 @@ import {
 } from '@/lib/roster-arrangement';
 import { resolveRoleSet } from '@/lib/role-sets';
 import { parseGuestsFilter } from '@/lib/guests-filter';
-import { GUESTS_VIEWS, guestsViewHref, parseGuestsView, type GuestsView } from '@/lib/guests-views';
+import { GUESTS_VIEWS, guestsViewHref, parseGuestsView, parseSeatView, type GuestsView } from '@/lib/guests-views';
 import { marchOffered } from '@/lib/details-your-event';
 import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
 import { fetchAssignments, fetchFloorPlanMeasured, fetchTables } from '@/lib/seating';
@@ -1093,6 +1093,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       eventId={eventId}
       roleSetKey={guestRoleSetKey}
       gview={gview}
+      seat={gview === 'seats' ? parseSeatView(typeof search.seat === 'string' ? search.seat : null) : null}
       views={views}
       bodies={bodies}
       filter={parseGuestsFilter(search)}

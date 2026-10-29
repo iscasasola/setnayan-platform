@@ -14,6 +14,9 @@
  *   ?s=card      the first card, seeded from the couple's record — the price
  *                box waits for the photo and what's included (`CanvasMaker`)
  *   ?s=record    the couple's record sheet (`NewManualVendorModal`, edit mode)
+ *                `&price=395000` starts it priced · `&booked=1` re-opens the
+ *                plan the lock seeds (Setnayan's 50/50 estimate) the way the
+ *                real loader does (`planInstancesToRows`, `defaultSeeded`)
  *
  * Names are samples (the prototype's): nobody real.
  */
@@ -22,6 +25,8 @@ import { CoupleLinkDoor } from '@/app/vendor/claim/[token]/_components/claim-par
 import { claimDatePhrase, inviterFirstNames } from '@/lib/claim-invite-words';
 import { coupleCardToCanvasInitial } from '@/lib/couple-card-to-canvas';
 import { buildShortlistFolders, coverCatalogFromFolders } from '@/lib/shortlist-taxonomy';
+import { planInstancesToRows } from '@/lib/self-added-payment-plan';
+import { computePlanInstances, defaultPaymentScheduleRows } from '@/lib/vendor-service-payment-schedules';
 import { LabCard, LabRecord } from './lab-client';
 
 const LAB_EVENT = '00000000-0000-4000-8000-000000000000';
@@ -65,6 +70,23 @@ export default async function AddYourOwnLabPage({
     // `&who=dunkin` — the owner's own card (2026-10-20): a doughnut cart filed
     // under Everything else that already "also covers" Guest booths.
     const dunkin = sp.who === 'dunkin';
+    const priced = typeof sp.price === 'string' && /^\d+$/.test(sp.price) ? sp.price : '';
+    const planRows =
+      sp.booked === '1' && priced
+        ? planInstancesToRows(
+            JSON.parse(
+              JSON.stringify(
+                computePlanInstances({
+                  scheduleRows: defaultPaymentScheduleRows(),
+                  totalCostPhp: Number(priced),
+                  lockDateIso: '2026-10-29',
+                  eventDateIso: '2026-12-18',
+                }),
+              ),
+            ),
+            { defaultSeeded: true },
+          )
+        : [];
     return (
       <main className="min-h-screen" data-lab-add-own="record">
         <LabRecord
@@ -85,8 +107,8 @@ export default async function AddYourOwnLabPage({
             // `&claim=1` — they claimed the couple's link and wait for Approve (#6709).
             claimAsk: sp.claim === '1',
             inclusions: '',
-            price: '',
-            planRows: [],
+            price: priced,
+            planRows,
           }}
         />
       </main>

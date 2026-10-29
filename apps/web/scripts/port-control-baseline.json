@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "edcb2561ee",
+  "generatedFromRef": "e3ba0d7f17",
   "routeCount": 479,
   "destinations": 985,
   "actions": 640,
-  "blocks": 7403,
+  "blocks": 7407,
   "routes": {
     "/": {
       "files": [
@@ -10981,7 +10981,8 @@
         "LabBar",
         "Link",
         "PapicBuySheet",
-        "VendorRailContext"
+        "VendorRailContext",
+        "WhoSeesWhatPick"
       ]
     },
     "/dev/billing-lab": {
@@ -11533,9 +11534,12 @@
       "actions": [],
       "blocks": [
         "AccountBottomNav",
+        "GuestMemoriesLab",
         "LabPageSpotlight",
         "MemoriesChapters",
-        "MemoriesThumb"
+        "MemoriesThumb",
+        "PhotosOfYouGallery",
+        "YourShotsGallery"
       ]
     },
     "/dev/notifications-lab": {

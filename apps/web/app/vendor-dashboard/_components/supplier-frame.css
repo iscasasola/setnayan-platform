@@ -1,0 +1,17 @@
+/*
+ * supplier-frame.css — the supplier dashboard's FRAME from 701 (supplier dashboard v13, owner 2026-10-29 "desktop mode is
+ * wrong" · "and tablet"; prototype approved "Approved."). The bar/rail half lives in `front-door.css`
+ * (`[data-pinned-bar]`); this file holds the supplier side: the page's own picker stepping aside for the bar's menu. The
+ * TWO COLUMNS arrive with the first page that has a right column to show (S3) — a column no page mounts is a wish.
+ * Nothing here reaches a phone (<701). Colour tokens only.
+ * 🔒 the-supplier-frame-holds.test.ts
+ */
+
+/* From 701 the bar's page menu ▾ IS the page's picker — the page's own copy of the same choice steps aside (it stays
+   the phone's, below 701). Named by the attributes those pickers already carry. */
+@media (min-width: 701px) {
+  .fd[data-pinned-bar] [data-customers-view],
+  .fd[data-pinned-bar] [data-shop-segmented] {
+    display: none;
+  }
+}

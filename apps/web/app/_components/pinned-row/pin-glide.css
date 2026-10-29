@@ -1,0 +1,28 @@
+/*
+ * pin-glide.css — THE ONE PIN ANIMATION (owner 2026-10-29, "remember to animate them properly"): whatever pins GLIDES,
+ * never jumps — the full face rises and fades away while the slim pinned face rises in; scrolling back plays it in
+ * reverse. It is the Guests pinned row's own glide (`guests-screen.module.css` `gs-pin-in` + the face cross-fade: 6 px of
+ * travel, opacity, the Guests curve `cubic-bezier(0.2, 0.8, 0.2, 1)`), lifted out of that module so the supplier count
+ * rows (`pin-fold.css`) and every open fold's slim head (`fold.css`) play the SAME motion instead of a copy each.
+ * ⚠ The Guests module still carries its own `gs-pin-in` (a CSS-module keyframe cannot be reached from here and the
+ * Guests files are another builder's this week) — point it at these when that file is next opened.
+ * Under reduced motion every consumer drops the animation: the faces swap in place.
+ */
+:root {
+  --sn-pin-glide-ms: 300ms;
+  --sn-pin-glide-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+/* Pinning: the slim face rises in from just below where it lands. */
+@keyframes sn-pin-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+/* Unpinning (scrolling back): the full face comes back down into place — the same glide, reversed. */
+@keyframes sn-pin-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}

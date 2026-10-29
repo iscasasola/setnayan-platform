@@ -1422,7 +1422,12 @@ export function GuestsScreen(props: GuestsScreenProps) {
       className="sn-press sn-hit inline-flex h-10 min-w-0 shrink items-center gap-1.5 rounded-full bg-ink/[0.06] px-3 text-[14px] font-medium text-ink dark:bg-white/[0.08]"
       trigger={
         <>
-          <span className="min-w-0 whitespace-nowrap">{pinnedMenuWords(gview, seatMode)}</span>
+          {/* 📌 Two parts, so a tight pinned row can drop the top's word and keep the mode ("2D ▾") — CSS, below. */}
+          <span className="min-w-0 whitespace-nowrap">
+            {pinnedMenuWords(gview, seatMode)
+              .split(' · ')
+              .map((w, i, all) => (i < all.length - 1 ? <span key={i} data-pin-top="">{`${w} · `}</span> : <span key={i}>{w}</span>))}
+          </span>
           <ChevronDown aria-hidden className="h-3.5 w-3.5 shrink-0 text-ink/55" strokeWidth={2.2} />
         </>
       }

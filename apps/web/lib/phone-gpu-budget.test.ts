@@ -35,8 +35,9 @@
  *      one context, never remounted (no full-screen state in the Canvas's key or props, no portal), its dpr still
  *      `canvasDpr`. Measured (lab, WebKit 390×844 DPR 3, 25 tables / 230 guests): open → full → exit → full = 1 context
  *      throughout, drawing buffer 487×655 → 487×1055 → 487×655 → 487×1055 (DPR 1.25 held).
- *      Sabotages (2026-10-30): the phone branch removed from `toggleFullscreen` → 5 RED · `key={`${webgl.attempt}-${inPageFull}`}`
- *      on the Canvas → 5 RED · the room wrapped in `createPortal(…, document.body)` while full → 5 RED.
+ *      Sabotages (2026-10-30, each run → red → restored): the phone branch removed from `toggleFullscreen` → test 5 RED ·
+ *      `key={`${webgl.attempt}-${inPageFull}`}` on the Canvas → tests 2 + 5 RED · a `createPortal` import in the room →
+ *      test 5 RED.
  */
 
 import test from 'node:test';

@@ -1,8 +1,8 @@
 {
-  "generatedFromRef": "49192d0d9c",
+  "generatedFromRef": "b9d37fa775",
   "routeCount": 479,
-  "destinations": 984,
-  "actions": 640,
+  "destinations": 985,
+  "actions": 639,
   "blocks": 7388,
   "routes": {
     "/": {
@@ -2122,6 +2122,7 @@
         "ChibiBounce",
         "ChibiDance",
         "ChibiFigure",
+        "ContextLostNotice",
         "DanceFloorMural",
         "EmoteBubbles",
         "Figure",
@@ -8564,6 +8565,7 @@
         "/dashboard/[seg]/vendors"
       ],
       "actions": [
+        "setGhostBoothsEnabled",
         "setSeatingAutoplace",
         "setSeatingGroupAdjacency"
       ],
@@ -8684,39 +8686,39 @@
     },
     "/dashboard/[eventId]/seating/lab": {
       "files": [
+        "dashboard/[eventId]/seating/lab/_components/accents-sheet.tsx",
         "dashboard/[eventId]/seating/lab/_components/reception-design-editor.tsx",
+        "dashboard/[eventId]/seating/lab/_components/room-view-tools.tsx",
         "dashboard/[eventId]/seating/lab/_components/seating-lab-3d.tsx",
         "dashboard/[eventId]/seating/lab/_components/seating-lab-loader.tsx",
         "dashboard/[eventId]/seating/lab/page.tsx"
       ],
       "destinations": [
-        "/dashboard/[seg]/seating/chart"
+        "/dashboard/[seg]/seating/chart",
+        "/dashboard/[seg]/seating/print"
       ],
-      "actions": [
-        "dismissGhostBooth",
-        "setGhostBoothsEnabled"
-      ],
+      "actions": [],
       "blocks": [
+        "AccentsSheet",
         "BoothVendorCard",
         "CameraMoveBroadcaster",
         "CameraRig",
         "Canvas",
         "CinematicPass",
+        "ContextLostNotice",
         "Crowd",
         "DanceFloorMural",
         "DancerToken",
         "DecorLayerCatalog",
-        "DropConfirmBubble",
-        "DropConfirmState",
+        "DemandTail",
         "DustMotes",
         "EmoteBubbles",
         "Figure",
         "FigureSpec",
-        "FloorPanel",
         "GhostBooths",
         "Grid",
         "HTMLDivElement",
-        "Hud",
+        "InfoTip",
         "InstancedChairs",
         "InstancedSeatedCrowd",
         "Lab3DBooth",
@@ -8730,20 +8732,19 @@
         "MoverToken",
         "OrbitControls",
         "PartId",
-        "PointerEvent",
-        "PriorityOrder",
-        "ReceptionDesignEditor",
+        "PickMenu",
         "RemotePlayers",
         "RoomShell",
-        "RulesPanel",
+        "RoomViewTools",
         "SceneLighting",
         "SeatedAvatar",
         "SeatingLab3D",
         "SeatingLabLoader",
-        "SeatingViewSegment",
+        "Sheet",
         "SitController",
         "StringLights",
         "Suspense",
+        "SwitchRow",
         "THREE.CanvasTexture",
         "THREE.Group",
         "THREE.Mesh",
@@ -8758,9 +8759,7 @@
         "WalkInput",
         "WalkStick",
         "Walker",
-        "WalkerState",
-        "ZoneDragGrips",
-        "ZoneDragPreview"
+        "WalkerState"
       ]
     },
     "/dashboard/[eventId]/seating/walkthrough": {
@@ -11226,6 +11225,7 @@
       "files": [
         "dev/guests-lab/lab-card-sheet.tsx",
         "dev/guests-lab/lab-guest-actions.tsx",
+        "dev/guests-lab/lab-room-3d.tsx",
         "dev/guests-lab/lab-seats-march.tsx",
         "dev/guests-lab/lab-stand-ins.ts",
         "dev/guests-lab/page.tsx"
@@ -11251,6 +11251,7 @@
         "LabGuestActions",
         "LabMarch",
         "LabPageSpotlight",
+        "LabRoom3D",
         "LabSeats",
         "LabShell",
         "MakerRsvpSettings",
@@ -11260,6 +11261,7 @@
         "RoleNamesProvider",
         "SeatPlanInGuests",
         "SeatingEditor",
+        "SeatingLabLoader",
         "SendRun",
         "UndoToastHost"
       ]

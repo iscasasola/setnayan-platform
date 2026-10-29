@@ -15,8 +15,16 @@ export async function askToJoinCrew(
   if (!session.session) {
     if (!anonymous) return 'sign-in';
     const { error } = await supabase.auth.signInAnonymously({ options: captchaOptions(captchaToken) });
-    if (error) return isCaptchaRefusal(error) ? 'verify' : 'error';
+    if (error) {
+      console.error('[crew join] anonymous sign-in refused:', error.message);
+      return isCaptchaRefusal(error) ? 'verify' : 'error';
+    }
   }
   const { error } = await supabase.rpc('crew_pass_request', { p_token: token, p_name: name });
-  return error ? 'error' : 'asked';
+  if (error) {
+    // Said on screen ("try once more") AND recorded: a join that fails must not be a silent nothing.
+    console.error('[crew_pass_request] refused:', error.code, error.message);
+    return 'error';
+  }
+  return 'asked';
 }

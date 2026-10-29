@@ -51,6 +51,10 @@ import { SupplierPageSpotlight } from './_components/supplier-page-spotlight';
 import { completeTour } from '@/lib/tour-actions';
 import { SERVICE_MAKER_HREF } from '@/lib/service-picker-anchor';
 import { OfflineViewerScript } from '@/app/_components/offline-ready/offline-viewer-script';
+import { Suspense } from 'react';
+import { SupplierPageMenu } from './_components/supplier-page-menu';
+/* 📌 The supplier frame from 701 — the page picker stepping aside for the bar's menu, and the two columns. */
+import './_components/supplier-frame.css';
 
 /**
  * Vendor dashboard layout — the shop, under the ONE shell.
@@ -559,6 +563,18 @@ export default async function VendorDashboardLayout({
            couple's line, handed to the shell AND the dock below: the 72-px strip replaces the phone's bar from 701,
            every Sheet is the 440 right panel from 701. Below 701 nothing moves. */
         boundary="tab"
+        /* 📌 FROM 701 THE BAR IS THE PAGE'S PINNED ROW (supplier dashboard v13, owner 2026-10-29 "desktop mode is
+           wrong" · "and tablet"; prototype approved). The rail runs the window's full height (≥1100 icon + word, 701–1099
+           the 72-px strip) and the ONE bar sits over the content column: the page menu ▾ LEFT; the page's search · ⇅ · ＋
+           (its thumb row, moved up) and this layout's own cluster RIGHT — the same bell, ✉ and avatar, not copies. The
+           phone (<701) is untouched. `supplier-page-menu.tsx` · 🔒 the-supplier-frame-holds.test.ts */
+        pinnedBar={{
+          lead: (
+            <Suspense fallback={null}>
+              <SupplierPageMenu />
+            </Suspense>
+          ),
+        }}
         /* FOCUS (owner 2026-09-21): inside the shop the rail is its own menu
            plus one row back to My Home. */
         focus={{ href: '/dashboard', label: 'My Home', caption: 'Home' }}

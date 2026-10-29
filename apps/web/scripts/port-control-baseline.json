@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "1cce679b5d",
-  "routeCount": 479,
-  "destinations": 985,
+  "generatedFromRef": "d6ba5419",
+  "routeCount": 480,
+  "destinations": 986,
   "actions": 640,
-  "blocks": 7402,
+  "blocks": 7414,
   "routes": {
     "/": {
       "files": [
@@ -11706,6 +11706,24 @@
         "RosterPerson"
       ]
     },
+    "/dev/shop-plan-lab": {
+      "files": [
+        "dev/shop-plan-lab/page.tsx"
+      ],
+      "destinations": [
+        "/"
+      ],
+      "actions": [],
+      "blocks": [
+        "Link",
+        "PinnedReviewCard",
+        "ShopAddresses",
+        "ShopBadgePill",
+        "ShopReachLine",
+        "ShopReachMap",
+        "Wordmark"
+      ]
+    },
     "/dev/shop-preview-lab": {
       "files": [
         "dev/shop-preview-lab/page.tsx"
@@ -13355,9 +13373,12 @@
         "v/[slug]/_components/add-shop-to-event-data.ts",
         "v/[slug]/_components/anon-inquiry-composer.tsx",
         "v/[slug]/_components/inquiry-composer.tsx",
+        "v/[slug]/_components/pinned-review-card.tsx",
         "v/[slug]/_components/service-details-sheet.tsx",
         "v/[slug]/_components/services-gallery.tsx",
         "v/[slug]/_components/share-button.tsx",
+        "v/[slug]/_components/shop-addresses.tsx",
+        "v/[slug]/_components/shop-reach.tsx",
         "v/[slug]/_components/team-preview-banner.tsx",
         "v/[slug]/_components/venue-matched-events.tsx",
         "v/[slug]/_components/verified-price-card.tsx",
@@ -13399,7 +13420,9 @@
         "ModalState",
         "OverlayBackdrop",
         "PackageCard",
+        "PinnedReviewCard",
         "PublicVendorRow",
+        "ReachMap",
         "ReportPageButton",
         "RequirementsModal",
         "ReviewHeroMetrics",
@@ -13413,7 +13436,10 @@
         "ServicesGallery",
         "ServicesPricingSection",
         "ShareButton",
+        "ShopAddresses",
         "ShopBadgePill",
+        "ShopReachLine",
+        "ShopReachMap",
         "SignInHereLink",
         "StarRow",
         "StartServiceInquiryResult",

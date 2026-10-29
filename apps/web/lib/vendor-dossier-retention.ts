@@ -1,6 +1,7 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { runClaimedJob, WEEKLY_GAP_MS } from '@/lib/periodic-jobs';
+import { DEEP_SEARCH_KEEP_DAYS } from '@/lib/deep-search-findings';
 
 /**
  * Deep Search dossier retention sweep — a data-minimization TTL on
@@ -22,8 +23,9 @@ import { runClaimedJob, WEEKLY_GAP_MS } from '@/lib/periodic-jobs';
  * owner/DPO-owned and is deliberately untouched here.
  */
 
-/** Retain Deep Search dossiers for 180 days, then purge. */
-const DOSSIER_RETENTION_DAYS = 180;
+/** Retain Deep Search dossiers for 180 days, then purge — the ONE number (`DEEP_SEARCH_KEEP_DAYS`): the card says it
+ *  and the PDF route refuses a file past it, so a search's PDF lives exactly as long as the search. */
+const DOSSIER_RETENTION_DAYS = DEEP_SEARCH_KEEP_DAYS;
 
 export async function runVendorDossierRetention(): Promise<{ purged: number; failed?: string }> {
   const admin = createAdminClient();

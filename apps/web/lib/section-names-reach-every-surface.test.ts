@@ -179,12 +179,12 @@ test('(4) one value, two doors: the Guest list and the Maker’s Apply write thr
   // The host's canvas reads the drafted headings through the guest tree's ONE reader of the words.
   assert.match(code('app/[slug]/_lib/loaders.ts'), /withHeldDraftedRoleNames\(eventId, await loadRoleNames\(admin, eventId, 'loadEventRoleNames'\)\)/);
   assert.match(code('app/[slug]/page.tsx'), /if \(hostDraft && 'role_names' in hostDraft\.events\) holdDraftedRoleNames\(liveEvent\.event_id, hostDraft\.events\.role_names\);/);
-  // The Guests door is the List's SELECTED HEADER now (R4 slice 4, owner 2026-10-29 — the card lost its rename row); the
-  // Maker's door is the march's Edit.
+  // The Guests door is the ✎ ON THE LIST GROUP'S ROW now (owner 2026-10-29 ~21:55 — "a button on the row to rename it.
+  // this is the pencil icon"; the card lost its rename row in slice 4); the Maker's door is the march's Edit.
   const tools = code('app/dashboard/[eventId]/guests/_components/section-head-toolbar.tsx');
   assert.match(tools, /renameSection\(eventId, door\.section, text\)/, 'the selected header does not rename a section through the shipped door');
   assert.match(tools, /renameRole\(eventId, door\.role, text, null\)/, 'the selected header does not rename a role through the shipped door');
-  assert.match(code('app/dashboard/[eventId]/guests/_components/guests-screen.tsx'), /<SectionHeadTools\b/, 'the List draws no selected-header toolbar');
+  assert.match(code('app/dashboard/[eventId]/guests/_components/guests-screen.tsx'), /<SectionRenameInPlace\b/, 'the List group row has no ✎ rename');
   assert.doesNotMatch(code('app/dashboard/[eventId]/guests/_components/guest-card-body.tsx'), /K\.Rename\b/, 'the card grew its rename row back');
   assert.match(code('app/dashboard/[eventId]/launch/_components/stage-tools.tsx'), /picked === 'march' && !rsvpOpen && maker \? \(\s*<SectionNames /);
 });

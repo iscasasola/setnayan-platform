@@ -860,3 +860,27 @@ export function isSeoLevelAtLeast(
 ): boolean {
   return SEO_LEVEL_RANK[vendorSeoLevel(tier)] >= SEO_LEVEL_RANK[min];
 }
+
+/**
+ * 📍 THE REACH LADDER, IN WORDS — read from `TIER_CAPS.serviceRadiusKm`, never typed (owner 2026-10-29, Supplier
+ * dashboard v13 note 3: *"＋ past the cap says the next plan's reach"*). The plans a shop can move to, in order:
+ * Verified (free, once approved) · Solo · Pro · Ultra. Custom reaches what Ultra does and is hand-priced, so it is not a
+ * rung here. Free is 0 until verified — said by the caller, not listed.
+ */
+const REACH_LADDER: readonly VendorTier[] = ['verified', 'solo', 'pro', 'enterprise'];
+const reachName = (t: VendorTier) => (t === 'verified' ? 'Verified' : TIER_LABEL[t]);
+
+/** "Verified 20 km · Solo 30 · Pro 50 · Ultra 100". */
+export function reachLadderWords(): string {
+  return REACH_LADDER.map((t, i) => `${reachName(t)} ${TIER_CAPS[t].serviceRadiusKm}${i === 0 ? ' km' : ''}`).join(' · ');
+}
+
+/** The first plan above `tier` that reaches farther — what ＋ at the plan's farthest says. Null at the top. */
+export function nextPlanReach(tier: string | null | undefined): { plan: string; km: number } | null {
+  const here = TIER_CAPS[asVendorTier(tier)].serviceRadiusKm;
+  const rank = tierRank(tier);
+  for (const t of REACH_LADDER) {
+    if (TIER_RANK[t] > rank && TIER_CAPS[t].serviceRadiusKm > here) return { plan: reachName(t), km: TIER_CAPS[t].serviceRadiusKm };
+  }
+  return null;
+}

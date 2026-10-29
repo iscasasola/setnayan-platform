@@ -60,7 +60,7 @@ export type VendorDeepSearchActionState =
   | { status: 'idle' }
   | { status: 'error'; message: string }
   /** Free search ran instantly — the dossier is ready to review now. */
-  | { status: 'ran'; dossier: VendorDossier; wasFree: boolean; message: string }
+  | { status: 'ran'; dossier: VendorDossier; wasFree: boolean; message: string; dossierId: number; searchedAt: string }
   /** Paid search — an apply-then-pay order was created; runs on admin approval. */
   | { status: 'ordered'; referenceCode: string; amountPhp: number; message: string };
 
@@ -83,6 +83,7 @@ function generateReferenceCode(): string {
 
 
 const DEEP_SEARCH_PAGE = '/vendor-dashboard/deep-search';
+const DETAILS_PAGE = '/vendor-dashboard/profile';
 
 export async function runVendorDeepSearch(
   _prev: VendorDeepSearchActionState,
@@ -220,9 +221,14 @@ export async function runVendorDeepSearch(
         return err(result.error);
       }
       revalidatePath(DEEP_SEARCH_PAGE);
+      // 🔎 Shop › Details carries the Deep Search card too (Supplier dashboard v13): its "Last search" line redraws.
+      revalidatePath(DETAILS_PAGE);
       return {
         status: 'ran',
         dossier: result.dossier,
+        // 📄 The result's id — its PDF is made from it (`/api/vendor/deep-search-pdf`).
+        dossierId: result.dossierId,
+        searchedAt: new Date().toISOString(),
         wasFree: true,
         message: 'Deep Search finished — review what we learned and apply it to your profile.',
       };

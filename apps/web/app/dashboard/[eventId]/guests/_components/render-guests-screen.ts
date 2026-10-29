@@ -46,6 +46,8 @@ export async function renderGuestsScreen(opts: {
   guests: GuestRow[];
   measured?: boolean;
   gview?: 'list' | 'map' | 'seats' | 'march';
+  /** 🎚 Seats' mode from the address (`seat=`): absent = 2D. */
+  seat?: '3d' | 'list' | 'map' | null;
   /** 🗂 R4 · the views the row offers (`lib/guests-views.ts`); absent → List · Map. */
   views?: readonly ('list' | 'map' | 'seats' | 'march')[];
   /** 🗂 R4 · what Seats / March draw (the page hands the shipped makers, streamed with it). */
@@ -87,6 +89,7 @@ export async function renderGuestsScreen(opts: {
         React.createElement(GuestsScreen, {
           eventId: 'e1',
           gview: opts.gview ?? 'list',
+          seat: opts.seat ?? null,
           guests: opts.guests,
           measured: opts.measured ?? true,
           notLoaded: opts.notLoaded ?? null,

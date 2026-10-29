@@ -14,9 +14,9 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Send } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
-import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 import { createClient } from '@/lib/supabase/client';
-import { captchaOptions, isCaptchaRefusal } from '@/lib/turnstile';
+import { askToJoinCrew } from '@/lib/crew-join-client';
+import { mintTurnstileToken } from '@/lib/turnstile-client';
 
 export function CrewJoinForm({ token, anonymous }: { token: string; anonymous: boolean }) {
   const router = useRouter();
@@ -24,21 +24,18 @@ export function CrewJoinForm({ token, anonymous }: { token: string; anonymous: b
   const [pending, start] = useTransition();
   const ask = (form: HTMLFormElement) => {
     const data = new FormData(form);
-    const name = String(data.get('name') ?? '').trim().slice(0, 60);
+    const name = String(data.get('call_name') ?? '').trim().slice(0, 60);
     if (!name) return setProblem('Type your name so the shop knows who is asking.');
     setProblem(null);
     start(async () => {
-      const supabase = createClient();
-      const { data: session } = await supabase.auth.getSession();
-      if (!session.session) {
-        if (!anonymous) return router.push(`/login?next=${encodeURIComponent(`/join/crew/${token}`)}`);
-        const { error } = await supabase.auth.signInAnonymously({
-          options: captchaOptions(String(data.get('captcha_token') ?? '')),
-        });
-        if (error) return setProblem(isCaptchaRefusal(error) ? 'The quick check did not finish — tap Ask to join again.' : 'Something went wrong — try once more.');
-      }
-      const { error } = await supabase.rpc('crew_pass_request', { p_token: token, p_name: name });
-      if (error) return setProblem('Something went wrong — try once more.');
+      // Anonymous sign-in is the endpoint Supabase's captcha protects: mint a token on the same tap (undefined, inert,
+      // until captcha is switched on — the shipped guest-camera pattern).
+      const captchaToken = anonymous ? await mintTurnstileToken('crew_join').catch(() => undefined) : undefined;
+      const res = await askToJoinCrew(createClient(), { token, name, anonymous, captchaToken });
+      if (res === 'sign-in') return router.push(`/login?next=${encodeURIComponent(`/join/crew/${token}`)}`);
+      if (res === 'verify') return setProblem('The quick check did not finish — tap Ask to join again.');
+      if (res === 'error') return setProblem('Something went wrong — try once more.');
+      // one-render: keep (client-write) — the join was asked in the browser, no server action rendered; re-read so it says "waiting".
       router.refresh();
     });
   };
@@ -56,17 +53,18 @@ export function CrewJoinForm({ token, anonymous }: { token: string; anonymous: b
         </p>
       ) : null}
       <label className="block">
-        <span className="block pb-1 text-[13px] text-ink/65">Your name</span>
+        {/* What the shop calls this crew phone on its Allow list ("Kuya Ben") — a call name for one day's crew, not a
+            guest's name in five parts. */}
+        <span className="block pb-1 text-[13px] text-ink/65">What the shop calls you</span>
         <input
           className="h-12 w-full rounded-xl border border-ink/15 bg-white px-4 text-[16px] text-ink dark:bg-raised"
-          name="name"
+          name="call_name"
           required
           maxLength={60}
           autoComplete="name"
           placeholder="Kuya Ben"
         />
       </label>
-      {anonymous ? <TurnstileField action="crew_join" /> : null}
       <ActionButton tone="brand" main type="submit" icon={Send} label={pending ? 'Asking…' : 'Ask to join'} disabled={pending} />
     </form>
   );

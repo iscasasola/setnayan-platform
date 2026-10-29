@@ -110,6 +110,8 @@ export const metadata = { title: 'Event Hub · Supplier' };
 
 const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/$/, '');
 const MAX_MEDIA_PER_TYPE = 3; // mirrors editorial-vendor-media MAX_PER_TYPE
+/** A printed QR's ink and paper — the review QR and the crew QR, one pair. */
+const QR_COLOURS = { dark: '#1B1A17', light: '#FBFBFA' } as const;
 
 type Brief = {
   event: {
@@ -527,7 +529,7 @@ async function onTheDayBody(input: SetupInput, booking: { eventId: string }): Pr
         errorCorrectionLevel: 'M',
         margin: 2,
         width: 200,
-        color: { dark: '#1B1A17', light: '#FBFBFA' },
+        color: QR_COLOURS,
       })
     : null;
   const DELIVERY_PCT = [0, 60, 100][deliveryStage];
@@ -780,7 +782,7 @@ async function readCrew({
   let qr: CrewPanelQr | null = null;
   if (code) {
     const url = `${SITE_URL}${crewJoinPath(code.token)}`;
-    const svg = await QRCode.toString(url, { type: 'svg', errorCorrectionLevel: 'M', margin: 1, width: 240, color: { dark: '#1B1A17', light: '#FFFFFF' } });
+    const svg = await QRCode.toString(url, { type: 'svg', errorCorrectionLevel: 'M', margin: 1, width: 240, color: QR_COLOURS });
     const ends = new Date(code.ends_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
     qr = { url, svg, endsWords: `ends ${ends}` };
   }

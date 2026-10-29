@@ -124,6 +124,9 @@ BEGIN
   RETURN NEW;
 END $$;
 
+-- A trigger function is not a door: nobody calls it (a trigger needs no EXECUTE to fire).
+REVOKE ALL ON FUNCTION public.vendor_crew_codes_derive_end() FROM PUBLIC, anon, authenticated;
+
 DROP TRIGGER IF EXISTS vendor_crew_codes_derive_end ON public.vendor_crew_codes;
 CREATE TRIGGER vendor_crew_codes_derive_end
   BEFORE INSERT OR UPDATE ON public.vendor_crew_codes
@@ -162,6 +165,8 @@ BEGIN
   END IF;
   RETURN NEW;
 END $$;
+
+REVOKE ALL ON FUNCTION public.vendor_crew_passes_guard() FROM PUBLIC, anon, authenticated;
 
 DROP TRIGGER IF EXISTS vendor_crew_passes_guard ON public.vendor_crew_passes;
 CREATE TRIGGER vendor_crew_passes_guard

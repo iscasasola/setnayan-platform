@@ -23,8 +23,9 @@ Builder S6, slice 3 of 3 — stacked on the Hub set-up slice.
   Save · Show, and More ▾ (Replace the QR · Turn it off). For the shop's owner and admins only. The writes are plain
   table writes on the caller's own session — NO new server action (the route budget sits at its ceiling); the
   database is the whole boundary.
-- **The crew phone** — `/join/crew/[token]`, outside the supplier dashboard: a name (asked in the browser through
-  `crew_pass_request` — no server action; an anonymous account when
+- **The crew phone** — `/join/crew/[token]`, outside the supplier dashboard: the name the shop calls them (a call name
+  for one day's crew — not a guest's five-part name), asked in the browser through `crew_pass_request`
+  (`lib/crew-join-client.ts` — no server action; the captcha token is minted on the same tap; an anonymous account when
   `NEXT_PUBLIC_CREW_PASS_ANON_ENABLED` is on — OFF by default; else sign in and come back), then "Waiting for the Allow"
   (re-asks every 15 s while looked at), then THE CREW'S EVENT HUB: this event only — the scanner (the shipped
   `SeatScanner` through the shipped `floorSeatByQr(…, 'crew')`), and for a Member the run of show. Read with the admin
@@ -38,6 +39,10 @@ Builder S6, slice 3 of 3 — stacked on the Hub set-up slice.
 Guards: `tests/db/crew-pass-sees-only-its-event.db.test.ts` (11 — as the crew, the admin, another shop and anon;
 sabotage seen red: a crew own-read widened to `true`, a waiting pass counted as effective) ·
 `app/join/crew/the-crew-sees-only-the-event-hub.test.ts`.
+
+Also: the two trigger functions are revoked from every role (a trigger needs no EXECUTE); the exposure baseline, the
+FK-behaviour map, the data-subject register (crew under "vendors"), the schedule-time and dashboard-root registers
+carry the new surface, each line read.
 
 SPEC IMPACT: None — builds the approved 2026-10-29 ruling and the controller's five calls recorded with it. Owner
 action, surfaced: anonymous crew joining stays OFF until `NEXT_PUBLIC_CREW_PASS_ANON_ENABLED` is set in Vercel AND

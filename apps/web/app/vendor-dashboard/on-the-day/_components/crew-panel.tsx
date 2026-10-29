@@ -11,7 +11,7 @@
  * the row; a refused one says why and the row goes back.
  */
 import { useState, useTransition } from 'react';
-import { Check, Download, Expand, QrCode, Send } from 'lucide-react';
+import { Check, Expand, QrCode, Send, Share } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { Explain } from '@/app/_components/explain';
 import { Sheet } from '@/app/_components/sheet';
@@ -50,6 +50,7 @@ export function CrewPanel({
   const router = useRouter();
   const write = async (change: CrewChange) => {
     const res = await changeCrew(createClient(), shopId, eventId, change);
+    // one-render: keep (client-write) — a browser-side table write answered nothing to render; re-read the crew list.
     if (res.ok) router.refresh();
     return res;
   };
@@ -155,12 +156,12 @@ export function CrewPanel({
 
       {qr ? (
         <div className="mt-4 rounded-2xl bg-ink/[0.04] p-4 text-center" data-crew-qr="">
-          <div className="mx-auto w-[220px] max-w-full rounded-xl bg-white p-2 [&_svg]:h-auto [&_svg]:w-full" dangerouslySetInnerHTML={{ __html: qr.svg }} />
+          <div className="qr-slot mx-auto w-[220px] max-w-full rounded-xl bg-white p-2 [&_svg]:h-auto [&_svg]:w-full" dangerouslySetInnerHTML={{ __html: qr.svg }} />
           <p className="mt-2 text-[15px] font-medium text-ink">Crew QR · {eventName}</p>
           <p className="text-[12.5px] text-ink/60">One per event · they scan, you tap Allow · {qr.endsWords}</p>
           <div className="mt-3 flex flex-wrap justify-center gap-2">
             <ActionButton tone="brand" main icon={Send} label="Share" onClick={() => void share()} />
-            <ActionButton tone="neutral" icon={Download} label="Save" onClick={save} />
+            <ActionButton tone="neutral" icon={Share} label="Save" onClick={save} />
             <ActionButton tone="neutral" icon={Expand} label="Show" onClick={() => setShowing(true)} />
           </div>
           {note ? <p className="pt-2 text-[12.5px] text-ink/60">{note}</p> : null}
@@ -183,7 +184,7 @@ export function CrewPanel({
               <h2 id="crew-qr-show" className="text-[18px] font-medium text-ink">
                 Crew QR · {eventName}
               </h2>
-              <div className="mx-auto mt-4 w-[320px] max-w-full rounded-xl bg-white p-3 [&_svg]:h-auto [&_svg]:w-full" dangerouslySetInnerHTML={{ __html: qr.svg }} />
+              <div className="qr-slot mx-auto mt-4 w-[320px] max-w-full rounded-xl bg-white p-3 [&_svg]:h-auto [&_svg]:w-full" dangerouslySetInnerHTML={{ __html: qr.svg }} />
               <p className="mt-3 text-[13px] text-ink/60">Hold it up — each phone that scans waits for your Allow.</p>
             </div>
           </Sheet>

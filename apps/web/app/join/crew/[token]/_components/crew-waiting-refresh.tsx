@@ -8,6 +8,7 @@ export function CrewWaitingRefresh() {
   const router = useRouter();
   useEffect(() => {
     const id = setInterval(() => {
+      // one-render: keep (retry) — nothing was written here; a waiting phone re-asks whether the shop tapped Allow.
       if (document.visibilityState === 'visible') router.refresh();
     }, 15_000);
     return () => clearInterval(id);

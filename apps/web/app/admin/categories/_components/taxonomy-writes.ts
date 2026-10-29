@@ -22,6 +22,7 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { validateReorder, computeReorder } from '@/lib/taxonomy-studio-order';
+import { readEveryPartRow, type PartTablesClient } from '@/lib/inspiration-parts-read';
 import { VENDOR_CATEGORIES } from '@/lib/vendors';
 
 // The service-role client is untyped in this repo (`createAdminClient()`), and the test adapter is
@@ -453,8 +454,14 @@ export async function addPartCore(
   if (!h || h.tier !== 2) return { ok: false, error: 'Pick a valid home category.' };
   const base = partKeyFromName(label);
   if (base.length < 2) return { ok: false, error: 'A part name needs letters.' };
-  const { data: all } = await admin.from('inspiration_parts').select('slot_key, sort_order');
-  const parts = (all ?? []) as Array<{ slot_key: string; sort_order: number }>;
+  // 📄 Every part, read to the end (`lib/inspiration-parts-read.ts`): the new key must miss EVERY taken key and the
+  // new place sits after the LAST part. A refused or capped read refuses the add — `?? []` here once meant "no part
+  // exists", which picks a taken key and a sort_order of 0.
+  const allRead = await readEveryPartRow<{ slot_key: string; sort_order: number }>(admin as unknown as PartTablesClient, 'parts', {
+    columns: 'slot_key,sort_order',
+  });
+  if (allRead.error) return { ok: false, error: `Couldn't read the parts: ${allRead.error}` };
+  const parts = allRead.rows;
   const taken = new Set(parts.map((r) => r.slot_key));
   let key = base;
   for (let i = 2; taken.has(key); i += 1) key = `${base.slice(0, 36)}_${i}`;

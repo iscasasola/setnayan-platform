@@ -82,6 +82,12 @@ const SERVER_ONLY_STUB = path.join(process.cwd(), '__server_only_stub__.js');
  *       foreign key is returned as an error, never guessed around
  *   await .from(t).update(row).eq(...)
  *   await .from(t).upsert(row, { onConflict: 'a,b' })
+ * …and, since 2026-10-30, the PAGED read of lib/inspiration-parts-read.ts:
+ *   .from(t).select(cols, { count: 'exact' }).order(a).order(b).range(from, to)
+ *       — orders APPEND (as PostgREST's do), `.range` is OFFSET/LIMIT, the count is the
+ *       whole match's `count(*)`; and `makeAdminClient(pg, { maxRows })` caps every
+ *       select the way PostgREST's `db-max-rows` does — silently, `error: null` —
+ *       which is the very failure the paged read exists to survive.
  * …and, since 2026-10-14, a `text[]` value on insert / update / upsert (the 🏷 coverage write of
  * lib/vendor-coverage-write.ts).
  * A jsonb column is written as JSON (the column's own type is read from the
@@ -144,7 +150,8 @@ class Query implements PromiseLike<{ data: Row[] | null; error: PgError }> {
   private ins: Array<[string, readonly unknown[]]> = [];
   private nulls: string[] = [];
   private limitN: number | null = null;
-  private orderBy: { column: string; ascending: boolean } | null = null;
+  private orderBy: Array<{ column: string; ascending: boolean }> = [];
+  private rangeWin: { from: number; to: number } | null = null;
   private projection: string | null;
 
   constructor(
@@ -154,6 +161,10 @@ class Query implements PromiseLike<{ data: Row[] | null; error: PgError }> {
     projection: string | null,
     private readonly payload: Row | null,
     private readonly onConflict: string | null = null,
+    /** `select(cols, { count: 'exact' })` — the whole match's count rides back as `count`. */
+    private readonly countExact = false,
+    /** PostgREST's `db-max-rows`: at most this many rows per select, with no error. `null` = no cap. */
+    private readonly maxRows: number | null = null,
   ) {
     this.projection = projection;
   }
@@ -184,7 +195,15 @@ class Query implements PromiseLike<{ data: Row[] | null; error: PgError }> {
   order(column: string, opts: { ascending?: boolean } = {}): this {
     assertModelled(this.op === 'select', `.order() on a ${this.op} of ${this.table}`);
     assertModelled(IDENT.test(column), `.order() column ${column}`);
-    this.orderBy = { column, ascending: opts.ascending !== false };
+    this.orderBy.push({ column, ascending: opts.ascending !== false });
+    return this;
+  }
+
+  /** `.range(from, to)` — inclusive window, PostgREST's own semantics. */
+  range(from: number, to: number): this {
+    assertModelled(this.op === 'select', `.range() on a ${this.op} of ${this.table}`);
+    assertModelled(Number.isInteger(from) && Number.isInteger(to) && from >= 0 && to >= from, `.range(${from}, ${to})`);
+    this.rangeWin = { from, to };
     return this;
   }
 
@@ -297,7 +316,7 @@ class Query implements PromiseLike<{ data: Row[] | null; error: PgError }> {
     return `$${params.length}`;
   }
 
-  private async run(): Promise<{ data: Row[] | null; error: PgError }> {
+  private async run(): Promise<{ data: Row[] | null; error: PgError; count?: number | null }> {
     const params: unknown[] = [];
     const where = () => {
       if (this.eqs.length === 0 && this.ins.length === 0 && this.nulls.length === 0) return '';
@@ -325,13 +344,31 @@ class Query implements PromiseLike<{ data: Row[] | null; error: PgError }> {
       const list = await this.selectList();
       // A hint that names no foreign key is PostgREST's error to RETURN.
       if (typeof list !== 'string') return { data: null, error: { message: list.relationError, code: 'PGRST200' } };
+      const filter = where();
+      // The window the caller asked for, then the server's own cap on top — PostgREST applies db-max-rows to
+      // whatever the request would have returned, and says nothing.
+      const asked = this.rangeWin ? this.rangeWin.to - this.rangeWin.from + 1 : this.limitN;
+      const lim = this.maxRows === null ? asked : asked === null ? this.maxRows : Math.min(asked, this.maxRows);
       sql =
         `SELECT ${list} FROM public."${this.table}"` +
-        where() +
-        (this.orderBy === null
+        filter +
+        (this.orderBy.length === 0
           ? ''
-          : ` ORDER BY "${this.orderBy.column}" ${this.orderBy.ascending ? 'ASC' : 'DESC'}`) +
-        (this.limitN === null ? '' : ` LIMIT ${Number(this.limitN)}`);
+          : ` ORDER BY ${this.orderBy.map((o) => `"${o.column}" ${o.ascending ? 'ASC' : 'DESC'}`).join(', ')}`) +
+        (lim === null ? '' : ` LIMIT ${Number(lim)}`) +
+        (this.rangeWin ? ` OFFSET ${Number(this.rangeWin.from)}` : '');
+      if (this.countExact) {
+        const filterParams = [...params];
+        try {
+          const [rowsRes, countRes] = [
+            await this.pg.query(sql, params),
+            await this.pg.query<{ n: number }>(`SELECT count(*)::int AS n FROM public."${this.table}"` + filter, filterParams),
+          ];
+          return { data: (rowsRes.rows ?? []) as Row[], error: null, count: countRes.rows[0]?.n ?? null };
+        } catch (e) {
+          return { data: null, error: asPgError(e), count: null };
+        }
+      }
     } else if (this.op === 'delete') {
       sql = `DELETE FROM public."${this.table}"` + where() + (this.projection ? ` RETURNING ${this.cols()}` : '');
     } else if (this.op === 'update') {
@@ -405,11 +442,13 @@ class Query implements PromiseLike<{ data: Row[] | null; error: PgError }> {
  * actually uses. A test that means to exercise RLS must go through the RPCs and
  * `setAuthUid`, not through this.
  */
-export function makeAdminClient(pg: PGlite): SupabaseClient {
+export function makeAdminClient(pg: PGlite, opts: { maxRows?: number | null } = {}): SupabaseClient {
+  const maxRows = opts.maxRows ?? null;
   return {
     from(table: string) {
       return {
-        select: (cols = '*') => new Query(pg, table, 'select', cols, null),
+        select: (cols = '*', o: { count?: 'exact' } = {}) =>
+          new Query(pg, table, 'select', cols, null, null, o.count === 'exact', maxRows),
         insert: (payload: Row) => new Query(pg, table, 'insert', null, payload),
         delete: () => new Query(pg, table, 'delete', null, null),
         update: (payload: Row) => new Query(pg, table, 'update', null, payload),

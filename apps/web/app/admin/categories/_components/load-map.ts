@@ -16,6 +16,7 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { publicUrlForStoredAsset } from '@/lib/uploads';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { readEveryPartRow, type PartTablesClient } from '@/lib/inspiration-parts-read';
 import type { CategoriesData } from './load';
 import type { MapCard, MapData, MapPart, MapService } from './four-level-model';
 
@@ -25,9 +26,24 @@ type Admin = ReturnType<typeof createAdminClient>;
 const PUBLIC = 'verified';
 
 export async function loadMapData(admin: Admin, cats: CategoriesData): Promise<MapData> {
+  /*
+    📄 The parts and their links are read to the END (`lib/inspiration-parts-read.ts`). One un-ranged select of
+    `inspiration_part_services` was capped by PostgREST at 1,000 of ~2,769 rows with `error: null` (PR #7058's
+    seed), and Reception › Events Place showed only its 2 old parts. A read that stops short is an error here,
+    so the Parts column says "Couldn't load the parts" instead of drawing the first thousand links as all of them.
+  */
+  const pagedDb = admin as unknown as PartTablesClient;
   const [partsRes, linksRes, orderRes, cardsRes] = await Promise.all([
-    admin.from('inspiration_parts').select('slot_key, label_en, kind, home_category_id, sort_order, hidden, status'),
-    admin.from('inspiration_part_services').select('slot_key, canonical_service, sort_order'),
+    readEveryPartRow<{
+      slot_key: string;
+      label_en: string;
+      kind: string;
+      home_category_id: string | null;
+      sort_order: number;
+      hidden: boolean;
+      status: string;
+    }>(pagedDb, 'parts'),
+    readEveryPartRow<{ slot_key: string; canonical_service: string; sort_order: number }>(pagedDb, 'services'),
     admin.from('canonical_service_taxonomy').select('canonical_service, sort_order'),
     admin
       .from('vendor_services')
@@ -35,8 +51,8 @@ export async function loadMapData(admin: Admin, cats: CategoriesData): Promise<M
       .eq('is_demo', false)
       .limit(5000),
   ]);
-  if (partsRes.error) logQueryError('CategoriesMap (inspiration_parts)', partsRes.error);
-  if (linksRes.error) logQueryError('CategoriesMap (inspiration_part_services)', linksRes.error);
+  if (partsRes.error) logQueryError('CategoriesMap (inspiration_parts)', { message: partsRes.error });
+  if (linksRes.error) logQueryError('CategoriesMap (inspiration_part_services)', { message: linksRes.error });
   if (cardsRes.error) logQueryError('CategoriesMap (vendor_services)', cardsRes.error);
   // The Order ▾ column (20271292221070) — a failure only loses the custom order, never the services.
   if (orderRes.error) logQueryError('CategoriesMap (service order)', orderRes.error);
@@ -60,22 +76,12 @@ export async function loadMapData(admin: Admin, cats: CategoriesData): Promise<M
 
   // ── parts ───────────────────────────────────────────────────────────────────
   const partsRead = !partsRes.error && !linksRes.error;
-  const linkRows = ((linksRes.data ?? []) as Array<{ slot_key: string; canonical_service: string; sort_order: number }>).sort(
+  const linkRows = [...linksRes.rows].sort(
     (a, b) => a.sort_order - b.sort_order || a.canonical_service.localeCompare(b.canonical_service),
   );
   const linksBy = new Map<string, string[]>();
   for (const l of linkRows) linksBy.set(l.slot_key, [...(linksBy.get(l.slot_key) ?? []), l.canonical_service]);
-  const parts: MapPart[] = (
-    (partsRes.data ?? []) as Array<{
-      slot_key: string;
-      label_en: string;
-      kind: string;
-      home_category_id: string | null;
-      sort_order: number;
-      hidden: boolean;
-      status: string;
-    }>
-  )
+  const parts: MapPart[] = partsRes.rows
     // Palette (kind = 'system', no home) is nobody's portfolio — kept out of the columns, as the prototype does.
     .filter((p) => p.kind === 'part' && p.status !== 'retired' && p.home_category_id)
     .sort((a, b) => a.sort_order - b.sort_order || a.slot_key.localeCompare(b.slot_key))

@@ -24,29 +24,22 @@ import { createClient } from './supabase/server';
 import {
   fallbackInspirationParts,
   snapshotFromPartRows,
-  type InspirationPartCategoryRow,
-  type InspirationPartRow,
-  type InspirationPartServiceRow,
   type InspirationPartsSnapshot,
 } from './inspiration-parts';
+import { readInspirationPartTables, type PartTablesClient } from './inspiration-parts-read';
 
 export type { InspirationPartsSnapshot } from './inspiration-parts';
 
 export const getInspirationParts = cache(async (): Promise<InspirationPartsSnapshot> => {
   try {
     const sb = await createClient();
-    const [partsRes, linksRes, servicesRes] = await Promise.all([
-      sb.from('inspiration_parts').select('slot_key,label_en,kind,home_category_id,sort_order,hidden,status'),
-      sb.from('inspiration_part_categories_derived').select('slot_key,category_id,sort_order'),
-      sb.from('inspiration_part_services').select('slot_key,canonical_service,sort_order'),
-    ]);
-    const rows = partsRes.data as InspirationPartRow[] | null;
-    const links = linksRes.data as InspirationPartCategoryRow[] | null;
-    const services = servicesRes.data as InspirationPartServiceRow[] | null;
-    if (partsRes.error || linksRes.error || servicesRes.error || !rows || !links || !services || rows.length === 0) {
-      return fallbackInspirationParts();
-    }
-    return snapshotFromPartRows(rows, links, services);
+    // 📄 Every row, paged to the server's exact count (`lib/inspiration-parts-read.ts`). One un-ranged select of
+    // `inspiration_part_services` was capped at 1,000 of ~2,769 rows with `error: null` once PR #7058 seeded the
+    // starter parts, so most parts read as linking nothing. A read that stops short is an ERROR here — it takes
+    // the fallback below, never a partial snapshot.
+    const read = await readInspirationPartTables(sb as unknown as PartTablesClient);
+    if (read.error || read.parts.length === 0) return fallbackInspirationParts();
+    return snapshotFromPartRows(read.parts, read.categories, read.services);
   } catch {
     return fallbackInspirationParts();
   }

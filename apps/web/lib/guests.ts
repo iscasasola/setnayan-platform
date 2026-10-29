@@ -1158,7 +1158,9 @@ export function guestPrintName(
 export function guestNickBeside(guest: { display_name?: string | null }, full: string | null | undefined): string | null {
   const nick = guest.display_name?.replace(/\s+/g, ' ').trim();
   if (!nick || !full) return null;
-  return full.toLowerCase().includes(nick.toLowerCase()) ? null : nick;
+  // WHOLE WORDS: "Ramon" is said by "Atty. Ramon Dela Cruz"; "Dan" is NOT said by "Daniel Ramos" (a substring is not a name).
+  const said = new RegExp(`(?:^|[\\s“"'(])${nick.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?=$|[\\s”"'),.])`, 'i');
+  return said.test(full) ? null : nick;
 }
 
 /**

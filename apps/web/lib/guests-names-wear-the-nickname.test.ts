@@ -43,6 +43,10 @@ test('1 · the full name, with the nickname beside it only when it adds somethin
   assert.deepEqual(guestNameWithNick({ ...RAMON, display_name: null }), { name: 'Atty. Ramon Dela Cruz', nick: null });
   assert.deepEqual(guestNameWithNick({ ...RAMON, display_name: '  ramon  ' }), { name: 'Atty. Ramon Dela Cruz', nick: null }, 'the nickname repeats the name');
   assert.equal(guestNickBeside({ display_name: 'Jun-Jun' }, null), null);
+  // Whole words only: "Dan" is a nickname beside "Daniel Ramos", never "already said" by it.
+  assert.equal(guestNickBeside({ display_name: 'Dan' }, 'Daniel Ramos'), 'Dan');
+  assert.equal(guestNickBeside({ display_name: 'dela cruz' }, 'Atty. Ramon Dela Cruz'), null);
+  assert.equal(guestNickBeside({ display_name: 'Boss (Rey)' }, 'Rey Santos'), 'Boss (Rey)');
   // A row with no parts: "Shown as" IS the name, not a nickname beside nothing.
   assert.deepEqual(
     guestNameWithNick({ display_name: 'Tito Boy & Tita Cora', first_name: '', last_name: '' }),

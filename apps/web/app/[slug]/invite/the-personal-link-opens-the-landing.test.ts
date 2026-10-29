@@ -228,7 +228,7 @@ test('H · the couple’s message: their words, the name exactly as given, no li
   const ours = landingMessage({ ...facts, formalName: 'Mr. Manuel Cortez Casasola', reply: 'unreplied' });
   assert.equal(
     ours,
-    'Hi Mr. Manuel Cortez Casasola! 💌 You’re invited to Ana & Miguel’s wedding on Saturday, March 13, 2027. Please reply below — your ticket is ready once you do.',
+    'Hi Mr. Manuel Cortez Casasola! 💌 With joyful hearts, we invite you to celebrate Ana & Miguel’s wedding with us on Saturday, March 13, 2027. It would mean so much to have you there. Please reply below — your ticket is ready once you do.',
   );
   const theirs = landingMessage({
     ...facts,

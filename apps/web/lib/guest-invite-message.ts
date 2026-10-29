@@ -102,6 +102,7 @@ export const INVITE_PLACEHOLDERS = [
   { token: '{event}', says: 'your event, by name' },
   { token: '{date}', says: 'the date' },
   { token: '{link}', says: 'their own link' },
+  { token: '{hosts}', says: 'your names, to sign it' },
 ] as const;
 
 const APOS = '’';
@@ -196,15 +197,35 @@ export function defaultInviteTemplate(opts: {
       keep,
     ].join('\n');
   }
+  if (opts.voice === 'guest') {
+    return [
+      `Hi {name}! 💌 You${APOS}re invited to {event} on {date}.`,
+      '',
+      `Here${APOS}s your invitation — tap to reply:`,
+      '{link}',
+      '',
+      qr,
+      '',
+      keep,
+    ].join('\n');
+  }
+  // 💌 THE HOSTS' WORDING (owner 2026-10-29, after reading The Knot's invitation: "improve our invitation text but
+  // still keeping the essence of our design") — a warm opening, a clear one-minute ask, signed by the couple; the
+  // personal link, the ticket-is-your-pass line and "please don't forward" stay.
   return [
-    `Hi {name}! 💌 You${APOS}re invited to {event} on {date}.`,
+    'Hi {name}! 💌',
     '',
-    `Here${APOS}s your invitation — tap to reply:`,
+    `With joyful hearts, we invite you to celebrate {event} with us on {date}. It would mean so much to have you there.`,
+    '',
+    `Please tap your invitation to let us know if you can come — it only takes a minute:`,
     '{link}',
     '',
     qr,
     '',
     keep,
+    '',
+    'With love,',
+    '{hosts}',
   ].join('\n');
 }
 
@@ -225,16 +246,23 @@ export function sanitizeInviteTemplate(raw: unknown): string | null {
   return s ? s : null;
 }
 
-function fill(template: string, values: { name: string; event: string; date: string | null; link: string }): string {
+function fill(
+  template: string,
+  values: { name: string; event: string; date: string | null; link: string; hosts?: string },
+): string {
   let t = template;
+  // No names to sign with → the sign-off goes too, never a bare "With love,".
+  if (!values.hosts) t = t.replace(/\n*[ \t]*With love,[ \t]*\n[ \t]*\{hosts\}/gi, '').replace(/[ \t]*\{hosts\}/gi, '');
   // An absent value takes its lead-in with it: "Hi {name}!" → "Hi!",
   // "…wedding on {date}." → "…wedding." — never "Hi !" or "on .".
   if (!values.name) t = t.replace(/[ \t]*\{name\}/gi, '');
   if (!values.date) t = t.replace(/[ \t]+on[ \t]+\{date\}/gi, '').replace(/[ \t]*\{date\}/gi, '');
   // ONE pass, function replacer: a value is never re-scanned, and `$&` in a
   // name is text, not a regex back-reference.
-  return t.replace(/\{(name|event|date|link)\}/gi, (_m, key: string) => {
+  return t.replace(/\{(name|event|date|link|hosts)\}/gi, (_m, key: string) => {
     switch (key.toLowerCase()) {
+      case 'hosts':
+        return values.hosts ?? '';
       case 'name':
         return values.name;
       case 'event':
@@ -277,6 +305,7 @@ export function buildGuestInviteMessage(ctx: GuestInviteContext): string | null 
     event: inviteEventPhrase(ctx, voice),
     date: formatInviteDate(ctx.eventDate, ctx.datePrecision, ctx.now),
     link,
+    hosts: voice === 'hosts' ? (ctx.hostsName ?? '').trim() : '',
   });
   return out.includes(link) ? out : `${out}\n\n${link}`;
 }

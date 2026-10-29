@@ -69,6 +69,8 @@ import { LAB_SUGGEST_PHOTO, LAB_SUGGEST_SHOP, LAB_SUGGEST_SWATCHES } from '../su
 import { coupleNameColumns } from '@/lib/typed-names';
 
 const EVENT = '00000000-0000-4000-8000-000000000000';
+/** The lab's QR ink — one fixture, shared by Details and the Hub's ⚙. */
+const LAB_QR_INKS = ['#1A1A1A'];
 
 /* 🤝🖼 `&suggest=1`'s board: the couple's own photos, and what the lab florist sent (`suggestion-lab-fixture.ts`). */
 const LAB_SUGGEST_INSPIRATIONS = [
@@ -148,7 +150,7 @@ export function detailsLabHubSettings(sp: Record<string, string | string[] | und
       eventId: EVENT,
       slug: LAB_SAMPLE.slug,
       slugAction: updateEventSlug.bind(null, EVENT, 'launch'),
-      qr: { ownsPro: pro, style: {}, inks: ['#1A1A1A'], storeShell: false },
+      qr: { ownsPro: pro, style: {}, inks: LAB_QR_INKS, storeShell: false },
       qrStyleAction: updateQrStyle.bind(null, EVENT),
       studio: {
         hub: { visibility: 'unlisted', pinned: null, openBrowse: false, launched: false, scheduledAt: null },
@@ -304,7 +306,7 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
         eventId={EVENT}
         slug={slug}
         slugAction={updateEventSlug.bind(null, EVENT, 'launch')}
-        qr={{ ownsPro: pro, style: {}, inks: ['#1A1A1A'], storeShell: false }}
+        qr={{ ownsPro: pro, style: {}, inks: LAB_QR_INKS, storeShell: false }}
         qrStyleAction={updateQrStyle.bind(null, EVENT)}
         theme={{
           themes: themes.map((t) => ({ id: t.id, name: t.name, tier: t.tier })),

@@ -14,3 +14,5 @@ The plan is still checked against the price typed in the same save (the price st
 Tests: `lib/the-record-sheet-saves-the-plan-as-typed.test.ts` (each cause sabotaged and seen to fail) · `tests/db/a-couples-plan-over-the-estimate-survives-the-relock.db.test.ts` (the real lock, the couple's own row under their role, the real re-lock).
 
 SPEC IMPACT: None — no rule changed; the sheet now does what the 2026-09-20 / 09-21 plan decisions already say (a plan typed by the couple is theirs and is kept at lock).
+
+- Fix (CI handles-have-gates): `event_vendor_payment_plan.is_default_seeded` is now read by `vendors/actions.ts` (the couple's upsert writes it false), so its "unread handle" baseline line is deleted — the ratchet only shrinks.

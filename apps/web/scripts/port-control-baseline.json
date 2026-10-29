@@ -1,5 +1,5 @@
 {
-  "generatedFromRef": "b31eacf583",
+  "generatedFromRef": "7621608c23",
   "routeCount": 479,
   "destinations": 981,
   "actions": 640,
@@ -13468,7 +13468,6 @@
         "vendor-dashboard/_components/setup-offer-fold.tsx",
         "vendor-dashboard/_components/source-breakdown.tsx",
         "vendor-dashboard/_components/supplier-avatar-rows.ts",
-        "vendor-dashboard/_components/supplier-columns.tsx",
         "vendor-dashboard/_components/supplier-page-menu.tsx",
         "vendor-dashboard/_components/supplier-page-spotlight-mount.tsx",
         "vendor-dashboard/_components/supplier-page-spotlight.tsx",

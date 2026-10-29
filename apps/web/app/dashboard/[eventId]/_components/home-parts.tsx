@@ -11,14 +11,22 @@
  *   HomeLater      — "Later" folds the Today line to "Back tomorrow · Undo", for today, on this device. No server
  *                    write (opening never writes; +0 server actions).
  *   HomeReload     — "⟳ Reload": re-runs the page's reads (`router.refresh()`).
+ *   HomeTodayItem  — ONE MORE LINE OF THE TODAY LIST (owner 2026-10-29: *"The popup for the access and other popups
+ *                    above the header can be presented better"*): every prompt Home used to stack ABOVE the cover is
+ *                    now a line here, under it, in the Today line's own pill — a door (`href`) or a press that opens
+ *                    the house Sheet (`onPress`). Action-needed lines sort before the Today line.
+ *   TodaySheetItem — a Today item whose answer is more than one press: the line opens the house Sheet holding the
+ *                    caller's own body (the date change's suppliers and choices).
  *
  *   (The Next card, its fold and the What's next row were REMOVED 2026-10-24 — the verb now sits on the widget it is
  *    about, and the Checklist widget holds only the plan.)
  */
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useId, useState, type ReactNode } from 'react';
 import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
-import { ArrowDown, CalendarDays, RotateCw } from 'lucide-react';
+import Link from 'next/link';
+import { ArrowDown, CalendarDays, ChevronRight, RotateCw } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
+import { Sheet } from '@/app/_components/sheet';
 
 /* ─── Later — folds the Today line for today, on this device ──────────────── */
 
@@ -120,6 +128,112 @@ export function HomeToday({ target, words, tail, calm }: { target: string; words
         <ArrowDown strokeWidth={1.9} />
       </span>
     </button>
+  );
+}
+
+/**
+ * ☀ A TODAY ITEM — the Today line's pill, for a prompt that waits on the hosts (owner 2026-10-29). Unlike the Today line
+ * it WRAPS (`hc-today-item`): a shop's full name is never cut. `href` = a door to the page that answers it; `onPress` =
+ * the caller opens its house Sheet. `tone`: `ask` waits on you (the Today kicker's mulberry), `warn` a read that failed
+ * (said, never silent), `calm` done. Server-safe props only when `href` is used (the doorways are server components).
+ */
+export function HomeTodayItem({
+  words,
+  tail,
+  kicker = 'Today',
+  tone = 'ask',
+  href,
+  onPress,
+  reload = false,
+  disabled = false,
+  dataAttr,
+}: {
+  words: string;
+  tail?: string | null;
+  kicker?: string;
+  tone?: 'ask' | 'warn' | 'calm';
+  href?: string;
+  onPress?: () => void;
+  /** A read that failed: the press runs the page's reads again (as ⟳ Reload does) — usable from a server component. */
+  reload?: boolean;
+  disabled?: boolean;
+  /** One `data-*` hook for tests and walks, e.g. `['data-coordinator-level', 'ask']`. */
+  dataAttr?: readonly [string, string];
+}) {
+  const router = useContext(AppRouterContext);
+  const cls = `hc-today hc-today-item${tone === 'calm' ? ' hc-calm' : tone === 'warn' ? ' hc-warn' : ''}`;
+  const data = dataAttr ? { [dataAttr[0]]: dataAttr[1] } : {};
+  const body = (
+    <>
+      <span className="hc-today-k">{kicker}</span>
+      <span className="hc-today-t">
+        {words}
+        {tail ? <span className="hc-today-w"> · {tail}</span> : null}
+      </span>
+      <span className="hc-today-arrow" aria-hidden>
+        <ChevronRight strokeWidth={1.9} />
+      </span>
+    </>
+  );
+  if (href) {
+    return (
+      <Link href={href} className={cls} data-home-today-item="" {...data}>
+        {body}
+      </Link>
+    );
+  }
+  return (
+    <button
+      type="button"
+      className={cls}
+      data-home-today-item=""
+      // one-render: keep (retry) — a Today line whose read failed, pressed by the person; no write came before it.
+      onClick={reload ? () => (router ? router.refresh() : window.location.reload()) : onPress}
+      disabled={disabled}
+      aria-busy={disabled || undefined}
+      {...data}
+    >
+      {body}
+    </button>
+  );
+}
+
+/**
+ * ☀ A TODAY ITEM THAT OPENS THE HOUSE SHEET — for a prompt whose answer is more than one press (a date change's
+ * suppliers, keep waiting · drop · withdraw). The line is the Today pill; the body is the caller's own, unchanged,
+ * inside the shared `Sheet` (bottom on a portrait phone, the right panel from the couple dashboard's `tab:` line up).
+ * Server-rendered children (forms posting server actions) are fine: the Sheet only holds them.
+ */
+export function TodaySheetItem({
+  words,
+  tail,
+  tone = 'ask',
+  title,
+  dataAttr,
+  children,
+}: {
+  words: string;
+  tail?: string | null;
+  tone?: 'ask' | 'warn' | 'calm';
+  /** The sheet's heading (its ⓘ is the caller's). */
+  title: string;
+  dataAttr?: readonly [string, string];
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  const headingId = useId();
+  return (
+    <>
+      <HomeTodayItem words={words} tail={tail} tone={tone} onPress={() => setOpen(true)} dataAttr={dataAttr} />
+      <Sheet open={open} onClose={() => setOpen(false)} labelledById={headingId} rise>
+        <div className="px-4 pb-4 pt-3.5">
+          <h3 id={headingId} className="pr-12 text-[19px] font-semibold tracking-tight text-ink">
+            {title}
+          </h3>
+          <div className="mt-3">{children}</div>
+        </div>
+      </Sheet>
+    </>
   );
 }
 

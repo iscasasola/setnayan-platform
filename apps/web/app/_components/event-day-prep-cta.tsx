@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { CloudDownload, CheckCircle2, AlertTriangle, Loader2 } from 'lucide-react';
 import { getQueryClient } from '@/lib/query-client';
 import { eventBundleQueryKeys, type EventBundle } from '@/lib/event-bundle-keys';
 import { useSaveLoader } from '@/components/sd-loader';
+import { HomeTodayItem } from '@/app/dashboard/[eventId]/_components/home-parts';
 import {
   prepareForEventDay,
   type PrepareForEventDayResult,
@@ -107,7 +107,6 @@ function warmAssetCache(urls: string[]): void {
 
 export function EventDayPrepCta({ eventId, eventDate, finished = false, now = new Date() }: Props) {
   const [phase, setPhase] = useState<Phase>('idle');
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const save = useSaveLoader();
 
@@ -118,7 +117,6 @@ export function EventDayPrepCta({ eventId, eventDate, finished = false, now = ne
 
   const onClick = (): void => {
     setPhase('loading');
-    setErrorMsg(null);
     startTransition(async () => {
       const result: PrepareForEventDayResult = await save.run(
         () => prepareForEventDay(eventId),
@@ -126,81 +124,47 @@ export function EventDayPrepCta({ eventId, eventDate, finished = false, now = ne
       );
       if (!result.ok) {
         setPhase('error');
-        setErrorMsg(result.error);
         return;
       }
       try {
         hydrateBundle(result.bundle);
         warmAssetCache(result.bundle.assetUrls);
         setPhase('done');
-      } catch (err) {
+      } catch {
         setPhase('error');
-        setErrorMsg(err instanceof Error ? err.message : 'Failed to hydrate cache');
       }
     });
   };
 
   const busy = phase === 'loading' || pending;
 
+  /* ☀ A LINE OF HOME'S TODAY LIST, under the cover (owner 2026-10-29: *"The popup for the access and other popups
+     above the header can be presented better"*) — it was a terracotta banner above the cover; it is the Today pill now
+     (`HomeTodayItem`), the press the same pre-load. Saved = calm; a failure says so, the press tries again. */
   return (
-    <aside
-      role="region"
-      aria-label="Event day pre-load"
-      className="flex flex-col gap-3 rounded-2xl border border-terracotta/30 bg-terracotta/5 p-5 sm:flex-row sm:items-center sm:justify-between"
-    >
-      <div className="flex items-start gap-3">
-        <span
-          aria-hidden
-          className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta"
-        >
-          {phase === 'done' ? (
-            <CheckCircle2 className="h-5 w-5" strokeWidth={1.75} />
-          ) : phase === 'error' ? (
-            <AlertTriangle className="h-5 w-5" strokeWidth={1.75} />
-          ) : (
-            <CloudDownload className="h-5 w-5" strokeWidth={1.75} />
-          )}
-        </span>
-        <div className="space-y-1">
-          <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-terracotta">
-            Event day soon
-          </p>
-          <h2 className="text-base font-semibold tracking-tight text-ink">
-            {phase === 'done'
-              ? 'Ready for event day — works offline'
-              : phase === 'error'
-                ? 'Pre-load failed'
-                : 'Prepare for event day'}
-          </h2>
-          <p className="max-w-prose text-sm text-ink/65">
-            {phase === 'done'
-              ? "Guest list, seating, schedule, suppliers, budget, and recent messages are saved on this device. You'll see live data when you're online."
-              : phase === 'error'
-                ? (errorMsg ?? 'Something went wrong. Try again — the cache hasn’t been changed.')
-                : 'Download a copy of everything you need for the day so the dashboard works on bad venue WiFi.'}
-          </p>
-        </div>
-      </div>
-      {phase !== 'done' ? (
-        <button
-          type="button"
-          onClick={onClick}
-          disabled={busy}
-          aria-busy={busy}
-          className="inline-flex shrink-0 items-center gap-2 self-start rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:cursor-not-allowed disabled:opacity-60 sm:self-center"
-        >
-          {busy ? (
-            <>
-              <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={2.25} />
-              Pre-loading…
-            </>
-          ) : phase === 'error' ? (
-            'Try again'
-          ) : (
-            'Prepare for event day'
-          )}
-        </button>
-      ) : null}
-    </aside>
+    <HomeTodayItem
+      onPress={onClick}
+      disabled={busy}
+      tone={phase === 'done' ? 'calm' : phase === 'error' ? 'warn' : 'ask'}
+      words={
+        busy
+          ? 'Saving your event on this phone…'
+          : phase === 'done'
+            ? 'Ready for event day — works offline'
+            : phase === 'error'
+              ? 'Saving for event day failed'
+              : 'Prepare for event day'
+      }
+      tail={
+        busy
+          ? null
+          : phase === 'done'
+            ? 'Saved on this phone'
+            : phase === 'error'
+              ? 'Try again'
+              : 'Works on bad venue signal'
+      }
+      dataAttr={['data-event-day-prep', phase]}
+    />
   );
 }

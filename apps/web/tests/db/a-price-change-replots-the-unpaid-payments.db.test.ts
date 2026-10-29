@@ -173,3 +173,53 @@ test('the couple cannot call the re-plot themselves', async () => {
   await assert.rejects(db.query(`SELECT public.plan_replot_for_booking($1, 'price')`, [vendorId]));
   await db.exec('RESET ROLE');
 });
+
+test('the kept plans are written only by the re-plot — a couple session cannot rewrite them', async () => {
+  const { eventId, vendorId } = await seed('history-guard');
+  const u = await db.query<{ id: string }>(
+    `INSERT INTO auth.users (email, raw_user_meta_data) VALUES ('replot-couple@example.com', jsonb_build_object('account_type','customer')) RETURNING id`,
+  );
+  const couple = u.rows[0]!.id;
+  await db.query(`INSERT INTO public.event_members (event_id, user_id, member_type) VALUES ($1, $2, 'couple')`, [eventId, couple]);
+  await setAuthUid(db, couple);
+  await db.query(`SELECT set_config('request.jwt.claim.role', 'authenticated', false)`);
+  await db.exec('SET ROLE authenticated');
+  // Their own plan row is theirs to write…
+  await db.query(`UPDATE public.event_vendor_payment_plan SET instances_json = instances_json WHERE event_vendor_id = $1`, [vendorId]);
+  // …but not the kept plans.
+  await assert.rejects(
+    db.query(`UPDATE public.event_vendor_payment_plan SET replot_history = '[{"at":"x","from_php":1,"to_php":2}]'::jsonb WHERE event_vendor_id = $1`, [vendorId]),
+    /written only by a price change/,
+  );
+  await db.exec('RESET ROLE');
+  await setAuthUid(db, null);
+  // …and a price change by that couple still keeps one (the re-plot runs as its owner).
+  await db.query(`UPDATE public.event_vendors SET total_cost_php = 120000 WHERE vendor_id = $1`, [vendorId]);
+  const p = await planOf(vendorId);
+  assert.equal(p.replot_history.length, 1);
+});
+
+/**
+ * THEIR CLAIM LINK IS AUTOMATIC (owner 2026-10-30, verbatim: "no need to wait to create link. create an automatic
+ * link"). The add makes it and the record card makes it the first time it opens — both through the ONE idempotent
+ * writer, `ensureAutoShareInvite`. Opening the card twice must make ONE link, not two, and write nothing the second time.
+ */
+test('a self-added supplier gets ONE claim link, however many times the card opens', async () => {
+  const { ensureAutoShareInvite } = await import('../../lib/vendor-invites');
+  const { makeAdminClient } = await import('./supabase-over-pglite');
+  const client = makeAdminClient(db);
+  const { eventId, vendorId } = await seed('auto-link');
+  const u = await db.query<{ id: string }>(
+    `INSERT INTO auth.users (email, raw_user_meta_data) VALUES ('replot-link@example.com', jsonb_build_object('account_type','customer')) RETURNING id`,
+  );
+  void eventId;
+  const args = { eventVendorId: vendorId, invitedByUserId: u.rows[0]!.id, businessName: 'Sample Styling Co', serviceCategory: 'reception_decor' };
+  const first = await ensureAutoShareInvite(client, args); // the add
+  const second = await ensureAutoShareInvite(client, args); // the card opens
+  const third = await ensureAutoShareInvite(client, args); // …and again
+  assert.ok(first?.claim_token, 'the add made no link');
+  assert.equal(second?.claim_token, first!.claim_token, 'reopening made a different link');
+  assert.equal(third?.claim_token, first!.claim_token);
+  const rows = await db.query(`SELECT invite_id FROM public.vendor_invites WHERE vendor_id = $1`, [vendorId]);
+  assert.equal(rows.rows.length, 1, `opening the card made ${rows.rows.length} links`);
+});

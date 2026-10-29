@@ -25,8 +25,15 @@ Place · Services. One form, one Save, every live field and control kept.
   record card and the Pay sheet say "Price changed ₱A → ₱B · plan updated". `plan_replot_instances` (SQL) is held
   equal to `lib/plan-replot.ts` by `a-price-change-replots-the-unpaid-payments.db.test.ts`.
 
-Migration: `20271297090101_a_price_change_replots_the_unpaid_payments.sql` (two JSONB columns, three functions, two
-triggers) — not applied by hand.
+- **Their claim link is automatic** (owner 2026-10-30, verbatim: "no need to wait to create link. create an automatic
+  link"). Every add makes it (`addManualSupplier` step 7, no longer only when the walk asks for it back); a supplier
+  added before this gets theirs the first time the record card opens — through the ONE idempotent writer
+  (`createManualVendorInvite` → `ensureAutoShareInvite`, one live link per supplier), so opening twice makes one link.
+  The card's head always shows it ready (QR · Copy · Share); "No link yet / Create their link" is gone, and a link
+  that could not be made is said in place with Try again. Guards: `their-claim-link-is-automatic.test.ts` + the db test.
+
+Migration: `20271297090101_a_price_change_replots_the_unpaid_payments.sql` (two JSONB columns, four functions, three
+triggers — one keeps the kept plans written only by the re-plot) — not applied by hand.
 
 SPEC IMPACT: None — implements the DECISION_LOG rows of 2026-10-29 "THE SUPPLIER RECORD CARD IS REORGANIZED LIKE THE
 GUEST CARD" and "AN ACCEPTED PRICE CHANGE ALWAYS RE-PLOTS THE UNPAID PAYMENTS" as ruled. Open owner calls are in the PR.

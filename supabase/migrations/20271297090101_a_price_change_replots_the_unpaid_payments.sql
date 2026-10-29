@@ -318,4 +318,32 @@ CREATE TRIGGER event_vendors_plan_replot_on_own_price
   AFTER UPDATE OF total_cost_php ON public.event_vendors
   FOR EACH ROW EXECUTE FUNCTION public.plan_replot_on_own_price();
 
+-- ── 5 · Only the re-plot writes the history ────────────────────────────────
+-- The couple's own session can write its plan row (its RLS is host-only), and a JSONB column cannot be hidden from it
+-- by RLS. The kept plans are the record of what a price change replaced, so — like `cleared_at` beside them
+-- (`guard_payment_plan_clear`) — a browser session may not write them; `plan_replot_for_booking` (SECURITY DEFINER)
+-- runs as its owner and may.
+CREATE OR REPLACE FUNCTION public.guard_payment_plan_replot_history()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = public, pg_temp
+AS $function$
+BEGIN
+  IF current_user IN ('authenticated', 'anon') AND NOT public.is_admin() THEN
+    IF (TG_OP = 'INSERT' AND NEW.replot_history IS DISTINCT FROM '[]'::jsonb)
+       OR (TG_OP = 'UPDATE' AND NEW.replot_history IS DISTINCT FROM OLD.replot_history) THEN
+      RAISE EXCEPTION 'event_vendor_payment_plan: the kept plans are written only by a price change''s re-plot'
+        USING ERRCODE = '42501';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$function$;
+REVOKE ALL ON FUNCTION public.guard_payment_plan_replot_history() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS trg_guard_payment_plan_replot_history ON public.event_vendor_payment_plan;
+CREATE TRIGGER trg_guard_payment_plan_replot_history
+  BEFORE INSERT OR UPDATE ON public.event_vendor_payment_plan
+  FOR EACH ROW EXECUTE FUNCTION public.guard_payment_plan_replot_history();
+
 COMMIT;

@@ -28,6 +28,7 @@ import { buildShortlistFolders, coverCatalogFromFolders } from '@/lib/shortlist-
 import { planInstancesToRows } from '@/lib/self-added-payment-plan';
 import { computePlanInstances, defaultPaymentScheduleRows } from '@/lib/vendor-service-payment-schedules';
 import { LabCard, LabRecord } from './lab-client';
+import { renderUrlQrSvg } from '@/lib/qr';
 
 const LAB_EVENT = '00000000-0000-4000-8000-000000000000';
 const LAB_EVENT_VENDOR = '00000000-0000-4000-8000-0000000000aa';
@@ -91,6 +92,8 @@ export default async function AddYourOwnLabPage({
       <main className="min-h-screen" data-lab-add-own="record">
         <LabRecord
           eventId={LAB_EVENT}
+          // `&nolink=1` — the link could not be made: the card says so, with Try again.
+          link={sp.nolink === '1' ? undefined : { url: 'https://setnayan.com/vendor/claim/lab-sample-token', qrSvg: await renderUrlQrSvg('https://setnayan.com/vendor/claim/lab-sample-token') }}
           coverCatalog={coverCatalogFromFolders(
             buildShortlistFolders({ vendorRows: [], eventType: 'wedding', faithSet: new Set(), eventId: LAB_EVENT }),
           )}

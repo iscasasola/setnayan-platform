@@ -38,7 +38,7 @@
  */
 
 import { useId, useState, useTransition } from 'react';
-import { Check, Copy, Download, Share, Share2, X } from 'lucide-react';
+import { Check, Copy, Share, Share2, X } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { GuestPopup } from '../guests/_components/guest-popup';
 import { useSaveLoader } from '@/components/sd-loader';
@@ -267,7 +267,7 @@ function ConnectTop({
               <ActionButton
                 tone="neutral"
                 iconOnly
-                icon={Download}
+                icon={Share}
                 label={saved === 'saving' ? 'Saving…' : 'Download the QR as a picture'}
                 onClick={onDownload}
                 disabled={saved === 'saving'}
@@ -286,12 +286,12 @@ function ConnectTop({
             ) : null}
           </>
         ) : (
-          <>
-            <p className="mt-1 text-[12.5px] text-ink/60">No link yet — make one and show it to them.</p>
-            <div className="mt-2">
-              <ActionButton tone="brand" main icon={Share2} label={pending ? 'Creating…' : 'Create their link'} onClick={onCreate} disabled={pending} />
-            </div>
-          </>
+          /* The record card hands this a link that is already made (owner 2026-10-30: "create an automatic link"), so
+             there is no "no link yet" state to draw — reaching here means it could not be made, and that is said. */
+          <div role="alert" className="mt-1 flex flex-wrap items-center gap-2">
+            <p className="text-[12.5px] font-medium text-danger-800 dark:text-danger-200">Their link is not ready yet.</p>
+            <ActionButton tone="neutral" icon={Share2} label={pending ? 'Trying…' : 'Try again'} onClick={onCreate} disabled={pending} />
+          </div>
         )}
         {err ? (
           <p role="alert" className="mt-1.5 text-[12px] text-danger-800 dark:text-danger-200">

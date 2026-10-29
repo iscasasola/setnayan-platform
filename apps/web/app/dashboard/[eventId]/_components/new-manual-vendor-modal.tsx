@@ -10,10 +10,10 @@ import {
   type ChangeEvent,
   type FormEvent,
 } from 'react';
-import { X, Check, Camera, AlertCircle, Upload, ArrowLeft, MapPin } from 'lucide-react';
+import { X, Check, Camera, AlertCircle, Upload, ArrowLeft, MapPin, RotateCw } from 'lucide-react';
 import {
   addManualSupplier,
-  readSupplierInvite,
+  createManualVendorInvite,
   updateSelfAddedSupplier,
   type SupplierInviteView,
   type SelfAddedSupplierPrefill,
@@ -43,10 +43,8 @@ import { ServicesCoveredPicker } from './services-covered-picker';
 import { PaymentPlanRows } from './payment-plan-rows';
 import type { CoverCatalogFolder } from '@/lib/shortlist-taxonomy';
 import { OWN_RECORD_PILL } from '@/lib/add-your-own';
-import { Fold } from '@/app/_components/fold';
 import { InfoTip } from '@/app/_components/info-tip';
-import { PayWaysEditor } from './pay-ways-editor';
-import { formatPhp } from '@/lib/php';
+import { RecordCardFolds, recordLines } from './record-card-folds';
 import { payWaysSummary } from '@/lib/self-added-pay-ways';
 
 /** A Form row's keep: the sheet's own Save sends the form, so keeping has nothing to write. */
@@ -127,6 +125,8 @@ type Props = {
    * sheet treats the answer identically either way.
    */
   saveRecord?: (fd: FormData) => Promise<UpdateSelfAddedSupplierResult>;
+  /** The link maker — `createManualVendorInvite` unless a dev lab hands in a stand-in (no session there). */
+  makeLink?: typeof createManualVendorInvite;
 };
 
 // State machine for the modal's primary action.
@@ -147,6 +147,7 @@ export function NewManualVendorModal({
   edit,
   coverCatalog,
   saveRecord,
+  makeLink,
   onClose,
   onCreated,
 }: Props) {
@@ -185,7 +186,7 @@ export function NewManualVendorModal({
   // two-step submit succeeds; the form swaps for the quick-options panel.
   // Marketplace-link mode skips it (already on Setnayan, price comes from
   // their listing).
-  const [created, setCreated] = useState<{ eventVendorId: string; name: string } | null>(null);
+  const [created, setCreated] = useState<{ eventVendorId: string; name: string; invite?: SupplierInviteView } | null>(null);
   /** Set when the supplier saved but one of the later fields did not. */
   const [saveWarning, setSaveWarning] = useState<string | null>(null);
   // Once the vendor exists, EVERY close affordance (X, backdrop, ESC) must
@@ -430,7 +431,7 @@ export function NewManualVendorModal({
       // A warning is shown ON the success step, not instead of it — the
       // supplier is real and the sentence says exactly what to finish.
       setSaveWarning(result.warning ?? null);
-      setCreated({ eventVendorId: result.eventVendorId, name: savedName });
+      setCreated({ eventVendorId: result.eventVendorId, name: savedName, invite: result.invite });
     });
   }
 
@@ -471,7 +472,7 @@ export function NewManualVendorModal({
               </div>
             </div>
             {mode.kind === 'manual' && !edit.claimAsk ? (
-              <RecordLinkBlock eventId={eventId} vendorId={edit.vendorId} vendorName={edit.name || 'them'} />
+              <RecordLinkBlock eventId={eventId} vendorId={edit.vendorId} vendorName={edit.name || 'them'} makeLink={makeLink} />
             ) : null}
           </div>
         ) : (
@@ -503,6 +504,7 @@ export function NewManualVendorModal({
             eventId={eventId}
             eventVendorId={created.eventVendorId}
             vendorName={created.name}
+            invite={created.invite}
             categoryLabel={categoryLabel}
             onDone={onCreated}
           />
@@ -515,6 +517,9 @@ export function NewManualVendorModal({
           <input type="hidden" name="category" value={category} />
           {/* The row the add came from — `addManualSupplier` keeps it only when it refines `category`. */}
           {tile && !edit ? <input type="hidden" name="category_key" value={tile} /> : null}
+          {/* Their claim link is made with the add (owner 2026-10-30: "create an automatic link") — `with_link` only
+              asks for it back, so the saved step shows it ready instead of a button. */}
+          {!edit ? <input type="hidden" name="with_link" value="1" /> : null}
           {edit ? <input type="hidden" name="vendor_id" value={edit.vendorId} /> : null}
 
           {mode.kind === 'linked' ? (
@@ -816,277 +821,63 @@ export function NewManualVendorModal({
   );
 }
 
-/** The one line each closed fold of the record card shows — read from the form, so it is what Save will post. */
-type RecordLines = { contact: string | null; price: string | null; place: string | null; services: string };
-
-function recordLines(edit: SelfAddedSupplierPrefill | undefined, categoryLabel: string, fd: FormData | null): RecordLines {
-  if (!edit) return { contact: null, price: null, place: null, services: categoryLabel };
-  const get = (k: string, fallback: string) => (fd && fd.has(k) ? String(fd.get(k) ?? '') : fallback).trim();
-  const contact = [get('contact_person', edit.contactPerson), get('contact_number', edit.contactNumber)].filter(Boolean).join(' · ');
-  const priceN = Number(get('total_cost_php', edit.price).replace(/[^\d.]/g, ''));
-  const inc = get('inclusions', edit.inclusions)
-    .split('\n')
-    .filter((x) => x.trim()).length;
-  const price =
-    Number.isFinite(priceN) && priceN > 0
-      ? `${formatPhp(priceN)}${inc ? ` · ${inc} inclusion${inc === 1 ? '' : 's'}` : ''}`
-      : null;
-  const addr = get('address', edit.address);
-  const tail = addr.split(',').slice(-2).join(',').replace(/^,?\s*/, '').trim();
-  const covers = fd ? fd.getAll('covers').length : edit.covers.length;
-  return {
-    contact: contact || null,
-    price,
-    place: addr ? tail || addr : null,
-    services: covers ? `${categoryLabel} + ${covers} more` : categoryLabel,
-  };
-}
-
-/** Today in the browser, as YYYY-MM-DD — only the fallback for a prefill that carried no plan dates. */
-function todayIso(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
 /**
- * THE RECORD CARD'S GROUPS (Booked prototype v4, owner-approved 2026-10-29 — "a cleaner redesign for it like a guest
- * card"): the guest card's folds — title at the left, the one-line summary at the right, one open at a time — over
- * EVERY field and control the record sheet had. Contact · Price (+ Inclusions) · Payment plan · How to pay them ·
- * Place · Services. Every field still posts into the ONE form the ONE Save sends (`updateSelfAddedSupplier`); a shut
- * fold keeps its fields mounted (`Fold`), so nothing is lost by not opening it.
- */
-function RecordCardFolds({
-  eventId,
-  edit,
-  category,
-  categoryLabel,
-  coverCatalog,
-  addressRequired,
-  pending,
-  nameKept,
-  priceKept,
-  priceNumber,
-  lines,
-  planLine,
-  payLine,
-  onPlanLine,
-  onPayLine,
-  onName,
-  onNameKeep,
-  onPriceType,
-  onPriceKeep,
-  onMoved,
-}: {
-  eventId: string;
-  edit: SelfAddedSupplierPrefill;
-  category: string;
-  categoryLabel: string;
-  coverCatalog?: readonly CoverCatalogFolder[];
-  addressRequired: boolean;
-  pending: boolean;
-  nameKept: string;
-  priceKept: string;
-  priceNumber: number | null;
-  lines: RecordLines;
-  planLine: { text: string; warn: boolean } | null;
-  payLine: string | null;
-  onPlanLine: (text: string, warn: boolean) => void;
-  onPayLine: (line: string | null) => void;
-  onName: (t: string) => void;
-  onNameKeep: (t: string) => void;
-  onPriceType: (t: string) => void;
-  onPriceKeep: (t: string) => void;
-  onMoved: () => void;
-}) {
-  const row = (last = false) => `px-0.5 ${last ? '' : 'border-b border-ink/10'}`;
-  const keptTotal = Number(priceKept.replace(/,/g, ''));
-  return (
-    <div data-record-card-folds="" className="border-t border-ink/10">
-      <Fold title="Contact" summary={lines.contact ?? 'Add who to call'} summaryEnd defaultOpen className={row()} data="record-contact">
-        <FormRows width="wide" data="add-manual-contact">
-          <TypedRow
-            name="Supplier name"
-            fieldName="business_name"
-            value={nameKept}
-            empty="Their name"
-            placeholder="e.g. Tito Marcel"
-            required
-            maxLength={128}
-            autoCapitalize="words"
-            attrs={{ 'data-manual-field': 'business_name' }}
-            onType={onName}
-            onKeep={(t) => {
-              onNameKeep(t);
-              return { ok: true as const };
-            }}
-          />
-          <TypedRow
-            name="Contact person"
-            fieldName="contact_person"
-            value={edit.contactPerson}
-            placeholder="e.g. Marcel Santos"
-            maxLength={128}
-            autoCapitalize="words"
-            about={{ words: 'Who to call · usually the same as Supplier name.' }}
-            attrs={{ 'data-manual-field': 'contact_person' }}
-            onKeep={KEEP}
-          />
-          <TypedRow
-            name="Contact number"
-            fieldName="contact_number"
-            value={edit.contactNumber}
-            placeholder="+63 9XX XXX XXXX"
-            maxLength={32}
-            inputMode="tel"
-            about={{ words: 'Mobile preferred · e.g. +63 917 555 1234' }}
-            attrs={{ 'data-manual-field': 'contact_number' }}
-            onKeep={KEEP}
-          />
-        </FormRows>
-      </Fold>
-
-      <Fold title="Price" summary={lines.price ?? 'Set the price'} summaryEnd className={row()} data="record-price">
-        <FormRows width="wide" data="add-manual-terms">
-          <TypedRow
-            name="Price"
-            fieldName="total_cost_php"
-            value={priceKept}
-            amount
-            placeholder="80000"
-            about={{ words: 'What you agreed, in pesos. The payment plan has to add up to it — change it and the unpaid payments re-split to match.' }}
-            attrs={{ 'data-manual-field': 'total_cost_php' }}
-            onType={onPriceType}
-            onKeep={(t) => {
-              onPriceKeep(t);
-              return { ok: true as const };
-            }}
-          />
-          <TypedRow
-            name="Inclusions"
-            fieldName="inclusions"
-            value={edit.inclusions}
-            long
-            maxLength={2000}
-            placeholder={'e.g.\nBallroom, 6am–12mn\nTables and chairs'}
-            about={{ words: 'One per line — what the price covers.' }}
-            attrs={{ 'data-manual-field': 'inclusions' }}
-            onKeep={KEEP}
-          />
-        </FormRows>
-      </Fold>
-
-      <Fold
-        title="Payment plan"
-        summary={planLine?.text ?? 'No payments yet'}
-        summaryEnd
-        className={row()}
-        data="record-plan"
-        popovers
-      >
-        <div className="pb-3">
-          <PaymentPlanRows
-            totalPhp={priceNumber}
-            disabled={pending}
-            // A SAVED plan re-opens exactly as saved — even one saved with no payments; only a supplier with no plan
-            // yet gets the starter.
-            initial={edit.planRows.length > 0 || edit.planSaved ? edit.planRows : undefined}
-            dated={{
-              dates: edit.planDates ?? { lockIso: todayIso(), eventIso: null },
-              seqs: edit.planSeqs,
-              settledSeqs: edit.settledSeqs,
-              keptTotalPhp: Number.isFinite(keptTotal) && keptTotal > 0 ? keptTotal : null,
-              lastReplot: edit.lastReplot ?? null,
-              onLine: onPlanLine,
-            }}
-          />
-        </div>
-      </Fold>
-
-      <Fold
-        title="How to pay them"
-        summary={payLine ?? 'Not added yet'}
-        summaryEnd
-        className={row()}
-        data="record-pay"
-        tip="Where you send the money — a photo of their QR, the account details, or both — so you are not digging through messages on the day. Setnayan does not send or track it; nothing here creates a payment."
-        popovers
-      >
-        <div className="pb-3">
-          <PayWaysEditor eventId={eventId} initial={edit.payWays === undefined ? [] : edit.payWays} disabled={pending} onSummary={onPayLine} />
-        </div>
-      </Fold>
-
-      <Fold title="Place" summary={lines.place ?? 'Add their address'} summaryEnd className={row()} data="record-place">
-        <div className="pb-3">
-          <AddressPinField required={addressRequired} disabled={pending} initialAddress={edit.address} initialPin={edit.pin ?? null} />
-        </div>
-      </Fold>
-
-      <Fold
-        title="Services"
-        summary={lines.services}
-        summaryEnd
-        className={row(true)}
-        data="record-services"
-        tip={`${categoryLabel} is the category you added them under. Tick any other service their price covers — one booking, one price, counted once across all of them.`}
-        popovers
-      >
-        <div className="pb-3">
-          <ServicesCoveredPicker
-            eventId={eventId}
-            category={category}
-            homeTile={edit.homeTile}
-            ownLabel={categoryLabel}
-            catalog={coverCatalog}
-            initialSelected={edit.covers}
-            disabled={pending}
-            move={{ vendorId: edit.vendorId, name: edit.name.trim() || 'This supplier', claimAsk: edit.claimAsk }}
-            onMoved={onMoved}
-          />
-        </div>
-      </Fold>
-    </div>
-  );
-}
-
-/**
- * The record's claim link — read first (three states, like `ConnectSupplierModal`:
- * still reading · no link yet · the link), so a couple who only opened their
- * record is never invited to mint a link that already exists.
+ * The record's claim link — ALWAYS READY (owner 2026-10-30, verbatim: *"no need to wait to create link. create an
+ * automatic link"*). The add makes it (`addManualSupplier` step 7); a supplier added before that has none, so the
+ * first time their card opens it is made here — server-side, through the ONE writer the old "Create their link"
+ * button called (`createManualVendorInvite` → `ensureAutoShareInvite`), which returns the live link when there is one
+ * and writes nothing (one live link per supplier: `vendor_invites_live_unique`). Opening the card twice makes one link.
+ *
+ * Three states, none of them an empty one: making it · the link · it could not be made (said in place, Try again).
  */
 function RecordLinkBlock({
   eventId,
   vendorId,
   vendorName,
+  makeLink = createManualVendorInvite,
 }: {
   eventId: string;
   vendorId: string;
   vendorName: string;
+  makeLink?: typeof createManualVendorInvite;
 }) {
-  const [invite, setInvite] = useState<SupplierInviteView | undefined>(undefined);
+  const [state, setState] = useState<{ kind: 'making' } | { kind: 'ready'; invite: NonNullable<SupplierInviteView> } | { kind: 'failed'; error: string }>({
+    kind: 'making',
+  });
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let live = true;
-    readSupplierInvite(eventId, vendorId)
-      .then((v) => {
-        if (live) setInvite(v);
+    setState({ kind: 'making' });
+    makeLink({ eventId, vendorId })
+      .then((r) => {
+        if (!live) return;
+        setState(r.ok ? { kind: 'ready', invite: { url: r.url, qrSvg: r.qrSvg } } : { kind: 'failed', error: r.error });
       })
       .catch(() => {
-        // Unreadable → offer "Create their link": that writer is idempotent and
-        // hands back the existing link rather than making a second.
-        if (live) setInvite(null);
+        if (live) setState({ kind: 'failed', error: 'We could not make their link just now.' });
       });
     return () => {
       live = false;
     };
-  }, [eventId, vendorId]);
-  if (invite === undefined) {
+  }, [eventId, vendorId, attempt, makeLink]);
+  if (state.kind === 'making') {
     return (
-      <p className="py-2 text-xs text-ink/55" aria-live="polite">
-        Checking for their link…
+      <p className="py-2 text-xs text-ink/55" aria-live="polite" data-record-link="making">
+        Getting their link ready…
       </p>
     );
   }
-  return <SupplierConnectPanel eventId={eventId} vendorId={vendorId} vendorName={vendorName} initial={invite} layout="top" />;
+  if (state.kind === 'failed') {
+    return (
+      <div role="alert" data-record-link="failed" className="flex flex-wrap items-center gap-2 py-1">
+        <p className="min-w-0 flex-1 text-[12.5px] font-medium text-danger-800 dark:text-danger-200">
+          {state.error} Their link is not ready yet.
+        </p>
+        <ActionButton tone="neutral" icon={RotateCw} label="Try again" onClick={() => setAttempt((n) => n + 1)} />
+      </div>
+    );
+  }
+  return <SupplierConnectPanel eventId={eventId} vendorId={vendorId} vendorName={vendorName} initial={state.invite} layout="top" />;
 }
 
 // ============================================================================
@@ -1107,12 +898,15 @@ function PostSaveStep({
   vendorName,
   categoryLabel,
   warning,
+  invite,
   onDone,
 }: {
   eventId: string;
   eventVendorId: string;
   vendorName: string;
   categoryLabel: string;
+  /** Their claim link, made with the add (`with_link=1`); null = it could not be made. */
+  invite?: SupplierInviteView;
   /** Set when the supplier saved but a later field did not — see addManualSupplier. */
   warning: string | null;
   onDone: () => void;
@@ -1139,7 +933,7 @@ function PostSaveStep({
 
       {/* The supplier's portal — the same panel [Connect] on their card opens. */}
       <div className="border-t border-ink/10 pt-3">
-        <SupplierConnectPanel eventId={eventId} vendorId={eventVendorId} vendorName={vendorName} />
+        <SupplierConnectPanel eventId={eventId} vendorId={eventVendorId} vendorName={vendorName} initial={invite} />
       </div>
 
       <ActionButton tone="brand" main icon={Check} label="Done" onClick={onDone} className="w-full" />

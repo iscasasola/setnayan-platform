@@ -5483,14 +5483,16 @@ export async function addManualSupplier(
     });
   }
 
-  // 7 · THEIR LINK, in the same press (the walk's step 4 shows it at once —
-  //     one write per press, owner 2026-10-08). `createManualVendorInvite` is
-  //     the shipped, idempotent writer; a link that could not be made is not a
-  //     failed add — the panel then offers "Create their link".
+  // 7 · THEIR LINK, ALWAYS, in the same press. Owner 2026-10-30, verbatim: *"no need to wait to create link. create an
+  //     automatic link"* — a supplier the couple adds has their claim link from the moment they exist, nobody presses
+  //     anything. `createManualVendorInvite` is the shipped, idempotent writer (one live link per supplier, the
+  //     `vendor_invites_live_unique` index); a link that could not be made is not a failed add — the record card makes
+  //     it the first time it opens, and says so in place if it still cannot. `with_link` now only decides whether the
+  //     link rides back on this answer (the walk's step 4 and the add sheet's saved step draw it at once).
   let invite: SupplierInviteView | undefined;
-  if (formData.get('with_link') === '1') {
+  {
     const link = await createManualVendorInvite({ eventId, vendorId: eventVendorId });
-    invite = link.ok ? { url: link.url, qrSvg: link.qrSvg } : null;
+    if (formData.get('with_link') === '1') invite = link.ok ? { url: link.url, qrSvg: link.qrSvg } : null;
   }
 
   // The walk draws its own answer (`answer_in_place`) and refreshes once,

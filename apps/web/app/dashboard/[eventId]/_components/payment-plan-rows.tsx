@@ -136,7 +136,7 @@ export function PaymentPlanRows({
 
 /** The record card's fields — the prototype's size (14 px, 40 px tall), not the dense percent rows' 12 px. */
 const DCELL =
-  'min-h-10 rounded-lg border border-ink/15 bg-cream px-3 py-2 text-[14px] text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none disabled:opacity-60';
+  'min-h-10 rounded-lg border border-ink/15 bg-cream px-3 py-2 text-[14px] text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none disabled:opacity-60'; // no-card-ok: worn only by <input> fields
 
 const STARTER: ReadonlyArray<Omit<Row, 'key'>> = [
   { label: 'First payment', kind: 'percent', value: '50', anchor: 'on_lock', days: '0' },

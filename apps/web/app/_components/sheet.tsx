@@ -80,7 +80,8 @@ import { useShellBoundary, type ShellBoundary } from './shell-boundary';
 // did not were trapped. Now the sheet is drawn into <body> by itself (`usePortalHost`), so no caller can get it wrong
 // — a caller's own portal around it still works (a portal inside a portal lands on <body> once). On the server and the
 // very first client render there is no <body> to reach yet, so a sheet open at mount is drawn in place for that one
-// frame (the server's HTML and the first paint agree), then moves. 🔒 `lib/every-overlay-is-drawn-on-top.test.ts`.
+// frame (the server's HTML and the first paint agree), then moves (the focus trap engages
+// there). 🔒 `app/_components/an-open-panel-clears-the-top-bar.test.ts`.
 //
 // NOT handled here (consumer's responsibility):
 //   - the heading element itself — consumer renders it so it can
@@ -171,9 +172,11 @@ export function Sheet({
   const dialogRef = useRef<HTMLDivElement>(null);
   const viaBack = useBackCloses(open && backCloses, onClose);
   const close = backCloses ? viaBack : onClose;
-  useModalA11y({ open, onClose: close, containerRef: dialogRef });
-  const at = SHEET_AT[useShellBoundary()];
   const host = usePortalHost();
+  /* The focus trap, the still page and the inert behind it engage once the sheet stands on <body> — a sheet mounted
+     already open is drawn in place for its first frame, and the hook must hold the element that stays, not that one. */
+  useModalA11y({ open: open && host !== null, onClose: close, containerRef: dialogRef });
+  const at = SHEET_AT[useShellBoundary()];
 
   if (!open) return null;
 

@@ -9,7 +9,7 @@ below (`excludeBenchVendors`, as before).
   on at least one. The booking path's own per-card refusals (`service_cards_unbookable_on`, new reader
   `readCardRefusals` in `lib/bench-bookable-days.server.ts`). Unreadable → the list says "We couldn't check who's free
   on your date — every card is shown." with Try again (never a silent all / none).
-- **✎ Services to show** on the open row (it pins with the head): a sheet of only the services that HAVE cards, each
+- **✎ What to show** on the open row (it pins with the head; v4.11: titled by the category, a search when the list is long, each service a parent row with an empty slot for its looks until the inspiration work lands): a sheet of only the services that HAVE cards, each
   with its count; ticks are a draft — the list changes only on **Done**; "Tick all"; any other close discards. The
   row then reads "✎ 2 of 4". A typed service name (≥ 3 letters) in the open category ticks only that service.
 - **A shop stays together**: its first card in full, its others tucked under it as "also <Service> · <card>" with

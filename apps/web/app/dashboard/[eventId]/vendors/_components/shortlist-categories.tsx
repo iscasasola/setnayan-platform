@@ -4338,8 +4338,8 @@ export function ShortlistCategories({
                                 quiet
                                 iconOnly={!words}
                                 icon={Pencil}
-                                label={words ?? 'Services to show'}
-                                name={words ? `Services to show — ${words} showing` : `Services to show in ${t.label}`}
+                                label={words ?? 'What to show'}
+                                name={words ? `What to show — ${words} services showing` : `What to show in ${t.label}`}
                                 aria-haspopup="dialog"
                                 className={`cat-svc${words ? ' on' : ''}`}
                                 data-testid={`find-services-${t.tile}`}

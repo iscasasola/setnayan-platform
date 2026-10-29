@@ -12,13 +12,19 @@
  *     area, ✕, Esc, the phone's Back) drops the draft. Nothing is asked of the server either way: the category's cards
  *     are already on the page.
  *
+ * v4.11 (owner 2026-10-29, *"Maybe we can combine the services and inspiration to 1 popup?"*): the sheet is titled by
+ * the CATEGORY, sub-line "What to show", a search on top ("Search services and looks"), and each service is a PARENT
+ * row with a slot under it for its looks. The looks belong to the inspiration work still waiting on the owner's concept
+ * approval, and no per-card inspiration data exists live — so the slot is left empty (no placeholder) and the count
+ * says cards only. When looks arrive they nest in `data-find-looks` under their service, greyed while it is unticked.
+ *
  * Built from the house pieces only: the shared `Sheet` (frame, backdrop, Back, focus) and the house `TickBox`.
  */
 import { useEffect, useId, useState } from 'react';
 import { Sheet } from '@/app/_components/sheet';
 import { TickBox } from '@/app/[slug]/_components/tick-box';
 import { ActionButton } from '@/components/action-button';
-import { Check, CheckCheck } from 'lucide-react';
+import { Check, CheckCheck, Search } from 'lucide-react';
 import { cardsWord, type FindService } from '@/lib/find-service-cards';
 
 export function FindServicesSheet({
@@ -43,9 +49,13 @@ export function FindServicesSheet({
 }) {
   const titleId = useId();
   const [draft, setDraft] = useState<ReadonlySet<string>>(() => new Set(hidden));
+  const [find, setFind] = useState('');
   // Every opening starts from what is applied — a draft dropped by a dismiss never comes back.
   useEffect(() => {
-    if (open) setDraft(new Set(hidden));
+    if (open) {
+      setDraft(new Set(hidden));
+      setFind('');
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
   const toggle = (key: string) =>
@@ -59,9 +69,23 @@ export function FindServicesSheet({
     <Sheet open={open} onClose={onClose} labelledById={titleId} rise>
       <div className="px-5 pb-[calc(1rem+var(--sn-safe-b,0px))] pt-5" data-find-services-sheet="">
         <h2 id={titleId} className="pr-12 text-[17px] font-semibold text-ink">
-          Services to show
+          {category}
         </h2>
-        <p className="mt-0.5 text-[13px] text-ink/60">{category}</p>
+        <p className="mt-0.5 text-[13px] text-ink/60">What to show</p>
+        {listed.length > 4 ? (
+          // A long list is searched, never scrolled through blind. Short ones need no box.
+          <label className="mt-3 flex h-11 items-center gap-2 rounded-full border border-ink/15 bg-cream px-3.5">
+            <Search aria-hidden className="h-4 w-4 shrink-0 text-ink/45" strokeWidth={1.9} />
+            <input
+              type="search"
+              value={find}
+              onChange={(e) => setFind(e.target.value)}
+              placeholder="Search services and looks"
+              aria-label="Search services and looks"
+              className="min-w-0 flex-1 bg-transparent text-[15px] text-ink outline-none placeholder:text-ink/45"
+            />
+          </label>
+        ) : null}
         {listed.length === 0 ? (
           // The counts could not be read — said plainly; a service is hidden only for a real zero (owner 2026-10-29).
           <p role="status" className="mt-3 text-[14px] text-ink/70" data-find-services-unread="">
@@ -69,10 +93,12 @@ export function FindServicesSheet({
           </p>
         ) : null}
         <ul className="mt-3">
-          {listed.map(({ service, count }) => {
+          {listed
+            .filter(({ service }) => !find.trim() || service.label.toLowerCase().includes(find.trim().toLowerCase()))
+            .map(({ service, count }) => {
             const id = `${titleId}-${service.key}`;
             return (
-              <li key={service.key} className="flex min-h-[52px] items-center gap-1 border-t border-ink/10 first:border-t-0">
+              <li key={service.key} className="flex min-h-[52px] flex-wrap items-center gap-1 border-t border-ink/10 first:border-t-0" data-find-service-row="">
                 <TickBox
                   press="-ml-3"
                   id={id}
@@ -84,6 +110,7 @@ export function FindServicesSheet({
                   <span className="text-[15px] font-medium text-ink">{service.label}</span>
                   <span className="shrink-0 text-[13px] text-ink/55">{cardsWord(count)}</span>
                 </label>
+                {/* Its looks nest here once the inspiration work lands (`data-find-looks`) — empty today, no placeholder. */}
               </li>
             );
           })}

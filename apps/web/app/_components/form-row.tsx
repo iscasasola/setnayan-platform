@@ -937,21 +937,22 @@ export function FormRowField({
           {...shared}
           inputMode={inputMode}
           enterKeyHint={onwards ? 'next' : 'done'}
-          onChange={(e) => {
-            if (!mark) return setText(e.target.value);
-            // 💱 AN AMOUNT GETS ITS COMMAS AS IT IS TYPED (owner 2026-10-30: "cannot place commas because it only shows
-            // number pad") — the caret stays after the digit just typed; the keep still takes only the digits.
-            const el = e.target;
-            const f = formatPesoTyping(el.value, el.selectionStart ?? el.value.length, 0);
-            setText(f.text);
-            requestAnimationFrame(() => {
-              try {
-                el.setSelectionRange(f.caret, f.caret);
-              } catch {
-                /* a field that has gone away has no caret to place */
-              }
-            });
-          }}
+          /* 💱 AN AMOUNT GETS ITS COMMAS AS IT IS TYPED (owner 2026-10-30: "cannot place commas because it only shows
+             number pad"). `onInput` runs before React's `onChange` reads the field, so the words the row is told are
+             already "100,000"; the caret stays after the digit just typed; the keep still takes only the digits. */
+          onInput={
+            mark
+              ? (e) => {
+                  const el = e.currentTarget;
+                  const f = formatPesoTyping(el.value, el.selectionStart ?? el.value.length, 0);
+                  if (f.text !== el.value) {
+                    el.value = f.text;
+                    el.setSelectionRange(f.caret, f.caret);
+                  }
+                }
+              : undefined
+          }
+          onChange={(e) => setText(e.target.value)}
           onKeyDown={onKeys}
         />
       </span>

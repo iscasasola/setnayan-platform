@@ -159,18 +159,19 @@ export function landingMessage(input: InviteEventFacts & {
   now?: Date;
 }): string {
   const template = sanitizeInviteTemplate(input.template) ?? defaultInviteTemplate({ solemn: input.solemn });
-  const first =
-    template
-      .split(/\n\s*\n/)
-      .map((p) => p.trim())
-      .find((p) => p && !/\{link\}/i.test(p)) ?? '';
+  // The opening = every paragraph BEFORE the one that carries the link (ours is "Hi {name}! 💌" + "With joyful
+  // hearts…", owner 2026-10-29), joined into one line; a couple's one-paragraph opening reads exactly as before.
+  const paras = template.split(/\n\s*\n/).map((p) => p.trim());
+  const linkAt = paras.findIndex((p) => /\{link\}/i.test(p));
+  const before = (linkAt >= 0 ? paras.slice(0, linkAt) : paras.slice(0, 1)).filter(Boolean);
+  const first = before.join(' ').replace(/\s*\n\s*/g, ' ');
   const name = (input.formalName ?? '').replace(/\s+/g, ' ').trim();
   const date = formatInviteDate(input.eventDate, input.datePrecision, input.now);
   let t = first;
   if (!name) t = t.replace(/[ \t]*\{name\}/gi, '');
   if (!date) t = t.replace(/[ \t]+on[ \t]+\{date\}/gi, '').replace(/[ \t]*\{date\}/gi, '');
   const filled = t
-    .replace(/\{(name|event|date|link)\}/gi, (_m, key: string) => {
+    .replace(/\{(name|event|date|link|hosts)\}/gi, (_m, key: string) => {
       const k = key.toLowerCase();
       if (k === 'name') return name;
       if (k === 'event') return inviteEventPhrase(input, 'hosts');

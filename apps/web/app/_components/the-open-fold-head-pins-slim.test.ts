@@ -19,7 +19,7 @@ test('the shared fold pins its OPEN head on the pin line, one slim line deeper p
   assert.match(src, /useSlimPin\(open, depth\)/, 'the head pins only while the fold is open');
   assert.match(src, /calc\(var\(--sn-pin-top, 0px\) \+ \$\{offset\}px\)/, 'the head no longer sits on the shared pin line');
   assert.match(src, /const offset = depth \* FOLD_SLIM_PX;/, 'a nested head no longer sits flush under its parent');
-  assert.match(src, /<FoldDepth\.Provider value=\{open \? depth \+ 1 : depth\}>/, 'an open fold no longer tells its children how deep they are');
+  assert.match(src, /<FoldDepth\.Provider value=\{open \? depth \+ 1 : depth\}>\s*<OneOpenScope id=\{scope\}>\{children\}<\/OneOpenScope>/, 'an open fold no longer tells its children how deep they are');
   assert.match(src, /<div ref=\{pinRef\} data-fold-pinbox="">/, 'the head lost its pinning box');
   assert.match(src, /pin\.toggleAttribute\('data-slim', next\)/, 'slim is written as an attribute');
   // Hysteresis: on at the line, off 6 px below it — and only once the head has really travelled up.

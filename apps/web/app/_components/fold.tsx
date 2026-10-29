@@ -306,9 +306,9 @@ export function Fold({
       >
         {/* 4 px of room each side, so a row's focus ring and an open field's highlight are not cut by the fold's edge. */}
         <div className={`-mx-1 min-h-0 ${popovers && open && settled ? 'overflow-visible' : 'overflow-hidden'} px-1 transition-opacity duration-sn-pill ease-sn motion-reduce:transition-none ${open ? 'opacity-100' : 'opacity-0'}`}>
-          <OneOpenScope id={scope}>
-            <FoldDepth.Provider value={open ? depth + 1 : depth}>{children}</FoldDepth.Provider>
-          </OneOpenScope>
+          <FoldDepth.Provider value={open ? depth + 1 : depth}>
+            <OneOpenScope id={scope}>{children}</OneOpenScope>
+          </FoldDepth.Provider>
         </div>
       </div>
     </div>

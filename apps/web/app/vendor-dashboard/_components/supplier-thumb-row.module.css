@@ -116,8 +116,8 @@
 }
 
 /* 📌 FROM 701, IN THE PINNED ROW (`[data-pin-tools]`): the same controls, seated on the bar — no float, no glass, no
-   slide. The field is a pill up to 320 px; every round is 40 px on the pill ground; the one main verb keeps its colour
-   (prototype v13 `.vr-tools`). Doubled class = enough weight over the floating row's own glass rules. */
+   slide. The field is a pill up to 320 px; every control stays 44 px (the house floor — the prototype's 40 yields to
+   it); the neutral rounds sit on the pill ground; the one main verb keeps its colour (prototype v13 `.vr-tools`). Doubled class = enough weight over the floating row's own glass rules. */
 .up {
   display: flex;
   align-items: center;
@@ -143,7 +143,6 @@
 .up.up :global([data-thumb-seat='field']) {
   flex: 0 1 320px;
   min-width: 150px;
-  height: 40px;
 }
 .up.up .thumb {
   flex: 0 1 auto;

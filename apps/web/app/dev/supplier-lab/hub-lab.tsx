@@ -50,7 +50,8 @@ const LOCK = {
   payHref: '/vendor-dashboard/booking-fees',
 };
 
-const at = (hhmm: string) => `2026-12-18T${hhmm}:00+08:00`;
+// A schedule time is the venue's WALL CLOCK stored in a UTC column (`formatWallClock`), so 13:00 is written 13:00Z.
+const at = (hhmm: string) => `2026-12-18T${hhmm}:00Z`;
 const block = (id: string, hhmm: string, label: string, location: string | null = null): RunOfShowBlock => ({
   block_id: id,
   label,

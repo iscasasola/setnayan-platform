@@ -64,7 +64,7 @@ test('2 · a locked event is its lock — the gate’s words and the bill’s li
   const html = renderToStaticMarkup(React.createElement(HubLockRow, { lock: locked.lock! }));
   assert.match(html, /data-hub-day-locked/);
   assert.match(html, /GATE-HEADLINE/, 'the row lost the gate’s sentence');
-  assert.match(html, /href="\/vendor-dashboard\/booking-fees\/pay\/o-1"[^>]*>GATE-CTA/, 'the row lost the way to pay');
+  assert.match(html, /<a [^>]*href="\/vendor-dashboard\/booking-fees\/pay\/o-1"[^>]*>(?:(?!<\/a>)[\s\S])*GATE-CTA/, 'the row lost the way to pay');
   const noBill = renderToStaticMarkup(React.createElement(HubLockRow, { lock: { ...LOCK, cta: null } }));
   assert.doesNotMatch(noBill, /booking-fees\/pay/, 'a lock with nothing to pay offers a pay button');
   // The page draws nothing BUT the lock for a locked event's Set up and Crew.

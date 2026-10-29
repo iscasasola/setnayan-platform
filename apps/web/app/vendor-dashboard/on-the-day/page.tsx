@@ -66,6 +66,7 @@ import { feeLockCopy } from '@/lib/event-access-stage';
 import { VENDOR_BOOKING_FEES_PATH, vendorBookingFeePayPath } from '@/lib/vendor-booking-fees';
 import { formatCount } from '@/lib/format-number';
 import { isStoreShellRequest } from '@/lib/request-platform';
+import { ActionButton } from '@/components/action-button';
 
 export const metadata = { title: 'Event Hub · Supplier' };
 
@@ -241,12 +242,9 @@ export default async function VendorOnTheDayPage({
               When a couple books you, their event lands here — set up its tools and crew ahead, and its Event Hub opens
               on the day, {HUB_OPEN_WINDOW_PLAIN}.
             </p>
-            <Link
-              href="/vendor-dashboard/customers"
-              className="sn-press mt-4 inline-flex min-h-11 items-center gap-1.5 rounded-full bg-sn-accent px-4 text-sm font-semibold text-white"
-            >
-              See your customers <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            </Link>
+            <div className="mt-4 flex justify-center">
+              <ActionButton tone="brand" main icon={ArrowRight} label="See your customers" href="/vendor-dashboard/customers" />
+            </div>
           </ShopEmpty>
         </div>
       </section>

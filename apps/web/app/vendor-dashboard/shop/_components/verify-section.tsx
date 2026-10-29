@@ -1,5 +1,6 @@
 'use client';
 
+import { VERIFY_DOCS_ANCHOR } from '../../_components/get-verified-line';
 import { useActionState, useEffect, useRef, useState } from 'react';
 import {
   BadgeCheck,
@@ -111,6 +112,18 @@ export function VerifySection({
     }
     wasComplete.current = profileComplete;
   }, [profileComplete, submitted, isVerified]);
+
+  // 🛡 [Get verified] (`GetVerifiedLine`, owner 2026-10-29 v13 note 4) lands on `#docs`: the fold opens, and HERE the
+  // papers step opens with it, so the first missing paper is on screen — not a closed step to find.
+  useEffect(() => {
+    if (isVerified || submitted) return;
+    const onHash = () => {
+      if (window.location.hash === `#${VERIFY_DOCS_ANCHOR}`) setOpenStep(1);
+    };
+    onHash();
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, [isVerified, submitted]);
 
   const step1Done = verify.requiredDocsIn;
   // 🔢 Until texting works (no VALIDATE number is set) the contacts step asks for the email ALONE — it used to

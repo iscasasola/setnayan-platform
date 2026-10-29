@@ -102,7 +102,7 @@ const LAB_HOLD_CHECKLIST: BusinessProfileItem[] = [
   { key: 'maps_pin', label: 'Company address', surface: 'profile', ok: false },
   { key: 'contact_phone', label: 'Contact number', surface: 'profile', ok: true },
   { key: 'contact_email', label: 'Company email', surface: 'profile', ok: true },
-  { key: 'in_business_since_year', label: 'EST', surface: 'profile', ok: false },
+  { key: 'in_business_since_year', label: 'In business since', surface: 'profile', ok: false },
   { key: 'services', label: 'Services covered', surface: 'profile', ok: true },
 ];
 

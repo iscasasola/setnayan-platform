@@ -208,8 +208,9 @@ test('🔑 the arranging is reachable WITHOUT knowing to filter first — every 
     exist. The maker draws EVERY section the march has — nothing filters it.
   */
   assert.match(stripComments(MARCH_LOAD), /return groups\s*\.map\(\(g, gi\) => \(\{/, 'the march maker draws only some sections');
-  // The one filter drops a section left EMPTY (everyone in it is drawn elsewhere) — never a role or a view.
-  assert.deepEqual([...stripComments(MARCH_LOAD).matchAll(/\.filter\(\(sec\) => ([^)]*)\)/g)].map((m) => m[1]), ['sec.rows.length > 0']);
+  // The one filter drops a section left EMPTY (everyone in it is drawn elsewhere) — never a role or a view; 🏷 the
+  // couple's own group stays even empty (owner 2026-10-29 — a group just made holds nobody yet).
+  assert.deepEqual([...stripComments(MARCH_LOAD).matchAll(/\.filter\(\(sec\) => ([^)]*)\)/g)].map((m) => m[1]), ['sec.rows.length > 0 || isOwnMarchGroup(sec.key']);
   assert.match(stripComments(MAKER), /\{shown\.map\(\(sec\) => \{/, 'the maker no longer draws every section it is handed');
   assert.doesNotMatch(stripComments(MAKER), /shown\.filter\(/, 'the maker filters the sections it is handed');
 });
@@ -329,7 +330,9 @@ test('🔑 there is a LABELLED way in — the march is an item of Details › St
   // land there (lib/r4-seats-march-forwards.test.ts holds every door); the Guest list's view row offers it.
   assert.equal(makerItemMovedToViewHref('E', 'march'), '/dashboard/E/guests?gview=march');
   assert.match(stripComments(PAGE), /if \(search\.gview === 'walk' \|\| search\.view === 'march'\) \{\s*redirect\(guestsViewHref\(eventId, 'march'\)\);/);
-  assert.match(stripComments(SWITCHER), /guestsViews\.map\(\(v\) => seg\(v, GUESTS_VIEW_LABEL\[v\]/);
+  // 🎚 R4 slice 2: the row is Guests ▾ · Seats ▾ · March — March is one of its three segments (lib/guests-views.ts).
+  assert.match(stripComments(SWITCHER), /\{tops\.map\(\(t\) => seg\(t\)\)\}/);
+  assert.match(stripComments(SWITCHER), /const tops = GUESTS_TOPS\.filter\(\(t\) => t === 'guests' \|\| guestsViews\.includes\(t\)\);/);
 });
 
 test('🚶 the Wedding March is ONE item whose page is the drag maker — never a list of its names (owner 2026-10-06)', () => {

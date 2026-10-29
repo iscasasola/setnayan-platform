@@ -69,6 +69,7 @@ import { withProfileName } from '@/lib/formal-name';
 import { ROLE_SECTION_ORDER } from './_components/role-section-order';
 import { GuestsScreen, type RowInvite } from './_components/guests-screen';
 import { GuestsMarch } from './_components/guests-march';
+import RequestsPage from './claims/page';
 import SeatingPage from '../seating/page';
 import type { TitleWaitingPerson } from './_components/titles-waiting';
 import { needsWomanOrMan, ROLES_WHOSE_WORD_NEEDS_GENDER, titleButtonText, titleKey } from '@/lib/guest-title';
@@ -1108,6 +1109,16 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       songsByGuest={songsByGuest}
       faceByGuest={faceByGuest}
       requests={pendingClaimsCount}
+      // 📥 R4 slice 11 — Requests inside Guests: the shipped Requests page, drawn in place (`maker=1` — every Accept ·
+      // Decline · Link stays put), streamed with the page for the couple while someone is asking (or the address asks).
+      requestsBody={
+        viewer.isCouple && (pendingClaimsCount > 0 || search.gshow === 'requests') ? (
+          <Suspense fallback={<p className="px-4 py-6 text-center text-[13px] text-ink/60">Opening your requests…</p>}>
+            <RequestsPage params={Promise.resolve({ eventId })} searchParams={Promise.resolve({ maker: '1' })} />
+          </Suspense>
+        ) : null
+      }
+      initialAsking={search.gshow === 'requests'}
       oneQr={guestsOneQr}
       invite={rowInvite}
       titlesWaiting={titlesWaiting}

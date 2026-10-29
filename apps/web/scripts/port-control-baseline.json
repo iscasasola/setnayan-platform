@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "edcb2561ee",
+  "generatedFromRef": "4e6a996ee1",
   "routeCount": 479,
-  "destinations": 985,
-  "actions": 640,
-  "blocks": 7403,
+  "destinations": 987,
+  "actions": 641,
+  "blocks": 7418,
   "routes": {
     "/": {
       "files": [
@@ -6304,12 +6304,14 @@
         "/dashboard/[seg]/messages"
       ],
       "actions": [
+        "fileActions",
         "formAction"
       ],
       "blocks": [
         "ActionButton",
         "AddExpenseSheet",
         "BodyPortal",
+        "BookedPartRow",
         "BudgetFileActions",
         "BudgetScreen",
         "BudgetSheetState",
@@ -6339,6 +6341,7 @@
         "OrderRow",
         "OwedLine",
         "PageMasthead",
+        "PaySheet",
         "Peso",
         "PickMenu",
         "PrintSaveButton",
@@ -8447,6 +8450,7 @@
         "AnnounceButton",
         "BlockCard",
         "BlockTimeEditor",
+        "BookedPartRow",
         "BulkRetimePanel",
         "DayActions",
         "DayActionsContext.Provider",
@@ -9757,6 +9761,8 @@
         "dashboard/[eventId]/vendors/_components/book-this-build.tsx",
         "dashboard/[eventId]/vendors/_components/booked-body.tsx",
         "dashboard/[eventId]/vendors/_components/booked-budget.tsx",
+        "dashboard/[eventId]/vendors/_components/booked-part-page.tsx",
+        "dashboard/[eventId]/vendors/_components/booked-part-row.tsx",
         "dashboard/[eventId]/vendors/_components/booked-room-line.tsx",
         "dashboard/[eventId]/vendors/_components/booked-row.tsx",
         "dashboard/[eventId]/vendors/_components/booked-slot.tsx",
@@ -9848,9 +9854,12 @@
         "BookSheet",
         "BookThisBuild",
         "BookedBody",
-        "BookedBudgetSection",
+        "BookedPartPage",
+        "BookedPartRow",
+        "BookedPlan",
         "BookedRoomLine",
         "BookedRowItem",
+        "BookedRowList",
         "BookedSlot",
         "BookedStandIns",
         "BudgetBuildTab",
@@ -9868,6 +9877,7 @@
         "BuildLocked",
         "BuildPickResult",
         "BuildWrites",
+        "CallTimeLine",
         "CancelBookingAsHostResult",
         "CancelBookingButton",
         "CardDateBlock",
@@ -9889,6 +9899,7 @@
         "ContactShortlistVendorResult",
         "CostsRow",
         "Count",
+        "CoupleSchedulePage",
         "CoverBar",
         "CoverCatalogRead",
         "CoverCount",
@@ -9986,6 +9997,7 @@
         "NotSharedWithYou",
         "OverlayBackdrop",
         "PageMasthead",
+        "PartSettings",
         "PayDueCtx.Provider",
         "PaySheet",
         "PeekToast",
@@ -9999,6 +10011,7 @@
         "PlaceBody",
         "PlaceSlot",
         "PlanBudgetAccordion",
+        "PlanRows",
         "PlansRowPick",
         "PriceSummary",
         "QuoteFillRow",
@@ -10049,6 +10062,7 @@
         "SuppliersModeContext.Provider",
         "SuppliersModeState",
         "SuppliersSettingsRows",
+        "Suspense",
         "SwitchTrack",
         "TeamClearCandidates",
         "TeamDecisionDoorway",
@@ -11667,6 +11681,7 @@
     },
     "/dev/schedule-lab": {
       "files": [
+        "dev/schedule-lab/lab-moments.ts",
         "dev/schedule-lab/page.tsx",
         "dev/schedule-lab/schedule-lab-client.tsx"
       ],
@@ -11923,6 +11938,7 @@
         "dev/suppliers-lab/fact-sheet-fixtures.ts",
         "dev/suppliers-lab/fixtures.ts",
         "dev/suppliers-lab/lab-bench.tsx",
+        "dev/suppliers-lab/lab-booked-schedule.tsx",
         "dev/suppliers-lab/lab-booked.tsx",
         "dev/suppliers-lab/lab-build.tsx",
         "dev/suppliers-lab/lab-fact-sheets.tsx",
@@ -11932,7 +11948,9 @@
         "dev/suppliers-lab/pay-fixtures.ts"
       ],
       "destinations": [
-        "/dev/suppliers-lab?mode=booked"
+        "/dev/suppliers-lab?mode=booked",
+        "/dev/suppliers-lab?mode=booked&part=budget",
+        "/dev/suppliers-lab?mode=booked&part=schedule"
       ],
       "actions": [],
       "blocks": [
@@ -11943,8 +11961,10 @@
         "BookThisBuild",
         "BookedBody",
         "BookedBudgetSection",
+        "BookedPartRow",
         "BookedStandInCtx.Provider",
         "BottomDock",
+        "BudgetScreen",
         "BuildBody",
         "BuildSnapshotPick",
         "BuildWrites",
@@ -11959,12 +11979,14 @@
         "FindCategoryList",
         "InspectorLayout",
         "LabBench",
+        "LabBookedSchedule",
         "LabBookedStandIns",
         "LabFactSheets",
         "LabShell",
         "LabSuppliersShell",
         "MerkadoGuardBanner",
         "MoreRowStandInCtx.Provider",
+        "ScheduleLabClient",
         "ServicesTakeover",
         "ShortlistCategories",
         "SuppliersLabStage",

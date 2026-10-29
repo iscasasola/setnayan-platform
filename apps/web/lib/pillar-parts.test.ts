@@ -83,7 +83,12 @@ test('/hosts lands on the Guest list for anybody who can see it, and keeps a hel
 test('Your Team MOUNTS the shipped Budget page as its part, and offers it from the team', () => {
   const page = read('vendors', 'page.tsx');
   assert.match(page, /import BudgetPage from '\.\.\/budget\/page'/, 'Budget is no longer the shipped page');
-  assert.match(page, /if \(sp\.part === YOUR_TEAM_BUDGET_PART\)[\s\S]*?<BudgetPage[\s\S]*?part: YOUR_TEAM_BUDGET_PART/, 'the Budget part is not rendered, or does not tell the page it is embedded');
+  // Under Booked since 2026-10-30 (Team · Budget · Schedule): the SAME shipped page, inside the Suppliers shell.
+  assert.match(
+    page,
+    /if \(sp\.part === YOUR_TEAM_BUDGET_PART\b[\s\S]*?<BookedPartPage[\s\S]*?<BudgetPage[\s\S]*?part: YOUR_TEAM_BUDGET_PART, pay: sp\.pay, booked: '1'/,
+    'the Budget part is not rendered, or does not tell the page it is embedded',
+  );
   // ⚖ Owner 2026-10-07 (the one-screen Suppliers shell, PR1): the five-row
   // "Your planning" menu is retired, so Budget is no longer a row of it. It
   // is still the part from `lib/pillar-parts` and still a link to its own URL
@@ -99,8 +104,9 @@ test('Your Team MOUNTS the shipped Budget page as its part, and offers it from t
     /data-suppliers-body="booked"[\s\S]*?\{bookedSlot\}/,
     'the Booked body is no longer mounted — the Budget part has no door on Suppliers',
   );
-  const slot = read('vendors', '_components', 'booked-slot.tsx');
-  assert.match(slot, /<BookedBudgetSection eventId=\{eventId\} budget=\{budget\} \/>/, 'the Booked body lost its Budget section');
+  // The door to the Budget part from the Booked body is its first row's ONE dropdown (Team · Budget · Schedule).
+  const body = read('vendors', '_components', 'booked-body.tsx');
+  assert.match(body, /<BookedPartRow parts=\{parts\} current="team"/, 'the Booked body lost its part dropdown — the Budget part has no door');
   const section = read('vendors', '_components', 'booked-budget.tsx');
   assert.match(section, /const budgetHref = yourTeamBudgetHref\(eventId\);/, 'the Budget block builds the Budget part\'s address by hand');
   assert.ok(

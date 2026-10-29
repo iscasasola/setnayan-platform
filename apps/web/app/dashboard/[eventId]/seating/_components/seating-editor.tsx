@@ -4538,18 +4538,6 @@ export function SeatingEditor({
     if (in3d) leave3d(target === 'list' ? 'list' : null);
     else if (inGuests) window.history.replaceState(window.history.state, '', seatViewHref(target === 'list' ? 'list' : null));
   };
-  /* 👁 "Switch to 2D" from inside the view-only room (its ⓘ) — the room cannot reach `onSelectView`, so it asks. */
-  const onSelectViewRef = useRef(onSelectView);
-  onSelectViewRef.current = onSelectView;
-  useEffect(() => {
-    if (!inGuests) return;
-    const onAsk = (e: Event) => {
-      const v = (e as CustomEvent<string>).detail;
-      if (v === '2d' || v === 'list') onSelectViewRef.current(v);
-    };
-    window.addEventListener(SEAT_PLAN_SHOW_VIEW_EVENT, onAsk);
-    return () => window.removeEventListener(SEAT_PLAN_SHOW_VIEW_EVENT, onAsk);
-  }, [inGuests]);
 
   // Banner slot (verdict §1, row 2): ONE single-line strip max. Priority
   // DayOf > capacity shortfall > walima; the losers collapse into a "N notices"
@@ -6786,6 +6774,16 @@ export function SeatingEditor({
     inGuests && lens?.toolsSlot ? createPortal(<SeatPlanToolRounds more={phoneMore} trailing={phoneTrailing} />, lens.toolsSlot) : null;
   const onSelectViewRef = useRef(onSelectView);
   onSelectViewRef.current = onSelectView;
+  /* 👁 "Switch to 2D" from inside the view-only room (its ⓘ) — the room cannot reach `onSelectView`, so it asks. */
+  useEffect(() => {
+    if (!inGuests) return;
+    const onAsk = (e: Event) => {
+      const v = (e as CustomEvent<string>).detail;
+      if (v === '2d' || v === 'list') onSelectViewRef.current(v);
+    };
+    window.addEventListener(SEAT_PLAN_SHOW_VIEW_EVENT, onAsk);
+    return () => window.removeEventListener(SEAT_PLAN_SHOW_VIEW_EVENT, onAsk);
+  }, [inGuests]);
   const registerSeats = inGuests ? lens?.registerSeats : undefined;
   useEffect(() => {
     if (!registerSeats) return;

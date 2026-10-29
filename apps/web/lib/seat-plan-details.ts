@@ -283,6 +283,35 @@ export function planPress(isPhone: boolean): 'tap' | 'drag' {
   return isPhone ? 'tap' : 'drag';
 }
 
+/**
+ * HOW CLOSE THE 2D PLAN ZOOMS — owner 2026-10-30: *"zoom in 2d map is still too
+ * small. make it zoom a bit more so the names on the seats are normal font size"*.
+ *
+ * A seat's name is drawn at `SEAT_NAME_PX` inside its table, and the table is
+ * drawn to scale (`tableScale` = real footprint × px-per-metre ÷ the table's
+ * drawn box), so on screen a name is `SEAT_NAME_PX × zoom × tableScale`. The old
+ * fixed cap (2.6) left a name at ~5 px on a 390 px phone — the to-scale table is
+ * a quarter of its drawn size there — while the same cap gave ~11 px at 820 px.
+ * So the cap is no longer one number: it is the zoom at which EVERY table's seat
+ * names reach `SEAT_NAME_PX_AT_MAX_ZOOM` (body size) on this canvas, never below
+ * the old cap and never past a sane ceiling. Only the couple's 2D plan reads this;
+ * the 3D plan and the guest's "your seat" view keep their own.
+ */
+export const SEAT_NAME_PX = 9;
+export const SEAT_NAME_PX_AT_MAX_ZOOM = 13.5;
+/** The old fixed cap — the floor of the new one, and still the ceiling of Fit (the opening frame is unchanged). */
+export const PLAN_ZOOM_MAX_FLOOR = 2.6;
+export const PLAN_ZOOM_MAX_CEILING = 24;
+
+/** `nameScales`: each table's on-screen scale at zoom 1 (its `tableScale` with chairs drawn). */
+export function planMaxZoom(nameScales: readonly number[]): number {
+  let need = PLAN_ZOOM_MAX_FLOOR;
+  for (const s of nameScales) {
+    if (s > 0 && Number.isFinite(s)) need = Math.max(need, SEAT_NAME_PX_AT_MAX_ZOOM / (SEAT_NAME_PX * s));
+  }
+  return Math.min(PLAN_ZOOM_MAX_CEILING, need);
+}
+
 export type MoveTarget = { id: string; label: string; free: number; current: boolean };
 
 /**

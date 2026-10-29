@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "b9d37fa775",
+  "generatedFromRef": "3b581ddf4e",
   "routeCount": 479,
-  "destinations": 985,
+  "destinations": 986,
   "actions": 639,
-  "blocks": 7388,
+  "blocks": 7399,
   "routes": {
     "/": {
       "files": [
@@ -6763,6 +6763,7 @@
         "dashboard/[eventId]/guests/loading.tsx",
         "dashboard/[eventId]/guests/map-actions.ts",
         "dashboard/[eventId]/guests/march-actions.ts",
+        "dashboard/[eventId]/guests/march-group-step.ts",
         "dashboard/[eventId]/guests/march-step.ts",
         "dashboard/[eventId]/guests/open-guest-card.tsx",
         "dashboard/[eventId]/guests/page.tsx",
@@ -13470,6 +13471,7 @@
         "vendor-dashboard/_components/events-you-run-rows.tsx",
         "vendor-dashboard/_components/events-you-run-screen.tsx",
         "vendor-dashboard/_components/feature-accordion.tsx",
+        "vendor-dashboard/_components/get-verified-line.tsx",
         "vendor-dashboard/_components/instagram-connect-card.tsx",
         "vendor-dashboard/_components/kit.tsx",
         "vendor-dashboard/_components/list-pager.tsx",
@@ -14404,6 +14406,7 @@
         "PaidMark",
         "PaymentsPausedNote",
         "Section",
+        "SharePdfButton",
         "SubmitButton",
         "VendorDeepSearchActionState"
       ]
@@ -15082,12 +15085,14 @@
     },
     "/vendor-dashboard/profile": {
       "files": [
+        "vendor-dashboard/profile/_components/deep-search-card.tsx",
         "vendor-dashboard/profile/_components/details-screen.tsx",
         "vendor-dashboard/profile/details-data.ts",
         "vendor-dashboard/profile/loading.tsx",
         "vendor-dashboard/profile/page.tsx"
       ],
       "destinations": [
+        "/vendor-dashboard/deep-search",
         "/vendor-dashboard/website"
       ],
       "actions": [
@@ -15098,9 +15103,15 @@
         "BranchPanel",
         "CouldNotLoad",
         "DatesRow",
+        "DeepSearchCard",
+        "DeepSearchRunner",
         "DetailsData",
         "DetailsScreen",
         "Fold",
+        "GetVerifiedLine",
+        "InfoTip",
+        "LastDeepSearch",
+        "Link",
         "OpenFoldButton",
         "OwnRow",
         "PaymentOptionsSurface",
@@ -15108,6 +15119,7 @@
         "PublicLineCard",
         "RequestCorrectionCard",
         "RowIcon",
+        "SharePdfButton",
         "ShopSegments",
         "SuggestedCoverageCard",
         "SupplierThumbRow",
@@ -15553,11 +15565,13 @@
         "FieldSaveResult",
         "FileUpload",
         "GalleryForm",
+        "GetVerifiedLine",
         "HTMLButtonElement",
         "HTMLDivElement",
         "HTMLElement",
         "HTMLFormElement",
         "HTMLInputElement",
+        "HTMLLIElement",
         "HeroCard",
         "HqAddressControl",
         "IdentityFieldSaveResult",
@@ -15565,6 +15579,7 @@
         "InlineDocsPayload",
         "InstagramConnectCard",
         "K",
+        "KmStepper",
         "LeafletMap",
         "LeafletMarker",
         "LeafletModule",

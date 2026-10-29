@@ -537,7 +537,7 @@ export const BUSINESS_PROFILE_LABELS = {
   contact_phone: 'Contact number',
   contact_email: 'Company email',
   services: 'Services covered',
-  in_business_since_year: 'EST',
+  in_business_since_year: 'In business since',
   venue_size: 'Room size & capacity',
 } as const;
 

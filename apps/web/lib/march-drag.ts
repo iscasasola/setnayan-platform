@@ -33,7 +33,7 @@
  * Pure: no React, no I/O — `march-drag.test.ts` drives every gesture.
  */
 import type { GuestRole } from '@/lib/guests';
-import { columnOfRole, ENTOURAGE_GROUP_KEYS, isMarchOnlyGroup, type EntourageRow } from '@/lib/entourage';
+import { columnOfRole, ENTOURAGE_GROUP_KEYS, isMarchOnlyGroup, isOwnMarchGroup, type EntourageRow } from '@/lib/entourage';
 import { joinVerdict, nextSectionOrder, swapVerdict } from '@/lib/march-moves';
 
 /**
@@ -48,6 +48,11 @@ export type MarchPerson = {
   tied?: boolean;
   /** `guests.side` ('groom' · 'bride' · 'both') — which side of the aisle they walk on (`walkSideOf`). */
   side?: string | null;
+  /**
+   * 🏷 Walking in one of the couple's OWN groups (owner 2026-10-29): the section their role puts them in — where they
+   * may be dragged back to, and where "Not walking" files them. Absent everywhere else.
+   */
+  home?: { key: string; label: string } | null;
 };
 /**
  * 🚶 Someone in the "Not walking" tray (owner 2026-10-06, `march_not_walking`):
@@ -92,7 +97,18 @@ export type MarchStep =
   /** The built-in section order back (`resetEntourageSections`). */
   | { kind: 'sections-default' }
   /** 🚶 Into (`walks: false`) or out of (`walks: true`) the "Not walking" tray (`setMarchWalking`). */
-  | { kind: 'walking'; section: string; guest: string; walks: boolean };
+  | { kind: 'walking'; section: string; guest: string; walks: boolean }
+  /**
+   * 🏷 THE COUPLE'S OWN GROUPS (owner 2026-10-29, *"if they have a custom way of marching they can customize it"*) —
+   * `guests/march-group-step.ts`: a new group (named, placed right after `after`, the movable section it follows —
+   * null = first) · its new name · it gone (whoever is still in it goes back to their role's section) · a walker into
+   * an own group, or back to their role's section (`section` = where they now walk), alone at its end — the move's
+   * next step places them.
+   */
+  | { kind: 'group-add'; section: string; label: string; after: string | null }
+  | { kind: 'group-name'; section: string; label: string }
+  | { kind: 'group-drop'; section: string }
+  | { kind: 'regroup'; section: string; guest: string };
 
 export type MarchPlan =
   | { ok: true; next: MarchSection[]; steps: MarchStep[]; said: string; undo: MarchStep[] }
@@ -248,6 +264,173 @@ export function restoreSteps(key: string, from: readonly MarchRow[], to: readonl
 /** A refusal said to the person dragging. */
 const no = (reason: string): MarchPlan => ({ ok: false, reason });
 
+/* ── THE COUPLE'S OWN GROUPS (owner 2026-10-29) ────────────────────────────
+ * *"yes. so if they have a custom way of marching they can customize it."* An own group is a section like any other —
+ * its walks swap, pair, split and move by the same steps — and it is the ONE place a name may cross sections:
+ *   drag a name into an own group (a gap · beside a lone walker)  → regroup there, then order / join   set_march_group
+ *   … from an own group back into the section their role puts them in   → the same, back home
+ * Anything else across sections is still refused in words (the role decides the role sections). The couple themselves
+ * always walk in their own sides.
+ */
+
+/** May this person be dragged from `from` into `to`? */
+function enters(p: MarchPerson, from: MarchSection, to: MarchSection): boolean {
+  if (from.key === to.key || p.role === 'groom' || p.role === 'bride') return false;
+  return isOwnMarchGroup(to.key) || (isOwnMarchGroup(from.key) && p.home?.key === to.key);
+}
+
+/**
+ * The march with one walker taken out of their walk (a walk-mate walks alone), and the section closed up when nobody
+ * is left — unless it is an own group, which stays drawn empty.
+ */
+function takenOut(sections: readonly MarchSection[], at: { s: number; r: number }, id: string): MarchSection[] {
+  const sec = sections[at.s]!;
+  const rows = [...sec.rows];
+  const rest = without(sec.key, rows[at.r]!, id);
+  if (rest) rows.splice(at.r, 1, rest);
+  else rows.splice(at.r, 1);
+  return rows.length || isOwnMarchGroup(sec.key) ? withRows(sections, at.s, rows) : sections.filter((_, i) => i !== at.s);
+}
+
+/** The person as they stand once they walk in `to`: an own group remembers their home; back home, it is forgotten. */
+function movedInto(p: MarchPerson, from: MarchSection, to: string): MarchPerson {
+  const { home, tied: _tied, ...rest } = p;
+  if (!isOwnMarchGroup(to)) return rest;
+  return { ...rest, home: home ?? (isOwnMarchGroup(from.key) ? null : { key: from.key, label: from.label }) };
+}
+
+/** `sections` with the section `key` drawn (empty) where it walks, if the march has none — before the bride's side. */
+function withSection(sections: readonly MarchSection[], key: string, label: string): MarchSection[] {
+  if (sections.some((x) => x.key === key)) return [...sections];
+  const last = sections.length > 1 && isMarchOnlyGroup(sections[sections.length - 1]!.key) ? sections.length - 1 : sections.length;
+  return [...sections.slice(0, last), { key, label, rows: [] }, ...sections.slice(last)];
+}
+
+/** A name dropped in another section it may enter: regroup there, then stand at the gap — or walk beside the anchor. */
+function planRegroup(
+  sections: readonly MarchSection[],
+  a: Where,
+  to: string,
+  target: { kind: 'gap'; section: string; index: number } | { kind: 'beside'; anchor: string },
+): MarchPlan {
+  const from = sections[a.s]!;
+  const A = a.person.name;
+  const into = sections.find((x) => x.key === to)!;
+  const me = movedInto(a.person, from, to);
+  const mate = partnerOf(from.rows[a.r]!, a.person.id);
+  const after = takenOut(sections, a, a.person.id);
+  const t = after.findIndex((x) => x.key === to);
+  const sec = after[t]!;
+  const regroup: MarchStep = { kind: 'regroup', section: to, guest: a.person.id };
+  const left = mate ? ` · ${mate.name} walks alone` : '';
+  if (target.kind === 'beside') {
+    const withMe: MarchSection = { ...sec, rows: [...sec.rows, alone(to, me)] };
+    const verdict = joinVerdict(asLines(withMe.rows), to, target.anchor, me.id);
+    if (!verdict.ok) return no(verdict.reason);
+    const anchor = locate([sec], target.anchor)!.person;
+    const rows = [...simulateJoin(withMe, target.anchor, me.id).rows];
+    return {
+      ok: true,
+      next: withRows(after, t, rows),
+      steps: [regroup, { kind: 'join', section: to, anchor: target.anchor, joiner: me.id }],
+      said: `${A} walks with ${anchor.name} in ${into.label}${left}`,
+      undo: [],
+    };
+  }
+  const rows = [...sec.rows];
+  const at = Math.min(Math.max(0, target.index), rows.length);
+  rows.splice(at, 0, alone(to, me));
+  const next = withRows(after, t, rows);
+  return {
+    ok: true,
+    next,
+    steps: [regroup, ...untie(sec, [order(to, rows)])],
+    said: `${A} now walks in ${into.label} · step ${stepOf(next, t, at)}${left}`,
+    undo: [],
+  };
+}
+
+/** The key a new own group is made with: `own_` + 10 base-36 characters (the shape `march_groups` checks). */
+export function newOwnGroupKey(rand: () => number = Math.random): string {
+  let body = '';
+  for (let i = 0; i < 10; i++) body += Math.floor(rand() * 36).toString(36);
+  return `own_${body}`;
+}
+
+/** The word a new group starts with — "New group", or "New group 2" when that one is taken. */
+export function newOwnGroupLabel(sections: readonly MarchSection[]): string {
+  const taken = new Set(sections.map((x) => x.label.trim().toLowerCase()));
+  if (!taken.has('new group')) return 'New group';
+  for (let n = 2; ; n++) if (!taken.has(`new group ${n}`)) return `New group ${n}`;
+}
+
+/** Where a section stands after `after` (a movable key; null = the first): in the march as drawn. */
+function placedAfter<T>(list: readonly T[], keyOf: (x: T) => string, item: T, after: string | null, first: number): T[] {
+  const without = list.filter((x) => keyOf(x) !== keyOf(item));
+  const at = after === null ? -1 : without.findIndex((x) => keyOf(x) === after);
+  const i = at === -1 ? (after === null ? first : without.length) : at + 1;
+  return [...without.slice(0, i), item, ...without.slice(i)];
+}
+/** The march's leading sides (the groom's) — a section placed "first" stands after them. */
+const leadingSides = (sections: readonly MarchSection[]) => (sections.length > 0 && isMarchOnlyGroup(sections[0]!.key) ? 1 : 0);
+/** A new own group laid on the march: drawn empty after `after`, and a step of the section order there too. */
+function withGroupAdded(m: MarchShown, key: string, label: string, after: string | null): MarchShown {
+  if (m.sections.some((x) => x.key === key)) return m;
+  const sec: MarchSection = { key, label, rows: [] };
+  // A trailing side (the bride's) always stays last: "after the last section" lands before it.
+  const lastIsSide = m.sections.length > 1 && isMarchOnlyGroup(m.sections[m.sections.length - 1]!.key);
+  let sections = placedAfter(m.sections, (x) => x.key, sec, after, leadingSides(m.sections));
+  if (lastIsSide && sections[sections.length - 1]!.key === key) {
+    sections = [...sections.slice(0, -2), sec, sections[sections.length - 2]!];
+  }
+  const printed = placedAfter(m.printed, (k) => k, key, after, 0);
+  return { ...m, sections, printed };
+}
+
+/**
+ * ＋ Group (owner 2026-10-29, prototype v13 `newMarchGroup`): a new own group, named `label`, walking right after
+ * `after` (the selected group — else the last section before the bride's side). Drawn empty; names are dragged in.
+ */
+export function planGroupAdd(
+  sections: readonly MarchSection[],
+  printed: readonly string[],
+  out: readonly MarchOut[],
+  key: string,
+  label: string,
+  after: string | null,
+): MarchMove {
+  // "After" names a movable section: after the groom's side is "first", after the bride's side is "after the last".
+  const keys = movable(sections);
+  const at = after === null || keys.includes(after) ? after : sections[0]?.key === after ? null : (keys[keys.length - 1] ?? null);
+  const m = withGroupAdded({ sections: [...sections], printed: [...printed], out: [...out] }, key, label, at);
+  return {
+    ok: true,
+    sections: m.sections,
+    printed: m.printed,
+    out: [...out],
+    steps: [{ kind: 'group-add', section: key, label, after: at }],
+    said: `${label} added · drag names into it`,
+    undo: [{ kind: 'group-drop', section: key }],
+  };
+}
+
+/** Rename an own group (its heading is the couple's word, never empty). */
+export function planGroupName(sections: readonly MarchSection[], printed: readonly string[], key: string, label: string): MarchMove | null {
+  const sec = sections.find((x) => x.key === key);
+  const text = label.trim();
+  if (!sec || !isOwnMarchGroup(key)) return null;
+  if (!text) return { ok: false, reason: 'A group needs a name.' };
+  if (text === sec.label) return null;
+  return {
+    ok: true,
+    sections: sections.map((x) => (x.key === key ? { ...x, label: text } : x)),
+    printed: [...printed],
+    steps: [{ kind: 'group-name', section: key, label: text }],
+    said: `${sec.label} → ${text}`,
+    undo: [{ kind: 'group-name', section: key, label: sec.label }],
+  };
+}
+
 /**
  * What dropping `source` on `target` does. `null` = nothing (a drop where it
  * already stands — no ring is shown there); `ok: false` = refused, in words.
@@ -308,6 +491,7 @@ export function planDrop(
     if (target.anchor === source.id) return null;
     const b = locate(sections, target.anchor);
     if (!b) return null;
+    if (b.s !== a.s && enters(a.person, sec, sections[b.s]!)) return planRegroup(sections, a, sections[b.s]!.key, target);
     if (b.s !== a.s) return no(`Only someone from ${sections[b.s]!.label} can walk beside ${b.person.name}.`);
     const verdict = joinVerdict(asLines(sec.rows), sec.key, target.anchor, source.id);
     if (!verdict.ok) return no(verdict.reason);
@@ -324,7 +508,15 @@ export function planDrop(
   }
 
   // A gap between walks.
-  if (target.section !== sec.key) return no(`${A} walks in ${sec.label} — their role on the guest list decides the section.`);
+  if (target.section !== sec.key) {
+    const into = sections.find((x) => x.key === target.section);
+    if (into && enters(a.person, sec, into)) return planRegroup(sections, a, into.key, target);
+    return no(
+      isOwnMarchGroup(sec.key) && a.person.home
+        ? `${A} can go back to ${a.person.home.label}, or into another group of your own.`
+        : `${A} walks in ${sec.label} — their role on the guest list decides the section.`,
+    );
+  }
   const row = sec.rows[a.r]!;
   const mate = partnerOf(row, source.id);
   const i = target.index;
@@ -503,14 +695,21 @@ export function planSectionDrop(
 
 /** Is the saved order anything but the built-in one? (Shows the one-line "Default order".) */
 export function sectionsMoved(printed: readonly string[]): boolean {
-  const built = ENTOURAGE_GROUP_KEYS.filter((k) => printed.includes(k));
-  return built.some((k, i) => k !== printed[i]);
+  // 🏷 The couple's own groups have no "usual" place — only the built-in sections' order is asked.
+  const mine = printed.filter((k) => !isOwnMarchGroup(k));
+  const built = ENTOURAGE_GROUP_KEYS.filter((k) => mine.includes(k));
+  return built.some((k, i) => k !== mine[i]);
+}
+
+/** The usual order back: the built-in sections in their order, then the couple's own groups in theirs. */
+function usualOrder(printed: readonly string[]): string[] {
+  return [...ENTOURAGE_GROUP_KEYS.filter((k) => printed.includes(k)), ...printed.filter((k) => isOwnMarchGroup(k))];
 }
 
 /** "Default order" — the built-in section order back (`resetEntourageSections`), undone step by step. */
 export function planSectionsDefault(sections: readonly MarchSection[], printed: readonly string[]): SectionPlan | null {
   if (!sectionsMoved(printed)) return null;
-  const built = ENTOURAGE_GROUP_KEYS.filter((k) => printed.includes(k));
+  const built = usualOrder(printed);
   return {
     ok: true,
     sections: inOrder(sections, built.filter((k) => movable(sections).includes(k))),
@@ -535,6 +734,15 @@ function withOrder(key: string, steps: MarchStep[], rows: readonly MarchRow[]): 
   return steps.some((x) => x.kind === 'order' && x.section === key) ? steps : [...steps, order(key, rows)];
 }
 
+/**
+ * Someone in the tray, filed under the section a drag back lands them in — their role's (an own group's walker goes
+ * back home: the tray deletes their walk row, and the group with it).
+ */
+function trayEntry(p: MarchPerson, sec: MarchSection): MarchOut {
+  const { home, tied: _tied, ...rest } = p;
+  return home ? { ...rest, section: home.key, sectionLabel: home.label } : { ...rest, section: sec.key, sectionLabel: sec.label };
+}
+
 /** Out of the march: the march without them, the steps, the Undo. */
 function planOut(sections: readonly MarchSection[], out: readonly MarchOut[], id: string): MarchMove | null {
   const a = locate(sections, id);
@@ -548,14 +756,14 @@ function planOut(sections: readonly MarchSection[], out: readonly MarchOut[], id
   const rest = without(sec.key, row, id);
   if (rest) rows.splice(a.r, 1, rest);
   else rows.splice(a.r, 1);
-  const next = rows.length ? withRows(sections, a.s, rows) : sections.filter((_, i) => i !== a.s);
+  const next = takenOut(sections, a, id);
   const back: MarchStep = { kind: 'walking', section: sec.key, guest: id, walks: true };
   return {
     ok: true,
     sections: next,
     printed: [],
     // First in the tray: the name just dropped is the one most likely dragged back.
-    out: [{ ...p, section: sec.key, sectionLabel: sec.label }, ...out],
+    out: [trayEntry(p, sec), ...out],
     steps: [{ kind: 'walking', section: sec.key, guest: id, walks: false }],
     said: `${p.name} is not walking${mate ? ` · ${mate.name} now walks alone` : ''}`,
     // Back in, then the section exactly as it was. They come back UNPLACED — where the server sorts
@@ -575,7 +783,21 @@ export function planSectionOut(sections: readonly MarchSection[], printed: reado
   if (!sec) return null;
   if (isMarchOnlyGroup(key)) return { ok: false, reason: `${sec.label} always walks — move people out one by one instead.` };
   const ids = sec.rows.flatMap((r) => r.filter((p): p is MarchPerson => p !== null).map((p) => p.id));
-  if (ids.length === 0) return null;
+  /* 🏷 An own group's Delete (prototype v13 `mgDel`): everyone in it to "Not walking", as for any group — and the group
+     itself goes (`group-drop`). An empty one simply goes. */
+  const own = isOwnMarchGroup(key);
+  if (ids.length === 0 && !own) return null;
+  if (ids.length === 0) {
+    return {
+      ok: true,
+      sections: sections.filter((x) => x.key !== key),
+      printed: printed.filter((k) => k !== key),
+      out: [...out],
+      steps: [{ kind: 'group-drop', section: key }],
+      said: `${sec.label} deleted`,
+      undo: [],
+    };
+  }
   let now: readonly MarchSection[] = sections;
   let tray: readonly MarchOut[] = out;
   const steps: MarchStep[] = [];
@@ -588,6 +810,17 @@ export function planSectionOut(sections: readonly MarchSection[], printed: reado
     steps.push(...p.steps);
   }
   const back = ids.map((id): MarchStep => ({ kind: 'walking', section: key, guest: id, walks: true }));
+  if (own) {
+    return {
+      ok: true,
+      sections: now.filter((x) => x.key !== key),
+      printed: printed.filter((k) => k !== key),
+      out: [...tray],
+      steps: [...steps, { kind: 'group-drop', section: key }],
+      said: `${sec.label} deleted · ${ids.length} moved to Not walking`,
+      undo: [],
+    };
+  }
   return {
     ok: true,
     sections: [...now],
@@ -654,6 +887,38 @@ function planIn(sections: readonly MarchSection[], out: readonly MarchOut[], id:
   );
 }
 
+/**
+ * 🏷 A tray name dropped into one of the couple's own groups: back into the march (`walking`), then into the group —
+ * the very regroup a walker's drag makes (`planRegroup`). Null when the drop is not into an own group (`planIn`'s).
+ */
+function outIntoOwnGroup(sections: readonly MarchSection[], out: readonly MarchOut[], id: string, target: MarchTarget): MarchMove | null {
+  const o = out.find((x) => x.id === id);
+  if (!o) return null;
+  const sectionOf = (pid: string) => sections.find((x) => x.rows.some((r) => r.some((p) => p?.id === pid)));
+  const to =
+    target.kind === 'gap'
+      ? sections.find((x) => x.key === target.section)
+      : target.kind === 'name'
+        ? sectionOf(target.id)
+        : target.kind === 'beside'
+          ? sectionOf(target.anchor)
+          : undefined;
+  if (!to || !isOwnMarchGroup(to.key) || to.key === o.section) return null;
+  if (o.role === 'groom' || o.role === 'bride') return null;
+  const home = sections.find((x) => x.key === o.section);
+  const inHome = planIn(sections, out, id, { kind: 'gap', section: o.section, index: home ? home.rows.length : 0 });
+  if (!inHome || !inHome.ok) return inHome;
+  const walkIn = inHome.steps.filter((x) => x.kind === 'walking');
+  const there: MarchTarget =
+    target.kind === 'name'
+      ? { kind: 'gap', section: to.key, index: Math.max(0, to.rows.findIndex((r) => r.some((p) => p?.id === target.id))) }
+      : target;
+  const p = planDrop(inHome.sections, { kind: 'name', id }, there);
+  if (!p) return null;
+  if (!p.ok) return p;
+  return { ok: true, sections: p.next, printed: [], out: inHome.out, steps: [...walkIn, ...p.steps], said: `${o.name} added to ${to.label}`, undo: [] };
+}
+
 /** Any drop, as one shape: what the march looks like after it, the steps, the words, the Undo. */
 export type MarchMove =
   | { ok: true; sections: MarchSection[]; printed: string[]; out?: MarchOut[]; steps: MarchStep[]; said: string; undo: MarchStep[] }
@@ -669,6 +934,8 @@ export function planMove(
 ): MarchMove | null {
   if (source.kind === 'section') return target.kind === 'section' ? planSectionDrop(sections, printed, source.key, target.key) : null;
   if (source.kind === 'out') {
+    const into = outIntoOwnGroup(sections, out, source.id, target);
+    if (into) return into.ok ? { ...into, printed: [...printed] } : into;
     const p = planIn(sections, out, source.id, target);
     return p && p.ok ? { ...p, printed: [...printed] } : p;
   }
@@ -718,8 +985,35 @@ export function replayMarchStep(m: MarchShown, step: MarchStep): MarchShown {
     return printed ? { ...m, printed, sections: byPrinted(m.sections, printed) } : m;
   }
   if (step.kind === 'sections-default') {
-    const printed = ENTOURAGE_GROUP_KEYS.filter((k) => m.printed.includes(k));
+    const printed = usualOrder(m.printed);
     return { ...m, printed, sections: byPrinted(m.sections, printed) };
+  }
+  if (step.kind === 'group-add') return withGroupAdded(m, step.section, step.label, step.after);
+  if (step.kind === 'group-name') return { ...m, sections: m.sections.map((x) => (x.key === step.section ? { ...x, label: step.label } : x)) };
+  if (step.kind === 'group-drop') {
+    // Whoever is still in it walks again in their role's section, at its end (the server clears their group, `ON DELETE SET NULL`).
+    const sec = m.sections.find((x) => x.key === step.section);
+    let next: MarchShown = { ...m, sections: m.sections.filter((x) => x.key !== step.section), printed: m.printed.filter((k) => k !== step.section) };
+    for (const p of sec?.rows.flat() ?? []) {
+      if (!p?.home) continue;
+      const sections = withSection(next.sections, p.home.key, p.home.label);
+      const s = sections.findIndex((x) => x.key === p.home!.key);
+      next = { ...next, sections: withRows(sections, s, [...sections[s]!.rows, alone(p.home.key, movedInto(p, sec!, p.home.key))]) };
+    }
+    return next;
+  }
+  if (step.kind === 'regroup') {
+    const a = locate(m.sections, step.guest);
+    if (!a || m.sections[a.s]!.key === step.section) return m;
+    const from = m.sections[a.s]!;
+    const me = movedInto(a.person, from, step.section);
+    const label = isOwnMarchGroup(step.section) ? '' : (a.person.home?.label ?? '');
+    const target = m.sections.find((x) => x.key === step.section);
+    // An own group the march does not draw is gone: the server refuses the move (`set_march_group` answers 0).
+    if (!target && isOwnMarchGroup(step.section)) return m;
+    const sections = withSection(takenOut(m.sections, a, step.guest), step.section, target?.label ?? label);
+    const s = sections.findIndex((x) => x.key === step.section);
+    return { ...m, sections: withRows(sections, s, [...sections[s]!.rows, alone(step.section, me)]) };
   }
   if (step.kind === 'walking' && step.walks) {
     const o = m.out.find((x) => x.id === step.guest);
@@ -740,15 +1034,7 @@ export function replayMarchStep(m: MarchShown, step: MarchStep): MarchShown {
     const a = locate(m.sections, step.guest);
     if (!a) return m;
     const sec = m.sections[a.s]!;
-    const rows = [...sec.rows];
-    const rest = without(sec.key, rows[a.r]!, step.guest);
-    if (rest) rows.splice(a.r, 1, rest);
-    else rows.splice(a.r, 1);
-    return {
-      ...m,
-      sections: rows.length ? withRows(m.sections, a.s, rows) : m.sections.filter((_, i) => i !== a.s),
-      out: [{ ...a.person, section: sec.key, sectionLabel: sec.label }, ...m.out],
-    };
+    return { ...m, sections: takenOut(m.sections, a, step.guest), out: [trayEntry(a.person, sec), ...m.out] };
   }
   const s = m.sections.findIndex((x) => x.key === step.section);
   if (s === -1) return m;

@@ -132,7 +132,7 @@ test('3 · <OverlayBackdrop> wears the one class, fades out cleanly (not under r
 /* ── 4 · stylesheets ───────────────────────────────────────────────────────────────────────────────────────────── */
 
 const LITERAL = /rgba?\(\s*(?!var)[\d.]|#[0-9a-f]{3,8}\b|hsla?\(/i;
-const NAMED = /scrim|backdrop(?!-filter)|-peek\b/i;
+const NAMED = /scrim|backdrop|-peek\b/i;
 /** Legibility scrims over a photo (a gradient, or the Event Hub's own measured `--hub-scrim`) are not pop-up scrims. */
 const LEGIBILITY = /gradient|var\(--hub-scrim/;
 /** A see-through dark on a full-screen layer: every channel low, alpha below 1. */

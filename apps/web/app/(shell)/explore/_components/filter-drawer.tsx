@@ -171,7 +171,7 @@ export function FilterDrawer({
     >
       {/* Backdrop — click closes the drawer. bg-ink/40 gives the standard
           dim-out without becoming opaque. */}
-      <OverlayBackdrop onClose={onClose} label="Close filters" />
+      <OverlayBackdrop onClose={() => onClose?.()} label="Close filters" />
 
       {/* Panel — slide-up sheet on mobile (anchored bottom, max-h-[90vh]),
           right-side drawer on desktop (anchored right, w-[420px]). max-h

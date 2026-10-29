@@ -33,7 +33,9 @@ import { OpenFoldButton } from '@/app/vendor-dashboard/_components/open-fold-but
 import { AccountSwitcher } from '@/app/_components/account-switcher/account-switcher';
 import { supplierAvatarRows } from '@/app/vendor-dashboard/_components/supplier-avatar-rows';
 import { LabSeedDraft } from './lab-seed-draft';
-import { PORTFOLIO_FREE_BASE } from '@/lib/vendor-tier-caps';
+import { PORTFOLIO_FREE_BASE, tierCaps } from '@/lib/vendor-tier-caps';
+import { deepSearchBand } from '@/lib/deep-search-findings';
+import type { DeepSearchOffer, LastDeepSearch } from '@/lib/vendor-deep-search-offer';
 import { BadgeEarnedLine } from '@/app/vendor-dashboard/_components/badge-earned-line';
 import { badgePrintSvg } from '@/lib/shop-badge-print';
 import { ShopBadgePill } from '@/app/_components/shop-badge-pill';
@@ -118,7 +120,7 @@ const FIX: Record<Who, Fixture> = {
       { label: 'BDO', provider: 'BDO' },
     ],
     about: 'Home-style Filipino buffet since 2014.',
-    outerKm: 60,
+    outerKm: 30,
     tier: 'solo',
     rating: 4.7,
     reviews: 19,
@@ -152,7 +154,7 @@ const FIX: Record<Who, Fixture> = {
       { label: 'GCash', provider: 'GCash' },
     ],
     about: 'Documentary wedding films and stills since 2019.',
-    outerKm: 300,
+    outerKm: 50,
     tier: 'pro',
     rating: 4.8,
     reviews: 31,
@@ -169,6 +171,48 @@ const FIX: Record<Who, Fixture> = {
     },
   },
 };
+
+/** 🔎 The Deep Search card's offer, as `loadDeepSearchOffer` would answer for this plan (band on, nothing run yet). */
+function labDeepSearchOffer(tier: string, verified: boolean): DeepSearchOffer {
+  const band = deepSearchBand({ tiered: true, catalogPhp: 0 });
+  const pro = tier === 'pro' || tier === 'enterprise' || tier === 'custom';
+  const price = pro ? band.growthPhp : band.entryPhp;
+  return {
+    eligible: verified,
+    tier,
+    isFreeNow: verified && pro,
+    hasFreeAllowance: pro,
+    pricePhp: price,
+    cyclePricePhp: price,
+    band,
+    periodDays: 28,
+    openRails: [{ id: 'gcash', label: 'GCash' }] as unknown as DeepSearchOffer['openRails'],
+  };
+}
+
+/** The studio ran one search (its PDF is offered); the caterer never has; the parish is not verified. */
+function labLastDeepSearch(who: Who): LastDeepSearch {
+  if (who !== 'studio') return { measured: true, last: null };
+  return {
+    measured: true,
+    last: {
+      usedAt: '2026-10-20T03:00:00Z',
+      status: 'complete',
+      dossierId: 1,
+      createdAt: '2026-10-20T03:00:00Z',
+      dossier: {
+        business_summary: 'Documentary wedding films and stills, Makati.',
+        detected_services: ['Wedding film', 'Same-day edit', 'Photo coverage', 'Prenup shoot'],
+        price_signals: [{ label: 'Full-day film', price: 'PHP 85,000', source_url: null }],
+        web_presence: [{ platform: 'Instagram', url: null, note: '4,120 followers' }],
+        ads_findings: null,
+        consistency_flags: ['An old phone number on a 2023 listing'],
+        category_match: 'match',
+        confidence: 'high',
+      },
+    },
+  };
+}
 
 function detailsFixture(who: Who): DetailsData {
   const f = FIX[who];
@@ -259,15 +303,21 @@ function detailsFixture(who: Who): DetailsData {
       tier: f.tier,
       hqLat: 14.5547,
       hqLng: 121.0244,
-      reachKm: 50,
-      innerRadiusKm: f.outerKm ? 30 : null,
+      // The plan's own reach (Free 0 · Solo 30 · Pro 50) — the lab draws what the shop's plan really allows.
+      reachKm: tierCaps(f.tier).serviceRadiusKm,
+      innerRadiusKm: f.outerKm ? 10 : null,
       outerRadiusKm: f.outerKm,
+      isVerified: f.verified,
+      tierMeasured: true,
       branches: [],
       branchFeePhp: 0,
       branchAutoRadius: 25,
       branchPay: { accounts: [], open: [] } as unknown as DetailsData['branch']['branchPay'],
     },
     pay: { methods, measured: true },
+    deepSearch: labDeepSearchOffer(f.tier, f.verified),
+    lastDeepSearch: labLastDeepSearch(who),
+    onSetnayanSince: '2026-10-03T02:00:00Z',
     logoUnavailable: false,
     progress: detailsProgress({
       checklist,

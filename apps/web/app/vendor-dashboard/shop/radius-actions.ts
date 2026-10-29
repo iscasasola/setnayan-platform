@@ -98,5 +98,7 @@ export async function updateServiceRadius(
   }
 
   revalidatePath('/vendor-dashboard/shop');
+  // Shop › Details › Where you work draws these too (the −/＋ steppers save in place, 2026-10-29).
+  revalidatePath('/vendor-dashboard/profile');
   return { ok: true, innerRadiusKm: parsed.innerRadiusKm, outerRadiusKm: parsed.outerRadiusKm };
 }

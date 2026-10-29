@@ -161,7 +161,7 @@ export function OutsideClientRows({
                 message="Their date opens back up — that day becomes bookable on Setnayan again."
                 className="mt-3"
               >
-                <input type="hidden" name="return_to" value="people" />
+                <input type="hidden" name="return_to" value="events" />
                 <input type="hidden" name="block_id" value={c.blockId} />
                 <SupplierSubmit tone="danger" icon={<X aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} />} label="Remove" pendingLabel="Removing…" />
               </ConfirmForm>

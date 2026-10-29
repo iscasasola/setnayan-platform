@@ -1,4 +1,5 @@
-import { eventChatTitle } from '@/lib/event-chat-title';
+import { eventRowTitle } from '@/lib/event-chat-title';
+import { InfoTip } from '@/app/_components/info-tip';
 import { ChatOriginMark } from '@/app/_components/chat/chat-back';
 import type { ReactNode } from 'react';
 import { FileText, MessageSquare } from 'lucide-react';
@@ -20,7 +21,8 @@ import type { Paged } from '@/lib/paginate';
 import { formatCount } from '@/lib/format-number';
 
 /**
- * CUSTOMERS › PEOPLE — the roster, opening on who is waiting (S-PR2, corpus
+ * CUSTOMERS › EVENTS (People until 2026-10-30 — owner: *"Customers still show people and not events"*) — one row per
+ * EVENT, opening on who is waiting (S-PR2, corpus
  * `SUPPLIER_DASHBOARD_REDESIGN_2026-10-08_fable.md` § 3 "People: one row per
  * customer (avatar · name · event line · stage pill · one-line next step),
  * Filter ▾, thumb row = search (≥60 %) + Add"; prototype frame 03).
@@ -161,6 +163,38 @@ export function rowLine(r: RosterRow, nowMs: number): { text: string; tone: 'qui
   return r.note;
 }
 
+/**
+ * "EVENTS ⓘ" — the list's one heading (supplier dashboard v13, approved 2026-10-29: the Events view is headed EVENTS with
+ * its ⓘ). What a row IS lives in the ⓘ: one row per event, never per person.
+ */
+export function EventsHeading() {
+  return (
+    <p className="home-k2 flex items-center gap-1.5 pb-1" data-customers-heading="events">
+      <InfoTip label="Events" align="start">
+        One row per event — the same hosts with two events are two rows. Open an event to see everyone hosting it.
+      </InfoTip>
+    </p>
+  );
+}
+
+/**
+ * THE ROW'S ONE LINE — what the event wants from this shop, then where it stands (supplier dashboard v13, approved
+ * 2026-10-29): an inquiry says "Asks for <service> · ~N guests · waiting 2 days"; every other row "<service> · <its
+ * money or its next step>". Never a person's name: the title already names the event, both hosts in it.
+ *
+ * The service comes from the event's fixed lines (one batched read for the rows on screen). Not read → the line says only
+ * what IS known, never a guessed service.
+ */
+export function eventRowLine(r: RosterRow, nowMs: number, lines: EventLines | null): string {
+  const asked = lines?.requested && lines.requested.length > 0 ? lines.requested.map((s) => s.name).join(' + ') : null;
+  const step = rowLine(r, nowMs)?.text ?? null;
+  if (r.waitingKind === 'inquiry') {
+    const pax = lines?.pax ? `~${formatCount(lines.pax)} guests` : null;
+    return [asked ? `Asks for ${asked}` : null, pax, step].filter(Boolean).join(' · ');
+  }
+  return [asked, step, r.returning ? 'returning' : null].filter(Boolean).join(' · ');
+}
+
 /** The name, with the searched letters terracotta (kind 30: "matching letters terracotta"). */
 function Marked({ text, query }: { text: string; query: string }): ReactNode {
   const q = normalizeSearchText(query);
@@ -213,15 +247,11 @@ export function RosterRowView({
 }) {
   const href = hrefFor(r);
   const badge = rosterBadge(r);
-  const line = rowLine(r, nowMs);
-  // The row is the EVENT (owner 2026-10-28, "User's event (date)"): its title is the event's chat name, the customer
-  // under it — the same couple with two events is two rows, each its own chat.
-  const title = eventChatTitle({ name: r.identityRevealed ? r.title : null, kind: r.kind, date: r.eventDate, nowMs });
-  const eventLine = [r.identityRevealed ? r.title : null, r.place, r.returning ? 'returning' : null]
-    .filter(Boolean)
-    .join(' · ');
-  const who = (r.identityRevealed ? r.title : null) ?? eventLine;
-  const rowWords = [who, line?.text].filter(Boolean).join(' · ');
+  // 🗂 THE ROW IS THE EVENT (owner 2026-10-29, "Customers are events, not people"): its title is the event's whole name ·
+  // kind · day ("Indalecio & Claire · Wedding · Dec 18") — a couple with two events is two rows — and its line is what
+  // the event wants from this shop and where it stands. The people are INSIDE: the opened row's "Hosted by".
+  const title = eventRowTitle({ name: r.identityRevealed ? r.title : null, kind: r.kind, date: r.eventDate, nowMs });
+  const rowWords = eventRowLine(r, nowMs, lines);
   const inquiry = r.waitingKind === 'inquiry' && r.threadId && answers ? { threadId: r.threadId, ...answers } : null;
   const avatar = (
     <span
@@ -240,6 +270,7 @@ export function RosterRowView({
         title={title}
         titleNode={<Marked text={title} query={query} />}
         line={rowWords}
+        lineWrap
         lead={avatar}
         aside={
           <Badge tone={badge.tone} data="customer-stage">
@@ -393,7 +424,7 @@ export function CustomersRoster({
       {/* Kind 30's one line under a search: how many it found, of how many. */}
       {q && !hidden ? (
         <p className="py-1.5 text-[12.5px] text-ink/60" data-customers-found="">
-          {formatCount(paged.total + otherMatches)} of {formatCount(total + otherTotal)} customers
+          {formatCount(paged.total + otherMatches)} of {formatCount(total + otherTotal)} events
         </p>
       ) : null}
 
@@ -401,7 +432,7 @@ export function CustomersRoster({
         q ? (
           otherMatches > 0 ? null : (
             <p className="border-t border-ink/10 py-4 text-[14px] text-ink/70" data-customers-none="" data-tour="customers-list">
-              No one named &ldquo;{q}&rdquo;. Check the spelling, or add them with <b>Add</b>.
+              No event named &ldquo;{q}&rdquo;. Check the spelling, or add an outside booking with <b>Add</b>.
             </p>
           )
         ) : (
@@ -409,7 +440,7 @@ export function CustomersRoster({
             <p className="border-t border-ink/10 py-4 text-[14px] text-ink/70" data-customers-none="" data-tour="customers-list">
               {emptyLine ??
                 (total === 0
-                  ? 'No customers yet. When somebody asks about a date, or books you, they show up here — the ones waiting on an answer first.'
+                  ? 'No events yet. When somebody asks about a date, or books you, their event shows up here — the ones waiting on an answer first.'
                   : 'Nobody in this list right now. Pick Everyone in Filter to see the rest.')}
             </p>
           )
@@ -427,7 +458,7 @@ export function CustomersRoster({
       {/* The pager: "1–20 of 1,000 · ‹ Prev · 1 2 … 50 · Next ›" — the shared
           one, so this list pages exactly like every other supplier list. */}
       {hidden ? null : (
-        <ListPager paged={paged} param="page" keepParams={pagerKeepParams} hash="customers" noun="customers" incomplete={incomplete} />
+        <ListPager paged={paged} param="page" keepParams={pagerKeepParams} hash="customers" noun="events" incomplete={incomplete} />
       )}
     </div>
   );

@@ -1,5 +1,6 @@
 /**
- * people-is-rows.test.ts — Customers › People in the approved look, and Customers as three segments (S-PR2).
+ * people-is-rows.test.ts — Customers › Events (People until 2026-10-30 — owner 2026-10-29 "CUSTOMERS ARE EVENTS, NOT
+ * PEOPLE") in the approved look, and Customers as three segments (S-PR2). The file keeps its name so its history reads.
  *
  * Record: corpus `SUPPLIER_DASHBOARD_REDESIGN_2026-10-08_fable.md` § 3 + § 6 S-PR2 · prototype frame 03 ·
  * DECISION_LOG 2026-10-12 "APPROVE ALL" look calls 3 (44 px), 7 (status chips: no border), 8 (lists = hairline rows +
@@ -122,10 +123,12 @@ test('1c · the row opens; its door says its next step and goes where the step i
   const html = await render(FIXTURE);
   assert.doesNotMatch(html, /data-row-next/, 'the next-step pill is back inside the row');
   // Opened, each row's ONE door names its next step (its accessible name) — the chat, where a booking ask is answered.
-  // 2026-10-28 · a row is the EVENT — "<first name>'s <Kind> (<Mon D>)" (lib/event-chat-title.ts), the customer under it.
-  assert.match(html, /aria-label="Ana(&#x27;|')s [A-Za-z]+ \([^)]*\) — Reply"/);
-  assert.match(html, /aria-label="Katrina(&#x27;|')s [A-Za-z]+ \([^)]*\) — See the quote"/);
-  assert.match(html, /aria-label="Jun(&#x27;|')s Wedding \(Oct 4\) — See the day"/);
+  // 2026-10-30 · a row is the EVENT — "<the event's own name> · <Kind> · <Mon D>" (`eventRowTitle`), never one person's
+  // first name (owner: "Customers still show people and not events"); the people are inside, under Hosted by.
+  assert.match(html, /aria-label="Ana &amp; Miguel · Wedding · [A-Z][a-z]{2} \d+(, \d{4})? — Reply"/);
+  assert.match(html, /aria-label="Katrina Ocampo · Wedding · [A-Z][a-z]{2} \d+(, \d{4})? — See the quote"/);
+  assert.match(html, /aria-label="Jun &amp; Liza Cruz · Wedding · Oct 4 — See the day"/);
+  assert.doesNotMatch(html, /(&#x27;|')s Wedding \(/, 'a row is named after one person again ("Jun’s Wedding (Oct 4)")');
   // No button nested in a head: the head is one button, the door lives in the opened body.
   for (const head of html.match(/<button[^>]*data-fold-head=""[\s\S]*?<\/button>/g) ?? []) {
     assert.doesNotMatch(head.slice(1), /<button\b|<a\b/, 'a control is nested inside a row head');
@@ -146,17 +149,17 @@ test('1d · the doors filter in place — no Filter ▾ eyebrow, no Show ▾, no
 test('1e · a search marks the matching letters and says how many it found of everyone (kind 30)', async () => {
   const html = await render([FIXTURE[0]!], { query: 'ana', otherMatches: 0, otherTotal: 2, counts: { waiting: 1, holding: 0, talking: 1, booked: 1, finished: 0 } });
   assert.match(html, /<mark data-search-hit="" class="[^"]*text-sn-accent[^"]*">Ana<\/mark>/, 'the matching letters are not terracotta');
-  assert.match(html, /1 of 5 customers/, 'the found line does not count against everyone (3 Setnayan + 2 outside)');
+  assert.match(html, /1 of 5 events/, 'the found line does not count against everyone (3 Setnayan + 2 outside)');
 });
 
 // ── 2 · THE THUMB ROW ─────────────────────────────────────────────────────
 
-test('2 · People’s thumb row = the shared Search box (≥ 60 %) + Add (brand) — and nothing searches inside the list', () => {
-  // The ONE row (owner 2026-10-22): "Search customers" in the field seat, ＋ Add the main verb's round — no band.
-  const at = PAGE.indexOf('<SupplierThumbRow\n        name="people"');
+test('2 · Events’ thumb row = the shared Search box (≥ 60 %) + Add (brand) — and nothing searches inside the list', () => {
+  // The ONE row (owner 2026-10-22): "Search events" in the field seat, ＋ Add the main verb's round — no band.
+  const at = PAGE.indexOf('<SupplierThumbRow\n        name="events"');
   const thumb = PAGE.slice(at, PAGE.indexOf('\n      />', PAGE.indexOf('action={{', at)));
-  assert.ok(at > -1 && thumb.length > 50, 'People has no thumb row');
-  assert.match(thumb, /field=\{\{\s*node: \(\s*<SearchBox\b[\s\S]*placeholder="Search customers"/, 'the thumb row lost the search box');
+  assert.ok(at > -1 && thumb.length > 50, 'Events has no thumb row');
+  assert.match(thumb, /field=\{\{\s*node: \(\s*<SearchBox\b[\s\S]*placeholder="Search events"/, 'the thumb row lost the search box');
   assert.match(thumb, /action=\{\{\s*node: \(\s*<OutsideClientAdd\b/, 'the thumb row lost Add');
   assert.ok(thumb.indexOf('<SearchBox') < thumb.indexOf('<OutsideClientAdd'), 'Add comes before the search box');
   assert.match(ADD, /<ActionButton tone="brand" main icon=\{Plus\} label=\{label\}/, 'Add is not the brand main button');
@@ -170,21 +173,24 @@ test('2 · People’s thumb row = the shared Search box (≥ 60 %) + Add (brand)
 // ── 3 · THE SEGMENTS ──────────────────────────────────────────────────────
 
 test('3 · three segments, one address each; every old landing opens the segment that draws it', () => {
-  assert.deepEqual([...CUSTOMER_SEGMENTS], ['people', 'dates', 'money']);
+  // 2026-10-30: the first view is EVENTS (owner 2026-10-29, "Customers are events, not people"); the old `?seg=people`
+  // still opens it.
+  assert.deepEqual([...CUSTOMER_SEGMENTS], ['events', 'dates', 'money']);
   const cases: Array<[Record<string, string>, string]> = [
-    [{}, 'people'],
+    [{}, 'events'],
+    [{ seg: 'people' }, 'events'],
     [{ seg: 'dates' }, 'dates'],
-    [{ seg: 'nonsense' }, 'people'],
+    [{ seg: 'nonsense' }, 'events'],
     [{ tab: 'calendar' }, 'dates'],
-    [{ tab: 'clients' }, 'people'],
-    [{ tab: 'messages' }, 'people'],
+    [{ tab: 'clients' }, 'events'],
+    [{ tab: 'messages' }, 'events'],
     [{ tab: 'bookings' }, 'money'],
     [{ tab: 'payday' }, 'money'],
     [{ tab: 'proposals' }, 'money'],
     [{ tab: 'contracts' }, 'money'],
     [{ open: 'availability' }, 'dates'],
-    [{ open: 'messages' }, 'people'],
-    [{ open: 'clients' }, 'people'],
+    [{ open: 'messages' }, 'events'],
+    [{ open: 'clients' }, 'events'],
     [{ seg: 'money', open: 'messages' }, 'money'],
   ];
   for (const [sp, want] of cases) assert.equal(customersSegmentOf(sp), want, `${JSON.stringify(sp)} opens ${customersSegmentOf(sp)}`);
@@ -205,28 +211,28 @@ test('3b · each segment reads only what it draws (owner: "the fewest requests")
   const people = body(PAGE, 'CustomersPipeline');
   const dates = body(PAGE, 'CustomersDates');
   for (const r of ['fetchVendorDayStates', 'fetchVendorWaitlist', 'fetchVendorServices', 'fetchVendorTeam', 'VendorQrSection']) {
-    assert.ok(!people.includes(`${r}(`) && !people.includes(`<${r}`), `People reads ${r} — the month's data, drawn by Dates`);
+    assert.ok(!people.includes(`${r}(`) && !people.includes(`<${r}`), `Events reads ${r} — the month's data, drawn by Dates`);
   }
   for (const r of ['customerLaneOf', 'readVendorPaydayInstallments', "from('vendor_client_notes')"]) {
-    assert.ok(!dates.includes(r), `Dates reads ${r} — the roster's data, drawn by People`);
+    assert.ok(!dates.includes(r), `Dates reads ${r} — the roster's data, drawn by Events`);
   }
   const hub = body(PAGE, 'VendorCustomersHub');
-  assert.match(hub, /seg === 'people' \? \([\s\S]{0,120}<CustomersPipeline\b/, 'People is not drawn only on People');
+  assert.match(hub, /seg === 'events' \? \([\s\S]{0,120}<CustomersPipeline\b/, 'Events is not drawn only on Events');
   assert.match(hub, /seg === 'dates' \? \([\s\S]{0,240}<CustomersDay\b[\s\S]{0,120}<CustomersDates\b/, 'Dates (the month, or one day) is not drawn only on Dates');
 });
 
-test('3c · one pinned row on every view: People draws it with the four counts; Dates and Money with the view ▾ and ⚙ only', () => {
+test('3c · one pinned row on every view: Events draws it with the four counts; Dates and Money with the view ▾ and ⚙ only', () => {
   const people = body(PAGE, 'CustomersPipeline');
-  assert.match(people, /<CustomersPin\s+seg="people"[\s\S]{0,120}doors=\{doors\}[\s\S]{0,40}panels=\{panels\}/, 'People does not draw the counts row');
+  assert.match(people, /<CustomersPin\s+seg="events"[\s\S]{0,120}doors=\{doors\}[\s\S]{0,40}panels=\{panels\}/, 'Events does not draw the counts row');
   const hub = body(PAGE, 'VendorCustomersHub');
   assert.match(
     hub,
-    /\{seg === 'people' \|\| \(seg === 'dates' && search\.day\) \? null : \(\s*<CustomersPin\s+seg=\{seg\}\s+hrefs=\{CUSTOMER_SEGMENT_HREFS\}\s+gear=/,
+    /\{seg === 'events' \|\| \(seg === 'dates' && search\.day\) \? null : \(\s*<CustomersPin\s+seg=\{seg\}\s+hrefs=\{CUSTOMER_SEGMENT_HREFS\}\s+gear=/,
     'Dates / Money lost their pinned row (or draw counts they never read)',
   );
 });
 
-test('3d · the view is ONE dropdown (People ▾ · Dates · Money), 44 px — never a pill row', async () => {
+test('3d · the view is ONE dropdown (Events ▾ · Dates · Money), 44 px — never a pill row', async () => {
   const PIN = code('_components', 'customers-pin.tsx');
   assert.match(PIN, /<PickMenu\b[\s\S]{0,200}options=\{CUSTOMER_SEGMENTS\.map/, 'the views are not one PickMenu');
   assert.doesNotMatch(PIN, /<PillTrack\b|<PillLink\b/, 'the views are a pill row again');
@@ -245,12 +251,12 @@ test('4 · an unread payday says "couldn’t load" on a booked row — never "No
 
 // ── 5 · OUTSIDE CLIENTS ───────────────────────────────────────────────────
 
-test('5 · an outside client opens in place and its Remove asks once, posts the shipped action, and comes back to People', () => {
+test('5 · an outside client opens in place and its Remove asks once, posts the shipped action, and comes back to Events', () => {
   assert.match(MORE, /<Fold\b[\s\S]{0,400}data="outside-client"/, 'an outside client does not open in place');
   const remove = MORE.slice(MORE.indexOf('<ConfirmForm'), MORE.indexOf('</ConfirmForm>'));
   assert.ok(remove.length > 0, 'Remove no longer asks first');
   assert.match(remove, /action=\{removeBlock\}/);
-  assert.match(remove, /name="return_to" value="people"/);
+  assert.match(remove, /name="return_to" value="events"/);
   assert.match(remove, /<SupplierSubmit tone="danger"/, 'Remove is not the delete look');
   // 2026-10-28: the row's badge is their one-time code's state (Linked / Code sent / Not linked); "booked outside" is
   // said in the row's line, and "Outside" is the badge only when the codes could not be read.
@@ -259,12 +265,15 @@ test('5 · an outside client opens in place and its Remove asks once, posts the 
   assert.match(MORE, /<ListPager paged=\{paged\} param="copage"/, 'the outside clients are not paged');
 });
 
-test('1f · the title owns the width — two lines before it cuts at every width, WHO first on the line under it', async () => {
+test('1f · the title owns the width — two lines before it cuts at every width, WHO first in it, never again under it', async () => {
   // Controller review 2026-10-29 (owner: "maximize the screen"; house rule "names never cut"). v13: the head is the
   // shared fold's, its title wraps to two lines (`wrap`), and the stage is the head's one badge at the right.
   const html = await render([FIXTURE[2]!]);
   const head = /<button[^>]*data-fold-head=""[\s\S]*?<\/button>/.exec(html)?.[0] ?? '';
   assert.ok(head, 'the row head is gone');
   assert.match(head, /<span class="line-clamp-2 block leading-snug">/, 'the row title cuts on one line');
-  assert.match(head, /data-fold-sub="">Jun &amp; Liza Cruz/, 'the line under the title does not start with the couple');
+  // 2026-10-30 (owner: "Customers still show people and not events"): the couple leads the TITLE — the event's whole
+  // name · kind · day — and the line under it says what the event wants and its money, never the couple a second time.
+  assert.match(head, /<span class="line-clamp-2 block leading-snug">Jun &amp; Liza Cruz · Wedding · Oct 4<\/span>/, 'the title does not lead with the event’s own name');
+  assert.doesNotMatch(head, /data-fold-sub="">Jun &amp; Liza Cruz/, 'the line under the title repeats the couple — a person row again');
 });

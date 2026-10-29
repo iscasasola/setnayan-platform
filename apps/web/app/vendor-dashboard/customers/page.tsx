@@ -55,7 +55,7 @@ import { eventTypeLabel } from '@/lib/demand-radar';
 import { filterBySearch, paginate, parseSearchParam } from '@/lib/paginate';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { formatCount } from '@/lib/format-number';
-import { CustomersRoster, type RosterRow } from './_components/customers-roster';
+import { CustomersRoster, EventsHeading, type RosterRow } from './_components/customers-roster';
 import { readSupplierEventLines } from '@/lib/supplier-event-lines.server';
 import { stageOfLane } from '@/lib/supplier-event-lines';
 import { acceptInquiry, declineInquiry } from '@/lib/chat-actions';
@@ -85,7 +85,7 @@ import { DatesFolds } from './_components/dates-folds';
 import { BlockDateAdd } from './_components/dates-sheets';
 import { CheckADate } from './_components/check-a-date';
 import { DaySheet, type DaySheetData } from './_components/day-sheet';
-import { CUSTOMER_SEGMENT_HREFS, customersSegmentOf, foldsOf } from './segments';
+import { CUSTOMER_SEGMENT_HREFS, customersSegmentOf, foldsOf, oldPeopleAddressForward } from './segments';
 import { keepParamsFrom } from '../_components/list-pager';
 import { SupplierThumbRow } from '../_components/supplier-thumb-row';
 import { SupplierToast, type SupplierOutcomeTone } from '../_components/supplier-toast';
@@ -111,23 +111,31 @@ import ProposalsSurface from '../proposals/surface';
 export const metadata = { title: 'Customers' };
 
 /**
- * /vendor-dashboard/customers — Customers = People · Dates · Money (S-PR2,
+ * /vendor-dashboard/customers — Customers = Events · Dates · Money (S-PR2,
  * corpus `SUPPLIER_DASHBOARD_REDESIGN_2026-10-08_fable.md` § 3; owner-approved
- * 2026-10-08, layout "B").
+ * 2026-10-08, layout "B"; the first view renamed People → Events 2026-10-30).
+ *
+ * 🗂 CUSTOMERS ARE EVENTS, NOT PEOPLE (owner 2026-10-29: *"a people can have
+ * multiple events? and in one event, can have multiple cohost?"* ⇒ DECISION_LOG
+ * "CUSTOMERS ARE EVENTS, NOT PEOPLE"; re-reported 2026-10-30: *"supplier
+ * dashboard>Customers still show people and not events"*). The first view is
+ * EVENTS: one row per event ("Indalecio & Claire · Wedding · Dec 18"), a host
+ * with two events is two rows, and an opened row lists everyone hosting it.
+ * The old `?seg=people` address forwards here (`oldPeopleAddressForward`).
  *
  * ONE segmented control (the Guests/Suppliers shape, the shared pill track),
  * three views of the same bookings, each with its own address (`?seg=`):
  *
- *   People — who the shop's customers are, waiting first: the roster, the
- *            outside clients and the kept notes (the retired Clients page),
- *            search + Add in the thumb row. The page's FIRST view.
+ *   Events — the shop's customers' events, waiting first: one row per event,
+ *            the outside bookings and the kept notes (the retired Clients
+ *            page), search + Add in the thumb row. The page's FIRST view.
  *   Dates  — the month (`#calendar`), its availability tools and the QR codes.
  *            Redrawn by S-PR3; moved here unchanged.
  *   Money  — Bookings (`#bookings`) and Payday (`#payday`), with Quotes and
  *            Contracts. Redrawn by S-PR4; moved here unchanged.
  *
  * 🔑 EACH SEGMENT READS ONLY WHAT IT DRAWS (owner 2026-10-08: "the fewest
- * requests"). People no longer pays for the month grid's day states, waitlist,
+ * requests"). Events no longer pays for the month grid's day states, waitlist,
  * pools, services and team; Dates no longer pays for the roster.
  *
  * Every number resolves from a real query/RPC. Where a value has no source
@@ -156,7 +164,7 @@ type Props = {
     tab?: string;
     /** Dates › one day (frame 35). */
     day?: string;
-    /** People's door (`asking · talking · booked · done`) a pager link keeps. */
+    /** Events' door (`asking · talking · booked · done`) a pager link keeps. */
     door?: string;
     /** The archived-and-closed chats' page. */
     opage?: string;
@@ -185,7 +193,7 @@ type SP = Record<string, string | string[] | undefined>;
 */
 
 /** An outside client's Add / Remove, said once by the toast and kept as the status line. */
-const PEOPLE_NOTICES: Record<string, { tone: SupplierOutcomeTone; text: string; retry?: boolean }> = {
+const EVENTS_NOTICES: Record<string, { tone: SupplierOutcomeTone; text: string; retry?: boolean }> = {
   client_imported: { tone: 'ok', text: 'Booking from outside added — free. It holds that date on your schedule now.' },
   block_removed: { tone: 'ok', text: 'Booking from outside removed. The date is open again.' },
   bad_dates: { tone: 'bad', text: 'Those dates don’t work. Check the first and last day.', retry: true },
@@ -194,7 +202,7 @@ const PEOPLE_NOTICES: Record<string, { tone: SupplierOutcomeTone; text: string; 
   save_failed: { tone: 'bad', text: 'That did not go through. Nothing changed — please try again.', retry: true },
 };
 
-/* ═══ PEOPLE ═══════════════════════════════════════════════════════════════ */
+/* ═══ EVENTS (People until 2026-10-30 — "Customers are events") ═══════════ */
 
 async function CustomersPipeline({ search }: { search: Awaited<Props['searchParams']> }) {
   const supabase = await createClient();
@@ -761,7 +769,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
   const keptNotesMeasured = !keptNotesError;
   const keptNotes = (keptNoteRows ?? []) as Array<{ note_id: string; body: string; created_at: string }>;
 
-  const notice = search.notice ? PEOPLE_NOTICES[search.notice] : undefined;
+  const notice = search.notice ? EVENTS_NOTICES[search.notice] : undefined;
   const doors: CustomersDoor[] = [
     { key: 'asking', value: doorValue('asking'), word: 'asking', hot: doorCount('asking') > 0 },
     { key: 'talking', value: doorValue('talking'), word: 'talking' },
@@ -777,23 +785,26 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
           left and the opened event is drawn right (`CustomersPin` → `SupplierOpenScope`); the chats not on the list and
           the kept notes follow the list in the left column. On a phone, one column and a row opens in place. */}
       {/* `#customers` is where the search and every old roster link land; the chats this list opens come back here. */}
-      <div id="customers" className="min-w-0 scroll-mt-24" data-customers-people="">
+      <div id="customers" className="min-w-0 scroll-mt-24" data-customers-events="">
         <ChatOriginMark />
         <CustomersPin
-          seg="people"
+          seg="events"
           hrefs={CUSTOMER_SEGMENT_HREFS}
           doors={doors}
           panels={panels}
           initial={initialDoor}
-          gear={<CustomersSettings body={search.gear === '1' ? <CustomersSettingsBody seg="people" search={search} /> : null} />}
+          gear={<CustomersSettings body={search.gear === '1' ? <CustomersSettingsBody seg="events" search={search} /> : null} />}
           columns={{ rest: 'No events here yet. When somebody asks about a date, or books you, their event shows up here.' }}
           between={
-            paydayIncomplete ? (
-              <p role="status" className="mb-2 text-[13px] text-ink/70">
-                Some payments couldn&rsquo;t load, so your customers&rsquo; money lines say so instead of a figure. Reload
-                the page to try again.
-              </p>
-            ) : null
+            <>
+              <EventsHeading />
+              {paydayIncomplete ? (
+                <p role="status" className="mb-2 text-[13px] text-ink/70">
+                  Some payments couldn&rsquo;t load, so your customers&rsquo; money lines say so instead of a figure.
+                  Reload the page to try again.
+                </p>
+              ) : null}
+            </>
           }
           after={
             <div className="mt-6 space-y-2" data-customers-side="">
@@ -817,9 +828,9 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
         />
       </div>
 
-      {/* 📱 THE THUMB ROW — the ONE row (owner 2026-10-22): "Search customers" · ＋ Add, each its own glass, no band. */}
+      {/* 📱 THE THUMB ROW — the ONE row (owner 2026-10-22): "Search events" · ＋ Add, each its own glass, no band. */}
       <SupplierThumbRow
-        name="people"
+        name="events"
         label="Customer tools"
         row={
           <ThumbRow
@@ -827,7 +838,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
             field={{
               node: (
                 <SearchBox
-                  placeholder="Search customers"
+                  placeholder="Search events"
                   defaultValue={search.q ?? ''}
                   keep={keepParamsFrom(sp, ['q', 'page', 'copage', 'notice', 'add', 'door', 'lane', 'block', 'gear'])}
                   hash="#customers"
@@ -877,9 +888,27 @@ function moneyNote(
   if (!m || m.allUnresolved || m.installmentCount === 0) {
     return { text: 'No plan yet', tone: 'quiet' };
   }
-  if (m.fullyPaid) return { text: 'paid in full', tone: 'ok' };
-  if (m.balancePhp > 0) return { text: `Balance ${formatPhp(m.balancePhp)}`, tone: 'quiet' };
+  /*
+    💰 PRICE · PAID · NEXT (owner 2026-10-29, DECISION_LOG "SUPPLIER › CUSTOMERS › EVENTS — THE OPENED EVENT ROW SHOWS A
+    FIXED SET OF LINES": "the supplier's own money stays in the row's top line (price · paid · next due)"; v13 draws
+    "₱65,000 · ₱25,000 paid · next ₱20,000 Nov 18"). Every figure is the frozen plan's — the same one Money adds up.
+  */
+  if (m.fullyPaid) return { text: `${formatPhp(m.expectedPhp)} · paid in full`, tone: 'ok' };
+  if (m.balancePhp > 0) {
+    const next = m.nextDue
+      ? `next ${formatPhp(m.nextDue.amountPhp)}${m.nextDue.dueDate ? ` ${shortDay(m.nextDue.dueDate)}` : ''}`
+      : null;
+    return {
+      text: [formatPhp(m.expectedPhp), `${formatPhp(m.collectedPhp)} paid`, next].filter(Boolean).join(' · '),
+      tone: 'quiet',
+    };
+  }
   return { text: 'Settled', tone: 'ok' };
+}
+
+/** "Nov 18" — a due day in the row's own short words (the year is the plan's, and the row already names the event's). */
+function shortDay(iso: string): string {
+  return new Date(`${iso.slice(0, 10)}T00:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
 }
 
 /* ═══ DATES (S-PR3) ═══════════════════════════════════════════════════════ */
@@ -1374,7 +1403,7 @@ async function CustomersDay({ day, search }: { day: string; search: Awaited<Prop
 
 // Quotes and Contracts fold under Money (papers about a deal; S-PR5 moves them onto the customer card).
 // 🗑 MESSAGES IS NO LONGER A FOLD (owner 2026-10-28: "the event list IS the messages" — one row per event, each opening
-// its chat full screen). What only it held lives on People now: archived and closed chats + the won/lost roll-up in
+// its chat full screen). What only it held lives on Events now: archived and closed chats + the won/lost roll-up in
 // "Archived and closed chats", and Archive itself in each chat's ⋮ menu.
 // Dates has no accordion: its tools are its own folds (S-PR3, `dates-folds.tsx`).
 const CUSTOMER_SECTIONS: AccordionSection[] = [
@@ -1417,6 +1446,9 @@ async function CustomerSectionBody({ open, sp }: { open: string; sp: SP }) {
 export default async function VendorCustomersHub({ searchParams }: Props) {
   const search = await searchParams;
   const sp = search as SP;
+  // 🔀 The old `?seg=people` (the first view's address until 2026-10-30) lands on Events — every other param kept.
+  const forward = oldPeopleAddressForward(sp);
+  if (forward) redirect(forward);
   const seg = customersSegmentOf(sp);
   const openRaw =
     (typeof sp.open === 'string' && sp.open) ||
@@ -1432,22 +1464,22 @@ export default async function VendorCustomersHub({ searchParams }: Props) {
     <>
       <section className="min-h-full">
         <div
-          // People uses the whole width from a tablet up (owner 2026-10-29, "maximize the screen use"); Money keeps its
+          // Events uses the whole width from a tablet up (owner 2026-10-29, "maximize the screen use"); Money keeps its
           // reading measure, Dates its month's.
-          className={`mx-auto w-full max-w-3xl space-y-4 px-4 pb-6 pt-4 sm:px-6 lg:px-8 ${seg === 'money' ? 'tab:max-w-3xl' : seg === 'people' ? 'tab:max-w-none' : 'tab:max-w-5xl'}`}
+          className={`mx-auto w-full max-w-3xl space-y-4 px-4 pb-6 pt-4 sm:px-6 lg:px-8 ${seg === 'money' ? 'tab:max-w-3xl' : seg === 'events' ? 'tab:max-w-none' : 'tab:max-w-5xl'}`}
           data-customers-seg-open={seg}
         >
           <h1 className="sr-only">Customers</h1>
-          {/* 📌 People draws its own pinned row (with the four counts); Dates and Money draw the same row — the view ▾
+          {/* 📌 Events draws its own pinned row (with the four counts); Dates and Money draw the same row — the view ▾
               and the ⚙ — over their own figures. One day (Dates › a day) has its own back-headed sheet instead. */}
-          {seg === 'people' || (seg === 'dates' && search.day) ? null : (
+          {seg === 'events' || (seg === 'dates' && search.day) ? null : (
             <CustomersPin
               seg={seg}
               hrefs={CUSTOMER_SEGMENT_HREFS}
               gear={<CustomersSettings body={search.gear === '1' ? <CustomersSettingsBody seg={seg} search={search} /> : null} />}
             />
           )}
-          {seg === 'people' ? (
+          {seg === 'events' ? (
             <div className="pb-24">
               <CustomersPipeline search={search} />
             </div>

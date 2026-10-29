@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "49192d0d9c",
+  "generatedFromRef": "14eed6b154",
   "routeCount": 479,
   "destinations": 984,
   "actions": 640,
-  "blocks": 7388,
+  "blocks": 7393,
   "routes": {
     "/": {
       "files": [
@@ -2122,6 +2122,7 @@
         "ChibiBounce",
         "ChibiDance",
         "ChibiFigure",
+        "ContextLostNotice",
         "DanceFloorMural",
         "EmoteBubbles",
         "Figure",
@@ -8702,10 +8703,12 @@
         "CameraRig",
         "Canvas",
         "CinematicPass",
+        "ContextLostNotice",
         "Crowd",
         "DanceFloorMural",
         "DancerToken",
         "DecorLayerCatalog",
+        "DemandTail",
         "DropConfirmBubble",
         "DropConfirmState",
         "DustMotes",
@@ -11841,6 +11844,7 @@
         "DetailsScreen",
         "DomainManager",
         "EventLinesBody",
+        "EventsHeading",
         "EventsYouRunScreen",
         "Fix",
         "GalleryMedia",
@@ -14322,6 +14326,7 @@
         "DaySheet",
         "DaysSettings",
         "EventLinesBody",
+        "EventsHeading",
         "FeatureAccordion",
         "Fill",
         "Fold",

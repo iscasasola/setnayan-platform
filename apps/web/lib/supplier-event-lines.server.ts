@@ -6,11 +6,14 @@ import { readInChunks } from '@/lib/read-all-pages';
 import { eventTypeLabel } from '@/lib/demand-radar';
 import { displayServiceLabel } from '@/lib/vendors';
 import { tilesForVendorCategories } from '@/lib/vendor-category-taxonomy';
+import { sanitizeRoleNames } from '@/lib/role-names';
 import {
   alsoOfferFrom,
   forYourServicePages,
   eventDayWords,
+  hostRoleWord,
   hostsInOrder,
+  type EventLineHost,
   type EventLines,
   type EventStage,
 } from '@/lib/supplier-event-lines';
@@ -73,14 +76,17 @@ export async function readSupplierEventLines(
       event_date: string | null;
       event_date_precision: string | null;
       estimated_pax: number | null;
+      role_names: unknown;
     }>(ids, (part) =>
       admin
         .from('events')
-        .select('event_id, display_name, event_type, venue_name, event_date, event_date_precision, estimated_pax')
+        .select('event_id, display_name, event_type, venue_name, event_date, event_date_precision, estimated_pax, role_names')
         .in('event_id', part),
     ),
-    readInChunks<{ event_id: string; user_id: string | null }>(ids, (part) =>
-      admin.from('event_members').select('event_id, user_id').eq('member_type', 'couple').in('event_id', part),
+    // Every HOST of the event — the couple and every co-host (a live co-host seat makes a `couple` member,
+    // `cohosts_come_from_the_guest_list`). `guest_id` + `joined_via` say who each one is to the event (Hosted by's roles).
+    readInChunks<{ event_id: string; user_id: string | null; guest_id: string | null; joined_via: string | null }>(ids, (part) =>
+      admin.from('event_members').select('event_id, user_id, guest_id, joined_via').eq('member_type', 'couple').in('event_id', part),
     ),
     readInChunks<{
       event_id: string;
@@ -135,7 +141,12 @@ export async function readSupplierEventLines(
   const returningAskers = [
     ...new Set([...threadOf.values()].filter((t) => t.is_returning && t.created_by_user_id).map((t) => t.created_by_user_id as string)),
   ];
-  const [usersRead, earlierRead] = await Promise.all([
+  // Who each host is to the event: their guest-list role (Bride, Groom) and their co-host seat — read with the names.
+  const scopedIds = ids.filter((id) => inScope(id));
+  const hostGuestIds = [
+    ...new Set(membersRead.rows.filter((m) => m.guest_id && inScope(m.event_id)).map((m) => m.guest_id as string)),
+  ];
+  const [usersRead, earlierRead, hostGuestsRead, seatsRead] = await Promise.all([
     readInChunks<{ user_id: string; display_name: string | null; first_name: string | null }>(people, (part) =>
       admin.from('users').select('user_id, display_name, first_name').in('user_id', part),
     ),
@@ -147,7 +158,45 @@ export async function readSupplierEventLines(
           .in('created_by_user_id', returningAskers)
           .order('created_at', { ascending: true })
       : Promise.resolve({ data: [] as unknown[], error: null }),
+    readInChunks<{ guest_id: string; role: string | null }>(hostGuestIds, (part) =>
+      admin.from('guests').select('guest_id, role').in('guest_id', part),
+    ),
+    readInChunks<{ event_id: string; user_id: string | null; role_subtype: string | null }>(scopedIds, (part) =>
+      admin
+        .from('event_moderators')
+        .select('event_id, user_id, role_subtype')
+        .is('removed_at', null)
+        .in('event_id', part),
+    ),
   ]);
+  if (hostGuestsRead.error) logQueryError('readSupplierEventLines.hostGuests', hostGuestsRead.error, { vendorProfileId: me }, 'graceful_degrade');
+  if (seatsRead.error) logQueryError('readSupplierEventLines.seats', seatsRead.error, { vendorProfileId: me }, 'graceful_degrade');
+  const guestRoleOf = new Map(hostGuestsRead.rows.map((g) => [g.guest_id, g.role]));
+  // A seat still waiting for its guest to join has no user yet — it is nobody's role.
+  const seatOf = new Map(seatsRead.rows.filter((r) => r.user_id).map((r) => [`${r.event_id}:${r.user_id}`, r.role_subtype]));
+  /*
+    🎭 EACH HOST'S ROLE, PER EVENT (owner 2026-10-29: "Hosted by: (all hosts + coordinator if there is booked already)").
+    One person can be the Bride at one event and a Co-host at another, so the map is per event. A role read that was
+    refused leaves the word OUT (null) — the names still list; a missing word claims nothing.
+  */
+  const rolesReadable = !hostGuestsRead.error && !seatsRead.error;
+  const rolesOf = (eventId: string, names: ReturnType<typeof sanitizeRoleNames> | null): Map<string, string | null> => {
+    const m = new Map<string, string | null>();
+    if (!rolesReadable) return m;
+    for (const row of membersRead.rows) {
+      if (row.event_id !== eventId || !row.user_id) continue;
+      m.set(
+        row.user_id,
+        hostRoleWord({
+          guestRole: row.guest_id ? (guestRoleOf.get(row.guest_id) ?? null) : null,
+          seatKind: seatOf.get(`${eventId}:${row.user_id}`) ?? null,
+          madeIt: row.joined_via === 'created_event',
+          names,
+        }),
+      );
+    }
+    return m;
+  };
   if (usersRead.error) logQueryError('readSupplierEventLines.users', usersRead.error, { vendorProfileId: me }, 'graceful_degrade');
   if (earlierRead.error) logQueryError('readSupplierEventLines.earlier', earlierRead.error, { vendorProfileId: me }, 'graceful_degrade');
 
@@ -177,6 +226,28 @@ export async function readSupplierEventLines(
     created_by_user_id: string | null;
     event: { display_name: string | null; event_type: string | null; event_date: string | null } | null;
   }>;
+
+  /*
+    🧭 THE BOOKED COORDINATOR joins Hosted by (owner 2026-10-29: "all hosts + coordinator if there is booked already") —
+    this shop as "You" when it is the event's booked coordinator, another shop by its name. Booked only (the same
+    "locked" rule as Also booked); a coordinator still being asked is not listed.
+  */
+  const isCoordinatorRow = (r: { category: string | null }) =>
+    Boolean(r.category && (tilesForVendorCategories([r.category]) ?? []).includes('coordinator'));
+  const bookedCoordinators = (eventId: string): EventLineHost[] => {
+    if (planRead.error) return [];
+    const stageOf = input.events.find((e) => e.eventId === eventId)?.stage;
+    const out: EventLineHost[] = [];
+    for (const r of planOf.get(eventId) ?? []) {
+      if (!isCoordinatorRow(r)) continue;
+      if (r.marketplace_vendor_id === me) {
+        if ((stageOf === 'booked' || stageOf === 'done') && !out.some((h) => h.name === 'You')) out.push({ name: 'You', askedYou: false, role: 'Coordinator' });
+      } else if (r.status === 'locked' && (r.vendor_name ?? '').trim()) {
+        out.push({ name: (r.vendor_name ?? '').trim(), askedYou: false, role: 'Coordinator' });
+      }
+    }
+    return out;
+  };
 
   for (const { eventId, stage } of input.events) {
     if (!inScope(eventId) || out.has(eventId)) continue;
@@ -208,7 +279,17 @@ export async function readSupplierEventLines(
       location: ev?.venue_name?.trim() || null,
       date: eventDayWords(ev?.event_date ?? null, ev?.event_date_precision ?? null),
       pax: t?.pax_current ?? t?.pax_at_inquiry ?? ev?.estimated_pax ?? null,
-      hosts: membersRead.error || usersRead.error ? null : hostsInOrder(memberIds.get(eventId) ?? [], t?.created_by_user_id ?? null, nameOf),
+      hosts: membersRead.error || usersRead.error
+        ? null
+        : [
+            ...hostsInOrder(
+              memberIds.get(eventId) ?? [],
+              t?.created_by_user_id ?? null,
+              nameOf,
+              rolesOf(eventId, ev ? sanitizeRoleNames(ev.role_names) : null),
+            ),
+            ...bookedCoordinators(eventId),
+          ],
       requested,
       alsoOffer: servicesRead.error || planRead.error
         ? []

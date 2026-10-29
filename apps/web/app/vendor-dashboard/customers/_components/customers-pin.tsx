@@ -21,7 +21,8 @@ export type CustomersDoor = {
 };
 
 /**
- * 📌 CUSTOMERS' PINNED ROW — `People ▾ · Asking · Talking · Booked · Done · ⚙` (owner 2026-10-28, DECISION_LOG
+ * 📌 CUSTOMERS' PINNED ROW — `Events ▾ · Asking · Talking · Booked · Done · ⚙` (People ▾ until 2026-10-30 — owner
+ * 2026-10-29 "CUSTOMERS ARE EVENTS, NOT PEOPLE": "Customers' first section is EVENTS"; owner 2026-10-28, DECISION_LOG
  * "SUPPLIER DASHBOARD APPROVED — EVERYTHING IN PLACE, A ⚙ PER PAGE": "Customers — People · Dates · Money + ⚙ on one
  * pinned row. People: the counts (Asking · Talking · Booked · Done) filter"; the 27 Oct template "THE PINNED ROW IS THE
  * APP-WIDE TEMPLATE": selector · counts · one action · ⚙; prototype `supplier_in_place_2026-10-28` `custRows()`).
@@ -30,7 +31,7 @@ export type CustomersDoor = {
  * a FILTER — pressing it shows ITS list right under the row, in place, no navigation (`aria-pressed`); the other lists
  * stay drawn but hidden, so nothing is re-read and a fold left open in one is still open on the way back.
  *
- *   · THE SELECTOR is the page's three views as ONE `PickMenu` ("any set of choices is a dropdown") — People ▾ ·
+ *   · THE SELECTOR is the page's three views as ONE `PickMenu` ("any set of choices is a dropdown") — Events ▾ ·
  *     Dates ▾ · Money ▾, each its own address (`?seg=`), so Back works and a link can name one.
  *   · NO ACTION ON THE ROW: the approved prototype puts ＋ Add (an outside booking) in the thumb bar with the search
  *     ("Search and ＋ Add live in the thumb bar"), and one Add is one door — never two.
@@ -50,7 +51,7 @@ export function CustomersPin({
   after = null,
   columns = null,
 }: {
-  /** What follows the lists in the same column (People's other chats and kept notes). */
+  /** What follows the lists in the same column (Events' other chats and kept notes). */
   after?: ReactNode;
   /**
    * 🖥 THE TWO COLUMNS (supplier dashboard v13, 2026-10-29): the lists on the left and the opened event on the right from
@@ -63,7 +64,7 @@ export function CustomersPin({
   /** Each view's own address (a fixture page — the dev lab — hands its own). Strings, not a function: a server page
    *  cannot hand a client row a function. */
   hrefs: Readonly<Record<CustomersSegment, string>>;
-  /** People's four counts; null on Dates and Money. */
+  /** Events' four counts; null on Dates and Money. */
   doors?: readonly CustomersDoor[] | null;
   /** Each door's list, drawn by the server. */
   panels?: Readonly<Record<CustomersDoorKey, ReactNode>> | null;

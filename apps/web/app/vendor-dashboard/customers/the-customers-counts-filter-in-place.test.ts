@@ -58,8 +58,8 @@ async function renderPin(over: Record<string, unknown> = {}): Promise<string> {
   const panel = (k: string) => React.createElement('p', { 'data-panel-body': k }, `${k} rows`);
   return renderToStaticMarkup(
     React.createElement(CustomersPin, {
-      seg: 'people',
-      hrefs: { people: '/x?seg=people', dates: '/x?seg=dates', money: '/x?seg=money' },
+      seg: 'events',
+      hrefs: { events: '/x', dates: '/x?seg=dates', money: '/x?seg=money' },
       doors: [
         { key: 'asking', value: '2', word: 'asking', hot: true },
         { key: 'talking', value: '3', word: 'talking' },
@@ -179,9 +179,11 @@ test('5 · one row per EVENT — one thread per event, every row keyed by its ev
   assert.equal(links.length, 2, 'one couple with two events is not two rows');
   assert.match(html, /href="\/vendor-dashboard\/messages\/t1"/);
   assert.match(html, /href="\/vendor-dashboard\/messages\/t2"/, 'each event row does not open its own chat');
-  assert.match(html, /Indalecio(&#x27;|')s Wedding \(Dec 18\)/, 'the row does not wear the event’s chat title');
-  assert.match(html, /Indalecio(&#x27;|')s Anniversary \(Dec 18, 2027\)/);
+  // 2026-10-30: the row wears the EVENT's title — its whole name · kind · day (`eventRowTitle`, owner 2026-10-29 "Customers
+  // are events, not people"); the chat it opens keeps its own words.
+  assert.match(html, /Indalecio Casasola · Wedding · Dec 18/, 'the row does not wear the event’s title');
+  assert.match(html, /Indalecio Casasola · Anniversary · Dec 18, 2027/);
   // Drawn once per door: no duplicate `#customers` id, one chat-origin mark around all four.
   assert.doesNotMatch(html, /id="customers"/, 'a door’s list carries the page’s one #customers id');
-  assert.equal(count(PAGE, /<ChatOriginMark \/>/g), 1, 'People does not mark the chat origin exactly once');
+  assert.equal(count(PAGE, /<ChatOriginMark \/>/g), 1, 'Events does not mark the chat origin exactly once');
 });

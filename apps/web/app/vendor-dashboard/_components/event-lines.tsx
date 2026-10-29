@@ -43,7 +43,7 @@ export function EventLinesBody({ lines }: { lines: EventLines }) {
         ]}
       />
 
-      <Section title="Hosted by" tip="Everyone hosting this event. The one marked “Asked you” first messaged your shop — your main contact.">
+      <Section title="Hosted by" tip="Everyone hosting this event — the couple, every co-host, and the coordinator once one is booked. The one marked “Asked you” first messaged your shop — your main contact.">
         {lines.hosts === null ? (
           <Unread what="who hosts this" />
         ) : lines.hosts.length === 0 ? (
@@ -55,7 +55,15 @@ export function EventLinesBody({ lines }: { lines: EventLines }) {
                 <span aria-hidden className="grid h-8 w-8 flex-none place-items-center rounded-full bg-ink/[0.06] text-[12px] font-semibold text-ink/70">
                   {initials(h.name)}
                 </span>
-                <span className={`min-w-0 flex-1 text-[14.5px] ${h.askedYou ? 'font-medium text-sn-accent' : 'text-ink'}`}>{h.name}</span>
+                <span className="min-w-0 flex-1">
+                  <span className={`block text-[14.5px] ${h.askedYou ? 'font-medium text-sn-accent' : 'text-ink'}`}>{h.name}</span>
+                  {/* Who they are to the event (owner 2026-10-29: every host "with their role" + the booked coordinator). */}
+                  {h.role ? (
+                    <span className="block text-[12.5px] text-ink/60" data-event-lines-host-role="">
+                      {h.role}
+                    </span>
+                  ) : null}
+                </span>
                 {h.askedYou ? (
                   <Badge tone="wait" data="asked-you">
                     Asked you

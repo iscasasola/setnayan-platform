@@ -1,5 +1,6 @@
 /**
- * Customers › People on fixture data (S-PR2) — the REAL components, the prototype's own people (frame 03).
+ * Customers › Events (People until 2026-10-30) on fixture data (S-PR2) — the REAL components, the prototype's own people
+ * (frame 03); `?s=events` draws the approved v13 prototype's own five events (one couple with two of them).
  * Drawn only by `/dev/supplier-lab` (404 in production). The Add sheet and Remove post the SHIPPED actions; with no
  * session both refuse — nothing is written from here.
  */
@@ -13,7 +14,7 @@ import {
 import { filterBySearch, paginate, parseSearchParam } from '@/lib/paginate';
 import { formatCount } from '@/lib/format-number';
 import { formatPhp } from '@/lib/orders';
-import { CustomersRoster, type RosterRow } from '@/app/vendor-dashboard/customers/_components/customers-roster';
+import { CustomersRoster, EventsHeading, type RosterRow } from '@/app/vendor-dashboard/customers/_components/customers-roster';
 import {
   KeptNotesFold,
   OtherChatsFold,
@@ -45,12 +46,20 @@ import { eventDayWords, forYourServicePages, stageOfLane, type EventLines } from
 const LAB_SERVICES = ['photo_video'];
 function labLines(f: Fix): EventLines {
   const stage = stageOfLane(f.lane);
-  const hosts: Record<string, Array<[string, boolean]>> = {
+  const hosts: Record<string, Array<[string, boolean, string?]>> = {
     ana: [['Tita Mina Reyes', true], ['Ana Reyes', false], ['Miguel Santos', false]],
     rolando: [['Carmen Villa', true], ['Rolando Villa', false]],
     katrina: [['Katrina Ocampo', true]],
     cruz: [['Liza Cruz', true], ['Jun Cruz', false]],
+    // v13's own hosts — one couple, two events, the same people inside each; each with the role the page reads
+    // (`hostRoleWord`), and the booked coordinator ("You") once the shop is booked.
+    'ic-wedding': [['Claire Buanhog', true, 'Bride'], ['Indalecio Casasola II', false, 'Groom'], ['Ate Lorna Buanhog', false, 'Co-host'], ['You', false, 'Coordinator']],
+    'ic-lunch': [['Claire Buanhog', true, 'Host'], ['Indalecio Casasola II', false, 'Co-host']],
+    mj: [['Maria Santos', true, 'Bride'], ['Jose Santos', false, 'Groom'], ['You', false, 'Coordinator']],
+    kat: [['Tita Mina Arroyo', true, 'Co-host'], ['Kat Arroyo', false, 'Celebrant']],
+    reyes: [['Lorna Reyes', true, 'Host']],
   };
+  const v13 = V13_LINES[f.eventId];
   return {
     eventId: f.eventId,
     threadId: f.threadId,
@@ -60,9 +69,9 @@ function labLines(f: Fix): EventLines {
     celebrant: f.title,
     location: f.place,
     date: eventDayWords(f.eventDate),
-    pax: f.eventId === 'ana' ? 150 : f.eventId === 'cruz' ? 180 : null,
-    hosts: (hosts[f.eventId] ?? [[f.title, true]]).map(([name, askedYou]) => ({ name, askedYou })),
-    requested: [{ name: 'Photo & video · Full day' }],
+    pax: v13 ? v13.pax : f.eventId === 'ana' ? 150 : f.eventId === 'cruz' ? 180 : null,
+    hosts: (hosts[f.eventId] ?? [[f.title, true]]).map(([name, askedYou, role]) => (role ? { name, askedYou, role } : { name, askedYou })),
+    requested: v13 ? v13.requested.map((name) => ({ name })) : [{ name: 'Photo & video · Full day' }],
     alsoOffer: stage === 'asking' && f.eventId === 'ana' ? [{ serviceId: 'sde', name: 'Same-day edit', from: null }] : [],
     alsoBooked: f.eventId === 'cruz' ? [{ name: 'Casa Alegria Events', service: 'Reception venue' }] : [],
     forYou: forYourServicePages({ eventId: f.eventId, stage, shopServices: LAB_SERVICES, eventTiles: null }),
@@ -71,6 +80,15 @@ function labLines(f: Fix): EventLines {
 }
 
 const NOW = Date.parse('2026-10-02T02:00:00Z'); // Fri Oct 2, 10:00 in Manila
+
+/** v13's own services asked for and guest counts (prototype `?tab=cust&sec=events`). */
+const V13_LINES: Record<string, { requested: string[]; pax: number | null }> = {
+  'ic-wedding': { requested: ['Coordinator / Planner', 'Styling'], pax: 180 },
+  'ic-lunch': { requested: ['Styling'], pax: 40 },
+  mj: { requested: ['Coordinator / Planner'], pax: 150 },
+  kat: { requested: ['Coordinator / Planner'], pax: 120 },
+  reyes: { requested: ['Styling'], pax: 80 },
+};
 const ago = (hours: number) => new Date(NOW - hours * 3_600_000).toISOString();
 
 type Fix = PipelineCustomer & { kind: string; quoted?: boolean; returning?: boolean; money?: RosterRow['note'] };
@@ -97,6 +115,18 @@ const PEOPLE: Fix[] = [
   person({ eventId: 'cruz', lane: 'booked', title: 'Jun & Liza Cruz', kind: 'Wedding', eventDate: '2026-10-04', place: 'Makati', money: { text: `Balance ${formatPhp(42_000)}`, tone: 'quiet' } }),
   person({ eventId: 'bautista', lane: 'booked', title: 'Lourdes Bautista', kind: 'Christening', eventDate: '2026-10-10', place: 'Quezon City', returning: true, money: { text: 'paid in full', tone: 'ok' } }),
   person({ eventId: 'paolo', lane: 'finished', title: 'Paolo & Nina', kind: 'Wedding', eventDate: '2026-08-15', place: 'Cebu', money: { text: 'paid in full', tone: 'ok' } }),
+];
+
+/**
+ * 🗂 THE APPROVED v13 PROTOTYPE'S OWN FIVE EVENTS (owner "Approved.", 2026-10-29) — the side-by-side's fixture. Indalecio &
+ * Claire have TWO events, so they are two rows ("a person with two events = two rows").
+ */
+const V13_EVENTS: Fix[] = [
+  person({ eventId: 'ic-wedding', lane: 'booked', title: 'Indalecio & Claire', kind: 'Wedding', eventDate: '2026-12-18', place: 'Seda Vertis North, Quezon City', money: { text: `${formatPhp(65_000)} · ${formatPhp(25_000)} paid · next ${formatPhp(20_000)} Nov 18`, tone: 'quiet' } }),
+  person({ eventId: 'ic-lunch', lane: 'waiting', waitingKind: 'inquiry', waitingSince: ago(5), title: 'Indalecio & Claire', kind: 'Thanksgiving lunch', eventDate: '2026-12-19', place: 'Quezon City' }),
+  person({ eventId: 'mj', lane: 'booked', title: 'Maria & Jose', kind: 'Wedding', eventDate: '2027-01-23', place: 'Tagaytay', money: { text: `${formatPhp(45_000)} · ${formatPhp(0)} paid · next ${formatPhp(15_000)} Nov 30`, tone: 'quiet' } }),
+  person({ eventId: 'kat', lane: 'waiting', waitingKind: 'inquiry', waitingSince: ago(26), title: 'Kat Arroyo', kind: 'Debut', eventDate: '2027-02-14', place: 'Blue Leaf, Taguig' }),
+  person({ eventId: 'reyes', lane: 'finished', title: 'Reyes family', kind: '50th birthday', eventDate: '2025-11-14', place: 'Pasig', money: { text: `${formatPhp(28_000)} · paid in full`, tone: 'ok' } }),
 ];
 
 /** Two couples holding one Saturday — the clash row. */
@@ -146,7 +176,7 @@ export function PeopleLab({
   block,
   gear,
 }: {
-  /** people · clash · empty · fail · nopools */
+  /** events · people · clash · empty · fail · nopools */
   variant: string;
   q: string | undefined;
   lane: string | undefined;
@@ -160,8 +190,9 @@ export function PeopleLab({
   gear?: boolean;
 }) {
   const base = `/dev/supplier-lab?s=${variant}`;
-  const fixtures = variant === 'empty' ? [] : variant === 'clash' ? [...PEOPLE, ...CLASH] : PEOPLE;
-  const outsideAll = variant === 'empty' ? [] : OUTSIDE;
+  const fixtures = variant === 'empty' ? [] : variant === 'events' ? V13_EVENTS : variant === 'clash' ? [...PEOPLE, ...CLASH] : PEOPLE;
+  // v13 draws no outside bookings — the side-by-side keeps to its five events.
+  const outsideAll = variant === 'empty' || variant === 'events' ? [] : OUTSIDE;
   const lanes = groupByLane(fixtures);
   const extra = new Map(fixtures.map((f) => [f.eventId, f]));
   const decorate = (r: PipelineCustomer): RosterRow => {
@@ -254,7 +285,7 @@ export function PeopleLab({
       <p className="home-k2 pt-4">Teams and days</p>
       <DaysSettings
         month="2026-10"
-        seg="people"
+        seg="events"
         calendars={[
           { poolId: 'p1', label: 'Main team', name: 'Main team', capacity: 1, line: 'Catering', serviceIds: [], categories: [{ key: 'catering', label: 'Catering' }] },
           { poolId: 'p2', label: 'Second team', name: 'Second team', capacity: 2, line: 'Catering', serviceIds: [], categories: [{ key: 'catering', label: 'Catering' }] },
@@ -277,11 +308,11 @@ export function PeopleLab({
         <div className="pb-24">
           {notice ? <SupplierToast text={notice.text} tone={notice.tone} retry={'retry' in notice} retryHref={`${base}&add=1`} /> : null}
           {/* The page's own layout (customers/page.tsx): the two columns from 701 — events left, the opened one right. */}
-          <div id="customers" className="min-w-0 scroll-mt-24" data-customers-people="">
+          <div id="customers" className="min-w-0 scroll-mt-24" data-customers-events="">
             <ChatOriginMark />
             <CustomersPin
-              seg="people"
-              hrefs={{ people: base, dates: '/dev/supplier-lab?s=dates', money: '/dev/supplier-lab?s=money' }}
+              seg="events"
+              hrefs={{ events: base, dates: '/dev/supplier-lab?s=dates', money: '/dev/supplier-lab?s=money' }}
               doors={[
                 { key: 'asking', value: value('asking'), word: 'asking', hot: count('asking') > 0 },
                 { key: 'talking', value: value('talking'), word: 'talking' },
@@ -293,18 +324,21 @@ export function PeopleLab({
               gear={<CustomersSettings body={gearBody} />}
               columns={{ rest: 'No events here yet. When somebody asks about a date, or books you, their event shows up here.' }}
               between={
-                variant === 'fail' ? (
-                  <p role="status" className="mb-2 text-[13px] text-ink/70">
-                    Some payments couldn&rsquo;t load, so your customers&rsquo; money lines say so instead of a figure. Reload the page to try again.
-                  </p>
-                ) : null
+                <>
+                  <EventsHeading />
+                  {variant === 'fail' ? (
+                    <p role="status" className="mb-2 text-[13px] text-ink/70">
+                      Some payments couldn&rsquo;t load, so your customers&rsquo; money lines say so instead of a figure. Reload the page to try again.
+                    </p>
+                  ) : null}
+                </>
               }
               after={
                 <div className="mt-6 space-y-2" data-customers-side="">
-                  {variant !== 'empty' ? (
+                  {variant !== 'empty' && variant !== 'events' ? (
                     <OtherChatsFold paged={paginate(OTHER_CHATS, undefined)} keepParams={keep([])} returnTo={base} />
                   ) : null}
-                  {variant !== 'empty' ? <KeptNotesFold notes={KEPT} /> : null}
+                  {variant !== 'empty' && variant !== 'events' ? <KeptNotesFold notes={KEPT} /> : null}
                 </div>
               }
             />
@@ -312,12 +346,12 @@ export function PeopleLab({
         </div>
       </main>
       <SupplierThumbRow
-        name="people"
+        name="events"
         label="Customer tools"
         row={
           <ThumbRow
             name="customers"
-            field={{ node: <SearchBox placeholder="Search customers" defaultValue={q ?? ''} keep={keep(['q'])} hash="#customers" data="customers" /> }}
+            field={{ node: <SearchBox placeholder="Search events" defaultValue={q ?? ''} keep={keep(['q'])} hash="#customers" data="customers" /> }}
             action={{
               node: (
                 <OutsideClientAdd

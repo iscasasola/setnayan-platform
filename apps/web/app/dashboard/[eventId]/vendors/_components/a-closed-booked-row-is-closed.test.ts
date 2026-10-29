@@ -16,5 +16,5 @@ test('the folded part of a Booked row can shrink to 0 (min-height: 0) wherever i
   assert.match(row, /className="bk-exp" inert=\{!open\}/, 'the folded part is no longer inert-when-closed — re-read this guard');
   const rule = body.match(/\.bk-exp>div\{([^}]*)\}/);
   assert.ok(rule, 'the .bk-exp>div rule was not found');
-  assert.match(rule[1], /min-height:\s*0/, `.bk-exp>div is "${rule[1]}" — without min-height:0 an iPhone keeps a closed row open and untappable`);
+  assert.match(rule[1] ?? '', /min-height:\s*0/, `.bk-exp>div is "${rule[1]}" — without min-height:0 an iPhone keeps a closed row open and untappable`);
 });

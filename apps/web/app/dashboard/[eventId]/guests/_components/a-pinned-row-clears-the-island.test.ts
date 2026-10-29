@@ -14,5 +14,5 @@ const src = stripComments(readFileSync(path.join(__dirname, 'use-shell-bar-offse
 test('the hidden-bar offset is the safe area, not 0', () => {
   const write = src.match(/setProperty\(name,\s*shellBarShows\(bar\)\s*\?\s*`[^`]*`\s*:\s*'([^']*)'\)/);
   assert.ok(write, 'the one write of the offset was not found — the guard cannot see it');
-  assert.match(write[1], /^env\(safe-area-inset-top/, `the bar-hidden offset is "${write[1]}" — on an iPhone that pins the row under the clock`);
+  assert.match(write[1] ?? '', /^env\(safe-area-inset-top/, `the bar-hidden offset is "${write[1]}" — on an iPhone that pins the row under the clock`);
 });

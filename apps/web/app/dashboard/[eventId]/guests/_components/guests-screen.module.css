@@ -209,8 +209,44 @@
 /* 📌 The slim row's ONE menu ("Guests · List ▾") — the shared PickMenu, never cut. */
 .pinMenu {
   display: flex;
-  flex: 0 1 auto;
+  /* 📌 The menu keeps its words (▾ never under a count); the counts are what give way. */
+  flex: none;
   min-width: 0;
+}
+/* 📌 ONE LINE AT 390 ON EVERY VIEW (owner 30 Oct, the counts on Map · Seats 2D · 3D): the face measures its own room —
+   Seats carries its own rounds (Edit · ⋯) beside 📤 and ⚙ — and gives way in steps, never overlapping: the counts close up
+   and shrink, then the menu drops its top's word ("Seats · 2D ▾" → "2D ▾"), then Seats' tables count goes; the counts
+   clip as the last resort, never spill over the menu or the rounds. */
+.faceAlt {
+  container: gsface / inline-size;
+}
+.faceAlt .pinCounts {
+  overflow: hidden;
+  justify-content: safe center;
+}
+@container gsface (max-width: 340px) {
+  .faceAlt .pinCounts {
+    gap: 0;
+  }
+  .faceAlt button.pinCount {
+    padding: 0 2px;
+    font-size: 14px;
+    gap: 2px;
+  }
+  .faceAlt .pinCount svg {
+    width: 12px;
+    height: 12px;
+  }
+}
+@container gsface (max-width: 270px) {
+  .faceAlt [data-pin-top] {
+    display: none;
+  }
+}
+@container gsface (max-width: 190px) {
+  .faceAlt button.pinCount[data-pin-dot='tables'] {
+    display: none;
+  }
 }
 /* 🗺 FULL SCREEN (Map · Seats 2D · 3D — `data-guests-full`): the count row folds away in the same glide (rises, fades,
    gives its height back), so the map takes the screen under the slim row. Seats' fixed row and the Map's carousel. */

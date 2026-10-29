@@ -302,7 +302,9 @@ test('10 · zoomed all the way in, a seat name reads at body size (owner 2026-10
   assert.doesNotMatch(ed, /const ZOOM_MAX = /, 'a fixed 2D zoom cap is back');
   assert.match(ed, /const clampZoom = \(z: number\) => Math\.max\(ZOOM_MIN, Math\.min\(zoomMaxRef\.current, z\)\);/);
   assert.match(ed, /zoomMaxRef\.current = planMaxZoom\(\s*metricPpm\s*\?\s*tables\.map\(/, 'the cap is not computed from this canvas + tables');
-  assert.match(ed, /const z1 = Math\.min\(PLAN_ZOOM_MAX_FLOOR, clampZoom\(Math\.min\(rect\.width \/ bw, rect\.height \/ bh\) \* 0\.86\)\);/, 'Fit no longer opens at the old frame');
+  // The fit's size source may be the room box (rect) or, in Guests, the whole floor (fitW / fitH — #7055); either way it is
+  // capped at the old 2.6 so Fit never opens closer than it always did. The CAP is the property pinned here.
+  assert.match(ed, /const z1 = Math\.min\(PLAN_ZOOM_MAX_FLOOR, clampZoom\(Math\.min\((?:rect\.width|fitW) \/ bw, (?:rect\.height|fitH) \/ bh\) \* 0\.86\)\);/, 'Fit no longer opens at the old frame');
   // the name the cap is sized for is the one drawn: SEAT_NAME_PX on the seat label
   assert.match(ed, new RegExp(`absolute z-10 line-clamp-2 break-words text-\\[${SEAT_NAME_PX}px\\]`), 'the seat name size moved — planMaxZoom sizes for the wrong text');
 });

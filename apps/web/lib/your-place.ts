@@ -60,7 +60,8 @@ export function placeLockedByReception(p: Pick<PlaceSheetData, 'city' | 'slots'>
   const pin = booked.pin ?? null;
   const near = pin ? nearestCity(pin) : null;
   const where = near ? `${near.n} · ${regionOf(near.r)}` : p.city?.trim() || booked.address?.trim() || booked.name;
-  return { where, reception: booked.name, pinned: pin != null };
+  /* `pinned` is the record's own word (a shop's pin is read on the server; the sheet may carry only that it has one). */
+  return { where, reception: booked.name, pinned: pin != null || booked.pinned === true };
 }
 
 /** The one line under a locked place. */

@@ -60,6 +60,9 @@ describe('your place', () => {
     assert.deepEqual(unpinned, { where: 'Tagaytay', reception: 'Hacienda Isabel', pinned: false });
     assert.doesNotMatch(lockedPlaceWhy(unpinned!), /measures/, 'no pin → never claim Find measures from it');
 
+    const shopPinned = placeLockedByReception({ city: 'Quezon City', slots: [slot('reception', { ...seda(null), pinned: true })] });
+    assert.deepEqual(shopPinned, { where: 'Quezon City', reception: 'Hacienda Isabel', pinned: true }, 'a record that says it is pinned is pinned');
+
     const noCity = placeLockedByReception({ city: '', slots: [slot('reception', seda(null))] });
     assert.equal(noCity?.where, 'Tagaytay–Nasugbu Hwy');
   });

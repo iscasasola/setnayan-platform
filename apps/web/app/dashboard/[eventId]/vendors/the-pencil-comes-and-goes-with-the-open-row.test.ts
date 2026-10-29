@@ -53,3 +53,7 @@ test('the ✎ is a framed pill, accent while a service is hidden', () => {
   assert.match(CSS, /\.slcat \.cat-svc-slot \.cat-svc\{border:1px solid var\(--line\);border-radius:var\(--m-r-full\)/);
   assert.match(CSS, /\.slcat \.cat-svc-slot \.cat-svc\.on\{border-color:rgb\(var\(--sn-accent\)\);color:rgb\(var\(--sn-accent\)\)\}/);
 });
+
+test('on a phone the open row drops its state word, so the name is never cut by the ✎', () => {
+  assert.match(CSS, /@media \(max-width:1023\.98px\)\{\.slcat \.cat\.open>\.cat-head-row \[data-row-state\]\{display:none\}\}/);
+});

@@ -1052,7 +1052,10 @@ html.dark .slcat .mrerr{color:#E39A9A}
 .slcat .cat-svc-slot{display:inline-flex;flex:0 0 auto;align-items:center;max-width:220px;opacity:1;transform:none;margin-left:6px;overflow:hidden;transition:max-width .34s cubic-bezier(.2,.8,.2,1),opacity .22s ease .14s,transform .34s cubic-bezier(.2,.8,.2,1) .06s,margin .34s}
 @starting-style{.slcat .cat.open .cat-svc-slot{max-width:0;opacity:0;transform:translateX(10px) scale(.86);margin-left:0}}
 .slcat .cat:not(.open) .cat-svc-slot{max-width:0;opacity:0;transform:translateX(10px) scale(.86);margin-left:0;pointer-events:none;transition-delay:0s}
-.slcat .cat-svc-slot .cat-svc{border:1px solid var(--line);border-radius:var(--m-r-full);background:var(--card);white-space:nowrap}
+.slcat .cat-svc-slot .cat-svc{border:1px solid var(--line);border-radius:var(--m-r-full);background:var(--card)}
+/* NAMES NEVER CUT (the prototype's \`.cat.open>.cat-h .hf .tag{display:none}\`): on a phone the open row makes room for
+   its ✎ by dropping its state word — the list right under it says the same — so "Catering" never breaks mid-word. */
+@media (max-width:1023.98px){.slcat .cat.open>.cat-head-row [data-row-state]{display:none}}
 .slcat .cat-svc-slot .cat-svc.on{border-color:rgb(var(--sn-accent));color:rgb(var(--sn-accent))}
 @media (prefers-reduced-motion:reduce){.slcat .cat-svc-slot{transition:none}}
 /* the unread count read an undefined token (fell back to a hand-typed red) */

@@ -163,11 +163,8 @@ export function AccentsSheet({
   }
 
   return (
-    <Sheet open={open} onClose={onClose} labelledById="room-accents-title">
-      <div data-room-accents-sheet="" className="space-y-1 pb-2">
-        <h2 id="room-accents-title" className="font-display text-xl text-ink">
-          Accents
-        </h2>
+    <Sheet open={open} onClose={onClose} labelledById="room-accents-title" title="Accents">
+      <div data-room-accents-sheet="" className="space-y-1 px-5 pb-5 pt-3">
         <p className="pb-2 text-sm text-ink/60">Switch one on and it is in the room. Nothing to place.</p>
         {offers.map((sg) => (
           <div key={sg.dismissKey} data-room-accent-offer="" className="flex flex-wrap items-center gap-2 py-2 text-sm text-ink/80">

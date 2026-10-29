@@ -27,6 +27,16 @@
  *   · lab `{roomOnScreen && !webgl.lost ? (` → `{!webgl.lost ? (`           → 2 RED
  *   · hook `if (canvas.isConnected) setLost(true)` → `setLost(true)`         → 3 RED
  *   · lab `cinematicFx` without `&& !phoneGpu` (composer on a phone)       → 2 RED
+ *
+ *   5. THE FULL-SCREEN PATH (owner, iPhone app, 2026-10-30: *"3d crashed again. when i tried to press the full screen
+ *      icon"*). The installed app's web view has the element Fullscreen API ON (Capacitor 8.4.3 sets
+ *      `isElementFullscreenEnabled = true`; iPhone Safari has no element API at all), so the ⤢ handed the live WebGL
+ *      canvas to WebKit's NATIVE full screen. On a phone the press now grows the SAME element in the page: one Canvas,
+ *      one context, never remounted (no full-screen state in the Canvas's key or props, no portal), its dpr still
+ *      `canvasDpr`. Measured (lab, WebKit 390×844 DPR 3, 25 tables / 230 guests): open → full → exit → full = 1 context
+ *      throughout, drawing buffer 487×655 → 487×1055 → 487×655 → 487×1055 (DPR 1.25 held).
+ *      Sabotages (2026-10-30): the phone branch removed from `toggleFullscreen` → 5 RED · `key={`${webgl.attempt}-${inPageFull}`}`
+ *      on the Canvas → 5 RED · the room wrapped in `createPortal(…, document.body)` while full → 5 RED.
  */
 
 import test from 'node:test';
@@ -136,4 +146,31 @@ test('4 · the shared 3D surfaces (Event Hub venue walk, 3D Plan demo): capped a
     }
     assert.match(src, /\{webgl\.lost \? <ContextLostNotice onRetry=\{webgl\.retry\} \/> : null\}/, `${rel}: honest line`);
   }
+});
+
+test('5 · full screen on a phone: the same Canvas grows in the page — never the Fullscreen API, never a second context', () => {
+  const src = read(LAB);
+  // The toggle: a phone flips the in-page state and RETURNS before any Fullscreen API call.
+  const at = src.indexOf('const toggleFullscreen = useCallback(');
+  assert.ok(at > -1, 'toggleFullscreen moved — this guard is blind');
+  const body = src.slice(at, src.indexOf('}, [phoneGpu]);', at));
+  assert.ok(body.length > 0 && body.length < 2000, 'toggleFullscreen no longer ends on [phoneGpu] — read it again');
+  const phone = body.search(/if \(phoneGpu\) \{\s*setInPageFull\(\(v\) => !v\);\s*return;\s*\}/);
+  const api = body.search(/requestFullscreen/);
+  assert.ok(phone > -1, 'a phone does not take the in-page full screen');
+  assert.ok(api > phone, 'the Fullscreen API is reachable on a phone (the phone branch must return first)');
+
+  // The in-page full screen is the wrapper's own class — the SAME element, so the SAME Canvas.
+  assert.match(src, /ref=\{wrapperRef\}\s*data-room-fullscreen=\{inPageFull \? 'in-page' : undefined\}/);
+  assert.match(src, /inPageFull\s*\?\s*'fixed inset-0 /, 'the in-page full screen is a fixed box over the viewport');
+
+  // One Canvas whose identity and pixel ratio know nothing of full screen: no remount, no escape from the cap.
+  const tags = canvasTags(src);
+  assert.equal(tags.length, 1, 'one Canvas');
+  assert.doesNotMatch(tags[0]!, /inPageFull|isFullscreen/, 'full screen reaches the Canvas (a remount, or a dpr outside the cap)');
+  assert.match(tags[0]!, /key=\{webgl\.attempt\}/);
+  assert.match(tags[0]!, /dpr=\{canvasDpr\(phoneGpu,\s*[\d.]+\)\}/);
+  assert.doesNotMatch(src, /createPortal/, 'a portal would move the room — React remounts the Canvas, a second WebGL context');
+  // The mount gate is the size + lost gate only — full screen never unmounts it.
+  assert.doesNotMatch(src.slice(Math.max(0, src.indexOf(tags[0]!) - 120), src.indexOf(tags[0]!)), /inPageFull|isFullscreen/);
 });

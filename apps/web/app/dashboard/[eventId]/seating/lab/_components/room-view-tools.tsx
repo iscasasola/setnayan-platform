@@ -137,7 +137,8 @@ export function RoomViewTools(p: RoomViewToolsProps) {
             className={TOOL}
             dataAttr="data-room-show"
           />
-          <span className="pointer-events-auto inline-flex h-11 items-center rounded-full border border-white/20 bg-black/45 px-3 text-xs font-medium text-white/85 backdrop-blur-md [&_button]:text-white">
+          {/* The ⓘ opens UPWARD (`.sn-tip` hangs below by default, and below is the room's clipped edge). */}
+          <span className="pointer-events-auto inline-flex h-11 items-center rounded-full border border-white/20 bg-black/45 px-3 text-xs font-medium text-white/85 backdrop-blur-md [&>span>button]:border-white/40 [&>span>button]:text-white [&_.sn-tip]:bottom-full [&_.sn-tip]:top-auto [&_.sn-tip]:pb-2 [&_.sn-tip]:pt-0">
             <InfoTip label="View only" align="end">
               <span className="block space-y-2 text-left">
                 <span className="block">Editing happens in 2D — tables, seats and the floor are all set on the 2D plan.</span>

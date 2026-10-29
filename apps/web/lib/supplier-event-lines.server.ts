@@ -52,7 +52,7 @@ export async function readSupplierEventLines(
   if (ids.length === 0) return out;
   const me = input.vendorProfileId;
 
-  const [threadsRead, eventsRead, membersRead, planRead, servicesRead] = await Promise.all([
+  const [threadsRead, eventsRead, membersRead, planRead, servicesRead, seatsRead] = await Promise.all([
     readInChunks<{
       thread_id: string;
       event_id: string;
@@ -107,6 +107,15 @@ export async function readSupplierEventLines(
       .from('vendor_services')
       .select('vendor_service_id, title, category, starting_price_php, is_active')
       .eq('vendor_profile_id', me),
+    /*
+      The hosts' co-host seats (Hosted by's roles). ⚡ IN THIS FIRST ROUND, NOT THE SECOND: it needs only the event ids,
+      and in the second round it was the one read that made Today one trip deeper (9 > 8,
+      `the-supplier-today-reads-together.test.ts`). Rows for an event outside this shop's scope are read and never used —
+      the scope is applied where the lines are built, as for every other read here.
+    */
+    readInChunks<{ event_id: string; user_id: string | null; role_subtype: string | null }>(ids, (part) =>
+      admin.from('event_moderators').select('event_id, user_id, role_subtype').is('removed_at', null).in('event_id', part),
+    ),
   ]);
   for (const [site, r] of [
     ['threads', threadsRead],
@@ -141,12 +150,12 @@ export async function readSupplierEventLines(
   const returningAskers = [
     ...new Set([...threadOf.values()].filter((t) => t.is_returning && t.created_by_user_id).map((t) => t.created_by_user_id as string)),
   ];
-  // Who each host is to the event: their guest-list role (Bride, Groom) and their co-host seat — read with the names.
-  const scopedIds = ids.filter((id) => inScope(id));
+  // Who each host is to the event: their guest-list role (Bride, Groom) — read with the names, never a round of its own
+  // (no hosts → no read).
   const hostGuestIds = [
     ...new Set(membersRead.rows.filter((m) => m.guest_id && inScope(m.event_id)).map((m) => m.guest_id as string)),
   ];
-  const [usersRead, earlierRead, hostGuestsRead, seatsRead] = await Promise.all([
+  const [usersRead, earlierRead, hostGuestsRead] = await Promise.all([
     readInChunks<{ user_id: string; display_name: string | null; first_name: string | null }>(people, (part) =>
       admin.from('users').select('user_id, display_name, first_name').in('user_id', part),
     ),
@@ -160,13 +169,6 @@ export async function readSupplierEventLines(
       : Promise.resolve({ data: [] as unknown[], error: null }),
     readInChunks<{ guest_id: string; role: string | null }>(hostGuestIds, (part) =>
       admin.from('guests').select('guest_id, role').in('guest_id', part),
-    ),
-    readInChunks<{ event_id: string; user_id: string | null; role_subtype: string | null }>(scopedIds, (part) =>
-      admin
-        .from('event_moderators')
-        .select('event_id, user_id, role_subtype')
-        .is('removed_at', null)
-        .in('event_id', part),
     ),
   ]);
   if (hostGuestsRead.error) logQueryError('readSupplierEventLines.hostGuests', hostGuestsRead.error, { vendorProfileId: me }, 'graceful_degrade');

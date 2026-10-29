@@ -41,3 +41,15 @@ test('the Seats and March words a person reads wrap, never cut', () => {
   const head = phone.slice(phone.indexOf('export function StudioSeatPlanHead('), phone.indexOf('export function StudioSeatPlanTools('));
   assert.doesNotMatch(head, /<h2 className="[^"]*\btruncate\b/, 'the seat head’s title is cut beside its mode dropdown');
 });
+
+test('a guest card’s name and its eyebrow wrap, never cut — on a seat’s card too (owner, live iPhone 2026-10-29)', () => {
+  const col = read('app/_components/inspector/inspector-column.tsx');
+  const title = /<h2\s+ref=\{headingRef\}[\s\S]*?className="([^"]*)"/.exec(col)?.[1];
+  assert.ok(title !== undefined, 'the card title moved — re-aim this guard');
+  assert.doesNotMatch(title!, /\btruncate\b|text-ellipsis|whitespace-nowrap/, `the card title is cut ("Rosario Bernaldo's +1 · T…"): ${title}`);
+  assert.match(title!, /overflow-wrap:anywhere/, 'the card title has no wrap');
+  const css = readFileSync(join(__dirname, '..', 'app/globals.css'), 'utf8');
+  const eye = /\.sn-inspector-sheet \.sn-inspector-head \.sn-eye \{([^}]*)\}/.exec(css)?.[1];
+  assert.ok(eye !== undefined, 'the card eyebrow rule moved — re-aim this guard');
+  assert.doesNotMatch(eye!, /text-overflow:\s*ellipsis|white-space:\s*nowrap/, `the card eyebrow is cut ("GROOM'S…"): ${eye}`);
+});

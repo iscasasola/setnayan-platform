@@ -101,7 +101,9 @@ test('⓸ a failed march read is said in the Maker — never "Nobody walks yet"'
   assert.match(asDrafted, /if \(marchUnread\) return \{ \.\.\.live, draftUnread: true, marchUnread: true \};/);
   assert.match(load, /marchAsDrafted\([\s\S]*?draftedMarch,\s*marchUnread,\s*\)/, 'the loader drops the unread march');
   // 🗂 R4: Guests › March reads the same march and hands its unread on the same way (the maker then says so, with Retry).
-  assert.match(read('app/dashboard/[eventId]/guests/_components/guests-march.tsx'), /marchAsDrafted\([\s\S]*?drafted,\s*march\.unread === true,\s*\)/, 'Guests › March drops the unread march');
+  // (The read lives in lib/guests-march-read.ts since slice 8 — the March view and its PDF share it.)
+  assert.match(read('lib/guests-march-read.ts'), /marchAsDrafted\([\s\S]*?drafted,\s*march\.unread === true,\s*\)/, 'Guests › March drops the unread march');
+  assert.match(read('app/dashboard/[eventId]/guests/_components/guests-march.tsx'), /const shown = await readShownMarch\(/, 'Guests › March reads the march another way');
   const parts = read(PARTS);
   assert.match(parts, /march: input\.march\.marchUnread\s*\?\s*'Couldn’t load the march'/, 'the march row says "Nobody walks yet" over a failed read');
 });

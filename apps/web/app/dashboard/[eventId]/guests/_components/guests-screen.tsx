@@ -72,6 +72,10 @@ import {
   X,
 } from 'lucide-react';
 import { ActionButton, actionButtonClass } from '@/components/action-button';
+import { GUESTS_SHOW } from '@/lib/guests-filter';
+import { MAP_ARRANGE, ROSTER_VIEWS } from '@/lib/guest-roster-view';
+import { guestsShareItems } from '@/lib/guests-share-sheet';
+import { GuestsShareRound } from './guests-share-round';
 import { InfoTip } from '@/app/_components/info-tip';
 import { ThumbRow, type ThumbField, type ThumbMenu } from '@/components/thumb-row';
 import { useThumbRowArrivesLast } from '@/lib/thumb-row-arrives-last';
@@ -632,6 +636,25 @@ export function GuestsScreen(props: GuestsScreenProps) {
   // ⇅ Group by is the shared filter's (List: Role by default; the Map its own default where it has no Last name).
   const view: RosterView = listGroupOf(filter);
   const arrange: MapArrange = mapGroupOf(filter, hasSides);
+  /* 📤 R4 slice 8 — what THIS view can share or print (lib/guests-share-sheet.ts), the Guest list as the ⇅ shows it. The
+     files are named for the event (its address's slug, from the invitation base; "event" when there is none). */
+  const shareSlug = (() => {
+    try {
+      return invite?.base ? (new URL(invite.base).pathname.split('/').filter(Boolean)[0] ?? null) : null;
+    } catch {
+      return null;
+    }
+  })();
+  const shareItems = guestsShareItems(gview, {
+    eventId,
+    slug: shareSlug,
+    filter,
+    showLabel: GUESTS_SHOW.find((x) => x.key === (filter.show ?? 'all'))?.label ?? 'Everyone',
+    groupLabel:
+      gview === 'map'
+        ? (MAP_ARRANGE.find((x) => x.key === arrange)?.label ?? 'Side')
+        : (ROSTER_VIEWS.find((x) => x.key === view)?.label ?? 'Role'),
+  });
 
   const sections = useMemo(() => rosterSections(visible, view, facts), [visible, view, facts]);
 
@@ -854,10 +877,16 @@ export function GuestsScreen(props: GuestsScreenProps) {
     const st = stickRef.current;
     const el = toolsSlot;
     if (!st || !el) return;
-    const sync = () => st.style.setProperty('--gs-rounds-w', `${el.offsetWidth ? el.offsetWidth + 8 : 0}px`);
+    // 📤 + the Share round beside them (slice 8) — the face stops short of it too.
+    const share = el.parentElement?.querySelector<HTMLElement>('[data-guests-share-round]') ?? null;
+    const sync = () => {
+      const w = (el.offsetWidth ? el.offsetWidth + 8 : 0) + (share?.offsetWidth ? share.offsetWidth + 8 : 0);
+      st.style.setProperty('--gs-rounds-w', `${w}px`);
+    };
     sync();
     const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(sync) : null;
     ro?.observe(el);
+    if (share) ro?.observe(share);
     return () => ro?.disconnect();
   }, [toolsSlot]);
 
@@ -1977,6 +2006,8 @@ export function GuestsScreen(props: GuestsScreenProps) {
             {/* 🎚 The view's own rounds (Seats: Edit · ⋯ — the plan draws them here, `lens.toolsSlot`), left of the ⚙; on
                 both faces, never faded. */}
             <span ref={setToolsSlot} className="flex shrink-0 items-center gap-1.5 empty:hidden" data-guests-view-rounds="" />
+            {/* 📤 Share or print — this view's files (slice 8), left of the ⚙, on both faces. */}
+            <GuestsShareRound items={shareItems} />
             {setup ? (
               <MenuSettingsButton menu="guests" open={settingsOpen} onOpenChange={openSettings} tour="guests-setup">
                 <PickWhoContext.Provider value={writesOff ? null : pickWho}>{setup}</PickWhoContext.Provider>

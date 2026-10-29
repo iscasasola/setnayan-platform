@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "6139f502ee",
+  "generatedFromRef": "b31eacf583",
   "routeCount": 479,
   "destinations": 981,
   "actions": 640,
-  "blocks": 7356,
+  "blocks": 7359,
   "routes": {
     "/": {
       "files": [
@@ -13468,6 +13468,8 @@
         "vendor-dashboard/_components/setup-offer-fold.tsx",
         "vendor-dashboard/_components/source-breakdown.tsx",
         "vendor-dashboard/_components/supplier-avatar-rows.ts",
+        "vendor-dashboard/_components/supplier-columns.tsx",
+        "vendor-dashboard/_components/supplier-page-menu.tsx",
         "vendor-dashboard/_components/supplier-page-spotlight-mount.tsx",
         "vendor-dashboard/_components/supplier-page-spotlight.tsx",
         "vendor-dashboard/_components/supplier-setup-folds.tsx",
@@ -13615,6 +13617,7 @@
         "PayoutMethodNudge",
         "PayoutReadiness",
         "PeekToast",
+        "PickMenu",
         "Pips",
         "ProfileChecklistEditor",
         "PromoFreeWindowBannerVendor",
@@ -13639,6 +13642,7 @@
         "State",
         "StepChip",
         "SubmitButton",
+        "SupplierPageMenu",
         "SupplierPageSpotlight",
         "SupplierPageSpotlightMount",
         "SupplierSetupFolds",
@@ -14294,6 +14298,7 @@
         "FormCounter",
         "FormRow",
         "FormRows",
+        "HTMLDivElement",
         "HTMLFormElement",
         "HTMLInputElement",
         "HallSheet",

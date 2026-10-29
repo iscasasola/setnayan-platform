@@ -31,8 +31,11 @@ export function LabRecord({
   edit,
   categoryLabel = 'Catering',
   coverCatalog,
+  link,
 }: {
   eventId: string;
+  /** The lab's stand-in claim link (a sample URL and its QR, drawn by the page) — no session here to make a real one. */
+  link?: { url: string; qrSvg: string };
   edit: SelfAddedSupplierPrefill;
   categoryLabel?: string;
   /** The Suppliers page's rows for a wedding, built by the page's own call (no database here). */
@@ -46,6 +49,7 @@ export function LabRecord({
       coverCatalog={coverCatalog}
       edit={edit}
       saveRecord={labSaveRecord}
+      makeLink={async () => (link ? { ok: true as const, ...link } : { ok: false as const, error: 'We could not make their link just now.' })}
       onClose={() => {}}
       onCreated={() => {}}
     />

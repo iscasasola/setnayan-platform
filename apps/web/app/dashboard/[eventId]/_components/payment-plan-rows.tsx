@@ -31,8 +31,8 @@
  * disables all of it with `!important`; nothing here opts out.
  */
 
-import { useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, CalendarClock, Plus, Trash2 } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowDown, ArrowUp, CalendarClock, Plus, Trash2, X } from 'lucide-react';
 // 🔑 THE SHARED EXACT FORMATTER, not a local one. This file had its own
 // `Math.round(n).toLocaleString('en-PH')`, which printed a 33⅓% instalment of
 // ₱79,993.50 as ₱26,665 instead of ₱26,664.50 — the very bug PR #5744 traced
@@ -41,7 +41,19 @@ import { ArrowDown, ArrowUp, CalendarClock, Plus, Trash2 } from 'lucide-react';
 // inspects functions NAMED like converters; the rule is the intent, not the
 // scan's reach.
 import { formatPhp } from '@/lib/php';
-import { PLAN_PRESENT_FIELD, planPreviewTotal } from '@/lib/self-added-payment-plan';
+import { PLAN_PRESENT_FIELD, planAmountNumber, planPreviewTotal, type EditablePlanRow } from '@/lib/self-added-payment-plan';
+import {
+  addsUpLine,
+  amountWords,
+  byDue,
+  dateToAnchor,
+  postedRule,
+  rowsFromRules,
+  type DatedRow,
+  type PlanDates,
+} from '@/lib/record-card-plan';
+import { replotAmounts } from '@/lib/plan-replot';
+import { formatPesoTyping } from '@/lib/peso-as-you-type';
 import { ActionButton } from '@/components/action-button';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 
@@ -88,7 +100,245 @@ const CELL =
   'rounded-md border border-ink/15 bg-cream px-2 py-1.5 text-xs text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none disabled:opacity-60';
 
 
+/**
+ * THE RECORD CARD'S ROWS — name · due date · amount (Booked prototype v4, owner-approved 2026-10-29). Present → the
+ * plan is drawn as dated rows over the SAME stored rule (`lib/record-card-plan.ts` maps each way, exactly); absent → the
+ * percent / anchor rows below, which the add sheet still uses.
+ */
+export type DatedPlanSetup = {
+  dates: PlanDates;
+  /** Each initial row's stored `seq`. */
+  seqs?: ReadonlyArray<number | null>;
+  /** Instalments with a payment logged against them — kept exactly as they are. */
+  settledSeqs?: ReadonlyArray<number>;
+  /** The price the plan was last saved against — a change from it re-plots the unpaid rows. */
+  keptTotalPhp: number | null;
+  /** The newest plan a price change replaced (`replot_history`). */
+  lastReplot?: { fromPhp: number; toPhp: number } | null;
+  /** The closed fold's one line ("2 payments · adds up") follows the rows. */
+  onLine?: (line: string, warn: boolean) => void;
+};
+
 export function PaymentPlanRows({
+  totalPhp,
+  initial,
+  disabled,
+  dated,
+}: {
+  /** The agreed total the plan must add up to. Null = no price set yet. */
+  totalPhp: number | null;
+  initial?: ReadonlyArray<Omit<Row, 'key'>>;
+  disabled?: boolean;
+  dated?: DatedPlanSetup;
+}) {
+  if (dated) return <DatedPlanRows totalPhp={totalPhp} initial={initial} disabled={disabled} setup={dated} />;
+  return <RulePlanRows totalPhp={totalPhp} initial={initial} disabled={disabled} />;
+}
+
+/** The record card's fields — the prototype's size (14 px, 40 px tall), not the dense percent rows' 12 px. */
+const DCELL =
+  'min-h-10 rounded-lg border border-ink/15 bg-cream px-3 py-2 text-[14px] text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none disabled:opacity-60'; // no-card-ok: worn only by <input> fields
+
+const STARTER: ReadonlyArray<Omit<Row, 'key'>> = [
+  { label: 'First payment', kind: 'percent', value: '50', anchor: 'on_lock', days: '0' },
+  { label: 'Balance', kind: 'percent', value: '50', anchor: 'before_event', days: '7' },
+];
+
+function DatedPlanRows({
+  totalPhp,
+  initial,
+  disabled,
+  setup,
+}: {
+  totalPhp: number | null;
+  initial?: ReadonlyArray<Omit<Row, 'key'>>;
+  disabled?: boolean;
+  setup: DatedPlanSetup;
+}) {
+  const { dates } = setup;
+  const [rows, setRows] = useState<DatedRow[]>(() =>
+    rowsFromRules((initial ?? STARTER) as ReadonlyArray<EditablePlanRow>, {
+      dates,
+      totalPhp: setup.keptTotalPhp,
+      seqs: initial ? setup.seqs : undefined,
+      settledSeqs: setup.settledSeqs,
+    }),
+  );
+  const [nextKey, setNextKey] = useState(rows.length);
+  /** "Price changed ₱A → ₱B · plan updated" — the newest kept plan, or the re-plot this card just made. */
+  const [replot, setReplot] = useState<{ fromPhp: number; toPhp: number } | null>(setup.lastReplot ?? null);
+
+  // 🔑 AN ACCEPTED PRICE CHANGE ALWAYS RE-PLOTS THE UNPAID PAYMENTS (owner 2026-10-29: "replot the payments always").
+  // When the price the couple KEEPS moves, the unpaid rows re-split by their own proportions; a settled row never
+  // moves — the same `replotAmounts` the database twin runs when the save lands.
+  const keptRef = useRef(setup.keptTotalPhp);
+  const kept = setup.keptTotalPhp;
+  useEffect(() => {
+    const before = keptRef.current;
+    keptRef.current = kept;
+    if (before == null || kept == null || !(before > 0) || !(kept > 0) || Math.abs(before - kept) < 0.005) return;
+    const to = kept;
+    setRows((cur) => {
+      if (cur.length === 0) return cur;
+      const core = replotAmounts(
+        cur.map((r) => {
+          const n = planAmountNumber(r.amount);
+          return Number.isFinite(n) ? n : null;
+        }),
+        cur.map((r) => r.settled),
+        to,
+      );
+      const next = cur.flatMap((r, i): DatedRow[] => {
+        if (r.settled) return [r];
+        const a = core.next[i];
+        return a == null ? [] : [{ ...r, amount: amountWords(a) }];
+      });
+      if (core.balancePhp > 0) {
+        const last = byDue(cur).filter((r) => r.dueIso).pop();
+        next.push({ key: Date.now(), label: 'Balance', dueIso: last?.dueIso ?? '', amount: amountWords(core.balancePhp), seq: null, settled: false, rule: null });
+      }
+      return next;
+    });
+    setReplot({ fromPhp: before, toPhp: to });
+  }, [kept]);
+
+  const shown = byDue(rows);
+  function patch(key: number, p: Partial<DatedRow>) {
+    setRows((cur) => cur.map((r) => (r.key === key ? { ...r, ...p } : r)));
+  }
+  function add() {
+    if (rows.length >= MAX_ROWS) return;
+    setRows((cur) => [
+      ...cur,
+      { key: nextKey, label: cur.length ? `Payment ${cur.length + 1}` : 'First payment', dueIso: '', amount: '', seq: null, settled: false, rule: null },
+    ]);
+    setNextKey((k) => k + 1);
+  }
+  const line = addsUpLine(rows, totalPhp, formatPhp);
+  const onLine = setup.onLine;
+  const foldLine =
+    rows.length === 0
+      ? 'No payments yet'
+      : `${rows.length} payment${rows.length === 1 ? '' : 's'} · ${line.text.replace(/^Adds up to [^·]+· /, '').replace('matches the price', 'adds up')}`;
+  useEffect(() => {
+    onLine?.(foldLine, rows.length === 0 || line.off);
+  }, [foldLine, line.off, rows.length, onLine]);
+
+  return (
+    <div className="space-y-2" data-plan-dated="">
+      <input type="hidden" name={PLAN_PRESENT_FIELD} value="1" />
+      {replot ? (
+        <p data-plan-replotted="" className="text-[12.5px] font-medium text-ink/70">
+          Price changed {formatPhp(replot.fromPhp)} → {formatPhp(replot.toPhp)} · plan updated
+        </p>
+      ) : null}
+      {shown.length === 0 ? (
+        <p data-plan-none="" className="text-[12.5px] text-ink/55">
+          No payments yet · add the ones you agreed.
+        </p>
+      ) : null}
+      <ul className="space-y-1.5">
+        {shown.map((r, i) => {
+          const rule = postedRule(r, dates, totalPhp);
+          const unreachable = r.dueIso !== '' && !dateToAnchor(r.dueIso, dates);
+          return (
+            <li key={r.key} data-plan-row="" className="sn-canvas-rise border-t border-ink/10 py-2 first:border-t-0" style={{ animationDelay: `${Math.min(i, 8) * 26}ms` }}>
+              {/* THE STORED RULE, posted per row (`plan_kind`/`plan_value`/`plan_anchor`/`plan_days`) — the save reads
+                  exactly what it always read; `plan_seq` keeps a logged payment on its own instalment. */}
+              <input type="hidden" name="plan_kind" value={rule.kind} />
+              <input type="hidden" name="plan_value" value={rule.value} />
+              <input type="hidden" name="plan_anchor" value={rule.anchor} />
+              <input type="hidden" name="plan_days" value={rule.days} />
+              <input type="hidden" name="plan_seq" value={r.seq == null ? '' : String(r.seq)} />
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="text"
+                  name="plan_label"
+                  value={r.label}
+                  disabled={disabled}
+                  readOnly={r.settled}
+                  maxLength={60}
+                  placeholder="First payment"
+                  aria-label={`Payment ${i + 1} name`}
+                  onChange={(e) => patch(r.key, { label: e.target.value })}
+                  className={`${DCELL} min-w-0 flex-1`}
+                />
+                {r.settled ? (
+                  <span className="shrink-0 text-[11.5px] font-medium text-[rgb(var(--color-ok))]">Paid</span>
+                ) : (
+                  <ActionButton
+                    tone="neutral"
+                    iconOnly
+                    icon={X}
+                    label={`Remove payment ${i + 1}`}
+                    disabled={disabled}
+                    onClick={() => setRows((cur) => cur.filter((x) => x.key !== r.key))}
+                  />
+                )}
+              </div>
+              <div className="mt-1.5 flex items-center gap-1.5">
+                <input
+                  type="date"
+                  value={r.dueIso}
+                  disabled={disabled || r.settled}
+                  aria-label={`Payment ${i + 1} due date`}
+                  onChange={(e) => patch(r.key, { dueIso: e.target.value })}
+                  className={`${DCELL} min-w-0 flex-1`}
+                />
+                <span className="relative w-[44%] shrink-0">
+                  <span aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[14px] text-ink/45">₱</span>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={r.amount}
+                    disabled={disabled || r.settled}
+                    placeholder="0"
+                    aria-label={`Payment ${i + 1} amount`}
+                    onChange={(e) => {
+                      // 💱 Commas as it is typed — the number pad has no comma key (owner 2026-10-30). The caret stays
+                      // after the digit just typed; the plan posts the plain number (`postedRule`).
+                      const el = e.target;
+                      const f = formatPesoTyping(el.value, el.selectionStart ?? el.value.length);
+                      patch(r.key, { amount: f.text });
+                      requestAnimationFrame(() => {
+                        try {
+                          el.setSelectionRange(f.caret, f.caret);
+                        } catch {
+                          /* the row was removed */
+                        }
+                      });
+                    }}
+                    className={`${DCELL} w-full pl-7 text-right tabular-nums`}
+                  />
+                </span>
+              </div>
+              {r.dueIso === '' && !r.settled ? (
+                <p className="mt-1 text-[11.5px] text-warn-800 dark:text-warn-200">Pick the day it is due.</p>
+              ) : unreachable ? (
+                <p className="mt-1 text-[11.5px] text-warn-800 dark:text-warn-200">
+                  Pick a day from {dates.lockIso} on — or set your event date first.
+                </p>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
+
+      {rows.length < MAX_ROWS ? (
+        <ActionButton tone="neutral" icon={Plus} label="Add a payment" onClick={add} disabled={disabled} />
+      ) : null}
+
+      <p
+        data-plan-adds-up=""
+        className={`border-t border-ink/10 pt-2 text-[12.5px] font-medium ${line.off ? 'text-[rgb(var(--color-warn))]' : 'text-ink/65'}`}
+      >
+        {line.text}
+      </p>
+    </div>
+  );
+}
+
+function RulePlanRows({
   totalPhp,
   initial,
   disabled,
@@ -236,7 +486,20 @@ export function PaymentPlanRows({
                 disabled={disabled}
                 placeholder="50"
                 aria-label={`Payment ${i + 1} amount`}
-                onChange={(e) => patch(r.key, { value: e.target.value })}
+                onChange={(e) => {
+                  // Commas as it is typed (owner 2026-10-30: the number pad has no comma key); the save reads the
+                  // plain number (`planAmountNumber`). The ₱ / % choice is the PickMenu beside it, never a typed sign.
+                  const el = e.target;
+                  const f = formatPesoTyping(el.value, el.selectionStart ?? el.value.length);
+                  patch(r.key, { value: f.text });
+                  requestAnimationFrame(() => {
+                    try {
+                      el.setSelectionRange(f.caret, f.caret);
+                    } catch {
+                      /* the row was removed */
+                    }
+                  });
+                }}
                 className={`${CELL} w-20 shrink-0`}
               />
               {/* 🪤 THE FORM STILL POSTS `plan_kind` — one per row, in row order

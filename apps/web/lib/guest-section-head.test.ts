@@ -108,8 +108,9 @@ test('(4) the headers stay in sight under the pinned row: Seats › List tables 
 test('(5) the selected group’s verbs sit on ONE row — compact, fitted, never wrapped', () => {
   const src = code('app/dashboard/[eventId]/guests/_components/section-head-toolbar.tsx');
   const row = src.match(/<div ref=\{verbs\} className="([^"]*)" data-section-head-verbs="">/);
-  assert.ok(row, 'the verbs row lost its mark (or its fit ref)');
-  const cls = row[1].split(/\s+/);
+  const classes = row?.[1];
+  assert.ok(classes !== undefined, 'the verbs row lost its mark (or its fit ref)');
+  const cls = classes.split(/\s+/);
   assert.ok(cls.includes('flex-nowrap') && !cls.includes('flex-wrap'), 'the verbs wrap onto a second row again');
   assert.ok(cls.includes('min-w-0'), 'a row that cannot shrink never overflows — the fit pass would read nothing');
   assert.match(src, /useFitRow\(verbs\);/, 'no fit pass — at 320 the row would overflow, or cut a word');

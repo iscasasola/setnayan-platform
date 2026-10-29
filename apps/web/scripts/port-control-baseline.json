@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "18b2d0c47c",
+  "generatedFromRef": "402b784719",
   "routeCount": 479,
   "destinations": 981,
   "actions": 640,
-  "blocks": 7358,
+  "blocks": 7363,
   "routes": {
     "/": {
       "files": [
@@ -6180,6 +6180,7 @@
         "UpcomingItem",
         "UpcomingItemSource",
         "UpdateMatchCriteriaResult",
+        "UpdateSelfAddedSupplierResult",
         "UseSongButton",
         "VeilReveal",
         "VendorAvatar",
@@ -10920,7 +10921,8 @@
         "CoupleLinkDoor",
         "LabCard",
         "LabRecord",
-        "NewManualVendorModal"
+        "NewManualVendorModal",
+        "UpdateSelfAddedSupplierResult"
       ]
     },
     "/dev/art-kit-lab": {
@@ -13471,6 +13473,7 @@
         "vendor-dashboard/_components/setup-offer-fold.tsx",
         "vendor-dashboard/_components/source-breakdown.tsx",
         "vendor-dashboard/_components/supplier-avatar-rows.ts",
+        "vendor-dashboard/_components/supplier-page-menu.tsx",
         "vendor-dashboard/_components/supplier-page-spotlight-mount.tsx",
         "vendor-dashboard/_components/supplier-page-spotlight.tsx",
         "vendor-dashboard/_components/supplier-setup-folds.tsx",
@@ -13618,6 +13621,7 @@
         "PayoutMethodNudge",
         "PayoutReadiness",
         "PeekToast",
+        "PickMenu",
         "Pips",
         "ProfileChecklistEditor",
         "PromoFreeWindowBannerVendor",
@@ -13642,6 +13646,7 @@
         "State",
         "StepChip",
         "SubmitButton",
+        "SupplierPageMenu",
         "SupplierPageSpotlight",
         "SupplierPageSpotlightMount",
         "SupplierSetupFolds",
@@ -14297,6 +14302,7 @@
         "FormCounter",
         "FormRow",
         "FormRows",
+        "HTMLDivElement",
         "HTMLFormElement",
         "HTMLInputElement",
         "HallSheet",

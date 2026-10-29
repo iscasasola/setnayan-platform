@@ -1,7 +1,7 @@
 ## 2026-10-30 · feat(guests): 📤 Share or print — each Guests view hands over its own files (slice 8)
 
 The Guests top row's 📤 round (left of the ⚙, on both faces of the row — DECISION_LOG 2026-10-29: "📤 is NOT drawn yet —
-it waits for the per-view 'Share or print' sheet (slice 8)") opens ONE "Share or print" sheet listing what THIS view can
+it waits for the per-view 'Share or print' sheet (slice 8)") is built here and opens ONE "Share or print" sheet listing what THIS view can
 hand over, as the approved prototype's `printsFor` / `shareSheet` draw it. Each row: name · one line · the house Share
 button (`SharePdfButton`: Paper ▾ where the file takes it; the file is made on Share, then the phone's share sheet or a
 download). The help sits behind ⓘ.
@@ -23,9 +23,11 @@ download). The help sits behind ⓘ.
   refused read is a 503 in words.
 - The march's read moved, unchanged, into `lib/guests-march-read.ts` so the March view and its PDF are one reading
   (`guests-march.tsx` calls it; `the-band-reads-what-the-host-typed` test points at the new home).
-- The pinned slim face now stops short of the 📤 round as well as the view's rounds (`--gs-rounds-w`).
+- ⚠ **The round is NOT placed in the top row by this change.** That row is being reworked by another builder
+  (2026-10-30), so this PR leaves `guests-screen.tsx` untouched. Placing it is two lines in the row: compute
+  `guestsShareItems(gview, { eventId, slug, filter, showLabel, groupLabel })` and draw
+  `<GuestsShareRound items={…} />` just left of the ⚙ (and let the pinned face's `--gs-rounds-w` count its width).
 - Not built (no print engine draws them yet): the prototype's **Family map** poster (Map) and **Cue cards** (March).
 - Guard `lib/guests-share-or-print.test.ts` (renders real PDFs and reads their words back).
-- ⚠ Stacked on #7055 (`claude/guests-top-row`) — the 📤 round lives in the top row that PR builds. Merge after #7055.
 
 SPEC IMPACT: None — builds the approved prototype's Share or print sheet.

@@ -2562,7 +2562,7 @@ export async function renderVendorBySlug({
                     approved public landing `/v/[slug]/dates` (DECISION_LOG 2026-10-28 "CHECK A DATE — APPROVED"):
                     Available · Not bookable, nothing about other couples' asks. Same `bookable` gate as Inquire. */}
                 <CheckADateLink
-                  slug={vendor.business_slug ?? slug}
+                  href={`/v/${vendor.business_slug ?? slug}/dates`}
                   className="button-secondary inline-flex items-center gap-2"
                 />
                 {canShowBooth ? (
@@ -3340,7 +3340,7 @@ export async function renderVendorBySlug({
                   className="button-secondary flex w-full items-center justify-center gap-2"
                 />
                 <CheckADateLink
-                  slug={vendor.business_slug ?? slug}
+                  href={`/v/${vendor.business_slug ?? slug}/dates`}
                   className="button-secondary flex w-full items-center justify-center gap-2"
                 />
                 <p className="text-center text-xs text-ink/50">

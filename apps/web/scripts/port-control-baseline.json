@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "dbab20d0",
-  "routeCount": 479,
-  "destinations": 986,
+  "generatedFromRef": "01bb8c48",
+  "routeCount": 480,
+  "destinations": 988,
   "actions": 640,
-  "blocks": 7405,
+  "blocks": 7412,
   "routes": {
     "/": {
       "files": [
@@ -11706,6 +11706,24 @@
         "RosterPerson"
       ]
     },
+    "/dev/shop-page-lab": {
+      "files": [
+        "dev/shop-page-lab/page.tsx"
+      ],
+      "destinations": [
+        "/",
+        "/v/sampaguita-table/dates"
+      ],
+      "actions": [],
+      "blocks": [
+        "CheckADateLink",
+        "Link",
+        "ShareButton",
+        "ShopBadgePill",
+        "ShopSinceLine",
+        "Wordmark"
+      ]
+    },
     "/dev/shop-preview-lab": {
       "files": [
         "dev/shop-preview-lab/page.tsx"
@@ -13354,6 +13372,7 @@
       "files": [
         "v/[slug]/_components/add-shop-to-event-data.ts",
         "v/[slug]/_components/anon-inquiry-composer.tsx",
+        "v/[slug]/_components/check-a-date-link.tsx",
         "v/[slug]/_components/events-by-kind.tsx",
         "v/[slug]/_components/inquiry-composer.tsx",
         "v/[slug]/_components/service-details-sheet.tsx",
@@ -13388,6 +13407,7 @@
         "AutoCarryState",
         "AxisStat",
         "CardRecordSection",
+        "CheckADateLink",
         "ComingSoonBanner",
         "DemoVendorBanner",
         "DirectionsMenu",

@@ -98,7 +98,7 @@ export default async function ShopPageLabPage({
                 Inquire
               </a>
               <ShareButton title={NAME} className="button-secondary inline-flex items-center gap-2" />
-              <CheckADateLink slug="sampaguita-table" className="button-secondary inline-flex items-center gap-2" />
+              <CheckADateLink href="/v/sampaguita-table/dates" className="button-secondary inline-flex items-center gap-2" />
             </div>
           </div>
         </section>

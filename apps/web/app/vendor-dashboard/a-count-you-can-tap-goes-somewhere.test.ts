@@ -37,7 +37,9 @@ const src = () =>
 function numbersBlock(): string {
   const s = src();
   const a = s.indexOf('data-today-numbers');
-  const b = s.indexOf('data-today-coming-up');
+  // v13: Coming up now rides in the left column's tail (declared above the render), so the block ends at the first
+  // helper after the render instead.
+  const b = s.indexOf('function OpenedRow(', a);
   assert.ok(a > 0 && b > a, 'the three-numbers block could not be found — the scan has gone blind');
   return s.slice(a, b);
 }

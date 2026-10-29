@@ -3,6 +3,7 @@
 import { useRef, useState, type ReactNode } from 'react';
 import { usePinFold } from '@/app/_components/pinned-row/use-pin-fold';
 import { TodayFigure } from './today-figure';
+import { SupplierOpenScope } from './supplier-open-row';
 
 export type TodayFilter = 'waiting' | 'week' | 'money';
 
@@ -30,8 +31,11 @@ export function TodayCounts({
   panels,
   gear,
   between = null,
+  after = null,
   initial = 'waiting',
 }: {
+  /** What follows the lists in the same column (Events you run · Coming up · the Shop row). */
+  after?: ReactNode;
   /** Already worded ("3", "2+"), or null = the desk could not be read. */
   waiting: string | null;
   waitingNow: boolean;
@@ -110,12 +114,18 @@ export function TodayCounts({
           {gear}
         </div>
       </div>
-      {between}
-      {(['waiting', 'week', 'money'] as const).map((key) => (
-        <div key={key} id={`today-list-${key}`} data-today-list={key} hidden={on !== key}>
-          {panels[key]}
-        </div>
-      ))}
+      {/* 🖥 THE TWO COLUMNS (supplier dashboard v13, 2026-10-29): from 701 the lists sit left and the opened row is drawn
+          on the right (`SupplierOpenScope`); on a phone the row opens in place. The count filter re-seats the right
+          column on the first row it shows. */}
+      <SupplierOpenScope name="today" paneLabel="The opened row" rest="Nothing waiting on you." watch={on}>
+        {between}
+        {(['waiting', 'week', 'money'] as const).map((key) => (
+          <div key={key} id={`today-list-${key}`} data-today-list={key} hidden={on !== key}>
+            {panels[key]}
+          </div>
+        ))}
+        {after}
+      </SupplierOpenScope>
     </>
   );
 }

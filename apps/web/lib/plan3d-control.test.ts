@@ -43,6 +43,12 @@ test('facts: the four cells, measured', () => {
   assert.equal(resolvePlan3dFacts(ev({ eventDate: null }), plan(), guests(), NOW)[3]!.value, 'No date yet');
 });
 
+test('an unread avatar count is "—" on its own — the seated count still counts', () => {
+  const f = resolvePlan3dFacts(ev(), plan(), guests({ withAvatar: null }), NOW);
+  assert.deepEqual(f[2], { label: 'Made an avatar', known: false, value: null });
+  assert.equal(f[1]!.value, '174 of 178 · 22 tables');
+});
+
 test('a delegate without the guest list is told so — a third state, not a zero and not a dash', () => {
   const f = resolvePlan3dFacts(ev(), plan(), guests({ shared: false, measured: false }), NOW);
   assert.deepEqual(f[1], { label: 'Seated', known: true, value: 'Not shared with you' });
@@ -54,7 +60,7 @@ test('the facts are drawn behind ⓘ in the Seats ⋯ menu, and an unread avatar
   const editor = read('app/dashboard/[eventId]/seating/_components/seating-editor.tsx');
   const more = editor.slice(editor.indexOf('const phoneMore = ('), editor.indexOf('const phoneTrailing = ('));
   assert.match(more, /\{doorStrip\}\s*\{plan3dFactsRow\}/, 'the facts left the Seats ⋯ menu, beside the switch');
-  assert.match(editor, /measured: plan3d\?\.withAvatar != null/, 'an unread avatar count is no longer "unread"');
+  assert.match(editor, /withAvatar: plan3d\?\.withAvatar \?\? null/, 'an unread avatar count is no longer "unread"');
   const facts = read('app/dashboard/[eventId]/seating/_components/seat-plan-facts.tsx');
   assert.match(facts, /<InfoTip[^>]*label="3D Plan"/, 'the facts are not behind an ⓘ');
   assert.match(facts, /f\.known && f\.value != null \? f\.value : '—'/, 'an unread fact no longer says —');

@@ -25,3 +25,16 @@ test('the room\u2019s outline: in Guests only for a FIXED (saved) room, square �
   assert.match(src, /\{venueScaled && \(!inGuests \|\| \(floorPlan\.venue_width_m !== null && floorPlan\.venue_length_m !== null\)\) \? \(/, 'Guests draws the wall for a room nobody fixed');
   assert.match(src, /className=\{`pointer-events-none absolute inset-0 border border-ink\/30 \$\{inGuests \? '' : 'rounded-lg'\}`\} data-seat-room-wall=""/, 'the Guests wall is rounded');
 });
+
+test('every 2D chair is ROUND, in the guest’s colour; a blank one a dashed circle (owner 2026-10-29: "each seat square")', () => {
+  const src = stripComments(readFileSync(join(process.cwd(), 'app/dashboard/[eventId]/seating/_components/seating-editor.tsx'), 'utf8'));
+  for (const kind of ['taken', 'blank']) {
+    const at = src.indexOf(`data-seat-chair="${kind}"`);
+    assert.ok(at > -1, `the ${kind} chair moved — this guard is blind`);
+    const tag = src.slice(src.lastIndexOf('<span', at), src.indexOf('>', at));
+    assert.match(tag, /\brounded-full\b/, `a ${kind} chair is not round`);
+    assert.doesNotMatch(tag, /\brounded-(?:sm|md|lg|none)\b/, `a ${kind} chair is square-cornered`);
+  }
+  const blank = src.slice(src.indexOf('data-seat-chair="blank"') - 20, src.indexOf('data-seat-chair="blank"') + 160);
+  assert.match(blank, /border-dashed/, 'an empty chair is not the dashed circle');
+});

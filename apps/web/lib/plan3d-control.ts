@@ -64,7 +64,9 @@ export type Plan3dGuestRead = {
   shared: boolean;
   measured: boolean;
   total: number;
-  withAvatar: number;
+  /** Guests who made an avatar — `null` when that one count was not read (restored 2026-10-29: in Seats the list is
+   *  already in hand, so only this count can be unread on its own; it says "—" while "Seated" still counts). */
+  withAvatar: number | null;
 };
 
 export type Plan3dState = 'draft' | 'live' | 'after';
@@ -140,8 +142,8 @@ export function resolvePlan3dFacts(
     ? { label: 'Made an avatar', known: true, value: NOT_SHARED }
     : {
         label: 'Made an avatar',
-        known: guests.measured,
-        value: guests.measured
+        known: guests.measured && guests.withAvatar !== null,
+        value: guests.measured && guests.withAvatar !== null
           ? `${guests.withAvatar} guest${guests.withAvatar === 1 ? '' : 's'}${event.slug ? ` · at setnayan.com/${event.slug}/avatar` : ''}`
           : null,
       };

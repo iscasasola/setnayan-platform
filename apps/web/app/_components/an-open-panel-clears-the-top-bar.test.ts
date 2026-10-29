@@ -17,8 +17,8 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 
@@ -67,4 +67,88 @@ test('the Sheet still wears the hook the lift reads, on its one root', () => {
   const sheet = read('app/_components/sheet.tsx');
   assert.match(sheet, /aria-modal="true"[\s\S]{0,120}data-sheet=""\s*className=\{at\.root\}/, 'the Sheet root lost `data-sheet` — the page is never lifted');
   assert.match(sheet, /if \(!open\) return null;/, 'a closed Sheet now stays in the tree — the page would stay lifted');
+});
+
+/* ══ 🔝 EVERY FULL-SCREEN POP-UP IS DRAWN ON <body> (owner, live phone 2026-10-29) ══════════════════════════════════════
+ * The lift above only helps from 701 and only a `[data-sheet]`. Below it — every phone — a `fixed inset-0` pop-up drawn
+ * INSIDE the page can rise no higher than the page's stacking context: the Home coordinator sheet ("the pop up is behind
+ * the bottom nav"), the Guests › Seats table sheet (under the bottom bar), Admin › Categories' drawer (its ✕ under the top
+ * bar — "i cannot go back"). The cure is a property, not a phrase: a full-screen dialog is portalled to <body>. The
+ * shared Sheet does it itself; every other full-screen `role="dialog"` must sit in a file that portals, or be on the
+ * baseline of the ones still drawn in place (`drawn-in-place.baseline.txt` — it only shrinks). */
+
+/** The opening JSX tag around `at` — braces counted, so an arrow's `=>` inside an attribute does not end it. */
+function tagAround(src: string, at: number): string {
+  let start = at;
+  while (start > 0 && !(src[start] === '<' && /[A-Za-z]/.test(src[start + 1] ?? ''))) start -= 1;
+  let depth = 0;
+  for (let i = start; i < src.length; i += 1) {
+    const ch = src[i];
+    if (ch === '{') depth += 1;
+    else if (ch === '}') depth -= 1;
+    else if (ch === '>' && depth === 0 && src[i - 1] !== '=') return src.slice(start, i + 1);
+  }
+  return src.slice(start);
+}
+
+/** How many full-screen dialogs a file draws: an element that is `role="dialog"` (or alertdialog) AND `fixed` AND `inset-0`. */
+export function fullScreenDialogs(raw: string): number {
+  const src = stripComments(raw);
+  let n = 0;
+  for (const m of src.matchAll(/\brole=(?:"|\{'|\{")(?:alert)?dialog\b/g)) {
+    const tag = tagAround(src, m.index!);
+    if (/\bfixed\b/.test(tag) && /\binset-0\b/.test(tag)) n += 1;
+  }
+  return n;
+}
+const portals = (raw: string) => /\bcreatePortal\(/.test(stripComments(raw));
+
+function tsxUnder(dir: string): string[] {
+  const out: string[] = [];
+  for (const name of readdirSync(dir)) {
+    if (name === 'node_modules' || name === '.next') continue;
+    const p = join(dir, name);
+    if (statSync(p).isDirectory()) out.push(...tsxUnder(p));
+    else if (p.endsWith('.tsx') && !p.includes('.test.')) out.push(p);
+  }
+  return out;
+}
+const IN_PLACE_BASELINE = join(HERE, 'drawn-in-place.baseline.txt');
+
+test('the shared Sheet draws itself on <body> — no caller can leave it inside the page', () => {
+  const sheet = read('app/_components/sheet.tsx');
+  const name = /const (\w+) = \(\s*<div\s+ref=\{dialogRef\}\s+role="dialog"/.exec(sheet)?.[1];
+  assert.ok(name, 'the Sheet no longer builds its dialog as one value — re-aim this guard');
+  assert.match(sheet, new RegExp(`createPortal\\(\\s*${name}\\s*,\\s*host\\s*\\)`), 'the Sheet is drawn in place again — under every bar of the page it opens on');
+  assert.match(sheet, /const host = usePortalHost\(\);/, 'the Sheet no longer finds <body> through the shared host hook');
+  const inspector = read('app/_components/inspector/inspector-column.tsx');
+  assert.match(inspector, /return createPortal\(layer \? <div className=\{layer\}>\{sheet\}<\/div> : sheet, portal\)/, 'the guest card sheet is drawn in place');
+  assert.match(inspector, /const onClose = useBackCloses\(true, onClosed\)/, "a guest card opened with no list behind it does not close on the phone's Back");
+  const admin = read('app/admin/categories/_components/four-level-map.tsx');
+  assert.match(admin, /<Sheet open=\{open\}[^>]*back=\{back\}/, 'Admin › Categories’ drawer is not the shared Sheet with its ‹');
+});
+
+test('no NEW full-screen dialog is drawn inside the page — the baseline of old ones only shrinks', () => {
+  const base = new Set(
+    readFileSync(IN_PLACE_BASELINE, 'utf8')
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l && !l.startsWith('#')),
+  );
+  const inPlace: string[] = [];
+  for (const f of [...tsxUnder(join(WEB, 'app')), ...tsxUnder(join(WEB, 'components'))]) {
+    const raw = readFileSync(f, 'utf8');
+    if (fullScreenDialogs(raw) > 0 && !portals(raw)) inPlace.push(relative(WEB, f));
+  }
+  const fresh = inPlace.filter((f) => !base.has(f));
+  assert.deepEqual(fresh, [], `drawn inside the page (portal it to <body>, or use the shared Sheet): \n${fresh.join('\n')}`);
+  const healed = [...base].filter((f) => !inPlace.includes(f));
+  assert.deepEqual(healed, [], `no longer drawn in place — take it off drawn-in-place.baseline.txt:\n${healed.join('\n')}`);
+});
+
+test('the check sees the pop-up it was written for, and not a portalled one or a bar', () => {
+  assert.equal(fullScreenDialogs('<div ref={r} role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex" onClick={() => go()}>'), 1);
+  assert.equal(fullScreenDialogs('<div className={`fixed inset-0 z-50 ${a}`} role="dialog">'), 1);
+  assert.equal(fullScreenDialogs('<nav role="dialog" className="fixed inset-x-0 bottom-0">'), 0);
+  assert.equal(portals('return createPortal(<div role="dialog" className="fixed inset-0" />, document.body);'), true);
 });

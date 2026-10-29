@@ -5994,7 +5994,7 @@ export function SeatingEditor({
           tables: tables.length,
           seated: guests.filter((g) => g.seated_table_id !== null).length,
         },
-        { shared: true, measured: plan3d?.withAvatar != null, total: guests.length, withAvatar: plan3d?.withAvatar ?? 0 },
+        { shared: true, measured: true, total: guests.length, withAvatar: plan3d?.withAvatar ?? null },
       )
     : null;
   const plan3dFactsRow = plan3dFacts ? <SeatPlanFacts facts={plan3dFacts} /> : null;

@@ -39,10 +39,13 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import {
-  ENTOURAGE_COLUMNS,
+  MARCH_COLUMNS,
   MARCH_GROUP_KEYS,
-  entourageLines,
+  isOwnMarchGroup,
+  marchLines,
+  marchOrderKeys,
   type EntourageGuestRow,
   type EntourageRow,
 } from '@/lib/entourage';
@@ -72,13 +75,14 @@ export async function readMarchLines(
   | { ok: true; supabase: SupabaseServerClient; lines: EntourageRow[] }
   | { ok: false; reason: string }
 > {
-  // 🚶 The march's own sections too (the couple's sides, owner 2026-10-06) — every key `entourageLines` knows.
-  if (!MARCH_GROUP_KEYS.includes(groupKey)) {
+  // 🚶 The march's own sections too (the couple's sides, owner 2026-10-06) — every key `entourageLines` knows — and 🏷 the
+  // couple's own groups (owner 2026-10-29), whose walkers `marchLines` reads off their walk rows.
+  if (!MARCH_GROUP_KEYS.includes(groupKey) && !isOwnMarchGroup(groupKey)) {
     return { ok: false, reason: 'That part of the entourage does not exist.' };
   }
   const supabase = await createClient();
   const [{ data, error }, tray] = await Promise.all([
-    supabase.from('guests').select(ENTOURAGE_COLUMNS).eq('event_id', eventId).is('deleted_at', null),
+    supabase.from('guests').select(MARCH_COLUMNS).eq('event_id', eventId).is('deleted_at', null),
     readNotWalking(supabase, eventId),
   ]);
   // 🚶 Unread "Not walking" is NOT "nobody is out": a move against a march that
@@ -87,8 +91,54 @@ export async function readMarchLines(
   return {
     ok: true,
     supabase,
-    lines: entourageLines(walkersOf((data ?? []) as EntourageGuestRow[], tray), groupKey),
+    lines: marchLines(walkersOf((data ?? []) as EntourageGuestRow[], tray), groupKey),
   };
+}
+
+/**
+ * 🚶 THE SECTION ORDER'S FRESH READ — `full`: every march section in the saved order (the couple's own groups in their
+ * place, `marchOrderKeys`); `visible`: the ones a section move steps over — the printed groups with someone walking in
+ * them (read as the march reads them, `marchLines`, so a section emptied into an own group is not a step) and every own
+ * group, even empty. Shared by `moveEntourageSection` (march-actions.ts) and the own-group writes
+ * (guests/march-group-step.ts) — one read, so the maker's prediction and the server's step can never disagree.
+ */
+export async function readAllGroups(
+  eventId: string,
+): Promise<{ ok: true; full: string[]; visible: Set<string>; own: string[] } | { ok: false; reason: string }> {
+  const admin = createAdminClient();
+  const [{ data: ev, error: evErr }, { data: rows, error: rowsErr }, { data: groups, error: groupsErr }] = await Promise.all([
+    admin.from('events').select('entourage_section_order').eq('event_id', eventId).maybeSingle(),
+    admin.from('guests').select(MARCH_COLUMNS).eq('event_id', eventId).is('deleted_at', null),
+    admin.from('march_groups').select('group_key').eq('event_id', eventId),
+  ]);
+  if (evErr || rowsErr || groupsErr || !ev) return { ok: false, reason: MARCH_READ_FAILED };
+
+  const saved = (ev as { entourage_section_order: string[] | null }).entourage_section_order;
+  const all = (rows ?? []) as EntourageGuestRow[];
+  const own = ((groups ?? []) as Array<{ group_key: string }>).map((g) => g.group_key);
+  const full = marchOrderKeys(saved, own);
+  return {
+    ok: true,
+    full,
+    own,
+    visible: new Set(full.filter((k) => isOwnMarchGroup(k) || marchLines(all, k).length > 0)),
+  };
+}
+
+/** The section order, written whole (the admin client — the column has no session UPDATE grant), its rows counted. */
+export async function writeSectionOrder(eventId: string, order: string[] | null): Promise<MarchResult> {
+  const admin = createAdminClient();
+  // A zero-row UPDATE returns no error — count the rows, or "saved" is a guess.
+  const { data, error } = await admin
+    .from('events')
+    .update({ entourage_section_order: order })
+    .eq('event_id', eventId)
+    .select('event_id');
+  if (error || !data || data.length === 0) {
+    return { ok: false, reason: 'The new section order was not saved — nothing was changed.' };
+  }
+  await revalidateMarch(eventId);
+  return { ok: true, written: data.length };
 }
 
 /**

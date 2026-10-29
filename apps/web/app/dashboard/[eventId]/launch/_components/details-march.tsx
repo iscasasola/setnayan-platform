@@ -15,11 +15,15 @@ import {
 import { createPortal } from 'react-dom';
 import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { reportCrash } from '@/lib/telemetry/report-crash';
-import { isMarchOnlyGroup } from '@/lib/entourage';
+import { isMarchOnlyGroup, isOwnMarchGroup } from '@/lib/entourage';
 import {
   acrossTheAisle,
   keyTarget,
   leadOf,
+  newOwnGroupKey,
+  newOwnGroupLabel,
+  planGroupAdd,
+  planGroupName,
   planMove,
   planSectionOut,
   planSectionsDefault,
@@ -124,6 +128,9 @@ function swallowTapClick(): void {
   window.addEventListener('click', eat, true);
   setTimeout(() => window.removeEventListener('click', eat, true), 500);
 }
+
+/** The thumb row's ＋ ▾ pick that makes a group (never a guest id — those are UUIDs). */
+const NEW_GROUP = 'new-group';
 
 /** What one drop puts in the draft: its steps, after the drafted ones — or the last drafted move back off. */
 type MarchDraftPatch = Pick<HubDraftPatch, 'march' | 'marchUndo'>;
@@ -309,6 +316,8 @@ function MarchMakerBody({
   /* 🏷 R4 slice 5 — the SELECTED walk group (owner 2026-10-29, prototype v13 `marchSel`): a tap on its header selects it,
      opens it and raises the toolbar (Rename · ＋ Walk · Delete); a tap on the SELECTED header folds it AND unselects it. */
   const [marchSel, setMarchSel] = useState<string | null>(null);
+  /* 🏷 A group of the couple's own, just made (＋ Group): its toolbar opens with the name box up (prototype v13). */
+  const [renameNow, setRenameNow] = useState<string | null>(null);
   const [marchQ, setMarchQ] = useState('');
   const marchQTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => {
@@ -866,20 +875,27 @@ function MarchMakerBody({
             }}
             right={[guestsFilterMenu({ view: 'march', filter: lens.filter, onFilter: lens.setFilter, hasSides: lens.hasSides, label: 'Show' })]}
             action={
-              outUnread || shownOut.length === 0
-                ? null
-                : {
-                    menu: shownOut.map((o) => ({ key: o.id, label: o.name, group: o.sectionLabel })),
-                    label: 'Add a walk — someone not walking',
+              /* 🏷 ＋ ▾ = Add walk · New group (prototype v13 `thWalk`): a group of the couple's own, first; then the
+                 "Not walking" names. A walk to add needs a name, so with nobody out the menu holds New group alone. */
+              guests
+                ? {
+                    menu: [
+                      { key: NEW_GROUP, label: 'New group', group: 'Groups' },
+                      ...(outUnread ? [] : shownOut.map((o) => ({ key: o.id, label: o.name, group: o.sectionLabel }))),
+                    ],
+                    // The shipped words stay where the menu still adds a walk; only the ＋ that is new (nobody out) has its own.
+                    label: outUnread || shownOut.length === 0 ? 'Add a group' : 'Add a walk — someone not walking',
                     value: null,
                     mark: 'data-march-add-walk',
                     onPick: (id) => {
+                      if (id === NEW_GROUP) return addGroup(marchSel);
                       const o = shownOut.find((x) => x.id === id);
                       if (!o) return;
                       const sec = shown.find((x) => x.key === o.section);
                       run(planMove(shown, shownPrinted, { kind: 'out', id }, { kind: 'gap', section: o.section, index: sec ? sec.rows.length : 0 }, shownOut));
                     },
                   }
+                : null
             }
           />,
           lens.slot,
@@ -889,8 +905,10 @@ function MarchMakerBody({
      verbs are shipped moves only: Rename = the section's heading word (`lens.renameSection`, the List's door); ＋ Walk = a
      name from "Not walking" into THIS group's end (the same `planMove` as the thumb row's ＋ and the tray drag); Delete =
      everyone in it to "Not walking" (`planSectionOut` — the tray drag, for each, one Undo). The groom's and the bride's
-     sides always walk: no Delete there. ＋ Group is NOT here — a march group IS an entourage section (the guest's role
-     decides it); a group of one's own has no home in the data yet (flagged for the owner). */
+     sides always walk: no Delete there. ＋ Group = a group of the couple's OWN right after this one (owner 2026-10-29,
+     *"if they have a custom way of marching they can customize it"*; `march_groups`) — it is a section like these, so
+     the same toolbar serves it: its Rename is its own heading (drafted, `group-name`), its ＋ Walk names anyone not
+     walking, its Delete sends its walkers to "Not walking" and the group goes. */
   const headTools = guests && lens?.HeadToolbar ? lens.HeadToolbar : null;
   const tapHead = (key: string) => {
     if (marchSel === key) {
@@ -911,6 +929,19 @@ function MarchMakerBody({
     );
   };
   const selSec = marchSel ? (shown.find((x) => x.key === marchSel) ?? null) : null;
+  /** 🏷 ＋ Group: a new group of the couple's own after `after` (the selected group), else after the last section. */
+  const addGroup = (after: string | null) => {
+    const movable = shown.filter((x) => !isMarchOnlyGroup(x.key));
+    const at = after ?? movable[movable.length - 1]?.key ?? null;
+    const key = newOwnGroupKey();
+    run(planGroupAdd(shown, shownPrinted, shownOut, key, newOwnGroupLabel(shown), at));
+    setMarchSel(key);
+    setRenameNow(key);
+    requestAnimationFrame(() =>
+      root.current?.querySelector(`[data-march-section="${CSS.escape(key)}"]`)?.scrollIntoView({ block: 'center', behavior: reduced() ? 'auto' : 'smooth' }),
+    );
+  };
+  const selOwn = selSec ? isOwnMarchGroup(selSec.key) : false;
   const HeadTools = headTools;
   const marchHeadTools =
     HeadTools && lens?.slot && selSec
@@ -920,12 +951,23 @@ function MarchMakerBody({
               label={selSec.label}
               count={selSec.rows.length}
               line={`${selSec.rows.length} walk${selSec.rows.length === 1 ? '' : 's'} · ${selSec.rows.reduce((k, r) => k + (r[0] ? 1 : 0) + (r[1] ? 1 : 0), 0)} walking`}
-              rename={lens?.sectionWords?.(selSec.key) ?? null}
-              onRename={async (text) => (lens?.renameSection ? lens.renameSection(selSec.key, text) : null)}
+              rename={selOwn ? { current: selSec.label, usual: null } : (lens?.sectionWords?.(selSec.key) ?? null)}
+              onRename={async (text) => {
+                if (!selOwn) return lens?.renameSection ? lens.renameSection(selSec.key, text) : null;
+                setRenameNow(null);
+                const plan = planGroupName(shown, shownPrinted, selSec.key, text);
+                if (plan && !plan.ok) return plan.reason;
+                run(plan);
+                return null;
+              }}
+              openRename={renameNow === selSec.key}
               addWord="Walk"
               addMenuAlways
               add={outUnread ? null : (() => {
-                const here = shownOut.filter((o) => o.section === selSec.key).map((o) => ({ key: o.id, label: o.name }));
+                // An own group takes anyone not walking (the couple decide who walks in it); a role's group, its own.
+                const here = shownOut
+                  .filter((o) => selOwn || o.section === selSec.key)
+                  .map((o) => ({ key: o.id, label: o.name, ...(selOwn ? { group: o.sectionLabel } : {}) }));
                 return here.length ? here : null;
               })()}
               adding={false}
@@ -941,6 +983,7 @@ function MarchMakerBody({
                       run(planSectionOut(shown, shownPrinted, shownOut, selSec.key));
                     }
               }
+              onAddGroup={() => addGroup(selSec.key)}
               onClose={() => setMarchSel(null)}
             />
           </div>,
@@ -1049,7 +1092,20 @@ function MarchMakerBody({
               {sec.rows.length} walk{sec.rows.length === 1 ? '' : 's'}
             </small>
           </p>
-          {folded.has(sec.key) ? null : <Gap zone={`gap|${sec.key}|0`} on={over?.zone === `gap|${sec.key}|0`} ok={over?.ok ?? true} />}
+          {folded.has(sec.key) ? null : sec.rows.length === 0 ? (
+            /* 🏷 A group of the couple's own with nobody in it yet: the whole box is where a name lands. */
+            <div
+              data-march-drop={`gap|${sec.key}|0`}
+              data-march-own-empty=""
+              className={`mt-1.5 flex min-h-16 items-center justify-center rounded-xl border-[1.5px] border-dashed px-4 text-center text-sm ${
+                over?.zone === `gap|${sec.key}|0` ? (over.ok ? 'border-terracotta-700 text-terracotta-800' : 'border-danger-500/60 text-danger-700') : 'border-ink/15 text-ink/55'
+              }`}
+            >
+              Hold a name and drag it here.
+            </div>
+          ) : (
+            <Gap zone={`gap|${sec.key}|0`} on={over?.zone === `gap|${sec.key}|0`} ok={over?.ok ?? true} />
+          )}
           {(folded.has(sec.key) ? [] : sec.rows).map((row, i) => {
             step += 1;
             const lead = leadOf(row);

@@ -44,6 +44,8 @@ export function SectionHeadToolbar({
   addWord = 'Add guest here',
   addMenuAlways = false,
   onDelete,
+  onAddGroup,
+  openRename = false,
 }: {
   label: string;
   count: number;
@@ -55,6 +57,10 @@ export function SectionHeadToolbar({
   addMenuAlways?: boolean;
   /** 🗑 The group's Delete (the March: everyone in it to Not walking, one Undo). Absent = none. */
   onDelete?: () => void;
+  /** 🏷 ＋ Group — a new group of the couple's own right after this one (the March, owner 2026-10-29). Absent = none. */
+  onAddGroup?: () => void;
+  /** ✎ Open with the name box already up (a group just made is named first — prototype v13 `newMarchGroup`). */
+  openRename?: boolean;
   /** The word the box starts with, and whether an empty box is allowed (= the usual word again). Null = no Rename. */
   rename: { current: string; usual: string | null } | null;
   /** The roles a name added here takes (one = plain ＋; several = ＋ ▾); null = no add here. [] = an add with no role pick. */
@@ -74,10 +80,13 @@ export function SectionHeadToolbar({
   useEffect(() => {
     if (editing) box.current?.focus();
   }, [editing]);
-  // A different header selected: the box closes, nothing is carried over.
+  // A different header selected: the box closes, nothing is carried over — unless this one opens named-first.
   useEffect(() => {
-    setEditing(false);
+    setEditing(Boolean(openRename && rename));
+    if (openRename && rename) setDraft(rename.current || rename.usual || '');
     setErr(null);
+    // Only a new selection decides it — not every render of the same one.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [label]);
 
   const keep = () => {
@@ -173,6 +182,7 @@ export function SectionHeadToolbar({
             ) : (
               <ActionButton tone="brand" main icon={Plus} label={addWord} onClick={() => onAdd(add[0]?.key ?? null)} data-testid="section-head-add" />
             )}
+            {onAddGroup ? <ActionButton tone="neutral" icon={Plus} label="Group" onClick={onAddGroup} data-testid="section-head-add-group" /> : null}
             {onDelete ? <ActionButton tone="danger" icon={Trash2} label="Delete" onClick={onDelete} data-testid="section-head-delete" /> : null}
           </div>
         </>

@@ -20,6 +20,12 @@
  * The radius shown is the vendor's TIER reach (vendor-tier-caps · serviceRadiusKm)
  * — the same number the couple's Services search gates on. Read-only here; a
  * follow-up makes it vendor-settable up to the tier ceiling.
+ *
+ * 📍 TWO RINGS AND THE PIN (owner 2026-10-29, Supplier dashboard v13 note 3 — *"where is the map locator?"*): when the
+ * supplier has said how far they go, the map draws THEIR two distances — the inner ring (green) is "Free transpo", the
+ * outer ring (dashed terracotta) is how far they cover — each labelled, around a map pin at the HQ. Undeclared, it is
+ * the plan's one ring exactly as before. `muted` greys the whole map: the rings are not live yet (an unverified shop
+ * reaches 0 km — `GetVerifiedLine` above it says why).
  */
 
 import { useEffect, useRef, useState } from 'react';
@@ -53,9 +59,15 @@ type Props = {
   lng: number;
   /** Tier reach in km. 0 = unscoped (no ring drawn). */
   radiusKm: number;
+  /** The supplier's own free-transport distance (already clamped to the plan). Null = not said. */
+  innerKm?: number | null;
+  /** The supplier's own farthest distance (already clamped to the plan). Null = not said → the plan's ring. */
+  outerKm?: number | null;
+  /** Grey the map: the rings are not live yet (an unverified shop). */
+  muted?: boolean;
 };
 
-export function ReachMap({ lat, lng, radiusKm }: Props) {
+export function ReachMap({ lat, lng, radiusKm, innerKm = null, outerKm = null, muted = false }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
 
@@ -73,13 +85,17 @@ export function ReachMap({ lat, lng, radiusKm }: Props) {
   const W = width;
   const H = HEIGHT;
   const hasRing = Number.isFinite(radiusKm) && radiusKm > 0;
+  const outer = outerKm !== null && Number.isFinite(outerKm) && outerKm > 0 ? outerKm : null;
+  const inner = innerKm !== null && Number.isFinite(innerKm) && innerKm > 0 ? Math.min(innerKm, outer ?? innerKm) : null;
+  // The widest ring on the map sets the zoom: their own outer ring once they have said one, else the plan's.
+  const fitKm = outer ?? (hasRing ? radiusKm : inner);
 
   // Pick an integer zoom so the ring fills ~62% of the smaller viewport edge.
   // No ring (Free/unscoped) → a city-level default so the HQ is still shown.
   let zoom = 11;
-  if (hasRing && W > 0) {
+  if (fitKm && W > 0) {
     const target = 0.62 * Math.min(W, H);
-    const n = (target * MPP_Z0 * Math.cos(rad(lat))) / (2 * radiusKm * 1000);
+    const n = (target * MPP_Z0 * Math.cos(rad(lat))) / (2 * fitKm * 1000);
     zoom = Math.round(Math.log2(Math.max(1e-9, n)));
   }
   zoom = Math.max(3, Math.min(15, zoom));
@@ -110,18 +126,42 @@ export function ReachMap({ lat, lng, radiusKm }: Props) {
     }
   }
 
-  const ringPx = hasRing ? (radiusKm * 1000) / metresPerPixel(lat, zoom) : 0;
+  const mpp = metresPerPixel(lat, zoom);
+  // The plan's ring only while they have not drawn their own outer ring.
+  const ringPx = hasRing && outer === null ? (radiusKm * 1000) / mpp : 0;
+  const outerPx = outer !== null ? (outer * 1000) / mpp : 0;
+  const innerPx = inner !== null ? (inner * 1000) / mpp : 0;
+  const label = (text: string, y: number, colour: string) => (
+    <text
+      x={W / 2}
+      y={Math.max(14, y)}
+      textAnchor="middle"
+      className="text-[12px] font-medium"
+      style={{ fill: colour, paintOrder: 'stroke', stroke: 'rgba(255,255,255,.9)', strokeWidth: 3 }}
+    >
+      {text}
+    </text>
+  );
 
   return (
     <div
       ref={ref}
       className="relative w-full overflow-hidden rounded-xl border"
-      style={{ height: H, borderColor: 'var(--m-line)', background: '#e6ebed' }}
+      style={{
+        height: H,
+        borderColor: 'var(--m-line)',
+        background: '#e6ebed',
+        filter: muted ? 'grayscale(1)' : undefined,
+        opacity: muted ? 0.45 : undefined,
+      }}
+      data-reach-map={muted ? 'muted' : ''}
       role="img"
       aria-label={
-        hasRing
-          ? `Map showing your service coverage of about ${radiusKm} kilometres around your headquarters`
-          : 'Map showing your headquarters location'
+        outer !== null
+          ? `Map of your headquarters: free transport within ${inner ?? 0} kilometres, you cover up to ${outer} kilometres`
+          : hasRing
+            ? `Map showing your service coverage of about ${radiusKm} kilometres around your headquarters`
+            : 'Map showing your headquarters location'
       }
     >
       {tiles.map((t) => (
@@ -157,15 +197,41 @@ export function ReachMap({ lat, lng, radiusKm }: Props) {
               strokeOpacity={0.9}
             />
           )}
-          {/* HQ marker */}
-          <circle
-            cx={W / 2}
-            cy={H / 2}
-            r={6}
-            style={{ fill: 'var(--m-terracotta, #b65d3c)' }}
-            stroke="#fff"
-            strokeWidth={2}
-          />
+          {outerPx > 0 && (
+            <circle
+              cx={W / 2}
+              cy={H / 2}
+              r={outerPx}
+              style={{ fill: 'var(--m-terracotta, #b65d3c)', fillOpacity: 0.08 }}
+              stroke="var(--m-terracotta, #b65d3c)"
+              strokeWidth={2}
+              strokeDasharray="6 5"
+              data-ring="outer"
+            />
+          )}
+          {innerPx > 0 && (
+            <circle
+              cx={W / 2}
+              cy={H / 2}
+              r={innerPx}
+              style={{ fill: 'var(--m-sage-deep, #3f6b4f)', fillOpacity: 0.16 }}
+              stroke="var(--m-sage-deep, #3f6b4f)"
+              strokeWidth={2}
+              data-ring="inner"
+            />
+          )}
+          {outerPx > 0 ? label(`Covers · ${outer} km`, H / 2 - outerPx + 16, 'var(--m-terracotta, #b65d3c)') : null}
+          {innerPx > 0 ? label(`Free transpo · ${inner} km`, H / 2 - innerPx - 6, 'var(--m-sage-deep, #3f6b4f)') : null}
+          {/* HQ — a map pin, its point on the spot */}
+          <g transform={`translate(${W / 2 - 11} ${H / 2 - 30})`}>
+            <path
+              d="M11 0C4.9 0 0 4.9 0 11c0 8.2 11 19 11 19s11-10.8 11-19C22 4.9 17.1 0 11 0z"
+              style={{ fill: 'var(--m-terracotta, #b65d3c)' }}
+              stroke="#fff"
+              strokeWidth={1.5}
+            />
+            <circle cx={11} cy={11} r={4} fill="#fff" />
+          </g>
         </svg>
       )}
 

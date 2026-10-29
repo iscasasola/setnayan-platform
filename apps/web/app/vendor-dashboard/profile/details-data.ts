@@ -34,6 +34,13 @@ import {
 } from '@/lib/vendor-signup-coverage-suggest-reader';
 import { fetchOwnPaymentMethodsMeasured, type VendorPaymentMethodRow } from '@/lib/vendor-payment-methods';
 import { detailsProgress, type DetailsProgress } from '@/lib/supplier-details';
+import { isStoreShellRequest } from '@/lib/request-platform';
+import {
+  loadDeepSearchOffer,
+  loadLastDeepSearch,
+  type DeepSearchOffer,
+  type LastDeepSearch,
+} from '@/lib/vendor-deep-search-offer';
 import type { ProfileFieldData } from '../shop/_components/editable-row';
 import type { VerifySummary } from '../shop/_components/verify-section';
 import type { PayInfo } from '../_components/branch-manager';
@@ -104,8 +111,19 @@ export type DetailsData = {
     branchFeePhp: number;
     branchAutoRadius: number;
     branchPay: PayInfo;
+    /** Verified — an unverified shop's 0 km says why. */
+    isVerified?: boolean;
+    /** The plan was read (false → Where you work says so, never a false 0 km). */
+    tierMeasured?: boolean;
   };
   pay: { methods: VendorPaymentMethodRow[]; measured: boolean };
+  /** 🔎 What Run Deep Search does for this shop now (`loadDeepSearchOffer` — the Deep Search page's own resolver).
+   *  Null in the App Store / Play Store shell, which refuses Deep Search — no card there. */
+  deepSearch: DeepSearchOffer | null;
+  /** The last search, or that it could not be read. */
+  lastDeepSearch: LastDeepSearch;
+  /** 🗓 "On Setnayan since" — the shop row's `created_at` (read-only). */
+  onSetnayanSince: string | null;
   logoUnavailable: boolean;
   progress: DetailsProgress;
   /**
@@ -119,6 +137,8 @@ export type DetailsData = {
 
 type OwnRow = {
   tier_state?: string | null;
+  tier_expires_at?: string | null;
+  verification_state?: string | null;
   same_day_available?: boolean | null;
   social_feature_opt_out?: boolean | null;
   social_featured_at?: string | null;
@@ -130,23 +150,33 @@ type OwnRow = {
 export async function loadDetailsData(
   supabase: SupabaseClient,
   profile: VendorProfileRow,
+  /** Today's six setup steps mount parts of this list but never the Deep Search card — they skip its reads. */
+  opts: { deepSearch?: boolean } = {},
 ): Promise<DetailsData> {
+  const withDeepSearch = opts.deepSearch !== false;
   const vendorId = profile.vendor_profile_id;
 
+  // 📍 `ownMeasured`: the plan behind Where you work's reach. Refused, the reach is NOT drawn as Free's 0 km (that
+  // would tell a paying shop to get verified) — Where you work says the plan could not be read.
+  let ownMeasured = true;
   const ownRead = (async (): Promise<OwnRow> => {
     try {
       const { data, error } = await supabase
         .from('vendor_profiles')
         .select(
-          'tier_state, same_day_available, social_feature_opt_out, social_featured_at, inner_radius_km, outer_radius_km, microsite_about',
+          'tier_state, tier_expires_at, verification_state, same_day_available, social_feature_opt_out, social_featured_at, inner_radius_km, outer_radius_km, microsite_about',
         )
         .eq('vendor_profile_id', vendorId)
         .maybeSingle();
       // ⚠ Their plan, their switches, their travel distances. Refused, each reads as its default — the switches OFF,
       // ⚠ the distances "not set" — and the reason reaches the logs.
-      if (error) logQueryError('VendorDetails.ownRow', error, { vendorId }, 'graceful_degrade');
+      if (error) {
+        ownMeasured = false;
+        logQueryError('VendorDetails.ownRow', error, { vendorId }, 'graceful_degrade');
+      }
       return (data ?? {}) as OwnRow;
     } catch {
+      ownMeasured = false;
       return {};
     }
   })();
@@ -235,13 +265,32 @@ export async function loadDetailsData(
     return { branchFeePhp, branchPay };
   })();
   const payRead = fetchOwnPaymentMethodsMeasured(supabase, vendorId);
+  // 🔎 Deep Search (Supplier dashboard v13 note 2): the same offer `/vendor-dashboard/deep-search` makes — it waits for
+  // the plan + verification in the shop row above, and nothing else — and the last search, started with the rest.
+  // 🔒 The App Store / Play Store shell refuses Deep Search (a paid per-run service — `lib/store-shell.ts`), so there
+  // the card is not drawn and none of its reads run.
+  const storeShellRead = isStoreShellRequest();
+  const deepSearchRead = Promise.all([ownRead, storeShellRead]).then(([own, storeShell]) =>
+    storeShell || !withDeepSearch
+      ? null
+      : loadDeepSearchOffer(supabase, createAdminClient(), {
+          vendorProfileId: vendorId,
+          tier: own.tier_state ?? null,
+          tierExpiresAt: own.tier_expires_at ?? null,
+          verification: own.verification_state ?? null,
+          storeShell,
+        }),
+  );
+  const lastDeepSearchRead = storeShellRead.then((storeShell) =>
+    storeShell || !withDeepSearch ? ({ measured: true, last: null } as LastDeepSearch) : loadLastDeepSearch(supabase, createAdminClient(), vendorId),
+  );
   const inviteRead = (async () => readClaimedTeamInvite(createAdminClient(), vendorId))().catch((err) => {
     // Unread → "from your invite" is simply not said; never a false claim.
     logQueryError('VendorDetails.claimedInvite', err, { vendorId }, 'graceful_degrade');
     return null;
   });
 
-  const [own, businessStartDate, app, validate, registrationOnFile, logo, vocab, openCorrections, suggestion, branches, { branchFeePhp, branchPay }, pay] =
+  const [own, businessStartDate, app, validate, registrationOnFile, logo, vocab, openCorrections, suggestion, branches, { branchFeePhp, branchPay }, pay, deepSearch, lastDeepSearch] =
     await Promise.all([
       ownRead,
       startDateRead,
@@ -255,8 +304,11 @@ export async function loadDetailsData(
       branchesRead,
       branchPayRead,
       payRead,
+      deepSearchRead,
+      lastDeepSearchRead,
     ]);
   const fromInvite = (await inviteRead) !== null;
+
 
   const completion = businessProfileChecklist(profile);
   const uploads = (app?.doc_uploads ?? {}) as DocUploadMap;
@@ -368,8 +420,13 @@ export async function loadDetailsData(
       branchFeePhp,
       branchAutoRadius: branchAutoRadiusKm(),
       branchPay,
+      isVerified,
+      tierMeasured: ownMeasured,
     },
     pay,
+    deepSearch,
+    lastDeepSearch,
+    onSetnayanSince: profile.created_at ?? null,
     logoUnavailable: logo.unavailable,
     progress,
     fromInvite,

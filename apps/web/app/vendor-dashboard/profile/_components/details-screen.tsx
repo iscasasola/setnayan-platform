@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { FileText, ListChecks, MapPin, MessageSquareWarning, Pencil, Phone, Wallet } from 'lucide-react';
+import { FileText, Globe, ListChecks, MapPin, MessageSquareWarning, Pencil, Phone, Wallet } from 'lucide-react';
 import { RowIcon } from '../../_components/row-icon';
 import { Fold } from '@/app/_components/fold';
 import { Badge } from '@/app/_components/badge';
@@ -20,6 +20,8 @@ import { SupplierThumbRow } from '../../_components/supplier-thumb-row';
 import { OpenFoldButton } from '../../_components/open-fold-button';
 import { updateBusinessStartDate } from '../../actions';
 import type { DetailsData } from '../details-data';
+import { ON_SETNAYAN_SINCE_LABEL, onSetnayanSinceLine } from '@/lib/in-business-since';
+import { DeepSearchCard, deepSearchFoldLine } from './deep-search-card';
 
 /**
  * YOUR DETAILS — the form, as ONE list (simpler supplier dashboard step 5 · prototype moment 6, `SCREENS.details`).
@@ -114,6 +116,15 @@ export function DetailsScreen({
                 isVerified={d.isVerified}
                 showProgress={false}
                 asks={asks}
+              />
+              {/* 🗓 "Since" is two lines (owner 2026-10-29, v13 note 1): "In business since" is the row above (their own
+                  year, editable, shown on their page); "On Setnayan since" is HERE, read-only — the month the shop
+                  opened on Setnayan. An unread stamp says so, never a date. */}
+              <DatesRow
+                data="details-on-setnayan-since"
+                title={ON_SETNAYAN_SINCE_LABEL}
+                line="When your shop opened here"
+                end={<span className="shrink-0 text-sm text-ink/60">{onSetnayanSinceLine(d.onSetnayanSince) ?? 'Couldn’t be read just now'}</span>}
               />
               {/* The exact start date (optional) — moved from My Shop's Profile tile with its own Save. */}
               <form action={updateBusinessStartDate} className="pt-1">
@@ -232,6 +243,32 @@ export function DetailsScreen({
             badge={d.about ? { tone: 'ok', word: 'Done' } : { tone: 'quiet', word: 'Optional' }}
             href="/vendor-dashboard/website#about"
           />
+
+          {/* 🔎 Deep Search, explained (owner 2026-10-29, v13 note 2) — before the papers, as drawn. Not in the App
+              Store / Play Store shell, which refuses it (`d.deepSearch` is null there). */}
+          {d.deepSearch ? (
+            <Fold
+              anchor="deep-search"
+              lead={<RowIcon icon={Globe} />}
+              data="details-deep-search"
+              title="See what the web says about your shop"
+              line={deepSearchFoldLine(d.lastDeepSearch)}
+              aside={
+                !d.deepSearch.eligible ? (
+                  <Badge tone="quiet" data="details-deep-search">
+                    Verified shops
+                  </Badge>
+                ) : d.deepSearch.isFreeNow ? (
+                  <Badge tone="ok" data="details-deep-search">
+                    1 free
+                  </Badge>
+                ) : null
+              }
+              popovers
+            >
+              <DeepSearchCard offer={d.deepSearch} last={d.lastDeepSearch} businessName={d.businessName} />
+            </Fold>
+          ) : null}
 
           <Fold
             anchor="docs"

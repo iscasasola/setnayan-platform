@@ -32,7 +32,7 @@
  * SEARCH BAND (`app/_components/typing-band.tsx`): a cream plate behind it
  * down to the keyboard — no "Typing ·" and no Done since the owner's 2026-10-24
  * *"can this be gone? just tap away and keyboard should disappear"*; the field
- * takes the whole row, wears the accent ring and gains ✕ (clear); ⇕ · ≡ · ＋
+ * takes the whole row and wears the accent ring (its ✕ is inside the field, as always — 2026-10-30); ⇕ · ≡ · ＋
  * FOLD and come back when the keyboard closes — a tap or a drag away, Escape,
  * or the keyboard's own key (the keyboard's Enter does the row's verb). The row itself does not
  * move: its host stands it on `--sn-bottomdock-h`, which is the keyboard's while
@@ -242,28 +242,33 @@ export function ThumbRow({
                 aria-label={field.label ?? field.placeholder}
                 className={styles.input}
               />
+              {/* ✕ INSIDE THE FIELD, ONE TAP CLEARS IT (owner 2026-10-30, final Suppliers design: "this search bar needs to
+                  have an x inside to clear the text with one click") — on every thumb-row search, riding the keyboard or
+                  not. Shown only while there are words: CSS `:placeholder-shown`, so a programmatic fill or a reset by the
+                  host keeps it right without the row knowing the value. The press keeps the focus where it was — it never
+                  raises the keyboard (an empty, focused Find box opens "Go to a category"), and never drops it while
+                  typing. The search hears the empty words through the input's own event. */}
+              {field.kind === 'date' ? null : (
+                <button
+                  type="button"
+                  aria-label="Clear the search"
+                  data-thumb-clear=""
+                  className={styles.clearIn}
+                  onMouseDown={keepFocus}
+                  onClick={() => {
+                    const el = ownInput.current;
+                    if (el) setTyped(el, '');
+                  }}
+                >
+                  <span aria-hidden className={styles.clearDisc}>
+                    <X strokeWidth={2.4} />
+                  </span>
+                </button>
+              )}
             </label>
           ) : (
             <span className={styles.gap} aria-hidden />
           )}
-          {/* ✕ — clears the words while typing (the typed row's ✕); the field keeps its focus. */}
-          {riding && field && !('node' in field) ? (
-            <span className={`sn-glass-row ${styles.round} ${styles.clear}`} data-thumb-seat="clear" onMouseDown={keepFocus}>
-              <ActionButton
-                tone="neutral"
-                iconOnly
-                icon={X}
-                label="Clear"
-                className={styles.btn}
-                onClick={() => {
-                  const el = ownInput.current;
-                  if (!el) return;
-                  setTyped(el, '');
-                  el.focus();
-                }}
-              />
-            </span>
-          ) : null}
           {right.map((r) =>
             'menu' in r ? (
               <span key={r.label} className={`sn-glass-row ${styles.round} ${styles.menu}`} data-thumb-seat="menu" data-tour={r.tour} {...(r.mark ? { [r.mark]: '' } : {})}>

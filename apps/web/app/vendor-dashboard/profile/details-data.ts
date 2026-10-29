@@ -270,20 +270,21 @@ export async function loadDetailsData(
   // 🔒 The App Store / Play Store shell refuses Deep Search (a paid per-run service — `lib/store-shell.ts`), so there
   // the card is not drawn and none of its reads run.
   const storeShellRead = isStoreShellRequest();
-  const deepSearchRead = Promise.all([ownRead, storeShellRead]).then(([own, storeShell]) =>
-    storeShell || !withDeepSearch
-      ? null
-      : loadDeepSearchOffer(supabase, createAdminClient(), {
-          vendorProfileId: vendorId,
-          tier: own.tier_state ?? null,
-          tierExpiresAt: own.tier_expires_at ?? null,
-          verification: own.verification_state ?? null,
-          storeShell,
-        }),
-  );
-  const lastDeepSearchRead = storeShellRead.then((storeShell) =>
-    storeShell || !withDeepSearch ? ({ measured: true, last: null } as LastDeepSearch) : loadLastDeepSearch(supabase, createAdminClient(), vendorId),
-  );
+  // The two loaders log their own refusals (`logQueryError`) and say `measured: false` — nothing is swallowed here.
+  const deepSearchRead = (async () => {
+    const [own, storeShell] = await Promise.all([ownRead, storeShellRead]);
+    if (storeShell || !withDeepSearch) return null;
+    return loadDeepSearchOffer(supabase, createAdminClient(), {
+      vendorProfileId: vendorId,
+      tier: own.tier_state ?? null,
+      tierExpiresAt: own.tier_expires_at ?? null,
+      verification: own.verification_state ?? null,
+    });
+  })();
+  const lastDeepSearchRead = (async (): Promise<LastDeepSearch> => {
+    if ((await storeShellRead) || !withDeepSearch) return { measured: true, last: null };
+    return loadLastDeepSearch(supabase, createAdminClient(), vendorId);
+  })();
   const inviteRead = (async () => readClaimedTeamInvite(createAdminClient(), vendorId))().catch((err) => {
     // Unread → "from your invite" is simply not said; never a false claim.
     logQueryError('VendorDetails.claimedInvite', err, { vendorId }, 'graceful_degrade');

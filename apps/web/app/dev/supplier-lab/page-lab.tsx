@@ -179,7 +179,7 @@ function labDeepSearchOffer(tier: string, verified: boolean): DeepSearchOffer {
   const price = pro ? band.growthPhp : band.entryPhp;
   return {
     eligible: verified,
-    planAsks: false,
+    tier,
     isFreeNow: verified && pro,
     hasFreeAllowance: pro,
     pricePhp: price,
@@ -203,7 +203,7 @@ function labLastDeepSearch(who: Who): LastDeepSearch {
       dossier: {
         business_summary: 'Documentary wedding films and stills, Makati.',
         detected_services: ['Wedding film', 'Same-day edit', 'Photo coverage', 'Prenup shoot'],
-        price_signals: [{ label: 'Full-day film', price: '₱85,000', source_url: null }],
+        price_signals: [{ label: 'Full-day film', price: 'PHP 85,000', source_url: null }],
         web_presence: [{ platform: 'Instagram', url: null, note: '4,120 followers' }],
         ads_findings: null,
         consistency_flags: ['An old phone number on a 2023 listing'],

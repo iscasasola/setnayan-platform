@@ -5,8 +5,6 @@ import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { openRailOptions, type OpenRail } from '@/lib/payment-channels';
 import { isVendorAddonTieredPricingEnabled } from '@/lib/vendor-addon-tiered-pricing-flag';
 import { resolveVendorAddonPricePhp } from '@/lib/vendor-addon-tier-pricing';
-import { isTierAtLeast } from '@/lib/vendor-tier-caps';
-import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import type { VendorDossier } from '@/lib/vendor-deep-search';
 import { deepSearchBand, deepSearchStillKept } from '@/lib/deep-search-findings';
@@ -37,8 +35,9 @@ import {
 export type DeepSearchOffer = {
   /** The shop is verified — the one requirement no switch lifts. */
   eligible: boolean;
-  /** Server-decided: Run asks for a paid plan (◆ note only). */
-  planAsks: boolean;
+  /** The plan this offer was priced for — the caller asks the paywall switch with it (`vendorPaywallApplies`, at
+   *  the call site where `upsells-obey-the-switch.test.ts` can see the question being asked). */
+  tier: string | null;
   /** Pro+ with this cycle's free search unused. */
   isFreeNow: boolean;
   hasFreeAllowance: boolean;
@@ -60,13 +59,10 @@ export async function loadDeepSearchOffer(
     tier: string | null;
     tierExpiresAt: string | null;
     verification: string | null;
-    /** The App Store / Play Store shell sells nothing — no ◆ hint there. */
-    storeShell: boolean;
   },
 ): Promise<DeepSearchOffer> {
   const { tier } = input;
   const tiered = isVendorAddonTieredPricingEnabled();
-  const planAsks = vendorPaywallApplies(isTierAtLeast(tier, 'solo')) && !input.storeShell;
   // TRY-FIRST (2026-09-30): eligibility is verification alone here; the plan is asked at Run, through `planAsks`.
   const eligible = deepSearchEligibility({ tier, verification: input.verification, tierPaywall: false }).ok;
   const hasFreeAllowance = deepSearchHasFreeAllowance(tier);
@@ -90,7 +86,7 @@ export async function loadDeepSearchOffer(
 
   return {
     eligible,
-    planAsks,
+    tier,
     isFreeNow,
     hasFreeAllowance,
     pricePhp: priceNow > 0 ? priceNow : cyclePricePhp,

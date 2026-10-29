@@ -7,6 +7,8 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import type { VendorDossier } from '@/lib/vendor-deep-search';
 import { loadDeepSearchOffer } from '@/lib/vendor-deep-search-offer';
+import { isTierAtLeast } from '@/lib/vendor-tier-caps';
+import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
 import { deepSearchPdfFileName, deepSearchPdfHref, deepSearchStillKept } from '@/lib/deep-search-findings';
 import { SharePdfButton } from '@/app/_components/share-pdf-button';
 import { DeepSearchRunner } from './_components/deep-search-runner';
@@ -83,15 +85,13 @@ export default async function VendorDeepSearchPage() {
 
   // 🔎 Price, free search, rails and eligibility: the ONE resolver Shop › Details' card uses too
   // (`lib/vendor-deep-search-offer.ts`, moved from here 2026-10-29 — every rule it carries is the one this page had).
+  // TRY-FIRST (2026-09-30): the runner opens for every VERIFIED shop; the paid-plan requirement is asked through the
+  // one flag-aware question, only at Run — `planAsks` just draws the ◆ note. 🔒 No ◆ hint in the store shell.
+  const planAsks =
+    vendorPaywallApplies(isTierAtLeast(tier, 'solo')) && !(await isStoreShellRequest());
   const admin = createAdminClient();
-  const offer = await loadDeepSearchOffer(supabase, admin, {
-    vendorProfileId,
-    tier,
-    tierExpiresAt,
-    verification,
-    storeShell: await isStoreShellRequest(),
-  });
-  const { eligible, planAsks, isFreeNow, hasFreeAllowance, cyclePricePhp, openRails } = offer;
+  const offer = await loadDeepSearchOffer(supabase, admin, { vendorProfileId, tier, tierExpiresAt, verification });
+  const { eligible, isFreeNow, hasFreeAllowance, cyclePricePhp, openRails } = offer;
 
   // History — the vendor's own uses (RLS-scoped), resolved to their dossiers by
   // the explicit id list (admin-read; verification dossiers have no use row).

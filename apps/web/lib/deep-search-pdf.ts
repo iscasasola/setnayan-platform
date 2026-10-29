@@ -56,7 +56,7 @@ export function deepSearchPdfDoc(input: DeepSearchPdfInput): SharePdfDoc {
   const n = deepSearchCounts(d);
   const searched = Number.isFinite(Date.parse(input.searchedAt)) ? new Date(input.searchedAt) : null;
   const until = deepSearchKeptUntil(input.searchedAt);
-  const none = 'Nothing found on the web for this.';
+  const none = 'Nothing found for this.';
 
   const sections: SharePdfSection[] = [
     {
@@ -88,7 +88,7 @@ export function deepSearchPdfDoc(input: DeepSearchPdfInput): SharePdfDoc {
       title: deepSearchFindingTitle('flags'),
       columns: [],
       rows: d.consistency_flags.map((f) => ({ main: f, cells: [] })),
-      empty: 'Nothing to double-check — what the web says matches your shop.',
+      empty: 'Nothing to double-check — what we found matches your shop.',
     },
   ];
   if (d.ads_findings?.trim()) {
@@ -109,7 +109,7 @@ export function deepSearchPdfDoc(input: DeepSearchPdfInput): SharePdfDoc {
     },
     sections,
     notes: [
-      'What the web says about your shop — research from the open web. Nothing on your Setnayan page changes until you accept it.',
+      'What the search found about your shop, from public pages. Nothing on your Setnayan page changes on its own — you choose what to use.',
       `Kept ${DEEP_SEARCH_KEEP_DAYS} days from the search, then deleted.`,
     ],
     generatedAt: input.generatedAt,

@@ -202,8 +202,8 @@ export function ReachMap({ lat, lng, radiusKm, innerKm = null, outerKm = null, m
               cx={W / 2}
               cy={H / 2}
               r={outerPx}
-              style={{ fill: 'var(--m-terracotta, #b65d3c)', fillOpacity: 0.08 }}
-              stroke="var(--m-terracotta, #b65d3c)"
+              style={{ fill: 'rgb(var(--sn-accent))', fillOpacity: 0.08 }}
+              stroke="rgb(var(--sn-accent))"
               strokeWidth={2}
               strokeDasharray="6 5"
               data-ring="outer"
@@ -214,19 +214,19 @@ export function ReachMap({ lat, lng, radiusKm, innerKm = null, outerKm = null, m
               cx={W / 2}
               cy={H / 2}
               r={innerPx}
-              style={{ fill: 'var(--m-sage-deep, #3f6b4f)', fillOpacity: 0.16 }}
-              stroke="var(--m-sage-deep, #3f6b4f)"
+              style={{ fill: 'var(--m-sage-deep)', fillOpacity: 0.16 }}
+              stroke="var(--m-sage-deep)"
               strokeWidth={2}
               data-ring="inner"
             />
           )}
-          {outerPx > 0 ? label(`Covers · ${outer} km`, H / 2 - outerPx + 16, 'var(--m-terracotta, #b65d3c)') : null}
-          {innerPx > 0 ? label(`Free transpo · ${inner} km`, H / 2 - innerPx - 6, 'var(--m-sage-deep, #3f6b4f)') : null}
+          {outerPx > 0 ? label(`Covers · ${outer} km`, H / 2 - outerPx + 16, 'rgb(var(--sn-accent))') : null}
+          {innerPx > 0 ? label(`Free transpo · ${inner} km`, H / 2 - innerPx - 6, 'var(--m-sage-deep)') : null}
           {/* HQ — a map pin, its point on the spot */}
           <g transform={`translate(${W / 2 - 11} ${H / 2 - 30})`}>
             <path
               d="M11 0C4.9 0 0 4.9 0 11c0 8.2 11 19 11 19s11-10.8 11-19C22 4.9 17.1 0 11 0z"
-              style={{ fill: 'var(--m-terracotta, #b65d3c)' }}
+              style={{ fill: 'rgb(var(--sn-accent))' }}
               stroke="#fff"
               strokeWidth={1.5}
             />

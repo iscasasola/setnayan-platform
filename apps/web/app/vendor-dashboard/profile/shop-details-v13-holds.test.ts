@@ -99,7 +99,7 @@ test('4a · Deep Search is priced from the run’s own source — never a typed 
   assert.doesNotMatch(src('app/vendor-dashboard/deep-search/page.tsx'), /resolveVendorAddonPricePhp|fetchVendorDeepSearchPricePhp/, 'a second price path is back on the page');
   assert.match(src(DATA), /loadDeepSearchOffer\(supabase, createAdminClient\(\)/, 'the card is not offered by the page’s resolver');
   // The store shell refuses Deep Search — Your details draws no card there and reads nothing for it.
-  assert.match(src(DATA), /storeShell \|\| !withDeepSearch\s*\?\s*null/, 'the store shell is offered Deep Search');
+  assert.match(src(DATA), /if \(storeShell \|\| !withDeepSearch\) return null;/, 'the store shell is offered Deep Search');
   assert.match(src(SCREEN), /\{d\.deepSearch \? \(/, 'the card is drawn without an offer');
   // The card names the five findings from the one list.
   assert.match(src(CARD), /DEEP_SEARCH_FINDINGS\.map\(/);
@@ -144,7 +144,7 @@ test('4b · a search’s PDF carries the five findings in order, its dates, and 
     assert.ok(i > at, `"${f.title}" is missing from the file or out of order`);
     at = i;
   }
-  for (const w of ['Lumina Studio', 'Wedding film', 'Same-day edit', '85000 pesos', 'An old phone number', 'Searched October 20, 2026', 'Nothing found on the web for this.']) {
+  for (const w of ['Lumina Studio', 'Wedding film', 'Same-day edit', '85000 pesos', 'An old phone number', 'Searched October 20, 2026', 'Nothing found for this.']) {
     assert.ok(text.includes(w), `the file does not carry "${w}"`);
   }
   assert.ok(text.includes(`Kept ${DEEP_SEARCH_KEEP_DAYS} days`), 'the file does not say how long it is kept');

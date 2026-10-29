@@ -3,6 +3,8 @@ import { ChevronRight } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { SharePdfButton } from '@/app/_components/share-pdf-button';
 import { formatCount } from '@/lib/format-number';
+import { isTierAtLeast } from '@/lib/vendor-tier-caps';
+import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
 import {
   DEEP_SEARCH_FINDINGS,
   DEEP_SEARCH_KEEP_DAYS,
@@ -90,7 +92,7 @@ export function DeepSearchCard({
       {offer.eligible ? (
         <DeepSearchRunner
           eligible={offer.eligible}
-          planAsks={offer.planAsks}
+          planAsks={vendorPaywallApplies(isTierAtLeast(offer.tier, 'solo'))}
           isFreeNow={offer.isFreeNow}
           hasFreeAllowance={offer.hasFreeAllowance}
           pricePhp={offer.pricePhp}

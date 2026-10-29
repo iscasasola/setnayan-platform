@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "edcb2561ee",
+  "generatedFromRef": "07282dc5",
   "routeCount": 479,
   "destinations": 985,
   "actions": 640,
-  "blocks": 7403,
+  "blocks": 7402,
   "routes": {
     "/": {
       "files": [
@@ -6044,7 +6044,6 @@
         "InspectorColumn",
         "InspectorLayout",
         "InspectorTrigger",
-        "InvitationsRow",
         "KeepAnswer",
         "LastSeenCapture",
         "LastSeenFallback",

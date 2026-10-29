@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "6139f502ee",
+  "generatedFromRef": "9030bd7fde",
   "routeCount": 479,
-  "destinations": 981,
+  "destinations": 982,
   "actions": 640,
-  "blocks": 7356,
+  "blocks": 7366,
   "routes": {
     "/": {
       "files": [
@@ -13454,6 +13454,7 @@
         "vendor-dashboard/_components/events-you-run-rows.tsx",
         "vendor-dashboard/_components/events-you-run-screen.tsx",
         "vendor-dashboard/_components/feature-accordion.tsx",
+        "vendor-dashboard/_components/get-verified-line.tsx",
         "vendor-dashboard/_components/instagram-connect-card.tsx",
         "vendor-dashboard/_components/kit.tsx",
         "vendor-dashboard/_components/list-pager.tsx",
@@ -14364,6 +14365,7 @@
         "PaidMark",
         "PaymentsPausedNote",
         "Section",
+        "SharePdfButton",
         "SubmitButton",
         "VendorDeepSearchActionState"
       ]
@@ -15039,12 +15041,14 @@
     },
     "/vendor-dashboard/profile": {
       "files": [
+        "vendor-dashboard/profile/_components/deep-search-card.tsx",
         "vendor-dashboard/profile/_components/details-screen.tsx",
         "vendor-dashboard/profile/details-data.ts",
         "vendor-dashboard/profile/loading.tsx",
         "vendor-dashboard/profile/page.tsx"
       ],
       "destinations": [
+        "/vendor-dashboard/deep-search",
         "/vendor-dashboard/website"
       ],
       "actions": [
@@ -15055,9 +15059,14 @@
         "BranchPanel",
         "CouldNotLoad",
         "DatesRow",
+        "DeepSearchCard",
+        "DeepSearchRunner",
         "DetailsData",
         "DetailsScreen",
         "Fold",
+        "GetVerifiedLine",
+        "InfoTip",
+        "Link",
         "OpenFoldButton",
         "OwnRow",
         "PaymentOptionsSurface",
@@ -15065,6 +15074,7 @@
         "PublicLineCard",
         "RequestCorrectionCard",
         "RowIcon",
+        "SharePdfButton",
         "ShopSegments",
         "SuggestedCoverageCard",
         "SupplierThumbRow",
@@ -15510,11 +15520,13 @@
         "FieldSaveResult",
         "FileUpload",
         "GalleryForm",
+        "GetVerifiedLine",
         "HTMLButtonElement",
         "HTMLDivElement",
         "HTMLElement",
         "HTMLFormElement",
         "HTMLInputElement",
+        "HTMLLIElement",
         "HeroCard",
         "HqAddressControl",
         "IdentityFieldSaveResult",
@@ -15522,6 +15534,7 @@
         "InlineDocsPayload",
         "InstagramConnectCard",
         "K",
+        "KmStepper",
         "LeafletMap",
         "LeafletMarker",
         "LeafletModule",

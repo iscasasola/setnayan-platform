@@ -103,6 +103,8 @@ const GUEST_FACING: Record<string, GuestRead> = {
  * are exactly the people the narrower moments are FOR.
  */
 const NOT_GUEST_FACING: Record<string, string> = {
+  'app/join/crew/[token]/page.tsx':
+    'supplier crew — a phone the SHOP allowed onto its Event Hub (a Member), reading the run of show the supplier runs, after the database proved the pass and the fee gate; never a guest',
   // ── the host's own tools (the couple's session, or the service role behind a host gate) ──
   'app/dashboard/[eventId]/schedule/actions.ts': 'host — the Schedule’s own writes and their re-reads',
   'app/dashboard/[eventId]/schedule/activity-picks-actions.ts': 'host — activity picks on the Schedule',

@@ -68,6 +68,8 @@ const ANCHORS: Record<string, RegExp> = {
   vendor_reuse_requests: eqUid('requested_by_user_id'),
   /* 🤝🖼 Photos the subject suggested to a couple's board as a booked supplier — the author's act (2026-10-19). */
   event_inspiration_suggestions: eqUid('suggested_by_user_id'),
+  // the subject's OWN crew passes (2026-10-29) — the crew member is the row's person; the deciding shop is not
+  vendor_crew_passes: eqUid('crew_user_id'),
   event_vendor_working_notes: eqUid('author_user_id'),
   coordinator_broadcasts: eqUid('sender_user_id'),
   event_day_requests: eqUid('author_user_id'),

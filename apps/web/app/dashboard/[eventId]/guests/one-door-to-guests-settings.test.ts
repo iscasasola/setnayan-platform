@@ -6,7 +6,7 @@
  * RSVP asks and Reply by live in Guests ⚙ only, not also on Event Details.
  *
  * Held, measured on what RENDERS (the real `GuestsScreen`, `render-guests-screen.ts`) where it can be:
- *   1 · the pill draws exactly List · Map — no third "Settings" segment, no `gview=share` link;
+ *   1 · the row's ONE ▾ names the view (List · Map in it; 2026-10-30) — no "Settings" view, no `gview=share` link;
  *   2 · with the couple's rows handed in, ONE ⚙ draws — inside the first row, as its last child — and the rows do
  *       not draw on the page while the sheet is shut (the ⚙ is the only way in); without them, no ⚙;
  *   3 · the page hands the rows to the couple only, and an old `?gview=share` / `?view=share` forwards to the ⚙;

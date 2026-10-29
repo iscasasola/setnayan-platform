@@ -28,6 +28,7 @@
  *                   — the shipped makers, Guests › Seats and Guests › March), &q=… to search, &empty=1 for
  *                   an empty list, &fail=1 for a refused read
  *   &req=0          (screen) no requests to join waiting — the carousel's card ① says "No requests waiting"
+ *   &gshow=requests (screen) open on Asking to join — the Requests page drawn in place (a labelled stand-in here)
  *   &select=to-invite (screen) ⚙ › Pick who's cold link — Select on, the list narrowed to To invite
  *   &oneqr=1        (screen) a one-link event with no list to walk (just the couple): card ② reads
  *                   "One link for everyone · Share" (owner 2026-10-27, "THE SEND RUN ALSO SERVES A ONE-QR EVENT")
@@ -159,6 +160,28 @@ const LAB_TITLES_WAITING: TitleWaitingPerson[] = [
   { guestId: 'g-t3', name: 'Regional Prosecutor Rex Diaz', roleWord: 'Grandparents of the Groom', title: 'Regional Prosecutor', key: titleKey('Regional Prosecutor', null), text: titleButtonText('Regional Prosecutor', null, true) },
   { guestId: 'g-t4', name: 'Carmen Diaz', roleWord: 'Grandparents of the Groom', title: null, key: titleKey(null, null), text: titleButtonText(null, null, true) },
 ];
+
+/** 📥 The lab's stand-in for the Requests page drawn inside Guests (the real one reads the database). */
+function LabRequestsStandIn() {
+  const people = [
+    ['Rowena Dizon', 'Says she is a classmate of Maria · via the event link'],
+    ['Mark Ignacio', 'Officemate of Jose · via the event link'],
+    ['Shiela Panganiban', 'Cousin of Bianca Lim · via the event link'],
+  ];
+  return (
+    <div data-requests-page="" data-lab-stand-in="" className="flex flex-col divide-y divide-ink/10 rounded-2xl border border-dashed border-ink/20 px-3">
+      <p className="py-2 font-mono text-[10px] uppercase tracking-[0.14em] text-ink/45">Lab stand-in · the Requests page draws here</p>
+      {people.map(([name, line]) => (
+        <div key={name} className="flex items-center gap-3 py-3">
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-medium text-ink">{name}</span>
+            <span className="block text-xs text-ink/55">{line}</span>
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 function guest(p: Partial<GuestRow>): GuestRow {
   return {
@@ -824,6 +847,10 @@ export default async function GuestsLabPage({
                     songsByGuest={{}}
                     faceByGuest={{}}
                     requests={sp.req === '0' ? 0 : 3}
+                    /* 📥 Requests inside Guests (slice 11): the real body is the Requests page, which reads the database —
+                       the lab draws a labelled stand-in in its place, so the in-place frame can be walked. */
+                    requestsBody={sp.req === '0' ? null : <LabRequestsStandIn />}
+                    initialAsking={sp.gshow === 'requests'}
                     oneQr={sp.oneqr === '1'}
                     // 📤 Each row's Share, as the page hands it: the address, the event's words, and a token per guest the
                     // run would hold (`sendRunGuests` = the page's `mayBeInvited`); the lab's token is the guest's id.

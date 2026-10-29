@@ -41,7 +41,7 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
-  MARCH_COLUMNS,
+  MARCH_GUEST_FIELDS,
   MARCH_GROUP_KEYS,
   isOwnMarchGroup,
   marchSectionLines,
@@ -82,7 +82,7 @@ export async function readMarchLines(
   }
   const supabase = await createClient();
   const [{ data, error }, tray] = await Promise.all([
-    supabase.from('guests').select(MARCH_COLUMNS).eq('event_id', eventId).is('deleted_at', null),
+    supabase.from('guests').select(MARCH_GUEST_FIELDS).eq('event_id', eventId).is('deleted_at', null),
     readNotWalking(supabase, eventId),
   ]);
   // 🚶 Unread "Not walking" is NOT "nobody is out": a move against a march that
@@ -108,7 +108,7 @@ export async function readAllGroups(
   const admin = createAdminClient();
   const [{ data: ev, error: evErr }, { data: rows, error: rowsErr }, { data: groups, error: groupsErr }] = await Promise.all([
     admin.from('events').select('entourage_section_order').eq('event_id', eventId).maybeSingle(),
-    admin.from('guests').select(MARCH_COLUMNS).eq('event_id', eventId).is('deleted_at', null),
+    admin.from('guests').select(MARCH_GUEST_FIELDS).eq('event_id', eventId).is('deleted_at', null),
     admin.from('march_groups').select('group_key').eq('event_id', eventId),
   ]);
   if (evErr || rowsErr || groupsErr || !ev) return { ok: false, reason: MARCH_READ_FAILED };

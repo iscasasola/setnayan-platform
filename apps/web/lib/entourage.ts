@@ -925,17 +925,18 @@ export const MARCH_ROLES: readonly GuestRole[] = [...new Set(GROUPS.flatMap((g) 
  * 🏷 THE MARCH'S OWN READ — `ENTOURAGE_COLUMNS` with the walk row's `march_group` too (owner 2026-10-29, custom March
  * groups: which of the couple's OWN groups a walker walks in). Asked only by the march's readers (`loadMarch`, the
  * march actions' fresh reads) — never by a print, which keeps everyone under their role.
+ * Spelled out (a select scanner cannot read a `.replace(…)`), and deliberately NOT named `*_COLUMNS`: `lint:dup-rule`
+ * takes a `*_COLUMNS` list as the reference for its table (see `ENTOURAGE_COLUMNS`' "DO NOT WIDEN" note).
+ * `march-own-groups.test.ts` holds it equal to `ENTOURAGE_COLUMNS` + `march_group`.
  */
-export const MARCH_COLUMNS = ENTOURAGE_COLUMNS.replace(
-  'march:march_walks(walk_no, place_in_walk)',
-  'march:march_walks(walk_no, place_in_walk, march_group)',
-);
+export const MARCH_GUEST_FIELDS =
+  'guest_id, display_name, name_prefix, first_name, middle_name, last_name, name_suffix, role, extra_roles, march:march_walks(walk_no, place_in_walk, march_group)';
 
 /** One `march_walks` row, as a guest read embeds it. */
 export type MarchSpot = {
   walk_no: number;
   place_in_walk?: number | null;
-  /** 🏷 `march_walks.march_group` — the couple's own march group they walk in (asked by `MARCH_COLUMNS` only). */
+  /** 🏷 `march_walks.march_group` — the couple's own march group they walk in (asked by `MARCH_GUEST_FIELDS` only). */
   march_group?: string | null;
 };
 

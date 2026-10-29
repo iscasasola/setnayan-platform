@@ -43,7 +43,7 @@ import {
   ENTOURAGE_COUPLE_FIELDS,
   ENTOURAGE_PARENT_FIELDS,
   ENTOURAGE_ROLES,
-  MARCH_COLUMNS,
+  MARCH_GUEST_FIELDS,
   MARCH_ROLES,
   type EntourageGroup,
   type EntourageGuestRow,
@@ -2351,8 +2351,8 @@ export const loadMarch = cache(
       admin
         .from('guests')
         // + the parent fields (gender, attire): a parent told by them reads "Mother of the Groom" on the march too, as on every print.
-        // + 🏷 the walk row's own group (`MARCH_COLUMNS`) — the march only; a print never asks it.
-        .select(`${MARCH_COLUMNS}, side, ${ENTOURAGE_PARENT_FIELDS}`)
+        // + 🏷 the walk row's own group (`MARCH_GUEST_FIELDS`) — the march only; a print never asks it.
+        .select(`${MARCH_GUEST_FIELDS}, side, ${ENTOURAGE_PARENT_FIELDS}`)
         .eq('event_id', eventId)
         .is('deleted_at', null)
         .or(`role.in.(${roles.join(',')}),extra_roles.ov.{${roles.join(',')}}`),

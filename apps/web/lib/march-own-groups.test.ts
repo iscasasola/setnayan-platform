@@ -35,7 +35,7 @@ import {
   type MarchSection,
   type MarchShown,
 } from '@/lib/march-drag';
-import { buildEntourage, isMarchOnlyGroup, isOwnMarchGroup, MARCH_GROUP_KEYS, marchOrderKeys, orderedGroupKeys, type EntourageGuestRow } from '@/lib/entourage';
+import { buildEntourage, ENTOURAGE_COLUMNS, isMarchOnlyGroup, MARCH_GUEST_FIELDS, isOwnMarchGroup, MARCH_GROUP_KEYS, marchOrderKeys, orderedGroupKeys, type EntourageGuestRow } from '@/lib/entourage';
 import { sanitizeMarchStep } from '@/lib/march-draft';
 
 const p = (id: string, name: string, role: string) => ({ id, name, role });
@@ -195,6 +195,11 @@ test('(6) the draft keeps only own-group steps on own keys; Apply dispatches eve
   assert.doesNotMatch(stripComments(writer), /['"]use server['"]/, 'the own-group writes became endpoints');
   assert.match(writer, /rpc\('set_march_group'/);
   assert.match(writer, /writeSectionOrder\(/, 'the group’s place has a second writer');
+});
+
+test('(5b) the march read is the entourage read plus the walk row’s group — nothing else', () => {
+  assert.equal(MARCH_GUEST_FIELDS, ENTOURAGE_COLUMNS.replace('march:march_walks(walk_no, place_in_walk)', 'march:march_walks(walk_no, place_in_walk, march_group)'));
+  assert.notEqual(MARCH_GUEST_FIELDS, ENTOURAGE_COLUMNS);
 });
 
 test('(7) the Guests march offers ＋ Group — the thumb row’s ＋ ▾ and the selected group’s toolbar', () => {

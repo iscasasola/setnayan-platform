@@ -7,8 +7,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
+import { stripComments } from '@/lib/strip-comments';
 
-const src = readFileSync(path.join(__dirname, 'use-shell-bar-offset.ts'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+const src = stripComments(readFileSync(path.join(__dirname, 'use-shell-bar-offset.ts'), 'utf8'));
 
 test('the hidden-bar offset is the safe area, not 0', () => {
   const write = src.match(/setProperty\(name,\s*shellBarShows\(bar\)\s*\?\s*`[^`]*`\s*:\s*'([^']*)'\)/);

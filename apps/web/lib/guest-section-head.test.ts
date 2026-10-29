@@ -98,3 +98,21 @@ test('(4) the headers stay in sight under the pinned row: Seats › List tables 
   assert.match(screen, /if \(maker\) return hold\.getBoundingClientRect\(\)\.top <= bar;/, 'Seats / March never pin the row');
   assert.match(screen, /st\.toggleAttribute\(maker \? 'data-pinned' : 'data-collapsed', on\)/);
 });
+
+/**
+ * (5) THE VERBS ARE ONE ROW (2026-10-29, the #7049 side-by-side at 390: "Delete" wrapped onto a second line under
+ * Rename · ＋ Walk ▾ · ＋ Group). The prototype draws them on one line; the row is compact pills that never wrap, and the
+ * house fit pass (`useFitRow`) is what gives below that — icons, then secondary words, as one — never a cut word.
+ * 🛡 Sabotaged (2026-10-29): the row back to `flex-wrap` → red.
+ */
+test('(5) the selected group’s verbs sit on ONE row — compact, fitted, never wrapped', () => {
+  const src = code('app/dashboard/[eventId]/guests/_components/section-head-toolbar.tsx');
+  const row = src.match(/<div ref=\{verbs\} className="([^"]*)" data-section-head-verbs="">/);
+  const classes = row?.[1];
+  assert.ok(classes !== undefined, 'the verbs row lost its mark (or its fit ref)');
+  const cls = classes.split(/\s+/);
+  assert.ok(cls.includes('flex-nowrap') && !cls.includes('flex-wrap'), 'the verbs wrap onto a second row again');
+  assert.ok(cls.includes('min-w-0'), 'a row that cannot shrink never overflows — the fit pass would read nothing');
+  assert.match(src, /useFitRow\(verbs\);/, 'no fit pass — at 320 the row would overflow, or cut a word');
+  assert.doesNotMatch(src, /truncate|text-ellipsis|line-clamp-1/, 'a word in the toolbar is cut');
+});

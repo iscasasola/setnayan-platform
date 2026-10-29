@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "49192d0d9c",
+  "generatedFromRef": "a47892a172",
   "routeCount": 479,
   "destinations": 984,
   "actions": 640,
-  "blocks": 7388,
+  "blocks": 7391,
   "routes": {
     "/": {
       "files": [
@@ -2122,6 +2122,7 @@
         "ChibiBounce",
         "ChibiDance",
         "ChibiFigure",
+        "ContextLostNotice",
         "DanceFloorMural",
         "EmoteBubbles",
         "Figure",
@@ -6762,6 +6763,7 @@
         "dashboard/[eventId]/guests/loading.tsx",
         "dashboard/[eventId]/guests/map-actions.ts",
         "dashboard/[eventId]/guests/march-actions.ts",
+        "dashboard/[eventId]/guests/march-group-step.ts",
         "dashboard/[eventId]/guests/march-step.ts",
         "dashboard/[eventId]/guests/open-guest-card.tsx",
         "dashboard/[eventId]/guests/page.tsx",
@@ -8702,10 +8704,12 @@
         "CameraRig",
         "Canvas",
         "CinematicPass",
+        "ContextLostNotice",
         "Crowd",
         "DanceFloorMural",
         "DancerToken",
         "DecorLayerCatalog",
+        "DemandTail",
         "DropConfirmBubble",
         "DropConfirmState",
         "DustMotes",

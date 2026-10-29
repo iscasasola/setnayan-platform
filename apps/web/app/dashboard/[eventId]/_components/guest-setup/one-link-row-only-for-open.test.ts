@@ -2,7 +2,7 @@
  * one-link-row-only-for-open.test.ts — "Your one link" (link · Copy · Share +
  * the one QR) renders ONLY for Open · Anyone with the link (owner 2026-10-07:
  * *"this will only show if the settings says one QR link only"*, G27). The two
- * request choices do not show it; the personal choices show Invitations instead
+ * request choices do not show it; no choice shows an Invitations row (gone, R4 slice 11 — sending lives on the List)
  * (no pass picture since 2026-10-28 — it lives in Prints); the RSVP asks, How
  * guests answer, Reply by and Replies open · close show only for "They reply".
  *
@@ -18,10 +18,10 @@ test('each choice draws exactly its rows', async () => {
   const expected: Record<string, string[]> = {
     // ⚙ Guests ⚙ (2026-10-27): Requests to join is a Replies row in every state; Finalize closes the sheet.
     // 🗂 R1 (owner 2026-10-28): How guests answer and Replies open · close joined Replies — "They reply" choices only.
-    list: ['get-in', 'invitations', 'asks', 'answer', 'reply-by', 'replies-window', 'requests', 'finalize'],
-    personal: ['get-in', 'invitations', 'requests', 'finalize'],
-    requests: ['get-in', 'invitations', 'asks', 'answer', 'reply-by', 'replies-window', 'requests', 'finalize'],
-    one_qr_approve: ['get-in', 'invitations', 'requests', 'finalize'],
+    list: ['get-in', 'asks', 'answer', 'reply-by', 'replies-window', 'requests', 'finalize'],
+    personal: ['get-in', 'requests', 'finalize'],
+    requests: ['get-in', 'asks', 'answer', 'reply-by', 'replies-window', 'requests', 'finalize'],
+    one_qr_approve: ['get-in', 'requests', 'finalize'],
     one_qr: ['get-in', 'one-link', 'requests', 'finalize'],
   };
   for (const [getIn, want] of Object.entries(expected)) {

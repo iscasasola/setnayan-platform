@@ -116,8 +116,24 @@ test('⭐ 1 · old = new for every part — the backfilled services are exactly 
     total += now.length;
     counts.push(`${slot}=${now.length}`);
   }
-  const rows = (await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM public.inspiration_part_services`)).rows[0]!.n;
-  assert.equal(rows, total, 'a link row belongs to no board key');
+  /* Since 2026-10-29 the owner-approved starter looks (20271296836679) add 272 more parts with links of their own —
+     held by `the-starter-inspiration-parts-seed-once.db.test.ts`. So "a link row belongs to no board key" is asked
+     as: every link row outside the board keys belongs to a part ADDED AFTER step ① (ordered after all of its parts). */
+  const stray = (
+    await db.query<{ slot_key: string }>(
+      `SELECT DISTINCT ps.slot_key FROM public.inspiration_part_services ps
+         JOIN public.inspiration_parts p ON p.slot_key = ps.slot_key
+        WHERE NOT (ps.slot_key = ANY($1::text[]))
+          AND p.sort_order <= (SELECT max(sort_order) FROM public.inspiration_parts WHERE slot_key = ANY($1::text[]))`,
+      [[...MOODBOARD_SLOT_KEYS]],
+    )
+  ).rows;
+  assert.deepEqual(stray, [], 'a link row belongs to no board key and to no part added after step ①');
+  const rows = (
+    await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM public.inspiration_part_services WHERE slot_key = ANY($1::text[])`, [
+      [...MOODBOARD_SLOT_KEYS],
+    ])
+  ).rows[0]!.n;
   t.diagnostic(`backfill: ${rows} links over ${counts.length} keys — ${counts.join(' ')}`);
 });
 

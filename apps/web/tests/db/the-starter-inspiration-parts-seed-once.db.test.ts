@@ -15,11 +15,13 @@
  *       parts THIS run inserted).
  *   5 · A key an admin already took is left alone and gains no link; a missing service is skipped, not fatal.
  *
- * 🛡 Sabotaged once each (2026-10-29, builder; the migration restored after, `git status --short` clean):
- *   · links joined to ALL seed parts instead of `_starter_inserted` → 4 red (the deleted link came back) and 5 red;
- *   · `ON CONFLICT (slot_key) DO NOTHING` → `DO UPDATE SET label_en = EXCLUDED.label_en` on the parts → 2/3 red;
- *   · a seed part's home taken from the LAST listed service (`ORDER BY l.slot_key, l.ord DESC`) → 1 red;
- *   · the set-based double write removed → 1 red (categories ≠ derived).
+ * 🛡 Sabotaged once each (2026-10-29, builder; the migration restored after each, `git status --short` clean):
+ *   · S1 links joined to EVERY seed part, not `_starter_inserted` → 2, 3 and 4 red (the deleted link came back; the
+ *     admin's own part gained the seed's links);
+ *   · S2 the parts' `ON CONFLICT DO NOTHING` → `DO UPDATE SET label_en = EXCLUDED.label_en` → 2, 3 and 4 red;
+ *   · S3 home taken from the LAST listed service (`ORDER BY l.slot_key, l.ord DESC`) → 1 red;
+ *   · S4 the set-based double write removed → "the double write" red;
+ *   · S5 an `UPDATE … SET hidden = TRUE WHERE slot_key = 'cake'` slipped into the seed → 2 red alone.
  */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';

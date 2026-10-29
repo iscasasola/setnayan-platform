@@ -99,6 +99,12 @@ export type HomeFirstScreenProps = {
   next: HomeNext;
   /** 🎛 Every upper widget's facts, already read (`home-control-faces.ts` words them). */
   control: HomeControlInput;
+  /**
+   * ☀ THE TODAY ASKS (owner 2026-10-29: *"The popup for the access and other popups above the header can be presented
+   * better"*) — every prompt that waits on the hosts, as `HomeTodayItem` lines, drawn FIRST in the Today list under the
+   * cover; each self-hides. Nothing renders above the cover: the cover is the top of Home. Absent = none (a lab).
+   */
+  asks?: ReactNode;
   /** Papic · Setnayan AI · … with their status — already filtered (store shell). */
   services: HomeService[];
   /**
@@ -155,6 +161,7 @@ export function HomeFirstScreen({
   cover,
   next,
   control,
+  asks = null,
   services,
   eventSettings = false,
   eventSettingsRows,
@@ -178,6 +185,10 @@ export function HomeFirstScreen({
       {/* 📅 "Later" beside the verb folds the Today line for today, on this device (owner 2026-10-23). */}
       <HomeTodayFold eventId={eventId} kind={next.kind}>
         <div data-home-column className="mx-auto flex w-full max-w-xl flex-col gap-3 md:max-w-none">
+          {/* ☀ THE TODAY ASKS — what waits on the hosts, before the Today line (the coordinator's access first). */}
+          <div className="contents" data-home-today-asks="">
+            {asks}
+          </div>
           {/* ☀ TODAY — one line, on top: the shipped picker's ONE thing (`pickHomeNext`), and where it lives. */}
           <HomeToday target={today.target} words={today.words} tail={today.tail} calm={today.calm} />
 

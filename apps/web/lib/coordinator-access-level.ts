@@ -39,11 +39,22 @@ export const ACCESS_LEVEL_AREA = 'access_level';
 /** …and its third choice: put the seat back the way it was before the answer. */
 export const ACCESS_LEVEL_UNDO = 'undo';
 
-/** The words — title + one short line on the card; the rest behind the ⓘ. */
+/**
+ * The words — each choice's title + ONE short line (owner 2026-10-29, verbatim: *"Limited — 'Can see your event; changes
+ * only what you allow'"* · *"Full access — 'Same as you: Event Hub, schedule, guests, seats'"*); the rest behind the ⓘ
+ * (`LEVEL_MORE`).
+ */
 export const LEVEL_WORD: Readonly<Record<CoordinatorAccessLevel, string>> = { limited: 'Limited', full: 'Full access' };
 export const LEVEL_LINE: Readonly<Record<CoordinatorAccessLevel, string>> = {
-  limited: 'Can see every part, can’t change anything.',
-  full: 'Same as you — schedules, guest list, seat plan and the Event Hub.',
+  limited: 'Can see your event; changes only what you allow',
+  full: 'Same as you: Event Hub, schedule, guests, seats',
+};
+/** What each level does in full — the ⓘ, never on the row. True to `levelWrite` below. */
+export const LEVEL_MORE: Readonly<Record<CoordinatorAccessLevel, string>> = {
+  limited:
+    'They can open every part of your event to see it and change nothing, until you allow a part in Event details › Access.',
+  full:
+    'They take a co-host seat: they apply Event Hub changes and edit the schedule, the guest list and the seat plan, as you do. They can’t remove a host.',
 };
 
 /** What the seat looked like before the hosts answered (kept inside the answer, for Undo). */
@@ -127,8 +138,13 @@ function stripAnswer(p: LevelledPermissions | null): ModeratorPermissions | null
   return rest as ModeratorPermissions;
 }
 
-/** "<shop> is your coordinator — what can they do?" — the card's title; never blank. */
-export function levelCardTitle(name: string | null | undefined): string {
-  const n = name?.trim();
-  return n ? `${n} is your coordinator — what can they do?` : 'Your coordinator has joined — what can they do?';
+/**
+ * ☀ "<shop> joined as your coordinator" — the ask's line in Home's Today list (owner 2026-10-29: *"names the
+ * coordinator (their SHOP name … never the bare word 'coordinator')"*). The SHOP is the subject; only when no shop
+ * name could be read at all (`coordinator-level-card.tsx` tries the seat's label, the shop, the shop's request and its
+ * booking, in that order) does it fall back — and then it still says who joined, never a bare role word.
+ */
+export function levelTodayWords(shop: string | null | undefined): string {
+  const n = shop?.trim();
+  return n ? `${n} joined as your coordinator` : 'A supplier joined as your coordinator';
 }

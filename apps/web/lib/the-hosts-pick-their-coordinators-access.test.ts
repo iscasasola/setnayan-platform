@@ -24,7 +24,7 @@ import { join } from 'node:path';
 import { stripComments } from './strip-comments';
 import {
   LIMITED_AREAS,
-  levelCardTitle,
+  levelTodayWords,
   levelOf,
   levelWrite,
   seatAsksForLevel,
@@ -67,8 +67,11 @@ test('1 · 🔑 the live coordinator with the old seat_plan-only grant and no an
   assert.equal(seatAsksForLevel(seat({ permissions_json: { ...NARROW, access_level: 'limited' } })), false);
   assert.equal(seatAsksForLevel(seat({ role_subtype: 'viewer' })), false);
   assert.equal(seatAsksForLevel(seat({ role_subtype: 'co_host' })), false);
-  assert.equal(levelCardTitle('Glam by Ana'), 'Glam by Ana is your coordinator — what can they do?');
-  assert.equal(levelCardTitle('  '), 'Your coordinator has joined — what can they do?', 'a blank name');
+  // RE-AIMED 2026-10-29 (owner: "The popup for the access and other popups above the header can be presented
+  // better"): the card above the cover became a line of the Today list, and the line names the SHOP that joined —
+  // never the bare word "coordinator". `the-cover-is-the-top-of-home.test.ts` holds the placement.
+  assert.equal(levelTodayWords('Glam by Ana'), 'Glam by Ana joined as your coordinator');
+  assert.equal(levelTodayWords('  '), 'A supplier joined as your coordinator', 'a blank name');
 });
 
 test('2 · Full = the co-host seat; Limited = view every part, edit nothing; the seat-as-it-was is kept', () => {

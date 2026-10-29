@@ -213,7 +213,7 @@ import {
   SEAT_PLAN_MAP_PIECE,
   type SeatPlanGuestOptions,
 } from '@/lib/seat-plan-details';
-import { MoveGuestSheet, SeatToast, PeopleSheet, PhoneSeatPlanFoot, PhoneSeatPlanHead, PhoneTableDock, SeatPlanModePick, StudioSeatPlanHead, StudioSeatPlanTools } from './seat-plan-phone';
+import { MoveGuestSheet, SeatToast, PeopleSheet, PhoneSeatPlanFoot, PhoneSeatPlanHead, PhoneTableDock, SeatPlanToolRounds, StudioSeatPlanHead, StudioSeatPlanTools } from './seat-plan-phone';
 import { Sheet } from '@/app/_components/sheet';
 import { SeatFacesList, type FaceGuest, type FaceSlot, type FaceUnit } from './seat-faces-list';
 import { GuestCardSheet, SHIPPED_GUEST_CARD } from '../../guests/_components/guest-card-sheet';
@@ -4126,8 +4126,13 @@ export function SeatingEditor({
     }
     const bw = Math.max(1, maxX - minX);
     const bh = Math.max(1, maxY - minY);
-    // Fit opens no closer than it always did — only a pinch / + goes past the old cap.
-    const z1 = Math.min(PLAN_ZOOM_MAX_FLOOR, clampZoom(Math.min(rect.width / bw, rect.height / bh) * 0.86));
+    /* 📐 In Guests Fit fills the FLOOR (the whole cell — the room box sits centred in it), not the room-aspect box: on a
+       phone the plan then uses the full width. The box stays centred in the cell, so its centre is the cell's. */
+    const cell = inGuests ? regionRef.current?.getBoundingClientRect() : null;
+    const fitW = cell && cell.width > 0 ? cell.width : rect.width;
+    const fitH = cell && cell.height > 0 ? cell.height : rect.height;
+    // Fit opens no closer than it always did — only a pinch / + goes past the old cap (#7060).
+    const z1 = Math.min(PLAN_ZOOM_MAX_FLOOR, clampZoom(Math.min(fitW / bw, fitH / bh) * 0.86));
     const cx = (minX + maxX) / 2;
     const cy = (minY + maxY) / 2;
     applyView(z1, { x: rect.width / 2 - z1 * cx, y: rect.height / 2 - z1 * cy });
@@ -6674,14 +6679,22 @@ export function SeatingEditor({
      counts as the shipped head above; the 3D door card is gone (View ▾ holds 3D). */
   const studioView = in3d ? '3d' : view === 'list' ? 'list' : '2d';
   const show3D = process.env.NEXT_PUBLIC_SEATING_3D !== 'false';
-  const studioHead = studioSeat ? (
-    <StudioSeatPlanHead
-      countLabel={inGuests ? null : headline.count}
-      more={phoneMore}
-      trailing={phoneTrailing}
-      view={inGuests ? <SeatPlanModePick view={studioView} onView={onSelectView} show3D={show3D} /> : undefined}
-    />
+  /* 🎚 R4 slice 2 (owner 2026-10-29, "Guests ▾ List·Map · Seats ▾ List·2D·3D · March"): in Guests the "Seat plan · 2D ▾"
+     head is GONE — its mode is the Guests top row's Seats ▾, and its Edit · ⋯ ride that row as rounds, left of the ⚙ (a
+     portal into `lens.toolsSlot`). The mode's ONE state stays here: the plan tells the screen its mode and how to change
+     it (`lens.registerSeats`) — never a second state. The Studio keeps its head as it was. */
+  const studioHead = studioSeat && !inGuests ? (
+    <StudioSeatPlanHead countLabel={headline.count} more={phoneMore} trailing={phoneTrailing} />
   ) : null;
+  const seatToolRounds =
+    inGuests && lens?.toolsSlot ? createPortal(<SeatPlanToolRounds more={phoneMore} trailing={phoneTrailing} />, lens.toolsSlot) : null;
+  const onSelectViewRef = useRef(onSelectView);
+  onSelectViewRef.current = onSelectView;
+  const registerSeats = inGuests ? lens?.registerSeats : undefined;
+  useEffect(() => {
+    if (!registerSeats) return;
+    registerSeats({ mode: studioView, setMode: (m) => onSelectViewRef.current(m), show3D });
+  }, [registerSeats, studioView, show3D]);
   /* 🗂 R4 · Guests › Seats' summary row — the Guests carousel's own cards (`view-summary-cards.tsx`), counted here from
      the plan this editor holds, never typed: the units (linked tables once), who is coming and seated, who is coming and
      still to seat (that count is the door to them). */
@@ -6900,6 +6913,7 @@ export function SeatingEditor({
       {/* 🗂 R4 (owner 2026-10-29, top to bottom): the concept on top (the head — the mode ▾, Edit, ⋯), then the Guests
           summary row, then the editing space, the verbs at the foot. */}
       {studioSeat ? studioHead : isPhone ? phoneHead : doorStrip}
+      {seatToolRounds}
       {seatSummary}
       {/* ═══════════ ROW 1 — COMMAND BAR (the page's only blurred surface) ═══════════ */}
       {isPhone || inGuests ? null : (
@@ -7314,10 +7328,24 @@ export function SeatingEditor({
           onPointerCancel={onCanvasPointerUp}
           /* 🖼 Frameless in Guests (R4 slice 6, owner: "2D/3D frameless edge to edge") — the floor is the page; the Studio
              keeps its hairline. */
-          className={`absolute inset-0 m-auto cursor-grab touch-none overflow-hidden ${inGuests ? '' : 'border border-ink/15 '}bg-ink/[0.02] active:cursor-grabbing`}
+          /* 📐 EDGE TO EDGE IN GUESTS (owner 2026-10-29, live phone shot: "look at 2d seat, did not maximize width"). The
+             canvas below stays the ROOM-ASPECT box — every percent → pixel step reads its rect, so positions stay isotropic
+             and nothing about the coordinate math changes — but in Guests the FLOOR is the whole cell: the box does not
+             clip (the cell does), and its floor (`::before`, the grid and the press area) reaches every edge of the cell,
+             so a drag or a pinch on the side strips pans the plan like anywhere else. The Studio keeps its letterbox. */
+          data-seat-floor={inGuests ? 'cell' : undefined}
+          className={
+            inGuests
+              ? "absolute inset-0 m-auto cursor-grab touch-none before:pointer-events-auto before:absolute before:-inset-[200vmax] before:bg-ink/[0.02] before:content-[''] before:[background-image:radial-gradient(circle_at_1px_1px,rgba(30,34,41,0.06)_1px,transparent_0)] before:[background-size:var(--seat-grid)_var(--seat-grid)] active:cursor-grabbing"
+              : 'absolute inset-0 m-auto cursor-grab touch-none overflow-hidden border border-ink/15 bg-ink/[0.02] active:cursor-grabbing'
+          }
           style={{
-            backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(30,34,41,0.06) 1px, transparent 0)',
-            backgroundSize: `${gridPx}px ${gridPx}px`,
+            ...(inGuests
+              ? ({ '--seat-grid': `${gridPx}px` } as React.CSSProperties)
+              : {
+                  backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(30,34,41,0.06) 1px, transparent 0)',
+                  backgroundSize: `${gridPx}px ${gridPx}px`,
+                }),
             // The canvas fills the cell (verdict §1 — no aspect-[7/5] box, no 64vh
             // cap). To-scale mode letterboxes the room ratio INSIDE the fill,
             // sized to the measured region so a portrait room doesn't distort.

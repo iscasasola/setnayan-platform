@@ -49,11 +49,19 @@ function elementAround(html: string, at: number): string {
 
 const ROWS = React.createElement('div', { 'data-guest-setup-marker': '' }, 'the rows');
 
-test('1 · the pill is List · Map — no Settings segment', async () => {
+/* 🎚 R4 slice 2 (owner 2026-10-29: "Guests ▾ List·Map · Seats ▾ List·2D·3D · March"): the pill's segments are the TOPS
+   now; List · Map are Guests' two modes, behind its ▾. The property is unchanged — Settings is never a segment (it is the
+   ⚙), and List and Map are both still reachable from the pill. */
+test('1 · the pill is Guests ▾ (List · Map) — no Settings segment', async () => {
   const html = await renderGuestsScreen({ guests: [guestRow()], setup: ROWS });
   const segs = [...html.matchAll(/data-guests-seg="([a-z]+)"/g)].map((m) => m[1]);
-  assert.deepEqual(segs, ['list', 'map'], `the pill draws ${segs.join(' · ')}`);
+  assert.deepEqual(segs, ['guests'], `the pill draws ${segs.join(' · ')} — an event with List · Map only is Guests alone`);
+  assert.ok(!segs.some((s) => s === 'share' || s === 'settings' || s === 'setup'), 'Settings is a segment again — it is the ⚙');
   assert.doesNotMatch(html, /gview=share/, 'a link still opens the old Settings segment');
+  // List and Map are still reachable: the Guests segment is its mode menu, and its modes are List and Map.
+  assert.match(html, /<span[^>]*aria-current="page"[^>]*data-guests-seg="guests"[^>]*data-guests-seg-menu=""[^]*?data-guests-mode=""/, 'the Guests segment opens no List · Map menu');
+  const screen = code('_components/guests-screen.tsx');
+  assert.match(screen, /const guestModes: PickOption\[\] = guestsViews\.filter\(\(v\) => v === 'list' \|\| v === 'map'\)/, 'Guests ▾ no longer lists List · Map');
 });
 
 test('2 · one ⚙, last in the first row; the rows only behind it', async () => {

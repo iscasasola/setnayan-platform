@@ -223,12 +223,15 @@ test('6 · Guests draws List · Map · Seats · March — the shipped maker unde
   const guests = [guestRow(), guestRow({ rsvp_status: 'attending' } as never)];
   const list = await renderGuestsScreen({ guests, views: GUESTS_VIEWS });
   // (A segment's class carries `[&>b]:…`, so an attribute run is "no `<`", never "no `>`".)
-  const segs = [...list.matchAll(/<a [^<]*?data-guests-seg="([a-z]+)"[^<]*?href="([^"]+)"/g)].map((m) => [m[1], m[2]]);
-  assert.deepEqual(
-    segs,
-    GUESTS_VIEWS.map((v) => [v, guestsViewHref('e1', v)]),
-    'the view row is not List · Map · Seats · March, each a link to its address',
-  );
+  // 🎚 R4 slice 2 (owner 2026-10-29: "Guests ▾ List·Map · Seats ▾ List·2D·3D · March"): three segments; the one on screen
+  // is its mode menu (a PickMenu — "Guests ▾"), the others links to their address. Every view is still an address.
+  const first = list.slice(list.indexOf('data-first-row=""'), list.indexOf('</nav>', list.indexOf('data-first-row=""')));
+  const tops = [...first.matchAll(/data-guests-seg="([a-z]+)"/g)].map((m) => m[1]);
+  assert.deepEqual(tops, ['guests', 'seats', 'march'], 'the view row is not Guests · Seats · March');
+  const links = [...first.matchAll(/<a [^<]*?data-guests-seg="([a-z]+)"[^<]*?href="([^"]+)"/g)].map((m) => [m[1], m[2]]);
+  assert.deepEqual(links, [['seats', guestsViewHref('e1', 'seats')], ['march', guestsViewHref('e1', 'march')]], 'a segment off screen is not a link to its address');
+  assert.match(first, /<span[^>]*aria-current="page"[^>]*data-guests-seg="guests"[^>]*data-guests-seg-menu=""/, 'the Guests segment on screen is not its mode menu');
+  assert.match(first, /data-guests-mode=""/, 'the Guests segment opens no List · Map menu');
   assert.match(list, /data-guests-segmented=""/, 'the view row is not the shipped pill selector');
   assert.match(list, /data-guest-rows=""/, 'anti-vacuity: the List drew no rows');
   for (const view of GUESTS_MAKER_VIEWS) {
@@ -258,9 +261,10 @@ test('6 · Guests draws List · Map · Seats · March — the shipped maker unde
   assert.match(page, /bodies=\{bodies\}/);
   // …and a switch is a client switch: the view row's press is handled in place, the address follows (`replaceState`).
   const screen = read('app/dashboard/[eventId]/guests/_components/guests-screen.tsx');
-  assert.match(screen, /onClick=\{onViewPress\(key\)\}\s*data-guests-seg=\{key\}/, 'a view press navigates (a server round trip) again');
+  assert.match(screen, /onClick=\{onTopPress\(t\)\}\s*data-guests-seg=\{t\}/, 'a view press navigates (a server round trip) again');
+  assert.match(screen, /e\.preventDefault\(\);\s*if \(t === 'seats'\) chooseSeat\(seatMode\);/, 'a segment press is not handled in place');
   // ⇅ …carrying the shared Show · Group by · Sort with it (lib/guests-filter.ts), so a switch keeps what is shown.
-  assert.match(screen, /window\.history\.replaceState\(window\.history\.state, '', hrefWithGuestsFilter\(guestsViewHref\(eventId, v\), filterRef\.current\)\);/);
+  assert.match(screen, /const at = guestsViewHref\(eventId, v, \{ seat: v === 'seats' \? seatOfMode\(seat \?\? seatMode\) : null \}\);\s*window\.history\.replaceState\(window\.history\.state, '', hrefWithGuestsFilter\(at, filterRef\.current\)\);/);
   assert.match(page, /<GuestsMarch eventId=\{eventId\} \/>/);
 });
 
@@ -285,11 +289,15 @@ test('7 · Seats and March follow the Guests screen: the summary row, ONE mode d
   assert.match(march, /value: outUnread \? null : shownOut\.length/, 'Not walking reads 0 over an unread tray');
   const ed = read('app/dashboard/[eventId]/seating/_components/seating-editor.tsx');
   assert.match(ed, /const seatSummary = inGuests \? \(\s*<ViewCountRow\s+view="seats"/);
-  // ONE mode dropdown (List · 2D · 3D) in the head — the shared PickMenu, never a pill row; no desk segment in Guests.
-  const phone = read('app/dashboard/[eventId]/seating/_components/seat-plan-phone.tsx');
-  const pick = phone.slice(phone.indexOf('export function SeatPlanModePick('), phone.indexOf('export function PeopleSheet('));
-  assert.match(pick, /<PickMenu label="View"/);
-  assert.match(ed, /view=\{inGuests \? <SeatPlanModePick view=\{studioView\} onView=\{onSelectView\} show3D=\{show3D\} \/> : undefined\}/);
+  // 🎚 Slice 2: ONE mode dropdown (List · 2D · 3D) — the Guests top row's Seats ▾ (the shared PickMenu, never a pill row);
+  // the "Seat plan · 2D ▾" head is gone in Guests, its Edit · ⋯ ride the top row (portal into `lens.toolsSlot`), and the
+  // mode's ONE state stays the plan's (`lens.registerSeats`). No desk segment in Guests.
+  const scr = read('app/dashboard/[eventId]/guests/_components/guests-screen.tsx');
+  assert.match(scr, /const seatModes: PickOption\[\] = SEAT_MODES\.filter\(\(m\) => m !== '3d' \|\| seatShow3D\)/, 'Seats ▾ does not list List · 2D · 3D');
+  assert.match(scr, /onPick=\{\(k\) => \(t === 'guests' \? pickView\(k as GuestsView\) : chooseSeat\(k as SeatMode\)\)\}/);
+  assert.match(ed, /const studioHead = studioSeat && !inGuests \?/, 'Guests draws the old "Seat plan · 2D ▾" head');
+  assert.match(ed, /createPortal\(<SeatPlanToolRounds more=\{phoneMore\} trailing=\{phoneTrailing\} \/>, lens\.toolsSlot\)/, 'Seats’ Edit · ⋯ have no home in the top row');
+  assert.match(ed, /registerSeats\(\{ mode: studioView, setMode: \(m\) => onSelectViewRef\.current\(m\), show3D \}\)/, 'the plan does not tell the top row its mode');
   assert.match(ed, /\{isPhone \|\| inGuests \? null : \(\s*<CommandBar>/, 'the desk command bar (its pill segment) is drawn in Guests');
   // ⇅ R4 slice 1: the thumb row is THE shared ThumbRow (guests-seats), drawn into the Guests screen's seat — ⇕ on the
   // list · Search guests · ⇅ (Show + the people) · ＋ Add ▾ with the plan's own placeables. Rules live in the head's ⋯.

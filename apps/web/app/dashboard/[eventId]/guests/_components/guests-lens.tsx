@@ -14,7 +14,7 @@
 import { createContext, useContext } from 'react';
 import type { GuestsFilter } from '@/lib/guests-filter';
 import type { ThumbRow } from '@/components/thumb-row';
-import type { GuestsView } from '@/lib/guests-views';
+import type { GuestsView, SeatMode } from '@/lib/guests-views';
 import type { SectionHeadToolbar } from './section-head-toolbar';
 
 export type GuestsLens = {
@@ -46,7 +46,17 @@ export type GuestsLens = {
   HeadToolbar?: typeof SectionHeadToolbar;
   sectionWords?: (key: string) => { current: string; usual: string | null } | null;
   renameSection?: (key: string, text: string) => Promise<string | null>;
+  /**
+   * 🎚 R4 slice 2 — THE TOP ROW'S REVERSE CHANNEL. Seats' mode (List · 2D · 3D) is picked in the Guests top row, but its
+   * ONE state stays the seat plan's (`seating-editor.tsx`): the plan tells the screen its mode and how to change it —
+   * never a second state. Null = the plan has gone (or another view is on screen).
+   */
+  registerSeats?: (api: SeatsChannel | null) => void;
+  /** The top row's seat for the view's own rounds (Seats' Edit · ⋯), left of the ⚙ — null until mounted. */
+  toolsSlot?: HTMLElement | null;
 };
+
+export type SeatsChannel = { mode: SeatMode; setMode: (mode: SeatMode) => void; show3D: boolean };
 
 export const GuestsLensContext = createContext<GuestsLens | null>(null);
 

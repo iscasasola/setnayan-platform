@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "d6ba5419",
+  "generatedFromRef": "1a2a0c34",
   "routeCount": 480,
   "destinations": 986,
   "actions": 640,
-  "blocks": 7414,
+  "blocks": 7415,
   "routes": {
     "/": {
       "files": [
@@ -6966,9 +6966,10 @@
         "SaveFileLink",
         "Scrim",
         "SearchAddRow",
+        "SeatMode",
         "SeatingPage",
-        "SectionHeadToolbar",
-        "SectionHeadTools",
+        "SeatsChannel",
+        "SectionRenameInPlace",
         "SendInvite",
         "SentOrNotYet",
         "SetRsvpResult",
@@ -8637,9 +8638,9 @@
         "SeatPickMenu",
         "SeatPlanFacts",
         "SeatPlanInGuests",
-        "SeatPlanModePick",
         "SeatPlanPortal",
         "SeatPlanSlot",
+        "SeatPlanToolRounds",
         "SeatToast",
         "SeatingEditor",
         "SeatingFrame",

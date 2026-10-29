@@ -84,6 +84,8 @@ import {
   type FeeDisclosure,
 } from '@/lib/booking-fee-disclosure';
 import { SupplierTodayScreen } from './_components/supplier-today-screen';
+import { readSupplierEventLines } from '@/lib/supplier-event-lines.server';
+import type { EventLines } from '@/lib/supplier-event-lines';
 import { SupplierToast } from './_components/supplier-toast';
 import { assembleSupplierToday } from '@/lib/supplier-today-view';
 import { displayServiceLabel } from '@/lib/vendors';
@@ -384,6 +386,22 @@ export default async function VendorOverviewPage({
     oldestAskWaitDays(needsAnswer, cardTimestamp, new Date()),
   );
 
+  /*
+    📋 EVERY INQUIRY ROW OPENS TO ITS EVENT (supplier dashboard v13, owner 2026-10-29: "for inquiries. we can say what
+    service they are requesting for…" · "where is the expand look of these rows?"): the fixed lines, read ONCE for every
+    inquiry on the desk (`readSupplierEventLines` — one parallel round + the names), started here so it rides beside
+    wave 2. Opening a row reads nothing. Refused → the rows open to the shipped answer alone.
+  */
+  const inquiryEvents = needsAnswer.flatMap((c) => (c.kind === 'inquiry' && c.eventId ? [{ eventId: c.eventId, stage: 'asking' as const }] : []));
+  const eventLinesP: Promise<Map<string, EventLines>> =
+    inquiryEvents.length > 0
+      ? readSupplierEventLines(createAdminClient(), {
+          vendorProfileId,
+          shopServices: (profile.services ?? null) as string[] | null,
+          events: inquiryEvents,
+        }).catch(() => new Map<string, EventLines>())
+      : Promise.resolve(new Map<string, EventLines>());
+
   // S19 · can a couple see anywhere to pay this shop? Asked only when a booking ask is on screen or the shop holds
   // an upcoming booking (2026-09-19) — a booked couple owes a deposit. `unreadable` renders nothing.
   const hasLockAsk = needsAnswer.some((c) => c.kind === 'lock_request');
@@ -609,6 +627,7 @@ export default async function VendorOverviewPage({
   // 🧩 The library door reads the live parts (③0-b) — the same snapshot the real upload gate reads.
   const libraryOpen = moodboardLibraryAccessForProfile(profile, await inspirationPartsRead).allowed;
   const { events: eventsYouRun } = await eventsYouRunP;
+  const eventLines = Object.fromEntries(await eventLinesP);
 
   /*
     🧰 A NEW SHOP'S SIX STEPS, DONE IN PLACE (owner 2026-10-28, DECISION_LOG "SUPPLIER DASHBOARD APPROVED — EVERYTHING IN
@@ -649,7 +668,7 @@ export default async function VendorOverviewPage({
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl tab:max-w-3xl px-4 py-4 sm:px-6 sm:py-10 lg:px-8">
+    <div className="mx-auto w-full max-w-6xl tab:max-w-none px-4 py-4 sm:px-6 sm:py-10 lg:px-8">
       {/* The toast that says how an answer went (a booking ask · a date change · a payment that never arrived).
           A refusal is the whole point: without it the supplier presses Agree, is refused, and sees the same page
           with no explanation. Its lasting status line is drawn by the screen, under the Next card. */}
@@ -662,6 +681,7 @@ export default async function VendorOverviewPage({
         feeForecasts={feeForecasts}
         cards={[...needsAnswer, ...nothingToAnswer]}
         eventsYouRun={eventsYouRun}
+        eventLines={eventLines}
         setup={setup}
         askStatus={askStatus}
         deskIncomplete={deskIncomplete}

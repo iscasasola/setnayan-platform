@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchEventViewer } from '@/lib/event-viewer.server';
 import { isDelegateWithoutArea } from '@/lib/event-viewer';
 import {
@@ -68,11 +69,16 @@ export async function GET(req: Request, { params }: Params) {
   if (isDelegateWithoutArea(viewer, 'guest_list')) return say(403, "The guest list isn't shared with you. Ask the couple for guest list access.");
   if (doc === 'march' && !viewer.isCouple) return say(403, 'Only the couple can share the march.');
 
-  const { data: event } = await supabase
+  const { data: event, error: eventError } = await supabase
     .from('events_host')
     .select('display_name, slug, event_date, event_date_precision, venue_name')
     .eq('event_id', eventId)
     .maybeSingle();
+  // A refused read is not "no such event" — say it could not load, never 404.
+  if (eventError) {
+    logQueryError('guestsShare.event', eventError, { event_id: eventId });
+    return say(503, UNREAD);
+  }
   if (!event) return say(404, 'Event not found.');
   const ev = event as { display_name: string | null; slug: string | null; event_date: string | null; event_date_precision: string | null; venue_name: string | null };
   const head: GuestsShareHead = {

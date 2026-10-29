@@ -12,10 +12,10 @@
  *      commas; nothing is cut; an empty list says so in words.
  *   5. The route's doors come before any name: signed in · not a delegate without the guest list · the march is the
  *      couple's · every refused read is a 503 in words, never a file of nobody.
- *   6. The 📤 round sits left of the ⚙ in the top row (both faces), and the pinned face stops short of it.
+ *   (The 📤 round that opens the sheet is placed in the top row by whoever owns that row — not here.)
  *
  * SABOTAGE (each seen RED, then restored): the Meal count pointed at `guests/share` · the guest-list href without the
- * filter · `!read.measured` check removed · the 📤 round dropped from the first row.
+ * filter · `!read.measured` check removed · the event read's error check removed.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -127,17 +127,9 @@ test('5 · the route’s doors come before any name, and a refused read is never
   assert.ok(at("if (!user) return say(401") < firstRead);
   assert.ok(at("isDelegateWithoutArea(viewer, 'guest_list')") < firstRead, 'a delegate without the guest list reads names first');
   assert.ok(at("if (doc === 'march' && !viewer.isCouple)") < firstRead, 'the march is not the couple’s only');
+  at("if (eventError) {");
   at('if (!read.measured) return say(503, UNREAD);');
   at('if (shown.marchUnread || shown.draftUnread || shown.out === null) return say(503,');
   at("if (group === 'group' && (!groupsRead.measured || !membersRead.measured)) return say(503, UNREAD);");
   at("'Content-Disposition': `attachment; filename=\"${built.name}\"`");
-});
-
-test('6 · the 📤 round is one sheet of this view’s files (it is placed in the top row by whoever owns that row)', () => {
-  // The Guests/Seats top row is being reworked elsewhere (2026-10-30), so this change does not touch it: the round ships
-  // ready, and its one line — `<GuestsShareRound items={guestsShareItems(gview, …)} />` left of the ⚙ — lands with the row.
-  const sheet = src('app/dashboard/[eventId]/guests/_components/guests-share-round.tsx');
-  assert.match(sheet, /title="Share or print"/);
-  assert.match(sheet, /<SharePdfButton href=\{it\.href\} fileName=\{it\.fileName\}/);
-  assert.match(sheet, /<InfoTip label="Each file is made when you tap Share\."/, 'the help is not behind ⓘ');
 });

@@ -13,6 +13,7 @@ import { MoreRowStandInCtx, ShortlistCategories } from '@/app/dashboard/[eventId
 import { BenchWritesStandInCtx, type BenchWrites } from '@/app/dashboard/[eventId]/vendors/_components/bench-local';
 import { AddOwnStandInCtx } from '@/app/dashboard/[eventId]/_components/add-your-own-walk';
 import { LAB_CLAIM_URL, LAB_MARKET, labNameMatches, labSheet } from './fixtures';
+import { labFind } from './find-fixtures';
 
 export function LabBench({
   fail,
@@ -20,6 +21,8 @@ export function LabBench({
   slow,
   writeFail,
   claimQrSvg,
+  findDates = null,
+  findCards = null,
   ...props
 }: ComponentProps<typeof ShortlistCategories> & {
   fail: boolean;
@@ -28,6 +31,9 @@ export function LabBench({
   writeFail: boolean;
   /** The sample claim link's QR, drawn on the server (the QR library is server-only). */
   claimQrSvg: string;
+  /** Find v4 — `&dates=unread|none` · `&cards=fail` (`find-fixtures.ts`). */
+  findDates?: string | null;
+  findCards?: string | null;
 }) {
   const pause = () => new Promise((r) => setTimeout(r, 600));
   const writes: BenchWrites = {
@@ -78,6 +84,23 @@ export function LabBench({
           return { results: [], freeDaysByProfileId: {}, noProbeWindow: true, serviceCardByProfileId: {}, sheet: sheetFail ? null : labSheet(sheetFor) };
         }
         if (fail) throw new Error('lab: the read failed');
+        // Find v4: every card of the category, per service (Catering · Massage Chair).
+        const all = labFind(tile, { dates: findDates, cards: findCards });
+        if (all) {
+          const q = (query ?? '').trim().toLowerCase();
+          const results = all.results.filter((r) => !q || r.name.toLowerCase().includes(q));
+          const ids = new Set(results.map((r) => r.vendorProfileId));
+          return {
+            results,
+            freeDaysByProfileId: {},
+            noProbeWindow: true,
+            serviceCardByProfileId: {},
+            cards: all.cards ? all.cards.filter((c) => ids.has(c.profileId)) : null,
+            services: all.services,
+            availability: all.availability,
+            availabilityDays: all.availabilityDays,
+          };
+        }
         const m = LAB_MARKET[tile];
         const q = (query ?? '').trim().toLowerCase();
         const rows = (m?.rows ?? []).filter((r) => !q || `${r.name} ${m?.cards[r.vendorProfileId]?.name ?? ''}`.toLowerCase().includes(q));

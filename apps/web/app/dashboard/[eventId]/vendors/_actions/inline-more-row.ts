@@ -39,8 +39,17 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getBatchVendorAvailableDays } from '@/lib/vendor-availability';
 import { resolveProbeWindow } from '@/lib/build-date-window';
 import { getCanonicalBuckets, servicesInTile } from '@/lib/vendor-counts';
-import { fetchMarketServiceCards } from '@/lib/bench-service-cards';
+import { fetchMarketCategoryCards, firstCardPerSupplier } from '@/lib/bench-service-cards';
 import { withholdCardNames, type BenchServiceCard } from '@/lib/bench-service-card';
+import { readCardRefusals } from '@/lib/bench-bookable-days.server';
+import { readServiceLabels, serviceLabelOf } from '@/lib/service-labels';
+import {
+  keepFreeCards,
+  legacyServiceFor,
+  type FindAvailability,
+  type FindCardRow,
+  type FindService,
+} from '@/lib/find-service-cards';
 import { searchCategoryVendors, type CategoryVendorResult } from './category-search';
 import { readSupplierSheet } from '@/lib/supplier-sheet-read';
 import type { SupplierSheetData } from '@/lib/supplier-sheet';
@@ -77,6 +86,25 @@ export type InlineMoreRowResult = {
    * whether the couple follows them). `null` = it could not be read.
    */
   sheet?: SupplierSheetData | null;
+  /**
+   * EVERY CARD OF THE CATEGORY (owner 2026-10-29, Find v4) — one row per service card of the suppliers in `results`,
+   * each under its ONE home service, already cut to the cards free on at least one of the event's dates (see
+   * `availability`). `null` = the cards could not be read (the list says so). Absent on a `sheetFor` call.
+   */
+  cards?: FindCardRow[] | null;
+  /** The category's services in its own order, each with its admin-managed label (`lib/service-labels.ts`). */
+  services?: FindService[];
+  /** Whether `cards` were checked against the event's dates — `lib/find-service-cards.ts` `FindAvailability`. */
+  availability?: FindAvailability;
+  /** The event's dates the cards were checked against (one day, a month, or the couple's date choices). */
+  availabilityDays?: string[];
+  /**
+   * PERFORMERS — the suppliers in `results` with a proven track record: at least one VETTED completed Setnayan event
+   * (`vendor_public_completed_events_stats`, the anti-fraud count the Most Booked badge ranks by — self-dealt and
+   * off-platform events excluded). "Best for your event" draws only these (owner 2026-10-29: "#1–#10 match must be
+   * performers only. we will not show if there are no performers yet"). `null` = the count could not be read.
+   */
+  performers?: string[] | null;
 };
 
 const EMPTY: InlineMoreRowResult = {
@@ -149,24 +177,50 @@ export async function fetchInlineMoreRow(input: {
     hideUnbookable: true,
   });
   if (search.results.length === 0) {
-    return { results: [], freeDaysByProfileId: {}, noProbeWindow: true, serviceCardByProfileId: {} };
+    // Nobody in the category at all — no card to check against a date, so nothing is claimed about one.
+    return { results: [], freeDaysByProfileId: {}, noProbeWindow: true, serviceCardByProfileId: {}, cards: [], services: [], availability: 'checked', availabilityDays: [] };
   }
 
-  // The service cards of the suppliers the search ALREADY returned — it has
-  // refused a non-member above, and these are the cards those suppliers
-  // publish on their own shop pages. The category is the row's own tile, read
-  // through the same accessor the search widens from.
+  // EVERY CARD of the suppliers the search ALREADY returned — it has refused a non-member above, and these are the
+  // cards those suppliers publish on their own shop pages — under every service of THIS category (owner 2026-10-29:
+  // "all service cards of all services inside a category will share the same spot"). The category is the row's own
+  // tile, read through the same accessor the search widens from. The labels are the admin's (never a code map).
   const tile = String(input.tile ?? '');
-  const marketCards = await fetchMarketServiceCards(
-    createAdminClient(),
-    search.results.map((r) => r.vendorProfileId),
-    [...new Set([...servicesInTile(await getCanonicalBuckets(), tile), tile])],
-    new Date(),
-  );
-  // A supplier whose name is still withheld is not named by their card's title.
-  const serviceCardByProfileId = marketCards
+  const categoryServices = [...new Set([...servicesInTile(await getCanonicalBuckets(), tile), tile])];
+  const admin = createAdminClient();
+  const profileIds = search.results.map((r) => r.vendorProfileId);
+  const [read, labels] = await Promise.all([
+    fetchMarketCategoryCards(admin, profileIds, categoryServices, new Date()),
+    readServiceLabels(),
+  ]);
+  let allCards: FindCardRow[] | null = read;
+  if (allCards) {
+    // A LEGACY SHOP (matched by `vendor_profiles.services`, no card row here) is filed under its known service —
+    // never a "Service not set" choice (owner 2026-10-29). Read only when there is one.
+    const withCard = new Set(allCards.map((c) => c.profileId));
+    const legacy = profileIds.filter((id) => !withCard.has(id));
+    if (legacy.length > 0) {
+      const { data: profs } = await admin.from('vendor_profiles').select('vendor_profile_id, services').in('vendor_profile_id', legacy);
+      const stored = new Map(
+        ((profs ?? []) as { vendor_profile_id: string; services: string[] | null }[]).map((p) => [p.vendor_profile_id, p.services]),
+      );
+      for (const id of legacy) {
+        const service = legacyServiceFor(stored.get(id), categoryServices);
+        if (service) allCards.push({ serviceId: null, profileId: id, service, card: null, fromPhp: null });
+      }
+    }
+    // A supplier whose name is still withheld is not named by their card's title (`withholdCardNames`, per card).
+    const withheld = new Set(search.results.filter((r) => r.nameAnonymized).map((r) => r.vendorProfileId));
+    allCards = allCards.map((c) => (c.card && withheld.has(c.profileId) ? { ...c, card: { ...c.card, name: '' } } : c));
+  }
+  const listed = new Set((allCards ?? []).map((c) => c.service));
+  const services: FindService[] = categoryServices
+    .filter((k) => k !== tile || listed.has(k))
+    .map((key) => ({ key, label: serviceLabelOf(labels, key) }));
+  const firstCards = firstCardPerSupplier(allCards);
+  const serviceCardByProfileId = firstCards
     ? withholdCardNames(
-        marketCards,
+        firstCards,
         search.results.filter((r) => r.nameAnonymized).map((r) => r.vendorProfileId),
       )
     : null;
@@ -174,48 +228,87 @@ export async function fetchInlineMoreRow(input: {
   // The probe window. Read through the couple's OWN client so a non-member
   // cannot use this action to reach an event's dates — `searchCategoryVendors`
   // has already refused them above, and this refuses them again independently.
+  let probe: ReturnType<typeof resolveProbeWindow> = null;
+  let datesRead = true;
   try {
     const supabase = await createClient();
-    const { data: ev } = await supabase
+    const { data: ev, error: evErr } = await supabase
       .from('events')
       .select('event_date, event_date_precision, date_candidates')
       .eq('event_id', eventId)
       .maybeSingle();
-    if (!ev) return { results: search.results, freeDaysByProfileId: {}, noProbeWindow: true, serviceCardByProfileId };
-
-    const row = ev as {
-      event_date: string | null;
-      event_date_precision: string | null;
-      date_candidates: string[] | null;
-    };
-    const probe = resolveProbeWindow({
-      eventDate: row.event_date,
-      precision: row.event_date_precision,
-      candidates: row.date_candidates,
-    });
-    // An ANCHORED window costs nothing to read and can sink nothing: the soft
-    // tier stands down for the committed-date tier, exactly as the page does.
-    if (!probe || probe.anchored) {
-      return { results: search.results, freeDaysByProfileId: {}, noProbeWindow: true, serviceCardByProfileId };
+    if (evErr || !ev) datesRead = false;
+    else {
+      const row = ev as {
+        event_date: string | null;
+        event_date_precision: string | null;
+        date_candidates: string[] | null;
+      };
+      probe = resolveProbeWindow({
+        eventDate: row.event_date,
+        precision: row.event_date_precision,
+        candidates: row.date_candidates,
+      });
     }
+  } catch {
+    datesRead = false;
+  }
 
+  // NEVER A CARD THAT IS NOT FREE ON THEIR DATE (owner 2026-10-29): one date → free that day; a month or date
+  // choices → free on at least one. The booking path's own refusals, per card (`readCardRefusals`); unreadable →
+  // the list says so (`unread`), never a silent "everyone" or "no one".
+  const days = probe?.dayKeys ?? [];
+  const refused =
+    !datesRead || allCards === null
+      ? null
+      : await readCardRefusals({
+          admin,
+          serviceIds: allCards.map((c) => c.serviceId).filter((id): id is string => Boolean(id)),
+          days,
+        });
+  const kept = allCards ? keepFreeCards(allCards, refused, datesRead ? days : ['?']) : null;
+  const cards = kept ? kept.cards : null;
+  const availability: FindAvailability = !datesRead ? 'unread' : (kept?.availability ?? (days.length ? 'unread' : 'no_date'));
+  // A supplier left with no card free on the dates leaves the list with them.
+  const freeShops = cards ? new Set(cards.map((c) => c.profileId)) : null;
+  const results = freeShops ? search.results.filter((r) => freeShops.has(r.vendorProfileId)) : search.results;
+  let performers: string[] | null = [];
+  if (results.length > 0) {
+    const { data: done, error: doneErr } = await admin
+      .from('vendor_public_completed_events_stats')
+      .select('vendor_profile_id, public_completed_count')
+      .in('vendor_profile_id', results.map((r) => r.vendorProfileId));
+    performers = doneErr
+      ? null
+      : ((done ?? []) as { vendor_profile_id: string | null; public_completed_count: number | string | null }[])
+          .filter((r) => r.vendor_profile_id && Number(r.public_completed_count ?? 0) >= 1)
+          .map((r) => r.vendor_profile_id as string);
+  }
+  const cardsOut = { cards, services, availability, availabilityDays: days, performers };
+
+  // An ANCHORED window costs nothing to read and can sink nothing: the soft
+  // tier stands down for the committed-date tier, exactly as the page does.
+  if (!probe || probe.anchored || results.length === 0) {
+    return { results, freeDaysByProfileId: {}, noProbeWindow: true, serviceCardByProfileId, ...cardsOut };
+  }
+  try {
     const [ys, ms, ds] = probe.rangeStart.split('-').map(Number);
     const [ye, me, de] = probe.rangeEnd.split('-').map(Number);
     const avail = await getBatchVendorAvailableDays(
-      createAdminClient(),
-      [...new Set(search.results.map((r) => r.vendorProfileId))],
+      admin,
+      [...new Set(results.map((r) => r.vendorProfileId))],
       new Date(ys ?? 1970, (ms ?? 1) - 1, ds ?? 1),
       new Date(ye ?? 1970, (me ?? 1) - 1, de ?? 1),
     );
 
     const freeDaysByProfileId: Record<string, string[]> = {};
-    for (const [profileId, days] of avail) {
-      freeDaysByProfileId[profileId] = probe.dayKeys.filter((k) => days.has(k));
+    for (const [profileId, availDays] of avail) {
+      freeDaysByProfileId[profileId] = probe.dayKeys.filter((k) => availDays.has(k));
     }
-    return { results: search.results, freeDaysByProfileId, noProbeWindow: false, serviceCardByProfileId };
+    return { results, freeDaysByProfileId, noProbeWindow: false, serviceCardByProfileId, ...cardsOut };
   } catch {
     // Fail open — the vendors still show, nothing sinks. A calendar read must
     // never cost the couple a vendor, and it must never cost them the row.
-    return { results: search.results, freeDaysByProfileId: {}, noProbeWindow: true, serviceCardByProfileId };
+    return { results, freeDaysByProfileId: {}, noProbeWindow: true, serviceCardByProfileId, ...cardsOut };
   }
 }

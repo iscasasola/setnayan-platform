@@ -16,6 +16,8 @@
  *   &sheetfail=1        the supplier sheet's one request fails (press a card)
  *   &slow=1             …or takes 2.5 s, to read the line it shows meanwhile
  *   &empty=1            a new event: no suppliers yet
+ *   &dates=unread|none  Find v4: the calendars could not be read · no date yet (`find-fixtures.ts`)
+ *   &cards=fail         Find v4: the cards could not be read (open=catering|massage_chair — every card, per service)
  *   &writefail=1        Save / Remove on a card are refused (they answer in place)
  *   &added=1            "Add your own": the row the walk leaves under Catering
  *   &links=fail         …and the claim-link read fails (the rows must say so)
@@ -238,6 +240,8 @@ export default async function SuppliersLabPage({
       sheetFail={one('sheetfail') === '1'}
       slow={one('slow') === '1'}
       writeFail={one('writefail') === '1'}
+      findDates={one('dates')}
+      findCards={one('cards')}
       folders={folders}
       eventId={LAB_EVENT}
       standings={LAB_STANDINGS}

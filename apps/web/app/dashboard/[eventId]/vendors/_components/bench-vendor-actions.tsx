@@ -460,14 +460,15 @@ export function BenchVendorActions({
             the couple added themselves. It stays reachable at every step until
             the record sheet (PR2b) carries the claim link. Opening it only
             READS whether a link exists. */}
-        {/* [Share] — the approved invite + their digital card, the guest card's own share (DECISION_LOG 2026-10-30,
-            "…A SELF-ADDED SUPPLIER GETS A SHARE BUTTON, AN AUTOMATIC CLAIM LINK AND A DIGITAL CARD"). The same one
-            predicate as Connect — a supplier the couple added who is not on Setnayan — so it is never drawn for a
-            supplier with a shop. It asks for nothing until it is touched. */}
-        {actions.connect ? <SupplierShareButton eventId={eventId} vendorId={vendorId} vendorName={vendorName} /> : null}
         {actions.connect ? (
           <ActionButton tone="neutral" icon={QrCode} label="Connect" aria-haspopup="dialog" onClick={() => setConnectOpen(true)} />
         ) : null}
+        {/* [Share] — the approved invite + their digital card, the guest card's own share (DECISION_LOG 2026-10-30,
+            "…A SELF-ADDED SUPPLIER GETS A SHARE BUTTON, AN AUTOMATIC CLAIM LINK AND A DIGITAL CARD"). The same one
+            predicate as Connect — a supplier the couple added who is not on Setnayan — so it is never drawn for a
+            supplier with a shop. It asks for nothing until it is touched. Last in the row, so the line a press comes back
+            with sits under the whole row. */}
+        {actions.connect ? <SupplierShareButton eventId={eventId} vendorId={vendorId} vendorName={vendorName} /> : null}
       </div>
       {connectOpen ? (
         <ConnectSupplierModal

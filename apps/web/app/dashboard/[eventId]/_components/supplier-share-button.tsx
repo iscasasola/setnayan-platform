@@ -172,8 +172,8 @@ export function SupplierShareButton({
         <span aria-live="polite" className="basis-full text-[12.5px] leading-snug text-ink/70" data-supplier-share-said={said.kind}>
           {said.kind === 'copied' ? (
             <span className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1">
-                <Check aria-hidden className="h-3.5 w-3.5 text-success-600" strokeWidth={2.25} />
+              <span className="flex items-start gap-1">
+                <Check aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success-600" strokeWidth={2.25} />
                 Message copied — paste it to {who} in Messenger or Viber, with their card.
               </span>
               {ready?.share.card ? (

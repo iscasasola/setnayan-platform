@@ -35,6 +35,40 @@ import { SupplierThumbRow } from '@/app/vendor-dashboard/_components/supplier-th
 import { SupplierToast } from '@/app/vendor-dashboard/_components/supplier-toast';
 import { SearchBox } from '@/app/_components/search-box';
 import { importExternalClient, removeBlock } from '@/app/vendor-dashboard/calendar/actions';
+import { acceptInquiry, declineInquiry } from '@/lib/chat-actions';
+import { eventDayWords, forYourServicePages, stageOfLane, type EventLines } from '@/lib/supplier-event-lines';
+
+/**
+ * 📋 Each lab event's FIXED LINES (supplier dashboard v13) — what the page's `readSupplierEventLines` returns, on the
+ * prototype's own people. The lab shop is a photo & video studio with a same-day edit it can offer.
+ */
+const LAB_SERVICES = ['photo_video'];
+function labLines(f: Fix): EventLines {
+  const stage = stageOfLane(f.lane);
+  const hosts: Record<string, Array<[string, boolean]>> = {
+    ana: [['Tita Mina Reyes', true], ['Ana Reyes', false], ['Miguel Santos', false]],
+    rolando: [['Carmen Villa', true], ['Rolando Villa', false]],
+    katrina: [['Katrina Ocampo', true]],
+    cruz: [['Liza Cruz', true], ['Jun Cruz', false]],
+  };
+  return {
+    eventId: f.eventId,
+    threadId: f.threadId,
+    stage,
+    read: true,
+    type: f.kind,
+    celebrant: f.title,
+    location: f.place,
+    date: eventDayWords(f.eventDate),
+    pax: f.eventId === 'ana' ? 150 : f.eventId === 'cruz' ? 180 : null,
+    hosts: (hosts[f.eventId] ?? [[f.title, true]]).map(([name, askedYou]) => ({ name, askedYou })),
+    requested: [{ name: 'Photo & video · Full day' }],
+    alsoOffer: stage === 'asking' && f.eventId === 'ana' ? [{ serviceId: 'sde', name: 'Same-day edit', from: null }] : [],
+    alsoBooked: f.eventId === 'cruz' ? [{ name: 'Casa Alegria Events', service: 'Reception venue' }] : [],
+    forYou: forYourServicePages({ eventId: f.eventId, stage, shopServices: LAB_SERVICES, eventTiles: null }),
+    firstEvent: null,
+  };
+}
 
 const NOW = Date.parse('2026-10-02T02:00:00Z'); // Fri Oct 2, 10:00 in Manila
 const ago = (hours: number) => new Date(NOW - hours * 3_600_000).toISOString();
@@ -195,6 +229,8 @@ export function PeopleLab({
             otherTotal={k === 'booked' ? outsideAll.length : 0}
             anchor={null}
             emptyLine={count(k) === 0 ? 'Nobody here yet.' : undefined}
+            lines={Object.fromEntries(fixtures.map((f) => [f.eventId, labLines(f)]))}
+            answers={{ acceptInquiry, declineInquiry }}
           />
           {k === 'booked' ? (
             <OutsideClientRows
@@ -240,8 +276,7 @@ export function PeopleLab({
       <main className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-6 pt-4 sm:px-6 lg:px-8 tab:max-w-none">
         <div className="pb-24">
           {notice ? <SupplierToast text={notice.text} tone={notice.tone} retry={'retry' in notice} retryHref={`${base}&add=1`} /> : null}
-          {/* The page's own layout (customers/page.tsx): one column on a phone; list + side panel from lg. */}
-          <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)] lg:items-start lg:gap-10" data-customers-people-layout="">
+          {/* The page's own layout (customers/page.tsx): the two columns from 701 — events left, the opened one right. */}
           <div id="customers" className="min-w-0 scroll-mt-24" data-customers-people="">
             <ChatOriginMark />
             <CustomersPin
@@ -256,6 +291,7 @@ export function PeopleLab({
               panels={panels}
               initial={initial}
               gear={<CustomersSettings body={gearBody} />}
+              columns={{ rest: 'No events here yet. When somebody asks about a date, or books you, their event shows up here.' }}
               between={
                 variant === 'fail' ? (
                   <p role="status" className="mb-2 text-[13px] text-ink/70">
@@ -263,14 +299,15 @@ export function PeopleLab({
                   </p>
                 ) : null
               }
+              after={
+                <div className="mt-6 space-y-2" data-customers-side="">
+                  {variant !== 'empty' ? (
+                    <OtherChatsFold paged={paginate(OTHER_CHATS, undefined)} keepParams={keep([])} returnTo={base} />
+                  ) : null}
+                  {variant !== 'empty' ? <KeptNotesFold notes={KEPT} /> : null}
+                </div>
+              }
             />
-          </div>
-          <aside className="min-w-0 lg:sticky lg:top-4 lg:pt-1" data-customers-side="">
-          {variant !== 'empty' ? (
-            <OtherChatsFold paged={paginate(OTHER_CHATS, undefined)} keepParams={keep([])} returnTo={base} />
-          ) : null}
-          {variant !== 'empty' ? <KeptNotesFold notes={KEPT} /> : null}
-          </aside>
           </div>
         </div>
       </main>

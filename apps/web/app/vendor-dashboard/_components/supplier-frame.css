@@ -1,9 +1,8 @@
 /*
  * supplier-frame.css — the supplier dashboard's FRAME from 701 (supplier dashboard v13, owner 2026-10-29 "desktop mode is
  * wrong" · "and tablet"; prototype approved "Approved."). The bar/rail half lives in `front-door.css`
- * (`[data-pinned-bar]`); this file holds the supplier side: the page's own picker stepping aside for the bar's menu. The
- * TWO COLUMNS arrive with the first page that has a right column to show (S3) — a column no page mounts is a wish.
- * Nothing here reaches a phone (<701). Colour tokens only.
+ * (`[data-pinned-bar]`); this file holds the supplier side: the page's own picker stepping aside for the bar's menu, and
+ * the TWO COLUMNS (`SupplierColumns`). Nothing here reaches a phone (<701). Colour tokens only.
  * 🔒 the-supplier-frame-holds.test.ts
  */
 
@@ -13,5 +12,52 @@
   .fd[data-pinned-bar] [data-customers-view],
   .fd[data-pinned-bar] [data-shop-segmented] {
     display: none;
+  }
+}
+
+/* ── TWO COLUMNS — the list left · the opened item / chat / sheet right (prototype v13 `.work` + `.pane`). ──────────
+   Phone: one column — the pane is not drawn (an opened row expands in place there). 701–1099: 1fr · 1fr. ≥1100: 5 · 6.
+   The pane rides under the pinned row and the page's own pinned rows (`--sn-pin-top`, written by `usePinTop`), fills the
+   rest of the window and scrolls on its own. It is NEVER empty: a page hands its default (`pane`) — the first row
+   opened, the map, the live card — and a page that has nothing for it does not use this at all and keeps its own
+   full-width body. */
+.sn-cols {
+  display: block;
+}
+.sn-cols-pane {
+  display: none;
+}
+@media (min-width: 701px) {
+  .sn-cols {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+  }
+  .sn-cols-list {
+    min-width: 0;
+  }
+  .sn-cols-pane {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    position: sticky;
+    top: var(--sn-pin-top, var(--fd-bar, 0px));
+    height: calc(100vh - var(--sn-pin-top, var(--fd-bar, 0px)));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border-left: 1px solid rgb(var(--color-ink) / 0.1);
+  }
+}
+@media (min-width: 1100px) {
+  .sn-cols {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  }
+}
+
+/* The row open in the right column (`supplier-open-row.tsx`, from 701): the prototype's opened row — the soft accent
+   wash across the whole row (its head and its one action), while the row itself stays shut. */
+@media (min-width: 701px) {
+  [data-open-row][data-open-current] {
+    background: rgb(var(--sn-accent) / 0.08);
   }
 }

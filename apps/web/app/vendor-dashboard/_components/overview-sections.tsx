@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import {
   ArrowRight,
   CalendarClock,
@@ -33,6 +34,9 @@ import type { WhatsNewCard } from '@/lib/vendor-overview';
 import { formatCount } from '@/lib/format-number';
 import { dateChangeShort, type TodayRowWords } from '@/lib/supplier-today';
 import { RowIcon, TodayRow, nextHref } from './supplier-today-first-screen';
+import { SupplierOpenRow } from './supplier-open-row';
+import { EventLinesBody, InquiryAnswers } from './event-lines';
+import type { EventLines } from '@/lib/supplier-event-lines';
 
 /*
   🔘 THE ANSWERS WEAR THE BUTTON RULE (2026-10-12, owner "APPROVE ALL" look calls 1–3): every press here is an
@@ -230,8 +234,14 @@ export function WhatsNewFeed({
   incomplete = false,
   statusLine = '',
   asks,
+  eventLines = {},
 }: {
   cards: WhatsNewCard[];
+  /**
+   * 📋 The event's fixed lines, keyed by event id — an inquiry row opens to them (supplier dashboard v13, owner
+   * 2026-10-29). Read once by the page (`readSupplierEventLines`); absent → the row opens to the shipped answer alone.
+   */
+  eventLines?: Readonly<Record<string, EventLines>>;
   /**
    * 📋 ALSO WAITING (supplier redesign S-PR1, 2026-10-08). Which of `cards` are
    * rows here, with the words and the "2 of 3" each one wears —
@@ -333,18 +343,21 @@ export function WhatsNewFeed({
               />
             </div>
           ) : (
-          /* 🗂 THE SHARED FOLD (kind 19) — its terracotta arrow, its 0.7 s open, ONE open at a time on the screen
-             (`useOneOpen`), and what is inside stays mounted while shut. The row's hairline and its anchor are this
-             wrapper's; `#ask-<id>` is the address older links name. The row wears its icon (`lead`) and its state
-             ("2 d" · "Lapsed"), never a queue number — the Next card's "1 of 3" already says the count. */
+          /* 🗂 THE SHARED FOLD (kind 19), as a supplier row that OPENS (`SupplierOpenRow`, supplier dashboard v13 — owner
+             2026-10-29 "where is the expand look of these rows?"): in place on a phone, in the right column from 701. Its
+             ONE action ("Reply" · "Confirm") sits beside the head and acts directly; the rest of the row opens the
+             answer — the same forms and the same actions. `#ask-<id>` is the address older links name. The row wears
+             its icon and its state ("2 d" · "Lapsed"), never a queue number. */
           <div key={card.id} id={`ask-${card.id}`} data-today-ask={card.kind} className="scroll-mt-24 border-t border-ink/10">
-            <Fold
+            <SupplierOpenRow
+              id={`ask-${card.id}`}
               data="today-ask"
               title={words?.label ?? label}
               line={words?.line ?? line}
               defaultOpen={open}
               lead={words ? <RowIcon name={words.icon} /> : undefined}
               aside={words?.pill ? <Badge tone={words.pill.tone} data="today-ask">{words.pill.word}</Badge> : null}
+              endPress={rowAct(card, confirmLock)}
             >
             <div className="pb-3 pl-3">
               <FeedCard
@@ -363,15 +376,39 @@ export function WhatsNewFeed({
                 markServiceComplete={markServiceComplete}
                 payoutReadiness={payoutReadiness}
                 feeForecasts={feeForecasts}
+                lines={card.kind === 'inquiry' && card.eventId ? (eventLines[card.eventId] ?? null) : null}
               />
             </div>
-            </Fold>
+            </SupplierOpenRow>
           </div>
           ),
         )}
       </div>
     </section>
   );
+}
+
+/**
+ * THE ROW'S ONE ACTION, BESIDE ITS HEAD (prototype v13 `.sbtn`): it acts directly — the rest of the row opens. Only where
+ * one tap is the whole answer: a reply opens the chat, a logged payment is confirmed (the shipped
+ * `vendorAcknowledgeDeposit`, the same form as "Yes, it arrived" inside). A booking ask, a date change, a removal and a
+ * review are answered inside the opened row, where the fee, the dates and the reply box are read first.
+ */
+function rowAct(card: WhatsNewCard, confirmLock: (formData: FormData) => void | Promise<void>): ReactNode {
+  if (card.kind === 'inquiry' || card.kind === 'message') {
+    const href = `/vendor-dashboard/messages/${card.threadId}`;
+    return <ActionButton tone="neutral" icon={<MessageSquare {...ico} />} label="Reply" name={`Reply — ${card.kind === 'message' ? card.coupleName : card.descriptor}`} href={href} className={TAP} />;
+  }
+  if (card.kind === 'lock') {
+    return (
+      <form action={confirmLock} className="contents">
+        <input type="hidden" name="event_id" value={card.eventId} />
+        <input type="hidden" name="vendor_id" value={card.eventVendorId} />
+        <SupplierSubmit tone="brand" main icon={<Check {...ico} />} label="Confirm" pendingLabel="Confirming…" />
+      </form>
+    );
+  }
+  return null;
 }
 
 /**
@@ -458,8 +495,11 @@ function FeedCard({
   markServiceComplete,
   payoutReadiness,
   feeForecasts,
+  lines = null,
 }: {
   card: WhatsNewCard;
+  /** 📋 An inquiry's event lines (supplier dashboard v13) — null → the shipped answer alone. */
+  lines?: EventLines | null;
   acceptInquiry: (formData: FormData) => void | Promise<void>;
   declineInquiry: (formData: FormData) => void | Promise<void>;
   confirmLock: (formData: FormData) => void | Promise<void>;
@@ -487,7 +527,18 @@ function FeedCard({
         {tone.eyebrow}
       </p>
 
-      {card.kind === 'inquiry' ? (
+      {card.kind === 'inquiry' && lines ? (
+        /* 📋 The opened inquiry = the event's fixed lines (Event type · Celebrant · Hosted by "Asked you" · Location ·
+           Date · Est. pax · Service requested · You also offer · For your service), their words, then Decline · Ask a
+           question · Accept (supplier dashboard v13, owner 2026-10-29). */
+        <>
+          {card.messageExcerpt ? (
+            <p className="mb-2 border-l-2 border-ink/15 pl-3 text-sm italic text-ink/75">“{card.messageExcerpt}”</p>
+          ) : null}
+          <EventLinesBody lines={lines} />
+          <InquiryAnswers threadId={card.threadId} returnTo="/vendor-dashboard" acceptInquiry={acceptInquiry} declineInquiry={declineInquiry} />
+        </>
+      ) : card.kind === 'inquiry' ? (
         <InquiryBody
           card={card}
           acceptInquiry={acceptInquiry}
@@ -911,14 +962,39 @@ function LockBody({
         {' · '}
         <AgeLine since={card.recordedAt} />
       </p>
+      {/* 💸 AMOUNT · METHOD (supplier dashboard v13, "Payment logged = amount · method · receipt"): their own words,
+          drawn only when they said them — never a ₱0 standing in for an amount nobody wrote. */}
+      {card.amountPhp || card.method ? (
+        <dl className="mt-2 grid grid-cols-2 gap-x-4" data-lock-logged="">
+          {card.amountPhp ? (
+            <div>
+              <dt className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/55">Amount</dt>
+              <dd className="text-[15px] tabular-nums text-ink">{formatPhp(card.amountPhp)}</dd>
+            </div>
+          ) : null}
+          {card.method ? (
+            <div>
+              <dt className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/55">How</dt>
+              <dd className="text-[15px] text-ink">{card.method}</dd>
+            </div>
+          ) : null}
+        </dl>
+      ) : null}
       {receiptUrl ? (
         <a
           href={receiptUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-2 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-sn-accent underline-offset-2 hover:underline"
+          className="mt-2 inline-flex min-h-11 items-center gap-3 text-sm font-semibold text-sn-accent underline-offset-2 hover:underline"
+          data-lock-receipt=""
         >
-          <FileText aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          {/* The receipt itself, small — tap for full size (a PDF shows its mark instead). */}
+          {/\.pdf(\?|$)/i.test(receiptUrl) ? (
+            <FileText aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={receiptUrl} alt="" className="h-14 w-14 flex-none rounded-lg object-cover" />
+          )}
           See what they sent
         </a>
       ) : (

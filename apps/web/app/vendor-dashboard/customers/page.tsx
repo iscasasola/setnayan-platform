@@ -56,6 +56,9 @@ import { filterBySearch, paginate, parseSearchParam } from '@/lib/paginate';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { formatCount } from '@/lib/format-number';
 import { CustomersRoster, type RosterRow } from './_components/customers-roster';
+import { readSupplierEventLines } from '@/lib/supplier-event-lines.server';
+import { stageOfLane } from '@/lib/supplier-event-lines';
+import { acceptInquiry, declineInquiry } from '@/lib/chat-actions';
 import {
   KeptNotesFold,
   OtherChatsFold,
@@ -626,6 +629,21 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
   }
 
   /*
+    📋 EVERY ROW OPENS TO ITS EVENT (supplier dashboard v13, APPROVED 2026-10-29: "One row per event; opened = the fixed
+    lines + For your service"). The lines of every row ON SCREEN — each door's one page, never the whole roster — in ONE
+    batched read (`readSupplierEventLines`: one parallel round + the names). Opening a row reads nothing. Refused → each
+    row says its details couldn't load, and its chat still opens.
+  */
+  const onScreen = CUSTOMERS_DOORS.flatMap((k) => views[k].paged.items);
+  const linesRead = await readSupplierEventLines(rosterAdmin, {
+    vendorProfileId,
+    shopServices: (profile.services ?? null) as string[] | null,
+    events: onScreen.map((r) => ({ eventId: r.eventId, stage: stageOfLane(r.lane) })),
+    vouched: new Set(bookedByEvent.keys()),
+  }).catch(() => null);
+  const lines = linesRead ? Object.fromEntries(linesRead) : {};
+
+  /*
     The door a visit opens on: the one the address names (a pager link, an old `?lane=` filter, a new outside
     booking's `?block=`), else — under a search — the first door with a match, else Asking when anyone is waiting
     ("the roster opens on who is waiting"), else the first door with anyone in it.
@@ -668,6 +686,8 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
             otherTotal={isBooked ? outsideAll.length : 0}
             anchor={null}
             emptyLine={doorTotal(k) === 0 ? DOOR_EMPTY[k] : undefined}
+            lines={lines}
+            answers={{ acceptInquiry, declineInquiry }}
           />
           {isBooked ? (
             <OutsideClientRows
@@ -753,10 +773,9 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
     <>
       {notice ? <SupplierToast text={notice.text} tone={notice.tone} retry={notice.retry} retryHref="/vendor-dashboard/customers?add=outside" /> : null}
 
-      {/* 🖥 MAXIMIZE THE SCREEN (owner 2026-10-29: "remember to always maximize the screen use"): on a phone one column;
-          from a computer (lg) the list takes the width and the chats-not-on-the-list + kept notes sit in a side
-          panel beside it — never a centred phone strip. */}
-      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)] lg:items-start lg:gap-10" data-customers-people-layout="">
+      {/* 🖥 MAXIMIZE THE SCREEN (owner 2026-10-29) — THE TWO COLUMNS (supplier dashboard v13): from 701 the events sit
+          left and the opened event is drawn right (`CustomersPin` → `SupplierOpenScope`); the chats not on the list and
+          the kept notes follow the list in the left column. On a phone, one column and a row opens in place. */}
       {/* `#customers` is where the search and every old roster link land; the chats this list opens come back here. */}
       <div id="customers" className="min-w-0 scroll-mt-24" data-customers-people="">
         <ChatOriginMark />
@@ -767,6 +786,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
           panels={panels}
           initial={initialDoor}
           gear={<CustomersSettings body={search.gear === '1' ? <CustomersSettingsBody seg="people" search={search} /> : null} />}
+          columns={{ rest: 'No events here yet. When somebody asks about a date, or books you, their event shows up here.' }}
           between={
             paydayIncomplete ? (
               <p role="status" className="mb-2 text-[13px] text-ink/70">
@@ -775,27 +795,26 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
               </p>
             ) : null
           }
+          after={
+            <div className="mt-6 space-y-2" data-customers-side="">
+              {/* Drawn only from a threads read that happened — after a refusal it would be a false "none". */}
+              {threadsRead.complete || others.length > 0 ? (
+                <OtherChatsFold
+                  paged={othersPage}
+                  keepParams={keepParamsFrom(sp, ['opage', 'notice', 'add', 'gear'])}
+                  returnTo="/vendor-dashboard/customers?door=talking"
+                  rollup={<InquiryOutcomesRollup rollup={outcomeRollup} />}
+                  incomplete={!threadsRead.complete}
+                />
+              ) : null}
+              {/* KEPT NOTES — drawn ONLY from a read that happened AND found some: an empty fold would be noise, and
+                  after a refused read a false "none". */}
+              {keptNotesMeasured && keptNotes.length > 0 ? (
+                <KeptNotesFold notes={keptNotes.map((n) => ({ noteId: n.note_id, body: n.body, createdAt: n.created_at }))} />
+              ) : null}
+            </div>
+          }
         />
-      </div>
-
-      <aside className="min-w-0 lg:sticky lg:top-4 lg:pt-1" data-customers-side="">
-      {/* Drawn only from a threads read that happened — after a refusal it would be a false "none". */}
-      {threadsRead.complete || others.length > 0 ? (
-        <OtherChatsFold
-          paged={othersPage}
-          keepParams={keepParamsFrom(sp, ['opage', 'notice', 'add', 'gear'])}
-          returnTo="/vendor-dashboard/customers?door=talking"
-          rollup={<InquiryOutcomesRollup rollup={outcomeRollup} />}
-          incomplete={!threadsRead.complete}
-        />
-      ) : null}
-
-      {/* KEPT NOTES — drawn ONLY from a read that happened AND found some: an
-          empty fold would be noise, and after a refused read a false "none". */}
-      {keptNotesMeasured && keptNotes.length > 0 ? (
-        <KeptNotesFold notes={keptNotes.map((n) => ({ noteId: n.note_id, body: n.body, createdAt: n.created_at }))} />
-      ) : null}
-      </aside>
       </div>
 
       {/* 📱 THE THUMB ROW — the ONE row (owner 2026-10-22): "Search customers" · ＋ Add, each its own glass, no band. */}

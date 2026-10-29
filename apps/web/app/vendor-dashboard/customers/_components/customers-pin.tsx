@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { usePinFold } from '@/app/_components/pinned-row/use-pin-fold';
 import { CUSTOMER_SEGMENTS, CUSTOMER_SEGMENT_LABEL, type CustomersDoorKey, type CustomersSegment } from '../segments';
+import { SupplierOpenScope } from '../../_components/supplier-open-row';
 
 // The door keys live in the neutral `segments.ts`: a `'use client'` module hands a server page a REFERENCE, never the
 // array itself (measured: `CUSTOMERS_DOORS.map is not a function` on the first render).
@@ -46,7 +47,16 @@ export function CustomersPin({
   initial = 'asking',
   gear,
   between = null,
+  after = null,
+  columns = null,
 }: {
+  /** What follows the lists in the same column (People's other chats and kept notes). */
+  after?: ReactNode;
+  /**
+   * 🖥 THE TWO COLUMNS (supplier dashboard v13, 2026-10-29): the lists on the left and the opened event on the right from
+   * 701 (`SupplierOpenScope`) — `rest` is what the right column says when no row can open. Absent → one column.
+   */
+  columns?: { rest: ReactNode } | null;
   /** A status line between the row and its lists (a payday read that fell short). */
   between?: ReactNode;
   seg: CustomersSegment;
@@ -115,6 +125,14 @@ export function CustomersPin({
     );
   };
 
+  const lists = panels
+    ? (['asking', 'talking', 'booked', 'done'] as const).map((key) => (
+        <div key={key} id={`customers-list-${key}`} data-customers-list-for={key} hidden={on !== key}>
+          {panels[key]}
+        </div>
+      ))
+    : null;
+
   return (
     <>
       <div
@@ -153,14 +171,19 @@ export function CustomersPin({
           {gear}
         </div>
       </div>
-      {between}
-      {panels
-        ? (['asking', 'talking', 'booked', 'done'] as const).map((key) => (
-            <div key={key} id={`customers-list-${key}`} data-customers-list-for={key} hidden={on !== key}>
-              {panels[key]}
-            </div>
-          ))
-        : null}
+      {columns ? (
+        <SupplierOpenScope name={`customers-${seg}`} paneLabel="The opened event" rest={columns.rest} watch={on}>
+          {between}
+          {lists}
+          {after}
+        </SupplierOpenScope>
+      ) : (
+        <>
+          {between}
+          {lists}
+          {after}
+        </>
+      )}
     </>
   );
 }

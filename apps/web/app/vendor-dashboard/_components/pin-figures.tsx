@@ -32,8 +32,9 @@ function Tile({ f, name }: { f: PinFigure; name: string }) {
         <span className="block text-[20px] font-semibold leading-none" style={{ color: 'rgb(var(--color-warn))' }} aria-hidden data-pin-n="">
           —
         </span>
+        {/* Customers' door says it the same way: "—" over "couldn't load"; which figure it is stays in the name. */}
         <span className={`block truncate text-[11.5px] text-ink/60 ${FOLDED_W}`} data-pin-w="" data-pin-figure-unread="">
-          {f.word} · couldn&rsquo;t load
+          <span className="sr-only">{f.word} · </span>couldn&rsquo;t load
         </span>
       </>
     ) : (

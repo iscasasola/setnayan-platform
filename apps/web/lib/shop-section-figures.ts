@@ -61,5 +61,5 @@ export function analyticsFigures(now: FunnelCounts | null, before: FunnelCounts 
     const ch = changeWord(v, before ? before[key] : null);
     return { key, value: v === null ? null : n(v), word: ch ? `${word} · ${ch}` : word, short, href: at };
   };
-  return [fig('views', 'opened your page', 'opened'), fig('inquiries', 'asked', 'asked'), fig('booked', 'booked', 'booked')];
+  return [fig('views', 'opened', 'opened'), fig('inquiries', 'asked', 'asked'), fig('booked', 'booked', 'booked')];
 }

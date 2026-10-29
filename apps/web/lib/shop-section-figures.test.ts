@@ -32,12 +32,12 @@ test('Gallery — photos · videos · credits left; an unread wallet is "—", n
 test('Analytics — opened · asked · booked with the change against the 30 days before', () => {
   const f = analyticsFigures({ views: 86, inquiries: 9, booked: 3 }, { views: 77, inquiries: 9, booked: 4 });
   assert.deepEqual(f.map((x) => [x.value, x.word]), [
-    ['86', 'opened your page · +9'],
+    ['86', 'opened · +9'],
     ['9', 'asked · same'],
     ['3', 'booked · −1'],
   ]);
   // Before unread → the numbers stand alone (never a fake "+86"); now unread → "—" on all three.
-  assert.deepEqual(analyticsFigures({ views: 1, inquiries: 2, booked: 3 }, null).map((x) => x.word), ['opened your page', 'asked', 'booked']);
+  assert.deepEqual(analyticsFigures({ views: 1, inquiries: 2, booked: 3 }, null).map((x) => x.word), ['opened', 'asked', 'booked']);
   assert.deepEqual(analyticsFigures(null, null).map((x) => x.value), [null, null, null]);
   assert.equal(changeWord(5, null), null);
 });

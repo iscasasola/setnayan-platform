@@ -24,15 +24,13 @@ export function ShopServiceRows({ rows }: { rows: readonly ShopServiceRow[] | nu
       <h2 id="shop-services-h" className="sr-only">
         Services
       </h2>
-      <p className="flex items-center justify-between gap-2 pb-1 pt-2 text-[12.5px] font-medium uppercase tracking-[0.06em] text-ink/55">
-        <span aria-hidden>Services</span>
-        <InfoTip label="About services" ariaLabel="About services" align="end">
+      <p className="pb-1 pt-2 text-[12.5px] font-medium uppercase tracking-[0.06em] text-ink/55">
+        <InfoTip label="Services" align="start">
           List and build every service you do — cards, tools, photos — while you wait. A service with a card switched on is
           live: couples can find and book it. The rest stay ready. How many can be live on each plan is set by Setnayan.
           Each service&rsquo;s tools are the ones every event booked for it starts with.
         </InfoTip>
-      </p>
-      {rows === null ? (
+      </p>      {rows === null ? (
         <p role="alert" className="py-3 text-[14px] text-ink/70" data-shop-services-unread="">
           <strong className="text-ink">We couldn&rsquo;t load your services just now.</strong> They are still on your page —
           only this list is missing. Reload to try again.

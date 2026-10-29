@@ -6,6 +6,7 @@ import {
   ChevronRight,
   Globe,
   Package as PackageIcon,
+  Plus,
   ShieldCheck,
 } from 'lucide-react';
 
@@ -35,6 +36,9 @@ import { packageAuthoringEnabled } from '@/lib/package-authoring-flag';
 import { vendorAutoReplyEnabled } from '@/lib/vendor-autoreply-flag';
 import { DatesRow } from '../customers/_components/dates-row';
 import { ShopServiceRows } from './_components/shop-service-rows';
+import { SupplierThumbRow } from '../_components/supplier-thumb-row';
+import { ActionButton } from '@/components/action-button';
+import { SERVICE_MAKER_HREF } from '@/lib/service-picker-anchor';
 import { resolveCoverageLabels } from '@/lib/vendor-coverages';
 import { servicesFigures, shopServiceRows, type ShopCardLite, type ShopCoverageLite, type ShopServiceRow } from '@/lib/shop-services-summary';
 
@@ -336,7 +340,8 @@ async function ShopHome({
   const sp = await searchParams;
 
   return (
-    <section className="mx-auto w-full max-w-6xl tab:max-w-3xl space-y-8 px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+    <>
+    <section className="mx-auto w-full max-w-6xl tab:max-w-3xl space-y-8 px-4 pb-32 pt-8 sm:px-6 sm:pt-10 lg:px-8">
       {/* 📌 Shop ▾ + Services' three figures — the pinned row (v13), then one row per service with its tools. */}
       <ShopSegments on="services" figures={servicesFigures(data.serviceRows)} />
       <div className="mx-auto max-w-3xl">
@@ -513,6 +518,12 @@ async function ShopHome({
       {/* AUTO-REPLY moved to Your page › Auto-reply (step 5, 2026-10-14) —
           `_components/autoreply-section.tsx`, still behind its switch, still `#auto-reply`. */}
     </section>
+    {/* 👍 Tools in the lower third (v13 Services thumb row: "＋ Add a service") — the same one door every "Add a service"
+        link opens (`SERVICE_MAKER_HREF`, the card maker). */}
+    <SupplierThumbRow name="services" label="Service actions">
+      <ActionButton tone="brand" main icon={Plus} label="Add a service" href={SERVICE_MAKER_HREF} />
+    </SupplierThumbRow>
+    </>
   );
 }
 

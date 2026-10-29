@@ -699,7 +699,7 @@ export function PageLab({ state, who: rawWho, draft, invited = false, asked = fa
   return (
     <>
       <section className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-32 pt-4 sm:px-6" data-supplier-collections="">
-        <ShopSegments on="gallery" figures={galleryFigures({ photos: lp.refs.length, videos: 0, credits: fail ? null : lp.walletBalance })} />
+        <ShopSegments on="gallery" figures={galleryFigures({ photos: f.collections.page?.photos ?? 0, videos: f.collections.page?.videos ?? 0, credits: fail ? null : lp.walletBalance })} />
         <h1 className="sn-h1">Your collections</h1>
         <CollectionsList
           vendorId={`lab-${who}`}

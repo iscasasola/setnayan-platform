@@ -378,11 +378,16 @@ export function ServicesTakeover({
     ro?.observe(stick);
     window.addEventListener('resize', sync);
     window.addEventListener('scroll', sync, { passive: true });
+    // 📌 The row's `top` follows the bar over .3s; the bar hides AFTER the last scroll event, so "stuck" is asked again
+    // once the row has arrived — measured mid-slide it read "not stuck" and the folded row never showed (WebKit walk,
+    // 2026-10-30: scrolled 450 px, row at the top, no fold).
+    stick.addEventListener('transitionend', sync);
     return () => {
       mo?.disconnect();
       ro?.disconnect();
       window.removeEventListener('resize', sync);
       window.removeEventListener('scroll', sync);
+      stick.removeEventListener('transitionend', sync);
     };
   }, []);
 
@@ -439,8 +444,9 @@ export function ServicesTakeover({
     if (key === 'find' || key === 'build') return goToMode(key);
     const part = bookedParts.find((p) => `booked-${p.key}` === key);
     if (!part || part.key === 'team') {
-      if (partPage) go(`${suppliersHref}?tab=${SUPPLIERS_MODE_TAB.booked}`);
-      else goToBuildTab(SUPPLIERS_MODE_TAB.booked);
+      // The Team is the Booked body: in place when it is on this page, else its own address.
+      if (bookedPart === 'team' && !partPage) goToBuildTab(SUPPLIERS_MODE_TAB.booked);
+      else go(part?.href ?? `${suppliersHref}?tab=${SUPPLIERS_MODE_TAB.booked}`);
       return;
     }
     go(part.href);

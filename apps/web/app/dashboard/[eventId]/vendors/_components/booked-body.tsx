@@ -57,7 +57,7 @@ const BOOKED_CSS =
   // ONE ROW OF EQUAL TILES (owner 2026-10-30, "i was hoping this would be a single row"; the prototype's
   // `.bk-exp .verbs`): equal columns, icon over word, never wrapped — Pay · Chat · Workspace · Report/Cancel.
   '[data-booked-body] .bk-tiles{position:relative;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:6px;max-width:520px;min-width:0}' +
-  '[data-booked-body] .bk-tiles :is(button,a).ab{flex-direction:column;justify-content:center;gap:3px;width:100%;height:auto;min-height:56px;padding:7px 4px;border-radius:var(--m-r-md);font-size:12.5px;min-width:0;white-space:normal;text-align:center;line-height:1.15}' +
+  '[data-booked-body] .bk-tiles :is(button,a).ab{flex-direction:column;justify-content:center;gap:3px;width:100%;height:auto;min-height:56px;padding:7px 2px;border-radius:var(--m-r-md);font-size:12px;letter-spacing:-.005em;min-width:0;white-space:normal;text-align:center;line-height:1.15}' +
   '[data-booked-body] .bk-tiles :is(button,a).ab svg{width:18px;height:18px}' +
   '[data-booked-body] .bk-tiles .lbl{max-width:100%;overflow:hidden;text-overflow:ellipsis}' +
   // ONE button height: 44 px, the floor (owner 2026-10-12, look call 3 — "44 px

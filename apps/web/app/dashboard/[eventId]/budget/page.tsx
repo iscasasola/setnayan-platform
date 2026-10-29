@@ -51,12 +51,6 @@ type Props = {
   searchParams?: Promise<{
     part?: string;
     pay?: string;
-    /**
-     * `1` = drawn as Suppliers › Booked › Budget (owner 2026-10-29, Booked = Team · Budget · Schedule): Booked's first
-     * row ("Budget ▾ · ₱… agreed · ₱… paid · Share") stands where the masthead was, and a supplier's row opens the
-     * Pay sheet their Team row opens.
-     */
-    booked?: string;
   }>;
 };
 
@@ -448,7 +442,8 @@ export default async function BudgetPage({ params, searchParams }: Props) {
   const fileActions = <BudgetFileActions eventId={eventId} fileSlug={budgetFileSlug} moneyAnswered={money !== null} />;
   // 📅 Drawn under Suppliers › Booked (owner 2026-10-29): Booked's first row is this page's header — the part's one
   // dropdown, then its own count ("₱297,500 agreed · ₱120,000 paid"), then Share (the prototype's `.crow`).
-  const inBooked = (await searchParams)?.booked === '1';
+  // `?part=budget` is only ever this page drawn inside Suppliers (its own address redirects there) — so under Booked.
+  const inBooked = (await searchParams)?.part === YOUR_TEAM_BUDGET_PART;
   return (
     <section className={inBooked ? 'space-y-6' : 'sn-col max-w-3xl space-y-6'} data-budget-in-booked={inBooked ? '' : undefined}>
       {inBooked ? (

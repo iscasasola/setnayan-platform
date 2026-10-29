@@ -138,20 +138,24 @@ test('4 · ONE row open at a time; the opened row’s verbs are ONE row of equal
   const row = read('vendors', '_components', 'booked-row.tsx');
   assert.match(row, /const \[openId, setOpenId\] = useState<string \| null>\(firstOpen\)/, 'the Team list no longer holds ONE open id');
   assert.match(row, /open=\{openId === r\.vendorId\}/);
-  assert.match(row, /onToggle=\{\(\) => setOpenId\(\(cur\) => \(cur === r\.vendorId \? null : r\.vendorId\)\)\}/);
+  assert.match(row, /const toggle = \(id: string\) => setOpenId\(\(cur\) => \(cur === id \? null : id\)\);/);
+  assert.match(row, /onToggle=\{\(\) => toggle\(r\.vendorId\)\}/);
   assert.match(row, /className="bk-exp" inert=\{!open\}/, 'the fold is no longer inert while closed');
+  // On a phone the fold opens under its row; from 1024 the list's right column holds it — the SAME component.
+  assert.match(row, /<div className="bk-exp" inert=\{!open\}>\s*<div>\s*<BookedFold eventId=\{eventId\} row=\{row\} \/>/);
+  assert.match(row, /<BookedFold eventId=\{eventId\} row=\{openRow\} \/>/, 'the wide right column draws its own fold');
   // The fold carries the call time, the plan, the feeds and the tiles — in that order.
-  const fold = row.slice(row.indexOf('className="bk-exp"'));
+  const fold = row.slice(row.indexOf('function BookedFold('));
   const order = ['<CallTimeLine', '<PlanRows', 'data-booked-feeds', '<VerbRow'].map((t) => fold.indexOf(t));
   assert.ok(order.every((i, k) => i > -1 && (k === 0 || i > order[k - 1]!)), `the fold's order is not call time · plan · feeds · tiles (${order})`);
   assert.match(fold.slice(fold.indexOf('<VerbRow')), /^<VerbRow[\s\S]*?\btiles\b/, 'the opened row’s verbs are not tiles');
 
   const body = read('vendors', '_components', 'booked-body.tsx');
-  const tiles = body.match(/\.bk-tiles\{([^}]*)\}/);
-  assert.ok(tiles, 'the tile row rule is gone');
-  assert.match(tiles[1], /grid-auto-flow:column/, 'the tiles wrap — they must be ONE row');
-  assert.match(tiles[1], /grid-auto-columns:minmax\(0,1fr\)/, 'the tiles are not equal');
-  assert.doesNotMatch(tiles[1], /flex-wrap/);
+  const rule = body.match(/\.bk-tiles\{([^}]*)\}/)?.[1] ?? '';
+  assert.ok(rule, 'the tile row rule is gone');
+  assert.match(rule, /grid-auto-flow:column/, 'the tiles wrap — they must be ONE row');
+  assert.match(rule, /grid-auto-columns:minmax\(0,1fr\)/, 'the tiles are not equal');
+  assert.doesNotMatch(rule, /flex-wrap/);
   // The short words, the full names.
   const rows = readFileSync(join(process.cwd(), 'lib', 'booked-rows.ts'), 'utf8');
   assert.match(rows, /cancel: \{ label: 'Cancel booking', tone: 'danger', tile: 'Cancel' \}/);

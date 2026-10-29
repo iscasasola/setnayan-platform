@@ -54,6 +54,7 @@ import {
   Star,
 } from 'lucide-react';
 import { ActionButton, actionButtonClass, useFitRow } from '@/components/action-button';
+import { useIsDesktop } from '@/lib/use-responsive';
 import { formatPhp } from '@/lib/php';
 import { shortDate } from '@/lib/budget-page-view';
 import {
@@ -336,7 +337,13 @@ export function NextPayButton({
  */
 export function BookedRowList({ eventId, rows, firstOpen = null }: { eventId: string; rows: readonly BookedRow[]; firstOpen?: string | null }) {
   const [openId, setOpenId] = useState<string | null>(firstOpen);
-  return (
+  // 🖥 From a tablet (768) the list sits left and the opened supplier on the right (the prototype's wide Team, "from
+  // 820 wide: … list left, the opened item right" — "Tap a supplier to see their payments, call time and tools
+  // here"), so a wide screen is never a stretched phone row. Below it the fold opens in place. One fold component
+  // either way (`BookedFold`) — never two copies of its verbs on screen.
+  const wide = useIsDesktop('md');
+  const toggle = (id: string) => setOpenId((cur) => (cur === id ? null : id));
+  const list = (
     <ul className="bk-rows mt-2">
       {rows.map((r) => (
         <BookedRowItem
@@ -344,10 +351,40 @@ export function BookedRowList({ eventId, rows, firstOpen = null }: { eventId: st
           eventId={eventId}
           row={r}
           open={openId === r.vendorId}
-          onToggle={() => setOpenId((cur) => (cur === r.vendorId ? null : r.vendorId))}
+          onToggle={() => toggle(r.vendorId)}
+          foldInline={!wide}
         />
       ))}
     </ul>
+  );
+  if (!wide) return list;
+  const openRow = rows.find((r) => r.vendorId === openId) ?? null;
+  return (
+    <div
+      className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] items-start gap-6 lg:grid-cols-[minmax(0,460px)_minmax(0,1fr)] lg:gap-8"
+      data-booked-wide=""
+    >
+      {list}
+      <aside
+        className="sticky top-[calc(var(--stick-h,150px)+12px)] mt-2 min-w-0 border-l border-ink/10 pl-6 lg:pl-8"
+        aria-label={openRow ? openRow.name : 'Your team'}
+        data-booked-detail={openRow?.vendorId ?? ''}
+      >
+        {openRow ? (
+          <>
+            <p className="flex items-baseline gap-3 border-b border-ink/10 pb-3">
+              <span className="min-w-0 flex-1 truncate text-[17px] font-medium text-ink">{openRow.name}</span>
+              <span className="shrink-0 text-[13px] tabular-nums text-ink/55">
+                {[openRow.service, openRow.money ? formatPhp(openRow.money.agreedPhp) : null].filter(Boolean).join(' · ')}
+              </span>
+            </p>
+            <BookedFold eventId={eventId} row={openRow} />
+          </>
+        ) : (
+          <p className="pt-2 text-[14px] text-ink/55">Tap a supplier to see their call time, payments and tools here.</p>
+        )}
+      </aside>
+    </div>
   );
 }
 
@@ -380,9 +417,12 @@ function PlanRows({ plan, own }: { plan: NonNullable<BookedPlan>; own: boolean }
       </p>
     );
   }
+  // A supplier the couple added: the plan IS their record (the prototype's "Payment plan · your record").
   const head =
     plan.kind === 'ledger'
-      ? 'Payments'
+      ? own
+        ? 'Payment plan · your record'
+        : 'Payments'
       : `Payment plan${own ? ' · your record' : plan.estimated ? ' · estimated' : ''}`;
   return (
     <div data-booked-plan={plan.kind}>
@@ -440,6 +480,7 @@ export function BookedRowItem({
   defaultOpen = false,
   open: openProp,
   onToggle,
+  foldInline = true,
 }: {
   eventId: string;
   row: BookedRow;
@@ -447,6 +488,8 @@ export function BookedRowItem({
   /** Held by `BookedRowList` (one open at a time). Absent → the row holds its own. */
   open?: boolean;
   onToggle?: () => void;
+  /** The fold opens under the row (a phone); false = the list's right column holds it (from 768). */
+  foldInline?: boolean;
 }) {
   const [ownOpen, setOwnOpen] = useState(defaultOpen);
   const open = openProp ?? ownOpen;
@@ -511,35 +554,47 @@ export function BookedRowItem({
           <span className={row.dateAsk.waiting ? 'text-sn-accent' : 'text-ink'}>{row.dateAsk.line}</span>
         </p>
       ) : null}
-      <div className="bk-exp" inert={!open}>
-        <div>
-          <div className="grid min-w-0 gap-2.5 pb-1 pt-3 text-[14px]">
-            {row.callTime ? <CallTimeLine line={row.callTime} /> : null}
-            {row.plan ? <PlanRows plan={row.plan} own={row.own} /> : null}
-            {row.room ? <BookedRoomLine line={row.room} threadId={row.threadId} /> : null}
-            <p className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[12.5px]" data-booked-feeds="">
-              <span className="text-ink/55">Used across your event:</span>
-              {row.feeds.map((u) => (
-                <span key={u} className={`${PILL} bg-ink/5 text-ink/70`}>
-                  {u}
-                </span>
-              ))}
-            </p>
-            <VerbRow
-              eventId={eventId}
-              vendorId={row.vendorId}
-              vendorName={row.name}
-              service={row.service}
-              own={row.own}
-              verbs={row.verbs}
-              threadId={row.threadId}
-              payVersion={JSON.stringify([row.next, row.money])}
-              tiles
-            />
+      {foldInline ? (
+        <div className="bk-exp" inert={!open}>
+          <div>
+            <BookedFold eventId={eventId} row={row} />
           </div>
         </div>
-      </div>
+      ) : null}
     </li>
+  );
+}
+
+/**
+ * WHAT AN OPENED TEAM ROW SHOWS — call time · payment plan · room size · "Used across your event" · ONE row of equal
+ * tiles (the prototype's `teamFold`). Drawn under the row on a phone, in the right column from 768.
+ */
+function BookedFold({ eventId, row }: { eventId: string; row: BookedRow }) {
+  return (
+    <div className="grid min-w-0 gap-2.5 pb-1 pt-3 text-[14px]" data-booked-fold={row.vendorId}>
+      {row.callTime ? <CallTimeLine line={row.callTime} /> : null}
+      {row.plan ? <PlanRows plan={row.plan} own={row.own} /> : null}
+      {row.room ? <BookedRoomLine line={row.room} threadId={row.threadId} /> : null}
+      <p className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[12.5px]" data-booked-feeds="">
+        <span className="text-ink/55">Used across your event:</span>
+        {row.feeds.map((u) => (
+          <span key={u} className={`${PILL} bg-ink/5 text-ink/70`}>
+            {u}
+          </span>
+        ))}
+      </p>
+      <VerbRow
+        eventId={eventId}
+        vendorId={row.vendorId}
+        vendorName={row.name}
+        service={row.service}
+        own={row.own}
+        verbs={row.verbs}
+        threadId={row.threadId}
+        payVersion={JSON.stringify([row.next, row.money])}
+        tiles
+      />
+    </div>
   );
 }
 

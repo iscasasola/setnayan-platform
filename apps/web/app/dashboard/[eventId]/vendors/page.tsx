@@ -306,12 +306,12 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // and they return HERE, before the team's reads, for the same reason the Budget part always has: the bench's
   // fan-out would be fetched and thrown away.
   const bookedPartList = bookedParts({ eventId, budgetEnabled: surfaceEnabled(profile, 'budget') });
-  if (sp.part === YOUR_TEAM_BUDGET_PART && bookedPartList.some((p) => p.key === 'budget')) {
+  if (sp.part === YOUR_TEAM_BUDGET_PART) {
     return (
       <BookedPartPage eventId={eventId} userId={viewerId} part="budget" parts={bookedPartList}>
         <BudgetPage
           params={Promise.resolve({ eventId })}
-          searchParams={Promise.resolve({ part: YOUR_TEAM_BUDGET_PART, pay: sp.pay, booked: '1' })}
+          searchParams={Promise.resolve({ part: YOUR_TEAM_BUDGET_PART, pay: sp.pay })}
         />
       </BookedPartPage>
     );

@@ -86,7 +86,7 @@ test('Your Team MOUNTS the shipped Budget page as its part, and offers it from t
   // Under Booked since 2026-10-30 (Team · Budget · Schedule): the SAME shipped page, inside the Suppliers shell.
   assert.match(
     page,
-    /if \(sp\.part === YOUR_TEAM_BUDGET_PART\b[\s\S]*?<BookedPartPage[\s\S]*?<BudgetPage[\s\S]*?part: YOUR_TEAM_BUDGET_PART, pay: sp\.pay, booked: '1'/,
+    /if \(sp\.part === YOUR_TEAM_BUDGET_PART\) \{[\s\S]*?<BookedPartPage[\s\S]*?<BudgetPage[\s\S]*?part: YOUR_TEAM_BUDGET_PART, pay: sp\.pay \}/,
     'the Budget part is not rendered, or does not tell the page it is embedded',
   );
   // ⚖ Owner 2026-10-07 (the one-screen Suppliers shell, PR1): the five-row

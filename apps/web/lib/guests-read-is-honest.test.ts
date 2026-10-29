@@ -170,7 +170,7 @@ test('every claim on the page is gated on that measurement', () => {
   // (🎠 2026-10-27: the counts line + meter became the summary carousel — the ring, the counts, the +1s — and it sits
   //  behind the SAME gate.)
   assert.match(scr, /\{measured(?: && !makerView)? \? \(\s*<>\s*<div className=\{`\$\{styles\.summary\}/, 'the summary carousel (counts, ring) is drawn on a refused read');
-  assert.match(scr, /count !== undefined && measured \? <b>/, 'the List segment prints a count nobody measured');
+  assert.match(scr, /const count = t === 'guests' && on && measured \? <b>/, 'the Guests segment prints a count nobody measured');
   // 4 · a refused read shows the page's "couldn't load" state, never sections.
   assert.match(src, /!guestsMeasured \|\| rosterAll\.length === 0 \?/, 'a refused read is not routed to the honest empty state');
   assert.doesNotMatch(scr, /hidden lg:|lg:hidden/, 'a gated figure is hidden at one width');

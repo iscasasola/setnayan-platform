@@ -10,7 +10,7 @@ import { fetchInvitationBase } from '../_components/guest-card-data';
 import { loadInviteSetup } from '../_components/invite-message-setup';
 import { SendRun, type RunGuest, type RunOneLink } from './_components/send-run';
 import { invitationLinkOn } from '@/lib/invitation-link';
-import { sendRunGuests } from '@/lib/guest-roster-view';
+import { hasReplied, sendRunGuests } from '@/lib/guest-roster-view';
 import { loadRoleNames } from '@/lib/role-names.server';
 import { runGuestPage } from '@/lib/send-run-page';
 import { readGuestsGetIn } from '@/lib/who-can-reply';
@@ -96,6 +96,8 @@ export default async function SendInvitesPage({ params, searchParams }: Props) {
       fullName: guestDisplayName(g),
       inviteUrl: invitationBase && g.qr_token ? invitationLinkOn(invitationBase, g.qr_token) : null,
       sentAt: g.invitation_sent_at,
+      // 💬 Answered already (Attending · Can't come · Maybe) → not "to invite": never queued, never counted.
+      replied: hasReplied(g),
       // The guest as a page (owner: "the guest's name, role, Pluses, or basic details we need").
       page: runGuestPage(g, rows, roleNames, hasSides),
     }));
@@ -123,6 +125,7 @@ export default async function SendInvitesPage({ params, searchParams }: Props) {
       facts={setup.facts}
       template={setup.template}
       oneLink={oneLink}
+      picked={picked.length > 0}
     />
   );
 }

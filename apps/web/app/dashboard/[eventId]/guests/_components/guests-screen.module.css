@@ -201,6 +201,10 @@
     min-width: 36px;
     height: 36px;
   }
+  .stick:has([data-guests-view-rounds]:not(:empty)) [data-guests-segmented] > *,
+  .stick:has([data-guests-view-rounds]:not(:empty)) [data-guests-seg-menu] > button {
+    padding-inline: 4px;
+  }
 }
 /* 📌 The slim row's ONE menu ("Guests · List ▾") — the shared PickMenu, never cut. */
 .pinMenu {

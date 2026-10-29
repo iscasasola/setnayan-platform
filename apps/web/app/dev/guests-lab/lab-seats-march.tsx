@@ -103,6 +103,7 @@ export function LabSeats({ guests, seat }: { guests: readonly { guest_id: string
           ],
           part: view === 'map' ? 'map' : null,
           host: 'guests',
+          open3d: seat === '3d',
         }}
         me={{ id: 'lab-user', name: 'Maria' }}
       />

@@ -1179,7 +1179,7 @@ export async function finalizeVendor(
   // event — say so and stop; the database guard would refuse a second booking anyway.
   const onePerEvent = await readOnePerEventGroups(supabase);
   if (!onePerEvent.ok) {
-    return { status: 'error', message: 'Couldn’t check this category just now — try the lock again.' };
+    return { status: 'error', message: 'Couldn’t check this category just now — try booking again.' };
   }
   const isHardSingle = isOnePerEventGroup(groupId, onePerEvent.groups);
   const groupCategories: VendorCategory[] = isHardSingle

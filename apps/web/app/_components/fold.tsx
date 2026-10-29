@@ -184,7 +184,17 @@ export function Fold({
       aria-controls={id}
       aria-label={tipped ? (summary ? `${title} · ${summary}` : title) : undefined}
       data-fold-pinned={pinned ? '' : undefined}
-      onClick={() => (pinned ? toTop() : setOpen((o) => !o))}
+      onClickCapture={
+        pinned
+          ? (e) => {
+              /* A press on a PINNED head goes back to the fold's top — it does not shut it. */
+              e.preventDefault();
+              e.stopPropagation();
+              toTop();
+            }
+          : undefined
+      }
+      onClick={() => setOpen((o) => !o)}
       className={`sn-press flex items-center gap-2 text-left font-semibold text-ink ${pin ? 'transition-[min-height,font-size] duration-300 ease-sn motion-reduce:transition-none' : ''} ${pinned ? 'min-h-10 text-[13.5px]' : 'min-h-[52px] text-[15px]'} ${leadPress || tipped ? 'min-w-0 flex-1' : 'w-full'}`}
     >
       {lead}

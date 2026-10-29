@@ -44,6 +44,8 @@ import { ReadOnly } from './ui';
 import { Row } from './drawer-kit';
 import { PanelFold, PanelHead } from './panel-kit';
 
+const ordinal = (n: number) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? 'th' : (['th', 'st', 'nd', 'rd'][n % 10] ?? 'th')}`;
+
 const CHIP = 'inline-flex min-h-11 items-center gap-1.5 rounded-full border border-ink/15 bg-raised px-3 text-sm text-ink hover:bg-ink/5';
 
 function Chip({ href, level, label, small }: { href: string; level: 'service' | 'part' | 'category'; label: string; small?: string }) {
@@ -148,7 +150,7 @@ export function PartPanel({ part, data, state }: { part: MapPart; data: MapData;
       <PanelFold id="name" title="Name" summary={part.label}>
         <RenamePart slotKey={part.key} label={part.label} />
       </PanelFold>
-      <PanelFold id="where" title="Where it sits" summary={`${home?.label ?? part.home}${idx >= 0 ? ` · ${idx + 1} of ${formatCount(siblings.length)}` : ''}`}>
+      <PanelFold id="where" title="Where it sits" summary={`${home?.label ?? part.home}${idx >= 0 ? ` · ${ordinal(idx + 1)} of ${formatCount(siblings.length)}` : ''}`}>
         <Row
           label="Home"
           tip={

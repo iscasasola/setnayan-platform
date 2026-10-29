@@ -41,7 +41,10 @@ export async function readOnePerEventGroups(sb: SupabaseClient): Promise<OnePerE
     .eq('tier', 2)
     .eq('status', 'active')
     .eq('one_per_event', true);
-  if (error || !data) return { ok: false };
+  if (error || !data) {
+    console.error('[supabase-error] lib/one-per-event.ts · from:service_categories.select', error);
+    return { ok: false };
+  }
   return { ok: true, groups: onePerEventGroupsFrom(data as OnePerEventRow[]) };
 }
 

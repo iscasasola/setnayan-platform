@@ -108,6 +108,10 @@ export function Fold({
   aside,
   lead,
   leadPress,
+  endPress,
+  current = false,
+  wrap = false,
+  titleNode,
   anchor,
   popovers = false,
   summaryEnd = false,
@@ -136,6 +140,23 @@ export function Fold({
    * nested in the head. Absent → the head is exactly as it was.
    */
   leadPress?: ReactNode;
+  /**
+   * A PRESSABLE at the RIGHT, BESIDE the head rather than inside it — a list row's ONE action ("Confirm" · "Reply" · "Pay")
+   * that acts directly while the rest of the row opens it (owner 2026-10-29, supplier dashboard v13: *"where is the
+   * expand look of these rows?"* — the row opens, "the button still does its one thing"). Like `leadPress`, a button is
+   * never nested in the head. Absent → the head is exactly as it was.
+   */
+  endPress?: ReactNode;
+  /**
+   * THIS ROW IS THE ONE OPEN IN THE RIGHT COLUMN (from 701 a supplier list opens a row beside itself, not under it —
+   * `vendor-dashboard/_components/supplier-open-row.tsx`). The head says so (`aria-current`, `data-fold-current`) while
+   * the fold itself stays shut. Absent → the head is exactly as it was.
+   */
+  current?: boolean;
+  /** With `line`: the title takes TWO lines before it is ever cut (house rule "names never cut"). Absent → one line. */
+  wrap?: boolean;
+  /** With `line`: what the title DRAWS when it is marked (a search's matching letters) — `title` stays its words. */
+  titleNode?: ReactNode;
   defaultOpen?: boolean;
   children: ReactNode;
   /** `data-fold="<data>"`. */
@@ -224,8 +245,10 @@ export function Fold({
       aria-expanded={open}
       aria-controls={id}
       aria-label={tipped ? (summary ? `${title} · ${summary}` : title) : undefined}
+      aria-current={current ? 'true' : undefined}
+      data-fold-current={current ? '' : undefined}
       onClick={() => setOpen((o) => !o)}
-      className={`sn-press flex min-h-[52px] items-center gap-2 text-left text-[15px] font-semibold text-ink ${leadPress || tipped ? 'min-w-0 flex-1' : 'w-full'}`}
+      className={`sn-press flex min-h-[52px] items-center gap-2 text-left text-[15px] font-semibold text-ink ${leadPress || tipped || endPress ? 'min-w-0 flex-1' : 'w-full'}`}
     >
       {lead ? (
         <span className="inline-flex flex-none" data-fold-lead="">
@@ -243,7 +266,7 @@ export function Fold({
         </>
       ) : line !== undefined ? (
         <span className="min-w-0 flex-1">
-          <span className="block truncate">{title}</span>
+          <span className={wrap ? 'line-clamp-2 block leading-snug' : 'block truncate'}>{titleNode ?? title}</span>
           {line ? (
             <span className="block truncate text-[13px] font-normal text-ink/60" data-fold-sub="">
               {line}
@@ -278,10 +301,15 @@ export function Fold({
       className={anchor ? `scroll-mt-24 ${className}` : className}
     >
       <div ref={pinRef} data-fold-pinbox="">
-      {leadPress ? (
+      {leadPress || endPress ? (
         <div className="flex items-center gap-2" data-fold-row="">
           {leadPress}
           {head}
+          {endPress ? (
+            <span className="flex flex-none items-center" data-fold-end="">
+              {endPress}
+            </span>
+          ) : null}
         </div>
       ) : tipped ? (
         <div className="flex items-center gap-2" data-fold-row="" data-fold-tipped="">

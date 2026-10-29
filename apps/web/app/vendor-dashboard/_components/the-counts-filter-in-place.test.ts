@@ -152,7 +152,8 @@ test('2 · each count shows ITS list in place — the week list is what "this we
 
   // The money: the overdue one first, then the nearest due; no row for an installment with no amount.
   const money = listOf(html, 'money');
-  const labels = [...money.matchAll(/data-today-row="money"[\s\S]*?home-t[^>]*>([^<]+)</g)].map((m) => m[1]);
+  // v13: a money row OPENS (the shared fold) — its title is the head's.
+  const labels = [...money.matchAll(/data-today-row="money"[\s\S]*?data-fold-head[\s\S]*?leading-snug">([^<]+)</g)].map((m) => m[1]);
   assert.deepEqual(labels, ['Ocampo debut', 'Cruz wedding'], 'the money list is not who owes, most urgent first');
   assert.match(text(money), /₱15,000 · overdue/);
   assert.match(text(money), /₱42,000 · due/);

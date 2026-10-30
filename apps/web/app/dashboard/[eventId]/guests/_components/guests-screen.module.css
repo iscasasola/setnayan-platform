@@ -1605,3 +1605,116 @@ button.countsDoor[aria-pressed='true'] {
     animation: none;
   }
 }
+
+/* 🧠 THE MAP AS A MIND MAP (R4 slice 10, prototype v12–v18): the couple in the centre, the groups as hubs on one ring, each
+   group's people as faces around it. Every piece is placed by its centre (`left`/`top` = the world point). */
+.mapcanvas svg.links line {
+  stroke: rgb(var(--color-ink) / 0.14);
+  stroke-width: 1.5;
+}
+.mindCouple,
+.mindHub,
+.mindFace {
+  position: absolute;
+  transform: translate(-50%, -50%);
+}
+/* A hub's name and its "+N more", one column under it (`guest-map-canvas.tsx`): stacked, never overlapping. */
+.mindUnder {
+  position: absolute;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  pointer-events: none;
+}
+.mindCouple {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border-radius: 50%;
+  background: var(--gs-brand);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.15;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.mindHub {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1.5px solid var(--gs-line);
+  background: var(--gs-paper);
+  color: var(--gs-ink);
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.mindHubOn {
+  border-color: var(--gs-brand);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--gs-brand) 22%, transparent);
+}
+.mindOther {
+  border-style: dashed;
+}
+.mindLabel {
+  max-width: 140px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: center;
+  color: rgb(var(--color-ink) / 0.6);
+  overflow-wrap: anywhere;
+  pointer-events: none;
+}
+.mindMore {
+  height: 22px;
+  padding: 0 9px;
+  border-radius: var(--m-r-full);
+  border: 1px solid var(--gs-line);
+  background: var(--gs-paper);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--gs-ink);
+  cursor: pointer;
+  pointer-events: auto;
+}
+.mindFace {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.mindFace.leafNo {
+  opacity: 0.45;
+}
+.mindBack {
+  position: sticky;
+  top: 8px;
+  left: 16px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 36px;
+  margin: 8px 0 0 16px;
+  padding: 0 12px 0 8px;
+  border-radius: var(--m-r-full);
+  border: 1px solid var(--gs-line);
+  background: var(--gs-paper);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gs-ink);
+}

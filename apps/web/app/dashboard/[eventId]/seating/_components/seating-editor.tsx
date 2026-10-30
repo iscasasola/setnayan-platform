@@ -1403,8 +1403,8 @@ export function SeatingEditor({
     // are laid out, into the room's open space.
     const onScreen = arranging.map((t) => {
       const p = positions[t.table_id];
-      const placedByCouple = t.x_pos !== null || dirty.has(t.table_id);
-      return p && placedByCouple ? { ...t, x_pos: p.x, y_pos: p.y } : t;
+      const tablePlacedByCouple = t.x_pos !== null || dirty.has(t.table_id);
+      return p && tablePlacedByCouple ? { ...t, x_pos: p.x, y_pos: p.y } : t;
     });
     const keepPlaced = new Set(onScreen.filter((t) => t.x_pos !== null && t.y_pos !== null && !added.includes(t)).map((t) => t.table_id));
     // What Undo puts back: every table's saved spot and every booth before this run.
@@ -7007,7 +7007,7 @@ export function SeatingEditor({
             </div>
           ) : null}
           <div className="flex justify-end gap-2 pt-1">
-            <ActionButton tone="neutral" label="Cancel" onClick={() => setAskMove(null)} />
+            <ActionButton tone="neutral" icon={X} label="Cancel" onClick={() => setAskMove(null)} />
             <ActionButton tone="brand" main icon={askMove.a.kind === 'swap' ? ArrowLeftRight : Armchair} label={askMove.a.kind === 'swap' ? 'Swap' : 'Move'} onClick={doAskedMove} data-seat-move-go="" />
           </div>
         </div>

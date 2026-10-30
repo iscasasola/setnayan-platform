@@ -120,19 +120,15 @@ async function withRouter(el: React.ReactElement) {
 test('6 · on a phone the segments come first — Set up · Crew · The event’s pages ABOVE the event card', async () => {
   const { HubScreen } = await import('./_components/hub-screen');
   const today = list().find((e) => e.eventId === 'e-today')!;
-  const html = await withRouter(
-    React.createElement(
-      HubScreen,
-      {
-        menu: React.createElement('span', { 'data-probe-menu': '' }),
-        event: today,
-        seg: 'setup',
-        pane: React.createElement('span', { 'data-probe-card': '' }),
-        thumb: React.createElement('span', { 'data-probe-thumb': '' }),
-      },
-      React.createElement('span', { 'data-probe-body': '' }),
-    ),
-  );
+  const props: React.ComponentProps<typeof HubScreen> = {
+    menu: React.createElement('span', { 'data-probe-menu': '' }),
+    event: today,
+    seg: 'setup',
+    pane: React.createElement('span', { 'data-probe-card': '' }),
+    thumb: React.createElement('span', { 'data-probe-thumb': '' }),
+    children: React.createElement('span', { 'data-probe-body': '' }),
+  };
+  const html = await withRouter(React.createElement(HubScreen, props));
   const at = (mark: string) => {
     const i = html.indexOf(mark);
     assert.notEqual(i, -1, `${mark} is not drawn`);

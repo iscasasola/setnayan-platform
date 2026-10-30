@@ -13,7 +13,7 @@
  *   On — everyone, now    → `papic_on` true + `papic_guest_capture_early` true.
  *
  * 🔑 NEVER LOOK APPLIED WHEN IT ISN'T: `papic_on` only reaches guests on Apply, so the line says so while the draft and
- * the live value differ ("Off after you Apply" · "On after you Apply — …"). An unread value is "Couldn’t check just now".
+ * the live value differ ("Off after you Apply" · "On after you Apply"). An unread value is "Couldn’t check just now".
  *
  * Pure. Held by `app/dashboard/[eventId]/home-papic-head-is-shoot-now.test.ts`.
  */
@@ -56,11 +56,15 @@ export function papicHeadWrites(
   return out;
 }
 
-/** The line under the card's title — the current position, honestly. */
+/**
+ * The line under the card's title — the current position, honestly, and SHORT: one line beside the head's 96 px control
+ * at 390 px (owner-approved 2026-10-30 — "Guests shoot on the event day" wrapped and orphaned "day"). The dropdown's
+ * button already names which On, so the waiting line need not.
+ */
 export function papicHeadLine(f: PapicHeadFacts): string {
   const at = papicHeadPosition(f);
   if (at === null) return 'Couldn’t check just now';
   if (at === 'off') return f.live ? 'Off after you Apply' : 'Off';
-  if (!f.live) return at === 'now' ? 'On after you Apply — everyone, now' : 'On after you Apply — event day';
-  return at === 'now' ? 'Guests can shoot now' : 'Guests shoot on the event day';
+  if (!f.live) return 'On after you Apply';
+  return at === 'now' ? 'Guests can shoot now' : 'On the event day';
 }

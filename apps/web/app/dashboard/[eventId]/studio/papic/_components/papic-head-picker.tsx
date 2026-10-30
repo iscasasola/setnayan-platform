@@ -17,6 +17,8 @@ import {
 import { papicSaveInPlace } from '../in-place-actions';
 
 const NOT_SAVED = 'That did not save. Nothing changed — please try again.';
+/** 📏 The open list's least width — "On — everyone, now" on one line (owner-approved 2026-10-30: options never wrap). */
+export const PAPIC_HEAD_MENU_MIN_WIDTH = 232;
 
 /**
  * 📷 THE PAPIC CARD'S HEAD — ONE DROPDOWN, THREE POSITIONS (owner 2026-10-30: *"the switch on event home should be the let
@@ -138,6 +140,7 @@ export function PapicHeadPicker({
         buttonText={PAPIC_HEAD_OPTIONS.find((o) => o.key === at)?.short}
         onPick={pick}
         compact
+        menuMinWidth={PAPIC_HEAD_MENU_MIN_WIDTH}
         dataAttr="data-papic-head-button"
       />
     </span>

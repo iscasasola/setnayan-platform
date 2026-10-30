@@ -10,14 +10,19 @@ maybe assign partial turn on?"*.
   - **On — event day** → `papic_on` true (the draft, only when it was off) + `papic_guest_capture_early` false, LIVE
     through the shipped `setPapicGuestCaptureEarly` (`papicSaveInPlace` — no navigation).
   - **On — everyone, now** → `papic_on` true + `papic_guest_capture_early` true.
-- The line under the title states the position — "Off" / "Guests shoot on the event day" / "Guests can shoot now" — and
-  says "Off after you Apply" / "On after you Apply — …" while `papic_on` waits for Apply (Home now reads the draft for
+- The line under the title states the position, short enough for one line beside the 96 px control at 375–390 px —
+  "Off" / "On the event day" / "Guests can shoot now" — and says "Off after you Apply" / "On after you Apply" while
+  `papic_on` waits for Apply (`text-wrap: balance` if it ever wraps) (Home now reads the draft for
   it; it used to show the live value only). It follows the pick at once; a refused write reverts to what IS stored and
   says why under the head, in the card's flow (inside the control's absolute slot a sentence threw the control over the
   camera mark at 390 px). Unread → disabled + "Couldn’t check just now".
 - The settings' **"When guests can shoot"** button row is removed — one control per fact (its only seat was this card).
   `guest-cameras-choice.tsx` now only reads (`readPapicHead`, React-`cache`d: the early column + the draft). The
   window's exact close times moved into the settings' ⓘ. `PapicSwitch` is retired (the dropdown replaces it).
+- 📏 Shared `PickMenu` gains an OPTIONAL `menuMinWidth` (→ `placePickList`'s `minWidth`, clamped to the screen less its
+  margins); absent = today's rule, so no other menu changes. Only the Papic head sets it (232 px), so "On — everyone,
+  now" never wraps; the list reaches left of its button and stays on screen at 375 px. `pick-menu.tsx` stays under
+  its 9,800-byte inline line (9,794).
 - 🐛 `papicInPlaceAnswer` read `?guestCameras=error` / `?faceTagging=error` / `?vendorMedia=error` as **saved** (the
   outcome is in the value, not the key, and the `#papic` fragment rode on it). Now a refusal; pinned in
   `papic-saves-in-place.test.ts`.

@@ -141,7 +141,7 @@ export function PapicHomeCard({
               <span className={`min-w-0 ${headControl ? 'pr-24' : ''}`}>
                 <span className="sg-name block truncate">{name}</span>
                 {saidLine !== null || headLine || brand ? (
-                  <span className={`sg-brand block ${saidLine !== null || headLine ? '' : 'truncate'}`} data-papic-head-line="">
+                  <span className={`sg-brand block ${saidLine !== null || headLine ? '[text-wrap:balance]' : 'truncate'}`} data-papic-head-line="">
                     {saidLine ?? headLine ?? brand}
                   </span>
                 ) : null}

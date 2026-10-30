@@ -23,6 +23,7 @@ import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
 import { PAPIC_HEAD_OPTIONS, papicHeadLine, papicHeadPosition, papicHeadWrites } from '@/lib/papic-shoot-now';
 import { HUB_DRAFT_ANSWER_COLUMNS } from '@/lib/hub-draft';
+import { placePickList } from './website/editor/_components/pick-menu-place';
 
 const WEB = process.cwd();
 const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
@@ -82,10 +83,21 @@ test('(1) three positions → two columns, and an honest line (executed)', () =>
   // The line — never applied-looking while papic_on still waits for Apply.
   assert.equal(papicHeadLine({ live: false, draftOn: false, early: false }), 'Off');
   assert.equal(papicHeadLine({ live: true, draftOn: false, early: true }), 'Off after you Apply');
-  assert.equal(papicHeadLine({ live: true, draftOn: true, early: false }), 'Guests shoot on the event day');
+  assert.equal(papicHeadLine({ live: true, draftOn: true, early: false }), 'On the event day');
   assert.equal(papicHeadLine({ live: true, draftOn: true, early: true }), 'Guests can shoot now');
-  assert.match(papicHeadLine({ live: false, draftOn: true, early: true }), /after you Apply/);
-  assert.match(papicHeadLine({ live: false, draftOn: true, early: false }), /after you Apply/);
+  assert.equal(papicHeadLine({ live: false, draftOn: true, early: true }), 'On after you Apply');
+  assert.equal(papicHeadLine({ live: false, draftOn: true, early: false }), 'On after you Apply');
+  // Short enough for one line beside the 96 px control at 390 px — no lone "day" (owner-approved 2026-10-30).
+  for (const f of [
+    { live: false, draftOn: false, early: false },
+    { live: true, draftOn: false, early: false },
+    { live: true, draftOn: true, early: false },
+    { live: true, draftOn: true, early: true },
+    { live: false, draftOn: true, early: true },
+    { live: true, draftOn: true, early: null },
+  ]) {
+    assert.ok(papicHeadLine(f).length <= 23, `"${papicHeadLine(f)}" is too long for one line beside the head's control`);
+  }
   assert.match(papicHeadLine({ live: true, draftOn: true, early: null }), /Couldn’t check/);
   assert.match(papicHeadLine({ live: null, draftOn: true, early: true }), /Couldn’t check/);
 });
@@ -113,6 +125,8 @@ function checkDoors(picker: string, action: string): void {
 
 function checkOneControl(picker: string, settings: string, card: string): void {
   assert.equal(count(picker, /<PickMenu\b/), 1, 'the head is not ONE dropdown');
+  // 📏 Its options never wrap: the list's own least width, through the shared PickMenu's optional prop.
+  assert.match(picker, /menuMinWidth=\{PAPIC_HEAD_MENU_MIN_WIDTH\}/, 'the head menu lost its least width — its options wrap again');
   assert.match(picker, /options=\{PAPIC_HEAD_OPTIONS\.map/, 'the dropdown does not offer the three positions');
   assert.match(
     fn(settings, 'PapicHeadControl'),
@@ -149,6 +163,23 @@ test('(4) Event Details › Photos from guests still sets papic_on through the d
     /row="papic-answer"[\s\S]{0,300}answerKeyOf\('papic_on', shown\.papic_on\)[\s\S]{0,300}waiting\('papic_on'\)/,
     'Event Details › Photos from guests lost its row',
   );
+});
+
+test('(4b) the shared PickMenu least width: optional, today\'s rule when absent, on screen at 375 px (executed)', () => {
+  const button = { top: 100, bottom: 128, left: 230, width: 96 };
+  const phone = { width: 375, height: 812 };
+  // Absent — today's rule exactly (the button's width, at least 160 px).
+  assert.equal(placePickList({ button, listHeight: 140, viewport: phone }).minWidth, 160);
+  // The Papic head's — wide enough, reaching left of the button, and still on screen.
+  const p = placePickList({ button, listHeight: 140, viewport: phone, minWidth: 232 });
+  assert.equal(p.minWidth, 232);
+  assert.ok(p.left < button.left, 'the list does not reach left of its button');
+  assert.ok(p.left >= 8 && p.left + p.minWidth <= phone.width - 8, 'the list leaves the screen at 375 px');
+  // Never wider than the screen less its margins.
+  assert.equal(placePickList({ button, listHeight: 140, viewport: { width: 200, height: 600 }, minWidth: 400 }).minWidth, 184);
+  // The shared menu passes it through, and only this instance sets it.
+  const menu = code('app/dashboard/[eventId]/website/editor/_components/pick-menu.tsx');
+  assert.match(menu, /minWidth: menuMinWidth,/);
 });
 
 test('(5) SABOTAGE — each check fails on the defect it is written for', () => {

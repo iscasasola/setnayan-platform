@@ -18,5 +18,8 @@ arrange vs the couple) to drive the swap sheet's 'why here'"; prototype `whyHere
   you"). `fetchAssignments` and the card's seat read now ask for the two columns.
 - Next (slice 6a): the swap/move confirm sheet's "why here" reads the same `seatWhyWords`.
 - Guard `lib/a-seat-says-who-placed-it.test.ts`.
+- **Reach (exposure baseline, read line by line):** the two new columns carry the table's existing table-level grants,
+  exactly like its other nine; the rows stay behind the same policies (the couple, and seat-plan helpers by their level).
+  `anon` holds no row policy on this table, so it still reads nothing.
 
 SPEC IMPACT: None — schema addition for an approved ruling (DECISION_LOG 2026-10-29); no spec text changes.

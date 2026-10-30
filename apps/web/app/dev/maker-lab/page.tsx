@@ -26,6 +26,8 @@ import { REVEAL_TEMPLATE_IDS, type RevealTemplateId } from '@/lib/reveal-config-
 import { LastSeenScope } from '@/app/_components/last-seen/last-seen-scope';
 import { LabPageSpotlight } from '../_components/lab-page-spotlight';
 import { TOURS } from '@/lib/tours';
+import { LabShell } from '@/app/dev/_components/lab-shell';
+import { labEventBar } from '@/app/dev/bar-lab/lab-event';
 import { HOST_PAGE_TOURS } from '@/lib/host-page-tours';
 
 /**
@@ -179,6 +181,9 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
      "Recently used" (per person, per event, this browser) works in the lab as in the app. A lab id, never a real one. */
   return (
     <LastSeenScope userId="lab-viewer" eventId={EVENT}>
+    {/* 🧭 THE HUB KEEPS THE APP'S NAV (owner 2026-10-30): the Maker is drawn inside the REAL app chrome — top bar, rail
+        from 701, bottom nav with Hub lit — as the event layout draws it (`LabShell`, no sign-in, no database). */}
+    <LabShell eventId={EVENT} gutter={false} eventBar={labEventBar({ needs: typeof sp.needs === 'string' ? sp.needs : undefined })} hubAt="/dev/maker-lab">
     <MakerLabShell
       eventId={EVENT}
       tourHint={sp.spot === '1'}
@@ -262,6 +267,7 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
           .filter((t) => !(labNeeds && needsHidesStudioTile(t.key, labNeeds))),
       }}
     />
+    </LabShell>
     {/* 🔦 `&spot=1` — the Maker's own spotlight (owner 2026-10-22), inside the Maker, first run. */}
     {sp.spot === '1' && TOURS[HOST_PAGE_TOURS.maker].spotlight ? (
       <LabPageSpotlight tourKey={HOST_PAGE_TOURS.maker} script={TOURS[HOST_PAGE_TOURS.maker].spotlight!} inMaker />

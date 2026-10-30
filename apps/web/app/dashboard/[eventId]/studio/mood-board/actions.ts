@@ -46,9 +46,15 @@ import {
 import { readThemeTextWithModel } from '@/lib/theme-text-intent-model';
 
 import { readCoupleBookingStandings } from '@/lib/couple-booked-and-settled.server';
-import { refuseLimitedHelper } from '@/lib/host-gate';
+import {
+  moodBoardPhotosRefusal,
+  refuseLimitedHelper,
+  refuseUnlessMoodBoardHost,
+  refuseUnlessMoodBoardPhotos,
+} from '@/lib/host-gate';
 export async function saveRolePalette(formData: FormData) {
   await refuseLimitedHelper(formData.get('event_id'), 'mood_board');
+  await refuseUnlessMoodBoardHost(formData.get('event_id'));
   const eventId = formData.get('event_id');
   const paletteJson = formData.get('palette_json');
   if (typeof eventId !== 'string' || typeof paletteJson !== 'string') {
@@ -107,6 +113,7 @@ export async function reorderMoodboardSlot(
   to: MoodboardSlotRef,
 ): Promise<MoodboardSwapResult> {
   await refuseLimitedHelper(eventId, 'mood_board');
+  await refuseUnlessMoodBoardPhotos(eventId);
 
   const supabase = await createClient();
   const {
@@ -137,6 +144,7 @@ export async function saveMoodboardTheme(
   theme: { name: string; description: string },
 ): Promise<void> {
   await refuseLimitedHelper(eventId, 'mood_board');
+  await refuseUnlessMoodBoardHost(eventId);
   const name = theme.name.trim().slice(0, THEME_NAME_MAX);
   const description = theme.description.trim().slice(0, THEME_DESCRIPTION_MAX);
 
@@ -227,6 +235,7 @@ export async function applyThemeIntent(
   selection: unknown,
 ): Promise<ThemeIntentApplySummary> {
   await refuseLimitedHelper(eventId, 'mood_board');
+  await refuseUnlessMoodBoardHost(eventId);
   const kept = validateThemeSelection(selection);
 
   const supabase = await createClient();
@@ -452,6 +461,8 @@ export async function applyMoodboardTemplate(
   mode: ApplyMode = 'fill_empty',
 ): Promise<ApplyTemplateSummary & { nothingToFill: boolean }> {
   await refuseLimitedHelper(eventId, 'mood_board');
+  // A template rewrites the palette and the theme as well as the photos — the hosts'.
+  await refuseUnlessMoodBoardHost(eventId);
   const supabase = await createClient();
   const {
     data: { user },
@@ -892,6 +903,8 @@ export async function applyGalleryPick(input: {
   assetId: string;
 }): Promise<{ status: 'ok' | 'error'; imageUrl?: string; message?: string }> {
   await refuseLimitedHelper(input.eventId, 'mood_board');
+  const photosRefusal = await moodBoardPhotosRefusal(input.eventId);
+  if (photosRefusal) return { status: 'error', message: photosRefusal };
   const parts = await getInspirationParts();
   if (!isInspirationPartKey(parts, input.slotKey) || !slotHasSupplierTrade(input.slotKey, parts)) {
     return { status: 'error', message: 'That slot has no supplier Inspiration.' };

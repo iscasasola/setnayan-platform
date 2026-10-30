@@ -30,11 +30,44 @@ export const MAKER_PREVIEW_MIN_SHARE = 0.55;
 export const MAKER_PHONE_BAR_PX = 52;
 
 /*
+ * 🧭 THE HUB KEEPS THE APP'S NAV (owner 2026-10-30, verbatim: *"i was thinking having the bottom nav still and the
+ * bottom toolbar to show and hide when not needed?"* — DECISION_LOG "EVENT HUB PRO (look redesign) — THE APP'S NAV
+ * STAYS"; reverses 2026-10-01 "EVENT HUB IS FULL SCREEN WITH ONE EXIT" for the Hub tab, as the 2026-10-27 "THE EVENT
+ * HUB JOINS THE SAME SHAPE AS HOME · GUESTS · SUPPLIERS" row asked).
+ *
+ * The Maker no longer covers the screen: it fills the room the app's chrome leaves — under the app's top bar, beside
+ * the rail (from 701), above the bottom nav (a phone). The shell measures that room (`useTheAppsRoom`,
+ * maker-shell.tsx) and says it as three properties; until it has, the app's own measures stand in, so the first
+ * server paint is already in place.
+ *
+ * 🔑 THE BOTTOM EDGE IS THE NAV'S TOP LESS THE HOME INDICATOR. Every phone tool in the Maker is placed from the
+ * screen's foot with the home indicator's room added (`bottom-[calc(env(safe-area-inset-bottom)+4px)]`, the lower
+ * third's `pb-[env(safe-area-inset-bottom)]`). Ending the shell that much BELOW the nav's top keeps every one of those
+ * sums landing on the nav's top — none of them is edited, and the strip they leave is under the nav's own padding.
+ *
+ * ▶ HELD (the whole page as a guest — Maker_Animate_Preview_Scrub_LOCKED §4: "every bar slides away"): the app's top
+ * bar and bottom nav slide away with the Maker's own bar; the canvas is the whole screen (globals.css
+ * `[data-stage-previewing]`), over both.
+ */
+export const MAKER_IN_THE_APP_CSS =
+  '[data-maker-shell]{right:0;top:var(--maker-app-top,var(--fd-bar,0px));left:var(--maker-app-left,0px);' +
+  'bottom:var(--maker-app-bottom,max(0px,calc(var(--sn-bottomdock-h,calc(env(safe-area-inset-bottom) + 64px)) - env(safe-area-inset-bottom))))}' +
+  '@media (min-width:701px){[data-maker-shell]{left:var(--maker-app-left,var(--fd-rail,0px));bottom:var(--maker-app-bottom,0px)}}' +
+  /* 🗨 A SHEET OPEN OVER THE MAKER (⚙ Event Hub settings, the app's bell and account panels — all on <body>, over the
+     shell): the picked part's frame (`[data-part-edges]`, drawn high on <body> to sit on the canvas) steps out of sight
+     under it — it painted crisp over the sheet's dimmed page (seen in the lab, 390 and 1280). */
+  'html:has([data-sheet]) [data-part-edges]{visibility:hidden!important}' +
+  /* Each bar's own slide (the top bar's hide-on-scroll, the nav's keyboard slide) carries it — no motion of ours. */
+  'html:has([data-maker-shell][data-stage-previewing]) .shell-topbar{transform:translateY(-100%)}' +
+  'html:has([data-maker-shell][data-stage-previewing]) [data-bottom-dock]{transform:translateY(100%)}';
+
+/*
  * 📏 THE TOP NAV — ONE ROW AT 375 PX (owner 2026-10-05, the keynote chrome):
  *
- *   ✕ Exit (red, its own pill) · the screen you are on ("RSVP · RSVP form",
- *   truncates) · [ ↺ Undo | 👁 Preview ] (one shared pill) · ✓ Apply (green,
- *   its own pill, the count) — every button a 44 × 44 icon with its name
+ *   the screen you are on ("RSVP · RSVP form", truncates) · [ ↺ Undo | 👁 Preview ]
+ *   (one shared pill) · ✓ Apply (green, its own pill, the count) · ⚙ Event Hub
+ *   settings (2026-10-30; ✕ Exit, red, led the row until then) — every button a
+ *   44 × 44 icon with its name
  *   (`MAKER_BAR_ICON`); Apply's first tap opens the Apply sheet, and only its
  *   labelled Apply publishes.
  *
@@ -43,11 +76,12 @@ export const MAKER_PHONE_BAR_PX = 52;
  * the row up and fails it over 375, or a bar button under 44 px or unnamed.
  */
 export const MAKER_BAR_PHONE = {
-  /* top */
-  exit: 'max-md:w-11',
+  /* top — ✕ Exit's 44 px left the row on 2026-10-30 (the app's nav is the way out); ⚙ took the same room at its end. */
   undoTop: 'max-md:w-11',
   preview: 'max-md:w-11',
   applyTop: 'max-md:w-11',
+  /** ⚙ Event Hub settings — the row's right end (`MenuSettingsButton`, the house 44 px icon-only button). */
+  settings: 'max-md:w-11',
   /** The one Stages | Studio segmented control — it takes what is left of the row. */
   side: 'max-md:min-w-[150px]',
 } as const;

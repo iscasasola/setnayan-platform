@@ -20,7 +20,9 @@
  *   (3) IN A STAGE, PAINTED FOR ALL FIVE — the stage's name ▾ as the picked half and "Studio ▾" (the plain word).
  *       The list of stages is the Stages panel's OWN list and sheet (`StageItemMenu`), drawn with no button — one
  *       list of the five stages, and the stage on screen is HERE only on the Stages side.
- *   (4) A ▾ OPENS ITS LIST AND NEVER CHANGES SIDE — only a pick does. The left control is ✕ Exit everywhere (no ‹).
+ *   (4) A ▾ OPENS ITS LIST AND NEVER CHANGES SIDE — only a pick does. The left control was ✕ Exit everywhere (no ‹);
+ *       since 2026-10-30 there is NO ✕ (the Hub keeps the app's nav — DECISION_LOG "EVENT HUB PRO (look redesign)",
+ *       call 1): the bar starts with the switch, and nothing stands in the ✕'s place.
  *   (5) ↺ AND ✓ STAY — the bar's own draft controls, on every screen.
  *   (6) THE PAGE LIST — the Maker's one sheet with the dropdown's own rows: exactly this event's pages, in order,
  *       each with its mark, its line and Ready / Missing; the page on screen ticked only on the Studio side; no "All
@@ -205,7 +207,7 @@ test('(3) in a stage, painted for all five: the stage’s name ▾ picked, "Stud
   assert.match(read(SHELL), /<StudioSideSwitch side=\{side\} onPick=\{pickSide\} stage=\{ltPick\} options=\{page\.options\} onStage=\{pickPage\} page=\{studioTile\} tiles=\{studio\?\.tiles\} onOpen=\{openStudio\} \/>/);
 });
 
-test('(4) a ▾ opens its list and never changes side — only a pick does; the left control is ✕ Exit everywhere', async () => {
+test('(4) a ▾ opens its list and never changes side — only a pick does; no ✕ — the switch leads the bar', async () => {
   const src = read(PARTS);
   const sw = src.slice(src.indexOf('export function StudioSideSwitch('), src.indexOf('const HALF_ROOM ='));
   const half = src.slice(src.indexOf('function StudioHalf('), src.indexOf('function tileOption('));
@@ -224,12 +226,12 @@ test('(4) a ▾ opens its list and never changes side — only a pick does; the 
   const { StudioSideSwitch } = await import(`../${PARTS}`);
   const home = await paint(h(StudioSideSwitch, { side: 'studio', onPick: () => {}, stage: 'rsvp', page: null, tiles, onOpen: () => {} }));
   assert.deepEqual([halfOf(home, 'stage').words, halfOf(home, 'stage').on, halfOf(home, 'page').words, halfOf(home, 'page').on, halfOf(home, 'page').label], ['Stages', false, 'Studio', true, 'Studio pages — choose a page']);
-  // ✕ Exit, everywhere: no ‹, and nothing in the bar is drawn instead of it.
+  // No ✕ since 2026-10-30 (the app's nav is the way out), no ‹, and nothing in the bar is drawn in their place.
   const parts = (await import(`../${PARTS}`)) as Record<string, unknown>;
   assert.equal(parts.StudioBack, undefined, '‹ is exported again');
   assert.equal(parts.StudioPageHead, undefined);
   const top = bar(read(SHELL));
-  assert.equal(count(top, /aria-label="Exit"/g), 1);
+  assert.equal(count(top, /aria-label="Exit"/g), 0, 'the ✕ Exit is back on the Hub’s pinned row');
   assert.doesNotMatch(top, /StudioBack|Back to Studio|\{studio(?:Tile|On|Full|HomeOn) \? \(/, 'inside a Studio page something else stands in ✕’s place');
   assert.equal(count(top, /<StudioSideSwitch\b/g), 1);
   assert.doesNotMatch(top, /data-maker-screen-label|\{stagesStudio \? \(/, 'the old Maker’s screen label is back beside the switch');

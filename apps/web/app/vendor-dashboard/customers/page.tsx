@@ -41,7 +41,7 @@ import {
 import { manilaTodayIso } from '@/lib/vendor-cashflow';
 import { readVendorPaydayInstallments } from '@/lib/vendor-payday-read';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { computeEventMoneyPositions, type EventMoneyPosition } from '@/lib/vendor-customers';
+import { buildCustomerCalendarMonth, computeEventMoneyPositions, type EventMoneyPosition } from '@/lib/vendor-customers';
 import {
   customerLaneOf,
   groupByLane,
@@ -78,6 +78,8 @@ import {
 } from './segments';
 import { CustomersSettings } from './_components/customers-settings';
 import { CustomersSettingsBody } from './_components/customers-settings-body';
+import { CustomersFigures } from './_components/customers-figures';
+import { datesFiguresOf } from './dates-figures';
 import { InquiryOutcomesRollup } from '../messages/_components/inquiry-outcomes-rollup';
 import { fetchVendorOutcomeRollup } from '@/lib/inquiry-outcomes';
 import { eventChatTitle } from '@/lib/event-chat-title';
@@ -1083,9 +1085,21 @@ async function CustomersDates({ search }: { search: Awaited<Props['searchParams'
       scope: b.poolId === null ? 'every schedule' : (poolLabelOf.get(b.poolId) ?? 'one schedule'),
     }));
   const initialDay = todayIso.startsWith(month) ? todayIso : `${month}-01`;
+  // 📌 The pinned row's figures for the first paint — the SAME count the month makes on every ‹ › (`dates-figures.ts`).
+  const firstFigures = datesFiguresOf(
+    buildCustomerCalendarMonth(pools, bookings, blocks, dayStates, monthWaitlist, month, todayIso, asksByDate(asks)).days,
+    !blocksIncomplete,
+  );
 
   return (
     <>
+      {/* 📌 Dates' pinned row: the view ▾ · booked · asking · days off · ⚙ (v13). The figures follow the month on show. */}
+      <CustomersPin
+        seg="dates"
+        hrefs={CUSTOMER_SEGMENT_HREFS}
+        figures={<CustomersFigures live figures={firstFigures} label="This month" />}
+        gear={<CustomersSettings body={search.gear === '1' ? <CustomersSettingsBody seg="dates" search={search} /> : null} />}
+      />
       {notice ? <SupplierToast text={notice.text} tone={notice.tone} retry={notice.retry} retryHref="/vendor-dashboard/customers?seg=dates" /> : null}
       {/* `id="calendar"` is where every bare /vendor-dashboard/calendar link lands (`customers/anchors.ts`). */}
       <div id="calendar" className="scroll-mt-24">
@@ -1128,29 +1142,31 @@ async function CustomersDates({ search }: { search: Awaited<Props['searchParams'
           agentCategories={agentCategories}
           halls={pools.every((p) => p.isHall) && pools.length > 0}
           dayActions={{ addManualBlock, removeBlock }}
+          closuresComplete={!blocksIncomplete}
+          after={
+            <DatesFolds
+              today={todayIso}
+              month={month}
+              open={openFold}
+              closures={closures}
+              closuresIncomplete={blocksIncomplete}
+              waitlist={{
+                tierCap: waitlistTierCap,
+                unlimited,
+                on: Boolean(settings?.waitlist_enabled) && waitlistTierCap > 0,
+                cap: unlimited ? storedCap : Math.min(storedCap, Math.max(waitlistTierCap, storedCap)),
+                grandfathered: !unlimited && storedCap > waitlistTierCap ? storedCap : 0,
+                settingsMeasured: !settingsRead.error,
+                pickedMeasured: !pickedRead.error,
+                dates: upcomingWaitlist.map((w) => ({ ...w, picked: pickedByDate.get(w.requestedDate) ?? 0 })),
+              }}
+              qrHref="/vendor-dashboard/invite"
+              blockAdd={<BlockDateAdd pools={pools.map((p) => ({ poolId: p.poolId, label: p.label }))} action={addManualBlock} today={todayIso} month={month} />}
+              actions={DATES_ACTIONS}
+            />
+          }
         />
       </div>
-
-      <DatesFolds
-        today={todayIso}
-        month={month}
-        open={openFold}
-        closures={closures}
-        closuresIncomplete={blocksIncomplete}
-        waitlist={{
-          tierCap: waitlistTierCap,
-          unlimited,
-          on: Boolean(settings?.waitlist_enabled) && waitlistTierCap > 0,
-          cap: unlimited ? storedCap : Math.min(storedCap, Math.max(waitlistTierCap, storedCap)),
-          grandfathered: !unlimited && storedCap > waitlistTierCap ? storedCap : 0,
-          settingsMeasured: !settingsRead.error,
-          pickedMeasured: !pickedRead.error,
-          dates: upcomingWaitlist.map((w) => ({ ...w, picked: pickedByDate.get(w.requestedDate) ?? 0 })),
-        }}
-        qrHref="/vendor-dashboard/invite"
-        blockAdd={<BlockDateAdd pools={pools.map((p) => ({ poolId: p.poolId, label: p.label }))} action={addManualBlock} today={todayIso} month={month} />}
-        actions={DATES_ACTIONS}
-      />
 
       {/* 📱 THE THUMB ROW (prototype thumb(), owner call 1 2026-10-14): Check a date · Add (brand — a booking from
           outside holds a date). "Mark days not available" lives in its fold and on the day. */}
@@ -1467,15 +1483,9 @@ export default async function VendorCustomersHub({ searchParams }: Props) {
           data-customers-seg-open={seg}
         >
           <h1 className="sr-only">Customers</h1>
-          {/* 📌 Events draws its own pinned row (with the four counts); Dates and Money draw the same row — the view ▾
-              and the ⚙ — over their own figures. One day (Dates › a day) has its own back-headed sheet instead. */}
-          {seg === 'events' || (seg === 'dates' && search.day) ? null : (
-            <CustomersPin
-              seg={seg}
-              hrefs={CUSTOMER_SEGMENT_HREFS}
-              gear={<CustomersSettings body={search.gear === '1' ? <CustomersSettingsBody seg={seg} search={search} /> : null} />}
-            />
-          )}
+          {/* 📌 Each view draws its own pinned row, over what it read: Events with its three counts; Dates with the
+              month's figures (`CustomersDates`) and Money with Received · To come in · Overdue (`CustomersMoney`) — v13,
+              `customers-figures.tsx`. One day (Dates › a day) has its own back-headed sheet instead. */}
           {seg === 'events' ? (
             <div className="pb-24">
               <CustomersPipeline search={search} />

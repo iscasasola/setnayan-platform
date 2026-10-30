@@ -8,8 +8,9 @@
  *       *"the pass look waits for Apply"*): the draft holds `pass_design` beside
  *       `name_style`, a pick never forgets the other, Apply merges only what it
  *       holds, the picker saves to the draft — and the old live door is gone.
- *   2 · 💊 THE TOP NAV: ✕ Exit red, its own pill · the screen you are on ·
- *       [ ↺ Undo | 👁 Preview ] one shared pill · ✓ Apply green, its own pill.
+ *   2 · 💊 THE TOP NAV: the screen you are on · [ ↺ Undo | 👁 Preview ] one shared
+ *       pill · ✓ Apply green, its own pill · ⚙ (✕ Exit, red, dropped 2026-10-30 —
+ *       the app's nav is the way out of the Hub).
  *   3 · 🎨 LOOK OPENS THE LOOK TOOLS — never the guided flow's stage list.
  *   4 · 🚫 THE EVENT BAR HAS NO (i) NOTE floating over the scene tiles.
  *   5 · ✋ THE NAMES & DATE SHEET SENDS NOBODY ELSEWHERE — no "Open Hero editor",
@@ -119,20 +120,16 @@ async function shell(): Promise<string> {
   );
 }
 
-test('2a · ✕ Exit is red, an X, its own pill — "‹" never again', async () => {
+test('2a · ✕ Exit is GONE — the app’s nav is the way out (owner 2026-10-30); the row ends with ⚙', async () => {
+  /* 🧭 AMENDED 30 Oct — DECISION_LOG "EVENT HUB PRO (look redesign) — THE APP'S NAV STAYS", call (1), *"yes"*: the Hub
+     keeps the app's top bar and bottom nav, so the Maker's red ✕ (25 Oct: a link to this event's dashboard) is
+     dropped — Home on the bottom nav (or the rail) is that same way out. Nothing stands in its place; the row is
+     [Stage ▾ | Studio ▾] · ↺ · ✓ · ⚙. */
   const header = (await shell()).split('<header')[1]!.split('</header>')[0]!;
-  /* 🚪 AMENDED 25 Oct — owner, over the Leave-the-Maker sheet: *"It just needs to go back to the event's
-     dashboard"*. ✕ is a LINK again, straight to this event's dashboard (the 08 Oct way-out sheet is gone). Its
-     look — red, an X, its own pill — is unchanged and still held here. */
-  const exit = /<span data-icon-pill="exit"[^>]*><a\b[^>]*data-maker-tool="exit"[^>]*>([\s\S]*?)<\/a><\/span>/.exec(header);
-  assert.ok(exit, 'Exit is not its own pill');
-  assert.doesNotMatch(exit[0], /aria-haspopup/, '✕ still says it opens a sheet');
-  assert.match(exit[0], /\bmax-lg:bg-\[#B3261E\]/, 'Exit is not red on a phone');
-  assert.doesNotMatch(exit[0], /(?:^|\s)bg-\[#B3261E\]/, 'the red leaks onto a desktop');
-  assert.match(exit[1]!, /lucide-x\b/, 'Exit is not an X');
-  // 🖥 A desktop keeps its ‹ this round — shown only from lg, the X only under it.
-  assert.match(exit[1]!, /lucide-x h-5 w-5 lg:hidden/, 'the X shows on a desktop');
-  assert.match(exit[1]!, /lucide-chevron-left hidden h-6 w-6 lg:block/, 'the desktop lost its ‹');
+  assert.doesNotMatch(header, /data-icon-pill="exit"|data-maker-tool="exit"|aria-label="Exit"/, 'the ✕ Exit is back on the Hub’s pinned row');
+  assert.doesNotMatch(header, /lucide-chevron-left/, 'a ‹ stands in the ✕’s place');
+  /* (The ⚙ itself — `MenuSettingsButton menu="hub"` — loads with the Maker's lazy chunk: its place is what renders here.) */
+  assert.match(header, /data-maker-tool="settings"/, 'the row does not end with the Event Hub ⚙');
 });
 
 test('2b · the bar says where you are with Stages | Studio — the old screen label went with the old Maker (2026-10-25), never "as a guest sees it"', async () => {

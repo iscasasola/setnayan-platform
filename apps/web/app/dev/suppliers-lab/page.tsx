@@ -74,6 +74,7 @@ import { type LiveTallyBase } from '@/lib/suppliers-shell';
 import { SuppliersLabStage } from './lab-stage';
 import { LabShell } from '@/app/dev/_components/lab-shell';
 import { LabBench } from './lab-bench';
+import { labSupplierShare } from '../lab-supplier-share';
 import { renderUrlQrSvg } from '@/lib/qr';
 import {
   LAB_ADDED_ROW,
@@ -146,6 +147,20 @@ export default async function SuppliersLabPage({
         ...(own ? [own] : []),
       ];
   const claimQrSvg = await renderUrlQrSvg(LAB_CLAIM_URL);
+  // The self-added supplier's Share (Find → a card added by hand): the real message and card, on Tita's sample facts.
+  const supplierShare = await labSupplierShare(
+    {
+      shopName: "Tita Baby's Catering",
+      contactPerson: 'Maria Santos',
+      eventWord: 'wedding',
+      eventDate: '2026-12-18',
+      datePrecision: 'day',
+      service: 'Catering',
+      hostsName: 'Ana & Paolo',
+      services: ['Catering'],
+    },
+    LAB_CLAIM_URL,
+  );
 
   const factOptions: LabFactOptions = {
     help: one('help') === 'none' || one('help') === 'unread' || one('help') === 'nomonth' ? (one('help') as 'none' | 'unread' | 'nomonth') : 'ok',
@@ -247,6 +262,7 @@ export default async function SuppliersLabPage({
       payHrefByVendorId={{ 'v-seda': `/dev/suppliers-lab?open=reception` }}
       inviteStatusByVendorId={one('links') === 'fail' ? null : labInviteStatuses(Date.now())}
       claimQrSvg={claimQrSvg}
+      supplierShare={supplierShare}
       unread={{ pairs: [['t-lola', 2]], measured: true }}
       findPanel={findPanel}
       convergence={

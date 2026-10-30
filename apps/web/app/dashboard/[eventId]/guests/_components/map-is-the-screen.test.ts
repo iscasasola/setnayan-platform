@@ -28,7 +28,12 @@ test('nothing between the counts and the canvas — no card, no hint', () => {
   const at = SCREEN.indexOf("gview === 'map' ? (");
   assert.notEqual(at, -1, 'the map branch moved — re-aim');
   const branch = SCREEN.slice(at, SCREEN.indexOf('/>', at));
-  assert.match(branch, /^gview === 'map' \? \(\s*<GuestMapCanvas\b/, 'something is drawn above the canvas');
+  // 🗺 The only thing around the canvas is the screen's full surface (owner 2026-10-30, "They are all full screen").
+  assert.match(
+    branch,
+    /^gview === 'map' \? \(\s*<div className=\{styles\.fullSurface\} data-guests-full-surface="">\s*<GuestMapCanvas\b/,
+    'something is drawn above the canvas (or the map left the full surface)',
+  );
   assert.doesNotMatch(MAP, /<p\b|<h\d\b|hint/i, 'the map draws a hint or a heading');
 });
 

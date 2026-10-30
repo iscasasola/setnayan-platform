@@ -51,12 +51,13 @@ test('the room and its tools import no seat-plan action and take no lock', () =>
 test('no editing gesture: tables, chairs and the floor take no pointer that edits', () => {
   const table = fnBody(ROOM, 'TableMesh');
   assert.doesNotMatch(table, /onPointerDown|onPointerUp|onClick|onSeatDown|onDown|onToggleSeat|removable|interactive/, 'a table or a chair answers a tap again');
-  // The floor catcher: a view tap (the dance floor in Play) and the double-tap for full screen — no drag, no drop.
+  // The floor catcher: a view tap (the dance floor in Play) — no drag, no drop. Its double-tap for full screen left with
+  // the ⤢ (owner 2026-10-30, "THE MAP ARE ALWAYS FULL SCREEN — NO FULL-SCREEN BUTTON"; lib/maps-are-always-full-screen.test.ts).
   const at = ROOM.indexOf('<planeGeometry args={[room.w * 3, room.d * 3]} />');
   assert.ok(at > -1, 'the floor catcher moved — this guard is blind');
   const catcher = ROOM.slice(ROOM.lastIndexOf('<mesh', at), at);
   assert.match(catcher, /onClick=\{onFloorClick\}/);
-  assert.match(catcher, /onDoubleClick=\{onOutsideDoubleClick\}/);
+  assert.doesNotMatch(catcher, /onDoubleClick=/, 'the double-tap full-screen toggle is back on the floor');
   assert.doesNotMatch(catcher, /onPointerMove|onPointerDown|onPointerUp/, 'the floor drags again');
   const click = ROOM.slice(ROOM.indexOf('const onFloorClick = useCallback('), ROOM.indexOf('const onFloorClick = useCallback(') + 700);
   assert.match(click, /sendDancer\(\)/);

@@ -21,7 +21,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { MARCH_PREVIEW_END_MS, MARCH_PREVIEW_STEP_MS, marchPreviewEnd, marchPreviewSteps } from '@/lib/march-preview';
-import type { MarchSection } from '@/lib/march-drag';
+import { acrossTheAisle, type MarchSection } from '@/lib/march-drag';
 import { stripComments } from '@/lib/strip-comments';
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -68,4 +68,14 @@ test('4 · the timer never outlives a step or the march', () => {
   const eff = MARCH.slice(MARCH.indexOf('if (play === null) return;'), MARCH.indexOf('}, [play]);'));
   assert.match(eff, /const t = setTimeout\(/);
   assert.match(eff, /return \(\) => clearTimeout\(t\);/, 'the preview keeps running behind another view');
+});
+
+test('1b · a pair is named in the order the walk is DRAWN — across the aisle, never the raw row order', () => {
+  const pair = (r: MarchSection['rows'][number]) => [{ key: 'ps', label: 'Principal Sponsors', rows: [r] }] as MarchSection[];
+  const man = { id: 'f', name: 'Mr. Fidel Santos', role: 'principal_sponsor', side: 'groom' };
+  const woman = { id: 'c', name: 'Ms. Carmen Reyes', role: 'principal_sponsor', side: 'bride' };
+  for (const row of [[man, woman], [woman, man]] as MarchSection['rows']) {
+    const drawn = acrossTheAisle(row).filter((x) => x !== null).map((x) => x!.name).join(' & ');
+    assert.equal(marchPreviewSteps(pair(row))[0]!.title, `1. ${drawn}`);
+  }
 });

@@ -9,7 +9,7 @@
  * (`data-march-walk`), counted over every section with all of them open — which is how the preview draws it.
  * 🔒 lib/the-march-preview-plays-the-walks.test.ts
  */
-import type { MarchSection } from '@/lib/march-drag';
+import { acrossTheAisle, type MarchSection } from '@/lib/march-drag';
 import { formatCount } from '@/lib/format-number';
 
 /** One walk every 1.1 s, and the closing card for 1.8 s (the prototype's own pace). */
@@ -29,7 +29,8 @@ export function marchPreviewSteps(sections: readonly MarchSection[]): MarchPrevi
   const out: MarchPreviewStep[] = [];
   for (const sec of sections) {
     for (const row of sec.rows) {
-      const names = row.filter((p): p is NonNullable<typeof p> => p !== null).map((p) => p.name);
+      // Named in the order the walk is DRAWN (across the aisle), so the bar and the ringed walk read the same way.
+      const names = acrossTheAisle(row).filter((p): p is NonNullable<typeof p> => p !== null).map((p) => p.name);
       const no = out.length + 1;
       out.push({
         no,

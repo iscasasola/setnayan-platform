@@ -1723,7 +1723,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         {
           anchor: 'customers-list',
           title: 'Who is waiting comes first',
-          body: 'Every customer is one row with their next step on it. The ones waiting on your answer are always at the top.',
+          body: 'Every event is one row with its next step on it. The ones waiting on your answer are always at the top.',
         },
         {
           anchor: 'tab-vendor-dashboard',
@@ -2140,23 +2140,23 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       },
     },
   },
-  /* 🔦 CUSTOMERS › PEOPLE — a first-visit page tour (owner 2026-10-25). The journey lit the list (`customers-list`); Dates and Money have their own. */
+  /* 🔦 CUSTOMERS › EVENTS (People until 2026-10-30) — a first-visit page tour (owner 2026-10-25). The journey lit the list (`customers-list`); Dates and Money have their own. The key keeps its old name: it is the "seen" mark a supplier already holds. */
   vendor_people_v1: {
     key: 'vendor_people_v1',
     label: 'Supplier — Customers page spotlight',
-    blurb: 'People ▾, the four counts, ⚙, search and ＋ an outside booking.',
+    blurb: 'Events ▾, the three counts, ⚙, search and ＋ an outside booking.',
     slides: [],
     spotlight: {
       steps: [
         {
           anchor: 'customers-segments',
-          title: 'People ▾',
-          body: 'Switch between your customers, your calendar and your payments.',
+          title: 'Events ▾',
+          body: 'Switch between your customers’ events, your calendar and your payments.',
         },
         {
           anchor: 'customers-filter',
-          title: 'Asking · Talking · Booked · Done',
-          body: 'Tap a count to show those customers right here. Each event is one row — tap it to open its chat.',
+          title: 'Asking · Booked · Done',
+          body: 'Every event is listed. Tap a count to show only those; tap it again to see them all. Tap an event to see everyone hosting it.',
         },
         {
           anchor: 'customers-gear',
@@ -2165,8 +2165,8 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         },
         {
           anchor: 'customers-search',
-          title: 'Search customers',
-          body: 'Type a name to find a customer.',
+          title: 'Search events',
+          body: 'Type a name to find an event.',
         },
         {
           anchor: 'customers-add',

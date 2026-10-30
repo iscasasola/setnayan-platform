@@ -118,7 +118,12 @@ export default function ScheduleLabClient({
   bare = false,
   suppliers = SUPPLIERS,
   tags,
+  frame = 'page',
+  toolsSlot = null,
 }: {
+  /** Drawn as Suppliers › Booked › Schedule (the Suppliers lab) — `ScheduleDay`'s own `frame` / `toolsSlot`. */
+  frame?: 'page' | 'booked';
+  toolsSlot?: string | null;
   /** Only the day — no lab header, no write log (the Suppliers lab draws it under Booked › Schedule). */
   bare?: boolean;
   suppliers?: DaySupplier[];
@@ -300,6 +305,8 @@ export default function ScheduleLabClient({
   if (bare) {
     return (
       <ScheduleDay
+        frame={frame}
+        toolsSlot={toolsSlot}
         actions={actions}
         eventId="lab"
         eventType="wedding"

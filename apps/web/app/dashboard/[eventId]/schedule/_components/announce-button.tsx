@@ -28,7 +28,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Megaphone, Send } from 'lucide-react';
+import { Megaphone, Send, Volume2 } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { sendCoordinatorBroadcast } from '../../_actions/day-of-broadcast';
 import {
@@ -65,7 +65,10 @@ export function AnnounceButton({
   eventId,
   isEventDay,
   recent,
+  round = false,
 }: {
+  /** 🔊 A 44-px round at the end of Booked › Schedule's one line (frame 19, owner 2026-10-31) — the word is its name. */
+  round?: boolean;
   eventId: string;
   /** Inside the day-of window — guests see it at once. Before: on the day. */
   isEventDay: boolean;
@@ -119,10 +122,20 @@ export function AnnounceButton({
           setSent(false);
           setError(null);
         }}
-        className="inline-flex h-9 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-semibold text-ink ring-1 ring-inset ring-ink/20 hover:bg-ink/[0.05]"
+        aria-label={round ? 'Announce to your guests' : undefined}
+        data-announce-door={round ? 'round' : 'word'}
+        className={
+          round
+            ? 'sn-press inline-grid h-11 w-11 shrink-0 place-items-center rounded-full text-ink ring-1 ring-inset ring-ink/15 hover:bg-ink/[0.05]'
+            : 'inline-flex h-9 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-semibold text-ink ring-1 ring-inset ring-ink/20 hover:bg-ink/[0.05]'
+        }
       >
-        <Megaphone aria-hidden className="h-4 w-4" strokeWidth={1.8} />
-        Announce
+        {round ? (
+          <Volume2 aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.8} />
+        ) : (
+          <Megaphone aria-hidden className="h-4 w-4" strokeWidth={1.8} />
+        )}
+        {round ? null : 'Announce'}
       </button>
       <Sheet open={open} onClose={() => setOpen(false)} labelledById="announce-title" wide rise>
         <div className="space-y-4 px-5 pb-6 pt-5">

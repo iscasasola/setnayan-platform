@@ -190,7 +190,8 @@ test('6 · the Apply sheet opens ABOVE the Maker — never behind it (owner: "pr
      all, BEHIND the shell's z-[80]: a tap on ✓ did nothing anyone could see. */
   const zOf = (cls: string) => Number(/\bz-\[?(\d+)\]?/.exec(cls)?.[1] ?? NaN);
   const shell = read(`${L}/maker-shell.tsx`);
-  const shellCls = /className="(fixed inset-x-0 top-0 z-\[\d+\][^"]*)"/.exec(shell)?.[1] ?? '';
+  /* The shell sits in the app's room since 2026-10-30 (`MAKER_IN_THE_APP_CSS`) — its root is `fixed z-[…]`, no inset. */
+  const shellCls = /className="(fixed z-\[\d+\][^"]*)"/.exec(shell)?.[1] ?? '';
   assert.ok(shellCls, 'the Maker shell’s fixed root moved — re-anchor this guard');
   const sheet = read('app/dashboard/[eventId]/website/_components/apply-pro-sheet.tsx');
   const sheetCls = /className="(fixed inset-0 z-[^"]*)"/.exec(sheet)?.[1] ?? '';

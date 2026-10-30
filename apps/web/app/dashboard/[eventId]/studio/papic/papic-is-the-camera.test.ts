@@ -35,12 +35,12 @@ test('1 · the Papic card is the camera: the switch, the counts, his five — an
   const at = page.indexOf('const papicCard: PapicCardInput | null =');
   const body = page.slice(at, page.indexOf(': null;', at));
   assert.ok(at > 0 && body.length > 100, 'premise: Home builds the Papic card');
-  assert.match(body, /headControl: <PapicSwitch\b/, 'the card lost its switch');
+  assert.match(body, /headControl: \(\s*<Suspense fallback=\{null\}>\s*<PapicHeadControl\b/, 'the card lost its switch');
   assert.match(body, /<PapicCameraSettings eventId=\{eventId\} seat="home"/, 'the card no longer opens the camera settings');
   // The camera, in the owner's order — ONE component, also opened under Home's Papic card.
   const cam = code(CAMERA);
   for (const must of [
-    /<AnswerPicker[\s\S]{0,120}column="papic_on"[\s\S]{0,200}as="switch"/,
+    /<PapicHeadPicker eventId=\{eventId\} live=\{head\.live\}/,
     /<PapicWindowPicker\b/,
     /<StylePicker\b/,
     /<FaceTaggingChoice\b/,

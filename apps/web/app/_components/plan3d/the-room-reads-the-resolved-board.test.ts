@@ -582,7 +582,10 @@ test('all three surfaces resolve their materials through resolveRoomPalette', ()
 });
 
 test('all three surfaces dress their people from the palette section 02 shows', () => {
-  for (const rel of SURFACES) {
+  /* The couple lab's people are dressed by its PAGE (`seating/lab/page.tsx` resolves every guest's attire colour) — the
+     room component's own display palette fed only the old Build panel's concept illustration, gone since the room
+     became view-only (owner 2026-10-30). So for the lab it is the page that must read the display palette. */
+  for (const rel of SURFACES.map((f) => f.replace('_components/seating-lab-3d.tsx', 'page.tsx'))) {
     const src = stripComments(readFileSync(join(APP, rel), 'utf8'));
     assert.match(
       src,
@@ -601,9 +604,9 @@ test('the raw palette never reaches the attire chain in the couple lab or the gu
   const lab = stripComments(
     readFileSync(join(APP, 'dashboard/[eventId]/seating/lab/_components/seating-lab-3d.tsx'), 'utf8'),
   );
-  assert.match(lab, /bride: hudDisplayPalette\.bride\?\.\[0\]/);
-  assert.match(lab, /guestPalette: hudDisplayPalette\.guest \?\? \[\]/);
+  // The view-only room draws no concept illustration (owner 2026-10-30); it must still never dress anyone raw.
   assert.doesNotMatch(lab, /guestPalette: rolePalette\.guest/);
+  assert.doesNotMatch(lab, /resolveAttirePaletteColor\([^)]*rolePalette/);
 
   const walk = stripComments(readFileSync(join(APP, '[slug]/venue/_components/guest-venue-3d.tsx'), 'utf8'));
   assert.match(walk, /guestAttireColor\(attirePalette,/);

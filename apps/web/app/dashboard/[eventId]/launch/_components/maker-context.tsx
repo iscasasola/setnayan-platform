@@ -59,8 +59,10 @@ export type MakerState = {
   navOpen: boolean;
   selection: MakerSelection;
   select: (next: MakerSelection) => void;
-  /** Is the ⋯ sheet open? The work area portals the address rows into it. */
+  /** Is the ⚙ Event Hub settings sheet open? The work area portals "Your Event Hub"'s rows into it. */
   moreOpen: boolean;
+  /** …and where: the sheet's body while it is open (null shut — the rows are drawn only while it is up). */
+  moreHost?: HTMLElement | null;
   /** A new value on every server render — the canvas reloads on it, so a save
    *  (which redirects back here) is seen on the page at once. */
   renderStamp: string;

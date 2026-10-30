@@ -89,7 +89,9 @@ test('(2) the call sites take their action from the context and import no action
   assert.match(setup, /const \{ hubDraftAction, updatePaxSettings \} = useGuestActions\(\);/, 'Setup’s save no longer takes its writes from the context');
   assert.match(setup, /const \{ setGuestListFinalized \} = useGuestActions\(\);/, 'Finalize no longer takes its write from the context');
   assert.match(setup, /const \{ setupDoorHref \} = useGuestActions\(\);/, 'Setup’s two doors no longer come from the context');
-  assert.match(setup, /href=\{setupDoorHref\(eventId, 'send'\)\}[\s\S]*href=\{setupDoorHref\(eventId, 'pick-who'\)\}/, 'Send to N / Pick who are not the context’s doors');
+  // 🗂 R4 slice 11: the Invitations row (Send to N · Pick who) left the ⚙; Requests to join is the door that stays.
+  assert.match(setup, /href=\{setupDoorHref\(eventId, 'requests'\)\}/, 'Requests to join is not the context’s door');
+  assert.doesNotMatch(setup, /setupDoorHref\(eventId, '(?:send|pick-who)'\)/, 'the ⚙ sends invitations again');
   assert.doesNotMatch(setup, /href=\{`\/dashboard/, 'a Setup door is a real route again');
   assert.doesNotMatch(setup, /from '[^']*(?:hub-draft-actions|finalize-actions)'|from '\.\.\/\.\.\/actions'/, 'Setup imports a real action module again');
   for (const [file, names] of sites) {

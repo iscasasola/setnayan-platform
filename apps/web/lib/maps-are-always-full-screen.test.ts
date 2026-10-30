@@ -92,7 +92,8 @@ test('(2) the surface: from under the top nav to the bottom nav, in the flow, ho
   // The screen measures where it starts (`--gs-root-top`), written only when it changes.
   assert.match(SCREEN, /root\.style\.setProperty\('--gs-root-top', next\)/);
   // The seats body is the surface on 2D/3D only; the map is always in it.
-  assert.match(SCREEN, /className=\{fullView && gview === v \? `min-w-0 \$\{styles\.fullSurface\}` : 'min-w-0'\}\s*data-guests-full-surface=\{fullView && gview === v \? '' : undefined\}/);
+  // (Seats › List is the ROW surface instead — lib/guests-top-row-and-full-screen.test.ts (7).)
+  assert.match(SCREEN, /className=\{fullView && gview === v \? `min-w-0 \$\{styles\.fullSurface\}` : rowView && gview === v \? `min-w-0 \$\{styles\.rowSurface\}` : 'min-w-0'\}\s*data-guests-full-surface=\{fullView && gview === v \? '' : undefined\}/);
   const { renderGuestsScreen, guestRow } = await import('../app/dashboard/[eventId]/guests/_components/render-guests-screen');
   const guests = [guestRow(), guestRow({ rsvp_status: 'attending' } as never)];
   const map = await renderGuestsScreen({ guests, views: GUESTS_VIEWS, gview: 'map' });

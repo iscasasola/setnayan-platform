@@ -36,6 +36,8 @@ of the app." Stacked on #7096 (Mood Board access by grant) and #7090 (the hosts-
   `mood_board_home_asks`. Lab: `/dev/details-lab?asks=moodboard`.
 - **Server-action budget unchanged (1225).** `undoKeptInspirationSuggestion` became the single dispatcher
   `undoMoodBoardChange(eventId, { suggestionId } | { changeId })`.
+- **Proof.** `tests/db/mood-board-changes-the-owners-can-undo.db.test.ts` has 11 tests, all green. Sabotage: widening
+  the window to 48 h and switching off the moved-on check turned tests 3 and 5 red; after restoring, all green.
 - Migrations `20271298460272_mood_board_changed_notification_type.sql` (the enum value, on its own) and
   `20271299051148_mood_board_changes_undo_24h.sql`. Ugat J46 claims the new table. Erasure coverage lists its two
   user stamps (SET NULL).

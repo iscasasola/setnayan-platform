@@ -20,7 +20,9 @@
  *       coordinator's own toast Undo closes their change instead of recording a second;
  *   9 · Home's ONE read gives the owners both lists, the coordinator the suggestions only, a guest neither.
  *
- * 🛡 Sabotage: see the changelog fragment `changelog.d/mood-board-undo-24h.md` (run 2026-10-30).
+ * 🛡 Sabotage (run 2026-10-30, restored → 11/11 green): the undo plan's window widened to 48 hours AND its moved-on
+ *    check switched off (`IF FALSE AND EXISTS`) → test 3 red ("expired" expected, got "ok") and test 5 red
+ *    ("moved_on" expected, got "ok").
  *
  * Run: pnpm --filter @setnayan/web test:db
  */

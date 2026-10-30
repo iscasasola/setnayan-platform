@@ -1,4 +1,5 @@
 import type { MoodBoardActions } from '@/app/dashboard/[eventId]/studio/mood-board/_components/mood-board-actions-context';
+import type { CouplePhotoShareReply } from '@/lib/couple-photo-share';
 
 /**
  * 🧪 THE LAB'S STAND-INS FOR STUDIO › MOOD BOARD & DRESS CODE'S WRITES (DEV-ONLY — `/dev/maker-lab?studio=1`,
@@ -30,7 +31,7 @@ export const LAB_MOOD_BOARD_ACTIONS: Partial<MoodBoardActions> = {
   updateScheduleBlock: async () => undefined,
   createScheduleBlock: async () => undefined,
   /* 📸 Share a photo with a supplier — the lab's own two linked shops; a send waits, a take-back answers ok (nothing is written). */
-  couplePhotoShare: async (req) => {
+  couplePhotoShare: async (req): Promise<CouplePhotoShareReply> => {
     switch (req.op) {
       case 'read':
         return { op: 'read', result: { status: 'ok', shareable: true, inspirationId: 'lab-photo', cards: LAB_PHOTO_SHARE_CARDS, shares: [], namesCredit: 'Ana & Ben · Feb 2027', defaultAudience: 'exclusive' } };
@@ -73,7 +74,7 @@ export const LAB_MOOD_BOARD_REFUSALS: Partial<MoodBoardActions> = {
   createScheduleBlock: async () => {
     throw new Error('permission denied for table event_schedule_blocks');
   },
-  couplePhotoShare: async (req) =>
+  couplePhotoShare: async (req): Promise<CouplePhotoShareReply> =>
     req.op === 'send'
       ? { op: 'send', result: { status: 'refused', message: 'permission denied for function couple_share_photo_with_supplier' } }
       : req.op === 'read'

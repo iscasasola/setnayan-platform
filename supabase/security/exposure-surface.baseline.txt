@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6799
+# facts: 6802
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     576
-#   col       4982
+#   col       4983
 #   policy    961
 #   view      9
-#   func      267
+#   func      269
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -1056,6 +1056,7 @@ col	public.couple_event_type_notify_signups.notes	anon=- authenticated=SIU
 col	public.couple_event_type_notify_signups.region	anon=- authenticated=SIU
 col	public.couple_event_type_notify_signups.signup_id	anon=- authenticated=SIU
 col	public.couple_event_type_notify_signups.user_id	anon=- authenticated=SIU
+col	public.couple_photo_shares.audience	anon=- authenticated=S
 col	public.couple_photo_shares.consent_version	anon=- authenticated=S
 col	public.couple_photo_shares.consented_at	anon=- authenticated=S
 col	public.couple_photo_shares.created_at	anon=- authenticated=S
@@ -6601,7 +6602,8 @@ func	public.coordinator_seat_by_guest_qr(p_event_id uuid, p_token text)	secdef=y
 func	public.count_saves_for_vendor(p_vendor_profile_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.count_unread_message_threads()	secdef=yes exec=anon,authenticated search_path=public
 func	public.couple_decide_inspiration_suggestion(p_suggestion_id uuid, p_keep boolean, p_replace_position smallint)	secdef=yes exec=authenticated search_path=public
-func	public.couple_share_photo_with_supplier(p_inspiration_id uuid, p_vendor_service_id uuid, p_credit_style text, p_credit_line text, p_consent_version text)	secdef=yes exec=authenticated search_path=public
+func	public.couple_set_photo_share_audience(p_share_id uuid, p_audience text, p_public_key text)	secdef=yes exec=authenticated search_path=public
+func	public.couple_share_photo_with_supplier(p_inspiration_id uuid, p_vendor_service_id uuid, p_credit_style text, p_credit_line text, p_consent_version text, p_audience text)	secdef=yes exec=authenticated search_path=public
 func	public.couple_thread_supplier_names(p_event_id uuid)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.couple_undo_kept_inspiration_suggestion(p_suggestion_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.couple_withdraw_photo_share(p_share_id uuid)	secdef=yes exec=authenticated search_path=public
@@ -6764,7 +6766,7 @@ func	public.unread_message_threads_by_event()	secdef=yes exec=anon,authenticated
 func	public.unread_message_threads_by_vendor()	secdef=yes exec=anon,authenticated search_path=public
 func	public.vendor_agree_to_lock(p_event_vendor_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.vendor_agree_to_part(p_finalization_id uuid)	secdef=yes exec=authenticated search_path=public
-func	public.vendor_answer_couple_photo(p_share_id uuid, p_approve boolean, p_public_key text)	secdef=yes exec=authenticated search_path=public
+func	public.vendor_answer_couple_photo(p_share_id uuid, p_approve boolean, p_public_key text, p_copy_public boolean)	secdef=yes exec=authenticated search_path=public
 func	public.vendor_answer_event_deletion(p_event_vendor_id uuid, p_agree boolean, p_reason text)	secdef=yes exec=authenticated search_path=public
 func	public.vendor_answer_part_reopen(p_finalization_id uuid, p_agree boolean, p_reason text)	secdef=yes exec=authenticated search_path=public
 func	public.vendor_begin_inspiration_suggestion(p_event_id uuid, p_slot_key text)	secdef=yes exec=authenticated search_path=public
@@ -6811,6 +6813,7 @@ func	public.vendor_win_loss(p_vendor_profile_id uuid, p_since timestamp with tim
 func	public.vendor_withdraw_inspiration_suggestion(p_suggestion_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.vendor_worked_with_ids(for_vendor uuid)	secdef=yes exec=authenticated search_path=public
 func	public.vendors_blocked_on_date(p_vendor_ids uuid[], p_event_date date)	secdef=yes exec=authenticated search_path=public
+func	public.viewer_service_card_couple_photos(p_vendor_service_ids uuid[])	secdef=yes exec=authenticated search_path=public
 func	public.visible_connection_names(p_person_ids uuid[])	secdef=yes exec=anon,authenticated search_path=public, extensions
 func	public.wall_approve_caption(p_message_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.wall_clear_caption(p_message_id uuid)	secdef=yes exec=authenticated search_path=public

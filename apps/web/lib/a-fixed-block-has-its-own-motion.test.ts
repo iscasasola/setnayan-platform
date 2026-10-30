@@ -301,9 +301,11 @@ test('2 · the rules are the Event Hub’s own: both gates, a timed Build in wai
   /* The fact it leans on: on the day the block's root is the sticky wrapper's own child (mark and style beside it). */
   /* 🗄 EV1 (2026-10-28): the card draws the sticky wrapper itself — it fetches its words, so it is the one that knows
      whether there is anything to wrap — and the layout hands it the look as a slot. */
+  /* (2026-10-30: the wrapper also pads its top by the iPhone's inset — it is the page's first row — and stays the
+     `sticky` box on the day: `the-hub-clears-the-island.test.ts`.) */
   const LAYOUT = src('app/[slug]/layout.tsx');
   assert.match(LAYOUT, /look=\{<AnnouncementLook stylePreferences=\{stylePreferences\} \/>\}/, 'the announcement’s look left the layout’s hand-over');
-  assert.match(src('app/[slug]/_components/day-of-announcement.tsx'), /<div className=\{stage === 'live' \? 'sticky top-0 z-50' : undefined\}>\s*\{look\}\s*\{card\}\s*<\/div>/, 'the announcement left the sticky wrapper (or its look left it): re-walk the stuck rule');
+  assert.match(src('app/[slug]/_components/day-of-announcement.tsx'), /<div data-safe-x="" className=\{`pt-\[env\(safe-area-inset-top,0px\)\] \$\{stage === 'live' \? 'sticky top-0 z-50' : ''\}`\}>\s*\{look\}\s*\{card\}\s*<\/div>/, 'the announcement left the sticky wrapper (or its look left it): re-walk the stuck rule');
   /* No other block is held still by being stuck. */
   for (const b of BLOCK_LOOK_BLOCKS) {
     if (b === 'announcements') continue;

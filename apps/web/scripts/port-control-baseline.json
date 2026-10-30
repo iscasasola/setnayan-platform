@@ -5198,6 +5198,7 @@
         "dashboard/(account)/library/_components/gallery-doors.tsx",
         "dashboard/(account)/library/_components/memories-chapters.tsx",
         "dashboard/(account)/library/_components/memories-thumb.tsx",
+        "dashboard/(account)/library/_components/memories-wall-viewer.tsx",
         "dashboard/(account)/library/_components/photos-tab.tsx",
         "dashboard/(account)/library/_components/saved-vendor-card.tsx",
         "dashboard/(account)/library/_components/vendors-tab.tsx",
@@ -5220,6 +5221,7 @@
         "AlaalaLensBody",
         "AlbumCard",
         "ChallengesTab",
+        "Ctx",
         "EditorialCard",
         "EditorialsTab",
         "EventMonogram",
@@ -5235,17 +5237,24 @@
         "MemoriesUnreadable",
         "MonogramTile",
         "PageMasthead",
+        "PanelHead",
+        "PhotoViewer",
         "PhotosTab",
         "PickMenu",
         "SavedVendorCardItem",
         "Section",
+        "SharePanel",
         "Spotlight",
         "StatusChip",
         "ThumbField",
         "ThumbTool",
         "Tile",
         "VendorsTab",
-        "ViewReport"
+        "ViewReport",
+        "WallOpen",
+        "WallPhotoViewer",
+        "WallViewer.Provider",
+        "WallViewerRoot"
       ]
     },
     "/dashboard/(account)/life-flash": {
@@ -8078,7 +8087,8 @@
       "files": [
         "dashboard/[eventId]/memories/_components/memories-settings.tsx",
         "dashboard/[eventId]/memories/loading.tsx",
-        "dashboard/[eventId]/memories/page.tsx"
+        "dashboard/[eventId]/memories/page.tsx",
+        "dashboard/[eventId]/memories/photo-tag-actions.ts"
       ],
       "destinations": [],
       "actions": [],
@@ -8095,6 +8105,8 @@
         "MagazineCard",
         "MemoriesSettings",
         "PapicBuySheet",
+        "PhotoTagResult",
+        "PhotoTagState",
         "PoolGalleryCard",
         "RecapCard",
         "ServiceParts",
@@ -11332,6 +11344,7 @@
         "dev/guests-lab/lab-room-3d.tsx",
         "dev/guests-lab/lab-seats-march.tsx",
         "dev/guests-lab/lab-stand-ins.ts",
+        "dev/guests-lab/lab-top-bar.tsx",
         "dev/guests-lab/page.tsx"
       ],
       "destinations": [
@@ -11358,6 +11371,7 @@
         "LabRoom3D",
         "LabSeats",
         "LabShell",
+        "LabTopBar",
         "MakerRsvpSettings",
         "MarchMaker",
         "NotificationsList",

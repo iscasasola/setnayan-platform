@@ -52,6 +52,8 @@ const GATED: Record<string, { load: number; apply: number; answersFailure: boole
  * reason, because a bare allowlist is a bill nobody re-reads.
  */
 const NOT_A_GUEST_READ: Record<string, string> = {
+  'app/dashboard/[eventId]/memories/photo-tag-actions.ts':
+    "the host's and coordinator's own tag editor (memoriesManagerRole proved first): reads photo_tags rows and guest names, never a capture's image or key",
   'lib/papic-gallery.ts':
     "the COUPLE's own studio gallery — ruling 1 keeps the couple's album unblurred",
   'lib/life-story-moment-graph.ts':

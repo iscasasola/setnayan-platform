@@ -5789,9 +5789,11 @@
         "dashboard/[eventId]/_components/home-control-row.tsx",
         "dashboard/[eventId]/_components/home-cover-band.tsx",
         "dashboard/[eventId]/_components/home-cover-pin.tsx",
+        "dashboard/[eventId]/_components/home-date-finder.tsx",
         "dashboard/[eventId]/_components/home-first-screen.tsx",
         "dashboard/[eventId]/_components/home-loading-cover.tsx",
         "dashboard/[eventId]/_components/home-parts.tsx",
+        "dashboard/[eventId]/_components/home-prints-line.tsx",
         "dashboard/[eventId]/_components/home-service-card.tsx",
         "dashboard/[eventId]/_components/home-settings-gear.tsx",
         "dashboard/[eventId]/_components/home-tile-rotation.ts",
@@ -5850,7 +5852,6 @@
         "/dashboard/[seg]/checklist",
         "/dashboard/[seg]/clearance",
         "/dashboard/[seg]/date-selection",
-        "/dashboard/[seg]/details",
         "/dashboard/[seg]/event-qr",
         "/dashboard/[seg]/guests",
         "/dashboard/[seg]/guests/send",
@@ -5978,6 +5979,7 @@
         "EventMonogram",
         "EventRailContext",
         "EventScene",
+        "EventSettingsEditor",
         "EventSettingsResult",
         "EventSettingsRows",
         "EventStudioRow",
@@ -5987,6 +5989,7 @@
         "FaceFigure",
         "FaceIconMark",
         "FactRow",
+        "FactSheet",
         "Failed",
         "Figure",
         "File",
@@ -6025,6 +6028,7 @@
         "HomeCoverBand",
         "HomeCoverPin",
         "HomeCoverWordsProvider",
+        "HomeDateFinder",
         "HomeFirstScreen",
         "HomeFirstScreenProps",
         "HomeForLine",
@@ -6036,9 +6040,11 @@
         "HomeLoadingScreen",
         "HomeMusicCard",
         "HomePlannerCard",
+        "HomePrintsLine",
         "HomeReload",
         "HomeServiceCard",
         "HomeSettingsGear",
+        "HomeSettingsLanded",
         "HomeTile",
         "HomeToday",
         "HomeTodayFold",
@@ -6097,10 +6103,12 @@
         "MoodBoardAsks",
         "MoodBoardAsksActions",
         "MoodBoardAsksDoorway",
+        "OneCodeUnderGetIn",
         "OneLink",
         "OneLinkRow",
         "OneOpenScope",
         "Open",
+        "OpenDateFinder",
         "OpenWalletButton",
         "OverlayBackdrop",
         "OverviewDecisionInspector",
@@ -6129,17 +6137,20 @@
         "PaymentPlanRows",
         "PaymentSection",
         "PeekToast",
+        "PeopleWithAccess",
         "PhaseRows",
         "PickMenu",
         "PillButton",
         "PillThumb",
         "PillTrack",
+        "PlanMyselfSwitch",
         "PostSaveStep",
         "PreviewConflictsResult",
         "PriceSourceChip",
         "ProfileShareButton",
         "ProgressRing",
         "PromoFreeWindowBanner",
+        "PutAwayCard",
         "QrActions",
         "QrBody",
         "ReadRefusedNotice",
@@ -7416,6 +7427,7 @@
         "dashboard/[eventId]/launch/_components/print-paper.tsx",
         "dashboard/[eventId]/launch/_components/print-preview.tsx",
         "dashboard/[eventId]/launch/_components/print-save-button.tsx",
+        "dashboard/[eventId]/launch/_components/prints-forward.ts",
         "dashboard/[eventId]/launch/_components/prints-view-store.ts",
         "dashboard/[eventId]/launch/_components/pro-quiet-line.tsx",
         "dashboard/[eventId]/launch/_components/qr-look-controls.tsx",
@@ -7826,6 +7838,7 @@
         "PrintSetBody",
         "PrintSetDownloads",
         "PrintedStamp",
+        "PrintsPageDesk",
         "ProMark",
         "ProNote",
         "ProQuietLine",
@@ -8404,6 +8417,17 @@
       "destinations": [],
       "actions": [],
       "blocks": []
+    },
+    "/dashboard/[eventId]/prints": {
+      "files": [
+        "dashboard/[eventId]/prints/loading.tsx",
+        "dashboard/[eventId]/prints/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "LaunchHubPage"
+      ]
     },
     "/dashboard/[eventId]/progress": {
       "files": [
@@ -11393,6 +11417,7 @@
         "HubDraftToolbar",
         "HubProOffer",
         "LabBoard",
+        "LabFactSheets",
         "LabShell",
         "LabSpotlight",
         "OfflineLab",
@@ -11788,6 +11813,39 @@
         "FrontDoorShell",
         "LabAddOwn",
         "RosterPerson"
+      ]
+    },
+    "/dev/shop-layout-lab": {
+      "files": [
+        "dev/shop-layout-lab/page.tsx"
+      ],
+      "destinations": [
+        "/"
+      ],
+      "actions": [],
+      "blocks": [
+        "Link",
+        "ShareButton",
+        "ShopBadgePill",
+        "Wordmark"
+      ]
+    },
+    "/dev/shop-plan-lab": {
+      "files": [
+        "dev/shop-plan-lab/page.tsx"
+      ],
+      "destinations": [
+        "/"
+      ],
+      "actions": [],
+      "blocks": [
+        "Link",
+        "PinnedReviewCard",
+        "ShopAddresses",
+        "ShopBadgePill",
+        "ShopReachLine",
+        "ShopReachMap",
+        "Wordmark"
       ]
     },
     "/dev/shop-preview-lab": {
@@ -13471,10 +13529,14 @@
         "v/[slug]/_components/add-shop-to-event-data.ts",
         "v/[slug]/_components/anon-inquiry-composer.tsx",
         "v/[slug]/_components/inquiry-composer.tsx",
+        "v/[slug]/_components/pinned-review-card.tsx",
         "v/[slug]/_components/service-details-sheet.tsx",
         "v/[slug]/_components/services-gallery.tsx",
         "v/[slug]/_components/share-button.tsx",
+        "v/[slug]/_components/shop-addresses.tsx",
+        "v/[slug]/_components/shop-columns.ts",
         "v/[slug]/_components/shop-inspiration-section.tsx",
+        "v/[slug]/_components/shop-reach.tsx",
         "v/[slug]/_components/team-preview-banner.tsx",
         "v/[slug]/_components/venue-matched-events.tsx",
         "v/[slug]/_components/verified-price-card.tsx",
@@ -13517,7 +13579,9 @@
         "ModalState",
         "OverlayBackdrop",
         "PackageCard",
+        "PinnedReviewCard",
         "PublicVendorRow",
+        "ReachMap",
         "ReportPageButton",
         "RequirementsModal",
         "ReviewHeroMetrics",
@@ -13531,8 +13595,11 @@
         "ServicesGallery",
         "ServicesPricingSection",
         "ShareButton",
+        "ShopAddresses",
         "ShopBadgePill",
         "ShopInspirationSection",
+        "ShopReachLine",
+        "ShopReachMap",
         "SignInHereLink",
         "StarRow",
         "StartServiceInquiryResult",

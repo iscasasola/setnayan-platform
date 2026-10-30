@@ -1,4 +1,5 @@
 import { papicHomeHref } from '@/lib/papic-home-href';
+import { PRINTS_PAGE_SURFACE, isPrintsPageSurface, printsForward, printsForwardHref } from '@/lib/prints-page';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { startAhead } from '@/lib/start-ahead';
 import { MAKER_LATE_UNREAD, type MakerLate } from '@/lib/maker-late';
@@ -229,6 +230,8 @@ type Props = {
     error?: string | string[];
     pro?: string | string[];
     slotted?: string | string[];
+    /** 🖨 Set ONLY by the Prints page (`../prints/page.tsx`) — a Symbol key, so no address can carry it (`lib/prints-page.ts`). */
+    [PRINTS_PAGE_SURFACE]?: true;
   }>;
 };
 
@@ -321,6 +324,23 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
   }
   if (!isHostMemberType((membership as { member_type?: string | null } | null)?.member_type)) {
     redirect(`/dashboard/${eventId}`);
+  }
+
+  /* 🖨 PRINTS LEFT THE MAKER (R8, owner 2026-10-27 "PRINTS LEAVES STUDIO"; 2026-10-28 "all mapping will be kept"). The
+     Prints page (`../prints/page.tsx`) draws THIS page alone on Prints, and says so with a key no address can carry
+     (`PRINTS_PAGE_SURFACE`). Every other request that names a print — `?tool=prints`, `?tool=details&item=<print>`,
+     `?item=every-print`, a bookmark, a save's return, a tour — FORWARDS to the Prints page at the same piece, carrying
+     its query (`printsForward` — the same `detailsItemFor` the Maker reads an address with). Held by
+     `lib/prints-has-its-own-page.test.ts`. */
+  const printsPage = isPrintsPageSurface(search);
+  if (!printsPage) {
+    const print = printsForward({
+      tool: one(search.tool),
+      item: one(search.item),
+      printTheme: one(search.print_theme),
+      menuFlash: Boolean(one(search.menu_saved) || one(search.menu_error)),
+    });
+    if (print) redirect(printsForwardHref(eventId, print, search));
   }
 
   /*
@@ -874,6 +894,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
   */
   const memberType = (membership as { member_type?: string | null } | null)?.member_type;
   const hasWork = makerHasWork(memberType, websiteOn);
+  /* 🖨 Prints is the couple's work, as the Studio tile was: a viewer with nothing to make is sent to the event's Home. */
+  if (printsPage && !hasWork) redirect(`/dashboard/${eventId}`);
 
   /* First visit = ONE quiet line on the canvas, "Tap anything to change it"
      (the Maker in 4, 2026-10-02 — no slides and no Pro before the first tap;
@@ -903,6 +925,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
   const liveStage = activeChannel && isStagePhase(activeChannel.phaseParam) ? activeChannel.phaseParam : null;
   // 🚪 The stages this event does not need are absent — and the Maker never OPENS on one of them.
   const eventNeeds = await needsRead;
+  /* 🖨 …and an event that needs no Event Hub details ("cover + photos only") has no Prints, as it had no Prints tile. */
+  if (printsPage && !eventNeeds.hubDetails) redirect(`/dashboard/${eventId}`);
   const hiddenStages = MAKER_PAGE_STAGES.filter((st) => needsHidesStage(st, eventNeeds));
   const wantedStage = initialStage ?? liveStage ?? 'rsvp';
   const makerStage = (hiddenStages as readonly string[]).includes(wantedStage) ? 'event' : wantedStage;
@@ -1971,7 +1995,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     studio,
     hubSettings,
     /* 🪜 The guided flow's door, decided where its facts are (below: only where the address names no place). */
-    opensOnGuide: addressNamesNoPlace && detailsUnfinished && guideAddress === null,
+    opensOnGuide: !printsPage && addressNamesNoPlace && detailsUnfinished && guideAddress === null,
   };
         })().catch((error: unknown): MakerLate => {
           /* A panel that could not be built is SAID by the shell ("could not be loaded"), never a blank Maker. */
@@ -1998,7 +2022,9 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
          `?tool=details|prints` the Phase 9 panels — a save lands back on the
          panel the couple was using. */
       initialSelection={(() => {
-        // An old `?tool=prints` (Prints & Tickets) is Details now.
+        // 🖨 The Prints page opens the Details page on its print — always (the page IS that page).
+        if (printsPage) return { kind: 'tool', key: 'details' } as const;
+        // An old `?tool=prints` (Prints & Tickets) is Details now — and forwarded to the Prints page above.
         const tool = makerToolFor(one(search.tool));
         if (hasWork && (tool === 'hero' || tool === 'reveal' || tool === 'logo' || tool === 'details')) {
           return { kind: 'tool', key: tool } as const;
@@ -2013,8 +2039,9 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       /* ⋯ › About the Maker. The short tour sells nothing (2026-10-02); the
          store-shell and price rules still apply should a slide ever carry one. */
       tourSlides={makerTourSlideViews({ storeShell, priceLabel: storeShell ? null : proPriceLabel })}
-      firstVisit={firstVisit}
-      tourHint={makerSpotlightDue}
+      /* 🖨 The Maker's first-open line and spotlight speak of stages and the lower third — never on the Prints page. */
+      firstVisit={firstVisit && !printsPage}
+      tourHint={makerSpotlightDue && !printsPage}
       completeTourAction={completeTour}
       renderStamp={String(Date.now())}
       hasWork={hasWork}
@@ -2051,7 +2078,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
          scenes BEFORE the day too, so it no longer waits for the day. Never on
          the Maker's very first visit — two first-visit things must not stack.
          Inside the shell so its dialog sits in the shell's layer. */
-      postEventTour={hasWork && !firstVisit ? <MiniTour tourKey="customer_post_event_v1" storeShell={storeShell} /> : null}
+      postEventTour={hasWork && !firstVisit && !printsPage ? <MiniTour tourKey="customer_post_event_v1" storeShell={storeShell} /> : null}
+      printsPage={printsPage}
     >
       {hasWork ? (
         <WebsiteEditorPage
@@ -2068,7 +2096,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         <div className="h-full overflow-y-auto px-4 py-6 sm:px-6">{controller}</div>
       )}
     </MakerShell>
-    {hasWork ? (
+    {hasWork && !printsPage ? (
       <Spotlight tourKey={HOST_PAGE_TOURS.maker} seenKeys={seenKeys} after={HOST_PAGE_TOURS_AFTER} replay="page" inMaker />
     ) : null}
     </>

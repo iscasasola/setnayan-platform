@@ -186,6 +186,8 @@ const ANCHOR_HOME: Record<string, string | string[]> = {
   'home-today': 'app/dashboard/[eventId]/_components/home-parts.tsx',
   'home-faces': 'app/dashboard/[eventId]/_components/home-control-row.tsx',
   'home-services': 'app/dashboard/[eventId]/_components/home-first-screen.tsx',
+  /* 🖨 R8 (2026-10-27): Home's Prints line — the Prints page's door. */
+  'home-prints': 'app/dashboard/[eventId]/_components/home-prints-line.tsx',
   'home-switch-on': 'app/dashboard/[eventId]/_components/home-first-screen.tsx',
   'memories-albums': 'app/_components/memories/event-memories-gallery.tsx',
   'memories-settings': 'app/_components/memories/event-memories-gallery.tsx',

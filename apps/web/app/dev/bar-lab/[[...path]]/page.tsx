@@ -297,7 +297,15 @@ export default async function BarLab({
           }
           railContext={
             event ? (
-              <EventRailContext eventId={EVENT} guestCount={32} services={[]} websiteEnabled eventName="Ana & Miguel" />
+              <EventRailContext
+                eventId={EVENT}
+                guestCount={32}
+                services={[]}
+                websiteEnabled
+                eventName="Ana & Miguel"
+                /* The event's mark — the ☰'s door to Home's ⚙ Event Settings (owner 2026-10-30, "tapping monogram not working"). */
+                eventMonogram={{ display_name: 'Ana & Miguel', monogram_text: 'A&M', monogram_color: null }}
+              />
             ) : (
               <VendorRailContext shopName="Lab Florals" role="owner" navSlots={{}} bookingsBadge={2} threadsBadge={1} planHref={null} tier={null} />
             )

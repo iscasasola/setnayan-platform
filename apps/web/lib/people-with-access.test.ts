@@ -229,5 +229,6 @@ test('ONE mechanism: outside People with access — and the guest card’s Acces
   walk(join(WEB, 'app'));
   walk(join(WEB, 'lib'));
   assert.deepEqual(offenders, [], 'a second place sets access — People with access is its one home (replace means remove)');
-  assert.equal(peopleWithAccessHref('E'), '/dashboard/E/details#people-with-access');
+  // ⚙ Since 2026-10-30 (owner: *"that shoud be inside home settings"*) the one home is Home's ⚙ Event Settings sheet.
+  assert.equal(peopleWithAccessHref('E'), '/dashboard/E?settings=1&row=access');
 });

@@ -125,6 +125,8 @@ import {
   type HomeNextInput,
 } from '@/lib/home-first-screen';
 import { OfflineLab } from './offline-lab';
+import { LabFactSheets } from '../suppliers-lab/lab-fact-sheets';
+import { isEventSettingsRow, peopleWithAccessHref } from '@/lib/people-with-access-href';
 
 export const dynamic = 'force-dynamic';
 
@@ -255,7 +257,7 @@ const LAB_HUB_PICK: HomeHubPickRead = { ok: true, pinned: null, byDate: 'rsvp' }
 export default async function HomeLab({
   searchParams,
 }: {
-  searchParams: Promise<{ stage?: string; photos?: string; bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; coord?: string; level?: string; shop?: string; card?: string; cardphase?: string; head?: string; save?: string; challenges?: string; open?: string; need?: string; state?: string; browser?: string; desk?: string }>;
+  searchParams: Promise<{ stage?: string; photos?: string; bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; coord?: string; level?: string; shop?: string; card?: string; cardphase?: string; head?: string; save?: string; challenges?: string; open?: string; need?: string; state?: string; browser?: string; desk?: string; prints?: string; settings?: string; row?: string; date?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -526,6 +528,8 @@ export default async function HomeLab({
     {/* `&coord=1` — 🗂 a supplier inside an event they run as the hosts' coordinator (owner 2026-10-28): the REAL
         line the event layout draws above every page for that viewer, over the couple's own Home. */}
     {q.coord === '1' ? <CoordinatingLine eventName={F.name} checkInHref={`/dashboard/${E}/guests/checkin`} /> : null}
+    {/* 📅 The Countdown's Date Finder answers from the Suppliers lab's date fixtures (no database) — the SAME sheet. */}
+    <LabFactSheets options={{ help: 'ok', notSet: false, change: false, drafted: false, venues: 'none' }} open={null}>
     <div className="mx-auto min-h-screen w-full bg-cream px-4 pb-6 pt-3 sm:px-6 sm:pt-6 lg:px-8">
       <HomeFirstScreen
         eventId={E}
@@ -542,13 +546,21 @@ export default async function HomeLab({
                 },
               ]}
               unread={q.level === 'unread'}
-              accessHref={`/dashboard/${E}/details#people-with-access`}
+              accessHref={peopleWithAccessHref(E)}
             />
           ) : null
         }
         /* ⚙ Event Settings on the cover — its rows drawn on the lab's fixture (`lab-event-settings.tsx`), no database. */
         eventSettings
         eventSettingsRows={labEventSettingsRows(E)}
+        /* `?settings=1[&row=access]` — the sheet opens with the page, as Home's own link does (the ☰'s mark). */
+        dateFinderOpen={q.date === 'find'}
+        eventSettingsLink={{
+          open: q.settings === '1',
+          row: q.settings === '1' && isEventSettingsRow(q.row) ? q.row : null,
+          landed: null,
+          renderKey: 'lab',
+        }}
         cover={{ eyebrow: F.eyebrow, shortDate: F.shortDate, name: F.name, ...(labForWho ? { forWho: labForWho } : {}) }}
         next={next}
         control={labControl}
@@ -556,6 +568,8 @@ export default async function HomeLab({
         papicLeft={papicNow.count}
         papicSizes={LAB_SIZES}
         hubPick={unread ? { ok: false, reason: 'unread' } : LAB_HUB_PICK}
+        /* 🖨 The Prints line (R8) — the couple's, where the event needs its Event Hub details; `&prints=0` drops it. */
+        prints={q.prints !== '0' && (labNeeds ? labNeeds.hubDetails : true)}
         papicCard={q.card === '1' ? labPapicCard(E, q.cardphase, q.fail === '1' || q.unread === '1', q.challenges === '1', q.head, q.save) : null}
         apple={
           q.store === '1' && q.apple === '1'
@@ -593,6 +607,7 @@ export default async function HomeLab({
         })}
       />
     </div>
+    </LabFactSheets>
     </>
   );
   /* `&spot=1` — 👋 the host spotlight's first run over this Home: the once-only welcome, then the shipped steps. */

@@ -16,6 +16,8 @@
  * FormData pickers (ListPick · SavePick). The op is re-validated here — it arrives from the browser.
  */
 import { revalidatePath } from 'next/cache';
+import { isRedirectError } from 'next/dist/client/components/redirect-error';
+import { getURLFromRedirectError } from 'next/dist/client/components/redirect';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { CATEGORIES_PATH } from './_components/back';
@@ -33,9 +35,34 @@ import {
   reorderServicesCore,
   setCoarseCategoryCore,
   setPartHiddenCore,
+  setOnePerEventCore,
   setPartServicesCore,
   type WriteResult,
 } from './_components/taxonomy-writes';
+import {
+  addLeafAttributeFieldAction,
+  addLeafAttributeOptionAction,
+  addRefinementOption,
+  clearLastMinuteStart,
+  relabelLeafAttributeFieldAction,
+  remapCanonical,
+  removeRefinementOption,
+  renameCanonicalService,
+  renameTaxonomyNode,
+  retireLeafAttributeFieldAction,
+  retireLeafAttributeOptionAction,
+  setCategoryHidden,
+  setCategoryIcon,
+  setCategoryPhoto,
+  setLastMinuteStart,
+  setServiceEventTypes,
+  setServiceFlag,
+  setServiceSecondaryTiles,
+  updatePlanningDeadline,
+  updateRefinementLeaf,
+  updateRefinementOption,
+} from './actions';
+import { addTradeAlias, approveTradeAlias, rejectTradeAlias, unteachTradeAlias } from './search-word-actions';
 
 export type MapOp =
   | { op: 'addGroup'; label: string }
@@ -46,7 +73,8 @@ export type MapOp =
   | { op: 'movePart'; slotKey: string; categoryId: string }
   | { op: 'moveService'; key: string; categoryId: string }
   | { op: 'renamePart'; slotKey: string; label: string }
-  | { op: 'hidePart'; slotKey: string; hidden: boolean };
+  | { op: 'hidePart'; slotKey: string; hidden: boolean }
+  | { op: 'onePerEvent'; categoryId: string; on: boolean };
 
 async function gate(): Promise<{ id: string } | null> {
   const supabase = await createClient();
@@ -95,6 +123,8 @@ export async function mapWrite(op: MapOp): Promise<WriteResult> {
       return asAdmin((a) => renamePartCore(admin, a, str(op.slotKey), str(op.label)));
     case 'hidePart':
       return asAdmin((a) => setPartHiddenCore(admin, a, str(op.slotKey), op.hidden === true));
+    case 'onePerEvent':
+      return asAdmin((a) => setOnePerEventCore(admin, a, str(op.categoryId), op.on === true));
     default:
       return { ok: false, error: 'Unknown change.' };
   }
@@ -111,17 +141,79 @@ export async function mapReorder(level: 'groups' | 'services' | 'parts', parentI
 }
 
 /**
- * The shipped FormData pickers, bound per use: "Services ▾" on a part (a `ListPick` posting `slot_key` +
- * every `services`) and "Files shops as ▾" on a category (a `SavePick` posting `category_id` +
- * `coarse_category`).
+ * 💾 THE DRAWER SAVES IN PLACE (owner 2026-10-29, Admin › Categories panels approved — "a save never resets the
+ * screen"). The drawer's text fields, switches and pickers that USED to post a redirect-back form (`actions.ts`,
+ * `search-word-actions.ts`) now post the SAME FormData here and get an answer instead of a page load. The shipped
+ * action still does the work — its validation, its audit row, its revalidatePath — and its `redirectBack(…, 'ok' |
+ * 'error', words)` is read back as the answer (the Papic in-place door's pattern, `studio/papic/in-place-actions.ts`).
+ * A redirect anywhere else (`/login`) is let through. +0 exported functions: one more `kind` on an existing door.
  */
-export async function mapWriteForm(kind: 'part-services' | 'coarse', formData: FormData): Promise<WriteResult> {
-  const admin = createAdminClient();
+const SHIPPED_FORMS = {
+  'rename-node': renameTaxonomyNode,
+  'rename-service': renameCanonicalService,
+  'category-hidden': setCategoryHidden,
+  'service-flag': setServiceFlag,
+  'service-category': remapCanonical,
+  'service-also': setServiceSecondaryTiles,
+  'service-events': setServiceEventTypes,
+  deadline: updatePlanningDeadline,
+  'last-minute': setLastMinuteStart,
+  'last-minute-off': clearLastMinuteStart,
+  icon: setCategoryIcon,
+  photo: setCategoryPhoto,
+  'word-add': addTradeAlias,
+  'word-approve': approveTradeAlias,
+  'word-reject': rejectTradeAlias,
+  'word-remove': unteachTradeAlias,
+  'field-add': addLeafAttributeFieldAction,
+  'field-option-add': addLeafAttributeOptionAction,
+  'field-relabel': relabelLeafAttributeFieldAction,
+  'field-retire': retireLeafAttributeFieldAction,
+  'field-option-retire': retireLeafAttributeOptionAction,
+  'card-save': (fd: FormData) => updateRefinementLeaf(str(fd.get('_leaf')), fd),
+  'option-save': (fd: FormData) => updateRefinementOption(str(fd.get('_leaf')), str(fd.get('_option')), fd),
+  'option-add': (fd: FormData) => addRefinementOption(str(fd.get('_leaf')), fd),
+  'option-remove': (fd: FormData) => removeRefinementOption(str(fd.get('_leaf')), str(fd.get('_option')), fd),
+} as const satisfies Record<string, (fd: FormData) => Promise<unknown>>;
+
+export type ShippedFormKind = keyof typeof SHIPPED_FORMS;
+
+async function answerOf(run: () => Promise<unknown>): Promise<WriteResult> {
+  try {
+    await run();
+    return { ok: true, message: 'Saved.' };
+  } catch (e) {
+    if (!isRedirectError(e)) {
+      const words = e instanceof Error && e.message && e.message.length < 200 ? e.message : null;
+      return { ok: false, error: words ?? 'That could not be saved just now. Please try again.' };
+    }
+    const url = new URL(getURLFromRedirectError(e) ?? '', 'http://in-place.local');
+    if (url.pathname !== CATEGORIES_PATH) throw e;
+    const error = url.searchParams.get('error');
+    if (error) return { ok: false, error };
+    return { ok: true, message: url.searchParams.get('ok') ?? 'Saved.' };
+  }
+}
+
+/**
+ * The FormData doors, bound per use: "Services ▾" on a part (a `ListPick` posting `slot_key` + every `services`),
+ * "Files shops as ▾" on a category (a `SavePick` posting `category_id` + `coarse_category`), and every shipped
+ * redirect-back form of the drawer, answered in place (`SHIPPED_FORMS` above).
+ */
+export async function mapWriteForm(kind: 'part-services' | 'coarse' | 'rename-part' | ShippedFormKind, formData: FormData): Promise<WriteResult> {
+  if (kind === 'rename-part') {
+    const admin = createAdminClient();
+    return asAdmin((a) => renamePartCore(admin, a, str(formData.get('slot_key')), str(formData.get('label'))));
+  }
   if (kind === 'part-services') {
+    const admin = createAdminClient();
     return asAdmin((a) => setPartServicesCore(admin, a, str(formData.get('slot_key')), formData.getAll('services').map(String)));
   }
   if (kind === 'coarse') {
+    const admin = createAdminClient();
     return asAdmin((a) => setCoarseCategoryCore(admin, a, str(formData.get('category_id')), str(formData.get('coarse_category'))));
   }
-  return { ok: false, error: 'Unknown change.' };
+  const shipped = Object.prototype.hasOwnProperty.call(SHIPPED_FORMS, kind) ? SHIPPED_FORMS[kind as ShippedFormKind] : null;
+  if (!shipped) return { ok: false, error: 'Unknown change.' };
+  return answerOf(() => shipped(formData));
 }

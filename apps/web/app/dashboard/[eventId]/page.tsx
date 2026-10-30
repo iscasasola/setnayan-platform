@@ -20,6 +20,7 @@ import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { AccessRequestsDoorway } from './_components/access-requests-doorway';
+import { MoodBoardAsksDoorway } from './_components/mood-board-asks-doorway';
 import { CoordinatorLevelCard } from './_components/coordinator-level-card';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowRight, Sparkles, CalendarPlus } from 'lucide-react';
@@ -1112,6 +1113,9 @@ export default async function EventHomePage({
       {/* Self-hiding: renders nothing unless someone is waiting on an answer (owner ruling 2026-07-27 — the host
           decides what to share). */}
       <AccessRequestsDoorway eventId={eventId} />
+      {/* 🖼⏱ Suppliers' photos to approve, and the last 24 h of Mood Board changes by others with their Undo (owner
+          2026-10-30, "THE OWNERS HAVE 24 HOURS TO UNDO"). One read; self-hiding; the database decides who sees which. */}
+      <MoodBoardAsksDoorway eventId={eventId} />
       {/* 🗓 "Date change: n of N suppliers answered" — self-hiding: renders nothing unless the couple asked booked
           suppliers to move (owner 2026-10-01, the clashing-date flow). Couple-only by RLS. */}
       <DateChangeDoorway eventId={eventId} />

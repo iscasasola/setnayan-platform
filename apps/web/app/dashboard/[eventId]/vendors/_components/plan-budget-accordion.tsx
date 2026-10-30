@@ -1419,7 +1419,7 @@ function DeadlineChip({
   daysLeft: number | null;
   /** How many picks in this group are locked — drives the multi-pick copy. */
   lockedCount?: number;
-  /** True for groups outside HARD_SINGLE_PICK_GROUPS: one lock is the floor,
+  /** True for groups that are not One per event (the category switch): one lock is the floor,
       not the ceiling (owner 2026-07-27 — e.g. a 2nd caterer / photo booth). */
   multiPick?: boolean;
 }) {

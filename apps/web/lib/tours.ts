@@ -1486,24 +1486,24 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       steps: [
         {
           anchor: 'hub-next-days',
-          title: 'Your next events',
-          body: 'Each booked day unlocks here once its booking fee is paid. Tap one to set it up ahead.',
+          title: 'Your events',
+          body: 'Pick the event to set up — every booked day and every event you run. A day opens once its booking fee is paid.',
         },
         {
           anchor: 'hub-empty',
-          title: 'Your day-of console',
-          body: 'On an event day this is where you run it — scan, schedule, shot list, headcount.',
+          title: 'Your Event Hub',
+          body: 'When a couple books you, their event lands here — set it up ahead, and run it on the day.',
         },
         {
           // (2026-10-25) On an event day — the quiet day’s stops above are dropped there, and this one here.
           anchor: 'hub-day-launch',
           title: 'Run the day',
-          body: 'Launch the app opens today’s event: scan, schedule, shot list, headcount.',
+          body: 'Open the Event Hub runs today’s event: scan, schedule, shot list, headcount.',
         },
         {
           anchor: 'hub-setup',
           title: 'Your day-of tools',
-          body: 'What you can run on the day. Set them up per event, and pick which helpers can open them.',
+          body: 'What you can run on the day. Set them up per event; Crew picks who can open them.',
         },
       ],
       finale: {

@@ -21,6 +21,25 @@ export const STUDIO_TILE_KEYS = ['info', 'look', 'logo', 'mood', 'schedule', 'st
 export type StudioTileKey = (typeof STUDIO_TILE_KEYS)[number];
 
 /**
+ * 🎛 STUDIO ▾ IS LOOK AND WORDS ONLY (owner 2026-10-27, DECISION_LOG "STUDIO IS LOOK AND WORDS ONLY — LOGO · PALETTE +
+ * DRESS CODE · LOVE STORY · PRINTS": *"I want to make the event hub maker have less things to do on its studio."*;
+ * built 2026-10-30 with the Event Hub Pro redesign — *"Stages and the Studio will be on dropdown. move all other details
+ * on the settings."*). The pages Studio ▾ LISTS — and the Studio home's cards, and "n of N ready". The other pages stay
+ * pages the Maker opens, each through its new home, so every door to them still lands:
+ *   · Look and E-Gifts → the Hub's ⚙ Event Hub settings (`hub-settings.tsx`: Look's sections · Ways to give);
+ *   · Info → its facts are Home › Event settings ("INFO SPLITS BY WHAT IT IS ABOUT"), the Hub's address the Hub's ⚙;
+ *   · Schedule → Suppliers › Booked (ruled 27 Oct; moved by its own builder — its page opens until then from every
+ *     door that names it).
+ * 🖨 Prints is not listed (R8, "PRINTS LEAVES STUDIO"): its own page, `lib/prints-page.ts`, opened from Home's Prints line.
+ */
+export const STUDIO_MENU_KEYS = ['logo', 'mood', 'story'] as const satisfies readonly StudioTileKey[];
+
+/** Is this page one Studio ▾ lists? */
+export function isStudioMenuKey(key: string): boolean {
+  return (STUDIO_MENU_KEYS as readonly string[]).includes(key);
+}
+
+/**
  * The shipped Event Details item each tile opens — ALL the Maker's shell needs of a tile. The tiles' WORDS
  * (label · short · sub · what "done" reads) are `STUDIO_TILES` in `lib/studio-tiles.ts`, which only the
  * server reads: kept there so this module — in the Maker's FIRST LOAD through `maker-shell.tsx` — carries

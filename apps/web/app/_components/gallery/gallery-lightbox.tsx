@@ -1,8 +1,8 @@
 'use client';
 
-import { useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { useBackCloses } from '@/lib/use-back-closes';
 import { creditLine } from '@/lib/capture-credit-pure';
@@ -38,7 +38,35 @@ import { creditLine } from '@/lib/capture-credit-pure';
  *   · ‹ › and a sideways swipe move it when the caller has neighbours (`onPrev` / `onNext`);
  *   · the page under it does not scroll (`useModalA11y`'s lock).
  * 🔒 Held by `lib/a-photo-viewer-is-a-real-screen.test.ts`.
+ *
+ * ── `screen` — THE INSPIRATION VIEWER'S LAYOUT (owner 2026-10-30, live iPhone, on Memories' old photo sheet) ─────────
+ * *"the preview is wrong and the buttons are not arranged properly to our design template. like how we open
+ * inspiration photos but with the buttons for memories."* The template is the APPROVED Suppliers › Find viewer
+ * (`carry-2026-10-29/suppliers-final-proto`, `drawViewer`): the whole screen, ✕ and "2 of 6 · …" on the top line, the
+ * photo large with ‹ › and a sideways swipe, what it is under it, then ONE row of equal buttons in the thumb zone.
+ * It is a layout of THIS viewer, not a second viewer — the portal, Back, the focus trap, the swipes and the opaque
+ * ground are the same code — so Find's inspiration photos can open in it too when that viewer is built.
+ *   · `panel` rises from the bottom INSIDE the viewer (a Share, a Tag list, a confirm) — never a page sheet under it;
+ *   · `blur` keeps a frame the content screen withheld blurred until the host presses "Look at it".
+ * 🔒 `app/_components/memories/memories-photos-open-in-the-shared-viewer.test.ts`.
  */
+export type GalleryScreen = {
+  /** "3 of 40 · Papic" — the top line. */
+  counter: string;
+  /** A small press at the top right (⋯ More) — absent = a spacer, so the counter stays centred. */
+  more?: ReactNode;
+  eyebrow?: string | null;
+  title?: ReactNode;
+  sub?: ReactNode;
+  /** The one row of equal buttons, in the thumb zone. */
+  toolbar?: ReactNode;
+  /** A panel risen over the bottom of the viewer — the caller owns what it holds and how it closes. */
+  panel?: ReactNode;
+  onPanelClose?: () => void;
+  /** Held back by the content screen: drawn blurred until "Look at it". */
+  blur?: boolean;
+};
+
 export function GalleryLightbox({
   src,
   posterSrc,
@@ -53,6 +81,7 @@ export function GalleryLightbox({
   plate = 'dark',
   onPrev,
   onNext,
+  screen,
 }: {
   /** The full image, or the playable video for a clip. */
   src: string;
@@ -77,8 +106,13 @@ export function GalleryLightbox({
   /** The neighbours — a sideways swipe (and the caller's own ‹ ›) moves to them. Absent = one picture. */
   onPrev?: () => void;
   onNext?: () => void;
+  /** The template's whole-screen layout (see `GalleryScreen`) — absent = the card, as every other surface draws it. */
+  screen?: GalleryScreen;
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
+  const [peek, setPeek] = useState(false);
+  /* A withheld frame is blurred again on every move — "Look at it" is for the one frame it was pressed on. */
+  useEffect(() => setPeek(false), [src]);
   const [dragY, setDragY] = useState(0);
   const [dragX, setDragX] = useState(0);
   const start = useRef<{ x: number; y: number; axis: 'x' | 'y' | null } | null>(null);
@@ -122,6 +156,99 @@ export function GalleryLightbox({
   };
 
   if (!host) return null;
+  if (screen) {
+    const blurred = Boolean(screen.blur) && !peek;
+    const slide = dragY > 0 ? `translateY(${dragY}px)` : dragX !== 0 ? `translateX(${dragX}px)` : undefined;
+    return createPortal(
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={label ?? (kind === 'clip' ? 'Video clip' : 'Photograph')}
+        tabIndex={-1}
+        data-photo-viewer="screen"
+        className="sn-gal-scrim fixed inset-0 z-[80] flex flex-col overscroll-contain text-[var(--sn-ob-text)] outline-none"
+      >
+        {/* THE TOP LINE — ✕ · "3 of 40 · Papic" · (⋯) */}
+        <div className="flex shrink-0 items-center gap-2 px-2 pb-1 pt-[max(6px,env(safe-area-inset-top))]" data-viewer-top="">
+          <button type="button" onClick={close} aria-label="Close" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full">
+            <X aria-hidden className="h-5 w-5" strokeWidth={2} />
+          </button>
+          <span className="sn-gal-soft min-w-0 flex-1 truncate text-center text-[13.5px]" data-viewer-counter="">
+            {screen.counter}
+          </span>
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center">{screen.more ?? null}</span>
+        </div>
+
+        {/* THE PHOTO — as large as the screen allows; a sideways swipe moves, a pull down closes. */}
+        <div
+          className="relative min-h-0 flex-1 touch-pan-y overflow-hidden"
+          data-viewer-stage=""
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
+        >
+          <div className="absolute inset-3 flex items-center justify-center" style={slide ? { transform: slide } : undefined}>
+            {kind === 'clip' ? (
+              // eslint-disable-next-line jsx-a11y/media-has-caption
+              <video src={src} poster={posterSrc ?? undefined} controls autoPlay playsInline loop className="max-h-full max-w-full rounded-[18px] bg-black object-contain" />
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={src} alt="" draggable={false} className={`max-h-full max-w-full rounded-[18px] object-contain ${blurred ? 'blur-[22px]' : ''}`} />
+            )}
+          </div>
+          {blurred ? (
+            <span className="absolute inset-0 flex items-center justify-center">
+              <button type="button" onClick={() => setPeek(true)} className="sn-gal-btn min-h-[44px] rounded-full bg-[rgb(23_22_15/0.66)] px-4 text-[14px] font-medium">
+                Held back by the content screen · Look at it
+              </button>
+            </span>
+          ) : null}
+          {onPrev ? (
+            <button type="button" onClick={onPrev} aria-label="Previous photo" className="absolute left-2 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-[rgb(23_22_15/0.55)]">
+              <ChevronLeft aria-hidden className="h-5 w-5" strokeWidth={2} />
+            </button>
+          ) : null}
+          {onNext ? (
+            <button type="button" onClick={onNext} aria-label="Next photo" className="absolute right-2 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-[rgb(23_22_15/0.55)]">
+              <ChevronRight aria-hidden className="h-5 w-5" strokeWidth={2} />
+            </button>
+          ) : null}
+        </div>
+
+        {/* WHAT IT IS — then the one row of buttons, in the thumb zone. */}
+        <div className="shrink-0 px-4 pt-2.5" data-viewer-details="">
+          {screen.eyebrow ? <p className="sn-gal-soft font-mono text-[10.5px] uppercase tracking-[0.14em]">{screen.eyebrow}</p> : null}
+          {screen.title ? <div className="text-[17px] font-semibold leading-snug">{screen.title}</div> : null}
+          {screen.sub ? <div className="sn-gal-soft text-[13.5px] leading-snug">{screen.sub}</div> : null}
+        </div>
+        {screen.toolbar ? (
+          <div className="shrink-0 px-3 pb-[max(14px,env(safe-area-inset-bottom))] pt-3" data-viewer-toolbar="">
+            {screen.toolbar}
+          </div>
+        ) : (
+          <div className="shrink-0 pb-[max(14px,env(safe-area-inset-bottom))]" />
+        )}
+
+        {/* A PANEL — risen over the bottom of the viewer (Share · Tag · a confirm); a tap above it puts it away. */}
+        {screen.panel ? (
+          <>
+            <button type="button" aria-label="Close this panel" className="absolute inset-0 z-10 bg-black/45" onClick={screen.onPanelClose} />
+            <div
+              data-viewer-panel=""
+              className="absolute inset-x-0 bottom-0 z-20 max-h-[80dvh] overflow-y-auto rounded-t-3xl border-t border-[rgb(251_250_247/0.14)] bg-[var(--sn-ob-card)] px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-2 shadow-[0_-30px_80px_rgb(0_0_0/0.5)]"
+            >
+              <div className="flex justify-center pb-2" aria-hidden>
+                <i className="h-1 w-11 rounded-full bg-[rgb(251_250_247/0.28)]" />
+              </div>
+              {screen.panel}
+            </div>
+          </>
+        ) : null}
+      </div>,
+      host,
+    );
+  }
   return createPortal(
     <div
       data-photo-viewer=""

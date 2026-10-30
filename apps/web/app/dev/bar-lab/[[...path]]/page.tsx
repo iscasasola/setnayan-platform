@@ -62,6 +62,7 @@ import { WhoSeesWhatPick } from '@/app/dashboard/[eventId]/studio/papic/_compone
 import type { UploadPot } from '@/app/dashboard/[eventId]/studio/papic/_lib/upload-credits';
 import type { GalleryPhoto } from '@/lib/papic-gallery';
 import type { MemoriesChallenge, MemoriesItem } from '@/lib/event-memories';
+import type { PhotoTagState } from '@/lib/memories-photo-tags';
 
 export const dynamic = 'force-dynamic';
 
@@ -119,8 +120,30 @@ function labItem(i: number): MemoriesItem {
     hubUse: null,
     guestId: vendor ? null : `g-${i}`,
     vendorProfileId: vendor ? 'vp-lumen' : null,
+    // The lab's stand-in for the save route's ORIGINAL (a fixture picture — nothing is fetched from storage).
+    saveUrl: vendor || p.kind === 'clip' ? null : p.url,
+    downloadUrl: p.kind === 'clip' ? p.url : null,
+    preserved: i % 3 === 0,
+    alreadyCompressed: i === 5,
   };
 }
+/** The Tag list's fixture names (the viewer's Tag, owner 2026-10-30) — a wrong face match to remove, guests to add. */
+const LAB_TAGS: PhotoTagState = {
+  tagged: [
+    { guestId: 'g-indalecio', name: 'Indalecio Reyes', auto: true },
+    { guestId: 'g-claire', name: 'Claire Santos', auto: false },
+  ],
+  guests: [
+    { guestId: 'g-indalecia', name: 'Indalecia Reyes' },
+    { guestId: 'g-indalecio', name: 'Indalecio Reyes' },
+    { guestId: 'g-claire', name: 'Claire Santos' },
+    { guestId: 'g-ben', name: 'Ben Cruz' },
+    { guestId: 'g-maria', name: 'Maria Dela Cruz' },
+    { guestId: 'g-jose', name: 'Jose Garcia' },
+  ],
+  saidNotMe: [],
+  complete: true,
+};
 function labHub(i: number): MemoriesItem {
   const p = labPhoto(100 + i);
   return { ...p, id: `hub-${i}`, largeUrl: p.url, capturedBy: HUB_USES[i]!, memSource: 'hub', look: 'ok', table: 'hub', challengeId: null, hubUse: HUB_USES[i]!, downloadUrl: p.url };
@@ -239,6 +262,8 @@ export default async function BarLab({
                       />
                     }
                     suppliers={[{ vendorProfileId: 'vp-lumen', vendorRowId: 'v-lumen', name: 'Lumen Studio', hidden: false }]}
+                    canTag={sp.guest !== '1' || sp.coord === '1'}
+                    tagFixture={LAB_TAGS}
                     settings={
                       sp.who === 'tagged' || sp.who === 'all' ? (
                         sp.guest !== '1' || sp.coord === '1' ? <WhoSeesWhatPick eventId={EVENT} initialOpen={sp.who === 'all'} /> : null

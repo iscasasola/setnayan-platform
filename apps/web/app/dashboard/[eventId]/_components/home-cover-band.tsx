@@ -27,7 +27,8 @@ import type { ReactNode } from 'react';
  * amends 27 Oct's "drawn only once the band has stuck"). ONE mount (`home-settings-gear.tsx`, `MenuSettingsButton
  * menu="home"`) in the band's bottom 52 px: at rest it ends the name's row, stuck it ends `<names> · <date> · ⚙` — the
  * same spot, so it never moves. It opens the Event Settings sheet (names · date · venues · parents), not a page: the
- * Countdown stays Home's one door to Event Details. Only the couple gets it (`settingsFor`); the loading screen none.
+ * Countdown stays Home's one door to Event Details. The couple gets it (`settingsFor`), and a helper too — whose sheet holds
+ * only "Your access", read-only (`settingsHelper`, owner 2026-10-31); the loading screen none.
  */
 /** 🔗 What Home's address says about its ⚙ sheet (`?settings=1&row=…`, a Remove's words) and this render's key. */
 export type HomeSettingsLink = { open: boolean; row: string | null; landed: HomeSettingsLanded | null; renderKey: string };
@@ -38,6 +39,7 @@ export function HomeCoverBand({
   settingsFor,
   settingsRows,
   settingsLink,
+  settingsHelper = false,
 }: {
   cover: HomeCoverWords;
   ground?: HomeCover | null;
@@ -47,6 +49,8 @@ export function HomeCoverBand({
   settingsRows?: ReactNode;
   /** The address's words for the ⚙ sheet — absent = it opens only at the press. */
   settingsLink?: HomeSettingsLink;
+  /** 🪪 The ⚙ is a helper's: its sheet holds only "Your access" (owner 2026-10-31). */
+  settingsHelper?: boolean;
 }) {
   const gear = Boolean(settingsFor);
   return (
@@ -87,6 +91,7 @@ export function HomeCoverBand({
             landRow={settingsLink?.row ?? null}
             landed={settingsLink?.landed ?? null}
             renderKey={settingsLink?.renderKey}
+            helper={settingsHelper}
           />
         ) : null}
       </div>

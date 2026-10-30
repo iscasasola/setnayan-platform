@@ -1155,6 +1155,9 @@ export default async function EventHomePage({
       asks={todayAsks}
       /* ⚙ Event Settings on the cover — the couple's, who change the event's own facts (owner 2026-10-29). */
       eventSettings={viewerMemberType === 'couple'}
+      /* 🪪 …and a helper's (a coordinator or limited helper — every non-host seat is a `coordinator` member): the same ⚙,
+         whose sheet holds only "Your access", read-only (owner 2026-10-31). */
+      helperSettings={viewerMemberType === 'coordinator'}
       dateFinderOpen={search.date === DATE_FINDER_VALUE}
       eventSettingsLink={{
         open: search.settings === '1',

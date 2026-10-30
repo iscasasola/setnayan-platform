@@ -53,7 +53,12 @@ test('2 · the action reads access with Event Details’ readers, in the sheet�
   assert.match(round, /loadPeopleWithAccess\(eventId, user\.id\)/, 'People with access is not read in the sheet’s round');
   assert.match(round, /readClaimAccessAsks\(supabase, eventId\)/, 'the suppliers waiting for Approve are not read in the sheet’s round');
   assert.match(round, /measured: false as const/, 'a failed access read is not kept as a failure');
-  assert.match(action, /if \(!viewer\.isCouple\) return \{ ok: false/, 'a non-host gets the hosts’ sheet');
+  // A non-host never reaches the hosts' rows: a helper is handed their own access (`a-helper-sees-their-own-access.test.ts`),
+  // anyone else a refusal — both return BEFORE this round.
+  const nonHost = action.slice(action.indexOf('if (!viewer.isCouple) {'), action.indexOf('const [draft, parents, people, claims, settings]'));
+  assert.ok(nonHost.length > 0, 'the non-host branch is gone, or now sits after the hosts’ round');
+  assert.match(nonHost, /return yourAccessSheet\(/, 'a helper is not handed their own access');
+  assert.match(nonHost, /return \{ ok: false/, 'a non-host who is not a helper gets the hosts’ sheet');
 });
 
 test('3 · a Remove and every "Change ›" land on Home with the sheet open on access', () => {

@@ -6237,6 +6237,7 @@
         "Way",
         "WhatsHappeningCard",
         "WizardTaskId",
+        "YourAccess",
         "YourServices",
         "YourTableCard"
       ]
@@ -6520,6 +6521,7 @@
         "dashboard/[eventId]/details/_components/record-field-slot.tsx",
         "dashboard/[eventId]/details/_components/record-fold.tsx",
         "dashboard/[eventId]/details/_components/record-row-link.tsx",
+        "dashboard/[eventId]/details/_components/your-access.tsx",
         "dashboard/[eventId]/details/layout.tsx",
         "dashboard/[eventId]/details/loading.tsx",
         "dashboard/[eventId]/details/page.tsx"

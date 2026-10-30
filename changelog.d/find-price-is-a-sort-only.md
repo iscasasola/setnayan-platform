@@ -18,11 +18,23 @@ this is now the smallest delta on the shipped ⇅ (`find-sort-menu.tsx`).
   move ("Closest to your ceremony"); a card's own distance line is untouched (`SortShape.adjust` in `lib/bench-sort.ts`,
   `orderInlineMoreRow`'s `adjust`).
 - Unchanged on Find: the ⇅ itself, its place on the thumb row, the lens labels, Rating, the ✎.
+- **Greyed rows keep their reason in the ⓘ (owner 2026-10-31, *"Yes, tidy it"*).** A PickMenu row that cannot be
+  picked yet ("Nearest to your venue" · "Fits your budget" · "New here" on the ⇅) shows its label only, greyed, on one
+  line at the 44-px height of every other row; its reason sits behind the shared `InfoTip` at the row's right edge.
+  Tapping the ⓘ opens the reason and keeps the menu open (`OneOpenScope`); tapping the row picks nothing. This is the
+  SHARED `PickMenu` (`pick-menu-off-row.tsx`), so every PickMenu with a `disabledNote` gets it (Seating's "Tap Edit
+  first", the Event Hub editor's notes, Admin › Categories, …). The ⇅ list is floored at 240 px (`menuMinWidth`, passed
+  through `ThumbMenu`) so its rows fit one line at 390 px with no rewording; the tip hangs inside the list's width
+  (`[data-pick-off] .sn-tip` in `globals.css`). Measured at 390×844: the ⇅'s rows went from 589 px to 514 px tall, with
+  every row 44 px (they were 63 · 90 · 54 for the three greyed rows).
 
 Guard: `app/dashboard/[eventId]/vendors/find-price-is-a-sort-only.test.ts` — one sort control (the ⇅, built once), price
 is a sort and never removes a card, no range sheet, Nearest's venue rows live in the same Sort list. Six sabotages each
+seen red. `lib/a-greyed-choice-keeps-its-reason-in-the-info-tip.test.ts` renders the greyed row (no reason inline,
+the reason in the ⓘ and named by it, the row cannot pick, PickMenu routes every disabled option to it); two sabotages
 seen red. Also `lib/find-sort-choices.test.ts` (the venue rows, executed), a ceremony case in `lib/bench-sort.test.ts`,
 and the price case in `lib/find-service-cards.test.ts` re-aimed.
 
-SPEC IMPACT: None — implements the owner rulings already recorded in `DECISION_LOG.md` (2026-10-31 "SEVEN OWNER
-ANSWERS" (1)); no locked decision changed.
+SPEC IMPACT: None in the corpus from this PR. It implements the owner rulings in `DECISION_LOG.md` (2026-10-31 "SEVEN
+OWNER ANSWERS" (1)) and the owner's 2026-10-31 *"Yes, tidy it"* for greyed menu rows, which is NOT yet a
+`DECISION_LOG.md` row. That is flagged for the controller to record. No locked decision changed.

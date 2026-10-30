@@ -67,7 +67,7 @@ export function PickMenu({
       focusedOnOpen.current = true;
       (
         listRef.current.querySelector<HTMLButtonElement>('button[aria-selected="true"]:not([disabled])') ??
-        listRef.current.querySelector<HTMLButtonElement>('button[role=option]')
+        listRef.current.querySelector<HTMLButtonElement>('button:not([disabled])')
       )?.focus();
     }
   });

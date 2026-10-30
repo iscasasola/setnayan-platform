@@ -14,7 +14,7 @@
  * Executed: the row is rendered to markup (`renderToStaticMarkup`) and read. The routing in `pick-menu.tsx` is read
  * from source, comments stripped.
  *
- * SABOTAGE, seen red before this shipped: put `{o.disabledNote}` back beside the label in the row → G1 + G2 fail;
+ * SABOTAGE, seen red before this shipped: put `{o.disabledNote}` back beside the label in the row → G1 fails;
  * route a disabled option to the pickable button again → G3 fails.
  */
 import test from 'node:test';

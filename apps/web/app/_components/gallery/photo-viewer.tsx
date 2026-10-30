@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import { Check, Download, Info, Loader2, Share } from 'lucide-react';
+import { Check, Info, Loader2, Share } from 'lucide-react';
 import { GalleryLightbox } from './gallery-lightbox';
 import { canShareFiles, saveFileToDevice } from '@/lib/save-to-device';
 import { shareExtension, shareWords, type ShareSource } from '@/lib/memories-viewer';
@@ -224,7 +224,7 @@ export function SharePanel({ source, preserved, onDone }: { source: ShareSource;
               // 'dismissed' / 'expired' — the file stays in hand for one more press.
             }}
           >
-            {sheet ? <Share aria-hidden className="h-4 w-4" strokeWidth={2} /> : <Download aria-hidden className="h-4 w-4" strokeWidth={2} />}
+            <Share aria-hidden className="h-4 w-4" strokeWidth={2} />
             {sheet ? 'Share' : 'Download'}
           </button>
         )}

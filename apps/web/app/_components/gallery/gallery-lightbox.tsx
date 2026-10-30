@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { useBackCloses } from '@/lib/use-back-closes';
 import { creditLine } from '@/lib/capture-credit-pure';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 /**
  * THE SHARED GALLERY LIGHTBOX — one photograph or one clip, full attention.
@@ -191,10 +192,10 @@ export function GalleryLightbox({
           <div className="absolute inset-3 flex items-center justify-center" style={slide ? { transform: slide } : undefined}>
             {kind === 'clip' ? (
               // eslint-disable-next-line jsx-a11y/media-has-caption
-              <video src={src} poster={posterSrc ?? undefined} controls autoPlay playsInline loop className="max-h-full max-w-full rounded-[18px] bg-black object-contain" />
+              <video src={src} poster={posterSrc ?? undefined} controls autoPlay playsInline loop className="max-h-full max-w-full rounded-card bg-black object-contain" />
             ) : (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={src} alt="" draggable={false} className={`max-h-full max-w-full rounded-[18px] object-contain ${blurred ? 'blur-[22px]' : ''}`} />
+              <img src={src} alt="" draggable={false} className={`max-h-full max-w-full rounded-card object-contain ${blurred ? 'blur-[22px]' : ''}`} />
             )}
           </div>
           {blurred ? (
@@ -233,7 +234,7 @@ export function GalleryLightbox({
         {/* A PANEL — risen over the bottom of the viewer (Share · Tag · a confirm); a tap above it puts it away. */}
         {screen.panel ? (
           <>
-            <button type="button" aria-label="Close this panel" className="absolute inset-0 z-10 bg-black/45" onClick={screen.onPanelClose} />
+            <OverlayBackdrop onClose={screen.onPanelClose} label="Close this panel" className="z-10" />
             <div
               data-viewer-panel=""
               className="absolute inset-x-0 bottom-0 z-20 max-h-[80dvh] overflow-y-auto rounded-t-3xl border-t border-[rgb(251_250_247/0.14)] bg-[var(--sn-ob-card)] px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-2 shadow-[0_-30px_80px_rgb(0_0_0/0.5)]"

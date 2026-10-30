@@ -32,7 +32,7 @@
  * Update the line HERE — not in the components.
  */
 
-import { TILE_HINTS } from '@/lib/category-hints';
+import { TILE_HINTS, coversLine } from '@/lib/category-hints';
 import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
 import { COVERAGE_GLYPH, planGroupsForTile, type CoverageState } from '@/lib/coverage-strip';
 import type { BlockedLockReason, LockWithheldReason } from '@/lib/bench-card-actions';
@@ -174,6 +174,36 @@ export function categoryHintForTile(tile: string): string | null {
     if (groups.includes(g.id)) return g.hint || null;
   }
   return null;
+}
+
+/**
+ * The ⓘ of a CATEGORY row — ALWAYS an answer (owner 2026-10-31: "I added a category shoes but there is not (i)").
+ * The owner's words from Admin › Categories (`service_categories.hint_en`) → the old hard-coded line
+ * (`categoryHintForTile`, kept only as the fallback) → "Shoes covers: <its services from Admin>". See
+ * lib/category-hints.ts for the order and why.
+ */
+export function categoryInfoText(args: {
+  tile: string;
+  label: string;
+  /** `service_categories.hint_en` for this category, as the snapshot carries it. */
+  written?: string | null;
+  /** The Admin names of the services filed under this category. */
+  serviceLabels?: readonly string[];
+}): string {
+  const own = (args.written ?? '').trim();
+  if (own) return own;
+  return categoryHintForTile(args.tile) ?? coversLine(args.label, args.serviceLabels ?? [], 'category');
+}
+
+/**
+ * True when some category has neither the owner's words nor an old line, so its ⓘ must be BUILT from its services —
+ * the only case that needs the service names read. Lets the page skip that read once every category is written.
+ */
+export function someCategoryNeedsItsServicesNamed(tax: {
+  tileOrder: readonly string[];
+  categoryHints?: Readonly<Record<string, string>>;
+}): boolean {
+  return tax.tileOrder.some((t) => !tax.categoryHints?.[t]?.trim() && !categoryHintForTile(t));
 }
 
 /** aria-label for the per-category ⓘ toggle (PR-C wires the button). */

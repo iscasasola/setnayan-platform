@@ -22,6 +22,8 @@
  *   &added=1            "Add your own": the row the walk leaves under Catering
  *   &links=fail         …and the claim-link read fails (the rows must say so)
  *   &planned=1          HMUA and Florist are "in your plan" with nobody yet (the row's state word)
+ *   &shoes=1            a "Shoes" category the owner added in Admin, known to no code map — its ⓘ names its services
+ *   &shoes=written      the same, with the owner's own ⓘ text (Admin › Categories › Name › ⓘ text)
  *   &covers=1           Seda's row also covers Cake and Catering ("Also covers") — the venue's name
  *                       then shows, locked, under those two rows as well (the owner's 2026-10-21 report),
  *                       "· with Reception" — on Find's rows and on Build's lines (?tab=build&covers=1)
@@ -67,6 +69,7 @@ import { notFound } from 'next/navigation';
 import { InspectorLayout } from '@/app/_components/inspector/inspector-column';
 import { DatePlaceLine } from '@/app/dashboard/[eventId]/vendors/_components/date-place-line';
 import { buildShortlistFolders, categoryKeyForAdd } from '@/lib/shortlist-taxonomy';
+import { LAB_SHOE_SERVICE_LABELS, labShoesTaxonomy } from './info-fixtures';
 import { WEDDING_TILES_BY_PARENT } from '@/lib/taxonomy';
 import { buildFindList, FIND_GROUP_OF_TILE, popularTilesFor } from '@/lib/supplier-find';
 import { homeTileForRow, LOCKED_VENDOR_STATUSES } from '@/lib/shortlist-taxonomy';
@@ -180,7 +183,11 @@ export default async function SuppliersLabPage({
     venues: one('venues') === 'none' ? 'none' : 'booked',
   };
   const sheetParam = one('sheet');
+  // `&shoes=1|written` — a category the owner added in Admin that no code map knows (info-fixtures.ts).
+  const shoes = one('shoes') === '1' || one('shoes') === 'written' ? one('shoes') : null;
   const folders = buildShortlistFolders({
+    taxonomy: shoes ? labShoesTaxonomy(shoes === 'written') : undefined,
+    serviceLabels: shoes ? LAB_SHOE_SERVICE_LABELS : undefined,
     vendorRows: rows,
     enrichmentByVendorId: LAB_ENRICHMENT,
     // P5 calendar truth on the bench card: Bituin booked that day, Hiraya free — or "Calendar not set" (&cal=notset).
@@ -194,7 +201,7 @@ export default async function SuppliersLabPage({
     faithSet: new Set(),
     eventId: LAB_EVENT,
     lockHandshakeEnabled: true,
-    plannedTiles: one('planned') === '1' ? new Set(['hmua', 'florist']) : undefined,
+    plannedTiles: one('planned') === '1' ? new Set(['hmua', 'florist']) : shoes ? new Set(['shoes']) : undefined,
   });
 
   // The Booked body — its own fixtures, through the real derivations.

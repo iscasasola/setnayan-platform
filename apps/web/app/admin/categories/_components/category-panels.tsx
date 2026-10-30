@@ -14,6 +14,8 @@
 import Link from 'next/link';
 import { formatCount } from '@/lib/format-number';
 import { InfoTip } from '@/app/_components/info-tip';
+import { categoryInfoText } from '@/lib/explore-info-copy';
+import { folderInfoText } from '@/lib/category-hints';
 import {
   deleteTileWithDestination,
   mergeCanonicalService,
@@ -44,6 +46,7 @@ import { cardsOf, partsHomedIn, partsOfService, servicesOf, cardHeld, plural } f
 import { CategoryCards, CategoryParts, FilesShopsAs, ServiceCards, ServiceParts } from './map-panels';
 import { DrawerAddRow, ChipPress, DeadlineInPlace, InPlaceFields, InPlaceSwitch, LastMinuteInPlace, Row } from './drawer-kit';
 import { PanelFold, PanelHead, Quiet, Says } from './panel-kit';
+import { INFO_TEXT_MAX } from './taxonomy-writes';
 import { LevelIcon } from './map-rows';
 
 type PlanGroupRef = { id: string; label: string; catalogTile?: string | null; catalogFolder?: string | null };
@@ -119,6 +122,37 @@ function DeadlineRows({ plan, documents }: { plan: PlanDeadline[]; documents: De
 const ROW_LINK = 'sn-press flex min-h-12 w-full items-center gap-2.5 rounded-xl px-2 py-1.5 text-ink hover:bg-ink/5';
 const CHIP = 'sn-press inline-flex min-h-10 items-center gap-1.5 rounded-full border border-ink/15 bg-raised px-3 text-[14px] text-ink hover:bg-ink/5';
 
+/**
+ * "ⓘ text" — where the owner writes the line a group's or a category's ⓘ shows on the Suppliers page (owner
+ * 2026-10-31: "This means you need to add a place for me to write an (i)"). `service_categories.hint_en`, saved in
+ * place. Empty is fine: the ⓘ is never hidden — it shows `fallback` (the old line, else one built from this list),
+ * which the row's own ⓘ says in full.
+ */
+function InfoTextField({ id, written, fallback }: { id: string; written: string | null; fallback: string }) {
+  return (
+    <InPlaceFields
+      kind="info-text"
+      hidden={{ id }}
+      fields={[
+        {
+          name: 'hint_en',
+          label: 'ⓘ text',
+          value: written ?? '',
+          what: 'ⓘ text',
+          placeholder: 'One line: what it covers',
+          maxLength: INFO_TEXT_MAX,
+          multiline: true,
+          tip: (
+            <InfoTip label="" ariaLabel="About the ⓘ text" align="start">
+              What couples read when they press ⓘ on this row of the Suppliers page. Left empty, they see: “{fallback}”
+            </InfoTip>
+          ),
+        },
+      ]}
+    />
+  );
+}
+
 // ── Group ───────────────────────────────────────────────────────────────────
 
 export function GroupPanel({ group, data, state }: { group: Group; data: CategoriesPanelData; state: BackState }) {
@@ -137,7 +171,11 @@ export function GroupPanel({ group, data, state }: { group: Group; data: Categor
     <article data-panel="group">
       <PanelHead crumbs={[{ level: 'group', label: 'Group' }]} title={group.label} sub={plural(cats.length, 'category', 'categories')} keyText={group.id} />
 
-      <PanelFold id="name" title="Name" summary={group.short && group.short !== group.label ? `${group.label} · ${group.short}` : group.label}>
+      <PanelFold
+        id="name"
+        title="Name"
+        summary={`${group.short && group.short !== group.label ? `${group.label} · ${group.short}` : group.label}${group.hint ? '' : ' · ⓘ not written'}`}
+      >
         <InPlaceFields
           kind="rename-node"
           hidden={{ id: group.id }}
@@ -152,6 +190,11 @@ export function GroupPanel({ group, data, state }: { group: Group; data: Categor
               tip: <InfoTip label="" ariaLabel="About the short name" align="start">The short word the /explore strip and the bottom of a tile use when the full name will not fit.</InfoTip>,
             },
           ]}
+        />
+        <InfoTextField
+          id={group.id}
+          written={group.hint}
+          fallback={folderInfoText({ folder: group.id, label: group.label, categoryLabels: cats.map((c) => c.label) })}
         />
       </PanelFold>
 
@@ -255,8 +298,13 @@ export function CategoryPanel({
         keyNote={`A developer key — what the database and a shop’s card point at; its address on /explore is “${category.slug}”. It never changes, even when the name does.`}
       />
 
-      <PanelFold id="name" title="Name" summary={category.label}>
+      <PanelFold id="name" title="Name" summary={`${category.label}${category.hint ? '' : ' · ⓘ not written'}`}>
         <InPlaceFields kind="rename-node" hidden={{ id: category.id }} fields={[{ name: 'label_en', label: 'Name', value: category.label, what: 'Name' }]} />
+        <InfoTextField
+          id={category.id}
+          written={category.hint}
+          fallback={categoryInfoText({ tile: category.id, label: category.label, serviceLabels: services.filter((s) => !s.hidden).map((s) => s.en) })}
+        />
       </PanelFold>
 
       <PanelFold

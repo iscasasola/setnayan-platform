@@ -8,6 +8,7 @@ import { formatCount } from '@/lib/format-number';
 import { DEFAULT_EVENT_TZ } from '@/lib/schedule';
 import type { Album } from '../_data/photos-albums';
 import { GalleryDoor } from './gallery-doors';
+import { WallOpen, WallViewerRoot } from './memories-wall-viewer';
 
 /**
  * memories-chapters.tsx — Memories, wearing the Papic gallery (owner 2026-10-22: *"Memories must look similar to
@@ -27,17 +28,15 @@ import { GalleryDoor } from './gallery-doors';
  * and with-you marks live on the tiles. The foot line stays only where it explains a capped list.
  */
 
-/** Where a frame opens — unchanged from the lens body: the studio for a host, the photo for a guest. */
-function frameHref(item: WallItem): { href: string; external: boolean } {
-  if (item.role === 'couple') return { href: `/dashboard/${item.eventId}/memories`, external: false };
-  return { href: item.url, external: true };
-}
-
 export const MEMORIES_HEADING =
   'font-mono text-[11.5px] font-bold uppercase tracking-[0.16em] text-[color:var(--sn-gold-700)]';
 
+/**
+ * A frame opens IN THE SHARED VIEWER TEMPLATE (owner 2026-10-30, "the same template will show but no need for
+ * tagging" — `memories-wall-viewer.tsx`): the photo itself, Share, and for your own event its Memories door. It used to
+ * open the event's Memories (yours) or the bare picture in a new tab (theirs).
+ */
 function Tile({ item }: { item: WallItem }) {
-  const { href, external } = frameHref(item);
   const label = `${item.isClip ? 'Clip' : 'Photo'} from ${item.eventName}${item.withMe ? ' — you are in it' : ''}`;
   const media = (
     <>
@@ -54,14 +53,10 @@ function Tile({ item }: { item: WallItem }) {
     </>
   );
   const shell = 'relative block aspect-square overflow-hidden rounded-xl bg-ink/[0.06]';
-  return external ? (
-    <a href={href} target="_blank" rel="noopener noreferrer" aria-label={label} className={shell} data-memories-tile="">
+  return (
+    <WallOpen item={item} label={label} className={shell}>
       {media}
-    </a>
-  ) : (
-    <Link href={href} aria-label={label} className={shell} data-memories-tile="">
-      {media}
-    </Link>
+    </WallOpen>
   );
 }
 
@@ -229,6 +224,7 @@ export async function MemoriesChapters({
     }
     const door = <GalleryDoor event={picked.event} />;
     return (
+      <WallViewerRoot items={chapters.flatMap((c) => c.items)}>
       <div data-memories-body="event">
         {intro}
         {chapters.length === 0 ? (
@@ -251,12 +247,14 @@ export async function MemoriesChapters({
           ))
         )}
       </div>
+      </WallViewerRoot>
     );
   }
 
   // ── ALL EVENTS: one chapter per event, every event ───────────────────────
   const events = albumsForLens(albums, lens);
   return (
+    <WallViewerRoot items={events.flatMap((album) => shown.filter((f) => f.eventId === album.event.event_id))}>
     <div data-memories-body="all">
       {intro}
       {events.map((album) => {
@@ -284,6 +282,7 @@ export async function MemoriesChapters({
         </p>
       ) : null}
     </div>
+    </WallViewerRoot>
   );
 }
 

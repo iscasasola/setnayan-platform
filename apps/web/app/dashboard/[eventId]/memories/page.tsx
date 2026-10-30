@@ -228,6 +228,8 @@ export default async function EventMemoriesPage({ params, searchParams }: Props)
       addPhotos={addPhotos}
       blockedGuests={read.blockedGuests}
       suppliers={read.suppliers}
+      // 🏷 Tag in the viewer — the hosts and the coordinator (the 2026-10-30 Memories ruling); the action re-checks.
+      canTag={managerRole !== null}
     />
     {/* 📖 MADE FROM YOUR MEMORIES — Photo Notes Magazine, Your Recap and this day's Life-Flash, moved here unchanged from
         the Papic page when it was removed (2026-10-26; controller's call, DECISION_LOG "THE PAPIC CARD LIVES ON HOME ›

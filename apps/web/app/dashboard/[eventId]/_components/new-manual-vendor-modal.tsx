@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -9,10 +10,10 @@ import {
   type ChangeEvent,
   type FormEvent,
 } from 'react';
-import { X, Check, Camera, AlertCircle, Upload, ArrowLeft, MapPin } from 'lucide-react';
+import { X, Check, Camera, AlertCircle, Upload, ArrowLeft, MapPin, RotateCw } from 'lucide-react';
 import {
   addManualSupplier,
-  readSupplierInvite,
+  createManualVendorInvite,
   updateSelfAddedSupplier,
   type SupplierInviteView,
   type SelfAddedSupplierPrefill,
@@ -42,6 +43,9 @@ import { ServicesCoveredPicker } from './services-covered-picker';
 import { PaymentPlanRows } from './payment-plan-rows';
 import type { CoverCatalogFolder } from '@/lib/shortlist-taxonomy';
 import { OWN_RECORD_PILL } from '@/lib/add-your-own';
+import { InfoTip } from '@/app/_components/info-tip';
+import { RecordCardFolds, recordLines } from './record-card-folds';
+import { payWaysSummary } from '@/lib/self-added-pay-ways';
 
 /** A Form row's keep: the sheet's own Save sends the form, so keeping has nothing to write. */
 const KEEP = () => ({ ok: true as const });
@@ -121,6 +125,8 @@ type Props = {
    * sheet treats the answer identically either way.
    */
   saveRecord?: (fd: FormData) => Promise<UpdateSelfAddedSupplierResult>;
+  /** The link maker — `createManualVendorInvite` unless a dev lab hands in a stand-in (no session there). */
+  makeLink?: typeof createManualVendorInvite;
 };
 
 // State machine for the modal's primary action.
@@ -141,6 +147,7 @@ export function NewManualVendorModal({
   edit,
   coverCatalog,
   saveRecord,
+  makeLink,
   onClose,
   onCreated,
 }: Props) {
@@ -162,13 +169,24 @@ export function NewManualVendorModal({
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const formRef = useRef<HTMLFormElement | null>(null);
+  // ── THE RECORD CARD'S FOLD LINES (Booked prototype v4: "the closed rows never lie") ──
+  // Each closed fold says in one line what is inside, following what is typed: read from the form itself, so the
+  // line is the posted answer and never a second copy of it.
+  const [lines, setLines] = useState(() => recordLines(edit, categoryLabel, null));
+  const [planLine, setPlanLine] = useState<{ text: string; warn: boolean } | null>(null);
+  const [payLine, setPayLine] = useState<string | null>(() => payWaysSummary(edit?.payWays ?? []));
+  const onPlanLine = useCallback((text: string, warn: boolean) => setPlanLine({ text, warn }), []);
+  const onPayLine = useCallback((t: string | null) => setPayLine(t), []);
+  const readLines = () => {
+    if (edit && formRef.current) setLines(recordLines(edit, categoryLabel, new FormData(formRef.current)));
+  };
 
   // Post-save step (owner 2026-06-11: adding your own vendor must be easy to
   // manage — price + invite land HERE, zero navigation). Set after the manual
   // two-step submit succeeds; the form swaps for the quick-options panel.
   // Marketplace-link mode skips it (already on Setnayan, price comes from
   // their listing).
-  const [created, setCreated] = useState<{ eventVendorId: string; name: string } | null>(null);
+  const [created, setCreated] = useState<{ eventVendorId: string; name: string; invite?: SupplierInviteView } | null>(null);
   /** Set when the supplier saved but one of the later fields did not. */
   const [saveWarning, setSaveWarning] = useState<string | null>(null);
   // Once the vendor exists, EVERY close affordance (X, backdrop, ESC) must
@@ -413,7 +431,7 @@ export function NewManualVendorModal({
       // A warning is shown ON the success step, not instead of it — the
       // supplier is real and the sentence says exactly what to finish.
       setSaveWarning(result.warning ?? null);
-      setCreated({ eventVendorId: result.eventVendorId, name: savedName });
+      setCreated({ eventVendorId: result.eventVendorId, name: savedName, invite: result.invite });
     });
   }
 
@@ -433,6 +451,31 @@ export function NewManualVendorModal({
   return createPortal(
     <Sheet open onClose={dismiss} labelledById="new-manual-vendor-heading" rise>
       <div className="px-5 pt-5" data-add-manual-sheet="">
+        {edit && !created ? (
+          /* ── THE RECORD CARD'S HEAD (Booked prototype v4, owner-approved 2026-10-29) — like the guest card's top:
+             who they are, whose record this is (ⓘ), then their claim link as the ticket row. ── */
+          <div className="space-y-3 pr-10" data-record-card-head="">
+            <div className="flex items-center gap-3">
+              <VendorLogo logoUrl={null} name={nameQuery.trim() || edit.name || 'Supplier'} large />
+              <div className="min-w-0 flex-1">
+                <p className="sn-eye">{categoryLabel}</p>
+                <h2 id="new-manual-vendor-heading" className="break-words text-[20px] font-semibold leading-tight tracking-[-0.01em] text-ink">
+                  {nameQuery.trim() || edit.name || 'Supplier'}
+                </h2>
+                <span data-own-record-pill="" className={`text-[12.5px] font-medium ${edit.claimAsk ? 'text-success-800 dark:text-success-200' : 'text-warn-800 dark:text-warn-200'}`}>
+                  <InfoTip label={edit.claimAsk ? '✓ Joined through your link' : OWN_RECORD_PILL} align="start" ariaLabel="About this record">
+                    {edit.claimAsk
+                      ? 'They joined Setnayan through your link — approve them and their card, price and plan become theirs; what you see here came from your record.'
+                      : 'Your own record of what you agreed with them — not a booking on Setnayan. Suppliers you add yourself aren’t verified by Setnayan; we add them free so you can manage your whole plan in one place 💛 — just vet them yourself before booking.'}
+                  </InfoTip>
+                </span>
+              </div>
+            </div>
+            {mode.kind === 'manual' && !edit.claimAsk ? (
+              <RecordLinkBlock eventId={eventId} vendorId={edit.vendorId} vendorName={edit.name || 'them'} makeLink={makeLink} />
+            ) : null}
+          </div>
+        ) : (
         <header className="pr-10">
           <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">{categoryLabel}</p>
           <h2 id="new-manual-vendor-heading" className="text-[20px] font-semibold tracking-[-0.01em] text-ink">
@@ -453,6 +496,7 @@ export function NewManualVendorModal({
             </p>
           ) : null}
         </header>
+        )}
 
         {created ? (
           <PostSaveStep
@@ -460,11 +504,12 @@ export function NewManualVendorModal({
             eventId={eventId}
             eventVendorId={created.eventVendorId}
             vendorName={created.name}
+            invite={created.invite}
             categoryLabel={categoryLabel}
             onDone={onCreated}
           />
         ) : (
-        <form ref={formRef} onSubmit={handleSubmit} className="mt-3" encType="multipart/form-data">
+        <form ref={formRef} onSubmit={handleSubmit} onInput={readLines} onChange={readLines} className="mt-3" encType="multipart/form-data">
           <input type="hidden" name="event_id" value={eventId} />
           {/* The category rides along so `createManualVendor` can re-ask the
               address rule server-side. The modal is always opened FROM a
@@ -472,6 +517,9 @@ export function NewManualVendorModal({
           <input type="hidden" name="category" value={category} />
           {/* The row the add came from — `addManualSupplier` keeps it only when it refines `category`. */}
           {tile && !edit ? <input type="hidden" name="category_key" value={tile} /> : null}
+          {/* Their claim link is made with the add (owner 2026-10-30: "create an automatic link") — `with_link` only
+              asks for it back, so the saved step shows it ready instead of a button. */}
+          {!edit ? <input type="hidden" name="with_link" value="1" /> : null}
           {edit ? <input type="hidden" name="vendor_id" value={edit.vendorId} /> : null}
 
           {mode.kind === 'linked' ? (
@@ -485,6 +533,37 @@ export function NewManualVendorModal({
               currentCategory={category}
               onCancel={handleCancelLink}
               disabled={pending}
+            />
+          ) : edit ? (
+            <RecordCardFolds
+              eventId={eventId}
+              edit={edit}
+              category={category}
+              categoryLabel={categoryLabel}
+              coverCatalog={coverCatalog}
+              addressRequired={addressRequired}
+              pending={pending}
+              nameKept={nameKept}
+              priceKept={priceKept}
+              priceNumber={priceNumber}
+              lines={lines}
+              planLine={planLine}
+              payLine={payLine}
+              onPlanLine={onPlanLine}
+              onPayLine={onPayLine}
+              onName={(t) => {
+                setNameQuery(t);
+              }}
+              onNameKeep={(t) => {
+                setNameKept(t);
+                setNameQuery(t);
+              }}
+              onPriceType={(t) => setPriceInput(t)}
+              onPriceKeep={(t) => {
+                setPriceKept(t);
+                setPriceInput(t);
+              }}
+              onMoved={() => setMoved(true)}
             />
           ) : (
             <>
@@ -552,7 +631,7 @@ export function NewManualVendorModal({
                   <TypedRow
                     name="Contact person"
                     fieldName="contact_person"
-                    value={edit?.contactPerson ?? ''}
+                    value=""
                     placeholder="e.g. Marcel Santos"
                     // A record made by the four-step walk may hold only one of the
                     // two contacts; editing it must not demand the other.
@@ -566,7 +645,7 @@ export function NewManualVendorModal({
                   <TypedRow
                     name="Contact number"
                     fieldName="contact_number"
-                    value={edit?.contactNumber ?? ''}
+                    value=""
                     placeholder="+63 9XX XXX XXXX"
                     required={!isEdit}
                     maxLength={32}
@@ -596,8 +675,8 @@ export function NewManualVendorModal({
                 <AddressPinField
                   required={addressRequired}
                   disabled={pending}
-                  initialAddress={edit?.address}
-                  initialPin={edit?.pin ?? null}
+                  initialAddress={undefined}
+                  initialPin={null}
                 />
               </div>
 
@@ -616,14 +695,14 @@ export function NewManualVendorModal({
                 <ServicesCoveredPicker
                   eventId={eventId}
                   category={category}
-                  homeTile={edit?.homeTile}
+                  homeTile={undefined}
                   ownLabel={categoryLabel}
                   catalog={coverCatalog}
-                  initialSelected={edit?.covers ?? []}
+                  initialSelected={[]}
                   disabled={pending}
                   // Only a supplier already on the event can be moved — an add
                   // files them under the row the sheet was opened from.
-                  move={edit ? { vendorId: edit.vendorId, name: edit.name.trim() || 'This supplier', claimAsk: edit.claimAsk } : undefined}
+                  move={undefined}
                   onMoved={() => setMoved(true)}
                 />
               </div>
@@ -633,7 +712,7 @@ export function NewManualVendorModal({
                   <TypedRow
                     name="Inclusions"
                     fieldName="inclusions"
-                    value={edit?.inclusions ?? ''}
+                    value=""
                     long
                     maxLength={2000}
                     placeholder={'e.g.\nBallroom, 6am–12mn\nTables and chairs'}
@@ -671,7 +750,7 @@ export function NewManualVendorModal({
                   disabled={pending}
                   // A SAVED plan re-opens exactly as saved — even one saved with
                   // no payments; only a supplier with no plan yet gets the starter.
-                  initial={edit && (edit.planRows.length > 0 || edit.planSaved) ? edit.planRows : undefined}
+                  initial={undefined}
                 />
               </div>
 
@@ -692,11 +771,7 @@ export function NewManualVendorModal({
               record sheet ends with it) — the same panel the walk's last step
               and the card's Connect show. Opening the record only READS the
               link; making one is the panel's own button. */}
-          {edit && mode.kind === 'manual' ? (
-            <div className="border-t border-ink/10 py-3">
-              <RecordLinkBlock eventId={eventId} vendorId={edit.vendorId} vendorName={edit.name || 'them'} />
-            </div>
-          ) : null}
+          {/* THEIR CLAIM LINK moved to the record card's HEAD (Booked prototype v4) — see `RecordLinkBlock` above. */}
 
           {/* PINNED FOOTER — the primary action never scrolls away on a long
               sheet (the sheet scrolls inside itself; this sticks to its foot).
@@ -747,43 +822,62 @@ export function NewManualVendorModal({
 }
 
 /**
- * The record's claim link — read first (three states, like `ConnectSupplierModal`:
- * still reading · no link yet · the link), so a couple who only opened their
- * record is never invited to mint a link that already exists.
+ * The record's claim link — ALWAYS READY (owner 2026-10-30, verbatim: *"no need to wait to create link. create an
+ * automatic link"*). The add makes it (`addManualSupplier` step 7); a supplier added before that has none, so the
+ * first time their card opens it is made here — server-side, through the ONE writer the old "Create their link"
+ * button called (`createManualVendorInvite` → `ensureAutoShareInvite`), which returns the live link when there is one
+ * and writes nothing (one live link per supplier: `vendor_invites_live_unique`). Opening the card twice makes one link.
+ *
+ * Three states, none of them an empty one: making it · the link · it could not be made (said in place, Try again).
  */
 function RecordLinkBlock({
   eventId,
   vendorId,
   vendorName,
+  makeLink = createManualVendorInvite,
 }: {
   eventId: string;
   vendorId: string;
   vendorName: string;
+  makeLink?: typeof createManualVendorInvite;
 }) {
-  const [invite, setInvite] = useState<SupplierInviteView | undefined>(undefined);
+  const [state, setState] = useState<{ kind: 'making' } | { kind: 'ready'; invite: NonNullable<SupplierInviteView> } | { kind: 'failed'; error: string }>({
+    kind: 'making',
+  });
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let live = true;
-    readSupplierInvite(eventId, vendorId)
-      .then((v) => {
-        if (live) setInvite(v);
+    setState({ kind: 'making' });
+    makeLink({ eventId, vendorId })
+      .then((r) => {
+        if (!live) return;
+        setState(r.ok ? { kind: 'ready', invite: { url: r.url, qrSvg: r.qrSvg } } : { kind: 'failed', error: r.error });
       })
       .catch(() => {
-        // Unreadable → offer "Create their link": that writer is idempotent and
-        // hands back the existing link rather than making a second.
-        if (live) setInvite(null);
+        if (live) setState({ kind: 'failed', error: 'We could not make their link just now.' });
       });
     return () => {
       live = false;
     };
-  }, [eventId, vendorId]);
-  if (invite === undefined) {
+  }, [eventId, vendorId, attempt, makeLink]);
+  if (state.kind === 'making') {
     return (
-      <p className="py-2 text-xs text-ink/55" aria-live="polite">
-        Checking for their link…
+      <p className="py-2 text-xs text-ink/55" aria-live="polite" data-record-link="making">
+        Getting their link ready…
       </p>
     );
   }
-  return <SupplierConnectPanel eventId={eventId} vendorId={vendorId} vendorName={vendorName} initial={invite} />;
+  if (state.kind === 'failed') {
+    return (
+      <div role="alert" data-record-link="failed" className="flex flex-wrap items-center gap-2 py-1">
+        <p className="min-w-0 flex-1 text-[12.5px] font-medium text-danger-800 dark:text-danger-200">
+          {state.error} Their link is not ready yet.
+        </p>
+        <ActionButton tone="neutral" icon={RotateCw} label="Try again" onClick={() => setAttempt((n) => n + 1)} />
+      </div>
+    );
+  }
+  return <SupplierConnectPanel eventId={eventId} vendorId={vendorId} vendorName={vendorName} initial={state.invite} layout="top" />;
 }
 
 // ============================================================================
@@ -804,12 +898,15 @@ function PostSaveStep({
   vendorName,
   categoryLabel,
   warning,
+  invite,
   onDone,
 }: {
   eventId: string;
   eventVendorId: string;
   vendorName: string;
   categoryLabel: string;
+  /** Their claim link, made with the add (`with_link=1`); null = it could not be made. */
+  invite?: SupplierInviteView;
   /** Set when the supplier saved but a later field did not — see addManualSupplier. */
   warning: string | null;
   onDone: () => void;
@@ -836,7 +933,7 @@ function PostSaveStep({
 
       {/* The supplier's portal — the same panel [Connect] on their card opens. */}
       <div className="border-t border-ink/10 pt-3">
-        <SupplierConnectPanel eventId={eventId} vendorId={eventVendorId} vendorName={vendorName} />
+        <SupplierConnectPanel eventId={eventId} vendorId={eventVendorId} vendorName={vendorName} initial={invite} />
       </div>
 
       <ActionButton tone="brand" main icon={Check} label="Done" onClick={onDone} className="w-full" />

@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6796
+# facts: 6799
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     576
-#   col       4979
+#   col       4982
 #   policy    961
 #   view      9
 #   func      267
@@ -1065,8 +1065,11 @@ col	public.couple_photo_shares.decided_at	anon=- authenticated=S
 col	public.couple_photo_shares.decided_by_user_id	anon=- authenticated=S
 col	public.couple_photo_shares.event_id	anon=- authenticated=S
 col	public.couple_photo_shares.inspiration_id	anon=- authenticated=S
+col	public.couple_photo_shares.public_key	anon=- authenticated=S
 col	public.couple_photo_shares.share_id	anon=- authenticated=S
 col	public.couple_photo_shares.shared_by_user_id	anon=- authenticated=S
+col	public.couple_photo_shares.snapshot_image_url	anon=- authenticated=S
+col	public.couple_photo_shares.snapshot_r2_key	anon=- authenticated=S
 col	public.couple_photo_shares.state	anon=- authenticated=S
 col	public.couple_photo_shares.vendor_profile_id	anon=- authenticated=S
 col	public.couple_photo_shares.vendor_service_id	anon=- authenticated=S
@@ -6761,7 +6764,7 @@ func	public.unread_message_threads_by_event()	secdef=yes exec=anon,authenticated
 func	public.unread_message_threads_by_vendor()	secdef=yes exec=anon,authenticated search_path=public
 func	public.vendor_agree_to_lock(p_event_vendor_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.vendor_agree_to_part(p_finalization_id uuid)	secdef=yes exec=authenticated search_path=public
-func	public.vendor_answer_couple_photo(p_share_id uuid, p_approve boolean)	secdef=yes exec=authenticated search_path=public
+func	public.vendor_answer_couple_photo(p_share_id uuid, p_approve boolean, p_public_key text)	secdef=yes exec=authenticated search_path=public
 func	public.vendor_answer_event_deletion(p_event_vendor_id uuid, p_agree boolean, p_reason text)	secdef=yes exec=authenticated search_path=public
 func	public.vendor_answer_part_reopen(p_finalization_id uuid, p_agree boolean, p_reason text)	secdef=yes exec=authenticated search_path=public
 func	public.vendor_begin_inspiration_suggestion(p_event_id uuid, p_slot_key text)	secdef=yes exec=authenticated search_path=public

@@ -3060,6 +3060,9 @@ export const UGAT_JOINTS: UgatJoint[] = [
       { kind: 'fk', table: 'couple_photo_shares', column: 'shared_by_user_id', references: 'users' },
       { kind: 'column', table: 'couple_photo_shares', column: 'credit_line' },
       { kind: 'column', table: 'couple_photo_shares', column: 'consent_version' },
+      { kind: 'column', table: 'couple_photo_shares', column: 'snapshot_r2_key' },
+      { kind: 'check', table: 'couple_photo_shares', name: 'couple_photo_shares_published_iff_approved', mentions: 'public_key' },
+      { kind: 'check', table: 'couple_photo_shares', name: 'couple_photo_shares_public_key_shape', mentions: 'public_key' },
       { kind: 'check', table: 'couple_photo_shares', name: 'couple_photo_shares_state_allowed', mentions: 'state' },
       { kind: 'check', table: 'couple_photo_shares', name: 'couple_photo_shares_a_couple_says_a_couple', mentions: 'credit_line' },
     ],
@@ -3076,7 +3079,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     guardedBy:
       'RLS at CREATE TABLE \u2014 couple read (current_couple_event_ids), shop read (current_vendor_profile_ids), admin all; NO insert/update/delete for authenticated and nothing for anon. Uploader + own-upload + linked shop + consent decided in SQL; tests/db/a-couples-photo-reaches-a-card-only-when-approved.db.test.ts holds each refusal',
     traps:
-      'The photo URL lives on the COUPLE\u2019S board row, which the shop cannot read under RLS \u2014 the shop list and the public card read it through SECURITY DEFINER functions, never a join from the client. A board photo removed (removed_at) leaves the card at read time with its share still \u2018approved\u2019 \u2014 count a card\u2019s couple photos through service_card_couple_photos, never by state alone. OPEN (owner): whether an approved photo uses the shop\u2019s paid page-photo room \u2014 as built it does not (COUPLE_PHOTOS_USE_PAGE_ROOM in lib/couple-photo-share.ts).',
+      'NEVER SERVE THE BOARD ROW (security review #7089): event_inspiration_assets is editable by every event member, so the share SNAPSHOTS the upload\u2019s r2_key at share time and Approve publishes a server-made COPY at public_key = couple-looks/<share_id>.<ext> (no event id, no file name); the card reads only that. Any change to the board row\u2019s picture, uploader, kind or removal WITHDRAWS the live share (trigger couple_photo_shares_follow_the_board), and a_board_photo_keeps_its_uploader refuses rewriting the uploader (NULL by erasure only). Withdrawn/declined copies are deleted by the action and swept by reconcileCoupleLooks (lib/couple-photo-share.server.ts). OPEN (owner): whether an approved photo uses the shop\u2019s paid page-photo room \u2014 as built it does not (COUPLE_PHOTOS_USE_PAGE_ROOM in lib/couple-photo-share.ts).',
   },
   {
     /**

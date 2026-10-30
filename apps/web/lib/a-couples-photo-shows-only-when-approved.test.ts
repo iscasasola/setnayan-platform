@@ -47,16 +47,22 @@ function fn(name: string): string {
 test('1 · the public card reads approved rows only, through the one door', () => {
   const body = fn('service_card_couple_photos');
   assert.match(body, /s\.state = 'approved'/, 'the card reader no longer filters to approved');
-  assert.match(body, /a\.removed_at IS NULL/, 'a photo removed from the board would stay on the card');
+  assert.match(body, /s\.public_key IS NOT NULL/, 'the card reader serves a share with no frozen copy');
   assert.match(body, /vs\.is_active IS TRUE/, 'a paused card would still show couple photos');
-  assert.match(sql, /REVOKE ALL ON TABLE public\.couple_photo_shares FROM anon;/, 'anon may read the shares table');
-  assert.match(sql, /REVOKE INSERT, UPDATE, DELETE ON TABLE public\.couple_photo_shares FROM authenticated;/, 'a session may write the shares table directly');
+  // 🛡 #7089 F1 — the card never reads the couple's board row (any event member may edit it).
+  assert.doesNotMatch(body, /event_inspiration_assets|image_url|snapshot_/, 'the card reads the live board row / the snapshot instead of the frozen copy');
+  assert.match(sql, /REVOKE ALL ON TABLE public\.couple_photo_shares FROM anon, authenticated;/, 'anon may read, or a session write, the shares table');
+  assert.match(sql, /GRANT SELECT ON TABLE public\.couple_photo_shares TO authenticated;/);
+  assert.doesNotMatch(sql, /GRANT (?:ALL|INSERT|UPDATE|DELETE)[^;]*ON TABLE public\.couple_photo_shares/, 'a write grant on the shares table');
   const anonGrants = [...sql.matchAll(/GRANT EXECUTE ON FUNCTION public\.(\w+)\([^)]*\) TO anon/g)].map((m) => m[1]);
   assert.deepEqual(anonGrants, ['service_card_couple_photos'], 'a share door other than the card reader is open to anon');
 
   const reader = read('lib/couple-photo-share.server.ts');
   assert.match(reader, /\.rpc\('service_card_couple_photos'/, 'the card reader no longer goes through the approved-only door');
-  assert.doesNotMatch(reader, /from\('couple_photo_shares'\)/, 'the card reader selects the table directly');
+  assert.match(reader, /coupleLookUrl\(r\.public_key\)/, 'the card maps something other than the frozen copy’s key to a URL');
+  const cardFn = reader.slice(reader.indexOf('export async function fetchServiceCardCouplePhotos('), reader.indexOf('export async function publishCoupleLook('));
+  assert.ok(cardFn.length > 100, 'the card reader could not be found');
+  assert.doesNotMatch(cardFn, /from\('couple_photo_shares'\)/, 'the card reader selects the table directly');
   const page = read('app/v/[slug]/page.tsx');
   assert.match(page, /fetchServiceCardCouplePhotos\(admin, activeServiceIds\)/, 'the shop page no longer reads its cards’ couple photos');
   assert.match(page, /withCoupleLooks\(/, 'the shop page no longer puts the couple photos on the card');
@@ -65,7 +71,8 @@ test('1 · the public card reads approved rows only, through the one door', () =
 test('1b · no page outside the two parties ever selects the shares table', () => {
   const allowed = new Set([
     'app/_actions/couple-photo-share-actions.ts',
-    'app/_actions/couple-photo-share-actions.ts',
+    // The frozen-copy sweep: reads which APPROVED shares name a copy, to delete the rest (service role, keys only).
+    'lib/couple-photo-share.server.ts',
   ]);
   const hits: string[] = [];
   const walk = (dir: string) => {
@@ -92,10 +99,30 @@ test('2 · only that shop answers — under its own session, checked in SQL', ()
   assert.match(list, /s\.vendor_profile_id IN \(SELECT public\.current_vendor_profile_ids\(\)\)/, 'the shop list reads other shops’ photos');
 });
 
+test('F1 · F3 · Approve publishes a frozen copy under a neutral key, made BEFORE the approve is recorded', () => {
+  assert.match(sql, /public_key ~ \('\^couple-looks\/' \|\| share_id::text/, 'the public key is not pinned to the share id');
+  assert.match(sql, /CHECK \(\(state = 'approved'\) = \(public_key IS NOT NULL\)\)/, 'an approved share can exist without its copy (or a dead one keep one)');
+  const trig = fn('couple_photo_shares_follow_the_board');
+  assert.match(trig, /SET state = 'withdrawn', withdrawn_at = NOW\(\), public_key = NULL/);
+  assert.match(sql, /CREATE TRIGGER couple_photo_shares_follow_the_board\s+BEFORE UPDATE ON public\.event_inspiration_assets/, 'a change to the board row no longer withdraws its share');
+  for (const col of ['image_url', 'r2_key', 'removed_at', 'added_by_user_id', 'source_kind']) {
+    assert.match(sql, new RegExp(`OLD\\.${col} IS DISTINCT FROM NEW\\.${col}`), `a change to ${col} no longer withdraws the share`);
+  }
+  const action = read('app/_actions/couple-photo-share-actions.ts');
+  const approve = action.slice(action.indexOf('async function answerCouplePhoto('));
+  const copyAt = approve.indexOf('publishCoupleLook(');
+  const rpcAt = approve.indexOf(".rpc('vendor_answer_couple_photo'");
+  assert.ok(copyAt > 0 && rpcAt > copyAt, 'the approve is recorded before (or without) the frozen copy');
+  assert.match(approve, /p_public_key: publicKey/);
+  const server = read('lib/couple-photo-share.server.ts');
+  assert.match(server, /r2Copy\(\{ bucket: R2_BUCKETS\.media, fromKey: snapshotKey, toKey \}\)/);
+  assert.match(server, /export async function reconcileCoupleLooks/, 'nothing sweeps the copies of withdrawn shares');
+});
+
 test('3 · withdraw moves the row out of approved; the uploader alone may do it', () => {
   const body = fn('couple_withdraw_photo_share');
-  assert.match(body, /SET state = 'withdrawn', withdrawn_at = NOW\(\)/);
-  assert.match(body, /v_row\.shared_by_user_id <> auth\.uid\(\) AND NOT public\.is_admin\(\)/, 'someone other than the uploader can withdraw');
+  assert.match(body, /SET state = 'withdrawn', withdrawn_at = NOW\(\), public_key = NULL/);
+  assert.match(body, /v_row\.shared_by_user_id IS DISTINCT FROM auth\.uid\(\) AND NOT public\.is_admin\(\)/, 'someone other than the uploader can withdraw');
   const action = read('app/_actions/couple-photo-share-actions.ts');
   assert.match(action, /\.rpc\('couple_withdraw_photo_share'/);
 });
@@ -118,6 +145,11 @@ test('5 · only the couple’s own upload, by its uploader, to a shop on the eve
   const body = fn('couple_share_photo_with_supplier');
   assert.match(body, /colour_access_caller_is_couple\(v_photo\.event_id\)/);
   assert.match(body, /v_photo\.source_kind <> 'file_upload'/, 'a supplier’s photo could be re-shared as the couple’s');
-  assert.match(body, /v_photo\.added_by_user_id <> auth\.uid\(\)/);
+  // 🛡 #7089 F2 — the proof is the object: a key under THIS event's upload folder, held by no other row.
+  assert.match(body, /v_photo\.r2_key NOT LIKE \('inspiration\/' \|\| v_photo\.event_id::TEXT \|\| '\/%'\)/, 'a key from anywhere can be shared');
+  assert.match(body, /o\.r2_key = v_photo\.r2_key AND o\.inspiration_id <> v_photo\.inspiration_id/, 'a partner’s key re-filed on a second row can be shared');
+  // 🛡 #7089 F4 — a NULL uploader is nobody's.
+  assert.match(body, /v_photo\.added_by_user_id IS DISTINCT FROM auth\.uid\(\)/);
+  assert.match(sql, /CREATE TRIGGER a_board_photo_keeps_its_uploader/, 'the uploader of a board photo can be rewritten');
   assert.match(body, /ev\.marketplace_vendor_id = v_shop[\s\S]{0,60}ev\.archived_at IS NULL/, 'a shop not on the event can be sent a photo');
 });

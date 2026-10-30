@@ -32,6 +32,9 @@ import { PhotosOfYouGallery } from '@/app/[slug]/_components/photos-of-you-galle
 import { YourShotsGallery } from '@/app/[slug]/_components/your-shots-gallery';
 import type { GuestLiveGallery, GuestOwnShots } from '@/lib/guest-live-gallery';
 
+/** The lab's stand-in wordmark (both lab bars draw the same one). */
+const LAB_WORDMARK = 'text-[14px] font-semibold tracking-[0.18em] text-[#a9834b]';
+
 const TONES = [
   ['#D7B77C', '#9A7A3C'], ['#B9856A', '#6F4A33'], ['#E2D59C', '#A7A14B'], ['#6E8296', '#2E3F50'],
   ['#B8788D', '#6D3F50'], ['#C8D27F', '#7E9A3E'], ['#E8C7A3', '#B67E57'], ['#9FB7B0', '#4E6E67'],
@@ -88,7 +91,7 @@ export default async function MemoriesLabPage({
   return (
     <div className="sn-ambient min-h-dvh">
       <div className="flex h-[61px] items-center justify-between border-b border-ink/10 bg-paper px-4" data-lab-topbar="">
-        <span className="text-[14px] font-semibold tracking-[0.18em] text-[#a9834b]">SETNAYAN</span>
+        <span className={LAB_WORDMARK}>SETNAYAN</span>
         <span className="sn-initials grid h-[34px] w-[34px] place-items-center rounded-full text-[12px] font-bold">IC</span>
       </div>
       <main className="pb-[calc(var(--sn-bottomdock-h,calc(env(safe-area-inset-bottom)+64px))+1.5rem)] lg:pb-0">
@@ -150,7 +153,7 @@ function GuestMemoriesLab({ share }: { share: boolean }) {
   return (
     <div className="sn-ambient min-h-dvh" data-lab-guest-memories={share ? 'all' : 'tagged'}>
       <div className="flex h-[61px] items-center justify-between border-b border-ink/10 bg-paper px-4" data-lab-topbar="">
-        <span className="text-[14px] font-semibold tracking-[0.18em] text-[#a9834b]">SETNAYAN</span>
+        <span className={LAB_WORDMARK}>SETNAYAN</span>
         <span className="text-[12px] text-ink/60">{share ? 'Share all memories' : 'Only tagged'}</span>
       </div>
       <main className="mx-auto w-full max-w-3xl space-y-12 px-4 py-6">

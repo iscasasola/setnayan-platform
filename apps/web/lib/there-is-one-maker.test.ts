@@ -70,7 +70,8 @@ test('2 · the shell takes no choice — no prop, and its context says `stagesSt
   assert.equal((shell.match(/\bstagesStudio\b/g) ?? []).length, 1, 'the shell names `stagesStudio` somewhere besides its literal');
   assert.doesNotMatch(shell, /\bdesktopColumns\b/, 'the shell branches on desktop columns again');
   /* The switch is drawn on its own — never inside a ternary or a `&&`. */
-  assert.match(shell, /<\/IconPill>[\s{}]*<div data-maker-tool="side"[^>]*>\s*<StudioSideSwitch /, 'Stages | Studio is no longer drawn unconditionally after Exit');
+  /* (It followed ✕ Exit's pill; the ✕ is dropped — 2026-10-30 — so it now leads the bar, after the ✕'s note.) */
+  assert.match(shell, /<header\b[^>]*>[\s{}]*<div data-maker-tool="side"[^>]*>\s*<StudioSideSwitch /, 'Stages | Studio is no longer drawn unconditionally, first in the bar');
   assert.match(shell, /<PickSheetContext\.Provider value=\{makerPickSheet\}>/, 'the one bottom sheet became conditional');
 });
 

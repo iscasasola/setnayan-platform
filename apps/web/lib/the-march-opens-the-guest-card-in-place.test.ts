@@ -159,7 +159,8 @@ test('6 · the card is drawn OVER the Maker — its layer sits above the full-sc
      set the card open (the name wore its ring) and the screen did not change. The NUMBERS are read from each file — a
      shell raised, a layer lowered, or the layer dropped from the portal turns this red. */
   const SHELL = read(`${L}/maker-shell.tsx`);
-  const shellCls = SHELL.match(/className="fixed inset-x-0 top-0 (z-\[\d+\]) flex h-\[100dvh\] flex-col bg-cream text-ink"/);
+  /* Since 2026-10-30 the shell sits in the room the app's nav leaves (`MAKER_IN_THE_APP_CSS`): `fixed z-[…]`, no inset. */
+  const shellCls = SHELL.match(/className="fixed (z-\[\d+\]) flex flex-col bg-cream text-ink"/);
   assert.ok(shellCls, 'the Maker’s full-screen shell is no longer found — re-anchor this test on it');
   const shellZ = zOf(shellCls[1]!)!;
   const { GUEST_CARD_LAYER: MARCH_CARD_LAYER } = await import(`../${G}/_components/guest-card-sheet`);
@@ -167,12 +168,13 @@ test('6 · the card is drawn OVER the Maker — its layer sits above the full-sc
   assert.ok(layerZ !== null, 'the card’s layer has no z-index — the sheet falls back under the Maker');
   assert.match(MARCH_CARD_LAYER as string, /(?:^|\s)(?:relative|fixed|absolute)(?:\s|$)/, 'the card’s layer is not positioned — its z-index would do nothing');
   assert.ok(layerZ! > shellZ, `the card’s layer (z ${layerZ}) is not above the Maker (z ${shellZ}) — the card opens behind it`);
-  // The sheet is the Guest list's (`.sn-inspector-sheet` / its peek, globals.css) — under the Maker on its own.
+  // The sheet is the Guest list's (`.sn-inspector-sheet` / its peek, globals.css). It sat UNDER the Maker's z-[80] on its
+  // own; since the Maker sits in the app's room at z-[40] (2026-10-30) it clears it by itself too — the layer above
+  // stays, as the one thing this test holds (a lower shell is never the card's only guarantee).
   const CSS = readFileSync(join(WEB, 'app/globals.css'), 'utf8');
   for (const cls of ['sn-inspector-sheet', 'sn-inspector-peek']) {
     const rule = CSS.match(new RegExp(`\\.${cls} \\{[^}]*z-index: (\\d+);`));
     assert.ok(rule, `.${cls}'s z-index is no longer found — re-anchor this test on it`);
-    assert.ok(Number(rule[1]) < shellZ, `.${cls} itself now clears the Maker — this layer may be retired, update this test`);
   }
   // The card's own dropdowns (portalled to <body>) must still draw over the card.
   const PICK = read('app/dashboard/[eventId]/website/editor/_components/pick-menu.tsx');

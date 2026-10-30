@@ -10,7 +10,7 @@ import { STUDIO_FORM_ITEMS, STUDIO_INFO_HAIRLINE_CSS, STUDIO_MARCH_TRAY_PX, STUD
  * `MAKER_DESKTOP_ADAPTATION_2026-10-07_fable.md`; DECISION_LOG 2026-10-15 "DESKTOP MOVES AHEAD OF THE ADMIN
  * DASHBOARD" · "DESKTOP COVERS THE WHOLE APP — FOUR AREAS, IN ORDER", area 1 = the Maker).
  *
- *   ┌──────────────── the top nav: ✕ Exit · [Stages | Studio] ··· 👁 Preview · ↺ Undo · ✓ Apply ────────────────┐
+ *   ┌────────────── the pinned row: [Stages | Studio] ··· ↺ Undo · 👁 Preview · ✓ Apply · ⚙ ───────────────┐
  *   │ PARTS (264, from 1280) │            THE PAGE (what is left)            │ TOOLS (384) — the lower third │
  *   └────────────────────────┴───────────────────────────────────────────────┴───────────────────────────────┘
  *
@@ -25,7 +25,10 @@ import { STUDIO_FORM_ITEMS, STUDIO_INFO_HAIRLINE_CSS, STUDIO_MARCH_TRAY_PX, STUD
  *   · ≥ 1280: three — parts 264 · page · tools 384 (answer 5, "Fixed").
  *   · Studio's home and a full-screen Studio tool draw no lower third: the page column then takes the whole width.
  *
- * The top nav keeps its four controls and shows their WORDS (the phone shows icons): a word is drawn by the rule
+ * 🧭 Since 2026-10-30 the Maker sits beside the app's rail, under its top bar (the Hub keeps the app's nav; the ✕ Exit
+ * is dropped) — the columns below are the room that leaves, unchanged.
+ *
+ * The top nav keeps its controls and shows their WORDS (the phone shows icons): a word is drawn by the rule
  * set (`::after`), so the phone's buttons — and the Maker's first load — carry not one byte more. Their names are
  * their `aria-label`s, as on the phone.
  */
@@ -152,11 +155,6 @@ export const MAKER_DESK_CSS =
   /* ── the top nav: the phone's four controls with their words (the old desktop's Page ▾ and Event Details are
         deleted from the shell, 2026-10-25 — nothing left to hide) ── */
   `${D} [data-maker-tool="side"]{display:flex!important;flex:0 1 380px;min-width:300px}` +
-  `${D} [data-maker-tool="exit"]{${BAR_PILL};background:#B3261E;color:#FFF}` +
-  `${D} [data-maker-tool="exit"]:hover{background:#9A1F19;color:#FFF}` +
-  `${D} [data-maker-tool="exit"]>svg:first-child{display:block!important}` +
-  `${D} [data-maker-tool="exit"]>svg:last-child{display:none!important}` +
-  `${D} [data-maker-tool="exit"]::after{content:"Exit";${WORD}}` +
   `${D} [data-maker-draft-actions] [data-bar-item="Undo"]{${BAR_PILL};background:rgba(44,42,41,.06)}` +
   `${D} [data-maker-draft-actions] [data-bar-item="Undo"]::after{content:"Undo";${WORD}}` +
   `${D} [data-maker-tool="preview"]{${BAR_PILL};background:rgba(44,42,41,.06);margin-left:8px}` +

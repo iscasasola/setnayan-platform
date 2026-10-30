@@ -365,7 +365,9 @@ test('the frame carries no ↑ ↓ ✕ any more; keys, Esc, a swipe and a tap on
   assert.match(tools, /e\.key === 'ArrowDown' \|\| e\.key === 'ArrowUp'/);
   assert.match(tools, /e\.key === 'Escape'\) deselect\(\)/);
   /* 🔁 RE-AIMED 2026-10-09 (commit 9, `the-play-button-previews.test.ts`): ▶ held down is the whole page as a guest — a tab then only turns the page, nothing is picked and nothing is let go. Outside the preview the rule is what it was. */
-  assert.match(tools, /d\.t === 'tapOutside' && !previewingRef\.current\) deselectRef\.current\(\)/, 'a tap on the page’s ground lets go');
+  /* 🫥 AMENDED 2026-10-30 (DECISION_LOG "EVENT HUB PRO (look redesign)": the toolbar "hides on a tap on empty page"): a
+     tap on the page's ground puts the toolbar away and keeps the part — `lib/the-toolbar-shows-and-hides.test.ts`. */
+  assert.match(tools, /d\.t === 'tapOutside' && !previewingRef\.current\) stowRef\.current\(\)/, 'a tap on the page’s ground does not put the toolbar away');
 });
 
 test('the frame and its ＋ stop in the gap — never on the neighbour’s words', async () => {

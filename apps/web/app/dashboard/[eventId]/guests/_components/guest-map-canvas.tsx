@@ -217,23 +217,25 @@ export function GuestMapCanvas({
             >
               {formatCount(h.guests.length)}
             </button>
-            <span className={styles.mindLabel} style={{ left: X(h.x), top: Y(h.y + h.ext + 14) }} aria-hidden>
-              {h.label}
-            </span>
-            {h.more > 0 ? (
-              <button
-                type="button"
-                className={styles.mindMore}
-                style={{ left: X(h.x), top: Y(h.y + h.ext + 36) }}
-                onClick={() => {
-                  setHubSel(null);
-                  setDrill({ kind: 'hub', key: h.key });
-                }}
-                data-mind-more={h.key}
-              >
-                +{formatCount(h.more)} more
-              </button>
-            ) : null}
+            {/* The name, then "+N more", stacked in one column under the hub — they cannot meet at any zoom. */}
+            <div className={styles.mindUnder} style={{ left: X(h.x), top: Y(h.y + h.ext + 6) }}>
+              <span className={styles.mindLabel} aria-hidden>
+                {h.label}
+              </span>
+              {h.more > 0 ? (
+                <button
+                  type="button"
+                  className={styles.mindMore}
+                  onClick={() => {
+                    setHubSel(null);
+                    setDrill({ kind: 'hub', key: h.key });
+                  }}
+                  data-mind-more={h.key}
+                >
+                  +{formatCount(h.more)} more
+                </button>
+              ) : null}
+            </div>
             {h.shown.map((g, i) => {
               const p = facePos(h, i);
               const toInvite = isToInvite(g) && g.rsvp_status === 'pending';

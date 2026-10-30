@@ -26,7 +26,7 @@
 -- NOTHING in the table is readable by anon. The service card reads ONLY
 -- `service_card_couple_photos(ids)`, which returns an APPROVED share's own
 -- `public_key` — a COPY of the photo the server made at Approve under a neutral
--- key `couple-looks/<share_id>.<ext>` (no event id, no original file name; F3).
+-- key `couple-looks/<share_id>-<attempt>.<ext>` (no event id, no original file name; F3).
 -- It never reads `event_inspiration_assets`: that row is editable by every event
 -- member under its existing policy, so reading it live would let anyone on the
 -- event swap the picture behind an approved, credited card (F1).
@@ -88,7 +88,7 @@ CREATE TABLE IF NOT EXISTS public.couple_photo_shares (
   -- id, carrying no event id and no file name. The card serves only this.
   public_key         TEXT
                        CONSTRAINT couple_photo_shares_public_key_shape
-                       CHECK (public_key IS NULL OR public_key ~ ('^couple-looks/' || share_id::text || '\.[a-z0-9]{1,5}$')),
+                       CHECK (public_key IS NULL OR public_key ~ ('^couple-looks/' || share_id::text || '-[0-9a-f]{12}\.(jpg|jpeg|png|webp)$')),
   -- The credit the card prints — the uploader's choice, frozen at share time.
   credit_style       TEXT NOT NULL
                        CONSTRAINT couple_photo_shares_credit_style_allowed
@@ -124,7 +124,7 @@ COMMENT ON TABLE public.couple_photo_shares IS
   'A couple''s OWN board photo (an upload under inspiration/<event>/) sent to one '
   'service card of a supplier linked to the event, waiting for THAT shop''s Approve '
   '(owner 2026-10-30). The board photo is SNAPSHOT at share; Approve publishes a frozen '
-  'copy at public_key (couple-looks/<share_id>.<ext>). Written only by the SECURITY '
+  'copy at public_key (couple-looks/<share_id>-<attempt>.<ext>). Written only by the SECURITY '
   'DEFINER doors and the board trigger; public only through service_card_couple_photos. No money.';
 
 -- One live share per photo per shop (a re-send after a decline/withdraw is a new row).
@@ -206,15 +206,19 @@ CREATE TRIGGER couple_photo_shares_follow_the_board
   )
   EXECUTE FUNCTION public.couple_photo_shares_follow_the_board();
 
--- ── 2b · A BOARD PHOTO KEEPS ITS UPLOADER (F2) ──────────────────────────────
--- The share door trusts `added_by_user_id` to say who may give the photo away,
--- and the existing policy lets any event member UPDATE it — a co-host could
--- write themselves in as the uploader of the partner's photo, then share it.
--- No code path in the app ever changes it after insert; the ONE legitimate move
--- is the account-erasure FK (users → SET NULL), which this lets through. This
--- is a narrow integrity trigger, NOT a change to the table's policies or grants
--- (those are the separate, owner-held fix).
-CREATE OR REPLACE FUNCTION public.a_board_photo_keeps_its_uploader()
+-- ── 2b · A BOARD PHOTO KEEPS ITS PROVENANCE (F2) ────────────────────────────
+-- The share door trusts `added_by_user_id` (who may give the photo away),
+-- `source_kind` and `from_suggestion_id` (whether it is the couple's own or a
+-- supplier's), and the existing policy lets any event member UPDATE all three:
+-- a co-host could write themselves in as the uploader of the partner's photo,
+-- or a kept supplier suggestion could be relabelled an own upload and shared
+-- onto a competitor's card. No code path in the app or in SQL changes any of
+-- them after insert (grep: only INSERTs set them; from_suggestion_id's FK is ON
+-- DELETE CASCADE, never SET NULL). The ONE legitimate move is the account-erasure
+-- FK (users → added_by_user_id SET NULL), which this lets through. A narrow
+-- integrity trigger, NOT a change to the table's policies or grants (those are
+-- the separate, owner-held fix).
+CREATE OR REPLACE FUNCTION public.a_board_photo_keeps_its_provenance()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 SET search_path = public
@@ -224,16 +228,20 @@ BEGIN
      AND NEW.added_by_user_id IS DISTINCT FROM OLD.added_by_user_id THEN
     RAISE EXCEPTION 'A board photo keeps the person who uploaded it.' USING ERRCODE = '42501';
   END IF;
+  IF NEW.source_kind IS DISTINCT FROM OLD.source_kind
+     OR NEW.from_suggestion_id IS DISTINCT FROM OLD.from_suggestion_id THEN
+    RAISE EXCEPTION 'A board photo keeps where it came from.' USING ERRCODE = '42501';
+  END IF;
   RETURN NEW;
 END;
 $$;
-REVOKE ALL ON FUNCTION public.a_board_photo_keeps_its_uploader() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.a_board_photo_keeps_its_provenance() FROM PUBLIC, anon, authenticated;
 
-DROP TRIGGER IF EXISTS a_board_photo_keeps_its_uploader ON public.event_inspiration_assets;
-CREATE TRIGGER a_board_photo_keeps_its_uploader
-  BEFORE UPDATE OF added_by_user_id ON public.event_inspiration_assets
+DROP TRIGGER IF EXISTS a_board_photo_keeps_its_provenance ON public.event_inspiration_assets;
+CREATE TRIGGER a_board_photo_keeps_its_provenance
+  BEFORE UPDATE OF added_by_user_id, source_kind, from_suggestion_id ON public.event_inspiration_assets
   FOR EACH ROW
-  EXECUTE FUNCTION public.a_board_photo_keeps_its_uploader();
+  EXECUTE FUNCTION public.a_board_photo_keeps_its_provenance();
 
 -- ── 3 · SHARE — the uploader sends their own photo to a linked shop's card ─────
 CREATE OR REPLACE FUNCTION public.couple_share_photo_with_supplier(
@@ -279,6 +287,12 @@ BEGIN
      OR v_photo.r2_key IS NULL
      OR v_photo.r2_key NOT LIKE ('inspiration/' || v_photo.event_id::TEXT || '/%')
      OR position('..' IN v_photo.r2_key) > 0
+     -- A SUPPLIER'S suggested photo is stored inside the couple's folder
+     -- (inspiration/<event>/suggestions/…) and its key is readable by the couple:
+     -- it is never "their own", however the row is labelled (review #7089, round 2).
+     OR v_photo.r2_key LIKE ('inspiration/' || v_photo.event_id::TEXT || '/suggestions/%')
+     OR v_photo.from_suggestion_id IS NOT NULL
+     OR EXISTS (SELECT 1 FROM public.event_inspiration_suggestions sg WHERE sg.r2_key = v_photo.r2_key)
      OR EXISTS (
        SELECT 1 FROM public.event_inspiration_assets o
         WHERE o.r2_key = v_photo.r2_key AND o.inspiration_id <> v_photo.inspiration_id
@@ -361,7 +375,7 @@ GRANT EXECUTE ON FUNCTION public.couple_share_photo_with_supplier(UUID, UUID, TE
 
 -- ── 4 · ANSWER — only THAT shop's owner/admin team approves or declines ───────
 -- Approve PUBLISHES: p_public_key names the frozen copy the server already made
--- (couple-looks/<share_id>.<ext>, CHECKed). Decline on an APPROVED row takes it
+-- (couple-looks/<share_id>-<attempt>.<ext>, CHECKed). Decline on an APPROVED row takes it
 -- back off the card. Either way the old public key comes back so the server can
 -- delete the object.
 CREATE OR REPLACE FUNCTION public.vendor_answer_couple_photo(
@@ -395,7 +409,7 @@ BEGIN
     RETURN jsonb_build_object('status', 'already', 'state', v_row.state);
   END IF;
   IF p_approve AND (p_public_key IS NULL
-       OR p_public_key !~ ('^couple-looks/' || v_row.share_id::text || '\.[a-z0-9]{1,5}$')) THEN
+       OR p_public_key !~ ('^couple-looks/' || v_row.share_id::text || '-[0-9a-f]{12}\.(jpg|jpeg|png|webp)$')) THEN
     RETURN jsonb_build_object('status', 'bad_key');
   END IF;
   UPDATE public.couple_photo_shares
@@ -417,7 +431,7 @@ $$;
 COMMENT ON FUNCTION public.vendor_answer_couple_photo(UUID, BOOLEAN, TEXT) IS
   'The shop''s Approve / Decline on a couple''s shared photo (owner/admin team via '
   'current_vendor_profile_ids, else not_yours). Approve requires the frozen copy''s key '
-  '(couple-looks/<share_id>.<ext>, else bad_key) and publishes it; Decline on an approved '
+  '(couple-looks/<share_id>-<attempt>.<ext>, else bad_key) and publishes it; Decline on an approved '
   'row takes it off the card and hands back the key to delete. A withdrawn photo changes nothing.';
 REVOKE ALL ON FUNCTION public.vendor_answer_couple_photo(UUID, BOOLEAN, TEXT) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.vendor_answer_couple_photo(UUID, BOOLEAN, TEXT) FROM anon;
@@ -522,7 +536,7 @@ AS $$
 $$;
 COMMENT ON FUNCTION public.service_card_couple_photos(UUID[]) IS
   'The public service card''s "From couples" photos: APPROVED shares only, as their own '
-  'frozen copy (couple-looks/<share_id>.<ext>) + credit line — never the couple''s board row, '
+  'frozen copy (couple-looks/<share_id>-<attempt>.<ext>) + credit line — never the couple''s board row, '
   'nothing that names the event. Waiting / declined / withdrawn never leave here.';
 REVOKE ALL ON FUNCTION public.service_card_couple_photos(UUID[]) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.service_card_couple_photos(UUID[]) TO anon, authenticated;

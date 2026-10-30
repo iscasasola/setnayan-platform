@@ -15,7 +15,7 @@
  *   6 · "A couple" credit is literally "A couple"; one live share per photo per shop.
  *
  * 🛡 SECURITY REVIEW #7089 — the reviewer's PoC (scenarios A–F), ported so each finding is pinned:
- *   F1 · the card serves the share's FROZEN COPY (`couple-looks/<share_id>.<ext>`), never the board row: a guest who
+ *   F1 · the card serves the share's FROZEN COPY (`couple-looks/<share_id>-<attempt>.<ext>`), never the board row: a guest who
  *        swaps image_url / r2_key after (or before) Approve withdraws the share instead of re-pointing the card; a
  *        removal withdraws it and a guest's un-removal cannot bring it back.
  *   F2 · a direct-INSERTed "file_upload" with no key, a key from another event, or a partner's key reused on a second
@@ -75,7 +75,8 @@ let keyN = 0;
 /** What the upload action writes: a key under THIS event's folder, and its public URL. */
 const uploadKey = (pos: number, eventId = W.eventId) => `inspiration/${eventId}/bridal_bouquet/${(++keyN).toString().padStart(8, '0')}-0000-4000-8000-000000000000-own-${pos}.jpg`;
 const urlOf = (key: string) => `https://media.example/${key}`;
-const lookKey = (shareId: string) => `couple-looks/${shareId}.jpg`;
+/** A frozen copy's key for one Approve attempt (the server draws the 12-hex attempt fresh each time). */
+const lookKey = (shareId: string, attempt = '000000000001') => `couple-looks/${shareId}-${attempt}.jpg`;
 const HEX = ['#5B4A6B', '#D9C4CF', '#A9834B', '#F7F2EC', '#7A8B6F', '#FFFFFF'];
 
 async function shop(email: string, name: string, link: boolean): Promise<{ owner: string; card: string }> {
@@ -415,7 +416,17 @@ test('F4 · PoC E — a NULL uploader (an erased account) is nobody’s: no co-h
 
 test('F3 · the public key names no event and no file; Approve needs exactly this share’s key', async () => {
   const { id } = await freshShare(1, W.floristCard, false);
-  for (const bad of [null, `couple-looks/${W.eventId}.jpg`, `inspiration/${W.eventId}/bridal_bouquet/x.jpg`, `couple-looks/${id}-ana-ben.jpg`, `couple-looks/${id}.jpeg.exe`]) {
+  for (const bad of [
+    null,
+    `couple-looks/${W.eventId}-000000000001.jpg`,
+    `couple-looks/00000000-0000-0000-0000-000000000000-000000000001.jpg`,
+    `inspiration/${W.eventId}/bridal_bouquet/x.jpg`,
+    `couple-looks/${id}.jpg`,
+    `couple-looks/${id}-ana-ben.jpg`,
+    `couple-looks/${id}-000000000001.jpeg.exe`,
+    `couple-looks/${id}-000000000001.svg`,
+    `couple-looks/${id}-000000000001.jpg/../x`,
+  ]) {
     const a = await answer(W.florist, id, true, bad);
     assert.ok(a.ok && a.value.status === 'bad_key', `approve accepted ${bad}: ${JSON.stringify(a)}`);
   }
@@ -423,7 +434,7 @@ test('F3 · the public key names no event and no file; Approve needs exactly thi
   const ok = await answer(W.florist, id, true);
   assert.ok(ok.ok && ok.value.status === 'ok');
   const card = await onCard(W.floristCard);
-  assert.ok(card.length > 0 && card.every((x) => /^couple-looks\/[0-9a-f-]{36}\.[a-z0-9]{1,5}$/.test(x.public_key) && !x.public_key.includes(W.eventId)), JSON.stringify(card));
+  assert.ok(card.length > 0 && card.every((x) => /^couple-looks\/[0-9a-f-]{36}-[0-9a-f]{12}\.(jpg|jpeg|png|webp)$/.test(x.public_key) && !x.public_key.includes(W.eventId)), JSON.stringify(card));
   // Take off returns the key so the server deletes the copy; withdraw does too.
   const off = await answer(W.florist, id, false);
   assert.ok(off.ok && off.value.status === 'ok' && off.value.unpublished_key === lookKey(id), JSON.stringify(off));
@@ -437,4 +448,98 @@ test('F · PoC F — the table grants: authenticated SELECT only, anon nothing',
       WHERE table_schema='public' AND table_name='couple_photo_shares' AND grantee IN ('anon','authenticated') ORDER BY 1,2`,
   );
   assert.deepEqual(r.rows, [{ grantee: 'authenticated', privilege_type: 'SELECT' }]);
+});
+
+/* ══════════════════════════════════════════════════════════════════════════
+   🛡 SECURITY REVIEW #7089, ROUND 2 — the reviewer's second PoC, pinned
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/** A supplier's suggestion row as the server leaves it after the screen (its photo in the couple's own folder). */
+async function aSuggestion(key: string): Promise<string> {
+  await reset();
+  const shopId = (await db.query<{ vendor_profile_id: string }>(`SELECT vendor_profile_id FROM public.vendor_profiles WHERE user_id=$1`, [W.other])).rows[0]!.vendor_profile_id;
+  return (await db.query<{ suggestion_id: string }>(
+    `INSERT INTO public.event_inspiration_suggestions (event_id, vendor_profile_id, shop_label, slot_key, state, image_url, r2_key, screened_at,
+       sampled_hex_1, sampled_hex_2, sampled_hex_3, sampled_hex_4, sampled_hex_5, sampled_hex_6)
+     VALUES ($1,$2,'Petal Lane','bridal_bouquet','waiting',$3,$4,NOW(),$5,$6,$7,$8,$9,$10) RETURNING suggestion_id`,
+    [W.eventId, shopId, urlOf(key), key, ...HEX],
+  )).rows[0]!.suggestion_id;
+}
+
+test('F2 · round 2 — a SUPPLIER’s suggested photo is never "their own": not by its folder, not by its key, not by its row', async () => {
+  // (a) The couple re-points their own row at a key in the suggestions folder.
+  await freePlace(2);
+  const mine = await boardPhoto(W.couple, 2, 'file_upload');
+  const sugKey = `inspiration/${W.eventId}/suggestions/bridal_bouquet/11111111-1111-4111-8111-111111111111-suggestion.jpg`;
+  const repoint = await as(W.couple, `UPDATE public.event_inspiration_assets SET r2_key=$2, image_url=$3 WHERE inspiration_id=$1 RETURNING 1 AS out`, [mine, sugKey, urlOf(sugKey)]);
+  assert.ok(repoint.ok, 'the pre-existing couple UPDATE path changed — re-read this test');
+  const r1 = await share(W.couple, mine, W.floristCard, 'a_couple', null);
+  assert.ok(r1.ok && r1.value.status === 'not_own_photo', `a suggestions-folder object was shareable: ${JSON.stringify(r1)}`);
+  // (b) A key that IS a supplier suggestion's, wherever it is filed.
+  await freePlace(2);
+  const theirs = uploadKey(2);
+  await aSuggestion(theirs);
+  const copy = await as<string>(W.couple, `INSERT INTO public.event_inspiration_assets (event_id, added_by_user_id, slot_key, slot_position, source_kind, image_url, r2_key,
+      sampled_hex_1, sampled_hex_2, sampled_hex_3, sampled_hex_4, sampled_hex_5, sampled_hex_6)
+    VALUES ($1,$2,'bridal_bouquet',2,'file_upload',$3,$4,$5,$6,$7,$8,$9,$10) RETURNING inspiration_id AS out`, [W.eventId, W.couple, urlOf(theirs), theirs, ...HEX]);
+  assert.ok(copy.ok, JSON.stringify(copy));
+  const r2 = await share(W.couple, copy.value, W.floristCard, 'a_couple', null);
+  assert.ok(r2.ok && r2.value.status === 'not_own_photo', `a supplier suggestion's object was shareable: ${JSON.stringify(r2)}`);
+});
+
+test('F2 · round 2 — a KEPT suggestion cannot be relabelled an own upload (kind / from_suggestion_id are kept)', async () => {
+  await freePlace(3);
+  const key = `inspiration/${W.eventId}/suggestions/bridal_bouquet/22222222-2222-4222-8222-222222222222-kept.jpg`;
+  const sid = await aSuggestion(key);
+  await reset();
+  const kept = (await db.query<{ inspiration_id: string }>(
+    `INSERT INTO public.event_inspiration_assets (event_id, added_by_user_id, slot_key, slot_position, source_kind, from_suggestion_id, image_url, r2_key,
+       sampled_hex_1, sampled_hex_2, sampled_hex_3, sampled_hex_4, sampled_hex_5, sampled_hex_6)
+     VALUES ($1,$2,'bridal_bouquet',3,'supplier_suggestion',$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING inspiration_id`,
+    [W.eventId, W.couple, sid, urlOf(key), key, ...HEX],
+  )).rows[0]!.inspiration_id;
+  const flip = await as(W.couple, `UPDATE public.event_inspiration_assets SET source_kind='file_upload', from_suggestion_id=NULL WHERE inspiration_id=$1 RETURNING 1 AS out`, [kept]);
+  assert.ok(!flip.ok, 'a kept suggestion was relabelled the couple’s own upload');
+  const kindOnly = await as(W.couple, `UPDATE public.event_inspiration_assets SET source_kind='file_upload' WHERE inspiration_id=$1 RETURNING 1 AS out`, [kept]);
+  assert.ok(!kindOnly.ok, 'a board photo’s kind was changed');
+  const r = await share(W.couple, kept, W.floristCard, 'a_couple', null);
+  assert.ok(r.ok && r.value.status === 'not_own_photo', JSON.stringify(r));
+});
+
+test('#2 · round 2 — two approves in a row: the first copy is published and stays; the second is refused', async () => {
+  const { id } = await freshShare(1, W.floristCard, false);
+  const first = await answer(W.florist, id, true, lookKey(id, 'aaaaaaaaaaaa'));
+  const second = await answer(W.florist, id, true, lookKey(id, 'bbbbbbbbbbbb'));
+  assert.ok(first.ok && first.value.status === 'ok', JSON.stringify(first));
+  assert.ok(second.ok && second.value.status === 'already', JSON.stringify(second));
+  // The losing attempt names ITS OWN key — never the one the card shows — so deleting it cannot take the card's photo.
+  assert.notEqual(lookKey(id, 'bbbbbbbbbbbb'), lookKey(id, 'aaaaaaaaaaaa'));
+  assert.deepEqual((await onCard(W.floristCard)).filter((x) => x.public_key.startsWith(`couple-looks/${id}`)).map((x) => x.public_key), [lookKey(id, 'aaaaaaaaaaaa')]);
+  assert.equal((await stateOf(id)).public_key, lookKey(id, 'aaaaaaaaaaaa'));
+});
+
+test('round 2 — an account erasure with an approved share goes through; a co-host moving a photo between places does not raise', async () => {
+  const tmp = await newUser('cps-erase@audit.test');
+  await reset();
+  await db.query(`INSERT INTO public.event_members (event_id, user_id, member_type) VALUES ($1,$2,'couple')`, [W.eventId, tmp]);
+  await freePlace(1);
+  const key = uploadKey(1);
+  const photo = (await db.query<{ inspiration_id: string }>(
+    `INSERT INTO public.event_inspiration_assets (event_id, added_by_user_id, slot_key, slot_position, source_kind, image_url, r2_key,
+       sampled_hex_1, sampled_hex_2, sampled_hex_3, sampled_hex_4, sampled_hex_5, sampled_hex_6)
+     VALUES ($1,$2,'bridal_bouquet',1,'file_upload',$3,$4,$5,$6,$7,$8,$9,$10) RETURNING inspiration_id`, [W.eventId, tmp, urlOf(key), key, ...HEX],
+  )).rows[0]!.inspiration_id;
+  const s1 = await share(tmp, photo, W.floristCard, 'a_couple', null);
+  assert.ok(s1.ok && s1.value.status === 'ok', JSON.stringify(s1));
+  const a1 = await answer(W.florist, s1.value.share_id!, true);
+  assert.ok(a1.ok && a1.value.status === 'ok');
+  await reset();
+  await db.query(`DELETE FROM auth.users WHERE id=$1`, [tmp]);
+  const left = await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM public.couple_photo_shares WHERE share_id=$1`, [s1.value.share_id]);
+  assert.equal(left.rows[0]!.n, 0, 'an erased account’s share survived');
+  const up = await db.query<{ added_by_user_id: string | null }>(`SELECT added_by_user_id FROM public.event_inspiration_assets WHERE inspiration_id=$1`, [photo]);
+  assert.equal(up.rows[0]!.added_by_user_id, null);
+  await freePlace(2);
+  const move = await as(W.cohost, `UPDATE public.event_inspiration_assets SET slot_position=2 WHERE inspiration_id=$1 RETURNING 1 AS out`, [photo]);
+  assert.ok(move.ok, `a slot move raised: ${JSON.stringify(move)}`);
 });

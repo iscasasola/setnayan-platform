@@ -194,26 +194,41 @@ export type AnswerCouplePhotoResult =
 /** Where every published couple photo lives — a neutral folder: no event id, no file name. */
 export const COUPLE_LOOKS_PREFIX = 'couple-looks/';
 
+/** The image types a frozen copy may carry — what the upload action accepts. Anything else is stored as `.jpg`. */
+const LOOK_EXTS = new Set(['jpg', 'jpeg', 'png', 'webp']);
+
 /**
- * The frozen copy's key for one share: `couple-looks/<share_id>.<ext>`, the extension read off the snapshot's key
- * (letters/digits, ≤5, lower-cased; `jpg` when there is none). The database CHECKs exactly this shape, pinned to the
- * share's own id, so a shop can never point a share at another object.
+ * The frozen copy's key for ONE APPROVE ATTEMPT: `couple-looks/<share_id>-<attempt>.<ext>` — the attempt is 12 hex
+ * characters, fresh per Approve, so two approves (two shop members, or a double tap) never write or delete the same
+ * object: the losing attempt deletes only its own copy (review #7089, round 2). The extension is read off the
+ * snapshot's key and kept only when it is an image type the upload accepts (else `jpg`). The database CHECKs exactly
+ * this shape, pinned to the share's own id, so a shop can never point a share at another object.
  */
-export function coupleLookKey(shareId: string, snapshotKey: string): string {
+export function coupleLookKey(shareId: string, snapshotKey: string, attempt: string): string {
   const m = /\.([A-Za-z0-9]{1,5})$/.exec(snapshotKey.trim());
-  const ext = m ? m[1]!.toLowerCase() : 'jpg';
-  return `${COUPLE_LOOKS_PREFIX}${shareId}.${ext}`;
+  const raw = m ? m[1]!.toLowerCase() : '';
+  const ext = LOOK_EXTS.has(raw) ? raw : 'jpg';
+  if (!/^[0-9a-f]{12}$/.test(attempt)) throw new Error('coupleLookKey: the attempt must be 12 hex characters');
+  return `${COUPLE_LOOKS_PREFIX}${shareId}-${attempt}.${ext}`;
 }
 
-/** The share id a frozen copy belongs to — null for anything that is not `couple-looks/<uuid>.<ext>`. */
+/** The share id a frozen copy belongs to — null for anything that is not `couple-looks/<uuid>-<attempt>.<ext>`. */
 export function shareIdOfCoupleLook(key: string): string | null {
-  const m = /^couple-looks\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.[a-z0-9]{1,5}$/.exec(key);
+  const m = /^couple-looks\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})-[0-9a-f]{12}\.(?:jpg|jpeg|png|webp)$/.exec(key);
   return m ? m[1]! : null;
 }
 
-/** An upload the upload action wrote for THIS event (`inspiration/<event_id>/…`) — the SQL door checks the same. */
+/**
+ * An upload the upload action wrote for THIS event (`inspiration/<event_id>/…`) and NOT a supplier's suggested photo,
+ * which is stored in the same folder under `suggestions/` — the SQL door checks the same (review #7089, round 2).
+ */
 export function isEventUploadKey(eventId: string, key: string | null | undefined): boolean {
-  return typeof key === 'string' && key.startsWith(`inspiration/${eventId}/`) && !key.includes('..');
+  return (
+    typeof key === 'string' &&
+    key.startsWith(`inspiration/${eventId}/`) &&
+    !key.startsWith(`inspiration/${eventId}/suggestions/`) &&
+    !key.includes('..')
+  );
 }
 
 /** Where the shop answers — its Shop › Services, at the list (`id="couple-photos"`). */

@@ -1,4 +1,5 @@
 import 'server-only';
+import { randomBytes } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -62,7 +63,7 @@ export async function fetchServiceCardCouplePhotos(
  */
 export async function publishCoupleLook(shareId: string, snapshotKey: string): Promise<string | null> {
   if (!isR2Configured()) return null;
-  const toKey = coupleLookKey(shareId, snapshotKey);
+  const toKey = coupleLookKey(shareId, snapshotKey, randomBytes(6).toString('hex'));
   try {
     await r2Copy({ bucket: R2_BUCKETS.media, fromKey: snapshotKey, toKey });
     return toKey;
@@ -72,7 +73,7 @@ export async function publishCoupleLook(shareId: string, snapshotKey: string): P
   }
 }
 
-/** Delete one frozen copy (withdraw · decline · take off · a refused approve). Best-effort; the sweep is the net. */
+/** Delete one frozen copy (withdraw · decline · take off · THIS attempt's copy after a refused approve). Best-effort; the sweep is the net. */
 export async function unpublishCoupleLook(key: string | null | undefined): Promise<void> {
   if (!key || !shareIdOfCoupleLook(key) || !isR2Configured()) return;
   try {
@@ -84,31 +85,37 @@ export async function unpublishCoupleLook(key: string | null | undefined): Promi
 
 /** A copy younger than this is never swept — it may be an Approve still between its copy and its record. */
 const SWEEP_GRACE_MS = 10 * 60 * 1000;
+/** Keys per `.in()` question, and the most objects one sweep lists (paged by r2List, 1,000 a page). */
+const SWEEP_CHUNK = 100;
+const SWEEP_MAX_OBJECTS = 20_000;
 
 /**
  * THE NET UNDER EVERY UNPUBLISH: delete each `couple-looks/` object no APPROVED share names. It catches what no
  * action saw — a share withdrawn by the board trigger (a photo removed or changed on the board), a cascade delete
  * (an event or account erased), a crash between copy and record. Run after every share write; best-effort, bounded
- * (one listing of ≤1,000 objects). ⚠ At scale this belongs on a schedule — named, not hidden.
+ * (≤20,000 objects, paged; keys checked 100 at a time). ⚠ At scale this belongs on a schedule — named, not hidden.
  */
 export async function reconcileCoupleLooks(): Promise<void> {
   if (!isR2Configured()) return;
   try {
-    const { objects } = await r2List({ bucket: R2_BUCKETS.media, prefix: COUPLE_LOOKS_PREFIX, maxKeys: 1000 });
+    // Every page of the listing (r2List follows continuation tokens up to its ceiling).
+    const { objects } = await r2List({ bucket: R2_BUCKETS.media, prefix: COUPLE_LOOKS_PREFIX, maxKeys: SWEEP_MAX_OBJECTS });
     const now = Date.now();
     const candidates = objects.filter((o) => shareIdOfCoupleLook(o.key) && (!o.lastModified || now - o.lastModified.getTime() > SWEEP_GRACE_MS));
     if (candidates.length === 0) return;
     const admin = createAdminClient();
-    const { data, error } = await admin
-      .from('couple_photo_shares')
-      .select('public_key')
-      .eq('state', 'approved')
-      .in('public_key', candidates.map((o) => o.key));
-    if (error) {
-      logQueryError('reconcileCoupleLooks', error, { n: candidates.length }, 'graceful_degrade');
-      return;
+    const live = new Set<string>();
+    // Asked in chunks — one `.in()` of thousands of keys would outgrow the request URL.
+    for (let i = 0; i < candidates.length; i += SWEEP_CHUNK) {
+      const chunk = candidates.slice(i, i + SWEEP_CHUNK).map((o) => o.key);
+      const { data, error } = await admin.from('couple_photo_shares').select('public_key').eq('state', 'approved').in('public_key', chunk);
+      if (error) {
+        // Fail SAFE: a chunk we could not check is never deleted.
+        logQueryError('reconcileCoupleLooks', error, { n: chunk.length }, 'graceful_degrade');
+        return;
+      }
+      for (const r of (data ?? []) as Array<{ public_key: string }>) live.add(r.public_key);
     }
-    const live = new Set(((data ?? []) as Array<{ public_key: string }>).map((r) => r.public_key));
     for (const o of candidates) if (!live.has(o.key)) await unpublishCoupleLook(o.key);
   } catch (e) {
     console.error('[couple-photo] the frozen-copy sweep failed', e instanceof Error ? e.message : e);

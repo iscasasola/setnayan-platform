@@ -240,8 +240,9 @@ async function answerCouplePhoto(shareId: string, approve: boolean): Promise<Ans
 
   // 🔑 APPROVE PUBLISHES A FROZEN COPY (security review #7089, F1 + F3). The shop approves the SNAPSHOT taken at share
   // time — read through its own door (its shops only, waiting only) — and the server copies those bytes to
-  // `couple-looks/<share_id>.<ext>` BEFORE recording the approve; the database refuses an approved share without that
-  // key. A refused approve deletes the copy it just made.
+  // `couple-looks/<share_id>-<attempt>.<ext>` BEFORE recording the approve; the database refuses an approved share
+  // without such a key. The attempt is fresh per Approve, so a refused approve (a second shop member, a double tap)
+  // deletes ONLY the copy it just made — never the one the winning attempt published (review #7089, round 2).
   let publicKey: string | null = null;
   if (approve) {
     const { data: mine, error: mineErr } = await supabase.rpc('vendor_couple_photo_shares');
@@ -263,8 +264,9 @@ async function answerCouplePhoto(shareId: string, approve: boolean): Promise<Ans
     return { status: 'refused', message: 'That did not go through — nothing changed. Try again.' };
   }
   const r = (data ?? {}) as { status?: string; was?: CouplePhotoShareState; event_id?: string; shared_by_user_id?: string; unpublished_key?: string | null };
+  // Not ok → this attempt's own copy goes (unique to it). Ok → a decline / take off hands back the copy it retired.
   if (r.status !== 'ok') await unpublishCoupleLook(publicKey);
-  else await unpublishCoupleLook(r.unpublished_key);
+  else if (r.unpublished_key && r.unpublished_key !== publicKey) await unpublishCoupleLook(r.unpublished_key);
   await reconcileCoupleLooks();
   if (r.status === 'withdrawn') return { status: 'refused', message: 'The couple took this photo back — it shows nowhere.' };
   if (r.status === 'gone') return { status: 'refused', message: 'The couple removed this photo from their board — it shows nowhere.' };

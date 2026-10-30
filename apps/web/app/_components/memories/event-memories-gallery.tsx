@@ -13,9 +13,11 @@
  *     · the album's count · "Needs a look N" (the filter, lit when on) · ⚙ Gallery settings (a sheet).
  *   · CHALLENGES: grouped by challenge in the board's order, each headed "title · count"; a supplier's challenge
  *     names its supplier in the ⓘ. In All, a challenge frame wears a small tag.
- *   · A TAP opens the photo's own sheet in the thumb zone — its preview opens the viewer (the compressed copy); a
- *     Papic file offers Hide · Report · Stop this guest shooting · Approve · Delete forever; a supplier's file, Hide
- *     their photos; an Event Hub file is shown, never managed here ("Used on your Event Hub").
+ *   · A TAP opens the photo itself in the shared viewer template (`MemoriesPhotoViewer` → `PhotoViewer`, owner
+ *     2026-10-30: "like how we open inspiration photos but with the buttons for memories") — Share · Tag · Add to
+ *     Chapter · Hide · Delete, each only for whom it was already theirs; Report and Stop this guest shooting in its ⋯;
+ *     ‹ › and a swipe walk the photos in the order the grid draws them. An Event Hub file is shown and shared, never
+ *     managed here ("Used on your Event Hub").
  *   · THE THUMB ROW: the shared `ThumbRow` — "Search memories" (who took it, the challenge, the Hub's place) and
  *     + Add photos, the one upload door.
  *
@@ -24,30 +26,19 @@
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { EyeOff, Eye, Flag, Ban, Trash2, Check, Minus, Play, Plus, Share, X } from 'lucide-react';
+import { Minus, Play, Plus } from 'lucide-react';
 import { ThumbRow } from '@/components/thumb-row';
 import { ActionButton } from '@/components/action-button';
 import { Sheet } from '@/app/_components/sheet';
 import { MenuSettingsButton } from '@/app/_components/menu-settings-button';
 import { InfoTip } from '@/app/_components/info-tip';
-import { OpenFileLink } from '@/app/_components/open-file-link';
 import { SwitchTrack } from '@/app/_components/switch-track';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
-import { PapicLightbox } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-gallery-grid';
-import {
-  approveScreenedCapture,
-  blockUploader,
-  deletePhotoForever,
-  reportCapture,
-  setCaptureHidden,
-  setSeatPhotoHidden,
-  unblockUploader,
-} from '@/app/dashboard/[eventId]/studio/papic/moderation/actions';
-import { setVendorCapturesHidden } from '@/app/dashboard/[eventId]/studio/papic/vendor-visibility-actions';
+import { MemoriesPhotoViewer } from './memories-photo-viewer';
+import type { PhotoTagState } from '@/lib/memories-photo-tags';
 import {
   MEMORIES_ALBUMS,
   albumCountWords,
-  canModerate,
   challengeGroups,
   inAlbum,
   isMemoriesAlbum,
@@ -136,6 +127,8 @@ export function EventMemoriesGallery({
   addPhotos = null,
   blockedGuests = [],
   suppliers = [],
+  canTag = false,
+  tagFixture = null,
 }: {
   eventId: string;
   items: MemoriesItem[];
@@ -161,12 +154,16 @@ export function EventMemoriesGallery({
   addPhotos?: ReactNode;
   blockedGuests?: string[];
   suppliers?: MemoriesSupplier[];
+  /** Tag in the viewer — the server's `memoriesManagerRole` answer (hosts + the coordinator); re-checked on every write. */
+  canTag?: boolean;
+  /** /dev lab only — the Tag list on fixture names. */
+  tagFixture?: PhotoTagState | null;
 }) {
   const scale = useScale();
   const [cols, setCols] = useColumns(scale);
   const dense = isDense(cols);
-  const [opened, setOpened] = useState<MemoriesItem | null>(null);
-  const [viewing, setViewing] = useState<MemoriesItem | null>(null);
+  /** The open photo, by id — so a hide or a delete that lands while it is open keeps the viewer on its place. */
+  const [viewingId, setViewingId] = useState<string | null>(null);
   const [q, setQ] = useState('');
   const [album, setAlbumState] = useState<MemoriesAlbumKey>('all');
   const [needsLook, setNeedsLook] = useState(false);
@@ -231,12 +228,13 @@ export function EventMemoriesGallery({
       large={cols === 1}
       roomy={cols <= 3}
       challengeTag={tagged && it.challengeId ? challengeOf(it)?.title ?? null : null}
-      onOpen={() => (host ? setOpened(it) : setViewing(it))}
+      onOpen={() => setViewingId(it.id)}
     />
   );
   const gridClass = 'grid gap-[1.5px] [grid-template-columns:repeat(var(--mem-cols),minmax(0,1fr))]';
 
   let body: ReactNode;
+  let viewOrder: MemoriesItem[] = shown;
   if (unreadable || albumRefused) {
     body = (
       <p role="status" className="px-4 py-10 text-center text-[14px] text-ink/65" data-memories-unreadable="">
@@ -250,7 +248,9 @@ export function EventMemoriesGallery({
       </p>
     );
   } else if (album === 'challenges') {
-    body = challengeGroups(shown, challenges).map(({ challenge, items: list }) => (
+    const groups = challengeGroups(shown, challenges);
+    viewOrder = groups.flatMap((g) => g.items);
+    body = groups.map(({ challenge, items: list }) => (
       <section key={challenge.id} data-memories-challenge={challenge.id}>
         <MomentHead
           label={`${challenge.title} · ${formatCount(list.length)}`}
@@ -268,6 +268,7 @@ export function EventMemoriesGallery({
       return list.length ? [{ c, list }] : [];
     });
     const rest = shown.filter((it) => !used.has(it.id));
+    viewOrder = [...groups.flatMap((g) => g.list), ...rest];
     body = (
       <>
         {groups.map(({ c, list }) => (
@@ -287,6 +288,11 @@ export function EventMemoriesGallery({
   } else {
     body = <div className={gridClass}>{shown.map((it) => tile(it, album === 'all'))}</div>;
   }
+
+  // ‹ › walk the photos in the order the grid DRAWS them (grouped by moment or challenge when it is) — openable ones only.
+  const order = viewOrder.filter((it) => Boolean(it.viewUrl ?? it.largeUrl ?? it.url));
+  const viewingAt = viewingId ? order.findIndex((it) => it.id === viewingId) : -1;
+  const albumLabel = MEMORIES_ALBUMS.find((a) => a.key === album)?.label ?? null;
 
   const albumOptions = MEMORIES_ALBUMS.map((a) => ({ key: a.key, label: a.label }));
 
@@ -382,23 +388,25 @@ export function EventMemoriesGallery({
       ) : null}
 
       {/* The row steps aside while a sheet is up — the sheet owns the thumb zone then. */}
-      <MemoriesThumbRow q={q} onSearch={setQ} addPhotos={host ? addPhotos : null} away={Boolean(opened || gearOpen)} />
+      <MemoriesThumbRow q={q} onSearch={setQ} addPhotos={host ? addPhotos : null} away={Boolean(viewingId || gearOpen)} />
 
-      {opened ? (
-        <PhotoSheet
+      {viewingAt >= 0 ? (
+        <MemoriesPhotoViewer
           eventId={eventId}
-          item={opened}
-          challenge={challengeOf(opened)}
-          blocked={opened.guestId ? blockedGuests.includes(opened.guestId) : false}
-          supplier={opened.vendorProfileId ? suppliers.find((s) => s.vendorProfileId === opened.vendorProfileId) ?? null : null}
-          onView={() => {
-            setViewing(opened);
-            setOpened(null);
-          }}
-          onClose={() => setOpened(null)}
+          items={order}
+          at={viewingAt}
+          onMove={(to) => setViewingId(order[to]?.id ?? null)}
+          onClose={() => setViewingId(null)}
+          host={host}
+          canTag={canTag}
+          album={albumLabel}
+          challengeOf={challengeOf}
+          blockedGuests={blockedGuests}
+          suppliers={suppliers}
+          timeZone={timeZone}
+          tagFixture={tagFixture}
         />
       ) : null}
-      {viewing ? <PapicLightbox photo={viewing} onClose={() => setViewing(null)} timeZone={timeZone} /> : null}
 
     </section>
   );
@@ -515,199 +523,6 @@ function Tile({
         </span>
       ) : null}
     </button>
-  );
-}
-
-const REPORT_REASONS = [
-  { key: 'nudity_sexual', label: 'Nudity / sexual content' },
-  { key: 'violence', label: 'Violence' },
-  { key: 'hate_harassment', label: 'Hate / harassment' },
-  { key: 'spam', label: 'Spam' },
-  { key: 'not_my_event', label: 'Not from this event' },
-  { key: 'other', label: 'Something else' },
-];
-
-/** One option of the photo's sheet — a full-width press (a frame only on what you press). */
-const OPT = 'flex min-h-[48px] w-full items-center gap-2.5 rounded-xl px-3 text-left text-[15px] text-ink hover:bg-ink/[0.04]';
-
-/**
- * THE PHOTO'S OWN SHEET (owner 2026-10-23: moderation is on the photo, in the thumb zone). Every press is the shipped
- * server action (`moderation/actions.ts`, `vendor-visibility-actions.ts`) — `back=memories` brings it home here.
- */
-function PhotoSheet({
-  eventId,
-  item,
-  challenge,
-  blocked,
-  supplier,
-  onView,
-  onClose,
-}: {
-  eventId: string;
-  item: MemoriesItem;
-  challenge: MemoriesChallenge | null;
-  blocked: boolean;
-  supplier: MemoriesSupplier | null;
-  onView: () => void;
-  onClose: () => void;
-}) {
-  const heading = useId();
-  const [reason, setReason] = useState<string | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const back = <input type="hidden" name="back" value="memories" />;
-  const screened = item.look === 'screened';
-  const hidden = item.look === 'hidden';
-  const who = item.memSource === 'hub' ? item.hubUse : item.capturedBy;
-  const title =
-    item.memSource === 'hub'
-      ? item.hubUse ?? 'Event Hub file'
-      : item.memSource === 'uploads'
-        ? 'Your upload'
-        : item.memSource === 'suppliers'
-          ? (supplier?.name ?? who ?? 'Your supplier')
-          : who
-            ? `From ${who}`
-            : 'A guest’s photo';
-  const sub =
-    item.memSource === 'hub'
-      ? 'Used on your Event Hub'
-      : screened
-        ? 'Held back by the content screen — only you can see it'
-        : item.look === 'reported'
-          ? 'Reported to the Setnayan team'
-          : hidden
-            ? 'Hidden from your Memories'
-            : item.memSource === 'suppliers'
-              ? 'Delivered by your supplier'
-              : challenge
-                ? `Challenge · ${challenge.title}`
-                : null;
-
-  return (
-    <OnBody>
-    <Sheet open onClose={onClose} labelledById={heading} title={title}>
-      {/* Drawn into <body> (`OnBody`), so it covers the bar — no pad by the dock's height. */}
-      <div data-memories-photo-sheet={item.memSource} className="px-4 pb-4 pt-3">
-        <div className="flex items-center gap-3 pb-3">
-          <button type="button" onClick={onView} aria-label="View full screen" className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-ink/[0.06]">
-            {item.url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={item.url} alt="" className={`h-full w-full object-cover ${screened ? 'blur-[8px]' : ''}`} />
-            ) : null}
-          </button>
-          <div className="min-w-0">
-            <h2 id={heading} className="truncate text-[16px] font-semibold text-ink">
-              {title}
-            </h2>
-            {sub ? <p className="text-[13px] text-ink/60">{sub}</p> : null}
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <button type="button" className={OPT} onClick={onView}>
-            <Eye aria-hidden className="h-4 w-4" strokeWidth={1.9} /> View
-          </button>
-
-          {item.memSource === 'hub' ? (
-            item.downloadUrl ? (
-              <OpenFileLink className={OPT} href={item.downloadUrl} download>
-                <Share aria-hidden className="h-4 w-4" strokeWidth={1.9} /> Save to phone
-              </OpenFileLink>
-            ) : null
-          ) : null}
-
-          {item.memSource === 'suppliers' && supplier ? (
-            <form action={setVendorCapturesHidden}>
-              <input type="hidden" name="event_id" value={eventId} />
-              <input type="hidden" name="vendor_id" value={supplier.vendorRowId} />
-              <input type="hidden" name="hidden" value={supplier.hidden ? '0' : '1'} />
-              <input type="hidden" name="back" value="memories" />
-              <button type="submit" className={OPT}>
-                {supplier.hidden ? <Eye aria-hidden className="h-4 w-4" strokeWidth={1.9} /> : <EyeOff aria-hidden className="h-4 w-4" strokeWidth={1.9} />}
-                {supplier.hidden ? `Show ${supplier.name}’s photos again` : `Hide ${supplier.name}’s photos`}
-                <span className="ml-auto text-[12px] text-ink/55">{supplier.hidden ? '' : 'kept, not deleted'}</span>
-              </button>
-            </form>
-          ) : null}
-
-          {canModerate({ source: item.memSource }) && item.table !== 'hub' && item.table !== 'vendor_papic_captures' ? (
-            <>
-              {screened ? (
-                <form action={approveScreenedCapture.bind(null, eventId)}>
-                  {back}
-                  <input type="hidden" name="table" value={item.table} />
-                  <input type="hidden" name="id" value={item.id} />
-                  <button type="submit" className={OPT}>
-                    <Check aria-hidden className="h-4 w-4" strokeWidth={1.9} /> Approve — show this photo
-                  </button>
-                </form>
-              ) : (
-                <form action={(item.table === 'papic_photos' ? setSeatPhotoHidden : setCaptureHidden).bind(null, eventId)}>
-                  {back}
-                  <input type="hidden" name={item.table === 'papic_photos' ? 'photo_id' : 'capture_id'} value={item.id} />
-                  <input type="hidden" name="hide" value={hidden ? '0' : '1'} />
-                  <button type="submit" className={OPT}>
-                    {hidden ? <Eye aria-hidden className="h-4 w-4" strokeWidth={1.9} /> : <EyeOff aria-hidden className="h-4 w-4" strokeWidth={1.9} />}
-                    {hidden ? 'Show in Memories again' : 'Hide from Memories'}
-                    <span className="ml-auto text-[12px] text-ink/55">{hidden ? '' : 'kept, not deleted'}</span>
-                  </button>
-                </form>
-              )}
-
-              {/* REPORT — a guest's capture (the report names a guest capture; a camera seat's photo is hidden instead). */}
-              {item.table === 'papic_guest_captures' && item.look !== 'reported' ? (
-                <form action={reportCapture.bind(null, eventId)} className="flex min-h-[48px] items-center gap-2.5 px-3">
-                  {back}
-                  <input type="hidden" name="capture_id" value={item.id} />
-                  <input type="hidden" name="reason" value={reason ?? ''} />
-                  <Flag aria-hidden className="h-4 w-4 text-ink" strokeWidth={1.9} />
-                  <span className="text-[15px] text-ink">Report</span>
-                  <span className="ml-auto">
-                    <PickMenu label="Why" value={reason} options={REPORT_REASONS} onPick={setReason} buttonText={reason ? undefined : 'Why'} compact />
-                  </span>
-                  {reason ? <ActionButton tone="danger" type="submit" icon={Flag} label="Send" /> : null}
-                </form>
-              ) : null}
-
-              {item.guestId && item.memSource === 'papic' ? (
-                <form action={(blocked ? unblockUploader : blockUploader).bind(null, eventId)}>
-                  {back}
-                  <input type="hidden" name="guest_id" value={item.guestId} />
-                  <button type="submit" className={`${OPT} ${blocked ? '' : 'text-terracotta'}`}>
-                    <Ban aria-hidden className="h-4 w-4" strokeWidth={1.9} />
-                    {blocked ? `Let ${who ?? 'this guest'} shoot again` : `Stop ${who ?? 'this guest'} shooting`}
-                    <span className="ml-auto text-[12px] text-ink/55">{blocked ? '' : 'this event only'}</span>
-                  </button>
-                </form>
-              ) : null}
-
-              {confirmDelete ? (
-                <form action={deletePhotoForever.bind(null, eventId)} className="rounded-xl bg-terracotta/[0.06] p-3" data-memories-delete-confirm="">
-                  {back}
-                  <input type="hidden" name="table" value={item.table} />
-                  <input type="hidden" name="id" value={item.id} />
-                  <p className="text-[13.5px] text-ink">Delete this photo and every copy of it? This cannot be undone.</p>
-                  <div className="mt-2 flex gap-2">
-                    <ActionButton tone="danger" main type="submit" icon={Trash2} label="Delete forever" />
-                    <ActionButton tone="neutral" icon={X} label="Keep it" onClick={() => setConfirmDelete(false)} />
-                  </div>
-                </form>
-              ) : (
-                <button type="button" className={`${OPT} text-terracotta`} onClick={() => setConfirmDelete(true)}>
-                  <Trash2 aria-hidden className="h-4 w-4" strokeWidth={1.9} /> Delete forever
-                  <span className="ml-auto text-[12px] text-ink/55">every copy</span>
-                </button>
-              )}
-            </>
-          ) : null}
-
-          <button type="button" className={OPT} onClick={onClose}>
-            Done
-          </button>
-        </div>
-      </div>
-    </Sheet>
-    </OnBody>
   );
 }
 

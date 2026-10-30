@@ -150,10 +150,10 @@ test('3 · the form’s card: Edit is its settings in rows 1–3 over the toolba
   /* THE CARD'S EDIT is the stage's own panel — three rows tall, standing on the toolbar's row 4. */
   assert.match(tools, /const rsvpCardEdits = rsvpOpen && picked === 'rsvp' && rsvpLine === null;/);
   assert.match(tools, /data-stage-edit-card=\{rsvpCardEdits && shownTool === 'edit' \? '' : undefined\}/);
-  const rule = `[data-maker-shell]:has([data-stage-tools][data-stage-edit-card]) [data-phone-chrome="panel"]{visibility:visible;pointer-events:auto;height:calc(3 * var(--sp-rh) + 2 * var(--sp-rg))!important;bottom:calc(\${STAGE_BAR_FOOT_CSS} + var(--sp-rh) + var(--sp-rg))!important}`;
+  const rule = `[data-maker-shell]:has([data-stage-tools][data-stage-edit-card]) [data-phone-chrome="panel"]{visibility:visible;pointer-events:auto;height:calc(3 * var(--sp-rh) + 2 * var(--sp-rg))!important;bottom:calc(\${STAGE_BAR_FOOT_CSS} + var(--sp-rh) + var(--sp-rg) + var(--maker-lift,0px))!important}`;
   assert.ok(tools.includes(rule), 'the card’s Edit rows are not three rows standing on the toolbar’s last row');
   /* …the SAME measure Style's last row leaves the work area's tool (never a second number). */
-  assert.ok(tools.includes('[data-stage-row4]) [data-phone-chrome="panel"]{height:calc(3 * var(--sp-rh) + 2 * var(--sp-rg))!important;bottom:calc(${STAGE_BAR_FOOT_CSS} + var(--sp-rh) + var(--sp-rg))!important}'), 'anti-vacuity: Style’s own three-row measure');
+  assert.ok(tools.includes('[data-stage-row4]) [data-phone-chrome="panel"]{height:calc(3 * var(--sp-rh) + 2 * var(--sp-rg))!important;bottom:calc(${STAGE_BAR_FOOT_CSS} + var(--sp-rh) + var(--sp-rg) + var(--maker-lift,0px))!important}'), 'anti-vacuity: Style’s own three-row measure');
   /* Written after the rule that hides the tool on Edit and BEFORE the one that hides it while the toolbar is away. */
   const at = (needle: string) => tools.indexOf(needle);
   assert.ok(at('[data-stage-tool-now="edit"]) [data-phone-chrome="panel"]{visibility:hidden') < at('[data-stage-edit-card]) [data-phone-chrome="panel"]') && at('[data-stage-edit-card]) [data-phone-chrome="panel"]') < at('[data-stage-tools][aria-hidden="true"]) [data-phone-chrome="panel"]{visibility:hidden'), 'the card’s rows would show under a toolbar that has stepped away, or stay hidden on Edit');

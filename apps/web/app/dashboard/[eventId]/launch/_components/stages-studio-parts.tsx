@@ -641,7 +641,7 @@ export function StudioBackToPart({
       data-maker-studio-back=""
       onClick={onBack}
       /* Above an editor's own pinned foot (the Schedule's / Love Story's "Add a moment", ~64 px). */
-      style={{ bottom: `calc(var(--maker-lt-h) + env(safe-area-inset-bottom) + ${hasFoot ? 76 : 8}px)` }}
+      style={{ bottom: `calc(var(--maker-lt-h) + var(--maker-safe-b, env(safe-area-inset-bottom)) + ${hasFoot ? 76 : 8}px)` }}
       className="sn-press absolute left-1/2 z-[45] inline-flex h-11 -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full bg-success-600 px-5 text-[14px] font-bold text-cream shadow-[0_10px_24px_-12px_rgba(0,0,0,.5)] hover:bg-success-700 lg:hidden"
     >
       <Check aria-hidden className="h-4 w-4" strokeWidth={2.6} />

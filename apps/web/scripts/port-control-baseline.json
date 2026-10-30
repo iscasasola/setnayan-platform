@@ -5198,6 +5198,7 @@
         "dashboard/(account)/library/_components/gallery-doors.tsx",
         "dashboard/(account)/library/_components/memories-chapters.tsx",
         "dashboard/(account)/library/_components/memories-thumb.tsx",
+        "dashboard/(account)/library/_components/memories-wall-viewer.tsx",
         "dashboard/(account)/library/_components/photos-tab.tsx",
         "dashboard/(account)/library/_components/saved-vendor-card.tsx",
         "dashboard/(account)/library/_components/vendors-tab.tsx",
@@ -5220,6 +5221,7 @@
         "AlaalaLensBody",
         "AlbumCard",
         "ChallengesTab",
+        "Ctx",
         "EditorialCard",
         "EditorialsTab",
         "EventMonogram",
@@ -5235,17 +5237,24 @@
         "MemoriesUnreadable",
         "MonogramTile",
         "PageMasthead",
+        "PanelHead",
+        "PhotoViewer",
         "PhotosTab",
         "PickMenu",
         "SavedVendorCardItem",
         "Section",
+        "SharePanel",
         "Spotlight",
         "StatusChip",
         "ThumbField",
         "ThumbTool",
         "Tile",
         "VendorsTab",
-        "ViewReport"
+        "ViewReport",
+        "WallOpen",
+        "WallPhotoViewer",
+        "WallViewer.Provider",
+        "WallViewerRoot"
       ]
     },
     "/dashboard/(account)/life-flash": {
@@ -8078,7 +8087,8 @@
       "files": [
         "dashboard/[eventId]/memories/_components/memories-settings.tsx",
         "dashboard/[eventId]/memories/loading.tsx",
-        "dashboard/[eventId]/memories/page.tsx"
+        "dashboard/[eventId]/memories/page.tsx",
+        "dashboard/[eventId]/memories/photo-tag-actions.ts"
       ],
       "destinations": [],
       "actions": [],
@@ -8095,6 +8105,8 @@
         "MagazineCard",
         "MemoriesSettings",
         "PapicBuySheet",
+        "PhotoTagResult",
+        "PhotoTagState",
         "PoolGalleryCard",
         "RecapCard",
         "ServiceParts",
@@ -11321,6 +11333,7 @@
         "dev/guests-lab/lab-room-3d.tsx",
         "dev/guests-lab/lab-seats-march.tsx",
         "dev/guests-lab/lab-stand-ins.ts",
+        "dev/guests-lab/lab-top-bar.tsx",
         "dev/guests-lab/page.tsx"
       ],
       "destinations": [
@@ -11347,6 +11360,7 @@
         "LabRoom3D",
         "LabSeats",
         "LabShell",
+        "LabTopBar",
         "MakerRsvpSettings",
         "MarchMaker",
         "NotificationsList",
@@ -11970,6 +11984,11 @@
         "CollectionsList",
         "CoordLab",
         "CoordLabBar",
+        "CrewEventHub",
+        "CrewNameForm",
+        "CrewPanel",
+        "CrewPhoneLab",
+        "CrewStatus",
         "CustomersCalendar",
         "CustomersFigures",
         "CustomersPin",
@@ -12405,6 +12424,31 @@
         "DoorShell",
         "FormPageSkeleton",
         "Link"
+      ]
+    },
+    "/join/crew/[token]": {
+      "files": [
+        "join/crew/[token]/_components/crew-name-form.tsx",
+        "join/crew/[token]/_components/crew-screens.tsx",
+        "join/crew/[token]/_components/crew-waiting-refresh.tsx",
+        "join/crew/[token]/page.tsx"
+      ],
+      "destinations": [
+        "/join/crew/[seg]",
+        "/login?next=[seg]"
+      ],
+      "actions": [],
+      "blocks": [
+        "ActionButton",
+        "CrewEventHub",
+        "CrewFrame",
+        "CrewJoinForm",
+        "CrewNameForm",
+        "CrewSignIn",
+        "CrewStatus",
+        "CrewWaitingRefresh",
+        "HubRunOfShow",
+        "SeatScanner"
       ]
     },
     "/live": {
@@ -14891,6 +14935,7 @@
     "/vendor-dashboard/on-the-day": {
       "files": [
         "vendor-dashboard/on-the-day/_components/access-grants.tsx",
+        "vendor-dashboard/on-the-day/_components/crew-panel.tsx",
         "vendor-dashboard/on-the-day/_components/guest-review-qr.tsx",
         "vendor-dashboard/on-the-day/_components/hub-event-menu.tsx",
         "vendor-dashboard/on-the-day/_components/hub-screen.tsx",
@@ -14920,6 +14965,7 @@
         "ActionButton",
         "CaptureCard",
         "CheckinDeskRows",
+        "CrewPanel",
         "Ctx",
         "DayRequestActionResult",
         "DayRequestsView",
@@ -14927,6 +14973,7 @@
         "Fold",
         "FormRow",
         "FormRows",
+        "Fragment",
         "GuestReviewQr",
         "HTMLButtonElement",
         "HTMLDivElement",
@@ -14962,6 +15009,7 @@
         "SeatFinderRow",
         "ServerRead",
         "SetActionResult",
+        "Sheet",
         "ShopEmpty",
         "ShotList",
         "ShotListSection",

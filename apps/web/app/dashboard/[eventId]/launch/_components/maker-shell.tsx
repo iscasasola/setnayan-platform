@@ -1221,7 +1221,7 @@ export function MakerShell({
             rests at half the screen instead (room kept for it below), the Logo studio carries its own. */}
         {studioCovers ? (
           studioFull && (printsPage || (studioTile && detailsItemLayout(studioTile.item) !== 'whole')) ? (
-            <div aria-hidden data-maker-studio-room="" className="h-[calc(var(--maker-lt-h)+env(safe-area-inset-bottom))] shrink-0 lg:hidden" />
+            <div aria-hidden data-maker-studio-room="" className="h-[calc(var(--maker-lt-h)+var(--maker-safe-b,env(safe-area-inset-bottom)))] shrink-0 lg:hidden" />
           ) : null
         ) : (
         <MakerLowerThird
@@ -1280,7 +1280,7 @@ export function MakerShell({
  * 🧭 THE ROOM THE APP'S CHROME LEAVES (owner 2026-10-30 — the Hub keeps the app's top bar, rail and bottom nav;
  * `MAKER_IN_THE_APP_CSS`, lib/maker-phone-room.ts): measured, and said on the shell as `--maker-app-top` (the top
  * bar's foot) · `--maker-app-left` (the content column's left edge — the rail's width from 701) · `--maker-app-bottom`
- * (the bottom nav's height less the home indicator, which the Maker's own tools already add). Read again whenever one
+ * (the bottom nav's whole height — the Maker's tools read it as `--maker-safe-b` · `--maker-lift`). Read again whenever one
  * of them moves: a resize, the top bar sliding, the nav sliding for the keyboard.
  */
 function useTheAppsRoom(shellRef: { current: HTMLDivElement | null }) {
@@ -1299,7 +1299,9 @@ function useTheAppsRoom(shellRef: { current: HTMLDivElement | null }) {
       const nav = dockAt && dockAt.height > 0 ? Math.max(0, Math.round(window.innerHeight - dockAt.top)) : 0;
       el.style.setProperty('--maker-app-top', `${top}px`);
       el.style.setProperty('--maker-app-left', `${left}px`);
-      el.style.setProperty('--maker-app-bottom', nav > 0 ? `max(0px,calc(${nav}px - env(safe-area-inset-bottom)))` : '0px');
+      /* The nav's whole height, its home-indicator padding included: the shell ends ON the nav's top, never over it
+         (owner 2026-10-31, "bottom nav of event hub is not fixed" — `MAKER_IN_THE_APP_CSS`'s 🔑). */
+      el.style.setProperty('--maker-app-bottom', `${nav}px`);
     };
     const later = () => {
       if (!raf) raf = requestAnimationFrame(read);

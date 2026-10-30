@@ -92,9 +92,10 @@ export const DATA_SUBJECT_REGISTER: Record<DataSubjectCategoryKey, DataSubjectCa
   vendor: {
     label: 'Vendors — the business representative behind a supplier profile',
     holdsAccount: true,
-    identityAnchors: ['users.display_name', 'users.email'],
+    identityAnchors: ['users.display_name', 'users.email', 'vendor_crew_passes.display_name'],
     personalData: [
       'name, email and the business profile they publish',
+      'for a supplier’s crew on the day: the name a crew phone typed to join one event’s Event Hub, its role and whether the shop let it in (vendor_crew_passes — deleted with the account, lib/erasure/coverage.ts)',
       'business identifiers — TIN, registered address, DTI/SEC papers',
       'government ID and verification documents, held in a private bucket',
       'subscription and booking-fee payment records',

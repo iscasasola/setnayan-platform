@@ -1,7 +1,10 @@
 import Link from 'next/link';
 import { blockClosesDay, NOT_AVAILABLE_COLUMNS, notAvailableShapeOf, notAvailableWindowFilter } from '@/lib/not-available';
 import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
-import { marketplaceTenureLine } from '@/lib/marketplace-tenure';
+import { onSetnayanSinceLine } from '@/lib/in-business-since';
+import { eventsByKind } from '@/lib/shop-events-by-kind';
+import { ShopSinceLine } from './_components/shop-since-line';
+import { CheckADateLink } from './_components/check-a-date-link';
 import { fetchVendorSongs, isMusicToolCategory } from '@/lib/songs';
 import { SignInHereLink } from '@/app/_components/auth/sign-in-here-link';
 import { boothTierCanBrand } from '@/lib/booth-branding-tier-gate';
@@ -1075,12 +1078,18 @@ export async function renderVendorBySlug({
      probe below: that is flag-gated, and a line hidden behind a switch whose
      production value nobody can read is how a feature ships dark. `created_at`
      arrives with the page's own select, so this costs no extra query. */
-  const marketplaceSince = marketplaceTenureLine(
-    (vendor as { created_at?: string | null }).created_at ?? null,
-    new Date().toISOString(),
-  );
+  /* 🗓 "On Setnayan since Oct 2026" (owner 2026-10-29 "Since is two lines"; supplier website by plan 2026-10-30) —
+     the one phrasing `lib/in-business-since.ts` owns, the same words Your details shows the shop. It replaces the
+     older "On the marketplace since …" sentence on this page and keeps that line's two rules: ungated, and an
+     unreadable stamp says nothing rather than a date. */
+  const onSetnayanSince = onSetnayanSinceLine((vendor as { created_at?: string | null }).created_at ?? null);
 
-  let declaredExp: { years: number | null; weddings: number | null; verified: boolean } | null = null;
+  let declaredExp: {
+    years: number | null;
+    sinceYear: number | null;
+    weddings: number | null;
+    verified: boolean;
+  } | null = null;
   if (vendorExperienceEnabled()) {
     // ⚠ THIS SWALLOW IS DELIBERATE AND STAYS — the `.then` soft-probe exists so a
     // pre-migration database answering 42703 (undefined column) degrades instead of
@@ -1110,10 +1119,15 @@ export async function renderVendorBySlug({
     const e = exp as
       | { in_business_since_year?: number | null; weddings_done_approx?: number | null; experience_verified_at?: string | null }
       | null;
-    const years = yearsInBusiness(e?.in_business_since_year ?? null, new Date().getFullYear());
+    const nowYear = new Date().getFullYear();
+    const years = yearsInBusiness(e?.in_business_since_year ?? null, nowYear);
+    const rawSince = e?.in_business_since_year ?? null;
+    // The year itself for "In business since 2019" — never a future or pre-1900 year (the yearsInBusiness bounds);
+    // a first-year shop keeps its year ("since 2026") even though it has no "N yrs" to show.
+    const sinceYear = rawSince != null && rawSince >= 1900 && rawSince <= nowYear ? rawSince : null;
     const weddings = e?.weddings_done_approx ?? null;
-    if (years != null || weddings != null) {
-      declaredExp = { years, weddings, verified: !!e?.experience_verified_at };
+    if (years != null || sinceYear != null || weddings != null) {
+      declaredExp = { years, sinceYear, weddings, verified: !!e?.experience_verified_at };
     }
   }
 
@@ -1185,6 +1199,14 @@ export async function renderVendorBySlug({
   // Pre-format the per-service "Serves" line server-side so the client gallery
   // stays a dumb view (same contract as inclusions/discount labels).
   const eventTypeLabelByKey = new Map(eventTypeVocab.map((t) => [t.key, t.label]));
+  // "N events ›" + its by-kind sheet (owner 2026-10-30, item 114) — the Track record's OWN rows (receipt-backed, per
+  // kind) plus the shop's own wedding count. No new read: both already arrived above. 60 = that read's limit.
+  const shopEventsByKind = eventsByKind({
+    completed: completedEvents,
+    completedCapped: completedEvents.length >= 60,
+    declaredWeddings: declaredExp?.weddings ?? null,
+    labelFor: (key) => eventTypeLabelByKey.get(key) ?? formatEventTypeLabel(key || null),
+  });
   const servesByService = new Map<string, string>();
   for (const s of activeServices) {
     if (s.coverage_id === null) continue;
@@ -2486,43 +2508,21 @@ export async function renderVendorBySlug({
                 <span>saved</span>
               </p>
             ) : null}
-            {declaredExp ? (
-              <p
-                className="inline-flex w-fit items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-2.5 py-0.5 text-[11px] text-ink/70"
-                title={
-                  declaredExp.verified
-                    ? 'Years in business verified against the supplier’s DTI registration.'
-                    : 'Self-reported by the supplier.'
-                }
-              >
-                {declaredExp.years != null ? <span className="font-medium text-ink">{declaredExp.years} yrs in business</span> : null}
-                {declaredExp.years != null && declaredExp.weddings != null ? <span aria-hidden>·</span> : null}
-                {declaredExp.weddings != null ? <span>{declaredExp.weddings}+ weddings</span> : null}
-                {declaredExp.verified ? (
-                  <BadgeCheck aria-hidden className="h-3.5 w-3.5 text-success-700" strokeWidth={2} />
-                ) : (
-                  <span className="text-ink/40">· self-reported</span>
-                )}
-              </p>
-            ) : null}
             {/*
-              ON THE MARKETPLACE SINCE — platform tenure, which is NOT the same claim
-              as the experience pill above it.
-
-              ⚠ THE LABEL CARRIES THE DISTINCTION. `in_business_since_year` is the
-              credential; `created_at` is only how long they have been here. A bare
-              "Since September 2026" beside "11 yrs in business" would read as a
-              founding date and actively mislead — which is why
-              lib/marketplace-tenure.ts returns a labelled sentence, not a date.
-
-              ⚠ AND IT IS NEVER HIDDEN TO FLATTER A NEW SHOP. Suppressing it would
-              make its presence a badge and its absence a tell. This page already
-              takes that position out loud: "we render the tier even for 'New to
-              Setnayan' (honest, not negative)."
+              🗓 THE "SINCE" FACT LINE (supplier website by plan, owner-approved 2026-10-30) — "In business since 2019 ✓ ·
+              120+ events › · On Setnayan since Oct 2026". Replaces the "N yrs in business · N+ weddings" pill and the
+              "On the marketplace since" line that sat here; every fact they carried is still on it (✓ DTI-verified or
+              "self-reported"; the declared count inside the events sheet). The two tenures stay told apart by their
+              words — "In business since" is the credential, "On Setnayan since" is only how long they have been here —
+              and the joined-here half is NEVER hidden to flatter a new shop: its absence would be a tell.
             */}
-            {marketplaceSince ? (
-              <p className="text-[11px] text-ink/55">{marketplaceSince}</p>
-            ) : null}
+            <ShopSinceLine
+              sinceYear={declaredExp?.sinceYear ?? null}
+              sinceVerified={declaredExp?.verified ?? false}
+              events={shopEventsByKind}
+              onSetnayanSince={onSetnayanSince}
+              shopName={displayLabel}
+            />
             {/* "Featured in N stories →" — Fable E2 (spec § 3.5). A POINTER to
                 the "Featured in these stories" section further down that ALREADY
                 SHIPS; it builds nothing new. The gate below is byte-identical to
@@ -2633,6 +2633,13 @@ export async function renderVendorBySlug({
                   </a>
                 )}
                 <ShareButton title={displayLabel} className="button-secondary inline-flex items-center gap-2" />
+                {/* 📅 CHECK A DATE beside Inquire · Share (supplier website by plan, owner-approved 2026-10-30) — the
+                    approved public landing `/v/[slug]/dates` (DECISION_LOG 2026-10-28 "CHECK A DATE — APPROVED"):
+                    Available · Not bookable, nothing about other couples' asks. Same `bookable` gate as Inquire. */}
+                <CheckADateLink
+                  href={`/v/${vendor.business_slug ?? slug}/dates`}
+                  className="button-secondary inline-flex items-center gap-2"
+                />
                 {canShowBooth ? (
                   <Link
                     href={`/v/${vendor.business_slug ?? slug}/booth`}

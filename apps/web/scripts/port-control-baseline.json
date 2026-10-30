@@ -6904,7 +6904,6 @@
         "GuestsMarch",
         "GuestsScreen",
         "GuestsView",
-        "HTMLAnchorElement",
         "HTMLButtonElement",
         "HTMLDivElement",
         "HTMLElement",
@@ -6969,7 +6968,7 @@
         "Pick",
         "PickMenu",
         "PickWhoContext.Provider",
-        "PillThumb",
+        "PinCountDoor",
         "PinnedSummary",
         "PlusOneFilter",
         "Popover",
@@ -8652,6 +8651,7 @@
         "PickMenu",
         "PillButton",
         "PillTrack",
+        "PinCountDoor",
         "Pop",
         "PresenceMeta",
         "PriorityOrder",
@@ -8685,8 +8685,7 @@
         "SwitchRow",
         "T",
         "TableType",
-        "TypedRow",
-        "ViewCountRow"
+        "TypedRow"
       ]
     },
     "/dashboard/[eventId]/seating/chart": {

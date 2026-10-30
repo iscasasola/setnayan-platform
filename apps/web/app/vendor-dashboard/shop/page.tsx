@@ -34,6 +34,7 @@ import { INSPIRATION_LIBRARY_HREF, INSPIRATION_LIBRARY_ROW } from '@/lib/inspira
 import { packageAuthoringEnabled } from '@/lib/package-authoring-flag';
 import { vendorAutoReplyEnabled } from '@/lib/vendor-autoreply-flag';
 import { DatesRow } from '../customers/_components/dates-row';
+import { CouplePhotosToAnswer } from './_components/couple-photos';
 
 /** Your details, and its papers fold — where every "finish your profile" / "get verified" link on this page goes. */
 const DETAILS_HREF = '/vendor-dashboard/profile';
@@ -305,6 +306,11 @@ async function ShopHome({
         <ShopSegments on="services" />
       </div>
       <HeroCard data={data} publicPath={publicPath} />
+
+      {/* 📸 Photos couples shared for a service card, waiting for Approve (owner 2026-10-30) — draws nothing when none. */}
+      <Suspense fallback={null}>
+        <CouplePhotosToAnswer />
+      </Suspense>
 
       {/* ✂ The six number tiles and the "On this page" box left here (owner
           "Yes to all", 2026-10-21, item 4 — S-PR6). The numbers are Shop ›

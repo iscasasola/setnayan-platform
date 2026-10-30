@@ -36,7 +36,7 @@ const read = (p: string) => stripComments(readFileSync(p, 'utf8'));
 test('(1) every write the context carries has a lab stand-in — none is left real', () => {
   const ctx = read(join(MB, 'mood-board-actions-context.tsx'));
   const real = [...ctx.slice(ctx.indexOf('export const REAL_MOOD_BOARD_ACTIONS')).matchAll(/^\s{2}(\w+),/gm)].map((m) => m[1]);
-  assert.equal(real.length, 12, 'the context’s names could not be read');
+  assert.equal(real.length, 13, 'the context’s names could not be read');
   assert.deepEqual(Object.keys(LAB_MOOD_BOARD_ACTIONS).sort(), [...real].sort(), 'a lab press can reach a real action');
   for (const f of ['lab-mood-board-stand-ins.ts', 'lab-mood-board-actions.tsx']) {
     assert.doesNotMatch(read(join(HERE, f)), /from '[^']*(?:-actions|\/actions)'|wizard-actions|hub-draft-actions|dress-code-actions/, `${f} imports a real action module`);
@@ -60,6 +60,10 @@ test('(1b) the stand-ins answer like the real ones, locally — and refuse in da
   /* ⏰ The guests' call time (2026-10-19) — the Schedule's own writers. */
   assert.equal(await a.updateScheduleBlock!(new FormData()), undefined);
   assert.equal(await a.createScheduleBlock!(new FormData()), undefined);
+  /* 📸 A photo shared with a supplier (2026-10-30) — read, sent, taken back, all locally. */
+  assert.equal((await a.couplePhotoShare!({ op: 'read', eventId: 'e', slotKey: 'bridal_bouquet', slotPosition: 1 })).result.status, 'ok');
+  assert.equal((await a.couplePhotoShare!({ op: 'send', eventId: 'e', inspirationId: 'p', vendorServiceId: 'lab-card-bouquet', creditStyle: 'a_couple', creditLine: null, consent: true })).result.status, 'ok');
+  assert.equal((await a.couplePhotoShare!({ op: 'take_back', eventId: 'e', shareId: 's' })).result.status, 'ok');
   const r = LAB_MOOD_BOARD_REFUSALS;
   const refused = await r.hubDraftAction!('e', new FormData());
   assert.ok(!refused.ok && !isPlainSentence(refused.error ?? ''), 'the refusal is not in the database’s words');
@@ -72,10 +76,10 @@ test('(1b) the stand-ins answer like the real ones, locally — and refuse in da
 });
 
 test('(2) the call sites take their action from the context and import no action module of their own', () => {
-  for (const f of ['mood-board-studio.tsx', 'studio-dos.tsx']) {
+  for (const f of ['mood-board-studio.tsx', 'studio-dos.tsx', 'share-photo-sheet.tsx']) {
     const src = read(join(MB, f));
     assert.match(src, /useMoodBoardActions\(\)/, `${f} does not read its writers from the context`);
-    assert.doesNotMatch(src, /from '[^']*(?:hub-draft-actions|colour-access-actions|wizard-actions|dress-code-actions|suggestion-actions|\.\.\/actions)'/, `${f} imports a real action module`);
+    assert.doesNotMatch(src, /from '[^']*(?:hub-draft-actions|colour-access-actions|wizard-actions|dress-code-actions|suggestion-actions|couple-photo-share-actions|\.\.\/actions)'/, `${f} imports a real action module`);
   }
 });
 

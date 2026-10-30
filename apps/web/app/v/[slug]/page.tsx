@@ -48,8 +48,11 @@ import {
 import { getEventTypeVocab } from '@/lib/event-types-db';
 import {
   toServiceCard,
+  withCoupleLooks,
+  type CoupleLook,
   type ServiceShowcaseMedia,
 } from '@/lib/service-card-view-model';
+import { fetchServiceCardCouplePhotos } from '@/lib/couple-photo-share.server';
 import { buildServesLine } from '@/lib/service-serves-line';
 import {
   fetchTrustedByVendors,
@@ -1127,6 +1130,7 @@ export async function renderVendorBySlug({
     showcaseByService,
     coverUrlByService,
     tileByCardKind,
+    couplePhotosByService,
   ] = await Promise.all([
     fetchInclusionsByService(admin, activeServiceIds),
     fetchDiscountsByServicePublic(admin, activeServiceIds),
@@ -1136,6 +1140,8 @@ export async function renderVendorBySlug({
     resolveServiceShowcaseMedia(activeServices),
     resolveServiceCoverUrls(activeServices),
     resolveTileByCardKind(activeServices),
+    // 📸 Couples' own photos the shop APPROVED, per card — the one public door (approved only), in the same batch.
+    fetchServiceCardCouplePhotos(admin, activeServiceIds),
   ]);
   // ③0-c — the coarse category each category files its cards under is the LIVE column
   // (`service_categories.coarse_category`); same cached snapshot the tile lookup above read.
@@ -2972,6 +2978,7 @@ export async function renderVendorBySlug({
             hidePrices={hidePricesPublicly}
             coupleEventDate={coupleEventDate}
             cardRecordByService={cardRecordByService}
+            couplePhotosByService={couplePhotosByService}
             /* Reuses the SAME trusted aggregate the hero stars read — the only
                source the anti-fraud lock permits for a public rating number —
                so the record block can never disagree with the top of the page,
@@ -3509,6 +3516,7 @@ function ServicesPricingSection({
   hidePrices,
   coupleEventDate,
   cardRecordByService,
+  couplePhotosByService,
   cardRecordRating,
   detailsEnabled,
   inquireMode,
@@ -3544,6 +3552,8 @@ function ServicesPricingSection({
    *  ENABLED is off (the reader is not even called), so every card's record is
    *  null and the gallery renders exactly as it does today. */
   cardRecordByService: Map<string, CompiledCardRecord>;
+  /** 📸 Couples' approved photos per service id (`fetchServiceCardCouplePhotos`). Empty ⇒ cards as before. */
+  couplePhotosByService: Map<string, CoupleLook[]>;
   /** Shop-wide trusted rating rendered inside the record block. Vendor-level by
    *  nature — reviews attach to the profile, not to a service. null → no stars. */
   cardRecordRating: CardRecordRating | null;
@@ -3611,7 +3621,7 @@ function ServicesPricingSection({
     groups.push({
       key: group.key,
       label: group.label,
-      cards: rows.map((row) =>
+      cards: rows.map((row) => withCoupleLooks(
         toServiceCard(
           row,
           inclusionsByService.get(row.vendor_service_id),
@@ -3629,7 +3639,8 @@ function ServicesPricingSection({
           // with a real gallery never loses it to the cover.
           coverUrlByService.get(row.vendor_service_id) ?? null,
         ),
-      ),
+        couplePhotosByService.get(row.vendor_service_id),
+      )),
     });
   }
 

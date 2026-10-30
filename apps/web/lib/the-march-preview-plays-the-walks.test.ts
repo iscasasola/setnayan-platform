@@ -72,8 +72,8 @@ test('4 · the timer never outlives a step or the march', () => {
 
 test('1b · a pair is named in the order the walk is DRAWN — across the aisle, never the raw row order', () => {
   const pair = (r: MarchSection['rows'][number]) => [{ key: 'ps', label: 'Principal Sponsors', rows: [r] }] as MarchSection[];
-  const man = { id: 'f', name: 'Mr. Fidel Santos', role: 'principal_sponsor', side: 'groom' };
-  const woman = { id: 'c', name: 'Ms. Carmen Reyes', role: 'principal_sponsor', side: 'bride' };
+  const man = { id: 'f', name: 'Mr. Fidel Santos', role: 'principal_sponsor_ninong', side: 'groom' };
+  const woman = { id: 'c', name: 'Ms. Carmen Reyes', role: 'principal_sponsor_ninang', side: 'bride' };
   for (const row of [[man, woman], [woman, man]] as MarchSection['rows']) {
     const drawn = acrossTheAisle(row).filter((x) => x !== null).map((x) => x!.name).join(' & ');
     assert.equal(marchPreviewSteps(pair(row))[0]!.title, `1. ${drawn}`);

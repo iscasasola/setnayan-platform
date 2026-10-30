@@ -14,6 +14,7 @@ import { VisibilityCard } from '../../shop/_components/visibility-card';
 import { RequestCorrectionCard } from '../../shop/_components/request-correction-card';
 import { CouldNotLoad } from '../../shop/_components/could-not-load';
 import { ShopSegments } from '../../shop/_components/shop-segments';
+import { detailsFigures } from '@/lib/shop-section-figures';
 import { DatesRow } from '../../customers/_components/dates-row';
 import { formatCount } from '@/lib/format-number';
 import { SupplierThumbRow } from '../../_components/supplier-thumb-row';
@@ -77,7 +78,7 @@ export function DetailsScreen({
   return (
     <>
       <section className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-32 pt-4 sm:px-6" data-supplier-details="">
-        <ShopSegments on="page" />
+        <ShopSegments on="details" figures={detailsFigures({ verified: d.isVerified, docsIn: d.docsIn, docsTotal: d.docsTotal, done: p.done, of: p.of })} />
         <h1 className="sn-h1">Your details</h1>
         <div>
           <p className="text-[15px] text-ink" data-details-line="" aria-live="polite">

@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { ShopSegments } from '../shop/_components/shop-segments';
+import { galleryFigures } from '@/lib/shop-section-figures';
 import { GalleryMedia } from '../shop/_components/gallery-media';
 import { SupplierThumbRow } from '../_components/supplier-thumb-row';
 import { OpenFoldButton } from '../_components/open-fold-button';
@@ -62,7 +63,7 @@ export default async function YourCollectionsPage({
   return (
     <>
       <section className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-32 pt-4 sm:px-6" data-supplier-collections="">
-        <ShopSegments on="page" />
+        <ShopSegments on="gallery" figures={galleryFigures({ photos: d.portfolioRefs.length, videos: d.galleryVideoLinks.length, credits: d.walletBalance })} />
         <h1 className="sn-h1">Your collections</h1>
         <CollectionsList
           vendorId={d.vendorId}

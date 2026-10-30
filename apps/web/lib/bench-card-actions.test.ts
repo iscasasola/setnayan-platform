@@ -14,7 +14,6 @@ import {
   resolveBenchCardActions,
   type BenchCardVendor,
 } from './bench-card-actions';
-import { HARD_SINGLE_PICK_GROUPS } from './wedding-plan-groups';
 
 function vendor(p: Partial<BenchCardVendor> = {}): BenchCardVendor {
   return {
@@ -265,24 +264,27 @@ test('a booked OFF-PLATFORM pick still shows nothing — rule 4 outranks rule 2'
 
 // ── the rail end ───────────────────────────────────────────────────────────
 
+/** A sample of the switch's answer — what `readOnePerEventGroups` returns on today's backfill (owner 2026-10-29). */
+const ONE: readonly string[] = ['ceremony_venue', 'reception_venue', 'officiant', 'coordinator', 'host_mc'];
+
 test('rail end: no lock yet → "Find more", not "Add another"', () => {
   assert.equal(
-    railEndIsAddAnother({ enabled: true, lockedCount: 0, planGroupId: 'catering' }),
+    railEndIsAddAnother({ enabled: true, lockedCount: 0, planGroupId: 'catering', onePerEventGroups: ONE }),
     false,
   );
 });
 
 test('rail end: a locked multi-pick category invites a second pick', () => {
   assert.equal(
-    railEndIsAddAnother({ enabled: true, lockedCount: 1, planGroupId: 'catering' }),
+    railEndIsAddAnother({ enabled: true, lockedCount: 1, planGroupId: 'catering', onePerEventGroups: ONE }),
     true,
   );
 });
 
-test('rail end: every hard-single group stays at "Find more" once locked', () => {
-  for (const g of HARD_SINGLE_PICK_GROUPS) {
+test('rail end: every One per event group stays at "Find more" once locked', () => {
+  for (const g of ONE) {
     assert.equal(
-      railEndIsAddAnother({ enabled: true, lockedCount: 1, planGroupId: g }),
+      railEndIsAddAnother({ enabled: true, lockedCount: 1, planGroupId: g, onePerEventGroups: ONE }),
       false,
       `${g} must never invite a second pick`,
     );
@@ -290,9 +292,9 @@ test('rail end: every hard-single group stays at "Find more" once locked', () =>
 });
 
 test('rail end: unresolvable group and flag OFF both stay at "Find more"', () => {
-  assert.equal(railEndIsAddAnother({ enabled: true, lockedCount: 2, planGroupId: null }), false);
+  assert.equal(railEndIsAddAnother({ enabled: true, lockedCount: 2, planGroupId: null, onePerEventGroups: ONE }), false);
   assert.equal(
-    railEndIsAddAnother({ enabled: false, lockedCount: 2, planGroupId: 'catering' }),
+    railEndIsAddAnother({ enabled: false, lockedCount: 2, planGroupId: 'catering', onePerEventGroups: ONE }),
     false,
   );
 });

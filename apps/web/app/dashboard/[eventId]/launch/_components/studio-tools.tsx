@@ -63,9 +63,10 @@ import { MAIN_COLOUR_SLOTS as MOOD_MAIN_COLOUR_SLOTS } from '@/lib/colour-access
 import { StudioEventName } from './studio-event-name';
 import { StudioVenues } from './studio-venues';
 import { STUDIO_INFO_ROWS, StudioOpeningLine, StudioPhotosHeading, StudioWords, studioDraftKeep } from './studio-info';
-import { ChosenRow, FactRow, FormRow, FormRows, SwitchRow, TypedRow } from '@/app/_components/form-row';
+import { ChosenRow, FactRow, FORM_ROW_BAND, FormRow, FormRows, SwitchRow, TypedRow } from '@/app/_components/form-row';
+import { HubGoLiveRow } from './hub-go-live-row';
 import { Fold } from '@/app/_components/fold';
-import { RotateCcw, Undo } from 'lucide-react';
+import { ChevronDown, RotateCcw, Undo } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { StudioKindlyReply, StudioMenuEditor, StudioParents, StudioPosterPhoto } from './studio-prints-six';
 import { StudioChartBody, StudioChartLayoutSetting, StudioChartPaper, type StudioPaper } from './print-paper';
@@ -560,15 +561,84 @@ export function StudioHubSettings({
       }
     });
   };
-  const body = (
-      <div data-studio-hub="" data-studio-hub-bare={bare ? '' : undefined} {...STUDIO_INFO_ROWS} className="flex flex-col pb-2">
-        {/* 🟠 ONE line, once, for the whole group — never a line per row. The address's own "Guests see this right
-            away" (`HubSavesImmediately`) steps aside for it here. (In the ⚙ it is the group's ⓘ.) */}
-        {bare ? null : (
-          <p data-studio-live-line="" className="pb-2 text-[12.5px] font-medium leading-snug text-warn-700">
-            {STUDIO_LIVE_LINE}
+  /* ⚙ THE HUB'S ⚙ › YOUR EVENT HUB, DRAWN AS THE PROTOTYPE DRAWS IT (owner 2026-10-30, verbatim: "Redraw to
+     prototype"; `prototypes/build-contracts-2026-10-30/event-hub-pro/` `openSettings`): compact rows, one line each, in
+     its order — the address inline with its Save · Show the event QR (switch) · Go live (switch) · Who can view ▾ ·
+     Which version ▾ · Event Bar (switch). EVERY WRITE IS THE ONE THE FOLD BELOW MAKES — only the drawing is shorter:
+     the address is `SlugField`/`AddressField` `compact`, Go live is `HubGoLiveRow` (the shipped launch panel's three
+     actions, its question and its schedule kept), the two pickers are the same `ChosenRow` (the house `PickMenu`). */
+  const compactRows = (
+    <div data-studio-hub="" data-studio-hub-bare="" data-studio-hub-compact="" {...STUDIO_INFO_ROWS} className="flex flex-col pb-2">
+      <FormRows data="your-event-hub" width="short">
+        {address ? (
+          <div data-form-row="address" data-studio-hub-row="address" className={FORM_ROW_BAND}>
+            {address}
+          </div>
+        ) : null}
+        <StudioQrShown eventId={eventId} shown={qrShown} line="On the cover, the prints and the pass">
+          {/* The prototype's QR box: Copy · Share · Download first; the QR's look (Shape · Pattern · Colour) one quiet
+              row under it that opens in place — still mounted while shut, so nothing stops posting. */}
+          <StudioQrActions slug={slug} path={livePath} />
+          {qrLook ? <StudioQrLookRow>{qrLook}</StudioQrLookRow> : null}
+        </StudioQrShown>
+        {hub ? (
+          <>
+            <HubGoLiveRow eventId={eventId} initialLaunched={hub.launched} initialScheduledAt={hub.scheduledAt} onLaunched={() => setWho('public')} />
+            <ChosenRow
+              data="who-can-view"
+              name="Who can view"
+              line={WHO_CAN_VIEW.map((w) => w.label).join(' · ')}
+              value={who}
+              buttonText={WHO_CAN_VIEW.find((w) => w.key === who)?.label ?? 'Private'}
+              options={WHO_CAN_VIEW}
+              onPick={pickWho}
+              dataAttr="data-studio-who-pick"
+              attrs={{ 'data-studio-hub-row': 'who-can-view' }}
+            />
+            <ChosenRow
+              data="which-version"
+              name={WHICH_VERSION_LABEL}
+              line="Automatic follows the date"
+              value={version}
+              buttonText={whichVersionLabel(version)}
+              options={WHICH_VERSION_OPTIONS}
+              onPick={pickVersion}
+              dataAttr="data-studio-version-pick"
+              attrs={{ 'data-studio-hub-row': 'which-version' }}
+            />
+            {maker?.eventBar ? (
+              <SwitchRow
+                data="event-bar"
+                name="Event Bar"
+                line="The bar under the page for guests"
+                about={{ words: 'The bar at the foot of your Event Hub that takes guests from page to page.' }}
+                on={maker.eventBar.on}
+                onChange={() => maker.eventBar?.toggle()}
+                attrs={{ 'data-studio-switch': 'event-bar' }}
+              />
+            ) : null}
+          </>
+        ) : (
+          <p role="alert" className="py-3 text-[13px] text-danger-700" data-studio-hub-unread="">
+            Your Event Hub settings could not be read just now. Nothing was changed — please reopen this in a moment.
           </p>
         )}
+      </FormRows>
+      {error ? (
+        <p role="alert" className="pt-1 text-[12.5px] font-semibold text-danger-700">
+          {error}
+        </p>
+      ) : null}
+    </div>
+  );
+  if (bare) return compactRows;
+  const body = (
+      <div data-studio-hub="" {...STUDIO_INFO_ROWS} className="flex flex-col pb-2">
+        {/* 🟠 ONE line, once, for the whole group — never a line per row. The address's own "Guests see this right
+            away" (`HubSavesImmediately`) steps aside for it here. (In the ⚙ it is the group's ⓘ.) */}
+        <p data-studio-live-line="" className="pb-2 text-[12.5px] font-medium leading-snug text-warn-700">
+          {STUDIO_LIVE_LINE}
+        </p>
         <FormRows data="your-event-hub">
           <FormRow
             data="address"
@@ -638,12 +708,39 @@ export function StudioHubSettings({
         ) : null}
       </div>
   );
-  return bare ? (
-    body
-  ) : (
+  return (
     <Fold data="more-for-guests" title="More for guests" summary="the address, who can view, the QR">
       {body}
     </Fold>
+  );
+}
+
+/**
+ * ⚙ THE QR'S LOOK, ONE QUIET ROW (the Hub's ⚙, owner 2026-10-30 "Redraw to prototype"): the prototype's QR box holds
+ * the code and its Copy · Share · Download; the shipped Shape · Pattern · Colour (`QrLookControls`) open from this row,
+ * in place (no "edit elsewhere"), and stay mounted while shut.
+ */
+export function StudioQrLookRow({ children }: { children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div data-studio-qr-look="">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className="sn-press flex min-h-11 w-full items-center gap-2 rounded-xl text-left"
+        data-studio-qr-look-toggle=""
+      >
+        <span className="min-w-0 flex-1">
+          <span className="block text-[14px] font-medium text-ink">QR look</span>
+          <small className="block text-[12.5px] text-ink/55">Shape · Pattern · Colour</small>
+        </span>
+        <ChevronDown aria-hidden className={`h-4 w-4 flex-none text-ink/45 transition-transform duration-sn-pill motion-reduce:transition-none ${open ? 'rotate-180' : ''}`} strokeWidth={2} />
+      </button>
+      <div hidden={!open} className={open ? 'flex flex-col gap-1 pb-1' : 'hidden'}>
+        {children}
+      </div>
+    </div>
   );
 }
 
@@ -953,7 +1050,7 @@ export function StudioMainColours({
  * APPROVED"): off leaves the event QR off the prints and the guest page. On is
  * today's behaviour. Drafted (`qr_shown`) — guests see it at Apply.
  */
-export function StudioQrShown({ eventId, shown, children }: { eventId: string; shown: boolean; children?: ReactNode }) {
+export function StudioQrShown({ eventId, shown, line, children }: { eventId: string; shown: boolean; line?: ReactNode; children?: ReactNode }) {
   const [on, setOn] = useState(shown);
   useEffect(() => setOn(shown), [shown]);
   const [error, setError] = useState<string | null>(null);
@@ -961,6 +1058,7 @@ export function StudioQrShown({ eventId, shown, children }: { eventId: string; s
     <SwitchRow
       data="qr-shown"
       name="Show the event QR"
+      line={line}
       about={{ words: 'On every print and pass; guests open your Event Hub by scanning it. Off, it leaves the prints and the guest page — at ✓ Apply.' }}
       on={on}
       attrs={{ 'data-studio-qr-shown': '', 'data-studio-switch': 'qr-shown' }}

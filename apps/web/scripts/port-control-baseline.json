@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "dd29c046",
+  "generatedFromRef": "2484a01bc5",
   "routeCount": 479,
   "destinations": 984,
-  "actions": 640,
-  "blocks": 7417,
+  "actions": 641,
+  "blocks": 7421,
   "routes": {
     "/": {
       "files": [
@@ -7284,11 +7284,13 @@
       "actions": [
         "markSent",
         "monoAction",
-        "reissueAction"
+        "reissueAction",
+        "submit"
       ],
       "blocks": [
         "CheckResult",
         "DetailPageSkeleton",
+        "Explain",
         "GuestInviteModal",
         "HTMLDivElement",
         "HTMLTextAreaElement",
@@ -7344,6 +7346,7 @@
         "dashboard/[eventId]/launch/_components/details-your-event.tsx",
         "dashboard/[eventId]/launch/_components/guests-see-sheet.tsx",
         "dashboard/[eventId]/launch/_components/guests-view-door.tsx",
+        "dashboard/[eventId]/launch/_components/hub-go-live-row.tsx",
         "dashboard/[eventId]/launch/_components/hub-pro-offer.tsx",
         "dashboard/[eventId]/launch/_components/hub-settings.tsx",
         "dashboard/[eventId]/launch/_components/hub-stage.tsx",
@@ -7635,6 +7638,7 @@
         "HubDraftDock",
         "HubDraftField",
         "HubElementWidth",
+        "HubGoLiveRow",
         "HubMainGround",
         "HubProOffer",
         "HubRow",
@@ -7848,6 +7852,7 @@
         "ScenePhotoSheet",
         "SceneTemplatePicker",
         "ScheduleMatrix",
+        "SchedulePicker",
         "ScheduleSlots",
         "SeatPlan3dNote",
         "SeatPlanSlot",
@@ -7929,6 +7934,7 @@
         "StudioPrintsCarousel",
         "StudioProDoor",
         "StudioQrActions",
+        "StudioQrLookRow",
         "StudioQrShown",
         "StudioQuietRows",
         "StudioReadOnlyFact",

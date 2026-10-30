@@ -503,8 +503,16 @@ export function detailsFactEditors(input: {
 
 /* ── 🌐 YOUR EVENT HUB'S ADDRESS — the one place it is edited (owner: "Add the slug to details"). The shipped
    SlugField: 3–32 characters, live availability, old links forward. ── */
-function addressEditor(props: Pick<MakerDetailsProps, 'eventId' | 'slug' | 'slugAction' | 'address'>): ReactNode {
+function addressEditor(props: Pick<MakerDetailsProps, 'eventId' | 'slug' | 'slugAction' | 'address'>, { compact = false }: { compact?: boolean } = {}): ReactNode {
   const { eventId, slug, slugAction, address: addressPart } = props;
+  /* ⚙ The Hub's ⚙ draws it on ONE row (owner 2026-10-30 "Redraw to prototype"): the same field, the same save. */
+  if (compact) {
+    return addressPart && slug ? (
+      <AddressField compact eventId={eventId} slug={slug} saveAction={slugAction} {...addressPart} />
+    ) : (
+      <SlugField compact eventId={eventId} initialSlug={slug ?? ''} saveAction={slugAction} />
+    );
+  }
   return (
     <section data-details-address="" className="flex flex-col gap-2">
       {addressPart && slug ? (
@@ -540,7 +548,7 @@ export function hubSettingsEditor(
       eventId={eventId}
       slug={slug}
       hub={st.hub}
-      address={addressEditor(props)}
+      address={addressEditor(props, { compact: bare })}
       /* 🔳 On or off first (owner 2026-10-07) — off, the event QR leaves the prints and the guest page. */
       qrShown={st.qrShown !== false}
       qrLook={<QrLookControls eventId={eventId} ownsPro={qr.ownsPro} storeShell={qr.storeShell} style={qr.style} inks={qr.inks} action={qrStyleAction} />}

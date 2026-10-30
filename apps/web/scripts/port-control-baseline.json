@@ -1,9 +1,4 @@
 {
-  "generatedFromRef": "c24ab8b9ec",
-  "routeCount": 479,
-  "destinations": 984,
-  "actions": 622,
-  "blocks": 7441,
   "routes": {
     "/": {
       "files": [
@@ -5815,6 +5810,7 @@
         "dashboard/[eventId]/_components/setnayan-ai-comeback-offer.tsx",
         "dashboard/[eventId]/_components/std-media-picker.tsx",
         "dashboard/[eventId]/_components/supplier-connect-panel.tsx",
+        "dashboard/[eventId]/_components/supplier-share-button.tsx",
         "dashboard/[eventId]/_components/vendor-direct-pay.tsx",
         "dashboard/[eventId]/_components/vendor-itemization-card.tsx",
         "dashboard/[eventId]/_components/vendor-marketplace-info.tsx",
@@ -5982,6 +5978,7 @@
         "FactRow",
         "Failed",
         "Figure",
+        "File",
         "FileUpload",
         "FinalizeRow",
         "FinishedEventSummary",
@@ -6129,6 +6126,7 @@
         "QrActions",
         "QrBody",
         "ReadRefusedNotice",
+        "Ready",
         "ReadyForNoSignal",
         "RecordCardFolds",
         "RecordLinkBlock",
@@ -6152,6 +6150,7 @@
         "RulePlanRows",
         "SDLoader",
         "Said",
+        "SaveFileLink",
         "SavePakantaIntakeResult",
         "SaveToContinue",
         "Screen",
@@ -6183,6 +6182,8 @@
         "SupplierConnectPanel",
         "SupplierInviteView",
         "SupplierReachLinks",
+        "SupplierShareButton",
+        "SupplierShareResult",
         "Suspense",
         "SwitchTrack",
         "TinyAction",
@@ -10066,6 +10067,7 @@
         "SubmitButton",
         "SuccessToast",
         "SupplierInviteView",
+        "SupplierShareButton",
         "SupplierSheet",
         "SupplierSheetData",
         "SupplierSheetLoad",
@@ -10952,6 +10954,7 @@
         "LabCard",
         "LabRecord",
         "NewManualVendorModal",
+        "SupplierShareStandInCtx.Provider",
         "UpdateSelfAddedSupplierResult"
       ]
     },
@@ -11993,6 +11996,7 @@
         "MoreRowStandInCtx.Provider",
         "ServicesTakeover",
         "ShortlistCategories",
+        "SupplierShareStandInCtx.Provider",
         "SuppliersLabStage",
         "SuppliersSettingsRows",
         "TeamRowFacts"

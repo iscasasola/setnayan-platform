@@ -49,7 +49,7 @@ export function ShopInspirationSection({ tiles, shopName }: { tiles: readonly In
             {t.card ? (
               <a
                 href={`#${t.card.anchorId}`}
-                className="block overflow-hidden rounded-xl border border-ink/10 bg-cream transition-colors hover:border-terracotta/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+                className="block overflow-hidden rounded-xl border border-ink/10 bg-cream transition-colors hover:border-terracotta/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta" // no-card-ok: an <a> — it opens the look's service card on this page
                 aria-label={`${t.part} — ${t.card.label}, ${t.card.priceLabel}. Open the card`}
                 data-inspiration-tile="card"
               >

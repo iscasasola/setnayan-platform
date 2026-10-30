@@ -141,7 +141,8 @@ export default async function EventMemoriesPage({ params, searchParams }: Props)
     if (hostCam.readFailed) logQueryError('EventMemoriesPage.uploadsSeat', { message: 'host camera read refused' }, { event_id: eventId }, 'graceful_degrade');
     const seat = hostCameraSeat(hostCam.pick);
     // The token reaches the browser only once the camera is THIS person's; a spare is claimed by the picker on the pick.
-    const token = hostCam.pick?.kind === 'mine' ? (hostCam.pick.seat.claim_qr_token ?? null) : null;
+    const mineSeat = hostCam.pick?.kind === 'mine' ? hostCam.pick.seat : null;
+    const token = mineSeat && mineSeat.claimer_user_id === user.id ? (mineSeat.claim_qr_token ?? null) : null;
     /* 🪙 WHAT THIS CAMERA CAN STILL SPEND (owner 2026-10-25: "adding photos will use up papic credits") — the presign
        gate's OWN question (`papic_capture_points_available`: the seat's own credits + the event's one pot), so the
        number on the sheet is the number the server refuses at. The Papic Unlock pass shoots unmetered, as at the gate.

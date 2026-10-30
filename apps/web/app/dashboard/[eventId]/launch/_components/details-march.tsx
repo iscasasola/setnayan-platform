@@ -1,5 +1,6 @@
 'use client';
 
+import { GuestNick } from '@/app/_components/guest-nick';
 import {
   Component,
   useCallback,
@@ -1225,7 +1226,10 @@ function MarchMakerBody({
                             p.tag ? 'border-terracotta-700/60 bg-white dark:bg-raised' : 'border-terracotta-700/20 bg-terracotta-700/[0.06]'
                           } ${lifted === p.id ? 'border-dashed opacity-30' : marchDim(p.id) ? 'opacity-25' : ''}${carried?.key === p.id ? ' ring-2 ring-ink ring-offset-1' : ''}${card?.id === p.id && p.id ? ' ring-2 ring-terracotta-700 ring-offset-1' : ''}${ring(zone)}`}
                         >
-                          <span className="font-serif text-[15.5px] leading-tight text-ink [overflow-wrap:anywhere]">{p.name}</span>
+                          <span className="font-serif text-[15.5px] leading-tight text-ink [overflow-wrap:anywhere]">
+                            {p.name}
+                            {guests ? <GuestNick nick={p.nick} /> : null}
+                          </span>
                           {p.tag ? (
                             <span className="mt-0.5 font-mono text-[9.5px] uppercase tracking-[0.18em] text-terracotta-800">{p.tag}</span>
                           ) : null}

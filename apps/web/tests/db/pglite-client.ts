@@ -12,7 +12,8 @@
  * ⚠ It models ONLY the call shapes those functions use — select · insert ·
  * update · delete with `.eq()` `.is(col, null)` `.not(col, 'is', null)`
  * `.in()` `.order()` `.limit()`
- * `.select()` `.maybeSingle()`. Anything else throws, never skips.
+ * `.select()` `.maybeSingle()`, and a paged read (`select(cols, { count: 'exact' })` + `.range()`, the shape
+ * `readAllPages` sends). Anything else throws, never skips.
  *
  * 🔑 Errors are RETURNED as `{ data, error }`, never thrown — exactly as
  * supabase-js hands back a refusal — with `code` carrying the SQLSTATE.
@@ -30,7 +31,7 @@ export const SERVICE = Symbol('service-role');
 export type Actor = string | typeof SERVICE;
 
 type Row = Record<string, unknown>;
-type Res = { data: Row[] | null; error: { message: string; code?: string } | null };
+type Res = { data: Row[] | null; error: { message: string; code?: string } | null; count?: number | null };
 const IDENT = /^[a-z_][a-z0-9_]*$/;
 const ident = (s: string) => {
   if (!IDENT.test(s)) throw new Error(`[pglite-client] not an identifier: ${s}`);
@@ -49,6 +50,7 @@ class Q implements PromiseLike<Res> {
   private ins: Array<[string, unknown[]]> = [];
   private orders: string[] = [];
   private lim: number | null = null;
+  private off: number | null = null;
   private returning: string | null = null;
   private one = false;
   constructor(
@@ -58,6 +60,7 @@ class Q implements PromiseLike<Res> {
     private verb: 'select' | 'insert' | 'update' | 'delete',
     private payload: Row | null,
     private selected: string | null,
+    private withCount = false,
   ) {}
   select(list: string) {
     if (this.verb === 'select') throw new Error('[pglite-client] select().select() is not modelled');
@@ -90,6 +93,12 @@ class Q implements PromiseLike<Res> {
     this.lim = n;
     return this;
   }
+  /** Rows `from`..`to` inclusive — PostgREST's window. */
+  range(from: number, to: number) {
+    this.off = from;
+    this.lim = to - from + 1;
+    return this;
+  }
   maybeSingle(): PromiseLike<{ data: Row | null; error: Res['error'] }> {
     this.one = true;
     return this.run().then((r) => ({ data: r.data?.[0] ?? null, error: r.error }));
@@ -118,6 +127,7 @@ class Q implements PromiseLike<Res> {
       sql = `SELECT ${this.selected} FROM public.${ident(this.table)}${where()}`;
       if (this.orders.length) sql += ` ORDER BY ${this.orders.join(', ')}`;
       if (this.lim != null || this.one) sql += ` LIMIT ${this.one ? 1 : this.lim}`;
+      if (this.off != null) sql += ` OFFSET ${this.off}`;
     } else if (this.verb === 'insert') {
       const keys = Object.keys(this.payload!);
       sql = `INSERT INTO public.${ident(this.table)} (${keys.map(ident).join(', ')}) VALUES (${keys.map((k) => p(this.payload![k])).join(', ')})`;
@@ -144,7 +154,11 @@ class Q implements PromiseLike<Res> {
       }
       try {
         const r = await db.query<Row>(sql, params);
-        return { data: r.rows, error: null };
+        if (!this.withCount) return { data: r.rows, error: null };
+        // count: 'exact' — the same rows' total, under the same role (RLS applies to the count too).
+        const whereOnly = sql.slice(sql.indexOf(' FROM ')).replace(/ ORDER BY .*$/, '').replace(/ LIMIT .*$/, '');
+        const c = await db.query<{ n: number }>(`SELECT count(*)::int AS n${whereOnly}`, params);
+        return { data: r.rows, error: null, count: c.rows[0]?.n ?? 0 };
       } catch (e) {
         // Returned, never thrown — exactly as supabase-js hands a refusal back.
         return { data: null, error: { message: (e as Error).message, code: (e as { code?: string }).code } };
@@ -183,7 +197,8 @@ export function clientAs(db: PGlite, actor: Actor): SupabaseClient {
   return {
     from(table: string) {
       return {
-        select: (list: string) => new Q(db, actor, table, 'select', null, cols(list)),
+        select: (list: string, opts?: { count?: 'exact' }) =>
+          new Q(db, actor, table, 'select', null, cols(list), opts?.count === 'exact'),
         insert: (row: Row) => new Q(db, actor, table, 'insert', row, null),
         update: (patch: Row) => new Q(db, actor, table, 'update', patch, null),
         delete: () => new Q(db, actor, table, 'delete', null, null),

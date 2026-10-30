@@ -154,6 +154,13 @@ export async function saveSelfAddedPaymentPlan(formData: FormData): Promise<void
         return a === 'on_lock' || a === 'before_event' ? a : '';
       })(),
       due_offset_days: String(formData.getAll('plan_days')[i] ?? '0'),
+      // The row's own instalment number, when the sheet posts one (the record card does) — so a payment logged
+      // against an instalment stays on it however the rows around it change.
+      seq: (() => {
+        const raw = formData.getAll('plan_seq')[i];
+        const n = typeof raw === 'string' && /^\d+$/.test(raw.trim()) ? Number(raw.trim()) : NaN;
+        return Number.isInteger(n) ? n : null;
+      })(),
     });
   }
 

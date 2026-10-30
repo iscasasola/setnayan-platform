@@ -100,7 +100,7 @@ test('2 · only that shop answers — under its own session, checked in SQL', ()
 });
 
 test('F1 · F3 · Approve publishes a frozen copy under a neutral key, made BEFORE the approve is recorded', () => {
-  assert.match(sql, /public_key ~ \('\^couple-looks\/' \|\| share_id::text/, 'the public key is not pinned to the share id');
+  assert.match(sql, /public_key ~ \('\^couple-looks\/' \|\| share_id::text \|\| '-\[0-9a-f\]\{12\}\\\.\(jpg\|jpeg\|png\|webp\)\$'\)/, 'the public key is not pinned to the share id + one attempt + an image type');
   assert.match(sql, /CHECK \(\(state = 'approved'\) = \(public_key IS NOT NULL\)\)/, 'an approved share can exist without its copy (or a dead one keep one)');
   const trig = fn('couple_photo_shares_follow_the_board');
   assert.match(trig, /SET state = 'withdrawn', withdrawn_at = NOW\(\), public_key = NULL/);
@@ -114,9 +114,15 @@ test('F1 · F3 · Approve publishes a frozen copy under a neutral key, made BEFO
   const rpcAt = approve.indexOf(".rpc('vendor_answer_couple_photo'");
   assert.ok(copyAt > 0 && rpcAt > copyAt, 'the approve is recorded before (or without) the frozen copy');
   assert.match(approve, /p_public_key: publicKey/);
+  // 🛡 #7089 round 2 — a refused approve deletes ONLY its own attempt's copy.
+  assert.match(approve, /if \(r\.status !== 'ok'\) await unpublishCoupleLook\(publicKey\);/);
+  assert.doesNotMatch(approve, /unpublishCoupleLook\(r\.unpublished_key\);\s*\n?\s*if \(r\.status !== 'ok'\)/);
   const server = read('lib/couple-photo-share.server.ts');
   assert.match(server, /r2Copy\(\{ bucket: R2_BUCKETS\.media, fromKey: snapshotKey, toKey \}\)/);
   assert.match(server, /export async function reconcileCoupleLooks/, 'nothing sweeps the copies of withdrawn shares');
+  assert.match(server, /coupleLookKey\(shareId, snapshotKey, randomBytes\(6\)\.toString\('hex'\)\)/, 'the copy key is not fresh per attempt');
+  assert.match(server, /i \+= SWEEP_CHUNK/, 'the sweep asks about every key in one request');
+  assert.match(server, /maxKeys: SWEEP_MAX_OBJECTS/);
 });
 
 test('3 · withdraw moves the row out of approved; the uploader alone may do it', () => {
@@ -150,6 +156,10 @@ test('5 · only the couple’s own upload, by its uploader, to a shop on the eve
   assert.match(body, /o\.r2_key = v_photo\.r2_key AND o\.inspiration_id <> v_photo\.inspiration_id/, 'a partner’s key re-filed on a second row can be shared');
   // 🛡 #7089 F4 — a NULL uploader is nobody's.
   assert.match(body, /v_photo\.added_by_user_id IS DISTINCT FROM auth\.uid\(\)/);
-  assert.match(sql, /CREATE TRIGGER a_board_photo_keeps_its_uploader/, 'the uploader of a board photo can be rewritten');
+  assert.match(sql, /CREATE TRIGGER a_board_photo_keeps_its_provenance\s+BEFORE UPDATE OF added_by_user_id, source_kind, from_suggestion_id/, 'a board photo’s uploader, kind or origin can be rewritten');
+  // 🛡 #7089 round 2 — a supplier's suggested photo (stored in the couple's own folder) is never their own.
+  assert.match(body, /v_photo\.r2_key LIKE \('inspiration\/' \|\| v_photo\.event_id::TEXT \|\| '\/suggestions\/%'\)/, 'a suggestions-folder object can be shared as the couple’s');
+  assert.match(body, /v_photo\.from_suggestion_id IS NOT NULL/);
+  assert.match(body, /FROM public\.event_inspiration_suggestions sg WHERE sg\.r2_key = v_photo\.r2_key/, 'a supplier suggestion’s key, refiled, can be shared');
   assert.match(body, /ev\.marketplace_vendor_id = v_shop[\s\S]{0,60}ev\.archived_at IS NULL/, 'a shop not on the event can be sent a photo');
 });

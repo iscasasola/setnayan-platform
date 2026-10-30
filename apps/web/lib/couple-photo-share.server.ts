@@ -12,7 +12,7 @@ import { COUPLE_LOOKS_PREFIX, coupleLookKey, shareIdOfCoupleLook } from '@/lib/c
  * #7089).
  *
  * 🔑 THE CARD NEVER SHOWS THE COUPLE'S BOARD ROW. At Approve the server COPIES the share's snapshot object (the key
- * the couple uploaded, `inspiration/<event>/…`) to a neutral key `couple-looks/<share_id>.<ext>` in the public media
+ * the couple uploaded, `inspiration/<event>/…`) to a neutral key `couple-looks/<share_id>-<attempt>.<ext>` in the public media
  * bucket — no event id, no original file name (F3) — and the share publishes THAT key. The board row is editable by
  * every event member under its existing policy, so a live read would let anyone on the event swap the picture behind
  * an approved, credited card (F1). Every reader here maps a stored KEY to a URL; none trusts a stored URL.

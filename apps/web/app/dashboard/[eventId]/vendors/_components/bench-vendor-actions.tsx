@@ -88,6 +88,7 @@ import { ContactShortlistVendorButton } from './contact-shortlist-vendor-button'
 import { WithdrawAskButton } from './withdraw-ask-button';
 import { SelfAddedPrice } from './self-added-price';
 import { ConnectSupplierModal } from '../../_components/connect-supplier-modal';
+import { SupplierShareButton } from '../../_components/supplier-share-button';
 
 /** `deleteVendor` redirects a signed-out caller; that is not a failure to report. */
 function isRedirect(e: unknown): boolean {
@@ -462,6 +463,12 @@ export function BenchVendorActions({
         {actions.connect ? (
           <ActionButton tone="neutral" icon={QrCode} label="Connect" aria-haspopup="dialog" onClick={() => setConnectOpen(true)} />
         ) : null}
+        {/* [Share] — the approved invite + their digital card, the guest card's own share (DECISION_LOG 2026-10-30,
+            "…A SELF-ADDED SUPPLIER GETS A SHARE BUTTON, AN AUTOMATIC CLAIM LINK AND A DIGITAL CARD"). The same one
+            predicate as Connect — a supplier the couple added who is not on Setnayan — so it is never drawn for a
+            supplier with a shop. It asks for nothing until it is touched. Last in the row, so the line a press comes back
+            with sits under the whole row. */}
+        {actions.connect ? <SupplierShareButton eventId={eventId} vendorId={vendorId} vendorName={vendorName} /> : null}
       </div>
       {connectOpen ? (
         <ConnectSupplierModal

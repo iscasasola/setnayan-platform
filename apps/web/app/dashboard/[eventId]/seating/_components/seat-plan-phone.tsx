@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { Armchair, ArrowRight, Check, ChevronDown, ChevronRight, Link2, MoreHorizontal, RotateCw, Sparkles, Trash2, Ungroup } from 'lucide-react';
+import { Armchair, ArrowLeftRight, ArrowRight, Check, ChevronDown, ChevronRight, Link2, MoreHorizontal, RotateCw, Sparkles, Trash2, Ungroup } from 'lucide-react';
 import { formatCount } from '@/lib/format-number';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import type { PickOption } from '../../website/editor/_components/pick-menu-types';
@@ -517,6 +517,8 @@ export function PhoneTableDock({
   onUnlink,
   linkPressed,
   onLink,
+  swapPressed = false,
+  onSwap,
   seatPeople,
   onDone,
   onDelete,
@@ -541,6 +543,10 @@ export function PhoneTableDock({
   onUnlink: () => void;
   linkPressed: boolean;
   onLink: () => void;
+  /** ⇄ "Swap with another table…" — the next table tapped trades its guests with this one, after a confirm (it moved here
+   *  from the 3D room's "Swap two tables" when the room became view-only, owner 2026-10-30). Absent = not offered. */
+  swapPressed?: boolean;
+  onSwap?: () => void;
   seatPeople: ReactNode;
   onDone: () => void;
   onDelete: () => void;
@@ -585,6 +591,11 @@ export function PhoneTableDock({
             <ActionButton tone={linkPressed ? 'brand' : 'neutral'} icon={Link2} label="Link…" aria-pressed={linkPressed} disabled={!canEdit} onClick={onLink} />
           </span>
         )}
+        {onSwap ? (
+          <span data-seat-plan-swap="" className="inline-flex">
+            <ActionButton tone={swapPressed ? 'brand' : 'neutral'} icon={ArrowLeftRight} label="Swap with another table…" aria-pressed={swapPressed} disabled={!canEdit} onClick={onSwap} />
+          </span>
+        ) : null}
         {seatPeople}
         {/* The row's one filled step, in the accent (the template's) — see `a-sheet-button-always-shows-its-word.test.ts`. */}
         <span className="ml-auto inline-flex">

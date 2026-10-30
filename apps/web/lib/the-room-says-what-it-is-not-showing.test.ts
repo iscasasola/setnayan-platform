@@ -34,7 +34,7 @@ import { sel, selAll, RECEPTION_PARTS, type ReceptionDesign, type PartId } from 
 
 const EDITOR = join(
   import.meta.dirname, '..', 'app', 'dashboard', '[eventId]', 'seating', 'lab',
-  '_components', 'reception-design-editor.tsx',
+  '_components', 'accents-sheet.tsx',
 );
 
 /* ── 1 · THE INVARIANT THE COPY DEPENDS ON ────────────────────────────────── */
@@ -90,5 +90,5 @@ test('it NAMES the treatment the room draws, not a generic "one of several"', ()
       'couple the room shows "one of several" leaves them guessing which, which ' +
       'is the misunderstanding this exists to end.',
   );
-  assert.match(s, /The 3D room draws/, 'the sentence itself must be mounted');
+  assert.match(s, /The 3D room draws \{primary\.label\}/, 'the sentence itself must be mounted, naming the treatment');
 });

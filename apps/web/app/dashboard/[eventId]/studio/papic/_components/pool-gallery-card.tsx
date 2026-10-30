@@ -4,7 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { papicPoolGalleryActive } from '@/lib/papic-pool-gate';
 import { eventPapicActive } from '@/lib/papic-seats';
 import { PoolGalleryToggle } from './pool-gallery-toggle';
-import { InfoTip } from '@/app/_components/info-tip';
+import { WhoSeesWhatPick } from './who-sees-what-pick';
 
 /**
  * Shared Pool Gallery — the couple's control card on the Papic studio page
@@ -20,10 +20,14 @@ import { InfoTip } from '@/app/_components/info-tip';
  * retroactive on the next read.
  */
 export async function PoolGalleryCard({ eventId, variant = 'card' }: { eventId: string; variant?: 'card' | 'row' }) {
-  if (!(await papicPoolGalleryActive())) return null;
-
-  const papicActive = await eventPapicActive(await eventEntitlementClient(eventId), eventId);
+  const [poolActive, papicActive] = await Promise.all([
+    papicPoolGalleryActive(),
+    eventEntitlementClient(eventId).then((ent) => eventPapicActive(ent, eventId)),
+  ]);
   if (!papicActive) return null;
+  // 👁 Memories ⚙ › Who sees what (owner 2026-10-30): while the shared gallery cannot open for any event (its env flag
+  // or privacy control is off), the TRUE answer is the default — Only tagged — said, never hidden, with no choice.
+  if (!poolActive) return variant === 'row' ? <WhoSeesWhatPick eventId={eventId} initialOpen={false} locked /> : null;
 
   // Toggle state via the admin client: pre-migration (column absent) this read
   // errors → treat as "not available yet" and render nothing (no dead door on
@@ -56,19 +60,10 @@ export async function PoolGalleryCard({ eventId, variant = 'card' }: { eventId: 
 
   const open = ev.pool_gallery_open === true;
 
-  // 'row' — Memories › ⚙ Gallery settings (owner 2026-10-23, "Guests see all photos"): the switch, its words in the ⓘ.
+  // 'row' — Memories › ⚙ (owner 2026-10-23 "Guests see all photos" → 2026-10-30 **Who sees what**: Only tagged ·
+  // Share all memories, ONE dropdown, default Only tagged = this column's FALSE — `lib/memories-rules.ts`).
   if (variant === 'row') {
-    return (
-      <section className="py-3" data-memories-setting="see-all">
-        <InfoTip label="Guests see all photos" labelAs="h3" labelClassName="text-[15px] font-semibold text-ink" align="start">
-          On: every guest can browse every screened photo and clip in your Memories (web copies only) and tag themselves
-          into photos they are in — those join their own. Turning it off closes it for everyone at once.
-        </InfoTip>
-        <div className="mt-1">
-          <PoolGalleryToggle eventId={eventId} initialOpen={open} />
-        </div>
-      </section>
-    );
+    return <WhoSeesWhatPick eventId={eventId} initialOpen={open} />;
   }
 
   return (

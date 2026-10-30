@@ -29,11 +29,13 @@ import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { refuseLimitedHelper } from '@/lib/host-gate';
 import { emitNotification } from '@/lib/notification-emit';
+import { coupleLookUrl, publishCoupleLook, reconcileCoupleLooks, unpublishCoupleLook } from '@/lib/couple-photo-share.server';
 import {
   COUPLE_PHOTO_CONSENT_VERSION,
   SHOP_COUPLE_PHOTOS_HREF,
   answeredNoticeTitle,
   coupleNamesCredit,
+  isEventUploadKey,
   sharedNoticeTitle,
   shareRefusalWords,
   shopAnswerDoneLine,
@@ -75,7 +77,7 @@ async function readPhotoShareOptions(eventId: string, slotKey: string, slotPosit
   const [photoRes, eventRes, linkRes] = await Promise.all([
     supabase
       .from('event_inspiration_assets')
-      .select('inspiration_id, source_kind, added_by_user_id')
+      .select('inspiration_id, source_kind, added_by_user_id, r2_key, image_url')
       .eq('event_id', eventId)
       .eq('slot_key', slotKey)
       .eq('slot_position', slotPosition)
@@ -97,7 +99,7 @@ async function readPhotoShareOptions(eventId: string, slotKey: string, slotPosit
     logQueryError('readPhotoShareOptions', photoRes.error ?? eventRes.error ?? linkRes.error, { eventId, slotKey, slotPosition });
     return { status: 'error' };
   }
-  const photo = photoRes.data as { inspiration_id: string; source_kind: string; added_by_user_id: string } | null;
+  const photo = photoRes.data as { inspiration_id: string; source_kind: string; added_by_user_id: string | null; r2_key: string | null; image_url: string } | null;
   if (!photo) return { status: 'gone' };
 
   const links = (linkRes.data ?? []) as Array<{ marketplace_vendor_id: string; service_id: string | null }>;
@@ -147,7 +149,7 @@ async function readPhotoShareOptions(eventId: string, slotKey: string, slotPosit
   const ev = (eventRes.data ?? {}) as { display_name?: string | null; bride_name?: string | null; groom_name?: string | null; event_date?: string | null; event_date_precision?: string | null };
   return {
     status: 'ok',
-    shareable: photo.source_kind === 'file_upload' && photo.added_by_user_id === user.id,
+    shareable: ownUpload(eventId, photo) && photo.added_by_user_id === user.id,
     inspirationId: photo.inspiration_id,
     cards,
     shares,
@@ -159,6 +161,18 @@ async function sharePhotoWithSupplier(input: SendPhotoShareInput): Promise<Share
   await refuseLimitedHelper(input.eventId, 'mood_board');
   if (!input.consent) return { status: 'refused', message: shareRefusalWords('no_consent') };
   const supabase = await createClient();
+  // 🛡 F2, defence in depth: the database gate is the KEY (an upload under this event's own folder, held by no other
+  // row). Here the stored URL must also BE that key's public URL — a row whose image_url points anywhere else was not
+  // written by the upload action, and is refused before the door is even asked.
+  const { data: board } = await supabase
+    .from('event_inspiration_assets')
+    .select('event_id, source_kind, r2_key, image_url')
+    .eq('inspiration_id', input.inspirationId)
+    .is('removed_at', null)
+    .maybeSingle();
+  if (!board || !ownUpload(input.eventId, board as { event_id?: string; source_kind: string; r2_key: string | null; image_url: string })) {
+    return { status: 'refused', message: shareRefusalWords('not_own_photo') };
+  }
   const { data, error } = await supabase.rpc('couple_share_photo_with_supplier', {
     p_inspiration_id: input.inspirationId,
     p_vendor_service_id: input.vendorServiceId,
@@ -188,6 +202,14 @@ async function sharePhotoWithSupplier(input: SendPhotoShareInput): Promise<Share
   return { status: 'ok', shareId: r.share_id, shop: r.shop_label ?? 'Your supplier' };
 }
 
+/** The couple's OWN upload, as the upload action writes it: kind, the key under this event's folder, and the stored
+ *  URL equal to that key's public URL (when storage can say what that is). The SQL door re-checks the key. */
+function ownUpload(eventId: string, row: { source_kind: string; r2_key: string | null; image_url: string }): boolean {
+  if (row.source_kind !== 'file_upload' || !isEventUploadKey(eventId, row.r2_key)) return false;
+  const expected = coupleLookUrl(row.r2_key);
+  return expected === null || expected === row.image_url;
+}
+
 async function withdrawPhotoShare(eventId: string, shareId: string): Promise<{ status: 'ok' | 'gone' | 'error' }> {
   await refuseLimitedHelper(eventId, 'mood_board');
   const supabase = await createClient();
@@ -196,9 +218,13 @@ async function withdrawPhotoShare(eventId: string, shareId: string): Promise<{ s
     logQueryError('withdrawPhotoShare', error, { eventId, shareId });
     return { status: 'error' };
   }
-  const status = (data as { status?: string } | null)?.status;
-  if (status === 'already') return { status: 'gone' };
-  if (status !== 'ok') return { status: 'error' };
+  const r = (data ?? {}) as { status?: string; unpublished_key?: string | null };
+  if (r.status === 'already') return { status: 'gone' };
+  if (r.status !== 'ok') return { status: 'error' };
+  // An approved photo leaves the card at once (the share no longer names a copy); its object is deleted now, and the
+  // sweep catches anything this missed.
+  await unpublishCoupleLook(r.unpublished_key);
+  await reconcileCoupleLooks();
   revalidatePath(`/dashboard/${eventId}/studio/mood-board`);
   return { status: 'ok' };
 }
@@ -212,12 +238,34 @@ async function answerCouplePhoto(shareId: string, approve: boolean): Promise<Ans
   } = await supabase.auth.getUser();
   if (!user) return { status: 'refused', message: 'Sign back in to answer.' };
 
-  const { data, error } = await supabase.rpc('vendor_answer_couple_photo', { p_share_id: shareId, p_approve: approve });
+  // 🔑 APPROVE PUBLISHES A FROZEN COPY (security review #7089, F1 + F3). The shop approves the SNAPSHOT taken at share
+  // time — read through its own door (its shops only, waiting only) — and the server copies those bytes to
+  // `couple-looks/<share_id>.<ext>` BEFORE recording the approve; the database refuses an approved share without that
+  // key. A refused approve deletes the copy it just made.
+  let publicKey: string | null = null;
+  if (approve) {
+    const { data: mine, error: mineErr } = await supabase.rpc('vendor_couple_photo_shares');
+    if (mineErr) {
+      logQueryError('answerCouplePhoto.read', mineErr, { shareId });
+      return { status: 'refused', message: 'That did not go through — nothing changed. Try again.' };
+    }
+    const row = ((mine ?? []) as Array<{ share_id: string; state: string; photo_key: string | null }>).find((x) => x.share_id === shareId);
+    if (!row) return { status: 'refused', message: 'This photo is no longer waiting — the couple may have taken it back.' };
+    if (row.state !== 'waiting' || !row.photo_key) return { status: 'refused', message: 'This photo was already answered.' };
+    publicKey = await publishCoupleLook(shareId, row.photo_key);
+    if (!publicKey) return { status: 'refused', message: shareRefusalWords('not_publishable') };
+  }
+
+  const { data, error } = await supabase.rpc('vendor_answer_couple_photo', { p_share_id: shareId, p_approve: approve, p_public_key: publicKey });
   if (error) {
     logQueryError('answerCouplePhoto', error, { shareId });
+    await unpublishCoupleLook(publicKey);
     return { status: 'refused', message: 'That did not go through — nothing changed. Try again.' };
   }
-  const r = (data ?? {}) as { status?: string; was?: CouplePhotoShareState; event_id?: string; shared_by_user_id?: string };
+  const r = (data ?? {}) as { status?: string; was?: CouplePhotoShareState; event_id?: string; shared_by_user_id?: string; unpublished_key?: string | null };
+  if (r.status !== 'ok') await unpublishCoupleLook(publicKey);
+  else await unpublishCoupleLook(r.unpublished_key);
+  await reconcileCoupleLooks();
   if (r.status === 'withdrawn') return { status: 'refused', message: 'The couple took this photo back — it shows nowhere.' };
   if (r.status === 'gone') return { status: 'refused', message: 'The couple removed this photo from their board — it shows nowhere.' };
   if (r.status === 'already') return { status: 'refused', message: 'This photo was already answered.' };

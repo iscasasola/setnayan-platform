@@ -1,15 +1,16 @@
 /**
  * 📸 PHOTOS COUPLES SHARED — the server half of the shop's Approve screen (owner 2026-10-30). ONE read: the
- * `vendor_couple_photo_shares()` door, which answers only for the caller's own shops (owner/admin team) and only rows
- * still on the couple's board. Nothing waiting and nothing approved → nothing is drawn. A refused read is SAID, never
+ * `vendor_couple_photo_shares()` door, which answers only for the caller's own shops (owner/admin team): the snapshot
+ * key of a waiting share, the frozen copy of an approved one. Nothing waiting and nothing approved → nothing is drawn. A refused read is SAID, never
  * drawn as "none".
  */
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { couplePhotoShare } from '@/app/_actions/couple-photo-share-actions';
+import { coupleLookUrl } from '@/lib/couple-photo-share.server';
 import { CouplePhotosList, type ShopCouplePhoto } from './couple-photos-list';
 
-type Row = { share_id: string; state: string; image_url: string; credit_line: string; service_title: string | null };
+type Row = { share_id: string; state: string; photo_key: string | null; credit_line: string; service_title: string | null };
 
 export async function CouplePhotosToAnswer() {
   const supabase = await createClient();
@@ -24,10 +25,14 @@ export async function CouplePhotosToAnswer() {
   }
   const photos: ShopCouplePhoto[] = ((data ?? []) as Row[])
     .filter((r) => r.state === 'waiting' || r.state === 'approved')
+    // The SNAPSHOT the shop is approving (waiting) or the frozen copy on its card (approved) — a KEY mapped to its
+    // URL here, never a URL read off the couple's board row (security review #7089).
+    .map((r) => ({ ...r, url: coupleLookUrl(r.photo_key) }))
+    .filter((r): r is Row & { url: string } => Boolean(r.url))
     .map((r) => ({
       shareId: r.share_id,
       state: r.state as ShopCouplePhoto['state'],
-      imageUrl: r.image_url,
+      imageUrl: r.url,
       creditLine: r.credit_line,
       serviceTitle: (r.service_title ?? '').trim() || 'your service card',
     }));

@@ -116,6 +116,7 @@ const SHARE_REFUSALS: Record<string, string> = {
   bad_credit: 'Pick how the photo is credited.',
   already: 'This photo is already with that supplier.',
   bad_input: 'That did not go through — try again.',
+  not_publishable: 'Photos can’t be published just now — nothing changed. Try again in a moment.',
 };
 
 export function shareRefusalWords(status: string | null | undefined): string {
@@ -185,6 +186,35 @@ export type ShareResult = { status: 'ok'; shareId: string; shop: string } | { st
 export type AnswerCouplePhotoResult =
   | { status: 'ok'; approved: boolean; line: string }
   | { status: 'refused'; message: string };
+
+/* ══════════════════════════════════════════════════════════════════════════
+   THE FROZEN PUBLIC COPY (security review #7089, F1 + F3)
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/** Where every published couple photo lives — a neutral folder: no event id, no file name. */
+export const COUPLE_LOOKS_PREFIX = 'couple-looks/';
+
+/**
+ * The frozen copy's key for one share: `couple-looks/<share_id>.<ext>`, the extension read off the snapshot's key
+ * (letters/digits, ≤5, lower-cased; `jpg` when there is none). The database CHECKs exactly this shape, pinned to the
+ * share's own id, so a shop can never point a share at another object.
+ */
+export function coupleLookKey(shareId: string, snapshotKey: string): string {
+  const m = /\.([A-Za-z0-9]{1,5})$/.exec(snapshotKey.trim());
+  const ext = m ? m[1]!.toLowerCase() : 'jpg';
+  return `${COUPLE_LOOKS_PREFIX}${shareId}.${ext}`;
+}
+
+/** The share id a frozen copy belongs to — null for anything that is not `couple-looks/<uuid>.<ext>`. */
+export function shareIdOfCoupleLook(key: string): string | null {
+  const m = /^couple-looks\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.[a-z0-9]{1,5}$/.exec(key);
+  return m ? m[1]! : null;
+}
+
+/** An upload the upload action wrote for THIS event (`inspiration/<event_id>/…`) — the SQL door checks the same. */
+export function isEventUploadKey(eventId: string, key: string | null | undefined): boolean {
+  return typeof key === 'string' && key.startsWith(`inspiration/${eventId}/`) && !key.includes('..');
+}
 
 /** Where the shop answers — its Shop › Services, at the list (`id="couple-photos"`). */
 export const SHOP_COUPLE_PHOTOS_HREF = '/vendor-dashboard/shop#couple-photos';

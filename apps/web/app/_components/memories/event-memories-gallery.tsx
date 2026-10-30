@@ -18,8 +18,11 @@
  *     Chapter · Hide · Delete, each only for whom it was already theirs; Report and Stop this guest shooting in its ⋯;
  *     ‹ › and a swipe walk the photos in the order the grid draws them. An Event Hub file is shown and shared, never
  *     managed here ("Used on your Event Hub").
+ *   · THE KEEPSAKE ROW (owner 2026-10-31, "Build both"; hosts only): Magazine · Recap · Flash · Thank You, directly
+ *     under the top row — `keepsakes`, drawn by the server (`memories-keepsake-row.tsx`).
  *   · THE THUMB ROW: the shared `ThumbRow` — "Search memories" (who took it, the challenge, the Hub's place) and
- *     + Add photos, the one upload door.
+ *     + Add photos. ＋ THE ADD CELL (owner 2026-10-31; hosts only) is the grid's first tile in All and Your uploads —
+ *     a SECOND DOOR TO THE SAME UPLOADER: both call `openAdding`, and both open the ONE Add photos sheet below.
  *
  * The page's own tokens throughout (light and the app's dark). A refused read says so, never an empty gallery.
  */
@@ -125,6 +128,8 @@ export function EventMemoriesGallery({
   timeZone,
   settings = null,
   addPhotos = null,
+  addCell = null,
+  keepsakes = null,
   blockedGuests = [],
   suppliers = [],
   canTag = false,
@@ -147,11 +152,15 @@ export function EventMemoriesGallery({
   /** Albums whose own read was refused ('hub' · 'challenges') — said in that album, not as an empty one. */
   refusedParts?: MemoriesAlbumKey[];
   timeZone: string | null;
-  /** ⚙ Gallery settings — the shipped controls, drawn by the server (Who sees what · Photo wall · Thank-You · Drive · Keep full-res);
+  /** ⚙ Gallery settings — the shipped controls, drawn by the server (Who sees what · Photo wall · Drive · Keep full-res);
    *  for the event's coordinator, Who sees what alone (owner 2026-10-30). Non-null opens the ⚙ even when `host` is false. */
   settings?: ReactNode;
   /** + Add photos — the shipped uploader (or its "Turn this on"), drawn by the server. Null = no door. */
   addPhotos?: ReactNode;
+  /** ＋ The Add cell's words (`addCellWords`) — the grid's first tile opens the SAME sheet as the thumb row. Null = no cell. */
+  addCell?: { line: string; tip: string } | null;
+  /** The keepsake row (Magazine · Recap · Flash · Thank You), drawn by the server — the host's. */
+  keepsakes?: ReactNode;
   blockedGuests?: string[];
   suppliers?: MemoriesSupplier[];
   /** Tag in the viewer — the server's `memoriesManagerRole` answer (hosts + the coordinator); re-checked on every write. */
@@ -169,6 +178,10 @@ export function EventMemoriesGallery({
   const [needsLook, setNeedsLook] = useState(false);
   const [moments, setMomentsState] = useState(false);
   const [gearOpen, setGearOpen] = useState(false);
+  /* ＋ THE ONE ADD-PHOTOS HANDLER — the thumb row's ＋ and the grid's Add cell both call it, and both open the one sheet
+     (`the-keepsakes-are-a-row.test.ts`). */
+  const [adding, setAdding] = useState(false);
+  const openAdding = useCallback(() => setAdding(true), []);
 
   useEffect(() => {
     const a = readLocal(ALBUM_KEY);
@@ -232,6 +245,12 @@ export function EventMemoriesGallery({
     />
   );
   const gridClass = 'grid gap-[1.5px] [grid-template-columns:repeat(var(--mem-cols),minmax(0,1fr))]';
+  /* ＋ THE ADD CELL — the host's, where an added photo lands (All · Your uploads), and not while a search or the
+     Needs-a-look filter narrows the grid (the cell is not a result). */
+  const addTile =
+    host && addPhotos && addCell && !q.trim() && !needsLook && (album === 'all' || album === 'uploads') ? (
+      <AddCell key="add-cell" words={addCell} dense={dense} roomy={cols <= 3} onAdd={openAdding} />
+    ) : null;
 
   let body: ReactNode;
   let viewOrder: MemoriesItem[] = shown;
@@ -243,9 +262,12 @@ export function EventMemoriesGallery({
     );
   } else if (shown.length === 0) {
     body = (
-      <p className="px-4 py-10 text-center text-[14px] text-ink/60" data-memories-empty="">
-        {q.trim() ? `Nothing here matches “${q.trim()}”.` : needsLook ? 'Nothing needs a look.' : album === 'all' ? emptyLine : 'Nothing in this album yet.'}
-      </p>
+      <>
+        {addTile ? <div className={gridClass}>{addTile}</div> : null}
+        <p className="px-4 py-10 text-center text-[14px] text-ink/60" data-memories-empty="">
+          {q.trim() ? `Nothing here matches “${q.trim()}”.` : needsLook ? 'Nothing needs a look.' : album === 'all' ? emptyLine : 'Nothing in this album yet.'}
+        </p>
+      </>
     );
   } else if (album === 'challenges') {
     const groups = challengeGroups(shown, challenges);
@@ -271,10 +293,13 @@ export function EventMemoriesGallery({
     viewOrder = [...groups.flatMap((g) => g.list), ...rest];
     body = (
       <>
-        {groups.map(({ c, list }) => (
+        {groups.map(({ c, list }, gi) => (
           <section key={c.key} data-memories-moment={c.key}>
             <MomentHead label={c.label} time={c.time} />
-            <div className={gridClass}>{list.map((it) => tile(it, album === 'all'))}</div>
+            <div className={gridClass}>
+              {gi === 0 ? addTile : null}
+              {list.map((it) => tile(it, album === 'all'))}
+            </div>
           </section>
         ))}
         {rest.length ? (
@@ -286,7 +311,12 @@ export function EventMemoriesGallery({
       </>
     );
   } else {
-    body = <div className={gridClass}>{shown.map((it) => tile(it, album === 'all'))}</div>;
+    body = (
+      <div className={gridClass}>
+        {addTile}
+        {shown.map((it) => tile(it, album === 'all'))}
+      </div>
+    );
   }
 
   // ‹ › walk the photos in the order the grid DRAWS them (grouped by moment or challenge when it is) — openable ones only.
@@ -360,6 +390,8 @@ export function EventMemoriesGallery({
           </MenuSettingsButton>
         ) : null}
       </div>
+      {/* THE KEEPSAKE ROW — directly under the top row, the host's (the server draws it inside its host branch too). */}
+      {host ? keepsakes : null}
       {needsLook ? (
         <p className="pb-1.5 text-[13px] text-ink/60">Only photos to review — screened or reported. Tap one to approve, hide, report or stop that guest shooting.</p>
       ) : null}
@@ -388,7 +420,15 @@ export function EventMemoriesGallery({
       ) : null}
 
       {/* The row steps aside while a sheet is up — the sheet owns the thumb zone then. */}
-      <MemoriesThumbRow q={q} onSearch={setQ} addPhotos={host ? addPhotos : null} away={Boolean(viewingId || gearOpen)} />
+      <MemoriesThumbRow
+        q={q}
+        onSearch={setQ}
+        addPhotos={host ? addPhotos : null}
+        adding={adding}
+        onAdd={openAdding}
+        onAddClose={() => setAdding(false)}
+        away={Boolean(viewingId || gearOpen)}
+      />
 
       {viewingAt >= 0 ? (
         <MemoriesPhotoViewer
@@ -527,6 +567,54 @@ function Tile({
 }
 
 /**
+ * ＋ THE ADD CELL — the grid's first tile, the size of a photo (owner 2026-10-31, "Build both"). "+", "Add photo" and
+ * one short line (`addCellWords` — priced by the presign gate's own function); the rest in its ⓘ, which sits beside
+ * the press, never inside it (a button inside a button is not a button). A press is `onAdd` — the thumb row's handler.
+ * At the densest zoom the cell is a "+" alone, like the photos lose their words there.
+ */
+function AddCell({
+  words,
+  dense,
+  roomy,
+  onAdd,
+}: {
+  words: { line: string; tip: string };
+  dense: boolean;
+  roomy: boolean;
+  onAdd: () => void;
+}) {
+  return (
+    <div className="relative aspect-square w-full" data-memories-add-cell="">
+      <button
+        type="button"
+        onClick={onAdd}
+        aria-haspopup="dialog"
+        aria-label={`Add photo — ${words.line}`}
+        data-testid="memories-add-cell"
+        className="sn-press absolute inset-0 flex flex-col items-center justify-center gap-1 bg-ink/[0.05] p-1 text-center text-ink hover:bg-ink/[0.08]"
+      >
+        <Plus aria-hidden className={dense ? 'h-4 w-4' : 'h-6 w-6 text-terracotta'} strokeWidth={2} />
+        {dense ? null : (
+          <>
+            <span className={`font-medium leading-tight ${roomy ? 'text-[13px]' : 'text-[11px]'}`}>Add photo</span>
+            <span className={`leading-tight text-ink/60 ${roomy ? 'text-[11.5px]' : 'text-[9.5px]'}`} data-memories-add-cell-line="">
+              {words.line}
+            </span>
+          </>
+        )}
+      </button>
+      {dense ? null : (
+        <span className="absolute right-1 top-1">
+          <InfoTip label="" ariaLabel="About adding a photo" align="end">
+            {words.tip}
+          </InfoTip>
+        </span>
+      )}
+    </div>
+  );
+}
+
+/**
  * 🔼 DRAWN INTO <body> — every sheet this gallery opens (the photo's, ⚙ settings, + Add photos). The event layout's
  * `<main>` (`.sn-vt-page`) carries a `view-transition-name`, which makes it the containing block for `position: fixed`
  * and a stacking context: a Sheet left inside it is placed against the page (under the top bar, running a full screen
@@ -549,17 +637,24 @@ function MemoriesThumbRow({
   q,
   onSearch,
   addPhotos,
+  adding,
+  onAdd,
+  onAddClose,
   away = false,
 }: {
   q: string;
   onSearch: (v: string) => void;
   addPhotos: ReactNode;
+  /** The ONE Add photos sheet is open — the gallery's state, so the Add cell opens the same sheet. */
+  adding: boolean;
+  /** The ONE handler (`openAdding`) — the ＋ here and the grid's Add cell both call it. */
+  onAdd: () => void;
+  onAddClose: () => void;
   /** A sheet is up: slide out of the thumb zone. */
   away?: boolean;
 }) {
   const [host, setHost] = useState<HTMLElement | null>(null);
   const [up, setUp] = useState(false);
-  const [adding, setAdding] = useState(false);
   const heading = useId();
   useEffect(() => {
     setHost(document.body);
@@ -592,7 +687,7 @@ function MemoriesThumbRow({
               tour: 'memories-search',
               input: { value: q, onChange: (e) => onSearch(e.target.value), 'data-memories-search': '' },
             }}
-            action={addPhotos ? { icon: Plus, label: 'Add photos', onClick: () => setAdding(true), testId: 'memories-add-photos', tour: 'memories-add' } : null}
+            action={addPhotos ? { icon: Plus, label: 'Add photos', onClick: onAdd, testId: 'memories-add-photos', tour: 'memories-add' } : null}
           />
         </div>,
         host,
@@ -603,7 +698,7 @@ function MemoriesThumbRow({
           z-level under the bar. `the-add-photos-sheet-clears-the-bar.test.ts`. */}
       {adding && addPhotos ? (
         <OnBody>
-        <Sheet open onClose={() => setAdding(false)} labelledById={heading} title="Add photos" wide>
+        <Sheet open onClose={onAddClose} labelledById={heading} title="Add photos" wide>
           <h2 id={heading} className="sr-only">
             Add photos
           </h2>

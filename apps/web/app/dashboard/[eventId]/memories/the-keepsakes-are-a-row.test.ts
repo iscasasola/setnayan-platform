@@ -116,7 +116,7 @@ test('3 · the bottom stack is gone — each card is mounted ONCE, in the row', 
   }
   // …and the row is the gallery's, under its top row.
   assert.match(PAGE, /keepsakes=\{keepsakes\}/, 'the page no longer hands the row to the gallery');
-  assert.match(GALLERY, /data-memories-top=""[\s\S]*?<\/div>\s*\{host \? keepsakes : null\}/, 'the row is not directly under the top row');
+  assert.match(GALLERY, /data-memories-top=""[\s\S]*?<\/div>\s*(?:\{\s*\}\s*)?\{host \? keepsakes : null\}/, 'the row is not directly under the top row');
 });
 
 test('4 · Thank You has ONE home — the row, not the ⚙', () => {
@@ -131,7 +131,7 @@ test('5 · the ＋ Add cell and the thumb row’s ＋ share ONE handler and ONE 
   assert.match(GALLERY, /<AddCell key="add-cell" words=\{addCell\} dense=\{dense\} roomy=\{cols <= 3\} onAdd=\{openAdding\} \/>/, 'the cell does not call the one handler');
   assert.match(GALLERY, /<MemoriesThumbRow[\s\S]*?onAdd=\{openAdding\}/, 'the thumb row does not call the one handler');
   assert.match(GALLERY, /label: 'Add photos', onClick: onAdd,/, 'the thumb row’s ＋ has its own handler again');
-  const cell = /function AddCell\([\s\S]*?\n\}/.exec(GALLERY)?.[0] ?? '';
+  const cell = /function AddCell\([\s\S]*?\n\}\n/.exec(GALLERY)?.[0] ?? '';
   assert.ok(cell, 'the AddCell component is gone');
   assert.match(cell, /onClick=\{onAdd\}/);
   assert.doesNotMatch(cell, /AddToLibrary|<Sheet|<input|startAddingPhotos/, 'the cell grew its own uploader');

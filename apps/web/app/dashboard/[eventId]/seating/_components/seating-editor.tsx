@@ -6979,7 +6979,7 @@ export function SeatingEditor({
             </div>
           ) : null}
           <div className="flex justify-end gap-2 pt-1">
-            <ActionButton tone="neutral" label="Cancel" onClick={() => setAskMove(null)} />
+            <ActionButton tone="neutral" icon={X} label="Cancel" onClick={() => setAskMove(null)} />
             <ActionButton tone="brand" main icon={askMove.a.kind === 'swap' ? ArrowLeftRight : Armchair} label={askMove.a.kind === 'swap' ? 'Swap' : 'Move'} onClick={doAskedMove} data-seat-move-go="" />
           </div>
         </div>

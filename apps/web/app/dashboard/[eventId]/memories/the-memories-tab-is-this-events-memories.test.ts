@@ -77,8 +77,8 @@ test('2 · the page is the shared, frameless, zoomable grid — and a refused re
   const pinch = code(PINCH);
   for (const ev of ["'touchstart'", "'touchmove'", "'touchend'", "'wheel'"]) assert.ok(pinch.includes(ev), `no ${ev} on the grid`);
   assert.match(g, /localStorage\.(getItem|setItem)/, 'the zoom is not remembered on the device');
-  // The shipped lightbox, and the shared thumb row.
-  assert.match(g, /<PapicLightbox\b/, 'a tap no longer opens the shipped lightbox');
+  // The shared photo viewer (2026-10-31, #7108 — the PapicLightbox it replaced was deleted), and the shared thumb row.
+  assert.match(g, /<MemoriesPhotoViewer\b/, 'a tap no longer opens the shared photo viewer');
   assert.match(g, /<ThumbRow\b/, 'the thumb row is not the shared one');
   assert.match(g, /couldn’t load/, 'a refused read has no words');
 });

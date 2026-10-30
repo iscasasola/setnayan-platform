@@ -36,6 +36,7 @@ import {
   isMoodboardSlotPosition,
   type MoodboardSlotPosition,
 } from '@/lib/moodboard-slots';
+import { readEveryPartRow, type PartTablesClient } from '@/lib/inspiration-parts-db';
 
 export type MoodboardCell = { slotKey: string; slotPosition: MoodboardSlotPosition };
 
@@ -146,13 +147,17 @@ async function findFreeCell(
     const cell = firstFree(k);
     if (cell) return cell;
   }
-  const { data, error } = await supabase
-    .from('inspiration_parts')
-    .select('slot_key')
-    .order('sort_order', { ascending: true })
-    .order('slot_key', { ascending: true });
-  if (error || !Array.isArray(data)) return 'error';
-  for (const { slot_key } of data as Array<{ slot_key: string }>) {
+  // Every part, read to the end through the house's paged reader (one request stops at 1,000 rows, silently).
+  const { rows, error } = await readEveryPartRow<{ slot_key: string; sort_order: number | null }>(
+    supabase as unknown as PartTablesClient,
+    'parts',
+    { columns: 'slot_key,sort_order' },
+  );
+  if (error) return 'error';
+  const ordered = [...rows].sort(
+    (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.slot_key.localeCompare(b.slot_key),
+  );
+  for (const { slot_key } of ordered) {
     const cell = firstFree(slot_key);
     if (cell) return cell;
   }

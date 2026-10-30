@@ -2844,6 +2844,7 @@ export function ShortlistCategories({
   benchArrangement,
   standings = {},
   findPanel = null,
+  onePerEventGroups = [],
 }: {
   /**
    * Unread messages per chat thread for this event, and whether we know them.
@@ -2972,6 +2973,12 @@ export function ShortlistCategories({
    * nothing, as before.
    */
   findPanel?: ReactNode;
+  /**
+   * The plan groups that are ONE PER EVENT — the categories' switch (`service_categories.one_per_event`, owner
+   * 2026-10-29), read on the server (lib/one-per-event.ts). An array: it crosses to the client. Absent → none, so
+   * the rail end offers "＋ Add another" everywhere (the database still refuses a second booking where it is on).
+   */
+  onePerEventGroups?: readonly string[];
 }) {
   const router = useRouter();
 
@@ -4150,6 +4157,7 @@ export function ShortlistCategories({
                     enabled: replan,
                     lockedCount: lockedNames.length,
                     planGroupId: tileGroupId,
+                    onePerEventGroups,
                   });
                   // PR-G1 — sort FIRST (the couple's chosen order), then sink
                   // the schedule clashes to the end. Stable: the sink only

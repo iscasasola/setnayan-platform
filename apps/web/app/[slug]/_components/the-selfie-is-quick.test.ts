@@ -90,11 +90,17 @@ test('a face in the background does not refuse a selfie; two people in the oval 
   assert.doesNotMatch(GATE, /\} else if \(faceCount > 1\) \{/, 'any second face refuses the selfie again');
 });
 
-test('both cameras keep the box the viewfinder shows; a clip shows the whole frame it records', () => {
-  assert.match(GUEST, /viewfinderCrop\(\{ width: w, height: h \}, box \? \{ width: box\.width, height: box\.height \} : null, crop\)/);
+test('both cameras keep the one 9:16 frame the viewfinder shows; a clip shows the whole frame it records', () => {
+  // The photo: the 9:16 centre of the frame (at the guest camera's digital 2× too) — lib/papic-viewfinder-crop.ts.
+  assert.match(GUEST, /papicFrameCrop\(\{ width: w, height: h \}, crop\)/);
   assert.match(GUEST, /ctx\.drawImage\(video, sx, sy, sw, sh, 0, 0, sw, sh\);/);
+  assert.match(SEAT, /styled \? papicFrameCrop\(\{ width: w, height: h \}\) : \{ sx: 0, sy: 0, sw: w, sh: h \}/);
+  assert.doesNotMatch(GUEST + SEAT, /viewfinderCrop|getBoundingClientRect\(\)[^;]*\bcrop\b/, 'a photo is cut to the screen box again');
+  // The picture: a 9:16 box (16:9 sideways), the camera object-cover inside it — the same region.
+  for (const [name, src] of [['guest', GUEST], ['seat', SEAT]] as const) {
+    assert.match(src, /aspectRatio: frameSideways \? '16 \/ 9' : '9 \/ 16'/, `${name}: the picture is not the 9:16 frame`);
+    assert.match(src, /data-camera-frame=\{frameSideways \? '16:9' : '9:16'\}/);
+  }
   assert.match(GUEST, /mode === 'snippet' \|\| recording \? 'object-contain' : 'object-cover'/);
-  assert.match(SEAT, /const box = styled \? viewfinderRef\.current\?\.getBoundingClientRect\(\) : null;/);
-  assert.match(SEAT, /<div ref=\{viewfinderRef\} className="relative flex-1 overflow-hidden">/);
   assert.match(SEAT, /recording \? 'object-contain' : 'object-cover'/);
 });

@@ -183,6 +183,7 @@ const cat = (id: string, eventTypes: string[] | null): Category => ({
   serviceCount: 0,
   faithCount: 0,
   refinementCount: 0,
+  onePerEvent: false,
 });
 
 test('C · offering Cake for a Birthday moves the count and the category reads it back', () => {

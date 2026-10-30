@@ -189,7 +189,7 @@ export function hubAddChoices(e: HubEvent): HubAddChoice[] {
   if (e.runHref) out.push({ key: 'moment', label: 'A moment', hint: 'Adds to the run of show', href: `${e.runHref}/schedule` });
   if (e.booked) {
     out.push({ key: 'tool', label: 'A tool', hint: "From your service's tools", href: `${hubHref(e.eventId, 'setup')}#hub-tools` });
-    out.push({ key: 'helper', label: 'A helper', hint: 'Who on your team may open its Event Hub', href: hubHref(e.eventId, 'crew') });
+    out.push({ key: 'helper', label: 'A helper', hint: 'Which of your staff may open its Event Hub', href: hubHref(e.eventId, 'crew') });
   }
   return out;
 }

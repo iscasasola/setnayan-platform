@@ -171,7 +171,7 @@ DROP POLICY IF EXISTS couple_photo_shares_couple_read ON public.couple_photo_sha
 CREATE POLICY couple_photo_shares_couple_read
   ON public.couple_photo_shares
   FOR SELECT TO authenticated
-  USING (event_id IN (SELECT public.current_couple_event_ids()) OR public.is_admin());
+  USING (event_id IN (SELECT public.current_couple_event_ids()) OR (SELECT public.is_admin()));
 
 -- Pattern C (read half): the shop's owner/admin team reads what was sent to it.
 DROP POLICY IF EXISTS couple_photo_shares_vendor_read ON public.couple_photo_shares;
@@ -184,7 +184,7 @@ CREATE POLICY couple_photo_shares_vendor_read
 DROP POLICY IF EXISTS couple_photo_shares_admin_all ON public.couple_photo_shares;
 CREATE POLICY couple_photo_shares_admin_all
   ON public.couple_photo_shares FOR ALL TO authenticated
-  USING (public.is_admin()) WITH CHECK (public.is_admin());
+  USING ((SELECT public.is_admin())) WITH CHECK ((SELECT public.is_admin()));
 
 -- No client writes — the doors below are the only way in. SELECT only, for the two parties.
 REVOKE ALL ON TABLE public.couple_photo_shares FROM anon, authenticated;

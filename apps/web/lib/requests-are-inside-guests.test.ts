@@ -39,7 +39,8 @@ test('1 · the page streams the shipped Requests page, in place, for the couple 
 
 test('2 · the Total card’s door opens it in place; without it, the Requests page as before', () => {
   const screen = src('app/dashboard/[eventId]/guests/_components/guests-screen.tsx');
-  assert.match(screen, /href=\{requestsBody \? `\/dashboard\/\$\{eventId\}\/guests\?gshow=requests` : `\/dashboard\/\$\{eventId\}\/guests\/claims`\}/);
+  // The address stays the Requests page (a new tab or no script still lands there); the tap opens them in place.
+  assert.match(screen, /href=\{`\/dashboard\/\$\{eventId\}\/guests\/claims`\}\s*onClick=\{\s*requestsBody/);
   assert.match(screen, /requestsBody\s*\? \(e\) => \{\s*e\.preventDefault\(\);\s*openAsking\(\);/, 'the door navigates away');
   assert.match(screen, /const pickFilter = \(next: GuestsFilter\) => \{\s*setAsking\(false\);/, 'a filter pick keeps the requests up');
 });

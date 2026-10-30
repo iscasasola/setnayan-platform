@@ -1133,7 +1133,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
           style={{ '--gs-yes': pct(stats.yes), '--gs-no': pct(stats.no) } as React.CSSProperties}
         >
           <Link
-            href={requestsBody ? `/dashboard/${eventId}/guests?gshow=requests` : `/dashboard/${eventId}/guests/claims`}
+            href={`/dashboard/${eventId}/guests/claims`}
             onClick={
               requestsBody
                 ? (e) => {

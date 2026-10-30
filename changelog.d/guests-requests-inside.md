@@ -7,7 +7,7 @@ Decline in place, with Undo). Until now the Total card's door and the ⚙'s row 
   `maker=1`, the very way the Event Hub Maker already draws it (every Accept · Decline · Link revalidates and stays put,
   each with its Undo). Streamed with the page for the couple while someone is asking (or the address asks,
   `?gshow=requests`) — no extra reads otherwise.
-- **Doors:** the Total card's door opens it in place (no navigation; its address is `?gshow=requests` for a new tab);
+- **Doors:** the Total card's door opens it in place (no navigation; its address stays the Requests page for a new tab or no script);
   the List's ⇅ offers **Asking to join · N** inside Show, right after its last choice, with the one ✓ in Show
   (`guestsFilterMenu`'s new `showExtras`); any other Show / Group / Sort pick goes back to everyone. Without the body
   (not the couple) the door is the Requests page, as before.

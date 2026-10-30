@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "edcb2561ee",
+  "generatedFromRef": "3b7bb84c",
   "routeCount": 479,
   "destinations": 985,
   "actions": 640,
-  "blocks": 7403,
+  "blocks": 7405,
   "routes": {
     "/": {
       "files": [
@@ -6959,6 +6959,7 @@
         "QuickGroupResult",
         "QuickRoleResult",
         "RenameRoleResult",
+        "RequestsPage",
         "RestoreResult",
         "RoleNamesContext.Provider",
         "RoleNamesProvider",
@@ -11256,6 +11257,7 @@
         "LabGuestActions",
         "LabMarch",
         "LabPageSpotlight",
+        "LabRequestsStandIn",
         "LabSeats",
         "LabShell",
         "MakerRsvpSettings",

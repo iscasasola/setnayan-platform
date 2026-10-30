@@ -4,6 +4,7 @@ import { detailsLabNode } from './details-lab-node';
 import { LabStudioActions } from './lab-studio-actions';
 import { SeatLab } from './seat-lab';
 import { AccessClaimLab } from './access-claim-lab';
+import { AccessGrantLab } from './access-grant-lab';
 import { LabPageSpotlight } from '../_components/lab-page-spotlight';
 import { TOURS } from '@/lib/tours';
 import { HOST_PAGE_TOURS } from '@/lib/host-page-tours';
@@ -20,6 +21,8 @@ export default async function DetailsLabPage({ searchParams }: { searchParams: P
   if (sp.access === 'claim') {
     return <AccessClaimLab claims={sp.claims === '0' ? 'none' : sp.claims === 'fail' ? 'fail' : 'some'} />;
   }
+  /* 🖼 `?access=grant` — Event access where the hosts give one person Mood Board Edit (`access-grant-lab.tsx`). */
+  if (sp.access === 'grant') return <AccessGrantLab />;
   return (
     <div className="h-dvh bg-cream text-ink">
       {/* Studio pages' writes stand in locally here — a lab press never reaches the database (`the-studio-lab-cannot-reach-the-database.test.ts`). */}

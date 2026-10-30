@@ -29,6 +29,11 @@ import {
   type LimitedHelperRpcClient,
 } from '@/lib/limited-helper-gate';
 import type { DelegateArea } from '@/lib/delegate-areas';
+import {
+  moodBoardHostsOnlyRefusalWith,
+  moodBoardPhotosRefusalWith,
+  type MoodBoardRpcClient,
+} from '@/lib/mood-board-gate';
 
 /**
  * 👁 A LIMITED HELPER VIEWS — AND CHANGES ONLY WHAT THE HOST SET TO EDIT
@@ -59,6 +64,38 @@ export async function limitedHelperRefusal(eventId: unknown, area: DelegateArea 
   if (!isEventIdShape(eventId)) return null;
   const supabase = await createClient();
   return limitedHelperRefusalWith(supabase as unknown as LimitedHelperRpcClient, eventId, area);
+}
+
+/**
+ * 🖼 THE MOOD BOARD'S PHOTOS — the hosts, and whoever they set to Mood Board Edit (owner 2026-10-30; see
+ * `lib/mood-board-gate.ts`). The sentence to show, or null when the caller may add, replace, move or remove a photo.
+ * Asked AFTER `refuseLimitedHelper(…, 'mood_board')`, never instead of it.
+ */
+export async function moodBoardPhotosRefusal(eventId: unknown): Promise<string | null> {
+  const supabase = await createClient();
+  return moodBoardPhotosRefusalWith(supabase as unknown as MoodBoardRpcClient, eventId);
+}
+
+/** The same question, throwing — for an action that answers nothing. */
+export async function refuseUnlessMoodBoardPhotos(eventId: unknown): Promise<void> {
+  const refusal = await moodBoardPhotosRefusal(eventId);
+  if (refusal) throw new Error(refusal);
+}
+
+/**
+ * 🎨 THE PALETTE, THE THEME, THE DRESS CODE, A TEMPLATE, A SIGN-OFF — the hosts alone (`couple_can_update_event` does
+ * not move). Throws the refusal for anyone else, so a person given Mood Board Edit for the PHOTOS is told so here
+ * instead of being silently refused by RLS.
+ */
+export async function refuseUnlessMoodBoardHost(eventId: unknown): Promise<void> {
+  const refusal = await moodBoardHostRefusal(eventId);
+  if (refusal) throw new Error(refusal);
+}
+
+/** The same question as a value, for an action that answers `{ status, … }`. */
+export async function moodBoardHostRefusal(eventId: unknown): Promise<string | null> {
+  const supabase = await createClient();
+  return moodBoardHostsOnlyRefusalWith(supabase as unknown as MoodBoardRpcClient, eventId);
 }
 
 /**

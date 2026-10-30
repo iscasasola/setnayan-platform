@@ -11190,6 +11190,7 @@
     "/dev/details-lab": {
       "files": [
         "dev/details-lab/access-claim-lab.tsx",
+        "dev/details-lab/access-grant-lab.tsx",
         "dev/details-lab/arrival-fixture.ts",
         "dev/details-lab/details-lab-node.tsx",
         "dev/details-lab/lab-march-cards.tsx",
@@ -11216,6 +11217,7 @@
       ],
       "blocks": [
         "AccessClaimLab",
+        "AccessGrantLab",
         "ColorsPanel",
         "Counter",
         "DayActions",

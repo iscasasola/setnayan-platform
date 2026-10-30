@@ -101,7 +101,8 @@ test('(1) one fixed height: 330 px on a tall phone, ≈ 284 on a short one, neve
   /* …and the toolbar reports that height, the same picked or not: one call, no drag, no fold, no remembered share. */
   const tools = read(`${L}/stage-tools.tsx`);
   assert.match(tools, /onPx\(stageBarPx\(window\.innerHeight, safe\) - safe\);/, 'the toolbar is not told its one height');
-  assert.equal((tools.match(/onPx\(/g) ?? []).length, 3, 'the height is said somewhere else too (away · the one height · unmount)');
+  /* (+1 since 2026-10-30: stowed, it keeps only its head — `STAGE_BAR_STOW_PX`, `the-toolbar-shows-and-hides.test.ts`.) */
+  assert.equal((tools.match(/onPx\(/g) ?? []).length, 4, 'the height is said somewhere else too (away · stowed · the one height · unmount)');
   assert.doesNotMatch(tools, /localStorage|MAKER_LT_SIZE_KEY|setPointerCapture|data-stage-folded|data-stage-grab/, 'the toolbar is dragged, folded or remembers a size again');
   /* The toolbar's own top line takes NO room (an inset shadow that follows the curve, never a border): a border's
      1 px pushed Edit's rows 1 px below the work area's (measured on the lab, 2026-10-09: 593 vs 592). */

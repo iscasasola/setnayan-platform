@@ -768,6 +768,24 @@ export function EditorBridge() {
     document.addEventListener('click', onStray);
     cleanups.push(() => document.removeEventListener('click', onStray));
 
+    /* 🫥 THE COUPLE SCROLLS THE PAGE — a finger or a wheel, never the Maker's own scrolling (a pick brought into view
+       moves the page with no gesture): the Maker puts its editing toolbar away (owner 2026-10-30, "hides on … a
+       scroll"). Said at most once a moment; a guest's preview says nothing. */
+    let scrolledAt = 0;
+    const theirScroll = () => {
+      if (guest.on) return;
+      const now = Date.now();
+      if (now - scrolledAt < 400) return;
+      scrolledAt = now;
+      window.parent?.postMessage({ source: 'setnayan-site', t: 'pageScroll' }, origin);
+    };
+    window.addEventListener('touchmove', theirScroll, { passive: true });
+    window.addEventListener('wheel', theirScroll, { passive: true });
+    cleanups.push(() => {
+      window.removeEventListener('touchmove', theirScroll);
+      window.removeEventListener('wheel', theirScroll);
+    });
+
     // ── canvas → Maker: a selection inside a part's text (✍ runs) ──────────
     let selTimer: number | null = null;
     const onSelection = () => {

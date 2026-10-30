@@ -13,6 +13,8 @@ import { MoreRowStandInCtx, ShortlistCategories } from '@/app/dashboard/[eventId
 import { BenchWritesStandInCtx, type BenchWrites } from '@/app/dashboard/[eventId]/vendors/_components/bench-local';
 import { AddOwnStandInCtx } from '@/app/dashboard/[eventId]/_components/add-your-own-walk';
 import { LAB_CLAIM_URL, LAB_MARKET, labNameMatches, labSheet } from './fixtures';
+import { SupplierShareStandInCtx } from '@/app/dashboard/[eventId]/_components/supplier-share-button';
+import type { SupplierSharePayload } from '@/lib/supplier-share';
 
 export function LabBench({
   fail,
@@ -20,8 +22,11 @@ export function LabBench({
   slow,
   writeFail,
   claimQrSvg,
+  supplierShare,
   ...props
 }: ComponentProps<typeof ShortlistCategories> & {
+  /** A self-added card's Share — the real message and card on the sample's facts (every hand-added card shares it). */
+  supplierShare: SupplierSharePayload;
   fail: boolean;
   sheetFail: boolean;
   slow: boolean;
@@ -50,6 +55,12 @@ export function LabBench({
     },
   };
   return (
+    <SupplierShareStandInCtx.Provider
+      value={async () => {
+        await pause();
+        return writeFail ? { ok: false, error: 'lab: refused' } : { ok: true, share: supplierShare };
+      }}
+    >
     <BenchWritesStandInCtx.Provider value={writes}>
     {/* "Add your own": the walk's three calls, answered here — the lab has no
         session, so the real actions would all refuse. */}
@@ -88,5 +99,6 @@ export function LabBench({
     </MoreRowStandInCtx.Provider>
     </AddOwnStandInCtx.Provider>
     </BenchWritesStandInCtx.Provider>
+    </SupplierShareStandInCtx.Provider>
   );
 }

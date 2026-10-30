@@ -289,7 +289,7 @@ test('accepting one offer writes exactly one zone; every other key is byte-ident
 test('the editor routes accept through choose(), so it adds no second writer', () => {
   const src = stripComments(
     readFileSync(
-      join(REPO, 'app/dashboard/[eventId]/seating/lab/_components/reception-design-editor.tsx'),
+      join(REPO, 'app/dashboard/[eventId]/seating/lab/_components/accents-sheet.tsx'),
       'utf8',
     ),
   );
@@ -545,7 +545,7 @@ test('the editor draws the chip and suppresses it through the shared filter', ()
   // hand-rolled regex stripper silently blanks real code (see strip-comments.ts).
   const src = stripComments(
     readFileSync(
-      join(REPO, 'app/dashboard/[eventId]/seating/lab/_components/reception-design-editor.tsx'),
+      join(REPO, 'app/dashboard/[eventId]/seating/lab/_components/accents-sheet.tsx'),
       'utf8',
     ),
   );

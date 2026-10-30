@@ -59,6 +59,11 @@ test('(2) a redirect is read as an answer — saved, refused (said), or let thro
   const full = papicInPlaceAnswer(`${back}/challenges?add=full`);
   assert.match((full as { error: string }).error, /Ten challenges/);
   assert.match((papicInPlaceAnswer(`${back}?window_error=whatever`) as { error: string }).error, /Nothing changed/);
+  // 🚨 The outcome in the VALUE (2026-10-30): a refused "Let everybody shoot now" lands on `?guestCameras=error#papic`.
+  const cams = papicInPlaceAnswer('/dashboard/e1?papic=open&guestCameras=error#papic');
+  assert.equal(cams !== 'navigate' && cams.ok, false, 'a refused shoot-now save read as saved');
+  assert.equal((papicInPlaceAnswer(`${back}?faceTagging=error`) as { ok: boolean }).ok, false);
+  assert.deepEqual(papicInPlaceAnswer('/dashboard/e1?guestCameras=early'), { ok: true });
   assert.equal(papicInPlaceAnswer('/dashboard'), 'navigate');
   assert.equal(papicInPlaceAnswer('/login?next=/dashboard/e1'), 'navigate');
 });

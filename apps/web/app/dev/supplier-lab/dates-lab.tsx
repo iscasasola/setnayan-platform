@@ -353,7 +353,7 @@ export async function DatesLab({ state, toast, open, gear = false }: { state: Da
       <div className="space-y-4">
         <CustomersPin
           seg="dates"
-          hrefs={{ people: '/dev/supplier-lab?s=people', dates: base, money: '/dev/supplier-lab?s=money' }}
+          hrefs={{ events: '/dev/supplier-lab?s=events', dates: base, money: '/dev/supplier-lab?s=money' }}
           gear={
             <CustomersSettings
               body={

@@ -218,7 +218,8 @@ test('the Invitation’s guest menu is Welcome · Details · Our Love Story · M
   assert.deepEqual(guestBarForStage('rsvp').map((s) => s.key), ['home', 'details', 'story', 'me'], 'the Maker’s Page ▾');
   for (const replied of [false, true]) {
     const bar = resolveSiteNav({
-      viewer: { kind: 'guest' }, phase: 'before', hostAllowsCamera: true, anyChapterPublic: true, hasStory: true,
+      // 📷 Papic off — with it on the four carry the Camera too (owner 2026-10-30), still no RSVP tab.
+      viewer: { kind: 'guest' }, phase: 'before', hostAllowsCamera: false, anyChapterPublic: true, hasStory: true,
       hasDetails: true, liveBroadcast: false, destinations: { camera: '/c' }, stageSlots: STAGE_BAR.rsvp.slots,
     } as Parameters<typeof resolveSiteNav>[0]);
     assert.deepEqual(bar.map((s) => s.label), ['Home', 'Details', 'Story', 'Me'], `replied=${replied}`);

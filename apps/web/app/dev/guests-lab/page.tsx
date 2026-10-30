@@ -807,6 +807,13 @@ export default async function GuestsLabPage({
     const labAddMs = Math.min(10_000, Math.max(0, Number(typeof sp.addMs === 'string' ? sp.addMs : 0) || 0));
     const screen = (
                 <section className="sn-col max-w-none flex flex-col gap-6" data-lab-screen="">
+                  {/* The page's title group (`guests/page.tsx` `data-guests-title-group`): on a phone only an sr-only h1,
+                      but still a flex item — so the screen starts a `gap-6` further down, exactly as on the real page.
+                      Without it the lab drew the screen 24 px higher than the app and hid the band under the pinned row
+                      (2026-10-30, Seats › List). */}
+                  <div className="flex flex-col gap-4" data-guests-title-group="">
+                    <h1 className="sr-only">Guests</h1>
+                  </div>
                   <LabGuestActions refuse={sp.refuse === '1'} addMs={labAddMs}>
                   <GuestsScreen
                     eventId={EVENT}

@@ -189,6 +189,19 @@
     margin-right: calc(-1 * var(--gs-right, 0px));
   }
 }
+/* 📏 STARTS RIGHT UNDER THE PINNED ROW — Seats › List (owner, iPhone app, 2026-10-30: *"the guests> list has that row
+   under top row occupiable. and the others have that one row not used. we want to use that space"*). The row is FIXED
+   under the top nav (`--gs-top`) from the start, while its holder sits where this screen begins on the page
+   (`--gs-root-top`: the column's `pt-3` + the title group's `gap-6`, 36 px on a phone). A page that scrolls fills that
+   strip on the first scroll; a view that owns its height (the seat plan's rule — no page scroll) never does, so Seats ›
+   List wore a ~64 px empty band between the row and "To seat". Its surface is lifted by the same measured offset as
+   `.fullSurface`, so its first table starts at the row's bottom, and it runs down to the bottom nav. Unlike the full
+   surface the row does NOT float over it — the holder keeps the row's height, and the list's sticky table heads stick
+   right under it. 🔒 lib/guests-top-row-and-full-screen.test.ts (7) */
+.rowSurface {
+  margin-top: calc(var(--gs-top, 0px) - var(--gs-root-top, 0px));
+  height: calc(100dvh - var(--gs-top, 0px) - var(--gs-stick-h, 60px) - var(--sn-bottomdock-h, 0px));
+}
 /* The row over the plan: the page's paper, frosted, so the plan shows through and the row still reads on a dark 3D room.
    The frost is a layer UNDER the row (`::before`), never the row's own `backdrop-filter` — that would make the row the
    containing block of anything fixed it opens. On a phone the band spans the screen, its controls on the column's edges. */

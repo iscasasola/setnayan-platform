@@ -34,4 +34,14 @@ carrying its lock properties); re-aimed: `coordinator-door` (1 · 6 · 7), `the-
 frame), `the-fee-unlocks-the-event` (the Hub's plural gate + lock row), `the-supplier-tools-have-doors`,
 `the-app-says-event-in-plain-words`, `spotlight-anchors-exist` (+ the Hub tour's words).
 
+- **Review fixes (2026-10-30, against the prototype at 390):** the segments sit directly under the pinned row, ABOVE
+  the event card (`HubScreen`); the Hub ▾ carries the event's ⓘ (`HubEventInfo`, the house `Explain` — date · place ·
+  role, only what was read); the thumb row (`hub-thumb-row.tsx`, shared `ThumbRow`): Set up "Find an event to set up"
+  (opens the Hub ▾ on its words) + ＋ "Add a moment, tool or helper" (`hubAddChoices`, only doors the supplier may use;
+  none when locked), The event's pages "Find a guest or a table" (narrows the rows; says so when none match); the
+  event's pages are icon rows that open in place (`HubPageRow`, the shared `Fold`) with live counts only from reads
+  already made — Guests from the brief, Schedule / Run of show from the run-of-show read (`hubScheduleLine`); Seats,
+  the Event Hub and the other view-only pages keep their plain words (no supplier read for them). An event only run
+  no longer reads "0 invited · 0 coming" (no brief was asked). Guards 6–9 in `the-hub-is-set-up-per-event.test.ts`.
+
 SPEC IMPACT: None — builds the approved v13 prototype and the 2026-10-29 rulings already in DECISION_LOG; no new decision.

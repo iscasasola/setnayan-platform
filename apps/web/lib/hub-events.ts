@@ -13,6 +13,7 @@
  * are compared as strings, never as `Date`s (`lib/vendor-day-picker.ts` says why).
  */
 import { pickConfigureDay, type VendorDay } from './vendor-day-picker';
+import { formatWallClock } from './schedule-datetime-local';
 
 export type HubLock = { headline: string; cta: string | null; payHref: string };
 
@@ -172,4 +173,37 @@ export function hubHref(eventId: string | null, seg: HubSegment = 'setup'): stri
   if (seg !== 'setup') q.set('seg', seg);
   const s = q.toString();
   return `/vendor-dashboard/on-the-day${s ? `?${s}` : ''}`;
+}
+
+export type HubAddChoice = { key: 'moment' | 'tool' | 'helper'; label: string; hint: string; href: string };
+
+/**
+ * ＋'s choices for one event (the Hub thumb row's "Add a moment, tool or helper", `hub-thumb-row.tsx`) — only the doors
+ * this supplier may use there: a moment only where they run the event (the hosts' schedule — a booked-only shop sees it
+ * view-only), a tool and a helper only on a day their shop works. A locked event offers nothing (its lock is the whole
+ * of Set up). Pure, so the guard can walk it.
+ */
+export function hubAddChoices(e: HubEvent): HubAddChoice[] {
+  if (e.lock) return [];
+  const out: HubAddChoice[] = [];
+  if (e.runHref) out.push({ key: 'moment', label: 'A moment', hint: 'Adds to the run of show', href: `${e.runHref}/schedule` });
+  if (e.booked) {
+    out.push({ key: 'tool', label: 'A tool', hint: "From your service's tools", href: `${hubHref(e.eventId, 'setup')}#hub-tools` });
+    out.push({ key: 'helper', label: 'A helper', hint: 'Which of your staff may open its Event Hub', href: hubHref(e.eventId, 'crew') });
+  }
+  return out;
+}
+
+/**
+ * The Schedule row's live count — "11 moments · 1:00 PM – 9:30 PM" (prototype `hubPages`) — from the run-of-show read
+ * the Hub already makes. `null` = the read was refused or not made: NO count (the row keeps its plain words), never
+ * "0 moments". An empty read is the hosts' real empty schedule: "No moments yet".
+ */
+export function hubScheduleLine(blocks: readonly { start_at: string }[] | null | undefined): string | null {
+  if (blocks == null) return null;
+  if (blocks.length === 0) return 'No moments yet';
+  const first = formatWallClock(blocks[0]!.start_at);
+  const last = formatWallClock(blocks[blocks.length - 1]!.start_at);
+  const n = `${blocks.length} ${blocks.length === 1 ? 'moment' : 'moments'}`;
+  return first && last && first !== last ? `${n} · ${first} – ${last}` : first ? `${n} · ${first}` : n;
 }

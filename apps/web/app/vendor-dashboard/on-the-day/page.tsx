@@ -4,8 +4,14 @@ import { tilesForVendorCategories } from '@/lib/vendor-category-taxonomy';
 import { redirect } from 'next/navigation';
 import QRCode from 'qrcode';
 import {
+  Armchair,
   ArrowRight,
   CalendarClock,
+  CalendarDays,
+  ClipboardList,
+  FileText,
+  Palette,
+  PanelsTopLeft,
   Camera,
   CheckCircle2,
   Circle,
@@ -49,14 +55,25 @@ import {
 } from '@/lib/vendor-team';
 import { fetchRunOfShowBlocks } from '@/app/_actions/run-of-show';
 import { forYourServicePages } from '@/lib/supplier-event-lines';
-import { hubEvents, hubSegmentOf, pickHubEvent, type HubEvent, type HubLock } from '@/lib/hub-events';
+import { hubAddChoices, hubEvents, hubScheduleLine, hubSegmentOf, pickHubEvent, type HubEvent, type HubLock } from '@/lib/hub-events';
 import { GuestReviewQr } from './_components/guest-review-qr';
 import { ShotList } from './_components/shot-list';
 import { IssuesLog } from './_components/issues-log';
 import { VendorStatusUpdates } from './_components/vendor-status-updates';
 import { ModuleConfigurator, type ConfiguratorModule } from './_components/module-configurator';
 import { HubEventMenu } from './_components/hub-event-menu';
-import { HubDoorRow, HubEventCard, HubEyebrow, HubLockRow, HubRunOfShow, HubScreen } from './_components/hub-screen';
+import {
+  HubDoorRow,
+  HubEventCard,
+  HubEventInfo,
+  HubEyebrow,
+  HubLockRow,
+  HubPageRow,
+  HubPageRows,
+  HubRunOfShow,
+  HubScreen,
+} from './_components/hub-screen';
+import { HubThumbRow } from './_components/hub-thumb-row';
 import { SupplierSavedStrip } from '@/app/_components/offline-ready/supplier-saved-strip';
 import { collapseToPickerDays, HUB_OPEN_WINDOW_PLAIN, phTodayIso, pickConfigureDay } from '@/lib/vendor-day-picker';
 import { AccessGrants, type GrantableMember } from './_components/access-grants';
@@ -286,10 +303,20 @@ export default async function VendorOnTheDayPage({
   const place = brief?.event.venue_name ?? null;
   // null = not read. A headcount of 0 on the day of the event is a statement
   // that nobody is coming; an em-dash is the truth when the read was refused.
-  const invited = briefMeasured ? brief?.pax.invited ?? 0 : null;
-  const attending = briefMeasured ? brief?.pax.attending ?? 0 : null;
+  // Not asked (not booked, or locked) is "not read" too — an event only run has no brief, and "0 invited" there
+  // would be a claim about the hosts' list that nobody measured.
+  const invited = open && briefMeasured ? brief?.pax.invited ?? 0 : null;
+  const attending = open && briefMeasured ? brief?.pax.attending ?? 0 : null;
 
-  const menu = <HubEventMenu events={hub} selectedId={selected.eventId} seg={seg} today={today} />;
+  const menu = (
+    <HubEventMenu
+      events={hub}
+      selectedId={selected.eventId}
+      seg={seg}
+      today={today}
+      info={<HubEventInfo event={selected} title={coupleName} place={place} />}
+    />
+  );
   const pane = (
     <HubEventCard
       event={selected}
@@ -309,7 +336,17 @@ export default async function VendorOnTheDayPage({
   if (seg === 'crew') {
     body = await crewBody({ supabase, userId: user.id, vendorProfileId: profile.vendor_profile_id, event: selected, open });
   } else if (seg === 'pages') {
-    body = pagesBody({ event: selected, services: profile.services, bookedCategories: brief?.booked_categories ?? null, invited, attending });
+    // 📊 The Schedule row's live count — the SAME run-of-show read Set up makes (one read, never one per row). Not asked
+    // for a locked event: a locked supplier causes no read of the couple's details.
+    const blocks = selected.lock == null ? await fetchRunOfShowBlocks(selected.eventId) : null;
+    body = pagesBody({
+      event: selected,
+      services: profile.services,
+      bookedCategories: brief?.booked_categories ?? null,
+      invited,
+      attending,
+      scheduleLine: hubScheduleLine(blocks),
+    });
   } else {
     body = await setupBody({
       supabase,
@@ -329,7 +366,7 @@ export default async function VendorOnTheDayPage({
   }
 
   return (
-    <HubScreen menu={menu} event={selected} seg={seg} pane={pane}>
+    <HubScreen menu={menu} event={selected} seg={seg} pane={pane} thumb={<HubThumbRow seg={seg} add={hubAddChoices(selected)} />}>
       {/* Q7 — shown only once the owner sets an end date; says nothing while unset ("no invented deadline"). */}
       {vendorDayOfFreeUntilLabel(dayOfFreeUntilIso) ? (
         <p className="pt-3 text-sm text-ink/60">{vendorDayOfFreeUntilLabel(dayOfFreeUntilIso)}</p>
@@ -401,7 +438,7 @@ async function setupBody(input: SetupInput): Promise<ReactNode> {
 
   return (
     <div>
-      <div data-tour="hub-setup">
+      <div id="hub-tools" className="scroll-mt-28" data-tour="hub-setup">
         <ModuleConfigurator eventId={booking.eventId} modules={tools} />
       </div>
       <HubRunOfShow blocks={blocks} moreHref={scheduleHref} />
@@ -796,9 +833,14 @@ async function readCrew({
 }
 
 /**
- * THE EVENT'S PAGES — the SAME screens the hosts use, opened inside the app. Run as the coordinator: their own event's
- * Guests · Seats · Schedule · Event Hub, through the hosts' door (which admits them by its own shipped check). Booked
- * only: the shipped view-only pages for what this shop does there (`forYourServicePages`, the S3 "For your service").
+ * THE EVENT'S PAGES — the SAME screens the hosts use, opened inside the app (prototype `hubPages`: an icon row per page
+ * with its live count, opening in place). Run as the coordinator: their own event's Guests · Seats · Schedule · Event
+ * Hub, through the hosts' door (which admits them by its own shipped check). Booked only: the shipped view-only pages
+ * for what this shop does there (`forYourServicePages`, the S3 "For your service").
+ *
+ * 📊 COUNTS ONLY FROM READS ALREADY MADE — Guests from the brief (booked + unlocked), Schedule / Run of show from the
+ * run-of-show read (`scheduleLine`). Seats, the Event Hub, the mood board, the production sheet and the event card
+ * have no count a supplier's session reads here today, so their rows keep their plain words — never an invented number.
  */
 function pagesBody({
   event,
@@ -806,26 +848,39 @@ function pagesBody({
   bookedCategories,
   invited,
   attending,
+  scheduleLine,
 }: {
   event: HubEvent;
   services: string[];
   bookedCategories: string[] | null;
   invited: number | null;
   attending: number | null;
+  /** "11 moments · 1:00 PM – 9:30 PM", or null when the read was not made / refused. */
+  scheduleLine: string | null;
 }): ReactNode {
   const about =
     'The same screens the hosts use, opened inside your app — never a jump into anything else. Run as their coordinator, you can help as the hosts allowed; booked only, you can look.';
   if (event.runHref) {
     const base = event.runHref;
+    const access = 'You can help here — as much as the hosts allowed you.';
     const guests = attending != null && invited != null ? `${formatCount(invited)} invited · ${formatCount(attending)} coming` : 'Their guest list';
     return (
       <div data-hub-pages="run">
         <HubEyebrow about={about}>The event’s pages</HubEyebrow>
         <p className="pb-1 text-[13.5px] text-ink/65">You run it — as much as the hosts allowed you.</p>
-        <HubDoorRow href={`${base}/guests`} label="Guests" line={guests} data="guests" />
-        <HubDoorRow href={`${base}/seating`} label="Seats" line="Tables and who sits where" data="seats" />
-        <HubDoorRow href={`${base}/schedule`} label="Schedule" line="The run of show, hour by hour" data="schedule" />
-        <HubDoorRow href={`${base}/website`} label="Event Hub (the Maker)" line="The guests’ page for the event" data="maker" />
+        <HubPageRows>
+          <HubPageRow pageKey="guests" icon={Users} label="Guests" line={guests} href={`${base}/guests`} access={access} />
+          <HubPageRow pageKey="seats" icon={Armchair} label="Seats" line="Tables and who sits where" href={`${base}/seating`} access={access} />
+          <HubPageRow
+            pageKey="schedule"
+            icon={CalendarDays}
+            label="Schedule"
+            line={scheduleLine ?? 'The run of show, hour by hour'}
+            href={`${base}/schedule`}
+            access={access}
+          />
+          <HubPageRow pageKey="maker" icon={PanelsTopLeft} label="Event Hub (the Maker)" line="The guests’ page for the event" href={`${base}/launch`} access={access} />
+        </HubPageRows>
       </div>
     );
   }
@@ -839,12 +894,31 @@ function pagesBody({
     <div data-hub-pages="booked">
       <HubEyebrow about={about}>The event’s pages</HubEyebrow>
       <p className="pb-1 text-[13.5px] text-ink/65">View only — ask the hosts for more.</p>
-      {doors.map((d) => (
-        <HubDoorRow key={d.key} href={d.href} label={d.label} line={d.line} data={d.key} />
-      ))}
+      <HubPageRows>
+        {doors.map((d) => (
+          <HubPageRow
+            key={d.key}
+            pageKey={d.key}
+            icon={BOOKED_PAGE_ICON[d.key] ?? FileText}
+            label={d.label}
+            line={d.key === 'run' && scheduleLine ? scheduleLine : d.line}
+            href={d.href}
+            access="View only — ask the hosts for more."
+          />
+        ))}
+      </HubPageRows>
     </div>
   );
 }
+
+/** Each "For your service" page's row icon (the prototype's round icon per page). */
+const BOOKED_PAGE_ICON: Record<string, typeof Users> = {
+  mood: Palette,
+  seats: Armchair,
+  run: CalendarDays,
+  sheet: ClipboardList,
+  card: FileText,
+};
 
 /** Section 4 wrapper — the shot list only makes sense with an event. */
 function ShotListSection({

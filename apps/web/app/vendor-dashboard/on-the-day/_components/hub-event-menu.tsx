@@ -9,9 +9,13 @@
  * WHERE IT IS DRAWN: from 701 it moves UP into the pinned row's left (`[data-pin-lead-hub]`, opened by the shell's
  * page menu for the Hub) — the house contract, "the ▾ names the page"; below 701, or where the slot is absent (the dev
  * lab), it is drawn in place at the top of the page. ONE instance, never two copies of the same choice.
+ *
+ * ⓘ `info` — the event's details (`HubEventInfo`) ride beside the ▾ wherever it is drawn (prototype "Hub ▾ · ⓘ").
+ * 🔎 The thumb row's "Find an event to set up" (`HubThumbRow`) opens THIS menu with its words in the menu's own search
+ * (`HUB_FIND_EVENT`) — one list of events, never a second finder.
  * 🔒 app/vendor-dashboard/on-the-day/the-hub-is-set-up-per-event.test.ts
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
@@ -21,12 +25,18 @@ import { hubDayWords, hubHref, hubMenuGroup, hubRoleWords, type HubEvent, type H
 /** Past this many events the open list gets its search row (the prototype's "Find an event"). */
 const SEARCH_FROM = 8;
 
+/** The thumb row asks the Hub ▾ to open on these words (`CustomEvent<string>` on `window`). */
+export const HUB_FIND_EVENT = 'sn:hub-find-event';
+
 export function HubEventMenu({
   events,
   selectedId,
   seg,
   today,
+  info = null,
 }: {
+  /** ⓘ The event's details, beside the ▾ (`HubEventInfo`). */
+  info?: ReactNode;
   events: readonly HubEvent[];
   selectedId: string | null;
   seg: HubSegment;
@@ -35,7 +45,22 @@ export function HubEventMenu({
 }) {
   const router = useRouter();
   const [q, setQ] = useState('');
+  // A find from the thumb row keeps the search row up even on a short list, so its words can be seen and changed.
+  const [finding, setFinding] = useState(false);
+  const box = useRef<HTMLSpanElement>(null);
   const slot = usePinLeadSlot();
+  useEffect(() => {
+    const onFind = (ev: Event) => {
+      const words = (ev as CustomEvent<string>).detail ?? '';
+      setQ(words);
+      setFinding(true);
+      const face = box.current?.querySelector<HTMLButtonElement>('button[aria-expanded]');
+      if (face && face.getAttribute('aria-expanded') !== 'true') face.click();
+      requestAnimationFrame(() => box.current?.ownerDocument.querySelector<HTMLInputElement>('[data-hub-event-find]')?.focus());
+    };
+    window.addEventListener(HUB_FIND_EVENT, onFind);
+    return () => window.removeEventListener(HUB_FIND_EVENT, onFind);
+  }, []);
   const selected = events.find((e) => e.eventId === selectedId) ?? null;
 
   const options = useMemo<PickOption[]>(() => {
@@ -53,7 +78,8 @@ export function HubEventMenu({
   if (events.length === 0) return null;
   const face = selected ? `Hub · ${selected.name}${selected.date ? ` · ${hubDayWords(selected.date)}` : ''}` : 'Hub';
   const menu = (
-    <span className="min-w-0" data-hub-event-menu="" data-tour="hub-next-days">
+    <span ref={box} className="flex min-w-0 items-center gap-1" data-hub-event-menu="" data-tour="hub-next-days">
+      <span className="min-w-0 flex-1">
       <PickMenu
         label="Which event the Hub sets up"
         value={selectedId}
@@ -62,7 +88,7 @@ export function HubEventMenu({
         compact
         dataAttr="data-hub-event-pick"
         head={
-          events.length > SEARCH_FROM ? (
+          events.length > SEARCH_FROM || finding ? (
             <li role="none" className="px-2 pb-1">
               <input
                 type="search"
@@ -70,6 +96,7 @@ export function HubEventMenu({
                 onChange={(e) => setQ(e.target.value)}
                 placeholder="Find an event — name or date"
                 aria-label="Find an event"
+                data-hub-event-find=""
                 className="h-10 w-full rounded-full border border-ink/15 bg-white px-3.5 text-[14px] text-ink dark:bg-raised"
               />
             </li>
@@ -77,9 +104,12 @@ export function HubEventMenu({
         }
         onPick={(k) => {
           setQ('');
+          setFinding(false);
           if (k !== selectedId) router.push(hubHref(k, seg), { scroll: false });
         }}
       />
+      </span>
+      {info}
     </span>
   );
   return slot ? createPortal(menu, slot) : <div className="pb-2" data-hub-menu-row="">{menu}</div>;

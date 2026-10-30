@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6800
+# facts: 6802
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     577
-#   col       4978
+#   col       4980
 #   policy    967
 #   view      9
 #   func      265
@@ -1594,6 +1594,7 @@ col	public.event_manual_vendors.created_by_user_id	anon=- authenticated=SIU
 col	public.event_manual_vendors.event_id	anon=- authenticated=SIU
 col	public.event_manual_vendors.leak_match_vendor_profile_id	anon=- authenticated=SIU
 col	public.event_manual_vendors.manual_vendor_id	anon=- authenticated=SIU
+col	public.event_manual_vendors.pay_ways	anon=- authenticated=SIU
 col	public.event_manual_vendors.payment_method_note	anon=- authenticated=SIU
 col	public.event_manual_vendors.photo_r2_key	anon=- authenticated=SIU
 col	public.event_manual_vendors.updated_at	anon=- authenticated=SIU
@@ -1912,6 +1913,7 @@ col	public.event_vendor_payment_plan.instances_json	anon=SIU authenticated=SIU
 col	public.event_vendor_payment_plan.is_default_seeded	anon=SIU authenticated=SIU
 col	public.event_vendor_payment_plan.on_lock_anchor_date	anon=SIU authenticated=SIU
 col	public.event_vendor_payment_plan.plan_id	anon=SIU authenticated=SIU
+col	public.event_vendor_payment_plan.replot_history	anon=SIU authenticated=SIU
 col	public.event_vendor_payment_plan.updated_at	anon=SIU authenticated=SIU
 col	public.event_vendor_payments.amount_php	anon=SIU authenticated=SIU
 col	public.event_vendor_payments.created_at	anon=SIU authenticated=SIU

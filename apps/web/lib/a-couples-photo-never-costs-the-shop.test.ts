@@ -30,7 +30,8 @@ const noSqlComments = (s: string) =>
 const MIG = readdirSync(MIGRATIONS).filter((f) => f.endsWith('.sql'));
 const SHARE_SQL = noSqlComments(readFileSync(join(MIGRATIONS, MIG.find((f) => f.endsWith('_a_couples_photo_on_a_suppliers_card.sql'))!), 'utf8'));
 
-const MONEY = /\b(shop_papic_wallet_spend|shop_papic_wallet_entries|orders|order_id|payout|commission|price|centavos|_php\b|credits?_spent)/i;
+/** No leading \\b on the suffix alternatives: `thank_you_php` has no word boundary before `_php` (a sabotage proved it). */
+const MONEY = /(shop_papic_wallet|\borders\b|\border_id\b|payout|commission|\bprice|centavos|_php\b|_centavos\b|credits?_spent|\bcash\b)/i;
 
 test('1 · the shares table and its doors carry no money', () => {
   const table = SHARE_SQL.slice(SHARE_SQL.indexOf('CREATE TABLE IF NOT EXISTS public.couple_photo_shares'), SHARE_SQL.indexOf('COMMENT ON TABLE public.couple_photo_shares'));
@@ -56,7 +57,7 @@ test('2 · 🔓 OPEN — an approved couple photo does not use the page-photo ro
         const tag = /AS\s+(\$\w*\$)/.exec(s.slice(m.index!));
         assert.ok(tag, `${name} (${f}) has a body this check cannot read`);
         const open = m.index! + tag.index + tag[0].length;
-        const close = s.indexOf(tag[1], open);
+        const close = s.indexOf(tag[1]!, open);
         assert.ok(close > open, `${name} (${f}) has a body this check cannot read`);
         seen += 1;
         assert.doesNotMatch(s.slice(open, close), /couple_photo_shares/, `${name} (${f}) counts couple photos toward the room`);

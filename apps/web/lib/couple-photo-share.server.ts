@@ -4,8 +4,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { CopyObjectCommand } from '@aws-sdk/client-s3';
-import { R2_BUCKETS, isR2Configured, publicUrlFor, r2List, requireR2Client, type R2BucketName } from '@/lib/r2';
-import { displayUrlForPrivateStoredAsset } from '@/lib/uploads';
+import { R2_BUCKETS, isR2Configured, r2List, requireR2Client, type R2BucketName } from '@/lib/r2';
+import { displayUrlForPrivateStoredAsset, publicUrlForStoredAsset } from '@/lib/uploads';
 import { couplePhotoLookPolicy } from '@/lib/r2-client-ref';
 import { couplePhotoLookScope } from '@/lib/cleanup-delete-scope';
 import { cleanupDelete } from '@/lib/cleanup-delete';
@@ -37,11 +37,15 @@ export function coupleLookBucket(isPublic: boolean): R2BucketName {
 /** A signed URL lives this long — long enough for one visit, short enough that a forwarded link dies. */
 const SIGNED_LOOK_TTL_S = 60 * 60;
 
-/** The PUBLIC URL of a key in the media bucket — null when storage is not configured. Public copies + snapshots only. */
+/**
+ * The PUBLIC URL of an object in the media bucket — Public copies and upload snapshots only. Through the HOUSE
+ * builder (`publicUrlForStoredAsset`), handed the full `r2://setnayan-media/<key>` ref, never a raw key-taking
+ * builder. Null when storage is not configured.
+ */
 export function coupleLookUrl(key: string | null | undefined): string | null {
   if (!key) return null;
   try {
-    return publicUrlFor(R2_BUCKETS.media, key);
+    return publicUrlForStoredAsset(coupleLookRef(key, true));
   } catch {
     return null;
   }

@@ -6,7 +6,8 @@ import { SwitchRow } from '@/app/_components/form-row';
 import { ActionButton } from '@/components/action-button';
 import { useSaveLoader } from '@/components/sd-loader';
 import { cancelScheduledLaunch, launchSaveTheDate, scheduleSaveTheDateLaunch } from '../../studio/save-the-date/actions';
-import { SchedulePicker, answered, formatManila, toManilaInputValue } from '../../studio/save-the-date/_components/launch-std-button';
+import { SchedulePicker, formatManila, toManilaInputValue } from '../../studio/save-the-date/_components/launch-std-button';
+import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 
 /**
  * ⚙ GO LIVE AS A SWITCH — the Hub's ⚙ Event Hub settings › Your Event Hub (owner 2026-10-30, verbatim: *"Redraw to
@@ -21,8 +22,8 @@ import { SchedulePicker, answered, formatManila, toManilaInputValue } from '../.
  *     Change time · Cancel schedule sit under it (the panel's own `SchedulePicker`, Manila time, no past times);
  *   · ONCE LIVE THERE IS NO "OFF" — the panel has no un-launch and neither does this: the switch stays on, locked, and
  *     its ⓘ says the way back is Who can view (the next row). No new write is invented;
- *   · a press that never answered is a refusal said under the row (`answered`), never the app's error screen, and a
- *     launch that was not confirmed never looks launched.
+ *   · a press that never answered is a refusal said under the row (caught where it is awaited), never the app's
+ *     error screen, and a launch that was not confirmed never looks launched (a cancel is drawn first and put back).
  *   · Launching makes the page public (`publishSaveTheDate` sets Who can view to Public) — `onLaunched` tells the row
  *     beside it, so the two never disagree on screen.
  * The panel's "Preview your Event Hub" link is not drawn here: this sheet sits on the Maker, whose ▶ is the preview.
@@ -48,17 +49,25 @@ export function HubGoLiveRow({
   const [pending, start] = useTransition();
   const save = useSaveLoader();
 
+  /* Each press goes through the Maker's one save door (`makerSave` — one refresh per burst), its question or picker
+     closing first (what changes on screen before the server answers); a request that never answered is caught here
+     and SAID, never thrown into the transition (it would replace the whole Maker with the error screen). A launch
+     that was not confirmed never looks launched; a schedule not confirmed reopens its picker with the time kept. */
   function doLaunch() {
     setError(null);
+    setAsking(false);
     start(async () => {
-      const res = await answered(() => save.run(() => launchSaveTheDate(eventId), { steps: ['Launching your Save-the-Date'], hint: 'Please wait' }));
-      if (res.ok) {
-        setLaunched(true);
-        setScheduledAt(null);
-        setAsking(false);
-        setPicking(false);
-        onLaunched?.();
-      } else {
+      try {
+        const res = await makerSave(() => save.run(() => launchSaveTheDate(eventId), { steps: ['Launching your Save-the-Date'], hint: 'Please wait' }), requestMakerRefresh, { ok: (r) => r.ok });
+        if (res.ok) {
+          setLaunched(true);
+          setScheduledAt(null);
+          setPicking(false);
+          onLaunched?.();
+        } else {
+          setError('Could not launch right now — please try again.');
+        }
+      } catch {
         setError('Could not launch right now — please try again.');
       }
     });
@@ -70,15 +79,19 @@ export function HubGoLiveRow({
       setError('Pick a date and time first.');
       return;
     }
+    setPicking(false);
     start(async () => {
-      const res = await answered(() => save.run(() => scheduleSaveTheDateLaunch(eventId, pickValue), { steps: ['Scheduling the launch'], hint: 'Please wait' }));
-      if (res.ok && res.scheduledAtIso) {
-        setScheduledAt(res.scheduledAtIso);
-        setPicking(false);
-        setAsking(false);
-      } else if (res.error === 'past') {
-        setError('Pick a time in the future.');
-      } else {
+      try {
+        const res = await makerSave(() => save.run(() => scheduleSaveTheDateLaunch(eventId, pickValue), { steps: ['Scheduling the launch'], hint: 'Please wait' }), requestMakerRefresh, { ok: (r) => r.ok });
+        if (res.ok && res.scheduledAtIso) {
+          setScheduledAt(res.scheduledAtIso);
+          setAsking(false);
+        } else {
+          setPicking(true);
+          setError(res.error === 'past' ? 'Pick a time in the future.' : 'Could not schedule that — please check the date and try again.');
+        }
+      } catch {
+        setPicking(true);
         setError('Could not schedule that — please check the date and try again.');
       }
     });
@@ -86,12 +99,19 @@ export function HubGoLiveRow({
 
   function doCancel() {
     setError(null);
+    /* Drawn first, put back with words if refused — the house pattern of the rows beside it (`pickWho`). */
+    const before = scheduledAt;
+    setScheduledAt(null);
+    setPicking(false);
     start(async () => {
-      const res = await answered(() => save.run(() => cancelScheduledLaunch(eventId), { steps: ['Cancelling the schedule'], hint: 'Please wait' }));
-      if (res.ok) {
-        setScheduledAt(null);
-        setPicking(false);
-      } else {
+      try {
+        const res = await makerSave(() => save.run(() => cancelScheduledLaunch(eventId), { steps: ['Cancelling the schedule'], hint: 'Please wait' }), requestMakerRefresh, { ok: (r) => r.ok });
+        if (!res.ok) {
+          setScheduledAt(before);
+          setError('Could not cancel the schedule — please try again.');
+        }
+      } catch {
+        setScheduledAt(before);
         setError('Could not cancel the schedule — please try again.');
       }
     });
@@ -152,7 +172,7 @@ export function HubGoLiveRow({
       }}
       on={launched}
       /* 🔒 Once live there is no off — the shipped panel has no un-launch (the way back is Who can view). */
-      disabled={launched || pending}
+      disabled={launched}
       onChange={() => {
         setError(null);
         setPicking(false);

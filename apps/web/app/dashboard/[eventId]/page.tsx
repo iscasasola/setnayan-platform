@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
+import { SERVICE_NAMES } from '@/lib/service-names';
 import { PapicBuySheet } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-buy-sheet';
-import { PapicCameraSettings, PapicSwitch } from './studio/papic/_components/papic-camera-settings';
+import { PapicCameraSettings, PapicHeadControl, PapicHeadLine } from './studio/papic/_components/papic-camera-settings';
 import { PapicOutcomeBanners, hasPapicOutcome, type PapicOutcomes } from './studio/papic/_components/papic-outcome-banners';
 import { PapicSelfHeal } from './studio/papic/_components/papic-self-heal';
 import { PapicCameraHelp } from './studio/papic/_components/papic-camera-help';
@@ -970,7 +971,18 @@ export default async function EventHomePage({
           phase: papicCardPhaseNow,
           // 🍎 In the app the Thank-You Video keeps its own row (an Apple product there) — no web door on the card.
           thankYouHref: !storeShell && OUR_SERVICE_PARTS.papic ? addOnHref(OUR_SERVICE_PARTS.papic.key, eventId) : null,
-          headControl: <PapicSwitch eventId={eventId} saved={papicSwitch === undefined ? null : papicIsOn(papicSwitch)} />,
+          /* 📷 THE HEAD SWITCH (owner 2026-10-30): "Let everybody shoot now" once Papic is on, the Papic switch before —
+             `PapicHeadControl` decides; its line under the title says what is saved. */
+          headControl: (
+            <Suspense fallback={null}>
+              <PapicHeadControl eventId={eventId} papicOn={papicSwitch === undefined ? null : papicIsOn(papicSwitch)} />
+            </Suspense>
+          ),
+          headLine: (
+            <Suspense fallback={SERVICE_NAMES.papic.brand}>
+              <PapicHeadLine eventId={eventId} papicOn={papicSwitch === undefined ? null : papicIsOn(papicSwitch)} brand={SERVICE_NAMES.papic.brand} />
+            </Suspense>
+          ),
           counts: { total: papicNow.total, left: papicNow.count },
           buy: papicBuy,
           defaultOpen: hasPapicOutcome(search) || Boolean(papicPoolError),

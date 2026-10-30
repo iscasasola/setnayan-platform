@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "32836b4f60",
+  "generatedFromRef": "3c6c7180b5",
   "routeCount": 479,
   "destinations": 985,
   "actions": 621,
-  "blocks": 7435,
+  "blocks": 7439,
   "routes": {
     "/": {
       "files": [
@@ -6100,13 +6100,16 @@
         "PapicCameraHelp",
         "PapicCameraSettings",
         "PapicCounts",
+        "PapicHeadContext.Provider",
+        "PapicHeadControl",
+        "PapicHeadLine",
+        "PapicHeadSay",
         "PapicHomeCard",
         "PapicOutcomeBanners",
         "PapicReadyNudge",
         "PapicSeePhotos",
         "PapicSelfHeal",
         "PapicServiceRow",
-        "PapicSwitch",
         "PapicTodayCard",
         "ParentCards",
         "PayWayView",
@@ -11343,6 +11346,7 @@
         "PapicTopBand",
         "ProLockPanel",
         "ReadyForNoSignalView",
+        "ShootNowSwitch",
         "SiteMenuBar",
         "SpotlightMount",
         "StanceChip",

@@ -9,7 +9,7 @@ import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { InfoTip } from '@/app/_components/info-tip';
 import { AnswerPicker } from '@/app/dashboard/[eventId]/launch/_components/details-answers';
-import { papicChoices } from '@/lib/event-answers';
+import { papicChoices, papicIsOn } from '@/lib/event-answers';
 import { formatCount } from '@/lib/format-number';
 import {
   resolveStoredWindow,
@@ -22,7 +22,8 @@ import StylePicker from '../style-picker';
 import { CoupleChallengesManager } from '../couple-challenges-manager';
 import { VendorChallengesApproval } from '../vendor-challenges-approval';
 import { SettingRow } from './setting-row';
-import { GuestCamerasChoice } from './guest-cameras-choice';
+import { readShootNow } from './guest-cameras-choice';
+import { ShootNowSwitch } from './shoot-now-switch';
 import { FaceTaggingChoice } from './face-tagging-choice';
 import { FaceBlockingCount } from './face-blocking-count';
 import { GuestAllotmentsChoice } from './guest-allotments-choice';
@@ -33,7 +34,8 @@ import { GuestAllotmentsChoice } from './guest-allotments-choice';
  *
  *   the one line — Papic [switch] · the dates
  *   (credits: Total · Used · Remaining — when the caller hands them over)
- *   Settings — Filter · When guests can shoot · Face tagging · "Each guest's camera is on their guest card ›"
+ *   Settings — Filter · Credits per guest · "Each guest's camera is on their guest card ›" · Face tagging · Face blocking
+ *   (When guests can shoot is the card's HEAD switch once Papic is on — owner 2026-10-30, `PapicHeadControl` below)
  *   Challenges
  *
  * ONE component, two seats: Home's Papic card draws it UNDER the card when it opens (owner, 23 Oct: *"expanding opens
@@ -98,6 +100,8 @@ export async function PapicCameraSettings({
   const total = credits?.total ?? null;
   const left = credits?.left ?? null;
   const used = total !== null && left !== null ? Math.max(0, total - left) : null;
+  // 📷 Which switch the card's head wears, and — once it is "Let everybody shoot now" — what that means, for the ⓘ.
+  const head = await readShootNow(eventId, papicIsOn((ev as { papic_on?: unknown }).papic_on));
 
   return (
     <div className="flex flex-col gap-6 [&_.font-mono]:font-sans" data-papic-camera-settings="">
@@ -122,9 +126,21 @@ export async function PapicCameraSettings({
               />
             </SettingRow>
             <InfoTip label="" align="end">
-              The Papic switch beside the card&rsquo;s ⌄ is Papic itself: on, every guest&rsquo;s invite QR is a camera and
-              the one code works; off, nothing can be captured and your credits stay. These dates fill in by themselves — up
-              to 6 months before your day, then 12 hours after it ends. Tap them to open the cameras earlier or later.
+              {head.kind === 'shoot-now' ? (
+                <>
+                  Papic is on, so the switch beside the card&rsquo;s ⌄ is Let everybody shoot now.{' '}
+                  {head.detail ?? 'We couldn’t check it just now — reload to try again.'} Papic itself is turned on or
+                  off in Event Details › Photos from guests.{' '}
+                </>
+              ) : (
+                <>
+                  The Papic switch beside the card&rsquo;s ⌄ is Papic itself: on, every guest&rsquo;s invite QR is a camera
+                  and the one code works; off, nothing can be captured and your credits stay. Once Papic is on, that switch
+                  becomes Let everybody shoot now.{' '}
+                </>
+              )}
+              These dates fill in by themselves — up to 6 months before your day, then 12 hours after it ends. Tap them to
+              open the cameras earlier or later.
             </InfoTip>
           </div>
         ) : null}
@@ -179,8 +195,8 @@ export async function PapicCameraSettings({
           <StylePicker variant="strip" returnTo={seat === 'home' ? 'home' : null} eventId={eventId} current={papicStyle} />
         </div>
         {/* In the approved sketch's order (owner "Yes", 2026-10-24): Credits per guest (event-wide) · the one door to
-            the guest cards · the event's Face tagging switch · then When guests can shoot (kept — see the PR: retiring
-            it changes the capture gate). */}
+            the guest cards · the event's Face tagging switch · Face blocking. "When guests can shoot" is NOT a row here
+            any more (owner 2026-10-30): it is the card's head switch once Papic is on — one control per fact. */}
         <div className="divide-y divide-ink/10">
           <GuestAllotmentsChoice eventId={eventId} variant="row" eventWide returnTo={seat === 'home' ? 'home' : null} />
           <Link
@@ -197,7 +213,6 @@ export async function PapicCameraSettings({
           <FaceTaggingChoice eventId={eventId} variant="row" returnTo={seat === 'home' ? 'home' : null} subLine="set per guest on their guest card" />
           {/* Face blocking — a COUNT, never a switch (owner 2026-10-24: "each guest's wish is always honoured"). */}
           <FaceBlockingCount eventId={eventId} />
-          <GuestCamerasChoice eventId={eventId} variant="row" returnTo={seat === 'home' ? 'home' : null} />
         </div>
       </section>
 
@@ -216,4 +231,27 @@ export async function PapicCameraSettings({
  */
 export function PapicSwitch({ eventId, saved }: { eventId: string; saved: boolean | null }) {
   return <AnswerPicker eventId={eventId} column="papic_on" label="Papic" choices={papicChoices()} saved={saved} as="switch" />;
+}
+
+/**
+ * 📷 THE CARD'S HEAD SWITCH (owner 2026-10-30: *"actually the switch on event home should be the let everybody shoot now
+ * function"* · *"of papic on papic's widget with that toggle switch"*), chosen by `lib/papic-shoot-now.ts`:
+ *
+ *   · Papic ON (and guest cameras not 'off') → `ShootNowSwitch` — `events.papic_guest_capture_early`, saved LIVE through
+ *     `setPapicGuestCaptureEarly` (no Apply); the card's line says "Guests can shoot now" / "Guests shoot on the event day".
+ *   · otherwise → the Papic switch, unchanged (`papic_on`, into the Event Hub draft) — guests cannot shoot before Papic
+ *     is on. Papic on/off also stays in Event Details › Photos from guests and the Maker's Your info.
+ *
+ * `papicOn` is the LIVE `events.papic_on` Home already read. Held by `home-papic-head-is-shoot-now.test.ts`.
+ */
+export async function PapicHeadControl({ eventId, papicOn }: { eventId: string; papicOn: boolean | null }) {
+  const head = await readShootNow(eventId, papicOn);
+  if (head.kind === 'papic') return <PapicSwitch eventId={eventId} saved={papicOn} />;
+  return <ShootNowSwitch eventId={eventId} early={head.early} />;
+}
+
+/** The line under the card's title: the saved shoot-now state, or the brand line while the head is the Papic switch. */
+export async function PapicHeadLine({ eventId, papicOn, brand }: { eventId: string; papicOn: boolean | null; brand: string }) {
+  const head = await readShootNow(eventId, papicOn);
+  return <>{head.kind === 'shoot-now' ? head.line : brand}</>;
 }

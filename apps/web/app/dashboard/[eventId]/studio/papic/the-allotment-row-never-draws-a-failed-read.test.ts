@@ -118,7 +118,9 @@ test("🔴 moderation says it couldn't check, and keeps its own capture list", (
     /\{guestAccess === 'off' \? \(/,
     '"once Papic is on" may render only when the check answered off',
   );
+  // 📷 "When guests can shoot" is the Papic card's head switch now (owner 2026-10-30): a failed entitlement check is
+  // 'unknown' — the switch stays (it only widens WHEN) — and a failed read of the saved value says "Couldn’t check".
   const cams = read('_components', 'guest-cameras-choice.tsx');
-  assert.match(cams, /if \(access === 'off'\) return null;/);
-  assert.match(cams, /if \(access !== 'on'\) \{[\s\S]{0,900}value="Couldn’t check"/);
+  assert.match(cams, /eventPapicGuestAccess\(ent, eventId\)\)\s*\.catch\(\(\): 'unknown' => 'unknown'\)/);
+  assert.match(cams, /if \(read\.error \|\| !read\.data\) return \{ kind: 'shoot-now', early: null, line: shootNowLine\(null\)/);
 });

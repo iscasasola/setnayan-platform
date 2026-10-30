@@ -157,7 +157,9 @@ const CARD_SETTINGS = 'app/dashboard/[eventId]/studio/papic/_components/papic-ca
 const HOME = 'app/dashboard/[eventId]/page.tsx';
 const MEMORIES = 'app/dashboard/[eventId]/memories/page.tsx';
 const MOVED: ReadonlyArray<readonly [control: string, file: string, needle: RegExp]> = [
-  ['Papic on/off switch', HOME, /headControl:\s*<PapicSwitch\b/],
+  // 📷 THE HEAD SWITCH (owner 2026-10-30): Papic on/off while Papic is off, "Let everybody shoot now" once it is on.
+  ['the head switch (Papic on/off · Let everybody shoot now)', HOME, /headControl:\s*\(\s*<Suspense fallback=\{null\}>\s*<PapicHeadControl\b/],
+  ['Papic on/off switch (the head, while Papic is off)', CARD_SETTINGS, /return <PapicSwitch eventId=\{eventId\} saved=\{papicOn\} \/>/],
   ['Total · Taken · Remaining + Add more', HOME, /counts:\s*\{\s*total:\s*papicNow\.total/],
   ['Add more (web sheet / Apple sheet)', HOME, /<IapPapicSheet\b[\s\S]*?<PapicBuySheet\b/],
   ['every save\'s answer (banners)', HOME, /<PapicOutcomeBanners\b/],
@@ -169,7 +171,7 @@ const MOVED: ReadonlyArray<readonly [control: string, file: string, needle: RegE
   ['credits per guest (min / max)', CARD_SETTINGS, /<GuestAllotmentsChoice\b/],
   ['face tagging', CARD_SETTINGS, /<FaceTaggingChoice\b/],
   ['face blocking', CARD_SETTINGS, /<FaceBlockingCount\b/],
-  ['when guests can shoot', CARD_SETTINGS, /<GuestCamerasChoice\b/],
+  ['when guests can shoot (the head, once Papic is on)', CARD_SETTINGS, /return <ShootNowSwitch eventId=\{eventId\} early=\{head\.early\} \/>/],
   ['what guests chipped in', CARD_SETTINGS, /<GuestContributionsCard\b/],
   ['challenges (switch + ✕)', CARD_SETTINGS, /<CoupleChallengesManager\b[^>]*inCard/],
   ['supplier challenges to approve', CARD_SETTINGS, /<VendorChallengesApproval\b/],

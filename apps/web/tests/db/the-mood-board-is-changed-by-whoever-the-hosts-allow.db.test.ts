@@ -18,10 +18,12 @@
  *       and anon cannot call it;
  *   6 · the palette stays the hosts' — a person given Mood Board Edit changes no column of the event row.
  *
- * 🛡 Sabotage (run 2026-10-30): dropping the `current_moderator_area_levels` arm from the INSERT and UPDATE policies
- *    → test 1 goes red ("the granted supplier could not upload"), and test 5 goes red (the function says yes, the
- *    policy says no). Widening the arm to `level IN ('edit','view')` → test 2 goes red ("the coordinator left at
- *    View added a photo"). Restored → green.
+ * 🛡 Sabotage (run 2026-10-30, both restored → 6/6 green):
+ *    · dropping the `current_moderator_area_levels` arm from the INSERT and UPDATE policies → tests 1, 4 and 5 red
+ *      ("granted supplier: upload refused — new row violates row-level security policy"; "the gate says true but the
+ *      policy refused the photo");
+ *    · widening the arm to `level IN ('edit','view')` → tests 2, 4 and 5 red ("the coordinator left at View added a
+ *      photo to the Mood Board"; "Mood Board set back to View — the supplier still adds photos").
  *
  * Run: pnpm --filter @setnayan/web test:db
  */
@@ -347,7 +349,7 @@ test('4 · taking the grant back takes effect on the very next write', async () 
   await setMoodBoardArea(W.grantedSupplierSeat, 'view');
   const after = await uploadAs(W.grantedSupplier, 'cake', 2);
   assert.equal(after.inserted, 0, 'Mood Board set back to View — the supplier still adds photos');
-  const [{ inspiration_id: id }] = await activeAt('cake');
+  const id = (await activeAt('cake'))[0]!.inspiration_id;
   const rm = await as(W.grantedSupplier, `UPDATE public.event_inspiration_assets SET removed_at = now() WHERE inspiration_id = $1 RETURNING 1`, [id]);
   assert.equal(rm.rows, 0, 'Mood Board set back to View — the supplier still removes photos');
   assert.equal(await asks(W.grantedSupplier), false, 'the action gate still says yes after the grant was taken back');

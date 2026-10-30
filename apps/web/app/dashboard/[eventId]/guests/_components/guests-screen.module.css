@@ -1614,11 +1614,19 @@ button.countsDoor[aria-pressed='true'] {
 }
 .mindCouple,
 .mindHub,
-.mindFace,
-.mindLabel,
-.mindMore {
+.mindFace {
   position: absolute;
   transform: translate(-50%, -50%);
+}
+/* A hub's name and its "+N more", one column under it (`guest-map-canvas.tsx`): stacked, never overlapping. */
+.mindUnder {
+  position: absolute;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  pointer-events: none;
 }
 .mindCouple {
   display: flex;
@@ -1676,6 +1684,7 @@ button.countsDoor[aria-pressed='true'] {
   white-space: nowrap;
   color: var(--gs-ink);
   cursor: pointer;
+  pointer-events: auto;
 }
 .mindFace {
   display: inline-flex;

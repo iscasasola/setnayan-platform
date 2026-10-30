@@ -1,0 +1,124 @@
+import type { Metadata } from 'next';
+import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
+import { hubDayWords } from '@/lib/hub-events';
+import type { RunOfShowBlock } from '@/lib/run-of-show';
+import { onlyWhatABookedShopMaySee } from '@/lib/schedule';
+import { isCoordinatorTrade } from '@/lib/coordinator-trade';
+import { CREW_STATUS_WORDS, crewRequestStatusOf, crewRoleOf, crewRoleReadsRunOfShow, isCrewToken } from '@/lib/crew-pass';
+import { crewPassAnonEnabled } from '@/lib/crew-pass-flag';
+import { resolveEventFeeGate } from '@/lib/vendor-event-fee-access.server';
+import { CrewEventHub, CrewNameForm, CrewSignIn, CrewStatus } from './_components/crew-screens';
+import { CrewWaitingRefresh } from './_components/crew-waiting-refresh';
+import { SeatScanner } from '@/app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/seat-scanner';
+
+export const metadata: Metadata = { title: 'Crew · Event Hub', robots: { index: false, follow: false } };
+export const dynamic = 'force-dynamic';
+
+/**
+ * /join/crew/[token] — 📱 WHERE A CREW QR LANDS (owner 2026-10-29, DECISION_LOG "CREW JOIN THE SUPPLIER'S EVENT HUB BY
+ * QR — AND SEE ONLY THE EVENT HUB"). Outside the supplier dashboard on purpose: crew have no shop, and the dashboard's
+ * frame (Today · Customers · Shop · Hub) is exactly what they must not see.
+ *
+ *   no session          → the name form (an anonymous account when that is switched on; else sign in, then back here);
+ *   the shop's booking fee still unpaid → "Not open yet" (the shop's gate, as for its day-of grantees);
+ *   asked, waiting      → "Waiting for the Allow" — the page re-asks quietly every 15 s while it is looked at;
+ *   allowed, in time    → THE CREW'S EVENT HUB: this event, the tools the role opens, nothing else;
+ *   removed · over · dead QR · their own team · too many waiting → one sentence each.
+ *
+ * 🔒 WHAT IS READ, AND WHEN. Every rule is the database's: `crew_pass_request` says where the phone stands and
+ * `current_vendor_crew_pass` whether its pass opens anything NOW (allowed, before its end, the shop still booked). Only
+ * after that answers `effective` does this page read the event's name and — for a Member — its run of show, with the
+ * admin client, scoped to that ONE event (the crew holds no RLS on `events` or the schedule, by design: no crew pass
+ * is read by any other policy). The scanner asks the database itself (`crew_seat_by_guest_qr`).
+ *
+ * 🔒 NEVER MORE THAN THE SHOP. The run of show goes through `onlyWhatABookedShopMaySee` — the app copy of
+ * `event_schedule_blocks_booked_vendor_read` — because the admin client passes straight through RLS: without it a crew
+ * phone saw the coordinator's unreleased prep (`visibility = 'coordinator_only'`), which the shop itself may not read.
+ * 🚪 The scanner is drawn only for a coordinator shop's crew (`crewRoleOpens(role, coordinator)`): its door refuses
+ * every other shop, and a door that never opens is said in words instead.
+ * 🔒 app/join/crew/the-crew-sees-only-the-event-hub.test.ts · tests/db/crew-pass-sees-only-its-event.db.test.ts
+ */
+export default async function CrewJoinPage({ params }: { params: Promise<{ token: string }> }) {
+  const { token } = await params;
+  if (!isCrewToken(token)) return <CrewStatus {...CREW_STATUS_WORDS.invalid} />;
+  const anonymous = crewPassAnonEnabled();
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return anonymous ? <CrewNameForm token={token} shopWords="The shop" anonymous /> : <CrewSignIn token={token} />;
+
+  // Where this phone stands — asked with no name, so nothing is written by looking.
+  const { data: asked, error: askedError } = await supabase.rpc('crew_pass_request', { p_token: token, p_name: '' });
+  if (askedError) {
+    logQueryError('CrewJoin.request', askedError, {}, 'graceful_degrade');
+    return <CrewStatus title="Couldn’t reach Setnayan" line="Check the signal and open this page again — nothing was lost." />;
+  }
+  const answer = (asked ?? {}) as { status?: unknown; event_id?: string };
+  const status = crewRequestStatusOf(answer.status);
+  if (status === 'needs_name') return <CrewNameForm token={token} shopWords="The shop" anonymous={anonymous} />;
+  if (status === 'waiting') {
+    return (
+      <CrewStatus {...CREW_STATUS_WORDS.waiting} waiting>
+        <CrewWaitingRefresh />
+      </CrewStatus>
+    );
+  }
+  if (status !== 'allowed' || !answer.event_id) return <CrewStatus {...CREW_STATUS_WORDS[status === 'allowed' ? 'invalid' : status]} />;
+
+  const eventId = answer.event_id;
+  const { data: passRows, error: passError } = await supabase.rpc('current_vendor_crew_pass', { p_event_id: eventId });
+  const pass = (Array.isArray(passRows) ? passRows[0] : null) as
+    | { vendor_profile_id: string; display_name: string; crew_role: string; ends_at: string; effective: boolean }
+    | null;
+  if (passError) logQueryError('CrewJoin.pass', passError, { eventId }, 'graceful_degrade');
+  if (passError || !pass) return <CrewStatus title="Couldn’t open the Event Hub" line="Open this page again in a moment — nothing was lost." />;
+  if (!pass.effective) return <CrewStatus {...CREW_STATUS_WORDS.ended} />;
+  // THE BOOKING FEE UNLOCKS THE EVENT (owner 2026-09-20) — for the shop's crew too, exactly as for its day-of
+  // grantees: the gate is the SHOP's, and a crew member has no fee of their own and is never asked to pay one.
+  const feeGate = await resolveEventFeeGate(pass.vendor_profile_id, eventId);
+  if (feeGate.stage !== 'unlocked') return <CrewStatus {...CREW_STATUS_WORDS.locked} />;
+
+  // ── The pass is proven: ONE event's name and, for a Member, its run of show. ──
+  const role = crewRoleOf(pass.crew_role);
+  const admin = createAdminClient();
+  const [eventRes, shopRes, blocksRes] = await Promise.all([
+    admin.from('events').select('display_name, event_date, venue_name').eq('event_id', eventId).maybeSingle(),
+    admin.from('vendor_profiles').select('business_name, services').eq('vendor_profile_id', pass.vendor_profile_id).maybeSingle(),
+    crewRoleReadsRunOfShow(role)
+      ? onlyWhatABookedShopMaySee(
+          admin
+            .from('event_schedule_blocks')
+            .select('block_id, label, start_at, end_at, location, run_state, actual_start_at')
+            .eq('event_id', eventId),
+        )
+          .order('start_at', { ascending: true })
+          .order('sort_order', { ascending: true })
+      : Promise.resolve({ data: null, error: null }),
+  ]);
+  if (blocksRes.error) logQueryError('CrewJoin.runOfShow', blocksRes.error, { eventId }, 'graceful_degrade');
+  if (shopRes.error) logQueryError('CrewJoin.shop', shopRes.error, { eventId }, 'graceful_degrade');
+  const shop = shopRes.data as { business_name: string | null; services: string[] | null } | null;
+  // A refused shop read keeps the scanner: it is only a hint here — the scanner's own door is the boundary and says
+  // its own refusal — while hiding it would take a coordinator crew's one tool away on a blip.
+  const coordinator = shopRes.error ? true : isCoordinatorTrade(shop?.services);
+  const ev = eventRes.data as { display_name: string | null; event_date: string | null; venue_name: string | null } | null;
+  const ends = new Date(pass.ends_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  return (
+    <CrewEventHub
+      scanner={<SeatScanner eventId={eventId} via="crew" />}
+      eventName={ev?.display_name?.trim() || 'This event'}
+      shopName={shop?.business_name ?? 'The shop'}
+      dayWords={hubDayWords(ev?.event_date ?? null, true)}
+      place={ev?.venue_name ?? null}
+      name={pass.display_name}
+      role={role}
+      coordinator={coordinator}
+      blocks={blocksRes.error ? null : ((blocksRes.data ?? []) as RunOfShowBlock[])}
+      endsWords={`ends ${ends}`}
+    />
+  );
+}

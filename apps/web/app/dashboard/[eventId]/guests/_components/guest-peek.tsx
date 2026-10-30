@@ -1,6 +1,6 @@
 'use client';
 
-import { X } from 'lucide-react';
+import { ArrowRight, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 
 /**
@@ -46,7 +46,7 @@ export function GuestPeek({
         <span className="line-clamp-2 block text-sm font-medium text-ink [overflow-wrap:anywhere]">{name}</span>
         <span className="line-clamp-2 block text-xs text-ink/60 [overflow-wrap:anywhere]">{line}</span>
       </span>
-      <ActionButton tone="brand" main label="Open" onClick={onOpen} />
+      <ActionButton tone="brand" main icon={ArrowRight} label="Open" onClick={onOpen} />
       <ActionButton tone="neutral" iconOnly icon={X} label="Close" onClick={onClose} />
     </div>
   );

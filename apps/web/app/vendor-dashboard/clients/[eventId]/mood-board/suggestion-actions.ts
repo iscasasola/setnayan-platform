@@ -35,9 +35,13 @@ import { getInspirationParts } from '@/lib/inspiration-parts-db';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { SUGGEST_REFUSAL } from '@/lib/inspiration-suggestions';
 import type { VendorProfileRow } from '@/lib/vendor-profile';
+import { verifyCardForPart } from '@/lib/inspiration-card-link.server';
+import { importEditorialMediaToGallery } from '@/app/vendor-dashboard/moodboard-library/actions';
+import { stylistAssetObjectKey } from '@/lib/moodboard-library-key';
+import type { SuggestionPoolResult } from '@/lib/inspiration-suggestions';
 
 export type SuggestResult =
-  | { status: 'ok'; suggestion: { id: string; slotKey: string; url: string } }
+  | { status: 'ok'; suggestion: { id: string; slotKey: string; url: string }; pool?: SuggestionPoolResult }
   | { status: 'refused'; message: string };
 
 const ACCEPTED = ['image/png', 'image/jpeg', 'image/webp'];
@@ -51,6 +55,10 @@ export async function suggestInspirationPhoto(formData: FormData): Promise<Sugge
   const picked = formData.get('file');
   const file = picked instanceof File && picked.size > 0 ? picked : null;
   const shopPhotoRef = String(formData.get('shopPhotoRef') ?? '').trim() || null;
+  // 🔗 THE CARD + THE POOL (owner 2026-10-30, "CONNECTED FOUR WAYS"): which of the shop's cards this is (optional,
+  // re-checked below against the shop the SQL door proves), and the rights tick that also offers it to the library.
+  const requestedCard = String(formData.get('vendorServiceId') ?? '').trim() || null;
+  const rightsWarranted = String(formData.get('rightsWarranted') ?? '') === '1';
 
   if (!eventId || !libraryPhotoParts(await getInspirationParts()).some((p) => p.key === slotKey)) {
     return { status: 'refused', message: 'Pick which part this photo is for.' };
@@ -108,6 +116,15 @@ export async function suggestInspirationPhoto(formData: FormData): Promise<Sugge
     }
     const shop = shopRow as ShopForScreen;
 
+    /* 1b · THE CARD — one of THIS shop's live cards whose Service links this part (never trusted as sent). */
+    const card = await verifyCardForPart(admin, {
+      vendorProfileId: door.vendor_profile_id,
+      slotKey,
+      requested: requestedCard,
+      parts: await getInspirationParts(),
+    });
+    if (!card.ok) return await refuse(card.message);
+
     /* 2 · THE BYTES — a file off the supplier's phone, or one of the shop's own photos (checked against its own list). */
     const photo = file
       ? { bytes: new Uint8Array(await file.arrayBuffer()), contentType: file.type }
@@ -140,6 +157,7 @@ export async function suggestInspirationPhoto(formData: FormData): Promise<Sugge
       .from('event_inspiration_suggestions')
       .update({
         state: 'waiting',
+        vendor_service_id: card.vendorServiceId,
         image_url: upload.publicUrl,
         r2_key: upload.key,
         screened_at: new Date().toISOString(),
@@ -160,7 +178,12 @@ export async function suggestInspirationPhoto(formData: FormData): Promise<Sugge
 
     revalidatePath(`/vendor-dashboard/clients/${eventId}/mood-board`);
     revalidatePath(`/dashboard/${eventId}/studio/mood-board`);
-    return { status: 'ok', suggestion: { id: suggestionId, slotKey, url: upload.publicUrl } };
+    /* 7 · 🔗🖼 ALSO OFFERED TO THE INSPIRATION POOL — pending until Setnayan approves (owner 2026-10-30). Through the
+       library's own door (`importEditorialMediaToGallery` → `importSuggestionToGallery` → storeScreenedAsset: rights ·
+       screen · watermark · theft scan · quota), never a second insert here. Its refusal never undoes the suggestion:
+       the couple already has the photo; the supplier is told, in words, why the library did not take it. */
+    const pool = await offerSuggestionToPool({ suggestionId, rightsWarranted, vendorServiceId: card.vendorServiceId, sourceRef: shopPhotoRef });
+    return { status: 'ok', suggestion: { id: suggestionId, slotKey, url: upload.publicUrl }, pool };
   } catch (err) {
     return await refuse(err instanceof Error && err.message ? err.message : SUGGEST_REFUSAL.failed);
   }
@@ -176,6 +199,8 @@ export async function withdrawInspirationSuggestion(eventId: string, suggestionI
   const status = (data as { status?: string } | null)?.status;
   if (status === 'decided') return { status: 'refused', message: 'The couple has already answered that photo.' };
   if (status !== 'ok' && status !== 'already') return { status: 'refused', message: 'That photo couldn’t be taken back just now. Please try again.' };
+  // 🔗 Its pool copy goes too while still PENDING (an approved one is a library photo by then, managed there).
+  await removePendingPoolCopy(suggestionId);
   revalidatePath(`/vendor-dashboard/clients/${eventId}/mood-board`);
   revalidatePath(`/dashboard/${eventId}/studio/mood-board`);
   return { status: 'ok' };
@@ -196,4 +221,59 @@ export async function listShopPhotosForSuggestion(): Promise<{ photos: Pick<Shop
   if (!profile) return { photos: [], failed: true };
   const { photos, failed } = await listShopOwnPhotos(supabase, profile);
   return { photos: photos.map((p) => ({ ref: p.ref, url: p.url })), failed };
+}
+
+/** The pool half of a suggestion. No rights tick = not offered (said); a refusal from the library = its own words. */
+async function offerSuggestionToPool(input: {
+  suggestionId: string;
+  rightsWarranted: boolean;
+  vendorServiceId: string | null;
+  sourceRef: string | null;
+}): Promise<SuggestionPoolResult> {
+  if (!input.rightsWarranted) return { status: 'not_offered' };
+  try {
+    await importEditorialMediaToGallery({
+      suggestionId: input.suggestionId,
+      rightsWarranted: true,
+      vendorServiceId: input.vendorServiceId,
+      sourceRef: input.sourceRef,
+    });
+    return { status: 'pending' };
+  } catch (err) {
+    return { status: 'skipped', message: err instanceof Error && err.message ? err.message : 'The inspiration library couldn’t take this photo just now.' };
+  }
+}
+
+/**
+ * A taken-back suggestion's pool copy, removed while it is still PENDING — the row and its stored object, scoped to the
+ * caller (uploaded_by) and to not-yet-approved. Best-effort: the take-back already happened; a failure is logged.
+ */
+async function removePendingPoolCopy(suggestionId: string): Promise<void> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from('moodboard_library_assets')
+    .select('asset_id, storage_path, uploaded_by')
+    .eq('source_suggestion_id', suggestionId)
+    .eq('uploaded_by', user.id)
+    .is('approved_at', null)
+    .maybeSingle();
+  if (error) {
+    logQueryError('withdrawInspirationSuggestion.poolCopy', error, { suggestionId }, 'graceful_degrade');
+    return;
+  }
+  const row = data as { asset_id: string; storage_path: string | null; uploaded_by: string } | null;
+  if (!row) return;
+  const { error: delErr } = await admin.from('moodboard_library_assets').delete().eq('asset_id', row.asset_id).is('approved_at', null);
+  if (delErr) {
+    logQueryError('withdrawInspirationSuggestion.poolCopyDelete', delErr, { suggestionId }, 'graceful_degrade');
+    return;
+  }
+  /* 🔒 Only an object in THIS supplier's own folder (lib/moodboard-library-key.ts), as deleteStylistAsset does. */
+  const key = row.storage_path ? stylistAssetObjectKey(row.storage_path, row.uploaded_by) : null;
+  if (key) await admin.storage.from('moodboard-library').remove([key]);
 }

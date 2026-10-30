@@ -3049,6 +3049,40 @@ export const UGAT_JOINTS: UgatJoint[] = [
   },
   {
     /**
+     * 🔗🖼 A SUPPLIER'S INSPIRATION PHOTO NAMES ITS SERVICE CARD (owner 2026-10-30, DECISION_LOG "A SUPPLIER'S
+     * INSPIRATION PHOTO IS CONNECTED FOUR WAYS — ITS SERVICE CARD · THE EVENT · THE SUPPLIER'S WEBSITE · THE
+     * CATEGORY/SERVICE POOL"; migration 20271297295494).
+     *
+     * ⚠ THE CARD IS HELD TO THE SHOP BY A TRIGGER, NOT A CHECK. `inspiration_card_is_the_shops_own` refuses a card of
+     * another shop on both tables (and a card on a non-gallery library row) but never raises on a NULL, so the
+     * ON DELETE SET NULL cascades stay SET NULL — a CHECK naming the column would turn them into RESTRICT.
+     */
+    id: 'J59',
+    claims: [
+      { kind: 'fk', table: 'moodboard_library_assets', column: 'vendor_service_id', references: 'vendor_services' },
+      { kind: 'fk', table: 'event_inspiration_suggestions', column: 'vendor_service_id', references: 'vendor_services' },
+      { kind: 'fk', table: 'moodboard_library_assets', column: 'source_suggestion_id', references: 'event_inspiration_suggestions' },
+      { kind: 'column', table: 'moodboard_library_assets', column: 'source_event_id' },
+      // One fact, one column: the card is vendor_service_id on both tables — no second spelling.
+      { kind: 'no_column', table: 'moodboard_library_assets', column: 'service_id' },
+    ],
+    chain: 20,
+    pair: ['TYPE-GALLERY', 'TYPE-SERVICES'],
+    title: 'Inspiration photo \u2194 Service card (the look a card offers)',
+    joint: 'moodboard_library_assets',
+    cardinality:
+      'Many photos per card \u00b7 at most one card per photo (NULL = the shop only, card-optional) \u00b7 at most one pool photo per Mood Board suggestion (partial UNIQUE on source_suggestion_id)',
+    implementedBy:
+      'moodboard_library_assets.vendor_service_id and event_inspiration_suggestions.vendor_service_id \u2192 vendor_services (ON DELETE SET NULL); moodboard_library_assets.source_suggestion_id \u2192 event_inspiration_suggestions (the pool copy of a suggestion, with source_event_id = the suggestion\u2019s event)',
+    writtenBy:
+      'uploadStylistAsset and importEditorialMediaToGallery (app/vendor-dashboard/moodboard-library/actions.ts \u2014 the latter also takes a suggestionId, routed to importSuggestionToGallery) after verifyCardForPart (lib/inspiration-card-link.server.ts); suggestInspirationPhoto on the service-role move to waiting',
+    guardedBy:
+      'the trigger inspiration_card_is_the_shops_own (the card is the row\u2019s own shop; library rows must be supplier_gallery); no INSERT/UPDATE grant on either new column for anon/authenticated; SELECT on vendor_service_id granted (the link shows on the supplier\u2019s page); source_suggestion_id withheld like source_event_id; tests/db/an-inspiration-photo-names-its-own-card.db.test.ts',
+    traps:
+      'A suggestion\u2019s pool copy is EVENT-LINKED (source_event_id set) yet COUNTS toward the per-category quota (countSuggestionPool) \u2014 countBackCatalogue alone no longer is the whole used side. The page (/v/[slug]) shows a look only when its card is live there or it has none (the design\u2019s liveLooks).',
+  },
+  {
+    /**
      * THE SIGN-OFF AND THE FREEZE ARE ONE ACT (MB12).
      *
      * 🔑 THIS JOINT EXISTS TO CLAIM A WIRE, NOT A TABLE. Two separate writes —

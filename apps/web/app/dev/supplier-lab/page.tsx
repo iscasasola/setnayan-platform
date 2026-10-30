@@ -94,7 +94,10 @@ import { MONEY_STATES, MoneyLab, type MoneyState } from './money-lab';
 import { LabEarnedLine, PAGE_LAB_STATES, PageLab, type PageLabState } from './page-lab';
 import { LibraryLab } from './library-lab';
 import { libraryLab, type LabLibraryAsset } from './library-lab-server';
-import { LAB_LIBRARY_SHOP, LAB_SHOP_PHOTOS } from './library-lab-fixture';
+import { LAB_LIBRARY_CARDS, LAB_LIBRARY_SHOP, LAB_SHOP_PHOTOS } from './library-lab-fixture';
+import { cardChoicesByPart } from '@/lib/inspiration-card-link';
+import { formatPhpRounded } from '@/lib/php';
+import { canonicalServicesForSlot } from '@/lib/moodboard-gallery';
 import { uploadableSlotsForShop } from '@/lib/moodboard-gallery-upload';
 import { SuggestLab } from './suggest-lab';
 import { LAB_SUGGEST_COUPLE, LAB_SUGGEST_FIVE } from './suggestion-lab-fixture';
@@ -351,6 +354,7 @@ export default async function SupplierLabPage({
         eventLine="Sat, Mar 13, 2027 · Tagaytay"
         roleLine={supplierRoleLine(supplierTradeWord(services, firstOwnPart(board), fallbackInspirationParts()), ownLaneWords(board))}
         sent={q.sent === '1'}
+        cardsByPart={labCardsByPart(parts.map((p) => p.key))}
       />
     );
   }
@@ -365,6 +369,7 @@ export default async function SupplierLabPage({
           shopPhotos={[...state.shopPhotos]}
           gallerySlots={uploadableSlotsForShop(LAB_LIBRARY_SHOP.services, fallbackInspirationParts())}
           shopName={LAB_LIBRARY_SHOP.business_name}
+          cardsByPart={labCardsByPart(uploadableSlotsForShop(LAB_LIBRARY_SHOP.services, fallbackInspirationParts()).map((s) => s.key))}
         />
       </div>
     );
@@ -429,4 +434,16 @@ export default async function SupplierLabPage({
       )}
     </div>
   );
+}
+
+/** 🔗🖼 The lab shop's cards per part — the REAL `cardChoicesByPart` over the lab cards (no database). */
+function labCardsByPart(slots: readonly string[]) {
+  const parts = fallbackInspirationParts();
+  return cardChoicesByPart({
+    slots,
+    shopCards: [...LAB_LIBRARY_CARDS],
+    servicesForSlot: (slot) => canonicalServicesForSlot(slot, parts),
+    labelOf: (r) => r.title ?? 'Service',
+    priceOf: (r) => (r.starting_price_php ? `from ${formatPhpRounded(r.starting_price_php)}` : null),
+  });
 }

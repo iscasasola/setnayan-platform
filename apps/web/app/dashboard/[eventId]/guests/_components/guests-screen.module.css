@@ -1668,7 +1668,7 @@ button.countsDoor[aria-pressed='true'] {
 .mindMore {
   height: 22px;
   padding: 0 9px;
-  border-radius: 11px;
+  border-radius: var(--m-r-full);
   border: 1px solid var(--gs-line);
   background: var(--gs-paper);
   font-size: 11px;
@@ -1702,7 +1702,7 @@ button.countsDoor[aria-pressed='true'] {
   height: 36px;
   margin: 8px 0 0 16px;
   padding: 0 12px 0 8px;
-  border-radius: 18px;
+  border-radius: var(--m-r-full);
   border: 1px solid var(--gs-line);
   background: var(--gs-paper);
   font-size: 13px;

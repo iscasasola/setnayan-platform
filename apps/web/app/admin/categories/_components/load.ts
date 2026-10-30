@@ -188,7 +188,7 @@ type SchemaRow = {
  */
 export async function loadCategories(admin: Admin, openTileId: string | null): Promise<CategoriesData> {
   const failed: string[] = [];
-  const [tax, schemasRes, extraRes, reqRes, deadlinesRes, aliasRes, leafCountRes] = await Promise.all([
+  const [tax, schemasRes, extraRes, reqRes, deadlinesRes, aliasRes, leafCountRes, oneRes] = await Promise.all([
     getTaxonomy(),
     admin
       .from('canonical_service_schemas')
@@ -211,6 +211,8 @@ export async function loadCategories(admin: Admin, openTileId: string | null): P
       .order('phrase', { ascending: true })
       .limit(2000),
     admin.from('onboarding_refinements').select('tile_id'),
+    // ONE PER EVENT (owner 2026-10-29) — its own read: an unreadable switch says so on the panel (null), never "off".
+    admin.from('service_categories').select('id, one_per_event').eq('tier', 2),
   ]);
   if (tax.source === 'fallback') failed.push('the category tree');
   noteFailure(failed, 'services', schemasRes.error);
@@ -219,6 +221,9 @@ export async function loadCategories(admin: Admin, openTileId: string | null): P
   noteFailure(failed, 'deadlines', deadlinesRes.error);
   noteFailure(failed, 'search words', aliasRes.error);
   noteFailure(failed, 'what couples choose', leafCountRes.error);
+  const onePerEvent = oneRes.error
+    ? null
+    : new Map(((oneRes.data ?? []) as Array<{ id: string; one_per_event: boolean | null }>).map((r) => [r.id, r.one_per_event === true]));
 
   const extra = new Map(
     ((extraRes.data ?? []) as Array<{ canonical_service: string; applicable_event_types: string[] | null; merged_into: string | null }>).map(
@@ -331,6 +336,7 @@ export async function loadCategories(admin: Admin, openTileId: string | null): P
         serviceCount: serviceCount.get(id) ?? 0,
         faithCount: faithCount.get(id) ?? 0,
         refinementCount: refinementCount.get(id) ?? 0,
+        onePerEvent: onePerEvent ? onePerEvent.get(id) ?? false : null,
       };
     }),
   );

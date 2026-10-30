@@ -16,17 +16,22 @@
  */
 import { resolveModules } from '@/lib/vendor-dayof-modules';
 import { forYourServicePages } from '@/lib/supplier-event-lines';
-import { hubEvents, hubSegmentOf, pickHubEvent, type HubEvent, type HubSegment } from '@/lib/hub-events';
+import { Armchair, CalendarDays, ClipboardList, FileText, Palette, PanelsTopLeft, Users } from 'lucide-react';
+import { hubAddChoices, hubEvents, hubScheduleLine, hubSegmentOf, pickHubEvent, type HubEvent, type HubSegment } from '@/lib/hub-events';
 import type { RunOfShowBlock } from '@/lib/run-of-show';
 import { HubEventMenu } from '@/app/vendor-dashboard/on-the-day/_components/hub-event-menu';
 import {
   HubDoorRow,
   HubEventCard,
+  HubEventInfo,
   HubEyebrow,
   HubLockRow,
+  HubPageRow,
+  HubPageRows,
   HubRunOfShow,
   HubScreen,
 } from '@/app/vendor-dashboard/on-the-day/_components/hub-screen';
+import { HubThumbRow } from '@/app/vendor-dashboard/on-the-day/_components/hub-thumb-row';
 import { ModuleConfigurator } from '@/app/vendor-dashboard/on-the-day/_components/module-configurator';
 import { AccessGrants } from '@/app/vendor-dashboard/on-the-day/_components/access-grants';
 import { CheckinDeskRows, MessageEveryoneRows, SeatFinderRow } from '@/app/vendor-dashboard/_components/events-you-run-rows';
@@ -122,22 +127,39 @@ export function HubLab({ seg: rawSeg, ev }: { seg?: string; ev?: string }) {
       <p className="py-3 text-[14px] text-ink/65">No day of yours on this event — there is no Event Hub for a crew to join.</p>
     );
   } else if (seg === 'pages') {
+    // The page's own rule: Guests counts only where the brief is read (booked + unlocked); Schedule from the run of show.
+    const guests = event.booked ? '180 invited · 162 coming' : 'Their guest list';
+    const sched = hubScheduleLine(BLOCKS);
+    const help = 'You can help here — as much as the hosts allowed you.';
+    const ICON: Record<string, typeof Users> = { mood: Palette, seats: Armchair, run: CalendarDays, sheet: ClipboardList, card: FileText };
     body = event.runHref ? (
       <div data-hub-pages="run">
         <HubEyebrow about="The same screens the hosts use, opened inside your app.">The event’s pages</HubEyebrow>
         <p className="pb-1 text-[13.5px] text-ink/65">You run it — as much as the hosts allowed you.</p>
-        <HubDoorRow href={`${event.runHref}/guests`} label="Guests" line="180 invited · 162 coming" data="guests" />
-        <HubDoorRow href={`${event.runHref}/seating`} label="Seats" line="Tables and who sits where" data="seats" />
-        <HubDoorRow href={`${event.runHref}/schedule`} label="Schedule" line="The run of show, hour by hour" data="schedule" />
-        <HubDoorRow href={`${event.runHref}/website`} label="Event Hub (the Maker)" line="The guests’ page for the event" data="maker" />
+        <HubPageRows>
+          <HubPageRow pageKey="guests" icon={Users} label="Guests" line={guests} href={`${event.runHref}/guests`} access={help} />
+          <HubPageRow pageKey="seats" icon={Armchair} label="Seats" line="Tables and who sits where" href={`${event.runHref}/seating`} access={help} />
+          <HubPageRow pageKey="schedule" icon={CalendarDays} label="Schedule" line={sched ?? 'The run of show, hour by hour'} href={`${event.runHref}/schedule`} access={help} />
+          <HubPageRow pageKey="maker" icon={PanelsTopLeft} label="Event Hub (the Maker)" line="The guests’ page for the event" href={`${event.runHref}/website`} access={help} />
+        </HubPageRows>
       </div>
     ) : (
       <div data-hub-pages="booked">
         <HubEyebrow about="The same screens the hosts use, opened inside your app.">The event’s pages</HubEyebrow>
         <p className="pb-1 text-[13.5px] text-ink/65">View only — ask the hosts for more.</p>
-        {forYourServicePages({ eventId: event.eventId, stage: 'booked', shopServices: ['stylist_decorator'], eventTiles: ['stylist_decorator'] }).map((d) => (
-          <HubDoorRow key={d.key} href={d.href} label={d.label} line={d.line} data={d.key} />
-        ))}
+        <HubPageRows>
+          {forYourServicePages({ eventId: event.eventId, stage: 'booked', shopServices: ['stylist_decorator'], eventTiles: ['stylist_decorator'] }).map((d) => (
+            <HubPageRow
+              key={d.key}
+              pageKey={d.key}
+              icon={ICON[d.key] ?? FileText}
+              label={d.label}
+              line={d.key === 'run' && sched ? sched : d.line}
+              href={d.href}
+              access="View only — ask the hosts for more."
+            />
+          ))}
+        </HubPageRows>
       </div>
     );
   } else if (!event.booked) {
@@ -152,7 +174,9 @@ export function HubLab({ seg: rawSeg, ev }: { seg?: string; ev?: string }) {
   } else {
     body = (
       <div>
-        <ModuleConfigurator eventId={event.eventId} modules={modules} />
+        <div id="hub-tools" className="scroll-mt-28">
+          <ModuleConfigurator eventId={event.eventId} modules={modules} />
+        </div>
         <HubRunOfShow blocks={BLOCKS} moreHref={`/vendor-dashboard/clients/${event.eventId}?tab=schedule`} />
         {run ? <CheckinDeskRows events={[run]} /> : null}
         {run ? <MessageEveryoneRows events={[run]} enabled /> : null}
@@ -169,10 +193,27 @@ export function HubLab({ seg: rawSeg, ev }: { seg?: string; ev?: string }) {
   return (
     <div className="min-h-screen bg-paper" data-supplier-lab="hub">
       <HubScreen
-        menu={<HubEventMenu events={list} selectedId={event.eventId} seg={seg} today={HUB_LAB_TODAY} />}
+        menu={
+          <HubEventMenu
+            events={list}
+            selectedId={event.eventId}
+            seg={seg}
+            today={HUB_LAB_TODAY}
+            info={
+              <HubEventInfo
+                event={event}
+                title={`${event.name} · Wedding`}
+                place={PLACE[event.eventId] ?? null}
+                invited={event.booked && !event.lock ? 180 : null}
+                attending={event.booked && !event.lock ? 162 : null}
+              />
+            }
+          />
+        }
         event={event}
         seg={seg}
         pane={<HubEventCard event={event} title={`${event.name} · Wedding`} place={PLACE[event.eventId] ?? null} />}
+        thumb={<HubThumbRow seg={seg} add={hubAddChoices(event)} />}
       >
         {body}
       </HubScreen>

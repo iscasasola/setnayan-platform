@@ -461,7 +461,8 @@ export function GuestsScreen(props: GuestsScreenProps) {
     setSeatMode(m);
     pickView('seats', m);
   };
-  /** 🗺 Map, Seats › 2D and Seats › 3D are auto-pinned FULL SCREEN (`isFullScreenView`). */
+  /** 🗺 Map, Seats › 2D and Seats › 3D are ALWAYS FULL SCREEN (`isFullScreenView`) — no ⤢, no toggle: the plan is the
+   *  whole screen from under the top nav to the bottom nav (`.fullSurface`). */
   const fullView = isFullScreenView(gview, seatMode);
   /** 🗂 R4 · Seats or March: a shipped maker drawn whole — no summary, no list, no thumb row of the List's. */
   const makerView = isGuestsMakerView(gview);
@@ -797,6 +798,39 @@ export function GuestsScreen(props: GuestsScreenProps) {
     ro?.observe(hold);
     const root = rootRef.current;
     if (root?.parentElement) ro?.observe(root.parentElement);
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      ro?.disconnect();
+      window.removeEventListener('resize', soon);
+    };
+  }, []);
+
+  /* 🗺 THE PLAN IS THE WHOLE SCREEN (owner, iPhone app, 2026-10-30: *"the whole background will be the 3d plan or the 2d
+     plan or the map. They are all full screen. So we only keep the bottom nav thumb row and the icons of the top nav"*;
+     DECISION_LOG "SEATS 2D · SEATS 3D · THE MAP ARE ALWAYS FULL SCREEN — NO FULL-SCREEN BUTTON"). On Map · Seats › 2D ·
+     3D the view's surface (`.fullSurface`) is lifted from where this screen starts on the page (`--gs-root-top`, read
+     here) to the shell bar's bottom (`--gs-top`), and runs down to the bottom nav — so the ONE row floats over the plan
+     right under the top nav, with no gap, and the page has nothing to scroll. A measurement, written only when it
+     changes, never state. 🔒 lib/maps-are-always-full-screen.test.ts */
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    let raf = 0;
+    let last = '';
+    const read = () => {
+      raf = 0;
+      const next = `${Math.round(root.getBoundingClientRect().top + window.scrollY)}px`;
+      if (next === last) return;
+      last = next;
+      root.style.setProperty('--gs-root-top', next);
+    };
+    const soon = () => {
+      if (!raf) raf = requestAnimationFrame(read);
+    };
+    read();
+    window.addEventListener('resize', soon);
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(soon) : null;
+    if (root.parentElement) ro?.observe(root.parentElement);
     return () => {
       if (raf) cancelAnimationFrame(raf);
       ro?.disconnect();
@@ -1921,21 +1955,29 @@ export function GuestsScreen(props: GuestsScreenProps) {
         <GuestsLensContext.Provider value={lens}>
           {GUESTS_MAKER_VIEWS.map((v) =>
             seenViews.has(v) && props.bodies?.[v] ? (
-              <div key={v} data-guests-view-body={v} className="min-w-0" hidden={gview !== v}>
+              <div
+                key={v}
+                data-guests-view-body={v}
+                className={fullView && gview === v ? `min-w-0 ${styles.fullSurface}` : 'min-w-0'}
+                data-guests-full-surface={fullView && gview === v ? '' : undefined}
+                hidden={gview !== v}
+              >
                 {props.bodies[v]}
               </div>
             ) : null,
           )}
         </GuestsLensContext.Provider>
         {makerView ? null : gview === 'map' ? (
-          <GuestMapCanvas
-            rootLabel={rootLabel}
-            tree={tree}
-            isToInvite={isToInvite}
-            plusWords={plusWords}
-            onOpen={openCard}
-            fitKey={`${arrange}|${q}`}
-          />
+          <div className={styles.fullSurface} data-guests-full-surface="">
+            <GuestMapCanvas
+              rootLabel={rootLabel}
+              tree={tree}
+              isToInvite={isToInvite}
+              plusWords={plusWords}
+              onOpen={openCard}
+              fitKey={`${arrange}|${q}`}
+            />
+          </div>
         ) : (
           list
         )}

@@ -29,8 +29,16 @@ Owner, 30 Oct: *"take selfie face circle is too small and registering the selfie
   digital 2× inside it). A clip records the whole frame, so Snippet and a recording hold now SHOW the whole frame
   (`object-contain`) — on screen is what is kept, both ways.
 
+- **A failed save never costs the guest the fingerprint she had.** The unique index forces retire-then-insert; the
+  retired rows are now remembered and put back when the new one does not land (it used to leave her with none).
+- **A reader that never downloaded is "connection lost", not "your face wasn't clear"** — a failed face-api.js / weight
+  download is told apart from a photo with no readable face, and the full-frame re-read is skipped (it would only wait
+  for the same download again).
+- **Tap-to-focus in Snippet** maps through `object-contain` (the whole frame now shown there); a tap on the bars
+  focuses nothing.
+
 Guards: `app/[slug]/_components/the-selfie-is-quick.test.ts` (7 sabotages seen red) ·
-`lib/papic-viewfinder-crop.test.ts` (executed).
+`lib/papic-viewfinder-crop.test.ts` (executed: portrait · landscape · square · 2× · every frame × box stays inside and keeps the box's shape) · `lib/papic-camera-steps.test.ts` (contain-fit tap).
 
 Not changed: the photo already tagged as Indalecio on cale-ice stays as it is (production data is not touched from a
 session) — the host can remove that tag; Indalecia needs to take her selfie again for her photos to find her.

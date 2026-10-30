@@ -661,6 +661,7 @@ export function PapicGuestCapture({
         videoH: video.videoHeight,
         crop: recordingRef.current ? 1 : crop,
         mirrored,
+        fit: mode === 'snippet' || recordingRef.current ? 'contain' : 'cover',
       });
       if (!point) return;
       focusAt(point);
@@ -668,7 +669,7 @@ export function PapicGuestCapture({
       setFocusMark({ x: tapX, y: tapY, key });
       setTimeout(() => setFocusMark((m) => (m?.key === key ? null : m)), 1200);
     },
-    [canFocus, ready, switching, tagging, exhausted, crop, mirrored, focusAt, videoRef],
+    [canFocus, ready, switching, tagging, exhausted, crop, mirrored, mode, focusAt, videoRef],
   );
 
   const closeShots = useCallback(() => setShotsOpen(false), []);

@@ -60,14 +60,28 @@ const ENROLL = code('app/papic/face-enroll-actions.ts');
 const GATE = code('lib/face-gate.ts');
 
 test('a mode_a selfie with no fingerprint is refused — on the phone AND on the server, before the old one is retired', () => {
-  assert.match(SELFIE, /if \(!vector && isFaceModelConfigured\(\)\) \{\s*onFail\(faceStepFailureWords\('face_unread'\)\);\s*return;\s*\}/, 'the phone saves a selfie it could not read');
-  // The small copy misses a face held further off → the full frame is read once more before giving up.
-  assert.match(SELFIE, /if \(!r && scale < 1\) \{/);
+  assert.match(
+    SELFIE,
+    /if \(!vector && isFaceModelConfigured\(\)\) \{\s*onFail\(faceStepFailureWords\(unloaded \? 'save' : 'face_unread'\)\);\s*return;\s*\}/,
+    'the phone saves a selfie it could not read',
+  );
+  // The small copy misses a face held further off → the full frame is read once more before giving up — unless the
+  // reader never downloaded, which is "connection lost", never "your face wasn't clear".
+  assert.match(SELFIE, /if \(!r && scale < 1 && !unloaded\) \{/);
+  assert.match(SELFIE, /unloaded = faceEmbedDidNotLoad\(\);/, 'a reader that never loaded is blamed on the guest’s face');
   const guard = ENROLL.indexOf("return { ok: false, reason: 'face_unread' };");
   const retire = ENROLL.indexOf(".update({ revoked_at: new Date().toISOString() })");
   assert.ok(guard > 0, 'the server saves a mode_a selfie with no fingerprint');
   assert.ok(retire > guard, 'the old enrolment is retired before the new one is known to match');
   assert.match(ENROLL, /faceTagging\.mode === 'mode_a' &&\s*isFaceModelConfigured\(\) &&\s*shots\.every\(\(s\) => s\.vector == null\)/);
+});
+
+test('a save that fails after the old enrolment was retired puts the old one back', () => {
+  // The unique index forces retire-then-insert; the retired ids are kept and restored when the insert errors.
+  assert.match(ENROLL, /\.is\('revoked_at', null\)\s*\.select\('id'\);/, 'the retired rows are not remembered');
+  const restore = ENROLL.search(/if \(error && retiredIds\.length > 0\) \{\s*const \{ error: restoreErr \} = await admin\s*\.from\('guest_face_enrollments'\)\s*\.update\(\{ revoked_at: null \}\)\s*\.in\('id', retiredIds\);/);
+  assert.ok(restore > 0, 'a failed save leaves the guest with no fingerprint at all');
+  assert.ok(restore < ENROLL.indexOf("return error ? { ok: false, reason: 'save' } : { ok: true };"), 'the restore runs after the answer is sent');
 });
 
 test('a face in the background does not refuse a selfie; two people in the oval still do', () => {

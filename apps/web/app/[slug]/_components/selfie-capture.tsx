@@ -226,11 +226,15 @@ export function SelfieCapture({
 
       let vector: number[] | null = null;
       if (faceMode === 'mode_a') {
+        // The reader itself did not arrive (script or weights failed to download) — not the guest's face.
+        let unloaded = false;
         try {
-          const { embedSingleFace } = await import('@/lib/face-embed');
+          const { embedSingleFace, faceEmbedDidNotLoad } = await import('@/lib/face-embed');
           let r = await embedSingleFace(canvas);
-          // Not found on the small copy (a face held further off) → read the camera's full frame once more.
-          if (!r && scale < 1) {
+          unloaded = faceEmbedDidNotLoad();
+          // Not found on the small copy (a face held further off) → read the camera's full frame once more. Not when
+          // the reader never loaded: a second read would only wait for the same download again.
+          if (!r && scale < 1 && !unloaded) {
             const full = document.createElement('canvas');
             full.width = video.videoWidth;
             full.height = video.videoHeight;
@@ -245,11 +249,13 @@ export function SelfieCapture({
           vector = r ? r.vector : null;
         } catch {
           vector = null;
+          unloaded = true;
         }
         // 🔒 NO FINGERPRINT, NO SAVE (owner 2026-10-30): a mode_a selfie the phone could not read matches nobody —
         // saving it told Indalecia she was set while every photo of her went to somebody else. Say so; she stays here.
+        // The words are honest about WHICH failed: a reader that never downloaded is "connection lost", not her face.
         if (!vector && isFaceModelConfigured()) {
-          onFail(faceStepFailureWords('face_unread'));
+          onFail(faceStepFailureWords(unloaded ? 'save' : 'face_unread'));
           return;
         }
       }

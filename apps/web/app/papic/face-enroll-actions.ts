@@ -247,13 +247,17 @@ export async function enrollGuestFace(
       .eq('event_id', eventId);
 
     // One non-revoked enrollment per (event, guest): retire the live row first
-    // (a fresh day-of selfie supersedes a stale one).
-    await admin
+    // (a fresh day-of selfie supersedes a stale one). The unique index
+    // `guest_face_enrollments_one_active_per_guest` forces retire-THEN-insert, so
+    // the retired ids are kept: if the insert below fails, they are put back.
+    const { data: retiredRows } = await admin
       .from('guest_face_enrollments')
       .update({ revoked_at: new Date().toISOString() })
       .eq('event_id', eventId)
       .eq('guest_id', guestId)
-      .is('revoked_at', null);
+      .is('revoked_at', null)
+      .select('id');
+    const retiredIds = ((retiredRows ?? []) as { id: number }[]).map((r) => r.id);
 
     // BIOMETRIC WRITE GUARD (One-Pool spec §3.4). Resolve the EFFECTIVE face
     // mode server-side (christening/debut forced to mode_b; fail-closed) and
@@ -295,6 +299,16 @@ export async function enrollGuestFace(
       than waiting for a cache to expire.
     */
     if (!error) await everyCopyIsNowStale(eventId);
+
+    // 🔒 A SAVE THAT FAILED NEVER COSTS THE GUEST THE FINGERPRINT SHE HAD (2026-10-30): the old row was retired a
+    // few lines up and the new one did not land, so the old one comes back — "Couldn't save", and still findable.
+    if (error && retiredIds.length > 0) {
+      const { error: restoreErr } = await admin
+        .from('guest_face_enrollments')
+        .update({ revoked_at: null })
+        .in('id', retiredIds);
+      if (restoreErr) console.error('[supabase-error] app/papic/face-enroll-actions.ts · restore retired enrolment', restoreErr);
+    }
 
     return error ? { ok: false, reason: 'save' } : { ok: true };
   } catch {

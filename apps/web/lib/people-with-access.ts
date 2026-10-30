@@ -319,6 +319,24 @@ export function accessGroupOf(kind: PersonKind): AccessGroupKey {
   return kind === 'co_host' ? 'hosts' : kind === 'coordinator' ? 'coordinator' : kind === 'supplier' ? 'suppliers' : 'helpers';
 }
 
+/**
+ * The words `removeHost` can bring back to People with access — anything else in the address is not ours, so a
+ * hand-edited link cannot print its own message on the section. ONE copy for both places the section is drawn (Event
+ * Details and Home's ⚙ Event Settings sheet, owner 2026-10-30).
+ */
+const REMOVE_REFUSALS = new Set([
+  'You cannot remove yourself.',
+  'A celebrant stays a co-host. A celebrant can change their role first.',
+  'Could not remove them. Try again.',
+]);
+
+/** The section's one flash line from the address it landed on — or null. */
+export function accessFlashFrom(q: { host_removed?: unknown; invite_error?: unknown } | null | undefined): string | null {
+  if (!q) return null;
+  if (q.host_removed === '1') return 'Removed — their access ended immediately.';
+  return typeof q.invite_error === 'string' && REMOVE_REFUSALS.has(q.invite_error) ? q.invite_error : null;
+}
+
 /** What the Event access fold says when its read FAILED — never a zero. */
 export const ACCESS_SUMMARY_FAILED = 'Couldn’t load';
 

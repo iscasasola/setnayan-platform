@@ -1392,7 +1392,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: Settings,
         title: 'Four places, nothing hidden',
-        body: 'The bar is Today, Customers, Shop and Hub. Messages open from the envelope at the top, How it is going is in Shop, and Settings is under your profile picture.',
+        body: 'The bar is Today, Customers, Shop and Hub. Messages open from the envelope at the top, Analytics is in Shop, and Settings is under your profile picture.',
       },
     ],
   },
@@ -1428,7 +1428,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
   vendor_shop_v1: {
     key: 'vendor_shop_v1',
     label: 'Supplier — Shop mini-tour',
-    blurb: 'Services, Page and Insights — the three segments of Shop.',
+    blurb: 'Details, Services, Page, Portfolio and Analytics — the five parts of Shop.',
     slides: [
       {
         Icon: Briefcase,
@@ -1444,10 +1444,12 @@ export const TOURS: Record<TourKey, TourDefinition> = {
     spotlight: {
       steps: [
         {
+          // v13 (S5): the segments are ONE ▾ now (Details · Services · Page · Gallery · Analytics) — a dropdown is not a
+          // doorway Next can walk through, so this stop asks; the next two light when the supplier picks Page.
           anchor: 'shop-segments',
-          title: 'Services · Page · How it is going',
-          body: 'What you sell, how your page looks to couples, and how it is doing. Tap Page.',
-          go: true,
+          title: 'Details · Services · Page · Portfolio · Analytics',
+          body: 'Every part of your shop is in this one menu. Open it and pick Page.',
+          hint: 'Pick Page — or press Next',
         },
         {
           anchor: 'shop-page-list',
@@ -1484,24 +1486,24 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       steps: [
         {
           anchor: 'hub-next-days',
-          title: 'Your next events',
-          body: 'Each booked day unlocks here once its booking fee is paid. Tap one to set it up ahead.',
+          title: 'Your events',
+          body: 'Pick the event to set up — every booked day and every event you run. A day opens once its booking fee is paid.',
         },
         {
           anchor: 'hub-empty',
-          title: 'Your day-of console',
-          body: 'On an event day this is where you run it — scan, schedule, shot list, headcount.',
+          title: 'Your Event Hub',
+          body: 'When a couple books you, their event lands here — set it up ahead, and run it on the day.',
         },
         {
           // (2026-10-25) On an event day — the quiet day’s stops above are dropped there, and this one here.
           anchor: 'hub-day-launch',
           title: 'Run the day',
-          body: 'Launch the app opens today’s event: scan, schedule, shot list, headcount.',
+          body: 'Open the Event Hub runs today’s event: scan, schedule, shot list, headcount.',
         },
         {
           anchor: 'hub-setup',
           title: 'Your day-of tools',
-          body: 'What you can run on the day. Set them up per event, and pick which helpers can open them.',
+          body: 'What you can run on the day. Set them up per event; Crew picks who can open them.',
         },
       ],
       finale: {
@@ -1629,8 +1631,9 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         },
         {
           anchor: 'guests-setup',
-          title: 'Send invitations, see replies',
-          body: 'Send each invitation from here and watch the replies come in, guest by guest.',
+          /* 🗂 R4 slice 11: the ⚙ no longer sends invitations (the To invite count and Select › Invite N do). */
+          title: 'Your RSVP settings',
+          body: 'What guests are asked when they reply, and the reply-by date — behind the ⚙. Send invitations from the To invite count.',
         },
         {
           anchor: 'tab-vendors',
@@ -1723,7 +1726,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         {
           anchor: 'customers-list',
           title: 'Who is waiting comes first',
-          body: 'Every customer is one row with their next step on it. The ones waiting on your answer are always at the top.',
+          body: 'Every event is one row with its next step on it. The ones waiting on your answer are always at the top.',
         },
         {
           anchor: 'tab-vendor-dashboard',
@@ -2017,7 +2020,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
           anchor: 'guests-views',
           /* 🗂 R1 (owner 2026-10-28): the RSVP settings moved here from the Event Hub's Studio — the tour says where. */
           title: 'List, Map and ⚙',
-          body: 'List is everyone. Map groups them by side, role or group. ⚙ sends the invitations and holds your RSVP — what it asks and the reply-by date.',
+          body: 'List is everyone. Map groups them by side, role or group. ⚙ holds your RSVP — what it asks and the reply-by date.',
         },
         {
           anchor: 'guests-counts',
@@ -2140,23 +2143,23 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       },
     },
   },
-  /* 🔦 CUSTOMERS › PEOPLE — a first-visit page tour (owner 2026-10-25). The journey lit the list (`customers-list`); Dates and Money have their own. */
+  /* 🔦 CUSTOMERS › EVENTS (People until 2026-10-30) — a first-visit page tour (owner 2026-10-25). The journey lit the list (`customers-list`); Dates and Money have their own. The key keeps its old name: it is the "seen" mark a supplier already holds. */
   vendor_people_v1: {
     key: 'vendor_people_v1',
     label: 'Supplier — Customers page spotlight',
-    blurb: 'People ▾, the four counts, ⚙, search and ＋ an outside booking.',
+    blurb: 'Events ▾, the three counts, ⚙, search and ＋ an outside booking.',
     slides: [],
     spotlight: {
       steps: [
         {
           anchor: 'customers-segments',
-          title: 'People ▾',
-          body: 'Switch between your customers, your calendar and your payments.',
+          title: 'Events ▾',
+          body: 'Switch between your customers’ events, your calendar and your payments.',
         },
         {
           anchor: 'customers-filter',
-          title: 'Asking · Talking · Booked · Done',
-          body: 'Tap a count to show those customers right here. Each event is one row — tap it to open its chat.',
+          title: 'Asking · Booked · Done',
+          body: 'Every event is listed. Tap a count to show only those; tap it again to see them all. Tap an event to see everyone hosting it.',
         },
         {
           anchor: 'customers-gear',
@@ -2165,8 +2168,8 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         },
         {
           anchor: 'customers-search',
-          title: 'Search customers',
-          body: 'Type a name to find a customer.',
+          title: 'Search events',
+          body: 'Type a name to find an event.',
         },
         {
           anchor: 'customers-add',

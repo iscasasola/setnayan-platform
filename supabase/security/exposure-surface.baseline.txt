@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6773
+# facts: 6803
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     575
-#   col       4965
-#   policy    958
+#   tpriv     576
+#   col       4983
+#   policy    962
 #   view      9
-#   func      262
+#   func      269
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -138,8 +138,8 @@ tpriv	public.event_floor_plan|authenticated	SIUD
 tpriv	public.event_floor_signs|anon	SIUD
 tpriv	public.event_floor_signs|authenticated	SIUD
 tpriv	public.event_gift_records|authenticated	SU
-tpriv	public.event_inspiration_assets|anon	SIUD
-tpriv	public.event_inspiration_assets|authenticated	SIUD
+tpriv	public.event_inspiration_assets|anon	S
+tpriv	public.event_inspiration_assets|authenticated	SID
 tpriv	public.event_inspiration_suggestions|authenticated	S
 tpriv	public.event_join_tokens|anon	SIUD
 tpriv	public.event_join_tokens|authenticated	SIUD
@@ -151,6 +151,7 @@ tpriv	public.event_members|anon	SIUD
 tpriv	public.event_members|authenticated	SIUD
 tpriv	public.event_moderators|anon	D
 tpriv	public.event_moderators|authenticated	D
+tpriv	public.event_mood_board_changes|authenticated	S
 tpriv	public.event_paperwork|anon	D
 tpriv	public.event_paperwork|authenticated	D
 tpriv	public.event_playlist_picks|authenticated	SIUD
@@ -1530,25 +1531,25 @@ col	public.event_gift_records.public_id	anon=- authenticated=SU
 col	public.event_gift_records.removed_at	anon=- authenticated=SU
 col	public.event_gift_records.screenshot_r2_key	anon=- authenticated=SU
 col	public.event_gift_records.wish_item_id	anon=- authenticated=SU
-col	public.event_inspiration_assets.added_by_user_id	anon=SIU authenticated=SIU
-col	public.event_inspiration_assets.caption	anon=SIU authenticated=SIU
-col	public.event_inspiration_assets.created_at	anon=SIU authenticated=SIU
-col	public.event_inspiration_assets.event_id	anon=SIU authenticated=SIU
-col	public.event_inspiration_assets.from_suggestion_id	anon=SIU authenticated=SIU
-col	public.event_inspiration_assets.image_url	anon=SIU authenticated=SIU
-col	public.event_inspiration_assets.inspiration_id	anon=SIU authenticated=SIU
-col	public.event_inspiration_assets.library_asset_id	anon=SIU authenticated=SIU
-col	public.event_inspiration_assets.r2_key	anon=SIU authenticated=SIU
-col	public.event_inspiration_assets.removed_at	anon=SIU authenticated=SIU
-col	public.event_inspiration_assets.sampled_hex_1	anon=SIU authenticated=SIU
-col	public.event_inspiration_assets.sampled_hex_2	anon=SIU authenticated=SIU
-col	public.event_inspiration_assets.sampled_hex_3	anon=SIU authenticated=SIU
-col	public.event_inspiration_assets.sampled_hex_4	anon=SIU authenticated=SIU
-col	public.event_inspiration_assets.sampled_hex_5	anon=SIU authenticated=SIU
-col	public.event_inspiration_assets.sampled_hex_6	anon=SIU authenticated=SIU
-col	public.event_inspiration_assets.slot_key	anon=SIU authenticated=SIU
-col	public.event_inspiration_assets.slot_position	anon=SIU authenticated=SIU
-col	public.event_inspiration_assets.source_kind	anon=SIU authenticated=SIU
+col	public.event_inspiration_assets.added_by_user_id	anon=S authenticated=SI
+col	public.event_inspiration_assets.caption	anon=S authenticated=SI
+col	public.event_inspiration_assets.created_at	anon=S authenticated=SI
+col	public.event_inspiration_assets.event_id	anon=S authenticated=SI
+col	public.event_inspiration_assets.from_suggestion_id	anon=S authenticated=SI
+col	public.event_inspiration_assets.image_url	anon=S authenticated=SI
+col	public.event_inspiration_assets.inspiration_id	anon=S authenticated=SI
+col	public.event_inspiration_assets.library_asset_id	anon=S authenticated=SI
+col	public.event_inspiration_assets.r2_key	anon=S authenticated=SI
+col	public.event_inspiration_assets.removed_at	anon=S authenticated=SIU
+col	public.event_inspiration_assets.sampled_hex_1	anon=S authenticated=SI
+col	public.event_inspiration_assets.sampled_hex_2	anon=S authenticated=SI
+col	public.event_inspiration_assets.sampled_hex_3	anon=S authenticated=SI
+col	public.event_inspiration_assets.sampled_hex_4	anon=S authenticated=SI
+col	public.event_inspiration_assets.sampled_hex_5	anon=S authenticated=SI
+col	public.event_inspiration_assets.sampled_hex_6	anon=S authenticated=SI
+col	public.event_inspiration_assets.slot_key	anon=S authenticated=SIU
+col	public.event_inspiration_assets.slot_position	anon=S authenticated=SIU
+col	public.event_inspiration_assets.source_kind	anon=S authenticated=SI
 col	public.event_inspiration_suggestions.created_at	anon=- authenticated=S
 col	public.event_inspiration_suggestions.decided_at	anon=- authenticated=S
 col	public.event_inspiration_suggestions.decided_by_user_id	anon=- authenticated=S
@@ -1571,6 +1572,7 @@ col	public.event_inspiration_suggestions.state	anon=- authenticated=S
 col	public.event_inspiration_suggestions.suggested_by_user_id	anon=- authenticated=S
 col	public.event_inspiration_suggestions.suggestion_id	anon=- authenticated=S
 col	public.event_inspiration_suggestions.vendor_profile_id	anon=- authenticated=S
+col	public.event_inspiration_suggestions.vendor_service_id	anon=- authenticated=S
 col	public.event_join_tokens.created_at	anon=SIU authenticated=SIU
 col	public.event_join_tokens.event_id	anon=SIU authenticated=SIU
 col	public.event_join_tokens.expires_at	anon=SIU authenticated=SIU
@@ -1631,6 +1633,20 @@ col	public.event_moderators.removed_at	anon=SIU authenticated=SIU
 col	public.event_moderators.role_subtype	anon=SIU authenticated=SIU
 col	public.event_moderators.updated_at	anon=SIU authenticated=SIU
 col	public.event_moderators.user_id	anon=SIU authenticated=SIU
+col	public.event_mood_board_changes.actor_label	anon=- authenticated=S
+col	public.event_mood_board_changes.actor_user_id	anon=- authenticated=S
+col	public.event_mood_board_changes.change_id	anon=- authenticated=S
+col	public.event_mood_board_changes.created_at	anon=- authenticated=S
+col	public.event_mood_board_changes.event_id	anon=- authenticated=S
+col	public.event_mood_board_changes.first_row_at	anon=- authenticated=S
+col	public.event_mood_board_changes.kind	anon=- authenticated=S
+col	public.event_mood_board_changes.part_label	anon=- authenticated=S
+col	public.event_mood_board_changes.shop_label	anon=- authenticated=S
+col	public.event_mood_board_changes.slot_key	anon=- authenticated=S
+col	public.event_mood_board_changes.suggestion_id	anon=- authenticated=S
+col	public.event_mood_board_changes.touched	anon=- authenticated=S
+col	public.event_mood_board_changes.undone_at	anon=- authenticated=S
+col	public.event_mood_board_changes.undone_by_user_id	anon=- authenticated=S
 col	public.event_paperwork.created_at	anon=SIU authenticated=SIU
 col	public.event_paperwork.document_r2_key	anon=SIU authenticated=SIU
 col	public.event_paperwork.document_type	anon=SIU authenticated=SIU
@@ -1740,6 +1756,8 @@ col	public.event_seat_assignments.created_at	anon=SIU authenticated=SIU
 col	public.event_seat_assignments.event_id	anon=SIU authenticated=SIU
 col	public.event_seat_assignments.guest_id	anon=SIU authenticated=SIU
 col	public.event_seat_assignments.locked	anon=SIU authenticated=SIU
+col	public.event_seat_assignments.placed_at	anon=SIU authenticated=SIU
+col	public.event_seat_assignments.placed_by	anon=SIU authenticated=SIU
 col	public.event_seat_assignments.seat_number	anon=SIU authenticated=SIU
 col	public.event_seat_assignments.table_id	anon=SIU authenticated=SIU
 col	public.event_seating_constraints.constraint_id	anon=SIU authenticated=SIU
@@ -2862,6 +2880,7 @@ col	public.moodboard_library_assets.storage_path	anon=SIU authenticated=SIU
 col	public.moodboard_library_assets.style_theme	anon=SIU authenticated=SIU
 col	public.moodboard_library_assets.uploaded_by	anon=SIU authenticated=SIU
 col	public.moodboard_library_assets.vendor_profile_id	anon=SIU authenticated=SIU
+col	public.moodboard_library_assets.vendor_service_id	anon=S authenticated=S
 col	public.moodboard_part_finalizations.agreed_at	anon=- authenticated=S
 col	public.moodboard_part_finalizations.answered_by_user_id	anon=- authenticated=S
 col	public.moodboard_part_finalizations.cancelled_at	anon=- authenticated=S
@@ -5776,11 +5795,12 @@ policy	public.event_floor_signs|event_floor_signs_moderator_read	mode=PERMISSIVE
 policy	public.event_floor_signs|event_floor_signs_moderator_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=(event_id IN ( SELECT l.event_id FROM current_moderator_area_levels('seat_plan'::text) l(event_id, level) WHERE (l.level = 'edit'::text))) check=(event_id IN ( SELECT l.event_id FROM current_moderator_area_levels('seat_plan'::text) l(event_id, level) WHERE (l.level = 'edit'::text)))
 policy	public.event_gift_records|event_gift_records_host_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=((event_id IN ( SELECT event_moderators.event_id FROM event_moderators WHERE ((event_moderators.user_id = ( SELECT auth.uid() AS uid)) AND (event_moderators.accepted_at IS NOT NULL) AND (event_moderators.removed_at IS NULL)))) OR (event_id IN ( SELECT event_members.event_id FROM event_members WHERE ((event_members.user_id = ( SELECT auth.uid() AS uid)) AND (event_members.member_type = 'couple'::member_type)))) OR ( SELECT is_admin() AS is_admin)) check=((event_id IN ( SELECT event_moderators.event_id FROM event_moderators WHERE ((event_moderators.user_id = ( SELECT auth.uid() AS uid)) AND (event_moderators.accepted_at IS NOT NULL) AND (event_moderators.removed_at IS NULL)))) OR (event_id IN ( SELECT event_members.event_id FROM event_members WHERE ((event_members.user_id = ( SELECT auth.uid() AS uid)) AND (event_members.member_type = 'couple'::member_type)))) OR ( SELECT is_admin() AS is_admin))
 policy	public.event_inspiration_assets|event_inspiration_assets_admin_all	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=(EXISTS ( SELECT 1 FROM users u WHERE ((u.user_id = ( SELECT auth.uid() AS uid)) AND ((u.is_internal = true) OR (u.is_team_member = true) OR (u.account_type = 'admin'::account_type))))) check=(EXISTS ( SELECT 1 FROM users u WHERE ((u.user_id = ( SELECT auth.uid() AS uid)) AND ((u.is_internal = true) OR (u.is_team_member = true) OR (u.account_type = 'admin'::account_type)))))
-policy	public.event_inspiration_assets|event_inspiration_assets_host_insert	mode=PERMISSIVE cmd=INSERT roles=PUBLIC using=NULL check=((added_by_user_id = ( SELECT auth.uid() AS uid)) AND (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = event_inspiration_assets.event_id) AND (em.user_id = ( SELECT auth.uid() AS uid))))))
+policy	public.event_inspiration_assets|event_inspiration_assets_host_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((added_by_user_id = ( SELECT auth.uid() AS uid)) AND ((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR (event_id IN ( SELECT l.event_id FROM current_moderator_area_levels('mood_board'::text) l(event_id, level) WHERE (l.level = 'edit'::text)))))
 policy	public.event_inspiration_assets|event_inspiration_assets_host_select	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=(EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = event_inspiration_assets.event_id) AND (em.user_id = ( SELECT auth.uid() AS uid))))) check=NULL
-policy	public.event_inspiration_assets|event_inspiration_assets_host_update	mode=PERMISSIVE cmd=UPDATE roles=PUBLIC using=(EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = event_inspiration_assets.event_id) AND (em.user_id = ( SELECT auth.uid() AS uid))))) check=(EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = event_inspiration_assets.event_id) AND (em.user_id = ( SELECT auth.uid() AS uid)))))
+policy	public.event_inspiration_assets|event_inspiration_assets_host_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR (event_id IN ( SELECT l.event_id FROM current_moderator_area_levels('mood_board'::text) l(event_id, level) WHERE (l.level = 'edit'::text)))) check=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR (event_id IN ( SELECT l.event_id FROM current_moderator_area_levels('mood_board'::text) l(event_id, level) WHERE (l.level = 'edit'::text))))
 policy	public.event_inspiration_suggestions|event_inspiration_suggestions_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.event_inspiration_suggestions|event_inspiration_suggestions_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
+policy	public.event_inspiration_suggestions|event_inspiration_suggestions_mood_board_editor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT l.event_id FROM current_moderator_area_levels('mood_board'::text) l(event_id, level) WHERE (l.level = 'edit'::text))) check=NULL
 policy	public.event_inspiration_suggestions|event_inspiration_suggestions_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_vendor_id IN ( SELECT current_vendor_event_vendor_ids() AS current_vendor_event_vendor_ids)) check=NULL
 policy	public.event_join_tokens|couple_manages_join_token	mode=PERMISSIVE cmd=ALL roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR ( SELECT is_admin() AS is_admin)) check=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR ( SELECT is_admin() AS is_admin))
 policy	public.event_journey_steps|event_journey_steps_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=NULL
@@ -5798,6 +5818,9 @@ policy	public.event_moderators|event_moderators_host_delete	mode=PERMISSIVE cmd=
 policy	public.event_moderators|event_moderators_host_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids))
 policy	public.event_moderators|event_moderators_host_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids))
 policy	public.event_moderators|event_moderators_select_own_events	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((user_id = ( SELECT auth.uid() AS uid)) OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = event_moderators.event_id) AND (em.user_id = ( SELECT auth.uid() AS uid)) AND (em.member_type = 'couple'::member_type))))) check=NULL
+policy	public.event_mood_board_changes|event_mood_board_changes_actor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(actor_user_id = ( SELECT auth.uid() AS uid)) check=NULL
+policy	public.event_mood_board_changes|event_mood_board_changes_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
+policy	public.event_mood_board_changes|event_mood_board_changes_owner_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=NULL
 policy	public.event_paperwork|event_paperwork_admin_select	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=(EXISTS ( SELECT 1 FROM users u WHERE ((u.user_id = ( SELECT auth.uid() AS uid)) AND (u.is_internal = true)))) check=NULL
 policy	public.event_paperwork|event_paperwork_host_delete	mode=PERMISSIVE cmd=DELETE roles=PUBLIC using=(event_id IN ( SELECT event_moderators.event_id FROM event_moderators WHERE ((event_moderators.user_id = ( SELECT auth.uid() AS uid)) AND (event_moderators.removed_at IS NULL)))) check=NULL
 policy	public.event_paperwork|event_paperwork_host_insert	mode=PERMISSIVE cmd=INSERT roles=PUBLIC using=NULL check=(event_id IN ( SELECT event_moderators.event_id FROM event_moderators WHERE ((event_moderators.user_id = ( SELECT auth.uid() AS uid)) AND (event_moderators.removed_at IS NULL))))
@@ -6552,11 +6575,13 @@ func	public.apply_colour_change(p_event_id uuid, p_domain text, p_target_kind te
 func	public.approve_vendor_subscription(p_purchase_id uuid)	secdef=yes exec=anon,authenticated search_path=UNPINNED
 func	public.ask_event_date_change(p_event_id uuid, p_date date, p_precision text, p_event_vendor_ids uuid[])	secdef=yes exec=authenticated search_path=public
 func	public.assert_seating_lock_held(p_event_id uuid, p_lock_id uuid)	secdef=yes exec=anon,authenticated search_path=public
+func	public.begin_mood_board_change(p_event_id uuid, p_kind text, p_slot_key text)	secdef=yes exec=authenticated search_path=public
 func	public.booking_fee_centavos(p_amount_centavos bigint)	secdef=no exec=anon,authenticated search_path=public
 func	public.booking_fee_free_window_active(p_at timestamp with time zone)	secdef=no exec=anon,authenticated search_path=public
 func	public.booking_fee_proposal_cleared(p_proposal_id uuid)	secdef=no exec=anon,authenticated search_path=public
 func	public.bundles_granting_sku(p_child text)	secdef=no exec=anon,authenticated search_path=public
 func	public.call_rtc_can_access(p_topic text)	secdef=no exec=authenticated search_path=public, pg_temp
+func	public.can_change_mood_board_photos(p_event_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.cancel_event_deletion_request(p_event_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.cancel_part_finalization_request(p_finalization_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.cancel_part_reopen_request(p_finalization_id uuid)	secdef=yes exec=authenticated search_path=public
@@ -6651,6 +6676,10 @@ func	public.mark_samahan_read(p_community_id uuid)	secdef=yes exec=authenticated
 func	public.mark_vendor_contact_confirmed(p_application_id uuid, p_channel text)	secdef=yes exec=authenticated search_path=public
 func	public.min_n_ok(p_count integer, p_floor integer)	secdef=no exec=anon,authenticated search_path=UNPINNED
 func	public.moderator_area_level(p_event_id uuid, p_area text)	secdef=yes exec=anon,authenticated search_path=public
+func	public.mood_board_change_is_recorded_for(p_event_id uuid)	secdef=yes exec=authenticated search_path=public
+func	public.mood_board_change_mark_undone(p_change_id uuid)	secdef=yes exec=authenticated search_path=public
+func	public.mood_board_change_undo_plan(p_change_id uuid)	secdef=yes exec=authenticated search_path=public
+func	public.mood_board_home_asks(p_event_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.move_event_schedule_with_date(p_event_id uuid, p_to_day date)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.offer_creator_reach_hold(p_vendor_profile_id uuid, p_creator_user_id uuid, p_creator_rate_terms text, p_audience_rate_terms text, p_reach_tokens integer, p_expires_at timestamp with time zone)	secdef=yes exec=anon,authenticated search_path=public
 func	public.order_basket_lines(p_order_id uuid)	secdef=yes exec=authenticated search_path=public, pg_temp
@@ -6733,6 +6762,7 @@ func	public.swap_seat_assignments(p_event_id uuid, p_guest_a uuid, p_guest_b uui
 func	public.swap_table_assignments(p_event_id uuid, p_table_a uuid, p_table_b uuid)	secdef=no exec=anon,authenticated search_path=public
 func	public.sweep_vendor_tier_expiry(p_vendor_id uuid)	secdef=yes exec=anon,authenticated search_path=UNPINNED
 func	public.trusted_circle_vendor_signal(p_event_id uuid, p_vendor_profile_id uuid)	secdef=yes exec=anon,authenticated search_path=public
+func	public.undo_mood_board_change(p_change_id uuid)	secdef=no exec=authenticated search_path=public
 func	public.unlock_vendor_event_free(p_vendor_profile_id uuid, p_event_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.unlock_vendor_event_hold(p_vendor_profile_id uuid, p_event_id uuid, p_thread_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.unpair_guest(p_event_id uuid, p_guest_id uuid)	secdef=no exec=authenticated search_path=public, pg_temp

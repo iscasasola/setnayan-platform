@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
+import { SERVICE_NAMES } from '@/lib/service-names';
 import { PapicBuySheet } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-buy-sheet';
-import { PapicCameraSettings, PapicSwitch } from './studio/papic/_components/papic-camera-settings';
+import { PapicCameraSettings, PapicHeadControl, PapicHeadLine } from './studio/papic/_components/papic-camera-settings';
 import { PapicOutcomeBanners, hasPapicOutcome, type PapicOutcomes } from './studio/papic/_components/papic-outcome-banners';
 import { PapicSelfHeal } from './studio/papic/_components/papic-self-heal';
 import { PapicCameraHelp } from './studio/papic/_components/papic-camera-help';
@@ -18,6 +19,7 @@ import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { AccessRequestsDoorway } from './_components/access-requests-doorway';
+import { MoodBoardAsksDoorway } from './_components/mood-board-asks-doorway';
 import { CoordinatorLevelCard } from './_components/coordinator-level-card';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowRight, Sparkles, CalendarPlus } from 'lucide-react';
@@ -970,7 +972,18 @@ export default async function EventHomePage({
           phase: papicCardPhaseNow,
           // 🍎 In the app the Thank-You Video keeps its own row (an Apple product there) — no web door on the card.
           thankYouHref: !storeShell && OUR_SERVICE_PARTS.papic ? addOnHref(OUR_SERVICE_PARTS.papic.key, eventId) : null,
-          headControl: <PapicSwitch eventId={eventId} saved={papicSwitch === undefined ? null : papicIsOn(papicSwitch)} />,
+          /* 📷 THE HEAD (owner 2026-10-30): ONE dropdown — Off · On — event day · On — everyone, now (`PapicHeadControl`);
+             its line under the title says the current position, "after you Apply" while Papic's switch waits for Apply. */
+          headControl: (
+            <Suspense fallback={null}>
+              <PapicHeadControl eventId={eventId} papicOn={papicSwitch === undefined ? null : papicIsOn(papicSwitch)} />
+            </Suspense>
+          ),
+          headLine: (
+            <Suspense fallback={SERVICE_NAMES.papic.brand}>
+              <PapicHeadLine eventId={eventId} papicOn={papicSwitch === undefined ? null : papicIsOn(papicSwitch)} />
+            </Suspense>
+          ),
           counts: { total: papicNow.total, left: papicNow.count },
           buy: papicBuy,
           defaultOpen: hasPapicOutcome(search) || Boolean(papicPoolError),
@@ -1099,6 +1112,9 @@ export default async function EventHomePage({
       {/* Self-hiding: renders nothing unless someone is waiting on an answer (owner ruling 2026-07-27 — the host
           decides what to share). */}
       <AccessRequestsDoorway eventId={eventId} />
+      {/* 🖼⏱ Suppliers' photos to approve, and the last 24 h of Mood Board changes by others with their Undo (owner
+          2026-10-30, "THE OWNERS HAVE 24 HOURS TO UNDO"). One read; self-hiding; the database decides who sees which. */}
+      <MoodBoardAsksDoorway eventId={eventId} />
       {/* 🗓 "Date change: n of N suppliers answered" — self-hiding: renders nothing unless the couple asked booked
           suppliers to move (owner 2026-10-01, the clashing-date flow). Couple-only by RLS. */}
       <DateChangeDoorway eventId={eventId} />

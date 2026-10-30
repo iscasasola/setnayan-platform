@@ -1,8 +1,8 @@
 'use client';
 
-import { useCallback, useMemo, useState, useTransition } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from 'react';
 import Link from 'next/link';
-import { ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { CalendarGrid, CalendarLegend } from '@/app/_components/calendar';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { CALENDAR_HATCH, CALENDAR_PART_STYLE, monthTitle, stepMonth, type CalendarDay, type CalendarDayState, type CalendarMonth } from '@/lib/calendar-grid';
@@ -13,6 +13,8 @@ import { dayLongWords, dayRowsOf, daySheetHref, dayStateOf, nearWord, type Dates
 import { fetchCustomerCalendarMonth } from '../actions';
 import { DatesRow } from './dates-row';
 import { DayOpenSwitch } from './day-open-switch';
+import { DATES_FIGURES_EVENT, DATES_JUMP_EVENT } from './customers-figures';
+import { datesDayIs, datesFiguresOf, type DatesFigureKey } from '../dates-figures';
 
 /**
  * CUSTOMERS › DATES — the month (S-PR3; plan § 2 "one month grid (booked · holding · blocked), the day's rows under
@@ -33,6 +35,15 @@ import { DayOpenSwitch } from './day-open-switch';
  * reads "One schedule · N events a day" instead); the month's title is itself a dropdown between ‹ and ›; the legend
  * says Booked here · Outside (its own grey dot) · Asking · Not available · Full; a part-day block hatches the top half;
  * under the month, the picked day's long date with "Open the day ›", then its rows.
+ *
+ * 📌 v13 (APPROVED 2026-10-29, prototype `custDates()`; DECISION_LOG "EVERY SUPPLIER-DASHBOARD PAGE: THE TOP ROWS
+ * COMPRESS INTO ONE PINNED ROW ON SCROLL" — *"after the Dates ruling: month → one pinned week row with ‹ › a day"*):
+ *   · THE FIGURES — booked · asking · days off for the month on show sit on Customers' pinned row
+ *     (`customers-figures.tsx`); the month counts them (`dates-figures.ts`) and says so on every ‹ ›, and a tap on one
+ *     picks the first day of its kind here.
+ *   · THE WEEK STRIP — once the month has scrolled up under the pinned row, the picked day's week (Sun–Sat) pins under
+ *     it as ONE row, ‹ › stepping a day at a time (across a month's edge too). Scrolling back up, the month is there.
+ *     Everything under the month (`after`: the Dates folds) sits inside this block so the strip stays pinned over it.
  *
  * Month nav is client-driven (kept from the shipped calendar): the month-independent inputs (pools · bookings ·
  * blocks) ship once; a new month fetches only its day states + waiting list (`fetchCustomerCalendarMonth`), cached
@@ -59,7 +70,13 @@ export function CustomersCalendar({
   fetchMonth = fetchCustomerCalendarMonth,
   halls = false,
   dayActions = null,
+  closuresComplete = true,
+  after = null,
 }: {
+  /** False ⇒ some closures did not load — "days off" says "—", never a short count. */
+  closuresComplete?: boolean;
+  /** What follows the picked day (the Dates folds) — inside this block, so the week strip stays pinned over it. */
+  after?: ReactNode;
   /**
    * The picked day's "You can take bookings" switch (2026-10-28) — the shipped `addManualBlock` / `removeBlock`, in
    * place. Absent → no switch (the dev lab's fixtures without actions).
@@ -136,12 +153,13 @@ export function CustomersCalendar({
   }, [data.days]);
 
   const goToMonth = useCallback(
-    (m: CalendarMonth) => {
+    (m: CalendarMonth, day?: CalendarDay) => {
       const next = ym(m);
       const syncUrl = () => window.history.replaceState(null, '', `${window.location.pathname}?seg=dates&m=${next}#calendar`);
       setMonth(next);
       // The picked day moves with the month (today when it is on show, else the 1st) — its rows are always this month's.
-      setPicked(todayIso.startsWith(next) ? todayIso : `${next}-01`);
+      // A step of the week strip names the day itself (the 31st's next day is the 1st of the next month).
+      setPicked(day ?? (todayIso.startsWith(next) ? todayIso : `${next}-01`));
       syncUrl();
       if (monthInputs.has(next) || !fetchMonth) return;
       startTransition(async () => {
@@ -152,6 +170,69 @@ export function CustomersCalendar({
     },
     [monthInputs, fetchMonth, todayIso],
   );
+
+  /* 📌 THE FIGURES — counted here, for the month on show, and handed to the pinned row; a tap there picks a day here. */
+  const figures = useMemo(() => datesFiguresOf(data.days, closuresComplete), [data.days, closuresComplete]);
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent(DATES_FIGURES_EVENT, { detail: figures }));
+  }, [figures]);
+  useEffect(() => {
+    const onJump = (e: Event) => {
+      const key = (e as CustomEvent<DatesFigureKey>).detail;
+      const first = data.days.find((d) => datesDayIs(key, d));
+      if (first) setPicked(first.date);
+    };
+    window.addEventListener(DATES_JUMP_EVENT, onJump);
+    return () => window.removeEventListener(DATES_JUMP_EVENT, onJump);
+  }, [data.days]);
+
+  /* 📌 THE WEEK STRIP — shown once the month is up under the pinned row; it pins right under that row. */
+  const monthRef = useRef<HTMLDivElement>(null);
+  const stripRef = useRef<HTMLDivElement>(null);
+  const [folded, setFolded] = useState(false);
+  useEffect(() => {
+    let raf = 0;
+    const read = () => {
+      raf = 0;
+      const grid = monthRef.current;
+      const strip = stripRef.current;
+      if (!grid || !strip) return;
+      const pin = document.querySelector<HTMLElement>('[data-customers-pin]');
+      const under = pin ? pin.getBoundingClientRect().bottom : 0;
+      strip.style.top = `${pin ? pin.offsetHeight : 0}px`;
+      // Hysteresis: fold once the month's last week is under the row, unfold as soon as a week of it shows again.
+      const bottom = grid.getBoundingClientRect().bottom;
+      setFolded((was) => (was ? bottom < under + 48 : bottom < under));
+    };
+    const soon = () => {
+      if (!raf) raf = requestAnimationFrame(read);
+    };
+    read();
+    document.addEventListener('scroll', soon, { passive: true, capture: true });
+    window.addEventListener('resize', soon);
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      document.removeEventListener('scroll', soon, { capture: true });
+      window.removeEventListener('resize', soon);
+    };
+  }, []);
+  const stepDay = (by: number) => {
+    const at = new Date(`${picked}T00:00:00Z`);
+    at.setUTCDate(at.getUTCDate() + by);
+    const next = at.toISOString().slice(0, 10);
+    if (next.slice(0, 7) === month) setPicked(next);
+    else goToMonth({ y: Number(next.slice(0, 4)), m: Number(next.slice(5, 7)) }, next);
+  };
+  const week = useMemo(() => {
+    const at = new Date(`${picked}T00:00:00Z`);
+    const sunday = new Date(at);
+    sunday.setUTCDate(at.getUTCDate() - at.getUTCDay());
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(sunday);
+      d.setUTCDate(sunday.getUTCDate() + i);
+      return d.toISOString().slice(0, 10);
+    });
+  }, [picked]);
 
   const pickedDay = data.days.find((d) => d.date === picked) ?? null;
   const holds = (monthInputs.get(picked.slice(0, 7))?.dayStates ?? []).map((s) => ({
@@ -194,7 +275,7 @@ export function CustomersCalendar({
         </p>
       ) : null}
       {/* 🔦 The Dates tour's first stop — the month itself (lib/tours.ts vendor_dates_v1). */}
-      <div style={{ opacity: pending ? 0.6 : 1 }} className="transition-opacity" data-tour="dates-calendar">
+      <div ref={monthRef} style={{ opacity: pending ? 0.6 : 1 }} className="transition-opacity" data-tour="dates-calendar">
         <CalendarGrid
           value={picked}
           today={todayIso}
@@ -219,6 +300,48 @@ export function CustomersCalendar({
         />
       </div>
       <CalendarLegend dots={['booked', 'outside', 'asking']} blocked full />
+
+      {/* 📌 THE WEEK STRIP (v13 `.weekstrip`): the picked day's week, ‹ › a day. Drawn always, shown only once folded —
+          height and opacity glide, so the page under it never jumps; hidden from the tab order while folded away. */}
+      <div
+        ref={stripRef}
+        className={`sticky z-[4] -mx-4 flex items-center gap-1 overflow-hidden border-ink/10 px-2 transition-[height,opacity] duration-300 motion-reduce:transition-none sm:-mx-6 sm:px-4 lg:-mx-8 lg:px-6 ${
+          folded ? 'h-[54px] border-b opacity-100' : 'pointer-events-none h-0 opacity-0'
+        }`}
+        style={{ background: 'var(--sn-canvas)' }}
+        aria-hidden={!folded}
+        inert={!folded}
+        data-dates-week-strip={folded ? 'shown' : 'folded-away'}
+      >
+        <button type="button" className="sn-press grid h-11 w-11 shrink-0 place-items-center rounded-full text-ink" aria-label="A day earlier" onClick={() => stepDay(-1)} data-dates-step="-1">
+          <ChevronLeft aria-hidden className="h-5 w-5" strokeWidth={2} />
+        </button>
+        {week.map((d) => {
+          const inMonth = d.slice(0, 7) === month;
+          const st = inMonth ? states.get(d) : undefined;
+          const on = d === picked;
+          const dot = st?.dots?.includes('asking') ? 'rgb(var(--color-warn))' : st?.dots?.length ? 'rgb(var(--color-ok))' : null;
+          return (
+            <button
+              key={d}
+              type="button"
+              className={`sn-press relative grid h-11 min-w-0 flex-1 content-center justify-items-center rounded-full text-[13.5px] leading-tight tabular-nums ${on ? 'bg-sn-accent text-[rgb(var(--sn-on-accent))]' : 'text-ink'}`}
+              style={!on && st?.blocked ? { backgroundImage: CALENDAR_HATCH } : undefined}
+              aria-pressed={on}
+              aria-label={dayLongWords(d)}
+              onClick={() => (inMonth ? setPicked(d) : goToMonth({ y: Number(d.slice(0, 4)), m: Number(d.slice(5, 7)) }, d))}
+              data-dates-week-day={d}
+            >
+              <small className={`text-[9.5px] leading-none ${on ? '' : 'text-ink/55'}`}>{'SMTWTFS'[new Date(`${d}T00:00:00Z`).getUTCDay()]}</small>
+              <span className={st?.full ? 'font-bold' : undefined}>{Number(d.slice(8))}</span>
+              {dot && !on ? <i aria-hidden className="absolute bottom-0.5 block h-1 w-1 rounded-full" style={{ background: dot }} /> : null}
+            </button>
+          );
+        })}
+        <button type="button" className="sn-press grid h-11 w-11 shrink-0 place-items-center rounded-full text-ink" aria-label="A day later" onClick={() => stepDay(1)} data-dates-step="1">
+          <ChevronRight aria-hidden className="h-5 w-5" strokeWidth={2} />
+        </button>
+      </div>
 
       {/* The picked day: its long date and "Open the day ›", then what is on it (prototype datesBody). */}
       <div className="mt-4 flex min-h-11 items-center gap-3" data-dates-picked-head="">
@@ -249,6 +372,7 @@ export function CustomersCalendar({
         ))}
       </div>
       {dayActions ? <DayOpenSwitch day={picked} today={todayIso} blocks={blocks} actions={dayActions} /> : null}
+      {after}
     </div>
   );
 }

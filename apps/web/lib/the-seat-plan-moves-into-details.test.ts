@@ -236,7 +236,7 @@ test('"Show guests their seats early" opens with publishSeating and closes with 
   assert.doesNotMatch(stripComments(print), /setDoorOpen\(true\)|publishSeating\(/, 'printing signs must not open seats early');
 });
 
-test('3D is drawn IN the middle part and never leaves Details; it does not drop the 2D editor’s lock', () => {
+test('3D is drawn IN the middle part and never leaves Details; it takes no lock of its own', () => {
   const ed = code('seating', '_components', 'seating-editor.tsx');
   /* 🗂 R4: in Guests the room is mounted when first opened and kept (hidden while 2D or List shows). */
   assert.match(ed, /\{details\?\.lab && \(!inGuests \|\| seen3d\) \? \([\s\S]{0,300}?<div data-seat-plan-3d="" hidden=\{!in3d\}/);
@@ -245,10 +245,13 @@ test('3D is drawn IN the middle part and never leaves Details; it does not drop 
   assert.match(view, /if \(details\) go3d\(\);/);
   assert.match(ed, /const go3d = \(\) => \{\s*if \(inGuests\) \{\s*setShow3d\(true\);\s*setSeen3d\(true\);\s*window\.history\.replaceState/);
   const lab = stripComments(readFileSync(join(APP, 'seating', 'lab', '_components', 'seating-lab-3d.tsx'), 'utf8'));
-  assert.match(lab, /useSeatingLock\(eventId, me\.name, null, \{ releaseOnUnmount: !inMaker \}\)/);
+  /* 👁 The room is VIEW-ONLY since 2026-10-30 (owner: "let's make 3d become view only because all are plottend on the
+     2d"): it takes no seat-plan lock, so it can never drop or steal the 2D editor's. */
+  assert.doesNotMatch(lab, /useSeatingLock\(/, 'the view-only room takes the seat-plan lock again');
   /* 🗂 R4: inside Guests › Seats the room draws no mode switch of its own — the pinned row's ONE dropdown (List · 2D · 3D)
-     is the way out, a client switch; standalone, its segment leaves for Guests › Seats. */
-  assert.match(lab, /viewSegment=\{\s*inMaker \? null : \(/, 'the room draws a second mode switch inside Guests › Seats');
+     is the way out (its ⓘ's "Switch to 2D" asks the plan); standalone, it leaves for Guests › Seats. */
+  assert.doesNotMatch(lab, /<SeatingViewSegment/, 'the room draws a second mode switch');
+  assert.match(lab, /if \(inMaker\) window\.dispatchEvent\(new CustomEvent\(SEAT_PLAN_SHOW_VIEW_EVENT, \{ detail: '2d' \}\)\);/);
   assert.match(lab, /router\.push\(guestsViewHref\(eventId, 'seats'\)\)/);
 });
 

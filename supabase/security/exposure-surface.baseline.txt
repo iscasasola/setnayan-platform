@@ -1571,6 +1571,7 @@ col	public.event_inspiration_suggestions.state	anon=- authenticated=S
 col	public.event_inspiration_suggestions.suggested_by_user_id	anon=- authenticated=S
 col	public.event_inspiration_suggestions.suggestion_id	anon=- authenticated=S
 col	public.event_inspiration_suggestions.vendor_profile_id	anon=- authenticated=S
+col	public.event_inspiration_suggestions.vendor_service_id	anon=- authenticated=S
 col	public.event_join_tokens.created_at	anon=SIU authenticated=SIU
 col	public.event_join_tokens.event_id	anon=SIU authenticated=SIU
 col	public.event_join_tokens.expires_at	anon=SIU authenticated=SIU
@@ -2864,6 +2865,7 @@ col	public.moodboard_library_assets.storage_path	anon=SIU authenticated=SIU
 col	public.moodboard_library_assets.style_theme	anon=SIU authenticated=SIU
 col	public.moodboard_library_assets.uploaded_by	anon=SIU authenticated=SIU
 col	public.moodboard_library_assets.vendor_profile_id	anon=SIU authenticated=SIU
+col	public.moodboard_library_assets.vendor_service_id	anon=S authenticated=S
 col	public.moodboard_part_finalizations.agreed_at	anon=- authenticated=S
 col	public.moodboard_part_finalizations.answered_by_user_id	anon=- authenticated=S
 col	public.moodboard_part_finalizations.cancelled_at	anon=- authenticated=S

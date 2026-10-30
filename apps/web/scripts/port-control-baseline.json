@@ -11808,6 +11808,24 @@
         "Wordmark"
       ]
     },
+    "/dev/shop-plan-lab": {
+      "files": [
+        "dev/shop-plan-lab/page.tsx"
+      ],
+      "destinations": [
+        "/"
+      ],
+      "actions": [],
+      "blocks": [
+        "Link",
+        "PinnedReviewCard",
+        "ShopAddresses",
+        "ShopBadgePill",
+        "ShopReachLine",
+        "ShopReachMap",
+        "Wordmark"
+      ]
+    },
     "/dev/shop-preview-lab": {
       "files": [
         "dev/shop-preview-lab/inspiration-lab-fixture.ts",
@@ -13489,11 +13507,14 @@
         "v/[slug]/_components/add-shop-to-event-data.ts",
         "v/[slug]/_components/anon-inquiry-composer.tsx",
         "v/[slug]/_components/inquiry-composer.tsx",
+        "v/[slug]/_components/pinned-review-card.tsx",
         "v/[slug]/_components/service-details-sheet.tsx",
         "v/[slug]/_components/services-gallery.tsx",
         "v/[slug]/_components/share-button.tsx",
+        "v/[slug]/_components/shop-addresses.tsx",
         "v/[slug]/_components/shop-columns.ts",
         "v/[slug]/_components/shop-inspiration-section.tsx",
+        "v/[slug]/_components/shop-reach.tsx",
         "v/[slug]/_components/team-preview-banner.tsx",
         "v/[slug]/_components/venue-matched-events.tsx",
         "v/[slug]/_components/verified-price-card.tsx",
@@ -13536,7 +13557,9 @@
         "ModalState",
         "OverlayBackdrop",
         "PackageCard",
+        "PinnedReviewCard",
         "PublicVendorRow",
+        "ReachMap",
         "ReportPageButton",
         "RequirementsModal",
         "ReviewHeroMetrics",
@@ -13550,8 +13573,11 @@
         "ServicesGallery",
         "ServicesPricingSection",
         "ShareButton",
+        "ShopAddresses",
         "ShopBadgePill",
         "ShopInspirationSection",
+        "ShopReachLine",
+        "ShopReachMap",
         "SignInHereLink",
         "StarRow",
         "StartServiceInquiryResult",

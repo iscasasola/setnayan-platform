@@ -210,7 +210,9 @@ test('1 · the creator and a full co-host make the app’s exact writes — uplo
     // ⚠ Its step 1 parks the photo at slot_position = -1, which the table's own CHECK
     // (event_inspiration_assets_slot_position_check_v2: IN (1,2,3)) refuses for EVERY caller, before and after
     // 20271297469032 — a pre-existing defect in the reorder, not a permission, so it is not exercised here.
-    const [{ inspiration_id: id }] = await activeAt('palette');
+    const placed = (await activeAt('palette'))[0];
+    assert.ok(placed, `${label}: the uploaded photo is not on the board`);
+    const id = placed.inspiration_id;
     const land = await as(host, `UPDATE public.event_inspiration_assets SET slot_key = 'palette', slot_position = 2 WHERE inspiration_id = $1 RETURNING 1`, [id]);
     assert.equal(land.rows, 1, `${label}: land moved nothing — ${land.error}`);
     assert.deepEqual((await activeAt('palette')).map((r) => r.slot_position), [2]);

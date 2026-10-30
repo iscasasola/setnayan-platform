@@ -20,7 +20,6 @@ import type { RunOfShowBlock } from '@/lib/run-of-show';
 import { HUB_OPEN_WINDOW_PLAIN } from '@/lib/vendor-day-picker';
 import { formatWallClock } from '@/lib/schedule-datetime-local';
 import { ActionButton } from '@/components/action-button';
-import { formatCount } from '@/lib/format-number';
 
 /**
  * 🗓 THE SUPPLIER'S HUB — SET UP (supplier dashboard v13, owner "Approved." 2026-10-29; prototype `renderHub`:
@@ -251,33 +250,24 @@ export function HubEyebrow({ children, about }: { children: string; about?: stri
 /**
  * ⓘ THE EVENT'S DETAILS — beside the Hub ▾ on the pinned row (prototype `renderViewrow`: "Hub ▾ · ⓘ", its
  * `eventDetailsSheet`). The house ⓘ (`Explain`: the centred popup on a phone, the attached note on a computer); only
- * what the page has already read — nothing is asked again to fill it, and a line not read is left out, never guessed.
+ * what the page has already read — nothing is asked again to fill it. The headcount is NOT repeated here: it is on the
+ * Guests row (one fact, shown once — the root map's duplicate check).
  */
 export function HubEventInfo({
   event,
   title,
   place,
-  invited,
-  attending,
 }: {
   event: HubEvent;
   /** "Indalecio & Claire · Wedding" — the same words the card draws. */
   title: string;
   place: string | null;
-  /** The brief's headcount — null when it was not read (not booked, locked, or refused). */
-  invited?: number | null;
-  attending?: number | null;
 }) {
   const day = hubDayWords(event.date, true) ?? 'Date not set yet';
   return (
     <Explain title={title} label="Event details" data="hub-event">
       <span className="block">{[day, place].filter(Boolean).join(' · ')}</span>
       <span className="block">{hubRoleWords(event)}</span>
-      {invited != null && attending != null ? (
-        <span className="block" data-hub-info-pax="">
-          {formatCount(invited)} invited · {formatCount(attending)} coming
-        </span>
-      ) : null}
     </Explain>
   );
 }

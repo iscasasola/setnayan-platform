@@ -140,7 +140,7 @@ export function HubLab({ seg: rawSeg, ev }: { seg?: string; ev?: string }) {
           <HubPageRow pageKey="guests" icon={Users} label="Guests" line={guests} href={`${event.runHref}/guests`} access={help} />
           <HubPageRow pageKey="seats" icon={Armchair} label="Seats" line="Tables and who sits where" href={`${event.runHref}/seating`} access={help} />
           <HubPageRow pageKey="schedule" icon={CalendarDays} label="Schedule" line={sched ?? 'The run of show, hour by hour'} href={`${event.runHref}/schedule`} access={help} />
-          <HubPageRow pageKey="maker" icon={PanelsTopLeft} label="Event Hub (the Maker)" line="The guests’ page for the event" href={`${event.runHref}/website`} access={help} />
+          <HubPageRow pageKey="maker" icon={PanelsTopLeft} label="Event Hub (the Maker)" line="The guests’ page for the event" href={`${event.runHref}/launch`} access={help} />
         </HubPageRows>
       </div>
     ) : (
@@ -204,8 +204,6 @@ export function HubLab({ seg: rawSeg, ev }: { seg?: string; ev?: string }) {
                 event={event}
                 title={`${event.name} · Wedding`}
                 place={PLACE[event.eventId] ?? null}
-                invited={event.booked && !event.lock ? 180 : null}
-                attending={event.booked && !event.lock ? 162 : null}
               />
             }
           />

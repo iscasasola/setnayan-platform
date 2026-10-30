@@ -309,7 +309,7 @@ export default async function VendorOnTheDayPage({
       selectedId={selected.eventId}
       seg={seg}
       today={today}
-      info={<HubEventInfo event={selected} title={coupleName} place={place} invited={invited} attending={attending} />}
+      info={<HubEventInfo event={selected} title={coupleName} place={place} />}
     />
   );
   const pane = (
@@ -814,7 +814,7 @@ function pagesBody({
             href={`${base}/schedule`}
             access={access}
           />
-          <HubPageRow pageKey="maker" icon={PanelsTopLeft} label="Event Hub (the Maker)" line="The guests’ page for the event" href={`${base}/website`} access={access} />
+          <HubPageRow pageKey="maker" icon={PanelsTopLeft} label="Event Hub (the Maker)" line="The guests’ page for the event" href={`${base}/launch`} access={access} />
         </HubPageRows>
       </div>
     );

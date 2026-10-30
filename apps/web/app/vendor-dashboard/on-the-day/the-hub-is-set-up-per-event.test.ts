@@ -121,14 +121,17 @@ test('6 · on a phone the segments come first — Set up · Crew · The event’
   const { HubScreen } = await import('./_components/hub-screen');
   const today = list().find((e) => e.eventId === 'e-today')!;
   const html = await withRouter(
-    React.createElement(HubScreen, {
-      menu: React.createElement('span', { 'data-probe-menu': '' }),
-      event: today,
-      seg: 'setup',
-      pane: React.createElement('span', { 'data-probe-card': '' }),
-      thumb: React.createElement('span', { 'data-probe-thumb': '' }),
-      children: React.createElement('span', { 'data-probe-body': '' }),
-    }),
+    React.createElement(
+      HubScreen,
+      {
+        menu: React.createElement('span', { 'data-probe-menu': '' }),
+        event: today,
+        seg: 'setup',
+        pane: React.createElement('span', { 'data-probe-card': '' }),
+        thumb: React.createElement('span', { 'data-probe-thumb': '' }),
+      },
+      React.createElement('span', { 'data-probe-body': '' }),
+    ),
   );
   const at = (mark: string) => {
     const i = html.indexOf(mark);
@@ -151,7 +154,7 @@ test('7 · the pinned row carries the event’s ⓘ beside the Hub ▾ — the h
   const { HubEventMenu } = await import('./_components/hub-event-menu');
   const l = list();
   const today = l.find((e) => e.eventId === 'e-today')!;
-  const info = React.createElement(HubEventInfo, { event: today, title: 'Carla & Dino · Wedding', place: 'Taal Vista', invited: 180, attending: 162 });
+  const info = React.createElement(HubEventInfo, { event: today, title: 'Carla & Dino · Wedding', place: 'Taal Vista' });
   const html = await withRouter(React.createElement(HubEventMenu, { events: l, selectedId: 'e-today', seg: 'setup', today: TODAY, info }));
   const box = /<span[^>]*data-hub-event-menu=""[^>]*>([\s\S]*)$/.exec(html)?.[1] ?? '';
   assert.match(box, /data-explain="hub-event"/, 'the Hub ▾ lost its ⓘ (or the ⓘ is drawn outside the box that moves up into the pinned row)');
@@ -194,11 +197,8 @@ test('9 · the event’s pages are icon rows that open in place, a count only wh
   const { HubPageRow, HubPageRows } = await import('./_components/hub-screen');
   const { hubScheduleLine } = await import('@/lib/hub-events');
   const { Users } = await import('lucide-react');
-  const html = renderToStaticMarkup(
-    React.createElement(HubPageRows, null,
-      React.createElement(HubPageRow, { pageKey: 'guests', icon: Users, label: 'Guests', line: '180 invited · 162 coming', href: '/dashboard/x/guests', access: 'View only' }),
-    ),
-  );
+  const row = React.createElement(HubPageRow, { pageKey: 'guests', icon: Users, label: 'Guests', line: '180 invited · 162 coming', href: '/dashboard/x/guests', access: 'View only' });
+  const html = renderToStaticMarkup(React.createElement(HubPageRows, null, row));
   assert.match(html, /data-hub-page-row="guests"/);
   assert.match(html, /<svg/, 'the row lost its icon');
   assert.match(html, /data-fold-head=""/, 'the row is no longer the shared Fold (an accordion row)');

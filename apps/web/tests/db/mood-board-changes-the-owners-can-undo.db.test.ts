@@ -397,9 +397,13 @@ test('4 · nobody but an owner can Undo, and the two halves cannot fake one', as
   assert.ok(write.error || write.rows.length === 0, 'the coordinator wrote the changes table directly');
   assert.deepEqual(await board(), was, 'a refused Undo changed the board');
   assert.equal((await changes())[0]!.undone_at, null);
-  // The coordinator cannot even read the changes table; the owners can.
-  assert.equal((await as(W.coordinator, `SELECT 1 FROM public.event_mood_board_changes`)).rows.length, 0);
+  // Who reads the record: the owners (their Undo list), and the person who made it (their own act — the RA 10173
+  // export reads it author-scoped). Nobody else.
   assert.equal((await as(W.cohost, `SELECT 1 FROM public.event_mood_board_changes WHERE event_id = $1`, [W.eventId])).rows.length, 1);
+  assert.equal((await as(W.coordinator, `SELECT 1 FROM public.event_mood_board_changes WHERE actor_user_id = $1`, [W.coordinator])).rows.length, 1);
+  for (const uid of [W.viewCoordinator, W.guest, W.plainSupplier, W.stranger]) {
+    assert.equal((await as(uid, `SELECT 1 FROM public.event_mood_board_changes`)).rows.length, 0, 'someone else reads the changes');
+  }
 });
 
 test('5 · a later change to the same place makes the Undo refuse in words, and write nothing', async () => {

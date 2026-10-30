@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6797
+# facts: 6798
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     576
 #   col       4978
-#   policy    961
+#   policy    962
 #   view      9
 #   func      269
 #
@@ -5813,6 +5813,7 @@ policy	public.event_moderators|event_moderators_host_delete	mode=PERMISSIVE cmd=
 policy	public.event_moderators|event_moderators_host_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids))
 policy	public.event_moderators|event_moderators_host_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids))
 policy	public.event_moderators|event_moderators_select_own_events	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((user_id = ( SELECT auth.uid() AS uid)) OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = event_moderators.event_id) AND (em.user_id = ( SELECT auth.uid() AS uid)) AND (em.member_type = 'couple'::member_type))))) check=NULL
+policy	public.event_mood_board_changes|event_mood_board_changes_actor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(actor_user_id = ( SELECT auth.uid() AS uid)) check=NULL
 policy	public.event_mood_board_changes|event_mood_board_changes_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.event_mood_board_changes|event_mood_board_changes_owner_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=NULL
 policy	public.event_paperwork|event_paperwork_admin_select	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=(EXISTS ( SELECT 1 FROM users u WHERE ((u.user_id = ( SELECT auth.uid() AS uid)) AND (u.is_internal = true)))) check=NULL

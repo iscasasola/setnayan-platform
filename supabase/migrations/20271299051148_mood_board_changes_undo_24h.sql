@@ -128,6 +128,14 @@ CREATE POLICY event_mood_board_changes_owner_read
   FOR SELECT TO authenticated
   USING (event_id IN (SELECT public.current_couple_event_ids()));
 
+-- The person who MADE a change reads their own record of it — what they did on somebody's board is their data too
+-- (RA 10173: the personal-data export reads it author-scoped, as it reads event_colour_changes). Nobody else's.
+DROP POLICY IF EXISTS event_mood_board_changes_actor_read ON public.event_mood_board_changes;
+CREATE POLICY event_mood_board_changes_actor_read
+  ON public.event_mood_board_changes
+  FOR SELECT TO authenticated
+  USING (actor_user_id = (SELECT auth.uid()));
+
 DROP POLICY IF EXISTS event_mood_board_changes_admin_all ON public.event_mood_board_changes;
 CREATE POLICY event_mood_board_changes_admin_all
   ON public.event_mood_board_changes FOR ALL TO authenticated

@@ -18,7 +18,7 @@ const SUGGESTIONS: HomeSuggestion[] = [
     suggestionId: '00000000-0000-4000-8000-0000000c0001',
     partLabel: 'Stage',
     shopLabel: 'Bloom & Co.',
-    imageUrl: 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 56"><rect width="56" height="56" fill="#D9C4CF"/><circle cx="28" cy="24" r="12" fill="#A9834B"/><rect y="40" width="56" height="16" fill="#7A8B6F"/></svg>'),
+    imageUrl: '/moodboard-seed/florals/boutonniere.webp',
     at: '2026-10-30T08:10:00.000Z',
   },
 ];

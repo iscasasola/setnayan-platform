@@ -15,6 +15,8 @@
  * parses what the database answered and refuses a shape it does not recognise, so a unit test drives every branch.
  */
 
+import { formatCount } from './format-number';
+
 export type MoodBoardChangeKindWord = 'upload' | 'replace' | 'move' | 'remove' | 'keep' | 'change';
 
 export type HomeSuggestion = {
@@ -92,13 +94,13 @@ export function undoLeft(undoUntil: string, now: Date = new Date()): string | nu
 /** The Today line for the suggestions waiting. */
 export function suggestionsTodayWords(s: readonly HomeSuggestion[]): string {
   if (s.length === 1) return `${s[0]!.shopLabel} suggested a photo · ${s[0]!.partLabel}`;
-  return `${s.length} supplier photos to approve`;
+  return `${formatCount(s.length)} supplier photos to approve`;
 }
 
 /** The Today line for the changes that can still be undone. */
 export function changesTodayWords(c: readonly HomeChange[]): string {
   if (c.length === 1) return changeTitle(c[0]!);
-  return `${c.length} Mood Board changes by others`;
+  return `${formatCount(c.length)} Mood Board changes by others`;
 }
 
 const KINDS: ReadonlySet<string> = new Set(['upload', 'replace', 'move', 'remove', 'keep', 'change']);

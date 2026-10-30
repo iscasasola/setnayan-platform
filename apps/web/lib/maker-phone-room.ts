@@ -212,7 +212,7 @@ export function hiddenOnPhone(classes: string): boolean {
 /** One length token → px at this viewport height (null when it is not a length this guard reads). */
 function lengthPx(v: string, viewportH: number): number | null {
   // 🧰 The lower third and what sits in it (\`--maker-lt-h\`, \`MAKER_LT_HEIGHT\`).
-  if (v === 'calc(var(--maker-lt-h)+env(safe-area-inset-bottom))' || v === 'calc(var(--maker-lt-h)+var(--maker-safe-b,env(safe-area-inset-bottom)))') return makerLtHeightPx(viewportH);
+  if (v === 'calc(var(--maker-lt-h)+var(--maker-safe-b,env(safe-area-inset-bottom)))') return makerLtHeightPx(viewportH);
   let m = /^calc\(var\(--maker-lt-h\)-(\d+)px\)$/.exec(v);
   if (m) return makerLtHeightPx(viewportH) - Number(m[1]);
   // A bar over the phone's own safe area: the inset is the device's, not the page's.

@@ -31,13 +31,15 @@
 import {
   PLAN_GROUPS,
   PLAN_GROUP_TIER_ORDER,
-  HARD_SINGLE_PICK_GROUPS,
   bucketVendorsByGroup,
   type PlanGroup,
   type PlanGroupId,
   type PlanCardPick,
   type EventVendorRowInput,
 } from '@/lib/wedding-plan-groups';
+import { isOnePerEventGroup } from '@/lib/one-per-event';
+
+const NO_GROUPS: ReadonlySet<string> = new Set();
 import {
   planGroupsForEventType,
   PLAN_GROUP_SCOPE_UNKNOWN,
@@ -692,6 +694,13 @@ export function buildPlanBudgetModel(args: {
   /** plan_group_id → the category's Planned figure, already resolved by the
    *  page through `resolvePlanned`. Absent → every child's `planned` is null. */
   plannedByGroup?: ReadonlyMap<string, { plannedPhp: number; plannedSource: 'saved' | 'suggested' }>;
+  /**
+   * The plan groups that are ONE PER EVENT — the categories' switch (`service_categories.one_per_event`, owner
+   * 2026-10-29), read by the page through `readOnePerEventGroups` (lib/one-per-event.ts). Drives only the per-child
+   * `hardSingle` display flag. Absent (or an unreadable switch) → every child reads as multi-pick; the database
+   * guard still refuses a second booking where the switch is on.
+   */
+  onePerEventGroups?: ReadonlySet<string>;
 }): PlanBudgetModel {
   const {
     vendorRows,
@@ -709,6 +718,7 @@ export function buildPlanBudgetModel(args: {
     moodBoardSet = false,
     taxonomy,
     buildPicksByGroup,
+    onePerEventGroups,
   } = args;
 
   // Folder headers (order · label · slug) come from the DB taxonomy when a
@@ -723,8 +733,7 @@ export function buildPlanBudgetModel(args: {
   // so compatibility chips + status all stay consistent with event-home).
   const bucketed = bucketVendorsByGroup(vendorRows, ceremonyType, venueSetting);
 
-  // Canonical hard-single set (lib/wedding-plan-groups.ts) — one pick max
-  // (ceremony/reception venue, officiant, coordinator, host/MC, LED). Drives
+  // One per event (the categories' switch, lib/one-per-event.ts) — one pick max. Drives
   // ONLY the per-child `hardSingle` display flag now; the Range math keys off
   // the canonical-service sub-bucketing in rangeForChild() instead (so
   // multi-service groups like Documentary/Look/Catering are handled correctly).
@@ -905,7 +914,7 @@ export function buildPlanBudgetModel(args: {
       for (const p of picks) p.isBuildPick = buildPickSet.has(p.vendor_id);
     }
 
-    const hardSingle = HARD_SINGLE_PICK_GROUPS.has(group.id);
+    const hardSingle = isOnePerEventGroup(group.id, onePerEventGroups ?? NO_GROUPS);
     const state = childStateOf(picks, hardSingle, lockHandshakeEnabled);
     const timelineStatus = timelineStatusOf(group.id, daysUntilWedding, state);
     const lockedTotal = picks

@@ -161,6 +161,60 @@
   overflow: hidden;
   pointer-events: none;
 }
+/* 🗺 ALWAYS FULL SCREEN — THE PLAN IS THE WHOLE SCREEN, NO ⤢ (owner, iPhone app, 2026-10-30: *"The menu should be pushed
+   up to there and the whole background will be the 3d plan or the 2d plan or the map. They are all full screen. So we
+   only keep the bottom nav thumb row and the icons of the top nav"*; DECISION_LOG "SEATS 2D · SEATS 3D · THE MAP ARE
+   ALWAYS FULL SCREEN — NO FULL-SCREEN BUTTON").
+   On Map · Seats › 2D · 3D (`data-guests-full`) the view's surface (`.fullSurface`, `data-guests-full-surface`) runs from
+   the shell bar's bottom (`--gs-top`) to the bottom nav (`--sn-bottomdock-h`): it is lifted from where this screen starts
+   on the page (`--gs-root-top`, measured by the screen) — `flow-root` keeps that negative margin from dragging the screen
+   itself up — and the row's holder gives its height back, so the ONE row floats OVER the plan right under the top nav.
+   On a phone the surface also takes the page's side gutters (`--gs-left` / `--gs-right`, the screen's own box). In the
+   flow, never `position: fixed`: a fixed box is a stacking context, and the plan's own sheets and menus would then sit
+   under the row and the thumb row. 🔒 lib/maps-are-always-full-screen.test.ts */
+.screen[data-guests-full] {
+  display: flow-root;
+}
+.screen[data-guests-full] .stickHold {
+  min-height: 0;
+}
+.fullSurface {
+  position: relative;
+  margin-top: calc(var(--gs-top, 0px) - var(--gs-root-top, 0px));
+  height: calc(100dvh - var(--gs-top, 0px) - var(--sn-bottomdock-h, 0px));
+}
+@media (max-width: 767px) {
+  .fullSurface {
+    margin-left: calc(-1 * var(--gs-left, 0px));
+    margin-right: calc(-1 * var(--gs-right, 0px));
+  }
+}
+/* The row over the plan: the page's paper, frosted, so the plan shows through and the row still reads on a dark 3D room.
+   The frost is a layer UNDER the row (`::before`), never the row's own `backdrop-filter` — that would make the row the
+   containing block of anything fixed it opens. On a phone the band spans the screen, its controls on the column's edges. */
+.screen[data-guests-full] .stick.pinned[data-pinned] {
+  background: transparent;
+  /* Over the plan's own layers — the 3D room is drawn over the 2D plan at z-45 (`data-seat-plan-3d`), the room-size
+     panel at z-40 — so the row, its ▾ and its ⋯ lists stay on top; under the plan's dialogs (z-60) and the move sheet. */
+  z-index: 50;
+}
+.screen[data-guests-full] .stick.pinned[data-pinned]::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: color-mix(in srgb, var(--gs-paper) 84%, transparent);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  backdrop-filter: blur(14px) saturate(1.2);
+}
+@media (max-width: 767px) {
+  .screen[data-guests-full] .stick.pinned[data-pinned] {
+    left: 0;
+    width: 100%;
+    padding-left: var(--gs-pin-l, 0px);
+    padding-right: calc(100% - var(--gs-pin-l, 0px) - var(--gs-pin-w, 100%));
+  }
+}
 /* ⚙ THE MENU'S ONE ⚙ ends the row on every view (owner 2026-10-27, "EVERY MENU'S ⚙ RIDES ITS PINNED ROW TOO"); beside
    it the counts close up a little so the row stays one line at 390. 🔒 lib/the-pinned-row-is-one-row.test.ts */
 .stick.pinned[data-has-gear] .pinCounts {
@@ -1226,6 +1280,13 @@ button.ico {
   .mapwrap {
     margin-left: -32px;
     margin-right: -32px;
+  }
+}
+/* 🗺 On a phone the full surface already took the gutters (`.fullSurface`), so the map no longer breaks out of them. */
+@media (max-width: 767px) {
+  .fullSurface .mapwrap {
+    margin-left: 0;
+    margin-right: 0;
   }
 }
 .mapcanvas {

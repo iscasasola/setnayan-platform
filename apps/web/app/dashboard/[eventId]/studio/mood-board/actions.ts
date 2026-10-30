@@ -95,7 +95,7 @@ export type MoodboardSlotRef = { slotKey: string; slotPosition: MoodboardSlotPos
  *
  * The writes live in `swapMoodboardCells` (lib/moodboard-swap.ts) so the db
  * test runs the SAME code against the replayed schema — see its docblock for
- * why the moving photo is parked by `removed_at` and never by a position.
+ * why the moving photo parks on a free real cell and never touches `removed_at`.
  *
  * 🛑 RETURNS the outcome instead of resolving quietly: the board paints the
  * swap before the server answers, so a move that did not land must come back

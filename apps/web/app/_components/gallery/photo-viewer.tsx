@@ -83,7 +83,7 @@ export function PhotoViewer({
       onPrev={at > 0 ? () => onMove(at - 1) : undefined}
       onNext={at < total - 1 ? () => onMove(at + 1) : undefined}
       screen={{
-        counter: `${at + 1} of ${formatCount(total)}${album ? ` · ${album}` : ''}`,
+        counter: `${formatCount(at + 1)} of ${formatCount(total)}${album ? ` · ${album}` : ''}`,
         more,
         eyebrow,
         title,
@@ -192,7 +192,7 @@ export function SharePanel({ source, preserved, onDone }: { source: ShareSource;
         </p>
       ) : state.k === 'ready' ? (
         <p className="sn-gal-soft pb-2 text-[12.5px]" data-viewer-share-size="">
-          {state.file.size >= 1_048_576 ? `${(state.file.size / 1_048_576).toFixed(1)} MB` : `${Math.max(1, Math.round(state.file.size / 1024))} KB`} · ready
+          {state.file.size >= 1_048_576 ? `${formatCount(state.file.size / 1_048_576, 1)} MB` : `${formatCount(Math.max(1, Math.round(state.file.size / 1024)))} KB`} · ready
         </p>
       ) : (
         <p className="sn-gal-soft flex items-center gap-1.5 pb-2 text-[12.5px]">

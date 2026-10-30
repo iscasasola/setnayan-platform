@@ -10,6 +10,8 @@ Owner, live iPhone: *"I also previously saw you design the Build with a better i
 - Dark: the compare's green and the fit line's ✓ no longer flip twice (`dark:text-success-200` / `dark:bg-success-900/40` dropped — the success ramp already flips).
 - `lib/suppliers-build.ts`: a card row carries `full` (the whole name) and `booked`; `compareCap`, `compareShownAtFirst`, `lowestTotalIds`, `compareRowIndexes`. Guard `lib/the-build-is-the-approved-frame.test.ts` (5 properties, each sabotaged red once); `build-body.test.ts` moved to the approved words. Port baseline regenerated (`BuildCardColumn`, `Figure` → `CompareTable`, `CardActions`, `BuildFigures`, `Meter`).
 
+- CI: `numbers-carry-commas` T4 flagged two React elements from PR 1's row by their names (`count` in `booked-part-row.tsx`, `faceCount` in `services-takeover.tsx`). Both are elements whose figures are `<Count>`s, so each gets one reasoned TEXT row in the allowlist (the `guestsScreen` precedent). The guard is unchanged; a raw `{bookedCount}` in the same file still turns it red.
+
 Not drawn: the frame's per-head note under a pick ("₱480/head × 150") — no per-head price reaches the Build lines.
 
 SPEC IMPACT: DECISION_LOG.md row 2026-10-31 "SUPPLIERS › BUILD IS DRAWN TO THE APPROVED FINAL FRAMES" (corpus 1aa45bc1).

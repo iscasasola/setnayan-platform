@@ -30,7 +30,9 @@ const read = (dir: string, ...p: string[]) => stripComments(readFileSync(join(di
 test('the Wedding March has one home — Guests › March (R4) — and the Guest list hands old links to it', () => {
   // ⤷ R4: the view row draws every view the event has, March among them, at every width.
   const screen = read(GUESTS, '_components', 'guests-screen.tsx');
-  assert.match(screen, /\{guestsViews\.map\(\(v\) => seg\(v, GUESTS_VIEW_LABEL\[v\]/, 'the Guest list’s view row is not the views’ own list');
+  // 🎚 2026-10-29: the row is the TOPS (Guests ▾ · Seats ▾ · March) — March is offered where the event's views have it.
+  assert.match(screen, /\{tops\.map\(\(t\) => seg\(t\)\)\}/, 'the Guest list’s view row is not the tops’ own list');
+  assert.match(screen, /const tops = GUESTS_TOPS\.filter\(\(t\) => t === 'guests' \|\| guestsViews\.includes\(t\)\);/, 'March is not offered where the event has it');
   const row = screen.slice(screen.lastIndexOf('<nav', screen.indexOf('aria-label="Guest list views"')), screen.indexOf('aria-label="Guest list views"'));
   assert.doesNotMatch(row, /\bhidden\b/, 'the view row is hidden at some width — a phone could not reach the March');
   const page = read(GUESTS, 'page.tsx');

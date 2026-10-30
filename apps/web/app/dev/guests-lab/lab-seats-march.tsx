@@ -92,7 +92,13 @@ export function LabSeats({ guests, seat }: { guests: readonly { guest_id: string
         setSeatingGroupAdjacency={labPolicy}
         initialView={view === 'list' ? 'list' : 'plan'}
         details={{
-          lab: null,
+          /* 🧊 A STAND-IN for the 3D room (it needs the database): a box where the room is drawn, so the lab can walk
+             Seats › 3D's full screen — the top row's Seats ▾, the auto-pin and the glide — on fixtures. */
+          lab: (
+            <div data-lab-3d-stand-in="" className="flex h-full min-h-0 w-full flex-1 items-center justify-center bg-gradient-to-b from-ink/[0.03] to-ink/[0.09] text-[13px] text-ink/55">
+              3D room — lab stand-in
+            </div>
+          ),
           sides: [
             { side: 'groom', label: "Jose's side" },
             { side: 'bride', label: "Maria's side" },
@@ -100,6 +106,7 @@ export function LabSeats({ guests, seat }: { guests: readonly { guest_id: string
           ],
           part: view === 'map' ? 'map' : null,
           host: 'guests',
+          open3d: seat === '3d',
         }}
         me={{ id: 'lab-user', name: 'Maria' }}
       />

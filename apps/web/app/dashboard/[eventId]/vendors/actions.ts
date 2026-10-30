@@ -126,11 +126,17 @@ import { saveSelfAddedServiceCard, updateHostServiceDetails } from './[vendorId]
 import { saveSelfAddedPaymentPlan } from './[vendorId]/workspace/payment-plan-actions';
 import {
   PLAN_PRESENT_FIELD,
+  onLockAnchorIso,
   partialSaveSentence,
+  planInstanceSeqs,
   planInstancesToRows,
   planSaveStep,
   type EditablePlanRow,
 } from '@/lib/self-added-payment-plan';
+import { lastPlanReplot } from '@/lib/plan-replot';
+import { manilaTodayIso } from '@/lib/vendor-cashflow';
+import { readPayWaysForRecord } from '@/lib/self-added-pay-ways.server';
+import type { PayWayView } from '@/lib/self-added-pay-ways';
 import { geocodeAddressWithCity } from '@/lib/geo';
 import { refuseLimitedHelper, limitedHelperRefusal } from '@/lib/host-gate';
 
@@ -5443,7 +5449,7 @@ export async function addManualSupplier(
       const planFd = new FormData();
       planFd.set('event_id', eventId);
       planFd.set('vendor_id', eventVendorId);
-      for (const k of ['plan_label', 'plan_value', 'plan_kind', 'plan_anchor', 'plan_days']) {
+      for (const k of ['plan_label', 'plan_value', 'plan_kind', 'plan_anchor', 'plan_days', 'plan_seq']) {
         for (const v of formData.getAll(k)) planFd.append(k, typeof v === 'string' ? v : '');
       }
       await saveSelfAddedPaymentPlan(planFd);
@@ -5477,14 +5483,16 @@ export async function addManualSupplier(
     });
   }
 
-  // 7 · THEIR LINK, in the same press (the walk's step 4 shows it at once —
-  //     one write per press, owner 2026-10-08). `createManualVendorInvite` is
-  //     the shipped, idempotent writer; a link that could not be made is not a
-  //     failed add — the panel then offers "Create their link".
+  // 7 · THEIR LINK, ALWAYS, in the same press. Owner 2026-10-30, verbatim: *"no need to wait to create link. create an
+  //     automatic link"* — a supplier the couple adds has their claim link from the moment they exist, nobody presses
+  //     anything. `createManualVendorInvite` is the shipped, idempotent writer (one live link per supplier, the
+  //     `vendor_invites_live_unique` index); a link that could not be made is not a failed add — the record card makes
+  //     it the first time it opens, and says so in place if it still cannot. `with_link` now only decides whether the
+  //     link rides back on this answer (the walk's step 4 and the add sheet's saved step draw it at once).
   let invite: SupplierInviteView | undefined;
-  if (formData.get('with_link') === '1') {
+  {
     const link = await createManualVendorInvite({ eventId, vendorId: eventVendorId });
-    invite = link.ok ? { url: link.url, qrSvg: link.qrSvg } : null;
+    if (formData.get('with_link') === '1') invite = link.ok ? { url: link.url, qrSvg: link.qrSvg } : null;
   }
 
   // The walk draws its own answer (`answer_in_place`) and refreshes once,
@@ -5581,6 +5589,20 @@ export type SelfAddedSupplierPrefill = {
   /** A plan row EXISTS — so an empty `planRows` means "saved with no payments",
    *  not "no plan yet" (which opens on the 50/50 starter). */
   planSaved?: boolean;
+  /**
+   * THE RECORD CARD'S DATED ROWS (2026-10-29). What "after you book" counts from and the event date — so each stored
+   * rule opens as the day it falls on, and a typed day posts back as the rule that lands on it
+   * (`lib/record-card-plan.ts`). Absent (an older caller) → the card draws the plan as it is and can still save it.
+   */
+  planDates?: { lockIso: string; eventIso: string | null };
+  /** Each plan row's stored `seq`, in `planRows` order — posted back so a payment stays on its instalment. */
+  planSeqs?: Array<number | null>;
+  /** Instalments with a payment logged against them that was not refused — the card keeps them as they are. */
+  settledSeqs?: number[];
+  /** The newest plan a price change replaced (`replot_history`) — "Price changed ₱A → ₱B · plan updated". */
+  lastReplot?: { fromPhp: number; toPhp: number; at: string } | null;
+  /** How to pay them. `null` = the read was refused — said on the card, never drawn as "none added". */
+  payWays?: PayWayView[] | null;
 };
 
 export type LoadSelfAddedSupplierResult =
@@ -5629,7 +5651,7 @@ export async function loadSelfAddedSupplier(
     return { status: 'error', message: 'This supplier is on Setnayan now — open their page instead.' };
   }
 
-  const [manualRes, planRes, claimAsk] = await Promise.all([
+  const [manualRes, planRes, claimAsk, eventRes, paidRes, waysRes] = await Promise.all([
     row.manual_vendor_id
       ? supabase
           .from('event_manual_vendors')
@@ -5640,16 +5662,34 @@ export async function loadSelfAddedSupplier(
       : Promise.resolve({ data: null, error: null }),
     supabase
       .from('event_vendor_payment_plan')
-      .select('instances_json, is_default_seeded')
+      .select('instances_json, is_default_seeded, on_lock_anchor_date, replot_history')
       .eq('event_id', eventId)
       .eq('event_vendor_id', vendorId)
       .maybeSingle(),
     hasClaimAsk(supabase, eventId, vendorId),
+    supabase.from('events').select('event_date').eq('event_id', eventId).maybeSingle(),
+    // Settled instalments — a payment logged against the seq, not refused (the re-plot's own reading).
+    supabase
+      .from('event_vendor_payments')
+      .select('schedule_instance_seq')
+      .eq('event_id', eventId)
+      .eq('vendor_id', vendorId)
+      .not('schedule_instance_seq', 'is', null)
+      .is('payment_refused_at', null),
+    readPayWaysForRecord(supabase, eventId, row.manual_vendor_id),
   ]);
   // A refused read is not an empty supplier: pre-filling blanks over a real
   // contact card would invite the couple to "save" their data away.
   if (manualRes.error) return { status: 'error', message: manualRes.error.message };
   if (planRes.error) return { status: 'error', message: planRes.error.message };
+  // A refused read of the payments would draw a paid instalment as editable — refuse the open instead.
+  if (paidRes.error) return { status: 'error', message: paidRes.error.message };
+  const planRow = (planRes.data ?? null) as {
+    instances_json?: unknown;
+    is_default_seeded?: boolean | null;
+    on_lock_anchor_date?: string | null;
+    replot_history?: unknown;
+  } | null;
   const m = (manualRes.data ?? null) as {
     business_name: string | null;
     contact_person: string | null;
@@ -5690,11 +5730,22 @@ export async function loadSelfAddedSupplier(
       price,
       // The lock's own 50/50 estimate comes back as its rule (on lock · 14 days
       // before), not as two blank-dated rows every later save would refuse.
-      planRows: planInstancesToRows(
-        (planRes.data as { instances_json?: unknown } | null)?.instances_json,
-        { defaultSeeded: (planRes.data as { is_default_seeded?: boolean | null } | null)?.is_default_seeded === true },
-      ),
+      planRows: planInstancesToRows(planRow?.instances_json, { defaultSeeded: planRow?.is_default_seeded === true }),
       planSaved: planRes.data != null,
+      planDates: {
+        lockIso: onLockAnchorIso(planRow?.on_lock_anchor_date, manilaTodayIso()),
+        eventIso: eventRes.error ? null : ((eventRes.data as { event_date: string | null } | null)?.event_date ?? null) || null,
+      },
+      planSeqs: planInstanceSeqs(planRow?.instances_json),
+      settledSeqs: [
+        ...new Set(
+          ((paidRes.data ?? []) as Array<{ schedule_instance_seq: number | null }>)
+            .map((p) => p.schedule_instance_seq)
+            .filter((n): n is number => typeof n === 'number'),
+        ),
+      ],
+      lastReplot: lastPlanReplot(planRow?.replot_history),
+      payWays: waysRes.status === 'ok' ? waysRes.ways : null,
     },
   };
 }
@@ -5833,7 +5884,7 @@ export async function updateSelfAddedSupplier(
       planFd.set('event_id', eventId);
       planFd.set('vendor_id', vendorId);
       planFd.set(PLAN_PRESENT_FIELD, '1');
-      for (const k of ['plan_label', 'plan_value', 'plan_kind', 'plan_anchor', 'plan_days']) {
+      for (const k of ['plan_label', 'plan_value', 'plan_kind', 'plan_anchor', 'plan_days', 'plan_seq']) {
         for (const v of formData.getAll(k)) planFd.append(k, typeof v === 'string' ? v : '');
       }
       await saveSelfAddedPaymentPlan(planFd);

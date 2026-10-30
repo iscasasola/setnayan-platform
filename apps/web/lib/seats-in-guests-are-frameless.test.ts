@@ -16,8 +16,13 @@ test('the 2D canvas draws its border only outside Guests', () => {
   const at = src.indexOf('ref={canvasRef}');
   assert.ok(at > -1, 'the canvas moved — this guard is blind');
   const tag = src.slice(at, src.indexOf('style={{', at));
-  assert.match(tag, /\$\{inGuests \? '' : 'border border-ink\/15 '\}/, 'the Guests floor has a frame');
-  assert.doesNotMatch(tag.replace(/\$\{inGuests \? '' : 'border border-ink\/15 '\}/, ''), /\bborder\b/, 'a second border is drawn');
+  // 📐 Slice 2 (edge to edge): in Guests the canvas is the room box over a floor that fills the cell — no border either way.
+  const guests = tag.match(/inGuests\s*\?\s*"([^"]*)"\s*:\s*'([^']*)'/);
+  const [, inGuestsCls, studioCls] = guests ?? [];
+  assert.ok(inGuestsCls !== undefined && studioCls !== undefined, 'the canvas no longer names its Guests and Studio looks apart — this guard is blind');
+  assert.doesNotMatch(inGuestsCls, /\bborder\b/, 'the Guests floor has a frame');
+  assert.match(studioCls, /\bborder border-ink\/15\b/, 'the Studio canvas lost its hairline');
+  assert.doesNotMatch(tag.replace(studioCls, ''), /\bborder\b/, 'a second border is drawn');
 });
 
 test('the room\u2019s outline: in Guests only for a FIXED (saved) room, square — never the suggested / free board', () => {

@@ -1547,7 +1547,10 @@ export function PapicGuestCapture({
           : 'flex min-h-screen flex-col bg-ink text-cream'
       }
     >
-      <header className={`flex items-center px-4 py-3 ${exitTo ? 'justify-between' : 'justify-end'}`}>
+      {/* 📱 The camera is full screen: its ✕ row clears the iPhone's clock and Dynamic Island, and the side insets
+          (owner 2026-10-30). env() is 0 on a desktop, so the row is where it was. 🔒
+          app/[slug]/_lib/the-hub-clears-the-island.test.ts. */}
+      <header className={`flex items-center pb-3 pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))] pt-[max(0.75rem,env(safe-area-inset-top,0px))] ${exitTo ? 'justify-between' : 'justify-end'}`}>
         {/* ✕ ONE EXIT, TOP-LEFT — back to the Event Hub tab this was opened
             from, with the count of shots that landed. */}
         {exitTo ? (

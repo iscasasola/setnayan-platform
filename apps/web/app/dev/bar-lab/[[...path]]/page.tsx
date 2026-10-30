@@ -304,7 +304,7 @@ export default async function BarLab({
                       )
                     }
                     addCell={addCellWords(addState, pot)}
-                    keepsakes={<MemoriesKeepsakeRow doors={doors.map((d) => ({ ...d, card: d.ready ? cards[d.key] : null }))} />}
+                    keepsakes={<MemoriesKeepsakeRow key="keepsakes" doors={doors} cards={cards} />}
                     suppliers={[{ vendorProfileId: 'vp-lumen', vendorRowId: 'v-lumen', name: 'Lumen Studio', hidden: false }]}
                     canTag={sp.guest !== '1' || sp.coord === '1'}
                     tagFixture={LAB_TAGS}

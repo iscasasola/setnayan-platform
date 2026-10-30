@@ -219,7 +219,9 @@ export default async function EventMemoriesPage({ params, searchParams }: Props)
       flashMin: SCOPE_MIN_MOMENTS.event,
       thankYou: thankYou !== null,
     });
-    keepsakes = <MemoriesKeepsakeRow doors={doors.map((d) => ({ ...d, card: d.ready ? cards[d.key] : null }))} />;
+    /* 🔑 Keyed: its props carry ASYNC server cards, so the element reaches the client still resolving, and React (dev)
+       then asks it for a list key where the gallery draws it among its siblings (measured in the lab, 2026-10-31). */
+    keepsakes = <MemoriesKeepsakeRow key="keepsakes" doors={doors} cards={cards} />;
   }
 
   return (

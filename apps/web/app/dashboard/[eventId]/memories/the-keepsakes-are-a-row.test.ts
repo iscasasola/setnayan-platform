@@ -91,10 +91,10 @@ test('2 · each door opens the SHIPPED card, handed the page’s one read — in
     /Promise\.all\(\[\s*readMagazineCard\(eventId\),\s*loadRecapCoupleSummary\(eventId\),\s*readLifeFlashCard\(eventId\),\s*readServicePart\(eventId, 'papic'\),?\s*\]\)/,
     'the row no longer asks the cards’ own reads',
   );
-  assert.match(PAGE, /doors\.map\(\(d\) => \(\{ \.\.\.d, card: d\.ready \? cards\[d\.key\] : null \}\)\)/, 'a dimmed door carries a card');
+  assert.match(PAGE, /<MemoriesKeepsakeRow key="keepsakes" doors=\{doors\} cards=\{cards\} \/>/, 'the row is no longer handed the doors and their cards');
   // The row opens the card it was handed, in the house Sheet (whose scrim is the one OverlayBackdrop) — no hand-made dimmer.
   assert.match(ROW, /import \{ Sheet \} from '@\/app\/_components\/sheet'/);
-  assert.match(ROW, /<Sheet open onClose=\{\(\) => setOpen\(null\)\}[^>]*>[\s\S]*?\{opened\.card\}[\s\S]*?<\/Sheet>/, 'the sheet no longer shows the card');
+  assert.match(ROW, /<Sheet open onClose=\{\(\) => setOpen\(null\)\}[^>]*>[\s\S]*?\{cards\[opened\.key\] \?\? null\}[\s\S]*?<\/Sheet>/, 'the sheet no longer shows the card');
   assert.match(ROW, /d\.key === open && d\.ready/, 'a dimmed door can open a sheet');
   assert.doesNotMatch(ROW, /fixed inset-0|bg-black\/\d/, 'the row draws its own scrim — use the house Sheet');
   // The cards still gate themselves when drawn alone (the props are optional, the reads their own).

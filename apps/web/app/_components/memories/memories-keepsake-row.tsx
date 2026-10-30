@@ -27,13 +27,16 @@ const ICONS: Record<KeepsakeKey, LucideIcon> = {
   'thank-you': Clapperboard,
 };
 
-/** A door the page drew: its words from the lib, and the shipped card it opens (server-rendered; null when dimmed). */
-export type KeepsakeRowDoor = KeepsakeDoor & { card: ReactNode };
+/**
+ * The shipped cards, server-rendered, by door — a RECORD, never a list: an element carried inside an array across the
+ * server/client line is checked for a list `key` (measured: "Each child in a list should have a unique key").
+ */
+export type KeepsakeCards = Partial<Record<KeepsakeKey, ReactNode>>;
 
 const CELL =
   'flex min-h-[60px] w-full min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2 text-[12.5px] font-medium leading-none';
 
-export function MemoriesKeepsakeRow({ doors }: { doors: KeepsakeRowDoor[] }) {
+export function MemoriesKeepsakeRow({ doors, cards }: { doors: KeepsakeDoor[]; cards: KeepsakeCards }) {
   const [open, setOpen] = useState<KeepsakeKey | null>(null);
   const heading = useId();
   if (doors.length === 0) return null;
@@ -64,7 +67,8 @@ export function MemoriesKeepsakeRow({ doors }: { doors: KeepsakeRowDoor[] }) {
             </button>
           ) : (
             // Dimmed: nothing to open YET — the word carries its ⓘ (the reason), and no frame (nothing to press but the ⓘ).
-            <div key={d.key} data-keepsake={d.key} data-keepsake-ready="false" aria-disabled="true" className={`${CELL} text-ink/45`}>
+            // ⚠ Never `aria-disabled` on this wrapper: it disables everything inside it, the ⓘ too (measured, WebKit).
+            <div key={d.key} data-keepsake={d.key} data-keepsake-ready="false" className={`${CELL} text-ink/45`}>
               <Icon aria-hidden className="h-5 w-5" strokeWidth={1.9} />
               <InfoTip label={d.word} ariaLabel={`Why ${d.title} isn’t ready`} labelClassName="max-w-full truncate" align="center">
                 {d.reason}
@@ -79,7 +83,7 @@ export function MemoriesKeepsakeRow({ doors }: { doors: KeepsakeRowDoor[] }) {
             {opened.title}
           </h2>
           <div className="px-4 pb-4 pt-3" data-keepsake-sheet={opened.key}>
-            {opened.card}
+            {cards[opened.key] ?? null}
           </div>
         </Sheet>
       ) : null}

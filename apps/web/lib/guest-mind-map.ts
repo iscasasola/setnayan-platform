@@ -17,6 +17,8 @@ export const HUB_R = 24;
 export const COUPLE_R = 34;
 export const MAX_HUBS = 6;
 export const MAX_FACES = 10;
+/** How far below a hub its name and "+N more" reach (one column under it — room for a fully zoomed-out phone). */
+export const UNDER_H = 80;
 
 /** Into "Other" (the folded hubs) or into one hub (its "+N more"). */
 export type MindDrill = { kind: 'other'; keys: readonly string[] } | { kind: 'hub'; key: string };
@@ -104,7 +106,7 @@ export function mindMapHubs(tree: readonly MapBranch[], drill: MindDrill | null 
     : Math.max(
         150,
         laid.reduce((a, h) => a + h.ext * 2 + 30, 0) / (2 * Math.PI) + 40,
-        maxExt + COUPLE_R + 60, // the label and "+N more" under a hub stay clear of the couple
+        maxExt + COUPLE_R + UNDER_H + 16, // the label and "+N more" under a hub stay clear of the couple
         n > 1 ? (2 * maxExt + 40) / (2 * Math.sin(Math.PI / n)) : 0,
       );
   laid.forEach((h, i) => {
@@ -125,7 +127,7 @@ export function mindMapBounds(hubs: readonly MindHub[]): { minX: number; minY: n
     minX = Math.min(minX, h.x - h.ext - 20);
     maxX = Math.max(maxX, h.x + h.ext + 20);
     minY = Math.min(minY, h.y - h.ext - 14);
-    maxY = Math.max(maxY, h.y + h.ext + 52);
+    maxY = Math.max(maxY, h.y + h.ext + UNDER_H);
   }
   return { minX, minY, width: maxX - minX, height: maxY - minY };
 }

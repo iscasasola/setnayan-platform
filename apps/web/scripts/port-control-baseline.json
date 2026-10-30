@@ -5783,6 +5783,7 @@
         "dashboard/[eventId]/_components/home-first-screen.tsx",
         "dashboard/[eventId]/_components/home-loading-cover.tsx",
         "dashboard/[eventId]/_components/home-parts.tsx",
+        "dashboard/[eventId]/_components/home-prints-line.tsx",
         "dashboard/[eventId]/_components/home-service-card.tsx",
         "dashboard/[eventId]/_components/home-settings-gear.tsx",
         "dashboard/[eventId]/_components/home-tile-rotation.ts",
@@ -6027,6 +6028,7 @@
         "HomeLoadingScreen",
         "HomeMusicCard",
         "HomePlannerCard",
+        "HomePrintsLine",
         "HomeReload",
         "HomeServiceCard",
         "HomeSettingsGear",
@@ -7407,6 +7409,7 @@
         "dashboard/[eventId]/launch/_components/print-paper.tsx",
         "dashboard/[eventId]/launch/_components/print-preview.tsx",
         "dashboard/[eventId]/launch/_components/print-save-button.tsx",
+        "dashboard/[eventId]/launch/_components/prints-forward.ts",
         "dashboard/[eventId]/launch/_components/prints-view-store.ts",
         "dashboard/[eventId]/launch/_components/pro-quiet-line.tsx",
         "dashboard/[eventId]/launch/_components/qr-look-controls.tsx",
@@ -7817,6 +7820,7 @@
         "PrintSetBody",
         "PrintSetDownloads",
         "PrintedStamp",
+        "PrintsPageDesk",
         "ProMark",
         "ProNote",
         "ProQuietLine",
@@ -8392,6 +8396,17 @@
       "destinations": [],
       "actions": [],
       "blocks": []
+    },
+    "/dashboard/[eventId]/prints": {
+      "files": [
+        "dashboard/[eventId]/prints/loading.tsx",
+        "dashboard/[eventId]/prints/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "LaunchHubPage"
+      ]
     },
     "/dashboard/[eventId]/progress": {
       "files": [
@@ -11811,6 +11826,24 @@
         "Wordmark"
       ]
     },
+    "/dev/shop-plan-lab": {
+      "files": [
+        "dev/shop-plan-lab/page.tsx"
+      ],
+      "destinations": [
+        "/"
+      ],
+      "actions": [],
+      "blocks": [
+        "Link",
+        "PinnedReviewCard",
+        "ShopAddresses",
+        "ShopBadgePill",
+        "ShopReachLine",
+        "ShopReachMap",
+        "Wordmark"
+      ]
+    },
     "/dev/shop-preview-lab": {
       "files": [
         "dev/shop-preview-lab/inspiration-lab-fixture.ts",
@@ -13494,11 +13527,14 @@
         "v/[slug]/_components/check-a-date-link.tsx",
         "v/[slug]/_components/events-by-kind.tsx",
         "v/[slug]/_components/inquiry-composer.tsx",
+        "v/[slug]/_components/pinned-review-card.tsx",
         "v/[slug]/_components/service-details-sheet.tsx",
         "v/[slug]/_components/services-gallery.tsx",
         "v/[slug]/_components/share-button.tsx",
+        "v/[slug]/_components/shop-addresses.tsx",
         "v/[slug]/_components/shop-columns.ts",
         "v/[slug]/_components/shop-inspiration-section.tsx",
+        "v/[slug]/_components/shop-reach.tsx",
         "v/[slug]/_components/shop-since-line.tsx",
         "v/[slug]/_components/team-preview-banner.tsx",
         "v/[slug]/_components/venue-matched-events.tsx",
@@ -13545,7 +13581,9 @@
         "ModalState",
         "OverlayBackdrop",
         "PackageCard",
+        "PinnedReviewCard",
         "PublicVendorRow",
+        "ReachMap",
         "ReportPageButton",
         "RequirementsModal",
         "ReviewHeroMetrics",
@@ -13560,8 +13598,11 @@
         "ServicesPricingSection",
         "ShareButton",
         "Sheet",
+        "ShopAddresses",
         "ShopBadgePill",
         "ShopInspirationSection",
+        "ShopReachLine",
+        "ShopReachMap",
         "ShopSinceLine",
         "SignInHereLink",
         "StarRow",

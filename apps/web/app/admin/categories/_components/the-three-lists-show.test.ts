@@ -48,6 +48,7 @@ function cat(id: string, groupId: string, label: string, extra: Partial<Category
     serviceCount: 1,
     faithCount: 0,
     refinementCount: 0,
+    onePerEvent: false,
     ...extra,
   };
 }

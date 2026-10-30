@@ -6319,12 +6319,14 @@
         "/dashboard/[seg]/messages"
       ],
       "actions": [
+        "fileActions",
         "formAction"
       ],
       "blocks": [
         "ActionButton",
         "AddExpenseSheet",
         "BodyPortal",
+        "BookedPartRow",
         "BudgetFileActions",
         "BudgetScreen",
         "BudgetSheetState",
@@ -6354,6 +6356,7 @@
         "OrderRow",
         "OwedLine",
         "PageMasthead",
+        "PaySheet",
         "Peso",
         "PickMenu",
         "PrintSaveButton",
@@ -8462,6 +8465,7 @@
         "AnnounceButton",
         "BlockCard",
         "BlockTimeEditor",
+        "BookedPartRow",
         "BulkRetimePanel",
         "DayActions",
         "DayActionsContext.Provider",
@@ -9135,6 +9139,7 @@
         "MoodboardBoard",
         "MoodboardMoodTag",
         "MoodboardStyleFamily",
+        "MoodboardSwapResult",
         "NamedColourDot",
         "NeutralDrawing",
         "NoteSheet",
@@ -9772,6 +9777,8 @@
         "dashboard/[eventId]/vendors/_components/book-this-build.tsx",
         "dashboard/[eventId]/vendors/_components/booked-body.tsx",
         "dashboard/[eventId]/vendors/_components/booked-budget.tsx",
+        "dashboard/[eventId]/vendors/_components/booked-part-page.tsx",
+        "dashboard/[eventId]/vendors/_components/booked-part-row.tsx",
         "dashboard/[eventId]/vendors/_components/booked-room-line.tsx",
         "dashboard/[eventId]/vendors/_components/booked-row.tsx",
         "dashboard/[eventId]/vendors/_components/booked-slot.tsx",
@@ -9864,9 +9871,13 @@
         "BookSheet",
         "BookThisBuild",
         "BookedBody",
-        "BookedBudgetSection",
+        "BookedFold",
+        "BookedPartPage",
+        "BookedPartRow",
+        "BookedPlan",
         "BookedRoomLine",
         "BookedRowItem",
+        "BookedRowList",
         "BookedSlot",
         "BookedStandIns",
         "BudgetBuildTab",
@@ -9884,6 +9895,7 @@
         "BuildLocked",
         "BuildPickResult",
         "BuildWrites",
+        "CallTimeLine",
         "CancelBookingAsHostResult",
         "CancelBookingButton",
         "CardDateBlock",
@@ -9905,6 +9917,7 @@
         "ContactShortlistVendorResult",
         "CostsRow",
         "Count",
+        "CoupleSchedulePage",
         "CoverBar",
         "CoverCatalogRead",
         "CoverCount",
@@ -10004,6 +10017,7 @@
         "OverlayBackdrop",
         "OwnPayWays",
         "PageMasthead",
+        "PartSettings",
         "PayDueCtx.Provider",
         "PaySheet",
         "PayWayView",
@@ -10018,6 +10032,7 @@
         "PlaceBody",
         "PlaceSlot",
         "PlanBudgetAccordion",
+        "PlanRows",
         "PlansRowPick",
         "PriceSummary",
         "QuoteFillRow",
@@ -10069,6 +10084,7 @@
         "SuppliersModeContext.Provider",
         "SuppliersModeState",
         "SuppliersSettingsRows",
+        "Suspense",
         "SwitchTrack",
         "TeamClearCandidates",
         "TeamDecisionDoorway",
@@ -11002,7 +11018,8 @@
         "LabBar",
         "Link",
         "PapicBuySheet",
-        "VendorRailContext"
+        "VendorRailContext",
+        "WhoSeesWhatPick"
       ]
     },
     "/dev/billing-lab": {
@@ -11554,9 +11571,12 @@
       "actions": [],
       "blocks": [
         "AccountBottomNav",
+        "GuestMemoriesLab",
         "LabPageSpotlight",
         "MemoriesChapters",
-        "MemoriesThumb"
+        "MemoriesThumb",
+        "PhotosOfYouGallery",
+        "YourShotsGallery"
       ]
     },
     "/dev/notifications-lab": {
@@ -11688,6 +11708,7 @@
     },
     "/dev/schedule-lab": {
       "files": [
+        "dev/schedule-lab/lab-moments.ts",
         "dev/schedule-lab/page.tsx",
         "dev/schedule-lab/schedule-lab-client.tsx"
       ],
@@ -11871,6 +11892,7 @@
         "DetailsScreen",
         "DomainManager",
         "EventLinesBody",
+        "EventsHeading",
         "EventsYouRunScreen",
         "Fix",
         "GalleryMedia",
@@ -11961,6 +11983,7 @@
         "dev/suppliers-lab/fact-sheet-fixtures.ts",
         "dev/suppliers-lab/fixtures.ts",
         "dev/suppliers-lab/lab-bench.tsx",
+        "dev/suppliers-lab/lab-booked-schedule.tsx",
         "dev/suppliers-lab/lab-booked.tsx",
         "dev/suppliers-lab/lab-build.tsx",
         "dev/suppliers-lab/lab-fact-sheets.tsx",
@@ -11970,7 +11993,9 @@
         "dev/suppliers-lab/pay-fixtures.ts"
       ],
       "destinations": [
-        "/dev/suppliers-lab?mode=booked"
+        "/dev/suppliers-lab?mode=booked",
+        "/dev/suppliers-lab?mode=booked&part=budget",
+        "/dev/suppliers-lab?mode=booked&part=schedule"
       ],
       "actions": [],
       "blocks": [
@@ -11981,8 +12006,10 @@
         "BookThisBuild",
         "BookedBody",
         "BookedBudgetSection",
+        "BookedPartRow",
         "BookedStandInCtx.Provider",
         "BottomDock",
+        "BudgetScreen",
         "BuildBody",
         "BuildSnapshotPick",
         "BuildWrites",
@@ -11997,12 +12024,14 @@
         "FindCategoryList",
         "InspectorLayout",
         "LabBench",
+        "LabBookedSchedule",
         "LabBookedStandIns",
         "LabFactSheets",
         "LabShell",
         "LabSuppliersShell",
         "MerkadoGuardBanner",
         "MoreRowStandInCtx.Provider",
+        "ScheduleLabClient",
         "ServicesTakeover",
         "ShortlistCategories",
         "SupplierShareStandInCtx.Provider",
@@ -14309,7 +14338,7 @@
         "/vendor-dashboard/clients/[seg]",
         "/vendor-dashboard/clients/[seg]?tab=details",
         "/vendor-dashboard/customers",
-        "/vendor-dashboard/customers?door=talking",
+        "/vendor-dashboard/customers?door=asking",
         "/vendor-dashboard/customers?seg=dates&m=[seg]",
         "/vendor-dashboard/invite?mode=locked&date=[seg]&block=[seg]",
         "/vendor-dashboard/invite?mode=locked&issued=[seg]&block=[seg]",
@@ -14367,6 +14396,7 @@
         "DaySheet",
         "DaysSettings",
         "EventLinesBody",
+        "EventsHeading",
         "FeatureAccordion",
         "Fill",
         "Fold",

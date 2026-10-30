@@ -355,12 +355,12 @@ test('8 · Seats and March count in ONE fixed row (no swipe) — the view’s fo
   assert.equal((row.match(/data-view-tile="/g) ?? []).length, 4, 'not four tiles in one row');
   assert.match(row, /grid-template-columns:repeat\(4, minmax\(0, 1fr\)\)/, 'the tiles are not one row of equal widths');
   assert.match(row, /data-view-tile="out"[^>]*>[\s\S]*?—[\s\S]*?couldn’t read/, 'an unread count reads as a number');
-  assert.match(row, /disabled=""[^>]*data-view-tile="preview"|data-view-tile="preview"[^>]*disabled/, 'Preview claims to work before it ships');
+  assert.match(row, /disabled=""[^>]*data-view-tile="preview"|data-view-tile="preview"[^>]*disabled/, 'a disabled forward tile is not drawn disabled');
   // The views draw it: March's four, Seats' four with ✨ Auto arrange as the forward tile (and no second one in the thumb row).
   const march = read('app/dashboard/[eventId]/launch/_components/details-march.tsx');
   for (const k of ['walks', 'walking', 'out', 'preview']) assert.match(march, new RegExp(`key: '${k}'`), `March lost its ${k} tile`);
-  // No walk preview ships yet: the tile stays, disabled, saying so — never a button that does nothing.
-  assert.match(march, /key: 'preview', word: 'Preview', main: true, icon: <Play[^>]*\/>, disabled: true, about: 'The walk preview is coming'/);
+  // ▶ The walk preview ships (2026-10-30): the tile plays the march — held by the-march-preview-plays-the-walks.test.ts.
+  assert.match(march, /key: 'preview',\s*word: play === null \? 'Preview' : 'Stop',/);
   const ed = read('app/dashboard/[eventId]/seating/_components/seating-editor.tsx');
   for (const k of ['seated', 'unseated', 'tables', 'auto']) assert.match(ed, new RegExp(`key: '${k}'`), `Seats lost its ${k} tile`);
   assert.match(ed, /onPress: runAutoArrange,/);

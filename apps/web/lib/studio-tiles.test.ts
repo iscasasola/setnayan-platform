@@ -13,7 +13,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { STUDIO_TILE_KEYS, STUDIO_TILES, studioReady, studioTiles, type StudioTilesInput } from './studio-tiles';
+import { STUDIO_MENU_KEYS, STUDIO_TILE_KEYS, STUDIO_TILES, isStudioMenuKey, studioMenuTiles, studioReady, studioTiles, type StudioTilesInput } from './studio-tiles';
 import { guidedItemDone, wordsAndPlansInputFrom, type GuidedDoneFacts } from './details-guided-flow';
 import { DETAILS_ITEM_KEYS, wordsAndPlansItem, type DetailsItemKey } from './maker-details-items';
 import { parsePrintDetails } from './print-pieces';
@@ -50,10 +50,21 @@ test('1 · eight tiles, in the order an event gets made — Prints is the last; 
   assert.equal(tiles.length, 8);
   assert.deepEqual(
     tiles.map((t) => t.label),
-    ['Info', 'Look', 'Logo', 'Mood Board & Dress Code', 'Schedule', 'Love Story', 'E-Gifts', 'Prints'],
+    ['Info', 'Look', 'Logo', 'Palette + Dress Code', 'Schedule', 'Love Story', 'E-Gifts', 'Prints'],
   );
   assert.equal(tiles[7]!.key, 'prints');
   assert.deepEqual(tiles.filter((t) => t.immersive).map((t) => t.key), [], 'the two full-screen tiles left for Guests (R4)');
+});
+
+test('1b · Studio ▾ lists Logo · Palette + Dress Code · Love Story (· Prints until PR #7020) — the rest open from their new homes', () => {
+  /* 🎛 Owner 2026-10-27 "STUDIO IS LOOK AND WORDS ONLY"; built 2026-10-30 (Event Hub Pro): Look and E-Gifts are the Hub's ⚙,
+     Info's facts Home's ⚙ (its address the Hub's ⚙), Schedule Suppliers › Booked — each still a page a door opens. */
+  assert.deepEqual([...STUDIO_MENU_KEYS], ['logo', 'mood', 'story', 'prints']);
+  const menu = studioMenuTiles(studioTiles(input()));
+  assert.deepEqual(menu.map((t) => t.label), ['Logo', 'Palette + Dress Code', 'Love Story', 'Prints']);
+  for (const k of ['info', 'look', 'schedule', 'gifts']) assert.equal(isStudioMenuKey(k), false, `${k} is still listed in Studio ▾`);
+  // "n of N ready" counts the listed pages only — never a "Missing" about a page Studio ▾ does not show.
+  assert.equal(studioReady(menu).total, 4);
 });
 
 test('2 · each tile opens a real Event Details item', () => {

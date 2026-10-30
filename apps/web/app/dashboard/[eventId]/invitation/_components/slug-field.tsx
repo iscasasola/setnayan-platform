@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useRef, useState, useTransition } from 'react';
-import { Check, X, AlertTriangle, Loader2 } from 'lucide-react';
+import { useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
+import { Check, X, AlertTriangle, Loader2, Pencil } from 'lucide-react';
 import { slugForwardingLabel } from '@/lib/slug-forwarding-window';
 import { formatPhp } from '@/lib/php';
 import { PaidMark } from '@/app/_components/paid-mark';
+import { Explain } from '@/app/_components/explain';
 
 type CheckResult =
   | { status: 'current' }
@@ -39,9 +40,18 @@ type Props = {
   drafted?: string | null;
   /** Drawn inside `AddressField`, which names the address itself — no second "Address" label. */
   bare?: boolean;
+  /**
+   * ⚙ ONE ROW (the Hub's ⚙ Event Hub settings, owner 2026-10-30 "Redraw to prototype"; prototype
+   * `event-hub-pro/` `openSettings` `.addr`): `setnayan.com/` + the box + a small Save on ONE line — the same check, the
+   * same form and the same `saveAction`; only the drawing is shorter. What is said while typing stays under it; the
+   * "3 to 32 characters" words go in the row's ⓘ (`aside`). Drafting (`onDraft`) has no Save: `aside` says why.
+   */
+  compact?: boolean;
+  /** Drawn at the end of the compact row — its ⓘ, or the ◆ of an address that waits for ✓ Apply. */
+  aside?: ReactNode;
 };
 
-export function SlugField({ eventId, initialSlug, saveAction, onDraft, drafted = null, bare = false }: Props) {
+export function SlugField({ eventId, initialSlug, saveAction, onDraft, drafted = null, bare = false, compact = false, aside = null }: Props) {
   const [value, setValue] = useState(drafted ?? initialSlug);
   const [draftedNow, setDraftedNow] = useState<string | null>(drafted);
   const [check, setCheck] = useState<CheckResult | null>(null);
@@ -104,24 +114,86 @@ export function SlugField({ eventId, initialSlug, saveAction, onDraft, drafted =
     // eslint-disable-next-line react-hooks/exhaustive-deps -- a pick is drafted once per settled answer
   }, [canSave, value]);
 
+  const submit = (formData: FormData) => {
+    setNotSaved(false);
+    startTransition(async () => {
+      try {
+        await saveAction(formData);
+      } catch (e) {
+        /* A redirect is how this action ANSWERS — saved or refused, it lands back here with the reason. Only a
+           request that never answered is caught: thrown into this transition it replaced the whole page (in the
+           Maker, the whole Maker) with the app's error screen. */
+        if (e instanceof Error && /NEXT_REDIRECT/.test(e.message)) throw e;
+        setNotSaved(true);
+      }
+    });
+  };
+
+  if (compact) {
+    return (
+      <form action={submit} data-slug-field="compact">
+        <div className="flex min-h-[52px] items-center gap-2">
+          <label htmlFor="slug" className="sr-only">
+            Event Hub address
+          </label>
+          <div className="relative flex h-10 min-w-0 flex-1 items-center rounded-full border border-ink/15 bg-white pl-3.5 pr-8 focus-within:border-terracotta dark:bg-raised">
+            <span aria-hidden className="flex-none text-[14px] text-ink/55">
+              setnayan.com/
+            </span>
+            <input
+              id="slug"
+              name="slug"
+              value={value}
+              onChange={(e) => setValue(e.target.value.toLowerCase())}
+              placeholder="maria-and-juan"
+              pattern={SLUG_INPUT_PATTERN}
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              className="h-full min-w-0 flex-1 bg-transparent pl-1 text-[14px] text-ink outline-none"
+            />
+            {/* The prototype's ✎ while it is the address in use; the check's own mark once something else is typed. */}
+            {!busy && (!check || check.status === 'current') ? (
+              <Pencil aria-hidden className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-terracotta" strokeWidth={1.9} />
+            ) : (
+              <StatusBadge busy={busy} check={check} />
+            )}
+          </div>
+          {onDraft ? null : (
+            <button
+              type="submit"
+              disabled={!canSave || pending}
+              data-slug-save=""
+              className="sn-press inline-flex h-10 flex-none items-center rounded-full bg-ink/[0.06] px-4 text-[14px] font-semibold text-ink disabled:cursor-not-allowed disabled:text-ink/45"
+            >
+              {pending ? 'Saving…' : 'Save'}
+            </button>
+          )}
+          {aside}
+        </div>
+        {check?.status === 'current' ? null : (
+          <div className="-mt-1 pb-2 pl-1">
+            <SuggestionsRow
+              check={check}
+              onPick={(s) => {
+                setValue(s);
+                setCheck(null);
+              }}
+            />
+            <StatusLine check={check} drafting={Boolean(onDraft)} compact />
+          </div>
+        )}
+        {notSaved ? (
+          <p role="alert" className="-mt-1 pb-2 pl-1 text-xs text-warn-700">
+            That did not save. Please try again.
+          </p>
+        ) : null}
+      </form>
+    );
+  }
+
   return (
-    <form
-      action={(formData) => {
-        setNotSaved(false);
-        startTransition(async () => {
-          try {
-            await saveAction(formData);
-          } catch (e) {
-            /* A redirect is how this action ANSWERS — saved or refused, it lands back here with the reason. Only a
-               request that never answered is caught: thrown into this transition it replaced the whole page (in the
-               Maker, the whole Maker) with the app's error screen. */
-            if (e instanceof Error && /NEXT_REDIRECT/.test(e.message)) throw e;
-            setNotSaved(true);
-          }
-        });
-      }}
-      className="space-y-2"
-    >
+    <form action={submit} className="space-y-2">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <label
           htmlFor="slug"
@@ -216,14 +288,18 @@ function StatusBadge({
   );
 }
 
-function StatusLine({ check, drafting }: { check: CheckResult | null; drafting: boolean }) {
+function StatusLine({ check, drafting, compact = false }: { check: CheckResult | null; drafting: boolean; compact?: boolean }) {
   if (!check) return null;
   if (check.status === 'available') {
     /* Drafted (the Maker, without the Custom address part): no Save button here — ✓ Apply keeps it. */
     return drafting ? (
       <p className="mt-1 text-xs text-success-700">Available — ✓ Apply keeps it.</p>
     ) : (
-      <p className="mt-1 text-xs text-success-700">Available — tap Save address to keep it.</p>
+      compact ? (
+        <p className="mt-1 text-xs text-success-700">Available — tap Save to keep it.</p>
+      ) : (
+        <p className="mt-1 text-xs text-success-700">Available — tap Save address to keep it.</p>
+      )
     );
   }
   if (check.status === 'current') {
@@ -295,7 +371,10 @@ export function AddressField({
   pricePhp,
   storeShell,
   drafted,
+  compact = false,
 }: {
+  /** ⚙ ONE ROW in the Hub's ⚙ (owner 2026-10-30 "Redraw to prototype") — the same three answers, drawn as `SlugField compact`. */
+  compact?: boolean;
   eventId: string;
   slug: string;
   saveAction: (formData: FormData) => Promise<void>;
@@ -325,6 +404,44 @@ export function AddressField({
   /* What renaming needs, said where no part is on sale — never named in the store shell (a couple there without the
      address sees no paid row at all: `offered`). */
   const needs = storeShell ? null : 'Event Hub Pro';
+  if (compact) {
+    /* ⚙ The same three answers as below, on ONE row (prototype `.addr`): held → the box saves live (its Save);
+       on sale → the box drafts, ◆ waits for ✓ Apply; neither (the store shell) → the address is shown, not typed.
+       What the fold's lines said is the row's ⓘ. */
+    const rules = `3 to 32 characters: small letters, numbers and hyphens. The old link keeps forwarding for ${slugForwardingLabel()}.`;
+    if (!offered) {
+      return (
+        <div data-address-field="shown" className="flex min-h-[52px] items-center gap-2">
+          <p className="min-w-0 flex-1 break-all font-mono text-[13px] text-ink">
+            <span className="text-ink/55">setnayan.com/</span>
+            {slug}
+          </p>
+          <Explain title="Event Hub address">Made from your names and date — on every link, print and pass.</Explain>
+        </div>
+      );
+    }
+    return (
+      <div data-address-field={owns ? 'owned' : renamed ? 'kept' : 'free'}>
+        <SlugField
+          compact
+          eventId={eventId}
+          initialSlug={slug}
+          saveAction={saveAction}
+          {...(owns ? {} : { onDraft: draftAddress, drafted })}
+          aside={
+            <>
+              {owns || storeShell ? null : <PaidMark state="try" bare label={price ? 'Custom address' : 'Event Hub Pro'} size="xs" />}
+              <Explain title="Event Hub address">
+                {owns
+                  ? `On every link, print and pass. ${rules}`
+                  : `${renamed ? 'Yours — chosen before, kept free.' : 'Free — made from your names and date.'} Picking your own goes live when you ✓ Apply — ${price ? `Custom address ${price}, or everything` : `with ${needs}`}. ${rules}`}
+              </Explain>
+            </>
+          }
+        />
+      </div>
+    );
+  }
   return (
     <div data-address-field={owns ? 'owned' : renamed ? 'kept' : 'free'} className="space-y-3">
       <p className="font-mono text-[11px] uppercase tracking-[0.15em] text-ink/55">Address</p>

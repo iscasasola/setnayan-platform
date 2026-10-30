@@ -417,3 +417,10 @@ export const MAKER_STAGE_PICK_EVENT = 'maker:stage-pick';
  * tool is grey) — `detail` = the words. The Cover Scene's Opening uses it for a card that is not offered yet.
  */
 export const MAKER_STAGE_SAY_EVENT = 'maker:stage-say';
+
+/**
+ * ⚙ "WHAT GUESTS SEE" FROM THE HUB'S ⚙ (owner 2026-10-30, the prototype's Q4 drawn as A): the ⚙ sheet's row closes the
+ * sheet and asks for the shipped sheet with this event; the Stages | Studio switch (`stages-studio-parts.tsx`), which
+ * is always mounted and draws it, opens it.
+ */
+export const MAKER_OPEN_GUESTS_SEE_EVENT = 'maker:open-guests-see';

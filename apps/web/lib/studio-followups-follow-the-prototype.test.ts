@@ -281,7 +281,7 @@ test('7 · each of the 8 tiles (RSVP left in R1, Wedding March and Seat plan in 
   /* ⚖ 507 KB: the shell's first load reads `studio-tile-defs` — the eleven keys and the editor each opens,
      never the tiles' words (those are `STUDIO_TILES`, read on the server). One map: the table's `item` is the map's. */
   assert.doesNotMatch(read('lib/studio-tile-defs.ts'), /\b(?:label|short|sub|reads)\s*:/, 'the tiles’ words are back in the module the Maker’s shell loads first');
-  assert.match(shell, /import \{ studioTileItem, type StudioTileKey \} from '@\/lib\/studio-tile-defs';/, 'the shell maps a tile through another module');
+  assert.match(shell, /import \{ isStudioMenuKey, studioTileItem, type StudioTileKey \} from '@\/lib\/studio-tile-defs';/, 'the shell maps a tile through another module');
   assert.doesNotMatch(shell, /import \{[^}]*\} from '@\/lib\/studio-tiles';/, 'the shell imports a VALUE from lib/studio-tiles (types only)');
   for (const k of STUDIO_TILE_KEYS) assert.equal(STUDIO_TILES[k].item, studioTileItem(k, null), `${k}: the table and the map disagree`);
   /* …and the Studio forms' group headings are DRAWN by the server; the workspace (first load) only places them. */

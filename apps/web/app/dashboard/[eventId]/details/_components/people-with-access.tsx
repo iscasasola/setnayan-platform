@@ -61,7 +61,16 @@ import type { ClaimAccessAsk } from '@/lib/claim-access-asks';
  *     toggles (Mood Board Edit · View among them, owner 2026-10-30).
  *   · BOOKED SUPPLIER — name and category; what they see is set by their
  *     category (`SUPPLIERS_BY_CATEGORY`); nothing to switch.
+ *
+ * ⚙ AND HOME'S ⚙ EVENT SETTINGS MOUNTS THIS SAME SECTION, as its last one
+ * (owner 2026-10-30, *"no. that shoud be inside home settings"* → *"move them
+ * all in the event settings"*; `event-settings-rows.tsx`). One component, one
+ * set of actions — never a second editor; `returnTo` only says where a Remove
+ * lands (`lib/seat-return-path.ts`).
  */
+
+/** The screen the section is drawn on — what a Remove posts as `return_to` (`lib/seat-return-path.ts`). */
+type AccessReturnTo = 'details' | 'home';
 
 const REASONS: PickOption[] = [
   { key: 'no_longer_availing', label: 'No longer availing their services' },
@@ -354,7 +363,7 @@ function AccessPick({ eventId, row }: { eventId: string; row: PersonRow }) {
   );
 }
 
-function RemoveCoordinator({ eventId, row }: { eventId: string; row: PersonRow }) {
+function RemoveCoordinator({ eventId, row, returnTo }: { eventId: string; row: PersonRow; returnTo: AccessReturnTo }) {
   const [reason, setReason] = useState('');
   const [asking, setAsking] = useState(false);
   if (!row.moderatorId) return null;
@@ -376,7 +385,7 @@ function RemoveCoordinator({ eventId, row }: { eventId: string; row: PersonRow }
         <form action={removeHost} className="flex basis-full flex-wrap items-center gap-2" data-person-remove="">
           <input type="hidden" name="event_id" value={eventId} />
           <input type="hidden" name="moderator_id" value={row.moderatorId} />
-          <input type="hidden" name="return_to" value="details" />
+          <input type="hidden" name="return_to" value={returnTo} />
           <input type="hidden" name="reason" value={reason} />
           <PickMenu
             label={`Why ${row.name} is leaving`}
@@ -437,10 +446,12 @@ function PersonItem({
   eventId,
   row,
   readOnly,
+  returnTo,
 }: {
   eventId: string;
   row: PersonRow;
   readOnly: boolean;
+  returnTo: AccessReturnTo;
 }) {
   return (
     <li className="space-y-2 py-3" data-person={row.kind}>
@@ -458,7 +469,7 @@ function PersonItem({
           </p>
         </div>
         {readOnly ? null : row.kind === 'coordinator' && !row.isViewer ? (
-          <RemoveCoordinator eventId={eventId} row={row} />
+          <RemoveCoordinator eventId={eventId} row={row} returnTo={returnTo} />
         ) : row.kind === 'supplier' && row.canInviteAsCoordinator && row.vendorId ? (
           <Link
             href={`/dashboard/${eventId}/vendors/${row.vendorId}/workspace?tab=details#promote-coordinator`}
@@ -499,6 +510,7 @@ export function PeopleWithAccess({
   failed,
   flash,
   claims = null,
+  returnTo = 'details',
 }: {
   eventId: string;
   rows: PersonRow[];
@@ -510,6 +522,8 @@ export function PeopleWithAccess({
   flash: string | null;
   /** 🤝 Suppliers who joined from the couple's link and wait for Approve (owner 2026-10-20). Null: not the couple. */
   claims?: { measured: boolean; asks: ClaimAccessAsk[] } | null;
+  /** Where a Remove lands (`seatReturnPath`): Event Details, or Home with its ⚙ Event Settings sheet open on access. */
+  returnTo?: AccessReturnTo;
 }) {
   return (
     <div id="people-with-access" className="scroll-mt-20" data-section="access">
@@ -559,6 +573,7 @@ export function PeopleWithAccess({
                         eventId={eventId}
                         row={row}
                         readOnly={readOnly}
+                        returnTo={returnTo}
                       />
                     ))}
                   </ul>

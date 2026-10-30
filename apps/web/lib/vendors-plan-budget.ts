@@ -292,6 +292,8 @@ export type VendorEnrichment = {
   is_verified?: boolean;
   is_setnayan_service?: boolean;
   distance_km?: number | null;
+  /** km from the CEREMONY venue's pin (owner 2026-10-30, "Nearest to ceremony") — `distance_km` is the reception's. */
+  ceremony_distance_km?: number | null;
   /** Fit-badge · service-radius reach (2026-07-09). TRUE = the vendor's tier
    *  radius reaches the event venue; FALSE = out of range; undefined/null =
    *  unknown (no coords / unscoped tier) → the bench hides the reach badge. */

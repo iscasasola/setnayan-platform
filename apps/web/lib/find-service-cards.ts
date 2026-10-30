@@ -178,46 +178,30 @@ export function matchServiceQuery(raw: string, services: readonly FindService[])
   );
 }
 
-/* ── ⇅ — Price and Rating (owner 2026-10-29 v4.2: "Sort · Price · Style · Rating behind ⇅") ─────────────────────── */
-
-export type FindPrice = 'any' | 'low' | 'mid' | 'high';
-export type FindRating = 'any' | '4.5' | '4.0' | 'new';
-export type FindFilters = { price: FindPrice; rating: FindRating };
-export const FIND_FILTERS_OFF: FindFilters = { price: 'any', rating: 'any' };
-
-/** How many of Price and Rating are narrowing the list. */
-export function filtersOn(f: FindFilters): number {
-  return (f.price !== 'any' ? 1 : 0) + (f.rating !== 'any' ? 1 : 0);
-}
-
-/**
- * The category's three price bands, cut at its own priced cards' thirds — so "Under ₱X" means something for a
- * per-head caterer and a per-event photo booth alike. Null when fewer than three cards carry a price (no honest
- * bands to cut), and the ⇅ sheet then offers no Price choice.
+/* ── ⇅ — Rating (owner 2026-10-29 v4.2: "Sort · Price · Style · Rating behind ⇅") ───────────────────────────────── */
+/*
+ * 💸 PRICE IS A SORT ONLY (owner 2026-10-31, "SEVEN OWNER ANSWERS" (1): *"sort only"*). The ⇅ once cut each category
+ * into price thirds ("Under ₱X" · "₱X – ₱Y" · "₱Y and up"), and that removed cards. It is gone: price is the ⇅'s
+ * Sort row "Lowest price" (`BENCH_PLAIN_SORTS`), which ORDERS every card and hides none. There is deliberately no
+ * price field in `FindFilters`, so no choice here can drop a card for its price
+ * (`find-price-is-a-sort-only.test.ts`).
  */
-export function priceBands(cards: readonly FindCardRow[]): { low: number; high: number } | null {
-  const p = cards.map((c) => c.fromPhp).filter((n): n is number => typeof n === 'number' && n > 0).sort((a, b) => a - b);
-  if (p.length < 3) return null;
-  const low = p[Math.floor(p.length / 3)] as number;
-  const high = p[Math.floor((2 * p.length) / 3)] as number;
-  if (!(low < high)) return null;
-  return { low, high };
+
+export type FindRating = 'any' | '4.5' | '4.0' | 'new';
+export type FindFilters = { rating: FindRating };
+export const FIND_FILTERS_OFF: FindFilters = { rating: 'any' };
+
+/** How many ⇅ filters are narrowing the list (Rating is the only one; price only ever sorts). */
+export function filtersOn(f: FindFilters): number {
+  return f.rating !== 'any' ? 1 : 0;
 }
 
-/** Does a card pass the ⇅ choices? An unpriced card never passes a price band (it cannot be said to be in it). */
+/** Does a card pass the ⇅ choices? Only Rating narrows; a card's price never removes it. */
 export function passesFindFilters(
-  card: FindCardRow,
+  _card: FindCardRow,
   shop: { rating: number | null; reviewCount: number | null },
   f: FindFilters,
-  bands: { low: number; high: number } | null,
 ): boolean {
-  if (f.price !== 'any' && bands) {
-    const p = card.fromPhp;
-    if (p == null) return false;
-    if (f.price === 'low' && !(p < bands.low)) return false;
-    if (f.price === 'mid' && !(p >= bands.low && p < bands.high)) return false;
-    if (f.price === 'high' && !(p >= bands.high)) return false;
-  }
   if (f.rating === '4.5' && !((shop.rating ?? 0) >= 4.5)) return false;
   if (f.rating === '4.0' && !((shop.rating ?? 0) >= 4.0)) return false;
   if (f.rating === 'new' && !(shop.rating == null && (shop.reviewCount ?? 0) === 0)) return false;

@@ -187,7 +187,9 @@ test('the sort is the bench’s ONE value — behind Find’s ⇅ now — and th
   // Find v4.2 (owner 2026-10-29): the list head no longer carries a dropdown; the SAME sort value is set from the
   // thumb row's ⇅, offered the same lenses and plain sorts.
   assert.ok(!/\{sortMenu\}/.test(LIST), 'the list head grew its own sort control again');
-  assert.match(BENCH, /sortMenu=\{findSortMenu\(\{[\s\S]*?\.\.\.lensChips\.map[\s\S]*?\.\.\.BENCH_PLAIN_SORTS\.map[\s\S]*?sort: effectiveSort,[\s\S]*?onSort: \(k\) => setSort\(k as BenchSort\),/);
+  // (2026-10-31) "Nearest" is one Sort row per venue with a pin, so the lenses are flat-mapped and a venue row's key
+  // (`near:ceremony`) sets the same `near` value — still ONE sort value, set from the ⇅.
+  assert.match(BENCH, /sortMenu=\{findSortMenu\(\{[\s\S]*?\.\.\.lensChips\.flatMap[\s\S]*?\.\.\.BENCH_PLAIN_SORTS\.map[\s\S]*?sort: effectiveSort === 'near'[\s\S]*?: effectiveSort,[\s\S]*?onSort: \(k\) => \{[\s\S]*?setSort\('near'\)[\s\S]*?setSort\(k as BenchSort\);/);
   assert.match(BENCH, /onSeeAll=\{\(\) => openSearch\(t\.tile, t\.label\)\}/);
   assert.match(LIST, /label=\{inlineMoreSeeAllLabel\(label\)\}\s*onClick=\{onSeeAll\}/);
 });

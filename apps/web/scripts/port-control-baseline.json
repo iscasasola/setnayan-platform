@@ -6909,7 +6909,6 @@
         "GuestsMarch",
         "GuestsScreen",
         "GuestsView",
-        "HTMLAnchorElement",
         "HTMLButtonElement",
         "HTMLDivElement",
         "HTMLElement",
@@ -6974,7 +6973,7 @@
         "Pick",
         "PickMenu",
         "PickWhoContext.Provider",
-        "PillThumb",
+        "PinCountDoor",
         "PinnedSummary",
         "PlusOneFilter",
         "Popover",
@@ -7299,11 +7298,13 @@
       "actions": [
         "markSent",
         "monoAction",
-        "reissueAction"
+        "reissueAction",
+        "submit"
       ],
       "blocks": [
         "CheckResult",
         "DetailPageSkeleton",
+        "Explain",
         "GuestInviteModal",
         "HTMLDivElement",
         "HTMLTextAreaElement",
@@ -7359,6 +7360,7 @@
         "dashboard/[eventId]/launch/_components/details-your-event.tsx",
         "dashboard/[eventId]/launch/_components/guests-see-sheet.tsx",
         "dashboard/[eventId]/launch/_components/guests-view-door.tsx",
+        "dashboard/[eventId]/launch/_components/hub-go-live-row.tsx",
         "dashboard/[eventId]/launch/_components/hub-pro-offer.tsx",
         "dashboard/[eventId]/launch/_components/hub-settings.tsx",
         "dashboard/[eventId]/launch/_components/hub-stage.tsx",
@@ -7651,6 +7653,7 @@
         "HubDraftDock",
         "HubDraftField",
         "HubElementWidth",
+        "HubGoLiveRow",
         "HubMainGround",
         "HubProOffer",
         "HubRow",
@@ -7864,6 +7867,7 @@
         "ScenePhotoSheet",
         "SceneTemplatePicker",
         "ScheduleMatrix",
+        "SchedulePicker",
         "ScheduleSlots",
         "SeatPlan3dNote",
         "SeatPlanSlot",
@@ -7945,6 +7949,7 @@
         "StudioPrintsCarousel",
         "StudioProDoor",
         "StudioQrActions",
+        "StudioQrLookRow",
         "StudioQrShown",
         "StudioQuietRows",
         "StudioReadOnlyFact",
@@ -8657,6 +8662,7 @@
         "PickMenu",
         "PillButton",
         "PillTrack",
+        "PinCountDoor",
         "Pop",
         "PresenceMeta",
         "PriorityOrder",
@@ -8690,8 +8696,7 @@
         "SwitchRow",
         "T",
         "TableType",
-        "TypedRow",
-        "ViewCountRow"
+        "TypedRow"
       ]
     },
     "/dashboard/[eventId]/seating/chart": {

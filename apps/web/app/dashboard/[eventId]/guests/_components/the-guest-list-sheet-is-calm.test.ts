@@ -58,36 +58,32 @@ test('2 · the dark behind a guest sheet is the app\'s ONE pop-up dark — no wa
   }
 });
 
-test('4 · the doors are ONE segmented control — Guests ▾ · Seats ▾ · March, one word each, then the view’s rounds and the ⚙ (Settings became the ⚙, owner 2026-10-27; R4 2026-10-28; slice 2 2026-10-29)', () => {
-  const navAt = SCREEN.lastIndexOf('<nav', SCREEN.indexOf('aria-label="Guest list views"'));
-  const nav = SCREEN.slice(navAt, SCREEN.indexOf('</nav>', navAt));
-  // 2026-10-08: the doors are drawn by the app's ONE pill selector (owner: "adjust all pill selectors to this"),
-  // no longer by this screen's own `.seg` CSS — so the pin is the template's track and thumb.
-  assert.match(nav, /className=\{`\$\{PILL_TRACK_CLASS\} \$\{PILL_TRACK_GROUND\}[^`]*`\}/, 'the doors are not one segmented control');
-  assert.match(nav, /<PillThumb \/>/, 'the doors lost the thumb that slides between them');
-  assert.match(SCREEN, /className=\{`\$\{pillSegClass\(on\)\} /, 'a door does not wear the pill selector’s look');
-  assert.match(SCREEN, /className=\{`\$\{pillSegClass\(true\)\.replace\(/, 'the segment on screen (its mode menu) does not wear the pill selector’s look');
+test('4 · the doors are ONE dropdown in ONE row — "Guests · List ▾" listing Guests · Seats · March, one word each, then the view’s counts, rounds and the ⚙ (owner 2026-10-27 ⚙; R4 2026-10-28; slice 2 2026-10-29; ONE row 2026-10-30)', () => {
+  // ⤷ 2026-10-30 (owner, iPhone app: *"The menu does not work properly"*): the segmented `Guests | Seats ▾ | March` pill is
+  // gone from every view — the doors are the ONE shared dropdown (`PickMenu`, "any set of choices is a dropdown").
+  assert.doesNotMatch(SCREEN, /aria-label="Guest list views"|data-guests-segmented|<PillThumb \/>/, 'the segmented pill is back beside the ▾');
   assert.doesNotMatch(SCREEN, /styles\.seg\b/, 'the doors are drawn by this screen’s own CSS again');
-  // 🎚 R4 slice 2 (owner 2026-10-29): the row draws the TOPS this event has, each in its one word (`lib/guests-views.ts`) —
-  // Guests · Seats · March; List · Map and List · 2D · 3D are their modes, behind the selected segment's ▾.
-  assert.match(nav, /\{tops\.map\(\(t\) => seg\(t\)\)\}/, 'the segments are not the tops’ own words');
+  const menuAt = SCREEN.indexOf('const pinMenu = (');
+  const menu = SCREEN.slice(menuAt, SCREEN.indexOf('\n  );', menuAt));
+  assert.match(menu, /<PickMenu\b[^]*dataAttr="data-guests-pin-menu"[^]*buttonText=\{pinnedMenuWords\(gview, seatMode\)\}/, 'the doors are not the one shared dropdown naming the view');
+  // Its groups are the TOPS this event has, each in its one word (`lib/guests-views.ts`).
+  assert.match(SCREEN, /group: GUESTS_TOP_LABEL\.guests/);
+  assert.match(SCREEN, /group: GUESTS_TOP_LABEL\.seats/);
+  assert.match(SCREEN, /group: GUESTS_TOP_LABEL\.march/);
   const words = Object.values(GUESTS_TOP_LABEL);
-  assert.deepEqual(words, ['Guests', 'Seats', 'March'], `the segments read ${words.join(' · ')}`);
-  assert.ok(words.every((w) => !/\s/.test(w)), 'a segment says more than one word');
+  assert.deepEqual(words, ['Guests', 'Seats', 'March'], `the groups read ${words.join(' · ')}`);
+  assert.ok(words.every((w) => !/\s/.test(w)), 'a group says more than one word');
   assert.deepEqual(Object.values(GUESTS_VIEW_LABEL), ['List', 'Map', 'Seats', 'March'], 'a view lost its one word');
-  // The "Settings" segment is the menu's ⚙ now — after the pill and the view's own rounds (Seats' Edit · ⋯), same row.
+  // The ⚙ ends the first row after the face (menu · counts) and the view's own rounds (Seats' Edit · ⋯).
+  const rowAt = SCREEN.indexOf('data-first-row="" data-guests-top-row=""');
+  assert.ok(rowAt > -1, 'the one top row is gone');
   assert.match(
-    SCREEN.slice(navAt),
-    /^[\s\S]*?<\/nav>\s*(?:\{\s*\}\s*)?<span ref=\{setToolsSlot\}[^>]*data-guests-view-rounds="" \/>\s*\{setup \? \(\s*<MenuSettingsButton menu="guests"/,
-    'the ⚙ does not end the first row after the pill',
+    SCREEN.slice(rowAt),
+    /^[\s\S]*?<PinnedSummary[\s\S]*?\/>\s*(?:\{\s*\}\s*)?<span ref=\{setToolsSlot\}[^>]*data-guests-view-rounds="" \/>\s*\{setup \? \(\s*<MenuSettingsButton menu="guests"/,
+    'the ⚙ does not end the first row after the menu and the rounds',
   );
 });
 
-test('4 · the segmented doors are a <nav> of LINKS — never a broken tab', () => {
-  const nav = SCREEN.slice(SCREEN.indexOf('<nav'), SCREEN.indexOf('>', SCREEN.indexOf('<nav')));
-  assert.match(nav, /aria-label="Guest list views"/, 'the doors lost their nav landmark name');
+test('4 · the doors never pose as tabs', () => {
   assert.doesNotMatch(SCREEN, /role="tablist"|role="tab"|aria-selected/, 'the doors pose as tabs again');
-  assert.match(SCREEN, /aria-current=\{on \? 'page' : undefined\}/, 'the current door does not say it is the current page');
-  assert.match(SCREEN, /<span key=\{t\} [^>]*aria-current="page" data-guests-seg=\{t\} data-guests-seg-menu="">/, 'the segment on screen (its mode menu) does not say it is the current page');
-  assert.match(SCREEN, /<Link\b[\s\S]{0,400}?data-guests-seg=\{t\}/, 'a segment is not a link');
 });

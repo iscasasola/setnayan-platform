@@ -18,6 +18,7 @@ import {
   ChevronUp,
   ChevronsDownUp,
   ChevronsUpDown,
+  CircleDot,
   GripVertical,
   Lock,
   LockOpen,
@@ -223,7 +224,7 @@ import { Sheet } from '@/app/_components/sheet';
 import { SeatFacesList, type FaceGuest, type FaceSlot, type FaceUnit } from './seat-faces-list';
 import { GuestCardSheet, SHIPPED_GUEST_CARD } from '../../guests/_components/guest-card-sheet';
 import { PickMenu as SeatPickMenu } from '../../website/editor/_components/pick-menu';
-import { ViewCountRow } from '../../guests/_components/view-summary-cards';
+import { PinCountDoor } from '../../guests/_components/view-summary-cards';
 import { useGuestsLens } from '../../guests/_components/guests-lens';
 import { guestsFilterMenu } from '../../guests/_components/guests-filter-menu';
 import { SEARCH_WAIT_MS } from '@/lib/guest-roster-view';
@@ -6717,6 +6718,22 @@ export function SeatingEditor({
   );
   const phoneMore = (
     <>
+      {/* ✨ Owner 2026-10-30 (*"The menu does not work properly"* → ONE top row on every view): the old count row's
+          ✨ Auto arrange tile is GONE in Guests, so its run lives here, first in the ⋯ — the SAME `runAutoArrange`, the
+          same refusal (Edit first · no tables), its one line + Undo still rising over the thumb row (`seatToast`). */}
+      {inGuests ? (
+        <>
+          <MenuRow
+            icon={Sparkles}
+            label={isPending ? 'Arranging…' : 'Auto arrange'}
+            hint={canEdit ? 'Seats everyone by the seating rules · Undo after' : 'Tap Edit first — only one person arranges at a time'}
+            onClick={runAutoArrange}
+            disabled={!canEdit || tables.length === 0 || isPending}
+            emphasized
+          />
+          <MenuDivider />
+        </>
+      ) : null}
       {/* ⇅ R4 slice 1: in Guests the thumb row is the shared one — who sits together lives here, in the head's ⋯. */}
       {inGuests ? (
         <>
@@ -6797,36 +6814,50 @@ export function SeatingEditor({
      the plan this editor holds, never typed: the units (linked tables once), who is coming and seated, who is coming and
      still to seat (that count is the door to them). */
   const seatedComing = guests.filter((g) => g.seated_table_id && g.rsvp_status !== 'declined').length;
-  /* 🗂 R4 · the fixed count row (owner 2026-10-29, prototype v12): Seated · Unseated · Tables · ✨ Auto arrange — every tile a
-     door: Seated and Unseated open the list (Unseated narrowed to who is left), Tables the plan, Auto arrange the shipped
-     run. Counted here from the plan this editor holds; guests who said no are not counted. */
-  const seatSummary = inGuests ? (
-    <ViewCountRow
-      view="seats"
-      tiles={[
-        { key: 'seated', word: 'seated', value: seatedComing, onPress: () => onSelectView('list') },
-        {
-          key: 'unseated',
-          word: 'unseated',
-          value: unseatedComing,
-          onPress: () => {
-            onSelectView('list');
-            openUnseated();
-          },
-        },
-        { key: 'tables', word: displayUnits.length === 1 ? 'table' : 'tables', value: displayUnits.length, onPress: () => onSelectView('2d') },
-        {
-          key: 'auto',
-          word: isPending ? 'Arranging…' : 'Auto arrange',
-          main: true,
-          icon: <Sparkles aria-hidden strokeWidth={2} />,
-          onPress: runAutoArrange,
-          disabled: !canEdit || tables.length === 0 || isPending,
-          about: canEdit ? undefined : 'Tap Edit first — only one person arranges at a time',
-        },
-      ]}
-    />
-  ) : null;
+  /* 📌 THE COUNTS RIDE THE ONE TOP ROW (owner 2026-10-30, iPhone app: *"Seat ls should be pinned on top row and on map
+     and 3d"* → *"Like this one"* — Guests › List's `✓ 80 ✗ 0 ? 152`). The fixed count row of four tiles (#7044) is GONE:
+     its three counts are the row's own doors on EVERY Seats mode (List · 2D · 3D), drawn by the ONE count door
+     (`PinCountDoor`) into the row's count seat (`lens.countsSlot`); each opens where its tile did — Seated the list,
+     Unseated the list narrowed to who is left, Tables the 2D plan. ✨ Auto arrange moved into the ⋯ (`phoneMore`).
+     Counted here from the plan this editor holds; guests who said no are not counted. */
+  const seatCountsSlot =
+    inGuests && lens?.countsSlot
+      ? createPortal(
+          <>
+            <PinCountDoor
+              dot="seated"
+              value={seatedComing}
+              id="gs-seats-seated"
+              word="seated"
+              icon={<Armchair aria-hidden strokeWidth={2.2} />}
+              onPress={() => onSelectView('list')}
+              attrs={{ 'data-seat-count': 'seated' }}
+            />
+            <PinCountDoor
+              dot="unseated"
+              value={unseatedComing}
+              id="gs-seats-unseated"
+              word="unseated"
+              icon={<UserMinus aria-hidden strokeWidth={2.2} />}
+              onPress={() => {
+                onSelectView('list');
+                openUnseated();
+              }}
+              attrs={{ 'data-seat-count': 'unseated' }}
+            />
+            <PinCountDoor
+              dot="tables"
+              value={displayUnits.length}
+              id="gs-seats-tables"
+              word={displayUnits.length === 1 ? 'table' : 'tables'}
+              icon={<CircleDot aria-hidden strokeWidth={2.2} />}
+              onPress={() => onSelectView('2d')}
+              attrs={{ 'data-seat-count': 'tables' }}
+            />
+          </>,
+          lens.countsSlot,
+        )
+      : null;
   const addTable = () => {
     selectPanelTab('tables');
     setShowAddTable(true);
@@ -7012,7 +7043,7 @@ export function SeatingEditor({
           summary row, then the editing space, the verbs at the foot. */}
       {studioSeat ? studioHead : isPhone ? phoneHead : doorStrip}
       {seatToolRounds}
-      {seatSummary}
+      {seatCountsSlot}
       {/* ═══════════ ROW 1 — COMMAND BAR (the page's only blurred surface) ═══════════ */}
       {isPhone || inGuests ? null : (
       <CommandBar>

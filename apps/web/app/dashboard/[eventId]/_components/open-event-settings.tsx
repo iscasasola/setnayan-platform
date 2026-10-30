@@ -154,16 +154,19 @@ async function yourAccessSheet(
 ): Promise<EventSettingsResult> {
   const [seatRes, datesRes] = await Promise.all([
     supabase
+      // A READ, not an edit gate: it must include the limited helper (they are who this sheet is for), so the
+      // accepted check is applied below rather than as the `.not('accepted_at'…)` edit-gate shape that
+      // a-limited-helper-views-never-edits.test.ts requires to exclude viewers.
       .from('event_moderators')
-      .select('role_subtype')
+      .select('role_subtype, accepted_at')
       .eq('event_id', eventId)
       .eq('user_id', userId)
-      .not('accepted_at', 'is', null)
       .is('removed_at', null)
       .maybeSingle(),
     supabase.from('events').select('event_date, event_end_date, event_date_precision').eq('event_id', eventId).maybeSingle(),
   ]);
-  if (seatRes.error || datesRes.error || !seatRes.data) {
+  const accepted = Boolean((seatRes.data as { accepted_at?: string | null } | null)?.accepted_at);
+  if (seatRes.error || datesRes.error || !seatRes.data || !accepted) {
     if (seatRes.error) logQueryError('EventSettings.ownSeat', seatRes.error, { event_id: eventId }, 'graceful_degrade');
     if (datesRes.error) logQueryError('EventSettings.ownWindow', datesRes.error, { event_id: eventId }, 'graceful_degrade');
     return { ok: false, reason: 'Your access couldn’t be read just now. Nothing was changed — close this and try again.' };

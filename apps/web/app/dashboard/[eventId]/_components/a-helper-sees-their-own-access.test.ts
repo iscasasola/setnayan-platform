@@ -104,7 +104,7 @@ test('3 · the action hands a helper Your access ALONE, from their own seat, bef
   assert.match(sheet, /\.from\('event_moderators'\)[\s\S]*?\.eq\('user_id', userId\)/, 'the helper’s sheet reads a seat that is not their own');
   assert.doesNotMatch(sheet, /loadPeopleWithAccess|readClaimAccessAsks|loadYourEvent|loadEventSettings/, 'a helper’s sheet reads the hosts’ rows');
   assert.match(sheet, /<EventSettingsRows eventId=\{eventId\} input=\{null\} parents=\{null\} dock=\{null\} yours=\{yours\} \/>/, 'a helper’s sheet draws more than Your access');
-  assert.match(sheet, /seatRes\.error \|\| datesRes\.error \|\| !seatRes\.data\) \{[\s\S]*?return \{ ok: false/, 'a refused read draws a made-up role instead of saying so');
+  assert.match(sheet, /seatRes\.error \|\| datesRes\.error \|\| !seatRes\.data \|\| !accepted\) \{[\s\S]*?return \{ ok: false/, 'a refused read draws a made-up role instead of saying so');
 
   // The hosts' sheet is unchanged: it never carries `yours`.
   const hosts = action.slice(0, action.indexOf('async function yourAccessSheet('));

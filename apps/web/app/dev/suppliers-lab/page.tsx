@@ -65,6 +65,7 @@
  * Run with `NEXT_PUBLIC_EXPLORE_REPLAN_ENABLED=true` — the one-screen page is
  * behind that flag, and a client bundle reads it at build time.
  */
+import { nearRows } from '@/lib/find-sort-choices';
 import { notFound } from 'next/navigation';
 import { InspectorLayout } from '@/app/_components/inspector/inspector-column';
 import { DatePlaceLine } from '@/app/dashboard/[eventId]/vendors/_components/date-place-line';
@@ -287,6 +288,13 @@ export default async function SuppliersLabPage({
       findCards={one('cards')}
       folders={folders}
       eventId={LAB_EVENT}
+      // 📍 `&near=both` — the event has a reception AND a ceremony pin, so the ⇅'s Sort offers "Nearest to reception"
+      // · "Nearest to ceremony" (owner 2026-10-30); absent → the shipped single "Nearest" row.
+      nearOptions={
+        one('near') === 'both'
+          ? nearRows({ reception: { latitude: 14.1, longitude: 120.94 }, ceremony: { latitude: 14.56, longitude: 121.02 } })
+          : undefined
+      }
       standings={LAB_STANDINGS}
       initialOpenTile={one('open')}
       starterTiles={[...popularTilesFor('wedding')]}

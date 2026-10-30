@@ -36,7 +36,7 @@ test('the Memories host branch mints the camera BEFORE it reads it — so the pr
   const branch = /\n  if \(host\) \{[\s\S]*?\n  \}\n/.exec(PAGE)?.[0] ?? '';
   assert.ok(branch, 'the host branch is gone — every rule below would be vacuous');
   const mintAt = branch.indexOf('provisionUploadsCameraAdmin(');
-  const readAt = branch.indexOf(".from('paparazzi_seats')");
+  const readAt = branch.indexOf('readHostCamera(admin, eventId, user.id)');
   assert.ok(mintAt > 0, 'Memories no longer mints the Uploads camera — on an event whose studio page nobody opened, the press finds no camera');
   assert.ok(readAt > mintAt, 'the camera is read before it is minted — the first visit draws a sheet with no camera behind it');
 });

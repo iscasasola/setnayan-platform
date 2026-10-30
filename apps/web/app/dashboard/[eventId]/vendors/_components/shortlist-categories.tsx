@@ -100,8 +100,10 @@ import {
   sortWithReasons,
   type BenchSort,
   type SortReason,
+  type SortShape,
 } from '@/lib/bench-sort';
-import { isLensKey, visibleLenses } from '@/lib/ranking-lenses';
+import { isLensKey, LENSES, visibleLenses } from '@/lib/ranking-lenses';
+import { nearFromKey, nearKey, type NearFrom } from '@/lib/find-sort-choices';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import {
   FREE_VENUE_ASSIST_CHIP,
@@ -220,7 +222,6 @@ import {
   pageOfClusters,
   passesFindFilters,
   pencilWords,
-  priceBands,
   servicesScopeWords,
   servicesWithCards,
   type FindAvailability,
@@ -2165,6 +2166,7 @@ function MoreToCompare({
   filters,
   onLoaded,
   onClearFilters,
+  shape,
   onSeeAll,
 }: {
   eventId: string;
@@ -2183,13 +2185,16 @@ function MoreToCompare({
   probeDayKeys: readonly string[];
   /** The services the row's ✎ has hidden (`FindServicesSheet`) — their cards leave this list. */
   hidden: readonly string[];
-  /** ⇅ Price and Rating for this category (`find-sort-menu.tsx`). */
+  /** ⇅ Rating for this category (`find-sort-menu.tsx`). Price only ever sorts (owner 2026-10-31, "sort only"). */
   filters: FindFilters;
-  /** What the row's ✎ and the ⇅ need from this list's one read: the services with cards (their counts) and the
-   *  price thirds. `listed: null` = the cards could not be read. */
-  onLoaded: (tile: string, info: { listed: { service: FindService; count: number }[] | null; bands: { low: number; high: number } | null }) => void;
-  /** "Clear" on the count line — Price and Rating back to any. */
+  /** What the row's ✎ needs from this list's one read: the services with cards (their counts). `listed: null` = the
+   *  cards could not be read. */
+  onLoaded: (tile: string, info: { listed: { service: FindService; count: number }[] | null }) => void;
+  /** "Clear" on the count line — Rating back to any. */
   onClearFilters: () => void;
+  /** 📍 The ⇅'s "Nearest to ceremony" for this list (`sortShapeFor`) — swaps the distance the ORDER reads, never the
+   *  card's own distance line. `{}` = the shipped order. */
+  shape: SortShape<CategoryVendorResult>;
   /** Opens the full sheet — still the only place with filters and facets. */
   onSeeAll: () => void;
 }) {
@@ -2446,11 +2451,13 @@ function MoreToCompare({
   const moreVisible = orderInlineMoreRow(
     excludeBenchVendors(moreRows, benchProfileIds, Object.keys(moreSaved)),
     effectiveSort,
+    shape.adjust,
   );
   const moreOrderNote = inlineMoreOrderNote({
     rows: moreVisible,
     mode: effectiveSort,
     modeLabel: effectiveSortLabel,
+    adjust: shape.adjust,
   });
   const moreClassified = classifyInlineMoreRow({
     rows: moreVisible,
@@ -2472,21 +2479,19 @@ function MoreToCompare({
   ).filter((c) => visibleIds.has(c.profileId));
   const services = moreAll?.services ?? [];
   const listed = servicesWithCards(services, moreAll && !cardsUnread ? listCards : null);
-  const bands = priceBands(listCards);
   const listedKey = cardsUnread ? 'unread' : listed.map((l) => `${l.service.key}:${l.count}`).join(',');
-  const bandsKey = bands ? `${bands.low}-${bands.high}` : '';
   useEffect(() => {
     if (moreLoading || moreError || !moreAll) return;
-    onLoaded(tile, { listed: cardsUnread ? null : listed, bands });
+    onLoaded(tile, { listed: cardsUnread ? null : listed });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tile, listedKey, bandsKey, moreLoading, moreError]);
+  }, [tile, listedKey, moreLoading, moreError]);
   const hiddenHere = hidden.filter((k) => listed.some((l) => l.service.key === k));
   const showing = listed.length - hiddenHere.length;
   // The card names its service while more than one is showing (owner 2026-10-29: "when All is showing").
   const nameService = showing > 1;
   const labelOf = (key: string) => services.find((x) => x.key === key)?.label ?? label;
   const keepCard = (c: FindCardRow, row: CategoryVendorResult) =>
-    !hiddenHere.includes(c.service) && passesFindFilters(c, row, filters, bands);
+    !hiddenHere.includes(c.service) && passesFindFilters(c, row, filters);
   const order = services.map((x) => x.key);
   const clashOf = new Map(moreClassified.clashes.map((c) => [c.row.vendorProfileId, c.clashWith]));
   const clusters: (FindCluster<CategoryVendorResult> & { sunk: boolean })[] = [
@@ -2495,7 +2500,7 @@ function MoreToCompare({
   ];
   const page = pageOfClusters(clusters, morePage);
   // A new look at the list starts at its first page.
-  const pageKey = `${hiddenHere.join(',')}|${filters.price}|${filters.rating}|${moreQ}|${effectiveSort}`;
+  const pageKey = `${hiddenHere.join(',')}|${filters.rating}|${moreQ}|${effectiveSort}`;
   useEffect(() => setMorePage(FIND_PAGE_CARDS), [pageKey]);
   const shown = page.totalCards;
   const narrowed = filtersOn(filters) > 0 || hiddenHere.length > 0;
@@ -2842,6 +2847,7 @@ export const MoreRowStandInCtx = createContext<
 export function ShortlistCategories({
   folders: foldersFromServer,
   eventId,
+  nearOptions,
   unread,
   initialOpenTile = null,
   savedRequirementCanonicalByTile = {},
@@ -2874,6 +2880,12 @@ export function ShortlistCategories({
   unread?: { pairs: ReadonlyArray<readonly [string, number]>; measured: boolean };
   folders: ShortlistFolder[];
   eventId: string;
+  /**
+   * 📍 The "Nearest" rows the ⇅ offers (owner 2026-10-30, "Reception + Ceremony") — one per venue with a pin
+   * (`nearRows`, read on the server from the Event Hub's own two venues). Absent (the dev lab) → the shipped single
+   * "Nearest" row and its gate.
+   */
+  nearOptions?: readonly { from: NearFrom; label: string }[];
   /**
    * vendorId → where that supplier stands, derived ONCE on the server by
    * `lib/supplier-standing.ts` and passed down. A vendor absent from this map
@@ -3085,16 +3097,16 @@ export function ShortlistCategories({
   // above is untouched — it is what a header tap means while not all are open.
   const [openAll, setOpenAll] = useState(false);
   // ── FIND v4 (owner 2026-10-29) — per category, for this visit on Suppliers: the services its ✎ hides, what its list
-  // read (the services with cards, their counts, the price thirds — from the list's ONE read, never a second), and the
-  // ⇅'s Price and Rating. The ✎ sheet open for one category at a time.
+  // read (the services with cards and their counts — from the list's ONE read, never a second), and the ⇅'s Rating
+  // (price only ever sorts — owner 2026-10-31, "sort only"). The ✎ sheet open for one category at a time.
   const [hiddenByTile, setHiddenByTile] = useState<Readonly<Record<string, readonly string[]>>>({});
   const [listedByTile, setListedByTile] = useState<
-    Readonly<Record<string, { listed: { service: FindService; count: number }[] | null; bands: { low: number; high: number } | null }>>
+    Readonly<Record<string, { listed: { service: FindService; count: number }[] | null }>>
   >({});
   const [filtersByTile, setFiltersByTile] = useState<Readonly<Record<string, FindFilters>>>({});
   const [servicesSheetTile, setServicesSheetTile] = useState<string | null>(null);
   const onListLoaded = useCallback(
-    (tile: string, info: { listed: { service: FindService; count: number }[] | null; bands: { low: number; high: number } | null }) =>
+    (tile: string, info: { listed: { service: FindService; count: number }[] | null }) =>
       setListedByTile((cur) => ({ ...cur, [tile]: info })),
     [],
   );
@@ -3458,10 +3470,22 @@ export function ShortlistCategories({
   // Chips in order, each resolved to enabled / disabled-with-reason. A lens with
   // no honest disabled wording (In demand right now) is ABSENT from this list
   // rather than greyed — see `LENSES.demand` for why that is a requirement.
-  const lensChips = useMemo(
-    () => (replan ? visibleLenses(lensCandidates) : []),
-    [lensCandidates, replan],
-  );
+  //
+  // 📍 "Nearest" is offered by the venues the couple HAS (owner 2026-10-30, "Reception + Ceremony"): on whenever a
+  // venue has a pin (`nearOptions`) — an empty bench used to grey it with "Add your venue" for a couple who has one.
+  const lensChips = useMemo(() => {
+    if (!replan) return [];
+    return visibleLenses(lensCandidates).map((c) =>
+      c.key === 'near' && nearOptions
+        ? nearOptions.length > 0
+          ? { ...c, disabled: false, reason: null }
+          : { ...c, disabled: true, reason: LENSES.near.unavailableReason }
+        : c,
+    );
+  }, [lensCandidates, replan, nearOptions]);
+  // 📍 Which venue "Nearest" measures from — the one picked, while it still has a pin; else the first offered.
+  const [nearAsked, setNearAsked] = useState<NearFrom>('reception');
+  const nearFrom: NearFrom = nearOptions?.some((o) => o.from === nearAsked) ? nearAsked : (nearOptions?.[0]?.from ?? 'reception');
   // A selected lens that is no longer offered (the couple sorted by "Nearest",
   // then their venue anchor went away) resolves to the default AT RENDER rather
   // than by correcting state — no effect, no risk of a set-state loop, and the
@@ -3488,8 +3512,27 @@ export function ShortlistCategories({
           ...BENCH_PLAIN_SORTS.map((p) => ({ key: p.key as BenchSort, label: p.label })),
         ]
       : BENCH_SORTS;
+    if (replan && effectiveSort === 'near' && nearOptions?.length) {
+      return nearOptions.find((o) => o.from === nearFrom)?.label ?? LENSES.near.label;
+    }
     return chips.find((c) => c.key === effectiveSort)?.label ?? (BENCH_SORTS[0]?.label ?? 'Best fit');
-  }, [replan, lensChips, effectiveSort]);
+  }, [replan, lensChips, effectiveSort, nearOptions, nearFrom]);
+
+  /**
+   * 📍 "Nearest to ceremony" (owner 2026-10-30): each card is ORDERED by its distance from the ceremony's pin, and its
+   * reason pill says so. A card's own distance line and badges are untouched — only the order and the pill move.
+   * Generic over the two card kinds: the couple's own (`ShortlistVendor`) and the marketplace's (`CategoryVendorResult`).
+   */
+  const sortShapeFor = useCallback(
+    <T,>(ceremonyKm: (item: T) => number | null): SortShape<T> => {
+      if (!(effectiveSort === 'near' && nearFrom === 'ceremony' && nearOptions?.length)) return {};
+      return {
+        adjust: (item, base) => ({ ...base, distanceKm: ceremonyKm(item) }),
+        words: { distance: { lead: 'Closest to your ceremony', plain: 'Near your ceremony' } },
+      };
+    },
+    [effectiveSort, nearFrom, nearOptions],
+  );
 
   // ── Sort persistence (§13.3) ──────────────────────────────────────────────
   // Was `useState('fit')` and nothing else, so every reload or tab-away snapped
@@ -4203,7 +4246,7 @@ export function ShortlistCategories({
                       : t.vendors;
                   const scopedNone = scopedQ.length > 0 && scopeTile === t.tile && railVendors.length === 0;
                   const arrangedRail = applyBenchArrangement(
-                    sortWithReasons(railVendors, effectiveSort),
+                    sortWithReasons(railVendors, effectiveSort, sortShapeFor<ShortlistVendor>((v) => v.ceremonyDistanceKm ?? null)),
                     tilePins,
                     (e) => e.v.vendorId,
                   );
@@ -4690,6 +4733,7 @@ export function ShortlistCategories({
                               filters={filtersByTile[t.tile] ?? FIND_FILTERS_OFF}
                               onLoaded={onListLoaded}
                               onClearFilters={() => setFiltersByTile((cur) => ({ ...cur, [t.tile]: FIND_FILTERS_OFF }))}
+                              shape={sortShapeFor<CategoryVendorResult>((r) => r.ceremonyDistanceKm ?? null)}
                               onSeeAll={() => openSearch(t.tile, t.label)}
                             />
                           ) : null}
@@ -4807,16 +4851,30 @@ export function ShortlistCategories({
           emptyPanel={findPanel}
           onGoToCategory={goToCategory}
           sortMenu={findSortMenu({
+            // 📍 "Nearest" is one row per venue with a pin ("Nearest to reception" · "Nearest to ceremony"), in
+            // this same Sort list — the venue is picked here, never in a second control (owner 2026-10-30).
             sorts: [
-              ...lensChips.map((c) => ({ key: c.key as string, label: c.label, disabledNote: c.disabled ? (c.reason ?? 'not available here') : undefined })),
+              ...lensChips.flatMap((c) =>
+                c.key === 'near' && nearOptions?.length
+                  ? nearOptions.map((o) => ({ key: nearKey(o.from), label: o.label }))
+                  : [{ key: c.key as string, label: c.label, disabledNote: c.disabled ? (c.reason ?? 'not available here') : undefined }],
+              ),
               ...BENCH_PLAIN_SORTS.map((x) => ({ key: x.key as string, label: x.label })),
             ],
-            sort: effectiveSort,
-            defaultSort: findDefaultSort,
-            onSort: (k) => setSort(k as BenchSort),
+            sort: effectiveSort === 'near' && nearOptions?.length ? nearKey(nearFrom) : effectiveSort,
+            defaultSort: findDefaultSort === 'near' && nearOptions?.length ? nearKey(nearOptions[0]?.from ?? 'reception') : findDefaultSort,
+            onSort: (k) => {
+              const from = nearFromKey(k);
+              if (from) {
+                setNearAsked(from);
+                setSort('near');
+                return;
+              }
+              if (k === 'near' && nearOptions?.[0]) setNearAsked(nearOptions[0].from);
+              setSort(k as BenchSort);
+            },
             scope: scopeRow ? scopeRow.t.label : null,
             filters: (scopeTile && filtersByTile[scopeTile]) || FIND_FILTERS_OFF,
-            bands: scopeTile ? (listedByTile[scopeTile]?.bands ?? null) : null,
             onFilters: (next) => {
               if (scopeTile) setFiltersByTile((cur) => ({ ...cur, [scopeTile]: next }));
             },

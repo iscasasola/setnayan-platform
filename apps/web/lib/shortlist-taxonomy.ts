@@ -531,6 +531,9 @@ export type ShortlistVendor = {
    *  (and hides when unsure), the ranking needs "how far?" — 2 km and 19 km were
    *  the same answer before (Explore_Replan §13.4 finding 3). */
   distanceKm: number | null;
+  /** The same, measured from the CEREMONY venue's pin — read only by Find's "Nearest to ceremony" (owner 2026-10-30).
+   *  Absent / null = no ceremony pin or no supplier pin → NEUTRAL. */
+  ceremonyDistanceKm?: number | null;
   /** COMPOSITE-RANKING input · budget fit in [0,1] — the vendor's "starts at"
    *  scored against this category's allocated share of the couple's budget. The
    *  continuous twin of the `budgetFit` 'fits'/'over' badge. NULL = no budget set
@@ -919,6 +922,7 @@ export function buildShortlistFolders(args: {
       // costs no extra query and is what lets "Best fit" call the real scorer
       // instead of three binary flags. Absent → null → the scorer's NEUTRAL.
       distanceKm: ext?.distance_km ?? null,
+      ceremonyDistanceKm: ext?.ceremony_distance_km ?? null,
       budgetFitRatio: ext?.budget_fit_ratio ?? null,
       faithMatch: ext?.faith_match ?? null,
       // Lens inputs. Both are pure ADDITIONS to the ranking vocabulary and are

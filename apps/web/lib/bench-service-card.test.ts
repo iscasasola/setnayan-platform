@@ -106,7 +106,7 @@ test('the scans read real files', () => {
 
 test('🔑 the reader returns only switched-on cards, and null — never {} — when a read fails', () => {
   const selects = READER.match(/\.from\('vendor_services'\)[\s\S]*?;/g) ?? [];
-  assert.equal(selects.length, 2, 'expected the two reads (picks · market)');
+  assert.equal(selects.length, 2, 'expected the two reads (picks · the category’s cards)');
   for (const q of selects) {
     assert.match(q, /\.eq\('is_active', true\)/, 'a switched-off card would reach a couple');
   }
@@ -149,8 +149,10 @@ test('🔑 "Price on request" is said only when the cards were READ, and never o
   assert.match(meta, /\) : look\.cards \? \(\s*<span className="sc-price none">\{PRICE_ON_REQUEST\}<\/span>\s*\) : null/);
   // The marketplace card in "More to compare" obeys the same rule.
   assert.match(BENCH, /\) : cardsRead \? \(\s*<span className="sc-price none">\{PRICE_ON_REQUEST\}<\/span>\s*\) : null/);
-  assert.match(BENCH, /cardsRead=\{moreCards !== null\}/);
-  assert.equal((BENCH.match(/PRICE_ON_REQUEST\}/g) ?? []).length, 2, 'one per card shape — no third, unguarded one');
+  assert.match(BENCH, /cardsRead=\{!cardsUnread && \(moreAll \? true : moreCards !== null\)\}/);
+  // Find v4 (2026-10-29): a shop's other card in the category ("also …") — the third shape, said only over a card READ.
+  assert.match(BENCH, /: c\.card \? <span className="sc-price none">\{PRICE_ON_REQUEST\}<\/span> : null/);
+  assert.equal((BENCH.match(/PRICE_ON_REQUEST\}/g) ?? []).length, 3, 'one per card shape — no fourth, unguarded one');
   assert.ok(!/Price on request/.test(BENCH), 'the words are typed in the bench — read them from the lib');
 });
 

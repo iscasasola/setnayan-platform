@@ -188,6 +188,7 @@ export function MakerLabShell({
   studio = null,
   venuePictures = null,
   factEditors,
+  hubSettings,
   fixedStyles = {},
   blockLooks = {},
   sceneAccents = {},
@@ -225,6 +226,8 @@ export function MakerLabShell({
   venuePictures?: MakerVenuePictures | null;
   /** ✍ `&facts=1` — the fact editors the real Maker is handed (`detailsFactEditors`). */
   factEditors?: ComponentProps<typeof MakerShell>['factEditors'];
+  /** ⚙ "Your Event Hub" for the Hub's ⚙ (`detailsLabHubSettings`). */
+  hubSettings?: ComponentProps<typeof MakerShell>['hubSettings'];
   eventId: string;
   scenes: MakerScene[];
   navigator: MakerNavigatorData;
@@ -455,6 +458,7 @@ export function MakerLabShell({
       studio={studio}
       venuePictures={venuePictures}
       factEditors={factEditors}
+      hubSettings={hubSettings}
       /* 🎭 See as · Role ▾ — the wedding's guest-list roles, as the launch page builds them. */
       seeAsRoles={LAB_ROLE_ROWS}
       hiddenStages={hiddenStages}

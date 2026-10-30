@@ -1099,6 +1099,7 @@ export function OpensRow({
 export function SwitchRow({
   name,
   about,
+  line,
   on,
   onChange,
   disabled = false,
@@ -1112,6 +1113,8 @@ export function SwitchRow({
 }: {
   name: string;
   about?: FormRowAbout | null;
+  /** One quiet line under the name, inside the row — what the switch does, or where it stands ("Not yet — …"). */
+  line?: ReactNode;
   on: boolean;
   onChange: (next: boolean) => void;
   /**
@@ -1149,7 +1152,7 @@ export function SwitchRow({
     tellTheForm(post.current);
   }, [on]);
   return (
-    <FormRow name={name} about={about} note={note} problem={problem} below={below} data={data} attrs={{ ...attrs, 'data-form-row-kind': 'switch' }}>
+    <FormRow name={name} about={about} line={line} note={note} problem={problem} below={below} data={data} attrs={{ ...attrs, 'data-form-row-kind': 'switch' }}>
       <button
         type="button"
         role="switch"

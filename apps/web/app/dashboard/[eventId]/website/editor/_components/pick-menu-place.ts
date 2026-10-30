@@ -47,6 +47,7 @@ export function placePickList({
   button,
   listHeight,
   viewport,
+  minWidth: wanted,
 }: {
   /** The button's rect. */
   button: { top: number; bottom: number; left: number; width: number };
@@ -55,8 +56,14 @@ export function placePickList({
   /** `floor` (📱 2026-10-20): the bottom bar's top — the list never opens down over the bar (`pickViewport`,
    *  lib/reveal-above-chrome.ts). Absent = the screen's bottom edge. */
   viewport: { width: number; height: number; floor?: number };
+  /** 📏 The list's own floor width (`PickMenuProps.menuMinWidth`, owner-approved 2026-10-30 for the Papic card head: its
+   *  options must not wrap). Never wider than the screen less its margins; absent = today's rule exactly. */
+  minWidth?: number;
 }): PickListPlacement {
-  const minWidth = Math.max(button.width, PICK_LIST_MIN_WIDTH);
+  const minWidth = Math.min(
+    Math.max(button.width, PICK_LIST_MIN_WIDTH, wanted ?? 0),
+    Math.max(button.width, PICK_LIST_MIN_WIDTH, viewport.width - 2 * PICK_LIST_MARGIN),
+  );
   const left = Math.max(PICK_LIST_MARGIN, Math.min(button.left, viewport.width - minWidth - PICK_LIST_MARGIN));
 
   const cap = Math.floor(viewport.height * PICK_LIST_MAX_SHARE);

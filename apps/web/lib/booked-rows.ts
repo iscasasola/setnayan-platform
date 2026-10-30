@@ -79,18 +79,24 @@ export type BookedVerb = {
   tone: VerbTone;
   main?: boolean;
   quiet?: boolean;
+  /**
+   * The SHORT word on its tile (owner 2026-10-30, "i was hoping this would be a single row" → ONE row of equal tiles:
+   * Pay · Chat · Workspace · Report/Cancel). Only where the full word would not fit a fifth of a phone: the tile says
+   * "Cancel" / "Report", and `label` stays the button's accessible name ("Cancel booking", "Report a problem").
+   */
+  tile?: string;
 };
 
 /** The three words the Find card does not have. */
-const OWN_WORDS: Record<'review' | 'cancel' | 'dispute', { label: string; tone: VerbTone }> = {
+const OWN_WORDS: Record<'review' | 'cancel' | 'dispute', { label: string; tone: VerbTone; tile?: string }> = {
   review: { label: 'Review', tone: 'brand' },
-  cancel: { label: 'Cancel booking', tone: 'danger' },
+  cancel: { label: 'Cancel booking', tone: 'danger', tile: 'Cancel' },
   // The disputes door. NOT "Request refund": Setnayan pays no money back (owner
   // 2026-10-08, "there is no refund. only virtual credits") — a couple and their
   // supplier settle between them, and Setnayan referees the dispute. The words are
   // "Report a problem" (owner 2026-10-14, DECISION_LOG 🧾), the same as the shared
   // workspace door (`DisputeLinkButton`) — one name for one flow.
-  dispute: { label: 'Report a problem', tone: 'warn' },
+  dispute: { label: 'Report a problem', tone: 'warn', tile: 'Report' },
 };
 
 /**
@@ -156,9 +162,51 @@ export type BookedRow = {
   room: RoomLine | null;
   /** The couple asked their suppliers to move the date, and this is theirs. */
   dateAsk: DateAsk | null;
+  /** "Call time 8:00 AM · Ingress & setup · from your Schedule" — the Schedule's moment, never a copy. */
+  callTime: BookedCallTime | null;
+  /** The payment plan's rows, as the Pay sheet holds them (one source) — drawn when the row opens. */
+  plan: BookedPlan;
   verbs: BookedVerb[];
   threadId: string | null;
 };
+
+/**
+ * 📅 THE CALL TIME, FROM THE SCHEDULE (owner 2026-10-27, "call times live in the Schedule"; the approved Booked Team
+ * row: *"Call time 10:00 AM · Bride & groom prep · from your Schedule"*). `set` = the earliest moment the supplier is
+ * tagged on (`earliestTaggedBlock`, the one rule) · `none` = on no moment yet · `unread` = the Schedule read was
+ * refused — never drawn as "no call time".
+ */
+export type BookedCallTime =
+  | { kind: 'set'; clock: string; moment: string }
+  | { kind: 'none' }
+  | { kind: 'unread' };
+
+/** One instalment, as the Team row's fold draws it. */
+export type BookedPlanRow = {
+  label: string;
+  /** Null = the plan has not resolved an amount (a share of a total nobody set) — never guessed. */
+  amountPhp: number | null;
+  dueDate: string | null;
+  /** paid = they confirmed it · pending = recorded, waiting on them · due = still to pay. */
+  state: 'paid' | 'pending' | 'due';
+  /** The instalment the Next line names. */
+  next: boolean;
+  late: boolean;
+};
+
+/**
+ * THE PAYMENT PLAN ON THE TEAM ROW — the SAME rows the Pay sheet opens on (`readBookedPlans` → `computeStepper`, the
+ * supplier's own plan frozen at booking), so the row, its Pay sheet and the Budget's Next line read one source.
+ *   plan     the supplier's plan (`estimated` = Setnayan's pencilled-in 50/50, said so)
+ *   ledger   no plan, but the Budget ledger knows what was paid and what is still dated as owed
+ *   unread   neither could be read — said, never drawn as "nothing to pay"
+ *   null     nothing to show (no price yet, or nothing dated)
+ */
+export type BookedPlan =
+  | { kind: 'plan'; rows: BookedPlanRow[]; estimated: boolean }
+  | { kind: 'ledger'; rows: BookedPlanRow[] }
+  | { kind: 'unread' }
+  | null;
 
 export type WaitingRow = {
   vendorId: string;
@@ -248,7 +296,13 @@ function bookedRowOf(
   money: SupplierRow | null,
   moneyKnown: boolean,
   plan: PlanProgress | null,
-  extra: { rooms: ReadonlyMap<string, RoomSizeAnswer> | null | undefined; dateChange: DateChangeView | null; now: Date | undefined },
+  extra: {
+    rooms: ReadonlyMap<string, RoomSizeAnswer> | null | undefined;
+    dateChange: DateChangeView | null;
+    now: Date | undefined;
+    callTimes: ReadonlyMap<string, TaggedMoment> | null | undefined;
+    plansKnown: boolean;
+  },
 ): BookedRow {
   const thread = f.threadId !== null;
   // A budget line item stands in place of the headline, so an agreed figure on
@@ -270,6 +324,8 @@ function bookedRowOf(
     feeds: feedsFor(f.groupId),
     room: roomLineFor(f, extra.rooms),
     dateAsk: dateAskFor(extra.dateChange, team.vendorId, extra.now),
+    callTime: callTimeFor(extra.callTimes, team.vendorId),
+    plan: planFor(plan, extra.plansKnown, money, moneyKnown, priced, extra.now),
     threadId: f.threadId,
   };
   const withVerbs = (next: BookedNext, main: BookedVerb): BookedRow => ({
@@ -377,6 +433,11 @@ export function bookedView(args: {
   rooms?: ReadonlyMap<string, RoomSizeAnswer> | null;
   /** The event's OPEN date-change request (`readOpenDateChange`), when there is one. */
   dateChange?: DateChangeView | null;
+  /**
+   * Each booked supplier's call time — the earliest Schedule moment they are tagged on (`bookedCallTimes`).
+   * `null` = the Schedule read was refused; `undefined` = nobody asked (no call-time line is drawn).
+   */
+  callTimes?: ReadonlyMap<string, TaggedMoment> | null;
   now?: Date;
 }): BookedView {
   const factsById = new Map(args.facts.map((f) => [f.vendorId, f]));
@@ -403,6 +464,8 @@ export function bookedView(args: {
           rooms: args.rooms,
           dateChange: args.dateChange ?? null,
           now: args.now,
+          callTimes: args.callTimes,
+          plansKnown: args.plans !== null,
         }),
       );
     }
@@ -477,4 +540,74 @@ export function dateAskFor(view: DateChangeView | null, vendorId: string, now: D
     line: dateChangeAnswerLine(s, (now ?? new Date()).getTime()),
     waiting: s.answer === 'asked',
   };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// THE CALL TIME AND THE PAYMENT PLAN — what an opened Team row shows
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** A supplier's call-time moment, as read from the Schedule. `startAt` is the venue's wall clock in a UTC column. */
+export type TaggedMoment = { startAt: string; label: string };
+
+/**
+ * "8:00 AM" — the time AS IT IS WRITTEN ON THE SCHEDULE. `start_at` holds the venue's wall clock inside a UTC column
+ * (`formatBlockTime`'s rule, `lib/schedule.ts`), so it is read back in UTC, never converted into a zone.
+ */
+export function bookedClock(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleString('en-US', { timeZone: 'UTC', hour: 'numeric', minute: '2-digit' }).replace(/\u202f/g, ' ');
+}
+
+export function callTimeFor(
+  callTimes: ReadonlyMap<string, TaggedMoment> | null | undefined,
+  vendorId: string,
+): BookedCallTime | null {
+  if (callTimes === undefined) return null;
+  if (callTimes === null) return { kind: 'unread' };
+  const m = callTimes.get(vendorId);
+  if (!m) return { kind: 'none' };
+  const clock = bookedClock(m.startAt);
+  return clock ? { kind: 'set', clock, moment: m.label } : { kind: 'none' };
+}
+
+export function planFor(
+  plan: PlanProgress | null,
+  plansKnown: boolean,
+  money: SupplierRow | null,
+  moneyKnown: boolean,
+  priced: boolean,
+  now: Date | undefined,
+): BookedPlan {
+  const today = priceToday(now ?? new Date());
+  const late = (d: string | null) => d !== null && d.slice(0, 10) < today;
+  const steps = plan?.steps ?? null;
+  if (steps && steps.length > 0) {
+    const nextSeq = steps.find((s) => s.state === 'due')?.seq ?? null;
+    return {
+      kind: 'plan',
+      estimated: plan?.isDefaultSeeded === true,
+      rows: steps.map((s) => ({
+        label: s.label,
+        amountPhp: s.amount_php,
+        dueDate: s.due_date,
+        state: s.state,
+        next: s.seq === nextSeq,
+        late: s.state === 'due' && late(s.due_date),
+      })),
+    };
+  }
+  if (!priced) return null;
+  // No plan of theirs: what the Budget ledger holds — the money handed over, then each dated payment still owed.
+  if (money) {
+    const rows: BookedPlanRow[] = [];
+    if (money.paidPhp > 0) rows.push({ label: 'Paid so far', amountPhp: money.paidPhp, dueDate: null, state: 'paid', next: false, late: false });
+    money.dues.forEach((d, i) =>
+      rows.push({ label: d.label, amountPhp: d.amountPhp, dueDate: d.dueDate, state: 'due', next: i === 0, late: late(d.dueDate) }),
+    );
+    return rows.length > 0 ? { kind: 'ledger', rows } : null;
+  }
+  // Neither the plan nor the ledger answered — say so; a refused read is never "nothing to pay".
+  if (!plansKnown || !moneyKnown) return { kind: 'unread' };
+  return null;
 }

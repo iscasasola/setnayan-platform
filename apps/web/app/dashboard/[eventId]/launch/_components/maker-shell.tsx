@@ -1,18 +1,16 @@
 'use client';
 
 import { PickMenu } from '../../website/editor/_components/pick-menu';
-import Link from 'next/link';
 import { createPortal } from 'react-dom';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react';
 import type { MakerLate } from '@/lib/maker-late';
 import { MakerLateBridge } from './maker-late';
 import { TimelineRowsLoading } from '@/app/_components/timeline-states';
-import { Check, ChevronLeft, Eye, X } from 'lucide-react';
+import { Check, Eye } from 'lucide-react';
 import type { TourKey } from '@/lib/tours';
 import { SPOTLIGHT_REPLAY_EVENT } from '@/app/_components/spotlight-mount';
 import { HOST_PAGE_TOURS } from '@/lib/host-page-tours';
 import type { TourSlideView } from '@/app/_components/tour-slide-view';
-import { useModalA11y } from '@/lib/use-modal-a11y';
 import { useIsDesktop } from '@/lib/use-responsive';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import {
@@ -36,6 +34,7 @@ import {
 import {
   MakerContext,
   MAKER_MORE_ROWS_ID,
+  MAKER_OPEN_GUESTS_SEE_EVENT,
   type MakerAddScene,
   type MakerDevice,
   type MakerDraftDoor,
@@ -85,23 +84,23 @@ import { makerRendered } from '@/lib/maker-draft-store';
 import { VIEW_AS_FREE_LABEL } from '@/lib/view-as-free';
 import { ViewAsFreeKeeper, ViewAsFreeStrip, useViewAsFreeToggle } from './view-as-free';
 import { OneOpenScope, useOneOpen } from '@/lib/one-open';
-import { ICON_PILL_EXIT, IconPill } from './icon-pill';
+import { IconPill } from './icon-pill';
 import { LOWER_THIRD_GLOBAL_ICON, MakerLowerThird, type LowerThirdPick, type LowerThirdTile } from './maker-lower-third';
-import { MAKER_LT_HEIGHT, MAKER_LT_TOOL } from '@/lib/maker-phone-room';
+import { MAKER_LT_HEIGHT } from '@/lib/maker-phone-room';
 import { MAKER_PAGE_STAGES, makerStageLabel } from './maker-bar';
 import { RSVP_STAGE_KEY } from '@/lib/rsvp-stage-shared';
-import { useMakerTool, type MakerEventBar, type MakerProLine, type MakerTool } from './maker-context';
+import { type MakerEventBar, type MakerProLine, type MakerTool } from './maker-context';
 import type { MakerSide } from './maker-bar';
 import { PickSheetContext, type PickSheet } from '../../website/editor/_components/pick-menu-place';
 /* 🧭 The new Maker's own chrome — lazy, so the shipped Maker's first load carries none of it. */
-import { LowerThirdGrab, MakerSheet, MakerTour, MakerUpdating, StageTools, StudioBackToPart, StudioCover, StudioSideSwitch, StudioToolMenu } from './details-lazy';
-import { MAKER_LT_HALF } from '@/lib/maker-phone-room';
+import { HubSettingsGear, LowerThirdGrab, MakerSheet, MakerTour, MakerUpdating, StageTools, StudioBackToPart, StudioCover, StudioSideSwitch, StudioToolMenu } from './details-lazy';
+import { MAKER_IN_THE_APP_CSS, MAKER_LT_HALF } from '@/lib/maker-phone-room';
 import { detailsItemLayout } from '@/lib/maker-details-items';
+import type { LookSection } from '@/lib/maker-look-sections';
 import { studioTileItem, type StudioTileKey } from '@/lib/studio-tile-defs';
 import type { StudioTileModel } from '@/lib/studio-tiles';
 import { BookOpen, ClipboardList, Info, PanelsTopLeft, Printer, RotateCcw, Undo, Users } from 'lucide-react';
 import { keyboardIsOpen, readKeyboard, subscribeKeyboard } from '@/lib/keyboard-ride';
-import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 /**
  * THE EVENT HUB MAKER — the full-screen shell (Phase 1 of
@@ -184,6 +183,7 @@ export function MakerShell({
   deskTitle = null,
   proLine = null,
   studio: studioGiven = null,
+  hubSettings: hubSettingsGiven = null,
   seeAsRoles = NO_ROLE_ROWS,
   hiddenStages,
   children,
@@ -200,6 +200,8 @@ export function MakerShell({
   deskTitle?: string | null;
   /** 💎 The quiet "₱X more unlocks everything" line's facts (`MakerProLine`) — null in the store shell. */
   proLine?: MakerProLine | null;
+  /** ⚙ "Your Event Hub" for the ⚙ sheet (`hubSettingsEditor`) — the lab's; a real event's arrives with `late`. */
+  hubSettings?: ReactNode;
   /** 🗂 Studio's tiles (`lib/studio-tiles.ts`), built on the server — null when they could not be built. */
   studio?: { tiles: readonly StudioTileModel[] } | null;
   /** Who the Maker's work is for, in the event type's words (`EventWords.theHost`). */
@@ -269,6 +271,7 @@ export function MakerShell({
   const factEditors = lateValue ? lateValue.factEditors : factEditorsGiven;
   const venuePictures = lateValue ? lateValue.venuePictures : venuePicturesGiven;
   const studio = lateValue ? lateValue.studio : studioGiven;
+  const hubSettings = lateValue ? lateValue.hubSettings : hubSettingsGiven;
   const [stage, setStage] = useState<LifecyclePhase>(initialStage);
   const [device, setDevice] = useState<MakerDevice>('desktop');
   /* 🖥📱 Both needs 1024 px (`makerViewOptions`); narrower, it is drawn as
@@ -300,6 +303,8 @@ export function MakerShell({
   const [selection, setSelection] = useState<MakerSelection>(() => movedSelection(initialSelection).selection);
   const [lookPages, setLookPages] = useState<MakerLookPages | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
+  /* ⚙ Where the work area draws "Your Event Hub"'s rows — the ⚙ sheet's body, there only while it is open. */
+  const [moreHost, setMoreHost] = useState<HTMLElement | null>(null);
   /* 🧰 THE LOWER THIRD (phone): the tool open in it, its navigator's slot, the
      canvas's Event Bar as the work area registered it, and Settings picked. */
   const [tool, setTool] = useState<MakerTool | null>(null);
@@ -464,13 +469,16 @@ export function MakerShell({
     return subscribeKeyboard(
       (k) => {
         const keyboard = keyboardIsOpen(k.scale, k.height, window.innerHeight);
-        el.style.height = keyboard ? `${Math.round(k.height)}px` : '';
-        el.style.top = keyboard ? `${Math.round(k.offsetTop)}px` : '';
+        /* Under the app's top bar, as at rest (`useTheAppsRoom`): the keyboard takes the nav's place, never the bar's. */
+        const appTop = parseFloat(el.style.getPropertyValue('--maker-app-top')) || 0;
+        el.style.height = keyboard ? `${Math.max(0, Math.round(k.height - appTop))}px` : '';
+        el.style.top = keyboard ? `${Math.round(k.offsetTop + appTop)}px` : '';
         el.style.bottom = keyboard ? 'auto' : '';
       },
       { now: true },
     );
   }, []);
+  useTheAppsRoom(shellRef);
 
   /* 🧷 A MAKER SAVE NEVER REMOUNTS THE MAKER (owner 2026-09-28: *"a lot of
      times. it reloads the whole page. which shouldn't"*). Every Maker panel
@@ -609,6 +617,7 @@ export function MakerShell({
       selection,
       select,
       moreOpen,
+      moreHost,
       renderStamp,
       storeShell,
       seeAs,
@@ -658,7 +667,7 @@ export function MakerShell({
     }),
     // `previewMenu` is a fresh node each render — its rows are read when it opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [eventId, stage, shownDevice, navOpen, selection, select, moreOpen, renderStamp, storeShell, seeAs, seeAsRole, seeAsRoles, addScene, detailsItem, detailsDoor, lookVisit, itemVisit, guideTitle, lookPages, factEditors, venuePictures, guestPages, pageJump, clearPageJump, draft, tool, ltNav, eventBar, studioCovers, deskTitle, proLine],
+    [eventId, stage, shownDevice, navOpen, selection, select, moreOpen, moreHost, renderStamp, storeShell, seeAs, seeAsRole, seeAsRoles, addScene, detailsItem, detailsDoor, lookVisit, itemVisit, guideTitle, lookPages, factEditors, venuePictures, guestPages, pageJump, clearPageJump, draft, tool, ltNav, eventBar, studioCovers, deskTitle, proLine],
   );
 
   /* 🚪 LOOK · DETAILS · PAGE ▾ › PRINTS — three doors into the one Details page
@@ -791,6 +800,20 @@ export function MakerShell({
     setDetailsDoor((n) => n + 1);
     select({ kind: 'tool', key: 'details' });
   };
+  /* ⚙ LOOK, FROM THE HUB'S ⚙ (owner 2026-10-30 — DECISION_LOG 2026-10-27 "LOOK MOVES TO EVENT HUB SETTINGS"): the shipped
+     Look editor, opened on the section picked — the same page its Studio card opened (`openStudio('look')`), on that
+     section rather than the one last seen. */
+  const openLook = (section: LookSection) => {
+    if (!hasWork) return;
+    setStudioFrom(null);
+    setSide('studio');
+    setStudioAt('look');
+    setDetailsItem(section);
+    setLookVisit((n) => n + 1);
+    select({ kind: 'tool', key: 'details' });
+  };
+  /** E-Gifts' Studio card (its line "2 ways to give") — the ⚙'s Ways to give row; none where the event draws no E-Gifts. */
+  const giftsTile = studio?.tiles.find((t) => t.key === 'gifts') ?? null;
   /* 🧭 STAGES ALWAYS SHOWS THE PAGE (DECISION_LOG 2026-10-07 rule 3): the retired guided "Which stage do you
      want ready?" — and every door into Event Details (`?tool=details`, `?guide=`, Home's next-step card, the
      tab's remembered tool) — never covers the Stages side. Such a door lands on Studio's home instead. */
@@ -989,23 +1012,28 @@ export function MakerShell({
           `.sn-vt-page` carries `view-transition-name`, which makes it a
           STACKING CONTEXT — so this shell's z-index was trapped inside it and
           the app's sticky top bar (z-20, outside it) painted over the Maker's
-          toolbar. While the Maker is on the page that name is dropped, so
-          `fixed inset-0 z-[80]` really is above the rail, the top bar and the
-          bottom nav. `:has()` applies it from the first server paint; the
-          class is the fallback once hydrated. */}
+          toolbar. While the Maker is on the page that name is dropped, so the
+          shell's z-index is the page's. `:has()` applies it from the first
+          server paint; the class is the fallback once hydrated.
+          ③ 🧭 THE HUB KEEPS THE APP'S NAV (owner 2026-10-30, DECISION_LOG "EVENT HUB PRO (look redesign) — THE
+          APP'S NAV STAYS"): the shell sits in the room the app's top bar, rail and bottom nav leave
+          (`MAKER_IN_THE_APP_CSS`, `useTheAppsRoom`), never over them. */}
       <style>
         {'html.sn-maker-open,html.sn-maker-open body,html:has([data-maker-shell]),html:has([data-maker-shell]) body{overflow:hidden}' +
           'html.sn-maker-open .sn-vt-page,.sn-vt-page:has([data-maker-shell]){view-transition-name:none}' +
+          MAKER_IN_THE_APP_CSS +
           /* 🧭 A Studio tool full screen: its editor takes the whole width — no lower-third column beside it. */
           '@media (max-width:1023.98px){[data-maker-studio-full] [data-phone-chrome="panel"]{left:4px}}'}
       </style>
       <div
         ref={shellRef}
-        /* 📱 Sized to the VISIBLE screen (owner 2026-10-02, in a mobile browser:
-           Safari's and Chrome's own bars take a lot of it) — `100dvh`, never
-           `100vh`/`inset-0`'s full height; the keyboard is `visualViewport`'s
-           (the effect above). Held by lib/the-maker-keeps-the-page-on-a-phone.test.ts. */
-        className="fixed inset-x-0 top-0 z-[80] flex h-[100dvh] flex-col bg-cream text-ink"
+        /* 📱 Sized to the VISIBLE room (owner 2026-10-02, in a mobile browser: Safari's and Chrome's own bars take a
+           lot of it) — between the app's top bar and its bottom nav (owner 2026-10-30), its top · left · bottom set by
+           `MAKER_IN_THE_APP_CSS`, never `100vh`/`inset-0`'s full height; the keyboard is `visualViewport`'s (the
+           effect above). 🥞 z-40: over the app's top bar (20) and bottom nav (30) only where a Maker layer is drawn
+           over the whole screen (▶ held), under every sheet on <body> (50 — the app's bell and account panels
+           included). Held by lib/the-maker-keeps-the-page-on-a-phone.test.ts. */
+        className="fixed z-[40] flex flex-col bg-cream text-ink"
         data-maker-shell=""
         data-maker-studio-full={studioFull ? '' : undefined}
         /* 🧰 The lower third's height — every phone tool is sized from it (`MAKER_LT_TOOL`).
@@ -1014,8 +1042,9 @@ export function MakerShell({
         aria-label="Event Hub Maker"
         role="region"
       >
-        {/* ══ 1 · THE TOOLBAR ══ (`MAKER_TOOLBAR_STAGES_STUDIO`, maker-bar.ts)
-              ✕ Exit · [ Stages ▾ | Studio ▾ ] · ↶ Undo · 👁 Preview (a desktop's) · ✓ Apply
+        {/* ══ 1 · THE TOOLBAR — THE HUB'S PINNED ROW ══ (`MAKER_TOOLBAR_STAGES_STUDIO`, maker-bar.ts)
+              [ Stages ▾ | Studio ▾ ] · ↶ Undo · 👁 Preview (a desktop's) · ✓ Apply · ⚙ — under the app's own top bar
+              (owner 2026-10-30), as Guests' and Suppliers' rows sit under it.
             ONE flex row on every width (owner 2026-10-02: on a phone the bar
             wrapped and Apply dropped to a second row) — on a phone each item
             declares its width (`MAKER_BAR_PHONE`). ⛔ Nothing else sits here: the
@@ -1023,34 +1052,17 @@ export function MakerShell({
             (owner 2026-10-25); their acts are the lower third's and Studio's. */}
         <header
           data-maker-toolbar=""
-          /* 📱 On a phone: ✕ Exit · Stages | Studio · ↶ · ✓N — one row of 44 px
+          /* 📱 On a phone: Stages | Studio · ↶ · ✓N · ⚙ — one row of 44 px
              icons (`MAKER_BAR_PHONE`, lib/maker-phone-room.ts). A status says
              itself OVER the canvas there. */
           data-phone-chrome="bar"
           data-phone-chrome-name="the toolbar"
           className="sn-glass-bare relative z-20 flex shrink-0 flex-nowrap items-center gap-x-1 px-2 py-1 max-lg:h-[52px] lg:gap-1.5 lg:px-2.5"
         >
-          {/* ✕ EXIT — red, its OWN pill (owner 2026-10-05: *"exit on the left side is
-              red with an X icon"* — "‹" read as back one step); the draft is kept. */}
-          {/* 🚪 …AND IT GOES STRAIGHT TO THIS EVENT'S DASHBOARD (owner, 25 Oct, over the "Leave the Maker · Back to
-              this event · All events" sheet: *"It just needs to go back to the event's dashboard"*). One tap, no
-              choice — the 08 Oct sheet is gone. Unapplied changes stay in the draft, exactly as they did with the
-              sheet (which guarded nothing either: its doors were plain links too). */}
-          <IconPill tone="exit">
-            <Link
-              href={`/dashboard/${eventId}`}
-              aria-label="Exit"
-              title="Exit — your draft is kept"
-              data-maker-tool="exit"
-              data-bar-item="Exit"
-              className={`${ICON_PILL_EXIT} ${MAKER_BAR_PHONE.exit}`}
-            >
-              <X aria-hidden className="h-5 w-5 lg:hidden" strokeWidth={2.4} />
-              {/* 🖥 A desktop keeps its ‹ this round. */}
-              <ChevronLeft aria-hidden className="hidden h-6 w-6 lg:block" strokeWidth={2} />
-            </Link>
-          </IconPill>
-
+          {/* ✕ EXIT IS DROPPED (owner 2026-10-30, "yes" to call (1) of DECISION_LOG "EVENT HUB PRO (look redesign)"):
+              the app's own nav — the top bar, the rail, the bottom nav with Hub lit — is the way out, as on Home ·
+              Guests · Suppliers. Amends Maker_Two_Bars_LOCKED's "✕ left everywhere" for the Hub tab. Unapplied
+              changes stay in the draft whichever way the couple leaves (they always did — the ✕ was a plain link). */}
           {/* 🧭 ONE segmented control where the screen's name was — and it says where you are (owner 2026-10-08): the
               half you are on reads the stage or the Studio page, the other the plain word; both are dropdowns (a tap
               opens that side's list, a pick goes there), always the same width. It fills its place edge to edge —
@@ -1072,6 +1084,32 @@ export function MakerShell({
           ) : (
             <IconPill label="Preview">{previewMenu}</IconPill>
           )}
+          {/* ⚙ EVENT HUB SETTINGS — the Hub's ONE ⚙, at the right end of its pinned row (owner 2026-10-30: [Stage ▾ |
+              Studio ▾] · ↺ · ✓ · ⚙; the 26 Oct "EACH MENU HAS ITS OWN SETTINGS" door, `lib/menu-settings.ts`). Its
+              sheet is "Your Event Hub" — the rows the work area draws into it (`MAKER_MORE_ROWS_ID`: Go live · who can
+              view · which version · open browsing, the QR) and what the page hands it. The lower third's
+              Settings › Who can view opens the same sheet. Only where there is a Hub to set (a coordinator has none).
+              ⚡ The house door (`MenuSettingsButton menu="hub"`) is mounted in `hub-settings.tsx`, through the lazy
+              stand-in — not in the Maker's first load. */}
+          {hasWork ? (
+            <span data-maker-tool="settings" data-bar-item="Settings" className={`inline-flex shrink-0 ${MAKER_BAR_PHONE.settings}`}>
+              <HubSettingsGear
+                open={moreOpen}
+                onOpenChange={setMoreOpen}
+                doors={{
+                  look: openLook,
+                  hub: hubSettings,
+                  pending: latePending,
+                  guestsSee: () => window.dispatchEvent(new Event(MAKER_OPEN_GUESTS_SEE_EVENT)),
+                  gifts: giftsTile ? { line: giftsTile.status, open: () => openStudio('gifts') } : null,
+                }}
+              >
+                {/* The work area's own extras for Your Event Hub (the Event Hub Pro line), and what the page hands in. */}
+                <div id={MAKER_MORE_ROWS_ID} ref={setMoreHost} className="flex flex-col gap-2 pt-3 empty:hidden" />
+                {more}
+              </HubSettingsGear>
+            </span>
+          ) : null}
           {/* ➖ The tools' download, as a thin line along the bar's foot (owner 2026-10-02). */}
           <MakerPreloadLine progress={preload} />
         </header>
@@ -1179,12 +1217,6 @@ export function MakerShell({
         />
         )}
 
-        {/* ══ YOUR EVENT HUB · THE SHEET ══ (Page ▾ › the address · who can view) Kept mounted (hidden when shut) so the work area
-            can portal the address rows into it. */}
-        <MoreSheet open={moreOpen} onClose={() => setMoreOpen(false)}>
-          <div id={MAKER_MORE_ROWS_ID} className="flex flex-col gap-2" />
-          {more}
-        </MoreSheet>
 
         {/* 📖 Post Event's own hint — only once the couple is on Post Event, and
             never over the first open's line. */}
@@ -1216,6 +1248,55 @@ export function MakerShell({
       </PickSheetContext.Provider>
     </MakerContext.Provider>
   );
+}
+
+/**
+ * 🧭 THE ROOM THE APP'S CHROME LEAVES (owner 2026-10-30 — the Hub keeps the app's top bar, rail and bottom nav;
+ * `MAKER_IN_THE_APP_CSS`, lib/maker-phone-room.ts): measured, and said on the shell as `--maker-app-top` (the top
+ * bar's foot) · `--maker-app-left` (the content column's left edge — the rail's width from 701) · `--maker-app-bottom`
+ * (the bottom nav's height less the home indicator, which the Maker's own tools already add). Read again whenever one
+ * of them moves: a resize, the top bar sliding, the nav sliding for the keyboard.
+ */
+function useTheAppsRoom(shellRef: { current: HTMLDivElement | null }) {
+  useEffect(() => {
+    const el = shellRef.current;
+    if (!el) return;
+    const bar = document.querySelector<HTMLElement>('.shell-topbar');
+    const dock = document.querySelector<HTMLElement>('[data-bottom-dock]');
+    const column = el.closest('main') ?? el.parentElement;
+    let raf = 0;
+    const read = () => {
+      raf = 0;
+      const top = bar && bar.getClientRects().length > 0 ? Math.max(0, Math.round(bar.getBoundingClientRect().bottom)) : 0;
+      const left = column ? Math.max(0, Math.round(column.getBoundingClientRect().left)) : 0;
+      const dockAt = dock && dock.getClientRects().length > 0 ? dock.getBoundingClientRect() : null;
+      const nav = dockAt && dockAt.height > 0 ? Math.max(0, Math.round(window.innerHeight - dockAt.top)) : 0;
+      el.style.setProperty('--maker-app-top', `${top}px`);
+      el.style.setProperty('--maker-app-left', `${left}px`);
+      el.style.setProperty('--maker-app-bottom', nav > 0 ? `max(0px,calc(${nav}px - env(safe-area-inset-bottom)))` : '0px');
+    };
+    const later = () => {
+      if (!raf) raf = requestAnimationFrame(read);
+    };
+    read();
+    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(later);
+    for (const x of [bar, dock, column]) if (x) ro?.observe(x);
+    const mo = new MutationObserver(later);
+    for (const x of [bar, dock]) if (x) mo.observe(x, { attributes: true, attributeFilter: ['data-hidden', 'style', 'class'] });
+    /* A bar's slide ends where it rests — read once it has (only the two bars' own slides). */
+    const slid = (e: Event) => {
+      if (e.target === bar || e.target === dock) later();
+    };
+    window.addEventListener('resize', later);
+    document.addEventListener('transitionend', slid, true);
+    return () => {
+      ro?.disconnect();
+      mo.disconnect();
+      window.removeEventListener('resize', later);
+      document.removeEventListener('transitionend', slid, true);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [shellRef]);
 }
 
 /** The lower third's menu row for each part of Event Details' list, and back. */
@@ -1364,49 +1445,6 @@ function ViewAsFreeRow({ on, close }: { on: boolean; close: () => void }) {
 
 function MenuHeading({ children }: { children: ReactNode }) {
   return <span className="px-3 pb-1 pt-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-ink/45">{children}</span>;
-}
-
-function MoreSheet({ open, onClose, children }: { open: boolean; onClose: () => void; children: ReactNode }) {
-  /* On a desktop it is a side sheet that says aria-modal, so it manages focus:
-     in, trapped, restored, Esc closes (the house `useModalA11y`,
-     `modal-a11y-adoption.test.ts`). On a phone it is a tool of the lower third
-     — not modal: the column beside it names it and closes it. */
-  const sheetRef = useRef<HTMLElement>(null);
-  const wide = useIsDesktop('lg');
-  useModalA11y({ open: open && wide, onClose, containerRef: sheetRef });
-  /* 🧰 On a phone it is a TOOL of the lower third (Settings › Who can view) —
-     the column names it and closes it; nothing opens over the page. */
-  useMakerTool(open, { key: 'more', name: 'Your Event Hub', close: onClose });
-  return (
-    <div hidden={!open} className="lg:absolute lg:inset-0 lg:z-40">
-      {/* The dimmed page behind the desktop's side sheet — a desktop's only, inside the Maker's frame (absolute). The
-          one scrim (`<OverlayBackdrop>`): the same dark and blur as every other pop-up (owner 2026-10-29). */}
-      <OverlayBackdrop onClose={onClose} className="hidden lg:absolute lg:block" />
-      <aside
-        ref={sheetRef}
-        hidden={!open}
-        /* A dialog on every width; modal (its focus trap) on a desktop only. */
-        role="dialog"
-        aria-modal={wide ? true : undefined}
-        aria-label="Your Event Hub"
-        data-phone-chrome="panel"
-        className={`overflow-y-auto bg-cream p-3 lg:absolute lg:inset-y-0 lg:right-0 lg:w-[min(560px,92vw)] lg:p-6 ${MAKER_LT_TOOL}`}
-      >
-        <div className="mb-3 hidden items-center justify-between gap-2 lg:flex">
-          <p className="font-serif text-xl text-ink">Your Event Hub</p>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="sn-press inline-flex h-11 w-11 items-center justify-center rounded-full text-ink/70 hover:bg-ink/5 hover:text-ink"
-          >
-            <X aria-hidden className="h-5 w-5" strokeWidth={2} />
-          </button>
-        </div>
-        {children}
-      </aside>
-    </div>
-  );
 }
 
 /**

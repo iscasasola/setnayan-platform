@@ -19,7 +19,8 @@ import { formatCount } from '@/lib/format-number';
  *
  * ♿ Every face is a button named by the guest ("Ana Reyes, Table 3, seat 4"); every blank says which seat it is.
  */
-export type FaceGuest = { id: string; name: string; initials: string; photo: string | null; color: string };
+/** `placed` — who placed the seat, spoken with it ("placed by you", lib/seat-why.ts); absent = not recorded, nothing said. */
+export type FaceGuest = { id: string; name: string; initials: string; photo: string | null; color: string; placed?: string | null };
 export type FaceSlot = { kind: 'face'; guest: FaceGuest; tableId: string; seat: number } | { kind: 'blank'; tableId: string; seat: number };
 export type FaceUnit = { key: string; label: string; sub: string; seated: number; capacity: number; slots: FaceSlot[] };
 
@@ -28,9 +29,10 @@ function Face({ g, picked, onPress, where, dim }: { g: FaceGuest; picked: boolea
     <button
       type="button"
       onClick={onPress}
-      aria-label={`${g.name}, ${where}`}
+      aria-label={`${g.name}, ${where}${g.placed ? `, ${g.placed}` : ''}`}
       aria-pressed={picked}
-      title={g.name}
+      title={g.placed ? `${g.name} · ${g.placed}` : g.name}
+      data-seat-placed-by={g.placed ? '' : undefined}
       data-seat-face={g.id}
       data-seat-dim={dim ? '' : undefined}
       className={`sn-press relative inline-flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full text-[13px] font-semibold text-cream transition-opacity ${

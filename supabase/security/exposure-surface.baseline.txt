@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6798
+# facts: 6803
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     576
-#   col       4978
+#   col       4983
 #   policy    962
 #   view      9
 #   func      269
@@ -1572,6 +1572,7 @@ col	public.event_inspiration_suggestions.state	anon=- authenticated=S
 col	public.event_inspiration_suggestions.suggested_by_user_id	anon=- authenticated=S
 col	public.event_inspiration_suggestions.suggestion_id	anon=- authenticated=S
 col	public.event_inspiration_suggestions.vendor_profile_id	anon=- authenticated=S
+col	public.event_inspiration_suggestions.vendor_service_id	anon=- authenticated=S
 col	public.event_join_tokens.created_at	anon=SIU authenticated=SIU
 col	public.event_join_tokens.event_id	anon=SIU authenticated=SIU
 col	public.event_join_tokens.expires_at	anon=SIU authenticated=SIU
@@ -1755,6 +1756,8 @@ col	public.event_seat_assignments.created_at	anon=SIU authenticated=SIU
 col	public.event_seat_assignments.event_id	anon=SIU authenticated=SIU
 col	public.event_seat_assignments.guest_id	anon=SIU authenticated=SIU
 col	public.event_seat_assignments.locked	anon=SIU authenticated=SIU
+col	public.event_seat_assignments.placed_at	anon=SIU authenticated=SIU
+col	public.event_seat_assignments.placed_by	anon=SIU authenticated=SIU
 col	public.event_seat_assignments.seat_number	anon=SIU authenticated=SIU
 col	public.event_seat_assignments.table_id	anon=SIU authenticated=SIU
 col	public.event_seating_constraints.constraint_id	anon=SIU authenticated=SIU
@@ -2877,6 +2880,7 @@ col	public.moodboard_library_assets.storage_path	anon=SIU authenticated=SIU
 col	public.moodboard_library_assets.style_theme	anon=SIU authenticated=SIU
 col	public.moodboard_library_assets.uploaded_by	anon=SIU authenticated=SIU
 col	public.moodboard_library_assets.vendor_profile_id	anon=SIU authenticated=SIU
+col	public.moodboard_library_assets.vendor_service_id	anon=S authenticated=S
 col	public.moodboard_part_finalizations.agreed_at	anon=- authenticated=S
 col	public.moodboard_part_finalizations.answered_by_user_id	anon=- authenticated=S
 col	public.moodboard_part_finalizations.cancelled_at	anon=- authenticated=S
@@ -3923,6 +3927,7 @@ col	public.service_categories.label_en	anon=SIU authenticated=SIU
 col	public.service_categories.label_short	anon=SIU authenticated=SIU
 col	public.service_categories.marketplace_hidden	anon=SIU authenticated=SIU
 col	public.service_categories.merged_into_category_id	anon=SIU authenticated=SIU
+col	public.service_categories.one_per_event	anon=SIU authenticated=SIU
 col	public.service_categories.parent_id	anon=SIU authenticated=SIU
 col	public.service_categories.sample_photo_r2_key	anon=SIU authenticated=SIU
 col	public.service_categories.scope	anon=SIU authenticated=SIU

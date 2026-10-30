@@ -17,9 +17,10 @@
  *     (`MAKER_LT_HEIGHT`) — the page keeps ≥ 55% with or without a tool open;
  *   · a tool opens INSIDE the lower third (`MAKER_LT_TOOL`): never over the
  *     page, never dimming it, ≥ 300 px wide at 375; one at a time;
- *   · the top bar is ONE row at 375 px: ✕ Exit · the screen · ↶ Undo ·
- *     👁 Preview · ✓ Apply — every bar button a 44 px target with its name;
- *   · the Maker is sized to the VISIBLE screen: `100dvh`, never `vh`.
+ *   · the top bar is ONE row at 375 px: the screen · ↶ Undo · 👁 Preview ·
+ *     ✓ Apply · ⚙ (✕ Exit dropped 2026-10-30) — every bar button a 44 px target with its name;
+ *   · the Maker is sized to the VISIBLE room: between the app's top bar and its bottom nav (2026-10-30), never `vh`.
+ *   · ⚙ Event Hub settings is the menu's settings SHEET (2026-10-30 — the Suppliers ⚙'s shape), not a lower-third tool.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -268,13 +269,18 @@ test('🧰 every Maker tool sits in the lower third — none dims the page or fl
     [`${E}/element-sheet.tsx`, /\$\{MAKER_LT_TOOL\}/],
     [`${L}/maker-page.tsx`, /open \? MAKER_LT_TOOL : 'max-lg:hidden'/],
     [`${L}/maker-sheet.tsx`, /if \(inMaker\) \{[\s\S]{0,400}\$\{MAKER_LT_TOOL\}/],
-    [`${L}/maker-shell.tsx`, /function MoreSheet[\s\S]*?\$\{MAKER_LT_TOOL\}/],
   ];
   for (const [file, re] of tools) assert.match(stripComments(read(file)), re, `${file}: a tool is not in the lower third`);
   // Each says the lower third has it open — the column names it and closes it.
-  for (const file of [`${L}/details-workspace.tsx`, `${E}/element-sheet.tsx`, `${L}/maker-page.tsx`, `${L}/maker-sheet.tsx`, `${L}/maker-shell.tsx`]) {
+  for (const file of [`${L}/details-workspace.tsx`, `${E}/element-sheet.tsx`, `${L}/maker-page.tsx`, `${L}/maker-sheet.tsx`]) {
     assert.match(stripComments(read(file)), /useMakerTool\(/, `${file}: a tool does not tell the lower third it is open`);
   }
+  // ⚙ "Your Event Hub" was a lower-third tool (`MoreSheet`); since 2026-10-30 it is the Hub's settings sheet, opened by
+  // the pinned row's ⚙ — the house door every menu has (`MenuSettingsButton`), never a sheet of the Maker's own.
+  const shellSrc = stripComments(read(`${L}/maker-shell.tsx`));
+  assert.doesNotMatch(shellSrc, /function MoreSheet\b/, 'the Maker’s own "Your Event Hub" sheet is back beside the ⚙');
+  assert.match(shellSrc, /<HubSettingsGear\s+open=\{moreOpen\}\s+onOpenChange=\{setMoreOpen\}/, '"Your Event Hub" is not the ⚙’s sheet');
+  assert.match(stripComments(read(`${L}/hub-settings.tsx`)), /<MenuSettingsButton menu="hub" open=\{open\} onOpenChange=\{onOpenChange\}>/, 'the Hub’s ⚙ is not the house door');
   // The scene sheet is the Maker's half sheet, in its lower-third shape.
   assert.match(stripComments(read(`${E}/editor-shell.tsx`)), /<MakerHalfSheet\s+label="Inspector"/, 'the scene sheet is no longer the half sheet');
   assert.match(stripComments(read(`${L}/details-workspace.tsx`)), /<MakerHalfSheet\s+label="What’s left"[\s\S]{0,400}onClose=\{\(\) => move\(\{ kind: 'stages' \}\)\}/, 'a step of the flow is no longer the half sheet');
@@ -361,10 +367,10 @@ function fitsOneRow(row: ReturnType<typeof barRow>, need: string[], where: strin
   assert.ok(used <= 375, `the ${where} bar needs ${used} px at least — more than 375, so it wraps or overflows`);
 }
 
-test('📏 the top bar is ONE row at 375 px — ✕ Exit · the screen · ↶ Undo · 👁 Preview · ✓ Apply; the old bottom bar is gone', async () => {
+test('📏 the top bar is ONE row at 375 px — the screen · ↶ Undo · 👁 Preview · ✓ Apply · ⚙; the old bottom bar is gone', async () => {
   const html = await shell(null);
   const top = barRow(html, '<header', '</header>');
-  fitsOneRow(top, ['Exit', 'Stages or Studio', 'Undo', 'Preview', 'Apply'], 'top');
+  fitsOneRow(top, ['Stages or Studio', 'Undo', 'Preview', 'Apply', 'Settings'], 'top');
   assert.match(top.head, /max-lg:h-\[52px\]/, 'the top bar is no longer one 52 px row');
   // 🧰 The bottom bar (Page ▾ · Look · Event Details) is REPLACED by the lower third (owner 2026-10-05).
   assert.doesNotMatch(html, /aria-label="Maker tools"|data-maker-bottom-bar=""/, 'the old bottom bar is back');
@@ -383,11 +389,10 @@ test('📏 the top bar is ONE row at 375 px — ✕ Exit · the screen · ↶ Un
   assert.doesNotMatch(bar, /\border-2\b/, 'a draft-bar item is ordered onto a second row again');
 });
 
-test('🔘 every button on the bar is a ≥ 44 px target with its name — Exit · Undo · Preview · Apply (phone AND desktop)', async () => {
+test('🔘 every button on the bar is a ≥ 44 px target with its name — Undo · Preview · Apply · ⚙ (phone AND desktop)', async () => {
   const html = await shell(null);
   const header = html.slice(html.indexOf('<header'), html.indexOf('</header>'));
   const want: Record<string, RegExp> = {
-    Exit: /aria-label="Exit"/,
     Undo: /aria-label="Undo"/,
     Preview: /aria-label="Preview"/,
     Apply: /aria-label="Apply \d+ changes?"/,
@@ -402,14 +407,26 @@ test('🔘 every button on the bar is a ≥ 44 px target with its name — Exit 
     assert.doesNotMatch(cls, /(?:^|\s)(?:md|lg):(?:h|w)-(?:[0-9]|10)(?:\s|$)/, `${item} shrinks under 44 px on a wider screen`);
   }
   assert.doesNotMatch(header, /aria-label="More"/, 'the ⋯ is back on the bar — it became 👁 Preview');
+  // ✕ Exit is gone (2026-10-30); ⚙ is the house 44 px icon-only button, named (`ab icon-only`, every-menu-has-one-settings-button).
+  assert.doesNotMatch(header, /aria-label="Exit"|data-bar-item="Exit"/, 'the ✕ Exit is back on the Hub’s pinned row');
+  const gear = /<span\b[^>]*data-bar-item="Settings"[^>]*>[\s\S]*?<button\b[^>]*>/.exec(header)?.[0] ?? '';
+  assert.match(gear, /data-menu-settings="hub"/, 'the ⚙ at the row’s end is not the Event Hub settings door');
+  assert.match(gear, /class="ab ab-neutral icon-only"[^>]*aria-label="Event Hub settings"|aria-label="Event Hub settings"[^>]*class="ab ab-neutral icon-only"/, 'the ⚙ is not the named 44 px icon-only button');
 });
 
-test('📐 the Maker is sized to the VISIBLE screen — dvh, never vh', () => {
+test('📐 the Maker is sized to the VISIBLE room — between the app’s top bar and bottom nav, dvh never vh', async () => {
   const shellSrc = read(`${L}/maker-shell.tsx`);
   const root = /<div\s+ref=\{shellRef\}[\s\S]*?className="([^"]*)"/.exec(shellSrc);
   assert.ok(root, 'the Maker shell’s root is gone — re-read this guard');
-  assert.match(root[1]!, /\bh-\[100dvh\]/, 'the Maker shell is not sized to the visible screen (100dvh)');
-  assert.doesNotMatch(root[1]!, /\binset-0\b|\bh-screen\b/, 'the Maker shell takes the full screen under the browser’s bars again');
+  assert.doesNotMatch(root[1]!, /\binset-0\b|\binset-x-0\b|\btop-0\b|\bh-screen\b|\bh-\[100dvh\]/, 'the Maker shell covers the screen again — the app’s top bar and bottom nav stay (2026-10-30)');
+  // 🧭 Its room is the app's: under the top bar, beside the rail, above the nav — measured, the app's own measures
+  // standing in until then (`MAKER_IN_THE_APP_CSS`).
+  const { MAKER_IN_THE_APP_CSS } = await import('./maker-phone-room');
+  assert.match(MAKER_IN_THE_APP_CSS, /\[data-maker-shell\]\{right:0;top:var\(--maker-app-top,var\(--fd-bar,0px\)\);left:var\(--maker-app-left,0px\);/, 'the shell is not placed under the app’s top bar');
+  assert.match(MAKER_IN_THE_APP_CSS, /bottom:var\(--maker-app-bottom,max\(0px,calc\(var\(--sn-bottomdock-h,/, 'the shell does not end at the app’s bottom nav');
+  assert.match(shellSrc, /MAKER_IN_THE_APP_CSS \+/, 'the shell does not draw its place in the app');
+  assert.match(shellSrc, /useTheAppsRoom\(shellRef\);/, 'the shell does not measure the room the app’s chrome leaves');
+  assert.doesNotMatch(MAKER_IN_THE_APP_CSS, /\d+vh\b/, 'the shell is sized by the full screen (vh)');
   for (const dir of [L, E, 'app/dashboard/[eventId]/website/_components']) {
     for (const f of readdirSync(join(WEB, dir))) {
       if (!f.endsWith('.tsx') || f.includes('.test.')) continue;

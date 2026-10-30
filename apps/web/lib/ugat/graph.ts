@@ -290,6 +290,7 @@ export const UGAT_TYPES: UgatTypeMeta[] = [
       { key: '', name: 'folder_id', note: 'DENORM ⚠ no FK' },
       { key: '', name: 'leaf_key', note: 'string, cards glue to it 🔴' },
       { key: '', name: 'coarse_category', note: 'tier-2 → the vendor_category its bookings are filed as (③0-c)' },
+      { key: '', name: 'one_per_event', note: 'tier-2 switch: a couple books ONE of it per event (owner 2026-10-29) — drives event_vendors.hard_single_group' },
       { key: '', name: 'sort_order', note: 'a service\u2019s place among its category on /admin/categories (Order \u25be, ③b); other readers still list A\u2013Z' },
     ],
     edges: [
@@ -1772,6 +1773,9 @@ export const UGAT_JOINTS: UgatJoint[] = [
       // ③0-c (2026-10-26): the coarse `event_vendors.category` a booking is stored with is
       // answered by the category's own row — no longer by a code map.
       { kind: 'column', table: 'service_categories', column: 'coarse_category' },
+      // 2026-10-29: "one per event" is a switch on the category, and the booking's lock key is written from it.
+      { kind: 'column', table: 'service_categories', column: 'one_per_event' },
+      { kind: 'column', table: 'event_vendors', column: 'hard_single_group' },
     ],
     chain: 7,
     pair: ['TYPE-EVENTS', 'TYPE-VENDORS'],
@@ -1783,7 +1787,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     writtenBy: 'Vendor-add flow on the couple dashboard · CSV import · admin-assisted booking entry',
     guardedBy: 'current_event_ids() for the couple side; vendor side reads via current_vendor_ids() when vendor_org_id is set',
     traps:
-      'Org FK (vendor_org_id) is SET-NULL nullable — a booking can point at an off-platform vendor with no org row. category_key DOES have a real FK. The coarse `category` enum is resolved from service_categories.coarse_category (③0-c, 2026-10-26; read through getTaxonomy(), lib/vendor-branch-category.ts BRANCH_TO_VENDOR_CATEGORY is only the seed/fallback) — a NEW category inherits its group\'s most common sibling value on insert (trigger service_categories_inherit_coarse_category, ③0-c part 2; ties → first sibling by sort_order); one left with no value files its bookings under misc. Deleting a category a couple-side VendorCategory is anchored on is REFUSED (deletionWouldBreakCoupleLinks).',
+      'Org FK (vendor_org_id) is SET-NULL nullable — a booking can point at an off-platform vendor with no org row. category_key DOES have a real FK. The coarse `category` enum is resolved from service_categories.coarse_category (③0-c, 2026-10-26; read through getTaxonomy(), lib/vendor-branch-category.ts BRANCH_TO_VENDOR_CATEGORY is only the seed/fallback) — a NEW category inherits its group\'s most common sibling value on insert (trigger service_categories_inherit_coarse_category, ③0-c part 2; ties → first sibling by sort_order); one left with no value files its bookings under misc. Deleting a category a couple-side VendorCategory is anchored on is REFUSED (deletionWouldBreakCoupleLinks). ONE PER EVENT (owner 2026-10-29): `hard_single_group` is NOT generated any more — trigger event_vendors_one_per_event_key writes it on every insert/update from service_categories.one_per_event (the switched-on tier-2 category filed under the booking\'s coarse category), and flipping the switch re-keys the bookings (service_categories_one_per_event_follow); a flip ON that would put two confirmed bookings in one slot is refused by event_vendors_hard_single_lock_uniq. The app reads the same switch (lib/one-per-event.ts) — no list in code.',
   },
   {
     id: 'J8',
@@ -3060,6 +3064,40 @@ export const UGAT_JOINTS: UgatJoint[] = [
       'RLS at CREATE TABLE \u2014 couple read (current_couple_event_ids), booking read (current_vendor_event_vendor_ids), admin all; NO insert/update/delete for authenticated. Booking, fee, trade (inspiration_suggestion_services \u2014 since \u24620-b read off the tables; since \u2462a the part\u2019s rows in inspiration_part_services, 20271291224109) and the 3-waiting cap are decided in SQL; tests/db/a-supplier-suggests-only-to-its-own-parts.db.test.ts holds the map and each refusal',
     traps:
       'inspiration_suggestion_services READS THE LINK TABLE (\u24620-b, \u2462a) \u2014 an admin who links or unlinks a service moves it with no migration; a re-home does NOT (the home is the heading, the services are the door). One thing stays written in it on purpose: WHICH parts take a suggestion (the couple Studio\u2019s photo parts, a code structure; the db test holds it). A row in \'screening\' is opened but has no photo yet and never reaches the couple; one older than ten minutes stops counting toward the cap. Keep on a full part answers \'full\' and writes nothing unless a position is named; the replaced photo is soft-deleted and Undo restores it only into a still-free place.',
+  },
+  {
+    /**
+     * 🔗🖼 A SUPPLIER'S INSPIRATION PHOTO NAMES ITS SERVICE CARD (owner 2026-10-30, DECISION_LOG "A SUPPLIER'S
+     * INSPIRATION PHOTO IS CONNECTED FOUR WAYS — ITS SERVICE CARD · THE EVENT · THE SUPPLIER'S WEBSITE · THE
+     * CATEGORY/SERVICE POOL"; migration 20271297295494).
+     *
+     * ⚠ THE CARD IS HELD TO THE SHOP BY A TRIGGER, NOT A CHECK. `inspiration_card_is_the_shops_own` refuses a card of
+     * another shop on both tables (and a card on a non-gallery library row) but never raises on a NULL, so the
+     * ON DELETE SET NULL cascades stay SET NULL — a CHECK naming the column would turn them into RESTRICT.
+     */
+    id: 'J59',
+    claims: [
+      { kind: 'fk', table: 'moodboard_library_assets', column: 'vendor_service_id', references: 'vendor_services' },
+      { kind: 'fk', table: 'event_inspiration_suggestions', column: 'vendor_service_id', references: 'vendor_services' },
+      { kind: 'fk', table: 'moodboard_library_assets', column: 'source_suggestion_id', references: 'event_inspiration_suggestions' },
+      { kind: 'column', table: 'moodboard_library_assets', column: 'source_event_id' },
+      // One fact, one column: the card is vendor_service_id on both tables — no second spelling.
+      { kind: 'no_column', table: 'moodboard_library_assets', column: 'service_id' },
+    ],
+    chain: 20,
+    pair: ['TYPE-GALLERY', 'TYPE-SERVICES'],
+    title: 'Inspiration photo \u2194 Service card (the look a card offers)',
+    joint: 'moodboard_library_assets',
+    cardinality:
+      'Many photos per card \u00b7 at most one card per photo (NULL = the shop only, card-optional) \u00b7 at most one pool photo per Mood Board suggestion (partial UNIQUE on source_suggestion_id)',
+    implementedBy:
+      'moodboard_library_assets.vendor_service_id and event_inspiration_suggestions.vendor_service_id \u2192 vendor_services (ON DELETE SET NULL); moodboard_library_assets.source_suggestion_id \u2192 event_inspiration_suggestions (the pool copy of a suggestion, with source_event_id = the suggestion\u2019s event)',
+    writtenBy:
+      'uploadStylistAsset and importEditorialMediaToGallery (app/vendor-dashboard/moodboard-library/actions.ts \u2014 the latter also takes a suggestionId, routed to importSuggestionToGallery) after verifyCardForPart (lib/inspiration-card-link.server.ts); suggestInspirationPhoto on the service-role move to waiting',
+    guardedBy:
+      'the trigger inspiration_card_is_the_shops_own (the card is the row\u2019s own shop; library rows must be supplier_gallery); no INSERT/UPDATE grant on either new column for anon/authenticated; SELECT on vendor_service_id granted (the link shows on the supplier\u2019s page); source_suggestion_id withheld like source_event_id; tests/db/an-inspiration-photo-names-its-own-card.db.test.ts',
+    traps:
+      'A suggestion\u2019s pool copy is EVENT-LINKED (source_event_id set) yet COUNTS toward the per-category quota (countSuggestionPool) \u2014 countBackCatalogue alone no longer is the whole used side. The page (/v/[slug]) shows a look only when its card is live there or it has none (the design\u2019s liveLooks).',
   },
   {
     /**

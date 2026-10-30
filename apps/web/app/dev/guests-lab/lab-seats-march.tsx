@@ -5,6 +5,7 @@ import { SeatPlanInGuests } from '@/app/dashboard/[eventId]/seating/_components/
 import { MarchMaker } from '@/app/dashboard/[eventId]/launch/_components/details-lazy';
 import { labMarchSections } from '@/app/dev/details-lab/march-fixture';
 import { parseSeatView } from '@/lib/guests-views';
+import { LabRoom3D } from './lab-room-3d';
 
 /**
  * 🗂 R4 · THE LAB'S GUESTS › SEATS AND GUESTS › MARCH — the SHIPPED makers, drawn the way `guests/page.tsx` draws them
@@ -32,7 +33,7 @@ const LAB_TABLES: EventTableRow[] = [
   removed_seats: [],
 }));
 
-export function LabSeats({ guests, seat }: { guests: readonly { guest_id: string; first_name: string | null; last_name: string | null; role: string; side: string; rsvp_status: string | null }[]; seat: string | undefined }) {
+export function LabSeats({ guests, seat, big = false }: { guests: readonly { guest_id: string; first_name: string | null; last_name: string | null; role: string; side: string; rsvp_status: string | null }[]; seat: string | undefined; /** `&big=1` — the 3D room on the 25-table / 230-guest synthetic plan. */ big?: boolean }) {
   async function labPolicy(formData: FormData) {
     'use server';
     void formData;
@@ -51,6 +52,9 @@ export function LabSeats({ guests, seat }: { guests: readonly { guest_id: string
       seated_table_id: seated?.table_id ?? null,
       seat_number: null,
       seat_locked: false,
+      // 🪑 Who placed each seat (lib/seat-why.ts) — the lab's seats alternate "you" and Auto arrange, a few days apart.
+      seat_placed_by: seated ? (i % 2 === 0 ? 'couple' : 'auto') : null,
+      seat_placed_at: seated ? new Date(Date.UTC(2026, 9, 29 - (i % 4), 9)).toISOString() : null,
       role: g.role,
       group_category: 'friend',
       meal_preference: null,
@@ -89,13 +93,10 @@ export function LabSeats({ guests, seat }: { guests: readonly { guest_id: string
         setSeatingGroupAdjacency={labPolicy}
         initialView={view === 'list' ? 'list' : 'plan'}
         details={{
-          /* 🧊 A STAND-IN for the 3D room (it needs the database): a box where the room is drawn, so the lab can walk
-             Seats › 3D's full screen — the top row's Seats ▾, the auto-pin and the glide — on fixtures. */
-          lab: (
-            <div data-lab-3d-stand-in="" className="flex h-full min-h-0 w-full flex-1 items-center justify-center bg-gradient-to-b from-ink/[0.03] to-ink/[0.09] text-[13px] text-ink/55">
-              3D room — lab stand-in
-            </div>
-          ),
+          /* 🧊 The SHIPPED 3D room on synthetic data (`lab-room-3d.tsx`), opened in place like Guests › Seats — it replaces
+             #7055's stand-in box, so the lab walks Seats › 3D's full screen, the auto-pin and the glide on the real room. */
+          lab: <LabRoom3D big={big} />,
+          open3d: view === '3d',
           sides: [
             { side: 'groom', label: "Jose's side" },
             { side: 'bride', label: "Maria's side" },
@@ -103,7 +104,6 @@ export function LabSeats({ guests, seat }: { guests: readonly { guest_id: string
           ],
           part: view === 'map' ? 'map' : null,
           host: 'guests',
-          open3d: seat === '3d',
         }}
         me={{ id: 'lab-user', name: 'Maria' }}
       />
@@ -111,8 +111,8 @@ export function LabSeats({ guests, seat }: { guests: readonly { guest_id: string
   );
 }
 
-export function LabMarch({ shape }: { shape?: string | null }) {
-  const m = labMarchSections(shape);
+export function LabMarch({ shape, nicks = false }: { shape?: string | null; nicks?: boolean }) {
+  const m = labMarchSections(shape, { nicks });
   /* The same frame as `guests/_components/guests-march.tsx` (a server component that reads the event, so the lab
      draws its body here on the fixture): the maker with its summary row, the tray’s slot. */
   return (

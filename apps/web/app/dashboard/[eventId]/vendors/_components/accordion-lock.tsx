@@ -35,7 +35,6 @@ import {
 import { LOCK_PENDING_ICON, LockConfirmModal, LockMilestoneToast, LockPopup } from './lock-milestone';
 import type { LockImpact } from '@/lib/lock-impact';
 import { isExploreReplanEnabled } from '@/lib/explore-replan-flag';
-import { isHardSinglePickGroup } from '@/lib/wedding-plan-groups';
 import { markCategoryComplete } from '../category-decision-actions';
 import { formatCount } from '@/lib/format-number';
 
@@ -324,7 +323,8 @@ export function AccordionLockButton({
             milestone: lockedMilestone,
             // Multi-pick categories: one lock is the floor, not the ceiling —
             // ask "done with this service, or add another?" (owner 2026-07-27).
-            askDone: isExploreReplanEnabled() && !isHardSinglePickGroup(groupId),
+            // The server read the category's One per event switch (owner 2026-10-29) and says it here.
+            askDone: isExploreReplanEnabled() && result.status === 'ok' && !result.onePerEvent,
           });
           return;
         }

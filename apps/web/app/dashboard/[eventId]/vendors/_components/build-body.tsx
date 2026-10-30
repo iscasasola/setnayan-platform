@@ -422,7 +422,6 @@ export function BuildBody({
 
         {/* ── the fit line ── */}
         <FitLine view={view} allFree={allFree} />
-        {guardSlot ? <div className="mb-2.5">{guardSlot}</div> : null}
 
         {/* ── one line per category ── */}
         <ul className="-mx-4 divide-y divide-ink/10 border-t border-ink/10 px-4 sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0" data-build-lines="">
@@ -437,6 +436,8 @@ export function BuildBody({
             />
           ))}
         </ul>
+        {/* Sai's watch line under the lines, so the lines start right under the fit line (frame 12). */}
+        {guardSlot ? <div className="mt-2.5">{guardSlot}</div> : null}
         {extrasSlot ? (
           <div className="mt-2 space-y-2" data-build-extras="">
             {extrasSlot}
@@ -480,7 +481,7 @@ export function BuildBody({
                 label={`Compare ${formatCount(view.cards.length)} builds`}
                 onClick={() => setComparing(true)}
                 aria-haspopup="dialog"
-                data-build-compare-open=""
+                data-testid="build-compare-open"
               />
             </div>
           </>
@@ -752,7 +753,7 @@ function FitLine({ view, allFree }: { view: BuildView; allFree: boolean }) {
   return (
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 py-3 text-[13px] text-ink/75" data-build-fit="">
       {hasDay && fit.priced > 0 ? (
-        <span className={allFree ? 'text-success-700 dark:text-success-200' : 'text-mulberry-700'} aria-hidden>
+        <span className={allFree ? 'text-success-700' : 'text-mulberry-700'} aria-hidden>
           {allFree ? '✓' : '!'}
         </span>
       ) : null}
@@ -856,7 +857,7 @@ function CompareTable({
                 ) : (
                   c.name
                 )}
-                {c.id === CURRENT ? <span className="font-normal text-ink/55"> · now</span> : null}
+                {c.id === CURRENT ? <span className={`font-normal text-ink/55 ${swap ? 'block px-1 text-xs' : ''}`}>{swap ? 'now' : ' · now'}</span> : null}
               </span>
             ))}
           </div>
@@ -868,7 +869,7 @@ function CompareTable({
               <span
                 role="cell"
                 key={c.id}
-                className={`${cell} ${lowest.has(c.id) ? 'bg-success-50 dark:bg-success-900/40' : ''}`}
+                className={`${cell} ${lowest.has(c.id) ? 'bg-success-50' : ''}`}
                 data-build-total={lowest.has(c.id) ? 'lowest' : ''}
               >
                 <b className="font-semibold tabular-nums text-ink">
@@ -890,7 +891,7 @@ function CompareTable({
               <span
                 role="cell"
                 key={c.id}
-                className={`${cell} tabular-nums ${c.bufferPhp == null ? 'text-ink/55' : c.bufferPhp < 0 ? 'text-mulberry-700' : 'text-success-700 dark:text-success-200'}`}
+                className={`${cell} tabular-nums ${c.bufferPhp == null ? 'text-ink/55' : c.bufferPhp < 0 ? 'text-mulberry-700' : 'text-success-700'}`}
               >
                 {c.unpriced > 0 ? (
                   'Not knowable'
@@ -915,7 +916,7 @@ function CompareTable({
                 {c.free == null ? (
                   <span className="text-ink/55">—</span>
                 ) : c.free.kind === 'dates' ? (
-                  <span className="text-success-700 dark:text-success-200">
+                  <span className="text-success-700">
                     Free: {c.free.labels.join(' · ')}
                     {c.free.more > 0 ? ` +${formatCount(c.free.more)}` : ''}
                   </span>
@@ -1069,6 +1070,9 @@ function BuildBar({
       }`}
       style={{ transitionDuration: `${THUMB_SLIDE_MS}ms` }}
     >
+      {/* The bar sits on the page's own ground (frame 12; on a computer under the left pane only), so a line
+          scrolling under it never shows through. A tablet keeps its floating pill. */}
+      <i aria-hidden className="sn-ambient absolute inset-0 -z-10 tab:hidden lg:block lg:max-w-[26rem]" />
       <BarButtons kind={kind} canSave={canSave} busy={busy} onSaved={onSaved} onSave={onSave} onSaveNew={onSaveNew} bookSlot={bookSlot} />
     </div>,
     host,

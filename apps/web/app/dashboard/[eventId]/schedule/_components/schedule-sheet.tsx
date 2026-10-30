@@ -102,7 +102,8 @@ export function ScheduleSheet({
           <h2 id={id} className="shrink-0 whitespace-nowrap text-[17px] font-semibold leading-tight text-ink">
             {title}
           </h2>
-          {aside ? <span className="ml-auto min-w-0 truncate text-[13px] text-ink/55">{aside}</span> : null}
+          {/* Two lines at most, never cut mid-word (frame 13's "2 at a time on a phone · green = lowest total"). */}
+          {aside ? <span className="ml-auto line-clamp-2 min-w-0 text-right text-[13px] leading-snug text-ink/55">{aside}</span> : null}
         </div>
         <div className="flex-1 space-y-3.5 px-5 pb-4 pt-2" data-sheet-body="">
           {children}

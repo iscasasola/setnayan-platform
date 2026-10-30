@@ -126,3 +126,12 @@ test('7 · the rest of what Event Details EDITS moved into the sheet — the sam
   const details = code('../details/page.tsx');
   assert.match(details, /if \(viewer\.isCouple\) \{[\s\S]{0,400}?redirect\(eventSettingsHref\(eventId,/, 'the couple still lands on a second copy of Event Settings');
 });
+
+test('8 · the Countdown opens the Date Finder — not the sheet, not Event Details — for the couple', () => {
+  // Owner 2026-10-30, verbatim: *"date finder. because we want them to find the date for their event"* (2026-10-26
+  // "FINAL STRUCTURE" (3)). The sheet still holds the date's editor; the Countdown jumps straight to finding one.
+  const faces = code('home-control-faces.ts');
+  assert.match(faces, /export function countdownDoor\(eventId: string\): string \{\s*return dateFinderHref\(eventId\);/, 'the Countdown does not open the Date Finder');
+  assert.match(code('../page.tsx'), /dateFinderOpen=\{search\.date === DATE_FINDER_VALUE\}/, 'Home does not open the Date Finder from its address');
+  assert.match(code('../page.tsx'), /countdownDoor: viewerMemberType === 'couple' \? undefined : `\/dashboard\/\$\{eventId\}\/details`/, 'a helper’s Countdown changed target');
+});

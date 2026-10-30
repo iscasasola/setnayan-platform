@@ -15,7 +15,7 @@ What the owner said on the live iPhone app: *"tapping monogram not working"*, th
 - **One read per open.** The sheet's action reads all of these in a single `Promise.all`. A failed read says it failed; it never shows as empty.
 - **Parts that were only displayed stay with their own menu.** The look, answers and Love Story stay in the Maker / Event Hub ⚙. Budget, suppliers and purchases stay in Suppliers. Times stay in Schedule.
 - **The ☰'s event mark** is now a real link to `/dashboard/<id>?settings=1`. Its hit area is at least 44 px at every width (`.fd-rctx-door`). Tapping a link inside the open drawer now closes the drawer even when only the query changes.
-- **The Countdown** (phone tile and desktop card alike) opens the sheet on its date for the couple. A helper, who has no ⚙, still goes to `/details`.
+- **The Countdown** (phone tile and desktop card alike) opens the **Date Finder** in place on Home for the couple (owner: *"date finder. because we want them to find the date for their event"*). It is Suppliers' own date sheet, opened on Help me choose (`home-date-finder.tsx`, `?date=find`); a set date is shown by the sheet's own UI. A helper still goes to `/details`.
 - **Opening the sheet from a link.** Home opens it from `?settings=1&row=…` and drops those query words when it closes. While the sheet is open, each fresh server render of Home (`renderKey`) re-reads the rows in place, so a person who was just added shows up.
 - **Remove a person** from the sheet lands back on the sheet (`return_to=home`, `seatReturnPath`). Every "Change ›" link (`peopleWithAccessHref`) opens the sheet on access.
 - **Old `/details` links** forward the couple to the sheet (`details/page.tsx`). Helpers still see the page, read-only, with their own access.

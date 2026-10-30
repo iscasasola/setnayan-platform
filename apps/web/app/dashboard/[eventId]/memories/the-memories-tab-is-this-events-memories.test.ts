@@ -5,7 +5,7 @@
  *   1. The fifth tab is Memories, after Hub, opening `/memories`, wearing the account bar's Memories glyph.
  *   2. The page is this event's photos on the shared edge-to-edge grid: no frame around it, the columns from the
  *      zoom (never a fixed count), the shipped lightbox on a tap, and a refused read said as one.
- *   3. Home's header carries ONE button — "Settings", the Event Details door — and Home grows no segmented tabs
+ *   3. Home's header carries no door (the Countdown is the couple's Date Finder door since 2026-10-30) — and Home grows no segmented tabs
  *      (the 23 Oct Papic prototype's Overview · Gallery · Settings pill is superseded).
  *   4. Papic's "See N photos" on Home opens the Memories tab.
  *   5. ONE STEP PER GESTURE (owner, trying the prototype: *"The pinch changes too fast"*): mid-gesture the grid only
@@ -83,12 +83,16 @@ test('2 · the page is the shared, frameless, zoomable grid — and a refused re
   assert.match(g, /couldn’t load/, 'a refused read has no words');
 });
 
-test('3 · Home’s header carries no button — the Countdown is the Event Details door — and Home has no tabs', () => {
+test('3 · Home’s header carries no button — the Countdown is the couple’s Date Finder door — and Home has no tabs', () => {
   // RE-AIMED 2026-10-24 (owner-approved control center): the cover's ⚙ Settings opened the same page as the Countdown —
   // "drops the pill so Event Settings has one door". The cover is the name alone; the Countdown widget is the door.
   const cover = code(COVER);
   assert.equal(cover.match(/<ActionButton\b|<Link\b|<a\b/g)?.length ?? 0, 0, 'the cover carries a door again — a second door to Event Details');
-  assert.match(code('app/dashboard/[eventId]/_components/home-control-faces.ts'), /key: 'count',[\s\S]{0,120}?door: `\/dashboard\/\$\{e\}\/details`/, 'the Countdown is not the Event Details door');
+  // RE-AIMED 2026-10-30 (owner: *"date finder. because we want them to find the date for their event"*; Event Details is
+  // combined into Home's ⚙ Event Settings): the Countdown's door is the Date Finder for the couple (`countdownDoor`).
+  const faces = code('app/dashboard/[eventId]/_components/home-control-faces.ts');
+  assert.match(faces, /const door = c\.door \?\? countdownDoor\(e\);/, 'the Countdown is not the Date Finder door');
+  assert.match(faces, /return dateFinderHref\(eventId\);/, 'the Countdown’s door is not the Date Finder');
   const home = code(HOME);
   assert.doesNotMatch(home, /['">]Overview['"<]/, 'Home grew an Overview tab — the 23 Oct ruling has Home with no tabs');
   assert.doesNotMatch(home, /role="tablist"/, 'Home grew a tab list');

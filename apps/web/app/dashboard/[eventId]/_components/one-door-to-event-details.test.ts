@@ -35,7 +35,6 @@ import { HomeCoverBand } from './home-cover-band';
 import { homeControlTiles } from './home-control-faces';
 import { fixtureControl } from '@/lib/home-control-fixture';
 import { HOME_CONTROL_PAGE, countdownDoor } from './home-control-faces';
-import { SETTINGS_ENTRY } from '@/lib/menu-settings';
 
 // The components are compiled with the classic JSX runtime under tsx.
 (globalThis as unknown as { React: unknown }).React = React;
@@ -76,12 +75,14 @@ test('1 · the rail draws no door to Event Details, and no row it could light fo
   assert.deepEqual(drawnDetails.map((i) => i.key), [], 'a drawn rail row opens Event Details');
 });
 
-test('2 · Home draws NO door to the Event Details page — at either width the Countdown opens ⚙ Event Settings', () => {
+test('2 · Home draws NO door to the Event Details page — at either width the Countdown opens the Date Finder', () => {
   // ⚙ RE-AIMED 2026-10-30 (owner, verbatim: *"event details showed on desktop view but not on mobile view. and it was
   // already supposed to be gone because the were suppose to combine the event details and event settings together on the
   // event settings"* — completing DECISION_LOG 2026-10-26 "FINAL STRUCTURE" (2) and "EACH MENU HAS ITS OWN SETTINGS").
   // Until today the Countdown was Home's one door to `/details` (owner-approved 2026-10-24), and on desktop it was a card
-  // NAMED "Open Event Details" while the phone tile named nothing. Now both widths open the SAME sheet the ⚙ opens.
+  // NAMED "Open Event Details" while the phone tile named nothing. Now both widths open the DATE FINDER in place (owner,
+  // same day, verbatim: *"date finder. because we want them to find the date for their event"* — 2026-10-26 "FINAL
+  // STRUCTURE" (3)): Suppliers' own date sheet on Help me choose (`home-date-finder.tsx`).
   const html = renderToStaticMarkup(React.createElement(HomeCoverBand, { cover: { name: 'Cale & Ice', eyebrow: 'Wedding · 14 Feb 2027' } }));
   assert.equal([...html.matchAll(/<a\b/g)].length, 0, 'the cover band draws a door again');
   // The couple's band ends with Home's ⚙ — a BUTTON that opens the Event Settings sheet in place, never a link.
@@ -94,20 +95,26 @@ test('2 · Home draws NO door to the Event Details page — at either width the 
   assert.match(buttons[0] ?? '', /aria-haspopup="dialog"/, 'Home’s ⚙ does not open a sheet in place');
   assert.match(buttons[0] ?? '', /aria-label="Event settings"/, 'Home’s ⚙ is not named for the sheet it opens');
 
-  // 📱 THE PHONE (the compact tiles) — no tile, face or action opens the Event Details page; the Countdown opens the sheet.
+  // 📱 THE PHONE (the compact tiles) — no tile, face or action opens the Event Details page; the Countdown opens the Date Finder.
   const { tiles } = homeControlTiles(fixtureControl('EVT123'));
   const toDetails = tiles.filter((t) => [t.door, ...t.faces.flatMap((f) => [f.href, f.action?.href ?? ''])].some((h) => DETAILS_HREF.test(h)));
   assert.deepEqual(toDetails.map((t) => t.key), [], 'a Home tile opens the Event Details page again');
   const count = tiles.find((t) => t.key === 'count');
   assert.ok(count, 'the Countdown left Home — this check would pass vacuously');
-  assert.equal(count.door, countdownDoor('EVT123'), 'the phone’s Countdown does not open ⚙ Event Settings');
-  assert.equal(countdownDoor('EVT123'), '/dashboard/EVT123?settings=1&row=date');
-  assert.ok(count.faces.every((f) => f.href === countdownDoor('EVT123') || /date-selection/.test(f.href)), 'a Countdown face opens another page');
+  assert.equal(count.door, countdownDoor('EVT123'), 'the phone’s Countdown does not open the Date Finder');
+  assert.equal(countdownDoor('EVT123'), '/dashboard/EVT123?date=find');
+  assert.ok(count.faces.every((f) => f.href === countdownDoor('EVT123') && (!f.action || f.action.href === countdownDoor('EVT123'))), 'a Countdown face opens another page');
   // 🖥 THE DESKTOP (the detail cards, `md:` up) — the Countdown card's door is the tile's own door, never a /details literal.
   const row = code('home-control-row.tsx');
   assert.match(row, /<Shell k="count" door=\{tile\.door\}/, 'the desktop Countdown card has a door of its own again');
   assert.doesNotMatch(row, /\/details[`'"]/, 'the desktop Home cards link to the Event Details page again');
-  assert.equal(HOME_CONTROL_PAGE.count, SETTINGS_ENTRY.home.sheet, 'the desktop Countdown card is named for a page that is not the sheet it opens');
+  assert.equal(HOME_CONTROL_PAGE.count, 'Date Finder', 'the desktop Countdown card is named for something other than the Date Finder it opens');
+  assert.match(row, /label="Set your date" href=\{tile\.faces\[0\]\?\.action\?\.href \?\? tile\.door\}/, 'the desktop card’s Set your date opens another page');
+  // The Date Finder is THE sheet Suppliers' date chip opens — never a second one.
+  const finder = code('home-date-finder.tsx');
+  assert.match(finder, /import\('\.\.\/vendors\/_components\/fact-sheets'\)\.then\(\(m\) => m\.FactSheet\)/, 'Home draws its own date sheet');
+  assert.match(finder, /which="date"\s+helpFirst/, 'the Date Finder does not open on Help me choose');
+  assert.match(code('home-first-screen.tsx'), /\{eventSettings \? <HomeDateFinder eventId=\{eventId\}/, 'the Date Finder is not mounted on the couple’s Home');
 });
 
 test('3 · nothing on the Home or the rail names a separate "Event Details" any more', () => {

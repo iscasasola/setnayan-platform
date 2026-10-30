@@ -130,7 +130,7 @@ const MOVED_DOOR: Record<string, (railHrefs: string[]) => boolean> = {
     read('app/dashboard/[eventId]/details/page.tsx').includes('if (viewer.isCouple) {') &&
     read('app/dashboard/[eventId]/_components/home-cover-band.tsx').includes('<HomeSettingsGear') &&
     read('app/dashboard/[eventId]/_components/event-rail-context.tsx').includes('<Link href={eventSettingsHref(eventId)}') &&
-    read('app/dashboard/[eventId]/_components/home-control-faces.ts').includes("return eventSettingsHref(eventId, 'date');") &&
+    read('app/dashboard/[eventId]/_components/home-control-faces.ts').includes('return dateFinderHref(eventId);') &&
     read('app/dashboard/[eventId]/page.tsx').includes('countdownDoor: viewerMemberType === \'couple\' ? undefined : `/dashboard/${eventId}/details`') &&
     read('app/dashboard/[eventId]/_components/home-first-screen.tsx').includes('<HomeControlRow ') &&
     isMounted('app/dashboard/[eventId]/_components/home-first-screen.tsx'),

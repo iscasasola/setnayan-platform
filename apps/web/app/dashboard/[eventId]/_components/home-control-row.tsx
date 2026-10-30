@@ -231,7 +231,7 @@ function DetailCard({
             <>
               <Dot mood="wait">No date yet</Dot>
               <div className="sg-acts">
-                <ActionButton tone="brand" main={today} icon={<CalendarDays aria-hidden="true" strokeWidth={1.9} />} label="Set your date" href={`/dashboard/${e}/date-selection`} />
+                <ActionButton tone="brand" main={today} icon={<CalendarDays aria-hidden="true" strokeWidth={1.9} />} label="Set your date" href={tile.faces[0]?.action?.href ?? tile.door} />
               </div>
             </>
           )}

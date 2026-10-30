@@ -17,6 +17,7 @@ import type { HomeCoverWords } from '@/lib/home-cover-words';
 import { HomeToday, HomeTodayFold } from './home-parts';
 import { HomeCoverBand, type HomeSettingsLink } from './home-cover-band';
 import { HomeControlRow } from './home-control-row';
+import { HomeDateFinder } from './home-date-finder';
 import type { HomeHubPickRead } from './home-cards/hub-pick-types';
 import { homeToday, type HomeControlInput } from './home-control-faces';
 import { PapicBuySheet } from '../studio/papic/_components/papic-buy-sheet';
@@ -118,6 +119,8 @@ export type HomeFirstScreenProps = {
   eventSettingsRows?: ReactNode;
   /** 🔗 `?settings=1` — the address opens the Event Settings sheet with the page (`HomeSettingsLink`). */
   eventSettingsLink?: HomeSettingsLink;
+  /** 📅 `?date=find` — the address opens the Date Finder with the page (the Countdown's door from elsewhere). */
+  dateFinderOpen?: boolean;
   /** 🖼 The Event Hub's main background under the name (`lib/home-cover.ts`); null = today's colour. */
   ground?: HomeCover | null;
   /** 🎨 Papic's credits left, for the Buy more sheet's "You have N" and "After this". */
@@ -170,6 +173,7 @@ export function HomeFirstScreen({
   eventSettings = false,
   eventSettingsRows,
   eventSettingsLink,
+  dateFinderOpen = false,
   ground = null,
   papicLeft = null,
   papicSizes = null,
@@ -211,6 +215,8 @@ export function HomeFirstScreen({
 
           {/* 🎛 THE CONTROL ROW — Countdown · Guests · Event Hub · Suppliers · Budget · Checklist; each opens its ONE page. */}
           <HomeControlRow input={control} hubPick={hubPick} />
+          {/* 📅 The Countdown's Date Finder, in place — the couple's (who change the date); a helper's Countdown opens Event Details. */}
+          {eventSettings ? <HomeDateFinder eventId={eventId} openAtFirst={dateFinderOpen} /> : null}
 
           {/* 📷 PAPIC — ONE CARD, ON THE ROW AFTER BUDGET (owner 2026-10-27: "Place papic under budget widget" · "Place it
               on the next row after the budget widget"; it sat under Today since 2026-10-26). Budget is the control row's

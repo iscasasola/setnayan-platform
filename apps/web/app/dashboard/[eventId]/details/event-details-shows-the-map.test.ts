@@ -193,16 +193,17 @@ test('the fixed bugs stay fixed: venues come from bookings, never a setting type
   assert.deepEqual(said, [], 'the word "vendor" is back in Event Details copy');
 });
 
-test('Event Home carries the door to what Event Details held — the Countdown opens ⚙ Event Settings', () => {
+test('Event Home carries the date’s door — the Countdown opens the Date Finder', () => {
   // Owner-approved 2026-10-24: the Countdown — the first widget, right under the name — was Event Details' one door.
-  // RE-AIMED 2026-10-30 (owner: *"move them all in the event settings"*): it opens Home's ⚙ Event Settings on the date
-  // for the couple (whose /details forwards there); a helper's Countdown still opens this page (`countdownDoor`).
+  // RE-AIMED 2026-10-30 (owner: *"move them all in the event settings"* · *"date finder. because we want them to find
+  // the date for their event"*): for the couple (whose /details forwards to ⚙ Event Settings) it opens the Date Finder in
+  // place; a helper's Countdown still opens this page (`countdownDoor`).
   const first = read('app/dashboard/[eventId]/_components/home-first-screen.tsx');
   assert.match(first, /<HomeCoverBand cover=\{cover\}/);
   assert.match(first, /<HomeControlRow input=\{control\}[^>]*\/>/);
   const faces = read('app/dashboard/[eventId]/_components/home-control-faces.ts');
-  assert.match(faces, /const door = c\.door \?\? countdownDoor\(e\);/, 'the Countdown does not open ⚙ Event Settings');
-  assert.match(faces, /return eventSettingsHref\(eventId, 'date'\);/, 'the Countdown’s sheet door does not land on the date');
+  assert.match(faces, /const door = c\.door \?\? countdownDoor\(e\);/, 'the Countdown does not open the Date Finder');
+  assert.match(faces, /return dateFinderHref\(eventId\);/, 'the Countdown’s door is not the Date Finder');
   assert.doesNotMatch(read('app/dashboard/[eventId]/_components/home-cover-band.tsx'), /data-home-event-details/, 'the cover’s pill is back — a second door');
 });
 

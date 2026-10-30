@@ -92,6 +92,7 @@ import { SetDateNudge } from './_components/set-date-nudge';
 import { readHomeGuide } from './_components/details-guide-home-card';
 import { DayPapicRow, HomeFirstScreen, YourServices } from './_components/home-first-screen';
 import { isEventSettingsRow } from '@/lib/people-with-access-href';
+import { DATE_FINDER_VALUE } from '@/lib/home-date-finder';
 /* 🛑 KEEP. WITHOUT THIS LINE HOME'S ⚙ CRASHES HOME (2026-10-29, the fix after #7036). The ⚙ reads Event Settings with a
    server action (`openEventSettings`) that RETURNS RENDERED ROWS: the Maker's editors (`details-lazy.tsx`,
    `details-go.tsx`). Next can only send a client component in an action's answer when THIS ROUTE's server files reach
@@ -213,6 +214,8 @@ export default async function EventHomePage({
       /** ⚙ `?settings=1&row=…` — Home opens with its Event Settings sheet up (the ☰'s mark, "Change ›" to access). */
       settings?: string;
       row?: string;
+      /** 📅 `?date=find` — Home opens with the Date Finder up (the Countdown's door). */
+      date?: string;
       host_removed?: string;
       invite_error?: string;
     } & PapicOutcomes
@@ -1100,7 +1103,7 @@ export default async function EventHomePage({
     hub: homeHub,
     suppliers: homeSuppliers,
     checklist: homeChecklist,
-    // ⚙ The couple's Countdown opens their ⚙ Event Settings; a helper (no ⚙) keeps Event Details for now.
+    // 📅 The couple's Countdown opens the Date Finder (owner 2026-10-30); a helper keeps Event Details for now.
     countdownDoor: viewerMemberType === 'couple' ? undefined : `/dashboard/${eventId}/details`,
   });
   const appleThankYouEntry = ADD_ONS.find((a) => a.key === 'thank-you');
@@ -1147,6 +1150,7 @@ export default async function EventHomePage({
       asks={todayAsks}
       /* ⚙ Event Settings on the cover — the couple's, who change the event's own facts (owner 2026-10-29). */
       eventSettings={viewerMemberType === 'couple'}
+      dateFinderOpen={search.date === DATE_FINDER_VALUE}
       eventSettingsLink={{
         open: search.settings === '1',
         row: search.settings === '1' && isEventSettingsRow(search.row) ? search.row : null,

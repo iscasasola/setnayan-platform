@@ -49,7 +49,7 @@ export function ShopInspirationSection({ tiles, shopName }: { tiles: readonly In
             {t.card ? (
               <a
                 href={`#${t.card.anchorId}`}
-                className="block overflow-hidden rounded-[14px] border border-ink/10 bg-cream transition-colors hover:border-terracotta/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+                className="block overflow-hidden rounded-xl border border-ink/10 bg-cream transition-colors hover:border-terracotta/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
                 aria-label={`${t.part} — ${t.card.label}, ${t.card.priceLabel}. Open the card`}
                 data-inspiration-tile="card"
               >
@@ -80,6 +80,6 @@ export function ShopInspirationSection({ tiles, shopName }: { tiles: readonly In
 function TilePhoto({ url, part, rounded = false }: { url: string; part: string; rounded?: boolean }) {
   return (
     // eslint-disable-next-line @next/next/no-img-element -- an approved library photo (public bucket); masonry keeps its own height
-    <img src={url} alt={part} loading="lazy" className={`block h-auto w-full bg-ink/5 ${rounded ? 'rounded-[14px]' : ''}`} />
+    <img src={url} alt={part} loading="lazy" className={`block h-auto w-full bg-ink/5 ${rounded ? 'rounded-xl' : ''}`} />
   );
 }

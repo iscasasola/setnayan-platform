@@ -301,7 +301,7 @@ function CardLooks({ looks, label }: { looks: NonNullable<ServiceCard['inspirati
   return (
     <div className="mt-2 flex items-center gap-1.5" data-card-looks={looks.length}>
       {shown.map((l) => (
-        <span key={l.id} className="relative block h-11 w-11 shrink-0 overflow-hidden rounded-[10px] bg-ink/5">
+        <span key={l.id} className="relative block h-11 w-11 shrink-0 overflow-hidden rounded-lg bg-ink/5">
           {/* eslint-disable-next-line @next/next/no-img-element -- an approved library photo, already a public URL */}
           <img src={l.url} alt={`${label} — ${l.part}`} className="h-full w-full object-cover" loading="lazy" />
         </span>

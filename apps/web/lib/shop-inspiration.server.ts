@@ -11,7 +11,7 @@ import 'server-only';
  * learned it on 2026-10-30). A read that cannot prove it reached the end is `null`, and the page then draws no
  * Inspiration section — never a partial one presented as the whole.
  *
- * 🛑 WHAT MAY BE SHOWN — every predicate below is load-bearing (`shop-inspiration-read-is-the-public-pool.test.ts`
+ * 🛑 WHAT MAY BE SHOWN — every predicate below is load-bearing (`lib/inspiration-four-links.test.ts`
  * pins each, and the db test replays the same predicates against the real schema):
  *   · `asset_type = 'supplier_gallery'` and `vendor_profile_id = <this shop>` — the shop's own inspiration only;
  *   · `approved_at IS NOT NULL` — Setnayan's admin approved it (a suggestion's pool copy lands PENDING, so it is here
@@ -41,8 +41,6 @@ export type ShopInspirationLook = {
   vendorServiceId: string | null;
 };
 
-/** The columns read — never `source_event_id`, never `source_suggestion_id`. */
-export const SHOP_INSPIRATION_COLUMNS = 'asset_id, asset_subtype, label, storage_path, vendor_service_id';
 export const SHOP_INSPIRATION_PAGE = 500;
 
 type Row = { asset_id: string; asset_subtype: string | null; label: string | null; storage_path: string; vendor_service_id: string | null };
@@ -69,7 +67,7 @@ export async function fetchShopInspirationLooks(
     async (from, to) => {
       const { data, error, count } = await client
         .from('moodboard_library_assets')
-        .select(SHOP_INSPIRATION_COLUMNS, { count: 'exact' })
+        .select('asset_id, asset_subtype, label, storage_path, vendor_service_id', { count: 'exact' }) // never source_event_id / source_suggestion_id
         .eq('vendor_profile_id', vendorProfileId)
         .eq('asset_type', 'supplier_gallery')
         .not('approved_at', 'is', null)

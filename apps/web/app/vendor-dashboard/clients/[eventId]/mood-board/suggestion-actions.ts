@@ -36,8 +36,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { SUGGEST_REFUSAL } from '@/lib/inspiration-suggestions';
 import type { VendorProfileRow } from '@/lib/vendor-profile';
 import { verifyCardForPart } from '@/lib/inspiration-card-link.server';
-import { importEditorialMediaToGallery } from '@/app/vendor-dashboard/moodboard-library/actions';
-import { stylistAssetObjectKey } from '@/lib/moodboard-library-key';
+import { deleteStylistAsset, importEditorialMediaToGallery } from '@/app/vendor-dashboard/moodboard-library/actions';
 import type { SuggestionPoolResult } from '@/lib/inspiration-suggestions';
 
 export type SuggestResult =
@@ -257,7 +256,7 @@ async function removePendingPoolCopy(suggestionId: string): Promise<void> {
   const admin = createAdminClient();
   const { data, error } = await admin
     .from('moodboard_library_assets')
-    .select('asset_id, storage_path, uploaded_by')
+    .select('asset_id')
     .eq('source_suggestion_id', suggestionId)
     .eq('uploaded_by', user.id)
     .is('approved_at', null)
@@ -266,14 +265,13 @@ async function removePendingPoolCopy(suggestionId: string): Promise<void> {
     logQueryError('withdrawInspirationSuggestion.poolCopy', error, { suggestionId }, 'graceful_degrade');
     return;
   }
-  const row = data as { asset_id: string; storage_path: string | null; uploaded_by: string } | null;
+  const row = data as { asset_id: string } | null;
   if (!row) return;
-  const { error: delErr } = await admin.from('moodboard_library_assets').delete().eq('asset_id', row.asset_id).is('approved_at', null);
-  if (delErr) {
-    logQueryError('withdrawInspirationSuggestion.poolCopyDelete', delErr, { suggestionId }, 'graceful_degrade');
-    return;
+  /* The library's own delete (row + the object in this supplier's own folder, uploaded_by re-checked) — never a second
+     storage delete here (lib/every-cleanup-delete-is-pinned.test.ts). */
+  try {
+    await deleteStylistAsset(row.asset_id);
+  } catch (err) {
+    logQueryError('withdrawInspirationSuggestion.poolCopyDelete', err, { suggestionId }, 'graceful_degrade');
   }
-  /* 🔒 Only an object in THIS supplier's own folder (lib/moodboard-library-key.ts), as deleteStylistAsset does. */
-  const key = row.storage_path ? stylistAssetObjectKey(row.storage_path, row.uploaded_by) : null;
-  if (key) await admin.storage.from('moodboard-library').remove([key]);
 }

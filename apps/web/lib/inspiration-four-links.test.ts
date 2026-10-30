@@ -153,7 +153,7 @@ test('3c · an event-album photo is never offered for a suggestion, and is recog
 /* ── 4 · the page's read ─────────────────────────────────────────────────── */
 
 test('4 · /v/[slug] asks for the public pool narrowed to ONE shop — and never reads the event', async () => {
-  const { fetchShopInspirationLooks, SHOP_INSPIRATION_COLUMNS } = await import('@/lib/shop-inspiration.server');
+  const { fetchShopInspirationLooks } = await import('@/lib/shop-inspiration.server');
   const calls: string[] = [];
   const q = {
     eq(c: string, v: string) { calls.push(`eq ${c}=${v}`); return q; },
@@ -172,7 +172,7 @@ test('4 · /v/[slug] asks for the public pool narrowed to ONE shop — and never
   for (const want of ['eq vendor_profile_id=S89V-SHOP', 'eq asset_type=supplier_gallery', 'not-null approved_at', 'null retired_at', 'null rejected_at']) {
     assert.ok(calls.includes(want), `the page read lost: ${want}`);
   }
-  assert.equal(cols, SHOP_INSPIRATION_COLUMNS);
+  assert.match(cols, /vendor_service_id/, 'the page read lost the card link');
   assert.doesNotMatch(cols, /source_event_id|source_suggestion_id/, 'the public page reads which event a photo came from');
 });
 

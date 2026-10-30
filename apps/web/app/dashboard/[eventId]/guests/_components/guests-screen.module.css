@@ -91,6 +91,30 @@
   left: var(--gs-pin-l, 0px);
   width: var(--gs-pin-w, 100%);
   box-shadow: 0 1px 0 var(--gs-line);
+  /* 🫥 NOTHING PEEKS UNDER THE ROW (owner, live iPhone app, 2026-10-30: *"something is peeking on the top of guests"*):
+     the row MOVES IN THE SAME FRAME as every sticky head that pins under it (`calc(var(--gs-top) + var(--gs-stick-h))` —
+     the List's group heads, March's). It used to glide its `top` over 300 ms while those heads jumped, so each time the
+     shell bar came back the heads sat up to a bar's height below the row and a cut guest row showed between them
+     (measured in /dev/guests-lab, 390 × 844: 32 px at the glide's first frame → 0). */
+  transition: none;
+}
+/* 🫥 …AND NOTHING PEEKS ABOVE IT. When the shell bar slides away on a phone the row pins at the safe area
+   (`--gs-top` = `env(safe-area-inset-top)`), and the strip above it — under the clock and the island — was the page
+   itself: the list scrolled visibly there (a guest row cut in half). The row now carries the page's paper upward to the
+   top of the screen, edge to edge. It sits UNDER the shell bar (the bar is drawn over `<main>`), so while the bar shows
+   nothing changes; once it slides away, the band runs from the very top of the screen to the row's bottom edge. Phones
+   only (the bar slides away below 701 px only); the full-screen views keep the plan as the background (#7098).
+   🔒 lib/guests-top-row-and-full-screen.test.ts (8) */
+@media (max-width: 700.98px) {
+  .screen:not([data-guests-full]) .stick.pinned[data-pinned]::after {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    left: calc(-1 * var(--gs-pin-l, 0px));
+    width: 100vw;
+    height: 100vh;
+    background: var(--gs-paper);
+  }
 }
 .screen {
   --gs-glide: cubic-bezier(0.2, 0.8, 0.2, 1);

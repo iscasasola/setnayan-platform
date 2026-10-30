@@ -11297,6 +11297,7 @@
         "dev/guests-lab/lab-room-3d.tsx",
         "dev/guests-lab/lab-seats-march.tsx",
         "dev/guests-lab/lab-stand-ins.ts",
+        "dev/guests-lab/lab-top-bar.tsx",
         "dev/guests-lab/page.tsx"
       ],
       "destinations": [
@@ -11323,6 +11324,7 @@
         "LabRoom3D",
         "LabSeats",
         "LabShell",
+        "LabTopBar",
         "MakerRsvpSettings",
         "MarchMaker",
         "NotificationsList",

@@ -30,11 +30,19 @@
  *       page's title group: the first table 40 px under the row → 4 px after). Held: every view that is neither full
  *       screen nor page-scrolling is a ROW SURFACE (rendered), the row surface is lifted by the measured offset and runs
  *       to the bottom nav, the column drops its foot under it (nothing to scroll), and the seat plan fills it.
+ *   (8) NOTHING PEEKS ABOVE OR UNDER THE PINNED ROW (owner, live iPhone app, 2026-10-30, Guests › List scrolled: *"something
+ *       is peeking on the top of guests"* — a guest row cut in half above the row, another between the row and the VIP
+ *       head). Measured in /dev/guests-lab at 390 × 844 with the bar sliding away like the real one and a 47 px safe area
+ *       stood in: the strip above the row was the list (elementFromPoint → a guest row), and as the bar came back the row
+ *       glided its `top` for 300 ms while the group heads jumped — 32 px of list between them. After: the strip is the row
+ *       (its paper runs to the top of the screen, under the bar), the gap is 0 in every frame. Held: the pinned row's `top`
+ *       never animates, and on a phone (non-full views) its paper runs up from its top edge, edge to edge, to the screen's top.
  *
  * 🛡 Sabotaged (2026-10-29): `isFullScreenView` without 3D → red on (2); the Guests canvas given `overflow-hidden` back →
  * red on (4). (2026-10-30): the segmented `<nav data-guests-segmented>` put back in the row → red on (5); Seats' counts
  * portal removed → red on (6); the Auto arrange `MenuRow` dropped from the ⋯ → red on (6).
- * (2026-10-30, seats-list-no-empty-band): `.rowSurface`'s lift removed → red on (7).
+ * (2026-10-30, seats-list-no-empty-band): `.rowSurface`'s lift removed → red on (7); the row's `transition: none`
+ * dropped (it glides again) → red on (8).
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -238,4 +246,34 @@ test('(7) a view that owns its height starts right under the pinned row — no e
   assert.match(inGuests, /el\.closest\('\[data-guests-row-surface\]'\) !== null/, 'the seat plan does not see the row surface');
   assert.match(inGuests, /setFill\(inSurface \|\| inRowSurface\);/, 'the seat plan keeps a measured height of its own inside the row surface');
   assert.equal((inGuests.match(/\$\{under \? UNDER_THE_ROW : ''\}/g) ?? []).length, 2, 'a side list starts a row lower on the row surface (the row is already above it)');
+});
+
+test('(8) nothing peeks above or under the pinned row — it moves with its heads, and its paper runs to the top of the screen', () => {
+  const css = stripComments(readFileSync(join(process.cwd(), 'app/dashboard/[eventId]/guests/_components/guests-screen.module.css'), 'utf8'));
+  const block = (sel: string, from = 0) => {
+    const at = css.indexOf(`${sel} {`, from);
+    assert.ok(at > -1, `${sel} is gone — this guard is blind`);
+    return css.slice(at, css.indexOf('}', at));
+  };
+  // The row moves in the SAME frame as every sticky head that pins under it (`calc(var(--gs-top) + var(--gs-stick-h))`):
+  // a glide on the row alone leaves a band of list between them each time the shell bar comes back.
+  const pinned = block('.stick.pinned[data-pinned]');
+  assert.match(pinned, /top: var\(--gs-top, 0px\);/);
+  assert.match(pinned, /transition: none;/, 'the pinned row glides its top again — its group heads jump, and the list shows between them');
+  assert.doesNotMatch(css, /\.stick\.pinned[^{]*\{[^}]*transition:[^};]*\btop\b/, 'a pinned-row rule animates `top`');
+  // Its paper runs up from its top edge to the top of the screen, edge to edge — on a phone (where the bar slides away),
+  // never over the full-screen views' plan. A real box (no `pointer-events: none`): what you see there is the row.
+  const at = css.indexOf('.screen:not([data-guests-full]) .stick.pinned[data-pinned]::after {');
+  assert.ok(at > -1, 'the row carries no paper above it — the list peeks under the clock once the bar slides away');
+  const media = css.lastIndexOf('@media', at);
+  assert.match(css.slice(media, at), /^@media \(max-width: 700\.98px\) \{\s*$/, 'the paper above the row is not scoped to the phones whose bar slides away');
+  const strip = css.slice(at, css.indexOf('}', at));
+  assert.match(strip, /content: '';/);
+  assert.match(strip, /position: absolute;/);
+  assert.match(strip, /bottom: 100%;/, 'the paper does not start at the row’s top edge');
+  assert.match(strip, /height: 100vh;/, 'the paper does not reach the top of the screen');
+  assert.match(strip, /left: calc\(-1 \* var\(--gs-pin-l, 0px\)\);/);
+  assert.match(strip, /width: 100vw;/, 'the paper is not edge to edge');
+  assert.match(strip, /background: var\(--gs-paper\);/);
+  assert.doesNotMatch(strip, /pointer-events:\s*none/);
 });

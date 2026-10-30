@@ -25,3 +25,27 @@ have that one row not used. we want to use that space"*. Builds on #7098 (Map ·
   anchor in `lib/maps-are-always-full-screen.test.ts` (2) follows the new expression.
 
 SPEC IMPACT: None
+
+## 2026-10-30 · fix(guests): nothing peeks above or under the pinned row on a scrolled Guests › List
+
+Owner, live iPhone app, Guests › List scrolled down: *"something is peeking on the top of guests"* — with the shell bar
+slid away, a guest row ("Ms. Juanita Sacdalan +1", round buttons cut in half) showed in the strip ABOVE the pinned row,
+and another cut row showed BETWEEN the row and the sticky VIP group head.
+
+- **Measured** (`/dev/guests-lab` at 390 × 844, WebKit with touch, the bar now sliding away like the real one and a 47 px
+  safe area stood in): with the bar away the row pins at the safe area (`--gs-top` = `env(safe-area-inset-top)`), and
+  `elementFromPoint` in the strip above it returned the list — nothing painted there. As the bar came back the row
+  glided its `top` (`.stick` `transition: top 300ms`) while every sticky head keyed on `--gs-top` (the List's group heads,
+  March's) jumped in one frame: **32 px** of list between the row and the head at the glide's first frame, 17 px at 60 ms.
+- **Fix** (`guests-screen.module.css`): the pinned row's `top` no longer animates (`transition: none`), so the row and
+  its heads move in the same frame (gap **0** in every frame); and on a phone (below 701 px, where the bar slides away;
+  not on the full-screen views, whose background is the plan) the row carries the page's paper up from its top edge to
+  the top of the screen, edge to edge (`::after`). It sits under the shell bar, so nothing changes while the bar shows;
+  once the bar is away, the band runs from the very top of the screen to the row's bottom edge (strip above the row:
+  list → the row).
+- **The lab's top bar slides away now** (`app/dev/guests-lab/lab-top-bar.tsx`, the app's own `useHideOnScroll`,
+  `data-hidden`, curve and safe-area padding; the wrapper carries `data-chrome="app"`), as the Suppliers lab's stage does —
+  the old stand-in never moved, so this could not be seen in a walk.
+- 🔒 `lib/guests-top-row-and-full-screen.test.ts` (8). Sabotaged: the row's `transition: none` dropped → red.
+
+SPEC IMPACT: None

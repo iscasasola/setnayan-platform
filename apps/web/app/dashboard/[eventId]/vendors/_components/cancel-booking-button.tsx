@@ -77,6 +77,9 @@ type Props = {
    *  pill) instead of a variant's. The word then sits in a `.lbl`, so a verb
    *  row's fit pass can fold it to the icon. Absent → byte-identical to before. */
   triggerClass?: string;
+  /** The word on a `triggerClass` trigger — the Booked row's tile says "Cancel" (owner 2026-10-30, one row of equal
+   *  tiles). The accessible name still says the whole thing. Absent → "Cancel booking". */
+  triggerWord?: string;
 };
 
 const TOAST_AUTO_DISMISS_MS = 5_000;
@@ -98,6 +101,7 @@ export function CancelBookingButton({
   redirectToHomeOnSuccess = false,
   variant = 'pill',
   triggerClass,
+  triggerWord,
 }: Props) {
   const router = useRouter();
   const [dialog, setDialog] = useState<DialogState>({ kind: 'closed' });
@@ -201,7 +205,7 @@ export function CancelBookingButton({
         {triggerClass ? (
           <>
             <X aria-hidden strokeWidth={1.9} />
-            <span className="lbl">{triggerLabel}</span>
+            <span className="lbl">{triggerWord ?? triggerLabel}</span>
           </>
         ) : (
           <>

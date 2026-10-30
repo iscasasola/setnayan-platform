@@ -40,6 +40,7 @@
  * `NewGroupInlineForm`; Invite N = the one-by-one run at `/guests/send?ids=`.
  */
 
+import { GuestNick } from '@/app/_components/guest-nick';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -88,6 +89,7 @@ import {
   countsTowardEvent,
   guestDisplayName,
   guestNameAsGiven,
+  guestNameWithNick,
   guestInitials,
   plusOneSeats,
   replyMarkedByHost,
@@ -2102,7 +2104,11 @@ function GuestRowLine({
 }) {
   // 🪪 Shown cased (owner 2026-10-21, guest_page_fixes_2_4 fix 3 — "yes", one display rule): "pamela labriaga"
   // reads "Pamela Labriaga". Display only — search still reads every typed part (`nameHas`), and the boxes keep them.
-  const name = plusWords?.name ?? displayPersonName(guestNameAsGiven(g) ?? guestDisplayName(g));
+  // 🪪 The FULL name with the nickname beside it (owner, prototype v24, 2026-10-29 — `guestNameWithNick`); a +1 named by
+  // their guest keeps those words and no nickname.
+  const named = plusWords?.name ? null : guestNameWithNick(g);
+  const name = plusWords?.name ?? displayPersonName(named?.name ?? guestDisplayName(g));
+  const nick = named?.nick ?? null;
   const plus = plusOneSeats(g);
   // 🪑 A "+N" with fewer seat rows than N says so — never a +1 the list cannot show (`seatRowsByGuest`).
   const notAdded = Math.max(0, plus - seatsOnList);
@@ -2160,9 +2166,10 @@ function GuestRowLine({
       <button type="button" className={styles.who} onClick={act} data-row-name="">
         <div className={styles.nm}>
           <span aria-hidden className={`${styles.dot} ${sideCls}`} />
-          {/* ✂ The name gives way, never the buttons: one line, an ellipsis when Edit · Remove need the room. */}
+          {/* ✂ The name gives way, never the buttons: it wraps (up to three lines) when Share · Delete need the room. */}
           <span className={styles.nmt} data-row-name-text="">
             {name}
+            <GuestNick nick={nick} />
             {plusWords?.of ? <span className={styles.of}> · {plusWords.of}</span> : null}
           </span>
           {plus > 0 ? <span className={styles.pill}>+{plus}</span> : null}

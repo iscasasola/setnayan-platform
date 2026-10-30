@@ -16,7 +16,7 @@ import { useHideOnScroll } from '@/app/_components/nav/use-hide-on-scroll';
 
 const BAR_CSS =
   '.gl-lab-bar{position:sticky;top:0;z-index:20;display:flex;align-items:center;box-sizing:content-box;height:60px;' +
-  'padding:env(safe-area-inset-top,0px) 16px 0;font-size:14px;font-weight:600;letter-spacing:.18em;color:#A9834B;' +
+  'padding:env(safe-area-inset-top,0px) 16px 0;font-size:14px;font-weight:600;letter-spacing:.18em;color:rgb(var(--ramp-gold));' +
   'background:rgba(255,255,255,.9);border-bottom:1px solid rgba(26,26,26,.1);transition:transform .3s ease-out}' +
   '@media (max-width:700.98px){.gl-lab-bar[data-hidden="true"]{transform:translateY(-100%)}}';
 

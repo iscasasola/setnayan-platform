@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { Check, ChevronDown } from 'lucide-react';
+import { Check, ChevronDown, Settings, Sparkles } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { useOneOpen } from '@/lib/one-open';
 import { TimelineRowsLoading } from '@/app/_components/timeline-states';
@@ -76,6 +76,9 @@ function stageOf(pick: string | undefined): MakerStageKey | null {
  *     a page changes, and the thumb travels exactly one half. A name never truncates and never wraps: it tightens,
  *     then (a page) writes its short name (`studioHalfSteps`); measured on the phone, again on a resize.
  */
+/** Studio ▾'s last row's line — the prototype's words for what the ⚙ holds now that it left Studio. */
+export const STUDIO_MENU_SETTINGS_LINE = 'Look · address · QR · who can view · E-Gifts';
+
 export function StudioSideSwitch({
   side,
   onPick,
@@ -85,7 +88,14 @@ export function StudioSideSwitch({
   page = null,
   tiles = [],
   onOpen,
+  onSettings,
 }: {
+  /**
+   * ⚙ Open the Hub's ⚙ Event Hub settings — Studio ▾'s last row (owner 2026-10-30, the approved prototype
+   * `prototypes/build-contracts-2026-10-30/event-hub-pro/` `studioMenu`: after a divider, "Event Hub Settings · Look ·
+   * address · QR · who can view · E-Gifts"). The SAME sheet as the pinned row's ⚙ (`HubSettingsGear`); absent: no row.
+   */
+  onSettings?: () => void;
   side: MakerSide;
   /** Change side — the shell's `pickSide`. Called only with a pick from the other side's list. */
   onPick: (side: MakerSide) => void;
@@ -195,6 +205,32 @@ export function StudioSideSwitch({
                   );
                 })}
               </ul>
+              {/* ⚙ THE LAST ROW — what moved out of Studio lives in the ⚙ (Look · the address · QR · who can view ·
+                  E-Gifts): one door to it from here, after a hairline. It closes this list and opens THE ⚙ sheet. */}
+              {onSettings ? (
+                <div data-studio-menu-settings="" className="mt-1 border-t border-ink/10 p-0.5 pt-1.5">
+                  <button
+                    type="button"
+                    data-pick-option="settings"
+                    onClick={() => {
+                      shut('pages');
+                      onSettings();
+                    }}
+                    className={pickOptionClass(true, false)}
+                  >
+                    <span aria-hidden className="inline-flex shrink-0">
+                      <Sparkles className="h-5 w-5" strokeWidth={1.75} />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block font-semibold">Event Hub Settings</span>
+                      <span className="block text-[12px] font-medium leading-snug opacity-75">{STUDIO_MENU_SETTINGS_LINE}</span>
+                    </span>
+                    <span aria-hidden className={pickTrailClass('muted', false)}>
+                      <Settings className="h-4 w-4" strokeWidth={1.75} />
+                    </span>
+                  </button>
+                </div>
+              ) : null}
             </MakerSheet>,
             document.body,
           )

@@ -1072,7 +1072,7 @@ export function MakerShell({
               opens that side's list, a pick goes there), always the same width. It fills its place edge to edge —
               the room the names are measured in (`StudioSideSwitch`). A desktop shows it too (`maker-desk.tsx`). */}
           <div data-maker-tool="side" data-bar-item="Stages or Studio" data-bar-fill="" className={`flex min-w-0 flex-1 ${MAKER_BAR_PHONE.side}`}>
-            <StudioSideSwitch side={side} onPick={pickSide} stage={ltPick} options={page.options} onStage={pickPage} page={studioTile} tiles={studioMenu ?? undefined} onOpen={openStudio} />
+            <StudioSideSwitch side={side} onPick={pickSide} stage={ltPick} options={page.options} onStage={pickPage} page={studioTile} tiles={studioMenu ?? undefined} onOpen={openStudio} onSettings={hasWork ? () => setMoreOpen(true) : undefined} />
           </div>
 
           {/* The desktop's gap between the side switch and the draft (a phone has no room for one). */}

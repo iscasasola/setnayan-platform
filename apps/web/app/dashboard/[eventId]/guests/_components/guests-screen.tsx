@@ -80,7 +80,6 @@ import { SnapCarousel, type CarouselCard } from '@/components/snap-carousel';
 import { formatCount } from '@/lib/format-number';
 import { PickMenu, type PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { useInspectorContext } from '@/app/_components/inspector/inspector-column';
-import { PILL_TRACK_CLASS, PILL_TRACK_GROUND, PillThumb, pillSegClass } from '@/app/_components/pill-selector';
 import { GuestPopup } from './guest-popup';
 import { GUESTS_EXCEL_KEY, useGuestsExcel } from './guests-excel-button';
 import { Handed } from './handed';
@@ -150,6 +149,7 @@ import { isRenamableSection, sectionUsualHeading } from '@/lib/entourage';
 import { sectionName } from '@/lib/role-names';
 import { resolveRoleSet } from '@/lib/role-sets';
 import { JustAdded } from './just-added';
+import { PinCountDoor } from './view-summary-cards';
 import { hearAction } from './hear-action';
 import { AddCardPicks, PeopleHits, picksForAdd, useAddPicks, type PersonHit } from './search-add-card';
 import { useRowState } from './use-row-state';
@@ -183,9 +183,7 @@ import {
   pinnedMenuWords,
   seatModeOf,
   seatOfMode,
-  topOfView,
   type GuestsMakerView,
-  type GuestsTop,
   type GuestsView,
   type SeatMode,
   type SeatView,
@@ -425,14 +423,16 @@ export function GuestsScreen(props: GuestsScreenProps) {
     setGview(gviewAsked);
     setSeenViews((s) => (s.has(gviewAsked) ? s : new Set([...s, gviewAsked])));
   }, [gviewAsked]);
-  /* 🎚 R4 slice 2 · THE TOP ROW (owner 2026-10-29: "Guests ▾ List·Map · Seats ▾ List·2D·3D · March"). Guests remembers
-     its last mode (List or Map) so its segment goes back to it; Seats' mode is the SEAT PLAN's own state — it reports it
+  /* 🎚 THE ONE TOP ROW (owner 2026-10-30, on the iPhone app: *"The menu does not work properly"* — Seats › List wore the
+     segmented `Guests | Seats ▾ | March` while Seats › 2D wore the slim row). Every view now wears the ONE row
+     `[Page · View ▾] · counts · ⋯ · ⚙`; its ▾ lists every view. Seats' mode is the SEAT PLAN's own state — it reports it
      here through the lens (`registerSeats`), and a mode picked while the plan is not on screen waits for it. */
-  const [guestsMode, setGuestsMode] = useState<'list' | 'map'>(gviewAsked === 'map' ? 'map' : 'list');
   const [seatMode, setSeatMode] = useState<SeatMode>(seatModeOf(seatAsked));
   const [seatShow3D, setSeatShow3D] = useState(process.env.NEXT_PUBLIC_SEATING_3D !== 'false');
   /** The top row's seat for the view's own rounds (Seats' Edit · ⋯) — the plan portals them in. */
   const [toolsSlot, setToolsSlot] = useState<HTMLElement | null>(null);
+  /** The top row's seat for the view's own counts (Seats' seated · unseated · tables) — the plan portals them in. */
+  const [countsSlot, setCountsSlot] = useState<HTMLElement | null>(null);
   const seatsApi = useRef<SeatsChannel | null>(null);
   const seatWanted = useRef<SeatMode | null>(null);
   const registerSeats = useCallback((api: SeatsChannel | null) => {
@@ -446,7 +446,6 @@ export function GuestsScreen(props: GuestsScreenProps) {
   }, []);
   const pickView = (v: GuestsView, seat?: SeatMode) => {
     setGview(v);
-    if (v === 'list' || v === 'map') setGuestsMode(v);
     setSeenViews((s) => (s.has(v) ? s : new Set([...s, v])));
     // ⇅ The shared Show · Group by · Sort rides along — a switch keeps what is shown (lib/guests-filter.ts).
     const at = guestsViewHref(eventId, v, { seat: v === 'seats' ? seatOfMode(seat ?? seatMode) : null });
@@ -461,13 +460,6 @@ export function GuestsScreen(props: GuestsScreenProps) {
     seatWanted.current = m;
     setSeatMode(m);
     pickView('seats', m);
-  };
-  /** A segment pressed: Guests goes back to its last mode, Seats to the plan's, March to the March. */
-  const onTopPress = (t: GuestsTop) => (e: React.MouseEvent<HTMLAnchorElement>) => {
-    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
-    e.preventDefault();
-    if (t === 'seats') chooseSeat(seatMode);
-    else pickView(t === 'guests' ? guestsMode : 'march');
   };
   /** 🗺 Map, Seats › 2D and Seats › 3D are auto-pinned FULL SCREEN (`isFullScreenView`). */
   const fullView = isFullScreenView(gview, seatMode);
@@ -773,57 +765,21 @@ export function GuestsScreen(props: GuestsScreenProps) {
     return () => ro?.disconnect();
   }, []);
 
-  // ── 📌 THE ONE PINNED ROW, PINNED ONCE (owner 2026-10-27: "pinned approve" — Guests B; "On the pinned the selectors
-  //    should stay but simplified"; then "the selector double pins. we want them to pin only the new way and not the first
-  //    pin it does" — DECISION_LOG "GUESTS: THE SUMMARY BECOMES ONE AUTO-SCROLLING CAROUSEL; THE SELECTOR PINS ONCE").
-  //    At rest the List · Map pill is NOT sticky: it scrolls with the page, the summary carousel under it. Only once the
-  //    carousel's bottom has passed under where the row would sit does the block pin (`data-collapsed` → fixed under
-  //    the bar, in its holder's column) with its summary face `List · Map · ✓ ✕ ? · ⚙` — no Invite (that lives on the
-  //    carousel's To invite card). The holder keeps the block's height in the flow, so nothing under it moves. Written as
-  //    ATTRIBUTES and custom properties, only when they change, never as state: the list never re-renders for a scroll.
-  //    List only — the Map is one canvas and keeps its shipped sticky row. 🔒 lib/the-pinned-row-is-one-row.test.ts
+  // ── 📌 THE ONE TOP ROW IS PINNED ON EVERY VIEW (owner 2026-10-30, *"Seat ls should be pinned on top row and on map and
+  //    3d"* → *"Like this one"*). There is one face now, so there is nothing to swap and nothing to "pin once": the block is
+  //    fixed under the shell bar from the start (`data-pinned`), on its holder's column edges (`--gs-pin-l` / `--gs-pin-w`
+  //    — the desk's rail, a card column); the holder keeps its height in the flow, so nothing under it moves and a group
+  //    header pins under it (`--gs-stick-h`). Written as ATTRIBUTES and custom properties, only when they change, never as
+  //    state: the list never re-renders for a scroll. 🔒 lib/the-pinned-row-is-one-row.test.ts
   useEffect(() => {
     const st = stickRef.current;
     const hold = holdRef.current;
-    const strip = stripRef.current;
-    const root = rootRef.current;
-    if (!st) return;
-    /* 📌 R4 slice 4: Seats and March pin the SAME row (full face — no summary face there) once it reaches the bar, so a
-       March group's header has a row to stick under (`data-pinned`; the List keeps its two-face `data-collapsed`). */
-    const maker = isGuestsMakerView(gview);
-    /* 🗺 FULL SCREEN (Map · Seats 2D · 3D): the row is the slim pinned row from the start — nothing scrolls there. */
-    if (fullView) {
-      st.removeAttribute('data-pinned');
-      st.setAttribute('data-collapsed', '');
-      return;
-    }
-    if (!maker) st.removeAttribute('data-pinned');
-    if (!hold || !root || (!maker && (!strip || gview !== 'list'))) {
-      st.removeAttribute('data-collapsed');
-      return;
-    }
-    if (maker) st.removeAttribute('data-collapsed');
+    if (!st || !hold) return;
+    st.setAttribute('data-pinned', '');
     let raf = 0;
-    let last: boolean | null = null;
     let place = '';
     const read = () => {
       raf = 0;
-      // The shell bar's height while it shows (`useShellBarOffset` writes it inline) — the row pins under it.
-      const bar = parseFloat(root.style.getPropertyValue('--gs-top')) || 0;
-      const pinnedNow = (): boolean => {
-        if (maker) return hold.getBoundingClientRect().top <= bar;
-        if (!strip) return false;
-        const on = strip.getBoundingClientRect().bottom <= bar + st.offsetHeight + 2;
-        return on;
-      };
-      const on = pinnedNow();
-      if (on !== last) {
-        last = on;
-        /* 🎚 Slice 2: pinned, EVERY view shows the slim face (the one menu · 📤 · ⚙) — Seats and March pin fixed too. */
-        if (maker) st.toggleAttribute('data-pinned', on);
-        st.toggleAttribute('data-collapsed', on);
-      }
-      // Pinned, the row is `position: fixed` — it takes its holder's column edges (the desk's rail, a card column).
       const r = hold.getBoundingClientRect();
       const next = `${Math.round(r.left)}|${Math.round(r.width)}`;
       if (next !== place) {
@@ -836,36 +792,23 @@ export function GuestsScreen(props: GuestsScreenProps) {
       if (!raf) raf = requestAnimationFrame(read);
     };
     read();
-    window.addEventListener('scroll', soon, { passive: true });
     window.addEventListener('resize', soon);
     const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(soon) : null;
     ro?.observe(hold);
-    if (root.parentElement) ro?.observe(root.parentElement);
+    const root = rootRef.current;
+    if (root?.parentElement) ro?.observe(root.parentElement);
     return () => {
       if (raf) cancelAnimationFrame(raf);
       ro?.disconnect();
-      window.removeEventListener('scroll', soon);
       window.removeEventListener('resize', soon);
     };
-  }, [gview, measured, fullView]);
-
-  /* 🎚 The slim face stops short of the view's rounds AND the ⚙ (`--gs-rounds-w`, measured — Seats' Edit · ⋯ come and go). */
-  useEffect(() => {
-    const st = stickRef.current;
-    const el = toolsSlot;
-    if (!st || !el) return;
-    const sync = () => st.style.setProperty('--gs-rounds-w', `${el.offsetWidth ? el.offsetWidth + 8 : 0}px`);
-    sync();
-    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(sync) : null;
-    ro?.observe(el);
-    return () => ro?.disconnect();
-  }, [toolsSlot]);
+  }, []);
 
   /* 🗺 ENTERING A FULL-SCREEN VIEW GLIDES (owner 2026-10-29, "remember to animate them properly"; prototype v16): the page
-     scrolls smoothly back to the top while the full row rises and fades and the slim row rises in (0.3 s, CSS on
-     `data-collapsed`), the count row folds away (`data-guests-full`), and the map takes the room it left — the canvases
-     measure their height once the fold has played (a `resize`, which the map and the seat plan already listen for).
-     Reduced motion: no scroll animation, no glide. */
+     scrolls smoothly back to the top while the Map's carousel folds away (`data-guests-full`, 0.3 s) under the ONE top row
+     (which never changes face — owner 2026-10-30), and the map takes the room it left — the canvases measure their height
+     once the fold has played (a `resize`, which the map and the seat plan already listen for). Reduced motion: no scroll
+     animation, no glide. */
   const fullFirst = useRef(true);
   useEffect(() => {
     const first = fullFirst.current;
@@ -1240,75 +1183,29 @@ export function GuestsScreen(props: GuestsScreenProps) {
   ];
 
   /** The pinned row's count: the SAME door (`pickReply`, `data-reply-filter`) drawn small — a mark and the number; the
-      word is for a screen reader. Pressed = underlined, never boxed. */
+      word is for a screen reader. Pressed = underlined, never boxed. ONE drawing for every view's counts (`PinCountDoor`
+      — Seats' seated · unseated · tables are the same door). */
   const pinDoor = (f: ReplyFilter, value: number, id: string, word: string, Mark: typeof Check) => (
-    <button
+    <PinCountDoor
       key={f}
-      type="button"
-      className={styles.pinCount}
-      aria-pressed={replyFilter === f}
-      onClick={() => pickReply(f)}
-      data-reply-filter={f}
-      data-pin-dot={f}
-    >
-      <Mark aria-hidden strokeWidth={2.4} />
-      <b><Count value={value} id={id} /></b>
-      <span className="sr-only"> {word}</span>
-    </button>
+      dot={f}
+      value={value}
+      id={id}
+      word={word}
+      icon={<Mark aria-hidden strokeWidth={2.4} />}
+      pressed={replyFilter === f}
+      onPress={() => pickReply(f)}
+      attrs={{ 'data-reply-filter': f }}
+    />
   );
-  /* 🎚 R4 slice 2 · THE TOP ROW (owner 2026-10-29, confirmed ~18:35: *"Guests ▾ List·Map · Seats ▾ List·2D·3D · March"*;
-     prototype v14 `renderTop`): ONE segmented row of the three — the SAME pill selector, each segment still a link (an
-     address an old door lands on) — and the SELECTED one, where it has modes, carries a small ▾ that opens them (the
-     shared PickMenu). A plain press switches in place; a press asking for a new tab keeps the link's way. */
+
+  /* 🎚 THE ONE TOP ROW'S MENU (owner 2026-10-30, *"The menu does not work properly"*): the segmented
+     `Guests | Seats ▾ | March` row is GONE from every view — the ▾ below lists every view of Guests, Seats and March, and
+     picking one switches in place from any view, both ways. The addresses stay (`guestsViewHref` / `parseGuestsView`),
+     so every old door still lands. */
   const tops = GUESTS_TOPS.filter((t) => t === 'guests' || guestsViews.includes(t));
   const guestModes: PickOption[] = guestsViews.filter((v) => v === 'list' || v === 'map').map((v) => ({ key: v, label: GUESTS_VIEW_LABEL[v] }));
   const seatModes: PickOption[] = SEAT_MODES.filter((m) => m !== '3d' || seatShow3D).map((m) => ({ key: m, label: SEAT_MODE_MENU_LABEL[m] }));
-  const topHref = (t: GuestsTop) =>
-    t === 'seats' ? guestsViewHref(eventId, 'seats', { seat: seatOfMode(seatMode) }) : guestsViewHref(eventId, t === 'guests' ? guestsMode : 'march');
-  const seg = (t: GuestsTop) => {
-    const on = topOfView(gview) === t;
-    const modes = t === 'guests' ? guestModes : t === 'seats' ? seatModes : [];
-    /* The guest count rides the Guests segment while it is the one on screen (the old "List 32"). */
-    const count = t === 'guests' && on && measured ? <b><Count value={stats.total} id="gs-seg-guests" /></b> : null;
-    if (on && modes.length > 1) {
-      return (
-        /* The segment's look is the pill's; its PRESS is the menu's button (the pill's own `sn-hit` expander would lie over
-           the button and take the tap — so the wrapper drops it and the button carries it). */
-        <span key={t} className={`${pillSegClass(true).replace(/\bsn-(hit|press)\b/g, '')} !p-0`} aria-current="page" data-guests-seg={t} data-guests-seg-menu="">
-          <PickMenu
-            label={`${GUESTS_TOP_LABEL[t]} — how to see it`}
-            value={t === 'guests' ? gview : seatMode}
-            options={modes}
-            onPick={(k) => (t === 'guests' ? pickView(k as GuestsView) : chooseSeat(k as SeatMode))}
-            dataAttr="data-guests-mode"
-            buttonText={GUESTS_TOP_LABEL[t]}
-            className="sn-press sn-hit relative z-[2] flex h-full min-h-[38px] w-full items-center justify-center gap-1 rounded-full px-2.5 [&>b]:font-medium [&>b]:opacity-80"
-            trigger={
-              <>
-                <span>{GUESTS_TOP_LABEL[t]}</span>
-                {count}
-                <ChevronDown aria-hidden className="h-3.5 w-3.5 shrink-0 opacity-70" strokeWidth={2.2} />
-              </>
-            }
-          />
-        </span>
-      );
-    }
-    return (
-      <Link
-        key={t}
-        className={`${pillSegClass(on)} [&>b]:font-medium [&>b]:opacity-80`}
-        href={topHref(t)}
-        aria-current={on ? 'page' : undefined}
-        scroll={false}
-        onClick={onTopPress(t)}
-        data-guests-seg={t}
-      >
-        {GUESTS_TOP_LABEL[t]}
-        {count}
-      </Link>
-    );
-  };
   /** 📌 The slim pinned row's ONE menu (owner v14: LEFT one menu — page + mode in one dropdown, the groups listed). */
   const pinMenuOptions: PickOption[] = [
     ...guestModes.map((o) => ({ key: `guests:${o.key}`, label: o.label, group: GUESTS_TOP_LABEL.guests })),
@@ -1909,6 +1806,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
       },
       registerSeats,
       toolsSlot,
+      countsSlot,
       ...(writesOff
         ? {}
         : {
@@ -1923,7 +1821,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
             },
           }),
     }),
-    [gview, thumbSlot, toolsSlot, registerSeats, filter, hasSides, rosterById, roster, facts, writesOff, roleNames, setRoleNames, eventId],
+    [gview, thumbSlot, toolsSlot, countsSlot, registerSeats, filter, hasSides, rosterById, roster, facts, writesOff, roleNames, setRoleNames, eventId],
   );
 
   return (
@@ -1942,40 +1840,29 @@ export function GuestsScreen(props: GuestsScreenProps) {
         <div ref={holdRef} className={styles.stickHold} data-guests-stick-hold="">
         {/* 🔔 `data-peek-toast-under`: a toast lands UNDER this row (and the shell's bar above it), never on its controls. */}
         <div ref={stickRef} className={`${styles.stick} ${styles.pinned}`} data-guests-stick="" data-has-gear={setup ? '' : undefined} data-peek-toast-under="">
-          {/* 📌 ONE PINNED ROW, TWO FACES, PINNED ONCE (owner 2026-10-27, Guests B + "selectors should stay but
-              simplified" + "the selector … pin only the new way"): 44 px — the summary face is laid over the full pill
-              (absolute, the pill's own box), so the swap moves nothing. At rest the block scrolls with the page; it pins
-              only once the carousel has gone. The summary is drawn by `PinnedSummary` (below) from the SAME doors.
-              🔒 lib/the-pinned-row-is-one-row.test.ts */}
-          {/* 🎚 Slice 2: the slim face on EVERY view — the one menu ("Guests · List ▾"), and on the List its ✓ ✕ ? doors. */}
-          <PinnedSummary
-            menu={pinMenu}
-            doors={
-              measured && gview === 'list'
-                ? [
-                    pinDoor('attending', stats.yes, 'gs-pin-yes', RSVP_ROW_WORDS.attending, Check),
-                    pinDoor('declined', stats.no, 'gs-pin-no', RSVP_ROW_WORDS.declined, X),
-                    pinDoor('none', stats.none, 'gs-pin-none', RSVP_ROW_WORDS.pending, CircleHelp),
-                  ]
-                : []
-            }
-          />
-          {/* 🎚 THE ONE PILL SELECTOR (owner 2026-10-08: "adjust all pill selectors to this") — the app's template
-              draws the track, the views and the terracotta thumb that slides between them. Still links.
-              ⚙ THE FIRST ROW: List · Map, then the menu's ⚙ at its right end (owner 2026-10-27, settings per menu — the
-              "Settings" segment became the ⚙, the same door and spot as every menu; `menu-settings-button.tsx`).
-              ONE mounted ⚙ for BOTH faces ("EVERY MENU'S ⚙ RIDES ITS PINNED ROW TOO"): the pill fades when pinned, the
-              ⚙ does not — the summary face stops short of it (`[data-has-gear] .face`). */}
-          <div className="flex items-center gap-2" data-first-row="">
-            <nav className={`${PILL_TRACK_CLASS} ${PILL_TRACK_GROUND} min-w-0 flex-1`} aria-label="Guest list views" data-guests-segmented="" data-tour="guests-views">
-              <PillThumb />
-              {/* 🗂 R4 · List · Map · Seats · March — the SAME pill selector extended (owner 2026-10-27 "GUESTS = LIST ·
-                  MAP · SEATS · MARCH"; the approved Guests selector is this segmented row, "PINNED ROWS KEEP THEIR
-                  SELECTORS — SIMPLIFIED"). Each view is a link, so a view is an address an old door can land on. */}
-              {tops.map((t) => seg(t))}
-            </nav>
-            {/* 🎚 The view's own rounds (Seats: Edit · ⋯ — the plan draws them here, `lens.toolsSlot`), left of the ⚙; on
-                both faces, never faded. */}
+          {/* 📌 THE ONE TOP ROW, PINNED ON EVERY VIEW (owner 2026-10-30, iPhone app: *"The menu does not work properly"* —
+              Seats › List wore the old segmented `Guests | Seats ▾ | March` while Seats › 2D wore the slim row; and
+              *"Seat ls should be pinned on top row and on map and 3d"* → *"Like this one"*, Guests › List's pinned row).
+              ONE row on Guests › List · Map, Seats › List · 2D · 3D and March: `[Page · View ▾]` (every view) · the
+              view's counts (the List's and Map's ✓ ✕ ? doors; Seats' seated · unseated · tables, portalled in by the
+              plan — `lens.countsSlot`) · the view's own rounds (Seats: Edit · ⋯ — `lens.toolsSlot`) · the ⚙. It is the
+              menu's first row (the ⚙'s spot) and the block pins under the bar from the start, on every view.
+              🔒 lib/guests-top-row-and-full-screen.test.ts · lib/the-pinned-row-is-one-row.test.ts */}
+          <div className={styles.topRow} data-first-row="" data-guests-top-row="">
+            <PinnedSummary
+              menu={pinMenu}
+              countsRef={setCountsSlot}
+              doors={
+                measured && (gview === 'list' || gview === 'map')
+                  ? [
+                      pinDoor('attending', stats.yes, 'gs-pin-yes', RSVP_ROW_WORDS.attending, Check),
+                      pinDoor('declined', stats.no, 'gs-pin-no', RSVP_ROW_WORDS.declined, X),
+                      pinDoor('none', stats.none, 'gs-pin-none', RSVP_ROW_WORDS.pending, CircleHelp),
+                    ]
+                  : []
+              }
+            />
+            {/* 🎚 The view's own rounds (Seats: Edit · ⋯ — the plan draws them here, `lens.toolsSlot`), left of the ⚙. */}
             <span ref={setToolsSlot} className="flex shrink-0 items-center gap-1.5 empty:hidden" data-guests-view-rounds="" />
             {setup ? (
               <MenuSettingsButton menu="guests" open={settingsOpen} onOpenChange={openSettings} tour="guests-setup">
@@ -2148,18 +2035,19 @@ const PILL: Record<GuestRow['rsvp_status'] | 'toinvite', { cls: string; word: st
  * 🤝 Is this row drawn as part of the guest above it? A +1 right after their guest (or after that guest's
  * earlier +1) — no divider between them: a guest and their +1 are one topic.
  */
-/** 📌 The pinned row's summary face (owner 2026-10-27, Guests B + "On the pinned the selectors should stay but
-    simplified"; amended by the approved carousel: "Pinned row: List · Map · ✓ ✕ ? · ⚙ (no Invite), pins once"):
-    `List · Map` (the shipped pill, small, words only) · the three reply doors; the ⚙ is the block's own. Every part is
-    built by the screen from the SAME doors as the carousel (`pickReply`, `data-reply-filter`); this only lays them in
-    one 44-px row over the full pill. Hidden until the carousel has scrolled under the row. */
-function PinnedSummary({ menu, doors }: { menu: ReactNode; doors: ReactNode[] }) {
+/** 📌 THE ONE TOP ROW'S LEFT PART (owner 2026-10-27 Guests B, amended 2026-10-30 *"Like this one"*): the ONE menu
+    (`Guests · List ▾`, every view in it) · the view's counts. The List's and Map's ✓ ✕ ? doors are built by the screen
+    from the SAME doors as the carousel (`pickReply`, `data-reply-filter`); Seats' seated · unseated · tables are drawn
+    into the same span by the plan (`countsRef` → `lens.countsSlot`). The ⋯ rounds and the ⚙ follow, in the row. */
+function PinnedSummary({ menu, doors, countsRef }: { menu: ReactNode; doors: ReactNode[]; countsRef: (el: HTMLElement | null) => void }) {
   return (
-    <div className={`${styles.face} ${styles.faceAlt}`} data-guests-pin-face="summary">
-      <span className={styles.pinMenu} data-guests-pin-segmented="">
+    <div className={styles.face} data-guests-pin-face="summary">
+      <span className={styles.pinMenu} data-guests-pin-segmented="" data-tour="guests-views">
         {menu}
       </span>
-      {doors.length ? <span className={styles.pinCounts}>{doors}</span> : null}
+      <span ref={countsRef} className={styles.pinCounts} data-guests-view-counts="">
+        {doors}
+      </span>
     </div>
   );
 }

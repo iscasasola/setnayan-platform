@@ -222,17 +222,12 @@ test('6 · Guests draws List · Map · Seats · March — the shipped maker unde
   const { renderGuestsScreen, guestRow } = await import('../app/dashboard/[eventId]/guests/_components/render-guests-screen');
   const guests = [guestRow(), guestRow({ rsvp_status: 'attending' } as never)];
   const list = await renderGuestsScreen({ guests, views: GUESTS_VIEWS });
-  // (A segment's class carries `[&>b]:…`, so an attribute run is "no `<`", never "no `>`".)
-  // 🎚 R4 slice 2 (owner 2026-10-29: "Guests ▾ List·Map · Seats ▾ List·2D·3D · March"): three segments; the one on screen
-  // is its mode menu (a PickMenu — "Guests ▾"), the others links to their address. Every view is still an address.
-  const first = list.slice(list.indexOf('data-first-row=""'), list.indexOf('</nav>', list.indexOf('data-first-row=""')));
-  const tops = [...first.matchAll(/data-guests-seg="([a-z]+)"/g)].map((m) => m[1]);
-  assert.deepEqual(tops, ['guests', 'seats', 'march'], 'the view row is not Guests · Seats · March');
-  const links = [...first.matchAll(/<a [^<]*?data-guests-seg="([a-z]+)"[^<]*?href="([^"]+)"/g)].map((m) => [m[1], m[2]]);
-  assert.deepEqual(links, [['seats', guestsViewHref('e1', 'seats')], ['march', guestsViewHref('e1', 'march')]], 'a segment off screen is not a link to its address');
-  assert.match(first, /<span[^>]*aria-current="page"[^>]*data-guests-seg="guests"[^>]*data-guests-seg-menu=""/, 'the Guests segment on screen is not its mode menu');
-  assert.match(first, /data-guests-mode=""/, 'the Guests segment opens no List · Map menu');
-  assert.match(list, /data-guests-segmented=""/, 'the view row is not the shipped pill selector');
+  // 🎚 ONE TOP ROW (owner 2026-10-30, *"The menu does not work properly"*, superseding slice 2's segmented row): the row
+  // is ONE ▾ naming the view ("Guests · List"), its menu listing every view; every view is still an address.
+  const first = list.slice(list.indexOf('data-first-row=""'), list.indexOf('data-guests-view-rounds', list.indexOf('data-first-row=""')));
+  assert.match(first, /data-guests-pin-menu=""[^]*?>Guests · List</, 'the row does not name the view in its ▾');
+  assert.doesNotMatch(list, /data-guests-segmented|data-guests-seg=/, 'the segmented Guests | Seats | March row is back');
+  for (const v of GUESTS_VIEWS) assert.equal(parseGuestsView(guestsViewHref('e1', v).split('gview=')[1]?.split('&')[0] ?? null), v, `${v} is no longer an address`);
   assert.match(list, /data-guest-rows=""/, 'anti-vacuity: the List drew no rows');
   for (const view of GUESTS_MAKER_VIEWS) {
     const bodies = { seats: React.createElement('div', { 'data-shipped-maker': 'seats' }), march: React.createElement('div', { 'data-shipped-maker': 'march' }) };
@@ -241,7 +236,7 @@ test('6 · Guests draws List · Map · Seats · March — the shipped maker unde
     const other = view === 'seats' ? 'march' : 'seats';
     assert.doesNotMatch(html, new RegExp(`data-shipped-maker="${other}"`), `${view}: the other maker is mounted before it is opened`);
     assert.match(html, new RegExp(`data-guests-view-body="${view}"[^>]*><div data-shipped-maker="${view}"`), `${view}: the page's maker is not drawn`);
-    assert.match(html, new RegExp(`aria-current="page"[^<]*?data-guests-seg="${view}"`), `${view}: the row does not mark it`);
+    assert.match(html, new RegExp(`data-guests-pin-menu=""[^]*?>${view === 'seats' ? 'Seats · 2D' : 'March'}</`), `${view}: the row does not name it`);
     assert.doesNotMatch(html, /data-guest-rows=""/, `${view}: the list is drawn under the maker`);
     // ⇅ R4 slice 1: the screen's thumb seat is drawn under every view — for a maker it is the EMPTY slot the maker portals
     // THE ThumbRow into (guests-lens.tsx), never the List's own row.
@@ -261,8 +256,7 @@ test('6 · Guests draws List · Map · Seats · March — the shipped maker unde
   assert.match(page, /bodies=\{bodies\}/);
   // …and a switch is a client switch: the view row's press is handled in place, the address follows (`replaceState`).
   const screen = read('app/dashboard/[eventId]/guests/_components/guests-screen.tsx');
-  assert.match(screen, /onClick=\{onTopPress\(t\)\}\s*data-guests-seg=\{t\}/, 'a view press navigates (a server round trip) again');
-  assert.match(screen, /e\.preventDefault\(\);\s*if \(t === 'seats'\) chooseSeat\(seatMode\);/, 'a segment press is not handled in place');
+  assert.match(screen, /onPick=\{\(k\) => \{\s*if \(k === 'march'\) pickView\('march'\);\s*else if \(k\.startsWith\('seats:'\)\) chooseSeat\(k\.slice\(6\) as SeatMode\);\s*else pickView\(k\.slice\(7\) as GuestsView\);/, 'a ▾ pick navigates (a server round trip) instead of switching in place');
   // ⇅ …carrying the shared Show · Group by · Sort with it (lib/guests-filter.ts), so a switch keeps what is shown.
   assert.match(screen, /const at = guestsViewHref\(eventId, v, \{ seat: v === 'seats' \? seatOfMode\(seat \?\? seatMode\) : null \}\);\s*window\.history\.replaceState\(window\.history\.state, '', hrefWithGuestsFilter\(at, filterRef\.current\)\);/);
   assert.match(page, /<GuestsMarch eventId=\{eventId\} \/>/);
@@ -288,13 +282,14 @@ test('7 · Seats and March follow the Guests screen: the summary row, ONE mode d
   assert.match(march, /\{guests \? \([\s\S]{0,300}?<ViewCountRow\s+view="march"/);
   assert.match(march, /value: outUnread \? null : shownOut\.length/, 'Not walking reads 0 over an unread tray');
   const ed = read('app/dashboard/[eventId]/seating/_components/seating-editor.tsx');
-  assert.match(ed, /const seatSummary = inGuests \? \(\s*<ViewCountRow\s+view="seats"/);
+  // 📌 Seats' counts ride the ONE top row (owner 2026-10-30) — the four tiles are gone (lib/guests-top-row-and-full-screen.test.ts (6)).
+  assert.match(ed, /const seatCountsSlot =\s*inGuests && lens\?\.countsSlot/);
   // 🎚 Slice 2: ONE mode dropdown (List · 2D · 3D) — the Guests top row's Seats ▾ (the shared PickMenu, never a pill row);
   // the "Seat plan · 2D ▾" head is gone in Guests, its Edit · ⋯ ride the top row (portal into `lens.toolsSlot`), and the
   // mode's ONE state stays the plan's (`lens.registerSeats`). No desk segment in Guests.
   const scr = read('app/dashboard/[eventId]/guests/_components/guests-screen.tsx');
   assert.match(scr, /const seatModes: PickOption\[\] = SEAT_MODES\.filter\(\(m\) => m !== '3d' \|\| seatShow3D\)/, 'Seats ▾ does not list List · 2D · 3D');
-  assert.match(scr, /onPick=\{\(k\) => \(t === 'guests' \? pickView\(k as GuestsView\) : chooseSeat\(k as SeatMode\)\)\}/);
+  assert.match(scr, /\.\.\.\(tops\.includes\('seats'\) \? seatModes\.map\(/, 'the ▾ does not list Seats’ modes');
   assert.match(ed, /const studioHead = studioSeat && !inGuests \?/, 'Guests draws the old "Seat plan · 2D ▾" head');
   assert.match(ed, /createPortal\(<SeatPlanToolRounds more=\{phoneMore\} trailing=\{phoneTrailing\} \/>, lens\.toolsSlot\)/, 'Seats’ Edit · ⋯ have no home in the top row');
   assert.match(ed, /registerSeats\(\{ mode: studioView, setMode: \(m\) => onSelectViewRef\.current\(m\), show3D \}\)/, 'the plan does not tell the top row its mode');
@@ -356,15 +351,16 @@ test('8 · Seats and March count in ONE fixed row (no swipe) — the view’s fo
   assert.match(row, /grid-template-columns:repeat\(4, minmax\(0, 1fr\)\)/, 'the tiles are not one row of equal widths');
   assert.match(row, /data-view-tile="out"[^>]*>[\s\S]*?—[\s\S]*?couldn’t read/, 'an unread count reads as a number');
   assert.match(row, /disabled=""[^>]*data-view-tile="preview"|data-view-tile="preview"[^>]*disabled/, 'a disabled forward tile is not drawn disabled');
-  // The views draw it: March's four, Seats' four with ✨ Auto arrange as the forward tile (and no second one in the thumb row).
+  // March draws it (its four). Seats' tiles left for the ONE top row on 2026-10-30 (owner, *"Like this one"*): its counts
+  // are the row's doors and ✨ Auto arrange is in its ⋯ — held by lib/guests-top-row-and-full-screen.test.ts (6).
   const march = read('app/dashboard/[eventId]/launch/_components/details-march.tsx');
   for (const k of ['walks', 'walking', 'out', 'preview']) assert.match(march, new RegExp(`key: '${k}'`), `March lost its ${k} tile`);
   // ▶ The walk preview ships (2026-10-30): the tile plays the march — held by the-march-preview-plays-the-walks.test.ts.
   assert.match(march, /key: 'preview',\s*word: play === null \? 'Preview' : 'Stop',/);
   const ed = read('app/dashboard/[eventId]/seating/_components/seating-editor.tsx');
-  for (const k of ['seated', 'unseated', 'tables', 'auto']) assert.match(ed, new RegExp(`key: '${k}'`), `Seats lost its ${k} tile`);
-  assert.match(ed, /onPress: runAutoArrange,/);
-  // Auto arrange is the count row's tile only — the shared thumb row draws no second one.
+  for (const k of ['seated', 'unseated', 'tables']) assert.match(ed, new RegExp(`'data-seat-count': '${k}'`), `Seats lost its ${k} count`);
+  assert.match(ed, /onClick=\{runAutoArrange\}/);
+  // Auto arrange is the ⋯'s item only — the shared thumb row draws no second one.
   const thumbPart = ed.slice(ed.indexOf('const seatThumb ='), ed.indexOf('const studioPeople ='));
   assert.doesNotMatch(thumbPart, /runAutoArrange|AutoArrange/, 'Auto arrange is drawn twice');
 });

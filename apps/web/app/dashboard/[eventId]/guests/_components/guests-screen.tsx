@@ -183,6 +183,7 @@ import {
   pinnedMenuWords,
   seatModeOf,
   seatOfMode,
+  startsUnderTheRow,
   type GuestsMakerView,
   type GuestsView,
   type SeatMode,
@@ -464,6 +465,10 @@ export function GuestsScreen(props: GuestsScreenProps) {
   /** 🗺 Map, Seats › 2D and Seats › 3D are ALWAYS FULL SCREEN (`isFullScreenView`) — no ⤢, no toggle: the plan is the
    *  whole screen from under the top nav to the bottom nav (`.fullSurface`). */
   const fullView = isFullScreenView(gview, seatMode);
+  /** 📏 Seats › List owns its height (no page scroll), so it starts right under the pinned row (`.rowSurface`) — never
+   *  under the page's own top spacing, which nothing would ever scroll into (owner 2026-10-30, "we want to use that
+   *  space"). `startsUnderTheRow`. */
+  const rowView = startsUnderTheRow(gview, seatMode);
   /** 🗂 R4 · Seats or March: a shipped maker drawn whole — no summary, no list, no thumb row of the List's. */
   const makerView = isGuestsMakerView(gview);
   // 🔒 Nothing that writes is offered while this is the phone's old copy OR the viewer may only look.
@@ -1958,8 +1963,9 @@ export function GuestsScreen(props: GuestsScreenProps) {
               <div
                 key={v}
                 data-guests-view-body={v}
-                className={fullView && gview === v ? `min-w-0 ${styles.fullSurface}` : 'min-w-0'}
+                className={fullView && gview === v ? `min-w-0 ${styles.fullSurface}` : rowView && gview === v ? `min-w-0 ${styles.rowSurface}` : 'min-w-0'}
                 data-guests-full-surface={fullView && gview === v ? '' : undefined}
+                data-guests-row-surface={rowView && gview === v ? '' : undefined}
                 hidden={gview !== v}
               >
                 {props.bodies[v]}

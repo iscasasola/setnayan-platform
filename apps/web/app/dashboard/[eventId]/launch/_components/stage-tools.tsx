@@ -1725,7 +1725,7 @@ export function StageTools({
           '@media (max-width:1023.98px){' +
           '[data-maker-lower-third]:has(>[data-stage-tools])>:not([data-stage-tools]){display:none}' +
           '[data-maker-lower-third]:has(>[data-stage-tools]){transition:height 240ms cubic-bezier(.16,1,.3,1);background:var(--sp-paper)!important;border-top:0!important;padding:0!important;gap:0!important;box-shadow:none!important}' +
-          `[data-maker-shell]:has([data-stage-tools]) [data-phone-chrome="panel"]{left:0!important;right:0!important;bottom:${STAGE_BAR_FOOT_CSS}!important;height:${STAGE_BAR_GRID_CSS}!important;outline:none!important;border-radius:0!important;box-shadow:none!important;background:var(--sp-page)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;padding:0!important}` +
+          `[data-maker-shell]:has([data-stage-tools]) [data-phone-chrome="panel"]{left:0!important;right:0!important;bottom:calc(${STAGE_BAR_FOOT_CSS} + var(--maker-lift,0px))!important;height:${STAGE_BAR_GRID_CSS}!important;outline:none!important;border-radius:0!important;box-shadow:none!important;background:var(--sp-page)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;padding:0!important}` +
           '[data-maker-shell]:has([data-stage-tool-now="edit"]) [data-phone-chrome="panel"]{visibility:hidden;pointer-events:none}' +
           /* 🧩 …except where Edit IS that tool's (a picked LINE of the RSVP stage: its words and its Start from ▾ are
              the stage's own panel — `data-stage-edit-own`). Written right under the rule it lifts, so the toolbar
@@ -1734,7 +1734,7 @@ export function StageTools({
           /* ⚙ …and where Edit is that tool's in rows 1–3 only (the RSVP form's card: its settings — `data-stage-edit-card`):
              in sight, three rows tall, standing on this toolbar's own row 4 (Earlier · Later · Remove) — the same
              measure Style's last row leaves it (`data-stage-row4`, below). */
-          `[data-maker-shell]:has([data-stage-tools][data-stage-edit-card]) [data-phone-chrome="panel"]{visibility:visible;pointer-events:auto;height:calc(3 * var(--sp-rh) + 2 * var(--sp-rg))!important;bottom:calc(${STAGE_BAR_FOOT_CSS} + var(--sp-rh) + var(--sp-rg))!important}` +
+          `[data-maker-shell]:has([data-stage-tools][data-stage-edit-card]) [data-phone-chrome="panel"]{visibility:visible;pointer-events:auto;height:calc(3 * var(--sp-rh) + 2 * var(--sp-rg))!important;bottom:calc(${STAGE_BAR_FOOT_CSS} + var(--sp-rh) + var(--sp-rg) + var(--maker-lift,0px))!important}` +
           /* 🧱 …and the other way round: a fixed block's Animate is drawn HERE, in the toolbar's own rows
              (`BlockAnimateRows`), so the work area's tool stands aside for it as it does for Edit. */
           '[data-maker-shell]:has([data-stage-tools][data-stage-own-rows]) [data-phone-chrome="panel"]{visibility:hidden;pointer-events:none}' +
@@ -1744,7 +1744,7 @@ export function StageTools({
              a toolbar that had gone, and covered "Exit preview". */
           '[data-maker-shell]:has([data-stage-tools][aria-hidden="true"]) [data-phone-chrome="panel"]{visibility:hidden;pointer-events:none}' +
           /* 🎨 STYLE: this toolbar draws row 4 (Colour · Size) — the work area's tool is rows 1–3, standing on it. */
-          `[data-maker-shell]:has([data-stage-tools][data-stage-row4]) [data-phone-chrome="panel"]{height:calc(3 * var(--sp-rh) + 2 * var(--sp-rg))!important;bottom:calc(${STAGE_BAR_FOOT_CSS} + var(--sp-rh) + var(--sp-rg))!important}` +
+          `[data-maker-shell]:has([data-stage-tools][data-stage-row4]) [data-phone-chrome="panel"]{height:calc(3 * var(--sp-rh) + 2 * var(--sp-rg))!important;bottom:calc(${STAGE_BAR_FOOT_CSS} + var(--sp-rh) + var(--sp-rg) + var(--maker-lift,0px))!important}` +
           /* …and the scene's Format under Style is laid in rows (`StageStyle` `rows`): the look cards take the rows
              left to them; a row under them (the Dress code's palette) and a save's error keep theirs; anything else
              of the part's Format — an editor of its content, its older rows — is not drawn here (it stays mounted):
@@ -1782,7 +1782,7 @@ export function StageTools({
           '[data-maker-shell]:has([data-stage-tools]):has([data-stage-guest-bar]:not([hidden])){--scene-bin-over:74px}' +
           /* The line under the tools, speaking under a tool whose rows are the work area's: that tool stands three
              rows tall on it for as long as it speaks (the measure Style's own row 4 leaves it). */
-          `[data-maker-shell]:has([data-stage-tools][data-stage-line]) [data-phone-chrome="panel"]{height:calc(3 * var(--sp-rh) + 2 * var(--sp-rg))!important;bottom:calc(${STAGE_BAR_FOOT_CSS} + var(--sp-rh) + var(--sp-rg))!important}` +
+          `[data-maker-shell]:has([data-stage-tools][data-stage-line]) [data-phone-chrome="panel"]{height:calc(3 * var(--sp-rh) + 2 * var(--sp-rg))!important;bottom:calc(${STAGE_BAR_FOOT_CSS} + var(--sp-rh) + var(--sp-rg) + var(--maker-lift,0px))!important}` +
           /* 🫥 STOWED TO ITS HEAD (owner 2026-10-30): the lower third's room goes to the head's over the app's ONE pin
              glide (`STAGE_BAR_STOW_GLIDE`) and comes back over the same, so the page's room follows it — never a jump;
              the guests' bar rides it, the work area's tool leaves with the four rows, and what the head does not show
@@ -2133,7 +2133,7 @@ export function StageTools({
               hidden={pages.length <= 1}
               className={rsvpOpen ? 'relative border-t border-[var(--sp-line)] bg-white lg:hidden' : 'absolute inset-x-0 z-[25] border-t border-[var(--sp-line)] bg-white lg:hidden'}
               /* It rides the toolbar's slide away and back (the same 240 ms), never across it. */
-              style={rsvpOpen ? undefined : { bottom: 'calc(var(--maker-lt-h) + env(safe-area-inset-bottom))', transition: `bottom ${STAGE_PANEL_MS}ms cubic-bezier(.16,1,.3,1)` }}
+              style={rsvpOpen ? undefined : { bottom: 'calc(var(--maker-lt-h) + var(--maker-safe-b, env(safe-area-inset-bottom)))', transition: `bottom ${STAGE_PANEL_MS}ms cubic-bezier(.16,1,.3,1)` }}
             >
               {
                 <div className="flex h-11 items-stretch px-1">

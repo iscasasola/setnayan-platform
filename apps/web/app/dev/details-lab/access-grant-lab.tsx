@@ -29,7 +29,8 @@ const person = (p: Partial<PersonRow> & Pick<PersonRow, 'key' | 'kind' | 'name' 
   ...p,
 });
 
-const ROWS: PersonRow[] = [
+/** Also the Home lab's Event Settings fixture (`lab-event-settings.tsx`) — one set of lab seats. */
+export const ACCESS_LAB_ROWS: PersonRow[] = [
   person({ key: 'me', kind: 'co_host', name: 'Claire Santos', roleWord: 'Host', isViewer: true }),
   person({
     key: 'bea',
@@ -59,7 +60,7 @@ export function AccessGrantLab() {
       <div className="mx-auto w-full max-w-xl">
         <h2 className="font-display text-lg">Event access</h2>
         <div className="sn-tile mt-3 p-4">
-          <PeopleWithAccess eventId={LAB_EVENT} rows={ROWS} addable={[]} readOnly={false} failed={false} flash={null} claims={null} />
+          <PeopleWithAccess eventId={LAB_EVENT} rows={ACCESS_LAB_ROWS} addable={[]} readOnly={false} failed={false} flash={null} claims={null} />
         </div>
       </div>
     </div>

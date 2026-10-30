@@ -665,7 +665,7 @@ test('(7) the lower third slides away while a scene is held and back on release 
   assert.match(calm, /\[data-scene-slide="away"\]\)\{transition:height 0s linear \$\{SCENE_COLLAPSE_CALM_MS\}ms!important\}/);
   /* The bin comes and goes with the same motion, in the thumb zone. */
   const side = raw(`${L}/scene-drag.tsx`);
-  assert.match(side, /bottom: 'calc\(var\(--maker-lt-h\) \+ env\(safe-area-inset-bottom\) \+ var\(--scene-bin-over, 30px\)\)'/);
+  assert.match(side, /bottom: 'calc\(var\(--maker-lt-h\) \+ var\(--maker-safe-b, env\(safe-area-inset-bottom\)\) \+ var\(--scene-bin-over, 30px\)\)'/);
   assert.match(side, /transition: `transform \$\{SCENE_COLLAPSE_MS\}ms \$\{SCENE_COLLAPSE_EASE\}, opacity /);
 });
 

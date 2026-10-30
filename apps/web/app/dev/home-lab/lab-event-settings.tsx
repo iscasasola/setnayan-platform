@@ -5,6 +5,7 @@ import { hasTwoNamedPeople } from '@/lib/two-named-people';
 import { EventSettingsRows } from '@/app/dashboard/[eventId]/_components/event-settings-rows';
 import type { YourEventInput } from '@/app/dashboard/[eventId]/launch/_components/details-your-event-parts';
 import { HubDraftToolbar } from '@/app/dashboard/[eventId]/website/_components/hub-draft-bar';
+import { ACCESS_LAB_ROWS } from '@/app/dev/details-lab/access-grant-lab';
 
 /**
  * 🧪 THE HOME LAB'S EVENT SETTINGS (`/dev/home-lab`) — the SAME rows the ⚙ draws (`EventSettingsRows`), on a fixture
@@ -86,6 +87,11 @@ export function labEventSettingsRows(eventId: string) {
           ownsPro
         />
       }
+      /* 👥 People with access — the details lab's fixture seats (a host, a Limited coordinator, a helper, a caterer). */
+      access={{ measured: true, rows: ACCESS_LAB_ROWS, addable: [{ guestId: 'g-tito', name: 'Tito Ben' }], claims: null, flash: null }}
+      /* The moved Event Details parts that need no database to draw: Plan it myself and Put this away (the kind · area ·
+         guests editor and the one code read the event, so the lab leaves them out). */
+      more={{ settings: null, planMyself: false, oneCode: false, putAway: { archived: false, eventName: 'Claire & Indalecio' } }}
     />
   );
 }

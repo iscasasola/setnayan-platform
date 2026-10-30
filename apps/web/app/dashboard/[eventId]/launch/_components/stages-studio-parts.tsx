@@ -21,6 +21,16 @@ import { GuestsSeeSheet } from './guests-see-sheet';
 import { MAKER_OPEN_GUESTS_SEE_EVENT, useMaker } from './maker-context';
 import { formatCount } from '@/lib/format-number';
 import { MakerDesk } from './maker-desk';
+
+/**
+ * 🖨 THE PRINTS PAGE'S DESKTOP (R8, 2026-10-27): the Prints page draws no Stages | Studio switch — the one thing that mounts
+ * the Maker's desktop columns (`MakerDesk`, below in `StudioSideSwitch`). So it mounts them HERE, on the same terms (the one
+ * Maker, a desktop width): Studio › Prints on a desktop looked like this, and the Prints page must too. Lazy, as the switch is.
+ */
+export function PrintsPageDesk() {
+  const wide = useIsDesktop('lg');
+  return useMaker()?.stagesStudio === true && wide ? <MakerDesk /> : null;
+}
 import { useIsDesktop } from '@/lib/use-responsive';
 
 /**
@@ -631,7 +641,7 @@ export function StudioBackToPart({
       data-maker-studio-back=""
       onClick={onBack}
       /* Above an editor's own pinned foot (the Schedule's / Love Story's "Add a moment", ~64 px). */
-      style={{ bottom: `calc(var(--maker-lt-h) + env(safe-area-inset-bottom) + ${hasFoot ? 76 : 8}px)` }}
+      style={{ bottom: `calc(var(--maker-lt-h) + var(--maker-safe-b, env(safe-area-inset-bottom)) + ${hasFoot ? 76 : 8}px)` }}
       className="sn-press absolute left-1/2 z-[45] inline-flex h-11 -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full bg-success-600 px-5 text-[14px] font-bold text-cream shadow-[0_10px_24px_-12px_rgba(0,0,0,.5)] hover:bg-success-700 lg:hidden"
     >
       <Check aria-hidden className="h-4 w-4" strokeWidth={2.6} />

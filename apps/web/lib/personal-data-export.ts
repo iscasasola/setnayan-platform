@@ -307,6 +307,7 @@ export async function buildPersonalDataExport(
     ledgerRes,
     ledgerSuppliersRes,
     ownSuggestionsRes,
+    ownCrewPassesRes,
     ownMoodBoardChangesRes,
   ] = await Promise.all([
     supabase.from('users').select('*').eq('user_id', user.id).maybeSingle(),
@@ -792,6 +793,15 @@ export async function buildPersonalDataExport(
       .select('suggestion_id, event_id, slot_key, shop_label, state, image_url, created_at, decided_at')
       .eq('suggested_by_user_id', user.id)
       .order('created_at', { ascending: true }),
+    // RA 10173 (2026-10-29) — the subject's OWN crew passes (migration …_crew_join_the_suppliers_event_hub_by_qr):
+    // the name they typed to join a shop's crew for an event, their role and whether they were let in. Scoped to
+    // crew_user_id — the shop that decided is not this row's data subject. Read under the subject's own session
+    // (vendor_crew_passes_own_read).
+    supabase
+      .from('vendor_crew_passes')
+      .select('event_id, display_name, crew_role, status, requested_at, decided_at')
+      .eq('crew_user_id', user.id)
+      .order('requested_at', { ascending: true }),
     // RA 10173 (2026-10-30) — THE MOOD BOARD CHANGES THIS SUBJECT MADE on somebody's board under Mood Board Edit
     // (migration 20271299051148). AUTHOR-scoped on actor_user_id, exactly like event_colour_changes above: an
     // event-scoped read would disclose what the other people on that board did. `undone_at` rides with it — "I made
@@ -837,6 +847,7 @@ export async function buildPersonalDataExport(
   const inviteMutes = listOutcome('invite_mutes', inviteMutesRes);
   const vendorReuseRequests = listOutcome('vendor_reuse_requests', vendorReuseRequestsRes);
   const ownSuggestions = listOutcome('event_inspiration_suggestions', ownSuggestionsRes);
+  const ownCrewPasses = listOutcome('vendor_crew_passes', ownCrewPassesRes);
   const ownMoodBoardChanges = listOutcome('mood_board_changes_made', ownMoodBoardChangesRes);
   const workingNotes = listOutcome(
     'vendor_working_notes_authored',
@@ -956,6 +967,7 @@ export async function buildPersonalDataExport(
     ownColourChanges,
     ledger,
     ledgerSuppliers,
+    ownCrewPasses,
     ownMoodBoardChanges,
   ]);
 
@@ -1047,6 +1059,7 @@ export async function buildPersonalDataExport(
     vendor_reuse_requests: vendorReuseRequests.rows,
     // 🤝🖼 Photos the subject suggested to couples' boards as a booked supplier (author-scoped).
     inspiration_suggestions_sent: ownSuggestions.rows,
+    crew_passes: ownCrewPasses.rows,
     // RA 10173 (2026-07-21) — coordinator-workspace prose the subject AUTHORED.
     // Author-scoped, never event-scoped (see the WHY blocks at each select).
     // Read privileged so a coordinator whose grant was later revoked still

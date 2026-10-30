@@ -9,13 +9,16 @@
  * *"yes add prints as the eleventh tile"*. In the order an event gets made:
  *
  *   Info · Look · Logo · Mood Board & Dress Code · Schedule · Love Story ·
- *   Wedding March · Seat plan · E-Gifts · Prints
+ *   Wedding March · Seat plan · E-Gifts
  *
  * 🗂 RSVP LEFT (R1, owner 2026-10-28): its settings are Guests ⚙'s now; Studio's "n of N ready" counts the tiles that
  * are here, so a finished RSVP never reads as a Studio "Missing" and an unfinished one is Guests ⚙'s to say.
  * 🗂 WEDDING MARCH AND SEAT PLAN LEFT (R4, owner 2026-10-27/28): they are Guests › March and Guests › Seats — the same
  * makers, drawn whole there. Their ✓ is still counted where the guided flow counts it (a link step to the Guests view,
  * `lib/details-guided-flow.ts`), never as a Studio "Missing".
+ *
+ * 🖨 PRINTS LEFT (R8, owner 2026-10-27 "PRINTS LEAVES STUDIO"): its own page and a Prints line on Home
+ * (`lib/prints-page.ts`). It was always ✓ (nothing to fill), so "n of N ready" loses one ready and one total.
  *
  * 🔑 NEVER A SECOND TRUTH. A tile is chrome over an editor the Maker already
  * has (each opens its shipped Event Details item, `item`), and its ✓ / Missing
@@ -25,7 +28,7 @@
  * Schedule's and the Love Story's lines, and the counts the page already
  * read (the E-Gifts manager's own methods).
  * A fact that could not be read makes NO claim (`done: undefined`) — never a
- * "Missing" nobody measured. Prints is always ✓ (nothing to fill).
+ * "Missing" nobody measured.
  *
  * Pure: no I/O, no React. The launch page builds the models on the server
  * (only while the new Maker is on) and hands them to `MakerShell`; the shell
@@ -56,7 +59,6 @@ export const STUDIO_TILE_PARTS: Readonly<Record<StudioTileKey, readonly HubPartI
   schedule: [],
   story: ['photos'],
   gifts: [],
-  prints: ['prints'],
 };
 
 /** The card's quiet Pro line — every figure a catalogue read; null where the page holds no part (or no price was read). */
@@ -102,7 +104,6 @@ export const STUDIO_TILES: Readonly<Record<StudioTileKey, StudioTileDef>> = {
   schedule: { label: 'Schedule', short: 'Schedule', item: STUDIO_TILE_ITEM.schedule, reads: ['schedule'], sub: 'Times and moments' },
   story: { label: 'Love Story', short: 'Love Story', item: STUDIO_TILE_ITEM.story, reads: ['love-story'], sub: 'Chapters with a photo' },
   gifts: { label: 'E-Gifts', short: 'E-Gifts', item: STUDIO_TILE_ITEM.gifts, reads: [], sub: 'GCash · Maya · bank · PayPal' },
-  prints: { label: 'Prints', short: 'Prints', item: STUDIO_TILE_ITEM.prints, reads: [], sub: 'Invitation set · for the day' },
 };
 
 /** One tile, as the Studio home draws it and the Tool ▾ lists it. */
@@ -143,8 +144,6 @@ function tileDone(key: StudioTileKey, input: StudioTilesInput): boolean | undefi
   switch (key) {
     case 'gifts':
       return input.giftMethods === null ? undefined : input.giftMethods > 0;
-    case 'prints':
-      return true;
     default:
       return readsDone(STUDIO_TILES[key].reads, input.facts);
   }

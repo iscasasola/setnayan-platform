@@ -423,7 +423,7 @@ test('📐 the Maker is sized to the VISIBLE room — between the app’s top ba
   // standing in until then (`MAKER_IN_THE_APP_CSS`).
   const { MAKER_IN_THE_APP_CSS } = await import('./maker-phone-room');
   assert.match(MAKER_IN_THE_APP_CSS, /\[data-maker-shell\]\{right:0;top:var\(--maker-app-top,var\(--fd-bar,0px\)\);left:var\(--maker-app-left,0px\);/, 'the shell is not placed under the app’s top bar');
-  assert.match(MAKER_IN_THE_APP_CSS, /bottom:var\(--maker-app-bottom,max\(0px,calc\(var\(--sn-bottomdock-h,/, 'the shell does not end at the app’s bottom nav');
+  assert.match(MAKER_IN_THE_APP_CSS, /--maker-nav:var\(--maker-app-bottom,var\(--sn-bottomdock-h,[^;]*;bottom:var\(--maker-nav\);/, 'the shell does not end at the app’s bottom nav');
   assert.match(shellSrc, /MAKER_IN_THE_APP_CSS \+/, 'the shell does not draw its place in the app');
   assert.match(shellSrc, /useTheAppsRoom\(shellRef\);/, 'the shell does not measure the room the app’s chrome leaves');
   assert.doesNotMatch(MAKER_IN_THE_APP_CSS, /\d+vh\b/, 'the shell is sized by the full screen (vh)');

@@ -110,7 +110,9 @@ test('(1) one fixed height: 330 px on a tall phone, ≈ 284 on a short one, neve
   assert.ok(root.includes('rounded-t-2xl'), 'the toolbar’s top is not curved');
   assert.doesNotMatch(root, /(?:^|\s)border(?:-t)?(?:\s|$)|(?:^|\s)p[ty]-/, 'the toolbar’s frame takes room above the handle');
   /* The work area's tool lies over exactly the four rows, on the room kept under the last one. */
-  assert.match(tools, /\[data-phone-chrome="panel"\]\{left:0!important;right:0!important;bottom:\$\{STAGE_BAR_FOOT_CSS\}!important;height:\$\{STAGE_BAR_GRID_CSS\}!important;/);
+  /* (+ the nav's lift since 2026-10-31: placed from the SCREEN's foot, the rows stood on the app's bottom nav —
+     `the-hub-is-left-by-the-apps-nav.test.ts` 4.) */
+  assert.match(tools, /\[data-phone-chrome="panel"\]\{left:0!important;right:0!important;bottom:calc\(\$\{STAGE_BAR_FOOT_CSS\} \+ var\(--maker-lift,0px\)\)!important;height:\$\{STAGE_BAR_GRID_CSS\}!important;/);
 });
 
 test('(2) four tools — Edit | Style | Background | Animate — words only, each as wide as its word', () => {

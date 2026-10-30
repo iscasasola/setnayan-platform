@@ -5200,6 +5200,7 @@
         "dashboard/(account)/library/_components/gallery-doors.tsx",
         "dashboard/(account)/library/_components/memories-chapters.tsx",
         "dashboard/(account)/library/_components/memories-thumb.tsx",
+        "dashboard/(account)/library/_components/memories-wall-viewer.tsx",
         "dashboard/(account)/library/_components/photos-tab.tsx",
         "dashboard/(account)/library/_components/saved-vendor-card.tsx",
         "dashboard/(account)/library/_components/vendors-tab.tsx",
@@ -5222,6 +5223,7 @@
         "AlaalaLensBody",
         "AlbumCard",
         "ChallengesTab",
+        "Ctx",
         "EditorialCard",
         "EditorialsTab",
         "EventMonogram",
@@ -5237,17 +5239,24 @@
         "MemoriesUnreadable",
         "MonogramTile",
         "PageMasthead",
+        "PanelHead",
+        "PhotoViewer",
         "PhotosTab",
         "PickMenu",
         "SavedVendorCardItem",
         "Section",
+        "SharePanel",
         "Spotlight",
         "StatusChip",
         "ThumbField",
         "ThumbTool",
         "Tile",
         "VendorsTab",
-        "ViewReport"
+        "ViewReport",
+        "WallOpen",
+        "WallPhotoViewer",
+        "WallViewer.Provider",
+        "WallViewerRoot"
       ]
     },
     "/dashboard/(account)/life-flash": {
@@ -5782,9 +5791,11 @@
         "dashboard/[eventId]/_components/home-control-row.tsx",
         "dashboard/[eventId]/_components/home-cover-band.tsx",
         "dashboard/[eventId]/_components/home-cover-pin.tsx",
+        "dashboard/[eventId]/_components/home-date-finder.tsx",
         "dashboard/[eventId]/_components/home-first-screen.tsx",
         "dashboard/[eventId]/_components/home-loading-cover.tsx",
         "dashboard/[eventId]/_components/home-parts.tsx",
+        "dashboard/[eventId]/_components/home-prints-line.tsx",
         "dashboard/[eventId]/_components/home-service-card.tsx",
         "dashboard/[eventId]/_components/home-settings-gear.tsx",
         "dashboard/[eventId]/_components/home-tile-rotation.ts",
@@ -5843,7 +5854,6 @@
         "/dashboard/[seg]/checklist",
         "/dashboard/[seg]/clearance",
         "/dashboard/[seg]/date-selection",
-        "/dashboard/[seg]/details",
         "/dashboard/[seg]/event-qr",
         "/dashboard/[seg]/guests",
         "/dashboard/[seg]/guests/send",
@@ -5971,6 +5981,7 @@
         "EventMonogram",
         "EventRailContext",
         "EventScene",
+        "EventSettingsEditor",
         "EventSettingsResult",
         "EventSettingsRows",
         "EventStudioRow",
@@ -5980,6 +5991,7 @@
         "FaceFigure",
         "FaceIconMark",
         "FactRow",
+        "FactSheet",
         "Failed",
         "Figure",
         "File",
@@ -6018,6 +6030,7 @@
         "HomeCoverBand",
         "HomeCoverPin",
         "HomeCoverWordsProvider",
+        "HomeDateFinder",
         "HomeFirstScreen",
         "HomeFirstScreenProps",
         "HomeForLine",
@@ -6029,9 +6042,11 @@
         "HomeLoadingScreen",
         "HomeMusicCard",
         "HomePlannerCard",
+        "HomePrintsLine",
         "HomeReload",
         "HomeServiceCard",
         "HomeSettingsGear",
+        "HomeSettingsLanded",
         "HomeTile",
         "HomeToday",
         "HomeTodayFold",
@@ -6090,10 +6105,12 @@
         "MoodBoardAsks",
         "MoodBoardAsksActions",
         "MoodBoardAsksDoorway",
+        "OneCodeUnderGetIn",
         "OneLink",
         "OneLinkRow",
         "OneOpenScope",
         "Open",
+        "OpenDateFinder",
         "OpenWalletButton",
         "OverlayBackdrop",
         "OverviewDecisionInspector",
@@ -6122,17 +6139,20 @@
         "PaymentPlanRows",
         "PaymentSection",
         "PeekToast",
+        "PeopleWithAccess",
         "PhaseRows",
         "PickMenu",
         "PillButton",
         "PillThumb",
         "PillTrack",
+        "PlanMyselfSwitch",
         "PostSaveStep",
         "PreviewConflictsResult",
         "PriceSourceChip",
         "ProfileShareButton",
         "ProgressRing",
         "PromoFreeWindowBanner",
+        "PutAwayCard",
         "QrActions",
         "QrBody",
         "ReadRefusedNotice",
@@ -7409,6 +7429,7 @@
         "dashboard/[eventId]/launch/_components/print-paper.tsx",
         "dashboard/[eventId]/launch/_components/print-preview.tsx",
         "dashboard/[eventId]/launch/_components/print-save-button.tsx",
+        "dashboard/[eventId]/launch/_components/prints-forward.ts",
         "dashboard/[eventId]/launch/_components/prints-view-store.ts",
         "dashboard/[eventId]/launch/_components/pro-quiet-line.tsx",
         "dashboard/[eventId]/launch/_components/qr-look-controls.tsx",
@@ -7819,6 +7840,7 @@
         "PrintSetBody",
         "PrintSetDownloads",
         "PrintedStamp",
+        "PrintsPageDesk",
         "ProMark",
         "ProNote",
         "ProQuietLine",
@@ -8067,7 +8089,8 @@
       "files": [
         "dashboard/[eventId]/memories/_components/memories-settings.tsx",
         "dashboard/[eventId]/memories/loading.tsx",
-        "dashboard/[eventId]/memories/page.tsx"
+        "dashboard/[eventId]/memories/page.tsx",
+        "dashboard/[eventId]/memories/photo-tag-actions.ts"
       ],
       "destinations": [],
       "actions": [],
@@ -8084,6 +8107,8 @@
         "MagazineCard",
         "MemoriesSettings",
         "PapicBuySheet",
+        "PhotoTagResult",
+        "PhotoTagState",
         "PoolGalleryCard",
         "RecapCard",
         "ServiceParts",
@@ -8394,6 +8419,17 @@
       "destinations": [],
       "actions": [],
       "blocks": []
+    },
+    "/dashboard/[eventId]/prints": {
+      "files": [
+        "dashboard/[eventId]/prints/loading.tsx",
+        "dashboard/[eventId]/prints/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "LaunchHubPage"
+      ]
     },
     "/dashboard/[eventId]/progress": {
       "files": [
@@ -11299,6 +11335,7 @@
         "dev/guests-lab/lab-room-3d.tsx",
         "dev/guests-lab/lab-seats-march.tsx",
         "dev/guests-lab/lab-stand-ins.ts",
+        "dev/guests-lab/lab-top-bar.tsx",
         "dev/guests-lab/page.tsx"
       ],
       "destinations": [
@@ -11325,6 +11362,7 @@
         "LabRoom3D",
         "LabSeats",
         "LabShell",
+        "LabTopBar",
         "MakerRsvpSettings",
         "MarchMaker",
         "NotificationsList",
@@ -11383,6 +11421,7 @@
         "HubDraftToolbar",
         "HubProOffer",
         "LabBoard",
+        "LabFactSheets",
         "LabShell",
         "LabSpotlight",
         "OfflineLab",
@@ -11815,6 +11854,24 @@
         "Wordmark"
       ]
     },
+    "/dev/shop-plan-lab": {
+      "files": [
+        "dev/shop-plan-lab/page.tsx"
+      ],
+      "destinations": [
+        "/"
+      ],
+      "actions": [],
+      "blocks": [
+        "Link",
+        "PinnedReviewCard",
+        "ShopAddresses",
+        "ShopBadgePill",
+        "ShopReachLine",
+        "ShopReachMap",
+        "Wordmark"
+      ]
+    },
     "/dev/shop-preview-lab": {
       "files": [
         "dev/shop-preview-lab/inspiration-lab-fixture.ts",
@@ -11949,6 +12006,11 @@
         "CollectionsList",
         "CoordLab",
         "CoordLabBar",
+        "CrewEventHub",
+        "CrewNameForm",
+        "CrewPanel",
+        "CrewPhoneLab",
+        "CrewStatus",
         "CustomersCalendar",
         "CustomersFigures",
         "CustomersPin",
@@ -12384,6 +12446,31 @@
         "DoorShell",
         "FormPageSkeleton",
         "Link"
+      ]
+    },
+    "/join/crew/[token]": {
+      "files": [
+        "join/crew/[token]/_components/crew-name-form.tsx",
+        "join/crew/[token]/_components/crew-screens.tsx",
+        "join/crew/[token]/_components/crew-waiting-refresh.tsx",
+        "join/crew/[token]/page.tsx"
+      ],
+      "destinations": [
+        "/join/crew/[seg]",
+        "/login?next=[seg]"
+      ],
+      "actions": [],
+      "blocks": [
+        "ActionButton",
+        "CrewEventHub",
+        "CrewFrame",
+        "CrewJoinForm",
+        "CrewNameForm",
+        "CrewSignIn",
+        "CrewStatus",
+        "CrewWaitingRefresh",
+        "HubRunOfShow",
+        "SeatScanner"
       ]
     },
     "/live": {
@@ -13500,11 +13587,14 @@
         "v/[slug]/_components/add-shop-to-event-data.ts",
         "v/[slug]/_components/anon-inquiry-composer.tsx",
         "v/[slug]/_components/inquiry-composer.tsx",
+        "v/[slug]/_components/pinned-review-card.tsx",
         "v/[slug]/_components/service-details-sheet.tsx",
         "v/[slug]/_components/services-gallery.tsx",
         "v/[slug]/_components/share-button.tsx",
+        "v/[slug]/_components/shop-addresses.tsx",
         "v/[slug]/_components/shop-columns.ts",
         "v/[slug]/_components/shop-inspiration-section.tsx",
+        "v/[slug]/_components/shop-reach.tsx",
         "v/[slug]/_components/team-preview-banner.tsx",
         "v/[slug]/_components/venue-matched-events.tsx",
         "v/[slug]/_components/verified-price-card.tsx",
@@ -13547,7 +13637,9 @@
         "ModalState",
         "OverlayBackdrop",
         "PackageCard",
+        "PinnedReviewCard",
         "PublicVendorRow",
+        "ReachMap",
         "ReportPageButton",
         "RequirementsModal",
         "ReviewHeroMetrics",
@@ -13561,8 +13653,11 @@
         "ServicesGallery",
         "ServicesPricingSection",
         "ShareButton",
+        "ShopAddresses",
         "ShopBadgePill",
         "ShopInspirationSection",
+        "ShopReachLine",
+        "ShopReachMap",
         "SignInHereLink",
         "StarRow",
         "StartServiceInquiryResult",
@@ -14866,6 +14961,7 @@
     "/vendor-dashboard/on-the-day": {
       "files": [
         "vendor-dashboard/on-the-day/_components/access-grants.tsx",
+        "vendor-dashboard/on-the-day/_components/crew-panel.tsx",
         "vendor-dashboard/on-the-day/_components/guest-review-qr.tsx",
         "vendor-dashboard/on-the-day/_components/hub-event-menu.tsx",
         "vendor-dashboard/on-the-day/_components/hub-screen.tsx",
@@ -14895,6 +14991,7 @@
         "ActionButton",
         "CaptureCard",
         "CheckinDeskRows",
+        "CrewPanel",
         "Ctx",
         "DayRequestActionResult",
         "DayRequestsView",
@@ -14902,6 +14999,7 @@
         "Fold",
         "FormRow",
         "FormRows",
+        "Fragment",
         "GuestReviewQr",
         "HTMLButtonElement",
         "HTMLDivElement",
@@ -14937,6 +15035,7 @@
         "SeatFinderRow",
         "ServerRead",
         "SetActionResult",
+        "Sheet",
         "ShopEmpty",
         "ShotList",
         "ShotListSection",

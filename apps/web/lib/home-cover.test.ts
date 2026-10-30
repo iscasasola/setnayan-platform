@@ -70,7 +70,8 @@ test('the Home header is drawn from it, and the page reads it from the PUBLISHED
   const first = stripComments(readFileSync(join(__dirname, '../app/dashboard/[eventId]/_components/home-first-screen.tsx'), 'utf8'));
   // (2026-10-27: + the pinned line's ⚙ address; 2026-10-29: the ⚙ is Event Settings, the couple's, at rest too —
   // `settingsFor`, owner *"keep it there"*.)
-  assert.match(first, /<HomeCoverBand cover=\{cover\} ground=\{ground\} settingsFor=\{eventSettings \? eventId : undefined\} settingsRows=\{eventSettingsRows\} \/>/);
+  // + `settingsLink` (2026-10-30): the address's `?settings=1&row=` opens the ⚙ sheet with the page.
+  assert.match(first, /<HomeCoverBand cover=\{cover\} ground=\{ground\} settingsFor=\{eventSettings \? eventId : undefined\} settingsRows=\{eventSettingsRows\} settingsLink=\{eventSettingsLink\} \/>/);
   const card = stripComments(readFileSync(join(__dirname, '../app/dashboard/[eventId]/_components/home-cover-band.tsx'), 'utf8'));
   assert.match(card, /data-home-cover=\{ground\?\.kind \?\? 'colour'\}/);
   assert.match(card, /style=\{\{ background: ground\.scrim \}\}/, 'the picture has no veil under the words');

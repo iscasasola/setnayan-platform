@@ -666,8 +666,9 @@ export async function setGhostBoothsEnabled(formData: FormData) {
   revalidatePath(`/dashboard/${eventId}/guests`);
 }
 
-/** Per-booth dismiss: hide the ghost booth for one vendor category (the "×"). */
-export async function dismissGhostBooth(formData: FormData) {
+/** Per-booth dismiss: hide the ghost booth for one vendor category (the "×"). Not exported — no screen calls it
+ *  today, and every export is a Vercel route (`lint-server-action-budget.mjs`). */
+async function dismissGhostBooth(formData: FormData) {
   await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   const category = formData.get('category');

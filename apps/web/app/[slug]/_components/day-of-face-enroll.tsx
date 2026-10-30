@@ -108,7 +108,9 @@ export function DayOfFaceEnroll({
 
   if (faceMode !== 'mode_a' || wish === false) return null;
 
-  if (done) return <FaceStepSavedToast />;
+  if (done) {
+    return <FaceStepSavedToast />;
+  }
 
   const failureToast = failure ? (
     <FaceStepFailureToast

@@ -19,7 +19,7 @@ export function SelfieLab({ Capture = SelfieCapture }: { Capture?: Capture }) {
     return (
       <main className="min-h-[100dvh] bg-cream px-4 pt-[max(1.5rem,env(safe-area-inset-top))] text-ink">
         <p className="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-ink/60">Me</p>
-        <div className="mt-3 rounded-2xl border border-ink/10 bg-white/60 px-4 py-3">
+        <div className="mt-3 border-y border-ink/10 py-3">
           <FaceTaggingRow on open faceMode="mode_a" wish turnOff={async () => {}} />
         </div>
         {state === 'done' ? <FaceStepSavedToast /> : null}

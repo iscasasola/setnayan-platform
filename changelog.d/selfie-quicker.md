@@ -43,6 +43,12 @@ Owner, 30 Oct: *"take selfie face circle is too small and registering the selfie
   the corner "Add credits" sits in; that button is now 44 px tall. The long "Tap for a photo · press and hold…" line is
   in an ⓘ beside Photo ⇄ Snippet; while recording or tagging the live line still shows, ABOVE the controls, so the
   shutter never moves under the thumb. The seat camera keeps its last row clear for the same button.
+- **The seat camera's "Shooting as a guest… Save" card is one slim line** over the picture (it covered the top of the
+  viewfinder); it still turns gold with what there is to lose, and the rest is read to a screen reader. Both cameras'
+  "Tap for a photo · press and hold…" hint is in an ⓘ; only a recording's live line is said out loud.
+- **A selfie lab** — `/dev/selfie-lab?state=open|live|saving|done|unread|two|row` — the real face screen, its saved and
+  refused toasts (now exported from `day-of-face-enroll.tsx` as `FaceStepSavedToast` / `FaceStepFailureToast`, the same
+  markup) and Me › Face tagging, on fixtures, dev-only.
 - **No "Open in the Setnayan app" banner on the camera.** It is Safari's Universal Links banner (there is no
   `apple-itunes-app` meta in the app): `/papic/*` is claimed in `apple-app-site-association`. The two camera pages are
   now excluded (`NOT /papic/guest`, `NOT /papic/guest/*`, `NOT /papic/seat/*`, before the claim); every other

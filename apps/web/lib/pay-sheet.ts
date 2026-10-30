@@ -17,6 +17,7 @@ import type { PaymentHistory } from './payment-history';
 import type { CoupleFacingMethod } from './vendor-payment-methods';
 import type { CouplePayMethodsState } from './deposit-pay-step';
 import type { PlanProgress } from './vendor-service-payment-schedules';
+import type { PayWayView } from './self-added-pay-ways';
 
 /** Everything the sheet draws — the payment card's own props, plus the plan. */
 export type PaySheetData = {
@@ -38,6 +39,13 @@ export type PaySheetData = {
   depositDeclineReason: string | null;
   payMethods: CoupleFacingMethod[];
   payMethodsState: CouplePayMethodsState;
+  /**
+   * HOW TO PAY THEM, from the couple's own record of a supplier they added (2026-10-29) — the QR full size and Copy
+   * details. `'unreadable'` = the read was refused (said, never drawn as "none added"). Empty for a Setnayan supplier.
+   */
+  ownWays: PayWayView[] | 'unreadable';
+  /** The newest plan a price change replaced — "Price changed ₱A → ₱B · plan updated". */
+  planChange: { fromPhp: number; toPhp: number } | null;
   requestedFirstPaymentCentavos: number | null;
   requestedFirstPaymentSentence: string | null;
   requestedTermsUnreadable: boolean;

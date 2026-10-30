@@ -175,6 +175,13 @@ export const PUBLIC_PRICE_LITERALS: readonly PriceLiteral[] = [
     sku: null,
     reason: 'Example reply in PREVIEW_ANSWER, a made-up supplier package price — not a Setnayan SKU.',
   },
+  {
+    file: 'app/dev/supplier-lab/couple-photos-lab.tsx',
+    literal: '₱8,500',
+    sku: null,
+    reason:
+      'A made-up supplier’s own "from" price on the DEV-ONLY lab service card (404 in production) that shows an approved couple photo — not a Setnayan SKU.',
+  },
 ];
 
 /** '₱1,000' → 1000. Returns null for anything unparseable. */

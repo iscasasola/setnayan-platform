@@ -35,6 +35,7 @@ import { INSPIRATION_LIBRARY_HREF, INSPIRATION_LIBRARY_ROW } from '@/lib/inspira
 import { packageAuthoringEnabled } from '@/lib/package-authoring-flag';
 import { vendorAutoReplyEnabled } from '@/lib/vendor-autoreply-flag';
 import { DatesRow } from '../customers/_components/dates-row';
+import { CouplePhotosToAnswer } from './_components/couple-photos';
 import { ShopServiceRows } from './_components/shop-service-rows';
 import { SupplierThumbRow } from '../_components/supplier-thumb-row';
 import { ActionButton } from '@/components/action-button';
@@ -348,6 +349,11 @@ async function ShopHome({
         <ShopServiceRows rows={data.serviceRows} />
       </div>
       <HeroCard data={data} publicPath={publicPath} />
+
+      {/* 📸 Photos couples shared for a service card, waiting for Approve (owner 2026-10-30) — draws nothing when none. */}
+      <Suspense fallback={null}>
+        <CouplePhotosToAnswer />
+      </Suspense>
 
       {/* ✂ The six number tiles and the "On this page" box left here (owner
           "Yes to all", 2026-10-21, item 4 — S-PR6). The numbers are Shop ›

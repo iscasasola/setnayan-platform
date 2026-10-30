@@ -1,13 +1,14 @@
 import { Sparkles, Globe, Lock } from 'lucide-react';
-import { loadRecapCoupleSummary } from '@/lib/auto-recap';
+import { loadRecapCoupleSummary, type RecapCoupleSummary } from '@/lib/auto-recap';
 
 /**
  * Auto-Recap card on the Papic add-ons page — the entry point into the couple's
  * "living recap" management surface (/studio/papic/recap). Renders once the
  * event has any photos to recap; shows the publish state at a glance.
  */
-export async function RecapCard({ eventId }: { eventId: string }) {
-  const summary = await loadRecapCoupleSummary(eventId);
+export async function RecapCard({ eventId, state }: { eventId: string; state?: RecapCoupleSummary }) {
+  // `state` — the summary the page already read for the Memories keepsake row (2026-10-31), so it is read once.
+  const summary = state ?? (await loadRecapCoupleSummary(eventId));
   if (summary.privatePhotos === 0 && summary.approvedKwentos === 0) return null;
 
   const isPublished = summary.status === 'published';

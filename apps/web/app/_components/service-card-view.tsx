@@ -163,6 +163,25 @@ export function ServiceCardView({
         </div>
       ) : null}
 
+      {/* 📸 FROM COUPLES (owner 2026-10-30) — couples' own photos of this card's work, approved by the shop, each with
+          the credit line the couple chose. Absent unless approved (`fetchServiceCardCouplePhotos`). */}
+      {c.coupleLooks && c.coupleLooks.length > 0 ? (
+        <div className="mt-3" data-card-couple-looks="">
+          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">From couples</p>
+          <ul className="mt-1.5 flex gap-2 overflow-x-auto">
+            {c.coupleLooks.map((look) => (
+              <li key={look.id} className="w-20 shrink-0">
+                <div className="relative h-20 w-20 overflow-hidden rounded-lg bg-ink/5">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- a couple's own photo, already a public URL */}
+                  <img src={look.url} alt={`${c.label} — shared by ${look.credit}`} className="h-full w-full object-cover" loading="lazy" />
+                </div>
+                <p className="mt-1 line-clamp-2 text-[11px] leading-tight text-ink/60">{look.credit}</p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       {c.videoUrl ? (
         /* Poster-first: preload="metadata" shows the first frame without
            downloading the clip; muted + playsInline keep mobile behavior tame. */

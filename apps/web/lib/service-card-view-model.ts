@@ -41,6 +41,9 @@ const SERVICE_CARD_INCLUSION_LIMIT = 3;
 /** Resolved showcase display URLs for one card (photos ≤5 + optional clip). */
 export type ServiceShowcaseMedia = { photos: string[]; videoUrl: string | null };
 
+/** 📸 A couple's own photo on this card, approved by the shop, with the credit line the couple chose (2026-10-30). */
+export type CoupleLook = { id: string; url: string; credit: string };
+
 export type ServiceCard = {
   id: string;
   /**
@@ -113,7 +116,18 @@ export type ServiceCard = {
    * card is offered in chat. A yes/no — never a photo count (see that file).
    */
   givesSetnayanGift: boolean;
+  /**
+   * 📸 FROM COUPLES (owner 2026-10-30): couples' own photos of this card's work, APPROVED by the shop, each with its
+   * credit line ("Ana & Ben · Feb 2027" / "A couple"). OPTIONAL and ABSENT when there are none, so every card without
+   * one serializes byte-for-byte as before. Filled only from `fetchServiceCardCouplePhotos` (approved rows only).
+   */
+  coupleLooks?: CoupleLook[];
 };
+
+/** Attach a card's approved couple photos — absent (not `[]`) when there are none. */
+export function withCoupleLooks(card: ServiceCard, looks: CoupleLook[] | undefined): ServiceCard {
+  return looks && looks.length > 0 ? { ...card, coupleLooks: looks } : card;
+}
 
 export function toServiceCard(
   row: VendorServiceRow,

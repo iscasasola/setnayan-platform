@@ -1,9 +1,4 @@
 {
-  "generatedFromRef": "6a3cfdad63",
-  "routeCount": 479,
-  "destinations": 986,
-  "actions": 620,
-  "blocks": 7430,
   "routes": {
     "/": {
       "files": [

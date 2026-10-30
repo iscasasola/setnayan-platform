@@ -1,5 +1,7 @@
 'use client';
 
+import { GuestPeek } from '../../guests/_components/guest-peek';
+import { guestRoleLabel, type GuestRole } from '@/lib/guests';
 import { seatPlacedShort, type SeatPlacedBy } from '@/lib/seat-why';
 import { assessSeatMove, seatMoveDoneWords, type MoveAssessment, type MoveGuest } from '@/lib/seat-move-assess';
 import { MERGE_BASE_FIELD } from '@/lib/merge-base-field';
@@ -6583,15 +6585,23 @@ export function SeatingEditor({
     setAskMove({ moverId, otherId, tableId, seat, a, on: Object.fromEntries(a.sideEffects.map((x) => [x.key, x.on])) });
     return true;
   };
+  /* 👁 R4 slice 6d — on the 2D plan a tap PEEKS first (prototype v20 `peekGuest`): name · role · seat · Open; Open is the
+     same card the List opens. Seats › List opens the card at once (its faces are the list). */
+  const [peekId, setPeekId] = useState<string | null>(null);
   const tapFace = (guestId: string) => {
     const g = guests.find((x) => x.guest_id === guestId);
     if (!g) return;
     if (pickedId && pickedId !== guestId) {
+      setPeekId(null);
       if (g.seated_table_id && askBefore(pickedId, g.seated_table_id, g.seat_number, guestId)) return;
       tradeSeats(pickedId, guestId);
       return;
     }
     setBlankAt(null);
+    if (view !== 'list' && !in3d) {
+      setPeekId(g.guest_id);
+      return;
+    }
     setFaceCard({ id: g.guest_id, name: g.name, seated: g.seated_table_id !== null });
   };
   const tapBlank = (tableId: string, seat: number) => {
@@ -6617,6 +6627,24 @@ export function SeatingEditor({
       })
     : [];
   const blankTable = blankAt ? tables.find((t) => t.table_id === blankAt.tableId) ?? null : null;
+  const peekGuest = inGuests && peekId && !pickedGuest ? guests.find((g) => g.guest_id === peekId) ?? null : null;
+  const peekTable = peekGuest?.seated_table_id ? tables.find((t) => t.table_id === peekGuest.seated_table_id) ?? null : null;
+  const peekPop = peekGuest ? (
+    <GuestPeek
+      name={peekGuest.name}
+      initials={peekGuest.initials}
+      photo={peekGuest.photo_url}
+      line={[
+        guestRoleLabel(peekGuest.role as GuestRole),
+        peekTable ? `${peekTable.link_group_label?.trim() || peekTable.table_label}${peekGuest.seat_number !== null ? ` · seat ${peekGuest.seat_number + 1}` : ''}` : 'No seat yet',
+      ].join(' · ')}
+      onOpen={() => {
+        setPeekId(null);
+        setFaceCard({ id: peekGuest.guest_id, name: peekGuest.name, seated: peekGuest.seated_table_id !== null });
+      }}
+      onClose={() => setPeekId(null)}
+    />
+  ) : null;
   const seatPop =
     inGuests && (pickedGuest || (blankAt && blankTable)) ? (
       <div data-seat-plan-pop={pickedGuest ? 'moving' : 'blank'} className="pointer-events-auto flex min-h-12 items-center gap-2 rounded-2xl bg-cream px-3 py-1.5 shadow-lg">
@@ -6875,7 +6903,7 @@ export function SeatingEditor({
       ? createPortal(
           <>
             {seatToast ? <SeatToast toast={seatToast} /> : null}
-            {seatPop}
+            {seatPop ?? peekPop}
             <lens.ThumbRow
               name="guests-seats"
               left={

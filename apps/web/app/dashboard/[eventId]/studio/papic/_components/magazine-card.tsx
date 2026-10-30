@@ -9,7 +9,14 @@ import { formatCount } from '@/lib/format-number';
  * the link streams the PDF from the magazine route (couple-gated). No share
  * affordance by design — Variant B (shareable) is a separate gated pipeline.
  */
-export async function MagazineCard({ eventId }: { eventId: string }) {
+export type MagazineCardState = { photos: number; kwentos: number };
+
+/**
+ * The card's own reads — split out (2026-10-31, the Memories keepsake row) so the row can ask "does this card have
+ * anything to offer?" from the SAME counts the card renders, without reading twice: the page reads once and hands the
+ * answer to both the row's button and the card in its sheet. The card alone (no `state`) reads for itself, as before.
+ */
+export async function readMagazineCard(eventId: string): Promise<MagazineCardState> {
   const supabase = await createClient();
   const [{ count: seat, error: seatError }, { count: guest, error: guestError }, { count: kwentos, error: kwentosError }] = await Promise.all([
     supabase
@@ -44,7 +51,11 @@ export async function MagazineCard({ eventId }: { eventId: string }) {
   if (kwentosError) {
     logQueryError('MagazineCard.kwentos', kwentosError, { event_id: eventId }, 'graceful_degrade');
   }
-  const photos = (seat ?? 0) + (guest ?? 0);
+  return { photos: (seat ?? 0) + (guest ?? 0), kwentos: kwentos ?? 0 };
+}
+
+export async function MagazineCard({ eventId, state }: { eventId: string; state?: MagazineCardState }) {
+  const { photos, kwentos } = state ?? (await readMagazineCard(eventId));
   if (photos === 0) return null;
 
   return (

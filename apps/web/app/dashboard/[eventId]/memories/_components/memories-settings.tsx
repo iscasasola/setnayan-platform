@@ -7,7 +7,6 @@ import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { formatPhp } from '@/lib/orders';
 import { InfoTip } from '@/app/_components/info-tip';
 import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
-import { ServiceParts } from '@/app/dashboard/[eventId]/studio/_components/service-parts';
 import { LiveWallCard } from '@/app/dashboard/[eventId]/studio/papic/_components/live-wall-card';
 import { PoolGalleryCard } from '@/app/dashboard/[eventId]/studio/papic/_components/pool-gallery-card';
 import { DriveCopyCard, type DriveGrant } from '@/app/dashboard/[eventId]/studio/papic/_components/drive-copy-card';
@@ -22,7 +21,8 @@ import type { MemoriesManagerRole } from '@/lib/memories-rules';
  * stood on the Papic page, moved — never a second copy:
  *
  *   Photo wall              `LiveWallCard variant="row"` (copy link · screen codes · on guests' phones · count · layout)
- *   Thank-You Video         `ServiceParts service="papic"` (the add-on's own door; nothing when it is not offered)
+ *   Thank-You Video         MOVED OUT (owner 2026-10-31, "Build both") — its door is the keepsake row's Thank You
+ *                           button now (`memories-keepsake-row.tsx`), ONE home; the ⚙ no longer draws it.
  *   Who sees what           `PoolGalleryCard variant="row"` (`pool_gallery_open`) — was "Guests see all photos"
  *   Google Drive            `DriveCopyCard` (connect / connected / "Coming soon" while Google's review runs)
  *   Keep full resolution    the HIGH_RES_ARCHIVE line, priced from the catalogue (web only — Apple does not sell it)
@@ -31,7 +31,7 @@ import type { MemoriesManagerRole } from '@/lib/memories-rules';
  * MANAGE THEM; DEFAULT "ONLY TAGGED""): the "Guests see all photos" switch is now the rule **Who sees what** — Only
  * tagged (default) · Share all memories — the SAME column (`pool_gallery_open`), drawn by the same `PoolGalleryCard`.
  * 👥 `role`: the hosts (the couple + every co-host) get the whole sheet; the event's COORDINATOR gets the rules only
- * (Who sees what) — the photo wall, the Thank-You add-on, Google Drive and Keep full resolution are purchases and
+ * (Who sees what) — the photo wall, Google Drive and Keep full resolution are purchases and
  * the hosts' own accounts, not Memories rules. The server action is the authority either way (`memoriesManagerRole`).
  */
 export async function MemoriesSettings({
@@ -68,9 +68,6 @@ export async function MemoriesSettings({
     <>
       <PoolGalleryCard eventId={eventId} variant="row" />
       <LiveWallCard eventId={eventId} appleIap={appleIap} variant="row" />
-      <div className="py-3" data-memories-setting="thank-you">
-        <ServiceParts eventId={eventId} service="papic" />
-      </div>
       <div className="py-3" data-memories-setting="drive">
         <DriveCopyCard
           eventId={eventId}

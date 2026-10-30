@@ -125,6 +125,7 @@ import {
   type HomeNextInput,
 } from '@/lib/home-first-screen';
 import { OfflineLab } from './offline-lab';
+import { isEventSettingsRow, peopleWithAccessHref } from '@/lib/people-with-access-href';
 
 export const dynamic = 'force-dynamic';
 
@@ -255,7 +256,7 @@ const LAB_HUB_PICK: HomeHubPickRead = { ok: true, pinned: null, byDate: 'rsvp' }
 export default async function HomeLab({
   searchParams,
 }: {
-  searchParams: Promise<{ stage?: string; photos?: string; bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; coord?: string; level?: string; shop?: string; card?: string; cardphase?: string; head?: string; save?: string; challenges?: string; open?: string; need?: string; state?: string; browser?: string; desk?: string }>;
+  searchParams: Promise<{ stage?: string; photos?: string; bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; coord?: string; level?: string; shop?: string; card?: string; cardphase?: string; head?: string; save?: string; challenges?: string; open?: string; need?: string; state?: string; browser?: string; desk?: string; settings?: string; row?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -542,13 +543,20 @@ export default async function HomeLab({
                 },
               ]}
               unread={q.level === 'unread'}
-              accessHref={`/dashboard/${E}/details#people-with-access`}
+              accessHref={peopleWithAccessHref(E)}
             />
           ) : null
         }
         /* ⚙ Event Settings on the cover — its rows drawn on the lab's fixture (`lab-event-settings.tsx`), no database. */
         eventSettings
         eventSettingsRows={labEventSettingsRows(E)}
+        /* `?settings=1[&row=access]` — the sheet opens with the page, as Home's own link does (the ☰'s mark). */
+        eventSettingsLink={{
+          open: q.settings === '1',
+          row: q.settings === '1' && isEventSettingsRow(q.row) ? q.row : null,
+          landed: null,
+          renderKey: 'lab',
+        }}
         cover={{ eyebrow: F.eyebrow, shortDate: F.shortDate, name: F.name, ...(labForWho ? { forWho: labForWho } : {}) }}
         next={next}
         control={labControl}

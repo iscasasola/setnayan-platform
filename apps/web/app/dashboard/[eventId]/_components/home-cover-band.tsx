@@ -3,7 +3,7 @@ import type { HomeCoverWords } from '@/lib/home-cover-words';
 import { forTagWords, type ForTag } from '@/lib/for-tag';
 import { ForTagMark } from '@/app/_components/for-tag-mark';
 import { HomeCoverPin } from './home-cover-pin';
-import { HomeSettingsGear } from './home-settings-gear';
+import { HomeSettingsGear, type HomeSettingsLanded } from './home-settings-gear';
 import type { ReactNode } from 'react';
 
 /**
@@ -29,11 +29,15 @@ import type { ReactNode } from 'react';
  * same spot, so it never moves. It opens the Event Settings sheet (names · date · venues · parents), not a page: the
  * Countdown stays Home's one door to Event Details. Only the couple gets it (`settingsFor`); the loading screen none.
  */
+/** 🔗 What Home's address says about its ⚙ sheet (`?settings=1&row=…`, a Remove's words) and this render's key. */
+export type HomeSettingsLink = { open: boolean; row: string | null; landed: HomeSettingsLanded | null; renderKey: string };
+
 export function HomeCoverBand({
   cover,
   ground = null,
   settingsFor,
   settingsRows,
+  settingsLink,
 }: {
   cover: HomeCoverWords;
   ground?: HomeCover | null;
@@ -41,6 +45,8 @@ export function HomeCoverBand({
   settingsFor?: string;
   /** The Home lab's rows, already drawn on its fixture; absent = the ⚙ reads them at the press. */
   settingsRows?: ReactNode;
+  /** The address's words for the ⚙ sheet — absent = it opens only at the press. */
+  settingsLink?: HomeSettingsLink;
 }) {
   const gear = Boolean(settingsFor);
   return (
@@ -73,7 +79,16 @@ export function HomeCoverBand({
           {cover.forWho ? <HomeForLine tag={cover.forWho} /> : null}
         </div>
         <HomeCoverPin name={cover.name} date={cover.shortDate} gear={gear} />
-        {settingsFor ? <HomeSettingsGear eventId={settingsFor} rows={settingsRows} /> : null}
+        {settingsFor ? (
+          <HomeSettingsGear
+            eventId={settingsFor}
+            rows={settingsRows}
+            openAtFirst={settingsLink?.open ?? false}
+            landRow={settingsLink?.row ?? null}
+            landed={settingsLink?.landed ?? null}
+            renderKey={settingsLink?.renderKey}
+          />
+        ) : null}
       </div>
   );
 }

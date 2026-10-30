@@ -217,7 +217,7 @@ function DetailCard({
     case 'count': {
       const c = input.countdown;
       return (
-        <Shell k="count" door={`/dashboard/${e}/details`} brand={[c.long, c.placeLine].filter(Boolean).join(' · ') || null} today={today}>
+        <Shell k="count" door={tile.door} brand={[c.long, c.placeLine].filter(Boolean).join(' · ') || null} today={today}>
           {c.hasDate ? (
             <>
               <Dot mood="ok">Date set{c.placeLine ? ` · ${c.placeLine}` : ''}</Dot>

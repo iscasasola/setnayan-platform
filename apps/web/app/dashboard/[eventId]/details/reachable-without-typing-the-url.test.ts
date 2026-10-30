@@ -105,8 +105,14 @@ const MUST_HAVE_A_DOOR: { segment: string; whatIsLost: string }[] = [
  *           reaches it from the People roster's "Running the day with you";
  *   refer → the account menu: the event layout hands `referHref` to the
  *           mounted <AccountSwitcher>, which draws "Refer a couple".
- *   details → the Home cover's "Event Details" button (owner 2026-10-23: "only
- *           keep the Event Details button and remove the event settings"). The
+ *   details → since 2026-10-30 (owner: *"move them all in the event settings"* ·
+ *           *"they were suppose to combine the event details and event settings
+ *           together on the event settings"*) what the couple does on Event
+ *           Details — Put this away above all — is in Home's ⚙ Event Settings
+ *           sheet, and the couple's `/details` forwards there. Its doors: the ⚙
+ *           on Home's cover, the ☰'s event mark and the Countdown; a helper's
+ *           Countdown still opens the page itself. (Before: the Home cover's
+ *           "Event Details" button, owner 2026-10-23.) The
  *           rail's name row stopped being a link, so `/details` is no longer a
  *           DRAWN rail href — `drawnRailHrefs` below drops the `event` group the
  *           rail does not draw, or this guard would keep counting a door nobody
@@ -117,10 +123,15 @@ const MUST_HAVE_A_DOOR: { segment: string; whatIsLost: string }[] = [
  */
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 const MOVED_DOOR: Record<string, (railHrefs: string[]) => boolean> = {
-  // The Countdown widget since 24 Oct 2026 (owner-approved control center) — the cover's ⚙ Settings pill went.
+  // 2026-10-30: the sheet holds Put this away (the loss this entry names), and three mounted doors open the sheet.
   details: () =>
-    read('app/dashboard/[eventId]/_components/home-control-faces.ts').includes('door: `/dashboard/${e}/details`') &&
-    read('app/dashboard/[eventId]/_components/home-control-row.tsx').includes('<Shell k="count" door={`/dashboard/${e}/details`}') &&
+    read('app/dashboard/[eventId]/_components/event-settings-rows.tsx').includes('<PutAwayCard ') &&
+    read('app/dashboard/[eventId]/_components/open-event-settings.tsx').includes('putAway: {') &&
+    read('app/dashboard/[eventId]/details/page.tsx').includes('if (viewer.isCouple) {') &&
+    read('app/dashboard/[eventId]/_components/home-cover-band.tsx').includes('<HomeSettingsGear') &&
+    read('app/dashboard/[eventId]/_components/event-rail-context.tsx').includes('<Link href={eventSettingsHref(eventId)}') &&
+    read('app/dashboard/[eventId]/_components/home-control-faces.ts').includes("return eventSettingsHref(eventId, 'date');") &&
+    read('app/dashboard/[eventId]/page.tsx').includes('countdownDoor: viewerMemberType === \'couple\' ? undefined : `/dashboard/${eventId}/details`') &&
     read('app/dashboard/[eventId]/_components/home-first-screen.tsx').includes('<HomeControlRow ') &&
     isMounted('app/dashboard/[eventId]/_components/home-first-screen.tsx'),
   hosts: (railHrefs) =>

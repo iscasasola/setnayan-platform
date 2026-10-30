@@ -2,7 +2,7 @@
 # radius (rounded-lg|xl|2xl|3xl|card|tile). GENERATED — never hand-edit:
 #   node apps/web/scripts/lint-no-card.mjs --update-baseline
 # A RATCHET: a count may fall, never rise; a file not listed may hold none.
-# 651 files · 1770 lines
+# 646 files · 1759 lines
 2 apps/web/app/_components/account-switcher/account-switcher.tsx
 3 apps/web/app/_components/alaala/lens-body.tsx
 1 apps/web/app/_components/amendment-builder.tsx
@@ -25,7 +25,6 @@
 1 apps/web/app/_components/door/door-shell.tsx
 3 apps/web/app/_components/drive-connect-card.tsx
 3 apps/web/app/_components/encoder-key-panel.tsx
-1 apps/web/app/_components/event-day-prep-cta.tsx
 2 apps/web/app/_components/facebook-dual-stream-card.tsx
 6 apps/web/app/_components/file-upload.tsx
 1 apps/web/app/_components/live-studio-recordings-card.tsx
@@ -51,7 +50,6 @@
 1 apps/web/app/_components/schedule-suggest-chip.tsx
 2 apps/web/app/_components/service-card-view.tsx
 1 apps/web/app/_components/storyteller-tile.tsx
-1 apps/web/app/_components/thread-call-launcher.tsx
 1 apps/web/app/_components/thread-call-room.tsx
 1 apps/web/app/_components/thread-interest-chips.tsx
 1 apps/web/app/_components/vendor-event-day-prep-cta.tsx
@@ -266,7 +264,6 @@
 2 apps/web/app/dashboard/(account)/profile/page.tsx
 1 apps/web/app/dashboard/(account)/samahan/[communityId]/_components/samahan-identity-header.tsx
 1 apps/web/app/dashboard/(account)/samahan/[communityId]/page.tsx
-1 apps/web/app/dashboard/(account)/samahan/page.tsx
 4 apps/web/app/dashboard/(launcher)/_components/event-card-menu.tsx
 1 apps/web/app/dashboard/(launcher)/_components/year-moments-list.tsx
 5 apps/web/app/dashboard/(launcher)/page.tsx
@@ -341,7 +338,6 @@
 1 apps/web/app/dashboard/[eventId]/pabuya/_components/pabuya-message-editor.tsx
 2 apps/web/app/dashboard/[eventId]/page.tsx
 4 apps/web/app/dashboard/[eventId]/paperwork/page.tsx
-5 apps/web/app/dashboard/[eventId]/plan3d/page.tsx
 1 apps/web/app/dashboard/[eventId]/progress/_components/free-venue-shortlist-offer.tsx
 1 apps/web/app/dashboard/[eventId]/schedule/_components/emcee-script-button.tsx
 3 apps/web/app/dashboard/[eventId]/schedule/_components/journey-view.tsx
@@ -375,7 +371,6 @@
 1 apps/web/app/dashboard/[eventId]/studio/guest-columns/_components/column-queue-controls.tsx
 1 apps/web/app/dashboard/[eventId]/studio/guest-columns/page.tsx
 2 apps/web/app/dashboard/[eventId]/studio/indoor-blueprint/_components/blueprint-studio.tsx
-2 apps/web/app/dashboard/[eventId]/studio/indoor-blueprint/page.tsx
 9 apps/web/app/dashboard/[eventId]/studio/live-studio-control/page.tsx
 1 apps/web/app/dashboard/[eventId]/studio/mood-board/_components/dress-code-fields.tsx
 2 apps/web/app/dashboard/[eventId]/studio/mood-board/_components/gallery-picker.tsx
@@ -580,7 +575,7 @@
 4 apps/web/app/vendor-dashboard/messages/[threadId]/_components/send-proposal-card.tsx
 1 apps/web/app/vendor-dashboard/messages/[threadId]/_components/vendor-offer-service.tsx
 3 apps/web/app/vendor-dashboard/messages/[threadId]/_components/vendor-payment-live.tsx
-8 apps/web/app/vendor-dashboard/messages/[threadId]/page.tsx
+7 apps/web/app/vendor-dashboard/messages/[threadId]/page.tsx
 1 apps/web/app/vendor-dashboard/moodboard-library/_components/rejection-notice.tsx
 5 apps/web/app/vendor-dashboard/moodboard-library/_components/stylist-library-editor.tsx
 1 apps/web/app/vendor-dashboard/on-the-day/_components/event-picker.tsx

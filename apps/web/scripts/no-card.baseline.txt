@@ -358,7 +358,6 @@
 4 apps/web/app/dashboard/[eventId]/seating/_components/seating-context-dock.tsx
 34 apps/web/app/dashboard/[eventId]/seating/_components/seating-editor.tsx
 3 apps/web/app/dashboard/[eventId]/seating/_components/seating-frame.tsx
-6 apps/web/app/dashboard/[eventId]/seating/lab/_components/reception-design-editor.tsx
 7 apps/web/app/dashboard/[eventId]/seating/lab/_components/seating-lab-3d.tsx
 1 apps/web/app/dashboard/[eventId]/seating/lab/_components/seating-lab-loader.tsx
 7 apps/web/app/dashboard/[eventId]/seating/walkthrough/_components/walkthrough-manager.tsx

@@ -630,6 +630,8 @@ export async function setGhostBoothsEnabled(formData: FormData) {
   if (error) throw new Error(error.message);
 
   revalidatePath(`/dashboard/${eventId}/seating/lab`);
+  // The switch lives in the seat settings of Guests › Seats now (the room is view-only, 2026-10-30).
+  revalidatePath(`/dashboard/${eventId}/guests`);
 }
 
 /** Per-booth dismiss: hide the ghost booth for one vendor category (the "×"). */
@@ -2659,7 +2661,9 @@ export async function dismissRoomSuggestion(eventId: string, dismissKey: string)
 /**
  * Reception decor AI-image layers — PILOT. Relocated from
  * studio/mood-board/actions.ts alongside saveReceptionDesign and the
- * ReceptionDesignEditor component that calls it (2026-09-03 relocation).
+ * ReceptionDesignEditor component that called it (2026-09-03 relocation). ⚠ Since 2026-10-30 that editor is retired
+ * (the 3D room is view-only; its choices are the Accents sheet's rows) and nothing draws the concept preview this fed —
+ * kept, not deleted, until the owner says where the concept image is previewed now.
  * Reads the moodboard_library_assets (+ moodboard_asset_color_ranges) rows
  * for the pilot zones (backdrop, ceiling — see PILOT_DECOR_ZONES) into the
  * shape lib/reception-decor-layers.ts's pure `resolveDecorLayer` expects.

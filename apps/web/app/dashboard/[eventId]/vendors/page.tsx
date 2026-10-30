@@ -96,6 +96,8 @@ import {
 } from '@/lib/budget-build';
 import type { ChatInquiryStatus } from '@/lib/chat';
 import { haversineKm } from '@/lib/distance';
+import { readNearAnchors } from '@/lib/find-near-anchors.server';
+import { nearRows, type NearPin } from '@/lib/find-sort-choices';
 import { publicUrlForStoredAsset } from '@/lib/uploads';
 import {
   bucketVendorsByGroup,
@@ -230,6 +232,9 @@ type EventBudgetRow = {
   mood_board_updated_at: string | null;
   venue_latitude: number | null;
   venue_longitude: number | null;
+  /** The ceremony's own pin (Details › Venues) — with the reception's, what "Nearest" measures from. */
+  ceremony_venue_latitude: number | null;
+  ceremony_venue_longitude: number | null;
   /** event_type_vocab key (DB-driven, defaults to 'wedding') — scopes the
    *  Shortlist's taxonomy categories + guards faith filtering. */
   event_type: string | null;
@@ -371,7 +376,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       // read path; same columns, same row shape, guests get zero rows.
       .from('events_host')
       .select(
-        'event_date, event_date_precision, estimated_budget_centavos, budget_band, mood_board_updated_at, venue_latitude, venue_longitude, event_type, ceremony_type, secondary_ceremony_type, venue_setting, region, estimated_pax, mood_feel_key, date_mode, date_candidates, date_window_start, date_window_end, planning_mode, setnayan_ai_active, style_preferences',
+        'event_date, event_date_precision, estimated_budget_centavos, budget_band, mood_board_updated_at, venue_latitude, venue_longitude, ceremony_venue_latitude, ceremony_venue_longitude, event_type, ceremony_type, secondary_ceremony_type, venue_setting, region, estimated_pax, mood_feel_key, date_mode, date_candidates, date_window_start, date_window_end, planning_mode, setnayan_ai_active, style_preferences',
       )
       // `event_id`, NOT `id`. The view carries BOTH: `id` is the hidden
       // bigserial (internal joins only) and `event_id` is the uuid every route
@@ -446,6 +451,9 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   }
 
   const ev = (eventCtx.data as EventBudgetRow | null) ?? null;
+  // 📍 WHERE "NEAREST" MEASURES FROM (owner 2026-10-30, "Reception + Ceremony"): the Event Hub's own two venues — a
+  // booked venue's pin, else the couple's own (`lib/find-near-anchors.server.ts`). Started here, awaited where used.
+  const nearAnchorsRead = readNearAnchors(createAdminClient(), eventId, ev ?? {});
   // ⚙ Suppliers ⚙'s sheet (owner 2026-10-27, "SUPPLIERS GETS ITS ⚙"): started here, awaited where the shell is drawn,
   // so its reads overlap the page's own instead of queueing in front of them.
   const suppliersSettingsRead = loadSuppliersSettings(supabase, eventId, {
@@ -894,8 +902,9 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       }
     }
 
-    const venueLat = ev?.venue_latitude ?? null;
-    const venueLng = ev?.venue_longitude ?? null;
+    const anchors = await nearAnchorsRead;
+    const kmFrom = (pin: NearPin | null, lat: number | null, lng: number | null) =>
+      pin && lat != null && lng != null ? haversineKm(pin.latitude, pin.longitude, lat, lng) : null;
 
 
     // Faith-fit for the compat % (compat-score `faithMatch` → `faithFit` dim,
@@ -952,13 +961,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
 
       const rating =
         s.avg_rating_overall != null ? Number(s.avg_rating_overall) : null;
-      const distanceKm =
-        venueLat != null &&
-        venueLng != null &&
-        s.hq_latitude != null &&
-        s.hq_longitude != null
-          ? haversineKm(venueLat, venueLng, s.hq_latitude, s.hq_longitude)
-          : null;
+      const distanceKm = kmFrom(anchors.reception, s.hq_latitude, s.hq_longitude);
+      const ceremonyDistanceKm = kmFrom(anchors.ceremony, s.hq_latitude, s.hq_longitude);
 
       // Fit-badge · service-radius reach (2026-07-09). Same tier-cap + fail-open
       // rule the category-search overlay uses (vendor-tier-caps · serviceRadiusKm):
@@ -1012,6 +1016,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         }),
         is_setnayan_service: s.is_setnayan_service === true,
         distance_km: distanceKm,
+        ceremony_distance_km: ceremonyDistanceKm,
         within_radius: withinRadius,
         service_radius_km: hasFiniteRadius ? radiusKm : null,
         inner_radius_km: effectiveInnerKm,
@@ -2320,6 +2325,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         key={isExploreReplanEnabled() ? `sl-${sp.open ?? ''}` : undefined}
         folders={shortlistFolders}
         eventId={eventId}
+        nearOptions={nearRows(await nearAnchorsRead)}
         onePerEventGroups={[...onePerEventGroups]}
         // Pairs, not a Map — this component's own `teamCalendar` prop states the
         // rule: a Set/Map "crosses to the client as an array and is rebuilt there

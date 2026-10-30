@@ -85,6 +85,8 @@ export type ThumbMenu = {
    * `label` stays its name.
    */
   face?: ReactNode;
+  /** 📏 The open list's floor width (`PickMenuProps.menuMinWidth`) — so a menu's rows stay on one line at 390 px. */
+  menuMinWidth?: number;
 };
 
 /**
@@ -284,6 +286,7 @@ export function ThumbRow({
                   onPick={r.onPick}
                   buttonText={r.buttonText}
                   trigger={r.face}
+                  menuMinWidth={r.menuMinWidth}
                   className={r.face ? 'inline-flex items-center justify-center rounded-full text-ink' : undefined}
                 />
               </span>

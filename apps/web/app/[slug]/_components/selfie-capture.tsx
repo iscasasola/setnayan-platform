@@ -234,7 +234,7 @@ export function SelfieCapture({
           unloaded = faceEmbedDidNotLoad();
           // Not found on the small copy (a face held further off) → read the camera's full frame once more. Not when
           // the reader never loaded: a second read would only wait for the same download again.
-          if (!r && scale < 1 && !unloaded) {
+          if (faceMode === 'mode_a' && !r && scale < 1 && !unloaded) {
             const full = document.createElement('canvas');
             full.width = video.videoWidth;
             full.height = video.videoHeight;

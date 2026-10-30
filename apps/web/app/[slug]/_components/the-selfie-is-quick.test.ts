@@ -67,7 +67,7 @@ test('a mode_a selfie with no fingerprint is refused — on the phone AND on the
   );
   // The small copy misses a face held further off → the full frame is read once more before giving up — unless the
   // reader never downloaded, which is "connection lost", never "your face wasn't clear".
-  assert.match(SELFIE, /if \(!r && scale < 1 && !unloaded\) \{/);
+  assert.match(SELFIE, /if \(faceMode === 'mode_a' && !r && scale < 1 && !unloaded\) \{/);
   assert.match(SELFIE, /unloaded = faceEmbedDidNotLoad\(\);/, 'a reader that never loaded is blamed on the guest’s face');
   const guard = ENROLL.indexOf("return { ok: false, reason: 'face_unread' };");
   const retire = ENROLL.indexOf(".update({ revoked_at: new Date().toISOString() })");

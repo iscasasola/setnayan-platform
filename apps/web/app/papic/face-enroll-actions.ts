@@ -250,13 +250,16 @@ export async function enrollGuestFace(
     // (a fresh day-of selfie supersedes a stale one). The unique index
     // `guest_face_enrollments_one_active_per_guest` forces retire-THEN-insert, so
     // the retired ids are kept: if the insert below fails, they are put back.
-    const { data: retiredRows } = await admin
+    const { data: retiredRows, error: retireErr } = await admin
       .from('guest_face_enrollments')
       .update({ revoked_at: new Date().toISOString() })
       .eq('event_id', eventId)
       .eq('guest_id', guestId)
       .is('revoked_at', null)
       .select('id');
+    // A retire that failed left the old row live: the insert below then meets the one-live-row index and answers
+    // "save" — the guest keeps the enrolment she had. Logged, never silent.
+    if (retireErr) console.error('[supabase-error] app/papic/face-enroll-actions.ts · retire previous enrolment', retireErr);
     const retiredIds = ((retiredRows ?? []) as { id: number }[]).map((r) => r.id);
 
     // BIOMETRIC WRITE GUARD (One-Pool spec §3.4). Resolve the EFFECTIVE face

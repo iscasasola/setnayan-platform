@@ -31,7 +31,10 @@ import {
 import type { DelegateArea } from '@/lib/delegate-areas';
 import {
   moodBoardHostsOnlyRefusalWith,
+  moodBoardPhotoChangeRefusalWith,
   moodBoardPhotosRefusalWith,
+  type MoodBoardChangeKind,
+  type MoodBoardChangeRpcClient,
   type MoodBoardRpcClient,
 } from '@/lib/mood-board-gate';
 
@@ -79,6 +82,26 @@ export async function moodBoardPhotosRefusal(eventId: unknown): Promise<string |
 /** The same question, throwing — for an action that answers nothing. */
 export async function refuseUnlessMoodBoardPhotos(eventId: unknown): Promise<void> {
   const refusal = await moodBoardPhotosRefusal(eventId);
+  if (refusal) throw new Error(refusal);
+}
+
+/**
+ * 🖼⏱ The photo gate for an action that CHANGES the board (upload · replace · move · remove): the same question, and —
+ * for a person who is not an owner — the change it opens, which the owners are told about and may Undo for 24 hours
+ * (`lib/mood-board-gate.ts`, migration 20271299051148). One request either way.
+ */
+export async function moodBoardPhotoChangeRefusal(
+  eventId: unknown,
+  kind: MoodBoardChangeKind,
+  slotKey: unknown,
+): Promise<string | null> {
+  const supabase = await createClient();
+  return moodBoardPhotoChangeRefusalWith(supabase as unknown as MoodBoardChangeRpcClient, eventId, kind, slotKey);
+}
+
+/** The same, throwing — for an action that answers nothing. */
+export async function refuseUnlessMoodBoardPhotoChange(eventId: unknown, kind: MoodBoardChangeKind, slotKey: unknown): Promise<void> {
+  const refusal = await moodBoardPhotoChangeRefusal(eventId, kind, slotKey);
   if (refusal) throw new Error(refusal);
 }
 

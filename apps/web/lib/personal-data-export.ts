@@ -307,6 +307,7 @@ export async function buildPersonalDataExport(
     ledgerRes,
     ledgerSuppliersRes,
     ownSuggestionsRes,
+    ownMoodBoardChangesRes,
   ] = await Promise.all([
     supabase.from('users').select('*').eq('user_id', user.id).maybeSingle(),
     supabase
@@ -791,6 +792,16 @@ export async function buildPersonalDataExport(
       .select('suggestion_id, event_id, slot_key, shop_label, state, image_url, created_at, decided_at')
       .eq('suggested_by_user_id', user.id)
       .order('created_at', { ascending: true }),
+    // RA 10173 (2026-10-30) — THE MOOD BOARD CHANGES THIS SUBJECT MADE on somebody's board under Mood Board Edit
+    // (migration 20271299051148). AUTHOR-scoped on actor_user_id, exactly like event_colour_changes above: an
+    // event-scoped read would disclose what the other people on that board did. `undone_at` rides with it — "I made
+    // this change and the owners put it back" is the record. The row-level before/after (`touched`) is the board's
+    // own bookkeeping of photo ids and is not the subject's data, so it stays out.
+    supabase
+      .from('event_mood_board_changes')
+      .select('change_id, event_id, kind, slot_key, part_label, shop_label, created_at, first_row_at, undone_at')
+      .eq('actor_user_id', user.id)
+      .order('created_at', { ascending: true }),
   ]);
 
   // ── Unwrap every read through the integrity helper ──────────────────────────
@@ -826,6 +837,7 @@ export async function buildPersonalDataExport(
   const inviteMutes = listOutcome('invite_mutes', inviteMutesRes);
   const vendorReuseRequests = listOutcome('vendor_reuse_requests', vendorReuseRequestsRes);
   const ownSuggestions = listOutcome('event_inspiration_suggestions', ownSuggestionsRes);
+  const ownMoodBoardChanges = listOutcome('mood_board_changes_made', ownMoodBoardChangesRes);
   const workingNotes = listOutcome(
     'vendor_working_notes_authored',
     workingNotesRes,
@@ -944,6 +956,7 @@ export async function buildPersonalDataExport(
     ownColourChanges,
     ledger,
     ledgerSuppliers,
+    ownMoodBoardChanges,
   ]);
 
   const exported = {
@@ -1055,6 +1068,9 @@ export async function buildPersonalDataExport(
     // The colours this subject changed under that access, and whether the
     // couple put each one back. Author-scoped.
     own_colour_changes_made: ownColourChanges.rows,
+    // The Mood Board photo changes this subject made under Mood Board Edit, and whether the owners undid each one.
+    // Author-scoped.
+    mood_board_changes_made: ownMoodBoardChanges.rows,
     // The years the subject grouped their own celebrations into, owner-scoped.
     years_you_grouped: eventClusters.rows,
     // RA 10173 (2026-09-11) — the payments this couple logged on events they

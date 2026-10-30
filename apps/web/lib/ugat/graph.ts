@@ -2983,6 +2983,24 @@ export const UGAT_JOINTS: UgatJoint[] = [
       { kind: 'no_column', table: 'event_inspiration_assets', column: 'source_render_id' },
       // 🧩 Step ② (PLAN admin_inspiration_groups_2026-10-25): the 29-key CHECK became an FK into inspiration_parts.
       { kind: 'fk', table: 'event_inspiration_assets', column: 'slot_key', references: 'inspiration_parts' },
+      // 🖼⏱ THE OWNERS' 24-HOUR UNDO (owner 2026-10-30, 20271299051148): every write to a board row by someone who is
+      // not an owner is recorded HERE by the table's own trigger — the before/after of each row it touched — and the
+      // owners undo it as themselves (undo_mood_board_change, SECURITY INVOKER). Coordinators APPLY; there is no
+      // approval queue on a change, so `approved_at` is claimed as an absence. A supplier's ASK stays the suggestion.
+      { kind: 'table', table: 'event_mood_board_changes' },
+      { kind: 'fk', table: 'event_mood_board_changes', column: 'event_id', references: 'events' },
+      { kind: 'fk', table: 'event_mood_board_changes', column: 'suggestion_id', references: 'event_inspiration_suggestions' },
+      { kind: 'column', table: 'event_mood_board_changes', column: 'touched' },
+      { kind: 'column', table: 'event_mood_board_changes', column: 'actor_label' },
+      { kind: 'column', table: 'event_mood_board_changes', column: 'first_row_at' },
+      { kind: 'column', table: 'event_mood_board_changes', column: 'undone_at' },
+      { kind: 'no_column', table: 'event_mood_board_changes', column: 'approved_at' },
+      {
+        kind: 'check',
+        table: 'event_mood_board_changes',
+        name: 'event_mood_board_changes_kind_chk',
+        mentions: 'keep',
+      },
     ],
     chain: 20,
     pair: ['TYPE-GALLERY', 'TYPE-EVENTS'],

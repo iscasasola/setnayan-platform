@@ -98,7 +98,7 @@ const NO_EVENT_WRITE: Record<string, string> = {
  * (`lib/delegate-areas.ts`). First match wins; a key with '#' names one export.
  * null = no area: the hosts' alone (event details, the hub's settings, hosts and
  * access, purchases, Live/Panood, deletion…), so a helper is always refused.
- * Today a host can set only Guest list · Seat plan · The Day · Suppliers to Edit
+ * Today a host can set Guest list · Seat plan · The Day · Suppliers · Mood Board to Edit
  * (`areaChoices`); the other areas are mapped anyway so the day a dropdown
  * grows an Edit, the gate already asks the right question.
  */
@@ -126,6 +126,10 @@ const AREA_RULES: ReadonlyArray<readonly [string, DelegateArea | null]> = [
   ['progress/_actions/free-venue-shortlist.ts', 'vendors'],
   ['budget/', 'budget'],
   ['studio/mood-board/', 'mood_board'],
+  // The Mood Board's own photos, uploaded and removed from the wizard's slot (owner 2026-10-30: the hosts give Mood
+  // Board access) — the photo gate (`moodBoardPhotosRefusal`) then asks the grant itself.
+  ['wizard-actions.ts#uploadMoodboardSlot', 'mood_board'],
+  ['wizard-actions.ts#removeMoodboardSlot', 'mood_board'],
   ['website/', 'invitations'],
   ['invitation/', 'invitations'],
   ['studio/save-the-date/', 'invitations'],

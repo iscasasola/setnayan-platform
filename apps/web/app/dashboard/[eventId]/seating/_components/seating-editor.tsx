@@ -18,6 +18,7 @@ import {
   ChevronUp,
   ChevronsDownUp,
   ChevronsUpDown,
+  CircleDot,
   GripVertical,
   Lock,
   LockOpen,
@@ -43,6 +44,7 @@ import {
   RotateCcw,
   RotateCw,
   Ruler,
+  Scan,
   Search,
   Signpost,
   Sparkles,
@@ -223,7 +225,7 @@ import { Sheet } from '@/app/_components/sheet';
 import { SeatFacesList, type FaceGuest, type FaceSlot, type FaceUnit } from './seat-faces-list';
 import { GuestCardSheet, SHIPPED_GUEST_CARD } from '../../guests/_components/guest-card-sheet';
 import { PickMenu as SeatPickMenu } from '../../website/editor/_components/pick-menu';
-import { ViewCountRow } from '../../guests/_components/view-summary-cards';
+import { PinCountDoor } from '../../guests/_components/view-summary-cards';
 import { useGuestsLens } from '../../guests/_components/guests-lens';
 import { guestsFilterMenu } from '../../guests/_components/guests-filter-menu';
 import { SEARCH_WAIT_MS } from '@/lib/guest-roster-view';
@@ -6717,6 +6719,22 @@ export function SeatingEditor({
   );
   const phoneMore = (
     <>
+      {/* ✨ Owner 2026-10-30 (*"The menu does not work properly"* → ONE top row on every view): the old count row's
+          ✨ Auto arrange tile is GONE in Guests, so its run lives here, first in the ⋯ — the SAME `runAutoArrange`, the
+          same refusal (Edit first · no tables), its one line + Undo still rising over the thumb row (`seatToast`). */}
+      {inGuests ? (
+        <>
+          <MenuRow
+            icon={Sparkles}
+            label={isPending ? 'Arranging…' : 'Auto arrange'}
+            hint={canEdit ? 'Seats everyone by the seating rules · Undo after' : 'Tap Edit first — only one person arranges at a time'}
+            onClick={runAutoArrange}
+            disabled={!canEdit || tables.length === 0 || isPending}
+            emphasized
+          />
+          <MenuDivider />
+        </>
+      ) : null}
       {/* ⇅ R4 slice 1: in Guests the thumb row is the shared one — who sits together lives here, in the head's ⋯. */}
       {inGuests ? (
         <>
@@ -6797,36 +6815,50 @@ export function SeatingEditor({
      the plan this editor holds, never typed: the units (linked tables once), who is coming and seated, who is coming and
      still to seat (that count is the door to them). */
   const seatedComing = guests.filter((g) => g.seated_table_id && g.rsvp_status !== 'declined').length;
-  /* 🗂 R4 · the fixed count row (owner 2026-10-29, prototype v12): Seated · Unseated · Tables · ✨ Auto arrange — every tile a
-     door: Seated and Unseated open the list (Unseated narrowed to who is left), Tables the plan, Auto arrange the shipped
-     run. Counted here from the plan this editor holds; guests who said no are not counted. */
-  const seatSummary = inGuests ? (
-    <ViewCountRow
-      view="seats"
-      tiles={[
-        { key: 'seated', word: 'seated', value: seatedComing, onPress: () => onSelectView('list') },
-        {
-          key: 'unseated',
-          word: 'unseated',
-          value: unseatedComing,
-          onPress: () => {
-            onSelectView('list');
-            openUnseated();
-          },
-        },
-        { key: 'tables', word: displayUnits.length === 1 ? 'table' : 'tables', value: displayUnits.length, onPress: () => onSelectView('2d') },
-        {
-          key: 'auto',
-          word: isPending ? 'Arranging…' : 'Auto arrange',
-          main: true,
-          icon: <Sparkles aria-hidden strokeWidth={2} />,
-          onPress: runAutoArrange,
-          disabled: !canEdit || tables.length === 0 || isPending,
-          about: canEdit ? undefined : 'Tap Edit first — only one person arranges at a time',
-        },
-      ]}
-    />
-  ) : null;
+  /* 📌 THE COUNTS RIDE THE ONE TOP ROW (owner 2026-10-30, iPhone app: *"Seat ls should be pinned on top row and on map
+     and 3d"* → *"Like this one"* — Guests › List's `✓ 80 ✗ 0 ? 152`). The fixed count row of four tiles (#7044) is GONE:
+     its three counts are the row's own doors on EVERY Seats mode (List · 2D · 3D), drawn by the ONE count door
+     (`PinCountDoor`) into the row's count seat (`lens.countsSlot`); each opens where its tile did — Seated the list,
+     Unseated the list narrowed to who is left, Tables the 2D plan. ✨ Auto arrange moved into the ⋯ (`phoneMore`).
+     Counted here from the plan this editor holds; guests who said no are not counted. */
+  const seatCountsSlot =
+    inGuests && lens?.countsSlot
+      ? createPortal(
+          <>
+            <PinCountDoor
+              dot="seated"
+              value={seatedComing}
+              id="gs-seats-seated"
+              word="seated"
+              icon={<Armchair aria-hidden strokeWidth={2.2} />}
+              onPress={() => onSelectView('list')}
+              attrs={{ 'data-seat-count': 'seated' }}
+            />
+            <PinCountDoor
+              dot="unseated"
+              value={unseatedComing}
+              id="gs-seats-unseated"
+              word="unseated"
+              icon={<UserMinus aria-hidden strokeWidth={2.2} />}
+              onPress={() => {
+                onSelectView('list');
+                openUnseated();
+              }}
+              attrs={{ 'data-seat-count': 'unseated' }}
+            />
+            <PinCountDoor
+              dot="tables"
+              value={displayUnits.length}
+              id="gs-seats-tables"
+              word={displayUnits.length === 1 ? 'table' : 'tables'}
+              icon={<CircleDot aria-hidden strokeWidth={2.2} />}
+              onPress={() => onSelectView('2d')}
+              attrs={{ 'data-seat-count': 'tables' }}
+            />
+          </>,
+          lens.countsSlot,
+        )
+      : null;
   const addTable = () => {
     selectPanelTab('tables');
     setShowAddTable(true);
@@ -6943,6 +6975,47 @@ export function SeatingEditor({
           lens.slot,
         )
       : null;
+  /* zoom controls — §5.9: Fit first/largest, every target ≥44px.
+     🧭 Studio: the thumb-zone tools and the people peek own the foot of the map, so the zoom rides at the top of the room.
+     🗺 Guests: the plan is the WHOLE screen (owner 2026-10-30, DECISION_LOG "SEATS 2D · SEATS 3D · THE MAP ARE ALWAYS FULL
+     SCREEN — NO FULL-SCREEN BUTTON"), and its top is under the pinned row — so the stack sits on the plan's cell, in the
+     LOWER third, just above the floating thumb row (`--sn-thumb-room`, the room that row measures, less the dock the cell
+     already stops at). Fit wears corner brackets, never ⤢. */
+  const zoomStack = (
+    <div
+      data-seat-plan-zoom=""
+      className={`absolute right-3 z-20 flex flex-col overflow-hidden rounded-lg border border-ink/15 bg-cream/90 shadow-sm backdrop-blur-sm ${inGuests ? '' : studioSeat ? 'top-3' : 'bottom-[64px] lg:bottom-3'}`}
+      style={inGuests ? { bottom: 'max(0.75rem, calc(var(--sn-thumb-room, 0px) - var(--sn-bottomdock-h, 0px)))' } : undefined}
+    >
+      <button
+        type="button"
+        onClick={fitView}
+        aria-label="Fit all tables in view"
+        title="Fit"
+        className="flex h-11 w-11 items-center justify-center text-ink/70 hover:bg-ink/5"
+      >
+        {/* Fit wears corner brackets, never ⤢ — ⤢ reads as "full screen", and the plan has none (owner 2026-10-30). */}
+        <Scan className="h-4 w-4" />
+      </button>
+      <button
+        type="button"
+        onClick={() => zoomAround(1.25)}
+        aria-label="Zoom in"
+        className="flex h-11 w-11 items-center justify-center border-t border-ink/10 text-ink/70 hover:bg-ink/5"
+      >
+        <Plus className="h-4 w-4" />
+      </button>
+      <button
+        type="button"
+        onClick={() => zoomAround(0.8)}
+        aria-label="Zoom out"
+        className="flex h-11 w-11 items-center justify-center border-t border-ink/10 text-ink/70 hover:bg-ink/5"
+      >
+        <Minus className="h-4 w-4" />
+      </button>
+    </div>
+  );
+
   const studioPeople = inGuests ? (
     <>
       {faceCardSheet}
@@ -7012,7 +7085,7 @@ export function SeatingEditor({
           summary row, then the editing space, the verbs at the foot. */}
       {studioSeat ? studioHead : isPhone ? phoneHead : doorStrip}
       {seatToolRounds}
-      {seatSummary}
+      {seatCountsSlot}
       {/* ═══════════ ROW 1 — COMMAND BAR (the page's only blurred surface) ═══════════ */}
       {isPhone || inGuests ? null : (
       <CommandBar>
@@ -7229,7 +7302,11 @@ export function SeatingEditor({
         {/* Room size & scale — right-anchored popover over the canvas (verdict
             §2 row 2). Floats (absolute) so it never pushes the canvas down. */}
         {view === 'plan' && showRoomPanel ? (
-          <div className="absolute right-2 top-2 z-40 flex max-h-[calc(100%-1rem)] w-[min(92vw,40rem)] flex-wrap items-end gap-4 overflow-y-auto rounded-xl border border-ink/10 bg-cream p-3 shadow-lg">
+          <div
+            className="absolute right-2 top-2 z-40 flex max-h-[calc(100%-1rem)] w-[min(92vw,40rem)] flex-wrap items-end gap-4 overflow-y-auto rounded-xl border border-ink/10 bg-cream p-3 shadow-lg"
+            /* 🗺 In Guests the plan's top is under the pinned row (the plan is the whole screen) — the panel opens below it. */
+            style={inGuests ? { top: 'calc(var(--gs-stick-h, 0px) + 0.5rem)', maxHeight: 'calc(100% - var(--gs-stick-h, 0px) - 1rem)' } : undefined}
+          >
             <div className="flex w-full items-center justify-between">
               <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">Room size &amp; scale</span>
               <button
@@ -8330,35 +8407,7 @@ export function SeatingEditor({
             </button>
           ) : null}
 
-          {/* zoom controls — §5.9: Fit first/largest, every target ≥44px. */}
-          {/* 🧭 Studio: the thumb-zone tools and the people peek own the foot of the map, so the zoom rides at the top. */}
-          <div data-seat-plan-zoom="" className={`absolute right-3 z-20 flex flex-col overflow-hidden rounded-lg border border-ink/15 bg-cream/90 shadow-sm backdrop-blur-sm ${studioSeat ? 'top-3' : 'bottom-[64px] lg:bottom-3'}`}>
-            <button
-              type="button"
-              onClick={fitView}
-              aria-label="Fit all tables in view"
-              title="Fit"
-              className="flex h-11 w-11 items-center justify-center text-ink/70 hover:bg-ink/5"
-            >
-              <Maximize2 className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => zoomAround(1.25)}
-              aria-label="Zoom in"
-              className="flex h-11 w-11 items-center justify-center border-t border-ink/10 text-ink/70 hover:bg-ink/5"
-            >
-              <Plus className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => zoomAround(0.8)}
-              aria-label="Zoom out"
-              className="flex h-11 w-11 items-center justify-center border-t border-ink/10 text-ink/70 hover:bg-ink/5"
-            >
-              <Minus className="h-4 w-4" />
-            </button>
-          </div>
+          {inGuests ? null : zoomStack}
 
           {/* wall handles (to-scale mode) — drag the right/bottom edge or the
               SE corner to resize the ROOM; the typed Room-size inputs stay as
@@ -8714,6 +8763,8 @@ export function SeatingEditor({
             </p>
           </div>
         )}
+        {/* 🗺 Guests: the zoom stack rides the plan's cell, in the lower third (`zoomStack`). */}
+        {inGuests && view === 'plan' ? zoomStack : null}
         {/* 🪑 Details · 3D — the lab, drawn over the plan in this same part (free,
             always on — DECISION_LOG "3D SEAT PLANNING STAYS FREE"). The 2D plan
             stays mounted beneath it, so its lock, guests and lists stay put. */}

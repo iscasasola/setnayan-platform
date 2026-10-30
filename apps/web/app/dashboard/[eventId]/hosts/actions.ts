@@ -272,8 +272,9 @@ export type SetDelegateAreaResult =
  *   · NEVER A FULL CO-HOST. Nothing reads a co-host seat's permissions_json,
  *     so a grant written there would change nothing and say something.
  *   · ONLY A LEVEL SOMETHING ENFORCES (`areaChoices`): Budget & payments and
- *     Photos are View · Off (locked D1 · owner 2026-08-06); Event Hub and Mood
- *     Board are not settable until their gates exist.
+ *     Photos are View · Off (locked D1 · owner 2026-08-06); Mood Board is
+ *     Edit · View (its photos — owner 2026-10-30); Event Hub is not settable
+ *     until its gate exists.
  *   · MATERIALISED, NEVER SPREAD (`withArea`): setting one area writes every
  *     other one down as it stands, so a grant is never a silent withdrawal.
  *     Off is an explicit null, never a deleted key.

@@ -2983,6 +2983,24 @@ export const UGAT_JOINTS: UgatJoint[] = [
       { kind: 'no_column', table: 'event_inspiration_assets', column: 'source_render_id' },
       // 🧩 Step ② (PLAN admin_inspiration_groups_2026-10-25): the 29-key CHECK became an FK into inspiration_parts.
       { kind: 'fk', table: 'event_inspiration_assets', column: 'slot_key', references: 'inspiration_parts' },
+      // 🖼⏱ THE OWNERS' 24-HOUR UNDO (owner 2026-10-30, 20271299051148): every write to a board row by someone who is
+      // not an owner is recorded HERE by the table's own trigger — the before/after of each row it touched — and the
+      // owners undo it as themselves (undo_mood_board_change, SECURITY INVOKER). Coordinators APPLY; there is no
+      // approval queue on a change, so `approved_at` is claimed as an absence. A supplier's ASK stays the suggestion.
+      { kind: 'table', table: 'event_mood_board_changes' },
+      { kind: 'fk', table: 'event_mood_board_changes', column: 'event_id', references: 'events' },
+      { kind: 'fk', table: 'event_mood_board_changes', column: 'suggestion_id', references: 'event_inspiration_suggestions' },
+      { kind: 'column', table: 'event_mood_board_changes', column: 'touched' },
+      { kind: 'column', table: 'event_mood_board_changes', column: 'actor_label' },
+      { kind: 'column', table: 'event_mood_board_changes', column: 'first_row_at' },
+      { kind: 'column', table: 'event_mood_board_changes', column: 'undone_at' },
+      { kind: 'no_column', table: 'event_mood_board_changes', column: 'approved_at' },
+      {
+        kind: 'check',
+        table: 'event_mood_board_changes',
+        name: 'event_mood_board_changes_kind_chk',
+        mentions: 'keep',
+      },
     ],
     chain: 20,
     pair: ['TYPE-GALLERY', 'TYPE-EVENTS'],
@@ -2995,7 +3013,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     writtenBy:
       'applyGalleryPick (the couple\u2019s picker) and applyMoodboardTemplate (theme seeding) \u2014 both in studio/mood-board/actions.ts (applyRenderPick, MB9\u2019s shared-render pick, was deleted with Mood Board renders 2026-10-26, and its column, FK and source_kind value were dropped by 20271289858095 \u2014 prod held 0 render_pick rows); uploadMoodboardSlot writes the couple\u2019s OWN photos, which carry no id and no credit',
     guardedBy:
-      'RLS \u2014 any event member reads; only the hosts (member_type couple, current_couple_event_ids) insert/update, admin all, and UPDATE is column-granted to removed_at/slot_key/slot_position only (20271297469032); plus the provenance biconditional and the FK event_inspiration_assets_slot_key_is_a_part \u2192 inspiration_parts (20271288430455 \u2014 it replaced the 29-key slot CHECK; a part holding a photo cannot be deleted)',
+      'RLS \u2014 any event member reads; only the hosts (member_type couple, current_couple_event_ids) and a seat the hosts set to Mood Board Edit (current_moderator_area_levels(\'mood_board\') = edit, 20271297714074 \u2014 the server actions ask can_change_mood_board_photos first) insert/update, admin all, and UPDATE is column-granted to removed_at/slot_key/slot_position only (20271297469032); plus the provenance biconditional and the FK event_inspiration_assets_slot_key_is_a_part \u2192 inspiration_parts (20271288430455 \u2014 it replaced the 29-key slot CHECK; a part holding a photo cannot be deleted)',
     traps:
       'The one-row-per-cell rule is a PARTIAL UNIQUE INDEX (WHERE removed_at IS NULL), not a constraint, so it is invisible to pg_constraint and cannot be claimed above \u2014 verify with \\d event_inspiration_assets. Removal is SOFT (removed_at), so every read must filter it; a count that forgets tells a couple they saved photos they deleted. library_asset_id is ON DELETE CASCADE, so HARD-deleting a library photo (deleteAsset / deleteStylistAsset, which also remove the storage object) removes the tile from every board holding it. RETIRING one (retired_at) does not touch this FK at all and the tile keeps rendering, credited \u2014 the two paths behave completely differently and the UI copy for them must not be shared.',
   },

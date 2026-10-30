@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { Check, ChevronDown, Eye } from 'lucide-react';
+import { Check, ChevronDown, Settings, Sparkles } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { useOneOpen } from '@/lib/one-open';
 import { TimelineRowsLoading } from '@/app/_components/timeline-states';
@@ -17,9 +17,9 @@ import { MAKER_STAGE_KEYS, type MakerStageKey } from '@/lib/maker-parts';
 import { MAKER_SIDE_LABEL, makerStageLabel, type MakerSide } from './maker-bar';
 import { StageItemMenu, type StagePageOption } from './stage-item-menu';
 import { StudioHome, TILE_ICON } from './studio-home';
-import { GUESTS_SEE_WORDS, guestsSeeRowStatus } from '@/lib/guests-see-table';
-import { GuestsSeeSheet, guestsSeeWorkArea } from './guests-see-sheet';
-import { useMaker } from './maker-context';
+import { GuestsSeeSheet } from './guests-see-sheet';
+import { MAKER_OPEN_GUESTS_SEE_EVENT, useMaker } from './maker-context';
+import { formatCount } from '@/lib/format-number';
 import { MakerDesk } from './maker-desk';
 import { useIsDesktop } from '@/lib/use-responsive';
 
@@ -76,6 +76,9 @@ function stageOf(pick: string | undefined): MakerStageKey | null {
  *     a page changes, and the thumb travels exactly one half. A name never truncates and never wraps: it tightens,
  *     then (a page) writes its short name (`studioHalfSteps`); measured on the phone, again on a resize.
  */
+/** Studio ▾'s last row's line — the prototype's words for what the ⚙ holds now that it left Studio. */
+export const STUDIO_MENU_SETTINGS_LINE = 'Look · address · QR · who can view · E-Gifts';
+
 export function StudioSideSwitch({
   side,
   onPick,
@@ -85,7 +88,14 @@ export function StudioSideSwitch({
   page = null,
   tiles = [],
   onOpen,
+  onSettings,
 }: {
+  /**
+   * ⚙ Open the Hub's ⚙ Event Hub settings — Studio ▾'s last row (owner 2026-10-30, the approved prototype
+   * `prototypes/build-contracts-2026-10-30/event-hub-pro/` `studioMenu`: after a divider, "Event Hub Settings · Look ·
+   * address · QR · who can view · E-Gifts"). The SAME sheet as the pinned row's ⚙ (`HubSettingsGear`); absent: no row.
+   */
+  onSettings?: () => void;
   side: MakerSide;
   /** Change side — the shell's `pickSide`. Called only with a pick from the other side's list. */
   onPick: (side: MakerSide) => void;
@@ -103,10 +113,15 @@ export function StudioSideSwitch({
   onOpen?: (key: StudioTileKey) => void;
 }) {
   const [list, setList] = useState<'stages' | 'pages' | null>(null);
-  /* 🗂 "What guests see" (owner 2026-10-10) — a sheet opened from its row in Studio ▾; never a Studio page. */
+  /* 🗂 "What guests see" (owner 2026-10-10) — a sheet, never a Studio page. Its row moved from Studio ▾ to the Hub's
+     ⚙ Event Hub settings (owner 2026-10-30, the prototype's Q4 drawn as A); the ⚙ asks for it with an event, and this
+     switch — always mounted — draws it. */
   const [guestsSee, setGuestsSee] = useState(false);
-  /* Asked only while the list is open (it is the list's row), once per render: the table it holds says the row's status. */
-  const guestsSeeArea = list === 'pages' ? guestsSeeWorkArea() : null;
+  useEffect(() => {
+    const open = () => setGuestsSee(true);
+    window.addEventListener(MAKER_OPEN_GUESTS_SEE_EVENT, open);
+    return () => window.removeEventListener(MAKER_OPEN_GUESTS_SEE_EVENT, open);
+  }, []);
   const shut = (which: 'stages' | 'pages') => setList((l) => (l === which ? null : l));
   useOneOpen(list === 'pages', () => shut('pages'));
   const onStages = side === 'stages';
@@ -147,7 +162,8 @@ export function StudioSideSwitch({
       {/* THIS EVENT'S STUDIO PAGES — the dropdown's own rows (its looks: `pick-menu-place.ts`), in the Maker's one sheet. */}
       {list === 'pages' && typeof document !== 'undefined'
         ? createPortal(
-            <MakerSheet label="Studio pages" onClose={() => shut('pages')}>
+            /* 🎛 "n of N ready" at the list's heading (LOCKED 2026-10-09 decision 6) — of the pages it lists. */
+            <MakerSheet label="Studio pages" aside={`${formatCount(tiles.filter((t) => t.done === true).length)} of ${formatCount(tiles.length)} ready`} onClose={() => shut('pages')}>
               <ul role="listbox" aria-label="Studio pages" data-pick-side="sheet" className="p-0.5">
                 {studioChooserOptions(tiles).map((o) => {
                   const on = o.key === here?.key;
@@ -188,35 +204,33 @@ export function StudioSideSwitch({
                     </li>
                   );
                 })}
-                {/* 🗂 WHAT GUESTS SEE — one more row, only where the work area can answer it (a stage's editor is mounted). */}
-                {guestsSeeArea ? (
-                  <li role="none">
-                    <button
-                      type="button"
-                      role="option"
-                      aria-selected={false}
-                      data-pick-option="guests-see"
-                      onClick={() => {
-                        shut('pages');
-                        setGuestsSee(true);
-                      }}
-                      className={pickOptionClass(true, false)}
-                    >
-                      {/* The row's shape is its neighbours' (`tileOption`): an icon, the name and its line, a status on the right. */}
-                      <span aria-hidden className="inline-flex shrink-0">
-                        <Eye aria-hidden className="h-[18px] w-[18px] text-sn-accent" strokeWidth={1.9} />
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block font-semibold">{GUESTS_SEE_WORDS.title}</span>
-                        <span className="block text-[12px] font-medium leading-snug opacity-75">{GUESTS_SEE_WORDS.menuLine}</span>
-                      </span>
-                      <span data-pick-trail="muted" data-guests-see-status="" className={pickTrailClass('muted', false)}>
-                        {guestsSeeRowStatus(guestsSeeArea.table)}
-                      </span>
-                    </button>
-                  </li>
-                ) : null}
               </ul>
+              {/* ⚙ THE LAST ROW — what moved out of Studio lives in the ⚙ (Look · the address · QR · who can view ·
+                  E-Gifts): one door to it from here, after a hairline. It closes this list and opens THE ⚙ sheet. */}
+              {onSettings ? (
+                <div data-studio-menu-settings="" className="mt-1 border-t border-ink/10 p-0.5 pt-1.5">
+                  <button
+                    type="button"
+                    data-pick-option="settings"
+                    onClick={() => {
+                      shut('pages');
+                      onSettings();
+                    }}
+                    className={pickOptionClass(true, false)}
+                  >
+                    <span aria-hidden className="inline-flex shrink-0">
+                      <Sparkles className="h-5 w-5" strokeWidth={1.75} />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block font-semibold">Event Hub Settings</span>
+                      <span className="block text-[12px] font-medium leading-snug opacity-75">{STUDIO_MENU_SETTINGS_LINE}</span>
+                    </span>
+                    <span aria-hidden className={pickTrailClass('muted', false)}>
+                      <Settings className="h-4 w-4" strokeWidth={1.75} />
+                    </span>
+                  </button>
+                </div>
+              ) : null}
             </MakerSheet>,
             document.body,
           )
@@ -398,10 +412,13 @@ export function MakerSheet({
   children,
   everyWidth = false,
   tall = false,
+  aside = null,
 }: {
   label: string;
   onClose: () => void;
   children: ReactNode;
+  /** A quiet state at the heading's right — Studio ▾'s "n of N ready" (LOCKED 2026-10-09 decision 6). */
+  aside?: ReactNode;
   /** A whole table, not a short list ("What guests see"): the sheet takes nearly the full height. */
   tall?: boolean;
   /** Shown on a desktop too — for a sheet every width needs ("What guests see"). Every other sheet stays a
@@ -475,7 +492,10 @@ export function MakerSheet({
         className={`absolute inset-x-0 bottom-0 flex ${tall ? 'h-[92dvh]' : 'max-h-[62dvh]'} flex-col rounded-t-3xl bg-white px-2 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-1 shadow-[0_-18px_40px_-18px_rgba(30,26,18,.45)] ring-1 ring-ink/10 focus:outline-none lg:mx-auto lg:max-w-md`}
       >
         <span aria-hidden className="mx-auto mb-1.5 mt-1 h-1 w-10 shrink-0 rounded-full bg-ink/15" />
-        <p className="shrink-0 px-3 pb-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-ink/55">{label}</p>
+        <p className="flex shrink-0 items-baseline gap-2 px-3 pb-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-ink/55">
+          {label}
+          {aside ? <span className="ml-auto" data-maker-sheet-aside="">{aside}</span> : null}
+        </p>
         <div className={`min-h-0 flex-1 overflow-y-auto overscroll-contain${tall ? ' bg-inherit' : ''}`}>{children}</div>
       </div>
     </div>

@@ -839,6 +839,16 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     why: 'Which partner pressed Keep / No thanks on a supplier\u2019s photo (or which supplier account withdrew it). An actor stamp on the same row; the decision (state, decided_at) stays and the stamp goes. No CHECK pairs it with anything, so the SET NULL lands. Nullable with ON DELETE SET NULL from the day it shipped.',
   },
   {
+    table: 'event_mood_board_changes',
+    column: 'actor_user_id',
+    why: 'Who changed a couple\u2019s Mood Board photos under Mood Board Edit (2026-10-30, migration 20271299051148). 🔑 THE ROW IS THE COUPLE\u2019S RECORD, NOT THE ACTOR\u2019S \u2014 the same shape as event_colour_changes: it is the owners\u2019 24-hour Undo for a change still live on their board, so deleting it because the coordinator left would take the Undo away. Readable without the uuid: `actor_label` denormalises the role and name AS IT READ. The trigger only matches an OPEN change by this uuid for 5 minutes; a NULL just means a later write opens a new change. Nullable with ON DELETE SET NULL from the day it shipped.',
+  },
+  {
+    table: 'event_mood_board_changes',
+    column: 'undone_by_user_id',
+    why: 'Which owner pressed Undo on a Mood Board change (2026-10-30). An actor stamp on the same couple-owned row; `undone_at` stays and the stamp goes. No CHECK pairs it with anything, so the SET NULL lands. Nullable with ON DELETE SET NULL from the day it shipped.',
+  },
+  {
     table: 'event_date_change_requests',
     column: 'asked_by_user_id',
     why: 'Which partner pressed "Ask them to move or unlock?" (the clashing-date flow, 2026-10-01). The REQUEST belongs to the EVENT and is answered by its booked suppliers: a still-open one is what their Move / Unlock card and the couple\u2019s Home card stand on, so deleting it because one partner left would silently withdraw an ask other people are mid-way through answering. The uuid is a stamp read by no screen and no RLS policy (the gate is current_couple_event_ids()). Nullable with ON DELETE SET NULL from the day it shipped.',

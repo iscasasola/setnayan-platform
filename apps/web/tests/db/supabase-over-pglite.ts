@@ -22,7 +22,7 @@
  * throws loudly (`assertModelled`) rather than silently skipping the call — a
  * skipped money write is exactly the failure that renders as success.
  *
- * NOT a general supabase-js: no RLS, no `.order()`, no `.single()`, no filters
+ * NOT a general supabase-js: no RLS, no `.order()`, no filters
  * beyond `.eq()`. Extend it when a tested path needs more.
  */
 import { createRequire } from 'node:module';
@@ -71,6 +71,7 @@ const SERVER_ONLY_STUB = path.join(process.cwd(), '__server_only_stub__.js');
  *   .rpc(fn, namedArgs)
  *   .from(t).select(cols).eq(...)[.limit(n)].maybeSingle()
  *   .from(t).insert(row).select(cols).maybeSingle()
+ *   .from(t).insert(row).select(cols).single()
  *   await .from(t).insert(row)
  *   await .from(t).delete().eq(...)
  * …and, since 2026-10-10, the four more that lib/booking-payment-plan.server.ts
@@ -224,6 +225,19 @@ class Query implements PromiseLike<{ data: Row[] | null; error: PgError }> {
     const { data, error } = await this.run();
     if (error) return { data: null, error };
     return { data: data && data.length > 0 ? data[0]! : null, error: null };
+  }
+
+  /**
+   * `.single()` — exactly one row, as supabase-js answers it: no row is an error (PGRST116), never `data: null` read
+   * as success. Added 2026-10-30 for `ensureAutoShareInvite` (insert → select → single).
+   */
+  async single(): Promise<{ data: Row | null; error: PgError }> {
+    const { data, error } = await this.run();
+    if (error) return { data: null, error };
+    if (!data || data.length !== 1) {
+      return { data: null, error: { code: 'PGRST116', message: `JSON object requested, ${data?.length ?? 0} rows returned` } as PgError };
+    }
+    return { data: data[0]!, error: null };
   }
 
   private cols(): string {

@@ -18,10 +18,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { stripComments as strip } from '@/lib/strip-comments';
 
 const HERE = join(import.meta.dirname, '_components');
 const read = (f: string) => readFileSync(join(HERE, f), 'utf8');
-const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 const BENCH = strip(read('shortlist-categories.tsx'));
 const ROW = strip(read('find-thumb-row.tsx'));
 const RANGE = strip(read('find-budget-range.tsx'));

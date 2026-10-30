@@ -18,8 +18,6 @@ const FactSheet = dynamic(() => import('../vendors/_components/fact-sheets').the
  */
 export function HomeDateFinder({ eventId, openAtFirst = false }: { eventId: string; openAtFirst?: boolean }) {
   const [open, setOpen] = useState(openAtFirst);
-  const router = useRouter();
-  const owed = useRef(false);
   const href = dateFinderHref(eventId);
 
   useEffect(() => {
@@ -38,8 +36,18 @@ export function HomeDateFinder({ eventId, openAtFirst = false }: { eventId: stri
     return () => window.removeEventListener('click', onClick, true);
   }, [href]);
 
+  return open ? <OpenDateFinder eventId={eventId} onClosed={() => setOpen(false)} /> : null;
+}
+
+/**
+ * The open sheet — its own component so the router is asked for only while it is up (Home's server-drawn tests render
+ * the closed opener with no app router mounted).
+ */
+function OpenDateFinder({ eventId, onClosed }: { eventId: string; onClosed: () => void }) {
+  const router = useRouter();
+  const owed = useRef(false);
   const close = () => {
-    setOpen(false);
+    onClosed();
     try {
       const url = new URL(window.location.href);
       if (url.searchParams.has(DATE_FINDER_PARAM)) {
@@ -55,8 +63,7 @@ export function HomeDateFinder({ eventId, openAtFirst = false }: { eventId: stri
       router.refresh();
     }
   };
-
-  return open ? (
+  return (
     <FactSheet
       eventId={eventId}
       which="date"
@@ -67,5 +74,5 @@ export function HomeDateFinder({ eventId, openAtFirst = false }: { eventId: stri
       }}
       onClose={close}
     />
-  ) : null;
+  );
 }

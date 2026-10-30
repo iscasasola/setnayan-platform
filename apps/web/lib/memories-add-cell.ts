@@ -12,17 +12,16 @@
  * Pure — no React, no I/O.
  */
 import { papicCaptureCost } from '@/lib/papic-cameras-pure';
-import { UPLOADS_TAKEN_LINE } from '@/lib/uploads-seat-claim';
 import { costInfoLine, creditsCount, type UploadPot } from '@/app/dashboard/[eventId]/studio/papic/_lib/upload-credits';
 
-/** Which of the thumb-row door's three faces the page drew: the uploader · the turn-on choice · the other host's. */
-export type AddCellState = 'open' | 'off' | 'taken';
+/** Which of the thumb-row door's faces the page drew: the uploader · the turn-on choice. ("The other host's" is gone:
+ *  every host has their own camera since #7111, 2026-10-31.) */
+export type AddCellState = 'open' | 'off';
 
 export function addCellWords(state: AddCellState, pot: UploadPot): { line: string; tip: string } {
   if (state === 'off') {
     return { line: 'Turned off', tip: 'Adding photos by hand is off for this event. Press to turn it on.' };
   }
-  if (state === 'taken') return { line: 'Other host’s', tip: UPLOADS_TAKEN_LINE };
   if (pot === 'unmetered') {
     return { line: 'Your pass covers it', tip: 'From your phone or laptop, into Your uploads. Your Papic pass covers every photo you add.' };
   }

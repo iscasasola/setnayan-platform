@@ -35,8 +35,7 @@
  *                                        THE KEEPSAKE ROW + THE ＋ ADD CELL (owner 2026-10-31, "Build both"): the REAL
  *                                        `MemoriesKeepsakeRow` opening the REAL cards (fixture reads, nothing fetched) and
  *                                        the REAL Add cell: ?keep=none (Magazine · Recap · Flash dimmed, each with its
- *                                        reason in the ⓘ; Thank You has no "not yet") · ?add=off (uploads off → the turn-on choice) · ?add=taken (the
- *                                        other host's camera → the line).
+ *                                        reason in the ⓘ; Thank You has no "not yet") · ?add=off (uploads off → the turn-on choice).
  *                                        ?who=tagged|all — ⚙ draws the REAL Who sees what (owner 2026-10-30) at that
  *                                        choice (the lab's ⚙ holds that rule only; the server-read rows need a session)
  *                                        · with ?guest=1&coord=1 — the event's coordinator: no host tools, ⚙ = the rules.
@@ -76,7 +75,6 @@ import { ServiceParts } from '@/app/dashboard/[eventId]/studio/_components/servi
 import { UploadsOpenChoice } from '@/app/dashboard/[eventId]/studio/papic/_components/uploads-open-choice';
 import { keepsakeDoors, type KeepsakeKey } from '@/lib/memories-keepsakes';
 import { addCellWords } from '@/lib/memories-add-cell';
-import { UPLOADS_TAKEN_LINE } from '@/lib/uploads-seat-claim';
 import { SCOPE_MIN_MOMENTS } from '@/lib/life-story-moment-graph';
 import type { RecapCoupleSummary } from '@/lib/auto-recap';
 import { appStoreDetailHref } from '@/lib/add-ons-catalog';
@@ -267,7 +265,7 @@ export default async function BarLab({
       'thank-you': <ServiceParts eventId={EVENT} service="papic" door={thankYou} />,
     };
     const doors = keepsakeDoors({ magazine, recap, flash, flashMin: SCOPE_MIN_MOMENTS.event, thankYou: true });
-    const addState = sp.add === 'off' ? 'off' : sp.add === 'taken' ? 'taken' : 'open';
+    const addState = sp.add === 'off' ? 'off' : 'open';
     return (
       <>
         <div className="sn-ambient min-h-screen">
@@ -290,10 +288,6 @@ export default async function BarLab({
                     addPhotos={
                       addState === 'off' ? (
                         <UploadsOpenChoice eventId={EVENT} open={false} variant="row" back="memories" />
-                      ) : addState === 'taken' ? (
-                        <p className="text-sm text-ink/70" data-add-photos-taken="">
-                          {UPLOADS_TAKEN_LINE}
-                        </p>
                       ) : (
                         <AddToLibrary
                           token={sp.claim === '1' ? null : 'lab-no-seat'}

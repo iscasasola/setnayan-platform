@@ -77,9 +77,9 @@ test('3 · one row — in the Hub’s ⚙, no longer in Studio ▾ — only wher
   assert.match(src, /window\.addEventListener\(MAKER_OPEN_GUESTS_SEE_EVENT, open\);/);
   assert.match(src, /\{guestsSee && typeof document !== 'undefined' \? createPortal\(<GuestsSeeSheet onClose=\{\(\) => setGuestsSee\(false\)\} \/>, document\.body\) : null\}/);
   assert.match(stripComments(read(SHEET)), /<MakerSheet label=\{W\.title\} onClose=\{close\} everyWidth tall>/);
-  /* 🗂 R1 (owner 2026-10-28): the RSVP tile left for Guests ⚙; R4 the Wedding March and Seat plan for Guests' views —
-     eight pages; the sheet is still never a page of its own. */
-  assert.equal(STUDIO_TILE_KEYS.length, 8, 'a Studio page was added for it');
+  /* 🗂 R1 (owner 2026-10-28): the RSVP tile left for Guests ⚙; R4 the Wedding March and Seat plan for Guests' views;
+     R8 Prints for its own page — the sheet is still never a page of its own. */
+  assert.ok(!(STUDIO_TILE_KEYS as readonly string[]).includes('guests-see'), 'a Studio page was added for it');
 });
 
 test('4 · the sheet decides nothing: it imports the table’s handlers and no rule of the page', () => {

@@ -127,7 +127,10 @@ import {
   resolveSetnayanAiPaywallEnabled,
 } from '@/lib/integration-config';
 import { DirectionsMenu } from '@/app/_components/nav-links';
-import { VendorLocationMap } from '@/app/_components/vendor-location-map';
+import { ShopReachLine, ShopReachMap } from './_components/shop-reach';
+import { ShopAddresses } from './_components/shop-addresses';
+import { PinnedReviewCard } from './_components/pinned-review-card';
+import { ownWebAddress, pinnedQuote, shopReach } from '@/lib/shop-page-plan';
 import { fetchPublicVendorBranches } from '@/lib/vendor-branches';
 import type { CardRecordRating } from '@/app/_components/card-record-section';
 import { cardRecordEnabled } from '@/lib/card-record-flag';
@@ -252,6 +255,9 @@ export type PublicVendorRow = {
   hq_address: string | null;
   hq_latitude: number | null;
   hq_longitude: number | null;
+  /** The shop's own declared furthest distance — clamped to the plan on read (`effectiveOuterRadiusKm`). Optional:
+   *  the legacy select omits it, which reads as undeclared (the plan's ring). */
+  outer_radius_km?: number | null;
   website: string | null;
   // 🚪 NO contact_email / contact_phone, ON PURPOSE (2026-09-10). This page is
   // public and signed-out-readable; a field it never fetches can never be
@@ -434,7 +440,7 @@ export async function fetchVendor(slug: string): Promise<PublicVendorRow | null>
   // screen_name silently null (resolver falls back to computed
   // placeholder).
   const fullSelect =
-    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,gallery_video_links,services,location_city,hq_address,hq_latitude,hq_longitude,website,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,name_revealed_at,screen_name,tier_state,tier_expires_at,verification_state,next_renewal_due_at,user_id,created_at';
+    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,gallery_video_links,services,location_city,hq_address,hq_latitude,hq_longitude,website,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,name_revealed_at,screen_name,tier_state,tier_expires_at,verification_state,next_renewal_due_at,user_id,outer_radius_km,created_at';
   const legacySelect =
     'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,services,location_city,hq_address,hq_latitude,hq_longitude,website,public_visibility,compatible_ceremony_types,compatible_venue_settings,created_at';
 
@@ -445,7 +451,7 @@ export async function fetchVendor(slug: string): Promise<PublicVendorRow | null>
     .maybeSingle();
   if (
     error &&
-    /(gallery_video_links|is_demo|name_revealed_at|screen_name|tier_state|tier_expires_at|verification_state|next_renewal_due_at|user_id)/i.test(
+    /(gallery_video_links|is_demo|name_revealed_at|screen_name|tier_state|tier_expires_at|verification_state|next_renewal_due_at|user_id|outer_radius_km)/i.test(
       error.message,
     )
   ) {
@@ -1345,6 +1351,42 @@ export async function renderVendorBySlug({
     }
   }
   const orderedReviews = pinReviewFirst(reviews, pinnedReviewId, pinnedOutsideWindow);
+
+  // ── SUPPLIER WEBSITE BY PLAN (owner-approved 2026-10-30) — the card column's plan pieces ─────────────────────────
+  // Reach: the plan's ring (lib/vendor-tier-caps.ts serviceRadiusKm) clamping the shop's own outer ring — the SAME
+  // number couples' search and the supplier's Where you work map draw; an unverified shop reaches 0 km and says why.
+  const reach = shopReach({
+    verified: vendor.verification_state === 'verified',
+    tier: effectiveTierState,
+    declaredOuterKm: vendor.outer_radius_km ?? null,
+  });
+  // Pro+ — their own web address pointing at this page (approved Q4 = A). Read only when the plan shows it; a refused
+  // read shows the Setnayan address alone, which is still true.
+  let ownAddress: string | null = null;
+  if (premiumLayout) {
+    const { data: domainRow, error: domainError } = await admin
+      .from('custom_domains')
+      .select('domain, verified_at')
+      .eq('owner_type', 'vendor')
+      .eq('owner_id', vendor.vendor_profile_id)
+      .not('verified_at', 'is', null)
+      .order('verified_at', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (domainError) logQueryError('PublicVendorPage.customDomain', domainError, { slug }, 'graceful_degrade');
+    const d = domainRow as { domain?: string | null; verified_at?: string | null } | null;
+    ownAddress = ownWebAddress({ planAllows: true, domain: d?.domain, verifiedAt: d?.verified_at });
+  }
+  const setnayanAddress = `${(process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com')
+    .replace(/^https?:\/\/(www\.)?/, '')
+    .replace(/\/$/, '')}/${vendor.business_slug ?? slug}`;
+  // Pro+ — the pinned review's first words in the card column (it still leads the Reviews list too). Only when the
+  // plan shows review words at all (`reviewCommentsViewable`) and the pin resolved to a review with words.
+  const pinnedLead =
+    pinnedReviewId && viewerTierCaps.reviewCommentsViewable && orderedReviews[0]?.review_id === pinnedReviewId
+      ? orderedReviews[0]
+      : null;
+  const pinnedLeadQuote = pinnedLead ? pinnedQuote(pinnedLead.body) : null;
 
   // "Featured in these stories" — BOTH voices crediting this vendor (PR-D ·
   // Storytellers council verdict 2026-07-16 + Simplicity Canon rule 2: being
@@ -2518,12 +2560,9 @@ export async function renderVendorBySlug({
               </a>
             ) : null}
             <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-ink/60">
-              {vendor.location_city ? (
-                <span className="inline-flex items-center gap-1">
-                  <MapPin aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-                  {vendor.location_city}
-                </span>
-              ) : null}
+              {/* 📍 The city line carries the plan's reach (2026-10-23 · 2026-10-29): "Serves up to 20 km around
+                  Tagaytay", or "… · distance search opens once verified" before Setnayan has verified the shop. */}
+              <ShopReachLine reach={reach} city={vendor.location_city ?? null} />
               {/*
                 🚪 NO DOOR OUT OF THE APP (owner 2026-09-10, verbatim: "our goal is
                 to let them integrate their event with the vendor they find. not
@@ -2608,10 +2647,11 @@ export async function renderVendorBySlug({
                 Directions dropdown — OSM embed with a marker pin, key-free.
                 Renders only when coordinates exist; label uses location_city
                 so a hidden vendor's business name never leaks. */}
-            <VendorLocationMap
+            <ShopReachMap
+              reach={reach}
               latitude={vendor.hq_latitude}
               longitude={vendor.hq_longitude}
-              label={vendor.location_city ?? null}
+              city={vendor.location_city ?? null}
             />
             {/* Nav deep-links (2026-05-21). Google Maps · Waze · Apple Maps
                 when the vendor has hq_lat/lng — ONE "Directions ▾" dropdown
@@ -2654,6 +2694,17 @@ export async function renderVendorBySlug({
                   ))}
                 </ul>
               </div>
+            ) : null}
+            {/* 🌐 The page's addresses — Setnayan's on every plan; Pro + Ultra also their own domain → this page. */}
+            <ShopAddresses setnayanAddress={setnayanAddress} ownAddress={ownAddress} />
+            {/* ⭐ Pro + Ultra — the pinned best review's first words, beside the facts. */}
+            {pinnedLead && pinnedLeadQuote ? (
+              <PinnedReviewCard
+                quote={pinnedLeadQuote}
+                stars={viewerTierCaps.reviewStarsCounted ? pinnedLead.rating_overall : null}
+                author={pinnedLead.couple_display_name?.trim() || 'Verified couple'}
+                when={new Date(pinnedLead.created_at).toLocaleDateString('en-PH', { month: 'short', year: 'numeric' })}
+              />
             ) : null}
           </div>
         </section>

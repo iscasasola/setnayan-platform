@@ -166,7 +166,7 @@ export function BookThisBuild({ eventId, picks, basePath }: { eventId: string; p
         data="book-ask"
         foot={
           <SheetFoot>
-            <ActionButton tone="neutral" label="Not yet" onClick={() => setAsking(false)} />
+            <ActionButton tone="neutral" icon={X} label="Not yet" onClick={() => setAsking(false)} />
             <ActionButton tone="brand" main icon={Check} label="Yes, book them" onClick={start} disabled={pending} />
           </SheetFoot>
         }

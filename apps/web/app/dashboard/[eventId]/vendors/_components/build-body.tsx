@@ -40,7 +40,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
-import { CalendarDays, Check, Pencil, Plus, Save, Search, X } from 'lucide-react';
+import { CalendarDays, Check, Columns2, Pencil, Plus, Save, Search, X } from 'lucide-react';
 import { ActionButton, useFitRow } from '@/components/action-button';
 import { Count } from '@/components/count';
 import { Explain } from '@/app/_components/explain';
@@ -478,6 +478,7 @@ export function BuildBody({
             <div className="mt-2.5">
               <ActionButton
                 tone="neutral"
+                icon={Columns2}
                 label={`Compare ${formatCount(view.cards.length)} builds`}
                 onClick={() => setComparing(true)}
                 aria-haspopup="dialog"
@@ -512,7 +513,7 @@ export function BuildBody({
         data="build-compare"
         foot={
           <SheetFoot>
-            <ActionButton tone="brand" main label="Done" onClick={() => setComparing(false)} className="col-span-2" />
+            <ActionButton tone="brand" main icon={Check} label="Done" onClick={() => setComparing(false)} className="col-span-2" />
           </SheetFoot>
         }
       >
@@ -1178,7 +1179,7 @@ function SaveSheetBody({
         />
       </SheetField>
       <SheetFoot>
-        <ActionButton tone="neutral" label={kind === 'rename' ? 'Cancel' : 'Not now'} onClick={onClose} />
+        <ActionButton tone="neutral" icon={X} label={kind === 'rename' ? 'Cancel' : 'Not now'} onClick={onClose} />
         <ActionButton tone="brand" main icon={Save} label={kind === 'rename' ? 'Rename' : 'Save build'} type="submit" disabled={busy} />
       </SheetFoot>
     </form>

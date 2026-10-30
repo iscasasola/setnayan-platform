@@ -79,6 +79,7 @@ import { collapseToPickerDays, HUB_OPEN_WINDOW_PLAIN, phTodayIso, pickConfigureD
 import { AccessGrants, type GrantableMember } from './_components/access-grants';
 import { CrewPanel, type CrewPanelPass, type CrewPanelQr } from './_components/crew-panel';
 import { crewJoinPath, crewRoleOf } from '@/lib/crew-pass';
+import { isCoordinatorTrade } from '@/lib/coordinator-trade';
 import { canManageVendor, resolveVendorRole } from '@/lib/vendor-role';
 import { ShopEmpty } from '../_components/kit';
 import { resolveEventFeeGates, type EventFeeGate } from '@/lib/vendor-event-fee-access.server';
@@ -334,7 +335,7 @@ export default async function VendorOnTheDayPage({
 
   let body: ReactNode;
   if (seg === 'crew') {
-    body = await crewBody({ supabase, userId: user.id, vendorProfileId: profile.vendor_profile_id, event: selected, open });
+    body = await crewBody({ supabase, userId: user.id, vendorProfileId: profile.vendor_profile_id, coordinator: isCoordinatorTrade(profile.services), event: selected, open });
   } else if (seg === 'pages') {
     // 📊 The Schedule row's live count — the SAME run-of-show read Set up makes (one read, never one per row). Not asked
     // for a locked event: a locked supplier causes no read of the couple's details.
@@ -713,12 +714,15 @@ async function crewBody({
   supabase,
   userId,
   vendorProfileId,
+  coordinator,
   event,
   open,
 }: {
   supabase: Awaited<ReturnType<typeof createClient>>;
   userId: string;
   vendorProfileId: string;
+  /** Is this shop the coordinator trade? Only its crew's scanner opens — the crew's words say so. */
+  coordinator: boolean;
   event: HubEvent;
   open: boolean;
 }): Promise<ReactNode> {
@@ -734,7 +738,7 @@ async function crewBody({
     );
   }
   const [crew, teamRows, grantRows] = await Promise.all([
-    readCrew({ supabase, userId, vendorProfileId, event }),
+    readCrew({ supabase, userId, vendorProfileId, coordinator, event }),
     fetchVendorTeam(supabase, vendorProfileId).catch(() => null),
     supabase
       .from('vendor_event_access_grants')
@@ -790,11 +794,13 @@ async function readCrew({
   supabase,
   userId,
   vendorProfileId,
+  coordinator,
   event,
 }: {
   supabase: Awaited<ReturnType<typeof createClient>>;
   userId: string;
   vendorProfileId: string;
+  coordinator: boolean;
   event: HubEvent;
 }): Promise<ReactNode> {
   if (!canManageVendor(await resolveVendorRole(supabase, userId).catch(() => null))) return null;
@@ -829,7 +835,7 @@ async function readCrew({
     role: crewRoleOf(p.crew_role),
     status: p.status === 'allowed' || p.status === 'removed' ? p.status : 'waiting',
   }));
-  return <CrewPanel shopId={vendorProfileId} eventId={event.eventId} eventName={event.name} qr={qr} passes={passes} unreadable={unreadable} />;
+  return <CrewPanel shopId={vendorProfileId} eventId={event.eventId} eventName={event.name} coordinator={coordinator} qr={qr} passes={passes} unreadable={unreadable} />;
 }
 
 /**

@@ -10,13 +10,13 @@
  * Every press writes on the caller's own session (`lib/crew-writes.ts` — the database is the boundary) and answers in
  * the row; a refused one says why and the row goes back.
  */
-import { useState, useTransition } from 'react';
+import { Fragment, useState, useTransition } from 'react';
 import { Check, Expand, QrCode, Send, Share } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { Explain } from '@/app/_components/explain';
 import { Sheet } from '@/app/_components/sheet';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
-import { CREW_ROLE_LABEL, CREW_ROLE_TOOLS_WORDS, crewRowLine, type CrewRole, type CrewStatus } from '@/lib/crew-pass';
+import { CREW_ROLE_LABEL, crewRowLine, crewToolsWords, type CrewRole, type CrewStatus } from '@/lib/crew-pass';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { changeCrew, type CrewChange } from '@/lib/crew-writes';
@@ -28,6 +28,7 @@ export function CrewPanel({
   shopId,
   eventId,
   eventName,
+  coordinator,
   qr,
   passes,
   unreadable = false,
@@ -36,6 +37,8 @@ export function CrewPanel({
   shopId: string;
   eventId: string;
   eventName: string;
+  /** Is the shop the coordinator trade? Only then does a crew phone get the scanner — the words follow it. */
+  coordinator: boolean;
   /** The event's crew QR, drawn server-side — null when it has not been made yet. */
   qr: CrewPanelQr | null;
   passes: readonly CrewPanelPass[];
@@ -110,8 +113,9 @@ export function CrewPanel({
         <p className="home-k2">Crew for the day</p>
         <Explain title="Crew for the day">
           Your crew scan the QR with any phone and land on your Event Hub for this event only — just the tools their
-          role allows. Member = {CREW_ROLE_TOOLS_WORDS.member}; Helper = {CREW_ROLE_TOOLS_WORDS.helper}. No Today,
-          Customers, Shop or money. A new phone waits for your Allow; the pass ends after the event.
+          role allows. Member = {crewToolsWords('member', coordinator)}; Helper = {crewToolsWords('helper', coordinator)}.
+          {coordinator ? '' : ' The seat scanner is for a coordinator’s crew.'} No Today, Customers, Shop or money. A new
+          phone waits for your Allow; the pass ends after the event.
         </Explain>
       </div>
       {error ? (
@@ -131,8 +135,18 @@ export function CrewPanel({
           </span>
           <span className="min-w-0 flex-1">
             <span className="block truncate text-[15px] text-ink">{p.name}</span>
-            <span className={`block truncate text-[12.5px] ${p.status === 'waiting' ? 'text-warn-700 dark:text-warn-300' : 'text-success-700 dark:text-success-600'}`}>
-              {crewRowLine(p.status, p.role)}
+            {/* The line WRAPS, never truncates: at 390 px the role ▾ and Allow leave it ~130 px, and "Wants to join ·
+                Helper · scanner only" cut to "Helpe…" hid the one thing the Allow is deciding. It breaks only between
+                its parts, so a line never starts on a "·". */}
+            <span className={`block text-[12.5px] leading-snug ${p.status === 'waiting' ? 'text-warn-700 dark:text-warn-300' : 'text-success-700 dark:text-success-600'}`} data-crew-line="">
+              {crewRowLine(p.status, p.role, coordinator)
+                .split(' · ')
+                .map((part, i, all) => (
+                  <Fragment key={i}>
+                    <span className="whitespace-nowrap">{i < all.length - 1 ? `${part} ·` : part}</span>
+                    {i < all.length - 1 ? ' ' : null}
+                  </Fragment>
+                ))}
             </span>
           </span>
           <PickMenu
@@ -142,8 +156,8 @@ export function CrewPanel({
             compact
             dataAttr="data-crew-role"
             options={[
-              { key: 'member', label: CREW_ROLE_LABEL.member, hint: CREW_ROLE_TOOLS_WORDS.member },
-              { key: 'helper', label: CREW_ROLE_LABEL.helper, hint: CREW_ROLE_TOOLS_WORDS.helper },
+              { key: 'member', label: CREW_ROLE_LABEL.member, hint: crewToolsWords('member', coordinator) },
+              { key: 'helper', label: CREW_ROLE_LABEL.helper, hint: crewToolsWords('helper', coordinator) },
               { key: 'remove', label: 'Remove from the crew', hint: 'This phone leaves the Event Hub now' },
             ]}
             onPick={(k) => (k === 'remove' ? decide(p, { status: 'removed' }) : decide(p, { role: k as CrewRole }))}

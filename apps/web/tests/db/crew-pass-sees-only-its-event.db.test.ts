@@ -14,7 +14,10 @@
  *   6. another shop's admin cannot see or decide this shop's crew;
  *   7. `moderator_area_level_of` (the crew scanner's question, asked of the QR's issuer) agrees with the shipped
  *      `moderator_area_level` on every branch;
- *   8. signed out (anon) reaches neither table.
+ *   8. signed out (anon) reaches neither table;
+ *  10. 🔒 the crew phone's run of show (read on the admin client, past RLS) is EXACTLY what the shop itself may read —
+ *      the app fence `onlyWhatABookedShopMaySee` applied as SQL equals `event_schedule_blocks_booked_vendor_read`
+ *      measured through the shop owner's real session, row for row; a coordinator's unreleased prep is in neither.
  *
  * Run: pnpm --filter @setnayan/web test:db
  */
@@ -22,6 +25,7 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import type { PGlite } from '@electric-sql/pglite';
 import { createReplayedDb, setAuthUid, type ReplayResult } from './replay-migrations';
+import { onlyWhatABookedShopMaySee } from '@/lib/schedule';
 
 let replay: ReplayResult;
 let db: PGlite;
@@ -329,4 +333,44 @@ test('9 · erasing the issuer, the decider and the crew member is never blocked 
   await db.query(`DELETE FROM auth.users WHERE id = $1`, [F.crew]);
   const gone = await db.query(`SELECT 1 FROM public.vendor_crew_passes WHERE pass_id = $1`, [F.passId]);
   assert.equal(gone.rows.length, 0, 'the crew member’s pass outlived their account');
+});
+
+test('10 · 🔒 the crew’s run of show is exactly the shop’s own read — never the coordinator’s unreleased prep', async () => {
+  // Three more lines on the shop's event beside 'Dinner': a coordinator's STAGED prep, a private family-only moment,
+  // and a released line — so the comparison exercises visibility, is_public and audience, not just one of them.
+  await db.query(
+    `INSERT INTO public.event_schedule_blocks (event_id, label, start_at, visibility, is_public, audience) VALUES
+       ($1, 'Staged · surprise send-off', TIMESTAMPTZ '2099-12-18 22:00+08', 'coordinator_only', FALSE, NULL),
+       ($1, 'Family portraits', TIMESTAMPTZ '2099-12-18 16:00+08', 'couple_visible', FALSE, 'family'),
+       ($1, 'First dance', TIMESTAMPTZ '2099-12-18 20:00+08', 'couple_visible', TRUE, NULL)`,
+    [F.event],
+  );
+  // What the SHOP reads, through the policy, as its owner's real session.
+  const shop = ok(
+    await asUser(F.owner, () =>
+      db.query<{ label: string }>(`SELECT label FROM public.event_schedule_blocks WHERE event_id = $1 ORDER BY label`, [F.event]),
+    ),
+  ).rows.map((r) => r.label);
+  // What the crew page reads: the app's fence, recorded and applied as SQL on the superuser (the admin client's view).
+  const where: string[] = [];
+  const params: unknown[] = [F.event];
+  const rec = {
+    neq(column: string, value: string) {
+      assert.match(column, /^[a-z_]+$/);
+      params.push(value);
+      where.push(`${column} <> $${params.length}`);
+      return rec;
+    },
+  };
+  onlyWhatABookedShopMaySee(rec);
+  assert.ok(where.length > 0, 'the fence applied no condition at all');
+  const crew = (
+    await db.query<{ label: string }>(
+      `SELECT label FROM public.event_schedule_blocks WHERE event_id = $1 AND ${where.join(' AND ')} ORDER BY label`,
+      params,
+    )
+  ).rows.map((r) => r.label);
+  assert.deepEqual(crew, shop, 'the crew phone reads a different run of show than the shop may');
+  assert.ok(!crew.includes('Staged · surprise send-off'), 'a coordinator’s unreleased prep reached the crew');
+  assert.ok(crew.includes('Family portraits') && crew.includes('Dinner'), 'the shop’s full timeline (locked D2) was narrowed');
 });

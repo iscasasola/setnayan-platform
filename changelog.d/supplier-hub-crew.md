@@ -44,6 +44,21 @@ Also: the two trigger functions are revoked from every role (a trigger needs no 
 FK-behaviour map, the data-subject register (crew under "vendors"), the schedule-time and dashboard-root registers
 carry the new surface, each line read.
 
+**Review fixes (2026-10-30):**
+- 🔒 **Leak closed.** A Member's run of show was read on the admin client with no visibility filter, so a crew phone
+  saw the coordinator's unreleased prep (`visibility = 'coordinator_only'`) — more than the shop itself may read. It now
+  goes through `onlyWhatABookedShopMaySee` (`lib/schedule.ts`), the app copy of `event_schedule_blocks_booked_vendor_read`
+  — exactly that policy and nothing more (it has no branch for a coordinator shop: staged rows are read through the
+  coordinator's own moderator seat, a person, so neither does the crew). Pinned row for row against the policy through
+  the shop owner's real session (crew db test 10: visibility × is_public × audience), and at the page (unit test 5).
+- 🚪 **A door that never opens is not drawn.** The scanner's door refuses every shop that is not the coordinator trade,
+  so a non-coordinator shop's crew no longer get a scanner that always answers "Finding seats is for the coordinator's
+  crew": the crew phone says what the pass DOES give instead, and the role words follow (Helper · "day and place only",
+  Member · "run of show") on the phone, the supplier's crew rows, the role ▾ hints and the ⓘ. The shop's trade is
+  `isCoordinatorTrade(vendor_profiles.services)`; a refused shop read keeps the scanner (its door is the boundary).
+  Unit test 6; lab `?s=crew-phone&state=helper-shop`.
+- The crew row's line wraps instead of truncating ("Wants to join · Helpe…" at 390 px).
+
 SPEC IMPACT: None — builds the approved 2026-10-29 ruling and the controller's five calls recorded with it. Owner
 action, surfaced: anonymous crew joining stays OFF until `NEXT_PUBLIC_CREW_PASS_ANON_ENABLED` is set in Vercel AND
 anonymous sign-ins are enabled in Supabase Auth.

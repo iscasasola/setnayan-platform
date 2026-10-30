@@ -13,16 +13,44 @@ export const CREW_ROLES: readonly CrewRole[] = ['member', 'helper'];
 
 export const CREW_ROLE_LABEL: Readonly<Record<CrewRole, string>> = { member: 'Member', helper: 'Helper' };
 
-/** What the role opens on the crew's Event Hub — said the same way on the supplier's list and on the crew's phone. */
+/** What the role opens on the crew's Event Hub — said the same way on the supplier's list and on the crew's phone.
+ *  These are a COORDINATOR shop's words: only there does the scanner open (see `crewRoleOpens`). */
 export const CREW_ROLE_TOOLS_WORDS: Readonly<Record<CrewRole, string>> = {
   member: 'run of show + scanner',
   helper: 'scanner only',
 };
 
-/** The one rule: which tools a role opens. */
-export function crewRoleOpens(role: CrewRole): { runOfShow: boolean; scanner: boolean } {
-  return { runOfShow: role === 'member', scanner: true };
+/** The same, for a shop that is NOT the coordinator trade — no scanner, so it is never named. */
+export const CREW_ROLE_TOOLS_WORDS_NO_SCANNER: Readonly<Record<CrewRole, string>> = {
+  member: 'run of show',
+  helper: 'day and place only',
+};
+
+export const crewToolsWords = (role: CrewRole, coordinator: boolean): string =>
+  (coordinator ? CREW_ROLE_TOOLS_WORDS : CREW_ROLE_TOOLS_WORDS_NO_SCANNER)[role];
+
+/**
+ * The one rule: which tools a role opens.
+ *
+ * 🚪 THE SCANNER OPENS ONLY FOR A COORDINATOR SHOP'S CREW. Its door (`crew_seat_by_guest_qr`) refuses every shop that
+ * is not booked carrying the coordinator trade (`services_make_a_coordinator`) — so for any other shop it would be a
+ * button that always answers "Finding seats is for the coordinator's crew". A door that never opens is not drawn;
+ * the crew phone says in words what the pass DOES give (`CREW_NO_SCANNER_LINE`). `coordinator` is the shop's trade,
+ * `isCoordinatorTrade(vendor_profiles.services)` — the TS copy of the database's own list.
+ */
+export function crewRoleOpens(role: CrewRole, coordinator: boolean): { runOfShow: boolean; scanner: boolean } {
+  return { runOfShow: crewRoleReadsRunOfShow(role), scanner: coordinator };
 }
+
+/** The run of show is the role's alone (a Member's), whatever the shop's trade — so the page can ask it before it
+ *  has read the shop. */
+export const crewRoleReadsRunOfShow = (role: CrewRole): boolean => role === 'member';
+
+/** On the crew phone, where the scanner would be, for a shop that is not the coordinator. */
+export const CREW_NO_SCANNER_LINE = (shop: string, role: CrewRole): string =>
+  `Finding guests’ seats is for the coordinator’s crew. ${shop} tells you where you’re needed on the day — this page holds your pass${
+    role === 'member' ? ' and the run of show' : ', the event’s day and place'
+  }.`;
 
 export const crewRoleOf = (raw: unknown): CrewRole => (raw === 'member' ? 'member' : 'helper');
 
@@ -51,8 +79,8 @@ export const CREW_STATUS_WORDS: Readonly<Record<Exclude<CrewRequestStatus, 'allo
 };
 
 /** The line under a crew member on the supplier's list. */
-export function crewRowLine(status: CrewStatus, role: CrewRole): string {
-  const tools = `${CREW_ROLE_LABEL[role]} · ${CREW_ROLE_TOOLS_WORDS[role]}`;
+export function crewRowLine(status: CrewStatus, role: CrewRole, coordinator: boolean): string {
+  const tools = `${CREW_ROLE_LABEL[role]} · ${crewToolsWords(role, coordinator)}`;
   if (status === 'waiting') return `Wants to join · ${tools}`;
   if (status === 'removed') return `Removed · ${tools}`;
   return `${tools} · in`;

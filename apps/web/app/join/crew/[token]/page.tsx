@@ -4,7 +4,9 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { hubDayWords } from '@/lib/hub-events';
 import type { RunOfShowBlock } from '@/lib/run-of-show';
-import { CREW_STATUS_WORDS, crewRequestStatusOf, crewRoleOf, crewRoleOpens, isCrewToken } from '@/lib/crew-pass';
+import { onlyWhatABookedShopMaySee } from '@/lib/schedule';
+import { isCoordinatorTrade } from '@/lib/coordinator-trade';
+import { CREW_STATUS_WORDS, crewRequestStatusOf, crewRoleOf, crewRoleReadsRunOfShow, isCrewToken } from '@/lib/crew-pass';
 import { crewPassAnonEnabled } from '@/lib/crew-pass-flag';
 import { resolveEventFeeGate } from '@/lib/vendor-event-fee-access.server';
 import { CrewEventHub, CrewNameForm, CrewSignIn, CrewStatus } from './_components/crew-screens';
@@ -30,6 +32,12 @@ export const dynamic = 'force-dynamic';
  * after that answers `effective` does this page read the event's name and — for a Member — its run of show, with the
  * admin client, scoped to that ONE event (the crew holds no RLS on `events` or the schedule, by design: no crew pass
  * is read by any other policy). The scanner asks the database itself (`crew_seat_by_guest_qr`).
+ *
+ * 🔒 NEVER MORE THAN THE SHOP. The run of show goes through `onlyWhatABookedShopMaySee` — the app copy of
+ * `event_schedule_blocks_booked_vendor_read` — because the admin client passes straight through RLS: without it a crew
+ * phone saw the coordinator's unreleased prep (`visibility = 'coordinator_only'`), which the shop itself may not read.
+ * 🚪 The scanner is drawn only for a coordinator shop's crew (`crewRoleOpens(role, coordinator)`): its door refuses
+ * every other shop, and a door that never opens is said in words instead.
  * 🔒 app/join/crew/the-crew-sees-only-the-event-hub.test.ts · tests/db/crew-pass-sees-only-its-event.db.test.ts
  */
 export default async function CrewJoinPage({ params }: { params: Promise<{ token: string }> }) {
@@ -79,28 +87,36 @@ export default async function CrewJoinPage({ params }: { params: Promise<{ token
   const admin = createAdminClient();
   const [eventRes, shopRes, blocksRes] = await Promise.all([
     admin.from('events').select('display_name, event_date, venue_name').eq('event_id', eventId).maybeSingle(),
-    admin.from('vendor_profiles').select('business_name').eq('vendor_profile_id', pass.vendor_profile_id).maybeSingle(),
-    crewRoleOpens(role).runOfShow
-      ? admin
-          .from('event_schedule_blocks')
-          .select('block_id, label, start_at, end_at, location, run_state, actual_start_at')
-          .eq('event_id', eventId)
+    admin.from('vendor_profiles').select('business_name, services').eq('vendor_profile_id', pass.vendor_profile_id).maybeSingle(),
+    crewRoleReadsRunOfShow(role)
+      ? onlyWhatABookedShopMaySee(
+          admin
+            .from('event_schedule_blocks')
+            .select('block_id, label, start_at, end_at, location, run_state, actual_start_at')
+            .eq('event_id', eventId),
+        )
           .order('start_at', { ascending: true })
           .order('sort_order', { ascending: true })
       : Promise.resolve({ data: null, error: null }),
   ]);
   if (blocksRes.error) logQueryError('CrewJoin.runOfShow', blocksRes.error, { eventId }, 'graceful_degrade');
+  if (shopRes.error) logQueryError('CrewJoin.shop', shopRes.error, { eventId }, 'graceful_degrade');
+  const shop = shopRes.data as { business_name: string | null; services: string[] | null } | null;
+  // A refused shop read keeps the scanner: it is only a hint here — the scanner's own door is the boundary and says
+  // its own refusal — while hiding it would take a coordinator crew's one tool away on a blip.
+  const coordinator = shopRes.error ? true : isCoordinatorTrade(shop?.services);
   const ev = eventRes.data as { display_name: string | null; event_date: string | null; venue_name: string | null } | null;
   const ends = new Date(pass.ends_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
   return (
     <CrewEventHub
       scanner={<SeatScanner eventId={eventId} via="crew" />}
       eventName={ev?.display_name?.trim() || 'This event'}
-      shopName={(shopRes.data as { business_name: string | null } | null)?.business_name ?? 'The shop'}
+      shopName={shop?.business_name ?? 'The shop'}
       dayWords={hubDayWords(ev?.event_date ?? null, true)}
       place={ev?.venue_name ?? null}
       name={pass.display_name}
       role={role}
+      coordinator={coordinator}
       blocks={blocksRes.error ? null : ((blocksRes.data ?? []) as RunOfShowBlock[])}
       endsWords={`ends ${ends}`}
     />

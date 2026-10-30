@@ -126,6 +126,7 @@ export async function HubLab({ seg: rawSeg, ev }: { seg?: string; ev?: string })
           shopId="lab-shop"
           eventId={event.eventId}
           eventName={event.name}
+          coordinator
           qr={{ url: labQrUrl, svg: labQrSvg, endsWords: 'ends Dec 19, 12:00 AM' }}
           passes={[
             { passId: 'p-joy', name: 'Ate Joy Mendoza', role: 'member', status: 'allowed' },
@@ -238,11 +239,12 @@ export async function HubLab({ seg: rawSeg, ev }: { seg?: string; ev?: string })
 }
 
 /**
- * /dev/supplier-lab?s=crew-phone&state=name|waiting|member|helper|ended — 📱 the CREW PHONE's screens (owner 2026-10-29),
+ * /dev/supplier-lab?s=crew-phone&state=name|waiting|member|helper|helper-shop|ended — 📱 the CREW PHONE's screens (owner 2026-10-29),
  * drawn with the REAL `crew-screens.tsx` over the prototype's people. The scanner is the shipped `SeatScanner` look,
- * stood in by its Scan button (the real one carries a server action this lab does not mount).
+ * stood in by its Scan button (the real one carries a server action this lab does not mount). `helper-shop` is a Helper
+ * of a shop that is NOT the coordinator trade: no scanner (its door would refuse them), the words instead.
  */
-export const CREW_PHONE_STATES = ['name', 'waiting', 'member', 'helper', 'ended'] as const;
+export const CREW_PHONE_STATES = ['name', 'waiting', 'member', 'helper', 'helper-shop', 'ended'] as const;
 export function CrewPhoneLab({ state }: { state?: string }) {
   if (state === 'name') return <CrewNameForm token={'0'.repeat(32)} shopWords="The Wedding Project" anonymous={false} />;
   if (state === 'waiting') return <CrewStatus {...CREW_STATUS_WORDS.waiting} waiting />;
@@ -256,11 +258,12 @@ export function CrewPhoneLab({ state }: { state?: string }) {
         </div>
       }
       eventName="Indalecio & Claire"
-      shopName="The Wedding Project"
+      shopName={state === 'helper-shop' ? 'Bloom & Vine Styling' : 'The Wedding Project'}
       dayWords="Fri, Dec 18, 2026"
       place="Seda Vertis North, Quezon City"
       name={role === 'member' ? 'Ate Joy Mendoza' : 'Kuya Ben'}
       role={role}
+      coordinator={state !== 'helper-shop'}
       blocks={BLOCKS}
       endsWords="ends Dec 19, 12:00 AM"
     />

@@ -3,14 +3,15 @@ import type { ReactNode } from 'react';
 import { Hourglass, LogIn, QrCode, ShieldCheck } from 'lucide-react';
 import { HubRunOfShow } from '@/app/vendor-dashboard/on-the-day/_components/hub-screen';
 import type { RunOfShowBlock } from '@/lib/run-of-show';
-import { CREW_ROLE_LABEL, CREW_ROLE_TOOLS_WORDS, crewRoleOpens, type CrewRole } from '@/lib/crew-pass';
+import { CREW_NO_SCANNER_LINE, CREW_ROLE_LABEL, crewRoleOpens, crewToolsWords, type CrewRole } from '@/lib/crew-pass';
 import { CrewJoinForm } from './crew-name-form';
 
 /**
  * 📱 THE CREW PHONE'S SCREENS (owner 2026-10-29, DECISION_LOG "CREW JOIN THE SUPPLIER'S EVENT HUB BY QR — AND SEE ONLY
  * THE EVENT HUB"; prototype "Crew for the day"). A crew member sees ONLY the Event Hub: no Today, no Customers, no
  * Shop, no money, no settings, no bar — just this one event's tools their role opens (Member: run of show + scanner;
- * Helper: scanner only). Everything else they could reach is a sentence saying why not. Draws only — the page reads.
+ * Helper: scanner only — and the scanner only for a COORDINATOR shop's crew, the one shop whose scanner door opens).
+ * Everything else they could reach is a sentence saying why not. Draws only — the page reads.
  */
 export function CrewFrame({ children }: { children: ReactNode }) {
   return (
@@ -76,6 +77,7 @@ export function CrewEventHub({
   place,
   name,
   role,
+  coordinator,
   blocks,
   endsWords,
   scanner,
@@ -88,18 +90,20 @@ export function CrewEventHub({
   place: string | null;
   name: string;
   role: CrewRole;
+  /** Is the shop the coordinator trade? Only then does the scanner's door open — so only then is it drawn. */
+  coordinator: boolean;
   /** Member only; null = the read failed (said). */
   blocks: readonly RunOfShowBlock[] | null;
   endsWords: string;
 }) {
-  const opens = crewRoleOpens(role);
+  const opens = crewRoleOpens(role, coordinator);
   return (
     <CrewFrame>
       <div data-crew-state="hub" data-crew-role={role}>
         <p className="text-[13px] text-ink/60">Event Hub · {shopName} crew</p>
         <div className="sn-tile-dark mt-2 rounded-2xl p-4">
           <p className="text-[11.5px] font-medium uppercase tracking-[0.12em]" style={{ color: 'rgba(251,251,250,0.62)' }}>
-            {name} · {CREW_ROLE_LABEL[role]} · {CREW_ROLE_TOOLS_WORDS[role]}
+            {name} · {CREW_ROLE_LABEL[role]} · {crewToolsWords(role, coordinator)}
           </p>
           <p className="mt-1 truncate text-[19px] font-medium" style={{ color: 'var(--m-paper)' }}>
             {eventName}
@@ -114,7 +118,11 @@ export function CrewEventHub({
             <p className="home-k2 pt-3">Scanner</p>
             {scanner}
           </div>
-        ) : null}
+        ) : (
+          <p className="pt-3 text-[14px] leading-snug text-ink/70" data-crew-tool="none">
+            {CREW_NO_SCANNER_LINE(shopName, role)}
+          </p>
+        )}
         {opens.runOfShow ? (
           <div data-crew-tool="run-of-show">
             <HubRunOfShow blocks={blocks} moreHref={null} all />

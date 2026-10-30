@@ -61,6 +61,8 @@ export type Category = {
   serviceCount: number;
   faithCount: number;
   refinementCount: number;
+  /** One per event (`service_categories.one_per_event`, owner 2026-10-29). null = the switch could not be read. */
+  onePerEvent: boolean | null;
 };
 
 export type SupplierFieldOption = { value: string; retired: boolean };

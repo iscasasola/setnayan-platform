@@ -22,6 +22,7 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { validateReorder, computeReorder } from '@/lib/taxonomy-studio-order';
+import { readEveryPartRow, type PartTablesClient } from '@/lib/inspiration-parts-db';
 import { VENDOR_CATEGORIES } from '@/lib/vendors';
 
 // The service-role client is untyped in this repo (`createAdminClient()`), and the test adapter is
@@ -453,8 +454,14 @@ export async function addPartCore(
   if (!h || h.tier !== 2) return { ok: false, error: 'Pick a valid home category.' };
   const base = partKeyFromName(label);
   if (base.length < 2) return { ok: false, error: 'A part name needs letters.' };
-  const { data: all } = await admin.from('inspiration_parts').select('slot_key, sort_order');
-  const parts = (all ?? []) as Array<{ slot_key: string; sort_order: number }>;
+  // 📄 Every part, read to the end (`lib/inspiration-parts-db.ts`): the new key must miss EVERY taken key and the
+  // new place sits after the LAST part. A refused or capped read refuses the add — `?? []` here once meant "no part
+  // exists", which picks a taken key and a sort_order of 0.
+  const allRead = await readEveryPartRow<{ slot_key: string; sort_order: number }>(admin as unknown as PartTablesClient, 'parts', {
+    columns: 'slot_key,sort_order',
+  });
+  if (allRead.error) return { ok: false, error: `Couldn't read the parts: ${allRead.error}` };
+  const parts = allRead.rows;
   const taken = new Set(parts.map((r) => r.slot_key));
   let key = base;
   for (let i = 2; taken.has(key); i += 1) key = `${base.slice(0, 36)}_${i}`;
@@ -563,4 +570,31 @@ export async function setPartHiddenCore(admin: AdminDb, actorId: string, slotKey
   if (error) return { ok: false, error: error.message };
   await audit(admin, { action: 'taxonomy.set_part_hidden', target_table: 'inspiration_parts', target_id: slotKey, before_json: { hidden: b.hidden }, after_json: { hidden }, actor_user_id: actorId });
   return { ok: true, message: hidden ? 'Hidden from couples — its photos stay.' : 'Shown to couples again.' };
+}
+
+// ── One per event (owner 2026-10-29) ────────────────────────────────────────────
+
+/**
+ * "One per event" on a category — a couple may book only ONE supplier of it per event. The ONE source the app
+ * (`lib/one-per-event.ts`) and the database lock guard both read (migration 20271296971721): flipping it re-keys the
+ * bookings in the same statement (trigger `service_categories_one_per_event_follow`). Turning it ON where an event
+ * already holds two confirmed is REFUSED by the lock index (23505) — said here in words, nothing half-changed.
+ */
+export async function setOnePerEventCore(admin: AdminDb, actorId: string, categoryId: string, on: boolean): Promise<WriteResult> {
+  const { data: before } = await admin.from('service_categories').select('id, tier, label_en, one_per_event, coarse_category').eq('id', categoryId).maybeSingle();
+  const b = before as { id: string; tier: number; label_en: string; one_per_event: boolean; coarse_category: string | null } | null;
+  if (!b || b.tier !== 2) return { ok: false, error: 'That category no longer exists.' };
+  if (b.one_per_event === on) return { ok: true, message: 'No change.' };
+  const { error } = await admin.from('service_categories').update({ one_per_event: on, updated_at: now() }).eq('id', categoryId);
+  if (error) {
+    if ((error as { code?: string }).code === '23505' || /hard_single_lock_uniq|one_pending_lock_request_per_group/.test(error.message)) {
+      return { ok: false, error: `An event already has two ${b.label_en} suppliers booked — one per event can’t be turned on until one of them is released.` };
+    }
+    return { ok: false, error: error.message };
+  }
+  await audit(admin, { action: 'taxonomy.set_one_per_event', target_table: 'service_categories', target_id: categoryId, before_json: { one_per_event: b.one_per_event }, after_json: { one_per_event: on }, actor_user_id: actorId });
+  if (on && !b.coarse_category) {
+    return { ok: true, message: 'One per event — on. It bites once its shops are filed (Files shops as).' };
+  }
+  return { ok: true, message: on ? 'One per event — on.' : 'One per event — off: couples may book more than one.' };
 }

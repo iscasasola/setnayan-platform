@@ -36,7 +36,10 @@ const BOOKED_CSS =
   '[data-booked-body] .bk-rows>.bk-row:first-child{border-top:0}' +
   '[data-booked-body] .bk-row>button{min-height:44px}' +
   '[data-booked-body] .bk-exp{display:grid;grid-template-rows:0fr;transition:grid-template-rows .28s cubic-bezier(.2,.7,.2,1)}' +
-  '[data-booked-body] .bk-exp>div{overflow:clip;min-width:0}' +
+  // min-height:0 is what lets the 0fr track close: `clip` makes no scroll container, so without it a grid item's
+  // automatic minimum is its full content height and WebKit (every iPhone) keeps the row OPEN while `inert` makes it
+  // untappable — owner 2026-10-30 "All buttons do not work" / "Booked does not collapse".
+  '[data-booked-body] .bk-exp>div{overflow:clip;min-width:0;min-height:0}' +
   '[data-booked-body] .bk-row[data-open] .bk-exp{grid-template-rows:1fr}' +
   // The verbs WRAP and keep their words (owner 2026-10-12, look call 2: "buttons
   // keep their words on narrow cards; only Remove may shrink"). With a wrap the

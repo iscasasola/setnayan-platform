@@ -244,9 +244,12 @@ test('the Hub says when it opens — and the words match the gate (midnight to m
   const page = readFileSync(join(WEB, PAGE), 'utf8');
   // Counted as CODE (identifiers, not the import, not a comment) — a docblock naming the
   // constant must not stand in for a sentence that stopped using it.
-  assert.equal(usesOf(PAGE, page, 'HUB_OPEN_WINDOW_PLAIN'), 4, 'the Hub page says when it opens in four places, all through the constant');
-  const typed = (COPY.get(PAGE) ?? []).filter((c) => /midnight/i.test(c.text));
-  assert.deepEqual(typed, [], 'the Hub page types the window out instead of reading HUB_OPEN_WINDOW_PLAIN');
+  // v13 (2026-10-29): the page says it twice (no events yet · The Day) and the event card once ("opens here on …").
+  assert.equal(usesOf(PAGE, page, 'HUB_OPEN_WINDOW_PLAIN'), 2, 'the Hub page says when it opens in two places, all through the constant');
+  const CARD = 'app/vendor-dashboard/on-the-day/_components/hub-screen.tsx';
+  assert.equal(usesOf(CARD, readFileSync(join(WEB, CARD), 'utf8'), 'HUB_OPEN_WINDOW_PLAIN'), 1, 'the event card does not say when the Event Hub opens');
+  const typed = [...(COPY.get(PAGE) ?? []), ...(COPY.get(CARD) ?? [])].filter((c) => /midnight/i.test(c.text));
+  assert.deepEqual(typed, [], 'the Hub types the window out instead of reading HUB_OPEN_WINDOW_PLAIN');
   assert.match(page, /const phToday = \(\): string => phTodayIso\(\);/, 'the Hub page keeps its own clock again');
 });
 

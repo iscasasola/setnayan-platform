@@ -47,10 +47,10 @@ import { readThemeTextWithModel } from '@/lib/theme-text-intent-model';
 
 import { readCoupleBookingStandings } from '@/lib/couple-booked-and-settled.server';
 import {
-  moodBoardPhotosRefusal,
+  moodBoardPhotoChangeRefusal,
   refuseLimitedHelper,
   refuseUnlessMoodBoardHost,
-  refuseUnlessMoodBoardPhotos,
+  refuseUnlessMoodBoardPhotoChange,
 } from '@/lib/host-gate';
 export async function saveRolePalette(formData: FormData) {
   await refuseLimitedHelper(formData.get('event_id'), 'mood_board');
@@ -113,7 +113,10 @@ export async function reorderMoodboardSlot(
   to: MoodboardSlotRef,
 ): Promise<MoodboardSwapResult> {
   await refuseLimitedHelper(eventId, 'mood_board');
-  await refuseUnlessMoodBoardPhotos(eventId);
+  // A drop on its own cell changes nothing — answered before the change door, so it opens no 24-hour Undo row.
+  if (from.slotKey === to.slotKey && from.slotPosition === to.slotPosition) return { ok: true, changed: 'nothing' };
+  // 🖼⏱ The photo gate — and, for anyone but an owner, the change the owners may Undo for 24 hours (20271299051148).
+  await refuseUnlessMoodBoardPhotoChange(eventId, 'move', from.slotKey);
 
   const supabase = await createClient();
   const {
@@ -903,7 +906,8 @@ export async function applyGalleryPick(input: {
   assetId: string;
 }): Promise<{ status: 'ok' | 'error'; imageUrl?: string; message?: string }> {
   await refuseLimitedHelper(input.eventId, 'mood_board');
-  const photosRefusal = await moodBoardPhotosRefusal(input.eventId);
+  // 🖼⏱ The photo gate — and, for anyone but an owner, the change the owners may Undo for 24 hours (20271299051148).
+  const photosRefusal = await moodBoardPhotoChangeRefusal(input.eventId, 'upload', input.slotKey);
   if (photosRefusal) return { status: 'error', message: photosRefusal };
   const parts = await getInspirationParts();
   if (!isInspirationPartKey(parts, input.slotKey) || !slotHasSupplierTrade(input.slotKey, parts)) {

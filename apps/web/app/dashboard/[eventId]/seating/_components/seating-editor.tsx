@@ -44,6 +44,7 @@ import {
   RotateCcw,
   RotateCw,
   Ruler,
+  Scan,
   Search,
   Signpost,
   Sparkles,
@@ -6974,6 +6975,47 @@ export function SeatingEditor({
           lens.slot,
         )
       : null;
+  /* zoom controls — §5.9: Fit first/largest, every target ≥44px.
+     🧭 Studio: the thumb-zone tools and the people peek own the foot of the map, so the zoom rides at the top of the room.
+     🗺 Guests: the plan is the WHOLE screen (owner 2026-10-30, DECISION_LOG "SEATS 2D · SEATS 3D · THE MAP ARE ALWAYS FULL
+     SCREEN — NO FULL-SCREEN BUTTON"), and its top is under the pinned row — so the stack sits on the plan's cell, in the
+     LOWER third, just above the floating thumb row (`--sn-thumb-room`, the room that row measures, less the dock the cell
+     already stops at). Fit wears corner brackets, never ⤢. */
+  const zoomStack = (
+    <div
+      data-seat-plan-zoom=""
+      className={`absolute right-3 z-20 flex flex-col overflow-hidden rounded-lg border border-ink/15 bg-cream/90 shadow-sm backdrop-blur-sm ${inGuests ? '' : studioSeat ? 'top-3' : 'bottom-[64px] lg:bottom-3'}`}
+      style={inGuests ? { bottom: 'max(0.75rem, calc(var(--sn-thumb-room, 0px) - var(--sn-bottomdock-h, 0px)))' } : undefined}
+    >
+      <button
+        type="button"
+        onClick={fitView}
+        aria-label="Fit all tables in view"
+        title="Fit"
+        className="flex h-11 w-11 items-center justify-center text-ink/70 hover:bg-ink/5"
+      >
+        {/* Fit wears corner brackets, never ⤢ — ⤢ reads as "full screen", and the plan has none (owner 2026-10-30). */}
+        <Scan className="h-4 w-4" />
+      </button>
+      <button
+        type="button"
+        onClick={() => zoomAround(1.25)}
+        aria-label="Zoom in"
+        className="flex h-11 w-11 items-center justify-center border-t border-ink/10 text-ink/70 hover:bg-ink/5"
+      >
+        <Plus className="h-4 w-4" />
+      </button>
+      <button
+        type="button"
+        onClick={() => zoomAround(0.8)}
+        aria-label="Zoom out"
+        className="flex h-11 w-11 items-center justify-center border-t border-ink/10 text-ink/70 hover:bg-ink/5"
+      >
+        <Minus className="h-4 w-4" />
+      </button>
+    </div>
+  );
+
   const studioPeople = inGuests ? (
     <>
       {faceCardSheet}
@@ -7260,7 +7302,11 @@ export function SeatingEditor({
         {/* Room size & scale — right-anchored popover over the canvas (verdict
             §2 row 2). Floats (absolute) so it never pushes the canvas down. */}
         {view === 'plan' && showRoomPanel ? (
-          <div className="absolute right-2 top-2 z-40 flex max-h-[calc(100%-1rem)] w-[min(92vw,40rem)] flex-wrap items-end gap-4 overflow-y-auto rounded-xl border border-ink/10 bg-cream p-3 shadow-lg">
+          <div
+            className="absolute right-2 top-2 z-40 flex max-h-[calc(100%-1rem)] w-[min(92vw,40rem)] flex-wrap items-end gap-4 overflow-y-auto rounded-xl border border-ink/10 bg-cream p-3 shadow-lg"
+            /* 🗺 In Guests the plan's top is under the pinned row (the plan is the whole screen) — the panel opens below it. */
+            style={inGuests ? { top: 'calc(var(--gs-stick-h, 0px) + 0.5rem)', maxHeight: 'calc(100% - var(--gs-stick-h, 0px) - 1rem)' } : undefined}
+          >
             <div className="flex w-full items-center justify-between">
               <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">Room size &amp; scale</span>
               <button
@@ -8361,35 +8407,7 @@ export function SeatingEditor({
             </button>
           ) : null}
 
-          {/* zoom controls — §5.9: Fit first/largest, every target ≥44px. */}
-          {/* 🧭 Studio: the thumb-zone tools and the people peek own the foot of the map, so the zoom rides at the top. */}
-          <div data-seat-plan-zoom="" className={`absolute right-3 z-20 flex flex-col overflow-hidden rounded-lg border border-ink/15 bg-cream/90 shadow-sm backdrop-blur-sm ${studioSeat ? 'top-3' : 'bottom-[64px] lg:bottom-3'}`}>
-            <button
-              type="button"
-              onClick={fitView}
-              aria-label="Fit all tables in view"
-              title="Fit"
-              className="flex h-11 w-11 items-center justify-center text-ink/70 hover:bg-ink/5"
-            >
-              <Maximize2 className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => zoomAround(1.25)}
-              aria-label="Zoom in"
-              className="flex h-11 w-11 items-center justify-center border-t border-ink/10 text-ink/70 hover:bg-ink/5"
-            >
-              <Plus className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => zoomAround(0.8)}
-              aria-label="Zoom out"
-              className="flex h-11 w-11 items-center justify-center border-t border-ink/10 text-ink/70 hover:bg-ink/5"
-            >
-              <Minus className="h-4 w-4" />
-            </button>
-          </div>
+          {inGuests ? null : zoomStack}
 
           {/* wall handles (to-scale mode) — drag the right/bottom edge or the
               SE corner to resize the ROOM; the typed Room-size inputs stay as
@@ -8745,6 +8763,8 @@ export function SeatingEditor({
             </p>
           </div>
         )}
+        {/* 🗺 Guests: the zoom stack rides the plan's cell, in the lower third (`zoomStack`). */}
+        {inGuests && view === 'plan' ? zoomStack : null}
         {/* 🪑 Details · 3D — the lab, drawn over the plan in this same part (free,
             always on — DECISION_LOG "3D SEAT PLANNING STAYS FREE"). The 2D plan
             stays mounted beneath it, so its lock, guests and lists stay put. */}

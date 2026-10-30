@@ -29,10 +29,13 @@ import { NamedColourDot } from '@/app/dashboard/[eventId]/studio/mood-board/_com
 import { compressImageForWeb } from '@/lib/image-compress';
 import { STUDIO_GROUP, STUDIO_GROUP_HEAD, STUDIO_GROUP_HEAD_LINE } from '@/lib/studio-skin';
 import type { BoardPart, SupplierBoard } from '@/lib/supplier-suggest-board';
-import { SUGGESTIONS_WAITING_MAX, SUGGEST_REFUSAL, sentToast, suggestionFor, supplierCountLine, type SupplierSuggestion } from '@/lib/inspiration-suggestions';
+import { POOL_TICK_LEAD, SUGGESTIONS_WAITING_MAX, SUGGEST_REFUSAL, poolLine, sentToast, suggestionFor, supplierCountLine, type SuggestionPoolResult, type SupplierSuggestion } from '@/lib/inspiration-suggestions';
+import { InspirationCardPick } from '@/app/_components/inspiration-card-pick';
+import { preselectedCard, type CardChoice } from '@/lib/inspiration-card-link';
+import { RIGHTS_WARRANTY_TEXT } from '@/lib/moodboard-gallery-pure';
 
 export type SuggestBoardActions = {
-  suggest: (fd: FormData) => Promise<{ status: 'ok'; suggestion: { id: string; slotKey: string; url: string } } | { status: 'refused'; message: string }>;
+  suggest: (fd: FormData) => Promise<{ status: 'ok'; suggestion: { id: string; slotKey: string; url: string }; pool?: SuggestionPoolResult } | { status: 'refused'; message: string }>;
   withdraw: (eventId: string, suggestionId: string) => Promise<{ status: 'ok' | 'refused'; message?: string }>;
   listShopPhotos: () => Promise<{ photos: Array<{ ref: string; url: string }>; failed: boolean }>;
 };
@@ -45,6 +48,7 @@ export function SupplierSuggestBoard({
   board,
   mine,
   actions,
+  cardsByPart,
   children,
 }: {
   eventId: string;
@@ -55,6 +59,11 @@ export function SupplierSuggestBoard({
   /** This shop's photos waiting on the couple's parts. `null` = the read was refused — said, never drawn as none. */
   mine: SupplierSuggestion[] | null;
   actions: SuggestBoardActions;
+  /**
+   * 🔗 "Which of your services is this?" (owner 2026-10-30) — per part, this shop's live cards whose Service links it
+   * (`shopCardChoices`, on the server). `null` = the cards could not be read (said in the sheet); absent = not offered.
+   */
+  cardsByPart?: Record<string, CardChoice[]> | null;
   /** What the shipped page already shows above the design — the sign-off asks and the granted colours (each renders
    *  nothing when there is nothing for this supplier), between the header and the palette. */
   children?: ReactNode;
@@ -62,6 +71,8 @@ export function SupplierSuggestBoard({
   const [sent, setSent] = useState<SupplierSuggestion[]>(() => (mine ?? []).filter((m) => m.state === 'waiting'));
   const [sheet, setSheet] = useState<BoardPart | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
+  /** 🔗 The library half of the last send — "also sent for the inspiration library" or why not (status, never alert). */
+  const [poolNote, setPoolNote] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const toastSeq = useRef(0);
   const [toast, setToast] = useState<{ n: number; text: string; undo?: () => void } | null>(null);
@@ -69,12 +80,15 @@ export function SupplierSuggestBoard({
   useEffect(() => setBody(document.body), []);
   const fileFor = useRef<HTMLInputElement>(null);
   const [uploadFor, setUploadFor] = useState<BoardPart | null>(null);
+  /** The sheet's card + rights tick, carried to the file picker's send (the sheet closes before the file is chosen). */
+  const uploadExtra = useRef<(fd: FormData) => void>(() => {});
 
   const waitingIn = (slot: string) => sent.filter((s) => s.slotKey === slot);
 
   const send = async (part: BoardPart, fill: (fd: FormData) => Promise<void> | void) => {
     setSheet(null);
     setProblem(null);
+    setPoolNote(null);
     setBusy(part.slotKey);
     try {
       const fd = new FormData();
@@ -88,6 +102,7 @@ export function SupplierSuggestBoard({
       }
       const s: SupplierSuggestion = { id: r.suggestion.id, slotKey: r.suggestion.slotKey, url: r.suggestion.url, state: 'waiting' };
       setSent((all) => [...all, s]);
+      setPoolNote(poolLine(r.pool));
       setToast({ n: ++toastSeq.current, text: sentToast(couple), undo: () => void takeBack(s) });
     } catch {
       setProblem(SUGGEST_REFUSAL.failed);
@@ -187,6 +202,11 @@ export function SupplierSuggestBoard({
           {problem}
         </p>
       ) : null}
+      {poolNote ? (
+        <p role="status" data-suggest-pool="" className="px-1.5 pb-2 text-[13px] text-ink/65">
+          {poolNote}
+        </p>
+      ) : null}
       {mine === null ? (
         <p role="status" className="px-1.5 pb-2 text-[13px] text-ink/65" data-suggest-unread="">
           We couldn’t read the photos you sent just now — reopen this in a moment.
@@ -227,20 +247,23 @@ export function SupplierSuggestBoard({
           const f = e.target.files?.[0];
           const part = uploadFor;
           e.target.value = '';
-          if (f && part) void send(part, async (fd) => fd.set('file', await compressImageForWeb(f)));
+          const extra = uploadExtra.current;
+        if (f && part) void send(part, async (fd) => { extra(fd); fd.set('file', await compressImageForWeb(f)); });
         }}
       />
 
       {sheet ? (
         <SuggestSheet
           part={sheet}
+          cards={cardsByPart === undefined ? undefined : cardsByPart === null ? null : (cardsByPart[sheet.slotKey] ?? [])}
           onClose={() => setSheet(null)}
-          onUpload={() => {
+          onUpload={(extra) => {
+            uploadExtra.current = extra;
             setUploadFor(sheet);
             setSheet(null);
             fileFor.current?.click();
           }}
-          onPick={(ref) => void send(sheet, (fd) => fd.set('shopPhotoRef', ref))}
+          onPick={(ref, extra) => void send(sheet, (fd) => { extra(fd); fd.set('shopPhotoRef', ref); })}
           listShopPhotos={actions.listShopPhotos}
         />
       ) : null}
@@ -265,18 +288,29 @@ export function SupplierSuggestBoard({
 /** "＋ Suggest a photo" — the two ways in: a file, or one of the shop's own photos (read when asked for, never guessed). */
 function SuggestSheet({
   part,
+  cards,
   onClose,
   onUpload,
   onPick,
   listShopPhotos,
 }: {
   part: BoardPart;
+  /** 🔗 This part's fitting cards (`[]` none, `null` unreadable, `undefined` not offered). */
+  cards: CardChoice[] | null | undefined;
   onClose: () => void;
-  onUpload: () => void;
-  onPick: (ref: string) => void;
+  /** `extra` writes the sheet's card + rights tick onto the send's form data. */
+  onUpload: (extra: (fd: FormData) => void) => void;
+  onPick: (ref: string, extra: (fd: FormData) => void) => void;
   listShopPhotos: SuggestBoardActions['listShopPhotos'];
 }) {
   const [shop, setShop] = useState<{ photos: Array<{ ref: string; url: string }>; failed: boolean } | 'loading' | null>(null);
+  const [card, setCard] = useState<string>(() => preselectedCard(cards ?? []));
+  /* 🛑 Never pre-ticked: the tick is a warranty AND the offer to the library (owner 2026-10-30 · RIGHTS_WARRANTY_TEXT). */
+  const [rights, setRights] = useState(false);
+  const extra = (fd: FormData) => {
+    if (cards && card) fd.set('vendorServiceId', card);
+    if (rights) fd.set('rightsWarranted', '1');
+  };
   const openShop = async () => {
     setShop('loading');
     try {
@@ -288,8 +322,15 @@ function SuggestSheet({
   return createPortal(
     <StudioPopup label={suggestionFor(part.label)} onClose={onClose}>
       <div className="flex flex-col gap-2 px-3 pb-2" data-suggest-sheet={part.slotKey}>
+        <InspirationCardPick choices={cards} value={card} onChange={setCard} dataAttr="data-suggest-card" withHiddenField={false} />
+        <label className="flex items-start gap-2 text-[12px] leading-snug text-ink/70" data-suggest-pool-tick="">
+          <input type="checkbox" checked={rights} onChange={(e) => setRights(e.target.checked)} className="mt-0.5 h-4 w-4 flex-shrink-0" />
+          <span>
+            <b className="font-medium text-ink">{POOL_TICK_LEAD}</b> {RIGHTS_WARRANTY_TEXT}
+          </span>
+        </label>
         <div className="flex flex-col gap-2 [&_.ab]:w-full">
-          <ActionButton tone="neutral" icon={ImagePlus} label="Upload a photo" onClick={onUpload} />
+          <ActionButton tone="neutral" icon={ImagePlus} label="Upload a photo" onClick={() => onUpload(extra)} />
           <span data-suggest-from-shop="">
             <ActionButton tone="neutral" icon={Store} label="Choose from your shop’s photos" waiting={shop === 'loading'} onClick={() => void openShop()} />
           </span>
@@ -302,7 +343,7 @@ function SuggestSheet({
           ) : (
             <div className="grid grid-cols-3 gap-2 pt-1" data-suggest-shop-photos="">
               {shop.photos.map((p) => (
-                <button key={p.ref} type="button" aria-label="Suggest this photo" onClick={() => onPick(p.ref)} className="sn-press block aspect-square overflow-hidden rounded-xl bg-ink/5">
+                <button key={p.ref} type="button" aria-label="Suggest this photo" onClick={() => onPick(p.ref, extra)} className="sn-press block aspect-square overflow-hidden rounded-xl bg-ink/5">
                   {/* eslint-disable-next-line @next/next/no-img-element -- the shop's own photo */}
                   <img src={p.url} alt="" className="h-full w-full object-cover" />
                 </button>

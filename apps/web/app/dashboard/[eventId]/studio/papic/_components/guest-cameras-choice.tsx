@@ -1,13 +1,9 @@
-import { PapicStayForm } from './papic-stay-form';
-import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
-import { Users } from 'lucide-react';
-
-import { SubmitButton } from '@/app/_components/submit-button';
+import { cache } from 'react';
 import { createClient } from '@/lib/supabase/server';
-import { eventPapicGuestAccess } from '@/lib/papic-guest';
-import { setPapicGuestCaptureEarly } from '../guest-window-actions';
-import { SettingRow } from './setting-row';
+import { readHubDraft } from '@/lib/hub-draft-store';
+import { papicIsOn } from '@/lib/event-answers';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { papicHeadLine, type PapicHeadFacts } from '@/lib/papic-shoot-now';
 import {
   PAPIC_CAPTURE_GRACE_HOURS,
   formatCaptureCloseLabel,
@@ -17,182 +13,75 @@ import {
 } from '@/lib/papic-window';
 
 /**
- * "When guests can shoot" — the host's button over everyone else's phone.
+ * "When guests can shoot" — the host's say over everyone else's phone, now part of the ONE CONTROL in the head of
+ * Home's Papic card: Off · On — event day · On — everyone, now (`PapicHeadPicker`, `lib/papic-shoot-now.ts`).
  *
- * Owner, 2026-08-07: *"The guests can have the option to use the app on the exact
- * event or when the host allows it"* → *"there should be a button for the host of
- * the event to allow guests to use the papic."*
+ * Owner, 2026-08-07: *"The guests can have the option to use the app on the exact event or when the host allows it"* →
+ * *"there should be a button for the host of the event to allow guests to use the papic."* Owner, 2026-10-30:
+ * *"actually the switch on event home should be the let everybody shoot now function"* · *"If we cannot turn it off,
+ * then maybe assign partial turn on?"*.
  *
- * ── WHY THIS CARD EXISTS ────────────────────────────────────────────────────
- * Guests had NO time gate of any kind. The only question ever asked was whether
- * the event holds a guest-camera pass; nothing asked WHEN. A guest who redeemed
- * their invite six months out could shoot into the couple's gallery on any
- * random Tuesday, and the couple had no way to say no.
+ * ── ONE CONTROL PER FACT ────────────────────────────────────────────────────
+ * Until 2026-10-30 this was a button row inside the card's settings ("When guests can shoot" · "Open now" / "Event
+ * day"), beside a separate Papic switch in the head. Both are now the head's one dropdown; the row is gone, and this
+ * file only READS what the head needs — the three facts and the words for the settings' ⓘ. Its only seat was the card
+ * (the Papic page is removed), so no other door lost a control.
  *
- * ── THE CARD IS ABSENT WHEN THERE IS NOTHING TO DECIDE ──────────────────────
- * If the event has no guest cameras at all, this button governs nothing.
- * Rendering it anyway would be a control that cannot change what the guest sees
- * — the empty-promise shape this project keeps getting caught by. An absent card
- * is the honest version, exactly as with the face-tagging choice.
+ * ── WHY THIS EXISTS AT ALL ──────────────────────────────────────────────────
+ * Guests had NO time gate of any kind. A guest who redeemed their invite six months out could shoot into the couple's
+ * gallery on any random Tuesday, and the couple had no way to say no.
  *
- * ⚠ `variant="row"` IS THE SAME CONTROL BEHIND A DIFFERENT DOOR — the approved
- * control-centre drawing files this under "Set once, change any time" as a row
- * reading "Event day" or "Live now". The form is passed through untouched, and
- * the absence rule above stays in here, so an event with no guest cameras grows
- * no row rather than a row that opens onto nothing.
+ * `cache()` — the head's control, its line and the settings' ⓘ each ask; one render reads once.
  */
-export async function GuestCamerasChoice({
-  eventId,
-  variant = 'card',
-  returnTo = null,
-}: {
-  eventId: string;
-  variant?: 'card' | 'row';
-  /** 🏠 'home' inside Home's Papic card — the save lands back on Home. */
-  returnTo?: 'home' | null;
-}) {
+export type PapicHeadState = PapicHeadFacts & { line: string; detail: string | null };
+
+export const readPapicHead = cache(async (eventId: string, live: boolean | null): Promise<PapicHeadState> => {
   const supabase = await createClient();
-
-  const { data, error } = await supabase
-    .from('events')
-    .select('papic_guest_capture_early, event_date, papic_window_end')
-    .eq('event_id', eventId)
-    .maybeSingle();
-
-  // ⚠ Supabase resolves with { error } rather than throwing, and an RLS denial
-  // reads as an empty result. Either way there is nothing trustworthy to render.
-  //
-  // 🚨 AND FOR WEEKS THAT WAS A LIE OF OMISSION. `papic_guest_capture_early`
-  // carried no SELECT grant, so PostgREST refused the WHOLE query with 42501 and
-  // this returned null on every render — the host's own switch was never once on
-  // screen, and nothing anywhere said so. The grant is fixed (20271179873885);
-  // the log is so the NEXT refusal leaves a trail instead of a blank space.
-  if (error) {
-    logQueryError('GuestCamerasChoice.event', error, { eventId }, 'graceful_degrade');
-    return null;
-  }
-  if (!data) return null;
-
-  // Nothing to schedule if guest cameras are not on for this event. Uses the
-  // admin client because the pass/pool check reads rows the couple's own client
-  // is not entitled to — the same call the guest camera page makes.
-  //
-  // 🔴 THREE STATES. 'off' hides the row. 'unknown' is a failed check, and it
-  // says so: hiding the switch on a failed read looks exactly like a
-  // celebration with no guest cameras, and the couple loses the control with
-  // no sign that anything went wrong.
-  const access = await eventPapicGuestAccess(await eventEntitlementClient(eventId), eventId);
-  if (access === 'off') return null;
-  if (access !== 'on') {
-    const body = (
-      <p className="text-sm text-ink/65">
-        We couldn&rsquo;t check your guest cameras just now, so we can&rsquo;t show this
-        setting. Nothing you set before has changed. Reload the page to try again.
-      </p>
-    );
-    return variant === 'row' ? (
-      <SettingRow
-        icon={<Users aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
-        label="When guests can shoot"
-        value="Couldn’t check"
-        sheetTitle="When guests can shoot"
-      >
-        {body}
-      </SettingRow>
-    ) : (
-      <section className="space-y-3 sn-tile p-5 sm:p-6">
-        <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
-          <Users aria-hidden className="h-5 w-5 text-ink/55" strokeWidth={1.75} />
-          When guests can shoot
-        </h2>
-        {body}
-      </section>
-    );
-  }
-
-  const row = data as {
-    papic_guest_capture_early: boolean | null;
-    event_date: string | null;
-    papic_window_end: string | null;
+  const [read, draft] = await Promise.all([
+    supabase.from('events').select('papic_guest_capture_early, event_date, papic_window_end').eq('event_id', eventId).maybeSingle(),
+    /* 💾 `papic_on` as the couple is editing it — the Event Hub draft over live, the Maker's own overlay. A draft that
+       cannot be read is NOT "no change": the head says it could not check, never a position it did not measure. */
+    readHubDraft(supabase, eventId).then(
+      (d) => ({ ok: true as const, d }),
+      () => ({ ok: false as const }),
+    ),
+  ]);
+  // ⚠ Supabase resolves with { error } rather than throwing, and an RLS denial reads as an empty result. Either way the
+  // saved value is NOT KNOWN — said so on the head ("Couldn’t check just now"), never drawn as an "off".
+  // 🚨 For weeks `papic_guest_capture_early` carried no SELECT grant and this read was refused on every render (fixed by
+  // 20271179873885) — the log is so the NEXT refusal leaves a trail instead of a blank space.
+  if (read.error) logQueryError('readPapicHead.event', read.error, { eventId }, 'graceful_degrade');
+  const row = read.error ? null : (read.data as { papic_guest_capture_early: boolean | null; event_date: string | null; papic_window_end: string | null } | null);
+  const early = row ? row.papic_guest_capture_early === true : null;
+  const drafted = draft.ok ? ((draft.d?.events ?? {}) as Record<string, unknown>) : null;
+  const draftOn = live === null || drafted === null ? null : 'papic_on' in drafted ? papicIsOn(drafted.papic_on) : live;
+  const facts: PapicHeadFacts = { live, draftOn, early };
+  return {
+    ...facts,
+    line: papicHeadLine(facts),
+    detail: row && early !== null ? shootNowDetail(early, row.event_date, row.papic_window_end) : null,
   };
-  const early = row.papic_guest_capture_early === true;
-  const day = row.event_date;
+});
 
-  // ⏰ THE SENTENCE IS BUILT FROM THE GATE'S OWN NUMBERS (owner 2026-09-22).
-  // Both branches used to end "until the end of that day", and capture now runs
-  // twelve hours past it — so the card told a couple their guests' phones were
-  // dead while the shutter still worked. Each label is formatted from the exact
-  // instant `guestCaptureGate` compares against: the stored window end when the
-  // switch is ON, and `manilaCaptureCloseIso(event day)` when it is OFF, which
-  // is literally the expression in that resolver's switch-OFF branch.
-  const eventDay = manilaDate(day);
-  const openCloseLabel = formatCaptureCloseLabel(row.papic_window_end);
-  const dayCloseLabel = eventDay
-    ? formatCaptureCloseLabel(manilaCaptureCloseIso(eventDay))
-    : null;
-
-  const explanation = early ? (
-    <>
-      Open now. Your guests can take photos any time through your capture
-      window
-      {openCloseLabel ? `, which closes ${openCloseLabel}` : ''} — good for
-      the pre-nup shoot, the fitting, or the night before.
-    </>
-  ) : (
-    <>
-      {/* “open”, not “switch on” — the interpolation already supplies its own
-          “on”, so this rendered “switch on on 2026-09-11”. Deleting one “on”
-          instead would make the date the object of “switch on”, and the null
-          branch would then need a second, different edit. open/close is this
-          picker's own vocabulary already. */}
-      Your guests&rsquo; cameras open
-      {eventDay ? ` on ${formatPapicDayInWords(eventDay) ?? eventDay}` : ' on your event day'} and stay on
-      {dayCloseLabel
-        ? ` until ${dayCloseLabel} — ${PAPIC_CAPTURE_GRACE_HOURS} hours past the end of the day`
-        : ` until ${PAPIC_CAPTURE_GRACE_HOURS} hours after your event day ends`}
-      . Open them early if you want photos of the preparations too.
-    </>
-  );
-
-  const control = (
-    <PapicStayForm door="setPapicGuestCaptureEarly" action={setPapicGuestCaptureEarly}>
-      <input type="hidden" name="event_id" value={eventId} />
-      <input type="hidden" name="early" value={early ? '0' : '1'} />
-      {returnTo ? <input type="hidden" name="return_to" value={returnTo} /> : null}
-      <SubmitButton
-        pendingLabel="Saving…"
-        className="rounded-lg bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10"
-      >
-        {early ? 'Only on my event day' : 'Let guests shoot now'}
-      </SubmitButton>
-    </PapicStayForm>
-  );
-
-  if (variant === 'row') {
-    return (
-      <SettingRow
-        icon={<Users aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
-        label="When guests can shoot"
-        value={early ? 'Open now' : 'Event day'}
-        sheetTitle="When guests can shoot"
-      >
-        <p className="mb-4 text-sm text-ink/65">{explanation}</p>
-        {control}
-      </SettingRow>
-    );
+/**
+ * ⏰ THE ⓘ's SENTENCE IS BUILT FROM THE GATE'S OWN NUMBERS (owner 2026-09-22). Each label is formatted from the exact
+ * instant `guestCaptureGate` compares against: the stored window end when the switch is ON, and
+ * `manilaCaptureCloseIso(event day)` when it is OFF — literally the expression in that resolver's switch-OFF branch.
+ */
+export function shootNowDetail(early: boolean, eventDate: string | null, windowEnd: string | null): string {
+  const eventDay = manilaDate(eventDate);
+  if (early) {
+    const openCloseLabel = formatCaptureCloseLabel(windowEnd);
+    return `On — everyone, now: your guests can take photos any time through your capture window${
+      openCloseLabel ? `, which closes ${openCloseLabel}` : ''
+    } — good for the pre-nup shoot, the fitting, or the night before.`;
   }
-
-  return (
-    <section className="space-y-3 sn-tile p-5 sm:p-6">
-      <div className="space-y-1">
-        <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
-          <Users aria-hidden className="h-5 w-5 text-ink/55" strokeWidth={1.75} />
-          When guests can shoot
-        </h2>
-        <p className="max-w-prose text-sm text-ink/60">{explanation}</p>
-      </div>
-
-      {control}
-    </section>
-  );
+  const dayCloseLabel = eventDay ? formatCaptureCloseLabel(manilaCaptureCloseIso(eventDay)) : null;
+  return `On — event day: your guests’ cameras open${
+    eventDay ? ` on ${formatPapicDayInWords(eventDay) ?? eventDay}` : ' on your event day'
+  } and stay on${
+    dayCloseLabel
+      ? ` until ${dayCloseLabel} — ${PAPIC_CAPTURE_GRACE_HOURS} hours past the end of the day`
+      : ` until ${PAPIC_CAPTURE_GRACE_HOURS} hours after your event day ends`
+  }. Pick On — everyone, now if you want photos of the preparations too.`;
 }

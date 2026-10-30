@@ -118,6 +118,9 @@ test('the coordinator is ONE switch on the same per-area grant — YES by defaul
   // 2026-10-29: the switch shows until the hosts answer Limited · Full access (owner "only TWO levels"); a recorded
   // level replaces it with the level pick (`CoordinatorLevelPick`).
   assert.match(SECTION, /row\.kind === 'coordinator' && !row\.isViewer \? \(\s*row\.coordinatorLevel === 'unanswered' \|\| row\.coordinatorLevel === undefined \? \(\s*<CoordinatorSwitch /);
+  // 🖼 2026-10-30: a LIMITED coordinator ("changes only what you allow") gets the per-part toggles — where the hosts
+  // give her Mood Board Edit. Full access is a co-host seat and draws none.
+  assert.match(SECTION, /row\.coordinatorLevel === 'limited' && row\.areas \? \([\s\S]{0,400}?<AreaPicks /, 'a Limited coordinator has nowhere to be given a part');
   const sw = SECTION.slice(SECTION.indexOf('function CoordinatorSwitch('), SECTION.indexOf('function AccessPick('));
   assert.match(sw, /role="switch"/);
   assert.match(sw, /setDelegateArea\(eventId, moderatorId, w\.area, w\.choice\)/);

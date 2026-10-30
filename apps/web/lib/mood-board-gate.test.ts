@@ -91,7 +91,10 @@ function exportedFunctions(rel: string): Map<string, string> {
   return out;
 }
 
-const WRITES_A_PHOTO = /\.from\(\s*'event_inspiration_assets'\s*\)\s*\.(?:insert|update)\(/;
+// A board-photo write is a direct `.from('event_inspiration_assets').insert/update(` — or a call to
+// `swapMoodboardCells` (lib/moodboard-swap.ts), where the drag-reorder's writes moved on 2026-10-30 (#7092) so its
+// db test runs the same code; that helper writes the same table through a `TABLE` constant this regex cannot see.
+const WRITES_A_PHOTO = /\.from\(\s*'event_inspiration_assets'\s*\)\s*\.(?:insert|update)\(|\bswapMoodboardCells\(/;
 const PHOTO_GATE = /\b(?:moodBoardPhotosRefusal|refuseUnlessMoodBoardPhotos)\(/;
 const HOST_GATE = /\b(?:refuseUnlessMoodBoardHost|moodBoardHostRefusal)\(/;
 

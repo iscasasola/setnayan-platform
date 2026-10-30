@@ -90,7 +90,7 @@ import { guestsGetInPatch, isGuestsGetIn } from '@/lib/who-can-reply';
 import { renderStyledUrlQrSvg } from '@/lib/qr';
 import { GuestsScreen } from '@/app/dashboard/[eventId]/guests/_components/guests-screen';
 import { parseGuestsFilter } from '@/lib/guests-filter';
-import { GUESTS_VIEWS, parseGuestsView } from '@/lib/guests-views';
+import { GUESTS_VIEWS, parseGuestsView, parseSeatView } from '@/lib/guests-views';
 import { LabMarch, LabSeats } from './lab-seats-march';
 import type { TitleWaitingPerson } from '@/app/dashboard/[eventId]/guests/_components/titles-waiting';
 import { titleButtonText, titleKey } from '@/lib/guest-title';
@@ -800,6 +800,7 @@ export default async function GuestsLabPage({
                   <GuestsScreen
                     eventId={EVENT}
                     gview={gview}
+                    seat={gview === 'seats' ? parseSeatView(typeof sp.seat === 'string' ? sp.seat : null) : null}
                     views={GUESTS_VIEWS}
                     filter={parseGuestsFilter(sp)}
                     bodies={{

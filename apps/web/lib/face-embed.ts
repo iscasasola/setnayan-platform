@@ -94,6 +94,14 @@ async function getFaceApi(): Promise<FaceApi | null> {
 }
 
 /**
+ * ⚡ Start loading face-api.js and its three weight files now (~12 MB — the bulk of the old two-minute wait), so the
+ * press only runs them (owner 2026-10-30). A download, no face is read; a failed load is retried by the press.
+ */
+export function warmFaceEmbed(): void {
+  void getFaceApi();
+}
+
+/**
  * Enrollment: one selfie → the single (largest) face's descriptor + model id, or
  * null. Stored as the guest's face fingerprint in guest_face_enrollments.
  */

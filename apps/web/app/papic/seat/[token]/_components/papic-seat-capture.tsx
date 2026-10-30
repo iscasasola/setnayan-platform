@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
+import { viewfinderCrop } from '@/lib/papic-viewfinder-crop';
 import {
   Camera,
   Loader2,
@@ -325,7 +326,14 @@ export function PapicSeatCapture({
     holdRestart: () => recordingRef.current,
   });
 
+  // ⚡ mode_a: the face models load while the camera opens, not under the first photo (owner 2026-10-30) — the same
+  // warm-up as the guest camera; a download, no face is read.
+  useEffect(() => {
+    if (faceMode !== 'mode_a') return;
+    void import('@/lib/face-embed').then((m) => m.warmFaceEmbed()).catch(() => {});
+  }, [faceMode]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const viewfinderRef = useRef<HTMLDivElement>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const clipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -577,11 +585,15 @@ export function PapicSeatCapture({
       const w = video.videoWidth;
       const h = video.videoHeight;
       if (!w || !h) return null;
-      canvas.width = w;
-      canvas.height = h;
+      // 📐 A PHOTO keeps the box the viewfinder showed (owner 2026-10-30: "a 1:1 screen but it saves a portrait shot");
+      // a clip's poster (styled = false) stays the whole frame, matching the clip it stands for.
+      const box = styled ? viewfinderRef.current?.getBoundingClientRect() : null;
+      const { sx, sy, sw, sh } = viewfinderCrop({ width: w, height: h }, box ? { width: box.width, height: box.height } : null);
+      canvas.width = sw;
+      canvas.height = sh;
       const ctx = canvas.getContext('2d');
       if (!ctx) return null;
-      ctx.drawImage(video, 0, 0, w, h);
+      ctx.drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh);
       const clean = await new Promise<Blob | null>((resolve) =>
         canvas.toBlob(resolve, 'image/jpeg', 0.9),
       );
@@ -1429,13 +1441,14 @@ export function PapicSeatCapture({
         </Link>
       )}
 
-      <div className="relative flex-1 overflow-hidden">
+      <div ref={viewfinderRef} className="relative flex-1 overflow-hidden">
         <video
           ref={videoRef}
           playsInline
           muted
           autoPlay
-          className="h-full w-full object-cover"
+          /* 📐 While a clip records it shows the WHOLE frame it is recording (owner 2026-10-30). */
+          className={`h-full w-full ${recording ? 'object-contain' : 'object-cover'}`}
           /* Live preview of the locked event look. CSS filter is presentation-
              only — it doesn't touch the pixels grabFrame reads or the QR decode
              loop, so the captured photo stays the exact engine output. */

@@ -1,0 +1,86 @@
+/**
+ * ⚡ THE SELFIE AND THE FIRST PHOTO DO NOT WAIT FOR A DOWNLOAD (owner 2026-10-30: *"take selfie face circle is too small
+ * and registering the selfie is taking too long … almost 2 minutes"* · *"sending photos after taking picture takes so
+ * long"*).
+ *
+ * The face detector and face-api.js (~12 MB of weights) used to start downloading on the press — under the selfie, and
+ * under the first Papic photo's face pass on a mode_a event. They now load when the screen opens; the press works on a
+ * copy at most `SELFIE_MAX_SIDE` long; the oval is the size of a face held at arm's length.
+ *
+ * SABOTAGE, each seen red before this shipped:
+ *   1  drop the selfie screen's warm-up effect         → "the selfie screen does not load the models early"
+ *   2  work on the full camera frame again             → "the selfie is read at full size"
+ *   3  shrink the oval back to 58% / 13.5rem            → "the oval is small again"
+ *   4  drop the guest camera's mode_a warm-up           → "the guest camera's first photo waits for the models"
+ */
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { stripComments } from '@/lib/strip-comments';
+
+const WEB = join(import.meta.dirname, '..', '..', '..');
+const code = (p: string) => stripComments(readFileSync(join(WEB, p), 'utf8'));
+const SELFIE = code('app/[slug]/_components/selfie-capture.tsx');
+const GUEST = code('app/papic/guest/_components/papic-guest-capture.tsx');
+const SEAT = code('app/papic/seat/[token]/_components/papic-seat-capture.tsx');
+
+test('the selfie screen loads the detector (and, on mode_a, face-api) when it opens', () => {
+  assert.match(
+    SELFIE,
+    /useEffect\(\(\) => \{\s*void import\('@\/lib\/face-gate'\)\.then\(\(m\) => m\.warmFaceGate\(\)\)\.catch\(\(\) => \{\}\);\s*if \(faceMode === 'mode_a'\) void import\('@\/lib\/face-embed'\)\.then\(\(m\) => m\.warmFaceEmbed\(\)\)\.catch\(\(\) => \{\}\);\s*\}, \[faceMode\]\);/,
+    'the selfie screen does not load the models early',
+  );
+  // The camera still waits for the tick — warming is a download, not a photo.
+  assert.equal((SELFIE.match(/getUserMedia\(/g) ?? []).length, 1);
+});
+
+test('the press works on a copy at most SELFIE_MAX_SIDE long', async () => {
+  const { SELFIE_MAX_SIDE } = await import('./selfie-capture');
+  assert.ok(SELFIE_MAX_SIDE <= 800 && SELFIE_MAX_SIDE >= 480, `SELFIE_MAX_SIDE is ${SELFIE_MAX_SIDE}`);
+  assert.match(SELFIE, /const scale = Math\.min\(1, SELFIE_MAX_SIDE \/ Math\.max\(video\.videoWidth, video\.videoHeight\)\);/);
+  assert.match(SELFIE, /canvas\.width = Math\.round\(video\.videoWidth \* scale\);/, 'the selfie is read at full size');
+  assert.doesNotMatch(SELFIE, /canvas\.width = video\.videoWidth;/, 'the selfie is read at full size');
+});
+
+test('the oval is the size of a face held at arm’s length', () => {
+  const m = SELFIE.match(/aspect-\[3\/4\] w-\[(\d+)%\] max-w-\[([\d.]+)rem\] rounded-\[50%\]/);
+  assert.ok(m, 'the oval was not found');
+  assert.ok(Number(m[1]) >= 70 && Number(m[2]) >= 17, `the oval is small again (${m[1]}% · ${m[2]}rem)`);
+});
+
+test('both Papic cameras load face-api while they open on a mode_a event', () => {
+  const warm = /useEffect\(\(\) => \{\s*if \(faceMode !== 'mode_a'\) return;\s*void import\('@\/lib\/face-embed'\)\.then\(\(m\) => m\.warmFaceEmbed\(\)\)\.catch\(\(\) => \{\}\);\s*\}, \[faceMode\]\);/;
+  assert.match(GUEST, warm, 'the guest camera’s first photo waits for the models');
+  assert.match(SEAT, warm, 'the seat camera’s first photo waits for the models');
+});
+
+// ── 🔒 a selfie that cannot be read is never saved · 👥 a background face does not refuse · 📐 a photo keeps the box ──
+const ENROLL = code('app/papic/face-enroll-actions.ts');
+const GATE = code('lib/face-gate.ts');
+
+test('a mode_a selfie with no fingerprint is refused — on the phone AND on the server, before the old one is retired', () => {
+  assert.match(SELFIE, /if \(!vector && isFaceModelConfigured\(\)\) \{\s*onFail\(faceStepFailureWords\('face_unread'\)\);\s*return;\s*\}/, 'the phone saves a selfie it could not read');
+  // The small copy misses a face held further off → the full frame is read once more before giving up.
+  assert.match(SELFIE, /if \(!r && scale < 1\) \{/);
+  const guard = ENROLL.indexOf("return { ok: false, reason: 'face_unread' };");
+  const retire = ENROLL.indexOf(".update({ revoked_at: new Date().toISOString() })");
+  assert.ok(guard > 0, 'the server saves a mode_a selfie with no fingerprint');
+  assert.ok(retire > guard, 'the old enrolment is retired before the new one is known to match');
+  assert.match(ENROLL, /faceTagging\.mode === 'mode_a' &&\s*isFaceModelConfigured\(\) &&\s*shots\.every\(\(s\) => s\.vector == null\)/);
+});
+
+test('a face in the background does not refuse a selfie; two people in the oval still do', () => {
+  assert.match(GATE, /const crowded = faceCount > 1 && secondArea >= largestArea \* SECOND_FACE_RATIO;/);
+  assert.match(GATE, /\} else if \(crowded\) \{\s*ok = false;\s*reasonCode = 'many_faces';/);
+  assert.doesNotMatch(GATE, /\} else if \(faceCount > 1\) \{/, 'any second face refuses the selfie again');
+});
+
+test('both cameras keep the box the viewfinder shows; a clip shows the whole frame it records', () => {
+  assert.match(GUEST, /viewfinderCrop\(\{ width: w, height: h \}, box \? \{ width: box\.width, height: box\.height \} : null, crop\)/);
+  assert.match(GUEST, /ctx\.drawImage\(video, sx, sy, sw, sh, 0, 0, sw, sh\);/);
+  assert.match(GUEST, /mode === 'snippet' \|\| recording \? 'object-contain' : 'object-cover'/);
+  assert.match(SEAT, /const box = styled \? viewfinderRef\.current\?\.getBoundingClientRect\(\) : null;/);
+  assert.match(SEAT, /<div ref=\{viewfinderRef\} className="relative flex-1 overflow-hidden">/);
+  assert.match(SEAT, /recording \? 'object-contain' : 'object-cover'/);
+});

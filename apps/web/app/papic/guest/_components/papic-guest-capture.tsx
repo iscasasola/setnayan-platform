@@ -25,6 +25,7 @@ import {
   Square,
   Trophy,
 } from 'lucide-react';
+import { viewfinderCrop } from '@/lib/papic-viewfinder-crop';
 import { DayOfFaceEnroll } from '@/app/[slug]/_components/day-of-face-enroll';
 import type { FaceTaggingWish } from '@/lib/face-tagging-wish';
 import { makeQrDetector } from '@/lib/qr-scan';
@@ -371,6 +372,14 @@ export function PapicGuestCapture({
   useEffect(() => {
     styleRef.current = eventStyle;
   }, [eventStyle]);
+  // ⚡ ON A mode_a EVENT THE FACE MODELS LOAD WHILE THE CAMERA OPENS (owner 2026-10-30: *"sending photos after taking
+  // picture takes so long"*). Each photo's face pass (`prepare.faceVectors`, in the upload queue) runs before the
+  // photo counts as prepared, and the FIRST one used to wait for face-api.js and ~12 MB of weights to download — so
+  // the first photo sat unsent while they arrived. A download, no face is read; the pass itself is unchanged.
+  useEffect(() => {
+    if (faceMode !== 'mode_a') return;
+    void import('@/lib/face-embed').then((m) => m.warmFaceEmbed()).catch(() => {});
+  }, [faceMode]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   // Clip recorder (Option A).
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -787,14 +796,16 @@ export function PapicGuestCapture({
     // 2× on a phone with no 2× of its own is a DIGITAL crop (owner 2026-10-24:
     // "2× shows on every phone") — the centre half of the frame, at its own
     // pixels, exactly what the preview showed.
-    const sw = Math.round(w / crop);
-    const sh = Math.round(h / crop);
+    // 📐 …and the photo keeps the box the viewfinder showed (owner 2026-10-30: "a 1:1 screen but it saves a portrait
+    // shot") — `object-cover` shows the middle of the frame, so the photo is that middle, not the whole frame.
+    const box = viewfinderRef.current?.getBoundingClientRect();
+    const { sx, sy, sw, sh } = viewfinderCrop({ width: w, height: h }, box ? { width: box.width, height: box.height } : null, crop);
     const canvas = document.createElement('canvas');
     canvas.width = sw;
     canvas.height = sh;
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return;
-    ctx.drawImage(video, Math.round((w - sw) / 2), Math.round((h - sh) / 2), sw, sh, 0, 0, sw, sh);
+    ctx.drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh);
 
     // 🕐 THE SHUTTER — stamped on the frame itself, before the look and the
     // encode, and long before any of the network. Everything after this line
@@ -1634,7 +1645,10 @@ export function PapicGuestCapture({
           playsInline
           muted
           autoPlay
-          className="h-full w-full object-cover"
+          /* 📐 A clip records the camera's WHOLE frame, so Snippet (and a hold that is recording) shows the whole
+             frame; a photo keeps the box shown (`viewfinderCrop`) — on screen is what is kept, both ways
+             (owner 2026-10-30, "a 1:1 screen but it saves a portrait shot"). */
+          className={`h-full w-full ${mode === 'snippet' || recording ? 'object-contain' : 'object-cover'}`}
           /* Live preview of the locked event look — presentation-only, so the
              captured pixels (and the clean face embed) are unaffected.
              A digital 2× scales the preview about its centre — except while a

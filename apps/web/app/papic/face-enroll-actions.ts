@@ -3,7 +3,7 @@
 import { readGuestSession } from '@/lib/guest-session';
 import { guestSelfiePolicy, parseClientRef } from '@/lib/r2-client-ref';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { VECTOR_MODEL } from '@/lib/face-embed-core';
+import { isFaceModelConfigured, VECTOR_MODEL } from '@/lib/face-embed-core';
 import { FACE_CONSENT_COPY_VERSION, faceVectorForMode } from '@/lib/papic-face-mode';
 import { resolveFaceTagging } from '@/lib/face-tagging-gate';
 import { isKnownMinorGuest } from '@/lib/face-enrolment-age';
@@ -39,6 +39,7 @@ export type EnrollRefusal =
   | 'excluded'
   | 'minor'
   | 'bad_photo'
+  | 'face_unread'
   | 'save';
 
 export async function enrollGuestFace(
@@ -220,6 +221,19 @@ export async function enrollGuestFace(
       ];
     }
 
+    // 🔒 A mode_a SELFIE WITH NO FINGERPRINT IS NEVER SAVED (owner 2026-10-30, cale-ice: Indalecia's selfie was
+    // saved with no face vector — the phone had not read her face — and she was told she was set; the event then had
+    // only Indalecio's fingerprint, and her photo was tagged as him). On a mode_a event, with the model hosted, a
+    // selfie whose every shot carries no descriptor matches nobody: refuse it BEFORE the old enrolment is retired, so
+    // a working enrolment is never replaced by one that cannot match, and the guest is told to try again.
+    if (
+      faceTagging.mode === 'mode_a' &&
+      isFaceModelConfigured() &&
+      shots.every((s) => s.vector == null)
+    ) {
+      return { ok: false, reason: 'face_unread' };
+    }
+
     // The selfie becomes the guest's display photo (parity with RSVP enrollment).
     await admin
       .from('guests')
@@ -233,13 +247,20 @@ export async function enrollGuestFace(
       .eq('event_id', eventId);
 
     // One non-revoked enrollment per (event, guest): retire the live row first
-    // (a fresh day-of selfie supersedes a stale one).
-    await admin
+    // (a fresh day-of selfie supersedes a stale one). The unique index
+    // `guest_face_enrollments_one_active_per_guest` forces retire-THEN-insert, so
+    // the retired ids are kept: if the insert below fails, they are put back.
+    const { data: retiredRows, error: retireErr } = await admin
       .from('guest_face_enrollments')
       .update({ revoked_at: new Date().toISOString() })
       .eq('event_id', eventId)
       .eq('guest_id', guestId)
-      .is('revoked_at', null);
+      .is('revoked_at', null)
+      .select('id');
+    // A retire that failed left the old row live: the insert below then meets the one-live-row index and answers
+    // "save" — the guest keeps the enrolment she had. Logged, never silent.
+    if (retireErr) console.error('[supabase-error] app/papic/face-enroll-actions.ts · retire previous enrolment', retireErr);
+    const retiredIds = ((retiredRows ?? []) as { id: number }[]).map((r) => r.id);
 
     // BIOMETRIC WRITE GUARD (One-Pool spec §3.4). Resolve the EFFECTIVE face
     // mode server-side (christening/debut forced to mode_b; fail-closed) and
@@ -281,6 +302,16 @@ export async function enrollGuestFace(
       than waiting for a cache to expire.
     */
     if (!error) await everyCopyIsNowStale(eventId);
+
+    // 🔒 A SAVE THAT FAILED NEVER COSTS THE GUEST THE FINGERPRINT SHE HAD (2026-10-30): the old row was retired a
+    // few lines up and the new one did not land, so the old one comes back — "Couldn't save", and still findable.
+    if (error && retiredIds.length > 0) {
+      const { error: restoreErr } = await admin
+        .from('guest_face_enrollments')
+        .update({ revoked_at: null })
+        .in('id', retiredIds);
+      if (restoreErr) console.error('[supabase-error] app/papic/face-enroll-actions.ts · restore retired enrolment', restoreErr);
+    }
 
     return error ? { ok: false, reason: 'save' } : { ok: true };
   } catch {

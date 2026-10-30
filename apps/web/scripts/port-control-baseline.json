@@ -1283,6 +1283,8 @@
         "Eyebrow",
         "FaceDataNotice",
         "FaceReceiptCard",
+        "FaceStepFailureToast",
+        "FaceStepSavedToast",
         "FaceTaggingRow",
         "FacebookWatchCard",
         "Field",
@@ -11699,14 +11701,18 @@
         "dev/papic-camera-lab/lab-camera.tsx",
         "dev/papic-camera-lab/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/dev/papic-camera-lab"
+      ],
       "actions": [],
       "blocks": [
         "Blob",
         "LabCamera",
         "LabPageSpotlight",
+        "PapicBuyShell",
         "PapicCaptureController",
         "PapicGuestCapture",
+        "PapicSeatCapture",
         "UploaderSnapshot"
       ]
     },
@@ -11836,6 +11842,22 @@
         "FrontDoorShell",
         "LabAddOwn",
         "RosterPerson"
+      ]
+    },
+    "/dev/selfie-lab": {
+      "files": [
+        "dev/selfie-lab/page.tsx",
+        "dev/selfie-lab/selfie-lab.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "Capture",
+        "FaceStepFailureToast",
+        "FaceStepSavedToast",
+        "FaceTaggingRow",
+        "SelfieLab",
+        "Suspense"
       ]
     },
     "/dev/shop-layout-lab": {
@@ -13035,6 +13057,7 @@
         "ArmedChallenge",
         "Blob",
         "CameraColumn",
+        "CameraPageLock",
         "CardFrame",
         "ChallengeFollowUp",
         "ChallengePill",
@@ -13172,11 +13195,14 @@
       "blocks": [
         "Blob",
         "CameraBridgePanel",
+        "CameraPageLock",
         "DoorShell",
         "DslrPairingController",
         "FormPageSkeleton",
         "HTMLButtonElement",
         "HTMLCanvasElement",
+        "HTMLDivElement",
+        "InfoTip",
         "Link",
         "MediaRecorder",
         "MockBridge",

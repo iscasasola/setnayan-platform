@@ -205,7 +205,7 @@ test('(3) in a stage, painted for all five: the stage’s name ▾ picked, "Stud
   // HERE ✓ only on the side you are on: from Studio no stage is "here".
   assert.match(menu, /const on = s === stage && \(bar\?\.here \?\? true\);/, 'the stage is ticked in the list opened from the Studio side');
   // The shell hands the bar what the panel is handed: its pick, its pages, its own page door.
-  assert.match(read(SHELL), /<StudioSideSwitch side=\{side\} onPick=\{pickSide\} stage=\{ltPick\} options=\{page\.options\} onStage=\{pickPage\} page=\{studioTile\} tiles=\{studioMenu \?\? undefined\} onOpen=\{openStudio\} \/>/);
+  assert.match(read(SHELL), /<StudioSideSwitch side=\{side\} onPick=\{pickSide\} stage=\{ltPick\} options=\{page\.options\} onStage=\{pickPage\} page=\{studioTile\} tiles=\{studioMenu \?\? undefined\} onOpen=\{openStudio\} onSettings=\{hasWork \? \(\) => setMoreOpen\(true\) : undefined\} \/>/);
 });
 
 test('(4) a ▾ opens its list and never changes side — only a pick does; no ✕ — the switch leads the bar', async () => {

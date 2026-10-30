@@ -8460,6 +8460,7 @@
         "dashboard/[eventId]/schedule/_components/announce-button.tsx",
         "dashboard/[eventId]/schedule/_components/block-time-editor.tsx",
         "dashboard/[eventId]/schedule/_components/booked-schedule-frame.tsx",
+        "dashboard/[eventId]/schedule/_components/booked-schedule-slot.ts",
         "dashboard/[eventId]/schedule/_components/day-rail.tsx",
         "dashboard/[eventId]/schedule/_components/day-sheets.tsx",
         "dashboard/[eventId]/schedule/_components/day-types.ts",

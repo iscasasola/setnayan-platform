@@ -17,6 +17,11 @@
  *                                    "Let guests shoot now" on/off (owner 2026-10-14): the REAL
  *                                    resolver + bar (`resolveSiteNav`, `SiteMenuBar`) and the REAL
  *                                    "Your shots" (empty → "Take your first photo"; N sample shots)
+ *   ?view=stagebar&stage=save_the_date|rsvp|event|editorial&papic=1|0&photos=1|0|x
+ *                                    📷 an invited guest's bar on ANY stage (owner 2026-10-30, "PAPIC ON = A CAMERA
+ *                                    TAB ON EVERY STAGE"): the REAL resolver + bar (`resolveSiteNav`, `SiteMenuBar`)
+ *                                    with Papic on (default) or off, and the event's Papic photos: 1 = some, 0 = none
+ *                                    (no Memories tab), x = not known (the old rules)
  *   ?needs=simple|open|list|full     🚪 what the event needs (owner 2026-10-08, Level 1 —
  *                                    `lib/event-needs.ts`): the Home drops what the preset leaves
  *                                    off (the bar's own drop is held by its test), the One QR card and ONE
@@ -234,7 +239,7 @@ const LAB_HUB_PICK: HomeHubPickRead = { ok: true, pinned: null, byDate: 'rsvp' }
 export default async function HomeLab({
   searchParams,
 }: {
-  searchParams: Promise<{ bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; coord?: string; level?: string; shop?: string; card?: string; cardphase?: string; challenges?: string; open?: string; need?: string; state?: string; browser?: string; desk?: string }>;
+  searchParams: Promise<{ stage?: string; photos?: string; bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; coord?: string; level?: string; shop?: string; card?: string; cardphase?: string; challenges?: string; open?: string; need?: string; state?: string; browser?: string; desk?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -327,6 +332,38 @@ export default async function HomeLab({
   if (q.view === 'apply') {
     return <ApplyProSheetLab screen={q.screen ?? 'none'} />;
   }
+  if (q.view === 'stagebar') {
+    /* 📷 The bar a guest holding their key sees on this stage — no database, the real rules. */
+    const stage = (['save_the_date', 'rsvp', 'event', 'editorial'] as const).find((s) => s === q.stage) ?? 'save_the_date';
+    const papicOn = q.papic !== '0';
+    const phase = stage === 'event' ? 'day' : stage === 'editorial' ? 'after' : 'before';
+    const bar = resolveSiteNav({
+      viewer: { kind: 'guest' },
+      phase,
+      stageSlots: STAGE_BAR[stage].slots,
+      hostAllowsCamera: papicOn,
+      anyChapterPublic: false,
+      memoriesHasPhotos: q.photos === 'x' ? null : q.photos !== '0',
+      hasStory: true,
+      hasDetails: true,
+      liveBroadcast: false,
+      postEvent: { film: true, suppliers: true },
+      tabbed: stage === 'event' ? true : stage === 'editorial' ? false : 'one-page',
+      destinations: { camera: '/papic/guest?from=lab', film: '#open-film', suppliers: '#site-suppliers' },
+    });
+    return (
+      <div className="min-h-screen bg-cream px-4 pb-28 pt-3">
+        <div className="mx-auto flex max-w-xl flex-col gap-3">
+          <p className="sn-eye text-ink/70">{STAGE_BAR[stage].label} · the guest&rsquo;s bar</p>
+          <p className="text-sm text-ink/70">
+            Papic {papicOn ? 'on' : 'off'} · {q.photos === 'x' ? 'photos not known' : q.photos === '0' ? 'no Papic photos yet' : 'Papic photos taken'}
+          </p>
+          <p className="text-sm text-ink/60">{bar.map((sl) => sl.label).join(' · ')}</p>
+        </div>
+        <SiteMenuBar slots={bar} onePage={stage === 'save_the_date' || stage === 'rsvp'} />
+      </div>
+    );
+  }
   if (q.view === 'early') {
     const early = q.early !== '0';
     const n = Math.max(0, Number(q.shots ?? 0) || 0);
@@ -354,7 +391,7 @@ export default async function HomeLab({
               cameraHref="/papic/guest?from=lab"
             />
           ) : (
-            <p className="text-sm text-ink/60">(Early shooting off — the bar keeps its four; there are no Memories before the day.)</p>
+            <p className="text-sm text-ink/60">(Early shooting off — there are no Memories before the day.)</p>
           )}
         </div>
         <SiteMenuBar slots={bar} />

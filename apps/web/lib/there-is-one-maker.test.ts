@@ -75,10 +75,11 @@ test('2 · the shell takes no choice — no prop, and its context says `stagesSt
   /* The switch is drawn on its own — never inside a ternary or a `&&` — EXCEPT on the Prints page (R8, owner 2026-10-27
      "PRINTS LEAVES STUDIO"), which is no Maker choice: it is one page of the one Maker, named "Prints" where the switch
      stands (it has no stage and no Studio to switch to). That ternary may test `printsPage` and nothing else. */
+  /* (It followed ✕ Exit's pill; the ✕ is dropped — 2026-10-30 — so it now leads the bar, after the ✕'s note.) */
   assert.match(
     shell,
-    /<\/IconPill>[\s{}]*(?:\{printsPage \? \([\s\S]{0,600}?data-prints-page-title[\s\S]{0,500}?\) : \(\s*)?<div data-maker-tool="side"[^>]*>\s*<StudioSideSwitch /,
-    'Stages | Studio is no longer drawn unconditionally after Exit',
+    /<header\b[^>]*>[\s{}]*(?:\{printsPage \? \([\s\S]{0,600}?data-prints-page-title[\s\S]{0,500}?\) : \(\s*)?<div data-maker-tool="side"[^>]*>\s*<StudioSideSwitch /,
+    'Stages | Studio is no longer drawn unconditionally, first in the bar',
   );
   assert.match(shell, /<PickSheetContext\.Provider value=\{makerPickSheet\}>/, 'the one bottom sheet became conditional');
 });

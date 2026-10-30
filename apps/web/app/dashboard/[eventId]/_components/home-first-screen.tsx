@@ -37,8 +37,10 @@ export type PapicCardInput = {
   phase: PapicCardPhase | null;
   thankYouHref: string | null;
   settings: ReactNode;
-  /** The Papic ON/OFF switch, in the card's head beside the › — closed and open (owner 2026-10-26). */
+  /** The head switch beside the › — closed and open (owner 2026-10-26): Papic on/off, or "Let everybody shoot now" once Papic is on (owner 2026-10-30, `PapicHeadControl`). */
   headControl?: ReactNode;
+  /** The line under the card's title (owner 2026-10-30: what "Let everybody shoot now" has saved); null = the brand line. */
+  headLine?: ReactNode;
   /** 🔢 Total · Taken · Remaining on the card's face (owner 2026-10-26) — the pot Home already read. */
   counts?: { total: number | null; left: number | null } | null;
   /** "Add more" on the face — the one buy sheet for this platform; null = not offered. */
@@ -448,6 +450,7 @@ function PapicTodayCard({ card, name = SERVICE_NAMES.papic.plain, brand = SERVIC
       thankYouHref={card.thankYouHref}
       settings={card.settings}
       headControl={card.headControl ?? null}
+      headLine={card.headLine ?? null}
       counts={card.counts ?? null}
       buy={card.buy ?? null}
       defaultOpen={card.defaultOpen ?? false}

@@ -9,7 +9,7 @@ line that opens it. No new bottom tab."* — and 2026-10-28 *"all mapping will b
   (`launch/page.tsx`) told to draw Prints alone by `PRINTS_PAGE_SURFACE`, a Symbol key on the `searchParams` object it hands
   over (no address can carry it). Nothing is redrawn: the swipe carousel, ⚙ Print settings, Download ▾, View as ▾, the
   PrintSaveButton / usePrintSave saves and share icon, every format and "Changed since you printed" are the shipped ones. The
-  shell (`printsPage`) names the page "Prints" where Stages | Studio stood, keeps ✕ · ↶ · ✓, and draws the workspace full
+  shell (`printsPage`) names the page "Prints" where Stages | Studio stood, keeps ↶ · ✓ (Event Hub Pro dropped ✕), and draws the workspace full
   screen as the Studio tile did (no Studio home, no lower third). A viewer with no Maker work, or an event that needs no Event
   Hub details, is sent to Home.
 - **Home's Prints line** — `HomePrintsLine` (`_components/home-prints-line.tsx`), drawn after the Papic card from the control

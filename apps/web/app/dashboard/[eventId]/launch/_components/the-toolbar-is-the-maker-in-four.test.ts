@@ -42,6 +42,11 @@
  *
  *     ✕ Exit · [ Stages ▾ | Studio ▾ ] · ↺ Undo · 👁 Preview (a desktop's) · ✓ Apply (n)
  *
+ * 🧭 2026-10-30 — THE HUB KEEPS THE APP'S NAV (DECISION_LOG "EVENT HUB PRO (look redesign)"): the bar is the Hub's
+ * pinned row under the app's top bar, the ✕ is dropped and ⚙ ends it:
+ *
+ *     [ Stages ▾ | Studio ▾ ] · ↺ Undo · 👁 Preview (a desktop's) · ✓ Apply (n) · ⚙
+ *
  * The tests below hold that bar; the ones that held Page ▾ · Event Details · Both · Scenes say they are gone.
  */
 import test from 'node:test';
@@ -134,11 +139,13 @@ const toolsOf = (html: string) => [...headerOf(html).matchAll(/data-maker-tool="
 
 /* ── 1 · the bar is exactly the approved items, in order ─────────────────── */
 
-test('the rendered toolbar is EXACTLY ✕ Exit · Stages | Studio · ↺ Undo · 👁 Preview · ✓ Apply — nothing else', async () => {
-  assert.deepEqual([...MAKER_TOOLBAR_STAGES_STUDIO], ['exit', 'side', 'undo', 'apply']);
+test('the rendered toolbar is EXACTLY Stages | Studio · ↺ Undo · 👁 Preview · ✓ Apply · ⚙ — nothing else', async () => {
+  /* 🧭 2026-10-30 (DECISION_LOG "EVENT HUB PRO (look redesign)"): ✕ Exit dropped (call 1 — the app's nav is the way
+     out); ↺ · ✓ stay (call 3); ⚙ Event Hub settings ends the row. */
+  assert.deepEqual([...MAKER_TOOLBAR_STAGES_STUDIO], ['side', 'undo', 'apply', 'settings']);
   const html = await paint();
   /* 👁 Preview is in the DOM between Undo and Apply — hidden on a phone (`max-lg:hidden`), a desktop's word. */
-  assert.deepEqual(toolsOf(html), ['exit', 'side', 'undo', 'preview', 'apply'], 'a control joined or left the top level of the Maker');
+  assert.deepEqual(toolsOf(html), ['side', 'undo', 'preview', 'apply', 'settings'], 'a control joined or left the top level of the Maker');
   const header = headerOf(html);
   assert.match(header, /<span class="contents max-lg:hidden"><span class="relative inline-flex shrink-0"><button[^>]*data-maker-tool="preview"/, 'Preview shows on a phone');
   // The old bar is gone: no Page ▾, no Event Details door, no Look chip.
@@ -157,7 +164,8 @@ test('the four stage names are not a top-level row — they live inside Page ▾
 
 test('a viewer with no work (a coordinator): the same one Maker’s bar, without the draft', async () => {
   const html = await paint({ hasWork: false });
-  assert.deepEqual(toolsOf(html), ['exit', 'side', 'preview'], 'a coordinator is drawn another bar');
+  /* No ⚙ for a coordinator: the Hub's settings are the couple's (its sheet's rows are the editor's, which they lack). */
+  assert.deepEqual(toolsOf(html), ['side', 'preview'], 'a coordinator is drawn another bar');
   assert.doesNotMatch(headerOf(html), /Only the host can open this part of the Event Hub Maker\.|data-maker-page-menu/, 'the old Maker’s shut door or Page ▾ is back');
 });
 
@@ -346,7 +354,8 @@ test('"Your info" is retired as a name: the Maker says Event Details', () => {
 test('first open: no tour and no Pro — ONE quiet line on the canvas, and only on the first open', async () => {
   const first = await paint({ firstVisit: true });
   assert.match(first, /data-maker-first-hint=""[^>]*>Tap anything to change it</);
-  assert.equal((first.match(/role="dialog"/g) ?? []).length, 1, 'a dialog besides the shut ⋯ sheet opened on the first visit');
+  /* (The shut "Your Event Hub" sheet was the one dialog in the DOM; since 2026-10-30 it is the ⚙'s and draws nothing shut.) */
+  assert.equal((first.match(/role="dialog"/g) ?? []).length, 0, 'a dialog opened on the first visit');
   assert.doesNotMatch(first, /Event Hub Pro|maker-tour-title/, 'a tour or a Pro pitch opens before the first tap');
   assert.doesNotMatch(await paint({ firstVisit: false }), /data-maker-first-hint/, 'the line shows after the first visit');
   // The first touch records it; the tour itself only plays from ⋯ › About the Maker, never recording.

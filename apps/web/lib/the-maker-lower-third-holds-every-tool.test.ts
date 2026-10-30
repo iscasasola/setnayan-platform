@@ -303,16 +303,16 @@ test('5 · no tool of the lower third links out of the Maker — the known few a
     assert.ok(src.length > 400, `${file} scanned nearly empty`);
     scanned += 1;
     const known = KNOWN_LINK_OUTS[file]?.count ?? 0;
-    /* 🚪 AMENDED 25 Oct (owner, over the Leave-the-Maker sheet: *"It just needs to go back to the event's
-       dashboard"*): ✕ is a link again — straight to this event's dashboard, no sheet — so the shell is allowed its
-       one ✕ (as before 08 Oct). Held exactly by `the-maker-exit-goes-to-the-event.test.ts`. */
-    const seen = linkOuts(src) - (file.endsWith('maker-shell.tsx') ? 1 : 0); // ✕ Exit is the Maker's one way out, in the top nav
+    /* 🚪 AMENDED 30 Oct (DECISION_LOG "EVENT HUB PRO (look redesign)", call 1): the ✕ — the shell's one allowed link
+       since 25 Oct — is DROPPED; the app's own nav is the way out. The shell is held at no link like every other
+       file (`the-hub-is-left-by-the-apps-nav.test.ts`). */
+    const seen = linkOuts(src);
     assert.equal(seen, known, `${file}: ${seen} link(s) out of the Maker, ${known} known${KNOWN_LINK_OUTS[file] ? ` (${KNOWN_LINK_OUTS[file]!.why})` : ''}`);
   }
   assert.ok(scanned >= 15, 'the scan is blind');
-  // The Maker's way out: ✕ → this event's dashboard, one link and nothing else (`the-maker-exit-goes-to-the-event.test.ts`).
+  // The Maker's way out is the app's nav (30 Oct) — the shell draws no link of its own (`the-hub-is-left-by-the-apps-nav.test.ts`).
   const shell = read('app/dashboard/[eventId]/launch/_components/maker-shell.tsx');
-  assert.equal((shell.match(/<Link\b/g) ?? []).length, 1, 'the shell links out of the Maker somewhere besides ✕');
+  assert.equal((shell.match(/<Link\b/g) ?? []).length, 0, 'the shell links out of the Maker again');
   // 🖨 The R8 forward is no tool: an item crossing to the Prints page (or back) — `prints-forward.ts`, held by
   // `prints-has-its-own-page.test.ts`. The shell itself loads no page.
   assert.equal((shell.match(/window\.location\.(?:assign|replace)\(/g) ?? []).length, 0, 'the shell loads another page itself');
@@ -325,7 +325,7 @@ test('5 · no tool of the lower third links out of the Maker — the known few a
   const nav = work.slice(work.indexOf('aria-label="Scenes"'), work.indexOf('aria-label="Preview"'));
   assert.ok(nav.length > 2000, 'the navigator was not found — this scan is blind');
   assert.equal(linkOuts(nav), 0, 'a tile’s note links out of the Maker');
-  // Settings › Who can view (the "Your Event Hub" tool): its rows, portalled from the work area — the Pro unlock only.
+  // ⚙ Event Hub settings (Settings › Who can view opens it too): its rows, portalled from the work area — the Pro unlock only.
   const more = work.slice(work.indexOf('function MoreExtras('), work.indexOf('\n}\n', work.indexOf('function MoreExtras(')));
   assert.ok(more.length > 400, 'the Your Event Hub rows were not found — this scan is blind');
   assert.equal(linkOuts(more), 1, 'the Your Event Hub tool links out beyond its Pro unlock');

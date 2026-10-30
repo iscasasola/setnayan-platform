@@ -128,15 +128,16 @@ async function paintShell(props: Record<string, unknown>): Promise<string> {
   );
 }
 
-test('2 · the shell draws Prints alone: "Prints" where Stages | Studio stood, ✕ · ↶ · ✓ kept, the workspace full screen', async () => {
+test('2 · the shell draws Prints alone: "Prints" where Stages | Studio stood, ↶ · ✓ kept, the workspace full screen', async () => {
   const prints = await paintShell({ printsPage: true });
   const maker = await paintShell({});
   assert.ok(prints.includes('data-maker-shell=""') && prints.length > 1500, 'anti-vacuity: the shell was not drawn');
-  /* The top bar: the page's name, never the switch; Exit and the draft bar as ever. */
+  /* The top bar: the page's name, never the switch; the draft bar as ever. No ✕ on either — Event Hub Pro dropped it
+     (owner 2026-10-30): the app's own nav is the way out (`the-hub-is-left-by-the-apps-nav.test.ts`). */
   assert.match(prints, /<h1 data-maker-tool="side" data-bar-item="Prints"[^>]*data-prints-page-title=""[^>]*>Prints<\/h1>/, 'the Prints page does not name itself where the switch stood');
   assert.doesNotMatch(prints, /data-bar-item="Stages or Studio"/, 'the Prints page draws Stages | Studio');
   for (const html of [prints, maker]) {
-    assert.match(html, /data-maker-tool="exit"/, 'Exit is gone');
+    assert.doesNotMatch(html, /data-maker-tool="exit"/, 'the ✕ Exit is back');
     assert.match(html, /data-stub="draft-bar"/, 'Undo · Apply is gone');
   }
   assert.match(maker, /data-bar-item="Stages or Studio"/, 'anti-vacuity: the Maker no longer draws its switch');

@@ -18,6 +18,8 @@ export type MakerLate = {
   factEditors: Partial<Record<DetailsItemKey, ReactNode>>;
   venuePictures: MakerVenuePictures | null;
   studio: { tiles: readonly StudioTileModel[] } | null;
+  /** ⚙ "Your Event Hub" for the Hub's ⚙ Event Hub settings (`hubSettingsEditor`, open) — null: it could not be built. */
+  hubSettings: ReactNode;
   /** An unfinished event with no place in the address opens on What's left — decided from the panels' own facts. */
   opensOnGuide: boolean;
 };
@@ -29,5 +31,6 @@ export const MAKER_LATE_UNREAD: MakerLate = {
   factEditors: {},
   venuePictures: null,
   studio: null,
+  hubSettings: null,
   opensOnGuide: false,
 };

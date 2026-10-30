@@ -6,7 +6,7 @@
  *   · THE PAGE is `/dashboard/<id>/prints` (`printsPageHref`). It renders the SHIPPED Prints workspace whole — the Maker's
  *     one Details page on its Prints form, the swipe carousel (`studio-prints-carousel.tsx`), ⚙ Print settings, Download ▾,
  *     View as ▾, every save — through the Maker's own page (`launch/page.tsx`), told by `PRINTS_PAGE_SURFACE`. Nothing is
- *     redrawn; the Maker's top bar keeps ✕ · ↶ · ✓ and names the page "Prints" where Stages | Studio stood.
+ *     redrawn; the Maker's top bar keeps ↶ · ✓ (✕ dropped by Event Hub Pro) and names the page "Prints" where Stages | Studio stood.
  *   · HOME HOLDS THE DOOR, NEVER THE TOOL: one Prints line (`PRINTS_HOME_LINE`, ⓘ `PRINTS_PAGE_CARD`) that opens the page.
  *   · EVERY OLD DOOR FORWARDS (owner 2026-10-28, *"all mapping will be kept"*): an address of the Maker that names a print —
  *     `?tool=prints`, `?tool=details&item=<print>`, `?item=every-print` — lands on the page at the same piece, carrying its

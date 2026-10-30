@@ -31,14 +31,17 @@ const walk = (dir: string): string[] =>
 const FILES = ['app', 'lib', 'components'].flatMap(walk);
 const SHEET = 'app/dashboard/[eventId]/launch/_components/guests-see-sheet.tsx';
 const PARTS = 'app/dashboard/[eventId]/launch/_components/stages-studio-parts.tsx';
+const HUB = 'app/dashboard/[eventId]/launch/_components/hub-settings.tsx';
 
 test('1 · the sheet has one importer — a lazy piece — and the builder has no client importer', () => {
   assert.ok(FILES.length > 2000 && FILES.includes(SHEET), `anti-vacuity: walked ${FILES.length} files`);
   const importers = (needle: RegExp) => FILES.filter((f) => needle.test(stripComments(read(f))));
-  assert.deepEqual(importers(/from ['"][^'"]*\/guests-see-sheet['"]/), [PARTS]);
-  // …and that piece is reached through the lazy stand-ins only (never a static import from a first-load file).
+  /* ⚙ (2026-10-30) …and the Hub's ⚙, which offers its row (asking the work area whether it can answer) — two lazy pieces. */
+  assert.deepEqual(importers(/from ['"][^'"]*\/guests-see-sheet['"]/).sort(), [HUB, PARTS].sort());
+  // …and each is reached through the lazy stand-ins only (never a static import from a first-load file).
   const lazy = read('app/dashboard/[eventId]/launch/_components/details-lazy.tsx');
   assert.match(lazy, /export const StudioSideSwitch = dynamic\(\(\) => import\(\/\* webpackChunkName: "maker-details" \*\/ '\.\/stages-studio-parts'\)/);
+  assert.match(lazy, /export const HubSettingsGear = dynamic\(\(\) => import\(\/\* webpackChunkName: "maker-details" \*\/ '\.\/hub-settings'\)/);
   const builders = importers(/from ['"][^'"]*\/guests-see-build['"]/);
   // Home's Event Hub card builds the same table on the server (owner 2026-10-23, the service widgets) — a second
   // SERVER builder, never a client one (the next line holds that for both).
@@ -59,15 +62,19 @@ test('2 · the sheet reaches no server module: the work area lends the table and
   assert.match(src, /const patch = guestsSeePatch\(writes\);\s*if \(!patch\) return setLine\(W\.nothingToKeep\);/, 'Keep is not exactly the pending ticks');
 });
 
-test('3 · one row in Studio ▾, only where the work area answers — and a sheet, never a twelfth Studio page', () => {
+test('3 · one row — in the Hub’s ⚙, no longer in Studio ▾ — only where the work area answers; a sheet, never a Studio page', () => {
+  /* ⚙ MOVED 2026-10-30 (owner, the Event Hub Pro prototype's Q4 drawn as A — DECISION_LOG 2026-10-26 "EACH MENU HAS ITS
+     OWN SETTINGS": "everything guests see on the Hub only in Event Hub Settings"). It was the last row of Studio ▾. */
   const src = stripComments(read(PARTS));
-  assert.equal((src.match(/data-pick-option="guests-see"/g) ?? []).length, 1);
-  /* 🔁 RE-AIMED 2026-10-11 (the row gained its neighbours' icon and status): the work area is asked once, while the
-     list is open, and the row is offered only when it answers. */
-  assert.match(src, /const guestsSeeArea = list === 'pages' \? guestsSeeWorkArea\(\) : null;/);
-  assert.match(src, /\{guestsSeeArea \? \(\s*<li role="none">\s*<button[\s\S]{0,260}?data-pick-option="guests-see"/);
-  // The row's shape is its neighbours': an icon, then the name and line, then a status in plain words.
-  assert.match(src, /data-pick-option="guests-see"[\s\S]{0,700}?<Eye aria-hidden className="h-\[18px\] w-\[18px\] text-sn-accent" strokeWidth=\{1\.9\} \/>[\s\S]{0,700}?data-guests-see-status="" className=\{pickTrailClass\('muted', false\)\}>\s*\{guestsSeeRowStatus\(guestsSeeArea\.table\)\}/);
+  assert.equal((src.match(/data-pick-option="guests-see"/g) ?? []).length, 0, 'the row is back in Studio ▾');
+  const hub = stripComments(read(HUB));
+  // The work area is asked while the ⚙ is open, and the row is offered only when it answers.
+  assert.match(hub, /const guestsSeeShown = open && guestsSeeWorkArea\(\) !== null;/);
+  assert.match(hub, /\{guestsSeeShown \? \(\s*<section data-hub-settings-group="guests-see">/);
+  assert.match(hub, /<FormRow data="guests-see" name=\{GUESTS_SEE_WORDS\.menuLine\}[\s\S]{0,200}onClick=\{go\(doors\.guestsSee\)\}/);
+  // The ⚙ closes and asks; the switch — always mounted — opens the shipped sheet.
+  assert.match(stripComments(read('app/dashboard/[eventId]/launch/_components/maker-shell.tsx')), /guestsSee: \(\) => window\.dispatchEvent\(new Event\(MAKER_OPEN_GUESTS_SEE_EVENT\)\)/);
+  assert.match(src, /window\.addEventListener\(MAKER_OPEN_GUESTS_SEE_EVENT, open\);/);
   assert.match(src, /\{guestsSee && typeof document !== 'undefined' \? createPortal\(<GuestsSeeSheet onClose=\{\(\) => setGuestsSee\(false\)\} \/>, document\.body\) : null\}/);
   assert.match(stripComments(read(SHEET)), /<MakerSheet label=\{W\.title\} onClose=\{close\} everyWidth tall>/);
   /* 🗂 R1 (owner 2026-10-28): the RSVP tile left for Guests ⚙; R4 the Wedding March and Seat plan for Guests' views;

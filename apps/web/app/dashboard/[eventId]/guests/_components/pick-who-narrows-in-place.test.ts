@@ -56,11 +56,9 @@ test('in place: Pick who closes the sheet, turns Select on and narrows to To inv
   assert.match(body, /setSelectMode\(true\)/, 'Pick who does not turn Select on');
   assert.match(body, /setReplyFilter\('toinvite'\)/, 'Pick who does not narrow to To invite');
   assert.match(SCREEN, /<PickWhoContext\.Provider value=\{[^}]*pickWho\}>\{setup\}<\/PickWhoContext\.Provider>/, 'the ⚙ rows cannot reach pickWho');
-  // The button: the link stays (cold way in), the press prevents it and calls the screen.
-  const btn = ROWS.match(/label="Pick who"([\s\S]*?)\/>/)?.[1] ?? '';
-  assert.match(btn, /href=\{setupDoorHref\(eventId, 'pick-who'\)\}/);
-  assert.match(btn, /e\.preventDefault\(\);\s*pickWho\(\);/, 'the press still follows the link to the same page');
-  assert.match(ROWS, /const pickWho = usePickWho\(\);/);
+  // 🗂 R4 slice 11: the ⚙'s Invitations row (and its Pick who) is gone — sending lives on the List. The cold way in
+  // (`?select=to-invite`, test 1) and the screen's own pickWho stay for the doors that still lead here.
+  assert.doesNotMatch(ROWS, /label="Pick who"/, 'the Guests ⚙ draws Pick who again');
 });
 
 test('the Select bar still sends the picked into the ONE send run', () => {

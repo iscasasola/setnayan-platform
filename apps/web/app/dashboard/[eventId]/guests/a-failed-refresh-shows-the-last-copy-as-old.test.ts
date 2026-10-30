@@ -58,7 +58,8 @@ test('2 · while the fresh list comes, the line says it is the last copy — in 
   const stick = html.slice(html.indexOf('data-guests-stick'), html.indexOf('data-roster-counts'));
   // (⚙ 2026-10-27: the selector's first row ends with the menu's ⚙ — the line follows that row. 🎚 2026-10-29: the view's
   //  own rounds — Seats' Edit · ⋯, empty on the List — sit between the pill and the ⚙.)
-  assert.match(stick, /<\/nav><span [^>]*data-guests-view-rounds=""><\/span>(?:<span data-menu-settings="guests"[\s\S]*?<\/span>)?<\/div><p role="status"[^>]*data-guests-status="updating"/, 'the line follows the selector in the flow');
+  //  🎚 2026-10-30: the pill is gone — the ONE row's face (▾ · counts) comes first.)
+  assert.match(stick, /data-guests-view-counts=""[^>]*>[^]*?<\/span><\/div><span [^>]*data-guests-view-rounds=""><\/span>(?:<span data-menu-settings="guests"[\s\S]*?<\/span>)?<\/div><p role="status"[^>]*data-guests-status="updating"/, 'the line follows the selector in the flow');
   assert.doesNotMatch(html, /data-last-seen-mark|class="[^"]*\bfixed\b[^"]*"[^>]*data-guests-status/);
   // (The round ＋ left the row 2026-10-25; the ways to add are gated on `copy` — held by search-or-add.test.ts.)
   // (The row's remove reads "Delete" since 2026-10-27 — owner: "share and delete only".)

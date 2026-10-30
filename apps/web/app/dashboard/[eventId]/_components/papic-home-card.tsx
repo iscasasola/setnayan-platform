@@ -25,7 +25,7 @@
  * the head's button — a sheet's button inside a button is invalid HTML — so the head still only opens the settings.
  */
 
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { ChevronRight, Clapperboard } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import type { PapicCardPhase } from '@/lib/papic-home-card';
@@ -33,6 +33,21 @@ import { OneOpenScope, useOneOpen } from '@/lib/one-open';
 import { formatCount } from '@/lib/format-number';
 import { PAPIC_CARD_ANCHOR } from '@/lib/papic-home-href';
 import { papicCountsWords } from '@/lib/papic-card-counts';
+
+/**
+ * 📷 THE HEAD'S LINE CAN BE SAID BY THE HEAD'S SWITCH (owner 2026-10-30: the head switch is "Let everybody shoot now"
+ * once Papic is on, with a short line under the title). The server draws the line from what is saved (`headLine`); the
+ * switch, a sibling of the head's button, says the new line the moment it is pressed and takes it back if the save
+ * fails — so the line and the switch never say two things. null = the saved line.
+ * A refused save is said UNDER THE HEAD, in the card's flow (`problem`) — never inside the switch's absolute slot, where
+ * a sentence widened the slot and threw the switch over the camera mark (walk 2026-10-30, 390 px).
+ */
+type PapicHeadSay = { line: (line: string | null) => void; problem: (problem: string | null) => void };
+const PapicHeadContext = createContext<PapicHeadSay | null>(null);
+const SAY_NOTHING: PapicHeadSay = { line: () => {}, problem: () => {} };
+export function usePapicHead(): PapicHeadSay {
+  return useContext(PapicHeadContext) ?? SAY_NOTHING;
+}
 
 export function PapicHomeCard({
   name,
@@ -44,6 +59,7 @@ export function PapicHomeCard({
   marker,
   defaultOpen = false,
   headControl = null,
+  headLine = null,
   counts = null,
   buy = null,
 }: {
@@ -64,12 +80,17 @@ export function PapicHomeCard({
    * button"). A SIBLING of the head's button, never inside it (a switch in a button is invalid HTML).
    */
   headControl?: ReactNode;
+  /** The line under the title in place of `brand` — what the head's switch has saved (owner 2026-10-30); null = `brand`. */
+  headLine?: ReactNode;
   /** The pot: what it holds and has left. null = not shown (a lab); a field null = not measured ("Couldn't check"). */
   counts?: { total: number | null; left: number | null } | null;
   /** "Add more" — the one buy sheet, built by the server for this platform; null = not offered here. */
   buy?: ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const [saidLine, sayLine] = useState<string | null>(null);
+  const [saidProblem, sayProblem] = useState<string | null>(null);
+  const [say] = useState<PapicHeadSay>(() => ({ line: sayLine, problem: sayProblem }));
   // 🔒 ONE OPEN AT A TIME on Home (owner-approved 2026-10-24): opening Papic closes the service open before.
   const oneOpenId = useOneOpen(open, setOpen);
   const regionId = useId();
@@ -93,6 +114,7 @@ export function PapicHomeCard({
   return (
     <div ref={root} id={PAPIC_CARD_ANCHOR} className="col-span-full flex min-w-0 scroll-mt-20 flex-col md:col-span-1" data-papic-home-card={open ? 'open' : 'rest'}>
       <OneOpenScope id={oneOpenId}>
+        <PapicHeadContext.Provider value={say}>
         <div className="sg-row relative" {...marker}>
           {/* THE SWITCH — in the head, closed and open, over the head's right edge beside the ›. */}
           {headControl ? (
@@ -114,9 +136,15 @@ export function PapicHomeCard({
               <span className="sg-mark" aria-hidden>
                 {icon}
               </span>
-              <span className={`min-w-0 ${headControl ? 'pr-16' : ''}`}>
+              {/* The head's control is a compact dropdown (owner 2026-10-30: Off · On — event day · On — everyone, now) — the
+                  title keeps clear of its widest face. */}
+              <span className={`min-w-0 ${headControl ? 'pr-24' : ''}`}>
                 <span className="sg-name block truncate">{name}</span>
-                {brand ? <span className="sg-brand block truncate">{brand}</span> : null}
+                {saidLine !== null || headLine || brand ? (
+                  <span className={`sg-brand block ${saidLine !== null || headLine ? '[text-wrap:balance]' : 'truncate'}`} data-papic-head-line="">
+                    {saidLine ?? headLine ?? brand}
+                  </span>
+                ) : null}
               </span>
               {/* › turns to ⌄ as the card grows in place (owner 2026-10-24). */}
               <ChevronRight
@@ -126,6 +154,12 @@ export function PapicHomeCard({
               />
             </span>
           </button>
+
+          {saidProblem ? (
+            <p role="alert" className="pt-1 text-[12.5px] font-semibold leading-snug text-danger-700" data-papic-head-problem="">
+              {saidProblem}
+            </p>
+          ) : null}
 
           {/* 🔢 TOTAL · TAKEN · REMAINING, and ADD MORE — on the face, closed and open (owner 2026-10-26). */}
           {counts || buy ? (
@@ -161,6 +195,7 @@ export function PapicHomeCard({
             </div>
           </div>
         </div>
+        </PapicHeadContext.Provider>
       </OneOpenScope>
     </div>
   );

@@ -12,6 +12,7 @@ import { LiveWallCard } from '@/app/dashboard/[eventId]/studio/papic/_components
 import { PoolGalleryCard } from '@/app/dashboard/[eventId]/studio/papic/_components/pool-gallery-card';
 import { DriveCopyCard, type DriveGrant } from '@/app/dashboard/[eventId]/studio/papic/_components/drive-copy-card';
 import { getDriveOAuthConfig } from '@/lib/papic-drive';
+import type { MemoriesManagerRole } from '@/lib/memories-rules';
 
 /**
  * ⚙ GALLERY SETTINGS — the sheet behind Memories' gear (owner 2026-10-23, verbatim: *"Gallery holds: follow moments in
@@ -22,19 +23,30 @@ import { getDriveOAuthConfig } from '@/lib/papic-drive';
  *
  *   Photo wall              `LiveWallCard variant="row"` (copy link · screen codes · on guests' phones · count · layout)
  *   Thank-You Video         `ServiceParts service="papic"` (the add-on's own door; nothing when it is not offered)
- *   Guests see all photos   `PoolGalleryCard variant="row"` (`pool_gallery_open`)
+ *   Who sees what           `PoolGalleryCard variant="row"` (`pool_gallery_open`) — was "Guests see all photos"
  *   Google Drive            `DriveCopyCard` (connect / connected / "Coming soon" while Google's review runs)
  *   Keep full resolution    the HIGH_RES_ARCHIVE line, priced from the catalogue (web only — Apple does not sell it)
+ *
+ * 👁 WHO SEES WHAT FIRST (owner 2026-10-30, DECISION_LOG "MEMORIES ⚙ HOLDS THE MEMORIES RULES — HOSTS + COORDINATORS
+ * MANAGE THEM; DEFAULT "ONLY TAGGED""): the "Guests see all photos" switch is now the rule **Who sees what** — Only
+ * tagged (default) · Share all memories — the SAME column (`pool_gallery_open`), drawn by the same `PoolGalleryCard`.
+ * 👥 `role`: the hosts (the couple + every co-host) get the whole sheet; the event's COORDINATOR gets the rules only
+ * (Who sees what) — the photo wall, the Thank-You add-on, Google Drive and Keep full resolution are purchases and
+ * the hosts' own accounts, not Memories rules. The server action is the authority either way (`memoriesManagerRole`).
  */
 export async function MemoriesSettings({
   eventId,
   loginEmail,
   appleIap,
+  role = 'host',
 }: {
   eventId: string;
   loginEmail: string | null;
   appleIap: boolean;
+  /** Who is looking (`memoriesManagerRole`): a coordinator sees the Memories rules only. */
+  role?: MemoriesManagerRole;
 }) {
+  if (role === 'coordinator') return <PoolGalleryCard eventId={eventId} variant="row" />;
   const supabase = await createClient();
   const admin = createAdminClient();
   const [grantRes, driveConfig, owns, priceRes, platform] = await Promise.all([
@@ -54,11 +66,11 @@ export async function MemoriesSettings({
 
   return (
     <>
+      <PoolGalleryCard eventId={eventId} variant="row" />
       <LiveWallCard eventId={eventId} appleIap={appleIap} variant="row" />
       <div className="py-3" data-memories-setting="thank-you">
         <ServiceParts eventId={eventId} service="papic" />
       </div>
-      <PoolGalleryCard eventId={eventId} variant="row" />
       <div className="py-3" data-memories-setting="drive">
         <DriveCopyCard
           eventId={eventId}

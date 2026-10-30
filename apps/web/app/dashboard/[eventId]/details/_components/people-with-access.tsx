@@ -56,7 +56,9 @@ import type { ClaimAccessAsk } from '@/lib/claim-access-asks';
  * (`ACCESS_GROUPS`). Plain rows and dividers like every other fold: no box of
  * its own (the fold is the tile).
  *   · HELPER — per area: name + ⓘ, then ONE three-way toggle Edit · Off · View.
- *   · COORDINATOR — ONE switch, "Same access as you", ON by default.
+ *   · COORDINATOR — ONE switch, "Same access as you", ON by default, until the
+ *     hosts pick Limited · Full access; on Limited, the helper's per-area
+ *     toggles (Mood Board Edit · View among them, owner 2026-10-30).
  *   · BOOKED SUPPLIER — name and category; what they see is set by their
  *     category (`SUPPLIERS_BY_CATEGORY`); nothing to switch.
  */
@@ -78,7 +80,7 @@ function dayLabel(iso: string): string {
  * Edit · Off · View, Off in the middle, one segmented switch. This OVERRIDES
  * the standing "any set of choices is a dropdown" rule for this control only.
  * A position the area cannot take (Budget / Photos never Edit) is drawn and
- * disabled; a fixed area (Event Hub, Mood Board) is drawn at its value,
+ * disabled; a fixed area (Event Hub) is drawn at its value,
  * disabled, with an ⓘ saying why.
  *
  * Drawn by the app's ONE pill selector (owner 2026-10-08, `app/_components/pill-track.tsx`): the picked position is
@@ -474,6 +476,11 @@ function PersonItem({
         // The old one switch stays only until the hosts answer the level (a recorded level replaces it).
         row.coordinatorLevel === 'unanswered' || row.coordinatorLevel === undefined ? (
           <CoordinatorSwitch eventId={eventId} row={row} readOnly={readOnly} />
+        ) : row.coordinatorLevel === 'limited' && row.areas ? (
+          /* 🖼 LIMITED = "changes only what you allow" (LEVEL_MORE: "…until you allow a part in Event details ›
+             Access"). This is that place — the helper's own per-part toggles on the coordinator's seat, Mood Board
+             among them (owner 2026-10-30: "Only the host and whoever supplier they give access to"). */
+          <AreaPicks eventId={eventId} row={{ ...row, areas: row.areas }} readOnly={readOnly} />
         ) : null
       ) : row.areas ? (
         <AreaPicks eventId={eventId} row={{ ...row, areas: row.areas }} readOnly={readOnly || row.isViewer} />

@@ -106,10 +106,12 @@ test('no target: the bar is scaled to what is agreed, and nothing is invented', 
   assert.equal(b.meter.overPct, 0);
 });
 
-test('the block and the rows are ONE read: the slot hands the block the SAME money object, and the page makes no second call', () => {
+test('the rows are ONE read, and the Budget is its own part: the slot resolves the money once, the page never', () => {
   const slot = read('app/dashboard/[eventId]/vendors/_components/booked-slot.tsx');
   assert.equal((slot.match(/resolveEventMoney\w*\(/g) ?? []).length, 1, 'the Booked slot resolves the money more than once');
-  assert.match(slot, /const budget = bookedBudgetBlock\(money, targetPhp\);/);
+  // Booked = Team · Budget · Schedule (owner 2026-10-29): the Budget is the whole page at `?part=budget`, so the
+  // small block no longer sits under the Team's rows (it stays the lab's and its own guard's — below).
+  assert.doesNotMatch(slot, /<BookedBudgetSection\b|bookedBudgetBlock\(/, 'the small Budget block is back under the Team — the Budget is its own part');
   assert.match(slot, /buildBudgetList\(money\)/, 'the rows no longer read the same object');
   const page = read('app/dashboard/[eventId]/vendors/page.tsx');
   assert.doesNotMatch(page, /resolveEventMoney/, 'the Suppliers page resolves the money a second time');

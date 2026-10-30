@@ -86,7 +86,7 @@ export function LabCamera({ lane, pro = false, buy = false }: { lane: 'guest' | 
     const poster = await posterOf(clip);
     await saveShot({
       id: newClientCaptureId(),
-      lane,
+      lane: lane === 'vendor' ? 'vendor' : 'guest',
       eventId: LAB_EVENT_ID,
       media: 'clip',
       capturedAtMs: Date.now(),

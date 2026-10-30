@@ -2046,7 +2046,7 @@ export function PapicGuestCapture({
         </div>
         {/* ONE run-out sentence (walk-b6 guest, fault 2, 2026-10-14): at zero it is said
             over the viewfinder, where the shutter would be — the caption no longer repeats it. */}
-        {(exhausted && poolEmpty) || (fullScreen && !exhausted && !recording && !tagging) ? null : (
+        {exhausted && poolEmpty ? null : (fullScreen && !exhausted && !recording && !tagging) ? null : (
           <p className="order-3 text-center text-xs text-cream/60" data-camera-hint="">
             {exhausted
               ? 'Your camera is all used up — enjoy the event.'

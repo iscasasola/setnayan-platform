@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
 import { papicFrameCrop } from '@/lib/papic-viewfinder-crop';
 import { CameraPageLock } from '@/app/papic/_components/camera-page-lock';
+import { InfoTip } from '@/app/_components/info-tip';
 import {
   Camera,
   Loader2,
@@ -1447,8 +1448,8 @@ export function PapicSeatCapture({
           href={`/signup?next=${encodeURIComponent(`/papic/seat/${token}`)}`}
           className={
             shotsTaken > 0
-              ? 'mx-4 mb-1 flex items-center gap-2.5 rounded-lg border-2 border-champagne-gold bg-champagne-gold/20 px-3 py-2.5 text-xs text-cream transition hover:bg-champagne-gold/25'
-              : 'mx-4 mb-1 flex items-center gap-2 rounded-lg border border-champagne-gold/40 bg-champagne-gold/10 px-3 py-2 text-xs text-cream/85 transition hover:bg-champagne-gold/15'
+              ? 'mx-4 mb-1 flex min-h-11 items-center gap-2 rounded-full border-2 border-champagne-gold bg-champagne-gold/25 py-1 pl-3 pr-1 text-xs text-cream backdrop-blur-sm transition hover:bg-champagne-gold/30'
+              : 'mx-4 mb-1 flex min-h-11 items-center gap-2 rounded-full border border-champagne-gold/40 bg-ink/40 py-1 pl-3 pr-1 text-xs text-cream/85 backdrop-blur-sm transition hover:bg-champagne-gold/15'
           }
         >
           <ShieldCheck
@@ -1460,19 +1461,21 @@ export function PapicSeatCapture({
             }
             strokeWidth={1.9}
           />
-          <span className="min-w-0 flex-1">
+          {/* 📱 ONE SLIM LINE over the picture (owner 2026-10-30: the two-line card covered the top of the viewfinder).
+              The line that matters stays visible and still grows gold with what there is to lose; the rest is read
+              out to a screen reader. */}
+          <span className="min-w-0 flex-1 truncate">
             {shotsTaken > 0 ? (
               <>
                 <span className="font-semibold text-cream">
-                  {formatCount(shotsTaken)} {shotsTaken === 1 ? 'shot' : 'shots'} — yours only
-                  on this phone.
-                </span>{' '}
-                Save them to your account or they go when you close this tab.
+                  {formatCount(shotsTaken)} {shotsTaken === 1 ? 'shot' : 'shots'} — only on this phone
+                </span>
+                <span className="sr-only"> Save them to your account or they go when you close this tab.</span>
               </>
             ) : (
               <>
-                <span className="font-medium text-cream">Shooting as a guest.</span>{' '}
-                Save these to your Setnayan account to find them later.
+                <span className="font-medium text-cream">Shooting as a guest</span>
+                <span className="sr-only"> Save these to your Setnayan account to find them later.</span>
               </>
             )}
           </span>
@@ -1877,10 +1880,18 @@ export function PapicSeatCapture({
                   )}
                 </div>
 
-                <p className="text-center text-xs text-cream/60">
-                  {recording
-                    ? 'Recording… release to stop.'
-                    : clipsAllowed
+                {/* 📱 How the shutter works lives in the ⓘ (owner 2026-10-30: details go in the ⓘ); only a recording's
+                    live line is said out loud. */}
+                {recording ? (
+                  <p className="text-center text-xs text-cream/60">Recording… release to stop.</p>
+                ) : (
+                <div className="flex justify-center">
+                <InfoTip
+                  label=""
+                  ariaLabel="How the shutter works"
+                  className="[&_button]:border-cream/50 [&_button]:text-cream/80"
+                >
+                  {clipsAllowed
                       ? // ⚠ DERIVED. This read "(up to 5s)" while CLIP_MAX_MS —
                         // 800 lines above, in this same file — has been 10s since
                         // the owner raised the cap on 2026-07-22. The button label
@@ -1889,7 +1900,9 @@ export function PapicSeatCapture({
                         // next re-price cannot leave one of the three behind.
                         `Tap for a photo · press and hold to record (up to ${CLIP_MAX_MS / 1000}s).`
                       : 'Tap to take a photo. Every shot lands in the host’s Memories.'}
-                </p>
+                </InfoTip>
+                </div>
+                )}
               </>
             )}
 

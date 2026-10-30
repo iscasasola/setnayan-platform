@@ -27,7 +27,7 @@ import { buildJourneyTimeline } from '@/lib/journey';
 import { resolveProfile, resolveProfileByEvent } from '@/lib/event-type-profile';
 import { BOOKED_SCHEDULE_PART } from '@/lib/pillar-parts';
 import { BookedPartRow } from '../vendors/_components/booked-part-row';
-import { BOOKED_SCHEDULE_TOOLS_SLOT, BookedScheduleFrame } from './_components/booked-schedule-frame';
+import { BOOKED_SCHEDULE_TOOLS_SLOT } from './_components/booked-schedule-slot';
 import { term } from '@/lib/event-term-copy';
 import { SubmitButton } from '@/app/_components/submit-button';
 import {
@@ -118,7 +118,7 @@ import { formatCount } from '@/lib/format-number';
 // Every write below still goes through `./actions` and `_actions/day-of-broadcast`.
 /* ⚡ The day rail, Announce and the tips load when the Schedule is opened — never
    with the Maker that draws this page (`_components/schedule-lazy.tsx`). */
-import { AnnounceButton, ScheduleDay, Tip } from './_components/schedule-lazy';
+import { AnnounceButton, BookedScheduleFrame, ScheduleDay, Tip } from './_components/schedule-lazy';
 import type { DayMoment, DayRequest, DayRole } from './_components/day-types';
 import { MiniTour } from '@/app/_components/mini-tour';
 import {

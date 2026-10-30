@@ -13,11 +13,8 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import ScheduleLabClient from '../schedule-lab/schedule-lab-client';
 import { scheduleSuppliersFrom } from '@/lib/schedule-suppliers';
-import {
-  BOOKED_SCHEDULE_TOOLS_SLOT,
-  BookedScheduleFrame,
-  type BookedScheduleView,
-} from '@/app/dashboard/[eventId]/schedule/_components/booked-schedule-frame';
+import { BookedScheduleFrame, type BookedScheduleView } from '@/app/dashboard/[eventId]/schedule/_components/booked-schedule-frame';
+import { BOOKED_SCHEDULE_TOOLS_SLOT } from '@/app/dashboard/[eventId]/schedule/_components/booked-schedule-slot';
 import { AnnounceButton } from '@/app/dashboard/[eventId]/schedule/_components/announce-button';
 
 const SUPPLIERS = scheduleSuppliersFrom(

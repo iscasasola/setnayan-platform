@@ -26,8 +26,7 @@ import { ScheduleViewOnScreen } from './schedule-sheet';
 
 export type BookedScheduleView = 'event-day' | 'preparation' | 'journey';
 
-/** The id of the line's slot the Event Day's own tools are drawn into (`ScheduleDay`'s `toolsSlot`). */
-export const BOOKED_SCHEDULE_TOOLS_SLOT = 'booked-schedule-day-tools';
+import { BOOKED_SCHEDULE_TOOLS_SLOT } from './booked-schedule-slot';
 
 export function BookedScheduleFrame({
   initial,

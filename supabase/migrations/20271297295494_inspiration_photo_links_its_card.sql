@@ -88,15 +88,18 @@ BEGIN
   IF NEW.vendor_service_id IS NULL THEN
     RETURN NEW;
   END IF;
+  -- A library row names a card only when it is a SUPPLIER's inspiration photo (Setnayan's own template imagery has no
+  -- shop and no card). Checked first: a library row's shop is ON DELETE CASCADE, never SET NULL, so this never fires
+  -- inside a cascade.
+  IF TG_TABLE_NAME = 'moodboard_library_assets' AND (to_jsonb(NEW) ->> 'asset_type') IS DISTINCT FROM 'supplier_gallery' THEN
+    RAISE EXCEPTION 'only a supplier''s inspiration photo can name a service card'
+      USING ERRCODE = 'check_violation';
+  END IF;
   -- A row whose shop went NULL (a suggestion's shop closed: SET NULL) cannot keep a card — dropped, never raised,
   -- so the cascade that fired this UPDATE still succeeds.
   IF NEW.vendor_profile_id IS NULL THEN
     NEW.vendor_service_id := NULL;
     RETURN NEW;
-  END IF;
-  IF TG_TABLE_NAME = 'moodboard_library_assets' AND (to_jsonb(NEW) ->> 'asset_type') IS DISTINCT FROM 'supplier_gallery' THEN
-    RAISE EXCEPTION 'only a supplier''s inspiration photo can name a service card'
-      USING ERRCODE = 'check_violation';
   END IF;
   IF NOT EXISTS (
     SELECT 1 FROM public.vendor_services s

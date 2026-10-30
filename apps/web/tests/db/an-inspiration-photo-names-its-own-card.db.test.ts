@@ -48,7 +48,7 @@ async function asRole(role: 'anon' | 'authenticated', uid: string | null): Promi
 }
 async function newUser(email: string): Promise<string> {
   const r = await db.query<{ id: string }>(
-    `INSERT INTO auth.users (email, raw_user_meta_data) VALUES ($1, jsonb_build_object('account_type','vendor')) RETURNING id`,
+    `INSERT INTO auth.users (email, raw_user_meta_data) VALUES ($1, jsonb_build_object('account_type','customer')) RETURNING id`,
     [email],
   );
   return r.rows[0]!.id;
@@ -63,8 +63,10 @@ async function shop(owner: string, name: string): Promise<string> {
 }
 async function card(vp: string, category: string): Promise<string> {
   const r = await db.query<{ vendor_service_id: string }>(
-    `INSERT INTO public.vendor_services (vendor_profile_id, category, starting_price_php, is_active)
-     VALUES ($1, $2, 25000, true) RETURNING vendor_service_id`,
+    /* Drafted (is_active FALSE): the publish gates (cover · what's included · the daily limit) are not what this file
+       tests, and the trigger holds a card to its shop whether or not it is live — liveness is the app's rule. */
+    `INSERT INTO public.vendor_services (vendor_profile_id, category, starting_price_php, exclusive_perk_text, is_active, primary_photo_r2_key)
+     VALUES ($1, $2, 25000, 'Free corsage', FALSE, 'vendor-media/links/cover.jpg') RETURNING vendor_service_id`,
     [vp, category],
   );
   return r.rows[0]!.vendor_service_id;
@@ -150,7 +152,7 @@ test('1 · a library photo takes ITS OWN shop\'s card, and the table refuses ano
 });
 
 test('1b · deleting the card SETS NULL — it never blocks the delete and never deletes the photo', async () => {
-  const doomed = await card(W.shopA, 'florals_doomed');
+  const doomed = await card(W.shopA, 'photo_booth');
   const p = await photo({ vp: W.shopA, uploader: W.ownerA, card: doomed });
   await db.query(`DELETE FROM public.vendor_services WHERE vendor_service_id=$1`, [doomed]);
   const after = await db.query<{ vendor_service_id: string | null }>(`SELECT vendor_service_id FROM public.moodboard_library_assets WHERE asset_id=$1`, [p]);
@@ -176,6 +178,8 @@ test('1c · a suggestion takes only its own shop\'s card; a shop going NULL drop
 
 test('2 · a signed-in supplier reads its photo\'s card but cannot write it; source_suggestion_id is withheld', async () => {
   const mine = await photo({ vp: W.shopA, uploader: W.ownerA, card: W.cardA });
+  /* The supplier's own-row read policy admits a VENDOR account (20260527000000). */
+  await db.query(`UPDATE public.users SET account_type='vendor' WHERE user_id=$1`, [W.ownerA]);
   await asRole('authenticated', W.ownerA);
   try {
     const r = await db.query<{ vendor_service_id: string }>(`SELECT vendor_service_id FROM public.moodboard_library_assets WHERE asset_id=$1`, [mine]);
@@ -205,7 +209,7 @@ test('3 · a suggestion\'s pool copy is PENDING — invisible to the public unti
   const s = await db.query<{ suggestion_id: string }>(
     `INSERT INTO public.event_inspiration_suggestions (event_id, event_vendor_id, vendor_profile_id, shop_label, slot_key, state, image_url, screened_at,
        sampled_hex_1, sampled_hex_2, sampled_hex_3, sampled_hex_4, sampled_hex_5, sampled_hex_6, vendor_service_id)
-     VALUES ($1, $2, $3, 'Bloom & Co.', 'bridal_bouquet', 'declined', 'https://media.example/s.jpg', NOW(),
+     VALUES ($1, $2, $3, 'Bloom & Co.', 'bridal_bouquet', 'waiting', 'https://media.example/s.jpg', NOW(),
        '#111111','#222222','#333333','#444444','#555555','#666666', $4) RETURNING suggestion_id`,
     [W.eventId, W.bookingA, W.shopA, W.cardA],
   );

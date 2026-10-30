@@ -234,7 +234,7 @@ export function GalleryLightbox({
         {/* A PANEL — risen over the bottom of the viewer (Share · Tag · a confirm); a tap above it puts it away. */}
         {screen.panel ? (
           <>
-            <OverlayBackdrop onClose={screen.onPanelClose} label="Close this panel" className="z-10" />
+            <OverlayBackdrop onClose={screen.onPanelClose ?? (() => undefined)} label="Close this panel" className="z-10" />
             <div
               data-viewer-panel=""
               className="absolute inset-x-0 bottom-0 z-20 max-h-[80dvh] overflow-y-auto rounded-t-3xl border-t border-[rgb(251_250_247/0.14)] bg-[var(--sn-ob-card)] px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-2 shadow-[0_-30px_80px_rgb(0_0_0/0.5)]"

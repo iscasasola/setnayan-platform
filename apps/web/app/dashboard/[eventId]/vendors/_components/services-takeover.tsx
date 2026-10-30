@@ -40,14 +40,18 @@
  * the only inbox door.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { formatCount } from '@/lib/format-number';
 import { flushSync } from 'react-dom';
+import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { Sparkles } from 'lucide-react';
 import { Explain } from '@/app/_components/explain';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { MenuSettingsButton } from '@/app/_components/menu-settings-button';
 import { Count } from '@/components/count';
 import { ISeg, ISegmented } from '../../website/editor/_components/inspector-kit';
+import { PickMenu } from '../../website/editor/_components/pick-menu';
+import type { BookedPartKey, PillarPart } from '@/lib/pillar-parts';
 import {
   BUDGET_BUILD_TABS,
   TAB_META,
@@ -137,7 +141,16 @@ const LANDING_CSS =
   // motion, and each time the bar came back the block reached its place first —
   // leaving a strip between the bar and the date line where the rows behind
   // showed through (controller's walk at 375, 2026-10-08).
-  '[data-suppliers-stick]{transition:top .3s ease-out,box-shadow .3s ease-out}';
+  '[data-suppliers-stick]{transition:top .3s ease-out,box-shadow .3s ease-out}' +
+  // 📌 FOLDED, THE ROW SAYS WHERE YOU ARE IN ONE DROPDOWN (the approved final Suppliers design, 2026-10-30 — the
+  // prototype's mini menu "Booked · Team ▾"; the Guests pinned row's own shape, 2026-10-29: selector left · count ·
+  // ⚙ right). The face lies OVER the segmented control, so the row's height never changes and nothing below moves;
+  // at rest it is not there (no taps, not read), pinned the segments step back. The ⚙ is the same mounted button.
+  '[data-suppliers-stick] [data-sup-face]{opacity:0;visibility:hidden;transition:opacity .2s ease-out,visibility .2s}' +
+  '[data-suppliers-stick][data-stuck] [data-sup-face]{opacity:1;visibility:visible}' +
+  '[data-suppliers-stick]>[role=group]{transition:opacity .2s ease-out,visibility .2s}' +
+  '[data-suppliers-stick][data-stuck]>[role=group]{opacity:0;visibility:hidden}' +
+  '@media (prefers-reduced-motion:reduce){[data-suppliers-stick] :is([data-sup-face],[role=group]){transition:none}}';
 
 function prefersReducedMotion(): boolean {
   return (
@@ -164,8 +177,21 @@ export function ServicesTakeover({
   bookedSlot,
   settingsSlot,
   settingsOpenAtFirst = false,
+  bookedPart = 'team',
+  bookedParts = [],
+  partPage = false,
 }: {
   eventId: string;
+  /** Which of Booked's parts is on screen — Team (the body), or the Budget / Schedule page drawn whole. */
+  bookedPart?: BookedPartKey;
+  /** Booked's parts (`bookedParts`) — listed in the folded row's one dropdown. */
+  bookedParts?: readonly PillarPart[];
+  /**
+   * THIS IS A BOOKED PART'S OWN PAGE (`?part=budget|schedule`): the shell is drawn around the Budget or the Schedule
+   * page, rendered whole, and Find and Build are not on it — a press on them goes to the Suppliers page itself, which
+   * opens on that body. (The parts are their own addresses so the Suppliers page never pays for their reads.)
+   */
+  partPage?: boolean;
   /**
    * ⚙ SUPPLIERS ⚙'S SHEET ROWS (owner 2026-10-27, "SUPPLIERS GETS ITS ⚙ — THE SUPPLIER SETTINGS MOVE THERE"), drawn by
    * the page (`suppliers-settings-rows.tsx`). Given → the menu's ONE ⚙ ends the Find · Build · Booked row, which is
@@ -353,11 +379,16 @@ export function ServicesTakeover({
     ro?.observe(stick);
     window.addEventListener('resize', sync);
     window.addEventListener('scroll', sync, { passive: true });
+    // 📌 The row's `top` follows the bar over .3s; the bar hides AFTER the last scroll event, so "stuck" is asked again
+    // once the row has arrived — measured mid-slide it read "not stuck" and the folded row never showed (WebKit walk,
+    // 2026-10-30: scrolled 450 px, row at the top, no fold).
+    stick.addEventListener('transitionend', sync);
     return () => {
       mo?.disconnect();
       ro?.disconnect();
       window.removeEventListener('resize', sync);
       window.removeEventListener('scroll', sync);
+      stick.removeEventListener('transitionend', sync);
     };
   }, []);
 
@@ -387,6 +418,46 @@ export function ServicesTakeover({
 
   const drawn = (m: SuppliersMode) => m === mode || seen.has(m);
   const modeState = useMemo(() => ({ mode, leaving, thumbUp }), [mode, leaving]);
+  // The app router when there is one (a unit render has none — the shell is drawn there too); else a plain load.
+  const appRouter = useContext(AppRouterContext);
+  const go = (href: string) => (appRouter ? appRouter.push(href) : window.location.assign(href));
+  const suppliersHref = `/dashboard/${eventId}/vendors`;
+  /** A press on a body: on the Suppliers page the bus swaps it in place; on a part's own page it goes home to it. */
+  const goToMode = (m: SuppliersMode) => {
+    if (!partPage) {
+      goToBuildTab(SUPPLIERS_MODE_TAB[m]);
+      return;
+    }
+    if (m === 'booked' && bookedPart === 'team') return;
+    go(`${suppliersHref}?tab=${SUPPLIERS_MODE_TAB[m]}`);
+  };
+  /** The folded row's one dropdown: Find · Build · Booked · Team · Booked · Budget · Booked · Schedule. */
+  const faceValue = mode === 'booked' ? `booked-${bookedPart}` : mode;
+  const faceOptions = [
+    { key: 'find', label: SUPPLIERS_MODE_LABEL.find },
+    { key: 'build', label: SUPPLIERS_MODE_LABEL.build },
+    ...(bookedParts.length > 0
+      ? bookedParts.map((p) => ({ key: `booked-${p.key}`, label: `${SUPPLIERS_MODE_LABEL.booked} · ${p.label}` }))
+      : [{ key: 'booked-team', label: SUPPLIERS_MODE_LABEL.booked }]),
+  ];
+  const pickFace = (key: string) => {
+    if (key === faceValue) return;
+    if (key === 'find' || key === 'build') return goToMode(key);
+    const part = bookedParts.find((p) => `booked-${p.key}` === key);
+    if (!part || part.key === 'team') {
+      // The Team is the Booked body: in place when it is on this page, else its own address.
+      if (bookedPart === 'team' && !partPage) goToBuildTab(SUPPLIERS_MODE_TAB.booked);
+      else go(part?.href ?? `${suppliersHref}?tab=${SUPPLIERS_MODE_TAB.booked}`);
+      return;
+    }
+    go(part.href);
+  };
+  const faceCount =
+    mode === 'build' && tally.filled > 0
+      ? `${tally.filled}/${tally.total}`
+      : mode === 'booked' && bookedPart === 'team' && bookedCount > 0
+        ? `${formatCount(bookedCount)} booked`
+        : null;
 
   return (
     /* 🔴 THE APP'S TOP BAR STAYS ON SUPPLIERS (owner 2026-10-05). This section
@@ -431,6 +502,26 @@ export function ServicesTakeover({
         data-tour="suppliers-segments"
         data-first-row=""
       >
+        {/* 📌 The folded face (see the CSS above): ONE dropdown saying where you are, and its count. */}
+        <div
+          data-sup-face=""
+          className="absolute inset-y-0 left-4 right-[68px] flex min-w-0 items-center gap-2 sm:left-6 sm:right-[76px] lg:left-0 lg:right-[52px]"
+        >
+          <PickMenu
+            label="Suppliers: Find, Build or Booked"
+            value={faceValue}
+            options={faceOptions}
+            onPick={pickFace}
+            dataAttr="data-sup-face-pick"
+            compact
+            className="border border-ink/10 font-semibold"
+          />
+          {faceCount ? (
+            <span className="truncate text-[13px] text-ink/60" data-sup-face-count="">
+              {faceCount}
+            </span>
+          ) : null}
+        </div>
         <ISegmented label="Find, Build or Booked">
           {SUPPLIERS_MODES.map((m) => (
             <ISeg
@@ -440,7 +531,7 @@ export function ServicesTakeover({
               data={m}
               // The segmented control DRIVES THE BUS: a press dispatches the
               // mode's own tab key, and the listener above swaps the body.
-              onClick={() => goToBuildTab(SUPPLIERS_MODE_TAB[m])}
+              onClick={() => goToMode(m)}
             >
               {SUPPLIERS_MODE_LABEL[m]}
               {m === 'build' && tally.filled > 0 ? (

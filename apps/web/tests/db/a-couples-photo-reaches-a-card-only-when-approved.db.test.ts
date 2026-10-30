@@ -335,8 +335,12 @@ async function stateOf(id: string): Promise<{ state: string; public_key: string 
 test('F1 · PoC A — a GUEST swaps the picture behind an APPROVED card: the share is withdrawn, the card never shows the swap', async () => {
   const { photo, id } = await freshShare(1, W.floristCard, true);
   assert.deepEqual((await onCard(W.floristCard)).map((x) => x.public_key), [lookKey(id)]);
+  // Since 20271297469032 a guest cannot UPDATE the board at all (hosts only, three columns) — the first wall.
   const swap = await as(W.guest, `UPDATE public.event_inspiration_assets SET image_url='https://evil.example/swap.jpg' WHERE inspiration_id=$1 RETURNING image_url AS out`, [photo]);
-  assert.ok(swap.ok, 'the pre-existing guest UPDATE path changed (that policy is out of scope here) — re-read this test');
+  assert.ok(!swap.ok || swap.value === undefined, 'a guest changed a board photo');
+  // The second wall, independent of any policy: whatever changes the picture (here the service role) withdraws it.
+  await reset();
+  await db.query(`UPDATE public.event_inspiration_assets SET image_url='https://evil.example/swap.jpg' WHERE inspiration_id=$1`, [photo]);
   const card = await onCard(W.floristCard);
   assert.ok(!card.some((x) => x.public_key.includes('evil') || x.public_key === lookKey(id)), `the swapped (or stale) photo is still on the card: ${JSON.stringify(card)}`);
   assert.deepEqual(await stateOf(id), { state: 'withdrawn', public_key: null });
@@ -345,7 +349,9 @@ test('F1 · PoC A — a GUEST swaps the picture behind an APPROVED card: the sha
 test('F1 · PoC A′ — a guest swaps the object KEY while the share waits: the shop can no longer approve it', async () => {
   const { photo, id } = await freshShare(1, W.floristCard, false);
   const swap = await as(W.guest, `UPDATE public.event_inspiration_assets SET r2_key=$2 WHERE inspiration_id=$1 RETURNING 1 AS out`, [photo, uploadKey(9)]);
-  assert.ok(swap.ok);
+  assert.ok(!swap.ok || swap.value === undefined, 'a guest changed a board photo’s object');
+  await reset();
+  await db.query(`UPDATE public.event_inspiration_assets SET r2_key=$2 WHERE inspiration_id=$1`, [photo, uploadKey(9)]);
   const late = await answer(W.florist, id, true);
   assert.ok(late.ok && late.value.status === 'withdrawn', `a share whose picture changed was approvable: ${JSON.stringify(late)}`);
   assert.deepEqual(await onCard(W.floristCard), []);
@@ -356,9 +362,12 @@ test('F1 · PoC C — the couple removes the photo; a guest un-removes it; it do
   const rm = await as(W.couple, `UPDATE public.event_inspiration_assets SET removed_at=NOW() WHERE inspiration_id=$1 RETURNING 1 AS out`, [photo]);
   assert.ok(rm.ok);
   assert.deepEqual(await onCard(W.floristCard), [], 'a removed photo is still on the card');
-  const un = await as(W.guest, `UPDATE public.event_inspiration_assets SET removed_at=NULL WHERE inspiration_id=$1 RETURNING 1 AS out`, [photo]);
-  assert.ok(un.ok);
-  assert.deepEqual(await onCard(W.floristCard), [], 'a guest’s un-remove put the photo back on the card');
+  // A guest's un-remove is refused by the board's own policy now; a host's (or anyone's) un-remove must still not
+  // bring it back — the share stays withdrawn.
+  await as(W.guest, `UPDATE public.event_inspiration_assets SET removed_at=NULL WHERE inspiration_id=$1 RETURNING 1 AS out`, [photo]);
+  const un = await as(W.cohost, `UPDATE public.event_inspiration_assets SET removed_at=NULL WHERE inspiration_id=$1 RETURNING 1 AS out`, [photo]);
+  assert.ok(un.ok, `a host could not un-remove: ${JSON.stringify(un)}`);
+  assert.deepEqual(await onCard(W.floristCard), [], 'an un-remove put the photo back on the card');
   assert.equal((await stateOf(id)).state, 'withdrawn');
 });
 
@@ -472,8 +481,10 @@ test('F2 · round 2 — a SUPPLIER’s suggested photo is never "their own": not
   await freePlace(2);
   const mine = await boardPhoto(W.couple, 2, 'file_upload');
   const sugKey = `inspiration/${W.eventId}/suggestions/bridal_bouquet/11111111-1111-4111-8111-111111111111-suggestion.jpg`;
-  const repoint = await as(W.couple, `UPDATE public.event_inspiration_assets SET r2_key=$2, image_url=$3 WHERE inspiration_id=$1 RETURNING 1 AS out`, [mine, sugKey, urlOf(sugKey)]);
-  assert.ok(repoint.ok, 'the pre-existing couple UPDATE path changed — re-read this test');
+  // The board's column grant refuses this for a session now (20271297469032); the share door must refuse it anyway.
+  await as(W.couple, `UPDATE public.event_inspiration_assets SET r2_key=$2, image_url=$3 WHERE inspiration_id=$1 RETURNING 1 AS out`, [mine, sugKey, urlOf(sugKey)]);
+  await reset();
+  await db.query(`UPDATE public.event_inspiration_assets SET r2_key=$2, image_url=$3 WHERE inspiration_id=$1`, [mine, sugKey, urlOf(sugKey)]);
   const r1 = await share(W.couple, mine, W.floristCard, 'a_couple', null);
   assert.ok(r1.ok && r1.value.status === 'not_own_photo', `a suggestions-folder object was shareable: ${JSON.stringify(r1)}`);
   // (b) A key that IS a supplier suggestion's, wherever it is filed.

@@ -115,7 +115,9 @@ test('the old routes redirect ONLY where Details draws the item, and never insid
   const schedule = read('app/dashboard/[eventId]/schedule/page.tsx');
   assert.match(
     schedule,
-    /if \(!inMaker && \(await detailsIsTheDoor\(supabase, eventId, user\.id\)\)\) \{\s*redirect\(detailsDoorHref\(eventId, 'schedule',/,
+    // Since 2026-10-30 the Schedule's address first forwards to Suppliers › Booked › Schedule (owner 2026-10-29); the
+    // Maker's door is still the answer for everyone who cannot open Suppliers — and never inside the Maker.
+    /if \(!inMaker && !inBooked\) \{[\s\S]*?if \(await detailsIsTheDoor\(supabase, eventId, user\.id\)\) \{\s*redirect\(detailsDoorHref\(eventId, 'schedule',/,
   );
   const story = read('app/dashboard/[eventId]/website/our-story/page.tsx');
   assert.match(
@@ -230,7 +232,7 @@ test('a schedule MOMENT tapped on a stage opens Details › Schedule with that m
   assert.match(rail, /setSelectedId\(id\);/);
   assert.match(rail, /data-rail-moment=\{m\.block_id\}/);
   // …and in the Maker the Schedule opens on the day itself, where the rail is.
-  assert.match(read('app/dashboard/[eventId]/schedule/page.tsx'), /inMaker\s*\? 'event-day'/);
+  assert.match(read('app/dashboard/[eventId]/schedule/page.tsx'), /inMaker \|\| inBooked\s*\? 'event-day'/);
 });
 
 /* ── 2 · a tapped fact opens the SAME component ───────────────────────── */

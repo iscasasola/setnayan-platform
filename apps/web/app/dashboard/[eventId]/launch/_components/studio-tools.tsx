@@ -66,7 +66,7 @@ import { STUDIO_INFO_ROWS, StudioOpeningLine, StudioPhotosHeading, StudioWords, 
 import { ChosenRow, FactRow, FORM_ROW_BAND, FormRow, FormRows, SwitchRow, TypedRow } from '@/app/_components/form-row';
 import { HubGoLiveRow } from './hub-go-live-row';
 import { Fold } from '@/app/_components/fold';
-import { RotateCcw, Undo } from 'lucide-react';
+import { ChevronDown, RotateCcw, Undo } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { StudioKindlyReply, StudioMenuEditor, StudioParents, StudioPosterPhoto } from './studio-prints-six';
 import { StudioChartBody, StudioChartLayoutSetting, StudioChartPaper, type StudioPaper } from './print-paper';
@@ -569,15 +569,17 @@ export function StudioHubSettings({
      actions, its question and its schedule kept), the two pickers are the same `ChosenRow` (the house `PickMenu`). */
   const compactRows = (
     <div data-studio-hub="" data-studio-hub-bare="" data-studio-hub-compact="" {...STUDIO_INFO_ROWS} className="flex flex-col pb-2">
-      <FormRows data="your-event-hub">
+      <FormRows data="your-event-hub" width="short">
         {address ? (
           <div data-form-row="address" data-studio-hub-row="address" className={FORM_ROW_BAND}>
             {address}
           </div>
         ) : null}
         <StudioQrShown eventId={eventId} shown={qrShown} line="On the cover, the prints and the pass">
-          {qrLook}
+          {/* The prototype's QR box: Copy · Share · Download first; the QR's look (Shape · Pattern · Colour) one quiet
+              row under it that opens in place — still mounted while shut, so nothing stops posting. */}
           <StudioQrActions slug={slug} path={livePath} />
+          {qrLook ? <StudioQrLookRow>{qrLook}</StudioQrLookRow> : null}
         </StudioQrShown>
         {hub ? (
           <>
@@ -710,6 +712,35 @@ export function StudioHubSettings({
     <Fold data="more-for-guests" title="More for guests" summary="the address, who can view, the QR">
       {body}
     </Fold>
+  );
+}
+
+/**
+ * ⚙ THE QR'S LOOK, ONE QUIET ROW (the Hub's ⚙, owner 2026-10-30 "Redraw to prototype"): the prototype's QR box holds
+ * the code and its Copy · Share · Download; the shipped Shape · Pattern · Colour (`QrLookControls`) open from this row,
+ * in place (no "edit elsewhere"), and stay mounted while shut.
+ */
+export function StudioQrLookRow({ children }: { children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div data-studio-qr-look="">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className="sn-press flex min-h-11 w-full items-center gap-2 rounded-xl text-left"
+        data-studio-qr-look-toggle=""
+      >
+        <span className="min-w-0 flex-1">
+          <span className="block text-[14px] font-medium text-ink">QR look</span>
+          <small className="block text-[12.5px] text-ink/55">Shape · Pattern · Colour</small>
+        </span>
+        <ChevronDown aria-hidden className={`h-4 w-4 flex-none text-ink/45 transition-transform duration-sn-pill motion-reduce:transition-none ${open ? 'rotate-180' : ''}`} strokeWidth={2} />
+      </button>
+      <div hidden={!open} className={open ? 'flex flex-col gap-1 pb-1' : 'hidden'}>
+        {children}
+      </div>
+    </div>
   );
 }
 

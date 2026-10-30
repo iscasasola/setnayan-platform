@@ -108,7 +108,7 @@ export function HubGoLiveRow({
     ? 'Live — Who can view decides who opens it'
     : scheduledAt
       ? `Goes live ${formatManila(scheduledAt)} · Manila`
-      : 'Not yet — only you and invited guests can open it';
+      : 'Not yet — private until you launch';
 
   const below = launched ? null : picking ? (
     <div className="pb-3" data-hub-go-live="picking">

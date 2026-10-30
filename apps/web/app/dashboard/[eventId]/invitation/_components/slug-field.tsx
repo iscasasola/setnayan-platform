@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
-import { Check, X, AlertTriangle, Loader2 } from 'lucide-react';
+import { Check, X, AlertTriangle, Loader2, Pencil } from 'lucide-react';
 import { slugForwardingLabel } from '@/lib/slug-forwarding-window';
 import { formatPhp } from '@/lib/php';
 import { PaidMark } from '@/app/_components/paid-mark';
@@ -137,7 +137,7 @@ export function SlugField({ eventId, initialSlug, saveAction, onDraft, drafted =
             Event Hub address
           </label>
           <div className="relative flex h-10 min-w-0 flex-1 items-center rounded-full border border-ink/15 bg-white pl-3.5 pr-8 focus-within:border-terracotta dark:bg-raised">
-            <span aria-hidden className="flex-none font-mono text-[13px] text-ink/55">
+            <span aria-hidden className="flex-none text-[14px] text-ink/55">
               setnayan.com/
             </span>
             <input
@@ -150,16 +150,21 @@ export function SlugField({ eventId, initialSlug, saveAction, onDraft, drafted =
               autoCapitalize="none"
               autoCorrect="off"
               spellCheck={false}
-              className="h-full min-w-0 flex-1 bg-transparent font-mono text-[13px] text-ink outline-none"
+              className="h-full min-w-0 flex-1 bg-transparent pl-1 text-[14px] text-ink outline-none"
             />
-            <StatusBadge busy={busy} check={check} />
+            {/* The prototype's ✎ while it is the address in use; the check's own mark once something else is typed. */}
+            {!busy && (!check || check.status === 'current') ? (
+              <Pencil aria-hidden className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-terracotta" strokeWidth={1.9} />
+            ) : (
+              <StatusBadge busy={busy} check={check} />
+            )}
           </div>
           {onDraft ? null : (
             <button
               type="submit"
               disabled={!canSave || pending}
               data-slug-save=""
-              className="sn-press inline-flex h-10 flex-none items-center rounded-full border border-ink/25 px-4 text-[14px] font-semibold text-ink disabled:cursor-not-allowed disabled:opacity-45"
+              className="sn-press inline-flex h-10 flex-none items-center rounded-full bg-ink/[0.06] px-4 text-[14px] font-semibold text-ink disabled:cursor-not-allowed disabled:text-ink/45"
             >
               {pending ? 'Saving…' : 'Save'}
             </button>

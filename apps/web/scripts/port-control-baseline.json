@@ -1283,6 +1283,8 @@
         "Eyebrow",
         "FaceDataNotice",
         "FaceReceiptCard",
+        "FaceStepFailureToast",
+        "FaceStepSavedToast",
         "FaceTaggingRow",
         "FacebookWatchCard",
         "Field",
@@ -11639,14 +11641,18 @@
         "dev/papic-camera-lab/lab-camera.tsx",
         "dev/papic-camera-lab/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/dev/papic-camera-lab"
+      ],
       "actions": [],
       "blocks": [
         "Blob",
         "LabCamera",
         "LabPageSpotlight",
+        "PapicBuyShell",
         "PapicCaptureController",
         "PapicGuestCapture",
+        "PapicSeatCapture",
         "UploaderSnapshot"
       ]
     },
@@ -11776,6 +11782,37 @@
         "FrontDoorShell",
         "LabAddOwn",
         "RosterPerson"
+      ]
+    },
+    "/dev/selfie-lab": {
+      "files": [
+        "dev/selfie-lab/page.tsx",
+        "dev/selfie-lab/selfie-lab.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "Capture",
+        "FaceStepFailureToast",
+        "FaceStepSavedToast",
+        "FaceTaggingRow",
+        "SelfieLab",
+        "Suspense"
+      ]
+    },
+    "/dev/shop-layout-lab": {
+      "files": [
+        "dev/shop-layout-lab/page.tsx"
+      ],
+      "destinations": [
+        "/"
+      ],
+      "actions": [],
+      "blocks": [
+        "Link",
+        "ShareButton",
+        "ShopBadgePill",
+        "Wordmark"
       ]
     },
     "/dev/shop-preview-lab": {
@@ -12907,6 +12944,7 @@
         "ArmedChallenge",
         "Blob",
         "CameraColumn",
+        "CameraPageLock",
         "CardFrame",
         "ChallengeFollowUp",
         "ChallengePill",
@@ -13044,11 +13082,14 @@
       "blocks": [
         "Blob",
         "CameraBridgePanel",
+        "CameraPageLock",
         "DoorShell",
         "DslrPairingController",
         "FormPageSkeleton",
         "HTMLButtonElement",
         "HTMLCanvasElement",
+        "HTMLDivElement",
+        "InfoTip",
         "Link",
         "MediaRecorder",
         "MockBridge",
@@ -13462,6 +13503,7 @@
         "v/[slug]/_components/service-details-sheet.tsx",
         "v/[slug]/_components/services-gallery.tsx",
         "v/[slug]/_components/share-button.tsx",
+        "v/[slug]/_components/shop-columns.ts",
         "v/[slug]/_components/shop-inspiration-section.tsx",
         "v/[slug]/_components/team-preview-banner.tsx",
         "v/[slug]/_components/venue-matched-events.tsx",

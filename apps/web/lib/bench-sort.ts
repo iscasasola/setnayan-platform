@@ -192,7 +192,11 @@ const DIMENSION_COPY: Record<CompatDimension, { lead: string; plain: string }> =
 function dimensionCopyFor(
   dim: CompatDimension,
   v: ShortlistVendor,
+  words?: SortWords,
 ): { lead: string; plain: string } {
+  // 🧭 A sort the couple shaped (Find's "Nearest to ceremony" · a typed price range) names what it measured.
+  const own = words?.[dim];
+  if (own) return own;
   if (dim === 'demandPressure' && v.demandCoupleCount != null) {
     const phrase = `${formatCount(v.demandCoupleCount)} couples inquired for your date`;
     return { lead: phrase, plain: phrase };
@@ -325,16 +329,32 @@ function hoistLocked<T extends { v: ShortlistVendor }>(rows: T[]): T[] {
   });
 }
 
+/** A pill's own words for a dimension, when the couple shaped the sort (Find, owner 2026-10-30). */
+export type SortWords = Partial<Record<CompatDimension, { lead: string; plain: string }>>;
+
+/**
+ * 🧭 What the couple shaped a sort with (Find's ≡, owner 2026-10-30): `adjust` swaps ONE input of a card's scorer
+ * projection — the ceremony's distance for "Nearest to ceremony", a typed range's fit for "Budget fit" — and `words`
+ * names it on the pill. The card itself is never changed (its distance line, its badges): only the order and the pill.
+ */
+export type SortShape<T> = {
+  adjust?: (item: T, base: CompatInputs) => CompatInputs;
+  words?: SortWords;
+};
+
 export function sortWithReasons(
   vendors: ShortlistVendor[],
   mode: BenchSort,
-  opts?: { nowMs?: number },
+  opts?: { nowMs?: number } & SortShape<ShortlistVendor>,
 ): { v: ShortlistVendor; reason: SortReason | null }[] {
   // Project ONCE, then order through the shared rule. The pills below are
   // computed from the SAME resolved inputs the order was computed from, so a
   // card can never wear a reason that disagrees with where it was put.
   const inputs = new Map<ShortlistVendor, CompatInputs>();
-  for (const v of vendors) inputs.set(v, benchCompatInputs(v, opts?.nowMs));
+  for (const v of vendors) {
+    const base = benchCompatInputs(v, opts?.nowMs);
+    inputs.set(v, opts?.adjust ? opts.adjust(v, base) : base);
+  }
   const arr = orderByBenchSort(vendors, mode, (v) => ({
     pricePhp: v.totalCostPhp ?? null,
     rating: v.rating ?? null,
@@ -411,7 +431,7 @@ export function sortWithReasons(
       // No dimension rose above neutral → we have nothing honest to say. Render
       // no pill rather than a manufactured reason.
       if (!s || !dim) return { v, reason: null };
-      const copy = dimensionCopyFor(dim, v);
+      const copy = dimensionCopyFor(dim, v, opts?.words);
       const isBestOnDim = bestByDim.get(dim) === s.subs[dim];
       return {
         v,

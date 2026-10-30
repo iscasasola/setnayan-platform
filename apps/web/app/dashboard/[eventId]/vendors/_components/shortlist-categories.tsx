@@ -99,8 +99,22 @@ import {
   sortWithReasons,
   type BenchSort,
   type SortReason,
+  type SortShape,
 } from '@/lib/bench-sort';
-import { isLensKey, visibleLenses } from '@/lib/ranking-lenses';
+import { isLensKey, LENSES, visibleLenses } from '@/lib/ranking-lenses';
+import {
+  effectiveRange,
+  nearFromKey,
+  nearKey,
+  priceSpan,
+  rangeFitRatio,
+  rangeTyped,
+  type BudgetRange,
+  type NearFrom,
+} from '@/lib/find-sort-choices';
+import type { ThumbMenu } from '@/components/thumb-row';
+import { FilterFace } from '@/app/dashboard/[eventId]/guests/_components/guests-filter-menu';
+import { FindBudgetRange } from './find-budget-range';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import {
   FREE_VENUE_ASSIST_CHIP,
@@ -454,8 +468,8 @@ html.dark .slcat .sc-not{color:#e2b968;background:rgba(169,131,75,.2)}
 /* The rail's two end tiles become one quiet line of two buttons. */
 .slcat .fold.flat .act{flex:0 0 auto;display:inline-flex}
 .slcat .fold.flat .act>*{min-height:44px;flex-direction:row;gap:6px;padding:0 14px;border-radius:var(--m-r-full)}
-/* MORE TO COMPARE — the heading and its count on the left, the one sort
-   dropdown on the right; the cards are the same service cards as above. */
+/* MORE TO COMPARE — the heading and its count; the cards are the same service cards as above. (The sort moved to
+   the thumb row's ≡, owner 2026-10-30.) */
 .slcat .fold.flat .morehead{justify-content:space-between;flex-wrap:nowrap;padding:0 0 6px}
 .slcat .fold.flat .morehead .mt{white-space:normal}
 .slcat .fold.flat .mrc .mra{flex-direction:row;flex-wrap:wrap;align-items:center;gap:8px}
@@ -926,6 +940,9 @@ html.dark .slcat .fold.open .fold-nm,html.dark .slcat .cat.open .cat-nm,html.dar
 .slcat .arrctl{display:flex;align-items:center;justify-content:center;gap:6px;padding:2px 0}
 .slcat .arrh{cursor:grab;user-select:none;font-size:15px;line-height:1;color:var(--ink-soft);padding:0 2px}
 .slcat .vcw.is-grabbed{opacity:.45}
+.slcat .mrange{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:2px 16px 8px 0}
+.slcat .mrange .mt{font-family:var(--mono);font-size:9px;letter-spacing:.11em;text-transform:uppercase;color:var(--ink-soft);white-space:nowrap}
+.slcat .fold.flat .mrange{padding-right:0}
 .slcat .mrnote{padding:8px 16px 2px 0;font-family:var(--mono);font-size:9px;letter-spacing:.04em;line-height:1.5;color:var(--ink-soft)}
 .slcat .mrerr{padding:0 16px 8px 0;font-family:var(--mono);font-size:9px;letter-spacing:.04em;line-height:1.5;color:#8C3A3A}
 html.dark .slcat .mrsaved{color:#7FBF9A}
@@ -2100,7 +2117,8 @@ function MoreToCompare({
   buildWindow,
   teamCalendarMembers,
   probeDayKeys,
-  sortMenu,
+  shape,
+  budgetRange,
   onSeeAll,
 }: {
   eventId: string;
@@ -2117,8 +2135,10 @@ function MoreToCompare({
   buildWindow: BuildDateWindow | null;
   teamCalendarMembers: TeamCalendarMember[];
   probeDayKeys: readonly string[];
-  /** The bench's ONE sort dropdown, drawn in this list's head. */
-  sortMenu: ReactNode;
+  /** 🧭 The thumb row's sort, shaped for this category (a venue · a typed range) — `sortShapeFor`. */
+  shape: SortShape<CategoryVendorResult>;
+  /** ₱ Under "Budget fit": this category's typed range, the couple's own cards' prices and its setter. Null otherwise. */
+  budgetRange: { typed: BudgetRange | undefined; benchPrices: readonly (number | null)[]; onChange: (r: BudgetRange) => void } | null;
   /** Opens the full sheet — still the only place with filters and facets. */
   onSeeAll: () => void;
 }) {
@@ -2358,12 +2378,16 @@ function MoreToCompare({
   const moreVisible = orderInlineMoreRow(
     excludeBenchVendors(moreRows, benchProfileIds, Object.keys(moreSaved)),
     effectiveSort,
+    shape.adjust,
   );
   const moreOrderNote = inlineMoreOrderNote({
     rows: moreVisible,
     mode: effectiveSort,
     modeLabel: effectiveSortLabel,
+    adjust: shape.adjust,
   });
+  // ₱ The range's starting boxes: the cheapest and the priciest card in this category — the couple's own and these.
+  const rangeSpan = budgetRange ? priceSpan([...budgetRange.benchPrices, ...moreRows.map((r) => r.startsAtPhp)]) : null;
   const moreClassified = classifyInlineMoreRow({
     rows: moreVisible,
     freeDaysByProfileId: moreFreeDaysMap,
@@ -2430,8 +2454,10 @@ function MoreToCompare({
             </>
           ) : null}
         </span>
-        {sortMenu}
       </div>
+      {budgetRange ? (
+        <FindBudgetRange label={label} span={rangeSpan} typed={budgetRange.typed} onChange={budgetRange.onChange} />
+      ) : null}
       {/* THE HONEST SENTENCE (owner 2026-09-09) — what this list IS ordered
           by, where the sort above does not reach all of it. */}
       {moreOrderNote ? (
@@ -2544,6 +2570,7 @@ export const MoreRowStandInCtx = createContext<
 export function ShortlistCategories({
   folders: foldersFromServer,
   eventId,
+  nearOptions,
   unread,
   initialOpenTile = null,
   savedRequirementCanonicalByTile = {},
@@ -2576,6 +2603,12 @@ export function ShortlistCategories({
   unread?: { pairs: ReadonlyArray<readonly [string, number]>; measured: boolean };
   folders: ShortlistFolder[];
   eventId: string;
+  /**
+   * 📍 The "Nearest" rows Find's sort offers (owner 2026-10-30, "Reception + Ceremony") — one per venue with a pin
+   * (`nearRows`, read on the server from the Event Hub's own two venues). Absent (the dev lab) → the shipped single
+   * "Nearest" row and its gate.
+   */
+  nearOptions?: readonly { from: NearFrom; label: string }[];
   /**
    * vendorId → where that supplier stands, derived ONCE on the server by
    * `lib/supplier-standing.ts` and passed down. A vendor absent from this map
@@ -3146,10 +3179,25 @@ export function ShortlistCategories({
   // Chips in order, each resolved to enabled / disabled-with-reason. A lens with
   // no honest disabled wording (In demand right now) is ABSENT from this list
   // rather than greyed — see `LENSES.demand` for why that is a requirement.
-  const lensChips = useMemo(
-    () => (replan ? visibleLenses(lensCandidates) : []),
-    [lensCandidates, replan],
-  );
+  //
+  // 🧭 Two lenses are offered by what the couple can GIVE them, not by the bench (owner 2026-10-30): "Nearest" is on
+  // whenever a venue has a pin (`nearOptions`) — an empty bench used to grey it with "Add your venue" for a couple who
+  // has one — and "Budget fit" is always on, because picking it asks for the range (`FindBudgetRange`).
+  const lensChips = useMemo(() => {
+    if (!replan) return [];
+    return visibleLenses(lensCandidates).map((c) => {
+      if (c.key === 'near' && nearOptions) {
+        return nearOptions.length > 0 ? { ...c, disabled: false, reason: null } : { ...c, disabled: true, reason: LENSES.near.unavailableReason };
+      }
+      if (c.key === 'budget') return { ...c, disabled: false, reason: null };
+      return c;
+    });
+  }, [lensCandidates, replan, nearOptions]);
+  // 📍 Which venue "Nearest" measures from — the one picked, while it still has a pin; else the first offered.
+  const [nearAsked, setNearAsked] = useState<NearFrom>('reception');
+  const nearFrom: NearFrom = nearOptions?.some((o) => o.from === nearAsked) ? nearAsked : (nearOptions?.[0]?.from ?? 'reception');
+  // ₱ Each category's typed range for Budget fit — this search only, never the budget plan (`lib/find-sort-choices`).
+  const [budgetRanges, setBudgetRanges] = useState<Record<string, BudgetRange>>({});
   // A selected lens that is no longer offered (the couple sorted by "Nearest",
   // then their venue anchor went away) resolves to the default AT RENDER rather
   // than by correcting state — no effect, no risk of a set-state loop, and the
@@ -3172,8 +3220,41 @@ export function ShortlistCategories({
           ...BENCH_PLAIN_SORTS.map((p) => ({ key: p.key as BenchSort, label: p.label })),
         ]
       : BENCH_SORTS;
+    if (effectiveSort === 'near' && nearOptions?.length) {
+      return nearOptions.find((o) => o.from === nearFrom)?.label ?? LENSES.near.label;
+    }
     return chips.find((c) => c.key === effectiveSort)?.label ?? (BENCH_SORTS[0]?.label ?? 'Best fit');
-  }, [replan, lensChips, effectiveSort]);
+  }, [replan, lensChips, effectiveSort, nearOptions, nearFrom]);
+
+  /**
+   * 🧭 The shaped sort for ONE category (owner 2026-10-30): under "Nearest to ceremony" each card is measured from the
+   * ceremony's pin; under "Budget fit" with a typed range each card's price is scored against that range. Only the
+   * order and the pill move — a card's own distance line and badges are untouched. Generic over the two card kinds:
+   * the couple's own (`priceBasisPhp`) and the marketplace's (`startsAtPhp`).
+   */
+  const sortShapeFor = useCallback(
+    <T,>(tile: string, facts: (item: T) => { ceremonyKm: number | null; price: number | null }): SortShape<T> => {
+      const ceremony = effectiveSort === 'near' && nearFrom === 'ceremony' && Boolean(nearOptions?.length);
+      const typed = budgetRanges[tile];
+      const range = effectiveSort === 'budget' && rangeTyped(typed) ? effectiveRange(typed) : null;
+      if (!ceremony && !range) return {};
+      return {
+        adjust: (item, base) => {
+          const f = facts(item);
+          return {
+            ...base,
+            ...(ceremony ? { distanceKm: f.ceremonyKm } : {}),
+            ...(range ? { budgetFitRatio: rangeFitRatio(f.price, range) } : {}),
+          };
+        },
+        words: {
+          ...(ceremony ? { distance: { lead: 'Closest to your ceremony', plain: 'Near your ceremony' } } : {}),
+          ...(range ? { budgetFit: { lead: 'In your range', plain: 'In your range' } } : {}),
+        },
+      };
+    },
+    [effectiveSort, nearFrom, nearOptions, budgetRanges],
+  );
 
   // ── Sort persistence (§13.3) ──────────────────────────────────────────────
   // Was `useState('fit')` and nothing else, so every reload or tab-away snapped
@@ -3556,24 +3637,51 @@ export function ShortlistCategories({
   // could not be a lens even if we wanted it to be — `priceFitScore` ties
   // every in-budget vendor at 1.0. A lens the bench cannot offer is listed
   // but not pickable, with its reason beside it.
+  //
+  // 🧭 ON THE THUMB ROW (owner 2026-10-30: *"this is a filter and sort parameter? shouldn't this be on the thumb row?"*
+  // · *"so it applies to all?"*): it always applied to every category, and it was drawn inside each open one, so it
+  // read as that category's own. It is now the thumb row's ≡ (`ThumbMenu`, the shared row's sort seat — Guests' place
+  // for the same thing), ONE control for the whole page. "Nearest" is a row per venue with a pin (`nearOptions`), so
+  // the venue is picked in the same list — never a second dropdown.
+  const replanSortOptions = lensChips.flatMap((c) =>
+    c.key === 'near' && nearOptions?.length
+      ? nearOptions.map((o) => ({ key: nearKey(o.from), label: o.label, group: 'Ranked for you' }))
+      : [
+          {
+            key: c.key,
+            label: c.label,
+            group: 'Ranked for you',
+            disabledNote: c.disabled ? (c.reason ?? 'not available here') : undefined,
+          },
+        ],
+  ).concat(BENCH_PLAIN_SORTS.map((s) => ({ key: s.key, label: s.label, group: 'Simple order', disabledNote: undefined })));
+  const pickSort = (key: string) => {
+    const from = nearFromKey(key);
+    if (from) {
+      setNearAsked(from);
+      setSort('near');
+      return;
+    }
+    setSort(key as BenchSort);
+  };
+  const thumbSort: ThumbMenu | null = replan
+    ? {
+        menu: replanSortOptions,
+        label: `Sort · ${effectiveSortLabel}`,
+        value: effectiveSort === 'near' && nearOptions?.length ? nearKey(nearFrom) : effectiveSort,
+        onPick: pickSort,
+        mark: 'data-bench-sort',
+        tour: 'suppliers-sort',
+        face: <FilterFace on={effectiveSort !== 'fit'} />,
+      }
+    : null;
+  // The pre-replan bench keeps its own bar above the folders (one PickMenu, the shipped shape).
   const sortMenu = (
     <PickMenu
       label="Sort by"
-      value={replan ? effectiveSort : sort}
+      value={sort}
       dataAttr="data-bench-sort"
-      options={
-        replan
-          ? [
-              ...lensChips.map((c) => ({
-                key: c.key,
-                label: c.label,
-                group: 'Ranked for you',
-                disabledNote: c.disabled ? (c.reason ?? 'not available here') : undefined,
-              })),
-              ...BENCH_PLAIN_SORTS.map((s) => ({ key: s.key, label: s.label, group: 'Simple order' })),
-            ]
-          : BENCH_SORTS.map((s) => ({ key: s.key, label: s.label }))
-      }
+      options={BENCH_SORTS.map((s) => ({ key: s.key, label: s.label }))}
       onPick={(key) => setSort(key as BenchSort)}
       className={`border border-ink/15 ${SUP_REACH_Y}`}
     />
@@ -3863,7 +3971,7 @@ export function ShortlistCategories({
                       : t.vendors;
                   const scopedNone = scopedQ.length > 0 && scopeTile === t.tile && railVendors.length === 0;
                   const arrangedRail = applyBenchArrangement(
-                    sortWithReasons(railVendors, effectiveSort),
+                    sortWithReasons(railVendors, effectiveSort, sortShapeFor<ShortlistVendor>(t.tile, (v) => ({ ceremonyKm: v.ceremonyDistanceKm ?? null, price: v.priceBasisPhp }))),
                     tilePins,
                     (e) => e.v.vendorId,
                   );
@@ -4312,7 +4420,16 @@ export function ShortlistCategories({
                               buildWindow={buildWindow}
                               teamCalendarMembers={teamCalendarMembers}
                               probeDayKeys={probeDayKeys}
-                              sortMenu={sortMenu}
+                              shape={sortShapeFor<CategoryVendorResult>(t.tile, (r) => ({ ceremonyKm: r.ceremonyDistanceKm ?? null, price: r.startsAtPhp }))}
+                              budgetRange={
+                                effectiveSort === 'budget'
+                                  ? {
+                                      typed: budgetRanges[t.tile],
+                                      benchPrices: t.vendors.map((v) => v.priceBasisPhp),
+                                      onChange: (r) => setBudgetRanges((prev) => ({ ...prev, [t.tile]: r })),
+                                    }
+                                  : null
+                              }
                               onSeeAll={() => openSearch(t.tile, t.label)}
                             />
                           ) : null}
@@ -4428,6 +4545,7 @@ export function ShortlistCategories({
           onSearch={setQuery}
           onAdd={addYourOwn}
           emptyPanel={findPanel}
+          sort={thumbSort}
         />
       ) : null}
       {/* "＋ Add your own" with no category open: which category, first — ONE

@@ -175,8 +175,9 @@ test('the verbs follow the button rule: one row, Ask for a quote is the main ver
 
 test('the sort is the bench’s ONE dropdown, and the full sheet is still one tap away', () => {
   assert.equal((BENCH.match(/label="Sort by"/g) ?? []).length, 1, 'a second sort control');
-  assert.match(BENCH, /sortMenu=\{sortMenu\}/);
-  assert.match(LIST, /<div className="morehead">[\s\S]*?\{sortMenu\}\s*<\/div>/);
+  // On the one-screen page it is the thumb row's ≡, for every category (owner 2026-10-30) — never in a category's head.
+  assert.match(BENCH, /sort=\{thumbSort\}/);
+  assert.doesNotMatch(LIST, /sortMenu/, 'a category head draws the sort again');
   assert.match(BENCH, /onSeeAll=\{\(\) => openSearch\(t\.tile, t\.label\)\}/);
   assert.match(LIST, /label=\{inlineMoreSeeAllLabel\(label\)\}\s*onClick=\{onSeeAll\}/);
 });

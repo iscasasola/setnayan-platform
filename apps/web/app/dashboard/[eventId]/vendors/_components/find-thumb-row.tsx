@@ -5,7 +5,11 @@
  * evening; corpus `SUPPLIERS_BUILD_PLAN_2026-10-07_fable.md` § PR2 "UPDATED
  * 2026-10-07 EVENING / LATE"; acceptance pictures 19–22):
  *
- *     ⇕ Expand all / Collapse all  ·  Search suppliers  ·  ＋ Add your own
+ *     ⇕ Expand all / Collapse all  ·  Search suppliers  ·  ≡ Sort  ·  ＋ Add your own
+ *
+ * ≡ (owner 2026-10-30, *"this is a filter and sort parameter? shouldn't this be on the thumb row?"*): the bench's ONE
+ * sort, for every category — it used to sit inside each open category, where it read as that category's own. The
+ * shared row's sort seat (`ThumbMenu`), as on Guests.
  *
  * Since 2026-10-22 ("One thumb row") the controls are drawn by the shared
  * `components/thumb-row.tsx`; this file keeps the slide, the portal and the
@@ -39,7 +43,7 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronsDownUp, ChevronsUpDown, Plus } from 'lucide-react';
-import { ThumbRow } from '@/components/thumb-row';
+import { ThumbRow, type ThumbMenu } from '@/components/thumb-row';
 import { FIND_DOOR_PARAM } from '@/lib/suppliers-shell';
 import { THUMB_SLIDE_MS, useSuppliersMode } from './suppliers-mode';
 
@@ -64,6 +68,7 @@ export function FindThumbRow({
   onSearch,
   onAdd,
   emptyPanel = null,
+  sort = null,
 }: {
   /** Every category is open → the control offers "Collapse all". */
   allOpen: boolean;
@@ -78,6 +83,8 @@ export function FindThumbRow({
   /** What the box shows while it is open with nothing typed — the Find page's
    *  category list. Null → nothing (the box is only a search box). */
   emptyPanel?: ReactNode;
+  /** ≡ The bench's one sort — built by the bench (`thumbSort`); null draws no ≡. */
+  sort?: ThumbMenu | null;
 }) {
   const { mode, leaving, thumbUp } = useSuppliersMode();
   const [host, setHost] = useState<HTMLElement | null>(null);
@@ -203,6 +210,7 @@ export function FindThumbRow({
             },
           },
         ]}
+        right={sort ? [sort] : []}
         field={{
           placeholder: findPlaceholder(scope),
           label: `Search ${scope}`,

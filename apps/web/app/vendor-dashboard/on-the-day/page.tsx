@@ -1,10 +1,17 @@
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 import { tilesForVendorCategories } from '@/lib/vendor-category-taxonomy';
 import { redirect } from 'next/navigation';
 import QRCode from 'qrcode';
 import {
+  Armchair,
   ArrowRight,
   CalendarClock,
+  CalendarDays,
+  ClipboardList,
+  FileText,
+  Palette,
+  PanelsTopLeft,
   Camera,
   CheckCircle2,
   Circle,
@@ -23,17 +30,12 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { readEventsYouRun } from '@/lib/events-you-run.server';
-import { CheckinDeskRows, SeatFinderRow } from '../_components/events-you-run-rows';
+import type { EventYouRun } from '@/lib/events-you-run';
+import { isCoordinatorP3Enabled } from '@/lib/coordinator-broadcasts-server';
+import { CheckinDeskRows, MessageEveryoneRows, SeatFinderRow } from '../_components/events-you-run-rows';
 import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
-import { WEDDING_TILE_LABEL, type WeddingTile } from '@/lib/taxonomy';
 import { resolveDayOfConsoleKind, type DayOfConsoleKind } from '@/lib/vendor-day-of';
-import {
-  resolveDayOfFamily,
-  resolveModules,
-  DAY_OF_FAMILY_META,
-  type DayOfFamily,
-  type ResolvedModule,
-} from '@/lib/vendor-dayof-modules';
+import { resolveModules } from '@/lib/vendor-dayof-modules';
 import { fetchDayOfOverride } from '@/lib/vendor-dayof-config';
 import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
 import {
@@ -51,38 +53,56 @@ import {
   isVendorAdminRole,
   VENDOR_TEAM_ROLE_LABEL,
 } from '@/lib/vendor-team';
+import { fetchRunOfShowBlocks } from '@/app/_actions/run-of-show';
+import { forYourServicePages } from '@/lib/supplier-event-lines';
+import { hubAddChoices, hubEvents, hubScheduleLine, hubSegmentOf, pickHubEvent, type HubEvent, type HubLock } from '@/lib/hub-events';
 import { GuestReviewQr } from './_components/guest-review-qr';
 import { ShotList } from './_components/shot-list';
 import { IssuesLog } from './_components/issues-log';
 import { VendorStatusUpdates } from './_components/vendor-status-updates';
 import { ModuleConfigurator, type ConfiguratorModule } from './_components/module-configurator';
-import { EventPicker, type PickerLock } from './_components/event-picker';
+import { HubEventMenu } from './_components/hub-event-menu';
+import {
+  HubDoorRow,
+  HubEventCard,
+  HubEventInfo,
+  HubEyebrow,
+  HubLockRow,
+  HubPageRow,
+  HubPageRows,
+  HubRunOfShow,
+  HubScreen,
+} from './_components/hub-screen';
+import { HubThumbRow } from './_components/hub-thumb-row';
 import { SupplierSavedStrip } from '@/app/_components/offline-ready/supplier-saved-strip';
 import { collapseToPickerDays, HUB_OPEN_WINDOW_PLAIN, phTodayIso, pickConfigureDay } from '@/lib/vendor-day-picker';
 import { AccessGrants, type GrantableMember } from './_components/access-grants';
 import { ShopEmpty } from '../_components/kit';
-import { resolveEventFeeGate, resolveEventFeeGates, type EventFeeGate } from '@/lib/vendor-event-fee-access.server';
+import { resolveEventFeeGates, type EventFeeGate } from '@/lib/vendor-event-fee-access.server';
 import { feeLockCopy } from '@/lib/event-access-stage';
 import { VENDOR_BOOKING_FEES_PATH, vendorBookingFeePayPath } from '@/lib/vendor-booking-fees';
-import { EventLockedPage } from '@/app/vendor-dashboard/_components/event-locked-by-fee';
 import { formatCount } from '@/lib/format-number';
 import { isStoreShellRequest } from '@/lib/request-platform';
+import { ActionButton } from '@/components/action-button';
 
 export const metadata = { title: 'Event Hub · Supplier' };
 
 /**
- * Vendor "On the Day" console — reskinned to the finalized 6-menu vendor
- * prototype (editorial `--m-*` palette). A free, CATEGORY-CONDITIONAL day-of
- * hub that surfaces only on an event day (a booking dated today in Philippine
- * time — midnight to midnight; see `HUB_OPEN_WINDOW_PLAIN`). The full console is now GATED to that window: when no event is in
- * window it renders a compact honest state (the "No event today" explainer, the
- * day-of tool pills, and the event-brief door) instead of a full console full of
- * degraded zero-cards — so the visibility banner tells the truth. `?preview=1`
- * is the owner/design escape hatch that forces the full console.
+ * 🗓 THE SUPPLIER'S HUB — /vendor-dashboard/on-the-day (supplier dashboard v13, owner "Approved." 2026-10-29; prototype
+ * `renderHub`; build notes S6). HUB = SET UP, like the Maker: the Hub ▾ picks ONE event — every day this shop is
+ * booked on AND every event this person runs as the hosts' coordinator ("Events" folded in, DECISION_LOG 2026-10-29) —
+ * and three segments set it up: **Set up** (its tools · its run of show · the coordinator's doors · on the day, the
+ * day's own tools) · **Crew** (who may open its Event Hub) · **The event's pages** (the hosts' own screens). The right
+ * column (from 701) is the event card with "Open the Event Hub", which opens the live page
+ * (`on-the-day/live/[eventId]`) on the day only — the day itself runs there, not here.
+ *
+ * The event opens on `?event=` when it names one of theirs, else today's, else the next one ahead
+ * (`lib/hub-events.ts`); `?seg=` names the segment. A day still ahead (today included) is locked until its booking fee
+ * is paid — Set up then says so with the amount and the way to pay, and nothing else.
  *
  * Every number is wired LIVE — nothing is hardcoded to the prototype's sample:
- *   • The dark event card = the vendor's own booked event dated TODAY, resolved
- *     from fetchVendorRoomEvents + get_vendor_event_brief (the SECURITY DEFINER
+ *   • The dark event card = the chosen event, resolved from
+ *     fetchVendorRoomEvents + get_vendor_event_brief (the SECURITY DEFINER
  *     booked-vendor brief RPC) for the couple / date / venue.
  *     ⚠ THIS USED TO SAY "fetchVendorPoolBookings (RLS-scoped)" AND THAT WAS
  *     THE BUG. The schedule pool has one writer, reached by one booking path,
@@ -105,36 +125,6 @@ export const metadata = { title: 'Event Hub · Supplier' };
 const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/$/, '');
 const MAX_MEDIA_PER_TYPE = 3; // mirrors editorial-vendor-media MAX_PER_TYPE
 
-/**
- * Icon per controller family. The old hardcoded 4-persona quad
- * (`CATEGORY_PILLS`) is gone — the family a vendor operates in is now derived
- * from the real ~57-tile taxonomy (`resolveDayOfFamily`, lib/vendor-dayof-modules),
- * so a florist / HMUA / photo-booth / host — every tile the old resolver dumped
- * into a dead 'general' bucket — lands in a real family with real tools.
- */
-const FAMILY_ICON: Record<DayOfFamily, typeof Camera> = {
-  coordinate: UserCheck,
-  capture: Camera,
-  serve: UtensilsCrossed,
-  perform: Music,
-  setup: PackageCheck,
-};
-
-/** Icon per module id, for the day-of module readout. */
-const MODULE_ICON: Partial<Record<ResolvedModule['id'], typeof Camera>> = {
-  run_of_show: CalendarClock,
-  pax_headcount: Users,
-  delivery_handover: PackageCheck,
-  review_qr: Star,
-  live_reviews: Star,
-  qr_scanner: UserCheck,
-  shot_list: Camera,
-  setlist: Music,
-  issues_log: Circle,
-  production_sheet: UtensilsCrossed,
-  vendor_papic: Images,
-};
-
 type Brief = {
   event: {
     display_name: string | null;
@@ -152,44 +142,14 @@ type Brief = {
  *  definition lives beside `HUB_OPEN_WINDOW_PLAIN`, which says it in words. */
 const phToday = (): string => phTodayIso();
 
-function fmtDate(iso: string | null): string {
-  if (!iso) return 'Date not set';
-  return new Date(`${iso}T00:00:00`).toLocaleDateString('en-PH', {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  });
-}
-
-/** Up to two uppercase initials from a couple/event name for the dark card avatar. */
-function deriveInitials(name: string): string {
-  const words = name.trim().split(/\s+/).filter(Boolean);
-  if (words.length === 0) return 'SN';
-  if (words.length === 1) return (words[0]!.slice(0, 2) || 'SN').toUpperCase();
-  return (words[0]![0]! + words[1]![0]!).toUpperCase();
-}
-
-/** The vendor's own primary category label (first recognised service tile). */
-function primaryServiceLabel(services: readonly string[] | null | undefined): string | null {
-  for (const s of services ?? []) {
-    const label = WEDDING_TILE_LABEL[s as WeddingTile];
-    if (label) return label;
-  }
-  return null;
-}
-
 export default async function VendorOnTheDayPage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  // Owner/design escape hatch: ?preview=1 renders the full console with no event
-  // in window so the layout can be reviewed. The DEFAULT (no flag, no event
-  // today) shows the compact honest state — matching the banner's own claim.
   const sp = await searchParams;
-  const isPreview = sp.preview === '1';
   const configureId = typeof sp.event === 'string' ? sp.event : null;
+  const seg = hubSegmentOf(sp.seg);
   const supabase = await createClient();
   const {
     data: { user },
@@ -198,9 +158,11 @@ export default async function VendorOnTheDayPage({
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   // Straight to the documents fold — `/vendor-dashboard/verify` is only a forwarding stub to it (no stub bounce).
   if (!profile) redirect('/vendor-dashboard/profile#docs');
-  // 🎫 The events this person runs as the hosts' coordinator — each gets a Check-in desk door below (owner
-  // 2026-10-28). The layout's cache()d read; started now, read at the render. Fails closed: no rows.
+  // 🎫 The events this person runs as the hosts' coordinator — "Events you run", folded into the Hub ▾ (owner
+  // 2026-10-29), each with its Check-in desk door. The layout's cache()d read; started now, read below. Fails closed.
   const eventsYouRunP = readEventsYouRun(supabase, user.id).catch(() => ({ events: [], measured: false }));
+  // 📣 Message everyone rides beside it — the door shows only where the composer opens (the Schedule's own flag).
+  const announceOnP = isCoordinatorP3Enabled().catch(() => false);
 
   // Q7 (owner 2026-09-11) — the day-of tools' dated end. Unset (the default,
   // since the public-launch date is not decided yet) → this never fires and
@@ -241,15 +203,13 @@ export default async function VendorOnTheDayPage({
 
   // Every event this shop is booked on — the schedule pool PLUS the two booking
   // paths that never write a pool row (the supplier's own Agree, and a Locked QR
-  // the couple scanned) → keep the one dated TODAY. `fetchVendorRoomEvents`
-  // already collapses to one entry per (event, date).
+  // the couple scanned). `fetchVendorRoomEvents` already collapses to one entry
+  // per (event, date).
   const bookings = await fetchVendorRoomEvents(supabase, profile.vendor_profile_id);
-  const todaysBooking =
-    bookings.find((b) => b.bookedDate === today) ?? null;
 
-  // Step 1 of the launcher — the pick-a-day list. ONE ROW PER DAY YOU ARE ON,
-  // never one per celebration. The rule (and the bug it replaces) lives in
-  // `lib/vendor-day-picker.ts`, pure and tested; this file only supplies today.
+  // ONE ROW PER DAY YOU ARE ON, never one per celebration. The rule (and the bug
+  // it replaces) lives in `lib/vendor-day-picker.ts`, pure and tested; this file
+  // only supplies today.
   const pickerBookings = collapseToPickerDays(bookings, today).map((b) => ({
     eventId: b.eventId,
     eventName: b.eventName,
@@ -257,144 +217,337 @@ export default async function VendorOnTheDayPage({
     when: b.when,
   }));
 
-  // Step 2 — configure a specific booking ahead of time (?event=<id>). Renders a
-  // focused setup view for any booked event (today's or upcoming), then returns.
-  //
-  // ⚠ A celebration can hold SEVERAL of this shop's days and `?event=<id>` names
-  // only the celebration, so which day it is about is a decision — made in
-  // `lib/vendor-day-picker.ts`, not by whichever row the array yielded first.
-  const configureBooking = configureId
-    ? pickConfigureDay(bookings, configureId, today)
-    : null;
-  if (configureBooking) {
+  // ── THE BOOKING FEE UNLOCKS THE EVENT (owner, 2026-09-20 · 2026-10-21 item 5) ──
+  // Every event still ahead (today included) is locked until its booking fee is paid. ONE read for the whole list,
+  // through the SHIPPED gate (`resolveEventFeeGates`, "one query for the whole Event Hub"), and the SHIPPED words
+  // (`feeLockCopy`): the amount is the bill's own, never a price in code. A refused read falls to "unlocked", exactly
+  // as the gate itself does for an unreadable charge (it is logged inside). Asked BEFORE any brief is read, so a locked
+  // supplier never causes a read of the couple's details. 🔑 The list is NOT gated — a supplier must still SEE that they
+  // have a day on the 14th; what is withheld is the room, and Set up says so with the amount and the way to pay.
+  const ahead = [...new Set(pickerBookings.filter((b) => b.when !== 'past').map((b) => b.eventId))];
+  const gates: Map<string, EventFeeGate> = ahead.length
+    ? await resolveEventFeeGates(profile.vendor_profile_id, ahead).catch(() => new Map<string, EventFeeGate>())
+    : new Map<string, EventFeeGate>();
+  const dayLocks: Record<string, HubLock> = Object.fromEntries(
+    [...gates].flatMap(([eventId, gate]) => {
+      if (gate.stage === 'unlocked') return [];
+      const copy = feeLockCopy({ stage: gate.stage, owed: gate.access.owed, withheld: [], reason: gate.access.reason });
+      const payHref = gate.access.owed?.orderId ? vendorBookingFeePayPath(gate.access.owed.orderId) : VENDOR_BOOKING_FEES_PATH;
+      return [[eventId, { headline: copy.headline, cta: copy.cta, payHref }]];
+    }),
+  );
+
+  // 🗓 THE HUB'S ONE LIST — booked days + events you run, one row per celebration (`lib/hub-events.ts`).
+  const [{ events: runEvents }, announceOn] = await Promise.all([eventsYouRunP, announceOnP]);
+  const hub = hubEvents({
+    days: pickerBookings,
+    runs: runEvents.map((e) => ({ eventId: e.eventId, name: e.name, date: e.date, href: e.href, canAnnounce: e.canAnnounce, rank: e.rank })),
+    locks: dayLocks,
+    today,
+  });
+  const selected = pickHubEvent(hub, configureId);
+
+  if (!selected) {
+    // Nothing booked and nothing run — the honest empty Hub: what it is for and where the customers are.
     return (
-      <ConfigureEventView
-        supabase={supabase}
-        vendorProfileId={profile.vendor_profile_id}
-        services={profile.services}
-        booking={configureBooking}
-        isToday={configureBooking.bookedDate === today}
-      />
+      <section className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6" data-hub-screen="empty">
+        <div data-tour="hub-empty">
+          <ShopEmpty>
+            <CalendarClock aria-hidden className="mx-auto h-8 w-8" style={{ color: 'var(--m-slate-3)' }} strokeWidth={1.5} />
+            <p className="mt-3 text-base font-medium text-ink">No events yet</p>
+            <p className="mx-auto mt-1 max-w-md text-sm text-ink/65">
+              When a couple books you, their event lands here — set up its tools and crew ahead, and its Event Hub opens
+              on the day, {HUB_OPEN_WINDOW_PLAIN}.
+            </p>
+            <div className="mt-4 flex justify-center">
+              <ActionButton tone="brand" main icon={<ArrowRight aria-hidden strokeWidth={1.9} />} label="See your customers" href="/vendor-dashboard/customers" />
+            </div>
+          </ShopEmpty>
+        </div>
+      </section>
     );
   }
 
-  // The event-day gate that makes the banner TRUE: the full console renders only
-  // when there is a booking dated today (the real in-window state: the whole
-  // Philippine calendar day, midnight to midnight) OR the owner explicitly asked to preview it. Otherwise a compact
-  // honest state renders instead of a full console full of degraded zero-cards.
-  const showFullConsole = todaysBooking != null || isPreview;
+  // Which of the celebration's days this shop works (the shipped rule) — null for an event only run, not booked.
+  const booking = selected.booked ? pickConfigureDay(bookings, selected.eventId, today) : null;
+  const isToday = selected.when === 'today';
+  const open = booking != null && selected.lock == null;
+  const run = runEvents.find((e) => e.eventId === selected.eventId) ?? null;
 
-  // ── THE BOOKING FEE UNLOCKS THE EVENT (owner, 2026-09-20) ────────────────
-  // Item 4 of the ruling — "the event hub access". Gated HERE, before the brief
-  // is read, so a locked supplier never causes a read of the couple's details.
-  //
-  // 🔑 THE PICKER LIST IS NOT GATED. A supplier must still be able to SEE that
-  // they have a day on the 14th — hiding the booking would tell them they have
-  // no event, which is the lie this repo keeps paying for. What is withheld is
-  // the room, and the panel says so with the amount and the way to pay.
-  //
-  // Flag OFF ⇒ 'unlocked' and this is a no-op.
-  if (todaysBooking) {
-    const feeGate = await resolveEventFeeGate(
-      profile.vendor_profile_id,
-      todaysBooking.eventId,
-    );
-    if (feeGate.stage !== 'unlocked') {
-      return (
-        <EventLockedPage
-          eventId={todaysBooking.eventId}
-          gate={feeGate}
-          threadId={todaysBooking.threadId}
-          backHref="/vendor-dashboard"
-          backLabel="Back to your dashboard"
-        />
-      );
-    }
-  }
-
-  // Live brief for today's event (couple / date / venue / pax). The booked gate
-  // + aggregation live inside the SECURITY DEFINER RPC; a null means we couldn't
-  // read a brief (unbooked / not built) → we degrade to the booking basics.
+  // Live brief for the chosen event (couple / date / venue / pax). The booked gate + aggregation live inside the
+  // SECURITY DEFINER RPC; asked only for an event this shop is booked on and may open. A refused brief is logged and the
+  // card falls back to the booking's own name — the headcount is then "couldn't load", never 0.
   let brief: Brief | null = null;
   let briefMeasured = true;
-  if (todaysBooking) {
+  if (open) {
     const { data, error: briefError } = await supabase.rpc('get_vendor_event_brief', {
-      p_event_id: todaysBooking.eventId,
+      p_event_id: selected.eventId,
     });
     // ⚠ THIS IS THE SCREEN A SUPPLIER OPENS AT THE VENUE, ON THE DAY. The brief
     // ⚠ carries the couple, the place and the live headcount, and an `.rpc()` is
     // ⚠ refused the same silent way a select is. Refused, `if (data)` is skipped
-    // ⚠ and the headcount below falls to `?? 0` — "0 / 0 attending", which is not
-    // ⚠ a number anybody should set up a room from.
+    // ⚠ and the headcount below would fall to `?? 0` — "0 / 0 attending", which is
+    // ⚠ not a number anybody should set up a room from.
     if (briefError) {
-      logQueryError(
-        'VendorOnTheDay.brief',
-        briefError,
-        { eventId: todaysBooking.eventId },
-        'graceful_degrade',
-      );
+      logQueryError('VendorOnTheDay.brief', briefError, { eventId: selected.eventId }, 'graceful_degrade');
     }
     briefMeasured = !briefError;
     if (data) brief = data as Brief;
   }
+  const coupleName = brief?.event.display_name ?? selected.name;
+  const place = brief?.event.venue_name ?? null;
+  // null = not read. A headcount of 0 on the day of the event is a statement
+  // that nobody is coming; an em-dash is the truth when the read was refused.
+  // Not asked (not booked, or locked) is "not read" too — an event only run has no brief, and "0 invited" there
+  // would be a claim about the hosts' list that nobody measured.
+  const invited = open && briefMeasured ? brief?.pax.invited ?? 0 : null;
+  const attending = open && briefMeasured ? brief?.pax.attending ?? 0 : null;
 
-  // Delivery-to-the-couple + editorial-media counts — both keyed on today's
-  // event. Admin reads (couple-scoped tables); the vendor is already booked-
-  // gated by the RPC / pool read above.
-  let deliveryStage: 0 | 1 | 2 = 0; // 0 = not started · 1 = in progress · 2 = delivered
+  const menu = (
+    <HubEventMenu
+      events={hub}
+      selectedId={selected.eventId}
+      seg={seg}
+      today={today}
+      info={<HubEventInfo event={selected} title={coupleName} place={place} />}
+    />
+  );
+  const pane = (
+    <HubEventCard
+      event={selected}
+      title={coupleName}
+      place={place}
+      saved={
+        open && selected.when !== 'past' ? (
+          // 📶 The saved mark + Update now, top of the event card (EV3, owner 2026-10-28) — this supplier's own copy
+          // of the Hub, the event's console and, when they run the hosts' door, its Check-in desk.
+          <SupplierSavedStrip viewer={user.id} eventId={selected.eventId} eventDate={booking?.bookedDate ?? null} checkin={run != null} />
+        ) : null
+      }
+    />
+  );
+
+  let body: ReactNode;
+  if (seg === 'crew') {
+    body = await crewBody({ supabase, vendorProfileId: profile.vendor_profile_id, event: selected, open });
+  } else if (seg === 'pages') {
+    // 📊 The Schedule row's live count — the SAME run-of-show read Set up makes (one read, never one per row). Not asked
+    // for a locked event: a locked supplier causes no read of the couple's details.
+    const blocks = selected.lock == null ? await fetchRunOfShowBlocks(selected.eventId) : null;
+    body = pagesBody({
+      event: selected,
+      services: profile.services,
+      bookedCategories: brief?.booked_categories ?? null,
+      invited,
+      attending,
+      scheduleLine: hubScheduleLine(blocks),
+    });
+  } else {
+    body = await setupBody({
+      supabase,
+      userId: user.id,
+      profile,
+      kind,
+      event: selected,
+      booking,
+      isToday,
+      run,
+      announceOn,
+      brief,
+      coupleName,
+      invited,
+      attending,
+    });
+  }
+
+  return (
+    <HubScreen menu={menu} event={selected} seg={seg} pane={pane} thumb={<HubThumbRow seg={seg} add={hubAddChoices(selected)} />}>
+      {/* Q7 — shown only once the owner sets an end date; says nothing while unset ("no invented deadline"). */}
+      {vendorDayOfFreeUntilLabel(dayOfFreeUntilIso) ? (
+        <p className="pt-3 text-sm text-ink/60">{vendorDayOfFreeUntilLabel(dayOfFreeUntilIso)}</p>
+      ) : null}
+      {body}
+    </HubScreen>
+  );
+}
+
+type SetupInput = {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  userId: string;
+  profile: NonNullable<Awaited<ReturnType<typeof fetchOwnVendorProfile>>>;
+  kind: DayOfConsoleKind;
+  event: HubEvent;
+  booking: { eventId: string; eventName: string; bookedDate: string } | null;
+  isToday: boolean;
+  run: EventYouRun | null;
+  announceOn: boolean;
+  brief: Brief | null;
+  coupleName: string;
+  invited: number | null;
+  attending: number | null;
+};
+
+/**
+ * SET UP — the chosen event's tools (the shipped per-booking configurator, `vendor_dayof_configs`), its run of show,
+ * the coordinator's doors (Check-in desk · Message everyone), and — on the day itself — the day's own tools that the old
+ * console carried (headcount, the shot list, reporting to the coordinator, capture, the review QR). A locked event shows
+ * its lock and nothing else.
+ */
+async function setupBody(input: SetupInput): Promise<ReactNode> {
+  const { supabase, profile, event, booking, isToday, run } = input;
+  if (event.lock) return <HubLockRow lock={event.lock} />;
+
+  const coordinatorDoors = run ? (
+    <>
+      {/* 🎫 Check-in desk — for an event this person runs as the coordinator (owner 2026-10-28). Nobody else. */}
+      <CheckinDeskRows events={[run]} />
+      {/* 📣 Message everyone — the couple's shipped announcement sheet, where they may announce (S9). */}
+      <MessageEveryoneRows events={[run]} enabled={input.announceOn} />
+    </>
+  ) : null;
+
+  if (!booking) {
+    // Run, not booked through this shop: the hosts' own event is where its set-up lives.
+    return (
+      <div>
+        <HubEyebrow about="You run this event as the hosts' coordinator. Your shop is not booked for a day on it, so there are no shop tools to set up — the event's own pages are under “The event's pages”.">
+          Events you run
+        </HubEyebrow>
+        {event.runHref ? <HubDoorRow href={event.runHref} label="Open their event" line="The hosts' event dashboard, as their coordinator" data="run" /> : null}
+        {coordinatorDoors}
+      </div>
+    );
+  }
+
+  const [tools, blocks] = await Promise.all([
+    readEventTools({
+      supabase,
+      vendorProfileId: profile.vendor_profile_id,
+      services: profile.services,
+      eventId: booking.eventId,
+      bookedCategories: input.brief?.booked_categories ?? null,
+    }),
+    fetchRunOfShowBlocks(booking.eventId),
+  ]);
+  const scheduleHref = run ? `/dashboard/${booking.eventId}/schedule` : `/vendor-dashboard/clients/${booking.eventId}?tab=schedule`;
+
+  return (
+    <div>
+      <div id="hub-tools" className="scroll-mt-28" data-tour="hub-setup">
+        <ModuleConfigurator eventId={booking.eventId} modules={tools} />
+      </div>
+      <HubRunOfShow blocks={blocks} moreHref={scheduleHref} />
+      {coordinatorDoors}
+      {isToday ? await onTheDayBody(input, booking) : null}
+    </div>
+  );
+}
+
+/**
+ * The per-booking tools — the shipped configurator's read (`resolveModules` over THIS event's booked tiles, folding in
+ * any saved override), with Papic's derived tier badged when its capability is live.
+ */
+async function readEventTools({
+  supabase,
+  vendorProfileId,
+  services,
+  eventId,
+  bookedCategories,
+}: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  vendorProfileId: string;
+  services: string[];
+  eventId: string;
+  /** The brief's `booked_categories`, already read by the page (one brief per render). Null = refused or not read —
+   *  the tile set then falls back to the shop's whole service list, as the shipped configurator did. */
+  bookedCategories: string[] | null;
+}): Promise<ConfiguratorModule[]> {
+  const eventTiles = tilesForVendorCategories(bookedCategories);
+  const override = await fetchDayOfOverride(supabase, vendorProfileId, eventId);
+  const modules: ConfiguratorModule[] = resolveModules(services, eventTiles, override).map((m) => ({
+    id: m.id,
+    label: m.label,
+    blurb: m.blurb,
+    enabled: m.enabled,
+    counselGated: m.counselGated,
+  }));
+
+  // Papic capture (counsel-gated): when the capability is live, badge the module
+  // card with the vendor's DERIVED tier for this booking — Ltd if they accepted
+  // the inquiry with a token (or a founder couple), else Lite. Off → no read, no
+  // badge; the "Needs setup" chip stands until the DPO/NPC control is approved.
+  const papicIdx = modules.findIndex((m) => m.id === 'vendor_papic');
+  const papicModule = papicIdx >= 0 ? modules[papicIdx] : undefined;
+  if (papicModule && (await isVendorPapicCaptureEnabled())) {
+    let readout: string | undefined;
+    try {
+      // ⚠ READ THE CREDITS TOO. The readout a supplier sees must agree with
+      // the allowance the capture route enforces; on the bare tier it would
+      // show "50 pts" to somebody holding 1,000 (owner 2026-09-05: 5% of the
+      // booking fee + ₱500 packs (100 credits since 2026-09-06), summed from
+      // their ledger).
+      const admin = createAdminClient();
+      const [tier, creditsGranted] = await Promise.all([
+        deriveVendorPapicTier(admin, vendorProfileId, eventId),
+        fetchVendorPapicCreditsGranted(admin, vendorProfileId, eventId),
+      ]);
+      readout = tierReadout(tier, creditsGranted);
+    } catch {
+      /* readout is decorative — omit on any failure */
+    }
+    modules[papicIdx] = { ...papicModule, counselGated: false, readout };
+  }
+  return modules;
+}
+
+/**
+ * ON THE DAY — what the old console carried for the day itself, kept whole (Rule 0: every working part): the headcount
+ * and delivery for a photo trade (else the trade's own door), the shot list, reporting to the coordinator, capture for
+ * the website and recap, and the guest-review QR. Read only on the day.
+ */
+async function onTheDayBody(input: SetupInput, booking: { eventId: string }): Promise<ReactNode> {
+  const { profile, kind, coupleName, invited, attending } = input;
+  const admin = createAdminClient();
+  // Delivery-to-the-couple + editorial-media counts — both keyed on today's event. Admin reads (couple-scoped
+  // tables); the vendor is already booked-gated by the RPC / room read above.
+  const [completionRes, handoverRes, mediaRes] = await Promise.all([
+    admin
+      .from('event_vendors')
+      .select('completion_status, service_marked_complete_at, customer_confirmed_received_at')
+      .eq('event_id', booking.eventId)
+      .eq('marketplace_vendor_id', profile.vendor_profile_id)
+      .maybeSingle(),
+    admin
+      .from('booking_handovers')
+      .select('status, couple_acknowledged_at')
+      .eq('event_id', booking.eventId)
+      .eq('vendor_profile_id', profile.vendor_profile_id),
+    admin
+      .from('editorial_vendor_media')
+      .select('media_type')
+      .eq('event_id', booking.eventId)
+      .eq('vendor_profile_id', profile.vendor_profile_id),
+  ]);
+  const c = completionRes.data as {
+    completion_status: string | null;
+    service_marked_complete_at: string | null;
+    customer_confirmed_received_at: string | null;
+  } | null;
+  const handovers = (handoverRes.data ?? []) as { status: string | null; couple_acknowledged_at: string | null }[];
+  const confirmed =
+    c?.completion_status === 'confirmed' ||
+    c?.completion_status === 'auto_confirmed' ||
+    Boolean(c?.customer_confirmed_received_at) ||
+    handovers.some((h) => Boolean(h.couple_acknowledged_at));
+  const started = Boolean(c?.service_marked_complete_at) || handovers.length > 0;
+  const deliveryStage: 0 | 1 | 2 = confirmed ? 2 : started ? 1 : 0;
+  const reviewState: 'awaiting_vendor' | 'awaiting_confirm' | 'confirmed' | 'disputed' =
+    c?.completion_status === 'disputed' ? 'disputed' : confirmed ? 'confirmed' : started ? 'awaiting_confirm' : 'awaiting_vendor';
   let clipCount = 0;
   let photoCount = 0;
-  let reviewState: 'awaiting_vendor' | 'awaiting_confirm' | 'confirmed' | 'disputed' =
-    'awaiting_vendor';
-  if (todaysBooking) {
-    const admin = createAdminClient();
-    const [completionRes, handoverRes, mediaRes] = await Promise.all([
-      admin
-        .from('event_vendors')
-        .select('completion_status, service_marked_complete_at, customer_confirmed_received_at')
-        .eq('event_id', todaysBooking.eventId)
-        .eq('marketplace_vendor_id', profile.vendor_profile_id)
-        .maybeSingle(),
-      admin
-        .from('booking_handovers')
-        .select('status, couple_acknowledged_at')
-        .eq('event_id', todaysBooking.eventId)
-        .eq('vendor_profile_id', profile.vendor_profile_id),
-      admin
-        .from('editorial_vendor_media')
-        .select('media_type')
-        .eq('event_id', todaysBooking.eventId)
-        .eq('vendor_profile_id', profile.vendor_profile_id),
-    ]);
-
-    const c = completionRes.data as {
-      completion_status: string | null;
-      service_marked_complete_at: string | null;
-      customer_confirmed_received_at: string | null;
-    } | null;
-    const handovers = (handoverRes.data ?? []) as {
-      status: string | null;
-      couple_acknowledged_at: string | null;
-    }[];
-
-    const confirmed =
-      c?.completion_status === 'confirmed' ||
-      c?.completion_status === 'auto_confirmed' ||
-      Boolean(c?.customer_confirmed_received_at) ||
-      handovers.some((h) => Boolean(h.couple_acknowledged_at));
-    const started =
-      Boolean(c?.service_marked_complete_at) || handovers.length > 0;
-    deliveryStage = confirmed ? 2 : started ? 1 : 0;
-
-    if (c?.completion_status === 'disputed') reviewState = 'disputed';
-    else if (confirmed) reviewState = 'confirmed';
-    else if (started) reviewState = 'awaiting_confirm';
-    else reviewState = 'awaiting_vendor';
-
-    for (const m of (mediaRes.data ?? []) as { media_type: string }[]) {
-      if (m.media_type === 'clip') clipCount += 1;
-      else if (m.media_type === 'photo') photoCount += 1;
-    }
+  for (const m of (mediaRes.data ?? []) as { media_type: string }[]) {
+    if (m.media_type === 'clip') clipCount += 1;
+    else if (m.media_type === 'photo') photoCount += 1;
   }
 
   // Guest-review QR — the vendor's own public page (verified vendors only have a
@@ -411,284 +564,64 @@ export default async function VendorOnTheDayPage({
         color: { dark: '#1B1A17', light: '#FBFBFA' },
       })
     : null;
-
-  const coupleName = brief?.event.display_name ?? todaysBooking?.eventName ?? null;
-  const place = brief?.event.venue_name ?? null;
-  const myCategory = primaryServiceLabel(profile.services);
-  // null = not read. A headcount of 0 on the day of the event is a statement
-  // that nobody is coming; an em-dash is the truth when the read was refused.
-  const invited = briefMeasured ? brief?.pax.invited ?? 0 : null;
-  const attending = briefMeasured ? brief?.pax.attending ?? 0 : null;
-
-  // Taxonomy-driven controller family + module set. When we have a brief we
-  // narrow to the tiles the vendor is actually booked on for THIS event
-  // (`booked_categories`); otherwise we consider all of the vendor's services.
-  // `override` is null until the per-booking configurator (a later PR) persists
-  // a `vendor_dayof_configs` row — so today every vendor sees code defaults.
-  const eventTiles = tilesForVendorCategories(brief?.booked_categories ?? null);
-  const family = resolveDayOfFamily(profile.services, eventTiles);
-  const modules = resolveModules(profile.services, eventTiles, null);
-  const enabledModules = modules.filter((m) => m.enabled);
-
-  // ── THE EMPTY DAY LISTS THE NEXT EVENTS, EACH WITH ITS FEE GATE ──────────
-  // Owner "Yes to all", 2026-10-21, item 5: on a day with no event the Hub is
-  // the list of the next booked events — not just "No event today" — each one
-  // locked until its booking fee is paid. ONE read for the whole list, through
-  // the SHIPPED gate (`resolveEventFeeGates`, "one query for the whole Event
-  // Hub"), and the SHIPPED words (`feeLockCopy`): the amount is the bill's own,
-  // never a price in code. A refused read falls to "unlocked", exactly as the
-  // gate itself does for an unreadable charge (it is logged inside).
-  let dayLocks: Record<string, PickerLock> = {};
-  if (!showFullConsole) {
-    const ahead = [...new Set(pickerBookings.filter((b) => b.when !== 'past').map((b) => b.eventId))];
-    const gates: Map<string, EventFeeGate> = ahead.length
-      ? await resolveEventFeeGates(profile.vendor_profile_id, ahead).catch(() => new Map<string, EventFeeGate>())
-      : new Map<string, EventFeeGate>();
-    dayLocks = Object.fromEntries(
-      [...gates].flatMap(([eventId, gate]) => {
-        if (gate.stage === 'unlocked') return [];
-        const copy = feeLockCopy({ stage: gate.stage, owed: gate.access.owed, withheld: [], reason: gate.access.reason });
-        const payHref = gate.access.owed?.orderId ? vendorBookingFeePayPath(gate.access.owed.orderId) : VENDOR_BOOKING_FEES_PATH;
-        return [[eventId, { headline: copy.headline, cta: copy.cta, payHref }]];
-      }),
-    );
-  }
-
-  const { events: runEvents } = await eventsYouRunP;
   const DELIVERY_PCT = [0, 60, 100][deliveryStage];
   const DELIVERY_LABEL = ['Not started yet', 'In progress', 'Delivered'][deliveryStage];
 
   return (
-    <section className="mx-auto w-full max-w-6xl tab:max-w-3xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
-      {/* 1 · Honest status banner — the console's behaviour now MATCHES the copy:
-          the full console renders only on an event day (a booking dated today) or
-          in explicit ?preview=1 mode; otherwise the compact state below shows. */}
-      {todaysBooking ? (
-        <div
-          className="flex items-start gap-3 rounded-xl border px-4 py-3.5"
-          style={{
-            borderColor: 'var(--sn-success)',
-            background: 'var(--sn-success-soft)',
-            color: 'var(--sn-success-deep)',
-          }}
-        >
-          <CalendarClock aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
-          <p className="text-sm leading-relaxed">
-            Your event is today — this console is live now, {HUB_OPEN_WINDOW_PLAIN}.
-          </p>
-        </div>
-      ) : isPreview ? (
-        <div
-          className="flex items-start justify-between gap-3 rounded-xl border px-4 py-3.5"
-          style={{
-            borderColor: 'var(--m-orange-3)',
-            background: 'var(--m-orange-4)',
-            color: 'var(--m-orange-deep)',
-          }}
-        >
-          <span className="flex items-start gap-3">
-            <Lock aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
-            <span className="text-sm leading-relaxed">
-              Preview — this is how your day-of console looks. It opens here on its own on the day
-              of each event ({HUB_OPEN_WINDOW_PLAIN}); until then it stays hidden.
-            </span>
-          </span>
-          <Link
-            href="/vendor-dashboard/on-the-day"
-            className="shrink-0 whitespace-nowrap text-sm font-semibold underline"
-          >
-            Exit preview
-          </Link>
-        </div>
-      ) : null}
-
-      {/* 🎫 Check-in desk — for each event this person runs as the coordinator (owner 2026-10-28). Nothing for anyone else. */}
-      <CheckinDeskRows events={runEvents} />
+    <div className="space-y-5" data-hub-day="">
+      <HubEyebrow about={`Today's tools, open ${HUB_OPEN_WINDOW_PLAIN}. The Event Hub has the run of the day itself.`}>
+        The Day
+      </HubEyebrow>
       {/* 🪑 Find a guest's seat — today's booked event's shipped scanner, one row (S9, owner 2026-10-29). */}
-      {todaysBooking ? <SeatFinderRow eventId={todaysBooking.eventId} name={coupleName ?? 'Your event today'} /> : null}
+      <SeatFinderRow eventId={booking.eventId} name={coupleName} />
 
-      {/* Q7 — shown only once the owner sets an end date; says nothing while
-          unset, matching the "no invented deadline" rule. */}
-      {vendorDayOfFreeUntilLabel(dayOfFreeUntilIso) ? (
-        <p className="text-sm" style={{ color: 'var(--m-slate-4)' }}>
-          {vendorDayOfFreeUntilLabel(dayOfFreeUntilIso)}
-        </p>
-      ) : null}
-
-      {showFullConsole ? (
-        <>
-      {/* 2 · Dark event card — today's booked event (the sanctioned day-of
-          obsidian focal, § 1.3), or the no-event state. */}
-      {todaysBooking ? (
-        <div className="sn-tile-dark sn-bloom p-5 sm:p-6">
-          {/* 📶 The saved mark + Update now, top of the event card (EV3, owner 2026-10-28) — this supplier's own copy
-              of the Hub, the event's console and, when they run the hosts' door, its Check-in desk. */}
-          <SupplierSavedStrip
-            viewer={user.id}
-            eventId={todaysBooking.eventId}
-            eventDate={todaysBooking.bookedDate}
-            checkin={runEvents.some((e) => e.eventId === todaysBooking.eventId)}
-          />
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex min-w-0 items-center gap-4">
-              <span
-                aria-hidden
-                className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-base font-semibold"
-                style={{ background: 'rgba(255,255,255,0.10)', color: 'var(--m-paper)' }}
-              >
-                {deriveInitials(coupleName ?? 'Event')}
-              </span>
-              <div className="min-w-0">
-                <p className="truncate text-lg font-semibold">{coupleName ?? 'Your event today'}</p>
-                <p className="mt-0.5 truncate text-sm" style={{ color: 'rgba(251,251,250,0.62)' }}>
-                  {fmtDate(brief?.event.event_date ?? todaysBooking.bookedDate)}
-                  {place ? ` · ${place}` : ''}
-                  {myCategory ? ` · ${myCategory}` : ''}
-                </p>
-              </div>
+      {/* Photo / Video — delivery progress + guests headcount; every other trade gets its own door. */}
+      {kind === 'photo' ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="sn-tile">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 aria-hidden className="h-5 w-5" style={{ color: 'var(--m-sage-deep)' }} strokeWidth={1.75} />
+              <p className="text-sm font-semibold text-ink">Delivery to the couple</p>
             </div>
-            <Link
-              href={`/vendor-dashboard/on-the-day/live/${todaysBooking.eventId}`}
-              data-tour="hub-day-launch"
-              className="inline-flex shrink-0 items-center gap-1 rounded-lg px-3.5 py-1.5 text-sm font-semibold transition"
-              style={{ background: 'var(--m-paper)', color: 'var(--m-ink)' }}
-            >
-              Launch the app <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            </Link>
+            <div className="mt-3 flex items-baseline gap-2">
+              <span className="font-mono text-2xl font-bold text-ink">{DELIVERY_PCT}%</span>
+              <span className="text-sm text-ink/65">done · {DELIVERY_LABEL}</span>
+            </div>
+            <div className="mt-3 h-2 overflow-hidden rounded-full" style={{ background: 'var(--m-line-soft)' }}>
+              <div className="h-full rounded-full transition-all" style={{ width: `${DELIVERY_PCT}%`, background: 'var(--m-sage-deep)' }} />
+            </div>
+            <p className="mt-3 text-xs text-ink/55">They see these updates live. Post your album link + mark complete from the brief.</p>
+          </div>
+          <div className="sn-tile">
+            <div className="flex items-center gap-2">
+              <Users aria-hidden className="h-5 w-5" style={{ color: 'var(--m-orange-2)' }} strokeWidth={1.75} />
+              <p className="text-sm font-semibold text-ink">Guests</p>
+            </div>
+            <div className="mt-3 flex items-baseline gap-2">
+              <span className="font-mono text-2xl font-bold text-ink">
+                {attending == null || invited == null ? '—' : `${formatCount(attending)} / ${formatCount(invited)}`}
+              </span>
+              <span className="text-sm text-ink/65">{attending == null ? 'couldn’t load' : 'pax'}</span>
+            </div>
+            <p className="mt-3 text-xs text-ink/55">
+              Attending of invited — pulled live from the couple’s RSVPs. Know the headcount before you set up.
+            </p>
           </div>
         </div>
       ) : (
-        <ShopEmpty>
-          <CalendarClock
-            aria-hidden
-            className="mx-auto h-8 w-8"
-            style={{ color: 'var(--m-slate-3)' }}
-            strokeWidth={1.5}
-          />
-          <p className="mt-3 text-base font-medium" style={{ color: 'var(--m-ink)' }}>
-            No event today
-          </p>
-          <p className="mx-auto mt-1 max-w-md text-sm" style={{ color: 'var(--m-slate-2)' }}>
-            When a couple books you and holds a date, that day lights up here — with your live day-of
-            console. Until then, this is a preview.
-          </p>
-          <Link
-            href="/vendor-dashboard/customers"
-            className="mt-4 inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold text-white transition"
-            style={{ background: 'var(--m-ink)' }}
-          >
-            See your customers <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          </Link>
-        </ShopEmpty>
+        <NonPhotoConsole kind={kind} eventId={booking.eventId} />
       )}
 
-      {/* 3 · Controller family + module readout (taxonomy-driven) + console. */}
-      <div>
-        {/* 🔦 The Hub tour's "Set it up" stop on an event day — the same token as the quiet day's readout. */}
-        <div className="flex items-start justify-between gap-3" data-tour="hub-setup">
-          <ModuleReadout family={family} modules={enabledModules} />
-          {todaysBooking ? (
-            <Link
-              href={`/vendor-dashboard/on-the-day?event=${todaysBooking.eventId}`}
-              className="mt-0.5 inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-lg border px-3 py-1.5 text-xs font-semibold"
-              style={{ borderColor: 'var(--m-line)', color: 'var(--m-slate)' }}
-            >
-              Set up
-            </Link>
-          ) : null}
-        </div>
-
-        {/* Photo / Video console — delivery progress + guests headcount. */}
-        {kind === 'photo' ? (
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            {/* Delivery to the couple — 3-stage handshake, rendered as % done. */}
-            <div className="sn-tile">
-              <div className="flex items-center gap-2">
-                <CheckCircle2
-                  aria-hidden
-                  className="h-5 w-5"
-                  style={{ color: 'var(--m-sage-deep)' }}
-                  strokeWidth={1.75}
-                />
-                <p className="text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
-                  Delivery to the couple
-                </p>
-              </div>
-              <div className="mt-3 flex items-baseline gap-2">
-                <span className="font-mono text-2xl font-bold" style={{ color: 'var(--m-ink)' }}>
-                  {DELIVERY_PCT}%
-                </span>
-                <span className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
-                  done · {DELIVERY_LABEL}
-                </span>
-              </div>
-              <div
-                className="mt-3 h-2 overflow-hidden rounded-full"
-                style={{ background: 'var(--m-line-soft)' }}
-              >
-                <div
-                  className="h-full rounded-full transition-all"
-                  style={{ width: `${DELIVERY_PCT}%`, background: 'var(--m-sage-deep)' }}
-                />
-              </div>
-              <p className="mt-3 text-xs" style={{ color: 'var(--m-slate-3)' }}>
-                {todaysBooking
-                  ? 'They see these updates live. Post your album link + mark complete from the brief.'
-                  : 'This tracks live once you have an event today.'}
-              </p>
-            </div>
-
-            {/* Guests — live RSVP headcount. */}
-            <div className="sn-tile">
-              <div className="flex items-center gap-2">
-                <Users
-                  aria-hidden
-                  className="h-5 w-5"
-                  style={{ color: 'var(--m-orange-2)' }}
-                  strokeWidth={1.75}
-                />
-                <p className="text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
-                  Guests
-                </p>
-              </div>
-              <div className="mt-3 flex items-baseline gap-2">
-                <span className="font-mono text-2xl font-bold" style={{ color: 'var(--m-ink)' }}>
-                  {formatCount(attending)} / {formatCount(invited)}
-                </span>
-                <span className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
-                  pax
-                </span>
-              </div>
-              <p className="mt-3 text-xs" style={{ color: 'var(--m-slate-3)' }}>
-                {todaysBooking
-                  ? 'Attending of invited — pulled live from the couple’s RSVPs. Know the headcount before you set up.'
-                  : 'Headcount pulls in live once you have an event today.'}
-              </p>
-            </div>
-          </div>
-        ) : (
-          <NonPhotoConsole kind={kind} eventId={todaysBooking?.eventId ?? null} />
-        )}
-      </div>
-
-      {/* 4 · Shot list — saved to event_shot_list_items (DAY-10) and read by
-          the couple on their vendor workspace. Whether THIS list has reached
-          them is said by the status line inside <ShotList>, never by the
-          heading alone. */}
+      {/* Shot list — saved to event_shot_list_items (DAY-10) and read by the couple on their vendor workspace. */}
       {kind === 'photo' ? (
-        <ShotListSection eventId={todaysBooking?.eventId ?? null} eventName={coupleName} />
+        <ShotListSection eventId={booking.eventId} eventName={coupleName} />
       ) : null}
 
-      {/* 4b · Report to the coordinator — one-tap status presets writing into
-          the shared day-of requests stream (build plan §10 #2). Renders itself
-          away when the coordinator_requests_inbox control is dark, when there
-          is no booking today, or for the coordinator (who reads the inbox
-          rather than reporting into it). */}
-      {kind !== 'coordinator' ? (
-        <VendorStatusUpdates eventId={todaysBooking?.eventId ?? null} />
-      ) : null}
+      {/* Report to the coordinator — one-tap status presets into the shared day-of requests stream (build plan §10 #2).
+          Renders itself away when its control is dark, or for the coordinator (who reads the inbox instead). */}
+      {kind !== 'coordinator' ? <VendorStatusUpdates eventId={booking.eventId} /> : null}
 
-      {/* 5 · Capture for your website + their recap. */}
+      {/* Capture for your website + their recap. */}
       <div>
         <h2 className="sn-sec">Capture for your website + their recap</h2>
         <div className="mt-3 grid gap-3 sm:grid-cols-3">
@@ -697,7 +630,7 @@ export default async function VendorOnTheDayPage({
             title="Recap capture"
             value={`${clipCount} ${clipCount === 1 ? 'clip' : 'clips'}`}
             sub="5s each · up to 3"
-            href={todaysBooking ? `/vendor-dashboard/clients/${todaysBooking.eventId}/editorial-media` : null}
+            href={`/vendor-dashboard/clients/${booking.eventId}/editorial-media`}
             hint={clipCount >= MAX_MEDIA_PER_TYPE ? 'Limit reached' : null}
           />
           <CaptureCard
@@ -705,7 +638,7 @@ export default async function VendorOnTheDayPage({
             title="Photos"
             value={`${photoCount} ${photoCount === 1 ? 'photo' : 'photos'}`}
             sub="for your portfolio · up to 3"
-            href={todaysBooking ? `/vendor-dashboard/clients/${todaysBooking.eventId}/editorial-media` : null}
+            href={`/vendor-dashboard/clients/${booking.eventId}/editorial-media`}
             hint={photoCount >= MAX_MEDIA_PER_TYPE ? 'Limit reached' : null}
           />
           <CaptureCard
@@ -729,49 +662,32 @@ export default async function VendorOnTheDayPage({
                     ? 'A dispute is open on this booking'
                     : 'Opens once you mark complete'
             }
-            href={
-              // "Opens once you mark complete" — and Mark complete is
-              // VendorCompletionCard, which sits at the top of the card's
-              // Details section. Bare, this landed on the chat (#5614).
-              todaysBooking
-                ? `/vendor-dashboard/clients/${todaysBooking.eventId}?tab=details`
-                : '/vendor-dashboard/reviews'
-            }
+            // "Opens once you mark complete" — and Mark complete is VendorCompletionCard, at the top of the card's
+            // Details section. Bare, this landed on the chat (#5614).
+            href={`/vendor-dashboard/clients/${booking.eventId}?tab=details`}
             hint={null}
           />
         </div>
       </div>
 
-      {/* 6 · Instant reviews from guests — the review QR. */}
+      {/* Instant reviews from guests — the review QR. */}
       <div>
         <h2 className="sn-sec">Instant reviews from guests</h2>
         <div className="mt-3">
           {reviewQrSvg && reviewUrl ? (
-            <GuestReviewQr
-              qrSvg={reviewQrSvg}
-              reviewUrl={reviewUrl}
-              businessName={profile.business_name}
-            />
+            <GuestReviewQr qrSvg={reviewQrSvg} reviewUrl={reviewUrl} businessName={profile.business_name} />
           ) : (
             <div className="sn-tile flex items-start gap-3">
-              <Star
-                aria-hidden
-                className="mt-0.5 h-5 w-5 shrink-0"
-                style={{ color: 'var(--m-slate-3)' }}
-                strokeWidth={1.75}
-              />
+              <Star aria-hidden className="mt-0.5 h-5 w-5 shrink-0" style={{ color: 'var(--m-slate-3)' }} strokeWidth={1.75} />
               <div>
-                <p className="text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
-                  Your review QR appears once your page is live
-                </p>
-                <p className="mt-1 text-sm" style={{ color: 'var(--m-slate-2)' }}>
-                  When your business is verified and your Setnayan page is published, a QR shows here
-                  — display or print it at the event so guests can scan and review you.
+                <p className="text-sm font-medium text-ink">Your review QR appears once your page is live</p>
+                <p className="mt-1 text-sm text-ink/65">
+                  When your business is verified and your Setnayan page is published, a QR shows here — display or print
+                  it at the event so guests can scan and review you.
                 </p>
                 <Link
                   href="/vendor-dashboard/profile#docs"
-                  className="mt-3 inline-flex items-center gap-1 text-sm font-semibold hover:underline"
-                  style={{ color: 'var(--m-orange-2)' }}
+                  className="mt-3 inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-sn-accent hover:underline"
                 >
                   Get verified <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
                 </Link>
@@ -780,342 +696,164 @@ export default async function VendorOnTheDayPage({
           )}
         </div>
       </div>
-        </>
-      ) : (
-        <CompactDayOf family={family} modules={enabledModules} bookings={pickerBookings} locks={dayLocks} />
-      )}
-    </section>
-  );
-}
-
-/**
- * Taxonomy-driven module readout — the honest replacement for the old
- * hardcoded 4-persona pill quad. Shows the controller family the vendor is
- * operating in for this event and the day-of tools that are on for it. Modules
- * gated behind the DPO/NPC consent ruling are labelled "needs setup" rather
- * than rendered as silently active.
- */
-function ModuleReadout({
-  family,
-  modules,
-}: {
-  family: DayOfFamily;
-  modules: ResolvedModule[];
-}) {
-  const FamilyIcon = FAMILY_ICON[family];
-  const meta = DAY_OF_FAMILY_META[family];
-  return (
-    <div>
-      <div className="flex items-center gap-2">
-        <FamilyIcon aria-hidden className="h-4 w-4" style={{ color: 'var(--m-orange-2)' }} strokeWidth={1.75} />
-        <p className="text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
-          {meta.label}
-        </p>
-      </div>
-      <p className="mt-1 text-sm" style={{ color: 'var(--m-slate-2)' }}>
-        {meta.blurb}
-      </p>
-      <div className="mt-3 flex flex-wrap gap-2">
-        {modules.map((m) => {
-          const Icon = MODULE_ICON[m.id] ?? Circle;
-          const needsSetup = Boolean(m.counselGated);
-          return (
-            <span
-              key={m.id}
-              className="inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-medium"
-              style={
-                needsSetup
-                  ? { background: 'var(--m-paper)', color: 'var(--m-slate-2)', borderColor: 'var(--m-line)' }
-                  : { background: 'var(--m-ink)', color: 'var(--m-paper)', borderColor: 'var(--m-ink)' }
-              }
-              title={m.blurb}
-            >
-              <Icon aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-              {m.label}
-              {needsSetup ? (
-                <span
-                  className="ml-1 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
-                  style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }}
-                >
-                  Needs setup
-                </span>
-              ) : null}
-            </span>
-          );
-        })}
-      </div>
     </div>
   );
 }
 
 /**
- * Step 2 — configure a specific booking's day-of app. Resolves the modules
- * available to the vendor for THIS event's booked tiles (folding in any saved
- * override) and renders the toggle configurator. Today's booking also gets a
- * Launch button; upcoming bookings show when they'll be launchable.
+ * CREW — who may open this event's Event Hub. Your teammates, each switched on per event (the shipped per-event grant,
+ * `vendor_event_access_grants`). Owner and admins always have it.
  */
-async function ConfigureEventView({
+async function crewBody({
   supabase,
   vendorProfileId,
-  services,
-  booking,
-  isToday,
+  event,
+  open,
 }: {
   supabase: Awaited<ReturnType<typeof createClient>>;
   vendorProfileId: string;
-  services: string[];
-  booking: { eventId: string; eventName: string; bookedDate: string };
-  isToday: boolean;
-}) {
-  const { data: briefData, error: briefDataError } = await supabase.rpc(
-    'get_vendor_event_brief',
-    { p_event_id: booking.eventId },
-  );
-  // ⚠ the same brief, one screen earlier (the pre-day configurator). Refused,
-  // ⚠ `booked_categories` reads null and the tile set silently falls back to the
-  // ⚠ vendor's whole service list, so a supplier prepares for work they were not
-  // ⚠ booked for on this event.
-  if (briefDataError) {
-    logQueryError(
-      'VendorOnTheDay.configureBrief',
-      briefDataError,
-      { eventId: booking.eventId },
-      'graceful_degrade',
+  event: HubEvent;
+  open: boolean;
+}): Promise<ReactNode> {
+  if (event.lock) return <HubLockRow lock={event.lock} />;
+  if (!open) {
+    return (
+      <div>
+        <HubEyebrow about="Crew join the Event Hub of a day your shop works. This event has no booked day for your shop.">
+          Crew for the day
+        </HubEyebrow>
+        <p className="py-3 text-[14px] text-ink/65">No day of yours on this event — there is no Event Hub for a crew to join.</p>
+      </div>
     );
   }
-  const eventTiles = tilesForVendorCategories(
-    briefData && Array.isArray((briefData as { booked_categories?: unknown }).booked_categories)
-      ? (briefData as { booked_categories: string[] }).booked_categories
-      : null,
+  const [teamRows, grantRows] = await Promise.all([
+    fetchVendorTeam(supabase, vendorProfileId).catch(() => null),
+    supabase
+      .from('vendor_event_access_grants')
+      .select('grantee_user_id, revoked_at')
+      .eq('vendor_profile_id', vendorProfileId)
+      .eq('event_id', event.eventId),
+  ]);
+  if (teamRows == null || grantRows.error) {
+    // A refused read is said — never an empty team, which would read as "nobody can help you".
+    if (grantRows.error) logQueryError('VendorOnTheDay.crewGrants', grantRows.error, { eventId: event.eventId }, 'graceful_degrade');
+    return (
+      <div>
+        <HubEyebrow>Your team on this event</HubEyebrow>
+        <p className="py-3 text-[14px] text-ink/65">Couldn’t load your team — try again in a moment.</p>
+      </div>
+    );
+  }
+  const grantedIds = new Set(
+    ((grantRows.data ?? []) as { grantee_user_id: string; revoked_at: string | null }[])
+      .filter((g) => !g.revoked_at)
+      .map((g) => g.grantee_user_id),
   );
-  const coupleName =
-    (briefData as { event?: { display_name?: string | null } } | null)?.event?.display_name ??
-    booking.eventName;
-
-  const override = await fetchDayOfOverride(supabase, vendorProfileId, booking.eventId);
-  const resolved = resolveModules(services, eventTiles, override);
-  const modules: ConfiguratorModule[] = resolved.map((m) => ({
-    id: m.id,
-    label: m.label,
-    blurb: m.blurb,
-    enabled: m.enabled,
-    counselGated: m.counselGated,
+  const enriched = await enrichTeamWithUsers(supabase, teamRows);
+  const members: GrantableMember[] = enriched.map((m) => ({
+    userId: m.user_id,
+    name: m.display_name || m.email || 'Teammate',
+    roleLabel: VENDOR_TEAM_ROLE_LABEL[m.role],
+    isOwnerAdmin: isVendorAdminRole(m.role),
+    granted: grantedIds.has(m.user_id),
   }));
-
-  // Papic capture (counsel-gated): when the capability is live, badge the module
-  // card with the vendor's DERIVED tier for this booking — Ltd if they accepted
-  // the inquiry with a token (or a founder couple), else Lite. Off → no read, no
-  // badge; the "Needs setup" chip stands until the DPO/NPC control is approved.
-  const papicIdx = modules.findIndex((m) => m.id === 'vendor_papic');
-  const papicModule = papicIdx >= 0 ? modules[papicIdx] : undefined;
-  if (papicModule && (await isVendorPapicCaptureEnabled())) {
-    // Capability approved by the DPO control → the module is no longer
-    // "Needs setup": unlock its toggle and badge the vendor's DERIVED tier —
-    // Ltd if they accepted the inquiry with a token (or a founder couple),
-    // else Lite. While the control is OFF, it stays counsel-gated/locked.
-    let readout: string | undefined;
-    try {
-      // ⚠ READ THE CREDITS TOO. The readout a supplier sees must agree with
-      // the allowance the capture route enforces; on the bare tier it would
-      // show "50 pts" to somebody holding 1,000 (owner 2026-09-05: 5% of the
-      // booking fee + ₱500 packs (100 credits since 2026-09-06), summed from
-      // their ledger).
-      const admin = createAdminClient();
-      const [tier, creditsGranted] = await Promise.all([
-        deriveVendorPapicTier(admin, vendorProfileId, booking.eventId),
-        fetchVendorPapicCreditsGranted(admin, vendorProfileId, booking.eventId),
-      ]);
-      readout = tierReadout(tier, creditsGranted);
-    } catch {
-      /* readout is decorative — omit on any failure */
-    }
-    modules[papicIdx] = { ...papicModule, counselGated: false, readout };
-  }
-  const family = resolveDayOfFamily(services, eventTiles);
-  const dateLabel = fmtDate(booking.bookedDate);
-
-  // Step 3 — access grants. Only surfaces when the vendor has teammates beyond
-  // the owner (a solo operator never sees it) AND an enabled module is delegable.
-  const anyGrantModule = resolved.some((m) => m.enabled && m.requiresGrant);
-  let grantMembers: GrantableMember[] = [];
-  if (anyGrantModule) {
-    const [teamRows, grantRows] = await Promise.all([
-      fetchVendorTeam(supabase, vendorProfileId).catch(() => []),
-      supabase
-        .from('vendor_event_access_grants')
-        .select('grantee_user_id, revoked_at')
-        .eq('vendor_profile_id', vendorProfileId)
-        .eq('event_id', booking.eventId),
-    ]);
-    const grantedIds = new Set(
-      ((grantRows.data ?? []) as { grantee_user_id: string; revoked_at: string | null }[])
-        .filter((g) => !g.revoked_at)
-        .map((g) => g.grantee_user_id),
-    );
-    const enriched = await enrichTeamWithUsers(supabase, teamRows);
-    grantMembers = enriched.map((m) => ({
-      userId: m.user_id,
-      name: m.display_name || m.email || 'Teammate',
-      roleLabel: VENDOR_TEAM_ROLE_LABEL[m.role],
-      isOwnerAdmin: isVendorAdminRole(m.role),
-      granted: grantedIds.has(m.user_id),
-    }));
-  }
-  // Only worth showing when there's at least one non-owner teammate to grant.
-  const showGrants = grantMembers.some((m) => !m.isOwnerAdmin);
-
-  return (
-    <section className="mx-auto w-full max-w-3xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
-      <div className="flex items-center justify-between gap-3">
-        <Link
-          href="/vendor-dashboard/on-the-day"
-          className="inline-flex items-center gap-1.5 text-sm font-medium"
-          style={{ color: 'var(--m-slate-2)' }}
-        >
-          <ArrowRight aria-hidden className="h-4 w-4 rotate-180" strokeWidth={1.75} /> All events
-        </Link>
-        {isToday ? (
-          <Link
-            href={`/vendor-dashboard/on-the-day/live/${booking.eventId}`}
-            className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold text-white"
-            style={{ background: 'var(--m-ink)' }}
-          >
-            Launch the app <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          </Link>
-        ) : (
-          <span className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
-            Launches on {dateLabel}
-          </span>
-        )}
-      </div>
-
-      <div className="sn-tile-dark sn-bloom p-5 sm:p-6">
-        <p className="text-lg font-semibold" style={{ color: 'var(--m-paper)' }}>
-          {coupleName}
-        </p>
-        <p className="mt-0.5 text-sm" style={{ color: 'rgba(251,251,250,0.62)' }}>
-          {dateLabel}
-          {` · ${DAY_OF_FAMILY_META[family].label}`}
-        </p>
-      </div>
-
-      <ModuleConfigurator eventId={booking.eventId} modules={modules} />
-
-      {showGrants ? <AccessGrants eventId={booking.eventId} members={grantMembers} /> : null}
-    </section>
+  return members.length > 0 ? (
+    <AccessGrants eventId={event.eventId} members={members} />
+  ) : (
+    <div>
+      <HubEyebrow>Your team on this event</HubEyebrow>
+      <p className="py-3 text-[14px] text-ink/65">Only you so far — add teammates under Shop › Team.</p>
+    </div>
   );
 }
 
 /**
- * Compact honest state — shown when there is NO event today and no ?preview=1.
- * This is what makes the banner true: instead of a full console of degraded
- * zero-cards, the vendor sees the "No event today" explainer, the day-of tools
- * that will adapt to their service, and a door into their event briefs. A
- * discreet "Preview the console" link is the owner escape hatch.
+ * THE EVENT'S PAGES — the SAME screens the hosts use, opened inside the app (prototype `hubPages`: an icon row per page
+ * with its live count, opening in place). Run as the coordinator: their own event's Guests · Seats · Schedule · Event
+ * Hub, through the hosts' door (which admits them by its own shipped check). Booked only: the shipped view-only pages
+ * for what this shop does there (`forYourServicePages`, the S3 "For your service").
+ *
+ * 📊 COUNTS ONLY FROM READS ALREADY MADE — Guests from the brief (booked + unlocked), Schedule / Run of show from the
+ * run-of-show read (`scheduleLine`). Seats, the Event Hub, the mood board, the production sheet and the event card
+ * have no count a supplier's session reads here today, so their rows keep their plain words — never an invented number.
  */
-function CompactDayOf({
-  family,
-  modules,
-  bookings,
-  locks,
+function pagesBody({
+  event,
+  services,
+  bookedCategories,
+  invited,
+  attending,
+  scheduleLine,
 }: {
-  family: DayOfFamily;
-  modules: ResolvedModule[];
-  bookings: {
-    eventId: string;
-    eventName: string;
-    bookedDate: string;
-    when: 'today' | 'upcoming' | 'past';
-  }[];
-  /** Each locked event's fee-gate answer (owner 2026-10-21, item 5). */
-  locks: Readonly<Record<string, PickerLock>>;
-}) {
-  // 🗓 THE NEXT EVENTS COME FIRST (owner "Yes to all", 2026-10-21, item 5): the
-  // empty day is a list of what is coming, each locked until its fee is paid —
-  // not a box that only says "No event today". Past days keep their row,
-  // below, for reference (they used to share the one list).
-  const next = bookings.filter((b) => b.when !== 'past');
-  const past = bookings.filter((b) => b.when === 'past');
+  event: HubEvent;
+  services: string[];
+  bookedCategories: string[] | null;
+  invited: number | null;
+  attending: number | null;
+  /** "11 moments · 1:00 PM – 9:30 PM", or null when the read was not made / refused. */
+  scheduleLine: string | null;
+}): ReactNode {
+  const about =
+    'The same screens the hosts use, opened inside your app — never a jump into anything else. Run as their coordinator, you can help as the hosts allowed; booked only, you can look.';
+  if (event.runHref) {
+    const base = event.runHref;
+    const access = 'You can help here — as much as the hosts allowed you.';
+    const guests = attending != null && invited != null ? `${formatCount(invited)} invited · ${formatCount(attending)} coming` : 'Their guest list';
+    return (
+      <div data-hub-pages="run">
+        <HubEyebrow about={about}>The event’s pages</HubEyebrow>
+        <p className="pb-1 text-[13.5px] text-ink/65">You run it — as much as the hosts allowed you.</p>
+        <HubPageRows>
+          <HubPageRow pageKey="guests" icon={Users} label="Guests" line={guests} href={`${base}/guests`} access={access} />
+          <HubPageRow pageKey="seats" icon={Armchair} label="Seats" line="Tables and who sits where" href={`${base}/seating`} access={access} />
+          <HubPageRow
+            pageKey="schedule"
+            icon={CalendarDays}
+            label="Schedule"
+            line={scheduleLine ?? 'The run of show, hour by hour'}
+            href={`${base}/schedule`}
+            access={access}
+          />
+          <HubPageRow pageKey="maker" icon={PanelsTopLeft} label="Event Hub (the Maker)" line="The guests’ page for the event" href={`${base}/launch`} access={access} />
+        </HubPageRows>
+      </div>
+    );
+  }
+  const doors = forYourServicePages({
+    eventId: event.eventId,
+    stage: event.when === 'past' ? 'done' : 'booked',
+    shopServices: services,
+    eventTiles: tilesForVendorCategories(bookedCategories),
+  });
   return (
-    <div className="space-y-6">
-      {/* Step 1 — the next booked events: set one up ahead of time, or pay to unlock it. */}
-      {next.length > 0 ? (
-        <div data-tour="hub-next-days">
-          <EventPicker bookings={next} activeEventId={null} heading="Your next events" locks={locks} />
-        </div>
-      ) : null}
-
-      {/* Promoted "No event today" explainer. 🔦 The Hub tour's first stop (lib/tours.ts vendor_hub_v1). */}
-      <div data-tour="hub-empty">
-        <ShopEmpty>
-          <CalendarClock
-            aria-hidden
-            className="mx-auto h-8 w-8"
-            style={{ color: 'var(--m-slate-3)' }}
-            strokeWidth={1.5}
+    <div data-hub-pages="booked">
+      <HubEyebrow about={about}>The event’s pages</HubEyebrow>
+      <p className="pb-1 text-[13.5px] text-ink/65">View only — ask the hosts for more.</p>
+      <HubPageRows>
+        {doors.map((d) => (
+          <HubPageRow
+            key={d.key}
+            pageKey={d.key}
+            icon={BOOKED_PAGE_ICON[d.key] ?? FileText}
+            label={d.label}
+            line={d.key === 'run' && scheduleLine ? scheduleLine : d.line}
+            href={d.href}
+            access="View only — ask the hosts for more."
           />
-          <p className="mt-3 text-base font-medium" style={{ color: 'var(--m-ink)' }}>
-            No event today
-          </p>
-          <p className="mx-auto mt-1 max-w-md text-sm" style={{ color: 'var(--m-slate-2)' }}>
-            {next.length > 0
-              ? `Opens here on the day of each event — ${HUB_OPEN_WINDOW_PLAIN}. Your next events are above.`
-              : `Opens here on its own on a couple’s booked date — ${HUB_OPEN_WINDOW_PLAIN}. Until then, there’s nothing live to run here.`}
-          </p>
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-            <Link
-              href="/vendor-dashboard/customers"
-              className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold text-white transition"
-              style={{ background: 'var(--m-ink)' }}
-            >
-              See your customers <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            </Link>
-            <Link
-              href="/vendor-dashboard/on-the-day?preview=1"
-              className="inline-flex items-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-semibold transition"
-              style={{ borderColor: 'var(--sn-line)', color: 'var(--m-slate)' }}
-            >
-              Preview the console
-            </Link>
-          </div>
-        </ShopEmpty>
-      </div>
-
-      {/* Day-of tools adapt — taxonomy-driven family + module readout. */}
-      <div data-tour="hub-setup">
-        <ModuleReadout family={family} modules={modules} />
-      </div>
-
-      {/* Event-brief door — where day-of prep actually happens before the day. */}
-      <Link
-        href="/vendor-dashboard/customers"
-        className="sn-tile sn-press flex items-center justify-between gap-4"
-      >
-        <span className="flex items-start gap-3">
-          <PackageCheck
-            aria-hidden
-            className="mt-0.5 h-5 w-5 shrink-0"
-            style={{ color: 'var(--m-orange-2)' }}
-            strokeWidth={1.75}
-          />
-          <span>
-            <span className="block text-base font-semibold" style={{ color: 'var(--m-ink)' }}>
-              Your event briefs
-            </span>
-            <span className="mt-0.5 block text-sm" style={{ color: 'var(--m-slate-2)' }}>
-              Headcount, palette, the day-of timeline, and the delivery handover for each booking —
-              ready before the day arrives.
-            </span>
-          </span>
-        </span>
-        <ArrowRight aria-hidden className="h-5 w-5 shrink-0" style={{ color: 'var(--m-slate-3)' }} strokeWidth={1.75} />
-      </Link>
-
-      {/* Past days — for reference, as before (they shared the one list until 2026-10-21). */}
-      {past.length > 0 ? <EventPicker bookings={past} activeEventId={null} heading="Earlier" /> : null}
+        ))}
+      </HubPageRows>
     </div>
   );
 }
+
+/** Each "For your service" page's row icon (the prototype's round icon per page). */
+const BOOKED_PAGE_ICON: Record<string, typeof Users> = {
+  mood: Palette,
+  seats: Armchair,
+  run: CalendarDays,
+  sheet: ClipboardList,
+  card: FileText,
+};
 
 /** Section 4 wrapper — the shot list only makes sense with an event. */
 function ShotListSection({

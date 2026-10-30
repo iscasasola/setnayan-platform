@@ -84,7 +84,7 @@ const RECORD: Readonly<Record<string, ReadonlyArray<readonly [MakerPartKey, stri
   ],
   home: [
     ['venue', 'Change it in Suppliers', true],
-    ['dress', 'Open in Studio › Mood Board & Dress Code', true],
+    ['dress', 'Open in Studio › Palette + Dress Code', true],
     ['march', 'Open in Guests › March', true], // 🗂 R4: the march is Guests › March (the prototype drew Studio)
     ['bring', 'Open in Studio › Info', true],
   ],

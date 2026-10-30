@@ -70,117 +70,74 @@
 /* The List · Map · Setup doors are no longer drawn here: they wear the app's one pill selector
    (`app/_components/pill-selector.tsx`, owner 2026-10-08). */
 
-/* ═══ 📌 THE ONE PINNED ROW (owner 2026-10-27 — Guests B, "pinned approve"; amended "On the pinned the selectors should
-   stay but simplified"; prototype `guests_pinned_row_2026-10-27`) ═══
-   The Guests sticky block holds ONE row: 8 + 44 + 8 = 60 px, the same at rest and scrolled, so `--gs-stick-h` (and the
-   group header pinned under it) never moves. Two faces lie over each other in the 44-px row: the full pill at rest;
-   once the Replies strip has scrolled under the row (`data-collapsed`, written by the screen) the summary —
-   `List · Map` (small, words only) · `✓ ✕ ?` doors · `Invite N ›`. They cross-fade with 6 px of travel on the screen's
-   own curve; the face that is away is `visibility: hidden`, so it is out of the tab order and the reading order.
+/* ═══ 📌 THE ONE TOP ROW, PINNED ON EVERY VIEW (owner 2026-10-27 Guests B "pinned approve"; 2026-10-30 on the iPhone
+   app, *"The menu does not work properly"* · *"Seat ls should be pinned on top row and on map and 3d"* → *"Like this
+   one"*) ═══
+   The Guests block holds ONE row, 8 + 44 + 8 = 60 px, the same on every view: `[Page · View ▾]` · the view's counts ·
+   the view's rounds (⋯) · ⚙. The old two faces (a segmented `Guests | Seats ▾ | March` at rest, the slim row pinned)
+   are gone — every view wears the slim row, so moving between views changes only its words and counts. The block is
+   FIXED under the shell bar from the start (`data-pinned`, written by the screen) on its holder's column edges
+   (`--gs-pin-l` / `--gs-pin-w`); the holder keeps its height in the flow, so nothing under it moves.
    `.pinned` is the Guests block only — People wears `.stick` too and keeps its own. 🔒 lib/the-pinned-row-is-one-row.test.ts */
 .stick.pinned {
   padding: 8px 0;
 }
-/* 📌 PINS ONCE (owner 2026-10-27, "the selector double pins. we want them to pin only the new way and not the first pin
-   it does"): on the List the block is NOT sticky at rest — it scrolls away with the page, the carousel under it. Once
-   the carousel has passed under where the row sits (`data-collapsed`), the block pins: fixed under the shell bar, on its
-   holder's column edges (`--gs-pin-l` / `--gs-pin-w`, written by the screen), arriving with a 6-px drop. The holder keeps
-   its height in the flow, so pinning moves nothing. The Map keeps its shipped sticky row. */
 .stickHold {
   min-height: var(--gs-stick-h, 60px);
 }
-.screen[data-guests-screen='list'] .stick.pinned {
-  position: relative;
-  top: auto;
-}
-.screen[data-guests-screen='list'] .stick.pinned[data-collapsed] {
-  position: fixed;
-  top: var(--gs-top, 0px);
-  left: var(--gs-pin-l, 0px);
-  width: var(--gs-pin-w, 100%);
-  animation: gs-pin-in 220ms var(--gs-ease);
-}
-/* 📌 Seats · March (R4 slice 4): the same block pins under the bar with its FULL face once it gets there (`data-pinned`,
-   written by the screen) — a March group's header then sticks under it. */
-.screen:is([data-guests-screen='seats'], [data-guests-screen='march']) .stick.pinned[data-pinned] {
+.stick.pinned[data-pinned] {
   position: fixed;
   top: var(--gs-top, 0px);
   left: var(--gs-pin-l, 0px);
   width: var(--gs-pin-w, 100%);
   box-shadow: 0 1px 0 var(--gs-line);
-  animation: gs-pin-in 220ms var(--gs-ease);
+  /* 🫥 NOTHING PEEKS UNDER THE ROW (owner, live iPhone app, 2026-10-30: *"something is peeking on the top of guests"*):
+     the row MOVES IN THE SAME FRAME as every sticky head that pins under it (`calc(var(--gs-top) + var(--gs-stick-h))` —
+     the List's group heads, March's). It used to glide its `top` over 300 ms while those heads jumped, so each time the
+     shell bar came back the heads sat up to a bar's height below the row and a cut guest row showed between them
+     (measured in /dev/guests-lab, 390 × 844: 32 px at the glide's first frame → 0). */
+  transition: none;
 }
-@keyframes gs-pin-in {
-  from {
-    opacity: 0;
-    transform: translateY(-6px);
+/* 🫥 …AND NOTHING PEEKS ABOVE IT. When the shell bar slides away on a phone the row pins at the safe area
+   (`--gs-top` = `env(safe-area-inset-top)`), and the strip above it — under the clock and the island — was the page
+   itself: the list scrolled visibly there (a guest row cut in half). The row now carries the page's paper upward to the
+   top of the screen, edge to edge. It sits UNDER the shell bar (the bar is drawn over `<main>`), so while the bar shows
+   nothing changes; once it slides away, the band runs from the very top of the screen to the row's bottom edge. Phones
+   only (the bar slides away below 701 px only); the full-screen views keep the plan as the background (#7098).
+   🔒 lib/guests-top-row-and-full-screen.test.ts (8) */
+@media (max-width: 700.98px) {
+  .screen:not([data-guests-full]) .stick.pinned[data-pinned]::after {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    left: calc(-1 * var(--gs-pin-l, 0px));
+    width: 100vw;
+    height: 100vh;
+    background: var(--gs-paper);
   }
 }
-/* The summary face lies over the full pill's own 44-px box (the sticky block is its containing block); the full pill
-   stays in the flow, so the block is 60 px with either face showing. */
-.face {
-  position: absolute;
-  top: 8px;
-  left: 0;
-  right: 0;
-  height: 44px;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  transition:
-    opacity 300ms var(--gs-glide),
-    transform 300ms var(--gs-glide),
-    visibility 0s linear 0s;
-}
-/* 🎚 THE GLIDE (owner 2026-10-29, prototype v16 + "remember to animate them properly"): pinning — on a scroll, or on
-   entering a full-screen view — the FULL row rises and fades (−12 px, 0.98) while the slim row rises in from +12 px,
-   0.3 s on the prototype's curve; back again in reverse. Never a jump. Reduced motion: no travel, no fade (below). */
 .screen {
   --gs-glide: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
-.stick.pinned [data-first-row] > [data-guests-segmented] {
-  transform-origin: 50% 0;
-  transition:
-    opacity 300ms var(--gs-glide),
-    transform 300ms var(--gs-glide),
-    visibility 0s linear 0s;
+/* The row: menu + counts (`.face`, takes the room) · rounds · ⚙ — one line, never wrapping, nothing laid over another. */
+.topRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  height: 44px;
+  flex-wrap: nowrap;
 }
-.faceAlt {
-  opacity: 0;
-  transform: translateY(12px);
-  visibility: hidden;
-  pointer-events: none;
-  transition:
-    opacity 300ms var(--gs-glide),
-    transform 300ms var(--gs-glide),
-    visibility 0s linear 300ms;
-}
-.stick.pinned[data-collapsed] [data-first-row] > [data-guests-segmented] {
-  opacity: 0;
-  transform: translateY(-12px) scale(0.98);
-  visibility: hidden;
-  pointer-events: none;
-  transition:
-    opacity 300ms var(--gs-glide),
-    transform 300ms var(--gs-glide),
-    visibility 0s linear 300ms;
-}
-.stick[data-collapsed] .faceAlt {
-  opacity: 1;
-  transform: none;
-  visibility: visible;
-  pointer-events: auto;
-  transition:
-    opacity 300ms var(--gs-glide),
-    transform 300ms var(--gs-glide),
-    visibility 0s linear 0s;
+.face {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 44px;
 }
 /* 🎚 THE VIEW'S OWN ROUNDS in the top row (Seats: Edit · ⋯ — owner v14, "RIGHT action rounds only"): 40-px rounds, the
-   word in the button's name (an icon-only `.ab` still reads "Edit"); while they are there the three segments size to
-   their words instead of thirds, so "Guests · Seats ▾ · March" keeps every word whole beside them. Under 360 the rounds
-   are 36 (prototype v14's fit). */
+   word in the button's name (an icon-only `.ab` still reads "Edit"). Under 360 the rounds are 36 (prototype v14's fit). */
 .stick [data-guests-view-rounds] :global(.ab) {
   width: 40px;
   min-width: 40px;
@@ -190,20 +147,12 @@
 .stick [data-guests-view-rounds] :global(.ab .lbl) {
   display: none;
 }
-.stick:has([data-guests-view-rounds]:not(:empty)) [data-guests-segmented] > * {
-  flex: 1 1 auto;
-  padding-inline: 8px;
-}
 @media (max-width: 359px) {
   .stick [data-guests-view-rounds] :global(.ab),
   .stick [data-guests-view-rounds] [data-seat-plan-more] {
     width: 36px;
     min-width: 36px;
     height: 36px;
-  }
-  .stick:has([data-guests-view-rounds]:not(:empty)) [data-guests-segmented] > *,
-  .stick:has([data-guests-view-rounds]:not(:empty)) [data-guests-seg-menu] > button {
-    padding-inline: 4px;
   }
 }
 /* 📌 The slim row's ONE menu ("Guests · List ▾") — the shared PickMenu, never cut. */
@@ -236,16 +185,75 @@
   overflow: hidden;
   pointer-events: none;
 }
-.stick.pinned[data-collapsed] {
-  box-shadow: 0 1px 0 var(--gs-line);
+/* 🗺 ALWAYS FULL SCREEN — THE PLAN IS THE WHOLE SCREEN, NO ⤢ (owner, iPhone app, 2026-10-30: *"The menu should be pushed
+   up to there and the whole background will be the 3d plan or the 2d plan or the map. They are all full screen. So we
+   only keep the bottom nav thumb row and the icons of the top nav"*; DECISION_LOG "SEATS 2D · SEATS 3D · THE MAP ARE
+   ALWAYS FULL SCREEN — NO FULL-SCREEN BUTTON").
+   On Map · Seats › 2D · 3D (`data-guests-full`) the view's surface (`.fullSurface`, `data-guests-full-surface`) runs from
+   the shell bar's bottom (`--gs-top`) to the bottom nav (`--sn-bottomdock-h`): it is lifted from where this screen starts
+   on the page (`--gs-root-top`, measured by the screen) — `flow-root` keeps that negative margin from dragging the screen
+   itself up — and the row's holder gives its height back, so the ONE row floats OVER the plan right under the top nav.
+   On a phone the surface also takes the page's side gutters (`--gs-left` / `--gs-right`, the screen's own box). In the
+   flow, never `position: fixed`: a fixed box is a stacking context, and the plan's own sheets and menus would then sit
+   under the row and the thumb row. 🔒 lib/maps-are-always-full-screen.test.ts */
+.screen[data-guests-full] {
+  display: flow-root;
 }
-/* ⚙ THE MENU'S ONE ⚙ RIDES BOTH FACES (owner 2026-10-27, "EVERY MENU'S ⚙ RIDES ITS PINNED ROW TOO"): it is the
-   first row's right end and is never faded — the summary face stops 52 px short (44 + the row's 8-px gap), so the SAME
-   mounted button ends the row at rest and pinned. 🔒 lib/the-pinned-row-is-one-row.test.ts */
-.stick.pinned[data-has-gear] .face {
-  right: calc(52px + var(--gs-rounds-w, 0px));
+.screen[data-guests-full] .stickHold {
+  min-height: 0;
 }
-/* 52 px fewer for the face: at 390 the three counts and Invite sat touching — the counts close up a little. */
+.fullSurface {
+  position: relative;
+  margin-top: calc(var(--gs-top, 0px) - var(--gs-root-top, 0px));
+  height: calc(100dvh - var(--gs-top, 0px) - var(--sn-bottomdock-h, 0px));
+}
+@media (max-width: 767px) {
+  .fullSurface {
+    margin-left: calc(-1 * var(--gs-left, 0px));
+    margin-right: calc(-1 * var(--gs-right, 0px));
+  }
+}
+/* 📏 STARTS RIGHT UNDER THE PINNED ROW — Seats › List (owner, iPhone app, 2026-10-30: *"the guests> list has that row
+   under top row occupiable. and the others have that one row not used. we want to use that space"*). The row is FIXED
+   under the top nav (`--gs-top`) from the start, while its holder sits where this screen begins on the page
+   (`--gs-root-top`: the column's `pt-3` + the title group's `gap-6`, 36 px on a phone). A page that scrolls fills that
+   strip on the first scroll; a view that owns its height (the seat plan's rule — no page scroll) never does, so Seats ›
+   List wore a ~64 px empty band between the row and "To seat". Its surface is lifted by the same measured offset as
+   `.fullSurface`, so its first table starts at the row's bottom, and it runs down to the bottom nav. Unlike the full
+   surface the row does NOT float over it — the holder keeps the row's height, and the list's sticky table heads stick
+   right under it. 🔒 lib/guests-top-row-and-full-screen.test.ts (7) */
+.rowSurface {
+  margin-top: calc(var(--gs-top, 0px) - var(--gs-root-top, 0px));
+  height: calc(100dvh - var(--gs-top, 0px) - var(--gs-stick-h, 60px) - var(--sn-bottomdock-h, 0px));
+}
+/* The row over the plan: the page's paper, frosted, so the plan shows through and the row still reads on a dark 3D room.
+   The frost is a layer UNDER the row (`::before`), never the row's own `backdrop-filter` — that would make the row the
+   containing block of anything fixed it opens. On a phone the band spans the screen, its controls on the column's edges. */
+.screen[data-guests-full] .stick.pinned[data-pinned] {
+  background: transparent;
+  /* Over the plan's own layers — the 3D room is drawn over the 2D plan at z-45 (`data-seat-plan-3d`), the room-size
+     panel at z-40 — so the row, its ▾ and its ⋯ lists stay on top; under the plan's dialogs (z-60) and the move sheet. */
+  z-index: 50;
+}
+.screen[data-guests-full] .stick.pinned[data-pinned]::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: color-mix(in srgb, var(--gs-paper) 84%, transparent);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  backdrop-filter: blur(14px) saturate(1.2);
+}
+@media (max-width: 767px) {
+  .screen[data-guests-full] .stick.pinned[data-pinned] {
+    left: 0;
+    width: 100%;
+    padding-left: var(--gs-pin-l, 0px);
+    padding-right: calc(100% - var(--gs-pin-l, 0px) - var(--gs-pin-w, 100%));
+  }
+}
+/* ⚙ THE MENU'S ONE ⚙ ends the row on every view (owner 2026-10-27, "EVERY MENU'S ⚙ RIDES ITS PINNED ROW TOO"); beside
+   it the counts close up a little so the row stays one line at 390. 🔒 lib/the-pinned-row-is-one-row.test.ts */
 .stick.pinned[data-has-gear] .pinCounts {
   gap: 0;
 }
@@ -300,6 +308,20 @@ button.pinCount {
 }
 .pinCount[data-pin-dot='none'] svg {
   color: rgb(var(--color-ink) / 0.5);
+}
+/* Seats' counts in the same row (owner 2026-10-30): seated in the reply-yes colour, unseated in the danger tone only when
+   someone is left, tables quiet. A count nobody could read is no door (`disabled`) and keeps the ink. */
+.pinCount[data-pin-dot='seated'] svg {
+  color: var(--gs-ok);
+}
+.pinCount[data-pin-dot='unseated'] svg {
+  color: rgb(var(--color-terracotta, var(--color-danger)));
+}
+.pinCount[data-pin-dot='tables'] svg {
+  color: rgb(var(--color-ink) / 0.5);
+}
+button.pinCount:disabled {
+  cursor: default;
 }
 .pinCount[aria-pressed='true'] b {
   text-decoration: underline;
@@ -1302,6 +1324,13 @@ button.ico {
     margin-right: -32px;
   }
 }
+/* 🗺 On a phone the full surface already took the gutters (`.fullSurface`), so the map no longer breaks out of them. */
+@media (max-width: 767px) {
+  .fullSurface .mapwrap {
+    margin-left: 0;
+    margin-right: 0;
+  }
+}
 .mapcanvas {
   position: relative;
   transform-origin: 0 0;
@@ -1438,8 +1467,7 @@ button.node {
   .node,
   .ico.picked,
   .g.picked .ava,
-  .open > .barWrap .ico,
-  .screen[data-guests-screen='list'] .stick.pinned[data-collapsed] {
+  .open > .barWrap .ico {
     animation: none;
   }
   .fold,
@@ -1448,12 +1476,7 @@ button.node {
   .chev {
     transition: none;
   }
-  /* The pinned row's faces swap in place — no travel, no fade. */
-  .face,
-  .faceAlt,
-  .stick.pinned [data-first-row] > [data-guests-segmented],
-  .stick.pinned[data-collapsed] [data-first-row] > [data-guests-segmented],
-  .stick[data-collapsed] .faceAlt,
+  /* The count row folds in place — no travel, no fade. */
   .screen [data-view-count-row],
   .screen[data-guests-screen='map'] .summary,
   .screen[data-guests-full] [data-view-count-row],

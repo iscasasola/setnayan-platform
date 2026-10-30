@@ -25,7 +25,8 @@
  *   ?part=screen    Guests › List and Map (Maker PR 4f) — the whole screen on
  *                   maria-and-jose's roster, with a stand-in shell bar and
  *                   dock: &gview=map for the map (R4: &gview=seats [&seat=3d|list|map] · &gview=march [&march=owner]
- *                   — the shipped makers, Guests › Seats and Guests › March), &q=… to search, &empty=1 for
+ *                   — with &seat=3d the SHIPPED 3D room on synthetic data; &big=1 its 25-table / 230-guest plan, the phone
+ *                   budget's measuring size — the shipped makers, Guests › Seats and Guests › March), &q=… to search, &empty=1 for
  *                   an empty list, &fail=1 for a refused read
  *   &req=0          (screen) no requests to join waiting — the carousel's card ① says "No requests waiting"
  *   &select=to-invite (screen) ⚙ › Pick who's cold link — Select on, the list narrowed to To invite
@@ -93,6 +94,7 @@ import { GuestsScreen } from '@/app/dashboard/[eventId]/guests/_components/guest
 import { parseGuestsFilter } from '@/lib/guests-filter';
 import { GUESTS_VIEWS, parseGuestsView, parseSeatView } from '@/lib/guests-views';
 import { LabMarch, LabSeats } from './lab-seats-march';
+import { LabTopBar } from './lab-top-bar';
 import type { TitleWaitingPerson } from '@/app/dashboard/[eventId]/guests/_components/titles-waiting';
 import { titleButtonText, titleKey } from '@/lib/guest-title';
 import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
@@ -722,7 +724,6 @@ export default async function GuestsLabPage({
                       config={config}
                       drafted={false}
                       reply={{ own: '2027-01-14', pricingMode: 'realtime', fallback: null }}
-                      toInvite={toInviteCount(sp.fail === '1' ? [] : planningRoster(), sp.fail !== '1')}
                       oneLink={{
                         url: 'https://setnayan.com/cale-ice/invite',
                         qrSvg: await renderStyledUrlQrSvg('https://setnayan.com/cale-ice/invite', undefined, 240),
@@ -807,6 +808,13 @@ export default async function GuestsLabPage({
     const labAddMs = Math.min(10_000, Math.max(0, Number(typeof sp.addMs === 'string' ? sp.addMs : 0) || 0));
     const screen = (
                 <section className="sn-col max-w-none flex flex-col gap-6" data-lab-screen="">
+                  {/* The page's title group (`guests/page.tsx` `data-guests-title-group`): on a phone only an sr-only h1,
+                      but still a flex item — so the screen starts a `gap-6` further down, exactly as on the real page.
+                      Without it the lab drew the screen 24 px higher than the app and hid the band under the pinned row
+                      (2026-10-30, Seats › List). */}
+                  <div className="flex flex-col gap-4" data-guests-title-group="">
+                    <h1 className="sr-only">Guests</h1>
+                  </div>
                   <LabGuestActions refuse={sp.refuse === '1'} addMs={labAddMs}>
                   <GuestsScreen
                     eventId={EVENT}
@@ -815,7 +823,7 @@ export default async function GuestsLabPage({
                     views={GUESTS_VIEWS}
                     filter={parseGuestsFilter(sp)}
                     bodies={{
-                      seats: <LabSeats guests={roster} seat={typeof sp.seat === 'string' ? sp.seat : undefined} />,
+                      seats: <LabSeats guests={roster} seat={typeof sp.seat === 'string' ? sp.seat : undefined} big={sp.big === '1'} />,
                       march: <LabMarch shape={typeof sp.march === 'string' ? sp.march : null} nicks={sp.nicks === '1'} />,
                     }}
                     guests={empty || fail ? [] : sp.oneqr === '1' ? roster.filter((g) => g.role === 'bride' || g.role === 'groom') : roster}
@@ -877,11 +885,11 @@ export default async function GuestsLabPage({
     }
     return (
       <RoleNamesProvider names={{}}>
-        <div className="sn-ambient min-h-screen">
-          {/* A stand-in for the shell's sticky top bar (same class, same height). */}
-          <div className="shell-topbar sticky top-0 z-20 flex h-[61px] items-center border-b border-ink/10 bg-white/90 px-4 text-sm font-semibold tracking-[0.18em] text-[#A9834B]" data-hidden="false">
-            SETNAYAN
-          </div>
+        {/* `data-chrome="app"` + `data-boundary="tab"`: the app's own two attributes, so `shellBarShows` knows when the
+            stand-in bar has really slid away (as the Suppliers lab's stage does). */}
+        <div className="sn-ambient min-h-screen" data-chrome="app" data-boundary="tab">
+          {/* A stand-in for the shell's sticky top bar (same class, same height) — it slides away on scroll like the real one. */}
+          <LabTopBar />
           <main className="sn-vt-page">
             <div data-shell-main>
               <div className="mx-auto w-full px-4 pb-6 pt-3 sm:px-6 sm:pt-6 lg:px-8">

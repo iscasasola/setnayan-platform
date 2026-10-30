@@ -2983,6 +2983,24 @@ export const UGAT_JOINTS: UgatJoint[] = [
       { kind: 'no_column', table: 'event_inspiration_assets', column: 'source_render_id' },
       // 🧩 Step ② (PLAN admin_inspiration_groups_2026-10-25): the 29-key CHECK became an FK into inspiration_parts.
       { kind: 'fk', table: 'event_inspiration_assets', column: 'slot_key', references: 'inspiration_parts' },
+      // 🖼⏱ THE OWNERS' 24-HOUR UNDO (owner 2026-10-30, 20271299051148): every write to a board row by someone who is
+      // not an owner is recorded HERE by the table's own trigger — the before/after of each row it touched — and the
+      // owners undo it as themselves (undo_mood_board_change, SECURITY INVOKER). Coordinators APPLY; there is no
+      // approval queue on a change, so `approved_at` is claimed as an absence. A supplier's ASK stays the suggestion.
+      { kind: 'table', table: 'event_mood_board_changes' },
+      { kind: 'fk', table: 'event_mood_board_changes', column: 'event_id', references: 'events' },
+      { kind: 'fk', table: 'event_mood_board_changes', column: 'suggestion_id', references: 'event_inspiration_suggestions' },
+      { kind: 'column', table: 'event_mood_board_changes', column: 'touched' },
+      { kind: 'column', table: 'event_mood_board_changes', column: 'actor_label' },
+      { kind: 'column', table: 'event_mood_board_changes', column: 'first_row_at' },
+      { kind: 'column', table: 'event_mood_board_changes', column: 'undone_at' },
+      { kind: 'no_column', table: 'event_mood_board_changes', column: 'approved_at' },
+      {
+        kind: 'check',
+        table: 'event_mood_board_changes',
+        name: 'event_mood_board_changes_kind_chk',
+        mentions: 'keep',
+      },
     ],
     chain: 20,
     pair: ['TYPE-GALLERY', 'TYPE-EVENTS'],
@@ -2995,7 +3013,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     writtenBy:
       'applyGalleryPick (the couple\u2019s picker) and applyMoodboardTemplate (theme seeding) \u2014 both in studio/mood-board/actions.ts (applyRenderPick, MB9\u2019s shared-render pick, was deleted with Mood Board renders 2026-10-26, and its column, FK and source_kind value were dropped by 20271289858095 \u2014 prod held 0 render_pick rows); uploadMoodboardSlot writes the couple\u2019s OWN photos, which carry no id and no credit',
     guardedBy:
-      'RLS \u2014 any event member reads; only the hosts (member_type couple, current_couple_event_ids) insert/update, admin all, and UPDATE is column-granted to removed_at/slot_key/slot_position only (20271297469032); plus the provenance biconditional and the FK event_inspiration_assets_slot_key_is_a_part \u2192 inspiration_parts (20271288430455 \u2014 it replaced the 29-key slot CHECK; a part holding a photo cannot be deleted)',
+      'RLS \u2014 any event member reads; only the hosts (member_type couple, current_couple_event_ids) and a seat the hosts set to Mood Board Edit (current_moderator_area_levels(\'mood_board\') = edit, 20271297714074 \u2014 the server actions ask can_change_mood_board_photos first) insert/update, admin all, and UPDATE is column-granted to removed_at/slot_key/slot_position only (20271297469032); plus the provenance biconditional and the FK event_inspiration_assets_slot_key_is_a_part \u2192 inspiration_parts (20271288430455 \u2014 it replaced the 29-key slot CHECK; a part holding a photo cannot be deleted)',
     traps:
       'The one-row-per-cell rule is a PARTIAL UNIQUE INDEX (WHERE removed_at IS NULL), not a constraint, so it is invisible to pg_constraint and cannot be claimed above \u2014 verify with \\d event_inspiration_assets. Removal is SOFT (removed_at), so every read must filter it; a count that forgets tells a couple they saved photos they deleted. library_asset_id is ON DELETE CASCADE, so HARD-deleting a library photo (deleteAsset / deleteStylistAsset, which also remove the storage object) removes the tile from every board holding it. RETIRING one (retired_at) does not touch this FK at all and the tile keeps rendering, credited \u2014 the two paths behave completely differently and the UI copy for them must not be shared.',
   },
@@ -3085,6 +3103,40 @@ export const UGAT_JOINTS: UgatJoint[] = [
       'RLS at CREATE TABLE \u2014 couple read (current_couple_event_ids), shop read (current_vendor_profile_ids), admin all; NO insert/update/delete for authenticated and nothing for anon. Uploader + own-upload + linked shop + consent decided in SQL; tests/db/a-couples-photo-reaches-a-card-only-when-approved.db.test.ts holds each refusal',
     traps:
       'NEVER SERVE THE BOARD ROW (security review #7089): event_inspiration_assets is editable by every event member, so the share SNAPSHOTS the upload\u2019s r2_key at share time and Approve publishes a server-made COPY at public_key = couple-looks/<share_id>.<ext> (no event id, no file name); the card reads only that. Any change to the board row\u2019s picture, uploader, kind or removal WITHDRAWS the live share (trigger couple_photo_shares_follow_the_board), and a_board_photo_keeps_its_provenance refuses rewriting the uploader (NULL by erasure only), the kind or the suggestion origin; a supplier suggestion key (inspiration/<event>/suggestions/ or any event_inspiration_suggestions.r2_key) is never shareable. Withdrawn/declined copies are deleted by the action and swept by reconcileCoupleLooks (lib/couple-photo-share.server.ts). WHO SEES IT (owner 2026-10-30): audience hosts \u00b7 exclusive \u00b7 private \u00b7 public; the cached public read (service_card_couple_photos) is PUBLIC only, a signed-in viewer\u2019s extra photos come from viewer_service_card_couple_photos after the page (signed URLs; non-public copies live in the private bucket); PRIVATE FAILS CLOSED to Exclusive until \u201cthe people around me\u201d has a resolver. OPEN (owner): whether an approved photo uses the shop\u2019s paid page-photo room \u2014 as built it does not (COUPLE_PHOTOS_USE_PAGE_ROOM in lib/couple-photo-share.ts).',
+  },
+  {
+    /**
+     * 🔗🖼 A SUPPLIER'S INSPIRATION PHOTO NAMES ITS SERVICE CARD (owner 2026-10-30, DECISION_LOG "A SUPPLIER'S
+     * INSPIRATION PHOTO IS CONNECTED FOUR WAYS — ITS SERVICE CARD · THE EVENT · THE SUPPLIER'S WEBSITE · THE
+     * CATEGORY/SERVICE POOL"; migration 20271297295494).
+     *
+     * ⚠ THE CARD IS HELD TO THE SHOP BY A TRIGGER, NOT A CHECK. `inspiration_card_is_the_shops_own` refuses a card of
+     * another shop on both tables (and a card on a non-gallery library row) but never raises on a NULL, so the
+     * ON DELETE SET NULL cascades stay SET NULL — a CHECK naming the column would turn them into RESTRICT.
+     */
+    id: 'J59',
+    claims: [
+      { kind: 'fk', table: 'moodboard_library_assets', column: 'vendor_service_id', references: 'vendor_services' },
+      { kind: 'fk', table: 'event_inspiration_suggestions', column: 'vendor_service_id', references: 'vendor_services' },
+      { kind: 'fk', table: 'moodboard_library_assets', column: 'source_suggestion_id', references: 'event_inspiration_suggestions' },
+      { kind: 'column', table: 'moodboard_library_assets', column: 'source_event_id' },
+      // One fact, one column: the card is vendor_service_id on both tables — no second spelling.
+      { kind: 'no_column', table: 'moodboard_library_assets', column: 'service_id' },
+    ],
+    chain: 20,
+    pair: ['TYPE-GALLERY', 'TYPE-SERVICES'],
+    title: 'Inspiration photo \u2194 Service card (the look a card offers)',
+    joint: 'moodboard_library_assets',
+    cardinality:
+      'Many photos per card \u00b7 at most one card per photo (NULL = the shop only, card-optional) \u00b7 at most one pool photo per Mood Board suggestion (partial UNIQUE on source_suggestion_id)',
+    implementedBy:
+      'moodboard_library_assets.vendor_service_id and event_inspiration_suggestions.vendor_service_id \u2192 vendor_services (ON DELETE SET NULL); moodboard_library_assets.source_suggestion_id \u2192 event_inspiration_suggestions (the pool copy of a suggestion, with source_event_id = the suggestion\u2019s event)',
+    writtenBy:
+      'uploadStylistAsset and importEditorialMediaToGallery (app/vendor-dashboard/moodboard-library/actions.ts \u2014 the latter also takes a suggestionId, routed to importSuggestionToGallery) after verifyCardForPart (lib/inspiration-card-link.server.ts); suggestInspirationPhoto on the service-role move to waiting',
+    guardedBy:
+      'the trigger inspiration_card_is_the_shops_own (the card is the row\u2019s own shop; library rows must be supplier_gallery); no INSERT/UPDATE grant on either new column for anon/authenticated; SELECT on vendor_service_id granted (the link shows on the supplier\u2019s page); source_suggestion_id withheld like source_event_id; tests/db/an-inspiration-photo-names-its-own-card.db.test.ts',
+    traps:
+      'A suggestion\u2019s pool copy is EVENT-LINKED (source_event_id set) yet COUNTS toward the per-category quota (countSuggestionPool) \u2014 countBackCatalogue alone no longer is the whole used side. The page (/v/[slug]) shows a look only when its card is live there or it has none (the design\u2019s liveLooks).',
   },
   {
     /**

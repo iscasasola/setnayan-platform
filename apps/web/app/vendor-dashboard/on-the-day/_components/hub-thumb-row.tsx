@@ -1,0 +1,95 @@
+'use client';
+
+/**
+ * 👍 THE HUB'S THUMB ROW (supplier dashboard v13, owner "Approved." 2026-10-29; prototype `renderThumb`, `hub:`):
+ *
+ *   · Set up            — [ 🔍 Find an event to set up ] (＋) — the field opens the Hub ▾ with its words in the menu's
+ *                          own search (`HUB_FIND_EVENT`: one list of events, never a second finder); ＋ is "Add a
+ *                          moment, tool or helper", each choice a door the page already has (the hosts' schedule ·
+ *                          the tools on this page · Crew). A choice this supplier cannot use here is not offered.
+ *   · The event's pages — [ 🔍 Find a guest or a table ] alone — it narrows the page rows in place by their words; when
+ *                          nothing matches it says so (`data-hub-pages-none`) rather than leaving a blank list.
+ *   · Crew              — no row in this slice (slice 3 brings the crew QR and its "Add a crew phone").
+ *
+ * The shared `ThumbRow` in the supplier's floating plumbing (`SupplierThumbRow`: the foot on a phone, up into the
+ * pinned row from 701). Nothing here reads or writes — every door is handed in by the page.
+ * 🔒 on-the-day/the-hub-is-set-up-per-event.test.ts
+ */
+import { useRouter } from 'next/navigation';
+import { ThumbRow } from '@/components/thumb-row';
+import { SupplierThumbRow } from '../../_components/supplier-thumb-row';
+import type { HubAddChoice, HubSegment } from '@/lib/hub-events';
+import { HUB_FIND_EVENT } from './hub-event-menu';
+
+/** Hide every page row whose words do not hold `words`; say so when none is left. */
+function narrowPageRows(words: string) {
+  const needle = words.trim().toLowerCase();
+  let shown = 0;
+  for (const row of document.querySelectorAll<HTMLElement>('[data-hub-page-row]')) {
+    const hit = !needle || (row.textContent ?? '').toLowerCase().includes(needle);
+    row.hidden = !hit;
+    if (hit) shown += 1;
+  }
+  const none = document.querySelector<HTMLElement>('[data-hub-pages-none]');
+  if (none) none.hidden = shown > 0;
+}
+
+export function HubThumbRow({ seg, add = [] }: { seg: HubSegment; add?: readonly HubAddChoice[] }) {
+  const router = useRouter();
+  if (seg === 'crew') return null;
+  if (seg === 'pages') {
+    return (
+      <SupplierThumbRow
+        name="hub-pages"
+        label="Page tools"
+        row={
+          <ThumbRow
+            name="hub-pages"
+            field={{
+              placeholder: 'Find a guest or a table',
+              input: { onInput: (e) => narrowPageRows(e.currentTarget.value), 'data-hub-thumb-find': 'pages' },
+            }}
+          />
+        }
+      />
+    );
+  }
+  return (
+    <SupplierThumbRow
+      name="hub-setup"
+      label="Set up tools"
+      row={
+        <ThumbRow
+          name="hub-setup"
+          field={{
+            placeholder: 'Find an event to set up',
+            input: {
+              'data-hub-thumb-find': 'setup',
+              // The prototype's own move: the field hands its words to the Hub ▾ and steps aside for its list.
+              onFocus: (e) => {
+                const el = e.currentTarget;
+                window.dispatchEvent(new CustomEvent(HUB_FIND_EVENT, { detail: el.value }));
+                el.value = '';
+                el.blur();
+              },
+            },
+          }}
+          action={
+            add.length
+              ? {
+                  menu: add.map((a) => ({ key: a.key, label: a.label, hint: a.hint })),
+                  label: 'Add a moment, tool or helper',
+                  value: null,
+                  mark: 'data-hub-thumb-add',
+                  onPick: (k) => {
+                    const to = add.find((a) => a.key === k);
+                    if (to) router.push(to.href);
+                  },
+                }
+              : null
+          }
+        />
+      }
+    />
+  );
+}

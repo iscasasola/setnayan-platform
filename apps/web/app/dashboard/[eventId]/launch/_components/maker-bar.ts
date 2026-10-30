@@ -11,6 +11,7 @@ import {
 } from '@/lib/maker-details-items';
 import type { PickOption } from '../../website/editor/_components/pick-menu-types';
 import { paidMarkLabel } from '@/lib/paid-mark';
+import { PRINTS_PAGE_LABEL } from '@/lib/prints-page-href';
 import type { MakerDevice } from './maker-context';
 
 /**
@@ -19,7 +20,12 @@ import type { MakerDevice } from './maker-context';
  * different approach on the 10 studio pages"*; plan `EVENT_HUB_MAKER_STAGES_STUDIO_BUILD_PLAN_2026-10-06.md` PR 1,
  * prototype `maker_two_dropdowns_owner_wireframe_2026-10-06_fable.html`):
  *
- *     ✕ Exit · Stages | Studio · ↺ Undo · ✓ Apply (n)        (a desktop adds 👁 Preview between Undo and Apply)
+ *     Stages | Studio · ↺ Undo · ✓ Apply (n) · ⚙              (a desktop adds 👁 Preview between Undo and Apply)
+ *
+ * 🧭 THE HUB'S PINNED ROW (owner 2026-10-30, DECISION_LOG "EVENT HUB PRO (look redesign) — THE APP'S NAV STAYS"): the
+ * Maker sits under the app's own top bar and above its bottom nav, so this bar is the Hub's pinned row, as Guests' and
+ * Suppliers' are — [Stage ▾ | Studio ▾] · ↺ · ✓ · ⚙. The ✕ Exit is DROPPED (call 1: the app's nav is the way out);
+ * ↺ Undo · ✓ Apply STAY here (call 3); ⚙ Event Hub settings ends it (`MenuSettingsButton menu="hub"`).
  *
  * `side` is ONE `ISegmented` (sections = one segmented control, INTERACTION_RULES §8). The old bar
  * (‹ Exit · Page ▾ · Event Details · ↶ Undo · 👁 Preview · ✓ Apply — "the Maker in 4", 2026-10-02 → 2026-10-06) is
@@ -28,7 +34,7 @@ import type { MakerDevice } from './maker-context';
  * through the Maker's context (`MakerState.previewMenu`). Held on the RENDER by `the-toolbar-is-the-maker-in-four.test.ts`
  * and against any switch that would bring the old bar back by `lib/there-is-one-maker.test.ts`.
  */
-export const MAKER_TOOLBAR_STAGES_STUDIO = ['exit', 'side', 'undo', 'apply'] as const;
+export const MAKER_TOOLBAR_STAGES_STUDIO = ['side', 'undo', 'apply', 'settings'] as const;
 export type MakerSide = 'stages' | 'studio';
 export const MAKER_SIDE_LABEL: Record<MakerSide, string> = { stages: 'Stages', studio: 'Studio' };
 
@@ -39,7 +45,8 @@ export const MAKER_SIDE_LABEL: Record<MakerSide, string> = { stages: 'Stages', s
  */
 export const MAKER_DETAILS_LABEL = 'Event Details';
 export const MAKER_LOOK_LABEL = 'Look';
-export const MAKER_PRINTS_LABEL = 'Prints';
+/** 🖨 Prints' one name — the Prints page's own (R8: Prints left the Maker for its page, `lib/prints-page.ts`). */
+export const MAKER_PRINTS_LABEL = PRINTS_PAGE_LABEL;
 /** Page ▾'s own name — what it reads while Look, Event Details or Prints covers the stage. */
 export const MAKER_PAGE_MENU_LABEL = 'Page';
 
@@ -289,7 +296,7 @@ export function makerPageMenu(input: {
  *   · the stage on screen gains, at the end of its pages, "＋ Add a scene" (a
  *     STAGE tool — never on a page) and "Reset this stage…" (a confirm, never
  *     one tap — `hub-draft-bar.tsx` asks);
- *   · after Post Event, a "Your Event Hub" line: Prints · Restore · the
+ *   · after Post Event, a "Your Event Hub" line: Restore · the
  *     address · who can view · About the Maker (the address and who can view
  *     move to Event Details in a later PR).
  *
@@ -299,7 +306,6 @@ export function makerPageMenu(input: {
 export const MAKER_PAGE_ACTIONS = {
   addScene: 'do:add-scene',
   reset: 'do:reset',
-  prints: 'do:prints',
   restore: 'do:restore',
   address: 'do:address',
   who: 'do:who',
@@ -350,7 +356,7 @@ export function makerPageActions(
   if (at >= 0) out.splice(at + 1, 0, ...stageRows);
   else out.push(...stageRows);
   const hub = MAKER_PAGE_HUB_GROUP;
-  if (input.hasWork) out.push({ key: MAKER_PAGE_ACTIONS.prints, label: MAKER_PRINTS_LABEL, group: hub });
+  /* 🖨 No Prints row (R8, owner 2026-10-27 "PRINTS LEAVES STUDIO"): Prints is its own page, opened from Home's Prints line. */
   if (input.canRestore !== null) {
     out.push({
       key: MAKER_PAGE_ACTIONS.restore,

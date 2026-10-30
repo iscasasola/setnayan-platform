@@ -1263,7 +1263,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: Wand2,
         title: 'Hub',
-        body: 'Where you make your Event Hub, the invitation and every print. Names, date, schedule, mood board and logo are all in its Details.',
+        body: 'Where you make your Event Hub and its invitation. Names, date, schedule, mood board and logo are all in its Details. Your prints open from Home.',
       },
       {
         Icon: Camera,
@@ -1392,7 +1392,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: Settings,
         title: 'Four places, nothing hidden',
-        body: 'The bar is Today, Customers, Shop and Hub. Messages open from the envelope at the top, How it is going is in Shop, and Settings is under your profile picture.',
+        body: 'The bar is Today, Customers, Shop and Hub. Messages open from the envelope at the top, Analytics is in Shop, and Settings is under your profile picture.',
       },
     ],
   },
@@ -1428,7 +1428,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
   vendor_shop_v1: {
     key: 'vendor_shop_v1',
     label: 'Supplier — Shop mini-tour',
-    blurb: 'Services, Page and Insights — the three segments of Shop.',
+    blurb: 'Details, Services, Page, Portfolio and Analytics — the five parts of Shop.',
     slides: [
       {
         Icon: Briefcase,
@@ -1444,10 +1444,12 @@ export const TOURS: Record<TourKey, TourDefinition> = {
     spotlight: {
       steps: [
         {
+          // v13 (S5): the segments are ONE ▾ now (Details · Services · Page · Gallery · Analytics) — a dropdown is not a
+          // doorway Next can walk through, so this stop asks; the next two light when the supplier picks Page.
           anchor: 'shop-segments',
-          title: 'Services · Page · How it is going',
-          body: 'What you sell, how your page looks to couples, and how it is doing. Tap Page.',
-          go: true,
+          title: 'Details · Services · Page · Portfolio · Analytics',
+          body: 'Every part of your shop is in this one menu. Open it and pick Page.',
+          hint: 'Pick Page — or press Next',
         },
         {
           anchor: 'shop-page-list',
@@ -1484,24 +1486,24 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       steps: [
         {
           anchor: 'hub-next-days',
-          title: 'Your next events',
-          body: 'Each booked day unlocks here once its booking fee is paid. Tap one to set it up ahead.',
+          title: 'Your events',
+          body: 'Pick the event to set up — every booked day and every event you run. A day opens once its booking fee is paid.',
         },
         {
           anchor: 'hub-empty',
-          title: 'Your day-of console',
-          body: 'On an event day this is where you run it — scan, schedule, shot list, headcount.',
+          title: 'Your Event Hub',
+          body: 'When a couple books you, their event lands here — set it up ahead, and run it on the day.',
         },
         {
           // (2026-10-25) On an event day — the quiet day’s stops above are dropped there, and this one here.
           anchor: 'hub-day-launch',
           title: 'Run the day',
-          body: 'Launch the app opens today’s event: scan, schedule, shot list, headcount.',
+          body: 'Open the Event Hub runs today’s event: scan, schedule, shot list, headcount.',
         },
         {
           anchor: 'hub-setup',
           title: 'Your day-of tools',
-          body: 'What you can run on the day. Set them up per event, and pick which helpers can open them.',
+          body: 'What you can run on the day. Set them up per event; Crew picks who can open them.',
         },
       ],
       finale: {
@@ -1629,8 +1631,9 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         },
         {
           anchor: 'guests-setup',
-          title: 'Send invitations, see replies',
-          body: 'Send each invitation from here and watch the replies come in, guest by guest.',
+          /* 🗂 R4 slice 11: the ⚙ no longer sends invitations (the To invite count and Select › Invite N do). */
+          title: 'Your RSVP settings',
+          body: 'What guests are asked when they reply, and the reply-by date — behind the ⚙. Send invitations from the To invite count.',
         },
         {
           anchor: 'tab-vendors',
@@ -1872,6 +1875,13 @@ export const TOURS: Record<TourKey, TourDefinition> = {
           body: 'Swipe a tile to see its other counts — they turn by themselves too. Tap one to open that exact item.',
         },
         {
+          // 🖨 (R8, owner 2026-10-27 "PRINTS LEAVES STUDIO") Prints' own page opens from this line — Home holds the door.
+          // Only where the line is drawn (the couple, with an Event Hub) — dropped elsewhere (`lib/spotlight-drops.ts`).
+          anchor: 'home-prints',
+          title: 'Prints',
+          body: 'Your invitation set and the prints for the day. Tap to open them: swipe through, then download or share.',
+        },
+        {
           anchor: 'home-services',
           title: 'Your services',
           body: 'Tap one to open its controls right here — Home moves down. Tap its head to fold it.',
@@ -2017,7 +2027,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
           anchor: 'guests-views',
           /* 🗂 R1 (owner 2026-10-28): the RSVP settings moved here from the Event Hub's Studio — the tour says where. */
           title: 'List, Map and ⚙',
-          body: 'List is everyone. Map groups them by side, role or group. ⚙ sends the invitations and holds your RSVP — what it asks and the reply-by date.',
+          body: 'List is everyone. Map groups them by side, role or group. ⚙ holds your RSVP — what it asks and the reply-by date.',
         },
         {
           anchor: 'guests-counts',

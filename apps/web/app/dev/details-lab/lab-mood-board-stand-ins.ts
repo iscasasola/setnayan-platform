@@ -26,7 +26,7 @@ export const LAB_MOOD_BOARD_ACTIONS: Partial<MoodBoardActions> = {
   /* 🤝🖼 A supplier's suggestion kept / declined / its Keep undone — answered here; the Palette moves the photo itself. */
   keepInspirationSuggestion: async () => ({ status: 'ok', slotPosition: 0, replaced: false }),
   declineInspirationSuggestion: async () => ({ status: 'ok' }),
-  undoKeptInspirationSuggestion: async () => ({ status: 'ok' }),
+  undoMoodBoardChange: async () => ({ status: 'ok' }),
   /* ⏰ The guests' call time — the Schedule's own writers answer like the real ones (they return nothing, or throw). */
   updateScheduleBlock: async () => undefined,
   createScheduleBlock: async () => undefined,
@@ -67,7 +67,7 @@ export const LAB_MOOD_BOARD_REFUSALS: Partial<MoodBoardActions> = {
   },
   keepInspirationSuggestion: async () => ({ status: 'error' }),
   declineInspirationSuggestion: async () => ({ status: 'error' }),
-  undoKeptInspirationSuggestion: async () => ({ status: 'error' }),
+  undoMoodBoardChange: async () => ({ status: 'error', message: 'permission denied for function undo_mood_board_change' }),
   updateScheduleBlock: async () => {
     throw new Error('new row violates check constraint "event_schedule_blocks_check"');
   },

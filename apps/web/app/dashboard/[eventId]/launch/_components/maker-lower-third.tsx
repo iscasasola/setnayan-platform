@@ -233,7 +233,7 @@ export function MakerLowerThird({
       data-phone-chrome-name="the lower third"
       data-lt-bare={short ? '' : undefined}
       /* In the shell's flow, under the page — the page ends where it begins. */
-      className={`relative z-20 flex ${short ? 'h-auto' : 'h-[calc(var(--maker-lt-h)+env(safe-area-inset-bottom))]'} shrink-0 flex-col overflow-hidden border-t border-ink/10 bg-cream pb-[env(safe-area-inset-bottom)] lg:hidden`}
+      className={`relative z-20 flex ${short ? 'h-auto' : 'h-[calc(var(--maker-lt-h)+var(--maker-safe-b,env(safe-area-inset-bottom)))]'} shrink-0 flex-col overflow-hidden border-t border-ink/10 bg-cream pb-[var(--maker-safe-b,env(safe-area-inset-bottom))] lg:hidden`}
     >
       {grab}
       <div className={`relative flex min-h-0 flex-1 gap-2 p-1 ${grab ? 'pt-0' : 'pt-2'}`}>

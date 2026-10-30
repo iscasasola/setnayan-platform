@@ -251,7 +251,7 @@ function boardUndo(put: (undone: boolean) => void): UndoStep {
 export function MoodBoardStudio(props: MoodBoardStudioProps) {
   const { eventId } = props;
   const router = useRouter();
-  const { hubDraftAction, rejectColourChange, uploadMoodboardSlot, removeMoodboardSlot, applyGalleryPick, fetchGalleryAssets, keepInspirationSuggestion, declineInspirationSuggestion, undoKeptInspirationSuggestion, updateScheduleBlock, createScheduleBlock } = useMoodBoardActions();
+  const { hubDraftAction, rejectColourChange, uploadMoodboardSlot, removeMoodboardSlot, applyGalleryPick, fetchGalleryAssets, keepInspirationSuggestion, declineInspirationSuggestion, undoMoodBoardChange, updateScheduleBlock, createScheduleBlock } = useMoodBoardActions();
   const [tab, setTab] = useState<Tab>(props.startTab ?? 'colours');
   const [sheet, setSheet] = useState<Sheet>(null);
   useOneOpen(sheet !== null, () => setSheet(null));
@@ -709,7 +709,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
   };
   const undoKeep = async (sg: CoupleSuggestion, pos: number, before: Tile | undefined) => {
     try {
-      const r = await undoKeptInspirationSuggestion(eventId, sg.id);
+      const r = await undoMoodBoardChange(eventId, { suggestionId: sg.id });
       if (r.status !== 'ok') {
         failed(DECIDE_NOT_SAVED);
         return;

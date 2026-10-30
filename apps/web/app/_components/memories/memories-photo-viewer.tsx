@@ -114,7 +114,8 @@ export function MemoriesPhotoViewer({
               : challenge
                 ? `Challenge · ${challenge.title}`
                 : null;
-  const when = creditLine(item.memSource === 'hub' ? null : 'Taken', item.capturedAt, timeZone);
+  const taken = item.memSource === 'hub' ? null : creditLine('Taken', item.capturedAt, timeZone);
+  const when = taken && taken !== 'Taken' ? taken : null;
   const eyebrow =
     item.memSource === 'hub' ? 'Event Hub' : item.memSource === 'uploads' ? 'Your uploads' : item.memSource === 'suppliers' ? 'Suppliers' : challenge ? 'Papic · Challenge' : 'Papic';
 

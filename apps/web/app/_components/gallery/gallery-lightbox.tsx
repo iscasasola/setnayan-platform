@@ -200,7 +200,7 @@ export function GalleryLightbox({
           {blurred ? (
             <span className="absolute inset-0 flex items-center justify-center">
               <button type="button" onClick={() => setPeek(true)} className="sn-gal-btn min-h-[44px] rounded-full bg-[rgb(23_22_15/0.66)] px-4 text-[14px] font-medium">
-                Held back by the content screen · Look at it
+                Held back · Look at it
               </button>
             </span>
           ) : null}

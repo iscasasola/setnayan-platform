@@ -6,6 +6,7 @@ import { Images, Share } from 'lucide-react';
 import { PhotoViewer, PanelHead, SharePanel, PANEL_BTN, type ViewerAction } from '@/app/_components/gallery/photo-viewer';
 import { wallShareSourceOf } from '@/lib/memories-viewer';
 import { creditLine } from '@/lib/capture-credit-pure';
+import { DEFAULT_EVENT_TZ } from '@/lib/schedule';
 import type { WallItem } from '@/lib/alaala-wall';
 
 /**
@@ -50,6 +51,8 @@ function WallPhotoViewer({ items, at, onMove, onClose }: { items: WallItem[]; at
   const item = items[at];
   if (!item) return null;
   const share = wallShareSourceOf(item);
+  const taken = creditLine('Taken', item.capturedAt, DEFAULT_EVENT_TZ);
+  const when = taken && taken !== 'Taken' ? taken : null;
   const actions: ViewerAction[] = [];
   if (share) actions.push({ key: 'share', label: 'Share', icon: Share, onPress: () => setPanel('share') });
   if (item.role === 'couple') {
@@ -69,7 +72,7 @@ function WallPhotoViewer({ items, at, onMove, onClose }: { items: WallItem[]; at
       actions={actions}
       eyebrow={item.role === 'couple' ? 'Your event' : 'An event you attended'}
       title={item.eventName}
-      sub={[item.withMe ? 'You are in it' : null, creditLine('Taken', item.capturedAt, null)].filter(Boolean).join(' · ') || null}
+      sub={[item.withMe ? 'You are in it' : null, when].filter(Boolean).join(' · ') || null}
       panel={
         panel === 'share' && share ? (
           <SharePanel source={share} onDone={() => setPanel(null)} />

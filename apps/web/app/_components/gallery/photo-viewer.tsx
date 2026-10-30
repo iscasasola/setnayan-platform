@@ -111,7 +111,7 @@ export function ViewerToolbar({ actions }: { actions: ViewerAction[] }) {
             aria-disabled={quiet || undefined}
             data-viewer-action={a.key}
             className={`sn-gal-btn flex min-h-[56px] min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 text-[12px] font-medium ${
-              a.tone === 'danger' ? 'text-[var(--sn-ob-cta)]' : ''
+              a.tone === 'danger' ? '!text-[var(--sn-ob-cta)]' : ''
             } ${quiet ? 'opacity-55' : ''}`}
           >
             <Icon aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} />
@@ -198,7 +198,7 @@ export function SharePanel({ source, preserved, onDone }: { source: ShareSource;
         </p>
       ) : state.k === 'ready' ? (
         <p className="sn-gal-soft pb-2 text-[12.5px]" data-viewer-share-size="">
-          {(state.file.size / 1_048_576).toFixed(1)} MB · ready
+          {state.file.size >= 1_048_576 ? `${(state.file.size / 1_048_576).toFixed(1)} MB` : `${Math.max(1, Math.round(state.file.size / 1024))} KB`} · ready
         </p>
       ) : (
         <p className="sn-gal-soft flex items-center gap-1.5 pb-2 text-[12.5px]">

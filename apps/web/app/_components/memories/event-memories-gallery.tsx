@@ -591,7 +591,7 @@ function AddCell({
         aria-haspopup="dialog"
         aria-label={`Add photo — ${words.line}`}
         data-testid="memories-add-cell"
-        className="sn-press absolute inset-0 flex flex-col items-center justify-center gap-1 bg-ink/[0.05] p-1 text-center text-ink hover:bg-ink/[0.08]"
+        className="sn-press inline-flex h-full min-h-11 w-full min-w-11 flex-col items-center justify-center gap-1 bg-ink/[0.05] p-1 text-center text-ink hover:bg-ink/[0.08]"
       >
         <Plus aria-hidden className={dense ? 'h-4 w-4' : 'h-6 w-6 text-terracotta'} strokeWidth={2} />
         {dense ? null : (

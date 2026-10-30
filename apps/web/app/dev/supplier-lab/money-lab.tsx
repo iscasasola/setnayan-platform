@@ -17,6 +17,8 @@ import { feeDueCopy, type DueFeeBill, type WaivedFeeCharge } from '@/lib/booking
 import { moneyPicture, moneyWindowOf, moneyYear, type MoneyWindow } from '@/lib/vendor-money';
 import { paginate } from '@/lib/paginate';
 import { CustomersPin } from '@/app/vendor-dashboard/customers/_components/customers-pin';
+import { CustomersFigures } from '@/app/vendor-dashboard/customers/_components/customers-figures';
+import { moneyFiguresOf } from '@/app/vendor-dashboard/customers/money-pin-figures';
 import { CustomersSettings } from '@/app/vendor-dashboard/customers/_components/customers-settings';
 import { MoneyView } from '@/app/vendor-dashboard/customers/_components/money-view';
 import { MoneyLog } from '@/app/vendor-dashboard/customers/_components/money-log';
@@ -156,9 +158,9 @@ export function MoneyLab({ state, next, open, mpage, wallet: walletState }: { st
         <CustomersPin
           seg="money"
           hrefs={{ events: '/dev/supplier-lab?s=events', dates: '/dev/supplier-lab?s=dates', money: base }}
+          figures={<CustomersFigures figures={moneyFiguresOf(picture.totals)} label="Your money" />}
           gear={<CustomersSettings body={null} />}
         />
-      </div>
       <MoneyView
         data={{
           today: TODAY,
@@ -182,6 +184,7 @@ export function MoneyLab({ state, next, open, mpage, wallet: walletState }: { st
           wallet: { read: wallet.balance != null, title: walletRowTitle(wallet.balance), line: walletRowSubline(wallet, formatPhp), href: `${base}&open=wallet` },
         }}
       />
+      </div>
       {open?.startsWith('wallet') ? <ShopWalletSheet data={labSheet(open, wallet)} closeHref={base} /> : null}
       <SupplierThumbRow
         name="money"

@@ -18,6 +18,7 @@ import {
   COORDINATOR_SWITCH_WHY,
   FIXED_AREA_WHY,
   SUPPLIERS_BY_CATEGORY,
+  accessDayLabel as dayLabel,
   accessGroupOf,
   coordinatorHasHostAccess,
   coordinatorSwitchWrites,
@@ -78,10 +79,6 @@ const REASONS: PickOption[] = [
   { key: 'new_coordinator', label: 'We have a new coordinator' },
   { key: 'other', label: 'Other' },
 ];
-
-function dayLabel(iso: string): string {
-  return new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
-}
 
 /**
  * 🎚 ONE AREA'S THREE-WAY TOGGLE (owner 2026-10-07: *"no edit. Guestlist (i)

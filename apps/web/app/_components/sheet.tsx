@@ -95,7 +95,7 @@ import { useShellBoundary, type ShellBoundary } from './shell-boundary';
  */
 const SHEET_AT: Record<
   ShellBoundary,
-  { root: string; panel: string; narrow: string; wide: string }
+  { root: string; panel: string; narrow: string; wide: string; full: string }
 > = {
   lg: {
     root: 'fixed inset-0 z-50 flex h-[100dvh] items-end justify-center lg:items-stretch lg:justify-end focus:outline-none',
@@ -103,6 +103,7 @@ const SHEET_AT: Record<
       'relative flex max-h-[90dvh] w-full flex-col rounded-t-3xl border border-ink/10 bg-cream shadow-[0_-30px_80px_-40px_rgba(26,26,26,0.4)] lg:h-full lg:max-h-none lg:rounded-l-3xl lg:rounded-tr-none lg:shadow-[-30px_0_80px_-40px_rgba(26,26,26,0.4)]',
     narrow: 'lg:w-[22rem]',
     wide: 'lg:w-[min(34rem,92vw)]',
+    full: 'max-lg:h-[100dvh] max-lg:max-h-[100dvh] max-lg:rounded-t-none max-lg:border-0',
   },
   tab: {
     root: 'fixed inset-0 z-50 flex h-[100dvh] items-end justify-center tab:items-stretch tab:justify-end focus:outline-none',
@@ -113,6 +114,7 @@ const SHEET_AT: Record<
        prototype narrows the Suppliers date sheet (≈540 at 1280) to match. Other surfaces keep `lg` as shipped. */
     narrow: 'tab:w-[min(27.5rem,calc(100vw-3.5rem))]',
     wide: 'tab:w-[min(27.5rem,calc(100vw-3.5rem))]',
+    full: 'max-tab:h-[100dvh] max-tab:max-h-[100dvh] max-tab:rounded-t-none max-tab:border-0',
   },
 };
 
@@ -153,6 +155,15 @@ export type SheetProps = {
    * the ✕ still closes. Needs `title` (it lives in that row). Default none: every other caller renders as before.
    */
   back?: { label: string; onBack: () => void };
+  /**
+   * 📌 THE PINNED ROW (owner 2026-10-29, Admin › Categories panels approved — prototype
+   * `carry-2026-10-29/admin-categories-proto`): in place of the `title` row, ‹ · the LEVEL word over the item's NAME
+   * (wraps, never cut) · `more` (a ⋯ of rare actions). The ‹ is the way out (`back`), so no ✕ is drawn; Esc, the
+   * backdrop and the phone's Back still close. Needs `back`. Default none: every other caller renders as before.
+   */
+  pinned?: { level: string; name: string; more?: ReactNode };
+  /** On a phone the sheet IS the screen — full height, no rounded top (the pinned row's drawer). Default false. */
+  full?: boolean;
   children: ReactNode;
 };
 
@@ -165,6 +176,8 @@ export function Sheet({
   rise = false,
   backCloses = true,
   back,
+  pinned,
+  full = false,
   children,
 }: SheetProps) {
   // Esc-to-close + the page held still and inert behind it + focus management (focus-in, Tab trap, restore on close)
@@ -197,9 +210,26 @@ export function Sheet({
           tablet, an unfolded foldable, and a phone folded at a hinge. */}
       <div
         data-sheet-panel=""
-        className={`${rise ? 'sn-rise ' : ''}${at.panel} ${wide ? at.wide : at.narrow}`}
+        className={`${rise ? 'sn-rise ' : ''}${at.panel} ${wide ? at.wide : at.narrow}${full ? ` ${at.full}` : ''}`}
       >
-        {title ? (
+        {pinned && back ? (
+          <header data-sheet-pinned="" data-peek-toast-under="" className="flex min-h-14 shrink-0 items-center gap-1 border-b border-ink/10 pl-2 pr-2 pt-[env(safe-area-inset-top)]">
+            <button
+              type="button"
+              onClick={back.onBack}
+              aria-label={`Back to ${back.label}`}
+              data-sheet-back=""
+              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink hover:bg-ink/5"
+            >
+              <ChevronLeft aria-hidden className="h-[22px] w-[22px]" strokeWidth={1.75} />
+            </button>
+            <p id={labelledById} className="min-w-0 flex-1 py-2 text-[16px] font-semibold leading-tight text-ink [overflow-wrap:anywhere]">
+              <small className="block text-[11.5px] font-medium uppercase tracking-[0.08em] text-ink/55">{pinned.level}</small>
+              {pinned.name}
+            </p>
+            {pinned.more ?? null}
+          </header>
+        ) : title ? (
           <header className={`flex items-center justify-between gap-3 border-b border-ink/10 py-3 ${back ? 'pl-2 pr-5' : 'px-5'}`}>
             {back ? (
               <button

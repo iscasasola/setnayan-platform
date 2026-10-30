@@ -12,6 +12,10 @@
  *   · GUESTS, AMENDED (owner 2026-10-27, "APPROVED — GUESTS CAROUSEL STYLE A": "Pinned row: List · Map · ✓ ✕ ? · ⚙
  *     (no Invite), pins once"): at rest the first row is NOT sticky — it scrolls away with the summary carousel under it;
  *     once the carousel has gone the block pins (fixed, in a holder that keeps its height). No Invite in the pinned row.
+ *   · GUESTS, AMENDED AGAIN (owner 2026-10-30, iPhone app: *"The menu does not work properly"* · *"Seat ls should be pinned
+ *     on top row and on map and 3d"* → *"Like this one"*): the full pill (the segmented `Guests | Seats ▾ | March`) is GONE
+ *     from every view. There is ONE face — `[Page · View ▾] · counts · ⋯ · ⚙` — and the block is pinned (fixed, in its
+ *     holder) from the start on every view; "pins once" no longer applies, because there is nothing to swap.
  *   · HOME — the cover band pins with a NEGATIVE top; stuck, one line `<names> · <date> · ⚙`. No selector; the ⚙
  *     (Event Settings) is its one control — ONE mount at the band's right end, drawn AT REST too (owner 2026-10-29,
  *     *"keep it there"*), the pinned line leaving it room.
@@ -45,7 +49,7 @@ const read = (...p: string[]) => stripComments(readFileSync(join(APP, ...p), 'ut
 const count = (s: string, needle: string | RegExp) =>
   typeof needle === 'string' ? s.split(needle).length - 1 : (s.match(needle) ?? []).length;
 
-test('Guests — one row, pinned ONCE: the one menu · ✓ ✕ ? · ⚙, no Invite; the carousel scrolls; the block is not sticky at rest', async () => {
+test('Guests — ONE row on every view, pinned from the start: the one menu · ✓ ✕ ? · ⚙, no Invite; the carousel scrolls', async () => {
   const guests = [
     guestRow({ role: 'bride', rsvp_status: 'attending', custom_tags: [] } as never),
     guestRow({ role: 'groom', side: 'groom', rsvp_status: 'attending', custom_tags: [] } as never),
@@ -63,63 +67,46 @@ test('Guests — one row, pinned ONCE: the one menu · ✓ ✕ ? · ⚙, no Invi
   for (const piece of ['data-replied-ring', 'data-plus-filter', 'gs-replied-pct', 'data-snap-carousel', 'data-requests-door', 'Excel']) {
     assert.equal(count(stick, piece), 0, `"${piece}" is pinned again — the pinned block is one row`);
   }
-  assert.equal(count(stick, 'guests/send'), 0, 'Invite rides in the pinned row — the approved row is List · Map · ✓ ✕ ? · ⚙');
+  assert.equal(count(stick, 'guests/send'), 0, 'Invite rides in the pinned row — the approved row is menu · ✓ ✕ ? · ⚙');
   assert.equal(count(stick, 'data-roster-to-invite'), 0, 'a to-invite door rides in the pinned row');
 
-  // The summary face (🎚 owner 2026-10-29, v14: "pinned row = LEFT one menu, page + mode in one dropdown"): ONE menu
-  // ("Guests · List ▾" — the shared PickMenu, no pill), the three reply doors, nothing else pressable; no Settings.
+  // ONE face (owner 2026-10-30): no segmented pill, no second face — the one menu ("Guests · List ▾"), the three reply
+  // doors, nothing else pressable; no Settings.
+  assert.equal(count(stick, /data-guests-segmented|data-guests-seg=|<nav\b/g), 0, 'the segmented Guests | Seats | March pill is back');
+  assert.equal(count(stick, 'data-guests-pin-face="summary"'), 1, 'the row is not ONE face');
   const faceAt = stick.indexOf('data-guests-pin-face="summary"');
-  const fullAt = stick.indexOf('data-guests-segmented=""', faceAt + 1);
-  assert.ok(faceAt > -1 && fullAt > faceAt, 'the pinned summary face is gone (or drawn after the full pill)');
-  const face = stick.slice(faceAt, stick.lastIndexOf('<nav', fullAt));
+  const face = stick.slice(faceAt, stick.indexOf('data-guests-view-rounds', faceAt));
   assert.equal(count(face, 'data-guests-pin-menu=""'), 1, 'the pinned row is not ONE menu');
   assert.match(face, /data-guests-pin-menu=""[^>]*>[^]*?Guests · List/, 'the pinned menu does not say where you are ("Guests · List")');
-  assert.equal(count(face, /<nav\b/g), 0, 'the pinned face draws a pill selector again — it is one dropdown');
   assert.doesNotMatch(face, />Settings<|data-guests-seg="share"/, 'Settings rides in the pinned row');
   const doors = [...face.matchAll(/data-reply-filter="(\w+)"/g)].map((m) => m[1]);
   assert.deepEqual(doors, ['attending', 'declined', 'none'], 'the pinned row lost a reply door (or grew one)');
   assert.equal(count(face, /<(a|button)\b/g), 1 + doors.length, 'the pinned face holds a control besides its menu and ✓ ✕ ?');
 
-  // The full pill — the top row (Guests ▾ · Seats ▾ · March, as the type offers; Settings became the ⚙, 27 Oct) — is
-  // still the face at rest. This list offers List · Map only, so it is Guests alone.
-  const fullEnd = stick.indexOf('</nav>', fullAt);
-  const full = stick.slice(fullAt, fullEnd);
-  assert.deepEqual([...full.matchAll(/data-guests-seg="(\w+)"/g)].map((m) => m[1]), ['guests']);
-
-  // ⚙ THE ROW ENDS WITH ITS ⚙ — ONE mounted button that BOTH faces show: exactly one in the pinned block, not in the
-  // summary face, right after the full pill's </nav> as the first row's last child, and nothing pressable after it.
+  // ⚙ THE ROW ENDS WITH ITS ⚙ — exactly one in the pinned block, not in the face, the first row's last control.
   assert.equal(count(stick, 'data-menu-settings="guests"'), 1, 'the Guests pinned block does not hold exactly one ⚙');
-  assert.equal(count(face, 'data-menu-settings'), 0, 'the summary face mounts its own ⚙ — two buttons for one door');
+  assert.equal(count(face, 'data-menu-settings'), 0, 'the face mounts its own ⚙ — two buttons for one door');
+  const firstRowAt = stick.indexOf('data-first-row=""');
+  assert.ok(firstRowAt > -1 && firstRowAt < faceAt, 'the face is not inside the first row');
   const gearAt = stick.indexOf('data-menu-settings="guests"');
-  assert.ok(gearAt > fullEnd, 'the ⚙ is not after the selector — the row does not end with it');
-  const firstRow = stick.slice(stick.lastIndexOf('data-first-row', fullAt));
-  const afterGear = firstRow.slice(firstRow.indexOf('data-menu-settings="guests"'));
+  assert.ok(gearAt > faceAt, 'the ⚙ is not after the menu — the row does not end with it');
+  const afterGear = stick.slice(gearAt);
   assert.ok(/^[^]*?<\/button><\/span><\/div>/.test(afterGear), 'something sits after the ⚙ in the first row');
   assert.equal(count(afterGear.slice(0, afterGear.search(/<\/button><\/span><\/div>/)), /<(a|button)\b/g), 1, 'the ⚙ is not the row\'s last control');
-  assert.ok(stick.indexOf('data-has-gear') > -1, 'the pinned block does not say it holds a ⚙ — the summary face would cover it');
 
-  // Same box: the face is laid OVER the pill's 44 px; the block pads 8 / 8.
+  // Same box on every view: 8 + 44 + 8, one line that never wraps; the face is IN the flow (nothing laid over another).
   const css = readFileSync(join(APP, 'guests', '_components', 'guests-screen.module.css'), 'utf8');
   assert.match(css, /\.stick\.pinned \{\s*padding: 8px 0;/, 'the pinned block is not 8 + 44 + 8');
-  assert.match(css, /\.face \{\s*position: absolute;[^}]*height: 44px;/, 'the summary face is not laid over the pill — the swap would move the list');
-  assert.match(css, /\.stick\.pinned\[data-has-gear\] \.face \{\s*right: calc\(52px \+ var\(--gs-rounds-w, 0px\)\);/, 'the summary face covers the ⚙ (or the view’s rounds) when pinned');
-  assert.match(css, /\.stick\.pinned\[data-collapsed\] \[data-first-row\] > \[data-guests-segmented\] \{\s*opacity: 0;/, 'pinned, the full pill no longer fades (or the whole first row — ⚙ included — does)');
-  assert.doesNotMatch(css, /\[data-collapsed\][^{]*\[data-first-row\]\s*\{|\[data-collapsed\][^{]*\[data-menu-settings/, 'pinned, the ⚙ is faded out');
+  assert.match(css, /\.topRow \{[^}]*height: 44px;[^}]*flex-wrap: nowrap;/, 'the row is not one 44-px line');
+  assert.doesNotMatch(css.slice(css.indexOf('.face {'), css.indexOf('}', css.indexOf('.face {'))), /position: absolute/, 'the face is laid over something again');
 
-  // 📌 PINS ONCE (owner 2026-10-27: "the selector double pins. we want them to pin only the new way and not the first
-  // pin it does"): on the List the block is NOT sticky at rest; it pins (fixed) only when collapsed, and its holder
-  // keeps the block's height so nothing moves. The Map keeps its shipped sticky row.
-  assert.match(css, /\.screen\[data-guests-screen='list'\] \.stick\.pinned \{\s*position: relative;/, 'the List’s first row is sticky at rest — it pins twice');
-  assert.match(
-    css,
-    /\.screen\[data-guests-screen='list'\] \.stick\.pinned\[data-collapsed\] \{\s*position: fixed;\s*top: var\(--gs-top, 0px\);/,
-    'scrolled past the carousel, the row does not pin under the bar',
-  );
+  // 📌 PINNED FROM THE START, EVERY VIEW: fixed under the bar in its holder's column; the holder keeps its height.
+  assert.match(css, /\.stick\.pinned\[data-pinned\] \{\s*position: fixed;\s*top: var\(--gs-top, 0px\);/, 'the row does not pin under the bar');
+  assert.doesNotMatch(css, /\.screen\[data-guests-screen='list'\] \.stick\.pinned \{\s*position: relative;/, 'the List’s row scrolls away at rest again');
   assert.match(css, /\.stickHold \{\s*min-height: var\(--gs-stick-h/, 'the holder does not keep the pinned block’s height');
-  // The swap is decided by the CAROUSEL's bottom edge — not the pill's: the row appears only once the carousel is gone.
   const screen = read('guests', '_components', 'guests-screen.tsx');
-  assert.match(screen, /const on = strip\.getBoundingClientRect\(\)\.bottom <= bar \+ st\.offsetHeight \+ 2;/, 'the row pins on something other than the carousel leaving');
-  assert.match(screen, /<div className=\{`\$\{styles\.summary\} \$\{styles\.rise\}`\} ref=\{stripRef\}/, 'the edge the row watches is not the carousel');
+  assert.match(screen, /st\.setAttribute\('data-pinned', ''\);/, 'the screen does not pin the row');
+  assert.doesNotMatch(screen, /getBoundingClientRect\(\)\.bottom <= bar/, 'the row waits for the carousel to leave again — it would wear two faces');
 });
 
 test('Suppliers — only Find · Build · Booked · ⚙ pins; the date · place line scrolls away above it', () => {

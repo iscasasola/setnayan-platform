@@ -5,11 +5,7 @@
  * evening; corpus `SUPPLIERS_BUILD_PLAN_2026-10-07_fable.md` § PR2 "UPDATED
  * 2026-10-07 EVENING / LATE"; acceptance pictures 19–22):
  *
- *     ⇕ Expand all / Collapse all  ·  Search suppliers  ·  ≡ Sort  ·  ＋ Add your own
- *
- * ≡ (owner 2026-10-30, *"this is a filter and sort parameter? shouldn't this be on the thumb row?"*): the bench's ONE
- * sort, for every category — it used to sit inside each open category, where it read as that category's own. The
- * shared row's sort seat (`ThumbMenu`), as on Guests.
+ *     ⇕ Expand all / Collapse all  ·  Search suppliers  ·  ⇅ Sort & filter  ·  ＋ Add your own
  *
  * Since 2026-10-22 ("One thumb row") the controls are drawn by the shared
  * `components/thumb-row.tsx`; this file keeps the slide, the portal and the
@@ -68,7 +64,8 @@ export function FindThumbRow({
   onSearch,
   onAdd,
   emptyPanel = null,
-  sort = null,
+  sortMenu = null,
+  onGoToCategory,
 }: {
   /** Every category is open → the control offers "Collapse all". */
   allOpen: boolean;
@@ -83,8 +80,16 @@ export function FindThumbRow({
   /** What the box shows while it is open with nothing typed — the Find page's
    *  category list. Null → nothing (the box is only a search box). */
   emptyPanel?: ReactNode;
-  /** ≡ The bench's one sort — built by the bench (`thumbSort`); null draws no ≡. */
-  sort?: ThumbMenu | null;
+  /** ⇅ — Sort · Price · Rating in ONE dropdown, the ≡ seat after the field (owner 2026-10-29, Find v4.2;
+   *  `find-sort-menu.tsx`). Null → no seat. */
+  sortMenu?: ThumbMenu | null;
+  /**
+   * GO TO A CATEGORY (owner 2026-10-29: *"when we are deep in the search can our thumb rule be the place to return and
+   * see the other categories?"*) — a row of the empty box's category list that is ON this page opens HERE: the
+   * current category folds, that one opens and lands pinned. Returns false for a row this page does not draw, which
+   * then goes where the Find page's row goes, as before.
+   */
+  onGoToCategory?: (tile: string) => boolean;
 }) {
   const { mode, leaving, thumbUp } = useSuppliersMode();
   const [host, setHost] = useState<HTMLElement | null>(null);
@@ -169,6 +174,14 @@ export function FindThumbRow({
     if (!wanted) setOpen(false);
   }, [wanted]);
 
+  // A category row ON this page opens here (`onGoToCategory`); any other keeps going where the Find page's row goes.
+  const goFromPanel = (e: { target: EventTarget; preventDefault: () => void }) => {
+    const tile = (e.target as HTMLElement).closest('[data-find-tile]')?.getAttribute('data-find-tile');
+    if (tile && onGoToCategory?.(tile)) {
+      e.preventDefault();
+      setOpen(false);
+    }
+  };
   if (!host) return null;
   return createPortal(
     <div
@@ -190,6 +203,7 @@ export function FindThumbRow({
           role="region"
           aria-label="Categories"
           data-find-empty=""
+          onClick={goFromPanel}
           className="pointer-events-auto mb-2 max-h-[min(62vh,560px)] overflow-y-auto overscroll-contain rounded-2xl bg-paper px-4 pb-4 shadow-[0_-6px_28px_rgba(0,0,0,0.14)] ring-1 ring-ink/10"
         >
           {emptyPanel}
@@ -210,7 +224,6 @@ export function FindThumbRow({
             },
           },
         ]}
-        right={sort ? [sort] : []}
         field={{
           placeholder: findPlaceholder(scope),
           label: `Search ${scope}`,
@@ -224,6 +237,7 @@ export function FindThumbRow({
             'aria-controls': showPanel ? panelId : undefined,
           },
         }}
+        right={sortMenu ? [sortMenu] : []}
         action={{
           icon: Plus,
           label: text.trim() ? 'Add' : 'Add your own',

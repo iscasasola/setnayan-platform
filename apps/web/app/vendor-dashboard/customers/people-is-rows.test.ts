@@ -222,15 +222,15 @@ test('3b · each segment reads only what it draws (owner: "the fewest requests")
   assert.match(hub, /seg === 'dates' \? \([\s\S]{0,240}<CustomersDay\b[\s\S]{0,120}<CustomersDates\b/, 'Dates (the month, or one day) is not drawn only on Dates');
 });
 
-test('3c · one pinned row on every view: Events draws it with the three counts; Dates and Money with the view ▾ and ⚙ only', () => {
+// v13 (2026-10-29): Dates and Money carry their OWN figures on the row (booked · asking · days off · Received · To come
+// in · Overdue), so each view draws the row over what it read — the hub draws none (S4,
+// `the-customers-figures-are-the-pinned-row.test.ts` holds the figures themselves).
+test('3c · one pinned row on every view: Events with the three counts; Dates and Money with their own figures', () => {
   const people = body(PAGE, 'CustomersPipeline');
   assert.match(people, /<CustomersPin\s+seg="events"[\s\S]{0,120}doors=\{doors\}[\s\S]{0,40}panels=\{panels\}/, 'Events does not draw the counts row');
-  const hub = body(PAGE, 'VendorCustomersHub');
-  assert.match(
-    hub,
-    /\{seg === 'events' \|\| \(seg === 'dates' && search\.day\) \? null : \(\s*<CustomersPin\s+seg=\{seg\}\s+hrefs=\{CUSTOMER_SEGMENT_HREFS\}\s+gear=/,
-    'Dates / Money lost their pinned row (or draw counts they never read)',
-  );
+  assert.match(body(PAGE, 'CustomersDates'), /<CustomersPin\s+seg="dates"\s+hrefs=\{CUSTOMER_SEGMENT_HREFS\}\s+figures=/, 'Dates lost its pinned row');
+  assert.match(code('_components', 'money-segment.tsx'), /<CustomersPin\s+seg="money"\s+hrefs=\{CUSTOMER_SEGMENT_HREFS\}\s+figures=/, 'Money lost its pinned row');
+  assert.doesNotMatch(body(PAGE, 'VendorCustomersHub'), /<CustomersPin\b/, 'the hub draws a second pinned row over a view’s own');
 });
 
 test('3d · the view is ONE dropdown (Events ▾ · Dates · Money), 44 px — never a pill row', async () => {

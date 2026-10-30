@@ -9,6 +9,7 @@ import { DomainManager } from './_domain-manager';
 import { loadPageData } from './page-data';
 import { PageParts } from './_components/page-parts';
 import { ShopSegments } from '../shop/_components/shop-segments';
+import { pageFigures } from '@/lib/shop-section-figures';
 import { AutoReplySection } from '../shop/_components/autoreply-section';
 
 export const dynamic = 'force-dynamic';
@@ -49,7 +50,7 @@ export default async function YourPage() {
 
   return (
     <section className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-32 pt-4 sm:px-6" data-supplier-page="">
-      <ShopSegments on="page" />
+      <ShopSegments on="page" figures={pageFigures({ views30: d.views30, reviewCount: d.reviewCount, rating: d.rating })} />
       <h1 className="sr-only">Your page</h1>
       <PageParts
         d={{

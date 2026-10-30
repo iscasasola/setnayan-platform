@@ -319,6 +319,24 @@ export function accessGroupOf(kind: PersonKind): AccessGroupKey {
   return kind === 'co_host' ? 'hosts' : kind === 'coordinator' ? 'coordinator' : kind === 'supplier' ? 'suppliers' : 'helpers';
 }
 
+/**
+ * The words `removeHost` can bring back to People with access — anything else in the address is not ours, so a
+ * hand-edited link cannot print its own message on the section. ONE copy for both places the section is drawn (Event
+ * Details and Home's ⚙ Event Settings sheet, owner 2026-10-30).
+ */
+const REMOVE_REFUSALS = new Set([
+  'You cannot remove yourself.',
+  'A celebrant stays a co-host. A celebrant can change their role first.',
+  'Could not remove them. Try again.',
+]);
+
+/** The section's one flash line from the address it landed on — or null. */
+export function accessFlashFrom(q: { host_removed?: unknown; invite_error?: unknown } | null | undefined): string | null {
+  if (!q) return null;
+  if (q.host_removed === '1') return 'Removed — their access ended immediately.';
+  return typeof q.invite_error === 'string' && REMOVE_REFUSALS.has(q.invite_error) ? q.invite_error : null;
+}
+
 /** What the Event access fold says when its read FAILED — never a zero. */
 export const ACCESS_SUMMARY_FAILED = 'Couldn’t load';
 
@@ -351,9 +369,10 @@ export function accessFoldSummary(rows: readonly PersonRow[] | null): string {
 export const SUPPLIERS_BY_CATEGORY = 'What each booked supplier sees is set by their category. There is nothing to switch here.';
 
 /**
- * Why Event Hub and Mood Board are a toggle you cannot move — the truth
- * `areaChoices` already holds (null = nothing asks the database for these two
- * areas yet, so a live toggle would be a switch wired to nothing).
+ * Why Event Hub is a toggle you cannot move — the truth `areaChoices` already
+ * holds (null = nothing asks the database for this area yet, so a live toggle
+ * would be a switch wired to nothing). Mood Board left this list on 2026-10-30:
+ * the hosts set it to Edit or View per person.
  */
 export const FIXED_AREA_WHY = 'Every helper can view this for now. A per-person setting is not built yet, so it cannot be switched.';
 
@@ -390,8 +409,13 @@ export function coordinatorHasHostAccess(cells: readonly AreaCell[] | null): boo
 
 /** The per-area writes one flip makes — each through `setDelegateArea`. */
 export function coordinatorSwitchWrites(cells: readonly AreaCell[], on: boolean): Array<{ area: DelegateArea; choice: AreaChoice }> {
+  // OFF takes every settable area to its LOWEST level — Off where the area has one, else View (Mood Board has no Off:
+  // every delegate reads the board). Writing 'off' to an area that cannot take it would be refused, and the refusal
+  // would put the whole switch back.
+  const lowest = (c: AreaCell): AreaChoice | null =>
+    !c.choices ? null : c.choices.includes('off') ? 'off' : c.choices.includes('view') ? 'view' : null;
   const want = (c: AreaCell): AreaChoice | null =>
-    on ? (COORDINATOR_ON_AREAS.includes(c.area) ? 'edit' : null) : c.choices ? 'off' : null;
+    on ? (COORDINATOR_ON_AREAS.includes(c.area) ? 'edit' : null) : lowest(c);
   return cells.flatMap((c) => {
     const next = want(c);
     return next && next !== c.choice ? [{ area: c.area, choice: next }] : [];

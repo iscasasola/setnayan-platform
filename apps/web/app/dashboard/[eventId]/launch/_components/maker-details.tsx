@@ -501,6 +501,63 @@ export function detailsFactEditors(input: {
   };
 }
 
+/* ── 🌐 YOUR EVENT HUB'S ADDRESS — the one place it is edited (owner: "Add the slug to details"). The shipped
+   SlugField: 3–32 characters, live availability, old links forward. ── */
+function addressEditor(props: Pick<MakerDetailsProps, 'eventId' | 'slug' | 'slugAction' | 'address'>, { compact = false }: { compact?: boolean } = {}): ReactNode {
+  const { eventId, slug, slugAction, address: addressPart } = props;
+  /* ⚙ The Hub's ⚙ draws it on ONE row (owner 2026-10-30 "Redraw to prototype"): the same field, the same save. */
+  if (compact) {
+    return addressPart && slug ? (
+      <AddressField compact eventId={eventId} slug={slug} saveAction={slugAction} {...addressPart} />
+    ) : (
+      <SlugField compact eventId={eventId} initialSlug={slug ?? ''} saveAction={slugAction} />
+    );
+  }
+  return (
+    <section data-details-address="" className="flex flex-col gap-2">
+      {addressPart && slug ? (
+        /* 💎 Owner 2026-10-22: the free address is shown; "Pick your own ◆" is tried in the draft, paid at ✓ Apply. */
+        <AddressField eventId={eventId} slug={slug} saveAction={slugAction} {...addressPart} />
+      ) : (
+        <>
+          <SlugField eventId={eventId} initialSlug={slug ?? ''} saveAction={slugAction} />
+          <HubSavesImmediately className="mt-1" />
+        </>
+      )}
+    </section>
+  );
+}
+
+/**
+ * ⚙ YOUR EVENT HUB — the address · Go live · who can view · which version · the Event Bar · the event QR (its on/off,
+ * its look, Copy · Share · Download): Studio › Info's "More for guests" fold (`StudioHubSettings`), built by THIS one
+ * function wherever it is drawn — in that fold, and OPEN in the Hub's ⚙ Event Hub settings (owner 2026-10-30, DECISION_LOG
+ * "EVENT HUB PRO (look redesign)"; 2026-10-27 "INFO SPLITS BY WHAT IT IS ABOUT": the Hub's address stays in Event Hub ⚙).
+ * The launch page hands the ⚙'s copy to the Maker with its late panels (`MakerLate.hubSettings`). Null without Studio.
+ */
+export function hubSettingsEditor(
+  props: Pick<MakerDetailsProps, 'eventId' | 'slug' | 'slugAction' | 'address' | 'qr' | 'qrStyleAction' | 'studio'>,
+  { bare }: { bare: boolean },
+): ReactNode {
+  const st = props.studio;
+  if (!st) return null;
+  const { eventId, slug, qr, qrStyleAction } = props;
+  return (
+    <StudioTool
+      part="hub"
+      eventId={eventId}
+      slug={slug}
+      hub={st.hub}
+      address={addressEditor(props, { compact: bare })}
+      /* 🔳 On or off first (owner 2026-10-07) — off, the event QR leaves the prints and the guest page. */
+      qrShown={st.qrShown !== false}
+      qrLook={<QrLookControls eventId={eventId} ownsPro={qr.ownsPro} storeShell={qr.storeShell} style={qr.style} inks={qr.inks} action={qrStyleAction} />}
+      livePath={st.livePath}
+      bare={bare}
+    />
+  );
+}
+
 export function MakerDetails(props: MakerDetailsProps) {
   const { eventId, slug, slugAction, address: addressPart, qr, qrStyleAction, theme, prints, menu, stored, hosts, parents } = props;
   const { pabuyaMessage, specialMessage, hasPalette, hasGifts, flash, stamp, initialItem, eventContext } = props;
@@ -970,19 +1027,7 @@ export function MakerDetails(props: MakerDetailsProps) {
     /* ── Your Event Hub address — the one place it is edited (owner: "Add the
        slug to details"). The shipped SlugField: 3–32 characters, live
        availability, old links forward. ── */
-    address: (
-      <section data-details-address="" className="flex flex-col gap-2">
-        {addressPart && slug ? (
-          /* 💎 Owner 2026-10-22: the free address is shown; "Pick your own ◆" is tried in the draft, paid at ✓ Apply. */
-          <AddressField eventId={eventId} slug={slug} saveAction={slugAction} {...addressPart} />
-        ) : (
-          <>
-            <SlugField eventId={eventId} initialSlug={slug ?? ''} saveAction={slugAction} />
-            <HubSavesImmediately className="mt-1" />
-          </>
-        )}
-      </section>
-    ),
+    address: addressEditor(props),
     qr: (
       <div className="flex flex-col gap-1">
         {/* 🗂 QR Code settings — Shape · Pattern · Colour, a field of the Your event form (owner 2026-10-06). */}
@@ -1195,19 +1240,7 @@ export function MakerDetails(props: MakerDetailsProps) {
     /* 🌐 "More for guests" — ONE fold under what must be typed (owner: "prioritize only what they need to input
        here"): the address, Go live · Who can view · Which version guests see · Event Bar, and the event QR with its
        look and its Copy · Share · Download. Each is its shipped editor; the fold only gathers them. */
-    editors.address = (
-      <StudioTool
-        part="hub"
-        eventId={eventId}
-        slug={slug}
-        hub={st.hub}
-        address={editors.address}
-        /* 🔳 On or off first (owner 2026-10-07) — off, the event QR leaves the prints and the guest page. */
-        qrShown={st.qrShown !== false}
-        qrLook={<QrLookControls eventId={eventId} ownsPro={qr.ownsPro} storeShell={qr.storeShell} style={qr.style} inks={qr.inks} action={qrStyleAction} />}
-        livePath={st.livePath}
-      />
-    );
+    editors.address = hubSettingsEditor(props, { bare: false });
     /* The form's quiet rows — Restore · Reset… · About — stay last, outside the fold. */
     editors.qr = <StudioTool part="quiet" />;
     /* ⚙ PRINT SETTINGS (owner 2026-10-17, DECISION_LOG "PRINTS: ONE SETTINGS SHEET, ONE DOWNLOAD PER PIECE…"; prototype

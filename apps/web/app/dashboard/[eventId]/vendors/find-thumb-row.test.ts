@@ -59,10 +59,10 @@ test('T1 · the row owns nothing and writes nothing', () => {
   assert.equal((BENCH.match(/<FindThumbRow\b/g) ?? []).length, 1);
   assert.match(
     BENCH,
-    /<FindThumbRow\s+allOpen=\{openAll\}\s+onToggleAll=\{toggleOpenAll\}\s+scope=\{scopeRow \? scopeRow\.t\.label : 'all suppliers'\}\s+onSearch=\{setQuery\}\s+onAdd=\{addYourOwn\}\s+emptyPanel=\{findPanel\}\s+sort=\{thumbSort\}\s+\/>/,
+    // + Find v4 (2026-10-29): "Go to a category" from the empty box, and the ⇅ (Sort · Price · Rating) — both the
+    //   bench's own state, handed in.
+    /<FindThumbRow\s+allOpen=\{openAll\}\s+onToggleAll=\{toggleOpenAll\}\s+scope=\{scopeRow \? scopeRow\.t\.label : 'all suppliers'\}\s+onSearch=\{setQuery\}\s+onAdd=\{addYourOwn\}\s+emptyPanel=\{findPanel\}\s+onGoToCategory=\{goToCategory\}\s+sortMenu=\{findSortMenu\(\{/,
   );
-  // ≡ (owner 2026-10-30): the bench's one sort rides the row as the shared sort seat — the row only draws it.
-  assert.match(ROW, /right=\{sort \? \[sort\] : \[\]\}/);
   // Every control is the shared row's; nothing hand-made, no › in a control.
   assert.equal((ROW.match(/<ThumbRow\b/g) ?? []).length, 1);
   assert.doesNotMatch(ROW, /<button\b|<ActionButton\b|›/);

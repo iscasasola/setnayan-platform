@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
+import { SERVICE_NAMES } from '@/lib/service-names';
 import { PapicBuySheet } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-buy-sheet';
-import { PapicCameraSettings, PapicSwitch } from './studio/papic/_components/papic-camera-settings';
+import { PapicCameraSettings, PapicHeadControl, PapicHeadLine } from './studio/papic/_components/papic-camera-settings';
 import { PapicOutcomeBanners, hasPapicOutcome, type PapicOutcomes } from './studio/papic/_components/papic-outcome-banners';
 import { PapicSelfHeal } from './studio/papic/_components/papic-self-heal';
 import { PapicCameraHelp } from './studio/papic/_components/papic-camera-help';
@@ -11,6 +12,7 @@ import type { PapicCardInput } from './_components/home-first-screen';
 import { switchOnRows } from '@/lib/event-needs';
 import { readEventNeedsFor } from '@/lib/event-needs-read.server';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
+import { makerHasWork } from '@/lib/maker-details-items';
 import { readHomeChecklist, readHomeHub, readHomeSuppliers } from '@/lib/home-control.server';
 import { composeHomeControl } from './_components/home-control-faces';
 import { startAhead } from '@/lib/start-ahead';
@@ -18,6 +20,7 @@ import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { AccessRequestsDoorway } from './_components/access-requests-doorway';
+import { MoodBoardAsksDoorway } from './_components/mood-board-asks-doorway';
 import { CoordinatorLevelCard } from './_components/coordinator-level-card';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowRight, Sparkles, CalendarPlus } from 'lucide-react';
@@ -90,6 +93,8 @@ import { DayOfModeGrid } from './_components/day-of-mode/grid';
 import { SetDateNudge } from './_components/set-date-nudge';
 import { readHomeGuide } from './_components/details-guide-home-card';
 import { DayPapicRow, HomeFirstScreen, YourServices } from './_components/home-first-screen';
+import { isEventSettingsRow } from '@/lib/people-with-access-href';
+import { DATE_FINDER_VALUE } from '@/lib/home-date-finder';
 /* 🛑 KEEP. WITHOUT THIS LINE HOME'S ⚙ CRASHES HOME (2026-10-29, the fix after #7036). The ⚙ reads Event Settings with a
    server action (`openEventSettings`) that RETURNS RENDERED ROWS: the Maker's editors (`details-lazy.tsx`,
    `details-go.tsx`). Next can only send a client component in an action's answer when THIS ROUTE's server files reach
@@ -201,7 +206,22 @@ export default async function EventHomePage({
 }: {
   params: Promise<{ eventId: string }>;
   /** 📷 + the Papic card's answers (the Papic page is gone, 2026-10-26): a save's outcome, `?buy=1`, a purchase error. */
-  searchParams?: Promise<{ sai?: string; inspect?: string; sheet?: string; buy?: string; papic_pool_error?: string } & PapicOutcomes>;
+  searchParams?: Promise<
+    {
+      sai?: string;
+      inspect?: string;
+      sheet?: string;
+      buy?: string;
+      papic_pool_error?: string;
+      /** ⚙ `?settings=1&row=…` — Home opens with its Event Settings sheet up (the ☰'s mark, "Change ›" to access). */
+      settings?: string;
+      row?: string;
+      /** 📅 `?date=find` — Home opens with the Date Finder up (the Countdown's door). */
+      date?: string;
+      host_removed?: string;
+      invite_error?: string;
+    } & PapicOutcomes
+  >;
 }) {
   const { eventId } = await params;
   const search = searchParams ? await searchParams : {};
@@ -970,7 +990,18 @@ export default async function EventHomePage({
           phase: papicCardPhaseNow,
           // 🍎 In the app the Thank-You Video keeps its own row (an Apple product there) — no web door on the card.
           thankYouHref: !storeShell && OUR_SERVICE_PARTS.papic ? addOnHref(OUR_SERVICE_PARTS.papic.key, eventId) : null,
-          headControl: <PapicSwitch eventId={eventId} saved={papicSwitch === undefined ? null : papicIsOn(papicSwitch)} />,
+          /* 📷 THE HEAD (owner 2026-10-30): ONE dropdown — Off · On — event day · On — everyone, now (`PapicHeadControl`);
+             its line under the title says the current position, "after you Apply" while Papic's switch waits for Apply. */
+          headControl: (
+            <Suspense fallback={null}>
+              <PapicHeadControl eventId={eventId} papicOn={papicSwitch === undefined ? null : papicIsOn(papicSwitch)} />
+            </Suspense>
+          ),
+          headLine: (
+            <Suspense fallback={SERVICE_NAMES.papic.brand}>
+              <PapicHeadLine eventId={eventId} papicOn={papicSwitch === undefined ? null : papicIsOn(papicSwitch)} />
+            </Suspense>
+          ),
           counts: { total: papicNow.total, left: papicNow.count },
           buy: papicBuy,
           defaultOpen: hasPapicOutcome(search) || Boolean(papicPoolError),
@@ -1074,6 +1105,8 @@ export default async function EventHomePage({
     hub: homeHub,
     suppliers: homeSuppliers,
     checklist: homeChecklist,
+    // 📅 The couple's Countdown opens the Date Finder (owner 2026-10-30); a helper keeps Event Details for now.
+    countdownDoor: viewerMemberType === 'couple' ? undefined : `/dashboard/${eventId}/details`,
   });
   const appleThankYouEntry = ADD_ONS.find((a) => a.key === 'thank-you');
   const appleThankYouOffered = Boolean(
@@ -1099,6 +1132,9 @@ export default async function EventHomePage({
       {/* Self-hiding: renders nothing unless someone is waiting on an answer (owner ruling 2026-07-27 — the host
           decides what to share). */}
       <AccessRequestsDoorway eventId={eventId} />
+      {/* 🖼⏱ Suppliers' photos to approve, and the last 24 h of Mood Board changes by others with their Undo (owner
+          2026-10-30, "THE OWNERS HAVE 24 HOURS TO UNDO"). One read; self-hiding; the database decides who sees which. */}
+      <MoodBoardAsksDoorway eventId={eventId} />
       {/* 🗓 "Date change: n of N suppliers answered" — self-hiding: renders nothing unless the couple asked booked
           suppliers to move (owner 2026-10-01, the clashing-date flow). Couple-only by RLS. */}
       <DateChangeDoorway eventId={eventId} />
@@ -1119,6 +1155,14 @@ export default async function EventHomePage({
       asks={todayAsks}
       /* ⚙ Event Settings on the cover — the couple's, who change the event's own facts (owner 2026-10-29). */
       eventSettings={viewerMemberType === 'couple'}
+      dateFinderOpen={search.date === DATE_FINDER_VALUE}
+      eventSettingsLink={{
+        open: search.settings === '1',
+        row: search.settings === '1' && isEventSettingsRow(search.row) ? search.row : null,
+        landed: search.settings === '1' ? { host_removed: search.host_removed, invite_error: search.invite_error } : null,
+        // A fresh server render of Home (a save's redraw) re-reads the open sheet's rows once.
+        renderKey: `${Date.now()}`,
+      }}
       next={homeNext}
       control={homeControl}
       services={homeServiceRowAll}
@@ -1166,6 +1210,9 @@ export default async function EventHomePage({
       }
       ground={homeCover}
       needs={homeNeeds}
+      /* 🖨 The Prints line (R8) — where Prints has work: the couple, with an Event Hub (the Maker's own `makerHasWork`,
+         which the Prints page asks too), on an event that needs its details (as the Studio tile was offered). */
+      prints={makerHasWork(viewerMemberType, surfaceEnabled(needsProfile, 'website')) && eventNeeds.hubDetails}
     />
     </>
   );

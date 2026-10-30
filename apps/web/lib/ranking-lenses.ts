@@ -260,31 +260,30 @@ export const LENSES: Record<LensKey, RankingLens> = {
   },
   near: {
     key: 'near',
-    label: 'Nearest',
+    label: 'Nearest to your venue',
     weights: NEAREST_WEIGHTS,
     requires: 'distance',
     hideWhen: gateOn('distance'),
     // §13.2 — distance is measured from `events.venue_latitude/longitude`. No
     // anchor ⇒ every distance is null ⇒ the lens is meaningless. Say so, and
-    // say what would fix it — in a few words: it is a note beside a menu row
-    // (owner 2026-10-30: "this dropdown's list has too much wording per row").
-    unavailableReason: 'Add your venue first',
+    // say what would fix it.
+    unavailableReason: 'Add your venue to sort by distance.',
   },
   budget: {
     key: 'budget',
-    label: 'Budget fit',
+    label: 'Fits your budget',
     weights: BUDGET_WEIGHTS,
     requires: 'budgetFit',
     hideWhen: gateOn('budgetFit'),
-    unavailableReason: 'Set a budget first',
+    unavailableReason: 'Set a budget for this category to sort by budget fit.',
   },
   new: {
     key: 'new',
-    label: 'New suppliers',
+    label: 'New here',
     weights: NEW_HERE_WEIGHTS,
     requires: 'freshness',
     hideWhen: gateOn('freshness'),
-    unavailableReason: 'None here yet',
+    unavailableReason: 'No recently joined suppliers here yet.',
   },
   demand: {
     key: 'demand',

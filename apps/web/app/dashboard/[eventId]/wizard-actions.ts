@@ -748,7 +748,7 @@ async function markTaskDone(formData: FormData): Promise<void> {
 
 import { fetchWizardVendorRecommendations } from '@/lib/wizard-recommendations';
 import type { WizardVendorRec } from '@/lib/wizard-recommendations';
-import { refuseLimitedHelper } from '@/lib/host-gate';
+import { moodBoardPhotoChangeRefusal, refuseLimitedHelper } from '@/lib/host-gate';
 
 export type SearchVendorsArgs = {
   eventId: string;
@@ -931,7 +931,11 @@ export async function uploadMoodboardSlot(formData: FormData): Promise<{
   palette?: string[];
   message?: string;
 }> {
-  await refuseLimitedHelper(formData.get('event_id'), null);
+  await refuseLimitedHelper(formData.get('event_id'), 'mood_board');
+  // 🖼 The hosts, and whoever they set to Mood Board Edit (owner 2026-10-30) — said in words, never an empty success.
+  // ⏱ For anyone but an owner this also opens the change the owners are told about and may Undo for 24 hours.
+  const photosRefusal = await moodBoardPhotoChangeRefusal(formData.get('event_id'), 'upload', formData.get('slot_key'));
+  if (photosRefusal) return { status: 'error', message: photosRefusal };
   const eventIdRaw = formData.get('event_id');
   const slotKeyRaw = formData.get('slot_key');
   const slotPositionRaw = formData.get('slot_position');
@@ -1100,7 +1104,11 @@ export async function removeMoodboardSlot(formData: FormData): Promise<{
   status: 'ok' | 'error';
   message?: string;
 }> {
-  await refuseLimitedHelper(formData.get('event_id'), null);
+  await refuseLimitedHelper(formData.get('event_id'), 'mood_board');
+  // 🖼 The hosts, and whoever they set to Mood Board Edit (owner 2026-10-30) — said in words, never an empty success.
+  // ⏱ For anyone but an owner this also opens the change the owners are told about and may Undo for 24 hours.
+  const photosRefusal = await moodBoardPhotoChangeRefusal(formData.get('event_id'), 'remove', formData.get('slot_key'));
+  if (photosRefusal) return { status: 'error', message: photosRefusal };
   const eventIdRaw = formData.get('event_id');
   const slotKeyRaw = formData.get('slot_key');
   const slotPositionRaw = formData.get('slot_position');

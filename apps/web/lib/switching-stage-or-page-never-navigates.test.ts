@@ -67,6 +67,12 @@ test('the shell switches stage and page as state — nothing in it navigates', (
   assert.match(press, /select\(\{ kind: 'tool', key: 'details' \}\)/);
   // The stage is never written into the address — it would re-key the page.
   assert.doesNotMatch(SHELL, /searchParams\.set\(|[?&]stage=/);
+  /* 🖨 R8 (2026-10-27): the shell's one way to ANOTHER page of the app is the Prints forward (`prints-forward.ts`) — not a
+     switch: it fires only when an item crosses between the Maker and the Prints page, never on a stage, a page or a door. */
+  assert.equal((SHELL.match(/usePrintsForward\(/g) ?? []).length, 1, 'the Prints forward is called more than once, or not at all');
+  const fwd = read('app/dashboard/[eventId]/launch/_components/prints-forward.ts');
+  assert.match(fwd, /return hasWork && detailsItem !== null && isPrintsItem\(detailsItem\) !== printsPage \? detailsItem : null;/, 'the Prints forward fires on something other than an item crossing the Prints line');
+  assert.doesNotMatch(fwd, /\bstage\b|\bselection\b|router\./, 'the Prints forward reads a stage or a selection — it would navigate on a switch');
 });
 
 test('the work area follows the stage by props alone — no router, no document reload on a switch', () => {

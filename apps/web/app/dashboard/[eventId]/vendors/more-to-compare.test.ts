@@ -97,42 +97,50 @@ test('🔑 a supplier whose name is withheld is not named by their own card', ()
 test('🔑 the action withholds the name on the SERVER, for exactly the anonymized results', () => {
   assert.match(
     ACTION,
-    /withholdCardNames\(\s*marketCards,\s*search\.results\.filter\(\(r\) => r\.nameAnonymized\)\.map\(\(r\) => r\.vendorProfileId\),?\s*\)/,
+    /withholdCardNames\(\s*firstCards,\s*search\.results\.filter\(\(r\) => r\.nameAnonymized\)\.map\(\(r\) => r\.vendorProfileId\),?\s*\)/,
   );
+  // Find v4 (2026-10-29): EVERY card crosses too — each one's title withheld for the same suppliers, on the server.
+  assert.match(ACTION, /const withheld = new Set\(search\.results\.filter\(\(r\) => r\.nameAnonymized\)\.map\(\(r\) => r\.vendorProfileId\)\);/);
+  assert.match(ACTION, /allCards = allCards\.map\(\(c\) => \(c\.card && withheld\.has\(c\.profileId\) \? \{ \.\.\.c, card: \{ \.\.\.c\.card, name: '' \} \} : c\)\);/);
   // …and the list fills the empty name with the category.
   assert.match(CARD, /\{svc\?\.name \|\| label\}/);
 });
 
 test('🔑 the action reads cards only for suppliers the search already returned, and never drops them on a later return', () => {
   assert.match(ACTION, /hideUnbookable: true,/, 'the list shows suppliers who cannot be booked on the date');
-  assert.match(ACTION, /fetchMarketServiceCards\(\s*createAdminClient\(\),\s*search\.results\.map\(\(r\) => r\.vendorProfileId\),/);
+  assert.match(ACTION, /const profileIds = search\.results\.map\(\(r\) => r\.vendorProfileId\);/);
+  assert.match(ACTION, /fetchMarketCategoryCards\(admin, profileIds, categoryServices, new Date\(\)\)/);
   assert.match(ACTION, /servicesInTile\(await getCanonicalBuckets\(\), tile\)/);
   // A failed card read is null all the way to the browser.
-  assert.match(ACTION, /const serviceCardByProfileId = marketCards\s*\?\s*withholdCardNames\([\s\S]*?\)\s*:\s*null;/);
-  const after = ACTION.slice(ACTION.indexOf('const serviceCardByProfileId = marketCards'));
+  assert.match(ACTION, /const serviceCardByProfileId = firstCards\s*\?\s*withholdCardNames\([\s\S]*?\)\s*:\s*null;/);
+  const after = ACTION.slice(ACTION.indexOf('const serviceCardByProfileId = firstCards'));
   const returns = after.match(/return \{.*\};/g) ?? [];
-  assert.equal(returns.length, 4, 'expected the four returns after the cards are read');
+  assert.equal(returns.length, 3, 'expected the three returns after the cards are read');
   for (const r of returns) {
-    assert.match(r, /results: search\.results/, 'a return dropped the results');
+    // The results are the search's, less only suppliers with no card free on the date (`freeShops`).
+    assert.match(r, /return \{ results,/, 'a return dropped the results');
     assert.match(r, /serviceCardByProfileId\b/, `a return dropped the cards: ${r}`);
+    assert.match(r, /\.\.\.cardsOut \}/, `a return dropped the per-card list: ${r}`);
   }
+  assert.match(ACTION, /const results = freeShops \? search\.results\.filter\(\(r\) => freeShops\.has\(r\.vendorProfileId\)\) : search\.results;/);
 });
 
 // ── the list ──────────────────────────────────────────────────────────────
 test('🔑 a list still loading, or one that failed, never reads as a count or as "Nobody"', () => {
   assert.match(LIST, /const \[moreLoading, setMoreLoading\] = useState\(true\);/, 'the first frame would say "Nobody"');
   assert.match(LIST, /const counted = !moreError && \(!moreLoading \|\| shown > 0\);/);
-  assert.match(LIST, /\{counted \? \(\s*<>\s*\{' '\}\s*· <Count value=\{shown\} id=\{`sup-cmp-\$\{tile\}`\} \/>\s*<\/>\s*\) : null\}/);
+  assert.match(LIST, /\{counted \? \(\s*<>\s*\{' '\}\s*· <Count value=\{shown\} id=\{`sup-cmp-\$\{tile\}`\} \/> \{shown === 1 \? 'card' : 'cards'\}\s*<\/>\s*\) : null\}/);
   assert.equal((LIST.match(/<Count\b/g) ?? []).length, 1, 'a second, unguarded count');
   // Loading first; then an empty list says "Nobody" ONLY when nothing failed.
   assert.match(
     LIST,
-    /\{moreLoading && shown === 0 \? \([\s\S]*?INLINE_MORE_LOADING[\s\S]*?\) : shown === 0 \? \(\s*moreError \? null : \([\s\S]*?moreToCompareEmpty\(label, moreQ\)/,
+    /\{moreLoading && shown === 0 \? \([\s\S]*?INLINE_MORE_LOADING[\s\S]*?\) : shown === 0 \? \(\s*moreError \? null : \([\s\S]*?: moreToCompareEmpty\(label, moreQ\)/,
   );
   assert.match(LIST, /\{moreError \? \(\s*<div className="mrerr" role="alert">/);
   // A failed read clears the cards to null — never to "these suppliers have none".
   const failed = LIST.slice(LIST.indexOf('.catch(() => {'), LIST.indexOf('}, 0);'));
   assert.match(failed, /setMoreCards\(null\);/);
+  assert.match(failed, /setMoreAll\(null\);/);
   assert.match(failed, /setMoreError\(INLINE_MORE_FAILED\);/);
 });
 
@@ -146,8 +154,9 @@ test('🔑 the list never repeats a supplier already on the couple’s page, and
 });
 
 test('🔑 the cards are the suppliers’ service cards, and say nothing about price when the cards were not read', () => {
-  assert.match(LIST, /svc=\{moreCards\?\.\[row\.vendorProfileId\] \?\? null\}/);
-  assert.match(LIST, /cardsRead=\{moreCards !== null\}/);
+  // Find v4: the card's OWN service card; the per-supplier record only where a read carried no per-card list.
+  assert.match(LIST, /svc=\{c\.card \?\? \(moreAll \? null : \(moreCards\?\.\[row\.vendorProfileId\] \?\? null\)\)\}/);
+  assert.match(LIST, /cardsRead=\{!cardsUnread && \(moreAll \? true : moreCards !== null\)\}/);
   assert.match(LIST, /setMoreCards\(res\.serviceCardByProfileId\);/);
   for (const line of ['svc?.discountBadge', 'svc.priceText', 'svc.includesLine', "svc.notIncluded.join(' · ')"]) {
     assert.ok(CARD.includes(line), `the marketplace card stopped printing ${line}`);
@@ -173,11 +182,12 @@ test('the verbs follow the button rule: one row, Ask for a quote is the main ver
   assert.match(CARD, /<CompareVerbs busy=\{busy\} saving=\{saving\} onSave=\{onSave\} onInquire=\{onInquire\} \/>/);
 });
 
-test('the sort is the bench’s ONE dropdown, and the full sheet is still one tap away', () => {
+test('the sort is the bench’s ONE value — behind Find’s ⇅ now — and the full sheet is still one tap away', () => {
   assert.equal((BENCH.match(/label="Sort by"/g) ?? []).length, 1, 'a second sort control');
-  // On the one-screen page it is the thumb row's ≡, for every category (owner 2026-10-30) — never in a category's head.
-  assert.match(BENCH, /sort=\{thumbSort\}/);
-  assert.doesNotMatch(LIST, /sortMenu/, 'a category head draws the sort again');
+  // Find v4.2 (owner 2026-10-29): the list head no longer carries a dropdown; the SAME sort value is set from the
+  // thumb row's ⇅, offered the same lenses and plain sorts.
+  assert.ok(!/\{sortMenu\}/.test(LIST), 'the list head grew its own sort control again');
+  assert.match(BENCH, /sortMenu=\{findSortMenu\(\{[\s\S]*?\.\.\.lensChips\.map[\s\S]*?\.\.\.BENCH_PLAIN_SORTS\.map[\s\S]*?sort: effectiveSort,[\s\S]*?onSort: \(k\) => setSort\(k as BenchSort\),/);
   assert.match(BENCH, /onSeeAll=\{\(\) => openSearch\(t\.tile, t\.label\)\}/);
   assert.match(LIST, /label=\{inlineMoreSeeAllLabel\(label\)\}\s*onClick=\{onSeeAll\}/);
 });

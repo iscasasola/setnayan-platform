@@ -317,7 +317,7 @@ test('an unavailable lens is DISABLED with an honest reason, not silently droppe
   const near = chips.find((c) => c.key === 'near');
   assert.ok(near, 'the "Nearest" chip stays visible so the couple can learn why');
   assert.equal(near.disabled, true);
-  assert.equal(near.reason, 'Add your venue first');
+  assert.equal(near.reason, 'Add your venue to sort by distance.');
 });
 
 test('the "In demand" chip is REMOVED, never greyed, when it cannot render', () => {
@@ -435,7 +435,7 @@ test('the guard does not fire on honest, measured copy', () => {
     'Free on your date',
     'Matches your style',
     'Verified',
-    'Add your venue first',
+    'Add your venue to sort by distance.',
   ]) {
     assert.equal(findForbiddenLensCopy(ok), null, `"${ok}" is honest and must pass`);
   }

@@ -2,7 +2,8 @@
  * _lib/papic-in-place.ts — 📍 WHAT A PAPIC ACTION'S REDIRECT MEANS WHEN THE PRESS STAYS IN PLACE (`in-place-actions.ts`).
  *
  * A Papic action ends in `redirect(<back>?<news>)`. Asked in place, that URL is read instead of followed:
- *   · a refusal — `?…_error=<code>` or `?add=full` → `{ ok: false, error }`, said on the row in the page's own words;
+ *   · a refusal — `?…_error=<code>`, `?<outcome>=error` or `?add=full` → `{ ok: false, error }`, said on the row in the
+ *     page's own words;
  *   · somewhere a press must really go — signed out (`/login…`), not on this event (`/dashboard`), off the dashboard
  *     → `'navigate'` (the redirect is let through);
  *   · anything else (`?…_set=…`, a bare back) → `{ ok: true }`: saved; the action's own `revalidatePath` re-renders
@@ -49,10 +50,13 @@ const NOTHING_CHANGED = 'We could not save that. Nothing changed — please try 
 export function papicInPlaceAnswer(url: string): PapicInPlaceResult | 'navigate' {
   const [path, query = ''] = url.split('?');
   if (!path || !path.startsWith('/dashboard/') || path.startsWith('/login')) return 'navigate';
-  const q = new URLSearchParams(query);
+  const q = new URLSearchParams(query.split('#')[0]);
   if (q.get('add') === 'full') return { ok: false, error: SAY.full! };
   for (const [k, v] of q) {
     if (k.endsWith('error')) return { ok: false, error: SAY[v] ?? NOTHING_CHANGED };
+    /* 🚨 `?guestCameras=error` · `?faceTagging=error` · `?vendorMedia=error` — the outcome is the VALUE, not the key.
+       Read by key alone these were "saved" (2026-10-30): a refused "Let everybody shoot now" would have stayed on. */
+    if (v === 'error') return { ok: false, error: NOTHING_CHANGED };
   }
   return { ok: true };
 }

@@ -59,13 +59,15 @@ export const MENU_SETTINGS_TIP =
 export const SETTINGS_ENTRY: Record<SettingsMenu, SettingsEntry> = {
   /**
    * 🏠 HOME › EVENT SETTINGS (owner 2026-10-29, "keep it there"; DECISION_LOG 2026-10-27 "APPROVED — SETTINGS PER MENU":
-   * *"Home's header ⚙ = Event Settings only"* · "INFO SPLITS BY WHAT IT IS ABOUT": names · date · venues · parents). The
+   * *"Home's header ⚙ = Event Settings only"* · "INFO SPLITS BY WHAT IT IS ABOUT": names · date · venues · parents; and
+   * since 2026-10-30 People with access — owner: *"that shoud be inside home settings"*). The
    * sheet's rows are the editors those facts already have (`open-event-settings.tsx`) — never a second editor.
    */
   home: {
     door: 'cover-gear',
     sheet: 'Event settings',
-    line: 'Names, date, venues and parents.',
+    // 👥 + People with access, the sheet's last section (owner 2026-10-30, *"that shoud be inside home settings"*).
+    line: 'Names, date, venues, parents and who has access.',
     live: true,
     tip: 'The event’s own facts. Each menu — Guests, Suppliers, Memories — keeps its own settings under its own ⚙.',
   },
@@ -75,11 +77,16 @@ export const SETTINGS_ENTRY: Record<SettingsMenu, SettingsEntry> = {
     line: 'How guests get in, what you ask, when the list closes.',
     live: true,
   },
+  /**
+   * 🎛 THE EVENT HUB ⚙ (owner 2026-10-30, DECISION_LOG "EVENT HUB PRO (look redesign) — THE APP'S NAV STAYS"): the
+   * right end of the Hub's pinned row — [Stage ▾ | Studio ▾] · ↺ · ✓ · ⚙ (`maker-shell.tsx`). Its sheet is "Your Event
+   * Hub": Go live · who can view · which version · open browsing · the QR — what the Maker's "Your Event Hub" sheet held.
+   */
   hub: {
     door: 'first-row-gear',
     sheet: 'Event Hub settings',
     line: 'What guests see, your address and QR, the look, the tools.',
-    live: false,
+    live: true,
   },
   prints: {
     door: 'first-row-gear',

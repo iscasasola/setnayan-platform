@@ -840,6 +840,16 @@ html.guests-subnav-docked [data-shell-main] {
     padding-bottom: var(--sn-thumb-room, 0px);
   }
 }
+/* 🗺 A PLAN THAT IS THE WHOLE SCREEN LEAVES NOTHING TO SCROLL (owner 2026-10-30, DECISION_LOG "SEATS 2D · SEATS 3D · THE
+   MAP ARE ALWAYS FULL SCREEN — NO FULL-SCREEN BUTTON"): on Guests › Map · Seats › 2D · 3D the surface already stops at
+   the bottom nav and the thumb row floats over it, so the column's clearance would only add a scroll that slides the
+   top nav away — and so would the page wrapper's own foot (`pb-6`, the column's direct child), measured as a 24-px scroll
+   on a desk where the dock is gone. 🔒 lib/maps-are-always-full-screen.test.ts */
+html [data-shell-main]:has([data-guests-full]),
+html.guests-subnav-docked [data-shell-main]:has([data-guests-full]),
+html [data-shell-main]:has([data-guests-full]) > * {
+  padding-bottom: 0;
+}
 
 @layer components {
   /* ══════════════════════════════════════════════════════════════════════

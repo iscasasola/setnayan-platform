@@ -105,9 +105,26 @@ export async function fetchViewerCouplePhotos(
   return out;
 }
 
+/** The image type a copy is served with — REPLACE drops the source's, and every copy key ends in one of these. */
+function imageTypeOf(key: string): string {
+  const ext = key.slice(key.lastIndexOf('.') + 1).toLowerCase();
+  return ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+}
+
 /** One server-side COPY (no bytes through us), across buckets when the two differ. */
 async function copyObject(fromBucket: R2BucketName, fromKey: string, toBucket: R2BucketName, toKey: string): Promise<void> {
-  await requireR2Client().send(new CopyObjectCommand({ Bucket: toBucket, CopySource: `${fromBucket}/${fromKey}`, Key: toKey }));
+  // REPLACE the metadata so a copy never inherits the board upload's hour of public caching — when a photo leaves the
+  // public card (taken back, narrowed, removed), nothing keeps serving it from a cache.
+  await requireR2Client().send(
+    new CopyObjectCommand({
+      Bucket: toBucket,
+      CopySource: `${fromBucket}/${fromKey}`,
+      Key: toKey,
+      MetadataDirective: 'REPLACE',
+      CacheControl: 'no-store',
+      ContentType: imageTypeOf(toKey),
+    }),
+  );
 }
 
 const attempt = () => randomBytes(8).toString('hex');

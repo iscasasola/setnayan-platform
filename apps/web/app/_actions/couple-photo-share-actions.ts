@@ -320,15 +320,21 @@ async function setShareAudience(eventId: string, shareId: string, audience: Coup
   const supabase = await createClient();
   const { data: row, error: readErr } = await supabase
     .from('couple_photo_shares')
-    .select('state, audience, public_key')
+    .select('state, audience, public_key, shared_by_user_id')
     .eq('share_id', shareId)
     .maybeSingle();
   if (readErr) {
     logQueryError('setShareAudience.read', readErr, { shareId });
     return { status: 'error' };
   }
-  const cur = row as { state: string; audience: CouplePhotoAudience; public_key: string | null } | null;
+  const cur = row as { state: string; audience: CouplePhotoAudience; public_key: string | null; shared_by_user_id: string | null } | null;
   if (!cur || (cur.state !== 'waiting' && cur.state !== 'approved')) return { status: 'gone' };
+  // Only the person who shared it may change who sees it — checked BEFORE any copy is made, so a refused caller
+  // never leaves a stray copy behind (the RPC checks it again; this only spares storage the work).
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user || cur.shared_by_user_id !== user.id) return { status: 'error' };
   if (cur.audience === audience) return { status: 'ok' };
   const toPublic = audience === 'public';
   const fromPublic = cur.audience === 'public';

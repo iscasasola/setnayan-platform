@@ -52,6 +52,9 @@ export function LabSeats({ guests, seat, big = false }: { guests: readonly { gue
       seated_table_id: seated?.table_id ?? null,
       seat_number: null,
       seat_locked: false,
+      // 🪑 Who placed each seat (lib/seat-why.ts) — the lab's seats alternate "you" and Auto arrange, a few days apart.
+      seat_placed_by: seated ? (i % 2 === 0 ? 'couple' : 'auto') : null,
+      seat_placed_at: seated ? new Date(Date.UTC(2026, 9, 29 - (i % 4), 9)).toISOString() : null,
       role: g.role,
       group_category: 'friend',
       meal_preference: null,
@@ -108,8 +111,8 @@ export function LabSeats({ guests, seat, big = false }: { guests: readonly { gue
   );
 }
 
-export function LabMarch({ shape }: { shape?: string | null }) {
-  const m = labMarchSections(shape);
+export function LabMarch({ shape, nicks = false }: { shape?: string | null; nicks?: boolean }) {
+  const m = labMarchSections(shape, { nicks });
   /* The same frame as `guests/_components/guests-march.tsx` (a server component that reads the event, so the lab
      draws its body here on the fixture): the maker with its summary row, the tray’s slot. */
   return (

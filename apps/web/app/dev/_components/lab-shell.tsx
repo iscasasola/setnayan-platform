@@ -52,6 +52,7 @@ export function LabShell({
   gutter = true,
   eventBar,
   homeAt,
+  hubAt,
   notices,
   bellUnread = 3,
 }: {
@@ -61,6 +62,8 @@ export function LabShell({
   bellUnread?: number;
   /** The lab address that stands for the event's Home — lit as Home on the real bar. */
   homeAt?: string;
+  /** …and for the event's Hub (`/dev/maker-lab`, the Maker inside the app's nav — owner 2026-10-30): lit as Hub. */
+  hubAt?: string;
   eventId: string;
   children: ReactNode;
   /** The REAL event tab list for a type's gates (`/dev/bar-lab`'s `labEventBar`) in place of the stand-in labels. */
@@ -106,7 +109,11 @@ export function LabShell({
           <BottomNav
             items={labEventBarItems(eventId, eventBar).map((i) =>
               /* The lab draws Home at its own address (`/dev/home-lab`), so Home lights there too. */
-              i.key === 'home' && homeAt ? { ...i, activeMatchAlsoExact: [...(i.activeMatchAlsoExact ?? []), homeAt] } : i,
+              i.key === 'home' && homeAt
+                ? { ...i, activeMatchAlsoExact: [...(i.activeMatchAlsoExact ?? []), homeAt] }
+                : i.key === 'launch' && hubAt
+                  ? { ...i, activeMatchAlsoExact: [...(i.activeMatchAlsoExact ?? []), hubAt] }
+                  : i,
             )}
           />
         ) : (

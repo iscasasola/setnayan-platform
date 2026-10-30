@@ -105,7 +105,10 @@ test('a segment calls the SHIPPED bus — it does not build a second channel', (
   // `goToBuildTab`, which dispatches the existing event the takeover's own
   // listener consumes — no new key, no new event, no handler of its own.
   const shell = shellBody();
-  assert.match(shell, /onClick=\{\(\) => goToBuildTab\(SUPPLIERS_MODE_TAB\[m\]\)\}/, 'a segment must dispatch the existing bus');
+  // A press goes through `goToMode`, which IS the bus on the Suppliers page (a Booked part's own page — Budget,
+  // Schedule — goes home to the Suppliers page instead, owner 2026-10-29).
+  assert.match(shell, /onClick=\{\(\) => goToMode\(m\)\}/, 'a segment must dispatch the existing bus');
+  assert.match(shell, /if \(!partPage\) \{\s*goToBuildTab\(SUPPLIERS_MODE_TAB\[m\]\);/, 'a segment must dispatch the existing bus');
   assert.doesNotMatch(shell, /onClick=\{\(\) => setMode\(/, 'a segment sets the mode behind the bus’s back');
   assert.equal((code(TAKEOVER).match(/new CustomEvent\(/g) ?? []).length, 0, 'the takeover dispatches an event of its own');
 });

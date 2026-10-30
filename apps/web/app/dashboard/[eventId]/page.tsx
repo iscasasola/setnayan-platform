@@ -12,6 +12,7 @@ import type { PapicCardInput } from './_components/home-first-screen';
 import { switchOnRows } from '@/lib/event-needs';
 import { readEventNeedsFor } from '@/lib/event-needs-read.server';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
+import { makerHasWork } from '@/lib/maker-details-items';
 import { readHomeChecklist, readHomeHub, readHomeSuppliers } from '@/lib/home-control.server';
 import { composeHomeControl } from './_components/home-control-faces';
 import { startAhead } from '@/lib/start-ahead';
@@ -1182,6 +1183,9 @@ export default async function EventHomePage({
       }
       ground={homeCover}
       needs={homeNeeds}
+      /* 🖨 The Prints line (R8) — where Prints has work: the couple, with an Event Hub (the Maker's own `makerHasWork`,
+         which the Prints page asks too), on an event that needs its details (as the Studio tile was offered). */
+      prints={makerHasWork(viewerMemberType, surfaceEnabled(needsProfile, 'website')) && eventNeeds.hubDetails}
     />
     </>
   );

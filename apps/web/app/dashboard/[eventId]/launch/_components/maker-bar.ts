@@ -11,6 +11,7 @@ import {
 } from '@/lib/maker-details-items';
 import type { PickOption } from '../../website/editor/_components/pick-menu-types';
 import { paidMarkLabel } from '@/lib/paid-mark';
+import { PRINTS_PAGE_LABEL } from '@/lib/prints-page-href';
 import type { MakerDevice } from './maker-context';
 
 /**
@@ -44,7 +45,8 @@ export const MAKER_SIDE_LABEL: Record<MakerSide, string> = { stages: 'Stages', s
  */
 export const MAKER_DETAILS_LABEL = 'Event Details';
 export const MAKER_LOOK_LABEL = 'Look';
-export const MAKER_PRINTS_LABEL = 'Prints';
+/** 🖨 Prints' one name — the Prints page's own (R8: Prints left the Maker for its page, `lib/prints-page.ts`). */
+export const MAKER_PRINTS_LABEL = PRINTS_PAGE_LABEL;
 /** Page ▾'s own name — what it reads while Look, Event Details or Prints covers the stage. */
 export const MAKER_PAGE_MENU_LABEL = 'Page';
 
@@ -294,7 +296,7 @@ export function makerPageMenu(input: {
  *   · the stage on screen gains, at the end of its pages, "＋ Add a scene" (a
  *     STAGE tool — never on a page) and "Reset this stage…" (a confirm, never
  *     one tap — `hub-draft-bar.tsx` asks);
- *   · after Post Event, a "Your Event Hub" line: Prints · Restore · the
+ *   · after Post Event, a "Your Event Hub" line: Restore · the
  *     address · who can view · About the Maker (the address and who can view
  *     move to Event Details in a later PR).
  *
@@ -304,7 +306,6 @@ export function makerPageMenu(input: {
 export const MAKER_PAGE_ACTIONS = {
   addScene: 'do:add-scene',
   reset: 'do:reset',
-  prints: 'do:prints',
   restore: 'do:restore',
   address: 'do:address',
   who: 'do:who',
@@ -355,7 +356,7 @@ export function makerPageActions(
   if (at >= 0) out.splice(at + 1, 0, ...stageRows);
   else out.push(...stageRows);
   const hub = MAKER_PAGE_HUB_GROUP;
-  if (input.hasWork) out.push({ key: MAKER_PAGE_ACTIONS.prints, label: MAKER_PRINTS_LABEL, group: hub });
+  /* 🖨 No Prints row (R8, owner 2026-10-27 "PRINTS LEAVES STUDIO"): Prints is its own page, opened from Home's Prints line. */
   if (input.canRestore !== null) {
     out.push({
       key: MAKER_PAGE_ACTIONS.restore,

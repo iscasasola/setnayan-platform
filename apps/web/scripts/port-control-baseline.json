@@ -5783,6 +5783,7 @@
         "dashboard/[eventId]/_components/home-first-screen.tsx",
         "dashboard/[eventId]/_components/home-loading-cover.tsx",
         "dashboard/[eventId]/_components/home-parts.tsx",
+        "dashboard/[eventId]/_components/home-prints-line.tsx",
         "dashboard/[eventId]/_components/home-service-card.tsx",
         "dashboard/[eventId]/_components/home-settings-gear.tsx",
         "dashboard/[eventId]/_components/home-tile-rotation.ts",
@@ -6027,6 +6028,7 @@
         "HomeLoadingScreen",
         "HomeMusicCard",
         "HomePlannerCard",
+        "HomePrintsLine",
         "HomeReload",
         "HomeServiceCard",
         "HomeSettingsGear",
@@ -7407,6 +7409,7 @@
         "dashboard/[eventId]/launch/_components/print-paper.tsx",
         "dashboard/[eventId]/launch/_components/print-preview.tsx",
         "dashboard/[eventId]/launch/_components/print-save-button.tsx",
+        "dashboard/[eventId]/launch/_components/prints-forward.ts",
         "dashboard/[eventId]/launch/_components/prints-view-store.ts",
         "dashboard/[eventId]/launch/_components/pro-quiet-line.tsx",
         "dashboard/[eventId]/launch/_components/qr-look-controls.tsx",
@@ -7817,6 +7820,7 @@
         "PrintSetBody",
         "PrintSetDownloads",
         "PrintedStamp",
+        "PrintsPageDesk",
         "ProMark",
         "ProNote",
         "ProQuietLine",
@@ -8392,6 +8396,17 @@
       "destinations": [],
       "actions": [],
       "blocks": []
+    },
+    "/dashboard/[eventId]/prints": {
+      "files": [
+        "dashboard/[eventId]/prints/loading.tsx",
+        "dashboard/[eventId]/prints/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "LaunchHubPage"
+      ]
     },
     "/dashboard/[eventId]/progress": {
       "files": [

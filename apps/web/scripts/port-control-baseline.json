@@ -11822,6 +11822,7 @@
         "dev/supplier-lab/coord-lab-bar.tsx",
         "dev/supplier-lab/coord-lab.tsx",
         "dev/supplier-lab/dates-lab.tsx",
+        "dev/supplier-lab/event-hub-lab.tsx",
         "dev/supplier-lab/hub-lab.tsx",
         "dev/supplier-lab/lab-seed-draft.tsx",
         "dev/supplier-lab/library-lab-fixture.ts",
@@ -11880,6 +11881,11 @@
         "CollectionsList",
         "CoordLab",
         "CoordLabBar",
+        "CrewEventHub",
+        "CrewNameForm",
+        "CrewPanel",
+        "CrewPhoneLab",
+        "CrewStatus",
         "CustomersCalendar",
         "CustomersPin",
         "CustomersRoster",
@@ -11891,10 +11897,16 @@
         "DaysSettings",
         "DetailsScreen",
         "DomainManager",
+        "EventHubAnnounce",
+        "EventHubBar",
+        "EventHubCounts",
+        "EventHubLab",
+        "EventHubScanner",
         "EventLinesBody",
         "EventsHeading",
         "EventsYouRunScreen",
         "Fix",
+        "FloorClock",
         "GalleryMedia",
         "HubDoorRow",
         "HubEventCard",
@@ -11931,6 +11943,7 @@
         "PeopleLab",
         "QrCodes",
         "RosterRow",
+        "RunOfShowHeader",
         "ScreenFindingsPanel",
         "SearchBox",
         "SeatFinderRow",
@@ -12312,6 +12325,31 @@
         "DoorShell",
         "FormPageSkeleton",
         "Link"
+      ]
+    },
+    "/join/crew/[token]": {
+      "files": [
+        "join/crew/[token]/_components/crew-name-form.tsx",
+        "join/crew/[token]/_components/crew-screens.tsx",
+        "join/crew/[token]/_components/crew-waiting-refresh.tsx",
+        "join/crew/[token]/page.tsx"
+      ],
+      "destinations": [
+        "/join/crew/[seg]",
+        "/login?next=[seg]"
+      ],
+      "actions": [],
+      "blocks": [
+        "ActionButton",
+        "CrewEventHub",
+        "CrewFrame",
+        "CrewJoinForm",
+        "CrewNameForm",
+        "CrewSignIn",
+        "CrewStatus",
+        "CrewWaitingRefresh",
+        "HubRunOfShow",
+        "SeatScanner"
       ]
     },
     "/live": {
@@ -14774,6 +14812,7 @@
     "/vendor-dashboard/on-the-day": {
       "files": [
         "vendor-dashboard/on-the-day/_components/access-grants.tsx",
+        "vendor-dashboard/on-the-day/_components/crew-panel.tsx",
         "vendor-dashboard/on-the-day/_components/guest-review-qr.tsx",
         "vendor-dashboard/on-the-day/_components/hub-event-menu.tsx",
         "vendor-dashboard/on-the-day/_components/hub-screen.tsx",
@@ -14803,6 +14842,7 @@
         "ActionButton",
         "CaptureCard",
         "CheckinDeskRows",
+        "CrewPanel",
         "Ctx",
         "DayRequestActionResult",
         "DayRequestsView",
@@ -14845,6 +14885,7 @@
         "SeatFinderRow",
         "ServerRead",
         "SetActionResult",
+        "Sheet",
         "ShopEmpty",
         "ShotList",
         "ShotListSection",
@@ -14863,6 +14904,8 @@
     },
     "/vendor-dashboard/on-the-day/live/[eventId]": {
       "files": [
+        "vendor-dashboard/on-the-day/live/[eventId]/_components/event-hub-bar.tsx",
+        "vendor-dashboard/on-the-day/live/[eventId]/_components/event-hub-views.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/floor-clock.tsx",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/access-actions.ts",
         "vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/actions.ts",
@@ -14901,6 +14944,7 @@
         "sendStageNote"
       ],
       "blocks": [
+        "AnnounceButton",
         "AnnouncementsCard",
         "Answer",
         "AskAccess",
@@ -14909,6 +14953,7 @@
         "Blob",
         "BuyVendorPapicPortfolioPackState",
         "Card",
+        "CheckinDeskRows",
         "Closed",
         "ComingSoon",
         "ConsoleEyebrow",
@@ -14917,7 +14962,12 @@
         "ConsoleRule",
         "Coverage",
         "CueCard",
+        "EventHubAnnounce",
+        "EventHubBar",
+        "EventHubCounts",
+        "EventHubScanner",
         "EventLockedPage",
+        "Explain",
         "FeedPageSkeleton",
         "FloorActionResult",
         "FloorClock",
@@ -14926,6 +14976,8 @@
         "HTMLInputElement",
         "HTMLVideoElement",
         "HostPlaylist",
+        "HubDoorRow",
+        "HubEyebrow",
         "Icon",
         "InfoTip",
         "Link",
@@ -14939,6 +14991,7 @@
         "PauseToggle",
         "PaymentsPausedNote",
         "Person",
+        "PickMenu",
         "PickRow",
         "PlaylistSlotType",
         "PortfolioImportForm",
@@ -14962,6 +15015,7 @@
         "StageNoteCompose",
         "StageNotesCard",
         "SubmitButton",
+        "SupplierSavedStrip",
         "Surface",
         "TierMeter",
         "VendorSpecializationSet",

@@ -77,6 +77,9 @@ import { HubThumbRow } from './_components/hub-thumb-row';
 import { SupplierSavedStrip } from '@/app/_components/offline-ready/supplier-saved-strip';
 import { collapseToPickerDays, HUB_OPEN_WINDOW_PLAIN, phTodayIso, pickConfigureDay } from '@/lib/vendor-day-picker';
 import { AccessGrants, type GrantableMember } from './_components/access-grants';
+import { CrewPanel, type CrewPanelPass, type CrewPanelQr } from './_components/crew-panel';
+import { crewJoinPath, crewRoleOf } from '@/lib/crew-pass';
+import { canManageVendor, resolveVendorRole } from '@/lib/vendor-role';
 import { ShopEmpty } from '../_components/kit';
 import { resolveEventFeeGates, type EventFeeGate } from '@/lib/vendor-event-fee-access.server';
 import { feeLockCopy } from '@/lib/event-access-stage';
@@ -124,6 +127,8 @@ export const metadata = { title: 'Event Hub · Supplier' };
 
 const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/$/, '');
 const MAX_MEDIA_PER_TYPE = 3; // mirrors editorial-vendor-media MAX_PER_TYPE
+/** A printed QR's ink and paper — the review QR and the crew QR, one pair. */
+const QR_COLOURS = { dark: '#1B1A17', light: '#FBFBFA' } as const;
 
 type Brief = {
   event: {
@@ -329,7 +334,7 @@ export default async function VendorOnTheDayPage({
 
   let body: ReactNode;
   if (seg === 'crew') {
-    body = await crewBody({ supabase, vendorProfileId: profile.vendor_profile_id, event: selected, open });
+    body = await crewBody({ supabase, userId: user.id, vendorProfileId: profile.vendor_profile_id, event: selected, open });
   } else if (seg === 'pages') {
     // 📊 The Schedule row's live count — the SAME run-of-show read Set up makes (one read, never one per row). Not asked
     // for a locked event: a locked supplier causes no read of the couple's details.
@@ -561,7 +566,7 @@ async function onTheDayBody(input: SetupInput, booking: { eventId: string }): Pr
         errorCorrectionLevel: 'M',
         margin: 2,
         width: 200,
-        color: { dark: '#1B1A17', light: '#FBFBFA' },
+        color: QR_COLOURS,
       })
     : null;
   const DELIVERY_PCT = [0, 60, 100][deliveryStage];
@@ -706,11 +711,13 @@ async function onTheDayBody(input: SetupInput, booking: { eventId: string }): Pr
  */
 async function crewBody({
   supabase,
+  userId,
   vendorProfileId,
   event,
   open,
 }: {
   supabase: Awaited<ReturnType<typeof createClient>>;
+  userId: string;
   vendorProfileId: string;
   event: HubEvent;
   open: boolean;
@@ -726,7 +733,8 @@ async function crewBody({
       </div>
     );
   }
-  const [teamRows, grantRows] = await Promise.all([
+  const [crew, teamRows, grantRows] = await Promise.all([
+    readCrew({ supabase, userId, vendorProfileId, event }),
     fetchVendorTeam(supabase, vendorProfileId).catch(() => null),
     supabase
       .from('vendor_event_access_grants')
@@ -739,6 +747,7 @@ async function crewBody({
     if (grantRows.error) logQueryError('VendorOnTheDay.crewGrants', grantRows.error, { eventId: event.eventId }, 'graceful_degrade');
     return (
       <div>
+        {crew}
         <HubEyebrow>Your team on this event</HubEyebrow>
         <p className="py-3 text-[14px] text-ink/65">Couldn’t load your team — try again in a moment.</p>
       </div>
@@ -757,14 +766,70 @@ async function crewBody({
     isOwnerAdmin: isVendorAdminRole(m.role),
     granted: grantedIds.has(m.user_id),
   }));
-  return members.length > 0 ? (
-    <AccessGrants eventId={event.eventId} members={members} />
-  ) : (
+  return (
     <div>
-      <HubEyebrow>Your team on this event</HubEyebrow>
-      <p className="py-3 text-[14px] text-ink/65">Only you so far — add teammates under Shop › Team.</p>
+      {crew}
+      {members.length > 0 ? (
+        <AccessGrants eventId={event.eventId} members={members} />
+      ) : (
+        <div>
+          <HubEyebrow>Your team on this event</HubEyebrow>
+          <p className="py-3 text-[14px] text-ink/65">Only you so far — add teammates under Shop › Team.</p>
+        </div>
+      )}
     </div>
   );
+}
+
+/**
+ * 📱 CREW FOR THE DAY (owner 2026-10-29) — the event's ONE crew QR and the phones on it, for the shop's owner and
+ * admins (the tables' own RLS: nobody else reads or decides the crew). Read under the caller's own client; a refused
+ * read is said, never an empty crew.
+ */
+async function readCrew({
+  supabase,
+  userId,
+  vendorProfileId,
+  event,
+}: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  userId: string;
+  vendorProfileId: string;
+  event: HubEvent;
+}): Promise<ReactNode> {
+  if (!canManageVendor(await resolveVendorRole(supabase, userId).catch(() => null))) return null;
+  const [codeRes, passRes] = await Promise.all([
+    supabase
+      .from('vendor_crew_codes')
+      .select('token, ends_at')
+      .eq('vendor_profile_id', vendorProfileId)
+      .eq('event_id', event.eventId)
+      .maybeSingle(),
+    supabase
+      .from('vendor_crew_passes')
+      .select('pass_id, display_name, crew_role, status, requested_at')
+      .eq('vendor_profile_id', vendorProfileId)
+      .eq('event_id', event.eventId)
+      .order('requested_at', { ascending: true }),
+  ]);
+  const unreadable = Boolean(codeRes.error || passRes.error);
+  if (codeRes.error) logQueryError('VendorOnTheDay.crewCode', codeRes.error, { eventId: event.eventId }, 'graceful_degrade');
+  if (passRes.error) logQueryError('VendorOnTheDay.crewPasses', passRes.error, { eventId: event.eventId }, 'graceful_degrade');
+  const code = codeRes.data as { token: string; ends_at: string } | null;
+  let qr: CrewPanelQr | null = null;
+  if (code) {
+    const url = `${SITE_URL}${crewJoinPath(code.token)}`;
+    const svg = await QRCode.toString(url, { type: 'svg', errorCorrectionLevel: 'M', margin: 1, width: 240, color: QR_COLOURS });
+    const ends = new Date(code.ends_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    qr = { url, svg, endsWords: `ends ${ends}` };
+  }
+  const passes: CrewPanelPass[] = ((passRes.data ?? []) as { pass_id: string; display_name: string; crew_role: string; status: string }[]).map((p) => ({
+    passId: p.pass_id,
+    name: p.display_name,
+    role: crewRoleOf(p.crew_role),
+    status: p.status === 'allowed' || p.status === 'removed' ? p.status : 'waiting',
+  }));
+  return <CrewPanel shopId={vendorProfileId} eventId={event.eventId} eventName={event.name} qr={qr} passes={passes} unreadable={unreadable} />;
 }
 
 /**

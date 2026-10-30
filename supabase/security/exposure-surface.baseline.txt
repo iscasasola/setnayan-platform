@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6775
+# facts: 6805
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     575
-#   col       4967
-#   policy    958
+#   tpriv     577
+#   col       4983
+#   policy    967
 #   view      9
-#   func      262
+#   func      265
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -468,6 +468,8 @@ tpriv	public.vendor_coverages|anon	SIUD
 tpriv	public.vendor_coverages|authenticated	SIUD
 tpriv	public.vendor_creator_offers|authenticated	SIUD
 tpriv	public.vendor_credit_ledger|authenticated	S
+tpriv	public.vendor_crew_codes|authenticated	SIUD
+tpriv	public.vendor_crew_passes|authenticated	SU
 tpriv	public.vendor_custom_plans|anon	SIUD
 tpriv	public.vendor_custom_plans|authenticated	SIUD
 tpriv	public.vendor_date_waitlist|anon	SIUD
@@ -4495,6 +4497,22 @@ col	public.vendor_credit_ledger.delta_php	anon=- authenticated=S
 col	public.vendor_credit_ledger.ledger_id	anon=- authenticated=S
 col	public.vendor_credit_ledger.reason	anon=- authenticated=S
 col	public.vendor_credit_ledger.vendor_profile_id	anon=- authenticated=S
+col	public.vendor_crew_codes.created_at	anon=- authenticated=SIU
+col	public.vendor_crew_codes.created_by	anon=- authenticated=SIU
+col	public.vendor_crew_codes.ends_at	anon=- authenticated=SIU
+col	public.vendor_crew_codes.event_id	anon=- authenticated=SIU
+col	public.vendor_crew_codes.token	anon=- authenticated=SIU
+col	public.vendor_crew_codes.vendor_profile_id	anon=- authenticated=SIU
+col	public.vendor_crew_passes.crew_role	anon=- authenticated=SU
+col	public.vendor_crew_passes.crew_user_id	anon=- authenticated=SU
+col	public.vendor_crew_passes.decided_at	anon=- authenticated=SU
+col	public.vendor_crew_passes.decided_by	anon=- authenticated=SU
+col	public.vendor_crew_passes.display_name	anon=- authenticated=SU
+col	public.vendor_crew_passes.event_id	anon=- authenticated=SU
+col	public.vendor_crew_passes.pass_id	anon=- authenticated=SU
+col	public.vendor_crew_passes.requested_at	anon=- authenticated=SU
+col	public.vendor_crew_passes.status	anon=- authenticated=SU
+col	public.vendor_crew_passes.vendor_profile_id	anon=- authenticated=SU
 col	public.vendor_custom_plans.composition	anon=SIU authenticated=SIU
 col	public.vendor_custom_plans.created_at	anon=SIU authenticated=SIU
 col	public.vendor_custom_plans.created_by	anon=SIU authenticated=SIU
@@ -6303,6 +6321,15 @@ policy	public.vendor_coverages|vendor_coverages_vendor_all	mode=PERMISSIVE cmd=A
 policy	public.vendor_creator_offers|vendor_creator_offers_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.vendor_creator_offers|vendor_creator_offers_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_id IN ( SELECT current_vendor_ids('viewer'::text) AS current_vendor_ids)) OR (creator_user_id = ( SELECT auth.uid() AS uid)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.vendor_credit_ledger|vendor_credit_ledger_owner_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT vendor_profiles.vendor_profile_id FROM vendor_profiles WHERE (vendor_profiles.user_id = ( SELECT auth.uid() AS uid)))) OR ( SELECT is_console_admin() AS is_console_admin)) check=NULL
+policy	public.vendor_crew_codes|vendor_crew_codes_admin_delete	mode=PERMISSIVE cmd=DELETE roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_ids('admin'::text) AS current_vendor_ids)) check=NULL
+policy	public.vendor_crew_codes|vendor_crew_codes_admin_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((vendor_profile_id IN ( SELECT current_vendor_ids('admin'::text) AS current_vendor_ids)) AND (event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids)))
+policy	public.vendor_crew_codes|vendor_crew_codes_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_ids('admin'::text) AS current_vendor_ids)) check=NULL
+policy	public.vendor_crew_codes|vendor_crew_codes_admin_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_ids('admin'::text) AS current_vendor_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_ids('admin'::text) AS current_vendor_ids))
+policy	public.vendor_crew_codes|vendor_crew_codes_platform_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
+policy	public.vendor_crew_passes|vendor_crew_passes_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_ids('admin'::text) AS current_vendor_ids)) check=NULL
+policy	public.vendor_crew_passes|vendor_crew_passes_admin_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_ids('admin'::text) AS current_vendor_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_ids('admin'::text) AS current_vendor_ids))
+policy	public.vendor_crew_passes|vendor_crew_passes_own_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(crew_user_id = ( SELECT auth.uid() AS uid)) check=NULL
+policy	public.vendor_crew_passes|vendor_crew_passes_platform_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
 policy	public.vendor_custom_plans|vendor_custom_plans_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.vendor_custom_plans|vendor_custom_plans_vendor_access	mode=PERMISSIVE cmd=ALL roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))
 policy	public.vendor_date_waitlist|vendor_date_waitlist_couple_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=(user_id = ( SELECT auth.uid() AS uid))
@@ -6585,6 +6612,8 @@ func	public.couple_decide_inspiration_suggestion(p_suggestion_id uuid, p_keep bo
 func	public.couple_thread_supplier_names(p_event_id uuid)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.couple_undo_kept_inspiration_suggestion(p_suggestion_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.create_vendor_subscription(p_sku_code text, p_addon_token_pack_sku text)	secdef=yes exec=anon,authenticated search_path=UNPINNED
+func	public.crew_pass_request(p_token text, p_name text)	secdef=yes exec=authenticated search_path=public
+func	public.crew_seat_by_guest_qr(p_event_id uuid, p_token text)	secdef=yes exec=authenticated search_path=public
 func	public.current_community_ids()	secdef=yes exec=anon,authenticated search_path=public
 func	public.current_coordinator_booked_event_ids()	secdef=yes exec=authenticated search_path=public
 func	public.current_couple_event_ids()	secdef=yes exec=anon,authenticated search_path=public
@@ -6597,6 +6626,7 @@ func	public.current_spouse_user_ids()	secdef=yes exec=anon,authenticated search_
 func	public.current_thread_ids()	secdef=yes exec=anon,authenticated search_path=public
 func	public.current_user_guest_ids()	secdef=yes exec=anon,authenticated search_path=public
 func	public.current_vendor_booked_event_ids()	secdef=yes exec=anon,authenticated search_path=public
+func	public.current_vendor_crew_pass(p_event_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.current_vendor_dayof_grant_event_ids()	secdef=yes exec=anon,authenticated search_path=public
 func	public.current_vendor_event_vendor_ids()	secdef=yes exec=anon,authenticated search_path=public
 func	public.current_vendor_ids(min_role text)	secdef=yes exec=anon,authenticated search_path=public

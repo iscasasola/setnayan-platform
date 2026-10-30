@@ -191,8 +191,17 @@ export function HubLockRow({ lock }: { lock: HubLock }) {
  * RUN OF SHOW — the first moments of the day, read from the couple's schedule (`fetchRunOfShowBlocks`), with "N more"
  * into the whole day. Null = the read was refused: it says so, never "nothing planned".
  */
-export function HubRunOfShow({ blocks, moreHref }: { blocks: readonly RunOfShowBlock[] | null; moreHref: string | null }) {
-  const shown = (blocks ?? []).slice(0, 4);
+export function HubRunOfShow({
+  blocks,
+  moreHref,
+  all = false,
+}: {
+  blocks: readonly RunOfShowBlock[] | null;
+  moreHref: string | null;
+  /** Every moment (a crew member's Event Hub), not the first four. */
+  all?: boolean;
+}) {
+  const shown = all ? (blocks ?? []) : (blocks ?? []).slice(0, 4);
   const rest = (blocks?.length ?? 0) - shown.length;
   return (
     <div data-hub-ros="">

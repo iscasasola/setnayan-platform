@@ -177,12 +177,30 @@ export type SeatLookupResponse =
 export async function floorSeatByQr(
   eventId: string,
   token: string,
+  /**
+   * 📱 `crew` — a crew phone the shop Allowed (owner 2026-10-29, crew passes): the SAME lookup through
+   * `crew_seat_by_guest_qr`, which asks the coordinator scanner's gates of the SHOP plus an allowed, unexpired pass.
+   * One action for both doors — every export is a Vercel route (`lint-server-action-budget.mjs`).
+   */
+  via: 'floor' | 'crew' = 'floor',
 ): Promise<SeatLookupResponse> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: 'Not signed in.' };
+  if (!user) return { ok: false, error: via === 'crew' ? 'Scan the crew QR again to sign this phone in.' : 'Not signed in.' };
+  if (via === 'crew') {
+    const { data, error } = await supabase.rpc('crew_seat_by_guest_qr', { p_event_id: eventId, p_token: token });
+    if (error) {
+      if (error.message?.includes('no_crew_pass')) return { ok: false, error: 'This phone is not on the crew for this event right now.' };
+      if (error.message?.includes('not_published')) return { ok: false, error: 'The seating plan has not been published yet.' };
+      if (error.message?.includes('seat_plan_not_shared')) return { ok: false, error: 'The hosts haven’t shared the seat plan with the shop yet.' };
+      if (error.message?.includes('not_the_coordinator')) return { ok: false, error: 'Finding seats is for the coordinator’s crew.' };
+      return { ok: false, error: 'Could not look that up.' };
+    }
+    const row = (data ?? {}) as { found?: boolean; table_label?: string | null };
+    return { ok: true, found: row.found === true, tableLabel: row.table_label ?? null };
+  }
 
   const { data, error } = await supabase.rpc('coordinator_seat_by_guest_qr', {
     p_event_id: eventId,

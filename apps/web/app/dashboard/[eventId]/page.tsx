@@ -971,8 +971,8 @@ export default async function EventHomePage({
           phase: papicCardPhaseNow,
           // 🍎 In the app the Thank-You Video keeps its own row (an Apple product there) — no web door on the card.
           thankYouHref: !storeShell && OUR_SERVICE_PARTS.papic ? addOnHref(OUR_SERVICE_PARTS.papic.key, eventId) : null,
-          /* 📷 THE HEAD SWITCH (owner 2026-10-30): "Let everybody shoot now" once Papic is on, the Papic switch before —
-             `PapicHeadControl` decides; its line under the title says what is saved. */
+          /* 📷 THE HEAD (owner 2026-10-30): ONE dropdown — Off · On — event day · On — everyone, now (`PapicHeadControl`);
+             its line under the title says the current position, "after you Apply" while Papic's switch waits for Apply. */
           headControl: (
             <Suspense fallback={null}>
               <PapicHeadControl eventId={eventId} papicOn={papicSwitch === undefined ? null : papicIsOn(papicSwitch)} />
@@ -980,7 +980,7 @@ export default async function EventHomePage({
           ),
           headLine: (
             <Suspense fallback={SERVICE_NAMES.papic.brand}>
-              <PapicHeadLine eventId={eventId} papicOn={papicSwitch === undefined ? null : papicIsOn(papicSwitch)} brand={SERVICE_NAMES.papic.brand} />
+              <PapicHeadLine eventId={eventId} papicOn={papicSwitch === undefined ? null : papicIsOn(papicSwitch)} />
             </Suspense>
           ),
           counts: { total: papicNow.total, left: papicNow.count },

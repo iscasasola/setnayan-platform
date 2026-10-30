@@ -118,9 +118,9 @@ test("🔴 moderation says it couldn't check, and keeps its own capture list", (
     /\{guestAccess === 'off' \? \(/,
     '"once Papic is on" may render only when the check answered off',
   );
-  // 📷 "When guests can shoot" is the Papic card's head switch now (owner 2026-10-30): a failed entitlement check is
-  // 'unknown' — the switch stays (it only widens WHEN) — and a failed read of the saved value says "Couldn’t check".
+  // 📷 "When guests can shoot" is part of the Papic card's head dropdown now (owner 2026-10-30): a failed read of the
+  // saved value — or of the Event Hub draft — is null, which the head says as "Couldn’t check", never a position.
   const cams = read('_components', 'guest-cameras-choice.tsx');
-  assert.match(cams, /eventPapicGuestAccess\(ent, eventId\)\)\s*\.catch\(\(\): 'unknown' => 'unknown'\)/);
-  assert.match(cams, /if \(read\.error \|\| !read\.data\) return \{ kind: 'shoot-now', early: null, line: shootNowLine\(null\)/);
+  assert.match(cams, /const early = row \? row\.papic_guest_capture_early === true : null;/);
+  assert.match(cams, /readHubDraft\(supabase, eventId\)\.then\(\s*\(d\) => \(\{ ok: true as const, d \}\),\s*\(\) => \(\{ ok: false as const \}\),/);
 });

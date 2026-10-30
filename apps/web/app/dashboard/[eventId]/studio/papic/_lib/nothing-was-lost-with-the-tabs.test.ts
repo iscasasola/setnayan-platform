@@ -136,8 +136,9 @@ const REPLACED_OR_REMOVED: Record<string, string> = {
   DslrBridgeSection: 'replaced by PapicCameraHelp (CAMERA_BRIDGE is retired — "not on sale yet", as the row read)',
   StudioBuyHero: 'the page heading went with the page — the card head names Papic',
   // 📷 ONE CONTROL PER FACT (owner 2026-10-30: "the switch on event home should be the let everybody shoot now
-  // function"): the "When guests can shoot" row is the card's HEAD switch once Papic is on — same column, same action.
-  GuestCamerasChoice: 'replaced by the Papic card head switch (ShootNowSwitch via PapicHeadControl) — setPapicGuestCaptureEarly, live',
+  // function" · "maybe assign partial turn on?"): the "When guests can shoot" row is the card head's ONE dropdown — Off ·
+  // On — event day · On — everyone, now — same column, same action.
+  GuestCamerasChoice: 'replaced by the Papic card head dropdown (PapicHeadPicker via PapicHeadControl) — setPapicGuestCaptureEarly, live',
 };
 
 test('🚨 every control the three rooms held is still mounted — on the Papic page or where it moved', () => {

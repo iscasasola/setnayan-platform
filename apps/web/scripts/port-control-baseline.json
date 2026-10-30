@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "3c6c7180b5",
+  "generatedFromRef": "2c0f119527",
   "routeCount": 479,
   "destinations": 985,
   "actions": 621,
-  "blocks": 7439,
+  "blocks": 7438,
   "routes": {
     "/": {
       "files": [
@@ -11342,11 +11342,10 @@
         "PapicBuySheet",
         "PapicCameraHelp",
         "PapicCameraSettings",
-        "PapicSwitch",
+        "PapicHeadPicker",
         "PapicTopBand",
         "ProLockPanel",
         "ReadyForNoSignalView",
-        "ShootNowSwitch",
         "SiteMenuBar",
         "SpotlightMount",
         "StanceChip",

@@ -40,7 +40,7 @@ test('1 · the Papic card is the camera: the switch, the counts, his five — an
   // The camera, in the owner's order — ONE component, also opened under Home's Papic card.
   const cam = code(CAMERA);
   for (const must of [
-    /<AnswerPicker[\s\S]{0,120}column="papic_on"[\s\S]{0,200}as="switch"/,
+    /<PapicHeadPicker eventId=\{eventId\} live=\{head\.live\}/,
     /<PapicWindowPicker\b/,
     /<StylePicker\b/,
     /<FaceTaggingChoice\b/,

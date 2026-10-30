@@ -1,32 +1,66 @@
 /**
- * lib/papic-shoot-now.ts — 📷 WHICH SWITCH SITS IN THE HEAD OF HOME'S PAPIC CARD, AND WHAT ITS LINE SAYS.
+ * lib/papic-shoot-now.ts — 📷 THE ONE CONTROL IN THE HEAD OF HOME'S PAPIC CARD: OFF · ON — EVENT DAY · ON — EVERYONE, NOW.
  *
  * Owner, 2026-10-30: *"actually the switch on event home should be the let everybody shoot now function"* · *"of papic
- * on papic's widget with that toggle switch"*.
+ * on papic's widget with that toggle switch"* — and, told Home would then lose its Papic off switch: *"If we cannot turn
+ * it off, then maybe assign partial turn on?"*. ⇒ ONE dropdown (a set of choices is one `PickMenu`), three positions,
+ * over the two columns that already say these facts:
  *
- *   · Papic OFF (or no guest cameras on this event) → the head keeps the Papic switch (`events.papic_on`, saved into the
- *     Event Hub draft) — guests cannot shoot before Papic is on, so "shoot now" would govern nothing.
- *   · Papic ON (and guest cameras not 'off') → the head is "Let everybody shoot now" (`events.papic_guest_capture_early`,
- *     saved LIVE through `setPapicGuestCaptureEarly`), and the line under the card's title says what is saved.
+ *   Off                   → `events.papic_on` false — through the SAME path the Papic switch used: the Event Hub draft
+ *                           (`hubDraftAction`), live only after Apply. `papic_guest_capture_early` is left as it is.
+ *   On — event day        → `papic_on` true (the draft, when it is not already on) + `papic_guest_capture_early` false
+ *                           (LIVE, `setPapicGuestCaptureEarly`).
+ *   On — everyone, now    → `papic_on` true + `papic_guest_capture_early` true.
  *
- * 'unknown' guest access (a failed entitlement read) still gives the shoot-now switch: the switch only widens WHEN —
- * the capture route still runs `eventPapicGuestActive` — so it is never a promise the gate does not keep, and hiding it
- * on a failed read would look exactly like an event with no cameras.
+ * 🔑 NEVER LOOK APPLIED WHEN IT ISN'T: `papic_on` only reaches guests on Apply, so the line says so while the draft and
+ * the live value differ ("Off after you Apply" · "On after you Apply — …"). An unread value is "Couldn’t check just now".
  *
  * Pure. Held by `app/dashboard/[eventId]/home-papic-head-is-shoot-now.test.ts`.
  */
 
-export type PapicHeadKind = 'papic' | 'shoot-now';
+export type PapicHeadPosition = 'off' | 'eventday' | 'now';
 
-/** The switch's name — its screen-reader name, and the ⓘ's word for it. */
-export const SHOOT_NOW_LABEL = 'Let everybody shoot now';
+export const PAPIC_HEAD_LABEL = 'Papic';
 
-export function papicHeadKind(papicOn: boolean | null, access: 'on' | 'off' | 'unknown'): PapicHeadKind {
-  return papicOn === true && access !== 'off' ? 'shoot-now' : 'papic';
+/** The three positions, in order — the dropdown's options. `short` is the head's compact button. */
+export const PAPIC_HEAD_OPTIONS: ReadonlyArray<{ key: PapicHeadPosition; label: string; short: string }> = [
+  { key: 'off', label: 'Off', short: 'Off' },
+  { key: 'eventday', label: 'On — event day', short: 'Event day' },
+  { key: 'now', label: 'On — everyone, now', short: 'Now' },
+];
+
+/** What the head knows. `draftOn` = papic_on as the couple is editing it (the draft over live); null = not read. */
+export type PapicHeadFacts = { live: boolean | null; draftOn: boolean | null; early: boolean | null };
+
+export function papicHeadPosition(f: PapicHeadFacts): PapicHeadPosition | null {
+  if (f.live === null || f.draftOn === null || f.early === null) return null;
+  if (!f.draftOn) return 'off';
+  return f.early ? 'now' : 'eventday';
 }
 
-/** The line under the card's title while the head is the shoot-now switch. null = the saved value was not read. */
-export function shootNowLine(early: boolean | null): string {
-  if (early === null) return 'Couldn’t check just now';
-  return early ? 'Guests can shoot now' : 'Guests shoot on the event day';
+/**
+ * The writes a position makes, against what is stored: `papic_on` (the draft) only when it changes; the early column
+ * only for an On position, and only when it changes. Off never touches `papic_guest_capture_early`.
+ */
+export function papicHeadWrites(
+  to: PapicHeadPosition,
+  stored: { draftOn: boolean; early: boolean },
+): { papic_on?: boolean; papic_guest_capture_early?: boolean } {
+  const out: { papic_on?: boolean; papic_guest_capture_early?: boolean } = {};
+  const on = to !== 'off';
+  if (on !== stored.draftOn) out.papic_on = on;
+  if (on) {
+    const early = to === 'now';
+    if (early !== stored.early) out.papic_guest_capture_early = early;
+  }
+  return out;
+}
+
+/** The line under the card's title — the current position, honestly. */
+export function papicHeadLine(f: PapicHeadFacts): string {
+  const at = papicHeadPosition(f);
+  if (at === null) return 'Couldn’t check just now';
+  if (at === 'off') return f.live ? 'Off after you Apply' : 'Off';
+  if (!f.live) return at === 'now' ? 'On after you Apply — everyone, now' : 'On after you Apply — event day';
+  return at === 'now' ? 'Guests can shoot now' : 'Guests shoot on the event day';
 }

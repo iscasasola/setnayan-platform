@@ -1,15 +1,18 @@
 /**
- * 📷 GUARD — HOME'S PAPIC CARD HEAD IS "LET EVERYBODY SHOOT NOW" ONCE PAPIC IS ON.
+ * 📷 GUARD — HOME'S PAPIC CARD HEAD IS ONE DROPDOWN: OFF · ON — EVENT DAY · ON — EVERYONE, NOW.
  *
  * Owner, 2026-10-30: *"actually the switch on event home should be the let everybody shoot now function"* · *"of papic
- * on papic's widget with that toggle switch"*.
+ * on papic's widget with that toggle switch"* — then, told Home would lose its Papic off switch: *"If we cannot turn it
+ * off, then maybe assign partial turn on?"*.
  *
- *   (a) Papic ON  → the head switch writes `events.papic_guest_capture_early` through the shipped
- *       `setPapicGuestCaptureEarly` (live, in place — the Papic in-place door), and the line under the title says it;
- *   (b) Papic OFF → the head switch is still `papic_on` (the Papic switch, unchanged);
- *   (c) ONE CONTROL PER FACT — no second "shoot now" control anywhere on the card: the settings' old
- *       "When guests can shoot" row is gone, and `setPapicGuestCaptureEarly` has exactly one caller the card mounts;
- *   (d) SABOTAGE — each check can fail.
+ *   (1) the three positions → the two columns (executed): Off → `papic_on` false (early untouched); On — event day →
+ *       `papic_on` true + `papic_guest_capture_early` false; On — everyone, now → both true; and the line never looks
+ *       applied when it isn't ("… after you Apply"), and an unread fact says "Couldn’t check";
+ *   (2) the writes go through the existing doors: `papic_on` through the Event Hub draft (`hubDraftAction` — the old
+ *       Papic switch's own path, no new live write), the early column LIVE through `setPapicGuestCaptureEarly`;
+ *   (3) ONE control per fact — one `PickMenu` in the head, no second shoot-now control and no Papic switch on the card;
+ *   (4) Event Details › Photos from guests still sets `papic_on` (the same draft column);
+ *   (5) SABOTAGE — each check fails on the defect it is written for.
  *
  * Source checks read comment-stripped code (`stripComments`), anchored per component and counted.
  */
@@ -18,7 +21,8 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
-import { papicHeadKind, shootNowLine, SHOOT_NOW_LABEL } from '@/lib/papic-shoot-now';
+import { PAPIC_HEAD_OPTIONS, papicHeadLine, papicHeadPosition, papicHeadWrites } from '@/lib/papic-shoot-now';
+import { HUB_DRAFT_ANSWER_COLUMNS } from '@/lib/hub-draft';
 
 const WEB = process.cwd();
 const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
@@ -27,10 +31,11 @@ const count = (src: string, re: RegExp) => (src.match(new RegExp(re.source, re.f
 const HOME = 'app/dashboard/[eventId]/page.tsx';
 const COMPONENTS = 'app/dashboard/[eventId]/studio/papic/_components';
 const SETTINGS = `${COMPONENTS}/papic-camera-settings.tsx`;
-const SHOOT_NOW = `${COMPONENTS}/shoot-now-switch.tsx`;
-const READS = `${COMPONENTS}/guest-cameras-choice.tsx`;
+const PICKER = `${COMPONENTS}/papic-head-picker.tsx`;
 const ACTION = 'app/dashboard/[eventId]/studio/papic/guest-window-actions.ts';
 const CARD = 'app/dashboard/[eventId]/_components/papic-home-card.tsx';
+const DETAILS = 'app/dashboard/[eventId]/details/page.tsx';
+const ANSWERS = 'app/dashboard/[eventId]/launch/_components/details-answers-parts.tsx';
 
 /** The body of one exported function, up to the next top-level export. */
 function fn(src: string, name: string): string {
@@ -47,85 +52,123 @@ function homeCard(src = code(HOME)): string {
   return src.slice(at, src.indexOf(': null;', at));
 }
 
-test('the rule — which switch the head wears (executed)', () => {
-  assert.equal(papicHeadKind(true, 'on'), 'shoot-now');
-  assert.equal(papicHeadKind(true, 'unknown'), 'shoot-now', 'a failed entitlement read must not hide the switch');
-  assert.equal(papicHeadKind(true, 'off'), 'papic', 'no guest cameras — "shoot now" would govern nothing');
-  assert.equal(papicHeadKind(false, 'on'), 'papic', 'Papic off — guests cannot shoot before Papic is on');
-  assert.equal(papicHeadKind(null, 'on'), 'papic');
-  assert.equal(SHOOT_NOW_LABEL, 'Let everybody shoot now');
-  assert.equal(shootNowLine(true), 'Guests can shoot now');
-  assert.equal(shootNowLine(false), 'Guests shoot on the event day');
-  assert.match(shootNowLine(null), /Couldn’t check/, 'an unread value is never said as "event day"');
+test('(1) three positions → two columns, and an honest line (executed)', () => {
+  assert.deepEqual(
+    PAPIC_HEAD_OPTIONS.map((o) => [o.key, o.label]),
+    [
+      ['off', 'Off'],
+      ['eventday', 'On — event day'],
+      ['now', 'On — everyone, now'],
+    ],
+  );
+  const onDay = { draftOn: true, early: false };
+  const off = { draftOn: false, early: false };
+  // Off → papic_on false; the early column is never touched by Off.
+  assert.deepEqual(papicHeadWrites('off', onDay), { papic_on: false });
+  assert.deepEqual(papicHeadWrites('off', { draftOn: true, early: true }), { papic_on: false });
+  // On — event day → papic_on true (only when it was off) + early false (only when it was on).
+  assert.deepEqual(papicHeadWrites('eventday', off), { papic_on: true });
+  assert.deepEqual(papicHeadWrites('eventday', { draftOn: false, early: true }), { papic_on: true, papic_guest_capture_early: false });
+  assert.deepEqual(papicHeadWrites('eventday', { draftOn: true, early: true }), { papic_guest_capture_early: false });
+  // On — everyone, now → papic_on true + early true.
+  assert.deepEqual(papicHeadWrites('now', off), { papic_on: true, papic_guest_capture_early: true });
+  assert.deepEqual(papicHeadWrites('now', onDay), { papic_guest_capture_early: true });
+  // Positions from the facts.
+  assert.equal(papicHeadPosition({ live: true, draftOn: false, early: true }), 'off');
+  assert.equal(papicHeadPosition({ live: true, draftOn: true, early: false }), 'eventday');
+  assert.equal(papicHeadPosition({ live: true, draftOn: true, early: true }), 'now');
+  assert.equal(papicHeadPosition({ live: true, draftOn: null, early: true }), null);
+  assert.equal(papicHeadPosition({ live: true, draftOn: true, early: null }), null);
+  // The line — never applied-looking while papic_on still waits for Apply.
+  assert.equal(papicHeadLine({ live: false, draftOn: false, early: false }), 'Off');
+  assert.equal(papicHeadLine({ live: true, draftOn: false, early: true }), 'Off after you Apply');
+  assert.equal(papicHeadLine({ live: true, draftOn: true, early: false }), 'Guests shoot on the event day');
+  assert.equal(papicHeadLine({ live: true, draftOn: true, early: true }), 'Guests can shoot now');
+  assert.match(papicHeadLine({ live: false, draftOn: true, early: true }), /after you Apply/);
+  assert.match(papicHeadLine({ live: false, draftOn: true, early: false }), /after you Apply/);
+  assert.match(papicHeadLine({ live: true, draftOn: true, early: null }), /Couldn’t check/);
+  assert.match(papicHeadLine({ live: null, draftOn: true, early: true }), /Couldn’t check/);
 });
 
-function checkShootNowWrites(head: string, sw: string, action: string): void {
-  // The head picks the shoot-now switch once Papic is on…
-  assert.match(head, /if \(head\.kind === 'papic'\) return <PapicSwitch eventId=\{eventId\} saved=\{papicOn\} \/>;\s*return <ShootNowSwitch eventId=\{eventId\} early=\{head\.early\} \/>;/, 'the head no longer chooses by readShootNow');
-  // …which saves through the shipped action, in place, as the couple, with the new value.
-  assert.equal(count(sw, /papicSaveInPlace\('setPapicGuestCaptureEarly', fd\)/), 1, 'the switch does not save through setPapicGuestCaptureEarly');
-  assert.match(sw, /fd\.set\('early', on \? '1' : '0'\)/);
-  assert.match(sw, /fd\.set\('return_to', 'home'\)/);
-  // A refusal puts the switch AND the line back, and says why.
-  assert.match(sw, /setShown\(stored\.current\);\s*say\.line\(shootNowLine\(stored\.current\)\);\s*say\.problem\(answer\.error\);/, 'a failed save does not revert and say why');
-  // …said in the card's flow — a sentence in the switch's absolute slot threw the switch over the camera mark.
-  assert.doesNotMatch(sw, /\bproblem=\{/, 'the refusal is drawn inside the head switch slot again');
-  // The shared switch the head already wore — never a new look.
-  assert.match(sw, /<FormRows\b[\s\S]{0,80}<SwitchRow\b[\s\S]{0,60}name=\{SHOOT_NOW_LABEL\}/);
-  // And the action writes the one column, after its couple check.
+function checkDoors(picker: string, action: string): void {
+  // papic_on — the draft door the Papic switch used, never a new live write.
+  assert.match(
+    picker,
+    /fd\.set\('patch', JSON\.stringify\(\{ events: \{ papic_on: writes\.papic_on \} \}\)\);\s*ok = \(await makerSave\(\(\) => hubDraftAction\(eventId, fd\), requestMakerRefresh\)\)\.ok;/,
+    "papic_on no longer goes through the Event Hub draft (the Papic switch's path)",
+  );
+  assert.doesNotMatch(picker, /\.from\('events'\)/, 'a live write of papic_on was invented');
+  // the early column — live, through the shipped action, in place.
+  assert.equal(count(picker, /papicSaveInPlace\('setPapicGuestCaptureEarly', fd\)/), 1, 'the early column is not saved through setPapicGuestCaptureEarly');
+  assert.match(picker, /fd\.set\('early', writes\.papic_guest_capture_early \? '1' : '0'\)/);
   assert.match(action, /\.eq\('member_type', 'couple'\)[\s\S]{0,400}\.update\(\{ papic_guest_capture_early: early \}\)/);
+  // A refusal reverts to what IS stored and says why under the head.
+  assert.match(
+    picker,
+    /setShown\(stored\.current\);\s*say\.line\(papicHeadLine\(\{ live, \.\.\.stored\.current \}\)\);\s*say\.problem\(refused\);/,
+    'a refused pick does not revert and say why',
+  );
+  assert.match(picker, /const writes = papicHeadWrites\(to, stored\.current\);/, 'the picker no longer writes by the rule');
 }
 
-function checkPapicOffKeepsPapicOn(reads: string, settings: string): void {
-  assert.match(reads, /if \(papicOn !== true\) return \{ kind: 'papic' \};/, 'Papic off no longer keeps the Papic switch');
-  assert.match(fn(settings, 'PapicSwitch'), /<AnswerPicker eventId=\{eventId\} column="papic_on"[^>]*as="switch"/, 'the Papic switch is not papic_on');
-}
-
-test('(a) Papic on → the head switch writes papic_guest_capture_early via setPapicGuestCaptureEarly, live', () => {
-  const card = homeCard();
+function checkOneControl(picker: string, settings: string, card: string): void {
+  assert.equal(count(picker, /<PickMenu\b/), 1, 'the head is not ONE dropdown');
+  assert.match(picker, /options=\{PAPIC_HEAD_OPTIONS\.map/, 'the dropdown does not offer the three positions');
+  assert.match(
+    fn(settings, 'PapicHeadControl'),
+    /return <PapicHeadPicker eventId=\{eventId\} live=\{head\.live\} draftOn=\{head\.draftOn\} early=\{head\.early\} \/>;/,
+  );
   assert.equal(count(card, /<PapicHeadControl eventId=\{eventId\} papicOn=\{/), 1, 'Home does not mount the head control once');
-  assert.equal(count(card, /<PapicHeadLine eventId=\{eventId\}/), 1, 'the line under the title is not drawn from the saved value');
-  assert.equal(count(card, /<PapicSwitch\b/), 0, 'Home mounts the Papic switch directly again — the head can no longer be shoot-now');
-  checkShootNowWrites(fn(code(SETTINGS), 'PapicHeadControl'), code(SHOOT_NOW), code(ACTION));
-  // The line follows the press: the card owns it, the switch says it.
-  assert.match(code(CARD), /\{saidLine \?\? headLine \?\? brand\}/);
-  assert.match(code(SHOOT_NOW), /say\.line\(shootNowLine\(on\)\);/);
-  assert.match(code(CARD), /\{saidProblem \? \(\s*<p role="alert"[^>]*data-papic-head-problem/);
+  assert.equal(count(card, /<PapicHeadLine eventId=\{eventId\}/), 1, "the line under the title is not the head's position");
+  assert.equal(count(card + settings, /<PapicSwitch\b|<ShootNowSwitch\b|<GuestCamerasChoice\b/), 0, 'a second Papic / shoot-now control is back on the card');
+}
+
+test('(2) the writes go through the existing doors — draft for papic_on, live action for the early column', () => {
+  checkDoors(code(PICKER), code(ACTION));
 });
 
-test('(b) Papic off → the head switch is papic_on (unchanged)', () => {
-  checkPapicOffKeepsPapicOn(code(READS), code(SETTINGS));
-});
-
-test('(c) one control per fact — no second "shoot now" control on the card', () => {
-  // Every file the card mounts from studio/papic/_components, plus Home's card block.
+test('(3) one control per fact — one dropdown in the head, no second shoot-now or Papic control on the card', () => {
+  checkOneControl(code(PICKER), code(SETTINGS), homeCard());
   const parts = readdirSync(join(WEB, COMPONENTS))
     .filter((f) => /\.tsx?$/.test(f) && !/\.test\./.test(f))
     .map((f) => [f, code(`${COMPONENTS}/${f}`)] as const);
   const callers = parts.filter(([, src]) => /setPapicGuestCaptureEarly/.test(src)).map(([f]) => f);
-  assert.deepEqual(callers, ['shoot-now-switch.tsx'], `setPapicGuestCaptureEarly has a second control on the card: ${callers.join(', ')}`);
+  assert.deepEqual(callers, ['papic-head-picker.tsx'], `setPapicGuestCaptureEarly has a second control on the card: ${callers.join(', ')}`);
   const all = parts.map(([, src]) => src).join('\n') + homeCard();
   assert.equal(count(all, /When guests can shoot|Let guests shoot now|Only on my event day/), 0, 'the old "When guests can shoot" row is back');
-  assert.equal(count(all, /<ShootNowSwitch\b/), 1, 'the shoot-now switch is mounted twice');
-  assert.equal(count(code(SETTINGS), /<GuestCamerasChoice\b/), 0, 'the settings mount the old row again');
+  // The refusal is said in the card's flow, under the head — never inside the control's absolute slot.
+  assert.match(code(CARD), /\{saidProblem \? \(\s*<p role="alert"[^>]*data-papic-head-problem/);
+  assert.match(code(CARD), /\{saidLine \?\? headLine \?\? brand\}/);
 });
 
-test('(d) SABOTAGE — each check fails on the defect it is written for', () => {
+test('(4) Event Details › Photos from guests still sets papic_on through the draft', () => {
+  assert.ok((HUB_DRAFT_ANSWER_COLUMNS as readonly string[]).includes('papic_on'), "papic_on left the draft's answer columns");
+  assert.match(code(ANSWERS), /editors\.papic = <AnswerPicker eventId=\{eventId\} column="papic_on"/, 'the Your-info Papic answer is gone');
+  assert.match(
+    code(DETAILS),
+    /row="papic-answer"[\s\S]{0,300}answerKeyOf\('papic_on', shown\.papic_on\)[\s\S]{0,300}waiting\('papic_on'\)/,
+    'Event Details › Photos from guests lost its row',
+  );
+});
+
+test('(5) SABOTAGE — each check fails on the defect it is written for', () => {
+  const picker = code(PICKER);
   const settings = code(SETTINGS);
-  const head = fn(settings, 'PapicHeadControl');
-  // (a) the head always the Papic switch
-  const alwaysPapic = head.replace('return <ShootNowSwitch eventId={eventId} early={head.early} />;', 'return <PapicSwitch eventId={eventId} saved={papicOn} />;');
-  assert.throws(() => checkShootNowWrites(alwaysPapic, code(SHOOT_NOW), code(ACTION)));
-  // (a) the switch saving into the draft instead of the live action
-  const drafted = code(SHOOT_NOW).replace("papicSaveInPlace('setPapicGuestCaptureEarly', fd)", 'hubDraftAction(eventId, fd)');
-  assert.throws(() => checkShootNowWrites(head, drafted, code(ACTION)));
-  // (a) a failure that does not revert
-  const sticky = code(SHOOT_NOW).replace('setShown(stored.current);', '');
-  assert.throws(() => checkShootNowWrites(head, sticky, code(ACTION)));
-  // (b) Papic off turning into shoot-now
-  const noGate = code(READS).replace("if (papicOn !== true) return { kind: 'papic' };", '');
-  assert.throws(() => checkPapicOffKeepsPapicOn(noGate, settings));
-  // (c) the old row back in the settings
-  const twice = settings + '\n<SubmitButton>Let guests shoot now</SubmitButton>';
-  assert.equal(count(twice, /When guests can shoot|Let guests shoot now|Only on my event day/), 1);
+  // papic_on written live instead of through the draft
+  const live = picker.replace(
+    'ok = (await makerSave(() => hubDraftAction(eventId, fd), requestMakerRefresh)).ok;',
+    "ok = !(await supabase.from('events').update({ papic_on: writes.papic_on }).eq('event_id', eventId)).error;",
+  );
+  assert.notEqual(live, picker, 'premise: the sabotage found its anchor');
+  assert.throws(() => checkDoors(live, code(ACTION)));
+  // the early column saved into the draft
+  assert.throws(() => checkDoors(picker.replace("papicSaveInPlace('setPapicGuestCaptureEarly', fd)", 'hubDraftAction(eventId, fd)'), code(ACTION)));
+  // a refusal that does not revert
+  const sticky = picker.replace(/setShown\(stored\.current\);(\s*say\.line\(papicHeadLine)/, '$1');
+  assert.notEqual(sticky, picker, 'premise: the sabotage found its anchor');
+  assert.throws(() => checkDoors(sticky, code(ACTION)));
+  // the old Papic switch back on the card
+  assert.throws(() => checkOneControl(picker, settings, homeCard() + '\n<PapicSwitch eventId={eventId} saved />'));
+  // a pill row instead of one dropdown
+  assert.throws(() => checkOneControl(picker.replace('<PickMenu', '<PillRow'), settings, homeCard()));
 });

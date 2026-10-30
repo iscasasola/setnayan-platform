@@ -93,6 +93,8 @@ export function labFind(
         rating: reviews ? Math.round((4 + r()) * 10) / 10 : null,
         reviewCount: reviews,
         distanceKm: 4 + i * 2,
+        // 📍 The ceremony sits across town from the reception, so "Nearest to ceremony" (`&near=both`) reverses it.
+        ceremonyDistanceKm: Math.max(1, 30 - i * 2),
       }),
     );
     // Most shops one card; every fourth two services, every seventh three.

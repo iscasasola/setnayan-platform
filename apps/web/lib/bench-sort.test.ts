@@ -683,7 +683,7 @@ test('persistence never throws when storage is unavailable', () => {
   assert.doesNotThrow(() => persistBenchSort('evt-1', 'near', undefined));
 });
 
-// ── 🧭 Find's shaped sort (owner 2026-10-30) — a venue · a typed range ──────────────────────────────────────────────
+// ── 🧭 Find's shaped sort (owner 2026-10-30) — Nearest picks the venue ──────────────────────────────────────────────────────
 
 test('"Nearest to ceremony" orders by the ceremony distance and says so — the card keeps its own distance', () => {
   const a = vendor({ vendorId: 'a', distanceKm: 2, ceremonyDistanceKm: 30 });
@@ -698,16 +698,4 @@ test('"Nearest to ceremony" orders by the ceremony distance and says so — the 
   assert.equal(ceremony[0]!.v.vendorId, 'b');
   assert.equal(ceremony[0]!.reason?.label, 'Closest to your ceremony');
   assert.equal(ceremony[0]!.v.distanceKm, 25, 'the card itself is untouched');
-});
-
-test('"Budget fit" with a typed range puts the in-range cards first and names it', () => {
-  const cheap = vendor({ vendorId: 'cheap', priceBasisPhp: 5000 });
-  const inRange = vendor({ vendorId: 'in', priceBasisPhp: 15000 });
-  const dear = vendor({ vendorId: 'dear', priceBasisPhp: 90000 });
-  const out = sortWithReasons([dear, cheap, inRange], 'budget', {
-    adjust: (v, base) => ({ ...base, budgetFitRatio: v.priceBasisPhp != null && v.priceBasisPhp >= 10000 && v.priceBasisPhp <= 20000 ? 1 : 0.1 }),
-    words: { budgetFit: { lead: 'In your range', plain: 'In your range' } },
-  });
-  assert.equal(out[0]!.v.vendorId, 'in');
-  assert.equal(out[0]!.reason?.label, 'In your range');
 });

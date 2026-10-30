@@ -158,7 +158,7 @@ export function canOrderInlineMoreRow<T extends InlineMoreOrderable>(
 export function orderInlineMoreRow<T extends InlineMoreOrderable>(
   rows: readonly T[],
   mode: BenchSort,
-  /** 🧭 Find's shaped sort (a venue · a typed range) — swaps one scorer input, never a card's own facts. */
+  /** 🧭 Find's shaped sort (the venue "Nearest" measures from) — swaps one scorer input, never a card's own facts. */
   adjust?: SortShape<T>['adjust'],
 ): T[] {
   const slots: number[] = [];

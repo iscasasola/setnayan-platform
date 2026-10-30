@@ -194,7 +194,7 @@ function dimensionCopyFor(
   v: ShortlistVendor,
   words?: SortWords,
 ): { lead: string; plain: string } {
-  // 🧭 A sort the couple shaped (Find's "Nearest to ceremony" · a typed price range) names what it measured.
+  // 🧭 A sort the couple shaped (Find's "Nearest to ceremony") names what it measured.
   const own = words?.[dim];
   if (own) return own;
   if (dim === 'demandPressure' && v.demandCoupleCount != null) {
@@ -333,8 +333,8 @@ function hoistLocked<T extends { v: ShortlistVendor }>(rows: T[]): T[] {
 export type SortWords = Partial<Record<CompatDimension, { lead: string; plain: string }>>;
 
 /**
- * 🧭 What the couple shaped a sort with (Find's ≡, owner 2026-10-30): `adjust` swaps ONE input of a card's scorer
- * projection — the ceremony's distance for "Nearest to ceremony", a typed range's fit for "Budget fit" — and `words`
+ * 🧭 What the couple shaped a sort with (Find's ⇅, owner 2026-10-30): `adjust` swaps ONE input of a card's scorer
+ * projection — the ceremony's distance for "Nearest to ceremony" — and `words`
  * names it on the pill. The card itself is never changed (its distance line, its badges): only the order and the pill.
  */
 export type SortShape<T> = {

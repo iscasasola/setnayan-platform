@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { eventTilesForBooking } from '@/lib/vendor-event-roles';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, ArrowRight, Users } from 'lucide-react';
+import { ArrowRight, Users } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -33,6 +33,17 @@ import { loadMarch } from '@/app/[slug]/_lib/loaders';
 import { marchSections } from '@/lib/march-sections';
 import { marchWalkCount, supplierSeesMarch } from '@/lib/supplier-march';
 import { MarchRead } from './_components/march-read';
+import { EventHubBar, EventHubCounts } from './_components/event-hub-bar';
+import { SupplierSavedStrip } from '@/app/_components/offline-ready/supplier-saved-strip';
+import { EventHubAnnounce, EventHubScanner } from './_components/event-hub-views';
+import { eventHubViewOf } from '@/lib/event-hub-views';
+import { hubDayWords, hubHref } from '@/lib/hub-events';
+import { readEventsYouRun } from '@/lib/events-you-run.server';
+import type { EventYouRun } from '@/lib/events-you-run';
+import { isCoordinatorP3Enabled, fetchLatestBroadcasts } from '@/lib/coordinator-broadcasts-server';
+import { deriveRunOfShow } from '@/lib/run-of-show';
+import { DEFAULT_EVENT_TZ } from '@/lib/schedule';
+import { formatWallClock } from '@/lib/schedule-datetime-local';
 
 export const metadata = { title: 'Live · Event Hub' };
 
@@ -90,10 +101,11 @@ export default async function VendorOnTheDayLivePage({
   params: Promise<{ eventId: string }>;
   /** `?role=` — which desk this person is running tonight. UNTRUSTED: validated
    *  against the entitlement inside `buildDayOfFrame`, never here. */
-  searchParams: Promise<{ role?: string }>;
+  searchParams: Promise<{ role?: string; view?: string }>;
 }) {
   const { eventId } = await params;
-  const { role: requestedRole } = await searchParams;
+  const { role: requestedRole, view: rawView } = await searchParams;
+  const view = eventHubViewOf(rawView);
   const supabase = await createClient();
   const {
     data: { user },
@@ -281,20 +293,47 @@ export default async function VendorOnTheDayLivePage({
         x.href != null && !(x.mod.id === 'vendor_papic' && !papicEnabled),
     );
 
+  // ── THE v13 EVENT HUB ROW (owner "Approved." 2026-10-29; prototype `renderEventHub`) ────────────────────────
+  // ‹ Exit · "Event Hub · <event> ▾" (The Day · Scanner · Announce) · 💬 · ⓘ, then Now · Next · Coming. Now/Next are
+  // the run of show's own derivation; Coming is the RSVP headcount (a supplier cannot read arrivals yet — said, not
+  // invented). "Events you run" (the Hub's read, cache()d) says whether this person coordinates THIS event: the
+  // Check-in desk and Announce are theirs only then.
+  const [{ events: runEvents }, announceOn] = await Promise.all([
+    readEventsYouRun(supabase, user.id).catch(() => ({ events: [] as EventYouRun[], measured: false })),
+    isCoordinatorP3Enabled().catch(() => false),
+  ]);
+  const run = runEvents.find((e) => e.eventId === eventId) ?? null;
+  const ros = deriveRunOfShow(blocks, new Date(), DEFAULT_EVENT_TZ);
+  const dayWords = hubDayWords(booking.bookedDate);
+  const counts = [
+    { key: 'now', value: ros.current ? formatWallClock(ros.current.start_at) || '—' : '—', word: ros.current ? `now · ${ros.current.label}` : 'now', href: '#schedule', hot: true },
+    { key: 'next', value: ros.next ? formatWallClock(ros.next.start_at) || '—' : '—', word: ros.next ? `next · ${ros.next.label}` : 'next', href: '#schedule' },
+    { key: 'coming', value: brief ? `${formatCount(attending)}/${formatCount(invited)}` : '—', word: brief ? 'coming (RSVP)' : 'couldn’t load' },
+  ];
+  const recent =
+    view === 'announce' && run?.canAnnounce && announceOn ? await fetchLatestBroadcasts(supabase, eventId) : null;
+
   return (
-    <section className="mx-auto w-full max-w-3xl space-y-6 px-4 py-6 sm:px-6">
-      {/* Close / back to the console */}
-      <div className="flex items-center justify-between gap-3">
-        <Link
-          href="/vendor-dashboard/on-the-day"
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-ink/70 hover:text-ink"
-        >
-          <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} /> Exit
-        </Link>
-        <span className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/55">
-          Day-of · live
-        </span>
+    <section className="mx-auto w-full max-w-3xl space-y-6 px-4 py-6 sm:px-6" data-event-hub-view={view}>
+      <div>
+        <EventHubBar
+          eventId={eventId}
+          name={coupleName}
+          dayWords={dayWords}
+          view={view}
+          exitHref={hubHref(eventId)}
+          chatHref={booking.threadId ? `/vendor-dashboard/messages/${booking.threadId}` : null}
+          about={[place, brief ? `${formatCount(attending)} of ${formatCount(invited)} guests coming` : null, 'Your tools for the day — only this event.'].filter(Boolean).join(' · ')}
+        />
+        <EventHubCounts tiles={counts} />
       </div>
+
+      {view === 'scanner' ? (
+        <EventHubScanner eventId={eventId} run={run} floorIsYours={frame.specialization?.set === 'floor_command'} />
+      ) : view === 'announce' ? (
+        <EventHubAnnounce eventId={eventId} run={run} enabled={announceOn} recent={recent} />
+      ) : (
+      <>
 
       {/* Obsidian focal — couple + live clock. Kept dark on purpose (see the
           page doc): it is the one glare-legible anchor on a venue floor.
@@ -311,6 +350,8 @@ export default async function VendorOnTheDayLivePage({
             className="pointer-events-none absolute inset-2 border border-gild/20"
           />
           <div className="relative">
+            {/* 📶 The offline copy's mark (EV3) — this phone's own copy of the Event Hub, for a venue without signal. */}
+            <SupplierSavedStrip viewer={user.id} eventId={eventId} eventDate={booking.bookedDate} checkin={run != null} />
             <p className="truncate font-pahina text-2xl font-light leading-snug tracking-tight text-paper">
               {coupleName}
             </p>
@@ -421,6 +462,8 @@ export default async function VendorOnTheDayLivePage({
         blocks={blocks}
         bookedCategories={brief?.booked_categories ?? null}
       />
+      </>
+      )}
     </section>
   );
 }

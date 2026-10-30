@@ -55,6 +55,7 @@
  *                     &none=1 the no-access case   &cohost=1 👥 a supplier who is only a co-host (owner 2026-10-29)
  *   ?s=hub            🗓 the supplier's Hub, set up (v13, `hub-lab.tsx`): &seg=setup|crew|pages · &ev=ic (today, you run
  *                     it) · rf (your service only) · lk (locked by its booking fee) · mj (run, no day of yours)
+ *   ?s=event-hub      🧭 the supplier's Event Hub (the live page, v13 frame, `event-hub-lab.tsx`): &view=day|scanner|announce
  *   ?s=details · page · collections  &who=parish|caterer|studio — Your details · Your page · Your collections (step 5,
  *                     `page-lab.tsx`; &draft=1 on page seeds a waiting change)
  *
@@ -93,6 +94,7 @@ import { PeopleLab } from './people-lab';
 import { ChatAskLab } from './chat-lab';
 import { COORD_STATES, CoordLab, type CoordState } from './coord-lab';
 import { HubLab } from './hub-lab';
+import { EventHubLab } from './event-hub-lab';
 import { EASY_MOMENTS, EASY_SUPPLIERS, TodayEasyLab, type EasyMoment, type EasySupplier } from './today-easy-lab';
 import { DATES_STATES, DatesLab, type DatesState } from './dates-lab';
 import { MONEY_STATES, MoneyLab, type MoneyState } from './money-lab';
@@ -321,6 +323,7 @@ export default async function SupplierLabPage({
     if (s === 'page' || s === 'collections') return '/vendor-dashboard/website';
     if (s === 'details') return '/vendor-dashboard/profile';
     if (s === 'hub') return '/vendor-dashboard/on-the-day';
+    if (s === 'event-hub') return '/vendor-dashboard/on-the-day/live/ic';
     return '/vendor-dashboard';
   })();
   const wrap = (node: ReactNode, measure: SupplierLabMeasure) =>
@@ -338,6 +341,10 @@ export default async function SupplierLabPage({
   if (q.s === 'hub') {
     /* 🗓 The supplier's Hub, set up (v13, owner 2026-10-29) — `hub-lab.tsx`; &seg=setup|crew|pages · &ev=ic|rf|lk|mj. */
     return wrap(<HubLab seg={q.seg} ev={q.ev} />, 'own');
+  }
+  if (q.s === 'event-hub') {
+    /* 🧭 The supplier's Event Hub (the live page) in its v13 frame — `event-hub-lab.tsx`; &view=day|scanner|announce. */
+    return wrap(<EventHubLab view={q.view} />, 'own');
   }
   if (q.s && (COORD_STATES as readonly string[]).includes(q.s)) {
     /* 🗂 The coordinator's door (owner 2026-10-28) — `coord-lab.tsx`; `&none=1` = no live coordinator access. */

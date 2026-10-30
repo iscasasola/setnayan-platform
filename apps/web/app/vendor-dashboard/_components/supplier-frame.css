@@ -63,6 +63,6 @@
 }
 
 /* 🗓 The Hub's ▾ (`HubEventMenu`) sits in the pinned row's left from 701; while it is there the plain word steps aside. */
-[data-pin-lead-hub]:has([data-hub-event-menu]) > [data-supplier-page-menu='word'] {
+[data-pin-lead-hub]:has([data-hub-event-menu], [data-event-hub-bar]) > [data-supplier-page-menu='word'] {
   display: none;
 }

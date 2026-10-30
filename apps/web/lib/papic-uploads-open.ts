@@ -2,7 +2,7 @@ import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { manualUploadsClosedFrom } from '@/lib/papic-uploads-open-rule';
-import { PAPIC_UPLOADS_CAMERA_INDEX } from '@/lib/papic-cameras';
+import { isHostCameraSeatIndex } from '@/lib/papic-cameras';
 
 /**
  * "MAY PHOTOS BE ADDED BY HAND TO THIS CELEBRATION?" — asked on the SERVER.
@@ -29,7 +29,7 @@ import { PAPIC_UPLOADS_CAMERA_INDEX } from '@/lib/papic-cameras';
  * couple's file picker is not a separate capture path — it presigns through the
  * same `/api/upload` and records through the same `recordSeatCapture` as every
  * camera in the product. What distinguishes it is the SEAT it shoots on: the
- * Uploads camera, `seat_index = PAPIC_UPLOADS_CAMERA_INDEX`. That is a fact
+ * host cameras, `isHostCameraSeatIndex(seat_index)` (one per host since 2026-10-31). That is a fact
  * about the row in the database, not a claim the client makes, so it holds for
  * any future surface pointed at that seat — including one nobody has written.
  *
@@ -68,7 +68,7 @@ export async function papicManualUploadsClosed(
   // Not the Uploads camera → not a manual upload → the switch has no opinion.
   // Asked before the round trip, so an ordinary capture never pays for a read
   // whose answer it would ignore.
-  if (seatIndex !== PAPIC_UPLOADS_CAMERA_INDEX) return false;
+  if (!isHostCameraSeatIndex(seatIndex)) return false;
   if (!eventId) return false;
 
   try {

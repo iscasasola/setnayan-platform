@@ -10,8 +10,7 @@ import { resolveStoredWindow } from '@/lib/papic-window';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { formatCount } from '@/lib/format-number';
 import { getIapGate } from '@/lib/request-platform';
-import { PAPIC_UPLOADS_CAMERA_INDEX, provisionUploadsCameraAdmin } from '@/lib/papic-cameras';
-import { UPLOADS_TAKEN_LINE } from '@/lib/uploads-seat-claim';
+import { hostCameraSeat, provisionUploadsCameraAdmin, readHostCamera } from '@/lib/papic-cameras';
 import { EventMemoriesGallery } from '@/app/_components/memories/event-memories-gallery';
 import { Spotlight } from '@/app/_components/spotlight';
 import { HOST_PAGE_TOURS, HOST_PAGE_TOURS_AFTER } from '@/lib/host-page-tours';
@@ -131,33 +130,29 @@ export default async function EventMemoriesPage({ params, searchParams }: Props)
        the studio render safe (`the-uploads-camera-has-no-back-door.test.ts`). Until 2026-10-26 only the studio page
        minted it, and since 2026-10-24 that page sends the couple to Home before it gets there — so on 7 of 13 live
        events the sheet's press found no camera and could only ever answer "please try again". Idempotent (the
-       UNIQUE upsert), best-effort, never throws; the same capture window as every camera. */
+       UNIQUE upsert), best-effort, never throws; the same capture window as every camera.
+       👥 ONE PER HOST (owner 2026-10-31, "yes. papic credits still"): it mints THIS host's own camera (the 4th argument
+       is the viewer's own id, never a form field) when they have none and no spare is waiting, so each couple member and
+       each co-host adds photos on their own camera — all from the one shared pool. */
     if (uploadsOpen && win) {
-      await provisionUploadsCameraAdmin(admin, eventId, { validFrom: win.startIso, validUntil: win.endIso });
+      await provisionUploadsCameraAdmin(admin, eventId, { validFrom: win.startIso, validUntil: win.endIso }, user.id);
     }
-    const { data: seat, error: seatErr } = await admin
-      .from('paparazzi_seats')
-      .select('seat_id, claim_qr_token, claimer_user_id')
-      .eq('event_id', eventId)
-      .eq('seat_index', PAPIC_UPLOADS_CAMERA_INDEX)
-      .is('revoked_at', null)
-      .maybeSingle();
-    if (seatErr) logQueryError('EventMemoriesPage.uploadsSeat', seatErr, { event_id: eventId }, 'graceful_degrade');
-    const claimer = (seat?.claimer_user_id as string | null | undefined) ?? null;
-    // The token reaches the browser only once the camera is THIS person's; unclaimed, the picker claims it on the pick.
-    const token = claimer === user.id ? ((seat?.claim_qr_token as string | null) ?? null) : null;
-    const takenByOther = claimer !== null && claimer !== user.id;
+    const hostCam = await readHostCamera(admin, eventId, user.id);
+    if (hostCam.readFailed) logQueryError('EventMemoriesPage.uploadsSeat', { message: 'host camera read refused' }, { event_id: eventId }, 'graceful_degrade');
+    const seat = hostCameraSeat(hostCam.pick);
+    // The token reaches the browser only once the camera is THIS person's; a spare is claimed by the picker on the pick.
+    const token = hostCam.pick?.kind === 'mine' ? (hostCam.pick.seat.claim_qr_token ?? null) : null;
     /* 🪙 WHAT THIS CAMERA CAN STILL SPEND (owner 2026-10-25: "adding photos will use up papic credits") — the presign
        gate's OWN question (`papic_capture_points_available`: the seat's own credits + the event's one pot), so the
        number on the sheet is the number the server refuses at. The Papic Unlock pass shoots unmetered, as at the gate.
        A read that failed is null — "Couldn't check", never 0. Asked whenever the uploader is drawn — claimed or not. */
     let pot: UploadPot = null;
-    if (uploadsOpen && !takenByOther && seat?.seat_id) {
+    if (uploadsOpen && seat?.seat_id) {
       const unlocked = await eventHasPapicUnlock(await eventEntitlementClient(eventId), eventId).catch(() => false);
       if (unlocked) pot = 'unmetered';
       else {
         const { data: left, error: potErr } = await admin.rpc('papic_capture_points_available', {
-          p_seat_id: seat.seat_id as string,
+          p_seat_id: seat.seat_id,
           p_event_id: eventId,
         });
         if (potErr) logQueryError('EventMemoriesPage.uploadsPot', potErr, { event_id: eventId }, 'graceful_degrade');
@@ -173,11 +168,6 @@ export default async function EventMemoriesPage({ params, searchParams }: Props)
     );
     addPhotos = !uploadsOpen ? (
       <UploadsOpenChoice eventId={eventId} open={false} variant="row" back="memories" />
-    ) : takenByOther ? (
-      // Said before the press, never discovered after a pick: the one Uploads camera belongs to the other host.
-      <p className="text-sm text-ink/70" data-add-photos-taken="">
-        {UPLOADS_TAKEN_LINE}
-      </p>
     ) : (
       <AddToLibrary token={token} eventId={eventId} pot={pot} buy={buy} />
     );

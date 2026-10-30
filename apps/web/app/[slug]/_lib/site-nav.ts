@@ -62,6 +62,27 @@
  *      Manage) would break the five-slot shape, so Suppliers — a scroll within
  *      the page they are editing — yields first for them.
  *
+ * ── PAPIC ON = A CAMERA TAB ON EVERY STAGE (owner, 2026-10-30 — DECISION_LOG
+ *    "PAPIC ON = A CAMERA TAB ON EVERY STAGE", points 1 and 2) ───────────────
+ *
+ *  P1. "when papic is on. no matter what event hub stage it is, it will add the
+ *      camera menu" → while the host's Papic switch is OPEN (`hostAllowsCamera`
+ *      — the same `eventPapicGuestActive` answer the camera button follows) and
+ *      the caller built the camera's address, an invited guest's bar carries a
+ *      LIVE Camera on Save the Date, the Invitation, The Day AND Post Event. It
+ *      widens 2026-10-14 ("early shooting adds a Camera tab", which needed "Let
+ *      guests shoot now"), and on Post Event it narrows E2 to "Papic is off".
+ *      Papic OFF → before the day and after it there is no Camera (the stage's
+ *      list decides, as before); on the day ruling 2's LOCKED camera stands.
+ *      Strangers and suppliers are unchanged: no camera.
+ *  P2. "when there is already existing papic shots or uploaded photos via
+ *      papic, the memories will be available" → `memoriesHasPhotos` (the
+ *      event's Papic frames, `countGalleryFrames` — shots AND uploads, with the
+ *      grid's own filters): at least one opens a guest's Memories on the day
+ *      and after it even with no public chapter; NONE, and nothing else drawn
+ *      there, means no Memories tab for anyone — never an empty page. Unknown
+ *      (not asked, or the count was refused) → the rules above, unchanged.
+ *
  * ── NAMING LOCK ─────────────────────────────────────────────────────────────
  * The photo slot is "Gallery", NEVER "Photos" — `site-menu.ts` carries the
  * owner rename. Labels are one word because a nav label that wraps grows its
@@ -168,6 +189,16 @@ export type NavInput = {
    * the bar is unchanged. Never for a stranger, a supplier or the couple.
    */
   earlyOwnShots?: boolean;
+  /**
+   * 🖼 MEMORIES OPENS ONCE THERE ARE PHOTOS (owner 2026-10-30, P2): does the
+   * event hold at least one Papic shot or Papic upload (`countGalleryFrames`
+   * > 0)? `true` → an invited guest's Memories is drawn on the day and after
+   * it, public chapter or not. `false` → NO Memories tab for anyone unless the
+   * page already draws photographs there (`anyChapterPublic`) — never an empty
+   * page. Absent/null → not known (not asked, or the count was refused): the
+   * rules decide exactly as before; a refused read is never a confident zero.
+   */
+  memoriesHasPhotos?: boolean | null;
   /** Did the couple write a story section? */
   hasStory?: boolean;
   /** Is a details section actually on the page? Without this the Details tab
@@ -339,6 +370,12 @@ export function resolveSiteNav(input: NavInput): NavSlot[] {
   } else if (phase === 'after' && !isCouple) {
     // 📖 E2 — "no more camera since that event is done". After the day a
     // guest's camera promise is spent; the couple keeps theirs (next branch).
+    // 📷 …UNLESS PAPIC IS STILL ON (owner 2026-10-30, P1: "no matter what event
+    // hub stage it is"): then Post Event carries the guest's Camera too — LIVE
+    // only, never a locked stand-in (E2 still holds for "off").
+    if (!isVendor && hostAllowsCamera && dest.camera) {
+      slots.push({ key: 'camera', label: 'Camera', state: 'live', href: dest.camera });
+    }
   } else if (isCouple) {
     // Unconditional. It is their wedding.
     slots.push(
@@ -386,8 +423,15 @@ export function resolveSiteNav(input: NavInput): NavSlot[] {
   //     stranger's tab (the wall itself is not rendered for them either). After
   //     the day it is the recap the couple chose to make public, which is theirs
   //     to show anyone.
-  if (!isVendor && (phase === 'after' || (phase === 'day' && !isStranger))) {
-    if (isCouple || anyChapterPublic) {
+  //
+  // 🖼 P2 (owner 2026-10-30): NO PAPIC PHOTO, AND NOTHING ELSE DRAWN THERE → NO
+  //     MEMORIES TAB, for anyone, on any stage — never an empty page. At least
+  //     one → an invited guest's Memories opens on the day and after it.
+  const noMemories = input.memoriesHasPhotos === false && !anyChapterPublic;
+  if (noMemories) {
+    // Nothing to open.
+  } else if (!isVendor && (phase === 'after' || (phase === 'day' && !isStranger))) {
+    if (isCouple || anyChapterPublic || (viewer.kind === 'guest' && input.memoriesHasPhotos === true)) {
       slots.push({ key: 'gallery', label: 'Memories', state: 'live', href: ANCHOR.gallery });
     }
   } else if (phase === 'before' && viewer.kind === 'guest' && input.earlyOwnShots === true) {
@@ -425,7 +469,13 @@ export function resolveSiteNav(input: NavInput): NavSlot[] {
   // 📸 Early shooting's Camera is not on a before-the-day stage's list (no other
   // guest gets one there) — it passes the list on this rule's own say-so.
   const earlyGuest = phase === 'before' && viewer.kind === 'guest' && input.earlyOwnShots === true;
-  const allowed = allow ? slots.filter((s) => allow.includes(s.key) || (earlyGuest && s.key === 'camera')) : slots;
+  // 📷 P1 (owner 2026-10-30): while Papic is on, a LIVE Camera passes EVERY
+  // stage's list — Save the Date and the Invitation carry it too. Only a guest's
+  // or the couple's (a stranger and a supplier never had one pushed above), and
+  // only live: a locked camera stays where the stage lists it (the day).
+  const papicCamera = (s: NavSlot) =>
+    s.key === 'camera' && s.state === 'live' && hostAllowsCamera && (viewer.kind === 'guest' || isCouple);
+  const allowed = allow ? slots.filter((s) => allow.includes(s.key) || (earlyGuest && s.key === 'camera') || papicCamera(s)) : slots;
   // ⚖ Five slots, always. After the day the couple can have six doors (their
   // camera is unconditional); Suppliers — a scroll within the page they edit —
   // yields first. Nobody else can exceed five.

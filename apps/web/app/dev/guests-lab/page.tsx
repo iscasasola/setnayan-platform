@@ -25,7 +25,8 @@
  *   ?part=screen    Guests › List and Map (Maker PR 4f) — the whole screen on
  *                   maria-and-jose's roster, with a stand-in shell bar and
  *                   dock: &gview=map for the map (R4: &gview=seats [&seat=3d|list|map] · &gview=march [&march=owner]
- *                   — the shipped makers, Guests › Seats and Guests › March), &q=… to search, &empty=1 for
+ *                   — with &seat=3d the SHIPPED 3D room on synthetic data; &big=1 its 25-table / 230-guest plan, the phone
+ *                   budget's measuring size — the shipped makers, Guests › Seats and Guests › March), &q=… to search, &empty=1 for
  *                   an empty list, &fail=1 for a refused read
  *   &req=0          (screen) no requests to join waiting — the carousel's card ① says "No requests waiting"
  *   &select=to-invite (screen) ⚙ › Pick who's cold link — Select on, the list narrowed to To invite
@@ -48,6 +49,7 @@
  *                   Studio RSVP tile that opened it LEFT in R1 (owner 2026-10-28; its settings are Guests ⚙'s,
  *                   ?part=setup); kept so the before/after can be compared side by side
  *   &typed=1        (screen) two names typed all lower case — the list shows them cased (displayPersonName)
+ *   &nicks=1        (screen) a few nicknames and a title — the full name with the nickname beside it (NAMES, v24)
  *   &answered=1     (screen · run) the owner's 2026-10-29 shape: half the guests nothing was sent to have ANSWERED
  *                   anyway (said yes in person — "Kat Arroyo · Attending", never stamped). They are not "to invite":
  *                   the List's To invite, the run's "more to invite" and its queue all leave them out
@@ -721,7 +723,6 @@ export default async function GuestsLabPage({
                       config={config}
                       drafted={false}
                       reply={{ own: '2027-01-14', pricingMode: 'realtime', fallback: null }}
-                      toInvite={toInviteCount(sp.fail === '1' ? [] : planningRoster(), sp.fail !== '1')}
                       oneLink={{
                         url: 'https://setnayan.com/cale-ice/invite',
                         qrSvg: await renderStyledUrlQrSvg('https://setnayan.com/cale-ice/invite', undefined, 240),
@@ -772,12 +773,22 @@ export default async function GuestsLabPage({
     /* 🪪 `&typed=1` — two names typed all lower case (guest_page_fixes_2_4 fix 3, owner 2026-10-21): the list SHOWS them
        cased ("Pamela Labriaga", "Jose de los Santos"), the rows keep what was typed. */
     const TYPED: Record<string, [string, string]> = { Daniel: ['jose', 'dela cruz'], Gabriel: ['gabriel', 'de los santos'] };
-    const roster = sp.typed === '1'
+    const rosterTyped = sp.typed === '1'
       ? roster1.map((g) => {
           const t = g.first_name ? TYPED[g.first_name] : undefined;
           return t ? { ...g, first_name: t[0], last_name: t[1], display_name: null } : g;
         })
       : roster1;
+    /* 💬 `&nicks=1` — nicknames (`display_name`) and a title, as a real list carries them (NAMES, prototype v24): every
+       Guests surface draws the FULL name with the nickname beside it, muted, in quotes. */
+    const NICKS: Record<string, Partial<GuestRow>> = {
+      'g-mj-6': { name_prefix: 'Atty.', display_name: 'Tony' },
+      'g-mj-11': { display_name: 'Monching' },
+      'g-mj-14': { display_name: 'Tita Rose' },
+      'g-mj-24': { display_name: 'Jo' },
+      'g-mj-3': { display_name: 'Dan' },
+    };
+    const roster = sp.nicks === '1' ? rosterTyped.map((g) => (NICKS[g.guest_id] ? { ...g, ...NICKS[g.guest_id] } : g)) : rosterTyped;
     const GROUPS: Record<string, string[]> = {
       'g-mj-24': ['Barkada'],
       'g-mj-25': ['Barkada'],
@@ -804,8 +815,8 @@ export default async function GuestsLabPage({
                     views={GUESTS_VIEWS}
                     filter={parseGuestsFilter(sp)}
                     bodies={{
-                      seats: <LabSeats guests={roster} seat={typeof sp.seat === 'string' ? sp.seat : undefined} />,
-                      march: <LabMarch shape={typeof sp.march === 'string' ? sp.march : null} />,
+                      seats: <LabSeats guests={roster} seat={typeof sp.seat === 'string' ? sp.seat : undefined} big={sp.big === '1'} />,
+                      march: <LabMarch shape={typeof sp.march === 'string' ? sp.march : null} nicks={sp.nicks === '1'} />,
                     }}
                     guests={empty || fail ? [] : sp.oneqr === '1' ? roster.filter((g) => g.role === 'bride' || g.role === 'groom') : roster}
                     measured={!fail}

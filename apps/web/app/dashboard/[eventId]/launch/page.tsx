@@ -89,7 +89,7 @@ import { completeTour } from '@/lib/tour-actions';
 import WebsiteEditorPage from '../website/editor/page';
 import { updateEventSlug } from '../invitation/actions';
 import { HubProOffer } from './_components/hub-pro-offer';
-import { MakerDetails, detailsFactEditors } from './_components/maker-details';
+import { MakerDetails, detailsFactEditors, hubSettingsEditor } from './_components/maker-details';
 import { loadYourEvent } from './_components/details-your-event-load';
 import { venuesEditorFor } from './_components/details-your-event-parts';
 import type { MakerProLine, MakerVenuePictures } from './_components/maker-context';
@@ -1162,6 +1162,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
   /** 📱 The venue cards' Picture ▾ for the new Maker's Venue scene › Edit — the same slots Details › Venues draws. */
   let venuePictures: MakerVenuePictures | null = null;
   let studio: { tiles: StudioTileModel[] } | null = null;
+  /** ⚙ "Your Event Hub", open, for the Hub's ⚙ Event Hub settings — the SAME builder as Info's fold (`hubSettingsEditor`). */
+  let hubSettings: ReactNode = null;
   {
     const printAdmin = createAdminClient();
     /* ⚡ STARTED WITH THE BLOCK (2026-10-23, the speed pass): the See-as roles and their names need only the event's
@@ -1810,6 +1812,22 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
           mainColourDraft: sanitizeMainColourDraft(draftedEvents.main_colours) ?? {},
         };
       })();
+      /* ⚙ The address part by part and the QR's look — ONE read each, handed to Details AND to the Hub's ⚙. */
+      const addressPart = {
+        owns: Boolean(proOwn && (proOwn.full || proOwn.parts.has('address'))),
+        renamed: addressRenamed,
+        pricePhp: partPricePhp.address ?? null,
+        drafted: draftedAddress,
+        storeShell,
+      };
+      const qrPart = { ...qrLookChoicesFromRow({ ...printEvent, style_preferences: qrPrefs }, ownsPart('logo_qr')), storeShell };
+      const slugAction = updateEventSlug.bind(null, eventId, 'launch');
+      const qrStyleAction = updateQrStyle.bind(null, eventId);
+      /* ⚙ "Your Event Hub" in the Hub's ⚙ (owner 2026-10-30) — open, no fold; Info's fold is the same builder's. */
+      hubSettings = hubSettingsEditor(
+        { eventId, slug: printEvent.slug, slugAction, address: addressPart, qr: qrPart, qrStyleAction, studio: studioDetails },
+        { bare: true },
+      );
       details = {
         page: (
           <MakerDetails
@@ -1837,19 +1855,13 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
             }}
             eventId={eventId}
             slug={printEvent.slug}
-            slugAction={updateEventSlug.bind(null, eventId, 'launch')}
+            slugAction={slugAction}
             /* 💎 THE ADDRESS, PART BY PART (owner 2026-10-22): free = the address it has; renaming = the Custom address part. */
-            address={{
-              owns: Boolean(proOwn && (proOwn.full || proOwn.parts.has('address'))),
-              renamed: addressRenamed,
-              pricePhp: partPricePhp.address ?? null,
-              drafted: draftedAddress,
-              storeShell,
-            }}
+            address={addressPart}
             // The QR's look (lib/qr-look.server.ts): Pro as `printOwnsPro` measured
             // it, the saved choices, and the contrast-passing Mood Board colours.
-            qr={{ ...qrLookChoicesFromRow({ ...printEvent, style_preferences: qrPrefs }, ownsPart('logo_qr')), storeShell }}
-            qrStyleAction={updateQrStyle.bind(null, eventId)}
+            qr={qrPart}
+            qrStyleAction={qrStyleAction}
             theme={{
               themes: themes.map((t) => ({ id: t.id, name: t.name, tier: t.tier })),
               current: themeCurrent,
@@ -1957,6 +1969,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     factEditors,
     venuePictures,
     studio,
+    hubSettings,
     /* 🪜 The guided flow's door, decided where its facts are (below: only where the address names no place). */
     opensOnGuide: addressNamesNoPlace && detailsUnfinished && guideAddress === null,
   };

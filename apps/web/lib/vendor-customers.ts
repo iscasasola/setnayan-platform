@@ -377,6 +377,12 @@ export type EventMoneyPosition = {
   /** True when every installment amount for this event was null/unresolvable. */
   allUnresolved: boolean;
   installmentCount: number;
+  /**
+   * The next payment still to come in — the earliest unconfirmed installment with an amount (a dated one before an
+   * undated one). Null when none is left, or none resolved to an amount. The Customers › Events row says it as
+   * "next ₱20,000 Nov 18" (owner 2026-10-29: the supplier's own money stays in the row's top line — price · paid · next).
+   */
+  nextDue: { amountPhp: number; dueDate: string | null } | null;
 };
 
 export function computeEventMoneyPositions(
@@ -384,7 +390,7 @@ export function computeEventMoneyPositions(
 ): Map<string, EventMoneyPosition> {
   const byEvent = new Map<
     string,
-    { expected: number; collected: number; resolved: number; count: number }
+    { expected: number; collected: number; resolved: number; count: number; next: { amountPhp: number; dueDate: string | null } | null }
   >();
   for (const r of rows) {
     const cur = byEvent.get(r.event_id) ?? {
@@ -392,12 +398,20 @@ export function computeEventMoneyPositions(
       collected: 0,
       resolved: 0,
       count: 0,
+      next: null,
     };
     cur.count += 1;
     if (r.amount_php !== null) {
       cur.resolved += 1;
       cur.expected += r.amount_php;
       if (r.confirmed) cur.collected += r.amount_php;
+      else {
+        const due = r.due_date ?? null;
+        const n = cur.next;
+        // Earliest due first; an undated one only when nothing dated is left.
+        const sooner = !n || (due !== null && (n.dueDate === null || due < n.dueDate));
+        if (sooner) cur.next = { amountPhp: r.amount_php, dueDate: due };
+      }
     }
     byEvent.set(r.event_id, cur);
   }
@@ -411,6 +425,7 @@ export function computeEventMoneyPositions(
       fullyPaid: v.expected > 0 && v.collected >= v.expected,
       allUnresolved: v.resolved === 0,
       installmentCount: v.count,
+      nextDue: v.next,
     });
   }
   return out;

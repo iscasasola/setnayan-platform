@@ -166,7 +166,7 @@ test('(3) which parts jump: "Open in Studio › <page>" for what cannot be edite
     ['story', 'Love Story'],
     ['logo', 'Logo'],
     ['gifts', 'E-Gifts'],
-    ['dress', 'Mood Board & Dress Code'],
+    ['dress', 'Palette + Dress Code'],
   ];
   for (const [k, page] of jumps) {
     assert.equal(makerPartQuietRow(k)?.words, `Open in Studio › ${page}`, `${k}: its door`);

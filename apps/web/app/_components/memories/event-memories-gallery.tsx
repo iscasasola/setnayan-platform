@@ -154,7 +154,8 @@ export function EventMemoriesGallery({
   /** Albums whose own read was refused ('hub' · 'challenges') — said in that album, not as an empty one. */
   refusedParts?: MemoriesAlbumKey[];
   timeZone: string | null;
-  /** ⚙ Gallery settings — the shipped controls, drawn by the server (Photo wall · Thank-You · Guests see all · Drive · Keep full-res). */
+  /** ⚙ Gallery settings — the shipped controls, drawn by the server (Who sees what · Photo wall · Thank-You · Drive · Keep full-res);
+   *  for the event's coordinator, Who sees what alone (owner 2026-10-30). Non-null opens the ⚙ even when `host` is false. */
   settings?: ReactNode;
   /** + Add photos — the shipped uploader (or its "Turn this on"), drawn by the server. Null = no door. */
   addPhotos?: ReactNode;
@@ -321,8 +322,9 @@ export function EventMemoriesGallery({
             <ActionButton tone="neutral" iconOnly icon={Plus} label="More columns" disabled={cols === steps[steps.length - 1]} onClick={() => snap(1)} />
           </span>
         ) : null}
-        {host ? (
-          // ⚙ THE MENU'S SETTINGS — the shared door (`menu-settings-button.tsx`); Memories was its template.
+        {host || settings ? (
+          // ⚙ THE MENU'S SETTINGS — the shared door (`menu-settings-button.tsx`); Memories was its template. A host's
+          // always; the event's coordinator's too when the server drew them the Memories rules (owner 2026-10-30).
           <MenuSettingsButton menu="memories" open={gearOpen} onOpenChange={setGearOpen} tour="memories-settings">
             <div className="divide-y divide-ink/10 px-4 pb-4" data-memories-settings="">
               {/* FOLLOW THE MOMENTS IN ORDER — the owner's word for the gallery grouped by the day's moments. */}

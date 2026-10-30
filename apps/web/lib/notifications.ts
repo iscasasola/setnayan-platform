@@ -480,7 +480,13 @@ export type NotificationType =
      shift (never one per block), from Running late on the couple's schedule and
      the floor's +N (`lib/schedule-shift-notify.server.ts`). In-app only — no email.
      ⚠ ENUM value in 20271284540209. */
-  | 'schedule_shifted';
+  | 'schedule_shifted'
+  /* 🖼⏱ SOMEONE THE HOSTS GAVE MOOD BOARD EDIT CHANGED IT (owner 2026-10-30, DECISION_LOG "MOOD BOARD CHANGES:
+     SUPPLIERS ASK, COORDINATORS APPLY, THE OWNERS HAVE 24 HOURS TO UNDO"). → EVERY owner of the event, ONE notice per
+     change ("Coordinator Ana changed the Mood Board · Stage"); its Undo lives on Home for 24 hours. Written by the
+     database itself (the event_inspiration_assets trigger, 20271299051148) — never emitNotification, so it cannot be
+     skipped by a write that bypasses the app. In-app only — no email, no push. ⚠ ENUM value in 20271298460272. */
+  | 'mood_board_changed';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   event_auto_surfaced: 'You were added to an event',
@@ -599,6 +605,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   change_order_proposed: 'Change order',
   change_order_answered: 'Change order answered',
   schedule_shifted: 'Schedule moved',
+  mood_board_changed: 'Mood Board changed',
 };
 
 export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
@@ -814,6 +821,8 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   change_order_answered: 'bg-warn-100 text-warn-900',
   // News the supplier acts on at the venue (a new time), not a yes or no → the informational sky.
   schedule_shifted: 'bg-sky-100 text-sky-800',
+  // Already applied; the owner MAY undo it — news, not a yes-or-no ask → the informational sky.
+  mood_board_changed: 'bg-sky-100 text-sky-800',
 };
 
 export type NotificationRow = {
@@ -1089,6 +1098,7 @@ export const NOTIFICATION_TYPE_ICON: Partial<Record<NotificationType, Notificati
   schedule_suggestion: 'calendar',
   schedule_change_requested: 'calendar',
   schedule_shifted: 'calendar',
+  mood_board_changed: 'image',
   appointment_reminder: 'calendar',
   photo_delivery_complete: 'image',
   photo_delivery_failed: 'image',

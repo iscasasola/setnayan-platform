@@ -209,22 +209,28 @@ export function defaultInviteTemplate(opts: {
       keep,
     ].join('\n');
   }
-  // 💌 THE HOSTS' WORDING (owner 2026-10-29, after reading The Knot's invitation: "improve our invitation text but
-  // still keeping the essence of our design") — a warm opening, a clear one-minute ask, signed by the couple; the
-  // personal link, the ticket-is-your-pass line and "please don't forward" stay.
+  // 💌 THE HOSTS' WORDING — APPROVED 2026-10-30 (DECISION_LOG "THE INVITE TEXTS — GUEST AND SELF-ADDED SUPPLIER —
+  // APPROVED"; owner: "this is another website's message. we want our own" · "english. but a more wow approach" →
+  // "perfect"). Setnayan's own voice, signed by the couple ({hosts} on its own last line, dropped whole when empty).
+  // ⚖ The ticket line stays true in both paths: "Inside is your ticket" (on the page the link opens) — or, when the
+  // share sheet carries the Digital ticket, "Your ticket is attached".
+  const inside = opts.ticketAttached
+    ? `Your ticket is attached: it opens our Event Hub anytime, and it${APOS}s your pass at the door.`
+    : `Inside is your ticket: it opens our Event Hub anytime, and it${APOS}s your pass at the door.`;
   return [
     'Hi {name}! 💌',
     '',
-    `With joyful hearts, we invite you to celebrate {event} with us on {date}. It would mean so much to have you there.`,
+    `You${APOS}re invited to {event} on {date}, and it simply wouldn${APOS}t be the same without you.`,
     '',
-    `Please tap your invitation to let us know if you can come — it only takes a minute:`,
+    `Your invitation is ready. Tap to open it and let us know if you${APOS}re coming — it only takes a minute:`,
     '{link}',
     '',
-    qr,
+    inside,
     '',
-    keep,
+    'This link was made just for you, so please keep it to yourself.',
     '',
-    'With love,',
+    `We can${APOS}t wait to see you there. ✨`,
+    '',
     '{hosts}',
   ].join('\n');
 }
@@ -252,7 +258,12 @@ function fill(
 ): string {
   let t = template;
   // No names to sign with → the sign-off goes too, never a bare "With love,".
-  if (!values.hosts) t = t.replace(/\n*[ \t]*With love,[ \t]*\n[ \t]*\{hosts\}/gi, '').replace(/[ \t]*\{hosts\}/gi, '');
+  // A {hosts} alone on its line (ours, 2026-10-30) goes with the blank line before it.
+  if (!values.hosts)
+    t = t
+      .replace(/\n*[ \t]*With love,[ \t]*\n[ \t]*\{hosts\}/gi, '')
+      .replace(/\n+[ \t]*\{hosts\}[ \t]*(?=\n|$)/gi, '')
+      .replace(/[ \t]*\{hosts\}/gi, '');
   // An absent value takes its lead-in with it: "Hi {name}!" → "Hi!",
   // "…wedding on {date}." → "…wedding." — never "Hi !" or "on .".
   if (!values.name) t = t.replace(/[ \t]*\{name\}/gi, '');

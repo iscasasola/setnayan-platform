@@ -34,8 +34,8 @@
 import { wordsAndPlansItem, type DetailsItemKey } from '@/lib/maker-details-items';
 import { guidedItemDone, type GuidedDoneFacts } from '@/lib/details-guided-flow';
 
-export { STUDIO_TILE_KEYS, STUDIO_TILE_ITEM, studioTileItem, type StudioTileKey } from './studio-tile-defs';
-import { STUDIO_TILE_ITEM, STUDIO_TILE_KEYS, type StudioTileKey } from './studio-tile-defs';
+export { STUDIO_MENU_KEYS, STUDIO_TILE_KEYS, STUDIO_TILE_ITEM, isStudioMenuKey, studioTileItem, type StudioTileKey } from './studio-tile-defs';
+import { STUDIO_TILE_ITEM, STUDIO_TILE_KEYS, isStudioMenuKey, type StudioTileKey } from './studio-tile-defs';
 import { LOOK_SECTIONS, LOOK_SECTION_LABEL } from '@/lib/maker-look-sections';
 import { STUDIO_TILE_UNREAD } from './studio-page-cards';
 import { formatPhp } from '@/lib/php';
@@ -96,7 +96,9 @@ export const STUDIO_TILES: Readonly<Record<StudioTileKey, StudioTileDef>> = {
   /* Its line IS Look's sections (`LOOK_SECTIONS` — Background · Elements · Music since 2026-10-08), never a second list of them. */
   look: { label: 'Look', short: 'Look', item: STUDIO_TILE_ITEM.look, reads: ['theme'], sub: LOOK_SECTIONS.map((k) => LOOK_SECTION_LABEL[k]).join(' · ') },
   logo: { label: 'Logo', short: 'Logo', item: STUDIO_TILE_ITEM.logo, reads: ['logo'], sub: 'Mark · fonts · animation' },
-  mood: { label: 'Mood Board & Dress Code', short: 'Mood Board', item: STUDIO_TILE_ITEM.mood, reads: ['mood-board'], sub: 'Five colours · attire by role' },
+  /* 🎨 "PALETTE + DRESS CODE" (owner 2026-10-27, "STUDIO IS LOOK AND WORDS ONLY"): the Mood Board's inspiration part goes to
+     Suppliers › Find; what stays is the five colours and attire by role — named for what it is (the 30 Oct prototype). */
+  mood: { label: 'Palette + Dress Code', short: 'Palette', item: STUDIO_TILE_ITEM.mood, reads: ['mood-board'], sub: 'Five colours · attire by role' },
   schedule: { label: 'Schedule', short: 'Schedule', item: STUDIO_TILE_ITEM.schedule, reads: ['schedule'], sub: 'Times and moments' },
   story: { label: 'Love Story', short: 'Love Story', item: STUDIO_TILE_ITEM.story, reads: ['love-story'], sub: 'Chapters with a photo' },
   gifts: { label: 'E-Gifts', short: 'E-Gifts', item: STUDIO_TILE_ITEM.gifts, reads: [], sub: 'GCash · Maya · bank · PayPal' },
@@ -180,6 +182,15 @@ export function studioTiles(input: StudioTilesInput): StudioTileModel[] {
       pro: studioTilePro(key, input.pro),
     };
   });
+}
+
+/**
+ * 🎛 The pages Studio ▾ lists (`STUDIO_MENU_KEYS`, owner 2026-10-27/30) — the rest are opened from their new homes.
+ * Studio ▾, the Studio home's cards and "n of N ready" all read THIS, so the count never says "Missing" about a page
+ * the menu does not show.
+ */
+export function studioMenuTiles<T extends Pick<StudioTileModel, 'key'>>(tiles: readonly T[]): T[] {
+  return tiles.filter((t) => isStudioMenuKey(t.key));
 }
 
 /** "n of N ready" — a tile counts only when it is really done (no claim is not ready). */

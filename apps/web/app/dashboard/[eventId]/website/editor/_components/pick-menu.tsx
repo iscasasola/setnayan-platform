@@ -24,6 +24,7 @@ export function PickMenu({
   doneNote,
   head,
   trigger,
+  menuMinWidth,
 }: PickMenuProps) {
   const [open, setOpen] = useState(false);
   useOneOpen(open, setOpen);
@@ -40,7 +41,7 @@ export function PickMenu({
     const b = btnRef.current;
     if (!b) return;
     const next = placePickList({
-      button: b.getBoundingClientRect(),
+      button: b.getBoundingClientRect(), minWidth: menuMinWidth,
       listHeight: listRef.current?.scrollHeight ?? 0,
       viewport: pickViewport(b, listRef.current),
     });

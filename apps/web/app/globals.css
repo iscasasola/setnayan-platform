@@ -6102,6 +6102,9 @@ div:has(> [data-apply-pro-sheet]),
 .sn-tip[data-align='center'] { left: 50%; --sn-tip-x: -50%; }
 .sn-tip[data-align='start'] { left: -4px; }
 .sn-tip[data-align='end'] { right: -4px; }
+/* A PickMenu row that cannot be picked yet (`pick-menu-off-row.tsx`, owner 2026-10-31): its reason hangs from the ROW,
+   inside the list's width — the list scrolls (overflow clips), so an 18rem popover from a 200-px list would be cut. */
+[data-pick-off] .sn-tip { left: 0; right: 0; width: auto; max-width: none; }
 .sn-tip-body {
   border-radius: var(--m-r-md);
   padding: 10px 12px;

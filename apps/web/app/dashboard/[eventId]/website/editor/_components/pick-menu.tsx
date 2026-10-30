@@ -4,7 +4,7 @@ import { useContext, useEffect, useId, useLayoutEffect, useRef, useState, type K
 import { createPortal } from 'react-dom';
 import { ChevronDown } from 'lucide-react';
 import { useOneOpen } from '@/lib/one-open';
-import { PickSheetContext, fontRowClass, groupHeadClass, pickArrowClass, pickButtonClass, pickInHub, pickOpensAsSheet, pickOptionClass, pickRuns, pickTickClass, pickTrailClass, pickViewport, placePickList, type PickListPlacement } from './pick-menu-place';
+import { PickOffRow, PickSheetContext, fontRowClass, groupHeadClass, pickArrowClass, pickButtonClass, pickInHub, pickOpensAsSheet, pickOptionClass, pickRuns, pickTickClass, pickTrailClass, pickViewport, placePickList, type PickListPlacement } from './pick-menu-place';
 import type { PickMenuProps, PickOption } from './pick-menu-types';
 
 export type { PickOption, PickMenuProps } from './pick-menu-types';
@@ -27,7 +27,7 @@ export function PickMenu({
   menuMinWidth,
 }: PickMenuProps) {
   const [open, setOpen] = useState(false);
-  useOneOpen(open, setOpen);
+  const oo = useOneOpen(open, setOpen);
   const [at, setAt] = useState<PickListPlacement | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
@@ -67,7 +67,7 @@ export function PickMenu({
       focusedOnOpen.current = true;
       (
         listRef.current.querySelector<HTMLButtonElement>('button[aria-selected="true"]:not([disabled])') ??
-        listRef.current.querySelector<HTMLButtonElement>('button:not([disabled])')
+        listRef.current.querySelector<HTMLButtonElement>('button[role=option]')
       )?.focus();
     }
   });
@@ -207,6 +207,7 @@ export function PickMenu({
 
   function renderOption(o: PickOption) {
     const plain = pickInHub(btnRef.current);
+    if (o.disabledNote) return <PickOffRow key={o.key} o={o} oo={oo} />;
     const chosen = !picked && o.key === value;
     const face = o.fontFamily ? { fontFamily: o.fontFamily } : undefined;
     return (
@@ -215,7 +216,6 @@ export function PickMenu({
           type="button"
           role="option"
           aria-selected={isOn(o.key)}
-          disabled={Boolean(o.disabledNote)}
           data-pick-option={o.key}
           onClick={() => {
             if (!picked) setOpen(false);
@@ -243,7 +243,6 @@ export function PickMenu({
             </span>
           )}
           {o.dot ? <span className="text-[12px] font-medium opacity-70">· {o.dotNote ?? 'live today'}</span> : null}
-          {o.disabledNote ? <span className="text-[12px] font-medium">· {o.disabledNote}</span> : null}
           {o.trail ? (
             <span data-pick-trail={o.trail.tone} className={pickTrailClass(o.trail.tone, plain && o.key === value)}>
               <span aria-hidden>{o.trail.text}</span>

@@ -34,6 +34,9 @@ const RATINGS: readonly { key: FindRating; label: string }[] = [
   { key: 'new', label: 'New suppliers' },
 ];
 
+/** The ⇅ list's floor width — the longest label ("Nearest to your venue") + its ⓘ on one line at 390 px. */
+export const FIND_SORT_MENU_MIN_WIDTH = 240;
+
 const ok = (on: boolean) => (on ? { text: '✓', tone: 'ok' as const, label: 'chosen' } : undefined);
 
 export function findSortMenu({
@@ -71,6 +74,9 @@ export function findSortMenu({
   if (narrowing > 0 || reordered) menu.push({ key: 'clear', label: 'Clear filters', group: ' ' });
   return {
     mark: 'data-thumb-sort',
+    // 📏 Every row on ONE line at 390 px (owner 2026-10-31, "Yes, tidy it": a greyed row shows its short label only, its
+    // reason in the ⓘ) — "Nearest to your venue" + its ⓘ needs this; the list was 168 px and wrapped every long row.
+    menuMinWidth: FIND_SORT_MENU_MIN_WIDTH,
     label: scope ? `Sort and filter ${scope}` : 'Sort suppliers',
     value: null,
     face: <FilterFace on={narrowing > 0 || reordered} />,

@@ -563,7 +563,7 @@ test('5 · 👆 a FINGER reaches the tabs: the row stands in the RSVP stage’s 
   /* …the screens take what is left; the slot never shrinks; the row in it is in flow (no place of its own). */
   const screens = /<div className="([^"]*)" data-rsvp-stage-body="">/.exec(STAGE);
   assert.ok(screens && ['min-h-0', 'flex-1'].every((c) => screens[1]!.split(/\s+/).includes(c)), 'the screens do not give way to the row');
-  assert.match(TOOLS, /style=\{rsvpOpen \? undefined : \{ bottom: 'calc\(var\(--maker-lt-h\) \+ env\(safe-area-inset-bottom\)\)'/, 'the row is placed over the page on the RSVP stage');
+  assert.match(TOOLS, /style=\{rsvpOpen \? undefined : \{ bottom: 'calc\(var\(--maker-lt-h\) \+ var\(--maker-safe-b, env\(safe-area-inset-bottom\)\)\)'/, 'the row is placed over the page on the RSVP stage');
   assert.match(TOOLS, /className=\{rsvpOpen \? 'relative border-t/, 'the row is taken out of the column’s flow');
   /* The stage says it is up as it mounts — the panel finds the slot then (it may have mounted first). */
   assert.match(TOOLS, /if \(!isRsvpStageScene\(s\)\) return;\s*findSlot\(\);/);

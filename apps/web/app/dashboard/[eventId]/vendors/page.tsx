@@ -14,6 +14,7 @@
  * The old page is preserved at page.flat-list.bak.tsx.txt (not compiled).
  */
 
+import { readOnePerEventGroups } from '@/lib/one-per-event';
 import { Spotlight } from '@/app/_components/spotlight';
 import { HOST_PAGE_TOURS, HOST_PAGE_TOURS_AFTER } from '@/lib/host-page-tours';
 import { redirect } from 'next/navigation';
@@ -1380,9 +1381,16 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     else buildPicksByGroup.set(r.plan_group_id, [r.vendor_id]);
   }
 
+  // ONE PER EVENT — the categories' switch (owner 2026-10-29), read once; display-only here (the database guard
+  // refuses a second booking where it is on, whatever this read says).
+  const onePerEventRead = await readOnePerEventGroups(supabase);
+  const onePerEventGroups = onePerEventRead.ok ? onePerEventRead.groups : new Set<string>();
+  // eslint-disable-next-line no-console
+  if (!onePerEventRead.ok) console.warn('[suppliers] One per event unreadable — every category drawn as multi-pick');
   const model = buildPlanBudgetModel({
     // PR-H · read here, passed in. The model is a pure core.
     lockHandshakeEnabled: isLockHandshakeEnabled(),
+    onePerEventGroups,
     vendorRows,
     // Only this event type's categories (Admin › Event type › Scope categories);
     // a wedding's list is unchanged, a birthday stops seeing Bridal car.
@@ -2312,6 +2320,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         key={isExploreReplanEnabled() ? `sl-${sp.open ?? ''}` : undefined}
         folders={shortlistFolders}
         eventId={eventId}
+        onePerEventGroups={[...onePerEventGroups]}
         // Pairs, not a Map — this component's own `teamCalendar` prop states the
         // rule: a Set/Map "crosses to the client as an array and is rebuilt there
         // rather than trusted to survive the boundary".

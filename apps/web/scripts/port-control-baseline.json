@@ -11009,7 +11009,8 @@
         "LabBar",
         "Link",
         "PapicBuySheet",
-        "VendorRailContext"
+        "VendorRailContext",
+        "WhoSeesWhatPick"
       ]
     },
     "/dev/billing-lab": {
@@ -11561,9 +11562,12 @@
       "actions": [],
       "blocks": [
         "AccountBottomNav",
+        "GuestMemoriesLab",
         "LabPageSpotlight",
         "MemoriesChapters",
-        "MemoriesThumb"
+        "MemoriesThumb",
+        "PhotosOfYouGallery",
+        "YourShotsGallery"
       ]
     },
     "/dev/notifications-lab": {

@@ -12,6 +12,11 @@
  *   ?event=ev-ci   M2 — one event picked: the day's chapters, ⤓ Download all
  *   ?empty=1       M3 — nothing kept yet
  *   ?fail=1        a refused wall read — "could not be loaded", never "nothing yet"
+ *   ?guest=tagged  A GUEST'S Memories on the Event Hub under Memories ⚙ › Who sees what = Only tagged (owner 2026-10-30,
+ *                  the default): the REAL `PhotosOfYouGallery` (the photos they are tagged in) + `YourShotsGallery`
+ *                  (their own shots), and no door to everyone's — exactly the props `site-body.tsx` passes when
+ *                  `poolGalleryOpen` is false.
+ *   ?guest=all     the same guest under Share all memories: the same two halves + "Everyone's photos".
  */
 import { LabPageSpotlight } from '@/app/dev/_components/lab-page-spotlight';
 import { TOURS } from '@/lib/tours';
@@ -23,6 +28,12 @@ import type { Album } from '@/app/dashboard/(account)/library/_data/photos-album
 import { LENSES, KEPT } from '@/app/dashboard/(account)/library/_data/library-views';
 import { EMPTY_WALL, type AlaalaWall, type WallItem } from '@/lib/alaala-wall';
 import { formatCount } from '@/lib/format-number';
+import { PhotosOfYouGallery } from '@/app/[slug]/_components/photos-of-you-gallery';
+import { YourShotsGallery } from '@/app/[slug]/_components/your-shots-gallery';
+import type { GuestLiveGallery, GuestOwnShots } from '@/lib/guest-live-gallery';
+
+/** The lab's stand-in wordmark (both lab bars draw the same one). */
+const LAB_WORDMARK = 'text-[14px] font-semibold tracking-[0.18em] text-[#a9834b]';
 
 const TONES = [
   ['#D7B77C', '#9A7A3C'], ['#B9856A', '#6F4A33'], ['#E2D59C', '#A7A14B'], ['#6E8296', '#2E3F50'],
@@ -72,6 +83,7 @@ export default async function MemoriesLabPage({
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
+  if (sp.guest === 'tagged' || sp.guest === 'all') return <GuestMemoriesLab share={sp.guest === 'all'} />;
   const kind = sp.fail === '1' ? 'fail' : sp.empty === '1' ? 'empty' : 'full';
   const list = albums(kind === 'full' ? 'full' : 'empty');
   const picked = typeof sp.event === 'string' ? list.find((a) => a.event.event_id === sp.event) ?? null : null;
@@ -79,7 +91,7 @@ export default async function MemoriesLabPage({
   return (
     <div className="sn-ambient min-h-dvh">
       <div className="flex h-[61px] items-center justify-between border-b border-ink/10 bg-paper px-4" data-lab-topbar="">
-        <span className="text-[14px] font-semibold tracking-[0.18em] text-[#a9834b]">SETNAYAN</span>
+        <span className={LAB_WORDMARK}>SETNAYAN</span>
         <span className="sn-initials grid h-[34px] w-[34px] place-items-center rounded-full text-[12px] font-bold">IC</span>
       </div>
       <main className="pb-[calc(var(--sn-bottomdock-h,calc(env(safe-area-inset-bottom)+64px))+1.5rem)] lg:pb-0">
@@ -119,6 +131,44 @@ export default async function MemoriesLabPage({
       <AccountBottomNav tabs={['events', 'discover', 'memories', 'people']} />
       {/* &spot=1 — this tab's first-visit spotlight (customer_library_v1), first run, nothing recorded. */}
       {sp.spot === '1' ? <LabPageSpotlight tourKey="customer_library_v1" script={TOURS.customer_library_v1.spotlight!} /> : null}
+    </div>
+  );
+}
+
+/** A guest's Memories under each Who sees what — the two real Event Hub halves, on fixtures (`?guest=tagged|all`). */
+function GuestMemoriesLab({ share }: { share: boolean }) {
+  const at = (h: number, m = 0) => new Date(Date.UTC(2026, 11, 12, h - 8, m)).toISOString();
+  const tagged: GuestLiveGallery = {
+    total: 4,
+    photos: [9, 11, 15, 19].map((h, i) => ({
+      id: `tag-${i}`,
+      sourceTable: 'papic_photos' as const,
+      url: pic(i + 2),
+      capturedAt: at(h, i * 7),
+      capturedBy: null,
+      wall: 'off' as const,
+    })),
+  } as unknown as GuestLiveGallery;
+  const own: GuestOwnShots = { total: 3, shots: [16, 18, 20].map((h, i) => ({ id: `own-${i}`, url: pic(i + 5), capturedAt: at(h) })) };
+  return (
+    <div className="sn-ambient min-h-dvh" data-lab-guest-memories={share ? 'all' : 'tagged'}>
+      <div className="flex h-[61px] items-center justify-between border-b border-ink/10 bg-paper px-4" data-lab-topbar="">
+        <span className={LAB_WORDMARK}>SETNAYAN</span>
+        <span className="text-[12px] text-ink/60">{share ? 'Share all memories' : 'Only tagged'}</span>
+      </div>
+      <main className="mx-auto w-full max-w-3xl space-y-12 px-4 py-6">
+        <PhotosOfYouGallery
+          gallery={tagged}
+          eventId="ev-ci"
+          isLive={false}
+          isPost
+          showClaimAccountCta={false}
+          occasion="wedding"
+          eventWord="wedding"
+          timeZone="Asia/Manila"
+        />
+        <YourShotsGallery shots={own} qrToken={null} cameraOn everyoneHref={share ? '#everyones-photos' : null} />
+      </main>
     </div>
   );
 }

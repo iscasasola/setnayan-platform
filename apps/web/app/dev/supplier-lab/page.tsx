@@ -27,7 +27,9 @@
  *   ?thumb=money      Log a payment — a form's submit through the button rule  (frame 05)
  *   ?s=chat-ask       💬 the chat on a couple's FIRST message — their ask at the top: the event's fixed lines, Decline ·
  *                     Ask a question · Accept (supplier dashboard v13, `chat-lab.tsx`)
- *   ?s=people         Customers › People (S-PR2): segments, rows, outside clients, kept notes, search + Add (frame 03)
+ *   ?s=events         Customers › Events (People until 2026-10-30): the approved v13's own five events — one row per
+ *                     event, Indalecio & Claire twice (their wedding and their lunch); &shell=1 for the rail + two columns
+ *   ?s=people         Customers › Events on the older fixture set: rows, outside clients, kept notes, search + Add (frame 03)
  *     &q=ana · &lane=outside|waiting|… · &add=1 (the Add sheet) · &toast=added|removed|failed
  *   ?s=clash          two couples holding one Saturday — the warn row above the list
  *   ?s=empty          nobody yet       ?s=fail   payday + roster could not be read — said     ?s=nopools  Add with no schedule
@@ -51,6 +53,8 @@
  *                     (`suggest-lab.tsx`, stand-in writes; /dev/details-lab?look=1&studio=1&suggest=1 is the couple's side)
  *   ?s=coord-today · coord-events · coord-customer  🗂 the coordinator's door (owner 2026-10-28, `coord-lab.tsx`);
  *                     &none=1 the no-access case   &cohost=1 👥 a supplier who is only a co-host (owner 2026-10-29)
+ *   ?s=hub            🗓 the supplier's Hub, set up (v13, `hub-lab.tsx`): &seg=setup|crew|pages · &ev=ic (today, you run
+ *                     it) · rf (your service only) · lk (locked by its booking fee) · mj (run, no day of yours)
  *   ?s=details · page · collections  &who=parish|caterer|studio — Your details · Your page · Your collections (step 5,
  *                     `page-lab.tsx`; &draft=1 on page seeds a waiting change)
  *
@@ -88,13 +92,17 @@ import type { DueFeeBill } from '@/lib/booking-fee-disclosure';
 import { PeopleLab } from './people-lab';
 import { ChatAskLab } from './chat-lab';
 import { COORD_STATES, CoordLab, type CoordState } from './coord-lab';
+import { HubLab } from './hub-lab';
 import { EASY_MOMENTS, EASY_SUPPLIERS, TodayEasyLab, type EasyMoment, type EasySupplier } from './today-easy-lab';
 import { DATES_STATES, DatesLab, type DatesState } from './dates-lab';
 import { MONEY_STATES, MoneyLab, type MoneyState } from './money-lab';
 import { LabEarnedLine, PAGE_LAB_STATES, PageLab, type PageLabState } from './page-lab';
 import { LibraryLab } from './library-lab';
 import { libraryLab, type LabLibraryAsset } from './library-lab-server';
-import { LAB_LIBRARY_SHOP, LAB_SHOP_PHOTOS } from './library-lab-fixture';
+import { LAB_LIBRARY_CARDS, LAB_LIBRARY_SHOP, LAB_SHOP_PHOTOS } from './library-lab-fixture';
+import { cardChoicesByPart } from '@/lib/inspiration-card-link';
+import { formatPhpRounded } from '@/lib/php';
+import { canonicalServicesForSlot } from '@/lib/moodboard-gallery';
 import { uploadableSlotsForShop } from '@/lib/moodboard-gallery-upload';
 import { SuggestLab } from './suggest-lab';
 import { LAB_SUGGEST_COUPLE, LAB_SUGGEST_FIVE } from './suggestion-lab-fixture';
@@ -104,7 +112,8 @@ import { fallbackInspirationParts } from '@/lib/inspiration-parts';
 import { supplierRoleLine } from '@/lib/inspiration-suggestions';
 import { canonicalServicesForTile } from '@/lib/vendor-counts';
 
-const PEOPLE_STATES = ['people', 'clash', 'empty', 'fail', 'nopools'] as const;
+/** `events` — the approved v13's own five events (Customers › Events); `people` stays a working address for older links. */
+const PEOPLE_STATES = ['events', 'people', 'clash', 'empty', 'fail', 'nopools'] as const;
 
 export const dynamic = 'force-dynamic';
 
@@ -300,7 +309,7 @@ function TodayLab({ state, toast, earned }: { state: TodayState; toast: string |
 export default async function SupplierLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ thumb?: string; s?: string; toast?: string; q?: string; lane?: string; add?: string; open?: string; next?: string; mpage?: string; easy?: string; sup?: string; who?: string; draft?: string; library?: string; view?: string; sent?: string; rail?: string; logo?: string; gift?: string; invited?: string; shell?: string; wallet?: string; port?: string; spot?: string; none?: string; unread?: string; cohost?: string; asked?: string; coarse?: string; at?: string; docs?: string; gbb?: string; earned?: string; door?: string; block?: string; gear?: string }>;
+  searchParams: Promise<{ thumb?: string; s?: string; toast?: string; q?: string; lane?: string; add?: string; open?: string; next?: string; mpage?: string; easy?: string; sup?: string; who?: string; draft?: string; library?: string; view?: string; sent?: string; rail?: string; logo?: string; gift?: string; invited?: string; shell?: string; wallet?: string; port?: string; spot?: string; none?: string; unread?: string; cohost?: string; asked?: string; coarse?: string; at?: string; docs?: string; gbb?: string; earned?: string; door?: string; block?: string; gear?: string; fail?: string; seg?: string; ev?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -308,12 +317,16 @@ export default async function SupplierLabPage({
   /* 📌 The address each state draws, so the pinned row's page menu ▾ names it (v13 frame, 2026-10-29). */
   const labPage = (() => {
     const s = q.s ?? '';
-    if (/^(people|clash|empty|fail|nopools)$/.test(s)) return '/vendor-dashboard/customers';
+    if (/^(events|people|clash|empty|fail|nopools)$/.test(s)) return '/vendor-dashboard/customers';
     if (s === 'chat-ask') return '/vendor-dashboard/customers';
     if (s.startsWith('dates') || s.startsWith('qr')) return '/vendor-dashboard/customers?seg=dates';
     if (s.startsWith('money')) return '/vendor-dashboard/customers?seg=money';
-    if (s === 'page' || s === 'collections') return '/vendor-dashboard/website';
+    if (s === 'page') return '/vendor-dashboard/website';
+    if (s === 'collections') return '/vendor-dashboard/collections';
+    if (s === 'services') return '/vendor-dashboard/shop';
+    if (s === 'analytics') return '/vendor-dashboard/performance';
     if (s === 'details') return '/vendor-dashboard/profile';
+    if (s === 'hub') return '/vendor-dashboard/on-the-day';
     return '/vendor-dashboard';
   })();
   const wrap = (node: ReactNode, measure: SupplierLabMeasure) =>
@@ -327,6 +340,10 @@ export default async function SupplierLabPage({
   if (q.easy && (EASY_MOMENTS as readonly string[]).includes(q.easy)) {
     const sup = (EASY_SUPPLIERS as readonly string[]).includes(q.sup ?? '') ? (q.sup as EasySupplier) : 'studio';
     return wrap(<TodayEasyLab sup={sup} moment={q.easy as EasyMoment} actions={ACTIONS} library={q.library === '1'} rail={q.rail === 'service' || q.rail === 'docs' ? q.rail : null} logoNext={q.logo === '1'} gift={q.gift === 'running' || q.gift === 'soon' ? q.gift : null} docs={q.docs === 'checking' || q.docs === 'fix' ? q.docs : 'none'} gbb={q.gbb ? Number(q.gbb) : 2} coarse={q.coarse === '1'} />, 'today');
+  }
+  if (q.s === 'hub') {
+    /* 🗓 The supplier's Hub, set up (v13, owner 2026-10-29) — `hub-lab.tsx`; &seg=setup|crew|pages · &ev=ic|rf|lk|mj. */
+    return wrap(<HubLab seg={q.seg} ev={q.ev} />, 'own');
   }
   if (q.s && (COORD_STATES as readonly string[]).includes(q.s)) {
     /* 🗂 The coordinator's door (owner 2026-10-28) — `coord-lab.tsx`; `&none=1` = no live coordinator access. */
@@ -351,6 +368,7 @@ export default async function SupplierLabPage({
         eventLine="Sat, Mar 13, 2027 · Tagaytay"
         roleLine={supplierRoleLine(supplierTradeWord(services, firstOwnPart(board), fallbackInspirationParts()), ownLaneWords(board))}
         sent={q.sent === '1'}
+        cardsByPart={labCardsByPart(parts.map((p) => p.key))}
       />
     );
   }
@@ -365,6 +383,7 @@ export default async function SupplierLabPage({
           shopPhotos={[...state.shopPhotos]}
           gallerySlots={uploadableSlotsForShop(LAB_LIBRARY_SHOP.services, fallbackInspirationParts())}
           shopName={LAB_LIBRARY_SHOP.business_name}
+          cardsByPart={labCardsByPart(uploadableSlotsForShop(LAB_LIBRARY_SHOP.services, fallbackInspirationParts()).map((s) => s.key))}
         />
       </div>
     );
@@ -380,7 +399,7 @@ export default async function SupplierLabPage({
     return wrap(<DatesLab state={q.s as DatesState} toast={q.toast} open={q.open} gear={q.gear === '1'} />, 'wide');
   }
   if (q.s && (PAGE_LAB_STATES as readonly string[]).includes(q.s)) {
-    return wrap(<PageLab state={q.s as PageLabState} who={q.who} draft={q.draft === '1'} invited={q.invited === '1'} asked={q.asked === '1'} port={q.port} />, 'own');
+    return wrap(<PageLab state={q.s as PageLabState} who={q.who} draft={q.draft === '1'} invited={q.invited === '1'} asked={q.asked === '1'} port={q.port} fail={q.fail === '1'} />, 'own');
   }
   if (q.s && (MONEY_STATES as readonly string[]).includes(q.s)) {
     return wrap(<MoneyLab state={q.s as MoneyState} next={q.next} open={q.open} mpage={q.mpage} wallet={q.wallet} />, 'reading');
@@ -429,4 +448,16 @@ export default async function SupplierLabPage({
       )}
     </div>
   );
+}
+
+/** 🔗🖼 The lab shop's cards per part — the REAL `cardChoicesByPart` over the lab cards (no database). */
+function labCardsByPart(slots: readonly string[]) {
+  const parts = fallbackInspirationParts();
+  return cardChoicesByPart({
+    slots,
+    shopCards: [...LAB_LIBRARY_CARDS],
+    servicesForSlot: (slot) => canonicalServicesForSlot(slot, parts),
+    labelOf: (r) => r.title ?? 'Service',
+    priceOf: (r) => (r.starting_price_php ? `from ${formatPhpRounded(r.starting_price_php)}` : null),
+  });
 }

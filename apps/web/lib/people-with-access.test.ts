@@ -30,7 +30,7 @@ import {
   type ModeratorPermissions,
 } from './delegate-areas';
 import { delegateAccessLastDay } from './delegate-access-window';
-import { areaCells, buildPeopleWithAccess, peopleWithAccessHref, type SeatInput } from './people-with-access';
+import { areaCells, buildPeopleWithAccess, coordinatorSwitchWrites, peopleWithAccessHref, type SeatInput } from './people-with-access';
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -64,7 +64,20 @@ test('each area offers only the levels something enforces', () => {
   assert.deepEqual(areaChoices('budget'), ['view', 'off'], 'Budget & payments is never Edit (locked D1)');
   assert.deepEqual(areaChoices('photos'), ['view', 'off'], 'Photos is never Edit');
   assert.equal(areaChoices('invitations'), null, 'Event Hub offers a dropdown nothing enforces');
-  assert.equal(areaChoices('mood_board'), null, 'Mood Board offers a dropdown nothing enforces');
+  // 🖼 Owner 2026-10-30: the hosts give Mood Board access per person — Edit (its photos) or View. No Off: every
+  // delegate reads the board whatever the area says (migration 20271297714074 asks only `= 'edit'`).
+  assert.deepEqual(areaChoices('mood_board'), ['edit', 'view'], 'Mood Board is not Edit · View');
+});
+
+test('🖼 Mood Board reads View until the hosts set Edit — never an Off nothing enforces', () => {
+  const none = areaCells({ edit_all: false, checkout: false, invite_hosts: false, remove_hosts: false, areas: { seat_plan: 'view' } });
+  assert.equal(none.find((c) => c.area === 'mood_board')!.choice, 'view', 'an unnamed Mood Board area does not read View');
+  const granted = areaCells({ edit_all: false, checkout: false, invite_hosts: false, remove_hosts: false, areas: { mood_board: 'edit' } });
+  assert.equal(granted.find((c) => c.area === 'mood_board')!.choice, 'edit');
+  // The coordinator's switch OFF takes Mood Board to its lowest level (View), never to an 'off' the action refuses.
+  const off = coordinatorSwitchWrites(granted, false);
+  assert.ok(off.every((w) => granted.find((c) => c.area === w.area)!.choices!.includes(w.choice)), 'OFF writes a level the area cannot take');
+  assert.deepEqual(off.find((w) => w.area === 'mood_board'), { area: 'mood_board', choice: 'view' });
 });
 
 test('a coordinator’s defaults read back as the owner set them', () => {

@@ -32,6 +32,9 @@
  *                                        which is itself the "a failure says what failed, in place" walk.
  *                                        ?claim=1 — the camera is not this host's yet: one press, the claim rides the pick
  *                                        (`startAddingPhotos`; with no session here it answers "signed out", on the sheet).
+ *                                        ?who=tagged|all — ⚙ draws the REAL Who sees what (owner 2026-10-30) at that
+ *                                        choice (the lab's ⚙ holds that rule only; the server-read rows need a session)
+ *                                        · with ?guest=1&coord=1 — the event's coordinator: no host tools, ⚙ = the rules.
  *
  *   ?shop=0   an account that owns no shop (four tabs, no Shop)
  *
@@ -55,6 +58,7 @@ import { labEventBar } from '../lab-event';
 import { EventMemoriesGallery } from '@/app/_components/memories/event-memories-gallery';
 import { AddToLibrary } from '@/app/dashboard/[eventId]/studio/papic/_components/add-to-library';
 import { PapicBuySheet } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-buy-sheet';
+import { WhoSeesWhatPick } from '@/app/dashboard/[eventId]/studio/papic/_components/who-sees-what-pick';
 import type { UploadPot } from '@/app/dashboard/[eventId]/studio/papic/_lib/upload-credits';
 import type { GalleryPhoto } from '@/lib/papic-gallery';
 import type { MemoriesChallenge, MemoriesItem } from '@/lib/event-memories';
@@ -235,6 +239,11 @@ export default async function BarLab({
                       />
                     }
                     suppliers={[{ vendorProfileId: 'vp-lumen', vendorRowId: 'v-lumen', name: 'Lumen Studio', hidden: false }]}
+                    settings={
+                      sp.who === 'tagged' || sp.who === 'all' ? (
+                        sp.guest !== '1' || sp.coord === '1' ? <WhoSeesWhatPick eventId={EVENT} initialOpen={sp.who === 'all'} /> : null
+                      ) : null
+                    }
                   />
                 </div>
               </main>

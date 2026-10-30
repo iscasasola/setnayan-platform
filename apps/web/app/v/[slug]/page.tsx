@@ -184,6 +184,11 @@ import {
 import type { AttributeFieldDef } from '@/lib/marketplaces/schemas';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { recordVendorProfileView } from '@/lib/record-vendor-view';
+// 🔗🖼 The shop's approved inspiration — its own section and inside each card (owner 2026-10-30, "connected four ways").
+import { fetchShopInspirationLooks, looksByCard, type ShopInspirationClient, type ShopInspirationLook } from '@/lib/shop-inspiration.server';
+import { getInspirationParts } from '@/lib/inspiration-parts-db';
+import { cardAnchorId, withInspirationLooks } from '@/lib/service-card-view-model';
+import { ShopInspirationSection, type InspirationTile } from './_components/shop-inspiration-section';
 import { shopPageGate } from '@/lib/own-shop-preview';
 import { TeamPreviewBanner } from './_components/team-preview-banner';
 import { ShopBadgePill } from '@/app/_components/shop-badge-pill';
@@ -1116,6 +1121,11 @@ export async function renderVendorBySlug({
   // vendor is already resolved as published + these ids are all active, so the
   // read is correctly scoped even under the server-role admin client.
   const activeServiceIds = activeServices.map((s) => s.vendor_service_id);
+  // 🔗🖼 ONE batched, paged read of the shop's approved inspiration — started here so it runs beside the card batch
+  // below. `null` = it could not be read to the end: no Inspiration section and no looks strip (never a partial one).
+  const shopInspirationRead: Promise<ShopInspirationLook[] | null> = getInspirationParts()
+    .then((parts) => fetchShopInspirationLooks(admin as unknown as ShopInspirationClient, vendor.vendor_profile_id, parts))
+    .catch(() => null);
   // Coverage ids behind the active cards — drive the "Serves" line (event
   // types + faiths). Legacy services (coverage_id null) simply show no line.
   const coverageIds = Array.from(
@@ -1217,6 +1227,25 @@ export async function renderVendorBySlug({
       ? `from ${formatPhpRounded(s.starting_price_php)}`
       : 'Inquire';
   const composerInitial = activeServices[0] ?? null;
+
+  // 🔗🖼 THE FOUR-WAY LINK, ON THE PAGE. A look shows when it has no card (the shop's own) or its card is LIVE here —
+  // the approved design's `liveLooks` (a Free shop's hidden cards keep their looks hidden too, open question 3 taken
+  // as drawn). Each live card carries its looks; the section's tiles link to the card's anchor.
+  const shopInspiration = await shopInspirationRead;
+  const liveCardById = new Map(activeServices.map((s) => [s.vendor_service_id, s]));
+  const shownLooks = (shopInspiration ?? []).filter((l) => !l.vendorServiceId || liveCardById.has(l.vendorServiceId));
+  const inspirationByService = shopInspiration === null ? null : looksByCard(shownLooks);
+  const inspirationTiles: InspirationTile[] = shownLooks.map((l) => {
+    const s = l.vendorServiceId ? liveCardById.get(l.vendorServiceId) : undefined;
+    return {
+      id: l.id,
+      url: l.url,
+      part: l.part,
+      card: s
+        ? { label: serviceLabel(s), priceLabel: servicePriceLabel(s), anchorId: cardAnchorId(s.public_id, s.vendor_service_id) }
+        : null,
+    };
+  });
   const composerAlso: InquiryComposerService[] = activeServices.slice(1).map((s) => ({
     vendorServiceId: s.vendor_service_id,
     label: serviceLabel(s),
@@ -3000,6 +3029,7 @@ export async function renderVendorBySlug({
                   : 'none'
             }
             openServicePublicId={openServicePublicId}
+            inspirationByService={inspirationByService}
           />
         ) : null}
 
@@ -3033,6 +3063,10 @@ export async function renderVendorBySlug({
             askTargets={packageAskTargets}
           />
         ) : null}
+
+        {/* 🔗🖼 INSPIRATION (owner 2026-10-30; the approved website-by-plan design places it after Packages). Renders
+            nothing with no shown looks, and nothing when the read failed (`shownLooks` is then empty). */}
+        <ShopInspirationSection tiles={inspirationTiles} shopName={displayLabel} />
 
         {/* Hybrid-anonymity (V2.1 amendment #2): pass displayLabel so
             the reviews section heading + per-review attribution
@@ -3460,6 +3494,7 @@ function ServicesPricingSection({
   detailsEnabled,
   inquireMode,
   openServicePublicId,
+  inspirationByService,
 }: {
   services: ReadonlyArray<VendorServiceRow>;
   businessName: string;
@@ -3501,6 +3536,8 @@ function ServicesPricingSection({
   inquireMode: ServiceInquireMode;
   /** `?service=<public id>` — opens that card's sheet on arrival. */
   openServicePublicId: string | null;
+  /** 🔗🖼 Each live card's approved inspiration looks (`looksByCard`). `null` = unread → cards are drawn as before. */
+  inspirationByService: Map<string, ShopInspirationLook[]> | null;
 }) {
   /*
     ── SUP-14 · A CARD SITS UNDER ITS REAL TRADE ────────────────────────────
@@ -3578,6 +3615,17 @@ function ServicesPricingSection({
         ),
       ),
     });
+  }
+
+  // 🔗🖼 Each card carries its own looks — the strip inside the card (the approved design's `.looks`), and the anchor
+  // the Inspiration section's tiles open. Unread (`null`) → every card is exactly as before.
+  if (inspirationByService) {
+    const publicIdOf = new Map(services.map((s) => [s.vendor_service_id, s.public_id]));
+    for (const g of groups) {
+      g.cards = g.cards.map((c) =>
+        withInspirationLooks(c, inspirationByService.get(c.id) ?? [], cardAnchorId(publicIdOf.get(c.id), c.id)),
+      );
+    }
   }
 
   return (

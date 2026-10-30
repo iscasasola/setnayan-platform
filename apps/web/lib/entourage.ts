@@ -1,4 +1,4 @@
-import { guestFullName, guestRoleLabel, type GuestRole } from '@/lib/guests';
+import { guestFullName, guestNickBeside, guestRoleLabel, type GuestRole } from '@/lib/guests';
 import { roleNameMany, roleNameOne, sectionName, type RoleNames } from '@/lib/role-names';
 import type { NameStyle } from '@/lib/name-style';
 import { genderOfTitleWords, womanOrManOf, type TitleGender } from '@/lib/guest-title';
@@ -50,6 +50,12 @@ export type EntouragePerson = {
   id: string | null;
   /** Already-composed display name. Never assembled from parts in here. */
   name: string;
+  /**
+   * 💬 The couple's nickname for them (`guests.display_name`, `guestNickBeside`) — present only when they set one the
+   * printed name does not already say. For the couple's own March in Guests (a chip draws it beside the name, owner
+   * prototype v24); every print and the guests' page ignore it — the invitation prints the full name only.
+   */
+  nick?: string;
   /** The role this appearance is for — a guest with `extra_roles` appears once per role. */
   role: GuestRole;
   /**
@@ -1364,6 +1370,7 @@ function peopleForSpec(
       people.push({
         id: row.guest_id ?? null,
         name,
+        ...(guestNickBeside(row, name) ? { nick: guestNickBeside(row, name)! } : {}),
         role,
         walk: marchSpotOf(row)?.walk_no ?? null,
         place: marchSpotOf(row)?.place_in_walk ?? 0,

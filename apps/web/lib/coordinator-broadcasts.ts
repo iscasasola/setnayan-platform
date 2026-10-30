@@ -140,6 +140,25 @@ export type VendorCallTime = {
 };
 
 /**
+ * 📅 THE ONE RULE FOR A SUPPLIER'S CALL TIME: the EARLIEST moment (top-level or part) they are tagged responsible on
+ * (P2's `responsible_vendor_ids`). Owner 2026-10-27 — *"call times live in the Schedule"*: the moment is the only
+ * source, and every reader (this file's emails, the Booked Team row's "Call time 8:00 AM · Ingress & setup")
+ * asks THIS function, so no screen keeps a copy or a second rule. Null = they are on no moment yet.
+ */
+export function earliestTaggedBlock<B extends Pick<CallTimeBlock, 'block_id' | 'start_at'>>(
+  blocks: readonly B[],
+  meta: RosMetaMap,
+  eventVendorId: string,
+): B | null {
+  let earliest: B | null = null;
+  for (const block of blocks) {
+    if (!meta.get(block.block_id)?.responsible_vendor_ids.includes(eventVendorId)) continue;
+    if (earliest === null || new Date(block.start_at).getTime() < new Date(earliest.start_at).getTime()) earliest = block;
+  }
+  return earliest;
+}
+
+/**
  * Derive each vendor's call time from the master run-of-show: the earliest
  * block (top-level or part) the vendor is tagged responsible on via P2's
  * `responsible_vendor_ids` lens. Deliberately conservative —
@@ -160,19 +179,7 @@ export function deriveVendorCallTimes(
   for (const vendor of vendors) {
     const email = vendor.contact_email?.trim();
     if (!email) continue;
-    let earliest: CallTimeBlock | null = null;
-    for (const block of blocks) {
-      const tagged = meta
-        .get(block.block_id)
-        ?.responsible_vendor_ids.includes(vendor.vendor_id);
-      if (!tagged) continue;
-      if (
-        earliest === null ||
-        new Date(block.start_at).getTime() < new Date(earliest.start_at).getTime()
-      ) {
-        earliest = block;
-      }
-    }
+    const earliest = earliestTaggedBlock(blocks, meta, vendor.vendor_id);
     if (!earliest) continue;
     out.push({
       vendorId: vendor.vendor_id,

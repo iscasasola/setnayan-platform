@@ -131,6 +131,9 @@ export type SeatAssignmentRow = {
   // never moves. Optional on the type so pre-migration reads + render-only
   // literals don't need it; fetchAssignments coalesces to false.
   locked?: boolean;
+  /** 🪑 Who placed this seat — 'couple' · 'auto' · null = not recorded (lib/seat-why.ts, owner 2026-10-29). */
+  placed_by?: string | null;
+  placed_at?: string | null;
 };
 
 // Read-time coordinate/capacity healing (Sync verdict § 4 + render-crash guard
@@ -195,7 +198,7 @@ export async function fetchAssignments(
 ): Promise<SeatAssignmentRow[]> {
   const { data, error } = await supabase
     .from('event_seat_assignments')
-    .select('assignment_id,table_id,guest_id,seat_number,locked')
+    .select('assignment_id,table_id,guest_id,seat_number,locked,placed_by,placed_at')
     .eq('event_id', eventId);
   if (error) throw new Error(`fetchAssignments failed: ${error.message}`);
   // Coalesce locked → false so a pre-migration read never yields undefined.

@@ -11778,6 +11778,21 @@
         "RosterPerson"
       ]
     },
+    "/dev/shop-layout-lab": {
+      "files": [
+        "dev/shop-layout-lab/page.tsx"
+      ],
+      "destinations": [
+        "/"
+      ],
+      "actions": [],
+      "blocks": [
+        "Link",
+        "ShareButton",
+        "ShopBadgePill",
+        "Wordmark"
+      ]
+    },
     "/dev/shop-page-lab": {
       "files": [
         "dev/shop-page-lab/page.tsx"
@@ -13482,6 +13497,7 @@
         "v/[slug]/_components/service-details-sheet.tsx",
         "v/[slug]/_components/services-gallery.tsx",
         "v/[slug]/_components/share-button.tsx",
+        "v/[slug]/_components/shop-columns.ts",
         "v/[slug]/_components/shop-inspiration-section.tsx",
         "v/[slug]/_components/shop-since-line.tsx",
         "v/[slug]/_components/team-preview-banner.tsx",

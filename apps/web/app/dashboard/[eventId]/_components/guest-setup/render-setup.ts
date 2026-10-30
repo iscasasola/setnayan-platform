@@ -23,7 +23,7 @@ const ROUTER = { push() {}, replace() {}, refresh() {}, prefetch() {}, back() {}
 export const HEADCOUNT_OPEN: HeadcountView = { locked: false, attending: 3, heads: 3 };
 
 export async function renderSetup(
-  opts: { getIn?: GetIn; headcount?: Partial<HeadcountView>; /** "Send to N" — null = the guest read was refused. */ toInvite?: number | null } = {},
+  opts: { getIn?: GetIn; headcount?: Partial<HeadcountView> } = {},
 ): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { AppRouterContext } = await import('next/dist/shared/lib/app-router-context.shared-runtime');
@@ -37,7 +37,6 @@ export async function renderSetup(
         config: guestsGetInPatch(opts.getIn ?? 'list'),
         drafted: false,
         reply: { own: '2027-01-14', pricingMode: 'realtime', fallback: null },
-        toInvite: opts.toInvite === undefined ? 4 : opts.toInvite,
         oneLink: { url: 'https://setnayan.com/cale-ice/invite', qrSvg: '<svg data-qr=""></svg>', notice: null },
         headcount: { ...HEADCOUNT_OPEN, ...(opts.headcount ?? {}) },
       }),

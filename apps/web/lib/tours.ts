@@ -1629,8 +1629,9 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         },
         {
           anchor: 'guests-setup',
-          title: 'Send invitations, see replies',
-          body: 'Send each invitation from here and watch the replies come in, guest by guest.',
+          /* 🗂 R4 slice 11: the ⚙ no longer sends invitations (the To invite count and Select › Invite N do). */
+          title: 'Your RSVP settings',
+          body: 'What guests are asked when they reply, and the reply-by date — behind the ⚙. Send invitations from the To invite count.',
         },
         {
           anchor: 'tab-vendors',
@@ -2017,7 +2018,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
           anchor: 'guests-views',
           /* 🗂 R1 (owner 2026-10-28): the RSVP settings moved here from the Event Hub's Studio — the tour says where. */
           title: 'List, Map and ⚙',
-          body: 'List is everyone. Map groups them by side, role or group. ⚙ sends the invitations and holds your RSVP — what it asks and the reply-by date.',
+          body: 'List is everyone. Map groups them by side, role or group. ⚙ holds your RSVP — what it asks and the reply-by date.',
         },
         {
           anchor: 'guests-counts',

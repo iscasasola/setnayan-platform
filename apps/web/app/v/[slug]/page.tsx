@@ -2979,6 +2979,8 @@ export async function renderVendorBySlug({
             coupleEventDate={coupleEventDate}
             cardRecordByService={cardRecordByService}
             couplePhotosByService={couplePhotosByService}
+            /* 👁 A signed-in viewer reads the NON-public couple photos they may see AFTER the page — never in this HTML. */
+            viewerSignedIn={user !== null}
             /* Reuses the SAME trusted aggregate the hero stars read — the only
                source the anti-fraud lock permits for a public rating number —
                so the record block can never disagree with the top of the page,
@@ -3517,6 +3519,7 @@ function ServicesPricingSection({
   coupleEventDate,
   cardRecordByService,
   couplePhotosByService,
+  viewerSignedIn,
   cardRecordRating,
   detailsEnabled,
   inquireMode,
@@ -3554,6 +3557,8 @@ function ServicesPricingSection({
   cardRecordByService: Map<string, CompiledCardRecord>;
   /** 📸 Couples' approved photos per service id (`fetchServiceCardCouplePhotos`). Empty ⇒ cards as before. */
   couplePhotosByService: Map<string, CoupleLook[]>;
+  /** A signed-in viewer → the gallery asks, after the page, for the non-public couple photos they are inside. */
+  viewerSignedIn: boolean;
   /** Shop-wide trusted rating rendered inside the record block. Vendor-level by
    *  nature — reviews attach to the profile, not to a service. null → no stars. */
   cardRecordRating: CardRecordRating | null;
@@ -3656,6 +3661,7 @@ function ServicesPricingSection({
       </header>
       <ServicesGallery
         groups={groups}
+        viewerSignedIn={viewerSignedIn}
         detailsEnabled={detailsEnabled}
         inquireMode={inquireMode}
         openServicePublicId={openServicePublicId}

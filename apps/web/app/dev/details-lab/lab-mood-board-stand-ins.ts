@@ -33,13 +33,17 @@ export const LAB_MOOD_BOARD_ACTIONS: Partial<MoodBoardActions> = {
   couplePhotoShare: async (req) => {
     switch (req.op) {
       case 'read':
-        return { op: 'read', result: { status: 'ok', shareable: true, inspirationId: 'lab-photo', cards: LAB_PHOTO_SHARE_CARDS, shares: [], namesCredit: 'Ana & Ben · Feb 2027' } };
+        return { op: 'read', result: { status: 'ok', shareable: true, inspirationId: 'lab-photo', cards: LAB_PHOTO_SHARE_CARDS, shares: [], namesCredit: 'Ana & Ben · Feb 2027', defaultAudience: 'exclusive' } };
       case 'send':
         return { op: 'send', result: { status: 'ok', shareId: 'lab-share', shop: LAB_PHOTO_SHARE_CARDS.find((c) => c.vendorServiceId === req.vendorServiceId)?.shop ?? 'Bloom & Co.' } };
       case 'take_back':
         return { op: 'take_back', result: { status: 'ok' } };
       case 'answer':
         return { op: 'answer', result: { status: 'ok', approved: req.approve, line: 'Approved — it is on your service card now.' } };
+      case 'audience':
+        return { op: 'audience', result: { status: 'ok' } };
+      case 'viewer_looks':
+        return { op: 'viewer_looks', result: {} };
     }
   },
 };
@@ -76,5 +80,9 @@ export const LAB_MOOD_BOARD_REFUSALS: Partial<MoodBoardActions> = {
         ? { op: 'read', result: { status: 'error' } }
         : req.op === 'take_back'
           ? { op: 'take_back', result: { status: 'error' } }
-          : { op: 'answer', result: { status: 'refused', message: 'permission denied for function vendor_answer_couple_photo' } },
+          : req.op === 'audience'
+            ? { op: 'audience', result: { status: 'error' } }
+            : req.op === 'viewer_looks'
+              ? { op: 'viewer_looks', result: {} }
+              : { op: 'answer', result: { status: 'refused', message: 'permission denied for function vendor_answer_couple_photo' } },
 };

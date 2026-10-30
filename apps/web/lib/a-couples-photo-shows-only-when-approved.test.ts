@@ -48,6 +48,8 @@ test('1 · the public card reads approved rows only, through the one door', () =
   const body = fn('service_card_couple_photos');
   assert.match(body, /s\.state = 'approved'/, 'the card reader no longer filters to approved');
   assert.match(body, /s\.public_key IS NOT NULL/, 'the card reader serves a share with no frozen copy');
+  // 👁 The cached public read is PUBLIC-audience only (owner 2026-10-30).
+  assert.match(body, /s\.audience = 'public'/, 'the cached public read returns non-public photos');
   assert.match(body, /vs\.is_active IS TRUE/, 'a paused card would still show couple photos');
   // 🛡 #7089 F1 — the card never reads the couple's board row (any event member may edit it).
   assert.doesNotMatch(body, /event_inspiration_assets|image_url|snapshot_/, 'the card reads the live board row / the snapshot instead of the frozen copy');
@@ -66,6 +68,24 @@ test('1 · the public card reads approved rows only, through the one door', () =
   const page = read('app/v/[slug]/page.tsx');
   assert.match(page, /fetchServiceCardCouplePhotos\(admin, activeServiceIds\)/, 'the shop page no longer reads its cards’ couple photos');
   assert.match(page, /withCoupleLooks\(/, 'the shop page no longer puts the couple photos on the card');
+});
+
+test('👁 non-public photos never reach the cached page: a separate signed-in read, after the page, under the viewer’s session', () => {
+  const viewer = fn('viewer_service_card_couple_photos');
+  assert.match(viewer, /auth\.uid\(\) IS NOT NULL/);
+  assert.match(viewer, /s\.audience <> 'public'/);
+  assert.match(viewer, /s\.audience = 'hosts' AND s\.event_id IN \(SELECT public\.current_couple_event_ids\(\)\)/, 'Only hosts is not the event’s couple');
+  // ⚠ Private FAILS CLOSED to Exclusive — it is resolved exactly like Exclusive, never by anything wider.
+  assert.match(viewer, /s\.audience IN \('exclusive', 'private'\) AND s\.event_id IN \(SELECT public\.current_event_ids\(\)\)/, 'Private no longer fails closed to Exclusive');
+  assert.doesNotMatch(viewer, /follow|connection|people/i, 'Private was widened to "the people around me" without a ruling');
+  assert.match(sql, /REVOKE ALL ON FUNCTION public\.viewer_service_card_couple_photos\(UUID\[\]\) FROM anon;/);
+  const page = read('app/v/[slug]/page.tsx');
+  assert.doesNotMatch(page, /fetchViewerCouplePhotos|viewer_service_card_couple_photos|op: 'viewer_looks'/, 'the shop page reads non-public photos into its HTML');
+  const gallery = read('app/v/[slug]/_components/services-gallery.tsx');
+  assert.match(gallery, /useEffect\(\(\) => \{\s*if \(!viewerSignedIn \|\| cardIds\.length === 0\) return;[\s\S]{0,120}op: 'viewer_looks'/, 'the viewer’s extra photos are not read after the page, signed-in only');
+  const server = read('lib/couple-photo-share.server.ts');
+  assert.match(server, /return isPublic \? R2_BUCKETS\.media : R2_BUCKETS\.threadFiles;/, 'a non-public copy lives in the public bucket');
+  assert.match(server, /presignDisplayUrl\(R2_BUCKETS\.threadFiles, key, SIGNED_LOOK_TTL_S\)/, 'a non-public copy is not served as a signed URL');
 });
 
 test('1b · no page outside the two parties ever selects the shares table', () => {
@@ -100,7 +120,7 @@ test('2 · only that shop answers — under its own session, checked in SQL', ()
 });
 
 test('F1 · F3 · Approve publishes a frozen copy under a neutral key, made BEFORE the approve is recorded', () => {
-  assert.match(sql, /public_key ~ \('\^couple-looks\/' \|\| share_id::text \|\| '-\[0-9a-f\]\{12\}\\\.\(jpg\|jpeg\|png\|webp\)\$'\)/, 'the public key is not pinned to the share id + one attempt + an image type');
+  assert.match(sql, /public_key ~ \('\^couple-looks\/' \|\| share_id::text \|\| '-\[0-9a-f\]\{16\}\\\.\(jpg\|jpeg\|png\|webp\)\$'\)/, 'the public key is not pinned to the share id + one attempt + an image type');
   assert.match(sql, /CHECK \(\(state = 'approved'\) = \(public_key IS NOT NULL\)\)/, 'an approved share can exist without its copy (or a dead one keep one)');
   const trig = fn('couple_photo_shares_follow_the_board');
   assert.match(trig, /SET state = 'withdrawn', withdrawn_at = NOW\(\), public_key = NULL/);
@@ -115,12 +135,13 @@ test('F1 · F3 · Approve publishes a frozen copy under a neutral key, made BEFO
   assert.ok(copyAt > 0 && rpcAt > copyAt, 'the approve is recorded before (or without) the frozen copy');
   assert.match(approve, /p_public_key: publicKey/);
   // 🛡 #7089 round 2 — a refused approve deletes ONLY its own attempt's copy.
-  assert.match(approve, /if \(r\.status !== 'ok'\) await unpublishCoupleLook\(publicKey\);/);
+  assert.match(approve, /if \(r\.status !== 'ok'\) await unpublishCoupleLook\(publicKey, copyPublic\);/);
   assert.doesNotMatch(approve, /unpublishCoupleLook\(r\.unpublished_key\);\s*\n?\s*if \(r\.status !== 'ok'\)/);
   const server = read('lib/couple-photo-share.server.ts');
-  assert.match(server, /r2Copy\(\{ bucket: R2_BUCKETS\.media, fromKey: snapshotKey, toKey \}\)/);
+  assert.match(server, /copyObject\(R2_BUCKETS\.media, snapshotKey, coupleLookBucket\(isPublic\), toKey\)/, 'the copy is not made from the snapshot into its audience’s bucket');
   assert.match(server, /export async function reconcileCoupleLooks/, 'nothing sweeps the copies of withdrawn shares');
-  assert.match(server, /coupleLookKey\(shareId, snapshotKey, randomBytes\(6\)\.toString\('hex'\)\)/, 'the copy key is not fresh per attempt');
+  assert.match(server, /const attempt = \(\) => randomBytes\(8\)\.toString\('hex'\);/, 'the copy key is not a fresh 64-bit attempt');
+  assert.match(server, /coupleLookKey\(shareId, snapshotKey, attempt\(\)\)/, 'the copy key is not fresh per attempt');
   assert.match(server, /i \+= SWEEP_CHUNK/, 'the sweep asks about every key in one request');
   assert.match(server, /maxKeys: SWEEP_MAX_OBJECTS/);
 });

@@ -62,7 +62,7 @@ test('(1b) the stand-ins answer like the real ones, locally — and refuse in da
   assert.equal(await a.createScheduleBlock!(new FormData()), undefined);
   /* 📸 A photo shared with a supplier (2026-10-30) — read, sent, taken back, all locally. */
   assert.equal((await a.couplePhotoShare!({ op: 'read', eventId: 'e', slotKey: 'bridal_bouquet', slotPosition: 1 })).result.status, 'ok');
-  assert.equal((await a.couplePhotoShare!({ op: 'send', eventId: 'e', inspirationId: 'p', vendorServiceId: 'lab-card-bouquet', creditStyle: 'a_couple', creditLine: null, consent: true })).result.status, 'ok');
+  assert.equal((await a.couplePhotoShare!({ op: 'send', eventId: 'e', inspirationId: 'p', vendorServiceId: 'lab-card-bouquet', creditStyle: 'a_couple', creditLine: null, consent: true, audience: 'exclusive' })).result.status, 'ok');
   assert.equal((await a.couplePhotoShare!({ op: 'take_back', eventId: 'e', shareId: 's' })).result.status, 'ok');
   const r = LAB_MOOD_BOARD_REFUSALS;
   const refused = await r.hubDraftAction!('e', new FormData());

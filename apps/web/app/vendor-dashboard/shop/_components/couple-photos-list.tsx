@@ -25,6 +25,8 @@ export type ShopCouplePhoto = {
   imageUrl: string;
   creditLine: string;
   serviceTitle: string;
+  /** Who the couple lets see it on the card (Only hosts · Exclusive · Private · Public) — theirs to change. */
+  audienceLabel?: string;
 };
 
 export function CouplePhotosList({
@@ -70,7 +72,8 @@ export function CouplePhotosList({
         <Explain title="Photos couples shared">
           A couple on one of your events shared their own photo of your work for one of your service cards. Approve it
           and it shows on that card with their credit line; until you approve, or if you decline, it shows nowhere. The
-          couple can take it back at any time. It does not use your page-photo room. There is no payment either way — if
+          couple can take it back at any time, and chooses who sees it on your card (Only hosts · Exclusive · Private ·
+          Public) — you and your team always see it. It does not use your page-photo room. There is no payment either way — if
           you want to thank them, a Gift from your shop is the way, never cash.
         </Explain>
       </div>
@@ -83,6 +86,7 @@ export function CouplePhotosList({
               <span className="min-w-0 flex-1 text-[14px] leading-snug">
                 <b className="block font-medium text-ink">{r.state === 'waiting' ? `For “${r.serviceTitle}”` : `On “${r.serviceTitle}”`}</b>
                 <span className="block text-ink/60">Credit: {r.creditLine}</span>
+                {r.audienceLabel ? <span className="block text-[13px] text-ink/50">Seen by: {r.audienceLabel}</span> : null}
               </span>
             </div>
             {r.state === 'waiting' ? (

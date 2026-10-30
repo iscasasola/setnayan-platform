@@ -23,6 +23,11 @@ import { useMoodBoardActions } from './mood-board-actions-context';
 import { StudioSheet } from './colour-picker-sheet';
 import type { PhotoShareOptions } from '@/lib/couple-photo-share';
 import {
+  COUPLE_PHOTO_AUDIENCES,
+  COUPLE_PHOTO_AUDIENCE_HINT,
+  COUPLE_PHOTO_AUDIENCE_LABEL,
+  isCouplePhotoAudience,
+  type CouplePhotoAudience,
   coupleCreditChoices,
   couplePhotoConsentText,
   coupleShareStateLine,
@@ -51,6 +56,8 @@ export function SharePhotoSheet({
   const [card, setCard] = useState<string>('');
   const [credit, setCredit] = useState<CoupleCreditStyle>('names');
   const [consent, setConsent] = useState(false);
+  /* 👁 Who sees it on their card — starts on the event's own Event Hub setting (unknown → Exclusive). */
+  const [audience, setAudience] = useState<CouplePhotoAudience | null>(null);
   const [busy, setBusy] = useState(false);
   const [said, setSaid] = useState<{ tone: 'ok' | 'bad'; text: string } | null>(null);
   const consentId = useId();
@@ -64,6 +71,7 @@ export function SharePhotoSheet({
         if (o.status === 'ok') {
           setCard((c) => (o.cards.some((x) => x.vendorServiceId === c) ? c : (o.cards[0]?.vendorServiceId ?? '')));
           setCredit((s) => (s === 'names' && !o.namesCredit ? 'a_couple' : s));
+          setAudience((a) => a ?? o.defaultAudience);
         }
       } catch {
         setOpts({ status: 'error' });
@@ -93,6 +101,7 @@ export function SharePhotoSheet({
         creditStyle: credit,
         creditLine: credit === 'names' ? ok.namesCredit : null,
         consent,
+        audience: audience ?? ok.defaultAudience,
       });
       const r = reply.op === 'send' ? reply.result : { status: 'refused' as const, message: 'That did not go through — nothing was sent. Try again.' };
       if (r.status === 'ok') {
@@ -104,6 +113,23 @@ export function SharePhotoSheet({
       }
     } catch {
       setSaid({ tone: 'bad', text: 'That did not go through — nothing was sent. Try again.' });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const audienceOptions = COUPLE_PHOTO_AUDIENCES.map((a) => ({ key: a, label: COUPLE_PHOTO_AUDIENCE_LABEL[a] }));
+  const changeAudience = async (shareId: string, next: string) => {
+    if (!isCouplePhotoAudience(next) || busy) return;
+    setBusy(true);
+    setSaid(null);
+    try {
+      const reply = await couplePhotoShare({ op: 'audience', eventId, shareId, audience: next });
+      const r = reply.op === 'audience' ? reply.result : { status: 'error' as const };
+      setSaid(r.status === 'ok' ? { tone: 'ok', text: `Now seen by: ${COUPLE_PHOTO_AUDIENCE_LABEL[next]}.` } : { tone: 'bad', text: 'That did not go through — nothing changed. Try again.' });
+      await read(pos);
+    } catch {
+      setSaid({ tone: 'bad', text: 'That did not go through — nothing changed. Try again.' });
     } finally {
       setBusy(false);
     }
@@ -194,6 +220,23 @@ export function SharePhotoSheet({
                 buttonText={choices.find((c) => c.key === credit)?.label ?? 'A couple'}
               />
             </label>
+            <label className="flex flex-col gap-1" data-share-photo-audience="">
+              <span className="flex items-center gap-1 text-[12px] font-semibold uppercase tracking-[0.08em] text-ink/55">
+                Who sees it on their card
+                <Explain title="Who sees it">
+                  {COUPLE_PHOTO_AUDIENCES.map((a) => `${COUPLE_PHOTO_AUDIENCE_LABEL[a]}: ${COUPLE_PHOTO_AUDIENCE_HINT[a]}`).join(' ')} Your supplier
+                  sees it to approve it either way. You can change this later.
+                </Explain>
+              </span>
+              <PickMenu
+                label="Who sees it on their card"
+                value={audience ?? opts.defaultAudience}
+                options={audienceOptions}
+                onPick={(k) => isCouplePhotoAudience(k) && setAudience(k)}
+                dataAttr="data-share-photo-audience-pick"
+                buttonText={COUPLE_PHOTO_AUDIENCE_LABEL[audience ?? opts.defaultAudience]}
+              />
+            </label>
             <label htmlFor={consentId} className="flex min-h-11 items-start gap-3 text-[14px] leading-snug text-ink" data-share-photo-consent="">
               <input
                 id={consentId}
@@ -226,13 +269,23 @@ export function SharePhotoSheet({
         {ok && ok.shares.length > 0 ? (
           <ul className="flex flex-col divide-y divide-ink/10 border-t border-ink/10" data-share-photo-list="">
             {ok.shares.map((s) => (
-              <li key={s.shareId} className="flex min-h-12 items-center gap-2 py-2" data-share-photo-state={s.state}>
+              <li key={s.shareId} className="flex min-h-12 flex-wrap items-center gap-2 py-2" data-share-photo-state={s.state}>
                 <span className="min-w-0 flex-1 text-[13px] leading-tight">
                   <b className="block font-medium text-ink">{coupleShareStateLine(s.state, s.shop)}</b>
                   <span className="text-ink/55">
                     {s.serviceTitle} · {s.credit}
                   </span>
                 </span>
+                {s.state === 'waiting' || s.state === 'approved' ? (
+                  <PickMenu
+                    label={`Who sees it on ${s.shop}’s card`}
+                    value={s.audience}
+                    options={audienceOptions}
+                    onPick={(k) => void changeAudience(s.shareId, k)}
+                    dataAttr="data-share-photo-row-audience"
+                    buttonText={COUPLE_PHOTO_AUDIENCE_LABEL[s.audience]}
+                  />
+                ) : null}
                 {s.state === 'waiting' || s.state === 'approved' ? (
                   <ActionButton tone="neutral" quiet icon={Undo2} label="Take back" name={`Take back the photo from ${s.shop}`} disabled={busy} onClick={() => void takeBack(s.shareId, s.shop)} />
                 ) : null}

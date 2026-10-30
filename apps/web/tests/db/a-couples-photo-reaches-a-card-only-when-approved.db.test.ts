@@ -76,7 +76,7 @@ let keyN = 0;
 const uploadKey = (pos: number, eventId = W.eventId) => `inspiration/${eventId}/bridal_bouquet/${(++keyN).toString().padStart(8, '0')}-0000-4000-8000-000000000000-own-${pos}.jpg`;
 const urlOf = (key: string) => `https://media.example/${key}`;
 /** A frozen copy's key for one Approve attempt (the server draws the 12-hex attempt fresh each time). */
-const lookKey = (shareId: string, attempt = '000000000001') => `couple-looks/${shareId}-${attempt}.jpg`;
+const lookKey = (shareId: string, attempt = '0000000000000001') => `couple-looks/${shareId}-${attempt}.jpg`;
 const HEX = ['#5B4A6B', '#D9C4CF', '#A9834B', '#F7F2EC', '#7A8B6F', '#FFFFFF'];
 
 async function shop(email: string, name: string, link: boolean): Promise<{ owner: string; card: string }> {
@@ -134,16 +134,16 @@ async function freePlace(pos: number): Promise<void> {
   await db.query(`UPDATE public.event_inspiration_assets SET removed_at = NOW() WHERE event_id=$1 AND slot_key='bridal_bouquet' AND slot_position=$2 AND removed_at IS NULL`, [W.eventId, pos]);
 }
 const CONSENT = 'couple-photo-consent-v1';
-async function share(uid: string, photo: string, card: string, style = 'names', line: string | null = 'Ana & Ben · Feb 2027', consent: string | null = CONSENT) {
+async function share(uid: string, photo: string, card: string, style = 'names', line: string | null = 'Ana & Ben · Feb 2027', consent: string | null = CONSENT, audience: string | null = 'public') {
   return as<{ status: string; share_id?: string; state?: string }>(
     uid,
-    `SELECT public.couple_share_photo_with_supplier($1, $2, $3, $4, $5) AS out`,
-    [photo, card, style, line, consent],
+    `SELECT public.couple_share_photo_with_supplier($1, $2, $3, $4, $5, $6) AS out`,
+    [photo, card, style, line, consent, audience],
   );
 }
 /** The shop's answer. An Approve carries the frozen copy's key the server made (default: the right one). */
-async function answer(uid: string, id: string, approve: boolean, key: string | null = approve ? lookKey(id) : null) {
-  return as<{ status: string; unpublished_key?: string | null }>(uid, `SELECT public.vendor_answer_couple_photo($1, $2, $3) AS out`, [id, approve, key]);
+async function answer(uid: string, id: string, approve: boolean, key: string | null = approve ? lookKey(id) : null, copyPublic: boolean | null = approve ? true : null) {
+  return as<{ status: string; unpublished_key?: string | null }>(uid, `SELECT public.vendor_answer_couple_photo($1, $2, $3, $4) AS out`, [id, approve, key, copyPublic]);
 }
 async function withdraw(uid: string, id: string) {
   return as<{ status: string }>(uid, `SELECT public.couple_withdraw_photo_share($1) AS out`, [id]);
@@ -418,14 +418,14 @@ test('F3 · the public key names no event and no file; Approve needs exactly thi
   const { id } = await freshShare(1, W.floristCard, false);
   for (const bad of [
     null,
-    `couple-looks/${W.eventId}-000000000001.jpg`,
-    `couple-looks/00000000-0000-0000-0000-000000000000-000000000001.jpg`,
+    `couple-looks/${W.eventId}-0000000000000001.jpg`,
+    `couple-looks/00000000-0000-0000-0000-000000000000-0000000000000001.jpg`,
     `inspiration/${W.eventId}/bridal_bouquet/x.jpg`,
     `couple-looks/${id}.jpg`,
     `couple-looks/${id}-ana-ben.jpg`,
-    `couple-looks/${id}-000000000001.jpeg.exe`,
-    `couple-looks/${id}-000000000001.svg`,
-    `couple-looks/${id}-000000000001.jpg/../x`,
+    `couple-looks/${id}-0000000000000001.jpeg.exe`,
+    `couple-looks/${id}-0000000000000001.svg`,
+    `couple-looks/${id}-0000000000000001.jpg/../x`,
   ]) {
     const a = await answer(W.florist, id, true, bad);
     assert.ok(a.ok && a.value.status === 'bad_key', `approve accepted ${bad}: ${JSON.stringify(a)}`);
@@ -434,7 +434,7 @@ test('F3 · the public key names no event and no file; Approve needs exactly thi
   const ok = await answer(W.florist, id, true);
   assert.ok(ok.ok && ok.value.status === 'ok');
   const card = await onCard(W.floristCard);
-  assert.ok(card.length > 0 && card.every((x) => /^couple-looks\/[0-9a-f-]{36}-[0-9a-f]{12}\.(jpg|jpeg|png|webp)$/.test(x.public_key) && !x.public_key.includes(W.eventId)), JSON.stringify(card));
+  assert.ok(card.length > 0 && card.every((x) => /^couple-looks\/[0-9a-f-]{36}-[0-9a-f]{16}\.(jpg|jpeg|png|webp)$/.test(x.public_key) && !x.public_key.includes(W.eventId)), JSON.stringify(card));
   // Take off returns the key so the server deletes the copy; withdraw does too.
   const off = await answer(W.florist, id, false);
   assert.ok(off.ok && off.value.status === 'ok' && off.value.unpublished_key === lookKey(id), JSON.stringify(off));
@@ -508,14 +508,14 @@ test('F2 · round 2 — a KEPT suggestion cannot be relabelled an own upload (ki
 
 test('#2 · round 2 — two approves in a row: the first copy is published and stays; the second is refused', async () => {
   const { id } = await freshShare(1, W.floristCard, false);
-  const first = await answer(W.florist, id, true, lookKey(id, 'aaaaaaaaaaaa'));
-  const second = await answer(W.florist, id, true, lookKey(id, 'bbbbbbbbbbbb'));
+  const first = await answer(W.florist, id, true, lookKey(id, 'aaaaaaaaaaaaaaaa'));
+  const second = await answer(W.florist, id, true, lookKey(id, 'bbbbbbbbbbbbbbbb'));
   assert.ok(first.ok && first.value.status === 'ok', JSON.stringify(first));
   assert.ok(second.ok && second.value.status === 'already', JSON.stringify(second));
   // The losing attempt names ITS OWN key — never the one the card shows — so deleting it cannot take the card's photo.
-  assert.notEqual(lookKey(id, 'bbbbbbbbbbbb'), lookKey(id, 'aaaaaaaaaaaa'));
-  assert.deepEqual((await onCard(W.floristCard)).filter((x) => x.public_key.startsWith(`couple-looks/${id}`)).map((x) => x.public_key), [lookKey(id, 'aaaaaaaaaaaa')]);
-  assert.equal((await stateOf(id)).public_key, lookKey(id, 'aaaaaaaaaaaa'));
+  assert.notEqual(lookKey(id, 'bbbbbbbbbbbbbbbb'), lookKey(id, 'aaaaaaaaaaaaaaaa'));
+  assert.deepEqual((await onCard(W.floristCard)).filter((x) => x.public_key.startsWith(`couple-looks/${id}`)).map((x) => x.public_key), [lookKey(id, 'aaaaaaaaaaaaaaaa')]);
+  assert.equal((await stateOf(id)).public_key, lookKey(id, 'aaaaaaaaaaaaaaaa'));
 });
 
 test('round 2 — an account erasure with an approved share goes through; a co-host moving a photo between places does not raise', async () => {
@@ -542,4 +542,107 @@ test('round 2 — an account erasure with an approved share goes through; a co-h
   await freePlace(2);
   const move = await as(W.cohost, `UPDATE public.event_inspiration_assets SET slot_position=2 WHERE inspiration_id=$1 RETURNING 1 AS out`, [photo]);
   assert.ok(move.ok, `a slot move raised: ${JSON.stringify(move)}`);
+});
+
+/* ══════════════════════════════════════════════════════════════════════════
+   👁 WHO SEES IT — the couple's audience (owner 2026-10-30), every audience × every viewer
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/** What a SIGNED-IN viewer's extra read returns for a card (the non-public photos they are inside). */
+async function viewerSees(uid: string, card: string): Promise<string[]> {
+  const r = await as<string[] | null>(uid, `SELECT array_agg(share_id::text ORDER BY share_id) AS out FROM public.viewer_service_card_couple_photos(ARRAY[$1]::uuid[])`, [card]);
+  assert.ok(r.ok, JSON.stringify(r));
+  return r.value ?? [];
+}
+async function audienceShare(audience: string): Promise<string> {
+  await freePlace(1);
+  const photo = await boardPhoto(W.couple, 1, 'file_upload');
+  const s = await share(W.couple, photo, W.floristCard, 'a_couple', null, CONSENT, audience);
+  assert.ok(s.ok && s.value.status === 'ok', JSON.stringify(s));
+  const a = await answer(W.florist, s.value.share_id!, true, lookKey(s.value.share_id!), audience === 'public');
+  assert.ok(a.ok && a.value.status === 'ok', JSON.stringify(a));
+  return s.value.share_id!;
+}
+
+test('👁 every audience × every viewer — the cached public read is Public only; Private fails closed to Exclusive', async () => {
+  const signedInStranger = await newUser('cps-stranger-viewer@audit.test');
+  const viewers: Record<string, string> = {
+    host: W.couple, cohost: W.cohost, guest: W.guest, supplierTeam: W.florist,
+    otherSupplier: W.other, unrelatedSupplier: W.stranger, stranger: signedInStranger,
+  };
+  const expectInside: Record<string, string[]> = {
+    hosts: ['host', 'cohost', 'supplierTeam'],
+    exclusive: ['host', 'cohost', 'guest', 'supplierTeam'],
+    // ⚠ Private = Exclusive until "the people around me" has a resolver — never wider.
+    private: ['host', 'cohost', 'guest', 'supplierTeam'],
+  };
+  for (const audience of ['public', 'hosts', 'exclusive', 'private']) {
+    const id = await audienceShare(audience);
+    const onPublic = (await onCard(W.floristCard)).some((x) => x.public_key === lookKey(id));
+    assert.equal(onPublic, audience === 'public', `${audience}: the cached public read ${onPublic ? 'returned' : 'did not return'} it`);
+    for (const [who, uid] of Object.entries(viewers)) {
+      const sees = (await viewerSees(uid, W.floristCard)).includes(id);
+      const should = audience !== 'public' && (expectInside[audience] ?? []).includes(who);
+      assert.equal(sees, should, `${audience} × ${who}: the signed-in read ${sees ? 'showed' : 'hid'} it`);
+    }
+    // anon cannot call the signed-in read at all.
+    await asAnon();
+    const anonTry = await db.query(`SELECT * FROM public.viewer_service_card_couple_photos(ARRAY[$1]::uuid[])`, [W.floristCard]).then(() => 'read', (e: Error) => e.message);
+    await reset();
+    assert.notEqual(anonTry, 'read', 'anon could call the signed-in read');
+    const w = await withdraw(W.couple, id);
+    assert.ok(w.ok && w.value.status === 'ok');
+  }
+});
+
+test('👁 the couple changes who sees it — at once, uploader only; crossing the public line needs a new copy', async () => {
+  const id = await audienceShare('hosts');
+  for (const uid of [W.cohost, W.guest, W.florist]) {
+    const no = await as(uid, `SELECT public.couple_set_photo_share_audience($1, 'public', NULL) AS out`, [id]);
+    assert.ok(!no.ok && /not_yours/.test(no.message), `someone other than the uploader changed the audience: ${JSON.stringify(no)}`);
+  }
+  // Widen to Public: an approved copy in the private bucket must move — refused without the new copy's key.
+  const needs = await as<{ status: string }>(W.couple, `SELECT public.couple_set_photo_share_audience($1, 'public', NULL) AS out`, [id]);
+  assert.ok(needs.ok && needs.value.status === 'needs_move', JSON.stringify(needs));
+  const same = await as<{ status: string }>(W.couple, `SELECT public.couple_set_photo_share_audience($1, 'public', $2) AS out`, [id, lookKey(id)]);
+  assert.ok(same.ok && same.value.status === 'needs_move', 'the move reused the old key');
+  const moved = await as<{ status: string; unpublished_key: string }>(W.couple, `SELECT public.couple_set_photo_share_audience($1, 'public', $2) AS out`, [id, lookKey(id, 'cccccccccccccccc')]);
+  assert.ok(moved.ok && moved.value.status === 'ok' && moved.value.unpublished_key === lookKey(id), JSON.stringify(moved));
+  assert.ok((await onCard(W.floristCard)).some((x) => x.public_key === lookKey(id, 'cccccccccccccccc')), 'widened to Public, it is not on the public card');
+  // Narrow to Exclusive (no re-approval): off the public read at once; a guest sees it signed in.
+  const narrowed = await as<{ status: string }>(W.couple, `SELECT public.couple_set_photo_share_audience($1, 'exclusive', $2) AS out`, [id, lookKey(id, 'dddddddddddddddd')]);
+  assert.ok(narrowed.ok && narrowed.value.status === 'ok', JSON.stringify(narrowed));
+  assert.ok(!(await onCard(W.floristCard)).some((x) => x.public_key.startsWith(`couple-looks/${id}`)), 'narrowed, it is still on the public card');
+  assert.ok((await viewerSees(W.guest, W.floristCard)).includes(id));
+  assert.equal((await stateOf(id)).state, 'approved', 'a change of audience asked for a re-approval');
+  // A same-side change needs no key, and refuses one.
+  const toHosts = await as<{ status: string }>(W.couple, `SELECT public.couple_set_photo_share_audience($1, 'hosts', NULL) AS out`, [id]);
+  assert.ok(toHosts.ok && toHosts.value.status === 'ok');
+  assert.ok(!(await viewerSees(W.guest, W.floristCard)).includes(id), 'narrowed to Only hosts, a guest still sees it');
+  const badKey = await as<{ status: string }>(W.couple, `SELECT public.couple_set_photo_share_audience($1, 'exclusive', $2) AS out`, [id, lookKey(id, 'eeeeeeeeeeeeeeee')]);
+  assert.ok(badKey.ok && badKey.value.status === 'bad_key', JSON.stringify(badKey));
+  const bad = await as<{ status: string }>(W.couple, `SELECT public.couple_set_photo_share_audience($1, 'everyone', NULL) AS out`, [id]);
+  assert.ok(bad.ok && bad.value.status === 'bad_audience');
+  await withdraw(W.couple, id);
+});
+
+test('👁 a share needs an allowed audience; an approve whose copy is in the wrong bucket is refused', async () => {
+  await freePlace(1);
+  const photo = await boardPhoto(W.couple, 1, 'file_upload');
+  for (const audience of [null, '', 'everyone', 'PUBLIC']) {
+    const r = await share(W.couple, photo, W.floristCard, 'a_couple', null, CONSENT, audience);
+    assert.ok(r.ok && r.value.status === 'bad_audience', `audience ${String(audience)} accepted: ${JSON.stringify(r)}`);
+  }
+  const s = await share(W.couple, photo, W.floristCard, 'a_couple', null, CONSENT, 'public');
+  const id = s.ok ? s.value.share_id! : '';
+  // The couple narrows while the shop is approving: the shop's public-bucket copy no longer matches.
+  await as(W.couple, `SELECT public.couple_set_photo_share_audience($1, 'hosts', NULL) AS out`, [id]);
+  const a = await answer(W.florist, id, true, lookKey(id), true);
+  assert.ok(a.ok && a.value.status === 'audience_changed', `a public copy was published for an Only-hosts share: ${JSON.stringify(a)}`);
+  const missing = await answer(W.florist, id, true, lookKey(id), null);
+  assert.ok(missing.ok && missing.value.status === 'audience_changed');
+  const ok = await answer(W.florist, id, true, lookKey(id), false);
+  assert.ok(ok.ok && ok.value.status === 'ok');
+  assert.ok(!(await onCard(W.floristCard)).some((x) => x.public_key === lookKey(id)));
+  await withdraw(W.couple, id);
 });

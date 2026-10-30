@@ -39,6 +39,22 @@
 --     the server deletes the copy on withdraw/decline and sweeps any orphan.
 -- (`tests/db/a-couples-photo-reaches-a-card-only-when-approved.db.test.ts`).
 --
+-- ── WHO SEES IT — THE COUPLE'S AUDIENCE (owner 2026-10-30, "set who gets to see it
+-- (only hosts, exclusive, private, public)") ───────────────────────────────────
+-- Every share carries `audience`: 'hosts' · 'exclusive' · 'private' · 'public'
+-- (the 2026-10-27 Event Hub viewing terms, plus Only hosts). The shop approves
+-- every share whatever its audience. The cached public card reads ONLY 'public'
+-- (`service_card_couple_photos`); a signed-in viewer gets the non-public ones
+-- they are inside through `viewer_service_card_couple_photos`:
+--   hosts     → the event's couple (current_couple_event_ids) + the shop's team
+--   exclusive → every member of the event (current_event_ids: hosts, guests,
+--               coordinators, booked shops' members) + the shop's team
+--   private   → ⚠ FAILS CLOSED TO EXCLUSIVE. "All the people around me" is still
+--               OPEN (2026-10-27 row) and has no resolver; it never widens.
+-- Copies live by audience: 'public' in the public media bucket; every other
+-- audience in a PRIVATE bucket, served only as short-lived signed URLs. A change
+-- of audience across that line moves the copy (a new key, same shape).
+--
 -- ── 🔓 OPEN (owner) — DOES IT COUNT TOWARD THE PAID PAGE-PHOTO ROOM? ─────────
 -- The 2026-10-28 wallet row prices a supplier's own page photos (free room, then
 -- 1 credit a photo — `file_supplier_page_notice` / `shop_portfolio_commit`).
@@ -88,7 +104,12 @@ CREATE TABLE IF NOT EXISTS public.couple_photo_shares (
   -- id, carrying no event id and no file name. The card serves only this.
   public_key         TEXT
                        CONSTRAINT couple_photo_shares_public_key_shape
-                       CHECK (public_key IS NULL OR public_key ~ ('^couple-looks/' || share_id::text || '-[0-9a-f]{12}\.(jpg|jpeg|png|webp)$')),
+                       CHECK (public_key IS NULL OR public_key ~ ('^couple-looks/' || share_id::text || '-[0-9a-f]{16}\.(jpg|jpeg|png|webp)$')),
+  -- WHO SEES IT on the card — the uploader's choice, changeable later.
+  -- No DEFAULT on purpose: the share door writes it (the event's own setting by default).
+  audience           TEXT NOT NULL
+                       CONSTRAINT couple_photo_shares_audience_allowed
+                       CHECK (audience IN ('hosts', 'exclusive', 'private', 'public')),
   -- The credit the card prints — the uploader's choice, frozen at share time.
   credit_style       TEXT NOT NULL
                        CONSTRAINT couple_photo_shares_credit_style_allowed
@@ -249,7 +270,8 @@ CREATE OR REPLACE FUNCTION public.couple_share_photo_with_supplier(
   p_vendor_service_id UUID,
   p_credit_style      TEXT,
   p_credit_line       TEXT,
-  p_consent_version   TEXT
+  p_consent_version   TEXT,
+  p_audience          TEXT
 ) RETURNS JSONB
 LANGUAGE plpgsql
 VOLATILE
@@ -271,6 +293,9 @@ BEGIN
   -- The consent checkbox is REQUIRED — no version, no share.
   IF p_consent_version IS NULL OR length(btrim(p_consent_version)) = 0 THEN
     RETURN jsonb_build_object('status', 'no_consent');
+  END IF;
+  IF p_audience IS NULL OR p_audience NOT IN ('hosts', 'exclusive', 'private', 'public') THEN
+    RETURN jsonb_build_object('status', 'bad_audience');
   END IF;
 
   SELECT * INTO v_photo FROM public.event_inspiration_assets
@@ -346,11 +371,11 @@ BEGIN
 
   INSERT INTO public.couple_photo_shares
     (event_id, inspiration_id, vendor_profile_id, vendor_service_id, shared_by_user_id,
-     snapshot_r2_key, snapshot_image_url,
+     snapshot_r2_key, snapshot_image_url, audience,
      credit_style, credit_line, consent_version, consented_at, state)
   VALUES
     (v_photo.event_id, p_inspiration_id, v_shop, p_vendor_service_id, auth.uid(),
-     v_photo.r2_key, v_photo.image_url,
+     v_photo.r2_key, v_photo.image_url, p_audience,
      p_credit_style, v_line, btrim(p_consent_version), NOW(), 'waiting')
   RETURNING share_id INTO v_id;
 
@@ -363,15 +388,15 @@ BEGIN
   );
 END;
 $$;
-COMMENT ON FUNCTION public.couple_share_photo_with_supplier(UUID, UUID, TEXT, TEXT, TEXT) IS
+COMMENT ON FUNCTION public.couple_share_photo_with_supplier(UUID, UUID, TEXT, TEXT, TEXT, TEXT) IS
   'The uploader sends their OWN board photo (an upload under inspiration/<event>/, not '
   'removed, its key on no other row) to one ACTIVE card of a shop linked to the event, '
   'with consent and a credit line; the photo is snapshot onto the share, which waits for '
   'that shop. Answers no_consent / not_own_photo / not_your_photo / no_card / not_on_event / '
-  'bad_credit / already; raises not_your_event.';
-REVOKE ALL ON FUNCTION public.couple_share_photo_with_supplier(UUID, UUID, TEXT, TEXT, TEXT) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.couple_share_photo_with_supplier(UUID, UUID, TEXT, TEXT, TEXT) FROM anon;
-GRANT EXECUTE ON FUNCTION public.couple_share_photo_with_supplier(UUID, UUID, TEXT, TEXT, TEXT) TO authenticated;
+  'bad_credit / bad_audience / already; raises not_your_event.';
+REVOKE ALL ON FUNCTION public.couple_share_photo_with_supplier(UUID, UUID, TEXT, TEXT, TEXT, TEXT) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.couple_share_photo_with_supplier(UUID, UUID, TEXT, TEXT, TEXT, TEXT) FROM anon;
+GRANT EXECUTE ON FUNCTION public.couple_share_photo_with_supplier(UUID, UUID, TEXT, TEXT, TEXT, TEXT) TO authenticated;
 
 -- ── 4 · ANSWER — only THAT shop's owner/admin team approves or declines ───────
 -- Approve PUBLISHES: p_public_key names the frozen copy the server already made
@@ -379,9 +404,12 @@ GRANT EXECUTE ON FUNCTION public.couple_share_photo_with_supplier(UUID, UUID, TE
 -- back off the card. Either way the old public key comes back so the server can
 -- delete the object.
 CREATE OR REPLACE FUNCTION public.vendor_answer_couple_photo(
-  p_share_id   UUID,
-  p_approve    BOOLEAN,
-  p_public_key TEXT DEFAULT NULL
+  p_share_id    UUID,
+  p_approve     BOOLEAN,
+  p_public_key  TEXT DEFAULT NULL,
+  -- Where the server put the copy: TRUE = the public bucket. Must match the
+  -- share's audience NOW, or the couple changed it mid-approve ('audience_changed').
+  p_copy_public BOOLEAN DEFAULT NULL
 ) RETURNS JSONB
 LANGUAGE plpgsql
 VOLATILE
@@ -409,8 +437,11 @@ BEGIN
     RETURN jsonb_build_object('status', 'already', 'state', v_row.state);
   END IF;
   IF p_approve AND (p_public_key IS NULL
-       OR p_public_key !~ ('^couple-looks/' || v_row.share_id::text || '-[0-9a-f]{12}\.(jpg|jpeg|png|webp)$')) THEN
+       OR p_public_key !~ ('^couple-looks/' || v_row.share_id::text || '-[0-9a-f]{16}\.(jpg|jpeg|png|webp)$')) THEN
     RETURN jsonb_build_object('status', 'bad_key');
+  END IF;
+  IF p_approve AND (p_copy_public IS NULL OR p_copy_public <> (v_row.audience = 'public')) THEN
+    RETURN jsonb_build_object('status', 'audience_changed');
   END IF;
   UPDATE public.couple_photo_shares
      SET state = CASE WHEN p_approve THEN 'approved' ELSE 'declined' END,
@@ -423,19 +454,20 @@ BEGIN
     'approved', p_approve,
     'was', v_row.state,
     'unpublished_key', CASE WHEN p_approve THEN NULL ELSE v_row.public_key END,
+    'unpublished_public', v_row.audience = 'public',
     'event_id', v_row.event_id,
     'shared_by_user_id', v_row.shared_by_user_id
   );
 END;
 $$;
-COMMENT ON FUNCTION public.vendor_answer_couple_photo(UUID, BOOLEAN, TEXT) IS
+COMMENT ON FUNCTION public.vendor_answer_couple_photo(UUID, BOOLEAN, TEXT, BOOLEAN) IS
   'The shop''s Approve / Decline on a couple''s shared photo (owner/admin team via '
   'current_vendor_profile_ids, else not_yours). Approve requires the frozen copy''s key '
   '(couple-looks/<share_id>-<attempt>.<ext>, else bad_key) and publishes it; Decline on an approved '
   'row takes it off the card and hands back the key to delete. A withdrawn photo changes nothing.';
-REVOKE ALL ON FUNCTION public.vendor_answer_couple_photo(UUID, BOOLEAN, TEXT) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.vendor_answer_couple_photo(UUID, BOOLEAN, TEXT) FROM anon;
-GRANT EXECUTE ON FUNCTION public.vendor_answer_couple_photo(UUID, BOOLEAN, TEXT) TO authenticated;
+REVOKE ALL ON FUNCTION public.vendor_answer_couple_photo(UUID, BOOLEAN, TEXT, BOOLEAN) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.vendor_answer_couple_photo(UUID, BOOLEAN, TEXT, BOOLEAN) FROM anon;
+GRANT EXECUTE ON FUNCTION public.vendor_answer_couple_photo(UUID, BOOLEAN, TEXT, BOOLEAN) TO authenticated;
 
 -- ── 5 · WITHDRAW — the uploader takes it back; it leaves the card ────────────
 CREATE OR REPLACE FUNCTION public.couple_withdraw_photo_share(
@@ -463,7 +495,8 @@ BEGIN
   UPDATE public.couple_photo_shares
      SET state = 'withdrawn', withdrawn_at = NOW(), public_key = NULL
    WHERE share_id = p_share_id;
-  RETURN jsonb_build_object('status', 'ok', 'was', v_row.state, 'unpublished_key', v_row.public_key);
+  RETURN jsonb_build_object('status', 'ok', 'was', v_row.state, 'unpublished_key', v_row.public_key,
+                            'unpublished_public', v_row.audience = 'public');
 END;
 $$;
 COMMENT ON FUNCTION public.couple_withdraw_photo_share(UUID) IS
@@ -484,6 +517,7 @@ RETURNS TABLE (
   decided_at        TIMESTAMPTZ,
   credit_line       TEXT,
   photo_key         TEXT,
+  audience          TEXT,
   vendor_profile_id UUID,
   vendor_service_id UUID,
   service_title     TEXT
@@ -495,6 +529,7 @@ SET search_path = public
 AS $$
   SELECT s.share_id, s.state, s.created_at, s.decided_at, s.credit_line,
          CASE WHEN s.state = 'approved' THEN s.public_key ELSE s.snapshot_r2_key END,
+         s.audience,
          s.vendor_profile_id, s.vendor_service_id, vs.title
   FROM public.couple_photo_shares s
   JOIN public.vendor_services vs ON vs.vendor_service_id = s.vendor_service_id
@@ -530,15 +565,127 @@ AS $$
   WHERE s.vendor_service_id = ANY (COALESCE(p_vendor_service_ids, ARRAY[]::UUID[]))
     AND s.state = 'approved'
     AND s.public_key IS NOT NULL
+    AND s.audience = 'public'
     AND vs.is_active IS TRUE
   ORDER BY s.vendor_service_id, s.decided_at DESC
   LIMIT 500;
 $$;
 COMMENT ON FUNCTION public.service_card_couple_photos(UUID[]) IS
-  'The public service card''s "From couples" photos: APPROVED shares only, as their own '
+  'The public service card''s "From couples" photos: APPROVED, audience PUBLIC shares only, as their own '
   'frozen copy (couple-looks/<share_id>-<attempt>.<ext>) + credit line — never the couple''s board row, '
   'nothing that names the event. Waiting / declined / withdrawn never leave here.';
 REVOKE ALL ON FUNCTION public.service_card_couple_photos(UUID[]) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.service_card_couple_photos(UUID[]) TO anon, authenticated;
+
+-- ── 8 · THE SIGNED-IN VIEWER'S EXTRA PHOTOS — never in the cached page ───────
+-- Approved, NON-public shares the caller is inside the audience of. Read after
+-- the page by a signed-in viewer only; the URLs are signed by the server.
+CREATE OR REPLACE FUNCTION public.viewer_service_card_couple_photos(
+  p_vendor_service_ids UUID[]
+) RETURNS TABLE (
+  vendor_service_id UUID,
+  share_id          UUID,
+  public_key        TEXT,
+  credit_line       TEXT,
+  audience          TEXT
+)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT s.vendor_service_id, s.share_id, s.public_key, s.credit_line, s.audience
+  FROM public.couple_photo_shares s
+  JOIN public.vendor_services vs ON vs.vendor_service_id = s.vendor_service_id
+  WHERE auth.uid() IS NOT NULL
+    AND s.vendor_service_id = ANY (COALESCE(p_vendor_service_ids, ARRAY[]::UUID[]))
+    AND s.state = 'approved'
+    AND s.public_key IS NOT NULL
+    AND s.audience <> 'public'
+    AND vs.is_active IS TRUE
+    AND (
+      -- The shop that approved it always sees its own card.
+      s.vendor_profile_id IN (SELECT public.current_vendor_profile_ids())
+      -- Only hosts: the event's couple.
+      OR (s.audience = 'hosts' AND s.event_id IN (SELECT public.current_couple_event_ids()))
+      -- Exclusive — and Private, which FAILS CLOSED to Exclusive until "the people
+      -- around me" has a resolver (2026-10-27 OPEN): every member of the event.
+      OR (s.audience IN ('exclusive', 'private') AND s.event_id IN (SELECT public.current_event_ids()))
+    )
+  ORDER BY s.vendor_service_id, s.decided_at DESC
+  LIMIT 500;
+$$;
+COMMENT ON FUNCTION public.viewer_service_card_couple_photos(UUID[]) IS
+  'A signed-in viewer''s NON-public "From couples" photos: approved shares whose audience '
+  'admits them — hosts (the couple), exclusive + private (every event member; private fails '
+  'closed to exclusive), and always the approving shop''s team. Never anon; never cached.';
+REVOKE ALL ON FUNCTION public.viewer_service_card_couple_photos(UUID[]) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.viewer_service_card_couple_photos(UUID[]) FROM anon;
+GRANT EXECUTE ON FUNCTION public.viewer_service_card_couple_photos(UUID[]) TO authenticated;
+
+-- ── 9 · THE COUPLE CHANGES WHO SEES IT — at once, no re-approval ─────────────
+-- Same person as Take back (the uploader, or admin). On an APPROVED share whose
+-- change crosses the public line, the copy must move bucket: the server makes
+-- the new copy first and names it here (p_public_key, same shape, a NEW key);
+-- the old key comes back to be deleted. Otherwise p_public_key must be NULL.
+CREATE OR REPLACE FUNCTION public.couple_set_photo_share_audience(
+  p_share_id   UUID,
+  p_audience   TEXT,
+  p_public_key TEXT DEFAULT NULL
+) RETURNS JSONB
+LANGUAGE plpgsql
+VOLATILE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_row   public.couple_photo_shares%ROWTYPE;
+  v_moves BOOLEAN;
+BEGIN
+  IF p_share_id IS NULL OR auth.uid() IS NULL THEN
+    RETURN jsonb_build_object('status', 'bad_input');
+  END IF;
+  IF p_audience IS NULL OR p_audience NOT IN ('hosts', 'exclusive', 'private', 'public') THEN
+    RETURN jsonb_build_object('status', 'bad_audience');
+  END IF;
+  SELECT * INTO v_row FROM public.couple_photo_shares
+   WHERE share_id = p_share_id FOR UPDATE;
+  IF NOT FOUND OR (v_row.shared_by_user_id IS DISTINCT FROM auth.uid() AND NOT public.is_admin()) THEN
+    RAISE EXCEPTION 'not_yours' USING ERRCODE = '42501';
+  END IF;
+  IF v_row.state NOT IN ('waiting', 'approved') THEN
+    RETURN jsonb_build_object('status', 'already', 'state', v_row.state);
+  END IF;
+  IF v_row.audience = p_audience THEN
+    RETURN jsonb_build_object('status', 'ok', 'moved', FALSE);
+  END IF;
+  v_moves := v_row.state = 'approved' AND ((v_row.audience = 'public') <> (p_audience = 'public'));
+  IF v_moves THEN
+    IF p_public_key IS NULL OR p_public_key = v_row.public_key
+       OR p_public_key !~ ('^couple-looks/' || v_row.share_id::text || '-[0-9a-f]{16}\.(jpg|jpeg|png|webp)$') THEN
+      RETURN jsonb_build_object('status', 'needs_move', 'state', v_row.state);
+    END IF;
+  ELSIF p_public_key IS NOT NULL THEN
+    RETURN jsonb_build_object('status', 'bad_key');
+  END IF;
+  UPDATE public.couple_photo_shares
+     SET audience = p_audience,
+         public_key = CASE WHEN v_moves THEN p_public_key ELSE public_key END
+   WHERE share_id = p_share_id;
+  RETURN jsonb_build_object(
+    'status', 'ok',
+    'moved', v_moves,
+    'unpublished_key', CASE WHEN v_moves THEN v_row.public_key ELSE NULL END,
+    'unpublished_public', v_row.audience = 'public'
+  );
+END;
+$$;
+COMMENT ON FUNCTION public.couple_set_photo_share_audience(UUID, TEXT, TEXT) IS
+  'The uploader (or admin) changes who sees a waiting or approved share — at once, no '
+  're-approval. An approved share crossing the public line needs the server''s new copy '
+  '(needs_move otherwise); the old key comes back to be deleted.';
+REVOKE ALL ON FUNCTION public.couple_set_photo_share_audience(UUID, TEXT, TEXT) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.couple_set_photo_share_audience(UUID, TEXT, TEXT) FROM anon;
+GRANT EXECUTE ON FUNCTION public.couple_set_photo_share_audience(UUID, TEXT, TEXT) TO authenticated;
 
 COMMIT;

@@ -12,6 +12,7 @@
  * reader); this file is the WORDS and the one OPEN money question.
  */
 import { coupleFirstNamesLine } from './typed-names';
+import { normalizeVisibility } from './event-visibility';
 
 /* ══════════════════════════════════════════════════════════════════════════
    🔓 OPEN — THE PAGE-PHOTO ROOM (owner question, NOT decided)
@@ -87,6 +88,50 @@ export function coupleCreditChoices(namesCredit: string | null): Array<{ key: Co
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
+   WHO SEES IT — the couple's audience (owner 2026-10-30)
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Owner, verbatim: *"make it or set who gets to see it (only hosts, exclusive, private, public)"*. The words are the
+ * Event Hub's viewing terms (DECISION_LOG 2026-10-27 "EXCLUSIVE · PRIVATE · PUBLIC") plus Only hosts. The database
+ * CHECKs the same four values and decides who is inside each (`viewer_service_card_couple_photos`).
+ */
+export const COUPLE_PHOTO_AUDIENCES = ['hosts', 'exclusive', 'private', 'public'] as const;
+export type CouplePhotoAudience = (typeof COUPLE_PHOTO_AUDIENCES)[number];
+
+export function isCouplePhotoAudience(v: unknown): v is CouplePhotoAudience {
+  return typeof v === 'string' && (COUPLE_PHOTO_AUDIENCES as readonly string[]).includes(v);
+}
+
+/** The dropdown's words. ⚠ Private FAILS CLOSED to Exclusive — "the people around me" is still OPEN (2026-10-27). */
+export const COUPLE_PHOTO_AUDIENCE_LABEL: Record<CouplePhotoAudience, string> = {
+  hosts: 'Only hosts',
+  exclusive: 'Exclusive',
+  private: 'Private',
+  public: 'Public',
+};
+export const COUPLE_PHOTO_AUDIENCE_HINT: Record<CouplePhotoAudience, string> = {
+  hosts: 'You and your co-hosts — and the supplier, who approves it.',
+  exclusive: 'Your hosts and the people invited to your event.',
+  private: 'For now the same as Exclusive — who “the people around you” are is not settled yet, so it never shows wider.',
+  public: 'Everyone who opens their service card.',
+};
+
+/**
+ * The default: the event's OWN Event Hub viewing setting (`events.landing_page_visibility`, read through
+ * `normalizeVisibility`). Only a Public hub defaults to Public; everything else — Unlisted, invited accounts, Private
+ * (= hosts + guests, the new Exclusive per the 2026-10-27 row) and unknown — defaults to Exclusive. Never wider.
+ */
+export function defaultCouplePhotoAudience(landingPageVisibility: string | null | undefined): CouplePhotoAudience {
+  return normalizeVisibility(landingPageVisibility) === 'public' ? 'public' : 'exclusive';
+}
+
+/** A Public photo's copy lives in the public bucket; every other audience's in a private one, behind signed URLs. */
+export function audienceIsPublic(a: CouplePhotoAudience): boolean {
+  return a === 'public';
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
    STATES + WORDS
    ══════════════════════════════════════════════════════════════════════════ */
 
@@ -115,6 +160,7 @@ const SHARE_REFUSALS: Record<string, string> = {
   not_on_event: 'That supplier is not on your event any more.',
   bad_credit: 'Pick how the photo is credited.',
   already: 'This photo is already with that supplier.',
+  bad_audience: 'Pick who sees it on their card.',
   bad_input: 'That did not go through — try again.',
   not_publishable: 'Photos can’t be published just now — nothing changed. Try again in a moment.',
 };
@@ -150,23 +196,29 @@ export type SendPhotoShareInput = {
   creditLine: string | null;
   /** The checkbox — false sends nothing (the database refuses it too: no consent version, no share). */
   consent: boolean;
+  /** Who sees it on their card. */
+  audience: CouplePhotoAudience;
 };
 
 export type CouplePhotoShareRequest =
   | { op: 'read'; eventId: string; slotKey: string; slotPosition: number }
   | ({ op: 'send' } & SendPhotoShareInput)
   | { op: 'take_back'; eventId: string; shareId: string }
-  | { op: 'answer'; shareId: string; approve: boolean };
+  | { op: 'answer'; shareId: string; approve: boolean }
+  | { op: 'audience'; eventId: string; shareId: string; audience: CouplePhotoAudience }
+  | { op: 'viewer_looks'; vendorServiceIds: string[] };
 
 export type CouplePhotoShareReply =
   | { op: 'read'; result: PhotoShareOptions }
   | { op: 'send'; result: ShareResult }
   | { op: 'take_back'; result: { status: 'ok' | 'gone' | 'error' } }
-  | { op: 'answer'; result: AnswerCouplePhotoResult };
+  | { op: 'answer'; result: AnswerCouplePhotoResult }
+  | { op: 'audience'; result: { status: 'ok' | 'gone' | 'error' } }
+  | { op: 'viewer_looks'; result: Record<string, Array<{ id: string; url: string; credit: string }>> };
 
 export type PhotoShareCard = { vendorServiceId: string; title: string; shop: string };
 
-export type PhotoShareRow = { shareId: string; state: CouplePhotoShareState; shop: string; serviceTitle: string; credit: string };
+export type PhotoShareRow = { shareId: string; state: CouplePhotoShareState; shop: string; serviceTitle: string; credit: string; audience: CouplePhotoAudience };
 
 export type PhotoShareOptions =
   | {
@@ -178,6 +230,8 @@ export type PhotoShareOptions =
       shares: PhotoShareRow[];
       /** "Ana & Ben · Feb 2027", or null when the event has no names (then only "A couple" is offered). */
       namesCredit: string | null;
+      /** The audience the dropdown starts on — the event's own Event Hub viewing setting (unknown → Exclusive). */
+      defaultAudience: CouplePhotoAudience;
     }
   | { status: 'gone' | 'error' };
 
@@ -198,23 +252,24 @@ export const COUPLE_LOOKS_PREFIX = 'couple-looks/';
 const LOOK_EXTS = new Set(['jpg', 'jpeg', 'png', 'webp']);
 
 /**
- * The frozen copy's key for ONE APPROVE ATTEMPT: `couple-looks/<share_id>-<attempt>.<ext>` — the attempt is 12 hex
+ * The frozen copy's key for ONE APPROVE ATTEMPT: `couple-looks/<share_id>-<attempt>.<ext>` — the attempt is 16 hex
  * characters, fresh per Approve, so two approves (two shop members, or a double tap) never write or delete the same
  * object: the losing attempt deletes only its own copy (review #7089, round 2). The extension is read off the
  * snapshot's key and kept only when it is an image type the upload accepts (else `jpg`). The database CHECKs exactly
  * this shape, pinned to the share's own id, so a shop can never point a share at another object.
  */
 export function coupleLookKey(shareId: string, snapshotKey: string, attempt: string): string {
+  // 16 hex = 64 bits: a Public copy sits in a public bucket, so its name must not be guessable.
   const m = /\.([A-Za-z0-9]{1,5})$/.exec(snapshotKey.trim());
   const raw = m ? m[1]!.toLowerCase() : '';
   const ext = LOOK_EXTS.has(raw) ? raw : 'jpg';
-  if (!/^[0-9a-f]{12}$/.test(attempt)) throw new Error('coupleLookKey: the attempt must be 12 hex characters');
+  if (!/^[0-9a-f]{16}$/.test(attempt)) throw new Error('coupleLookKey: the attempt must be 16 hex characters');
   return `${COUPLE_LOOKS_PREFIX}${shareId}-${attempt}.${ext}`;
 }
 
 /** The share id a frozen copy belongs to — null for anything that is not `couple-looks/<uuid>-<attempt>.<ext>`. */
 export function shareIdOfCoupleLook(key: string): string | null {
-  const m = /^couple-looks\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})-[0-9a-f]{12}\.(?:jpg|jpeg|png|webp)$/.exec(key);
+  const m = /^couple-looks\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})-[0-9a-f]{16}\.(?:jpg|jpeg|png|webp)$/.exec(key);
   return m ? m[1]! : null;
 }
 

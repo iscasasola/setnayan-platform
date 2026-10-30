@@ -3,9 +3,11 @@ import { randomBytes } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { R2_BUCKETS, isR2Configured, publicUrlFor, r2Copy, r2Delete, r2List } from '@/lib/r2';
+import { CopyObjectCommand } from '@aws-sdk/client-s3';
+import { R2_BUCKETS, isR2Configured, publicUrlFor, r2Delete, r2List, requireR2Client, type R2BucketName } from '@/lib/r2';
+import { presignDisplayUrl } from '@/lib/uploads';
 import type { CoupleLook } from '@/lib/service-card-view-model';
-import { COUPLE_LOOKS_PREFIX, coupleLookKey, shareIdOfCoupleLook } from '@/lib/couple-photo-share';
+import { COUPLE_LOOKS_PREFIX, coupleLookKey, shareIdOfCoupleLook, type CouplePhotoAudience } from '@/lib/couple-photo-share';
 
 /**
  * 📸 A COUPLE'S PHOTO ON A SUPPLIER'S CARD — the server half that touches STORAGE (owner 2026-10-30; security review
@@ -16,10 +18,23 @@ import { COUPLE_LOOKS_PREFIX, coupleLookKey, shareIdOfCoupleLook } from '@/lib/c
  * bucket — no event id, no original file name (F3) — and the share publishes THAT key. The board row is editable by
  * every event member under its existing policy, so a live read would let anyone on the event swap the picture behind
  * an approved, credited card (F1). Every reader here maps a stored KEY to a URL; none trusts a stored URL.
+ *
+ * 👁 WHO SEES IT (owner 2026-10-30): a PUBLIC photo's copy lives in the public media bucket (a plain, cacheable URL,
+ * read by the cached public page); every other audience's copy lives in the PRIVATE thread-files bucket and is only
+ * ever handed out as a short-lived signed URL, to a signed-in viewer the database says is inside the audience
+ * (`viewer_service_card_couple_photos`). Crossing the public line moves the copy (a new key, same shape).
  */
 export const COUPLE_LOOKS_PER_CARD = 6;
 
-/** The public URL of a key in the media bucket — null when storage is not configured (the photo is then not drawn). */
+/** Where a copy lives: Public → the public media bucket; any other audience → the private bucket. */
+export function coupleLookBucket(isPublic: boolean): R2BucketName {
+  return isPublic ? R2_BUCKETS.media : R2_BUCKETS.threadFiles;
+}
+
+/** A signed URL lives this long — long enough for one visit, short enough that a forwarded link dies. */
+const SIGNED_LOOK_TTL_S = 60 * 60;
+
+/** The PUBLIC URL of a key in the media bucket — null when storage is not configured. Public copies + snapshots only. */
 export function coupleLookUrl(key: string | null | undefined): string | null {
   if (!key) return null;
   try {
@@ -29,10 +44,20 @@ export function coupleLookUrl(key: string | null | undefined): string | null {
   }
 }
 
+/** A URL for a copy wherever it lives: public → the plain URL; non-public → a short-lived signed URL. */
+export async function coupleLookUrlFor(key: string | null | undefined, isPublic: boolean): Promise<string | null> {
+  if (!key) return null;
+  if (isPublic) return coupleLookUrl(key);
+  try {
+    return await presignDisplayUrl(R2_BUCKETS.threadFiles, key, SIGNED_LOOK_TTL_S);
+  } catch {
+    return null;
+  }
+}
+
 /**
- * THE CARD'S "FROM COUPLES" PHOTOS — ONE batched read for a whole gallery of cards. It reads ONLY
- * `service_card_couple_photos(ids)` (approved shares, their frozen copy, active cards). Fail-soft: a refused read
- * logs and returns an empty map — the card renders exactly as it did before this feature.
+ * THE CARD'S PUBLIC "FROM COUPLES" PHOTOS — ONE batched read for a whole gallery of cards, safe for the cached page.
+ * It reads ONLY `service_card_couple_photos(ids)` (approved, audience PUBLIC, frozen copy, active card). Fail-soft.
  */
 export async function fetchServiceCardCouplePhotos(
   client: SupabaseClient,
@@ -57,15 +82,45 @@ export async function fetchServiceCardCouplePhotos(
 }
 
 /**
- * Make the frozen copy for one share, BEFORE the approve is recorded (the database refuses an approved share
- * without it). Same-bucket server copy — no bytes pass through us. Null when storage is not configured or the copy
- * failed: the caller then refuses the approve and nothing changes.
+ * A SIGNED-IN viewer's extra photos — the NON-public approved shares the database says they are inside the audience
+ * of (`viewer_service_card_couple_photos`, under their own session). Signed URLs, never cached; read after the page.
  */
-export async function publishCoupleLook(shareId: string, snapshotKey: string): Promise<string | null> {
+export async function fetchViewerCouplePhotos(
+  client: SupabaseClient,
+  vendorServiceIds: readonly string[],
+): Promise<Record<string, CoupleLook[]>> {
+  const out: Record<string, CoupleLook[]> = {};
+  if (vendorServiceIds.length === 0) return out;
+  const { data, error } = await client.rpc('viewer_service_card_couple_photos', { p_vendor_service_ids: [...vendorServiceIds] });
+  if (error) {
+    logQueryError('fetchViewerCouplePhotos', error, { n: vendorServiceIds.length }, 'graceful_degrade');
+    return out;
+  }
+  for (const r of (data ?? []) as Array<{ vendor_service_id: string; share_id: string; public_key: string; credit_line: string }>) {
+    const list = (out[r.vendor_service_id] ??= []);
+    if (list.length >= COUPLE_LOOKS_PER_CARD) continue;
+    const url = await coupleLookUrlFor(r.public_key, false);
+    if (url) list.push({ id: r.share_id, url, credit: r.credit_line });
+  }
+  return out;
+}
+
+/** One server-side COPY (no bytes through us), across buckets when the two differ. */
+async function copyObject(fromBucket: R2BucketName, fromKey: string, toBucket: R2BucketName, toKey: string): Promise<void> {
+  await requireR2Client().send(new CopyObjectCommand({ Bucket: toBucket, CopySource: `${fromBucket}/${fromKey}`, Key: toKey }));
+}
+
+const attempt = () => randomBytes(8).toString('hex');
+
+/**
+ * Make the frozen copy for one share, BEFORE the approve is recorded (the database refuses an approved share
+ * without it), into the bucket its audience lives in. Null when storage is not configured or the copy failed.
+ */
+export async function publishCoupleLook(shareId: string, snapshotKey: string, isPublic: boolean): Promise<string | null> {
   if (!isR2Configured()) return null;
-  const toKey = coupleLookKey(shareId, snapshotKey, randomBytes(6).toString('hex'));
+  const toKey = coupleLookKey(shareId, snapshotKey, attempt());
   try {
-    await r2Copy({ bucket: R2_BUCKETS.media, fromKey: snapshotKey, toKey });
+    await copyObject(R2_BUCKETS.media, snapshotKey, coupleLookBucket(isPublic), toKey);
     return toKey;
   } catch (e) {
     console.error('[couple-photo] the frozen copy could not be made', { shareId, error: e instanceof Error ? e.message : e });
@@ -73,50 +128,68 @@ export async function publishCoupleLook(shareId: string, snapshotKey: string): P
   }
 }
 
-/** Delete one frozen copy (withdraw · decline · take off · THIS attempt's copy after a refused approve). Best-effort; the sweep is the net. */
-export async function unpublishCoupleLook(key: string | null | undefined): Promise<void> {
+/** An approved copy crossing the public line: copied to the other bucket under a NEW key (the old one is deleted after). */
+export async function moveCoupleLook(shareId: string, fromKey: string, fromPublic: boolean, toPublic: boolean): Promise<string | null> {
+  if (!isR2Configured()) return null;
+  const toKey = coupleLookKey(shareId, fromKey, attempt());
+  try {
+    await copyObject(coupleLookBucket(fromPublic), fromKey, coupleLookBucket(toPublic), toKey);
+    return toKey;
+  } catch (e) {
+    console.error('[couple-photo] the copy could not be moved', { shareId, error: e instanceof Error ? e.message : e });
+    return null;
+  }
+}
+
+/** Delete one frozen copy from the bucket it lives in. Best-effort; the sweep is the net. */
+export async function unpublishCoupleLook(key: string | null | undefined, isPublic: boolean | null | undefined): Promise<void> {
   if (!key || !shareIdOfCoupleLook(key) || !isR2Configured()) return;
   try {
-    await r2Delete({ bucket: R2_BUCKETS.media, key });
+    await r2Delete({ bucket: coupleLookBucket(Boolean(isPublic)), key });
   } catch (e) {
     console.error('[couple-photo] a frozen copy could not be deleted', { key, error: e instanceof Error ? e.message : e });
   }
 }
 
-/** A copy younger than this is never swept — it may be an Approve still between its copy and its record. */
+/** A copy younger than this is never swept — it may be an Approve or a move still between its copy and its record. */
 const SWEEP_GRACE_MS = 10 * 60 * 1000;
-/** Keys per `.in()` question, and the most objects one sweep lists (paged by r2List, 1,000 a page). */
+/** Keys per `.in()` question, and the most objects one sweep lists per bucket (paged by r2List, 1,000 a page). */
 const SWEEP_CHUNK = 100;
 const SWEEP_MAX_OBJECTS = 20_000;
 
 /**
- * THE NET UNDER EVERY UNPUBLISH: delete each `couple-looks/` object no APPROVED share names. It catches what no
- * action saw — a share withdrawn by the board trigger (a photo removed or changed on the board), a cascade delete
- * (an event or account erased), a crash between copy and record. Run after every share write; best-effort, bounded
- * (≤20,000 objects, paged; keys checked 100 at a time). ⚠ At scale this belongs on a schedule — named, not hidden.
+ * THE NET UNDER EVERY UNPUBLISH: in BOTH buckets, delete each `couple-looks/` object no APPROVED share names in THAT
+ * bucket (a Public share's copy in the private bucket, or the reverse, is an orphan of a move). It catches what no
+ * action saw — a share withdrawn by the board trigger, a cascade delete, a crash between copy and record. Run after
+ * every share write; best-effort; a chunk it could not check is never deleted. ⚠ At scale this belongs on a
+ * schedule — named, not hidden.
  */
 export async function reconcileCoupleLooks(): Promise<void> {
   if (!isR2Configured()) return;
   try {
-    // Every page of the listing (r2List follows continuation tokens up to its ceiling).
-    const { objects } = await r2List({ bucket: R2_BUCKETS.media, prefix: COUPLE_LOOKS_PREFIX, maxKeys: SWEEP_MAX_OBJECTS });
-    const now = Date.now();
-    const candidates = objects.filter((o) => shareIdOfCoupleLook(o.key) && (!o.lastModified || now - o.lastModified.getTime() > SWEEP_GRACE_MS));
-    if (candidates.length === 0) return;
     const admin = createAdminClient();
-    const live = new Set<string>();
-    // Asked in chunks — one `.in()` of thousands of keys would outgrow the request URL.
-    for (let i = 0; i < candidates.length; i += SWEEP_CHUNK) {
-      const chunk = candidates.slice(i, i + SWEEP_CHUNK).map((o) => o.key);
-      const { data, error } = await admin.from('couple_photo_shares').select('public_key').eq('state', 'approved').in('public_key', chunk);
-      if (error) {
-        // Fail SAFE: a chunk we could not check is never deleted.
-        logQueryError('reconcileCoupleLooks', error, { n: chunk.length }, 'graceful_degrade');
-        return;
+    for (const isPublic of [true, false]) {
+      const bucket = coupleLookBucket(isPublic);
+      // Every page of the listing (r2List follows continuation tokens up to its ceiling).
+      const { objects } = await r2List({ bucket, prefix: COUPLE_LOOKS_PREFIX, maxKeys: SWEEP_MAX_OBJECTS });
+      const now = Date.now();
+      const candidates = objects.filter((o) => shareIdOfCoupleLook(o.key) && (!o.lastModified || now - o.lastModified.getTime() > SWEEP_GRACE_MS));
+      if (candidates.length === 0) continue;
+      const live = new Set<string>();
+      // Asked in chunks — one `.in()` of thousands of keys would outgrow the request URL.
+      for (let i = 0; i < candidates.length; i += SWEEP_CHUNK) {
+        const chunk = candidates.slice(i, i + SWEEP_CHUNK).map((o) => o.key);
+        const { data, error } = await admin.from('couple_photo_shares').select('public_key, audience').eq('state', 'approved').in('public_key', chunk);
+        if (error) {
+          logQueryError('reconcileCoupleLooks', error, { n: chunk.length }, 'graceful_degrade');
+          return;
+        }
+        for (const r of (data ?? []) as Array<{ public_key: string; audience: CouplePhotoAudience }>) {
+          if ((r.audience === 'public') === isPublic) live.add(r.public_key);
+        }
       }
-      for (const r of (data ?? []) as Array<{ public_key: string }>) live.add(r.public_key);
+      for (const o of candidates) if (!live.has(o.key)) await unpublishCoupleLook(o.key, isPublic);
     }
-    for (const o of candidates) if (!live.has(o.key)) await unpublishCoupleLook(o.key);
   } catch (e) {
     console.error('[couple-photo] the frozen-copy sweep failed', e instanceof Error ? e.message : e);
   }

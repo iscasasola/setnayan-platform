@@ -169,7 +169,7 @@ function LabRequestsStandIn() {
     ['Shiela Panganiban', 'Cousin of Bianca Lim · via the event link'],
   ];
   return (
-    <div data-requests-page="" data-lab-stand-in="" className="flex flex-col divide-y divide-ink/10 rounded-2xl border border-dashed border-ink/20 px-3">
+    <div data-requests-page="" data-lab-stand-in="" className="flex flex-col divide-y divide-ink/10 px-1">
       <p className="py-2 font-mono text-[10px] uppercase tracking-[0.14em] text-ink/45">Lab stand-in · the Requests page draws here</p>
       {people.map(([name, line]) => (
         <div key={name} className="flex items-center gap-3 py-3">

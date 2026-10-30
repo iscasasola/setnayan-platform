@@ -1134,6 +1134,9 @@ export function GuestsScreen(props: GuestsScreenProps) {
         >
           <Link
             href={`/dashboard/${eventId}/guests/claims`}
+            className={styles.cardDoor}
+            aria-label={`${formatCount(stats.total)} guests, ${replied}% replied, ${formatCount(requests)} ${requests === 1 ? 'request' : 'requests'} to join — open requests`}
+            data-requests-door=""
             onClick={
               requestsBody
                 ? (e) => {
@@ -1142,9 +1145,6 @@ export function GuestsScreen(props: GuestsScreenProps) {
                   }
                 : undefined
             }
-            className={styles.cardDoor}
-            aria-label={`${formatCount(stats.total)} guests, ${replied}% replied, ${formatCount(requests)} ${requests === 1 ? 'request' : 'requests'} to join — open requests`}
-            data-requests-door=""
           />
           <span className={styles.ringRow}>
             <span className={styles.ring} data-replied-ring="" aria-hidden>

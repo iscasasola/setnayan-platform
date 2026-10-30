@@ -1,4 +1,5 @@
 import 'server-only';
+import { seatPlacedBy } from '@/lib/seat-why';
 import { getCurrentUser } from '@/lib/auth';
 import { eventRowOnce } from '@/lib/event-row-once';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -162,6 +163,12 @@ export type GuestCardData = {
   /** The table this guest sits at now, or null when unseated. */
   seatTableId: string | null;
   /**
+   * 🪑 Who placed that seat and when (`event_seat_assignments.placed_by/placed_at`, lib/seat-why.ts) — null when
+   * unseated, not recorded, or the read was refused: the card then says nothing about it. Optional on the type so a
+   * hand-built card (the labs) need not say.
+   */
+  seatPlaced?: { by: 'couple' | 'auto'; at: string | null } | null;
+  /**
    * Every group of this event and the ones this guest is in — the Groups
    * checkmark dropdown. Null when either read was refused: the card then shows
    * the groups read-only and posts nothing, so a refusal can never unTick them.
@@ -261,7 +268,7 @@ export async function loadGuestCard(
       .from('event_seat_assignments')
       // 🔴 `table_label`, NOT `label`. There is no `label` column on
       // `event_tables` — PostgREST answers 42703 and REFUSES THE WHOLE QUERY.
-      .select('table_id, event_tables(table_label)')
+      .select('table_id, placed_by, placed_at, event_tables(table_label)')
       .eq('event_id', eventId)
       .eq('guest_id', guestId)
       .maybeSingle(),
@@ -586,6 +593,7 @@ export async function loadGuestCard(
     roleNames,
     tables,
     seatTableId: (seatRow?.table_id as string | null | undefined) ?? null,
+    seatPlaced: seatPlacedBy(seatRow?.placed_by) ? { by: seatPlacedBy(seatRow?.placed_by)!, at: (seatRow?.placed_at as string | null | undefined) ?? null } : null,
     groupChoices,
     guest,
     isCouple,

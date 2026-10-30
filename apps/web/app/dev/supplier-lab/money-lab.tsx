@@ -155,7 +155,7 @@ export function MoneyLab({ state, next, open, mpage, wallet: walletState }: { st
       <div className="space-y-4">
         <CustomersPin
           seg="money"
-          hrefs={{ people: '/dev/supplier-lab?s=people', dates: '/dev/supplier-lab?s=dates', money: base }}
+          hrefs={{ events: '/dev/supplier-lab?s=events', dates: '/dev/supplier-lab?s=dates', money: base }}
           gear={<CustomersSettings body={null} />}
         />
       </div>

@@ -111,6 +111,7 @@ export function Fold({
   endPress,
   current = false,
   wrap = false,
+  lineWrap = false,
   titleNode,
   anchor,
   popovers = false,
@@ -155,6 +156,11 @@ export function Fold({
   current?: boolean;
   /** With `line`: the title takes TWO lines before it is ever cut (house rule "names never cut"). Absent → one line. */
   wrap?: boolean;
+  /**
+   * With `line`: the LINE takes two lines before it is cut, too — a row whose line carries money ("₱65,000 · ₱25,000 paid
+   * · next ₱20,000 Nov 18", Customers › Events, v13) must not lose its figures to "…" on a phone. Absent → one line.
+   */
+  lineWrap?: boolean;
   /** With `line`: what the title DRAWS when it is marked (a search's matching letters) — `title` stays its words. */
   titleNode?: ReactNode;
   defaultOpen?: boolean;
@@ -268,7 +274,7 @@ export function Fold({
         <span className="min-w-0 flex-1">
           <span className={wrap ? 'line-clamp-2 block leading-snug' : 'block truncate'}>{titleNode ?? title}</span>
           {line ? (
-            <span className="block truncate text-[13px] font-normal text-ink/60" data-fold-sub="">
+            <span className={`block ${lineWrap ? 'line-clamp-2 leading-snug' : 'truncate'} text-[13px] font-normal text-ink/60`} data-fold-sub="">
               {line}
             </span>
           ) : null}

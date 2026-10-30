@@ -1,5 +1,6 @@
 'use client';
 
+import { GuestNick } from '@/app/_components/guest-nick';
 import {
   Component,
   useCallback,
@@ -40,7 +41,8 @@ import {
 } from '@/lib/march-drag';
 import type { MarchResult } from '@/lib/march-result';
 import type { HubDraftPatch } from '@/lib/hub-draft';
-import { ChevronsDownUp, ChevronsUpDown, Play, RotateCcw } from 'lucide-react';
+import { ChevronsDownUp, ChevronsUpDown, Play, RotateCcw, Square } from 'lucide-react';
+import { MARCH_PREVIEW_END_MS, MARCH_PREVIEW_STEP_MS, marchPreviewEnd, marchPreviewSteps, type MarchPreviewStep } from '@/lib/march-preview';
 import { useGuestsLens } from '../../guests/_components/guests-lens';
 import { guestsFilterMenu } from '../../guests/_components/guests-filter-menu';
 import { SEARCH_WAIT_MS } from '@/lib/guest-roster-view';
@@ -313,6 +315,10 @@ function MarchMakerBody({
      the empty march's early return. */
   const lens = useGuestsLens('march');
   const [folded, setFolded] = useState<ReadonlySet<string>>(() => new Set());
+  /* ▶ The walk preview (owner 2026-10-29, prototype `startPreview`, `lib/march-preview.ts`): which walk is lit — its
+     index into `playSteps`; `playSteps.length` is the closing card; null = not playing. A look, never a save. */
+  const [play, setPlay] = useState<number | null>(null);
+  const playSteps = useRef<MarchPreviewStep[]>([]);
   /* 🏷 R4 slice 5 — the SELECTED walk group (owner 2026-10-29, prototype v13 `marchSel`): a tap on its header selects it,
      opens it and raises the toolbar (Rename · ＋ Walk · Delete); a tap on the SELECTED header folds it AND unselects it. */
   const [marchSel, setMarchSel] = useState<string | null>(null);
@@ -330,6 +336,17 @@ function MarchMakerBody({
   const refocus = useRef<string | null>(null);
 
   const root = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (play === null) return;
+    const steps = playSteps.current;
+    const now = steps[play];
+    if (now) {
+      const still = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+      root.current?.querySelector(`[data-march-walk="${now.no}"]`)?.scrollIntoView({ block: 'center', behavior: still ? 'auto' : 'smooth' });
+    }
+    const t = setTimeout(() => setPlay(play >= steps.length ? null : play + 1), play >= steps.length ? MARCH_PREVIEW_END_MS : MARCH_PREVIEW_STEP_MS);
+    return () => clearTimeout(t);
+  }, [play]);
   const chain = useRef<Promise<void>>(Promise.resolve());
   const inFlight = useRef(0);
   const era = useRef(0);
@@ -1016,8 +1033,9 @@ function MarchMakerBody({
       className={`${guests ? 'min-w-0 ' : 'mx-auto max-w-2xl '}flex w-full select-none flex-col pb-6 ${dragging ? 'cursor-grabbing' : ''}`}
     >
       {guests ? (
-        /* 🗂 R4 · the fixed count row (owner 2026-10-29): Walks · Walking · Not walking (opens the tray) · ▶ Preview. No
-           walk preview ships yet — the tile is there, disabled, and says so, so the step is not lost. */
+        /* 🗂 R4 · the fixed count row (owner 2026-10-29): Walks · Walking · Not walking (opens the tray) · ▶ Preview —
+           which plays the march (`lib/march-preview.ts`); while it plays the tile is Stop. */
+        <>
         <ViewCountRow
           view="march"
           tiles={[
@@ -1029,9 +1047,51 @@ function MarchMakerBody({
               value: outUnread ? null : shownOut.length,
               onPress: () => document.querySelector('[data-march-tray-slot]')?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
             },
-            { key: 'preview', word: 'Preview', main: true, icon: <Play aria-hidden strokeWidth={2} />, disabled: true, about: 'The walk preview is coming' },
+            {
+              key: 'preview',
+              word: play === null ? 'Preview' : 'Stop',
+              main: true,
+              icon: play === null ? <Play aria-hidden strokeWidth={2} /> : <Square aria-hidden strokeWidth={2} />,
+              disabled: walks === 0,
+              about: walks === 0 ? 'Nobody walks yet' : play === null ? 'Play the march, one walk at a time' : 'Stop the preview',
+              onPress: () => {
+                if (play !== null) return setPlay(null);
+                playSteps.current = marchPreviewSteps(shown);
+                setFolded(new Set());
+                setPlay(0);
+              },
+            },
           ]}
         />
+        {/* ▶ The preview's bar floats under the pinned row (prototype `.playbar`): no room taken, slides in and out. */}
+        <div className="sticky top-[calc(var(--gs-top,0px)+var(--gs-stick-h,60px))] z-[6] h-0" data-march-play-slot="">
+          <div
+            data-march-playbar={play === null ? undefined : ''}
+            aria-live="polite"
+            className={`absolute inset-x-0 top-1 flex items-center gap-2.5 rounded-2xl bg-ink py-2.5 pl-3.5 pr-2 text-cream shadow-lg transition-[transform,opacity] duration-[250ms] motion-reduce:transition-none ${
+              play === null ? 'pointer-events-none -translate-y-2.5 opacity-0' : 'translate-y-0 opacity-100'
+            }`}
+          >
+            {play === null ? null : (
+              <>
+                <span className="min-w-0 flex-1">
+                  <span className="line-clamp-2 block font-medium [overflow-wrap:anywhere]">
+                    {(playSteps.current[play] ?? marchPreviewEnd(playSteps.current.length)).title}
+                  </span>
+                  <span className="block text-xs opacity-70">{(playSteps.current[play] ?? marchPreviewEnd(playSteps.current.length)).line}</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setPlay(null)}
+                  className="sn-press h-[34px] shrink-0 rounded-full bg-white/15 px-3 text-sm font-semibold text-cream"
+                >
+                  Stop
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+        </>
       ) : (
         <p className="px-1 pb-1 text-xs text-ink/60" data-march-count="">
           {walks} walk{walks === 1 ? '' : 's'} · {people} walking
@@ -1123,7 +1183,10 @@ function MarchMakerBody({
                 <div
                   data-march-flip={walkKey}
                   data-march-walk={step}
-                  className={`grid ${guests ? 'grid-cols-[2rem_minmax(0,1fr)]' : 'grid-cols-[2rem_1fr_1fr]'} items-stretch gap-1.5 rounded-xl bg-white p-1.5 ring-1 dark:bg-raised ring-ink/10 transition-opacity ${lifted === walkKey ? 'opacity-30' : ''}`}
+                  data-march-walk-now={play !== null && playSteps.current[play]?.no === step ? '' : undefined}
+                  className={`grid ${guests ? 'grid-cols-[2rem_minmax(0,1fr)]' : 'grid-cols-[2rem_1fr_1fr]'} items-stretch gap-1.5 rounded-xl bg-white p-1.5 dark:bg-raised transition-[opacity,box-shadow] ${
+                    play !== null && playSteps.current[play]?.no === step ? 'ring-2 ring-sn-accent' : 'ring-1 ring-ink/10'
+                  } ${lifted === walkKey ? 'opacity-30' : ''}`}
                 >
                   <span
                     data-march-drag={`walk|${sec.key}|${lead}`}
@@ -1163,7 +1226,10 @@ function MarchMakerBody({
                             p.tag ? 'border-terracotta-700/60 bg-white dark:bg-raised' : 'border-terracotta-700/20 bg-terracotta-700/[0.06]'
                           } ${lifted === p.id ? 'border-dashed opacity-30' : marchDim(p.id) ? 'opacity-25' : ''}${carried?.key === p.id ? ' ring-2 ring-ink ring-offset-1' : ''}${card?.id === p.id && p.id ? ' ring-2 ring-terracotta-700 ring-offset-1' : ''}${ring(zone)}`}
                         >
-                          <span className="font-serif text-[15.5px] leading-tight text-ink [overflow-wrap:anywhere]">{p.name}</span>
+                          <span className="font-serif text-[15.5px] leading-tight text-ink [overflow-wrap:anywhere]">
+                            {p.name}
+                            {guests ? <GuestNick nick={p.nick} /> : null}
+                          </span>
                           {p.tag ? (
                             <span className="mt-0.5 font-mono text-[9.5px] uppercase tracking-[0.18em] text-terracotta-800">{p.tag}</span>
                           ) : null}

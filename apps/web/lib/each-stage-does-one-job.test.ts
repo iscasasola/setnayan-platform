@@ -145,7 +145,10 @@ const bar = (stage: LifecyclePhase, over: Partial<Parameters<typeof resolveSiteN
 test('3 · the Invitation bar: Welcome · Details · Our Love Story · Me — always the four, no RSVP tab', () => {
   // Owner 2026-09-30: *"on Invitation, the menu is Welcome - Details - Our Love
   // Story - Me"* and *"RSVP does not have 4 tabs under"* — replied or not.
-  assert.deepEqual(bar('rsvp'), ['Home', 'Details', 'Story', 'Me']);
+  // 📷 With Papic OFF (owner 2026-10-30, "PAPIC ON = A CAMERA TAB ON EVERY STAGE"): the four.
+  assert.deepEqual(bar('rsvp', { hostAllowsCamera: false }), ['Home', 'Details', 'Story', 'Me']);
+  // …and with Papic ON the four carry the Camera too — still no RSVP tab.
+  assert.deepEqual(bar('rsvp'), ['Home', 'Details', 'Story', 'Camera', 'Me']);
   // A stranger: Welcome · Details · Our Love Story, no Me.
   assert.deepEqual(bar('rsvp', { viewer: { kind: 'public' } }), ['Home', 'Details', 'Story']);
   const BODY = stripComments(readFileSync(join(__dirname, '..', 'app/[slug]/_components/site-body.tsx'), 'utf8'));
@@ -162,10 +165,13 @@ test('4 · the On the Day bar: Live · Welcome · Camera · Memories · Me', () 
   assert.deepEqual(bar('event', { hasWelcome: false }), ['Live', 'Camera', 'Memories', 'Me']);
 });
 
-test('5 · the Save the Date: no Camera tab — Welcome · Our Love Story, and Me for a key-holder', () => {
-  const std = bar('save_the_date');
-  assert.ok(!std.includes('Camera'), `the Save the Date offers a camera: ${std.join(' · ')}`);
+test('5 · the Save the Date: Welcome · Our Love Story, and Me for a key-holder — Camera only while Papic is on', () => {
+  // 📷 Papic OFF: no Camera tab, as before.
+  const std = bar('save_the_date', { hostAllowsCamera: false });
+  assert.ok(!std.includes('Camera'), `the Save the Date offers a camera with Papic off: ${std.join(' · ')}`);
   assert.deepEqual(std, ['Home', 'Story', 'Me']);
+  // 📷 Papic ON (owner 2026-10-30, "no matter what event hub stage it is, it will add the camera menu").
+  assert.deepEqual(bar('save_the_date'), ['Home', 'Story', 'Camera', 'Me']);
 });
 
 /* ── 6 · empty scenes ──────────────────────────────────────────────────── */

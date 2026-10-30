@@ -1,6 +1,7 @@
 'use client';
 
 import { seatPlacedShort, type SeatPlacedBy } from '@/lib/seat-why';
+import { assessSeatMove, seatMoveDoneWords, type MoveAssessment, type MoveGuest } from '@/lib/seat-move-assess';
 import { MERGE_BASE_FIELD } from '@/lib/merge-base-field';
 import { floorPlanFieldsOf } from '@/lib/floor-plan-row';
 import { Fragment, useEffect, useLayoutEffect, useMemo, useOptimistic, useRef, useState, useTransition } from 'react';
@@ -6506,10 +6507,87 @@ export function SeatingEditor({
       return n;
     });
   const [blankAt, setBlankAt] = useState<{ tableId: string; seat: number } | null>(null);
+  /* 🔁 R4 slice 6a — BEFORE A SEAT CHANGES HANDS (owner 2026-10-29, prototype `assess` / `requestMove`): a swap always
+     asks "Swap Ana (Table 2) with Ben (Table 5)?" — each person, where they sit and why (who placed it), the tickable side
+     effects (their +1 comes along) and the plain warnings (lib/seat-move-assess.ts); a move to a free seat asks only when
+     there is something to say. Done → one line with Undo (swap again / put back). */
+  const [askMove, setAskMove] = useState<{ moverId: string; otherId: string | null; tableId: string; seat: number | null; a: MoveAssessment; on: Record<string, boolean> } | null>(null);
+  const [moveNote, setMoveNote] = useState<{ text: string; undo: (() => void) | null } | null>(null);
+  const moveGuestOf = (g: SeatingGuest): MoveGuest => ({
+    guest_id: g.guest_id,
+    name: g.name,
+    plus_one_of: g.plus_one_of ?? null,
+    seated_table_id: g.seated_table_id,
+    seat_number: g.seat_number,
+    tier: guestTier(g.role, g.group_category, g.seating_priority, roleSet),
+    seat_placed_by: g.seat_placed_by ?? null,
+    seat_placed_at: g.seat_placed_at ?? null,
+  });
+  const assessFor = (moverId: string, tableId: string, seat: number | null, otherId: string | null): MoveAssessment | null => {
+    const mover = guestsById.get(moverId);
+    if (!mover) return null;
+    const other = otherId ? guestsById.get(otherId) ?? null : null;
+    const tableMap = new Map(
+      tables.map((t) => {
+        const removed = removedSeatSet(t.removed_seats, t.capacity);
+        const free = occupantsFor(t).flatMap((g, i) => (g === null && !removed.has(i) ? [i] : []));
+        return [t.table_id, { label: t.link_group_label?.trim() || t.table_label, freeSeats: free }] as const;
+      }),
+    );
+    return assessSeatMove({
+      mover: moveGuestOf(mover),
+      target: { tableId, seat },
+      other: other ? moveGuestOf(other) : null,
+      guests: guests.map(moveGuestOf),
+      tables: tableMap,
+      keepApart,
+      tierLabel: (t) => roleSet.tierLabels[t],
+    });
+  };
+  const doAskedMove = () => {
+    const ask = askMove;
+    setAskMove(null);
+    if (!ask || !canEdit) return;
+    const mover = guestsById.get(ask.moverId);
+    const target = tables.find((t) => t.table_id === ask.tableId);
+    if (!mover || !target) return;
+    const other = ask.otherId ? guestsById.get(ask.otherId) ?? null : null;
+    const along = ask.a.sideEffects.filter((x) => ask.on[x.key]);
+    // What Undo puts back: everyone this moves, where they sat before.
+    const before = [mover, ...along.map((x) => guestsById.get(x.guestId)).filter((g): g is SeatingGuest => Boolean(g))].map((g) => ({
+      id: g.guest_id,
+      tableId: g.seated_table_id,
+      seat: g.seat_number,
+    }));
+    setPickedId(null);
+    if (other) tradeSeats(mover.guest_id, other.guest_id);
+    else seatGuestHere(target, mover.guest_id, ask.seat ?? undefined);
+    for (const x of along) seatGuestHere(target, x.guestId, x.seat);
+    const undo = () => {
+      setMoveNote(null);
+      if (other) return tradeSeats(mover.guest_id, other.guest_id);
+      for (const b of before) {
+        const t = b.tableId ? tables.find((x) => x.table_id === b.tableId) : null;
+        if (t) seatGuestHere(t, b.id, b.seat ?? undefined);
+        else unseat(b.id);
+      }
+    };
+    setMoveNote({
+      text: seatMoveDoneWords(ask.a, moveGuestOf(mover), other ? moveGuestOf(other) : null, target.link_group_label?.trim() || target.table_label, ask.seat, along.map((x) => guestsById.get(x.guestId)?.name ?? '')),
+      undo,
+    });
+  };
+  const askBefore = (moverId: string, tableId: string, seat: number | null, otherId: string | null): boolean => {
+    const a = assessFor(moverId, tableId, seat, otherId);
+    if (!a || a.quiet) return false;
+    setAskMove({ moverId, otherId, tableId, seat, a, on: Object.fromEntries(a.sideEffects.map((x) => [x.key, x.on])) });
+    return true;
+  };
   const tapFace = (guestId: string) => {
     const g = guests.find((x) => x.guest_id === guestId);
     if (!g) return;
     if (pickedId && pickedId !== guestId) {
+      if (g.seated_table_id && askBefore(pickedId, g.seated_table_id, g.seat_number, guestId)) return;
       tradeSeats(pickedId, guestId);
       return;
     }
@@ -6518,6 +6596,7 @@ export function SeatingEditor({
   };
   const tapBlank = (tableId: string, seat: number) => {
     if (pickedId) {
+      if (askBefore(pickedId, tableId, seat, null)) return;
       place(tableId, seat);
       return;
     }
@@ -6786,7 +6865,11 @@ export function SeatingEditor({
     if (k === 'sign') return addSign();
     if (k === 'booth') return addBooth();
   };
-  const seatToast = autoRun ? { text: autoRun.text, onUndo: autoRun.undo ? undoAutoRun : null, onDismiss: () => setAutoRun(null) } : null;
+  const seatToast = moveNote
+    ? { text: moveNote.text, onUndo: moveNote.undo, onDismiss: () => setMoveNote(null) }
+    : autoRun
+      ? { text: autoRun.text, onUndo: autoRun.undo ? undoAutoRun : null, onDismiss: () => setAutoRun(null) }
+      : null;
   const seatThumb =
     lens && lens.slot
       ? createPortal(
@@ -6849,9 +6932,63 @@ export function SeatingEditor({
           lens.slot,
         )
       : null;
+  const askMoveSheet =
+    inGuests && askMove ? (
+      <Sheet open onClose={() => setAskMove(null)} labelledById="seat-move-ask-title" rise>
+        <div className="flex min-w-0 flex-col gap-3 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4" data-seat-move-ask={askMove.a.kind}>
+          <h2 id="seat-move-ask-title" className="pr-10 font-display text-lg leading-snug text-ink [overflow-wrap:anywhere]">
+            {askMove.a.title}
+          </h2>
+          <ul className="flex flex-col gap-2">
+            {askMove.a.rows.map((r, i) => (
+              <li key={r.guestId} className="flex items-start gap-2" data-seat-move-row={r.guestId}>
+                {i > 0 ? <ArrowLeftRight aria-hidden className="mt-1 h-4 w-4 shrink-0 text-ink/40" strokeWidth={1.8} /> : <span aria-hidden className="w-4 shrink-0" />}
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-medium text-ink [overflow-wrap:anywhere]">
+                    {r.name} <span className="font-normal text-ink/55">({r.where})</span>
+                  </span>
+                  {r.why ? <span className="block text-xs text-ink/60" data-seat-move-why="">{r.why}</span> : null}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {askMove.a.warnings.map((w) => (
+            <p key={w} className="flex items-start gap-2 text-[13px] text-warn-800" data-seat-move-warn="">
+              <AlertTriangle aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warn-700" />
+              <span className="[overflow-wrap:anywhere]">{w}</span>
+            </p>
+          ))}
+          {askMove.a.sideEffects.length ? (
+            <div className="flex flex-col gap-1.5">
+              <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink/45">Also</p>
+              {askMove.a.sideEffects.map((x) => (
+                <button
+                  key={x.key}
+                  type="button"
+                  aria-pressed={askMove.on[x.key] === true}
+                  onClick={() => setAskMove((m) => (m ? { ...m, on: { ...m.on, [x.key]: !m.on[x.key] } } : m))}
+                  data-seat-move-also={x.key}
+                  className="sn-press flex min-h-11 items-center gap-3 rounded-xl border border-ink/10 px-3 py-2 text-left text-sm text-ink" // no-card-ok: a pressable choice row (a door), not a container
+                >
+                  <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">{x.text}</span>
+                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${askMove.on[x.key] ? 'bg-success-50 text-success-800' : 'bg-ink/5 text-ink/55'}`}>
+                    {askMove.on[x.key] ? 'Yes' : 'No'}
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : null}
+          <div className="flex justify-end gap-2 pt-1">
+            <ActionButton tone="neutral" icon={X} label="Cancel" onClick={() => setAskMove(null)} />
+            <ActionButton tone="brand" main icon={askMove.a.kind === 'swap' ? ArrowLeftRight : Armchair} label={askMove.a.kind === 'swap' ? 'Swap' : 'Move'} onClick={doAskedMove} data-seat-move-go="" />
+          </div>
+        </div>
+      </Sheet>
+    ) : null;
   const studioPeople = inGuests ? (
     <>
       {faceCardSheet}
+      {askMoveSheet}
       {seatThumb}
       {peopleInSheet ? (
         <Sheet

@@ -56,7 +56,7 @@ test('(1b) the stand-ins answer like the real ones, locally — and refuse in da
   /* 🤝🖼 A supplier's suggestion kept / declined / undone (2026-10-19). */
   assert.equal((await a.keepInspirationSuggestion!('e', 's1', null)).status, 'ok');
   assert.equal((await a.declineInspirationSuggestion!('e', 's1')).status, 'ok');
-  assert.equal((await a.undoKeptInspirationSuggestion!('e', 's1')).status, 'ok');
+  assert.equal((await a.undoMoodBoardChange!('e', { suggestionId: 's1' })).status, 'ok');
   /* ⏰ The guests' call time (2026-10-19) — the Schedule's own writers. */
   assert.equal(await a.updateScheduleBlock!(new FormData()), undefined);
   assert.equal(await a.createScheduleBlock!(new FormData()), undefined);

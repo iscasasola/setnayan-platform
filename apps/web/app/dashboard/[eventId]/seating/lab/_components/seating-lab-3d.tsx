@@ -529,7 +529,7 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
   // co-host's move, rotate or delete on the 2D plan reaches it instead of freezing at the mount positions.
   useEffect(() => setTables(initialTables), [initialTables]);
 
-  // The lab surface (fullscreen target + the bubble's positioning container).
+  // The lab surface (the bubble's positioning container).
   const wrapperRef = useRef<HTMLDivElement>(null);
   // 📱 No GPU context while the room is hidden: R4 keeps this room mounted after its first open (behind `hidden` while
   // 2D or List shows); a 0×0 wrapper unmounts the Canvas, which releases its WebGL context. The room itself — its
@@ -537,7 +537,6 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
   const roomOnScreen = useHasSize(wrapperRef);
   // 📱 When the browser takes WebGL away (a phone out of GPU memory), say so and offer the 2D plan — never a dead canvas.
   const webgl = useWebglContextLost();
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [camBusy, setCamBusy] = useState(false);
   // Game-pad "walk the room" mode (Play only). The on-screen sticks write into
   // walkInput each frame; WalkController reads it to drive the camera.
@@ -880,86 +879,13 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
     [mode, room, floor, sendDancer],
   );
 
-  // ── Full screen (owner 2026-07-17 · Lab chrome rules; the phone path 2026-10-30) ──────────────────────────────
-  // Explicit control ONLY: the tools' ⤢ + a double-tap on the OUTSIDE area (the dark surround beyond the venue floor).
-  //
-  // 📱 ON A PHONE IT IS AN IN-PAGE FULL SCREEN, NEVER THE FULLSCREEN API (owner, iPhone app, 2026-10-30: *"3d crashed
-  // again. when i tried to press the full screen icon"*). iPhone Safari has no element Fullscreen API at all — the
-  // button did nothing there — but the INSTALLED APP's web view has it switched on (Capacitor 8.4.3
-  // `CAPBridgeViewController` sets `preferences.isElementFullscreenEnabled = true`), so in the app the press handed the
-  // room's wrapper to WebKit's native element full screen: the whole web view lifted into a new full-screen window, the
-  // live WebGL canvas resized and re-composited mid-transition, on a phone already near its memory line. The in-page
-  // full screen is the SAME element, the SAME Canvas and the SAME WebGL context — only its box grows to the viewport
-  // (`fixed inset-0`), so the drawing buffer is re-sized by R3F inside the capped DPR (`canvasDpr`) and nothing is
-  // re-created. Held by `lib/phone-gpu-budget.test.ts`. A computer keeps the real Fullscreen API.
-  const [inPageFull, setInPageFull] = useState(false);
-  const toggleFullscreen = useCallback(() => {
-    if (phoneGpu) {
-      setInPageFull((v) => !v);
-      return;
-    }
-    const el = wrapperRef.current as (HTMLElement & { webkitRequestFullscreen?: () => void }) | null;
-    const doc = document as Document & {
-      webkitFullscreenElement?: Element | null;
-      webkitExitFullscreen?: () => void;
-    };
-    const active = document.fullscreenElement ?? doc.webkitFullscreenElement;
-    try {
-      if (active) (document.exitFullscreen ?? doc.webkitExitFullscreen)?.call(document);
-      else if (el) (el.requestFullscreen ?? el.webkitRequestFullscreen)?.call(el);
-    } catch {
-      /* blocked / unsupported — no-op */
-    }
-  }, [phoneGpu]);
-  // The in-page full screen is left with Esc as well as the ⤢ (a phone keyboard, an iPad's). While it is on, <html>
-  // says so — `globals.css` lifts the page above the shell's bars on that attribute.
-  useEffect(() => {
-    if (!inPageFull) return;
-    document.documentElement.setAttribute('data-room-fullscreen', 'in-page');
-    /* 📱 The iOS web view CLIPS a fixed box to an ancestor's `overflow: hidden` (measured in the Simulator's WKWebView:
-       the grown room painted only inside its old slot — desktop WebKit did not). So, while it lasts, the room's own
-       ancestors stop clipping; each gets its inline style back on the way out. */
-    const opened: Array<[HTMLElement, string]> = [];
-    for (let el = wrapperRef.current?.parentElement ?? null; el && el !== document.body; el = el.parentElement) {
-      opened.push([el, el.style.cssText]);
-      el.style.overflow = 'visible';
-      el.style.contain = 'none';
-    }
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setInPageFull(false);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => {
-      window.removeEventListener('keydown', onKey);
-      document.documentElement.removeAttribute('data-room-fullscreen');
-      for (const [el, css] of opened) el.style.cssText = css;
-    };
-  }, [inPageFull]);
-  useEffect(() => {
-    const sync = () => {
-      const doc = document as Document & { webkitFullscreenElement?: Element | null };
-      setIsFullscreen(!!(document.fullscreenElement ?? doc.webkitFullscreenElement));
-    };
-    document.addEventListener('fullscreenchange', sync);
-    document.addEventListener('webkitfullscreenchange', sync);
-    return () => {
-      document.removeEventListener('fullscreenchange', sync);
-      document.removeEventListener('webkitfullscreenchange', sync);
-    };
-  }, []);
-  // Double-tap on the OUTSIDE area (raycast on the catcher plane, but beyond the
-  // venue rectangle → the dark surround) toggles fullscreen. Inside the room a
-  // double-tap does nothing.
-  const onOutsideDoubleClick = useCallback(
-    (e: ThreeEvent<MouseEvent>) => {
-      const outside = Math.abs(e.point.x) > room.w / 2 || Math.abs(e.point.z) > room.d / 2;
-      if (outside) {
-        e.stopPropagation();
-        toggleFullscreen();
-      }
-    },
-    [room, toggleFullscreen],
-  );
+  // ── 🗺 NO FULL SCREEN CONTROL — THE ROOM IS ALREADY THE WHOLE SCREEN (owner, iPhone app, 2026-10-30: *"The 3d plan is
+  // still shutting down the app when i try to press the full screen button. And we can remove that button … They are all
+  // full screen"*; DECISION_LOG "SEATS 2D · SEATS 3D · THE MAP ARE ALWAYS FULL SCREEN — NO FULL-SCREEN BUTTON"). In Guests
+  // › Seats the room fills the screen from under the top nav to the bottom nav (`guests-screen.module.css` `.fullSurface`),
+  // so there is no ⤢, no double-tap toggle and NO Fullscreen API anywhere: the app's web view (Capacitor
+  // `isElementFullscreenEnabled = true`) handed the live WebGL canvas to WebKit's native element full screen, which is
+  // what closed the app. 🔒 lib/phone-gpu-budget.test.ts · lib/maps-are-always-full-screen.test.ts
 
 
 
@@ -1136,12 +1062,7 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
   return (
     <div
       ref={wrapperRef}
-      data-room-fullscreen={inPageFull ? 'in-page' : undefined}
-      className={
-        inPageFull
-          ? 'fixed inset-0 z-[120] w-full overflow-hidden bg-[#11131a] pt-[env(safe-area-inset-top)]'
-          : `relative w-full overflow-hidden bg-[#11131a] ${inMaker ? 'h-full' : 'h-[82vh] rounded-2xl border border-ink/10'}`
-      }
+      className={`relative w-full overflow-hidden bg-[#11131a] ${inMaker ? 'h-full' : 'h-[82vh] rounded-2xl border border-ink/10'}`}
     >
       {webgl.lost ? (
         <ContextLostNotice
@@ -1304,13 +1225,12 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
         ))}
 
         {/* Invisible floor catcher — VIEW gestures only (owner 2026-10-30, the room is view-only): in Play a tap on the
-            dance floor sends a guest out to dance; a double-tap OUTSIDE the venue rect toggles full screen. No drag, no
-            drop, no placement. */}
+            dance floor sends a guest out to dance. No drag, no drop, no placement, and no full-screen toggle (the room is
+            already the whole screen). */}
         <mesh
           rotation={[-Math.PI / 2, 0, 0]}
           position={[0, 0, 0]}
           onClick={onFloorClick}
-          onDoubleClick={onOutsideDoubleClick}
         >
           <planeGeometry args={[room.w * 3, room.d * 3]} />
           <meshBasicMaterial transparent opacity={0} depthWrite={false} />
@@ -1482,8 +1402,6 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
         palettes={DEMO_PALETTES}
         onPalette={setPaletteKey}
         onAccents={() => setAccentsOpen(true)}
-        fullscreen={isFullscreen || inPageFull}
-        onFullscreen={toggleFullscreen}
         onShow2d={show2d}
         about={
           <>

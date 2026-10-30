@@ -41,6 +41,17 @@ export type MoodBoardRpcClient = {
   ) => PromiseLike<{ data: unknown; error: unknown }>;
 };
 
+/** What a photo action is about to do — the words the owners' notice uses (migration 20271299051148). */
+export type MoodBoardChangeKind = 'upload' | 'replace' | 'move' | 'remove';
+
+/** The slice of a Supabase client the change door needs. */
+export type MoodBoardChangeRpcClient = {
+  rpc: (
+    fn: 'begin_mood_board_change',
+    args: { p_event_id: string; p_kind: MoodBoardChangeKind; p_slot_key: string | null },
+  ) => PromiseLike<{ data: unknown; error: unknown }>;
+};
+
 async function ask(
   client: MoodBoardRpcClient,
   fn: 'can_change_mood_board_photos' | 'colour_access_caller_is_couple',
@@ -62,4 +73,31 @@ export function moodBoardPhotosRefusalWith(client: MoodBoardRpcClient, eventId: 
 /** The sentence to show when the caller is not a host of this event (palette · theme · dress code), else null. */
 export function moodBoardHostsOnlyRefusalWith(client: MoodBoardRpcClient, eventId: unknown): Promise<string | null> {
   return ask(client, 'colour_access_caller_is_couple', eventId, MOOD_BOARD_HOSTS_ONLY_REFUSAL);
+}
+
+/**
+ * 🖼⏱ THE PHOTO GATE THAT ALSO OPENS THE CHANGE (owner 2026-10-30, DECISION_LOG "MOOD BOARD CHANGES: SUPPLIERS ASK,
+ * COORDINATORS APPLY, THE OWNERS HAVE 24 HOURS TO UNDO"). ONE call, asked first by every photo action: the database
+ * answers `refused` (said in words here), `host` (an owner — nothing is recorded) or `recorded` (a coordinator, helper
+ * or supplier with Mood Board Edit — the writes that follow are one change, the owners are told, and they have 24 hours
+ * to Undo it). The same `can_change_mood_board_photos` question as `moodBoardPhotosRefusalWith`, asked inside
+ * `begin_mood_board_change`, so the two cannot disagree. A non-string slot is sent as null and answered `bad_input`
+ * AFTER the refusal — the action's own validation then says what was wrong.
+ */
+export async function moodBoardPhotoChangeRefusalWith(
+  client: MoodBoardChangeRpcClient,
+  eventId: unknown,
+  kind: MoodBoardChangeKind,
+  slotKey: unknown,
+): Promise<string | null> {
+  if (!isEventIdShape(eventId)) return null;
+  const res = await client.rpc('begin_mood_board_change', {
+    p_event_id: eventId,
+    p_kind: kind,
+    p_slot_key: typeof slotKey === 'string' && slotKey ? slotKey : null,
+  });
+  if (res.error) return MOOD_BOARD_CHECK_FAILED;
+  const status = (res.data as { status?: unknown } | null)?.status;
+  if (status === 'host' || status === 'recorded' || status === 'bad_input') return null;
+  return status === 'refused' ? MOOD_BOARD_PHOTOS_REFUSAL : MOOD_BOARD_CHECK_FAILED;
 }

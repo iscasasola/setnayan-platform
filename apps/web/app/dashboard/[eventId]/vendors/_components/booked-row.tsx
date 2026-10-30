@@ -5,12 +5,20 @@
  * asked and who has not answered (owner 2026-10-07; the prototype's Booked
  * mode, `prototypes/suppliers_page_2026-10-07_fable.html`).
  *
- *   ( SV )  Seda Vertis North                         [ Booked ]
+ *   ( SV )  Seda Vertis North                                   ▾
  *           Reception · added by you
  *           Next: first payment · ₱528,000 · by Oct 5
- *           ── a tap on the row opens ──
- *           Used across your event:  [Event Hub · venue & city] [Schedule]
- *           ( Pay ) ( Your record ) ( Chat ) ( Workspace ) ( Cancel booking )
+ *           [ Booked ]
+ *           ── a tap on the row opens (ONE row open at a time — `BookedRowList`) ──
+ *   ⏱ Call time 8:00 AM · Ingress & setup · from your Schedule
+ *   PAYMENT PLAN   ✓ First payment · Paid Oct 20      ₱90,000
+ *                  ○ Balance · Due Dec 11              ₱90,000
+ *   Used across your event:  [Event Hub · venue & city] [Schedule]
+ *   [ Pay ][ Chat ][ Workspace ][ Cancel ]     ← ONE row of equal tiles
+ *
+ * The approved final Suppliers design (owner 2026-10-30, `carry-2026-10-29/suppliers-final-proto/`, its `teamFold`):
+ * the call time is the Schedule's moment (`earliestTaggedBlock`), the plan rows are the Pay sheet's own rows
+ * (`readBookedPlans`), and the verbs are ONE row of equal tiles — *"i was hoping this would be a single row"*.
  *
  * Every word and which verbs appear is decided in `lib/booked-rows.ts`; this
  * file draws it and wires each verb to the door that ALREADY ships:
@@ -36,7 +44,9 @@ import { useRouter } from 'next/navigation';
 import {
   AlertTriangle,
   BellRing,
+  Check,
   ChevronDown,
+  Clock,
   CreditCard,
   FolderOpen,
   MessageCircle,
@@ -44,12 +54,15 @@ import {
   Star,
 } from 'lucide-react';
 import { ActionButton, actionButtonClass, useFitRow } from '@/components/action-button';
+import { useIsDesktop } from '@/lib/use-responsive';
 import { formatPhp } from '@/lib/php';
 import { shortDate } from '@/lib/budget-page-view';
 import {
   NEXT_SET_PRICE,
   WAITING_PILL,
   WAITING_UNTIL,
+  type BookedCallTime,
+  type BookedPlan,
   type BookedRow,
   type BookedVerb,
   type WaitingRow,
@@ -83,6 +96,8 @@ const PILL_TONE: Record<TeamRowTone, string> = {
   no: 'bg-[rgb(var(--color-danger)_/_0.12)] text-[rgb(var(--color-danger))]',
 };
 const PILL = 'shrink-0 whitespace-nowrap rounded-full px-2.5 py-1 text-[12px] leading-none';
+/** A ref that never holds a row — the tiles run no fit pass (`useFitRow` is a hook, so it is always called). */
+const NO_ROW = { current: null };
 /** The line a press came back with, under the verb row. */
 const SAID = 'text-[12px] leading-snug';
 
@@ -112,6 +127,7 @@ function VerbRow({
   verbs,
   threadId,
   payVersion,
+  tiles = false,
 }: {
   eventId: string;
   vendorId: string;
@@ -122,11 +138,16 @@ function VerbRow({
   threadId: string | null;
   /** This supplier's money as the page holds it — when it changes, an open Pay sheet asks again. */
   payVersion: string;
+  /**
+   * ONE ROW OF EQUAL TILES (owner 2026-10-30, "i was hoping this would be a single row"): icon over word, every tile
+   * the same width, never wrapped. A grid of equal columns cannot overflow, so no fit pass runs.
+   */
+  tiles?: boolean;
 }) {
   const standIn = useContext(BookedStandInCtx);
   const router = useRouter();
   const rowRef = useRef<HTMLDivElement>(null);
-  useFitRow(rowRef);
+  useFitRow(tiles ? NO_ROW : rowRef);
   const [pending, start] = useTransition();
   const [said, setSaid] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
   const [record, setRecord] = useState<SelfAddedSupplierPrefill | null>(null);
@@ -176,7 +197,9 @@ function VerbRow({
     const common = {
       tone: v.tone,
       main: v.main,
-      label: v.label,
+      // A tile says its short word ("Cancel", "Report"); the button is still named in full.
+      label: tiles && v.tile ? v.tile : v.label,
+      name: v.label,
       className: v.main && v.quiet ? 'bk-soft' : undefined,
     } as const;
     switch (v.key) {
@@ -222,6 +245,7 @@ function VerbRow({
               vendorId={vendorId}
               vendorName={vendorName}
               triggerClass={actionButtonClass(v.tone)}
+              triggerWord={tiles ? v.tile : undefined}
             />
           </span>
         );
@@ -234,7 +258,7 @@ function VerbRow({
 
   return (
     <>
-      <div ref={rowRef} className="bk-verbs" data-booked-verbs={verbs.map((v) => v.key).join(' ')}>
+      <div ref={rowRef} className={tiles ? 'bk-tiles' : 'bk-verbs'} data-booked-verbs={verbs.map((v) => v.key).join(' ')}>
         {verbs.map(draw)}
       </div>
       {said ? (
@@ -306,25 +330,178 @@ export function NextPayButton({
   );
 }
 
+/**
+ * THE TEAM — every booked supplier is ONE collapsed row, and ONE is open at a time (owner 2026-10-30, the approved
+ * final Suppliers design: *"Booked does not collapse"*). Opening another closes the one before; the fold animates
+ * (`.bk-exp`'s grid track, `booked-body.tsx`).
+ */
+export function BookedRowList({ eventId, rows, firstOpen = null }: { eventId: string; rows: readonly BookedRow[]; firstOpen?: string | null }) {
+  const [openId, setOpenId] = useState<string | null>(firstOpen);
+  // 🖥 From a tablet (768) the list sits left and the opened supplier on the right (the prototype's wide Team, "from
+  // 820 wide: … list left, the opened item right" — "Tap a supplier to see their payments, call time and tools
+  // here"), so a wide screen is never a stretched phone row. Below it the fold opens in place. One fold component
+  // either way (`BookedFold`) — never two copies of its verbs on screen.
+  const wide = useIsDesktop('md');
+  const toggle = (id: string) => setOpenId((cur) => (cur === id ? null : id));
+  const list = (
+    <ul className="bk-rows mt-2">
+      {rows.map((r) => (
+        <BookedRowItem
+          key={r.vendorId}
+          eventId={eventId}
+          row={r}
+          open={openId === r.vendorId}
+          onToggle={() => toggle(r.vendorId)}
+          foldInline={!wide}
+        />
+      ))}
+    </ul>
+  );
+  if (!wide) return list;
+  const openRow = rows.find((r) => r.vendorId === openId) ?? null;
+  return (
+    <div
+      className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] items-start gap-6 lg:grid-cols-[minmax(0,460px)_minmax(0,1fr)] lg:gap-8"
+      data-booked-wide=""
+    >
+      {list}
+      <aside
+        className="sticky top-[calc(var(--stick-h,150px)+12px)] mt-2 min-w-0 border-l border-ink/10 pl-6 lg:pl-8"
+        aria-label={openRow ? openRow.name : 'Your suppliers'}
+        data-booked-detail={openRow?.vendorId ?? ''}
+      >
+        {openRow ? (
+          <>
+            <p className="flex items-baseline gap-3 border-b border-ink/10 pb-3">
+              <span className="min-w-0 flex-1 truncate text-[17px] font-medium text-ink">{openRow.name}</span>
+              <span className="shrink-0 text-[13px] tabular-nums text-ink/55">
+                {[openRow.service, openRow.money ? formatPhp(openRow.money.agreedPhp) : null].filter(Boolean).join(' · ')}
+              </span>
+            </p>
+            <BookedFold eventId={eventId} row={openRow} />
+          </>
+        ) : (
+          <p className="pt-2 text-[14px] text-ink/55">Tap a supplier to see their call time, payments and tools here.</p>
+        )}
+      </aside>
+    </div>
+  );
+}
+
+/** "Call time 8:00 AM · Ingress & setup · from your Schedule" — the Schedule's moment, never a copy. */
+function CallTimeLine({ line }: { line: BookedCallTime }) {
+  return (
+    <p className="flex items-start gap-2 text-[13.5px] leading-snug" data-booked-call-time={line.kind}>
+      <Clock aria-hidden strokeWidth={1.9} className="mt-px h-4 w-4 shrink-0 text-ink/55" />
+      {line.kind === 'set' ? (
+        <span>
+          <span className="text-ink">Call time </span>
+          <b className="font-semibold text-ink tabular-nums">{line.clock}</b>
+          <span className="text-[12.5px] text-ink/55"> · {line.moment} · from your Schedule</span>
+        </span>
+      ) : line.kind === 'none' ? (
+        <span className="text-[12.5px] text-ink/55">No call time yet — tag them on a Schedule moment</span>
+      ) : (
+        <span className="text-[12.5px] text-ink/55">We couldn’t check your Schedule for their call time.</span>
+      )}
+    </p>
+  );
+}
+
+/** The payment plan's rows — the same rows the Pay sheet opens on. */
+function PlanRows({ plan, own }: { plan: NonNullable<BookedPlan>; own: boolean }) {
+  if (plan.kind === 'unread') {
+    return (
+      <p className="text-[12.5px] text-ink/55" data-booked-plan="unread">
+        We couldn’t load the payment plan. Pay opens it again.
+      </p>
+    );
+  }
+  // A supplier the couple added: the plan IS their record (the prototype's "Payment plan · your record").
+  const head =
+    plan.kind === 'ledger'
+      ? own
+        ? 'Payment plan · your record'
+        : 'Payments'
+      : `Payment plan${own ? ' · your record' : plan.estimated ? ' · estimated' : ''}`;
+  return (
+    <div data-booked-plan={plan.kind}>
+      <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-ink/55">{head}</p>
+      <ul className="mt-0.5">
+        {plan.rows.map((r, i) => (
+          <li
+            key={`${i}-${r.label}`}
+            className="grid grid-cols-[22px_minmax(0,1fr)_auto] items-center gap-2.5 border-b border-ink/10 py-2 text-[14px]"
+            data-plan-row={r.state}
+            data-plan-next={r.next ? '' : undefined}
+          >
+            <span
+              aria-hidden
+              className={`grid h-5 w-5 place-items-center rounded-full border ${
+                r.state === 'paid'
+                  ? 'border-[rgb(var(--color-ok))] bg-[rgb(var(--color-ok))] text-white'
+                  : r.next
+                    ? 'border-sn-accent'
+                    : 'border-ink/20'
+              }`}
+            >
+              {r.state === 'paid' ? <Check className="h-3 w-3" strokeWidth={3} /> : null}
+            </span>
+            <span className="min-w-0">
+              <span className="block text-ink">{r.label}</span>
+              <span className={`block text-[12px] ${r.late ? 'text-[rgb(var(--color-danger))]' : 'text-ink/55'}`}>
+                {r.state === 'paid'
+                  ? 'Paid'
+                  : r.state === 'pending'
+                    ? 'Recorded · waiting for their confirmation'
+                    : r.dueDate
+                      ? `${r.late ? 'Was due' : 'Due'} ${shortDate(r.dueDate)}`
+                      : 'No date yet'}
+              </span>
+            </span>
+            <b
+              className={`whitespace-nowrap font-semibold tabular-nums ${
+                r.state === 'paid' ? 'text-ink/70' : r.next ? 'text-sn-accent' : 'text-ink'
+              }`}
+            >
+              {r.amountPhp !== null ? formatPhp(r.amountPhp) : '—'}
+            </b>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 /** A booked supplier. The row is the tap target; its details fold open under it. */
 export function BookedRowItem({
   eventId,
   row,
   defaultOpen = false,
+  open: openProp,
+  onToggle,
+  foldInline = true,
 }: {
   eventId: string;
   row: BookedRow;
   defaultOpen?: boolean;
+  /** Held by `BookedRowList` (one open at a time). Absent → the row holds its own. */
+  open?: boolean;
+  onToggle?: () => void;
+  /** The fold opens under the row (a phone); false = the list's right column holds it (from 768). */
+  foldInline?: boolean;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
+  const [ownOpen, setOwnOpen] = useState(defaultOpen);
+  const open = openProp ?? ownOpen;
+  const toggle = onToggle ?? (() => setOwnOpen((v) => !v));
   const n = row.next;
   return (
     <li className="bk-row" data-booked-row={row.vendorId} data-open={open ? '' : undefined}>
       <button
         type="button"
-        className="grid w-full grid-cols-[44px_minmax(0,1fr)_auto_20px] items-center gap-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sn-accent"
+        className="grid w-full grid-cols-[44px_minmax(0,1fr)_20px] items-center gap-x-3 gap-y-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sn-accent"
         aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
+        onClick={toggle}
       >
         <Logo url={row.logoUrl} initials={row.initials} />
         <span className="min-w-0">
@@ -333,7 +510,6 @@ export function BookedRowItem({
             {[row.service, row.own ? 'added by you' : null].filter(Boolean).join(' · ')}
           </span>
         </span>
-        <span className={`${PILL} ${PILL_TONE[row.pill.tone]}`}>{row.pill.text}</span>
         {/* A list row is a hairline row with a terracotta arrow (owner 2026-10-12,
             look call 8); this one unfolds in place, so it points down and turns. */}
         <ChevronDown
@@ -341,68 +517,84 @@ export function BookedRowItem({
           strokeWidth={2}
           className={`h-5 w-5 text-sn-accent transition-transform duration-200 motion-reduce:transition-none ${open ? 'rotate-180' : ''}`}
         />
+        <span className="col-span-2 col-start-2 flex flex-wrap items-baseline gap-x-2 text-[14px]" data-booked-next={n.kind}>
+          {n.kind === 'paid_in_full' ? (
+            <>
+              <span className="text-ink/55">Paid in full</span>
+              <span className="tabular-nums text-ink">{formatPhp(n.paidPhp)}</span>
+            </>
+          ) : (
+            <>
+              <span className="text-ink/55">Next:</span>
+              {n.kind === 'set_price' ? (
+                <span className="text-sn-accent">{NEXT_SET_PRICE}</span>
+              ) : n.kind === 'due' ? (
+                <span className="tabular-nums text-sn-accent" data-booked-late={n.late ? '' : undefined}>
+                  {[n.label.toLowerCase(), n.amountPhp !== null ? formatPhp(n.amountPhp) : null].filter(Boolean).join(' · ')}
+                  {n.dueDate ? (
+                    // Late is said the way the Pay sheet says it ("Was due Oct 5", in the danger colour) — never "by" a past day.
+                    n.late ? (
+                      <> · <span className="text-[rgb(var(--color-danger))]">was due {shortDate(n.dueDate)}</span></>
+                    ) : (
+                      ` · by ${shortDate(n.dueDate)}`
+                    )
+                  ) : null}
+                </span>
+              ) : (
+                <span className={n.needsYou ? 'text-sn-accent' : 'text-ink/80'}>{n.text}</span>
+              )}
+            </>
+          )}
+        </span>
+        <span className={`col-start-2 justify-self-start ${PILL} ${PILL_TONE[row.pill.tone]}`}>{row.pill.text}</span>
       </button>
-      <p className="ml-14 mt-1 flex flex-wrap items-baseline gap-x-2 text-[14px]" data-booked-next={n.kind}>
-        {n.kind === 'paid_in_full' ? (
-          <>
-            <span className="text-ink/55">Paid in full</span>
-            <span className="tabular-nums text-ink">{formatPhp(n.paidPhp)}</span>
-          </>
-        ) : (
-          <>
-            <span className="text-ink/55">Next:</span>
-            {n.kind === 'set_price' ? (
-              <span className="text-sn-accent">{NEXT_SET_PRICE}</span>
-            ) : n.kind === 'due' ? (
-              <span className="tabular-nums text-sn-accent" data-booked-late={n.late ? '' : undefined}>
-                {[n.label.toLowerCase(), n.amountPhp !== null ? formatPhp(n.amountPhp) : null].filter(Boolean).join(' · ')}
-                {n.dueDate ? (
-                  // Late is said the way the Pay sheet says it ("Was due Oct 5", in the danger colour) — never "by" a past day.
-                  n.late ? (
-                    <> · <span className="text-[rgb(var(--color-danger))]">was due {shortDate(n.dueDate)}</span></>
-                  ) : (
-                    ` · by ${shortDate(n.dueDate)}`
-                  )
-                ) : null}
-              </span>
-            ) : (
-              <span className={n.needsYou ? 'text-sn-accent' : 'text-ink/80'}>{n.text}</span>
-            )}
-          </>
-        )}
-      </p>
       {row.dateAsk ? (
-        <p className="ml-14 mt-0.5 text-[13px] text-ink/70" data-booked-date-ask={row.dateAsk.waiting ? 'waiting' : 'answered'}>
+        <p className="ml-14 mt-1 text-[13px] text-ink/70" data-booked-date-ask={row.dateAsk.waiting ? 'waiting' : 'answered'}>
           Date change to {row.dateAsk.when}:{' '}
           <span className={row.dateAsk.waiting ? 'text-sn-accent' : 'text-ink'}>{row.dateAsk.line}</span>
         </p>
       ) : null}
-      <div className="bk-exp" inert={!open}>
-        <div>
-          <div className="grid min-w-0 gap-2 pb-1 pl-14 pt-2 text-[14px]">
-            {row.room ? <BookedRoomLine line={row.room} threadId={row.threadId} /> : null}
-            <p className="flex flex-wrap items-center gap-x-2 gap-y-1.5" data-booked-feeds="">
-              <span className="text-ink/55">Used across your event:</span>
-              {row.feeds.map((u) => (
-                <span key={u} className={`${PILL} bg-ink/5 text-ink/70`}>
-                  {u}
-                </span>
-              ))}
-            </p>
-            <VerbRow
-              eventId={eventId}
-              vendorId={row.vendorId}
-              vendorName={row.name}
-              service={row.service}
-              own={row.own}
-              verbs={row.verbs}
-              threadId={row.threadId}
-              payVersion={JSON.stringify([row.next, row.money])}
-            />
+      {foldInline ? (
+        <div className="bk-exp" inert={!open}>
+          <div>
+            <BookedFold eventId={eventId} row={row} />
           </div>
         </div>
-      </div>
+      ) : null}
     </li>
+  );
+}
+
+/**
+ * WHAT AN OPENED TEAM ROW SHOWS — call time · payment plan · room size · "Used across your event" · ONE row of equal
+ * tiles (the prototype's `teamFold`). Drawn under the row on a phone, in the right column from 768.
+ */
+function BookedFold({ eventId, row }: { eventId: string; row: BookedRow }) {
+  return (
+    <div className="grid min-w-0 gap-2.5 pb-1 pt-3 text-[14px]" data-booked-fold={row.vendorId}>
+      {row.callTime ? <CallTimeLine line={row.callTime} /> : null}
+      {row.plan ? <PlanRows plan={row.plan} own={row.own} /> : null}
+      {row.room ? <BookedRoomLine line={row.room} threadId={row.threadId} /> : null}
+      <p className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[12.5px]" data-booked-feeds="">
+        <span className="text-ink/55">Used across your event:</span>
+        {row.feeds.map((u) => (
+          <span key={u} className={`${PILL} bg-ink/5 text-ink/70`}>
+            {u}
+          </span>
+        ))}
+      </p>
+      <VerbRow
+        eventId={eventId}
+        vendorId={row.vendorId}
+        vendorName={row.name}
+        service={row.service}
+        own={row.own}
+        verbs={row.verbs}
+        threadId={row.threadId}
+        payVersion={JSON.stringify([row.next, row.money])}
+        tiles
+      />
+    </div>
   );
 }
 

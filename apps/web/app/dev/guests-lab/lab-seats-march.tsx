@@ -51,6 +51,9 @@ export function LabSeats({ guests, seat }: { guests: readonly { guest_id: string
       seated_table_id: seated?.table_id ?? null,
       seat_number: null,
       seat_locked: false,
+      // 🪑 Who placed each seat (lib/seat-why.ts) — the lab's seats alternate "you" and Auto arrange, a few days apart.
+      seat_placed_by: seated ? (i % 2 === 0 ? 'couple' : 'auto') : null,
+      seat_placed_at: seated ? new Date(Date.UTC(2026, 9, 29 - (i % 4), 9)).toISOString() : null,
       role: g.role,
       group_category: 'friend',
       meal_preference: null,

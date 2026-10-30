@@ -17,7 +17,6 @@ import {
   pageOfClusters,
   passesFindFilters,
   pencilWords,
-  priceBands,
   refusedOn,
   servicesScopeWords,
   servicesWithCards,
@@ -108,17 +107,15 @@ test('a typed service name (≥ 3 letters) lands on it; anything else is a searc
   assert.equal(matchServiceQuery('Kusina ni Ate', S), null);
 });
 
-test('⇅ Price bands are the category\'s own thirds; Rating; an unpriced card is in no band', () => {
+test('⇅ Rating narrows; a card\'s price never removes it (owner 2026-10-31: price is "sort only")', () => {
   const cards = [100, 200, 300, 400, 500, 600].map((p, i) => c(`s${i}`, 'catering', `${i}`, p));
-  const bands = priceBands(cards);
-  assert.deepEqual(bands, { low: 300, high: 500 });
   const shop = { rating: 4.6, reviewCount: 10 };
-  assert.equal(passesFindFilters(cards[0] as FindCardRow, shop, { ...FIND_FILTERS_OFF, price: 'low' }, bands), true);
-  assert.equal(passesFindFilters(cards[5] as FindCardRow, shop, { ...FIND_FILTERS_OFF, price: 'low' }, bands), false);
-  assert.equal(passesFindFilters(c('x', 'catering', 'x'), shop, { ...FIND_FILTERS_OFF, price: 'mid' }, bands), false);
-  assert.equal(passesFindFilters(cards[0] as FindCardRow, shop, { price: 'any', rating: '4.5' }, bands), true);
-  assert.equal(passesFindFilters(cards[0] as FindCardRow, { rating: 4.2, reviewCount: 3 }, { price: 'any', rating: '4.5' }, bands), false);
-  assert.equal(priceBands(cards.slice(0, 2)), null, 'too few priced cards to cut honest bands');
+  for (const card of [...cards, c('x', 'catering', 'x')]) {
+    assert.equal(passesFindFilters(card, shop, FIND_FILTERS_OFF), true, 'with Rating at any, every card — priced or not — stays');
+  }
+  assert.equal(passesFindFilters(cards[0] as FindCardRow, shop, { rating: '4.5' }), true);
+  assert.equal(passesFindFilters(cards[0] as FindCardRow, { rating: 4.2, reviewCount: 3 }, { rating: '4.5' }), false);
+  assert.deepEqual(Object.keys(FIND_FILTERS_OFF), ['rating'], 'the ⇅ carries no price filter');
 });
 
 test('the words: "cards", the services scope, and the ✎ count', () => {

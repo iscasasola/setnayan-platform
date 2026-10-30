@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { MenuSettingsButton } from '@/app/_components/menu-settings-button';
 import { MAKER_REFRESH_EVENT } from '@/lib/maker-refresh';
+import { HOME_HELPER_SHEET } from '@/lib/menu-settings';
 import type { EventSettingsResult } from './open-event-settings';
 
 /**
@@ -47,6 +48,7 @@ export function HomeSettingsGear({
   landRow = null,
   landed = null,
   renderKey,
+  helper = false,
 }: {
   eventId: string;
   /** The Home lab's rows, already drawn on its fixture (`/dev/home-lab`) — then nothing is read. Absent = read at the press. */
@@ -59,6 +61,8 @@ export function HomeSettingsGear({
   landed?: HomeSettingsLanded | null;
   /** Changes with every server render of Home — while the sheet is up, a fresh render re-reads its rows. */
   renderKey?: string;
+  /** 🪪 A helper's ⚙ (owner 2026-10-31): the same sheet, holding only "Your access" — its line says so. */
+  helper?: boolean;
 }) {
   const [open, setOpenState] = useState(openAtFirst);
   const [land, setLand] = useState<string | null>(openAtFirst ? landRow : null);
@@ -153,10 +157,10 @@ export function HomeSettingsGear({
 
   return (
     <span data-home-settings-gear="" className="absolute bottom-1 right-4 inline-flex sm:right-6 lg:right-8">
-      <MenuSettingsButton menu="home" open={open} onOpenChange={setOpen} cover>
+      <MenuSettingsButton menu="home" open={open} onOpenChange={setOpen} cover line={helper ? HOME_HELPER_SHEET : undefined}>
         {got === null ? (
           <p className="px-4 py-6 text-sm text-ink/60" role="status" data-event-settings-opening="">
-            Opening your event’s details…
+            {helper ? 'Opening your access…' : 'Opening your event’s details…'}
           </p>
         ) : 'reason' in got ? (
           <p role="alert" className="px-4 py-6 text-sm text-terracotta-700" data-event-settings-failed="">

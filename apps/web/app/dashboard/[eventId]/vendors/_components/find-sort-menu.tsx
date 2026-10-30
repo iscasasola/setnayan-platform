@@ -10,9 +10,14 @@
  * what is already on the page: no request.
  *
  *   Sort   — the bench's own ONE sort (the ranking lenses + the plain sorts) — the same value the couple's own cards
- *            are ordered by, moved here from the list's head (it was the list head's dropdown).
- *   Price  — the open category's own thirds (`priceBands`), offered only when they can be cut honestly.
+ *            are ordered by, moved here from the list's head (it was the list head's dropdown). "Nearest" is one row
+ *            per venue with a pin (owner 2026-10-30, "Reception + Ceremony": "Nearest to reception" · "Nearest to
+ *            ceremony"), so the venue is picked in this same list — never a second control.
  *   Rating — any · 4.5 ★ and up · 4.0 ★ and up · new suppliers.
+ *
+ * 💸 PRICE IS A SORT ONLY (owner 2026-10-31, *"sort only"*): price lives in Sort as "Lowest price", which orders every
+ * card and removes none. The Price thirds ("Under ₱X" …) that used to sit here filtered cards out and are gone; there
+ * is no price range to type either. `find-price-is-a-sort-only.test.ts` holds both.
  *
  * Style is not offered: no card carries a style yet (`vendor_service_attributes`), and a choice that can only empty
  * the list is not a choice.
@@ -20,8 +25,7 @@
 import type { ThumbMenu } from '@/components/thumb-row';
 import type { PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu-types';
 import { FilterFace } from '@/app/dashboard/[eventId]/guests/_components/guests-filter-menu';
-import { formatPhpRounded } from '@/lib/php';
-import { FIND_FILTERS_OFF, filtersOn, type FindFilters, type FindPrice, type FindRating } from '@/lib/find-service-cards';
+import { FIND_FILTERS_OFF, filtersOn, type FindFilters, type FindRating } from '@/lib/find-service-cards';
 
 const RATINGS: readonly { key: FindRating; label: string }[] = [
   { key: 'any', label: 'Any rating' },
@@ -30,14 +34,8 @@ const RATINGS: readonly { key: FindRating; label: string }[] = [
   { key: 'new', label: 'New suppliers' },
 ];
 
-function priceOptions(bands: { low: number; high: number }): { key: FindPrice; label: string }[] {
-  return [
-    { key: 'any', label: 'Any price' },
-    { key: 'low', label: `Under ${formatPhpRounded(bands.low)}` },
-    { key: 'mid', label: `${formatPhpRounded(bands.low)} – ${formatPhpRounded(bands.high)}` },
-    { key: 'high', label: `${formatPhpRounded(bands.high)} and up` },
-  ];
-}
+/** The ⇅ list's floor width — the longest label ("Nearest to your venue") + its ⓘ on one line at 390 px. */
+export const FIND_SORT_MENU_MIN_WIDTH = 240;
 
 const ok = (on: boolean) => (on ? { text: '✓', tone: 'ok' as const, label: 'chosen' } : undefined);
 
@@ -48,7 +46,6 @@ export function findSortMenu({
   onSort,
   scope,
   filters,
-  bands,
   onFilters,
 }: {
   /** The bench's sort choices, as its dropdown offered them (a lens it cannot offer carries its reason). */
@@ -57,10 +54,9 @@ export function findSortMenu({
   /** The order the list starts in — not counted as a filter. */
   defaultSort: string;
   onSort: (key: string) => void;
-  /** The open category's name — Price and Rating act on it; null (none open) → Sort only. */
+  /** The open category's name — Rating acts on it; null (none open) → Sort only. */
   scope: string | null;
   filters: FindFilters;
-  bands: { low: number; high: number } | null;
   onFilters: (next: FindFilters) => void;
 }): ThumbMenu {
   const narrowing = scope ? filtersOn(filters) : 0;
@@ -73,14 +69,14 @@ export function findSortMenu({
     trail: ok(s.key === sort),
   }));
   if (scope) {
-    if (bands) {
-      for (const p of priceOptions(bands)) menu.push({ key: `price:${p.key}`, label: p.label, group: 'Price', trail: ok(filters.price === p.key) });
-    }
     for (const r of RATINGS) menu.push({ key: `rating:${r.key}`, label: r.label, group: 'Rating', trail: ok(filters.rating === r.key) });
   }
   if (narrowing > 0 || reordered) menu.push({ key: 'clear', label: 'Clear filters', group: ' ' });
   return {
     mark: 'data-thumb-sort',
+    // 📏 Every row on ONE line at 390 px (owner 2026-10-31, "Yes, tidy it": a greyed row shows its short label only, its
+    // reason in the ⓘ) — "Nearest to your venue" + its ⓘ needs this; the list was 168 px and wrapped every long row.
+    menuMinWidth: FIND_SORT_MENU_MIN_WIDTH,
     label: scope ? `Sort and filter ${scope}` : 'Sort suppliers',
     value: null,
     face: <FilterFace on={narrowing > 0 || reordered} />,
@@ -93,7 +89,6 @@ export function findSortMenu({
       }
       const [kind, value] = [k.slice(0, k.indexOf(':')), k.slice(k.indexOf(':') + 1)];
       if (kind === 'sort') onSort(value);
-      else if (kind === 'price') onFilters({ ...filters, price: value as FindPrice });
       else if (kind === 'rating') onFilters({ ...filters, rating: value as FindRating });
     },
   };

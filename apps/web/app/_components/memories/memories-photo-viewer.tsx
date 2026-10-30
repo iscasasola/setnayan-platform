@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState, useTransition } from 'react';
+import { useFormStatus } from 'react-dom';
+import { SubmitButton } from '@/app/_components/submit-button';
 import { Ban, Check, Eye, EyeOff, Flag, FolderPlus, MoreHorizontal, Plus, Share, Tag, Trash2, X } from 'lucide-react';
 import { PhotoViewer, PanelHead, SharePanel, PANEL_BTN, PANEL_MAIN, PANEL_ROW, type ViewerAction } from '@/app/_components/gallery/photo-viewer';
 import {
@@ -163,14 +165,7 @@ export function MemoriesPhotoViewer({
         <input type="hidden" name="table" value={item.table} />
         <input type="hidden" name="id" value={item.id} />
         <PanelHead title="Delete forever?" line="Delete this photo and every copy of it? This cannot be undone." />
-        <div className={PANEL_ROW}>
-          <button type="submit" className={`${PANEL_MAIN} !bg-[var(--sn-ob-cta)]`}>
-            <Trash2 aria-hidden className="h-4 w-4" strokeWidth={2} /> Delete forever
-          </button>
-          <button type="button" className={PANEL_BTN} onClick={() => setPanel(null)}>
-            Keep it
-          </button>
-        </div>
+        <DeleteConfirmRow onKeep={() => setPanel(null)} />
       </form>
     );
   } else if (panel === 'tag' && isTaggableTable(item.table)) {
@@ -478,6 +473,31 @@ function TagPanel({
       )}
       <button type="button" className={PANEL_BTN} onClick={onDone}>
         Done
+      </button>
+    </div>
+  );
+}
+
+/**
+ * 🗑 THE DELETE CONFIRM'S TWO BUTTONS (owner 31 Oct): "When we press delete a pop saying it cannot be undone continue
+ * button then when continue is pressed. We show a deleting progress icon and delete." Continue is the shared
+ * SubmitButton: while the delete runs it shows a spinner and "Deleting…", is disabled, and raises the app's no-touch
+ * veil; Keep it is disabled too, so a half-sent delete cannot be walked away from.
+ */
+function DeleteConfirmRow({ onKeep }: { onKeep: () => void }) {
+  const { pending } = useFormStatus();
+  return (
+    <div className={PANEL_ROW}>
+      <SubmitButton
+        className={`${PANEL_MAIN} !bg-[var(--sn-ob-cta)]`}
+        pendingLabel="Deleting…"
+        overlayHint="Deleting"
+        data-memories-delete-continue=""
+      >
+        <Trash2 aria-hidden className="h-4 w-4" strokeWidth={2} /> Continue
+      </SubmitButton>
+      <button type="button" className={PANEL_BTN} onClick={onKeep} disabled={pending}>
+        Keep it
       </button>
     </div>
   );

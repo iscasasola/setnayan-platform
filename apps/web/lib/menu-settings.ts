@@ -56,6 +56,16 @@ export type SettingsEntry = {
 export const MENU_SETTINGS_TIP =
   'Settings for this menu only. The event’s own facts — names, date, venues, money, who helps — are under ⚙ on Home.';
 
+/**
+ * 🪪 HOME'S ⚙ FOR A HELPER (owner 2026-10-31, DECISION_LOG "A HELPER SEES THEIR OWN ACCESS AS THE FIRST ROW OF HOME ⚙
+ * EVENT SETTINGS"): the same door and the same sheet, whose one row is "Your access" — so its line says that, never the
+ * hosts' "Names, date, venues…" a helper cannot change.
+ */
+export const HOME_HELPER_SHEET = {
+  line: 'What you can open on this event.',
+  tip: 'The hosts set what each helper can open. The event’s own facts stay with them.',
+} as const;
+
 export const SETTINGS_ENTRY: Record<SettingsMenu, SettingsEntry> = {
   /**
    * 🏠 HOME › EVENT SETTINGS (owner 2026-10-29, "keep it there"; DECISION_LOG 2026-10-27 "APPROVED — SETTINGS PER MENU":

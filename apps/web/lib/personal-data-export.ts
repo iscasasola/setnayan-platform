@@ -307,6 +307,7 @@ export async function buildPersonalDataExport(
     ledgerRes,
     ledgerSuppliersRes,
     ownSuggestionsRes,
+    couplePhotoSharesRes,
     ownCrewPassesRes,
     ownMoodBoardChangesRes,
   ] = await Promise.all([
@@ -793,6 +794,14 @@ export async function buildPersonalDataExport(
       .select('suggestion_id, event_id, slot_key, shop_label, state, image_url, created_at, decided_at')
       .eq('suggested_by_user_id', user.id)
       .order('created_at', { ascending: true }),
+    // RA 10173 (2026-10-30, #7089) — the subject's OWN photos they shared to a supplier's service card: AUTHOR-scoped
+    // on shared_by_user_id (the consent, credit line and audience are theirs). Read under their own session (the
+    // couple-read policy); the image itself is their own board upload, already in their file. No URL is minted here.
+    supabase
+      .from('couple_photo_shares')
+      .select('share_id, event_id, vendor_service_id, state, audience, credit_style, credit_line, consent_version, consented_at, created_at, decided_at, withdrawn_at')
+      .eq('shared_by_user_id', user.id)
+      .order('created_at', { ascending: true }),
     // RA 10173 (2026-10-29) — the subject's OWN crew passes (migration …_crew_join_the_suppliers_event_hub_by_qr):
     // the name they typed to join a shop's crew for an event, their role and whether they were let in. Scoped to
     // crew_user_id — the shop that decided is not this row's data subject. Read under the subject's own session
@@ -847,6 +856,7 @@ export async function buildPersonalDataExport(
   const inviteMutes = listOutcome('invite_mutes', inviteMutesRes);
   const vendorReuseRequests = listOutcome('vendor_reuse_requests', vendorReuseRequestsRes);
   const ownSuggestions = listOutcome('event_inspiration_suggestions', ownSuggestionsRes);
+  const couplePhotoShares = listOutcome('couple_photo_shares', couplePhotoSharesRes);
   const ownCrewPasses = listOutcome('vendor_crew_passes', ownCrewPassesRes);
   const ownMoodBoardChanges = listOutcome('mood_board_changes_made', ownMoodBoardChangesRes);
   const workingNotes = listOutcome(
@@ -967,6 +977,7 @@ export async function buildPersonalDataExport(
     ownColourChanges,
     ledger,
     ledgerSuppliers,
+    couplePhotoShares,
     ownCrewPasses,
     ownMoodBoardChanges,
   ]);
@@ -1059,6 +1070,8 @@ export async function buildPersonalDataExport(
     vendor_reuse_requests: vendorReuseRequests.rows,
     // 🤝🖼 Photos the subject suggested to couples' boards as a booked supplier (author-scoped).
     inspiration_suggestions_sent: ownSuggestions.rows,
+    // 📸 Photos the subject shared to suppliers' service cards (author-scoped; consent · credit · who sees it).
+    photos_shared_to_suppliers: couplePhotoShares.rows,
     crew_passes: ownCrewPasses.rows,
     // RA 10173 (2026-07-21) — coordinator-workspace prose the subject AUTHORED.
     // Author-scoped, never event-scoped (see the WHY blocks at each select).

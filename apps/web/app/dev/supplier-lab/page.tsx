@@ -25,6 +25,8 @@
  *   ?thumb=people     the frosted thumb row: a search field (≥ 60 %) + Add     (frame 03)
  *   ?thumb=customer   Chat (main) · Quote · Payment · Call                     (frame 06)
  *   ?thumb=money      Log a payment — a form's submit through the button rule  (frame 05)
+ *   ?s=couple-photos  📸 Photos couples shared — Approve · Decline · Take off, in place (`couple-photos-lab.tsx`);
+ *                     &card=1 the service card with an approved couple photo and its credit line (owner 2026-10-30)
  *   ?s=chat-ask       💬 the chat on a couple's FIRST message — their ask at the top: the event's fixed lines, Decline ·
  *                     Ask a question · Accept (supplier dashboard v13, `chat-lab.tsx`)
  *   ?s=events         Customers › Events (People until 2026-10-30): the approved v13's own five events — one row per
@@ -106,6 +108,7 @@ import { formatPhpRounded } from '@/lib/php';
 import { canonicalServicesForSlot } from '@/lib/moodboard-gallery';
 import { uploadableSlotsForShop } from '@/lib/moodboard-gallery-upload';
 import { SuggestLab } from './suggest-lab';
+import { CouplePhotosLab } from './couple-photos-lab';
 import { LAB_SUGGEST_COUPLE, LAB_SUGGEST_FIVE } from './suggestion-lab-fixture';
 import { buildSupplierBoard, firstOwnPart, ownLaneWords } from '@/lib/supplier-suggest-board';
 import { suggestablePartsForShop, supplierTradeWord } from '@/lib/inspiration-suggestion-parts';
@@ -310,7 +313,7 @@ function TodayLab({ state, toast, earned }: { state: TodayState; toast: string |
 export default async function SupplierLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ thumb?: string; s?: string; toast?: string; q?: string; lane?: string; add?: string; open?: string; next?: string; mpage?: string; easy?: string; sup?: string; who?: string; draft?: string; library?: string; view?: string; sent?: string; rail?: string; logo?: string; gift?: string; invited?: string; shell?: string; wallet?: string; port?: string; spot?: string; none?: string; unread?: string; cohost?: string; asked?: string; coarse?: string; at?: string; docs?: string; gbb?: string; earned?: string; door?: string; block?: string; gear?: string; fail?: string; seg?: string; ev?: string; state?: string }>;
+  searchParams: Promise<{ thumb?: string; s?: string; toast?: string; q?: string; lane?: string; add?: string; open?: string; next?: string; mpage?: string; easy?: string; sup?: string; who?: string; draft?: string; library?: string; view?: string; sent?: string; rail?: string; logo?: string; gift?: string; invited?: string; shell?: string; wallet?: string; port?: string; spot?: string; none?: string; unread?: string; cohost?: string; asked?: string; coarse?: string; at?: string; docs?: string; gbb?: string; earned?: string; door?: string; block?: string; gear?: string; fail?: string; seg?: string; ev?: string; state?: string; card?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -353,6 +356,11 @@ export default async function SupplierLabPage({
   if (q.s && (COORD_STATES as readonly string[]).includes(q.s)) {
     /* 🗂 The coordinator's door (owner 2026-10-28) — `coord-lab.tsx`; `&none=1` = no live coordinator access. */
     return <CoordLab state={q.s as CoordState} none={q.none === '1'} unread={q.unread === '1'} cohost={q.cohost === '1'} at={q.at} actions={ACTIONS} />;
+  }
+  if (q.s === 'couple-photos') {
+    /* 📸 Photos couples shared, waiting for Approve (owner 2026-10-30) — `&card=1` the service card with an approved
+       one and its credit line. Stand-in writes only (`couple-photos-lab.tsx`). */
+    return <CouplePhotosLab card={q.card === '1'} />;
   }
   if (q.s === 'suggest') {
     /* 🤝🖼 A booked florist on a lab couple's Palette (prototype frames 1–2) — `&sent=1` one photo already waiting;

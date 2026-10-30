@@ -31,7 +31,7 @@ import {
 } from './delegate-areas';
 import { delegateAccessHasExpired, delegateAccessLastDay } from './delegate-access-window';
 import { ACCESS_LEVEL_LABEL, CREATOR_WORD, guestAccessState, seatIsFullCohost, type GuestAccessState } from './guest-access';
-import { levelOf, type CoordinatorAccessLevel, type LevelledPermissions } from './coordinator-access-level';
+import { LEVEL_WORD, levelOf, type CoordinatorAccessLevel, type LevelledPermissions } from './coordinator-access-level';
 
 /** The hired planner's seat kind (`lib/planner-seats.ts` PLANNER_SEAT_ROLE). */
 const PLANNER_ROLE = 'wedding_planner_external';
@@ -427,3 +427,52 @@ export function coordinatorSwitchWrites(cells: readonly AreaCell[], on: boolean)
  * (2026-10-07: *"3 way toggle Edit - OFF - View"*) — Off in the middle.
  */
 export const AREA_TOGGLE_ORDER: readonly AreaChoice[] = ['edit', 'off', 'view'];
+
+/**
+ * 🪪 YOUR ACCESS — what a HELPER sees of their own seat, first in Home's ⚙ Event Settings (owner 2026-10-31, DECISION_LOG
+ * "A HELPER SEES THEIR OWN ACCESS AS THE FIRST ROW OF HOME ⚙ EVENT SETTINGS": *"Yes"* — their role and what they can
+ * open, read-only). Built from the SAME parts the hosts' rows above are: the role is the word the hosts see on that
+ * person's row (`Coordinator` for the hired planner's seat, else `seatAccessWord` — "Limited helper"), each area is
+ * `areaCells` over the grant the database enforces (`moderator_area_level`), the last day is `delegateAccessLastDay`.
+ * Nothing here is a second rule — it only arranges the helper's own row for the helper.
+ */
+export type OwnAccess = {
+  /** The hosts' word for this seat — "Coordinator · Limited" · "Coordinator" · "Limited helper". */
+  roleWord: string;
+  /** One cell per area, as the hosts' row draws it — read-only here. */
+  areas: AreaCell[];
+  /** The last day the seat opens anything (`YYYY-MM-DD`), or null (no day-precise date yet). */
+  lastDay: string | null;
+};
+
+/** A last day of access as the section says it — "Dec 25, 2026" (the hosts' rows and Your access alike). */
+export function accessDayLabel(iso: string): string {
+  return new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+}
+
+/** The words under "Your access" — the one visible line is the role (+ until when); the rest is the ⓘ. */
+export const OWN_ACCESS_TIP =
+  'The hosts decide what you can open: View lets you see a part, Edit lets you change it, Off keeps it closed. Only the hosts can change this.';
+
+export function ownAccessOf(input: {
+  roleSubtype: string | null;
+  /** The seat's grant, already inside its window (`fetchEventViewer` → `delegatePermissions`). */
+  permissions: ModeratorPermissions | null;
+  window: EventWindowInput;
+}): OwnAccess {
+  const { roleSubtype, permissions, window: w } = input;
+  const level = roleSubtype === PLANNER_ROLE ? levelOf({ permissions_json: permissions as LevelledPermissions | null }) : null;
+  const roleWord =
+    roleSubtype === PLANNER_ROLE
+      ? level
+        ? `Coordinator · ${LEVEL_WORD[level]}`
+        : 'Coordinator'
+      : roleSubtype && seatIsFullCohost(roleSubtype)
+        ? 'Co-host'
+        : ACCESS_LEVEL_LABEL.limited_helper;
+  return {
+    roleWord,
+    areas: areaCells(permissions),
+    lastDay: delegateAccessLastDay({ isCouple: false, eventDate: w.eventDate, eventEndDate: w.eventEndDate, precision: w.precision }),
+  };
+}

@@ -141,7 +141,7 @@ test('Home — the cover pins as one line: names · date · ⚙, the ⚙ its one
   const band = read('_components', 'home-cover-band.tsx');
   assert.match(band, /\bsticky top-\[calc\(var\(--home-bar\)-var\(--home-band-h\)\+52px\)\]/, 'the cover band does not pin with a negative top');
   assert.match(band, /<HomeCoverPin name=\{cover\.name\} date=\{cover\.shortDate\} gear=\{gear\} \/>/);
-  assert.match(read('_components', 'home-first-screen.tsx'), /<HomeCoverBand [^>]*settingsFor=\{eventSettings \? eventId : undefined\}/, 'the Home does not hand its band the ⚙');
+  assert.match(read('_components', 'home-first-screen.tsx'), /<HomeCoverBand [^>]*settingsFor=\{eventSettings \|\| helperSettings \? eventId : undefined\}/, 'the Home does not hand its band the ⚙');
   const pin = read('_components', 'home-cover-pin.tsx');
   assert.doesNotMatch(pin, /<button\b|<Link\b|<select\b|<nav\b|<a\b|ActionButton|MenuSettingsButton/, 'the Home pin grew a control — its ⚙ is the band’s one mount');
   const { renderToStaticMarkup } = await import('react-dom/server');

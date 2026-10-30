@@ -4,12 +4,18 @@ import { useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { usePinFold } from '@/app/_components/pinned-row/use-pin-fold';
-import { CUSTOMER_SEGMENTS, CUSTOMER_SEGMENT_LABEL, type CustomersDoorKey, type CustomersSegment } from '../segments';
+import {
+  CUSTOMER_SEGMENTS,
+  CUSTOMER_SEGMENT_LABEL,
+  type CustomersDoorKey,
+  type CustomersListKey,
+  type CustomersSegment,
+} from '../segments';
 import { SupplierOpenScope } from '../../_components/supplier-open-row';
 
 // The door keys live in the neutral `segments.ts`: a `'use client'` module hands a server page a REFERENCE, never the
 // array itself (measured: `CUSTOMERS_DOORS.map is not a function` on the first render).
-export type { CustomersDoorKey } from '../segments';
+export type { CustomersDoorKey, CustomersListKey } from '../segments';
 
 export type CustomersDoor = {
   key: CustomersDoorKey;
@@ -21,7 +27,8 @@ export type CustomersDoor = {
 };
 
 /**
- * 📌 CUSTOMERS' PINNED ROW — `People ▾ · Asking · Talking · Booked · Done · ⚙` (owner 2026-10-28, DECISION_LOG
+ * 📌 CUSTOMERS' PINNED ROW — `Events ▾ · Asking · Booked · Done · ⚙` (People ▾ until 2026-10-30 — owner
+ * 2026-10-29 "CUSTOMERS ARE EVENTS, NOT PEOPLE": "Customers' first section is EVENTS"; owner 2026-10-28, DECISION_LOG
  * "SUPPLIER DASHBOARD APPROVED — EVERYTHING IN PLACE, A ⚙ PER PAGE": "Customers — People · Dates · Money + ⚙ on one
  * pinned row. People: the counts (Asking · Talking · Booked · Done) filter"; the 27 Oct template "THE PINNED ROW IS THE
  * APP-WIDE TEMPLATE": selector · counts · one action · ⚙; prototype `supplier_in_place_2026-10-28` `custRows()`).
@@ -29,8 +36,10 @@ export type CustomersDoor = {
  * THE TODAY PATTERN, COPIED (`today-counts.tsx`, #7026): one sticky row, the same box at rest and pinned; each count is
  * a FILTER — pressing it shows ITS list right under the row, in place, no navigation (`aria-pressed`); the other lists
  * stay drawn but hidden, so nothing is re-read and a fold left open in one is still open on the way back.
+ * 🗂 Events opens with NO count pressed — every event listed (approved v13; controller call 2026-10-30) — and pressing the
+ * pressed count again goes back to every event.
  *
- *   · THE SELECTOR is the page's three views as ONE `PickMenu` ("any set of choices is a dropdown") — People ▾ ·
+ *   · THE SELECTOR is the page's three views as ONE `PickMenu` ("any set of choices is a dropdown") — Events ▾ ·
  *     Dates ▾ · Money ▾, each its own address (`?seg=`), so Back works and a link can name one.
  *   · NO ACTION ON THE ROW: the approved prototype puts ＋ Add (an outside booking) in the thumb bar with the search
  *     ("Search and ＋ Add live in the thumb bar"), and one Add is one door — never two.
@@ -44,13 +53,13 @@ export function CustomersPin({
   hrefs,
   doors = null,
   panels = null,
-  initial = 'asking',
+  initial = null,
   gear,
   between = null,
   after = null,
   columns = null,
 }: {
-  /** What follows the lists in the same column (People's other chats and kept notes). */
+  /** What follows the lists in the same column (Events' other chats and kept notes). */
   after?: ReactNode;
   /**
    * 🖥 THE TWO COLUMNS (supplier dashboard v13, 2026-10-29): the lists on the left and the opened event on the right from
@@ -63,16 +72,20 @@ export function CustomersPin({
   /** Each view's own address (a fixture page — the dev lab — hands its own). Strings, not a function: a server page
    *  cannot hand a client row a function. */
   hrefs: Readonly<Record<CustomersSegment, string>>;
-  /** People's four counts; null on Dates and Money. */
+  /** Events' three counts (Asking · Booked · Done); null on Dates and Money. */
   doors?: readonly CustomersDoor[] | null;
-  /** Each door's list, drawn by the server. */
-  panels?: Readonly<Record<CustomersDoorKey, ReactNode>> | null;
-  initial?: CustomersDoorKey;
+  /** Every event (`all`) and each count's list, drawn by the server. */
+  panels?: Readonly<Record<CustomersListKey, ReactNode>> | null;
+  /** The count an address names; null (the default) = no count pressed — every event (approved v13). */
+  initial?: CustomersDoorKey | null;
   /** Customers ⚙ (`CustomersSettings`) — the row's right end. */
   gear: ReactNode;
 }) {
   const router = useRouter();
-  const [on, setOn] = useState<CustomersDoorKey>(initial);
+  // 🔑 Null = no count pressed: EVERY event is listed (controller call 2026-10-30, the approved v13). A count filters in
+  // place; pressing it again shows them all — opening on Asking alone made a supplier's booked events look gone.
+  const [on, setOn] = useState<CustomersDoorKey | null>(initial);
+  const showing: CustomersListKey = on ?? 'all';
   // 📌 Folds into one slim line once the page runs under it (owner 2026-10-29, the shared `usePinFold`).
   const pinRef = useRef<HTMLDivElement>(null);
   usePinFold(pinRef);
@@ -86,7 +99,7 @@ export function CustomersPin({
         className={`sn-press grid min-h-11 min-w-0 max-w-[6.5rem] flex-1 content-center gap-0.5 rounded-full px-0.5 py-1 text-center transition-colors duration-200 motion-reduce:transition-none ${
           pressed ? 'bg-sn-accent' : ''
         }`}
-        onClick={() => setOn(d.key)}
+        onClick={() => setOn(pressed ? null : d.key)}
         aria-pressed={pressed}
         aria-controls={`customers-list-${d.key}`}
         data-customers-door={d.key}
@@ -126,8 +139,8 @@ export function CustomersPin({
   };
 
   const lists = panels
-    ? (['asking', 'talking', 'booked', 'done'] as const).map((key) => (
-        <div key={key} id={`customers-list-${key}`} data-customers-list-for={key} hidden={on !== key}>
+    ? (['all', 'asking', 'booked', 'done'] as const).map((key) => (
+        <div key={key} id={`customers-list-${key}`} data-customers-list-for={key} hidden={showing !== key}>
           {panels[key]}
         </div>
       ))
@@ -161,7 +174,7 @@ export function CustomersPin({
           </span>
           {doors ? (
             // Doors cap at 6.5rem: on a tablet or a computer the row keeps the phone's proportions instead of
-            // stretching four pills across the page; the space gathers before the ⚙.
+            // stretching three pills across the page; the space gathers before the ⚙.
             <span className="flex min-w-0 flex-1 items-center gap-0.5" data-customers-doors="" data-tour="customers-filter">
               {doors.map(door)}
             </span>
@@ -172,7 +185,7 @@ export function CustomersPin({
         </div>
       </div>
       {columns ? (
-        <SupplierOpenScope name={`customers-${seg}`} paneLabel="The opened event" rest={columns.rest} watch={on}>
+        <SupplierOpenScope name={`customers-${seg}`} paneLabel="The opened event" rest={columns.rest} watch={showing}>
           {between}
           {lists}
           {after}

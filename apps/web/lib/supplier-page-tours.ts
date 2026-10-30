@@ -52,6 +52,7 @@ export function supplierPageTourOn(
     const seg = customersSegmentOf(search);
     if (seg === 'dates') return 'vendor_dates_v1';
     if (seg === 'money') return 'vendor_money_v1';
+    // Events (People until 2026-10-30) — the tour keeps its key: it is the "seen" mark a supplier already holds.
     return 'vendor_people_v1';
   }
   if (path === '/vendor-dashboard/on-the-day') return 'vendor_hub_v1';

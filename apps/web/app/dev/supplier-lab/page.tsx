@@ -27,7 +27,9 @@
  *   ?thumb=money      Log a payment — a form's submit through the button rule  (frame 05)
  *   ?s=chat-ask       💬 the chat on a couple's FIRST message — their ask at the top: the event's fixed lines, Decline ·
  *                     Ask a question · Accept (supplier dashboard v13, `chat-lab.tsx`)
- *   ?s=people         Customers › People (S-PR2): segments, rows, outside clients, kept notes, search + Add (frame 03)
+ *   ?s=events         Customers › Events (People until 2026-10-30): the approved v13's own five events — one row per
+ *                     event, Indalecio & Claire twice (their wedding and their lunch); &shell=1 for the rail + two columns
+ *   ?s=people         Customers › Events on the older fixture set: rows, outside clients, kept notes, search + Add (frame 03)
  *     &q=ana · &lane=outside|waiting|… · &add=1 (the Add sheet) · &toast=added|removed|failed
  *   ?s=clash          two couples holding one Saturday — the warn row above the list
  *   ?s=empty          nobody yet       ?s=fail   payday + roster could not be read — said     ?s=nopools  Add with no schedule
@@ -104,7 +106,8 @@ import { fallbackInspirationParts } from '@/lib/inspiration-parts';
 import { supplierRoleLine } from '@/lib/inspiration-suggestions';
 import { canonicalServicesForTile } from '@/lib/vendor-counts';
 
-const PEOPLE_STATES = ['people', 'clash', 'empty', 'fail', 'nopools'] as const;
+/** `events` — the approved v13's own five events (Customers › Events); `people` stays a working address for older links. */
+const PEOPLE_STATES = ['events', 'people', 'clash', 'empty', 'fail', 'nopools'] as const;
 
 export const dynamic = 'force-dynamic';
 
@@ -308,7 +311,7 @@ export default async function SupplierLabPage({
   /* 📌 The address each state draws, so the pinned row's page menu ▾ names it (v13 frame, 2026-10-29). */
   const labPage = (() => {
     const s = q.s ?? '';
-    if (/^(people|clash|empty|fail|nopools)$/.test(s)) return '/vendor-dashboard/customers';
+    if (/^(events|people|clash|empty|fail|nopools)$/.test(s)) return '/vendor-dashboard/customers';
     if (s === 'chat-ask') return '/vendor-dashboard/customers';
     if (s.startsWith('dates') || s.startsWith('qr')) return '/vendor-dashboard/customers?seg=dates';
     if (s.startsWith('money')) return '/vendor-dashboard/customers?seg=money';

@@ -17,6 +17,10 @@ before they leave the menu).
   Studio › Palette + Dress Code"), the dress-code notes that point at it and two Help answers. The inspiration part's
   move to Suppliers › Find is another builder's.
 - Look's own item ▾ in the lower third lists Studio ▾'s pages and Look (the page it is on).
+- **Studio ▾ ends with "Event Hub Settings"** — the prototype's last row: after a hairline, "Event Hub Settings · Look ·
+  address · QR · who can view · E-Gifts"; it closes the list and opens the pinned row's one ⚙ sheet (`moreOpen`), so
+  what left Studio is found from where it used to be. A row of the list, not a page (never counted, never ticked).
+  Guard: `lib/studio-menu-ends-with-hub-settings.test.ts`. Carries slice 4's redraw of ⚙ › Your Event Hub (merged in).
 
 Guards re-aimed to the ruling: studio-tiles (1 · labels; new 1b · the menu), studio-pages-have-no-title-row (the home's
 cards, the switch's list, the short name, the "ready" heading), studio-followups-follow-the-prototype,

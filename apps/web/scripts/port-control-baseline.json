@@ -11769,6 +11769,7 @@
     },
     "/dev/shop-preview-lab": {
       "files": [
+        "dev/shop-preview-lab/inspiration-lab-fixture.ts",
         "dev/shop-preview-lab/page.tsx"
       ],
       "destinations": [
@@ -11777,7 +11778,9 @@
       "actions": [],
       "blocks": [
         "Link",
+        "ServicesGallery",
         "ShopBadgePill",
+        "ShopInspirationSection",
         "SlugNotFound",
         "TeamPreviewBanner",
         "Wordmark"
@@ -13431,6 +13434,7 @@
         "v/[slug]/_components/service-details-sheet.tsx",
         "v/[slug]/_components/services-gallery.tsx",
         "v/[slug]/_components/share-button.tsx",
+        "v/[slug]/_components/shop-inspiration-section.tsx",
         "v/[slug]/_components/team-preview-banner.tsx",
         "v/[slug]/_components/venue-matched-events.tsx",
         "v/[slug]/_components/verified-price-card.tsx",
@@ -13464,6 +13468,7 @@
         "FilterChip",
         "HTMLDivElement",
         "Image",
+        "InfoTip",
         "InquiryComposer",
         "Link",
         "LockPackageModal",
@@ -13487,12 +13492,14 @@
         "ServicesPricingSection",
         "ShareButton",
         "ShopBadgePill",
+        "ShopInspirationSection",
         "SignInHereLink",
         "StarRow",
         "StartServiceInquiryResult",
         "StorytellerTile",
         "SubmitButton",
         "TeamPreviewBanner",
+        "TilePhoto",
         "TrackRecord",
         "TrustedBySection",
         "TrustedByVendor",
@@ -14039,6 +14046,7 @@
         "HTMLInputElement",
         "Icon",
         "Image",
+        "InspirationCardPick",
         "LedgerUnreadableNote",
         "Link",
         "LockAnswerLine",
@@ -14146,6 +14154,7 @@
         "EventLockedPage",
         "Link",
         "SuggestResult",
+        "SuggestionPoolResult",
         "SupplierSuggestBoard",
         "VendorPartSignoff"
       ]
@@ -14748,6 +14757,7 @@
         "GridPageSkeleton",
         "HTMLInputElement",
         "Image",
+        "InspirationCardPick",
         "Link",
         "PalettePreview",
         "PickMenu",

@@ -41,6 +41,7 @@
  */
 
 import { useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { formatCount } from '@/lib/format-number';
 import { flushSync } from 'react-dom';
 import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import { Sparkles } from 'lucide-react';
@@ -455,7 +456,7 @@ export function ServicesTakeover({
     mode === 'build' && tally.filled > 0
       ? `${tally.filled}/${tally.total}`
       : mode === 'booked' && bookedPart === 'team' && bookedCount > 0
-        ? `${bookedCount} booked`
+        ? `${formatCount(bookedCount)} booked`
         : null;
 
   return (

@@ -92,19 +92,29 @@ function exportedFunctions(rel: string): Map<string, string> {
 }
 
 const WRITES_A_PHOTO = /\.from\(\s*'event_inspiration_assets'\s*\)\s*\.(?:insert|update)\(/;
-const PHOTO_GATE = /\b(?:moodBoardPhotosRefusal|refuseUnlessMoodBoardPhotos)\(/;
+const PHOTO_GATE = /\b(?:moodBoardPhotosRefusal|refuseUnlessMoodBoardPhotos|moodBoardPhotoChangeRefusal|refuseUnlessMoodBoardPhotoChange)\(/;
+/** 🖼⏱ The door that also opens the owners' 24-hour Undo — every DIRECT photo writer must use it (20271299051148). */
+const CHANGE_DOOR = /\b(?:moodBoardPhotoChangeRefusal|refuseUnlessMoodBoardPhotoChange)\(/;
 const HOST_GATE = /\b(?:refuseUnlessMoodBoardHost|moodBoardHostRefusal)\(/;
 
-/** Writers that also change the event row (palette, theme) or decide for the couple — the hosts' alone. */
+/** Writers that also change the event row (palette, theme) — the hosts' alone. */
 const HOSTS_ONLY = new Set([
   'studio/mood-board/actions.ts#saveRolePalette',
   'studio/mood-board/actions.ts#saveMoodboardTheme',
   'studio/mood-board/actions.ts#applyThemeIntent',
   'studio/mood-board/actions.ts#applyMoodboardTemplate',
+]);
+
+/**
+ * 🤝 A supplier's suggestion — Keep · No thanks · the Keep toast's Undo — is answered by whoever may change the photos
+ * (owner 2026-10-30: *"Coordinators can also approve the changes made by suppliers?"* → *"Yes"*). Their RPCs ask
+ * `can_change_mood_board_photos` themselves; the action asks first so a refusal is said.
+ */
+const SUGGESTION_ANSWERS = [
   'studio/mood-board/suggestion-actions.ts#keepInspirationSuggestion',
   'studio/mood-board/suggestion-actions.ts#declineInspirationSuggestion',
-  'studio/mood-board/suggestion-actions.ts#undoKeptInspirationSuggestion',
-]);
+  'studio/mood-board/suggestion-actions.ts#undoMoodBoardChange',
+] as const;
 
 test('🔒 every action that writes a board photo asks the photo gate (or is the hosts’ alone)', () => {
   const photoWriters: string[] = [];
@@ -115,6 +125,8 @@ test('🔒 every action that writes a board photo asks the photo gate (or is the
       photoWriters.push(key);
       if (HOSTS_ONLY.has(key)) continue;
       assert.match(body, PHOTO_GATE, `${key} writes a Mood Board photo without asking can_change_mood_board_photos`);
+      // 🖼⏱ …and through the door that opens the owners' Undo, so one press is one change, one notice per owner.
+      assert.match(body, CHANGE_DOOR, `${key} writes a Mood Board photo without opening the change the owners may Undo`);
     }
   }
   // Floor: the sweep must keep SEEING the writers it was written for, or it passes by looking at nothing.
@@ -128,7 +140,17 @@ test('🔒 every action that writes a board photo asks the photo gate (or is the
   }
 });
 
-test('🔒 the palette, theme, template and suggestion decisions ask the hosts’ gate', () => {
+test('🤝 a supplier’s suggestion is answered by whoever may change the photos — not the hosts alone', () => {
+  for (const key of SUGGESTION_ANSWERS) {
+    const [rel, name] = key.split('#') as [string, string];
+    const body = exportedFunctions(rel).get(name);
+    assert.ok(body, `${key} no longer exists — update SUGGESTION_ANSWERS`);
+    assert.match(body, PHOTO_GATE, `${key} does not ask the photo gate`);
+    assert.doesNotMatch(body, HOST_GATE, `${key} is the hosts’ alone again — a coordinator with Mood Board Edit could not approve`);
+  }
+});
+
+test('🔒 the palette, theme and template ask the hosts’ gate', () => {
   for (const key of HOSTS_ONLY) {
     const [rel, name] = key.split('#') as [string, string];
     const body = exportedFunctions(rel).get(name);

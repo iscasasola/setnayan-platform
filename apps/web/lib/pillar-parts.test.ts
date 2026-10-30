@@ -104,9 +104,11 @@ test('Your Team MOUNTS the shipped Budget page as its part, and offers it from t
     /data-suppliers-body="booked"[\s\S]*?\{bookedSlot\}/,
     'the Booked body is no longer mounted — the Budget part has no door on Suppliers',
   );
-  // The door to the Budget part from the Booked body is its first row's ONE dropdown (Team · Budget · Schedule).
+  // The door to the Budget part from the Booked body is the page's ONE row's dropdown (Booked · Team · Budget ·
+  // Schedule — owner 2026-10-31, "Booked has the 3 drop down"); the body hands that row its count.
+  assert.match(takeover, /bookedParts\.map\(\(p\) => \(\{\s*key: `booked-\$\{p\.key\}`/, 'the row’s dropdown lost Booked’s parts — the Budget part has no door');
   const body = read('vendors', '_components', 'booked-body.tsx');
-  assert.match(body, /<BookedPartRow parts=\{parts\} current="team"/, 'the Booked body lost its part dropdown — the Budget part has no door');
+  assert.match(body, /<BookedPartRow current="team" line=\{countLine\} \/>/, 'the Booked body no longer says its count in the row');
   const section = read('vendors', '_components', 'booked-budget.tsx');
   assert.match(section, /const budgetHref = yourTeamBudgetHref\(eventId\);/, 'the Budget block builds the Budget part\'s address by hand');
   assert.ok(

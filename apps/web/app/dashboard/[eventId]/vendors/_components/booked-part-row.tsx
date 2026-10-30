@@ -1,63 +1,69 @@
 'use client';
 
 /**
- * BOOKED'S FIRST ROW — "[ Team ▾ ]  3 booked · 1 without a price" (owner 2026-10-29, *"so booked has budget and
- * schedule."*; the approved final Suppliers design, 2026-10-30 — the prototype's `.crow`: `partDrop()` + its count).
+ * BOOKED'S COUNT, IN THE ONE ROW — "[ Booked · Team ▾ ]  3 booked · 1 without a price  ⚙".
  *
- *   Team ▾       the Booked body (the rows)
- *   Budget ▾     the shipped Budget page, whole            ₱297,500 agreed · ₱120,000 paid
- *   Schedule ▾   the shipped Schedule page, whole          7 moments
+ * Owner 2026-10-29, *"so booked has budget and schedule."*; the approved final Suppliers design (2026-10-30) gave
+ * Booked a first row of its own (`Team ▾` + its count). Owner 2026-10-31, live iPhone, on Booked › Schedule:
+ * *"so many upper space not used"* · *"Suppliers. needs to have that drop down effect to be able to safely integrate
+ * all. Booked has the 3 drop down Team, Budget, and Schedule"* — and DECISION_LOG 2026-10-30 "ONE SELECTOR FOR EVERY
+ * PAGE" folds that row into the page's ONE row: the shell's `Page · View ▾` already lists Booked · Team / Budget /
+ * Schedule, so this second dropdown is gone and only its COUNT stays, drawn after the shell's ▾.
  *
- * ONE dropdown (the shared `PickMenu` — owner 2026-09-28, *"if there are choices … drop down menu"*), never a pill
- * row. A pick goes to that part's own address (`lib/pillar-parts.ts` `bookedParts`), the way the Budget part has
- * since 2026-09-29: each part is a whole shipped screen, drawn by the server with its own reads, so opening the
- * Suppliers page never pays for the Budget's or the Schedule's.
+ *   Booked · Team ▾       3 booked · 1 without a price      (the Booked body)
+ *   Booked · Budget ▾     ₱297,500 agreed · ₱120,000 paid   (the shipped Budget page)
+ *   Booked · Schedule ▾   7 moments                          (the shipped Schedule page)
  *
- * The line beside it is the part's own count, decided by the screen that owns the numbers (the Booked body, the
- * Budget page, the Schedule page) — this row only places it.
+ * The line is decided by the screen that owns the numbers — each a server-drawn page the shell only places — so it is
+ * drawn INTO the shell's row (`SuppliersRowCountContext`, a portal), never as a row of its own. No shell (a test, any
+ * other mount): no line. `action` (the Budget's files) is the part's own and stays in the part, at its top right.
  */
-import { useTransition, type ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
-import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
-import type { PillarPart } from '@/lib/pillar-parts';
+import { useEffect, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
+import type { BookedPartKey } from '@/lib/pillar-parts';
+import { useSuppliersRowCount } from './suppliers-mode';
 
 export function BookedPartRow({
-  parts,
   current,
   line,
   action,
 }: {
-  parts: readonly PillarPart[];
-  current: string;
+  /** Which part is on screen — marked on the line for the walk (`data-booked-part-line`). */
+  current: BookedPartKey;
   /** "3 booked · 1 without a price" · "₱297,500 agreed · ₱120,000 paid" · "7 moments". */
   line?: ReactNode;
-  /** One action at the row's end, where the prototype puts one (the Schedule's Announce). */
+  /** The part's own actions (Budget: Share · Spreadsheet · Upcoming dates) — drawn in the part, not in the row. */
   action?: ReactNode;
 }) {
-  const router = useRouter();
-  const [pending, start] = useTransition();
+  const { el, claim } = useSuppliersRowCount();
+  /* 🪤 THE PORTAL WAITS FOR THIS PART'S OWN MOUNT. A part can hydrate in a later pass than the shell (a Suspense edge
+     between them), when the row's slot is already known — a portal drawn in THAT pass is a child the server never drew,
+     and every `useId` after it shifts (measured 2026-10-31: the date line's ⓘ `aria-describedby` mismatched). */
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  const drawn = Boolean(mounted && el && line);
+  useEffect(() => {
+    if (!drawn) return;
+    claim(true);
+    return () => claim(false);
+  }, [drawn, claim]);
+  const count =
+    drawn && el
+      ? createPortal(
+          <span className="truncate" data-booked-part-line={current}>
+            {line}
+          </span>,
+          el,
+        )
+      : null;
   return (
-    <div
-      className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 pb-4"
-      data-booked-parts={current}
-      aria-busy={pending || undefined}
-    >
-      <PickMenu
-        label="Booked: Team, Budget or Schedule"
-        value={current}
-        options={parts.map((p) => ({ key: p.key, label: p.label }))}
-        onPick={(key) => {
-          const next = parts.find((p) => p.key === key);
-          if (!next || key === current) return;
-          start(() => router.push(next.href));
-        }}
-        dataAttr="data-booked-part-pick"
-        className="border border-ink/10 text-[15px] font-semibold"
-      />
-      <span className="min-w-0 flex-1 text-[13px] text-ink/60 [overflow-wrap:anywhere]" data-booked-part-line="" aria-live="polite">
-        {pending ? 'Opening…' : line}
-      </span>
-      {action}
-    </div>
+    <>
+      {count}
+      {action ? (
+        <div className="flex justify-end pb-3" data-booked-part-action={current}>
+          {action}
+        </div>
+      ) : null}
+    </>
   );
 }

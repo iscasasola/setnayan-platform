@@ -33,7 +33,7 @@ import { depositStepHref } from '@/lib/deposit-pay-step';
 import { paymentDoor, type PaymentDoor } from '@/lib/accepted-quote-terms';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { BudgetFileActions } from './_components/budget-file-actions';
-import { YOUR_TEAM_BUDGET_PART, bookedParts, yourTeamBudgetHref } from '@/lib/pillar-parts';
+import { YOUR_TEAM_BUDGET_PART, yourTeamBudgetHref } from '@/lib/pillar-parts';
 import { formatPhp } from '@/lib/php';
 import { BookedPartRow } from '../vendors/_components/booked-part-row';
 import { DeniedState } from '@/app/_components/states/denied-state';
@@ -449,7 +449,6 @@ export default async function BudgetPage({ params, searchParams }: Props) {
       {inBooked ? (
         <div id="budget-overview" className="scroll-mt-24">
           <BookedPartRow
-            parts={bookedParts({ eventId, budgetEnabled: true })}
             current="budget"
             line={
               <span className="tabular-nums">

@@ -212,7 +212,7 @@ CREATE POLICY vendor_crew_codes_admin_delete
 DROP POLICY IF EXISTS vendor_crew_codes_platform_admin_read ON public.vendor_crew_codes;
 CREATE POLICY vendor_crew_codes_platform_admin_read
   ON public.vendor_crew_codes FOR SELECT TO authenticated
-  USING (public.is_admin());
+  USING ((SELECT public.is_admin()));
 
 -- The passes: the shop's admins read and decide; a crew member reads ONLY their own.
 DROP POLICY IF EXISTS vendor_crew_passes_admin_read ON public.vendor_crew_passes;
@@ -234,7 +234,7 @@ CREATE POLICY vendor_crew_passes_admin_update
 DROP POLICY IF EXISTS vendor_crew_passes_platform_admin_read ON public.vendor_crew_passes;
 CREATE POLICY vendor_crew_passes_platform_admin_read
   ON public.vendor_crew_passes FOR SELECT TO authenticated
-  USING (public.is_admin());
+  USING ((SELECT public.is_admin()));
 
 -- ── 5 · the crew's three doors (SECURITY DEFINER, one event, one shop) ──────
 

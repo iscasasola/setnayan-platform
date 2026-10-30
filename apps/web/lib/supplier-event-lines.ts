@@ -19,6 +19,9 @@
  */
 import { familiesForServices, type DayOfFamily } from '@/lib/vendor-dayof-modules';
 import { tilesForVendorCategories } from '@/lib/vendor-category-taxonomy';
+import { guestRoleLabel, ROLE_LABELS, type GuestRole } from '@/lib/guests';
+import { isHonoreeRole } from '@/lib/role-groups';
+import type { RoleNames } from '@/lib/role-names';
 
 /** Where the event stands with THIS shop (the roster's lanes, folded to the four words a row says). */
 export type EventStage = 'asking' | 'talking' | 'booked' | 'done';
@@ -27,7 +30,43 @@ export type EventLineHost = {
   name: string;
   /** This host first messaged the shop — the main contact (prototype "Asked you"). */
   askedYou: boolean;
+  /**
+   * Who they are to the event — "Bride" · "Groom" · "Co-host" · "Host" · "Coordinator" (owner 2026-10-29: "Hosted by:
+   * (all hosts + coordinator if there is booked already)", each "with their role"). Null = not known, and nothing is
+   * drawn for it — never a guessed role. Absent when the caller read no roles.
+   */
+  role?: string | null;
 };
+
+/** A host seat's kind (`event_moderators.role_subtype`, the full co-host kinds) in the row's words. */
+const SEAT_ROLE_WORD: Readonly<Record<string, string>> = {
+  co_host: 'Co-host',
+  host: 'Co-host',
+  bride: 'Bride',
+  groom: 'Groom',
+  partner1: 'Partner',
+  partner2: 'Partner',
+  celebrant: 'Celebrant',
+};
+
+/**
+ * One host's role word. Who they are celebrated as wins (their guest-list role when it is the honoree's — Bride, Groom,
+ * Celebrant, in the couple's own word for it when they renamed it); then the seat they hold (Co-host); then "Host" for
+ * the one who made the event. Otherwise null — said as nothing, never invented.
+ */
+export function hostRoleWord(input: {
+  guestRole: string | null;
+  seatKind: string | null;
+  madeIt: boolean;
+  /** The event's own role words (`events.role_names`), sanitised. */
+  names?: RoleNames | null;
+}): string | null {
+  const g = input.guestRole as GuestRole | null;
+  if (g && g in ROLE_LABELS && isHonoreeRole(g)) return guestRoleLabel(g, input.names ?? null);
+  const seat = input.seatKind ? SEAT_ROLE_WORD[input.seatKind] : undefined;
+  if (seat) return seat;
+  return input.madeIt ? 'Host' : null;
+}
 
 export type EventLineService = { name: string };
 
@@ -76,18 +115,22 @@ export type EventLines = {
   firstEvent: { title: string; href: string } | null;
 };
 
-/** The hosts in the order the row lists them: the one who asked first, then the rest as the event lists them. */
+/**
+ * The hosts in the order the row lists them: the one who asked first, then the rest as the event lists them. With
+ * `roleOf` (user → role word, for THIS event) each carries its role.
+ */
 export function hostsInOrder(
   memberIds: readonly string[],
   askedBy: string | null,
   nameOf: ReadonlyMap<string, string>,
+  roleOf?: ReadonlyMap<string, string | null>,
 ): EventLineHost[] {
   const ids = [...new Set(askedBy && !memberIds.includes(askedBy) ? [askedBy, ...memberIds] : memberIds)];
   const out: EventLineHost[] = [];
   for (const id of ids) {
     const name = nameOf.get(id)?.trim();
     if (!name) continue;
-    out.push({ name, askedYou: id === askedBy });
+    out.push(roleOf ? { name, askedYou: id === askedBy, role: roleOf.get(id) ?? null } : { name, askedYou: id === askedBy });
   }
   return out.sort((a, b) => Number(b.askedYou) - Number(a.askedYou));
 }

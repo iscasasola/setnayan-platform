@@ -85,7 +85,7 @@ test('the map decides the way it says it does', () => {
 
 test('the supplier folds the map names are the shipped Customers landings', () => {
   // 2026-10-28 · a supplier chat goes back to the Customers EVENTS list (People), where it was opened from (C1).
-  assert.equal((pageHome('/vendor-dashboard/messages/[threadId]') as { home: string }).home, '/vendor-dashboard/customers?seg=people');
+  assert.equal((pageHome('/vendor-dashboard/messages/[threadId]') as { home: string }).home, '/vendor-dashboard/customers?seg=events'); // People → Events 2026-10-30
   assert.equal((pageHome('/vendor-dashboard/contracts/[contractId]') as { home: string }).home, customerLandingHref('contracts'));
 });
 

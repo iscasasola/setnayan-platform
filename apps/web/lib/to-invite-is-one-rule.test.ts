@@ -15,7 +15,7 @@
  *
  *   List     `rosterStats().toInvite`            (the counts line and its door)
  *   Pick who `rosterSearchMatches('to invite')`  (`/guests?select=to-invite`)
- *   Setup    `toInviteCount()` → "Send to N"     (drawn: the real Setup rows)
+ *   (Setup's "Send to N" — gone with the ⚙'s Invitations row, R4 slice 11)
  *   Run      `sendRunGuests()` → "Not sent yet (N)" and "1 of N" (drawn: the real run)
  *   Home     `homeGuestsRead().unsent` → "Send N invitations"
  *
@@ -170,11 +170,10 @@ test('List · Pick who · Setup · the run · Home — one number, and the decli
   );
 });
 
-test('the two screens that PRINT the number print that number (rendered: the real Setup rows, the real run)', async () => {
+test('the run prints that number (rendered: the real run) — and the Guests ⚙ prints none (R4 slice 11)', async () => {
   const n = TO_INVITE.length;
-  const setup = await renderSetup({ getIn: 'list', toInvite: toInviteCount(ROSTER, true) });
-  assert.match(text(setup.match(/<a\b[^>]*data-testid="setup-send"[^>]*>[\s\S]*?<\/a>/)?.[0] ?? ''), new RegExp(`Send to ${n}\\b`), 'Setup\'s button names another N');
-  assert.match(text(setup), new RegExp(`\\b${n} to invite\\.`));
+  // 🗂 R4 slice 11: the ⚙ lost its Invitations row — the List's To invite door and Select › Invite N carry the count.
+  assert.doesNotMatch(text(await renderSetup({ getIn: 'list' })), /Send to \d|to invite\./, 'the Guests ⚙ counts who is left to invite again');
 
   const run = await renderRun(ROSTER);
   // 📨 The run redrawn simple (owner 2026-10-27): "N sent · M more to invite" — M is the List's N — and "Invite k of N"
@@ -195,9 +194,6 @@ test('a refused read is unknown — never "0 to invite", never "everyone has the
   assert.equal(toInviteCount([], false), null, 'Setup reads a refused guest list as a number');
   assert.equal(toInviteCount(ROSTER, false), null);
   assert.equal(homeGuestsRead([], false), null, 'Home reads a refused guest list as a count');
-  const setup = await renderSetup({ getIn: 'list', toInvite: toInviteCount([], false) });
-  assert.match(text(setup), /We couldn’t count who is left to invite just now\./);
-  assert.doesNotMatch(text(setup), /Everyone invited|Send to 0|\b0 to invite/, 'Setup draws a refused read as nobody to invite');
   const run = await renderRun([], { measured: false });
   assert.match(text(run), /We couldn’t load your guest list just now/);
   assert.doesNotMatch(text(run), /Everyone has their invite|\b0 more to invite|Not sent yet \(0\)/, 'the run draws a refused read as all done');
@@ -253,7 +249,7 @@ test('declining after the run opened takes a guest out on the next read; changin
 
 test('every surface is WIRED to the one rule, and none keeps a count of its own', () => {
   const setup = read('app/dashboard/[eventId]/guests/invite/_components/invite-panel.tsx');
-  assert.match(setup, /const toInvite = toInviteCount\(guests\.rows, guests\.measured\);/, 'Setup\'s panel does not ask the one rule');
+  assert.doesNotMatch(setup, /toInvite/, 'the Guests ⚙ counts who is left to invite again (R4 slice 11)');
   const page = read('app/dashboard/[eventId]/guests/send/page.tsx');
   assert.match(page, /sendRunGuests\(rows, picked\)/, 'the run page does not ask the one rule who it holds');
   const run = read('app/dashboard/[eventId]/guests/send/_components/send-run.tsx');

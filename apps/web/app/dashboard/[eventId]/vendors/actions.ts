@@ -120,6 +120,8 @@ import { isCoordinatorConsentGateEnabled } from '@/lib/coordinator-consent-gate'
 import { checkManualVenueAddress } from '@/lib/manual-venue-address';
 import { addOwnContactError } from '@/lib/add-your-own';
 import { stampManualLeakMatch } from '@/lib/manual-add-leak.server';
+import { supplierSharePayload } from '@/lib/supplier-share.server';
+import type { SupplierSharePayload } from '@/lib/supplier-share';
 import { saveSelfAddedServiceCard, updateHostServiceDetails } from './[vendorId]/workspace/actions';
 import { saveSelfAddedPaymentPlan } from './[vendorId]/workspace/payment-plan-actions';
 import {
@@ -3657,12 +3659,23 @@ async function attachManualVendorToCategory(
 // ============================================================================
 
 export type ManualVendorInviteResult =
-  | { ok: true; url: string; qrSvg: string }
+  | {
+      ok: true;
+      url: string;
+      qrSvg: string;
+      /**
+       * 📨 Asked for with `withShare` (the self-added supplier's Share, DECISION_LOG 2026-10-30): the approved message
+       * and their digital card, built from this link (`supplierSharePayload`). Null = their details could not be read.
+       */
+      share?: SupplierSharePayload | null;
+    }
   | { ok: false; error: string };
 
 export async function createManualVendorInvite(input: {
   eventId: string;
   vendorId: string;
+  /** Also hand back the Share's message and card — ONE request for the Share, no new action or route. */
+  withShare?: boolean;
 }): Promise<ManualVendorInviteResult> {
   const helperRefusal = await limitedHelperRefusal(input.eventId, 'vendors');
   if (helperRefusal) return { ok: false, error: helperRefusal };
@@ -3717,6 +3730,10 @@ export async function createManualVendorInvite(input: {
   // manually will create a QR code for the vendor to log in from"). Rendered
   // server-side (the `qrcode` lib is server-only); the client just paints it.
   const url = buildClaimUrl(invite.claim_token);
+  if (input.withShare) {
+    // The Share needs the message and the card, not the QR picture.
+    return { ok: true, url, qrSvg: '', share: await supplierSharePayload(supabase, input.eventId, input.vendorId, url) };
+  }
   return { ok: true, url, qrSvg: await renderUrlQrSvg(url) };
 }
 

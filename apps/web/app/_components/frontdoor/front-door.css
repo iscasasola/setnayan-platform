@@ -2391,7 +2391,7 @@ button.fd-ask.quiet {
   min-width: 44px;
   min-height: 44px;
   max-width: 100%;
-  border-radius: 10px;
+  border-radius: var(--m-r-sm);
   -webkit-tap-highlight-color: transparent;
 }
 .fd[data-chrome='app'] .fd-rctx-door:active {

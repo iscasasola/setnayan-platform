@@ -20,6 +20,11 @@ import { useState, useTransition, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import type { PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu-types';
+import { useInPlace, type WriteResult } from './drawer-kit';
+
+/** A door that answers in place (`mapWriteForm`, the drawer) — vs a shipped redirect-back form (the other lists). */
+const asResult = (r: unknown): WriteResult =>
+  r && typeof r === 'object' && 'ok' in r ? (r as WriteResult) : { ok: true, message: 'Saved.' };
 
 type FormAction = (formData: FormData) => unknown;
 
@@ -52,6 +57,7 @@ export function SavePick({
   hidden = {},
   buttonText,
   compact = true,
+  what,
 }: {
   label: string;
   value: string;
@@ -61,8 +67,12 @@ export function SavePick({
   hidden?: Record<string, string>;
   buttonText?: string;
   compact?: boolean;
+  /** IN PLACE (the drawer): the door answers JSON — say "Saved — <what>" with an Undo to the old value. */
+  what?: string;
 }) {
-  const [pending, start] = useTransition();
+  const [pendingOld, start] = useTransition();
+  const inPlace = useInPlace();
+  const pending = pendingOld || inPlace.pending;
   return (
     <span className={pending ? 'opacity-60' : undefined} data-save-pick={field}>
       <PickMenu
@@ -76,6 +86,12 @@ export function SavePick({
           if (key === value) return;
           const fd = formOf(hidden);
           fd.set(field, key);
+          if (what) {
+            const back = formOf(hidden);
+            back.set(field, value);
+            inPlace.run(async () => asResult(await action(fd)), { what, undo: async () => asResult(await action(back)) });
+            return;
+          }
           start(async () => {
             await action(fd);
           });
@@ -94,6 +110,7 @@ export function ListPick({
   field,
   hidden = {},
   buttonText,
+  what,
 }: {
   label: string;
   picked: readonly string[];
@@ -102,8 +119,12 @@ export function ListPick({
   field: string;
   hidden?: Record<string, string>;
   buttonText: string;
+  /** IN PLACE (the drawer): say "Saved — <what>" with an Undo to the list before the tick. */
+  what?: string;
 }) {
-  const [pending, start] = useTransition();
+  const [pendingOld, start] = useTransition();
+  const inPlace = useInPlace();
+  const pending = pendingOld || inPlace.pending;
   const [now, setNow] = useState<string[]>([...picked]);
   return (
     <span className={pending ? 'opacity-60' : undefined} data-list-pick={field}>
@@ -116,10 +137,26 @@ export function ListPick({
         compact
         className="border border-ink/15"
         onPick={(key) => {
+          const prev = now;
           const next = now.includes(key) ? now.filter((k) => k !== key) : [...now, key];
           setNow(next);
           const fd = formOf(hidden);
           for (const k of next) fd.append(field, k);
+          if (what) {
+            const back = formOf(hidden);
+            for (const k of prev) back.append(field, k);
+            inPlace.run(async () => asResult(await action(fd)), {
+              what,
+              undo: async () => {
+                setNow(prev);
+                return asResult(await action(back));
+              },
+              onDone: (r) => {
+                if (!r.ok) setNow(prev);
+              },
+            });
+            return;
+          }
           start(async () => {
             await action(fd);
           });

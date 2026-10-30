@@ -104,3 +104,110 @@ test('5 · "Open the Event Hub" only on the day, for a booked and unlocked event
     assert.doesNotMatch(card(l.find((e) => e.eventId === id)!), /data-hub-open=""/, `${id} offers the Event Hub before (or after) its day`);
   }
 });
+
+/*
+ * 6–9 · THE PROTOTYPE'S SHAPE AT 390 (reviewer, 2026-10-30, against `renderHub` · `renderViewrow` · `renderThumb` ·
+ * `hubPages`): the segments sit directly under the pinned row, ABOVE the event card; the pinned row carries the event's
+ * ⓘ; Set up and The event's pages each have their thumb row; the event's pages are icon rows that open in place, with a
+ * live count only where the page already read one.
+ */
+const ROUTER = { push() {}, replace() {}, refresh() {}, prefetch() {}, back() {}, forward() {} };
+async function withRouter(el: React.ReactElement) {
+  const { AppRouterContext } = await import('next/dist/shared/lib/app-router-context.shared-runtime');
+  return renderToStaticMarkup(React.createElement(AppRouterContext.Provider, { value: ROUTER as never }, el));
+}
+
+test('6 · on a phone the segments come first — Set up · Crew · The event’s pages ABOVE the event card', async () => {
+  const { HubScreen } = await import('./_components/hub-screen');
+  const today = list().find((e) => e.eventId === 'e-today')!;
+  const props: React.ComponentProps<typeof HubScreen> = {
+    menu: React.createElement('span', { 'data-probe-menu': '' }),
+    event: today,
+    seg: 'setup',
+    pane: React.createElement('span', { 'data-probe-card': '' }),
+    thumb: React.createElement('span', { 'data-probe-thumb': '' }),
+    children: React.createElement('span', { 'data-probe-body': '' }),
+  };
+  const html = await withRouter(React.createElement(HubScreen, props));
+  const at = (mark: string) => {
+    const i = html.indexOf(mark);
+    assert.notEqual(i, -1, `${mark} is not drawn`);
+    return i;
+  };
+  // The list column (the phone's page): menu → segments → the card's phone copy → the body.
+  const menu = at('data-probe-menu');
+  const segs = at('data-hub-segmented');
+  const phoneCard = at('data-hub-card-phone');
+  const body = at('data-probe-body');
+  assert.ok(menu < segs, 'the segments are drawn above the pinned row');
+  assert.ok(segs < phoneCard, 'the event card is drawn ABOVE the segments on a phone — the prototype puts the segments first');
+  assert.ok(phoneCard < body, 'the segment’s body is drawn above the card');
+  assert.ok(html.includes('data-probe-thumb'), 'HubScreen dropped its thumb row');
+});
+
+test('7 · the pinned row carries the event’s ⓘ beside the Hub ▾ — the house ⓘ, holding only what was read', async () => {
+  const { HubEventInfo } = await import('./_components/hub-screen');
+  const { HubEventMenu } = await import('./_components/hub-event-menu');
+  const l = list();
+  const today = l.find((e) => e.eventId === 'e-today')!;
+  const info = React.createElement(HubEventInfo, { event: today, title: 'Carla & Dino · Wedding', place: 'Taal Vista' });
+  const html = await withRouter(React.createElement(HubEventMenu, { events: l, selectedId: 'e-today', seg: 'setup', today: TODAY, info }));
+  const box = /<span[^>]*data-hub-event-menu=""[^>]*>([\s\S]*)$/.exec(html)?.[1] ?? '';
+  assert.match(box, /data-explain="hub-event"/, 'the Hub ▾ lost its ⓘ (or the ⓘ is drawn outside the box that moves up into the pinned row)');
+  assert.match(box, /aria-label="Event details"/);
+  // The ⓘ sits AFTER the ▾ (prototype "Hub ▾ · ⓘ").
+  assert.ok(box.indexOf('data-hub-event-pick') < box.indexOf('data-explain="hub-event"'), 'the ⓘ is drawn before the ▾');
+  // Both screens hand it in — the live page and the lab.
+  for (const f of ['page.tsx', join('..', '..', 'dev', 'supplier-lab', 'hub-lab.tsx')]) {
+    const src = stripComments(readFileSync(join(import.meta.dirname, f), 'utf8'));
+    assert.match(src, /<HubEventMenu[\s\S]{0,400}?info=\{\s*<HubEventInfo/, `${f} draws the Hub ▾ without its ⓘ`);
+  }
+});
+
+test('8 · the thumb row — "Find an event to set up" + ＋ on Set up, "Find a guest or a table" on The event’s pages', async () => {
+  const src = stripComments(readFileSync(join(import.meta.dirname, '_components', 'hub-thumb-row.tsx'), 'utf8'));
+  const pages = src.slice(src.indexOf("if (seg === 'pages')"), src.indexOf('return (', src.indexOf("if (seg === 'pages')") + 30));
+  const setup = src.slice(src.indexOf('return (', src.indexOf("if (seg === 'pages')") + 30));
+  assert.match(pages, /<ThumbRow[\s\S]*placeholder: 'Find a guest or a table'/, 'The event’s pages lost its thumb row');
+  assert.match(setup, /<ThumbRow[\s\S]*placeholder: 'Find an event to set up'[\s\S]*action=/, 'Set up lost its thumb row or its ＋');
+  assert.match(setup, /dispatchEvent\(new CustomEvent\(HUB_FIND_EVENT/, 'the Set up field no longer opens the Hub ▾ — a second finder of events');
+  // The screen draws it, and both the live page and the lab hand it in.
+  const screen = stripComments(readFileSync(join(import.meta.dirname, '_components', 'hub-screen.tsx'), 'utf8'));
+  const hubScreen = screen.slice(screen.indexOf('export function HubScreen'), screen.indexOf('export function HubSegments'));
+  assert.match(hubScreen, /\{thumb\}/, 'HubScreen no longer draws its thumb row');
+  for (const f of ['page.tsx', join('..', '..', 'dev', 'supplier-lab', 'hub-lab.tsx')]) {
+    const s = stripComments(readFileSync(join(import.meta.dirname, f), 'utf8'));
+    assert.match(s, /thumb=\{<HubThumbRow seg=\{seg\} add=\{hubAddChoices\(/, `${f} draws the Hub without its thumb row`);
+  }
+  // ＋ offers only the doors this supplier may use there.
+  const { hubAddChoices } = await import('@/lib/hub-events');
+  const l = list();
+  const keys = (id: string) => hubAddChoices(l.find((e) => e.eventId === id)!).map((c) => c.key);
+  assert.deepEqual(keys('e-far'), ['moment', 'tool', 'helper'], 'run + booked');
+  assert.deepEqual(keys('e-today'), ['tool', 'helper'], 'booked only — no moment (their schedule is view-only)');
+  assert.deepEqual(keys('e-run'), ['moment'], 'run only — no shop tools, no crew');
+  assert.deepEqual(keys('e-locked'), [], 'a locked event offers ＋');
+});
+
+test('9 · the event’s pages are icon rows that open in place, a count only where it was read', async () => {
+  const { HubPageRow, HubPageRows } = await import('./_components/hub-screen');
+  const { hubScheduleLine } = await import('@/lib/hub-events');
+  const { Users } = await import('lucide-react');
+  const row = React.createElement(HubPageRow, { pageKey: 'guests', icon: Users, label: 'Guests', line: '180 invited · 162 coming', href: '/dashboard/x/guests', access: 'View only' });
+  const html = renderToStaticMarkup(React.createElement(HubPageRows, null, row));
+  assert.match(html, /data-hub-page-row="guests"/);
+  assert.match(html, /<svg/, 'the row lost its icon');
+  assert.match(html, /data-fold-head=""/, 'the row is no longer the shared Fold (an accordion row)');
+  assert.match(html, /data-hub-pages-none=""/, 'the search can empty the list with nothing said');
+  assert.equal(hubScheduleLine(null), null, 'a refused read became a count');
+  assert.equal(hubScheduleLine([]), 'No moments yet');
+  assert.equal(
+    hubScheduleLine([{ start_at: '2026-12-18T13:00:00Z' }, { start_at: '2026-12-18T21:30:00Z' }]),
+    '2 moments · 1:00 PM – 9:30 PM',
+  );
+  const page = stripComments(readFileSync(join(import.meta.dirname, 'page.tsx'), 'utf8'));
+  const body = page.slice(page.indexOf('function pagesBody'), page.indexOf('const BOOKED_PAGE_ICON'));
+  assert.doesNotMatch(body, /HubDoorRow/, 'a page is a plain › link again');
+  assert.doesNotMatch(body, /await|supabase|\.from\(/, 'the pages body reads on its own — a read per row');
+  assert.match(page, /const blocks = selected\.lock == null \? await fetchRunOfShowBlocks\(selected\.eventId\) : null;/, 'the count read moved, or is made for a locked event');
+});

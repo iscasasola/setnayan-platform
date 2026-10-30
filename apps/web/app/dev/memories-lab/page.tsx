@@ -68,12 +68,14 @@ function wall(kind: 'full' | 'empty' | 'fail'): AlaalaWall {
   const items: WallItem[] = [];
   const hours = [8, 8, 9, 10, 15, 15, 16, 16, 19, 19, 20, 21];
   hours.forEach((h, i) =>
-    items.push({ key: `ci-${i}`, url: pic(i), isClip: i === 4, capturedAt: at(h, i * 3), eventId: 'ev-ci', eventName: 'Cale & Ice', role: 'couple', withMe: i === 0 || i === 5 }),
+    items.push({ key: `papic_guest_captures:ci-${i}`, url: pic(i), isClip: i === 4, capturedAt: at(h, i * 3), eventId: 'ev-ci', eventName: 'Cale & Ice', role: 'couple', withMe: i === 0 || i === 5 }),
   );
   items.push({ key: 'mj-0', url: pic(6), isClip: false, capturedAt: '2027-02-14T06:00:00Z', eventId: 'ev-mj', eventName: 'Maria & Jose', role: 'couple', withMe: true });
   items.push({ key: 'mj-1', url: pic(7), isClip: true, capturedAt: '2027-02-14T07:00:00Z', eventId: 'ev-mj', eventName: 'Maria & Jose', role: 'couple', withMe: false });
+  // An event you ATTENDED — its frame opens the same viewer and shares the copy you were given (owner 2026-10-30).
+  items.push({ key: 'papic_guest_captures:ln-0', url: pic(3), isClip: false, capturedAt: '2027-05-01T10:00:00Z', eventId: 'ev-ln', eventName: 'Lola Nena 80th', role: 'guest', withMe: true });
   items.reverse();
-  return { ...EMPTY_WALL, items, totals: { recent: 14, owned: 14, attended: 0, people: 0, with_me: 3 }, facesMeasured: true, hasAttendedEvents: true };
+  return { ...EMPTY_WALL, items, totals: { recent: 15, owned: 14, attended: 1, people: 0, with_me: 4 }, facesMeasured: true, hasAttendedEvents: true };
 }
 
 export default async function MemoriesLabPage({

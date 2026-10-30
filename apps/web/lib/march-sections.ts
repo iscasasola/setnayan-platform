@@ -63,6 +63,7 @@ export function marchSections(groups: readonly EntourageGroup[]): MarchSection[]
     return {
       id: p.id ?? '',
       name: p.name,
+      ...(p.nick ? { nick: p.nick } : {}),
       role: p.role,
       // The two people the event is for wear their word (the march's only role line).
       tag: p.role === 'groom' || p.role === 'bride' ? guestRoleLabel(p.role, names) : null,

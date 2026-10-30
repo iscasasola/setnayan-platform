@@ -252,7 +252,7 @@ export const COUPLE_LOOKS_PREFIX = 'couple-looks/';
 const LOOK_EXTS = new Set(['jpg', 'jpeg', 'png', 'webp']);
 
 /**
- * The frozen copy's key for ONE APPROVE ATTEMPT: `couple-looks/<share_id>-<attempt>.<ext>` — the attempt is 16 hex
+ * The frozen copy's key for ONE APPROVE ATTEMPT: `couple-looks/<share_id>/<attempt>.<ext>` — the attempt is 16 hex
  * characters, fresh per Approve, so two approves (two shop members, or a double tap) never write or delete the same
  * object: the losing attempt deletes only its own copy (review #7089, round 2). The extension is read off the
  * snapshot's key and kept only when it is an image type the upload accepts (else `jpg`). The database CHECKs exactly
@@ -264,12 +264,12 @@ export function coupleLookKey(shareId: string, snapshotKey: string, attempt: str
   const raw = m ? m[1]!.toLowerCase() : '';
   const ext = LOOK_EXTS.has(raw) ? raw : 'jpg';
   if (!/^[0-9a-f]{16}$/.test(attempt)) throw new Error('coupleLookKey: the attempt must be 16 hex characters');
-  return `${COUPLE_LOOKS_PREFIX}${shareId}-${attempt}.${ext}`;
+  return `${COUPLE_LOOKS_PREFIX}${shareId}/${attempt}.${ext}`;
 }
 
-/** The share id a frozen copy belongs to — null for anything that is not `couple-looks/<uuid>-<attempt>.<ext>`. */
+/** The share id a frozen copy belongs to — null for anything that is not `couple-looks/<uuid>/<attempt>.<ext>`. */
 export function shareIdOfCoupleLook(key: string): string | null {
-  const m = /^couple-looks\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})-[0-9a-f]{16}\.(?:jpg|jpeg|png|webp)$/.exec(key);
+  const m = /^couple-looks\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/[0-9a-f]{16}\.(?:jpg|jpeg|png|webp)$/.exec(key);
   return m ? m[1]! : null;
 }
 
@@ -284,6 +284,15 @@ export function isEventUploadKey(eventId: string, key: string | null | undefined
     !key.startsWith(`inspiration/${eventId}/suggestions/`) &&
     !key.includes('..')
   );
+}
+
+/**
+ * A copy's storage REF (`r2://<bucket>/<key>`) — the shape the house signer and the cleanup executor take. Public →
+ * the public media bucket; any other audience → the private thread-files bucket. Pure (no server import), so the
+ * erasure purge can build it too.
+ */
+export function coupleLookRef(key: string, isPublic: boolean): string {
+  return `r2://${isPublic ? 'setnayan-media' : 'setnayan-thread-files'}/${key}`;
 }
 
 /** Where the shop answers — its Shop › Services, at the list (`id="couple-photos"`). */

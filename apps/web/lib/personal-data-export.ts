@@ -307,6 +307,7 @@ export async function buildPersonalDataExport(
     ledgerRes,
     ledgerSuppliersRes,
     ownSuggestionsRes,
+    couplePhotoSharesRes,
   ] = await Promise.all([
     supabase.from('users').select('*').eq('user_id', user.id).maybeSingle(),
     supabase
@@ -791,6 +792,14 @@ export async function buildPersonalDataExport(
       .select('suggestion_id, event_id, slot_key, shop_label, state, image_url, created_at, decided_at')
       .eq('suggested_by_user_id', user.id)
       .order('created_at', { ascending: true }),
+    // RA 10173 (2026-10-30, #7089) — the subject's OWN photos they shared to a supplier's service card: AUTHOR-scoped
+    // on shared_by_user_id (the consent, credit line and audience are theirs). Read under their own session (the
+    // couple-read policy); the image itself is their own board upload, already in their file. No URL is minted here.
+    supabase
+      .from('couple_photo_shares')
+      .select('share_id, event_id, vendor_service_id, state, audience, credit_style, credit_line, consent_version, consented_at, created_at, decided_at, withdrawn_at')
+      .eq('shared_by_user_id', user.id)
+      .order('created_at', { ascending: true }),
   ]);
 
   // ── Unwrap every read through the integrity helper ──────────────────────────
@@ -826,6 +835,7 @@ export async function buildPersonalDataExport(
   const inviteMutes = listOutcome('invite_mutes', inviteMutesRes);
   const vendorReuseRequests = listOutcome('vendor_reuse_requests', vendorReuseRequestsRes);
   const ownSuggestions = listOutcome('event_inspiration_suggestions', ownSuggestionsRes);
+  const couplePhotoShares = listOutcome('couple_photo_shares', couplePhotoSharesRes);
   const workingNotes = listOutcome(
     'vendor_working_notes_authored',
     workingNotesRes,
@@ -1034,6 +1044,8 @@ export async function buildPersonalDataExport(
     vendor_reuse_requests: vendorReuseRequests.rows,
     // 🤝🖼 Photos the subject suggested to couples' boards as a booked supplier (author-scoped).
     inspiration_suggestions_sent: ownSuggestions.rows,
+    // 📸 Photos the subject shared to suppliers' service cards (author-scoped; consent · credit · who sees it).
+    photos_shared_to_suppliers: couplePhotoShares.rows,
     // RA 10173 (2026-07-21) — coordinator-workspace prose the subject AUTHORED.
     // Author-scoped, never event-scoped (see the WHY blocks at each select).
     // Read privileged so a coordinator whose grant was later revoked still

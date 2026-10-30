@@ -48,18 +48,19 @@ test('🛡 #7089 — the frozen copy’s key names no event and no file; an uplo
   const id = '0b8d5a3e-1c2f-4a6b-9d7e-112233445566';
   const ev = '7f000000-0000-4000-8000-000000000001';
   const at = 'a1b2c3d4e5f6a7b8';
-  assert.equal(coupleLookKey(id, `inspiration/${ev}/bridal_bouquet/abc-Ana Reyes wedding.JPG`, at), `couple-looks/${id}-${at}.jpg`);
-  assert.equal(coupleLookKey(id, `inspiration/${ev}/bridal_bouquet/no-extension`, at), `couple-looks/${id}-${at}.jpg`);
-  assert.equal(coupleLookKey(id, `inspiration/${ev}/bridal_bouquet/x.svg`, at), `couple-looks/${id}-${at}.jpg`, 'a non-image extension rode into the public key');
-  assert.equal(coupleLookKey(id, `inspiration/${ev}/bridal_bouquet/x.WEBP`, at), `couple-looks/${id}-${at}.webp`);
+  assert.equal(coupleLookKey(id, `inspiration/${ev}/bridal_bouquet/abc-Ana Reyes wedding.JPG`, at), `couple-looks/${id}/${at}.jpg`);
+  assert.equal(coupleLookKey(id, `inspiration/${ev}/bridal_bouquet/no-extension`, at), `couple-looks/${id}/${at}.jpg`);
+  assert.equal(coupleLookKey(id, `inspiration/${ev}/bridal_bouquet/x.svg`, at), `couple-looks/${id}/${at}.jpg`, 'a non-image extension rode into the public key');
+  assert.equal(coupleLookKey(id, `inspiration/${ev}/bridal_bouquet/x.WEBP`, at), `couple-looks/${id}/${at}.webp`);
   assert.doesNotMatch(coupleLookKey(id, `inspiration/${ev}/x/Ana.webp`, at), new RegExp(`${ev}|Ana|inspiration`));
   assert.throws(() => coupleLookKey(id, 'x.jpg', 'not-hex'), /16 hex/);
   // Two attempts never share a key (the double-approve fix): the losing one deletes only its own.
   assert.notEqual(coupleLookKey(id, 'x.jpg', 'aaaaaaaaaaaaaaaa'), coupleLookKey(id, 'x.jpg', 'bbbbbbbbbbbbbbbb'));
-  assert.equal(shareIdOfCoupleLook(`couple-looks/${id}-${at}.webp`), id);
+  assert.equal(shareIdOfCoupleLook(`couple-looks/${id}/${at}.webp`), id);
   assert.equal(shareIdOfCoupleLook(`couple-looks/${id}.webp`), null);
+  assert.equal(shareIdOfCoupleLook(`couple-looks/${id}-${at}.webp`), null, 'the old flat shape is still accepted');
   assert.equal(shareIdOfCoupleLook(`couple-looks/${id}-Ana.jpg`), null);
-  assert.equal(shareIdOfCoupleLook(`couple-looks/${id}-${at}.svg`), null);
+  assert.equal(shareIdOfCoupleLook(`couple-looks/${id}/${at}.svg`), null);
   assert.equal(shareIdOfCoupleLook(`inspiration/${ev}/x.jpg`), null);
   assert.ok(isEventUploadKey(ev, `inspiration/${ev}/bridal_bouquet/a.jpg`));
   assert.ok(!isEventUploadKey(ev, `inspiration/someone-else/a.jpg`));

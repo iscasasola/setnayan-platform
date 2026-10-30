@@ -4,10 +4,13 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { CopyObjectCommand } from '@aws-sdk/client-s3';
-import { R2_BUCKETS, isR2Configured, publicUrlFor, r2Delete, r2List, requireR2Client, type R2BucketName } from '@/lib/r2';
-import { presignDisplayUrl } from '@/lib/uploads';
+import { R2_BUCKETS, isR2Configured, publicUrlFor, r2List, requireR2Client, type R2BucketName } from '@/lib/r2';
+import { displayUrlForPrivateStoredAsset } from '@/lib/uploads';
+import { couplePhotoLookPolicy } from '@/lib/r2-client-ref';
+import { couplePhotoLookScope } from '@/lib/cleanup-delete-scope';
+import { cleanupDelete } from '@/lib/cleanup-delete';
 import type { CoupleLook } from '@/lib/service-card-view-model';
-import { COUPLE_LOOKS_PREFIX, coupleLookKey, shareIdOfCoupleLook, type CouplePhotoAudience } from '@/lib/couple-photo-share';
+import { COUPLE_LOOKS_PREFIX, coupleLookKey, coupleLookRef, shareIdOfCoupleLook, type CouplePhotoAudience } from '@/lib/couple-photo-share';
 
 /**
  * 📸 A COUPLE'S PHOTO ON A SUPPLIER'S CARD — the server half that touches STORAGE (owner 2026-10-30; security review
@@ -48,8 +51,11 @@ export function coupleLookUrl(key: string | null | undefined): string | null {
 export async function coupleLookUrlFor(key: string | null | undefined, isPublic: boolean): Promise<string | null> {
   if (!key) return null;
   if (isPublic) return coupleLookUrl(key);
+  // The HOUSE private signer, scoped to THIS share's own folder (`couplePhotoLookPolicy`) — never a raw presign.
+  const shareId = shareIdOfCoupleLook(key);
+  if (!shareId) return null;
   try {
-    return await presignDisplayUrl(R2_BUCKETS.threadFiles, key, SIGNED_LOOK_TTL_S);
+    return await displayUrlForPrivateStoredAsset(coupleLookRef(key, false), couplePhotoLookPolicy(shareId), { ttlSeconds: SIGNED_LOOK_TTL_S });
   } catch {
     return null;
   }
@@ -158,11 +164,16 @@ export async function moveCoupleLook(shareId: string, fromKey: string, fromPubli
   }
 }
 
-/** Delete one frozen copy from the bucket it lives in. Best-effort; the sweep is the net. */
+/**
+ * Delete one frozen copy from the bucket it lives in — through the HOUSE cleanup executor, planned against THIS
+ * share's own folder (`couplePhotoLookScope`), never a raw delete. Best-effort; the sweep is the net.
+ */
 export async function unpublishCoupleLook(key: string | null | undefined, isPublic: boolean | null | undefined): Promise<void> {
-  if (!key || !shareIdOfCoupleLook(key) || !isR2Configured()) return;
+  const shareId = key ? shareIdOfCoupleLook(key) : null;
+  if (!key || !shareId || !isR2Configured()) return;
   try {
-    await r2Delete({ bucket: coupleLookBucket(Boolean(isPublic)), key });
+    const outcome = await cleanupDelete(coupleLookRef(key, Boolean(isPublic)), couplePhotoLookScope(shareId));
+    if (outcome === 'refused') console.error('[couple-photo] a frozen-copy delete was refused by its scope', { key });
   } catch (e) {
     console.error('[couple-photo] a frozen copy could not be deleted', { key, error: e instanceof Error ? e.message : e });
   }

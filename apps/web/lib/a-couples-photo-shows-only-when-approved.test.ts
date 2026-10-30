@@ -85,7 +85,9 @@ test('👁 non-public photos never reach the cached page: a separate signed-in r
   assert.match(gallery, /useEffect\(\(\) => \{\s*if \(!viewerSignedIn \|\| cardIds\.length === 0\) return;[\s\S]{0,120}op: 'viewer_looks'/, 'the viewer’s extra photos are not read after the page, signed-in only');
   const server = read('lib/couple-photo-share.server.ts');
   assert.match(server, /return isPublic \? R2_BUCKETS\.media : R2_BUCKETS\.threadFiles;/, 'a non-public copy lives in the public bucket');
-  assert.match(server, /presignDisplayUrl\(R2_BUCKETS\.threadFiles, key, SIGNED_LOOK_TTL_S\)/, 'a non-public copy is not served as a signed URL');
+  assert.match(server, /displayUrlForPrivateStoredAsset\(coupleLookRef\(key, false\), couplePhotoLookPolicy\(shareId\)/, 'a non-public copy is not served through the house signer scoped to its own share');
+  assert.match(server, /cleanupDelete\(coupleLookRef\(key, Boolean\(isPublic\)\), couplePhotoLookScope\(shareId\)\)/, 'a copy is deleted around the cleanup executor');
+  assert.doesNotMatch(server, /\br2Delete\(|\bpresignDisplayUrl\(|\br2SignedGet\(/, 'a raw signer or delete primitive came back');
 });
 
 test('1b · no page outside the two parties ever selects the shares table', () => {
@@ -93,6 +95,9 @@ test('1b · no page outside the two parties ever selects the shares table', () =
     'app/_actions/couple-photo-share-actions.ts',
     // The frozen-copy sweep: reads which APPROVED shares name a copy, to delete the rest (service role, keys only).
     'lib/couple-photo-share.server.ts',
+    // RA 10173: erasure deletes the subject's shares + their copies; the export lists the subject's own shares.
+    'lib/erasure/purge.ts',
+    'lib/personal-data-export.ts',
   ]);
   const hits: string[] = [];
   const walk = (dir: string) => {
@@ -120,7 +125,7 @@ test('2 · only that shop answers — under its own session, checked in SQL', ()
 });
 
 test('F1 · F3 · Approve publishes a frozen copy under a neutral key, made BEFORE the approve is recorded', () => {
-  assert.match(sql, /public_key ~ \('\^couple-looks\/' \|\| share_id::text \|\| '-\[0-9a-f\]\{16\}\\\.\(jpg\|jpeg\|png\|webp\)\$'\)/, 'the public key is not pinned to the share id + one attempt + an image type');
+  assert.match(sql, /public_key ~ \('\^couple-looks\/' \|\| share_id::text \|\| '\/\[0-9a-f\]\{16\}\\\.\(jpg\|jpeg\|png\|webp\)\$'\)/, 'the public key is not pinned to the share id + one attempt + an image type');
   assert.match(sql, /CHECK \(\(state = 'approved'\) = \(public_key IS NOT NULL\)\)/, 'an approved share can exist without its copy (or a dead one keep one)');
   const trig = fn('couple_photo_shares_follow_the_board');
   assert.match(trig, /SET state = 'withdrawn', withdrawn_at = NOW\(\), public_key = NULL/);

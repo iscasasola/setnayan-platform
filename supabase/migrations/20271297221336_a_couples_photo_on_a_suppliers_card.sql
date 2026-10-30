@@ -26,7 +26,7 @@
 -- NOTHING in the table is readable by anon. The service card reads ONLY
 -- `service_card_couple_photos(ids)`, which returns an APPROVED share's own
 -- `public_key` — a COPY of the photo the server made at Approve under a neutral
--- key `couple-looks/<share_id>-<attempt>.<ext>` (no event id, no original file name; F3).
+-- key `couple-looks/<share_id>/<attempt>.<ext>` (no event id, no original file name; F3).
 -- It never reads `event_inspiration_assets`: that row is editable by every event
 -- member under its existing policy, so reading it live would let anyone on the
 -- event swap the picture behind an approved, credited card (F1).
@@ -104,7 +104,7 @@ CREATE TABLE IF NOT EXISTS public.couple_photo_shares (
   -- id, carrying no event id and no file name. The card serves only this.
   public_key         TEXT
                        CONSTRAINT couple_photo_shares_public_key_shape
-                       CHECK (public_key IS NULL OR public_key ~ ('^couple-looks/' || share_id::text || '-[0-9a-f]{16}\.(jpg|jpeg|png|webp)$')),
+                       CHECK (public_key IS NULL OR public_key ~ ('^couple-looks/' || share_id::text || '/[0-9a-f]{16}\.(jpg|jpeg|png|webp)$')),
   -- WHO SEES IT on the card — the uploader's choice, changeable later.
   -- No DEFAULT on purpose: the share door writes it (the event's own setting by default).
   audience           TEXT NOT NULL
@@ -145,7 +145,7 @@ COMMENT ON TABLE public.couple_photo_shares IS
   'A couple''s OWN board photo (an upload under inspiration/<event>/) sent to one '
   'service card of a supplier linked to the event, waiting for THAT shop''s Approve '
   '(owner 2026-10-30). The board photo is SNAPSHOT at share; Approve publishes a frozen '
-  'copy at public_key (couple-looks/<share_id>-<attempt>.<ext>). Written only by the SECURITY '
+  'copy at public_key (couple-looks/<share_id>/<attempt>.<ext>). Written only by the SECURITY '
   'DEFINER doors and the board trigger; public only through service_card_couple_photos. No money.';
 
 -- One live share per photo per shop (a re-send after a decline/withdraw is a new row).
@@ -400,7 +400,7 @@ GRANT EXECUTE ON FUNCTION public.couple_share_photo_with_supplier(UUID, UUID, TE
 
 -- ── 4 · ANSWER — only THAT shop's owner/admin team approves or declines ───────
 -- Approve PUBLISHES: p_public_key names the frozen copy the server already made
--- (couple-looks/<share_id>-<attempt>.<ext>, CHECKed). Decline on an APPROVED row takes it
+-- (couple-looks/<share_id>/<attempt>.<ext>, CHECKed). Decline on an APPROVED row takes it
 -- back off the card. Either way the old public key comes back so the server can
 -- delete the object.
 CREATE OR REPLACE FUNCTION public.vendor_answer_couple_photo(
@@ -437,7 +437,7 @@ BEGIN
     RETURN jsonb_build_object('status', 'already', 'state', v_row.state);
   END IF;
   IF p_approve AND (p_public_key IS NULL
-       OR p_public_key !~ ('^couple-looks/' || v_row.share_id::text || '-[0-9a-f]{16}\.(jpg|jpeg|png|webp)$')) THEN
+       OR p_public_key !~ ('^couple-looks/' || v_row.share_id::text || '/[0-9a-f]{16}\.(jpg|jpeg|png|webp)$')) THEN
     RETURN jsonb_build_object('status', 'bad_key');
   END IF;
   IF p_approve AND (p_copy_public IS NULL OR p_copy_public <> (v_row.audience = 'public')) THEN
@@ -463,7 +463,7 @@ $$;
 COMMENT ON FUNCTION public.vendor_answer_couple_photo(UUID, BOOLEAN, TEXT, BOOLEAN) IS
   'The shop''s Approve / Decline on a couple''s shared photo (owner/admin team via '
   'current_vendor_profile_ids, else not_yours). Approve requires the frozen copy''s key '
-  '(couple-looks/<share_id>-<attempt>.<ext>, else bad_key) and publishes it; Decline on an approved '
+  '(couple-looks/<share_id>/<attempt>.<ext>, else bad_key) and publishes it; Decline on an approved '
   'row takes it off the card and hands back the key to delete. A withdrawn photo changes nothing.';
 REVOKE ALL ON FUNCTION public.vendor_answer_couple_photo(UUID, BOOLEAN, TEXT, BOOLEAN) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.vendor_answer_couple_photo(UUID, BOOLEAN, TEXT, BOOLEAN) FROM anon;
@@ -572,7 +572,7 @@ AS $$
 $$;
 COMMENT ON FUNCTION public.service_card_couple_photos(UUID[]) IS
   'The public service card''s "From couples" photos: APPROVED, audience PUBLIC shares only, as their own '
-  'frozen copy (couple-looks/<share_id>-<attempt>.<ext>) + credit line — never the couple''s board row, '
+  'frozen copy (couple-looks/<share_id>/<attempt>.<ext>) + credit line — never the couple''s board row, '
   'nothing that names the event. Waiting / declined / withdrawn never leave here.';
 REVOKE ALL ON FUNCTION public.service_card_couple_photos(UUID[]) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.service_card_couple_photos(UUID[]) TO anon, authenticated;
@@ -662,7 +662,7 @@ BEGIN
   v_moves := v_row.state = 'approved' AND ((v_row.audience = 'public') <> (p_audience = 'public'));
   IF v_moves THEN
     IF p_public_key IS NULL OR p_public_key = v_row.public_key
-       OR p_public_key !~ ('^couple-looks/' || v_row.share_id::text || '-[0-9a-f]{16}\.(jpg|jpeg|png|webp)$') THEN
+       OR p_public_key !~ ('^couple-looks/' || v_row.share_id::text || '/[0-9a-f]{16}\.(jpg|jpeg|png|webp)$') THEN
       RETURN jsonb_build_object('status', 'needs_move', 'state', v_row.state);
     END IF;
   ELSIF p_public_key IS NOT NULL THEN

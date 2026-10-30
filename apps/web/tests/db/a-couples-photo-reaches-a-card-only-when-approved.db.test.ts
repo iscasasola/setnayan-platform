@@ -15,7 +15,7 @@
  *   6 · "A couple" credit is literally "A couple"; one live share per photo per shop.
  *
  * 🛡 SECURITY REVIEW #7089 — the reviewer's PoC (scenarios A–F), ported so each finding is pinned:
- *   F1 · the card serves the share's FROZEN COPY (`couple-looks/<share_id>-<attempt>.<ext>`), never the board row: a guest who
+ *   F1 · the card serves the share's FROZEN COPY (`couple-looks/<share_id>/<attempt>.<ext>`), never the board row: a guest who
  *        swaps image_url / r2_key after (or before) Approve withdraws the share instead of re-pointing the card; a
  *        removal withdraws it and a guest's un-removal cannot bring it back.
  *   F2 · a direct-INSERTed "file_upload" with no key, a key from another event, or a partner's key reused on a second
@@ -76,7 +76,7 @@ let keyN = 0;
 const uploadKey = (pos: number, eventId = W.eventId) => `inspiration/${eventId}/bridal_bouquet/${(++keyN).toString().padStart(8, '0')}-0000-4000-8000-000000000000-own-${pos}.jpg`;
 const urlOf = (key: string) => `https://media.example/${key}`;
 /** A frozen copy's key for one Approve attempt (the server draws the 12-hex attempt fresh each time). */
-const lookKey = (shareId: string, attempt = '0000000000000001') => `couple-looks/${shareId}-${attempt}.jpg`;
+const lookKey = (shareId: string, attempt = '0000000000000001') => `couple-looks/${shareId}/${attempt}.jpg`;
 const HEX = ['#5B4A6B', '#D9C4CF', '#A9834B', '#F7F2EC', '#7A8B6F', '#FFFFFF'];
 
 async function shop(email: string, name: string, link: boolean): Promise<{ owner: string; card: string }> {
@@ -418,14 +418,15 @@ test('F3 · the public key names no event and no file; Approve needs exactly thi
   const { id } = await freshShare(1, W.floristCard, false);
   for (const bad of [
     null,
-    `couple-looks/${W.eventId}-0000000000000001.jpg`,
-    `couple-looks/00000000-0000-0000-0000-000000000000-0000000000000001.jpg`,
+    `couple-looks/${W.eventId}/0000000000000001.jpg`,
+    `couple-looks/00000000-0000-0000-0000-000000000000/0000000000000001.jpg`,
     `inspiration/${W.eventId}/bridal_bouquet/x.jpg`,
     `couple-looks/${id}.jpg`,
+    `couple-looks/${id}-0000000000000001.jpg`,
     `couple-looks/${id}-ana-ben.jpg`,
-    `couple-looks/${id}-0000000000000001.jpeg.exe`,
-    `couple-looks/${id}-0000000000000001.svg`,
-    `couple-looks/${id}-0000000000000001.jpg/../x`,
+    `couple-looks/${id}/0000000000000001.jpeg.exe`,
+    `couple-looks/${id}/0000000000000001.svg`,
+    `couple-looks/${id}/0000000000000001.jpg/../x`,
   ]) {
     const a = await answer(W.florist, id, true, bad);
     assert.ok(a.ok && a.value.status === 'bad_key', `approve accepted ${bad}: ${JSON.stringify(a)}`);
@@ -434,7 +435,7 @@ test('F3 · the public key names no event and no file; Approve needs exactly thi
   const ok = await answer(W.florist, id, true);
   assert.ok(ok.ok && ok.value.status === 'ok');
   const card = await onCard(W.floristCard);
-  assert.ok(card.length > 0 && card.every((x) => /^couple-looks\/[0-9a-f-]{36}-[0-9a-f]{16}\.(jpg|jpeg|png|webp)$/.test(x.public_key) && !x.public_key.includes(W.eventId)), JSON.stringify(card));
+  assert.ok(card.length > 0 && card.every((x) => /^couple-looks\/[0-9a-f-]{36}\/[0-9a-f]{16}\.(jpg|jpeg|png|webp)$/.test(x.public_key) && !x.public_key.includes(W.eventId)), JSON.stringify(card));
   // Take off returns the key so the server deletes the copy; withdraw does too.
   const off = await answer(W.florist, id, false);
   assert.ok(off.ok && off.value.status === 'ok' && off.value.unpublished_key === lookKey(id), JSON.stringify(off));

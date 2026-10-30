@@ -887,6 +887,11 @@ export const SUBJECT_ROW_DELETES: ReadonlyArray<{
   why: string;
 }> = [
   {
+    table: 'couple_photo_shares',
+    column: 'shared_by_user_id',
+    why: '📸 The subject’s consent and credit line for THEIR OWN photo on a supplier’s service card (#7089) — CASCADE + NOT NULL: the row is about them. Before the row goes, purge.ts deletes each share’s FROZEN COPY (couple-looks/<share_id>/… in whichever bucket its audience put it) through the cleanup executor, scoped to that share’s folder; the photo then leaves every card at once. A share SENT TO the subject’s shop is the COUPLE’s, so it is withdrawn and its copy deleted, not erased (purge.ts, same step).',
+  },
+  {
     table: 'vendor_feature_recommendations',
     column: 'recommended_by_user_id',
     why: '⚠ NOT NULL with NO FK — nothing can null it and nothing would cascade it. The row is the subject’s own suggestion, authored by them and about their own opinion.',

@@ -112,6 +112,8 @@ const AREA_RULES: ReadonlyArray<readonly [string, DelegateArea | null]> = [
   ['vendors/_actions/unlock-category.ts', null],
   // The couple's own review of a supplier.
   ['vendors/[vendorId]/review/', null],
+  // Memories ⚙ › Who sees what — hosts + coordinator only, "not helpers" (owner 2026-10-30, lib/memories-rules.ts).
+  ['studio/papic/_components/pool-gallery-actions.ts', null],
   ['guests/', 'guest_list'],
   ['seating/', 'seat_plan'],
   ['studio/indoor-blueprint/', 'seat_plan'],

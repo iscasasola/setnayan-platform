@@ -63,7 +63,7 @@ const nowBlocks = Object.values(now).reduce((n, r) => n + (r.blocks?.length ?? 0
 if (nowRoutes < 300 || nowDestinations < 400 || nowBlocks < 1000) {
   console.error(
     `❌ EXTRACTOR IS NOT SEEING THE APP: ${nowRoutes} routes / ${nowDestinations} destinations / ` +
-      `${nowBlocks} blocks (baseline had ${base.routeCount} / ${base.destinations} / ${base.blocks ?? '?'}).\n` +
+      `${nowBlocks} blocks (baseline had ${Object.keys(base.routes).length} routes).\n` +
       `   This guard would pass everything in this state, so it fails instead.`,
   );
   process.exit(1);
@@ -125,6 +125,5 @@ if (problems.length) {
 
 console.log(
   `✅ no route lost anything — ${checkedRoutes} routes / ${checkedControls} controls / ` +
-    `${checkedBlocks} blocks checked ` +
-    `(baseline ref ${base.generatedFromRef})`,
+    `${checkedBlocks} blocks checked`,
 );

@@ -48,6 +48,8 @@ import {
   type TableType,
 } from '@/lib/seating';
 import { refuseLimitedHelper } from '@/lib/host-gate';
+import { logQueryError } from '@/lib/supabase/error-detect';
+import { placedByAuto, placedByCouple } from '@/lib/seat-why';
 
 function clampPct(v: unknown): number | null {
   if (typeof v !== 'string' || v.length === 0) return null;
@@ -106,6 +108,27 @@ async function refreshSeatingLock(
 }
 
 const VALID_TYPES = new Set<TableType>(TABLE_TYPE_CATALOG.map((t) => t.type));
+
+/**
+ * 🪑 Stamp seats as placed BY HAND after an RPC moved them (a swap of two guests, or of two tables' occupants), which
+ * write no `placed_by` of their own (lib/seat-why.ts). If the stamp cannot land, the seats are cleared to "not
+ * recorded" instead — a stale "Auto arrange" on a seat the couple just moved would be a wrong answer. Never throws:
+ * the move itself already succeeded.
+ */
+async function stampPlacedByCouple(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  eventId: string,
+  who: { guestIds: string[] } | { tableIds: string[] },
+): Promise<void> {
+  const write = (row: { placed_by: string | null; placed_at: string | null }) => {
+    const q = supabase.from('event_seat_assignments').update(row).eq('event_id', eventId);
+    return 'guestIds' in who ? q.in('guest_id', who.guestIds) : q.in('table_id', who.tableIds);
+  };
+  const { error } = await write(placedByCouple());
+  if (!error) return;
+  logQueryError('seating.stampPlacedByCouple', error, { event_id: eventId }, 'graceful_degrade');
+  await write({ placed_by: null, placed_at: null });
+}
 
 function isValidTableType(value: unknown): value is TableType {
   return typeof value === 'string' && VALID_TYPES.has(value as TableType);
@@ -185,7 +208,7 @@ export async function createTable(formData: FormData) {
   }
   if (created && seatIds.length > 0) {
     const { error: seatErr } = await supabase.from('event_seat_assignments').upsert(
-      seatIds.map((guestId, i) => ({ event_id: eventId, table_id: created.table_id, guest_id: guestId, seat_number: i })),
+      seatIds.map((guestId, i) => ({ event_id: eventId, table_id: created.table_id, guest_id: guestId, seat_number: i, ...placedByCouple() })),
       { onConflict: 'event_id,guest_id' },
     );
     if (seatErr) throw new Error(seatErr.message);
@@ -292,6 +315,8 @@ export async function assignGuest(formData: FormData) {
       table_id: tableId,
       guest_id: guestId,
       seat_number: seatNumber,
+      // 🪑 Placed by hand (lib/seat-why.ts).
+      ...placedByCouple(),
     },
     { onConflict: 'event_id,guest_id' },
   );
@@ -339,6 +364,9 @@ export async function swapSeats(formData: FormData) {
     p_guest_b: guestB,
   });
   if (error) throw new Error(error.message);
+  // 🪑 Both seats were just placed by hand. A failed stamp leaves the swap done and the seats saying nothing (not a
+  // stale "Auto arrange") — so it is cleared rather than kept when the stamp itself cannot land.
+  await stampPlacedByCouple(supabase, eventId, { guestIds: [guestA, guestB] });
 
   await refreshSeatingLock(supabase, lockIdFrom(formData));
   revalidatePath(`/dashboard/${eventId}/seating`);
@@ -380,6 +408,8 @@ export async function swapTableOccupants(formData: FormData) {
     p_table_b: tableB,
   });
   if (error) throw new Error(error.message);
+  // 🪑 Everyone at both tables was just moved by hand.
+  await stampPlacedByCouple(supabase, eventId, { tableIds: [tableA, tableB] });
 
   await refreshSeatingLock(supabase, lockIdFrom(formData));
   revalidatePath(`/dashboard/${eventId}/seating`);
@@ -449,7 +479,7 @@ export async function assignGroup(
   const rows = toSeat.map((guestId) => {
     while (occupiedSeats.has(seat)) seat++;
     occupiedSeats.add(seat);
-    return { event_id: eventId, table_id: tableId, guest_id: guestId, seat_number: seat };
+    return { event_id: eventId, table_id: tableId, guest_id: guestId, seat_number: seat, ...placedByCouple() };
   });
 
   if (rows.length > 0) {
@@ -532,6 +562,8 @@ export async function autoSeatGuests(formData: FormData) {
         table_id: r.table_id,
         guest_id: r.guest_id,
         seat_number: r.seat_number,
+        // 🪑 Placed by the solver (lib/seat-why.ts).
+        ...placedByAuto(),
       })),
     );
     if (error) throw new Error(error.message);
@@ -1072,6 +1104,8 @@ export async function lockAndFill(
         table_id: r.table_id,
         guest_id: r.guest_id,
         seat_number: r.seat_number,
+        // 🪑 Fill around locked seats — placed by the solver (lib/seat-why.ts).
+        ...placedByAuto(),
       })),
     );
     if (error) throw new Error(error.message);
@@ -1758,7 +1792,7 @@ export async function seatRoleAtTable(
   const rows = toSeat.map((g) => {
     while (occupiedSeats.has(seat)) seat++;
     occupiedSeats.add(seat);
-    return { event_id: eventId, table_id: tableId, guest_id: g.guest_id, seat_number: seat };
+    return { event_id: eventId, table_id: tableId, guest_id: g.guest_id, seat_number: seat, ...placedByCouple() };
   });
 
   if (rows.length > 0) {
@@ -2358,6 +2392,8 @@ export async function autoArrange(formData: FormData): Promise<AutoArrangeResult
         table_id: r.table_id,
         guest_id: r.guest_id,
         seat_number: r.seat_number,
+        // 🪑 Placed by the solver (lib/seat-why.ts).
+        ...placedByAuto(),
       })),
     );
     if (error) throw new Error(error.message);
@@ -2509,6 +2545,8 @@ export async function buildSeatingDraft(
         table_id: r.table_id,
         guest_id: r.guest_id,
         seat_number: r.seat_number,
+        // 🪑 Placed by the solver (lib/seat-why.ts).
+        ...placedByAuto(),
       })),
     );
     if (error) throw new Error(error.message);

@@ -1,4 +1,5 @@
 import { Suspense } from 'react';
+import { seatPlacedBy } from '@/lib/seat-why';
 import { seatDayHasCome } from '@/lib/guests-may-see-seats';
 import { redirect } from 'next/navigation';
 import { fetchBookedVenueRoomSize, shouldSuggestVenueSize } from '@/lib/venue-room-size';
@@ -193,6 +194,9 @@ export default async function SeatingPage({ params, searchParams }: Props) {
       seated_table_id: seat?.table_id ?? null,
       seat_number: seat?.seat_number ?? null,
       seat_locked: seat?.locked ?? false,
+      // 🪑 Who placed it (lib/seat-why.ts) — null = not recorded, and the seat then says nothing.
+      seat_placed_by: seatPlacedBy(seat?.placed_by),
+      seat_placed_at: seat?.placed_at ?? null,
       role: g.role,
       group_category: g.group_category,
       meal_preference: g.meal_preference,

@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { isMoodboardSlotPosition, type MoodboardSlotPosition } from '@/lib/moodboard-slots';
+import { swapMoodboardCells, type MoodboardSwapResult } from '@/lib/moodboard-swap';
 import { isInspirationPartKey } from '@/lib/inspiration-parts';
 import { getInspirationParts } from '@/lib/inspiration-parts-db';
 import {
@@ -96,27 +97,23 @@ export type MoodboardSlotRef = { slotKey: string; slotPosition: MoodboardSlotPos
 /**
  * Swap the images occupying two inspiration-board cells — the drag-reorder
  * affordance on the redesigned canvas (Mood Board redesign, 2026-09-02).
- * Works within one slot (swap its two positions) or across slots (move an
- * image from one named slot into another), since every slot has exactly two
- * fixed positions and no new schema is needed to express "swap what's here".
+ * Works within one slot or across slots; either cell may be empty.
  *
- * Implementation note: `event_inspiration_assets` enforces
- * UNIQUE(event_id, slot_key, slot_position) WHERE removed_at IS NULL, so a
- * straight two-row UPDATE swap can collide mid-flight. This does it in three
- * steps via a temporary negative slot_position, which never collides with a
- * real (positive) position — same "two round trips is fine for this" trade-off
- * this file already makes elsewhere (see saveAttireGuidePaletteColor's old
- * read-modify-write, now removed, and uploadMoodboardSlot's soft-delete step).
- * Either or both cells may be empty; a no-op (same cell) returns immediately.
+ * The writes live in `swapMoodboardCells` (lib/moodboard-swap.ts) so the db
+ * test runs the SAME code against the replayed schema — see its docblock for
+ * why the moving photo parks on a free real cell and never touches `removed_at`.
+ *
+ * 🛑 RETURNS the outcome instead of resolving quietly: the board paints the
+ * swap before the server answers, so a move that did not land must come back
+ * as `ok: false` for the board to put the photos back and say so.
  */
 export async function reorderMoodboardSlot(
   eventId: string,
   from: MoodboardSlotRef,
   to: MoodboardSlotRef,
-): Promise<void> {
+): Promise<MoodboardSwapResult> {
   await refuseLimitedHelper(eventId, 'mood_board');
   await refuseUnlessMoodBoardPhotos(eventId);
-  if (from.slotKey === to.slotKey && from.slotPosition === to.slotPosition) return;
 
   const supabase = await createClient();
   const {
@@ -124,51 +121,11 @@ export async function reorderMoodboardSlot(
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const findActive = (ref: MoodboardSlotRef) =>
-    supabase
-      .from('event_inspiration_assets')
-      .select('inspiration_id')
-      .eq('event_id', eventId)
-      .eq('slot_key', ref.slotKey)
-      .eq('slot_position', ref.slotPosition)
-      .is('removed_at', null)
-      .maybeSingle();
-
-  const [{ data: fromRow, error: fromErr }, { data: toRow, error: toErr }] = await Promise.all([
-    findActive(from),
-    findActive(to),
-  ]);
-  if (fromErr) throw new Error(fromErr.message);
-  if (toErr) throw new Error(toErr.message);
-  if (!fromRow) return; // nothing to move
-
-  // 1. Park `from` at a temp negative position so it can never collide with
-  //    the real (positive) position `to` is about to vacate.
-  const tempPosition = -1;
-  const { error: parkErr } = await supabase
-    .from('event_inspiration_assets')
-    .update({ slot_position: tempPosition })
-    .eq('inspiration_id', fromRow.inspiration_id);
-  if (parkErr) throw new Error(parkErr.message);
-
-  // 2. If the destination was occupied, move that image into the vacated
-  //    `from` cell.
-  if (toRow) {
-    const { error: swapErr } = await supabase
-      .from('event_inspiration_assets')
-      .update({ slot_key: from.slotKey, slot_position: from.slotPosition })
-      .eq('inspiration_id', toRow.inspiration_id);
-    if (swapErr) throw new Error(swapErr.message);
+  const result = await swapMoodboardCells(supabase, eventId, from, to);
+  if (result.ok && result.changed !== 'nothing') {
+    revalidatePath(`/dashboard/${eventId}/studio/mood-board`);
   }
-
-  // 3. Land `from`'s image in the destination cell.
-  const { error: landErr } = await supabase
-    .from('event_inspiration_assets')
-    .update({ slot_key: to.slotKey, slot_position: to.slotPosition })
-    .eq('inspiration_id', fromRow.inspiration_id);
-  if (landErr) throw new Error(landErr.message);
-
-  revalidatePath(`/dashboard/${eventId}/studio/mood-board`);
+  return result;
 }
 
 const THEME_NAME_MAX = 80;

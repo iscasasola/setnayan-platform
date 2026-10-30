@@ -1,5 +1,6 @@
 'use client';
 
+import { seatPlacedShort, type SeatPlacedBy } from '@/lib/seat-why';
 import { MERGE_BASE_FIELD } from '@/lib/merge-base-field';
 import { floorPlanFieldsOf } from '@/lib/floor-plan-row';
 import { Fragment, useEffect, useLayoutEffect, useMemo, useOptimistic, useRef, useState, useTransition } from 'react';
@@ -283,6 +284,9 @@ export type SeatingGuest = {
   // Smart seat-plan Phase 4: this guest's seat is locked (pinned) — lock-and-fill
   // keeps it fixed and seats everyone else around it.
   seat_locked: boolean;
+  /** 🪑 Who placed this seat (lib/seat-why.ts) — absent / null = not recorded. */
+  seat_placed_by?: SeatPlacedBy | null;
+  seat_placed_at?: string | null;
   // Role taxonomy (0001) — drives the popup's "Role" picker tab via roleTier().
   role: string;
   group_category: string;
@@ -1396,8 +1400,8 @@ export function SeatingEditor({
     // are laid out, into the room's open space.
     const onScreen = arranging.map((t) => {
       const p = positions[t.table_id];
-      const placedByCouple = t.x_pos !== null || dirty.has(t.table_id);
-      return p && placedByCouple ? { ...t, x_pos: p.x, y_pos: p.y } : t;
+      const tablePlacedByCouple = t.x_pos !== null || dirty.has(t.table_id);
+      return p && tablePlacedByCouple ? { ...t, x_pos: p.x, y_pos: p.y } : t;
     });
     const keepPlaced = new Set(onScreen.filter((t) => t.x_pos !== null && t.y_pos !== null && !added.includes(t)).map((t) => t.table_id));
     // What Undo puts back: every table's saved spot and every booth before this run.
@@ -6520,7 +6524,7 @@ export function SeatingEditor({
     setBlankAt({ tableId, seat });
   };
   const comingUnseated = guests.filter((g) => !g.seated_table_id && g.rsvp_status !== 'declined').sort((a, b) => a.name.localeCompare(b.name));
-  const faceOf = (g: SeatingGuest): FaceGuest => ({ id: g.guest_id, name: g.name, initials: g.initials, photo: g.photo_url, color: colorFor(g) });
+  const faceOf = (g: SeatingGuest): FaceGuest => ({ id: g.guest_id, name: g.name, initials: g.initials, photo: g.photo_url, color: colorFor(g), placed: seatPlacedShort(g.seat_placed_by) });
   const faceUnits: FaceUnit[] = inGuests
     ? displayUnits.map((u) => {
         const slots: FaceSlot[] = u.members.flatMap((m) => {

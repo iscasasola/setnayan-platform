@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { composeFormalName } from '@/lib/formal-name';
+import { seatWhyWords } from '@/lib/seat-why';
 import { LINKED_NAME_WORDS, PROFILE_NAME_WORDS, plusOneHasNoName, seatNameAsTyped } from '@/lib/extra-seats';
 import { pickItems } from '@/lib/role-alternatives';
 import { InfoTip } from '@/app/_components/info-tip';
@@ -1044,6 +1045,13 @@ export function GuestCardBody({
                   ]}
                 />
                 <input type="hidden" name="table_posted" value="1" />
+                {/* 🪑 Who placed this seat (owner 2026-10-29, lib/seat-why.ts): "You placed Ana here · yesterday" ·
+                    "Auto arrange placed Ana here · today". Not recorded → nothing. */}
+                {seatTableId && data.seatPlaced ? (
+                  <p className="text-xs text-ink/60" data-guest-seat-placed-by={data.seatPlaced.by}>
+                    {seatWhyWords({ placed_by: data.seatPlaced.by, placed_at: data.seatPlaced.at }, typedName.first_name || 'them')}
+                  </p>
+                ) : null}
               </>
             ) : (
               <p className="text-sm text-ink/70">{seatSummary}</p>

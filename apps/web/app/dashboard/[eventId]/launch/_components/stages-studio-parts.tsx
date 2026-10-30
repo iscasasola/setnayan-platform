@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { Check, ChevronDown, Eye } from 'lucide-react';
+import { Check, ChevronDown } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { useOneOpen } from '@/lib/one-open';
 import { TimelineRowsLoading } from '@/app/_components/timeline-states';
@@ -17,9 +17,8 @@ import { MAKER_STAGE_KEYS, type MakerStageKey } from '@/lib/maker-parts';
 import { MAKER_SIDE_LABEL, makerStageLabel, type MakerSide } from './maker-bar';
 import { StageItemMenu, type StagePageOption } from './stage-item-menu';
 import { StudioHome, TILE_ICON } from './studio-home';
-import { GUESTS_SEE_WORDS, guestsSeeRowStatus } from '@/lib/guests-see-table';
-import { GuestsSeeSheet, guestsSeeWorkArea } from './guests-see-sheet';
-import { useMaker } from './maker-context';
+import { GuestsSeeSheet } from './guests-see-sheet';
+import { MAKER_OPEN_GUESTS_SEE_EVENT, useMaker } from './maker-context';
 import { MakerDesk } from './maker-desk';
 import { useIsDesktop } from '@/lib/use-responsive';
 
@@ -103,10 +102,15 @@ export function StudioSideSwitch({
   onOpen?: (key: StudioTileKey) => void;
 }) {
   const [list, setList] = useState<'stages' | 'pages' | null>(null);
-  /* 🗂 "What guests see" (owner 2026-10-10) — a sheet opened from its row in Studio ▾; never a Studio page. */
+  /* 🗂 "What guests see" (owner 2026-10-10) — a sheet, never a Studio page. Its row moved from Studio ▾ to the Hub's
+     ⚙ Event Hub settings (owner 2026-10-30, the prototype's Q4 drawn as A); the ⚙ asks for it with an event, and this
+     switch — always mounted — draws it. */
   const [guestsSee, setGuestsSee] = useState(false);
-  /* Asked only while the list is open (it is the list's row), once per render: the table it holds says the row's status. */
-  const guestsSeeArea = list === 'pages' ? guestsSeeWorkArea() : null;
+  useEffect(() => {
+    const open = () => setGuestsSee(true);
+    window.addEventListener(MAKER_OPEN_GUESTS_SEE_EVENT, open);
+    return () => window.removeEventListener(MAKER_OPEN_GUESTS_SEE_EVENT, open);
+  }, []);
   const shut = (which: 'stages' | 'pages') => setList((l) => (l === which ? null : l));
   useOneOpen(list === 'pages', () => shut('pages'));
   const onStages = side === 'stages';
@@ -188,34 +192,6 @@ export function StudioSideSwitch({
                     </li>
                   );
                 })}
-                {/* 🗂 WHAT GUESTS SEE — one more row, only where the work area can answer it (a stage's editor is mounted). */}
-                {guestsSeeArea ? (
-                  <li role="none">
-                    <button
-                      type="button"
-                      role="option"
-                      aria-selected={false}
-                      data-pick-option="guests-see"
-                      onClick={() => {
-                        shut('pages');
-                        setGuestsSee(true);
-                      }}
-                      className={pickOptionClass(true, false)}
-                    >
-                      {/* The row's shape is its neighbours' (`tileOption`): an icon, the name and its line, a status on the right. */}
-                      <span aria-hidden className="inline-flex shrink-0">
-                        <Eye aria-hidden className="h-[18px] w-[18px] text-sn-accent" strokeWidth={1.9} />
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block font-semibold">{GUESTS_SEE_WORDS.title}</span>
-                        <span className="block text-[12px] font-medium leading-snug opacity-75">{GUESTS_SEE_WORDS.menuLine}</span>
-                      </span>
-                      <span data-pick-trail="muted" data-guests-see-status="" className={pickTrailClass('muted', false)}>
-                        {guestsSeeRowStatus(guestsSeeArea.table)}
-                      </span>
-                    </button>
-                  </li>
-                ) : null}
               </ul>
             </MakerSheet>,
             document.body,

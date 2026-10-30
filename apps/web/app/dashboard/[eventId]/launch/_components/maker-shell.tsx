@@ -34,6 +34,7 @@ import {
 import {
   MakerContext,
   MAKER_MORE_ROWS_ID,
+  MAKER_OPEN_GUESTS_SEE_EVENT,
   type MakerAddScene,
   type MakerDevice,
   type MakerDraftDoor,
@@ -95,6 +96,7 @@ import { PickSheetContext, type PickSheet } from '../../website/editor/_componen
 import { HubSettingsGear, LowerThirdGrab, MakerSheet, MakerTour, MakerUpdating, StageTools, StudioBackToPart, StudioCover, StudioSideSwitch, StudioToolMenu } from './details-lazy';
 import { MAKER_IN_THE_APP_CSS, MAKER_LT_HALF } from '@/lib/maker-phone-room';
 import { detailsItemLayout } from '@/lib/maker-details-items';
+import type { LookSection } from '@/lib/maker-look-sections';
 import { studioTileItem, type StudioTileKey } from '@/lib/studio-tile-defs';
 import type { StudioTileModel } from '@/lib/studio-tiles';
 import { BookOpen, ClipboardList, Info, PanelsTopLeft, Printer, RotateCcw, Undo, Users } from 'lucide-react';
@@ -181,6 +183,7 @@ export function MakerShell({
   deskTitle = null,
   proLine = null,
   studio: studioGiven = null,
+  hubSettings: hubSettingsGiven = null,
   seeAsRoles = NO_ROLE_ROWS,
   hiddenStages,
   children,
@@ -197,6 +200,8 @@ export function MakerShell({
   deskTitle?: string | null;
   /** 💎 The quiet "₱X more unlocks everything" line's facts (`MakerProLine`) — null in the store shell. */
   proLine?: MakerProLine | null;
+  /** ⚙ "Your Event Hub" for the ⚙ sheet (`hubSettingsEditor`) — the lab's; a real event's arrives with `late`. */
+  hubSettings?: ReactNode;
   /** 🗂 Studio's tiles (`lib/studio-tiles.ts`), built on the server — null when they could not be built. */
   studio?: { tiles: readonly StudioTileModel[] } | null;
   /** Who the Maker's work is for, in the event type's words (`EventWords.theHost`). */
@@ -266,6 +271,7 @@ export function MakerShell({
   const factEditors = lateValue ? lateValue.factEditors : factEditorsGiven;
   const venuePictures = lateValue ? lateValue.venuePictures : venuePicturesGiven;
   const studio = lateValue ? lateValue.studio : studioGiven;
+  const hubSettings = lateValue ? lateValue.hubSettings : hubSettingsGiven;
   const [stage, setStage] = useState<LifecyclePhase>(initialStage);
   const [device, setDevice] = useState<MakerDevice>('desktop');
   /* 🖥📱 Both needs 1024 px (`makerViewOptions`); narrower, it is drawn as
@@ -794,6 +800,20 @@ export function MakerShell({
     setDetailsDoor((n) => n + 1);
     select({ kind: 'tool', key: 'details' });
   };
+  /* ⚙ LOOK, FROM THE HUB'S ⚙ (owner 2026-10-30 — DECISION_LOG 2026-10-27 "LOOK MOVES TO EVENT HUB SETTINGS"): the shipped
+     Look editor, opened on the section picked — the same page its Studio card opened (`openStudio('look')`), on that
+     section rather than the one last seen. */
+  const openLook = (section: LookSection) => {
+    if (!hasWork) return;
+    setStudioFrom(null);
+    setSide('studio');
+    setStudioAt('look');
+    setDetailsItem(section);
+    setLookVisit((n) => n + 1);
+    select({ kind: 'tool', key: 'details' });
+  };
+  /** E-Gifts' Studio card (its line "2 ways to give") — the ⚙'s Ways to give row; none where the event draws no E-Gifts. */
+  const giftsTile = studio?.tiles.find((t) => t.key === 'gifts') ?? null;
   /* 🧭 STAGES ALWAYS SHOWS THE PAGE (DECISION_LOG 2026-10-07 rule 3): the retired guided "Which stage do you
      want ready?" — and every door into Event Details (`?tool=details`, `?guide=`, Home's next-step card, the
      tab's remembered tool) — never covers the Stages side. Such a door lands on Studio's home instead. */
@@ -1073,11 +1093,20 @@ export function MakerShell({
               stand-in — not in the Maker's first load. */}
           {hasWork ? (
             <span data-maker-tool="settings" data-bar-item="Settings" className={`inline-flex shrink-0 ${MAKER_BAR_PHONE.settings}`}>
-              <HubSettingsGear open={moreOpen} onOpenChange={setMoreOpen}>
-                <div className="flex flex-col gap-2 p-3 lg:p-4">
-                  <div id={MAKER_MORE_ROWS_ID} ref={setMoreHost} className="flex flex-col gap-2" />
-                  {more}
-                </div>
+              <HubSettingsGear
+                open={moreOpen}
+                onOpenChange={setMoreOpen}
+                doors={{
+                  look: openLook,
+                  hub: hubSettings,
+                  pending: latePending,
+                  guestsSee: () => window.dispatchEvent(new Event(MAKER_OPEN_GUESTS_SEE_EVENT)),
+                  gifts: giftsTile ? { line: giftsTile.status, open: () => openStudio('gifts') } : null,
+                }}
+              >
+                {/* The work area's own extras for Your Event Hub (the Event Hub Pro line), and what the page hands in. */}
+                <div id={MAKER_MORE_ROWS_ID} ref={setMoreHost} className="flex flex-col gap-2 pt-3 empty:hidden" />
+                {more}
               </HubSettingsGear>
             </span>
           ) : null}

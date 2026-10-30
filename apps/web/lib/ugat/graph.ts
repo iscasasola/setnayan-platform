@@ -3067,6 +3067,45 @@ export const UGAT_JOINTS: UgatJoint[] = [
   },
   {
     /**
+     * 📸 A COUPLE'S OWN PHOTO WAITS FOR THE SUPPLIER'S APPROVE (owner 2026-10-30, DECISION_LOG "A CUSTOMER'S PHOTO
+     * SHARED TO A SUPPLIER'S INSPIRATION — THE SUPPLIER APPROVES, IT SYNCS TO THEIR SERVICE CARD …"; migration
+     * 20271297221336). J54's mirror: J54 carries a shop's photo TO the couple's board; this carries the couple's own
+     * board photo TO one of a linked shop's service cards.
+     */
+    id: 'J58',
+    claims: [
+      { kind: 'table', table: 'couple_photo_shares' },
+      { kind: 'fk', table: 'couple_photo_shares', column: 'event_id', references: 'events' },
+      { kind: 'fk', table: 'couple_photo_shares', column: 'inspiration_id', references: 'event_inspiration_assets' },
+      { kind: 'fk', table: 'couple_photo_shares', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'fk', table: 'couple_photo_shares', column: 'vendor_service_id', references: 'vendor_services' },
+      { kind: 'fk', table: 'couple_photo_shares', column: 'shared_by_user_id', references: 'users' },
+      { kind: 'column', table: 'couple_photo_shares', column: 'credit_line' },
+      { kind: 'column', table: 'couple_photo_shares', column: 'consent_version' },
+      { kind: 'column', table: 'couple_photo_shares', column: 'snapshot_r2_key' },
+      { kind: 'check', table: 'couple_photo_shares', name: 'couple_photo_shares_audience_allowed', mentions: 'audience' },
+      { kind: 'check', table: 'couple_photo_shares', name: 'couple_photo_shares_published_iff_approved', mentions: 'public_key' },
+      { kind: 'check', table: 'couple_photo_shares', name: 'couple_photo_shares_public_key_shape', mentions: 'public_key' },
+      { kind: 'check', table: 'couple_photo_shares', name: 'couple_photo_shares_state_allowed', mentions: 'state' },
+      { kind: 'check', table: 'couple_photo_shares', name: 'couple_photo_shares_a_couple_says_a_couple', mentions: 'credit_line' },
+    ],
+    chain: 20,
+    pair: ['TYPE-EVENTS', 'TYPE-VENDORS'],
+    title: 'Couple\u2019s own photo \u2194 Supplier\u2019s service card (shared, approved by the shop)',
+    joint: 'couple_photo_shares',
+    cardinality:
+      'At most ONE live (waiting or approved) share per (board photo, shop) \u2014 a partial unique index; any number declined or withdrawn',
+    implementedBy:
+      'couple_photo_shares.inspiration_id \u2192 event_inspiration_assets (the couple\u2019s file_upload) + vendor_service_id \u2192 vendor_services (the card) + vendor_profile_id \u2192 vendor_profiles (the shop that answers); the credit line and consent version are frozen on the row',
+    writtenBy:
+      'couplePhotoShare (app/_actions/couple-photo-share-actions.ts) \u2014 op send / take_back \u2192 couple_share_photo_with_supplier, couple_withdraw_photo_share (the couple\u2019s sheet); op answer \u2192 vendor_answer_couple_photo (Shop \u203a Services); read publicly ONLY through service_card_couple_photos (app/v/[slug] via lib/couple-photo-share.server.ts)',
+    guardedBy:
+      'RLS at CREATE TABLE \u2014 couple read (current_couple_event_ids), shop read (current_vendor_profile_ids), admin all; NO insert/update/delete for authenticated and nothing for anon. Uploader + own-upload + linked shop + consent decided in SQL; tests/db/a-couples-photo-reaches-a-card-only-when-approved.db.test.ts holds each refusal',
+    traps:
+      'NEVER SERVE THE BOARD ROW (security review #7089): event_inspiration_assets is editable by every event member, so the share SNAPSHOTS the upload\u2019s r2_key at share time and Approve publishes a server-made COPY at public_key = couple-looks/<share_id>.<ext> (no event id, no file name); the card reads only that. Any change to the board row\u2019s picture, uploader, kind or removal WITHDRAWS the live share (trigger couple_photo_shares_follow_the_board), and a_board_photo_keeps_its_provenance refuses rewriting the uploader (NULL by erasure only), the kind or the suggestion origin; a supplier suggestion key (inspiration/<event>/suggestions/ or any event_inspiration_suggestions.r2_key) is never shareable. Withdrawn/declined copies are deleted by the action and swept by reconcileCoupleLooks (lib/couple-photo-share.server.ts). WHO SEES IT (owner 2026-10-30): audience hosts \u00b7 exclusive \u00b7 private \u00b7 public; the cached public read (service_card_couple_photos) is PUBLIC only, a signed-in viewer\u2019s extra photos come from viewer_service_card_couple_photos after the page (signed URLs; non-public copies live in the private bucket); PRIVATE FAILS CLOSED to Exclusive until \u201cthe people around me\u201d has a resolver. OPEN (owner): whether an approved photo uses the shop\u2019s paid page-photo room \u2014 as built it does not (COUPLE_PHOTOS_USE_PAGE_ROOM in lib/couple-photo-share.ts).',
+  },
+  {
+    /**
      * 🔗🖼 A SUPPLIER'S INSPIRATION PHOTO NAMES ITS SERVICE CARD (owner 2026-10-30, DECISION_LOG "A SUPPLIER'S
      * INSPIRATION PHOTO IS CONNECTED FOUR WAYS — ITS SERVICE CARD · THE EVENT · THE SUPPLIER'S WEBSITE · THE
      * CATEGORY/SERVICE POOL"; migration 20271297295494).

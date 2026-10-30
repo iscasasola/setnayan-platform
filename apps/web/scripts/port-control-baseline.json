@@ -8103,6 +8103,7 @@
         "ListPageSkeleton",
         "LiveWallCard",
         "MagazineCard",
+        "MemoriesKeepsakeRow",
         "MemoriesSettings",
         "PapicBuySheet",
         "PhotoTagResult",
@@ -11077,8 +11078,14 @@
         "EventRailContext",
         "FrontDoorShell",
         "LabBar",
+        "LifeFlashCard",
         "Link",
+        "MagazineCard",
+        "MemoriesKeepsakeRow",
         "PapicBuySheet",
+        "RecapCard",
+        "ServiceParts",
+        "UploadsOpenChoice",
         "VendorRailContext",
         "WhoSeesWhatPick"
       ]

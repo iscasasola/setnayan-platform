@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6772
+# facts: 6773
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     575
-#   col       4964
+#   col       4965
 #   policy    958
 #   view      9
 #   func      262
@@ -3908,6 +3908,7 @@ col	public.service_categories.label_en	anon=SIU authenticated=SIU
 col	public.service_categories.label_short	anon=SIU authenticated=SIU
 col	public.service_categories.marketplace_hidden	anon=SIU authenticated=SIU
 col	public.service_categories.merged_into_category_id	anon=SIU authenticated=SIU
+col	public.service_categories.one_per_event	anon=SIU authenticated=SIU
 col	public.service_categories.parent_id	anon=SIU authenticated=SIU
 col	public.service_categories.sample_photo_r2_key	anon=SIU authenticated=SIU
 col	public.service_categories.scope	anon=SIU authenticated=SIU

@@ -430,7 +430,7 @@ export function AddressField({
           {...(owns ? {} : { onDraft: draftAddress, drafted })}
           aside={
             <>
-              {owns ? null : <PaidMark state="try" bare label={price ? 'Custom address' : 'Event Hub Pro'} size="xs" />}
+              {owns || storeShell ? null : <PaidMark state="try" bare label={price ? 'Custom address' : 'Event Hub Pro'} size="xs" />}
               <Explain title="Event Hub address">
                 {owns
                   ? `On every link, print and pass. ${rules}`

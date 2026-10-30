@@ -99,7 +99,10 @@ test('4 · Go live reuses the shipped launch panel’s actions — it asks first
   // The three shipped writes, and nothing else.
   assert.match(GO_LIVE, /import \{ cancelScheduledLaunch, launchSaveTheDate, scheduleSaveTheDateLaunch \} from '\.\.\/\.\.\/studio\/save-the-date\/actions';/);
   assert.equal((GO_LIVE.match(/from '[^']*actions'/g) ?? []).length, 1, 'Go live imports a write the shipped panel does not make');
-  assert.match(GO_LIVE, /SchedulePicker, answered, formatManila, toManilaInputValue \} from '\.\.\/\.\.\/studio\/save-the-date\/_components\/launch-std-button';/, 'the panel’s own picker / refusal shape is not reused');
+  assert.match(GO_LIVE, /SchedulePicker, formatManila, toManilaInputValue \} from '\.\.\/\.\.\/studio\/save-the-date\/_components\/launch-std-button';/, 'the panel’s own picker is not reused');
+  for (const act of ['launchSaveTheDate(eventId)', 'scheduleSaveTheDateLaunch(eventId, pickValue)', 'cancelScheduledLaunch(eventId)']) {
+    assert.ok(GO_LIVE.includes(`await makerSave(() => save.run(() => ${act}`), `${act} does not go through the Maker’s one save door`);
+  }
   // A tap never launches by itself: the switch opens the panel's question; only "Yes, launch" launches.
   const change = GO_LIVE.slice(GO_LIVE.indexOf('onChange={() => {'), GO_LIVE.indexOf('problem={error}'));
   assert.ok(change.length > 20, 'anti-vacuity: the switch’s onChange was not found');
@@ -113,12 +116,13 @@ test('4 · Go live reuses the shipped launch panel’s actions — it asks first
   assert.match(GO_LIVE, /label="Cancel schedule"[^\n]*onClick=\{doCancel\}/, 'a schedule cannot be cancelled');
   assert.match(GO_LIVE, /Goes live \$\{formatManila\(scheduledAt\)\}/, 'the row does not say when it is scheduled');
   // Once live there is no off — the shipped panel has no un-launch; the ⓘ says the way back.
-  assert.match(GO_LIVE, /disabled=\{launched \|\| pending\}/, 'a live Event Hub can be switched “off” with no write behind it');
+  assert.match(GO_LIVE, /disabled=\{launched\}/, 'a live Event Hub can be switched “off” with no write behind it');
   assert.match(GO_LIVE, /set Who can view to Private to close it again/);
   // A launch makes the page Public — the row beside it says so.
   assert.match(COMPACT, /onLaunched=\{\(\) => setWho\('public'\)\}/, 'Who can view still reads the old value after a launch');
   // A press that never answered is said, and a launch not confirmed never looks launched.
   assert.match(GO_LIVE, /if \(res\.ok\) \{\s*setLaunched\(true\);/);
+  assert.equal((GO_LIVE.match(/setLaunched\(true\)/g) ?? []).length, 1, 'something other than a confirmed launch shows it launched');
   assert.match(GO_LIVE, /'Could not launch right now — please try again\.'/);
 });
 

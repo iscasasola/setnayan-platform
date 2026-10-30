@@ -53,7 +53,32 @@ export type CouplePlanRowInput = {
   value: string;
   due_anchor: '' | DueAnchor;
   due_offset_days: string;
+  /**
+   * The instalment's stored `seq`, when the row was opened from a saved plan (2026-10-29). A payment is attached to
+   * its instalment BY `seq` (`event_vendor_payments.schedule_instance_seq`), so a row keeps its own: removing or
+   * adding a payment above a paid one must not hand that payment to a different instalment. Absent / duplicate → the
+   * row is numbered after the highest kept one, exactly as before for a plan typed fresh.
+   */
+  seq?: number | null;
 };
+
+/**
+ * Give every row a `seq`: a row's own (a whole number, not already taken) is kept, the rest are numbered after the
+ * highest kept one in the order they came. A plan with no seqs at all is numbered 0, 1, 2… — what it always was.
+ */
+export function assignPlanSeqs<T extends { seq?: number | null }>(rows: readonly T[]): Array<T & { seq: number }> {
+  const taken = new Set<number>();
+  const kept = rows.map((r) => {
+    const s = r.seq;
+    if (typeof s === 'number' && Number.isInteger(s) && s >= 0 && !taken.has(s)) {
+      taken.add(s);
+      return s;
+    }
+    return null;
+  });
+  let next = taken.size > 0 ? Math.max(...taken) + 1 : 0;
+  return rows.map((r, i) => ({ ...r, seq: kept[i] ?? next++ }));
+}
 
 /**
  * A resolved instalment PLUS the rule the couple typed to produce it.
@@ -164,6 +189,7 @@ export function planPreviewTotal(
 
 /** A synthetic schedule row. Only the fields `computePlanInstances` reads. */
 function toScheduleRow(r: CouplePlanRowInput, seq: number): PaymentScheduleItemRow {
+  // `seq` is the row's own (`assignPlanSeqs`), so it is what `computePlanInstances` sorts and stores by.
   const n = planAmountNumber(r.value);
   return {
     // 🔑 SYNTHETIC IDS, NEVER PERSISTED. `computePlanInstances` takes the
@@ -210,9 +236,11 @@ export function buildCouplePaymentPlan(opts: {
   /** ISO event date, or null. Anchors `before_event`. */
   eventDateIso: string | null;
 }): CouplePlanResult {
-  const rows = opts.rows.filter(
-    (r) => r.label.trim().length > 0 || r.value.trim().length > 0,
-  );
+  // Each row keeps its own seq (`assignPlanSeqs`), and the plan is ordered by it — `computePlanInstances` sorts by
+  // seq, so ordering the rows the same way keeps "position i of the instances is row i" true below.
+  const rows = assignPlanSeqs(
+    opts.rows.filter((r) => r.label.trim().length > 0 || r.value.trim().length > 0),
+  ).sort((a, b) => a.seq - b.seq);
   if (rows.length === 0) return { ok: false, message: PLAN_EMPTY };
   if (rows.length > MAX_SCHEDULE_ITEMS) return { ok: false, message: PLAN_TOO_MANY };
   if (opts.totalPhp == null || !(opts.totalPhp > 0)) {
@@ -236,7 +264,7 @@ export function buildCouplePaymentPlan(opts: {
   }
 
   const instances = computePlanInstances({
-    scheduleRows: rows.map(toScheduleRow),
+    scheduleRows: rows.map((r) => toScheduleRow(r, r.seq)),
     totalCostPhp: opts.totalPhp,
     lockDateIso: opts.lockDateIso,
     eventDateIso: opts.eventDateIso,
@@ -335,6 +363,19 @@ export function planInstancesToRows(
     }
     const amt = typeof i.amount_php === 'number' ? i.amount_php : null;
     return [{ label, kind: 'fixed' as const, value: amt == null ? '' : String(amt), anchor: '' as const, days: '0' }];
+  });
+}
+
+/**
+ * The stored `seq` of each row `planInstancesToRows` returns, in the same order (one per instance it keeps) — so the
+ * record card can post each row's own seq back and a payment stays on its instalment.
+ */
+export function planInstanceSeqs(instances: unknown): Array<number | null> {
+  if (!Array.isArray(instances)) return [];
+  return instances.flatMap((raw): Array<number | null> => {
+    if (!raw || typeof raw !== 'object') return [];
+    const s = (raw as { seq?: unknown }).seq;
+    return [typeof s === 'number' && Number.isInteger(s) && s >= 0 ? s : null];
   });
 }
 

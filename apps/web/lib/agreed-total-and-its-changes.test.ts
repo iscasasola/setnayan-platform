@@ -888,6 +888,8 @@ const NOT_A_PRICE_SHOWN: Record<string, string> = {
     'NOT A READ — the dev lab’s hand-written rows, handed to computeEventMoney (which applies the agreed-total cascade itself); no table is queried and the lab 404s in production',
   'app/dashboard/[eventId]/_components/new-manual-vendor-modal.tsx':
     'WRITES the typed price into the form; shows nothing back',
+  'app/dashboard/[eventId]/_components/record-card-folds.tsx':
+    'WRITES the HEADLINE price of a supplier the couple added (the record card, 2026-10-29) — its field starts from `loadSelfAddedSupplier`’s headline on purpose (pre-filling the agreed total would fold change lines into the headline on save), and the closed fold only echoes what is typed in that field; no table is queried here',
   'app/dashboard/[eventId]/vendors/_components/self-added-price.tsx':
     'WRITES the price the couple agreed with a supplier they added themselves (there is nobody to quote it) — the input starts EMPTY and the control unmounts once a price exists, so it never shows a total back',
   'app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/quote-bridge.tsx':

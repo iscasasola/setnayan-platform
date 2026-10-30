@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import { Check, Info, Loader2, Share } from 'lucide-react';
+import { Check, Loader2, Share } from 'lucide-react';
+import { InfoTip } from '@/app/_components/info-tip';
 import { GalleryLightbox } from './gallery-lightbox';
 import { canShareFiles, saveFileToDevice } from '@/lib/save-to-device';
 import { shareExtension, shareWords, type ShareSource } from '@/lib/memories-viewer';
@@ -125,23 +126,16 @@ export function ViewerToolbar({ actions }: { actions: ViewerAction[] }) {
 
 /** A panel's heading line, with its ⓘ — the details stay folded until asked for (house rule). */
 export function PanelHead({ title, line, tip }: { title: string; line?: ReactNode; tip?: ReactNode }) {
-  const [open, setOpen] = useState(false);
   return (
     <div className="pb-3">
-      <div className="flex items-center gap-2">
-        <h2 className="min-w-0 flex-1 text-[17px] font-semibold">{title}</h2>
-        {tip ? (
-          <button type="button" aria-expanded={open} aria-label="More about this" onClick={() => setOpen((v) => !v)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full">
-            <Info aria-hidden className="h-[18px] w-[18px] opacity-80" strokeWidth={1.9} />
-          </button>
-        ) : null}
-      </div>
-      {line ? <p className="sn-gal-soft text-[13.5px]">{line}</p> : null}
-      {tip && open ? (
-        <p className="sn-gal-soft mt-1.5 text-[13px] leading-snug" data-viewer-tip="">
+      {tip ? (
+        <InfoTip label={title} labelAs="h2" labelClassName="text-[17px] font-semibold" align="start">
           {tip}
-        </p>
-      ) : null}
+        </InfoTip>
+      ) : (
+        <h2 className="text-[17px] font-semibold">{title}</h2>
+      )}
+      {line ? <p className="sn-gal-soft text-[13.5px]">{line}</p> : null}
     </div>
   );
 }

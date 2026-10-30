@@ -44,7 +44,8 @@ test('(1) every Papic form saves in place — or is listed as a flow that must n
       if (!(key in MUST_NAVIGATE)) blind.push(key);
     }
   }
-  assert.ok(stays >= 25, `only ${stays} Papic forms save in place — the scan is not reading the Papic page`);
+  // 24 since 2026-10-31: the unmounted papic-gallery-grid.tsx (one stay form) was deleted with #7108.
+  assert.ok(stays >= 24, `only ${stays} Papic forms save in place — the scan is not reading the Papic page`);
   assert.deepEqual(blind, [], `These Papic forms follow their action's redirect — the whole screen resets on a save. Make each a \`PapicStayForm\`:\n  ${blind.join('\n  ')}`);
 });
 

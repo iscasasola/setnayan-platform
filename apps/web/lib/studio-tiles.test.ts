@@ -3,7 +3,8 @@
  * ON A HOME OF TEN TILES…" + "PRINTS IS THE ELEVENTH STUDIO TILE"; the RSVP tile LEFT
  * for Guests ⚙ in R1, owner 2026-10-28 — "STUDIO IS LOOK AND WORDS ONLY").
  *
- *   1. Ten keys, in the order an event gets made — Prints the last; no RSVP.
+ *   1. The keys (RSVP left in R1 — Guests ⚙), in the order an event gets made. 🖨 Prints LEFT (R8, owner 2026-10-27 "PRINTS LEAVES STUDIO"): its own
+ *      page and a Prints line on Home — never a tile again (`lib/prints-has-its-own-page.test.ts`).
  *   2. Each tile's ✓ / Missing IS the shipped "done" of the item it opens: the
  *      Details rows' and the guided flow's `guidedItemDone` over the same facts,
  *      `wordsAndPlansItem` for the Schedule and the Love Story, the counts the
@@ -44,27 +45,27 @@ function input(over: Partial<StudioTilesInput> = {}): StudioTilesInput {
   return { facts: facts(), giftMethods: 2, offered: all, ...over };
 }
 
-test('1 · eight tiles, in the order an event gets made — Prints is the last; RSVP (R1), Wedding March and Seat plan (R4) are gone', () => {
-  assert.deepEqual([...STUDIO_TILE_KEYS], ['info', 'look', 'logo', 'mood', 'schedule', 'story', 'gifts', 'prints']);
+test('1 · seven tiles, in the order an event gets made — RSVP (R1), Wedding March and Seat plan (R4) are gone, and Prints is not one of them (R8)', () => {
+  assert.deepEqual([...STUDIO_TILE_KEYS], ['info', 'look', 'logo', 'mood', 'schedule', 'story', 'gifts']);
   const tiles = studioTiles(input());
-  assert.equal(tiles.length, 8);
+  assert.equal(tiles.length, STUDIO_TILE_KEYS.length);
   assert.deepEqual(
     tiles.map((t) => t.label),
-    ['Info', 'Look', 'Logo', 'Palette + Dress Code', 'Schedule', 'Love Story', 'E-Gifts', 'Prints'],
+    ['Info', 'Look', 'Logo', 'Palette + Dress Code', 'Schedule', 'Love Story', 'E-Gifts'],
   );
-  assert.equal(tiles[7]!.key, 'prints');
+  assert.ok(!tiles.some((t) => (t.key as string) === 'prints' || t.label === 'Prints'), 'Prints is a Studio tile again — it has its own page (R8)');
   assert.deepEqual(tiles.filter((t) => t.immersive).map((t) => t.key), [], 'the two full-screen tiles left for Guests (R4)');
 });
 
-test('1b · Studio ▾ lists Logo · Palette + Dress Code · Love Story (· Prints until PR #7020) — the rest open from their new homes', () => {
+test('1b · Studio ▾ lists Logo · Palette + Dress Code · Love Story — the rest open from their new homes; Prints is its own page (R8)', () => {
   /* 🎛 Owner 2026-10-27 "STUDIO IS LOOK AND WORDS ONLY"; built 2026-10-30 (Event Hub Pro): Look and E-Gifts are the Hub's ⚙,
      Info's facts Home's ⚙ (its address the Hub's ⚙), Schedule Suppliers › Booked — each still a page a door opens. */
-  assert.deepEqual([...STUDIO_MENU_KEYS], ['logo', 'mood', 'story', 'prints']);
+  assert.deepEqual([...STUDIO_MENU_KEYS], ['logo', 'mood', 'story']);
   const menu = studioMenuTiles(studioTiles(input()));
-  assert.deepEqual(menu.map((t) => t.label), ['Logo', 'Palette + Dress Code', 'Love Story', 'Prints']);
+  assert.deepEqual(menu.map((t) => t.label), ['Logo', 'Palette + Dress Code', 'Love Story']);
   for (const k of ['info', 'look', 'schedule', 'gifts']) assert.equal(isStudioMenuKey(k), false, `${k} is still listed in Studio ▾`);
   // "n of N ready" counts the listed pages only — never a "Missing" about a page Studio ▾ does not show.
-  assert.equal(studioReady(menu).total, 4);
+  assert.equal(studioReady(menu).total, 3);
 });
 
 test('2 · each tile opens a real Event Details item', () => {
@@ -84,7 +85,6 @@ test('3 · ✓ / Missing IS the shipped "done" — the same function the Details
     assert.equal(done('schedule'), wordsAndPlansItem('schedule', f.words).done);
     assert.equal(done('story'), wordsAndPlansItem('love-story', f.words).done);
     assert.equal(done('info'), item('names')! && item('date')! && item('venues')!);
-    assert.equal(done('prints'), true, 'Prints has nothing to fill — always ✓');
   }
   // The status lines that carry a count say the shipped words.
   const f = facts({}, { story: 3, schedule: 0 });
@@ -108,8 +108,8 @@ test('4 · a fact that was not read makes no claim — never a Missing nobody me
 test('5 · "n of N ready" counts only what is really done; an event without an item has no tile for it', () => {
   const tiles = studioTiles(input());
   const { ready, total } = studioReady(tiles);
-  assert.equal(total, 8);
+  assert.equal(total, STUDIO_TILE_KEYS.length, 'a tile counted that is not drawn');
   assert.equal(ready, tiles.filter((t) => t.done === true).length);
   const birthday = studioTiles(input({ offered: (k) => !['love-story'].includes(k) }));
-  assert.deepEqual(birthday.map((t) => t.key), ['info', 'look', 'logo', 'mood', 'schedule', 'gifts', 'prints']);
+  assert.deepEqual(birthday.map((t) => t.key), ['info', 'look', 'logo', 'mood', 'schedule', 'gifts']);
 });

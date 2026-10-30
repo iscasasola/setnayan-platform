@@ -11,10 +11,15 @@
  * The choices that are a set (tablecloths, centrepieces, the colour peek) are ONE dropdown (`Show ▾`).
  *
  * Nothing here writes the plan. `room-is-view-only.test.ts` holds that.
+ *
+ * 🗺 NO ⤢ (owner, iPhone app, 2026-10-30: *"we can remove that button … They are all full screen"*). The room is the
+ * whole screen in Guests › Seats › 3D already, so the row is ▶ · ✨ Accents · 👁 Show ▾ · View only ⓘ and nothing
+ * else — it sits in the thumb zone, above the bottom nav, never over the middle of the room.
+ * 🔒 lib/maps-are-always-full-screen.test.ts
  */
 
 import type { ReactNode } from 'react';
-import { Eye, Footprints, Maximize2, Minimize2, Play, Sparkles, Square, Users } from 'lucide-react';
+import { Eye, Footprints, Play, Sparkles, Square, Users } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { formatCount } from '@/lib/format-number';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
@@ -44,8 +49,6 @@ export type RoomViewToolsProps = {
   onPalette: (key: string) => void;
   /** Opens the Accents sheet; null when the viewer may not change accents. */
   onAccents: (() => void) | null;
-  fullscreen: boolean;
-  onFullscreen: () => void;
   /** Switches to the 2D plan — where every edit lives. */
   onShow2d: () => void;
   /** The legend, the theme name and what the room is not drawing — the ⓘ's body below the 2D line. */
@@ -156,15 +159,6 @@ export function RoomViewTools(p: RoomViewToolsProps) {
               </span>
             </InfoTip>
           </span>
-          <button
-            type="button"
-            onClick={p.onFullscreen}
-            aria-label={p.fullscreen ? 'Exit full screen' : 'Enter full screen'}
-            title={p.fullscreen ? 'Exit full screen' : 'Full screen'}
-            className={TOOL}
-          >
-            {p.fullscreen ? <Minimize2 className="h-4 w-4" aria-hidden /> : <Maximize2 className="h-4 w-4" aria-hidden />}
-          </button>
         </div>
       </div>
     </div>

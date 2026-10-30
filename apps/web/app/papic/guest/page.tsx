@@ -123,7 +123,7 @@ export default async function PapicGuestPage({
     eventPapicGuestAccess(admin, session.event_id),
     admin
       .from('events')
-      .select(`display_name, papic_face_mode, event_type, face_tagging_declined_by_couple, venue_latitude, venue_longitude, event_end_date, ${GUEST_CAPTURE_GATE_COLUMNS}`)
+      .select(`display_name, slug, papic_face_mode, event_type, face_tagging_declined_by_couple, venue_latitude, venue_longitude, event_end_date, ${GUEST_CAPTURE_GATE_COLUMNS}`)
       .eq('event_id', session.event_id)
       .maybeSingle(),
     // Resolved only for spec § 7b's "change your mind" offer. The buy panel
@@ -133,6 +133,8 @@ export default async function PapicGuestPage({
       ? resolveGuestOwnCamera(admin, session.event_id, session.guest_id)
       : Promise.resolve(null),
   ]);
+  /** This event's own Event Hub, for the camera's ✕ when it was not opened from a hub tab (re-checked as a slug). */
+  const ownHubSlug = typeof (ev as { slug?: unknown } | null)?.slug === 'string' && /^[a-z0-9][a-z0-9-]{0,79}$/.test((ev as { slug: string }).slug) ? (ev as { slug: string }).slug : null;
   const eventName = (ev?.display_name as string | null) || 'this event';
   // Face-tag mode gate (One-Pool spec §3.4). Fail-closed to mode_b: a
   // pre-migration DB (column absent → null) yields no embedding on this camera.
@@ -418,7 +420,9 @@ export default async function PapicGuestPage({
       eventStyle={eventStyle}
       faceMode={faceMode}
       storyToken={((g as { qr_token?: string | null } | null)?.qr_token as string | null) ?? null}
-      exitTo={backSlug ? { slug: backSlug, tab: backTab } : null}
+      // ✕ ALWAYS returns to the Event Hub (owner 31 Oct, "needs exit to return to event hub"): the tab it came from,
+      // else this event's own hub (its slug, read above and re-checked) — never a camera with no way out.
+      exitTo={backSlug ? { slug: backSlug, tab: backTab } : ownHubSlug ? { slug: ownHubSlug, tab: null } : null}
       lastShotUrl={ownShots?.shots[0]?.url ?? null}
       dress={cameraDress}
       photoMark={photoMark}

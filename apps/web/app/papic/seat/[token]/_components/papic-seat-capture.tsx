@@ -21,7 +21,9 @@ import {
   Sparkles,
   CloudOff,
   Ban,
+  X,
 } from 'lucide-react';
+import { cameraExitHref } from '@/app/[slug]/_lib/hub-tabs';
 import {
   recordSeatCapture,
   tagSeatCapture,
@@ -185,6 +187,9 @@ type Props = {
    *  Passed in rather than read here so the refusal copy can never name an
    *  “add more shots” control that is not on the screen. */
   buyOffered?: boolean;
+  /** ✕ back to this event's Event Hub (owner 31 Oct, "needs exit to return to event hub"). The slug is the
+   *  event's own, read on the server — never a query param. Null when the event has no slug. */
+  exitSlug?: string | null;
 };
 
 /** A single capture as it moves through the background upload queue. Drives both
@@ -255,6 +260,7 @@ export function PapicSeatCapture({
   faceMode,
   geoEnabled = false,
   buyOffered = false,
+  exitSlug = null,
 }: Props) {
   // The event-wide look is LOCKED (couple-set at setup) — baked into every photo.
   // styleRef mirrors the prop so grabFrame reads it without a dep churn.
@@ -1410,9 +1416,22 @@ export function PapicSeatCapture({
         className="absolute inset-x-0 top-0 z-20 bg-gradient-to-b from-ink/75 via-ink/35 to-transparent pt-[env(safe-area-inset-top,0px)]"
       >
       <header className="flex items-center justify-between pb-3 pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))] pt-3">
-        <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-cream/70">
-          Papic · seat {seatIndex}
-        </p>
+        <div className="flex items-center gap-2">
+          {/* ✕ ONE EXIT, TOP-LEFT — back to this event's Event Hub (owner 31 Oct), the guest camera's same ✕. */}
+          {exitSlug ? (
+            <a
+              data-camera-exit=""
+              href={cameraExitHref(exitSlug, null, 0)}
+              aria-label="Close the camera"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-cream/10 text-cream hover:bg-cream/20"
+            >
+              <X aria-hidden className="h-5 w-5" strokeWidth={2} />
+            </a>
+          ) : null}
+          <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-cream/70">
+            Papic · seat {seatIndex}
+          </p>
+        </div>
         <div className="flex items-center gap-2">
           {styleMeta && styleMeta.id !== 'ORIG' ? (
             <span

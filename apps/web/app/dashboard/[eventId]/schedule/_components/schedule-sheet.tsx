@@ -155,10 +155,11 @@ export function ScheduleAddPill({
   if (!host || hidden || (view && onScreen !== null && onScreen !== view)) return null;
   return createPortal(
     <div
-      className="pointer-events-none fixed inset-x-0 bottom-[calc(var(--sn-ride-h,var(--sn-bottomdock-h,64px))_+_12px)] z-30 flex justify-end px-4 tab:bottom-6 tab:right-[var(--sup-col-right,1.5rem)] tab:left-auto"
+      className="pointer-events-none fixed inset-x-0 bottom-[calc(var(--sn-ride-h,var(--sn-bottomdock-h,64px))_+_12px)] z-30 flex justify-end tab:bottom-6 tab:right-[var(--sup-col-right,1.5rem)] tab:left-auto"
       data-schedule-add-host=""
+      data-safe-x=""
     >
-      <div ref={rowRef} className="pointer-events-auto">
+      <div ref={rowRef} className="pointer-events-auto mx-4">
         {/* BUTTON-RULE — the house brand pill, icon + word. */}
         <button
           type="button"

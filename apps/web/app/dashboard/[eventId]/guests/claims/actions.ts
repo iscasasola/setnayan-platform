@@ -44,10 +44,9 @@ export type RequestInPlace = { ok: true } | { ok: false; error: string };
 /** A request somebody else (or another tab) already answered — the row leaves on the refresh; nothing was changed. */
 const ALREADY_ANSWERED = 'That request was already answered — nothing changed.';
 
-/** Inside Guests: the helper gate in words, every refusal RETURNED, and no `from` (so no success redirect either). */
-async function inPlace(eventId: string, formData: FormData, run: (fd: FormData) => Promise<boolean>): Promise<RequestInPlace> {
-  const refusal = await limitedHelperRefusal(eventId, 'guest_list');
-  if (refusal) return { ok: false, error: refusal };
+/** Inside Guests: every refusal RETURNED, and no `from` (so no success redirect either). The helper gate is the door's
+ *  own first line (`decideRequestInPlace`), in words. */
+async function inPlace(formData: FormData, run: (fd: FormData) => Promise<boolean>): Promise<RequestInPlace> {
   formData.delete('from');
   try {
     return (await run(formData)) ? { ok: true } : { ok: false, error: ALREADY_ANSWERED };
@@ -598,5 +597,5 @@ export async function decideRequestInPlace(eventId: string, formData: FormData):
   const verb = String(formData.get('do') ?? '');
   const run = Object.prototype.hasOwnProperty.call(IN_PLACE, verb) ? IN_PLACE[verb as keyof typeof IN_PLACE] : null;
   if (!run) return { ok: false, error: 'That did not save — nothing changed. Try again.' };
-  return inPlace(eventId, formData, (fd) => run(eventId, fd));
+  return inPlace(formData, (fd) => run(eventId, fd));
 }

@@ -155,7 +155,7 @@ test('the claims queue specifically — remove AND link both release', () => {
   // R4 slice 11: the bodies live in `declineRequest` / `linkRequest`, behind the page's doors (`removeGuestAction` /
   // `linkGuestAction`) and Guests' in-place door — both doors run the one body, so the body is what is held.
   for (const [fn, door] of [['declineRequest', 'removeGuestAction'], ['linkRequest', 'linkGuestAction']] as const) {
-    assert.match(src, new RegExp(`export async function ${door}\\(eventId: string, formData: FormData\\) \\{\\s*await onThePage\\(eventId, \\(\\) => ${fn}\\(eventId, formData\\)\\);`), `${door} no longer runs ${fn}`);
+    assert.match(src, new RegExp(`export async function ${door}\\(eventId: string, formData: FormData\\) \\{\\s*(?:await refuseLimitedHelper\\(eventId, 'guest_list'\\);\\s*)?await onThePage\\(eventId, \\(\\) => ${fn}\\(eventId, formData\\)\\);`), `${door} no longer runs ${fn}`);
     const start = src.indexOf(`async function ${fn}(`);
     assert.ok(start > 0, `${fn} not found — has it been renamed?`);
     // Window: this function up to the next function (or EOF).

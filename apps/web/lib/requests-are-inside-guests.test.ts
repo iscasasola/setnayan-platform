@@ -112,13 +112,17 @@ test('5 · inside Guests the rows answer in place — one door that never redire
   for (const door of ['keepGuestAction', 'removeGuestAction', 'linkGuestAction', 'undoRequestAction']) {
     assert.match(body(`export async function ${door}(`), /await onThePage\(eventId,/, `${door} no longer answers on the page`);
   }
-  // In place: the helper gate in words, `from` dropped (no success redirect), every refusal RETURNED.
+  // In place: the helper gate in words as the door's first line, `from` dropped (no success redirect), every refusal RETURNED.
   const inPlace = body('async function inPlace(');
-  assert.match(inPlace, /const refusal = await limitedHelperRefusal\(eventId, 'guest_list'\);\s*if \(refusal\) return \{ ok: false, error: refusal \};/);
+  assert.match(
+    body('export async function decideRequestInPlace('),
+    /\{\s*const helperRefusal = await limitedHelperRefusal\(eventId, 'guest_list'\);\s*if \(helperRefusal\) return \{ ok: false, error: helperRefusal \};/,
+    'the in-place door does not ask the limited-helper gate first',
+  );
   assert.match(inPlace, /formData\.delete\('from'\);/, 'the in-place door can still take the page’s success redirect');
   assert.match(inPlace, /if \(e instanceof RequestRefused\) return \{ ok: false, error: e\.message \};/);
   const door = body('export async function decideRequestInPlace(');
-  assert.match(door, /return inPlace\(eventId, formData,/);
+  assert.match(door, /return inPlace\(formData,/);
   for (const b of [inPlace, door]) assert.doesNotMatch(b, /redirect\(/, 'the in-place door redirects');
   assert.match(actions, /const IN_PLACE = \{ keep: keepRequest, decline: declineRequest, link: linkRequest, 'undo-accept': undoAccept, 'undo-decline': undoDecline \} as const;/);
   // The Undos no longer end in a redirect of their own — only the page's door adds it.

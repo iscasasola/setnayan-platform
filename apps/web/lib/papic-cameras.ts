@@ -185,12 +185,78 @@ export const PAPIC_FREE_ONE_CAMERA_INDEX = 110;
 export const PAPIC_UPLOADS_CAMERA_INDEX = 150;
 
 /**
- * Was this capture added by hand? The Uploads camera's seat is the one door for a file picked from a phone or laptop
+ * 👥 EVERY HOST HAS THEIR OWN HOST CAMERA (owner 2026-10-31, DECISION_LOG "SEVEN OWNER ANSWERS" item 3 — asked "Should
+ * co-hosts each get a camera, and are host shots free?", answered *"yes. papic credits still"*). A host is an
+ * `event_members` row with `member_type = 'couple'`: the couple AND every co-host (2026-09-28 / 2026-10-29).
+ *
+ * Until then there was ONE Uploads camera per event (seat 150), claimed by whichever host pressed first; every other
+ * host was told *"set up on the other host's account"*. The host cameras are now the block
+ * `PAPIC_UPLOADS_CAMERA_INDEX..PAPIC_HOST_CAMERA_LAST_INDEX` — 150 stays the FIRST host's, so every camera already
+ * claimed keeps working, and each further host gets the next free index (`hostCameraPick`). 151–199 sit clear of the
+ * free block (100–102), the free One (110) and the paid range (200+).
+ *
+ * 🪙 NOTHING IS FREE. Every host camera is a free-tier seat with no credits of its own: what it spends is the event's ONE
+ * shared pool (2026-09-16 / 2026-09-22 rulings — no camera holds credits of its own), through the same
+ * `papic_capture_points_available` gate, the same capture window and the same uploads switch seat 150 always had.
+ */
+export const PAPIC_HOST_CAMERA_LAST_INDEX = 199;
+
+/** Is this seat one of the event's host cameras (the block that starts at the original Uploads camera)? */
+export function isHostCameraSeatIndex(seatIndex: number | null | undefined): boolean {
+  return (
+    typeof seatIndex === 'number' &&
+    seatIndex >= PAPIC_UPLOADS_CAMERA_INDEX &&
+    seatIndex <= PAPIC_HOST_CAMERA_LAST_INDEX
+  );
+}
+
+/** A host-camera row as the resolver reads it (service role — the token never reaches a browser before its claim). */
+export type HostCameraRow = {
+  seat_id: string;
+  seat_index: number;
+  claim_qr_token: string | null;
+  claimer_user_id: string | null;
+  revoked_at: string | null;
+};
+
+/** The columns `HostCameraRow` names — one select string, so the provisioner and the reader cannot drift (module-private: a narrow read of one block, not a canonical list for every `paparazzi_seats` select). */
+const hostCameraSelect = 'seat_id, seat_index, claim_qr_token, claimer_user_id, revoked_at';
+
+/**
+ * WHICH HOST CAMERA IS THIS HOST'S? Pure, so the rule is measured (`papic-cameras.test.ts`).
+ *   • 'mine'  — a live camera this person already claimed (a host keeps theirs; a second press is a no-op);
+ *   • 'spare' — the lowest live camera nobody has claimed yet (the first pick claims it);
+ *   • 'mint'  — neither: the next index in the block (a revoked row still holds its index — the UNIQUE spans it);
+ *   • 'full'  — the block is used up (fifty hosts) — said in words, never minted into the paid range.
+ * Never another host's camera: a claimed row is only ever 'mine' to the person who claimed it.
+ */
+export type HostCameraPick =
+  | { kind: 'mine'; seat: HostCameraRow }
+  | { kind: 'spare'; seat: HostCameraRow }
+  | { kind: 'mint'; index: number }
+  | { kind: 'full' };
+
+export function hostCameraPick(rows: readonly HostCameraRow[], userId: string): HostCameraPick {
+  const inBlock = rows.filter((r) => isHostCameraSeatIndex(r.seat_index)).sort((a, b) => a.seat_index - b.seat_index);
+  const live = inBlock.filter((r) => r.revoked_at === null && Boolean(r.claim_qr_token));
+  const mine = live.find((r) => r.claimer_user_id === userId);
+  if (mine) return { kind: 'mine', seat: mine };
+  const spare = live.find((r) => r.claimer_user_id === null);
+  if (spare) return { kind: 'spare', seat: spare };
+  const used = new Set(inBlock.map((r) => r.seat_index));
+  for (let i = PAPIC_UPLOADS_CAMERA_INDEX; i <= PAPIC_HOST_CAMERA_LAST_INDEX; i += 1) {
+    if (!used.has(i)) return { kind: 'mint', index: i };
+  }
+  return { kind: 'full' };
+}
+
+/**
+ * Was this capture added by hand? A host camera's seat is the one door for a file picked from a phone or laptop
  * (owner 2026-10-26: anything added costs the camera price × PAPIC_UPLOAD_MULTIPLIER — `papicCaptureCost`). Read off the SEAT the server
  * resolved from the token, never from anything the client says.
  */
 export function papicSeatCaptureSource(seatIndex: number | null | undefined): PapicCaptureSource {
-  return seatIndex === PAPIC_UPLOADS_CAMERA_INDEX ? 'upload' : 'camera';
+  return isHostCameraSeatIndex(seatIndex) ? 'upload' : 'camera';
 }
 
 /**
@@ -896,13 +962,17 @@ export async function provisionFreeCamerasAdmin(
 }
 
 /**
- * Mint the couple's single "Uploads" camera for this event.
+ * Mint a host camera for this event — the first host's (seat 150, the original "Uploads" camera) or, given
+ * `hostUserId`, THIS host's own (owner 2026-10-31, *"yes. papic credits still"*: every host — each couple member and
+ * each co-host — has their own camera, all spending the one shared pool). With `hostUserId` it mints only when that host
+ * has no camera of their own AND no unclaimed one is waiting (`hostCameraPick`), so a host who only looks at Memories
+ * leaves at most one spare behind, never a pile.
  *
  * A sibling of `provisionFreeCamerasAdmin` above, deliberately: same seat shape,
  * same free tier, same idempotency. **Idempotency is the `(event_id,
  * seat_index)` UNIQUE constraint in SQL, never a check in TypeScript** — two
  * concurrent renders both see "missing" and both insert; only the database can
- * settle that.
+ * settle that (the loser creates nothing, and its host's next render finds the spare or the next index).
  *
  * ⚠ IT TAKES THE EVENT'S REAL CAPTURE WINDOW, AND MUST. `captureWindowState`
  * returns `'open'` on null bounds — deliberate, so a legacy seat is never
@@ -914,8 +984,8 @@ export async function provisionFreeCamerasAdmin(
  * signed-in stranger mint a live seat on somebody else's wedding and then claim
  * it — after which every downstream gate passes them through, because the
  * upload presign and the record path both check *claimer identity* and nothing
- * else. It is called only from the studio page's render, AFTER the couple check
- * that page already performs.
+ * else. It is called only from couple-checked renders (the Papic card's self-heal and the Memories host branch),
+ * AFTER the couple check those renders perform — `the-uploads-camera-has-no-back-door.test.ts`.
  *
  * Best-effort + non-fatal: returns 1 if a seat was created, 0 otherwise
  * (including on any error — the next render retries).
@@ -924,27 +994,37 @@ export async function provisionUploadsCameraAdmin(
   admin: SupabaseClient,
   eventId: string,
   window?: { validFrom: string | null; validUntil: string | null },
+  hostUserId?: string,
 ): Promise<number> {
   if (!eventId) return 0;
   try {
     const { data: existing, error: readErr } = await admin
       .from('paparazzi_seats')
-      .select('seat_index')
+      .select(hostCameraSelect)
       .eq('event_id', eventId)
-      .eq('seat_index', PAPIC_UPLOADS_CAMERA_INDEX)
-      .maybeSingle();
+      .gte('seat_index', PAPIC_UPLOADS_CAMERA_INDEX)
+      .lte('seat_index', PAPIC_HOST_CAMERA_LAST_INDEX);
     if (readErr) console.error('[supabase-error] lib/papic-cameras.ts · from:paparazzi_seats.select', readErr);
     // ⚠ A refused read is NOT "there is none". Returning 0 here retries next
     // render; inserting on an unread would race the UNIQUE constraint for
     // nothing.
     if (readErr) return 0;
-    if (existing) return 0;
+    const rows = (existing ?? []) as HostCameraRow[];
+    let index: number;
+    if (hostUserId) {
+      const pick = hostCameraPick(rows, hostUserId);
+      if (pick.kind !== 'mint') return 0;
+      index = pick.index;
+    } else {
+      if (rows.some((r) => r.seat_index === PAPIC_UPLOADS_CAMERA_INDEX)) return 0;
+      index = PAPIC_UPLOADS_CAMERA_INDEX;
+    }
 
     const { error: insertErr } = await admin.from('paparazzi_seats').upsert(
       [
         {
           event_id: eventId,
-          seat_index: PAPIC_UPLOADS_CAMERA_INDEX,
+          seat_index: index,
           sku_code: PAPIC_CAMERA_FREE_SKU,
           tier: 'free' as CameraTier,
           claim_qr_token: generateSeatClaimToken(),
@@ -960,6 +1040,39 @@ export async function provisionUploadsCameraAdmin(
   } catch {
     return 0;
   }
+}
+
+/**
+ * THIS HOST'S CAMERA, READ — the one read the Memories render and `startAddingPhotos` both make, so the sheet and the
+ * claim can never disagree about which camera is whose. Service role (an unclaimed seat is invisible to its future
+ * claimer under RLS); pinned to the event and to the host-camera block, so it can only ever return a host camera.
+ * Callers run it AFTER their couple check. `readFailed` is a refusal, never "there is none".
+ */
+export async function readHostCamera(
+  admin: SupabaseClient,
+  eventId: string,
+  userId: string,
+): Promise<{ pick: HostCameraPick | null; readFailed: boolean }> {
+  try {
+    const { data, error } = await admin
+      .from('paparazzi_seats')
+      .select(hostCameraSelect)
+      .eq('event_id', eventId)
+      .gte('seat_index', PAPIC_UPLOADS_CAMERA_INDEX)
+      .lte('seat_index', PAPIC_HOST_CAMERA_LAST_INDEX);
+    if (error) {
+      console.error('[supabase-error] lib/papic-cameras.ts · readHostCamera · from:paparazzi_seats.select', error);
+      return { pick: null, readFailed: true };
+    }
+    return { pick: hostCameraPick((data ?? []) as HostCameraRow[], userId), readFailed: false };
+  } catch {
+    return { pick: null, readFailed: true };
+  }
+}
+
+/** The seat a pick hands this host — theirs, or the spare their first pick will claim; null when there is none yet. */
+export function hostCameraSeat(pick: HostCameraPick | null): HostCameraRow | null {
+  return pick && (pick.kind === 'mine' || pick.kind === 'spare') ? pick.seat : null;
 }
 
 /**

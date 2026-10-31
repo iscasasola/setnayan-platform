@@ -100,7 +100,7 @@ export default async function PapicSeatPage({ params, searchParams }: Props) {
         .is('superseded_at', null),
       admin
         .from('events')
-        .select('papic_style, papic_face_mode, event_type')
+        .select('papic_style, papic_face_mode, event_type, slug')
         .eq('event_id', seat.event_id as string)
         .maybeSingle(),
     ]);
@@ -158,6 +158,8 @@ export default async function PapicSeatPage({ params, searchParams }: Props) {
         eventStyle={eventStyle}
         faceMode={faceMode}
         geoEnabled={geoEnabled}
+        // ✕ back to this event's Event Hub (owner 31 Oct) — the event's own slug, re-checked as a slug.
+        exitSlug={hubSlugOf((styleRow as { slug?: string | null } | null)?.slug)}
         // The buy panel below is withheld in the store shell, so the camera
         // must not point the guest at it ("add more shots below").
         buyOffered={canReloadOwnCamera && !storeShell}
@@ -184,4 +186,9 @@ export default async function PapicSeatPage({ params, searchParams }: Props) {
       )}
     </>
   );
+}
+
+/** The event's own slug as a one-segment internal path, or null — never a URL. */
+function hubSlugOf(slug: string | null | undefined): string | null {
+  return typeof slug === 'string' && /^[a-z0-9][a-z0-9-]{0,79}$/.test(slug) ? slug : null;
 }

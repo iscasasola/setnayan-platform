@@ -7,6 +7,9 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { PapicGuestCapture } from '@/app/papic/guest/_components/papic-guest-capture';
+import { PapicSeatCapture } from '@/app/papic/seat/[token]/_components/papic-seat-capture';
+import { PapicBuyShell } from '@/app/papic/_components/papic-buy-shell';
+import { buyWaitCopy } from '@/lib/papic-buy-urgency';
 import { PapicCaptureController } from '@/app/vendor-dashboard/on-the-day/live/[eventId]/_components/papic-capture-controller';
 import { papicUploader, saveShot } from '@/lib/papic-upload/browser';
 import { newClientCaptureId } from '@/lib/papic-client-capture-id';
@@ -55,7 +58,10 @@ const LAB_LOGO = (
   </svg>
 );
 
-export function LabCamera({ lane, pro = false }: { lane: 'guest' | 'vendor'; pro?: boolean }) {
+/** `?buy=1` — the real floating "Add credits" doorway over the camera, on one fixture rung (it never opens a purchase here). */
+const LAB_OFFERS = [{ kind: 'pool_topup' as const, serviceCode: 'LAB_RUNG', points: 50, pricePhp: 249, phrase: '50 more photos' }];
+
+export function LabCamera({ lane, pro = false, buy = false }: { lane: 'guest' | 'vendor' | 'seat'; pro?: boolean; buy?: boolean }) {
   const [snap, setSnap] = useState<UploaderSnapshot | null>(null);
   useEffect(() => papicUploader().subscribe(setSnap), []);
   // The walk's probes reach the real modules through this (lab only).
@@ -80,7 +86,7 @@ export function LabCamera({ lane, pro = false }: { lane: 'guest' | 'vendor'; pro
     const poster = await posterOf(clip);
     await saveShot({
       id: newClientCaptureId(),
-      lane,
+      lane: lane === 'vendor' ? 'vendor' : 'guest',
       eventId: LAB_EVENT_ID,
       media: 'clip',
       capturedAtMs: Date.now(),
@@ -105,7 +111,20 @@ export function LabCamera({ lane, pro = false }: { lane: 'guest' | 'vendor'; pro
 
   return (
     <div className="bg-ink">
-      {lane === 'guest' ? (
+      {buy && lane !== 'vendor' ? <PapicBuyShell offers={LAB_OFFERS} returnTo="/dev/papic-camera-lab" wait={buyWaitCopy(false)} /> : null}
+      {lane === 'seat' ? (
+        <PapicSeatCapture
+          token="lab-seat"
+          seatIndex={1}
+          eventId={LAB_EVENT_ID}
+          initialPhotos={0}
+          initialClips={0}
+          isAnon
+          eventStyle="ORIG"
+          faceMode="mode_b"
+          buyOffered={buy}
+        />
+      ) : lane === 'guest' ? (
         <PapicGuestCapture
           guestName="Lab Guest"
           eventName="Lab Event"

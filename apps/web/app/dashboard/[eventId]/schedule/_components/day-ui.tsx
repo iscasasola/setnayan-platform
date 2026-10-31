@@ -187,7 +187,7 @@ export function Stepper({
 /** The small uppercase label the prototype calls `.eye`. */
 export function Eyebrow({ children }: { children: ReactNode }) {
   return (
-    <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-ink/55">{children}</span>
+    <span data-eyebrow="" className="text-[10px] font-bold uppercase tracking-[0.16em] text-ink/55">{children}</span>
   );
 }
 

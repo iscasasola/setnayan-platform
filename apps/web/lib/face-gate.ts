@@ -73,6 +73,8 @@ const MIN_BBOX_RATIO = 0.1; // face must fill ≥10% of the frame
 const BRIGHTNESS_MIN = 0.22;
 const BRIGHTNESS_MAX = 0.96;
 const MAX_EYE_TILT_DEG = 22;
+/** A second face at least this share of the largest one's area counts as a second person in the selfie. */
+const SECOND_FACE_RATIO = 0.4;
 
 let detectorPromise: Promise<FaceDetectorType | null> | null = null;
 
@@ -121,6 +123,15 @@ function meanBrightness(canvas: HTMLCanvasElement): number {
   }
 }
 
+/**
+ * ⚡ Start loading the detector now, so the press does not wait for it (owner 2026-10-30: *"registering the selfie is
+ * taking too long … almost 2 minutes"*). The selfie screen calls this when it opens — a download, no face is read.
+ * Same promise as `runFaceGate`'s, so the press reuses whatever has already arrived.
+ */
+export function warmFaceGate(): void {
+  void getDetector();
+}
+
 export async function runFaceGate(
   canvas: HTMLCanvasElement,
 ): Promise<FaceGateResult> {
@@ -163,15 +174,23 @@ export async function runFaceGate(
   // Largest detected face drives the size + frontal checks.
   let largest: (typeof detections)[number] | null = null;
   let largestArea = 0;
+  let secondArea = 0;
   for (const d of detections) {
     const bb = d.boundingBox;
     if (!bb) continue;
     const area = bb.width * bb.height;
     if (area > largestArea) {
+      secondArea = largestArea;
       largestArea = area;
       largest = d;
+    } else if (area > secondArea) {
+      secondArea = area;
     }
   }
+  // 👥 A face in the background does not refuse a selfie (owner 2026-10-30: the selfie should not need careful
+  // aligning). Only a second face nearly as big as the guest's — two people in the oval — is "more than one face";
+  // the embedder reads the largest face either way.
+  const crowded = faceCount > 1 && secondArea >= largestArea * SECOND_FACE_RATIO;
   const bboxRatio = frameArea > 0 ? largestArea / frameArea : 0;
 
   // Frontal estimate from the two eye keypoints (BlazeFace short-range:
@@ -198,7 +217,7 @@ export async function runFaceGate(
   if (faceCount === 0) {
     ok = false;
     reasonCode = 'no_face';
-  } else if (faceCount > 1) {
+  } else if (crowded) {
     ok = false;
     reasonCode = 'many_faces';
   } else if (bboxRatio < MIN_BBOX_RATIO) {

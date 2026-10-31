@@ -27,3 +27,4 @@ export const ScheduleModeToggle = dynamic(() => import(/* webpackChunkName: "mak
 export const AddPreparationItem = dynamic(() => import(/* webpackChunkName: "maker-schedule" */ './prep-item-controls').then((m) => m.AddPreparationItem), { loading: SlotButton });
 export const DeletePreparationItemButton = dynamic(() => import(/* webpackChunkName: "maker-schedule" */ './prep-item-controls').then((m) => m.DeletePreparationItemButton), { loading: SlotButton });
 export const RunOfShowHeader = dynamic(() => import(/* webpackChunkName: "maker-schedule" */ '@/app/_components/run-of-show-header').then((m) => m.RunOfShowHeader), { loading: SlotRows });
+export const BookedScheduleFrame = dynamic(() => import(/* webpackChunkName: "maker-schedule" */ './booked-schedule-frame').then((m) => m.BookedScheduleFrame), { loading: SlotFill });

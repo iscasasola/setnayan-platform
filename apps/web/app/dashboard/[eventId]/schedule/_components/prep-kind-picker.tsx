@@ -18,7 +18,8 @@ import { ListPlus, Users, Wallet, type LucideIcon } from 'lucide-react';
 
 export type PrepKind = 'task' | 'meeting' | 'payment';
 
-const OPTIONS: ReadonlyArray<{ value: PrepKind; label: string; Icon: LucideIcon }> = [
+/** The three kinds, in order — the couple's add sheet lists them in ONE dropdown (`prep-item-controls.tsx`). */
+export const PREP_KIND_OPTIONS: ReadonlyArray<{ value: PrepKind; label: string; Icon: LucideIcon }> = [
   { value: 'task', label: 'Task', Icon: ListPlus },
   { value: 'meeting', label: 'Meeting', Icon: Users },
   { value: 'payment', label: 'Payment', Icon: Wallet },
@@ -41,7 +42,7 @@ export function PrepKindPicker({
         aria-label="Item type"
         className="grid grid-cols-3 gap-1.5 rounded-xl border border-ink/10 bg-ink/[0.03] p-1"
       >
-        {OPTIONS.map(({ value: v, label, Icon }) => {
+        {PREP_KIND_OPTIONS.map(({ value: v, label, Icon }) => {
           const active = value === v;
           return (
             <button

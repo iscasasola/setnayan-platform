@@ -350,6 +350,21 @@ export function supplierPageAlbumCopyScope(vendorProfileId: unknown): CleanupSco
   return mintScope(`supplier_page_photo_notices:${v}`, [{ bucket: MEDIA, prefixes: [`vendors/${v}/portfolio/from-album/`] }]);
 }
 
+/**
+ * 📸 `couple_photo_shares` — the FROZEN COPY of one approved couple photo (#7089): `couple-looks/<share_id>/…`,
+ * in the public media bucket (audience Public) or the private thread-files bucket (every other audience). Only
+ * that share's folder in either bucket. Deleted on withdraw · decline · take off · an audience move · a refused
+ * approve, by the sweep for orphans, and by erasure (lib/erasure/purge.ts).
+ */
+export function couplePhotoLookScope(shareId: unknown): CleanupScope {
+  const s = safeId(shareId);
+  if (!s) return emptyScope('couple_photo_shares');
+  return mintScope(`couple_photo_shares:${s}`, [
+    { bucket: MEDIA, prefixes: [`couple-looks/${s}/`] },
+    { bucket: 'setnayan-thread-files', prefixes: [`couple-looks/${s}/`] },
+  ]);
+}
+
 /** A shop's logo — `vendors/<vendor_profile_id>/logo/…` in media. */
 export function vendorLogoScope(vendorProfileId: unknown): CleanupScope {
   const v = safeId(vendorProfileId);

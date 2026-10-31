@@ -18,6 +18,7 @@ import {
   COORDINATOR_SWITCH_WHY,
   FIXED_AREA_WHY,
   SUPPLIERS_BY_CATEGORY,
+  accessDayLabel as dayLabel,
   accessGroupOf,
   coordinatorHasHostAccess,
   coordinatorSwitchWrites,
@@ -56,10 +57,21 @@ import type { ClaimAccessAsk } from '@/lib/claim-access-asks';
  * (`ACCESS_GROUPS`). Plain rows and dividers like every other fold: no box of
  * its own (the fold is the tile).
  *   · HELPER — per area: name + ⓘ, then ONE three-way toggle Edit · Off · View.
- *   · COORDINATOR — ONE switch, "Same access as you", ON by default.
+ *   · COORDINATOR — ONE switch, "Same access as you", ON by default, until the
+ *     hosts pick Limited · Full access; on Limited, the helper's per-area
+ *     toggles (Mood Board Edit · View among them, owner 2026-10-30).
  *   · BOOKED SUPPLIER — name and category; what they see is set by their
  *     category (`SUPPLIERS_BY_CATEGORY`); nothing to switch.
+ *
+ * ⚙ AND HOME'S ⚙ EVENT SETTINGS MOUNTS THIS SAME SECTION, as its last one
+ * (owner 2026-10-30, *"no. that shoud be inside home settings"* → *"move them
+ * all in the event settings"*; `event-settings-rows.tsx`). One component, one
+ * set of actions — never a second editor; `returnTo` only says where a Remove
+ * lands (`lib/seat-return-path.ts`).
  */
+
+/** The screen the section is drawn on — what a Remove posts as `return_to` (`lib/seat-return-path.ts`). */
+type AccessReturnTo = 'details' | 'home';
 
 const REASONS: PickOption[] = [
   { key: 'no_longer_availing', label: 'No longer availing their services' },
@@ -68,17 +80,13 @@ const REASONS: PickOption[] = [
   { key: 'other', label: 'Other' },
 ];
 
-function dayLabel(iso: string): string {
-  return new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
-}
-
 /**
  * 🎚 ONE AREA'S THREE-WAY TOGGLE (owner 2026-10-07: *"no edit. Guestlist (i)
  * toggle. so it is easy to control"* → *"3 way toggle Edit - OFF - View"*) —
  * Edit · Off · View, Off in the middle, one segmented switch. This OVERRIDES
  * the standing "any set of choices is a dropdown" rule for this control only.
  * A position the area cannot take (Budget / Photos never Edit) is drawn and
- * disabled; a fixed area (Event Hub, Mood Board) is drawn at its value,
+ * disabled; a fixed area (Event Hub) is drawn at its value,
  * disabled, with an ⓘ saying why.
  *
  * Drawn by the app's ONE pill selector (owner 2026-10-08, `app/_components/pill-track.tsx`): the picked position is
@@ -352,7 +360,7 @@ function AccessPick({ eventId, row }: { eventId: string; row: PersonRow }) {
   );
 }
 
-function RemoveCoordinator({ eventId, row }: { eventId: string; row: PersonRow }) {
+function RemoveCoordinator({ eventId, row, returnTo }: { eventId: string; row: PersonRow; returnTo: AccessReturnTo }) {
   const [reason, setReason] = useState('');
   const [asking, setAsking] = useState(false);
   if (!row.moderatorId) return null;
@@ -374,7 +382,7 @@ function RemoveCoordinator({ eventId, row }: { eventId: string; row: PersonRow }
         <form action={removeHost} className="flex basis-full flex-wrap items-center gap-2" data-person-remove="">
           <input type="hidden" name="event_id" value={eventId} />
           <input type="hidden" name="moderator_id" value={row.moderatorId} />
-          <input type="hidden" name="return_to" value="details" />
+          <input type="hidden" name="return_to" value={returnTo} />
           <input type="hidden" name="reason" value={reason} />
           <PickMenu
             label={`Why ${row.name} is leaving`}
@@ -435,10 +443,12 @@ function PersonItem({
   eventId,
   row,
   readOnly,
+  returnTo,
 }: {
   eventId: string;
   row: PersonRow;
   readOnly: boolean;
+  returnTo: AccessReturnTo;
 }) {
   return (
     <li className="space-y-2 py-3" data-person={row.kind}>
@@ -456,7 +466,7 @@ function PersonItem({
           </p>
         </div>
         {readOnly ? null : row.kind === 'coordinator' && !row.isViewer ? (
-          <RemoveCoordinator eventId={eventId} row={row} />
+          <RemoveCoordinator eventId={eventId} row={row} returnTo={returnTo} />
         ) : row.kind === 'supplier' && row.canInviteAsCoordinator && row.vendorId ? (
           <Link
             href={`/dashboard/${eventId}/vendors/${row.vendorId}/workspace?tab=details#promote-coordinator`}
@@ -474,6 +484,11 @@ function PersonItem({
         // The old one switch stays only until the hosts answer the level (a recorded level replaces it).
         row.coordinatorLevel === 'unanswered' || row.coordinatorLevel === undefined ? (
           <CoordinatorSwitch eventId={eventId} row={row} readOnly={readOnly} />
+        ) : row.coordinatorLevel === 'limited' && row.areas ? (
+          /* 🖼 LIMITED = "changes only what you allow" (LEVEL_MORE: "…until you allow a part in Event details ›
+             Access"). This is that place — the helper's own per-part toggles on the coordinator's seat, Mood Board
+             among them (owner 2026-10-30: "Only the host and whoever supplier they give access to"). */
+          <AreaPicks eventId={eventId} row={{ ...row, areas: row.areas }} readOnly={readOnly} />
         ) : null
       ) : row.areas ? (
         <AreaPicks eventId={eventId} row={{ ...row, areas: row.areas }} readOnly={readOnly || row.isViewer} />
@@ -492,6 +507,7 @@ export function PeopleWithAccess({
   failed,
   flash,
   claims = null,
+  returnTo = 'details',
 }: {
   eventId: string;
   rows: PersonRow[];
@@ -503,6 +519,8 @@ export function PeopleWithAccess({
   flash: string | null;
   /** 🤝 Suppliers who joined from the couple's link and wait for Approve (owner 2026-10-20). Null: not the couple. */
   claims?: { measured: boolean; asks: ClaimAccessAsk[] } | null;
+  /** Where a Remove lands (`seatReturnPath`): Event Details, or Home with its ⚙ Event Settings sheet open on access. */
+  returnTo?: AccessReturnTo;
 }) {
   return (
     <div id="people-with-access" className="scroll-mt-20" data-section="access">
@@ -552,6 +570,7 @@ export function PeopleWithAccess({
                         eventId={eventId}
                         row={row}
                         readOnly={readOnly}
+                        returnTo={returnTo}
                       />
                     ))}
                   </ul>

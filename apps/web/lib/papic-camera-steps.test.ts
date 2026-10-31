@@ -32,3 +32,14 @@ test('a tap maps to the frame through object-cover, the 2× crop and the selfie 
   assert.ok(Math.abs(cropped.x - 0.25) < 1e-9, 'a 2× crop is not undone');
   assert.equal(focusPointFromTap({ ...base, videoW: 0, tapX: 1, tapY: 1 }), null);
 });
+
+test('in Snippet (object-contain) a tap maps onto the whole frame, and a tap on the bars focuses nothing', () => {
+  // A 1080×1920 portrait frame contained in a 390×390 box: drawn 219.375 wide, centred, bars left and right.
+  const base = { boxW: 390, boxH: 390, videoW: 1080, videoH: 1920, crop: 1, mirrored: false, fit: 'contain' as const };
+  const top = focusPointFromTap({ ...base, tapX: 195, tapY: 0 })!;
+  assert.ok(Math.abs(top.x - 0.5) < 1e-9 && Math.abs(top.y) < 1e-9, 'the top of the box is not the top of the frame');
+  assert.equal(focusPointFromTap({ ...base, tapX: 10, tapY: 195 }), null, 'a tap on the bar picked a point');
+  // The same tap read as cover lands somewhere else — the fit matters.
+  const cover = focusPointFromTap({ ...base, fit: 'cover', tapX: 195, tapY: 0 })!;
+  assert.ok(cover.y > 0.2, 'cover and contain read the same tap the same way');
+});

@@ -23,6 +23,7 @@
  */
 
 import {
+  Fragment,
   createContext,
   useCallback,
   useContext,
@@ -99,8 +100,10 @@ import {
   sortWithReasons,
   type BenchSort,
   type SortReason,
+  type SortShape,
 } from '@/lib/bench-sort';
-import { isLensKey, visibleLenses } from '@/lib/ranking-lenses';
+import { isLensKey, LENSES, visibleLenses } from '@/lib/ranking-lenses';
+import { nearFromKey, nearKey, type NearFrom } from '@/lib/find-sort-choices';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import {
   FREE_VENUE_ASSIST_CHIP,
@@ -209,6 +212,28 @@ import {
   saveBenchArrangement,
 } from '../_actions/bench-arrangement';
 import { fetchInlineMoreRow } from '../_actions/inline-more-row';
+import {
+  FIND_FILTERS_OFF,
+  FIND_PAGE_CARDS,
+  cardsWord,
+  clusterCards,
+  filtersOn,
+  freeOnWords,
+  matchServiceQuery,
+  pageOfClusters,
+  passesFindFilters,
+  pencilWords,
+  servicesScopeWords,
+  servicesWithCards,
+  type FindAvailability,
+  type FindCardRow,
+  bestForYourEvent,
+  type FindCluster,
+  type FindFilters,
+  type FindService,
+} from '@/lib/find-service-cards';
+import { FindServicesSheet } from './find-services-sheet';
+import { findSortMenu } from './find-sort-menu';
 import { sheetFits, sheetStateLine } from '@/lib/supplier-sheet';
 import type { SupplierSheetLoad, SupplierSheetTarget } from './supplier-sheet';
 import type { CategoryVendorResult } from '../_actions/category-search';
@@ -461,6 +486,23 @@ html.dark .slcat .sc-not{color:#e2b968;background:rgba(169,131,75,.2)}
 .slcat .fold.flat .mrc .mra{flex-direction:row;flex-wrap:wrap;align-items:center;gap:8px}
 .slcat .fold.flat .mrnote,.slcat .fold.flat .mrerr{padding-right:0}
 .slcat .morefoot{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 4px}
+/* FIND v4 (owner 2026-10-29) — the count line's Clear, a card's service line, and a shop's other cards tucked under
+   its first ("also <Service> · <card>"): a hairline-indented line inside the shop's place, its own price and Save. */
+.slcat .mrcount{display:flex;flex-wrap:wrap;align-items:center;gap:2px 6px}
+.slcat .sc-svc{font-size:11.5px;font-weight:500;line-height:1.3;color:var(--ink-soft)}
+.slcat .cat.open>.cat-head-row [data-row-state='planned'],.slcat .cat.open>.cat-head-row [data-row-state='booked']{display:none}
+.slcat .cat-svc.on{color:var(--m-orange-2,var(--gold-deep));font-weight:600}
+.slcat .findbest{margin:2px 0 12px}
+.slcat .findbest .fb-h{display:flex;align-items:center;gap:6px;font-size:15px;font-weight:600;color:var(--ink);padding:0 0 8px}
+.slcat .findbest .fb-rail{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;padding:0 0 4px}
+.slcat .findbest .fb-c{flex:0 0 min(82%,320px);scroll-snap-align:start;display:flex;flex-direction:column;gap:4px}
+.slcat .findbest .fb-c>.vcw{flex:1 1 auto}
+.slcat .findbest .fb-n{font-family:var(--mono);font-size:9px;letter-spacing:.11em;text-transform:uppercase;color:var(--ink-soft)}
+.slcat .mralso{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:-4px 0 0 18px;padding:8px 0 8px 12px;border-left:1px solid var(--line)}
+.slcat .mralso.is-dim{opacity:.6}
+.slcat .mralso .mra-t{display:flex;flex-direction:column;gap:2px;min-width:0}
+.slcat .mralso .mra-n{font-size:13px;font-weight:600;line-height:1.3;color:var(--ink);overflow-wrap:anywhere}
+.slcat .mralso .mra-n i{font-style:normal;font-weight:500;color:var(--ink-soft)}
 /* ── Level 1 · folder card (collapsible) ── */
 .slcat .fold{margin:0 0 10px;background:var(--card);border:1px solid var(--edge);border-radius: var(--m-r-md);overflow:hidden;box-shadow:var(--edge-lift);transition:box-shadow .3s var(--ease),border-color .3s var(--ease)}
 .slcat .fold.open{box-shadow:var(--edge-lift-open);border-color:rgba(30,26,18,.28)}
@@ -1000,6 +1042,23 @@ html.dark .slcat .mrerr{color:#E39A9A}
 .slcat a:focus-visible,.slcat button:focus-visible{outline-color:rgb(var(--sn-accent))}
 /* the pinned category head is the page's own ground, in both themes */
 .slcat .fold.flat .cat.open>.cat-head-row{background:var(--sn-canvas)}
+/* THE OPEN CATEGORY IS TINTED, AT EVERY WIDTH (owner 2026-10-30, final Suppliers design — the prototype's
+   '.cat.open .hf .r{background:var(--pill)}'): one soft step of ink over the page's ground, opaque, so the pinned head
+   still hides what scrolls under it. Tokens only — it follows the theme. */
+.slcat .fold.flat .cat.open>.cat-head-row{background:color-mix(in srgb,rgb(var(--color-ink)) 5%,var(--sn-canvas))}
+/* ✎ — the prototype's '.svcpick': a framed pill (it is pressed), terracotta while a service is hidden ("✎ 2 of 4").
+   Its slot is on every row that has one, collapsed to nothing on a closed row and grown in on the open one — width,
+   fade and a small slide from the right, at the prototype's own timing ('.cat-h .svcpick': .34s, the fade .14s late);
+   on first mount it enters from the same collapsed look ('@starting-style'). */
+.slcat .cat-svc-slot{display:inline-flex;flex:0 0 auto;align-items:center;max-width:220px;opacity:1;transform:none;margin-left:6px;overflow:hidden;transition:max-width .34s cubic-bezier(.2,.8,.2,1),opacity .22s ease .14s,transform .34s cubic-bezier(.2,.8,.2,1) .06s,margin .34s}
+@starting-style{.slcat .cat.open .cat-svc-slot{max-width:0;opacity:0;transform:translateX(10px) scale(.86);margin-left:0}}
+.slcat .cat:not(.open) .cat-svc-slot{max-width:0;opacity:0;transform:translateX(10px) scale(.86);margin-left:0;pointer-events:none;transition-delay:0s}
+.slcat .cat-svc-slot .cat-svc{border:1px solid var(--line);border-radius:var(--m-r-full);background:var(--card)}
+/* NAMES NEVER CUT (the prototype's '.cat.open>.cat-h .hf .tag{display:none}'): on a phone the open row makes room for
+   its ✎ by dropping its state word — the list right under it says the same — so "Catering" never breaks mid-word. */
+@media (max-width:1023.98px){.slcat .cat.open>.cat-head-row [data-row-state]{display:none}}
+.slcat .cat-svc-slot .cat-svc.on{border-color:rgb(var(--sn-accent));color:rgb(var(--sn-accent))}
+@media (prefers-reduced-motion:reduce){.slcat .cat-svc-slot{transition:none}}
 /* the unread count read an undefined token (fell back to a hand-typed red) */
 .slcat .unrd{background:rgb(var(--sn-accent));color:rgb(var(--sn-on-accent))}
 /* colours that stayed light in dark mode → tokens with a dark value */
@@ -1874,8 +1933,11 @@ function InlineMoreCard({
   onUndo,
   onInquire,
   onOpen,
+  serviceLabel = null,
 }: {
   v: CategoryVendorResult;
+  /** The card's home service, named while the list shows more than one (owner 2026-10-29, Find v4). */
+  serviceLabel?: string | null;
   /** Opens this supplier's sheet — absent where the sheet is not offered. */
   onOpen?: () => void;
   label: string;
@@ -1929,6 +1991,7 @@ function InlineMoreCard({
           {v.boosted ? <span className="pcorner">Featured</span> : null}
         </span>
         <span className="meta">
+          {serviceLabel ? <span className="sc-svc" data-find-service-line="">{serviceLabel}</span> : null}
           <span className="sc-name">
             {svc?.name || label}
             {svc?.discountBadge ? <span className="sc-disc">{svc.discountBadge}</span> : null}
@@ -2100,7 +2163,11 @@ function MoreToCompare({
   buildWindow,
   teamCalendarMembers,
   probeDayKeys,
-  sortMenu,
+  hidden,
+  filters,
+  onLoaded,
+  onClearFilters,
+  shape,
   onSeeAll,
 }: {
   eventId: string;
@@ -2117,8 +2184,18 @@ function MoreToCompare({
   buildWindow: BuildDateWindow | null;
   teamCalendarMembers: TeamCalendarMember[];
   probeDayKeys: readonly string[];
-  /** The bench's ONE sort dropdown, drawn in this list's head. */
-  sortMenu: ReactNode;
+  /** The services the row's ✎ has hidden (`FindServicesSheet`) — their cards leave this list. */
+  hidden: readonly string[];
+  /** ⇅ Rating for this category (`find-sort-menu.tsx`). Price only ever sorts (owner 2026-10-31, "sort only"). */
+  filters: FindFilters;
+  /** What the row's ✎ needs from this list's one read: the services with cards (their counts). `listed: null` = the
+   *  cards could not be read. */
+  onLoaded: (tile: string, info: { listed: { service: FindService; count: number }[] | null }) => void;
+  /** "Clear" on the count line — Rating back to any. */
+  onClearFilters: () => void;
+  /** 📍 The ⇅'s "Nearest to ceremony" for this list (`sortShapeFor`) — swaps the distance the ORDER reads, never the
+   *  card's own distance line. `{}` = the shipped order. */
+  shape: SortShape<CategoryVendorResult>;
   /** Opens the full sheet — still the only place with filters and facets. */
   onSeeAll: () => void;
 }) {
@@ -2135,6 +2212,18 @@ function MoreToCompare({
   const [moreFreeDays, setMoreFreeDays] = useState<Record<string, string[]>>({});
   // null until read, and null again if the cards could not be read.
   const [moreCards, setMoreCards] = useState<Readonly<Record<string, BenchServiceCard>> | null>(null);
+  // EVERY CARD OF THE CATEGORY (owner 2026-10-29, Find v4): one row per service card, already cut to the cards free on
+  // the event's date(s). Undefined = this read carried no per-card list (the lab's older stand-in) — the list then
+  // draws one card per supplier as it did; `cards: null` = the cards could not be read (said, never "nobody").
+  const [moreAll, setMoreAll] = useState<{
+    cards: FindCardRow[] | null;
+    services: FindService[];
+    availability: FindAvailability;
+    days: string[];
+    performers: string[] | null;
+  } | null>(null);
+  // "Show 20 more" — how many cards are on screen (a shop is never split, so a page can run a few over).
+  const [morePage, setMorePage] = useState(FIND_PAGE_CARDS);
   // Saves made from THIS list: profile id → the created event_vendors row and
   // whether it may be undone (`canUndoInlineSave` — never on a re-save). Kept
   // for the visit in the bench's store (`bench-local.ts`): the save answers in
@@ -2195,6 +2284,7 @@ function MoreToCompare({
       setMoreRows(kept.results);
       setMoreFreeDays(kept.freeDaysByProfileId);
       setMoreCards(kept.serviceCardByProfileId);
+      setMoreAll(allOf(kept));
       setMoreLoading(false);
       setMoreError(null);
       return;
@@ -2213,6 +2303,7 @@ function MoreToCompare({
           setMoreRows(res.results);
           setMoreFreeDays(res.freeDaysByProfileId);
           setMoreCards(res.serviceCardByProfileId);
+          setMoreAll(allOf(res));
           setMoreLoading(false);
         })
         .catch(() => {
@@ -2222,6 +2313,7 @@ function MoreToCompare({
           setMoreRows([]);
           setMoreFreeDays({});
           setMoreCards(null);
+          setMoreAll(null);
           setMoreLoading(false);
           setMoreError(INLINE_MORE_FAILED);
         });
@@ -2236,7 +2328,7 @@ function MoreToCompare({
   // Save from the list → the couple's *considering* list, which is what the
   // cards above show. The SAME `saveVendorToPicks` the full sheet's Add already
   // calls; no Book, no Add-to-build.
-  const saveFromMore = async (v: CategoryVendorResult, pressed = false): Promise<string | null> => {
+  const saveFromMore = async (v: CategoryVendorResult, pressed = false, serviceId: string | null = null): Promise<string | null> => {
     const existing = moreSaved[v.vendorProfileId];
     if (existing) return existing.eventVendorId;
     setMoreBusy(v.vendorProfileId);
@@ -2263,6 +2355,8 @@ function MoreToCompare({
       // shop in general (owner's test round 1 — a two-service shop saved from
       // its second row was filed under its first, with no card recorded).
       if (moreTile) fd.set('tile', moreTile);
+      // …and THE CARD pressed, when the shop has several here (owner 2026-10-29: each card keeps its own Save).
+      if (serviceId) fd.set('service_id', serviceId);
       // The card answers itself ("Saved to your …"), so the action must not
       // ship a whole render of this page back (`lib/answer-in-place.ts`).
       fd.set(ANSWER_IN_PLACE_FIELD, '1');
@@ -2358,11 +2452,13 @@ function MoreToCompare({
   const moreVisible = orderInlineMoreRow(
     excludeBenchVendors(moreRows, benchProfileIds, Object.keys(moreSaved)),
     effectiveSort,
+    shape.adjust,
   );
   const moreOrderNote = inlineMoreOrderNote({
     rows: moreVisible,
     mode: effectiveSort,
     modeLabel: effectiveSortLabel,
+    adjust: shape.adjust,
   });
   const moreClassified = classifyInlineMoreRow({
     rows: moreVisible,
@@ -2371,24 +2467,62 @@ function MoreToCompare({
     members: teamCalendarMembers,
     probeDayKeys,
   });
-  const shown = moreClassified.fits.length + moreClassified.clashes.length;
+
+  // ── ONE LIST, EVERY SERVICE'S CARDS (owner 2026-10-29, Find v4 → v4.5) ──────────────────────────────────────────
+  // A card per service card (not per shop), a shop's cards adjacent, the ✎'s hidden services and the ⇅'s Price and
+  // Rating applied here — over cards already on the page, so none of it asks the server anything.
+  const visibleIds = new Set(moreVisible.map((r) => r.vendorProfileId));
+  const cardsUnread = moreAll !== null && moreAll.cards === null;
+  const listCards: FindCardRow[] = (
+    moreAll && moreAll.cards
+      ? moreAll.cards
+      : moreVisible.map((r) => ({ serviceId: null, profileId: r.vendorProfileId, service: tile, card: moreCards?.[r.vendorProfileId] ?? null, fromPhp: null }))
+  ).filter((c) => visibleIds.has(c.profileId));
+  const services = moreAll?.services ?? [];
+  const listed = servicesWithCards(services, moreAll && !cardsUnread ? listCards : null);
+  const listedKey = cardsUnread ? 'unread' : listed.map((l) => `${l.service.key}:${l.count}`).join(',');
+  useEffect(() => {
+    if (moreLoading || moreError || !moreAll) return;
+    onLoaded(tile, { listed: cardsUnread ? null : listed });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tile, listedKey, moreLoading, moreError]);
+  const hiddenHere = hidden.filter((k) => listed.some((l) => l.service.key === k));
+  const showing = listed.length - hiddenHere.length;
+  // The card names its service while more than one is showing (owner 2026-10-29: "when All is showing").
+  const nameService = showing > 1;
+  const labelOf = (key: string) => services.find((x) => x.key === key)?.label ?? label;
+  const keepCard = (c: FindCardRow, row: CategoryVendorResult) =>
+    !hiddenHere.includes(c.service) && passesFindFilters(c, row, filters);
+  const order = services.map((x) => x.key);
+  const clashOf = new Map(moreClassified.clashes.map((c) => [c.row.vendorProfileId, c.clashWith]));
+  const clusters: (FindCluster<CategoryVendorResult> & { sunk: boolean })[] = [
+    ...clusterCards(moreClassified.fits.map((f) => f.row), listCards, order, keepCard).map((c) => ({ ...c, sunk: false })),
+    ...clusterCards(moreClassified.clashes.map((c) => c.row), listCards, order, keepCard).map((c) => ({ ...c, sunk: true })),
+  ];
+  const page = pageOfClusters(clusters, morePage);
+  // A new look at the list starts at its first page.
+  const pageKey = `${hiddenHere.join(',')}|${filters.rating}|${moreQ}|${effectiveSort}`;
+  useEffect(() => setMorePage(FIND_PAGE_CARDS), [pageKey]);
+  const shown = page.totalCards;
+  const narrowed = filtersOn(filters) > 0 || hiddenHere.length > 0;
   // The count is a fact only once the list has been read. While it is still
   // loading for the first time, or the read failed, there is no number to say
   // — a "0" there would tell the couple nobody is in this category.
   const counted = !moreError && (!moreLoading || shown > 0);
-  const card = (row: CategoryVendorResult, sunk: boolean, clashWith: string | null) => (
+  const card = (row: CategoryVendorResult, sunk: boolean, clashWith: string | null, c: FindCardRow) => (
     <InlineMoreCard
-      key={row.vendorProfileId}
+      key={c.serviceId ?? row.vendorProfileId}
       v={row}
       label={label}
-      svc={moreCards?.[row.vendorProfileId] ?? null}
-      cardsRead={moreCards !== null}
+      svc={c.card ?? (moreAll ? null : (moreCards?.[row.vendorProfileId] ?? null))}
+      cardsRead={!cardsUnread && (moreAll ? true : moreCards !== null)}
+      serviceLabel={nameService ? labelOf(c.service) : null}
       sunk={sunk}
       clashWith={clashWith}
       saved={moreSaved[row.vendorProfileId]}
       busy={moreBusy === row.vendorProfileId}
       saving={moreSaving === row.vendorProfileId}
-      onSave={() => void saveFromMore(row, true)}
+      onSave={() => void saveFromMore(row, true, c.serviceId)}
       onUndo={() => void undoFromMore(row)}
       onInquire={() => void inquireFromMore(row)}
       onOpen={
@@ -2405,7 +2539,7 @@ function MoreToCompare({
                 rating: row.rating,
                 reviewCount: row.reviewCount,
                 verified: row.verified,
-                card: moreCards?.[row.vendorProfileId] ?? null,
+                card: c.card ?? moreCards?.[row.vendorProfileId] ?? null,
                 cardsRead: moreCards !== null,
                 coverUrl: benchCardImage(row),
                 stateLine: null,
@@ -2418,6 +2552,15 @@ function MoreToCompare({
       }
     />
   );
+  const freeWords = moreAll ? freeOnWords(moreAll.availability, moreAll.days) : null;
+  // BEST FOR YOUR EVENT — #1–#10, PERFORMERS ONLY (owner 2026-10-29), from the cards this list would show. No
+  // performer → no heading and no strip. Their track record could not be read → said, never a silent absence.
+  const best =
+    moreAll && moreAll.performers && !cardsUnread
+      ? bestForYourEvent(moreVisible, listCards, new Set(moreAll.performers), keepCard)
+      : [];
+  const scopeWords = servicesScopeWords(listed.map((l) => l.service), hiddenHere);
+  const left = page.totalCards - page.shownCards;
   return (
     <div className="morerow" data-more-to-compare={tile}>
       <div className="morehead">
@@ -2426,12 +2569,72 @@ function MoreToCompare({
           {counted ? (
             <>
               {' '}
-              · <Count value={shown} id={`sup-cmp-${tile}`} />
+              · <Count value={shown} id={`sup-cmp-${tile}`} /> {shown === 1 ? 'card' : 'cards'}
             </>
           ) : null}
         </span>
-        {sortMenu}
       </div>
+      {best.length > 0 ? (
+        <section className="findbest" aria-label="Best for your event" data-find-best="">
+          <div className="fb-h">
+            <span>Best for your event</span>
+            <Explain title="Best for your event" label="What Best for your event means" data="find-best">
+              Up to ten suppliers who have already delivered events booked through Setnayan, ranked by how well they
+              match your date, place, budget and guests. A supplier with no finished Setnayan event is never ranked
+              here — they are all in the list below.
+            </Explain>
+          </div>
+          <div className="fb-rail">
+            {best.map(({ row, card: c }, i) => (
+              <div key={c.serviceId ?? row.vendorProfileId} className="fb-c">
+                <span className="fb-n">#{i + 1} match</span>
+                {card(row, false, null, c)}
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+      {moreAll && moreAll.performers === null && !cardsUnread && !moreError ? (
+        <div className="mrnote" role="status" data-find-best-unread="">
+          <span>We couldn&rsquo;t check who has delivered events yet, so Best for your event isn&rsquo;t shown.</span>
+        </div>
+      ) : null}
+      {/* THE COUNT LINE (owner 2026-10-29, Find v4.2): what is shown, which services, which dates — and, while ⇅ narrows
+          it, "Filters · N · Clear". The word is CARDS: it counts cards, not shops. */}
+      {counted && shown > 0 ? (
+        <div className="mrnote mrcount" data-find-count="">
+          <span>
+            {[left > 0 ? `Showing ${page.shownCards} of ${cardsWord(page.totalCards)}` : null, scopeWords || null, freeWords]
+              .filter(Boolean)
+              .join(' · ')}
+            {filtersOn(filters) > 0 ? ` · Filters · ${filtersOn(filters)} · ` : ''}
+          </span>
+          {filtersOn(filters) > 0 ? (
+            <ActionButton tone="neutral" quiet icon={X} label="Clear" name="Clear the filters" onClick={onClearFilters} />
+          ) : null}
+        </div>
+      ) : null}
+      {/* THE DATES COULD NOT BE CHECKED — said, with every card shown (never a silent "everyone", never "no one"). */}
+      {moreAll?.availability === 'unread' && !moreError ? (
+        <div className="mrerr" role="status" data-find-dates-unread="">
+          We couldn&rsquo;t check who&rsquo;s free on your date — every card is shown.{' '}
+          <ActionButton
+            tone="neutral"
+            quiet
+            icon={RotateCcw}
+            label="Try again"
+            onClick={() => {
+              MORE_SEEN.delete(`${eventId}|${moreTile}|${moreQ}`);
+              setMoreTry((n) => n + 1);
+            }}
+          />
+        </div>
+      ) : null}
+      {cardsUnread && !moreError ? (
+        <div className="mrerr" role="status" data-find-cards-unread="">
+          We couldn&rsquo;t load the service cards — services and prices aren&rsquo;t shown.
+        </div>
+      ) : null}
       {/* THE HONEST SENTENCE (owner 2026-09-09) — what this list IS ordered
           by, where the sort above does not reach all of it. */}
       {moreOrderNote ? (
@@ -2471,28 +2674,63 @@ function MoreToCompare({
         moreError ? null : (
           <div className="mrnote" role="status">
             {/* Its first action is the thumb row's ＋ — it adds in THIS category while it is open (owner 2026-10-13:
-                ONE add on Find). */}
-            <span>{moreToCompareEmpty(label, moreQ)}</span>
+                ONE add on Find). A list emptied by the ✎ or ⇅ says so, and how to get the cards back. */}
+            <span>
+              {narrowed && listCards.length > 0
+                ? findNarrowedEmpty(label)
+                : moreAll?.availability === 'checked' && freeWords && moreAll.days.length > 0 && !moreQ
+                  ? findNoneFreeEmpty(label, freeWords)
+                  : moreToCompareEmpty(label, moreQ)}
+            </span>
+            {narrowed && listCards.length > 0 && filtersOn(filters) > 0 ? (
+              <ActionButton tone="neutral" quiet icon={X} label="Clear" name="Clear the filters" onClick={onClearFilters} />
+            ) : null}
           </div>
         )
       ) : (
         <div className="rail" aria-busy={moreLoading || undefined}>
-          {moreClassified.fits.map(({ row }) => card(row, false, null))}
-          {/* The same labelled divider the cards above use. A sunk card is
-              lowered, never removed. */}
-          {moreClassified.clashes.length > 0 ? (
-            <>
-              <span className="raildiv" role="separator" aria-label={DOESNT_FIT_DIVIDER}>
-                <span aria-hidden>{DOESNT_FIT_DIVIDER}</span>
-              </span>
-              {moreClassified.clashes.map(({ row, clashWith }) => card(row, true, clashWith))}
-            </>
-          ) : null}
+          {page.shown.map((cl, i) => (
+            <Fragment key={cl.row.vendorProfileId}>
+              {/* The same labelled divider the cards above use. A sunk card is
+                  lowered, never removed. */}
+              {cl.sunk && !page.shown[i - 1]?.sunk ? (
+                <span className="raildiv" role="separator" aria-label={DOESNT_FIT_DIVIDER}>
+                  <span aria-hidden>{DOESNT_FIT_DIVIDER}</span>
+                </span>
+              ) : null}
+              {/* A SHOP STAYS TOGETHER (owner 2026-10-29: "as close as we can to each other"): its first card in full,
+                  its others tucked under it as "also <Service> · <card>", each with its own price and Save. */}
+              {card(cl.row, cl.sunk, cl.sunk ? (clashOf.get(cl.row.vendorProfileId) ?? null) : null, cl.cards[0] as FindCardRow)}
+              {cl.cards.slice(1).map((c) => (
+                <InlineMoreAlso
+                  key={c.serviceId ?? `${cl.row.vendorProfileId}-${c.service}`}
+                  service={labelOf(c.service)}
+                  c={c}
+                  label={label}
+                  sunk={cl.sunk}
+                  saved={Boolean(moreSaved[cl.row.vendorProfileId])}
+                  busy={moreBusy === cl.row.vendorProfileId}
+                  onSave={() => void saveFromMore(cl.row, true, c.serviceId)}
+                />
+              ))}
+            </Fragment>
+          ))}
         </div>
       )}
       {moreClassified.clashes.length > 0 ? (
         <div className="mrnote">
           <span>{inlineMoreSunkNote(moreClassified.clashes.length)}</span>
+        </div>
+      ) : null}
+      {/* "Show 20 more" — never splits a shop (`pageOfClusters`). */}
+      {left > 0 ? (
+        <div className="morefoot">
+          <ActionButton
+            tone="neutral"
+            icon={ChevronDown}
+            label={`Show ${Math.min(FIND_PAGE_CARDS, left)} more · ${left} left`}
+            onClick={() => setMorePage((n) => n + FIND_PAGE_CARDS)}
+          />
         </div>
       ) : null}
       {/* The full sheet is still the only place with filters and facets. */}
@@ -2510,7 +2748,73 @@ function MoreToCompare({
   );
 }
 
+/** A list the ✎ or ⇅ emptied — said as that, never as "nobody here". */
+function findNarrowedEmpty(label: string): string {
+  return `No ${label} card matches what you chose. Tick more services, or clear the filters.`;
+}
+
+/** Cards exist in the category, none free on the couple's date(s). */
+function findNoneFreeEmpty(label: string, freeWords: string): string {
+  return `No other ${label} card is ${freeWords} yet.`;
+}
+
+/** The "also" folder of a shop's other card in the category: its service, its title, its price and its own Save. */
+function InlineMoreAlso({
+  service,
+  c,
+  label,
+  sunk,
+  saved,
+  busy,
+  onSave,
+}: {
+  service: string;
+  c: FindCardRow;
+  label: string;
+  sunk: boolean;
+  saved: boolean;
+  busy: boolean;
+  onSave: () => void;
+}) {
+  return (
+    <div className={`mralso${sunk ? ' is-dim' : ''}`} data-find-also={c.service}>
+      <span className="mra-t">
+        <span className="mra-n">
+          <i>also</i> {service}
+          {c.card?.name ? ` · ${c.card.name}` : ''}
+        </span>
+        {c.card?.priceText ? <span className="sc-price">{c.card.priceText}</span> : c.card ? <span className="sc-price none">{PRICE_ON_REQUEST}</span> : null}
+      </span>
+      {saved ? (
+        <span className="mrsaved">{inlineMoreSavedNote(label)}</span>
+      ) : (
+        <ActionButton tone="neutral" icon={Bookmark} label={MORE_TO_COMPARE_SAVE} name={`${MORE_TO_COMPARE_SAVE} — ${service}`} disabled={busy} onClick={onSave} />
+      )}
+    </div>
+  );
+}
+
+/** What the list keeps from one read — the per-card part (absent on an older stand-in → null). */
+function allOf(res: Awaited<ReturnType<typeof fetchInlineMoreRow>>): {
+  cards: FindCardRow[] | null;
+  services: FindService[];
+  availability: FindAvailability;
+  days: string[];
+  performers: string[] | null;
+} | null {
+  if (res.cards === undefined) return null;
+  return {
+    cards: res.cards,
+    services: res.services ?? [],
+    availability: res.availability ?? 'unread',
+    days: res.availabilityDays ?? [],
+    performers: res.performers === undefined ? [] : res.performers,
+  };
+}
+
 const NO_PAY_DUE: Readonly<Record<string, string>> = {};
+/** No service hidden — one shared empty list, so a category with nothing hidden never re-renders its list. */
+const NO_HIDDEN: readonly string[] = [];
 
 
 /**
@@ -2544,6 +2848,7 @@ export const MoreRowStandInCtx = createContext<
 export function ShortlistCategories({
   folders: foldersFromServer,
   eventId,
+  nearOptions,
   unread,
   initialOpenTile = null,
   savedRequirementCanonicalByTile = {},
@@ -2576,6 +2881,12 @@ export function ShortlistCategories({
   unread?: { pairs: ReadonlyArray<readonly [string, number]>; measured: boolean };
   folders: ShortlistFolder[];
   eventId: string;
+  /**
+   * 📍 The "Nearest" rows the ⇅ offers (owner 2026-10-30, "Reception + Ceremony") — one per venue with a pin
+   * (`nearRows`, read on the server from the Event Hub's own two venues). Absent (the dev lab) → the shipped single
+   * "Nearest" row and its gate.
+   */
+  nearOptions?: readonly { from: NearFrom; label: string }[];
   /**
    * vendorId → where that supplier stands, derived ONCE on the server by
    * `lib/supplier-standing.ts` and passed down. A vendor absent from this map
@@ -2786,6 +3097,20 @@ export function ShortlistCategories({
   // one (`folded`); "Collapse all" closes them. The one-open-at-a-time state
   // above is untouched — it is what a header tap means while not all are open.
   const [openAll, setOpenAll] = useState(false);
+  // ── FIND v4 (owner 2026-10-29) — per category, for this visit on Suppliers: the services its ✎ hides, what its list
+  // read (the services with cards and their counts — from the list's ONE read, never a second), and the ⇅'s Rating
+  // (price only ever sorts — owner 2026-10-31, "sort only"). The ✎ sheet open for one category at a time.
+  const [hiddenByTile, setHiddenByTile] = useState<Readonly<Record<string, readonly string[]>>>({});
+  const [listedByTile, setListedByTile] = useState<
+    Readonly<Record<string, { listed: { service: FindService; count: number }[] | null }>>
+  >({});
+  const [filtersByTile, setFiltersByTile] = useState<Readonly<Record<string, FindFilters>>>({});
+  const [servicesSheetTile, setServicesSheetTile] = useState<string | null>(null);
+  const onListLoaded = useCallback(
+    (tile: string, info: { listed: { service: FindService; count: number }[] | null }) =>
+      setListedByTile((cur) => ({ ...cur, [tile]: info })),
+    [],
+  );
   const [folded, setFolded] = useState<ReadonlySet<string>>(() => new Set());
   // "＋ Add your own" with no category open asks which one FIRST.
   const [addAsk, setAddAsk] = useState(false);
@@ -3146,10 +3471,22 @@ export function ShortlistCategories({
   // Chips in order, each resolved to enabled / disabled-with-reason. A lens with
   // no honest disabled wording (In demand right now) is ABSENT from this list
   // rather than greyed — see `LENSES.demand` for why that is a requirement.
-  const lensChips = useMemo(
-    () => (replan ? visibleLenses(lensCandidates) : []),
-    [lensCandidates, replan],
-  );
+  //
+  // 📍 "Nearest" is offered by the venues the couple HAS (owner 2026-10-30, "Reception + Ceremony"): on whenever a
+  // venue has a pin (`nearOptions`) — an empty bench used to grey it with "Add your venue" for a couple who has one.
+  const lensChips = useMemo(() => {
+    if (!replan) return [];
+    return visibleLenses(lensCandidates).map((c) =>
+      c.key === 'near' && nearOptions
+        ? nearOptions.length > 0
+          ? { ...c, disabled: false, reason: null }
+          : { ...c, disabled: true, reason: LENSES.near.unavailableReason }
+        : c,
+    );
+  }, [lensCandidates, replan, nearOptions]);
+  // 📍 Which venue "Nearest" measures from — the one picked, while it still has a pin; else the first offered.
+  const [nearAsked, setNearAsked] = useState<NearFrom>('reception');
+  const nearFrom: NearFrom = nearOptions?.some((o) => o.from === nearAsked) ? nearAsked : (nearOptions?.[0]?.from ?? 'reception');
   // A selected lens that is no longer offered (the couple sorted by "Nearest",
   // then their venue anchor went away) resolves to the default AT RENDER rather
   // than by correcting state — no effect, no risk of a set-state loop, and the
@@ -3158,6 +3495,10 @@ export function ShortlistCategories({
     replan && isLensKey(sort) && !lensChips.some((c) => c.key === sort && !c.disabled)
       ? 'fit'
       : sort;
+  // NEAREST TO THE RECEPTION FIRST (owner 2026-10-29, Find v4.2: "area must start from the nearest on the reception
+  // location") — the order Find starts in whenever the event has a venue to measure from (the 'near' lens is offered
+  // only then); else the shipped default. ⇅ counts any other order as a choice the couple made.
+  const findDefaultSort: BenchSort = replan && lensChips.some((c) => c.key === 'near' && !c.disabled) ? 'near' : 'fit';
 
   // The WORDING on the chip that is currently on — quoted verbatim in row 2's
   // "what this is ordered by" line. Read off the chips actually rendered rather
@@ -3172,8 +3513,27 @@ export function ShortlistCategories({
           ...BENCH_PLAIN_SORTS.map((p) => ({ key: p.key as BenchSort, label: p.label })),
         ]
       : BENCH_SORTS;
+    if (replan && effectiveSort === 'near' && nearOptions?.length) {
+      return nearOptions.find((o) => o.from === nearFrom)?.label ?? LENSES.near.label;
+    }
     return chips.find((c) => c.key === effectiveSort)?.label ?? (BENCH_SORTS[0]?.label ?? 'Best fit');
-  }, [replan, lensChips, effectiveSort]);
+  }, [replan, lensChips, effectiveSort, nearOptions, nearFrom]);
+
+  /**
+   * 📍 "Nearest to ceremony" (owner 2026-10-30): each card is ORDERED by its distance from the ceremony's pin, and its
+   * reason pill says so. A card's own distance line and badges are untouched — only the order and the pill move.
+   * Generic over the two card kinds: the couple's own (`ShortlistVendor`) and the marketplace's (`CategoryVendorResult`).
+   */
+  const sortShapeFor = useCallback(
+    <T,>(ceremonyKm: (item: T) => number | null): SortShape<T> => {
+      if (!(effectiveSort === 'near' && nearFrom === 'ceremony' && nearOptions?.length)) return {};
+      return {
+        adjust: (item, base) => ({ ...base, distanceKm: ceremonyKm(item) }),
+        words: { distance: { lead: 'Closest to your ceremony', plain: 'Near your ceremony' } },
+      };
+    },
+    [effectiveSort, nearFrom, nearOptions],
+  );
 
   // ── Sort persistence (§13.3) ──────────────────────────────────────────────
   // Was `useState('fit')` and nothing else, so every reload or tab-away snapped
@@ -3195,6 +3555,7 @@ export function ShortlistCategories({
       (mode) => offered.has(mode),
     );
     if (saved) setSort(saved);
+    else if (offered.has('near')) setSort('near');
   }, [replan, eventId, lensChips]);
   useEffect(() => {
     if (!replan) return;
@@ -3449,6 +3810,20 @@ export function ShortlistCategories({
     : [];
   /** The "Add a category" row's second line — the first three of `poolRows`, in its order. */
   const addCategoryLine = addCategoryPreview(poolRows.map(({ t }) => t.label));
+  /**
+   * GO TO A CATEGORY from the thumb row's empty box (owner 2026-10-29, Find v4.8): the open one folds, the picked one
+   * opens and lands pinned (the same landing a head tap makes). False → not on this page.
+   */
+  function goToCategory(tile: string): boolean {
+    if (!benchRows.some((r) => r.t.tile === tile)) return false;
+    if (openAll) {
+      setOpenAll(false);
+      setFolded(new Set());
+    }
+    setOpenTile(tile);
+    setLanding((cur) => ({ tile, n: (cur?.n ?? 0) + 1 }));
+    return true;
+  }
   /** ＋ Add your own: straight into the ONE open category; otherwise ask which first. */
   function addYourOwn(typed = '') {
     // The name typed in the box rides into the walk's first step (the
@@ -3524,7 +3899,17 @@ export function ShortlistCategories({
   const scopeTile = replan ? thumbScopeTile({ openTile, openAll }) : null;
   const scopeRow = scopeTile ? (benchRows.find((r) => r.t.tile === scopeTile) ?? null) : null;
   const searching = q.length > 0 && !scopeRow;
-  const scopedQ = scopeRow ? q : '';
+  // A TYPED SERVICE NAME LANDS ON THAT SERVICE (owner 2026-10-29, Find v4: ≥ 3 letters) — in the open category, the
+  // ✎ then shows only it ticked; the words are not also a search (they named a service, not a shop).
+  const scopeListed = scopeTile ? (listedByTile[scopeTile]?.listed ?? null) : null;
+  const typedService = scopeTile && scopeListed && scopeListed.length > 1 ? matchServiceQuery(q, scopeListed.map((l) => l.service)) : null;
+  const typedServiceKey = typedService ? `${scopeTile}|${typedService.key}` : '';
+  useEffect(() => {
+    if (!typedService || !scopeTile || !scopeListed) return;
+    setHiddenByTile((cur) => ({ ...cur, [scopeTile]: scopeListed.map((l) => l.service.key).filter((k) => k !== typedService.key) }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [typedServiceKey]);
+  const scopedQ = scopeRow && !typedService ? q : '';
   const visibleFolders = searching
     ? folders
         .map((f) => ({
@@ -3863,7 +4248,7 @@ export function ShortlistCategories({
                       : t.vendors;
                   const scopedNone = scopedQ.length > 0 && scopeTile === t.tile && railVendors.length === 0;
                   const arrangedRail = applyBenchArrangement(
-                    sortWithReasons(railVendors, effectiveSort),
+                    sortWithReasons(railVendors, effectiveSort, sortShapeFor<ShortlistVendor>((v) => v.ceremonyDistanceKm ?? null)),
                     tilePins,
                     (e) => e.v.vendorId,
                   );
@@ -4007,6 +4392,40 @@ export function ShortlistCategories({
                             beside the head — buttons can't nest — resolving to
                             the plan group's shipped `hint` through the
                             many-to-one tile→group bridge. No copy in JSX. */}
+                        {/* ✎ SERVICES TO SHOW (owner 2026-10-29: "we want an edit icon as well. pop up will show to uncheck
+                            services they do not want to see") — on the OPEN row only, so it pins with the head. Offered
+                            once the list has read more than one service with cards, or could not read them (the sheet
+                            then says so). "✎ 2 of 4" while any is hidden. */}
+                        {/* ✎ IS SEEN ONLY ON THE HIGHLIGHTED ROW, AND COMES AND GOES (owner 2026-10-30, final Suppliers design: "this
+                            and the pencil icon stays hidden until that is highlighted.. and animate it entering and leaving").
+                            Once the list has been read it stays MOUNTED on its row, so closing the row can play it out: the
+                            slot grows + fades in from the right as the row opens and folds away as it closes (`.cat-svc-slot`
+                            below); closed it is `inert` — no press, no focus, not read. */}
+                        {replan && listedByTile[t.tile] && (listedByTile[t.tile]?.listed === null || (listedByTile[t.tile]?.listed?.length ?? 0) > 1) ? (
+                          (() => {
+                            const listedHere = listedByTile[t.tile]?.listed ?? [];
+                            const words = pencilWords(listedHere.map((l) => l.service), hiddenByTile[t.tile] ?? []);
+                            return (
+                              <span className="cat-svc-slot" data-cat-pen={tileOpen ? 'shown' : 'hidden'} inert={!tileOpen} aria-hidden={tileOpen ? undefined : true}>
+                              <ActionButton
+                                tone="neutral"
+                                quiet
+                                iconOnly={!words}
+                                icon={Pencil}
+                                label={words ?? 'What to show'}
+                                name={words ? `What to show — ${words} services showing` : `What to show in ${t.label}`}
+                                aria-haspopup="dialog"
+                                className={`cat-svc${words ? ' on' : ''}`}
+                                data-testid={`find-services-${t.tile}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setServicesSheetTile(t.tile);
+                                }}
+                              />
+                              </span>
+                            );
+                          })()
+                        ) : null}
                         {hint ? (
                           <Explain title={t.label} label={categoryHintButtonLabel(t.label)} data="category-hint" className="cat-info">
                             {hint}
@@ -4312,7 +4731,11 @@ export function ShortlistCategories({
                               buildWindow={buildWindow}
                               teamCalendarMembers={teamCalendarMembers}
                               probeDayKeys={probeDayKeys}
-                              sortMenu={sortMenu}
+                              hidden={hiddenByTile[t.tile] ?? NO_HIDDEN}
+                              filters={filtersByTile[t.tile] ?? FIND_FILTERS_OFF}
+                              onLoaded={onListLoaded}
+                              onClearFilters={() => setFiltersByTile((cur) => ({ ...cur, [t.tile]: FIND_FILTERS_OFF }))}
+                              shape={sortShapeFor<CategoryVendorResult>((r) => r.ceremonyDistanceKm ?? null)}
                               onSeeAll={() => openSearch(t.tile, t.label)}
                             />
                           ) : null}
@@ -4428,8 +4851,56 @@ export function ShortlistCategories({
           onSearch={setQuery}
           onAdd={addYourOwn}
           emptyPanel={findPanel}
+          onGoToCategory={goToCategory}
+          sortMenu={findSortMenu({
+            // 📍 "Nearest" is one row per venue with a pin ("Nearest to reception" · "Nearest to ceremony"), in
+            // this same Sort list — the venue is picked here, never in a second control (owner 2026-10-30).
+            sorts: [
+              ...lensChips.flatMap((c) =>
+                c.key === 'near' && nearOptions?.length
+                  ? nearOptions.map((o) => ({ key: nearKey(o.from), label: o.label }))
+                  : [{ key: c.key as string, label: c.label, disabledNote: c.disabled ? (c.reason ?? 'not available here') : undefined }],
+              ),
+              ...BENCH_PLAIN_SORTS.map((x) => ({ key: x.key as string, label: x.label })),
+            ],
+            sort: effectiveSort === 'near' && nearOptions?.length ? nearKey(nearFrom) : effectiveSort,
+            defaultSort: findDefaultSort === 'near' && nearOptions?.length ? nearKey(nearOptions[0]?.from ?? 'reception') : findDefaultSort,
+            onSort: (k) => {
+              const from = nearFromKey(k);
+              if (from) {
+                setNearAsked(from);
+                setSort('near');
+                return;
+              }
+              if (k === 'near' && nearOptions?.[0]) setNearAsked(nearOptions[0].from);
+              setSort(k as BenchSort);
+            },
+            scope: scopeRow ? scopeRow.t.label : null,
+            filters: (scopeTile && filtersByTile[scopeTile]) || FIND_FILTERS_OFF,
+            onFilters: (next) => {
+              if (scopeTile) setFiltersByTile((cur) => ({ ...cur, [scopeTile]: next }));
+            },
+          })}
         />
       ) : null}
+      {/* ✎ SERVICES TO SHOW — one sheet, for the category it was opened from (`find-services-sheet.tsx`). */}
+      {replan && servicesSheetTile && typeof document !== 'undefined'
+        ? createPortal(
+            <FindServicesSheet
+              open
+              category={benchRows.find((r) => r.t.tile === servicesSheetTile)?.t.label ?? ''}
+              listed={listedByTile[servicesSheetTile]?.listed ?? []}
+              hidden={hiddenByTile[servicesSheetTile] ?? NO_HIDDEN}
+              onDone={(next) => {
+                const tile = servicesSheetTile;
+                setServicesSheetTile(null);
+                setHiddenByTile((cur) => ({ ...cur, [tile]: next }));
+              }}
+              onClose={() => setServicesSheetTile(null)}
+            />,
+            document.body,
+          )
+        : null}
       {/* "＋ Add your own" with no category open: which category, first — ONE
           dropdown of ONLY the categories on the event (owner 2026-10-07: *"it
           should only show on the existing categories, not all"*). A new

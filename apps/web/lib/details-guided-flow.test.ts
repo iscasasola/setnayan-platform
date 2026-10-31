@@ -317,7 +317,8 @@ test('(5) the Maker opens on What’s left only for an unfinished event with no 
     assert.ok(rule.includes(needed), `the Maker opens on the flow without checking ${needed}`);
   }
   assert.match(page, /const late: Promise<MakerLate> \| null = hasWork\b/, 'the Maker opens on the flow without checking hasWork');
-  assert.match(page, /opensOnGuide: addressNamesNoPlace && detailsUnfinished && guideAddress === null,/, 'the tab’s own last place no longer wins over the default');
+  /* 🖨 R8: the Prints page (the same page drawing Prints alone) never opens the guided flow. */
+  assert.match(page, /opensOnGuide: !printsPage && addressNamesNoPlace && detailsUnfinished && guideAddress === null,/, 'the tab’s own last place no longer wins over the default');
   const shell = read(`${L}/maker-shell.tsx`);
   assert.match(shell, /if \(openedOnGuide\.current && saved && 'selection' in saved\) \{/);
   /* …and when it lands later: the tab's own last place, or a press already made, still wins. */

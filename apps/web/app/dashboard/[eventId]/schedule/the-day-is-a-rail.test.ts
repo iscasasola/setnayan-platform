@@ -191,7 +191,15 @@ test('5 · Announce is mounted for the announcement policy’s people, through t
   // into the Maker's right column (`InSlot`, the same element, no new channel) —
   // the gate in front of it is unchanged.
   assert.match(page, /\{canAnnounce \? \(\s*<InSlot id=\{inMaker \? DETAILS_SCHEDULE_ANNOUNCE_SLOT : null\}>\s*<AnnounceButton/);
-  assert.equal((page.match(/<AnnounceButton\b/g) ?? []).length, 1, 'Announce is mounted somewhere else, outside the gate');
+  // Suppliers › Booked › Schedule draws Announce as the line's round (owner 2026-10-31) — a second mount, behind the
+  // SAME gate. Every mount must stand directly behind `canAnnounce ? (`.
+  const mounts = [...page.matchAll(/<AnnounceButton\b/g)].map((m) => m.index ?? 0);
+  assert.equal(mounts.length, 2, 'Announce is mounted somewhere new — check it is behind the gate');
+  for (const at of mounts) {
+    assert.match(page.slice(Math.max(0, at - 600), at), /canAnnounce \? \([\s\S]*$/, 'Announce is mounted somewhere else, outside the gate');
+    assert.doesNotMatch(page.slice(Math.max(0, at - 600), at).split('canAnnounce ? (').pop() ?? '', /\)\s*:/, 'Announce is mounted outside the gate');
+  }
+  assert.match(page, /canAnnounce \? \(\s*<AnnounceButton eventId=\{eventId\} isEventDay=\{isEventDay\} recent=\{recentAnnouncements\} round \/>/);
 
   const button = read('_components/announce-button.tsx');
   assert.match(button, /from '\.\.\/\.\.\/_actions\/day-of-broadcast'/, 'no second announcement channel');
@@ -220,7 +228,12 @@ test('5b · the rail writes only through the existing actions the page hands it'
   // added `inspectorSlot` before it — a slot id for the Maker's right column,
   // never a write path).
   const mount = /<ScheduleDay\b[^>]*?\bactions=\{\{([\s\S]*?)\}\}/.exec(page);
-  assert.match(page, /<ScheduleDay\s+inspectorSlot=\{inMaker \? DETAILS_SCHEDULE_INSPECTOR_SLOT : null\}\s+actions=\{\{/, 'the rail is handed something besides its slot and its actions');
+  // …and (2026-10-31, Suppliers › Booked) its frame word and the line's slot id — placement, never a write path.
+  assert.match(
+    page,
+    /<ScheduleDay\s+inspectorSlot=\{inMaker \? DETAILS_SCHEDULE_INSPECTOR_SLOT : null\}\s+frame=\{inBooked \? 'booked' : 'page'\}\s+toolsSlot=\{inBooked \? BOOKED_SCHEDULE_TOOLS_SLOT : null\}\s+actions=\{\{/,
+    'the rail is handed something besides its slots and its actions',
+  );
   assert.ok(mount, 'the page hands the rail its actions');
   const names = mount![1]!.split(',').map((x) => x.trim()).filter(Boolean);
   console.log('actions handed to the rail:', names.join(' · '));

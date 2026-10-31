@@ -35,12 +35,12 @@ test('1 · the Papic card is the camera: the switch, the counts, his five — an
   const at = page.indexOf('const papicCard: PapicCardInput | null =');
   const body = page.slice(at, page.indexOf(': null;', at));
   assert.ok(at > 0 && body.length > 100, 'premise: Home builds the Papic card');
-  assert.match(body, /headControl: <PapicSwitch\b/, 'the card lost its switch');
+  assert.match(body, /headControl: \(\s*<Suspense fallback=\{null\}>\s*<PapicHeadControl\b/, 'the card lost its switch');
   assert.match(body, /<PapicCameraSettings eventId=\{eventId\} seat="home"/, 'the card no longer opens the camera settings');
   // The camera, in the owner's order — ONE component, also opened under Home's Papic card.
   const cam = code(CAMERA);
   for (const must of [
-    /<AnswerPicker[\s\S]{0,120}column="papic_on"[\s\S]{0,200}as="switch"/,
+    /<PapicHeadPicker eventId=\{eventId\} live=\{head\.live\}/,
     /<PapicWindowPicker\b/,
     /<StylePicker\b/,
     /<FaceTaggingChoice\b/,
@@ -69,11 +69,13 @@ test('1 · the Papic card is the camera: the switch, the counts, his five — an
   }
 });
 
-test('2 · Memories › ⚙ Gallery settings draws the five that moved — the shipped controls', () => {
+test('2 · Memories › ⚙ Gallery settings draws the controls that moved — the shipped controls', () => {
   const s = code(SETTINGS);
+  // 🎬 The Thank-You Video door left the ⚙ for the keepsake row (owner 2026-10-31, "Build both") — ONE home: the row.
+  assert.doesNotMatch(s, /<ServiceParts\b/, 'the Thank-You door is back in the ⚙ — two homes for one door');
+  assert.match(code('app/dashboard/[eventId]/memories/page.tsx'), /<ServiceParts\b[^>]*service="papic"/, 'the Thank-You door left Memories');
   for (const must of [
     /<LiveWallCard\b[^>]*variant="row"/,
-    /<ServiceParts\b[^>]*service="papic"/,
     /<PoolGalleryCard\b[^>]*variant="row"/,
     /<DriveCopyCard\b/,
     /serviceKey="HIGH_RES_ARCHIVE"/,

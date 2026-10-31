@@ -45,6 +45,8 @@
  *                                    `CoordinatorLevelAsk`, FIRST in the Today list under the cover (never above it);
  *                                    its press opens the house Sheet, Limited · Full access (the lab's presses write
  *                                    nothing real). `&shop=long` a long shop name (never cut) · `&shop=none` no name read
+ *   ?as=helper|coordinator           🪪 a helper's ⚙ (owner 2026-10-31): with `&settings=1` the sheet opens on "Your access"
+ *                                    alone, read-only — a limited helper (every part View) or the hired coordinator
  *   ?coord=1                         🗂 the coordinator's line on top (owner 2026-10-28) — the REAL `CoordinatingLine`
  *   ?view=offline[&state=ok|amber|nosignal|failed|saving|none|unsupported][&browser=1][&desk=notes|sent]
  *                                    📶 EV3 (owner 2026-10-28): the REAL "Ready for no signal" card, the supplier's saved
@@ -74,9 +76,11 @@
  */
 import { CoordinatingLine } from '@/app/dashboard/[eventId]/_components/coordinating-line';
 import { CoordinatorLevelAsk } from '@/app/dashboard/[eventId]/_components/coordinator-level-ask';
-import { labEventSettingsRows } from './lab-event-settings';
+import { labEventSettingsRows, labYourAccessRows } from './lab-event-settings';
 import { PapicBuySheet } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-buy-sheet';
-import { PapicCameraSettings, PapicSwitch } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-camera-settings';
+import { PapicCameraSettings } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-camera-settings';
+import { PapicHeadPicker } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-head-picker';
+import { papicHeadLine, type PapicHeadFacts } from '@/lib/papic-shoot-now';
 import { ChallengeCardRow } from '@/app/dashboard/[eventId]/studio/papic/_components/challenge-card-row';
 import { PapicCameraHelp } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-camera-help';
 import { papicCardPhase } from '@/lib/papic-home-card';
@@ -123,6 +127,8 @@ import {
   type HomeNextInput,
 } from '@/lib/home-first-screen';
 import { OfflineLab } from './offline-lab';
+import { LabFactSheets } from '../suppliers-lab/lab-fact-sheets';
+import { isEventSettingsRow, peopleWithAccessHref } from '@/lib/people-with-access-href';
 
 export const dynamic = 'force-dynamic';
 
@@ -189,15 +195,29 @@ const STATES: Record<string, HomeNextInput> = {
 
 /* 📷 PAPIC'S CARD (owner 2026-10-26, "a quick on off button and expand for more settings") — `?card=1[&cardphase=before|live|after]`:
    the REAL card on fixture dates — closed, the head and the switch; open, the REAL camera settings (in a lab with no
-   database they say "couldn't load" — the failed-read state, drawn as it ships). */
-function labPapicCard(eventId: string, phase: string | undefined, failed: boolean, challenges = false): PapicCardInput {
+   database they say "couldn't load" — the failed-read state, drawn as it ships).
+   📷 `&head=off|eventday|now|offwait|onwait|unread` (owner 2026-10-30): the head's ONE dropdown — Off · On — event day ·
+   On — everyone, now — in each position, `offwait` = Off picked but not applied (Papic still live), `onwait` = On picked
+   but not applied, `unread` = the facts could not be read; with its line under the title. `&save=fail` refuses the lab's
+   picks (default: they save, with no server). Absent: On — event day. */
+const LAB_HEAD: Record<string, PapicHeadFacts> = {
+  off: { live: false, draftOn: false, early: false },
+  eventday: { live: true, draftOn: true, early: false },
+  now: { live: true, draftOn: true, early: true },
+  offwait: { live: true, draftOn: false, early: false },
+  onwait: { live: false, draftOn: true, early: false },
+  unread: { live: true, draftOn: true, early: null },
+};
+function labPapicCard(eventId: string, phase: string | undefined, failed: boolean, challenges = false, head?: string, save?: string): PapicCardInput {
+  const facts = LAB_HEAD[head ?? 'eventday'] ?? LAB_HEAD.eventday!;
   const startIso = '2026-12-10T16:00:00.000Z';
   const endIso = '2026-12-13T04:00:00.000Z';
   const now = phase === 'after' ? Date.parse('2026-12-14T02:00:00Z') : phase === 'live' ? Date.parse('2026-12-12T06:00:00Z') : Date.parse('2026-10-23T02:00:00Z');
   return {
     phase: papicCardPhase(startIso, endIso, now),
     thankYouHref: '#thank-you',
-    headControl: <PapicSwitch eventId={eventId} saved />,
+    headControl: <PapicHeadPicker eventId={eventId} {...facts} standIn={save === 'fail' ? 'fail' : 'ok'} />,
+    headLine: papicHeadLine(facts),
     // 🔢 The face (owner 2026-10-26): Total · Taken · Remaining and Add more — the settings open under it.
     counts: { total: failed ? null : 2000, left: failed ? null : 1240 },
     buy: <PapicBuySheet eventId={eventId} left={failed ? null : 1240} tone="brand" main label="Add more" />,
@@ -239,10 +259,11 @@ const LAB_HUB_PICK: HomeHubPickRead = { ok: true, pinned: null, byDate: 'rsvp' }
 export default async function HomeLab({
   searchParams,
 }: {
-  searchParams: Promise<{ stage?: string; photos?: string; bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; coord?: string; level?: string; shop?: string; card?: string; cardphase?: string; challenges?: string; open?: string; need?: string; state?: string; browser?: string; desk?: string }>;
+  searchParams: Promise<{ stage?: string; photos?: string; bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; coord?: string; level?: string; shop?: string; card?: string; cardphase?: string; head?: string; save?: string; challenges?: string; open?: string; need?: string; state?: string; browser?: string; desk?: string; prints?: string; settings?: string; row?: string; date?: string; as?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
+  const labAs = q.as === 'helper' || q.as === 'coordinator' ? q.as : null;
   const unread = q.unread === '1' || q.fail === '1';
   const proto = q.proto === '1';
   /* The prototype's own figures, for the side-by-side (prototypes/home_and_guests_2026-10-07_fable.html). */
@@ -510,6 +531,8 @@ export default async function HomeLab({
     {/* `&coord=1` — 🗂 a supplier inside an event they run as the hosts' coordinator (owner 2026-10-28): the REAL
         line the event layout draws above every page for that viewer, over the couple's own Home. */}
     {q.coord === '1' ? <CoordinatingLine eventName={F.name} checkInHref={`/dashboard/${E}/guests/checkin`} /> : null}
+    {/* 📅 The Countdown's Date Finder answers from the Suppliers lab's date fixtures (no database) — the SAME sheet. */}
+    <LabFactSheets options={{ help: 'ok', notSet: false, change: false, drafted: false, venues: 'none' }} open={null}>
     <div className="mx-auto min-h-screen w-full bg-cream px-4 pb-6 pt-3 sm:px-6 sm:pt-6 lg:px-8">
       <HomeFirstScreen
         eventId={E}
@@ -526,13 +549,23 @@ export default async function HomeLab({
                 },
               ]}
               unread={q.level === 'unread'}
-              accessHref={`/dashboard/${E}/details#people-with-access`}
+              accessHref={peopleWithAccessHref(E)}
             />
           ) : null
         }
         /* ⚙ Event Settings on the cover — its rows drawn on the lab's fixture (`lab-event-settings.tsx`), no database. */
-        eventSettings
-        eventSettingsRows={labEventSettingsRows(E)}
+        /* `&as=helper|coordinator` — 🪪 a helper's ⚙ (owner 2026-10-31): the same sheet, "Your access" alone, read-only. */
+        eventSettings={labAs === null}
+        helperSettings={labAs !== null}
+        eventSettingsRows={labAs ? labYourAccessRows(E, labAs) : labEventSettingsRows(E)}
+        /* `?settings=1[&row=access]` — the sheet opens with the page, as Home's own link does (the ☰'s mark). */
+        dateFinderOpen={q.date === 'find'}
+        eventSettingsLink={{
+          open: q.settings === '1',
+          row: q.settings === '1' && isEventSettingsRow(q.row) ? q.row : null,
+          landed: null,
+          renderKey: 'lab',
+        }}
         cover={{ eyebrow: F.eyebrow, shortDate: F.shortDate, name: F.name, ...(labForWho ? { forWho: labForWho } : {}) }}
         next={next}
         control={labControl}
@@ -540,7 +573,9 @@ export default async function HomeLab({
         papicLeft={papicNow.count}
         papicSizes={LAB_SIZES}
         hubPick={unread ? { ok: false, reason: 'unread' } : LAB_HUB_PICK}
-        papicCard={q.card === '1' ? labPapicCard(E, q.cardphase, q.fail === '1' || q.unread === '1', q.challenges === '1') : null}
+        /* 🖨 The Prints line (R8) — the couple's, where the event needs its Event Hub details; `&prints=0` drops it. */
+        prints={q.prints !== '0' && (labNeeds ? labNeeds.hubDetails : true)}
+        papicCard={q.card === '1' ? labPapicCard(E, q.cardphase, q.fail === '1' || q.unread === '1', q.challenges === '1', q.head, q.save) : null}
         apple={
           q.store === '1' && q.apple === '1'
             ? {
@@ -577,6 +612,7 @@ export default async function HomeLab({
         })}
       />
     </div>
+    </LabFactSheets>
     </>
   );
   /* `&spot=1` — 👋 the host spotlight's first run over this Home: the once-only welcome, then the shipped steps. */

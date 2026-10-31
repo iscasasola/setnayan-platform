@@ -32,7 +32,7 @@
  * SEARCH BAND (`app/_components/typing-band.tsx`): a cream plate behind it
  * down to the keyboard — no "Typing ·" and no Done since the owner's 2026-10-24
  * *"can this be gone? just tap away and keyboard should disappear"*; the field
- * takes the whole row, wears the accent ring and gains ✕ (clear); ⇕ · ≡ · ＋
+ * takes the whole row and wears the accent ring (its ✕ is inside the field, as always — 2026-10-30); ⇕ · ≡ · ＋
  * FOLD and come back when the keyboard closes — a tap or a drag away, Escape,
  * or the keyboard's own key (the keyboard's Enter does the row's verb). The row itself does not
  * move: its host stands it on `--sn-bottomdock-h`, which is the keyboard's while
@@ -43,7 +43,7 @@
  * the page column pads by it (`lib/thumb-room.ts`, `lib/a-thumb-row-leaves-room.test.ts`) — a host never adds its own
  * bottom padding for the row.
  */
-import { useCallback, useRef, type InputHTMLAttributes, type ReactNode, type Ref } from 'react';
+import { useCallback, useId, useRef, type InputHTMLAttributes, type ReactNode, type Ref } from 'react';
 import { CalendarDays, Plus, Search, X } from 'lucide-react';
 import { ActionButton, actionButtonClass, type ActionButtonProps } from '@/components/action-button';
 import { rowRides, useRidingRow } from '@/app/_components/typing-band';
@@ -85,6 +85,8 @@ export type ThumbMenu = {
    * `label` stays its name.
    */
   face?: ReactNode;
+  /** 📏 The open list's floor width (`PickMenuProps.menuMinWidth`) — so a menu's rows stay on one line at 390 px. */
+  menuMinWidth?: number;
 };
 
 /**
@@ -188,6 +190,10 @@ export function ThumbRow({
   const FieldIcon = field && 'kind' in field && field.kind === 'date' ? CalendarDays : Search;
   const rowRef = useRef<HTMLDivElement>(null);
   const ownInput = useRef<HTMLInputElement | null>(null);
+  /* The field's label holds the ✕ button too, so it names its input outright (a bare <label> controls its FIRST
+     labelable child — the button would take the row's press). The host's own id wins. */
+  const ownId = useId();
+  const inputId = (field && !('node' in field) && field.input?.id) || ownId;
   /* ⌨ The ONE riding row (`useRidingRow`): the search band, and a tap away closes the keyboard. */
   const ride = useRidingRow(rowRef, { rides, mode: Boolean(children), place: field && !('node' in field) ? field.placeholder : undefined });
   /* ⬇ A FLOATING ROW LEAVES ROOM FOR ITSELF (owner 2026-10-25, *"the suppliers page does not scroll up anymore"*): it
@@ -231,39 +237,45 @@ export function ThumbRow({
               {field.node}
             </span>
           ) : field ? (
-            <label data-glass-row="thumb-row-field" className={`sn-glass-row ${styles.field}`} data-thumb-seat="field" data-tour={field.tour} data-rides={rides ? '' : undefined} onFocus={onFieldFocus} onBlur={onFieldBlur} onInput={onFieldInput}>
+            <label htmlFor={inputId} data-glass-row="thumb-row-field" className={`sn-glass-row ${styles.field}`} data-thumb-seat="field" data-tour={field.tour} data-rides={rides ? '' : undefined} onFocus={onFieldFocus} onBlur={onFieldBlur} onInput={onFieldInput}>
               <FieldIcon className={styles.glyph} strokeWidth={1.9} aria-hidden />
               <input
                 type={field.kind === 'date' ? 'date' : 'search'}
                 autoComplete="off"
                 {...field.input}
+                id={inputId}
                 ref={setInputRef}
                 placeholder={field.placeholder}
                 aria-label={field.label ?? field.placeholder}
                 className={styles.input}
               />
+              {/* ✕ INSIDE THE FIELD, ONE TAP CLEARS IT (owner 2026-10-30, final Suppliers design: "this search bar needs to
+                  have an x inside to clear the text with one click") — on every thumb-row search, riding the keyboard or
+                  not. Shown only while there are words: CSS `:placeholder-shown`, so a programmatic fill or a reset by the
+                  host keeps it right without the row knowing the value. The press keeps the focus where it was — it never
+                  raises the keyboard (an empty, focused Find box opens "Go to a category"), and never drops it while
+                  typing. The search hears the empty words through the input's own event. */}
+              {field.kind === 'date' ? null : (
+                <button
+                  type="button"
+                  aria-label="Clear the search"
+                  data-thumb-clear=""
+                  className={styles.clearIn}
+                  onMouseDown={keepFocus}
+                  onClick={() => {
+                    const el = ownInput.current;
+                    if (el) setTyped(el, '');
+                  }}
+                >
+                  <span aria-hidden className={styles.clearDisc}>
+                    <X strokeWidth={2.4} />
+                  </span>
+                </button>
+              )}
             </label>
           ) : (
             <span className={styles.gap} aria-hidden />
           )}
-          {/* ✕ — clears the words while typing (the typed row's ✕); the field keeps its focus. */}
-          {riding && field && !('node' in field) ? (
-            <span className={`sn-glass-row ${styles.round} ${styles.clear}`} data-thumb-seat="clear" onMouseDown={keepFocus}>
-              <ActionButton
-                tone="neutral"
-                iconOnly
-                icon={X}
-                label="Clear"
-                className={styles.btn}
-                onClick={() => {
-                  const el = ownInput.current;
-                  if (!el) return;
-                  setTyped(el, '');
-                  el.focus();
-                }}
-              />
-            </span>
-          ) : null}
           {right.map((r) =>
             'menu' in r ? (
               <span key={r.label} className={`sn-glass-row ${styles.round} ${styles.menu}`} data-thumb-seat="menu" data-tour={r.tour} {...(r.mark ? { [r.mark]: '' } : {})}>
@@ -274,6 +286,7 @@ export function ThumbRow({
                   onPick={r.onPick}
                   buttonText={r.buttonText}
                   trigger={r.face}
+                  menuMinWidth={r.menuMinWidth}
                   className={r.face ? 'inline-flex items-center justify-center rounded-full text-ink' : undefined}
                 />
               </span>

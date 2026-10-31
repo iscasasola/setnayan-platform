@@ -24,6 +24,8 @@ import { createContext, type ReactNode } from 'react';
 // 📱 The floor (the bottom bar's top) is measured in the DOM, so it lives there; re-exported here so `pick-menu.tsx`
 // spends no import line of its own (it sits at its inline-size line — pick-menu-stays-inline.test.ts).
 export { pickViewport } from '@/lib/reveal-above-chrome';
+// 🔘 A row that cannot be picked yet — label only, its reason in the ⓘ (owner 2026-10-31, "Yes, tidy it").
+export { PickOffRow } from './pick-menu-off-row';
 
 /** Gap between the button and the list. */
 export const PICK_LIST_GAP = 6;
@@ -47,6 +49,7 @@ export function placePickList({
   button,
   listHeight,
   viewport,
+  minWidth: wanted,
 }: {
   /** The button's rect. */
   button: { top: number; bottom: number; left: number; width: number };
@@ -55,8 +58,14 @@ export function placePickList({
   /** `floor` (📱 2026-10-20): the bottom bar's top — the list never opens down over the bar (`pickViewport`,
    *  lib/reveal-above-chrome.ts). Absent = the screen's bottom edge. */
   viewport: { width: number; height: number; floor?: number };
+  /** 📏 The list's own floor width (`PickMenuProps.menuMinWidth`, owner-approved 2026-10-30 for the Papic card head: its
+   *  options must not wrap). Never wider than the screen less its margins; absent = today's rule exactly. */
+  minWidth?: number;
 }): PickListPlacement {
-  const minWidth = Math.max(button.width, PICK_LIST_MIN_WIDTH);
+  const minWidth = Math.min(
+    Math.max(button.width, PICK_LIST_MIN_WIDTH, wanted ?? 0),
+    Math.max(button.width, PICK_LIST_MIN_WIDTH, viewport.width - 2 * PICK_LIST_MARGIN),
+  );
   const left = Math.max(PICK_LIST_MARGIN, Math.min(button.left, viewport.width - minWidth - PICK_LIST_MARGIN));
 
   const cap = Math.floor(viewport.height * PICK_LIST_MAX_SHARE);

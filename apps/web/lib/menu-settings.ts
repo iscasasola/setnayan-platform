@@ -30,7 +30,7 @@
  */
 
 /** The menus (and the one Hub tool, Prints) that own a settings sheet — Home's is Event Settings. */
-export type SettingsMenu = 'home' | 'guests' | 'hub' | 'prints' | 'memories' | 'suppliers' | 'people' | 'today' | 'customers' | 'supplier-hub' | 'home' | 'guests' | 'hub' | 'prints' | 'memories' | 'suppliers' | 'people' | 'today' | 'customers' | 'shop';
+export type SettingsMenu = 'home' | 'guests' | 'hub' | 'prints' | 'memories' | 'suppliers' | 'people' | 'today' | 'customers' | 'shop' | 'supplier-hub';
 
 export type SettingsEntry = {
   /**
@@ -167,7 +167,6 @@ export const SETTINGS_ENTRY: Record<SettingsMenu, SettingsEntry> = {
     live: true,
     tip: 'Set once for every event. Each event’s own tools are under Set up; each phone’s role is under Crew.',
   },
-||||||| 6343be0b08
   /**
    * 🏪 THE SUPPLIER'S SHOP ⚙ (owner 2026-10-31, verbatim *"Yes follow your recommendation"*; DECISION_LOG "SHOP ⚙ — WHAT A
    * SUPPLIER SETS ONCE"): the right end of Shop's pinned row on every Shop section (`ShopSettings`, one mount). It holds

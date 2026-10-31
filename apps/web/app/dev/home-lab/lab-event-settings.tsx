@@ -17,7 +17,7 @@ import { LIMITED_AREAS } from '@/lib/coordinator-access-level';
  * editors' own saves still go to their real doors, which refuse the lab's made-up event — the lab shows the sheet, its
  * rows and their editors, not a save.
  */
-export function labEventSettingsRows(eventId: string) {
+export function labEventSettingsRows(eventId: string, asked = false) {
   const profile = WEDDING_PROFILE;
   const words = eventWordsFromProfile(profile);
   const input: YourEventInput = {
@@ -91,7 +91,15 @@ export function labEventSettingsRows(eventId: string) {
         />
       }
       /* 👥 People with access — the details lab's fixture seats (a host, a Limited coordinator, a helper, a caterer). */
-      access={{ measured: true, rows: ACCESS_LAB_ROWS, addable: [{ guestId: 'g-tito', name: 'Tito Ben' }], claims: null, flash: null }}
+      /* `&asked=1` — 🪪 the helper asked the hosts for more on the Seat plan at 3:04 PM today (the line the host's notice
+         lands on, owner 2026-10-31 "Ask the hosts"). */
+      access={{
+        measured: true,
+        rows: asked ? ACCESS_LAB_ROWS.map((r) => (r.kind === 'helper' ? { ...r, asked: { areas: ['seat_plan'], at: labAskedAt() } } : r)) : ACCESS_LAB_ROWS,
+        addable: [{ guestId: 'g-tito', name: 'Tito Ben' }],
+        claims: null,
+        flash: null,
+      }}
       /* The moved Event Details parts that need no database to draw: Plan it myself and Put this away (the kind · area ·
          guests editor and the one code read the event, so the lab leaves them out). */
       more={{ settings: null, planMyself: false, oneCode: false, putAway: { archived: false, eventName: 'Claire & Indalecio' } }}
@@ -105,7 +113,7 @@ export function labEventSettingsRows(eventId: string) {
  * seats: a limited helper (every part View, the grant `setGuestAccess` writes) and the hired coordinator on the default
  * coordinator grant (`COORDINATOR_AREAS`). The fixture wedding is 18 Dec, so the last day reads 25 Dec.
  */
-export function labYourAccessRows(eventId: string, as: 'helper' | 'coordinator') {
+export function labYourAccessRows(eventId: string, as: 'helper' | 'coordinator', asked = false) {
   const yours = ownAccessOf({
     roleSubtype: as === 'coordinator' ? 'wedding_planner_external' : 'viewer',
     permissions: {
@@ -117,5 +125,13 @@ export function labYourAccessRows(eventId: string, as: 'helper' | 'coordinator')
     },
     window: { eventDate: '2026-12-18', eventEndDate: null, precision: 'day' },
   });
-  return <EventSettingsRows eventId={eventId} input={null} parents={null} dock={null} yours={yours} />;
+  // `&asked=1` — the button after a Send: a fixed moment today, 3:04 PM Philippine time (the Send itself goes to the real
+  // door, which refuses the lab's made-up event — the lab shows the sheet, not a send).
+  const askedAt = asked ? labAskedAt() : null;
+  return <EventSettingsRows eventId={eventId} input={null} parents={null} dock={null} yours={yours} yoursAskedAt={askedAt} />;
+}
+
+/** The lab's one moment of asking — 3:04 PM today, Philippine time. */
+function labAskedAt(): string {
+  return `${new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' })}T15:04:00+08:00`;
 }

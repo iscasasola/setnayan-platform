@@ -78,6 +78,7 @@ export function EventSettingsRows({
   access = null,
   more = null,
   yours = null,
+  yoursAskedAt = null,
 }: {
   eventId: string;
   input: YourEventInput | null;
@@ -90,6 +91,8 @@ export function EventSettingsRows({
   more?: EventSettingsMore | null;
   /** 🪪 A helper's own access — drawn FIRST, read-only (null: a host's sheet, unchanged). */
   yours?: OwnAccess | null;
+  /** 🪪 When the helper last asked the hosts (the Home lab's fixture) — absent: the button says "Ask the hosts". */
+  yoursAskedAt?: string | null;
 }) {
   const editors = input ? yourEventFactEditors({ eventId, input }) : null;
   const withParents = input ? parentsOffered(input.kind) : false;
@@ -97,7 +100,7 @@ export function EventSettingsRows({
     <div data-event-settings-body="" className="flex flex-col gap-5 px-4 pb-[calc(20px+env(safe-area-inset-bottom))] pt-3">
       {yours ? (
         <FactRow row="your-access" title="Your access">
-          <YourAccess access={yours} />
+          <YourAccess access={yours} eventId={eventId} askedAt={yoursAskedAt} />
         </FactRow>
       ) : null}
       {dock ? (

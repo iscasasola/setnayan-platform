@@ -31,7 +31,14 @@ import type { ReactNode } from 'react';
  * only "Your access", read-only (`settingsHelper`, owner 2026-10-31); the loading screen none.
  */
 /** 🔗 What Home's address says about its ⚙ sheet (`?settings=1&row=…`, a Remove's words) and this render's key. */
-export type HomeSettingsLink = { open: boolean; row: string | null; landed: HomeSettingsLanded | null; renderKey: string };
+export type HomeSettingsLink = {
+  open: boolean;
+  row: string | null;
+  landed: HomeSettingsLanded | null;
+  renderKey: string;
+  /** 🪪 A seat id (`&person=`) — the sheet lands on that person's row in People with access. */
+  person?: string | null;
+};
 
 export function HomeCoverBand({
   cover,
@@ -89,6 +96,7 @@ export function HomeCoverBand({
             rows={settingsRows}
             openAtFirst={settingsLink?.open ?? false}
             landRow={settingsLink?.row ?? null}
+            landPerson={settingsLink?.person ?? null}
             landed={settingsLink?.landed ?? null}
             renderKey={settingsLink?.renderKey}
             helper={settingsHelper}

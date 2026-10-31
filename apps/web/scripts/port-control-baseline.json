@@ -6512,6 +6512,7 @@
     },
     "/dashboard/[eventId]/details": {
       "files": [
+        "dashboard/[eventId]/details/_components/ask-the-hosts.tsx",
         "dashboard/[eventId]/details/_components/details-form.tsx",
         "dashboard/[eventId]/details/_components/event-settings-editor.tsx",
         "dashboard/[eventId]/details/_components/governed-fields.tsx",
@@ -6539,9 +6540,11 @@
       ],
       "blocks": [
         "AccessPick",
+        "ActionButton",
         "AddPerson",
         "AreaPicks",
         "AreaToggle",
+        "AskTheHosts",
         "ButtonsLookRow",
         "ClaimAccessCard",
         "ColorsPanel",
@@ -6549,6 +6552,7 @@
         "CoordinatorLevelPick",
         "CoordinatorSwitch",
         "CouldNotOpen",
+        "DelegateArea",
         "DetailsForm",
         "EditableField",
         "EditableRow",
@@ -6589,6 +6593,7 @@
         "RequestsPage",
         "Row",
         "Section",
+        "Sheet",
         "SpecialMessageField",
         "SubmitButton",
         "Suspense",

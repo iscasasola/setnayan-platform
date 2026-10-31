@@ -59,7 +59,7 @@ const src = (p: string) => stripComments(readFileSync(p, 'utf8'));
 const KNOWN_TOP_ROWS = [
   'app/vendor-dashboard/_components/supplier-page-menu.tsx', // the shell bar's left from 701
   'app/vendor-dashboard/services/_components/manager-tabs.tsx', // Shop › Services: the manager's section switch
-  'app/vendor-dashboard/on-the-day/_components/hub-screen.tsx', // Hub: Set up · Crew · The event's pages
+  'app/vendor-dashboard/on-the-day/_components/hub-event-menu.tsx', // Hub: the one row — the views + the events (2026-10-31)
 ];
 
 const BASELINE = new Map(
@@ -74,13 +74,26 @@ const BASELINE = new Map(
 );
 
 const SEGMENTED = /<ISegmented\b|<ISeg\b|<PillTrack\b|<PillButton\b|<PillLink\b|role="tablist"|I_SEGMENTED_CLASS|PILL_TRACK_CLASS|pillSegClass\(|iSegClass\(/;
-/** Each `<PickMenu …/>` element's own props (to its self-closing `/>` — an option's `=>` never ends it). */
+/** Each `<PickMenu …/>` element's OWN props: its text to the `/>` that closes it at brace depth 0 (an option's `=>` or a
+ *  nested `head={<input … />}` never ends it), with every `{…}` value blanked — so a nested element's `className=` is
+ *  never read as the PickMenu's own. */
 const pickMenus = (code: string) =>
-  [...code.matchAll(/<PickMenu\b/g)].map((m) => code.slice(m.index!, code.indexOf('/>', m.index!) + 2));
+  [...code.matchAll(/<PickMenu\b/g)].map((m) => {
+    let depth = 0;
+    let own = '';
+    for (let i = m.index!; i < code.length; i++) {
+      const c = code[i]!;
+      if (c === '{') depth++;
+      else if (c === '}') depth--;
+      if (depth === 0 && c === '/' && code[i + 1] === '>') return { full: code.slice(m.index!, i + 2), own: `${own}/>` };
+      own += depth > 0 && c !== '{' ? '' : c;
+    }
+    return { full: code.slice(m.index!), own };
+  });
 const PAGE_VIEW = /buttonText=\{(?:`[A-Z][\w ]* · \$\{[^`]+`|face)\}/;
 const isOneSelector = (code: string) =>
-  /<PinWord\b/.test(code) || pickMenus(code).some((p) => PAGE_VIEW.test(p) && /\bcompact\b/.test(p));
-const hasLocalLook = (code: string) => pickMenus(code).some((p) => /\b(?:trigger|className)=/.test(p));
+  /<PinWord\b/.test(code) || pickMenus(code).some((p) => PAGE_VIEW.test(p.full) && /\bcompact\b/.test(p.own));
+const hasLocalLook = (code: string) => pickMenus(code).some((p) => /\b(?:trigger|className)=/.test(p.own));
 
 const ALL = walk(SUPPLIER).map((p) => ({ path: rel(p), code: src(p) }));
 const TOP_ROWS = ALL.filter((f) => /data-first-row=""|data-pinned-row=""/.test(f.code) || KNOWN_TOP_ROWS.includes(f.path));
@@ -113,6 +126,12 @@ test('1–3 · every supplier top row: the one selector on the left, no segmente
     if (why.length && !BASELINE.has(f.path)) bad.push(`${f.path}: ${why.join('; ')}`);
   }
   assert.deepEqual(bad, [], `supplier top rows off the one selector:\n${bad.join('\n')}`);
+});
+
+test('Hub · the screen under the one row draws no segmented row (its views live in the Hub ▾ since 2026-10-31)', () => {
+  const screen = ALL.find((f) => f.path === 'app/vendor-dashboard/on-the-day/_components/hub-screen.tsx');
+  assert.ok(screen, 'hub-screen.tsx moved — the guard is blind to the Hub');
+  assert.doesNotMatch(screen!.code, SEGMENTED, 'the Hub draws a segmented row again');
 });
 
 test('baseline · every exception is reasoned, and still an exception (a fixed row leaves the list)', () => {

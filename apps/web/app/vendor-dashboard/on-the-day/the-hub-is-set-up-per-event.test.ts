@@ -117,7 +117,7 @@ async function withRouter(el: React.ReactElement) {
   return renderToStaticMarkup(React.createElement(AppRouterContext.Provider, { value: ROUTER as never }, el));
 }
 
-test('6 · on a phone the segments come first — Set up · Crew · The event’s pages ABOVE the event card', async () => {
+test('6 · ONE row — Set up · Crew · The event’s pages live in the Hub ▾ (2026-10-31); on a phone the card follows it', async () => {
   const { HubScreen } = await import('./_components/hub-screen');
   const today = list().find((e) => e.eventId === 'e-today')!;
   const props: React.ComponentProps<typeof HubScreen> = {
@@ -134,14 +134,22 @@ test('6 · on a phone the segments come first — Set up · Crew · The event’
     assert.notEqual(i, -1, `${mark} is not drawn`);
     return i;
   };
-  // The list column (the phone's page): menu → segments → the card's phone copy → the body.
+  // The list column (the phone's page): the one row → the card's phone copy → the body. No segmented row any more
+  // (ONE SELECTOR, owner 2026-10-30 "all yes": the segmented rows become the one `Page · View ▾`).
   const menu = at('data-probe-menu');
-  const segs = at('data-hub-segmented');
   const phoneCard = at('data-hub-card-phone');
   const body = at('data-probe-body');
-  assert.ok(menu < segs, 'the segments are drawn above the pinned row');
-  assert.ok(segs < phoneCard, 'the event card is drawn ABOVE the segments on a phone — the prototype puts the segments first');
+  assert.equal(html.indexOf('data-hub-segmented'), -1, 'the segmented Set up · Crew · Pages row is back under the Hub ▾');
+  assert.ok(menu < phoneCard, 'the event card is drawn above the one row');
   assert.ok(phoneCard < body, 'the segment’s body is drawn above the card');
+  // The views lead the Hub ▾'s list, each ticked when on, then the events.
+  const { HubEventMenu } = await import('./_components/hub-event-menu');
+  const src = stripComments(readFileSync(join(import.meta.dirname, '_components', 'hub-event-menu.tsx'), 'utf8'));
+  assert.match(src, /HUB_SEGMENTS\.map\(\(s\) => \(\{ key: `\$\{VIEW\}\$\{s\}`, label: HUB_SEGMENT_LABEL\[s\], group: 'Show'/, 'the three views are not the ▾’s first group');
+  assert.match(src, /picked=\{\[`\$\{VIEW\}\$\{seg\}`/, 'the view on screen is not ticked in the list');
+  assert.match(src, /router\.push\(hubHref\(selectedId, next\)/, 'picking a view no longer goes to its own address (Back would break)');
+  const face = await withRouter(React.createElement(HubEventMenu, { events: list(), selectedId: 'e-today', seg: 'crew', today: TODAY }));
+  assert.match(face, /Hub · Crew · /, 'the ▾ does not name the page and the view (`Hub · Crew · <event>`)');
   assert.ok(html.includes('data-probe-thumb'), 'HubScreen dropped its thumb row');
 });
 
@@ -171,9 +179,12 @@ test('8 · the thumb row — "Find an event to set up" + ＋ on Set up, "Find a 
   assert.match(pages, /<ThumbRow[\s\S]*placeholder: 'Find a guest or a table'/, 'The event’s pages lost its thumb row');
   assert.match(setup, /<ThumbRow[\s\S]*placeholder: 'Find an event to set up'[\s\S]*action=/, 'Set up lost its thumb row or its ＋');
   assert.match(setup, /dispatchEvent\(new CustomEvent\(HUB_FIND_EVENT/, 'the Set up field no longer opens the Hub ▾ — a second finder of events');
+  // 🔎 Crew: "Search your crew" (v13), narrowing the phones in place, and saying so when none is left.
+  assert.match(src, /if \(seg === 'crew'\) \{[\s\S]*?placeholder: 'Search your crew'[\s\S]*?narrowCrewRows\(/, 'Crew lost its search');
+  assert.match(stripComments(readFileSync(join(import.meta.dirname, '_components', 'crew-panel.tsx'), 'utf8')), /data-crew-none=""/, 'a crew search that hides every phone says nothing');
   // The screen draws it, and both the live page and the lab hand it in.
   const screen = stripComments(readFileSync(join(import.meta.dirname, '_components', 'hub-screen.tsx'), 'utf8'));
-  const hubScreen = screen.slice(screen.indexOf('export function HubScreen'), screen.indexOf('export function HubSegments'));
+  const hubScreen = screen.slice(screen.indexOf('export function HubScreen'), screen.indexOf('export function HubEventCard'));
   assert.match(hubScreen, /\{thumb\}/, 'HubScreen no longer draws its thumb row');
   for (const f of ['page.tsx', join('..', '..', 'dev', 'supplier-lab', 'hub-lab.tsx')]) {
     const s = stripComments(readFileSync(join(import.meta.dirname, f), 'utf8'));
@@ -210,4 +221,21 @@ test('9 · the event’s pages are icon rows that open in place, a count only wh
   assert.doesNotMatch(body, /HubDoorRow/, 'a page is a plain › link again');
   assert.doesNotMatch(body, /await|supabase|\.from\(/, 'the pages body reads on its own — a read per row');
   assert.match(page, /const blocks = selected\.lock == null \? await fetchRunOfShowBlocks\(selected\.eventId\) : null;/, 'the count read moved, or is made for a locked event');
+});
+
+test('10 · the Hub ⚙ ends the one row (after the ⓘ) and holds only what exists — the crew’s view, no switch that saves nothing', async () => {
+  const { HubEventMenu } = await import('./_components/hub-event-menu');
+  const gear = React.createElement('span', { 'data-probe-gear': '' });
+  const info = React.createElement('span', { 'data-probe-info': '' });
+  const html = await withRouter(React.createElement(HubEventMenu, { events: list(), selectedId: 'e-today', seg: 'setup', today: TODAY, info, gear }));
+  assert.ok(html.indexOf('data-probe-info') < html.indexOf('data-probe-gear'), 'the ⚙ is not after the ⓘ');
+  assert.ok(html.indexOf('data-hub-event-pick') < html.indexOf('data-probe-gear'), 'the ⚙ is not right of the ▾');
+  const src = stripComments(readFileSync(join(import.meta.dirname, '_components', 'hub-settings.tsx'), 'utf8'));
+  assert.match(src, /<MenuSettingsButton menu="supplier-hub"/);
+  assert.match(src, /crewToolsWords\(r, coordinator\)/, 'Crew view does not say the roles in their own words');
+  assert.doesNotMatch(src, /role="switch"|<Toggle\b|<Switch\b|KnobSwitch/, 'the Hub ⚙ draws a switch — nothing stores one yet');
+  for (const f of ['page.tsx', join('..', '..', 'dev', 'supplier-lab', 'hub-lab.tsx')]) {
+    const s = stripComments(readFileSync(join(import.meta.dirname, f), 'utf8'));
+    assert.match(s, /<HubEventMenu[\s\S]{0,600}?gear=\{<HubSettings coordinator/, `${f} draws the Hub row without its ⚙`);
+  }
 });

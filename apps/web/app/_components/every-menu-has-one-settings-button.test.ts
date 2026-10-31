@@ -99,7 +99,7 @@ test('1 · the door is one 44 px icon-only ⚙ named for its menu', async () => 
 });
 
 test('2 · each live menu is mounted at exactly one site; the others at none — Suppliers now live (owner reversed call 3)', () => {
-  const mounts = SOURCES.flatMap((s) => [...s.code.matchAll(/<MenuSettingsButton\b[^>]*?\bmenu="([a-z]+)"/g)].map((m) => ({ menu: m[1]!, path: s.path })));
+  const mounts = SOURCES.flatMap((s) => [...s.code.matchAll(/<MenuSettingsButton\b[^>]*?\bmenu="([a-z-]+)"/g)].map((m) => ({ menu: m[1]!, path: s.path })));
   const bare = SOURCES.filter((s) => /<MenuSettingsButton\b(?![^>]*?\bmenu=")/.test(s.code)).map((s) => s.path);
   assert.deepEqual(bare, [], 'a ⚙ is mounted without a literal menu="…" — this check could not count it');
   const printed: string[] = [];

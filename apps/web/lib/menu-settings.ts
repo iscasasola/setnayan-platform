@@ -30,7 +30,7 @@
  */
 
 /** The menus (and the one Hub tool, Prints) that own a settings sheet — Home's is Event Settings. */
-export type SettingsMenu = 'home' | 'guests' | 'hub' | 'prints' | 'memories' | 'suppliers' | 'people' | 'today' | 'customers';
+export type SettingsMenu = 'home' | 'guests' | 'hub' | 'prints' | 'memories' | 'suppliers' | 'people' | 'today' | 'customers' | 'supplier-hub';
 
 export type SettingsEntry = {
   /**
@@ -154,6 +154,18 @@ export const SETTINGS_ENTRY: Record<SettingsMenu, SettingsEntry> = {
     line: 'How you get paid, your schedules and days.',
     live: true,
     tip: 'Settings for Customers only. What couples see on your page stays with your Shop.',
+  },
+  /**
+   * 🗓 THE SUPPLIER'S HUB ⚙ (supplier dashboard v13, prototype `renderViewrow` "Hub ▾ · ⓘ · ⚙"; DECISION_LOG 2026-10-31
+   * "SUPPLIER HUB: ONE ROW, ITS ⚙, CREW SEARCH"). Not the couple's Event Hub ⚙ (`hub`). It ends the supplier Hub's one
+   * row (`HubSettings`, one mount) and holds what the crew sees — the rest of the v13 sheet has nothing to save to yet.
+   */
+  'supplier-hub': {
+    door: 'first-row-gear',
+    sheet: 'Hub settings',
+    line: 'What your crew sees on the day.',
+    live: true,
+    tip: 'Set once for every event. Each event’s own tools are under Set up; each phone’s role is under Crew.',
   },
 };
 

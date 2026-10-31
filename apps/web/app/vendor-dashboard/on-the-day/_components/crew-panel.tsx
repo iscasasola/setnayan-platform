@@ -167,6 +167,10 @@ export function CrewPanel({
           ) : null}
         </div>
       ))}
+      {/* 🔎 The thumb row's crew search (`HubThumbRow`) hides the rows that do not match; this says so when none is left. */}
+      <p hidden className="py-3 text-[14px] text-ink/65" data-crew-none="">
+        No one on this crew matches — a phone joins by the QR below.
+      </p>
 
       {qr ? (
         <div className="mt-4 rounded-2xl bg-ink/[0.04] p-4 text-center" data-crew-qr="">

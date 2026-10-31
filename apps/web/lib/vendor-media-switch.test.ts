@@ -23,7 +23,8 @@ const ACTION = read('..', 'app', 'dashboard', '[eventId]', 'studio', 'papic', 'v
 // ⚙ The supplier's switch moved from Event Details › Event access to Suppliers ⚙ (owner 2026-10-27, "SUPPLIERS GETS
 // ITS ⚙ — THE SUPPLIER SETTINGS MOVE THERE") — one home; it saves in place there (`setVendorCapturesHiddenHere`).
 const CONTROL = read('..', 'app', 'dashboard', '[eventId]', 'vendors', '_components', 'suppliers-settings-rows.tsx');
-const PAGE = read('..', 'app', '_components', 'memories', 'event-memories-gallery.tsx');
+// A supplier photo's sheet on Memories is the shared viewer's Hide since 2026-10-31 (#7108).
+const PAGE = read('..', 'app', '_components', 'memories', 'memories-photo-viewer.tsx');
 const GALLERY = read('papic-gallery.ts');
 
 test('THE HANDLE: something actually WRITES the column', () => {

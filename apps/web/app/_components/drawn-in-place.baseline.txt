@@ -19,7 +19,6 @@ app/dashboard/[eventId]/launch/_components/maker-tour.tsx
 app/dashboard/[eventId]/launch/_components/theme-preview-overlay.tsx
 app/dashboard/[eventId]/monogram/mark-everywhere.tsx
 app/dashboard/[eventId]/schedule/_components/emcee-script-button.tsx
-app/dashboard/[eventId]/schedule/_components/prep-item-controls.tsx
 app/dashboard/[eventId]/sponsors/_components/add-sponsor-modal.tsx
 app/dashboard/[eventId]/sponsors/_components/edit-sponsor-modal.tsx
 app/dashboard/[eventId]/sponsors/_components/invitation-template-modal.tsx

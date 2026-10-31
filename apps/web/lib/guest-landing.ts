@@ -159,8 +159,8 @@ export function landingMessage(input: InviteEventFacts & {
   now?: Date;
 }): string {
   const template = sanitizeInviteTemplate(input.template) ?? defaultInviteTemplate({ solemn: input.solemn });
-  // The opening = every paragraph BEFORE the one that carries the link (ours is "Hi {name}! 💌" + "With joyful
-  // hearts…", owner 2026-10-29), joined into one line; a couple's one-paragraph opening reads exactly as before.
+  // The opening = every paragraph BEFORE the one that carries the link (ours is "Hi {name}! 💌" + "You’re invited…",
+  // approved 2026-10-30), joined into one line; a couple's one-paragraph opening reads exactly as before.
   const paras = template.split(/\n\s*\n/).map((p) => p.trim());
   const linkAt = paras.findIndex((p) => /\{link\}/i.test(p));
   const before = (linkAt >= 0 ? paras.slice(0, linkAt) : paras.slice(0, 1)).filter(Boolean);

@@ -1,7 +1,7 @@
 'use client';
 
 import type { ComponentType } from 'react';
-import { BookOpen, Clock, FileText, Gift, LayoutGrid, Palette, Printer } from 'lucide-react';
+import { BookOpen, Clock, FileText, Gift, LayoutGrid, Palette } from 'lucide-react';
 import { PageCard } from '@/app/_components/page-card';
 import type { StudioTileKey, StudioTileModel } from '@/lib/studio-tiles';
 import { formatCount } from '@/lib/format-number';
@@ -52,7 +52,6 @@ export const TILE_ICON: Record<StudioTileKey, TileIcon> = {
   schedule: Clock,
   story: BookOpen,
   gifts: Gift,
-  prints: Printer,
 };
 
 export function StudioHome({ tiles, onOpen }: { tiles: readonly StudioTileModel[]; onOpen: (key: StudioTileKey) => void }) {

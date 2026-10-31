@@ -130,6 +130,19 @@ export function isFullScreenView(view: GuestsView, seatMode: SeatMode): boolean 
   return view === 'map' || (view === 'seats' && seatMode !== 'list');
 }
 
+/**
+ * 📏 STARTS RIGHT UNDER THE PINNED ROW (owner, iPhone app, 2026-10-30: *"the guests> list has that row under top row
+ * occupiable. and the others have that one row not used. we want to use that space"*): a view that owns its height (no
+ * document scroll — the seat plan's rule) but is not full screen. Today that is Seats › List. The row is pinned under the
+ * top nav from the start while its holder sits where the page's column begins (the column's top padding + the title
+ * group's gap below the nav), so the space between is empty; a view that scrolls the page fills it on the first scroll,
+ * one that owns its height never does — it showed a ~64 px empty band under the row. Its surface is lifted to the row's
+ * bottom instead (`.rowSurface`, `data-guests-row-surface`). 🔒 lib/guests-top-row-and-full-screen.test.ts (7)
+ */
+export function startsUnderTheRow(view: GuestsView, seatMode: SeatMode): boolean {
+  return view === 'seats' && seatMode === 'list';
+}
+
 /** The pinned row's one menu: its words ("Guests · List", "Seats · 3D", "March"). */
 export function pinnedMenuWords(view: GuestsView, seatMode: SeatMode): string {
   if (view === 'march') return GUESTS_TOP_LABEL.march;

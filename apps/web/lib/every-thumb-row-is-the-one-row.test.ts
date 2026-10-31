@@ -161,7 +161,8 @@ describe('placeholders name the place, short', () => {
   }
   it('finds every placeholder (premise)', () => {
     assert.deepEqual(found.map((p) => p.words).sort(), 
-      ['Search customers', 'Search events', 'Search events, people, suppliers', 'Search guests'].sort(),
+      // 2026-10-30: Customers' search says "Search events" (owner 2026-10-29, "Customers are events, not people").
+      ['Search events', 'Search events', 'Search events, people, suppliers', 'Search guests'].sort(),
     );
   });
   it('≤ 3 words unless the field is alone in its row', () => {

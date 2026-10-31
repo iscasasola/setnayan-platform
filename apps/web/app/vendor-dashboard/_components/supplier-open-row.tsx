@@ -144,6 +144,7 @@ export function SupplierOpenRow({
   paneTitle,
   data,
   defaultOpen = false,
+  lineWrap = false,
   children,
 }: {
   /** Unique within the page — the row's handle (`data-open-row`). */
@@ -165,6 +166,8 @@ export function SupplierOpenRow({
   data?: string;
   /** Opened on arrival (a link that names it). */
   defaultOpen?: boolean;
+  /** The row's line takes two lines before it is cut (a line that carries money — Customers › Events). */
+  lineWrap?: boolean;
   /** What opening shows — drawn by the page, with its answers. */
   children: ReactNode;
 }) {
@@ -182,7 +185,7 @@ export function SupplierOpenRow({
   if (!scope) {
     return (
       <div data-open-row={id}>
-        <Fold title={title} titleNode={titleNode} line={line ?? ''} wrap lead={lead} aside={aside} endPress={endPress} data={data} defaultOpen={defaultOpen}>
+        <Fold title={title} titleNode={titleNode} line={line ?? ''} wrap lineWrap={lineWrap} lead={lead} aside={aside} endPress={endPress} data={data} defaultOpen={defaultOpen}>
           {children}
         </Fold>
       </div>
@@ -197,6 +200,7 @@ export function SupplierOpenRow({
         titleNode={titleNode}
         line={line ?? ''}
         wrap
+        lineWrap={lineWrap}
         lead={lead}
         aside={aside}
         endPress={endPress}

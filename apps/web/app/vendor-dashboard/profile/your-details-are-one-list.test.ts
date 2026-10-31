@@ -4,7 +4,7 @@
  *   1 · every key `businessProfileChecklist` checks lands in exactly ONE fold — a key in none would be a field the
  *       supplier is told is missing with nowhere on the screen to fill it in;
  *   2 · the list runs in the prototype's order: Name and logo · What you do · Where you work · Contact · About ·
- *       Your documents · How clients pay you · Something wrong?;
+ *       How clients pay you · Something wrong? (Your documents moved to the Shop ⚙, 2026-10-31);
  *   3 · the account panel's supplier rows go to pages that exist, and only owners and admins get them.
  */
 import test from 'node:test';
@@ -33,7 +33,7 @@ test('1 · every checklist key is in exactly one fold', () => {
 
 test('2 · the list runs in the prototype’s order', () => {
   const s = src('app/vendor-dashboard/profile/_components/details-screen.tsx');
-  const order = ['anchor="name"', 'anchor="what"', 'anchor="where"', 'anchor="contact"', 'data="details-about"', 'anchor="docs"', 'anchor="pay"', 'anchor="fix"'];
+  const order = ['anchor="name"', 'anchor="what"', 'anchor="where"', 'anchor="contact"', 'data="details-about"', 'anchor="pay"', 'anchor="fix"'];
   let last = -1;
   for (const o of order) {
     const i = s.indexOf(o);

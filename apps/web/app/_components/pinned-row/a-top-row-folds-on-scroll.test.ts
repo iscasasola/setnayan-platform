@@ -35,10 +35,14 @@ test('2 · the hook writes attributes; Today and Customers each carry every hook
     const n = (re: RegExp) => (src.match(re) ?? []).length;
     assert.equal(n(/usePinFold\(pinRef\)/g), 1, `${rel}: does not fold its row`);
     assert.match(src, /ref=\{pinRef\}[\s\S]{0,400}data-pin-fold=""/, `${rel}: the folding row is not the sticky row`);
-    assert.equal(n(/data-pin-door=""/g), 1, `${rel}: each count must carry data-pin-door`);
-    assert.equal(n(/data-pin-n=""/g), 2, `${rel}: the number (read and "couldn't load") must both carry data-pin-n`);
-    assert.equal(n(/data-pin-w=""/g), 2, `${rel}: the word (read and "couldn't load") must both carry data-pin-w`);
+    // 📌 2026-10-31 (ONE SELECTOR, Q3 — one door): each count is the shared `PinDoor`, which carries the fold hooks.
+    assert.match(src, /<PinDoor\b/, `${rel}: a count is not the shared PinDoor (the fold door)`);
   }
+  const door = read('app/_components/pinned-row/pin-door.tsx');
+  const d = (re: RegExp) => (door.match(re) ?? []).length;
+  assert.equal(d(/data-pin-door=""/g), 2, 'PinDoor (link and button) must carry data-pin-door');
+  assert.equal(d(/data-pin-n=""/g), 2, 'the number (read and "couldn\'t load") must both carry data-pin-n');
+  assert.equal(d(/data-pin-w=""/g), 2, 'the word (read and "couldn\'t load") must both carry data-pin-w');
 });
 
 test('3 · one stylesheet draws the fold, one the glide; both loaded once; reduced motion stills them', () => {

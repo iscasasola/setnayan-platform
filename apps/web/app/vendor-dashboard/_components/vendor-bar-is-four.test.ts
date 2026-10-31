@@ -38,7 +38,7 @@ import { VENDOR_BOTTOM_NAV_ITEMS, vendorBarItems } from './vendor-bottom-nav';
 import { resolveVendorDestinations } from './vendor-nav-destinations';
 import { supplierAvatarRows, scopedMemberAvatarRows } from './supplier-avatar-rows';
 import { barItemsForShell } from '@/app/_components/nav/bottom-nav';
-import { SHOP_SEGMENT_HREF } from '../shop/_components/shop-segments';
+import { SHOP_SEGMENT_HREF } from '../shop/_components/shop-sections';
 import { settingsMoreTools, SETTINGS_HELP_HREF, SUPPLIER_HELP_ROWS } from '../settings/settings-rows';
 import { customerLandingHref } from '../customers/anchors';
 import { NAV_SLOT_DEFAULTS } from '@/lib/nav-registry-defaults';

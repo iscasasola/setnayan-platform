@@ -62,6 +62,9 @@ test('an old address opens the same piece', () => {
   assert.equal(detailsItemFor({ tool: 'details', item: 'theme' }), 'theme');
 });
 
-test('an item address is the one Details door', () => {
-  assert.equal(detailsItemHref('e-1', 'menu'), '/dashboard/e-1/launch?tool=details&item=menu');
+test('an item address is the one Details door — and a print’s is the Prints page (R8)', () => {
+  assert.equal(detailsItemHref('e-1', 'names'), '/dashboard/e-1/launch?tool=details&item=names');
+  /* 🖨 Prints left the Maker (owner 2026-10-27 "PRINTS LEAVES STUDIO"): every print's address is its own page, same piece. */
+  assert.equal(detailsItemHref('e-1', 'menu'), '/dashboard/e-1/prints?item=menu');
+  assert.equal(detailsItemHref('e-1', 'pass', '&pass_format=train'), '/dashboard/e-1/prints?item=pass&pass_format=train');
 });

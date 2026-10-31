@@ -534,7 +534,7 @@ test('wiring: the vendor side shows no plan upsell, add-on price or pack in the 
   before('app/vendor-dashboard/shop/_components/branch-panel.tsx', /\{storeShell \? null : \(/, '<BranchManager');
   // The Helpers screen moved into `helpers-view.tsx` (simpler supplier dashboard step 6); the page hands it storeShell.
   assert.match(src('app/vendor-dashboard/team/_components/helpers-view.tsx'), /\{canBuySeats && !storeShell \? \(/);
-  assert.match(src('app/vendor-dashboard/team/page.tsx'), /storeShell=\{storeShell\}/);
+  assert.match(src('app/vendor-dashboard/team/_components/team-screen.tsx'), /storeShell=\{storeShell\}/); // the Helpers screen (2026-10-31: the page mounts it)
   const recs = src('app/vendor-dashboard/recommendations/page.tsx');
   assert.equal((recs.match(/formatSkuPriceLabel\(/g) ?? []).length, 1, 'every price label goes through priceLabelFor');
   assert.match(recs, /storeShell \? null : formatSkuPriceLabel\(row, null\)/);

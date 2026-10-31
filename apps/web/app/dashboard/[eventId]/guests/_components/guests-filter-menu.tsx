@@ -31,6 +31,7 @@ export function guestsFilterMenu({
   onFilter,
   hasSides,
   extras = [],
+  showExtras = [],
   onExtra,
   alsoOn = false,
   label = 'Show, group or sort',
@@ -44,6 +45,9 @@ export function guestsFilterMenu({
   hasSides: boolean;
   /** The view's own shipped items, after the filter's sections. */
   extras?: readonly PickOption[];
+  /** Choices of the view's own that belong IN the Show section (the List's "Asking to join", R4 slice 11) — drawn right
+   *  after Show's last choice, picked through `onExtra`. */
+  showExtras?: readonly PickOption[];
   onExtra?: (key: string) => void;
   /** Something of the view's own also narrows the list (the List's +1 filter) — the dot shows. */
   alsoOn?: boolean;
@@ -57,6 +61,13 @@ export function guestsFilterMenu({
     group: o.group,
     trail: o.on ? { text: '✓', tone: 'ok' as const, label: 'shown now' } : undefined,
   }));
+  // The view's own Show choices sit inside Show, right after its last choice — never a second "Show" at the foot.
+  const lastShow = menu.map((o) => o.group).lastIndexOf('Show');
+  if (showExtras.length) {
+    // One ✓ in Show: a picked view-own choice takes it from the filter's.
+    if (showExtras.some((o) => o.trail)) for (const o of menu) if (o.group === 'Show') o.trail = undefined;
+    menu.splice(lastShow + 1, 0, ...showExtras);
+  }
   return {
     mark,
     tour,

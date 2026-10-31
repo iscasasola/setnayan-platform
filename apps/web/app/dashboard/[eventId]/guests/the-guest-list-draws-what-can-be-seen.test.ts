@@ -65,11 +65,12 @@ test('folded sections draw their true count and no rows; the open one draws its 
   assert.ok(big, 'the open section must exceed the window for the window to be tested');
 });
 
-// 🎚 2026-10-29: the count rides the Guests ▾ segment now (the old "List N") — still every guest.
-test('"Guests N" (the old "List N") is every guest, whatever is drawn', async () => {
+// 🎚 2026-10-29 the count rode the Guests ▾ segment (the old "List N"); 2026-10-30 the segment is gone (ONE top row,
+// owner *"The menu does not work properly"*) — the total is the carousel's Total guests card. Still every guest.
+test('"N Total guests" (the old "List N") is every guest, whatever is drawn', async () => {
   const html = await renderGuestsScreen({ guests });
-  const seg = html.match(/data-guests-seg="guests"[^>]*>[\s\S]*?data-count="gs-seg-guests"[^>]*>([\d,]+)</)?.[1];
-  assert.equal(Number(seg), rosterStats(guests).total);
+  const total = html.match(/data-count="gs-total"[^>]*>([\d,]+)</)?.[1];
+  assert.equal(Number(total?.replace(/,/g, '')), rosterStats(guests).total);
 });
 
 test('a search opens every section with a hit and draws the hits', async () => {

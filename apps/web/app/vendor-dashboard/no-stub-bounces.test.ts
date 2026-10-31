@@ -3,8 +3,8 @@
  * dashboard"*). A link that lands on a forwarding stub (`/vendor-dashboard/proposals` · `/contracts` · `/messages` ·
  * `/verify` — each only `redirect()`s on) costs a second trip and flashes an old address. These doors go STRAIGHT to
  * where the stub sends them (`customerLandingHref`, the anchors table the stubs themselves use), and the slow-reply
- * email's "notification settings" door — `/settings/notifications`, a page that never existed — lands on Settings'
- * Notifications fold.
+ * email's "notification settings" door — `/settings/notifications`, a page that never existed — lands on the Shop ⚙'s
+ * Notifications fold (moved off Settings 2026-10-31).
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -42,9 +42,21 @@ test('each door is the stub’s OWN target', () => {
   assert.match(src('app/vendor-dashboard/verify/page.tsx'), /\/vendor-dashboard\/profile\$\{query \? `\?\$\{query\}` : ''\}#docs/);
 });
 
-test('the slow-reply email lands on Settings › Notifications, a fold that exists', () => {
+test('the slow-reply email lands on the Shop ⚙ › Notifications, a fold that exists', () => {
+  // The push switch MOVED off Settings into the Shop ⚙ (owner 2026-10-31, "Yes follow your recommendation" — DECISION_LOG
+  // "SHOP ⚙ — WHAT A SUPPLIER SETS ONCE"); Settings keeps only the inbox row, so `settings#notifications` opened nothing.
   const email = src('lib/vendor-email-triggers.ts');
   assert.doesNotMatch(email, /\/vendor-dashboard\/settings\/notifications/, 'a door to nowhere');
-  assert.match(email, /\/vendor-dashboard\/settings#notifications/);
-  assert.match(src('app/vendor-dashboard/settings/settings-view.tsx'), /<Fold\s+anchor="notifications"\s+title="Notifications"/);
+  assert.doesNotMatch(email, /\/vendor-dashboard\/settings#notifications/, 'the email still names Settings’ old Notifications fold');
+  assert.match(email, /\/vendor-dashboard\/profile#notifications/, 'the email no longer lands on the Shop ⚙ › Notifications');
+  // …and that address opens it: Shop › Details mounts the ⚙, the ⚙ opens on a hash naming one of its folds, and that fold
+  // is the Notifications one, holding the push switch.
+  assert.match(src('app/vendor-dashboard/profile/page.tsx'), /gearBody=\{shopGearBody\(/, 'Shop › Details does not hand its row the ⚙');
+  assert.match(src('app/vendor-dashboard/shop/_components/shop-gear-sections.ts'), /SHOP_GEAR_SECTIONS = \[[^\]]*'notifications'/, '#notifications is not one of the ⚙’s folds');
+  assert.match(src('app/vendor-dashboard/shop/_components/shop-gear-sections.ts'), /notifications: 'Notifications',/);
+  assert.match(src('app/vendor-dashboard/shop/_components/shop-settings.tsx'), /SHOP_GEAR_SECTIONS as readonly string\[\]\)\.includes\(at\)\) go\(true, at\)/, 'a #notifications arrival no longer opens the ⚙');
+  const rows = src('app/vendor-dashboard/shop/_components/shop-settings-rows.tsx');
+  const fold = rows.slice(rows.indexOf('<Fold anchor="notifications"'));
+  assert.ok(rows.includes('<Fold anchor="notifications"'), 'the Shop ⚙ has no Notifications fold');
+  assert.match(fold.slice(0, fold.indexOf('</Fold>')), /<PushToggle\b/, 'the Notifications fold no longer holds the push switch the email asks for');
 });

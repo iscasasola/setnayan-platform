@@ -1,4 +1,4 @@
-import { PAPIC_UPLOADS_CAMERA_INDEX } from '@/lib/papic-cameras';
+import { isHostCameraSeatIndex } from '@/lib/papic-cameras';
 
 /**
  * "MAY PHOTOS BE ADDED BY HAND?" — the DECISION, with no database attached.
@@ -33,7 +33,7 @@ export function manualUploadsClosedFrom(
   row: { papic_uploads_open?: boolean | null } | null | undefined,
   readFailed: boolean,
 ): boolean {
-  if (seatIndex !== PAPIC_UPLOADS_CAMERA_INDEX) return false;
+  if (!isHostCameraSeatIndex(seatIndex)) return false;
   if (readFailed || !row) return false;
   return (row.papic_uploads_open ?? true) === false;
 }

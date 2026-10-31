@@ -257,13 +257,14 @@ test('6 · a Studio tile never leaves the Maker — every tile opens its editor 
   assert.match(look, /if \(item === 'logo'\) \{\s*return look\.logo \? \(\s*<div[^>]*data-details-look="logo">\s*\{look\.logo\}/, 'the Logo tile no longer draws the logo editor in place');
 });
 
-test('7 · each of the 8 tiles (RSVP left in R1, Wedding March and Seat plan in R4) opens its OWN editor — Look never opens the Logo it was last on', async () => {
+test('7 · each tile (RSVP left in R1, Wedding March and Seat plan in R4, Prints in R8) opens its OWN editor — Look never opens the Logo it was last on', async () => {
   const { STUDIO_TILE_KEYS, STUDIO_TILES, studioTileItem } = await import('./studio-tiles');
+  /* 🖨 No Prints tile (R8): Prints is its own page (`lib/prints-has-its-own-page.test.ts`). */
   const want: Record<string, string> = {
     info: 'names', look: 'background', logo: 'logo', mood: 'mood-board', schedule: 'schedule', story: 'love-story',
-    gifts: 'gifts', prints: STUDIO_TILES.prints.item,
+    gifts: 'gifts',
   };
-  assert.equal(STUDIO_TILE_KEYS.length, 8);
+  assert.deepEqual([...STUDIO_TILE_KEYS].sort(), Object.keys(want).sort(), 'a tile has no editor named here, or one named here is no tile');
   /* Whatever was open before — the worst cases are the other Look-group items. */
   /* ('elements' since the 2026-10-08 restudy — Look's sections are Background · Elements · Music; it was 'colours'.) */
   for (const before of [null, 'logo', 'mood-board', 'hero', 'reveal', 'names', 'elements', 'colours']) {
@@ -281,7 +282,7 @@ test('7 · each of the 8 tiles (RSVP left in R1, Wedding March and Seat plan in 
   /* ⚖ 507 KB: the shell's first load reads `studio-tile-defs` — the eleven keys and the editor each opens,
      never the tiles' words (those are `STUDIO_TILES`, read on the server). One map: the table's `item` is the map's. */
   assert.doesNotMatch(read('lib/studio-tile-defs.ts'), /\b(?:label|short|sub|reads)\s*:/, 'the tiles’ words are back in the module the Maker’s shell loads first');
-  assert.match(shell, /import \{ studioTileItem, type StudioTileKey \} from '@\/lib\/studio-tile-defs';/, 'the shell maps a tile through another module');
+  assert.match(shell, /import \{ isStudioMenuKey, studioTileItem, type StudioTileKey \} from '@\/lib\/studio-tile-defs';/, 'the shell maps a tile through another module');
   assert.doesNotMatch(shell, /import \{[^}]*\} from '@\/lib\/studio-tiles';/, 'the shell imports a VALUE from lib/studio-tiles (types only)');
   for (const k of STUDIO_TILE_KEYS) assert.equal(STUDIO_TILES[k].item, studioTileItem(k, null), `${k}: the table and the map disagree`);
   /* …and the Studio forms' group headings are DRAWN by the server; the workspace (first load) only places them. */

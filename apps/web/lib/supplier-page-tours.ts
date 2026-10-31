@@ -34,8 +34,8 @@ export type SupplierPageTourKey = (typeof SUPPLIER_PAGE_TOURS)[number];
 /** The Today tour goes first; a page tour waits until it is seen, so the two never stack. */
 export const SUPPLIER_PAGE_TOURS_AFTER = 'supplier_spotlight_v1' as const;
 
-/** Shop's three segments and the screen Page opens (`shop-segments.tsx` lights Page on them too). Your collections
- *  has its own tour since 2026-10-25. */
+/** Shop's sections but Gallery (`shop-sections.ts`, v13: Details · Services · Page · Analytics). Gallery — Your
+ *  collections — has its own tour since 2026-10-25. */
 const SHOP_PATHS = ['/vendor-dashboard/shop', '/vendor-dashboard/website', '/vendor-dashboard/profile', '/vendor-dashboard/performance'] as const;
 
 const under = (path: string, root: string) => path === root || path.startsWith(`${root}/`);
@@ -52,6 +52,7 @@ export function supplierPageTourOn(
     const seg = customersSegmentOf(search);
     if (seg === 'dates') return 'vendor_dates_v1';
     if (seg === 'money') return 'vendor_money_v1';
+    // Events (People until 2026-10-30) — the tour keeps its key: it is the "seen" mark a supplier already holds.
     return 'vendor_people_v1';
   }
   if (path === '/vendor-dashboard/on-the-day') return 'vendor_hub_v1';

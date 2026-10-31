@@ -478,7 +478,9 @@ test('the notice reaches the room legend — not just the resolver', () => {
     /import \{[^}]*\bprimaryOnlyNotice\b[^}]*\} from '@\/lib\/reception-scene'/,
     'seating-lab-3d no longer imports the disclosure',
   );
-  const at = src.indexOf('{primaryOnlyNotice(receptionDesign, ROOM_DRAWN_ATTRIBUTES) ?');
+  // The room's legend lives in its ⓘ since the room became view-only (owner 2026-10-30), and it reads the LIVE design
+  // the Accents sheet edits (`design`), so a switched accent re-states what is drawn at once.
+  const at = src.indexOf('{primaryOnlyNotice(design, ROOM_DRAWN_ATTRIBUTES) ?');
   assert.ok(at > 0, 'the legend no longer renders primaryOnlyNotice — a resolver nobody paints is the bug');
   // It must sit in the legend block, i.e. beside the RSVP swatches.
   const legend = src.indexOf('SIDE_COLOR.both');

@@ -34,6 +34,8 @@ import { paymentDoor, type PaymentDoor } from '@/lib/accepted-quote-terms';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { BudgetFileActions } from './_components/budget-file-actions';
 import { YOUR_TEAM_BUDGET_PART, yourTeamBudgetHref } from '@/lib/pillar-parts';
+import { formatPhp } from '@/lib/php';
+import { BookedPartRow } from '../vendors/_components/booked-part-row';
 import { DeniedState } from '@/app/_components/states/denied-state';
 import { resolveBudgetVisibility } from '@/lib/budget-visibility';
 import { Spotlight } from '@/app/_components/spotlight';
@@ -46,7 +48,10 @@ export const metadata = { title: 'Budget' };
 type Props = {
   params: Promise<{ eventId: string }>;
   /** `part=budget` = rendered as Your Team's Budget part (see below). `pay=<line_item_id>` = open that payment's sheet. */
-  searchParams?: Promise<{ part?: string; pay?: string }>;
+  searchParams?: Promise<{
+    part?: string;
+    pay?: string;
+  }>;
 };
 
 // Per-vendor itemization renders only vendors at-or-past 'contracted'.
@@ -432,21 +437,34 @@ export default async function BudgetPage({ params, searchParams }: Props) {
     };
   }
 
+  /* 📤 Share (the budget as a PDF) · the spreadsheet · the calendar file — `BudgetFileActions`. Share and the
+     spreadsheet only when the resolver answered: with no `money` the route can only say "try again". */
+  const fileActions = <BudgetFileActions eventId={eventId} fileSlug={budgetFileSlug} moneyAnswered={money !== null} />;
+  // 📅 Drawn under Suppliers › Booked (owner 2026-10-29): Booked's first row is this page's header — the part's one
+  // dropdown, then its own count ("₱297,500 agreed · ₱120,000 paid"), then Share (the prototype's `.crow`).
+  // `?part=budget` is only ever this page drawn inside Suppliers (its own address redirects there) — so under Booked.
+  const inBooked = (await searchParams)?.part === YOUR_TEAM_BUDGET_PART;
   return (
-    <section className="sn-col max-w-3xl space-y-6">
-      {/* id targets for the Budget docked sub-nav (lib/customer-menu.ts anchor
-          children: Overview · Allocate · Payments). scroll-mt keeps the section
-          title clear of the top edge on smooth-scroll. */}
-      <PageMasthead
-        id="budget-overview"
-        className="scroll-mt-24"
-        title="Budget"
-        actions={
-          /* 📤 Share (the budget as a PDF) · the spreadsheet · the calendar file — `BudgetFileActions`. Share and the
-             spreadsheet only when the resolver answered: with no `money` the route can only say "try again". */
-          <BudgetFileActions eventId={eventId} fileSlug={budgetFileSlug} moneyAnswered={money !== null} />
-        }
-      />
+    <section className={inBooked ? 'space-y-6' : 'sn-col max-w-3xl space-y-6'} data-budget-in-booked={inBooked ? '' : undefined}>
+      {inBooked ? (
+        <div id="budget-overview" className="scroll-mt-24">
+          <BookedPartRow
+            current="budget"
+            line={
+              <span className="tabular-nums">
+                {summaryFigures.agreedPhp === null ? '—' : formatPhp(summaryFigures.agreedPhp)} agreed ·{' '}
+                {summaryFigures.paidPhp === null ? '—' : formatPhp(summaryFigures.paidPhp)} paid
+              </span>
+            }
+            action={fileActions}
+          />
+        </div>
+      ) : (
+        /* id targets for the Budget docked sub-nav (lib/customer-menu.ts anchor
+           children: Overview · Allocate · Payments). scroll-mt keeps the section
+           title clear of the top edge on smooth-scroll. */
+        <PageMasthead id="budget-overview" className="scroll-mt-24" title="Budget" actions={fileActions} />
+      )}
 
       {/* B1 + B2 (2026-10-08) · THE BUDGET SCREEN. The summary as rows — Target ·
        *  Agreed · Paid · Owed two by two, one meter, one "Next" line — then ONE
@@ -479,6 +497,8 @@ export default async function BudgetPage({ params, searchParams }: Props) {
         list={list}
         /* 🔗 `?pay=<line_item_id>` (Home's Budget widget): the Pay sheet of that payment's supplier, open on arrival. */
         initialPayVendorId={payTargetVendor(moneyRead?.lines ?? [], (await searchParams)?.pay, list.suppliers)}
+        // Under Booked, a supplier's row opens the Pay sheet their Team row opens — one plan, one door.
+        supplierOpens={inBooked ? 'plan' : 'ledger'}
         supplierExtras={supplierExtras}
         categories={costCategories}
         targetNote={

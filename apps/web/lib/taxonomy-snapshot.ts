@@ -72,6 +72,13 @@ export type TaxonomySnapshot = {
    * map the column was seeded from.
    */
   tileCoarseCategory: Record<string, VendorCategory>;
+  /**
+   * category id (group OR category) → the ⓘ text the owner wrote on Admin › Categories
+   * (`service_categories.hint_en`, owner 2026-10-31: "add a place for me to write an (i)"). Sparse — only
+   * written, non-blank ids. Empty on the fallback path. Resolve through `categoryInfoText` /
+   * `folderInfoText` (lib/category-hints.ts), never read raw: an unwritten id still has an ⓘ.
+   */
+  categoryHints?: Record<string, string>;
   /** canonical_service → metadata (the TAXONOMY_MAP equivalent). */
   map: Record<string, TaxonomyEntry>;
 };
@@ -90,6 +97,8 @@ export type CategoryRow = {
   marketplace_hidden: boolean;
   /** `vendor_category` enum label, or null. Absent on a pre-③0-c read. */
   coarse_category?: string | null;
+  /** The ⓘ text (`service_categories.hint_en`). Absent on a read made before the column. */
+  hint_en?: string | null;
 };
 
 export type MapRow = {
@@ -133,6 +142,7 @@ export function fallbackSnapshot(): TaxonomySnapshot {
       [...ADMIN_ONLY_TILES].map((t) => [t, true as const]),
     ) as Record<string, true>,
     tileCoarseCategory: { ...BRANCH_TO_VENDOR_CATEGORY },
+    categoryHints: {}, // the constant has no admin-written ⓘ — the fallback chain answers instead
     map: { ...TAXONOMY_MAP },
   };
 }
@@ -152,10 +162,13 @@ export function snapshotFromRows(cats: CategoryRow[], maps: MapRow[]): TaxonomyS
   const categoryIcons: Record<string, string | null> = {};
   const categoryPhotos: Record<string, string | null> = {};
   const hiddenCategories: Record<string, true> = {};
+  const categoryHints: Record<string, string> = {};
   for (const c of cats) {
     categoryIcons[c.id] = c.icon_name ?? null;
     categoryPhotos[c.id] = c.sample_photo_r2_key ?? null;
     if (c.marketplace_hidden) hiddenCategories[c.id] = true;
+    const hint = (c.hint_en ?? '').trim();
+    if (hint) categoryHints[c.id] = hint;
   }
 
   const folderLabel: Record<string, string> = {};
@@ -224,6 +237,7 @@ export function snapshotFromRows(cats: CategoryRow[], maps: MapRow[]): TaxonomyS
     categoryPhotos,
     hiddenCategories,
     tileCoarseCategory,
+    categoryHints,
     map,
   };
 }

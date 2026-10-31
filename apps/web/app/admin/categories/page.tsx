@@ -255,7 +255,7 @@ export default async function CategoriesPage({ searchParams }: { searchParams: P
       if (pt) panel = <PartPanel part={pt} data={mapData} state={state} />;
     } else if (state.open.startsWith('k:') && mapData) {
       const cd = cardById(mapData, state.open.slice(2));
-      if (cd) panel = <CardPanel card={cd} data={mapData} />;
+      if (cd) panel = <CardPanel card={cd} data={mapData} state={state} />;
     }
   } else if (state.list === 'event-types' && cats) {
     const et = vocab.eventTypes.find((e) => e.key === state.open);

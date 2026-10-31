@@ -125,7 +125,7 @@ test('the shared Sheet draws itself on <body> — no caller can leave it inside 
   assert.match(inspector, /return createPortal\(layer \? <div className=\{layer\}>\{sheet\}<\/div> : sheet, portal\)/, 'the guest card sheet is drawn in place');
   assert.match(inspector, /const onClose = useBackCloses\(true, onClosed\)/, "a guest card opened with no list behind it does not close on the phone's Back");
   const admin = read('app/admin/categories/_components/four-level-map.tsx');
-  assert.match(admin, /<Sheet open=\{open\}[^>]*back=\{back\}/, 'Admin › Categories’ drawer is not the shared Sheet with its ‹');
+  assert.match(admin, /<Sheet\s+open=\{open\}[^>]*back=\{back\}/, 'Admin › Categories’ drawer is not the shared Sheet with its ‹');
 });
 
 test('no NEW full-screen dialog is drawn inside the page — the baseline of old ones only shrinks', () => {

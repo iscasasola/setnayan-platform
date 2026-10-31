@@ -3,7 +3,7 @@
  * tools *"must exist on the supplier dashboard as well"* — DECISION_LOG "A SUPPLIER'S BADGES LIVE ON THEIR SHOP
  * PERFORMANCE PAGE"). Two doors, each into a SHIPPED tool, no new pattern:
  *   · 🪑 "Find a guest's seat" — a Hub row for today's booked event → the live console's `SeatScanner` (`#seat-finder`);
- *   · 📣 "Message everyone" — an Events row per event they may announce to → the couple's shipped announcement sheet
+ *   · 📣 "Message everyone" — a Hub › Set up row for the chosen event they may announce to → the couple's shipped announcement sheet
  *     (`?announce=1` opens it), drawn only where the broadcast's own rule and flag would let it send.
  */
 import test from 'node:test';
@@ -22,7 +22,11 @@ test('🪑 the Hub opens the shipped seat finder, anchored', () => {
   assert.equal(seatFinderHref('e1'), '/vendor-dashboard/on-the-day/live/e1#seat-finder');
   const fc = src('app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/floor-command.tsx');
   assert.match(fc, /<div id="seat-finder" className="scroll-mt-24">\s*\{model\.seatFinder\.state === 'ready' \? \(\s*<SeatScanner/);
-  assert.match(src('app/vendor-dashboard/on-the-day/page.tsx'), /\{todaysBooking \? <SeatFinderRow eventId=\{todaysBooking\.eventId\}/);
+  // v13: the Hub's Set up carries it in "The Day" — rendered only for the chosen event's own day (`isToday ?
+  // await onTheDayBody(…)`), never ahead of it.
+  const hub = src('app/vendor-dashboard/on-the-day/page.tsx');
+  assert.match(hub, /\{isToday \? await onTheDayBody\(input, booking\) : null\}/);
+  assert.match(hub.slice(hub.indexOf('async function onTheDayBody(')), /<SeatFinderRow eventId=\{booking\.eventId\}/);
 });
 
 test('📣 Message everyone opens the shipped announcement sheet — only where it can send', () => {
@@ -32,9 +36,10 @@ test('📣 Message everyone opens the shipped announcement sheet — only where 
   assert.match(btn, /useState\(arrivedToAnnounce\)/);
   const rows = src('app/vendor-dashboard/_components/events-you-run-rows.tsx');
   assert.match(rows, /const live = enabled \? events\.filter\(\(e\) => e\.rank !== 2 && e\.canAnnounce\) : \[\];/);
-  const page = src('app/vendor-dashboard/events/page.tsx');
+  // "Events" folded into Hub (owner 2026-10-29): the door is on the Hub's Set up, for the chosen event they run.
+  const page = src('app/vendor-dashboard/on-the-day/page.tsx');
   assert.match(page, /isCoordinatorP3Enabled\(\)\.catch\(\(\) => false\)/, 'the door ignores the feature flag the composer obeys');
-  assert.match(page, /<MessageEveryoneRows events=\{events\} enabled=\{announceOn\} \/>/);
+  assert.match(page, /<MessageEveryoneRows events=\{\[run\]\} enabled=\{input\.announceOn\} \/>/);
 
   // The rule is the broadcast's: a full co-host, or schedule at Edit; a schedule-view seat gets no door.
   const ev = { event_id: 'e1', display_name: 'C & I', event_type: 'wedding', event_date: '2026-12-12', event_end_date: null, event_date_precision: 'day', venue_name: null };

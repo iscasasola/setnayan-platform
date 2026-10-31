@@ -41,7 +41,7 @@ import {
 import { manilaTodayIso } from '@/lib/vendor-cashflow';
 import { readVendorPaydayInstallments } from '@/lib/vendor-payday-read';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { computeEventMoneyPositions, type EventMoneyPosition } from '@/lib/vendor-customers';
+import { buildCustomerCalendarMonth, computeEventMoneyPositions, type EventMoneyPosition } from '@/lib/vendor-customers';
 import {
   customerLaneOf,
   groupByLane,
@@ -55,7 +55,7 @@ import { eventTypeLabel } from '@/lib/demand-radar';
 import { filterBySearch, paginate, parseSearchParam } from '@/lib/paginate';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { formatCount } from '@/lib/format-number';
-import { CustomersRoster, type RosterRow } from './_components/customers-roster';
+import { CustomersRoster, EventsHeading, type RosterRow } from './_components/customers-roster';
 import { readSupplierEventLines } from '@/lib/supplier-event-lines.server';
 import { stageOfLane } from '@/lib/supplier-event-lines';
 import { acceptInquiry, declineInquiry } from '@/lib/chat-actions';
@@ -68,9 +68,18 @@ import {
   type OutsideCode,
 } from './_components/people-more';
 import { CustomersPin, type CustomersDoor } from './_components/customers-pin';
-import { CUSTOMERS_DOORS, type CustomersDoorKey } from './segments';
+import {
+  CUSTOMERS_DOORS,
+  CUSTOMERS_LISTS,
+  CUSTOMERS_LIST_LANES,
+  customersDoorOf,
+  type CustomersDoorKey,
+  type CustomersListKey,
+} from './segments';
 import { CustomersSettings } from './_components/customers-settings';
 import { CustomersSettingsBody } from './_components/customers-settings-body';
+import { CustomersFigures } from './_components/customers-figures';
+import { datesFiguresOf } from './dates-figures';
 import { InquiryOutcomesRollup } from '../messages/_components/inquiry-outcomes-rollup';
 import { fetchVendorOutcomeRollup } from '@/lib/inquiry-outcomes';
 import { eventChatTitle } from '@/lib/event-chat-title';
@@ -85,7 +94,7 @@ import { DatesFolds } from './_components/dates-folds';
 import { BlockDateAdd } from './_components/dates-sheets';
 import { CheckADate } from './_components/check-a-date';
 import { DaySheet, type DaySheetData } from './_components/day-sheet';
-import { CUSTOMER_SEGMENT_HREFS, customersSegmentOf, foldsOf } from './segments';
+import { CUSTOMER_SEGMENT_HREFS, customersSegmentOf, foldsOf, oldPeopleAddressForward } from './segments';
 import { keepParamsFrom } from '../_components/list-pager';
 import { SupplierThumbRow } from '../_components/supplier-thumb-row';
 import { SupplierToast, type SupplierOutcomeTone } from '../_components/supplier-toast';
@@ -111,23 +120,31 @@ import ProposalsSurface from '../proposals/surface';
 export const metadata = { title: 'Customers' };
 
 /**
- * /vendor-dashboard/customers — Customers = People · Dates · Money (S-PR2,
+ * /vendor-dashboard/customers — Customers = Events · Dates · Money (S-PR2,
  * corpus `SUPPLIER_DASHBOARD_REDESIGN_2026-10-08_fable.md` § 3; owner-approved
- * 2026-10-08, layout "B").
+ * 2026-10-08, layout "B"; the first view renamed People → Events 2026-10-30).
+ *
+ * 🗂 CUSTOMERS ARE EVENTS, NOT PEOPLE (owner 2026-10-29: *"a people can have
+ * multiple events? and in one event, can have multiple cohost?"* ⇒ DECISION_LOG
+ * "CUSTOMERS ARE EVENTS, NOT PEOPLE"; re-reported 2026-10-30: *"supplier
+ * dashboard>Customers still show people and not events"*). The first view is
+ * EVENTS: one row per event ("Indalecio & Claire · Wedding · Dec 18"), a host
+ * with two events is two rows, and an opened row lists everyone hosting it.
+ * The old `?seg=people` address forwards here (`oldPeopleAddressForward`).
  *
  * ONE segmented control (the Guests/Suppliers shape, the shared pill track),
  * three views of the same bookings, each with its own address (`?seg=`):
  *
- *   People — who the shop's customers are, waiting first: the roster, the
- *            outside clients and the kept notes (the retired Clients page),
- *            search + Add in the thumb row. The page's FIRST view.
+ *   Events — the shop's customers' events, waiting first: one row per event,
+ *            the outside bookings and the kept notes (the retired Clients
+ *            page), search + Add in the thumb row. The page's FIRST view.
  *   Dates  — the month (`#calendar`), its availability tools and the QR codes.
  *            Redrawn by S-PR3; moved here unchanged.
  *   Money  — Bookings (`#bookings`) and Payday (`#payday`), with Quotes and
  *            Contracts. Redrawn by S-PR4; moved here unchanged.
  *
  * 🔑 EACH SEGMENT READS ONLY WHAT IT DRAWS (owner 2026-10-08: "the fewest
- * requests"). People no longer pays for the month grid's day states, waitlist,
+ * requests"). Events no longer pays for the month grid's day states, waitlist,
  * pools, services and team; Dates no longer pays for the roster.
  *
  * Every number resolves from a real query/RPC. Where a value has no source
@@ -156,7 +173,7 @@ type Props = {
     tab?: string;
     /** Dates › one day (frame 35). */
     day?: string;
-    /** People's door (`asking · talking · booked · done`) a pager link keeps. */
+    /** Events' door (`asking · talking · booked · done`) a pager link keeps. */
     door?: string;
     /** The archived-and-closed chats' page. */
     opage?: string;
@@ -185,7 +202,7 @@ type SP = Record<string, string | string[] | undefined>;
 */
 
 /** An outside client's Add / Remove, said once by the toast and kept as the status line. */
-const PEOPLE_NOTICES: Record<string, { tone: SupplierOutcomeTone; text: string; retry?: boolean }> = {
+const EVENTS_NOTICES: Record<string, { tone: SupplierOutcomeTone; text: string; retry?: boolean }> = {
   client_imported: { tone: 'ok', text: 'Booking from outside added — free. It holds that date on your schedule now.' },
   block_removed: { tone: 'ok', text: 'Booking from outside removed. The date is open again.' },
   bad_dates: { tone: 'bad', text: 'Those dates don’t work. Check the first and last day.', retry: true },
@@ -194,7 +211,7 @@ const PEOPLE_NOTICES: Record<string, { tone: SupplierOutcomeTone; text: string; 
   save_failed: { tone: 'bad', text: 'That did not go through. Nothing changed — please try again.', retry: true },
 };
 
-/* ═══ PEOPLE ═══════════════════════════════════════════════════════════════ */
+/* ═══ EVENTS (People until 2026-10-30 — "Customers are events") ═══════════ */
 
 async function CustomersPipeline({ search }: { search: Awaited<Props['searchParams']> }) {
   const supabase = await createClient();
@@ -525,20 +542,16 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
   };
 
   /*
-    📌 THE FOUR DOORS (owner 2026-10-28, prototype `custRows()`): Asking · Talking · Booked · Done. Each is a filter
-    drawn IN PLACE (`CustomersPin`) — the server draws all four lists and the door shows one. A door is the roster's
-    lanes, read by the ONE derivation, never re-decided here:
-      Asking  = waiting (a question or a booking ask waits on the shop)
-      Talking = holding + talking (holding first — they have gone quiet)
+    📌 EVERY EVENT, THEN THREE COUNTS (approved v13 + DECISION_LOG 2026-10-29 "Customers › Events → Asking · Booked ·
+    Done"; controller call 2026-10-30 — they were four, Talking a door of its own). The list OPENS WITH EVERY EVENT; each
+    count is a filter drawn IN PLACE (`CustomersPin`) — the server draws all four lists and the row shows one. A list is
+    the roster's lanes, read by the ONE derivation, never re-decided here (`CUSTOMERS_LIST_LANES`):
+      All     = every lane, waiting first + the outside bookings
+      Asking  = waiting + holding + talking (not booked yet — the row's badge says which)
       Booked  = booked + the outside bookings
       Done    = finished
   */
-  const DOOR_LANES: Record<CustomersDoorKey, CustomerLane[]> = {
-    asking: ['waiting'],
-    talking: ['holding', 'talking'],
-    booked: ['booked'],
-    done: ['finished'],
-  };
+  const DOOR_LANES = CUSTOMERS_LIST_LANES;
   const laneCounts = Object.fromEntries(CUSTOMER_LANES.map((l) => [l, lanes[l].length])) as Record<CustomerLane, number>;
   const doorCount = (k: CustomersDoorKey) =>
     DOOR_LANES[k].reduce((n, l) => n + laneCounts[l], 0) + (k === 'booked' ? outsideAll.length : 0);
@@ -555,21 +568,9 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
     return n > 0 ? `${formatCount(n)}+` : null;
   };
 
-  const LANE_DOOR: Record<string, CustomersDoorKey> = {
-    waiting: 'asking',
-    holding: 'talking',
-    talking: 'talking',
-    booked: 'booked',
-    outside: 'booked',
-    finished: 'done',
-  };
-  const urlDoor = (CUSTOMERS_DOORS as readonly string[]).includes(search.door ?? '')
-    ? (search.door as CustomersDoorKey)
-    : search.lane && LANE_DOOR[search.lane]
-      ? LANE_DOOR[search.lane]
-      : search.block
-        ? 'booked'
-        : null;
+  // The count the address names (`?door=` — the old `talking` is Asking now —, an older `?lane=`, a new outside
+  // booking's `?block=`), else none: every event.
+  const urlDoor = customersDoorOf(search);
 
   const sp = search as Record<string, string | undefined>;
   const decorate = (r: PipelineCustomer): RosterRow => {
@@ -585,11 +586,12 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
   };
   const noLanes = Object.fromEntries(CUSTOMER_LANES.map((l) => [l, [] as PipelineCustomer[]])) as Record<CustomerLane, PipelineCustomer[]>;
   /*
-    COUNT, NARROW, SEARCH, PAGE — per door, in that order, in the one pure step (`./roster-view.ts`). Only the door the
-    address names (`?door=`) takes `?page=`; the others draw their first page. Each door's pager keeps the door.
+    COUNT, NARROW, SEARCH, PAGE — per list, in that order, in the one pure step (`./roster-view.ts`). Only the list the
+    address names (`?door=`, none = every event) takes `?page=`; the others draw their first page. Each pager keeps its
+    list.
   */
   const views = Object.fromEntries(
-    CUSTOMERS_DOORS.map((k) => {
+    CUSTOMERS_LISTS.map((k) => {
       const subset = { ...noLanes };
       for (const l of DOOR_LANES[k]) subset[l] = lanes[l];
       return [
@@ -597,18 +599,20 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
         rosterView(subset, {
           lane: undefined,
           q: search.q,
-          page: urlDoor === k ? search.page : undefined,
+          page: (urlDoor ?? 'all') === k ? search.page : undefined,
           decorate,
         }),
       ];
     }),
-  ) as Record<CustomersDoorKey, ReturnType<typeof rosterView<RosterRow>>>;
+  ) as Record<CustomersListKey, ReturnType<typeof rosterView<RosterRow>>>;
 
   /*
     QUOTED — which of the TALKING rows on screen already have a quote out with the couple (sent / viewed, not a
     draft). ONE batched read, never one per row. Refused, the rows' quote word is withheld ("couldn't load").
   */
-  const talkingIds = views.talking.paged.items.filter((r) => r.lane === 'talking').map((r) => r.eventId);
+  // The talking rows on screen — under Asking and on the every-event list (each list decorates its own copy of a row).
+  const talkingRows = [...views.asking.paged.items, ...views.all.paged.items].filter((r) => r.lane === 'talking');
+  const talkingIds = [...new Set(talkingRows.map((r) => r.eventId))];
   let quotedRead: 'ok' | 'failed' = 'ok';
   if (talkingIds.length > 0) {
     const { data: quoted, error: quotedError } = await supabase
@@ -622,9 +626,9 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
       logQueryError('VendorCustomersPage.quoted', quotedError, { vendorProfileId }, 'graceful_degrade');
     }
     const quotedIds = new Set(((quoted ?? []) as { event_id: string }[]).map((q) => q.event_id));
-    for (const r of views.talking.paged.items) {
+    for (const r of talkingRows) {
       if (quotedIds.has(r.eventId)) r.quoted = true;
-      else if (quotedRead === 'failed' && r.lane === 'talking') r.note = { text: 'couldn’t load', tone: 'quiet' };
+      else if (quotedRead === 'failed') r.note = { text: 'couldn’t load', tone: 'quiet' };
     }
   }
 
@@ -634,7 +638,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
     batched read (`readSupplierEventLines`: one parallel round + the names). Opening a row reads nothing. Refused → each
     row says its details couldn't load, and its chat still opens.
   */
-  const onScreen = CUSTOMERS_DOORS.flatMap((k) => views[k].paged.items);
+  const onScreen = CUSTOMERS_LISTS.flatMap((k) => views[k].paged.items);
   const linesRead = await readSupplierEventLines(rosterAdmin, {
     vendorProfileId,
     shopServices: (profile.services ?? null) as string[] | null,
@@ -644,31 +648,31 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
   const lines = linesRead ? Object.fromEntries(linesRead) : {};
 
   /*
-    The door a visit opens on: the one the address names (a pager link, an old `?lane=` filter, a new outside
-    booking's `?block=`), else — under a search — the first door with a match, else Asking when anyone is waiting
-    ("the roster opens on who is waiting"), else the first door with anyone in it.
+    🗂 THE LIST A VISIT OPENS ON: the count the address names (a pager link, an old `?lane=` filter, a new outside
+    booking's `?block=`), else NONE — every event, waiting first (approved v13; controller call 2026-10-30: opening on
+    Asking alone made a supplier's booked events look gone). A search narrows every list; the every-event one shows all
+    its matches.
   */
-  const q = (search.q ?? '').trim();
-  const firstHit = q
-    ? CUSTOMERS_DOORS.find((k) => views[k].paged.total > 0 || (k === 'booked' && outsideMatched.length > 0))
-    : undefined;
-  const initialDoor: CustomersDoorKey =
-    urlDoor ?? firstHit ?? (doorCount('asking') > 0 ? 'asking' : (CUSTOMERS_DOORS.find((k) => doorCount(k) > 0) ?? 'asking'));
+  const initialDoor: CustomersDoorKey | null = urlDoor;
+  const allTotal = CUSTOMERS_DOORS.reduce((n, k) => n + doorCount(k), 0);
 
-  const DOOR_EMPTY: Record<CustomersDoorKey, string> = {
-    asking: 'Nobody is waiting on you. When somebody asks about a date, they show up here first.',
-    talking: 'No one you are talking with right now.',
+  const DOOR_EMPTY: Record<CustomersListKey, string> = {
+    all: 'No events yet. When somebody asks about a date, or books you, their event shows up here — the ones waiting on you first.',
+    asking: 'Nobody is asking right now. When somebody asks about a date, their event shows up here first.',
     booked: 'No bookings yet. A booking from outside Setnayan goes here too — add it with Add.',
     done: 'No finished events yet.',
   };
-  const pagerKeep = (k: CustomersDoorKey) =>
-    [keepParamsFrom(sp, ['page', 'notice', 'add', 'door', 'lane', 'block', 'gear']), `door=${k}`].filter(Boolean).join('&');
-  const doorTotal = (k: CustomersDoorKey) => doorCount(k);
+  const pagerKeep = (k: CustomersListKey) =>
+    [keepParamsFrom(sp, ['page', 'notice', 'add', 'door', 'lane', 'block', 'gear']), k === 'all' ? '' : `door=${k}`]
+      .filter(Boolean)
+      .join('&');
+  const doorTotal = (k: CustomersListKey) => (k === 'all' ? allTotal : doorCount(k));
 
   const panels = Object.fromEntries(
-    CUSTOMERS_DOORS.map((k) => {
+    CUSTOMERS_LISTS.map((k) => {
       const v = views[k];
-      const isBooked = k === 'booked';
+      // The outside bookings are booked events: under Booked, and on the every-event list after the Setnayan rows.
+      const isBooked = k === 'booked' || k === 'all';
       const counts = { ...Object.fromEntries(CUSTOMER_LANES.map((l) => [l, 0])), ...Object.fromEntries(DOOR_LANES[k].map((l) => [l, laneCounts[l]])) } as Record<CustomerLane, number>;
       return [
         k,
@@ -688,22 +692,26 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
             emptyLine={doorTotal(k) === 0 ? DOOR_EMPTY[k] : undefined}
             lines={lines}
             answers={{ acceptInquiry, declineInquiry }}
+            list={k === 'all' ? null : k}
           />
           {isBooked ? (
             <OutsideClientRows
               paged={outsidePaged}
               incomplete={outsideIncomplete}
-              keepParams={[keepParamsFrom(sp, ['copage', 'notice', 'add', 'door', 'lane', 'gear']), 'door=booked'].filter(Boolean).join('&')}
+              keepParams={[keepParamsFrom(sp, ['copage', 'notice', 'add', 'door', 'lane', 'gear']), k === 'all' ? '' : 'door=booked'].filter(Boolean).join('&')}
               removeBlock={removeBlock}
               headed={v.paged.items.length > 0}
               nowMs={rosterNowMs}
-              openBlock={search.block ?? null}
+              // A just-added booking opens under Booked (where `?block=` lands); the every-event list keeps it shut and
+              // leaves the page's one `#outside` to Booked.
+              openBlock={k === 'booked' ? (search.block ?? null) : null}
+              anchor={k === 'booked' ? 'outside' : null}
             />
           ) : null}
         </>,
       ];
     }),
-  ) as Record<CustomersDoorKey, ReactNode>;
+  ) as Record<CustomersListKey, ReactNode>;
 
   /*
     ARCHIVED AND CLOSED CHATS — every chat that is not a row above, so retiring the Messages fold leaves no chat
@@ -761,10 +769,9 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
   const keptNotesMeasured = !keptNotesError;
   const keptNotes = (keptNoteRows ?? []) as Array<{ note_id: string; body: string; created_at: string }>;
 
-  const notice = search.notice ? PEOPLE_NOTICES[search.notice] : undefined;
+  const notice = search.notice ? EVENTS_NOTICES[search.notice] : undefined;
   const doors: CustomersDoor[] = [
     { key: 'asking', value: doorValue('asking'), word: 'asking', hot: doorCount('asking') > 0 },
-    { key: 'talking', value: doorValue('talking'), word: 'talking' },
     { key: 'booked', value: doorValue('booked'), word: 'booked' },
     { key: 'done', value: doorValue('done'), word: 'done' },
   ];
@@ -777,23 +784,26 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
           left and the opened event is drawn right (`CustomersPin` → `SupplierOpenScope`); the chats not on the list and
           the kept notes follow the list in the left column. On a phone, one column and a row opens in place. */}
       {/* `#customers` is where the search and every old roster link land; the chats this list opens come back here. */}
-      <div id="customers" className="min-w-0 scroll-mt-24" data-customers-people="">
+      <div id="customers" className="min-w-0 scroll-mt-24" data-customers-events="">
         <ChatOriginMark />
         <CustomersPin
-          seg="people"
+          seg="events"
           hrefs={CUSTOMER_SEGMENT_HREFS}
           doors={doors}
           panels={panels}
           initial={initialDoor}
-          gear={<CustomersSettings body={search.gear === '1' ? <CustomersSettingsBody seg="people" search={search} /> : null} />}
+          gear={<CustomersSettings body={search.gear === '1' ? <CustomersSettingsBody seg="events" search={search} /> : null} />}
           columns={{ rest: 'No events here yet. When somebody asks about a date, or books you, their event shows up here.' }}
           between={
-            paydayIncomplete ? (
-              <p role="status" className="mb-2 text-[13px] text-ink/70">
-                Some payments couldn&rsquo;t load, so your customers&rsquo; money lines say so instead of a figure. Reload
-                the page to try again.
-              </p>
-            ) : null
+            <>
+              <EventsHeading />
+              {paydayIncomplete ? (
+                <p role="status" className="mb-2 text-[13px] text-ink/70">
+                  Some payments couldn&rsquo;t load, so your customers&rsquo; money lines say so instead of a figure.
+                  Reload the page to try again.
+                </p>
+              ) : null}
+            </>
           }
           after={
             <div className="mt-6 space-y-2" data-customers-side="">
@@ -802,7 +812,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
                 <OtherChatsFold
                   paged={othersPage}
                   keepParams={keepParamsFrom(sp, ['opage', 'notice', 'add', 'gear'])}
-                  returnTo="/vendor-dashboard/customers?door=talking"
+                  returnTo="/vendor-dashboard/customers?door=asking"
                   rollup={<InquiryOutcomesRollup rollup={outcomeRollup} />}
                   incomplete={!threadsRead.complete}
                 />
@@ -817,9 +827,9 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
         />
       </div>
 
-      {/* 📱 THE THUMB ROW — the ONE row (owner 2026-10-22): "Search customers" · ＋ Add, each its own glass, no band. */}
+      {/* 📱 THE THUMB ROW — the ONE row (owner 2026-10-22): "Search events" · ＋ Add, each its own glass, no band. */}
       <SupplierThumbRow
-        name="people"
+        name="events"
         label="Customer tools"
         row={
           <ThumbRow
@@ -827,7 +837,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
             field={{
               node: (
                 <SearchBox
-                  placeholder="Search customers"
+                  placeholder="Search events"
                   defaultValue={search.q ?? ''}
                   keep={keepParamsFrom(sp, ['q', 'page', 'copage', 'notice', 'add', 'door', 'lane', 'block', 'gear'])}
                   hash="#customers"
@@ -877,9 +887,27 @@ function moneyNote(
   if (!m || m.allUnresolved || m.installmentCount === 0) {
     return { text: 'No plan yet', tone: 'quiet' };
   }
-  if (m.fullyPaid) return { text: 'paid in full', tone: 'ok' };
-  if (m.balancePhp > 0) return { text: `Balance ${formatPhp(m.balancePhp)}`, tone: 'quiet' };
+  /*
+    💰 PRICE · PAID · NEXT (owner 2026-10-29, DECISION_LOG "SUPPLIER › CUSTOMERS › EVENTS — THE OPENED EVENT ROW SHOWS A
+    FIXED SET OF LINES": "the supplier's own money stays in the row's top line (price · paid · next due)"; v13 draws
+    "₱65,000 · ₱25,000 paid · next ₱20,000 Nov 18"). Every figure is the frozen plan's — the same one Money adds up.
+  */
+  if (m.fullyPaid) return { text: `${formatPhp(m.expectedPhp)} · paid in full`, tone: 'ok' };
+  if (m.balancePhp > 0) {
+    const next = m.nextDue
+      ? `next ${formatPhp(m.nextDue.amountPhp)}${m.nextDue.dueDate ? ` ${shortDay(m.nextDue.dueDate)}` : ''}`
+      : null;
+    return {
+      text: [formatPhp(m.expectedPhp), `${formatPhp(m.collectedPhp)} paid`, next].filter(Boolean).join(' · '),
+      tone: 'quiet',
+    };
+  }
   return { text: 'Settled', tone: 'ok' };
+}
+
+/** "Nov 18" — a due day in the row's own short words (the year is the plan's, and the row already names the event's). */
+function shortDay(iso: string): string {
+  return new Date(`${iso.slice(0, 10)}T00:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
 }
 
 /* ═══ DATES (S-PR3) ═══════════════════════════════════════════════════════ */
@@ -1057,9 +1085,21 @@ async function CustomersDates({ search }: { search: Awaited<Props['searchParams'
       scope: b.poolId === null ? 'every schedule' : (poolLabelOf.get(b.poolId) ?? 'one schedule'),
     }));
   const initialDay = todayIso.startsWith(month) ? todayIso : `${month}-01`;
+  // 📌 The pinned row's figures for the first paint — the SAME count the month makes on every ‹ › (`dates-figures.ts`).
+  const firstFigures = datesFiguresOf(
+    buildCustomerCalendarMonth(pools, bookings, blocks, dayStates, monthWaitlist, month, todayIso, asksByDate(asks)).days,
+    !blocksIncomplete,
+  );
 
   return (
     <>
+      {/* 📌 Dates' pinned row: the view ▾ · booked · asking · days off · ⚙ (v13). The figures follow the month on show. */}
+      <CustomersPin
+        seg="dates"
+        hrefs={CUSTOMER_SEGMENT_HREFS}
+        figures={<CustomersFigures live figures={firstFigures} label="This month" />}
+        gear={<CustomersSettings body={search.gear === '1' ? <CustomersSettingsBody seg="dates" search={search} /> : null} />}
+      />
       {notice ? <SupplierToast text={notice.text} tone={notice.tone} retry={notice.retry} retryHref="/vendor-dashboard/customers?seg=dates" /> : null}
       {/* `id="calendar"` is where every bare /vendor-dashboard/calendar link lands (`customers/anchors.ts`). */}
       <div id="calendar" className="scroll-mt-24">
@@ -1102,29 +1142,31 @@ async function CustomersDates({ search }: { search: Awaited<Props['searchParams'
           agentCategories={agentCategories}
           halls={pools.every((p) => p.isHall) && pools.length > 0}
           dayActions={{ addManualBlock, removeBlock }}
+          closuresComplete={!blocksIncomplete}
+          after={
+            <DatesFolds
+              today={todayIso}
+              month={month}
+              open={openFold}
+              closures={closures}
+              closuresIncomplete={blocksIncomplete}
+              waitlist={{
+                tierCap: waitlistTierCap,
+                unlimited,
+                on: Boolean(settings?.waitlist_enabled) && waitlistTierCap > 0,
+                cap: unlimited ? storedCap : Math.min(storedCap, Math.max(waitlistTierCap, storedCap)),
+                grandfathered: !unlimited && storedCap > waitlistTierCap ? storedCap : 0,
+                settingsMeasured: !settingsRead.error,
+                pickedMeasured: !pickedRead.error,
+                dates: upcomingWaitlist.map((w) => ({ ...w, picked: pickedByDate.get(w.requestedDate) ?? 0 })),
+              }}
+              qrHref="/vendor-dashboard/invite"
+              blockAdd={<BlockDateAdd pools={pools.map((p) => ({ poolId: p.poolId, label: p.label }))} action={addManualBlock} today={todayIso} month={month} />}
+              actions={DATES_ACTIONS}
+            />
+          }
         />
       </div>
-
-      <DatesFolds
-        today={todayIso}
-        month={month}
-        open={openFold}
-        closures={closures}
-        closuresIncomplete={blocksIncomplete}
-        waitlist={{
-          tierCap: waitlistTierCap,
-          unlimited,
-          on: Boolean(settings?.waitlist_enabled) && waitlistTierCap > 0,
-          cap: unlimited ? storedCap : Math.min(storedCap, Math.max(waitlistTierCap, storedCap)),
-          grandfathered: !unlimited && storedCap > waitlistTierCap ? storedCap : 0,
-          settingsMeasured: !settingsRead.error,
-          pickedMeasured: !pickedRead.error,
-          dates: upcomingWaitlist.map((w) => ({ ...w, picked: pickedByDate.get(w.requestedDate) ?? 0 })),
-        }}
-        qrHref="/vendor-dashboard/invite"
-        blockAdd={<BlockDateAdd pools={pools.map((p) => ({ poolId: p.poolId, label: p.label }))} action={addManualBlock} today={todayIso} month={month} />}
-        actions={DATES_ACTIONS}
-      />
 
       {/* 📱 THE THUMB ROW (prototype thumb(), owner call 1 2026-10-14): Check a date · Add (brand — a booking from
           outside holds a date). "Mark days not available" lives in its fold and on the day. */}
@@ -1374,7 +1416,7 @@ async function CustomersDay({ day, search }: { day: string; search: Awaited<Prop
 
 // Quotes and Contracts fold under Money (papers about a deal; S-PR5 moves them onto the customer card).
 // 🗑 MESSAGES IS NO LONGER A FOLD (owner 2026-10-28: "the event list IS the messages" — one row per event, each opening
-// its chat full screen). What only it held lives on People now: archived and closed chats + the won/lost roll-up in
+// its chat full screen). What only it held lives on Events now: archived and closed chats + the won/lost roll-up in
 // "Archived and closed chats", and Archive itself in each chat's ⋮ menu.
 // Dates has no accordion: its tools are its own folds (S-PR3, `dates-folds.tsx`).
 const CUSTOMER_SECTIONS: AccordionSection[] = [
@@ -1417,6 +1459,9 @@ async function CustomerSectionBody({ open, sp }: { open: string; sp: SP }) {
 export default async function VendorCustomersHub({ searchParams }: Props) {
   const search = await searchParams;
   const sp = search as SP;
+  // 🔀 The old `?seg=people` (the first view's address until 2026-10-30) lands on Events — every other param kept.
+  const forward = oldPeopleAddressForward(sp);
+  if (forward) redirect(forward);
   const seg = customersSegmentOf(sp);
   const openRaw =
     (typeof sp.open === 'string' && sp.open) ||
@@ -1432,22 +1477,16 @@ export default async function VendorCustomersHub({ searchParams }: Props) {
     <>
       <section className="min-h-full">
         <div
-          // People uses the whole width from a tablet up (owner 2026-10-29, "maximize the screen use"); Money keeps its
+          // Events uses the whole width from a tablet up (owner 2026-10-29, "maximize the screen use"); Money keeps its
           // reading measure, Dates its month's.
-          className={`mx-auto w-full max-w-3xl space-y-4 px-4 pb-6 pt-4 sm:px-6 lg:px-8 ${seg === 'money' ? 'tab:max-w-3xl' : seg === 'people' ? 'tab:max-w-none' : 'tab:max-w-5xl'}`}
+          className={`mx-auto w-full max-w-3xl space-y-4 px-4 pb-6 pt-4 sm:px-6 lg:px-8 ${seg === 'money' ? 'tab:max-w-3xl' : seg === 'events' ? 'tab:max-w-none' : 'tab:max-w-5xl'}`}
           data-customers-seg-open={seg}
         >
           <h1 className="sr-only">Customers</h1>
-          {/* 📌 People draws its own pinned row (with the four counts); Dates and Money draw the same row — the view ▾
-              and the ⚙ — over their own figures. One day (Dates › a day) has its own back-headed sheet instead. */}
-          {seg === 'people' || (seg === 'dates' && search.day) ? null : (
-            <CustomersPin
-              seg={seg}
-              hrefs={CUSTOMER_SEGMENT_HREFS}
-              gear={<CustomersSettings body={search.gear === '1' ? <CustomersSettingsBody seg={seg} search={search} /> : null} />}
-            />
-          )}
-          {seg === 'people' ? (
+          {/* 📌 Each view draws its own pinned row, over what it read: Events with its three counts; Dates with the
+              month's figures (`CustomersDates`) and Money with Received · To come in · Overdue (`CustomersMoney`) — v13,
+              `customers-figures.tsx`. One day (Dates › a day) has its own back-headed sheet instead. */}
+          {seg === 'events' ? (
             <div className="pb-24">
               <CustomersPipeline search={search} />
             </div>

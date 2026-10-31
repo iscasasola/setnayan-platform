@@ -37,6 +37,7 @@ events.photo_delivery_folder_name	# first run 2026-10-02 · host app · a screen
 events.photo_delivery_provider	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
 events.photo_delivery_sync_mode	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
 events.photo_moments_config	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
+events.pool_gallery_open	# first run 2026-10-02 · internal (dev, prototypes) · a screen saves an event answer that Event Details neither shows nor edits
 events.reception_design	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
 events.rsvp_backdrop	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
 events.rsvp_backdrop.intensity	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits

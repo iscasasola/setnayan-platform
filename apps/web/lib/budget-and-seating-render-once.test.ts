@@ -153,7 +153,9 @@ test('3 · the plan listens live only once the lock has said view-only — on ev
       const rel = path.relative(WEB, abs);
       callers.push(rel);
       const gate = n.arguments[1];
-      if (!gate || !isCall(gate, 'lockSaysViewOnly')) bad.push(`${rel}: useSeatingLiveRefresh(…, ${gate?.getText(sf) ?? '—'})`);
+      // A surface with no lock at all (the view-only 3D room) is view-only by construction — it may listen with a literal `true`.
+      const viewOnlyByConstruction = gate?.kind === ts.SyntaxKind.TrueKeyword && !src.includes('useSeatingLock(');
+      if (!viewOnlyByConstruction && (!gate || !isCall(gate, 'lockSaysViewOnly'))) bad.push(`${rel}: useSeatingLiveRefresh(…, ${gate?.getText(sf) ?? '—'})`);
     });
   }
   assert.ok(callers.length >= 2, `only ${callers.length} live-refresh callers found (the 2D editor and the 3D plan) — the walk is blind`);

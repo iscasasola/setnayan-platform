@@ -62,7 +62,10 @@ if (routeCount < 300 || destinations < 400 || blocks < 1000) {
 
 writeFileSync(
   OUT,
-  JSON.stringify({ generatedFromRef: ref, routeCount, destinations, actions, blocks, routes }, null, 2) + '\n',
+  /* 🔀 ONLY the routes are written. The commit ref and the four totals used to sit at the top of the file — every
+     PR rewrote those same lines, so ANY two open PRs conflicted here (30 Oct 2026: eight PRs at once). The totals are
+     derived from `routes` wherever they are needed; the ref is printed below, never stored. */
+  JSON.stringify({ routes }, null, 2) + '\n',
 );
 console.log(
   `wrote port-control-baseline.json — ${routeCount} routes · ${destinations} destinations · ` +

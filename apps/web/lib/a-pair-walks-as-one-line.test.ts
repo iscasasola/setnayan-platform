@@ -330,8 +330,8 @@ test('🔑 there is a LABELLED way in — the march is an item of Details › St
   // land there (lib/r4-seats-march-forwards.test.ts holds every door); the Guest list's view row offers it.
   assert.equal(makerItemMovedToViewHref('E', 'march'), '/dashboard/E/guests?gview=march');
   assert.match(stripComments(PAGE), /if \(search\.gview === 'walk' \|\| search\.view === 'march'\) \{\s*redirect\(guestsViewHref\(eventId, 'march'\)\);/);
-  // 🎚 R4 slice 2: the row is Guests ▾ · Seats ▾ · March — March is one of its three segments (lib/guests-views.ts).
-  assert.match(stripComments(SWITCHER), /\{tops\.map\(\(t\) => seg\(t\)\)\}/);
+  // 🎚 2026-10-30: the row is ONE ▾ on every view — March is one of its choices where the event has it (lib/guests-views.ts).
+  assert.match(stripComments(SWITCHER), /\.\.\.\(tops\.includes\('march'\) \? \[\{ key: 'march'/);
   assert.match(stripComments(SWITCHER), /const tops = GUESTS_TOPS\.filter\(\(t\) => t === 'guests' \|\| guestsViews\.includes\(t\)\);/);
 });
 

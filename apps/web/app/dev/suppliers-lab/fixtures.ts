@@ -43,7 +43,7 @@ export const LAB_ENRICHMENT = new Map<string, VendorEnrichment>([
   ['v-lumina', { rating: 4.9, review_count: 52, is_verified: true, thread_id: 't-lumina', inquiry_status: 'accepted' }],
 ]);
 
-const card = (c: Partial<BenchServiceCard> & Pick<BenchServiceCard, 'name'>): BenchServiceCard => ({
+export const card = (c: Partial<BenchServiceCard> & Pick<BenchServiceCard, 'name'>): BenchServiceCard => ({
   priceText: null,
   discountBadge: null,
   includesLine: null,
@@ -67,7 +67,7 @@ export const LAB_STANDINGS: Record<string, SupplierStanding> = {
   'v-bituin': { segments: [{ kind: 'quiet', text: 'No reply · 3 days' }], replied: false, needsYou: false },
 };
 
-const market = (r: Pick<CategoryVendorResult, 'vendorProfileId' | 'name'> & Partial<CategoryVendorResult>): CategoryVendorResult =>
+export const market = (r: Pick<CategoryVendorResult, 'vendorProfileId' | 'name'> & Partial<CategoryVendorResult>): CategoryVendorResult =>
   ({
     nameAnonymized: false,
     city: 'Quezon City',

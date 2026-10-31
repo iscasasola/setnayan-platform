@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { isUuid } from '@/lib/is-uuid';
+import { printsPageHref } from '@/lib/prints-page-href';
 import { readGuestCard, type GuestCardRead } from './_components/guest-card-read';
 
 /**
@@ -33,7 +34,8 @@ const RETURN_TO = {
   /* 🗂 R4: the march and the seat plan are Guests' views — a failed save lands back on the view it was pressed on. */
   march: (eventId: string) => `/dashboard/${eventId}/guests?gview=march`,
   seats: (eventId: string) => `/dashboard/${eventId}/guests?gview=seats`,
-  invitation: (eventId: string) => `/dashboard/${eventId}/launch?tool=details&item=invitation`,
+  /* 🖨 The invitation's parents are a print's — its return is the Prints page (R8, 2026-10-27 "PRINTS LEAVES STUDIO"). */
+  invitation: (eventId: string) => printsPageHref(eventId, 'invitation'),
 } as const;
 
 const COULD_NOT_OPEN = 'Their guest card couldn’t open just now — try again.';

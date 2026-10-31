@@ -571,3 +571,54 @@ export async function setPartHiddenCore(admin: AdminDb, actorId: string, slotKey
   await audit(admin, { action: 'taxonomy.set_part_hidden', target_table: 'inspiration_parts', target_id: slotKey, before_json: { hidden: b.hidden }, after_json: { hidden }, actor_user_id: actorId });
   return { ok: true, message: hidden ? 'Hidden from couples — its photos stay.' : 'Shown to couples again.' };
 }
+
+// ── One per event (owner 2026-10-29) ────────────────────────────────────────────
+
+/**
+ * "One per event" on a category — a couple may book only ONE supplier of it per event. The ONE source the app
+ * (`lib/one-per-event.ts`) and the database lock guard both read (migration 20271296971721): flipping it re-keys the
+ * bookings in the same statement (trigger `service_categories_one_per_event_follow`). Turning it ON where an event
+ * already holds two confirmed is REFUSED by the lock index (23505) — said here in words, nothing half-changed.
+ */
+export async function setOnePerEventCore(admin: AdminDb, actorId: string, categoryId: string, on: boolean): Promise<WriteResult> {
+  const { data: before } = await admin.from('service_categories').select('id, tier, label_en, one_per_event, coarse_category').eq('id', categoryId).maybeSingle();
+  const b = before as { id: string; tier: number; label_en: string; one_per_event: boolean; coarse_category: string | null } | null;
+  if (!b || b.tier !== 2) return { ok: false, error: 'That category no longer exists.' };
+  if (b.one_per_event === on) return { ok: true, message: 'No change.' };
+  const { error } = await admin.from('service_categories').update({ one_per_event: on, updated_at: now() }).eq('id', categoryId);
+  if (error) {
+    if ((error as { code?: string }).code === '23505' || /hard_single_lock_uniq|one_pending_lock_request_per_group/.test(error.message)) {
+      return { ok: false, error: `An event already has two ${b.label_en} suppliers booked — one per event can’t be turned on until one of them is released.` };
+    }
+    return { ok: false, error: error.message };
+  }
+  await audit(admin, { action: 'taxonomy.set_one_per_event', target_table: 'service_categories', target_id: categoryId, before_json: { one_per_event: b.one_per_event }, after_json: { one_per_event: on }, actor_user_id: actorId });
+  if (on && !b.coarse_category) {
+    return { ok: true, message: 'One per event — on. It bites once its shops are filed (Files shops as).' };
+  }
+  return { ok: true, message: on ? 'One per event — on.' : 'One per event — off: couples may book more than one.' };
+}
+
+// ── ⓘ text (owner 2026-10-31) ───────────────────────────────────────────────────
+
+/** The longest ⓘ the column takes (`service_categories_hint_en_length`, migration 20271299134245). */
+export const INFO_TEXT_MAX = 280;
+
+/**
+ * "ⓘ text" on a GROUP or a CATEGORY — the line its ⓘ shows on the Suppliers page (owner 2026-10-31: "This means you
+ * need to add a place for me to write an (i)"). `service_categories.hint_en`; blank clears it, and the ⓘ then answers
+ * from the fallback chain (`categoryInfoText` / `folderInfoText`) — it is never hidden.
+ */
+export async function setInfoTextCore(admin: AdminDb, actorId: string, id: string, raw: string): Promise<WriteResult> {
+  const text = String(raw ?? '').replace(/\s+/g, ' ').trim();
+  if (text.length > INFO_TEXT_MAX) return { ok: false, error: `Keep it to ${INFO_TEXT_MAX} characters — it is one line in a popup.` };
+  const next = text === '' ? null : text;
+  const { data: before } = await admin.from('service_categories').select('id, tier, hint_en').eq('id', id).maybeSingle();
+  const b = before as { id: string; tier: number; hint_en: string | null } | null;
+  if (!b || (b.tier !== 1 && b.tier !== 2)) return { ok: false, error: 'That group or category no longer exists.' };
+  if ((b.hint_en ?? null) === next) return { ok: true, message: 'No change.' };
+  const { error } = await admin.from('service_categories').update({ hint_en: next, updated_at: now() }).eq('id', id);
+  if (error) return { ok: false, error: error.message };
+  await audit(admin, { action: 'taxonomy.set_info_text', target_table: 'service_categories', target_id: id, before_json: { hint_en: b.hint_en }, after_json: { hint_en: next }, actor_user_id: actorId });
+  return { ok: true, message: next ? 'Saved — couples see it in the ⓘ.' : 'Cleared — the ⓘ shows the default line.' };
+}

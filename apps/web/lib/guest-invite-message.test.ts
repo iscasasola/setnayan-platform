@@ -34,14 +34,29 @@ const BASE = {
   now: NOW,
 };
 
-test('🔑 the owner’s message: name, the couple’s wedding, the date, their own link, the Event Hub', () => {
+test('🔑 the approved message (2026-10-30): name, the couple’s wedding, the date, their own link, the Event Hub, signed', () => {
   const msg = buildGuestInviteMessage(BASE)!;
-  assert.match(msg, /^Hi Maria! 💌\n\nWith joyful hearts, we invite you to celebrate Indalecio & Claire’s wedding with us on Friday, December 18\./);
-  // 💌 signed by the couple (owner 2026-10-29)
-  assert.match(msg, /With love,\nIndalecio & Claire$/);
-  assert.match(msg, /it only takes a minute:\nhttps:\/\/www\.setnayan\.com\/cale-ice\?invite=abc123\n/);
-  assert.match(msg, /opens our Event Hub anytime, and it’s your pass at the door/);
-  assert.match(msg, /This link is just for you, so please don’t forward it\./);
+  assert.equal(
+    msg,
+    [
+      'Hi Maria! 💌',
+      '',
+      'You’re invited to Indalecio & Claire’s wedding on Friday, December 18, and it simply wouldn’t be the same without you.',
+      '',
+      'Your invitation is ready. Tap to open it and let us know if you’re coming — it only takes a minute:',
+      'https://www.setnayan.com/cale-ice?invite=abc123',
+      '',
+      'Inside is your ticket: it opens our Event Hub anytime, and it’s your pass at the door.',
+      '',
+      'This link was made just for you, so please keep it to yourself.',
+      '',
+      'We can’t wait to see you there. ✨',
+      '',
+      'Indalecio & Claire',
+    ].join('\n'),
+  );
+  // The hosts' wording no longer carries the other website's phrases.
+  assert.doesNotMatch(msg, /With joyful hearts|With love,|don’t forward/);
 });
 
 test('🔑 the guest’s OWN link appears verbatim, exactly once, on its own line', () => {
@@ -72,10 +87,14 @@ test('🔒 no message ever says "website" or "site" — it is an Event Hub (owne
 test('the ticket line is true in both paths — "(attached)" only when the share sheet attaches it', () => {
   // Owner 2026-09-30: "we do not copy the QR Code, we copy the Digital Ticket".
   const attached = buildGuestInviteMessage({ ...BASE, ticketAttached: true })!;
-  assert.match(attached, /Here’s your ticket for the event \(attached\) — it opens our Event Hub anytime, and it’s your pass at the door\./);
+  assert.match(attached, /Your ticket is attached: it opens our Event Hub anytime, and it’s your pass at the door\./);
   const copied = buildGuestInviteMessage(BASE)!;
   assert.doesNotMatch(copied, /attached/);
-  assert.match(copied, /Your ticket for the event is on that page too/);
+  assert.match(copied, /Inside is your ticket: it opens our Event Hub anytime/);
+  // The guest voice and the solemn wording keep their own ticket line.
+  const passed = buildGuestInviteMessage({ ...BASE, voice: 'guest', ticketAttached: true })!;
+  assert.match(passed, /Here’s your ticket for the event \(attached\) — it opens the Event Hub anytime/);
+  assert.match(buildGuestInviteMessage({ ...BASE, voice: 'guest' })!, /Your ticket for the event is on that page too/);
   for (const m of [attached, copied]) assert.doesNotMatch(m, /QR/, 'the guest is handed the ticket, not a QR');
 });
 
@@ -109,7 +128,7 @@ test('a wake is written in the solemn register — no "!", no 💌, no "invited"
 test('a missing, partial or unreadable date elides — never "on ." or "Invalid Date"', () => {
   for (const eventDate of [null, '', 'not-a-date', '2026-02-31']) {
     const msg = buildGuestInviteMessage({ ...BASE, eventDate })!;
-    assert.match(msg, /celebrate Indalecio & Claire’s wedding with us\./, String(eventDate));
+    assert.match(msg, /invited to Indalecio & Claire’s wedding, and it simply/, String(eventDate));
     assert.doesNotMatch(msg, /Invalid Date|null|undefined| on \./);
   }
   // A date set only to the month is not written as a day.
@@ -130,7 +149,7 @@ test('a nameless guest still gets a sendable message — "Hi!", never "Hi !"', (
 test('🛡 ESCAPING: a value is printed as typed and never expands — one pass, function replacer', () => {
   const msg = buildGuestInviteMessage({ ...BASE, firstName: '{link} $& $1', hostsName: '{date} & {name}' })!;
   assert.match(msg, /^Hi \{link\} \$& \$1! /);
-  assert.match(msg, /celebrate \{date\} & \{name\}’s wedding/);
+  assert.match(msg, /invited to \{date\} & \{name\}’s wedding/);
   assert.equal(msg.split(BASE.inviteUrl).length - 1, 1, 'a name that says {link} pasted the link again');
 });
 
@@ -169,10 +188,14 @@ test('the group-chat message: reply with your full name, and we’ll confirm you
   assert.equal(msg.split(url).length - 1, 1);
 });
 
-test('💌 no names to sign with → no bare "With love," (owner 2026-10-29 wording)', () => {
+test('💌 no names to sign with → the signature line goes whole, never a bare "With love," or a trailing blank', () => {
   const msg = buildGuestInviteMessage({ firstName: 'Maria', inviteUrl: 'https://www.setnayan.com/x?invite=1', eventWord: 'wedding' });
   assert.ok(msg);
   assert.doesNotMatch(msg!, /With love|\{hosts\}/);
+  assert.match(msg!, /We can’t wait to see you there\. ✨$/, 'the message ends on a blank line where the names would be');
+  // A couple's OWN wording from before 2026-10-30 ("With love,\n{hosts}") still drops its sign-off whole.
+  const own = buildGuestInviteMessage({ firstName: 'Maria', inviteUrl: 'https://x.test/?invite=1', template: 'Hi {name}!\n{link}\n\nWith love,\n{hosts}' });
+  assert.equal(own, 'Hi Maria!\nhttps://x.test/?invite=1');
 });
 
 test('💌 a guest passing their invite on keeps the plain wording — never signs as the couple', () => {

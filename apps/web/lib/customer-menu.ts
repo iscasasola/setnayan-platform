@@ -340,7 +340,10 @@ export function buildEventMenuSections(
   const rows = new Map<string, EventMenuRow>();
   const put = (r: EventMenuRow) => rows.set(r.key, r);
 
-  // The event's name row (Event settings) — drawn AS the name, not as a row.
+  // The event's own row (`personalization`). NO SURFACE DRAWS IT AS A ROW: the rail drops the `event` group (owner
+  // 2026-10-23, `one-door-to-event-details.test.ts`), and the ☰'s event MARK is the door — to Home's ⚙ Event Settings
+  // (owner 2026-10-30, *"that shoud be inside home settings"*), not this href. It stays in the tree so /details still
+  // resolves to a key (it lights nothing, since nothing draws it).
   put({ key: 'personalization', label: 'Event Details', href: `${base}/details`, icon: 'details' });
 
   // HOME — the event's front page. Sentinel matchPrefix: every other event

@@ -14,6 +14,8 @@
  *   ?in=c:<category>     stand on a category   · &at=s:<service> select a service (the Finder shift)
  *   ?open=g:|c:|s:|p:|k:  open a drawer         · &q=… / &show=needs|parts|nosvc-cat|nosvc-part|hidden
  *   &cards=fixture        three LAB FIXTURE cards on Function Hall (titled "(lab) …"), for the Cards column
+ *   &one=on|off           LAB FIXTURE: draw every category's One per event switch at that value — before migration
+ *                         20271296971721 reaches the database the switch is unreadable (the panel says so)
  */
 import { notFound } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -69,6 +71,11 @@ export default async function CategoriesLabPage({ searchParams }: { searchParams
     data = { ...data, cards, cardsRead: true, services: data.services.map((s) => ({ ...s, cards: cards.filter((c) => c.service === s.key).length })) };
   }
 
+  const oneFixture = first(sp.one);
+  if (oneFixture === 'on' || oneFixture === 'off') {
+    for (const c of cats.categories) if (c.onePerEvent === null) c.onePerEvent = oneFixture === 'on';
+  }
+
   const panelData: CategoriesPanelData = {
     groups: cats.groups,
     categories: cats.categories,
@@ -100,7 +107,7 @@ export default async function CategoriesLabPage({ searchParams }: { searchParams
     if (p) panel = <PartPanel part={p} data={data} state={state} />;
   } else if (state.open.startsWith('k:')) {
     const cd = cardById(data, state.open.slice(2));
-    if (cd) panel = <CardPanel card={cd} data={data} />;
+    if (cd) panel = <CardPanel card={cd} data={data} state={state} />;
   }
 
   return (
@@ -110,6 +117,7 @@ export default async function CategoriesLabPage({ searchParams }: { searchParams
         Dev lab · the real map on {cats.tax.source === 'db' ? 'the live tree (read-only)' : 'the code copy'}
         {seeded ? ' · parts from the seed (signed out, the parts read is refused)' : ''}
         {first(sp.cards) === 'fixture' ? ' · three “(lab)” fixture cards on Function Hall' : ''}
+        {first(sp.one) ? ` · One per event drawn ${first(sp.one)} (lab fixture)` : ''}
       </p>
       <FourLevelMap
         data={data}

@@ -94,6 +94,29 @@ export function sentToast(couple: string): string {
   return `Sent to ${couple}.`;
 }
 
+/**
+ * 🔗🖼 WHAT HAPPENED TO THE POOL COPY of a sent suggestion (owner 2026-10-30, "CONNECTED FOUR WAYS" item 4). The
+ * suggestion reached the couple either way; this is only the library half.
+ *   pending      — filed for Setnayan's review (joins the inspiration pool once approved)
+ *   not_offered  — the rights tick was left off, so it was not offered
+ *   skipped      — the library refused it, in its own words (an album photo · the quota · no library access …)
+ */
+export type SuggestionPoolResult = { status: 'pending' } | { status: 'not_offered' } | { status: 'skipped'; message: string };
+
+/** The supplier's one status line under the board for the pool half — null when there is nothing to say. */
+export function poolLine(pool: SuggestionPoolResult | undefined): string | null {
+  if (!pool) return null;
+  if (pool.status === 'pending') return 'Also sent to Setnayan for the inspiration library — it shows there once approved.';
+  if (pool.status === 'skipped') return `Not added to the inspiration library: ${pool.message}`;
+  return null;
+}
+
+/**
+ * The words in front of the rights tick on the suggestion sheet. The tick is ALSO the offer to the library and is never
+ * pre-ticked; the warranty sentence after it is `RIGHTS_WARRANTY_TEXT`, verbatim (its version is what the row records).
+ */
+export const POOL_TICK_LEAD = 'Also offer it to the inspiration library.';
+
 /** The supplier's line under the couple's name (prototype frame 1): "You are their florist — you can add photos to Flowers." */
 export function supplierRoleLine(trade: string | null, groups: readonly string[]): string {
   const where = groups.length === 0 ? null : groups.length === 1 ? groups[0]! : `${groups.slice(0, -1).join(', ')} and ${groups[groups.length - 1]!}`;

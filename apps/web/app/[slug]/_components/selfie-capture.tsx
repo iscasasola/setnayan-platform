@@ -6,11 +6,13 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Loader2, X } from 'lucide-react';
 import type { FaceGateReason, FaceGateResult } from '@/lib/face-gate';
 import type { PapicFaceMode } from '@/lib/papic-face-mode';
+import { isFaceModelConfigured } from '@/lib/face-embed-core';
 import {
   FACE_STEP_SUB,
   FACE_STEP_TICK,
   FACE_STEP_TICK_HINT,
   FACE_STEP_TITLE,
+  faceStepFailureWords,
 } from '@/lib/face-enroll-refusal';
 import { FaceReceiptCard } from './face-receipt-card';
 import { useModalA11y } from '@/lib/use-modal-a11y';
@@ -42,6 +44,9 @@ import { useCameraThatComesBack } from '@/lib/use-camera-that-comes-back';
  * 🔒 THE EMBEDDER RUNS ONLY ON A mode_a EVENT (One-Pool spec §3.4); the server
  * nulls any vector off mode_a regardless — this is the first line.
  */
+
+/** ⚡ The long side of the photo the press works on and uploads (owner 2026-10-30, "almost 2 minutes"). */
+export const SELFIE_MAX_SIDE = 720;
 
 /**
  * MAY THE CAMERA BE ASKED FOR? Only once the guest has ticked "I'm 18+ and
@@ -172,6 +177,15 @@ export function SelfieCapture({
     holdWhile: busy || saving,
   });
 
+  // ⚡ THE MODELS LOAD WHILE THE GUEST READS (owner 2026-10-30: *"registering the selfie is taking too long … almost 2
+  // minutes"*). They used to start downloading only on the press — the face detector, and on a mode_a event face-api.js
+  // with ~12 MB of weights — so the guest stood in the oval while they arrived. Fetching a model reads no face; the
+  // photo is only taken, checked and read on the press, after the tick, exactly as before.
+  useEffect(() => {
+    void import('@/lib/face-gate').then((m) => m.warmFaceGate()).catch(() => {});
+    if (faceMode === 'mode_a') void import('@/lib/face-embed').then((m) => m.warmFaceEmbed()).catch(() => {});
+  }, [faceMode]);
+
   // The frame → the quality gate → the descriptor (mode_a only) → the upload
   // to this guest's own folder → the parent saves. Taken AND saved in one go.
   const takeSelfie = useCallback(async () => {
@@ -184,8 +198,12 @@ export function SelfieCapture({
     setBusy(true);
     try {
       const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      // ⚡ The working copy is at most SELFIE_MAX_SIDE on its long side: the checks and the face reading run on it in
+      // a fraction of the time a full 1280 frame takes on a phone, and the upload is a fraction of the size. A face
+      // filling the oval is still hundreds of pixels across — the recognition net reads it at 150.
+      const scale = Math.min(1, SELFIE_MAX_SIDE / Math.max(video.videoWidth, video.videoHeight));
+      canvas.width = Math.round(video.videoWidth * scale);
+      canvas.height = Math.round(video.videoHeight * scale);
       const ctx = canvas.getContext('2d');
       if (!ctx) throw new Error('canvas');
       // Mirror, so the saved photo matches the preview the guest just saw.
@@ -208,16 +226,41 @@ export function SelfieCapture({
 
       let vector: number[] | null = null;
       if (faceMode === 'mode_a') {
+        // The reader itself did not arrive (script or weights failed to download) — not the guest's face.
+        let unloaded = false;
         try {
-          const { embedSingleFace } = await import('@/lib/face-embed');
-          const r = await embedSingleFace(canvas);
+          const { embedSingleFace, faceEmbedDidNotLoad } = await import('@/lib/face-embed');
+          let r = await embedSingleFace(canvas);
+          unloaded = faceEmbedDidNotLoad();
+          // Not found on the small copy (a face held further off) → read the camera's full frame once more. Not when
+          // the reader never loaded: a second read would only wait for the same download again.
+          if (faceMode === 'mode_a' && !r && scale < 1 && !unloaded) {
+            const full = document.createElement('canvas');
+            full.width = video.videoWidth;
+            full.height = video.videoHeight;
+            const fctx = full.getContext('2d');
+            if (fctx) {
+              fctx.translate(full.width, 0);
+              fctx.scale(-1, 1);
+              fctx.drawImage(video, 0, 0, full.width, full.height);
+              r = await embedSingleFace(full);
+            }
+          }
           vector = r ? r.vector : null;
         } catch {
           vector = null;
+          unloaded = true;
+        }
+        // 🔒 NO FINGERPRINT, NO SAVE (owner 2026-10-30): a mode_a selfie the phone could not read matches nobody —
+        // saving it told Indalecia she was set while every photo of her went to somebody else. Say so; she stays here.
+        // The words are honest about WHICH failed: a reader that never downloaded is "connection lost", not her face.
+        if (!vector && isFaceModelConfigured()) {
+          onFail(faceStepFailureWords(unloaded ? 'save' : 'face_unread'));
+          return;
         }
       }
 
-      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.92));
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.88));
       if (!blob) throw new Error('blob');
       const presign = await fetch('/api/guest-selfie', {
         method: 'POST',
@@ -267,7 +310,7 @@ export function SelfieCapture({
       ) : null}
       {/* The soft oval to stand in. Decorative. */}
       <div aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center pb-40">
-        <div className="aspect-[3/4] w-[58%] max-w-[13.5rem] rounded-[50%] border border-cream/70 shadow-[0_0_0_9999px_rgba(29,23,25,0.45)]" />
+        <div className="aspect-[3/4] w-[78%] max-w-[18rem] rounded-[50%] border border-cream/70 shadow-[0_0_0_9999px_rgba(29,23,25,0.45)]" />
       </div>
 
       {/* Top: × and the title (frame A). */}

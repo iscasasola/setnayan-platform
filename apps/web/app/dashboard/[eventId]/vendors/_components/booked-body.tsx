@@ -3,9 +3,15 @@
  * corpus `SUPPLIERS_BUILD_PLAN_2026-10-07_fable.md` § PR4; the prototype's
  * Booked mode).
  *
+ *   [ Team ▾ ]  3 booked · 1 without a price      ← the Booked part's dropdown (Team · Budget · Schedule)
  *   Waiting for their yes   ⓘ   N asked · nothing opens until they agree
  *   Booked                      N booked · N without a price
- *   Budget                      (its own slot — `children`)
+ *   (one collapsed row each — ONE open at a time, `BookedRowList`)
+ *
+ * The approved final Suppliers design (owner 2026-10-30): Booked = Team · Budget · Schedule, ONE dropdown on the
+ * body's first row (`BookedPartRow`); the Budget and the Schedule are their own parts (`lib/pillar-parts.ts`
+ * `bookedParts`), so the small Budget block no longer sits under the rows — `children` is drawn only where a caller
+ * still hands one in (a lab).
  *
  * A SERVER component: headings, counts and the sentences are plain HTML; only
  * a row is a client island (`booked-row.tsx`), because a row folds open and its
@@ -27,7 +33,9 @@ import {
   WAITING_INFO,
   type BookedView,
 } from '@/lib/booked-rows';
-import { BookedRowItem, WaitingRowItem } from './booked-row';
+import type { PillarPart } from '@/lib/pillar-parts';
+import { BookedRowList, WaitingRowItem } from './booked-row';
+import { BookedPartRow } from './booked-part-row';
 import { GoToFind } from './go-to-find';
 
 /** Hairline rows, no boxes; a row's details fold open in place. */
@@ -46,6 +54,12 @@ const BOOKED_CSS =
   // row never overflows, so `useFitRow` leaves every word in place.
   '[data-booked-body] .bk-verbs{position:relative;display:flex;flex-wrap:wrap;align-items:center;gap:8px;min-width:0}' +
   '[data-booked-body] .bk-slot{display:contents}' +
+  // ONE ROW OF EQUAL TILES (owner 2026-10-30, "i was hoping this would be a single row"; the prototype's
+  // `.bk-exp .verbs`): equal columns, icon over word, never wrapped — Pay · Chat · Workspace · Report/Cancel.
+  '[data-booked-body] .bk-tiles{position:relative;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:6px;max-width:520px;min-width:0}' +
+  '[data-booked-body] .bk-tiles :is(button,a).ab{flex-direction:column;justify-content:center;gap:3px;width:100%;height:auto;min-height:56px;padding:7px 2px;border-radius:var(--m-r-md);font-size:12px;letter-spacing:-.005em;min-width:0;white-space:normal;text-align:center;line-height:1.15}' +
+  '[data-booked-body] .bk-tiles :is(button,a).ab svg{width:18px;height:18px}' +
+  '[data-booked-body] .bk-tiles .lbl{max-width:100%;overflow:hidden;text-overflow:ellipsis}' +
   // ONE button height: 44 px, the floor (owner 2026-10-12, look call 3 — "44 px
   // minimum, no 40 px rows"). A <button> picks up the app's 44 px touch floor and
   // an <a> does not, so a row of both stood at two heights (measured in the lab
@@ -68,10 +82,16 @@ export function BookedBody({
   eventId,
   state,
   dateChangeUnread = false,
+  parts,
+  firstOpen = null,
   children,
 }: {
   eventId: string;
   state: BookedBodyState;
+  /** Booked's parts (`bookedParts`) — the "Team ▾" dropdown. Absent (a lab without it) → no dropdown. */
+  parts?: readonly PillarPart[];
+  /** A row open on arrival (a lab's `&open=`) — the rest stay closed. */
+  firstOpen?: string | null;
   /** The date-change read was refused — said once, never drawn as "no request". */
   dateChangeUnread?: boolean;
   /** The Budget section, under the rows. */
@@ -94,9 +114,18 @@ export function BookedBody({
   }
 
   const { waiting, booked, unpriced } = state.view;
+  const countLine = [
+    `${formatCount(booked.length)} booked`,
+    unpriced > 0 ? `${formatCount(unpriced)} without a price` : null,
+    waiting.length > 0 ? `${formatCount(waiting.length)} waiting` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
   return (
-    <div data-booked-body="view" className="space-y-7">
+    <div data-booked-body="view">
       <style>{BOOKED_CSS}</style>
+      {parts ? <BookedPartRow current="team" line={countLine} /> : null}
+      <div className="space-y-7">
 
       {waiting.length > 0 ? (
         <section data-booked-section="waiting" aria-labelledby="bk-waiting-h">
@@ -131,23 +160,22 @@ export function BookedBody({
                   {' · '}
                   <span className="font-medium text-sn-accent">{formatCount(unpriced)} without a price</span>
                 </>
-              ) : null}
+              ) : (
+                ' · every price set'
+              )}
             </p>
             {dateChangeUnread ? (
               <p className="mt-1 text-[12.5px] text-ink/60" role="status" data-booked-date-unread="">
                 We couldn’t check whether a date change is waiting.
               </p>
             ) : null}
-            <ul className="bk-rows mt-2">
-              {booked.map((r) => (
-                <BookedRowItem key={r.vendorId} eventId={eventId} row={r} />
-              ))}
-            </ul>
+            <BookedRowList eventId={eventId} rows={booked} firstOpen={firstOpen} />
           </>
         )}
       </section>
 
       {children}
+      </div>
     </div>
   );
 }

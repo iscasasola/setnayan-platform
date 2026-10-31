@@ -6,7 +6,7 @@
  * RSVP asks and Reply by live in Guests ⚙ only, not also on Event Details.
  *
  * Held, measured on what RENDERS (the real `GuestsScreen`, `render-guests-screen.ts`) where it can be:
- *   1 · the pill draws exactly List · Map — no third "Settings" segment, no `gview=share` link;
+ *   1 · the row's ONE ▾ names the view (List · Map in it; 2026-10-30) — no "Settings" view, no `gview=share` link;
  *   2 · with the couple's rows handed in, ONE ⚙ draws — inside the first row, as its last child — and the rows do
  *       not draw on the page while the sheet is shut (the ⚙ is the only way in); without them, no ⚙;
  *   3 · the page hands the rows to the couple only, and an old `?gview=share` / `?view=share` forwards to the ⚙;
@@ -49,17 +49,14 @@ function elementAround(html: string, at: number): string {
 
 const ROWS = React.createElement('div', { 'data-guest-setup-marker': '' }, 'the rows');
 
-/* 🎚 R4 slice 2 (owner 2026-10-29: "Guests ▾ List·Map · Seats ▾ List·2D·3D · March"): the pill's segments are the TOPS
-   now; List · Map are Guests' two modes, behind its ▾. The property is unchanged — Settings is never a segment (it is the
-   ⚙), and List and Map are both still reachable from the pill. */
-test('1 · the pill is Guests ▾ (List · Map) — no Settings segment', async () => {
+/* 🎚 ONE TOP ROW (owner 2026-10-30, *"The menu does not work properly"*, superseding slice 2's segmented row): the row's
+   ONE ▾ ("Guests · List") lists every view; List · Map are Guests' two. The property is unchanged — Settings is never a
+   view (it is the ⚙), and List and Map are both still reachable from the row. */
+test('1 · the row is ONE ▾ (Guests · List — List · Map in it) — no Settings view', async () => {
   const html = await renderGuestsScreen({ guests: [guestRow()], setup: ROWS });
-  const segs = [...html.matchAll(/data-guests-seg="([a-z]+)"/g)].map((m) => m[1]);
-  assert.deepEqual(segs, ['guests'], `the pill draws ${segs.join(' · ')} — an event with List · Map only is Guests alone`);
-  assert.ok(!segs.some((s) => s === 'share' || s === 'settings' || s === 'setup'), 'Settings is a segment again — it is the ⚙');
+  assert.doesNotMatch(html, /data-guests-seg=/, 'the segmented pill is back — the row is ONE ▾');
   assert.doesNotMatch(html, /gview=share/, 'a link still opens the old Settings segment');
-  // List and Map are still reachable: the Guests segment is its mode menu, and its modes are List and Map.
-  assert.match(html, /<span[^>]*aria-current="page"[^>]*data-guests-seg="guests"[^>]*data-guests-seg-menu=""[^]*?data-guests-mode=""/, 'the Guests segment opens no List · Map menu');
+  assert.match(html, /data-guests-pin-menu=""[^]*?>Guests · List</, 'the row’s ▾ does not say where you are');
   const screen = code('_components/guests-screen.tsx');
   assert.match(screen, /const guestModes: PickOption\[\] = guestsViews\.filter\(\(v\) => v === 'list' \|\| v === 'map'\)/, 'Guests ▾ no longer lists List · Map');
 });
@@ -69,7 +66,7 @@ test('2 · one ⚙, last in the first row; the rows only behind it', async () =>
   assert.equal(count(html, /data-menu-settings="guests"/g), 1, 'Guests does not draw exactly one ⚙');
   assert.equal(count(html, /data-first-row=""/g), 1, 'Guests does not mark exactly one first row');
   const row = elementAround(html, html.indexOf('data-first-row=""'));
-  assert.match(row, /data-guests-segmented=""/, 'the first row is not the List · Map row');
+  assert.match(row, /data-guests-pin-menu=""/, 'the first row is not the view row (its ▾)');
   const door = elementAround(row, row.indexOf('data-menu-settings="guests"'));
   assert.ok(row.endsWith(`${door}</div>`), 'something is drawn after the ⚙ — it is not at the row’s right end');
   assert.doesNotMatch(html, /data-guest-setup-marker/, 'the settings rows draw on the page with the sheet shut — a second door');

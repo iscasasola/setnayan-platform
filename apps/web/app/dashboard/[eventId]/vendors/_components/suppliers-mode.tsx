@@ -40,3 +40,21 @@ export const SuppliersModeContext = createContext<SuppliersModeState>({
 export function useSuppliersMode(): SuppliersModeState {
   return useContext(SuppliersModeContext);
 }
+
+/**
+ * 📌 THE ROW'S COUNT, SAID BY THE SCREEN THAT HOLDS THE NUMBERS (owner 2026-10-31: *"Booked has the 3 drop down Team,
+ * Budget, and Schedule"*, one row). The shell's one row is `[Booked · Schedule ▾] · 7 moments · ⚙`; the count after
+ * the ▾ belongs to the part on screen — the Booked body counts its team, the Budget page its money, the Schedule page
+ * its moments — and each is a server-drawn page the shell only places. So the row hands down WHERE its count goes,
+ * and the part's `BookedPartRow` draws its line there (`createPortal`). `claim` says a part is drawing it, so the
+ * row's own count (the one it can count itself) steps aside rather than say it twice.
+ *
+ * Outside the shell (a test, any other mount) there is no row: `el` is null and nothing is drawn.
+ */
+export type SuppliersRowCount = { el: HTMLElement | null; claim: (on: boolean) => void };
+
+export const SuppliersRowCountContext = createContext<SuppliersRowCount>({ el: null, claim: () => {} });
+
+export function useSuppliersRowCount(): SuppliersRowCount {
+  return useContext(SuppliersRowCountContext);
+}

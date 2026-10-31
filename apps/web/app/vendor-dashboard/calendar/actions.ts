@@ -127,7 +127,8 @@ function backToCalendar(formData: FormData, notice: string, block: string | null
       const seg = str(formData, 'return_seg');
       const params = new URLSearchParams();
       if (seg === 'dates' || seg === 'money') params.set('seg', seg);
-      else if (seg !== 'people') params.set('seg', 'dates');
+      // Events (`people` until 2026-10-30 — a ⚙ already open in a browser may still post it) is the hub itself.
+      else if (seg !== 'events' && seg !== 'people') params.set('seg', 'dates');
       if (/^\d{4}-\d{2}$/.test(month) && params.get('seg') === 'dates') params.set('m', month);
       params.set('gear', '1');
       params.set('gnotice', notice);
@@ -143,13 +144,15 @@ function backToCalendar(formData: FormData, notice: string, block: string | null
     redirect(`/vendor-dashboard/customers?${params.toString()}`);
   }
 
-  // S-PR2 · Customers › People holds the outside clients now (the Clients
-  // page is retired). Their Add and Remove come back to People, at the list,
+  // S-PR2 · Customers › Events holds the outside clients now (the Clients
+  // page is retired). Their Add and Remove come back to Events, at the list,
   // where the outcome is said. `clients` is kept for a form already open in a
-  // browser when this shipped — its stub forwards to the same place.
-  if (returnTo === 'people') {
-    const params = new URLSearchParams({ seg: 'people', notice });
-    // 🔑 The new outside booking, so People opens ITS row with "Send their code" right there (owner 2026-10-28:
+  // browser when this shipped — its stub forwards to the same place; `people`
+  // likewise (the view's name until 2026-10-30, "Customers are events").
+  if (returnTo === 'events' || returnTo === 'people') {
+    // Events is the hub itself — no `seg` (the old `?seg=people` would only be forwarded again).
+    const params = new URLSearchParams({ notice });
+    // 🔑 The new outside booking, so Events opens ITS row with "Send their code" right there (owner 2026-10-28:
     // the one-time code is "also offered right after Add outside booking").
     if (block) params.set('block', block);
     redirect(`/vendor-dashboard/customers?${params.toString()}${block ? '#outside' : '#customers'}`);

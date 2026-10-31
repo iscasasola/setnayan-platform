@@ -32,6 +32,13 @@
  *                                        which is itself the "a failure says what failed, in place" walk.
  *                                        ?claim=1 — the camera is not this host's yet: one press, the claim rides the pick
  *                                        (`startAddingPhotos`; with no session here it answers "signed out", on the sheet).
+ *                                        THE KEEPSAKE ROW + THE ＋ ADD CELL (owner 2026-10-31, "Build both"): the REAL
+ *                                        `MemoriesKeepsakeRow` opening the REAL cards (fixture reads, nothing fetched) and
+ *                                        the REAL Add cell: ?keep=none (Magazine · Recap · Flash dimmed, each with its
+ *                                        reason in the ⓘ; Thank You has no "not yet") · ?add=off (uploads off → the turn-on choice).
+ *                                        ?who=tagged|all — ⚙ draws the REAL Who sees what (owner 2026-10-30) at that
+ *                                        choice (the lab's ⚙ holds that rule only; the server-read rows need a session)
+ *                                        · with ?guest=1&coord=1 — the event's coordinator: no host tools, ⚙ = the rules.
  *
  *   ?shop=0   an account that owns no shop (four tabs, no Shop)
  *
@@ -55,9 +62,22 @@ import { labEventBar } from '../lab-event';
 import { EventMemoriesGallery } from '@/app/_components/memories/event-memories-gallery';
 import { AddToLibrary } from '@/app/dashboard/[eventId]/studio/papic/_components/add-to-library';
 import { PapicBuySheet } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-buy-sheet';
+import { WhoSeesWhatPick } from '@/app/dashboard/[eventId]/studio/papic/_components/who-sees-what-pick';
 import type { UploadPot } from '@/app/dashboard/[eventId]/studio/papic/_lib/upload-credits';
 import type { GalleryPhoto } from '@/lib/papic-gallery';
 import type { MemoriesChallenge, MemoriesItem } from '@/lib/event-memories';
+import type { PhotoTagState } from '@/lib/memories-photo-tags';
+import { MemoriesKeepsakeRow } from '@/app/_components/memories/memories-keepsake-row';
+import { MagazineCard } from '@/app/dashboard/[eventId]/studio/papic/_components/magazine-card';
+import { RecapCard } from '@/app/dashboard/[eventId]/studio/papic/_components/recap-card';
+import { LifeFlashCard } from '@/app/dashboard/[eventId]/studio/papic/_components/life-flash-card';
+import { ServiceParts } from '@/app/dashboard/[eventId]/studio/_components/service-parts';
+import { UploadsOpenChoice } from '@/app/dashboard/[eventId]/studio/papic/_components/uploads-open-choice';
+import { keepsakeDoors, type KeepsakeKey } from '@/lib/memories-keepsakes';
+import { addCellWords } from '@/lib/memories-add-cell';
+import { SCOPE_MIN_MOMENTS } from '@/lib/life-story-moment-graph';
+import type { RecapCoupleSummary } from '@/lib/auto-recap';
+import { appStoreDetailHref } from '@/lib/add-ons-catalog';
 
 export const dynamic = 'force-dynamic';
 
@@ -115,8 +135,30 @@ function labItem(i: number): MemoriesItem {
     hubUse: null,
     guestId: vendor ? null : `g-${i}`,
     vendorProfileId: vendor ? 'vp-lumen' : null,
+    // The lab's stand-in for the save route's ORIGINAL (a fixture picture — nothing is fetched from storage).
+    saveUrl: vendor || p.kind === 'clip' ? null : p.url,
+    downloadUrl: p.kind === 'clip' ? p.url : null,
+    preserved: i % 3 === 0,
+    alreadyCompressed: i === 5,
   };
 }
+/** The Tag list's fixture names (the viewer's Tag, owner 2026-10-30) — a wrong face match to remove, guests to add. */
+const LAB_TAGS: PhotoTagState = {
+  tagged: [
+    { guestId: 'g-indalecio', name: 'Indalecio Reyes', auto: true },
+    { guestId: 'g-claire', name: 'Claire Santos', auto: false },
+  ],
+  guests: [
+    { guestId: 'g-indalecia', name: 'Indalecia Reyes' },
+    { guestId: 'g-indalecio', name: 'Indalecio Reyes' },
+    { guestId: 'g-claire', name: 'Claire Santos' },
+    { guestId: 'g-ben', name: 'Ben Cruz' },
+    { guestId: 'g-maria', name: 'Maria Dela Cruz' },
+    { guestId: 'g-jose', name: 'Jose Garcia' },
+  ],
+  saidNotMe: [],
+  complete: true,
+};
 function labHub(i: number): MemoriesItem {
   const p = labPhoto(100 + i);
   return { ...p, id: `hub-${i}`, largeUrl: p.url, capturedBy: HUB_USES[i]!, memSource: 'hub', look: 'ok', table: 'hub', challengeId: null, hubUse: HUB_USES[i]!, downloadUrl: p.url };
@@ -207,6 +249,23 @@ export default async function BarLab({
     const n = sp.empty === '1' ? 0 : Math.max(0, Math.min(400, Number(sp.n ?? 60) || 60));
     const photos = sp.fail === '1' ? [] : Array.from({ length: n }, (_, i) => labPhoto(i));
     const pot: UploadPot = sp.pot === 'pass' ? 'unmetered' : sp.pot === 'x' ? null : Math.max(0, Number(sp.pot ?? 24) || 0);
+    // THE KEEPSAKE ROW on fixture reads — the shapes the cards' own reads return (nothing fetched).
+    const none = sp.keep === 'none';
+    const magazine = { photos: none ? 0 : n, kwentos: none ? 0 : 6 };
+    const recap: RecapCoupleSummary = {
+      status: 'draft', publishedAt: null, privatePhotos: none ? 0 : n, publicPhotos: 0,
+      approvedKwentos: none ? 0 : 6, publicVoices: 0, guests: 120, slug: null,
+    };
+    const flash = none ? { moments: 1 } : { moments: 9 };
+    const thankYou = { key: 'thank-you', name: 'Thank-You Video', line: 'A short film for everyone who came', href: appStoreDetailHref('thank-you', EVENT) };
+    const cards: Record<KeepsakeKey, React.ReactNode> = {
+      magazine: <MagazineCard eventId={EVENT} state={magazine} />,
+      recap: <RecapCard eventId={EVENT} state={recap} />,
+      flash: <LifeFlashCard eventId={EVENT} state={flash} />,
+      'thank-you': <ServiceParts eventId={EVENT} service="papic" door={thankYou} />,
+    };
+    const doors = keepsakeDoors({ magazine, recap, flash, flashMin: SCOPE_MIN_MOMENTS.event, thankYou: true });
+    const addState = sp.add === 'off' ? 'off' : 'open';
     return (
       <>
         <div className="sn-ambient min-h-screen">
@@ -227,14 +286,27 @@ export default async function BarLab({
                     unreadable={sp.fail === '1'}
                     timeZone="Asia/Manila"
                     addPhotos={
-                      <AddToLibrary
-                        token={sp.claim === '1' ? null : 'lab-no-seat'}
-                        eventId={EVENT}
-                        pot={pot}
-                        buy={<PapicBuySheet eventId={EVENT} left={typeof pot === 'number' ? pot : null} tone="brand" label="Add more" />}
-                      />
+                      addState === 'off' ? (
+                        <UploadsOpenChoice eventId={EVENT} open={false} variant="row" back="memories" />
+                      ) : (
+                        <AddToLibrary
+                          token={sp.claim === '1' ? null : 'lab-no-seat'}
+                          eventId={EVENT}
+                          pot={pot}
+                          buy={<PapicBuySheet eventId={EVENT} left={typeof pot === 'number' ? pot : null} tone="brand" label="Add more" />}
+                        />
+                      )
                     }
+                    addCell={addCellWords(addState, pot)}
+                    keepsakes={<MemoriesKeepsakeRow key="keepsakes" doors={doors} cards={cards} />}
                     suppliers={[{ vendorProfileId: 'vp-lumen', vendorRowId: 'v-lumen', name: 'Lumen Studio', hidden: false }]}
+                    canTag={sp.guest !== '1' || sp.coord === '1'}
+                    tagFixture={LAB_TAGS}
+                    settings={
+                      sp.who === 'tagged' || sp.who === 'all' ? (
+                        sp.guest !== '1' || sp.coord === '1' ? <WhoSeesWhatPick eventId={EVENT} initialOpen={sp.who === 'all'} /> : null
+                      ) : null
+                    }
                   />
                 </div>
               </main>
@@ -263,7 +335,15 @@ export default async function BarLab({
           }
           railContext={
             event ? (
-              <EventRailContext eventId={EVENT} guestCount={32} services={[]} websiteEnabled eventName="Ana & Miguel" />
+              <EventRailContext
+                eventId={EVENT}
+                guestCount={32}
+                services={[]}
+                websiteEnabled
+                eventName="Ana & Miguel"
+                /* The event's mark — the ☰'s door to Home's ⚙ Event Settings (owner 2026-10-30, "tapping monogram not working"). */
+                eventMonogram={{ display_name: 'Ana & Miguel', monogram_text: 'A&M', monogram_color: null }}
+              />
             ) : (
               <VendorRailContext shopName="Lab Florals" role="owner" navSlots={{}} bookingsBadge={2} threadsBadge={1} planHref={null} tier={null} />
             )

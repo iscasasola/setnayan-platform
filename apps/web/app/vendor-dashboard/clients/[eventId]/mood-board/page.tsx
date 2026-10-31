@@ -37,6 +37,8 @@ import { supplierRoleLine, type SupplierSuggestion } from '@/lib/inspiration-sug
 import { shownMainFive } from '@/lib/mood-board-studio';
 import { themeSeedPalette } from '@/lib/mood-board-palette-set';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { shopCardChoices } from '@/lib/inspiration-card-link.server';
 
 export const metadata = { title: 'Mood Board · Supplier' };
 
@@ -288,6 +290,14 @@ export default async function VendorMoodBoardPage({ params }: Props) {
       .join(' · ') || null;
   const inspirationParts = await getInspirationParts();
   const suggestParts = suggestablePartsForShop(profile.services, inspirationParts);
+  // 🔗 "Which of your services is this?" (owner 2026-10-30) — this shop's live cards per part it may suggest to. The
+  // service role, scoped by the shop this session owns; the send re-checks against the shop the SQL door proves.
+  const cardsByPart = await shopCardChoices(
+    createAdminClient(),
+    profile.vendor_profile_id,
+    suggestParts.map((p) => p.key),
+    inspirationParts,
+  );
   const photosBySlot: Record<string, string[]> = {};
   for (const it of board.inspirations) (photosBySlot[it.slot_key] ??= [])[it.slot_position - 1] = it.image_url;
   const suggestBoard = buildSupplierBoard({
@@ -325,6 +335,7 @@ export default async function VendorMoodBoardPage({ params }: Props) {
         board={suggestBoard}
         mine={mine}
         actions={{ suggest: suggestInspirationPhoto, withdraw: withdrawInspirationSuggestion, listShopPhotos: listShopPhotosForSuggestion }}
+        cardsByPart={cardsByPart}
       >
         {/* MB12 — the ask sits ABOVE the design, because it is the reason the
             supplier opened this page. Renders nothing when there is nothing

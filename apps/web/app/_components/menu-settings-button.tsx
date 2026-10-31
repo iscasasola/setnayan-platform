@@ -34,6 +34,7 @@ export function MenuSettingsButton({
   onOpenChange,
   tour,
   cover = false,
+  line,
   children,
 }: {
   menu: SettingsMenu;
@@ -43,6 +44,8 @@ export function MenuSettingsButton({
   tour?: string;
   /** Drawn on a coloured cover band (Home): the cover's ink, never the page's (`.home-cover-ab`). */
   cover?: boolean;
+  /** The sheet's one line and its ⓘ, when this viewer's sheet holds other rows than the menu's (Home's ⚙ for a helper). */
+  line?: { line: string; tip: string };
   /** The sheet's rows — the shipped controls. */
   children: ReactNode;
 }) {
@@ -68,8 +71,8 @@ export function MenuSettingsButton({
           <Sheet open onClose={() => onOpenChange(false)} labelledById={headingId} title={entry.sheet} wide>
             <div data-menu-settings-sheet={menu}>
               <p className="px-4 pt-3 text-[12.5px] text-ink/60" data-menu-settings-line="">
-                <InfoTip label={entry.line} align="start">
-                  {entry.tip ?? MENU_SETTINGS_TIP}
+                <InfoTip label={line?.line ?? entry.line} align="start">
+                  {line?.tip ?? entry.tip ?? MENU_SETTINGS_TIP}
                 </InfoTip>
               </p>
               {children}

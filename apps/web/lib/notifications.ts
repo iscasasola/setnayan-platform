@@ -480,7 +480,19 @@ export type NotificationType =
      shift (never one per block), from Running late on the couple's schedule and
      the floor's +N (`lib/schedule-shift-notify.server.ts`). In-app only — no email.
      ⚠ ENUM value in 20271284540209. */
-  | 'schedule_shifted';
+  | 'schedule_shifted'
+  /* 📸 A COUPLE'S OWN PHOTO, SHARED TO A SUPPLIER'S SERVICE CARD (owner 2026-10-30). `shared` → the shop's owner, to
+     Approve or Decline on Shop › Services (`app/_actions/couple-photo-share-actions.ts`, op 'send'); `answered` → the
+     uploader, when the shop approves, declines or takes it off (same file, op 'answer'). In-app only — NOT on
+     the email or push allowlists. ⚠ ENUM values in 20271297221336. */
+  | 'couple_photo_shared'
+  | 'couple_photo_answered'
+  /* 🖼⏱ SOMEONE THE HOSTS GAVE MOOD BOARD EDIT CHANGED IT (owner 2026-10-30, DECISION_LOG "MOOD BOARD CHANGES:
+     SUPPLIERS ASK, COORDINATORS APPLY, THE OWNERS HAVE 24 HOURS TO UNDO"). → EVERY owner of the event, ONE notice per
+     change ("Coordinator Ana changed the Mood Board · Stage"); its Undo lives on Home for 24 hours. Written by the
+     database itself (the event_inspiration_assets trigger, 20271299051148) — never emitNotification, so it cannot be
+     skipped by a write that bypasses the app. In-app only — no email, no push. ⚠ ENUM value in 20271298460272. */
+  | 'mood_board_changed';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   event_auto_surfaced: 'You were added to an event',
@@ -568,6 +580,8 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   mood_board_share: 'Mood board shared',
   // A comp grant from the Setnayan team (2026-09-18).
   gift: 'A gift from Setnayan',
+  couple_photo_shared: 'A couple shared a photo',
+  couple_photo_answered: 'Your shared photo',
   vendor_feature_suggested: 'A supplier suggested a service',
   // Setnayan AI guard delivery (2026-07-09) — concise tray copy; the rendered
   // GRD template body carries the specifics.
@@ -599,6 +613,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   change_order_proposed: 'Change order',
   change_order_answered: 'Change order answered',
   schedule_shifted: 'Schedule moved',
+  mood_board_changed: 'Mood Board changed',
 };
 
 export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
@@ -747,6 +762,8 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   mood_board_share: 'bg-sky-100 text-sky-800',
   // A gift is good news arriving → the gold accent (`terracotta` IS gold here).
   gift: 'bg-terracotta-100 text-terracotta-900',
+  couple_photo_shared: 'bg-sky-100 text-sky-800',
+  couple_photo_answered: 'bg-sky-100 text-sky-800',
   vendor_feature_suggested: 'bg-terracotta-100 text-terracotta-900',
   // Setnayan AI guard delivery (2026-07-09). Both are "action needed, not an
   // error" — amber, matching review_request / payment_logged. A payment coming
@@ -814,6 +831,8 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   change_order_answered: 'bg-warn-100 text-warn-900',
   // News the supplier acts on at the venue (a new time), not a yes or no → the informational sky.
   schedule_shifted: 'bg-sky-100 text-sky-800',
+  // Already applied; the owner MAY undo it — news, not a yes-or-no ask → the informational sky.
+  mood_board_changed: 'bg-sky-100 text-sky-800',
 };
 
 export type NotificationRow = {
@@ -1089,6 +1108,7 @@ export const NOTIFICATION_TYPE_ICON: Partial<Record<NotificationType, Notificati
   schedule_suggestion: 'calendar',
   schedule_change_requested: 'calendar',
   schedule_shifted: 'calendar',
+  mood_board_changed: 'image',
   appointment_reminder: 'calendar',
   photo_delivery_complete: 'image',
   photo_delivery_failed: 'image',
@@ -1098,6 +1118,8 @@ export const NOTIFICATION_TYPE_ICON: Partial<Record<NotificationType, Notificati
   vendor_review_reply: 'star',
   security_alert: 'shield',
   gift: 'gift',
+  couple_photo_shared: 'image',
+  couple_photo_answered: 'image',
 };
 
 export function notificationIcon(type: NotificationType): NotificationIcon {

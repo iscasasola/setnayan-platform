@@ -71,10 +71,11 @@ export const CONVERTED: readonly Converted[] = [
   { area: 'couple', what: 'Seat plan dock (Door | Walk-through · With entrance | Separate)', file: `${D}/seating/_components/seating-editor.tsx`, anchor: 'role="group" aria-label={label} className="shrink-0"', via: 'track', thumb: 'slides', gone: 'overflow-hidden rounded-lg border border-ink/15 text-[11px]' },
   { area: 'couple', what: 'How to make your mark (Create your own | Upload your monogram)', file: `${D}/monogram/mark-toggle.tsx`, anchor: 'aria-label="How to make your mark"', via: 'classes', thumb: 'slides', gone: 'rounded-xl bg-ink/5 p-1' },
   { area: 'couple', what: 'Schedule view (Journey | Preparation | Event Day)', file: `${D}/schedule/_components/schedule-mode-toggle.tsx`, anchor: 'data-schedule-view-switch=""', via: 'classes', thumb: 'slides', gone: 'rounded-lg px-' },
-  { area: 'couple', what: 'Guest list views (Guests ▾ | Seats ▾ | March)', file: `${D}/guests/_components/guests-screen.tsx`, anchor: 'aria-label="Guest list views"', via: 'classes', thumb: 'slides', gone: 'styles.seg' },
   // 2026-10-29 (owner, prototype v14 "pinned row = LEFT one menu (page + mode in one dropdown)"): the pinned row's small
-  // List | Map pill is RETIRED — the slim row holds ONE PickMenu ("Guests · List ▾"), a dropdown, not a pill selector, so
-  // it leaves this table on purpose (any set of choices is a dropdown). The full row above it is still this template.
+  // List | Map pill is RETIRED — the slim row holds ONE PickMenu ("Guests · List ▾"), a dropdown, not a pill selector.
+  // 2026-10-30 (owner, iPhone app, *"The menu does not work properly"*): the full `Guests ▾ | Seats ▾ | March` pill is
+  // RETIRED too — every Guests view wears that ONE row, so "Guest list views" leaves this table on purpose (any set of
+  // choices is a dropdown). 🔒 lib/guests-top-row-and-full-screen.test.ts (5)
   { area: 'couple', what: 'How moments are made (Automatic | I choose)', file: `${D}/story/_components/make-it-yours.tsx`, anchor: 'aria-label="How moments are made"', via: 'classes', thumb: 'slides', gone: 'className={s.seg}' },
   { area: 'couple', what: 'Preview device (iPhone | MacBook)', file: `${D}/_components/device-frame.tsx`, anchor: 'data-device-toggle=""', via: 'track', thumb: 'slides', gone: 'rounded-full border border-ink/10 bg-cream p-1' },
   { area: 'couple', what: 'How the video plays (Fill | Fit to screen)', file: `${D}/_components/std-media-picker.tsx`, anchor: 'data-std-video-fit=""', via: 'classes', thumb: 'slides', gone: 'inline-flex rounded-xl border border-ink/15 bg-cream p-0.5' },
@@ -192,7 +193,9 @@ test('(2)(3) every converted selector is drawn by the template — its track, it
   // to go green.
   // 28, not 29: the Guests pinned row's small List | Map pill was RETIRED on purpose (2026-10-29, owner v14 — the slim row
   // is ONE dropdown now; see its note in CONVERTED). Every other selector is still held.
-  assert.ok(CONVERTED.length >= 28, `anti-vacuity: only ${CONVERTED.length} selectors are held`);
+  // 27, not 28: the Guests full `Guests ▾ | Seats ▾ | March` pill was RETIRED on purpose too (2026-10-30, owner on the
+  // iPhone app — every Guests view wears the ONE dropdown row; see its note in CONVERTED).
+  assert.ok(CONVERTED.length >= 27, `anti-vacuity: only ${CONVERTED.length} selectors are held`);
   const report: string[] = [];
   for (const c of CONVERTED) {
     const faults = pillFaults(read(c.file), c);

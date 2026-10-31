@@ -75,18 +75,29 @@ test('Shop reads — Services, Page and How it is going', () => {
   assert.match(read('shop/page.tsx'), /<FeatureAccordion sections=\{SHOP_SECTIONS\} openKey=\{open\} measure="reading">/);
 });
 
-test('Hub reads', () => {
+test('Hub — its side paths read; the Hub itself fills the frame with its two columns', () => {
   const cols = columns(read('on-the-day/page.tsx'));
-  assert.ok(cols.length >= 3, `read ${cols.length} Hub columns`);
-  for (const c of cols) assert.match(c, /\btab:max-w-3xl\b|^mx-auto w-full max-w-3xl\b/, `a Hub column is not the reading column: "${c}"`);
+  assert.ok(cols.length >= 2, `read ${cols.length} Hub side-path columns (the day-of tools ended · no events yet)`);
+  for (const c of cols) assert.match(c, /\btab:max-w-3xl\b|^mx-auto w-full max-w-3xl\b/, `a Hub side path is not the reading column: "${c}"`);
+  /*
+    🖥 v13 (owner "Approved.", 2026-10-29): Hub = set up one event — the segment's body left, the event card with "Open the
+    Event Hub" right (prototype `renderHub`: `setList(body); setPane(openEh)`), so its column gives up the 48-rem cap
+    from 701 (`tab:max-w-none`), as the working Today and Customers › People do.
+  */
+  const screen = read('on-the-day/_components/hub-screen.tsx');
+  const hub = columns(screen);
+  assert.equal(hub.length, 1, 'the Hub screen has one outermost column');
+  assert.match(hub[0]!, /\btab:max-w-none\b/, 'the Hub does not fill the frame from 701');
+  assert.match(screen, /<SupplierColumns\s+name="hub"/, 'the Hub lost its two columns');
 });
 
-test('Customers — People and Dates are the wide stage, Money reads, and the folds below take the same measure', () => {
+test('Customers — Events and Dates are the wide stage, Money reads, and the folds below take the same measure', () => {
   const src = read('customers/page.tsx');
   // 2026-10-29 (owner, "remember to always maximize the screen use"): People takes the whole width from a tablet up
   // (list + side panel at lg); Dates keeps the wide stage, Money the reading column.
-  const col = /className=\{`mx-auto w-full max-w-3xl [^`]*\$\{seg === 'money' \? 'tab:max-w-3xl' : seg === 'people' \? 'tab:max-w-none' : 'tab:max-w-5xl'\}`\}\s*data-customers-seg-open=\{seg\}/.exec(src);
-  assert.ok(col, 'the Customers column no longer picks 48 rem for Money, 64 rem for Dates and the full width for People');
+  // 2026-10-30: the first view is Events (People until then — "Customers are events, not people").
+  const col = /className=\{`mx-auto w-full max-w-3xl [^`]*\$\{seg === 'money' \? 'tab:max-w-3xl' : seg === 'events' \? 'tab:max-w-none' : 'tab:max-w-5xl'\}`\}\s*data-customers-seg-open=\{seg\}/.exec(src);
+  assert.ok(col, 'the Customers column no longer picks 48 rem for Money, 64 rem for Dates and the full width for Events');
   assert.doesNotMatch(col![0], /\blg:max-w-/, 'a second (lg) cap fights the system measure');
   assert.match(src, /<FeatureAccordion sections=\{sections\} openKey=\{open\} measure=\{seg === 'money' \? 'reading' : 'wide'\}>/);
   const acc = read('_components/feature-accordion.tsx');

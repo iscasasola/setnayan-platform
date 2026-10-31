@@ -68,11 +68,11 @@ function bodyOf(mode: 'find' | 'build' | 'booked'): string {
 
 /* ── (a) the line, the control, one body ─────────────────────────────────── */
 
-test('(a) the order: the date · place line, Find · Build · Booked, then one body', () => {
+test('(a) the order: the date · place line, the ONE Find · Build · Booked dropdown, then one body', () => {
   const body = takeoverBody();
   const stick = body.indexOf('data-suppliers-stick');
   const facts = body.indexOf('{factsSlot}');
-  const seg = body.indexOf('<ISegmented');
+  const seg = body.indexOf('<PickMenu', stick);
   const find = body.indexOf('data-suppliers-body="find"');
   const build = body.indexOf('data-suppliers-body="build"');
   const booked = body.indexOf('data-suppliers-body="booked"');
@@ -83,13 +83,13 @@ test('(a) the order: the date · place line, Find · Build · Booked, then one b
   // date · place line still sits ABOVE the control, but OUTSIDE the pinned block — it scrolls away; only the control pins.
   assert.ok(facts < stick && stick < seg, 'the date · place line sits ABOVE the segmented control, outside the pinned block (only the control pins)');
   assert.ok(seg < find && find < build && build < booked, 'the body follows the control, in the order Find · Build · Booked');
-  // ONE control, the shipped one, in the wine tone — and exactly three segments.
-  assert.equal((body.match(/<ISegmented\b/g) ?? []).length, 1, 'a second navigator');
-  assert.match(TAKEOVER, /import \{ ISeg, ISegmented \} from '\.\.\/\.\.\/website\/editor\/_components\/inspector-kit'/);
-  assert.match(body, /SUPPLIERS_MODES\.map\(\(m\) => \(\s*<ISeg\s+key=\{m\}\s+tone="wine"/);
+  // ONE control, the shipped one (owner 2026-10-31, "ONE SELECTOR": the segmented row became `Page · View ▾`).
+  assert.equal((body.match(/<ISegmented\b|<ISeg\b/g) ?? []).length, 0, 'a segmented row is back');
+  assert.equal((body.slice(stick, body.indexOf('<MenuSettingsButton', stick)).match(/<PickMenu\b/g) ?? []).length, 1, 'a second navigator');
+  assert.match(TAKEOVER, /import \{ PickMenu, type PickOption \} from '\.\.\/\.\.\/website\/editor\/_components\/pick-menu'/);
   // The counts are <Count>, never a bare number.
-  assert.match(body, /<Count value=\{tally\.filled\} id="sup-seg-filled" \/>\/<Count value=\{tally\.total\} id="sup-seg-total" \/>/);
-  assert.match(body, /<Count value=\{bookedCount\} id="sup-seg-booked" \/>/);
+  assert.match(body, /<Count value=\{tally\.filled\} id="sup-row-filled" \/>\/<Count value=\{tally\.total\} id="sup-row-total" \/>/);
+  assert.match(body, /<Count value=\{bookedCount\} id="sup-row-booked" \/> booked/);
   // No Jump bar and no page-name row on a phone: the visible name is desktop-only.
   assert.match(
     body,
@@ -124,10 +124,14 @@ test('(a) every shipped section has ONE home — Find, Build or Booked', () => {
   }
 });
 
-test('(a) the segmented control drives the shipped bus, and the bus drives the control', () => {
+test('(a) the row’s dropdown drives the shipped bus, and the bus drives the control', () => {
   const body = takeoverBody();
   // A press dispatches the mode's own tab key on the SHIPPED bus — no second channel.
-  assert.match(body, /onClick=\{\(\) => goToBuildTab\(SUPPLIERS_MODE_TAB\[m\]\)\}/);
+  // A press goes through `goToMode` — on the Suppliers page that IS the bus (`goToBuildTab(SUPPLIERS_MODE_TAB[m])`);
+  // only on a Booked part's own page (Budget · Schedule, owner 2026-10-29) does it go home to the Suppliers page.
+  assert.match(body, /onPick=\{pickFace\}/);
+  assert.match(body, /if \(key === 'find' \|\| key === 'build'\) return goToMode\(key\);/);
+  assert.match(body, /const goToMode = \(m: SuppliersMode\) => \{\s*if \(!partPage\) \{\s*goToBuildTab\(SUPPLIERS_MODE_TAB\[m\]\);\s*return;/);
   // The listener is unchanged for every caller, and resolves a key to its body.
   assert.match(body, /window\.addEventListener\(BB_TAB_EVENT, onTab\)/);
   const goTo = body.slice(body.indexOf('const goToSection'), body.indexOf('}, []);', body.indexOf('const goToSection')));
@@ -198,10 +202,13 @@ test('(b) the Booked body draws the rows the one module decided, and a verb call
   assert.match(PAGE, /bookedSlot=\{teamSlot\}/);
   assert.doesNotMatch(PAGE, /MerkadoBudgetLens|budgetSlot=|\bteamSlot=\{/, 'the old lens or a second Booked mount is back on the page');
   assert.equal(takeoverBody().split('{bookedSlot}').length - 1, 1, 'the Booked body is mounted more than once');
-  // The small Budget block (B4) is handed only the Target; its figures are the
-  // slot's ONE resolver read (lib/booked-budget.test.ts holds that).
-  assert.match(PAGE, /targetPhp=\{ev\?\.estimated_budget_centavos != null \? Math\.round\(ev\.estimated_budget_centavos \/ 100\) : null\}/);
-  assert.match(SLOT, /bookedView\(\{ rows, facts, money: list\.suppliers, plans, rooms, dateChange: dateChange\.ok \? dateChange\.view : null \}\)/);
+  // Booked = Team · Budget · Schedule (owner 2026-10-29): the body is handed Booked's parts, and the Budget is its own
+  // part (`?part=budget`) — the small block no longer sits under the rows.
+  assert.match(PAGE, /parts=\{bookedPartList\}/);
+  assert.match(
+    SLOT,
+    /bookedView\(\{\s*rows,\s*facts,\s*money: list\.suppliers,\s*plans,\s*rooms,\s*dateChange: dateChange\.ok \? dateChange\.view : null,\s*callTimes,\s*\}\)/,
+  );
   assert.match(SLOT, /buildBudgetList\(money\)/, 'the body totals money itself instead of reading the one list');
   // A SERVER body around client rows; which verbs a row has is the module's answer.
   assert.doesNotMatch(BODY, /'use client'/, 'the Booked body became a client component');

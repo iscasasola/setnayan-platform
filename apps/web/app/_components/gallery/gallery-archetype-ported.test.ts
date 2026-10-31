@@ -18,12 +18,8 @@ import { join } from 'node:path';
 
 const WEB = join(__dirname, '..', '..', '..');
 
-/** The three that show photographs. Panel + credit + lightbox, all three. */
+/** The galleries that show photographs (the couple's Papic grid was deleted 2026-10-31 — Memories opens the shared PhotoViewer). Panel + credit + lightbox, each. */
 const GALLERIES = [
-  {
-    what: "the couple's Papic gallery",
-    file: 'app/dashboard/[eventId]/studio/papic/_components/papic-gallery-grid.tsx',
-  },
   {
     what: "the guest's own photographs on the invitation",
     file: 'app/[slug]/_components/photos-of-you-gallery.tsx',

@@ -116,7 +116,8 @@ test('the list is portalled to <body> and sits above the Maker overlay', () => {
   const listZ = Number(/\bz-\[(\d+)\]/.exec(listClass)?.[1] ?? NaN);
   const maker = stripComments(readFileSync(resolve(HERE, '../../../launch/_components/maker-shell.tsx'), 'utf8'));
   // The overlay is the element carrying `data-maker-shell`; read ITS z.
-  const overlayZ = Number(/className="fixed inset-x-0 top-0 z-\[(\d+)\][^"]*"\s*data-maker-shell/.exec(maker)?.[1] ?? NaN);
+  // (Since 2026-10-30 it sits in the app's room — `fixed z-[…]`, its place set by `MAKER_IN_THE_APP_CSS`.)
+  const overlayZ = Number(/className="fixed z-\[(\d+)\][^"]*"\s*data-maker-shell/.exec(maker)?.[1] ?? NaN);
   assert.ok(Number.isFinite(listZ), 'the listbox carries a z-[n] class');
   assert.ok(Number.isFinite(overlayZ), 'found the Maker overlay z');
   assert.ok(listZ > overlayZ, `list z-[${listZ}] must clear the Maker overlay z-[${overlayZ}]`);

@@ -16,7 +16,9 @@
  */
 
 import { useEffect, useRef, useState, useTransition } from 'react';
-import { ArrowUpDown, Send, Trash2, X } from 'lucide-react';
+import { ArrowUpDown, Check, Send, Trash2, X } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { SheetFoot } from './schedule-sheet';
 import { SCHEDULE_BLOCK_TYPES, scheduleBlockLabelFor } from '@/lib/schedule';
 import { fromDatetimeLocalValue } from '@/lib/schedule-datetime-local';
 import {
@@ -59,6 +61,7 @@ export function MomentInspector({
   onRevert,
   onConfirm,
   live = false,
+  inSheet = false,
 }: {
   eventId: string;
   eventType: string | null;
@@ -84,6 +87,12 @@ export function MomentInspector({
    * are one save after the pause. Off on the standalone Schedule page.
    */
   live?: boolean;
+  /**
+   * 🗂 Drawn inside the Schedule's ONE pop-up (`schedule-sheet.tsx`, owner 2026-10-31 *"the pop up. design
+   * template."*): the sheet names it (title + what it is about), so this head steps aside, and Delete and Done stand
+   * in the sheet's foot — the thumb zone — beside each other. Every field and every write is the same.
+   */
+  inSheet?: boolean;
 }) {
   const {
     createScheduleBlock,
@@ -257,11 +266,11 @@ export function MomentInspector({
   const readOnly = !canEdit;
 
   return (
-    <div className="px-5 pb-7 pt-3 lg:rounded-2xl lg:bg-white/80 lg:shadow-[-30px_0_60px_-40px_rgba(30,26,18,0.35)] lg:backdrop-blur">
+    <div className={inSheet ? '' : 'px-5 pb-7 pt-3 lg:rounded-2xl lg:bg-white/80 lg:shadow-[-30px_0_60px_-40px_rgba(30,26,18,0.35)] lg:backdrop-blur'} data-moment-inspector={inSheet ? 'sheet' : 'panel'}>
       {/* 🪜 In the Maker's guided flow the step's sheet IS this moment's frame —
           one header row (step ▾ · Peek · ×) — so this row of its own steps aside
           there (owner 2026-10-05: one layout for every step). */}
-      <div className="flex min-h-11 items-center gap-2 group-data-[details-mode=guided]/ws:hidden" data-moment-head="">
+      <div hidden={inSheet} className="flex min-h-11 items-center gap-2 [&[hidden]]:hidden group-data-[details-mode=guided]/ws:hidden" data-moment-head="">
         <span className="flex-1">
           <Eyebrow>{readOnly ? 'Moment · view only' : 'Moment'}</Eyebrow>
         </span>
@@ -275,6 +284,7 @@ export function MomentInspector({
         </button>
       </div>
 
+      {inSheet ? <Eyebrow>Name</Eyebrow> : null}
       <input
         type="text"
         ref={labelBox}
@@ -405,7 +415,7 @@ export function MomentInspector({
           when it is ready.
         </p>
       ) : (
-        <div className="mt-1.5">
+        <div className="mt-1.5" data-switch-band="">
           <Switch
             on={m.is_public}
             onChange={setPublic}
@@ -613,38 +623,38 @@ export function MomentInspector({
               <ArrowUpDown aria-hidden className="h-3.5 w-3.5" /> Shift everything after
             </button>
           ) : null}
-          {confirmDelete ? (
-            <span className="ml-auto flex items-center gap-1">
+          {inSheet ? null : confirmDelete ? (
+              <span className="ml-auto flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setConfirmDelete(false)}
+                  className="h-10 rounded-full px-3 text-[13px] font-semibold text-ink/70"
+                >
+                  Keep
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    run(
+                      [m.block_id],
+                      () => deleteScheduleBlock(toFormData({ event_id: eventId, block_id: m.block_id })),
+                      onDeleted,
+                    )
+                  }
+                  className="h-10 rounded-full bg-danger-700 px-3.5 text-[13px] font-semibold text-white"
+                >
+                  {parts.length > 0 ? `Delete it and its ${parts.length} part${parts.length === 1 ? '' : 's'}` : 'Delete it'}
+                </button>
+              </span>
+            ) : (
               <button
                 type="button"
-                onClick={() => setConfirmDelete(false)}
-                className="h-10 rounded-full px-3 text-[13px] font-semibold text-ink/70"
+                onClick={() => setConfirmDelete(true)}
+                className="ml-auto inline-flex h-10 items-center gap-1.5 rounded-full px-2.5 text-[13px] font-semibold text-danger-700 hover:bg-danger-700/10"
               >
-                Keep
+                <Trash2 aria-hidden className="h-3.5 w-3.5" /> Delete
               </button>
-              <button
-                type="button"
-                onClick={() =>
-                  run(
-                    [m.block_id],
-                    () => deleteScheduleBlock(toFormData({ event_id: eventId, block_id: m.block_id })),
-                    onDeleted,
-                  )
-                }
-                className="h-10 rounded-full bg-danger-700 px-3.5 text-[13px] font-semibold text-white"
-              >
-                {parts.length > 0 ? `Delete it and its ${parts.length} part${parts.length === 1 ? '' : 's'}` : 'Delete it'}
-              </button>
-            </span>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setConfirmDelete(true)}
-              className="ml-auto inline-flex h-10 items-center gap-1.5 rounded-full px-2.5 text-[13px] font-semibold text-danger-700 hover:bg-danger-700/10"
-            >
-              <Trash2 aria-hidden className="h-3.5 w-3.5" /> Delete
-            </button>
-          )}
+            )}
         </div>
       ) : null}
 
@@ -665,6 +675,40 @@ export function MomentInspector({
             'Every change saves as you make it'
           )}
         </p>
+      ) : null}
+
+      {/* 🗂 The sheet's two answers, in the thumb zone (frame 19b: Delete it · Save). Every change has already saved as
+          it was made, so the main answer says what it does — Done; Delete asks once, in the same place. */}
+      {inSheet ? (
+        <SheetFoot>
+          {canEdit && confirmDelete ? (
+            <>
+              <ActionButton tone="neutral" icon={X} label="Keep" onClick={() => setConfirmDelete(false)} />
+              <ActionButton
+                tone="danger"
+                main
+                icon={Trash2}
+                label={parts.length > 0 ? `Delete it and its ${parts.length} part${parts.length === 1 ? '' : 's'}` : 'Delete it'}
+                onClick={() =>
+                  run(
+                    [m.block_id],
+                    () => deleteScheduleBlock(toFormData({ event_id: eventId, block_id: m.block_id })),
+                    onDeleted,
+                  )
+                }
+              />
+            </>
+          ) : (
+            <>
+              {canEdit ? (
+                <ActionButton tone="danger" icon={Trash2} label="Delete it" onClick={() => setConfirmDelete(true)} />
+              ) : (
+                <span aria-hidden />
+              )}
+              <ActionButton tone="brand" main icon={Check} label="Done" onClick={onClose} />
+            </>
+          )}
+        </SheetFoot>
       ) : null}
     </div>
   );

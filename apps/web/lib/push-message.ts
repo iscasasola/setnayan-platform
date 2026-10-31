@@ -30,7 +30,7 @@
  * lib/every-push-goes-through-the-template.test.ts
  */
 import { formatCount } from './format-number';
-import { formatPhp } from './php';
+import type { PushLevel } from './push-levels';
 
 /** What a lock screen shows before it cuts. */
 export const PUSH_TITLE_MAX = 40;
@@ -55,6 +55,8 @@ export type PushMessage = {
   readonly topic: string;
   /** Unread count for the app badge, or null to leave the badge alone. */
   readonly badge: number | null;
+  /** lib/push-levels.ts. Read by each channel (Web Push `Urgency`, APNs priority); not shown on the phone. */
+  readonly level: PushLevel;
   readonly [PUSH_MESSAGE]: true;
 };
 
@@ -119,6 +121,7 @@ export function pushMessage(input: {
   sentence: string;
   url: string | null | undefined;
   collapseKey: string;
+  level: PushLevel;
   badge?: number | null;
   /** Where a tap goes when `url` is missing or off-site. Never "/". */
   fallbackUrl?: string;
@@ -131,6 +134,7 @@ export function pushMessage(input: {
     collapseKey: input.collapseKey,
     topic: topicFor(input.collapseKey),
     badge: typeof input.badge === 'number' && input.badge >= 0 ? Math.floor(input.badge) : null,
+    level: input.level,
   } as PushMessage;
 }
 
@@ -173,16 +177,6 @@ export function inquirySentence(f: { preview: string | null; returning?: boolean
 
 export function acceptedSentence(f: { shop: string }): string {
   return `${f.shop} accepted your inquiry — say hello.`;
-}
-
-/** Words drafted for the owner's OK — payments are NOT on the push list (see notification-emit.ts). */
-export function paymentSentence(f: { payer: string; amountPhp: number }): string {
-  return `${f.payer} paid ${formatPhp(f.amountPhp)}`;
-}
-
-/** Words drafted for the owner's OK — bookings are NOT on the push list. */
-export function bookingSentence(f: { shop: string; dateLabel: string | null }): string {
-  return f.dateLabel ? `${f.shop} is booked for ${f.dateLabel}` : `${f.shop} is booked`;
 }
 
 function firstSentence(text: string | null | undefined): string {
@@ -236,6 +230,8 @@ export function noticeSentence(n: {
         collapseKey: `security:${n.eventId ?? 'account'}`,
       };
     default:
-      return { sentence: firstSentence(n.body) || n.title, collapseKey: `${n.type.split('_')[0] ?? 'notice'}:${url}` };
+      // The bell's headline already says what happened, in its own words and its own
+      // `formatPhp`; the template scrubs and trims it.
+      return { sentence: n.title, collapseKey: `${n.type}:${url}` };
   }
 }

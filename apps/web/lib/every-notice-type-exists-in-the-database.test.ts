@@ -36,6 +36,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { PUSH_LEVEL } from './push-levels';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..');
@@ -118,12 +119,14 @@ test('the samahan can reach its own members', () => {
 });
 
 test('a samahan notice is never a booking email in disguise', () => {
-  // Both allowlists in notification-emit.ts are deliberately minimal. The
-  // samahan types stay OFF both: the tray rings, nobody's phone buzzes at 2am,
-  // and no barkada small talk is emailed as a transactional booking signal —
-  // until the owner has ruled on quiet hours.
+  // The samahan types are Low (owner 2026-10-31, lib/push-levels.ts): the tray
+  // rings, nobody's phone buzzes, and no barkada small talk is emailed as a
+  // transactional booking signal.
   const src = readFileSync(join(WEB, 'lib', 'notification-emit.ts'), 'utf8');
-  for (const setName of ['PUSH_ENABLED_TYPES', 'EMAIL_ENABLED_TYPES']) {
+  for (const value of ['samahan_story', 'samahan_message'] as const) {
+    assert.equal(PUSH_LEVEL[value], 'low', `${value} buzzes a phone`);
+  }
+  for (const setName of ['EMAIL_ENABLED_TYPES']) {
     const at = src.indexOf(`const ${setName}`);
     assert.ok(at >= 0, `${setName} not found`);
     const body = src
@@ -136,7 +139,7 @@ test('a samahan notice is never a booking email in disguise', () => {
     for (const value of ['samahan_story', 'samahan_message']) {
       assert.ok(
         !members.includes(value),
-        `${value} is on ${setName} — that is an owner decision (quiet hours), not a code change`,
+        `${value} is on ${setName} — that is an owner decision, not a code change`,
       );
     }
   }

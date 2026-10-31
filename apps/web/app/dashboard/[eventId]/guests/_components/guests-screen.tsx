@@ -202,7 +202,6 @@ import {
 import { GuestsLensContext, type GuestsLens, type SeatsChannel } from './guests-lens';
 import { guestsFilterMenu } from './guests-filter-menu';
 import { ReplyPushAsk } from './reply-push-ask';
-import { markReplyNoticesSeen } from '@/lib/notification-actions';
 
 
 export type GuestsScreenProps = {
@@ -267,11 +266,6 @@ export type GuestsScreenProps = {
    * (`lib/reply-push-ask.ts`). Reads nothing new: it is told how many have replied from the counts drawn here.
    */
   replyAsk?: boolean;
-  /**
-   * 📱 Opening Guests resets the phone notice's reply count (owner 2026-10-31) — this event's guest-reply bell rows are
-   * marked read once the list has drawn (`markReplyNoticesSeen`). The couple only; the page sets it.
-   */
-  markRepliesSeen?: boolean;
   /** `?gshow=requests` — open on the requests. */
   initialAsking?: boolean;
   /** 🪪 People whose printed word waits on Woman or Man (`needsWomanOrMan`) — the List's "N people need…" row. */
@@ -428,7 +422,6 @@ export function GuestsScreen(props: GuestsScreenProps) {
     requestsBody = null,
     requestsInPlace = false,
     replyAsk = false,
-    markRepliesSeen = false,
     initialAsking = false,
     titlesWaiting = [],
     rootLabel,
@@ -1057,12 +1050,6 @@ export function GuestsScreen(props: GuestsScreenProps) {
   // The counts are read off the SAME list the rows are drawn from (`roster`),
   // never a second read — so "List N" and "N attending" equal the rows below.
   const stats = rosterStats(roster);
-  // 📱 The host is looking at the list → the next reply's phone notice counts from zero (lib/rsvp-push.server.ts).
-  // After the list draws, once per event; fire-and-forget — a refusal changes nothing on this screen.
-  useEffect(() => {
-    if (!markRepliesSeen || !measured) return;
-    void markReplyNoticesSeen(eventId).catch(() => {});
-  }, [markRepliesSeen, measured, eventId]);
   // 🪑 "+1s: N named · M no name yet" — the filter's own rows, counted (`plusOneTally`); none drawn with no +1s.
   const plusTally = plusOneTally(roster);
   const replied = stats.total ? Math.round(((stats.yes + stats.no) / stats.total) * 100) : 0;

@@ -31,6 +31,7 @@ const msg = pushMessage({
   sentence: rsvpSentence({ latestGuest: 'Maria', others: 2, coming: 34 }),
   url: `/dashboard/${EV}/guests`,
   collapseKey: `rsvp:${EV}`,
+  level: 'normal',
   badge: 4,
 });
 
@@ -48,6 +49,9 @@ test('2 · the collapse id is the template\'s key, at most 64 bytes', () => {
   assert.equal(headers['apns-topic'], 'com.setnayan.app');
   assert.equal(headers['apns-push-type'], 'alert');
   assert.equal(headers.authorization, 'bearer jwt');
+  assert.equal(headers['apns-priority'], '10');
+  const low = pushMessage({ subject: { kind: 'account' }, sentence: 'x', url: '/a', collapseKey: 'summary:today', level: 'low' });
+  assert.equal(apnsRequest(low, { bundleId: 'b' }, 'jwt').headers['apns-priority'], '5');
   const long = apnsCollapseId(`inquiry:/vendor-dashboard/messages/${EV}/and/a/very/long/tail`);
   assert.ok(Buffer.byteLength(long) <= 64 && long.startsWith('inquiry:'), long);
   assert.equal(long, apnsCollapseId(`inquiry:/vendor-dashboard/messages/${EV}/and/a/very/long/tail`));

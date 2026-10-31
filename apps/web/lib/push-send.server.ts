@@ -4,6 +4,8 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { isWebPushConfigured, sendWebPush } from '@/lib/web-push';
 import { isApnsConfigured, sendApns } from '@/lib/apns';
 import { noticeSentence, pushMessage, type PushSubject } from '@/lib/push-message';
+import { PUSH_LEVEL, type PushLevel } from '@/lib/push-levels';
+import type { NotificationType } from '@/lib/notifications';
 
 /**
  * THE PHONE-NOTIFICATION FUNNEL — the one place a push is sent from.
@@ -26,19 +28,35 @@ export function isAnyPushConfigured(): boolean {
   return isWebPushConfigured() || isApnsConfigured();
 }
 
+/**
+ * The shop a supplier-side notice is about: the one its own conversation belongs to, read through the thread.
+ * ⚠ NEVER "the shop of this login" — an account can own several, and this runs with no session to say which is
+ * open (`the-active-shop-is-resolved-once.test.ts`). A notice with no conversation in its link says "Setnayan"
+ * rather than guess a shop's name.
+ */
+async function shopNameOfLink(admin: Admin, url: string): Promise<string | null> {
+  const threadId = /^\/vendor-dashboard\/messages\/([0-9a-f-]{36})(?:[/?#]|$)/i.exec(url)?.[1];
+  if (!threadId) return null;
+  const { data: thread, error } = await admin
+    .from('chat_threads')
+    .select('vendor_profile_id')
+    .eq('thread_id', threadId)
+    .maybeSingle();
+  if (error) logQueryError('push.subject.thread', error, {}, 'graceful_degrade');
+  const vendorProfileId = (thread as { vendor_profile_id?: string | null } | null)?.vendor_profile_id;
+  if (!vendorProfileId) return null;
+  const { data: shop, error: shopError } = await admin
+    .from('vendor_profiles')
+    .select('business_name')
+    .eq('vendor_profile_id', vendorProfileId)
+    .maybeSingle();
+  if (shopError) logQueryError('push.subject.shop', shopError, {}, 'graceful_degrade');
+  return (shop as { business_name?: string | null } | null)?.business_name ?? null;
+}
+
 /** Whose notice is this? A supplier-side link → the shop; an event → the event; else the account. */
-async function subjectFor(admin: Admin, userId: string, url: string | null, eventId: string | null): Promise<PushSubject> {
-  if (url?.startsWith('/vendor-dashboard')) {
-    const { data, error } = await admin
-      .from('vendor_profiles')
-      .select('business_name')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: true })
-      .limit(1)
-      .maybeSingle();
-    if (error) logQueryError('push.subject.shop', error, {}, 'graceful_degrade');
-    return { kind: 'shop', name: (data as { business_name?: string | null } | null)?.business_name ?? null };
-  }
+async function subjectFor(admin: Admin, url: string | null, eventId: string | null): Promise<PushSubject> {
+  if (url?.startsWith('/vendor-dashboard')) return { kind: 'shop', name: await shopNameOfLink(admin, url) };
   if (eventId) {
     const { data, error } = await admin.from('events').select('display_name').eq('event_id', eventId).maybeSingle();
     if (error) logQueryError('push.subject.event', error, { eventId }, 'graceful_degrade');
@@ -64,13 +82,13 @@ async function unreadCount(admin: Admin, userId: string): Promise<number | null>
 /** Send one templated notice to every channel this user has. */
 export async function sendPush(
   userId: string,
-  notice: { sentence: string; url: string | null; collapseKey: string; eventId: string | null; fallbackUrl?: string },
+  notice: { sentence: string; url: string | null; collapseKey: string; level: PushLevel; eventId: string | null; fallbackUrl?: string },
 ): Promise<void> {
   if (!isAnyPushConfigured()) return;
   try {
     const admin = createAdminClient();
     const [subject, badge] = await Promise.all([
-      subjectFor(admin, userId, notice.url, notice.eventId),
+      subjectFor(admin, notice.url, notice.eventId),
       unreadCount(admin, userId),
     ]);
     const message = pushMessage({
@@ -78,6 +96,7 @@ export async function sendPush(
       sentence: notice.sentence,
       url: notice.url,
       collapseKey: notice.collapseKey,
+      level: notice.level,
       badge,
       fallbackUrl: notice.fallbackUrl,
     });
@@ -92,7 +111,7 @@ export async function sendPush(
 /** A bell row's phone twin: the template's sentence + collapse key for its type. */
 export async function sendPushForNotice(n: {
   userId: string;
-  type: string;
+  type: NotificationType;
   title: string;
   body: string | null;
   relatedUrl: string | null;
@@ -103,6 +122,7 @@ export async function sendPushForNotice(n: {
     sentence,
     url: n.relatedUrl,
     collapseKey,
+    level: PUSH_LEVEL[n.type],
     eventId: n.eventId,
     fallbackUrl: n.relatedUrl?.startsWith('/vendor-dashboard') ? '/vendor-dashboard' : n.eventId ? `/dashboard/${n.eventId}` : '/dashboard',
   });

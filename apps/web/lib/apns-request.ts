@@ -10,6 +10,7 @@
  *   · `apns-collapse-id` is the template's collapse key (≤64 bytes, hashed down
  *     when longer) — so a new RSVP notice REPLACES the last one on the lock
  *     screen, the same rule as the Web Push `tag`;
+ *   · `apns-priority` reads the message's level (lib/push-levels.ts);
  *   · the provider token is an ES256 JWT (`kid` = APNS_KEY_ID, `iss` =
  *     APNS_TEAM_ID) signed with the .p8 key — read from the environment by the
  *     caller, never logged, never returned.
@@ -84,7 +85,8 @@ export function apnsRequest(
       authorization: `bearer ${jwt}`,
       'apns-topic': cfg.bundleId,
       'apns-push-type': 'alert',
-      'apns-priority': '10',
+      // 10 = deliver now; 5 = the Low evening summary, sent when it suits the phone.
+      'apns-priority': message.level === 'low' ? '5' : '10',
       'apns-collapse-id': apnsCollapseId(message.collapseKey),
     },
     body: JSON.stringify({ aps, url: message.url }),

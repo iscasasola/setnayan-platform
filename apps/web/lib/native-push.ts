@@ -13,12 +13,12 @@
  *     older build has neither, so it is never shown an ask with nothing behind it.
  *   · `registerNativePush()` — the Yes: iOS's own permission prompt, then APNs
  *     registration, then the device token saved as a push subscription of kind
- *     'apns' (`saveApnsDeviceToken`).
+ *     'apns' (`savePushSubscription`).
  *   · `refreshNativePushToken()` — on every launch where permission is already
  *     granted, re-register (Apple can rotate a token) without asking anything.
  *   · `onNativePushTap()` — a tapped notification opens its own screen.
  */
-import { saveApnsDeviceToken } from '@/lib/push-actions';
+import { savePushSubscription } from '@/lib/push-actions';
 
 export const NATIVE_PUSH_UA_MARKER = 'SetnayanPush/1';
 const PLUGIN = 'PushNotifications';
@@ -71,7 +71,7 @@ async function registerAndSave(cap: CapacitorGlobal): Promise<'on' | 'off'> {
   const handles = await Promise.all([
     listen(cap, 'registration', (d) => {
       const token = (d as { value?: string } | null)?.value ?? '';
-      void saveApnsDeviceToken(token).then((r) => done(r.ok ? 'on' : 'off'), () => done('off'));
+      void savePushSubscription({ apnsToken: token }).then((r) => done(r.ok ? 'on' : 'off'), () => done('off'));
     }),
     listen(cap, 'registrationError', () => done('off')),
   ]);

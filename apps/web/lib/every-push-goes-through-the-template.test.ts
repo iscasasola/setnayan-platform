@@ -70,6 +70,15 @@ test('3 · a PushMessage is minted only by the template', () => {
   assert.deepEqual(minted, [], `a push is written inline in: ${minted.join(', ')}`);
 });
 
+test('3b · every push passes its level — only the emit gate and the two scheduled moments reach the funnel', () => {
+  const calling = (re: RegExp) => FILES.filter((f) => f.rel !== FUNNEL && re.test(f.code.replace(/export async function \w+\s*\(/g, ''))).map((f) => f.rel).sort();
+  assert.deepEqual(calling(/\bsendPush\s*\(/), ['lib/push-schedule.server.ts', 'lib/rsvp-push.server.ts']);
+  assert.deepEqual(calling(/\bsendPushForNotice\s*\(/), ['lib/notification-emit.ts', 'lib/push-schedule.server.ts']);
+  assert.deepEqual(calling(/\bpushRsvpReply\s*\(/), ['lib/notification-emit.ts', 'lib/push-schedule.server.ts']);
+  const emit = FILES.find((f) => f.rel === 'lib/notification-emit.ts')!.code;
+  assert.match(emit, /if \(isAnyPushConfigured\(\) && pushDecision\(type, Date\.now\(\)\) === 'send'\) \{/, 'the emit path pushes without asking the level');
+});
+
 test('4 · the funnel\'s notice carries no title', () => {
   const funnel = FILES.find((f) => f.rel === FUNNEL)!.code;
   const sig = funnel.slice(funnel.indexOf('export async function sendPush('), funnel.indexOf('): Promise<void>', funnel.indexOf('export async function sendPush(')));

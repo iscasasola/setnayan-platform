@@ -33,7 +33,7 @@ const EV = '11111111-2222-4333-8444-555555555555';
 
 test('1 · the title is who it is about', () => {
   const m = (subject: Parameters<typeof pushMessage>[0]['subject']) =>
-    pushMessage({ subject, sentence: 'x', url: '/dashboard', collapseKey: 'k:1' }).title;
+    pushMessage({ subject, sentence: 'x', url: '/dashboard', collapseKey: 'k:1', level: 'normal' }).title;
   assert.equal(m({ kind: 'event', name: 'Indalecio & Claire' }), 'Indalecio & Claire');
   assert.equal(m({ kind: 'shop', name: 'Luz Photography' }), 'Luz Photography');
   assert.equal(m({ kind: 'account' }), 'Setnayan');
@@ -54,13 +54,13 @@ test('3 · lock-screen lengths, cut at a word', () => {
   assert.ok(body.endsWith('…'));
   assert.ok(long.startsWith(body.slice(0, -1)), 'the cut invented text');
   assert.ok(/\s/.test(long[body.length - 1] ?? ' '), 'cut through a word');
-  const title = pushMessage({ subject: { kind: 'event', name: 'Indalecio Casasola & Claire Marie Villanueva-Santos' }, sentence: 'x', url: '/d', collapseKey: 'k' }).title;
+  const title = pushMessage({ subject: { kind: 'event', name: 'Indalecio Casasola & Claire Marie Villanueva-Santos' }, sentence: 'x', url: '/d', collapseKey: 'k', level: 'normal' }).title;
   assert.ok(title.length <= PUSH_TITLE_MAX, title);
   assert.ok(!/\bVillanueva-Sa…$/.test(title), title);
 });
 
 test('4 · the tap is a same-origin path', () => {
-  const at = (url: string | null) => pushMessage({ subject: { kind: 'account' }, sentence: 'x', url, collapseKey: 'k', fallbackUrl: '/dashboard/x' }).url;
+  const at = (url: string | null) => pushMessage({ subject: { kind: 'account' }, sentence: 'x', url, collapseKey: 'k', level: 'normal', fallbackUrl: '/dashboard/x' }).url;
   assert.equal(at('/dashboard/x/guests'), '/dashboard/x/guests');
   assert.equal(at('https://evil.test/'), '/dashboard/x');
   assert.equal(at('//evil.test/'), '/dashboard/x');
@@ -72,10 +72,16 @@ test('5 · collapse key and Topic', () => {
   assert.ok(t.length <= 32 && /^[A-Za-z0-9_-]+$/.test(t), t);
   assert.equal(t, topicFor(`rsvp:${EV}`));
   assert.notEqual(t, topicFor('rsvp:22222222-2222-4333-8444-555555555555'));
-  const wire = JSON.parse(pushWireBody(pushMessage({ subject: { kind: 'account' }, sentence: 'x', url: '/a', collapseKey: `rsvp:${EV}`, badge: 3 })));
+  const wire = JSON.parse(pushWireBody(pushMessage({ subject: { kind: 'account' }, sentence: 'x', url: '/a', collapseKey: `rsvp:${EV}`, level: 'normal', badge: 3 })));
   assert.deepEqual(Object.keys(wire).sort(), ['badge', 'body', 'tag', 'title', 'url']);
   assert.equal(wire.tag, `rsvp:${EV}`);
   assert.equal(wire.badge, 3);
+});
+
+test('5b · a kind with no sentence of its own says the bell\'s headline, scrubbed', () => {
+  const n = noticeSentence({ type: 'order_quoted', title: 'Order S89O-7K2M9QX4PA quoted at ₱1,500', body: 'x', relatedUrl: '/a', eventId: null });
+  assert.equal(scrubInternal(n.sentence), 'Order quoted at ₱1,500');
+  assert.equal(n.collapseKey, 'order_quoted:/a');
 });
 
 test('6 · every pushed type becomes a phone sentence, from the titles the emit sites write', () => {

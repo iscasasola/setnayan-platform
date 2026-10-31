@@ -20,12 +20,25 @@ type SaveArgs = {
   auth: string;
 };
 
+/**
+ * 📱 THE IPHONE APP'S YES (owner 2026-10-31 — replies reach the phone, and Web Push
+ * cannot reach inside the app). The Capacitor plugin hands the page an APNs device
+ * token; it is saved here as kind 'apns' (migration 20271300404545), through the same
+ * RLS-scoped client and unique `endpoint` upsert as a browser row, so a phone that
+ * re-registers collapses onto one row, re-homed to whoever is signed in. The same
+ * action, not a new one: the server-action budget is at its ceiling.
+ */
+type SaveApnsArgs = { apnsToken: string };
+
 export type PushActionResult = { ok: true } | { ok: false; error: string };
 
 export async function savePushSubscription(
-  sub: SaveArgs,
+  sub: SaveArgs | SaveApnsArgs,
 ): Promise<PushActionResult> {
-  if (!sub?.endpoint || !sub?.p256dh || !sub?.auth) {
+  const apns = sub && 'apnsToken' in sub;
+  if (apns) {
+    if (!isApnsDeviceToken(sub.apnsToken)) return { ok: false, error: 'bad_token' };
+  } else if (!sub?.endpoint || !sub?.p256dh || !sub?.auth) {
     return { ok: false, error: 'incomplete_subscription' };
   }
 
@@ -41,10 +54,9 @@ export async function savePushSubscription(
   const { error } = await supabase.from('push_subscriptions').upsert(
     {
       user_id: user.id,
-      endpoint: sub.endpoint,
-      p256dh: sub.p256dh,
-      auth: sub.auth,
-      kind: 'web',
+      ...(apns
+        ? { endpoint: sub.apnsToken.toLowerCase(), p256dh: null, auth: null, kind: 'apns' }
+        : { endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth, kind: 'web' }),
       last_seen_at: new Date().toISOString(),
     },
     { onConflict: 'endpoint' },
@@ -76,39 +88,6 @@ export async function removePushSubscription(
   if (error) {
     console.error('[push] removePushSubscription failed:', error.message);
     return { ok: false, error: 'delete_failed' };
-  }
-  return { ok: true };
-}
-
-/**
- * 📱 THE IPHONE APP'S YES (owner 2026-10-31 — replies reach the phone, and Web
- * Push cannot reach inside the app). The Capacitor push plugin hands the page
- * the APNs device token after the one-time ask; it is saved as a push
- * subscription of kind 'apns' (migration 20271300404545), through the same
- * RLS-scoped client and the same unique `endpoint` upsert as a browser row — so a
- * phone that re-registers collapses onto one row, re-homed to whoever is signed in.
- */
-export async function saveApnsDeviceToken(token: string): Promise<PushActionResult> {
-  if (!isApnsDeviceToken(token)) return { ok: false, error: 'bad_token' };
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: 'not_authenticated' };
-  const { error } = await supabase.from('push_subscriptions').upsert(
-    {
-      user_id: user.id,
-      endpoint: token.toLowerCase(),
-      p256dh: null,
-      auth: null,
-      kind: 'apns',
-      last_seen_at: new Date().toISOString(),
-    },
-    { onConflict: 'endpoint' },
-  );
-  if (error) {
-    console.error('[push] saveApnsDeviceToken failed:', error.message);
-    return { ok: false, error: 'save_failed' };
   }
   return { ok: true };
 }

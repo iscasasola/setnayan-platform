@@ -47,8 +47,8 @@ test('2 · APNs is a quiet no-op without its env, and never prints the key', () 
 test('3 · Web Push sends only to web rows; the app saves apns rows', () => {
   assert.match(code('lib/web-push.ts'), /\.eq\('kind', 'web'\)/, 'Web Push would try to send to an iPhone token');
   const actions = code('lib/push-actions.ts');
-  const save = actions.slice(actions.indexOf('export async function saveApnsDeviceToken'));
-  assert.match(save, /isApnsDeviceToken\(token\)/);
+  const save = actions.slice(actions.indexOf('export async function savePushSubscription'));
+  assert.match(save, /isApnsDeviceToken\(sub\.apnsToken\)/);
   assert.match(save, /kind: 'apns'/);
   assert.match(save, /onConflict: 'endpoint'/);
 });
@@ -62,6 +62,7 @@ test('4 · the app build carries the plugin, announces it, forwards the token, h
   const global = /\n {2}appendUserAgent:\s*'([^']+)'/.exec(cfg);
   assert.ok(global && !/SetnayanPush/.test(global[1]!), 'Android claims native push it does not have');
   assert.match(code('lib/native-push.ts'), /NATIVE_PUSH_UA_MARKER = 'SetnayanPush\/1'/);
+  assert.match(code('lib/native-push.ts'), /savePushSubscription\(\{ apnsToken: token \}\)/);
   const delegate = raw(join(MOBILE, 'ios/App/App/AppDelegate.swift'));
   assert.match(delegate, /didRegisterForRemoteNotificationsWithDeviceToken[\s\S]*?\.capacitorDidRegisterForRemoteNotifications/);
   assert.match(delegate, /didFailToRegisterForRemoteNotificationsWithError[\s\S]*?\.capacitorDidFailToRegisterForRemoteNotifications/);

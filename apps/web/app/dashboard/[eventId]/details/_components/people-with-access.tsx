@@ -451,7 +451,7 @@ function PersonItem({
   returnTo: AccessReturnTo;
 }) {
   return (
-    <li className="space-y-2 py-3" data-person={row.kind}>
+    <li className="space-y-2 py-3" data-person={row.kind} data-person-id={row.moderatorId ?? undefined}>
       <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
         <div className="min-w-0">
           <p className="truncate text-sm font-medium text-ink">

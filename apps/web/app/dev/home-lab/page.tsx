@@ -46,7 +46,8 @@
  *                                    its press opens the house Sheet, Limited · Full access (the lab's presses write
  *                                    nothing real). `&shop=long` a long shop name (never cut) · `&shop=none` no name read
  *   ?as=helper|coordinator           🪪 a helper's ⚙ (owner 2026-10-31): with `&settings=1` the sheet opens on "Your access"
- *                                    alone, read-only — a limited helper (every part View) or the hired coordinator
+ *                                    alone, read-only — a limited helper (every part View) or the hired coordinator.
+ *                                    `&asked=1` its "Ask the hosts" button after a Send ("Asked · <time>")
  *   ?coord=1                         🗂 the coordinator's line on top (owner 2026-10-28) — the REAL `CoordinatingLine`
  *   ?view=offline[&state=ok|amber|nosignal|failed|saving|none|unsupported][&browser=1][&desk=notes|sent]
  *                                    📶 EV3 (owner 2026-10-28): the REAL "Ready for no signal" card, the supplier's saved
@@ -259,7 +260,7 @@ const LAB_HUB_PICK: HomeHubPickRead = { ok: true, pinned: null, byDate: 'rsvp' }
 export default async function HomeLab({
   searchParams,
 }: {
-  searchParams: Promise<{ stage?: string; photos?: string; bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; coord?: string; level?: string; shop?: string; card?: string; cardphase?: string; head?: string; save?: string; challenges?: string; open?: string; need?: string; state?: string; browser?: string; desk?: string; prints?: string; settings?: string; row?: string; date?: string; as?: string }>;
+  searchParams: Promise<{ stage?: string; photos?: string; bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; coord?: string; level?: string; shop?: string; card?: string; cardphase?: string; head?: string; save?: string; challenges?: string; open?: string; need?: string; state?: string; browser?: string; desk?: string; prints?: string; settings?: string; row?: string; date?: string; as?: string; asked?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -557,7 +558,7 @@ export default async function HomeLab({
         /* `&as=helper|coordinator` — 🪪 a helper's ⚙ (owner 2026-10-31): the same sheet, "Your access" alone, read-only. */
         eventSettings={labAs === null}
         helperSettings={labAs !== null}
-        eventSettingsRows={labAs ? labYourAccessRows(E, labAs) : labEventSettingsRows(E)}
+        eventSettingsRows={labAs ? labYourAccessRows(E, labAs, q.asked === '1') : labEventSettingsRows(E)}
         /* `?settings=1[&row=access]` — the sheet opens with the page, as Home's own link does (the ☰'s mark). */
         dateFinderOpen={q.date === 'find'}
         eventSettingsLink={{

@@ -105,7 +105,7 @@ export function labEventSettingsRows(eventId: string) {
  * seats: a limited helper (every part View, the grant `setGuestAccess` writes) and the hired coordinator on the default
  * coordinator grant (`COORDINATOR_AREAS`). The fixture wedding is 18 Dec, so the last day reads 25 Dec.
  */
-export function labYourAccessRows(eventId: string, as: 'helper' | 'coordinator') {
+export function labYourAccessRows(eventId: string, as: 'helper' | 'coordinator', asked = false) {
   const yours = ownAccessOf({
     roleSubtype: as === 'coordinator' ? 'wedding_planner_external' : 'viewer',
     permissions: {
@@ -117,5 +117,8 @@ export function labYourAccessRows(eventId: string, as: 'helper' | 'coordinator')
     },
     window: { eventDate: '2026-12-18', eventEndDate: null, precision: 'day' },
   });
-  return <EventSettingsRows eventId={eventId} input={null} parents={null} dock={null} yours={yours} />;
+  // `&asked=1` — the button after a Send: a fixed moment today, 3:04 PM Philippine time (the Send itself goes to the real
+  // door, which refuses the lab's made-up event — the lab shows the sheet, not a send).
+  const askedAt = asked ? `${new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' })}T15:04:00+08:00` : null;
+  return <EventSettingsRows eventId={eventId} input={null} parents={null} dock={null} yours={yours} yoursAskedAt={askedAt} />;
 }

@@ -492,7 +492,14 @@ export type NotificationType =
      change ("Coordinator Ana changed the Mood Board · Stage"); its Undo lives on Home for 24 hours. Written by the
      database itself (the event_inspiration_assets trigger, 20271299051148) — never emitNotification, so it cannot be
      skipped by a write that bypasses the app. In-app only — no email, no push. ⚠ ENUM value in 20271298460272. */
-  | 'mood_board_changed';
+  | 'mood_board_changed'
+  /* 🪪 A HELPER ASKED THE HOSTS FOR MORE ACCESS ON ONE PART (owner 2026-10-31, "yes" to "Ask the hosts"; DECISION_LOG
+     "A HELPER SEES THEIR OWN ACCESS AS THE FIRST ROW OF HOME ⚙ EVENT SETTINGS — read-only, with 'Ask the hosts'"). →
+     EVERY host of the event, one notice per ask, opening Home ⚙ › People with access on that helper
+     (`?settings=1&row=access&person=<seat>`). Written by the DATABASE (`ask_hosts_for_more_access`, 20271299854365),
+     never emitNotification — at most one per helper per part a day. ⚠ IN-APP ONLY: NOT on EMAIL_ENABLED_TYPES or
+     PUSH_ENABLED_TYPES (owner: no new emails without his word). ⚠ ENUM value in 20271299515167. */
+  | 'access_more_asked';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   event_auto_surfaced: 'You were added to an event',
@@ -614,6 +621,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   change_order_answered: 'Change order answered',
   schedule_shifted: 'Schedule moved',
   mood_board_changed: 'Mood Board changed',
+  access_more_asked: 'A helper asks for more access',
 };
 
 export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
@@ -833,6 +841,8 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   schedule_shifted: 'bg-sky-100 text-sky-800',
   // Already applied; the owner MAY undo it — news, not a yes-or-no ask → the informational sky.
   mood_board_changed: 'bg-sky-100 text-sky-800',
+  // A helper waits on the hosts' answer → the action-needed amber, like every other ask.
+  access_more_asked: 'bg-warn-100 text-warn-900',
 };
 
 export type NotificationRow = {
@@ -1038,6 +1048,7 @@ export const NOTIFICATION_TYPE_SHORT_LABEL: Partial<Record<NotificationType, str
   event_auto_surfaced: 'Added',
   cohost_added: 'Added',
   connection_request: 'Added',
+  access_more_asked: 'Access',
 };
 
 export function notificationShortLabel(type: NotificationType): string {
@@ -1120,6 +1131,7 @@ export const NOTIFICATION_TYPE_ICON: Partial<Record<NotificationType, Notificati
   gift: 'gift',
   couple_photo_shared: 'image',
   couple_photo_answered: 'image',
+  access_more_asked: 'user-plus',
 };
 
 export function notificationIcon(type: NotificationType): NotificationIcon {

@@ -76,6 +76,8 @@ export async function renderGuestsScreen(opts: {
   initialSelect?: boolean;
   /** 📥 The Requests page drawn in place (slice 11) and `?gshow=requests`. */
   requestsBody?: unknown;
+  /** The couple (opens in place even with no body). Absent → only when a body is handed in. */
+  requestsInPlace?: boolean;
   initialAsking?: boolean;
 }): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
@@ -105,6 +107,7 @@ export async function renderGuestsScreen(opts: {
           faceByGuest: {},
           requests: opts.requests ?? 0,
           requestsBody: (opts.requestsBody ?? null) as never,
+          requestsInPlace: opts.requestsInPlace ?? opts.requestsBody != null,
           initialAsking: opts.initialAsking ?? false,
           oneQr: opts.oneQr ?? false,
           rootLabel: 'A & B',

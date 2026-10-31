@@ -129,7 +129,8 @@ import {
   type SectionMark,
 } from '@/lib/guest-roster-view';
 import { withStandIns, proxyForWords, representedByWords, type PairOnRow as StandInOnRow, type StandingInOnRow } from '@/lib/guest-proxy';
-import { PickWhoContext, useGuestActions } from './guest-actions-context';
+import { OpenRequestsContext, PickWhoContext, useGuestActions } from './guest-actions-context';
+import { clearDecided, RequestsJustDecided } from './requests-decided';
 import { useRoleNames } from './role-names-context';
 import { guestOptimistic, useGuestOptimistic } from './guest-optimistic-store';
 import { DeleteGuestSheet, useGuestRemoval } from './guest-delete';
@@ -253,6 +254,11 @@ export type GuestsScreenProps = {
    * by the List's ⇅ Show "Asking to join" and the Total card's door. Absent → those doors open `/guests/claims`.
    */
   requestsBody?: ReactNode;
+  /**
+   * The couple — Asking to join opens IN PLACE for them (the Total card's door, the ⇅ Show, the ⚙'s Requests row),
+   * with or without a body: no body means the page MEASURED nobody waiting, and the frame says so itself.
+   */
+  requestsInPlace?: boolean;
   /** `?gshow=requests` — open on the requests. */
   initialAsking?: boolean;
   /** 🪪 People whose printed word waits on Woman or Man (`needsWomanOrMan`) — the List's "N people need…" row. */
@@ -407,6 +413,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
     faceByGuest,
     requests,
     requestsBody = null,
+    requestsInPlace = false,
     initialAsking = false,
     titlesWaiting = [],
     rootLabel,
@@ -608,10 +615,15 @@ export function GuestsScreen(props: GuestsScreenProps) {
      every view, the List and the Map read and write THIS — and the address keeps it (`replaceState`, nothing asked of
      the server). `replyFilter` is its Show, under the name every door already used. */
   /* 📥 Asking to join — the List shows the requests in place (slice 11). */
-  const [asking, setAsking] = useState<boolean>(initialAsking && requestsBody !== null);
+  const [asking, setAsking] = useState<boolean>(initialAsking && requestsInPlace);
   const openAsking = () => {
     setAsking(true);
     window.scrollTo({ top: 0 });
+  };
+  /* Leaving Asking to join — the rows just decided there go with it (requests-decided.tsx). */
+  const closeAsking = () => {
+    setAsking(false);
+    clearDecided();
   };
   const [filter, setFilter] = useState<GuestsFilter>(() => (initialSelect ? { ...filterAsked, show: 'toinvite' } : filterAsked));
   useEffect(() => {
@@ -744,6 +756,14 @@ export function GuestsScreen(props: GuestsScreenProps) {
      Select turns on, the list narrows to To invite — the carousel's own `toinvite` door. Nothing navigates. On the Map
      (no rows to pick) it opens the List the cold-load way, which lands in the same state (`initialSelect`).
      🔒 pick-who-narrows-in-place.test.ts */
+  /* 📥 ⚙ › Requests to join, IN PLACE (R4 slice 11; house rule "a save never resets the screen"): the sheet closes, the
+     List comes forward and opens on Asking to join — no trip to the Requests page. */
+  const openRequests = () => {
+    openSettings(false);
+    if (gview !== 'list') pickView('list');
+    setAsking(true);
+    window.scrollTo({ top: 0 });
+  };
   const pickWho = useCallback(() => {
     openSettings(false);
     if (gview !== 'list') {
@@ -1122,7 +1142,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
             aria-label={`${formatCount(stats.total)} guests, ${replied}% replied, ${formatCount(requests)} ${requests === 1 ? 'request' : 'requests'} to join — open requests`}
             data-requests-door=""
             onClick={
-              requestsBody
+              requestsInPlace
                 ? (e) => {
                     e.preventDefault();
                     openAsking();
@@ -1328,7 +1348,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
   /** ⇅ A pick in the shared menu: the one filter changes; a new Group by opens its first heading (as the shipped Sort
       did) and clears the +1 narrowing; the list goes back to its top. */
   const pickFilter = (next: GuestsFilter) => {
-    setAsking(false);
+    closeAsking();
     if (listGroupOf(next) !== view) {
       setPlusFilter(null);
       setOpen(firstOpen(listGroupOf(next)));
@@ -1347,7 +1367,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
     tour: 'guests-sort',
     label: 'Show, sort, select or add',
     alsoOn: plusFilter !== null || asking,
-    showExtras: requestsBody
+    showExtras: requestsInPlace
       ? [
           {
             key: 'asking',
@@ -1377,7 +1397,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
       if (pickedAddWay(k)) return;
       if (k === GUESTS_EXCEL_KEY) return excel.save();
       if (k === 'select') return setSelectMode(true);
-      if (k === 'asking') return asking ? setAsking(false) : openAsking();
+      if (k === 'asking') return asking ? closeAsking() : openAsking();
       if (k.startsWith('plus:')) {
         setPlusFilter((now) => (now === k.slice(5) ? null : (k.slice(5) as PlusOneFilter)));
         window.scrollTo({ top: 0 });
@@ -1674,15 +1694,22 @@ export function GuestsScreen(props: GuestsScreenProps) {
   /* ═══ the list ═══ */
   /* 📥 Asking to join, in place (slice 11): the shipped Requests rows (Accept · Decline · Link, each with Undo), under a
      slim head that names them and goes back to everyone. */
-  const askingList = asking && requestsBody ? (
+  /* The rows just decided stay here, above the body (requests-decided.tsx) — so they outlive it: accept the last one and
+     the body goes, the decided row stays. No body = the page measured nobody waiting. */
+  const askingList = asking && requestsInPlace ? (
     <div data-guests-asking="" className={styles.rise}>
       <div className="flex min-h-11 items-center gap-2 px-1 pb-2">
         <span className="min-w-0 flex-1 text-sm font-medium text-ink">
           Asking to join · <Count value={requests} id="gs-asking" />
         </span>
-        <ActionButton tone="neutral" icon={X} label="Everyone" onClick={() => setAsking(false)} data-guests-asking-close="" />
+        <ActionButton tone="neutral" icon={X} label="Everyone" onClick={closeAsking} data-guests-asking-close="" />
       </div>
-      {requestsBody}
+      <RequestsJustDecided />
+      {requestsBody ?? (
+        <p className="px-1 py-4 text-sm text-ink/60" data-requests-none="">
+          Nobody is waiting. When someone without a key asks to join, they appear here.
+        </p>
+      )}
     </div>
   ) : null;
   const list = askingList ?? (
@@ -1953,9 +1980,11 @@ export function GuestsScreen(props: GuestsScreenProps) {
             {/* 🎚 The view's own rounds (Seats: Edit · ⋯ — the plan draws them here, `lens.toolsSlot`), left of the ⚙. */}
             <span ref={setToolsSlot} className="flex shrink-0 items-center gap-1.5 empty:hidden" data-guests-view-rounds="" />
             {setup ? (
-              <MenuSettingsButton menu="guests" open={settingsOpen} onOpenChange={openSettings} tour="guests-setup">
-                <PickWhoContext.Provider value={writesOff ? null : pickWho}>{setup}</PickWhoContext.Provider>
-              </MenuSettingsButton>
+              <OpenRequestsContext.Provider value={requestsInPlace && !writesOff ? openRequests : null}>
+                <MenuSettingsButton menu="guests" open={settingsOpen} onOpenChange={openSettings} tour="guests-setup">
+                  <PickWhoContext.Provider value={writesOff ? null : pickWho}>{setup}</PickWhoContext.Provider>
+                </MenuSettingsButton>
+              </OpenRequestsContext.Provider>
             ) : null}
           </div>
           {/* 📋 The copy line — in the flow, under the selector, never over anything (guest-copy-mark.tsx). */}

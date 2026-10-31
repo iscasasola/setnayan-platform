@@ -6,6 +6,7 @@ import { HomeLiveCard } from './home-cards/home-live-card';
 import { HomeMusicCard } from './home-cards/home-music-card';
 import { HomeBoothCard } from './home-cards/home-booth-card';
 import { HomePlannerCard } from './home-cards/home-planner-card';
+import { HomePrintsLine } from './home-prints-line';
 import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
 import type { PapicCardPhase } from '@/lib/papic-home-card';
 
@@ -15,8 +16,9 @@ import { dayPapicView, type DayPapicFace, type HomeNext, type HomeService, type 
 import type { HomeCover } from '@/lib/home-cover';
 import type { HomeCoverWords } from '@/lib/home-cover-words';
 import { HomeToday, HomeTodayFold } from './home-parts';
-import { HomeCoverBand } from './home-cover-band';
+import { HomeCoverBand, type HomeSettingsLink } from './home-cover-band';
 import { HomeControlRow } from './home-control-row';
+import { HomeDateFinder } from './home-date-finder';
 import type { HomeHubPickRead } from './home-cards/hub-pick-types';
 import { homeToday, type HomeControlInput } from './home-control-faces';
 import { PapicBuySheet } from '../studio/papic/_components/papic-buy-sheet';
@@ -36,8 +38,10 @@ export type PapicCardInput = {
   phase: PapicCardPhase | null;
   thankYouHref: string | null;
   settings: ReactNode;
-  /** The Papic ON/OFF switch, in the card's head beside the › — closed and open (owner 2026-10-26). */
+  /** The head switch beside the › — closed and open (owner 2026-10-26): Papic on/off, or "Let everybody shoot now" once Papic is on (owner 2026-10-30, `PapicHeadControl`). */
   headControl?: ReactNode;
+  /** The line under the card's title (owner 2026-10-30: what "Let everybody shoot now" has saved); null = the brand line. */
+  headLine?: ReactNode;
   /** 🔢 Total · Taken · Remaining on the card's face (owner 2026-10-26) — the pot Home already read. */
   counts?: { total: number | null; left: number | null } | null;
   /** "Add more" on the face — the one buy sheet for this platform; null = not offered. */
@@ -114,6 +118,10 @@ export type HomeFirstScreenProps = {
   eventSettings?: boolean;
   /** The Home lab's Event Settings rows, already drawn on its fixture (`/dev/home-lab`); absent = read at the press. */
   eventSettingsRows?: ReactNode;
+  /** 🔗 `?settings=1` — the address opens the Event Settings sheet with the page (`HomeSettingsLink`). */
+  eventSettingsLink?: HomeSettingsLink;
+  /** 📅 `?date=find` — the address opens the Date Finder with the page (the Countdown's door from elsewhere). */
+  dateFinderOpen?: boolean;
   /** 🖼 The Event Hub's main background under the name (`lib/home-cover.ts`); null = today's colour. */
   ground?: HomeCover | null;
   /** 🎨 Papic's credits left, for the Buy more sheet's "You have N" and "After this". */
@@ -148,6 +156,12 @@ export type HomeFirstScreenProps = {
    */
   /** 🎛 The Event Hub tile's "Pick what shows" read, ONLY when a dev lab already holds it — Home reads it on the tap. */
   hubPick?: HomeHubPickRead | null;
+  /**
+   * 🖨 THE PRINTS LINE (R8, owner 2026-10-27 "PRINTS LEAVES STUDIO"): drawn where the viewer has Prints to make — the
+   * couple, with an Event Hub, on an event that needs its details (as the Studio tile was offered). Home holds the door
+   * (`HomePrintsLine`); the tool is the Prints page. Absent / false = no line.
+   */
+  prints?: boolean;
   apple?: {
     papic: { status: string; buy: boolean; open?: string | null } | null;
     liveWatch: { status: string; owned: boolean; askReady: boolean; goLive?: string | null } | null;
@@ -165,6 +179,8 @@ export function HomeFirstScreen({
   services,
   eventSettings = false,
   eventSettingsRows,
+  eventSettingsLink,
+  dateFinderOpen = false,
   ground = null,
   papicLeft = null,
   papicSizes = null,
@@ -173,6 +189,7 @@ export function HomeFirstScreen({
   needs = null,
   apple = null,
   hubPick = null,
+  prints = false,
 }: HomeFirstScreenProps) {
   const noList = needs?.guestList === false;
   const today = homeToday(next, control.guests);
@@ -180,7 +197,7 @@ export function HomeFirstScreen({
     <section data-home-first-screen aria-label="Home" className="flex w-full flex-col gap-3">
       {/* 🖼 The cover wears the Event Hub's main background (owner 2026-10-07, #6394), the words in the hub's own
           measured ink over its veil (`lib/home-cover.ts`). */}
-      <HomeCoverBand cover={cover} ground={ground} settingsFor={eventSettings ? eventId : undefined} settingsRows={eventSettingsRows} />
+      <HomeCoverBand cover={cover} ground={ground} settingsFor={eventSettings ? eventId : undefined} settingsRows={eventSettingsRows} settingsLink={eventSettingsLink} />
 
       {/* 📅 "Later" beside the verb folds the Today line for today, on this device (owner 2026-10-23). */}
       <HomeTodayFold eventId={eventId} kind={next.kind}>
@@ -206,11 +223,16 @@ export function HomeFirstScreen({
 
           {/* 🎛 THE CONTROL ROW — Countdown · Guests · Event Hub · Suppliers · Budget · Checklist; each opens its ONE page. */}
           <HomeControlRow input={control} hubPick={hubPick} />
+          {/* 📅 The Countdown's Date Finder, in place — the couple's (who change the date); a helper's Countdown opens Event Details. */}
+          {eventSettings ? <HomeDateFinder eventId={eventId} openAtFirst={dateFinderOpen} /> : null}
 
           {/* 📷 PAPIC — ONE CARD, ON THE ROW AFTER BUDGET (owner 2026-10-27: "Place papic under budget widget" · "Place it
               on the next row after the budget widget"; it sat under Today since 2026-10-26). Budget is the control row's
               last tile, so the card follows the row. Your services below no longer draws it. */}
           {papicCard ? <PapicTodayCard card={papicCard} /> : null}
+
+          {/* 🖨 PRINTS — one line that opens its own page (owner 2026-10-27: "Home gets a Prints line that opens it"). */}
+          {prints ? <HomePrintsLine eventId={eventId} /> : null}
 
           {/* YOUR SERVICES — each grows in place with its quick controls; the Event Hub rose into the control row. */}
           <YourServices
@@ -437,6 +459,7 @@ function PapicTodayCard({ card, name = SERVICE_NAMES.papic.plain, brand = SERVIC
       thankYouHref={card.thankYouHref}
       settings={card.settings}
       headControl={card.headControl ?? null}
+      headLine={card.headLine ?? null}
       counts={card.counts ?? null}
       buy={card.buy ?? null}
       defaultOpen={card.defaultOpen ?? false}

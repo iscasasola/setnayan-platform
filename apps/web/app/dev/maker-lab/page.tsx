@@ -12,12 +12,13 @@ import { makerSceneLabel } from '@/lib/maker-scene-list';
 import { themeBackgroundName } from '@/lib/invite-themes';
 import { hubMovingBackgroundIds, sanitizeHubMainGround } from '@/lib/hub-canvas';
 import { resolveThemeGround } from '@/app/[slug]/_lib/theme-ground';
-import { detailsLabFacts, detailsLabNode, labChurchVenues } from '../details-lab/details-lab-node';
+import { detailsLabFacts, detailsLabHubSettings, detailsLabNode, labChurchVenues } from '../details-lab/details-lab-node';
 import { LAB_SAMPLE } from './guest/lab-sample';
 import { MakerLabShell } from './maker-lab-shell';
 import { LAB_EDITORIAL_COOKIE, labEditorialDraft, labPostEventRead } from './lab-post-event';
 import { labScrubCanvases, labWidgetsCookie } from './lab-scrub';
 import { STUDIO_TILE_KEYS, STUDIO_TILES } from '@/lib/studio-tiles';
+import { printsPageItem } from '@/lib/prints-page';
 import { LAB_BAR_COOKIE, LAB_OWN_COOKIE, LAB_PASS_COOKIE, LAB_ROWS_COOKIE, labBarFromCookie, labDraftedRows, labOwnKind } from './lab-draft';
 import { labNavigatorInput } from './lab-navigator';
 import { REVEAL_NONE, revealAllowedFor } from '@/lib/reveal-access';
@@ -26,6 +27,8 @@ import { REVEAL_TEMPLATE_IDS, type RevealTemplateId } from '@/lib/reveal-config-
 import { LastSeenScope } from '@/app/_components/last-seen/last-seen-scope';
 import { LabPageSpotlight } from '../_components/lab-page-spotlight';
 import { TOURS } from '@/lib/tours';
+import { LabShell } from '@/app/dev/_components/lab-shell';
+import { labEventBar } from '@/app/dev/bar-lab/lab-event';
 import { HOST_PAGE_TOURS } from '@/lib/host-page-tours';
 
 /**
@@ -57,7 +60,6 @@ const LAB_STUDIO_DONE: Record<(typeof STUDIO_TILE_KEYS)[number], boolean | undef
   schedule: true,
   story: false,
   gifts: undefined,
-  prints: true,
 };
 const LAB_STILLS = ['ballroom', 'starlit', 'fairy-lights', 'rose-archway', 'seascape', 'sunrise', 'aurora', 'peonies', 'bridgerton'];
 const LAB_CLIPS = ['jack-jill-vclip', 'jack-rose-vclip', 'maria-juan-vclip', 'john-jane-vclip', 'peter-mary-vclip'];
@@ -179,6 +181,9 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
      "Recently used" (per person, per event, this browser) works in the lab as in the app. A lab id, never a real one. */
   return (
     <LastSeenScope userId="lab-viewer" eventId={EVENT}>
+    {/* 🧭 THE HUB KEEPS THE APP'S NAV (owner 2026-10-30): the Maker is drawn inside the REAL app chrome — top bar, rail
+        from 701, bottom nav with Hub lit — as the event layout draws it (`LabShell`, no sign-in, no database). */}
+    <LabShell eventId={EVENT} gutter={false} eventBar={labEventBar({ needs: typeof sp.needs === 'string' ? sp.needs : undefined })} hubAt="/dev/maker-lab">
     <MakerLabShell
       eventId={EVENT}
       tourHint={sp.spot === '1'}
@@ -188,7 +193,12 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
       /* 🧭 `studio: '1'` ALWAYS (2026-10-26): there is one Maker, and the real launch page always hands Details its Studio
          (`studioDetails`) — without it this lab drew Details' retired one-piece Prints view ("INVITATION SET · The Invitation" +
          its editor sheet), a door no couple has, instead of Studio › Prints. */
-      details={detailsLabNode({ ...sp, studio: '1', shape: 'mj', look: '1', labPass: (await cookies()).get(LAB_PASS_COOKIE)?.value })}
+      /* 🖨 `?prints=1` — THE PRINTS PAGE (R8): the same Maker drawing Prints alone, as `/dashboard/<id>/prints` does —
+         Details on the print the address names, else "On every print" (`printsPageItem`). */
+      details={detailsLabNode({ ...sp, studio: '1', shape: 'mj', look: '1', ...(sp.prints === '1' ? { tool: 'details', item: printsPageItem({ item: typeof sp.item === 'string' ? sp.item : undefined }) } : {}), labPass: (await cookies()).get(LAB_PASS_COOKIE)?.value })}
+      printsPage={sp.prints === '1'}
+      /* ⚙ "Your Event Hub" for the Hub's ⚙ (owner 2026-10-30) — the launch page's builder on the lab's fixtures. */
+      hubSettings={detailsLabHubSettings(sp)}
       /* ✍ `&facts=1` — the fact editors the launch page hands the real Maker (`factEditors`): a tap that opens one in the
          work area is seen as it is on a couple's Maker (the Love Story's moments, 2026-10-19). Off by default. */
       factEditors={sp.facts === '1' ? detailsLabFacts(sp, { specialMessage: LAB_SAMPLE.message, pabuyaMessage: 'Thank you for joining us — every gift is received with thanks.' }) : undefined}
@@ -214,7 +224,7 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
               ? sanitizeHubMainGround({ kind: 'photo', media: '/std/backgrounds/golden-hour.webp', tint: { match: false, frame: ['#f0d5b4', '#291d10'] }, shade: 'dark' })
               : null
       }
-      openDetails={sp.tool === 'details' || typeof sp.guide === 'string'}
+      openDetails={sp.tool === 'details' || typeof sp.guide === 'string' || sp.prints === '1'}
       canvases={canvases}
       ownWords={ownWords}
       typeHere={typeHere}
@@ -262,6 +272,7 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
           .filter((t) => !(labNeeds && needsHidesStudioTile(t.key, labNeeds))),
       }}
     />
+    </LabShell>
     {/* 🔦 `&spot=1` — the Maker's own spotlight (owner 2026-10-22), inside the Maker, first run. */}
     {sp.spot === '1' && TOURS[HOST_PAGE_TOURS.maker].spotlight ? (
       <LabPageSpotlight tourKey={HOST_PAGE_TOURS.maker} script={TOURS[HOST_PAGE_TOURS.maker].spotlight!} inMaker />

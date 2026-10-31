@@ -18,7 +18,8 @@
  *       answer — asserted behaviourally, over the whole vocabulary, not by
  *       grepping for the function's name. Lock it in one surface only and this
  *       goes red.
- *   2 · THE WIRING. The prop chain page → loader → lab → Hud → editor, and the
+ *   2 · THE WIRING. The prop chain page → loader → lab → the Accents sheet (the room's
+ *       one editor since it became view-only, 2026-10-30), and the
  *       refusal at the one funnel every chip passes through. This arc's single
  *       most repeated defect is a correct predicate and a correct component with
  *       the one line joining them free to break silently.
@@ -49,7 +50,8 @@ import { renderPartById } from '@/lib/moodboard-render-parts';
 import { RECEPTION_PARTS } from '@/lib/reception-scene';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const EDITOR = join(HERE, 'reception-design-editor.tsx');
+/* The Reception Designer's per-zone chips became the Accents sheet when the room went view-only (owner 2026-10-30). */
+const EDITOR = join(HERE, 'accents-sheet.tsx');
 const LAB = join(HERE, 'seating-lab-3d.tsx');
 const LOADER = join(HERE, 'seating-lab-loader.tsx');
 const PAGE = join(HERE, '..', 'page.tsx');
@@ -188,76 +190,42 @@ test('the prop chain from the page to the chips is unbroken, link by link', () =
   assert.match(lab, /\bfinalizedByPart,/, 'SeatingLab3D does not destructure it');
   assert.equal(
     (lab.match(/finalizedByPart=\{finalizedByPart\}/g) ?? []).length,
-    2,
-    'expected exactly 2 forwards inside seating-lab-3d (SeatingLab3D → Hud, Hud → the ' +
-      'Reception Designer). A COUNT, not a spot-check: a file-level match cannot say WHICH ' +
-      'hop still carries it, and the broken hop is the regression.',
+    1,
+    'expected exactly 1 forward inside seating-lab-3d (SeatingLab3D → the Accents sheet). A COUNT, not a ' +
+      'spot-check: a file-level match cannot say WHICH hop still carries it.',
   );
-  // 🪤 SCOPED TO THE DESTRUCTURE, NOT PINNED TO BEING THE LAST PROP. This read
-  // `/finalizedByPart,\n\}: Props\) \{/`, which asserted the prop was the FINAL
-  // entry in the parameter list — a fact about alphabetical accident, not about
-  // the wire. RV2 added two props after it and this failed while the chain it
-  // guards was perfectly intact. Slicing the destructure block keeps the claim
-  // ("the editor really accepts it") exactly as strong, and it no longer
-  // accuses the next session to add a prop.
   const editor = src(EDITOR);
-  const destructure = editor.slice(
-    editor.indexOf('export function ReceptionDesignEditor({'),
-    editor.indexOf('}: Props) {') + '}: Props) {'.length,
-  );
-  assert.ok(destructure.length > 20, 'could not find the editor’s destructure block');
-  assert.match(destructure, /\bfinalizedByPart,/, 'the editor does not accept it');
+  const destructure = editor.slice(editor.indexOf('export function AccentsSheet({'), editor.indexOf('}: {', editor.indexOf('export function AccentsSheet({')));
+  assert.ok(destructure.length > 20, 'could not find the sheet’s destructure block');
+  assert.match(destructure, /\bfinalizedByPart,/, 'the sheet does not accept it');
 });
 
-test('the editor refuses the tap at the one funnel every chip goes through', () => {
+test('the sheet refuses the tap at the one funnel every pick goes through', () => {
   const s = src(EDITOR);
-  const fn = s.slice(s.indexOf('function choose('), s.indexOf('\n  }', s.indexOf('function choose(')));
-  assert.ok(fn.length > 40, 'the choose() window is empty — has the function been renamed?');
-  assert.match(
-    fn,
-    /if \(finalizedByPart\?\.\[part\]\) return;/,
-    'choose() is the single funnel both the single-select and the multi-select chips pass ' +
-      'through. Refusing only in the JSX leaves any future control free to route around it.',
-  );
-  // …and it is the FIRST thing the function does, before either branch.
-  assert.ok(
-    fn.indexOf('finalizedByPart') < fn.indexOf('attrDef.multi'),
-    'the refusal runs after the multi-select branch — a multi-select chip on a frozen zone ' +
-      'would still toggle',
-  );
+  for (const name of ['choose', 'commit']) {
+    const at = s.indexOf(`function ${name}(`);
+    const fn = s.slice(at, s.indexOf('\n  }', at));
+    assert.ok(at > -1 && fn.length > 40, `the ${name}() window is empty — has the function been renamed?`);
+    // …and it is the FIRST thing the function does, before any branch.
+    assert.match(
+      fn.slice(fn.indexOf('{') + 1).trimStart(),
+      /^if \(finalizedByPart\?\.\[part\]\) return;/,
+      `${name}() does not refuse a frozen zone first — a switch or a dropdown pick would still re-dress it`,
+    );
+  }
+  assert.match(s, /onPick=\{\(id\) => choose\(partId, attr, id\)\}/, 'the style dropdown routes around the funnel');
 });
 
-test('a frozen zone disables every chip, selected or not', () => {
+test('a frozen zone disables its switch, on or off', () => {
   const s = src(EDITOR);
-  assert.match(
-    s,
-    /const blocked =\s*Boolean\(activeFinalized\) \|\| \(atCap && !selected && opt\.exclusive !== true\)/,
-    'turning the agreed treatment OFF is as much a change as turning another one on, so a ' +
-      'frozen zone must block the selected chip too',
-  );
-  assert.match(s, /disabled=\{blocked\}/, 'the computed refusal never reaches the button');
+  assert.match(s, /disabled=\{Boolean\(agreed\)\}/, 'turning an agreed accent OFF is as much a change as another look ON');
+  assert.match(s, /if \(agreed\) return;/, 'the switch handler itself does not refuse');
 });
 
-test('the room says WHO agreed and WHEN — never a control that just stops responding', () => {
+test('the sheet says WHO agreed and WHEN — never a control that just stops responding', () => {
   const s = src(EDITOR);
-  assert.match(s, /\{activeFinalized \? \(/, 'the agreed notice is not rendered');
-  assert.match(s, /Agreed\{activeFinalized\.vendorName \? ` with \$\{activeFinalized\.vendorName\}` : ''\}/);
-  assert.match(s, /activeFinalizedOn \? ` on \$\{activeFinalizedOn\}` : ''/);
-  // The notice sits with the zone's own controls, not adrift at the top of the
-  // panel — same placement rule MB1's disclosure follows.
-  const notice = s.indexOf('{activeFinalized ? (');
-  const chips = s.indexOf('activeDef.attributes.map');
-  // ~5.6k today: the inspiration strip, the people-layer note and RV2's booked-
-  // supplier suggestion chips sit between them. RAISED from 5000 (it was ~3.3k
-  // when written) because RV2 added a real block of panel between the two, NOT
-  // because the alarm was inconvenient — the bound is a drift alarm, not a byte
-  // count, and what it protects is that a notice pushed to the other end of the
-  // panel stops explaining the disabled chips. Everything between them today is
-  // still the same zone's own controls.
-  assert.ok(
-    notice > 0 && chips > notice && chips - notice < 7000,
-    `the notice has drifted ${chips - notice} chars from the chips it explains`,
-  );
+  assert.match(s, /Agreed\$\{a\.vendorName \? ` with \$\{a\.vendorName\}` : ''\}\$\{on \? ` on \$\{on\}` : ''\}/);
+  assert.match(s, /note=\{agreed \? agreedLine\(agreed\) : undefined\}/, 'the agreed line is not on the frozen row');
 });
 
 /* ══ 3 · THE REFERENCE PHOTOS BESIDE A ZONE ARE THE LIVE ONES ════════════ */
@@ -304,10 +272,10 @@ test("the theme name reaches the room's legend, not merely the page", () => {
   assert.match(src(PAGE), /themeName=\{themeName\}/, 'page → loader');
   assert.match(src(LOADER), /themeName\?: string \| null;/, 'the loader does not carry it');
   const lab = src(LAB);
-  assert.match(lab, /themeName=\{themeName\}/, 'SeatingLab3D → Hud');
-  // And it is PAINTED, in the legend block, beside the disclosure — a prop
+  assert.match(lab, /\bthemeName,/, 'SeatingLab3D does not destructure it');
+  // And it is PAINTED, in the legend block (the room's ⓘ since 2026-10-30) — a prop
   // threaded to a component that never renders it is the Panood shape.
-  const at = lab.indexOf('{themeName ? (');
+  const at = lab.indexOf('{themeName ? <');
   assert.ok(at > 0, 'the room legend never renders the theme name');
   const legend = lab.indexOf('SIDE_COLOR.both');
   assert.ok(

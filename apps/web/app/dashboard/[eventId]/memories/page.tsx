@@ -29,6 +29,8 @@ import { memoriesCameraWords, memoriesUnreadable } from '@/lib/event-memories-wo
 import type { MemoriesAlbumKey } from '@/lib/event-memories';
 import { MemoriesSettings } from './_components/memories-settings';
 import { memoriesNotice } from '@/lib/memories-notice';
+import { memoriesManagerRole } from '@/lib/memories-rules.server';
+import type { MemoriesManagerRole } from '@/lib/memories-rules';
 
 export const metadata = { title: 'Memories' };
 
@@ -85,6 +87,10 @@ export default async function EventMemoriesPage({ params, searchParams }: Props)
     | null;
   if (!ev && !eventRes.error) notFound();
   const host = membershipRes.data?.member_type === 'couple';
+  /* 👥 WHO MANAGES THE MEMORIES RULES (owner 2026-10-30): the hosts — `host` above, the couple + every co-host — and
+     the event's coordinator. Asked only of a non-host (a host needs no second read); a failed read answers null, so a
+     refusal hides the ⚙ rather than drawing a control whose save would be refused (`lib/memories-rules.server.ts`). */
+  const managerRole: MemoriesManagerRole | null = host ? 'host' : await memoriesManagerRole(supabase, eventId, user.id);
 
   // `seesAll` = the couple's own sources reach this viewer; a viewer they do not fails closed on the hidden suppliers.
   const isCouple = seesAll;
@@ -214,10 +220,16 @@ export default async function EventMemoriesPage({ params, searchParams }: Props)
       unreadable={unreadable}
       refusedParts={refusedParts}
       timeZone={ev ? eventTimezoneFromCoords(ev.venue_latitude, ev.venue_longitude) : null}
-      settings={host ? <MemoriesSettings eventId={eventId} loginEmail={user.email ?? null} appleIap={appleIap} /> : null}
+      settings={
+        managerRole ? (
+          <MemoriesSettings eventId={eventId} loginEmail={user.email ?? null} appleIap={appleIap} role={managerRole} />
+        ) : null
+      }
       addPhotos={addPhotos}
       blockedGuests={read.blockedGuests}
       suppliers={read.suppliers}
+      // 🏷 Tag in the viewer — the hosts and the coordinator (the 2026-10-30 Memories ruling); the action re-checks.
+      canTag={managerRole !== null}
     />
     {/* 📖 MADE FROM YOUR MEMORIES — Photo Notes Magazine, Your Recap and this day's Life-Flash, moved here unchanged from
         the Papic page when it was removed (2026-10-26; controller's call, DECISION_LOG "THE PAPIC CARD LIVES ON HOME ›

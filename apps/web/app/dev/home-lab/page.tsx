@@ -17,6 +17,11 @@
  *                                    "Let guests shoot now" on/off (owner 2026-10-14): the REAL
  *                                    resolver + bar (`resolveSiteNav`, `SiteMenuBar`) and the REAL
  *                                    "Your shots" (empty → "Take your first photo"; N sample shots)
+ *   ?view=stagebar&stage=save_the_date|rsvp|event|editorial&papic=1|0&photos=1|0|x
+ *                                    📷 an invited guest's bar on ANY stage (owner 2026-10-30, "PAPIC ON = A CAMERA
+ *                                    TAB ON EVERY STAGE"): the REAL resolver + bar (`resolveSiteNav`, `SiteMenuBar`)
+ *                                    with Papic on (default) or off, and the event's Papic photos: 1 = some, 0 = none
+ *                                    (no Memories tab), x = not known (the old rules)
  *   ?needs=simple|open|list|full     🚪 what the event needs (owner 2026-10-08, Level 1 —
  *                                    `lib/event-needs.ts`): the Home drops what the preset leaves
  *                                    off (the bar's own drop is held by its test), the One QR card and ONE
@@ -71,7 +76,9 @@ import { CoordinatingLine } from '@/app/dashboard/[eventId]/_components/coordina
 import { CoordinatorLevelAsk } from '@/app/dashboard/[eventId]/_components/coordinator-level-ask';
 import { labEventSettingsRows } from './lab-event-settings';
 import { PapicBuySheet } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-buy-sheet';
-import { PapicCameraSettings, PapicSwitch } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-camera-settings';
+import { PapicCameraSettings } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-camera-settings';
+import { PapicHeadPicker } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-head-picker';
+import { papicHeadLine, type PapicHeadFacts } from '@/lib/papic-shoot-now';
 import { ChallengeCardRow } from '@/app/dashboard/[eventId]/studio/papic/_components/challenge-card-row';
 import { PapicCameraHelp } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-camera-help';
 import { papicCardPhase } from '@/lib/papic-home-card';
@@ -118,6 +125,8 @@ import {
   type HomeNextInput,
 } from '@/lib/home-first-screen';
 import { OfflineLab } from './offline-lab';
+import { LabFactSheets } from '../suppliers-lab/lab-fact-sheets';
+import { isEventSettingsRow, peopleWithAccessHref } from '@/lib/people-with-access-href';
 
 export const dynamic = 'force-dynamic';
 
@@ -184,15 +193,29 @@ const STATES: Record<string, HomeNextInput> = {
 
 /* 📷 PAPIC'S CARD (owner 2026-10-26, "a quick on off button and expand for more settings") — `?card=1[&cardphase=before|live|after]`:
    the REAL card on fixture dates — closed, the head and the switch; open, the REAL camera settings (in a lab with no
-   database they say "couldn't load" — the failed-read state, drawn as it ships). */
-function labPapicCard(eventId: string, phase: string | undefined, failed: boolean, challenges = false): PapicCardInput {
+   database they say "couldn't load" — the failed-read state, drawn as it ships).
+   📷 `&head=off|eventday|now|offwait|onwait|unread` (owner 2026-10-30): the head's ONE dropdown — Off · On — event day ·
+   On — everyone, now — in each position, `offwait` = Off picked but not applied (Papic still live), `onwait` = On picked
+   but not applied, `unread` = the facts could not be read; with its line under the title. `&save=fail` refuses the lab's
+   picks (default: they save, with no server). Absent: On — event day. */
+const LAB_HEAD: Record<string, PapicHeadFacts> = {
+  off: { live: false, draftOn: false, early: false },
+  eventday: { live: true, draftOn: true, early: false },
+  now: { live: true, draftOn: true, early: true },
+  offwait: { live: true, draftOn: false, early: false },
+  onwait: { live: false, draftOn: true, early: false },
+  unread: { live: true, draftOn: true, early: null },
+};
+function labPapicCard(eventId: string, phase: string | undefined, failed: boolean, challenges = false, head?: string, save?: string): PapicCardInput {
+  const facts = LAB_HEAD[head ?? 'eventday'] ?? LAB_HEAD.eventday!;
   const startIso = '2026-12-10T16:00:00.000Z';
   const endIso = '2026-12-13T04:00:00.000Z';
   const now = phase === 'after' ? Date.parse('2026-12-14T02:00:00Z') : phase === 'live' ? Date.parse('2026-12-12T06:00:00Z') : Date.parse('2026-10-23T02:00:00Z');
   return {
     phase: papicCardPhase(startIso, endIso, now),
     thankYouHref: '#thank-you',
-    headControl: <PapicSwitch eventId={eventId} saved />,
+    headControl: <PapicHeadPicker eventId={eventId} {...facts} standIn={save === 'fail' ? 'fail' : 'ok'} />,
+    headLine: papicHeadLine(facts),
     // 🔢 The face (owner 2026-10-26): Total · Taken · Remaining and Add more — the settings open under it.
     counts: { total: failed ? null : 2000, left: failed ? null : 1240 },
     buy: <PapicBuySheet eventId={eventId} left={failed ? null : 1240} tone="brand" main label="Add more" />,
@@ -234,7 +257,7 @@ const LAB_HUB_PICK: HomeHubPickRead = { ok: true, pinned: null, byDate: 'rsvp' }
 export default async function HomeLab({
   searchParams,
 }: {
-  searchParams: Promise<{ bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; coord?: string; level?: string; shop?: string; card?: string; cardphase?: string; challenges?: string; open?: string; need?: string; state?: string; browser?: string; desk?: string }>;
+  searchParams: Promise<{ stage?: string; photos?: string; bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; coord?: string; level?: string; shop?: string; card?: string; cardphase?: string; head?: string; save?: string; challenges?: string; open?: string; need?: string; state?: string; browser?: string; desk?: string; prints?: string; settings?: string; row?: string; date?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -327,6 +350,38 @@ export default async function HomeLab({
   if (q.view === 'apply') {
     return <ApplyProSheetLab screen={q.screen ?? 'none'} />;
   }
+  if (q.view === 'stagebar') {
+    /* 📷 The bar a guest holding their key sees on this stage — no database, the real rules. */
+    const stage = (['save_the_date', 'rsvp', 'event', 'editorial'] as const).find((s) => s === q.stage) ?? 'save_the_date';
+    const papicOn = q.papic !== '0';
+    const phase = stage === 'event' ? 'day' : stage === 'editorial' ? 'after' : 'before';
+    const bar = resolveSiteNav({
+      viewer: { kind: 'guest' },
+      phase,
+      stageSlots: STAGE_BAR[stage].slots,
+      hostAllowsCamera: papicOn,
+      anyChapterPublic: false,
+      memoriesHasPhotos: q.photos === 'x' ? null : q.photos !== '0',
+      hasStory: true,
+      hasDetails: true,
+      liveBroadcast: false,
+      postEvent: { film: true, suppliers: true },
+      tabbed: stage === 'event' ? true : stage === 'editorial' ? false : 'one-page',
+      destinations: { camera: '/papic/guest?from=lab', film: '#open-film', suppliers: '#site-suppliers' },
+    });
+    return (
+      <div className="min-h-screen bg-cream px-4 pb-28 pt-3">
+        <div className="mx-auto flex max-w-xl flex-col gap-3">
+          <p className="sn-eye text-ink/70">{STAGE_BAR[stage].label} · the guest&rsquo;s bar</p>
+          <p className="text-sm text-ink/70">
+            Papic {papicOn ? 'on' : 'off'} · {q.photos === 'x' ? 'photos not known' : q.photos === '0' ? 'no Papic photos yet' : 'Papic photos taken'}
+          </p>
+          <p className="text-sm text-ink/60">{bar.map((sl) => sl.label).join(' · ')}</p>
+        </div>
+        <SiteMenuBar slots={bar} onePage={stage === 'save_the_date' || stage === 'rsvp'} />
+      </div>
+    );
+  }
   if (q.view === 'early') {
     const early = q.early !== '0';
     const n = Math.max(0, Number(q.shots ?? 0) || 0);
@@ -354,7 +409,7 @@ export default async function HomeLab({
               cameraHref="/papic/guest?from=lab"
             />
           ) : (
-            <p className="text-sm text-ink/60">(Early shooting off — the bar keeps its four; there are no Memories before the day.)</p>
+            <p className="text-sm text-ink/60">(Early shooting off — there are no Memories before the day.)</p>
           )}
         </div>
         <SiteMenuBar slots={bar} />
@@ -473,6 +528,8 @@ export default async function HomeLab({
     {/* `&coord=1` — 🗂 a supplier inside an event they run as the hosts' coordinator (owner 2026-10-28): the REAL
         line the event layout draws above every page for that viewer, over the couple's own Home. */}
     {q.coord === '1' ? <CoordinatingLine eventName={F.name} checkInHref={`/dashboard/${E}/guests/checkin`} /> : null}
+    {/* 📅 The Countdown's Date Finder answers from the Suppliers lab's date fixtures (no database) — the SAME sheet. */}
+    <LabFactSheets options={{ help: 'ok', notSet: false, change: false, drafted: false, venues: 'none' }} open={null}>
     <div className="mx-auto min-h-screen w-full bg-cream px-4 pb-6 pt-3 sm:px-6 sm:pt-6 lg:px-8">
       <HomeFirstScreen
         eventId={E}
@@ -489,13 +546,21 @@ export default async function HomeLab({
                 },
               ]}
               unread={q.level === 'unread'}
-              accessHref={`/dashboard/${E}/details#people-with-access`}
+              accessHref={peopleWithAccessHref(E)}
             />
           ) : null
         }
         /* ⚙ Event Settings on the cover — its rows drawn on the lab's fixture (`lab-event-settings.tsx`), no database. */
         eventSettings
         eventSettingsRows={labEventSettingsRows(E)}
+        /* `?settings=1[&row=access]` — the sheet opens with the page, as Home's own link does (the ☰'s mark). */
+        dateFinderOpen={q.date === 'find'}
+        eventSettingsLink={{
+          open: q.settings === '1',
+          row: q.settings === '1' && isEventSettingsRow(q.row) ? q.row : null,
+          landed: null,
+          renderKey: 'lab',
+        }}
         cover={{ eyebrow: F.eyebrow, shortDate: F.shortDate, name: F.name, ...(labForWho ? { forWho: labForWho } : {}) }}
         next={next}
         control={labControl}
@@ -503,7 +568,9 @@ export default async function HomeLab({
         papicLeft={papicNow.count}
         papicSizes={LAB_SIZES}
         hubPick={unread ? { ok: false, reason: 'unread' } : LAB_HUB_PICK}
-        papicCard={q.card === '1' ? labPapicCard(E, q.cardphase, q.fail === '1' || q.unread === '1', q.challenges === '1') : null}
+        /* 🖨 The Prints line (R8) — the couple's, where the event needs its Event Hub details; `&prints=0` drops it. */
+        prints={q.prints !== '0' && (labNeeds ? labNeeds.hubDetails : true)}
+        papicCard={q.card === '1' ? labPapicCard(E, q.cardphase, q.fail === '1' || q.unread === '1', q.challenges === '1', q.head, q.save) : null}
         apple={
           q.store === '1' && q.apple === '1'
             ? {
@@ -540,6 +607,7 @@ export default async function HomeLab({
         })}
       />
     </div>
+    </LabFactSheets>
     </>
   );
   /* `&spot=1` — 👋 the host spotlight's first run over this Home: the once-only welcome, then the shipped steps. */

@@ -5,7 +5,6 @@ import { countsTowardEvent, fetchGuestsByEventMeasured } from '@/lib/guests';
 import { readHubDraft } from '@/lib/hub-draft-store';
 import { readFinalizeState, resolveLivePax } from '@/lib/pax';
 import { resolveReplyBy, sanitizeRsvpAskConfig } from '@/lib/rsvp-ask';
-import { toInviteCount } from '@/lib/guest-roster-view';
 import { GuestSetupRows } from '../../../_components/guest-setup/guest-setup-rows';
 import { readOneLink } from '../../../_components/guest-setup/one-link.server';
 
@@ -88,7 +87,6 @@ export async function InvitePanel({
 
   /* "Send to N" — the ONE "to invite" rule (`isToInvite`): the List's number, and the
      send run's. A refused read is null ("We couldn't count…"), never 0. */
-  const toInvite = toInviteCount(guests.rows, guests.measured);
   /* The page's read carries requests and the passed-away too — only the list that counts is counted. */
   const attending = guests.measured ? guests.rows.filter((g) => countsTowardEvent(g) && g.rsvp_status === 'attending').length : null;
 
@@ -104,7 +102,6 @@ export async function InvitePanel({
           pricingMode: row.adaptive_pricing_mode === 'final_only' ? 'final_only' : 'realtime',
           fallback: resolveReplyBy({ deadline: null, eventDate: row.event_date })?.date ?? null,
         }}
-        toInvite={toInvite}
         oneLink={oneLink}
         headcount={{ locked: finalize.locked, attending, heads: finalize.locked ? finalize.finalPax : livePax }}
         requests={requests}

@@ -203,7 +203,7 @@ export const HOMES: Readonly<Record<string, Entry>> = {
   '/vendor-dashboard/clients/[eventId]': { home: '/vendor-dashboard/customers' },
   // A supplier's chat is ONE EVENT's chat, opened from the Customers events list (owner 2026-10-28: "list down the
   // different events which will jump to chat full screen") — ‹ goes back to that list, not to a Messages fold.
-  '/vendor-dashboard/messages/[threadId]': { home: '/vendor-dashboard/customers?seg=people', label: 'Customers' },
+  '/vendor-dashboard/messages/[threadId]': { home: '/vendor-dashboard/customers?seg=events', label: 'Customers' },
   '/vendor-dashboard/contracts/*': { home: CUSTOMERS_CONTRACTS, label: 'Contracts' },
   '/vendor-dashboard/calendar/[date]': { home: '/vendor-dashboard/customers?seg=dates', label: 'Dates' },
   // `/services` is a redirect into the Shop (audit ⚠, kept).

@@ -32,6 +32,9 @@
  *                                        which is itself the "a failure says what failed, in place" walk.
  *                                        ?claim=1 — the camera is not this host's yet: one press, the claim rides the pick
  *                                        (`startAddingPhotos`; with no session here it answers "signed out", on the sheet).
+ *                                        ?who=tagged|all — ⚙ draws the REAL Who sees what (owner 2026-10-30) at that
+ *                                        choice (the lab's ⚙ holds that rule only; the server-read rows need a session)
+ *                                        · with ?guest=1&coord=1 — the event's coordinator: no host tools, ⚙ = the rules.
  *
  *   ?shop=0   an account that owns no shop (four tabs, no Shop)
  *
@@ -55,9 +58,11 @@ import { labEventBar } from '../lab-event';
 import { EventMemoriesGallery } from '@/app/_components/memories/event-memories-gallery';
 import { AddToLibrary } from '@/app/dashboard/[eventId]/studio/papic/_components/add-to-library';
 import { PapicBuySheet } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-buy-sheet';
+import { WhoSeesWhatPick } from '@/app/dashboard/[eventId]/studio/papic/_components/who-sees-what-pick';
 import type { UploadPot } from '@/app/dashboard/[eventId]/studio/papic/_lib/upload-credits';
 import type { GalleryPhoto } from '@/lib/papic-gallery';
 import type { MemoriesChallenge, MemoriesItem } from '@/lib/event-memories';
+import type { PhotoTagState } from '@/lib/memories-photo-tags';
 
 export const dynamic = 'force-dynamic';
 
@@ -115,8 +120,30 @@ function labItem(i: number): MemoriesItem {
     hubUse: null,
     guestId: vendor ? null : `g-${i}`,
     vendorProfileId: vendor ? 'vp-lumen' : null,
+    // The lab's stand-in for the save route's ORIGINAL (a fixture picture — nothing is fetched from storage).
+    saveUrl: vendor || p.kind === 'clip' ? null : p.url,
+    downloadUrl: p.kind === 'clip' ? p.url : null,
+    preserved: i % 3 === 0,
+    alreadyCompressed: i === 5,
   };
 }
+/** The Tag list's fixture names (the viewer's Tag, owner 2026-10-30) — a wrong face match to remove, guests to add. */
+const LAB_TAGS: PhotoTagState = {
+  tagged: [
+    { guestId: 'g-indalecio', name: 'Indalecio Reyes', auto: true },
+    { guestId: 'g-claire', name: 'Claire Santos', auto: false },
+  ],
+  guests: [
+    { guestId: 'g-indalecia', name: 'Indalecia Reyes' },
+    { guestId: 'g-indalecio', name: 'Indalecio Reyes' },
+    { guestId: 'g-claire', name: 'Claire Santos' },
+    { guestId: 'g-ben', name: 'Ben Cruz' },
+    { guestId: 'g-maria', name: 'Maria Dela Cruz' },
+    { guestId: 'g-jose', name: 'Jose Garcia' },
+  ],
+  saidNotMe: [],
+  complete: true,
+};
 function labHub(i: number): MemoriesItem {
   const p = labPhoto(100 + i);
   return { ...p, id: `hub-${i}`, largeUrl: p.url, capturedBy: HUB_USES[i]!, memSource: 'hub', look: 'ok', table: 'hub', challengeId: null, hubUse: HUB_USES[i]!, downloadUrl: p.url };
@@ -235,6 +262,13 @@ export default async function BarLab({
                       />
                     }
                     suppliers={[{ vendorProfileId: 'vp-lumen', vendorRowId: 'v-lumen', name: 'Lumen Studio', hidden: false }]}
+                    canTag={sp.guest !== '1' || sp.coord === '1'}
+                    tagFixture={LAB_TAGS}
+                    settings={
+                      sp.who === 'tagged' || sp.who === 'all' ? (
+                        sp.guest !== '1' || sp.coord === '1' ? <WhoSeesWhatPick eventId={EVENT} initialOpen={sp.who === 'all'} /> : null
+                      ) : null
+                    }
                   />
                 </div>
               </main>
@@ -263,7 +297,15 @@ export default async function BarLab({
           }
           railContext={
             event ? (
-              <EventRailContext eventId={EVENT} guestCount={32} services={[]} websiteEnabled eventName="Ana & Miguel" />
+              <EventRailContext
+                eventId={EVENT}
+                guestCount={32}
+                services={[]}
+                websiteEnabled
+                eventName="Ana & Miguel"
+                /* The event's mark — the ☰'s door to Home's ⚙ Event Settings (owner 2026-10-30, "tapping monogram not working"). */
+                eventMonogram={{ display_name: 'Ana & Miguel', monogram_text: 'A&M', monogram_color: null }}
+              />
             ) : (
               <VendorRailContext shopName="Lab Florals" role="owner" navSlots={{}} bookingsBadge={2} threadsBadge={1} planHref={null} tier={null} />
             )

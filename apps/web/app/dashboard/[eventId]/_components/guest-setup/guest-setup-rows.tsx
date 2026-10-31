@@ -1,9 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState, useTransition, type MouseEvent } from 'react';
-import { Check, ChevronRight, Copy, Mail, RotateCcw, Share2, SquareCheck, X } from 'lucide-react';
+import { useEffect, useRef, useState, useTransition } from 'react';
+import { Check, ChevronRight, Copy, RotateCcw, Share2, X } from 'lucide-react';
 import { ActionButton, useFitRow } from '@/components/action-button';
-import { Count } from '@/components/count';
 import { ChosenRow, FormRow, FormRows } from '@/app/_components/form-row';
 import { readOneAtATime, type RsvpAskConfig } from '@/lib/rsvp-ask';
 import type { KeepAnswer } from '@/lib/form-row';
@@ -27,7 +26,7 @@ import {
   headcountLockedLine,
   headcountOpenLine,
 } from '@/lib/headcount-row';
-import { useGuestActions, usePickWho } from '../../guests/_components/guest-actions-context';
+import { useGuestActions } from '../../guests/_components/guest-actions-context';
 import { GuestConfirmActions, GuestPopup } from '../../guests/_components/guest-popup';
 import { plainRefusal } from '../../guests/_components/plain-refusal';
 import { GuestsGetIn } from './guests-get-in';
@@ -37,11 +36,7 @@ import type { OneLink } from './one-link.server';
 import { asksFrame, getInFrame, replyByFrame } from './setup-frames';
 import { GUESTS_SETTINGS_CLUSTERS } from '@/lib/event-settings-record';
 
-/** 📨 The Invitations row's words (HOME_AND_GUESTS_CHECK G26). */
-export const INVITATIONS_TITLE = 'Invitations';
 export const ONE_LINK_TITLE = 'Your one link';
-/** Behind the Invitations row's ⓘ — how the run works; the count of who is left stays on the row. */
-export const INVITATIONS_ABOUT = 'One by one from your phone — Viber, Messenger, WhatsApp or SMS.';
 /** Behind the one link's ⓘ. */
 export const ONE_LINK_ABOUT = 'Whoever opens it is in.';
 /** 📥 Requests to join — the row's words (prototype § 4). */
@@ -65,9 +60,8 @@ export type HeadcountView = {
  * → Guests → Setup). Rows, in order, the words left and ONE control right:
  *
  *   1. How guests get in   `GuestsGetIn` (shared with the Maker)
- *   2. Invitations         ✉ Send to N · ☑ Pick who (personal choices only). No pass
- *                          picture here (owner 2026-10-28 "yes": the Event Pass lives
- *                          in Prints, each guest's ticket on their card)
+ *   2. (Invitations — GONE, R4 slice 11: sending lives where the guests are — the List's "To invite" count door
+ *      with its Invite N ›, and Select › ✉ Invite N; the run itself is `/guests/send`. The ⚙ holds settings only.)
  *   3. Your one link       link · Copy · Share + the QR (Open · Anyone with the link only)
  *   4. RSVP asks           `RsvpAsks` (shared) — "They reply" choices only
  *   4b. How guests answer  All at once · One by one (`oneAtATime`) — "They reply" choices only
@@ -96,7 +90,6 @@ export function GuestSetupRows({
   config,
   drafted,
   reply,
-  toInvite,
   oneLink,
   headcount,
   requests = null,
@@ -108,8 +101,6 @@ export function GuestSetupRows({
   drafted: boolean;
   /** The reply-by date's own value + pricing view; null = could not be read. */
   reply: { own: string | null; pricingMode: 'realtime' | 'final_only'; fallback: string | null } | null;
-  /** Guests not yet sent an invitation (null = the list could not be read). */
-  toInvite: number | null;
   oneLink: OneLink;
   headcount: HeadcountView;
   /** Requests to join waiting (null = not counted — the row still opens the list). */
@@ -194,7 +185,6 @@ export function GuestSetupRows({
           </p>
         ) : null}
 
-        {personal ? <InvitationsRow eventId={eventId} toInvite={toInvite} /> : null}
         {getIn === 'one_qr' ? <OneLinkRow link={oneLink} /> : null}
         <ClusterHead name={GUESTS_SETTINGS_CLUSTERS[1]} />
         {replies ? <RsvpAsks frame={asksFrame} config={local} onToggle={(field, v) => void save({ [field]: v }, 'That question')} /> : null}
@@ -261,66 +251,6 @@ function RequestsRow({ eventId, waiting }: { eventId: string; waiting: number | 
         href={setupDoorHref(eventId, 'requests')}
         data-testid="setup-requests"
       />
-    </FormRow>
-  );
-}
-
-/**
- * ✉ INVITATIONS — the count, the shipped one-by-one run (`/guests/send`) and Pick who. Nothing else: the Event Pass
- * front/back preview LEFT (owner 2026-10-28, asked "Why is the invitation here? Shouldn't that be on prints?", then
- * "yes") — the pass lives in Prints (`PRINT_PIECES.pass`) and each guest's ticket on their card.
- */
-function InvitationsRow({ eventId, toInvite }: { eventId: string; toInvite: number | null }) {
-  const { setupDoorHref } = useGuestActions();
-  // ☑ On the Guests screen, Pick who works IN PLACE — closes this sheet, Select on, the list narrowed to To invite.
-  const pickWho = usePickWho();
-  const acts = useRef<HTMLSpanElement>(null);
-  useFitRow(acts);
-  return (
-    <FormRow
-      data="invitations"
-      name={INVITATIONS_TITLE}
-      about={{ words: INVITATIONS_ABOUT }}
-      attrs={{ 'data-setup-row': 'invitations' }}
-      line={
-        toInvite === null ? (
-          'We couldn’t count who is left to invite just now.'
-        ) : (
-          <>
-            <Count value={toInvite} id="setup-to-invite" /> to invite.
-          </>
-        )
-      }
-    >
-      <span ref={acts} className={ACTS}>
-        {toInvite === 0 ? (
-          <ActionButton tone="ok" quiet icon={Check} label="Everyone invited" disabled />
-        ) : (
-          <ActionButton
-            tone="brand"
-            main
-            icon={Mail}
-            label={toInvite === null ? 'Send' : `Send to ${toInvite}`}
-            href={setupDoorHref(eventId, 'send')}
-            data-testid="setup-send"
-          />
-        )}
-        <ActionButton
-          tone="neutral"
-          icon={SquareCheck}
-          label="Pick who"
-          href={setupDoorHref(eventId, 'pick-who')}
-          onClick={
-            pickWho
-              ? (e: MouseEvent<HTMLAnchorElement>) => {
-                  e.preventDefault();
-                  pickWho();
-                }
-              : undefined
-          }
-          data-testid="setup-pick-who"
-        />
-      </span>
     </FormRow>
   );
 }

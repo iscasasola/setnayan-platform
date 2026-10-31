@@ -95,7 +95,7 @@ import { type MakerEventBar, type MakerProLine, type MakerTool } from './maker-c
 import type { MakerSide } from './maker-bar';
 import { PickSheetContext, type PickSheet } from '../../website/editor/_components/pick-menu-place';
 /* 🧭 The new Maker's own chrome — lazy, so the shipped Maker's first load carries none of it. */
-import { HubSettingsGear, LowerThirdGrab, MakerSheet, MakerTour, MakerUpdating, PrintsPageDesk, StageTools, StudioBackToPart, StudioCover, StudioSideSwitch, StudioToolMenu } from './details-lazy';
+import { HubSettingsGear, LowerThirdGrab, MakerSheet, MakerTour, MakerUpdating, PrintsPageDesk, StageTools, StudioBackToPart, StudioCover, StudioSideSwitch, StudioTool, StudioToolMenu } from './details-lazy';
 import { MAKER_IN_THE_APP_CSS, MAKER_LT_HALF } from '@/lib/maker-phone-room';
 import { detailsItemLayout } from '@/lib/maker-details-items';
 import type { LookSection } from '@/lib/maker-look-sections';
@@ -1116,8 +1116,16 @@ export function MakerShell({
               view · which version · open browsing, the QR) and what the page hands it. The lower third's
               Settings › Who can view opens the same sheet. Only where there is a Hub to set (a coordinator has none).
               ⚡ The house door (`MenuSettingsButton menu="hub"`) is mounted in `hub-settings.tsx`, through the lazy
-              stand-in — not in the Maker's first load. */}
-          {hasWork ? (
+              stand-in — not in the Maker's first load.
+            🖨 ON THE PRINTS PAGE THE ⚙ IS PRINT SETTINGS (owner 2026-10-31, relayed: *"the ⚙ on Prints opens Prints' own
+              settings, if there is a real Prints setting"*): Event Hub settings change nothing on a print, so the page's one ⚙,
+              in the same spot, opens the ONE print settings sheet (`StudioPrintSettingsDoor` → `StudioPrintSettings`, the same
+              store the slides' ⚙ used), through the same lazy door (`StudioTool`). The Hub's ⚙ is not drawn there. */}
+          {printsPage ? (
+            <span data-maker-tool="settings" data-bar-item="Settings" data-prints-gear="" className={`inline-flex h-11 min-w-11 shrink-0 [&>[data-lazy-slot]]:hidden ${MAKER_BAR_PHONE.settings}`}>
+              <StudioTool part="print-settings-door" />
+            </span>
+          ) : hasWork ? (
             <span data-maker-tool="settings" data-bar-item="Settings" className={`inline-flex shrink-0 ${MAKER_BAR_PHONE.settings}`}>
               <HubSettingsGear
                 open={moreOpen}

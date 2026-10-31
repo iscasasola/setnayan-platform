@@ -17,7 +17,7 @@
 #   col       5019
 #   policy    974
 #   view      9
-#   func      279
+#   func      280
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -6625,6 +6625,7 @@ func	public.answer_incoming_request(p_guest_id uuid, p_yes boolean)	secdef=yes e
 func	public.apply_colour_change(p_event_id uuid, p_domain text, p_target_kind text, p_target_key text, p_target_index smallint, p_new_value text)	secdef=yes exec=authenticated search_path=public
 func	public.approve_vendor_subscription(p_purchase_id uuid)	secdef=yes exec=anon,authenticated search_path=UNPINNED
 func	public.ask_event_date_change(p_event_id uuid, p_date date, p_precision text, p_event_vendor_ids uuid[])	secdef=yes exec=authenticated search_path=public
+func	public.ask_hosts_for_more_access(p_event_id uuid, p_area text, p_note text)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.assert_seating_lock_held(p_event_id uuid, p_lock_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.begin_mood_board_change(p_event_id uuid, p_kind text, p_slot_key text)	secdef=yes exec=authenticated search_path=public
 func	public.booking_fee_centavos(p_amount_centavos bigint)	secdef=no exec=anon,authenticated search_path=public

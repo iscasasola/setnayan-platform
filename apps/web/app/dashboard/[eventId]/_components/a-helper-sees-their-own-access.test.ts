@@ -9,7 +9,8 @@
  * Held here, as properties:
  *   1 · the row is built from the hosts' own parts (`ownAccessOf` → `areaCells`, the hosts' role words, the access
  *       window's last day) — never a second rule;
- *   2 · "Your access" is the sheet's FIRST row, and it draws nothing pressable but its ⓘ (no toggle, no pill, no link);
+ *   2 · "Your access" is the sheet's FIRST row, and its parts are words: nothing pressable but its ⓘ and, since the owner's
+ *       "yes" the same day, ONE "Ask the hosts" (no toggle, no pill, no link — `a-helper-asks-the-hosts.test.ts`);
  *   3 · the action hands a helper (a seat inside its window) "Your access" ALONE — their own seat, the session client,
  *       no host editor, no one else's row — and a stranger a refusal; both before the hosts' round;
  *   4 · Home gives a helper the ⚙ (a `coordinator` member — every non-host seat), never the Date Finder, and the sheet's
@@ -62,11 +63,12 @@ test('1 · Your access is the hosts’ own row for this person — role word, ce
   assert.equal(ownAccessOf({ roleSubtype: 'viewer', permissions: null, window: { ...DAY, precision: 'month' } }).lastDay, null);
 });
 
-test('2 · Your access is the FIRST row, and nothing in it is pressable but its ⓘ', async () => {
+test('2 · Your access is the FIRST row, and nothing in it is pressable but its ⓘ and Ask the hosts', async () => {
   const { YourAccess } = await import('../details/_components/your-access');
   const rows = code('event-settings-rows.tsx');
   assert.match(rows, /import \{ YourAccess \} from '\.\.\/details\/_components\/your-access'/, 'the sheet draws its own copy of Your access');
   assert.equal((rows.match(/<YourAccess\b/g) ?? []).length, 1, 'Your access is not mounted exactly once');
+  assert.match(rows, /<YourAccess access=\{yours\} eventId=\{eventId\}/, 'Your access cannot ask the hosts of this event');
   const body = rows.slice(rows.indexOf('data-event-settings-body'));
   const first = body.indexOf('row="your-access"');
   assert.ok(first >= 0, 'the sheet has no Your access row');
@@ -77,12 +79,17 @@ test('2 · Your access is the FIRST row, and nothing in it is pressable but its 
 
   // Rendered: the role line, one row per part as WORDS, and exactly one pressable thing — the ⓘ.
   const html = renderToStaticMarkup(
-    createElement(YourAccess, { access: ownAccessOf({ roleSubtype: 'wedding_planner_external', permissions: perms({ ...COORDINATOR_AREAS }), window: DAY }) }),
+    createElement(YourAccess, {
+      access: ownAccessOf({ roleSubtype: 'wedding_planner_external', permissions: perms({ ...COORDINATOR_AREAS }), window: DAY }),
+      eventId: 'e1',
+    }),
   );
   assert.match(html, /Coordinator · until Dec 25, 2026/, 'the role line does not say who they are and until when');
   assert.equal((html.match(/<li\b/g) ?? []).length, areaCells(null).length, 'a part is missing from Your access');
   assert.match(html, /data-area="guest_list" data-level="edit"/);
-  assert.equal((html.match(/<button\b/g) ?? []).length, 1, 'Your access draws something pressable besides its ⓘ — it is read-only');
+  // Two presses: the ⓘ and Ask the hosts (the owner's "yes", 2026-10-31) — the parts themselves stay words.
+  assert.equal((html.match(/<button\b/g) ?? []).length, 2, 'Your access draws something pressable besides its ⓘ and Ask the hosts — it is read-only');
+  assert.equal((html.match(/data-testid="ask-the-hosts"/g) ?? []).length, 1, 'the second press is not Ask the hosts');
   assert.doesNotMatch(html, /<a\b|<select\b|<input\b|role="radio/, 'Your access draws a control — it is read-only');
   // Frames only on what is pressed: the parts are words between dividers, never pills or boxes.
   const view = code('../details/_components/your-access.tsx');

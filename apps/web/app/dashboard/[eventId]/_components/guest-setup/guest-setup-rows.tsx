@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition, type MouseEvent } from 'react';
 import { Check, ChevronRight, Copy, RotateCcw, Share2, X } from 'lucide-react';
 import { ActionButton, useFitRow } from '@/components/action-button';
 import { ChosenRow, FormRow, FormRows } from '@/app/_components/form-row';
@@ -26,7 +26,7 @@ import {
   headcountLockedLine,
   headcountOpenLine,
 } from '@/lib/headcount-row';
-import { useGuestActions } from '../../guests/_components/guest-actions-context';
+import { useGuestActions, useOpenRequests } from '../../guests/_components/guest-actions-context';
 import { GuestConfirmActions, GuestPopup } from '../../guests/_components/guest-popup';
 import { plainRefusal } from '../../guests/_components/plain-refusal';
 import { GuestsGetIn } from './guests-get-in';
@@ -239,9 +239,14 @@ function ClusterHead({ name, first = false }: { name: string; first?: boolean })
   );
 }
 
-/** 📥 REQUESTS TO JOIN — people who asked through the link; the row opens their list (`/guests/claims`). */
+/**
+ * 📥 REQUESTS TO JOIN — people who asked through the link. On the Guests screen the press opens them IN PLACE
+ * (`useOpenRequests`: the sheet closes, Asking to join opens on the List); elsewhere, or with no script, the row is
+ * still the link to their list (`/guests/claims`).
+ */
 function RequestsRow({ eventId, waiting }: { eventId: string; waiting: number | null }) {
   const { setupDoorHref } = useGuestActions();
+  const openRequests = useOpenRequests();
   return (
     <FormRow data="requests" name={REQUESTS_TITLE} line={REQUESTS_LINE} attrs={{ 'data-setup-row': 'requests' }}>
       <ActionButton
@@ -249,6 +254,14 @@ function RequestsRow({ eventId, waiting }: { eventId: string; waiting: number | 
         icon={ChevronRight}
         label={waiting === null ? 'Open' : waiting === 0 ? 'None waiting' : `${waiting} waiting`}
         href={setupDoorHref(eventId, 'requests')}
+        onClick={
+          openRequests
+            ? (e: MouseEvent<HTMLAnchorElement>) => {
+                e.preventDefault();
+                openRequests();
+              }
+            : undefined
+        }
         data-testid="setup-requests"
       />
     </FormRow>

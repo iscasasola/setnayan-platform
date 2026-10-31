@@ -19,6 +19,10 @@
  * 🏠 HOME mounts it too (owner 2026-10-29, *"keep it there"*): `menu="home"`, Event Settings, at the right end of the
  * cover band (`home-settings-gear.tsx`). `cover` draws it in the cover's own ink (`.home-cover-ab`, the glass pill the
  * cover's buttons wear) — same component, same 44 px, only the colour follows the band it sits on.
+ *
+ * 🖨 THE DOOR ALONE (owner 2026-10-31, on the Prints page's ⚙: *"the ⚙ on Prints opens Prints' own settings"*): with no
+ * `children`, the button is the door only — the caller's own sheet answers `open` (Prints' `StudioPrintSettings`, whose
+ * fields must stay mounted while it is shut, so it can never be this frame's children, which mount only while open).
  */
 import { useEffect, useId, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
@@ -46,8 +50,8 @@ export function MenuSettingsButton({
   cover?: boolean;
   /** The sheet's one line and its ⓘ, when this viewer's sheet holds other rows than the menu's (Home's ⚙ for a helper). */
   line?: { line: string; tip: string };
-  /** The sheet's rows — the shipped controls. */
-  children: ReactNode;
+  /** The sheet's rows — the shipped controls. Absent: the door only; the caller draws the sheet `open` names. */
+  children?: ReactNode;
 }) {
   const entry = SETTINGS_ENTRY[menu];
   const headingId = useId();
@@ -66,7 +70,7 @@ export function MenuSettingsButton({
           className={cover ? 'home-cover-ab' : undefined}
         />
       </span>
-      {open ? (
+      {open && children !== undefined ? (
         <OnBody>
           <Sheet open onClose={() => onOpenChange(false)} labelledById={headingId} title={entry.sheet} wide>
             <div data-menu-settings-sheet={menu}>

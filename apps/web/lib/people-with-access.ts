@@ -100,6 +100,11 @@ export type PersonRow = {
    * Drives the Limited · Full access pick on the row — the place the Home card's answer stays changeable.
    */
   coordinatorLevel?: CoordinatorAccessLevel | 'unanswered';
+  /**
+   * 🪪 What this helper asked the hosts for in the last week ("Ask the hosts", owner 2026-10-31) — the parts and when
+   * the latest ask went, read from the viewer's own `access_more_asked` notices (`asksBySeat`). Absent = none.
+   */
+  asked?: { areas: DelegateArea[]; at: string } | null;
 };
 
 export type EventWindowInput = {
@@ -475,4 +480,84 @@ export function ownAccessOf(input: {
     areas: areaCells(permissions),
     lastDay: delegateAccessLastDay({ isCouple: false, eventDate: w.eventDate, eventEndDate: w.eventEndDate, precision: w.precision }),
   };
+}
+
+/**
+ * 🪪 ASK THE HOSTS — the one press in "Your access" besides its ⓘ (owner 2026-10-31, "yes" to building it; DECISION_LOG
+ * "A HELPER SEES THEIR OWN ACCESS AS THE FIRST ROW OF HOME ⚙ EVENT SETTINGS — read-only, with 'Ask the hosts'"). The
+ * helper picks ONE part they hold less than the hosts could give, adds an optional line, and every host gets one in-app
+ * notice (`ask_hosts_for_more_access`, 20271299854365) that opens People with access on that helper. Nothing is
+ * granted by asking; at most one ask per part a day; never an email.
+ */
+const LEVEL_RANK: Readonly<Record<AreaChoice, number>> = { off: 0, view: 1, edit: 2 };
+
+/** The parts a helper can ask more of: a host could set a higher level than they hold (Event Hub has no setting). */
+export function askableParts(cells: readonly AreaCell[]): AreaCell[] {
+  return cells.filter((c) => c.choices !== null && c.choices.some((x) => LEVEL_RANK[x] > LEVEL_RANK[c.choice]));
+}
+
+/** The sheet's one visible line; the rest is its ⓘ. */
+export const ASK_HOSTS_LINE = 'Pick a part — they get a notice in the app.';
+export const ASK_HOSTS_TIP =
+  'Every host gets one notice in the app — no email — that opens your row in People with access. Asking changes nothing by itself: only the hosts can change what you can open. One ask per part a day.';
+
+/** When the last ask went, as the button says it — "3:04 PM" today, else "Oct 31" (Philippine time, every viewer). */
+export function askedTimeLabel(iso: string, now: Date = new Date()): string {
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return '';
+  const day = (d: Date) => d.toLocaleDateString('en-PH', { timeZone: 'Asia/Manila', year: 'numeric', month: 'numeric', day: 'numeric' });
+  return day(at) === day(now)
+    ? at.toLocaleTimeString('en-PH', { timeZone: 'Asia/Manila', hour: 'numeric', minute: '2-digit' })
+    : at.toLocaleDateString('en-PH', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric' });
+}
+
+/** The words for an ask the database did not send — a plain sentence, never the database's own. */
+export function askRefusalWords(status: string | null | undefined, part?: string | null): string {
+  switch (status) {
+    case 'already_asked':
+      return `You already asked about ${part ?? 'this part'} today. The hosts have it — you can ask about it again tomorrow.`;
+    case 'not_a_helper':
+      return 'Your access to this event has ended, or couldn’t be read. Nothing was sent.';
+    case 'no_hosts':
+      return 'This event has no host to ask yet. Nothing was sent.';
+    case 'bad_part':
+      return 'That part can’t be asked for. Nothing was sent.';
+    default:
+      return 'Your ask couldn’t be sent just now. Nothing was sent — try again.';
+  }
+}
+
+/** How far back a helper's asks show on their row in People with access. */
+export const ASKS_SHOWN_FOR_DAYS = 7;
+
+/**
+ * 🪪 The asks on each seat's row, from a host's own `access_more_asked` notices: the notice's link names the seat and the
+ * part (`…&person=<moderator_id>&part=<area>`, written by `ask_hosts_for_more_access`). Newest first per seat; a part
+ * asked twice is named once; a link of any other shape is ignored.
+ */
+export function asksBySeat(
+  notices: ReadonlyArray<{ related_url: string | null; created_at: string }>,
+): Map<string, { areas: DelegateArea[]; at: string }> {
+  const out = new Map<string, { areas: DelegateArea[]; at: string }>();
+  const sorted = [...notices].sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+  for (const n of sorted) {
+    let q: URLSearchParams;
+    try {
+      q = new URL(n.related_url ?? '', 'https://x.invalid').searchParams;
+    } catch {
+      continue;
+    }
+    const seat = q.get('person');
+    const part = q.get('part');
+    if (!seat || !part || !(DELEGATE_AREAS as readonly string[]).includes(part)) continue;
+    const had = out.get(seat);
+    if (!had) out.set(seat, { areas: [part as DelegateArea], at: n.created_at });
+    else if (!had.areas.includes(part as DelegateArea)) had.areas.push(part as DelegateArea);
+  }
+  return out;
+}
+
+/** The words on the row — "Asked for more · Seat plan, Guest list · 3:04 PM". */
+export function askedRowWords(asked: { areas: readonly DelegateArea[]; at: string }, now: Date = new Date()): string {
+  return `Asked for more · ${asked.areas.map((a) => DELEGATE_AREA_LABEL[a]).join(', ')} · ${askedTimeLabel(asked.at, now)}`;
 }

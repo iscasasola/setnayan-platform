@@ -80,7 +80,8 @@ test('2 · ONE writer makes a request row — and it asks the setting itself bef
   );
   // The host's own Undo-Accept is the couple's action, never a stranger's.
   const claims = read('app', 'dashboard', '[eventId]', 'guests', 'claims', 'actions.ts');
-  const undo = bodyOf(claims, 'export async function undoAcceptAction(');
+  // (The body moved into `undoAccept`, behind the page's `undoRequestAction` and Guests' `decideRequestInPlace` — R4 slice 11.)
+  const undo = bodyOf(claims, 'async function undoAccept(');
   assert.match(undo, /await assertCouple\(eventId\);/, 'the request-writing Undo is not the couple\'s alone');
   assert.equal((claims.match(/entry_source:\s*'self_added_unlisted'/g) ?? []).length, 1);
 

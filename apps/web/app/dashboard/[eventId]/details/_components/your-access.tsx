@@ -1,6 +1,7 @@
 import { InfoTip } from '@/app/_components/info-tip';
 import { AREA_LEVEL_WORD } from '@/lib/delegate-areas';
-import { OWN_ACCESS_TIP, accessDayLabel, type OwnAccess } from '@/lib/people-with-access';
+import { OWN_ACCESS_TIP, accessDayLabel, askableParts, type OwnAccess } from '@/lib/people-with-access';
+import { AskTheHosts } from './ask-the-hosts';
 
 /**
  * your-access.tsx — 🪪 YOUR ACCESS — a HELPER's own seat, READ-ONLY, the first row of Home's ⚙ Event Settings (owner 2026-10-31,
@@ -11,8 +12,11 @@ import { OWN_ACCESS_TIP, accessDayLabel, type OwnAccess } from '@/lib/people-wit
  *
  * Its own file, beside People with access (the hosts' editor of the same cells): it imports no action, so it draws
  * wherever a seat's own access is read — and a test can render it.
+ *
+ * 🪪 ASK THE HOSTS (owner 2026-10-31, "yes"): the ONE press here besides the ⓘ, under the parts ("then at the bottom") —
+ * `AskTheHosts` opens its own sheet; the parts themselves stay words. Not drawn when there is nothing more to ask for.
  */
-export function YourAccess({ access }: { access: OwnAccess }) {
+export function YourAccess({ access, eventId, askedAt = null }: { access: OwnAccess; eventId: string; askedAt?: string | null }) {
   return (
     <div data-your-access="" className="space-y-1">
       <p className="text-[12.5px] text-ink/60" data-your-access-role="">
@@ -30,6 +34,11 @@ export function YourAccess({ access }: { access: OwnAccess }) {
           </li>
         ))}
       </ul>
+      {askableParts(access.areas).length > 0 ? (
+        <div className="pt-2" data-your-access-ask="">
+          <AskTheHosts eventId={eventId} areas={access.areas} askedAt={askedAt} />
+        </div>
+      ) : null}
     </div>
   );
 }

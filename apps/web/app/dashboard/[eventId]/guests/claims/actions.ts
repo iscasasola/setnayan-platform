@@ -13,11 +13,47 @@ import { checkExtraSeats, syncExtraSeats } from '@/lib/extra-seats-sync';
 import { closeRequestClaim, issueRequestKey, type IssuedKey } from '@/lib/guest-request-key';
 import { LINKED_INTO_PREFIX, linkedIntoFrom, linkedIntoTag, undoStillOpen } from '@/lib/request-key';
 import { isCoupleSeat } from '@/lib/seat-binding';
-import { refuseLimitedHelper } from '@/lib/host-gate';
+import { limitedHelperRefusal, refuseLimitedHelper } from '@/lib/host-gate';
 
-/** Back to the page with a sentence the couple can act on. */
-function back(eventId: string, message: string): never {
-  redirect(`/dashboard/${eventId}/guests/claims?error=${encodeURIComponent(message)}`);
+/**
+ * A sentence the couple can act on — THROWN, and answered by whoever asked (owner 2026-10-31, "Requests inside Guests":
+ * errors stay where the couple is):
+ *   · the Requests page's forms (`keepGuestAction` …) → back to `/guests/claims?error=…`, as always (`onThePage`);
+ *   · the same rows drawn INSIDE Guests (`keepRequestInPlace` …) → RETURNED as `{ ok: false, error }`, said in Guests'
+ *     own toast — nothing navigates (`inPlace`).
+ */
+class RequestRefused extends Error {}
+function back(_eventId: string, message: string): never {
+  throw new RequestRefused(message);
+}
+
+/** The Requests page's way: a refusal comes back to the page as `?error=…` (unchanged); `then` runs after a success. */
+async function onThePage(eventId: string, run: () => Promise<boolean>, then?: () => void): Promise<void> {
+  try {
+    await run();
+  } catch (e) {
+    if (e instanceof RequestRefused) redirect(`/dashboard/${eventId}/guests/claims?error=${encodeURIComponent(e.message)}`);
+    throw e;
+  }
+  then?.();
+}
+
+/** What a request decided INSIDE Guests answers — never a redirect. */
+export type RequestInPlace = { ok: true } | { ok: false; error: string };
+
+/** A request somebody else (or another tab) already answered — the row leaves on the refresh; nothing was changed. */
+const ALREADY_ANSWERED = 'That request was already answered — nothing changed.';
+
+/** Inside Guests: every refusal RETURNED, and no `from` (so no success redirect either). The helper gate is the door's
+ *  own first line (`decideRequestInPlace`), in words. */
+async function inPlace(formData: FormData, run: (fd: FormData) => Promise<boolean>): Promise<RequestInPlace> {
+  formData.delete('from');
+  try {
+    return (await run(formData)) ? { ok: true } : { ok: false, error: ALREADY_ANSWERED };
+  } catch (e) {
+    if (e instanceof RequestRefused) return { ok: false, error: e.message };
+    throw e;
+  }
 }
 
 /**
@@ -88,14 +124,14 @@ async function readUnlistedGuest(
  * list where you can choose their role, group, side, and name"). Every choice
  * is re-checked here against what this event offers (`readKeepChoice`).
  */
-export async function keepGuestAction(eventId: string, formData: FormData) {
+async function keepRequest(eventId: string, formData: FormData): Promise<boolean> {
   await refuseLimitedHelper(eventId, 'guest_list');
   const user = await assertCouple(eventId);
   const admin = createAdminClient();
   const guestId = await readUnlistedGuest(admin, eventId, formData);
   if (!guestId) {
     revalidatePath(`/dashboard/${eventId}/guests/claims`);
-    return;
+    return false;
   }
 
   // ⚖ Owner 2026-09-21: "a quick add text box … same function as the quick add
@@ -194,17 +230,18 @@ export async function keepGuestAction(eventId: string, formData: FormData) {
   revalidatePath(`/dashboard/${eventId}/guests/claims`);
   revalidatePath(`/dashboard/${eventId}/guests`);
   doneOnRequests(eventId, formData, issued, guestId);
+  return true;
 }
 
 /** REMOVE: soft-delete the unlisted guest and revoke any account membership. */
-export async function removeGuestAction(eventId: string, formData: FormData) {
+async function declineRequest(eventId: string, formData: FormData): Promise<boolean> {
   await refuseLimitedHelper(eventId, 'guest_list');
   const user = await assertCouple(eventId);
   const admin = createAdminClient();
   const guestId = await readUnlistedGuest(admin, eventId, formData);
   if (!guestId) {
     revalidatePath(`/dashboard/${eventId}/guests/claims`);
-    return;
+    return false;
   }
 
   // Close a signed-in asker's request first, so nothing can later bind their
@@ -284,6 +321,7 @@ export async function removeGuestAction(eventId: string, formData: FormData) {
   if (String(formData.get('from') ?? '') === 'requests') {
     redirect(`/dashboard/${eventId}/guests/claims?done=declined&who=${encodeURIComponent(guestId)}`);
   }
+  return true;
 }
 
 /**
@@ -292,7 +330,7 @@ export async function removeGuestAction(eventId: string, formData: FormData) {
  * account Accept bound (if they asked signed in) is unbound, and their claim is
  * open again. Groups and seats Accept made stay — they wait with the request.
  */
-export async function undoAcceptAction(eventId: string, formData: FormData) {
+async function undoAccept(eventId: string, formData: FormData): Promise<boolean> {
   await refuseLimitedHelper(eventId, 'guest_list');
   await assertCouple(eventId);
   const admin = createAdminClient();
@@ -324,11 +362,11 @@ export async function undoAcceptAction(eventId: string, formData: FormData) {
   if (reopenErr) back(eventId, 'They are a request again, but their sign-in claim did not reopen — Accept them again to finish.');
   revalidatePath(`/dashboard/${eventId}/guests/claims`);
   revalidatePath(`/dashboard/${eventId}/guests`);
-  redirect(`/dashboard/${eventId}/guests/claims`);
+  return true;
 }
 
 /** UNDO DECLINE (frame G2) — within `UNDO_WINDOW_MS`, the request is back, pending. */
-export async function undoDeclineAction(eventId: string, formData: FormData) {
+async function undoDecline(eventId: string, formData: FormData): Promise<boolean> {
   await refuseLimitedHelper(eventId, 'guest_list');
   await assertCouple(eventId);
   const admin = createAdminClient();
@@ -357,7 +395,9 @@ export async function undoDeclineAction(eventId: string, formData: FormData) {
     .eq('status', 'rejected');
   if (reopenErr) back(eventId, 'Their request is back, but their sign-in claim did not reopen — Accept or Decline it again.');
   revalidatePath(`/dashboard/${eventId}/guests/claims`);
-  redirect(`/dashboard/${eventId}/guests/claims`);
+  // The request is back on Guests too (its count, and the rows drawn there in place).
+  revalidatePath(`/dashboard/${eventId}/guests`);
+  return true;
 }
 
 /**
@@ -372,7 +412,7 @@ export async function undoDeclineAction(eventId: string, formData: FormData) {
  * carry the email + soft-delete the dupe; their device cookie pointed at the old
  * row, so they'd re-scan / use an email link to land on the merged guest.
  */
-export async function linkGuestAction(eventId: string, formData: FormData) {
+async function linkRequest(eventId: string, formData: FormData): Promise<boolean> {
   await refuseLimitedHelper(eventId, 'guest_list');
   const user = await assertCouple(eventId);
   const admin = createAdminClient();
@@ -382,7 +422,7 @@ export async function linkGuestAction(eventId: string, formData: FormData) {
   const targetId = String(formData.get('target_guest_id') ?? '');
   if (!sourceId || !targetId || targetId === sourceId) {
     revalidatePath(backTo);
-    return;
+    return false;
   }
 
   // Target must be a real, non-deleted guest in this event.
@@ -393,8 +433,7 @@ export async function linkGuestAction(eventId: string, formData: FormData) {
     .eq('event_id', eventId)
     .maybeSingle();
   if (!target || target.deleted_at) {
-    revalidatePath(backTo);
-    return;
+    back(eventId, 'That guest is no longer on your list — pick someone else, or Keep this person as new.');
   }
   // 🔒 NEVER ONTO A COUPLE SEAT (2026-09-30, lib/seat-binding.ts). A request is a
   // stranger's typed name; the bride / groom / celebrant row is kept only by the
@@ -427,10 +466,10 @@ export async function linkGuestAction(eventId: string, formData: FormData) {
     admin.from('guests').select('email, custom_tags').eq('guest_id', sourceId).maybeSingle(),
   ]);
 
-  // Don't merge into a seat already claimed by a different account.
+  // Don't merge into a seat already claimed by a different account — SAID, as the signed-in check below says it (it used
+  // to return in silence, and a Link that did nothing looked like a Link that worked).
   if (targetBinding && sourceMember && targetBinding.user_id !== sourceMember.user_id) {
-    revalidatePath(backTo);
-    return;
+    back(eventId, 'That guest is already linked to someone else’s account — Keep this person as new instead.');
   }
   // …and the same for a signed-in REQUEST (its account is remembered in
   // guest_claims, not event_members): never hand a seat another account holds.
@@ -518,4 +557,45 @@ export async function linkGuestAction(eventId: string, formData: FormData) {
   revalidatePath(backTo);
   revalidatePath(`/dashboard/${eventId}/guests`);
   doneOnRequests(eventId, formData, issued, targetId);
+  return true;
+}
+
+// ── THE DOORS ────────────────────────────────────────────────────────────────
+
+/** The Requests page's forms — every refusal back to the page as `?error=…`, exactly as before. */
+export async function keepGuestAction(eventId: string, formData: FormData) {
+  await refuseLimitedHelper(eventId, 'guest_list');
+  await onThePage(eventId, () => keepRequest(eventId, formData));
+}
+export async function removeGuestAction(eventId: string, formData: FormData) {
+  await refuseLimitedHelper(eventId, 'guest_list');
+  await onThePage(eventId, () => declineRequest(eventId, formData));
+}
+export async function linkGuestAction(eventId: string, formData: FormData) {
+  await refuseLimitedHelper(eventId, 'guest_list');
+  await onThePage(eventId, () => linkRequest(eventId, formData));
+}
+/** The page's two Undos, one door (`undo` = `accepted` · `declined`) — the server-action budget has no room for two. */
+export async function undoRequestAction(eventId: string, formData: FormData) {
+  await refuseLimitedHelper(eventId, 'guest_list');
+  const run = String(formData.get('undo') ?? '') === 'declined' ? undoDecline : undoAccept;
+  await onThePage(eventId, () => run(eventId, formData), () => redirect(`/dashboard/${eventId}/guests/claims`));
+}
+
+/** The five things a request row can do inside Guests (`decideRequestInPlace`'s `do`). */
+const IN_PLACE = { keep: keepRequest, decline: declineRequest, link: linkRequest, 'undo-accept': undoAccept, 'undo-decline': undoDecline } as const;
+
+/**
+ * 📥 THE SAME ROWS, INSIDE GUESTS (R4 slice 11; owner 2026-10-31) — ONE door, the verb in `do` (`keep` · `decline` ·
+ * `link` · `undo-accept` · `undo-decline`). It answers `{ ok, error }`: the row stays in Guests, Accept · Decline drop
+ * the toast with Undo (`guests/claims/decide-in-place.tsx`), and a refusal is said there in words. Nothing here
+ * redirects — not a refusal, not a success, not an Undo. 🔒 lib/requests-are-inside-guests.test.ts
+ */
+export async function decideRequestInPlace(eventId: string, formData: FormData): Promise<RequestInPlace> {
+  const helperRefusal = await limitedHelperRefusal(eventId, 'guest_list');
+  if (helperRefusal) return { ok: false, error: helperRefusal };
+  const verb = String(formData.get('do') ?? '');
+  const run = Object.prototype.hasOwnProperty.call(IN_PLACE, verb) ? IN_PLACE[verb as keyof typeof IN_PLACE] : null;
+  if (!run) return { ok: false, error: 'That did not save — nothing changed. Try again.' };
+  return inPlace(formData, (fd) => run(eventId, fd));
 }

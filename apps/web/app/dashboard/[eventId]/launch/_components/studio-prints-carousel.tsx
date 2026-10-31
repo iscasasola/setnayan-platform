@@ -15,7 +15,7 @@ import {
 import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
-import { AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Share, Loader2, RefreshCw, Settings, UserRound } from 'lucide-react';
+import { AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Share, Loader2, RefreshCw, UserRound } from 'lucide-react';
 import { ActionButton, actionButtonClass } from '@/components/action-button';
 import { InfoTip } from '@/app/_components/info-tip';
 import { Sheet } from '@/app/_components/sheet';
@@ -27,7 +27,7 @@ import { formatCount } from '@/lib/format-number';
 import { PAPER_EMPTY, paperPageSrc, type PrintPaperFacts } from '@/lib/print-paper';
 import { PRINTED_CHANGED_EVENT, changedSincePrinted, readPrintedStamp } from '@/lib/printed-stamp';
 import { MAX_PICKED_GUESTS } from '@/lib/print-picked-guests';
-import { GUEST_TOKEN, GUEST_WORD_TOKEN, PRINT_SETTINGS_LABEL, PRINT_SETTINGS_LINE, guestFileWord, type PrintGuest } from '@/lib/studio-prints-settings';
+import { GUEST_TOKEN, GUEST_WORD_TOKEN, guestFileWord, type PrintGuest } from '@/lib/studio-prints-settings';
 import { studioPrintsPieces, type StudioPrintsPiece } from '@/lib/studio-details';
 import type { DetailsItemGroup, DetailsItemKey } from '@/lib/maker-details-items';
 import { DetailsSelectContext } from './details-go';
@@ -36,7 +36,7 @@ import { chartAddresses, useChartPick, usePaper, type StudioPaper, type StudioPa
 import { usePrintSave, type PrintSaveState } from './print-save-button';
 import { usePassLookPick } from './pass-card-design-picker';
 import { DEFAULT_PASS_CARD_DESIGN, PASS_CARD_DESIGNS, PASS_CARD_DESIGN_LABEL, PASS_CARD_WORDS, type PassCardDesign } from '@/lib/pass-card';
-import { setPrintSettingsOpen, usePrintGuest, usePrintSlides, type AllInOneF, type PrintSlide } from './prints-view-store';
+import { usePrintGuest, usePrintSlides, type AllInOneF, type PrintSlide } from './prints-view-store';
 
 /**
  * 🎠 STUDIO › PRINTS IS A SWIPE CAROUSEL — owner, verbatim, 2026-10-26, looking at the Prints screen: *"So we can make like a swipe
@@ -49,8 +49,9 @@ import { setPrintSettingsOpen, usePrintGuest, usePrintSlides, type AllInOneF, ty
  *       arrow keys on a computer; dots · its name ▾ (the grouped piece list — a jump) · ⓘ · one spec line.
  *   2 · THE TOOLBAR IN THE LOWER THIRD, two rows: row 1 chooses — the print's size ▾ (or Colours ▾ · File ▾ · Chart ▾), and View as ▾
  *       on the four guest prints; row 2 acts — ONE wide Download (▾ on a guest print: This one · All guests · N · Pick guests…, the
- *       shared Pick guests sheet) and ⚙ Print settings (the shipped sheet; its first row is "Your Event Hub look ◆"). Under it the
- *       count line, word for word (`guestPrintCountLine`) — the number is the file.
+ *       shared Pick guests sheet). ⚙ Print settings (the shipped sheet; its first row is "Your Event Hub look ◆") was here until
+ *       2026-10-31 — it is now the page's ONE ⚙, the top bar's (owner, relayed: *"the ⚙ on Prints opens Prints' own settings"*).
+ *       Under it the count line, word for word (`guestPrintCountLine`) — the number is the file.
  *   3 · WHAT WENT: the long row list, the bottom piece bar (‹ · piece ▾ · › · ⬇) and the tap-to-enlarge paper sheet — the slide IS
  *       the large preview (pinch / double-tap to zoom stay on it).
  *   4 · ≥ 1024 px: the piece list left, the slide centre with ‹ ›, the same toolbar right as Form rows.
@@ -1041,21 +1042,8 @@ function ChartFull({ chart, facts }: { chart: NonNullable<PrintSlide['chart']>; 
   );
 }
 
-function SettingsButton() {
-  return (
-    <span data-prints-settings="" className="inline-flex shrink-0">
-      <button
-        type="button"
-        aria-label={PRINT_SETTINGS_LABEL}
-        aria-haspopup="dialog"
-        onClick={() => setPrintSettingsOpen(true)}
-        className="sn-press inline-flex h-11 w-11 items-center justify-center rounded-full border border-ink/20 bg-cream text-ink"
-      >
-        <Settings aria-hidden className="h-5 w-5" strokeWidth={1.8} />
-      </button>
-    </span>
-  );
-}
+/* ⚙ The slides' own ⚙ (the phone's, beside Download) and the computer's "Print settings" row are gone (owner 2026-10-31): the
+   Prints page's ONE ⚙ is its top bar's (`StudioPrintSettingsDoor`, `maker-shell.tsx`) — the same sheet, one ⚙ per page. */
 
 function CountLine(p: ToolsProps) {
   if (p.slide.chart && p.facts?.fits === false) return <ChartFull chart={p.slide.chart} facts={p.facts} />;
@@ -1090,7 +1078,6 @@ function PhoneTools(p: ToolsProps) {
         <span className="flex min-w-0 flex-1">
           <DownloadControl {...p} />
         </span>
-        <SettingsButton />
       </div>
       <SaveSaid state={p.state} />
       <CountLine {...p} />
@@ -1119,22 +1106,6 @@ function DeskTools(p: ToolsProps) {
         <SaveSaid state={p.state} />
         <CountLine {...p} />
       </div>
-      <button
-        type="button"
-        data-prints-settings-row=""
-        aria-haspopup="dialog"
-        onClick={() => setPrintSettingsOpen(true)}
-        className="sn-press flex min-h-14 w-full items-center gap-3 border-t border-ink/10 px-2.5 py-1 text-left"
-      >
-        <span aria-hidden className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-ink/[0.06] text-ink">
-          <Settings className="h-5 w-5" strokeWidth={1.75} />
-        </span>
-        <span className="min-w-0 flex-1">
-          <b className="block text-[15px] font-semibold text-ink">{PRINT_SETTINGS_LABEL}</b>
-          <span className="block text-[12.5px] leading-snug text-ink/60">{PRINT_SETTINGS_LINE}</span>
-        </span>
-        <ChevronRight aria-hidden className="h-5 w-5 shrink-0 text-ink/50" strokeWidth={1.75} />
-      </button>
     </aside>
   );
 }

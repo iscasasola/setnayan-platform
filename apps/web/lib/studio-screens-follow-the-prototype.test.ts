@@ -157,7 +157,7 @@ test('4 · Studio › Look opens on its one bar: no tall tiles; Background is th
 test('5 · the full-screen surface: green switches, edge to edge, Look full width', () => {
   const css = studioFullScreenCss();
   assert.match(css, /input\[role=switch\]:checked\+span\{background-color:#4f6b4a\}/, 'switches are not the prototype’s green');
-  assert.match(css, /\[data-details-editor-panel\]\[data-phone-chrome="panel"\]\{left:0;right:0;bottom:0;border-radius:0;box-shadow:none/, 'the editor still floats as a sheet');
+  assert.match(css, /\[data-details-editor-panel\]\[data-phone-chrome="panel"\]\{left:0;right:0;bottom:var\(--maker-nav,0px\);border-radius:0;box-shadow:none/, 'the editor still floats as a sheet, or covers the app’s bottom nav');
   assert.match(css, /:has\(\[data-details-editor\]:not\(\[hidden\]\) \[data-studio-look-bar\]\)\{left:0;right:0/, 'Look’s panel is not full width');
 });
 

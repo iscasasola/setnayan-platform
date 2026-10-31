@@ -206,7 +206,15 @@ export function useTapAway(ref: RefObject<HTMLElement | null>, active: boolean):
       settle = setTimeout(leave, ms);
     };
     // A click outside (a result, the Add row, any press on a desktop): leave once the click has done its own work.
+    // 🫳 A CLICK NO PERSON MADE IS NOT A TAP AWAY (owner 2026-10-31, live iPhone, Guests › March: *"Why does the x inside
+    // the type box not clearing the type box"*). `GlobalHaptics` answers EVERY press of a button at finger-DOWN with the
+    // iOS haptic switch — a programmatic `.click()` on a hidden checkbox appended to <body> (`lib/haptics.ts`). That click
+    // landed here, "outside" the row, so the ✕'s own press queued a blur: during the finger's hold the field left, the
+    // keyboard closed, the row unfolded (⇕ · ≡ · ＋ back, the field shorter) and the WebView grew — and when the finger
+    // LIFTED, the ✕'s click was hit-tested where the ✕ no longer was (measured in WebKit at 390×844 with a 120 ms hold:
+    // the lift hit a <p> of the list; the words stayed "Dela"). Only a click a person made can be a tap away.
     const onClick = (e: MouseEvent) => {
+      if (!e.isTrusted) return;
       if (!inside(e.target)) later(0);
     };
     const onTouchStart = (e: TouchEvent) => {

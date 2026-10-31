@@ -1527,6 +1527,11 @@ export function GuestsScreen(props: GuestsScreenProps) {
     label: 'Search guests or add',
     tour: 'guests-add',
     inputRef: fieldRef,
+    /* ✕ — the words are gone: the whole list AT ONCE, not after the search's wait (owner 2026-10-31). */
+    onClear: () => {
+      if (timer.current) clearTimeout(timer.current);
+      setQ('');
+    },
     input: {
       defaultValue: q,
       autoCorrect: 'off',

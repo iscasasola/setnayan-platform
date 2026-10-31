@@ -27,6 +27,7 @@ import { DEFAULT_LOADER_CONFIG, type LoaderConfig } from '@/lib/loader-config';
 import { DeferredObservability } from './_components/deferred-observability';
 import { DeviceCapture } from './_components/device-capture';
 import { GlobalHaptics } from './_components/global-haptics';
+import { GlobalClearField } from './_components/global-clear-field';
 import { GlobalSliderHint } from './_components/global-slider-hint';
 import { ThemeProvider, type ThemeMode } from './_components/theme-provider';
 import { ToastProvider } from './_components/toast/toast-provider';
@@ -206,6 +207,8 @@ export function Providers({
           Renders nothing; no-ops on engines without haptic support.
         */}
         <GlobalHaptics />
+        {/* ✕ in every type box while it is typed into (owner 2026-10-31) — `components/clear-field.tsx`. */}
+        <GlobalClearField />
         {/*
           App-wide "drag me" hint — one client effect adds a periodic left-right
           knob shake to opted-in line sliders (`.sn-range` / `[data-sn-hint]`)

@@ -889,6 +889,11 @@ function MarchMakerBody({
                   if (v) goToFoundWalker(v);
                 },
               },
+              /* ✕ — the words are gone: the march is whole AT ONCE, not after the search's wait (owner 2026-10-31). */
+              onClear: () => {
+                if (marchQTimer.current) clearTimeout(marchQTimer.current);
+                setMarchQ('');
+              },
             }}
             right={[guestsFilterMenu({ view: 'march', filter: lens.filter, onFilter: lens.setFilter, hasSides: lens.hasSides, label: 'Show' })]}
             action={

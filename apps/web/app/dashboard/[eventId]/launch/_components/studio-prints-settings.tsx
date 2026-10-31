@@ -124,7 +124,10 @@ export function StudioPrintSettings({ sections, form, lead = null }: { sections:
               <div className="bg-cream px-4 [&_[data-studio-print-rows]+[data-studio-print-rows]]:border-t [&_[data-studio-print-rows]+[data-studio-print-rows]]:border-ink/10">{s.body}</div>
             </section>
           ))}
-          <div ref={room} aria-hidden data-print-settings-room="" style={{ height: 0 }} />
+          {/* ⚠ `transition-none` (transition-property: none) — under reduced motion globals.css gives EVERY element a 0.001 ms
+              transition (and the default property is `all`), so the room's new height was a transition: it still measured 0 when the
+              scroll ran, and the open stopped at the old end (WebKit 390×844: Passes 306 px down). With none it counts at once. */}
+          <div ref={room} aria-hidden data-print-settings-room="" className="h-0 transition-none" />
         </div>
       </div>
       {said && open ? (

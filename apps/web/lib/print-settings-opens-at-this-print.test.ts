@@ -20,7 +20,9 @@
  * The open itself (a store the server render always reads shut) is walked in the lab at 390×844 WebKit with touch — see the PR.
  *
  * SABOTAGE (seen RED, then restored — see the PR): the sheet's `printSettingsOpenAt(b, printOnScreenNow())` read as
- * `printSettingsOpenAt(b, null)` → 3 red (the sheet no longer reads the print on screen).
+ * `printSettingsOpenAt(b, null)` → 3 red (the sheet no longer reads the print on screen); the open place's `+ body.scrollTop`
+ * dropped → 2 red; the room's `transition-none` dropped (then an inline style) → 3 red — and in the lab under reduced motion the
+ * same removal left Passes, Our Story poster and the seat plan 306 / 453 / 547 px down.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -107,7 +109,12 @@ test('3 · it happens as the sheet opens — before paint, instantly, at the pri
   assert.match(effect, /if \(!open \|\| !b\) return;/, 'the open place is not set as the sheet opens');
   assert.match(effect, /printSettingsOpenAt\(b, printOnScreenNow\(\)\)/, 'the sheet does not open at the print on screen');
   assert.match(effect, /room\.current\.style\.height = '0px';[\s\S]*printSettingsOpenAt[\s\S]*room\.current\.style\.height = `\$\{below\}px`;/, 'the room below is not measured at 0, then given');
-  assert.match(sheet, /<div ref=\{room\} aria-hidden data-print-settings-room="" style=\{\{ height: 0 \}\} \/>\s*<\/div>/, 'the room is not the body’s last child');
+  assert.match(sheet, /<div ref=\{room\} aria-hidden data-print-settings-room="" className="h-0 transition-none" \/>\s*<\/div>/, 'the room is not the body’s last child — or it can transition');
+  /* Under reduced motion globals.css gives every element a 0.001 ms transition (property `all`): a room that may transition still
+     measures 0 when the scroll runs (WebKit, measured). The rule is what makes `transition-none` necessary — held so a
+     change to it is seen here. */
+  const css = readFileSync(join(WEB, 'app/globals.css'), 'utf8');
+  assert.match(css, /prefers-reduced-motion: reduce\)[\s\S]{0,200}\*,[\s\S]{0,200}transition-duration: 0\.001ms !important/, 'anti-vacuity: the reduced-motion rule this guards against moved');
   assert.match(effect, /b\.scrollTo\(\{ top, behavior: 'instant' \}\)/, 'the open place is not set instantly');
   assert.match(sheet, /ref=\{scroller\} data-print-settings-body=""/, 'the place is set on another element than the sheet’s scrolling body');
   assert.doesNotMatch(sheet, /behavior: 'smooth'|scroll-smooth|scrollIntoView/, 'the sheet glides to the place — a jump on a phone, and no reduced motion');

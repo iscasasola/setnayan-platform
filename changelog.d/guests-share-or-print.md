@@ -21,6 +21,11 @@ download). The help sits behind ⓘ.
 - **Doors before any name:** signed in · a delegate the couple never shared the guest list with is refused (their read
   would be zero rows — a file of nobody) · the march is the couple's only (its read uses the service client) · every
   refused read is a 503 in words.
+- 🔒 **The seat plan is its own area (2026-10-31).** A helper whose grant lacks `seat_plan` (absent from their `areas`
+  map, or set Off) is REFUSED the Table list — 403 "The seat plan isn't shared with you…" — and gets the Guest list and
+  Check-in sheet with **no Table column**; the route does not even read the tables for them. Every door is one pure
+  answer, `guestsShareDoor` (`lib/guests-share-pdf.ts`), from the viewer the Guests page already uses
+  (`fetchEventViewer` → `delegatePermissions`, so a helper past the 7-day window is nobody → 404).
 - The march's read moved, unchanged, into `lib/guests-march-read.ts` so the March view and its PDF are one reading
   (`guests-march.tsx` calls it; `the-band-reads-what-the-host-typed` test points at the new home).
 - ⚠ **The 📤 round itself is NOT in this change.** The Guests/Seats top row is being reworked by another builder

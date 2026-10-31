@@ -19,6 +19,7 @@
  * 🔒 lib/guests-share-or-print.test.ts
  */
 import { formatCount } from '@/lib/format-number';
+import { isDelegateWithoutArea, type EventViewer } from '@/lib/event-viewer';
 import type { SharePdfDoc, SharePdfPaper, SharePdfSection } from '@/lib/share-pdf';
 
 export type GuestsShareDocKey = 'guest-list' | 'check-in' | 'table-list' | 'march';
@@ -27,6 +28,37 @@ export const GUESTS_SHARE_DOCS: readonly GuestsShareDocKey[] = ['guest-list', 'c
 
 export function isGuestsShareDoc(v: string | null | undefined): v is GuestsShareDocKey {
   return (GUESTS_SHARE_DOCS as readonly string[]).includes(v ?? '');
+}
+
+// ── 0 · who may take which file ─────────────────────────────────────────────
+
+/**
+ * THE DOORS, BEFORE A NAME IS READ — the route asks this first and reads nothing when it refuses.
+ *
+ *   · not on the event (a stranger, or a delegate whose 7-day window has closed — `fetchEventViewer` resolves them to
+ *     `delegatePermissions: null`, `lib/delegate-access-window.ts`) → 404, the same answer the event pages give;
+ *   · a delegate the couple never shared the guest list with → 403 in words;
+ *   · the march is the couple's own → 403 for any delegate;
+ *   · 🔒 THE SEAT PLAN IS ITS OWN AREA. A helper granted the guest list but not `seat_plan` is refused the Table list
+ *     outright (it IS the seat plan, as a list), and every other file is drawn for them WITHOUT a Table column —
+ *     `tables: false` means the route never reads the tables at all, so no table name can reach the page. The couple
+ *     always have it; a delegate has it at View or Edit.
+ *
+ * PURE (`lib/event-viewer.ts` is the pure half). 🔒 lib/guests-share-or-print.test.ts
+ */
+export type GuestsShareDoor = { ok: false; status: 403 | 404; words: string } | { ok: true; tables: boolean };
+
+export function guestsShareDoor(viewer: EventViewer, doc: GuestsShareDocKey): GuestsShareDoor {
+  if (!viewer.isCouple && viewer.delegatePermissions === null) return { ok: false, status: 404, words: 'Event not found.' };
+  if (isDelegateWithoutArea(viewer, 'guest_list')) {
+    return { ok: false, status: 403, words: "The guest list isn't shared with you. Ask the couple for guest list access." };
+  }
+  if (doc === 'march' && !viewer.isCouple) return { ok: false, status: 403, words: 'Only the couple can share the march.' };
+  const tables = !isDelegateWithoutArea(viewer, 'seat_plan');
+  if (doc === 'table-list' && !tables) {
+    return { ok: false, status: 403, words: "The seat plan isn't shared with you. Ask the couple for seat plan access." };
+  }
+  return { ok: true, tables };
 }
 
 /** The head every document shares: the event's name, its date · venue line, when, and the sheet. */
@@ -52,6 +84,8 @@ export function guestListPdf(
     /** "Role" · "Side" … — the ⇅ Group by. */
     groupLabel: string;
     sections: ReadonlyArray<{ label: string; guests: readonly ShareGuest[] }>;
+    /** The TABLE column — false for a helper the seat plan is not shared with (`guestsShareDoor`): no column at all. */
+    tables: boolean;
   },
 ): SharePdfDoc {
   const total = list.sections.reduce((n, s) => n + s.guests.length, 0);
@@ -60,11 +94,13 @@ export function guestListPdf(
     .map((s) => ({
       title: s.label,
       aside: plural(s.guests.length, 'guest'),
-      columns: [
-        { label: 'REPLY', width: 92, align: 'left' },
-        { label: 'TABLE', width: 84, align: 'left' },
-      ],
-      rows: s.guests.map((g) => ({ main: g.name, sub: g.sub ?? null, cells: [g.reply, g.table ?? '—'] })),
+      columns: list.tables
+        ? [
+            { label: 'REPLY', width: 92, align: 'left' },
+            { label: 'TABLE', width: 84, align: 'left' },
+          ]
+        : [{ label: 'REPLY', width: 92, align: 'left' }],
+      rows: s.guests.map((g) => ({ main: g.name, sub: g.sub ?? null, cells: list.tables ? [g.reply, g.table ?? '—'] : [g.reply] })),
     }));
   return {
     kind: 'GUEST LIST',
@@ -90,8 +126,11 @@ export function guestListPdf(
 
 export type ShareCheckIn = { name: string; sub?: string | null; table: string | null };
 
-/** Every COMING guest (the route passes attending ones), A to Z by the caller's order, a box to tick at the door. */
-export function checkInPdf(head: GuestsShareHead, guests: readonly ShareCheckIn[], pending: number): SharePdfDoc {
+/**
+ * Every COMING guest (the route passes attending ones), A to Z by the caller's order, a box to tick at the door.
+ * `tables` false (a helper without the seat plan, `guestsShareDoor`) drops the TABLE column — the box stays.
+ */
+export function checkInPdf(head: GuestsShareHead, guests: readonly ShareCheckIn[], pending: number, tables: boolean): SharePdfDoc {
   return {
     kind: 'CHECK-IN SHEET',
     title: head.eventName,
@@ -107,11 +146,13 @@ export function checkInPdf(head: GuestsShareHead, guests: readonly ShareCheckIn[
       {
         title: 'At the door',
         aside: 'Tick each name as they arrive',
-        columns: [
-          { label: 'TABLE', width: 96, align: 'left' },
-          { label: 'HERE', width: 44, align: 'left' },
-        ],
-        rows: guests.map((g) => ({ main: g.name, sub: g.sub ?? null, cells: [g.table ?? 'Not seated yet', '[    ]'] })),
+        columns: tables
+          ? [
+              { label: 'TABLE', width: 96, align: 'left' },
+              { label: 'HERE', width: 44, align: 'left' },
+            ]
+          : [{ label: 'HERE', width: 44, align: 'left' }],
+        rows: guests.map((g) => ({ main: g.name, sub: g.sub ?? null, cells: tables ? [g.table ?? 'Not seated yet', '[    ]'] : ['[    ]'] })),
         empty: 'Nobody has said they are coming yet.',
       },
     ],

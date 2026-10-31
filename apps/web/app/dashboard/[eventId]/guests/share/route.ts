@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchEventViewer } from '@/lib/event-viewer.server';
-import { isDelegateWithoutArea } from '@/lib/event-viewer';
 import {
   RSVP_ROW_WORDS,
   fetchGroupMembershipsByEventMeasured,
@@ -24,6 +23,7 @@ import { sharePdf, sharePdfPaper } from '@/lib/share-pdf';
 import {
   checkInPdf,
   guestListPdf,
+  guestsShareDoor,
   isGuestsShareDoc,
   marchPdf,
   tableListPdf,
@@ -42,7 +42,11 @@ export const dynamic = 'force-dynamic';
 //   2. a delegate the couple never shared the guest list with is refused — their guest read would be ZERO ROWS with no
 //      error (RLS), and a file of nobody would look like a real, empty list;
 //   3. the march is the couple's own (its read uses the service client, `lib/guests-march-read.ts`) — couple only, as
-//      the March view itself.
+//      the March view itself;
+//   4. the seat plan is its own area: a helper without `seat_plan` is refused the Table list, and gets every other file
+//      with NO Table column — the tables are not even read for them.
+// All four are one pure answer, `guestsShareDoor` (`lib/guests-share-pdf.ts`), from the viewer the Guests page uses
+// (`fetchEventViewer` — a delegate past the 7-day window is nobody).
 // Every read that fails answers 503 in words — never a file of "No guests" or "Nobody walks yet".
 // ---------------------------------------------------------------------------
 
@@ -64,10 +68,8 @@ export async function GET(req: Request, { params }: Params) {
   } = await supabase.auth.getUser();
   if (!user) return say(401, 'Please sign in to share this.');
 
-  const viewer = await fetchEventViewer(supabase, eventId, user.id);
-  if (!viewer.isCouple && viewer.delegatePermissions === null) return say(404, 'Event not found.');
-  if (isDelegateWithoutArea(viewer, 'guest_list')) return say(403, "The guest list isn't shared with you. Ask the couple for guest list access.");
-  if (doc === 'march' && !viewer.isCouple) return say(403, 'Only the couple can share the march.');
+  const door = guestsShareDoor(await fetchEventViewer(supabase, eventId, user.id), doc);
+  if (!door.ok) return say(door.status, door.words);
 
   const { data: event, error: eventError } = await supabase
     .from('events_host')
@@ -108,8 +110,9 @@ export async function GET(req: Request, { params }: Params) {
     } else {
       const [read, tables, assignments] = await Promise.all([
         fetchGuestsByEventMeasured(supabase, eventId),
-        fetchTables(supabase, eventId),
-        fetchAssignments(supabase, eventId),
+        // Without the seat plan, no table is read — nothing to leak, nothing to hide.
+        door.tables ? fetchTables(supabase, eventId) : Promise.resolve([]),
+        door.tables ? fetchAssignments(supabase, eventId) : Promise.resolve([]),
       ]);
       if (!read.measured) return say(503, UNREAD);
       const guests = read.rows;
@@ -121,7 +124,7 @@ export async function GET(req: Request, { params }: Params) {
       if (doc === 'check-in') {
         const coming = guests.filter((g) => replyFilterMatches(g, 'attending')).sort(byName);
         const pending = guests.filter((g) => replyFilterMatches(g, 'none')).length;
-        built = { name: file('check-in-sheet'), bytes: await sharePdf(checkInPdf(head, coming.map((g) => ({ name: guestPrintName(g), table: tableOf(g.guest_id) })), pending)) };
+        built = { name: file('check-in-sheet'), bytes: await sharePdf(checkInPdf(head, coming.map((g) => ({ name: guestPrintName(g), table: tableOf(g.guest_id) })), pending, door.tables)) };
       } else if (doc === 'table-list') {
         const units = seatingUnits(tables, assignments, guests);
         const seated = new Set(units.flatMap((u) => u.guests.map((g) => g.guest_id)));
@@ -169,6 +172,7 @@ export async function GET(req: Request, { params }: Params) {
                 label: s.label,
                 guests: s.guests.map((g) => ({ name: guestPrintName(g), reply: reply(g), table: tableOf(g.guest_id) })),
               })),
+              tables: door.tables,
             }),
           ),
         };

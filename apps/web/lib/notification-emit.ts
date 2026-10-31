@@ -8,6 +8,7 @@ import {
   type BrandedEmailSection,
 } from '@/lib/email-template';
 import { isWebPushConfigured, sendWebPush } from '@/lib/web-push';
+import { pushGroupedRsvp } from '@/lib/rsvp-push.server';
 import { isPlaceholderEmail } from '@/lib/anon-onboarding';
 import type { NotificationType } from '@/lib/notifications';
 import { notificationEmailReason } from '@/lib/notification-email-reason';
@@ -41,7 +42,24 @@ const PUSH_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
   // exists in the NotificationType enum + is emitted on accept; this only adds
   // the push channel — no schema change.
   'inquiry_accepted',
+  /*
+    📱 A GUEST REPLIED — ON THE PHONE, NOT IN THE INBOX (owner 2026-10-31,
+    verbatim: "I keep getting email notifications everytime a person confirms
+    rsvp. How much does that cost us?" → "Can we make the notification instead
+    like facebook even if on website and app?" → "Yes. The notification on the
+    phone not on the app."). It left EMAIL_ENABLED_TYPES the same day.
+    🔑 GROUPED, never one buzz per guest: see GROUPED_PUSH_TYPES below.
+  */
+  'rsvp_received',
 ]);
+
+/*
+  Types whose PHONE notice is folded per host × event — at most one every
+  RSVP_PUSH_WINDOW_MS, reading "Maria + 2 others replied" (lib/rsvp-push-grouping.ts).
+  The bell row is still written once per reply above; only the push is grouped.
+  🔒 lib/rsvp-goes-to-the-phone-not-the-inbox.test.ts
+*/
+const GROUPED_PUSH_TYPES: ReadonlySet<NotificationType> = new Set(['rsvp_received']);
 
 // ---------------------------------------------------------------------------
 // EMAIL allowlist (Notification Foundation · Phase A · 2026-06-19).
@@ -100,7 +118,9 @@ const EMAIL_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
   'security_alert',
   'vendor_status_change',
   // Bookings + vendor relationship.
-  'rsvp_received',
+  // ⛔ `rsvp_received` WAS HERE until 2026-10-31 — the owner asked what an email
+  // per RSVP costs us, and moved it to the phone (PUSH_ENABLED_TYPES above,
+  // grouped). Do not put it back without his word.
   'inquiry_accepted',
   'booking_confirmed',
   'review_received',
@@ -649,6 +669,13 @@ export async function emitNotification(args: EmitNotificationArgs): Promise<void
   // affects the in-app notification or the email that already landed.
   if (isWebPushConfigured() && PUSH_ENABLED_TYPES.has(type)) {
     try {
+      // A grouped type is pushed from its bell rows (one notice per window),
+      // never one-for-one. Without an event there is nothing to group by, so it
+      // falls through to the plain push.
+      if (GROUPED_PUSH_TYPES.has(type) && eventId) {
+        await pushGroupedRsvp(userId, eventId);
+        return;
+      }
       await sendWebPush(userId, {
         title,
         body,

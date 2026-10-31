@@ -22,6 +22,8 @@
  * counts as overdue) lives here, where a test RUNS it.
  */
 
+import { RSVP_PUSH_FLUSH_GAP_MS } from './rsvp-push-grouping';
+
 /** ~once per day (the first eligible request after this gap wins the day). */
 export const DAILY_GAP_MS = 20 * 60 * 60 * 1000;
 
@@ -445,6 +447,17 @@ export const PERIODIC_JOBS: readonly PeriodicJob[] = [
     kind: 'operational',
     gapMs: 10 * 60 * 1000,
     what: 'Asking Resend whether each email we sent was delivered or bounced',
+    reportsCount: true,
+  },
+  {
+    // lib/rsvp-push.server.ts — the tail of a burst of guest replies, folded into
+    // one phone notice per host × event ("Maria + 2 others replied"). The gap is
+    // imported from the PURE grouping module, so this registry still drags in no
+    // `server-only`.
+    key: 'rsvp-push-flush',
+    kind: 'operational',
+    gapMs: RSVP_PUSH_FLUSH_GAP_MS,
+    what: 'Sending the waiting "Maria + 2 others replied" phone notices to hosts',
     reportsCount: true,
   },
 ] as const;

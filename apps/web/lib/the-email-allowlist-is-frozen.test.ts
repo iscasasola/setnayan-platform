@@ -43,7 +43,12 @@ function members(name: string): string[] {
   return [...EMIT.slice(open, close).matchAll(/'([a-z_0-9]+)'/g)].map((m) => m[1]!);
 }
 
-/** Every type that emailed on main, 2026-10-10. 52 of them. */
+/**
+ * Every type that emailed on main, 2026-10-10 — 52 of them — LESS `rsvp_received`,
+ * which the owner moved to the phone on 2026-10-31 (verbatim: "I keep getting
+ * email notifications everytime a person confirms rsvp. How much does that cost
+ * us?" → "Yes. The notification on the phone not on the app."). 51 now.
+ */
 const EMAILED_ON_MAIN: readonly string[] = [
   'ai_payment_due', 'appointment_reminder', 'booking_confirmed',
   'booking_fee_waived', 'chat_message', 'colour_changed_in_lane',
@@ -59,12 +64,14 @@ const EMAILED_ON_MAIN: readonly string[] = [
   'part_finalization_requested', 'part_reopen_answered', 'part_reopen_requested',
   'payment_cleared', 'payment_confirmed', 'payment_info_sent', 'payment_matched',
   'payment_refunded', 'payment_rejected', 'payment_resubmit_requested',
-  'review_received', 'rsvp_received', 'schedule_change_requested', 'security_alert',
+  'review_received', 'schedule_change_requested', 'security_alert',
   'vendor_credit_expiring', 'vendor_feature_suggested', 'vendor_status_change',
   'waitlist_picked',
 ];
-/** Every type that pushed on main, 2026-10-10. */
-const PUSHED_ON_MAIN: readonly string[] = ['chat_message', 'inquiry_accepted', 'security_alert', 'vendor_inquiry_received'];
+/** Every type that pushed on main, 2026-10-10 — plus `rsvp_received` (owner 2026-10-31, grouped; see above). */
+const PUSHED_ON_MAIN: readonly string[] = [
+  'chat_message', 'inquiry_accepted', 'rsvp_received', 'security_alert', 'vendor_inquiry_received',
+];
 /** The engagement types whose email also needs marketing consent, on main. */
 const MARKETING_GATED_ON_MAIN: readonly string[] = ['new_chapter_from_followed'];
 
@@ -84,7 +91,7 @@ function compare(name: string, frozen: readonly string[], what: string): void {
 }
 
 test('anchor — the three lists were really read', () => {
-  assert.equal(EMAILED_ON_MAIN.length, 52);
+  assert.equal(EMAILED_ON_MAIN.length, 51);
   assert.equal(new Set(EMAILED_ON_MAIN).size, EMAILED_ON_MAIN.length, 'the frozen list repeats a type');
   assert.ok(members('EMAIL_ENABLED_TYPES').length >= 40, 'the email allowlist parsed as nearly empty');
   assert.ok(members('PUSH_ENABLED_TYPES').length >= 3, 'the push list parsed as nearly empty');

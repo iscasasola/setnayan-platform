@@ -24,6 +24,7 @@ import { inviteEnterPath, inviteReplyPath, isInviteReturn } from '@/lib/invite-a
 import { takePhotoOffTheWall, putPhotoBackOnTheWall } from '@/lib/guest-wall-unpost';
 import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 import { emitNotification } from '@/lib/notification-emit';
+import { maybeFlushRsvpPushes } from '@/lib/rsvp-push.server';
 import { deleteSupplierPageCopy } from '@/lib/supplier-page-notice.server';
 import { readGuestSessionForEvent, readReplyIdentityForEvent } from '@/lib/guest-one-path.server';
 import { findGuestSeatForUser } from '@/lib/guest-membership-session';
@@ -872,6 +873,10 @@ export async function submitRsvp(
       // Notification failures must not break the guest-side RSVP submit.
     }
   }
+  // 📱 Replies are pushed GROUPED (lib/rsvp-push-grouping.ts): this reply may
+  // have been held inside another's window. Guest traffic during a burst is
+  // what carries the held ones out — a claimed 5-minute job, after the response.
+  after(() => maybeFlushRsvpPushes());
 
   // ── THE PERSON THEY ARE BRINGING — `nameTheSeats`, below. A seat that does
   // not take never costs the guest their reply, so its outcome is not awaited

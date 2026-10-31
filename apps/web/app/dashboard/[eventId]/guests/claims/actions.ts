@@ -565,16 +565,20 @@ async function linkRequest(eventId: string, formData: FormData): Promise<boolean
 
 /** The Requests page's forms — every refusal back to the page as `?error=…`, exactly as before. */
 export async function keepGuestAction(eventId: string, formData: FormData) {
+  await refuseLimitedHelper(eventId, 'guest_list');
   await onThePage(eventId, () => keepRequest(eventId, formData));
 }
 export async function removeGuestAction(eventId: string, formData: FormData) {
+  await refuseLimitedHelper(eventId, 'guest_list');
   await onThePage(eventId, () => declineRequest(eventId, formData));
 }
 export async function linkGuestAction(eventId: string, formData: FormData) {
+  await refuseLimitedHelper(eventId, 'guest_list');
   await onThePage(eventId, () => linkRequest(eventId, formData));
 }
 /** The page's two Undos, one door (`undo` = `accepted` · `declined`) — the server-action budget has no room for two. */
 export async function undoRequestAction(eventId: string, formData: FormData) {
+  await refuseLimitedHelper(eventId, 'guest_list');
   const run = String(formData.get('undo') ?? '') === 'declined' ? undoDecline : undoAccept;
   await onThePage(eventId, () => run(eventId, formData), () => redirect(`/dashboard/${eventId}/guests/claims`));
 }
@@ -589,6 +593,8 @@ const IN_PLACE = { keep: keepRequest, decline: declineRequest, link: linkRequest
  * redirects — not a refusal, not a success, not an Undo. 🔒 lib/requests-are-inside-guests.test.ts
  */
 export async function decideRequestInPlace(eventId: string, formData: FormData): Promise<RequestInPlace> {
+  const helperRefusal = await limitedHelperRefusal(eventId, 'guest_list');
+  if (helperRefusal) return { ok: false, error: helperRefusal };
   const verb = String(formData.get('do') ?? '');
   const run = Object.prototype.hasOwnProperty.call(IN_PLACE, verb) ? IN_PLACE[verb as keyof typeof IN_PLACE] : null;
   if (!run) return { ok: false, error: 'That did not save — nothing changed. Try again.' };

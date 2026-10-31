@@ -17,6 +17,14 @@ the ONE print settings sheet (Your Event Hub look ◆ · the print words · tick
   exactly one mount.
 - `studio-prints-carousel.tsx`: the slides' own ⚙ (the phone toolbar's ⚙ beside Download, and the computer column's
   "Print settings" row) are removed — they opened the same sheet; the page now has one ⚙, the top bar's.
+- `lib/studio-details.ts` (found while walking it): on a phone the full-screen Studio panel was
+  `100dvh − 44px` from the screen's foot — written when the Maker's bar was the screen's top. Since the Hub keeps the
+  app's nav (2026-10-30) that reached over the Maker's own bar and the bottom nav: measured in `/dev/maker-lab?prints=1`
+  at 390, the panel ran 52 → 844 px over the bar at 51 → 103, so the Prints title, ↶, ✓ and the ⚙ were under the
+  carousel (a finger could not reach the old Hub ⚙ either; the slide's ⚙ was the phone's only door). The panel now
+  fills the shell's room — `--maker-app-top`/`--fd-bar` and `--maker-nav` — and stops at the nav (measured 103 → 780).
+  This applies to every full-screen Studio form on a phone, not only Prints.
+- Port baseline regenerated (`SettingsButton` out, `StudioPrintSettingsDoor` in).
 - Guard `lib/the-prints-gear-opens-print-settings.test.ts` (sabotaged once: the shell's Prints branch removed → red);
   `prints-carousel-follows-the-prototype.test.ts` claim 4 now reads "no slide draws a ⚙ of its own".
 

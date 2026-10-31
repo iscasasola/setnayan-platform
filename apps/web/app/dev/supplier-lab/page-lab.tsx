@@ -21,6 +21,10 @@ import { pageSavedFrom } from '@/lib/supplier-page-draft';
 import { DEFAULT_MICROSITE } from '@/lib/vendor-microsite';
 import type { CollectionsInput } from '@/lib/supplier-collections';
 import type { VendorPaymentMethodRow } from '@/lib/vendor-payment-methods';
+import { ShopSettingsRows } from '@/app/vendor-dashboard/shop/_components/shop-settings-rows';
+import { VerifySection } from '@/app/vendor-dashboard/shop/_components/verify-section';
+import { walletRowSubline, walletRowTitle } from '@/lib/shop-wallet';
+import { formatPhp } from '@/lib/php';
 import { DetailsScreen } from '@/app/vendor-dashboard/profile/_components/details-screen';
 import type { DetailsData } from '@/app/vendor-dashboard/profile/details-data';
 import { BranchPanel } from '@/app/vendor-dashboard/shop/_components/branch-panel';
@@ -569,7 +573,7 @@ function labPortfolio(who: string, port: string | undefined) {
   return { refs, picked, displayMap, walletBalance };
 }
 
-export function PageLab({ state, who: rawWho, draft, invited = false, asked = false, port, fail = false }: { state: PageLabState; who?: string; draft?: boolean; /** A refused read — the figures say "—", never 0. */ fail?: boolean; /** 🎁 `&invited=1` on details — fresh from a personal invite (B4). */ invited?: boolean; /** 🏷 `&asked=1` with invited — a name change waiting. */ asked?: boolean; port?: string }) {
+export function PageLab({ state, who: rawWho, draft, invited = false, asked = false, port, fail = false, gear = false }: { state: PageLabState; who?: string; draft?: boolean; /** ⚙ `&gear=1` on details — the Shop ⚙'s sheet open (2026-10-31). */ gear?: boolean; /** A refused read — the figures say "—", never 0. */ fail?: boolean; /** 🎁 `&invited=1` on details — fresh from a personal invite (B4). */ invited?: boolean; /** 🏷 `&asked=1` with invited — a name change waiting. */ asked?: boolean; port?: string }) {
   const who: Who = rawWho === 'caterer' || rawWho === 'studio' ? rawWho : 'parish';
   if (state === 'badge-tiers') {
     /* 🏅 Every step's pill (the material climbs) on a light and a dark ground, and the Verified pill on the four
@@ -662,6 +666,41 @@ export function PageLab({ state, who: rawWho, draft, invited = false, asked = fa
     return (
       <DetailsScreen
         d={d}
+        gearBody={
+          gear ? (
+            <ShopSettingsRows
+              planLine="Solo · Papic credits · receipts"
+              wallet={{ title: walletRowTitle(fail ? null : 128), line: fail ? walletRowSubline({ balance: null, pendingPack: null }, formatPhp) : 'Portfolio and any event · packs you bought' }}
+              plan={
+                <p className="text-sm text-ink/60" data-lab-stand-in="plan">
+                  The Plan screen draws here — your plan, what it gives you, receipts (it reads the database itself; see
+                  /dev/supplier-plan-lab?s=plan for the same screen on fixtures).
+                </p>
+              }
+              team={
+                <p className="text-sm text-ink/60" data-lab-stand-in="team">
+                  The Helpers screen draws here (it reads the database itself; see /dev/supplier-plan-lab?s=helpers).
+                </p>
+              }
+              docs={{
+                isVerified: d.isVerified,
+                docsIn: d.docsIn,
+                docsTotal: d.docsTotal,
+                measured: d.verifyMeasured,
+                section: (
+                  <VerifySection
+                    businessName={d.businessName}
+                    vendorProfileId={d.vendorId}
+                    isVerified={d.isVerified}
+                    profileComplete={d.profileComplete}
+                    profileFieldsLeft={d.fieldsLeft}
+                    verify={d.verify}
+                  />
+                ),
+              }}
+            />
+          ) : null
+        }
         branchBody={<BranchPanel {...d.branch} />}
         payBody={
           <p className="text-sm text-ink/60" data-lab-stand-in="pay">

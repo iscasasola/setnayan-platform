@@ -111,7 +111,7 @@ test('supplier Settings, rendered, carries every policy and the Account row — 
   for (const manager of [true, false]) {
     for (const storeShell of [false, true]) {
       const html = renderToStaticMarkup(
-        createElement(SettingsView, { unread: 0, manager, storeShell, tier: null, payout: 'unreadable', helpers: null, tools }),
+        createElement(SettingsView, { unread: 0, manager, payout: 'unreadable', tools }),
       );
       const who = `${manager ? 'owner' : 'team member'}${storeShell ? ' · app' : ' · web'}`;
       for (const h of REQUIRED_POLICY_HREFS) {

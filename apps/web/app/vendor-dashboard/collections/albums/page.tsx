@@ -8,6 +8,7 @@ import { formatCount } from '@/lib/format-number';
 import { ShopSegments } from '../../shop/_components/shop-segments';
 import { DatesRow } from '../../customers/_components/dates-row';
 import { albumEventRows } from '@/lib/album-event-rows';
+import { shopGearBody } from '../../shop/_components/shop-settings-body';
 
 export const metadata = { title: 'Albums by event' };
 
@@ -31,7 +32,12 @@ function phToday(): string {
  * Reads: the shop's booked events (the same authorisation read the console uses) + ONE album read (event ids only) for
  * the counts — paid only when this screen is opened, never on Your collections itself.
  */
-export default async function AlbumsByEventPage() {
+export default async function AlbumsByEventPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const sp = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -72,7 +78,7 @@ export default async function AlbumsByEventPage() {
 
   return (
     <section className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-32 pt-4 sm:px-6" data-supplier-albums="">
-      <ShopSegments on="gallery" />
+      <ShopSegments on="gallery" gearBody={shopGearBody(sp)} />
       <h1 className="sn-h1">Albums by event</h1>
       <p className="text-[15px] text-ink/70">
         Only you see these. Open one and tap <b className="font-semibold text-ink">Put on my page</b> on a photo.

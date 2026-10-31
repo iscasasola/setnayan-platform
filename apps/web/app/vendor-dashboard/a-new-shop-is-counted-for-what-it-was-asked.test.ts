@@ -7,7 +7,7 @@
  * the contacts step could never finish while texting was "coming soon". Held as properties:
  *   1 · EST is asked ONCE, on open-shop step 2, as one dropdown ("Just starting" first) — and written once;
  *   2 · the logo is its own Today first step, out of "fields left" — and approval still needs it;
- *   3 · ONE document count: the four required papers — on the stepper, Today, Your details and each card;
+ *   3 · ONE document count: the four required papers — on the stepper, Today, the Shop ⚙ and each card;
  *   4 · the contacts step counts only what can be confirmed ("0 of 1" until a text number exists).
  *
  * SABOTAGE (each seen red before this shipped — PR body has the runs): the step-2 dropdown removed → 1 ·
@@ -131,7 +131,11 @@ test('3 · every document count is "n of 4 required"; optional items carry none'
   const card = code('app/_components/verification/doc-slot-card.tsx');
   assert.match(card, /`Required · \$\{formatCount\(requiredDocPosition\(slot\.key\)!\)\} of \$\{formatCount\(REQUIRED_DOC_COUNT\)\}`/);
   assert.doesNotMatch(card, /DOC_SLOTS\.length/, 'a card says "Item n of 8" again');
-  assert.match(code('app/vendor-dashboard/profile/_components/details-screen.tsx'), /of \$\{formatCount\(d\.docsTotal\)\} required/);
+  // The documents fold MOVED from Shop › Details to the Shop ⚙ › Verification and documents (owner 2026-10-31, "Yes
+  // follow your recommendation" — DECISION_LOG "SHOP ⚙ — WHAT A SUPPLIER SETS ONCE"); its count is held where it draws,
+  // fed the same Details read.
+  assert.match(code('app/vendor-dashboard/shop/_components/shop-settings-rows.tsx'), /of \$\{formatCount\(docs\.docsTotal\)\} required\b/, 'the Shop ⚙ documents fold is not "n of 4 required"');
+  assert.match(code('app/vendor-dashboard/shop/_components/shop-settings-body.tsx'), /docsTotal: d\.docsTotal,/, 'the Shop ⚙ counts the documents from something other than the Details read');
   assert.match(code('lib/vendor-first-steps.server.ts'), /docsTotal: REQUIRED_DOC_COUNT/, 'Today counts every upload again');
 });
 

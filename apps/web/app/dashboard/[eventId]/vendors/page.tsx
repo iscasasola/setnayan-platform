@@ -25,6 +25,7 @@ import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile'
 
 import { getCurrentUser } from '@/lib/auth';
 import { startRead } from '@/lib/start-read';
+import { readServiceLabels } from '@/lib/service-labels';
 import { getIapGate, isStoreShellRequest } from '@/lib/request-platform';
 import { setnayanAiTierInApp } from '@/lib/iap/setnayan-ai-in-app.server';
 import { storeShellAllowsPaidFeature } from '@/lib/store-shell';
@@ -50,7 +51,7 @@ import { readOpenDateChange } from '@/lib/date-change.server';
 import { draftedEventDate } from '@/lib/suppliers-fact-sheets';
 import { buildLinesOf, buildMoneyOf, buildSnapshotOf, buildViewOf, type BuildCardFree } from '@/lib/suppliers-build';
 import { displayBuildTitle, normalizeBuildTitle, sortSavedBuilds } from '@/lib/named-builds';
-import { BLOCKED_LOCK_ROW } from '@/lib/explore-info-copy';
+import { BLOCKED_LOCK_ROW, someCategoryNeedsItsServicesNamed } from '@/lib/explore-info-copy';
 import { pickVenueBookingRows, type VenueBookingRow } from '@/lib/event-venues';
 import { regionLabel } from '@/lib/region-source';
 import { plannedTileIdSet } from '@/lib/leaf-suggestions';
@@ -497,6 +498,11 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // 🍎 Apple sells Setnayan AI in this app (`getIapGate().iap`, owner 2026-10-23) — false everywhere else.
   const appleIapRead = startRead(getIapGate().then((g) => g.iap, () => false));
   const taxonomyRead = startRead(getTaxonomy());
+  // The ⓘ of a category nobody has written one for names its services (owner 2026-10-31, "there is not (i)") — read
+  // their Admin names only when some category needs that line, chained on the taxonomy so it never waits in front.
+  const serviceLabelsRead = startRead(
+    taxonomyRead.then((t) => (someCategoryNeedsItsServicesNamed(t) ? readServiceLabels() : {})),
+  );
   const planGroupScopeRead = startRead(fetchPlanGroupScope(supabase));
   const buildPicksRead = startRead(
     supabase.from('event_build_picks').select('plan_group_id, vendor_id').eq('event_id', eventId),
@@ -1923,6 +1929,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       secondaryCeremonyType: ev?.secondary_ceremony_type ?? null,
     }),
     taxonomy,
+    serviceLabels: await serviceLabelsRead,
     eventId,
     plannedTiles,
     totalBudgetPhp:

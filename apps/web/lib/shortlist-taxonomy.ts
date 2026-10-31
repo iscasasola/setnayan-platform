@@ -48,6 +48,8 @@ import type { EventVendorRowInput } from '@/lib/wedding-plan-groups';
 import type { VendorEnrichment } from '@/lib/vendors-plan-budget';
 import type { ChatInquiryStatus } from '@/lib/chat';
 import { lockRequestStateOf, type LockRequestState } from '@/lib/lock-request-state';
+import { categoryInfoText } from '@/lib/explore-info-copy';
+import { folderInfoText } from '@/lib/category-hints';
 import type { DateFit } from './calendar-truth';
 
 /** The `event_vendors.status` values that mean "this booking is committed". */
@@ -696,6 +698,9 @@ export type ShortlistTile = {
    *  (events.style_preferences.interested_categories). Drives the "Your plan"
    *  strip + the "In your plan" marker on the Shortlist. */
   planned: boolean;
+  /** The row's ⓘ text — ALWAYS an answer, never blank (owner 2026-10-31: "I added a category shoes but there is
+   *  not (i)"). Resolved here from Admin's own data by `categoryInfoText`; the row draws it with no branch. */
+  hint: string;
 };
 
 /** One folder section: its sticky head + the tiles under it. */
@@ -708,6 +713,8 @@ export type ShortlistFolder = {
   pickCount: number;
   /** Tiles in this folder that are in the couple's onboarding plan. */
   plannedCount: number;
+  /** The folder's ⓘ text — always an answer (`folderInfoText`), like a tile's. */
+  hint: string;
 };
 
 /** Does any canonical service under `tile` pass the couple's faith filter?
@@ -778,6 +785,10 @@ export function buildShortlistFolders(args: {
    *  reddens the moment it does, and taking it as a parameter is what lets one
    *  test process drive both worlds. Default `false` = today's production. */
   lockHandshakeEnabled?: boolean;
+  /** canonical_service → its Admin name (`canonical_service_schemas.display_name_en`, `readServiceLabels`). Feeds
+   *  the built ⓘ line ("Shoes covers: …") of a category with no written or old hint. Absent → that line names no
+   *  services ("Shoes: suppliers for this category.") — the ⓘ is still drawn. */
+  serviceLabels?: Readonly<Record<string, string>>;
 }): ShortlistFolder[] {
   const {
     vendorRows,
@@ -794,6 +805,7 @@ export function buildShortlistFolders(args: {
     freeDaysLineByVendorId,
     freeDaysByVendorId,
     lockHandshakeEnabled = false,
+    serviceLabels,
   } = args;
 
   // Budget-fit remaining (2026-07-09): total − Σ locked commitments. Only LOCKED
@@ -825,6 +837,16 @@ export function buildShortlistFolders(args: {
   const tileEventTypes = taxonomy?.tileEventTypes ?? {};
   const hiddenCategories = taxonomy?.hiddenCategories ?? {};
   const map = taxonomy?.map ?? TAXONOMY_MAP;
+  const writtenHints = taxonomy?.categoryHints ?? {};
+  // A category's services, by their Admin names — only for the built ⓘ line, so only when it is needed.
+  const serviceNamesOf = (tile: string): string[] =>
+    serviceLabels
+      ? Object.entries(map)
+          .filter(([, e]) => e.tile === tile && !e.marketplaceHidden)
+          .map(([key]) => serviceLabels[key] ?? '')
+          .filter(Boolean)
+          .sort((a, b) => a.localeCompare(b))
+      : [];
 
   // Bucket considered vendors by tile (exhaustive bridge → never dropped).
   const byTile = new Map<WeddingTile, ShortlistVendor[]>();
@@ -1012,24 +1034,28 @@ export function buildShortlistFolders(args: {
       const planned = plannedTiles?.has(tile) ?? false;
       if (planned) plannedCount += 1;
       const slug = tileSlugMap[tile] ?? tile;
+      const label = tileLabelMap[tile] ?? tile;
       tiles.push({
         tile,
-        label: tileLabelMap[tile] ?? tile,
+        label,
         slug,
         vendors,
         exploreHref: `/explore?tile=${encodeURIComponent(slug)}`,
         category: categoryForTile(tile),
         planned,
+        hint: categoryInfoText({ tile, label, written: writtenHints[tile], serviceLabels: serviceNamesOf(tile) }),
       });
     }
     if (tiles.length === 0) continue;
+    const folderLabel = folderLabelMap[folder] ?? folder;
     folders.push({
       folder,
-      label: folderLabelMap[folder] ?? folder,
+      label: folderLabel,
       slug: folderSlugMap[folder] ?? folder,
       tiles,
       pickCount,
       plannedCount,
+      hint: folderInfoText({ folder, label: folderLabel, written: writtenHints[folder], categoryLabels: tiles.map((t) => t.label) }),
     });
   }
   return folders;

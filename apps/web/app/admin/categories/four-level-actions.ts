@@ -36,6 +36,7 @@ import {
   setCoarseCategoryCore,
   setPartHiddenCore,
   setOnePerEventCore,
+  setInfoTextCore,
   setPartServicesCore,
   type WriteResult,
 } from './_components/taxonomy-writes';
@@ -200,7 +201,11 @@ async function answerOf(run: () => Promise<unknown>): Promise<WriteResult> {
  * "Files shops as ▾" on a category (a `SavePick` posting `category_id` + `coarse_category`), and every shipped
  * redirect-back form of the drawer, answered in place (`SHIPPED_FORMS` above).
  */
-export async function mapWriteForm(kind: 'part-services' | 'coarse' | 'rename-part' | ShippedFormKind, formData: FormData): Promise<WriteResult> {
+export async function mapWriteForm(kind: 'part-services' | 'coarse' | 'rename-part' | 'info-text' | ShippedFormKind, formData: FormData): Promise<WriteResult> {
+  if (kind === 'info-text') {
+    const admin = createAdminClient();
+    return asAdmin((a) => setInfoTextCore(admin, a, str(formData.get('id')), str(formData.get('hint_en'))));
+  }
   if (kind === 'rename-part') {
     const admin = createAdminClient();
     return asAdmin((a) => renamePartCore(admin, a, str(formData.get('slot_key')), str(formData.get('label'))));

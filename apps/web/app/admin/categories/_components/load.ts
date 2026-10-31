@@ -317,6 +317,7 @@ export async function loadCategories(admin: Admin, openTileId: string | null): P
     label: tax.folderLabel[id] ?? id,
     short: tax.folderShortLabel[id] ?? tax.folderLabel[id] ?? id,
     iconName: tax.categoryIcons[id] ?? null,
+    hint: tax.categoryHints?.[id] ?? null,
   }));
 
   const categories: Category[] = await Promise.all(
@@ -337,6 +338,7 @@ export async function loadCategories(admin: Admin, openTileId: string | null): P
         faithCount: faithCount.get(id) ?? 0,
         refinementCount: refinementCount.get(id) ?? 0,
         onePerEvent: onePerEvent ? onePerEvent.get(id) ?? false : null,
+        hint: tax.categoryHints?.[id] ?? null,
       };
     }),
   );

@@ -87,7 +87,9 @@ const SHIPPED_MOUNTS: ReadonlyArray<readonly [string, string]> = [
 const MOVED_MOUNTS: ReadonlyArray<readonly [string, string, number]> = [
   // Your details — one ProfileChecklistEditor per fold (name · what · where · contact), each handed its own rows.
   ['ProfileChecklistEditor', '../app/vendor-dashboard/profile/_components/details-screen.tsx', 4],
-  ['VerifySection', '../app/vendor-dashboard/profile/_components/details-screen.tsx', 1],
+  // The papers MOVED again, Your details → the Shop ⚙ › Verification and documents (owner 2026-10-31, verbatim "Yes
+  // follow your recommendation" — DECISION_LOG "SHOP ⚙ — WHAT A SUPPLIER SETS ONCE"). Still exactly one mount.
+  ['VerifySection', '../app/vendor-dashboard/shop/_components/shop-settings-body.tsx', 1],
   ['VenueMatchCard', '../app/vendor-dashboard/profile/_components/details-screen.tsx', 1],
   ['VenueTypeCard', '../app/vendor-dashboard/profile/_components/details-screen.tsx', 1],
   ['PublicLineCard', '../app/vendor-dashboard/profile/_components/details-screen.tsx', 1],

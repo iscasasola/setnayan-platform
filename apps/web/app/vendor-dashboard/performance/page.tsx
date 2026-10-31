@@ -93,6 +93,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { readShopBadgeFacts } from '@/lib/shop-badges.server';
 import { badgeShelf, type ShopBadgeFacts } from '@/lib/shop-badges';
 import { barHeights, businessSentence, fromLine, ratingLine, replyLine } from '@/lib/business-doing';
+import { shopGearBody } from '../shop/_components/shop-settings-body';
 
 export const metadata = { title: 'How is my business doing · Supplier' };
 
@@ -216,7 +217,7 @@ export default async function PerformanceHome({
             supplier who tapped it from Shop can tap back (owner "Yes to all",
             2026-10-21, item 2). */}
         <div className="mx-auto w-full max-w-3xl px-4 pt-4 sm:px-6">
-          <ShopSegments on="insights" />
+          <ShopSegments on="insights" gearBody={shopGearBody(sp)} />
           <div className="mt-6">
             <YourBadges shelf={gatedShelf} />
           </div>
@@ -793,7 +794,7 @@ export default async function PerformanceHome({
           page is the third Shop segment, so it draws the Shop switcher and the
           bar lights Shop here — it used to draw no segments and light More, so
           a supplier who tapped Shop landed on a page that said More. */}
-      <ShopSegments on="insights" figures={pinFigures} />
+      <ShopSegments on="insights" figures={pinFigures} gearBody={shopGearBody(sp)} />
       {/* 0 · HOW IS MY BUSINESS DOING — the plain-words top (step 6). Below it,
           the full cards, unchanged ("only the words change"). */}
       <div className="mx-auto w-full max-w-xl tab:max-w-none">

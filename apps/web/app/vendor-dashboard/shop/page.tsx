@@ -344,7 +344,7 @@ async function ShopHome({
     <>
     <section className="mx-auto w-full max-w-6xl tab:max-w-3xl space-y-8 px-4 pb-32 pt-8 sm:px-6 sm:pt-10 lg:px-8">
       {/* 📌 Shop ▾ + Services' three figures — the pinned row (v13), then one row per service with its tools. */}
-      <ShopSegments on="services" figures={servicesFigures(data.serviceRows)} />
+      <ShopSegments on="services" figures={servicesFigures(data.serviceRows)} gearBody={shopGearBody(sp)} />
       <div className="mx-auto max-w-3xl">
         <ShopServiceRows rows={data.serviceRows} />
       </div>
@@ -742,6 +742,7 @@ import {
   type AccordionSection,
 } from '../_components/feature-accordion';
 import ManpowerSurface from '../manpower/surface';
+import { shopGearBody } from './_components/shop-settings-body';
 
 // The folded feature sections, in strategic order below the shop home. Each
 // expands in place and loads its server body on open (owner one-page IA

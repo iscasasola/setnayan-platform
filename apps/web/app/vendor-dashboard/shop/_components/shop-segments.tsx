@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { usePinFold } from '@/app/_components/pinned-row/use-pin-fold';
 import { PinFigures } from '../../_components/pin-figures';
+import { ShopSettings } from './shop-settings';
 import type { PinFigure } from '@/lib/pin-figure';
 import { SHOP_SEGMENT_HINT, SHOP_SEGMENT_HREF, SHOP_SEGMENT_LABEL, SHOP_SEGMENT_ORDER, type ShopSegment } from './shop-sections';
 
@@ -32,12 +33,18 @@ export function ShopSegments({
   on,
   figures = null,
   end = null,
+  gearBody = null,
 }: {
   on: ShopSegment;
   /** The section's own figures on this row (honest: an unread one is "—", never 0). */
   figures?: readonly PinFigure[] | null;
   /** The row's right end (a section's own round), when it has one. */
   end?: ReactNode;
+  /**
+   * ⚙ The Shop ⚙'s rows (`ShopSettingsBody`), drawn by the page only while the sheet is open (`?gear=1`); null = closed,
+   * or still on its way. The ⚙ itself is always on the row's right end (owner 2026-10-31, "Shop ⚙").
+   */
+  gearBody?: ReactNode | null;
 }) {
   const router = useRouter();
   const pinRef = useRef<HTMLDivElement>(null);
@@ -72,6 +79,7 @@ export function ShopSegments({
           <span className="flex-1" aria-hidden />
         )}
         {end}
+        <ShopSettings body={gearBody} />
       </div>
     </div>
   );

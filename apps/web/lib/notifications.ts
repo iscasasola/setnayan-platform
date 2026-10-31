@@ -481,12 +481,25 @@ export type NotificationType =
      the floor's +N (`lib/schedule-shift-notify.server.ts`). In-app only — no email.
      ⚠ ENUM value in 20271284540209. */
   | 'schedule_shifted'
+  /* 📸 A COUPLE'S OWN PHOTO, SHARED TO A SUPPLIER'S SERVICE CARD (owner 2026-10-30). `shared` → the shop's owner, to
+     Approve or Decline on Shop › Services (`app/_actions/couple-photo-share-actions.ts`, op 'send'); `answered` → the
+     uploader, when the shop approves, declines or takes it off (same file, op 'answer'). In-app only — NOT on
+     the email or push allowlists. ⚠ ENUM values in 20271297221336. */
+  | 'couple_photo_shared'
+  | 'couple_photo_answered'
   /* 🖼⏱ SOMEONE THE HOSTS GAVE MOOD BOARD EDIT CHANGED IT (owner 2026-10-30, DECISION_LOG "MOOD BOARD CHANGES:
      SUPPLIERS ASK, COORDINATORS APPLY, THE OWNERS HAVE 24 HOURS TO UNDO"). → EVERY owner of the event, ONE notice per
      change ("Coordinator Ana changed the Mood Board · Stage"); its Undo lives on Home for 24 hours. Written by the
      database itself (the event_inspiration_assets trigger, 20271299051148) — never emitNotification, so it cannot be
      skipped by a write that bypasses the app. In-app only — no email, no push. ⚠ ENUM value in 20271298460272. */
-  | 'mood_board_changed';
+  | 'mood_board_changed'
+  /* 🪪 A HELPER ASKED THE HOSTS FOR MORE ACCESS ON ONE PART (owner 2026-10-31, "yes" to "Ask the hosts"; DECISION_LOG
+     "A HELPER SEES THEIR OWN ACCESS AS THE FIRST ROW OF HOME ⚙ EVENT SETTINGS — read-only, with 'Ask the hosts'"). →
+     EVERY host of the event, one notice per ask, opening Home ⚙ › People with access on that helper
+     (`?settings=1&row=access&person=<seat>`). Written by the DATABASE (`ask_hosts_for_more_access`, 20271299854365),
+     never emitNotification — at most one per helper per part a day. ⚠ IN-APP ONLY: NOT on EMAIL_ENABLED_TYPES or
+     PUSH_ENABLED_TYPES (owner: no new emails without his word). ⚠ ENUM value in 20271299515167. */
+  | 'access_more_asked';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   event_auto_surfaced: 'You were added to an event',
@@ -574,6 +587,8 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   mood_board_share: 'Mood board shared',
   // A comp grant from the Setnayan team (2026-09-18).
   gift: 'A gift from Setnayan',
+  couple_photo_shared: 'A couple shared a photo',
+  couple_photo_answered: 'Your shared photo',
   vendor_feature_suggested: 'A supplier suggested a service',
   // Setnayan AI guard delivery (2026-07-09) — concise tray copy; the rendered
   // GRD template body carries the specifics.
@@ -606,6 +621,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   change_order_answered: 'Change order answered',
   schedule_shifted: 'Schedule moved',
   mood_board_changed: 'Mood Board changed',
+  access_more_asked: 'A helper asks for more access',
 };
 
 export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
@@ -754,6 +770,8 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   mood_board_share: 'bg-sky-100 text-sky-800',
   // A gift is good news arriving → the gold accent (`terracotta` IS gold here).
   gift: 'bg-terracotta-100 text-terracotta-900',
+  couple_photo_shared: 'bg-sky-100 text-sky-800',
+  couple_photo_answered: 'bg-sky-100 text-sky-800',
   vendor_feature_suggested: 'bg-terracotta-100 text-terracotta-900',
   // Setnayan AI guard delivery (2026-07-09). Both are "action needed, not an
   // error" — amber, matching review_request / payment_logged. A payment coming
@@ -823,6 +841,8 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   schedule_shifted: 'bg-sky-100 text-sky-800',
   // Already applied; the owner MAY undo it — news, not a yes-or-no ask → the informational sky.
   mood_board_changed: 'bg-sky-100 text-sky-800',
+  // A helper waits on the hosts' answer → the action-needed amber, like every other ask.
+  access_more_asked: 'bg-warn-100 text-warn-900',
 };
 
 export type NotificationRow = {
@@ -1028,6 +1048,7 @@ export const NOTIFICATION_TYPE_SHORT_LABEL: Partial<Record<NotificationType, str
   event_auto_surfaced: 'Added',
   cohost_added: 'Added',
   connection_request: 'Added',
+  access_more_asked: 'Access',
 };
 
 export function notificationShortLabel(type: NotificationType): string {
@@ -1108,6 +1129,9 @@ export const NOTIFICATION_TYPE_ICON: Partial<Record<NotificationType, Notificati
   vendor_review_reply: 'star',
   security_alert: 'shield',
   gift: 'gift',
+  couple_photo_shared: 'image',
+  couple_photo_answered: 'image',
+  access_more_asked: 'user-plus',
 };
 
 export function notificationIcon(type: NotificationType): NotificationIcon {

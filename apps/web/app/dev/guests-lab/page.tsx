@@ -29,6 +29,7 @@
  *                   budget's measuring size — the shipped makers, Guests › Seats and Guests › March), &q=… to search, &empty=1 for
  *                   an empty list, &fail=1 for a refused read
  *   &req=0          (screen) no requests to join waiting — the carousel's card ① says "No requests waiting"
+ *   &gshow=requests (screen) open on Asking to join — the Requests page drawn in place (a labelled stand-in here)
  *   &select=to-invite (screen) ⚙ › Pick who's cold link — Select on, the list narrowed to To invite
  *   &oneqr=1        (screen) a one-link event with no list to walk (just the couple): card ② reads
  *                   "One link for everyone · Share" (owner 2026-10-27, "THE SEND RUN ALSO SERVES A ONE-QR EVENT")
@@ -98,6 +99,9 @@ import { LabTopBar } from './lab-top-bar';
 import type { TitleWaitingPerson } from '@/app/dashboard/[eventId]/guests/_components/titles-waiting';
 import { titleButtonText, titleKey } from '@/lib/guest-title';
 import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
+import { SubmitButton } from '@/app/_components/submit-button';
+import { DecideForm, DecideRow } from '@/app/dashboard/[eventId]/guests/claims/decide-in-place';
+import type { RequestInPlace } from '@/app/dashboard/[eventId]/guests/claims/actions';
 import { LabGuestActions } from './lab-guest-actions';
 import { LabShell } from '@/app/dev/_components/lab-shell';
 import { RoleNamesProvider } from '@/app/dashboard/[eventId]/guests/_components/role-names-context';
@@ -162,6 +166,49 @@ const LAB_TITLES_WAITING: TitleWaitingPerson[] = [
   { guestId: 'g-t3', name: 'Regional Prosecutor Rex Diaz', roleWord: 'Grandparents of the Groom', title: 'Regional Prosecutor', key: titleKey('Regional Prosecutor', null), text: titleButtonText('Regional Prosecutor', null, true) },
   { guestId: 'g-t4', name: 'Carmen Diaz', roleWord: 'Grandparents of the Groom', title: null, key: titleKey(null, null), text: titleButtonText(null, null, true) },
 ];
+
+/**
+ * 📥 The lab's stand-in for the Requests page drawn inside Guests (the real one reads the database). Its rows post
+ * through the SAME in-place forms the real rows do (`DecideForm` · `DecideRow`, `guests/claims/decide-in-place.tsx`),
+ * to the lab's inline `act` — which writes nothing, answers `{ ok: true }`, or refuses in words with `&refuse=1` — so
+ * Accept · Decline → the row kept as "just decided", the toast with Undo, and a refusal said in place can be walked.
+ */
+function LabRequestsStandIn({ act }: { act: (fd: FormData) => Promise<RequestInPlace> }) {
+  const people = [
+    ['g-req-1', 'Rowena Dizon', 'Says she is a classmate of Maria · via the event link'],
+    ['g-req-2', 'Mark Ignacio', 'Officemate of Jose · via the event link'],
+    ['g-req-3', 'Shiela Panganiban', 'Cousin of Bianca Lim · via the event link'],
+  ];
+  return (
+    <div data-requests-page="" data-lab-stand-in="" className="flex flex-col px-1">
+      <p className="py-2 font-mono text-[10px] uppercase tracking-[0.14em] text-ink/45">Lab stand-in · the Requests page draws here</p>
+      <ul className="divide-y divide-ink/10 border-t border-ink/10">
+        {people.map(([id, name, line]) => (
+          <DecideRow key={id} guestId={id!}>
+            <li className="py-4" data-request={id}>
+              <span className="block text-base font-semibold text-ink">{name}</span>
+              <span className="block text-xs text-ink/55">{line}</span>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <DecideForm act={act} verb="keep" guestId={id!} name={name!}>
+                  <input type="hidden" name="guest_id" value={id} />
+                  <SubmitButton overlay={false} pendingLabel="Adding…" className="sn-press inline-flex min-h-11 items-center rounded-full bg-ink px-5 text-sm font-semibold text-cream">
+                    Accept
+                  </SubmitButton>
+                </DecideForm>
+                <DecideForm act={act} verb="decline" guestId={id!} name={name!}>
+                  <input type="hidden" name="guest_id" value={id} />
+                  <SubmitButton overlay={false} pendingLabel="Declining…" className="sn-press inline-flex min-h-11 items-center rounded-full bg-ink/[0.06] px-5 text-sm font-semibold text-ink">
+                    Decline
+                  </SubmitButton>
+                </DecideForm>
+              </div>
+            </li>
+          </DecideRow>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 function guest(p: Partial<GuestRow>): GuestRow {
   return {
@@ -471,6 +518,12 @@ export default async function GuestsLabPage({
   async function labPartnerLink() {
     'use server';
     if (labRefuses) redirect(labRefusal);
+  }
+  /* 📥 Requests inside Guests: the in-place door's stand-in — answers, never redirects (as `decideRequestInPlace`). */
+  async function labDecide(formData: FormData): Promise<RequestInPlace> {
+    'use server';
+    void formData;
+    return labRefuses ? { ok: false, error: 'They could not be added just now — nothing was changed.' } : { ok: true };
   }
   const part = typeof sp.part === 'string' ? sp.part : 'head';
 
@@ -843,6 +896,11 @@ export default async function GuestsLabPage({
                     songsByGuest={{}}
                     faceByGuest={{}}
                     requests={sp.req === '0' ? 0 : 3}
+                    /* 📥 Requests inside Guests (slice 11): the real body is the Requests page, which reads the database —
+                       the lab draws a labelled stand-in in its place, so the in-place frame can be walked. */
+                    requestsInPlace
+                    requestsBody={sp.req === '0' ? null : <LabRequestsStandIn act={labDecide} />}
+                    initialAsking={sp.gshow === 'requests'}
                     oneQr={sp.oneqr === '1'}
                     // 📤 Each row's Share, as the page hands it: the address, the event's words, and a token per guest the
                     // run would hold (`sendRunGuests` = the page's `mayBeInvited`); the lab's token is the guest's id.

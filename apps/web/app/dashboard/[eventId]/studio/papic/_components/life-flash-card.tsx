@@ -43,19 +43,32 @@ import { viewerSeesCoupleScopedPapic } from '@/lib/papic-gallery-scope';
  * (`text-terracotta` is the atelier gold in this repo, 3.37:1 on cream — fine
  * for an icon at the 3:1 non-text bar, never for text).
  */
-export async function LifeFlashCard({ eventId }: { eventId: string }) {
+export type LifeFlashCardState = { moments: number | null };
+
+/**
+ * Gates 1 and 2, and the count for gate 3 — split out (2026-10-31, the Memories keepsake row) so the row's Flash
+ * button and the card in its sheet answer from ONE read. `null` = the card must say NOTHING (the flag is off, or the
+ * viewer is not the couple) — the row draws no button then, exactly as the card drew no card. A throw is NOT that:
+ * it answers "not measured" (`moments: null`), which still opens no door (gate 3 below fails closed on it).
+ */
+export async function readLifeFlashCard(eventId: string): Promise<LifeFlashCardState | null> {
   if (!lifeStoryEnabled()) return null;
 
   const supabase = await createClient();
-  let moments: number | null = null;
   try {
     // The moment graph is COUPLE-scoped; anyone else this page admits would
     // land on a page showing them nothing.
     if (!(await viewerSeesCoupleScopedPapic(supabase, eventId))) return null;
-    moments = await countEventMoments(supabase, eventId);
+    return { moments: await countEventMoments(supabase, eventId) };
   } catch {
-    return null;
+    return { moments: null };
   }
+}
+
+export async function LifeFlashCard({ eventId, state }: { eventId: string; state?: LifeFlashCardState | null }) {
+  const read = state === undefined ? await readLifeFlashCard(eventId) : state;
+  if (!read) return null;
+  const moments = read.moments;
   // null = not measured. Fail closed.
   if (moments === null || moments < SCOPE_MIN_MOMENTS.event) return null;
 

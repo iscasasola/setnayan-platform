@@ -56,6 +56,16 @@ export type SettingsEntry = {
 export const MENU_SETTINGS_TIP =
   'Settings for this menu only. The event’s own facts — names, date, venues, money, who helps — are under ⚙ on Home.';
 
+/**
+ * 🪪 HOME'S ⚙ FOR A HELPER (owner 2026-10-31, DECISION_LOG "A HELPER SEES THEIR OWN ACCESS AS THE FIRST ROW OF HOME ⚙
+ * EVENT SETTINGS"): the same door and the same sheet, whose one row is "Your access" — so its line says that, never the
+ * hosts' "Names, date, venues…" a helper cannot change.
+ */
+export const HOME_HELPER_SHEET = {
+  line: 'What you can open on this event.',
+  tip: 'The hosts set what each helper can open. The event’s own facts stay with them.',
+} as const;
+
 export const SETTINGS_ENTRY: Record<SettingsMenu, SettingsEntry> = {
   /**
    * 🏠 HOME › EVENT SETTINGS (owner 2026-10-29, "keep it there"; DECISION_LOG 2026-10-27 "APPROVED — SETTINGS PER MENU":
@@ -88,11 +98,18 @@ export const SETTINGS_ENTRY: Record<SettingsMenu, SettingsEntry> = {
     line: 'What guests see, your address and QR, the look, the tools.',
     live: true,
   },
+  /**
+   * 🖨 THE PRINTS PAGE ⚙ (owner 2026-10-31, relayed: *"the ⚙ on Prints opens Prints' own settings, if there is a real
+   * Prints setting"*): the right end of the Prints page's top bar, where the Hub's ⚙ stood (it opened Hub settings, which
+   * change nothing on a print). The door only (`MenuSettingsButton` with no rows): its sheet is the ONE print settings
+   * sheet, `StudioPrintSettings` — Your Event Hub look ◆ · the print words · ticket style · special message · thank-you.
+   * Mounted once, in `studio-prints-settings.tsx` (`StudioPrintSettingsDoor`); the slides draw no ⚙ of their own.
+   */
   prints: {
     door: 'first-row-gear',
     sheet: 'Print settings',
     line: 'What every print shares.',
-    live: false,
+    live: true,
   },
   memories: {
     door: 'first-row-gear',

@@ -1,10 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
-import { loadEntourageSectionOrder, loadMarch } from '@/app/[slug]/_lib/loaders';
-import { readHubDraft } from '@/lib/hub-draft-store';
-import { marchSections, marchTray, printedSectionOrder } from '@/lib/march-sections';
-import { marchAsDrafted } from '@/lib/march-as-drafted';
-import type { MarchStep } from '@/lib/march-drag';
+import { readShownMarch } from '@/lib/guests-march-read';
 /* ⚡ The march maker loads when the March is opened — never with the Guest list (`details-lazy.tsx`, its lazy chunk). */
 import { MarchMaker } from '../../launch/_components/details-lazy';
 
@@ -25,30 +20,8 @@ import { MarchMaker } from '../../launch/_components/details-lazy';
  * never drawn as "Nobody walks yet".
  */
 export async function GuestsMarch({ eventId }: { eventId: string }) {
-  const supabase = await createClient();
-  const admin = createAdminClient();
-  const [march, savedSections, drafted] = await Promise.all([
-    loadMarch(admin, eventId),
-    loadEntourageSectionOrder(admin, eventId),
-    /* A draft that could not be read is `null` (said), never "no moves". */
-    readHubDraft(supabase, eventId).then(
-      (d): MarchStep[][] => d?.march ?? [],
-      (e: unknown) => {
-        console.error('[guests › march] the Event Hub draft could not be read:', e instanceof Error ? e.message : e);
-        return null;
-      },
-    ),
-  ]);
-  const shown = marchAsDrafted(
-    {
-      sections: marchSections(march.walking),
-      // A section whose people are all in the tray still prints — it is still a step the header drag passes.
-      printed: printedSectionOrder([...march.walking, ...(march.out ?? [])], savedSections),
-      out: march.out ? marchTray(march.out) : null,
-    },
-    drafted,
-    march.unread === true,
-  );
+  // 🚶 The one read of the march as shown (lib/guests-march-read.ts) — the march's PDF reads the same.
+  const shown = await readShownMarch(await createClient(), eventId);
   return (
     /* 🖥 The width is used (owner 2026-10-29, *"always maximize the screen use"*): from 1024 the "Not walking" tray is the
        side panel beside the walks, never under a centred strip; on a phone it follows the walks. */

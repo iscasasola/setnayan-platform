@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { MenuSettingsButton } from '@/app/_components/menu-settings-button';
 import { MAKER_REFRESH_EVENT } from '@/lib/maker-refresh';
+import { HOME_HELPER_SHEET } from '@/lib/menu-settings';
 import type { EventSettingsResult } from './open-event-settings';
 
 /**
@@ -38,15 +39,17 @@ const readEventSettings = async (eventId: string, landed: HomeSettingsLanded | n
 export type HomeSettingsLanded = { host_removed?: string; invite_error?: string };
 
 /** The words a link opens the sheet with — dropped from the address once it is closed. */
-const LINK_WORDS = ['settings', 'row', 'host_removed', 'invite_error'] as const;
+const LINK_WORDS = ['settings', 'row', 'person', 'part', 'host_removed', 'invite_error'] as const;
 
 export function HomeSettingsGear({
   eventId,
   rows,
   openAtFirst = false,
   landRow = null,
+  landPerson = null,
   landed = null,
   renderKey,
+  helper = false,
 }: {
   eventId: string;
   /** The Home lab's rows, already drawn on its fixture (`/dev/home-lab`) — then nothing is read. Absent = read at the press. */
@@ -55,13 +58,18 @@ export function HomeSettingsGear({
   openAtFirst?: boolean;
   /** `&row=` — the section the sheet lands on (`data-event-settings-row`). */
   landRow?: string | null;
+  /** 🪪 `&person=` — a seat id: inside that row, land on this person (a helper's "Ask the hosts" notice). */
+  landPerson?: string | null;
   /** A Remove's own words on the address it landed on. */
   landed?: HomeSettingsLanded | null;
   /** Changes with every server render of Home — while the sheet is up, a fresh render re-reads its rows. */
   renderKey?: string;
+  /** 🪪 A helper's ⚙ (owner 2026-10-31): the same sheet, holding only "Your access" — its line says so. */
+  helper?: boolean;
 }) {
   const [open, setOpenState] = useState(openAtFirst);
   const [land, setLand] = useState<string | null>(openAtFirst ? landRow : null);
+  const [person, setPerson] = useState<string | null>(openAtFirst ? landPerson : null);
   const [flashFrom, setFlashFrom] = useState<HomeSettingsLanded | null>(openAtFirst ? landed : null);
 
   /* A link to Home with `?settings=1` while Home is already up (the ☰'s mark tapped on Home) is a fresh render with the
@@ -73,6 +81,7 @@ export function HomeSettingsGear({
     if (!openAtFirst || openNow.current) return;
     setOpenState(true);
     setLand(landRow);
+    setPerson(landPerson);
     setFlashFrom(landed);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once per render that carries the link's words
   }, [openAtFirst, renderKey]);
@@ -81,6 +90,7 @@ export function HomeSettingsGear({
     setOpenState(next);
     if (next) return;
     setLand(null);
+    setPerson(null);
     setFlashFrom(null);
     try {
       const url = new URL(window.location.href);
@@ -124,7 +134,10 @@ export function HomeSettingsGear({
     };
     const events = ['pointerdown', 'wheel', 'touchstart', 'keydown'] as const;
     for (const ev of events) window.addEventListener(ev, stop, { passive: true, capture: true });
-    const row = () => document.querySelector(`[data-menu-settings-sheet="home"] [data-event-settings-row="${CSS.escape(land)}"]`);
+    // 🪪 Landed on a person (`&person=`): that person's row inside the section, else the section itself.
+    const section = `[data-menu-settings-sheet="home"] [data-event-settings-row="${CSS.escape(land)}"]`;
+    const row = () =>
+      (person ? document.querySelector(`${section} [data-person-id="${CSS.escape(person)}"]`) : null) ?? document.querySelector(section);
     let tries = 0;
     const look = () => {
       const at = row();
@@ -141,7 +154,7 @@ export function HomeSettingsGear({
       for (const t of timers) window.clearTimeout(t);
       for (const ev of events) window.removeEventListener(ev, stop, { capture: true });
     };
-  }, [open, land, got]);
+  }, [open, land, person, got]);
 
   /* A field that saved and asked for its one render (a new parent, a venue the list must redraw): re-read the rows. */
   useEffect(() => {
@@ -153,10 +166,10 @@ export function HomeSettingsGear({
 
   return (
     <span data-home-settings-gear="" className="absolute bottom-1 right-4 inline-flex sm:right-6 lg:right-8">
-      <MenuSettingsButton menu="home" open={open} onOpenChange={setOpen} cover>
+      <MenuSettingsButton menu="home" open={open} onOpenChange={setOpen} cover line={helper ? HOME_HELPER_SHEET : undefined}>
         {got === null ? (
           <p className="px-4 py-6 text-sm text-ink/60" role="status" data-event-settings-opening="">
-            Opening your event’s details…
+            {helper ? 'Opening your access…' : 'Opening your event’s details…'}
           </p>
         ) : 'reason' in got ? (
           <p role="alert" className="px-4 py-6 text-sm text-terracotta-700" data-event-settings-failed="">

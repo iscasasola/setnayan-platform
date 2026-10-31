@@ -109,35 +109,39 @@ test('Guests — ONE row on every view, pinned from the start: the one menu · �
   assert.doesNotMatch(screen, /getBoundingClientRect\(\)\.bottom <= bar/, 'the row waits for the carousel to leave again — it would wear two faces');
 });
 
-test('Suppliers — only Find · Build · Booked · ⚙ pins; the date · place line scrolls away above it', () => {
+test('Suppliers — ONE row pins, the same at rest: [Page · View ▾] · its count · ⚙; the date · place line scrolls away above it', () => {
+  // Owner 2026-10-30 "all yes" (DECISION_LOG "ONE SELECTOR FOR EVERY PAGE") + 2026-10-31 *"Suppliers. needs to have that
+  // drop down effect"*: the segmented Find | Build | Booked row and the face laid over it while pinned are ONE row.
   const src = read('vendors', '_components', 'services-takeover.tsx');
   const at = src.indexOf('data-suppliers-stick=""');
   assert.ok(at > -1, 'the pinned row is gone');
   const open = src.lastIndexOf('<div', at);
-  const close = src.indexOf('</ISegmented>', at);
-  assert.ok(close > at, 'the pinned row lost its selector');
+  const close = src.indexOf('<MenuSettingsButton', at);
+  assert.ok(close > at, 'the pinned row lost its ⚙');
   const stick = src.slice(open, close);
   assert.match(stick, /className="[^"]*\bsticky\b/, 'the selector row is not sticky');
-  assert.equal(count(stick, /<ISegmented\b/g), 1, 'the pinned row holds one selector');
-  assert.match(stick, /SUPPLIERS_MODES\.map\(/, 'the pinned selector is not Find · Build · Booked');
+  assert.equal(count(stick, /<PickMenu\b/g), 1, 'the pinned row holds one selector');
+  assert.match(stick, /<PickMenu\b[^>]*\bcompact\b/, 'the selector is not the shared compact face');
+  assert.doesNotMatch(stick, /<PickMenu\b[^>]*\b(trigger|className)=/, 'the selector wears a local look');
+  assert.equal(count(src, /<ISegmented\b|<ISeg\b|data-sup-face/g), 0, 'a segmented row (or the face laid over it) is back');
   assert.equal(count(stick, '{factsSlot}'), 0, 'the date · place line is pinned again — two rows');
   const facts = src.indexOf('{factsSlot}');
   assert.ok(facts > -1 && facts < open, 'the date · place line must sit above the pinned row, as plain content');
 
   // ⚙ The row ENDS with Suppliers ⚙ (owner 2026-10-27, "SUPPLIERS GETS ITS ⚙" + "EVERY MENU'S ⚙ RIDES ITS PINNED ROW
-  // TOO"): the row is the menu's first row, and after the selector comes its ONE ⚙ and nothing else before </div>.
-  const rowEnd = src.indexOf('</div>', close);
-  const tail = src.slice(close + '</ISegmented>'.length, rowEnd);
+  // TOO"): the row is the menu's first row, and after the ⚙ nothing else before </div>.
+  const rowEnd = src.indexOf('\n      </div>', close);
+  const tail = src.slice(close, rowEnd);
   assert.match(src.slice(open, at + 400), /data-first-row=""/, 'the pinned row is not marked as the menu’s first row');
   assert.equal(count(tail, /<MenuSettingsButton\b[^>]*\bmenu="suppliers"/g), 1, 'the pinned row does not end with Suppliers ⚙');
-  assert.equal(count(tail, /<(?!\/|MenuSettingsButton\b)[A-Za-z]/g), 0, 'something besides the ⚙ is drawn after the selector');
+  assert.equal(count(tail.slice(tail.indexOf('</MenuSettingsButton>')), /<(?!\/)[A-Za-z]/g), 0, 'something is drawn after the ⚙');
 });
 
 test('Home — the cover pins as one line: names · date · ⚙, the ⚙ its one control, drawn at rest too', async () => {
   const band = read('_components', 'home-cover-band.tsx');
   assert.match(band, /\bsticky top-\[calc\(var\(--home-bar\)-var\(--home-band-h\)\+52px\)\]/, 'the cover band does not pin with a negative top');
   assert.match(band, /<HomeCoverPin name=\{cover\.name\} date=\{cover\.shortDate\} gear=\{gear\} \/>/);
-  assert.match(read('_components', 'home-first-screen.tsx'), /<HomeCoverBand [^>]*settingsFor=\{eventSettings \? eventId : undefined\}/, 'the Home does not hand its band the ⚙');
+  assert.match(read('_components', 'home-first-screen.tsx'), /<HomeCoverBand [^>]*settingsFor=\{eventSettings \|\| helperSettings \? eventId : undefined\}/, 'the Home does not hand its band the ⚙');
   const pin = read('_components', 'home-cover-pin.tsx');
   assert.doesNotMatch(pin, /<button\b|<Link\b|<select\b|<nav\b|<a\b|ActionButton|MenuSettingsButton/, 'the Home pin grew a control — its ⚙ is the band’s one mount');
   const { renderToStaticMarkup } = await import('react-dom/server');

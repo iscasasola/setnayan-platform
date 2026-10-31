@@ -62,7 +62,9 @@ export type PickOption = {
   /** The words beside the dot in the open list. Default "live today" (the
    *  Maker's stages); the People picker says "waiting on you" for Requests. */
   dotNote?: string;
-  /** Listed but not pickable, with its reason (a tab that opens its own page). */
+  /** Listed but not pickable, with its reason (a tab that opens its own page). The row shows its LABEL ONLY, greyed;
+   *  the reason sits behind the shared ⓘ at the row's right edge (`pick-menu-off-row.tsx`, owner 2026-10-31). Keep the
+   *  label short — it is never wrapped by the reason any more. */
   disabledNote?: string;
   /** Draw the option IN a face (the font dropdown — each font in its own face). */
   fontFamily?: string;

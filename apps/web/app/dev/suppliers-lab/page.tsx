@@ -63,6 +63,7 @@
  * Run with `NEXT_PUBLIC_EXPLORE_REPLAN_ENABLED=true` — the one-screen page is
  * behind that flag, and a client bundle reads it at build time.
  */
+import { nearRows } from '@/lib/find-sort-choices';
 import { notFound } from 'next/navigation';
 import { InspectorLayout } from '@/app/_components/inspector/inspector-column';
 import { DatePlaceLine } from '@/app/dashboard/[eventId]/vendors/_components/date-place-line';
@@ -102,6 +103,9 @@ import { knownMoneyTotals } from '@/lib/budget-truth';
 import { costCategoryOptions } from '@/lib/event-costs';
 import type { PillarPart } from '@/lib/pillar-parts';
 import { LabBookedSchedule } from './lab-booked-schedule';
+import { labJourney, labPrepAgenda } from './schedule-fixtures';
+import { PreparationAgendaView, preparationLegendWords } from '@/app/dashboard/[eventId]/schedule/_components/preparation-agenda';
+import { JourneyView } from '@/app/dashboard/[eventId]/schedule/_components/journey-view';
 import { SEEDS } from '../schedule-lab/lab-moments';
 import { priceToday } from '@/lib/price-summary';
 import { BookedBudgetSection } from '@/app/dashboard/[eventId]/vendors/_components/booked-budget';
@@ -225,6 +229,9 @@ export default async function SuppliersLabPage({
   const labList = buildBudgetList(bookedMoney);
   const labKnown = knownMoneyTotals(bookedMoney);
   const labMoments = SEEDS.filter((x) => !x[6]?.parent_block_id).length;
+  // Booked › Schedule › Preparation and Journey — the real views on fixtures (`schedule-fixtures.ts`).
+  const labPrep = labPrepAgenda(labBookedNow(bookedOpts));
+  const labJourneyLine = labJourney(labBookedNow(bookedOpts), labPrep);
   const bookedLabView = labBookedView(bookedOpts, bookedMoney);
   const booked = bookedLabView.booked.length;
   /* The shell's Build N/M and cart peek, counted the page's way from the fixtures — and handed over so a press counts
@@ -280,6 +287,13 @@ export default async function SuppliersLabPage({
       findCards={one('cards')}
       folders={folders}
       eventId={LAB_EVENT}
+      // 📍 `&near=both` — the event has a reception AND a ceremony pin, so the ⇅'s Sort offers "Nearest to reception"
+      // · "Nearest to ceremony" (owner 2026-10-30); absent → the shipped single "Nearest" row.
+      nearOptions={
+        one('near') === 'both'
+          ? nearRows({ reception: { latitude: 14.1, longitude: 120.94 }, ceremony: { latitude: 14.56, longitude: 121.02 } })
+          : undefined
+      }
       standings={LAB_STANDINGS}
       initialOpenTile={one('open')}
       starterTiles={[...popularTilesFor('wedding')]}
@@ -315,7 +329,9 @@ export default async function SuppliersLabPage({
           covers={covers}
           eventId={LAB_EVENT}
           initialTab={one('mode') === 'booked' ? 'budget' : one('tab') === 'build' ? 'build' : one('tab') === 'budget' ? 'budget' : 'shortlist'}
+          // A Booked part's own page has no date · place line (`booked-part-page.tsx` passes none) — nor does the lab's.
           factsSlot={
+            bookedPartParam !== 'team' ? undefined : (
             <LabFactSheets
               options={factOptions}
               open={sheetParam === 'date' || sheetParam === 'help' || sheetParam === 'place' ? sheetParam : null}
@@ -336,12 +352,15 @@ export default async function SuppliersLabPage({
                 priced={['v-seda', 'v-bituin', 'v-lumina']}
               />
             </LabFactSheets>
+            )
           }
           // Batch 5 join: on Find the shell counts Build N/M live from the Find fixtures (b3fix, main); on the Build tab
           // the lab shell's own Build-body view is the count (`lab-build.tsx`), so the live base is not handed over there.
           liveTally={one('tab') === 'build' ? null : liveTally}
           bookedCount={booked}
           bookedPart={bookedPartParam}
+          partPage={bookedPartParam !== 'team'}
+          homeHref="/dev/suppliers-lab"
           bookedParts={labBookedParts}
           shortlistSlot={<InspectorLayout paramKey="inspect" hasSelection={false} master={bench} inspector={null} />}
           bookedSlot={
@@ -349,7 +368,6 @@ export default async function SuppliersLabPage({
               {bookedPartParam === 'budget' ? (
                 <div className="space-y-6" data-lab-booked-part="budget">
                   <BookedPartRow
-                    parts={labBookedParts}
                     current="budget"
                     line={`${labKnown.agreedPhp === null ? '—' : formatPhp(labKnown.agreedPhp)} agreed · ${labKnown.paidPhp === null ? '—' : formatPhp(labKnown.paidPhp)} paid`}
                   />
@@ -372,8 +390,18 @@ export default async function SuppliersLabPage({
                 </div>
               ) : bookedPartParam === 'schedule' ? (
                 <div className="space-y-5" data-lab-booked-part="schedule">
-                  <BookedPartRow parts={labBookedParts} current="schedule" line={`${labMoments} moments`} />
-                  <LabBookedSchedule tags={LAB_SCHEDULE_TAGS} />
+                  <BookedPartRow current="schedule" line={`${labMoments} moments`} />
+                  <LabBookedSchedule
+                    tags={LAB_SCHEDULE_TAGS}
+                    moments={labMoments}
+                    initial={one('view') === 'preparation' || one('view') === 'journey' ? (one('view') as 'preparation' | 'journey') : 'event-day'}
+                    prepCount={labPrep.items.length}
+                    journeyCount={labJourneyLine.totalEntries}
+                    prepNote={preparationLegendWords(labPrep.sourceCounts)}
+                    canAnnounce={one('announce') !== '0'}
+                    preparation={<PreparationAgendaView eventId={LAB_EVENT} agenda={labPrep} hasEventDate booked />}
+                    journey={<JourneyView timeline={labJourneyLine} hasEventDate eventId={LAB_EVENT} />}
+                  />
                 </div>
               ) : (
                 <BookedBody

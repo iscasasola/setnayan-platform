@@ -45,6 +45,11 @@
  *                                    `CoordinatorLevelAsk`, FIRST in the Today list under the cover (never above it);
  *                                    its press opens the house Sheet, Limited · Full access (the lab's presses write
  *                                    nothing real). `&shop=long` a long shop name (never cut) · `&shop=none` no name read
+ *   ?as=helper|coordinator           🪪 a helper's ⚙ (owner 2026-10-31): with `&settings=1` the sheet opens on "Your access"
+ *                                    alone, read-only — a limited helper (every part View) or the hired coordinator.
+ *                                    `&asked=1` its "Ask the hosts" button after a Send ("Asked · <time>"); without
+ *                                    `as`, the hosts' sheet with the helper's row saying what they asked for;
+ *                                    `&row=access&person=00000000-0000-4000-8000-0000000b0002` lands on that row
  *   ?coord=1                         🗂 the coordinator's line on top (owner 2026-10-28) — the REAL `CoordinatingLine`
  *   ?view=offline[&state=ok|amber|nosignal|failed|saving|none|unsupported][&browser=1][&desk=notes|sent]
  *                                    📶 EV3 (owner 2026-10-28): the REAL "Ready for no signal" card, the supplier's saved
@@ -74,7 +79,7 @@
  */
 import { CoordinatingLine } from '@/app/dashboard/[eventId]/_components/coordinating-line';
 import { CoordinatorLevelAsk } from '@/app/dashboard/[eventId]/_components/coordinator-level-ask';
-import { labEventSettingsRows } from './lab-event-settings';
+import { labEventSettingsRows, labYourAccessRows } from './lab-event-settings';
 import { PapicBuySheet } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-buy-sheet';
 import { PapicCameraSettings } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-camera-settings';
 import { PapicHeadPicker } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-head-picker';
@@ -257,10 +262,11 @@ const LAB_HUB_PICK: HomeHubPickRead = { ok: true, pinned: null, byDate: 'rsvp' }
 export default async function HomeLab({
   searchParams,
 }: {
-  searchParams: Promise<{ stage?: string; photos?: string; bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; coord?: string; level?: string; shop?: string; card?: string; cardphase?: string; head?: string; save?: string; challenges?: string; open?: string; need?: string; state?: string; browser?: string; desk?: string; prints?: string; settings?: string; row?: string; date?: string }>;
+  searchParams: Promise<{ stage?: string; photos?: string; bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; coord?: string; level?: string; shop?: string; card?: string; cardphase?: string; head?: string; save?: string; challenges?: string; open?: string; need?: string; state?: string; browser?: string; desk?: string; prints?: string; settings?: string; row?: string; date?: string; as?: string; asked?: string; person?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
+  const labAs = q.as === 'helper' || q.as === 'coordinator' ? q.as : null;
   const unread = q.unread === '1' || q.fail === '1';
   const proto = q.proto === '1';
   /* The prototype's own figures, for the side-by-side (prototypes/home_and_guests_2026-10-07_fable.html). */
@@ -551,13 +557,17 @@ export default async function HomeLab({
           ) : null
         }
         /* ⚙ Event Settings on the cover — its rows drawn on the lab's fixture (`lab-event-settings.tsx`), no database. */
-        eventSettings
-        eventSettingsRows={labEventSettingsRows(E)}
+        /* `&as=helper|coordinator` — 🪪 a helper's ⚙ (owner 2026-10-31): the same sheet, "Your access" alone, read-only. */
+        eventSettings={labAs === null}
+        helperSettings={labAs !== null}
+        eventSettingsRows={labAs ? labYourAccessRows(E, labAs, q.asked === '1') : labEventSettingsRows(E, q.asked === '1')}
         /* `?settings=1[&row=access]` — the sheet opens with the page, as Home's own link does (the ☰'s mark). */
         dateFinderOpen={q.date === 'find'}
         eventSettingsLink={{
           open: q.settings === '1',
           row: q.settings === '1' && isEventSettingsRow(q.row) ? q.row : null,
+          // 🪪 `&person=<seat>` — lands on that person's row, as a helper's "Ask the hosts" notice does.
+          person: q.settings === '1' && q.person ? q.person : null,
           landed: null,
           renderKey: 'lab',
         }}

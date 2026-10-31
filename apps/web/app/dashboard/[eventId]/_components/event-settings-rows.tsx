@@ -3,7 +3,8 @@ import { parentsOffered, yourEventLabel } from '@/lib/details-your-event';
 import { yourEventFactEditors, type YourEventInput } from '../launch/_components/details-your-event-parts';
 import { ParentCards } from '../launch/_components/details-lazy';
 import { PeopleWithAccess } from '../details/_components/people-with-access';
-import type { PersonRow } from '@/lib/people-with-access';
+import { YourAccess } from '../details/_components/your-access';
+import type { OwnAccess, PersonRow } from '@/lib/people-with-access';
 import type { ClaimAccessAsk } from '@/lib/claim-access-asks';
 import { EventSettingsEditor } from '../details/_components/event-settings-editor';
 import { PutAwayCard } from '../details/_components/put-away-card';
@@ -62,6 +63,11 @@ export type EventSettingsAccess =
  * `input` null = an event whose type has no Event Hub (its names · date · venues have no Maker editor) — the sheet then
  * holds People with access alone.
  *
+ * 🪪 `yours` — A HELPER'S SHEET (owner 2026-10-31, DECISION_LOG "A HELPER SEES THEIR OWN ACCESS AS THE FIRST ROW OF HOME
+ * ⚙ EVENT SETTINGS"): a coordinator or limited helper opens the same ⚙ and sees "Your access" FIRST — their role and
+ * what they can open, read-only (`YourAccess`). The action hands a helper nothing else (every other row is the hosts'
+ * editor), so their sheet holds only what is theirs to read.
+ *
  * No frames around the rows — a divider between topics; frames only on what is pressed.
  */
 export function EventSettingsRows({
@@ -71,6 +77,8 @@ export function EventSettingsRows({
   dock,
   access = null,
   more = null,
+  yours = null,
+  yoursAskedAt = null,
 }: {
   eventId: string;
   input: YourEventInput | null;
@@ -81,11 +89,20 @@ export function EventSettingsRows({
   access?: EventSettingsAccess | null;
   /** The rest of the event's own settings, moved from Event Details (null: not drawn — the Home lab). */
   more?: EventSettingsMore | null;
+  /** 🪪 A helper's own access — drawn FIRST, read-only (null: a host's sheet, unchanged). */
+  yours?: OwnAccess | null;
+  /** 🪪 When the helper last asked the hosts (the Home lab's fixture) — absent: the button says "Ask the hosts". */
+  yoursAskedAt?: string | null;
 }) {
   const editors = input ? yourEventFactEditors({ eventId, input }) : null;
   const withParents = input ? parentsOffered(input.kind) : false;
   return (
     <div data-event-settings-body="" className="flex flex-col gap-5 px-4 pb-[calc(20px+env(safe-area-inset-bottom))] pt-3">
+      {yours ? (
+        <FactRow row="your-access" title="Your access">
+          <YourAccess access={yours} eventId={eventId} askedAt={yoursAskedAt} />
+        </FactRow>
+      ) : null}
       {dock ? (
         <div data-event-settings-dock="" className="flex items-center justify-end gap-1.5">
           {dock}

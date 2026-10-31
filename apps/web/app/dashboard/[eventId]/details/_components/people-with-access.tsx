@@ -18,7 +18,9 @@ import {
   COORDINATOR_SWITCH_WHY,
   FIXED_AREA_WHY,
   SUPPLIERS_BY_CATEGORY,
+  accessDayLabel as dayLabel,
   accessGroupOf,
+  askedRowWords,
   coordinatorHasHostAccess,
   coordinatorSwitchWrites,
   type AreaCell,
@@ -78,10 +80,6 @@ const REASONS: PickOption[] = [
   { key: 'new_coordinator', label: 'We have a new coordinator' },
   { key: 'other', label: 'Other' },
 ];
-
-function dayLabel(iso: string): string {
-  return new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
-}
 
 /**
  * 🎚 ONE AREA'S THREE-WAY TOGGLE (owner 2026-10-07: *"no edit. Guestlist (i)
@@ -454,7 +452,7 @@ function PersonItem({
   returnTo: AccessReturnTo;
 }) {
   return (
-    <li className="space-y-2 py-3" data-person={row.kind}>
+    <li className="space-y-2 py-3" data-person={row.kind} data-person-id={row.moderatorId ?? undefined}>
       <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
         <div className="min-w-0">
           <p className="truncate text-sm font-medium text-ink">
@@ -467,6 +465,12 @@ function PersonItem({
             {!row.live ? ' · waiting to join' : ''}
             {row.ended ? ' · access ended' : row.lastDay ? ` · until ${dayLabel(row.lastDay)}` : ''}
           </p>
+          {/* 🪪 What this helper asked the hosts for (owner 2026-10-31, "Ask the hosts") — the notice lands here. */}
+          {row.asked ? (
+            <p className="text-[12px] font-medium text-terracotta-700" data-person-asked="">
+              {askedRowWords(row.asked)}
+            </p>
+          ) : null}
         </div>
         {readOnly ? null : row.kind === 'coordinator' && !row.isViewer ? (
           <RemoveCoordinator eventId={eventId} row={row} returnTo={returnTo} />

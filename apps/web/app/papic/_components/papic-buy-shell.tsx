@@ -129,10 +129,13 @@ export function PapicBuyShell({
 
   return (
     <>
+      {/* 📱 On the full-screen camera this sits on the camera's bottom row, right — the row the camera keeps clear for it
+          (its consent toggle stops 10rem short), so nothing overlaps (owner's iPhone 2026-10-30). 44 px tall. */}
       <button
         type="button"
+        data-papic-add-credits=""
         onClick={() => setOpen(true)}
-        className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-[max(1rem,var(--sn-safe-r))] z-40 inline-flex items-center gap-1.5 rounded-full bg-black/60 px-3.5 py-2 text-xs font-medium text-white backdrop-blur hover:bg-black/75"
+        className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-[max(1rem,var(--sn-safe-r))] z-40 inline-flex min-h-11 items-center gap-1.5 rounded-full bg-black/60 px-4 py-2 text-xs font-medium text-white backdrop-blur hover:bg-black/75"
       >
         <Camera aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
         Add credits

@@ -116,6 +116,12 @@ export type HomeFirstScreenProps = {
    * Only the couple (they change the event's own facts); absent = none (a helper, the labs that do not ask for it).
    */
   eventSettings?: boolean;
+  /**
+   * 🪪 A HELPER'S ⚙ (owner 2026-10-31, DECISION_LOG "A HELPER SEES THEIR OWN ACCESS AS THE FIRST ROW OF HOME ⚙ EVENT
+   * SETTINGS"): a coordinator or limited helper gets the same ⚙, whose sheet holds only "Your access", read-only. Never
+   * the Date Finder (the date is the hosts' to change). Ignored when `eventSettings` is on.
+   */
+  helperSettings?: boolean;
   /** The Home lab's Event Settings rows, already drawn on its fixture (`/dev/home-lab`); absent = read at the press. */
   eventSettingsRows?: ReactNode;
   /** 🔗 `?settings=1` — the address opens the Event Settings sheet with the page (`HomeSettingsLink`). */
@@ -178,6 +184,7 @@ export function HomeFirstScreen({
   asks = null,
   services,
   eventSettings = false,
+  helperSettings = false,
   eventSettingsRows,
   eventSettingsLink,
   dateFinderOpen = false,
@@ -197,7 +204,7 @@ export function HomeFirstScreen({
     <section data-home-first-screen aria-label="Home" className="flex w-full flex-col gap-3">
       {/* 🖼 The cover wears the Event Hub's main background (owner 2026-10-07, #6394), the words in the hub's own
           measured ink over its veil (`lib/home-cover.ts`). */}
-      <HomeCoverBand cover={cover} ground={ground} settingsFor={eventSettings ? eventId : undefined} settingsRows={eventSettingsRows} settingsLink={eventSettingsLink} />
+      <HomeCoverBand cover={cover} ground={ground} settingsFor={eventSettings || helperSettings ? eventId : undefined} settingsHelper={!eventSettings && helperSettings} settingsRows={eventSettingsRows} settingsLink={eventSettingsLink} />
 
       {/* 📅 "Later" beside the verb folds the Today line for today, on this device (owner 2026-10-23). */}
       <HomeTodayFold eventId={eventId} kind={next.kind}>

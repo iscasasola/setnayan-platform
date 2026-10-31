@@ -94,6 +94,7 @@ import { SetDateNudge } from './_components/set-date-nudge';
 import { readHomeGuide } from './_components/details-guide-home-card';
 import { DayPapicRow, HomeFirstScreen, YourServices } from './_components/home-first-screen';
 import { isEventSettingsRow } from '@/lib/people-with-access-href';
+import { isUuid } from '@/lib/is-uuid';
 import { DATE_FINDER_VALUE } from '@/lib/home-date-finder';
 /* 🛑 KEEP. WITHOUT THIS LINE HOME'S ⚙ CRASHES HOME (2026-10-29, the fix after #7036). The ⚙ reads Event Settings with a
    server action (`openEventSettings`) that RETURNS RENDERED ROWS: the Maker's editors (`details-lazy.tsx`,
@@ -216,6 +217,8 @@ export default async function EventHomePage({
       /** ⚙ `?settings=1&row=…` — Home opens with its Event Settings sheet up (the ☰'s mark, "Change ›" to access). */
       settings?: string;
       row?: string;
+      /** 🪪 `&person=<seat>` — the sheet lands on that person's row in People with access (a helper's "Ask the hosts"). */
+      person?: string;
       /** 📅 `?date=find` — Home opens with the Date Finder up (the Countdown's door). */
       date?: string;
       host_removed?: string;
@@ -1155,10 +1158,15 @@ export default async function EventHomePage({
       asks={todayAsks}
       /* ⚙ Event Settings on the cover — the couple's, who change the event's own facts (owner 2026-10-29). */
       eventSettings={viewerMemberType === 'couple'}
+      /* 🪪 …and a helper's (a coordinator or limited helper — every non-host seat is a `coordinator` member): the same ⚙,
+         whose sheet holds only "Your access", read-only (owner 2026-10-31). */
+      helperSettings={viewerMemberType === 'coordinator'}
       dateFinderOpen={search.date === DATE_FINDER_VALUE}
       eventSettingsLink={{
         open: search.settings === '1',
         row: search.settings === '1' && isEventSettingsRow(search.row) ? search.row : null,
+        // 🪪 A helper's "Ask the hosts" notice lands on that helper's row (a seat id — anything else is ignored).
+        person: search.settings === '1' && isUuid(search.person) ? search.person : null,
         landed: search.settings === '1' ? { host_removed: search.host_removed, invite_error: search.invite_error } : null,
         // A fresh server render of Home (a save's redraw) re-reads the open sheet's rows once.
         renderKey: `${Date.now()}`,

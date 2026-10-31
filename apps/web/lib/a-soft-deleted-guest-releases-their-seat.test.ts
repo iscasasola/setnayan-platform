@@ -152,12 +152,15 @@ test('the claims queue specifically — remove AND link both release', () => {
   const src = code(
     readFileSync(join(APP, 'dashboard', '[eventId]', 'guests', 'claims', 'actions.ts'), 'utf8'),
   );
-  for (const fn of ['removeGuestAction', 'linkGuestAction']) {
-    const start = src.indexOf(`export async function ${fn}`);
+  // R4 slice 11: the bodies live in `declineRequest` / `linkRequest`, behind the page's doors (`removeGuestAction` /
+  // `linkGuestAction`) and Guests' in-place door — both doors run the one body, so the body is what is held.
+  for (const [fn, door] of [['declineRequest', 'removeGuestAction'], ['linkRequest', 'linkGuestAction']] as const) {
+    assert.match(src, new RegExp(`export async function ${door}\\(eventId: string, formData: FormData\\) \\{\\s*(?:await refuseLimitedHelper\\(eventId, 'guest_list'\\);\\s*)?await onThePage\\(eventId, \\(\\) => ${fn}\\(eventId, formData\\)\\);`), `${door} no longer runs ${fn}`);
+    const start = src.indexOf(`async function ${fn}(`);
     assert.ok(start > 0, `${fn} not found — has it been renamed?`);
-    // Window: this function up to the next exported one (or EOF).
-    const next = src.indexOf('export async function ', start + 1);
-    const body = src.slice(start, next === -1 ? undefined : next);
+    // Window: this function up to the next function (or EOF).
+    const next = src.slice(start + 1).search(/\n(?:export )?async function /);
+    const body = src.slice(start, next === -1 ? undefined : start + 1 + next);
     assert.match(
       body,
       /\.from\(\s*'event_seat_assignments'\s*\)[\s\S]{0,120}?\.delete\(\)/,

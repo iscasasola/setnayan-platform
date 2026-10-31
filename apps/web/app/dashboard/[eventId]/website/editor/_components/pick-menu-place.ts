@@ -24,6 +24,8 @@ import { createContext, type ReactNode } from 'react';
 // 📱 The floor (the bottom bar's top) is measured in the DOM, so it lives there; re-exported here so `pick-menu.tsx`
 // spends no import line of its own (it sits at its inline-size line — pick-menu-stays-inline.test.ts).
 export { pickViewport } from '@/lib/reveal-above-chrome';
+// 🔘 A row that cannot be picked yet — label only, its reason in the ⓘ (owner 2026-10-31, "Yes, tidy it").
+export { PickOffRow } from './pick-menu-off-row';
 
 /** Gap between the button and the list. */
 export const PICK_LIST_GAP = 6;

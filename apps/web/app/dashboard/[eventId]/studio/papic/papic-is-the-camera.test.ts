@@ -69,11 +69,13 @@ test('1 · the Papic card is the camera: the switch, the counts, his five — an
   }
 });
 
-test('2 · Memories › ⚙ Gallery settings draws the five that moved — the shipped controls', () => {
+test('2 · Memories › ⚙ Gallery settings draws the controls that moved — the shipped controls', () => {
   const s = code(SETTINGS);
+  // 🎬 The Thank-You Video door left the ⚙ for the keepsake row (owner 2026-10-31, "Build both") — ONE home: the row.
+  assert.doesNotMatch(s, /<ServiceParts\b/, 'the Thank-You door is back in the ⚙ — two homes for one door');
+  assert.match(code('app/dashboard/[eventId]/memories/page.tsx'), /<ServiceParts\b[^>]*service="papic"/, 'the Thank-You door left Memories');
   for (const must of [
     /<LiveWallCard\b[^>]*variant="row"/,
-    /<ServiceParts\b[^>]*service="papic"/,
     /<PoolGalleryCard\b[^>]*variant="row"/,
     /<DriveCopyCard\b/,
     /serviceKey="HIGH_RES_ARCHIVE"/,

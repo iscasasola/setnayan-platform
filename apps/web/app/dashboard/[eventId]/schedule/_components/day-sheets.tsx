@@ -26,6 +26,8 @@ import { Sheet } from '@/app/_components/sheet';
 import { SubmitButton } from '@/app/_components/submit-button';
 import type { DayMoment, DayRequest } from './day-types';
 import { Eyebrow, PHASE_TINT, PickMenu, Stepper, Switch, Tip, toFormData, useDayActions, type PickOption } from './day-ui';
+import { ScheduleSheet, SheetChoice, SheetField, SheetFoot } from './schedule-sheet';
+import { ActionButton } from '@/components/action-button';
 
 const COULD_NOT_SAVE = 'That did not save. Check your connection and try again.';
 
@@ -159,92 +161,88 @@ export function AddMomentSheet({
     });
   }
 
+  /* 🗂 THE ONE POP-UP (`schedule-sheet.tsx`, owner 2026-10-31 *"the pop up. design template."*): the same frame, field
+     look and thumb-zone answers as a tapped moment's — every field this sheet had, and its one write. */
   return (
-    <Sheet open={open} onClose={onClose} labelledById="add-moment-title" wide rise>
-      <div className="space-y-4 px-5 pb-4 pt-5">
-        <SheetHead
-          id="add-moment-title"
-          title={
-            <>
-              Add at <span className="text-[19px] tabular-nums">{formatClock(start)}</span>
-            </>
-          }
-          tip="You tapped a time, so it is filled in. Change it below, or drag the moment on the rail afterwards."
-        />
-        <input
-          type="text"
-          value={label}
-          onChange={(e) => setLabel(e.target.value)}
-          maxLength={120}
-          placeholder="What happens"
-          aria-label="What happens"
-          className="w-full border-0 border-b border-ink/15 bg-transparent px-0 pb-1.5 font-display text-[21px] text-ink outline-none focus:border-ink"
-        />
+    <ScheduleSheet
+      open={open}
+      onClose={onClose}
+      id="add-moment-title"
+      title="Add a moment"
+      aside={<span className="tabular-nums">{dateKey ? `${formatDateHeading(dateKey)} · ` : ''}{formatClock(start)}</span>}
+      data="add-moment"
+      foot={
+        <SheetFoot>
+          <ActionButton tone="neutral" icon={X} label="Cancel" onClick={onClose} />
+          <ActionButton tone="brand" main icon={Plus} label={pending ? 'Adding…' : 'Add moment'} onClick={submit} disabled={pending} waiting={pending} />
+        </SheetFoot>
+      }
+    >
+        <SheetField label="Name">
+          <input
+            type="text"
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            maxLength={120}
+            placeholder="What happens"
+            aria-label="What happens"
+          />
+        </SheetField>
 
-        <div>
-          <Eyebrow>Phase</Eyebrow>
-          <div className="mt-1.5 flex items-center gap-2">
-            <i aria-hidden className="h-2 w-2 flex-none rounded-full" style={{ background: PHASE_TINT[type] }} />
-            <PickMenu
-              label="Phase"
-              value={type}
-              dataAttr="data-add-phase"
-              options={SCHEDULE_BLOCK_TYPES.map((t) => ({ key: t, label: scheduleBlockLabelFor(t, eventType) }))}
-              onPick={(key) => setType(key as ScheduleBlockType)}
-            />
-          </div>
-        </div>
+        <SheetChoice
+          label={
+            <span className="inline-flex items-center gap-2">
+              <i aria-hidden className="h-2 w-2 flex-none rounded-full" style={{ background: PHASE_TINT[type] }} />
+              Phase
+            </span>
+          }
+        >
+          <PickMenu
+            label="Phase"
+            value={type}
+            dataAttr="data-add-phase"
+            compact
+            options={SCHEDULE_BLOCK_TYPES.map((t) => ({ key: t, label: scheduleBlockLabelFor(t, eventType) }))}
+            onPick={(key) => setType(key as ScheduleBlockType)}
+          />
+        </SheetChoice>
 
         {!dateKey ? (
-          <label className="block">
-            <Eyebrow>Date</Eyebrow>
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className="mt-1 block w-full border-0 border-b border-ink/15 bg-transparent px-0 py-1.5 text-[15px] text-ink outline-none focus:border-ink"
-            />
-          </label>
-        ) : (
-          <p className="text-xs text-ink/55">{formatDateHeading(dateKey)}</p>
-        )}
+          <SheetField label="Date">
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          </SheetField>
+        ) : null}
 
         {/* Starts and Runs for: each ONE dropdown for the choice, and the −/+
             stepper (five minutes a press) for anything between two options. */}
-        <div className="grid grid-cols-2 gap-4">
-          <div>
+        <div className="grid grid-cols-2 gap-3">
+          <div data-sheet-field="">
             {/* One header height for both columns, so Starts and Runs for sit on one baseline (owner 2026-10-07). */}
-            <div className="flex min-h-7 items-center gap-1.5">
-              <Eyebrow>Starts</Eyebrow>
+            <span className="flex min-h-6 items-center gap-1.5">
+              Starts
               <Tip>Pick a time — or drag the moment on the rail afterwards. Everything snaps to 5 minutes.</Tip>
-            </div>
-            <div className="mt-1.5">
-              <PickMenu
-                label="Starts"
-                value={String(start)}
-                dataAttr="data-add-starts"
-                options={startOptions(start)}
-                onPick={(key) => setStart(Number(key))}
-              />
-            </div>
+            </span>
+            <PickMenu
+              label="Starts"
+              value={String(start)}
+              dataAttr="data-add-starts"
+              options={startOptions(start)}
+              onPick={(key) => setStart(Number(key))}
+            />
             <Stepper
               onMinus={() => setStart((s) => Math.max(0, s - 5))}
               onPlus={() => setStart((s) => s + 5)}
             />
           </div>
-          <div>
-            <div className="flex min-h-7 items-center">
-              <Eyebrow>Runs for</Eyebrow>
-            </div>
-            <div className="mt-1.5">
-              <PickMenu
-                label="Runs for"
-                value={String(runs)}
-                dataAttr="data-add-runs"
-                options={lengthOptions(runs)}
-                onPick={(key) => setRuns(Number(key))}
-              />
-            </div>
+          <div data-sheet-field="">
+            <span className="flex min-h-6 items-center">Runs for</span>
+            <PickMenu
+              label="Runs for"
+              value={String(runs)}
+              dataAttr="data-add-runs"
+              options={lengthOptions(runs)}
+              onPick={(key) => setRuns(Number(key))}
+            />
             <Stepper
               onMinus={() => setRuns((r) => Math.max(5, r - 5))}
               onPlus={() => setRuns((r) => r + 5)}
@@ -258,7 +256,7 @@ export function AddMomentSheet({
           {fits ? ` · ${fits}` : ''}
         </p>
 
-        <div>
+        <div data-switch-band="">
           <Switch
             on={isPublic && !staged}
             onChange={setIsPublic}
@@ -276,41 +274,22 @@ export function AddMomentSheet({
           ) : null}
         </div>
 
-        <label className="block">
-          <Eyebrow>Where</Eyebrow>
+        <SheetField label="Where">
           <input
             type="text"
             value={where}
             onChange={(e) => setWhere(e.target.value)}
             maxLength={200}
             placeholder="e.g. Church steps"
-            className="mt-1 block w-full border-0 border-b border-ink/15 bg-transparent px-0 py-1.5 text-[15px] text-ink outline-none focus:border-ink"
           />
-        </label>
+        </SheetField>
 
         {error ? (
           <p role="alert" className="text-sm font-medium text-danger-700">
             {error}
           </p>
         ) : null}
-      </div>
-      <div className="sn-glass-row sticky bottom-0 flex justify-end gap-2 px-5 py-3">
-        {/* BUTTON-RULE — icon + word, toned (✕ Cancel · ＋ Add moment), until the shared ActionButton lands. */}
-        <button type="button" onClick={onClose} className="inline-flex h-11 items-center gap-1.5 rounded-full px-4 text-[13px] font-semibold text-ink/75 ring-1 ring-inset ring-ink/15">
-          <X aria-hidden className="h-4 w-4" strokeWidth={2.2} />
-          Cancel
-        </button>
-        <button
-          type="button"
-          onClick={submit}
-          disabled={pending}
-          className="inline-flex h-11 items-center gap-1.5 rounded-full bg-ink px-4 text-[13px] font-semibold text-cream disabled:opacity-60"
-        >
-          <Plus aria-hidden className="h-4 w-4" strokeWidth={2.2} />
-          {pending ? 'Adding…' : 'Add moment'}
-        </button>
-      </div>
-    </Sheet>
+    </ScheduleSheet>
   );
 }
 

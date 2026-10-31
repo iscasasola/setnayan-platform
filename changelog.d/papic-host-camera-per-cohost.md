@@ -1,0 +1,15 @@
+## 2026-10-31 · feat(papic): every host has their own host camera — each couple member and each co-host — all spending the one shared pool
+
+Owner, 31 Oct (DECISION_LOG "SEVEN OWNER ANSWERS", item 3), asked "Should co-hosts each get a camera, and are host shots free?": *"yes. papic credits still"*.
+
+**What existed.** There was ONE host camera per event: the Uploads camera, `paparazzi_seats.seat_index = PAPIC_UPLOADS_CAMERA_INDEX` (150), minted by the couple-checked Memories render and the Papic card's self-heal. Whichever host pressed + Add photos first claimed it (`startAddingPhotos` → `papic_claim_seat`). The Memories page read that one seat and told every other host *"Adding photos on this event is set up on the other host’s account"*. A host is `event_members.member_type = 'couple'`, the couple and every co-host alike.
+
+**The delta (no migration).**
+- `lib/papic-cameras.ts`: host cameras are now the block `PAPIC_UPLOADS_CAMERA_INDEX..PAPIC_HOST_CAMERA_LAST_INDEX` (150–199). Seat 150 stays the first host's, so every camera already claimed keeps working. The block sits clear of free 100–102, the free One at 110 and paid 200+. `isHostCameraSeatIndex` asks whether a seat is in the block. `hostCameraPick` is the pure rule: mine, else spare, else mint the next index, else full. `readHostCamera` / `hostCameraSeat` are the one read. `provisionUploadsCameraAdmin` takes an optional 4th argument, `hostUserId`, and mints only when that host has no camera and no spare is waiting.
+- The capture source, the uploads switch and the gallery's uploads flag now ask the block, not the one index (`papicSeatCaptureSource`, `papic-uploads-open(-rule).ts`, `papic-gallery.ts`). So every host camera is metered as an upload and obeys the same switch, the same capture window and the same `papic_capture_points_available` gate. Nothing is free.
+- `startAddingPhotos`: same helper gate and couple check. It resolves THIS host's camera through `readHostCamera` and claims it, retrying once if another host claimed the same spare a moment earlier. It still mints nothing: the guard `the-uploads-camera-has-no-back-door.test.ts` forbids an action-side mint, so the couple-checked render mints instead.
+- Memories `page.tsx`, seat-read block only: it mints for the viewer's own `user.id`, reads their own camera, and the "other host's account" branch is gone. `UPLOADS_TAKEN_LINE` is deleted. The claim gains a `full` refusal for an event whose 50 host cameras are all in use.
+
+**Proof.** `tests/db/the-uploads-camera-is-claimed-once.db.test.ts` 5–7: two co-hosts each mint (through `hostCameraPick`) and claim their own camera, and neither can claim the other's. Both spend the one pool: 3 + 2 points leave the pool, and each camera's available balance drops by 5, so no camera holds credits of its own. A stranger has no membership and can read no host-camera token. New guard `lib/every-host-has-their-own-camera.test.ts`, sabotaged once (the capture source back to `=== 150` and `mine` = any claimed seat): 6 of 9 tests went red, then green after the restore.
+
+SPEC IMPACT: DECISION_LOG.md — an "as built" row under the 2026-10-31 SEVEN OWNER ANSWERS (item 3).

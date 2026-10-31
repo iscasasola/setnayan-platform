@@ -6,6 +6,8 @@ import { planGroupLabelForCategory } from '@/lib/lock-impact-inputs';
 import { ENTOURAGE_COLUMNS } from '@/lib/entourage';
 import type { ModeratorPermissions } from '@/lib/delegate-areas';
 import {
+  ASKS_SHOWN_FOR_DAYS,
+  asksBySeat,
   buildPeopleWithAccess,
   type HostInput,
   type PersonRow,
@@ -37,7 +39,8 @@ export type PeopleWithAccess =
  */
 export async function loadPeopleWithAccess(eventId: string, viewerUserId: string): Promise<PeopleWithAccess> {
   const admin = createAdminClient();
-  const [membersRes, seatsRes, guestsRes, vendorsRes, eventRes] = await Promise.all([
+  const asksSince = new Date(Date.now() - ASKS_SHOWN_FOR_DAYS * 86_400_000).toISOString();
+  const [membersRes, seatsRes, guestsRes, vendorsRes, eventRes, asksRes] = await Promise.all([
     admin.from('event_members').select('user_id, joined_via').eq('event_id', eventId).eq('member_type', 'couple'),
     admin
       .from('event_moderators')
@@ -61,6 +64,15 @@ export async function loadPeopleWithAccess(eventId: string, viewerUserId: string
       .is('archived_at', null)
       .in('status', BOOKED as unknown as string[]),
     admin.from('events').select('event_date, event_end_date, event_date_precision').eq('event_id', eventId).maybeSingle(),
+    // 🪪 The helpers' asks this viewer was sent ("Ask the hosts", owner 2026-10-31) — their own notices, this event only.
+    admin
+      .from('notifications')
+      .select('related_url, created_at')
+      .eq('event_id', eventId)
+      .eq('user_id', viewerUserId)
+      .eq('type', 'access_more_asked')
+      .gte('created_at', asksSince)
+      .limit(200),
   ]);
   const failed = membersRes.error ?? seatsRes.error ?? guestsRes.error ?? vendorsRes.error ?? eventRes.error;
   if (failed) {
@@ -172,5 +184,11 @@ export async function loadPeopleWithAccess(eventId: string, viewerUserId: string
     .filter((g) => !seated.has(g.guest_id) && !hostGuestIds.has(g.guest_id))
     .map((g) => ({ guestId: g.guest_id, name: guestName(g) }));
 
-  return { measured: true, rows, addable };
+  // A refused asks read leaves the rows without their "Asked for more" line — said in the log; every ask is still in the
+  // host's notifications, which is where it was sent. It never costs the section its people.
+  if (asksRes.error) logQueryError('loadPeopleWithAccess.asks', asksRes.error, { eventId }, 'graceful_degrade');
+  const asks = asksBySeat((asksRes.error ? [] : (asksRes.data ?? [])) as { related_url: string | null; created_at: string }[]);
+  const withAsks = asks.size === 0 ? rows : rows.map((r) => (r.moderatorId && asks.has(r.moderatorId) ? { ...r, asked: asks.get(r.moderatorId)! } : r));
+
+  return { measured: true, rows: withAsks, addable };
 }

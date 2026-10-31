@@ -100,6 +100,11 @@ export type PersonRow = {
    * Drives the Limited · Full access pick on the row — the place the Home card's answer stays changeable.
    */
   coordinatorLevel?: CoordinatorAccessLevel | 'unanswered';
+  /**
+   * 🪪 What this helper asked the hosts for in the last week ("Ask the hosts", owner 2026-10-31) — the parts and when
+   * the latest ask went, read from the viewer's own `access_more_asked` notices (`asksBySeat`). Absent = none.
+   */
+  asked?: { areas: DelegateArea[]; at: string } | null;
 };
 
 export type EventWindowInput = {
@@ -520,4 +525,39 @@ export function askRefusalWords(status: string | null | undefined, part?: string
     default:
       return 'Your ask couldn’t be sent just now. Nothing was sent — try again.';
   }
+}
+
+/** How far back a helper's asks show on their row in People with access. */
+export const ASKS_SHOWN_FOR_DAYS = 7;
+
+/**
+ * 🪪 The asks on each seat's row, from a host's own `access_more_asked` notices: the notice's link names the seat and the
+ * part (`…&person=<moderator_id>&part=<area>`, written by `ask_hosts_for_more_access`). Newest first per seat; a part
+ * asked twice is named once; a link of any other shape is ignored.
+ */
+export function asksBySeat(
+  notices: ReadonlyArray<{ related_url: string | null; created_at: string }>,
+): Map<string, { areas: DelegateArea[]; at: string }> {
+  const out = new Map<string, { areas: DelegateArea[]; at: string }>();
+  const sorted = [...notices].sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+  for (const n of sorted) {
+    let q: URLSearchParams;
+    try {
+      q = new URL(n.related_url ?? '', 'https://x.invalid').searchParams;
+    } catch {
+      continue;
+    }
+    const seat = q.get('person');
+    const part = q.get('part');
+    if (!seat || !part || !(DELEGATE_AREAS as readonly string[]).includes(part)) continue;
+    const had = out.get(seat);
+    if (!had) out.set(seat, { areas: [part as DelegateArea], at: n.created_at });
+    else if (!had.areas.includes(part as DelegateArea)) had.areas.push(part as DelegateArea);
+  }
+  return out;
+}
+
+/** The words on the row — "Asked for more · Seat plan, Guest list · 3:04 PM". */
+export function askedRowWords(asked: { areas: readonly DelegateArea[]; at: string }, now: Date = new Date()): string {
+  return `Asked for more · ${asked.areas.map((a) => DELEGATE_AREA_LABEL[a]).join(', ')} · ${askedTimeLabel(asked.at, now)}`;
 }

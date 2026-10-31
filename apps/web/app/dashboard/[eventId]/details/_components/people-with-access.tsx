@@ -20,6 +20,7 @@ import {
   SUPPLIERS_BY_CATEGORY,
   accessDayLabel as dayLabel,
   accessGroupOf,
+  askedRowWords,
   coordinatorHasHostAccess,
   coordinatorSwitchWrites,
   type AreaCell,
@@ -464,6 +465,12 @@ function PersonItem({
             {!row.live ? ' · waiting to join' : ''}
             {row.ended ? ' · access ended' : row.lastDay ? ` · until ${dayLabel(row.lastDay)}` : ''}
           </p>
+          {/* 🪪 What this helper asked the hosts for (owner 2026-10-31, "Ask the hosts") — the notice lands here. */}
+          {row.asked ? (
+            <p className="text-[12px] font-medium text-terracotta-700" data-person-asked="">
+              {askedRowWords(row.asked)}
+            </p>
+          ) : null}
         </div>
         {readOnly ? null : row.kind === 'coordinator' && !row.isViewer ? (
           <RemoveCoordinator eventId={eventId} row={row} returnTo={returnTo} />

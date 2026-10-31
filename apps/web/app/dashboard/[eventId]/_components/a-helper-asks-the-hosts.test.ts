@@ -138,3 +138,29 @@ test('5 · the notice lands on the helper: `person` reaches the ⚙, which finds
   const door = readFileSync(join(REPO, DOOR), 'utf8');
   assert.match(door, /'\?settings=1&row=access&person=' \|\| v_seat\.moderator_id::TEXT/);
 });
+
+test('6 · the hosts see the ask on that helper’s row — read from their own notices, parsed from the door’s link', async () => {
+  const { asksBySeat, askedRowWords } = await import('@/lib/people-with-access');
+  const seat = '00000000-0000-4000-8000-0000000b0002';
+  const url = (part: string) => `/dashboard/e1?settings=1&row=access&person=${seat}&part=${part}`;
+  const asks = asksBySeat([
+    { related_url: url('seat_plan'), created_at: '2026-10-31T07:04:00Z' },
+    { related_url: url('guest_list'), created_at: '2026-10-30T07:04:00Z' },
+    { related_url: url('seat_plan'), created_at: '2026-10-29T07:04:00Z' },
+    { related_url: '/dashboard/e1?settings=1&row=access', created_at: '2026-10-31T08:00:00Z' },
+    { related_url: url('everything'), created_at: '2026-10-31T09:00:00Z' },
+  ]);
+  assert.deepEqual([...asks.keys()], [seat], 'a link of another shape was read as an ask');
+  assert.deepEqual(asks.get(seat), { areas: ['seat_plan', 'guest_list'], at: '2026-10-31T07:04:00Z' }, 'the newest ask, each part once');
+  assert.match(askedRowWords(asks.get(seat)!, new Date('2026-10-31T12:00:00Z')), /^Asked for more · Seat plan, Guest list · 3:04\s?(PM|pm)$/);
+
+  const server = code('lib/people-with-access.server.ts');
+  assert.match(
+    server,
+    /\.from\('notifications'\)\s*\.select\('related_url, created_at'\)\s*\.eq\('event_id', eventId\)\s*\.eq\('user_id', viewerUserId\)\s*\.eq\('type', 'access_more_asked'\)/,
+    'the hosts’ rows do not read the viewer’s OWN asks on this event',
+  );
+  assert.match(server, /if \(asksRes\.error\) logQueryError\(/, 'a refused asks read is dropped in silence');
+  const row = code('app/dashboard/[eventId]/details/_components/people-with-access.tsx');
+  assert.match(row, /\{row\.asked \? \(\s*<p[^>]*data-person-asked=""[^>]*>\s*\{askedRowWords\(row\.asked\)\}/, 'the helper’s row does not say what they asked for');
+});

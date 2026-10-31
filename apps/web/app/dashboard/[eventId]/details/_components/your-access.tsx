@@ -1,6 +1,6 @@
 import { InfoTip } from '@/app/_components/info-tip';
 import { AREA_LEVEL_WORD } from '@/lib/delegate-areas';
-import { OWN_ACCESS_TIP, accessDayLabel, type OwnAccess } from '@/lib/people-with-access';
+import { OWN_ACCESS_TIP, accessDayLabel, askableParts, type OwnAccess } from '@/lib/people-with-access';
 import { AskTheHosts } from './ask-the-hosts';
 
 /**
@@ -13,20 +13,17 @@ import { AskTheHosts } from './ask-the-hosts';
  * Its own file, beside People with access (the hosts' editor of the same cells): it imports no action, so it draws
  * wherever a seat's own access is read — and a test can render it.
  *
- * 🪪 ASK THE HOSTS (owner 2026-10-31, "yes"): the ONE press here besides the ⓘ, at the role line's end — `AskTheHosts`
- * opens its own sheet; the parts themselves stay words. Not drawn when there is nothing more to ask for.
+ * 🪪 ASK THE HOSTS (owner 2026-10-31, "yes"): the ONE press here besides the ⓘ, under the parts ("then at the bottom") —
+ * `AskTheHosts` opens its own sheet; the parts themselves stay words. Not drawn when there is nothing more to ask for.
  */
 export function YourAccess({ access, eventId, askedAt = null }: { access: OwnAccess; eventId: string; askedAt?: string | null }) {
   return (
     <div data-your-access="" className="space-y-1">
-      <div className="flex items-center justify-between gap-3">
-        <p className="min-w-0 text-[12.5px] text-ink/60" data-your-access-role="">
-          <InfoTip label={`${access.roleWord}${access.lastDay ? ` · until ${accessDayLabel(access.lastDay)}` : ''}`} align="start">
-            {OWN_ACCESS_TIP}
-          </InfoTip>
-        </p>
-        <AskTheHosts eventId={eventId} areas={access.areas} askedAt={askedAt} />
-      </div>
+      <p className="text-[12.5px] text-ink/60" data-your-access-role="">
+        <InfoTip label={`${access.roleWord}${access.lastDay ? ` · until ${accessDayLabel(access.lastDay)}` : ''}`} align="start">
+          {OWN_ACCESS_TIP}
+        </InfoTip>
+      </p>
       <ul className="divide-y divide-ink/5" data-your-access-areas="">
         {access.areas.map((cell) => (
           <li key={cell.area} className="flex min-h-11 items-center justify-between gap-3 py-1" data-area={cell.area} data-level={cell.choice}>
@@ -37,6 +34,11 @@ export function YourAccess({ access, eventId, askedAt = null }: { access: OwnAcc
           </li>
         ))}
       </ul>
+      {askableParts(access.areas).length > 0 ? (
+        <div className="pt-2" data-your-access-ask="">
+          <AskTheHosts eventId={eventId} areas={access.areas} askedAt={askedAt} />
+        </div>
+      ) : null}
     </div>
   );
 }

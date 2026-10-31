@@ -104,7 +104,7 @@ export function AddPreparationItem({ eventId, door = 'button', hidden = false }:
         onClose={close}
         id="add-prep-headline"
         title="Add a step"
-        aside="Preparation"
+        aside="Planning Stage"
         data="add-step"
         foot={
           <SheetFoot>

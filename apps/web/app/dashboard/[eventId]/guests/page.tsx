@@ -1120,8 +1120,9 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       // refusal is said here, nothing navigates (guests/claims/decide-in-place.tsx). An unread count streams the body too,
       // so it can say so itself; a MEASURED zero needs no read — the screen says nobody is waiting.
       requestsInPlace={viewer.isCouple}
-      // 📱 Replies reach the couple's phone (owner 2026-10-31); the one-time ask is theirs, never inside the iPhone app.
-      replyAsk={viewer.isCouple && !storeShell}
+      // 📱 Replies reach the couple's phone (owner 2026-10-31); the one-time ask is theirs — Web Push on the web, APNs
+      // inside the iPhone app (the sheet decides which on the device).
+      replyAsk={viewer.isCouple}
       requestsBody={
         viewer.isCouple && (pendingClaimsCount > 0 || pendingClaims.error !== null || search.gshow === 'requests') ? (
           <Suspense fallback={<p className="px-4 py-6 text-center text-[13px] text-ink/60">Opening your requests…</p>}>

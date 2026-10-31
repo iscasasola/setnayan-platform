@@ -20,6 +20,20 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     /// Every new window scene uses the one configuration Info.plist declares
     /// (`UIApplicationSceneManifest` → "Default Configuration": SceneDelegate +
     /// Main.storyboard).
+    // 📱 APNs (owner 2026-10-31, "The notification on the phone not on the app").
+    // iOS hands the device token to the APP delegate — not the scene — and
+    // @capacitor/push-notifications listens for these two Capacitor notifications,
+    // then gives the token to the web page (apps/web/lib/native-push.ts), which
+    // saves it as a push subscription of kind 'apns'. Without them `register()`
+    // never answers.
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        NotificationCenter.default.post(name: .capacitorDidRegisterForRemoteNotifications, object: deviceToken)
+    }
+
+    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)
+    }
+
     func application(
         _ application: UIApplication,
         configurationForConnecting connectingSceneSession: UISceneSession,

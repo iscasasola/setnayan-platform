@@ -3,14 +3,10 @@ import type { ComponentProps, ReactNode } from 'react';
 import { ArrowRight, ChevronRight, Lock, Play } from 'lucide-react';
 import { Fold } from '@/app/_components/fold';
 import { RowIcon } from '../../_components/row-icon';
-import { PillLink, PillTrack } from '@/app/_components/pill-track';
 import { Explain } from '@/app/_components/explain';
 import { SupplierColumns } from '../../_components/supplier-columns';
 import {
-  HUB_SEGMENTS,
-  HUB_SEGMENT_LABEL,
   hubDayWords,
-  hubHref,
   hubRoleWords,
   type HubEvent,
   type HubLock,
@@ -28,9 +24,9 @@ import { ActionButton } from '@/components/action-button';
  *
  *   · the Hub ▾ picks the event (`HubEventMenu`, in the pinned row from 701), with the event's ⓘ beside it (prototype
  *     `renderViewrow`: "Hub ▾ · ⓘ" — the event's details live behind it, `HubEventInfo`);
- *   · Set up · Crew · The event's pages — one segmented control, each its own address (`?seg=`), so Back works. ON A
- *     PHONE THE SEGMENTS COME FIRST, directly under the pinned row and ABOVE the event card (prototype `renderHub`:
- *     `segRow(…)` is drawn before `openEh`, the card) — the card used to lead and pushed the segments below the fold;
+ *   · Set up · Crew · The event's pages — the Hub ▾'s own first group since 2026-10-31 (ONE SELECTOR, owner "all yes":
+ *     the segmented rows become the one `Page · View ▾`), each its own address (`?seg=`), so Back works. The sliding
+ *     segmented pill that sat under the row is gone — the card now follows the one row directly;
  *   · the right column (from 701) is the event card + "Open the Event Hub" — never empty; on a phone the same card
  *     sits under the segments, above the segment's body. ONE card per width, never both drawn;
  *   · the thumb row (`thumb`, `HubThumbRow`) — "Find an event to set up" + ＋ on Set up, "Find a guest or a table" on
@@ -65,9 +61,7 @@ export function HubScreen({
         paneLabel={`${event.name} · the day`}
         list={
           <div className="px-4 pb-28 sm:px-6 tab:px-4 tab:pt-3">
-            {/* The segments first — directly under the pinned row, above the card (prototype `renderHub`). */}
-            <HubSegments eventId={event.eventId} on={seg} />
-            {/* 📱 The phone's copy of the card: the pane is not drawn below 701, so the card follows the segments there. */}
+            {/* 📱 The phone's copy of the card: the pane is not drawn below 701, so the card follows the one row there. */}
             <div className="pt-3 tab:hidden" data-hub-card-phone="">
               {pane}
             </div>
@@ -83,27 +77,6 @@ export function HubScreen({
       />
       {thumb}
     </div>
-  );
-}
-
-/** Set up · Crew · The event's pages — each a link to its own address (the Shop / Customers shape). */
-export function HubSegments({ eventId, on }: { eventId: string; on: HubSegment }) {
-  return (
-    <PillTrack as="nav" grow aria-label="Hub views" data-hub-segmented="" className="mt-3 w-full">
-      {HUB_SEGMENTS.map((s) => (
-        <PillLink
-          key={s}
-          on={s === on}
-          href={hubHref(eventId, s)}
-          scroll={false}
-          aria-current={s === on ? 'page' : undefined}
-          data-hub-seg={s}
-          className="h-11 min-h-11 text-[13.5px]"
-        >
-          {HUB_SEGMENT_LABEL[s]}
-        </PillLink>
-      ))}
-    </PillTrack>
   );
 }
 
@@ -134,7 +107,7 @@ export function HubEventCard({
         <p className="text-[11.5px] font-medium uppercase tracking-[0.12em]" style={{ color: 'rgba(251,251,250,0.62)' }}>
           {hubRoleWords(event)}
         </p>
-        <p className="mt-1 truncate text-[19px] font-medium leading-snug" style={{ color: 'var(--m-paper)' }}>
+        <p className="mt-1 truncate text-[19px] font-medium leading-snug" style={{ color: 'rgb(251,251,250)' }}>
           {title}
         </p>
         <p className="mt-0.5 truncate text-[13.5px]" style={{ color: 'rgba(251,251,250,0.72)' }}>

@@ -9,7 +9,8 @@
  *                          the tools on this page · Crew). A choice this supplier cannot use here is not offered.
  *   · The event's pages — [ 🔍 Find a guest or a table ] alone — it narrows the page rows in place by their words; when
  *                          nothing matches it says so (`data-hub-pages-none`) rather than leaving a blank list.
- *   · Crew              — no row in this slice (slice 3 brings the crew QR and its "Add a crew phone").
+ *   · Crew              — [ 🔍 Search your crew ] (v13 desktop frame, 2026-10-31) — it narrows the crew's phones in place
+ *                          by name · role · state; when nothing matches it says so (`data-crew-none`).
  *
  * The shared `ThumbRow` in the supplier's floating plumbing (`SupplierThumbRow`: the foot on a phone, up into the
  * pinned row from 701). Nothing here reads or writes — every door is handed in by the page.
@@ -34,9 +35,40 @@ function narrowPageRows(words: string) {
   if (none) none.hidden = shown > 0;
 }
 
+/** Crew: hide every phone whose words (name · role · state) do not hold `words`; say so when none is left. */
+function narrowCrewRows(words: string) {
+  const needle = words.trim().toLowerCase();
+  let shown = 0;
+  for (const row of document.querySelectorAll<HTMLElement>('[data-crew-pass]')) {
+    const hit = !needle || (row.textContent ?? '').toLowerCase().includes(needle);
+    // `style.display`, not `hidden`: a crew row is a `flex` box, and the class's display beats the attribute's.
+    row.style.display = hit ? '' : 'none';
+    if (hit) shown += 1;
+  }
+  const none = document.querySelector<HTMLElement>('[data-crew-none]');
+  if (none) none.hidden = shown > 0 || document.querySelectorAll('[data-crew-pass]').length === 0;
+}
+
 export function HubThumbRow({ seg, add = [] }: { seg: HubSegment; add?: readonly HubAddChoice[] }) {
   const router = useRouter();
-  if (seg === 'crew') return null;
+  if (seg === 'crew') {
+    // 🔎 CREW SEARCH (v13 desktop: "Search your crew" in the bar): narrows the crew's phones in place by their words.
+    return (
+      <SupplierThumbRow
+        name="hub-crew"
+        label="Crew tools"
+        row={
+          <ThumbRow
+            name="hub-crew"
+            field={{
+              placeholder: 'Search your crew',
+              input: { onInput: (e) => narrowCrewRows(e.currentTarget.value), 'data-hub-thumb-find': 'crew' },
+            }}
+          />
+        }
+      />
+    );
+  }
   if (seg === 'pages') {
     return (
       <SupplierThumbRow

@@ -7,6 +7,7 @@ import { isTauri, setPastedStreamKey, claimHostedStreamKey } from '@/lib/desktop
 import { pasteSubmit, pasteRefusalSentence } from '@/lib/live-studio-encoder-key-paste';
 import { YOUTUBE_RTMPS_PRIMARY_LABEL } from '@/lib/live-studio-encoder-ingest-default';
 import { announceStreamKeyHeld } from '@/lib/encoder/encoder-key-bus';
+import { PasswordField } from '@/app/_components/password-field';
 
 /**
  * S8 — the ONE stream-key block, shared by the setup page's GoLiveCard and the
@@ -228,14 +229,14 @@ function OwnChannelPasteField({ eventId }: { eventId: string }) {
       </p>
       <form onSubmit={handleSubmit} className="mt-2 space-y-2">
         <div className="flex flex-wrap items-center gap-2">
-          <input
-            type="password"
+          <PasswordField
+            wrapperClassName="min-w-0 flex-1"
             autoComplete="off"
             value={fieldValue}
             onChange={(e) => setFieldValue(e.target.value)}
             placeholder="Paste your YouTube stream key"
             aria-label="Stream key"
-            className="min-w-0 flex-1 rounded-md border border-ink/15 bg-cream px-3 py-1.5 font-mono text-sm text-ink/85"
+            className="w-full rounded-md border border-ink/15 bg-cream px-3 py-1.5 font-mono text-sm text-ink/85"
           />
           <button
             type="submit"

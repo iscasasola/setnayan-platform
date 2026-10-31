@@ -37,6 +37,7 @@ import { providerNextStep, SET_PASSWORD_WORDS, type KnownProvider } from '@/lib/
 import { recallTypedEmail, rememberTypedEmail } from '@/lib/sign-in-typed-email';
 import { GUEST_SIGN_IN_WORDS } from '@/lib/sign-in-for-a-guest';
 import dynamic from 'next/dynamic';
+import { PasswordField } from '@/app/_components/password-field';
 
 /*
   Loaded after the card, never with it: this card ships inside the root layout's
@@ -293,10 +294,9 @@ export function SignInCard({
           <label htmlFor="hr-si-password" className="hr-si-label">
             Password
           </label>
-          <input
+          <PasswordField
             id="hr-si-password"
             name="password"
-            type="password"
             autoComplete="current-password"
             placeholder="••••••••"
             required

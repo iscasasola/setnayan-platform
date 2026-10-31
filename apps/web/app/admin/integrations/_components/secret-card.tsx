@@ -2,6 +2,7 @@ import { KeyRound } from 'lucide-react';
 import type { SecretIntegrationDef } from '@/lib/integrations/registry';
 import { saveIntegrationSecret, clearIntegrationSecret } from '../actions';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { PasswordField } from '@/app/_components/password-field';
 
 // Integration Activation Console — PR2. Generic card for a registry "simple
 // secret" integration (one encrypted API key, DB-first / env-fallback). Renders
@@ -56,12 +57,12 @@ export function SecretCard({
           <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
             {dbHasKey ? 'Replace API key (leave blank to keep current)' : 'API key'}
           </span>
-          <input
-            type="password"
+          <PasswordField
+            wrapperClassName="mt-1"
             name="secret"
             autoComplete="off"
             placeholder={dbHasKey ? '••••••••••••••••' : integration.placeholder}
-            className="mt-1 w-full rounded-md border border-ink/15 bg-white px-3 py-2 font-mono text-sm outline-none focus:border-terracotta/50"
+            className="w-full rounded-md border border-ink/15 bg-white px-3 py-2 font-mono text-sm outline-none focus:border-terracotta/50"
           />
         </label>
         <SubmitButton

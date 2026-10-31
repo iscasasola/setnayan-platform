@@ -1,4 +1,4 @@
-## 2026-10-31 · fix(papic): a selfie retake only adds from the photos that missed; "Write a column" and Camera Bridge hidden on the cameras
+## 2026-10-31 · fix(papic): a selfie retake only adds from the photos that missed; "Write a column" hidden in the app, Camera Bridge hidden on the seat camera
 
 Owner rulings, DECISION_LOG "SEVEN OWNER ANSWERS" (31 Oct), items 2 and 6.
 
@@ -8,10 +8,10 @@ Owner rulings, DECISION_LOG "SEVEN OWNER ANSWERS" (31 Oct), items 2 and 6.
 - Held by `lib/a-retake-only-adds-from-missed-photos.test.ts` (executed against a recording fake whose upsert does not dedupe, so a resurrected tombstone shows up as a second row): live tags, the guest's "Not me", the hosts' Tag removal and an admin's removal are each left exactly as they were; only the missed photos get the tag; the retake action never touches `photo_tags`.
 
 **(6) Hidden until the owner says so.** Owner: *"hide this for now. it will not be present until we say so."*
-- `lib/papic-camera-hidden-extras.ts`: `WRITE_A_COLUMN_SHOWN_ON_CAMERA = false` and `CAMERA_BRIDGE_SHOWN_ON_CAMERA = false`, with the bring-back steps in the docblock. The guest camera's `CameraColumn` asks its constant first; the seat camera's `bridgeEnabled` ANDs its constant in front of `?bridge=demo` and `NEXT_PUBLIC_CAMERA_BRIDGE_ENABLED`. No code deleted.
-- Held by `lib/the-hidden-camera-extras-stay-hidden.test.ts`.
-- Not touched: the Event Hub Recap's own `GuestColumnCard` mount in `app/[slug]/_components/site-body.tsx` (still behind `GUEST_COLUMNS_ENABLED`, default OFF), flagged for the owner.
+- `lib/hidden-guest-extras.ts`: `WRITE_A_COLUMN_SHOWN_IN_APP = false` and `CAMERA_BRIDGE_SHOWN_ON_CAMERA = false`, with the bring-back steps in the docblock. The guest camera's `CameraColumn` asks its constant first; the seat camera's `bridgeEnabled` ANDs its constant in front of `?bridge=demo` and `NEXT_PUBLIC_CAMERA_BRIDGE_ENABLED`. No code deleted.
+- Held by `lib/the-hidden-extras-stay-hidden.test.ts`.
+- The Event Hub **Recap**'s own `GuestColumnCard` mount (`app/[slug]/_components/site-body.tsx`) is gated by the same `WRITE_A_COLUMN_SHOWN_IN_APP`, asked before the card's `GUEST_COLUMNS_ENABLED` gate ("hidden in our app" covers the Recap too — decision relayed by the coordinator on this PR's open question). The guard scans all of `app/` for both mounts. Host-side column tools (story editor panel, `/studio/guest-columns`) are not gated here; they stay behind `GUEST_COLUMNS_ENABLED`, default OFF.
 
 No migration. `every-guest-read-asks-the-blur-gate.test.ts` gains one classified reader (`lib/face-rescan.ts` reads tag rows, serves no image key).
 
-SPEC IMPACT: DECISION_LOG.md, a new "AS BUILT" row for SEVEN OWNER ANSWERS items 2 and 6, including the bring-back steps for both hidden extras.
+SPEC IMPACT: DECISION_LOG.md, two "AS BUILT" rows for SEVEN OWNER ANSWERS items 2 and 6 (the second: Write a column hidden in the Event Hub Recap too), including the bring-back steps for both hidden extras.

@@ -420,7 +420,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
     initialQuery = '',
     initialSelect = false,
     invite = null,
-    setup,
+    setup: setupRows,
     settingsOpen: settingsAsked = false,
     settingsRow = null,
     oneQr = false,
@@ -764,6 +764,11 @@ export function GuestsScreen(props: GuestsScreenProps) {
     setAsking(true);
     window.scrollTo({ top: 0 });
   };
+  /* The ⚙ rows reach `openRequests` through their own wrapper, made HERE — the ⚙ sheet keeps its one child and the top
+     row stays as it is (the top row belongs to the top-row build). */
+  const setup = setupRows ? (
+    <OpenRequestsContext.Provider value={requestsInPlace && !writesOff ? openRequests : null}>{setupRows}</OpenRequestsContext.Provider>
+  ) : null;
   const pickWho = useCallback(() => {
     openSettings(false);
     if (gview !== 'list') {
@@ -1981,9 +1986,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
             <span ref={setToolsSlot} className="flex shrink-0 items-center gap-1.5 empty:hidden" data-guests-view-rounds="" />
             {setup ? (
               <MenuSettingsButton menu="guests" open={settingsOpen} onOpenChange={openSettings} tour="guests-setup">
-                <OpenRequestsContext.Provider value={requestsInPlace && !writesOff ? openRequests : null}>
-                  <PickWhoContext.Provider value={writesOff ? null : pickWho}>{setup}</PickWhoContext.Provider>
-                </OpenRequestsContext.Provider>
+                <PickWhoContext.Provider value={writesOff ? null : pickWho}>{setup}</PickWhoContext.Provider>
               </MenuSettingsButton>
             ) : null}
           </div>

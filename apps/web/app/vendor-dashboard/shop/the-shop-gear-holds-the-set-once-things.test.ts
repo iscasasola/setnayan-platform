@@ -15,7 +15,8 @@
  *       opens the ⚙ on its fold; every Shop section page hands the row its ⚙ rows.
  *
  * Sabotage (2026-10-31, each run and reverted, each RED): the documents fold put back on Details · a second
- * `<MenuSettingsButton menu="shop"` · the Notifications fold dropped from the rows · `gearBody` dropped from Page.
+ * `<MenuSettingsButton menu="shop"` · the Notifications fold dropped from the rows · `gearBody` dropped from Page ·
+ * the documents' in-review line and badge drawn whatever the state.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -83,7 +84,7 @@ test('2 · it holds the four that exist, each the shipped editor, in order (on w
       wallet: { title: 'Shop wallet · 12 Papic credits', line: 'x' },
       plan: React.createElement('i', { 'data-plan-stand-in': '' }),
       team: React.createElement('i', { 'data-team-stand-in': '' }),
-      docs: { isVerified: false, docsIn: 1, docsTotal: 4, measured: false, section: React.createElement('i', { 'data-docs-stand-in': '' }) },
+      docs: { isVerified: false, docsIn: 1, docsTotal: 4, measured: false, row: { state: 'todo', badge: { tone: 'wait', word: '3 left' } }, section: React.createElement('i', { 'data-docs-stand-in': '' }) },
     }),
   );
   const order = [...html.matchAll(/data-shop-gear="(\w+)"/g)].map((m) => m[1]);
@@ -91,6 +92,29 @@ test('2 · it holds the four that exist, each the shipped editor, in order (on w
   for (const k of SHOP_GEAR_SECTIONS) assert.ok(html.includes(SHOP_GEAR_TITLE[k]), `${k}: its title is not drawn`);
   assert.match(html, /Shop wallet · 12 Papic credits/, 'the wallet row is not in Plan and billing');
   assert.match(html, /data-shop-gear-docs-unread=""/, 'an unread documents read is not said');
+
+  // 🔎 Owner 2026-10-31, "Come back to shop": documents in review say so on the fold's own row — words and badge from
+  // the SAME Details row (`docsRow`), and neither while they are not in review.
+  const { docsRow } = await import('@/lib/supplier-details');
+  const docsFold = (status: 'pending_review' | 'in_review' | 'draft' | 'approved', isVerified = false) =>
+    renderToStaticMarkup(
+      React.createElement(ShopSettingsRows, {
+        planLine: 'x',
+        wallet: { title: 'x', line: 'x' },
+        plan: null,
+        team: null,
+        docs: { isVerified, docsIn: 4, docsTotal: 4, measured: true, row: docsRow({ measured: true, isVerified, status, requiredIn: 4, requiredTotal: 4 }), section: null },
+      }),
+    );
+  for (const status of ['pending_review', 'in_review'] as const) {
+    const review = docsFold(status);
+    assert.match(review, /Setnayan is checking your documents/, `${status}: the in-review line is gone`);
+    assert.match(review, /data-badge-for="shop-gear-docs"[^>]*>Checking</, `${status}: the Checking badge is gone`);
+  }
+  for (const quiet of [docsFold('draft'), docsFold('approved', true)]) {
+    assert.doesNotMatch(quiet, /Setnayan is checking your documents/, 'the in-review line shows when nothing is in review');
+    assert.doesNotMatch(quiet, /data-badge-for="shop-gear-docs"/, 'the badge shows when nothing is in review');
+  }
 });
 
 test('3 · none of them is still on the page — the ⚙ alone holds them', () => {

@@ -47,7 +47,7 @@ const PUSH_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
     verbatim: "I keep getting email notifications everytime a person confirms
     rsvp. How much does that cost us?" → "Can we make the notification instead
     like facebook even if on website and app?" → "Yes. The notification on the
-    phone not on the app."). It left EMAIL_ENABLED_TYPES the same day.
+    phone not on the app."). It left the email allowlist the same day.
     🔑 INSTANT, AND IT REPLACES (owner "Yes" to: "instant, but each new RSVP
     notification replaces the last one on the lock screen instead of
     stacking"): every reply pushes at once, one collapse key per event, the

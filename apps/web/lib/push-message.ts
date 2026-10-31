@@ -41,6 +41,18 @@ export type PushSubject =
   | { kind: 'shop'; name: string | null }
   | { kind: 'account' };
 
+/**
+ * 🎚 THE PLACE FOR A PER-TYPE LEVEL. The owner has NOT ruled on urgency levels or quiet hours, so there is one level
+ * and it changes nothing. When he rules, the levels go in this type and `pushLevelFor` says which kind gets which;
+ * every message already carries its level, so a channel reads `message.level` (Web Push `Urgency`, APNs
+ * `apns-priority`) with no change to a sender or a sentence.
+ */
+export type PushLevel = 'normal';
+
+export function pushLevelFor(_collapseKey: string): PushLevel {
+  return 'normal';
+}
+
 declare const PUSH_MESSAGE: unique symbol;
 
 /** A finished phone notification. Only `pushMessage()` can make one. */
@@ -55,6 +67,8 @@ export type PushMessage = {
   readonly topic: string;
   /** Unread count for the app badge, or null to leave the badge alone. */
   readonly badge: number | null;
+  /** See `PushLevel` — one value until the owner rules. Not sent to the phone. */
+  readonly level: PushLevel;
   readonly [PUSH_MESSAGE]: true;
 };
 
@@ -131,6 +145,7 @@ export function pushMessage(input: {
     collapseKey: input.collapseKey,
     topic: topicFor(input.collapseKey),
     badge: typeof input.badge === 'number' && input.badge >= 0 ? Math.floor(input.badge) : null,
+    level: pushLevelFor(input.collapseKey),
   } as PushMessage;
 }
 

@@ -63,3 +63,27 @@ export async function pushRsvpReply(userId: string, eventId: string): Promise<vo
     console.error('[rsvp-push] pushRsvpReply threw:', e);
   }
 }
+
+/**
+ * OPENING GUESTS RESETS THE COUNT (reading the bell already does, through `read_at`).
+ * The host has now seen the list, so this event's guest-reply bell rows are read, and
+ * the next reply's notice says "Maria replied" again. Runs in the Guests page's
+ * `after()`, for the couple, once the list was really drawn — it adds nothing to the
+ * page's wait and no server action (the budget is at its ceiling). `userId` is the
+ * page's own signed-in user; the service-role client is scoped to that id because
+ * cookies are out of reach after the response.
+ */
+export async function markReplyNoticesSeen(userId: string, eventId: string): Promise<void> {
+  try {
+    const { error } = await createAdminClient()
+      .from('notifications')
+      .update({ read_at: new Date().toISOString() })
+      .eq('user_id', userId)
+      .eq('event_id', eventId)
+      .eq('type', 'rsvp_received')
+      .is('read_at', null);
+    if (error) logQueryError('markReplyNoticesSeen', error, { eventId }, 'graceful_degrade');
+  } catch (e) {
+    console.error('[rsvp-push] markReplyNoticesSeen threw:', e);
+  }
+}

@@ -102,8 +102,8 @@ export function ReplyPushAsk({ replied }: { replied: number }) {
   return <ReplyAskSheet mode={mode} busy={busy} onYes={yes} onClose={close} />;
 }
 
-/** The sheet itself — drawn by `ReplyPushAsk`, and by /dev/reply-ask-lab for the screenshots. */
-export function ReplyAskSheet({
+/** The sheet itself. */
+function ReplyAskSheet({
   mode,
   busy,
   onYes,

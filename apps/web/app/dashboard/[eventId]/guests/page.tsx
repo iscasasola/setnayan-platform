@@ -3,6 +3,8 @@ import { guestMatchesSearch } from '@/lib/guest-search';
 import { companionNamesByBringer } from '@/lib/extra-seats';
 import Link from 'next/link';
 import { Suspense } from 'react';
+import { after } from 'next/server';
+import { markReplyNoticesSeen } from '@/lib/rsvp-push.server';
 import { guestsSettingsHref, isSettingsRowKey } from '@/lib/event-settings-record';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -575,6 +577,9 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // read the same name. lib/linked-profile-names.ts holds the gate.
   const guests = guestsRead.rows.map((g) => withProfileName(g, profileNames));
   const guestsMeasured = guestsRead.measured;
+  // 📱 The couple is looking at the list → the next reply's phone notice counts from zero (owner 2026-10-31). Only when
+  // the list was really read, after the response, so it adds nothing to this page's wait.
+  if (viewer.isCouple && guestsMeasured) after(() => markReplyNoticesSeen(user.id, eventId));
   // 📏 THE READS BESIDE THE LIST — each value, and whether it is real. A refused read is
   // still an empty stand-in (the tab never crashes over one), but the page now KNOWS,
   // and `sideReads` is what it says: one line in the counts strip, "We couldn’t load
@@ -1117,7 +1122,6 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       requestsInPlace={viewer.isCouple}
       // 📱 Replies reach the couple's phone (owner 2026-10-31); the one-time ask is theirs, never inside the iPhone app.
       replyAsk={viewer.isCouple && !storeShell}
-      markRepliesSeen={viewer.isCouple}
       requestsBody={
         viewer.isCouple && (pendingClaimsCount > 0 || pendingClaims.error !== null || search.gshow === 'requests') ? (
           <Suspense fallback={<p className="px-4 py-6 text-center text-[13px] text-ink/60">Opening your requests…</p>}>

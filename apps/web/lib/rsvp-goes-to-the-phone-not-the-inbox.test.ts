@@ -86,9 +86,11 @@ test('5 · the count is the unread replies, and opening Guests resets it', () =>
     assert.match(count, re, `the reply count lost ${re}`);
   }
   assert.match(RSVP, /rsvpPushFacts\(/);
-  const actions = read('lib/notification-actions.ts');
-  const reset = actions.slice(actions.indexOf('export async function markReplyNoticesSeen'));
-  assert.match(reset, /\.eq\('type', 'rsvp_received'\)[\s\S]*\.is\('read_at', null\)/);
-  assert.match(read('app/dashboard/[eventId]/guests/page.tsx'), /markRepliesSeen=\{viewer\.isCouple\}/);
-  assert.match(read('app/dashboard/[eventId]/guests/_components/guests-screen.tsx'), /markReplyNoticesSeen\(eventId\)/);
+  const reset = RSVP.slice(RSVP.indexOf('export async function markReplyNoticesSeen'));
+  assert.match(reset, /\.eq\('user_id', userId\)[\s\S]*\.eq\('event_id', eventId\)[\s\S]*\.eq\('type', 'rsvp_received'\)[\s\S]*\.is\('read_at', null\)/);
+  assert.match(
+    read('app/dashboard/[eventId]/guests/page.tsx'),
+    /if \(viewer\.isCouple && guestsMeasured\) after\(\(\) => markReplyNoticesSeen\(user\.id, eventId\)\);/,
+    'opening Guests no longer resets the count',
+  );
 });

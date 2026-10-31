@@ -25,19 +25,35 @@ export function isAnyPushConfigured(): boolean {
   return isWebPushConfigured();
 }
 
+/**
+ * The shop a supplier-side notice is about: the one its own conversation belongs to, read through the thread.
+ * ⚠ NEVER "the shop of this login" — an account can own several, and this runs with no session to say which is
+ * open (`the-active-shop-is-resolved-once.test.ts`). A notice with no conversation in its link says "Setnayan"
+ * rather than guess a shop's name.
+ */
+async function shopNameOfLink(admin: Admin, url: string): Promise<string | null> {
+  const threadId = /^\/vendor-dashboard\/messages\/([0-9a-f-]{36})(?:[/?#]|$)/i.exec(url)?.[1];
+  if (!threadId) return null;
+  const { data: thread, error } = await admin
+    .from('chat_threads')
+    .select('vendor_profile_id')
+    .eq('thread_id', threadId)
+    .maybeSingle();
+  if (error) logQueryError('push.subject.thread', error, {}, 'graceful_degrade');
+  const vendorProfileId = (thread as { vendor_profile_id?: string | null } | null)?.vendor_profile_id;
+  if (!vendorProfileId) return null;
+  const { data: shop, error: shopError } = await admin
+    .from('vendor_profiles')
+    .select('business_name')
+    .eq('vendor_profile_id', vendorProfileId)
+    .maybeSingle();
+  if (shopError) logQueryError('push.subject.shop', shopError, {}, 'graceful_degrade');
+  return (shop as { business_name?: string | null } | null)?.business_name ?? null;
+}
+
 /** Whose notice is this? A supplier-side link → the shop; an event → the event; else the account. */
-async function subjectFor(admin: Admin, userId: string, url: string | null, eventId: string | null): Promise<PushSubject> {
-  if (url?.startsWith('/vendor-dashboard')) {
-    const { data, error } = await admin
-      .from('vendor_profiles')
-      .select('business_name')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: true })
-      .limit(1)
-      .maybeSingle();
-    if (error) logQueryError('push.subject.shop', error, {}, 'graceful_degrade');
-    return { kind: 'shop', name: (data as { business_name?: string | null } | null)?.business_name ?? null };
-  }
+async function subjectFor(admin: Admin, url: string | null, eventId: string | null): Promise<PushSubject> {
+  if (url?.startsWith('/vendor-dashboard')) return { kind: 'shop', name: await shopNameOfLink(admin, url) };
   if (eventId) {
     const { data, error } = await admin.from('events').select('display_name').eq('event_id', eventId).maybeSingle();
     if (error) logQueryError('push.subject.event', error, { eventId }, 'graceful_degrade');
@@ -69,7 +85,7 @@ export async function sendPush(
   try {
     const admin = createAdminClient();
     const [subject, badge] = await Promise.all([
-      subjectFor(admin, userId, notice.url, notice.eventId),
+      subjectFor(admin, notice.url, notice.eventId),
       unreadCount(admin, userId),
     ]);
     const message = pushMessage({

@@ -11845,18 +11845,6 @@
         "ShareReceiptButton"
       ]
     },
-    "/dev/reply-ask-lab": {
-      "files": [
-        "dev/reply-ask-lab/page.tsx",
-        "dev/reply-ask-lab/reply-ask-lab.tsx"
-      ],
-      "destinations": [],
-      "actions": [],
-      "blocks": [
-        "ReplyAskLab",
-        "ReplyAskSheet"
-      ]
-    },
     "/dev/schedule-lab": {
       "files": [
         "dev/schedule-lab/lab-moments.ts",

@@ -27,12 +27,16 @@ import { DEFAULT_LOADER_CONFIG, type LoaderConfig } from '@/lib/loader-config';
 import { DeferredObservability } from './_components/deferred-observability';
 import { DeviceCapture } from './_components/device-capture';
 import { GlobalHaptics } from './_components/global-haptics';
-import { GlobalClearField } from './_components/global-clear-field';
+import dynamic from 'next/dynamic';
 import { GlobalSliderHint } from './_components/global-slider-hint';
 import { ThemeProvider, type ThemeMode } from './_components/theme-provider';
 import { ToastProvider } from './_components/toast/toast-provider';
 import { ToastFromParams } from './_components/toast/toast-from-params';
 import { DesktopUpdaterListener } from './_components/desktop-updater-listener';
+
+/* ✕ The app-wide clear button loads after the page, never in anybody's first load (the Maker's first-load budget): it draws
+   nothing until a box is focused with words in it. */
+const GlobalClearField = dynamic(() => import('./_components/global-clear-field').then((m) => m.GlobalClearField), { ssr: false });
 
 const PERSIST_KEY = 'setnayan-query-cache';
 const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days — spec § 3.1

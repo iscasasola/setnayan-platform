@@ -195,7 +195,7 @@ describe('every type box has the clear button', () => {
 
   it('3 · mounted once, app-wide, drawn inside the box’s own parent (a sheet’s tap-outside never sees it)', () => {
     const P = read('app/providers.tsx');
-    assert.match(P, /import \{ GlobalClearField \} from '\.\/_components\/global-clear-field';/, 'the app-wide ✕ is not imported');
+    assert.match(P, /dynamic\(\(\) => import\('\.\/_components\/global-clear-field'\)/, 'the app-wide ✕ is not loaded lazily — it must stay out of the first load');
     assert.equal((P.match(/<GlobalClearField \/>/g) ?? []).length, 1, 'the app-wide ✕ must be mounted exactly once');
     const G = read('app/_components/global-clear-field.tsx');
     assert.match(G, /isClearableField\(/, 'the app-wide ✕ does not read the one rule');

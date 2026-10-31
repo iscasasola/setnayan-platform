@@ -20,6 +20,7 @@
  */
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { PinWord } from '@/app/_components/pinned-row/pin-door';
 import { CUSTOMER_SEGMENTS, CUSTOMER_SEGMENT_HREFS, CUSTOMER_SEGMENT_LABEL, customersSegmentOf } from '../customers/segments';
 import { SHOP_SEGMENT_HREF, SHOP_SEGMENT_LABEL, SHOP_SEGMENT_ORDER } from '../shop/_components/shop-sections';
 import { VENDOR_DESTINATIONS, VENDOR_SHOP_EXTRA_MATCH } from './vendor-nav-destinations';
@@ -79,17 +80,13 @@ export function SupplierPageMenu({
   if (model.tab === hubLabel()) {
     return (
       <span className="min-w-0" data-pin-lead-hub="">
-        <span className="truncate px-1 text-[15px] font-semibold text-ink" data-supplier-page-menu="word">
-          {face}
-        </span>
+        <PinWord mark={{ 'data-supplier-page-menu': 'word' }}>{face}</PinWord>
       </span>
     );
   }
   if (!model.sections) {
     return (
-      <span className="truncate px-1 text-[15px] font-semibold text-ink" data-supplier-page-menu="word">
-        {face}
-      </span>
+      <PinWord mark={{ 'data-supplier-page-menu': 'word' }}>{face}</PinWord>
     );
   }
   const current = model.sections.find((s) => s.label === model.section) ?? null;

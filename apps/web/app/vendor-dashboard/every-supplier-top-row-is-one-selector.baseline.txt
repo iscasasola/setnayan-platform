@@ -1,0 +1,4 @@
+# every-supplier-top-row-is-one-selector.test.ts — the rows the owner keeps off the one selector, one reasoned line each.
+# Format: <path> — <reason>. A line whose file now holds the rule FAILS the test: delete it.
+app/vendor-dashboard/_components/supplier-setup-folds.tsx — a NEW shop's head "Get your shop live" + ⚙ (owner 2026-10-28, six steps in place): no view to pick and no counts yet; the row is a heading, not a page selector
+app/vendor-dashboard/on-the-day/_components/hub-screen.tsx — Hub's Set up · Crew · The event's pages is still a segmented PillTrack: it folds into the Hub ▾ (hub-event-menu.tsx), a file PR #7074 is changing — supplier slice 2, after #7074 merges

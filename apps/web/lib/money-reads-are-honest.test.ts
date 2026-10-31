@@ -174,8 +174,9 @@ test('the Overview passes the payday measurement through to what it prints', () 
   const screen = src('app/vendor-dashboard/_components/supplier-today-first-screen.tsx');
   assert.match(screen, /toComeIn=\{numbers\.toComeIn\}/, 'the first screen no longer hands an unread payday on as unread');
   const counts = src('app/vendor-dashboard/_components/today-counts.tsx');
-  assert.match(counts, /\{value === null \? \(/, 'the pinned count no longer says when it could not read');
-  assert.match(counts, /couldn&rsquo;t load/, 'the unread number lost its words');
+  // 📌 2026-10-31: the count is the shared door (`PinDoor`) — the null is handed on, and the door says it.
+  assert.match(counts, /value=\{value === null \? null :/, 'the pinned count no longer says when it could not read');
+  assert.match(src('app/_components/pinned-row/pin-door.tsx'), /couldn&rsquo;t load/, 'the unread number lost its words');
   const today = src('lib/supplier-today.ts');
   assert.equal(all(today, 'if (!earnings || !earnings.paydayMeasured) return null;').length, 1);
   const lib = src('lib/vendor-overview.ts');

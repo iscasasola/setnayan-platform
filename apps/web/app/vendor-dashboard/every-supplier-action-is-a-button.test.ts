@@ -47,7 +47,7 @@ export const SWEPT: ReadonlyArray<readonly [file: string, components: readonly s
   ['app/vendor-dashboard/_components/supplier-submit.tsx', ['SupplierSubmit']],
   // S-PR1 · Today.
   ['app/vendor-dashboard/page.tsx', ['AgentHome', 'VendorOverviewPage']],
-  ['app/vendor-dashboard/_components/supplier-today-first-screen.tsx', ['TodayEyebrow', 'TodayRow', 'SupplierTodayFirstScreen', 'TapMark', 'Figure', 'Unread']],
+  ['app/vendor-dashboard/_components/supplier-today-first-screen.tsx', ['TodayEyebrow', 'TodayRow', 'SupplierTodayFirstScreen', 'Figure']],
   ['app/vendor-dashboard/_components/supplier-toast.tsx', ['SupplierToast']],
   // 2026-10-12 (look audit of #6443/#6450): the answers inside the Also-waiting folds wear the rule too — every
   // door an `ActionButton`, every form's submit a `SupplierSubmit`; the one bare `<button>` (MarkCompleteBody) is gone.

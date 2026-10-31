@@ -82,7 +82,9 @@ test('3 · a figure is the shared pinned-row tile; an unread one says so', async
   );
   assert.equal((html.match(/data-pin-door=""/g) ?? []).length, 2);
   assert.equal((html.match(/data-pin-n=""/g) ?? []).length, 2);
-  assert.match(html, /received · couldn’t load/);
+  // 📌 2026-10-31 (one door, `PinDoor`): the face says "— couldn't load"; which figure it is stays in its name.
+  assert.match(html, /aria-label="received · couldn’t load"/);
+  assert.match(html, />couldn’t load</);
   assert.doesNotMatch(html, />0</, 'an unread figure drew 0');
 });
 

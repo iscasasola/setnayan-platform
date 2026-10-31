@@ -11,7 +11,8 @@ import { SHOP_SEGMENT_HINT, SHOP_SEGMENT_HREF, SHOP_SEGMENT_LABEL, SHOP_SEGMENT_
 export { SHOP_SEGMENT_HINT, SHOP_SEGMENT_HREF, SHOP_SEGMENT_LABEL, SHOP_SEGMENT_ORDER, type ShopSegment };
 
 /**
- * SHOP ▾ — Details · Services · Page · Gallery · Analytics, drawn as Shop's ONE PINNED ROW (supplier dashboard v13,
+ * SHOP ▾ — Details · Services · Page · Gallery · Analytics, drawn as Shop's ONE PINNED ROW — `Shop · Details ▾` on the
+ * phone too (the ONE SELECTOR, owner 2026-10-30 "all yes": "Page · View ▾"), its figures the one shared door (supplier dashboard v13,
  * APPROVED 2026-10-29 "Approved."). The list itself is `shop-sections.ts` (a plain module, so a server page and the
  * guards can read it without a client boundary); this is where a supplier picks one.
  *
@@ -56,7 +57,7 @@ export function ShopSegments({
           <PickMenu
             label="Shop — show"
             value={on}
-            buttonText={SHOP_SEGMENT_LABEL[on]}
+            buttonText={`Shop · ${SHOP_SEGMENT_LABEL[on]}`}
             options={SHOP_SEGMENT_ORDER.map((s) => ({ key: s, label: SHOP_SEGMENT_LABEL[s], hint: SHOP_SEGMENT_HINT[s] }))}
             compact
             dataAttr="data-shop-seg-pick"

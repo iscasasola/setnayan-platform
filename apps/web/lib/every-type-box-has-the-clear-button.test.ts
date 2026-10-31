@@ -35,7 +35,6 @@ const OLDER_OWN_CLEAR = new Set([
   'app/admin/payments/_components/inbox-matcher.tsx',
   'app/dashboard/(account)/people/_components/find-or-invite.tsx',
   'app/dashboard/[eventId]/studio/patiktok/_components/booth-capture.tsx',
-  'app/dashboard/[eventId]/vendors/_components/shortlist-categories.tsx',
   'app/realstories/_components/gallery.tsx',
   'app/realstories/_components/stories-search.tsx',
   'app/open-shop/_components/service-picker.tsx',

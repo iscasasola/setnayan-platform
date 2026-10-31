@@ -130,6 +130,7 @@ import { FindThumbRow } from './find-thumb-row';
 import { SUP_REACH_Y, categoryRowState, isCategoryOpen, ringCoveredCount, thumbScopeTile } from '@/lib/suppliers-shell';
 import { Count } from '@/components/count';
 import { ActionButton } from '@/components/action-button';
+import { ClearButton } from '@/components/clear-field';
 import { SearchAddRow } from '@/components/search-add-row';
 import { cardVerbWords } from '@/lib/supplier-card-verbs';
 import { Sheet } from '@/app/_components/sheet';
@@ -622,8 +623,8 @@ html.dark .slcat .sortseg button.on{color:#17160F;background:#E5794E}
 .slcat .bench-search svg{color:var(--ink-faint);flex:0 0 auto}
 .slcat .bench-search input{flex:1;min-width:0;border:0;background:none;outline:none;font:inherit;font-family:var(--sans);font-size:14px;color:var(--ink)}
 .slcat .bench-search input::placeholder{color:var(--ink-faint)}
-.slcat .bench-search .bs-x{flex:0 0 auto;border:0;background:none;color:var(--ink-faint);cursor:pointer;font-size:18px;line-height:1;padding:2px;display:inline-flex}
-.slcat .bench-search .bs-x:hover{color:var(--mulberry)}
+.slcat .bench-search input::-webkit-search-cancel-button{display:none;-webkit-appearance:none}
+.slcat .bench-search .bs-x{flex:0 0 auto;display:grid;place-items:center;width:40px;height:40px;margin-right:-11px;border:0;background:none;padding:0;cursor:pointer}
 .slcat .bench-empty{padding:26px 16px;text-align:center;color:var(--ink-faint);font-size:13px}
 html.dark .slcat .bench-search{background:#232019}
 .slcat .vc .meta{padding:11px 13px 13px;flex:1 1 auto;display:flex;flex-direction:column;gap:5px}
@@ -4068,11 +4069,9 @@ export function ShortlistCategories({
           placeholder="Search suppliers"
           aria-label="Search your shortlist or add your own"
         />
-        {query ? (
-          <button type="button" className="bs-x" aria-label="Clear search" onClick={() => setQuery('')}>
-            ×
-          </button>
-        ) : null}
+        {/* ✕ — the ONE shared clear (components/clear-field.tsx, owner 2026-10-31): it was a hand-drawn "×" standing
+            beside the browser's own search ✕ — two on one box. */}
+        {query ? <ClearButton label="Clear search" className="bs-x" onClear={() => setQuery('')} /> : null}
       </div>
       )}
       {/* SEARCH OR ADD (owner 2026-10-24: *"we will show the result on the page itself. not a new screen. So it

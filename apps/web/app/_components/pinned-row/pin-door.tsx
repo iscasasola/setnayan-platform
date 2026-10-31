@@ -21,14 +21,18 @@ import type { ReactNode } from 'react';
  * 🔒 app/vendor-dashboard/every-supplier-top-row-is-one-selector.test.ts · lib/the-pinned-row-is-one-row.test.ts
  */
 // The People door's look (was `pinned-row.module.css` `.pinDoor`), as classes — no CSS module, so a server render in a guard
-// needs no stylesheet stub. Tight (`[data-tight]`, the doors' fit pass in `pin-doors.tsx`): smaller type, less air.
+// needs no stylesheet stub. Tight (`[data-tight]`, the doors' fit pass in `pin-doors.tsx`): the number over its word.
 const DOOR = [
-  'inline-flex min-h-11 shrink-0 items-center gap-[3px] self-stretch whitespace-nowrap border-0 bg-transparent px-[5px] text-[13.5px] text-ink/70',
-  '[&>b]:text-[15px] [&>b]:font-bold [&>b]:tabular-nums [&>b]:text-ink [&>b]:decoration-2 [&>b]:underline-offset-4',
+  'inline-flex min-h-11 shrink-0 items-center gap-[3px] self-stretch whitespace-nowrap border-0 bg-transparent px-[5px] text-[13.5px]',
+  '[&>b]:text-[15px] [&>b]:font-bold [&>b]:tabular-nums [&>b]:decoration-2 [&>b]:underline-offset-4',
   '[&[aria-pressed=true]>b]:underline',
   'focus-visible:rounded-[var(--m-r-sm)] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[rgb(var(--color-mulberry))]',
-  '[[data-tight]_&]:gap-[2px] [[data-tight]_&]:px-[3px] [[data-tight]_&]:text-[12px] [[data-tight]_&>b]:text-[13.5px]',
+  // Tight: the number over its word (a door is as wide as the wider of the two, not both) — still no frame, no fill.
+  '[[data-tight]_&]:flex-col [[data-tight]_&]:justify-center [[data-tight]_&]:gap-[3px] [[data-tight]_&]:px-[4px] [[data-tight]_&]:text-[11px] [[data-tight]_&]:leading-none [[data-tight]_&>b]:text-[15px] [[data-tight]_&>b]:leading-none',
 ].join(' ');
+// The ink: quiet word + ink number, or — the count that waits on you — both in the brand colour. Never both classes on
+// one door (two colour utilities on one element resolve by stylesheet order, not by intent).
+const INK = 'text-ink/70 [&>b]:text-ink';
 const HOT = 'text-[rgb(var(--color-mulberry-700))] [&>b]:text-[rgb(var(--color-mulberry-700))]';
 
 export type PinDoorMark = Readonly<Record<`data-${string}`, string>>;
@@ -91,7 +95,7 @@ export function PinDoor({
         </span>
       </>
     );
-  const cls = `${DOOR} ${hot && value !== null ? HOT : ''}`;
+  const cls = `${DOOR} ${hot && value !== null ? HOT : INK}`;
   // An unread door wears no word of a read one on its face; which figure it is stays in its name.
   const name = value === null ? `${word} · couldn’t load` : undefined;
   if (href !== undefined) {

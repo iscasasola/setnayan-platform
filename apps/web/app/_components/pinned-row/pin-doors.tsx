@@ -8,7 +8,8 @@ import type { PinDoorMark } from './pin-door';
  *
  * 📏 THE FIT PASS (the house rule "a row of buttons shrinks together"; measured 2026-10-31 at 390: `Customers · Money ▾`
  * beside "₱186K received · ₱98K to come in · 1 overdue" cut the second door to "₱98K t"): when the doors cannot show
- * every word, they first TIGHTEN (`data-tight` — smaller type, less air), and only if that still does not fit the strip
+ * every word, they first TIGHTEN (`data-tight` — each number over its word, so a door is as wide as the wider of the two),
+ * and only if that still does not fit the strip
  * SLIDES sideways under a fade at its right edge (`data-slides`) — every door stays whole and reachable, never cut
  * mid-word. Written as attributes, before paint, so nothing re-renders for a resize and nothing flashes.
  */
@@ -48,7 +49,14 @@ export function PinDoors({
     if (!row || typeof ResizeObserver === 'undefined') return;
     const ro = new ResizeObserver(() => fit());
     ro.observe(row);
-    return () => ro.disconnect();
+    // The shared fold (`use-pin-fold.ts`) lays the doors flat on one slim line — re-fit when it folds or unfolds.
+    const fold = ref.current?.closest('[data-pin-fold]');
+    const mo = fold ? new MutationObserver(() => fit()) : null;
+    if (fold && mo) mo.observe(fold, { attributes: true, attributeFilter: ['data-folded'] });
+    return () => {
+      ro.disconnect();
+      mo?.disconnect();
+    };
   }, []);
   return (
     <span ref={ref} className={STRIP} role={label ? 'group' : undefined} aria-label={label} data-pin-doors="" {...mark} data-tour={tour}>

@@ -95,7 +95,8 @@ test('(1) no row is added: nothing is drawn over a Studio page — no title row,
   /* 🎛 (2026-10-30) The home's cards are Studio ▾'s pages (`studioMenu`, STUDIO_MENU_KEYS) — no longer every page. */
   assert.match(shell, /\{studioHomeOn \? \(\s*<StudioCover tiles=\{studioMenu\} pending=\{latePending\} onOpen=\{openStudio\} \/>\s*\) : null\}/);
   const css = studioFullScreenCss();
-  assert.ok(css.includes('{--maker-lt-h:calc(100dvh - 44px)}'), 'a form page still leaves room for a row (52 px of nothing)');
+  /* 52 px under the shell's top (its bar), to the app's bottom nav — the shell's own room since the Hub keeps the app's nav. */
+  assert.ok(css.includes('{--maker-lt-h:calc(100dvh - var(--maker-app-top,var(--fd-bar,0px)) - var(--maker-nav,0px) - 44px)}'), 'a form page still leaves room for a row (52 px of nothing), or reaches over the Maker’s bar');
   assert.doesNotMatch(css, /100dvh - 96px/);
   assert.ok(css.includes('div:has(> [data-details-form-field]){padding-top:0}'), 'a strip of empty page is left over the form');
   const parts = (await import(`../${PARTS}`)) as Record<string, unknown>;

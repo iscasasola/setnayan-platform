@@ -14,7 +14,7 @@
  * Nothing here decides which record is edited: the server panel hands every control its door (`kind`) and the
  * record's hidden fields.
  */
-import { createContext, useContext, useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, useTransition, type KeyboardEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Plus } from 'lucide-react';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
@@ -120,7 +120,7 @@ const formOf = (fields: Record<string, string>) => {
 };
 
 /** Post one shipped form through the in-place door. */
-export function postForm(kind: ShippedFormKind | 'rename-part', fields: Record<string, string>): Promise<WriteResult> {
+export function postForm(kind: ShippedFormKind | 'rename-part' | 'info-text', fields: Record<string, string>): Promise<WriteResult> {
   return mapWriteForm(kind, formOf(fields)) as Promise<WriteResult>;
 }
 
@@ -149,6 +149,8 @@ export type FieldSpec = {
   maxLength?: number;
   numeric?: boolean;
   tip?: ReactNode;
+  /** A sentence, not a name: two visible lines that wrap (Enter still saves — it is one line in a popup). */
+  multiline?: boolean;
 };
 
 /**
@@ -161,7 +163,7 @@ export function InPlaceFields({
   hidden,
   fields,
 }: {
-  kind: ShippedFormKind | 'rename-part';
+  kind: ShippedFormKind | 'rename-part' | 'info-text';
   hidden: Record<string, string>;
   fields: readonly FieldSpec[];
 }) {
@@ -197,30 +199,32 @@ export function InPlaceFields({
   }
   return (
     <>
-      {fields.map((f) => (
-        <Row key={f.name} label={f.label} tip={f.tip}>
-          <input
-            name={f.name}
-            value={now[f.name] ?? ''}
-            placeholder={f.placeholder}
-            maxLength={f.maxLength ?? 80}
-            inputMode={f.numeric ? 'numeric' : undefined}
-            aria-label={f.label}
-            aria-invalid={bad === f.name}
-            data-saves-in-place={f.name}
-            className={INPUT_IN_PLACE}
-            onChange={(e) => setNow((cur) => ({ ...cur, [f.name]: e.target.value }))}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                (e.target as HTMLInputElement).blur();
-              }
-              if (e.key === 'Escape') setNow((cur) => ({ ...cur, [f.name]: saved.current[f.name] ?? '' }));
-            }}
-            onBlur={() => commit(f)}
-          />
-        </Row>
-      ))}
+      {fields.map((f) => {
+        const shared = {
+          name: f.name,
+          value: now[f.name] ?? '',
+          placeholder: f.placeholder,
+          maxLength: f.maxLength ?? 80,
+          'aria-label': f.label,
+          'aria-invalid': bad === f.name,
+          'data-saves-in-place': f.name,
+          className: INPUT_IN_PLACE,
+          onChange: (e: { target: { value: string } }) => setNow((cur) => ({ ...cur, [f.name]: e.target.value })),
+          onKeyDown: (e: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              (e.target as HTMLElement).blur();
+            }
+            if (e.key === 'Escape') setNow((cur) => ({ ...cur, [f.name]: saved.current[f.name] ?? '' }));
+          },
+          onBlur: () => commit(f),
+        };
+        return (
+          <Row key={f.name} label={f.label} tip={f.tip}>
+            {f.multiline ? <textarea rows={2} {...shared} /> : <input inputMode={f.numeric ? 'numeric' : undefined} {...shared} />}
+          </Row>
+        );
+      })}
     </>
   );
 }

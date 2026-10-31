@@ -598,3 +598,27 @@ export async function setOnePerEventCore(admin: AdminDb, actorId: string, catego
   }
   return { ok: true, message: on ? 'One per event — on.' : 'One per event — off: couples may book more than one.' };
 }
+
+// ── ⓘ text (owner 2026-10-31) ───────────────────────────────────────────────────
+
+/** The longest ⓘ the column takes (`service_categories_hint_en_length`, migration 20271299134245). */
+export const INFO_TEXT_MAX = 280;
+
+/**
+ * "ⓘ text" on a GROUP or a CATEGORY — the line its ⓘ shows on the Suppliers page (owner 2026-10-31: "This means you
+ * need to add a place for me to write an (i)"). `service_categories.hint_en`; blank clears it, and the ⓘ then answers
+ * from the fallback chain (`categoryInfoText` / `folderInfoText`) — it is never hidden.
+ */
+export async function setInfoTextCore(admin: AdminDb, actorId: string, id: string, raw: string): Promise<WriteResult> {
+  const text = String(raw ?? '').replace(/\s+/g, ' ').trim();
+  if (text.length > INFO_TEXT_MAX) return { ok: false, error: `Keep it to ${INFO_TEXT_MAX} characters — it is one line in a popup.` };
+  const next = text === '' ? null : text;
+  const { data: before } = await admin.from('service_categories').select('id, tier, hint_en').eq('id', id).maybeSingle();
+  const b = before as { id: string; tier: number; hint_en: string | null } | null;
+  if (!b || (b.tier !== 1 && b.tier !== 2)) return { ok: false, error: 'That group or category no longer exists.' };
+  if ((b.hint_en ?? null) === next) return { ok: true, message: 'No change.' };
+  const { error } = await admin.from('service_categories').update({ hint_en: next, updated_at: now() }).eq('id', id);
+  if (error) return { ok: false, error: error.message };
+  await audit(admin, { action: 'taxonomy.set_info_text', target_table: 'service_categories', target_id: id, before_json: { hint_en: b.hint_en }, after_json: { hint_en: next }, actor_user_id: actorId });
+  return { ok: true, message: next ? 'Saved — couples see it in the ⓘ.' : 'Cleared — the ⓘ shows the default line.' };
+}

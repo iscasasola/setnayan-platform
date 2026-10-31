@@ -142,6 +142,44 @@ export function folderHintFor(folder: WeddingFolder): string {
   return FOLDER_HINTS[folder];
 }
 
+/* ── EVERY ⓘ HAS AN ANSWER (owner 2026-10-31, live) ─────────────────────────
+   "I added a category shoes but there is not (i)" … "This means you need to add a place for me to write an (i)".
+   A group or category the owner adds in Admin › Categories is in none of the maps above, so its ⓘ was hidden.
+   The answer now comes from ONE source, Admin, in this order:
+     1. what the owner WROTE on Admin › Categories › Name › ⓘ text (`service_categories.hint_en`);
+     2. the old hard-coded line above — kept ONLY as the fallback for the ids that had one;
+     3. a line built from Admin's own lists: "Shoes covers: <its services>", else "<Name>: suppliers for this …".
+   Never null, never blank — the caller has no branch that hides the ⓘ. */
+
+/** How many names a built line lists before it says "and N more" — an ⓘ is a line, not a catalogue. */
+const COVERS_NAMES = 5;
+
+/** "Shoes covers: Bridal shoes, Groom's shoes and Sneakers." — from Admin's own names, never copy in code. */
+export function coversLine(label: string, names: readonly string[], level: 'category' | 'group'): string {
+  const list = [...new Set(names.map((n) => n.trim()).filter(Boolean))];
+  if (list.length === 0) return `${label}: suppliers for this ${level}.`;
+  const shown = list.slice(0, COVERS_NAMES);
+  const more = list.length - shown.length;
+  const tail = more > 0 ? `${shown.join(', ')} and ${more} more` : shown.length > 1 ? `${shown.slice(0, -1).join(', ')} and ${shown[shown.length - 1]}` : shown[0];
+  return `${label} covers: ${tail}.`;
+}
+
+/** The ⓘ of a GROUP (folder): the owner's words → the old line → the categories it holds. Never blank. */
+export function folderInfoText(args: {
+  folder: string;
+  label: string;
+  /** `service_categories.hint_en` for this group, as the snapshot carries it. */
+  written?: string | null;
+  /** The names of the categories this group shows. */
+  categoryLabels?: readonly string[];
+}): string {
+  const own = (args.written ?? '').trim();
+  if (own) return own;
+  const old = (FOLDER_HINTS as Readonly<Record<string, string | undefined>>)[args.folder]?.trim();
+  if (old) return old;
+  return coversLine(args.label, args.categoryLabels ?? [], 'group');
+}
+
 /** aria-label for the folder ⓘ toggle, mirroring the per-category one. */
 export function folderHintButtonLabel(label: string): string {
   return `What does ${label} cover?`;

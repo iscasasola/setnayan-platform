@@ -12,6 +12,7 @@ import {
   type CustomersSegment,
 } from '../segments';
 import { SupplierOpenScope } from '../../_components/supplier-open-row';
+import { PinDoor, PinDoors } from '@/app/_components/pinned-row/pin-door';
 
 // The door keys live in the neutral `segments.ts`: a `'use client'` module hands a server page a REFERENCE, never the
 // array itself (measured: `CUSTOMERS_DOORS.map is not a function` on the first render).
@@ -27,7 +28,8 @@ export type CustomersDoor = {
 };
 
 /**
- * 📌 CUSTOMERS' PINNED ROW — `Events ▾ · Asking · Booked · Done · ⚙` (People ▾ until 2026-10-30 — owner
+ * 📌 CUSTOMERS' PINNED ROW — `Customers · Events ▾ · Asking · Booked · Done · ⚙` (the ONE SELECTOR, owner 2026-10-30
+ * "all yes": the page word rides the ▾ on the phone too, and the counts are the one shared door, `PinDoor`) (People ▾ until 2026-10-30 — owner
  * 2026-10-29 "CUSTOMERS ARE EVENTS, NOT PEOPLE": "Customers' first section is EVENTS"; owner 2026-10-28, DECISION_LOG
  * "SUPPLIER DASHBOARD APPROVED — EVERYTHING IN PLACE, A ⚙ PER PAGE": "Customers — People · Dates · Money + ⚙ on one
  * pinned row. People: the counts (Asking · Talking · Booked · Done) filter"; the 27 Oct template "THE PINNED ROW IS THE
@@ -96,51 +98,22 @@ export function CustomersPin({
   const pinRef = useRef<HTMLDivElement>(null);
   usePinFold(pinRef);
 
+  // 📌 THE ONE COUNT DOOR (owner 2026-10-30 "all yes", Q3 — `PinDoor`): number + word, filtering = the number
+  // underlined. Was a two-line round tile, pressed = the accent fill.
   const door = (d: CustomersDoor) => {
     const pressed = on === d.key;
     return (
-      <button
+      <PinDoor
         key={d.key}
-        type="button"
-        className={`sn-press grid min-h-11 min-w-0 max-w-[6.5rem] flex-1 content-center gap-0.5 rounded-full px-0.5 py-1 text-center transition-colors duration-200 motion-reduce:transition-none ${
-          pressed ? 'bg-sn-accent' : ''
-        }`}
-        onClick={() => setOn(pressed ? null : d.key)}
-        aria-pressed={pressed}
-        aria-controls={`customers-list-${d.key}`}
-        data-customers-door={d.key}
-        data-pin-door=""
-      >
-        {d.value === null ? (
-          <>
-            <span
-              className="block text-[20px] font-semibold leading-none"
-              style={{ color: pressed ? 'rgb(var(--sn-on-accent))' : 'rgb(var(--color-warn))' }}
-              aria-hidden
-              data-pin-n=""
-            >
-              —
-            </span>
-            <span className={`block truncate text-[11.5px] ${pressed ? 'text-[rgb(var(--sn-on-accent))]' : 'text-ink/60'}`} data-customers-unread="" data-pin-w="">
-              couldn&rsquo;t load
-            </span>
-          </>
-        ) : (
-          <>
-            <span
-              className={`block text-[20px] font-semibold leading-none tabular-nums ${
-                pressed ? 'text-[rgb(var(--sn-on-accent))]' : d.hot ? 'text-sn-accent' : 'text-ink'
-              }`}
-              data-pin-n=""
-            >
-              {d.value}
-            </span>
-            <span className={`block truncate text-[11.5px] ${pressed ? 'text-[rgb(var(--sn-on-accent))]' : 'text-ink/60'}`} data-pin-w="">
-              {d.word}
-            </span>
-          </>
-        )}
-      </button>
+        value={d.value}
+        word={d.word}
+        hot={d.hot}
+        on={pressed}
+        onTap={() => setOn(pressed ? null : d.key)}
+        controls={`customers-list-${d.key}`}
+        mark={{ 'data-customers-door': d.key }}
+        unreadMark="data-customers-unread"
+      />
     );
   };
 
@@ -164,12 +137,12 @@ export function CustomersPin({
         data-first-row=""
         data-tour="customers-segments"
       >
-        <div className="flex items-center gap-1" role="group" aria-label="Customers">
+        <div className="flex min-h-11 items-center gap-1" role="group" aria-label="Customers">
           <span className="shrink-0" data-customers-view="">
             <PickMenu
               label="Customers — show"
               value={seg}
-              buttonText={CUSTOMER_SEGMENT_LABEL[seg]}
+              buttonText={`Customers · ${CUSTOMER_SEGMENT_LABEL[seg]}`}
               options={CUSTOMER_SEGMENTS.map((s) => ({ key: s, label: CUSTOMER_SEGMENT_LABEL[s] }))}
               compact
               dataAttr="data-customers-picker"
@@ -179,11 +152,11 @@ export function CustomersPin({
             />
           </span>
           {doors ? (
-            // Doors cap at 6.5rem: on a tablet or a computer the row keeps the phone's proportions instead of
-            // stretching three pills across the page; the space gathers before the ⚙.
-            <span className="flex min-w-0 flex-1 items-center gap-0.5" data-customers-doors="" data-tour="customers-filter">
-              {doors.map(door)}
-            </span>
+            // The doors keep their own width; the space gathers before the ⚙.
+            <>
+              <PinDoors mark={{ 'data-customers-doors': '' }} data-tour="customers-filter">{doors.map(door)}</PinDoors>
+              <span className="min-w-0 flex-1" aria-hidden />
+            </>
           ) : figures ? (
             figures
           ) : (

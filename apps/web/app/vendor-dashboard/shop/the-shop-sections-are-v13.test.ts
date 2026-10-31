@@ -95,6 +95,7 @@ test('4 · an unread figure draws "—" and says so — never 0', async () => {
   );
   assert.equal([...html.matchAll(/data-pin-door=""/g)].length, 2, 'a figure is not a fold door');
   assert.equal([...html.matchAll(/<a\b/g)].length, 2, 'a figure is not a link');
-  assert.match(html, /data-shop-figure="credits"[^]*?—[^]*?credits left · <\/span>couldn’t load/, 'the unread figure does not say so (and which figure it is)');
+  // 📌 2026-10-31 (one door, `PinDoor`): the face says "— couldn't load"; which figure it is stays in its name.
+  assert.match(html, /aria-label="credits left · couldn’t load" data-shop-figure="credits"[^]*?—[^]*?couldn’t load/, 'the unread figure does not say so (and which figure it is)');
   assert.doesNotMatch(html.slice(html.indexOf('data-shop-figure="credits"')), /data-pin-n="">0</, 'the unread figure reads 0');
 });

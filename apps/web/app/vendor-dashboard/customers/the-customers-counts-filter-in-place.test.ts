@@ -122,7 +122,7 @@ test('2 · each count is a press that filters in place — a button with aria-pr
   assert.equal(count(named, /aria-pressed="true"/g), 1, 'not exactly one door is pressed');
   assert.match(named, /aria-pressed="true"[^>]*data-customers-door="booked"/, 'the opening door is not the one asked for');
   // Pressing the pressed count again shows every event.
-  assert.match(PIN, /onClick=\{\(\) => setOn\(pressed \? null : d\.key\)\}/, 'pressing a pressed count does not go back to every event');
+  assert.match(PIN, /onTap=\{\(\) => setOn\(pressed \? null : d\.key\)\}/, 'pressing a pressed count does not go back to every event');
 });
 
 test('3 · every event + the three counts’ lists are drawn and exactly one shows — every event, or the pressed door’s', async () => {

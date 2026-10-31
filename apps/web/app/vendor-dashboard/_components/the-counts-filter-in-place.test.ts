@@ -126,7 +126,9 @@ test('1 · one sticky row: three pressed-or-not counts, exactly one on, and Toda
   const row = html.slice(html.lastIndexOf('<div', at), html.indexOf('data-today-next'));
   assert.ok(at < html.indexOf('data-today-next'), 'the pinned counts row is not above the Next card');
   // Pressed = the prototype's filled pill (the accent fill, the on-accent ink).
-  assert.match(row, /class="[^"]*rounded-full[^"]*bg-sn-accent"[^>]*aria-pressed="true"/, 'the pressed count is not the filled pill');
+  // 📌 2026-10-31 (ONE SELECTOR, Q3): pressed = the shared door's underlined number (`PinDoor`), never a filled tile.
+  assert.match(row, /aria-pressed="true"[^>]*data-today-number="waiting"[^>]*data-pin-door=""/, 'the pressed count is not the shared door');
+  assert.doesNotMatch(row, /bg-sn-accent/, 'a count is drawn as the old filled tile');
   assert.match(row, /class="sticky top-0[^"]*"/, 'the counts row is not sticky');
   assert.match(row, /data-pinned-row=""/);
   const keys = [...row.matchAll(/<button[^>]*aria-pressed="(true|false)"[^>]*data-today-number="(\w+)"/g)].map((m) => [m[2], m[1]]);
@@ -177,7 +179,7 @@ test('3 · honest: an unread payday says so on the count AND in its list — nev
 test('4 · the switch is client state — pressing a count never navigates', () => {
   const src = code('app/vendor-dashboard/_components/today-counts.tsx');
   assert.match(src, /^'use client';/);
-  assert.match(src, /onClick=\{\(\) => setOn\(key\)\}/, 'a count no longer switches the list');
+  assert.match(src, /onTap=\{\(\) => setOn\(key\)\}/, 'a count no longer switches the list');
   assert.match(src, /hidden=\{on !== key\}/, 'the lists are not shown and hidden in place');
   assert.doesNotMatch(src, /useRouter|router\.|window\.location|<Link\b|href=/, 'a count navigates');
   // The week rows are the same seven days the number counts (`eventsThisWeek`: inDays 0–6).

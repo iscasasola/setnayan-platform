@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
+import { PinDoor, PinDoors } from '@/app/_components/pinned-row/pin-door';
 
 /**
  * 📌 THE FIGURES ON CUSTOMERS' PINNED ROW — Dates · Money · QR (supplier dashboard v13, APPROVED 2026-10-29; DECISION_LOG
@@ -9,7 +9,7 @@ import Link from 'next/link';
  * overdue to comin and received as a sompressed pinned row"* ⇒ Money "Received · To come · Overdue"; Dates the month's
  * booked · asking · days off; QR issued · claimed · pending).
  *
- * The SAME tile Events' doors draw (`customers-pin.tsx` `door()`), so the shared fold (`use-pin-fold.ts` + `pin-fold.css`)
+ * The SAME door Events' counts draw (`PinDoor`, the one door since 2026-10-30), so the shared fold (`use-pin-fold.ts` + `pin-fold.css`)
  * folds these with no second copy of the look: `data-pin-door` on each, `data-pin-n` / `data-pin-w` on its number and
  * word. A figure is a door, never a dead number (the ruling: "A compressed figure still taps"):
  *   · `href`   — a link to where that figure's rows are (Money's rows, the Issued fold);
@@ -45,62 +45,25 @@ export const DATES_FIGURES_EVENT = 'sn:dates-figures';
 /** The row → the month: pick the first day of this kind. */
 export const DATES_JUMP_EVENT = 'sn:dates-jump';
 
-// Sized by what it says (`flex-auto`, not Events' equal `flex-1`): a peso figure is wider than a count, and folded the
-// three must sit on one 390-px line with the view ▾ and the ⚙ without cutting a word.
-const TILE =
-  'sn-press grid min-h-11 min-w-0 max-w-[6.5rem] flex-auto content-center gap-0.5 rounded-full px-0.5 py-1 text-center transition-colors duration-200 motion-reduce:transition-none';
-
-// Folded, a figure is a touch smaller than Events' door (the prototype's own `.mini` sizes, 14.5 / 11): three figures, two
-// of them pesos, share one 390-px line with the view ▾ and the ⚙. `!` because `pin-fold.css` sets the shared size.
-const FOLDED_N = '[[data-folded]_&]:!text-[14.5px]';
-const FOLDED_W = '[[data-folded]_&]:!text-[10.5px]';
-
+// 📌 THE ONE COUNT DOOR (owner 2026-10-30 "all yes", Q3): a figure is drawn by the shared `PinDoor` — number + word,
+// the same door Events' counts and every other pinned row draw. Was its own two-line round tile.
 function Tile({ f }: { f: CustomersFigure }) {
-  const inner =
-    f.value === null ? (
-      <>
-        <span className="block text-[20px] font-semibold leading-none" style={{ color: 'rgb(var(--color-warn))' }} aria-hidden data-pin-n="">
-          —
-        </span>
-        <span className="block truncate text-[11.5px] text-ink/60" data-pin-w="" data-customers-figure-unread="">
-          {f.word} · couldn&rsquo;t load
-        </span>
-      </>
-    ) : (
-      <>
-        <span className={`block text-[20px] font-semibold leading-none tabular-nums ${FOLDED_N} ${f.hot ? 'text-sn-accent' : 'text-ink'}`} data-pin-n="">
-          {f.value}
-        </span>
-        <span className={`block truncate text-[11.5px] text-ink/60 ${FOLDED_W}`} data-pin-w="">
-          {f.short ? (
-            <>
-              <span className="[[data-folded]_&]:hidden">{f.word}</span>
-              <span className="hidden [[data-folded]_&]:inline">{f.short}</span>
-            </>
-          ) : (
-            f.word
-          )}
-        </span>
-      </>
-    );
-  const common = { className: `${TILE} [[data-folded]_&]:!gap-[3px] [[data-folded]_&]:!px-0`, 'data-customers-figure': f.key, 'data-pin-door': '' } as const;
+  const mark = { 'data-customers-figure': f.key } as const;
   if (f.href) {
-    return (
-      <Link href={f.href} scroll {...common}>
-        {inner}
-      </Link>
-    );
+    return <PinDoor value={f.value} word={f.word} short={f.short} hot={f.hot} href={f.href} mark={mark} unreadMark="data-customers-figure-unread" />;
   }
   return (
-    <button
-      type="button"
-      {...common}
-      onClick={() => {
+    <PinDoor
+      value={f.value}
+      word={f.word}
+      short={f.short}
+      hot={f.hot}
+      onTap={() => {
         if (f.jump) window.dispatchEvent(new CustomEvent(DATES_JUMP_EVENT, { detail: f.jump }));
       }}
-    >
-      {inner}
-    </button>
+      mark={mark}
+      unreadMark="data-customers-figure-unread"
+    />
   );
 }
 
@@ -118,10 +81,13 @@ export function CustomersFigures({ figures, live = false, label }: { figures: re
     return () => window.removeEventListener(DATES_FIGURES_EVENT, on);
   }, [live]);
   return (
-    <span className="flex min-w-0 flex-1 items-center gap-0.5" role="group" aria-label={label} data-customers-figures="">
-      {shown.map((f) => (
-        <Tile key={f.key} f={f} />
-      ))}
-    </span>
+    <>
+      <PinDoors label={label} mark={{ 'data-customers-figures': '' }}>
+        {shown.map((f) => (
+          <Tile key={f.key} f={f} />
+        ))}
+      </PinDoors>
+      <span className="min-w-0 flex-1" aria-hidden />
+    </>
   );
 }

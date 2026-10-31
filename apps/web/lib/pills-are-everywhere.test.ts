@@ -89,7 +89,9 @@ export const CONVERTED: readonly Converted[] = [
   /* "Billing cycle (Monthly | Annual)" left this list 2026-10-14: the simpler supplier dashboard (owner-APPROVED,
      prototype SCREENS.plan "Cycle ▾") draws the plan and its cycle as ONE dropdown each, in rows. The toggle file is
      deleted; the dropdowns are held by `app/vendor-dashboard/subscription/the-plan-is-rows.test.ts`. */
-  { area: 'supplier', what: 'Your services sections (Coverage | Service cards)', file: `${V}/services/_components/manager-tabs.tsx`, anchor: 'aria-label="Your services sections"', via: 'track', thumb: 'slides', gone: 'var(--m-orange-3)' },
+  /* "Your services sections (Coverage | Service cards)" left this list 2026-10-31 (#7120, owner ONE SELECTOR "all yes" 30 Oct:
+     segmented rows become the same dropdown): the Services manager draws `Your services · Coverage ▾` with the shared
+     PickMenu; held by `app/vendor-dashboard/every-supplier-top-row-is-one-selector.test.ts`. */
   /* The two "QR type (Shortlist | Locked)" tracks — on the dashboard card and on the QR Code Generator — are not
      removed to go green: the two places are ONE page since S-PR3, and the plan its owner approved draws the choice
      as ONE dropdown (`SUPPLIER_DASHBOARD_REDESIGN_2026-10-08_fable.md` § 2 "one 'QR codes' (Shortlist · Booked —
@@ -195,7 +197,9 @@ test('(2)(3) every converted selector is drawn by the template — its track, it
   // is ONE dropdown now; see its note in CONVERTED). Every other selector is still held.
   // 27, not 28: the Guests full `Guests ▾ | Seats ▾ | March` pill was RETIRED on purpose too (2026-10-30, owner on the
   // iPhone app — every Guests view wears the ONE dropdown row; see its note in CONVERTED).
-  assert.ok(CONVERTED.length >= 27, `anti-vacuity: only ${CONVERTED.length} selectors are held`);
+  // 26, not 27: the supplier Services manager's Coverage | Service cards track was RETIRED on purpose (2026-10-31, #7120,
+  // ONE SELECTOR — it is `Your services · Coverage ▾` now; see its note in CONVERTED).
+  assert.ok(CONVERTED.length >= 26, `anti-vacuity: only ${CONVERTED.length} selectors are held`);
   const report: string[] = [];
   for (const c of CONVERTED) {
     const faults = pillFaults(read(c.file), c);

@@ -5,6 +5,7 @@ import type { LucideIcon } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { PickMenu, type PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { formatCount } from '@/lib/format-number';
+import { PinDoor } from './pin-door';
 import pr from './pinned-row.module.css';
 
 /**
@@ -153,17 +154,7 @@ export function PinnedRow({
           </span>
         ) : (
           doors.map((d) => (
-            <button
-              key={d.key}
-              type="button"
-              onClick={d.onTap}
-              aria-pressed={d.on}
-              className={`${pr.pinDoor} ${d.hot ? pr.hot : ''}`}
-              data-pinned-door={d.key}
-            >
-              <b>{formatCount(d.n)}</b>
-              {d.word}
-            </button>
+            <PinDoor key={d.key} value={formatCount(d.n)} word={d.word} hot={d.hot} on={d.on} onTap={d.onTap} mark={{ 'data-pinned-door': d.key }} />
           ))
         )}
       </span>

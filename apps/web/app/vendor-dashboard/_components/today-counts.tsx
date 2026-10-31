@@ -2,13 +2,15 @@
 
 import { useRef, useState, type ReactNode } from 'react';
 import { usePinFold } from '@/app/_components/pinned-row/use-pin-fold';
+import { PinDoor, PinDoors, PinWord } from '@/app/_components/pinned-row/pin-door';
 import { TodayFigure } from './today-figure';
 import { SupplierOpenScope } from './supplier-open-row';
 
 export type TodayFilter = 'waiting' | 'week' | 'money';
 
 /**
- * 📌 TODAY'S PINNED ROW — waiting · this week · ₱ to come in · ⚙ (owner 2026-10-28, DECISION_LOG "SUPPLIER DASHBOARD
+ * 📌 TODAY'S PINNED ROW — Today · waiting · this week · ₱ to come in · ⚙ (the ONE SELECTOR's word form + the one door,
+ * owner 2026-10-30 "all yes") (owner 2026-10-28, DECISION_LOG "SUPPLIER DASHBOARD
  * APPROVED — EVERYTHING IN PLACE, A ⚙ PER PAGE": "the counts … are the pinned row and they FILTER the list in place";
  * prototype `supplier_in_place_2026-10-28` `.pin`). The app-wide template (owner 2026-10-27, "THE PINNED ROW IS THE
  * APP-WIDE TEMPLATE": selector · counts · action · ⚙) — Today has no view to pick and no one action, so its row is the
@@ -53,46 +55,20 @@ export function TodayCounts({
   // 📌 Folds into one slim line once the page runs under it (owner 2026-10-29, the shared `usePinFold`).
   const pinRef = useRef<HTMLDivElement>(null);
   usePinFold(pinRef);
+  // 📌 THE ONE COUNT DOOR (owner 2026-10-30 "all yes", Q3 — `PinDoor`, the People door): the number bold, the word quiet,
+  // filtering = the number underlined. Was a two-line round tile, pressed = the accent fill — a fourth door shape.
   const door = (key: TodayFilter, value: string | null, word: string, hot = false) => (
-    <button
-      type="button"
-      className={`sn-press grid min-h-11 flex-1 content-center gap-0.5 rounded-full px-1 py-1 text-center transition-colors duration-200 motion-reduce:transition-none ${
-        on === key ? 'bg-sn-accent' : ''
-      }`}
-      onClick={() => setOn(key)}
-      aria-pressed={on === key}
-      aria-controls={`today-list-${key}`}
-      data-today-number={key}
-      data-today-filter={key}
-      data-pin-door=""
+    <PinDoor
+      value={value === null ? null : <TodayFigure word={value} id={`today-${key}`} />}
+      word={word}
+      hot={hot}
+      on={on === key}
+      onTap={() => setOn(key)}
+      controls={`today-list-${key}`}
+      mark={{ 'data-today-number': key, 'data-today-filter': key }}
       data-tour={key === 'money' ? 'today-money' : undefined}
-    >
-      {value === null ? (
-        <>
-          <span className="block text-[20px] font-semibold leading-none" style={{ color: on === key ? 'rgb(var(--sn-on-accent))' : 'rgb(var(--color-warn))' }} aria-hidden data-pin-n="">
-            —
-          </span>
-          <span className={`block text-[11.5px] ${on === key ? 'text-[rgb(var(--sn-on-accent))]' : 'text-ink/60'}`} data-today-unread="" data-pin-w="">
-            couldn&rsquo;t load
-          </span>
-        </>
-      ) : (
-        <>
-          {/* Pressed = the prototype's filled pill: the accent fill, the number and word in the on-accent ink. */}
-          <span
-            className={`block text-[20px] font-semibold leading-none tabular-nums ${
-              on === key ? 'text-[rgb(var(--sn-on-accent))]' : hot ? 'text-sn-accent' : 'text-ink'
-            }`}
-            data-pin-n=""
-          >
-            <TodayFigure word={value} id={`today-${key}`} />
-          </span>
-          <span className={`block text-[11.5px] ${on === key ? 'text-[rgb(var(--sn-on-accent))]' : 'text-ink/60'}`} data-pin-w="">
-            {word}
-          </span>
-        </>
-      )}
-    </button>
+      unreadMark="data-today-unread"
+    />
   );
 
   return (
@@ -107,10 +83,18 @@ export function TodayCounts({
         data-first-row=""
         data-tour="today-numbers"
       >
-        <div className="flex items-center gap-1" role="group" aria-label="Show on Today">
-          {door('waiting', waiting, 'waiting', waitingNow)}
-          {door('week', thisWeek, 'this week')}
-          {door('money', toComeIn, 'to come in')}
+        <div className="flex min-h-11 items-center gap-1" role="group" aria-label="Show on Today">
+          {/* The WORD form of the one selector — Today has no view to pick (DECISION_LOG 2026-10-30, "word-only when
+              there are no choices"). From 701 the shell's bar already says "Today", so the page's copy steps aside. */}
+          <PinWord mark={{ 'data-today-word': '' }} barAbove>
+            Today
+          </PinWord>
+          <PinDoors>
+            {door('waiting', waiting, 'waiting', waitingNow)}
+            {door('week', thisWeek, 'this week')}
+            {door('money', toComeIn, 'to come in')}
+          </PinDoors>
+          <span className="min-w-0 flex-1" aria-hidden />
           {gear}
         </div>
       </div>

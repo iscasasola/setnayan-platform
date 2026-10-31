@@ -24,7 +24,6 @@ import { stripComments } from '@/lib/strip-comments';
 import { KEEPSAKE_ORDER, keepsakeDoors, type KeepsakeReads } from '@/lib/memories-keepsakes';
 import { addCellWords } from '@/lib/memories-add-cell';
 import { papicCaptureCost } from '@/lib/papic-cameras-pure';
-import { UPLOADS_TAKEN_LINE } from '@/lib/uploads-seat-claim';
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..');
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
@@ -143,15 +142,15 @@ test('5 · the ＋ Add cell and the thumb row’s ＋ share ONE handler and ONE 
   assert.match(GALLERY, /\{addTile \? <div className=\{gridClass\}>\{addTile\}<\/div> : null\}/, 'an empty album hides the cell');
 });
 
-test('5 · the cell’s words: the price is the gate’s own function, and the three faces are the door’s three faces', () => {
+test('5 · the cell’s words: the price is the gate’s own function, and its faces are the door’s faces', () => {
   const open = addCellWords('open', 24);
   assert.equal(open.line, `${papicCaptureCost('photo', null, 'upload')} credits each`);
   assert.match(open.tip, /Your uploads/);
   assert.equal(addCellWords('open', 'unmetered').line, 'Your pass covers it');
   assert.equal(addCellWords('off', 24).line, 'Turned off');
-  assert.equal(addCellWords('taken', null).tip, UPLOADS_TAKEN_LINE);
   // The page picks the face from the SAME branch that picks the door.
-  assert.match(PAGE, /addCell = addCellWords\(!uploadsOpen \? 'off' : takenByOther \? 'taken' : 'open', pot\)/);
+  // Every host has their own camera since #7111 (2026-10-31), so there is no "other host's" face any more.
+  assert.match(PAGE, /addCell = addCellWords\(!uploadsOpen \? 'off' : 'open', pot\)/);
 });
 
 test('6 · hosts only — built in the page’s host branch, drawn by the gallery only for a host', () => {

@@ -21,6 +21,10 @@ import {
   buildMoneyOf,
   buildSnapshotOf,
   buildViewOf,
+  compareCap,
+  compareRowIndexes,
+  compareShownAtFirst,
+  lowestTotalIds,
   noPriceNote,
   sameBuild,
   saveSheetOf,
@@ -157,7 +161,7 @@ test('what a price comes with is saved with the build and shown on its card', ()
   const snap = buildSnapshotOf(ls, null);
   assert.deepEqual(snap.picks.find((p) => p.vendorId === 'luntian')!.inclusions, ['Dessert bar', 'Crew meals']);
   const card = buildCardOf({ id: 'g', name: 'G', picks: snap.picks, categories: [{ label: 'Catering', groupId: 'catering' }], budgetPhp: null, free: null, lockedGroupIds: new Set() });
-  assert.deepEqual(card.rows, [{ label: 'Catering', supplier: 'Luntian', inclusions: ['Dessert bar', 'Crew meals'] }]);
+  assert.deepEqual(card.rows, [{ label: 'Catering', supplier: 'Luntian', full: 'Luntian Buffet', booked: false, inclusions: ['Dessert bar', 'Crew meals'] }]);
 });
 
 test('twins: the same supplier in every category, whatever the order, the prices or the names', () => {
@@ -277,10 +281,10 @@ test('a build card: total of the prices that exist, one row per category, the bu
   assert.equal(card.unpriced, 1);
   assert.equal(card.bufferPhp, null);
   assert.deepEqual(card.rows, [
-    { label: 'Reception', supplier: 'Seda', inclusions: [] },
-    { label: 'Ceremony', supplier: 'Santuario', inclusions: [] },
-    { label: 'Cake', supplier: null, inclusions: [] },
-    { label: 'Catering', supplier: 'Luntian', inclusions: [] },
+    { label: 'Reception', supplier: 'Seda', full: 'Seda Vertis North', booked: true, inclusions: [] },
+    { label: 'Ceremony', supplier: 'Santuario', full: 'Santuario de San Vicente de Paul', booked: true, inclusions: [] },
+    { label: 'Cake', supplier: null, full: null, booked: false, inclusions: [] },
+    { label: 'Catering', supplier: 'Luntian', full: 'Luntian Buffet', booked: false, inclusions: [] },
   ]);
   assert.deepEqual(card.apply, [{ planGroupId: 'catering', vendorId: 'luntian' }], 'a Use never re-opens a booked category');
   const priced = buildCardOf({ id: 'p', name: 'P', picks: picks.filter((p) => p.costPhp != null), categories, budgetPhp: 2_250_000, free: null, lockedGroupIds: new Set() });
@@ -311,4 +315,34 @@ test('the whole body: this build first, then the saved ones, with the twin finda
   assert.equal(twinOf(view.snapshot.picks, view.cards.slice(1))?.id, 'g');
   assert.deepEqual(view.cards[1]!.free, { kind: 'dates', labels: ['Dec 18'], more: 0 });
   assert.equal(view.cards[1]!.title, 'Garden build');
+});
+
+/* ── COMPARE BUILDS (frame 13) ── */
+
+test('compare: 2 side by side on a phone, 3 on a computer — this build first', () => {
+  assert.equal(compareCap(false), 2);
+  assert.equal(compareCap(true), 3);
+  const cards = [{ id: 'current' }, { id: 'a' }, { id: 'b' }, { id: 'c' }];
+  assert.deepEqual(compareShownAtFirst(cards, 2), ['current', 'a']);
+  assert.deepEqual(compareShownAtFirst(cards, 3), ['current', 'a', 'b']);
+  assert.deepEqual(compareShownAtFirst(cards.slice(0, 1), 3), ['current']);
+});
+
+test('compare: green = the lowest total, ties all marked, and never a total with a different hole in it', () => {
+  assert.deepEqual(lowestTotalIds([{ id: 'now', totalPhp: 290_000, unpriced: 0 }, { id: 'b1', totalPhp: 362_000, unpriced: 0 }]), ['now']);
+  assert.deepEqual(lowestTotalIds([{ id: 'x', totalPhp: 5, unpriced: 0 }, { id: 'y', totalPhp: 5, unpriced: 0 }]), ['x', 'y']);
+  // The same booked supplier without a price sits in both — still comparable.
+  assert.deepEqual(lowestTotalIds([{ id: 'x', totalPhp: 9, unpriced: 1 }, { id: 'y', totalPhp: 7, unpriced: 1 }]), ['y']);
+  // A pick without a price in one of them — its total is not the whole of it.
+  assert.deepEqual(lowestTotalIds([{ id: 'x', totalPhp: 9, unpriced: 0 }, { id: 'y', totalPhp: 7, unpriced: 1 }]), []);
+  assert.deepEqual(lowestTotalIds([{ id: 'x', totalPhp: 9, unpriced: 0 }]), [], 'one build alone is not "lowest"');
+});
+
+test("compare: hide what's the same drops only the rows every shown build agrees on", () => {
+  const row = (full: string | null) => ({ label: 'L', supplier: full, full, booked: false, inclusions: [] });
+  const a = { rows: [row('Seda Vertis North'), row('Luntian Buffet'), row(null)] };
+  const b = { rows: [row('Seda Vertis North'), row('Bituin Catering'), row(null)] };
+  assert.deepEqual(compareRowIndexes([a, b], false), [0, 1, 2]);
+  assert.deepEqual(compareRowIndexes([a, b], true), [1]);
+  assert.deepEqual(compareRowIndexes([a], true), [0, 1, 2], 'one build has nothing to differ from');
 });

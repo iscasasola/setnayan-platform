@@ -192,7 +192,7 @@ export default async function EventMemoriesPage({ params, searchParams }: Props)
       <AddToLibrary token={token} eventId={eventId} pot={pot} buy={buy} />
     );
     // ＋ The grid's Add cell — the SAME door's words, from the same three faces (`lib/memories-add-cell.ts`).
-    addCell = addCellWords(!uploadsOpen ? 'off' : takenByOther ? 'taken' : 'open', pot);
+    addCell = addCellWords(!uploadsOpen ? 'off' : 'open', pot);
 
     const [magazine, recap, flash, thankYou] = await keepsakeReads;
     // Each door opens its SHIPPED card, unchanged, handed the read above — the stack that sat at the page's foot.

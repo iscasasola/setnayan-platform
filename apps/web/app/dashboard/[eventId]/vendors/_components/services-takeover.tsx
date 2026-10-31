@@ -7,7 +7,7 @@
  * PR1; prototype `prototypes/suppliers_page_2026-10-07_fable.html`).
  *
  *   the date · place line        the ONLY place the date and the place appear
- *   Find · Build N/M · Booked N  ONE segmented control (`ISegmented`, wine)
+ *   [Booked · Team ▾] · 3 booked · ⚙   ONE dropdown row (`PickMenu`) — at rest and pinned (2026-10-31)
  *   one body                     that swaps — nothing else on the page
  *   the cart peek                `build-cart.tsx` — rises when a supplier is
  *                                added to the build
@@ -49,8 +49,7 @@ import { Explain } from '@/app/_components/explain';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { MenuSettingsButton } from '@/app/_components/menu-settings-button';
 import { Count } from '@/components/count';
-import { ISeg, ISegmented } from '../../website/editor/_components/inspector-kit';
-import { PickMenu } from '../../website/editor/_components/pick-menu';
+import { PickMenu, type PickOption } from '../../website/editor/_components/pick-menu';
 import type { BookedPartKey, PillarPart } from '@/lib/pillar-parts';
 import {
   BUDGET_BUILD_TABS,
@@ -62,7 +61,6 @@ import {
   type BudgetBuildTab,
 } from '@/lib/budget-build';
 import {
-  SUPPLIERS_MODES,
   SUPPLIERS_MODE_LABEL,
   SUPPLIERS_MODE_TAB,
   isModeTab,
@@ -86,7 +84,7 @@ import {
 import { BuildCart } from './build-cart';
 import { BENCH_BUILT_EVENT, benchLocalStore, builtNowIn } from './bench-local';
 import { CoverBar, CoverCount, CoverRingProvider } from './cover-ring';
-import { SuppliersModeContext, THUMB_SLIDE_MS } from './suppliers-mode';
+import { SuppliersModeContext, SuppliersRowCountContext, THUMB_SLIDE_MS } from './suppliers-mode';
 import { followColumn } from '../../guests/_components/dock-follows-column';
 import { shellBarShows } from '../../guests/_components/use-shell-bar-offset';
 
@@ -141,16 +139,11 @@ const LANDING_CSS =
   // motion, and each time the bar came back the block reached its place first —
   // leaving a strip between the bar and the date line where the rows behind
   // showed through (controller's walk at 375, 2026-10-08).
-  '[data-suppliers-stick]{transition:top .3s ease-out,box-shadow .3s ease-out}' +
-  // 📌 FOLDED, THE ROW SAYS WHERE YOU ARE IN ONE DROPDOWN (the approved final Suppliers design, 2026-10-30 — the
-  // prototype's mini menu "Booked · Team ▾"; the Guests pinned row's own shape, 2026-10-29: selector left · count ·
-  // ⚙ right). The face lies OVER the segmented control, so the row's height never changes and nothing below moves;
-  // at rest it is not there (no taps, not read), pinned the segments step back. The ⚙ is the same mounted button.
-  '[data-suppliers-stick] [data-sup-face]{opacity:0;visibility:hidden;transition:opacity .2s ease-out,visibility .2s}' +
-  '[data-suppliers-stick][data-stuck] [data-sup-face]{opacity:1;visibility:visible}' +
-  '[data-suppliers-stick]>[role=group]{transition:opacity .2s ease-out,visibility .2s}' +
-  '[data-suppliers-stick][data-stuck]>[role=group]{opacity:0;visibility:hidden}' +
-  '@media (prefers-reduced-motion:reduce){[data-suppliers-stick] :is([data-sup-face],[role=group]){transition:none}}';
+  '[data-suppliers-stick]{transition:top .3s ease-out,box-shadow .3s ease-out}';
+// 📌 ONE ROW, THE SAME AT REST AND PINNED (owner 2026-10-30 "all yes" — DECISION_LOG "ONE SELECTOR FOR EVERY PAGE";
+// owner 2026-10-31, live iPhone: *"Suppliers. needs to have that drop down effect to be able to safely integrate
+// all"*). The segmented Find | Build | Booked row and the face that lay over it while pinned are GONE: the row is one
+// `Page · View ▾` dropdown, its count, and the ⚙ — nothing to swap, so nothing below ever moves.
 
 function prefersReducedMotion(): boolean {
   return (
@@ -180,7 +173,10 @@ export function ServicesTakeover({
   bookedPart = 'team',
   bookedParts = [],
   partPage = false,
+  homeHref,
 }: {
+  /** The Suppliers page's own address (a lab passes its own); default `/dashboard/<event>/vendors`. */
+  homeHref?: string;
   eventId: string;
   /** Which of Booked's parts is on screen — Team (the body), or the Budget / Schedule page drawn whole. */
   bookedPart?: BookedPartKey;
@@ -421,7 +417,7 @@ export function ServicesTakeover({
   // The app router when there is one (a unit render has none — the shell is drawn there too); else a plain load.
   const appRouter = useContext(AppRouterContext);
   const go = (href: string) => (appRouter ? appRouter.push(href) : window.location.assign(href));
-  const suppliersHref = `/dashboard/${eventId}/vendors`;
+  const suppliersHref = homeHref ?? `/dashboard/${eventId}/vendors`;
   /** A press on a body: on the Suppliers page the bus swaps it in place; on a part's own page it goes home to it. */
   const goToMode = (m: SuppliersMode) => {
     if (!partPage) {
@@ -431,33 +427,55 @@ export function ServicesTakeover({
     if (m === 'booked' && bookedPart === 'team') return;
     go(`${suppliersHref}?tab=${SUPPLIERS_MODE_TAB[m]}`);
   };
-  /** The folded row's one dropdown: Find · Build · Booked · Team · Booked · Budget · Booked · Schedule. */
+  /**
+   * 📌 THE ROW'S ONE DROPDOWN — `Page · View ▾` (owner 2026-10-30 "all yes", DECISION_LOG "ONE SELECTOR FOR EVERY
+   * PAGE"; owner 2026-10-31: *"Booked has the 3 drop down Team, Budget, and Schedule"*). The approved final design's
+   * mini menu, each with its count: Find · Build 4/8 · Booked · Team 3 · Booked · Budget · Booked · Schedule.
+   */
   const faceValue = mode === 'booked' ? `booked-${bookedPart}` : mode;
-  const faceOptions = [
+  const buildCount = tally.filled > 0 ? `${tally.filled}/${tally.total}` : null;
+  const faceOptions: PickOption[] = [
     { key: 'find', label: SUPPLIERS_MODE_LABEL.find },
-    { key: 'build', label: SUPPLIERS_MODE_LABEL.build },
+    { key: 'build', label: SUPPLIERS_MODE_LABEL.build, trail: buildCount ? { text: buildCount, tone: 'muted' } : undefined },
     ...(bookedParts.length > 0
-      ? bookedParts.map((p) => ({ key: `booked-${p.key}`, label: `${SUPPLIERS_MODE_LABEL.booked} · ${p.label}` }))
+      ? bookedParts.map((p) => ({
+          key: `booked-${p.key}`,
+          label: `${SUPPLIERS_MODE_LABEL.booked} · ${p.label}`,
+          trail: p.key === 'team' && bookedCount > 0 ? { text: formatCount(bookedCount), tone: 'muted' as const } : undefined,
+        }))
       : [{ key: 'booked-team', label: SUPPLIERS_MODE_LABEL.booked }]),
   ];
+  const faceWords = faceOptions.find((o) => o.key === faceValue)?.label ?? SUPPLIERS_MODE_LABEL[mode];
   const pickFace = (key: string) => {
     if (key === faceValue) return;
     if (key === 'find' || key === 'build') return goToMode(key);
     const part = bookedParts.find((p) => `booked-${p.key}` === key);
     if (!part || part.key === 'team') {
       // The Team is the Booked body: in place when it is on this page, else its own address.
-      if (bookedPart === 'team' && !partPage) goToBuildTab(SUPPLIERS_MODE_TAB.booked);
+      if (!partPage) goToBuildTab(SUPPLIERS_MODE_TAB.booked);
       else go(part?.href ?? `${suppliersHref}?tab=${SUPPLIERS_MODE_TAB.booked}`);
       return;
     }
     go(part.href);
   };
+  /** The count the row can count itself — Build's N/M, the team's N booked; a part's own line takes its place.
+   *  `Count` rolls the number when a press moves it (Add to build answers in place). */
   const faceCount =
-    mode === 'build' && tally.filled > 0
-      ? `${tally.filled}/${tally.total}`
-      : mode === 'booked' && bookedPart === 'team' && bookedCount > 0
-        ? `${formatCount(bookedCount)} booked`
-        : null;
+    mode === 'build' && buildCount ? (
+      <span data-sup-row-count-of="build">
+        <Count value={tally.filled} id="sup-row-filled" />/<Count value={tally.total} id="sup-row-total" />
+      </span>
+    ) : mode === 'booked' && bookedPart === 'team' && bookedCount > 0 ? (
+      <span data-sup-row-count-of="booked">
+        <Count value={bookedCount} id="sup-row-booked" /> booked
+      </span>
+    ) : null;
+  const [countEl, setCountEl] = useState<HTMLElement | null>(null);
+  const [countClaimed, setCountClaimed] = useState(0);
+  const rowCount = useMemo(
+    () => ({ el: countEl, claim: (on: boolean) => setCountClaimed((n) => Math.max(0, n + (on ? 1 : -1))) }),
+    [countEl],
+  );
 
   return (
     /* 🔴 THE APP'S TOP BAR STAYS ON SUPPLIERS (owner 2026-10-05). This section
@@ -491,62 +509,37 @@ export function ServicesTakeover({
         </div>
       ) : null}
 
-      {/* ── 📌 PINNED: Find · Build · Booked, ONE row (owner 2026-10-27, Suppliers A; amended "On the pinned the
-          selectors should stay but simplified"). The same segments, drawn tighter. `.sn-ambient` is the page's own
-          ground, so the row reads as the page, not a box; it spans the column's gutters so rows scroll clean under
-          it. 🔒 lib/the-pinned-row-is-one-row.test.ts */}
+      {/* ── 📌 PINNED: ONE row, at rest and pinned alike — `[Booked · Schedule ▾]` · its count · ⚙ (owner 2026-10-30
+          "all yes", DECISION_LOG "ONE SELECTOR FOR EVERY PAGE"; 2026-10-31 *"Suppliers. needs to have that drop down
+          effect"*). The one shared dropdown (`PickMenu`, its compact face — never a local look), never a segmented row.
+          `.sn-ambient` is the page's own ground, so the row reads as the page, not a box; it spans the column's gutters
+          so rows scroll clean under it. 🔒 lib/the-pinned-row-is-one-row.test.ts · lib/suppliers-one-dropdown.test.ts */}
       <div
         ref={stickRef}
         data-suppliers-stick=""
-        className="sn-ambient sticky top-[var(--sup-top,0px)] z-[15] -mx-4 flex items-center gap-2 px-4 pb-1.5 pt-2 data-[stuck]:shadow-[0_1px_0_rgb(var(--color-ink)/0.1)] sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0"
+        className="sn-ambient sticky top-[var(--sup-top,0px)] z-[15] -mx-4 flex min-h-[52px] items-center gap-2 px-4 py-1.5 data-[stuck]:shadow-[0_1px_0_rgb(var(--color-ink)/0.1)] sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0"
         data-tour="suppliers-segments"
         data-first-row=""
       >
-        {/* 📌 The folded face (see the CSS above): ONE dropdown saying where you are, and its count. */}
-        <div
-          data-sup-face=""
-          className="absolute inset-y-0 left-4 right-[68px] flex min-w-0 items-center gap-2 sm:left-6 sm:right-[76px] lg:left-0 lg:right-[52px]"
-        >
+        <span className="flex min-w-0 shrink items-center" data-sup-row-menu="">
           <PickMenu
             label="Suppliers: Find, Build or Booked"
             value={faceValue}
             options={faceOptions}
             onPick={pickFace}
-            dataAttr="data-sup-face-pick"
+            buttonText={faceWords}
+            dataAttr="data-sup-row-pick"
             compact
-            className="border border-ink/10 font-semibold"
           />
-          {faceCount ? (
-            <span className="truncate text-[13px] text-ink/60" data-sup-face-count="">
-              {faceCount}
-            </span>
-          ) : null}
-        </div>
-        <ISegmented label="Find, Build or Booked">
-          {SUPPLIERS_MODES.map((m) => (
-            <ISeg
-              key={m}
-              tone="wine"
-              on={mode === m}
-              data={m}
-              // The segmented control DRIVES THE BUS: a press dispatches the
-              // mode's own tab key, and the listener above swaps the body.
-              onClick={() => goToMode(m)}
-            >
-              {SUPPLIERS_MODE_LABEL[m]}
-              {m === 'build' && tally.filled > 0 ? (
-                <span className="ml-0.5 font-medium opacity-80" data-seg-count="build">
-                  <Count value={tally.filled} id="sup-seg-filled" />/<Count value={tally.total} id="sup-seg-total" />
-                </span>
-              ) : null}
-              {m === 'booked' && bookedCount > 0 ? (
-                <span className="ml-0.5 font-medium opacity-80" data-seg-count="booked">
-                  <Count value={bookedCount} id="sup-seg-booked" />
-                </span>
-              ) : null}
-            </ISeg>
-          ))}
-        </ISegmented>
+        </span>
+        <span
+          ref={setCountEl}
+          className="min-w-0 flex-1 truncate text-[13px] text-ink/60"
+          data-sup-row-count=""
+          aria-live="polite"
+        >
+          {countClaimed === 0 ? faceCount : null}
+        </span>
         {/* ⚙ The row ends with the menu's ONE ⚙ (owner 2026-10-27) — at rest and pinned, the same button. */}
         {settingsSlot ? (
           <MenuSettingsButton menu="suppliers" open={settingsOpen} onOpenChange={setSettingsOpen}>
@@ -558,7 +551,9 @@ export function ServicesTakeover({
       {/* ── ONE BODY ────────────────────────────────────────────────────────
           One column at every width — the section's own width on a computer (owner 2026-10-23). */}
       <SuppliersModeContext.Provider value={modeState}>
-      <div className="min-w-0 pt-4">
+      <SuppliersRowCountContext.Provider value={rowCount}>
+      {/* A Booked part's own page starts right under the row (owner 2026-10-31, "so many upper space not used"). */}
+      <div className={partPage ? 'min-w-0 pt-1' : 'min-w-0 pt-4'}>
         {drawn('find') ? (
           <div data-suppliers-body="find" hidden={mode !== 'find'}>
             {/* Room for Find's thumb row is the row's OWN, at every width: it publishes `--sn-thumb-room` and the
@@ -631,6 +626,7 @@ export function ServicesTakeover({
           </div>
         ) : null}
       </div>
+      </SuppliersRowCountContext.Provider>
       </SuppliersModeContext.Provider>
 
       <BuildCart tally={tally} />

@@ -166,7 +166,8 @@ test('Story & plans draw the SHIPPED pages whole — the same components, never 
   const rail = read('app/dashboard/[eventId]/schedule/_components/day-rail.tsx');
   assert.match(rail, /\{inspectorSlot \? <InSlot id=\{inspectorSlot\}>\{side\}<\/InSlot> : null\}/);
   assert.match(rail, /isDesktop && !inspectorSlot/, 'the page’s own side column is drawn beside the Maker’s');
-  assert.match(rail, /!isDesktop && selected && !inspectorSlot/, 'the phone panel rises over the Maker too');
+  // 🗂 The phone's panel is the Schedule's ONE pop-up now (2026-10-31) — still on a phone, still never in the Maker.
+  assert.match(rail, /selected && !inspectorSlot && \(!isDesktop \|\| booked\)/, 'the phone panel rises over the Maker too');
   // 📵 The reminder tour rode the RSVP picture until 2026-09-29, when guest
   // reminder emails were switched off (owner: no email to guests) — gone with them.
   const rsvpItem = launch.slice(launch.indexOf('const rsvpItem = {'), launch.indexOf('settings: ('));

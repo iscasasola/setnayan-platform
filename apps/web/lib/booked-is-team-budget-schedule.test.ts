@@ -48,18 +48,22 @@ test('1 · Booked is Team · Budget · Schedule — ONE dropdown, each part its 
   // Budget keeps its condition — the event type's budget surface.
   assert.deepEqual(bookedParts({ eventId: 'E', budgetEnabled: false }).map((p) => p.key), ['team', 'schedule']);
 
+  // ONE dropdown: Booked's parts are listed in the page's one row (owner 2026-10-31, *"Booked has the 3 drop down Team,
+  // Budget, and Schedule"*) — the part's own row is gone; it only hands the row its count.
+  const shell = read('vendors', '_components', 'services-takeover.tsx');
+  assert.match(shell, /bookedParts\.map\(\(p\) => \(\{\s*key: `booked-\$\{p\.key\}`/, 'Booked’s parts are not in the row’s ONE dropdown');
   const row = read('vendors', '_components', 'booked-part-row.tsx');
-  assert.match(row, /<PickMenu\b/, 'Booked’s parts are not ONE dropdown');
-  assert.doesNotMatch(row, /<ISegmented\b|<nav\b/, 'Booked’s parts became a pill row');
+  assert.doesNotMatch(row, /<PickMenu\b|<ISegmented\b|<nav\b/, 'Booked’s part draws a second selector of its own again');
+  assert.match(row, /createPortal\(/, 'Booked’s count is not drawn into the one row');
 
   // The parts are the SHIPPED pages, whole, inside the Suppliers shell.
   const page = read('vendors', 'page.tsx');
   assert.match(page, /if \(sp\.part === BOOKED_SCHEDULE_PART\)[\s\S]*?<BookedPartPage[\s\S]*?<CoupleSchedulePage[\s\S]*?booked: '1'/);
   assert.match(page, /import CoupleSchedulePage from '\.\.\/schedule\/page'/, 'Booked › Schedule is not the shipped Schedule page');
-  // Each hosted page draws Booked's row where its masthead was — it holds the numbers.
+  // Each hosted page hands the row its count — it holds the numbers.
   assert.match(read('budget', 'page.tsx'), /inBooked \? \([\s\S]*?<BookedPartRow[\s\S]*?current="budget"/);
   assert.match(read('schedule', 'page.tsx'), /inBooked \? \([\s\S]*?<BookedPartRow[\s\S]*?current="schedule"/);
-  assert.match(read('vendors', '_components', 'booked-body.tsx'), /<BookedPartRow parts=\{parts\} current="team"/);
+  assert.match(read('vendors', '_components', 'booked-body.tsx'), /<BookedPartRow current="team"/);
 
   // The old address forwards, with its own query, for anyone who can open Suppliers.
   const sched = read('schedule', 'page.tsx');

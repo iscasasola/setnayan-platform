@@ -124,7 +124,7 @@ export function BookedBody({
   return (
     <div data-booked-body="view">
       <style>{BOOKED_CSS}</style>
-      {parts ? <BookedPartRow parts={parts} current="team" line={countLine} /> : null}
+      {parts ? <BookedPartRow current="team" line={countLine} /> : null}
       <div className="space-y-7">
 
       {waiting.length > 0 ? (

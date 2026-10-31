@@ -687,6 +687,7 @@ export function PageLab({ state, who: rawWho, draft, invited = false, asked = fa
                 docsIn: d.docsIn,
                 docsTotal: d.docsTotal,
                 measured: d.verifyMeasured,
+                row: d.progress.rows.find((r) => r.key === 'docs')!,
                 section: (
                   <VerifySection
                     businessName={d.businessName}

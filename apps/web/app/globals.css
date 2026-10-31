@@ -10496,6 +10496,12 @@ html.dark .sn-acc-head[data-open] {
   }
 }
 
+/* ✕ IN EVERY TYPE BOX (owner 2026-10-31, "We want every type box too have the clear button";
+   `app/_components/global-clear-field.tsx`). While the app-wide ✕ stands inside a box, the box gives it room at its end
+   (`--sn-clear-room`, never less than the box's own padding) and the browser's own search ✕ steps aside — never two. */
+input[data-clearing] { padding-right: var(--sn-clear-room) !important; }
+input[data-clearing]::-webkit-search-cancel-button { display: none; -webkit-appearance: none; }
+
 
 /* ══ 🎚 SCRUB — A HELD HAND-OVER (owner 2026-10-09, approved on `review/scrub-prototype.html`: *"them must be on the same
    position to create that keynote like transistion"* · *"let it enter on the last 20% of the build out"* · *"element
@@ -10642,3 +10648,4 @@ html.dark .sn-acc-head[data-open] {
     animation-range: normal;
   }
 }
+

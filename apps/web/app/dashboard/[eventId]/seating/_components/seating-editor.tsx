@@ -6953,6 +6953,11 @@ export function SeatingEditor({
                     if (v) goToFound(v);
                   },
                 },
+                /* ✕ — the words are gone: the seats are whole AT ONCE, not after the search's wait (owner 2026-10-31). */
+                onClear: () => {
+                  if (seatQTimer.current) clearTimeout(seatQTimer.current);
+                  setSeatQ('');
+                },
               }}
               right={[
                 guestsFilterMenu({

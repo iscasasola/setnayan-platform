@@ -20,6 +20,7 @@ import { Armchair, CalendarDays, ClipboardList, FileText, Palette, PanelsTopLeft
 import { hubAddChoices, hubEvents, hubScheduleLine, hubSegmentOf, pickHubEvent, type HubEvent, type HubSegment } from '@/lib/hub-events';
 import type { RunOfShowBlock } from '@/lib/run-of-show';
 import { HubEventMenu } from '@/app/vendor-dashboard/on-the-day/_components/hub-event-menu';
+import { HubSettings } from '@/app/vendor-dashboard/on-the-day/_components/hub-settings';
 import {
   HubDoorRow,
   HubEventCard,
@@ -225,6 +226,7 @@ export async function HubLab({ seg: rawSeg, ev }: { seg?: string; ev?: string })
                 place={PLACE[event.eventId] ?? null}
               />
             }
+            gear={<HubSettings coordinator />}
           />
         }
         event={event}

@@ -25,7 +25,7 @@ import {
  * Deliberately NOT in `MARKETING_GATED_EMAIL_TYPES` — that set suppresses
  * unless `users.marketing_opt_in = TRUE` (NOT NULL DEFAULT FALSE), the mistake
  * that silenced all six `lock_request_*` types for every user. Deliberately NOT
- * in `PUSH_ENABLED_TYPES`: this is not a 2am buzz.
+ * a buzz (Low in lib/push-levels.ts): this is not a 2am buzz.
  *
  * ⛔ THE GUEST IS NEVER NAMED — see `supplierTakedownNotice`, which is where the
  * words live and where a unit test can read them. Nothing here touches the

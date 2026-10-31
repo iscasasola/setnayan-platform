@@ -39,6 +39,7 @@ import {
 // 🔑 THE ONE STRIPPER — a two-replace regex opens a comment on any `/*` inside a
 // string and blanks real code to the next close. See lib/strip-comments.ts.
 import { stripComments } from './strip-comments';
+import { PUSH_LEVEL } from './push-levels';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..');
@@ -87,7 +88,7 @@ test('and it is NOT in the set that would silently suppress every send', () => {
 });
 
 test('it does not buzz a phone — the photo is already down', () => {
-  assert.ok(!setMembers('PUSH_ENABLED_TYPES').includes(TYPE), `${TYPE} is on the push list`);
+  assert.equal(PUSH_LEVEL[TYPE as keyof typeof PUSH_LEVEL], 'low', `${TYPE} buzzes a phone`);
 });
 
 test('it has tray copy and a badge — a type with no label renders as its raw key', () => {

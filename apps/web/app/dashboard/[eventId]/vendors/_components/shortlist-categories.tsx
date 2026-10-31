@@ -143,7 +143,7 @@ import {
 } from '@/lib/explore-info-copy';
 import { useConfirm } from '@/app/_components/confirm-dialog';
 import { folderIcon, tileIcon } from '@/lib/taxonomy-icons';
-import { folderHintButtonLabel, folderHintFor } from '@/lib/category-hints';
+import { folderHintButtonLabel } from '@/lib/category-hints';
 import {
   coverageStateOf,
   folderSummaryOf,
@@ -156,7 +156,6 @@ import {
   addCategoryPreview,
   cardAddAnother,
   categoryHintButtonLabel,
-  categoryHintForTile,
   FOLDER_SUMMARY_ALL_COVERED,
   FOLDER_SUMMARY_LOCKED,
   FOLDER_SUMMARY_MORE,
@@ -4182,7 +4181,7 @@ export function ShortlistCategories({
             {/* The ONE ⓘ template (§ 9 kind 7): a centred popup with "Got it"
                 on a phone, a note on a computer — never a box in the list. */}
             <Explain title={folder.label} label={folderHintButtonLabel(folder.label)} data="folder-hint" className="cat-info">
-              {folderHintFor(folder.folder)}
+              {folder.hint}
             </Explain>
             </div>
             </>
@@ -4195,9 +4194,8 @@ export function ShortlistCategories({
                   // Phase 1b PR-4 — the leaf canonical with a saved requirements
                   // row for this tile (if any) drives the "saved request" icon.
                   const savedCanonical = savedRequirementCanonicalByTile[t.tile] ?? null;
-                  // PR-C — the ⓘ copy (null → no button, never invented copy)
-                  // and whether this category may be removed from the plan.
-                  const hint = replan ? categoryHintForTile(t.tile) : null;
+                  // Whether this category may be removed from the plan. (Its ⓘ is `t.hint` — always an answer,
+                  // resolved from Admin by `buildShortlistFolders`; owner 2026-10-31 "there is not (i)".)
                   // A covered copy names the row it was booked under —
                   // "Seda Vertis North · with Reception" (owner 2026-10-21).
                   const lockedNames = lockedNamesOf(t.vendors);
@@ -4390,8 +4388,7 @@ export function ShortlistCategories({
                         </button>
                         {/* Per-category ⓘ (PR-C · design §5.1). Its own button
                             beside the head — buttons can't nest — resolving to
-                            the plan group's shipped `hint` through the
-                            many-to-one tile→group bridge. No copy in JSX. */}
+                            Admin's own ⓘ text (`t.hint`, see below). No copy in JSX. */}
                         {/* ✎ SERVICES TO SHOW (owner 2026-10-29: "we want an edit icon as well. pop up will show to uncheck
                             services they do not want to see") — on the OPEN row only, so it pins with the head. Offered
                             once the list has read more than one service with cards, or could not read them (the sheet
@@ -4426,11 +4423,12 @@ export function ShortlistCategories({
                             );
                           })()
                         ) : null}
-                        {hint ? (
-                          <Explain title={t.label} label={categoryHintButtonLabel(t.label)} data="category-hint" className="cat-info">
-                            {hint}
-                          </Explain>
-                        ) : null}
+                        {/* EVERY ROW HAS ITS ⓘ (owner 2026-10-31: "I added a category shoes but there is not (i)").
+                            No branch: `t.hint` is never blank — the owner's words from Admin › Categories, else the old
+                            line, else "Shoes covers: <its services>" (`categoryInfoText`). */}
+                        <Explain title={t.label} label={categoryHintButtonLabel(t.label)} data="category-hint" className="cat-info">
+                          {t.hint}
+                        </Explain>
                         {savedCanonical ? (
                           <ActionButton
                             tone="neutral"

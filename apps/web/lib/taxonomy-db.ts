@@ -34,6 +34,10 @@ import {
 // (`import { type TaxonomySnapshot } from '@/lib/taxonomy-db'`) keep working.
 export type { TaxonomySnapshot } from './taxonomy-snapshot';
 
+/** The tree's columns, without the ⓘ (`hint_en`) — the shape the retry below falls back to. */
+const CATEGORY_COLS =
+  'id,parent_id,tier,label_en,label_short,slug,sort_order,applicable_event_types,icon_name,sample_photo_r2_key,marketplace_hidden,coarse_category';
+
 /**
  * The taxonomy as it currently lives in the DB (or the constant fallback).
  * Cached per request. Server-only — reads cookies via the Supabase client.
@@ -41,13 +45,9 @@ export type { TaxonomySnapshot } from './taxonomy-snapshot';
 export const getTaxonomy = cache(async (): Promise<TaxonomySnapshot> => {
   try {
     const sb = await createClient();
-    const [catsRes, mapsRes] = await Promise.all([
-      sb
-        .from('service_categories')
-        .select(
-          'id,parent_id,tier,label_en,label_short,slug,sort_order,applicable_event_types,icon_name,sample_photo_r2_key,marketplace_hidden,coarse_category',
-        )
-        .lte('tier', 2),
+    const readCats = (cols: string) => sb.from('service_categories').select(cols).lte('tier', 2);
+    const [firstCatsRes, mapsRes] = await Promise.all([
+      readCats(`${CATEGORY_COLS},hint_en`),
       sb
         .from('canonical_service_taxonomy')
         .select(
@@ -55,7 +55,11 @@ export const getTaxonomy = cache(async (): Promise<TaxonomySnapshot> => {
         ),
     ]);
 
-    const cats = catsRes.data as CategoryRow[] | null;
+    // The ⓘ column (`hint_en`, owner 2026-10-31) must never take the whole tree down: if that read is refused
+    // (e.g. a build running ahead of its migration), read again without it — every ⓘ then answers from the
+    // fallback chain in lib/category-hints.ts, and the categories themselves stay the admin's.
+    const catsRes = firstCatsRes.error ? await readCats(CATEGORY_COLS) : firstCatsRes;
+    const cats = catsRes.data as unknown as CategoryRow[] | null;
     const maps = mapsRes.data as MapRow[] | null;
 
     // Fall back on any error, or if the tree/mapping haven't been seeded yet.

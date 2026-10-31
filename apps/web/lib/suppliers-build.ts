@@ -338,8 +338,10 @@ export type BuildCard = {
   totalPhp: number;
   /** Suppliers in it with no recorded price. */
   unpriced: number;
-  /** One per category on the event, in the lines' order. */
-  rows: Array<{ label: string; supplier: string | null; inclusions: string[] }>;
+  /** One per category on the event, in the lines' order. `supplier` is the
+   *  first word (the old side-by-side cards); `full` is the whole name the
+   *  Compare table prints (frame 13); `booked` marks a booked category. */
+  rows: Array<{ label: string; supplier: string | null; full: string | null; booked: boolean; inclusions: string[] }>;
   free: BuildCardFree;
   /** Budget − total; null while a price is missing or there is no budget. */
   bufferPhp: number | null;
@@ -396,12 +398,26 @@ export function buildCardOf(args: {
     unpriced,
     rows: args.categories.map((c) => {
       const p = c.groupId ? byGroup.get(c.groupId) : undefined;
-      if (p) return { label: c.label, supplier: shortSupplierName(p.vendorName), inclusions: [...(p.inclusions ?? [])] };
+      if (p) {
+        return {
+          label: c.label,
+          supplier: shortSupplierName(p.vendorName),
+          full: p.vendorName.trim(),
+          booked: p.locked || args.lockedGroupIds.has(p.groupId),
+          inclusions: [...(p.inclusions ?? [])],
+        };
+      }
       const via = c.covered ? byGroup.get(c.covered.groupId) : undefined;
       if (c.covered && via && via.vendorId === c.covered.vendorId) {
-        return { label: c.label, supplier: coveredRowName(shortSupplierName(via.vendorName), c.covered.from), inclusions: [] };
+        return {
+          label: c.label,
+          supplier: coveredRowName(shortSupplierName(via.vendorName), c.covered.from),
+          full: coveredRowName(via.vendorName.trim(), c.covered.from),
+          booked: true,
+          inclusions: [],
+        };
       }
-      return { label: c.label, supplier: null, inclusions: [] };
+      return { label: c.label, supplier: null, full: null, booked: false, inclusions: [] };
     }),
     free: args.free,
     bufferPhp: unpriced > 0 || args.budgetPhp == null ? null : args.budgetPhp - totalPhp,
@@ -495,4 +511,42 @@ export function buildViewOf(args: {
     ],
     buildsMeasured: args.buildsMeasured,
   };
+}
+
+/* ── COMPARE BUILDS (frame 13) ────────────────────────────────────────────
+ * The approved Compare sheet (and, from 1024, the "All builds" pane): two
+ * builds side by side on a phone, three on a computer; green marks the lowest
+ * total; "Hide what's the same" drops the category rows every shown build
+ * agrees on. Pure, so the sheet, the pane and the tests read one answer. */
+
+/** How many builds sit side by side: 2 on a phone, 3 on a computer. */
+export function compareCap(wide: boolean): number {
+  return wide ? 3 : 2;
+}
+
+/** The builds shown first — this build, then the newest saved ones up to the cap. */
+export function compareShownAtFirst(cards: ReadonlyArray<{ id: string }>, cap: number): string[] {
+  return cards.slice(0, cap).map((c) => c.id);
+}
+
+/**
+ * The shown builds with the lowest total — the ones the table marks green (ties
+ * all marked). Totals are only comparable while every shown build is missing
+ * the SAME number of prices (a booked supplier with no price sits in each of
+ * them alike); otherwise nothing is marked — a total with a different hole in
+ * it is not "lowest". Empty when fewer than two are shown.
+ */
+export function lowestTotalIds(cards: ReadonlyArray<Pick<BuildCard, 'id' | 'totalPhp' | 'unpriced'>>): string[] {
+  if (cards.length < 2) return [];
+  if (new Set(cards.map((c) => c.unpriced)).size > 1) return [];
+  const min = Math.min(...cards.map((c) => c.totalPhp));
+  return cards.filter((c) => c.totalPhp === min).map((c) => c.id);
+}
+
+/** The category rows to draw: every one, or — hiding what's the same — those the shown builds disagree on. */
+export function compareRowIndexes(cards: ReadonlyArray<Pick<BuildCard, 'rows'>>, hideSame: boolean): number[] {
+  const n = cards[0]?.rows.length ?? 0;
+  const all = Array.from({ length: n }, (_, i) => i);
+  if (!hideSame || cards.length < 2) return all;
+  return all.filter((i) => new Set(cards.map((c) => c.rows[i]?.full ?? '')).size > 1);
 }

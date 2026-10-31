@@ -6,7 +6,6 @@ import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { countUnread } from '@/lib/notifications';
 import { readSupplierPayoutReadiness } from '@/lib/vendor-payment-methods.server';
-import { teamSeats } from '@/lib/vendor-free-helper';
 import { isMusicToolCategory } from '@/lib/songs';
 import { moodboardLibraryAccessForProfile } from '@/lib/moodboard-library-access';
 import { getInspirationParts } from '@/lib/inspiration-parts-db';
@@ -52,14 +51,8 @@ export default async function VendorSettingsPage() {
   ]);
   const manager = !role || canManageVendor(role);
 
-  const [unread, tierRow, teamRead, payout] = await Promise.all([
+  const [unread, payout] = await Promise.all([
     countUnread(supabase, user.id),
-    manager && profile
-      ? supabase.from('vendor_profiles').select('tier_state').eq('vendor_profile_id', profile.vendor_profile_id).maybeSingle()
-      : Promise.resolve(null),
-    manager && profile
-      ? supabase.from('vendor_team_members').select('user_id, role').eq('vendor_profile_id', profile.vendor_profile_id)
-      : Promise.resolve(null),
     manager && profile
       ? readSupplierPayoutReadiness({
           adminClient: createAdminClient(),
@@ -71,9 +64,6 @@ export default async function VendorSettingsPage() {
   // The Moodboard library gate, decided from the profile already read (the pure half — no second read).
   const moodboard = manager && moodboardLibraryAccessForProfile(profile, await getInspirationParts()).allowed;
 
-  const tier = (tierRow?.data as { tier_state?: string | null } | null)?.tier_state ?? null;
-  const team = teamRead && !teamRead.error ? ((teamRead.data ?? []) as { user_id: string; role: string }[]) : null;
-  const helpers = team && profile ? teamSeats(team, profile.user_id).people : null;
   const tools = settingsMoreTools({
     hasMoodboardLibraryAccess: moodboard,
     hasMusicRepertoireAccess: isMusicToolCategory(profile?.services ?? null),
@@ -84,10 +74,7 @@ export default async function VendorSettingsPage() {
     <SettingsView
       unread={unread}
       manager={manager}
-      storeShell={storeShell}
-      tier={tier}
       payout={payout}
-      helpers={helpers}
       tools={tools}
     />
   );

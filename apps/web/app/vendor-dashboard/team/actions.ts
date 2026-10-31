@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { gearReturn } from '@/lib/gear-return.server';
 import { redirect } from 'next/navigation';
 import { payPath } from '@/lib/pay-path';
 import { railForNewOrder } from '@/lib/rail-for-new-order';
@@ -32,8 +33,9 @@ import {
 const ROLE_SET: ReadonlySet<string> = new Set(VENDOR_TEAM_ROLES);
 
 const TEAM = '/vendor-dashboard/team';
-const err = (msg: string): never =>
-  redirect(`${TEAM}?error=${encodeURIComponent(msg)}`);
+// 🏪 Sent from the Shop ⚙'s Team fold, a save comes back to that sheet (`gearReturn`); from the Helpers page, here.
+const back = async (status: string): Promise<never> => redirect(await gearReturn(TEAM, status, 'team'));
+const err = (msg: string): Promise<never> => back(`error=${encodeURIComponent(msg)}`);
 
 function parseRole(raw: FormDataEntryValue | null): VendorTeamRole {
   if (typeof raw !== 'string' || !ROLE_SET.has(raw)) {
@@ -105,10 +107,9 @@ export async function inviteVendorTeamMember(formData: FormData) {
   // bouncing to the Team page (owner rule 2026-07 — no navigation off My Shop
   // except Profile). A local `err` shadows the module helper so every early
   // return here honours the same destination.
-  const back =
-    formData.get('returnTo') === 'shop' ? '/vendor-dashboard/shop' : TEAM;
-  const err = (msg: string): never =>
-    redirect(`${back}?error=${encodeURIComponent(msg)}`);
+  const shopBack = formData.get('returnTo') === 'shop' ? '/vendor-dashboard/shop' : null;
+  const err = (msg: string): Promise<never> =>
+    shopBack ? Promise.resolve(redirect(`${shopBack}?error=${encodeURIComponent(msg)}`)) : back(`error=${encodeURIComponent(msg)}`);
 
   const emailRaw = formData.get('email');
   const labelRaw = formData.get('team_label');
@@ -189,8 +190,9 @@ export async function inviteVendorTeamMember(formData: FormData) {
     );
   }
 
-  revalidatePath(back);
-  redirect(`${back}?invited=1`);
+  revalidatePath(shopBack ?? TEAM);
+  if (shopBack) redirect(`${shopBack}?invited=1`);
+  return back('invited=1');
 }
 
 /**
@@ -263,7 +265,7 @@ export async function updateVendorTeamMember(formData: FormData) {
   if (error) return err(error.message);
 
   revalidatePath(TEAM);
-  redirect(`${TEAM}?saved=1`);
+  return back('saved=1');
 }
 
 /**
@@ -303,7 +305,7 @@ export async function removeVendorTeamMember(formData: FormData) {
   after(() => revokeAllSessions(removedUserId).catch(() => {}));
 
   revalidatePath(TEAM);
-  redirect(`${TEAM}?saved=1`);
+  return back('saved=1');
 }
 
 // ── Peer-admin demotion/removal votes (multi-admin org model) ──────────────
@@ -353,7 +355,7 @@ export async function proposeAdminMotion(formData: FormData) {
   }
 
   revalidatePath(TEAM);
-  redirect(`${TEAM}?${row?.status === 'executed' ? 'saved=1' : 'motion=started'}`);
+  return back(row?.status === 'executed' ? 'saved=1' : 'motion=started');
 }
 
 /** Cast / change a vote on an open admin motion. */
@@ -377,7 +379,7 @@ export async function voteAdminMotion(formData: FormData) {
   }
 
   revalidatePath(TEAM);
-  redirect(`${TEAM}?${row?.status === 'open' ? 'voted=1' : 'saved=1'}`);
+  return back(row?.status === 'open' ? 'voted=1' : 'saved=1');
 }
 
 /** Cancel an open admin motion (any admin of the store). */
@@ -393,7 +395,7 @@ export async function cancelAdminMotion(formData: FormData) {
   if (error) return err(friendlyRpcError(error.message));
 
   revalidatePath(TEAM);
-  redirect(`${TEAM}?saved=1`);
+  return back('saved=1');
 }
 
 // ── Extra team seats (Enterprise/Custom ₱250/28d add-on · owner 2026-07-02) ──
@@ -514,7 +516,7 @@ export async function stepDownSelf() {
     );
   }
   revalidatePath(TEAM);
-  redirect(`${TEAM}?saved=1`);
+  return back('saved=1');
 }
 
 /**
@@ -565,5 +567,5 @@ export async function setVendorAgentServices(formData: FormData) {
   }
 
   revalidatePath(TEAM);
-  redirect(`${TEAM}?saved=1`);
+  return back('saved=1');
 }

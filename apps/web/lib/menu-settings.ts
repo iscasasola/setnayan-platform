@@ -30,7 +30,7 @@
  */
 
 /** The menus (and the one Hub tool, Prints) that own a settings sheet — Home's is Event Settings. */
-export type SettingsMenu = 'home' | 'guests' | 'hub' | 'prints' | 'memories' | 'suppliers' | 'people' | 'today' | 'customers';
+export type SettingsMenu = 'home' | 'guests' | 'hub' | 'prints' | 'memories' | 'suppliers' | 'people' | 'today' | 'customers' | 'shop';
 
 export type SettingsEntry = {
   /**
@@ -154,6 +154,19 @@ export const SETTINGS_ENTRY: Record<SettingsMenu, SettingsEntry> = {
     line: 'How you get paid, your schedules and days.',
     live: true,
     tip: 'Settings for Customers only. What couples see on your page stays with your Shop.',
+  },
+  /**
+   * 🏪 THE SUPPLIER'S SHOP ⚙ (owner 2026-10-31, verbatim *"Yes follow your recommendation"*; DECISION_LOG "SHOP ⚙ — WHAT A
+   * SUPPLIER SETS ONCE"): the right end of Shop's pinned row on every Shop section (`ShopSettings`, one mount). It holds
+   * what a supplier sets once and rarely touches — Plan and billing · Team · Verification and documents · Notifications ·
+   * Shop status — the Home rule: the ⚙ is for rare, account-level things; the page is for the work.
+   */
+  shop: {
+    door: 'first-row-gear',
+    sheet: 'Shop settings',
+    line: 'Your plan, your team, your papers and how we reach you.',
+    live: true,
+    tip: 'What you set once and rarely touch. What you edit often — details, services, your page, your portfolio — stays on the Shop page.',
   },
 };
 

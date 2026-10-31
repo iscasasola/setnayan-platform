@@ -1,11 +1,10 @@
 import type { ReactNode } from 'react';
-import { FileText, Globe, ListChecks, MapPin, MessageSquareWarning, Pencil, Phone, Wallet } from 'lucide-react';
+import { Globe, ListChecks, MapPin, MessageSquareWarning, Pencil, Phone, Wallet } from 'lucide-react';
 import { RowIcon } from '../../_components/row-icon';
 import { Fold } from '@/app/_components/fold';
 import { Badge } from '@/app/_components/badge';
 import { detailsLine, DETAILS_CHECKLIST_KEYS, type DetailsKey } from '@/lib/supplier-details';
 import { ProfileChecklistEditor } from '../../shop/_components/profile-checklist-editor';
-import { VerifySection } from '../../shop/_components/verify-section';
 import { VenueMatchCard } from '../../shop/_components/venue-match-card';
 import { VenueTypeCard } from '../../shop/_components/venue-type-card';
 import { PublicLineCard } from '../../shop/_components/public-line-card';
@@ -33,7 +32,7 @@ import { DeepSearchCard, deepSearchFoldLine } from './deep-search-card';
  *
  * 🔑 EVERY FOLD IS A SHIPPED EDITOR, MOUNTED — NOT REDRAWN. The rows inside are `ProfileChecklistEditor`'s
  * close-save rows (each saves itself when it closes), handed only THAT fold's checklist keys; the cards are the ones
- * My Shop's Profile tile held; the papers are `VerifySection`; the money is the payment surface, embedded; Where you
+ * My Shop's Profile tile held; the papers moved to the Shop ⚙ (2026-10-31); the money is the payment surface, embedded; Where you
  * work is the Branch tile's panel. A fold opens by link: `#docs`, `#pay`, `#where` … (the shared `Fold` anchor).
  *
  * About is the page's own paragraph — it is written on Your page (one place, one draft), so here it is a row that
@@ -46,8 +45,11 @@ export function DetailsScreen({
   d,
   payBody,
   branchBody,
+  gearBody = null,
 }: {
   d: DetailsData;
+  /** ⚙ The Shop ⚙'s rows while its sheet is open (`?gear=1`) — `shopGearBody` on the real page. */
+  gearBody?: ReactNode | null;
   /** The payment surface, embedded (a server component with its own actions) — the lab hands in a stand-in. */
   payBody: ReactNode;
   /** Where you work's body — `BranchPanel` on the real page (async, store-shell aware). */
@@ -71,14 +73,13 @@ export function DetailsScreen({
   const head = line.split(' · ')[0] ?? line;
   const rest = line.slice(head.length);
   const services = d.profileFields.services.map((s) => d.profileFields.serviceLabels?.[s] ?? s);
-  const docsState = row('docs').state;
   // 🏷 Rows that change by request (owner 2026-10-29) and the asks already waiting — the ask card's own inputs.
   const asks = { requestOnly: d.requestOnly, pending: d.openCorrections.map((r) => r.field_key) };
 
   return (
     <>
       <section className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-32 pt-4 sm:px-6" data-supplier-details="">
-        <ShopSegments on="details" figures={detailsFigures({ verified: d.isVerified, docsIn: d.docsIn, docsTotal: d.docsTotal, done: p.done, of: p.of })} />
+        <ShopSegments on="details" figures={detailsFigures({ verified: d.isVerified, docsIn: d.docsIn, docsTotal: d.docsTotal, done: p.done, of: p.of })} gearBody={gearBody} />
         <h1 className="sn-h1">Your details</h1>
         <div>
           <p className="text-[15px] text-ink" data-details-line="" aria-live="polite">
@@ -271,34 +272,9 @@ export function DetailsScreen({
             </Fold>
           ) : null}
 
-          <Fold
-            anchor="docs"
-            lead={<RowIcon icon={FileText} />}
-            data="details-docs"
-            title="Your documents"
-            line={
-              docsState === 'checking'
-                ? 'Setnayan is checking your documents'
-                : d.isVerified
-                  ? 'Verified · kept private'
-                  : `${formatCount(d.docsIn)} of ${formatCount(d.docsTotal)} required · DTI or SEC · BIR 2303 · permit · a bank proof`
-            }
-            aside={badge('docs')}
-          >
-            <div className="space-y-3 pb-4">
-              {!d.verifyMeasured ? <CouldNotLoad what="your documents" /> : null}
-              <p className="text-xs text-ink/55">Kept private — only Setnayan sees them.</p>
-              <VerifySection
-                businessName={d.businessName}
-                vendorProfileId={d.vendorId}
-                isVerified={d.isVerified}
-                profileComplete={d.profileComplete}
-                profileFieldsLeft={d.fieldsLeft}
-                verify={d.verify}
-              />
-            </div>
-          </Fold>
-
+          {/* 🏪 "Your documents" MOVED to the Shop ⚙ › Verification and documents (owner 2026-10-31, "Yes follow your
+              recommendation" — DECISION_LOG "SHOP ⚙ — WHAT A SUPPLIER SETS ONCE"). `#docs` still lands: it opens the ⚙
+              on that fold (`shop-settings.tsx`). */}
           <Fold
             anchor="pay"
             lead={<RowIcon icon={Wallet} />}

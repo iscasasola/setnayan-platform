@@ -8,6 +8,7 @@ import { SupplierThumbRow } from '../_components/supplier-thumb-row';
 import { OpenFoldButton } from '../_components/open-fold-button';
 import { loadCollectionsData } from './collections-data';
 import { CollectionsList } from './_components/collections-list';
+import { shopGearBody } from '../shop/_components/shop-settings-body';
 
 export const metadata = { title: 'Your collections' };
 
@@ -41,7 +42,7 @@ const IG_ERROR_COPY: Record<string, string> = {
 export default async function YourCollectionsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ ig_connected?: string; ig_error?: string }>;
+  searchParams: Promise<{ ig_connected?: string; ig_error?: string; gear?: string; gsec?: string }>;
 }) {
   const supabase = await createClient();
   const {
@@ -63,7 +64,7 @@ export default async function YourCollectionsPage({
   return (
     <>
       <section className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-32 pt-4 sm:px-6" data-supplier-collections="">
-        <ShopSegments on="gallery" figures={galleryFigures({ photos: d.portfolioRefs.length, videos: d.galleryVideoLinks.length, credits: d.walletBalance })} />
+        <ShopSegments on="gallery" figures={galleryFigures({ photos: d.portfolioRefs.length, videos: d.galleryVideoLinks.length, credits: d.walletBalance })} gearBody={shopGearBody(sp)} />
         <h1 className="sn-h1">Your collections</h1>
         <CollectionsList
           vendorId={d.vendorId}

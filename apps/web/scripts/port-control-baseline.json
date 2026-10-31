@@ -32,6 +32,7 @@
         "LoaderOverlayProvider",
         "Metadata",
         "NativeBridge",
+        "NativePushRouter",
         "NavProgress",
         "NavSlideController",
         "NfcTestSwitch",

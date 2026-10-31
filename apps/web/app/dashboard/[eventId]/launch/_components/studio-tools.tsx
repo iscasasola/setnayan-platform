@@ -72,7 +72,7 @@ import { StudioKindlyReply, StudioMenuEditor, StudioParents, StudioPosterPhoto }
 import { StudioChartBody, StudioChartLayoutSetting, StudioChartPaper, type StudioPaper } from './print-paper';
 import { StudioPrintsCarousel } from './studio-prints-carousel';
 import { useRegisterSlide } from './prints-view-store';
-import { StudioEverything, StudioFileChoice, StudioGuestPiece, StudioHubLookRow, StudioPieceDownload, StudioPrintSettings } from './studio-prints-settings';
+import { StudioEverything, StudioFileChoice, StudioGuestPiece, StudioHubLookRow, StudioPieceDownload, StudioPrintSettings, StudioPrintSettingsDoor } from './studio-prints-settings';
 import { BACKGROUND_MAIN_INFO } from '@/lib/background-source';
 
 /**
@@ -1264,6 +1264,8 @@ export type StudioToolProps =
   /* 🗂 An all-in-one file (◆ Event Hub Pro) and one guest's pass, free (owner 2026-10-16). */
   /* 🖨 Print settings · one Download per piece · View as ▾ · All guests ◆ · Everything ◆ (owner 2026-10-17, `studio-prints-settings.tsx`). */
   | ({ part: 'print-settings' } & Parameters<typeof StudioPrintSettings>[0])
+  /* ⚙ …and its one door, the Prints page's top bar ⚙ (owner 2026-10-31) — the same lazy door, no stand-in of its own. */
+  | { part: 'print-settings-door' }
   /* 🎨 Your Event Hub look — ◆ every print wears it, 🔒 the door (owner 2026-10-21, `StudioHubLookRow`). */
   | ({ part: 'hub-look' } & Parameters<typeof StudioHubLookRow>[0])
   | ({ part: 'piece-download' } & Parameters<typeof StudioPieceDownload>[0])
@@ -1324,6 +1326,8 @@ export function StudioTool(props: StudioToolProps) {
       return <StudioPrintsCarousel {...props} />;
     case 'print-settings':
       return <StudioPrintSettings {...props} />;
+    case 'print-settings-door':
+      return <StudioPrintSettingsDoor />;
     case 'hub-look':
       return <StudioHubLookRow {...props} />;
     case 'piece-download':

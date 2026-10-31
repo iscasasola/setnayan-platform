@@ -12,7 +12,9 @@
  * than one coverage group — a single-group vendor has nothing to filter.
  */
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { couplePhotoShare } from '@/app/_actions/couple-photo-share-actions';
+import type { CoupleLook } from '@/lib/service-card-view-model';
 import Image from 'next/image';
 import { BadgePercent, Check, ChevronRight, Info, Users } from 'lucide-react';
 import { ServiceCardView } from '@/app/_components/service-card-view';
@@ -56,13 +58,44 @@ export function ServicesGallery({
    * matched against the cards the server actually rendered), never errors.
    */
   openServicePublicId = null,
+  viewerSignedIn = false,
 }: {
   groups: ServiceGroup[];
+  /**
+   * 👁 A SIGNED-IN viewer (owner 2026-10-30, "set who gets to see it"): after the page, ask once for the NON-public
+   * couple photos this viewer is inside the audience of (the database decides; signed URLs). The server-rendered
+   * cards carry Public ones only, so nothing non-public is ever in the cached HTML. Not signed in → no request.
+   */
+  viewerSignedIn?: boolean;
   detailsEnabled?: boolean;
   inquireMode?: ServiceInquireMode;
   openServicePublicId?: string | null;
 }) {
   const [active, setActive] = useState<string>(ALL);
+
+  const cardIds = useMemo(() => groups.flatMap((g) => g.cards.map((c) => c.id)), [groups]);
+  const [extraLooks, setExtraLooks] = useState<Record<string, CoupleLook[]>>({});
+  useEffect(() => {
+    if (!viewerSignedIn || cardIds.length === 0) return;
+    let live = true;
+    couplePhotoShare({ op: 'viewer_looks', vendorServiceIds: cardIds })
+      .then((reply) => {
+        if (live && reply.op === 'viewer_looks') setExtraLooks(reply.result);
+      })
+      .catch(() => {
+        /* Fail quiet: the Public photos already on the card stay; nothing else is promised. */
+      });
+    return () => {
+      live = false;
+    };
+  }, [viewerSignedIn, cardIds]);
+  /** The card as THIS viewer may see it: its Public couple photos, then the extra ones the audience lets them see. */
+  const withViewerLooks = (c: ServiceCard): ServiceCard => {
+    const extra = extraLooks[c.id];
+    if (!extra || extra.length === 0) return c;
+    const seen = new Set((c.coupleLooks ?? []).map((l) => l.id));
+    return { ...c, coupleLooks: [...(c.coupleLooks ?? []), ...extra.filter((l) => !seen.has(l.id))] };
+  };
 
   // The card whose details sheet is open, by `ServiceCard.id`. Seeded ONCE from
   // the deep link (lazy initial state, so a later re-render can't re-open a
@@ -123,7 +156,7 @@ export function ServicesGallery({
               {g.cards.map((c) => (
                 <li key={c.id}>
                   <ServiceCardView
-                    card={c}
+                    card={withViewerLooks(c)}
                     detailsEnabled={detailsEnabled}
                     onOpen={() => setOpenCardId(c.id)}
                   />

@@ -153,7 +153,7 @@ export function DressCodeFields({
       <div className="space-y-2">
         <p className={label}>What each group wears</p>
         <p className="text-xs text-ink/55">
-          What each group wears, and when they arrive, are set in Studio › Mood Board &amp; Dress Code. Here: a note.
+          What each group wears, and when they arrive, are set in Studio › Palette + Dress Code. Here: a note.
         </p>
         <GroupAttireField
           groups={eventGroups}
@@ -174,7 +174,7 @@ export function DressCodeFields({
       <div className="space-y-2">
         <p className={label}>What each role wears</p>
         <p className="text-xs text-ink/55">
-          Their outfit and call time are set in Studio › Mood Board &amp; Dress Code. Here: a note.
+          Their outfit and call time are set in Studio › Palette + Dress Code. Here: a note.
         </p>
         <RoleAttireField roles={ownRowRoles} saved={config.roles} compact={compact} wear={wearOf} />
         {/* 🛟 Every other role's stored line rides along unchanged — the Studio dresses those people by their group's

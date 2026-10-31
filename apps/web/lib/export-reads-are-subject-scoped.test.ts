@@ -68,6 +68,10 @@ const ANCHORS: Record<string, RegExp> = {
   vendor_reuse_requests: eqUid('requested_by_user_id'),
   /* 🤝🖼 Photos the subject suggested to a couple's board as a booked supplier — the author's act (2026-10-19). */
   event_inspiration_suggestions: eqUid('suggested_by_user_id'),
+  // 📸 #7089 — the subject's own photo shares, author-scoped on the uploader.
+  couple_photo_shares: eqUid('shared_by_user_id'),
+  // the subject's OWN crew passes (2026-10-29) — the crew member is the row's person; the deciding shop is not
+  vendor_crew_passes: eqUid('crew_user_id'),
   event_vendor_working_notes: eqUid('author_user_id'),
   coordinator_broadcasts: eqUid('sender_user_id'),
   event_day_requests: eqUid('author_user_id'),
@@ -77,6 +81,8 @@ const ANCHORS: Record<string, RegExp> = {
   event_costs: eqUid('created_by_user_id'),
   event_colour_grants_coordinator: eqUid('user_id'),
   event_colour_changes: eqUid('actor_user_id'),
+  /* 🖼⏱ The Mood Board changes the subject made under Mood Board Edit — the author's act (2026-10-30). */
+  event_mood_board_changes: eqUid('actor_user_id'),
   // couple-grain by decision (2026-09-11): the caller's OWN couple events — pinned
   // by T15 in export-coverage-guardrail.test.ts
   event_vendor_payments: /\.in\(\s*'event_id'\s*,\s*owned\.ids\s*\)/,

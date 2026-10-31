@@ -48,10 +48,17 @@ export function PreparationAgendaView({
   agenda,
   hasEventDate,
   eventWord = 'wedding',
+  booked = false,
 }: {
   eventId: string;
   agenda: PreparationAgenda;
   hasEventDate: boolean;
+  /**
+   * 📅 Drawn as Suppliers › Booked › Schedule › Preparation (owner 2026-10-31: *"so many upper space not used"*): the
+   * steps start at once — "+ Add a step" is the pill in the thumb zone and what feeds the agenda is said in the page's
+   * ⓘ (`preparationLegendWords`), not in a tinted band above the rows.
+   */
+  booked?: boolean;
   /** eventNoun(event_type) — a birthday is not told to set its "wedding date". */
   eventWord?: 'wedding' | 'event';
 }) {
@@ -62,13 +69,17 @@ export function PreparationAgendaView({
   }
 
   return (
-    <div className="space-y-7">
-      <div className="space-y-3">
-        <div className="flex justify-end">
-          <AddPreparationItem eventId={eventId} />
+    <div className="space-y-7" data-prep-agenda={booked ? 'booked' : 'page'}>
+      {booked ? (
+        <AddPreparationItem eventId={eventId} door="pill" />
+      ) : (
+        <div className="space-y-3">
+          <div className="flex justify-end">
+            <AddPreparationItem eventId={eventId} />
+          </div>
+          <PreparationLegend sourceCounts={agenda.sourceCounts} />
         </div>
-        <PreparationLegend sourceCounts={agenda.sourceCounts} />
-      </div>
+      )}
       {agenda.groups.map((group) => (
         <section key={group.key} aria-labelledby={`prep-month-${group.key}`} className="space-y-3">
           <h2
@@ -227,6 +238,14 @@ function PreparationLegend({
       </p>
     </section>
   );
+}
+
+/** What feeds the agenda, in a sentence — the legend's words, for the page's ⓘ under Booked (owner 2026-10-31). */
+export function preparationLegendWords(sourceCounts: Record<PreparationSource, number>): string {
+  const present = (Object.keys(sourceCounts) as PreparationSource[]).filter((s) => sourceCounts[s] > 0).map((s) => SOURCE_PLAIN_LABEL[s]);
+  if (present.length === 0) return 'Dated steps gather here from your supplier payments, meetings and paperwork.';
+  const list = present.length === 1 ? present[0] : `${present.slice(0, -1).join(', ')} and ${present[present.length - 1]}`;
+  return `This agenda fills in automatically from your ${list}. Update any item on its own page — tap a row to jump there.`;
 }
 
 const SOURCE_PLAIN_LABEL: Record<PreparationSource, string> = {

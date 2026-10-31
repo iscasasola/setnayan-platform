@@ -216,9 +216,13 @@ test('the scan still reads PAST a line break (the blindness that cost three outc
 });
 
 test('🚨 every outcome arrives — Home’s searchParams carry it (its own type, or the banners’ key list)', () => {
-  const at = HOME.indexOf('searchParams?: Promise<{');
+  // The type's own shape, not its line breaks: since 2026-10-30 (Home's ⚙ `?settings=1&row=` and the Date Finder's
+  // `?date=find`) it is written over several lines (`Promise<\n {…} & PapicOutcomes\n >`).
+  const at = HOME.search(/searchParams\?: Promise<\s*\{/);
   assert.ok(at > 0, 'Home’s searchParams type moved');
-  const type = HOME.slice(at, HOME.indexOf('}>;', at));
+  const end = HOME.indexOf('PapicOutcomes', at);
+  assert.ok(end > at, 'Home’s searchParams no longer take the Papic outcomes');
+  const type = HOME.slice(at, end + 'PapicOutcomes'.length);
   assert.match(type, /& PapicOutcomes/, 'Home’s searchParams no longer take the Papic outcomes');
   const list = region('export const PAPIC_OUTCOME_KEYS = [', '] as const;');
   const missing = KEYS.filter((k) => !new RegExp(`\\b${k}\\?:`).test(type) && !list.includes(`'${k}'`));

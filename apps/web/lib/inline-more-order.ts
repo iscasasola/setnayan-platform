@@ -50,7 +50,7 @@
  * something only a browser could show you.
  */
 
-import { orderByBenchSort, type BenchSort, type BenchSortFacts } from '@/lib/bench-sort';
+import { orderByBenchSort, type BenchSort, type BenchSortFacts, type SortShape } from '@/lib/bench-sort';
 import { LENSES } from '@/lib/ranking-lenses';
 import type { CompatInputs } from '@/lib/compat-score';
 
@@ -137,11 +137,15 @@ export function inlineMoreSortFacts(row: InlineMoreOrderable): BenchSortFacts {
  * "can this lens discriminate?" rule is exactly the drift this repo keeps
  * producing; there is one, and it lives in `ranking-lenses.ts`.
  */
-export function canOrderInlineMoreRow(mode: BenchSort, tail: readonly InlineMoreOrderable[]): boolean {
+export function canOrderInlineMoreRow<T extends InlineMoreOrderable>(
+  mode: BenchSort,
+  tail: readonly T[],
+  adjust?: SortShape<T>['adjust'],
+): boolean {
   if (tail.length < 2) return false;
   if (mode === 'price') return tail.some((r) => r.startsAtPhp != null);
   if (mode === 'rating') return tail.some((r) => r.rating != null);
-  return !LENSES[mode].hideWhen(tail.map(inlineMoreCompatInputs));
+  return !LENSES[mode].hideWhen(tail.map((r) => (adjust ? adjust(r, inlineMoreCompatInputs(r)) : inlineMoreCompatInputs(r))));
 }
 
 /**
@@ -154,6 +158,8 @@ export function canOrderInlineMoreRow(mode: BenchSort, tail: readonly InlineMore
 export function orderInlineMoreRow<T extends InlineMoreOrderable>(
   rows: readonly T[],
   mode: BenchSort,
+  /** 🧭 Find's shaped sort (the venue "Nearest" measures from) — swaps one scorer input, never a card's own facts. */
+  adjust?: SortShape<T>['adjust'],
 ): T[] {
   const slots: number[] = [];
   for (let i = 0; i < rows.length; i += 1) {
@@ -164,9 +170,12 @@ export function orderInlineMoreRow<T extends InlineMoreOrderable>(
   // Nothing to order, or nothing the chip can order it BY. Hand the ladder's
   // own order straight back rather than running a comparator that would shuffle
   // on tie-breaks the couple never asked for.
-  if (!canOrderInlineMoreRow(mode, tail)) return [...rows];
+  if (!canOrderInlineMoreRow(mode, tail, adjust)) return [...rows];
 
-  const sorted = orderByBenchSort(tail, mode, inlineMoreSortFacts);
+  const sorted = orderByBenchSort(tail, mode, (r) => {
+    const f = inlineMoreSortFacts(r);
+    return adjust ? { ...f, compat: adjust(r, f.compat) } : f;
+  });
   const out = [...rows];
   slots.forEach((slot, k) => {
     const picked = sorted[k];
@@ -211,17 +220,19 @@ function leadPhrase(rows: readonly InlineMoreOrderable[]): string | null {
  * just pressed is a new small lie in place of the old one. The caller renders
  * the chips, so the caller owns the label.
  */
-export function inlineMoreOrderNote(args: {
-  rows: readonly InlineMoreOrderable[];
+export function inlineMoreOrderNote<T extends InlineMoreOrderable>(args: {
+  rows: readonly T[];
   mode: BenchSort;
   modeLabel: string;
+  /** The same shaped-sort swap `orderInlineMoreRow` was handed, so the sentence and the order agree. */
+  adjust?: SortShape<T>['adjust'];
 }): string | null {
-  const { rows, mode, modeLabel } = args;
+  const { rows, mode, modeLabel, adjust } = args;
   if (rows.length === 0) return null;
 
   const tail = rows.filter((r) => r.ladderTier === ORDERABLE_TIER);
   const lead = leadPhrase(rows);
-  const ordered = canOrderInlineMoreRow(mode, tail);
+  const ordered = canOrderInlineMoreRow(mode, tail, adjust);
   const chip = `your ‘${modeLabel}’`;
 
   // The whole row is tail — there is no protected rung here at all, so the

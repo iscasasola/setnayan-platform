@@ -11,6 +11,8 @@ import type { CanvasInitial } from '@/lib/canvas-initial';
 import type { SelfAddedSupplierPrefill, UpdateSelfAddedSupplierResult } from '@/app/dashboard/[eventId]/vendors/actions';
 import { PLAN_PRESENT_FIELD, buildCouplePaymentPlan, partialSaveSentence, planSaveStep, type CouplePlanRowInput } from '@/lib/self-added-payment-plan';
 import type { CoverCatalogFolder } from '@/lib/shortlist-taxonomy';
+import { SupplierShareStandInCtx } from '@/app/dashboard/[eventId]/_components/supplier-share-button';
+import type { SupplierSharePayload } from '@/lib/supplier-share';
 
 export function LabCard({ initial }: { initial: CanvasInitial | null }) {
   return (
@@ -31,14 +33,26 @@ export function LabRecord({
   edit,
   categoryLabel = 'Catering',
   coverCatalog,
+  link,
+  share,
 }: {
   eventId: string;
+  /** The lab's stand-in for the Share's one request — the real message and card, on the sample facts. */
+  share?: SupplierSharePayload;
+  /** The lab's stand-in claim link (a sample URL and its QR, drawn by the page) — no session here to make a real one. */
+  link?: { url: string; qrSvg: string };
   edit: SelfAddedSupplierPrefill;
   categoryLabel?: string;
   /** The Suppliers page's rows for a wedding, built by the page's own call (no database here). */
   coverCatalog: readonly CoverCatalogFolder[];
 }) {
   return (
+    <SupplierShareStandInCtx.Provider
+      value={async () => {
+        await new Promise((r) => setTimeout(r, 300));
+        return share ? { ok: true as const, share } : { ok: false as const, error: 'We could not get their invite ready just now. Try again.' };
+      }}
+    >
     <NewManualVendorModal
       eventId={eventId}
       category={edit.category}
@@ -46,9 +60,11 @@ export function LabRecord({
       coverCatalog={coverCatalog}
       edit={edit}
       saveRecord={labSaveRecord}
+      makeLink={async () => (link ? { ok: true as const, ...link } : { ok: false as const, error: 'We could not make their link just now.' })}
       onClose={() => {}}
       onCreated={() => {}}
     />
+    </SupplierShareStandInCtx.Provider>
   );
 }
 

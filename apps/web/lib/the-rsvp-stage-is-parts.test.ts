@@ -365,7 +365,8 @@ test('2 · WIRING: the Stages panel reads the pick with the map every stage uses
      the finger is now kept WITH that part (`lineAtPart`). The claim is unchanged — the part is found by the one map
      every stage uses, and a tap that is no part lets go. */
   assert.match(TOOLS, /else if \(d\.t === RSVP_PICK_MESSAGE && typeof d\.key === 'string'\) \{\s*const k = makerPartOfTap\(RSVP_STAGE_KEY, where\.current\.shownPage, d\.key, typeof d\.el === 'string' \? d\.el : null\);\s*const tappedLine = k \? rsvpLineOf\(d\.key, typeof d\.line === 'string' \? d\.line : null\) : null;\s*setLineAtPart\(k && tappedLine \? \{ part: k, line: tappedLine \} : null\);\s*if \(k\) pickPartRef\.current\(k\);\s*else deselectRef\.current\(\);/);
-  assert.match(TOOLS, /else if \(d\.t === RSVP_GROUND_MESSAGE\) deselectRef\.current\(\);/);
+  /* 🫥 The RSVP stage's ground, as every stage's (2026-10-30): the toolbar is put away; the part stays picked. */
+  assert.match(TOOLS, /else if \(d\.t === RSVP_GROUND_MESSAGE\) stowRef\.current\(\);/);
   /* Picking on the RSVP stage asks the stage for its tools and returns BEFORE the work area's `edit`. */
   const pick = TOOLS.slice(TOOLS.indexOf('const pickPart = useCallback('), TOOLS.indexOf('const pickPartRef'));
   assert.match(pick, /if \(rsvpOpen\) \{\s*askRsvpStage\(\{ controls: true \}\);\s*return;\s*\}[\s\S]*t: 'edit'/, 'a pick on the RSVP stage reaches the work area');
@@ -562,7 +563,7 @@ test('5 · 👆 a FINGER reaches the tabs: the row stands in the RSVP stage’s 
   /* …the screens take what is left; the slot never shrinks; the row in it is in flow (no place of its own). */
   const screens = /<div className="([^"]*)" data-rsvp-stage-body="">/.exec(STAGE);
   assert.ok(screens && ['min-h-0', 'flex-1'].every((c) => screens[1]!.split(/\s+/).includes(c)), 'the screens do not give way to the row');
-  assert.match(TOOLS, /style=\{rsvpOpen \? undefined : \{ bottom: 'calc\(var\(--maker-lt-h\) \+ env\(safe-area-inset-bottom\)\)'/, 'the row is placed over the page on the RSVP stage');
+  assert.match(TOOLS, /style=\{rsvpOpen \? undefined : \{ bottom: 'calc\(var\(--maker-lt-h\) \+ var\(--maker-safe-b, env\(safe-area-inset-bottom\)\)\)'/, 'the row is placed over the page on the RSVP stage');
   assert.match(TOOLS, /className=\{rsvpOpen \? 'relative border-t/, 'the row is taken out of the column’s flow');
   /* The stage says it is up as it mounts — the panel finds the slot then (it may have mounted first). */
   assert.match(TOOLS, /if \(!isRsvpStageScene\(s\)\) return;\s*findSlot\(\);/);

@@ -15,6 +15,8 @@
 # ── TEXT: a string property whose digits were grouped where it was built ──
 app/dashboard/[eventId]/studio/mood-board/_components/mood-board-studio.tsx :: photosHead :: TEXT — RowSheet's "Photos · N" heading, a string whose count was grouped by formatCount where the sheet builds it
 app/dashboard/[eventId]/guests/page.tsx :: guestsScreen :: TEXT — a React element (the Guests screen), not a number; the scanner reads its name
+app/dashboard/[eventId]/vendors/_components/services-takeover.tsx :: faceCount :: TEXT — a React element (the row's count: <Count> rolls each number, "2/5" · "3 booked"), not a number; the scanner reads its name
+app/dashboard/[eventId]/vendors/_components/booked-part-row.tsx :: count :: TEXT — a React portal of the part's line, built by its page with formatCount / formatPhp; not a number, the scanner reads its name
 app/(shell)/papic/_papic-free-credits.tsx :: promise.count :: TEXT — PapicFreeCreditPromise.count is built by points.toLocaleString('en-PH') in lib/papic-free-credit-promise.ts
 app/(shell)/papic/_papic-free-credits.tsx :: promise.count :: TEXT — the second render of the same grouped string
 app/realstories/[slug]/page.tsx :: wedding.guestCount :: TEXT — RealWedding.guestCount is static copy ("120 guests") in lib/real-weddings.ts
@@ -44,6 +46,4 @@ app/_components/memories/event-memories-gallery.tsx :: addPhotos :: TEXT — add
 app/receipts/_components/receipt-slip.tsx :: amount :: TEXT — the slip receives the amount already formatted by formatPhp/formatCentavosPhp in the receipt page
 app/receipts/_components/receipt-slip.tsx :: total :: TEXT — the total arrives pre-formatted (formatPhp) from the receipt page
 app/receipts/_components/receipt-slip.tsx :: line.amount :: TEXT — each line amount arrives pre-formatted from the receipt page
-app/dashboard/[eventId]/guests/_components/guests-screen.tsx :: count :: TEXT — the Guests segment's count is a React element (<Count value=…>, which groups with formatCount itself), not a raw number; the scanner reads its name
-app/dashboard/[eventId]/guests/_components/guests-screen.tsx :: count :: TEXT — the second render of the same <Count> element (the selected segment's menu trigger)
 lib/guests-views.ts :: GUESTS_TOP_LABEL.guests :: TEXT — the word "Guests" (the top row's segment label in the pinned menu's words), a label, never a quantity

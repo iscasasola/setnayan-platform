@@ -1,5 +1,6 @@
 'use client';
 
+import { formatPesoTyping } from '@/lib/peso-as-you-type';
 import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { flushSync } from 'react-dom';
 import { Check, ChevronDown, Pencil, X } from 'lucide-react';
@@ -679,7 +680,7 @@ export function TypedRow({
           key="field"
           name={name}
           nameId={nameId}
-          start={amount ? amountDigits(shown) : shown}
+          start={amount ? formatPesoTyping(amountDigits(shown), undefined, 0).text : shown}
           placeholder={placeholder ?? name}
           long={long}
           maxLength={maxLength}
@@ -932,7 +933,28 @@ export function FormRowField({
             {mark}
           </span>
         ) : null}
-        <input {...shared} inputMode={inputMode} enterKeyHint={onwards ? 'next' : 'done'} onChange={(e) => setText(e.target.value)} onKeyDown={onKeys} />
+        <input
+          {...shared}
+          inputMode={inputMode}
+          enterKeyHint={onwards ? 'next' : 'done'}
+          /* 💱 AN AMOUNT GETS ITS COMMAS AS IT IS TYPED (owner 2026-10-30: "cannot place commas because it only shows
+             number pad"). `onInput` runs before React's `onChange` reads the field, so the words the row is told are
+             already "100,000"; the caret stays after the digit just typed; the keep still takes only the digits. */
+          onInput={
+            mark
+              ? (e) => {
+                  const el = e.currentTarget;
+                  const f = formatPesoTyping(el.value, el.selectionStart ?? el.value.length, 0);
+                  if (f.text !== el.value) {
+                    el.value = f.text;
+                    el.setSelectionRange(f.caret, f.caret);
+                  }
+                }
+              : undefined
+          }
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={onKeys}
+        />
       </span>
       {x}
     </div>
@@ -1077,6 +1099,7 @@ export function OpensRow({
 export function SwitchRow({
   name,
   about,
+  line,
   on,
   onChange,
   disabled = false,
@@ -1090,6 +1113,8 @@ export function SwitchRow({
 }: {
   name: string;
   about?: FormRowAbout | null;
+  /** One quiet line under the name, inside the row — what the switch does, or where it stands ("Not yet — …"). */
+  line?: ReactNode;
   on: boolean;
   onChange: (next: boolean) => void;
   /**
@@ -1127,7 +1152,7 @@ export function SwitchRow({
     tellTheForm(post.current);
   }, [on]);
   return (
-    <FormRow name={name} about={about} note={note} problem={problem} below={below} data={data} attrs={{ ...attrs, 'data-form-row-kind': 'switch' }}>
+    <FormRow name={name} about={about} line={line} note={note} problem={problem} below={below} data={data} attrs={{ ...attrs, 'data-form-row-kind': 'switch' }}>
       <button
         type="button"
         role="switch"

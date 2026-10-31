@@ -24,7 +24,10 @@ import {
 } from '@/lib/schedule';
 import { fetchPreparationAgenda } from '@/lib/preparation';
 import { buildJourneyTimeline } from '@/lib/journey';
-import { resolveProfile } from '@/lib/event-type-profile';
+import { resolveProfile, resolveProfileByEvent } from '@/lib/event-type-profile';
+import { BOOKED_SCHEDULE_PART } from '@/lib/pillar-parts';
+import { BookedPartRow } from '../vendors/_components/booked-part-row';
+import { BOOKED_SCHEDULE_TOOLS_SLOT } from './_components/booked-schedule-slot';
 import { term } from '@/lib/event-term-copy';
 import { SubmitButton } from '@/app/_components/submit-button';
 import {
@@ -58,7 +61,7 @@ import { HostQuestions } from './_components/host-questions';
 // table, same INSERT policy, no permission widened.
 import { TellTheHost } from './_components/tell-the-host';
 import { parseNoteFlash } from './_components/note-flash';
-import { PreparationAgendaView } from './_components/preparation-agenda';
+import { PreparationAgendaView, preparationLegendWords } from './_components/preparation-agenda';
 // Journey mode — the full event-lifecycle arc (creation → the day →
 // editorial), a phase-grouped read-only view over the same agenda data plus
 // three lifecycle bookends. See lib/journey.ts.
@@ -115,7 +118,7 @@ import { formatCount } from '@/lib/format-number';
 // Every write below still goes through `./actions` and `_actions/day-of-broadcast`.
 /* ⚡ The day rail, Announce and the tips load when the Schedule is opened — never
    with the Maker that draws this page (`_components/schedule-lazy.tsx`). */
-import { AnnounceButton, ScheduleDay, Tip } from './_components/schedule-lazy';
+import { AnnounceButton, BookedScheduleFrame, ScheduleDay, Tip } from './_components/schedule-lazy';
 import type { DayMoment, DayRequest, DayRole } from './_components/day-types';
 import { MiniTour } from '@/app/_components/mini-tour';
 import {
@@ -135,6 +138,10 @@ export const metadata = { title: 'Schedule' };
 
 type ScheduleView = 'journey' | 'preparation' | 'event-day';
 
+/** What the Event Day view's ⓘ says — the moments' two audiences. */
+const EVENT_DAY_NOTE =
+  'Moments shown to guests appear on the Event Hub, with a live “happening now” on the day. Hidden moments stay between you, your coordinator and the suppliers you tag.';
+
 type Props = {
   params: Promise<{ eventId: string }>;
   searchParams: Promise<{
@@ -144,6 +151,12 @@ type Props = {
     host_answers?: string;
     /** `1` = drawn as Details › Schedule inside the Event Hub Maker (Details part 2b). */
     maker?: string;
+    /**
+     * `1` = drawn as Suppliers › Booked › Schedule (owner 2026-10-29, *"so booked has budget and schedule."*;
+     * 2026-10-27, "rendered whole, like Budget"). Booked's first row ("Schedule ▾ · 7 moments") stands where the
+     * masthead was; everything else is this page, unchanged.
+     */
+    booked?: string;
   }>;
 };
 
@@ -155,8 +168,10 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
     note: noteParam,
     host_answers: hostAnswersFlash,
     maker: makerParam,
+    booked: bookedParam,
   } = await searchParams;
   const inMaker = makerParam === '1';
+  const inBooked = bookedParam === '1';
   // Result of a "Tell the host" send. Anything we did not write ourselves is
   // treated as no flash at all, so a hand-edited URL cannot forge "Sent."
   const noteFlash = parseNoteFlash(noteParam);
@@ -171,14 +186,30 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
      couple of an event with an Event Hub its address now lands there, carrying
      its own query (a view, a lens, a save's flash). Everybody else — a
      coordinator, an event type with no Event Hub — keeps this page as it was. */
-  if (!inMaker && (await detailsIsTheDoor(supabase, eventId, user.id))) {
-    redirect(detailsDoorHref(eventId, 'schedule', { view: viewParam, ros: rosParam, note: noteParam, host_answers: hostAnswersFlash }));
+  const viewer = await fetchEventViewer(supabase, eventId, user.id);
+  /* 📅 THE SCHEDULE MOVED TO SUPPLIERS › BOOKED (owner 2026-10-29: Booked = Team · Budget · Schedule; 2026-10-27,
+     "rendered whole, like Budget"). Its old address — and every link that still carries it — lands there with its
+     own query, for anyone who can open Suppliers (an event type with suppliers; a delegate the host did not keep
+     out of them). Anybody else keeps this page, or the Maker's door, exactly as before. */
+  if (!inMaker && !inBooked) {
+    const suppliersOpen =
+      (await resolveProfileByEvent(eventId)).marketplaceEnabled === true && !isDelegateWithoutArea(viewer, 'vendors');
+    if (suppliersOpen) {
+      const q = new URLSearchParams({ part: BOOKED_SCHEDULE_PART });
+      for (const [k, v] of Object.entries({ view: viewParam, ros: rosParam, note: noteParam, host_answers: hostAnswersFlash })) {
+        if (v) q.set(k, v);
+      }
+      redirect(`/dashboard/${eventId}/vendors?${q.toString()}`);
+    }
+    if (await detailsIsTheDoor(supabase, eventId, user.id)) {
+      redirect(detailsDoorHref(eventId, 'schedule', { view: viewParam, ros: rosParam, note: noteParam, host_answers: hostAnswersFlash }));
+    }
   }
 
   // 👥 People with access (owner 2026-10-03): The Day is its own area. A
   // delegate the host set to Off reads no moments (20271262573732 closed the
   // door) — say so, never draw an empty day.
-  if (isDelegateWithoutArea(await fetchEventViewer(supabase, eventId, user.id), 'schedule')) {
+  if (isDelegateWithoutArea(viewer, 'schedule')) {
     return <NotSharedWithYou title="Schedule" thing="schedule" />;
   }
 
@@ -197,7 +228,8 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
        page says so where the moments would be, with Try again — and stops there, before anything could seed a
        run of show over moments it merely failed to read. Everywhere else the read throws, as it always has. */
     fetchScheduleBlocks(supabase, eventId).catch((error: unknown) => {
-      if (!inMaker) throw error;
+      // Under Booked the page is inside Suppliers too — it says so in place, as the Maker does.
+      if (!inMaker && !inBooked) throw error;
       logQueryError('SchedulePage.blocks', error, { eventId }, 'graceful_degrade');
       return null;
     }),
@@ -372,7 +404,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
       ? viewParam
       : /* In the Event Hub Maker (Details › Schedule) the page opens on the day
            itself — the moments guests see, the ones a tap on a stage selects. */
-        inMaker
+        inMaker || inBooked
         ? 'event-day'
         : agenda.items.length > 0
         ? 'preparation'
@@ -591,89 +623,23 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
         })
       : active === 'preparation'
         ? 'Every dated step still ahead — gathered from your payments, paperwork and supplier meetings, sorted by month. Tap an item to manage it where it lives.'
-        : 'Moments shown to guests appear on the Event Hub, with a live “happening now” on the day. Hidden moments stay between you, your coordinator and the suppliers you tag.';
+        : EVENT_DAY_NOTE;
 
-  return (
-    /* 💾 The schedule is kept on the phone and shown at once on the next
-       open, then refreshed (owner 2026-10-02, DECISION_LOG "LAST-SEEN DATA
-       SHOWS INSTANTLY, THEN REFRESHES"). Payment due dates carry `data-money`
-       and are never kept (lib/last-seen). Not inside the Maker (`?maker=1`). */
-    <LastSeenCapture page="schedule">
-    <section className="sn-col space-y-5">
-      {/* Inside the Maker, Details' own header names it. */}
-      {inMaker ? null : <PageMasthead title="Schedule" />}
-
-      {/* ONE LINE AND AN ⓘ — the paragraph that opened this page is gone
-          ("SCHEDULE (event-day view) JOINS THE PAGE REDESIGN": intro paragraph
-          → one line + ⓘ). Who, when, how long to go, and whether you can edit. */}
-      <header className="space-y-3">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-          <p className="text-sm text-ink/60">
-            {eventRow?.display_name?.trim() ? (
-              <b className="font-semibold text-ink/85">{eventRow.display_name.trim()}</b>
-            ) : null}
-            {eventRow?.display_name?.trim() && dateLabel ? ' · ' : null}
-            {dateLabel}
-            {daysToGo !== null && daysToGo > 0 && !isEventDay ? (
-              <>
-                {' · '}
-                <b className="font-semibold text-ink/85">{daysToGo}</b> day{daysToGo === 1 ? '' : 's'} to go
-              </>
-            ) : null}
-          </p>
-          <span className="inline-flex h-7 items-center gap-1.5 rounded-full bg-ink/[0.05] pl-2.5 pr-1 text-[11.5px] font-semibold text-ink/65">
-            <i
-              aria-hidden
-              className={`h-1.5 w-1.5 rounded-full ${dayRole === 'view' ? 'bg-ink/35' : 'bg-success-600'}`}
-            />
-            {roleLabel}
-            <Tip>
-              Hosts build the schedule. A coordinator edits only after a host approves them — the host
-              invite plus your consent under the Data Privacy Act (RA 10173). Everyone else reads.
-            </Tip>
-          </span>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <ScheduleModeToggle
-            active={active}
-            prepCount={agenda.items.length}
-            journeyCount={journey.totalEntries}
-          />
-          <span className="ml-auto flex items-center gap-2">
-            <Tip align="end">{viewNote}</Tip>
-            {canAnnounce ? (
-              /* In the Maker's Details, Announce is a piece of the Schedule: its
-                 button (and its sheet) sit in the right column (`InSlot`). */
-              <InSlot id={inMaker ? DETAILS_SCHEDULE_ANNOUNCE_SLOT : null}>
-                <AnnounceButton
-                  eventId={eventId}
-                  isEventDay={isEventDay}
-                  recent={recentAnnouncements}
-                />
-              </InSlot>
-            ) : null}
-          </span>
-        </div>
-      </header>
-
-      {active !== 'event-day' ? (
-        <VendorMeetingsSection eventId={eventId} meetings={vendorMeetings} />
-      ) : null}
-
-      {active === 'journey' ? (
-        <JourneyView
-          timeline={journey}
-          hasEventDate={eventDate !== null}
-          eventId={eventId}
-        />
-      ) : active === 'preparation' ? (
-        <PreparationAgendaView
-          eventId={eventId}
-          agenda={agenda}
-          hasEventDate={eventDate !== null}
-          eventWord={eventNoun(eventRow?.event_type)}
-        />
-      ) : isTravel ? (
+  /* 📅 THE DAY ITSELF — the rail (or a trip's own view), drawn once and placed by either frame below: the standalone
+     page's, or Suppliers › Booked's one line (`booked-schedule-frame.tsx`), where its tools ride that line and its
+     add is the pill in the thumb zone. */
+  const journeyView = <JourneyView timeline={journey} hasEventDate={eventDate !== null} eventId={eventId} />;
+  const prepView = (
+    <PreparationAgendaView
+      eventId={eventId}
+      agenda={agenda}
+      hasEventDate={eventDate !== null}
+      eventWord={eventNoun(eventRow?.event_type)}
+      booked={inBooked}
+    />
+  );
+  const eventDayView = (
+      isTravel ? (
         // A TRIP KEEPS ITS OWN VIEW. Hotel nights run from one afternoon to the
         // next morning and tours carry a clash guard; drawn on a one-day rail
         // they would be twenty-hour bars. The travel list, the day-by-day lens
@@ -840,6 +806,8 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
           ) : null}
           <ScheduleDay
             inspectorSlot={inMaker ? DETAILS_SCHEDULE_INSPECTOR_SLOT : null}
+            frame={inBooked ? 'booked' : 'page'}
+            toolsSlot={inBooked ? BOOKED_SCHEDULE_TOOLS_SLOT : null}
             actions={{
               updateScheduleBlock,
               bulkRetimeScheduleBlocks,
@@ -898,6 +866,152 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
               ) : null
             }
           />
+        </>
+      )
+  );
+
+  /** The day's moments (parts sit inside them) — Booked › Schedule's count, "7 moments". */
+  const topLevelCount = scheduleBlocks.filter((b) => !b.parent_block_id).length;
+  /** "Friday 18 December 2026 · 50 days to go" — Booked's date line (frame 19); the rest is in its ⓘ. */
+  const bookedDateLine = [
+    eventDateKey
+      ? new Date(`${eventDateKey}T00:00:00Z`).toLocaleDateString('en-GB', {
+          timeZone: 'UTC',
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        }).replace(',', '')
+      : 'No date yet',
+    isEventDay ? 'today' : daysToGo !== null && daysToGo > 0 ? `${formatCount(daysToGo)} day${daysToGo === 1 ? '' : 's'} to go` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  return (
+    /* 💾 The schedule is kept on the phone and shown at once on the next
+       open, then refreshed (owner 2026-10-02, DECISION_LOG "LAST-SEEN DATA
+       SHOWS INSTANTLY, THEN REFRESHES"). Payment due dates carry `data-money`
+       and are never kept (lib/last-seen). Not inside the Maker (`?maker=1`). */
+    <LastSeenCapture page="schedule">
+    <section className={inBooked ? 'space-y-5' : 'sn-col space-y-5'} data-schedule-in-booked={inBooked ? '' : undefined}>
+      {/* Inside the Maker, Details' own header names it; under Suppliers › Booked the page's ONE row does —
+          `[Booked · Schedule ▾] · 7 moments · ⚙` — and this page only hands it the count (owner 2026-10-31). */}
+      {inBooked ? (
+        <BookedPartRow current="schedule" line={`${formatCount(topLevelCount)} moment${topLevelCount === 1 ? '' : 's'}`} />
+      ) : inMaker ? null : (
+        <PageMasthead title="Schedule" />
+      )}
+
+      {inBooked ? (
+        /* 📅 SUPPLIERS › BOOKED › SCHEDULE (owner 2026-10-31, live iPhone: *"so many upper space not used"*; frames
+           19 · 19b · 20): ONE line — the view ▾ · the day's tools · 🔊 — then the date line with everything else in its
+           ⓘ, then the moments. Each view drawn once and kept; a pick swaps in place (`booked-schedule-frame.tsx`). */
+        <BookedScheduleFrame
+          initial={active}
+          views={[
+            { key: 'event-day', label: 'Event Day', count: topLevelCount },
+            { key: 'preparation', label: 'Preparation', count: agenda.items.length },
+            { key: 'journey', label: 'Journey', count: journey.totalEntries },
+          ]}
+          dateLine={bookedDateLine}
+          info={
+            <>
+              {eventRow?.display_name?.trim() ? <b className="block font-semibold">{eventRow.display_name.trim()}</b> : null}
+              <span className="block">
+                <b className="font-semibold">{roleLabel}.</b> Hosts build the schedule. A coordinator edits only after a
+                host approves them — the host invite plus your consent under the Data Privacy Act (RA 10173). Everyone
+                else reads.
+              </span>
+            </>
+          }
+          notes={{
+            'event-day': EVENT_DAY_NOTE,
+            preparation: preparationLegendWords(agenda.sourceCounts),
+            journey: term(profile, {
+              wedding:
+                'The whole arc of your wedding — from the day you started planning, through every dated step, to the big day and the editorial you publish afterward.',
+              generic:
+                'The whole arc of your event — from the day you started planning, through every dated step, to the day itself and the editorial you publish afterward.',
+            }),
+          }}
+          announce={
+            canAnnounce ? (
+              <AnnounceButton eventId={eventId} isEventDay={isEventDay} recent={recentAnnouncements} round />
+            ) : null
+          }
+          meetings={<VendorMeetingsSection eventId={eventId} meetings={vendorMeetings} />}
+          panels={{
+            'event-day': eventDayView,
+            preparation: prepView,
+            journey: journeyView,
+          }}
+        />
+      ) : (
+        <>
+        {/* ONE LINE AND AN ⓘ — the paragraph that opened this page is gone
+            ("SCHEDULE (event-day view) JOINS THE PAGE REDESIGN": intro paragraph
+            → one line + ⓘ). Who, when, how long to go, and whether you can edit. */}
+        <header className="space-y-3">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            <p className="text-sm text-ink/60">
+              {eventRow?.display_name?.trim() ? (
+                <b className="font-semibold text-ink/85">{eventRow.display_name.trim()}</b>
+              ) : null}
+              {eventRow?.display_name?.trim() && dateLabel ? ' · ' : null}
+              {dateLabel}
+              {daysToGo !== null && daysToGo > 0 && !isEventDay ? (
+                <>
+                  {' · '}
+                  <b className="font-semibold text-ink/85">{daysToGo}</b> day{daysToGo === 1 ? '' : 's'} to go
+                </>
+              ) : null}
+            </p>
+            <span className="inline-flex h-7 items-center gap-1.5 rounded-full bg-ink/[0.05] pl-2.5 pr-1 text-[11.5px] font-semibold text-ink/65">
+              <i
+                aria-hidden
+                className={`h-1.5 w-1.5 rounded-full ${dayRole === 'view' ? 'bg-ink/35' : 'bg-success-600'}`}
+              />
+              {roleLabel}
+              <Tip>
+                Hosts build the schedule. A coordinator edits only after a host approves them — the host
+                invite plus your consent under the Data Privacy Act (RA 10173). Everyone else reads.
+              </Tip>
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <ScheduleModeToggle
+              active={active}
+              prepCount={agenda.items.length}
+              journeyCount={journey.totalEntries}
+            />
+            <span className="ml-auto flex items-center gap-2">
+              <Tip align="end">{viewNote}</Tip>
+              {canAnnounce ? (
+                /* In the Maker's Details, Announce is a piece of the Schedule: its
+                   button (and its sheet) sit in the right column (`InSlot`). */
+                <InSlot id={inMaker ? DETAILS_SCHEDULE_ANNOUNCE_SLOT : null}>
+                  <AnnounceButton
+                    eventId={eventId}
+                    isEventDay={isEventDay}
+                    recent={recentAnnouncements}
+                  />
+                </InSlot>
+              ) : null}
+            </span>
+          </div>
+        </header>
+
+        {active !== 'event-day' ? (
+          <VendorMeetingsSection eventId={eventId} meetings={vendorMeetings} />
+        ) : null}
+
+        {active === 'journey' ? (
+          journeyView
+        ) : active === 'preparation' ? (
+          prepView
+        ) : (
+          eventDayView
+        )}
         </>
       )}
 

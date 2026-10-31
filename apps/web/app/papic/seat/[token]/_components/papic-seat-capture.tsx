@@ -2,6 +2,9 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
+import { papicFrameCrop } from '@/lib/papic-viewfinder-crop';
+import { CameraPageLock } from '@/app/papic/_components/camera-page-lock';
+import { InfoTip } from '@/app/_components/info-tip';
 import {
   Camera,
   Loader2,
@@ -18,7 +21,9 @@ import {
   Sparkles,
   CloudOff,
   Ban,
+  X,
 } from 'lucide-react';
+import { cameraExitHref } from '@/app/[slug]/_lib/hub-tabs';
 import {
   recordSeatCapture,
   tagSeatCapture,
@@ -182,6 +187,9 @@ type Props = {
    *  Passed in rather than read here so the refusal copy can never name an
    *  “add more shots” control that is not on the screen. */
   buyOffered?: boolean;
+  /** ✕ back to this event's Event Hub (owner 31 Oct, "needs exit to return to event hub"). The slug is the
+   *  event's own, read on the server — never a query param. Null when the event has no slug. */
+  exitSlug?: string | null;
 };
 
 /** A single capture as it moves through the background upload queue. Drives both
@@ -252,6 +260,7 @@ export function PapicSeatCapture({
   faceMode,
   geoEnabled = false,
   buyOffered = false,
+  exitSlug = null,
 }: Props) {
   // The event-wide look is LOCKED (couple-set at setup) — baked into every photo.
   // styleRef mirrors the prop so grabFrame reads it without a dep churn.
@@ -325,7 +334,52 @@ export function PapicSeatCapture({
     holdRestart: () => recordingRef.current,
   });
 
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    const read = () => {
+      if (video.videoWidth && video.videoHeight) setFrameSideways(video.videoWidth > video.videoHeight);
+    };
+    read();
+    video.addEventListener('loadedmetadata', read);
+    video.addEventListener('resize', read);
+    return () => {
+      video.removeEventListener('loadedmetadata', read);
+      video.removeEventListener('resize', read);
+    };
+  }, [videoRef, ready]);
+
+  useEffect(() => {
+    if (typeof ResizeObserver === 'undefined') return;
+    const top = topBarRef.current;
+    const bottom = controlsRef.current;
+    if (!top || !bottom) return;
+    const measure = () =>
+      setOverlayInsets((was) => {
+        const next = { top: Math.round(top.getBoundingClientRect().height), bottom: Math.round(bottom.getBoundingClientRect().height) };
+        return was.top === next.top && was.bottom === next.bottom ? was : next;
+      });
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(top);
+    ro.observe(bottom);
+    return () => ro.disconnect();
+  }, [ready]);
+
+  // ⚡ mode_a: the face models load while the camera opens, not under the first photo (owner 2026-10-30) — the same
+  // warm-up as the guest camera; a download, no face is read.
+  useEffect(() => {
+    if (faceMode !== 'mode_a') return;
+    void import('@/lib/face-embed').then((m) => m.warmFaceEmbed()).catch(() => {});
+  }, [faceMode]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const viewfinderRef = useRef<HTMLDivElement>(null);
+  // 📐 The picture is the one 9:16 frame the shutter keeps (16:9 while the phone is held sideways).
+  const [frameSideways, setFrameSideways] = useState(false);
+  // 📱 The top row and the controls lie OVER the full-screen picture; the tools on it keep clear of both (measured).
+  const topBarRef = useRef<HTMLDivElement>(null);
+  const controlsRef = useRef<HTMLDivElement>(null);
+  const [overlayInsets, setOverlayInsets] = useState({ top: 0, bottom: 0 });
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const clipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -577,11 +631,14 @@ export function PapicSeatCapture({
       const w = video.videoWidth;
       const h = video.videoHeight;
       if (!w || !h) return null;
-      canvas.width = w;
-      canvas.height = h;
+      // 📐 A PHOTO is the one 9:16 frame the viewfinder shows (owner 2026-10-30: "9:16" — lib/papic-viewfinder-crop.ts);
+      // a clip's poster (styled = false) stays the whole frame, matching the clip it stands for.
+      const { sx, sy, sw, sh } = styled ? papicFrameCrop({ width: w, height: h }) : { sx: 0, sy: 0, sw: w, sh: h };
+      canvas.width = sw;
+      canvas.height = sh;
       const ctx = canvas.getContext('2d');
       if (!ctx) return null;
-      ctx.drawImage(video, 0, 0, w, h);
+      ctx.drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh);
       const clean = await new Promise<Blob | null>((resolve) =>
         canvas.toBlob(resolve, 'image/jpeg', 0.9),
       );
@@ -1348,11 +1405,33 @@ export function PapicSeatCapture({
   const uploadingCount = shots.filter((s) => s.status === 'uploading').length;
 
   return (
-    <main className="flex min-h-screen flex-col bg-ink text-cream">
-      <header className="flex items-center justify-between px-4 py-3">
-        <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-cream/70">
-          Papic · seat {seatIndex}
-        </p>
+    /* 📱 THE CAMERA PAGE IS EXACTLY THE SCREEN (owner 2026-10-30: "scroll free full screen camera page that works on
+       browser and app"): a fixed stage the browser sizes, the document held still behind it, the 9:16 picture as large
+       as the screen allows and every control laid over it, inside the safe areas. */
+    <main data-seat-camera="" className="fixed inset-0 z-30 h-[100dvh] overflow-hidden overscroll-none bg-ink text-cream">
+      <CameraPageLock />
+      <div
+        ref={topBarRef}
+        data-camera-top=""
+        className="absolute inset-x-0 top-0 z-20 bg-gradient-to-b from-ink/75 via-ink/35 to-transparent pt-[env(safe-area-inset-top,0px)]"
+      >
+      <header className="flex items-center justify-between pb-3 pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))] pt-3">
+        <div className="flex items-center gap-2">
+          {/* ✕ ONE EXIT, TOP-LEFT — back to this event's Event Hub (owner 31 Oct), the guest camera's same ✕. */}
+          {exitSlug ? (
+            <a
+              data-camera-exit=""
+              href={cameraExitHref(exitSlug, null, 0)}
+              aria-label="Close the camera"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-cream/10 text-cream hover:bg-cream/20"
+            >
+              <X aria-hidden className="h-5 w-5" strokeWidth={2} />
+            </a>
+          ) : null}
+          <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-cream/70">
+            Papic · seat {seatIndex}
+          </p>
+        </div>
         <div className="flex items-center gap-2">
           {styleMeta && styleMeta.id !== 'ORIG' ? (
             <span
@@ -1388,8 +1467,8 @@ export function PapicSeatCapture({
           href={`/signup?next=${encodeURIComponent(`/papic/seat/${token}`)}`}
           className={
             shotsTaken > 0
-              ? 'mx-4 mb-1 flex items-center gap-2.5 rounded-lg border-2 border-champagne-gold bg-champagne-gold/20 px-3 py-2.5 text-xs text-cream transition hover:bg-champagne-gold/25'
-              : 'mx-4 mb-1 flex items-center gap-2 rounded-lg border border-champagne-gold/40 bg-champagne-gold/10 px-3 py-2 text-xs text-cream/85 transition hover:bg-champagne-gold/15'
+              ? 'mx-4 mb-1 flex min-h-11 items-center gap-2 rounded-full border-2 border-champagne-gold bg-champagne-gold/25 py-1 pl-3 pr-1 text-xs text-cream backdrop-blur-sm transition hover:bg-champagne-gold/30'
+              : 'mx-4 mb-1 flex min-h-11 items-center gap-2 rounded-full border border-champagne-gold/40 bg-ink/40 py-1 pl-3 pr-1 text-xs text-cream/85 backdrop-blur-sm transition hover:bg-champagne-gold/15'
           }
         >
           <ShieldCheck
@@ -1401,19 +1480,21 @@ export function PapicSeatCapture({
             }
             strokeWidth={1.9}
           />
-          <span className="min-w-0 flex-1">
+          {/* 📱 ONE SLIM LINE over the picture (owner 2026-10-30: the two-line card covered the top of the viewfinder).
+              The line that matters stays visible and still grows gold with what there is to lose; the rest is read
+              out to a screen reader. */}
+          <span className="min-w-0 flex-1 truncate">
             {shotsTaken > 0 ? (
               <>
                 <span className="font-semibold text-cream">
-                  {formatCount(shotsTaken)} {shotsTaken === 1 ? 'shot' : 'shots'} — yours only
-                  on this phone.
-                </span>{' '}
-                Save them to your account or they go when you close this tab.
+                  {formatCount(shotsTaken)} {shotsTaken === 1 ? 'shot' : 'shots'} — only on this phone
+                </span>
+                <span className="sr-only"> Save them to your account or they go when you close this tab.</span>
               </>
             ) : (
               <>
-                <span className="font-medium text-cream">Shooting as a guest.</span>{' '}
-                Save these to your Setnayan account to find them later.
+                <span className="font-medium text-cream">Shooting as a guest</span>
+                <span className="sr-only"> Save these to your Setnayan account to find them later.</span>
               </>
             )}
           </span>
@@ -1429,13 +1510,27 @@ export function PapicSeatCapture({
         </Link>
       )}
 
-      <div className="relative flex-1 overflow-hidden">
+      </div>
+
+      <div ref={viewfinderRef} className="absolute inset-0 overflow-hidden">
+        {/* 📐 One 9:16 box (16:9 sideways), as large as the screen allows — exactly the frame a photo keeps. */}
+        <div className="absolute inset-0 flex items-center justify-center [container-type:size]">
+        <div
+          data-camera-frame={frameSideways ? '16:9' : '9:16'}
+          className="relative overflow-hidden"
+          style={{
+            aspectRatio: frameSideways ? '16 / 9' : '9 / 16',
+            width: frameSideways ? 'min(100cqw, 100cqh * 16 / 9)' : 'min(100cqw, 100cqh * 9 / 16)',
+          }}
+        >
         <video
           ref={videoRef}
           playsInline
           muted
           autoPlay
-          className="h-full w-full object-cover"
+          /* 📐 While a clip records it shows the WHOLE frame it is recording — on most phones that frame is 9:16 (the
+             camera is asked for 16:9), so nothing changes (owner 2026-10-30). */
+          className={`h-full w-full ${recording ? 'object-contain' : 'object-cover'}`}
           /* Live preview of the locked event look. CSS filter is presentation-
              only — it doesn't touch the pixels grabFrame reads or the QR decode
              loop, so the captured photo stays the exact engine output. */
@@ -1444,6 +1539,13 @@ export function PapicSeatCapture({
             filter: cssPreviewFilter(eventStyle),
           }}
         />
+        </div>
+        </div>
+        <div
+          data-camera-tools=""
+          className="pointer-events-none absolute inset-x-0 [&_button]:pointer-events-auto"
+          style={{ top: overlayInsets.top, bottom: overlayInsets.bottom }}
+        >
         {(!ready || switching) && (
           <div className="absolute inset-0 flex items-center justify-center bg-ink/80">
             <Loader2 aria-hidden className="h-6 w-6 animate-spin text-cream/70" strokeWidth={2} />
@@ -1499,8 +1601,16 @@ export function PapicSeatCapture({
             </div>
           </>
         )}
+        </div>
       </div>
 
+      {/* 📱 The controls lie OVER the picture in the lower third, on a soft scrim, above the home indicator; a long tag
+          sheet scrolls inside itself — the page never does. */}
+      <div
+        ref={controlsRef}
+        data-camera-controls=""
+        className="absolute inset-x-0 bottom-0 z-20 max-h-[70%] overflow-y-auto overscroll-contain bg-gradient-to-t from-ink/90 via-ink/60 to-transparent pb-[env(safe-area-inset-bottom,0px)] pl-[var(--sn-safe-l,0px)] pr-[var(--sn-safe-r,0px)] pt-8"
+      >
       {/* Capture roll — what you've shot this session, newest first. A spinner
           rides each upload; a tap retries a failed one or re-opens tagging on a
           saved one. Hidden during recording / tagging to keep the stage clean. */}
@@ -1592,7 +1702,9 @@ export function PapicSeatCapture({
         </div>
       )}
 
-      <div className="space-y-3 px-4 pb-8 pt-4">
+      {/* With the "Add credits" doorway mounted below (`buyOffered`), the last row is kept clear for it — it floats
+          at the bottom right, and nothing may sit under it (owner's iPhone 2026-10-30). */}
+      <div className={`space-y-3 px-4 pt-3 ${buyOffered ? 'pb-[4.75rem]' : 'pb-4'}`}>
         {tagging ? (
           /* Tag sheet — scan guest / table QRs to record who's in the last shot. */
           <div className="space-y-3">
@@ -1787,10 +1899,18 @@ export function PapicSeatCapture({
                   )}
                 </div>
 
-                <p className="text-center text-xs text-cream/60">
-                  {recording
-                    ? 'Recording… release to stop.'
-                    : clipsAllowed
+                {/* 📱 How the shutter works lives in the ⓘ (owner 2026-10-30: details go in the ⓘ); only a recording's
+                    live line is said out loud. */}
+                {recording ? (
+                  <p className="text-center text-xs text-cream/60">Recording… release to stop.</p>
+                ) : (
+                <div className="flex justify-center">
+                <InfoTip
+                  label=""
+                  ariaLabel="How the shutter works"
+                  className="[&_button]:border-cream/50 [&_button]:text-cream/80"
+                >
+                  {clipsAllowed
                       ? // ⚠ DERIVED. This read "(up to 5s)" while CLIP_MAX_MS —
                         // 800 lines above, in this same file — has been 10s since
                         // the owner raised the cap on 2026-07-22. The button label
@@ -1799,7 +1919,9 @@ export function PapicSeatCapture({
                         // next re-price cannot leave one of the three behind.
                         `Tap for a photo · press and hold to record (up to ${CLIP_MAX_MS / 1000}s).`
                       : 'Tap to take a photo. Every shot lands in the host’s Memories.'}
-                </p>
+                </InfoTip>
+                </div>
+                )}
               </>
             )}
 
@@ -1817,6 +1939,7 @@ export function PapicSeatCapture({
             )}
           </>
         )}
+      </div>
       </div>
 
       <canvas ref={canvasRef} className="hidden" />

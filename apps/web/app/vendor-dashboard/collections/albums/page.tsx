@@ -72,7 +72,7 @@ export default async function AlbumsByEventPage() {
 
   return (
     <section className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-32 pt-4 sm:px-6" data-supplier-albums="">
-      <ShopSegments on="page" />
+      <ShopSegments on="gallery" />
       <h1 className="sn-h1">Albums by event</h1>
       <p className="text-[15px] text-ink/70">
         Only you see these. Open one and tap <b className="font-semibold text-ink">Put on my page</b> on a photo.

@@ -1311,6 +1311,16 @@ export function FrontDoorShell({
             hangs half-open (CSS faster).
           */
           style={{ '--fd-drawer-ms': `${RAIL_DRAWER_MS}ms` } as React.CSSProperties}
+          /*
+            A DRAWER LINK TO THE PAGE YOU ARE ON STILL CLOSES THE DRAWER (owner 2026-10-30, the event mark opening
+            Home's ⚙ sheet from Home). The pathname effect above only closes it once the PATH changes; a link that
+            changes only the query (`/dashboard/<id>?settings=1` from `/dashboard/<id>`) would leave the drawer over
+            the sheet it just opened. A plain tap on any link inside the open drawer shuts it too.
+          */
+          onClickCapture={(e) => {
+            if (!railOpen || railClosing || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+            if ((e.target as Element | null)?.closest?.('a[href]')) closeRail();
+          }}
         >
           {focused && focus ? (
             /* THE WAY BACK — the only row above the section's own menu. The

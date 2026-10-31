@@ -182,6 +182,9 @@ test('8 · the thumb row — "Find an event to set up" + ＋ on Set up, "Find a 
   // 🔎 Crew: "Search your crew" (v13), narrowing the phones in place, and saying so when none is left.
   assert.match(src, /if \(seg === 'crew'\) \{[\s\S]*?placeholder: 'Search your crew'[\s\S]*?narrowCrewRows\(/, 'Crew lost its search');
   assert.match(stripComments(readFileSync(join(import.meta.dirname, '_components', 'crew-panel.tsx'), 'utf8')), /data-crew-none=""/, 'a crew search that hides every phone says nothing');
+  // A crew row is a `flex` box: the `hidden` attribute loses to the class's display (measured 2026-10-31 — the search
+  // matched and nothing disappeared), so the search hides it by its own style.
+  assert.match(src, /row\.style\.display = hit \? '' : 'none'/, 'the crew search hides rows with an attribute their class overrides');
   // The screen draws it, and both the live page and the lab hand it in.
   const screen = stripComments(readFileSync(join(import.meta.dirname, '_components', 'hub-screen.tsx'), 'utf8'));
   const hubScreen = screen.slice(screen.indexOf('export function HubScreen'), screen.indexOf('export function HubEventCard'));

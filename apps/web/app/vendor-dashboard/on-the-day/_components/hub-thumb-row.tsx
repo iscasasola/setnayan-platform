@@ -41,7 +41,8 @@ function narrowCrewRows(words: string) {
   let shown = 0;
   for (const row of document.querySelectorAll<HTMLElement>('[data-crew-pass]')) {
     const hit = !needle || (row.textContent ?? '').toLowerCase().includes(needle);
-    row.hidden = !hit;
+    // `style.display`, not `hidden`: a crew row is a `flex` box, and the class's display beats the attribute's.
+    row.style.display = hit ? '' : 'none';
     if (hit) shown += 1;
   }
   const none = document.querySelector<HTMLElement>('[data-crew-none]');

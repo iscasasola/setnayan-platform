@@ -263,7 +263,7 @@ export type GuestsScreenProps = {
   requestsInPlace?: boolean;
   /**
    * 📱 The one-time "Get a notice on this phone when guests reply?" (owner 2026-10-31 — replies go to the phone, not
-   * the inbox). The page sets it for the couple outside the iPhone app; the sheet decides the rest on the device
+   * the inbox). The page sets it for the couple; the sheet decides the rest on the device — Web Push or APNs
    * (`lib/reply-push-ask.ts`). Reads nothing new: it is told how many have replied from the counts drawn here.
    */
   replyAsk?: boolean;

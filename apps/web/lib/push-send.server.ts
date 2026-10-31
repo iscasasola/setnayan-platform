@@ -2,6 +2,7 @@ import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { isWebPushConfigured, sendWebPush } from '@/lib/web-push';
+import { isApnsConfigured, sendApns } from '@/lib/apns';
 import { noticeSentence, pushMessage, type PushSubject } from '@/lib/push-message';
 
 /**
@@ -10,7 +11,7 @@ import { noticeSentence, pushMessage, type PushSubject } from '@/lib/push-messag
  * Reads the facts the template needs (whose notice this is — the event's name,
  * the shop's name, or the account — and the unread count for the badge), makes
  * the `PushMessage` with `pushMessage()` (lib/push-message.ts), and hands it to
- * each channel: Web Push today (`sendWebPush`), APNs beside it next.
+ * each channel: Web Push (`sendWebPush`) and APNs for the iPhone app (`sendApns`).
  *
  * 🔒 lib/every-push-goes-through-the-template.test.ts — no file but this one
  * calls a channel sender, and no file builds a push title or body inline.
@@ -22,7 +23,7 @@ import { noticeSentence, pushMessage, type PushSubject } from '@/lib/push-messag
 type Admin = ReturnType<typeof createAdminClient>;
 
 export function isAnyPushConfigured(): boolean {
-  return isWebPushConfigured();
+  return isWebPushConfigured() || isApnsConfigured();
 }
 
 /** Whose notice is this? A supplier-side link → the shop; an event → the event; else the account. */
@@ -80,7 +81,9 @@ export async function sendPush(
       badge,
       fallbackUrl: notice.fallbackUrl,
     });
-    await sendWebPush(userId, message);
+    // Every channel gets the SAME message — the lock screen reads the same on a
+    // home-screen web app and in the iPhone app. Each no-ops when unconfigured.
+    await Promise.all([sendWebPush(userId, message), sendApns(userId, message)]);
   } catch (e) {
     console.error('[push] sendPush threw:', e);
   }

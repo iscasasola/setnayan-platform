@@ -1,6 +1,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { isApnsDeviceToken } from '@/lib/apns-request';
 
 /**
  * Server actions backing the profile "Push notifications" toggle
@@ -43,6 +44,7 @@ export async function savePushSubscription(
       endpoint: sub.endpoint,
       p256dh: sub.p256dh,
       auth: sub.auth,
+      kind: 'web',
       last_seen_at: new Date().toISOString(),
     },
     { onConflict: 'endpoint' },
@@ -74,6 +76,39 @@ export async function removePushSubscription(
   if (error) {
     console.error('[push] removePushSubscription failed:', error.message);
     return { ok: false, error: 'delete_failed' };
+  }
+  return { ok: true };
+}
+
+/**
+ * 📱 THE IPHONE APP'S YES (owner 2026-10-31 — replies reach the phone, and Web
+ * Push cannot reach inside the app). The Capacitor push plugin hands the page
+ * the APNs device token after the one-time ask; it is saved as a push
+ * subscription of kind 'apns' (migration 20271300404545), through the same
+ * RLS-scoped client and the same unique `endpoint` upsert as a browser row — so a
+ * phone that re-registers collapses onto one row, re-homed to whoever is signed in.
+ */
+export async function saveApnsDeviceToken(token: string): Promise<PushActionResult> {
+  if (!isApnsDeviceToken(token)) return { ok: false, error: 'bad_token' };
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'not_authenticated' };
+  const { error } = await supabase.from('push_subscriptions').upsert(
+    {
+      user_id: user.id,
+      endpoint: token.toLowerCase(),
+      p256dh: null,
+      auth: null,
+      kind: 'apns',
+      last_seen_at: new Date().toISOString(),
+    },
+    { onConflict: 'endpoint' },
+  );
+  if (error) {
+    console.error('[push] saveApnsDeviceToken failed:', error.message);
+    return { ok: false, error: 'save_failed' };
   }
   return { ok: true };
 }

@@ -50,7 +50,10 @@ export async function sendWebPush(
     const { data: subs, error } = await admin
       .from('push_subscriptions')
       .select('id,endpoint,p256dh,auth')
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      // The iPhone app's APNs tokens share this table (kind = 'apns') and go
+      // through lib/apns.ts — never through the Web Push service.
+      .eq('kind', 'web');
 
     if (error) {
       console.error('[web-push] subscription lookup failed:', error.message);
@@ -79,7 +82,7 @@ export async function sendWebPush(
           await webpush.sendNotification(
             {
               endpoint: sub.endpoint,
-              keys: { p256dh: sub.p256dh, auth: sub.auth },
+              keys: { p256dh: sub.p256dh ?? '', auth: sub.auth ?? '' },
             },
             pushWireBody(message),
             options,

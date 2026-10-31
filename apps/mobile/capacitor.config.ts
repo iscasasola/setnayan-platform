@@ -66,7 +66,12 @@ const config: CapacitorConfig = {
     // also on (apps/web/lib/iap/iap-gate.ts). iOS ONLY: the Android shell has no
     // Play Billing, so it must never claim the token. This REPLACES the global
     // `appendUserAgent` on iOS, so the two shared tokens are repeated here.
-    appendUserAgent: 'SetnayanApp SetnayanSignIn/1 SetnayanIAP/2',
+    // 📱 `SetnayanPush/1` (owner 2026-10-31, "The notification on the phone not on
+    // the app"): this build carries @capacitor/push-notifications, so the web may
+    // offer the native ask and register an APNs token (apps/web/lib/native-push.ts).
+    // An older build lacks the token and is never shown an ask with nothing behind
+    // it. iOS ONLY — Android has no FCM wiring yet.
+    appendUserAgent: 'SetnayanApp SetnayanSignIn/1 SetnayanIAP/2 SetnayanPush/1',
   },
   plugins: {
     SplashScreen: {

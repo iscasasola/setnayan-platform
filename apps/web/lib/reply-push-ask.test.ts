@@ -69,7 +69,7 @@ test('5 · iPhone Safari in a tab is told how, never offered a dead Yes', () => 
   // …and it is still once: answered → quiet for 30 days.
   assert.equal(replyAskMode({ ...base, supported: false, iosOutsideHomeScreen: true, lastAnsweredAtMs: NOW - DAY }), null);
   assert.equal(REPLY_ASK_COPY.iosLine, 'On iPhone, add Setnayan to your Home Screen to get these');
-  assert.ok(REPLY_ASK_COPY.iosSteps.some((s) => /Add to Home Screen/.test(s)));
+  assert.match(REPLY_ASK_COPY.iosHow, /Add to Home Screen/);
 });
 
 test('6 · the remembered answer round-trips, and a blocked storage never throws', () => {

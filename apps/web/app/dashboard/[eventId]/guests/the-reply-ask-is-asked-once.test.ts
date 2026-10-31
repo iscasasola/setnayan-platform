@@ -58,11 +58,12 @@ test('3 · Yes is the profile switch\'s path, and both answers are remembered', 
   assert.match(yes, /rememberAnswer\(/, 'a Yes is not remembered — a failed Yes would ask again tomorrow');
   const close = fnBody(ASK, /const close = \(\) =>/);
   assert.match(close, /rememberAnswer\(/, 'Not now is not remembered — the ask would return on every visit');
-  assert.match(ASK, /label=\{REPLY_ASK_COPY\.notNow\}[\s\S]*?onClick=\{close\}/);
+  assert.match(ASK, /<ReplyAskSheet mode=\{mode\} busy=\{busy\} onYes=\{yes\} onClose=\{close\} \/>/, 'the sheet is not wired to the remembering handlers');
+  assert.match(ASK, /label=\{REPLY_ASK_COPY\.notNow\}[\s\S]*?onClick=\{onClose\}/);
 });
 
 test('4 · it is the house sheet, its detail in an ⓘ', () => {
-  assert.match(ASK, /<Sheet open onClose=\{close\} labelledById=\{headingId\} rise>/);
+  assert.match(ASK, /<Sheet open onClose=\{onClose\} labelledById=\{headingId\} rise>/);
   assert.match(ASK, /<InfoTip[\s\S]*?label=\{REPLY_ASK_COPY\.title\}/);
 });
 

@@ -87,17 +87,12 @@ export function rememberAnswer(storage: Pick<Storage, 'setItem'> | null, nowMs: 
 /** The words, in one place so the screenshot, the test and the sheet agree. */
 export const REPLY_ASK_COPY = {
   title: 'Get a notice on this phone when guests reply?',
-  line: 'Replies close together arrive as one notice.',
-  info: 'Only this phone, never an email. When several guests reply close together they arrive as one notice — “Maria + 2 others replied”. Turn it off any time in Profile › Push notifications.',
-  /** The short visible line on iPhone Safari — the how is in the ⓘ. */
-  iosVisible: 'On iPhone these come from the Home Screen app.',
-  /** The ⓘ's first line on iPhone Safari (owner brief, verbatim). */
+  line: 'Each new reply replaces the last notice.',
+  info: 'Only this phone, never an email. Each new reply replaces the last notice and counts who is new since you last looked — “Maria + 2 others replied”. Turn it off any time in Profile › Push notifications.',
+  /** The visible line on iPhone Safari (owner brief, verbatim); the how is in the ⓘ. */
   iosLine: 'On iPhone, add Setnayan to your Home Screen to get these',
-  iosSteps: [
-    'In Safari, tap the Share button, then Add to Home Screen.',
-    'Open Setnayan from the new Home Screen icon.',
-    'Open Guests there and answer Yes.',
-  ],
+  /** The how, in one line, so the ⓘ fits above a bottom sheet. */
+  iosHow: 'In Safari tap Share › Add to Home Screen, then open Setnayan from the new icon.',
   yes: 'Yes',
   notNow: 'Not now',
   gotIt: 'Got it',

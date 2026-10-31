@@ -55,7 +55,6 @@ function standalone(): boolean {
 export function ReplyPushAsk({ replied }: { replied: number }) {
   const [mode, setMode] = useState<ReplyAskMode>(null);
   const [busy, setBusy] = useState(false);
-  const headingId = useId();
   const hasReply = replied > 0;
 
   useEffect(() => {
@@ -100,32 +99,42 @@ export function ReplyPushAsk({ replied }: { replied: number }) {
   }
 
   if (!mode) return null;
+  return <ReplyAskSheet mode={mode} busy={busy} onYes={yes} onClose={close} />;
+}
+
+/** The sheet itself — drawn by `ReplyPushAsk`, and by /dev/reply-ask-lab for the screenshots. */
+export function ReplyAskSheet({
+  mode,
+  busy,
+  onYes,
+  onClose,
+}: {
+  mode: Exclude<ReplyAskMode, null>;
+  busy: boolean;
+  onYes: () => void;
+  onClose: () => void;
+}) {
+  const headingId = useId();
   const ios = mode === 'ios-home-screen';
 
   return (
-    <Sheet open onClose={close} labelledById={headingId} rise>
+    <Sheet open onClose={onClose} labelledById={headingId} rise>
       <div className="px-4 pb-4 pt-3.5" data-reply-push-ask={mode}>
         <InfoTip
           label={REPLY_ASK_COPY.title}
           labelAs="h3"
           labelId={headingId}
-          labelClassName="pr-10 text-[19px] font-semibold tracking-tight text-ink"
+          labelClassName="text-[19px] font-semibold tracking-tight text-ink"
           align="start"
+          className="pr-12"
         >
           {ios ? (
-            <>
-              <span className="block font-semibold">{REPLY_ASK_COPY.iosLine}</span>
-              <ol className="mt-1 list-decimal space-y-0.5 pl-4">
-                {REPLY_ASK_COPY.iosSteps.map((s) => (
-                  <li key={s}>{s}</li>
-                ))}
-              </ol>
-            </>
+            REPLY_ASK_COPY.iosHow
           ) : (
             REPLY_ASK_COPY.info
           )}
         </InfoTip>
-        <p className="mt-1 text-sm text-ink/70">{ios ? REPLY_ASK_COPY.iosVisible : REPLY_ASK_COPY.line}</p>
+        <p className="mt-1 text-sm text-ink/70">{ios ? `${REPLY_ASK_COPY.iosLine}.` : REPLY_ASK_COPY.line}</p>
         {ios ? (
           <div className="mt-3.5">
             <ActionButton
@@ -133,7 +142,7 @@ export function ReplyPushAsk({ replied }: { replied: number }) {
               main
               icon={<Check aria-hidden strokeWidth={1.9} />}
               label={REPLY_ASK_COPY.gotIt}
-              onClick={close}
+              onClick={onClose}
               className="w-full"
             />
           </div>
@@ -145,7 +154,7 @@ export function ReplyPushAsk({ replied }: { replied: number }) {
                 main
                 icon={<Bell aria-hidden strokeWidth={1.9} />}
                 label={busy ? 'Turning on…' : REPLY_ASK_COPY.yes}
-                onClick={yes}
+                onClick={onYes}
                 disabled={busy}
                 className="w-full"
               />
@@ -156,7 +165,7 @@ export function ReplyPushAsk({ replied }: { replied: number }) {
                 quiet
                 icon={<X aria-hidden strokeWidth={1.9} />}
                 label={REPLY_ASK_COPY.notNow}
-                onClick={close}
+                onClick={onClose}
                 disabled={busy}
               />
             </div>

@@ -14,10 +14,12 @@ push. Stacked on `claude/rsvp-on-the-phone` (the one push template).
   `APNS_TEAM_ID` · `APNS_BUNDLE_ID` · `APNS_ENV`. Any missing → a quiet no-op
   (`isApnsConfigured`), like Web Push without VAPID. Same `PushMessage` as Web Push
   (title, body, badge, `url`), `apns-collapse-id` = the template's collapse key
-  (`rsvp:<eventId>`), dead tokens pruned. The funnel (`lib/push-send.server.ts`)
+  (`rsvp:<eventId>`), `apns-priority` from its level (`lib/push-levels.ts`), dead tokens
+  pruned. The funnel (`lib/push-send.server.ts`)
   sends every notice to both channels; `sendWebPush` now sends only to 'web' rows.
 - **The app's Yes**: the same one-time ask on Guests, inside the app, runs iOS's own
-  prompt → APNs registration → `saveApnsDeviceToken` (kind 'apns'). Shown only on a
+  prompt → APNs registration → `savePushSubscription({ apnsToken })` (kind 'apns'; the same action, because the
+  server-action budget is at its ceiling). Shown only on a
   build that announces `SetnayanPush/1` and carries the plugin, only while iOS has
   not been answered. `NativePushRouter` (root layout) opens a tapped notification's
   own screen and refreshes an allowed phone's token on launch — it never prompts.

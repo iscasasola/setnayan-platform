@@ -5,7 +5,7 @@ import { FACE_RESCAN_GAP_MS } from '@/lib/periodic-job-registry';
 import { faceRescanWindowOpen } from '@/lib/face-selfie-lifetime';
 import { resolveFaceTagging } from '@/lib/face-tagging-gate';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
-import { autoTagCapture } from '@/lib/face-match';
+import { autoTagCapture, searchedEnrollments } from '@/lib/face-match';
 import { embedPhotoFacesOnServer, serverFaceApi } from '@/lib/face-embed-server';
 import { R2_BUCKETS, r2GetBytes, type R2BucketName } from '@/lib/r2';
 
@@ -43,6 +43,19 @@ import { R2_BUCKETS, r2GetBytes, type R2BucketName } from '@/lib/r2';
  *
  * 🔁 A selfie registered AFTER the pass finished (Papic still open) restarts it
  * once more for that event — "late registrants are covered by this rescan".
+ *
+ * ⚖ A RETAKE ONLY ADDS FROM THE PHOTOS THAT MISSED (owner 2026-10-31, DECISION_LOG
+ * "SEVEN OWNER ANSWERS" (2): *"no. if they are already tagged that's it. we just
+ * add more from other photos that missed."*). A retaken selfie is a new live
+ * enrolment, so it restarts the pass like any late selfie — and the pass looks
+ * for a guest ONLY in a photo that carries NO `photo_tags` row for them: not a
+ * live tag (that's it), and not a tombstone (the guest's "Not me", the hosts'
+ * Tag removal, an admin's — never re-added). Two layers say so: here, a photo in
+ * which every searched guest already has a row is not even opened (no read, no
+ * embed); and the matcher (`autoTagCapture`) excludes every guest with a row,
+ * live or not. A retake itself writes no tag and removes none
+ * (`app/papic/face-enroll-actions.ts`). Held by
+ * `a-retake-only-adds-from-missed-photos.test.ts`.
  */
 
 /** How long one run may spend on photos (well inside an `after()` budget). */
@@ -194,6 +207,7 @@ export async function runFaceRescan(
       embed?: (bytes: Uint8Array) => Promise<number[][]>;
       readBytes?: (ref: string) => Promise<Uint8Array>;
       match?: typeof autoTagCapture;
+      searched?: typeof searchedEnrollments;
       gate?: typeof resolveFaceTagging;
       ready?: () => Promise<boolean>;
       privacyOn?: () => Promise<boolean>;
@@ -208,6 +222,7 @@ export async function runFaceRescan(
   const embed = opts.deps?.embed ?? embedPhotoFacesOnServer;
   const readBytes = opts.deps?.readBytes ?? (async (ref: string) => (await r2GetBytes(parseRef(ref))).bytes);
   const match = opts.deps?.match ?? autoTagCapture;
+  const searched = opts.deps?.searched ?? searchedEnrollments;
   const gate = opts.deps?.gate ?? resolveFaceTagging;
   const ready = opts.deps?.ready ?? (async () => (await serverFaceApi()) !== null);
   const privacyOn = opts.deps?.privacyOn ?? (() => isDataPrivacyControlActive('face_enrollment'));
@@ -228,6 +243,9 @@ export async function runFaceRescan(
     if ((await gate(admin as never, eventId)).mode !== 'mode_a') continue;
     const p = await progressFor(admin, eventId);
     if (!p || p.finished_at) continue;
+    // Who is still being looked for here — the matcher's own read. Nobody (or a failed read): the pass waits, unmoved.
+    const targets = new Set((await searched(admin, eventId)).map((e) => e.guestId));
+    if (targets.size === 0) continue;
 
     let drained = true;
     for (const source of ['papic_photos', 'papic_guest_captures'] as const) {
@@ -255,6 +273,23 @@ export async function runFaceRescan(
         }
         const rows = (data ?? []) as unknown as Array<Record<string, unknown>>;
         if (rows.length === 0) break;
+        // Every row this page's photos already carry — LIVE OR TOMBSTONED (no `removed_at` filter, on purpose): a
+        // guest with any row on a photo is never looked for in it again. One read per page; a failed read stops here.
+        const ids = rows.map((r) => r[idKey]).filter((x): x is string => typeof x === 'string');
+        const { data: tagData, error: tagErr } = ids.length
+          ? await admin.from('photo_tags').select('source_id, guest_id').eq('event_id', eventId).eq('source_table', source).in('source_id', ids)
+          : { data: [], error: null };
+        if (tagErr) {
+          console.error('[supabase-error] lib/face-rescan.ts · from:photo_tags.select', tagErr);
+          drained = false;
+          break;
+        }
+        const carried = new Map<string, Set<string>>();
+        for (const t of (tagData ?? []) as Array<{ source_id: string; guest_id: string }>) {
+          const set = carried.get(t.source_id) ?? new Set<string>();
+          set.add(t.guest_id);
+          carried.set(t.source_id, set);
+        }
         for (const row of rows) {
           if (outOfTime()) {
             drained = false;
@@ -262,7 +297,8 @@ export async function runFaceRescan(
           }
           const ref = objectRef(row, source);
           const photoId = row[idKey];
-          if (ref && typeof photoId === 'string') {
+          const stillMissing = typeof photoId === 'string' && [...targets].some((g) => !carried.get(photoId)?.has(g));
+          if (ref && typeof photoId === 'string' && stillMissing) {
             try {
               const vectors = await embed(await readBytes(ref));
               if (vectors.length > 0) {

@@ -99,6 +99,7 @@ const NOT_A_GUEST_READ: Record<string, string> = {
   'app/[slug]/actions.ts':
     'WRITES tag tombstones (untag me / ask for a takedown); serves no image key',
   'lib/face-match.ts': 'writes auto-face tags; serves no image key',
+  'lib/face-rescan.ts': 'the end-of-event look-back: reads which guests a photo already carries (to skip it), serves no image key to anyone',
   'lib/guest-wall-unpost.ts':
     'answers "is this on the wall right now" — a state, never an object key',
 };

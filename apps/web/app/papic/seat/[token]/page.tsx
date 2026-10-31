@@ -12,6 +12,7 @@ import { CameraBridgePanel } from './_components/camera-bridge-panel';
 import { PapicGuestBuyPanel } from '@/app/papic/_components/papic-guest-buy-panel';
 import { papicGuestBuyEnabled } from '@/lib/papic-guest-buy-flag';
 import { envFlagEnabled } from '@/lib/env-flag';
+import { CAMERA_BRIDGE_SHOWN_ON_CAMERA } from '@/lib/hidden-guest-extras';
 
 // Papic · seat capture (public, claimer-only)
 //
@@ -36,8 +37,11 @@ export default async function PapicSeatPage({ params, searchParams }: Props) {
   const { bridge, papic_buy_error: buyError, papic_release: released } = await searchParams;
   // Camera Bridge dark launch (build plan U1): mock-driven, no SKU active —
   // visible only via ?bridge=demo or the env flag, never by default.
+  // 🙈 AND HIDDEN UNTIL THE OWNER SAYS SO (31 Oct, "hide this for now"): the constant is asked FIRST, so neither
+  // ?bridge=demo nor the env flag draws it. Bring-back steps: lib/hidden-guest-extras.ts.
   const bridgeEnabled =
-    bridge === 'demo' || envFlagEnabled(process.env.NEXT_PUBLIC_CAMERA_BRIDGE_ENABLED);
+    CAMERA_BRIDGE_SHOWN_ON_CAMERA &&
+    (bridge === 'demo' || envFlagEnabled(process.env.NEXT_PUBLIC_CAMERA_BRIDGE_ENABLED));
 
   const supabase = await createClient();
   const {

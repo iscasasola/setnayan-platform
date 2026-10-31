@@ -24,6 +24,7 @@ import { GuestSpotlight } from '@/app/_components/guest-spotlight';
 import { TOURS } from '@/lib/tours';
 import { GuestColumnCard } from '@/app/[slug]/_components/guest-column-card';
 import { guestColumnsActive } from '@/lib/guest-columns-gate';
+import { WRITE_A_COLUMN_SHOWN_IN_APP } from '@/lib/hidden-guest-extras';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { cameraDressTintOfEvent } from '@/lib/camera-dress-of-event';
 import { cameraProFor } from '@/lib/papic-photo-mark.server';
@@ -494,6 +495,9 @@ async function CameraColumn({
   eventTz: string;
   eventEndDate: string | null;
 }) {
+  // 🙈 HIDDEN UNTIL THE OWNER SAYS SO (31 Oct, "hide this for now") — asked BEFORE the env flag, so no flag draws
+  // it. Bring-back steps: lib/hidden-guest-extras.ts.
+  if (!WRITE_A_COLUMN_SHOWN_IN_APP) return null;
   if (!(await guestColumnsActive())) return null;
   return (
     <div className="bg-cream text-ink empty:hidden" data-camera-column="">

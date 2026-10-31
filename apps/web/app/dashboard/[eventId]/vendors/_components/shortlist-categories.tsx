@@ -625,6 +625,7 @@ html.dark .slcat .sortseg button.on{color:#17160F;background:#E5794E}
 .slcat .bench-search input::placeholder{color:var(--ink-faint)}
 .slcat .bench-search input::-webkit-search-cancel-button{display:none;-webkit-appearance:none}
 .slcat .bench-search .bs-x{flex:0 0 auto;display:grid;place-items:center;width:40px;height:40px;margin-right:-11px;border:0;background:none;padding:0;cursor:pointer}
+.slcat .bench-search .bs-x span{color:var(--ink-faint)}
 .slcat .bench-empty{padding:26px 16px;text-align:center;color:var(--ink-faint);font-size:13px}
 html.dark .slcat .bench-search{background:#232019}
 .slcat .vc .meta{padding:11px 13px 13px;flex:1 1 auto;display:flex;flex-direction:column;gap:5px}

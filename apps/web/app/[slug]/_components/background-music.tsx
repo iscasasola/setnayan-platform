@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { TOP_CORNER_SLOT_ID } from '../_lib/top-corner';
 import { HUB_MUSIC_BUTTON_DEFAULT, type HubMusicButton } from '@/lib/hub-music-button';
 import { MUSIC_BUTTON_CLASS, MusicButtonFace } from './music-button-face';
-import { onUnveil, VEIL_FREE_ATTR } from '@/lib/hub-veil';
+import { onUnveil, onUnveilPress, primeMedia, VEIL_FREE_ATTR } from '@/lib/hub-veil';
 
 /**
  * Looping background music for the wedding site (Increment B ·
@@ -99,6 +99,18 @@ export function BackgroundMusic({ src, design = HUB_MUSIC_BUTTON_DEFAULT }: { sr
     };
     return onUnveil(startOnUnveil);
   }, []);
+  /* 👇 …AND THE PRESS UNLOCKS IT (PR #7129). A swipe up's pointerup carries no media credit on iOS (measured in the
+     app's "View Event Hub" sheet: refused 2 of 2, a tap allowed), so the unveil's play() above was refused for a
+     swipe and the song stayed off. The veil's pointerdown plays-and-pauses the song at once (silent), which unlocks
+     it, and the swipe up's play() then starts it (2 of 2). */
+  useEffect(
+    () =>
+      onUnveilPress(() => {
+        const el = audioRef.current;
+        if (el) primeMedia(el);
+      }),
+    [],
+  );
 
   /** The ONE way the song starts — the guest's tap on the button, or their tap / swipe that opened the veil. */
   async function startSong(el: HTMLAudioElement): Promise<boolean> {

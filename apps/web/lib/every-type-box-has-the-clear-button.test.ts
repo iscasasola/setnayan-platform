@@ -66,7 +66,6 @@ class FakeInput extends EventTarget {
   }
 }
 (globalThis as unknown as { HTMLInputElement: unknown }).HTMLInputElement = FakeInput;
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 const { clearTyped, isClearableField } = require('@/components/clear-field') as typeof import('@/components/clear-field');
 
 const box = (attrs: Record<string, string> = {}, extra: Partial<FakeInput> = {}) => {

@@ -419,7 +419,7 @@ export default async function SupplierLabPage({
     return wrap(<DatesLab state={q.s as DatesState} toast={q.toast} open={q.open} gear={q.gear === '1'} />, 'wide');
   }
   if (q.s && (PAGE_LAB_STATES as readonly string[]).includes(q.s)) {
-    return wrap(<PageLab state={q.s as PageLabState} who={q.who} draft={q.draft === '1'} invited={q.invited === '1'} asked={q.asked === '1'} port={q.port} fail={q.fail === '1'} />, 'own');
+    return wrap(<PageLab state={q.s as PageLabState} who={q.who} draft={q.draft === '1'} invited={q.invited === '1'} asked={q.asked === '1'} port={q.port} fail={q.fail === '1'} gear={q.gear === '1'} />, 'own');
   }
   if (q.s && (MONEY_STATES as readonly string[]).includes(q.s)) {
     return wrap(<MoneyLab state={q.s as MoneyState} next={q.next} open={q.open} mpage={q.mpage} wallet={q.wallet} />, 'reading');

@@ -11,6 +11,7 @@ import { PageParts } from './_components/page-parts';
 import { ShopSegments } from '../shop/_components/shop-segments';
 import { pageFigures } from '@/lib/shop-section-figures';
 import { AutoReplySection } from '../shop/_components/autoreply-section';
+import { shopGearBody } from '../shop/_components/shop-settings-body';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Your page' };
@@ -26,7 +27,12 @@ const DISPLAY_HOST = SITE_URL.replace(/^https?:\/\//, '');
  * publishes (`_components/page-parts.tsx`). Plan § "`/website` retires into Shop › Page": this address IS Shop › Page,
  * so every old link to it lands on the editor. The domain manager is the "Your web address" part, unchanged.
  */
-export default async function YourPage() {
+export default async function YourPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const sp = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -50,7 +56,7 @@ export default async function YourPage() {
 
   return (
     <section className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-32 pt-4 sm:px-6" data-supplier-page="">
-      <ShopSegments on="page" figures={pageFigures({ views30: d.views30, reviewCount: d.reviewCount, rating: d.rating })} />
+      <ShopSegments on="page" figures={pageFigures({ views30: d.views30, reviewCount: d.reviewCount, rating: d.rating })} gearBody={shopGearBody(sp)} />
       <h1 className="sr-only">Your page</h1>
       <PageParts
         d={{

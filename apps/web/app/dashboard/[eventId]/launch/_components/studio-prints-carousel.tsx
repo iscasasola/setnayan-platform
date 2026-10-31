@@ -36,7 +36,7 @@ import { chartAddresses, useChartPick, usePaper, type StudioPaper, type StudioPa
 import { usePrintSave, type PrintSaveState } from './print-save-button';
 import { usePassLookPick } from './pass-card-design-picker';
 import { DEFAULT_PASS_CARD_DESIGN, PASS_CARD_DESIGNS, PASS_CARD_DESIGN_LABEL, PASS_CARD_WORDS, type PassCardDesign } from '@/lib/pass-card';
-import { usePrintGuest, usePrintSlides, type AllInOneF, type PrintSlide } from './prints-view-store';
+import { setPrintOnScreen, usePrintGuest, usePrintSlides, type AllInOneF, type PrintSlide } from './prints-view-store';
 
 /**
  * 🎠 STUDIO › PRINTS IS A SWIPE CAROUSEL — owner, verbatim, 2026-10-26, looking at the Prints screen: *"So we can make like a swipe
@@ -163,6 +163,11 @@ export function StudioPrintsCarousel({
   const root = useRef<HTMLDivElement>(null);
   const here = pieces[Math.min(i, pieces.length - 1)]!;
   const slide: PrintSlide = slides.get(here.key) ?? {};
+  /* ⚙ The page's ⚙ sheet opens at the print on screen (owner 2026-10-31) — it reads this as it opens. */
+  useEffect(() => {
+    setPrintOnScreen(here.key);
+  }, [here.key]);
+  useEffect(() => () => setPrintOnScreen(null), []);
 
   /** The visible track — the phone's or the computer's (one is `display:none`). */
   const visibleTrack = () => [track.current, deskTrack.current].find((t) => t && t.clientWidth > 0) ?? null;

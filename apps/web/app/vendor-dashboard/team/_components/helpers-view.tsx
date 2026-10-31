@@ -75,6 +75,7 @@ export function HelpersView({
   seatFeePhp,
   search,
   actions,
+  embedded = false,
 }: {
   userId: string;
   founderUserId: string | null;
@@ -89,6 +90,8 @@ export function HelpersView({
   seatFeePhp: number;
   search: HelpersSearch;
   actions: HelpersActions;
+  /** Drawn inside the Shop ⚙'s "Team" fold (2026-10-31): no page column, no page title — the fold names it. */
+  embedded?: boolean;
 }) {
   const adminCount = enriched.filter((m) => isVendorAdminRole(m.role)).length;
   const { motions, votes } = motionData;
@@ -106,9 +109,9 @@ export function HelpersView({
   const roleOptions = VENDOR_TEAM_ROLE_PICK.map((o) => ({ key: o.key as string, label: o.label }));
 
   return (
-    <section className="mx-auto w-full max-w-xl px-4 pb-32 pt-6 sm:px-6 sm:pt-10" data-helpers-screen="">
+    <section className={embedded ? 'pb-2' : 'mx-auto w-full max-w-xl px-4 pb-32 pt-6 sm:px-6 sm:pt-10'} data-helpers-screen="">
       <header className="space-y-1">
-        <h1 className="sn-h1">Helpers</h1>
+        {embedded ? null : <h1 className="sn-h1">Helpers</h1>}
         <p className="text-[14px] text-ink/65">
           Helpers and team members see Today and Customers only. Admins run the shop with you.
         </p>

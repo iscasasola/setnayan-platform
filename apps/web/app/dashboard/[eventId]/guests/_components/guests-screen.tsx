@@ -1980,11 +1980,11 @@ export function GuestsScreen(props: GuestsScreenProps) {
             {/* 🎚 The view's own rounds (Seats: Edit · ⋯ — the plan draws them here, `lens.toolsSlot`), left of the ⚙. */}
             <span ref={setToolsSlot} className="flex shrink-0 items-center gap-1.5 empty:hidden" data-guests-view-rounds="" />
             {setup ? (
-              <OpenRequestsContext.Provider value={requestsInPlace && !writesOff ? openRequests : null}>
-                <MenuSettingsButton menu="guests" open={settingsOpen} onOpenChange={openSettings} tour="guests-setup">
+              <MenuSettingsButton menu="guests" open={settingsOpen} onOpenChange={openSettings} tour="guests-setup">
+                <OpenRequestsContext.Provider value={requestsInPlace && !writesOff ? openRequests : null}>
                   <PickWhoContext.Provider value={writesOff ? null : pickWho}>{setup}</PickWhoContext.Provider>
-                </MenuSettingsButton>
-              </OpenRequestsContext.Provider>
+                </OpenRequestsContext.Provider>
+              </MenuSettingsButton>
             ) : null}
           </div>
           {/* 📋 The copy line — in the flow, under the selector, never over anything (guest-copy-mark.tsx). */}

@@ -199,5 +199,6 @@ test('7 · the ⚙’s Requests row opens Asking to join in place on the Guests 
   assert.match(open, /openSettings\(false\)/, 'the ⚙ sheet stays open over the requests');
   assert.match(open, /if \(gview !== 'list'\) pickView\('list'\);/, 'Asking to join opens under another view');
   assert.match(open, /setAsking\(true\)/);
-  assert.match(screen, /<OpenRequestsContext\.Provider value=\{requestsInPlace && !writesOff \? openRequests : null\}>\s*<MenuSettingsButton menu="guests"/, 'the ⚙ rows cannot reach openRequests');
+  // Inside the ⚙ sheet, around its rows — the top row itself stays exactly as it is (it belongs to the top-row build).
+  assert.match(screen, /<MenuSettingsButton menu="guests"[^>]*>\s*<OpenRequestsContext\.Provider value=\{requestsInPlace && !writesOff \? openRequests : null\}>/, 'the ⚙ rows cannot reach openRequests');
 });

@@ -21,6 +21,7 @@ import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 import { buildGrowthRecs } from '@/lib/vendor-growth-recs';
 import { PAYMENT_OPTIONS_HREF } from './_components/payout-method-nudge';
+import { SHOP_GEAR_SECTIONS } from './shop/_components/shop-gear-sections';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..', '..');
@@ -33,12 +34,37 @@ const SCREEN_FOLDS: Readonly<Record<string, string>> = {
   '/vendor-dashboard/collections': 'app/vendor-dashboard/collections/_components/collections-list.tsx',
 };
 
-/** `/vendor-dashboard/profile#docs` lands on a fold that carries `anchor="docs"`. */
+/**
+ * 🏪 THE SHOP ⚙'S FOLDS (owner 2026-10-31, "Yes follow your recommendation" — DECISION_LOG "SHOP ⚙ — WHAT A SUPPLIER
+ * SETS ONCE"). Your documents MOVED off Your details into the Shop ⚙; an address on a Shop section naming one of the ⚙'s
+ * folds (`/vendor-dashboard/profile#docs`) opens the ⚙ ON that fold. Such a link lands when the screen draws the ⚙
+ * (hands its row the ⚙'s rows), the ⚙ opens on that hash, and the ⚙'s rows carry the fold's anchor.
+ */
+const GEAR_ROWS = 'app/vendor-dashboard/shop/_components/shop-settings-rows.tsx';
+function landsInTheShopGear(href: string, path: string, file: string, hash: string): void {
+  const page = `app${path}/page.tsx`;
+  assert.match(src(file) + src(page), /<ShopSegments\b[^>]*\bgearBody=/, `${href}: ${path} does not draw the Shop ⚙`);
+  assert.match(src(page), /shopGearBody\(/, `${href}: ${page} never hands the ⚙ its rows, so it can never open`);
+  assert.match(
+    src('app/vendor-dashboard/shop/_components/shop-settings.tsx'),
+    /SHOP_GEAR_SECTIONS as readonly string\[\]\)\.includes\(at\)\) go\(true, at\)/,
+    `${href}: the Shop ⚙ no longer opens on a hash naming its fold`,
+  );
+  assert.match(src(GEAR_ROWS), new RegExp(`<Fold\\s+anchor="${hash}"`), `${href}: the Shop ⚙ carries no anchor="${hash}"`);
+}
+
+/** `/vendor-dashboard/profile#pay` lands on a fold that carries `anchor="pay"` — on the page, or in its Shop ⚙. */
 function landsOnAFold(href: string): void {
   const [path, hash] = href.split('#');
   assert.ok(hash, `${href} carries no anchor`);
   const file = SCREEN_FOLDS[path!.split('?')[0]!];
   assert.ok(file, `${href} is not one of the supplier fold screens`);
+  if ((SHOP_GEAR_SECTIONS as readonly string[]).includes(hash!)) {
+    // The ⚙ takes the hash first (it opens the sheet) — so the page must not ALSO carry a fold of that name.
+    assert.doesNotMatch(src(file), new RegExp(`anchor="${hash}"`), `${href}: ${path} and its Shop ⚙ both carry anchor="${hash}"`);
+    landsInTheShopGear(href, path!.split('?')[0]!, file, hash!);
+    return;
+  }
   assert.match(src(file), new RegExp(`anchor="${hash}"`), `${href}: nothing on ${path} carries anchor="${hash}"`);
 }
 

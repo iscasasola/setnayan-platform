@@ -600,8 +600,12 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
       {/* Deep Search — a metered ₱500/search add-on that researches the vendor's
           OWN business to auto-fill their profile. Pro+ get 1 free per 28-day
           cycle; Solo always pays. The runnable surface lives on its own sub-route
-          (owner 2026-07-22). */}
+          (owner 2026-07-22).
+          🍎 `data-web-only`: the screen now also mounts in the Shop ⚙ (not only on the refused /subscription route), and
+          Deep Search's own route is refused in the app (lib/store-shell.ts) — so the card never shows there
+          (lib/the-app-never-steers-to-the-web.test.ts). */}
       <Link
+        data-web-only=""
         href="/vendor-dashboard/deep-search"
         className="sn-card sn-press mt-5 flex flex-wrap items-center gap-4 p-5 sm:flex-nowrap"
       >

@@ -16,6 +16,7 @@ import { HUB_LOOK_PRO_NOTE, HUB_LOOK_ROW } from '@/lib/studio-hub-look-row';
 import type { StudioPaper } from './print-paper';
 import { setPrintSettingsOpen, usePrintSettingsOpen, useRegisterSlide, type AllInOneF, type SlideTicketStyle } from './prints-view-store';
 import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
+import { MenuSettingsButton } from '@/app/_components/menu-settings-button';
 export type { AllInOneF } from './prints-view-store';
 
 /**
@@ -25,7 +26,7 @@ export type { AllInOneF } from './prints-view-store';
  * larger then under is the toolbar to pick style? and download options?"*; DECISION_LOG "APPROVED — PRINTS IS A SWIPE CAROUSEL";
  * prototype `prints_carousel_2026-10-26`).
  *
- *   · `StudioPrintSettings` — the ONE sheet ⚙ opens, from every slide (`setPrintSettingsOpen`). Its first row is "Your Event Hub
+ *   · `StudioPrintSettings` — the ONE sheet ⚙ opens (`setPrintSettingsOpen`). Its first row is "Your Event Hub
  *     look ◆" (`lead`) — a setting of every print, not a print. NO Save since 2026-10-21: every press posts.
  *     🔒 THE FIELDS NEVER UNMOUNT: the sheet is hidden while shut, never removed — every switch joins the print words form by `form=`,
  *     and a field that is not in the page is a field a post does not send (`studio-prints-posts-the-same.test.ts`).
@@ -58,7 +59,7 @@ function SettingsHead({ title, line }: { title: string; line?: string }) {
  * honest line ("waits for Apply" — it is drafted, owner 2026-10-02 Q7); the special message and the thank-you keep their drafted saves.
  */
 export function StudioPrintSettings({ sections, form, lead = null }: { sections: readonly PrintSettingsSection[]; form: string; lead?: ReactNode }) {
-  /* ⚙ Opened from every slide's toolbar (`setPrintSettingsOpen`) — the row that opened it is gone with the list. */
+  /* ⚙ Opened from the Prints page's ONE ⚙, its top bar's right end (`StudioPrintSettingsDoor`, `setPrintSettingsOpen`). */
   const open = usePrintSettingsOpen();
   const setOpen = setPrintSettingsOpen;
   const [said, setSaid] = useState<{ n: number; tone: 'ok' | 'bad'; text: string } | null>(null);
@@ -126,6 +127,18 @@ export function StudioPrintSettings({ sections, form, lead = null }: { sections:
       {body ? createPortal(panel, body) : panel}
     </>
   );
+}
+
+/**
+ * ⚙ THE PRINTS PAGE'S ONE ⚙ (owner 2026-10-31, relayed: *"the ⚙ on Prints opens Prints' own settings, if there is a real Prints
+ * setting"*) — the right end of the page's top bar (`maker-shell.tsx`, `printsPage`), where the Hub's ⚙ stood: that one opened
+ * Event Hub settings (Look · Your Event Hub · What guests see), which change nothing on a print. The house door
+ * (`MenuSettingsButton menu="prints"`, the same 44 px every menu's ⚙ is), the door alone: its sheet is `StudioPrintSettings` above,
+ * through the same store. The slides draw no ⚙ of their own any more — one ⚙ per page (`the-prints-gear-opens-print-settings.test.ts`).
+ */
+export function StudioPrintSettingsDoor() {
+  const open = usePrintSettingsOpen();
+  return <MenuSettingsButton menu="prints" open={open} onOpenChange={setPrintSettingsOpen} />;
 }
 
 /* ── 🎨 YOUR EVENT HUB LOOK — ◆ owned, ◆ PRO the door ──────────────────────────────────────────────────────────────────────── */

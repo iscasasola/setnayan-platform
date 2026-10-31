@@ -98,11 +98,18 @@ export const SETTINGS_ENTRY: Record<SettingsMenu, SettingsEntry> = {
     line: 'What guests see, your address and QR, the look, the tools.',
     live: true,
   },
+  /**
+   * 🖨 THE PRINTS PAGE ⚙ (owner 2026-10-31, relayed: *"the ⚙ on Prints opens Prints' own settings, if there is a real
+   * Prints setting"*): the right end of the Prints page's top bar, where the Hub's ⚙ stood (it opened Hub settings, which
+   * change nothing on a print). The door only (`MenuSettingsButton` with no rows): its sheet is the ONE print settings
+   * sheet, `StudioPrintSettings` — Your Event Hub look ◆ · the print words · ticket style · special message · thank-you.
+   * Mounted once, in `studio-prints-settings.tsx` (`StudioPrintSettingsDoor`); the slides draw no ⚙ of their own.
+   */
   prints: {
     door: 'first-row-gear',
     sheet: 'Print settings',
     line: 'What every print shares.',
-    live: false,
+    live: true,
   },
   memories: {
     door: 'first-row-gear',

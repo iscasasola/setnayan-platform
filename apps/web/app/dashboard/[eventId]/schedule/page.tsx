@@ -910,7 +910,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
           initial={active}
           views={[
             { key: 'event-day', label: 'Event Day', count: topLevelCount },
-            { key: 'preparation', label: 'Preparation', count: agenda.items.length },
+            { key: 'preparation', label: 'Planning Stage', count: agenda.items.length },
             { key: 'journey', label: 'Journey', count: journey.totalEntries },
           ]}
           dateLine={bookedDateLine}

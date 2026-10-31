@@ -40,6 +40,7 @@ export function PlanRows({
   featured,
   gift = null,
   photosLine = null,
+  titled = true,
 }: {
   tier: string;
   pays: string;
@@ -61,10 +62,12 @@ export function PlanRows({
   gift?: { line: string } | null;
   /** The Portfolio photos row's line (`portfolioPlanRowLine`); null = the row is not drawn. */
   photosLine?: string | null;
+  /** False inside the Shop ⚙'s "Plan and billing" fold — the fold names it (2026-10-31). */
+  titled?: boolean;
 }) {
   return (
     <>
-      <h1 className="sn-h1">Your plan</h1>
+      {titled ? <h1 className="sn-h1">Your plan</h1> : null}
       <p className="mt-2 text-[15px] text-ink" data-plan-answer="">
         <b className="font-semibold">You are on {planWord(tier)}</b> · {gift ? gift.line : pays}
         {expiresOn && !gift ? <span className={expiresSoon ? 'font-medium text-orange' : 'text-ink/60'}> · until {expiresOn}</span> : null}

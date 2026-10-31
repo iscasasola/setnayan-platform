@@ -1,20 +1,20 @@
 'use client';
 import { ProQuietLine } from './pro-quiet-line';
 
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Palette } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { onMakerSave } from '@/lib/maker-save-status';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
-import { PRINT_SETTINGS_LABEL, PRINT_SETTINGS_SAVED, type PrintGuest } from '@/lib/studio-prints-settings';
+import { PRINT_SETTINGS_LABEL, PRINT_SETTINGS_SAVED, printSettingsOpenAt, type PrintGuest } from '@/lib/studio-prints-settings';
 import type { PickNoun } from '@/lib/print-picked-guests';
 import { StudioProDoor } from './studio-prints-six';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
 import { HUB_LOOK_PRO_NOTE, HUB_LOOK_ROW } from '@/lib/studio-hub-look-row';
 import type { StudioPaper } from './print-paper';
-import { setPrintSettingsOpen, usePrintSettingsOpen, useRegisterSlide, type AllInOneF, type SlideTicketStyle } from './prints-view-store';
+import { printOnScreenNow, setPrintSettingsOpen, usePrintSettingsOpen, useRegisterSlide, type AllInOneF, type SlideTicketStyle } from './prints-view-store';
 import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 import { MenuSettingsButton } from '@/app/_components/menu-settings-button';
 export type { AllInOneF } from './prints-view-store';
@@ -76,6 +76,23 @@ export function StudioPrintSettings({ sections, form, lead = null }: { sections:
   const headId = useId();
   useEffect(() => setBody(document.body), []);
   useModalA11y({ open, onClose: () => setOpen(false), containerRef: sheet });
+  /* ⚙ OPENS AT THE PRINT ON SCREEN (owner 2026-10-31, *"Yes follow your recommendation"*): as the sheet opens — after the commit that
+     shows it, before the frame paints, and instantly (no smooth scroll, so no jump and nothing to reduce) — its body is scrolled so
+     that print's own section sits at the top; "On every print" and the lead stay above it, a scroll up. A print with no section of
+     its own (`printSettingsOpenAt`) opens at the top. Every section stays drawn: this scrolls, it never hides or filters. */
+  const scroller = useRef<HTMLDivElement>(null);
+  const room = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const b = scroller.current;
+    if (!open || !b) return;
+    /* Measured with no room below, then given just the room a section near the end needs to reach the top. */
+    if (room.current) room.current.style.height = '0px';
+    const { key, top, room: below } = printSettingsOpenAt(b, printOnScreenNow());
+    if (room.current) room.current.style.height = `${below}px`;
+    b.scrollTo({ top, behavior: 'instant' });
+    /* Where it opened, said on the body — the lab walk reads it beside the measured place. */
+    b.dataset.printSettingsAt = key ?? '';
+  }, [open]);
   const panel = (
     <div data-print-settings-layer="" hidden={!open} className={open ? 'fixed inset-0 z-[86]' : 'hidden'}>
       <OverlayBackdrop onClose={() => setOpen(false)} label="Close print settings" tabIndex={-1} />
@@ -98,7 +115,7 @@ export function StudioPrintSettings({ sections, form, lead = null }: { sections:
             Done
           </button>
         </div>
-        <div data-print-settings-body="" className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+        <div ref={scroller} data-print-settings-body="" className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
           {/* 🎨 Your Event Hub look ◆ — the sheet's first row (prototype `prints_carousel_2026-10-26`): it is a setting of every print. */}
           {lead ? <div data-print-settings-lead="" className="border-b border-ink/10 bg-cream px-4 [&_[data-print-hub-look]]:border-t-0">{lead}</div> : null}
           {sections.map((s) => (
@@ -107,6 +124,10 @@ export function StudioPrintSettings({ sections, form, lead = null }: { sections:
               <div className="bg-cream px-4 [&_[data-studio-print-rows]+[data-studio-print-rows]]:border-t [&_[data-studio-print-rows]+[data-studio-print-rows]]:border-ink/10">{s.body}</div>
             </section>
           ))}
+          {/* ⚠ `transition-none` (transition-property: none) — under reduced motion globals.css gives EVERY element a 0.001 ms
+              transition (and the default property is `all`), so the room's new height was a transition: it still measured 0 when the
+              scroll ran, and the open stopped at the old end (WebKit 390×844: Passes 306 px down). With none it counts at once. */}
+          <div ref={room} aria-hidden data-print-settings-room="" className="h-0 transition-none" />
         </div>
       </div>
       {said && open ? (

@@ -69,7 +69,12 @@ export async function sendWebPush(
     // `Topic` (RFC 8030 §5.4): the push service itself replaces an undelivered
     // message with the same topic — the network half of "replaces, never stacks";
     // the service worker's `tag` + `renotify` is the device half.
-    const options = { topic: message.topic, TTL: 24 * 60 * 60 };
+    const options = {
+      topic: message.topic,
+      TTL: 24 * 60 * 60,
+      // RFC 8030: an Urgent notice is not held back for a phone saving its battery.
+      urgency: message.level === 'urgent' ? ('high' as const) : ('normal' as const),
+    };
 
     const staleIds: string[] = [];
 

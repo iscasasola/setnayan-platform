@@ -3,6 +3,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { isWebPushConfigured, sendWebPush } from '@/lib/web-push';
 import { noticeSentence, pushMessage, type PushSubject } from '@/lib/push-message';
+import { PUSH_LEVEL, type PushLevel } from '@/lib/push-levels';
+import type { NotificationType } from '@/lib/notifications';
 
 /**
  * THE PHONE-NOTIFICATION FUNNEL — the one place a push is sent from.
@@ -79,7 +81,7 @@ async function unreadCount(admin: Admin, userId: string): Promise<number | null>
 /** Send one templated notice to every channel this user has. */
 export async function sendPush(
   userId: string,
-  notice: { sentence: string; url: string | null; collapseKey: string; eventId: string | null; fallbackUrl?: string },
+  notice: { sentence: string; url: string | null; collapseKey: string; level: PushLevel; eventId: string | null; fallbackUrl?: string },
 ): Promise<void> {
   if (!isAnyPushConfigured()) return;
   try {
@@ -93,6 +95,7 @@ export async function sendPush(
       sentence: notice.sentence,
       url: notice.url,
       collapseKey: notice.collapseKey,
+      level: notice.level,
       badge,
       fallbackUrl: notice.fallbackUrl,
     });
@@ -105,7 +108,7 @@ export async function sendPush(
 /** A bell row's phone twin: the template's sentence + collapse key for its type. */
 export async function sendPushForNotice(n: {
   userId: string;
-  type: string;
+  type: NotificationType;
   title: string;
   body: string | null;
   relatedUrl: string | null;
@@ -116,6 +119,7 @@ export async function sendPushForNotice(n: {
     sentence,
     url: n.relatedUrl,
     collapseKey,
+    level: PUSH_LEVEL[n.type],
     eventId: n.eventId,
     fallbackUrl: n.relatedUrl?.startsWith('/vendor-dashboard') ? '/vendor-dashboard' : n.eventId ? `/dashboard/${n.eventId}` : '/dashboard',
   });

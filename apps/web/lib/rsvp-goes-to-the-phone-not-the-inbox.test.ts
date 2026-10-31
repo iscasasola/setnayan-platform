@@ -13,9 +13,10 @@
  * none. Each is held here:
  *   1 · `rsvp_received` is NOT emailed;
  *   2 · it IS pushed, through `pushRsvpReply` (never the plain bell twin);
- *   3 · INSTANT: the RSVP action notifies inside `after()` (never in front of the
- *       guest's reply), and the push path has no hold — no timer, no window, no
- *       "already pushed" state;
+ *   3 · INSTANT BY DAY: the RSVP action notifies inside `after()` (never in front of
+ *       the guest's reply), and the push path has no hold of its own — no timer, no
+ *       window, no "already pushed" state. Quiet hours are the one wait, decided by
+ *       its level (Normal, lib/push-levels.ts), not here;
  *   4 · COLLAPSE: the key is `rsvp:<eventId>`; Web Push sends it as `tag` AND the
  *       `Topic` header; the service worker shows it with `renotify: true`;
  *   5 · THE COUNT is the host's UNREAD reply rows for this event (run in
@@ -32,6 +33,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from './strip-comments';
+import { PUSH_LEVEL } from './push-levels';
 
 const WEB = process.cwd();
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
@@ -49,7 +51,6 @@ function members(name: string): string[] {
 
 test('anchor — the lists were really read', () => {
   assert.ok(members('EMAIL_ENABLED_TYPES').length >= 40);
-  assert.ok(members('PUSH_ENABLED_TYPES').length >= 4);
 });
 
 test('1 · a reply is not emailed', () => {
@@ -57,7 +58,7 @@ test('1 · a reply is not emailed', () => {
 });
 
 test('2 · a reply is pushed, through pushRsvpReply', () => {
-  assert.ok(members('PUSH_ENABLED_TYPES').includes('rsvp_received'), 'rsvp_received is not pushed — nobody is told');
+  assert.equal(PUSH_LEVEL.rsvp_received, 'normal', 'rsvp_received is not pushed by day — nobody is told');
   assert.match(EMIT, /if \(type === 'rsvp_received' && eventId\) \{\s*await pushRsvpReply\(userId, eventId\);\s*\} else \{/);
 });
 

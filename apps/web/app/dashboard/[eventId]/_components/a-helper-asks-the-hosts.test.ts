@@ -32,6 +32,7 @@ import { askableParts, askedTimeLabel, ownAccessOf } from '@/lib/people-with-acc
 import { COORDINATOR_AREAS, DELEGATE_AREAS, DELEGATE_AREA_LABEL, areaChoices, type ModeratorPermissions } from '@/lib/delegate-areas';
 import { LIMITED_AREAS } from '@/lib/coordinator-access-level';
 import { NOTIFICATION_TYPE_LABEL } from '@/lib/notifications';
+import { PUSH_LEVEL } from '@/lib/push-levels';
 
 (globalThis as unknown as { React: unknown }).React = React;
 
@@ -56,10 +57,9 @@ function setMembers(name: string): string[] {
 test('1 · the ask is IN-APP ONLY — its own kind, on neither the email nor the push allowlist', () => {
   assert.equal(NOTIFICATION_TYPE_LABEL.access_more_asked, 'A helper asks for more access');
   const email = setMembers('EMAIL_ENABLED_TYPES');
-  const push = setMembers('PUSH_ENABLED_TYPES');
-  assert.ok(email.length > 10 && push.length > 2, 'the allowlists did not parse — this check would pass vacuously');
+  assert.ok(email.length > 10, 'the allowlist did not parse — this check would pass vacuously');
   assert.ok(!email.includes('access_more_asked'), 'an ask emails the hosts — the owner said no new emails without his word');
-  assert.ok(!push.includes('access_more_asked'), 'an ask buzzes the hosts’ phones');
+  assert.equal(PUSH_LEVEL.access_more_asked, 'low', 'an ask buzzes the hosts’ phones');
   // The kind exists in Postgres (a TS-only member typechecks and is then refused in silence).
   const enumFile = readFileSync(join(REPO, 'supabase/migrations/20271299515167_access_more_asked_notification_type.sql'), 'utf8');
   assert.match(enumFile, /ALTER TYPE public\.notification_type ADD VALUE IF NOT EXISTS 'access_more_asked';/);

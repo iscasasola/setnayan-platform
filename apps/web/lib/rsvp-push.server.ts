@@ -56,6 +56,7 @@ export async function pushRsvpReply(userId: string, eventId: string): Promise<vo
       sentence: rsvpSentence(facts),
       url: facts.url,
       collapseKey: `rsvp:${eventId}`,
+      level: 'normal',
       eventId,
       fallbackUrl: `/dashboard/${eventId}/guests`,
     });

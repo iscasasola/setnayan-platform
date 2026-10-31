@@ -259,6 +259,7 @@ async function processPushNotification(record: ChatMessageRecord): Promise<void>
       sentence: chatSentence({ from: null, preview: body }),
       url: `/vendor-dashboard/messages/${thread_id}`,
       collapseKey: `chat:${thread_id}`,
+      level: 'normal',
       fallbackUrl: '/vendor-dashboard',
     });
 

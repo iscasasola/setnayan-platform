@@ -5,7 +5,6 @@ import { applyDelegateAccessWindow } from '@/lib/delegate-access-window.server';
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { sweepGuardNotifications } from '@/lib/setnayan-ai-notify';
-import { maybeFlushRsvpPushes } from '@/lib/rsvp-push.server';
 import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
 import { eventMenuGates } from '@/lib/event-menu-gates';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
@@ -434,9 +433,6 @@ export default async function EventLayout({ children, params }: Props) {
   // isSetnayanAiActiveForUser, and fully fail-soft. Mounted in the LAYOUT so
   // any event-scoped page visit keeps the guards live — not just the Overview.
   after(() => sweepGuardNotifications(eventId));
-  // 📱 The tail of a burst of guest replies ("Maria + 2 others replied") — a
-  // claimed 5-minute job, so this costs one cheap claim per window site-wide.
-  after(() => maybeFlushRsvpPushes());
 
   // Event Lifecycle Menu (2026-06-16): the bottom-nav roster swaps by lifecycle
   // phase (Plan → Day-of → After). Computed SERVER-SIDE so there's no client

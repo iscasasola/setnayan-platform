@@ -7,8 +7,8 @@ import {
   renderBrandedEmail,
   type BrandedEmailSection,
 } from '@/lib/email-template';
-import { isWebPushConfigured, sendWebPush } from '@/lib/web-push';
-import { pushGroupedRsvp } from '@/lib/rsvp-push.server';
+import { isAnyPushConfigured, sendPushForNotice } from '@/lib/push-send.server';
+import { pushRsvpReply } from '@/lib/rsvp-push.server';
 import { isPlaceholderEmail } from '@/lib/anon-onboarding';
 import type { NotificationType } from '@/lib/notifications';
 import { notificationEmailReason } from '@/lib/notification-email-reason';
@@ -48,18 +48,13 @@ const PUSH_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
     rsvp. How much does that cost us?" → "Can we make the notification instead
     like facebook even if on website and app?" → "Yes. The notification on the
     phone not on the app."). It left EMAIL_ENABLED_TYPES the same day.
-    🔑 GROUPED, never one buzz per guest: see GROUPED_PUSH_TYPES below.
+    🔑 INSTANT, AND IT REPLACES (owner "Yes" to: "instant, but each new RSVP
+    notification replaces the last one on the lock screen instead of
+    stacking"): every reply pushes at once, one collapse key per event, the
+    text counting the host's unread replies — lib/rsvp-push.server.ts.
   */
   'rsvp_received',
 ]);
-
-/*
-  Types whose PHONE notice is folded per host × event — at most one every
-  RSVP_PUSH_WINDOW_MS, reading "Maria + 2 others replied" (lib/rsvp-push-grouping.ts).
-  The bell row is still written once per reply above; only the push is grouped.
-  🔒 lib/rsvp-goes-to-the-phone-not-the-inbox.test.ts
-*/
-const GROUPED_PUSH_TYPES: ReadonlySet<NotificationType> = new Set(['rsvp_received']);
 
 // ---------------------------------------------------------------------------
 // EMAIL allowlist (Notification Foundation · Phase A · 2026-06-19).
@@ -664,24 +659,19 @@ export async function emitNotification(args: EmitNotificationArgs): Promise<void
     }
   }
 
-  // Best-effort Web Push for the high-signal types only. Gated on VAPID env
-  // (no-ops when unset) and fully fire-and-forget — a push failure never
-  // affects the in-app notification or the email that already landed.
-  if (isWebPushConfigured() && PUSH_ENABLED_TYPES.has(type)) {
+  // Best-effort phone notice for the high-signal types only, through the ONE
+  // template (lib/push-message.ts → lib/push-send.server.ts). No-ops when no
+  // channel is configured; a push failure never affects the bell row or the
+  // email that already landed.
+  if (isAnyPushConfigured() && PUSH_ENABLED_TYPES.has(type)) {
     try {
-      // A grouped type is pushed from its bell rows (one notice per window),
-      // never one-for-one. Without an event there is nothing to group by, so it
-      // falls through to the plain push.
-      if (GROUPED_PUSH_TYPES.has(type) && eventId) {
-        await pushGroupedRsvp(userId, eventId);
-        return;
+      // A reply counts the host's unread replies for its event and replaces the
+      // last one on the lock screen; everything else is the bell row's twin.
+      if (type === 'rsvp_received' && eventId) {
+        await pushRsvpReply(userId, eventId);
+      } else {
+        await sendPushForNotice({ userId, type, title, body, relatedUrl, eventId });
       }
-      await sendWebPush(userId, {
-        title,
-        body,
-        url: relatedUrl,
-        tag: type,
-      });
     } catch (e) {
       console.error('[notifications] push-on-emit failed:', e);
     }

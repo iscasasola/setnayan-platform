@@ -23,6 +23,7 @@ import 'server-only';
 import { after, NextResponse, type NextRequest } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { webhookSecretAuthorized } from '@/lib/webhook-secret-auth';
+import { chatSentence, pushMessage, pushWireBody, type PushMessage } from '@/lib/push-message';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -79,11 +80,10 @@ interface SupabaseWebhookPayload {
   old_record: ChatMessageRecord | null;
 }
 
-interface PushPayload {
-  title: string;
-  body: string;
-  data: Record<string, string>;
-}
+// 📱 The payload is a `PushMessage` from the ONE template (lib/push-message.ts,
+// owner 2026-10-31 "fix the way how the notification messages the phones") —
+// never a title written here.
+type PushPayload = PushMessage;
 
 // ---------------------------------------------------------------------------
 // Delivery
@@ -128,7 +128,8 @@ async function sendWebPush(
 
     await webpush.sendNotification(
       { endpoint: parsed.endpoint, keys: parsed.keys },
-      JSON.stringify(payload),
+      pushWireBody(payload),
+      { topic: payload.topic, TTL: 24 * 60 * 60 },
     );
 
     return { ok: true, permanentFailure: false };
@@ -247,11 +248,19 @@ async function processPushNotification(record: ChatMessageRecord): Promise<void>
       return;
     }
 
-    const pushPayload: PushPayload = {
-      title: 'New message',
-      body: body.slice(0, 100),
-      data: { thread_id, type: 'new_message' },
-    };
+    // The shop's own name is the title (a shop notice); the couple's words are the body.
+    const { data: shop } = await admin
+      .from('vendor_profiles')
+      .select('business_name')
+      .eq('vendor_profile_id', vendor_profile_id)
+      .maybeSingle();
+    const pushPayload: PushPayload = pushMessage({
+      subject: { kind: 'shop', name: (shop as { business_name?: string | null } | null)?.business_name ?? null },
+      sentence: chatSentence({ from: null, preview: body }),
+      url: `/vendor-dashboard/messages/${thread_id}`,
+      collapseKey: `chat:${thread_id}`,
+      fallbackUrl: '/vendor-dashboard/messages',
+    });
 
     const results = await Promise.allSettled(
       tokens.map(async (row) => {

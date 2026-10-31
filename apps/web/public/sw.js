@@ -1376,7 +1376,8 @@ self.addEventListener('fetch', (event) => {
 //
 // 🔑 TWO PAYLOAD SHAPES, AND THE ONE EVERY NOTICE ACTUALLY SENDS WAS IGNORED.
 // `lib/web-push.ts` (the funnel every emitNotification push goes through) sends
-//   { title, body, url, tag }            — top level, no `data`
+//   { title, body, url, tag, badge }     — top level, no `data`
+//   (written ONLY by `pushWireBody` in lib/push-message.ts)
 // while this handler only ever read the older vendor-thread shape
 //   { title, body, data: { thread_id?, type? } }
 // so until 2026-10-31 every notice arrived tagged 'setnayan-vendor' and a tap
@@ -1399,7 +1400,7 @@ function pushTargetPath(data) {
 }
 
 self.addEventListener('push', (event) => {
-  /** @type {{ title?: string, body?: string, url?: string, tag?: string, data?: Record<string,string> }} */
+  /** @type {{ title?: string, body?: string, url?: string, tag?: string, badge?: number, data?: Record<string,string> }} */
   let payload = {};
   try {
     payload = event.data ? event.data.json() : {};
@@ -1411,20 +1412,31 @@ self.addEventListener('push', (event) => {
   const nested = (payload.data && typeof payload.data === 'object') ? payload.data : {};
   const data = { ...nested };
   if (typeof payload.url === 'string') data.url = payload.url;
+  const tag = (typeof payload.tag === 'string' && payload.tag) || nested.thread_id || 'setnayan';
   const options = {
     body: payload.body || '',
     // Use the existing SVG icon at the public root (icon-192.svg).
     // Chromium supports SVG notification icons; Safari ignores the icon field.
     icon: '/icon-192.svg',
     badge: '/icon-192.svg',
-    // Collapse: a newer notice with the same tag REPLACES the older one on the
-    // device (one per conversation; one per event for grouped guest replies).
-    tag: (typeof payload.tag === 'string' && payload.tag) || nested.thread_id || 'setnayan',
+    // 🔁 REPLACES, NEVER STACKS (owner 2026-10-31): a newer notice with the same
+    // tag replaces the older one — one per conversation, one per event for guest
+    // replies ("rsvp:<eventId>") — and `renotify` makes the replacement buzz
+    // again instead of swapping in silently.
+    tag,
+    renotify: true,
     // Carry the structured data so notificationclick can route correctly.
     data,
   };
 
-  event.waitUntil(self.registration.showNotification(title, options));
+  // The app badge — the unread count, where the platform draws one.
+  const badgeCount = typeof payload.badge === 'number' ? payload.badge : null;
+  const badgeWork =
+    badgeCount !== null && self.navigator && 'setAppBadge' in self.navigator
+      ? (badgeCount > 0 ? self.navigator.setAppBadge(badgeCount) : self.navigator.clearAppBadge()).catch(() => {})
+      : Promise.resolve();
+
+  event.waitUntil(Promise.all([self.registration.showNotification(title, options), badgeWork]));
 });
 
 self.addEventListener('notificationclick', (event) => {

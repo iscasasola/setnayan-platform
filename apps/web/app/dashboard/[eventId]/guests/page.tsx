@@ -1117,6 +1117,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       requestsInPlace={viewer.isCouple}
       // 📱 Replies reach the couple's phone (owner 2026-10-31); the one-time ask is theirs, never inside the iPhone app.
       replyAsk={viewer.isCouple && !storeShell}
+      markRepliesSeen={viewer.isCouple}
       requestsBody={
         viewer.isCouple && (pendingClaimsCount > 0 || pendingClaims.error !== null || search.gshow === 'requests') ? (
           <Suspense fallback={<p className="px-4 py-6 text-center text-[13px] text-ink/60">Opening your requests…</p>}>

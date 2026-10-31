@@ -497,8 +497,8 @@ export type NotificationType =
      "A HELPER SEES THEIR OWN ACCESS AS THE FIRST ROW OF HOME ⚙ EVENT SETTINGS — read-only, with 'Ask the hosts'"). →
      EVERY host of the event, one notice per ask, opening Home ⚙ › People with access on that helper
      (`?settings=1&row=access&person=<seat>`). Written by the DATABASE (`ask_hosts_for_more_access`, 20271299854365),
-     never emitNotification — at most one per helper per part a day. ⚠ IN-APP ONLY: NOT on EMAIL_ENABLED_TYPES or
-     PUSH_ENABLED_TYPES (owner: no new emails without his word). ⚠ ENUM value in 20271299515167. */
+     never emitNotification — at most one per helper per part a day. ⚠ IN-APP ONLY: NOT on EMAIL_ENABLED_TYPES, Low in
+     lib/push-levels.ts (owner: no new emails without his word). ⚠ ENUM value in 20271299515167. */
   | 'access_more_asked';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {

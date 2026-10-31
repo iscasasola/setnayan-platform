@@ -130,9 +130,14 @@ test('6 · Mac gets the second, silent gate named', () => {
 });
 
 test('7 · the toggle still asks only on a deliberate press', () => {
-  assert.match(TOGGLE_CODE, /Notification\.requestPermission/);
+  // Since 2026-10-31 the ask lives in the ONE shared path (lib/push-subscribe.ts,
+  // also run by the Guests reply ask). The property is unchanged: the toggle
+  // reaches it from its press handler, never from an effect.
+  const SUBSCRIBE = code(readFileSync(join(__dirname, 'push-subscribe.ts'), 'utf8'));
+  assert.match(SUBSCRIBE, /Notification\.requestPermission/);
+  assert.match(TOGGLE_CODE, /async function enable\(\)[\s\S]*?subscribeThisDevice\(\)/, 'the switch no longer runs the shared yes-path');
   assert.ok(
-    !/useEffect\([^)]*\)\s*=>\s*\{[^}]*requestPermission/.test(TOGGLE_CODE),
+    !/useEffect\([^)]*\)\s*=>\s*\{[^}]*(requestPermission|subscribeThisDevice)/.test(TOGGLE_CODE),
     'never prompt on first paint — that is the pattern browsers punish with a silent permanent block',
   );
 });

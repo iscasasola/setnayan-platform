@@ -20,9 +20,12 @@
  * Losing one is guarded too: a type that silently drops off is a person who
  * stops being told (that is how `booking_cancelled` lost its email in June).
  *
+ * The PUSH half this file used to freeze became lib/push-levels.ts (owner
+ * 2026-10-31, "Yes, add them"), held by lib/push-levels.test.ts.
+ *
  * SABOTAGE (each seen red, restored): add 'payment_logged' to the email list ·
- * add 'quote_accepted' · remove 'payment_confirmed' · add 'lock_request_received'
- * to the push list · move 'chat_message' into the marketing-gated set.
+ * add 'quote_accepted' · remove 'payment_confirmed' · move 'chat_message' into the
+ * marketing-gated set.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -43,7 +46,12 @@ function members(name: string): string[] {
   return [...EMIT.slice(open, close).matchAll(/'([a-z_0-9]+)'/g)].map((m) => m[1]!);
 }
 
-/** Every type that emailed on main, 2026-10-10. 52 of them. */
+/**
+ * Every type that emailed on main, 2026-10-10 — 52 of them — LESS `rsvp_received`,
+ * which the owner moved to the phone on 2026-10-31 (verbatim: "I keep getting
+ * email notifications everytime a person confirms rsvp. How much does that cost
+ * us?" → "Yes. The notification on the phone not on the app."). 51 now.
+ */
 const EMAILED_ON_MAIN: readonly string[] = [
   'ai_payment_due', 'appointment_reminder', 'booking_confirmed',
   'booking_fee_waived', 'chat_message', 'colour_changed_in_lane',
@@ -59,12 +67,10 @@ const EMAILED_ON_MAIN: readonly string[] = [
   'part_finalization_requested', 'part_reopen_answered', 'part_reopen_requested',
   'payment_cleared', 'payment_confirmed', 'payment_info_sent', 'payment_matched',
   'payment_refunded', 'payment_rejected', 'payment_resubmit_requested',
-  'review_received', 'rsvp_received', 'schedule_change_requested', 'security_alert',
+  'review_received', 'schedule_change_requested', 'security_alert',
   'vendor_credit_expiring', 'vendor_feature_suggested', 'vendor_status_change',
   'waitlist_picked',
 ];
-/** Every type that pushed on main, 2026-10-10. */
-const PUSHED_ON_MAIN: readonly string[] = ['chat_message', 'inquiry_accepted', 'security_alert', 'vendor_inquiry_received'];
 /** The engagement types whose email also needs marketing consent, on main. */
 const MARKETING_GATED_ON_MAIN: readonly string[] = ['new_chapter_from_followed'];
 
@@ -84,31 +90,24 @@ function compare(name: string, frozen: readonly string[], what: string): void {
 }
 
 test('anchor — the three lists were really read', () => {
-  assert.equal(EMAILED_ON_MAIN.length, 52);
+  assert.equal(EMAILED_ON_MAIN.length, 51);
   assert.equal(new Set(EMAILED_ON_MAIN).size, EMAILED_ON_MAIN.length, 'the frozen list repeats a type');
   assert.ok(members('EMAIL_ENABLED_TYPES').length >= 40, 'the email allowlist parsed as nearly empty');
-  assert.ok(members('PUSH_ENABLED_TYPES').length >= 3, 'the push list parsed as nearly empty');
 });
 
 test('🔒 the email allowlist is exactly what main sent — none gained, none lost', () => {
   compare('EMAIL_ENABLED_TYPES', EMAILED_ON_MAIN, 'An EMAIL');
 });
 
-test('🔒 the push list is exactly what main sent', () => {
-  compare('PUSH_ENABLED_TYPES', PUSHED_ON_MAIN, 'A PUSH');
-});
-
 test('🔒 the marketing-gated set is exactly what main had', () => {
   compare('MARKETING_GATED_EMAIL_TYPES', MARKETING_GATED_ON_MAIN, 'A marketing gate');
 });
 
-test('the four notices added on 2026-10-10 are told IN THE APP — labelled, toned, on no list', () => {
+test('the four notices added on 2026-10-10 are never emailed — labelled, toned; their phone level is lib/push-levels.ts', () => {
   const email = members('EMAIL_ENABLED_TYPES');
-  const push = members('PUSH_ENABLED_TYPES');
   for (const t of ['quote_accepted', 'quote_declined', 'change_order_proposed', 'change_order_answered'] as const) {
     assert.ok(NOTIFICATION_TYPE_LABEL[t], `${t} has no label — the tray row would be blank`);
     assert.ok(NOTIFICATION_TYPE_TONE[t], `${t} has no tone`);
     assert.ok(!email.includes(t), `${t} is emailed`);
-    assert.ok(!push.includes(t), `${t} is pushed`);
   }
 });

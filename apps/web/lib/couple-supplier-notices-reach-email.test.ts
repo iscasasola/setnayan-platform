@@ -533,7 +533,7 @@ test('5 · the emitter builds the mail from the notice\'s own link and event, an
   assert.doesNotMatch(fn, /isEmailConfigured\(\)/, 'the emitter checks configuration before sendEmail — an unconfigured send is skipped unrecorded again');
 
   // Three exits without a send, three rows: recipient unreadable, no address, threw.
-  const block = fn.slice(fn.indexOf('if (EMAIL_ENABLED_TYPES.has(type)) {'), fn.indexOf('isWebPushConfigured()'));
+  const block = fn.slice(fn.indexOf('if (EMAIL_ENABLED_TYPES.has(type)) {'), fn.indexOf('isAnyPushConfigured()'));
   const records = block.split('await recordDelivery(').length - 1;
   console.log(`# recordDelivery calls in the email block: ${records}`);
   assert.equal(records, 3, 'an exit from the email block stopped recording why no email went');

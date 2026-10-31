@@ -201,6 +201,7 @@ import {
 } from '@/lib/guests-filter';
 import { GuestsLensContext, type GuestsLens, type SeatsChannel } from './guests-lens';
 import { guestsFilterMenu } from './guests-filter-menu';
+import { ReplyPushAsk } from './reply-push-ask';
 
 
 export type GuestsScreenProps = {
@@ -259,6 +260,12 @@ export type GuestsScreenProps = {
    * with or without a body: no body means the page MEASURED nobody waiting, and the frame says so itself.
    */
   requestsInPlace?: boolean;
+  /**
+   * 📱 The one-time "Get a notice on this phone when guests reply?" (owner 2026-10-31 — replies go to the phone, not
+   * the inbox). The page sets it for the couple outside the iPhone app; the sheet decides the rest on the device
+   * (`lib/reply-push-ask.ts`). Reads nothing new: it is told how many have replied from the counts drawn here.
+   */
+  replyAsk?: boolean;
   /** `?gshow=requests` — open on the requests. */
   initialAsking?: boolean;
   /** 🪪 People whose printed word waits on Woman or Man (`needsWomanOrMan`) — the List's "N people need…" row. */
@@ -414,6 +421,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
     requests,
     requestsBody = null,
     requestsInPlace = false,
+    replyAsk = false,
     initialAsking = false,
     titlesWaiting = [],
     rootLabel,
@@ -1992,6 +2000,8 @@ export function GuestsScreen(props: GuestsScreenProps) {
           </div>
           {/* 📋 The copy line — in the flow, under the selector, never over anything (guest-copy-mark.tsx). */}
           <GuestListStatus copy={copy} fresh={props.measured} />
+          {/* 📱 Portals itself (the house sheet) — placed here only because this row is on every view. */}
+          {replyAsk && measured ? <ReplyPushAsk replied={stats.yes + stats.no} /> : null}
         </div>
         </div>
 

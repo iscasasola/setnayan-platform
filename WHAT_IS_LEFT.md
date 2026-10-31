@@ -312,8 +312,8 @@ line if the owner disagrees.** He has not been asked.
 ## Verifying anything: the accounts and the traps
 
 **Five prod test accounts:** `testnayan1@test.com` … `testnayan5@test.com`,
-password `12345`, all confirmed. `/open-shop` turns a customer into a vendor by
-itself.
+all confirmed. The password is not written here: this repo is public. Ask the
+owner. `/open-shop` turns a customer into a vendor by itself.
 
 🚨 **NEVER test a paywall or entitlement on the owner account.** It is
 `is_internal = TRUE`, which makes **every** SKU gate pass. A paywall looks

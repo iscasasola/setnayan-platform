@@ -44,7 +44,8 @@
  * bottom padding for the row.
  */
 import { useCallback, useId, useRef, type InputHTMLAttributes, type ReactNode, type Ref } from 'react';
-import { CalendarDays, Plus, Search, X } from 'lucide-react';
+import { CalendarDays, Plus, Search } from 'lucide-react';
+import { ClearButton, clearTyped } from '@/components/clear-field';
 import { ActionButton, actionButtonClass, type ActionButtonProps } from '@/components/action-button';
 import { rowRides, useRidingRow } from '@/app/_components/typing-band';
 import { useThumbRoom } from '@/lib/thumb-room';
@@ -105,6 +106,12 @@ export type ThumbField = {
   inputRef?: Ref<HTMLInputElement>;
   /** Anything else the host's input already does (value, onInput, onKeyDown, data-*). */
   input?: InputHTMLAttributes<HTMLInputElement> & Record<`data-${string}`, string | undefined>;
+  /**
+   * ✕ was pressed — the box is already empty and its `onInput`/`onChange` has heard it. A host whose search waits
+   * after the last letter (`SEARCH_WAIT_MS`) cancels that wait here and searches for nothing AT ONCE, so the list is
+   * whole the moment the words are gone (owner 2026-10-31).
+   */
+  onClear?: () => void;
   tour?: string;
 };
 
@@ -151,13 +158,6 @@ function ActionFace() {
 
 /** ⌨ The riding decision — the shared row's (`useRidingRow`, typing-band.tsx); kept under this name for the guard. */
 export const thumbRowRides = rowRides;
-
-/** Put words in a React-controlled input as a person would (its `onChange` / `onInput` hear it). */
-function setTyped(input: HTMLInputElement, value: string) {
-  const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
-  set?.call(input, value);
-  input.dispatchEvent(new Event('input', { bubbles: true }));
-}
 
 export function ThumbRow({
   name,
@@ -214,9 +214,6 @@ export function ThumbRow({
     },
     [field],
   );
-  /* A press on the band or ✕ never takes the focus from the field (it would close the band under the finger) — on
-     `mousedown` only: a cancelled `pointerdown` also cancels a touch's click in WebKit (measured 2026-10-24). */
-  const keepFocus = (e: { preventDefault: () => void }) => e.preventDefault();
   return (
     <div ref={rowRef} role="toolbar" aria-label={`${name} tools`} data-riding={riding ? '' : undefined} data-thumb-row={name} className={`${styles.row} ${className}`}>
       {/* The band first in the reading order — it is drawn above the row (Done before the field, as seen). */}
@@ -254,23 +251,21 @@ export function ThumbRow({
                   not. Shown only while there are words: CSS `:placeholder-shown`, so a programmatic fill or a reset by the
                   host keeps it right without the row knowing the value. The press keeps the focus where it was — it never
                   raises the keyboard (an empty, focused Find box opens "Go to a category"), and never drops it while
-                  typing. The search hears the empty words through the input's own event. */}
+                  typing. The search hears the empty words through the input's own event, and a host that waits after the
+                  last letter hears `onClear` at once. It is the ONE shared ✕ (`components/clear-field.tsx`). */}
               {field.kind === 'date' ? null : (
-                <button
-                  type="button"
-                  aria-label="Clear the search"
+                <ClearButton
+                  label="Clear the search"
                   data-thumb-clear=""
                   className={styles.clearIn}
-                  onMouseDown={keepFocus}
-                  onClick={() => {
+                  discClassName={styles.clearDisc}
+                  onClear={() => {
                     const el = ownInput.current;
-                    if (el) setTyped(el, '');
+                    if (!el) return;
+                    clearTyped(el);
+                    field.onClear?.();
                   }}
-                >
-                  <span aria-hidden className={styles.clearDisc}>
-                    <X strokeWidth={2.4} />
-                  </span>
-                </button>
+                />
               )}
             </label>
           ) : (

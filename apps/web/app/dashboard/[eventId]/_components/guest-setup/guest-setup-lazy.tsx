@@ -41,3 +41,15 @@ export const KeepQuickAdd = dynamic(() =>
 export const SendInviteActions = dynamic(() =>
   import(/* webpackChunkName: "maker-guest-requests" */ '../../guests/_components/send-invite').then((m) => m.SendInviteActions),
 );
+
+/**
+ * 📥 A REQUEST DECIDED INSIDE GUESTS (R4 slice 11) — the Requests rows' in-place forms, drawn only when Guests draws
+ * the Requests page (`maker=guests`). Through this door for the same reason as the three above: the Requests page is
+ * in the Maker's first load, and these are never drawn there.
+ */
+export const DecideForm = dynamic(() =>
+  import(/* webpackChunkName: "guests-requests-in-place" */ '../../guests/claims/decide-in-place').then((m) => m.DecideForm),
+);
+export const DecideRow = dynamic(() =>
+  import(/* webpackChunkName: "guests-requests-in-place" */ '../../guests/claims/decide-in-place').then((m) => m.DecideRow),
+);

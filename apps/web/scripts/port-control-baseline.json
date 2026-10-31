@@ -6790,6 +6790,7 @@
         "dashboard/[eventId]/guests/_components/plain-refusal.ts",
         "dashboard/[eventId]/guests/_components/quick-add-sheet.tsx",
         "dashboard/[eventId]/guests/_components/render-guests-screen.ts",
+        "dashboard/[eventId]/guests/_components/requests-decided.tsx",
         "dashboard/[eventId]/guests/_components/role-names-context.tsx",
         "dashboard/[eventId]/guests/_components/role-section-order.ts",
         "dashboard/[eventId]/guests/_components/search-add-card.tsx",
@@ -6987,6 +6988,7 @@
         "OpenAddFromPeopleButton",
         "OpenAddGuestTextButton",
         "OpenDeleteGuestSheet",
+        "OpenRequestsContext.Provider",
         "OutcomeContext.Provider",
         "OverlayBackdrop",
         "PageMasthead",
@@ -7009,6 +7011,8 @@
         "QuickGroupResult",
         "QuickRoleResult",
         "RenameRoleResult",
+        "RequestsJustDecided",
+        "RequestsPage",
         "RestoreResult",
         "RoleNamesContext.Provider",
         "RoleNamesProvider",
@@ -7098,6 +7102,7 @@
     "/dashboard/[eventId]/guests/claims": {
       "files": [
         "dashboard/[eventId]/guests/claims/actions.ts",
+        "dashboard/[eventId]/guests/claims/decide-in-place.tsx",
         "dashboard/[eventId]/guests/claims/keep-quick-add.tsx",
         "dashboard/[eventId]/guests/claims/link-picker.tsx",
         "dashboard/[eventId]/guests/claims/page.tsx"
@@ -7108,11 +7113,14 @@
       "actions": [],
       "blocks": [
         "Chip",
+        "DecideForm",
+        "DecideRow",
         "KeepQuickAdd",
         "Link",
         "LinkCandidate",
         "LinkPicker",
         "PageMasthead",
+        "RequestInPlace",
         "RoleNamesProvider",
         "SendInviteActions",
         "SubmitButton"
@@ -11387,6 +11395,8 @@
         "AccountBottomNav",
         "AddGuestSheet",
         "BottomDock",
+        "DecideForm",
+        "DecideRow",
         "DockStandIn",
         "GuestActions",
         "GuestActionsProvider",
@@ -11400,6 +11410,7 @@
         "LabGuestActions",
         "LabMarch",
         "LabPageSpotlight",
+        "LabRequestsStandIn",
         "LabRoom3D",
         "LabSeats",
         "LabShell",
@@ -11408,11 +11419,13 @@
         "MarchMaker",
         "NotificationsList",
         "QuickAddSheet",
+        "RequestInPlace",
         "RoleNamesProvider",
         "SeatPlanInGuests",
         "SeatingEditor",
         "SeatingLabLoader",
         "SendRun",
+        "SubmitButton",
         "UndoToastHost"
       ]
     },

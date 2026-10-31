@@ -74,6 +74,11 @@ export async function renderGuestsScreen(opts: {
   invite?: unknown;
   /** ☑ `?select=to-invite` — ⚙ › Pick who's cold link: Select on, the list narrowed to To invite. */
   initialSelect?: boolean;
+  /** 📥 The Requests page drawn in place (slice 11) and `?gshow=requests`. */
+  requestsBody?: unknown;
+  /** The couple (opens in place even with no body). Absent → only when a body is handed in. */
+  requestsInPlace?: boolean;
+  initialAsking?: boolean;
 }): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { AppRouterContext } = await import('next/dist/shared/lib/app-router-context.shared-runtime');
@@ -101,6 +106,9 @@ export async function renderGuestsScreen(opts: {
           songsByGuest: {},
           faceByGuest: {},
           requests: opts.requests ?? 0,
+          requestsBody: (opts.requestsBody ?? null) as never,
+          requestsInPlace: opts.requestsInPlace ?? opts.requestsBody != null,
+          initialAsking: opts.initialAsking ?? false,
           oneQr: opts.oneQr ?? false,
           rootLabel: 'A & B',
           initialQuery: opts.initialQuery ?? '',

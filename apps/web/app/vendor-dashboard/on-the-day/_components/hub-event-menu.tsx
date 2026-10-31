@@ -63,6 +63,7 @@ export function HubEventMenu({
   const [finding, setFinding] = useState(false);
   const box = useRef<HTMLSpanElement>(null);
   const slot = usePinLeadSlot();
+  const tools = usePinToolsSlot();
   useEffect(() => {
     const onFind = (ev: Event) => {
       const words = (ev as CustomEvent<string>).detail ?? '';
@@ -138,7 +139,9 @@ export function HubEventMenu({
       />
       </span>
       {info}
-      {gear}
+      {/* ⚙ The row's right end: from 701 the bar's right side (`[data-pin-tools]`, after the thumb row's tools) — the house
+          contract "LEFT one menu, RIGHT action rounds" — and on a phone the end of this row. One instance either way. */}
+      {tools ? createPortal(<span className="order-last inline-flex" data-hub-gear-up="">{gear}</span>, tools) : gear}
     </span>
   );
   return slot ? createPortal(menu, slot) : <div className="pb-2" data-hub-menu-row="">{menu}</div>;
@@ -146,6 +149,20 @@ export function HubEventMenu({
 
 /** The width at which the menu lives in the pinned row — the shell's 701 line (`boundary="tab"`). */
 const UP_QUERY = '(min-width: 701px)';
+
+/** The bar's right side while the window is wide enough for it — else null (the ⚙ stays on the row). */
+function usePinToolsSlot(): HTMLElement | null {
+  const [box, setBox] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return;
+    const mq = window.matchMedia(UP_QUERY);
+    const read = () => setBox(mq.matches ? document.querySelector<HTMLElement>('[data-pin-tools]') : null);
+    read();
+    mq.addEventListener('change', read);
+    return () => mq.removeEventListener('change', read);
+  }, []);
+  return box;
+}
 
 /** The pinned row's Hub slot while the window is wide enough for it — else null (the menu is drawn in place). */
 export function usePinLeadSlot(): HTMLElement | null {

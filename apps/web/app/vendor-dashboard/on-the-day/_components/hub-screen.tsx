@@ -107,7 +107,7 @@ export function HubEventCard({
         <p className="text-[11.5px] font-medium uppercase tracking-[0.12em]" style={{ color: 'rgba(251,251,250,0.62)' }}>
           {hubRoleWords(event)}
         </p>
-        <p className="mt-1 truncate text-[19px] font-medium leading-snug" style={{ color: 'var(--m-paper)' }}>
+        <p className="mt-1 truncate text-[19px] font-medium leading-snug" style={{ color: 'rgb(251,251,250)' }}>
           {title}
         </p>
         <p className="mt-0.5 truncate text-[13.5px]" style={{ color: 'rgba(251,251,250,0.72)' }}>

@@ -164,7 +164,7 @@ export const SETTINGS_ENTRY: Record<SettingsMenu, SettingsEntry> = {
   shop: {
     door: 'first-row-gear',
     sheet: 'Shop settings',
-    line: 'Your plan, your team, your papers and how we reach you.',
+    line: 'Your plan, who helps run the shop, your papers, how we reach you.',
     live: true,
     tip: 'What you set once and rarely touch. What you edit often — details, services, your page, your portfolio — stays on the Shop page.',
   },

@@ -1,4 +1,5 @@
 import { LAST_SEEN_WIPE_SCRIPT } from '@/lib/last-seen/wipe';
+import { OFFLINE_COPIES_WIPE_SCRIPT } from '@/lib/offline-copies';
 
 /**
  * 💾 SIGN-OUT EMPTIES THE LAST-SEEN STORE (owner 2026-10-02, DECISION_LOG
@@ -12,5 +13,11 @@ import { LAST_SEEN_WIPE_SCRIPT } from '@/lib/last-seen/wipe';
  * to any JavaScript bundle (see `lib/last-seen/wipe.ts`).
  */
 export function LastSeenSignedOutWipe() {
-  return <script dangerouslySetInnerHTML={{ __html: LAST_SEEN_WIPE_SCRIPT }} />;
+  return (
+    <>
+      <script dangerouslySetInnerHTML={{ __html: LAST_SEEN_WIPE_SCRIPT }} />
+      {/* 📶 …and the saved event pages for a no-signal venue (EV3, lib/offline-copies.ts): the same doors, the same test. */}
+      <script dangerouslySetInnerHTML={{ __html: OFFLINE_COPIES_WIPE_SCRIPT }} />
+    </>
+  );
 }

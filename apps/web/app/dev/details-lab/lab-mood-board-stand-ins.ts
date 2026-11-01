@@ -1,4 +1,5 @@
 import type { MoodBoardActions } from '@/app/dashboard/[eventId]/studio/mood-board/_components/mood-board-actions-context';
+import type { CouplePhotoShareReply } from '@/lib/couple-photo-share';
 
 /**
  * 🧪 THE LAB'S STAND-INS FOR STUDIO › MOOD BOARD & DRESS CODE'S WRITES (DEV-ONLY — `/dev/maker-lab?studio=1`,
@@ -25,11 +26,35 @@ export const LAB_MOOD_BOARD_ACTIONS: Partial<MoodBoardActions> = {
   /* 🤝🖼 A supplier's suggestion kept / declined / its Keep undone — answered here; the Palette moves the photo itself. */
   keepInspirationSuggestion: async () => ({ status: 'ok', slotPosition: 0, replaced: false }),
   declineInspirationSuggestion: async () => ({ status: 'ok' }),
-  undoKeptInspirationSuggestion: async () => ({ status: 'ok' }),
+  undoMoodBoardChange: async () => ({ status: 'ok' }),
   /* ⏰ The guests' call time — the Schedule's own writers answer like the real ones (they return nothing, or throw). */
   updateScheduleBlock: async () => undefined,
   createScheduleBlock: async () => undefined,
+  /* 📸 Share a photo with a supplier — the lab's own two linked shops; a send waits, a take-back answers ok (nothing is written). */
+  couplePhotoShare: async (req): Promise<CouplePhotoShareReply> => {
+    switch (req.op) {
+      case 'read':
+        return { op: 'read', result: { status: 'ok', shareable: true, inspirationId: 'lab-photo', cards: LAB_PHOTO_SHARE_CARDS, shares: [], namesCredit: 'Ana & Ben · Feb 2027', defaultAudience: 'exclusive' } };
+      case 'send':
+        return { op: 'send', result: { status: 'ok', shareId: 'lab-share', shop: LAB_PHOTO_SHARE_CARDS.find((c) => c.vendorServiceId === req.vendorServiceId)?.shop ?? 'Bloom & Co.' } };
+      case 'take_back':
+        return { op: 'take_back', result: { status: 'ok' } };
+      case 'answer':
+        return { op: 'answer', result: { status: 'ok', approved: req.approve, line: 'Approved — it is on your service card now.' } };
+      case 'audience':
+        return { op: 'audience', result: { status: 'ok' } };
+      case 'viewer_looks':
+        return { op: 'viewer_looks', result: {} };
+    }
+  },
 };
+
+/** 📸 The lab's linked shops' cards (fixtures — no database). */
+export const LAB_PHOTO_SHARE_CARDS = [
+  { vendorServiceId: 'lab-card-bouquet', title: 'Garden bridal bouquet', shop: 'Bloom & Co.' },
+  { vendorServiceId: 'lab-card-centre', title: 'Table centrepieces', shop: 'Bloom & Co.' },
+  { vendorServiceId: 'lab-card-styling', title: 'Full reception styling', shop: 'Hacienda Décor' },
+];
 
 /** `?refuse=1`: the writes REFUSE with the database's own words (or throw), on purpose. */
 export const LAB_MOOD_BOARD_REFUSALS: Partial<MoodBoardActions> = {
@@ -42,11 +67,23 @@ export const LAB_MOOD_BOARD_REFUSALS: Partial<MoodBoardActions> = {
   },
   keepInspirationSuggestion: async () => ({ status: 'error' }),
   declineInspirationSuggestion: async () => ({ status: 'error' }),
-  undoKeptInspirationSuggestion: async () => ({ status: 'error' }),
+  undoMoodBoardChange: async () => ({ status: 'error', message: 'permission denied for function undo_mood_board_change' }),
   updateScheduleBlock: async () => {
     throw new Error('new row violates check constraint "event_schedule_blocks_check"');
   },
   createScheduleBlock: async () => {
     throw new Error('permission denied for table event_schedule_blocks');
   },
+  couplePhotoShare: async (req): Promise<CouplePhotoShareReply> =>
+    req.op === 'send'
+      ? { op: 'send', result: { status: 'refused', message: 'permission denied for function couple_share_photo_with_supplier' } }
+      : req.op === 'read'
+        ? { op: 'read', result: { status: 'error' } }
+        : req.op === 'take_back'
+          ? { op: 'take_back', result: { status: 'error' } }
+          : req.op === 'audience'
+            ? { op: 'audience', result: { status: 'error' } }
+            : req.op === 'viewer_looks'
+              ? { op: 'viewer_looks', result: {} }
+              : { op: 'answer', result: { status: 'refused', message: 'permission denied for function vendor_answer_couple_photo' } },
 };

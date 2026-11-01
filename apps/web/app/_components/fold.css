@@ -1,0 +1,54 @@
+/*
+ * fold.css — an OPEN fold's head pinned as ONE SLIM LINE (owner 2026-10-29, app-wide; supplier dashboard v13
+ * "ACCORDION PIN RULE"). `fold.tsx` writes `data-fold-pin` (sticky, on the pin line) and `data-slim` (once the head has
+ * reached the line); this only draws them: ~40 px, the lead mark small, the name one line, the sub-line · count · tags
+ * hidden, ▾ kept. Nothing here applies to a shut fold. Colour tokens only; nothing moves under reduced motion.
+ */
+[data-fold-pin] {
+  position: sticky;
+  z-index: 3;
+}
+[data-fold-pin] [data-fold-head] {
+  transition: min-height var(--sn-pin-glide-ms) var(--sn-pin-glide-ease);
+}
+[data-fold-pin] [data-fold-lead] {
+  transition: transform var(--sn-pin-glide-ms) var(--sn-pin-glide-ease);
+  transform-origin: left center;
+}
+[data-fold-pin][data-slim] {
+  box-shadow: 0 1px 0 rgb(var(--color-ink) / 0.1);
+}
+/* 🎞 THE GLIDE (owner 2026-10-29, "remember to animate them properly" — the ONE pin animation, `pin-glide.css`): the
+   slim line rises in as the full head goes; back down, the full head comes down into place. `data-was-slim` keeps the
+   first open still. */
+[data-fold-pin][data-slim] > * {
+  animation: sn-pin-rise var(--sn-pin-glide-ms) var(--sn-pin-glide-ease);
+}
+[data-fold-pin][data-was-slim]:not([data-slim]) > * {
+  animation: sn-pin-drop var(--sn-pin-glide-ms) var(--sn-pin-glide-ease);
+}
+[data-fold-pin][data-slim] [data-fold-head] {
+  min-height: 40px;
+  font-size: 14px;
+}
+[data-fold-pin][data-slim] [data-fold-lead] {
+  transform: scale(0.7);
+}
+[data-fold-pin][data-slim] [data-fold-sub],
+[data-fold-pin][data-slim] [data-fold-aside] {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-fold-pin] [data-fold-head],
+  [data-fold-pin] [data-fold-lead] {
+    transition: none;
+  }
+  [data-fold-pin][data-slim] > *,
+  [data-fold-pin][data-was-slim]:not([data-slim]) > * {
+    animation: none;
+  }
+}
+/* A slim pinned head keeps its one action out of the way — the line is the name and the ▾. */
+[data-fold-pin][data-slim] [data-fold-end] {
+  display: none;
+}

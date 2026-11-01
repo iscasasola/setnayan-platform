@@ -49,7 +49,9 @@ const ROOTS = ['app', 'lib', 'components'].map((d) => path.join(WEB_ROOT, d));
  * before it shipped. Guarding a plan for inertness would assert the opposite
  * of what it is for.
  */
-const NOTE_COLUMNS = ['payment_method_note'];
+// `pay_ways` (2026-10-29) — the record card's "How to pay them": the same kind of thing as the note (a way to pay,
+// as words and a picture), held to the same rule.
+const NOTE_COLUMNS = ['payment_method_note', 'pay_ways'];
 
 /** Tables that ARE the event's money. A write to one of these is an obligation. */
 const MONEY_TABLES = [

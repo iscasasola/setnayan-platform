@@ -160,9 +160,10 @@ test('1b · the screen draws the tally in the counts line — and nothing of it 
 test('2 · a named +1 never shows Release seat; every seat with no name yet does, in place of Remove', async () => {
   for (let n = 0; n < 6; n++) {
     for (const g of roster(n)) {
-      const verbs = rowVerbsFor(g, { linked: false, chatHref: null });
+      const verbs = rowVerbsFor(g, { shareable: true });
       if (plusOneHasNoName(g)) {
         assert.ok(verbs.includes('release'), `${g.guest_id} (no name yet) is not offered Release seat`);
+        assert.ok(!verbs.includes('share'), `${g.guest_id} (no name yet) is offered Share — a seat rides on their guest's invitation`);
         assert.ok(!verbs.includes('remove'), `${g.guest_id} (no name yet) is offered Remove and Release`);
       } else {
         assert.ok(!verbs.includes('release'), `${g.guest_id} (${g.first_name}) is offered Release seat`);
@@ -184,7 +185,7 @@ test('2 · a named +1 never shows Release seat; every seat with no name yet does
   };
   assert.match(rowOf('h-1'), /aria-label="Release [^"]*"[^>]*>[\s\S]*?Release seat/, 'the seat with no name yet has no Release seat');
   assert.doesNotMatch(rowOf('h-2'), /Release seat|aria-label="Release /, 'a named +1 shows Release seat');
-  assert.match(rowOf('h-2'), /aria-label="Remove /, 'a named +1 lost the shipped Remove');
+  assert.match(rowOf('h-2'), /aria-label="Delete /, 'a named +1 lost the shipped remove (its row button reads Delete since 2026-10-27)');
 });
 
 /* ── 3–5 · the server action, over the in-memory database ─────────────────────────────────────────────────────── */

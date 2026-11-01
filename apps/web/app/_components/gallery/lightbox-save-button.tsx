@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Check, Download, Loader2 } from 'lucide-react';
+import { Check, Share, Loader2 } from 'lucide-react';
 import { saveImageToDevice } from '@/lib/save-to-device';
 
 /**
@@ -35,7 +35,7 @@ export function LightboxSaveButton({ url, filename }: { url: string; filename: s
         ) : state === 'done' ? (
           <Check aria-hidden className="h-4 w-4" strokeWidth={2.5} />
         ) : (
-          <Download aria-hidden className="h-4 w-4" strokeWidth={2} />
+          <Share aria-hidden className="h-4 w-4" strokeWidth={2} />
         )}
         {state === 'saving' ? 'Saving…' : state === 'done' ? 'Saved' : 'Save'}
       </button>

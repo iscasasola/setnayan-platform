@@ -36,4 +36,5 @@ export const FIXTURE: MapData = {
   ],
   partsRead: true,
   cardsRead: true,
+  servicesRead: true,
 };

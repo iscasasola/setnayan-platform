@@ -20,7 +20,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AlertTriangle,
   Clapperboard,
-  Download,
+  Share,
   Loader2,
   RotateCcw,
   Sparkles,
@@ -276,7 +276,7 @@ export function ReelRenderer({
               }}
               className="inline-flex items-center justify-center gap-2 rounded-md bg-success-700 px-4 py-2.5 text-sm font-medium text-cream transition-colors hover:bg-success-800"
             >
-              <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+              <Share aria-hidden className="h-4 w-4" strokeWidth={1.75} />
               {saveNote === 'expired' ? 'Tap to save' : 'Download reel'}
             </button>
             {downloadUrl ? (

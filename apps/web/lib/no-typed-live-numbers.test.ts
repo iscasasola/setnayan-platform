@@ -67,7 +67,9 @@ test('the onboarding promo is the ONE admin number — no typed constant anywher
   assert.equal((pricing.match(/const ONBOARDING_PROMO\b/g) ?? []).length, 0, 'a typed promo constant is back');
   assert.match(pricing, /promo: Number\.isFinite\(discountPct\)/, 'promo must come from the passed-in admin number');
   const page = code('app/onboarding/wedding/page.tsx');
-  assert.match(page, /buildOnboardingPricing\(customerSkus, bundles, null, await fetchOnboardingDiscountPct\(\)\)/);
+  // 💲 2026-10-28: the admin number, but only while the set-up price applies to this buyer (the welcome switch).
+  assert.match(page, /const setupPct = \(await setupPriceAppliesForCreateFlow\(user\?\.id \?\? null\)\)\s*\?\s*await fetchOnboardingDiscountPct\(\)\s*:\s*0;/);
+  assert.match(page, /buildOnboardingPricing\(customerSkus, bundles, null, setupPct\)/);
 });
 
 test('supplier tier prices have NO typed fallback — unreadable is null', () => {

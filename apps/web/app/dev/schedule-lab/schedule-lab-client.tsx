@@ -25,8 +25,8 @@ import { RunOfShowHeader } from '@/app/_components/run-of-show-header';
 import { fromDatetimeLocalValue } from '@/lib/schedule-datetime-local';
 import { venueNowMs } from '@/lib/schedule';
 import { wallDateKey } from '@/lib/schedule-rail';
+import { PLAN_DATE, seedMoments } from './lab-moments';
 
-const PLAN_DATE = '2026-12-18';
 const LAB_SLOT = 'schedule-lab-inspector';
 /** A quiet write's "no render": the stand-in stops before it changes the fixtures. */
 const QUIET = Symbol('quiet');
@@ -57,58 +57,6 @@ const SUPPLIERS: DaySupplier[] = scheduleSuppliersFrom(
     ['p-planner', 'The Wedding Planner'],
   ]),
 );
-
-type Seed = [
-  id: string,
-  label: string,
-  type: DayMoment['block_type'],
-  start: string,
-  end: string | null,
-  pub: boolean,
-  extra?: Partial<DayMoment>,
-];
-
-const SEEDS: Seed[] = [
-  ['hmua', 'Hair & makeup', 'pre_ceremony', '08:00', '12:00', false, { responsible_vendor_ids: ['v-kat'], responsible_party: 'HMUA team', location: 'Bridal suite, Peninsula Manila', notes: 'Claire first, then the entourage. Mom at 10:30 AM.' }],
-  ['ingress', 'Supplier ingress & styling', 'pre_ceremony', '10:00', '13:00', false, { responsible_vendor_ids: ['v-gaia'], location: 'San Agustin Church · Grand ballroom' }],
-  ['arrive', 'Guests arrive', 'pre_ceremony', '13:30', '14:00', true, { location: 'San Agustin Church, Intramuros', notes: 'Ushers at both doors. Programs on the pews.' }],
-  ['cer', 'Ceremony', 'ceremony', '14:00', '15:30', true, { responsible_vendor_ids: ['v-planner'], responsible_party: 'Coordinator', location: 'San Agustin Church, Intramuros', notes: 'Unplugged ceremony — ushers remind at the door.' }],
-  ['cer-1', 'Procession', 'ceremony', '14:00', null, true, { parent_block_id: 'cer' }],
-  ['cer-2', 'Vows & rings', 'ceremony', '14:25', null, true, { parent_block_id: 'cer' }],
-  ['cer-3', 'Recessional', 'ceremony', '15:15', null, true, { parent_block_id: 'cer' }],
-  ['cock', 'Cocktails', 'cocktails', '16:00', '17:00', true, { responsible_vendor_ids: ['v-casa'], responsible_party: 'Casa Catering', location: 'Garden terrace' }],
-  ['rec', 'Reception & dinner', 'reception', '17:00', '19:30', true, { location: 'Grand ballroom' }],
-  ['prog', 'Program', 'program', '19:30', '21:00', true, { responsible_party: 'Host / MC' }],
-  ['dance', 'First dance', 'dancing', '21:00', '21:20', false, { notes: 'Song: "Ikaw" — band has the arrangement.' }],
-  ['send', 'Send-off', 'send_off', '22:00', '22:30', true, { responsible_party: 'Coordinator', location: 'Driveway, main entrance' }],
-];
-
-function seedMoments(dateKey: string, nowMin: number | null): DayMoment[] {
-  return SEEDS.map(([id, label, type, start, end, pub, extra]) => {
-    const startAt = `${dateKey}T${start}:00.000Z`;
-    const endAt = end ? `${dateKey}T${end}:00.000Z` : null;
-    const s = Number(start.slice(0, 2)) * 60 + Number(start.slice(3));
-    const e = end ? Number(end.slice(0, 2)) * 60 + Number(end.slice(3)) : s + 30;
-    const run_state: DayMoment['run_state'] =
-      nowMin === null ? 'upcoming' : e <= nowMin ? 'done' : s <= nowMin ? 'live' : 'upcoming';
-    return {
-      block_id: id,
-      label,
-      block_type: type,
-      start_at: startAt,
-      end_at: endAt,
-      location: null,
-      notes: null,
-      is_public: pub,
-      parent_block_id: null,
-      run_state,
-      staged: false,
-      responsible_party: null,
-      responsible_vendor_ids: [],
-      ...extra,
-    };
-  });
-}
 
 function seedRequests(dateKey: string): DayRequest[] {
   return [
@@ -166,7 +114,22 @@ const str = (fd: FormData, k: string): string | null => {
   return typeof v === 'string' ? v : null;
 };
 
-export default function ScheduleLabClient() {
+export default function ScheduleLabClient({
+  bare = false,
+  suppliers = SUPPLIERS,
+  tags,
+  frame = 'page',
+  toolsSlot = null,
+}: {
+  /** Drawn as Suppliers › Booked › Schedule (the Suppliers lab) — `ScheduleDay`'s own `frame` / `toolsSlot`. */
+  frame?: 'page' | 'booked';
+  toolsSlot?: string | null;
+  /** Only the day — no lab header, no write log (the Suppliers lab draws it under Booked › Schedule). */
+  bare?: boolean;
+  suppliers?: DaySupplier[];
+  /** Moment id → the suppliers tagged on it (`seedMoments`). */
+  tags?: Readonly<Record<string, readonly string[]>>;
+} = {}) {
   const [role, setRole] = useState<DayRole>('host');
   const [when, setWhen] = useState<'plan' | 'live'>('plan');
   const [refuse, setRefuse] = useState(false);
@@ -189,10 +152,10 @@ export default function ScheduleLabClient() {
      stable between renders; so is this now. */
   const seedNowMin = when === 'live' ? nowMin : null;
   // eslint-disable-next-line react-hooks/exhaustive-deps -- the seed is taken once per day shown, not per clock tick
-  const seeded = useMemo(() => seedMoments(dateKey, seedNowMin), [dateKey]);
+  const seeded = useMemo(() => seedMoments(dateKey, seedNowMin, tags), [dateKey]);
   const moments = byMode[dateKey] ?? seeded;
   const setMoments = (fn: (m: DayMoment[]) => DayMoment[]) =>
-    setByMode((b) => ({ ...b, [dateKey]: fn(b[dateKey] ?? seedMoments(dateKey, when === 'live' ? nowMin : null)) }));
+    setByMode((b) => ({ ...b, [dateKey]: fn(b[dateKey] ?? seedMoments(dateKey, when === 'live' ? nowMin : null, tags)) }));
   const [requests, setRequests] = useState<DayRequest[] | null>(null);
   const reqs = requests ?? seedRequests(dateKey);
 
@@ -339,6 +302,30 @@ export default function ScheduleLabClient() {
       actual_start_at: null,
     }));
 
+  if (bare) {
+    return (
+      <ScheduleDay
+        frame={frame}
+        toolsSlot={toolsSlot}
+        actions={actions}
+        eventId="lab"
+        eventType="wedding"
+        eventDateKey={dateKey}
+        moments={moments}
+        requests={reqs}
+        suppliers={suppliers}
+        role={role}
+        canStage={false}
+        rosEnabled
+        templates={[]}
+        isEventDay={false}
+        daysToGo={81}
+        emcee={null}
+        hostPanel={null}
+      />
+    );
+  }
+
   return (
     <main className="sn-col space-y-5 pb-24">
       <header className="flex flex-wrap items-center gap-2 pt-4">
@@ -382,7 +369,7 @@ export default function ScheduleLabClient() {
         eventDateKey={dateKey}
         moments={moments}
         requests={reqs}
-        suppliers={SUPPLIERS}
+        suppliers={suppliers}
         role={role}
         canStage={role === 'coordinator'}
         rosEnabled

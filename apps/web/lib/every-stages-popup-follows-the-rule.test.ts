@@ -115,8 +115,8 @@ test('(4) the Apply sheet’s own backdrop wears the one dark from the STYLESHEE
   assert.ok(open[1]!.split(' ').includes('fixed') && open[1]!.split(' ').includes('inset-0'), 'the backdrop does not cover the screen — the page behind could be pressed');
   /* EVERY rule of the dark names it, so it is dark AND blurred, and dark alone where blur is not wanted. */
   const lists = [...CSS.matchAll(/([^{}]*)\.sn-popup-dark \{/g)].map((m) => m[1]!.slice(m[1]!.lastIndexOf(';') + 1).slice(m[1]!.lastIndexOf('}') + 1));
-  // Three rules, and their three html.dark twins (2026-10-12: ink turns light in dark mode, so the dark there is black).
-  assert.equal(lists.length, 6, 'anti-vacuity: the dark’s three rules and their dark-mode twins were not found');
+  // Three rules (light; dark mode flips the `--sn-scrim` tokens on html.dark since 2026-10-29, so no twins are needed).
+  assert.equal(lists.length, 3, 'anti-vacuity: the dark’s three rules were not found');
   for (const l of lists) assert.match(l, /div:has\(> \[data-apply-pro-sheet\]\),\s*(html\.dark\s*)?$/, 'a rule of the dark does not reach the Apply sheet');
   /* The stylesheet's dark is the ONLY wash (2026-10-25, one backdrop everywhere): the sheet's own `bg-ink/30` is gone. */
   assert.doesNotMatch(open[1]!, /\bbg-|backdrop-/, 'the Apply sheet’s backdrop wears a wash of its own again');

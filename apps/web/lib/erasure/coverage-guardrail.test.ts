@@ -136,6 +136,9 @@ const PURGED_WITHOUT_SUBJECT_COLUMN: ReadonlySet<string> = new Set([
   // reaches it through the subject's guest ids and removes the screenshot.
   'event_gift_records',
   'vendor_push_tokens', // keyed by vendor_profile_id
+  // Keyed by (vendor_profile_id, event_id) — the shop's crew QR (2026-10-29). Its one person column is `created_by`
+  // (the issuing admin, nulled as an actor stamp in AUTHOR_UUID_NULLS), which the `*_user_id` detector cannot see.
+  'vendor_crew_codes',
   // Keyed by vendor_profile_id. Its ONLY *_user_id column is `admin_user_id` —
   // the reviewing staff member, which the detector correctly treats as a staff
   // actor and skips. So the table holding vendors' government IDs / DTI / BIR
@@ -152,6 +155,10 @@ const PURGED_WITHOUT_SUBJECT_COLUMN: ReadonlySet<string> = new Set([
   // an inline FK to public.users, so the detector cannot see it; the stamp is
   // nulled all the same (AUTHOR_UUID_NULLS).
   'hub_music_tracks',
+  // The SHOP wallet (2026-10-23, option A) — keyed by vendor_profile_id; its one
+  // user column is `created_by` (no FK), the actor who pressed a spend. Same
+  // blind spot as hub_music_tracks; the stamp is nulled (AUTHOR_UUID_NULLS).
+  'shop_papic_wallet_entries',
   'oauth_state',
   'vendor_ig_oauth_state',
   'patiktok_oauth_state',

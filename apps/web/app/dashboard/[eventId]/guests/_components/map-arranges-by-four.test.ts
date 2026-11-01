@@ -44,9 +44,14 @@ test('By side nests each side’s groups; the others are one level (executed)', 
 });
 
 test('the map’s thumb row draws the arrange dropdown, not the list’s Sort', () => {
-  const row = SCREEN.slice(SCREEN.indexOf('<ThumbRow name="guests-map"'), SCREEN.indexOf('/>', SCREEN.indexOf('<ThumbRow name="guests-map"')));
+  const at = SCREEN.indexOf('name="guests-map"');
+  assert.notEqual(at, -1, 'the Map row moved — re-aim this guard');
+  const row = SCREEN.slice(at, SCREEN.indexOf('/>', SCREEN.indexOf('right={[arrangeMenu]}', at)));
   assert.match(row, /right=\{\[arrangeMenu\]\}/);
   assert.doesNotMatch(row, /sortMenu|left=/, 'the map carries the list’s controls (no expand/select on the canvas)');
-  // 2026-10-25: the map's ≡ also holds the ways to add (no ＋ on the row) — its name says so; the arranges come first.
-  assert.match(SCREEN, /label: 'Arrange the map, or add',[\s\S]{0,80}menu: arranges\s*\.map/);
+  // ⇅ R4 slice 1 (owner 2026-10-29, prototype v12/v18): the map's round is the SHARED Show · Group by (the same state as
+  // the List's — no "Grouped by" chip of its own), then the ways to add; the group-bys are the shipped four.
+  const menu = SCREEN.slice(SCREEN.indexOf('const arrangeMenu: ThumbMenu = guestsFilterMenu({'), SCREEN.indexOf('});', SCREEN.indexOf('const arrangeMenu: ThumbMenu = guestsFilterMenu({')));
+  assert.match(menu, /view: 'map',\s*filter,\s*onFilter: setFilter,/, 'the map does not read the shared filter');
+  assert.match(menu, /extras: addWays,/, 'the map’s round lost the ways to add');
 });

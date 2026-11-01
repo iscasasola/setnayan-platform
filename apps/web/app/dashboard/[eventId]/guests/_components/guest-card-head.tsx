@@ -1,4 +1,4 @@
-import { guestDisplayName, guestInitials, guestRoleLabel, RSVP_ROW_WORDS, SIDE_LABELS } from '@/lib/guests';
+import { guestInitials, guestNameWithNick, guestRoleLabel, RSVP_ROW_WORDS, SIDE_LABELS } from '@/lib/guests';
 import { displayPersonName } from '@/lib/person-name-case';
 import { representedByWords } from '@/lib/guest-proxy';
 import type { GuestCardData } from './guest-card-data';
@@ -32,12 +32,20 @@ export function guestCardEyebrow(
     .filter(Boolean)
     .join(' · ');
 }
-/** The card's title: an unnamed +1 seat is named by its guest ("Rose Marie Buanhug’s +1 · TBA"), everyone else by name. */
+/**
+ * The card's title: an unnamed +1 seat is named by its guest ("Rose Marie Buanhug’s +1 · TBA"), everyone else by their
+ * FULL name (owner, Guests prototype v24 2026-10-29 — `guestNameWithNick`); the nickname sits beside it
+ * (`guestCardNick` → `<GuestNick>`).
+ */
 export function guestCardTitle(
-  guest: Parameters<typeof guestDisplayName>[0],
+  guest: Parameters<typeof guestNameWithNick>[0],
   plusOneOf?: GuestCardData['plusOneOf'],
 ): string {
-  return plusOneOf?.name ?? displayPersonName(guestDisplayName(guest));
+  return plusOneOf?.name ?? displayPersonName(guestNameWithNick(guest).name);
+}
+/** The nickname beside the card's title — none for a +1 named by their guest. */
+export function guestCardNick(guest: Parameters<typeof guestNameWithNick>[0], plusOneOf?: GuestCardData['plusOneOf']): string | null {
+  return plusOneOf?.name ? null : guestNameWithNick(guest).nick;
 }
 export function guestCardReply(guest: Pick<GuestCardData['guest'], 'role' | 'rsvp_status'>, proxy?: GuestCardData['proxy']): string {
   if (guest.role === 'bride' || guest.role === 'groom') return '✓ Attending · always';

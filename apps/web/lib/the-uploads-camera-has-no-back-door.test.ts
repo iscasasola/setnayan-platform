@@ -102,8 +102,11 @@ test('🚨 Memories mints it only inside the host branch, from the route\'s even
   const outside = page.replace(hostBranch, '');
   assert.ok(/provisionUploadsCameraAdmin\(/.test(hostBranch), 'the mint left the host branch');
   assert.ok(!/provisionUploadsCameraAdmin\(/.test(outside), 'the Uploads camera is minted OUTSIDE the host branch — any viewer\'s render would mint it');
-  const call = /provisionUploadsCameraAdmin\([\s\S]{0,200}?\}\)/.exec(hostBranch)?.[0] ?? '';
+  // 👥 Since 2026-10-31 the call carries a 4th argument — whose camera (the viewer's own id, every host has their own;
+  // `every-host-has-their-own-camera.test.ts` pins it to `user.id`) — so the call ends `}, user.id)`, not `})`.
+  const call = /provisionUploadsCameraAdmin\([\s\S]{0,200}?\}(?:, [\w.]+)?\)/.exec(hostBranch)?.[0] ?? '';
   assert.match(call, /provisionUploadsCameraAdmin\(admin, eventId,/, 'the mint no longer takes the route\'s event id');
+  assert.match(call, /\}, user\.id\)$/, 'the Memories mint no longer names the viewer as whose camera it mints');
   assert.match(call, /validFrom: win\.startIso/, 'the Memories mint no longer takes the event window');
   assert.match(call, /validUntil: win\.endIso/, 'the Memories mint no longer takes the event window');
   assert.ok(!/validFrom: null/.test(call), 'a null window makes this the only seat exempt from the dates the couple picked');

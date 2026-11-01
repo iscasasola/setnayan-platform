@@ -70,6 +70,7 @@ import { activeRailKey, railMatchRows } from './rail-active';
 import type { RailMatchRow } from './rail-active';
 import { RailActiveKeyProvider } from './rail-active-key';
 import { publicSearchPlaceholder } from '@/lib/public-search-nouns';
+import { topBarSearch } from './shell-page-search';
 import { ShellBoundaryProvider, type ShellBoundary } from '@/app/_components/shell-boundary';
 import { useOneOpen } from '@/lib/one-open';
 import { POLICY_LINKS } from '@/lib/policy-links';
@@ -503,9 +504,10 @@ type Props = {
    */
   createSlot?: React.ReactNode;
   /**
-   * The search control. Defaults to the front door's marketplace GET form.
-   * The app variant passes the command palette — see the file header for why
-   * that is the one question worth answering inside the app.
+   * The search control. Left out: SIGNED IN draws no box (2026-10-22, "One
+   * thumb row"); signed out draws the front door's marketplace GET form — the
+   * one rule in `topBarSearch` (`shell-page-search.ts`), so a mount that
+   * forgets to say `false` cannot put the stranger's box in a signed-in bar.
    */
   search?: React.ReactNode;
   /**
@@ -554,6 +556,22 @@ type Props = {
    * search box there, exactly as if `search={false}` had been handed in. Read like `bleedPaths`, during render.
    */
   pageSearchPaths?: readonly string[];
+  /**
+   * 📌 THE BAR IS THE PAGE'S PINNED ROW FROM 701 (supplier dashboard v13, owner 2026-10-29 "desktop mode is wrong" ·
+   * "and tablet", prototype approved "Approved."). OPT-IN, one tree today (`vendor-dashboard/layout.tsx`).
+   *
+   * From 701 the opted-in tree's ONE bar stops being the app bar over the whole window and becomes the pinned row over
+   * the content column: the rail rises to the top of the window (its own column, full height); on the bar, LEFT is
+   * `lead` — the page menu ▾ — and RIGHT the page's search · ⇅ · ＋ (the floating thumb row's controls, portalled UP
+   * into `[data-pin-tools]` by the page's thumb row) and then the tree's own cluster, unchanged (✉ · 🔔 · the avatar,
+   * which still carries the only Sign out). No wordmark and no centre title there — the ▾ names the page.
+   * Below 701 nothing changes: the phone keeps its bar, its search and its bottom tabs.
+   *
+   * 🔑 STILL ONE BAR. The cluster is not copied into a second row — the same `<header>` changes its seat, so there is
+   * one bell, one account menu and one Sign out at every width. `front-door.css` `[data-pinned-bar]` · 🔒
+   * `vendor-dashboard/_components/the-supplier-frame-holds.test.ts`.
+   */
+  pinnedBar?: { lead: React.ReactNode };
 };
 
 /** A count that failed to load says so. It NEVER says 0, and it never invents
@@ -628,6 +646,7 @@ export function FrontDoorShell({
   bleedPaths,
   pageSearchPaths,
   boundary = 'lg',
+  pinnedBar,
 }: Props) {
   const [railOpen, setRailOpen] = useState(false);
   /*
@@ -807,7 +826,11 @@ export function FrontDoorShell({
   const isBleed = bleed || (bleedPaths?.includes(pathname ?? '') ?? false);
   /* 🔎 A page that searches in its own bottom row (/help, /features): no second box up here — `false`, the same
      switch a signed-in host hands in. Exact path, so /features/<slug> keeps the box. */
-  const search = pageSearchPaths?.includes(pathname ?? '') ? false : searchProp;
+  const search = topBarSearch({
+    handed: searchProp,
+    signedIn: account.signedIn,
+    pageHasOwnSearch: pageSearchPaths?.includes(pathname ?? '') ?? false,
+  });
 
   /*
     HIDE ON SCROLL — the app's universal top-nav rule (owner 2026-06-15), and
@@ -1068,6 +1091,12 @@ export function FrontDoorShell({
             </Link>
           )}
         </div>
+        {/* 📌 THE PAGE MENU ▾ — the pinned row's LEFT from 701, in the wordmark's seat (`pinnedBar`; hidden below 701). */}
+        {pinnedBar ? (
+          <div className="fd-pinlead" data-pin-lead="">
+            {pinnedBar.lead}
+          </div>
+        ) : null}
 
         {/* The search keeps its own button and a mic beside it. A field with
             no button reads as decoration on a page whose job is to answer a
@@ -1088,6 +1117,11 @@ export function FrontDoorShell({
           */}
         </div>
         )}
+
+        {/* 📌 WHERE THE PAGE'S SEARCH · ⇅ · ＋ GO FROM 701 — the page's thumb row portals its controls UP into this
+            box (`SupplierThumbRow`); empty when the page has none. React renders nothing into it, on purpose: a
+            portal fills it, so a render here never fights the portal for its children. */}
+        {pinnedBar ? <div className="fd-pintools" data-pin-tools="" /> : null}
 
         <div className="fd-topright" ref={menuRef}>
           {account.signedIn ? (
@@ -1172,7 +1206,7 @@ export function FrontDoorShell({
     // `data-chrome` is the ONE switch the stylesheet reads. Below 1024 the app
     // variant paints no chrome at all; the surface's own bars are untouched.
     <ShellBoundaryProvider value={boundary}>
-    <div className="fd" data-chrome={chrome} data-boundary={boundary === 'tab' ? 'tab' : undefined}>
+    <div className="fd" data-chrome={chrome} data-boundary={boundary === 'tab' ? 'tab' : undefined} data-pinned-bar={pinnedBar ? '' : undefined}>
       <>
       {/*
         🔑 `shell-topbar` IS A CONTRACT, NOT A CLASS NAME. Two shipped event
@@ -1251,7 +1285,7 @@ export function FrontDoorShell({
       <div className="fd-body">
         {railOpen ? (
           <div
-            className="fd-scrim"
+            className="fd-scrim sn-popup-dark"
             /* Fades out alongside the drawer rather than blinking away a step
                ahead of it — one event, not two. */
             data-closing={railClosing ? 'true' : 'false'}
@@ -1283,6 +1317,16 @@ export function FrontDoorShell({
             hangs half-open (CSS faster).
           */
           style={{ '--fd-drawer-ms': `${RAIL_DRAWER_MS}ms` } as React.CSSProperties}
+          /*
+            A DRAWER LINK TO THE PAGE YOU ARE ON STILL CLOSES THE DRAWER (owner 2026-10-30, the event mark opening
+            Home's ⚙ sheet from Home). The pathname effect above only closes it once the PATH changes; a link that
+            changes only the query (`/dashboard/<id>?settings=1` from `/dashboard/<id>`) would leave the drawer over
+            the sheet it just opened. A plain tap on any link inside the open drawer shuts it too.
+          */
+          onClickCapture={(e) => {
+            if (!railOpen || railClosing || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+            if ((e.target as Element | null)?.closest?.('a[href]')) closeRail();
+          }}
         >
           {focused && focus ? (
             /* THE WAY BACK — the only row above the section's own menu. The

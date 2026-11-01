@@ -68,6 +68,8 @@ import type { NavItem } from '@/app/_components/nav/types';
 import type { MenuLifecyclePhase } from '@/lib/day-of-mode';
 import type { EventMenuChild, EventStudioRow } from '@/lib/customer-menu';
 import { EventMonogram } from '@/app/_components/event-monogram';
+import { eventSettingsHref } from '@/lib/people-with-access-href';
+import { SETTINGS_ENTRY } from '@/lib/menu-settings';
 import { buildCustomerNavGroups } from './customer-nav-config';
 import { applyRegistry } from './customer-sidebar';
 import { formatCount } from '@/lib/format-number';
@@ -232,9 +234,19 @@ export function EventRailContext({
         accessible label and sits directly under it, so a screen reader hearing
         the initials first would only hear the same thing twice.
       */}
+      {/*
+        ⚙ THE MARK IS A DOOR — TO HOME'S ⚙ EVENT SETTINGS (owner 2026-10-30, on the iPhone app: *"tapping monogram not
+        working"* → *"no. that shoud be inside home settings"* → *"move them all in the event settings"*). Until today it
+        was a bare picture (a `div`, deliberately plain since 23 Oct) while every word around it — and this menu's own
+        tree, `personalization` → Event Details — told him it opened the event's details. Now it opens the sheet the
+        event's details and its People with access live in: Home with `?settings=1` (`eventSettingsHref`), a real link,
+        44 px at least (`.fd-rctx-door`). The name under it stays plain text; the mark is the one door.
+      */}
       {eventMonogram ? (
         <div className="fd-rctx-mark">
-          <EventMonogram event={eventMonogram} size="sm" shape="square" plays={eventMonogramPlays ?? eventMonogram.plays} place="event-rail" />
+          <Link href={eventSettingsHref(eventId)} className="fd-rctx-door" aria-label={SETTINGS_ENTRY.home.sheet} data-rail-event-settings="">
+            <EventMonogram event={eventMonogram} size="sm" shape="square" plays={eventMonogramPlays ?? eventMonogram.plays} place="event-rail" />
+          </Link>
         </div>
       ) : null}
       {/*

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Check, Copy, Download } from 'lucide-react';
+import { Check, Copy, Share } from 'lucide-react';
 import { SaveFileLink } from '@/app/_components/save-file-link';
 
 /**
@@ -113,7 +113,7 @@ export function PabuyaMethodActions({
           className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-ink/15 bg-cream px-3.5 py-2 text-xs font-medium text-ink/80 transition hover:border-terracotta hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
           aria-label={`Save the ${label} QR code to your photos`}
         >
-          <Download aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+          <Share aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           Save QR
         </SaveFileLink>
       ) : null}

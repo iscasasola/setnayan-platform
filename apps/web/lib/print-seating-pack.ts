@@ -18,7 +18,9 @@
  *
  * PURE. The route renders the QR PNGs and hands them in by ref.
  */
-import { brandUtilityPage, drawText, type PrintDoc } from '@/lib/print-layout';
+import { PRINT_MIN_BODY_PT, brandUtilityPage, drawText, measure, type PrintDoc } from '@/lib/print-layout';
+import { fitName } from '@/lib/print-name-fit';
+import { printableText } from '@/lib/print-pieces';
 import { layoutReport, reportPage, REPORT_INK, REPORT_MUTED } from '@/lib/print-report';
 import { PT_PER_MM } from '@/lib/print-pieces';
 import { formatCount } from '@/lib/format-number';
@@ -116,10 +118,26 @@ export function layoutSeatingPack(input: {
       const y = MARGIN + Math.floor(i / cols) * ch;
       ops.push({ t: 'rect', x: x + 3, y: y + 3, w: cw - 6, h: ch - 6, stroke: REPORT_INK, sw: 0.5, opacity: 0.4, dash: true });
       const mid = x + cw / 2;
-      drawText(ops, c.name, mid, y + 44, { font: 'cardo', size: 20, color: REPORT_INK, align: 'center', maxWidth: cw - 30 });
-      drawText(ops, c.table, mid, y + 62, { font: 'poppinsMedium', size: 8.5, color: GOLD, align: 'center', caps: true, tracking: 0.08, maxWidth: cw - 30 });
-      const q = Math.min(84, ch - 96);
-      ops.push({ t: 'image', ref: c.qrRef, x: mid - q / 2, y: y + 74, w: q, h: q });
+      // ✂🚫 The name is never cut (owner 2026-10-29, "we do not want that"): it wraps, then steps down toward the print
+      // minimum, and the card makes room — the name block rises, the table line and the code move down under it.
+      const fit = fitName(c.name, {
+        size: 20,
+        floor: PRINT_MIN_BODY_PT,
+        maxWidth: cw - 30,
+        wrapBelow: 14,
+        width: (t, z) => measure(printableText(t), 'cardo', z),
+      });
+      const lead = fit.size * 1.15;
+      let base = Math.max(y + 14 + fit.size, y + 44 - (fit.lines.length - 1) * lead);
+      for (const line of fit.lines) {
+        drawText(ops, line, mid, base, { font: 'cardo', size: fit.size, color: REPORT_INK, align: 'center' });
+        base += lead;
+      }
+      const tableY = base - lead + 18;
+      drawText(ops, c.table, mid, tableY, { font: 'poppinsMedium', size: 8.5, color: GOLD, align: 'center', caps: true, tracking: 0.08, maxWidth: cw - 30 });
+      const qTop = tableY + 12;
+      const q = Math.max(36, Math.min(84, y + ch - 10 - qTop));
+      ops.push({ t: 'image', ref: c.qrRef, x: mid - q / 2, y: qTop, w: q, h: q });
     });
     pages.push(brandUtilityPage(doc)); // 🏷 every page carries Setnayan once — on a card page, in the margin below the cut lines
   }

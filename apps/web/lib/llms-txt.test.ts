@@ -111,14 +111,15 @@ test('the Setnayan AI ladder renders all four priced tiers, despite B/C/D being 
     the thing under test is how a check stops being one. When the ladder reprices,
     it changes HERE, in the fixture, and in the catalogue — same PR.
   */
-  for (const php of [2499, 1499, 899, 199]) {
+  // 2026-10-28: the one price (App Store = website) — was 2499/1499/899/199.
+  for (const php of [3300, 1980, 1190, 265]) {
     assert.ok(body.includes(peso(php)), `AI tier price ${peso(php)} missing from llms.txt`);
   }
   // The bug this replaces: filtering on is_active flattened the ladder to one rung.
   const ladder = aiLadder(buildPriceBook(INPUT));
   assert.deepEqual(
     ladder.map((t) => t.php),
-    [2499, 1499, 899, 199],
+    [3300, 1980, 1190, 265],
   );
 });
 

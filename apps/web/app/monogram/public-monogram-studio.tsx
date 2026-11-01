@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
-import { Download, ImageDown, ArrowRight, Loader2, UploadCloud } from 'lucide-react';
+import { Share, ArrowRight, Loader2, UploadCloud } from 'lucide-react';
 import { mountStudio } from '@/lib/monogram-studio/engine';
 import { STUDIO_HTML, STUDIO_CSS } from '@/lib/monogram-studio/markup';
 import { STUDIO_HTML_V2, STUDIO_CSS_V2 } from '@/lib/monogram-studio/markup-v2';
@@ -341,7 +341,7 @@ export function PublicMonogramStudio() {
           disabled={!ready}
           className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-full bg-[#1E2229] px-5 py-3 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <Download aria-hidden className="h-4 w-4" strokeWidth={2} />
+          <Share aria-hidden className="h-4 w-4" strokeWidth={2} />
           {pendingSave?.slot === 'svg' ? 'Tap to save' : 'Download SVG'}
         </button>
         <button
@@ -353,7 +353,7 @@ export function PublicMonogramStudio() {
           {pngBusy ? (
             <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={2} />
           ) : (
-            <ImageDown aria-hidden className="h-4 w-4" strokeWidth={2} />
+            <Share aria-hidden className="h-4 w-4" strokeWidth={2} />
           )}
           {pngBusy ? 'Preparing PNG…' : pendingSave?.slot === 'png' ? 'Tap to save' : 'Download PNG'}
         </button>

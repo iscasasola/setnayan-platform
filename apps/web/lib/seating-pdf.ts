@@ -22,6 +22,8 @@ import { BOOTH_FOOTPRINT_M } from '@/lib/seating-3d';
 import { seatPlanPrintModel, unitPlanName, type SeatPlanPrintGuest, type SeatPlanPrintUnit } from '@/lib/seat-plan-print';
 import { seatPlanRoomName } from '@/lib/seat-plan-details';
 import { formatCount } from '@/lib/format-number';
+import { fitName } from '@/lib/print-name-fit';
+import { PRINT_MIN_BODY_PT } from '@/lib/print-layout';
 
 /**
  * lib/seating-pdf.ts — THE SEAT PLAN, PRINTED: ONE A3 LANDSCAPE PAGE.
@@ -341,6 +343,11 @@ export async function buildSeatingPdf(input: SeatingPdfInput): Promise<Uint8Arra
     borderColor: theme.ink,
     borderWidth: 1.4,
   });
+  /**
+   * A label INSIDE a drawn shape — a floor element ("Stage") or a table's own name in its circle. These are not guest
+   * names, and a shape's width is fixed by the room's scale, so a too-long one is shortened here; the table's FULL name
+   * always prints as its legend heading beside the plan. A guest's name is never drawn through this — see the legend.
+   */
   const label = (page: PDFPage, text: string, cx: number, cy: number, size: number, f: PDFFont, color: RGB, maxW?: number) => {
     let t = safe(text);
     if (maxW) while (t.length > 3 && f.widthOfTextAtSize(t, size) > maxW) t = `${t.slice(0, -2)}…`.replace('……', '…');
@@ -432,6 +439,8 @@ export async function buildSeatingPdf(input: SeatingPdfInput): Promise<Uint8Arra
   const GAP = 14;
   const COL_W = 118;
   const LINE = 7.4;
+  /** A wrapped name's later lines sit a little in, so they read as the same name. */
+  const NAME_INDENT = 6;
   type Block = { title: string; meta: string; lines: Array<{ text: string; muted: boolean }>; boxed?: boolean };
   const blocks: Block[] = ordered.map((u) => ({
     title: u.label,
@@ -479,10 +488,25 @@ export async function buildSeatingPdf(input: SeatingPdfInput): Promise<Uint8Arra
         page.drawText(safe(`${b.title} (cont.)`), { x: colX, y: y - 8, size: 7, font: bold, color: theme.soft });
         y -= 14;
       }
-      let t = safe(ln.text);
-      while (t.length > 3 && font.widthOfTextAtSize(t, 6.2) > COL_W) t = `${t.slice(0, -2)}…`.replace('……', '…');
-      page.drawText(t, { x: colX, y, size: 6.2, font, color: ln.muted ? lighten(theme.soft, 0.35) : theme.ink });
-      y -= LINE;
+      // ✂🚫 A guest's name is never cut (owner 2026-10-29, "we do not want that"): it wraps under itself, indented,
+      // stepping down to the print minimum only if a line still cannot hold it — and the column takes the lines.
+      const fit = fitName(safe(ln.text), {
+        size: 6.2,
+        floor: PRINT_MIN_BODY_PT,
+        maxWidth: COL_W,
+        width: (t, z) => font.widthOfTextAtSize(t, z),
+      });
+      const wrapped = fit.lines.length > 1 ? fitName(safe(ln.text), { size: fit.size, floor: PRINT_MIN_BODY_PT, maxWidth: COL_W - NAME_INDENT, width: (t, z) => font.widthOfTextAtSize(t, z) }) : fit;
+      // A name's lines stay together in one column.
+      if (y - wrapped.lines.length * LINE < bodyBottom) {
+        nextColumn();
+        page.drawText(safe(`${b.title} (cont.)`), { x: colX, y: y - 8, size: 7, font: bold, color: theme.soft });
+        y -= 14;
+      }
+      wrapped.lines.forEach((t, i) => {
+        page.drawText(t, { x: colX + (i ? NAME_INDENT : 0), y, size: wrapped.size, font, color: ln.muted ? lighten(theme.soft, 0.35) : theme.ink });
+        y -= LINE;
+      });
     }
     y -= 9;
   }

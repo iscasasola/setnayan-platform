@@ -32,7 +32,12 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { resolve, dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { EXPLORE_INFO_HANDSHAKE } from './explore-info-copy';
+import {
+  EXPLORE_INFO_HANDSHAKE,
+  EXPLORE_INFO_TITLE,
+  EXPLORE_INFO_WHAT,
+  EXPLORE_STATE_LEGEND,
+} from './explore-info-copy';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = resolve(HERE, '..');
@@ -64,12 +69,14 @@ const agreeCallers = SOURCES.filter((f) => /vendor_agree_to_lock/.test(code(read
  * to answer BEFORE the booking exists — the specific falsehood, not the topic.
  * "handshake" alone is fine: the later steps genuinely are one.
  */
+// The copy says "supplier" now (owner 2026-10-28, *"We do not have explore anymore it is suppliers…"*), so every
+// pattern takes either noun — a pattern that only knew "vendor" would pass the same promise reworded with the new word.
 const PROMISE_PATTERNS: ReadonlyArray<{ re: RegExp; why: string }> = [
-  { re: /vendor agrees/i, why: 'claims the vendor agrees' },
+  { re: /(?:vendor|supplier) agrees/i, why: 'claims the supplier agrees' },
   { re: /you request the lock/i, why: 'claims locking is only a request' },
   { re: /request the lock/i, why: 'claims locking is only a request' },
-  { re: /once (?:they|the vendor) (?:agree|accept)s? the lock/i, why: 'claims the lock waits on the vendor' },
-  { re: /waiting for the vendor to agree/i, why: 'claims the couple is waiting on an agreement' },
+  { re: /once (?:they|the (?:vendor|supplier)) (?:agree|accept)s? the lock/i, why: 'claims the lock waits on the supplier' },
+  { re: /waiting for the (?:vendor|supplier) to agree/i, why: 'claims the couple is waiting on an agreement' },
 ];
 
 test('the Explore copy may not promise the vendor agrees while nothing calls vendor_agree_to_lock', () => {
@@ -96,4 +103,19 @@ test('the Explore copy still describes what locking does — it is not empty or 
     /book/i,
     'the booking line must still be about booking',
   );
+});
+
+test('the Suppliers ⓘ names the page Suppliers and says "supplier", never "vendor" or "Explore"', () => {
+  // Owner 2026-10-28: *"We do not have explore anymore it is suppliers with find build and book"*.
+  assert.equal(EXPLORE_INFO_TITLE, 'How Suppliers works');
+  const words = [
+    EXPLORE_INFO_TITLE,
+    EXPLORE_INFO_WHAT,
+    EXPLORE_INFO_HANDSHAKE,
+    ...EXPLORE_STATE_LEGEND.flatMap((r) => [r.label, r.meaning]),
+  ];
+  for (const w of words) {
+    assert.doesNotMatch(w, /\bvendors?\b/i, `the ⓘ says "vendor": ${w}`);
+    assert.doesNotMatch(w, /\bExplor(?:e|ing)\b/, `the ⓘ names the retired Explore page: ${w}`);
+  }
 });

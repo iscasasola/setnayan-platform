@@ -40,6 +40,7 @@
  * `NewGroupInlineForm`; Invite N = the one-by-one run at `/guests/send?ids=`.
  */
 
+import { GuestNick } from '@/app/_components/guest-nick';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -55,12 +56,9 @@ import {
   Ellipsis,
   Heart,
   House,
-  ListFilter,
   Mail,
-  MessageCircle,
   Minus,
   PartyPopper,
-  Pencil,
   Plus,
   Send,
   Share,
@@ -70,6 +68,7 @@ import {
   Upload,
   User,
   Users,
+  Trash2,
   X,
 } from 'lucide-react';
 import { ActionButton, actionButtonClass } from '@/components/action-button';
@@ -81,9 +80,8 @@ import { SnapCarousel, type CarouselCard } from '@/components/snap-carousel';
 import { formatCount } from '@/lib/format-number';
 import { PickMenu, type PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { InspectorColumn, useInspectorSelect } from '@/app/_components/inspector/inspector-column';
-import { GuestCardAvatar, guestCardEyebrow, guestCardReply, guestCardTitle } from './guest-card-head';
+import { GuestCardAvatar, guestCardEyebrow, guestCardNick, guestCardReply, guestCardTitle } from './guest-card-head';
 import type { GuestCardData } from './guest-card-data';
-import { PILL_TRACK_CLASS, PILL_TRACK_GROUND, PillThumb, pillSegClass } from '@/app/_components/pill-selector';
 import { GuestPopup } from './guest-popup';
 import { GUESTS_EXCEL_KEY, useGuestsExcel } from './guests-excel-button';
 import { Handed } from './handed';
@@ -93,6 +91,7 @@ import {
   countsTowardEvent,
   guestDisplayName,
   guestNameAsGiven,
+  guestNameWithNick,
   guestInitials,
   plusOneSeats,
   replyMarkedByHost,
@@ -106,7 +105,6 @@ import { normalizeSearchText } from '@/lib/guest-search';
 import {
   isToInvite,
   mayBeInvited,
-  MAP_ARRANGE,
   mapTree,
   hostMaySetReply,
   plusOneFilterMatches,
@@ -115,11 +113,11 @@ import {
   plusOneWordsFrom,
   PLUS_ONE_FILTERS,
   seatRowsByGuest,
-  ROSTER_VIEWS,
   rosterSearchMatches,
   rosterSections,
   rosterStats,
   rowVerbsFor,
+  type RowVerb,
   SEARCH_WAIT_MS,
   typedLineIsAFilter,
   withTheirPlusOnes,
@@ -133,7 +131,8 @@ import {
   type SectionMark,
 } from '@/lib/guest-roster-view';
 import { withStandIns, proxyForWords, representedByWords, type PairOnRow as StandInOnRow, type StandingInOnRow } from '@/lib/guest-proxy';
-import { useGuestActions } from './guest-actions-context';
+import { OpenRequestsContext, PickWhoContext, useGuestActions } from './guest-actions-context';
+import { clearDecided, RequestsJustDecided } from './requests-decided';
 import { useRoleNames } from './role-names-context';
 import { guestOptimistic, useGuestOptimistic } from './guest-optimistic-store';
 import { DeleteGuestSheet, useGuestRemoval } from './guest-delete';
@@ -145,8 +144,15 @@ import { GuestListHasSidesContext } from './guest-list-has-sides-context';
 import { ADD_WAYS, openAddGuest, openAddWay, type AddWayKey } from './add-guest-sheet';
 import { AddDoors } from './capture-bar';
 import { SearchAddRow, searchAddLabel } from '@/components/search-add-row';
-import { guestAdds, NEEDS_BOTH_NAMES, queueTypedGuest, useGuestAdds } from './guest-add-queue';
+import { guestAdds, NEEDS_BOTH_NAMES, queueTypedGuest, useGuestAdds, type AddPicks } from './guest-add-queue';
+import { SectionHeadToolbar, SectionRenameInPlace } from './section-head-toolbar';
+import { renameSection } from '../role-name-actions';
+import { useSetRoleNames } from './role-names-context';
+import { isRenamableSection, sectionUsualHeading } from '@/lib/entourage';
+import { sectionName } from '@/lib/role-names';
+import { resolveRoleSet } from '@/lib/role-sets';
 import { JustAdded } from './just-added';
+import { PinCountDoor } from './view-summary-cards';
 import { hearAction } from './hear-action';
 import { AddCardPicks, PeopleHits, picksForAdd, useAddPicks, type PersonHit } from './search-add-card';
 import { useRowState } from './use-row-state';
@@ -158,18 +164,66 @@ import type { GuestMutation } from '@/lib/guest-optimistic';
 import { pushUndo, guestToast } from './undo-store';
 import { plainRefusal } from './plain-refusal';
 import styles from './guests-screen.module.css';
+import { GuestInviteCell } from './guest-invite-cell';
+import type { SendInviteGuest } from './send-invite';
+import type { InviteEventFacts } from '@/lib/guest-invite-message';
+import { invitationLinkOn } from '@/lib/invitation-link';
 import { useKeepGuestList, useKeptGuestList, type GuestsCopyState } from './guest-list-copy';
 import type { GuestListRow } from '@/lib/guest-list-rows';
 import { GuestListStatus } from './guest-copy-mark';
 import { TitlesWaiting, type TitleWaitingPerson } from './titles-waiting';
 import { displayPersonName } from '@/lib/person-name-case';
+import {
+  GUESTS_MAKER_VIEWS,
+  GUESTS_TOPS,
+  GUESTS_TOP_LABEL,
+  GUESTS_VIEW_LABEL,
+  SEAT_MODES,
+  SEAT_MODE_MENU_LABEL,
+  guestsViewHref,
+  isFullScreenView,
+  isGuestsMakerView,
+  pinnedMenuWords,
+  seatModeOf,
+  seatOfMode,
+  startsUnderTheRow,
+  type GuestsMakerView,
+  type GuestsView,
+  type SeatMode,
+  type SeatView,
+} from '@/lib/guests-views';
+import {
+  NO_GUESTS_FILTER,
+  hrefWithGuestsFilter,
+  listGroupOf,
+  mapGroupOf,
+  sortGuestsFor,
+  writeGuestsFilter,
+  type GuestsFilter,
+} from '@/lib/guests-filter';
+import { GuestsLensContext, type GuestsLens, type SeatsChannel } from './guests-lens';
+import { guestsFilterMenu } from './guests-filter-menu';
+import { ReplyPushAsk } from './reply-push-ask';
 
 
 export type GuestsScreenProps = {
   eventId: string;
   /** The event's role set (`resolveRoleSetKeyForEvent`) — the Add card's Role list. Absent = the wedding set. */
   roleSetKey?: string | null;
-  gview: 'list' | 'map';
+  gview: GuestsView;
+  /**
+   * 🗂 R4 · the views this event has, in the row's order (`lib/guests-views.ts`): List · Map always, Seats where the type
+   * has a seat plan, March where it prints an entourage (the couple's). Absent: List · Map.
+   */
+  views?: readonly GuestsView[];
+  /** 🎚 The Seats mode the address asked for (`seat=`) — the top row's Seats ▾ and the full-screen rule read it at once. */
+  seat?: SeatView | null;
+  /**
+   * 🗂 R4 · Seats and March — the shipped makers, drawn whole by the page (the seat plan's own page, the march maker) and
+   * streamed WITH it, so a switch to either asks the server for nothing (owner 2026-10-29, *"fewest requests"*). Each is
+   * mounted the first time its view is opened, and kept (hidden) after.
+   */
+  bodies?: Partial<Record<GuestsMakerView, ReactNode>>;
   /**
    * Every guest, importance-sorted by the page (the honoree first) — ONLY the fields the list draws and
    * searches (`lib/guest-list-rows.ts` GUEST_LIST_ROW_FIELDS), never the whole row.
@@ -193,12 +247,29 @@ export type GuestsScreenProps = {
   tableByGuest: Record<string, string>;
   /** guest_id → their song requests (the shipped search reads them). */
   songsByGuest: Record<string, string[]>;
-  /** Guests an account holds (null = not measured). */
-  linkedGuestIds: string[] | null;
   /** guest_id → a face to draw. */
   faceByGuest: Record<string, string>;
   /** Requests to join waiting (from the event link). */
   requests: number;
+  /**
+   * 📥 R4 slice 11 — REQUESTS INSIDE GUESTS: the shipped Requests page drawn in place (`guests/claims/page.tsx` with
+   * `maker=1`, as the Event Hub Maker draws it — each Accept · Decline · Link stays put), streamed with the page. Shown
+   * by the List's ⇅ Show "Asking to join" and the Total card's door. Absent → those doors open `/guests/claims`.
+   */
+  requestsBody?: ReactNode;
+  /**
+   * The couple — Asking to join opens IN PLACE for them (the Total card's door, the ⇅ Show, the ⚙'s Requests row),
+   * with or without a body: no body means the page MEASURED nobody waiting, and the frame says so itself.
+   */
+  requestsInPlace?: boolean;
+  /**
+   * 📱 The one-time "Get a notice on this phone when guests reply?" (owner 2026-10-31 — replies go to the phone, not
+   * the inbox). The page sets it for the couple outside the iPhone app; the sheet decides the rest on the device
+   * (`lib/reply-push-ask.ts`). Reads nothing new: it is told how many have replied from the counts drawn here.
+   */
+  replyAsk?: boolean;
+  /** `?gshow=requests` — open on the requests. */
+  initialAsking?: boolean;
   /** 🪪 People whose printed word waits on Woman or Man (`needsWomanOrMan`) — the List's "N people need…" row. */
   titlesWaiting?: TitleWaitingPerson[];
   /** The map's root — the couple's names. */
@@ -208,11 +279,12 @@ export type GuestsScreenProps = {
   /** Open in Select mode (Setup's "☑ Pick who" → `?select=to-invite`). */
   initialSelect?: boolean;
   /**
-   * Where a guest's chat opens, if anywhere. ⚠ No couple↔guest chat ships
-   * today, so the page passes `() => null` and no row draws Message (G35 is
-   * held by `message-needs-an-account.test.ts`; the gap is named in the PR).
+   * 📤 WHAT A ROW'S SHARE SENDS (owner 2026-10-27, "GUEST ROW = SHARE + DELETE") — the event's address, its words and the
+   * couple's wording, read ONCE by the page (the same `loadInviteSetup` the open card uses), and each invitable guest's
+   * own token. Only guests who `mayBeInvited` and have a token are in `tokens`; a guest absent from it gets no Share.
+   * Null → no row draws Share (no address yet, or a viewer who may not send).
    */
-  chatHrefFor?: (guestId: string) => string | null;
+  invite?: RowInvite | null;
   /**
    * ⚙ GUESTS SETTINGS — the sheet's rows (`InvitePanel` → `GuestSetupRows`), drawn by the server. Present → the ⚙ at
    * the right end of the List · Map row (owner 2026-10-27, settings per menu call 1: the "Settings" segment became the
@@ -253,6 +325,20 @@ export type GuestsScreenProps = {
    * so the page never draws a control that can only fail.
    */
   viewOnly?: boolean;
+  /**
+   * ⇅ R4 slice 1 · the ONE Show · Group by · Sort the address asked for (`?gshow=` · `?ggroup=` · `?gsort=`, parsed by
+   * `parseGuestsFilter`) — shared by the carousel's count doors, the List, the Map, and the Show of Seats and March.
+   * Absent: everyone, each view's own grouping, the shipped order.
+   */
+  filter?: GuestsFilter;
+};
+
+/** 📤 A row's Share: the event's invitation address + words, and guest_id → their own QR token. */
+export type RowInvite = {
+  base: string;
+  tokens: Record<string, string>;
+  facts: InviteEventFacts;
+  template: string | null;
 };
 
 /** ⚡ The most rows the first draw holds; the rest arrive at the first idle moment. */
@@ -295,6 +381,9 @@ function Mark({ mark }: { mark: SectionMark }) {
   return <Icon aria-hidden strokeWidth={1.9} />;
 }
 
+/** The view row without R4's two (a lab or an older caller that names none). */
+const DEFAULT_VIEWS: readonly GuestsView[] = ['list', 'map'];
+
 /** The shell bar's height while it shows — the sticky block sits under it. */
 export function GuestsScreen(props: GuestsScreenProps) {
   // 📋 THE FRESH READ WAS REFUSED → the phone's last copy, said plainly — never "No guests", never fresh.
@@ -309,7 +398,6 @@ export function GuestsScreen(props: GuestsScreenProps) {
         measured: true,
         notLoaded: null,
         songsByGuest: {},
-        linkedGuestIds: null,
         groups: [],
         tables: [],
         empty: null,
@@ -320,7 +408,9 @@ export function GuestsScreen(props: GuestsScreenProps) {
     : props;
   const {
     eventId,
-    gview,
+    gview: gviewAsked,
+    views: guestsViews = DEFAULT_VIEWS,
+    seat: seatAsked = null,
     measured,
     notLoaded = null,
     hasSides,
@@ -329,15 +419,18 @@ export function GuestsScreen(props: GuestsScreenProps) {
     tables,
     tableByGuest,
     songsByGuest,
-    linkedGuestIds,
     faceByGuest,
     requests,
+    requestsBody = null,
+    requestsInPlace = false,
+    replyAsk = false,
+    initialAsking = false,
     titlesWaiting = [],
     rootLabel,
     initialQuery = '',
     initialSelect = false,
-    chatHrefFor,
-    setup,
+    invite = null,
+    setup: setupRows,
     settingsOpen: settingsAsked = false,
     settingsRow = null,
     oneQr = false,
@@ -345,7 +438,66 @@ export function GuestsScreen(props: GuestsScreenProps) {
     copy = null,
     roleSetKey = null,
     viewOnly = false,
+    filter: filterAsked = NO_GUESTS_FILTER,
   } = live;
+  /* 🗂 R4 · THE VIEW IS A CLIENT SWITCH (owner 2026-10-29, *"as smooth as possible with fastest load and fewest
+     requests"*): List · Map · Seats · March change here, in place — the address follows (`replaceState`, so a reload or
+     a shared link lands on the same view) and nothing is asked of the server; every view's data came with the page. A
+     new address from the server (a door, Back) is taken as the view. */
+  const [gview, setGview] = useState<GuestsView>(gviewAsked);
+  const filterRef = useRef<GuestsFilter>(filterAsked);
+  const [seenViews, setSeenViews] = useState<ReadonlySet<GuestsView>>(() => new Set([gviewAsked]));
+  useEffect(() => {
+    setGview(gviewAsked);
+    setSeenViews((s) => (s.has(gviewAsked) ? s : new Set([...s, gviewAsked])));
+  }, [gviewAsked]);
+  /* 🎚 THE ONE TOP ROW (owner 2026-10-30, on the iPhone app: *"The menu does not work properly"* — Seats › List wore the
+     segmented `Guests | Seats ▾ | March` while Seats › 2D wore the slim row). Every view now wears the ONE row
+     `[Page · View ▾] · counts · ⋯ · ⚙`; its ▾ lists every view. Seats' mode is the SEAT PLAN's own state — it reports it
+     here through the lens (`registerSeats`), and a mode picked while the plan is not on screen waits for it. */
+  const [seatMode, setSeatMode] = useState<SeatMode>(seatModeOf(seatAsked));
+  const [seatShow3D, setSeatShow3D] = useState(process.env.NEXT_PUBLIC_SEATING_3D !== 'false');
+  /** The top row's seat for the view's own rounds (Seats' Edit · ⋯) — the plan portals them in. */
+  const [toolsSlot, setToolsSlot] = useState<HTMLElement | null>(null);
+  /** The top row's seat for the view's own counts (Seats' seated · unseated · tables) — the plan portals them in. */
+  const [countsSlot, setCountsSlot] = useState<HTMLElement | null>(null);
+  const seatsApi = useRef<SeatsChannel | null>(null);
+  const seatWanted = useRef<SeatMode | null>(null);
+  const registerSeats = useCallback((api: SeatsChannel | null) => {
+    seatsApi.current = api;
+    if (!api) return;
+    setSeatShow3D(api.show3D);
+    const want = seatWanted.current;
+    seatWanted.current = null;
+    if (want && want !== api.mode) api.setMode(want);
+    else setSeatMode(api.mode);
+  }, []);
+  const pickView = (v: GuestsView, seat?: SeatMode) => {
+    setGview(v);
+    setSeenViews((s) => (s.has(v) ? s : new Set([...s, v])));
+    // ⇅ The shared Show · Group by · Sort rides along — a switch keeps what is shown (lib/guests-filter.ts).
+    const at = guestsViewHref(eventId, v, { seat: v === 'seats' ? seatOfMode(seat ?? seatMode) : null });
+    window.history.replaceState(window.history.state, '', hrefWithGuestsFilter(at, filterRef.current));
+  };
+  /** Seats › a mode: the plan's own switch when it is on screen; otherwise open Seats and hand the plan the mode. */
+  const chooseSeat = (m: SeatMode) => {
+    if (gview === 'seats' && seatsApi.current) {
+      seatsApi.current.setMode(m);
+      return;
+    }
+    seatWanted.current = m;
+    setSeatMode(m);
+    pickView('seats', m);
+  };
+  /** 🗺 Map, Seats › 2D and Seats › 3D are ALWAYS FULL SCREEN (`isFullScreenView`) — no ⤢, no toggle: the plan is the
+   *  whole screen from under the top nav to the bottom nav (`.fullSurface`). */
+  const fullView = isFullScreenView(gview, seatMode);
+  /** 📏 Seats › List owns its height (no page scroll), so it starts right under the pinned row (`.rowSurface`) — never
+   *  under the page's own top spacing, which nothing would ever scroll into (owner 2026-10-30, "we want to use that
+   *  space"). `startsUnderTheRow`. */
+  const rowView = startsUnderTheRow(gview, seatMode);
+  /** 🗂 R4 · Seats or March: a shipped maker drawn whole — no summary, no list, no thumb row of the List's. */
+  const makerView = isGuestsMakerView(gview);
   // 🔒 Nothing that writes is offered while this is the phone's old copy OR the viewer may only look.
   const writesOff = copy !== null || viewOnly;
   // ⚙ Guests settings — opened by the ⚙ in place; a link (`?settings=1&row=…`) opens it with the page. Closing drops
@@ -389,6 +541,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
   /* ⚡ Only the way in (`useInspectorSelect`) — never which card is open, so opening one does not redraw every row. */
   const inspector = useInspectorSelect();
   const roleNames = useRoleNames();
+  const setRoleNames = useSetRoleNames();
   // 📋 The fresh, measured List keeps itself on the phone for the next open (`guest-list-copy.ts`).
   useKeepGuestList(
     { guests: live.guests, hasSides, groupsByGuest, tableByGuest, faceByGuest, requests, rootLabel, roleNames },
@@ -447,7 +600,6 @@ export function GuestsScreen(props: GuestsScreenProps) {
     }),
     [roleNames, hasSides, groupsByGuest, tableByGuest, songsByGuest, companions, rosterById, standIns, standingIn],
   );
-  const linked = useMemo(() => (linkedGuestIds ? new Set(linkedGuestIds) : null), [linkedGuestIds]);
 
   // ── The query: typed into an UNCONTROLLED box, read 250 ms after the last key.
   const [q, setQ] = useState(initialQuery.trim());
@@ -469,20 +621,54 @@ export function GuestsScreen(props: GuestsScreenProps) {
   // 🪑 The Sort dropdown's "+1 ▾ Named · No name yet" (owner 2026-10-21) — on top of the search, as every filter is.
   const [plusFilter, setPlusFilter] = useState<PlusOneFilter | null>(null);
   // 👆 The counts are doors (owner 2026-10-21): "N attending · N not coming · N no reply" filter to exactly those guests.
-  const [replyFilter, setReplyFilter] = useState<ReplyFilter | null>(null);
+  // ☑ A cold `?select=to-invite` (⚙ › Pick who's link) lands narrowed to To invite, as the in-place press does.
+  /* ⇅ THE ONE SHOW · GROUP BY · SORT (R4 slice 1, owner 2026-10-29 — `lib/guests-filter.ts`): the count doors, the ⇅ of
+     every view, the List and the Map read and write THIS — and the address keeps it (`replaceState`, nothing asked of
+     the server). `replyFilter` is its Show, under the name every door already used. */
+  /* 📥 Asking to join — the List shows the requests in place (slice 11). */
+  const [asking, setAsking] = useState<boolean>(initialAsking && requestsInPlace);
+  const openAsking = () => {
+    setAsking(true);
+    window.scrollTo({ top: 0 });
+  };
+  /* Leaving Asking to join — the rows just decided there go with it (requests-decided.tsx). */
+  const closeAsking = () => {
+    setAsking(false);
+    clearDecided();
+  };
+  const [filter, setFilter] = useState<GuestsFilter>(() => (initialSelect ? { ...filterAsked, show: 'toinvite' } : filterAsked));
+  useEffect(() => {
+    filterRef.current = filter;
+    try {
+      const url = new URL(window.location.href);
+      const next = writeGuestsFilter(url.searchParams, filter).toString();
+      if (next === url.searchParams.toString()) return;
+      window.history.replaceState(window.history.state, '', `${url.pathname}${next ? `?${next}` : ''}${url.hash}`);
+    } catch {
+      /* the address keeps its old words; the screen shows the new filter either way */
+    }
+  }, [filter]);
+  const replyFilter = filter.show;
+  const setReplyFilter = useCallback(
+    (next: ReplyFilter | null | ((now: ReplyFilter | null) => ReplyFilter | null)) =>
+      setFilter((f) => ({ ...f, show: typeof next === 'function' ? next(f.show) : next })),
+    [],
+  );
   // A guest found by NAME brings their +1s (`withTheirPlusOnes`) — a +1 is never left behind by a search.
   const visible = useMemo(() => {
     const found = q ? withTheirPlusOnes(q, roster.filter((g) => rosterSearchMatches(q, g, facts)), roster) : roster;
-    return plusFilter || replyFilter
-      ? found.filter((g) => plusOneFilterMatches(g, plusFilter) && replyFilterMatches(g, replyFilter))
-      : found;
-  }, [roster, q, facts, plusFilter, replyFilter]);
+    const narrowed =
+      plusFilter || replyFilter
+        ? found.filter((g) => plusOneFilterMatches(g, plusFilter) && replyFilterMatches(g, replyFilter))
+        : found;
+    // ⇅ Sort re-orders the same rows (Importance = the page's own order); a +1 stays beside their guest.
+    return sortGuestsFor(narrowed, filter.sort, (id) => tableByGuest[id] ?? null) as GuestRow[];
+  }, [roster, q, facts, plusFilter, replyFilter, filter.sort, tableByGuest]);
 
   // ── The one Sort (list) and the one Arrange (map).
-  const views = useMemo(() => ROSTER_VIEWS.filter((v) => hasSides || v.key !== 'side'), [hasSides]);
-  const [view, setView] = useState<RosterView>('role');
-  const arranges = useMemo(() => MAP_ARRANGE.filter((v) => hasSides || v.key !== 'side'), [hasSides]);
-  const [arrange, setArrange] = useState<MapArrange>(hasSides ? 'side' : 'role');
+  // ⇅ Group by is the shared filter's (List: Role by default; the Map its own default where it has no Last name).
+  const view: RosterView = listGroupOf(filter);
+  const arrange: MapArrange = mapGroupOf(filter, hasSides);
 
   const sections = useMemo(() => rosterSections(visible, view, facts), [visible, view, facts]);
 
@@ -493,7 +679,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
     const first = secs.find((x) => !x.celebrants) ?? secs[0];
     return new Set(first ? [first.key] : []);
   };
-  const [open, setOpen] = useState<Set<string>>(() => firstOpen('role'));
+  const [open, setOpen] = useState<Set<string>>(() => firstOpen(listGroupOf(filterAsked)));
   // A refused read drew no sections; when the phone's copy replaces it, open the copy's first section.
   useEffect(() => {
     if (unread) setOpen(firstOpen(view));
@@ -546,8 +732,10 @@ export function GuestsScreen(props: GuestsScreenProps) {
   // ── Select mode.
   const [selectMode, setSelectMode] = useState(initialSelect);
   useEffect(() => {
-    if (initialSelect) setSelectMode(true);
-  }, [initialSelect]);
+    if (!initialSelect) return;
+    setSelectMode(true);
+    setReplyFilter('toinvite');
+  }, [initialSelect, setReplyFilter]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const toggleOne = (id: string) =>
     setSelected((prev) => {
@@ -570,6 +758,39 @@ export function GuestsScreen(props: GuestsScreenProps) {
     setSelectMode(false);
     setSelected(new Set());
   };
+
+  /* ✎ A LIST GROUP RENAMED ON ITS ROW (owner 2026-10-29 ~21:55: "remove the pop up and just have a button on the row to
+     rename it. this is the pencil icon. remove tha dd guests here."): the header tap folds and unfolds again (no select,
+     no toolbar, no ＋ Add guest here); the ✎ on the row turns the row into the name box (`SectionRenameInPlace`). */
+  const [renaming, setRenaming] = useState<string | null>(null);
+  /* ☑ ⚙ › Invitations' "Pick who", IN PLACE (owner 2026-10-28, "pick who … does not show anything"): the sheet closes,
+     Select turns on, the list narrows to To invite — the carousel's own `toinvite` door. Nothing navigates. On the Map
+     (no rows to pick) it opens the List the cold-load way, which lands in the same state (`initialSelect`).
+     🔒 pick-who-narrows-in-place.test.ts */
+  /* 📥 ⚙ › Requests to join, IN PLACE (R4 slice 11; house rule "a save never resets the screen"): the sheet closes, the
+     List comes forward and opens on Asking to join — no trip to the Requests page. */
+  const openRequests = () => {
+    openSettings(false);
+    if (gview !== 'list') pickView('list');
+    setAsking(true);
+    window.scrollTo({ top: 0 });
+  };
+  /* The ⚙ rows reach `openRequests` through their own wrapper, made HERE — the ⚙ sheet keeps its one child and the top
+     row stays as it is (the top row belongs to the top-row build). */
+  const setup = setupRows ? (
+    <OpenRequestsContext.Provider value={requestsInPlace && !writesOff ? openRequests : null}>{setupRows}</OpenRequestsContext.Provider>
+  ) : null;
+  const pickWho = useCallback(() => {
+    openSettings(false);
+    if (gview !== 'list') {
+      router.push(`/dashboard/${eventId}/guests?select=to-invite`);
+      return;
+    }
+    setSelected(new Set());
+    setSelectMode(true);
+    setReplyFilter('toinvite');
+    window.scrollTo({ top: 0 });
+  }, [openSettings, gview, router, eventId, setReplyFilter]);
 
   // ── Settled: the rise plays once per page/mode, never on a re-render.
   const [settled, setSettled] = useState(false);
@@ -602,38 +823,21 @@ export function GuestsScreen(props: GuestsScreenProps) {
     return () => ro?.disconnect();
   }, []);
 
-  // ── 📌 THE ONE PINNED ROW, PINNED ONCE (owner 2026-10-27: "pinned approve" — Guests B; "On the pinned the selectors
-  //    should stay but simplified"; then "the selector double pins. we want them to pin only the new way and not the first
-  //    pin it does" — DECISION_LOG "GUESTS: THE SUMMARY BECOMES ONE AUTO-SCROLLING CAROUSEL; THE SELECTOR PINS ONCE").
-  //    At rest the List · Map pill is NOT sticky: it scrolls with the page, the summary carousel under it. Only once the
-  //    carousel's bottom has passed under where the row would sit does the block pin (`data-collapsed` → fixed under
-  //    the bar, in its holder's column) with its summary face `List · Map · ✓ ✕ ? · ⚙` — no Invite (that lives on the
-  //    carousel's To invite card). The holder keeps the block's height in the flow, so nothing under it moves. Written as
-  //    ATTRIBUTES and custom properties, only when they change, never as state: the list never re-renders for a scroll.
-  //    List only — the Map is one canvas and keeps its shipped sticky row. 🔒 lib/the-pinned-row-is-one-row.test.ts
+  // ── 📌 THE ONE TOP ROW IS PINNED ON EVERY VIEW (owner 2026-10-30, *"Seat ls should be pinned on top row and on map and
+  //    3d"* → *"Like this one"*). There is one face now, so there is nothing to swap and nothing to "pin once": the block is
+  //    fixed under the shell bar from the start (`data-pinned`), on its holder's column edges (`--gs-pin-l` / `--gs-pin-w`
+  //    — the desk's rail, a card column); the holder keeps its height in the flow, so nothing under it moves and a group
+  //    header pins under it (`--gs-stick-h`). Written as ATTRIBUTES and custom properties, only when they change, never as
+  //    state: the list never re-renders for a scroll. 🔒 lib/the-pinned-row-is-one-row.test.ts
   useEffect(() => {
     const st = stickRef.current;
     const hold = holdRef.current;
-    const strip = stripRef.current;
-    const root = rootRef.current;
-    if (!st) return;
-    if (!strip || !hold || !root || gview !== 'list') {
-      st.removeAttribute('data-collapsed');
-      return;
-    }
+    if (!st || !hold) return;
+    st.setAttribute('data-pinned', '');
     let raf = 0;
-    let last: boolean | null = null;
     let place = '';
     const read = () => {
       raf = 0;
-      // The shell bar's height while it shows (`useShellBarOffset` writes it inline) — the row pins under it.
-      const bar = parseFloat(root.style.getPropertyValue('--gs-top')) || 0;
-      const on = strip.getBoundingClientRect().bottom <= bar + st.offsetHeight + 2;
-      if (on !== last) {
-        last = on;
-        st.toggleAttribute('data-collapsed', on);
-      }
-      // Pinned, the row is `position: fixed` — it takes its holder's column edges (the desk's rail, a card column).
       const r = hold.getBoundingClientRect();
       const next = `${Math.round(r.left)}|${Math.round(r.width)}`;
       if (next !== place) {
@@ -646,18 +850,71 @@ export function GuestsScreen(props: GuestsScreenProps) {
       if (!raf) raf = requestAnimationFrame(read);
     };
     read();
-    window.addEventListener('scroll', soon, { passive: true });
     window.addEventListener('resize', soon);
     const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(soon) : null;
     ro?.observe(hold);
+    const root = rootRef.current;
+    if (root?.parentElement) ro?.observe(root.parentElement);
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      ro?.disconnect();
+      window.removeEventListener('resize', soon);
+    };
+  }, []);
+
+  /* 🗺 THE PLAN IS THE WHOLE SCREEN (owner, iPhone app, 2026-10-30: *"the whole background will be the 3d plan or the 2d
+     plan or the map. They are all full screen. So we only keep the bottom nav thumb row and the icons of the top nav"*;
+     DECISION_LOG "SEATS 2D · SEATS 3D · THE MAP ARE ALWAYS FULL SCREEN — NO FULL-SCREEN BUTTON"). On Map · Seats › 2D ·
+     3D the view's surface (`.fullSurface`) is lifted from where this screen starts on the page (`--gs-root-top`, read
+     here) to the shell bar's bottom (`--gs-top`), and runs down to the bottom nav — so the ONE row floats over the plan
+     right under the top nav, with no gap, and the page has nothing to scroll. A measurement, written only when it
+     changes, never state. 🔒 lib/maps-are-always-full-screen.test.ts */
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    let raf = 0;
+    let last = '';
+    const read = () => {
+      raf = 0;
+      const next = `${Math.round(root.getBoundingClientRect().top + window.scrollY)}px`;
+      if (next === last) return;
+      last = next;
+      root.style.setProperty('--gs-root-top', next);
+    };
+    const soon = () => {
+      if (!raf) raf = requestAnimationFrame(read);
+    };
+    read();
+    window.addEventListener('resize', soon);
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(soon) : null;
     if (root.parentElement) ro?.observe(root.parentElement);
     return () => {
       if (raf) cancelAnimationFrame(raf);
       ro?.disconnect();
-      window.removeEventListener('scroll', soon);
       window.removeEventListener('resize', soon);
     };
-  }, [gview, measured]);
+  }, []);
+
+  /* 🗺 ENTERING A FULL-SCREEN VIEW GLIDES (owner 2026-10-29, "remember to animate them properly"; prototype v16): the page
+     scrolls smoothly back to the top while the Map's carousel folds away (`data-guests-full`, 0.3 s) under the ONE top row
+     (which never changes face — owner 2026-10-30), and the map takes the room it left — the canvases measure their height
+     once the fold has played (a `resize`, which the map and the seat plan already listen for). Reduced motion: no scroll
+     animation, no glide. */
+  const fullFirst = useRef(true);
+  useEffect(() => {
+    const first = fullFirst.current;
+    fullFirst.current = false;
+    if (!fullView || first) return;
+    const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (window.scrollY > 0) window.scrollTo({ top: 0, behavior: still ? 'auto' : 'smooth' });
+  }, [fullView]);
+  useEffect(() => {
+    const t = window.setTimeout(() => window.dispatchEvent(new Event('resize')), 320);
+    return () => window.clearTimeout(t);
+  }, [fullView, gview]);
+  useEffect(() => {
+    setSeatMode(seatModeOf(seatAsked));
+  }, [seatAsked]);
 
   // ── ONE state for every guest row, and one for the thumb row (rules 3a/3b, G36).
   useRowState(listRef, [sections, selectMode, gview, drawnKey]);
@@ -688,7 +945,12 @@ export function GuestsScreen(props: GuestsScreenProps) {
       head: (body) => (
         <InspectorColumn
           eyebrow={guestCardEyebrow(g, { hasSides, roleNames, plusOneOf })}
-          title={title}
+          title={
+            <>
+              {title}
+              <GuestNick nick={guestCardNick(g, plusOneOf)} />
+            </>
+          }
           badge={guestCardReply(g, standIn ? ({ representedBy: { name: standIn.proxyName } } as GuestCardData['proxy']) : undefined)}
           lead={<GuestCardAvatar guest={g} photoDisplayUrl={faceByGuest[id] ?? null} size="head" />}
           pinSlot
@@ -932,6 +1194,14 @@ export function GuestsScreen(props: GuestsScreenProps) {
             className={styles.cardDoor}
             aria-label={`${formatCount(stats.total)} guests, ${replied}% replied, ${formatCount(requests)} ${requests === 1 ? 'request' : 'requests'} to join — open requests`}
             data-requests-door=""
+            onClick={
+              requestsInPlace
+                ? (e) => {
+                    e.preventDefault();
+                    openAsking();
+                  }
+                : undefined
+            }
           />
           <span className={styles.ringRow}>
             <span className={styles.ring} data-replied-ring="" aria-hidden>
@@ -1049,49 +1319,56 @@ export function GuestsScreen(props: GuestsScreenProps) {
   ];
 
   /** The pinned row's count: the SAME door (`pickReply`, `data-reply-filter`) drawn small — a mark and the number; the
-      word is for a screen reader. Pressed = underlined, never boxed. */
+      word is for a screen reader. Pressed = underlined, never boxed. ONE drawing for every view's counts (`PinCountDoor`
+      — Seats' seated · unseated · tables are the same door). */
   const pinDoor = (f: ReplyFilter, value: number, id: string, word: string, Mark: typeof Check) => (
-    <button
+    <PinCountDoor
       key={f}
-      type="button"
-      className={styles.pinCount}
-      aria-pressed={replyFilter === f}
-      onClick={() => pickReply(f)}
-      data-reply-filter={f}
-      data-pin-dot={f}
-    >
-      <Mark aria-hidden strokeWidth={2.4} />
-      <b><Count value={value} id={id} /></b>
-      <span className="sr-only"> {word}</span>
-    </button>
-  );
-  /** The pinned row's selector: the same views as links, `List · Map` only, small and words only (owner 2026-10-27,
-      "selectors should stay but simplified"). The ⚙ is the full row's own, and stays on screen pinned. */
-  const pinSeg = (key: 'list' | 'map', label: string) => (
-    <Link
-      key={key}
-      className={`${pillSegClass(gview === key)} ${styles.pinSegChoice}`}
-      href={key === 'list' ? `/dashboard/${eventId}/guests` : `/dashboard/${eventId}/guests?gview=${key}`}
-      aria-current={gview === key ? 'page' : undefined}
-      scroll={false}
-      data-guests-pin-seg={key}
-    >
-      {label}
-    </Link>
+      dot={f}
+      value={value}
+      id={id}
+      word={word}
+      icon={<Mark aria-hidden strokeWidth={2.4} />}
+      pressed={replyFilter === f}
+      onPress={() => pickReply(f)}
+      attrs={{ 'data-reply-filter': f }}
+    />
   );
 
-  const seg = (key: 'list' | 'map', label: string, count?: number) => (
-    <Link
-      key={key}
-      className={`${pillSegClass(gview === key)} [&>b]:font-medium [&>b]:opacity-80`}
-      href={key === 'list' ? `/dashboard/${eventId}/guests` : `/dashboard/${eventId}/guests?gview=${key}`}
-      aria-current={gview === key ? 'page' : undefined}
-      scroll={false}
-      data-guests-seg={key}
-    >
-      {label}
-      {count !== undefined && measured ? <b><Count value={count} id={`gs-seg-${key}`} /></b> : null}
-    </Link>
+  /* 🎚 THE ONE TOP ROW'S MENU (owner 2026-10-30, *"The menu does not work properly"*): the segmented
+     `Guests | Seats ▾ | March` row is GONE from every view — the ▾ below lists every view of Guests, Seats and March, and
+     picking one switches in place from any view, both ways. The addresses stay (`guestsViewHref` / `parseGuestsView`),
+     so every old door still lands. */
+  const tops = GUESTS_TOPS.filter((t) => t === 'guests' || guestsViews.includes(t));
+  const guestModes: PickOption[] = guestsViews.filter((v) => v === 'list' || v === 'map').map((v) => ({ key: v, label: GUESTS_VIEW_LABEL[v] }));
+  const seatModes: PickOption[] = SEAT_MODES.filter((m) => m !== '3d' || seatShow3D).map((m) => ({ key: m, label: SEAT_MODE_MENU_LABEL[m] }));
+  /** 📌 The slim pinned row's ONE menu (owner v14: LEFT one menu — page + mode in one dropdown, the groups listed). */
+  const pinMenuOptions: PickOption[] = [
+    ...guestModes.map((o) => ({ key: `guests:${o.key}`, label: o.label, group: GUESTS_TOP_LABEL.guests })),
+    ...(tops.includes('seats') ? seatModes.map((o) => ({ key: `seats:${o.key}`, label: o.label, group: GUESTS_TOP_LABEL.seats })) : []),
+    ...(tops.includes('march') ? [{ key: 'march', label: GUESTS_TOP_LABEL.march, group: GUESTS_TOP_LABEL.march }] : []),
+  ];
+  const pinMenuValue = gview === 'seats' ? `seats:${seatMode}` : gview === 'march' ? 'march' : `guests:${gview}`;
+  const pinMenu = (
+    <PickMenu
+      label="Guests — what you see"
+      value={pinMenuValue}
+      options={pinMenuOptions}
+      onPick={(k) => {
+        if (k === 'march') pickView('march');
+        else if (k.startsWith('seats:')) chooseSeat(k.slice(6) as SeatMode);
+        else pickView(k.slice(7) as GuestsView);
+      }}
+      dataAttr="data-guests-pin-menu"
+      buttonText={pinnedMenuWords(gview, seatMode)}
+      className="sn-press sn-hit inline-flex h-10 min-w-0 shrink items-center gap-1.5 rounded-full bg-ink/[0.06] px-3 text-[14px] font-medium text-ink dark:bg-white/[0.08]"
+      trigger={
+        <>
+          <span className="min-w-0 whitespace-nowrap">{pinnedMenuWords(gview, seatMode)}</span>
+          <ChevronDown aria-hidden className="h-3.5 w-3.5 shrink-0 text-ink/55" strokeWidth={2.2} />
+        </>
+      }
+    />
   );
 
   /* ═══ the thumb row ═══ */
@@ -1121,52 +1398,77 @@ export function GuestsScreen(props: GuestsScreenProps) {
     copy?.freshness === 'failed'
       ? []
       : [{ key: GUESTS_EXCEL_KEY, label: excel.label, group: 'File', icon: <Share className="h-[18px] w-[18px]" strokeWidth={1.9} /> }];
-  const sortMenu: ThumbMenu = {
+  /** ⇅ A pick in the shared menu: the one filter changes; a new Group by opens its first heading (as the shipped Sort
+      did) and clears the +1 narrowing; the list goes back to its top. */
+  const pickFilter = (next: GuestsFilter) => {
+    closeAsking();
+    if (listGroupOf(next) !== view) {
+      setPlusFilter(null);
+      setOpen(firstOpen(listGroupOf(next)));
+    }
+    setFilter(next);
+    window.scrollTo({ top: 0 });
+  };
+  /* ⇅ THE LIST'S ROUND (R4 slice 1): Show · Group by · Sort — the shared state — then the shipped ≡ items it held: +1 ·
+     Select… · File · the ways to add. The same seat, the same icon. */
+  const sortMenu: ThumbMenu = guestsFilterMenu({
+    view: 'list',
+    filter,
+    onFilter: pickFilter,
+    hasSides,
     mark: 'data-thumb-sort',
     tour: 'guests-sort',
-    label: 'Sort, select or add',
-    value: plusFilter ? `plus:${plusFilter}` : view,
-    buttonText: plusFilter ? `+1 · ${PLUS_ONE_FILTERS.find((f) => f.key === plusFilter)?.label ?? ''}` : undefined,
-    menu: views
-      .map((v): PickOption => ({ key: v.key, label: v.label, group: 'Sort by', icon: <ListFilter className="h-[18px] w-[18px]" strokeWidth={1.9} /> }))
-      .concat(
-        // 🪑 "+1 ▾ Named · No name yet" (owner 2026-10-21) — offered only when the list has +1s; picking a Sort clears it.
-        plusTally.named + plusTally.unnamed > 0
-          ? PLUS_ONE_FILTERS.map((f) => ({ key: `plus:${f.key}`, label: f.label, group: '+1', icon: <Armchair className="h-[18px] w-[18px]" strokeWidth={1.9} /> }))
-          : [],
-        // ☑ Select lives in this menu (owner 2026-10-22, question 1) — it was the row's fifth round.
-        writesOff ? [] : [{ key: 'select', label: 'Select…', group: 'List', icon: <SquareCheck className="h-[18px] w-[18px]" strokeWidth={1.9} /> }],
-        fileOptions,
-        addWays,
-      ),
-    onPick: (k) => {
+    label: 'Show, sort, select or add',
+    alsoOn: plusFilter !== null || asking,
+    showExtras: requestsInPlace
+      ? [
+          {
+            key: 'asking',
+            label: `Asking to join · ${formatCount(requests)}`,
+            group: 'Show',
+            trail: asking ? { text: '✓', tone: 'ok' as const, label: 'shown now' } : undefined,
+          },
+        ]
+      : [],
+    extras: ([] as PickOption[]).concat(
+      // 🪑 "+1 ▾ Named · No name yet" (owner 2026-10-21) — offered only when the list has +1s; a new Group by clears it.
+      plusTally.named + plusTally.unnamed > 0
+        ? PLUS_ONE_FILTERS.map((f) => ({
+            key: `plus:${f.key}`,
+            label: f.label,
+            group: '+1',
+            icon: <Armchair className="h-[18px] w-[18px]" strokeWidth={1.9} />,
+            trail: plusFilter === f.key ? { text: '✓', tone: 'ok' as const, label: 'shown now' } : undefined,
+          }))
+        : [],
+      // ☑ Select lives in this menu (owner 2026-10-22, question 1) — it was the row's fifth round.
+      writesOff ? [] : [{ key: 'select', label: 'Select…', group: 'List', icon: <SquareCheck className="h-[18px] w-[18px]" strokeWidth={1.9} /> }],
+      fileOptions,
+      addWays,
+    ),
+    onExtra: (k) => {
       if (pickedAddWay(k)) return;
       if (k === GUESTS_EXCEL_KEY) return excel.save();
       if (k === 'select') return setSelectMode(true);
+      if (k === 'asking') return asking ? closeAsking() : openAsking();
       if (k.startsWith('plus:')) {
-        setPlusFilter(k.slice(5) as PlusOneFilter);
+        setPlusFilter((now) => (now === k.slice(5) ? null : (k.slice(5) as PlusOneFilter)));
         window.scrollTo({ top: 0 });
-        return;
       }
-      const next = k as RosterView;
-      setPlusFilter(null);
-      setView(next);
-      setOpen(firstOpen(next));
-      window.scrollTo({ top: 0 });
     },
-  };
-  const arrangeMenu: ThumbMenu = {
+  });
+  /* ⇅ THE MAP'S ROUND: Show · Group by (the SAME state as the List's — v18: the Map has no "Grouped by" chip of its own),
+     then the ways to add. */
+  const arrangeMenu: ThumbMenu = guestsFilterMenu({
+    view: 'map',
+    filter,
+    onFilter: setFilter,
+    hasSides,
     mark: 'data-thumb-arrange',
-    label: 'Arrange the map, or add',
-    value: arrange,
-    menu: arranges
-      .map((v): PickOption => ({ key: v.key, label: v.label, group: 'Arrange by', icon: <ListFilter className="h-[18px] w-[18px]" strokeWidth={1.9} /> }))
-      .concat(addWays),
-    onPick: (k) => {
-      if (pickedAddWay(k)) return;
-      setArrange(k as MapArrange);
-    },
-  };
+    label: 'Show, group or add',
+    extras: addWays,
+    onExtra: (k) => void pickedAddWay(k),
+  });
   /* ⚡ SEARCH OR ADD, ONE ENTER (owner 2026-10-19: "i type a name and it is not found there. when i press enter that should
      add that person there already"). Enter on a line that matches ONE guest opens them; several stay filtered; NOBODY →
      the line is a new guest, on the List at once (the shipped capture-bar grammar, the shipped `addSingleGuest`, through
@@ -1179,6 +1481,8 @@ export function GuestsScreen(props: GuestsScreenProps) {
   const [picks, setPicks] = useAddPicks(hasSides);
   const [madeGroups, setMadeGroups] = useState<{ group_id: string; label: string; team_side: 'bride' | 'groom' | 'both' }[]>([]);
   const allGroups = useMemo(() => [...groups, ...madeGroups.filter((m) => !groups.some((g) => g.group_id === m.group_id))], [groups, madeGroups]);
+  /** The picks a name typed now takes — the box's sticky picks (＋ Add guest here left with the header toolbar). */
+  const addPicks: AddPicks = picks;
   // 🧑‍🤝‍🧑 THE COUPLE'S PEOPLE (owner 2026-10-20: "search also searches the people connected to them. From People.") — the
   // SAME read the "Add from your people" sheet makes (`listPeopleYouCanInvite`), once, when the box is first used.
   const { listPeopleYouCanInvite, addGuestsFromPeople } = useGuestActions();
@@ -1208,21 +1512,21 @@ export function GuestsScreen(props: GuestsScreenProps) {
   };
   const peopleHits = q ? peopleFor(q) : [];
   const addPerson = (p: PersonHit) => {
-    const sent = picksForAdd(picks, allGroups, roleNames);
+    const sent = picksForAdd(addPicks, allGroups, roleNames);
     guestAdds.enqueue({
       eventId,
       name: p.name,
       detail: sent.detail,
       run: async () => {
-        const r = await addGuestsFromPeople(eventId, [{ key: p.key }], picks.side, {
-          role: picks.role,
-          groupCategory: picks.category,
+        const r = await addGuestsFromPeople(eventId, [{ key: p.key }], addPicks.side, {
+          role: addPicks.role,
+          groupCategory: addPicks.category,
           groupLabels: [...(sent.groupLabels ?? [])],
-          plusOnes: picks.plus,
+          plusOnes: addPicks.plus,
           refresh: false,
         });
         return r.ok
-          ? { ok: true, guest: { guest_id: r.guestIds?.[0] ?? '', first_name: p.name, last_name: p.lastName, side: picks.side, role: picks.role } }
+          ? { ok: true, guest: { guest_id: r.guestIds?.[0] ?? '', first_name: p.name, last_name: p.lastName, side: addPicks.side, role: addPicks.role } }
           : { ok: false, error: r.error };
       },
     });
@@ -1244,7 +1548,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
       setNeeds(`${v} is already added.`, v);
       return 'already';
     }
-    const res = queueTypedGuest(eventId, v, picks.side, addSingleGuest, guestAdds, picksForAdd(picks, allGroups, roleNames));
+    const res = queueTypedGuest(eventId, v, addPicks.side, addSingleGuest, guestAdds, picksForAdd(addPicks, allGroups, roleNames));
     if (!res.ok) {
       if (res.error) setNeeds(res.error, v);
       return res.error || 'empty';
@@ -1271,6 +1575,11 @@ export function GuestsScreen(props: GuestsScreenProps) {
     label: 'Search guests or add',
     tour: 'guests-add',
     inputRef: fieldRef,
+    /* ✕ — the words are gone: the whole list AT ONCE, not after the search's wait (owner 2026-10-31). */
+    onClear: () => {
+      if (timer.current) clearTimeout(timer.current);
+      setQ('');
+    },
     input: {
       defaultValue: q,
       autoCorrect: 'off',
@@ -1428,11 +1737,40 @@ export function GuestsScreen(props: GuestsScreenProps) {
       />
     );
   } else if (gview === 'map') {
-    thumb = <ThumbRow name="guests-map" field={field} right={[arrangeMenu]} />;
+    /* ＋ THE MAP'S MAIN VERB (R4 slice 1, prototype v12): Add guest — the shipped add sheet; the List keeps its own seats
+       (the field is its add). A viewer who may not write gets no ＋. */
+    thumb = (
+      <ThumbRow
+        name="guests-map"
+        field={field}
+        right={[arrangeMenu]}
+        action={writesOff ? null : { icon: Plus, label: 'Add guest', onClick: () => openAddGuest(''), testId: 'map-add-guest' }}
+      />
+    );
   }
 
   /* ═══ the list ═══ */
-  const list = (
+  /* 📥 Asking to join, in place (slice 11): the shipped Requests rows (Accept · Decline · Link, each with Undo), under a
+     slim head that names them and goes back to everyone. */
+  /* The rows just decided stay here, above the body (requests-decided.tsx) — so they outlive it: accept the last one and
+     the body goes, the decided row stays. No body = the page measured nobody waiting. */
+  const askingList = asking && requestsInPlace ? (
+    <div data-guests-asking="" className={styles.rise}>
+      <div className="flex min-h-11 items-center gap-2 px-1 pb-2">
+        <span className="min-w-0 flex-1 text-sm font-medium text-ink">
+          Asking to join · <Count value={requests} id="gs-asking" />
+        </span>
+        <ActionButton tone="neutral" icon={X} label="Everyone" onClick={closeAsking} data-guests-asking-close="" />
+      </div>
+      <RequestsJustDecided />
+      {requestsBody ?? (
+        <p className="px-1 py-4 text-sm text-ink/60" data-requests-none="">
+          Nobody is waiting. When someone without a key asks to join, they appear here.
+        </p>
+      )}
+    </div>
+  ) : null;
+  const list = askingList ?? (
     <div ref={listRef} data-guest-rows="">
       {/* 👤 Requests to join are card ① of the summary carousel now (owner 2026-10-27) — no strip here. */}
       {titlesWaiting.length > 0 && !writesOff ? (
@@ -1478,6 +1816,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
                   {allSel ? <Check aria-hidden strokeWidth={2.2} /> : null}
                 </button>
               ) : null}
+              {renaming === sec.key ? null : (
               <button
                 type="button"
                 className={styles.bar}
@@ -1501,6 +1840,24 @@ export function GuestsScreen(props: GuestsScreenProps) {
                 ) : null}
                 <ChevronDown className={styles.chev} style={selectMode ? { marginLeft: 0, flex: '0 0 auto' } : { flex: '0 0 auto' }} aria-hidden strokeWidth={1.9} width={18} height={18} />
               </button>
+              )}
+              {/* ✎ Rename on the row itself — only where one word renames this header (`sectionHeadDoors`). */}
+              {selectMode || writesOff ? null : (
+                <SectionRenameInPlace
+                  eventId={eventId}
+                  section={{ key: sec.key, label: sec.label }}
+                  groups={allGroups}
+                  roleSetKey={roleSetKey}
+                  roleNames={roleNames}
+                  editing={renaming === sec.key}
+                  onEdit={() => setRenaming(sec.key)}
+                  onDone={() => setRenaming(null)}
+                  onRenamed={(next) => {
+                    setRenaming(null);
+                    setOpen((prev) => (prev.has(sec.key) ? new Set([...prev, next]) : prev));
+                  }}
+                />
+              )}
             </div>
             <div className={styles.fold}>
               <div>
@@ -1521,15 +1878,9 @@ export function GuestsScreen(props: GuestsScreenProps) {
                       face={faceByGuest[g.guest_id]}
                       // 🧍 The two sit in ONE seat — the proxy’s (the role’s seat moved to them).
                       table={tableByGuest[g.guest_id] ?? null}
-                      verbs={
-                        writesOff
-                          ? []
-                          : rowVerbsFor(g, {
-                              linked: linked ? linked.has(g.guest_id) : null,
-                              chatHref: chatHrefFor?.(g.guest_id) ?? null,
-                            })
-                      }
-                      chatHref={chatHrefFor?.(g.guest_id) ?? null}
+                      verbs={writesOff ? [] : rowVerbsFor(g, { shareable: Boolean(invite?.tokens[g.guest_id]) })}
+                      eventId={eventId}
+                      invite={invite}
                       onOpen={openCard}
                       onToggle={() => toggleOne(g.guest_id)}
                       onRemove={() => {
@@ -1606,6 +1957,46 @@ export function GuestsScreen(props: GuestsScreenProps) {
 
   const tree = useMemo(() => mapTree(visible, arrange, facts), [visible, arrange, facts]);
 
+  /* ⇅ THE LENS SEATS AND MARCH READ (`guests-lens.tsx`): the view on screen, the row's seat, the shared filter, and the
+     two questions they cannot answer alone — does a guest pass Show, and whom do these words find — answered off THIS
+     list with the shipped rules (`replyFilterMatches`, `rosterSearchMatches`). */
+  const [thumbSlot, setThumbSlot] = useState<HTMLElement | null>(null);
+  const lens = useMemo<GuestsLens>(
+    () => ({
+      view: gview,
+      slot: thumbSlot,
+      ThumbRow,
+      filter,
+      setFilter,
+      hasSides,
+      shows: (id) => {
+        const g = rosterById.get(id);
+        return !g || replyFilterMatches(g, filter.show);
+      },
+      find: (words) => {
+        const w = words.trim();
+        return new Set(w ? roster.filter((g) => rosterSearchMatches(w, g, facts)).map((g) => g.guest_id) : []);
+      },
+      registerSeats,
+      toolsSlot,
+      countsSlot,
+      ...(writesOff
+        ? {}
+        : {
+            HeadToolbar: SectionHeadToolbar,
+            sectionWords: (key: string) =>
+              isRenamableSection(key) ? { current: sectionName(key, roleNames) ?? '', usual: sectionUsualHeading(key, roleNames) } : null,
+            renameSection: async (key: string, text: string) => {
+              const res = await hearAction(() => renameSection(eventId, key, text));
+              if (!res.ok) return plainRefusal('reason' in res ? res.reason : res.error, 'The new name was not saved — nothing was changed.');
+              setRoleNames(res.names);
+              return null;
+            },
+          }),
+    }),
+    [gview, thumbSlot, toolsSlot, countsSlot, registerSeats, filter, hasSides, rosterById, roster, facts, writesOff, roleNames, setRoleNames, eventId],
+  );
+
   return (
     <GuestListHasSidesContext.Provider value={hasSides}>
       {toastNode}
@@ -1614,51 +2005,52 @@ export function GuestsScreen(props: GuestsScreenProps) {
         className={styles.screen}
         data-settled={settled ? 'true' : 'false'}
         data-guests-screen={gview}
+        data-guests-full={fullView ? '' : undefined}
         data-guests-copy={copy ? copy.freshness : undefined}
       >
         {/* 📌 The holder keeps the block's height in the flow while the block itself is pinned (fixed) — pinning moves
             nothing under it (`--gs-stick-h`, measured off the block). */}
         <div ref={holdRef} className={styles.stickHold} data-guests-stick-hold="">
-        <div ref={stickRef} className={`${styles.stick} ${styles.pinned}`} data-guests-stick="" data-has-gear={setup ? '' : undefined}>
-          {/* 📌 ONE PINNED ROW, TWO FACES, PINNED ONCE (owner 2026-10-27, Guests B + "selectors should stay but
-              simplified" + "the selector … pin only the new way"): 44 px — the summary face is laid over the full pill
-              (absolute, the pill's own box), so the swap moves nothing. At rest the block scrolls with the page; it pins
-              only once the carousel has gone. The summary is drawn by `PinnedSummary` (below) from the SAME doors.
-              🔒 lib/the-pinned-row-is-one-row.test.ts */}
-          {measured && gview === 'list' ? (
+        {/* 🔔 `data-peek-toast-under`: a toast lands UNDER this row (and the shell's bar above it), never on its controls. */}
+        <div ref={stickRef} className={`${styles.stick} ${styles.pinned}`} data-guests-stick="" data-has-gear={setup ? '' : undefined} data-peek-toast-under="">
+          {/* 📌 THE ONE TOP ROW, PINNED ON EVERY VIEW (owner 2026-10-30, iPhone app: *"The menu does not work properly"* —
+              Seats › List wore the old segmented `Guests | Seats ▾ | March` while Seats › 2D wore the slim row; and
+              *"Seat ls should be pinned on top row and on map and 3d"* → *"Like this one"*, Guests › List's pinned row).
+              ONE row on Guests › List · Map, Seats › List · 2D · 3D and March: `[Page · View ▾]` (every view) · the
+              view's counts (the List's and Map's ✓ ✕ ? doors; Seats' seated · unseated · tables, portalled in by the
+              plan — `lens.countsSlot`) · the view's own rounds (Seats: Edit · ⋯ — `lens.toolsSlot`) · the ⚙. It is the
+              menu's first row (the ⚙'s spot) and the block pins under the bar from the start, on every view.
+              🔒 lib/guests-top-row-and-full-screen.test.ts · lib/the-pinned-row-is-one-row.test.ts */}
+          <div className={styles.topRow} data-first-row="" data-guests-top-row="">
             <PinnedSummary
-              segs={[pinSeg('list', 'List'), pinSeg('map', 'Map')]}
-              doors={[
-                pinDoor('attending', stats.yes, 'gs-pin-yes', RSVP_ROW_WORDS.attending, Check),
-                pinDoor('declined', stats.no, 'gs-pin-no', RSVP_ROW_WORDS.declined, X),
-                pinDoor('none', stats.none, 'gs-pin-none', RSVP_ROW_WORDS.pending, CircleHelp),
-              ]}
+              menu={pinMenu}
+              countsRef={setCountsSlot}
+              doors={
+                measured && (gview === 'list' || gview === 'map')
+                  ? [
+                      pinDoor('attending', stats.yes, 'gs-pin-yes', RSVP_ROW_WORDS.attending, Check),
+                      pinDoor('declined', stats.no, 'gs-pin-no', RSVP_ROW_WORDS.declined, X),
+                      pinDoor('none', stats.none, 'gs-pin-none', RSVP_ROW_WORDS.pending, CircleHelp),
+                    ]
+                  : []
+              }
             />
-          ) : null}
-          {/* 🎚 THE ONE PILL SELECTOR (owner 2026-10-08: "adjust all pill selectors to this") — the app's template
-              draws the track, the views and the terracotta thumb that slides between them. Still links.
-              ⚙ THE FIRST ROW: List · Map, then the menu's ⚙ at its right end (owner 2026-10-27, settings per menu — the
-              "Settings" segment became the ⚙, the same door and spot as every menu; `menu-settings-button.tsx`).
-              ONE mounted ⚙ for BOTH faces ("EVERY MENU'S ⚙ RIDES ITS PINNED ROW TOO"): the pill fades when pinned, the
-              ⚙ does not — the summary face stops short of it (`[data-has-gear] .face`). */}
-          <div className="flex items-center gap-2" data-first-row="">
-            <nav className={`${PILL_TRACK_CLASS} ${PILL_TRACK_GROUND} min-w-0 flex-1`} aria-label="Guest list views" data-guests-segmented="" data-tour="guests-views">
-              <PillThumb />
-              {seg('list', 'List', stats.total)}
-              {seg('map', 'Map')}
-            </nav>
+            {/* 🎚 The view's own rounds (Seats: Edit · ⋯ — the plan draws them here, `lens.toolsSlot`), left of the ⚙. */}
+            <span ref={setToolsSlot} className="flex shrink-0 items-center gap-1.5 empty:hidden" data-guests-view-rounds="" />
             {setup ? (
               <MenuSettingsButton menu="guests" open={settingsOpen} onOpenChange={openSettings} tour="guests-setup">
-                {setup}
+                <PickWhoContext.Provider value={writesOff ? null : pickWho}>{setup}</PickWhoContext.Provider>
               </MenuSettingsButton>
             ) : null}
           </div>
           {/* 📋 The copy line — in the flow, under the selector, never over anything (guest-copy-mark.tsx). */}
           <GuestListStatus copy={copy} fresh={props.measured} />
+          {/* 📱 Portals itself (the house sheet) — placed here only because this row is on every view. */}
+          {replyAsk && measured ? <ReplyPushAsk replied={stats.yes + stats.no} /> : null}
         </div>
         </div>
 
-        {measured ? (
+        {measured && !makerView ? (
           <>
             <div className={`${styles.summary} ${styles.rise}`} ref={stripRef} data-roster-counts="" data-tour="guests-counts">
               <SnapCarousel cards={summaryCards} label="Guest summary" attrs={{ 'data-guests-carousel': '' }} />
@@ -1698,21 +2090,41 @@ export function GuestsScreen(props: GuestsScreenProps) {
           </>
         ) : null}
 
-        {gview === 'map' ? (
-          <GuestMapCanvas
-            rootLabel={rootLabel}
-            tree={tree}
-            isToInvite={isToInvite}
-            plusWords={plusWords}
-            onOpen={openCard}
-            fitKey={`${arrange}|${q}`}
-          />
+        {/* 🗂 R4: Seats and March — the shipped makers, whole. Mounted when first opened, then KEPT (hidden) — a switch
+            back finds them as they were, nothing re-read. ⇅ R4 slice 1: they read the lens (the shared Show, the shared
+            search's matches) and draw THE thumb row into this screen's own seat (`thumbSlot`). */}
+        <GuestsLensContext.Provider value={lens}>
+          {GUESTS_MAKER_VIEWS.map((v) =>
+            seenViews.has(v) && props.bodies?.[v] ? (
+              <div
+                key={v}
+                data-guests-view-body={v}
+                className={fullView && gview === v ? `min-w-0 ${styles.fullSurface}` : rowView && gview === v ? `min-w-0 ${styles.rowSurface}` : 'min-w-0'}
+                data-guests-full-surface={fullView && gview === v ? '' : undefined}
+                data-guests-row-surface={rowView && gview === v ? '' : undefined}
+                hidden={gview !== v}
+              >
+                {props.bodies[v]}
+              </div>
+            ) : null,
+          )}
+        </GuestsLensContext.Provider>
+        {makerView ? null : gview === 'map' ? (
+          <div className={styles.fullSurface} data-guests-full-surface="">
+            <GuestMapCanvas
+              rootLabel={rootLabel}
+              tree={tree}
+              isToInvite={isToInvite}
+              plusWords={plusWords}
+              onOpen={openCard}
+              fitKey={`${arrange}|${q}`}
+            />
+          </div>
         ) : (
           list
         )}
 
-        {(
-          <div
+        <div
             // The ONE shared glass row (BUTTON_RULE rule 7, `.sn-glass-row` in
             // globals.css, builder GR): the row tints and blurs what scrolls behind.
             // ONE THUMB ROW (owner 2026-10-22): no band under the List / Map row — each control is its own glass. The
@@ -1722,11 +2134,16 @@ export function GuestsScreen(props: GuestsScreenProps) {
             data-guests-thumb=""
             data-last-seen-hold={selectMode ? '' : undefined}
           >
-            <div ref={thumbRef} style={{ display: 'flex', flex: 1, minWidth: 0 }}>
-              {thumb}
-            </div>
+            {makerView ? (
+              /* 🗂 Seats · March draw their ThumbRow HERE (a portal, `guests-lens.tsx`) — the same seat, glass and slide as
+                 the List's; whatever rises above it (a seat's "Pick a guest" bar, a toast) stacks over it. */
+              <div ref={setThumbSlot} data-guests-thumb-slot={gview} className="pointer-events-none flex min-w-0 flex-1 flex-col gap-2 [&>*]:pointer-events-auto" />
+            ) : (
+              <div ref={thumbRef} style={{ display: 'flex', flex: 1, minWidth: 0 }}>
+                {thumb}
+              </div>
+            )}
           </div>
-        )}
 
         <DeleteGuestSheet
           open={toRemove !== null}
@@ -1802,19 +2219,19 @@ const PILL: Record<GuestRow['rsvp_status'] | 'toinvite', { cls: string; word: st
  * 🤝 Is this row drawn as part of the guest above it? A +1 right after their guest (or after that guest's
  * earlier +1) — no divider between them: a guest and their +1 are one topic.
  */
-/** 📌 The pinned row's summary face (owner 2026-10-27, Guests B + "On the pinned the selectors should stay but
-    simplified"; amended by the approved carousel: "Pinned row: List · Map · ✓ ✕ ? · ⚙ (no Invite), pins once"):
-    `List · Map` (the shipped pill, small, words only) · the three reply doors; the ⚙ is the block's own. Every part is
-    built by the screen from the SAME doors as the carousel (`pickReply`, `data-reply-filter`); this only lays them in
-    one 44-px row over the full pill. Hidden until the carousel has scrolled under the row. */
-function PinnedSummary({ segs, doors }: { segs: ReactNode[]; doors: ReactNode[] }) {
+/** 📌 THE ONE TOP ROW'S LEFT PART (owner 2026-10-27 Guests B, amended 2026-10-30 *"Like this one"*): the ONE menu
+    (`Guests · List ▾`, every view in it) · the view's counts. The List's and Map's ✓ ✕ ? doors are built by the screen
+    from the SAME doors as the carousel (`pickReply`, `data-reply-filter`); Seats' seated · unseated · tables are drawn
+    into the same span by the plan (`countsRef` → `lens.countsSlot`). The ⋯ rounds and the ⚙ follow, in the row. */
+function PinnedSummary({ menu, doors, countsRef }: { menu: ReactNode; doors: ReactNode[]; countsRef: (el: HTMLElement | null) => void }) {
   return (
-    <div className={`${styles.face} ${styles.faceAlt}`} data-guests-pin-face="summary">
-      <nav className={`${PILL_TRACK_CLASS} ${PILL_TRACK_GROUND} ${styles.pinSeg}`} aria-label="Guest list views, pinned" data-guests-pin-segmented="">
-        <PillThumb />
-        {segs}
-      </nav>
-      <span className={styles.pinCounts}>{doors}</span>
+    <div className={styles.face} data-guests-pin-face="summary">
+      <span className={styles.pinMenu} data-guests-pin-segmented="" data-tour="guests-views">
+        {menu}
+      </span>
+      <span ref={countsRef} className={styles.pinCounts} data-guests-view-counts="">
+        {doors}
+      </span>
     </div>
   );
 }
@@ -1837,7 +2254,8 @@ function GuestRowLine({
   face,
   table,
   verbs,
-  chatHref,
+  eventId,
+  invite,
   onOpen,
   onToggle,
   onRemove,
@@ -1857,8 +2275,11 @@ function GuestRowLine({
   picked: boolean;
   face?: string;
   table: string | null;
-  verbs: readonly ('message' | 'edit' | 'remove' | 'release')[];
-  chatHref: string | null;
+  /** `rowVerbsFor`: Share · Delete (or Release seat) — nothing else (owner 2026-10-27). */
+  verbs: readonly RowVerb[];
+  eventId: string;
+  /** What the Share sends — the page's one read (`RowInvite`); the guest's own token is in `invite.tokens`. */
+  invite: RowInvite | null;
   onOpen: (id: string, el: HTMLElement) => void;
   onToggle: () => void;
   onRemove: () => void;
@@ -1867,7 +2288,11 @@ function GuestRowLine({
 }) {
   // 🪪 Shown cased (owner 2026-10-21, guest_page_fixes_2_4 fix 3 — "yes", one display rule): "pamela labriaga"
   // reads "Pamela Labriaga". Display only — search still reads every typed part (`nameHas`), and the boxes keep them.
-  const name = plusWords?.name ?? displayPersonName(guestNameAsGiven(g) ?? guestDisplayName(g));
+  // 🪪 The FULL name with the nickname beside it (owner, prototype v24, 2026-10-29 — `guestNameWithNick`); a +1 named by
+  // their guest keeps those words and no nickname.
+  const named = plusWords?.name ? null : guestNameWithNick(g);
+  const name = plusWords?.name ?? displayPersonName(named?.name ?? guestDisplayName(g));
+  const nick = named?.nick ?? null;
   const plus = plusOneSeats(g);
   // 🪑 A "+N" with fewer seat rows than N says so — never a +1 the list cannot show (`seatRowsByGuest`).
   const notAdded = Math.max(0, plus - seatsOnList);
@@ -1879,6 +2304,20 @@ function GuestRowLine({
   // A +1 shows their guest's side — the side follows the guest who brings them.
   const side = plusWords?.side ?? g.side;
   const sideCls = side === 'bride' ? styles.sideBride : side === 'groom' ? styles.sideGroom : styles.sideBoth;
+  // 📤 Their invitation, as the card's Invite builds it (guest-card-body.tsx): their name as given in the event's Name
+  // style, their own link. Null → no Share (no token handed in for them).
+  const token = invite?.tokens[g.guest_id];
+  const share: SendInviteGuest | null =
+    invite && token
+      ? {
+          guestId: g.guest_id,
+          formalName: guestNameAsGiven(g, invite.facts.nameStyle),
+          firstName: g.first_name,
+          fullName: name,
+          inviteUrl: invitationLinkOn(invite.base, token),
+          sentAt: g.invitation_sent_at ?? null,
+        }
+      : null;
   return (
     <div
       className={`${styles.g} ${picked ? styles.picked : ''} ${g.plus_one_of_guest_id ? styles.plus : ''} ${joined ? styles.joined : ''}`}
@@ -1911,9 +2350,10 @@ function GuestRowLine({
       <button type="button" className={styles.who} onClick={act} data-row-name="">
         <div className={styles.nm}>
           <span aria-hidden className={`${styles.dot} ${sideCls}`} />
-          {/* ✂ The name gives way, never the buttons: one line, an ellipsis when Edit · Remove need the room. */}
+          {/* ✂ The name gives way, never the buttons: it wraps (up to three lines) when Share · Delete need the room. */}
           <span className={styles.nmt} data-row-name-text="">
             {name}
+            <GuestNick nick={nick} />
             {plusWords?.of ? <span className={styles.of}> · {plusWords.of}</span> : null}
           </span>
           {plus > 0 ? <span className={styles.pill}>+{plus}</span> : null}
@@ -1955,17 +2395,16 @@ function GuestRowLine({
         </div>
       </button>
       {/* ➡ The buttons END the name's line (owner 2026-10-20: "edit and remove button can be in a row? on the right
-          side?") — one line per guest. From 701 they keep their words; under 701 they are 44 × 44 icons, so each is
-          named for its guest. Held by guest-row-actions-share-the-name-line.test.ts. */}
+          side?") — one line per guest. 🗂 SHARE · DELETE, NOTHING ELSE (owner 2026-10-27: "share and delete only"): the
+          pencil went — the whole row opens the card, where editing happens. From 701 they keep their words; under 701
+          they are 44 × 44 icons, so each is named for its guest. Held by guest-row-actions-share-the-name-line.test.ts
+          and the-guest-row-is-share-and-delete.test.ts. */}
       {selectMode ? null : (
         <span className={styles.acts} data-fit-row="" data-row-acts="">
-          {verbs.includes('message') && chatHref ? (
-            <ActionButton tone="info" icon={MessageCircle} label="Message" name={`Message ${name}`} href={chatHref} />
+          {verbs.includes('share') && share ? (
+            <GuestInviteCell eventId={eventId} layout="icon" guest={share} facts={invite!.facts} template={invite!.template} />
           ) : null}
-          {verbs.includes('edit') ? (
-            <ActionButton tone="neutral" icon={Pencil} label="Edit" name={`Edit ${name}`} onClick={(e) => onOpen(g.guest_id, e.currentTarget)} />
-          ) : null}
-          {verbs.includes('remove') ? <ActionButton tone="danger" icon={X} label="Remove" name={`Remove ${name}`} onClick={onRemove} /> : null}
+          {verbs.includes('remove') ? <ActionButton tone="danger" icon={Trash2} label="Delete" name={`Delete ${name}`} onClick={onRemove} /> : null}
           {verbs.includes('release') ? (
             <ActionButton tone="danger" icon={Armchair} label="Release seat" name={`Release seat ${name}`} onClick={onRelease} />
           ) : null}

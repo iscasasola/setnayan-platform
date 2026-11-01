@@ -1,11 +1,14 @@
 'use client';
 
-import { useEffect, useRef, useState, useTransition } from 'react';
-import { Check, ChevronRight, Copy, Mail, RotateCcw, Share2, SquareCheck, X } from 'lucide-react';
+import { useEffect, useRef, useState, useTransition, type MouseEvent } from 'react';
+import { Check, ChevronRight, Copy, RotateCcw, Share2, X } from 'lucide-react';
 import { ActionButton, useFitRow } from '@/components/action-button';
-import { Count } from '@/components/count';
-import { FormRow, FormRows } from '@/app/_components/form-row';
-import type { RsvpAskConfig } from '@/lib/rsvp-ask';
+import { ChosenRow, FormRow, FormRows } from '@/app/_components/form-row';
+import { readOneAtATime, type RsvpAskConfig } from '@/lib/rsvp-ask';
+import type { KeepAnswer } from '@/lib/form-row';
+import { HOW_GUESTS_ANSWER_ABOUT, HOW_GUESTS_ANSWER_LABEL, HOW_GUESTS_ANSWER_OPTIONS } from '@/lib/how-guests-answer';
+/* 📬 Replies open ▾ · Replies close ▾ — the Maker's own part, mounted here too (R1: it was the Studio RSVP tile's). */
+import { RepliesWindowRows } from '../../launch/_components/replies-window-rows';
 import {
   GUESTS_GET_IN_LABEL,
   guestsGetInPatch,
@@ -23,7 +26,7 @@ import {
   headcountLockedLine,
   headcountOpenLine,
 } from '@/lib/headcount-row';
-import { useGuestActions } from '../../guests/_components/guest-actions-context';
+import { useGuestActions, useOpenRequests } from '../../guests/_components/guest-actions-context';
 import { GuestConfirmActions, GuestPopup } from '../../guests/_components/guest-popup';
 import { plainRefusal } from '../../guests/_components/plain-refusal';
 import { GuestsGetIn } from './guests-get-in';
@@ -33,11 +36,7 @@ import type { OneLink } from './one-link.server';
 import { asksFrame, getInFrame, replyByFrame } from './setup-frames';
 import { GUESTS_SETTINGS_CLUSTERS } from '@/lib/event-settings-record';
 
-/** 📨 The Invitations row's words (HOME_AND_GUESTS_CHECK G26). */
-export const INVITATIONS_TITLE = 'Invitations';
 export const ONE_LINK_TITLE = 'Your one link';
-/** Behind the Invitations row's ⓘ — how the run works; the count of who is left stays on the row. */
-export const INVITATIONS_ABOUT = 'One by one from your phone — Viber, Messenger, WhatsApp or SMS.';
 /** Behind the one link's ⓘ. */
 export const ONE_LINK_ABOUT = 'Whoever opens it is in.';
 /** 📥 Requests to join — the row's words (prototype § 4). */
@@ -61,11 +60,16 @@ export type HeadcountView = {
  * → Guests → Setup). Rows, in order, the words left and ONE control right:
  *
  *   1. How guests get in   `GuestsGetIn` (shared with the Maker)
- *   2. Invitations         ✉ Send to N · ☑ Pick who, and the guest's Digital Pass
- *                          (personal choices only)
+ *   2. (Invitations — GONE, R4 slice 11: sending lives where the guests are — the List's "To invite" count door
+ *      with its Invite N ›, and Select › ✉ Invite N; the run itself is `/guests/send`. The ⚙ holds settings only.)
  *   3. Your one link       link · Copy · Share + the QR (Open · Anyone with the link only)
  *   4. RSVP asks           `RsvpAsks` (shared) — "They reply" choices only
+ *   4b. How guests answer  All at once · One by one (`oneAtATime`) — "They reply" choices only
  *   5. Reply by            `ReplyBy` (shared) — "They reply" choices only
+ *   5b. Replies open/close `RepliesWindowRows` (the Maker's part) — "They reply" choices only
+ *      🗂 4b and 5b MOVED HERE in R1 (owner 2026-10-27/28, "RSVP SETTINGS LIVE IN THE GUESTS ⚙"): the Studio RSVP tile
+ *      was the only other place they lived, and it is gone. The words the reply page says (its eyebrow, question, hint,
+ *      Yes / No) stay the Reply page's — typed on its lines in the Invitation stage, where guests read them.
  *   6. Finalize guest list ✓ Finalize now → one sheet, one way — every list
  *                          (owner 2026-10-07: *"finalize should be inside the
  *                          Setup. not on its current location"* — it left the
@@ -86,8 +90,6 @@ export function GuestSetupRows({
   config,
   drafted,
   reply,
-  toInvite,
-  passSrc,
   oneLink,
   headcount,
   requests = null,
@@ -99,10 +101,6 @@ export function GuestSetupRows({
   drafted: boolean;
   /** The reply-by date's own value + pricing view; null = could not be read. */
   reply: { own: string | null; pricingMode: 'realtime' | 'final_only'; fallback: string | null } | null;
-  /** Guests not yet sent an invitation (null = the list could not be read). */
-  toInvite: number | null;
-  /** The shipped Digital Pass picture — the first guest who is coming. */
-  passSrc: string;
   oneLink: OneLink;
   headcount: HeadcountView;
   /** Requests to join waiting (null = not counted — the row still opens the list). */
@@ -127,13 +125,13 @@ export function GuestSetupRows({
     setWaiting(drafted);
   }, [configKey, drafted]);
 
-  const save = (patch: RsvpAskConfig, what: string) => {
+  const save = (patch: RsvpAskConfig, what: string): Promise<KeepAnswer> => {
     const next: RsvpAskConfig = { ...latest.current, ...patch };
     latest.current = next;
     setLocal(next); // on screen at the tap
     setError(null);
     const tap = ++newest.current;
-    void (async () => {
+    return (async (): Promise<KeepAnswer> => {
       let refused: string | null = null;
       try {
         const fd = new FormData();
@@ -153,7 +151,15 @@ export function GuestSetupRows({
         /* The action's own words only if they are a plain sentence — never the database's (`plain-refusal.ts`). */
         setError(`${what} did not save, so it is back as it was. ${refused}`);
       }
+      /* The row hears it too — but says nothing of its own: the sheet's one line above already did. */
+      return refused === null ? { ok: true } : { ok: false, error: null };
     })();
+  };
+  /** ❓ How guests answer — the one writer of `oneAtATime` here; picking the stored answer writes nothing. */
+  const oneAtATime = readOneAtATime(local);
+  const pickAnswer = (value: string) => {
+    const next = value === 'one';
+    if (next !== oneAtATime) void save({ oneAtATime: next }, `“${HOW_GUESTS_ANSWER_LABEL}”`);
   };
 
   const getIn = readGuestsGetIn(local);
@@ -167,7 +173,7 @@ export function GuestSetupRows({
       <FormRows data="guest-setup">
         {/* ⚙ THREE CLUSTERS (owner 2026-10-27, settings per menu; prototype § 4): Getting in · Replies · Closing the list. */}
         <ClusterHead name={GUESTS_SETTINGS_CLUSTERS[0]} first />
-        <GuestsGetIn frame={getInFrame} value={getIn} onPick={(v) => save(guestsGetInPatch(v), `“${GUESTS_GET_IN_LABEL}”`)} />
+        <GuestsGetIn frame={getInFrame} value={getIn} onPick={(v) => void save(guestsGetInPatch(v), `“${GUESTS_GET_IN_LABEL}”`)} />
         {waiting ? (
           <p className="-mt-1 pb-2.5 pl-0.5 text-[12.5px] text-ink/55" data-setup-waiting="">
             Saved — guests see it after you Apply in the Event Hub Maker.
@@ -179,10 +185,23 @@ export function GuestSetupRows({
           </p>
         ) : null}
 
-        {personal ? <InvitationsRow eventId={eventId} toInvite={toInvite} passSrc={passSrc} /> : null}
         {getIn === 'one_qr' ? <OneLinkRow link={oneLink} /> : null}
         <ClusterHead name={GUESTS_SETTINGS_CLUSTERS[1]} />
-        {replies ? <RsvpAsks frame={asksFrame} config={local} onToggle={(field, v) => save({ [field]: v }, 'That question')} /> : null}
+        {replies ? <RsvpAsks frame={asksFrame} config={local} onToggle={(field, v) => void save({ [field]: v }, 'That question')} /> : null}
+        {replies ? (
+          /* ❓ Any set of choices is ONE dropdown (owner 2026-09-28, "again") — the same PickMenu-in-a-Form-row as How
+             guests get in and Replies open beside it; what each choice means is behind the ⓘ and on its option. */
+          <ChosenRow
+            data="how-guests-answer"
+            name={HOW_GUESTS_ANSWER_LABEL}
+            about={{ words: HOW_GUESTS_ANSWER_ABOUT }}
+            value={oneAtATime ? 'one' : 'all'}
+            options={HOW_GUESTS_ANSWER_OPTIONS}
+            onPick={pickAnswer}
+            dataAttr="data-setup-answer"
+            attrs={{ 'data-setup-row': 'answer' }}
+          />
+        ) : null}
         {replies ? (
           reply ? (
             <ReplyBy
@@ -198,6 +217,8 @@ export function GuestSetupRows({
             <FormRow data="reply-by" name="Reply by" attrs={{ 'data-setup-row': 'reply-by' }} problem="We couldn’t read it just now." />
           )
         ) : null}
+        {/* 📬 When replies open and close — under the date they can close on, the same one object, drafted. */}
+        {replies ? <RepliesWindowRows config={local} setupRow="replies-window" onSave={(patch, what) => save(patch, what)} /> : null}
         <RequestsRow eventId={eventId} waiting={requests} />
         <ClusterHead name={GUESTS_SETTINGS_CLUSTERS[2]} />
         <FinalizeRow eventId={eventId} view={headcount} />
@@ -218,9 +239,14 @@ function ClusterHead({ name, first = false }: { name: string; first?: boolean })
   );
 }
 
-/** 📥 REQUESTS TO JOIN — people who asked through the link; the row opens their list (`/guests/claims`). */
+/**
+ * 📥 REQUESTS TO JOIN — people who asked through the link. On the Guests screen the press opens them IN PLACE
+ * (`useOpenRequests`: the sheet closes, Asking to join opens on the List); elsewhere, or with no script, the row is
+ * still the link to their list (`/guests/claims`).
+ */
 function RequestsRow({ eventId, waiting }: { eventId: string; waiting: number | null }) {
   const { setupDoorHref } = useGuestActions();
+  const openRequests = useOpenRequests();
   return (
     <FormRow data="requests" name={REQUESTS_TITLE} line={REQUESTS_LINE} attrs={{ 'data-setup-row': 'requests' }}>
       <ActionButton
@@ -228,73 +254,16 @@ function RequestsRow({ eventId, waiting }: { eventId: string; waiting: number | 
         icon={ChevronRight}
         label={waiting === null ? 'Open' : waiting === 0 ? 'None waiting' : `${waiting} waiting`}
         href={setupDoorHref(eventId, 'requests')}
+        onClick={
+          openRequests
+            ? (e: MouseEvent<HTMLAnchorElement>) => {
+                e.preventDefault();
+                openRequests();
+              }
+            : undefined
+        }
         data-testid="setup-requests"
       />
-    </FormRow>
-  );
-}
-
-/** ✉ INVITATIONS — the shipped one-by-one run (`/guests/send`), and what each guest gets. */
-function InvitationsRow({ eventId, toInvite, passSrc }: { eventId: string; toInvite: number | null; passSrc: string }) {
-  const { setupDoorHref } = useGuestActions();
-  const acts = useRef<HTMLSpanElement>(null);
-  useFitRow(acts);
-  const [passFailed, setPassFailed] = useState(false);
-  return (
-    <FormRow
-      data="invitations"
-      name={INVITATIONS_TITLE}
-      about={{ words: INVITATIONS_ABOUT }}
-      attrs={{ 'data-setup-row': 'invitations' }}
-      line={
-        toInvite === null ? (
-          'We couldn’t count who is left to invite just now.'
-        ) : (
-          <>
-            <Count value={toInvite} id="setup-to-invite" /> to invite.
-          </>
-        )
-      }
-      /* 🎫 THEIR DIGITAL PASS (owner: *"and show their Digital Pass"*) — the shipped ticket
-          (`/api/hub-print/pass`, the first guest who is coming, their own QR), so the couple
-          sees what each guest gets. A picture that fails says so. */
-      below={
-        <div className="pb-3" data-setup-pass="">
-          {passFailed ? (
-            <p className="text-[13px] text-ink/60">We couldn&rsquo;t draw a Digital Pass just now.</p>
-          ) : (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={passSrc}
-              alt="A guest’s Digital Pass"
-              className="mx-auto block h-auto w-full max-w-[320px] rounded-xl"
-              onError={() => setPassFailed(true)}
-            />
-          )}
-        </div>
-      }
-    >
-      <span ref={acts} className={ACTS}>
-        {toInvite === 0 ? (
-          <ActionButton tone="ok" quiet icon={Check} label="Everyone invited" disabled />
-        ) : (
-          <ActionButton
-            tone="brand"
-            main
-            icon={Mail}
-            label={toInvite === null ? 'Send' : `Send to ${toInvite}`}
-            href={setupDoorHref(eventId, 'send')}
-            data-testid="setup-send"
-          />
-        )}
-        <ActionButton
-          tone="neutral"
-          icon={SquareCheck}
-          label="Pick who"
-          href={setupDoorHref(eventId, 'pick-who')}
-          data-testid="setup-pick-who"
-        />
-      </span>
     </FormRow>
   );
 }

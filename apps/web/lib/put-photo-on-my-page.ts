@@ -47,3 +47,31 @@ export function addToPageGallery(current: readonly string[], ref: string, max: n
   if (refs.length >= max) return { kind: 'full', max };
   return { kind: 'added', refs: [...refs, ref] };
 }
+
+/**
+ * Is this a page-gallery ref that came from an EVENT album (`pagePhotoKeyFor`'s folder)? Such a photo has people from
+ * somebody's event in it, so it reaches the page only through the 7-day guest notice
+ * (`lib/supplier-page-notice.ts`) and never travels on from the page — see `shopOwnPhotoRefs`.
+ */
+export function isFromAlbumPageRef(ref: string): boolean {
+  return typeof ref === 'string' && /^r2:\/\/[^/]+\/vendors\/[^/]+\/portfolio\/from-album\//.test(ref);
+}
+
+/**
+ * A gallery save may KEEP an event-album photo the page already carries (it got there through the notice), but may
+ * never ADD one: the only way onto the page is `publish_supplier_page_photo`, after the guests' 7 days. Without this a
+ * shop could re-submit the ref of a copy that was pulled (a guest's Remove, a takedown, the 2026-10-28 backfill) and
+ * put it straight back on its page.
+ */
+export function keepOnlyNoticedAlbumRefs(requested: readonly string[], stored: readonly string[]): string[] {
+  const had = new Set(stored.filter(Boolean));
+  return requested.filter((r) => !isFromAlbumPageRef(r) || had.has(r));
+}
+
+/**
+ * A service card's photos never carry an event-album photo: it would be public with no guest notice and out of reach
+ * of a guest's Remove or a takedown, which only know the page gallery.
+ */
+export function withoutAlbumRefs(refs: readonly string[]): string[] {
+  return refs.filter((r) => !isFromAlbumPageRef(r));
+}

@@ -29,7 +29,7 @@ const COUPLE = 'app/dashboard/[eventId]/messages/[threadId]/page.tsx';
 const VENDOR = 'app/vendor-dashboard/messages/[threadId]/page.tsx';
 const MENU = 'app/_components/negotiation-composer-menu.tsx';
 const STREAM = 'app/_components/chat-message-stream.tsx';
-const BUTTON = 'app/_components/chat/reveal-tool-button.tsx';
+const SHEET = 'app/vendor-dashboard/messages/[threadId]/_components/thread-tools-sheet.tsx';
 
 /* ── 1 · the decision, executed ─────────────────────────────────────────── */
 
@@ -101,7 +101,7 @@ function tag(s: string, open: RegExp): string {
 }
 
 test('the scan reads every file (an empty read is a green lie)', () => {
-  for (const rel of [COUPLE, VENDOR, MENU, STREAM, BUTTON]) {
+  for (const rel of [COUPLE, VENDOR, MENU, STREAM, SHEET]) {
     assert.ok(read(rel).length > 500, `${rel} read as too short`);
   }
 });
@@ -127,15 +127,16 @@ test('the menu, the composer icon and the stream on both pages all receive it', 
     // The couple's composer 🧾 is told. The supplier's row has no 🧾 since 2026-10-14 (simpler supplier dashboard step
     // 4): the grey ＋ opens ONE sheet whose first, primary row is "Send a quote" — the same panel the 🧾 opened before a
     // quote existed — and "Propose a date or meeting" opens the deal menu, which is told below.
+    // 2026-10-28 · the couple's 🧾 moved under ONE ＋ too (chat prototype frame C): its "Deal or meeting" row opens
+    // what the entry names — `dealEntry.composer.reveal` handed to the couple's sheet.
     if (rel === COUPLE) {
       assert.match(
-        tag(s, /<RevealToolButton affordance="deal"/),
-        /\bentry=\{dealEntry\}/,
-        `${rel}: the composer 🧾 is not told`,
+        tag(s, /<CoupleThreadToolsSheet\b/),
+        /\bdealReveal=\{dealOpen \? dealEntry\.composer\.reveal : null\}/,
+        `${rel}: the couple's ＋ is not told what the deal opens`,
       );
-    } else {
-      assert.doesNotMatch(s, /<RevealToolButton\b/, `${rel}: a composer icon is back beside the ＋`);
     }
+    assert.doesNotMatch(s, /<RevealToolButton\b/, `${rel}: a composer icon is back beside the ＋`);
     assert.match(tag(s, /<ChatMessageStream\b/), /\bdealEntry=\{dealEntry\}/, `${rel}: the stream is not told`);
   }
 });
@@ -160,8 +161,8 @@ test('the chip under a message is gated on the entry', () => {
   assert.match(cond, /\bdealEntry\.offerDeal\s*&&/, 'the Send a deal chip renders with no quote');
 });
 
-test('the composer icon opens what the entry names', () => {
-  const s = read(BUTTON);
-  assert.match(s, /entry \? entry\.composer\.reveal : affordanceReveal\(affordance\)/);
+test("the couple's ＋ row opens what the entry names", () => {
+  const s = read(SHEET);
+  assert.match(s, /coupleThreadTools\(dealReveal\)/, "the couple's sheet does not build its rows from the entry's reveal");
   assert.match(s, /revealThreadTool\(reveal\)/);
 });

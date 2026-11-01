@@ -61,7 +61,8 @@ export function GuestMapCanvas({
   const [phone, setPhone] = useState(false);
   const [zoom, setZoom] = useState<number | null>(null);
   const zoomRef = useRef(1);
-  const [box, setBox] = useState<{ w: number; h: number } | null>(null);
+  /** `inset`: how much of the canvas's top the pinned row floats over (0 when nothing does). */
+  const [box, setBox] = useState<{ w: number; h: number; inset: number } | null>(null);
 
   useEffect(() => {
     const mql = window.matchMedia('(max-width: 1023px)');
@@ -73,27 +74,40 @@ export function GuestMapCanvas({
 
   const map = useMemo(() => layoutMap(rootLabel, tree, phone), [rootLabel, tree, phone]);
 
-  // ── The canvas runs from its top down to the bottom bar ("extend map until here").
+  // ── The canvas runs from its top down to the bottom bar ("extend map until here"). 🗺 In the Guests screen it is the
+  //    WHOLE screen (owner 2026-10-30, *"They are all full screen"*): it fills the screen's full surface, which runs from
+  //    under the top nav to the bottom nav, and the ONE pinned row floats over its top — `inset`, measured off the row,
+  //    so the first fit and the centring start under the row instead of behind it.
   useIso(() => {
     const el = wrap.current;
     if (!el) return;
+    const surface = el.closest<HTMLElement>('[data-guests-full-surface]');
     const measure = () => {
       const dock = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sn-bottomdock-h')) || 0;
       const top = el.getBoundingClientRect().top + window.scrollY;
-      const h = Math.max(320, window.innerHeight - top - dock);
+      const h = surface ? surface.clientHeight : Math.max(320, window.innerHeight - top - dock);
       el.style.height = `${h}px`;
-      setBox((prev) => (prev && prev.w === el.clientWidth && prev.h === h ? prev : { w: el.clientWidth, h }));
+      const row = document.querySelector<HTMLElement>('[data-guests-stick]')?.getBoundingClientRect();
+      const inset = surface && row ? Math.max(0, Math.round(row.bottom - el.getBoundingClientRect().top)) : 0;
+      setBox((prev) =>
+        prev && prev.w === el.clientWidth && prev.h === h && prev.inset === inset ? prev : { w: el.clientWidth, h, inset },
+      );
     };
     measure();
     window.addEventListener('resize', measure);
-    return () => window.removeEventListener('resize', measure);
+    const ro = surface && typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
+    if (surface) ro?.observe(surface);
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener('resize', measure);
+    };
   }, []);
 
   // ── First open (and every new arrangement) FITS the whole map, 0.6–1.8.
   useIso(() => {
     if (!box) return;
     const lower = (document.querySelector('[data-guests-thumb]') as HTMLElement | null)?.offsetHeight ?? 0;
-    const fit = Math.min(1.8, Math.max(0.6, Math.min((box.w - 24) / map.width, (box.h - lower - 24) / map.height)));
+    const fit = Math.min(1.8, Math.max(0.6, Math.min((box.w - 24) / map.width, (box.h - box.inset - lower - 24) / map.height)));
     zoomRef.current = fit;
     setZoom(fit);
     if (wrap.current) {
@@ -101,7 +115,7 @@ export function GuestMapCanvas({
       wrap.current.scrollLeft = 0;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fitKey, box?.w, box?.h, map.width, map.height]);
+  }, [fitKey, box?.w, box?.h, box?.inset, map.width, map.height]);
 
   // ── Pinch (two fingers) and ctrl / trackpad-pinch wheel, 0.5–2.5.
   useEffect(() => {
@@ -147,7 +161,7 @@ export function GuestMapCanvas({
   const H = map.height;
   const lowerH = 70;
   const ml = box ? Math.max(12, (box.w - W * z) / 2) : 12;
-  const mt = box ? Math.max(12, (box.h - lowerH - H * z) / 2) : 12;
+  const mt = box ? box.inset + Math.max(12, (box.h - box.inset - lowerH - H * z) / 2) : 12;
   const nodeX = (n: MapNode) => map.colX[Math.min(n.depth, map.colX.length - 1)] ?? 0;
   const linkStartX = (n: MapNode) =>
     nodeX(n) + (n.kind === 'root' ? (phone ? 100 : 120) : n.kind === 'branch' && n.top ? (phone ? 120 : 150) : phone ? 110 : 130);

@@ -7,7 +7,7 @@ import {
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { memoriesRefs, resolvePlayRef, type PapicDisplayRow } from '@/lib/papic-display-ref';
 import { resolveCapturerNames } from '@/lib/capture-credit';
-import { PAPIC_UPLOADS_CAMERA_INDEX } from '@/lib/papic-cameras';
+import { isHostCameraSeatIndex } from '@/lib/papic-cameras';
 
 // The couple's real Papic gallery — both crew (paparazzi) captures and guest
 // captures, with presigned thumbnails. Reads under the COUPLE's RLS session
@@ -419,7 +419,7 @@ export async function fetchPapicGallery(
             const seat = typeof r.paparazzi_seat_id === 'string' ? seatById.get(r.paparazzi_seat_id) : undefined;
             return {
               held: heldOf(r),
-              uploads: seat?.seat_index === PAPIC_UPLOADS_CAMERA_INDEX,
+              uploads: isHostCameraSeatIndex(seat?.seat_index),
               guestId: seat?.guest_id ?? null,
             };
           })()

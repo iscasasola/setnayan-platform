@@ -34,7 +34,12 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export const CEILING = 1225;
+// 1225 → 1226 (2026-10-30, the couple-photo share, PR "customer-photo-to-supplier"): ONE dispatcher
+// (`app/_actions/couple-photo-share-actions.ts`, four ops) instead of the four exports it would have been; no
+// export nothing imports was left to drop (the two unreferenced ones in studio/recommend-actions.ts are kept on
+// purpose — de0b53d1f9). No fresh `vercel build` count was taken for this +1: the SUM is gated by
+// check-vercel-route-count.mjs on this PR's production build — read that job before merging.
+export const CEILING = 1226;
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ROOTS = ['app', 'lib'].map((r) => join(WEB, r));

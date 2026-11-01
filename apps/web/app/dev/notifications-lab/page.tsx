@@ -96,7 +96,7 @@ export default async function NotificationsLabPage({
                 </>
               ),
               footer: (
-                <Link href="/dev/notifications-lab" className="button-secondary">
+                <Link href="/dashboard" className="button-secondary">
                   Back to events
                 </Link>
               ),

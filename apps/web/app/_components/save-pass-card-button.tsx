@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { Check, Download, Loader2, LogIn } from 'lucide-react';
+import { Check, Share, Loader2, LogIn } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PASS_REENTRY_WORDS, handPassCards, passReentryHref, savePassCards, type PassCardSave } from '@/lib/save-pass-cards';
 
@@ -98,7 +98,7 @@ export function SavePassCardFace({
         ) : state.k === 'saved' ? (
           <Check aria-hidden className="h-4 w-4" strokeWidth={2.5} />
         ) : (
-          <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          <Share aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         )}
         <span>{text}</span>
       </button>

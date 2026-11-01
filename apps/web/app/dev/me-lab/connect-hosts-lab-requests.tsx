@@ -46,6 +46,7 @@ export function LabHostRequests() {
       relations={[]}
       spouseNote={null}
       initialFilter="asking"
+      pin={{ options: [{ key: 'connected', label: 'People' }], settings: { findable: true } }}
       picker={{
         view: 'connected',
         options: [{ key: 'connected', label: 'Your people 0' }],

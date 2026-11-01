@@ -57,6 +57,12 @@ export type TeamPick = {
 export function teamPicksForMessages(
   rows: readonly TeamRow[],
   profiles: readonly TeamProfile[],
+  /**
+   * shop → the name its chat thread already resolved (`readCoupleThreadSupplierNames().byShop`). The profile read
+   * above is under the couple's RLS, which refuses any shop that is not public + verified, so a shop the couple is
+   * already chatting with would otherwise read "One of your suppliers" here while its thread names it.
+   */
+  knownNames?: ReadonlyMap<string, { name: string; readable: boolean }>,
 ): TeamPick[] {
   const byProfile = new Map(profiles.map((p) => [p.vendor_profile_id, p]));
   const seen = new Set<string>();
@@ -78,7 +84,8 @@ export function teamPicksForMessages(
     };
     // An unread profile, or the resolver's bare 'Vendor' fallback, reads as a
     // plain phrase — the UI says "supplier", never "vendor".
-    const resolved = p ? resolveVendorDisplayName(input) : '';
+    const known = knownNames?.get(shop);
+    const resolved = known?.readable ? known.name : p ? resolveVendorDisplayName(input) : '';
     const name = resolved && resolved !== 'Supplier' ? resolved : 'One of your suppliers';
     picks.push({ vendorId: r.vendor_id, name });
   }

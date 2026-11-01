@@ -623,5 +623,8 @@ export async function updateDiscoverableByName(formData: FormData) {
   if (error) throw new Error(error.message);
 
   revalidatePath('/dashboard', 'layout');
+  // 👥 People settings (⚙ on the People page, owner 2026-10-28) flips the same switch and SAVES IN PLACE — a save
+  // never resets the screen, so it is not sent to the profile. Any other value keeps the profile's redirect.
+  if (formData.get('stay') === 'people') return;
   redirect('/dashboard/profile?discoverable_saved=1#privacy');
 }

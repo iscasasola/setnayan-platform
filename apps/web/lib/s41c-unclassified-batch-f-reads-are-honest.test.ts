@@ -209,9 +209,12 @@ test('the remaining 9 shape-1 sites each carry at least one [supabase-error] log
       file: 'app/[slug]/_components/editorial/data.ts',
       needle: '[supabase-error] app/[slug]/_components/editorial/data.ts · from:panood_broadcasts.select',
     },
+    // 📣 `app/[slug]/_lib/loaders.ts · from:coordinator_broadcasts.select` (loadDayOfBroadcast) is GONE, not unlogged
+    // (EV1, 2026-10-28): the layout no longer reads the announcement — the card asks /{slug}/announcement, which reads
+    // through `fetchLatestBroadcasts`, whose failure is logged there (`logQueryError`) and answered 503, never "none".
     {
-      file: 'app/[slug]/_lib/loaders.ts',
-      needle: '[supabase-error] app/[slug]/_lib/loaders.ts · from:coordinator_broadcasts.select',
+      file: 'lib/coordinator-broadcasts-server.ts',
+      needle: "logQueryError('lib/coordinator-broadcasts-server.ts: fetchLatestBroadcasts', error",
     },
     {
       file: 'app/auth/callback/route.ts',

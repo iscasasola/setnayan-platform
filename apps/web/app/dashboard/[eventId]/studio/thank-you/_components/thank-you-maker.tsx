@@ -23,7 +23,7 @@
 // `thank-you-video.test.ts` pins that split.
 
 import { useCallback, useRef, useState } from 'react';
-import { AlertTriangle, Check, Download, Film, Loader2 } from 'lucide-react';
+import { AlertTriangle, Check, Share, Film, Loader2 } from 'lucide-react';
 import { renderReel, type RenderClip } from '@/lib/reel-render';
 import {
   THANK_YOU_FOOTER,
@@ -208,7 +208,7 @@ export function ThankYouMaker({
                 }}
                 className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-ink px-4 py-2.5 text-sm font-medium text-cream hover:bg-ink/90"
               >
-                <Download className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+                <Share className="h-4 w-4" strokeWidth={1.75} aria-hidden />
                 {saveNote === 'expired' ? 'Tap to save' : 'Save to my phone'}
               </button>
               {saveNote === 'failed' ? (

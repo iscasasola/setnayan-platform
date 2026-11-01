@@ -41,6 +41,8 @@ import {
   type WorkingNoteViewer,
 } from '@/lib/vendor-working-notes';
 import { checkManualVenueAddress } from '@/lib/manual-venue-address';
+import { PAY_WAYS_PRESENT_FIELD, parsePostedPayWays } from '@/lib/self-added-pay-ways';
+import { budgetPaymentProofPolicy, parseClientRef } from '@/lib/r2-client-ref';
 import { refuseLimitedHelper, limitedHelperRefusal } from '@/lib/host-gate';
 
 /**
@@ -606,6 +608,14 @@ export async function saveSelfAddedServiceCard(formData: FormData): Promise<void
   // Details sheet would have silently erased the GCash number the couple wrote
   // on the workspace. Same class of bug as the crew reset in updateVendorCosts.
   const carriesMethodNote = formData.has('payment_method_note');
+  // "How to pay them" (the record card, 2026-10-29) — the same rule: written only when the posting form carried the
+  // editor, and REFUSED, before anything is written, when a way cannot be kept as typed (a QR that is not this
+  // event's own private object). Inert words and a picture: nothing here reads or writes a money table.
+  const carriesPayWays = formData.get(PAY_WAYS_PRESENT_FIELD) === '1';
+  const payWays = carriesPayWays
+    ? parsePostedPayWays(formData, (ref) => parseClientRef(ref, budgetPaymentProofPolicy(eventId)) != null)
+    : null;
+  if (payWays && !payWays.ok) throw new Error(payWays.message);
   // A pin is BOTH-OR-NEITHER (the table CHECKs it) and only posted once placed,
   // so absence means "this form did not set one" — never "clear it".
   const pinLat = Number(formData.get('address_latitude'));
@@ -627,6 +637,7 @@ export async function saveSelfAddedServiceCard(formData: FormData): Promise<void
       updated_at: new Date().toISOString(),
     };
     if (carriesMethodNote) update.payment_method_note = paymentMethodNote;
+    if (payWays?.ok) update.pay_ways = payWays.ways;
     if (carriesPin) {
       update.address_latitude = pinLat;
       update.address_longitude = pinLng;
@@ -665,6 +676,7 @@ export async function saveSelfAddedServiceCard(formData: FormData): Promise<void
         contact_number: contactNumber,
         address: address.value,
         payment_method_note: paymentMethodNote,
+        ...(payWays?.ok ? { pay_ways: payWays.ways } : {}),
           created_by_user_id: user.id,
       })
       .select('manual_vendor_id')

@@ -24,7 +24,18 @@ import { classifyScan, resolveSeatScan, type SeatScanOutcome } from '@/lib/floor
 import { floorSeatByQr } from './actions';
 import { useCameraThatComesBack } from '@/lib/use-camera-that-comes-back';
 
-export function SeatScanner({ eventId }: { eventId: string }) {
+export function SeatScanner({
+  eventId,
+  via = 'floor',
+}: {
+  eventId: string;
+  /**
+   * 📱 Whose door asks (owner 2026-10-29, crew passes): `floor` — the booked coordinator, through
+   * `coordinator_seat_by_guest_qr`; `crew` — a crew phone the shop Allowed, through `crew_seat_by_guest_qr`, which asks
+   * the SAME gates of the shop plus an allowed, unexpired pass. Same scanner, same one-label answer.
+   */
+  via?: 'floor' | 'crew';
+}) {
   const [scanning, setScanning] = useState(false);
   const [busy, setBusy] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -61,7 +72,18 @@ export function SeatScanner({ eventId }: { eventId: string }) {
           setOutcome(resolveSeatScan(scan, null));
           return;
         }
-        const res = await floorSeatByQr(eventId, scan.token);
+        // 📶 NO SIGNAL (EV3): finding a seat asks Setnayan — the host shares one table label per scan, never the list —
+        // so with no signal it says so instead of failing as if the code were wrong. Nothing is queued: it is a question,
+        // not a change to send later.
+        let res: Awaited<ReturnType<typeof floorSeatByQr>>;
+        try {
+          if (typeof navigator !== 'undefined' && navigator.onLine === false) throw new Error('offline');
+          res = await floorSeatByQr(eventId, scan.token, via);
+        } catch {
+          setLookupError('No signal — finding a seat needs signal. The printed seat chart has every table.');
+          setOutcome(null);
+          return;
+        }
         if (!res.ok) {
           setLookupError(res.error);
           setOutcome(null);
@@ -74,7 +96,7 @@ export function SeatScanner({ eventId }: { eventId: string }) {
         setBusy(false);
       }
     },
-    [eventId, stop],
+    [eventId, stop, via],
   );
 
   const start = useCallback(async () => {

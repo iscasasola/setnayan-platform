@@ -290,6 +290,8 @@ export const UGAT_TYPES: UgatTypeMeta[] = [
       { key: '', name: 'folder_id', note: 'DENORM ⚠ no FK' },
       { key: '', name: 'leaf_key', note: 'string, cards glue to it 🔴' },
       { key: '', name: 'coarse_category', note: 'tier-2 → the vendor_category its bookings are filed as (③0-c)' },
+      { key: '', name: 'one_per_event', note: 'tier-2 switch: a couple books ONE of it per event (owner 2026-10-29) — drives event_vendors.hard_single_group' },
+      { key: '', name: 'hint_en', note: 'service_categories: the ⓘ text of a group or category, written on /admin/categories (owner 2026-10-31) — Find\u2019s ⓘ reads it first, never hidden' },
       { key: '', name: 'sort_order', note: 'a service\u2019s place among its category on /admin/categories (Order \u25be, ③b); other readers still list A\u2013Z' },
     ],
     edges: [
@@ -974,6 +976,7 @@ export const UGAT_TYPES: UgatTypeMeta[] = [
       { key: 'fk', name: '(event_id, guest_id)', note: 'composite → guests, ON DELETE CASCADE — a walker is always a guest OF THIS EVENT' },
       { key: '', name: 'walk_no', note: 'the walk AND its place: rows sharing it walk together; unique per walk across the event, not per section' },
       { key: '', name: 'place_in_walk', note: 'who is named first inside a walk when the section has no columns' },
+      { key: 'fk', name: 'march_group', note: 'the couple’s own march group they walk in (march_groups; NULL = their role’s section) — the march only, never printed' },
     ],
     edges: [
       { verb: 'lines up', to: 'TYPE-GUESTS' },
@@ -1771,6 +1774,9 @@ export const UGAT_JOINTS: UgatJoint[] = [
       // ③0-c (2026-10-26): the coarse `event_vendors.category` a booking is stored with is
       // answered by the category's own row — no longer by a code map.
       { kind: 'column', table: 'service_categories', column: 'coarse_category' },
+      // 2026-10-29: "one per event" is a switch on the category, and the booking's lock key is written from it.
+      { kind: 'column', table: 'service_categories', column: 'one_per_event' },
+      { kind: 'column', table: 'event_vendors', column: 'hard_single_group' },
     ],
     chain: 7,
     pair: ['TYPE-EVENTS', 'TYPE-VENDORS'],
@@ -1782,7 +1788,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     writtenBy: 'Vendor-add flow on the couple dashboard · CSV import · admin-assisted booking entry',
     guardedBy: 'current_event_ids() for the couple side; vendor side reads via current_vendor_ids() when vendor_org_id is set',
     traps:
-      'Org FK (vendor_org_id) is SET-NULL nullable — a booking can point at an off-platform vendor with no org row. category_key DOES have a real FK. The coarse `category` enum is resolved from service_categories.coarse_category (③0-c, 2026-10-26; read through getTaxonomy(), lib/vendor-branch-category.ts BRANCH_TO_VENDOR_CATEGORY is only the seed/fallback) — a NEW category inherits its group\'s most common sibling value on insert (trigger service_categories_inherit_coarse_category, ③0-c part 2; ties → first sibling by sort_order); one left with no value files its bookings under misc. Deleting a category a couple-side VendorCategory is anchored on is REFUSED (deletionWouldBreakCoupleLinks).',
+      'Org FK (vendor_org_id) is SET-NULL nullable — a booking can point at an off-platform vendor with no org row. category_key DOES have a real FK. The coarse `category` enum is resolved from service_categories.coarse_category (③0-c, 2026-10-26; read through getTaxonomy(), lib/vendor-branch-category.ts BRANCH_TO_VENDOR_CATEGORY is only the seed/fallback) — a NEW category inherits its group\'s most common sibling value on insert (trigger service_categories_inherit_coarse_category, ③0-c part 2; ties → first sibling by sort_order); one left with no value files its bookings under misc. Deleting a category a couple-side VendorCategory is anchored on is REFUSED (deletionWouldBreakCoupleLinks). ONE PER EVENT (owner 2026-10-29): `hard_single_group` is NOT generated any more — trigger event_vendors_one_per_event_key writes it on every insert/update from service_categories.one_per_event (the switched-on tier-2 category filed under the booking\'s coarse category), and flipping the switch re-keys the bookings (service_categories_one_per_event_follow); a flip ON that would put two confirmed bookings in one slot is refused by event_vendors_hard_single_lock_uniq. The app reads the same switch (lib/one-per-event.ts) — no list in code.',
   },
   {
     id: 'J8',
@@ -2148,6 +2154,60 @@ export const UGAT_JOINTS: UgatJoint[] = [
         name: 'vendor_papic_portfolio_photos_credits_positive',
         mentions: 'credits_spent',
       },
+      // The 7-day guest notice (owner 2026-10-03; built 2026-10-28): an album photo reaches the supplier's PUBLIC page
+      // only through this row — published by `publish_supplier_page_photo` after `public_from`, pulled by a guest's
+      // Remove or by ANY hide of the album row (trigger `a_hidden_album_photo_leaves_the_page`).
+      { kind: 'table', table: 'supplier_page_photo_notices' },
+      { kind: 'fk', table: 'supplier_page_photo_notices', column: 'photo_id', references: 'vendor_papic_portfolio_photos' },
+      { kind: 'unique', table: 'supplier_page_photo_notices', columns: ['photo_id'] },
+      { kind: 'column', table: 'supplier_page_photo_notices', column: 'public_from' },
+      {
+        kind: 'check',
+        table: 'supplier_page_photo_notices',
+        name: 'supplier_page_photo_notices_seven_days',
+        mentions: 'public_from',
+      },
+      {
+        kind: 'check',
+        table: 'supplier_page_photo_notices',
+        name: 'supplier_page_photo_notices_own_folder',
+        mentions: 'page_ref',
+      },
+      // THE SHOP WALLET (owner 2026-10-23, option A — one shop wallet). Packs
+      // land HERE now, not in one event's grant ledger: one signed, append-only
+      // ledger per SHOP (no event column on the money-in side), spent on the
+      // portfolio past the free 50 and on an event once that event's own pot is
+      // empty. Spends go only through shop_papic_wallet_spend (locks the shop,
+      // refuses what the balance cannot cover, one row per spend_ref) — and, for
+      // the portfolio, shop_portfolio_commit, which writes portfolio_r2_keys and
+      // the 'portfolio_spend' row in ONE transaction under the same lock.
+      { kind: 'table', table: 'shop_papic_wallet_entries' },
+      { kind: 'column', table: 'vendor_profiles', column: 'portfolio_r2_keys' },
+      {
+        kind: 'fk',
+        table: 'shop_papic_wallet_entries',
+        column: 'vendor_profile_id',
+        references: 'vendor_profiles',
+      },
+      { kind: 'fk', table: 'shop_papic_wallet_entries', column: 'order_id', references: 'orders' },
+      { kind: 'fk', table: 'shop_papic_wallet_entries', column: 'event_id', references: 'events' },
+      { kind: 'column', table: 'shop_papic_wallet_entries', column: 'delta' },
+      { kind: 'column', table: 'shop_papic_wallet_entries', column: 'kind' },
+      { kind: 'column', table: 'shop_papic_wallet_entries', column: 'spend_ref' },
+      {
+        kind: 'check',
+        table: 'shop_papic_wallet_entries',
+        name: 'shop_papic_wallet_entries_sign_matches_kind',
+        mentions: 'delta',
+      },
+      {
+        kind: 'check',
+        table: 'shop_papic_wallet_entries',
+        name: 'shop_papic_wallet_entries_kind_allowed',
+        mentions: 'kind',
+      },
+      // The wallet holds credits, never a price — the ₱ is the catalogue's.
+      { kind: 'no_column', table: 'shop_papic_wallet_entries', column: 'price_php' },
     ],
     chain: 18,
     pair: ['TYPE-PAPIC', 'TYPE-VENDORS'],
@@ -2158,7 +2218,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     implementedBy:
       'vendor_papic_portfolio_credit_grants.(vendor_profile_id, event_id) → vendor_profiles + events, order_id → orders for the purchase; allowance = MAX(tier gift, SUM(grants.credits)) − points(vendor_papic_captures) − credits(vendor_papic_portfolio_photos), computed only by allowancePointsFor / captureAllowance in lib/vendor-papic-tier.ts plus the portfolio-spend fold in fetchVendorPapicPortfolioCredits (lib/vendor-papic-grants.ts)',
     writtenBy:
-      'lib/sku-activation.ts on admin payment approval — grantVendorPapicCreditsForBookingFee inside the vendor_booking_fee__ hook (floor(fee × 5%), cap 1,000, no floor; only a status=paid charge earns) and grantVendorPapicPortfolioPack for vendor_papic_portfolio_pack (25→100 since 2026-09-06) — SHIPPED 2026-09-05; the tier row by admin comp; captures by /api/vendor/papic-capture; portfolio imports by /api/vendor/papic-portfolio-import (G3, SHIPPED 2026-09-06) — the vendor’s OWN RLS client mints the row (booked-event insert policy), the credit check happens in the route, and the background NSFW screen runs on the service-role admin client so a session can never rewrite its own screen result',
+      'lib/sku-activation.ts on admin payment approval — grantVendorPapicCreditsForBookingFee inside the vendor_booking_fee__ hook (floor(fee × 5%), cap 1,000, no floor; only a status=paid charge earns) and grantVendorPapicPortfolioPack for vendor_papic_portfolio_pack (25→100 since 2026-09-06; since 2026-10-23 into shop_papic_wallet_entries, the SHOP wallet, not an event) — SHIPPED 2026-09-05; the tier row by admin comp; captures by /api/vendor/papic-capture; portfolio imports by /api/vendor/papic-portfolio-import (G3, SHIPPED 2026-09-06) — the vendor’s OWN RLS client mints the row (booked-event insert policy), the credit check happens in the route, and the background NSFW screen runs on the service-role admin client so a session can never rewrite its own screen result',
     guardedBy:
       'ledger: SELECT for the owning vendor (current_vendor_profile_ids) or admin, NO write policy, anon revoked, authenticated holds SELECT only; partial UNIQUE (order_id, source) WHERE order_id IS NOT NULL; the couple has no read on it at all — a supplier’s credits are not the host’s to see. Portfolio album: SELECT + INSERT for the owning vendor on a BOOKED event (current_vendor_booked_event_ids), no UPDATE/DELETE for authenticated, anon revoked — pinned by tests/db/vendor-papic-portfolio-is-not-the-host-gallery.db.test.ts',
     traps:
@@ -2740,7 +2800,28 @@ export const UGAT_JOINTS: UgatJoint[] = [
     guardedBy:
       'INSERT policy demands user_id = auth.uid() AND membership (nobody posts in another member\u2019s voice); UPDATE policy scopes take-down to the author; samahan_messages_author_field_guard freezes every field except deleted_at.',
     traps:
-      'Take-down is SOFT \u2014 readers MUST filter `deleted_at IS NULL`; a query that forgets shows messages their authors withdrew. Retention follows the 5-year CHAT rule via purge_expired_chat \u2014 no new sweep was added, and adding one would be a second definition of when a message is old.',
+      'Take-down is SOFT \u2014 readers MUST filter `deleted_at IS NULL`; a query that forgets shows messages their authors withdrew. Retention follows the 5-year CHAT rule via purge_expired_chat \u2014 no new sweep was added, and adding one would be a second definition of when a message is old. What a member has READ is samahan_reads (J57), never the samahan_message notices \u2014 those are collapsed hourly and cleared only by \u201cMark read\u201d.',
+  },
+  {
+    id: 'J57',
+    claims: [
+      { kind: 'table', table: 'samahan_reads' },
+      { kind: 'fk', table: 'samahan_reads', column: 'community_id', references: 'communities' },
+      { kind: 'column', table: 'samahan_reads', column: 'last_read_at' },
+    ],
+    chain: 12,
+    pair: ['TYPE-SAMAHAN', 'TYPE-USERS'],
+    title: 'Group \u2194 User (what you have read \u2014 group unread)',
+    joint: 'samahan_reads',
+    cardinality: 'One marker per (group, member); none until the member first opens the group',
+    implementedBy:
+      'samahan_reads.last_read_at (owner 2026-10-28, \u201cGROUP UNREAD\u201d). samahan_unread_counts() counts other members\u2019 live messages newer than the marker \u2014 or than joined_at when there is none \u2014 for every group in ONE call; People \u203a Groups draws a bold line + count badge and the pinned row\u2019s \u201cN unread\u201d door (lib/people-group-rows.ts).',
+    writtenBy:
+      'mark_samahan_read(community_id) \u2014 called from the browser (MarkGroupRead, the group page\u2019s layout) when the group opens and when it is left; one small write, never a live connection',
+    guardedBy:
+      'Pattern A (self), READ-only over REST (SELECT grant + self policy; no INSERT/UPDATE grant). The one write is mark_samahan_read() (SECURITY DEFINER), which writes only the caller\u2019s own marker and refuses a group they are not in. tests/db/samahan-unread-is-yours.db.test.ts.',
+    traps:
+      'A missing marker counts from joined_at, NOT the epoch \u2014 otherwise every old group lights with its whole history the day this shipped. A refused count is \u201cCouldn\u2019t load\u201d on the row, never a 0.',
   },
   {
     /**
@@ -2903,6 +2984,24 @@ export const UGAT_JOINTS: UgatJoint[] = [
       { kind: 'no_column', table: 'event_inspiration_assets', column: 'source_render_id' },
       // 🧩 Step ② (PLAN admin_inspiration_groups_2026-10-25): the 29-key CHECK became an FK into inspiration_parts.
       { kind: 'fk', table: 'event_inspiration_assets', column: 'slot_key', references: 'inspiration_parts' },
+      // 🖼⏱ THE OWNERS' 24-HOUR UNDO (owner 2026-10-30, 20271299051148): every write to a board row by someone who is
+      // not an owner is recorded HERE by the table's own trigger — the before/after of each row it touched — and the
+      // owners undo it as themselves (undo_mood_board_change, SECURITY INVOKER). Coordinators APPLY; there is no
+      // approval queue on a change, so `approved_at` is claimed as an absence. A supplier's ASK stays the suggestion.
+      { kind: 'table', table: 'event_mood_board_changes' },
+      { kind: 'fk', table: 'event_mood_board_changes', column: 'event_id', references: 'events' },
+      { kind: 'fk', table: 'event_mood_board_changes', column: 'suggestion_id', references: 'event_inspiration_suggestions' },
+      { kind: 'column', table: 'event_mood_board_changes', column: 'touched' },
+      { kind: 'column', table: 'event_mood_board_changes', column: 'actor_label' },
+      { kind: 'column', table: 'event_mood_board_changes', column: 'first_row_at' },
+      { kind: 'column', table: 'event_mood_board_changes', column: 'undone_at' },
+      { kind: 'no_column', table: 'event_mood_board_changes', column: 'approved_at' },
+      {
+        kind: 'check',
+        table: 'event_mood_board_changes',
+        name: 'event_mood_board_changes_kind_chk',
+        mentions: 'keep',
+      },
     ],
     chain: 20,
     pair: ['TYPE-GALLERY', 'TYPE-EVENTS'],
@@ -2915,7 +3014,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     writtenBy:
       'applyGalleryPick (the couple\u2019s picker) and applyMoodboardTemplate (theme seeding) \u2014 both in studio/mood-board/actions.ts (applyRenderPick, MB9\u2019s shared-render pick, was deleted with Mood Board renders 2026-10-26, and its column, FK and source_kind value were dropped by 20271289858095 \u2014 prod held 0 render_pick rows); uploadMoodboardSlot writes the couple\u2019s OWN photos, which carry no id and no credit',
     guardedBy:
-      'RLS Pattern B \u2014 event_members-scoped select/insert/update, admin all; plus the provenance biconditional and the FK event_inspiration_assets_slot_key_is_a_part \u2192 inspiration_parts (20271288430455 \u2014 it replaced the 29-key slot CHECK; a part holding a photo cannot be deleted)',
+      'RLS \u2014 any event member reads; only the hosts (member_type couple, current_couple_event_ids) and a seat the hosts set to Mood Board Edit (current_moderator_area_levels(\'mood_board\') = edit, 20271297714074 \u2014 the server actions ask can_change_mood_board_photos first) insert/update, admin all, and UPDATE is column-granted to removed_at/slot_key/slot_position only (20271297469032); plus the provenance biconditional and the FK event_inspiration_assets_slot_key_is_a_part \u2192 inspiration_parts (20271288430455 \u2014 it replaced the 29-key slot CHECK; a part holding a photo cannot be deleted)',
     traps:
       'The one-row-per-cell rule is a PARTIAL UNIQUE INDEX (WHERE removed_at IS NULL), not a constraint, so it is invisible to pg_constraint and cannot be claimed above \u2014 verify with \\d event_inspiration_assets. Removal is SOFT (removed_at), so every read must filter it; a count that forgets tells a couple they saved photos they deleted. library_asset_id is ON DELETE CASCADE, so HARD-deleting a library photo (deleteAsset / deleteStylistAsset, which also remove the storage object) removes the tile from every board holding it. RETIRING one (retired_at) does not touch this FK at all and the tile keeps rendering, credited \u2014 the two paths behave completely differently and the UI copy for them must not be shared.',
   },
@@ -2966,6 +3065,79 @@ export const UGAT_JOINTS: UgatJoint[] = [
       'RLS at CREATE TABLE \u2014 couple read (current_couple_event_ids), booking read (current_vendor_event_vendor_ids), admin all; NO insert/update/delete for authenticated. Booking, fee, trade (inspiration_suggestion_services \u2014 since \u24620-b read off the tables; since \u2462a the part\u2019s rows in inspiration_part_services, 20271291224109) and the 3-waiting cap are decided in SQL; tests/db/a-supplier-suggests-only-to-its-own-parts.db.test.ts holds the map and each refusal',
     traps:
       'inspiration_suggestion_services READS THE LINK TABLE (\u24620-b, \u2462a) \u2014 an admin who links or unlinks a service moves it with no migration; a re-home does NOT (the home is the heading, the services are the door). One thing stays written in it on purpose: WHICH parts take a suggestion (the couple Studio\u2019s photo parts, a code structure; the db test holds it). A row in \'screening\' is opened but has no photo yet and never reaches the couple; one older than ten minutes stops counting toward the cap. Keep on a full part answers \'full\' and writes nothing unless a position is named; the replaced photo is soft-deleted and Undo restores it only into a still-free place.',
+  },
+  {
+    /**
+     * 📸 A COUPLE'S OWN PHOTO WAITS FOR THE SUPPLIER'S APPROVE (owner 2026-10-30, DECISION_LOG "A CUSTOMER'S PHOTO
+     * SHARED TO A SUPPLIER'S INSPIRATION — THE SUPPLIER APPROVES, IT SYNCS TO THEIR SERVICE CARD …"; migration
+     * 20271297221336). J54's mirror: J54 carries a shop's photo TO the couple's board; this carries the couple's own
+     * board photo TO one of a linked shop's service cards.
+     */
+    id: 'J58',
+    claims: [
+      { kind: 'table', table: 'couple_photo_shares' },
+      { kind: 'fk', table: 'couple_photo_shares', column: 'event_id', references: 'events' },
+      { kind: 'fk', table: 'couple_photo_shares', column: 'inspiration_id', references: 'event_inspiration_assets' },
+      { kind: 'fk', table: 'couple_photo_shares', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'fk', table: 'couple_photo_shares', column: 'vendor_service_id', references: 'vendor_services' },
+      { kind: 'fk', table: 'couple_photo_shares', column: 'shared_by_user_id', references: 'users' },
+      { kind: 'column', table: 'couple_photo_shares', column: 'credit_line' },
+      { kind: 'column', table: 'couple_photo_shares', column: 'consent_version' },
+      { kind: 'column', table: 'couple_photo_shares', column: 'snapshot_r2_key' },
+      { kind: 'check', table: 'couple_photo_shares', name: 'couple_photo_shares_audience_allowed', mentions: 'audience' },
+      { kind: 'check', table: 'couple_photo_shares', name: 'couple_photo_shares_published_iff_approved', mentions: 'public_key' },
+      { kind: 'check', table: 'couple_photo_shares', name: 'couple_photo_shares_public_key_shape', mentions: 'public_key' },
+      { kind: 'check', table: 'couple_photo_shares', name: 'couple_photo_shares_state_allowed', mentions: 'state' },
+      { kind: 'check', table: 'couple_photo_shares', name: 'couple_photo_shares_a_couple_says_a_couple', mentions: 'credit_line' },
+    ],
+    chain: 20,
+    pair: ['TYPE-EVENTS', 'TYPE-VENDORS'],
+    title: 'Couple\u2019s own photo \u2194 Supplier\u2019s service card (shared, approved by the shop)',
+    joint: 'couple_photo_shares',
+    cardinality:
+      'At most ONE live (waiting or approved) share per (board photo, shop) \u2014 a partial unique index; any number declined or withdrawn',
+    implementedBy:
+      'couple_photo_shares.inspiration_id \u2192 event_inspiration_assets (the couple\u2019s file_upload) + vendor_service_id \u2192 vendor_services (the card) + vendor_profile_id \u2192 vendor_profiles (the shop that answers); the credit line and consent version are frozen on the row',
+    writtenBy:
+      'couplePhotoShare (app/_actions/couple-photo-share-actions.ts) \u2014 op send / take_back \u2192 couple_share_photo_with_supplier, couple_withdraw_photo_share (the couple\u2019s sheet); op answer \u2192 vendor_answer_couple_photo (Shop \u203a Services); read publicly ONLY through service_card_couple_photos (app/v/[slug] via lib/couple-photo-share.server.ts)',
+    guardedBy:
+      'RLS at CREATE TABLE \u2014 couple read (current_couple_event_ids), shop read (current_vendor_profile_ids), admin all; NO insert/update/delete for authenticated and nothing for anon. Uploader + own-upload + linked shop + consent decided in SQL; tests/db/a-couples-photo-reaches-a-card-only-when-approved.db.test.ts holds each refusal',
+    traps:
+      'NEVER SERVE THE BOARD ROW (security review #7089): event_inspiration_assets is editable by every event member, so the share SNAPSHOTS the upload\u2019s r2_key at share time and Approve publishes a server-made COPY at public_key = couple-looks/<share_id>.<ext> (no event id, no file name); the card reads only that. Any change to the board row\u2019s picture, uploader, kind or removal WITHDRAWS the live share (trigger couple_photo_shares_follow_the_board), and a_board_photo_keeps_its_provenance refuses rewriting the uploader (NULL by erasure only), the kind or the suggestion origin; a supplier suggestion key (inspiration/<event>/suggestions/ or any event_inspiration_suggestions.r2_key) is never shareable. Withdrawn/declined copies are deleted by the action and swept by reconcileCoupleLooks (lib/couple-photo-share.server.ts). WHO SEES IT (owner 2026-10-30): audience hosts \u00b7 exclusive \u00b7 private \u00b7 public; the cached public read (service_card_couple_photos) is PUBLIC only, a signed-in viewer\u2019s extra photos come from viewer_service_card_couple_photos after the page (signed URLs; non-public copies live in the private bucket); PRIVATE FAILS CLOSED to Exclusive until \u201cthe people around me\u201d has a resolver. OPEN (owner): whether an approved photo uses the shop\u2019s paid page-photo room \u2014 as built it does not (COUPLE_PHOTOS_USE_PAGE_ROOM in lib/couple-photo-share.ts).',
+  },
+  {
+    /**
+     * 🔗🖼 A SUPPLIER'S INSPIRATION PHOTO NAMES ITS SERVICE CARD (owner 2026-10-30, DECISION_LOG "A SUPPLIER'S
+     * INSPIRATION PHOTO IS CONNECTED FOUR WAYS — ITS SERVICE CARD · THE EVENT · THE SUPPLIER'S WEBSITE · THE
+     * CATEGORY/SERVICE POOL"; migration 20271297295494).
+     *
+     * ⚠ THE CARD IS HELD TO THE SHOP BY A TRIGGER, NOT A CHECK. `inspiration_card_is_the_shops_own` refuses a card of
+     * another shop on both tables (and a card on a non-gallery library row) but never raises on a NULL, so the
+     * ON DELETE SET NULL cascades stay SET NULL — a CHECK naming the column would turn them into RESTRICT.
+     */
+    id: 'J59',
+    claims: [
+      { kind: 'fk', table: 'moodboard_library_assets', column: 'vendor_service_id', references: 'vendor_services' },
+      { kind: 'fk', table: 'event_inspiration_suggestions', column: 'vendor_service_id', references: 'vendor_services' },
+      { kind: 'fk', table: 'moodboard_library_assets', column: 'source_suggestion_id', references: 'event_inspiration_suggestions' },
+      { kind: 'column', table: 'moodboard_library_assets', column: 'source_event_id' },
+      // One fact, one column: the card is vendor_service_id on both tables — no second spelling.
+      { kind: 'no_column', table: 'moodboard_library_assets', column: 'service_id' },
+    ],
+    chain: 20,
+    pair: ['TYPE-GALLERY', 'TYPE-SERVICES'],
+    title: 'Inspiration photo \u2194 Service card (the look a card offers)',
+    joint: 'moodboard_library_assets',
+    cardinality:
+      'Many photos per card \u00b7 at most one card per photo (NULL = the shop only, card-optional) \u00b7 at most one pool photo per Mood Board suggestion (partial UNIQUE on source_suggestion_id)',
+    implementedBy:
+      'moodboard_library_assets.vendor_service_id and event_inspiration_suggestions.vendor_service_id \u2192 vendor_services (ON DELETE SET NULL); moodboard_library_assets.source_suggestion_id \u2192 event_inspiration_suggestions (the pool copy of a suggestion, with source_event_id = the suggestion\u2019s event)',
+    writtenBy:
+      'uploadStylistAsset and importEditorialMediaToGallery (app/vendor-dashboard/moodboard-library/actions.ts \u2014 the latter also takes a suggestionId, routed to importSuggestionToGallery) after verifyCardForPart (lib/inspiration-card-link.server.ts); suggestInspirationPhoto on the service-role move to waiting',
+    guardedBy:
+      'the trigger inspiration_card_is_the_shops_own (the card is the row\u2019s own shop; library rows must be supplier_gallery); no INSERT/UPDATE grant on either new column for anon/authenticated; SELECT on vendor_service_id granted (the link shows on the supplier\u2019s page); source_suggestion_id withheld like source_event_id; tests/db/an-inspiration-photo-names-its-own-card.db.test.ts',
+    traps:
+      'A suggestion\u2019s pool copy is EVENT-LINKED (source_event_id set) yet COUNTS toward the per-category quota (countSuggestionPool) \u2014 countBackCatalogue alone no longer is the whole used side. The page (/v/[slug]) shows a look only when its card is live there or it has none (the design\u2019s liveLooks).',
   },
   {
     /**
@@ -3214,6 +3386,15 @@ export const UGAT_JOINTS: UgatJoint[] = [
       { kind: 'fk', table: 'march_not_walking', column: 'guest_id', references: 'guests' },
       { kind: 'unique', table: 'march_not_walking', columns: ['event_id', 'guest_id'] },
       { kind: 'no_column', table: 'march_not_walking', column: 'walk_no' },
+      /* 🏷 The couple's OWN march groups (owner 2026-10-29, "if they have a custom way of marching they can customize
+         it"): a named group (march_groups), and the walk row saying who walks in it (march_walks.march_group) — the
+         march only, never a guest column and never printed. */
+      { kind: 'table', table: 'march_groups' },
+      { kind: 'fk', table: 'march_groups', column: 'event_id', references: 'events' },
+      { kind: 'unique', table: 'march_groups', columns: ['event_id', 'group_key'] },
+      { kind: 'column', table: 'march_groups', column: 'label' },
+      { kind: 'column', table: 'march_walks', column: 'march_group' },
+      { kind: 'no_column', table: 'guests', column: 'march_group' },
     ],
     chain: 2,
     pair: ['TYPE-MARCH', 'TYPE-GUESTS'],
@@ -3221,7 +3402,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     joint: 'march_walks',
     cardinality: 'One walk row per guest per event; a walk = the rows sharing a walk_no (1, 2 or more people)',
     implementedBy: 'march_walks — composite FK (event_id, guest_id) → guests ON DELETE CASCADE',
-    writtenBy: 'join_entourage_line · swap_entourage_places · set_entourage_order · unpair_guest · set_march_walking (the "Not walking" tray: march_not_walking, never also a march_walks row) — all SECURITY INVOKER, all writing the march\u2019s own tables only (the Maker\u2019s Wedding March)',
+    writtenBy: 'join_entourage_line · swap_entourage_places · set_entourage_order · unpair_guest · set_march_walking (the "Not walking" tray: march_not_walking, never also a march_walks row) · set_march_group (into / out of the couple\u2019s own march_groups, which the Event Hub draft\u2019s Apply makes, names and deletes — guests/march-group-step.ts) — all SECURITY INVOKER, all writing the march\u2019s own tables only (the Maker\u2019s Wedding March)',
     guardedBy: 'RLS on march_walks — the hosts (current_couple_event_ids, never the member-wide current_event_ids) + admin + a guest-list editor; the public invitation reads it with the service role',
     traps: 'guests is SOFT-deleted, so the CASCADE fires only on a real delete: a removed guest keeps a walk row, and readers drop them because they read through guests WHERE deleted_at IS NULL. guests.pair_with_guest_id + entourage_order still EXIST but are retired for the march — nothing writes them; a reader that still asks them gets frozen 2026-10-01 data.',
   },

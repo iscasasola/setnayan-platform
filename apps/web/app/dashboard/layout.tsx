@@ -14,6 +14,7 @@ import { dispatchPendingInquiries } from '@/lib/pending-inquiries';
 import { fetchUserRoleSummary } from '@/lib/roles';
 import { needsTermsAgreement } from '@/lib/terms-agreement';
 import { TermsReacceptSheet } from '@/app/_components/terms-reaccept/terms-reaccept-sheet';
+import { OfflineViewerScript } from '@/app/_components/offline-ready/offline-viewer-script';
 
 /**
  * Root dashboard layout — shared by BOTH the account route group `(account)`
@@ -212,6 +213,8 @@ export default async function DashboardLayout({
       {/* Anon-draft safety net: only renders for a Supabase anonymous principal
           (their plan isn't yet tied to an email). Vanishes on convert. */}
       {user.is_anonymous ? <SecureAccountBanner /> : null}
+      {/* 📶 Tell the worker who is signed in — any other account's saved event pages are erased (EV3). */}
+      <OfflineViewerScript viewer={user.id} />
       {/* Compose-first Inquire replay (owner 2026-07-02): if this couple composed
           an inquiry on a vendor profile before signing up, fire it now that
           they're a secured couple with an event. No-op when nothing is stashed

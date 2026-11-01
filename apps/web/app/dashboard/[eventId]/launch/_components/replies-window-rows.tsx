@@ -37,10 +37,17 @@ export const REPLIES_CLOSE_NAME = 'Replies close';
 export function RepliesWindowRows({
   config,
   onSave,
+  setupRow,
 }: {
   config: RsvpAskConfig;
   /** The panel's own draft save — the WHOLE object travels; a refusal comes back in words. */
   onSave: (patch: RsvpAskConfig, what: string) => Promise<KeepAnswer>;
+  /**
+   * 🗂 Guests ⚙'s row key (R1, owner 2026-10-28 — the two rows moved there from the Studio RSVP tile): put on "Replies
+   * open" as `data-setup-row`, so `?settings=1&row=<key>` lands on it and the one-home check counts it. Absent — the
+   * Maker's RSVP stage, as before.
+   */
+  setupRow?: string;
 }) {
   const open = config.repliesOpen ?? 'with_invitation';
   const close = config.repliesClose ?? 'on_the_day';
@@ -57,7 +64,7 @@ export function RepliesWindowRows({
           if (key === open) return;
           void onSave({ repliesOpen: key === 'with_invitation' ? undefined : (key as RepliesOpen) }, `“${REPLIES_OPEN_NAME}”`);
         }}
-        attrs={{ 'data-rsvp-setting': 'replies-open' }}
+        attrs={setupRow ? { 'data-rsvp-setting': 'replies-open', 'data-setup-row': setupRow } : { 'data-rsvp-setting': 'replies-open' }}
       />
       {open === 'on_date' ? (
         <DateRow

@@ -47,6 +47,11 @@ type Props = {
    * the same render never asks the database twice. Absent → this surface reads them itself, as before.
    */
   preloaded?: { methods: VendorPaymentMethodRow[]; measured: boolean };
+  /**
+   * ⚙ CUSTOMERS SETTINGS mounts this editor too ("Getting paid", owner 2026-10-28). Its saves come back to Customers
+   * with the ⚙ still open (`return_to=customers`, `return_seg`) instead of Your details. Absent → exactly as before.
+   */
+  returnTo?: { to: 'customers'; seg: string } | null;
 };
 
 /** Show only the last 4 digits of an account number; keep short ones whole. */
@@ -91,7 +96,13 @@ function cardTitle(m: VendorPaymentMethodRow): string {
   );
 }
 
-export default async function VendorPaymentOptionsPage({ searchParams, embedded = false, preloaded }: Props) {
+export default async function VendorPaymentOptionsPage({ searchParams, embedded = false, preloaded, returnTo = null }: Props) {
+  const back = returnTo ? (
+    <>
+      <input type="hidden" name="return_to" value={returnTo.to} />
+      <input type="hidden" name="return_seg" value={returnTo.seg} />
+    </>
+  ) : null;
   const search = await searchParams;
   const supabase = await createClient();
   const {
@@ -274,6 +285,7 @@ export default async function VendorPaymentOptionsPage({ searchParams, embedded 
                 <div className="flex flex-wrap items-center gap-2 border-t border-ink/10 pt-3">
                   {!m.is_primary ? (
                     <form action={setPrimaryPaymentMethod}>
+                      {back}
                       <input type="hidden" name="payment_method_id" value={m.payment_method_id} />
                       <SubmitButton
                         pendingLabel="Saving…"
@@ -286,6 +298,7 @@ export default async function VendorPaymentOptionsPage({ searchParams, embedded 
                   ) : null}
 
                   <form action={togglePaymentMethodShown}>
+                    {back}
                     <input type="hidden" name="payment_method_id" value={m.payment_method_id} />
                     {/* CURRENT value — the action toggles to the opposite. */}
                     <input type="hidden" name="is_shown" value={m.is_shown ? 'true' : 'false'} />
@@ -319,6 +332,7 @@ export default async function VendorPaymentOptionsPage({ searchParams, embedded 
                     confirmLabel="Remove"
                     className="ml-auto"
                   >
+                    {back}
                     <input type="hidden" name="payment_method_id" value={m.payment_method_id} />
                     <SubmitButton
                       pendingLabel="Removing…"
@@ -338,6 +352,7 @@ export default async function VendorPaymentOptionsPage({ searchParams, embedded 
       <AddPaymentMethod
         vendorProfileId={profile.vendor_profile_id}
         linkAsks={linkAsks && !(await isStoreShellRequest())}
+        returnTo={returnTo}
       />
 
       <p className="mt-8 flex items-start gap-2 rounded-xl border border-ink/10 bg-ink/[0.02] px-4 py-3 text-xs text-ink/55">

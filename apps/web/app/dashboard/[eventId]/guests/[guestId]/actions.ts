@@ -40,6 +40,7 @@ import { isSafeNext } from '@/lib/safe-next';
 import { GUEST_CARD_COMPARED_COLUMNS, MERGE_BASE_FIELD, guestCardMerge, guestColumnWritten } from '@/lib/guest-card-merge';
 import { HOST_NOTE_MAX } from '@/lib/guest-host-note';
 import { refuseLimitedHelper } from '@/lib/host-gate';
+import { placedByCouple } from '@/lib/seat-why';
 
 // Iteration 0053 P2: the valid role set is per event type (resolveRoleSetForEvent).
 // SIDE_VALUES retired here — the shared resolver (lib/guest-side-question.ts)
@@ -203,7 +204,8 @@ async function syncCardTable(
   const { error } = await supabase
     .from('event_seat_assignments')
     .upsert(
-      { event_id: eventId, guest_id: guestId, table_id: tableId, seat_number: null },
+      // 🪑 The card's Table pick — placed by hand (lib/seat-why.ts).
+      { event_id: eventId, guest_id: guestId, table_id: tableId, seat_number: null, ...placedByCouple() },
       { onConflict: 'event_id,guest_id' },
     );
   return error ? { ok: false, error: 'seat_failed' } : { ok: true };

@@ -78,8 +78,11 @@ export function InviteVendorForm({
         continues filling in their profile — no setup work needed on your end.
       </p>
 
+      {/* The fields share the row only while each keeps room for its whole placeholder: three columns by the WINDOW
+          (`sm:grid-cols-3`) cut "hello@vendorbusiness.ph" wherever the card itself was narrow — a 512-px card, the admin
+          rail at tablet width. Columns by the CARD's own width instead. 🔒 the-invite-fields-fit-their-placeholder.test.ts */}
       <form
-        className="mt-4 grid gap-3 sm:grid-cols-3"
+        className="mt-4 grid grid-cols-[repeat(auto-fit,minmax(14rem,1fr))] gap-3"
         onSubmit={(event) => {
           event.preventDefault();
           const form = event.currentTarget;
@@ -147,7 +150,7 @@ export function InviteVendorForm({
         </div>
 
         {/* ── THE OFFER (owner 2026-10-23) ── */}
-        <div className="sm:col-span-3" data-invite-offer="">
+        <div className="col-span-full" data-invite-offer="">
           <Sec>The offer</Sec>
           <div className="mt-2 grid gap-3 sm:grid-cols-3">
             <div className="space-y-1">
@@ -191,7 +194,7 @@ export function InviteVendorForm({
           </label>
         </div>
 
-        <div className="sm:col-span-3">
+        <div className="col-span-full">
           <button
             type="submit"
             disabled={pending}

@@ -34,6 +34,7 @@ import { ThumbRow } from '@/components/thumb-row';
 import { SupplierThumbRow } from '../../_components/supplier-thumb-row';
 import { applyVendorPageDraft } from '../../actions';
 import { usePageDraft } from './use-page-draft';
+import { BadgeTracker, type BadgeTrackerData } from './badge-tracker';
 import type { PagePlanLine } from '../page-data';
 
 /* 🎨 THE ONE COLOUR PICKER — the Mood Board's sheet, the same one every Studio colour opens
@@ -85,6 +86,8 @@ export type PageClientData = {
   proAsks: boolean;
   storeShell: boolean;
   plans: PagePlanLine[];
+  /** 🏅 Awards and badges — composed by `lib/shop-badges.ts` from today's reads. */
+  badges: BadgeTrackerData & { summary: string };
 };
 
 export function PageParts({
@@ -352,12 +355,11 @@ export function PageParts({
 
         <DatesRow data="page-where" lead={<RowIcon icon={MapPin} />} title="Where you work" line={d.whereLine} href="/vendor-dashboard/profile#where" />
 
-        <DatesRow
-          data="page-badges"
-          lead={<RowIcon icon={Award} />}
-          title="Awards and badges"
-          line={[d.isVerified ? 'Verified' : null, d.yearsLabel, 'they show by themselves'].filter(Boolean).join(' · ')}
-        />
+        {/* 🏅 THE TRACKER (owner 2026-10-28) — was a line that only said "they show by themselves"; now each badge in
+            the pill, where it stands, and the one action that moves it (`badge-tracker.tsx`). */}
+        <Fold anchor="badges" data="page-badges" lead={<RowIcon icon={Award} />} title="Awards and badges" line={d.badges.summary}>
+          <BadgeTracker d={d.badges} />
+        </Fold>
 
         <Fold
           anchor="look"

@@ -63,10 +63,13 @@ const QR_HREF = '/vendor-dashboard/invite';
 export default async function VendorQrCodesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ et?: string; cat?: string; mode?: string; issued?: string; error?: string; ledger?: string; date?: string }>;
+  searchParams: Promise<{ et?: string; cat?: string; mode?: string; issued?: string; error?: string; ledger?: string; date?: string; block?: string }>;
 }) {
   const search = await searchParams;
   const mode: 'shortlist' | 'locked' = search.mode === 'locked' ? 'locked' : 'shortlist';
+  // The outside booking a code is being made for (Customers › People). Shape only — the database refuses one that is
+  // not this shop's own outside booking.
+  const blockId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(search.block ?? '') ? (search.block as string) : null;
   const supabase = await createClient();
   const {
     data: { user },
@@ -230,6 +233,8 @@ export default async function VendorQrCodesPage({
         contracts={contracts.filter((c) => c.status !== 'cancelled').map((c) => ({ value: c.contract_id, label: c.title }))}
         // Dates › a day › "Show a QR" opens here with that day filled (2026-10-14).
         initialDate={/^\d{4}-\d{2}-\d{2}$/.test(search.date ?? '') ? (search.date as string) : ''}
+        // Customers › People › an outside booking › "Send their code" (owner 2026-10-28): the code names that booking.
+        blockId={blockId}
       />
     );
   }
@@ -237,7 +242,8 @@ export default async function VendorQrCodesPage({
   return (
     <QrCodes
       mode="locked"
-      backHref={DATES_HREF}
+      // Came from an outside booking's "Send their code" → back to that customer's row, open (Customers › People).
+      backHref={blockId ? `/vendor-dashboard/customers?block=${blockId}#outside` : DATES_HREF}
       modeOptions={modeOptions}
       canShare
       setupHref="/vendor-dashboard/shop"

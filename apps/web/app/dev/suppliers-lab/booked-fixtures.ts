@@ -38,6 +38,36 @@ import { LAB_EVENT } from './fixtures';
 import { summarizeDateChange, type DateChangeView } from '@/lib/date-change';
 import type { RoomSizeAnswer } from '@/lib/booked-rows';
 import { bituinSteps, type MoneyStage } from './money-pair';
+import { earliestTaggedBlock } from '@/lib/coordinator-broadcasts';
+import type { RosMetaMap } from '@/lib/schedule-ros';
+import type { TaggedMoment } from '@/lib/booked-rows';
+import { PLAN_DATE, seedMoments } from '../schedule-lab/lab-moments';
+
+/**
+ * 📅 WHO IS TAGGED ON WHICH MOMENT — the Schedule lab's own day (`lab-moments.ts`), re-tagged with THIS lab's booked
+ * suppliers. Booked › Schedule draws these moments, and each Team row's call time is derived from them with the page's
+ * own rule (`earliestTaggedBlock`) — so the two parts agree, as they do on the page. Asukal is on no moment ("No call
+ * time yet"); `&calltimes=fail` refuses the read.
+ */
+export const LAB_SCHEDULE_TAGS: Readonly<Record<string, readonly string[]>> = {
+  ingress: ['v-seda', 'v-bituin'],
+  hmua: [],
+  cer: ['v-santuario', 'v-lumina'],
+  cock: ['v-bituin'],
+  rec: ['v-seda', 'v-lumina'],
+  prog: ['v-planner'],
+};
+
+export function labCallTimes(): Map<string, TaggedMoment> {
+  const moments = seedMoments(PLAN_DATE, null, LAB_SCHEDULE_TAGS);
+  const meta: RosMetaMap = new Map(moments.map((m) => [m.block_id, { responsible_party: null, responsible_vendor_ids: m.responsible_vendor_ids }]));
+  const out = new Map<string, TaggedMoment>();
+  for (const id of ['v-seda', 'v-santuario', 'v-lumina', 'v-asukal', 'v-bituin', 'v-planner']) {
+    const b = earliestTaggedBlock(moments, meta, id);
+    if (b) out.set(id, { startAt: b.start_at, label: b.label });
+  }
+  return out;
+}
 import { withBookedByPayment } from '@/lib/booked-by-payment';
 
 /** The prototype was drawn in early October 2026; pinned so "by Oct 5" does not drift. */
@@ -103,6 +133,8 @@ export type LabBookedOptions = {
    * resolver (`withBookedByPayment`), so the lab shows what the page derives.
    */
   paidByHand?: boolean;
+  /** `&calltimes=fail` — the Schedule read is refused: every row says it could not check, never "no call time". */
+  callTimesFail?: boolean;
 };
 
 /** The hand-added planner's stored row, its payment, and what the resolver makes of it. */
@@ -222,5 +254,14 @@ export function labBookedView(o: LabBookedOptions, money: EventMoney): BookedVie
         now: LAB_BOOKED_NOW.getTime(),
       })
     : null;
-  return bookedView({ rows, facts, money: buildBudgetList(money).suppliers, plans, rooms, dateChange, now: labBookedNow(o) });
+  return bookedView({
+    rows,
+    facts,
+    money: buildBudgetList(money).suppliers,
+    plans,
+    rooms,
+    dateChange,
+    callTimes: o.callTimesFail ? null : labCallTimes(),
+    now: labBookedNow(o),
+  });
 }

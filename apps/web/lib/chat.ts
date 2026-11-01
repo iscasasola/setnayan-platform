@@ -689,20 +689,33 @@ export async function fetchMessages(
   return (data ?? []) as ChatMessageRow[];
 }
 
-export function formatChatTimestamp(iso: string): string {
+/**
+ * ⏱ ONE CHAT TIME, ONE STRING — on the server AND in the browser (walk 2026-11-01).
+ *
+ * This used to be `toLocaleTimeString(undefined, …)` / `toLocaleString(undefined, …)`: the RUNNING MACHINE's zone and
+ * locale. A chat thread is server-rendered and then hydrated, so the same message time was printed twice, by two
+ * machines, and React threw the server's HTML away on every thread:
+ *   · WebKit (Safari, every iPhone) joins a date and a time with " at " — "Oct 26 at 6:05 PM" — where Node and
+ *     Chromium print "Oct 26, 6:05 PM". Measured on Playwright WebKit vs Node 22 with the same input.
+ *   · Production's server runs in UTC; a couple in Manila reads UTC+8. Every browser disagreed with the server there.
+ *
+ * So the string is BUILT, not left to `toLocaleString`: the zone is Manila (the product's zone — the same choice as
+ * `formatLongTimestamp`, `lib/format-date.ts`), the parts come from fixed `en-US` formatters, the date and the time are
+ * joined by hand, and ICU's narrow no-break space before AM/PM is normalised. Held by
+ * `lib/a-chat-time-reads-the-same-on-every-machine.test.ts`.
+ *
+ * (`nowMs` is the "today" the same-day rule reads; the default is the clock. Only a server render that straddles
+ * Manila's midnight can still differ from its hydration — once a day, for one render.)
+ */
+const CHAT_TIME_ZONE = 'Asia/Manila';
+const CHAT_CLOCK = new Intl.DateTimeFormat('en-US', { timeZone: CHAT_TIME_ZONE, hour: 'numeric', minute: '2-digit' });
+const CHAT_DAY_KEY = new Intl.DateTimeFormat('en-CA', { timeZone: CHAT_TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit' });
+const CHAT_MONTH_DAY = new Intl.DateTimeFormat('en-US', { timeZone: CHAT_TIME_ZONE, month: 'short', day: 'numeric' });
+
+export function formatChatTimestamp(iso: string, nowMs: number = Date.now()): string {
   const d = new Date(iso);
-  const now = new Date();
-  const sameDay =
-    d.getFullYear() === now.getFullYear() &&
-    d.getMonth() === now.getMonth() &&
-    d.getDate() === now.getDate();
-  if (sameDay) {
-    return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-  }
-  return d.toLocaleString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
+  if (Number.isNaN(d.getTime())) return '';
+  const clock = CHAT_CLOCK.format(d).replace(/[\u202f\u00a0]/g, ' ');
+  if (CHAT_DAY_KEY.format(d) === CHAT_DAY_KEY.format(new Date(nowMs))) return clock;
+  return `${CHAT_MONTH_DAY.format(d)}, ${clock}`;
 }

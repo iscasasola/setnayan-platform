@@ -12,10 +12,12 @@ import type { CustomerEventSummary } from '@/lib/customer-event-summary';
  * 03_Strategy/Customer_Card_Prototype_2026-07-03.html · View 1, owner-approved
  * 2026-07-03).
  *
- * Desktop (lg+): a right column docked next to the conversation.
- * Mobile: hidden; the conversation header's info button opens it as the shared
- * bottom-sheet primitive (app/_components/sheet.tsx · the locked modal-a11y
- * pattern).
+ * The conversation head's "Customer" opens it as the shared sheet
+ * (app/_components/sheet.tsx · the locked modal-a11y pattern) — at EVERY width
+ * since 2026-10-29. It was also a 19rem column docked beside the chat from
+ * 1024, which gave the supplier's chat a narrower column than the couple's
+ * (owner, *"event dashboard chat is full screen. supplier chat not same?"*);
+ * the sheet is one tap away and the chat keeps the page's column.
  *
  * NO MASKING (owner ruling 2026-09-08 — "we do not need to hide anything, since
  * no more tokens"). This rail used to take a `masked` flag that, for a pending
@@ -53,26 +55,15 @@ export type ChatInfoRailProps = {
   service: string | null;
   threadId: string;
   eventId: string;
+  /** Where the inquiry came from (vendor-private) and the returning-customer companion chip, if any. */
+  source?: { label: string; returning: string | null };
 };
 
 const HEADING_ID = 'chat-info-rail-heading';
 
 /**
- * Desktop column — docked right of the conversation on lg+, hidden below. No
- * internal state (always visible), so it stays a pure render.
- */
-export function ChatInfoRailColumn(props: ChatInfoRailProps) {
-  return (
-    <aside className="hidden w-[19rem] shrink-0 flex-col overflow-y-auto sn-row lg:flex">
-      <RailBody {...props} headingId={HEADING_ID} />
-    </aside>
-  );
-}
-
-/**
- * Mobile trigger — belongs in the conversation header, opens the rail as the
- * shared bottom-sheet. Hidden on lg+ where the column is always shown. Owns
- * its own open-state.
+ * The trigger — belongs in the conversation head's actions, opens the rail as
+ * the shared sheet, at every width. Owns its own open-state.
  *
  * 🔑 A VISIBLE LABEL, NOT A LONE GLYPH. This used to be an unlabelled 36px
  * circle with only an <Info> icon — then the sole way into the mobile tools,
@@ -89,7 +80,7 @@ export function ChatInfoRailColumn(props: ChatInfoRailProps) {
 export function ChatInfoRailTrigger(props: ChatInfoRailProps) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="lg:hidden">
+    <div>
       <button
         type="button"
         onClick={() => setOpen(true)}
@@ -113,6 +104,7 @@ function RailBody({
   stage,
   service,
   eventId,
+  source,
   headingId,
   inSheet = false,
 }: ChatInfoRailProps & {
@@ -142,6 +134,18 @@ function RailBody({
         >
           {stage.label}
         </span>
+        {source ? (
+          <p className="flex flex-wrap items-center justify-center gap-1" data-rail-source="">
+            <span className="inline-block rounded-full bg-ink/[0.07] px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/60">
+              {source.label}
+            </span>
+            {source.returning ? (
+              <span className="inline-block rounded-full bg-terracotta/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.15em] text-terracotta-700">
+                {source.returning}
+              </span>
+            ) : null}
+          </p>
+        ) : null}
       </div>
 
       <>

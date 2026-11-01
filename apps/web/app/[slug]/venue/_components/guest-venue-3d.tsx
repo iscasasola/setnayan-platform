@@ -116,6 +116,8 @@ import { sanitizeReceptionDesign, sel } from '@/lib/reception-scene';
 import { coldSparkFrame, coldSparkObstacles } from '@/app/_components/plan3d/kit/entrance-tunnel';
 import { SERPENTINE_TOP_GEO } from '@/app/_components/plan3d/kit/serpentine-top';
 import { formatCount } from '@/lib/format-number';
+import { canvasDpr } from '@/lib/phone-gpu-budget';
+import { usePhoneGpu, useWebglContextLost, ContextLostNotice } from '@/app/_components/plan3d/phone-gpu-budget';
 
 // A dance target is pulled this far inside the dance-floor edge so the avatar
 // lands squarely on the floor (body radius here is 0.2, matching the walk).
@@ -801,6 +803,10 @@ export default function GuestVenue3D({
   /** The viewer's display name for the presence roster (falls back to "Guest"). */
   selfName?: string | null;
 }) {
+  // 📱 The phone's 3D budget (`phone-gpu-budget.tsx`, owner 2026-10-29): a capped pixel ratio on a phone, and an honest
+  // line instead of a dead canvas when the browser takes WebGL away.
+  const phoneGpu = usePhoneGpu();
+  const webgl = useWebglContextLost();
   // Shared room (slice 8): a stable per-session identity + the realtime hook. The
   // hook is inert unless NEXT_PUBLIC_PLAN3D_SHARED_ROOM is on AND there's an
   // eventId, so the single-player walk is byte-identical by default.
@@ -1206,9 +1212,13 @@ export default function GuestVenue3D({
 
   return (
     <div className="relative h-[82vh] w-full overflow-hidden rounded-2xl bg-[#0c0e14]">
+      {webgl.lost ? <ContextLostNotice onRetry={webgl.retry} /> : null}
+      {!webgl.lost ? (
       <Canvas
+        key={webgl.attempt}
         shadows
-        dpr={[1, 1.5]}
+        dpr={canvasDpr(phoneGpu, 1.5)}
+        onCreated={webgl.onCreated}
         camera={{ position: [0, room.d * 1.05 + 6, room.d * 0.95 + 6], fov: 42 }}
         gl={{ ...RECOMMENDED_TONEMAP }}
       >
@@ -1569,6 +1579,7 @@ export default function GuestVenue3D({
           target={[0, 0.5, 0]}
         />
       </Canvas>
+      ) : null}
 
       {/* Shared-room presence + "say hi" (slice 8) — only while others are online.
           Greeting waves at the whole room; the wave plays on the sender's figure. */}

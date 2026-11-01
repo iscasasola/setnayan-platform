@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Check, Copy, Download } from 'lucide-react';
+import { Check, Copy, Share } from 'lucide-react';
 import { SavePassCardButton } from '@/app/_components/save-pass-card-button';
 import { SaveFileLink } from '@/app/_components/save-file-link';
 import { PASS_CARD_WORDS } from '@/lib/pass-card';
@@ -73,7 +73,7 @@ export function GuestCodeKeepers({
           filename="setnayan-qr.png"
           className="inline-flex min-h-[44px] items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/70 transition hover:border-terracotta hover:text-terracotta-700"
         >
-          <Download aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+          <Share aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           Save the code
         </SaveFileLink>
         )}

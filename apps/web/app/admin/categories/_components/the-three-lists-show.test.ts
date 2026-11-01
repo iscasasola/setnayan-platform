@@ -29,8 +29,8 @@ import {
 (globalThis as unknown as { React: unknown }).React = React;
 
 const groups: Group[] = [
-  { id: 'feast', label: 'Catering & cake', short: 'Catering', iconName: null },
-  { id: 'booths', label: 'Booths, carts & bars', short: 'Booths & carts', iconName: null },
+  { id: 'feast', label: 'Catering & cake', short: 'Catering', iconName: null, hint: null },
+  { id: 'booths', label: 'Booths, carts & bars', short: 'Booths & carts', iconName: null, hint: null },
 ];
 
 function cat(id: string, groupId: string, label: string, extra: Partial<Category> = {}): Category {
@@ -48,6 +48,8 @@ function cat(id: string, groupId: string, label: string, extra: Partial<Category
     serviceCount: 1,
     faithCount: 0,
     refinementCount: 0,
+    onePerEvent: false,
+    hint: null,
     ...extra,
   };
 }

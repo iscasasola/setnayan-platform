@@ -161,6 +161,7 @@ export function CalendarSheet({
   createAction,
   editAction,
   month,
+  returnSeg,
   trigger,
 }: {
   /** The calendar to edit; absent = a new one. */
@@ -171,6 +172,8 @@ export function CalendarSheet({
   createAction: Action;
   editAction: Action;
   month: string;
+  /** The Customers view the ⚙ was opened on — a save inside Customers ⚙ comes back to it (`return_seg`). */
+  returnSeg?: string;
   /** What opens it — a pool row's name, or the "New schedule" button. */
   trigger?: ReactNode;
 }) {
@@ -203,6 +206,7 @@ export function CalendarSheet({
           <input type="hidden" name="return_to" value="dates" />
           <input type="hidden" name="return_fold" value="capacity" />
           <input type="hidden" name="return_month" value={month} />
+          {returnSeg ? <input type="hidden" name="return_seg" value={returnSeg} /> : null}
           {editing ? <input type="hidden" name="pool_id" value={pool!.poolId} /> : null}
           <FormRows width="wide">
             <TypedRow name="Name" value={name} required maxLength={80} fieldName="calendar_name" autoCapitalize="words" onKeep={(t) => setName(t)} />
@@ -274,6 +278,7 @@ export function ShareTeamPick({
   pools,
   moveAction,
   month,
+  returnSeg,
 }: {
   categoryKey: string;
   categoryLabel: string;
@@ -282,6 +287,8 @@ export function ShareTeamPick({
   /** The shipped `reassignCategoryPool`. */
   moveAction: Action;
   month: string;
+  /** The Customers view the ⚙ was opened on — a save inside Customers ⚙ comes back to it (`return_seg`). */
+  returnSeg?: string;
 }) {
   const form = useRef<HTMLFormElement>(null);
   const target = useRef<HTMLInputElement>(null);
@@ -290,6 +297,7 @@ export function ShareTeamPick({
       <input type="hidden" name="return_to" value="dates" />
       <input type="hidden" name="return_fold" value="capacity" />
       <input type="hidden" name="return_month" value={month} />
+          {returnSeg ? <input type="hidden" name="return_seg" value={returnSeg} /> : null}
       <input type="hidden" name="category_key" value={categoryKey} />
       <input ref={target} type="hidden" name="target_pool" defaultValue={value} />
       <span className="min-w-0 flex-1 truncate text-[15px] text-ink">{categoryLabel}</span>
@@ -321,12 +329,15 @@ export function HallSheet({
   createAction,
   editAction,
   month,
+  returnSeg,
 }: {
   /** The hall to edit; absent = a new one. */
   hall?: { poolId: string; name: string; capacity: number; seated: number | null; standing: number | null } | null;
   createAction: Action;
   editAction: Action;
   month: string;
+  /** The Customers view the ⚙ was opened on — a save inside Customers ⚙ comes back to it (`return_seg`). */
+  returnSeg?: string;
 }) {
   const [open, setOpen] = useState(false);
   const mounted = usePortal();
@@ -359,6 +370,7 @@ export function HallSheet({
           <input type="hidden" name="return_to" value="dates" />
           <input type="hidden" name="return_fold" value="capacity" />
           <input type="hidden" name="return_month" value={month} />
+          {returnSeg ? <input type="hidden" name="return_seg" value={returnSeg} /> : null}
           <input type="hidden" name="is_hall" value="on" />
           <input type="hidden" name="capacity" value={String(hall?.capacity ?? 1)} />
           <input type="hidden" name="seated_capacity" value={seated} />

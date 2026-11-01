@@ -11,7 +11,7 @@ import {
   writePrintedStamp,
   type PrintedStamp,
 } from '@/lib/printed-stamp';
-import { Download, Loader2 } from 'lucide-react';
+import { Share, Loader2 } from 'lucide-react';
 import { ActionButton, type ActionTone } from '@/components/action-button';
 import { usePrintFetch } from './print-fetch-context';
 import { STUDIO_SAVE_CHIP } from '@/lib/studio-skin';
@@ -44,7 +44,7 @@ import { StatusLine } from '@/app/_components/status-line';
  * `href` + `download` stay on the anchor so a click before hydration (or with
  * scripting off) still gets the file the old way.
  */
-export type PrintSaveState = { k: 'idle' } | { k: 'working' } | { k: 'ready'; file: File } | { k: 'saved'; via: 'share' | 'download' } | { k: 'error'; message: string };
+export type PrintSaveState = { k: 'idle' } | { k: 'working' } | { k: 'ready'; file: File } | { k: 'saved'; via: 'share' | 'download'; file: File } | { k: 'error'; message: string };
 type State = PrintSaveState;
 
 /** A phone or tablet that can share this file. A desktop browser that can also
@@ -89,7 +89,7 @@ export function usePrintSave(): { state: PrintSaveState; save: (href: string, fi
     if (canShare(file)) {
       try {
         await navigator.share({ files: [file] });
-        setState({ k: 'saved', via: 'share' });
+        setState({ k: 'saved', via: 'share', file });
         return;
       } catch (e) {
         // Dismissed — they saw the sheet; nothing to say.
@@ -105,7 +105,7 @@ export function usePrintSave(): { state: PrintSaveState; save: (href: string, fi
       }
     }
     downloadBlob(file);
-    setState({ k: 'saved', via: 'download' });
+    setState({ k: 'saved', via: 'download', file });
   };
 
   const save = async (href: string, fileName: string) => {
@@ -198,7 +198,7 @@ export function PrintSaveButton({
           main={main}
           quiet={quiet}
           waiting={state.k === 'working'}
-          icon={state.k === 'working' ? <Loader2 aria-hidden className="animate-spin" strokeWidth={1.9} /> : (icon ?? Download)}
+          icon={state.k === 'working' ? <Loader2 aria-hidden className="animate-spin" strokeWidth={1.9} /> : (icon ?? Share)}
           label={word}
           name={state.k === 'idle' || state.k === 'saved' || state.k === 'error' ? (label ?? fileName) : word}
           onClick={() => void run()}
@@ -242,7 +242,7 @@ export function PrintSaveButton({
         {state.k === 'working' ? (
           <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={1.75} />
         ) : variant !== 'link' && variant !== 'chip' ? (
-          <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          <Share aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         ) : null}
         {state.k === 'working' ? 'Preparing…' : state.k === 'ready' ? 'Tap to save' : children}
       </a>

@@ -27,6 +27,8 @@ const PLAYLIST_PAGE = 'app/dashboard/[eventId]/studio/playlist/page.tsx';
 const DESK = 'app/vendor-dashboard/on-the-day/live/[eventId]/_components/song-desk/song-desk.tsx';
 const LOADERS = 'app/[slug]/_lib/loaders.ts';
 const LOAD = 'app/dashboard/[eventId]/launch/_components/details-your-event-load.tsx';
+/* 🗂 R4: the march's "as drafted" builder is shared by the Maker and Guests › March. */
+const AS_DRAFTED = 'lib/march-as-drafted.ts';
 const PARTS = 'app/dashboard/[eventId]/launch/_components/details-your-event-parts.tsx';
 
 function body(src: string, name: string): string {
@@ -95,9 +97,13 @@ test('⓸ a failed march read is said in the Maker — never "Nobody walks yet"'
   const loaders = read(LOADERS);
   assert.match(loaders, /if \(guestRes\.error\) \{[\s\S]{0,300}?return \{ walking: \[\], out: null, unread: true \};/, 'loadMarch answers a failed read as an empty march');
   const load = read(LOAD);
-  const asDrafted = body(load, 'marchAsDrafted');
+  const asDrafted = body(read(AS_DRAFTED), 'marchAsDrafted');
   assert.match(asDrafted, /if \(marchUnread\) return \{ \.\.\.live, draftUnread: true, marchUnread: true \};/);
   assert.match(load, /marchAsDrafted\([\s\S]*?draftedMarch,\s*marchUnread,\s*\)/, 'the loader drops the unread march');
+  // 🗂 R4: Guests › March reads the same march and hands its unread on the same way (the maker then says so, with Retry).
+  // (The read lives in lib/guests-march-read.ts since slice 8 — the March view and its PDF share it.)
+  assert.match(read('lib/guests-march-read.ts'), /marchAsDrafted\([\s\S]*?drafted,\s*march\.unread === true,\s*\)/, 'Guests › March drops the unread march');
+  assert.match(read('app/dashboard/[eventId]/guests/_components/guests-march.tsx'), /const shown = await readShownMarch\(/, 'Guests › March reads the march another way');
   const parts = read(PARTS);
   assert.match(parts, /march: input\.march\.marchUnread\s*\?\s*'Couldn’t load the march'/, 'the march row says "Nobody walks yet" over a failed read');
 });

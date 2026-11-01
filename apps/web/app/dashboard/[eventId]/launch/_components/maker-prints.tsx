@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { guestsViewHref } from '@/lib/guests-views';
 import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
 import {
   CLASSIC_PRINT_THEME,
@@ -921,7 +922,8 @@ export function SeatPlan3dNote({ eventId }: { eventId: string }) {
   return (
     <p className="text-sm text-ink/70" data-prints-seat-plan="3d">
       Your 3D plan prints from the plan itself —{' '}
-      <Link href={`/dashboard/${eventId}/plan3d`} className="font-medium text-mulberry underline underline-offset-2">
+      {/* 🗂 R4: the 3D room lives inside Guests › Seats. */}
+      <Link href={guestsViewHref(eventId, 'seats', { seat: '3d' })} className="font-medium text-mulberry underline underline-offset-2">
         open the 3D plan
       </Link>
       .

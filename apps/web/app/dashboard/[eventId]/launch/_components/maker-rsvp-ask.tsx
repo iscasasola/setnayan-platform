@@ -46,6 +46,7 @@ import { GUESTS_GET_IN_LABEL, guestsGetInPatch, readGuestsGetIn } from '@/lib/wh
 import { GuestsGetIn, ReplyBy, RsvpAsks } from '../../_components/guest-setup/guest-setup-lazy';
 import type { GuestsGetInFrame } from '../../_components/guest-setup/guests-get-in';
 import type { ReplyByFrame } from '../../_components/guest-setup/reply-by';
+import { HOW_GUESTS_ANSWER_ABOUT, HOW_GUESTS_ANSWER_LABEL, HOW_GUESTS_ANSWER_OPTIONS } from '@/lib/how-guests-answer';
 import { formatCount } from '@/lib/format-number';
 import { readCelebrationKey, type RsvpCelebration } from '@/lib/rsvp-celebration';
 import { CelebrationPick } from './celebration-pick';
@@ -979,13 +980,8 @@ const KEPT: SaveAnswer = { ok: true };
  * two in Studio and a switch "Ask one question at a time" on the stage and in Event Details).
  * No second setting.
  */
-export const HOW_GUESTS_ANSWER_LABEL = 'How guests answer';
-export const HOW_GUESTS_ANSWER_OPTIONS = [
-  { key: 'all', label: 'All at once', hint: 'Every question on one page, like a form' },
-  { key: 'one', label: 'One by one', hint: 'One question per screen · Next › Send' },
-] as const;
-/** Behind the row's ⓘ: what each of the two means — the options' own lines, word for word. */
-export const HOW_GUESTS_ANSWER_ABOUT = HOW_GUESTS_ANSWER_OPTIONS.map((o) => `${o.label}: ${o.hint}.`).join(' ');
+/* 🗂 R1: the words live in `lib/how-guests-answer.ts` — Guests ⚙ draws the same row; re-exported here, unchanged. */
+export { HOW_GUESTS_ANSWER_ABOUT, HOW_GUESTS_ANSWER_LABEL, HOW_GUESTS_ANSWER_OPTIONS };
 
 /** The setting a refused save put back, as the couple reads it on this page. */
 function rsvpSettingName(patch: RsvpAskConfig): string {

@@ -85,6 +85,9 @@ test('each `tour` prop a home hands on is stamped as a real data-tour (2026-10-2
     [join('app', '_components', 'unread-messages-badge.tsx'), /data-tour=\{tour\}/],
     [join('app', 'vendor-dashboard', '_components', 'open-fold-button.tsx'), /tour=\{tour\}/],
     [join('components', 'action-button.tsx'), /data-tour=\{(?:props|p)\.tour\}/],
+    // 📌 the shared pinned row's doors (People's counts, 2026-10-28) — handed on by People's row.
+    [join('app', '_components', 'pinned-row', 'pinned-row.tsx'), /data-tour=\{doorsTour\}/],
+    [join('app', 'dashboard', '(account)', 'people', '_components', 'people-pinned-row.tsx'), /doorsTour=\{tour\}/],
   ];
   for (const [f, re] of hops) {
     const src = SOURCES.find((x) => x.f === f)?.src;
@@ -139,9 +142,9 @@ const ANCHOR_HOME: Record<string, string | string[]> = {
   'shop-segments': 'app/vendor-dashboard/shop/_components/shop-segments.tsx',
   'shop-page-list': 'app/vendor-dashboard/website/_components/page-parts.tsx',
   'shop-details-row': 'app/vendor-dashboard/website/_components/page-parts.tsx',
-  'hub-next-days': 'app/vendor-dashboard/on-the-day/page.tsx',
+  'hub-next-days': 'app/vendor-dashboard/on-the-day/_components/hub-event-menu.tsx',
   'hub-empty': 'app/vendor-dashboard/on-the-day/page.tsx',
-  'hub-day-launch': 'app/vendor-dashboard/on-the-day/page.tsx',
+  'hub-day-launch': 'app/vendor-dashboard/on-the-day/_components/hub-screen.tsx',
   'hub-setup': 'app/vendor-dashboard/on-the-day/page.tsx',
   'dates-calendar': 'app/vendor-dashboard/customers/_components/customers-calendar.tsx',
   'dates-check': 'app/vendor-dashboard/customers/_components/check-a-date.tsx',
@@ -163,7 +166,8 @@ const ANCHOR_HOME: Record<string, string | string[]> = {
   'shop-details': 'app/vendor-dashboard/shop/page.tsx',
   'shop-add-service': 'app/vendor-dashboard/services/_components/services-manager.tsx',
   'customers-list': 'app/vendor-dashboard/customers/_components/customers-roster.tsx',
-  'today-money': 'app/vendor-dashboard/_components/supplier-today-first-screen.tsx',
+  // 📌 The money count is the pinned row's filter since 2026-10-28 — drawn by `TodayCounts`.
+  'today-money': 'app/vendor-dashboard/_components/today-counts.tsx',
   'maker-hint': 'app/dashboard/[eventId]/launch/_components/maker-shell.tsx',
   'maker-tools': 'app/dashboard/[eventId]/launch/_components/maker-lower-third.tsx',
   'maker-apply': 'app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx',
@@ -182,6 +186,8 @@ const ANCHOR_HOME: Record<string, string | string[]> = {
   'home-today': 'app/dashboard/[eventId]/_components/home-parts.tsx',
   'home-faces': 'app/dashboard/[eventId]/_components/home-control-row.tsx',
   'home-services': 'app/dashboard/[eventId]/_components/home-first-screen.tsx',
+  /* 🖨 R8 (2026-10-27): Home's Prints line — the Prints page's door. */
+  'home-prints': 'app/dashboard/[eventId]/_components/home-prints-line.tsx',
   'home-switch-on': 'app/dashboard/[eventId]/_components/home-first-screen.tsx',
   'memories-albums': 'app/_components/memories/event-memories-gallery.tsx',
   'memories-settings': 'app/_components/memories/event-memories-gallery.tsx',
@@ -209,8 +215,9 @@ const ANCHOR_HOME: Record<string, string | string[]> = {
   'today-numbers': 'app/vendor-dashboard/_components/supplier-today-first-screen.tsx',
   'today-coming-up': 'app/vendor-dashboard/_components/supplier-today-first-screen.tsx',
   'today-shop': 'app/vendor-dashboard/_components/supplier-today-first-screen.tsx',
-  'customers-segments': 'app/vendor-dashboard/customers/_components/customers-segments.tsx',
-  'customers-filter': 'app/vendor-dashboard/customers/_components/customers-roster.tsx',
+  'customers-segments': 'app/vendor-dashboard/customers/_components/customers-pin.tsx',
+  'customers-filter': 'app/vendor-dashboard/customers/_components/customers-pin.tsx',
+  'customers-gear': 'app/vendor-dashboard/customers/_components/customers-settings.tsx',
   'customers-search': 'app/vendor-dashboard/customers/page.tsx',
   'customers-add': 'app/vendor-dashboard/customers/page.tsx',
   'collections-filter': 'app/vendor-dashboard/collections/_components/collections-list.tsx',

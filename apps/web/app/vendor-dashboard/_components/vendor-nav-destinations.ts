@@ -229,8 +229,15 @@ export function resolveVendorDestinations({
   bookingsBadge = 0,
   threadsBadge = 0,
   eventToday = false,
+  runsEvents = false,
 }: {
   role: VendorTeamRole | null;
+  /**
+   * At least one LIVE coordinator seat. "Events" FOLDED INTO HUB (owner 2026-10-29, DECISION_LOG "THE SUPPLIER'S
+   * BOTTOM BAR = TODAY · CUSTOMERS · SHOP · HUB"): there is no fifth row any more — a scoped teammate who runs an event
+   * gets the Hub row, where "Events you run" now lives. The person's own seat, never the shop's role; a door, not access.
+   */
+  runsEvents?: boolean;
   /**
    * One of this shop's days is today. Only a scoped teammate's rows read it —
    * they get the Hub on that day (owner 2026-10-21, item 6); an owner always has it.
@@ -249,8 +256,8 @@ export function resolveVendorDestinations({
     `filterVendorNavGroups` gates on the key against the scoped-keys set, which
     is the same rule the phone's bottom bar uses.
   */
-  const scoped = filterVendorNavGroups(vendorNavGroups(), role, { eventToday });
-  const items = scoped[0]?.items ?? [];
+  const scoped = filterVendorNavGroups(vendorNavGroups(), role, { eventToday: eventToday || runsEvents === true });
+  const items = [...(scoped[0]?.items ?? [])];
 
   /*
     THE ADMIN'S RENAME, OR THE WORD IN THE CODE. The phone bar already reads

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Download, Share2 } from 'lucide-react';
+import { Share, Share2 } from 'lucide-react';
 import { actionButtonClass } from '@/components/action-button';
 import { QrActions } from '@/app/_components/qr-actions';
 import { SaveFileLink } from './save-file-link';
@@ -126,7 +126,7 @@ export function QrCard({
             <SaveFileLink href={dataUri} filename={filename} className={actionButtonClass('neutral')} data-qr-download="">
               {(s) => (
                 <>
-                  <Download aria-hidden strokeWidth={1.9} />
+                  <Share aria-hidden strokeWidth={1.9} />
                   <span className="lbl">{s === 'saving' ? 'Saving…' : 'Download'}</span>
                 </>
               )}

@@ -72,6 +72,7 @@ export function VendorRailContext({
   planHref,
   tier,
   eventToday = false,
+  runsEvents = false,
 }: {
   /** The business name, or a neutral word — never blank, never an id. */
   shopName: string;
@@ -109,6 +110,8 @@ export function VendorRailContext({
   tier: string | null;
   /** One of this shop's days is today — a helper's rail gets the Hub then (2026-10-21). */
   eventToday?: boolean;
+  /** At least one LIVE coordinator seat — the rail gets the Events row (owner 2026-10-28). */
+  runsEvents?: boolean;
 }) {
   const pathname = usePathname() ?? '/vendor-dashboard';
 
@@ -124,6 +127,7 @@ export function VendorRailContext({
     bookingsBadge,
     threadsBadge,
     eventToday,
+    runsEvents,
   });
 
   /*

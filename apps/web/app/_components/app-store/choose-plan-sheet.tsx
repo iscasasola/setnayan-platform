@@ -9,6 +9,7 @@ import {
 } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { useIsStoreShell } from '@/lib/use-store-shell';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 // Client-side "Choose plan" sheet rendered as the App Store-style GET button.
 // On mobile it slides up from the bottom (single-thumb reach); on desktop
@@ -164,12 +165,7 @@ export function ChoosePlanSheet({
           className="fixed inset-0 z-50 flex h-[100dvh] items-end justify-center sm:items-center sm:justify-end focus:outline-none"
         >
           {/* Backdrop */}
-          <button
-            type="button"
-            aria-label="Close plan picker"
-            onClick={() => setOpen(false)}
-            className="absolute inset-0 bg-ink/40 backdrop-blur-sm"
-          />
+          <OverlayBackdrop onClose={() => setOpen(false)} label="Close plan picker" />
 
           {/* Sheet */}
           <div className="relative flex max-h-[90dvh] w-full flex-col rounded-t-3xl border border-ink/10 bg-cream shadow-xl sm:h-full sm:max-h-none sm:w-[28rem] sm:rounded-l-3xl sm:rounded-tr-none">

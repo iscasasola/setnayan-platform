@@ -1,6 +1,6 @@
 'use client';
 
-import { Download } from 'lucide-react';
+import { Share } from 'lucide-react';
 import { CopyButton } from '@/app/_components/copy-button';
 import { NfcWriteButton } from '@/app/_components/nfc-write-button';
 import { SaveFileLink } from '@/app/_components/save-file-link';
@@ -50,7 +50,7 @@ export function QrActions({
         >
           {(state) => (
             <>
-              <Download aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+              <Share aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
               {state === 'saving' ? 'Saving…' : download.label ?? 'Download QR'}
             </>
           )}

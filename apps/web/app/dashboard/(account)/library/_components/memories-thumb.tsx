@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Download, ListFilter } from 'lucide-react';
+import { Share, ListFilter } from 'lucide-react';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import type { LinkPickOption } from '@/app/_components/link-pick-menu';
 import { AccountThumbRow, ThumbField, ThumbTool } from '../../_components/account-thumb-row';
@@ -62,7 +62,7 @@ export function MemoriesThumb({
       group: o.group === 'Also kept' ? 'Also kept' : 'Show',
       ...(o.key === showValue && events ? { trail: { text: 'showing', tone: 'ok' as const } } : {}),
     })),
-    ...(download ? [{ key: 'download', label: 'Download all', group: 'This event', href: download, icon: <Download className="h-[18px] w-[18px]" strokeWidth={1.9} /> }] : []),
+    ...(download ? [{ key: 'download', label: 'Download all', group: 'This event', href: download, icon: <Share className="h-[18px] w-[18px]" strokeWidth={1.9} /> }] : []),
   ].map((o) => ({ ...o, icon: o.icon ?? <ListFilter className="h-[18px] w-[18px]" strokeWidth={1.9} /> }));
 
   return (

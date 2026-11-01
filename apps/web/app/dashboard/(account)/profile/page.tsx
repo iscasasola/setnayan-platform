@@ -3,7 +3,7 @@ import { SaveFileLink } from '@/app/_components/save-file-link';
 import { MEAL_LABELS, MEAL_PREFERENCES } from '@/lib/guests';
 import { redirect } from 'next/navigation';
 import {
-  Download,
+  Share,
   AlertTriangle,
   ChevronRight,
   Compass,
@@ -928,7 +928,7 @@ export default async function ProfilePage({ searchParams }: Props) {
               filename="setnayan-my-data.json"
               className="button-secondary inline-flex items-center gap-2"
             >
-              <Download aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+              <Share aria-hidden className="h-4 w-4" strokeWidth={1.75} />
               Download .json
             </SaveFileLink>
           </div>

@@ -343,11 +343,7 @@ function TerminalCard({
         <Link href={cta.href} className="button-primary w-full sm:w-auto">
           {cta.label}
         </Link>
-      ) : (
-        <Link href="/" className="button-secondary">
-          Back to Setnayan
-        </Link>
-      )}
+      ) : null}
     </DoorShell>
   );
 }

@@ -1,208 +1,221 @@
-# HANDOVER — claude/guests-summary-carousel (Builder GC, 2026-10-28)
+# HANDOVER — claude/r8-prints-own-page (Builder R8, 2026-10-28)
 
-Contract: corpus `prototypes/guests_summary_carousel_2026-10-27/` (style A) + DECISION_LOG 2026-10-27 rows (carousel
-style A · snap/peek/loop · ⓘ per card · foldable headers by the chip · file buttons are a share button).
+Contract: DECISION_LOG 2026-10-27 "PRINTS LEAVES STUDIO — ITS OWN PAGE (THE APPROVED SWIPE CAROUSEL), OPENED FROM A PRINTS
+LINE ON HOME; NO NEW BOTTOM TAB" (corpus 6bc60ed4) + 2026-10-28 "all mapping will be kept" + "PROTOTYPES ARE FLOW + CONTENT
+ONLY"; build plan `EVENT_MENU_REORG_BUILD_PLAN_2026-10-27.md` step 7b.
 
 ## State
-- Built + guarded + walked (lab, 390/375, Chromium + Playwright WebKit, light/dark). Sabotage: 19/19 red, restored.
-- Carousel = `components/snap-carousel.tsx` (+ module css); cards built in `guests-screen.tsx` (`summaryCards`).
-- Pinned row: `.stickHold` holder + `.stick.pinned[data-collapsed]` fixed (List only); swap read off the carousel's bottom.
-- Excel: `useGuestsExcel` (guests-excel-button.tsx) → ≡ "Save as Excel" (share icon), `usePrintSave`.
-- `.sn-acc-head` / `.sn-acc-chip` in globals.css (end of file, unlayered); Guests only.
-- One-QR: page reads `rsvp_ask_config` ONLY when no guest `mayBeInvited` (`guestsOneQr`); Share → ⚙ sheet row `one-link`.
-- Walk scripts: `shots-2026-10-28/guests-carousel/scripts/` (serve.sh · walk.mjs · plus.mjs · tipdbg.mjs · sabotage.py).
+- Page: `apps/web/app/dashboard/[eventId]/prints/page.tsx` → `LaunchHubPage` with `PRINTS_PAGE_SURFACE` (Symbol key).
+- Rules: `apps/web/lib/prints-page.ts` (item, forward, carry, Home words) + `lib/prints-page-href.ts` (address, no imports).
+- Shell: `maker-shell.tsx` `printsPage` — title "Prints" in the switch's place, studio-full, own sessionStorage key,
+  `itemElsewhere` forward each way (whole-page load: `location.assign` from Prints, `location.replace` from the Maker).
+- Launch page: forward before any read; `printsPage && !hasWork` / `!eventNeeds.hubDetails` → Home; no Maker spotlight,
+  first-open line or guided door on the Prints page.
+- Home: `_components/home-prints-line.tsx`, `HomeFirstScreen` `prints`, page passes `makerHasWork(...) && eventNeeds.hubDetails`.
+- Removed: `prints` tile everywhere; Page ▾ / Settings / menu Prints doors.
+- Guard: `apps/web/lib/prints-has-its-own-page.test.ts` (sabotage script: scratchpad `r8-sabotage.py`, 11/11 RED).
 
 ## Decisions taken (not covered by the record)
-- Card ① opens `/guests/claims`, NOT `/access-requests` (brief/prototype said access-requests): the `requests` number is
-  `pendingClaimsCount` (self-joined unlisted guests) and the shipped "Review" strip opened /guests/claims;
-  /access-requests is coordinators' asks. Same door as shipped.
-- ⓘ tips open INSIDE each card (Home tiles' rule): the track (a scroller) clipped a tip hanging below it. Shorter tip words.
-- +1s card is omitted when the list has no +1s (the shipped strip drew no +1 line then); the carousel loops with 2 cards.
-- "N of M shown · × Clear" line kept, under the dots, only while a search/door is on.
-- Divider under each header = column width (not full-bleed). `.sec` top border dropped for Guests (`.accSec`) so lines never double.
-- Map view keeps the shipped sticky first row (no carousel there).
-- KNOWN, PRE-EXISTING: intermittent useId hydration mismatch on InfoTip ids in the lab — reproduced on origin/main's
-  strip InfoTip too (checked by swapping main's three files in, then restoring).
+- Address: `/dashboard/<id>/prints` (beside /guests, /memories, /budget). No existing prints route (Rule 0 checked:
+  only `/[slug]/print` and `/invitation/print`, which are print SHEETS, not doors).
+- The page renders the whole Maker page (canvas under the layer included) — "render whole", not a slimmer copy. A lighter
+  variant (no canvas) is a possible perf follow-up; not done, because the Prints workspace was only ever validated inside it.
+- The Maker's Prints doors are DROPPED, not turned into links (owner rule: no go-elsewhere links; the plan says "drop").
+- An empty slide's "Add your Love Story" door on the Prints page loads the Maker at `?tool=details&item=love-story`, which
+  (pre-existing rule 3, `makerDoorLanding`) lands on Studio's home — not on the Love Story tile itself. Flagged, not changed.
+- Home line placed after the Papic card, before Your services.
+
+## Merge note
+- R1 (#7019, RSVP leaves Studio) merged first; main merged in here — the Studio is now 9 tiles (no RSVP, no Prints).
+  Count assertions here are DERIVED from `STUDIO_TILE_KEYS`.
+- 2026-10-30: main merged in again (R4 #7028, Seats + March into Guests, and ~360 other commits) — the Studio is now
+  7 tiles (no RSVP, no Wedding March, no Seat plan, no Prints). Kept R4's guest-card returns (`march`/`seats` →
+  Guests views) beside R8's invitation → Prints page; generated maps regenerated, not hand-merged.
 
 ---
 
-# HANDOVER — PR-D `rd/home-control-row` (builder, 2026-10-24)
+# HANDOVER — #7028 · R4 Seats + March into Guests (branch `claude/r4-seats-march-into-guests`)
 
-Contract: corpus `prototypes/home_control_center_2026-10-24_fable.html` (10067d39, owner "ok" ~16:50) — its Review notes.
-Stacked on PR-C `rd/home-service-widgets` (#6861). PR-E `rd/home-ai-and-params` stacks on this.
+Contract: approved Guests prototype v12/v13 — https://claude.ai/artifact/6DXLnENSuU6YxmtMLLPFdc
+(local: `~/Documents/Claude/Projects/setnayan-handoff-src/carry-2026-10-29/guests-proto/index.html`; its ◐ theme row is
+prototype-only). Owner rule: start from the SHIPPED Guests page, apply ONLY the prototype's deltas, lose nothing.
+Keep the PR DRAFT + `do-not-auto-merge`; never merge/deploy. CI is the gate (no local 10 GB tsc while the Mac is short).
 
-## State (PR-D)
-- Model: `app/dashboard/[eventId]/_components/home-control-faces.ts` (pure; one data shape per widget; literal hrefs).
-- Reads: `lib/home-control.server.ts` (Event Hub · Suppliers · Checklist), started in `page.tsx` with the rest.
-  The plan Home no longer mounts `EventDashboard only="whatsnext"` (that mode is removed from EventDashboard).
-- Compact tile + rotation: `home-tile.tsx` + `home-tile-rotation.ts` (timing constants, pure rules).
-- Detail cards + compact grid: `home-control-row.tsx`. Today line + Later fold: `home-parts.tsx`.
-- Services: `HomeServiceCard` / `PapicHomeCard` take a `tile` (the phone's closed face) and join `useOneOpen`.
-- View Event Hub: `HubViewLink` → the shared `openEventHub(url)` in `lib/open-external.ts` (#6866, merged in from main);
-  the local stand-in is gone.
-- Fixture shared by the lab and guards: `lib/home-control-fixture.ts`.
+## DONE (pushed)
+- R4 move: Guests views List · Map · Seats · March (`lib/guests-views.ts`); Seats = `seating/page.tsx host=guests`;
+  March = `MarchMaker` (`guests/_components/guests-march.tsx`); Studio tiles gone; every old door forwards
+  (`lib/r4-seats-march-forwards.test.ts` 1–6).
+- Round 2: Seats chrome at every width (head: Seat plan · ONE PickMenu List·2D·3D · Edit · ⋯ → count row → plan → frosted
+  thumb row Rules ▾ · ＋ · phone people door); Seats › List = foldable tables of faces + blank seats
+  (`seat-faces-list.tsx`); a face (List AND 2D) opens the shipped guest card with Remove · Swap (`GuestCardSheet`,
+  `seats` reader); a blank → "Pick a guest ▾"; Swap uses the shipped atomic `swapSeats`; views + Seats modes switch
+  client-side (`replaceState`), makers + 3D room streamed with the page, mounted on first open, kept.
+- SLICE 3 (this commit): ONE fixed count row (`ViewCountRow` in `guests/_components/view-summary-cards.tsx`, height
+  clamp(56px,7.4cqh,66px)) — Seats: Seated · Unseated · Tables · ✨ Auto arrange (Auto arrange left the thumb row);
+  March: Walks · Walking · Not walking (opens the tray) · ▶ Preview (DISABLED + "The walk preview is coming" — no walk
+  preview ships). Guard: r4 test 8 (sabotaged red twice).
 
-## Decisions taken (not covered by the record)
-- Cover Settings pill removed (prototype drawn without it; Countdown = Event Settings' one door).
-- Suppliers' first face says "N of M booked" (the dashboard's own count) — not "covered": the Suppliers page's
-  "Covered N of M" ring is a different, bench-only derivation; printing "covered" over the other number would be two
-  facts under one word.
-- Guests "role" line not drawn: the shipped role decision is a yes/no (principal sponsors), not a count.
-- Services in detail sit two to a row in one grid (row-aligned), not two independent stacks (one DOM for the cards).
+- SLICE 1 (pushed): THE shared ThumbRow on every view + ONE ⇅ (`lib/guests-filter.ts`, `?gshow/ggroup/gsort` — NOT
+  `?group/?sort`, the page reads those as a group id / server order). List keeps its shipped seats (⇕ · field · ⇅ which now
+  opens Show · Group by · Sort then +1 · Select… · File · Add ways); Map ⇅ Show · Group by + ＋ Add guest; Seats and March
+  read the lens (`guests/_components/guests-lens.tsx`) and PORTAL their ThumbRow into the screen's `.lower` seat
+  (`data-guests-thumb-slot`): Seats ⇕ (List) · Search (dims faces, Enter → fold open / table highlighted) · ⇅ Show + People
+  · ＋ Add ▾ (the plan's 7 placeables); March ⇕ (fold all sections) · Search (dims chips) · ⇅ Show · ＋ Add a walk ▾ (tray
+  names → shipped `planMove` out→gap). Rules moved into the Seats head ⋯. `GuestsSeatThumbRow` deleted. Guard
+  `lib/guests-filter.test.ts` (sabotaged 3×). OPEN: Map ＋ returns against 2026-10-25's "no ＋" — the brief + v12 say so;
+  owner DECISION_LOG row still to write.
 
-## Walk
-Fixture stub: copy of `shots-2026-10-24/prb/scripts/fixture-stub.mjs` under `shots-2026-10-24/home-control/scripts/`.
+- SLICE 4 part 1 (pushed): words wrap, never cut — Seats › List table names, the count tiles' words, the move sheet's
+  guest name, the seat head's title (`lib/guests-words-are-never-cut.test.ts`, sabotaged once). The rest of slice 4
+  (sticky group headers · header tap = select + toolbar Rename · ＋ Add guest here · second tap folds + unselects · the
+  card loses its Group row) is NOT started.
 
----
+- SLICE 4 (pushed, walked 390 WebKit · 1280 · 320, light + `html.dark`): List header tap = select (ringed chip) + open +
+  toolbar above the thumb row (`guests/_components/section-head-toolbar.tsx`: name · count · ✕ / ✎ Rename in place ·
+  ＋ Add guest here — one role = button, several = ▾). What a header offers = `lib/guest-section-head.ts` (Rename only via
+  ONE shipped word: `renameRole` / `renameSection` / `editGuestGroupInPlace`; ＋ only where the name lands; celebrants,
+  letters, replies but To invite keep the fold toggle). ＋ lays the group's picks on the box (`addPicks`) and the box says
+  "Add to …". Second tap on the selected header = fold + unselect. The card's `CardRename` (Rename this role / section —
+  RENAMES only) is gone; Role + Group PICKS stay. Seats › List table headers sticky in their scroller; March group
+  headers sticky under the row in Guests; Seats/March now PIN the full row under the bar (`data-pinned`) so there is a row
+  to stick under. Guard `lib/guest-section-head.test.ts` (sabotaged 3×). Shots `shots-2026-10-29/guests-build/s4b/` +
+  `SBS-s4-*.png`. Known, left for slice 2: at 320 the List's pinned summary face collides with March/counts (shipped).
+  NOT built: header select on Seats tables (no prototype toolbar for it).
+- SLICE 5 (pushed, walked 390/1280/320 light+dark — `shots-2026-10-29/guests-build/s5`, `SBS-s5-*`): Guests › March —
+  no LEFT/RIGHT; lone walker spans (`PairBox` flex, `hideEmpty = solo && !dragging && !carried`, the side grows back
+  during a move); "· empty walk removed"; header tap = select + toolbar via `lens.HeadToolbar` (Rename = `lens.renameSection`
+  · ＋ Walk ▾ from the tray, this group only · Delete = `planSectionOut`, not on fixed sides); second tap folds+unselects.
+  ＋ Group BUILT 2026-10-29 (branch claude/march-own-groups: `march_groups` + `march_walks.march_group`, drafted
+  `group-add/-name/-drop` + `regroup` steps; guard `lib/march-own-groups.test.ts`). Guard
+  `lib/march-groups-in-guests.test.ts`.
+- SLICE 6 part 1 (pushed, walked 390/1280/320 light+dark — `s6/`): Guests › Seats 2D canvas frameless (`seating-editor.tsx`
+  canvas border only `!inGuests`; 3D was already frameless via `inMaker`). Owner 2026-10-29 "remove it": the room outline
+  (`data-seat-room-wall`) is drawn in Guests only for a FIXED (saved) room, square; never for the suggested/free board.
+  OWNER ANSWERS 2026-10-29: ＋ Group in March WANTED (custom march groups → data home via `pnpm migration:new`, Ugat node;
+  own slice); "who placed this seat" column OK (auto/arrange vs couple) for the swap-why sheet; Map ＋ Add guest KEPT. Guard `lib/seats-in-guests-are-frameless.test.ts`.
+  ### SLICE 6 — the rest, Rule 0 done (2026-10-29), NOT built
+  E = `seating/_components/seating-editor.tsx`, L = `seating/lab/_components/seating-lab-3d.tsx` (3D room = lab page `?maker=1`).
+  · (a) confirm sheet: swap = `tradeSeats` (E) → `swapSeats` (`seating/actions.ts`, RPC `swap_seat_assignments`); move =
+    `moveGuestId`/`doMove`/`MoveGuestSheet` (seat-plan-phone.tsx, phone only). NO undo for a manual swap/move (only Auto
+    arrange's `undoAutoRun`). NO "why here" helper: build pure `lib/seat-why.ts` from `guestTier`/`roleTier`/
+    `ROLE_TIER_LABELS` (lib/seating.ts), group, `event_seating_constraints` keep_apart (`solveSeatPlan` violations),
+    `locked`; suggestions from `lib/seat-suggest.ts` `suggestTableFor`. `event_seat_assignments` has NO placed_by — only
+    `locked` (hand-placed); "auto vs you" needs owner + column. Undo = swap again.
+  · (c) 3D gestures: drei `OrbitControls` in L (enabled guards `!draggingId && !draggingZone && !camBusy && !walking`);
+    smallest delta `touches={{ONE: TOUCH.PAN, TWO: TOUCH.DOLLY_ROTATE}}` + a 2-finger vertical delta → polar (tilt).
+  · (d) peek: no peek card exists; face tap → `tapFace` → `faceCard` → `GuestCardSheet` directly. Reuse
+    `InspectorSheetAlone` (inspector-column.tsx; bottom < 701, right panel ≥ 701 — width only, no orientation query).
+    No 3D chair tap exists yet.
+  · (e) palette: L still hard-codes `#11131a #0c0e14 #13151c #2b2e37 #3a3d47 #d8b45a #d9534f #6f9b6a`;
+    `lib/seating-3d.ts` (18 hex) and `lib/plan3d-room.ts` (8) too — add neutral/status tokens to `resolveRoomPalette`.
+  · (f) stations: `event_floor_booths` + `BOOTH_CATALOG`/`boothTypeForVendorCategory`/`fetchBooths` (lib/seating.ts),
+    `saveBooths` (validates `BOOKED_VENDOR_STATUSES`). NO per-service "takes a spot" field anywhere — needs
+    `pnpm migration:new` (column on `service_categories` or `canonical_service_taxonomy`) + Admin › Categories toggle +
+    Ugat/admin maps + DECISION_LOG row. Pipeline only, never a direct apply.
+- Slice 1 follow-up (pushed): the makers take THE row from the lens (`lens.ThumbRow`) — importing `thumb-row.tsx` into
+  details-march / seating-editor pulled its CSS module into the Maker's lazy pieces and broke ~10 render tests; march hooks
+  sit above its `if (!anyone)` early return (eslint rules-of-hooks). Full unit suite 28,432/0 locally; CI typecheck ·
+  eslint · unit · build green on cb2993ee45. Walk shots: `shots-2026-10-29/guests-build/{base,after,after2}` + `SBS-*.png`.
 
-# HANDOVER — rd/papic-save-first-send-later (Papic "save first, send later", strategy B)
+### Slice 2 notes for whoever picks it up (not started)
+- The first row lives in `guests-screen.tsx` (`data-first-row`, `seg()` / `pinSeg()` / `PinnedSummary`, CSS `.stick` ·
+  `.pinned[data-collapsed]` · `.face/.faceAlt` in guests-screen.module.css; guard `lib/the-pinned-row-is-one-row.test.ts`).
+- Seats' mode lives in the seats editor (`SeatPlanModePick` in `StudioSeatPlanHead`, `onSelectView`, `studioView`) — to
+  move it into the Guests first row, give the lens a REVERSE channel (seats registers `{ mode, setMode, show3D }`), not a
+  second state. 📤 round waits for #7032 (slice 8) — draw no 📤 until then.
+- PageMasthead is in `guests/page.tsx` (titleNode = "N guests"); v14 wants it sr-only.
 
-Builder: Opus · started 2026-10-23. Keep this file current; a stop at any moment must leave a clean state.
+## NEXT — CONTROLLER ORDER (2026-10-29, owner "Build as many as you can on the guests page"):
+slice 5 (March) → 6 (Seats) → 2 (top row) → 7 → 9 → 10, one commit + push + HANDOVER each. (Older list below.)
 
-## Why
-Measured (controller, prod, 2026-10-23): `POST /api/papic/guest-capture` with a 6 MB body →
-`413 FUNCTION_PAYLOAD_TOO_LARGE` from Vercel before our code runs (cap 4.5 MB). Guest clips
-(~12.5 MB designed) all fail. `/api/vendor/papic-capture` has the same shape (multipart bytes →
-server `r2Upload`). The SEAT camera already PUTs direct to R2 via `/api/upload` presign (no 413).
+## NEXT — in the controller's order (older)
+1. ~~SLICE 1~~ DONE (above). Original note: thumb row on every view = shared `components/thumb-row.tsx`: ⇕ · Search guests · ⇅ ONE PickMenu (Show / Group
+   by / Sort) = one filter state in the URL shared by carousel cards, List and Map · ＋ (Guests: Add guest; Seats: Add ▾
+   Table·Stage·Dance floor·Supplier station·Entrance·Buffet·Sign; March: Add ▾ Walk·Group). Seats today: the bespoke
+   `GuestsSeatThumbRow` (seat-plan-phone.tsx) — replace with ThumbRow. Search: reuse the List's `guestMatchesSearch`.
+   Prototype: `renderThumb`, `filterSheet`, `setShow`, `goToGuest`.
+2. SLICE 2 top row: segmented Guests · Seats · March (sliding pill) + mode ▾ (Guests: List·Map; Seats: List·2D·3D) + ⚙;
+   pinned minimized form (View ▾ · page name · mode ▾ · ⚙); `?gview=map` → Guests › Map. The Seats mode PickMenu today
+   lives in the seat head (`SeatPlanModePick`) — move it into the Guests first row.
+3. SLICE 4 sticky group headers (List groups, Seats tables, March groups) under the pinned row.
+4. SLICE 5 March edits (drop between rows = new walk; emptied walk removes itself; solo pill spans; header menu
+   Rename · ＋Walk · ＋Group · Delete) — Rule 0 on the march tables first.
+5. SLICE 6 Seats swap/move confirm with "why here" + tickable suggestions; 2D/3D full-bleed, no frame; 3D gestures.
+   Check whether `event_seat_assignments` records who placed a seat BEFORE any column.
+6. SLICE 7 seat rules = ordered checklist in ⚙ + Auto arrange confirm (follow-up PR per controller: needs stored rules).
+7. SLICE 8 📤 Share round → "Share or print" sheet on PR #7032's engine (`lib/share-pdf.ts`) — only once #7032 merges.
+Also queued (earlier notes): Requests inside Guests; remove Guests ⚙ › Invitations row; Replies open/close not showing in
+the iPhone app (rows render in code — suspect the sheet does not scroll in the app shell; walk with UA + Capacitor stub).
 
-## Owner rulings this build follows
-- 2026-10-23: "each phone can shoot continuously while uploading online works on the background";
-  priorities reliability, speed, ease. Strategy **B** (browser + base inside the iPhone app);
-  **C** (native background URLSession uploader) = 1.1, NOT this PR — uploader sits behind one
-  interface (`lib/papic-upload/transport.ts`) so C can plug in.
-- Coordinator relay 2026-10-23 "as realtime as possible" + "clean and safe": tiers per shot,
-  thumbnail → display → original (original only when the event keeps full-res, Wi-Fi preferred);
-  clips poster → web copy → raw. Server derivation stays as the fallback. Nothing reaches another
-  person before the NSFW screen passed. Presigned PUTs bound to one key (clientCaptureId + tier),
-  short expiry, Content-Type + Content-Length signed. Record verifies existence, size, magic bytes.
-  Unrecorded uploads are swept. Bucket stays private.
-- Rule 0 sources: corpus `0012_papic/0012_papic_offline_note.md` §2 + §6 (capture queue + status
-  words), `0012_papic/Papic_Storage_Sustainability_Spec_2026-07-22.md` Guard A / Guard B,
-  `ROADMAP_TO_APPLE_CHECK_2026-10-06.md` (native background upload = after Apple = C).
+## LATER OWNER RULES (prototype v14–v19, same file — fold into the slices above)
+- v14 (slice 2): ONE menu for page + mode — the segmented Guests · Seats · March; tapping the SELECTED segment (small ▾)
+  opens its modes; NO separate mode pill. Pinned row = LEFT the menu ("Guests · List ▾"), RIGHT the rounds (📤 Share ·
+  ⚙), NO centre name. No visible title (PageMasthead sr-only). Fits 320: segment icons hide < 420, rounds 36 < 360.
+  "With support to the other parts of guests": run every existing guests guard after each slice (Requests, Replies
+  window, Invitations/send, check-in, claims, import, guest card, tours, honest reads).
+- v15 (all views): guest names NEVER ellipsized — wrap to 2–3 lines (line-clamp 3, overflow-wrap:anywhere); march chip
+  min-height 38, radius 19. Guard: no name element carries text-overflow:ellipsis / nowrap. ⚠ `SeatPlanModePick`,
+  `ViewCountRow` labels and `seat-faces-list` titles use `truncate` today — names must not.
+- v16 (slice 2): entering Map / Seats 2D-3D never jumps — scroll smoothly to the pin point; full row rises + fades
+  (translateY(-12px) scale(.98)) while the pinned row rises from +12px, 0.3s cubic-bezier(.2,.8,.2,1); same on scroll
+  past the pin point; respect prefers-reduced-motion.
+- v17: full-screen views (Map, Seats 2D/3D) have NO help line under the canvas (the floating thumb row would cover it);
+  help = one-time tip inside the canvas or an ⓘ. Check: no text box sits under the thumb row.
+- v18: Map has NO own "Grouped by ▾" chip — Group by only in the thumb row's ⇅ (shared with List); Map keeps the
+  "‹ All households" back chip. Slice-6 walk: a SIDE-wall entrance must lie ALONG the wall, inside the floor — check the
+  2D engine's entrance snap for swapped length/thickness and half-length used instead of half-thickness.
+- v19 (slice 6, may follow 7): Seats 2D + 3D show a station for EVERY booked supplier whose service takes a spot at the
+  venue (band, DJ, photo booth, catering, bar, coordinator desk…). Qualification from the ONE taxonomy (Admin ›
+  Categories) — find an existing per-service field first; else one switch there (pnpm migration:new, pipeline only;
+  Ugat + admin maps). Auto-placed in free space, movable, not deletable while booked (toast why); 3D standing tag
+  facing the camera; read in the page's one batched read. DECISION_LOG row for the ruling.
+- v13 slice 8: 📤 Share round → "Share or print" sheet per view, on PR #7032's engine (`lib/share-pdf.ts`) only after it
+  merges; reuse Studio › Prints' table signs / place cards / entrance chart builders.
 
-## Design (decided)
-- Shutter: frame → canvas → event look → JPEG (local encode only) → IndexedDB `papic` store →
-  shutter free. Tiers (thumb 320 / tile 640 / display 1280, WebP where the browser encodes it,
-  else JPEG) are made in a background prepare step from the saved blob.
-- One page-side replayer (`lib/papic-upload/replayer.ts`), 2 PUTs in parallel, triggers: shot,
-  `online`, `visibilitychange`→visible, page open. No service-worker replayer for these items:
-  `lib/offline/sync-daemon.ts` skips them.
-- Phases per capture: R (record) → A2 (attach) → A3 (attach original/raw). All R before any A2,
-  all A2 before any A3 across the whole queue.
-  - Photo: R = thumb → `record` (row born with r2_object_key = thumb, screened in after()).
-    A2 = tile + display → `attach` (each screened BEFORE its key is written; r2_object_key moves to
-    display). A3 = original (only when the event keeps full-res) → `attach` (screened; r2_object_key
-    moves to the original).
-  - Clip: prepare makes poster + web copy (ffmpeg.wasm, best-effort). R = poster + first playable
-    (web copy, else raw) → `record`. A3 = raw when keep-full-res and a web copy exists.
-- Credits: STOPPED the reservation model (it would change pool rules = money; owner "don't
-  guess"). Server checks at `sign` (no charge) and charges at `record` with the existing RPC. A
-  shot refused for credits stays queued and the chip says "Credits ran out · N not sent".
-- Keep full-res: see "Decisions made here" below (`eventKeepsFullRes` in lib/papic-upload-intents.server.ts).
-  (The HIGH_RES_ARCHIVE SKU has zero catalogue rows as of 2026-09-22.)
+## ⚠ THE BASE IS LIVE, NOT THE PROTOTYPE (owner correction, v23) — read before ANY visual slice
+The prototype REDREW the guest rows and the carousel — do NOT copy those. Keep exactly as shipped: (a) the live guest
+row (every label/chip/badge, row Share + Delete); (b) the live SnapCarousel cards (incl. Invite N › and +1s) — apply only
+the one-count-height rule; (c) the live List thumb row ⇕ · ☑ Select · "Search or add" (the field adds a guest) · Sort/⇅,
+and Select mode (✉ Invite N · Set ▾ · Remove · Done). No extra ＋ on Guests › List. 📤 in the top row = Share/print only.
+Screenshot the live lab (`/dev/guests-lab?part=screen`) before each visual slice; side-by-sides must show the live
+parts unchanged.
 
-## State (2026-10-23, keep current)
-- [x] pure tiers + schedule + replayer (+ scenario tests: 10 photos + 2 clips offline → reconnect → 12 rows, a lost answer replayed as duplicate)
-- [x] migration 20271285508020 (papic_upload_intents + vendor client_capture_id) — NOT applied anywhere but the PGlite replay
-- [x] server: lib/papic-upload-intents.server.ts (sign → staging key; load + check size/type/magic; screen; promote to the final key; settle) + sweep lib/papic-upload-sweep.ts (admin layout + capture routes, hourly — review round)
-- [x] guest + vendor routes → JSON ops sign · record · attach; multipart refused 415 bytes_not_accepted
-- [x] client: lib/papic-upload/{store,prepare,transport,lanes,replayer,browser,ownership}.ts; chip app/papic/_components/upload-chip.tsx; guest camera + supplier camera + Kwento decorator wired; legacy guest/vendor drains removed (adopted on page open); sync daemon skips them
-- [x] Guard A in the full-res drop; host readers → 'clean' allowlist; Drive only after the screen
-- [x] guards + sabotage (S1–S10 all red → green, see below)
-- [x] DECISION_LOG row + 0012 offline note status (corpus e4f6f9b9, pushed)
-- [x] walks done (WALK-SUMMARY.txt in the shots folder): Chromium guest + supplier, WebKit guest — all PASS; before measured on origin/main
-- [x] quick preflight (guards, lint, types, pins) green
-- [x] full tsc 0 errors · full preflight 49 ✓ / 6 ✗ → 4 fixed, 2 not ours (one fixed on main; hub-look-is-pro matches "papic" in this worktree's PATH) · db 15/15 + 14/14
-- [x] PR #6849 (draft, do-not-auto-merge, auto-merge off). CI round 1 on 74dc6df: 27 pass · 2 skipped · 0 fail
-- [x] design-template ✓/✗ table in the PR body; refusal copy → "Couldn’t save N"; 375 px shots (both engines)
-- [ ] seat lane — NOT in this PR (see "Left")
+## MORE OWNER RULES (v20–v22)
+- v20: 3D colours ONLY from the room palette (`lib/room-palette.ts` resolveRoomPalette → Lab3DPalette) — already so;
+  never hard-code. Tapping a guest on Map / 2D / 3D shows a PEEK card (avatar · name · role · group · seat · Open);
+  Open = the full guest card with Remove / Move-or-swap. Peek AND card: from the BOTTOM on a portrait phone, a RIGHT
+  side panel in landscape and ≥1024 — one shared Sheet/side-panel rule.
+- Group header tap (List groups, Map circles): select + open + toolbar Rename · ＋ Add guest here (lands in that
+  group), Undo. v21: tapping the SELECTED header again folds it AND unselects (toolbar drops); ⇕ still independent.
+- v22: REMOVE the group/role rename row from the shipped guest card (Rule 0: check whether it renames or assigns; remove
+  only the rename); renaming lives on the header toolbar; port baseline regenerated with reason "moved to the group
+  header toolbar".
 
-## Review round (independent review of #6849 head f160c5c7 — "DO NOT SHIP until fixed")
-- [x] B1 keep, never delete, for window / put-away / event-over (only blocked + terms_required drop); chip
-  "Not sent · N kept on this phone"; kept shots exempt from the 7-day TTL; record judges the window by
-  `captured_at_ms` (lib/papic-upload/shot-time.ts: ≤ now+10 min, ≥ now−8 d, else server time) — guest + vendor
-- [x] B2 every call carries event_id + an HMAC owner tag (lib/papic-upload/owner-tag-core.ts + .server.ts, keyed
-  with the guest-session seal); guest route reads the pass FOR the shot's event; mismatch → 409 other_event /
-  other_owner = WAIT (classifier `context`); replayer only sends shots whose event has a camera registered here
-- [x] M3 per-attempt final keys (`-a{8hex}`), final_ref written before the copy, a lost race / failed charge
-  discards only its own attempt, attach is CAS, a settled intent is never promoted twice (intentFor skips settled)
-- [x] M4 Release to Drive + the Memories density card read clean only; Drive skips rows still on their thumbnail/tile
-- [x] M5 raw clip stays on the phone until the server probes a playable web copy (mvhd 300–12000 ms)
-- [x] M6 sweep: batches in a 20 s budget; settled rows forgotten 15 min after settle (outlives the 5-min URL, so a
-  late re-PUT is dropped too); unsettled > 8 d by direct query; refused rows set aside (sweep_refused_at); an
-  attempt's final copy deleted only if no row references it (fail closed); hourly, also fired from both routes
-- [x] m7 memory-only chip · m8 attach refuses a held tier · m9 tabs sync + Kwento waits for the display copy
-- [x] m10 property guard lib/papic-upload/every-papic-media-reader-is-screened.test.ts (reader list derived from the
-  tree; caught the Memories density card on its first run)
-- Sabotage this round (all red → restored green): sweep deletes a referenced final · sweep forgets a refused staging
-  delete · put-away added to the drop set · the guest other_event check disabled · the tag stops binding the event ·
-  Drive release loses its clean filter
-- Checks this round: full tsc 0 · full preflight 49/51 (T23 fixed; hub-look-is-pro = worktree path) · db 17/17 ·
-  merged origin/main (exposure baseline + screens map regenerated) → quick preflight 46 ✓ · full tsc 0 · db 27/27 ·
-  Chromium re-walk guest + supplier PASS · 375 shots r2-chromium-375-kept/blocked
+## SLICES 9–11 (after 8, same branch, one commit + push + HANDOVER each)
+9. 2D editing on the SHIPPED engine: venue Free (floor grows) or Fixed W×H (refuse outside); stage + dance floor
+   corner-resize; entrances snap to an edge, lie along it, width handles, dotted walk path to a selected/searched seat;
+   ＋ Add ▾ lands in free space (spiral search, no overlap); Duplicate; Link/Unlink as one unit; Type ▾ / Seats ▾
+   refuse on overlap. Extend footprintsOverlap / Link / five types — never a second engine; columns via
+   pnpm migration:new.
+10. Map = the prototype's mind map (≤6 hubs on a ring + "Other households · N" drill-in, "‹ All households", couple
+   centre, 36 px faces, same canvas controller as 2D, hold-drag a face to another circle, circle toolbar Rename ·
+   ＋ Add guest here · Sit together ▾, fit on grouping change; grouping = the shared ⇅ Group by).
+11. Requests inside Guests; remove the Guests ⚙ Invitations row (sendHref / SETTINGS_ROWS / pick-who / tour ripples);
+   the iPhone-app "Replies open/close not showing" — walk with UA + window.Capacitor stub and fix the real cause.
+Order 1 → 11. Ship nothing yourself.
 
-## Re-review (87318ee9 → 8/10 verified; M3 + M5 + minors fixed)
-- M3 unclear failure = keep copies; definite refusal = discard; every final delete via
-  deleteFinalIfUnreferenced (fail closed); promoteTier retires a prior unclear attempt only if unreferenced
-- M5 duplicate answer = keeps || rowNeedsRaw(prior) (recordedClipNeedsRaw, lib/papic-upload/mp4.ts)
-- minors: terms_required kept (camera wakes uploader on accept); adopted old-queue shots held
-  for "Send as me" (chip button, TTL restarts on confirm); pointsAtAPreview reads the key name; replayer header
-- sabotage S1–S6 each red on its own test, restored green
-- ⚠ Not changed, said plainly: the PAPARAZZI SEAT camera (papic-seat-capture + lib/offline/service-handlers/papic-drain.ts)
-  is not on this uploader and still treats put-away as terminal — B1 covers the save-first guest + supplier cameras.
+## NAMES (owner, v24–v26)
+- Everywhere a guest is named in Guests (list rows, March chips, peek, search results, guest card head, swap sheet): the
+  FULL name (name_prefix + first + last, from the shipped name helper) with the nickname (`guests.display_name`, no new
+  column) beside it in muted quotes; search matches the nickname too. Extend the ONE helper (Rule 0: lib/guest-title /
+  `guestDisplayName` / `displayPersonName`); every surface reads it. Wrap to 3 lines, never ellipsize.
+- v26: March — the two pills of one walk always share one height (row align-items: stretch, pill align-self: stretch,
+  content centred); same anywhere two name pills sit side by side.
+- After EACH green + walked slice: tell the controller with a check card (he batches to live); #7028 goes
+  ready-for-review only when he says; slice 8 waits for #7032 (skip to 9, come back); report progress every 2 slices.
 
-## Sabotage runs (break → red → restore → green), 2026-10-23
-S1 multipart back in the guest route → no-bytes guard red · S2 attach writes before screening → safety guard red ·
-S3 host Memories `!== 'nsfw_blocked'` → red · S4 a network failure drops the shot → replayer red (2) ·
-S5 phase order swapped → replayer order red · S6 Guard A equality removed → drop-core red ·
-S7 PUT TTL an hour → guard red · S8 a fresh id per retry → capture-id test red ·
-S9 daemon sends save-first items → daemon test red · S10 sweep raw-deletes → sweep test red. All restored green.
-
-## Decisions made here (owner may reverse)
-- Keep full-res = `papic_quality_tier` in (full_res, optimal) OR HIGH_RES_ARCHIVE active (`eventKeepsFullRes`). The relay said
-  "original only when Keep full-res is on"; no single switch exists, and 'optimal' promises A3 prints — dropping its original
-  would make the picker's words false. One line to narrow.
-- Credit reservation NOT built (money). Sign pre-checks, record charges (existing RPC). Credit refusals keep the shot queued.
-- A row never points at a key a presigned URL can reach: the phone PUTs to `…/incoming/`, the server re-writes checked bytes
-  to the final key (stills: the screened bytes themselves; videos: ETag-pinned copy).
-- Record is screened synchronously (off the shutter path now); attach waits for the record's screen; Drive only gets 'clean'.
-- Host Memories / library / zip / save-photo / magazine / teaser allowlist 'clean' (relay (a)). A classifier outage now
-  HIDES from the couple until the re-screen sweep heals — and the phone keeps sending ("Sending …") until it does.
-
-## Walk notes (lab: /dev/papic-camera-lab, scripts + shots in ~/Documents/Claude/Projects/shots-2026-10-23/papic-save-first/)
-- serve: scripts/serve.sh (walk lane, port 3617, lab no-database env + 54321 stub); STOP by `touch scripts/STOP`.
-- walk: `ENGINES=chromium|webkit node scripts/walk.mjs` (route-intercepted server + R2; 2 Mbps up, 150 ms RTT).
-- Chromium (dev): shutter free 4–9 ms; on the phone ~0.8 s; 12 rows, 1 lost answer replayed as duplicate; 22 MB in 71 s.
-- WebKit (dev) traps: (1) Playwright's setOffline makes WebKit unable to READ its own Blobs (NotReadableError) — the walk
-  cuts the link at the network edge instead; (2) Safari ephemeral IndexedDB refuses Blob → store falls back to ArrayBuffer;
-  (3) dev-mode JSC runs the look ~20× slower (ORIG 15.6 s → 7.2 s after the row-major blur) while a production-style
-  bundle runs it in 255 ms (WebKit) / 310 ms (Chromium) — the dev number is not a phone number.
-- NEVER edit apps/web while a walk runs: Fast Refresh reloads the lab and resets the page's uploader mid-walk.
-- ⚠ Incident: I ran `pkill -f "node scripts/walk.mjs"` once (to stop my own walk) — a by-name kill that could have hit
-  another session's same-named script. Disclosed in the report.
-
-## Left (for the report)
-- Seat camera onto the uploader: needs papic_photos.client_capture_id + idempotent recordSeatCapture + a seat sign op
-  reusing /api/upload's seat gates. Seat bytes already go direct to R2 (no 413).
-- /api/vendor/papic-portfolio-import still takes its file through the function (12 MB cap > 4.5 MB): same fault, not a camera.
-- C (native iPhone background upload): register a transport via setPapicTransport (lib/papic-upload/transport.ts); the OS
-  must also persist the queue across app kills (today the queue is IndexedDB in the WebView).
-
----
-
-
-# PR-E `rd/home-ai-and-params` (stacked on PR-D)
-- Setnayan AI card = `home-cards/home-planner-card.tsx` (alerts from `lib/home-ai-card.server.ts`, picks from the cockpit).
-- Ask box NOT built: no assistant chat exists in the product (the Setnayan AI page is buy + showcase).
-- Params: `?q=declined` (existed) · workspace `?tab=quote` (existed) · `#task-<id>` (new anchor) · `?pay=<line_item_id>` (new).
-
-Fixture stub + scripts: `~/Documents/Claude/Projects/shots-2026-10-24/prb/scripts/` (stub with `INTERNAL=1 WIDGETS=1`,
-`FAIL=table,…` for refused reads), PR-C walk `~/Documents/Claude/Projects/shots-2026-10-24/prc/scripts/shots.mjs`.
-Dark shots force `.dark` — the event tree is not on the dark ready-list yet, so production paints it light.
-
-## Left (for the report)
-- Seat camera onto the uploader: needs papic_photos.client_capture_id + idempotent recordSeatCapture + a seat sign op
-  reusing /api/upload's seat gates. Seat bytes already go direct to R2 (no 413).
-- /api/vendor/papic-portfolio-import still takes its file through the function (12 MB cap > 4.5 MB): same fault, not a camera.
-- C (native iPhone background upload): register a transport via setPapicTransport (lib/papic-upload/transport.ts); the OS
-  must also persist the queue across app kills (today the queue is IndexedDB in the WebView).
+## How to prove a slice
+Guard per property (+ one sabotage), port/Ugat/design-rules baselines regenerated (`pnpm port:baseline`,
+`pnpm ugat:screens`, `pnpm --filter @setnayan/web design-rules:baseline --write`, `pnpm root-map --baseline`), all
+`scripts/lint-*.mjs` + `lint-dup-rule.ts`; walk only via the walk lane (`heavy-lock.sh acquire walk:…`), lab
+`/dev/guests-lab?part=screen&gview=seats|march` with dummy Supabase env; shots → `shots-2026-10-28/r4-seats-march/`.

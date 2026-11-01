@@ -275,6 +275,8 @@ function PreparationRow({
         <div className="flex min-h-11 min-w-0 flex-1 items-center">{text}</div>
       )}
       <div className="flex shrink-0 flex-col items-end gap-1">
+        {/* A task's second line already names its area — no chip repeating it, so the title keeps the width (390). */}
+        {item.source === 'task' ? null : (
         <span
           className={`max-w-[7rem] truncate rounded-full px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em] ${chipStylesFor(
             display,
@@ -283,6 +285,7 @@ function PreparationRow({
         >
           {chipLabel}
         </span>
+        )}
         {item.amountPhp !== undefined ? (
           <span className="font-mono text-xs text-ink/70">
             ₱{Math.round(item.amountPhp).toLocaleString('en-PH')}

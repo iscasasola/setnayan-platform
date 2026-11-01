@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6890
+# facts: 6892
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     582
-#   col       5033
+#   col       5035
 #   policy    980
 #   view      9
 #   func      282
@@ -1322,6 +1322,7 @@ col	public.event_category_decisions.tile	anon=- authenticated=SIU
 col	public.event_checklist_items.category	anon=SIU authenticated=SIU
 col	public.event_checklist_items.completed_at	anon=SIU authenticated=SIU
 col	public.event_checklist_items.created_at	anon=SIU authenticated=SIU
+col	public.event_checklist_items.due_date_set	anon=SIU authenticated=SIU
 col	public.event_checklist_items.due_offset_days	anon=SIU authenticated=SIU
 col	public.event_checklist_items.event_id	anon=SIU authenticated=SIU
 col	public.event_checklist_items.item_id	anon=SIU authenticated=SIU
@@ -1705,6 +1706,7 @@ col	public.event_playlist_slot_vibes.updated_at	anon=- authenticated=SIU
 col	public.event_playlist_slot_vibes.vibe	anon=- authenticated=SIU
 col	public.event_playlist_slot_vibes.vibe_id	anon=- authenticated=SIU
 col	public.event_preparation_items.amount_php	anon=SIU authenticated=SIU
+col	public.event_preparation_items.completed_at	anon=SIU authenticated=SIU
 col	public.event_preparation_items.created_at	anon=SIU authenticated=SIU
 col	public.event_preparation_items.created_by	anon=SIU authenticated=SIU
 col	public.event_preparation_items.due_date	anon=SIU authenticated=SIU

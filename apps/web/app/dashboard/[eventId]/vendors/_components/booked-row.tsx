@@ -76,6 +76,7 @@ import { CancelBookingButton } from './cancel-booking-button';
 import { WithdrawAskButton } from './withdraw-ask-button';
 
 import { BookedStandInCtx } from './booked-stand-ins';
+import { BookedWhere, BookedWhereLine } from './booked-where';
 
 export { BookedStandInCtx, type BookedStandIns } from './booked-stand-ins';
 
@@ -509,6 +510,8 @@ export function BookedRowItem({
           <span className="block truncate text-[13px] text-ink/55">
             {[row.service, row.own ? 'added by you' : null].filter(Boolean).join(' · ')}
           </span>
+          {/* 📍 The chapters they work — or "Needs at least 1 chapter" (the prototype's `supRow`). */}
+          <BookedWhereLine where={row.where} />
         </span>
         {/* A list row is a hairline row with a terracotta arrow (owner 2026-10-12,
             look call 8); this one unfolds in place, so it points down and turns. */}
@@ -572,6 +575,7 @@ export function BookedRowItem({
 function BookedFold({ eventId, row }: { eventId: string; row: BookedRow }) {
   return (
     <div className="grid min-w-0 gap-2.5 pb-1 pt-3 text-[14px]" data-booked-fold={row.vendorId}>
+      {row.where ? <BookedWhere eventId={eventId} vendorId={row.vendorId} where={row.where} /> : null}
       {row.callTime ? <CallTimeLine line={row.callTime} /> : null}
       {row.plan ? <PlanRows plan={row.plan} own={row.own} /> : null}
       {row.room ? <BookedRoomLine line={row.room} threadId={row.threadId} /> : null}

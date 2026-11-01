@@ -113,10 +113,11 @@ export function BookedBody({
     );
   }
 
-  const { waiting, booked, unpriced } = state.view;
+  const { waiting, booked, unpriced, needWhere = 0 } = state.view;
   const countLine = [
     `${formatCount(booked.length)} booked`,
     unpriced > 0 ? `${formatCount(unpriced)} without a price` : null,
+    needWhere > 0 ? `${formatCount(needWhere)} need a chapter` : null,
     waiting.length > 0 ? `${formatCount(waiting.length)} waiting` : null,
   ]
     .filter(Boolean)
@@ -163,6 +164,14 @@ export function BookedBody({
               ) : (
                 ' · every price set'
               )}
+              {needWhere > 0 ? (
+                <>
+                  {' · '}
+                  <span className="font-medium text-[rgb(var(--color-warn))]" data-booked-need-where="">
+                    {formatCount(needWhere)} need a chapter
+                  </span>
+                </>
+              ) : null}
             </p>
             {dateChangeUnread ? (
               <p className="mt-1 text-[12.5px] text-ink/60" role="status" data-booked-date-unread="">

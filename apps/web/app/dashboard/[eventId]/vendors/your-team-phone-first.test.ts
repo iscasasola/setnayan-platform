@@ -207,7 +207,8 @@ test('(b) the Booked body draws the rows the one module decided, and a verb call
   assert.match(PAGE, /parts=\{bookedPartList\}/);
   assert.match(
     SLOT,
-    /bookedView\(\{\s*rows,\s*facts,\s*money: list\.suppliers,\s*plans,\s*rooms,\s*dateChange: dateChange\.ok \? dateChange\.view : null,\s*callTimes,\s*\}\)/,
+    // 📍 the call times and the chapters (Where) come from ONE Schedule read (owner 2026-11-01).
+    /bookedView\(\{\s*rows,\s*facts,\s*money: list\.suppliers,\s*plans,\s*rooms,\s*dateChange: dateChange\.ok \? dateChange\.view : null,\s*callTimes: schedule === undefined \? undefined : schedule === null \? null : schedule\.callTimes,\s*chapters: schedule === undefined \? undefined : schedule === null \? null : schedule\.chapters,\s*\}\)/,
   );
   assert.match(SLOT, /buildBudgetList\(money\)/, 'the body totals money itself instead of reading the one list');
   // A SERVER body around client rows; which verbs a row has is the module's answer.
@@ -258,7 +259,7 @@ test('(c) a refused EVENT read says so on the line — never "Pick your date"', 
 });
 
 test('(c) the Booked body says "Couldn’t load your suppliers" for unreadable, and "nothing booked" only for a measured zero', () => {
-  const split = BODY.indexOf('const { waiting, booked, unpriced } = state.view;');
+  const split = BODY.indexOf('const { waiting, booked, unpriced, needWhere = 0 } = state.view;');
   assert.ok(split > -1, 'the body no longer splits the refused read from the view — re-anchor');
   const unreadable = BODY.slice(BODY.indexOf("state.kind === 'unreadable'"), split);
   assert.match(unreadable, /Couldn’t load your suppliers/);

@@ -11,7 +11,6 @@ import { PutAwayCard } from '../details/_components/put-away-card';
 import { PlanMyselfSwitch } from '../launch/_components/plan-myself';
 import { OneCodeUnderGetIn } from '../studio/papic/_components/one-code';
 import type { EventSettingsInput } from '../launch/_components/details-settings-load';
-import { EventSettingsChapters, type ChaptersInput } from './event-settings-chapters';
 
 /**
  * 🗂 THE REST OF EVENT DETAILS' OWN SETTINGS (owner 2026-10-30, *"move them all in the event settings"* · *"they were
@@ -80,8 +79,6 @@ export function EventSettingsRows({
   more = null,
   yours = null,
   yoursAskedAt = null,
-  chapters = null,
-  chaptersLab = false,
 }: {
   eventId: string;
   input: YourEventInput | null;
@@ -96,14 +93,6 @@ export function EventSettingsRows({
   yours?: OwnAccess | null;
   /** 🪪 When the helper last asked the hosts (the Home lab's fixture) — absent: the button says "Ask the hosts". */
   yoursAskedAt?: string | null;
-  /**
-   * 📖 THE EVENT'S CHAPTERS (owner 2026-11-01, corpus SCHEDULE_CHAPTERS_BUILD_PLAN §8 step 3 "Chapters + Event
-   * Settings"): make, change and delete them — the hosts' sheet AND a helper holding Edit on the Schedule (the
-   * coordinator). `{ measured: false }` = the read failed (said, never "no chapters"); null = not drawn.
-   */
-  chapters?: ChaptersInput | null;
-  /** 🧪 The Home lab's fake chapters: the same rows, doors that write nothing. */
-  chaptersLab?: boolean;
 }) {
   const editors = input ? yourEventFactEditors({ eventId, input }) : null;
   const withParents = input ? parentsOffered(input.kind) : false;
@@ -132,11 +121,6 @@ export function EventSettingsRows({
       {input && editors ? (
         <FactRow row="venues" title={yourEventLabel('venues', input.kind)}>
           {editors.venues}
-        </FactRow>
-      ) : null}
-      {chapters ? (
-        <FactRow row="chapters" title="Chapters">
-          <EventSettingsChapters eventId={eventId} input={chapters} lab={chaptersLab} />
         </FactRow>
       ) : null}
       {input && withParents ? (

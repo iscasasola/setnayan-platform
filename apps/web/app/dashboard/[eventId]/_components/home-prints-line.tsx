@@ -9,12 +9,13 @@ import { PRINTS_HOME_LINE, PRINTS_PAGE_CARD, PRINTS_PAGE_LABEL, printsPageHref }
  * its ⓘ — and the whole line opens `/dashboard/<id>/prints`, where the shipped swipe carousel lives.
  *
  * Drawn from the control row's own card (`.sg-row.hc-card`, its `.hc-card-door` — the whole card is its one page, the ⓘ
- * sits above it, never a link in a link), so it reads as one more of Home's parts, not a new look. Server-rendered: no
- * client code reaches Home for it.
+ * sits above it, never a link in a link), so it reads as one more of Home's parts, not a new look. A ROW, NOT A CARD
+ * (owner 2026-11-01, frames only where you act): a door with nothing to act on in place, so `hc-plain`. Server-rendered:
+ * no client code reaches Home for it.
  */
 export function HomePrintsLine({ eventId }: { eventId: string }) {
   return (
-    <article className="sg-row hc-card" data-home-prints-line="" data-tour="home-prints">
+    <article className="sg-row hc-card hc-plain" data-home-prints-line="" data-tour="home-prints">
       <Link href={printsPageHref(eventId)} className="hc-card-door" aria-label={`Open ${PRINTS_PAGE_LABEL}`} data-home-prints-door="" />
       <span className="sg-head">
         <span className="sg-mark" aria-hidden>

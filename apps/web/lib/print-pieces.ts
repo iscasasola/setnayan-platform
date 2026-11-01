@@ -26,6 +26,7 @@
  * client component that needs a piece's name.
  */
 import { formatWallClock } from '@/lib/schedule-datetime-local';
+import { TIME_TBA } from '@/lib/time-tba';
 import { isOnTheGuestsSchedule } from '@/lib/schedule-audience';
 import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
 import type { ThemeColours } from '@/lib/theme-colours';
@@ -571,6 +572,8 @@ export type ScheduleBlockRow = {
   location?: string | null;
   sort_order?: number | null;
   parent_block_id?: string | null;
+  /** ⏰ Time TBA (migration 20271300482585) — `start_at` is the day at a placeholder 00:00, never a time to print. */
+  time_tba?: boolean | null;
 };
 
 /**
@@ -599,6 +602,8 @@ export function firstBlockOf<T extends ScheduleBlockRow>(blocks: readonly T[], t
  * converted (`formatWallClock`). Converting it prints 10 PM.
  */
 export function blockTime(block: ScheduleBlockRow | null): string | null {
+  // ⏰ A Time-TBA chapter says so — its stored 00:00 is a placeholder, never "12:00 AM" (follow-up to #7158).
+  if (block?.time_tba === true) return TIME_TBA;
   const t = formatWallClock(block?.start_at ?? null);
   return t || null;
 }

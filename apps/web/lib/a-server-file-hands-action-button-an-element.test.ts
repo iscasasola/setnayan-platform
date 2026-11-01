@@ -46,7 +46,7 @@ test('no server file hands <ActionButton> an icon COMPONENT, only an element', (
       for (const tag of src.matchAll(/<ActionButton\b[\s\S]*?\/>/g)) {
         const m = /\bicon=\{([^{}]*)\}/.exec(tag[0]);
         if (!m) continue;
-        const v = m[1];
+        const v = m[1] ?? '';
         if (v.includes('<') || /\w\s*\(/.test(v)) continue;
         bad.push(`${relative(WEB, f)}: icon={${v.trim()}}`);
       }

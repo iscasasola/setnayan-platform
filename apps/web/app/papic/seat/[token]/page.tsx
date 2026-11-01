@@ -13,6 +13,7 @@ import { PapicGuestBuyPanel } from '@/app/papic/_components/papic-guest-buy-pane
 import { papicGuestBuyEnabled } from '@/lib/papic-guest-buy-flag';
 import { envFlagEnabled } from '@/lib/env-flag';
 import { CAMERA_BRIDGE_SHOWN_ON_CAMERA } from '@/lib/hidden-guest-extras';
+import { papicCameraChapter } from '@/lib/papic-chapter.server';
 
 // Papic · seat capture (public, claimer-only)
 //
@@ -148,6 +149,15 @@ export default async function PapicSeatPage({ params, searchParams }: Props) {
   // credential — this is only an offer.
   const canReloadOwnCamera = papicGuestBuyEnabled();
 
+  // 📷 THE CHAPTER THIS CAMERA SHOOTS INTO (owner 2026-11-01): the event's chapter now, only when this claimer may
+  // shoot into it (the database's own refusal — its window and its photo rule). Null = the whole event, as before.
+  const { data: seatGuest } = await admin.from('paparazzi_seats').select('guest_id').eq('seat_id', seat.seat_id as string).maybeSingle();
+  const chapter = await papicCameraChapter(admin, {
+    eventId: seat.event_id as string,
+    guestId: ((seatGuest as { guest_id?: string | null } | null)?.guest_id as string | null) ?? null,
+    userId: user.id,
+  });
+
   return (
     <>
       <PapicSeatCapture
@@ -167,6 +177,7 @@ export default async function PapicSeatPage({ params, searchParams }: Props) {
         // The buy panel below is withheld in the store shell, so the camera
         // must not point the guest at it ("add more shots below").
         buyOffered={canReloadOwnCamera && !storeShell}
+        chapter={chapter}
       />
       {bridgeEnabled ? (
         <CameraBridgePanel

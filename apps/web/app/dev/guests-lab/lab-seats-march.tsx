@@ -1,4 +1,4 @@
-import { DEFAULT_FLOOR_PLAN, groupColorFor, type EventTableRow } from '@/lib/seating';
+import { DEFAULT_FLOOR_PLAN, groupColorFor, type EventTableRow, type FloorBoothRow } from '@/lib/seating';
 import type { SeatingGuest } from '@/app/dashboard/[eventId]/seating/_components/seating-editor';
 import { SeatingEditor } from '@/app/dashboard/[eventId]/seating/_components/seating-lazy';
 import { SeatPlanInGuests } from '@/app/dashboard/[eventId]/seating/_components/seat-plan-in-guests';
@@ -13,6 +13,23 @@ import { LabRoom3D } from './lab-room-3d';
  * data with no sign-in and no database. Saves go nowhere real: the seat plan's lock and writes are refused for the
  * fixture event (it says so), and the march is the maker's own `lab` mode (drawn, never sent).
  */
+
+/* 🏪 One booth a (fake) booked supplier runs — a 2D tap on it opens the supplier card (owner 2026-11-01). Lab data only. */
+const LAB_BOOTHS: FloorBoothRow[] = [
+  {
+    booth_id: 'lab-booth-0',
+    event_id: 'lab',
+    booth_type: 'live_cooking',
+    label: 'Lechon station',
+    x_pos: 50,
+    y_pos: 86,
+    sort_order: 0,
+    zone: 'reception',
+    event_vendor_id: 'lab-vendor-0',
+    offerings: 'Lechon de leche, carved at the station',
+    vendor: { vendor_name: 'Lab Lechon House', category: 'catering', logo_url: null, tier: 'pro', slug: null, bookable: false, boothAddonActive: false },
+  },
+];
 
 const LAB_TABLES: EventTableRow[] = [
   ['Sponsors', 'round_10', 30, 30],
@@ -75,7 +92,7 @@ export function LabSeats({ guests, seat, big = false }: { guests: readonly { gue
         guests={seatingGuests}
         groups={[{ group_id: 'grp-b', label: 'Barkada', color: groupColorFor(0), member_count: 4 }]}
         floorPlan={{ ...DEFAULT_FLOOR_PLAN, venue_width_m: 24, venue_length_m: 18 }}
-        booths={[]}
+        booths={LAB_BOOTHS}
         signs={[]}
         bookedVendors={[]}
         constraints={[]}

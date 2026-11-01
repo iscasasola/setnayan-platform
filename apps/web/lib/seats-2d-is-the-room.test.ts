@@ -55,7 +55,7 @@ test('4 · a supplier’s booth opens THE supplier card, with public identity on
   assert.match(ED, /roomOnly && d\.kind === 'booth' && booths\.some\(\(b\) => b\.booth_id === d\.id && boothHasSupplier\(b\)\)/);
   assert.match(ED, /<BoothVendorCard booth=\{boothCardRow \? boothCardFromRow\(boothCardRow\) : null\}/);
   const card = boothCardFromRow({
-    booth_id: 'b1', event_id: 'e', booth_type: 'food', label: 'Lechon', x_pos: 10, y_pos: 20, sort_order: 0, zone: 'reception',
+    booth_id: 'b1', event_id: 'e', booth_type: 'live_cooking', label: 'Lechon', x_pos: 10, y_pos: 20, sort_order: 0, zone: 'reception',
     event_vendor_id: 'v', offerings: 'Lechon de leche',
     vendor: { vendor_name: 'Juan’s Lechon', category: 'catering', logo_url: 'r2://x', tier: 'pro', slug: 'juans', bookable: true, boothAddonActive: false },
   } as never);

@@ -19,6 +19,8 @@ import {
   resolveBroadcastAuthority,
 } from '@/lib/coordinator-broadcasts-server';
 import { refuseLimitedHelper, limitedHelperRefusal } from '@/lib/host-gate';
+import { releasePro } from '@/lib/schedule-release.server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 /**
  * Coordinator P3 server actions — day-of broadcast + email call-times
@@ -185,4 +187,49 @@ export async function emailVendorCallTimes(
   } catch {
     return { ok: false, reason: 'error' };
   }
+}
+
+export type ReleaseScheduleResult =
+  | { ok: true; releasedAt: string; told: number; already: boolean }
+  | { ok: false; error: string };
+
+/**
+ * 📣 RELEASE THE FULL SCHEDULE (owner 2026-11-01: *"Coordinator or host presses release"* · *"Just norifications
+ * please"*; plan §3, §3b). A host, or a coordinator with Edit on the Schedule, presses it in the Schedule's 🔊 sheet.
+ *
+ *   · 💎 PRO ONLY (§3b) — a Free event is refused here, before anything is written (`releasePro`, the real answer,
+ *     never the "view as free" one). The sheet shows Free its ◆ Pro door instead of a working button.
+ *   · The ONE writer is the database (`release_full_schedule`, 20271302139506): it re-checks who may, stamps
+ *     `events.schedule_released_at` once, and writes ONE in-app notice to every guest account on the event. No email.
+ *     A second press is a no-op that notifies nobody.
+ *   · The event's stamp moves with the write, and the live-day tag is cleared, so every cached Event Hub copy is drawn
+ *     afresh on its next open — guests hold no live connection, nothing is pushed to them.
+ */
+export async function releaseFullSchedule(formData: FormData): Promise<ReleaseScheduleResult> {
+  const helperRefusal = await limitedHelperRefusal(formData.get('event_id'), 'schedule');
+  if (helperRefusal) return { ok: false, error: helperRefusal };
+  const eventId = formData.get('event_id');
+  if (typeof eventId !== 'string' || eventId.length === 0) return { ok: false, error: 'Invalid event.' };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'Please sign in again.' };
+  const authority = await resolveBroadcastAuthority(supabase, eventId, user.id);
+  if (!authority.canSend) return { ok: false, error: 'Only a host or your coordinator can release the schedule.' };
+  if (!(await releasePro(eventId))) {
+    return { ok: false, error: 'Release is part of Pro. On Free, guests keep their chapters and an estimated call time.' };
+  }
+
+  const { data, error } = await supabase.rpc('release_full_schedule', { p_event_id: eventId });
+  if (error) {
+    logQueryError('releaseFullSchedule', error, { event_id: eventId }, 'graceful_degrade');
+    return { ok: false, error: 'Could not release the schedule. Try again.' };
+  }
+  const out = (data ?? {}) as { released_at?: string; told?: number; already?: boolean };
+  revalidateTag(liveDayTag(eventId));
+  revalidatePath(`/dashboard/${eventId}/schedule`);
+  revalidatePath(`/dashboard/${eventId}`);
+  return { ok: true, releasedAt: out.released_at ?? new Date().toISOString(), told: out.told ?? 0, already: out.already === true };
 }

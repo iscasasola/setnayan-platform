@@ -198,7 +198,7 @@ test('the mint bills COUPLE_WEBSITE_PRO from three server-side measurements', ()
   assert.match(head, /eventAlreadyHasHubPro\(admin, eventId\)/, 'prior ownership is checked');
   assert.match(
     head,
-    /priceOf\(admin, COUPLE_WEBSITE_PRO_SERVICE_KEY\)/,
+    /priceOf\(admin, COUPLE_WEBSITE_PRO_SERVICE_KEY, setupApplies\)/,
     'priced by the same catalog rule as the card',
   );
   assert.match(head, /hubProBillLine\(\{ selected: true, websiteEnabled, alreadyOwned, unitPhp \}\)/);

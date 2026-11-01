@@ -188,6 +188,7 @@ export function MakerLabShell({
   studio = null,
   venuePictures = null,
   factEditors,
+  hubSettings,
   fixedStyles = {},
   blockLooks = {},
   sceneAccents = {},
@@ -198,7 +199,10 @@ export function MakerLabShell({
   ownsPro = false,
   storeShellLab = false,
   tourHint = false,
+  printsPage = false,
 }: {
+  /** 🖨 `?prints=1` — the Prints page (R8): the shell draws Prints alone, as `/dashboard/<id>/prints` does. */
+  printsPage?: boolean;
   /** 💎 `?pro=1` — the ✓ bar of an event that owns Event Hub Pro (no Pro list at Apply). */
   ownsPro?: boolean;
   /** 🍎 `?shell=1` — the app-store shell, as the real editor page builds Look for it (`lib/main-background-offered.ts`). */
@@ -225,6 +229,8 @@ export function MakerLabShell({
   venuePictures?: MakerVenuePictures | null;
   /** ✍ `&facts=1` — the fact editors the real Maker is handed (`detailsFactEditors`). */
   factEditors?: ComponentProps<typeof MakerShell>['factEditors'];
+  /** ⚙ "Your Event Hub" for the Hub's ⚙ (`detailsLabHubSettings`). */
+  hubSettings?: ComponentProps<typeof MakerShell>['hubSettings'];
   eventId: string;
   scenes: MakerScene[];
   navigator: MakerNavigatorData;
@@ -455,9 +461,11 @@ export function MakerLabShell({
       studio={studio}
       venuePictures={venuePictures}
       factEditors={factEditors}
+      hubSettings={hubSettings}
       /* 🎭 See as · Role ▾ — the wedding's guest-list roles, as the launch page builds them. */
       seeAsRoles={LAB_ROLE_ROWS}
       hiddenStages={hiddenStages}
+      printsPage={printsPage}
     >
       <MakerWork
         eventId={eventId}

@@ -15,10 +15,10 @@
  *     search reads WORDS (`rosterSearchMatches`): a reply, "to invite", a role, a
  *     group, a side, a table — on top of the one shipped matcher
  *     (`lib/guest-search.ts`), never a second one.
- *   · *"why is there nudge now?"* · *"so again. you still kept the invite here.
- *     how do we invite?"* · *"but no account, no chat"* — `rowVerbsFor`: a row is
- *     Message (only with a Setnayan account AND a chat to open) · Edit · Remove.
- *     No Invite, no Nudge, ever.
+ *   · *"why is there nudge now?"* (no Nudge, ever) · and, 2026-10-27, *"share and
+ *     delete only"* — `rowVerbsFor`: a row is Share (the ONE Send button, for a
+ *     guest who has their own link) · Delete. The pencil went: the whole row opens
+ *     the guest card, where editing happens.
  *
  * Pure: no React, no I/O. The client screen (`guests-screen.tsx`) and the map
  * (`guest-map-canvas.tsx`) both read it, so the list and the map can never
@@ -42,7 +42,7 @@ import {
   type RoleGroup,
 } from '@/lib/role-groups';
 import type { RoleNames } from '@/lib/role-names';
-import { plusOneOfWords } from '@/lib/plus-one-of';
+import { plusOneOfWords, type PlusOneOf } from '@/lib/plus-one-of';
 import { plusOneHasNoName, plusOneIsNamed } from '@/lib/extra-seats';
 
 /** The 250 ms wait after the last key — the Guests thumb row's debounce (rule 4; the retired top-bar guest search used the same). */
@@ -149,17 +149,30 @@ export function mayBeInvited(g: InviteFacts): boolean {
 }
 
 /**
+ * 💬 HAS THIS GUEST ANSWERED — Attending, Can't come or Maybe, by the guest or marked by the host. Every reply but
+ * 'pending' is an answer (the same line `hasNotAnswered` draws for "No reply"). A read that does not carry
+ * `rsvp_status` says nothing, so it is never read as an answer.
+ */
+export function hasReplied(g: Pick<InviteFacts, 'rsvp_status'>): boolean {
+  return g.rsvp_status != null && g.rsvp_status !== 'pending';
+}
+
+/**
  * 🔑 "TO INVITE" — ONE DEFINITION, EVERYWHERE (owner 2026-09-30 for the counts
- * line; made the only rule 2026-10-08): a guest who `mayBeInvited` and has no
- * invitation sent. The List's "N to invite" and its door, the "to invite" word
+ * line; made the only rule 2026-10-08): a guest who `mayBeInvited`, has no
+ * invitation sent AND HAS NOT ANSWERED. The List's "N to invite" and its door, the "to invite" word
  * search ("Pick who"), Setup's "Send to N" (`toInviteCount`), the send run's
- * queue and its "Not sent yet (N)" (`sendRunGuests`), and Home's "Send N
- * invitations" (`homeGuestsRead`) all ask THIS — so the three numbers are one
+ * queue and its "N more to invite", and Home's "Send N
+ * invitations" (`homeGuestsRead`) all ask THIS — so the numbers are one
  * number and a declined guest is never queued. A blank stamp is not a send.
- * Held by `lib/to-invite-is-one-rule.test.ts`.
+ * 💬 A guest who already REPLIED is not "to invite" (owner 2026-10-29, live, on his own event: the run showed
+ * "105 more to invite" and walked him to *Kat Arroyo · Attending* — "a guest who already replied must not be counted"):
+ * an answer means the invitation reached them, stamped or not. They may still be SENT one (`mayBeInvited` — their row's
+ * Share, or the run opened on them deliberately), they are just never counted or queued as "to invite".
+ * Held by `lib/to-invite-is-one-rule.test.ts` and `lib/the-run-counts-only-who-is-left.test.ts`.
  */
 export function isToInvite(g: InviteFacts): boolean {
-  return mayBeInvited(g) && (!g.invitation_sent_at || String(g.invitation_sent_at).trim() === '');
+  return mayBeInvited(g) && !hasReplied(g) && (!g.invitation_sent_at || String(g.invitation_sent_at).trim() === '');
 }
 
 /** "N to invite" off a guest read — `null` when the read was REFUSED (unknown, never 0). */
@@ -169,7 +182,7 @@ export function toInviteCount(rows: readonly InviteFacts[], measured: boolean): 
 
 /**
  * THE SEND RUN'S PEOPLE — everyone who `mayBeInvited` (its "Everyone"); of
- * them, the ones `isToInvite` are its "Not sent yet" and its opening queue.
+ * them, the ones `isToInvite` (no stamp, no answer) are its opening queue and its "more to invite".
  * `picked` (the List's "Invite N", `?ids=`) narrows to the ticked guests, in
  * the order they were ticked — a ticked guest who has declined is still left out.
  */
@@ -181,8 +194,16 @@ export function sendRunGuests<G extends InviteFacts & { guest_id: string }>(rows
     .sort((a, b) => (order.get(a.guest_id) ?? 0) - (order.get(b.guest_id) ?? 0));
 }
 
-/** A guest as the run holds them (`SendInviteGuest` has these). */
-type RunGuest = { guestId: string; sentAt: string | null };
+/**
+ * A guest as the run holds them (`SendInviteGuest` has these). `replied` — they have answered (`hasReplied`), so they
+ * are not "to invite": never queued, never counted, never a newcomer. Absent = not known to have answered.
+ */
+type RunGuest = { guestId: string; sentAt: string | null; replied?: boolean };
+
+/** 📨 Is this run guest still TO INVITE — no stamp and no answer (`isToInvite`, as the run holds them). */
+export function runToInvite(g: RunGuest): boolean {
+  return !g.sentAt && !g.replied;
+}
 
 /**
  * WHERE THE RUN STANDS AGAINST THE LATEST READ. The queue is a snapshot (a send
@@ -214,10 +235,10 @@ export function runStanding<G extends RunGuest>(
 /**
  * WHO JOINED SINCE THE RUN LAST LOOKED — a guest the run has never been handed
  * (their "can't come" was changed back, or they were just added). They go on
- * the END of the queue: under "Not sent yet" only while nothing is sent to them.
+ * the END of the queue: under 'unsent' only while they are still to invite (nothing sent, no answer — `runToInvite`).
  */
 export function runArrivals<G extends RunGuest>(known: ReadonlySet<string>, latest: readonly G[], who: 'unsent' | 'everyone'): G[] {
-  return latest.filter((g) => !known.has(g.guestId) && (who === 'everyone' || !g.sentAt));
+  return latest.filter((g) => !known.has(g.guestId) && (who === 'everyone' || runToInvite(g)));
 }
 
 /**
@@ -623,6 +644,9 @@ export type PlusOneWords = {
   side: GuestRow['side'];
   /** Their guest as the row's "On Daniel’s invitation" says it — the first name, else the name as shown. */
   host: string;
+  /** The one wording whole (`plusOneOfWords`) — what the guest card's head says, so the head drawn at the tap
+   *  (`guest-card-head.tsx`) and the card that arrives say the same. */
+  card: PlusOneOf;
 };
 
 type SeatFields = Pick<GuestRow, 'guest_id' | 'plus_one_of_guest_id' | 'first_name'>;
@@ -648,7 +672,7 @@ export function plusOneWordsFrom<G extends SeatFields & Pick<GuestRow, 'display_
     seatNo.set(hostId, i + 1);
     // The one wording (lib/plus-one-of.ts) — the card's title and eyebrow say the same.
     const w = plusOneOfWords(g, host, i);
-    out.set(g.guest_id, { hostId, name: w.name, of: w.name ? null : w.of, side: w.side, host: host.first_name?.trim() || w.hostName });
+    out.set(g.guest_id, { hostId, name: w.name, of: w.name ? null : w.of, side: w.side, host: host.first_name?.trim() || w.hostName, card: w });
   }
   return out;
 }
@@ -760,24 +784,27 @@ export function typedLineIsAFilter(query: string, facts: Pick<RosterFacts, 'role
 
 /* ─── A ROW'S VERBS ─────────────────────────────────────────────────────── */
 
-export type RowVerb = 'message' | 'edit' | 'remove' | 'release';
+export type RowVerb = 'share' | 'remove' | 'release';
 
 /**
- * The verbs a guest row carries, in order. `💬 Message` only when the guest's
- * name is linked to a Setnayan account AND there is a chat to open (G35: "no
- * account, no chat"); `✕ Remove` never on the couple (the server refuses them).
- * There is NO invite and NO nudge here — inviting is the one run (G28, G34).
+ * THE VERBS A GUEST ROW CARRIES, in order — SHARE · DELETE, and nothing else (owner 2026-10-27, DECISION_LOG "GUEST ROW
+ * = SHARE + DELETE; THE PENCIL GOES": *"okay that makes more sense. share and delete only"*).
+ *   · 📤 `share` — the ONE Send button (DECISION_LOG "ONE SEND BUTTON FOR EVERY INVITE"), only for a guest the page
+ *     handed a personal link (`shareable`: they may be invited, have a QR token, and the event has an address). A +1
+ *     with no name rides on their guest's invitation, so never theirs.
+ *   · 🗑 `remove` — the shipped remove with its warning and Undo; never on the couple (the server refuses them).
+ *   · 🪑 `release` — a +1 with no name yet is a SEAT, not a person: "Release seat" (gone at once, with Undo; their
+ *     guest's "+N" one lower) in place of Delete. A named +1 is a person — the shipped remove (owner 2026-10-21).
+ * There is NO edit (the row itself opens the card), NO message, NO nudge.
  */
 export function rowVerbsFor(
   g: Pick<GuestRow, 'role'> & Partial<PlusFilterFields>,
-  opts: { linked: boolean | null; chatHref: string | null },
+  opts: { shareable: boolean },
 ): RowVerb[] {
   const verbs: RowVerb[] = [];
-  if (opts.linked === true && opts.chatHref) verbs.push('message');
-  verbs.push('edit');
-  // 🪑 A +1 with no name yet is a SEAT, not a person: "Release seat" (gone at once, with Undo; their guest's "+N" one
-  // lower) in place of Remove. A named +1 is a person — the shipped Remove, with its warning (owner 2026-10-21).
-  if (plusOneHasNoName({ ...g, first_name: g.first_name ?? null })) verbs.push('release');
+  const seat = plusOneHasNoName({ ...g, first_name: g.first_name ?? null });
+  if (opts.shareable && !seat) verbs.push('share');
+  if (seat) verbs.push('release');
   else if (g.role !== 'bride' && g.role !== 'groom') verbs.push('remove');
   return verbs;
 }

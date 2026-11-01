@@ -96,6 +96,14 @@ export const FACE_RESCAN_GAP_MS = 5 * 60 * 1000;
 export const PAPIC_UPLOAD_SWEEP_GAP_MS = 60 * 60 * 1000;
 
 /**
+ * A supplier's event photo goes on its page once its 7-day guest notice has passed (owner 2026-10-03, DECISION_LOG "A
+ * SUPPLIER'S OWN PAPIC PHOTOS GO ON ITS PORTFOLIO AUTOMATICALLY AFTER A 7-DAY GUEST NOTICE"). Hourly: going up late is
+ * the safe direction (the photo is more private for longer, never less), and when nothing is due the body is one
+ * indexed read. Declared here, imported by `supplier-page-notice.server.ts` — same direction as the others.
+ */
+export const SUPPLIER_PAGE_PUBLISH_GAP_MS = 60 * 60 * 1000;
+
+/**
  * How long after a claim a run may still legitimately be in flight.
  *
  * A job body runs inside a Vercel `after()` budget, measured in seconds to a
@@ -226,6 +234,16 @@ export const PERIODIC_JOBS: readonly PeriodicJob[] = [
     reportsCount: true,
   },
   {
+    // 🗂 CHAT FILES (owner 2026-10-28). SHIPS OFF — `CHAT_FILE_EXPIRY_ENABLED`
+    // (server-side, opt-in) — and runs as a dry run until he switches it on.
+    // rows_affected = objects R2 confirmed gone (HEAD 404), never "attempted".
+    key: 'chat-file-expiry',
+    kind: 'retention',
+    gapMs: DAILY_GAP_MS,
+    what: 'Chat files deleted 90 days after the event (contracts, payment proofs and anything pinned to Decisions are kept) — off until switched on',
+    reportsCount: true,
+  },
+  {
     key: 'samahan-story-sweep',
     kind: 'retention',
     gapMs: 60 * 60 * 1000,
@@ -233,6 +251,13 @@ export const PERIODIC_JOBS: readonly PeriodicJob[] = [
     reportsCount: true,
   },
   // ── Operational ──────────────────────────────────────────────────────────
+  {
+    key: 'supplier-page-photo-publish',
+    kind: 'operational',
+    gapMs: SUPPLIER_PAGE_PUBLISH_GAP_MS,
+    what: "A supplier's event photo goes on its page once the guests' 7-day notice has passed and nobody removed it",
+    reportsCount: true,
+  },
   {
     key: 'anniversary-digest',
     kind: 'operational',
@@ -420,6 +445,20 @@ export const PERIODIC_JOBS: readonly PeriodicJob[] = [
     kind: 'operational',
     gapMs: 10 * 60 * 1000,
     what: 'Asking Resend whether each email we sent was delivered or bounced',
+    reportsCount: true,
+  },
+  {
+    key: 'push-morning-release',
+    kind: 'operational',
+    gapMs: DAILY_GAP_MS,
+    what: 'Sending the phone notices that waited through quiet hours (10 pm to 7 am), collapsed per kind',
+    reportsCount: true,
+  },
+  {
+    key: 'push-evening-summary',
+    kind: 'operational',
+    gapMs: DAILY_GAP_MS,
+    what: 'The one evening phone summary of the day\'s small updates ("Today on your event: 3 updates")',
     reportsCount: true,
   },
 ] as const;

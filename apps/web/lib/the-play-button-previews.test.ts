@@ -134,15 +134,17 @@ test('(3) a hold is the whole page as a guest — it lets go of nothing, and Exi
   assert.match(tools, /picked: open && !cameraOpen \? picked : null,/, 'anti-vacuity: the frame follows `open`');
   assert.match(tools, /parts\.length === 0 \|\| typing \|\| playing \|\| previewing\) return;/, 'arriving on a page picks a part during the preview');
   assert.match(tools, /if \(tab && held && !previewingRef\.current && /, 'turning a page lets the held part go during the preview');
-  assert.match(tools, /d\.t === 'tapOutside' && !previewingRef\.current\) deselectRef\.current\(\);/);
+  /* (A tap on the ground puts the toolbar away since 2026-10-30 — the part stays picked; never in the preview.) */
+  assert.match(tools, /d\.t === 'tapOutside' && !previewingRef\.current\) stowRef\.current\(\);/);
   assert.match(tools, /if \(!previewing\) askPage\(p\.key\);/);
   assert.match(tools, /\{guestBarHost && \(!away \|\| previewing\)/, 'the guests’ pages cannot be turned in the preview');
   /* EXIT PREVIEW — the ONE ActionButton, clear of the home bar and of the guests' bar. */
   const exitAt = tools.indexOf('data-stage-exit-preview=""');
-  const exit = tools.slice(tools.lastIndexOf('{previewing && shellEl', exitAt), tools.indexOf('shellEl,', exitAt));
+  /* (✋ 1 Nov 2026: the same button is ▶ tap's held end too — `playRested`, `the-tap-preview-holds.test.ts`.) */
+  const exit = tools.slice(tools.lastIndexOf('{(previewing || (playing && playRested)) && shellEl', exitAt), tools.indexOf('shellEl,', exitAt));
   assert.ok(exitAt > 0 && exit.length > 200, 'anti-vacuity: Exit preview was found');
   assert.equal((exit.match(/<ActionButton\b/g) ?? []).length, 1);
-  assert.match(exit, /<ActionButton tone="brand" main icon=\{X\} label="Exit preview" onClick=\{exitPreview\}/);
+  assert.match(exit, /<ActionButton tone="brand" main icon=\{X\} label="Exit preview" onClick=\{previewing \? exitPreview : stopPlay\}/);
   assert.doesNotMatch(exit, /<button\b/);
   assert.match(exit, /rsvpOpen\s*\? \{[^}]*bottom: `calc\(env\(safe-area-inset-bottom\) \+ \$\{STAGE_EXIT_OVER_BAR_PX\}px\)` \}/, 'on the RSVP stage the button sits under the row of screens — a tap on it changes the screen and never leaves the preview');
   /* 🔘 …and on a stage's pages it parks at the right edge, off the cover's foot (the RSVP button and the hint, 2026-10-16). */
@@ -257,7 +259,7 @@ test('(6) Exit preview is on top of every layer that covers the work area — on
   const exitZ = z(exitCls);
   assert.ok(Number.isFinite(exitZ), `anti-vacuity: Exit preview's layer was read (${exitCls})`);
   assert.match(exitCls, /(?:^|\s)absolute(?:\s|$)/, 'the button is no longer laid over the shell');
-  assert.match(tools, /\{previewing && shellEl\s*\? createPortal\(/, 'the button is no longer drawn into the shell');
+  assert.match(tools, /\{\(previewing \|\| \(playing && playRested\)\) && shellEl\s*\? createPortal\(/, 'the button is no longer drawn into the shell');
   const shell = read(`${L}/maker-shell.tsx`);
   const layers = [...shell.matchAll(/className="([^"]*)" data-maker-([a-z-]+)-layer=""/g)].map((m) => ({ name: m[2]!, z: z(m[1]!), cls: m[1]! }));
   assert.ok(layers.length >= 2 && layers.some((l) => l.name === 'rsvp'), `anti-vacuity: the shell's layers were found (${layers.map((l) => l.name).join(', ')})`);

@@ -69,25 +69,37 @@ test('(1) the first paint is ONE body — Find — under the pinned line and con
   // The pinned block: the page's date · place line, then the three segments, in order.
   const stick = html.slice(html.indexOf('data-suppliers-stick'), html.indexOf('data-suppliers-body='));
   assert.match(stick, /data-facts-probe=""/, 'the date · place line is missing from the pinned block');
-  const segments = [...stick.matchAll(/<button[^>]*aria-pressed="(true|false)"[^>]*data-seg="([a-z]+)"[^>]*>/g)].map((m) => `${m[2]}:${m[1]}`);
-  assert.deepEqual(segments, ['find:true', 'build:false', 'booked:false']);
+  // ONE dropdown names the view (owner 2026-10-31 — the segmented Find · Build · Booked row became `Page · View ▾`).
+  assert.doesNotMatch(stick, /data-seg=/, 'a segmented row is back in the pinned block');
+  const pickOf = (h: string) => {
+    const s = h.slice(h.indexOf('data-suppliers-stick'), h.indexOf('data-suppliers-body='));
+    const m = /<button[^>]*data-sup-row-pick[^>]*>([\s\S]*?)<\/button>/.exec(s);
+    return { face: (m?.[1] ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim(), row: s.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ') };
+  };
+  assert.equal(pickOf(html).face, 'Find', 'the row’s one dropdown does not say where you are');
   // The landing rule reaches the paint as CSS, not as escaped text.
   assert.ok(html.includes('[id^="slfold-"]'), 'the landing CSS was escaped on its way out — the selector would match nothing');
-  // The words and their counts — "Find · Build 2/5 · Booked 2" — read from the markup.
-  const words = stick.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ');
-  assert.match(words, /Find Build 2 \/ 5 Booked 2/);
-  assert.doesNotMatch(words, /vendor|Picks|Shortlist/i);
+  // The counts — "Build · 2/5", "Booked · Team · 2 booked" — read from the markup of the view that holds them.
+  const build = pickOf(await paint('build'));
+  assert.equal(build.face, 'Build');
+  assert.match(build.row, /Build 2 \/ 5/);
+  const booked = pickOf(await paint('budget'));
+  assert.match(booked.face, /^Booked( · Team)?$/);
+  assert.match(booked.row, /2 booked/);
+  assert.doesNotMatch(pickOf(html).row, /vendor|Picks|Shortlist/i);
 });
 
-test('(1) a count of nothing is not drawn — never "Build 0/0" or "Booked 0"', async () => {
+test('(1) a count of nothing is not drawn — never "Build 0/0" or "0 booked"', async () => {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { ServicesTakeover } = await import('./_components/services-takeover');
-  const html = renderToStaticMarkup(
-    React.createElement(ServicesTakeover, { eventId: 'e1', tally: { filled: 0, total: 0, knownPhp: 0, unpriced: 0 }, bookedCount: 0 }),
-  );
-  assert.doesNotMatch(html, /data-seg-count=/);
-  const words = html.slice(html.indexOf('data-suppliers-stick'), html.indexOf('data-suppliers-body=')).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ');
-  assert.match(words, /Find Build Booked/);
+  for (const initialTab of ['shortlist', 'build', 'budget'] as const) {
+    const html = renderToStaticMarkup(
+      React.createElement(ServicesTakeover, { eventId: 'e1', initialTab, tally: { filled: 0, total: 0, knownPhp: 0, unpriced: 0 }, bookedCount: 0 }),
+    );
+    assert.doesNotMatch(html, /data-seg-count=|data-sup-row-count-of=/, `${initialTab}: a count of nothing is drawn`);
+    const words = html.slice(html.indexOf('data-suppliers-stick'), html.indexOf('data-suppliers-body=')).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ');
+    assert.doesNotMatch(words, /\b0 \/ 0\b|\b0 booked\b/, `${initialTab}: a zero is drawn`);
+  }
 });
 
 test('(1) a deep link paints ITS body in the first render, and only that one', async () => {

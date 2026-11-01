@@ -1,13 +1,12 @@
 import { Building2 } from 'lucide-react';
 
 import { isStoreShellRequest } from '@/lib/request-platform';
-import { isTierAtLeast } from '@/lib/vendor-tier-caps';
+import { TIER_LABEL, asVendorTier, isTierAtLeast, nextPlanReach, reachLadderWords } from '@/lib/vendor-tier-caps';
 import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
 import { isVendorSearchGateEnabled } from '@/lib/vendor-search-gate';
 import type { VendorBranchView } from '@/lib/vendor-branches';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { BranchManager, type PayInfo } from '../../_components/branch-manager';
-import { ReachMap } from './reach-map';
 import { ServiceRadiusFields } from './service-radius-fields';
 
 /**
@@ -28,6 +27,8 @@ export async function BranchPanel({
   branchFeePhp,
   branchAutoRadius,
   branchPay,
+  isVerified = true,
+  tierMeasured = true,
 }: {
   city: string | null;
   branchLocations: number;
@@ -41,6 +42,10 @@ export async function BranchPanel({
   branchFeePhp: number;
   branchAutoRadius: number;
   branchPay: PayInfo;
+  /** The shop is verified — an unverified shop's 0 km says why (`GetVerifiedLine`). */
+  isVerified?: boolean;
+  /** The plan was read. False → Where you work says so instead of drawing a plan's reach nobody read. */
+  tierMeasured?: boolean;
 }) {
   const isEnterprise = isTierAtLeast(tier, 'enterprise');
   // 🔒 A branch is a paid add-on (₱ per 28 days), bought AND managed in the
@@ -58,6 +63,12 @@ export async function BranchPanel({
   const reachPaywall = vendorPaywallApplies(false) && !storeShell;
   const branchPaywall = vendorPaywallApplies(isEnterprise);
   const from = city ?? 'your headquarters';
+  // The shipped sentence, word for word — now the ⓘ of How far you go (house rule: one line visible, the rest in ⓘ).
+  const reachNote = hasRing
+    ? `Your plan reaches about ${reachKm} km from ${from}. Couples searching farther still find you under “Show farther,” flagged “travel fee likely.”`
+    : reachHidden
+      ? `Your shop isn’t shown in couples’ searches yet.${reachPaywall ? ' A paid plan puts you on the map and sets your coverage radius.' : ''}`
+      : 'Couples searching anywhere can find you — your plan has no distance limit.';
   // Where the branch pin map opens: the vendor's HQ, or Metro Manila as a
   // sensible national fallback when the HQ hasn't been geocoded yet.
   const branchMapCenter =
@@ -88,46 +99,24 @@ export async function BranchPanel({
 
       {/* ── Coverage reach — the radius couples' Services search gates on, and
            (2026-07-27 · §17) the CEILING on the two distances the vendor
-           declares for themselves just below it. */}
-      {hasCoords ? (
-        <div className="space-y-2">
-          <ReachMap lat={hqLat} lng={hqLng} radiusKm={reachKm} />
-          <p className="text-xs text-ink/55">
-            {hasRing ? (
-              <>
-                Your plan reaches about{' '}
-                <span className="font-medium text-ink">{reachKm} km</span> from{' '}
-                {from}. Couples searching farther still find you under
-                {' '}&ldquo;Show farther,&rdquo; flagged &ldquo;travel fee
-                likely.&rdquo;
-              </>
-            ) : (
-              reachHidden ? (
-                <>
-                  Your shop isn&rsquo;t shown in couples&rsquo; searches yet.
-                  {reachPaywall
-                    ? ' A paid plan puts you on the map and sets your coverage radius.'
-                    : null}
-                </>
-              ) : (
-                <>
-                  Couples searching anywhere can find you — your plan has no
-                  distance limit. Set how far you travel just below.
-                </>
-              )
-            )}
-          </p>
-          <ServiceRadiusFields
-            initialInnerKm={innerRadiusKm}
-            initialOuterKm={outerRadiusKm}
-            tierCapKm={reachKm}
-          />
-        </div>
-      ) : (
-        <p className="text-xs" style={{ color: 'var(--m-slate)' }}>
-          Add your HQ address in Profile above to see how far you cover on a map.
-        </p>
-      )}
+           declares for themselves. 📍 Shop › Details › Where you work
+           (2026-10-29, v13): the map, the pin, the two rings and the −/＋
+           steppers are ONE client part (`ServiceRadiusFields`) so the rings
+           move as the distances do; the shipped sentence below is its ⓘ. */}
+      <ServiceRadiusFields
+        initialInnerKm={innerRadiusKm}
+        initialOuterKm={outerRadiusKm}
+        tierCapKm={reachKm}
+        lat={hasCoords ? hqLat : null}
+        lng={hasCoords ? hqLng : null}
+        city={city}
+        isVerified={isVerified}
+        tierMeasured={tierMeasured}
+        planName={TIER_LABEL[asVendorTier(tier)]}
+        nextReach={nextPlanReach(tier)}
+        ladder={reachLadderWords()}
+        reachNote={reachNote}
+      />
 
       {/* TRY-FIRST (2026-09-30): the manager mounts for every plan on the web.
           The Enterprise requirement is asked through vendorPaywallApplies —

@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, type ReactNode } from 'react';
-import { FileText, PencilLine, Store } from 'lucide-react';
+import { FileText, PencilLine, Settings, Store } from 'lucide-react';
 import { Explain } from '@/app/_components/explain';
 import { SwitchTrack } from '@/app/_components/switch-track';
 import { PillThumb } from '@/app/_components/pill-selector';
@@ -231,6 +231,9 @@ export function QuietBar() {
       {quiet.kind === 'suppliers' ? (
         /* Suppliers is another page of the app: a plain door, never fetched before it is pressed. */
         <ActionButton tone="neutral" icon={Store} label={quiet.words} href={quiet.href} prefetch={false} className={QUIET_DOOR} />
+      ) : quiet.kind === 'guests' ? (
+        /* 🗂 R1: Guests ⚙ is another page too — the same plain door, opening the sheet on the reply's row. */
+        <ActionButton tone="neutral" icon={Settings} label={quiet.words} href={quiet.href} prefetch={false} className={QUIET_DOOR} />
       ) : (
         <ActionButton tone="neutral" icon={quiet.kind === 'info' ? FileText : PencilLine} label={quiet.words} onClick={quiet.open} className={QUIET_DOOR} />
       )}

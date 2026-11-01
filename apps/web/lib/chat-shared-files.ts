@@ -1,3 +1,5 @@
+import { isExpired } from './chat-file-rules';
+
 /**
  * chat-shared-files.ts — ONE list of every file that passed between a supplier
  * and a couple, whatever door it came through.
@@ -120,6 +122,11 @@ export type SharedFileEntry = {
   /** Where the file opens — null when there is nothing to open. */
   href: string | null;
   isImage: boolean;
+  /**
+   * The file was taken away by the 90-days-after rule (C2, `isExpired`) — its name is kept and it says
+   * "File expired" rather than "Unavailable" (and never vanishes). Absent → false.
+   */
+  expired?: boolean;
 };
 
 /**
@@ -262,6 +269,7 @@ export function buildSharedFiles(input: {
       at: m.created_at,
       href: chatAttachmentHref(m),
       isImage: isImageFile(m.attachment_mime, m.attachment_name),
+      expired: isExpired(m),
     });
   }
 

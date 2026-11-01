@@ -21,7 +21,7 @@
  *   · N > 0 → the count and its words are ONE link into the send run;
  *   · N = 0 → plain words, no link (never a dead door);
  *   · a refused read → no counts line at all (never "0 to invite");
- *   · the List's door and Setup's "Send to N" open the SAME place.
+ *   · the List's door opens the one send run (the Guests ⚙ has no Invitations row since R4 slice 11).
  * SABOTAGE (each seen red): draw the plain span for every N · point the List's
  * link at `/guests/invite` · drop the `measured` gate around the counts line.
  */
@@ -75,7 +75,8 @@ test('the screen reads its counts off the same list as its rows', () => {
   // (A search's hits may bring their +1s with them — `withTheirPlusOnes`, still over the same `roster`.)
   // (…and the count doors' filters narrow THAT same list — `found`, never a second read.)
   assert.match(SCREEN, /const visible = useMemo\(\s*\(\) => \(q \? (withTheirPlusOnes\(q, )?roster\.filter\([^;]*\), roster\)|const visible = useMemo\(\(\) => \(q \? roster\.filter|const visible = useMemo\(\(\) => \{\s*const found = q \? withTheirPlusOnes\(q, roster\.filter\([^;]*\), roster\) : roster;/, 'the rows are not drawn from the same `roster`');
-  assert.match(SCREEN, /\{measured \? \(/, 'an unmeasured read prints counts instead of saying nothing');
+  // (R4: Seats and March draw their maker instead — `!makerView` — never counts over a seat plan or a march.)
+  assert.match(SCREEN, /\{measured(?: && !makerView)? \? \(/, 'an unmeasured read prints counts instead of saying nothing');
 });
 
 test('Count and Fill never sit on their start value when no frame runs', () => {
@@ -149,12 +150,10 @@ test('with nobody to invite it is plain words, and a refused read draws no count
   assert.doesNotMatch(plain(refused), /to invite|Invite \d|Everyone invited/, 'an unmeasured read says something about who is left to invite');
 });
 
-test('the List\'s door and Setup\'s "Send to N" open the same place (both rendered)', async () => {
+test('the List\'s door opens the one send run (rendered) — the Guests ⚙ draws no second door (R4 slice 11)', async () => {
   const line = countsLine(await renderGuestsScreen({ guests: [guestRow({ invitation_sent_at: null })] }));
   const list = line ? toInviteDoor(line) : null;
   assert.ok(list, 'the List drew no door');
-  const setup = (await renderSetup({ getIn: 'list' })).match(/<a\b[^>]*data-testid="setup-send"[^>]*>/)?.[0].match(/href="([^"]*)"/)?.[1];
-  assert.ok(setup, 'Setup\'s "Send to N" is gone or is no longer a link — re-aim');
-  assert.equal(list.href, setup, 'the List and Setup start sending from two different places');
+  assert.doesNotMatch(await renderSetup({ getIn: 'list' }), /data-testid="setup-send"/, 'the Guests ⚙ sends invitations again');
   assert.match(list.href, /^\/dashboard\/e1\/guests\/send$/, 'the door carries its own rules (a query) instead of opening the one run');
 });

@@ -1,3 +1,5 @@
+import { chatFileLimitFor } from '@/lib/chat-file-rules';
+import { CHAT_ATTACHMENT_MIME } from '@/lib/chat-attachment-limits';
 import { randomUUID } from 'node:crypto';
 import {
   tenancyForPathPrefix,
@@ -861,7 +863,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   // matches `audio/webm`. We preserve the original value for the presign so
   // R2 stores the full content-type header the browser sent.
   const baseContentType = contentType.split(';')[0]?.trim() ?? '';
-  if (!ALLOWED_MIME_TYPES.has(baseContentType)) {
+  // A conversation accepts its OWN list (Word/Excel/text too) — the one the
+  // send re-checks (`CHAT_ATTACHMENT_MIME`), so the picker, this route and the
+  // send cannot disagree about a chat file's type.
+  const isChatPrefix = !seatMode && pathPrefix.startsWith('chat/');
+  const typeAllowed = isChatPrefix
+    ? (CHAT_ATTACHMENT_MIME as readonly string[]).includes(baseContentType)
+    : ALLOWED_MIME_TYPES.has(baseContentType);
+  if (!typeAllowed) {
     return NextResponse.json(
       { error: `Unsupported file type "${contentType || 'unknown'}".` },
       { status: 400 },
@@ -900,6 +909,24 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       baseContentType.startsWith(prefix),
     )?.[1];
     maxBytes = typeOverride ?? BUCKET_MAX_BYTES[bucketKey];
+  }
+  // 🔒 A CHAT FILE IS JUDGED BY THE CHAT RULE (owner 2026-10-28, CHAT FILES):
+  // video ≤ 50 MB, document/photo ≤ 20 MB, after the phone compressed it — in
+  // the owner's words. The generic 200 MB video override above is for a
+  // Save-the-Date clip, not for a conversation. The send re-measures the stored
+  // object too (`judgeStoredChatFile`), so this is the first refusal, not the only one.
+  if (isChatPrefix) {
+    // 🔒 Only into the caller's OWN folder — `chat/<thread>/<own uid>` — the one
+    // place the database will accept a chat file from them
+    // (tg_chat_messages_guard_end_user_write). Thread membership was checked above.
+    const seg = pathPrefix.split('/');
+    if (seg.length !== 3 || seg[2] !== user.id) {
+      return NextResponse.json({ error: UPLOAD_TENANCY_REFUSAL }, { status: 403 });
+    }
+    const chatLimit = chatFileLimitFor(baseContentType);
+    if (sizeBytes > chatLimit.maxBytes) {
+      return NextResponse.json({ error: chatLimit.tooLargeMessage }, { status: 413 });
+    }
   }
   if (sizeBytes > maxBytes) {
     return NextResponse.json(

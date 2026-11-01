@@ -33,6 +33,15 @@
  * byte count.
  */
 
+import {
+  CHAT_FILE_DOCUMENT_MAX_BYTES,
+  CHAT_FILE_LARGEST_BYTES,
+  CHAT_VIDEO_MIME,
+  chatFileTooLargeMessage,
+  CHAT_DOCUMENT_MAX_MB,
+  CHAT_VIDEO_MAX_MB,
+} from '@/lib/chat-file-rules';
+
 /** Every MIME a conversation accepts. The SERVER enforces this list. */
 export const CHAT_ATTACHMENT_MIME = [
   'image/png',
@@ -45,6 +54,9 @@ export const CHAT_ATTACHMENT_MIME = [
   'application/vnd.ms-excel',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   'text/plain',
+  // Videos (owner 2026-10-28, CHAT FILES): compressed on the phone first
+  // (`lib/chat-file-prepare.ts`), then ≤ 50 MB — `lib/chat-file-rules.ts`.
+  ...CHAT_VIDEO_MIME,
 ] as const;
 
 /**
@@ -60,14 +72,17 @@ export const CHAT_ATTACHMENT_ACCEPT = [
   '.xls',
   '.xlsx',
   '.txt',
+  '.mp4',
+  '.mov',
+  '.webm',
 ].join(',');
 
 /**
- * A document's ceiling — 25 MB → 10 MB (2026-09-09). It could come down
- * because photographs, which is what actually filled that headroom, no longer
- * arrive at their original size.
+ * A document's ceiling — 25 MB → 10 MB (2026-09-09) → 20 MB (owner 2026-10-28,
+ * CHAT FILES). The number lives in `lib/chat-file-rules.ts`; this name is kept
+ * for its existing importers.
  */
-export const CHAT_DOCUMENT_MAX_BYTES = 10 * 1024 * 1024;
+export const CHAT_DOCUMENT_MAX_BYTES = CHAT_FILE_DOCUMENT_MAX_BYTES;
 
 /**
  * The ceiling on an image BEFORE compression. Not a product limit — a guard on
@@ -77,12 +92,19 @@ export const CHAT_DOCUMENT_MAX_BYTES = 10 * 1024 * 1024;
 export const CHAT_IMAGE_SOURCE_MAX_BYTES = 40 * 1024 * 1024;
 
 /**
+ * The ceiling on a video BEFORE compression — the same kind of guard as the
+ * image one above (ffmpeg.wasm holds the whole clip in memory). The real limit
+ * (50 MB) is judged AFTER compression, by `chatFileLimitFor`.
+ */
+export const CHAT_VIDEO_SOURCE_MAX_BYTES = 300 * 1024 * 1024;
+
+/**
  * The hard server-side ceiling on what is finally stored, whatever route it
  * arrived by. A compressed photo lands far under it; a document is already
  * capped tighter. This exists so a caller that skips the browser step — the
  * native app, a future API — still cannot write something enormous.
  */
-export const CHAT_ATTACHMENT_MAX_BYTES = CHAT_DOCUMENT_MAX_BYTES;
+export const CHAT_ATTACHMENT_MAX_BYTES = CHAT_FILE_LARGEST_BYTES;
 
 /**
  * Is this something the browser should shrink before uploading?
@@ -102,9 +124,9 @@ export function isChatImage(mime: string | null | undefined): boolean {
 }
 
 /**
- * The size ceiling that applies to THIS file, and the sentence to show when it
- * is over. One function so the picker, the composer and the server cannot
- * disagree about which limit a given file is being judged against.
+ * The PICK-TIME ceiling for THIS file (before the phone compresses it), and the
+ * sentence to show when it is over. The ceiling AFTER compression — the one the
+ * server refuses at — is `chatFileLimitFor` in `lib/chat-file-rules.ts`.
  */
 export function chatAttachmentLimit(mime: string | null | undefined): {
   maxBytes: number;
@@ -116,8 +138,14 @@ export function chatAttachmentLimit(mime: string | null | undefined): {
       tooLargeMessage: 'That picture is too large to open — try taking it again.',
     };
   }
+  if (typeof mime === 'string' && mime.startsWith('video/')) {
+    return {
+      maxBytes: CHAT_VIDEO_SOURCE_MAX_BYTES,
+      tooLargeMessage: chatFileTooLargeMessage(CHAT_VIDEO_MAX_MB),
+    };
+  }
   return {
     maxBytes: CHAT_DOCUMENT_MAX_BYTES,
-    tooLargeMessage: 'That file is too large — documents are capped at 10 MB.',
+    tooLargeMessage: chatFileTooLargeMessage(CHAT_DOCUMENT_MAX_MB),
   };
 }

@@ -17,6 +17,8 @@ import { LiveRefresher } from '@/app/_components/live-refresher';
 import { guestPhotoDisplayUrls } from '@/lib/uploads';
 import { PASSED_AWAY, REPRESENTED_BY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
 import { companionNames } from '@/lib/extra-seats';
+import { DeskSavedMark } from '@/app/_components/offline-ready/desk-saved-mark';
+import { phTodayIso } from '@/lib/vendor-day-picker';
 
 export const metadata = { title: 'Check-in desk' };
 
@@ -197,11 +199,19 @@ export default async function CheckinDeskPage({ params }: Props) {
         >
           <Gift className="h-4 w-4" strokeWidth={1.75} /> Souvenir table →
         </Link>
+        {/* 📶 This phone's copy of the desk, for a no-signal venue (EV3). */}
+        <DeskSavedMark
+          viewer={user.id}
+          eventId={eventId}
+          eventDate={(eventRow?.event_date as string | null) ?? null}
+          eventDay={(eventRow?.event_date as string | null) === phTodayIso()}
+        />
       </header>
 
       <RoleNamesProvider names={roleNames}>
         <CheckinDesk
           eventId={eventId}
+          viewer={user.id}
           guests={guests}
           initialCheckins={checkins}
           expected={expected}

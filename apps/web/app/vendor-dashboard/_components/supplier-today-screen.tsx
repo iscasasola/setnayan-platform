@@ -1,8 +1,13 @@
+import type { ReactNode } from 'react';
 import { Badge } from '@/app/_components/badge';
+import { TodaySettings } from './today-settings';
+import { InfoTip } from '@/app/_components/info-tip';
 import { BookingFeeBills } from '@/app/_components/booking-fee-notice';
 import type { FeeDisclosure } from '@/lib/booking-fee-disclosure';
 import type { SupplierTodayView } from '@/lib/supplier-today-view';
 import type { WhatsNewCard } from '@/lib/vendor-overview';
+import type { EventYouRun } from '@/lib/events-you-run';
+import type { EventLines } from '@/lib/supplier-event-lines';
 import { formatPesoCompact } from '@/lib/vendors-plan-budget';
 import { LockRequestBody, WhatsNewFeed } from './overview-sections';
 import { SupplierTodayFirstScreen, TodayNoteRow, type TodayOutcome } from './supplier-today-first-screen';
@@ -52,7 +57,12 @@ export function SupplierTodayScreen({
   deskIncomplete,
   actions,
   library = false,
+  eventsYouRun = [],
+  setup = null,
+  eventLines = {},
 }: {
+  /** 📋 Each inquiry's event lines, keyed by event id (`readSupplierEventLines`) — the opened row shows them. */
+  eventLines?: Readonly<Record<string, EventLines>>;
   view: SupplierTodayView;
   outcome: TodayOutcome | null;
   /** What agreeing to each booking ask will cost, keyed by `eventVendorId` — named BEFORE Agree. */
@@ -64,6 +74,10 @@ export function SupplierTodayScreen({
   actions: TodayActions;
   /** 🌱🖼 Draw "Add to the inspiration library" under the Shop row (the shop's trades supply a part). */
   library?: boolean;
+  /** 🗂 The events this person runs as the hosts' coordinator, live (owner 2026-10-28) — empty for everyone else. */
+  eventsYouRun?: readonly EventYouRun[];
+  /** 🧰 A new shop's six steps, done in place (`SupplierSetupScreen`) — drawn by the page while the shop is not live. */
+  setup?: ReactNode;
 }) {
   return (
       <SupplierTodayFirstScreen
@@ -112,11 +126,16 @@ export function SupplierTodayScreen({
         }}
         alsoToday={view.alsoToday}
         comingUp={view.comingUp}
+        eventsYouRun={eventsYouRun}
         alsoWaitingHeaded={view.alsoWaitingHeaded}
         doors={view.doors}
         shop={view.shop}
         business={view.business}
         library={library}
+        setup={setup}
+        gear={<TodaySettings />}
+        week={view.week}
+        money={view.money}
         alsoWaiting={
           /* The asks and the closed lines, each opening its answer in place — the booking fee is still read BEFORE
              Agree, the receipt before Confirm. The payout nudge is a door row of its own, so not repeated here. */
@@ -128,6 +147,7 @@ export function SupplierTodayScreen({
             {...actions}
             payoutReadiness="unreadable"
             feeForecasts={feeForecasts}
+            eventLines={eventLines}
           />
         }
         // WHAT YOU OWE SETNAYAN — every unpaid booking fee, each with its own
@@ -142,8 +162,12 @@ export function SupplierTodayScreen({
           <>
             <BookingFeeBills today bills={view.bills} copyFor={view.billCopy} />
             {view.lockLine ? (
+              /* Said once, for every bill — one short line visible, the whole sentence in its ⓘ (owner 2026-10-28
+                 review: "title + one short line visible; everything else in the ⓘ"). */
               <p data-fee-lock-line="" className="pb-2 pl-[46px] text-[12.5px] leading-snug text-ink/60">
-                {view.lockLine}
+                <InfoTip label={view.lockWord} align="start">
+                  {view.lockLine}
+                </InfoTip>
               </p>
             ) : null}
           </>

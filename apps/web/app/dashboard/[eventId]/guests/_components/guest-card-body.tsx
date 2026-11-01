@@ -1,11 +1,12 @@
 import Link from 'next/link';
+import { GuestNick } from '@/app/_components/guest-nick';
 import { composeFormalName } from '@/lib/formal-name';
+import { seatWhyWords } from '@/lib/seat-why';
 import { LINKED_NAME_WORDS, PROFILE_NAME_WORDS, plusOneHasNoName, seatNameAsTyped } from '@/lib/extra-seats';
 import { pickItems } from '@/lib/role-alternatives';
 import { InfoTip } from '@/app/_components/info-tip';
 import {
   guestDisplayName,
-  guestInitials,
   GROUP_CATEGORY_LABELS,
   MEAL_LABELS,
   guestRoleLabel,
@@ -26,6 +27,7 @@ import {
   isAPlusOne,
   plusOneSeats,
   guestNameAsGiven,
+  guestNameWithNick,
   guestHasTicket,
 } from '@/lib/guests';
 import { choicesOfTitle, genderOfTitle, needsWomanOrMan, titleButtonText, titleChoices, titleKey } from '@/lib/guest-title';
@@ -58,6 +60,7 @@ import type { GuestInviteCell } from './guest-invite-cell';
 // from a 'use client' file would arrive here as a client reference, not a string).
 import { PASS_CARD_ROUTE } from '@/lib/pass-card';
 import type { InviteSetup } from './invite-message-setup';
+import { GuestCardAvatar, guestCardEyebrow, guestCardNick, guestCardReply, guestCardTitle } from './guest-card-head';
 import type { CardBoxProps, CardDoorProps, CardFactProps, CardFieldProps, CardFoldProps, CardGroupProps, CardInvitedToProps, CardKit, CardRolesProps, CardLockedProps, CardPickProps, CardSubmitProps, CardTipProps, CardTitleProps, CardToggleProps } from './guest-card-kit';
 import type { ComponentType } from 'react';
 import { AutosaveForm } from './guest-card-autosave';
@@ -70,7 +73,6 @@ import { inviteGuestByEmailAction, releaseGuestClaim, updateGuest } from '../[gu
 import { invitationLinkOn } from '@/lib/invitation-link';
 import { tableWords } from '@/lib/table-words';
 import { HOST_NOTE_MAX } from '@/lib/guest-host-note';
-import { displayPersonName } from '@/lib/person-name-case';
 
 /**
  * guest-card-body.tsx — ONE card per guest: the personal QR AND every editable
@@ -140,67 +142,10 @@ const RSVP_OPTIONS: RsvpStatus[] = ['attending', 'pending', 'maybe', 'declined']
 const CARD_RSVP_WORDS: Record<RsvpStatus, string> = RSVP_ROW_WORDS;
 
 
-/**
- * The card's identity line and its reply, as words — ONE source for the body
- * (the standalone page) and the sticky header over the panel (owner 2026-10-02:
- * "maybe we can leave this part persistent?"), so they are drawn once each.
- */
-export function guestCardEyebrow(
-  guest: Pick<GuestCardData['guest'], 'role' | 'side'>,
-  opts: { hasSides: boolean; roleNames: GuestCardData['roleNames']; plusOneOf?: GuestCardData['plusOneOf'] },
-): string {
-  const isCouple = guest.role === 'bride' || guest.role === 'groom';
-  // 🤝 A +1 is "+1 of Rose Marie Buanhug", on their guest's side (lib/plus-one-of.ts) — never a plain "Guest".
-  const of = isCouple ? null : (opts.plusOneOf ?? null);
-  const side = of ? of.side : guest.side;
-  return [isCouple ? guestRoleLabel(guest.role, opts.roleNames) : (of?.of ?? 'Guest'), opts.hasSides && !isCouple ? SIDE_LABELS[side] : null]
-    .filter(Boolean)
-    .join(' · ');
-}
-/** The card's title: an unnamed +1 seat is named by its guest ("Rose Marie Buanhug’s +1 · TBA"), everyone else by name. */
-export function guestCardTitle(
-  guest: Parameters<typeof guestDisplayName>[0],
-  plusOneOf?: GuestCardData['plusOneOf'],
-): string {
-  return plusOneOf?.name ?? displayPersonName(guestDisplayName(guest));
-}
-export function guestCardReply(guest: Pick<GuestCardData['guest'], 'role' | 'rsvp_status'>, proxy?: GuestCardData['proxy']): string {
-  if (guest.role === 'bride' || guest.role === 'groom') return '✓ Attending · always';
-  // 🧍 A represented role holder's answer is their proxy's — the pair counts once, as them.
-  if (proxy?.representedBy) return representedByWords(proxy.representedBy.name);
-  return `${guest.rsvp_status === 'attending' ? '✓ ' : ''}${CARD_RSVP_WORDS[guest.rsvp_status]}`;
-}
-
-
-/**
- * 👤 THE GUEST'S FACE — their photo, else their initials. ONE drawing for both places it lives: the sticky header over
- * the panel (`size="head"`, 44 px, left of the name — owner 2026-10-26) and the standalone page's identity row (48 px).
- * Not a button: it opens nothing, here or there.
- */
-export function GuestCardAvatar({
-  guest,
-  photoDisplayUrl,
-  size = 'body',
-}: {
-  guest: Parameters<typeof guestInitials>[0];
-  photoDisplayUrl: string | null;
-  size?: 'head' | 'body';
-}) {
-  const box = size === 'head' ? 'h-11 w-11' : 'h-12 w-12';
-  return photoDisplayUrl ? (
-    <span className={`inline-flex ${box} shrink-0 items-center justify-center overflow-hidden rounded-full bg-sn-accent/10`} data-guest-card-avatar={size}>
-      {/* eslint-disable-next-line @next/next/no-img-element -- presigned R2 URL, resolved by the loader */}
-      <img src={photoDisplayUrl} alt="" width={48} height={48} className="h-full w-full object-cover" />
-    </span>
-  ) : (
-    <span
-      className={`inline-flex ${box} shrink-0 items-center justify-center rounded-full bg-sn-accent/10 text-sm font-semibold text-sn-accent`}
-      data-guest-card-avatar={size}
-    >
-      {guestInitials(guest)}
-    </span>
-  );
-}
+/* 🪪 The card's head — eyebrow · name · reply and the face — lives in its own small module (`guest-card-head.tsx`) so the
+   Guest list can draw it AT THE TAP from the row already on screen, without carrying this whole body into the list's
+   first load (guest card opens fast, 2026-10-28). Re-exported here: every surface still reads them from the card. */
+export { GuestCardAvatar, guestCardEyebrow, guestCardNick, guestCardReply, guestCardTitle } from './guest-card-head';
 
 export const GUEST_CARD_ERROR_COPY: Record<string, string> = {
   missing_name: 'Please enter both first and last name.',
@@ -542,7 +487,7 @@ export function GuestCardBody({
           )}
           {variant === 'page' ? (
             /* A seat named by its guest is long ("Rose Marie Buanhug’s +1 · TBA") — it wraps, never cut to "…+1 · T…". */
-            <h1 className={`${data.plusOneOf?.name ? 'break-words' : 'truncate'} font-display text-2xl tracking-tight text-ink`}>{guestCardTitle(guest, data.plusOneOf)}</h1>
+            <h1 className="font-display text-2xl tracking-tight text-ink [overflow-wrap:anywhere]">{guestCardTitle(guest, data.plusOneOf)}<GuestNick nick={guestCardNick(guest, data.plusOneOf)} /></h1>
           ) : null}
           <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
             {!headerShown ? (
@@ -596,10 +541,11 @@ export function GuestCardBody({
                 label is the eyebrow's own `.sn-eye`. And plain words: "Me" is
                 the guest's own tab on the Event Hub — a host reading this card
                 does not know that name, so it says where they see it. */}
-            <p className="sn-eye">Their ticket</p>
-            <p className="mt-1 text-[13px] leading-snug text-ink/65">
+            {/* 🎟 "What they see on their phone" lives in the ⓘ beside the eyebrow now (owner 2026-10-27, prototype
+                `send_run_simple_2026-10-27` frame card) — the row under it is Share · NFC · New QR · ⋯. */}
+            <InfoTip label="Their ticket" labelAs="p" labelClassName="sn-eye" align="start">
               {isCouple ? 'A host — nothing to send.' : 'What they see on their phone.'}
-            </p>
+            </InfoTip>
           </div>
           {/* 🕯 Nothing is offered for a guest marked Passed away, and the couple
               do not invite themselves. */}
@@ -786,8 +732,9 @@ export function GuestCardBody({
                   options={roleOptions}
                   solo={SINGLETON_GUEST_ROLES}
                 />
-                {/* 🏷 Rename this role · Rename this section (owner 2026-09-30 / 2026-10-19) — the Guests pages' kit only. */}
-                {K.Rename ? <K.Rename eventId={eventId} role={guest.role} names={roleNames} /> : null}
+                {/* 🏷 The role's and the section's own words are renamed on the List's selected header now (R4 slice 4,
+                    owner 2026-10-29: "the renaming of that group will be removed since it will be set on when the
+                    highlighted group/role is pressed") — `section-head-toolbar.tsx`. The card keeps the role PICK. */}
                 {/* 🧍 "Proxy ▾" — only for a guest who HOLDS A ROLE (owner: "this only works if they have role and not guest"). */}
                 {ProxyRow && proxy && (proxy.offer || representedBy || proxy.unread) ? (
                   <ProxyRow eventId={eventId} guestId={guest.guest_id} firstName={callName} proxy={proxy} variant={variant} />
@@ -1042,6 +989,13 @@ export function GuestCardBody({
                   ]}
                 />
                 <input type="hidden" name="table_posted" value="1" />
+                {/* 🪑 Who placed this seat (owner 2026-10-29, lib/seat-why.ts): "You placed Ana here · yesterday" ·
+                    "Auto arrange placed Ana here · today". Not recorded → nothing. */}
+                {seatTableId && data.seatPlaced ? (
+                  <p className="text-xs text-ink/60" data-guest-seat-placed-by={data.seatPlaced.by}>
+                    {seatWhyWords({ placed_by: data.seatPlaced.by, placed_at: data.seatPlaced.at }, typedName.first_name || 'them')}
+                  </p>
+                ) : null}
               </>
             ) : (
               <p className="text-sm text-ink/70">{seatSummary}</p>

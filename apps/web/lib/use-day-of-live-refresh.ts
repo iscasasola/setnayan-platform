@@ -43,6 +43,12 @@ export function useVisibleTick(
     const fire = () => {
       if (!shouldFireRef.current()) return;
       if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+      // 📶 No signal, or the page on screen is the saved copy (EV3): a refresh cannot reach the server, and Next answers
+      // a failed refresh by RELOADING the page — which would re-open the copy every tick and wipe what the door crew
+      // was doing. Stand still; the next tick after the signal returns refreshes as before.
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+      // (`savedCopyOnScreen` in lib/offline-copies.ts, read inline here so this shared hook pulls nothing in.)
+      if (typeof document !== 'undefined' && document.documentElement.dataset.snSavedCopy) return;
       onTickRef.current();
     };
 

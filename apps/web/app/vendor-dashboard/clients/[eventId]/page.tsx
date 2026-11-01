@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { customerLandingHref } from '../../customers/anchors';
 import { CoupleLogo } from '@/app/_components/couple-logo';
 import { SaveFileLink } from '@/app/_components/save-file-link';
 import { coupleLogoPlays } from '@/lib/couple-logo-plays';
@@ -23,7 +24,6 @@ import {
   MessageSquarePlus,
   PackageCheck,
   Palette,
-  Phone,
   ScrollText,
   Sparkles,
   UserRound,
@@ -35,6 +35,9 @@ import { createClient } from '@/lib/supabase/server';
 import { ServerTimer } from '@/lib/server-timing';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { readEventsYouRun } from '@/lib/events-you-run.server';
+import { OpenTheirEvent } from './_components/open-their-event';
+import { Badge } from '@/app/_components/badge';
 import { getEditorialEligibility } from '@/lib/editorial-vendor-media';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { BoothPosterCard } from './_components/booth-poster-card';
@@ -476,6 +479,8 @@ type Props = {
     change_order?: string;
     change_order_resp?: string;
     handover?: string;
+    /** A refused note write (`noteSaved`, actions.ts) — said in the notes list. */
+    note?: string;
     /** vendorMarkServiceComplete's outcome — see VendorCompletionCard. */
     completed?: string;
     /** The payment-ask outcome flag — see PaymentAsksPanel. */
@@ -511,6 +516,9 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   if (!user) redirect('/login');
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');
+  // 🗂 Does this person RUN this couple's event as their coordinator, live? (owner "approved", 2026-10-28) — the
+  // layout's cache()d read of their own seats, started now and read at the header, so it adds no trip. Fails closed.
+  const eventsYouRunP = readEventsYouRun(supabase, user.id).catch(() => ({ events: [], measured: false }));
 
   // Stage gate + aggregation live inside the SECURITY DEFINER RPC. An error
   // means the vendor is neither booked nor holds an accepted inquiry on this
@@ -1326,6 +1334,9 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // "This couple" only when there is genuinely no name. The brief names the
   // couple at every stage (20271235469220); a blank string is not a name.
   const eventName = coupleNameOrFallback(brief.event.display_name);
+  // "Open their event" + the seat pill (Coordinator · Co-host) — only with a LIVE seat on THIS event (`seatRunsTheEvent`).
+  const runThisEvent = (await eventsYouRunP).events.find((e) => e.eventId === eventId) ?? null;
+  const runsThisEvent = runThisEvent !== null;
   const metaBits = [
     fmtShortDate(brief.event.event_date) || null,
     brief.event.venue_name ?? brief.event.region ?? null,
@@ -1473,10 +1484,10 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // ------------------------------------------------------------------------
   const backLink = (
     <Link
-      href="/vendor-dashboard/clients"
+      href="/vendor-dashboard/customers"
       className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-ink/55 hover:text-ink"
     >
-      <ArrowLeft aria-hidden className="h-4 w-4" /> Clients
+      <ArrowLeft aria-hidden className="h-4 w-4" /> Customers
     </Link>
   );
 
@@ -1523,6 +1534,9 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         />
         <WaivedFeeRows charges={clientWaived} />
         <div className="mt-2 flex flex-wrap items-center gap-2">
+          {runsThisEvent ? (
+            <Badge tone="quiet" data="coordinator">{runThisEvent?.seatWord ?? 'Coordinator'}</Badge>
+          ) : null}
           <span
             className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${stagePill.cls}`}
           >
@@ -1561,6 +1575,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
 
   const actionRow = (
     <div className="mt-3 flex flex-wrap gap-2">
+      {runsThisEvent ? <OpenTheirEvent eventId={eventId} /> : null}
       {threadId ? (
         <Link
           href={`/vendor-dashboard/messages/${threadId}`}
@@ -1570,7 +1585,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         </Link>
       ) : null}
       <Link
-        href="/vendor-dashboard/proposals"
+        href={customerLandingHref('proposals')}
         className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
       >
         <FileText aria-hidden className="h-3.5 w-3.5" /> New quote
@@ -1578,7 +1593,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       <Link
         href={
           hasContract
-            ? '/vendor-dashboard/contracts'
+            ? customerLandingHref('contracts')
             : `/vendor-dashboard/contracts/new?event=${eventId}`
         }
         className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
@@ -1833,7 +1848,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           deleted.
         </p>
       ) : null}
-      <ActivityFeed eventId={eventId} events={activityEvents} notes={notes} />
+      <ActivityFeed eventId={eventId} events={activityEvents} notes={notes} noteFailed={search.note === 'error'} />
     </>
   );
 
@@ -1969,7 +1984,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       id: 'chat',
       label: 'Chat',
       icon: <MessageSquare aria-hidden className={tabIconClass} />,
-      href: threadId ? `/vendor-dashboard/messages/${threadId}` : '/vendor-dashboard/messages',
+      href: threadId ? `/vendor-dashboard/messages/${threadId}` : customerLandingHref('messages'),
       node: null,
     },
     {
@@ -2087,7 +2102,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       </ShopCard>
       <div className="grid grid-cols-2 gap-2">
         <a
-          href={threadId ? `/vendor-dashboard/messages/${threadId}` : '/vendor-dashboard/messages'}
+          href={threadId ? `/vendor-dashboard/messages/${threadId}` : customerLandingHref('messages')}
           className={vQuickLinkClass}
         >
           <MessageSquare aria-hidden className="h-3.5 w-3.5" /> Chat
@@ -2112,6 +2127,12 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         <div>
           {backLink}
           {identityBlock}
+          {/* 🗂 The coordinator's door (owner 2026-10-28) — this shell has no action row, so it stands alone here. */}
+          {runsThisEvent ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              <OpenTheirEvent eventId={eventId} />
+            </div>
+          ) : null}
           {/* No action row. Its six buttons were the FIRST of the two nav rows
               the owner saw above the conversation; every one of them now has a
               home in the thread's frame (New quote · Log payment · Call are
@@ -2286,19 +2307,12 @@ function ReturningMarkerAndActions({
             <MessageSquare aria-hidden className="h-3.5 w-3.5" /> Chat
           </Link>
         ) : null}
-        {threadId ? (
-          <Link
-            href={`/vendor-dashboard/messages/${threadId}#thread-call`}
-            className={`${actionBase} border-ink/15 bg-white text-ink/70 hover:border-terracotta/40`}
-          >
-            <Phone aria-hidden className="h-3.5 w-3.5" /> Call
-          </Link>
-        ) : null}
+        {/* 📵 "Call" (→ the chat's call panel) is gone with the panel — owner 2026-10-28, "remove both voice and video call". */}
         <Link
           href={
             threadId
               ? `/vendor-dashboard/messages/${threadId}#build-quote`
-              : '/vendor-dashboard/proposals'
+              : customerLandingHref('proposals')
           }
           className={`${actionBase} border-mulberry bg-mulberry text-cream hover:bg-mulberry-600`}
         >
@@ -3075,7 +3089,7 @@ function QuoteTab(props: {
           href={
             threadId
               ? `/vendor-dashboard/messages/${threadId}#build-quote`
-              : '/vendor-dashboard/proposals'
+              : customerLandingHref('proposals')
           }
           className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-1.5 text-xs font-semibold text-ink/70 hover:border-terracotta/40"
         >

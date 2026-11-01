@@ -31,9 +31,9 @@ test('the Guests-only Setup files hold no hand-made control', () => {
 test('in every state, every ⓘ is Explain, every button is an ActionButton, and a row has at most one filled step', async () => {
   for (const getIn of GET_IN) {
     for (const locked of [false, true]) {
-      for (const toInvite of [4, 0, null] as const) {
-        const html = await renderSetup({ getIn, toInvite, headcount: { locked, attending: locked ? 7 : 3, heads: 7 } });
-        const where = `${getIn} · ${locked ? 'locked' : 'open'} · toInvite ${toInvite}`;
+      {
+        const html = await renderSetup({ getIn, headcount: { locked, attending: locked ? 7 : 3, heads: 7 } });
+        const where = `${getIn} · ${locked ? 'locked' : 'open'}`;
         /* The ⓘ is the approved one: its own 44-px target, "About <name>", the accent mark — never the older tip. */
         for (const m of html.matchAll(/data-explain=""[^>]*>/g)) assert.match(m[0], /aria-label="About [^"]+"/, `${where}: an ⓘ without its name`);
         assert.doesNotMatch(html, /sn-tip|data-info-tip/, `${where}: the older ⓘ is drawn`);

@@ -32,7 +32,7 @@
  * Update the line HERE — not in the components.
  */
 
-import { TILE_HINTS } from '@/lib/category-hints';
+import { TILE_HINTS, coversLine } from '@/lib/category-hints';
 import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
 import { COVERAGE_GLYPH, planGroupsForTile, type CoverageState } from '@/lib/coverage-strip';
 import type { BlockedLockReason, LockWithheldReason } from '@/lib/bench-card-actions';
@@ -41,11 +41,11 @@ import type { BlockedLockReason, LockWithheldReason } from '@/lib/bench-card-act
 export const EXPLORE_INFO_BUTTON_LABEL = 'About this page';
 
 /** Heading inside the page-level ⓘ panel. */
-export const EXPLORE_INFO_TITLE = 'How Explore works';
+export const EXPLORE_INFO_TITLE = 'How Suppliers works';
 
 /** §11.1 — what this page does. */
 export const EXPLORE_INFO_WHAT =
-  'Browse every service your event needs: open a folder, open a category, and its vendors appear as a carousel. Nothing here is committed — shortlisting, comparing and inquiring are all free.';
+  'Browse every service your event needs: open a folder, open a category, and its suppliers appear as a carousel. Nothing here is committed — shortlisting, comparing and inquiring are all free.';
 
 /**
  * §11.1 — what the Coverage Strip means. Names the strip "your event", the
@@ -76,7 +76,7 @@ export const EXPLORE_INFO_STRIP =
  * `explore-info-copy.test.ts`. Do not restore the promise ahead of the step.
  */
 export const EXPLORE_INFO_HANDSHAKE =
-  'Booking this vendor tells them straight away. You then pay them directly and send the receipt — once they accept it, your date is reserved on their calendar.';
+  'Booking this supplier tells them straight away. You then pay them directly and send the receipt — once they accept it, your date is reserved on their calendar.';
 
 /**
  * 📅 What the settled-date banner used to say under the header (owner 2026-10-26, *"Yes — build the new Suppliers
@@ -99,7 +99,7 @@ export const EXPLORE_STATE_LEGEND: ReadonlyArray<{
   meaning: string;
 }> = [
   { state: 'empty', glyph: COVERAGE_GLYPH.empty, label: 'Not started', meaning: 'nothing shortlisted here yet' },
-  { state: 'exploring', glyph: COVERAGE_GLYPH.exploring, label: 'Exploring', meaning: 'you have vendors saved' },
+  { state: 'exploring', glyph: COVERAGE_GLYPH.exploring, label: 'Saved', meaning: 'you have suppliers saved' },
   { state: 'picked', glyph: COVERAGE_GLYPH.picked, label: 'In your build', meaning: 'a candidate is pinned to your suppliers' },
   { state: 'locked', glyph: COVERAGE_GLYPH.locked, label: 'Booked', meaning: 'a booking is under way or done' },
   { state: 'covered', glyph: COVERAGE_GLYPH.covered, label: 'Covered', meaning: 'you told us you are done with this one' },
@@ -174,6 +174,36 @@ export function categoryHintForTile(tile: string): string | null {
     if (groups.includes(g.id)) return g.hint || null;
   }
   return null;
+}
+
+/**
+ * The ⓘ of a CATEGORY row — ALWAYS an answer (owner 2026-10-31: "I added a category shoes but there is not (i)").
+ * The owner's words from Admin › Categories (`service_categories.hint_en`) → the old hard-coded line
+ * (`categoryHintForTile`, kept only as the fallback) → "Shoes covers: <its services from Admin>". See
+ * lib/category-hints.ts for the order and why.
+ */
+export function categoryInfoText(args: {
+  tile: string;
+  label: string;
+  /** `service_categories.hint_en` for this category, as the snapshot carries it. */
+  written?: string | null;
+  /** The Admin names of the services filed under this category. */
+  serviceLabels?: readonly string[];
+}): string {
+  const own = (args.written ?? '').trim();
+  if (own) return own;
+  return categoryHintForTile(args.tile) ?? coversLine(args.label, args.serviceLabels ?? [], 'category');
+}
+
+/**
+ * True when some category has neither the owner's words nor an old line, so its ⓘ must be BUILT from its services —
+ * the only case that needs the service names read. Lets the page skip that read once every category is written.
+ */
+export function someCategoryNeedsItsServicesNamed(tax: {
+  tileOrder: readonly string[];
+  categoryHints?: Readonly<Record<string, string>>;
+}): boolean {
+  return tax.tileOrder.some((t) => !tax.categoryHints?.[t]?.trim() && !categoryHintForTile(t));
 }
 
 /** aria-label for the per-category ⓘ toggle (PR-C wires the button). */
@@ -284,7 +314,7 @@ export function removeFromPlanButtonLabel(label: string): string {
  * the server action when it refuses — one sentence, one home.
  */
 export const REMOVE_BLOCKED_LOCKED =
-  'This category has a booked vendor. Undo that booking first — removing a category never cancels a booking.';
+  'This category has a booked supplier. Undo that booking first — removing a category never cancels a booking.';
 
 /** A folder whose in-plan set is empty but whose pool is not. Visible copy, so
  *  it takes the same noun as the heading and the ⓘ panel. */

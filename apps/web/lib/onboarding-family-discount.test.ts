@@ -22,9 +22,12 @@ test('AT 10%, PAPIC MOVES NOTHING — all sixteen rungs land on their stored pri
   // shape must reproduce all sixteen or it is a repricing.
   for (const [shots, regular] of PAPIC_LADDER_EXPECTED) {
     const signup = signupPriceFor(regular, 10);
+    // 💲 2026-10-28: the one-price rungs ₱95 / ₱465 land on a .5 at 10% — the house rule rounds a tie DOWN
+    // (`roundPesoTiesDown`), which `Math.round` does not, so the expectation spells the house rule out.
+    const exact = regular * 0.9;
     assert.equal(
       signup,
-      Math.round(regular * 0.9),
+      exact - Math.floor(exact) === 0.5 ? Math.floor(exact) : Math.round(exact),
       `${shots} shots: 10% of ₱${regular} must reproduce the stored sign-up price`,
     );
     assert.equal(signup, Math.trunc(signup!), `${shots} shots: whole pesos only`);

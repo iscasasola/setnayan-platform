@@ -42,6 +42,8 @@ const read = (p: string) => stripComments(readFileSync(join(WEB, p), 'utf8'));
 
 const MAKER = 'app/vendor-dashboard/services/_components/canvas-maker.tsx';
 const NEW_DOOR = 'app/vendor-dashboard/services/new/page.tsx';
+/** The page's one drawing of the maker (shared with Today's setup sheet, 2026-10-28) — read with the page. */
+const NEW_DOOR_MAKER = 'app/vendor-dashboard/services/new/_components/new-service-maker.tsx';
 // Since 2026-10-14 the three doors into the maker read through ONE loader — the list is built there.
 const LOADER = 'lib/service-card-maker.server.ts';
 const RANK_LIB = 'lib/kind-search-trades.ts';
@@ -49,7 +51,7 @@ const SHARED_RANKER = 'lib/taxonomy-search-rank.ts';
 
 test('the files under test actually read back', () => {
   assert.ok(read(MAKER).length > 5000, 'the maker read back empty');
-  assert.ok(read(NEW_DOOR).length > 500, 'the new door read back empty');
+  assert.ok((read(NEW_DOOR) + read(NEW_DOOR_MAKER)).length > 500, 'the new door read back empty');
   assert.ok(read(RANK_LIB).length > 200, 'the trade-search wiring read back empty');
   assert.ok(read(SHARED_RANKER).length > 200, 'the shared ranker read back empty');
 });
@@ -158,7 +160,7 @@ test('trades render only once something is typed, and nowhere else on the door',
   const occurrences = (src.match(/rankedTrades\.map\(\(t\) =>/g) ?? []).length;
   assert.equal(occurrences, 1, `rankedTrades is rendered ${occurrences} times, expected exactly 1`);
   // The new door itself never dumps the full 262-item list outside the maker.
-  const door = read(NEW_DOOR);
+  const door = (read(NEW_DOOR) + read(NEW_DOOR_MAKER));
   assert.ok(
     !/tradeOptions\.map\(/.test(door),
     'the door started rendering the 262 trades itself instead of handing them to the maker',
@@ -201,5 +203,5 @@ test('the door builds every trade from the visible coverage tree, with the SAME 
   const block = door.slice(at, at + 700);
   assert.match(block, /standingOf\(l\.canonicalService\)/, 'each trade stopped asking the SAME standing function the save enforces');
   assert.match(block, /branch: b\.label/, 'a trade lost its branch — two similar trades could no longer be told apart');
-  assert.match(read(NEW_DOOR), /tradeOptions=\{ctx\.tradeOptions\}/, 'the door stopped handing the trade list to the maker');
+  assert.match((read(NEW_DOOR) + read(NEW_DOOR_MAKER)), /tradeOptions=\{ctx\.tradeOptions\}/, 'the door stopped handing the trade list to the maker');
 });

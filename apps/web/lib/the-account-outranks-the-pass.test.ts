@@ -265,6 +265,12 @@ const MAY_TOUCH_THE_PASS_COOKIES: Record<string, string> = {
   'lib/guest-pass-book.ts': 'defines the pass book cookie name and its wire format',
   'middleware.ts': 'slides the pass’s expiry and swaps the active pass per path — never decides who is looking',
   'app/[slug]/live-pulse/route.ts': 'a change stamp with no name, id or content — the signature is the whole door',
+  'app/api/live/run-of-show/[eventId]/route.ts':
+    "a closed event's run-of-show door, live-pulse's rule — the lines every guest sees alike, nothing about who asks (EV1)",
+  'app/[slug]/_lib/latest-announcement.server.ts':
+    "the announcement's door: is this a CURRENT pass for this event (signature + seal set, else the DB check); a signed-in viewer goes through readGuestSession itself (EV1)",
+  'lib/hub-view-route.ts':
+    'names the cached Event Hub copy by a SEAL of the pass; never decides who is looking — the route re-checks the seal against the DB, and a signed-in viewer never reaches it (EV1)',
   'app/auth/sign-out/route.ts': 'sign out everywhere: deletes every pass cookie',
   'app/[slug]/redeem/route.ts': 'Problems-log evidence: whether a pass cookie is PRESENT (a boolean, never an identity)',
   'app/[slug]/invite/enter/page.tsx': 'Problems-log evidence: whether a pass cookie is PRESENT (a boolean, never an identity)',

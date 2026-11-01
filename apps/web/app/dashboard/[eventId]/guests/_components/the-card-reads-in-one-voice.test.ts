@@ -33,12 +33,9 @@ test('1 · every section label on the card is the eyebrow style', () => {
   /* RE-AIMED 2026-10-23 (owner's groups): "Name · mobile" is no longer a heading — the name and the mobile are the Basic Info
      group, a row like every other (its label is the fold's own), CLOSED with the mobile in its summary. */
   assert.match(CARD, /<K\.Fold summary="Basic Info" value=\{basicSummary\}/, 'the name and mobile are not the Basic Info group');
-  for (const label of ['Their ticket']) {
-    const at = CARD.indexOf(`>${label}<`);
-    assert.ok(at > -1, `"${label}" is gone from the card`);
-    const tag = CARD.slice(CARD.lastIndexOf('<', at), at);
-    assert.match(tag, /className="sn-eye"/, `"${label}" is not the card's eyebrow style: ${tag}`);
-  }
+  /* 🎟 "Their ticket" is the eyebrow of an ⓘ since 2026-10-28 (its "What they see on their phone." moved inside it —
+     prototype `send_run_simple_2026-10-27` frame card): the InfoTip's label wears `.sn-eye`. */
+  assert.match(CARD, /<InfoTip label="Their ticket" labelAs="p" labelClassName="sn-eye"/, '"Their ticket" is gone or not the eyebrow style');
   assert.match(CARD, /<p className="sn-eye">\s*\{guestCardEyebrow\(/, 'the card\'s own eyebrow left .sn-eye');
   assert.doesNotMatch(CARD, /font-mono[^"]*uppercase|uppercase[^"]*font-mono/, 'a mono caps label is back on the card');
   assert.match(PARTS, /<p id=\{titleId\} className="sn-eye">/, 'the full ticket view titles itself in another style');
@@ -124,8 +121,9 @@ test('3 · the card marks its row, and both menus ask for the box', () => {
 test('4 · every line of the ⋯ list carries an icon', () => {
   const menu = PARTS.slice(PARTS.indexOf('export function GuestMoreMenu('));
   const items = menu.split('role="menuitem"').slice(1).map((s) => s.slice(0, s.indexOf('</button>')));
-  /* Delete left the ⋯ for the card's own last group (owner 2026-10-23, `GuestDeleteControl`) — New QR · Unlink remain. */
-  assert.ok(items.length >= 2, `expected New QR · Unlink, found ${items.length}`);
+  /* Delete left the ⋯ for the card's own last group (owner 2026-10-23, `GuestDeleteControl`); NFC and New QR left it for the
+     ticket row's icon buttons (owner 2026-10-27, "GUEST CARD TICKET ROW = THREE ICON BUTTONS") — Unlink remains. */
+  assert.ok(items.length >= 1, `expected Unlink, found ${items.length}`);
   for (const it of items) {
     const words = it.slice(it.lastIndexOf('/>') + 2).trim();
     assert.match(it, /<[A-Z]\w+ aria-hidden className="h-3\.5 w-3\.5"/, `"${words}" has no icon`);

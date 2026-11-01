@@ -15,7 +15,9 @@ import type { DueFeeBill, FeeDisclosure } from '@/lib/booking-fee-disclosure';
 import { feeDueCopy, feeDueStage } from '@/lib/booking-fee-disclosure';
 import type { PayoutReadiness } from '@/lib/deposit-pay-step';
 import { firstStepsThen, type FirstStepThen, type FirstStepsRail } from '@/lib/vendor-first-steps';
-import type { UpcomingEventRow, WhatsNewCard } from '@/lib/vendor-overview';
+import type { OwedBooking, UpcomingEventRow, WhatsNewCard } from '@/lib/vendor-overview';
+import { formatPhp } from '@/lib/orders';
+import { customerCardHref } from '@/lib/upcoming-schedule-door';
 import type { EventDayFacts, TodaySchedules } from '@/lib/supplier-today.server';
 import { daySheetHref, daysFrom } from '@/lib/vendor-dates';
 import { formatCount } from '@/lib/format-number';
@@ -72,7 +74,7 @@ export type SupplierTodayInput = {
   feeBills: readonly DueFeeBill[];
   feeEnforced: boolean;
   /** Payday — `fetchVendorEarningsSummary`, or null when not read (an event day does not read it). */
-  earnings: { confirmedPhp: number; expectedPhp: number; paydayMeasured: boolean } | null;
+  earnings: { confirmedPhp: number; expectedPhp: number; paydayMeasured: boolean; owed?: readonly OwedBooking[] } | null;
   /** The credit about to expire (`todayCreditNotice` said yes), with its two figures. */
   credit: { creditPhp: number; tierExpiresAt: string | null; href: string } | null;
   /** 🎁 A plan Setnayan gave, ending within the week (`giftDoorWords`) — the door row. */
@@ -140,6 +142,14 @@ export type SupplierTodayView = {
   };
   alsoToday: Array<{ id: string; label: string; line: string | null; href: string; icon: TodayRowIcon }>;
   comingUp: Array<{ id: string; href: string; label: string; line: string | null; outside?: boolean }>;
+  /**
+   * 🔢 THE PINNED COUNTS' LISTS (owner 2026-10-28: "the counts … are the pinned row and they FILTER the list in place").
+   * `week` — every booking in the next seven days (Setnayan and outside), the rows the "this week" number counts;
+   * `money` — each booking with money still to come in, most urgent first, the rows the "to come in" total sums
+   * (null when payday was not read — said, never an empty list).
+   */
+  week: Array<{ id: string; href: string; label: string; line: string | null; outside?: boolean }>;
+  money: Array<{ id: string; href: string; label: string; line: string; overdue: boolean }> | null;
   askRows: TodayAskRow[];
   alsoWaitingHeaded: boolean;
   doors: SupplierWaitingDoor[];
@@ -147,6 +157,8 @@ export type SupplierTodayView = {
   bills: DueFeeBill[];
   billCopy: (b: DueFeeBill) => FeeDisclosure;
   lockLine: string | null;
+  /** The lock line's few visible words (its whole sentence goes in the ⓘ) — the GATE's own answer, never a guess. */
+  lockWord: string;
   shop: { name: string; line: string; pill: ShopPill };
   business: { line: string | null };
 };
@@ -228,6 +240,16 @@ export function assembleSupplierToday(input: SupplierTodayInput): SupplierTodayV
       },
     })),
   ].sort((a, b) => a.date.localeCompare(b.date));
+  // The week's rows — the same two lists, the same seven days (`inDays` 0–6) `eventsThisWeek` counts.
+  const week = ahead
+    .filter((a) => {
+      const d = daysFrom(todayIso, a.date);
+      return d !== null && d >= 0 && d <= 6;
+    })
+    .map((a) => a.row);
+  const todayRow = eventToday
+    ? [{ id: eventToday.id, href: eventToday.href, label: `Today · ${eventToday.eventName}`, line: eventToday.place || null }]
+    : [];
   const thisWeek = eventsThisWeek([
     ...upcoming,
     ...schedules.outside.map((o) => ({ inDays: daysFrom(todayIso, o.date) ?? 0 }) as UpcomingEventRow),
@@ -325,12 +347,25 @@ export function assembleSupplierToday(input: SupplierTodayInput): SupplierTodayV
           ]
         : [],
     comingUp: ahead.slice(0, 3).map((a) => a.row),
+    week: [...todayRow, ...week],
+    money:
+      // Not read (an event day reads no payday) or not cut per booking → unknown, said so — never an empty list.
+      input.earnings && input.earnings.paydayMeasured && input.earnings.owed
+        ? input.earnings.owed.map((o) => ({
+            id: `owed-${o.eventId}`,
+            href: customerCardHref(o.eventId, 'quote'),
+            label: o.eventName,
+            line: `${formatPhp(o.owedPhp)}${o.overdue ? ' · overdue' : o.nextDue ? ` · due ${shortDay(o.nextDue) ?? o.nextDue}` : ''}`,
+            overdue: o.overdue,
+          }))
+        : null,
     askRows,
     alsoWaitingHeaded: askRows.length > 0 || input.deskIncomplete,
     doors: waiting.doors,
     bills,
     billCopy: (b) => feeRowCopy(b, todayIso),
     lockLine,
+    lockWord: input.feeEnforced ? 'Locked until the fee is paid' : 'Your booking is not affected',
     shop: { name: input.shop.name, line: shopLine, pill },
     business: {
       line: input.verified ? businessLine({ views: input.views, asked: input.inquiries28 }) : 'Couples see your shop once you are live',

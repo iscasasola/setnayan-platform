@@ -30,7 +30,24 @@
   .row:has(> :nth-child(4)) .glyph { display: none; }
   .row:has(> :nth-child(4)) .field { padding-left: 8px; } /* Safari's face is 2 px wider (WebKit walk) */
 }
-.input::-webkit-search-cancel-button { margin-left: 4px; }
+.input::-webkit-search-cancel-button { display: none; }
+/* ✕ INSIDE THE FIELD (thumb-row.tsx; owner 2026-10-30, "an x inside to clear the text with one click"): the ONE ✕ of
+   every thumb-row search — the browser's own steps aside above. A 44 × 44 press round a 28 px disc, reaching the pill's
+   right edge (the field's padding given back as a negative margin). With no words it takes NO room (width 0, hidden, no
+   press), so a placeholder that reads whole at 320 still does; the first letter grows it in, clearing shrinks it out. */
+.clearIn {
+  flex: 0 0 auto; display: grid; place-items: center; height: 44px; width: 0; margin: 0; padding: 0; border: 0;
+  margin-left: -6px; background: transparent; color: rgb(var(--color-ink) / 0.7); border-radius: var(--m-r-full); overflow: hidden;
+  opacity: 0; transform: scale(0.6); visibility: hidden; pointer-events: none;
+  transition: width 0.22s cubic-bezier(0.2, 0.8, 0.2, 1), margin 0.22s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.18s, transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0s 0.22s;
+}
+.clearDisc { display: grid; place-items: center; width: 28px; height: 28px; border-radius: var(--m-r-full); background: rgb(var(--color-ink) / 0.08); }
+.clearDisc > svg { width: 14px; height: 14px; }
+.input:not(:placeholder-shown) ~ .clearIn {
+  width: 44px; margin: 0 -10px 0 -4px; opacity: 1; transform: none; visibility: visible; pointer-events: auto; transition-delay: 0s;
+}
+@media (max-width: 360px) { .input:not(:placeholder-shown) ~ .clearIn { margin-right: -6px; } }
+@media (prefers-reduced-motion: reduce) { .clearIn { transition: none; } }
 .gap { flex: 1 1 auto; }
 /* ≡ — the PickMenu's button drawn as a 44 round: its current option's icon is the face. */
 .menu :global(button[aria-haspopup='listbox']) { width: 44px; height: 44px; min-height: 44px; padding: 0; justify-content: center; background: transparent; gap: 0; }
@@ -65,16 +82,11 @@
 .row[data-thumb-row] > :global(.sn-glass-row) { -webkit-mask-image: none; mask-image: none; box-shadow: var(--sn-sh-float); }
 .row[data-thumb-row] > .round:global(.sn-glass-row) { box-shadow: inset 0 0 0 1px var(--sn-glass-line), var(--sn-sh-float); }
 .row[data-thumb-row] > [data-thumb-seat='action'] { box-shadow: var(--sn-sh-float); }
-/* While it rides, the band's plate carries the float (typing-band.tsx); the seats on it sit flat. */
-.row[data-thumb-row][data-riding] > [data-thumb-seat='clear'] { box-shadow: none; }
 /* ⌨ RIDING THE KEYBOARD (thumb-row.tsx; owner 2026-10-24, buttons fold): while the field is typed into with the
-   keyboard up, the field is the whole row — ⇕ · ≡ · ＋ fold, ✕ (clear) stands beside it — and it is the Maker's open
+   keyboard up, the field is the whole row — ⇕ · ≡ · ＋ fold, its ✕ stays inside it — and it is the Maker's open
    field: a white pill with the accent ring, on the typing band's cream plate (`typing-band.tsx`). */
 .row[data-riding] { position: relative; z-index: 1; }
-.row[data-riding] > [data-thumb-seat]:not([data-thumb-seat='field'], [data-thumb-seat='clear']) { display: none; }
+.row[data-riding] > [data-thumb-seat]:not([data-thumb-seat='field']) { display: none; }
 .row[data-riding] > [data-thumb-seat='field'] {
   background: rgb(var(--color-cream)); box-shadow: inset 0 0 0 2px rgb(var(--sn-accent)); backdrop-filter: none; -webkit-backdrop-filter: none;
 }
-.clear:global(.sn-glass-row) { box-shadow: none; background: var(--tb-raised, rgb(var(--color-ink) / 0.06)); backdrop-filter: none; -webkit-backdrop-filter: none; }
-/* One ✕ while riding: the seat's (the browser's own search ✕ inside the field steps aside). */
-.row[data-riding] .input::-webkit-search-cancel-button { display: none; }

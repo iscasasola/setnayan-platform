@@ -20,6 +20,7 @@ import { resolveFaceTagging } from '@/lib/face-tagging-gate';
 // no enrolled vectors this is a clean no-op.
 
 type SourceTable = 'papic_photos' | 'papic_guest_captures';
+type Admin = ReturnType<typeof createAdminClient>;
 
 /**
  * Auto-tag one capture from the face descriptors detected in it. Fetches the
@@ -54,67 +55,23 @@ export async function autoTagCapture(params: {
     // 2026-09-30), the couple's "off" still wins (lib/face-tagging-gate.ts).
     if ((await resolveFaceTagging(admin, eventId)).mode !== 'mode_a') return { autoTagged: 0 };
 
-    // This event's consented, non-revoked enrollments that actually have a vector.
-    const { data: enr, error } = await admin
-      .from('guest_face_enrollments')
-      .select('guest_id, face_vector')
-      .eq('event_id', eventId)
-      .is('revoked_at', null)
-      .not('consent_at', 'is', null)
-      .not('face_vector', 'is', null);
-    if (error || !enr || enr.length === 0) return { autoTagged: 0 };
-
-    const enrollments: EnrollmentVec[] = enr
-      .map((r) => ({ guestId: r.guest_id as string, vector: r.face_vector as number[] }))
-      .filter((e) => e.guestId && Array.isArray(e.vector) && e.vector.length > 0);
-
-    // ACCOUNT-LEVEL FACE PROFILE seed (owner-locked 2026-06-26 reversal of
-    // per-event scoping). When the flag is ON, also seed recognition with the
-    // account-level profiles of users who are THEMSELVES guests at this event
-    // (consented, non-revoked). Each account seed is keyed to that user's OWN
-    // guest_id, so a match can only ever tag the person whose face it is
-    // (guardrail #2). The pure matcher dedupes per guest, so a guest with both
-    // an event enrollment AND account seeds collapses to one tag at the closest
-    // distance. `accountSeedsForEvent` is a clean no-op when the flag is OFF.
-    const accountSeeds = await accountSeedsForEvent(admin, eventId);
-    for (const seed of accountSeeds) {
-      for (const vector of seed.vectors) {
-        if (Array.isArray(vector) && vector.length > 0) {
-          enrollments.push({ guestId: seed.guestId, vector });
-        }
-      }
-    }
-
-    if (enrollments.length === 0) return { autoTagged: 0 };
-
-    // ⚖ ONLY A GUEST WHO SAID "YES, TAG ME" IS EVER SEARCHED FOR (owner
-    // 2026-09-30, "A LATE SELFIE LOOKS BACK…": *"Only guests with a registered
-    // selfie are matched; No / never-answered guests are never searched for."*).
-    // An enrollment written before the question existed, or by a path that did
-    // not ask it, carries no Yes — it is left out. A failed read matches nobody.
-    const candidateIds = Array.from(new Set(enrollments.map((e) => e.guestId)));
-    const { data: wanting, error: wantErr } = await admin
-      .from('guests')
-      .select('guest_id')
-      .eq('event_id', eventId)
-      .in('guest_id', candidateIds)
-      .eq('face_tagging_wanted', true);
-    if (wantErr) console.error('[supabase-error] lib/face-match.ts · from:guests.select(face_tagging_wanted)', wantErr);
-    if (wantErr || !wanting) return { autoTagged: 0 };
-    const wants = new Set((wanting as Array<{ guest_id: string }>).map((g) => g.guest_id));
-    const searched = enrollments.filter((e) => wants.has(e.guestId));
+    // WHO IS SEARCHED FOR — the one read, shared with the end-of-event rescan (`searchedEnrollments`).
+    const searched = await searchedEnrollments(admin, eventId);
     if (searched.length === 0) return { autoTagged: 0 };
 
     // Existing tags on this photo (QR/manual/auto) INCLUDING tombstoned removals:
     // a removed guest is never re-tagged (gravestone rule, 20270131081062).
     // There is no per-photo tag count to fill any more (owner 2026-08-06).
-    const { data: existing } = await admin
+    // 🔒 AN UNREAD TAG LIST IS NOT AN EMPTY ONE (2026-10-31): a failed read used to fall through as "nobody is
+    // tagged here yet", so every tombstone on the photo stopped excluding its guest. It now writes nothing.
+    const { data: existing, error: existingErr } = await admin
       .from('photo_tags')
       .select('guest_id')
       .eq('source_table', sourceTable)
       .eq('source_id', photoId);
-    const existingRows = existing ?? [];
-    const alreadyTaggedGuestIds = existingRows.map((r) => r.guest_id as string);
+    if (existingErr) console.error('[supabase-error] lib/face-match.ts · from:photo_tags.select(existing)', existingErr);
+    if (existingErr || !existing) return { autoTagged: 0 };
+    const alreadyTaggedGuestIds = (existing as Array<{ guest_id: string }>).map((r) => r.guest_id);
 
     const plan = planAutoTags({ faceVectors, enrollments: searched, alreadyTaggedGuestIds });
     if (plan.autoTags.length === 0) return { autoTagged: 0 };
@@ -138,4 +95,65 @@ export async function autoTagCapture(params: {
   } catch {
     return { autoTagged: 0 };
   }
+}
+
+/**
+ * WHO THE MATCHER SEARCHES FOR AT THIS EVENT — every consented, non-revoked enrolment with a vector (plus the
+ * account seeds when that flag is on), kept only for guests who said "Yes, tag me". A failed read searches nobody.
+ *
+ * ONE read for both callers: `autoTagCapture` (per photo) and the end-of-event rescan (`lib/face-rescan.ts`, once
+ * per event per run), so the rescan's "is anybody still to be found in this photo?" can never disagree with the
+ * matcher it then calls. The GATES (DPO control, mode_a) stay with each caller.
+ */
+export async function searchedEnrollments(admin: Admin, eventId: string): Promise<EnrollmentVec[]> {
+  // This event's consented, non-revoked enrollments that actually have a vector.
+  const { data: enr, error } = await admin
+    .from('guest_face_enrollments')
+    .select('guest_id, face_vector')
+    .eq('event_id', eventId)
+    .is('revoked_at', null)
+    .not('consent_at', 'is', null)
+    .not('face_vector', 'is', null);
+  if (error) console.error('[supabase-error] lib/face-match.ts · from:guest_face_enrollments.select', error);
+  if (error || !enr || enr.length === 0) return [];
+
+  const enrollments: EnrollmentVec[] = enr
+    .map((r) => ({ guestId: r.guest_id as string, vector: r.face_vector as number[] }))
+    .filter((e) => e.guestId && Array.isArray(e.vector) && e.vector.length > 0);
+
+  // ACCOUNT-LEVEL FACE PROFILE seed (owner-locked 2026-06-26 reversal of
+  // per-event scoping). When the flag is ON, also seed recognition with the
+  // account-level profiles of users who are THEMSELVES guests at this event
+  // (consented, non-revoked). Each account seed is keyed to that user's OWN
+  // guest_id, so a match can only ever tag the person whose face it is
+  // (guardrail #2). The pure matcher dedupes per guest, so a guest with both
+  // an event enrollment AND account seeds collapses to one tag at the closest
+  // distance. `accountSeedsForEvent` is a clean no-op when the flag is OFF.
+  const accountSeeds = await accountSeedsForEvent(admin, eventId);
+  for (const seed of accountSeeds) {
+    for (const vector of seed.vectors) {
+      if (Array.isArray(vector) && vector.length > 0) {
+        enrollments.push({ guestId: seed.guestId, vector });
+      }
+    }
+  }
+
+  if (enrollments.length === 0) return [];
+
+  // ⚖ ONLY A GUEST WHO SAID "YES, TAG ME" IS EVER SEARCHED FOR (owner
+  // 2026-09-30, "A LATE SELFIE LOOKS BACK…": *"Only guests with a registered
+  // selfie are matched; No / never-answered guests are never searched for."*).
+  // An enrollment written before the question existed, or by a path that did
+  // not ask it, carries no Yes — it is left out. A failed read matches nobody.
+  const candidateIds = Array.from(new Set(enrollments.map((e) => e.guestId)));
+  const { data: wanting, error: wantErr } = await admin
+    .from('guests')
+    .select('guest_id')
+    .eq('event_id', eventId)
+    .in('guest_id', candidateIds)
+    .eq('face_tagging_wanted', true);
+  if (wantErr) console.error('[supabase-error] lib/face-match.ts · from:guests.select(face_tagging_wanted)', wantErr);
+  if (wantErr || !wanting) return [];
+  const wants = new Set((wanting as Array<{ guest_id: string }>).map((g) => g.guest_id));
+  return enrollments.filter((e) => wants.has(e.guestId));
 }

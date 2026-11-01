@@ -72,7 +72,9 @@ test('1 · for every stage, Page ▾ offers exactly the guest bar’s pages — 
 test('1 · the guest bar asked is the REAL one — the same function a guest’s page draws, not a copy', () => {
   // A guest's own bar, asked independently: the dropdown equals it.
   const direct = resolveSiteNav({
-    viewer: { kind: 'guest' }, phase: 'before', hostAllowsCamera: true, anyChapterPublic: true, hasStory: true,
+    // 📷 With the switch the Maker asks with off the day (`guestBarForStage`): Papic's Camera only LEAVES there,
+    // so it is not a page to design (owner 2026-10-30) — the canvas still draws it on the real bar.
+    viewer: { kind: 'guest' }, phase: 'before', hostAllowsCamera: false, anyChapterPublic: true, hasStory: true,
     hasDetails: true, liveBroadcast: false, destinations: { camera: '/c' },
     stageSlots: STAGE_BAR.rsvp.slots,
   }).map((s) => s.label);

@@ -18,6 +18,7 @@ import { formatPhp } from '@/lib/orders';
 import { THREAD_STAGE_TONE } from '@/lib/vendor-thread-stage';
 import { STANDING_LABEL, standingSentence, type SupplierStanding } from '@/lib/supplier-standing';
 import type { SharedFileEntry } from '@/lib/chat-shared-files';
+import { CHAT_FILE_EXPIRED_LABEL } from '@/lib/chat-file-rules';
 
 /**
  * chat-thread-views.tsx — All · Decisions · Files, and the two panels behind
@@ -437,6 +438,9 @@ export function FilesPanel({ files }: { files: readonly SharedFileEntry[] }) {
             >
               Open
             </a>
+          ) : f.expired ? (
+            // 90 days after the event the file itself goes (C2); the row stays, by name, and says so.
+            <span className="shrink-0 text-xs text-ink/50" data-file-expired="">{CHAT_FILE_EXPIRED_LABEL}</span>
           ) : (
             // A row whose link cannot be built still LISTS the file — saying
             // "we have this and cannot open it" beats omitting it silently.

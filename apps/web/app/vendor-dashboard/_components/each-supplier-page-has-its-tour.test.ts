@@ -42,7 +42,8 @@ const DRAWN: Record<(typeof SUPPLIER_PAGE_TOURS)[number], string[]> = {
   vendor_hub_v1: ['hub-next-days', 'hub-empty', 'hub-day-launch', 'hub-setup'],
   // + Owner 2026-10-25, "the spotlight tour is missing so many parts for each page".
   vendor_today_v2: ['supplier-messages', 'today-numbers', 'today-coming-up', 'today-shop'],
-  vendor_people_v1: ['customers-segments', 'customers-filter', 'customers-search', 'customers-add'],
+  // 2026-10-28: People ▾ · the four counts · ⚙ are the pinned row now — the ⚙ is its own stop.
+  vendor_people_v1: ['customers-segments', 'customers-filter', 'customers-gear', 'customers-search', 'customers-add'],
   vendor_collections_v1: ['collections-filter', 'collections-list', 'collections-add'],
 };
 
@@ -55,8 +56,13 @@ test('1 · each page tour is a spotlight with the drawn stops, in order', () => 
     assert.deepEqual(s.steps.map((x) => x.anchor), DRAWN[key], `${key}: not the drawn stops`);
     assert.ok(s.finale.title.startsWith('You’re set'), `${key}: the finale is not the shipped "You're set"`);
   }
-  // The Shop tour's first stop is the doorway into Page.
-  assert.equal(TOURS.vendor_shop_v1.spotlight!.steps[0]!.go, true, 'Shop stop 1 no longer walks into Page');
+  // The Shop tour's first stop leads into Page. v13 (S5, owner-approved 2026-10-29): Shop's sections are ONE ▾ now, and a
+  // dropdown is not a doorway Next can click through (`go` would press a closed menu and stall) — so the stop ASKS the
+  // supplier to pick Page, and the next two stops light on Page when they do.
+  const first = TOURS.vendor_shop_v1.spotlight!.steps[0]!;
+  assert.notEqual(first.go, true, 'Shop stop 1 is a `go` doorway on a dropdown — Next would press a closed menu and stall');
+  assert.match(first.body, /pick Page/i, 'Shop stop 1 no longer leads into Page');
+  assert.ok(first.hint, 'Shop stop 1 asks something else than "tap it" and does not say so');
 });
 
 test('2 · no page tour repeats a stop the Today journey makes', () => {

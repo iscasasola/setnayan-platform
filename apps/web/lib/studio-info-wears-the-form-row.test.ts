@@ -215,16 +215,22 @@ test('(5) the opening line has ONE door from Info: the draft key Apply publishes
 test('(6) the optional rows are under ONE fold "More for guests"; the live rows say so in ONE amber line; which rows are live is unchanged', () => {
   const tools = read(TOOLS);
   const hub = fn(tools, 'StudioHubSettings');
-  assert.match(hub, /<Fold data="more-for-guests" title="More for guests" summary="the address, who can view, the QR">/);
+  assert.match(hub, /<Fold data="more-for-guests" title="More for guests" summary="the address, who can view, the QR">\s*\{body\}\s*<\/Fold>/);
   assert.equal(count(hub, /<Fold\b/g), 1);
+  /* ⚙ (2026-10-30) The Hub's ⚙ Event Hub settings (`bare`) draws the SAME writes as the prototype's compact rows, open
+     (owner: "Redraw to prototype" — `lib/the-hubs-settings-draw-compact-rows.test.ts`), and the amber line is that
+     group's ⓘ (`hub-settings.tsx`). In Info they stay under the one fold. */
+  assert.match(hub, /if \(bare\) return compactRows;/, 'the ⚙’s copy is not its own compact rows');
+  assert.match(hub, /return \(\s*<Fold data="more-for-guests"/, 'Info’s copy is not folded');
   // Everything optional is INSIDE it: the address, the three settings, the Event Bar, the QR.
-  const inside = hub.slice(hub.indexOf('<Fold '), hub.indexOf('</Fold>'));
+  const inside = hub.slice(hub.indexOf('const body = ('), hub.indexOf('<Fold data="more-for-guests"'));
   for (const piece of ['name="Event Hub address"', '<LaunchStdButton ', 'name="Who can view"', 'name={WHICH_VERSION_LABEL}', 'name="Event Bar"', '<StudioQrShown ', '{qrLook}', '<StudioQrActions ']) {
     assert.ok(inside.includes(piece), `${piece} is not inside the fold`);
   }
   // ONE amber line, once — and the address's own "Guests see this right away" steps aside for it.
   assert.equal(count(hub, /\{STUDIO_LIVE_LINE\}/g), 1, 'the "right away" line is said more than once (or not at all)');
-  assert.match(hub, /<p data-studio-live-line="" className="[^"]*text-warn-700">/, 'the line is not the quiet amber one');
+  assert.match(inside, /<p data-studio-live-line="" className="[^"]*text-warn-700">/, 'the line is not the quiet amber one');
+  assert.doesNotMatch(hub.slice(hub.indexOf('const compactRows = ('), hub.indexOf('if (bare) return compactRows;')), /STUDIO_LIVE_LINE/, 'the ⚙ says the "right away" line twice (it is the group’s ⓘ there)');
   assert.match(hub, /\[&_\[data-hub-saves-immediately\]\]:hidden/, 'the address still says it a second time');
   assert.match(tools, /export const STUDIO_LIVE_LINE = 'These change your Event Hub right away — not on ✓ Apply: the address, Go live, who can view, which version guests see, and the Event Bar\.';/);
   // Which rows are live is unchanged: the shipped actions, each as before.
@@ -236,7 +242,9 @@ test('(6) the optional rows are under ONE fold "More for guests"; the live rows 
   assert.match(hub, /data-studio-hub-unread=""/);
   // The Maker hands it the address's own editor, the QR's look and its state; the quiet rows stay last, outside.
   const details = read(DETAILS);
-  assert.match(details, /part="hub"\s+eventId=\{eventId\}\s+slug=\{slug\}\s+hub=\{st\.hub\}\s+address=\{editors\.address\}/);
+  /* (One builder since 2026-10-30, `hubSettingsEditor` — Info's fold and the Hub's ⚙ both draw what it builds.) */
+  assert.match(details, /part="hub"\s+eventId=\{eventId\}\s+slug=\{slug\}\s+hub=\{st\.hub\}\s+address=\{addressEditor\(props, \{ compact: bare \}\)\}/);
+  assert.match(details, /editors\.address = hubSettingsEditor\(props, \{ bare: false \}\);/);
   assert.match(details, /editors\.qr = <StudioTool part="quiet" \/>;/);
 });
 

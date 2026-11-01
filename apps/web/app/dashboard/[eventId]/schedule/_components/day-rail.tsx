@@ -81,6 +81,7 @@ import { supplierOnItem } from './day-types';
 import { DayActionsContext, PHASE_TINT, Eyebrow, PickMenu, Tip, ToolButton, toFormData } from './day-ui';
 import { MomentInspector } from './moment-inspector';
 import { AddMomentSheet, RequestsSheet, ShiftSheet } from './day-sheets';
+import { ScheduleAddPill, ScheduleSheet } from './schedule-sheet';
 import type { RetimePatch } from '@/lib/schedule-ros';
 import { StudioDay } from './studio-day';
 import { useMaker } from '../../launch/_components/maker-context';
@@ -124,7 +125,18 @@ export function ScheduleDay({
   hostPanel,
   actions,
   inspectorSlot = null,
+  frame = 'page',
+  toolsSlot = null,
 }: {
+  /**
+   * 📅 Drawn as Suppliers › Booked › Schedule (owner 2026-10-31, live iPhone: *"so many upper space not used"* ·
+   * *"the pop up. design template."*): the day's tools ride the page's one line (`toolsSlot`, beside Event Day ▾ and
+   * Announce) instead of a row of their own, "+ Add a moment" is the pill in the thumb zone, and a tapped moment opens
+   * in the Schedule's ONE pop-up at every width (`schedule-sheet.tsx`). `page`: the standalone page, as shipped.
+   */
+  frame?: 'page' | 'booked';
+  /** The id of the element the day's tools are drawn into (`frame="booked"`); null: drawn in place. */
+  toolsSlot?: string | null;
   /**
    * 🧩 Inside the Event Hub Maker (Details › Schedule, part 2b — DECISION_LOG "A
    * TOOL MOVED INTO THE MAKER IS REBUILT INTO THE THREE PARTS"): the id of the
@@ -159,6 +171,7 @@ export function ScheduleDay({
   hostPanel: ReactNode | null;
 }) {
   const canEdit = role !== 'view';
+  const booked = frame === 'booked' && inspectorSlot === null;
   /* ⚡ IN THE MAKER EVERY EDIT IS QUIET (`schedule-live.ts`): written with no
      revalidate — so no whole render of the Maker comes back with it — shown on
      the rail at once, laid on the stage canvases, and a removed moment leaves
@@ -661,7 +674,8 @@ export function ScheduleDay({
     <div className="space-y-3" data-schedule-day="">
       {/* THE DAY'S TOOLS — one row; names live in aria-label/title, the
           explanation lives behind the ⓘ, never in a paragraph above the rail. */}
-      <div className="relative flex flex-wrap items-center gap-1">
+      <InSlot id={booked ? toolsSlot : null}>
+      <div className={booked ? 'relative flex items-center gap-0.5' : 'relative flex flex-wrap items-center gap-1'} data-schedule-day-tools={frame}>
         {topLevel.length > 0 ? (
           <div className="flex items-center gap-1">
             {/* VIEW AS — one dropdown (the shared PickMenu), never a chip row.
@@ -669,6 +683,8 @@ export function ScheduleDay({
             <PickMenu
               label="View as"
               value={lens.kind === 'all' ? 'all' : lens.kind === 'guest' ? 'guest' : `vendor:${lens.id}`}
+              compact={booked}
+              buttonText={booked ? lensLabel : undefined}
               dataAttr="data-schedule-lens"
               options={[
                 { key: 'all', label: 'Master · everything' },
@@ -720,7 +736,7 @@ export function ScheduleDay({
               day. Hidden moments stay between you, your coordinator and the suppliers you tag.
             </Tip>
           </span>
-          {canEdit ? (
+          {canEdit && !booked ? (
             <button
               type="button"
               onClick={() =>
@@ -735,6 +751,7 @@ export function ScheduleDay({
           ) : null}
         </div>
       </div>
+      </InSlot>
 
       {notice ? (
         <p role="alert" className="text-sm font-medium text-danger-700">
@@ -786,7 +803,9 @@ export function ScheduleDay({
             const dayStaged = rows.filter((m) => m.staged).length;
             return (
               <section key={dateKey} aria-label={formatDateHeading(dateKey)}>
-                <header className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 pb-2 pl-[54px] lg:pl-16">
+                {/* Under Booked the page's date line already says the one day — its heading is for a screen reader only,
+                    so the moments start right under the line (owner 2026-10-31, "so many upper space not used"). */}
+                <header className={booked && rails.length === 1 ? 'sr-only' : 'flex flex-wrap items-baseline gap-x-3 gap-y-0.5 pb-2 pl-[54px] lg:pl-16'}>
                   <h2 className="font-display text-base text-ink">{formatDateHeading(dateKey)}</h2>
                   <p className="text-xs text-ink/55">
                     <b className="font-semibold text-ink/80">{rows.length}</b> moment{rows.length === 1 ? '' : 's'}
@@ -856,7 +875,7 @@ export function ScheduleDay({
                       key={`gap-${g.startMin}`}
                       type="button"
                       onClick={() => openAdd(dateKey, g.startMin)}
-                      className="absolute left-2.5 right-0 z-[1] grid place-items-center rounded-md text-xs font-semibold text-ink/30 transition-colors hover:bg-terracotta/10 hover:text-terracotta-700 hover:ring-1 hover:ring-inset hover:ring-terracotta/40 lg:left-3.5"
+                      className="absolute left-2.5 right-0 z-[1] grid min-h-0 place-items-center rounded-md text-xs font-semibold text-ink/30 transition-colors hover:bg-terracotta/10 hover:text-terracotta-700 hover:ring-1 hover:ring-inset hover:ring-terracotta/40 lg:left-3.5"
                       style={{ top: top(g.startMin) + 2, height: Math.max(((g.endMin - g.startMin) / 60) * hourPx - 6, 18) }}
                     >
                       <span>
@@ -875,6 +894,9 @@ export function ScheduleDay({
                     />
                   ) : null}
 
+                  {/* 📏 Drawn at its TIME's height, like a moment (`min-h-0`): the global 44-px button floor grew a
+                      30-minute request past its slot and over the next moment (walk 2026-11-01, "Lumière proposes"
+                      over Cocktails). Held by `the-rail-draws-time-at-its-height.test.ts`. */}
                   {canEdit
                     ? dayRequests.map((r) => {
                         const s = spanOf(r.proposed_start_at!, r.proposed_end_at);
@@ -886,7 +908,7 @@ export function ScheduleDay({
                             key={r.suggestion_id}
                             type="button"
                             onClick={() => setSheet({ kind: 'requests' })}
-                            className={`absolute z-[6] flex items-center overflow-hidden whitespace-nowrap rounded-md border-[1.5px] border-dashed border-mulberry bg-mulberry-50 px-2.5 text-[11.5px] font-semibold text-mulberry-700 ${
+                            className={`absolute z-[6] flex min-h-0 items-center overflow-hidden whitespace-nowrap rounded-md border-[1.5px] border-dashed border-mulberry bg-mulberry-50 px-2.5 text-[11.5px] font-semibold text-mulberry-700 ${
                               overlaps ? 'left-1/2 right-0' : 'left-2.5 right-0 lg:left-3.5'
                             }`}
                             style={{ top: top(s.startMin), height: Math.max(((s.endMin - s.startMin) / 60) * hourPx - 3, 26) }}
@@ -1080,7 +1102,7 @@ export function ScheduleDay({
         {/* THE SIDE — a wide screen only. Nothing selected: the day in
             numbers. Selected: the one inspector. On a phone the inspector is
             the panel below instead, so it is reachable at every width. */}
-        {isDesktop && !inspectorSlot ? (
+        {isDesktop && !inspectorSlot && !(booked && selected) ? (
           <aside className="sticky top-20 w-[380px] flex-none self-start">
             {side}
           </aside>
@@ -1090,14 +1112,19 @@ export function ScheduleDay({
       {/* 🧩 In the Maker's Details the inspector is the right column's, at every width. */}
       {inspectorSlot ? <InSlot id={inspectorSlot}>{side}</InSlot> : null}
 
-      {!isDesktop && selected && !inspectorSlot ? (
-        <div
-          role="dialog"
-          data-safe-x=""
-          aria-label={`Moment: ${selected.label}`}
-          className="fixed inset-x-0 bottom-0 z-[60] max-h-[62dvh] overflow-y-auto rounded-t-3xl bg-cream pb-[max(env(safe-area-inset-bottom),16px)] shadow-[0_-20px_50px_-30px_rgba(30,26,18,0.6)] ring-1 ring-ink/10"
+      {/* 🗂 A tapped moment opens in the Schedule's ONE pop-up (`schedule-sheet.tsx`, owner 2026-10-31 *"the pop up.
+          design template."*) — the house sheet with its backdrop, rising from the bottom on a phone; under Booked, at
+          every width (a drawer from the right on a computer, frame 19b). It was a hand-made panel of its own. */}
+      {selected && !inspectorSlot && (!isDesktop || booked) ? (
+        <ScheduleSheet
+          open
+          onClose={() => setSelectedId(null)}
+          id="schedule-moment-title"
+          title={canEdit ? 'Moment' : 'Moment · view only'}
+          aside={selected.label}
+          data="moment"
+          foot={null}
         >
-          <span aria-hidden className="mx-auto mt-2 block h-1 w-9 rounded-full bg-ink/15" />
           <MomentInspector
             key={selected.block_id}
             eventId={eventId}
@@ -1117,8 +1144,20 @@ export function ScheduleDay({
             onRevert={revert}
             onConfirm={confirm}
             live={live}
+            inSheet
           />
-        </div>
+        </ScheduleSheet>
+      ) : null}
+
+      {/* ＋ Under Booked the day's one add is the pill in the thumb zone (frame 19), not a button in a row up top. */}
+      {booked && canEdit && rails.length > 0 ? (
+        <ScheduleAddPill
+          label="Add a moment"
+          data="moment"
+          view="event-day"
+          hidden={selected !== null}
+          onPress={() => openAdd(lastDateKey, topLevel.length > 0 ? snapMinutes(lastEnd, 15) : 14 * 60)}
+        />
       ) : null}
 
       {addSheet}

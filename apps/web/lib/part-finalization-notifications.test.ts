@@ -31,6 +31,7 @@ import { NOTIFICATION_TYPE_LABEL, NOTIFICATION_TYPE_TONE, type NotificationType 
 // string and blanks real code to the next close — so the set it parses could be
 // missing members nobody can see. See lib/strip-comments.ts.
 import { stripComments } from './strip-comments';
+import { PUSH_LEVEL } from './push-levels';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..');
@@ -108,8 +109,7 @@ test('and none of them is in the set that would silently suppress every one of t
 });
 
 test('none of them buzzes a phone — a 48-hour design question is not a 2am push', () => {
-  const push = setMembers('PUSH_ENABLED_TYPES');
-  for (const t of MB12_TYPES) assert.ok(!push.includes(t), `${t} is on the push list`);
+  for (const t of MB12_TYPES) assert.equal(PUSH_LEVEL[t as NotificationType], 'low', `${t} buzzes a phone`);
 });
 
 test('every type has tray copy and a badge — a type with no label renders as its raw key', () => {

@@ -3,7 +3,7 @@ import { renderStyledUrlQrPng, renderStyledUrlQrSvg } from '@/lib/qr';
 import { QR_LOOK_COLUMNS, resolveEventQrLook } from '@/lib/qr-look.server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { fetchGuestsByEvent, guestDisplayName } from '@/lib/guests';
+import { fetchGuestsByEvent, guestPrintName } from '@/lib/guests';
 import { fetchAssignments, fetchTables } from '@/lib/seating';
 import { publicEventUrl, resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { layoutSeatingPack, seatingSignLine, type SeatingPackUnit } from '@/lib/print-seating-pack';
@@ -187,7 +187,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
   // seated guests per unit by name.
   type Unit = SeatedUnit<(typeof tables)[number], (typeof guests)[number]>;
   const units = seatingUnits(tables, assignments, guests);
-  const unitGuests = (u: Unit) => u.guests.map((g) => ({ name: guestDisplayName(g), qr_token: g.qr_token }));
+  const unitGuests = (u: Unit) => u.guests.map((g) => ({ name: guestPrintName(g), qr_token: g.qr_token }));
 
   const eventWords = await eventWordsForEvent(eventId).catch(() => null);
   // The sign says the event's own word — "our wedding", "our birthday",
@@ -238,7 +238,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
       guests: u.guests
         .filter((g) => oneGuest === null || g.guest_id === oneGuest)
         .filter((g) => picked === null || picked.has(g.guest_id.toLowerCase()))
-        .map((g) => ({ name: guestDisplayName(g), qrRef: `g-${g.qr_token}` })),
+        .map((g) => ({ name: guestPrintName(g), qrRef: `g-${g.qr_token}` })),
     }));
     if (oneGuest !== null && !packUnits.some((u) => u.guests.length > 0)) {
       return new NextResponse('That guest has no seat yet — a place card prints once a guest is seated in your seat plan.', { status: 404 });

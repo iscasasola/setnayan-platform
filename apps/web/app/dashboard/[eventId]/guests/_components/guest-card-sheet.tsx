@@ -29,13 +29,18 @@ import type { GuestCardResult } from './guest-card';
 export type GuestCardPerson = { id: string; name: string };
 
 /**
- * The shipped readers, by surface — the one action (`openGuestCard`), loaded at the first tap (opening a surface reaches for
- * no server door). Module constants, so a sheet's read does not re-run on every render of the surface that opened it.
+ * The shipped readers, by surface — the one action (`openGuestCard`) and THE card drawn from its answer in the browser
+ * (`guest-card-in-place.tsx`), loaded at the first tap (opening a surface reaches for no server door). Never a card drawn
+ * by the action: the routes this opens on cannot send one (see `guest-card-in-place.tsx`). Module constants, so a
+ * sheet's read does not re-run on every render of the surface that opened it.
  */
 export const SHIPPED_GUEST_CARD = {
-  march: async (eventId: string, guestId: string): Promise<GuestCardResult> => (await import('../open-guest-card')).openGuestCard(eventId, guestId, 'march'),
+  march: async (eventId: string, guestId: string): Promise<GuestCardResult> => (await import('./guest-card-in-place')).openGuestCardInPlace(eventId, guestId, 'march'),
+  /* 🗂 R4 · Guests › Seats (owner 2026-10-29, *"tapping a seat can show a guest card"*): a face on the plan or the list —
+     the same in-place read, its DATA drawn in the browser (`guest-card-in-place.tsx`). */
+  seats: async (eventId: string, guestId: string): Promise<GuestCardResult> => (await import('./guest-card-in-place')).openGuestCardInPlace(eventId, guestId, 'seats'),
   invitation: async (eventId: string, guestId: string): Promise<GuestCardResult> =>
-    (await import('../open-guest-card')).openGuestCard(eventId, guestId, 'invitation'),
+    (await import('./guest-card-in-place')).openGuestCardInPlace(eventId, guestId, 'invitation'),
 } as const;
 
 /** The card's layer on <body>: above the Maker's full-screen shell (`z-[80]`), under the card's own dropdowns (`z-[95]`). */
@@ -47,9 +52,12 @@ export function GuestCardSheet({
   open: opener,
   onClose,
   onSaved,
+  actions,
 }: {
   eventId: string;
   person: GuestCardPerson;
+  /** 🗂 R4 · the surface's own verbs for this person, drawn over their card (Guests › Seats: Remove · Swap). */
+  actions?: ReactNode;
   /** How the card is read — the shipped action (`openGuestCard`), or a dev lab's stand-in. */
   open: (eventId: string, guestId: string) => Promise<GuestCardResult>;
   onClose: () => void;
@@ -106,6 +114,15 @@ export function GuestCardSheet({
               )}
             </InspectorColumn>
           )}
+          {/* 🧰 THE SURFACE'S VERBS AT THE CARD'S FOOT, pinned in the thumb zone (globals.css `[data-guest-card-actions]`) —
+              the approved Guests prototype's place for Remove · Move or swap. Drawn ABOVE the card they were clipped: the
+              card's heading takes focus on open and the sheet scrolled to it, under the sticky header (owner, live iPhone
+              2026-10-29). */}
+          {actions ? (
+            <div data-guest-card-actions="" className="flex flex-wrap items-center justify-end gap-2">
+              {actions}
+            </div>
+          ) : null}
         </div>
       </InspectorSheetAlone>
       {/* The host portals itself to <body> (z-[100]), over the card. */}

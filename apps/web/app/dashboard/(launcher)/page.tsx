@@ -115,6 +115,7 @@ import { formatCount } from '@/lib/format-number';
 import { readForTags } from '@/lib/event-for-tag.server';
 import { cardShowsForTag, type ForTag } from '@/lib/for-tag';
 import { StanceChip } from './_components/stance-chip';
+import { PEOPLE_GROUPS_HREF } from '@/lib/people-views';
 
 export const metadata = {
   title: 'Your events',
@@ -1110,7 +1111,7 @@ export default async function LauncherPage({
     const moreCount = communities.length - MAX_SAMAHAN_CARDS;
     samahanRows.push({
       id: 'more-samahans',
-      href: '/dashboard/samahan',
+      href: PEOPLE_GROUPS_HREF,
       icon: Users,
       title: `${moreCount} more ${moreCount === 1 ? 'samahan' : 'samahans'}`,
       subtitle: 'See all your groups',

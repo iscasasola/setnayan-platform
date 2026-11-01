@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
+import { PUSH_LEVEL } from './push-levels';
 
 /**
  * SUP-31 · A SHOP IS TOLD WHEN SETNAYAN MOVES IT.
@@ -65,10 +66,10 @@ test('the type it emits is on the EMAIL allowlist — half a mechanism is none',
     /'vendor_status_change'/,
     'vendor_status_change left the EMAIL allowlist — the shop gets a tray badge and no email',
   );
-  assert.doesNotMatch(
-    setBody(src, 'PUSH_ENABLED_TYPES'),
-    /'vendor_status_change'/,
-    'vendor_status_change gained PUSH; it is transactional and was deliberately email-only — ' +
+  assert.equal(
+    PUSH_LEVEL.vendor_status_change,
+    'low',
+    'vendor_status_change buzzes a phone; it is transactional and was deliberately email-only — ' +
       'if that is now intended, change this assertion deliberately rather than deleting it',
   );
 });

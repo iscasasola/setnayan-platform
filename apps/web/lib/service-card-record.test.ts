@@ -28,8 +28,8 @@ import {
 // Milestone medals — a pure function of the count, edges included
 // ---------------------------------------------------------------------------
 
-test('the ladder is the owner-locked 10 / 25 / 50 / 100', () => {
-  assert.deepEqual([...MILESTONE_THRESHOLDS], [10, 25, 50, 100]);
+test('the ladder is the owner-locked 10 · 50 · 100 · 500 · 1,000 · 5,000 · 10,000 (2026-10-28)', () => {
+  assert.deepEqual([...MILESTONE_THRESHOLDS], [10, 50, 100, 500, 1000, 5000, 10000]);
 });
 
 test('milestones: nothing earned below the first rung', () => {
@@ -39,20 +39,21 @@ test('milestones: nothing earned below the first rung', () => {
 });
 
 test('milestones: a rung is earned AT its threshold, not one past it', () => {
-  assert.deepEqual(milestonesFor(10), { earned: [10], next: 25 });
-  assert.deepEqual(milestonesFor(25), { earned: [10, 25], next: 50 });
-  assert.deepEqual(milestonesFor(50), { earned: [10, 25, 50], next: 100 });
-  assert.deepEqual(milestonesFor(100), { earned: [10, 25, 50, 100], next: null });
+  assert.deepEqual(milestonesFor(10), { earned: [10], next: 50 });
+  assert.deepEqual(milestonesFor(50), { earned: [10, 50], next: 100 });
+  assert.deepEqual(milestonesFor(100), { earned: [10, 50, 100], next: 500 });
+  assert.deepEqual(milestonesFor(10000), { earned: [10, 50, 100, 500, 1000, 5000, 10000], next: null });
 });
 
-test('milestones: just under a rung has not earned it', () => {
-  assert.deepEqual(milestonesFor(24), { earned: [10], next: 25 });
-  assert.deepEqual(milestonesFor(49), { earned: [10, 25], next: 50 });
-  assert.deepEqual(milestonesFor(99), { earned: [10, 25, 50], next: 100 });
+test('milestones: just under a rung has not earned it — 25 is no longer a step', () => {
+  assert.deepEqual(milestonesFor(25), { earned: [10], next: 50 });
+  assert.deepEqual(milestonesFor(49), { earned: [10], next: 50 });
+  assert.deepEqual(milestonesFor(99), { earned: [10, 50], next: 100 });
+  assert.deepEqual(milestonesFor(9999), { earned: [10, 50, 100, 500, 1000, 5000], next: 10000 });
 });
 
 test('milestones: past the top rung there is no next medal (we invent none)', () => {
-  assert.deepEqual(milestonesFor(150), { earned: [10, 25, 50, 100], next: null });
+  assert.deepEqual(milestonesFor(15000), { earned: [10, 50, 100, 500, 1000, 5000, 10000], next: null });
 });
 
 test('milestones: junk counts degrade to zero rather than throwing', () => {
@@ -199,7 +200,7 @@ test('count-only (SQL min-N floor): the count and medals survive an empty mix + 
 test('count-only at a milestone still earns its medal', () => {
   const c = compileCardRecord({ booked_count: 30, type_mix: [], ledger: [] });
   assert.equal(c.bookedCount, 30);
-  assert.deepEqual(c.milestones, { earned: [10, 25], next: 50 });
+  assert.deepEqual(c.milestones, { earned: [10], next: 50 });
 });
 
 test('the compiler holds NO minimum-N constant — the floor lives only in SQL', () => {
@@ -291,7 +292,7 @@ test('mix maths: numeric strings from the JSON payload are coerced, not dropped'
   });
   assert.equal(c.bookedCount, 12);
   assert.equal(c.mix[0]!.n, 12);
-  assert.deepEqual(c.milestones, { earned: [10], next: 25 });
+  assert.deepEqual(c.milestones, { earned: [10], next: 50 });
 });
 
 test('mix maths: unlabelable or empty slices are dropped', () => {

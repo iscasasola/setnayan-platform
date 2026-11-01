@@ -33,10 +33,8 @@ export default async function PapicDecoratePage() {
         title="Open your invitation first."
         sub="Scan your personal QR or open your invite link, then come back here to decorate a photo for the host."
       >
-        {/* 🚪 A dead end still has a way out — see /papic/pool. */}
-        <Link href="/" className="button-secondary">
-          Back to Setnayan
-        </Link>
+        {/* 🧭 No back here (lib/page-home.ts, owner 2026-10-28): a guest page goes back to ITS event's hub,
+            never the marketing front page — and with no session this screen knows no event. */}
       </DoorShell>
     );
   }

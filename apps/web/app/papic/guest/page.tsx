@@ -24,6 +24,7 @@ import { GuestSpotlight } from '@/app/_components/guest-spotlight';
 import { TOURS } from '@/lib/tours';
 import { GuestColumnCard } from '@/app/[slug]/_components/guest-column-card';
 import { guestColumnsActive } from '@/lib/guest-columns-gate';
+import { WRITE_A_COLUMN_SHOWN_IN_APP } from '@/lib/hidden-guest-extras';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { cameraDressTintOfEvent } from '@/lib/camera-dress-of-event';
 import { cameraProFor } from '@/lib/papic-photo-mark.server';
@@ -98,16 +99,13 @@ export default async function PapicGuestPage({
             from the event. One tap of one of five tabs and the celebration is
             gone, with no route back to it. The camera link now carries the
             event, so the way out goes back to the invitation they were standing
-            on; `/` remains the fallback for a bare visit that names no event. */}
+            on. A bare visit that names no event draws no back (lib/page-home.ts, owner 2026-10-28:
+            a guest page never sends anyone to the marketing front page). */}
         {backSlug ? (
           <Link href={`/${backSlug}`} className="button-secondary">
             Back to the invitation
           </Link>
-        ) : (
-          <Link href="/" className="button-secondary">
-            Back to Setnayan
-          </Link>
-        )}
+        ) : null}
       </DoorShell>
     );
   }
@@ -126,7 +124,7 @@ export default async function PapicGuestPage({
     eventPapicGuestAccess(admin, session.event_id),
     admin
       .from('events')
-      .select(`display_name, papic_face_mode, event_type, face_tagging_declined_by_couple, venue_latitude, venue_longitude, event_end_date, ${GUEST_CAPTURE_GATE_COLUMNS}`)
+      .select(`display_name, slug, papic_face_mode, event_type, face_tagging_declined_by_couple, venue_latitude, venue_longitude, event_end_date, ${GUEST_CAPTURE_GATE_COLUMNS}`)
       .eq('event_id', session.event_id)
       .maybeSingle(),
     // Resolved only for spec § 7b's "change your mind" offer. The buy panel
@@ -136,6 +134,8 @@ export default async function PapicGuestPage({
       ? resolveGuestOwnCamera(admin, session.event_id, session.guest_id)
       : Promise.resolve(null),
   ]);
+  /** This event's own Event Hub, for the camera's ✕ when it was not opened from a hub tab (re-checked as a slug). */
+  const ownHubSlug = typeof (ev as { slug?: unknown } | null)?.slug === 'string' && /^[a-z0-9][a-z0-9-]{0,79}$/.test((ev as { slug: string }).slug) ? (ev as { slug: string }).slug : null;
   const eventName = (ev?.display_name as string | null) || 'this event';
   // Face-tag mode gate (One-Pool spec §3.4). Fail-closed to mode_b: a
   // pre-migration DB (column absent → null) yields no embedding on this camera.
@@ -421,7 +421,9 @@ export default async function PapicGuestPage({
       eventStyle={eventStyle}
       faceMode={faceMode}
       storyToken={((g as { qr_token?: string | null } | null)?.qr_token as string | null) ?? null}
-      exitTo={backSlug ? { slug: backSlug, tab: backTab } : null}
+      // ✕ ALWAYS returns to the Event Hub (owner 31 Oct, "needs exit to return to event hub"): the tab it came from,
+      // else this event's own hub (its slug, read above and re-checked) — never a camera with no way out.
+      exitTo={backSlug ? { slug: backSlug, tab: backTab } : ownHubSlug ? { slug: ownHubSlug, tab: null } : null}
       lastShotUrl={ownShots?.shots[0]?.url ?? null}
       dress={cameraDress}
       photoMark={photoMark}
@@ -493,6 +495,9 @@ async function CameraColumn({
   eventTz: string;
   eventEndDate: string | null;
 }) {
+  // 🙈 HIDDEN UNTIL THE OWNER SAYS SO (31 Oct, "hide this for now") — asked BEFORE the env flag, so no flag draws
+  // it. Bring-back steps: lib/hidden-guest-extras.ts.
+  if (!WRITE_A_COLUMN_SHOWN_IN_APP) return null;
   if (!(await guestColumnsActive())) return null;
   return (
     <div className="bg-cream text-ink empty:hidden" data-camera-column="">

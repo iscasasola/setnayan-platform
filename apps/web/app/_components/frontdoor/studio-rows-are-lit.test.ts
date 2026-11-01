@@ -140,9 +140,11 @@ test('the three measured overlaps resolve the way a person would read them', () 
     🔄 Train n (2026-09-29): the Seat plan row itself left the menu — its home
     is Details › Your event › Seat plan — so the whole family lights the Event
     Hub Maker, and no Seat plan row is matchable either.
+    🔄 R4 (owner 2026-10-27/28, "GUESTS = LIST · MAP · SEATS · MARCH"): the seat plan is Guests › Seats, its 3D room
+    inside it — so the family lights Guests; `/plan3d` is a forward to Seats' 3D room now, never a page to light.
   */
-  for (const p of ['/seating', '/seating/lab', '/plan3d']) {
-    assert.equal(activeRailKey(rail, `${BASE}${p}`), 'launch', `${p} must light the Event Hub Maker`);
+  for (const p of ['/seating', '/seating/lab']) {
+    assert.equal(activeRailKey(rail, `${BASE}${p}`), 'guests', `${p} must light Guests`);
   }
   assert.ok(!rail.some((r) => r.key === 'pa3d'), 'a 3D Plan row is matchable again');
   assert.ok(!rail.some((r) => r.key === 'seat'), 'a Seat plan row is matchable again beside the Maker');

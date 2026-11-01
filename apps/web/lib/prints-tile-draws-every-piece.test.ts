@@ -13,7 +13,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DETAILS_ITEM_GROUPS, DIGITAL_TICKET_ITEM, EVERY_PRINT_ITEM, FREE_PRINT_KEYS, type DetailsItemKey } from './maker-details-items';
 import { PRINT_SET_KEYS } from './print-pieces';
-import { STUDIO_TILES } from './studio-tiles';
+import { printsPageItem } from './prints-page';
 import { STUDIO_FORM_ITEMS, studioDetailsGroups } from './studio-details';
 
 const shipped = DETAILS_ITEM_GROUPS.map((g) => ({
@@ -40,8 +40,8 @@ test('the Prints form holds every set piece and every print for the day — coun
   assert.deepEqual(pieces, [...set, ...FREE_PRINT_KEYS], 'a piece is missing, doubled or out of the shipped order');
   assert.equal(new Set(keys).size, keys.length, 'a piece is drawn twice');
   assert.equal(keys.at(-1), 'download', 'Download the set is not at the bottom');
-  /* The tile opens INTO that form. */
-  assert.ok(keys.includes(STUDIO_TILES.prints.item as DetailsItemKey), 'the Prints tile opens an item outside the form');
+  /* The Prints page opens INTO that form (R8 — the tile went; the page opens where it opened). */
+  assert.ok(keys.includes(printsPageItem({}) as DetailsItemKey), 'the Prints page opens an item outside the form');
   /* No set, day or download group is left behind as a second list. */
   assert.ok(!groups.some((g) => g.key === 'set' || g.key === 'day' || g.key === 'download'));
 });

@@ -37,7 +37,7 @@ import * as THREE from 'three';
 import { MARK_PATH } from './veil-shared';
 import { DEFAULT_VEIL_LOOK, type VeilLook, type RevealFeatures } from '@/lib/reveal-config-pure';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
-import { claimVeilHold } from '@/lib/hub-veil';
+import { claimVeilHold, primeUnveilPress } from '@/lib/hub-veil';
 import { liftedValance, weaveOf } from '@/lib/veil-style';
 import { noteScrollY, restAtTop, restingAtTop, veilMaySleep, TOP_REST_MS, addScrollDelta, buildGridConstraints, clampPass, computeIndexedNormals, relaxPass, takeScrollWind, writePositions, type ClothConstraints, type ScrollWind } from '@/lib/veil-cloth';
 
@@ -1090,6 +1090,9 @@ export default function VeilReveal({ veilColor, petalsColor, look, features, onR
       try { window.dispatchEvent(new Event('std-go-fullscreen')); } catch { /* noop */ }
     };
     const onDown = (e: PointerEvent) => {
+      // 👇 FIRST, in the press itself: a swipe up's pointerup gets no media credit on iOS (PR #7129), so the song
+      // is unlocked here, where it does — `primeUnveilPress` in lib/hub-veil.ts.
+      primeUnveilPress();
       const hp = meshHit(e.clientX, e.clientY);
       grabs[e.pointerId] = {
         cluster: [],

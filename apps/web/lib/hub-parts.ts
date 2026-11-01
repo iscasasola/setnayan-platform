@@ -306,17 +306,58 @@ export function hubOwnershipFrom(input: {
   paidParts: Iterable<HubPartId>;
   prices: ReadonlyMap<string, number>;
   fullPrice: number | null;
+  /**
+   * ⚖ THE OLD CAP, KEPT (owner 2026-10-28, "Keep their full Pro"). The parts this event paid for BEFORE Full Pro moved
+   * ₱5,000 → ₱6,590, and that old cap — both from `event_hub_pro_legacy_part_lines` (migration
+   * `*_hub_pro_parts_keep_the_old_cap.sql`, the ONE place the old figure lives). Reaching it is everything, for good;
+   * a part bought after the cutover counts only toward today's price. Absent or unread → no grandfather.
+   */
+  legacy?: { capPhp: number; paidParts: Iterable<HubPartId> } | null;
 }): HubOwnership {
-  let paid = 0;
-  for (const id of new Set(input.paidParts)) {
-    const php = input.prices.get(hubPart(id).sku);
-    if (typeof php === 'number' && Number.isFinite(php) && php > 0) paid += php;
-  }
+  const sumOf = (ids: Iterable<HubPartId>) => {
+    let sum = 0;
+    for (const id of new Set(ids)) {
+      const php = input.prices.get(hubPart(id).sku);
+      if (typeof php === 'number' && Number.isFinite(php) && php > 0) sum += php;
+    }
+    return sum;
+  };
+  const paid = sumOf(input.paidParts);
   const fullPrice = typeof input.fullPrice === 'number' && Number.isFinite(input.fullPrice) && input.fullPrice > 0 ? input.fullPrice : null;
   if (input.fullHeld || (fullPrice !== null && paid >= fullPrice)) return everyHubPart(fullPrice, paid);
+  const legacyCap = input.legacy?.capPhp;
+  if (
+    input.legacy &&
+    typeof legacyCap === 'number' &&
+    Number.isFinite(legacyCap) &&
+    legacyCap > 0 &&
+    sumOf(input.legacy.paidParts) >= legacyCap
+  ) {
+    return everyHubPart(fullPrice, paid);
+  }
   const parts = new Set<HubPartId>();
   for (const id of HUB_PART_IDS) if (input.partHeld(id)) parts.add(id);
   return { full: false, parts, paidPhp: paid, fullPricePhp: fullPrice };
+}
+
+/**
+ * ⚖ Read `event_hub_pro_legacy_part_lines`' answer strictly (owner 2026-10-28, "Keep their full Pro"). Anything that is
+ * not `{ cap_php: positive number, lines: [{ service_key, status }] }` is null — no grandfather, never a guessed cap.
+ */
+export function hubLegacyPartLinesFrom(
+  raw: unknown,
+): { capPhp: number; lines: ReadonlyArray<{ service_key: string; status: string | null }> } | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as { cap_php?: unknown; lines?: unknown };
+  const capPhp = Number(r.cap_php);
+  if (!Number.isFinite(capPhp) || capPhp <= 0 || !Array.isArray(r.lines)) return null;
+  const lines: { service_key: string; status: string | null }[] = [];
+  for (const l of r.lines as unknown[]) {
+    const row = (l ?? {}) as { service_key?: unknown; status?: unknown };
+    if (typeof row.service_key !== 'string') continue;
+    lines.push({ service_key: row.service_key, status: typeof row.status === 'string' ? row.status : null });
+  }
+  return { capPhp, lines };
 }
 
 /**

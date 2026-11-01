@@ -3,6 +3,7 @@ import { after } from 'next/server';
 import { maybeRunLockRequestExpiry } from '@/lib/lock-request-expiry';
 import { maybeRunDeletionRequestNudge } from '@/lib/deletion-request-nudge';
 import { maybeRunUnbilledFeeRepair } from '@/lib/unbilled-fee-repair.server';
+import { maybeRunSupplierPagePublish } from '@/lib/supplier-page-notice.server';
 import { maybeRefillPriceBands } from '@/lib/price-band-refill.server';
 import { createClient } from '@/lib/supabase/server';
 import { runSocialFlush } from '@/lib/social/flush';
@@ -13,6 +14,7 @@ import { runSeoPeriodicJobs } from '@/lib/seo/seo-cron-jobs';
 import { maybeRunRetentionSweep } from '@/lib/retention-sweep';
 import { maybeRunVendorDossierRetention } from '@/lib/vendor-dossier-retention';
 import { maybeRunFaceDataRetention } from '@/lib/face-data-retention';
+import { maybeRunChatFileExpiry } from '@/lib/chat-file-expiry-sweep';
 import { maybeRunPapicCloseSelfieErase } from '@/lib/face-selfie-erase';
 import { maybeRunFaceRescan } from '@/lib/face-rescan';
 import { maybeRunVendorIdentityRetention } from '@/lib/vendor-identity-retention';
@@ -221,6 +223,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // enforced. Fails closed on any unreadable date; switching it off makes it a
   // DRY RUN, not a no-op.
   after(() => maybeRunFaceDataRetention().catch(() => {}));
+  // Chat files 90 days after the event (owner 2026-10-28). OFF until
+  // CHAT_FILE_EXPIRY_ENABLED=true — a dry run until then; see the module.
+  after(() => maybeRunChatFileExpiry().catch(() => {}));
   // 🧽 The face-tagging selfie ends when the event's Papic closes, twelve hours
   // after the event (owner 2026-09-30) — tags stay. CRON-FREE: a ~30-min DB
   // claim, carried by admin AND public traffic so a quiet console cannot hold a
@@ -269,6 +274,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // …) and writes it to email_deliveries, which the home strip and the
   // Notifications tab read. Bounded (20 per run); never throws.
   after(() => maybeRunEmailDeliveryCheck().catch(() => {}));
+  // A supplier's event photo goes on its page once the guests' 7-day notice has passed (owner 2026-10-03) —
+  // CRON-FREE, dual-mounted with the supplier layout; hourly claim; never throws.
+  after(() => maybeRunSupplierPagePublish().catch(() => {}));
 
   const displayName = profile?.display_name ?? profile?.email ?? 'Setnayan Team';
 

@@ -114,7 +114,7 @@ export default async function EventStoriesPage({
   return (
     <section className="space-y-8">
       <Link
-        href={`/dashboard/${eventId}/website`}
+        href={`/dashboard/${eventId}/launch`}
         className="inline-flex items-center gap-1.5 text-sm text-terracotta hover:text-terracotta-700"
       >
         <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />

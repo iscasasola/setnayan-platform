@@ -33,6 +33,8 @@ import {
   RSVP_ASK_LABEL,
   readOneAtATime,
   rsvpAnswerWord,
+  rsvpAsksFace,
+  rsvpAsksPick,
   RSVP_WORD_KEYS,
   RSVP_WORD_MAX,
   type RsvpAskConfig,
@@ -46,6 +48,8 @@ import { GUESTS_GET_IN_LABEL, guestsGetInPatch, readGuestsGetIn } from '@/lib/wh
 import { GuestsGetIn, ReplyBy, RsvpAsks } from '../../_components/guest-setup/guest-setup-lazy';
 import type { GuestsGetInFrame } from '../../_components/guest-setup/guests-get-in';
 import type { ReplyByFrame } from '../../_components/guest-setup/reply-by';
+import type { RsvpAsksFrame } from '../../_components/guest-setup/rsvp-asks';
+import { HOW_GUESTS_ANSWER_ABOUT, HOW_GUESTS_ANSWER_LABEL, HOW_GUESTS_ANSWER_OPTIONS } from '@/lib/how-guests-answer';
 import { formatCount } from '@/lib/format-number';
 import { readCelebrationKey, type RsvpCelebration } from '@/lib/rsvp-celebration';
 import { CelebrationPick } from './celebration-pick';
@@ -962,9 +966,10 @@ export const replyByFrame = (row: ReplyByFrame) => <DateRow data="reply-by" name
 export const getInFrame = (row: GuestsGetInFrame) => (
   <ChosenRow data="get-in" name={row.name} about={{ words: row.hint }} value={row.value} buttonText={row.buttonText} options={row.options} onPick={row.onPick} dataAttr={row.dataAttr} attrs={row.attrs} />
 );
-/** ✓ RSVP asks → a Form row whose answer is the chips under it; its sentence is behind its ⓘ. */
-export const asksFrame = (row: { name: string; line: string; chips: ReactNode; attrs: Readonly<Record<`data-${string}`, string>> }) => (
-  <FormRow data="asks" name={row.name} about={{ words: row.line }} attrs={row.attrs} below={<div className="pb-3 pt-0.5">{row.chips}</div>} />
+/** ☑ RSVP asks → the dropdown with ticks in a Form row (owner 2026-11-01, "Dropdown with ticks"): a tick keeps it open,
+    Done closes it; its face says how many are on; its sentence is behind its ⓘ. */
+export const asksFrame = (row: RsvpAsksFrame) => (
+  <ChosenRow data="asks" name={row.name} about={{ words: row.line }} attrs={row.attrs} value={null} picked={row.on} options={row.asks} buttonText={rsvpAsksFace(row.on.length, row.asks.length)} onPick={rsvpAsksPick(row)} dataAttr="data-rsvp-asks" />
 );
 
 /** What a save answers: the draft took it — or it did not, and why (the panel is already back as it was). */
@@ -979,13 +984,8 @@ const KEPT: SaveAnswer = { ok: true };
  * two in Studio and a switch "Ask one question at a time" on the stage and in Event Details).
  * No second setting.
  */
-export const HOW_GUESTS_ANSWER_LABEL = 'How guests answer';
-export const HOW_GUESTS_ANSWER_OPTIONS = [
-  { key: 'all', label: 'All at once', hint: 'Every question on one page, like a form' },
-  { key: 'one', label: 'One by one', hint: 'One question per screen · Next › Send' },
-] as const;
-/** Behind the row's ⓘ: what each of the two means — the options' own lines, word for word. */
-export const HOW_GUESTS_ANSWER_ABOUT = HOW_GUESTS_ANSWER_OPTIONS.map((o) => `${o.label}: ${o.hint}.`).join(' ');
+/* 🗂 R1: the words live in `lib/how-guests-answer.ts` — Guests ⚙ draws the same row; re-exported here, unchanged. */
+export { HOW_GUESTS_ANSWER_ABOUT, HOW_GUESTS_ANSWER_LABEL, HOW_GUESTS_ANSWER_OPTIONS };
 
 /** The setting a refused save put back, as the couple reads it on this page. */
 function rsvpSettingName(patch: RsvpAskConfig): string {

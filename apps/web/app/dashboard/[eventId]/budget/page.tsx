@@ -1,6 +1,5 @@
 import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
 import { redirect } from 'next/navigation';
-import { Share, Printer } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { isChineseWedding, isMuslimWedding } from '@/lib/chinese-wedding';
 import { getCurrentUser } from '@/lib/auth';
@@ -33,8 +32,10 @@ import { costCategoryOptions } from '@/lib/event-costs';
 import { depositStepHref } from '@/lib/deposit-pay-step';
 import { paymentDoor, type PaymentDoor } from '@/lib/accepted-quote-terms';
 import { PageMasthead } from '@/app/_components/page-masthead';
-import { SaveFileLink } from '@/app/_components/save-file-link';
+import { BudgetFileActions } from './_components/budget-file-actions';
 import { YOUR_TEAM_BUDGET_PART, yourTeamBudgetHref } from '@/lib/pillar-parts';
+import { formatPhp } from '@/lib/php';
+import { BookedPartRow } from '../vendors/_components/booked-part-row';
 import { DeniedState } from '@/app/_components/states/denied-state';
 import { resolveBudgetVisibility } from '@/lib/budget-visibility';
 import { Spotlight } from '@/app/_components/spotlight';
@@ -47,7 +48,10 @@ export const metadata = { title: 'Budget' };
 type Props = {
   params: Promise<{ eventId: string }>;
   /** `part=budget` = rendered as Your Team's Budget part (see below). `pay=<line_item_id>` = open that payment's sheet. */
-  searchParams?: Promise<{ part?: string; pay?: string }>;
+  searchParams?: Promise<{
+    part?: string;
+    pay?: string;
+  }>;
 };
 
 // Per-vendor itemization renders only vendors at-or-past 'contracted'.
@@ -433,56 +437,34 @@ export default async function BudgetPage({ params, searchParams }: Props) {
     };
   }
 
+  /* 📤 Share (the budget as a PDF) · the spreadsheet · the calendar file — `BudgetFileActions`. Share and the
+     spreadsheet only when the resolver answered: with no `money` the route can only say "try again". */
+  const fileActions = <BudgetFileActions eventId={eventId} fileSlug={budgetFileSlug} moneyAnswered={money !== null} />;
+  // 📅 Drawn under Suppliers › Booked (owner 2026-10-29): Booked's first row is this page's header — the part's one
+  // dropdown, then its own count ("₱297,500 agreed · ₱120,000 paid"), then Share (the prototype's `.crow`).
+  // `?part=budget` is only ever this page drawn inside Suppliers (its own address redirects there) — so under Booked.
+  const inBooked = (await searchParams)?.part === YOUR_TEAM_BUDGET_PART;
   return (
-    <section className="sn-col max-w-3xl space-y-6">
-      {/* id targets for the Budget docked sub-nav (lib/customer-menu.ts anchor
-          children: Overview · Allocate · Payments). scroll-mt keeps the section
-          title clear of the top edge on smooth-scroll. */}
-      <PageMasthead
-        id="budget-overview"
-        className="scroll-mt-24"
-        title="Budget"
-        actions={
-          <div className="flex flex-wrap gap-2">
-            {/* 📥 Both files are SAVED, never shown in place — the app's web view ignores `download` and renders a
-                file with no way back (owner 2026-10-27). SaveFileLink: fetch with the session → share sheet / download. */}
-            <SaveFileLink
-              href={`/api/budget/${eventId}/ics`}
-              filename={`setnayan-${budgetFileSlug}-budget.ics`}
-              className="inline-flex items-center gap-2 rounded-md border border-ink/15 bg-white/55 px-4 py-2 text-sm font-medium text-ink backdrop-blur-sm transition hover:border-terracotta/50 hover:text-terracotta-700"
-            >
-              <Share aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-              Export upcoming dates (.ics)
-            </SaveFileLink>
-            {/* SUP-64 · the same books as this page, to print or to open in a
-                spreadsheet. Agreed money only — see lib/budget-export.ts.
-                Offered only when the resolver answered: with no `money` the
-                route can only say "try again", so the button would be a
-                promise the page already knows it cannot keep. */}
-            {money ? (
-              <>
-                <SaveFileLink
-                  href={`/api/budget/${eventId}/export?format=csv`}
-                  filename={`setnayan-${budgetFileSlug}-budget.csv`}
-                  className="inline-flex items-center gap-2 rounded-md border border-ink/15 bg-white/55 px-4 py-2 text-sm font-medium text-ink backdrop-blur-sm transition hover:border-terracotta/50 hover:text-terracotta-700"
-                >
-                  <Share aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                  Budget (.csv)
-                </SaveFileLink>
-                <a
-                  href={`/api/budget/${eventId}/export`}
-                  target="_blank"
-                  rel="noopener"
-                  className="inline-flex items-center gap-2 rounded-md border border-ink/15 bg-white/55 px-4 py-2 text-sm font-medium text-ink backdrop-blur-sm transition hover:border-terracotta/50 hover:text-terracotta-700"
-                >
-                  <Printer aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                  Print budget
-                </a>
-              </>
-            ) : null}
-          </div>
-        }
-      />
+    <section className={inBooked ? 'space-y-6' : 'sn-col max-w-3xl space-y-6'} data-budget-in-booked={inBooked ? '' : undefined}>
+      {inBooked ? (
+        <div id="budget-overview" className="scroll-mt-24">
+          <BookedPartRow
+            current="budget"
+            line={
+              <span className="tabular-nums">
+                {summaryFigures.agreedPhp === null ? '—' : formatPhp(summaryFigures.agreedPhp)} agreed ·{' '}
+                {summaryFigures.paidPhp === null ? '—' : formatPhp(summaryFigures.paidPhp)} paid
+              </span>
+            }
+            action={fileActions}
+          />
+        </div>
+      ) : (
+        /* id targets for the Budget docked sub-nav (lib/customer-menu.ts anchor
+           children: Overview · Allocate · Payments). scroll-mt keeps the section
+           title clear of the top edge on smooth-scroll. */
+        <PageMasthead id="budget-overview" className="scroll-mt-24" title="Budget" actions={fileActions} />
+      )}
 
       {/* B1 + B2 (2026-10-08) · THE BUDGET SCREEN. The summary as rows — Target ·
        *  Agreed · Paid · Owed two by two, one meter, one "Next" line — then ONE
@@ -515,6 +497,8 @@ export default async function BudgetPage({ params, searchParams }: Props) {
         list={list}
         /* 🔗 `?pay=<line_item_id>` (Home's Budget widget): the Pay sheet of that payment's supplier, open on arrival. */
         initialPayVendorId={payTargetVendor(moneyRead?.lines ?? [], (await searchParams)?.pay, list.suppliers)}
+        // Under Booked, a supplier's row opens the Pay sheet their Team row opens — one plan, one door.
+        supplierOpens={inBooked ? 'plan' : 'ledger'}
         supplierExtras={supplierExtras}
         categories={costCategories}
         targetNote={

@@ -1,6 +1,7 @@
 import { cache } from 'react';
 import { guestSessionSurvivesTokenCheck } from '@/lib/guest-session-token-rule';
 import { insideRender } from '@/lib/request-once';
+import { cachedHubViewer } from '@/lib/hub-request';
 import { SignJWT, jwtVerify, type JWTPayload } from 'jose';
 import { cookies } from 'next/headers';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -537,6 +538,10 @@ export async function readGuestPassStanding(
 async function readHeldPass(
   opts?: { eventId?: string | null },
 ): Promise<GuestSessionPayload | null> {
+  // 🗄 THE CACHED EVENT HUB (lib/hub-request.ts): the pass its address names, already checked against the guest's
+  // CURRENT QR token by the route (the same `sessionTokenMatchesDb` question `checkedSession` asks) — or none.
+  const hub = cachedHubViewer();
+  if (hub) return hub.pass;
   const cookieStore = await cookies();
   const cookie = cookieStore.get(COOKIE_NAME);
   const wanted = opts?.eventId ?? null;
@@ -577,6 +582,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  * a guest whose old Setnayan sign-in lapsed must keep their invitation.
  */
 const signedInAccountId = cache(async (): Promise<string | null | undefined> => {
+  // 🗄 The cached Event Hub's viewer carries no Supabase session (lib/hub-request.ts): signed out.
+  if (cachedHubViewer()) return null;
   try {
     const supabase = await createSessionClient();
     const { data, error } = await supabase.auth.getUser();

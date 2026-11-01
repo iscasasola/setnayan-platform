@@ -269,29 +269,23 @@ test('the day-of announcement runs end to end: composer → row → the Event Hu
     'the day-of composer stopped writing the announcement row');
 
   // 2 · THE GUEST SIDE reads it. This is the half that was missing for months.
-  const loaders = read('app/[slug]/_lib/loaders.ts');
-  assert.match(loaders, /loadDayOfBroadcast/);
-  assert.match(loaders, /from\('coordinator_broadcasts'\)/,
+  //     🗄 EV1 (2026-10-28): through the route the card asks — one remembered read per event, the guests-only gate per
+  //     phone — instead of the layout (which made every guest page render per request).
+  const reader = read('app/[slug]/_lib/latest-announcement.server.ts');
+  assert.match(reader, /fetchLatestBroadcasts\(createAdminClient\(\), eventId, 1\)/,
     'the guest-side reader stopped reading the announcement — the composer is writing to nobody');
+  assert.match(read('lib/coordinator-broadcasts-server.ts'), /from\('coordinator_broadcasts'\)/);
+  const route = read('app/[slug]/announcement/route.ts');
+  assert.match(route, /latestAnnouncementFor\(event\.event_id\)/, 'the route stopped answering the words');
 
-  // 3 · AND IT IS MOUNTED. A loader nothing renders is the same absence with a
-  //     longer stack trace.
-  //
-  // ⚠ BOTH HALVES MOVED ON 2026-09-22, AND THE PROPERTY DID NOT. This used to
-  // read `page.tsx` for the load and `site-body.tsx` for the mount. That pairing
-  // WAS the bug: `SiteBody` is rendered by one of the guest tree's TWELVE pages,
-  // so eleven of them never showed the coordinator's words. Both now live in
-  // `[slug]/layout.tsx`, the only node that wraps all twelve.
-  //
-  // Re-anchored, not relaxed — this still asserts the same two things (it is
-  // loaded, and it is rendered) and adds the gate that the guest tree used to
-  // provide structurally: a layout wraps anonymous visitors too, so the
-  // guests-only ruling has to be asked for out loud.
+  // 3 · AND IT IS MOUNTED — once, by the layout that wraps all twelve guest pages (2026-09-22), and it ASKS.
+  //     A loader nothing renders is the same absence with a longer stack trace. The guests-only ruling is asked out
+  //     loud by the route (the layout wraps anonymous visitors too).
   const layout = read('app/[slug]/layout.tsx');
-  assert.match(layout, /loadDayOfBroadcast\(/, 'the Event Hub stopped loading the announcement');
   assert.match(layout, /<DayOfAnnouncement/, 'the announcement is loaded and never rendered');
-  assert.match(layout, /readGuestSession\(\)/,
-    'the layout wraps anonymous visitors too — without the session read, the coordinator\u2019s words go to anyone with the link');
+  assert.match(read('app/[slug]/_components/day-of-announcement.tsx'), /\/announcement`\)/, 'the card stopped asking for the words');
+  assert.match(route, /holdsThisEventsCurrentPass\(event\.event_id\)/,
+    'without the gate, the coordinator\u2019s words go to anyone with the link');
 
   // And it must not have been left behind, which would double it on the landing page.
   const body = read('app/[slug]/_components/site-body.tsx');
@@ -300,16 +294,16 @@ test('the day-of announcement runs end to end: composer → row → the Event Hu
 });
 
 test('an announcement shows until the event is over, and is the latest one — not a feed', () => {
-  const loaders = read('app/[slug]/_lib/loaders.ts');
   // Owner 2026-09-28: shown AS SOON AS IT IS SENT — before the day and on it
   // (this used to pin a day-of-only `isLive` gate). What is kept is the
   // conservative half: once the event has ENDED it returns nothing, so a stale
   // "we are running late" cannot haunt the Post Event page for a month.
   // `day-of-announcement.test.ts` holds the stage rule behaviourally.
-  assert.match(loaders, /if \(stage === 'after'\) return null;/,
+  const route = read('app/[slug]/announcement/route.ts');
+  assert.match(route, /if \(stage === 'after'\) return NextResponse\.json\(\{ body: null \}/,
     'the announcement outlived the event — a stale one now sits on the page forever');
   // One, never a scrollback of operational chatter competing with the couple.
-  assert.match(loaders, /\.limit\(1\)/);
+  assert.match(read('app/[slug]/_lib/latest-announcement.server.ts'), /const latest = items\[0\];/);
 });
 
 test('only the couple or a schedule-edit delegate may write one', () => {

@@ -53,6 +53,7 @@ function removeDataCache(): void {
 
 const WEB = join(__dirname, '..');
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
+const read_ = read;
 
 // ── 1 · the shared answer ────────────────────────────────────────────────────
 
@@ -214,7 +215,7 @@ test('2 · only an OPEN wall is remembered or cached at the edge — a closed an
 
 test('2 · the wall block spaces its polls (± 20 %) and still stops on a refusal', () => {
   const block = read('app/[slug]/_components/live-wall-block.tsx');
-  assert.match(block, /jittered\(POLL_MS\)/, 'the wall polls in step again — every phone at the venue at once');
+  assert.match(block, /jittered\(POLL_MS \* Math\.min\(2 \*\* misses, 8\)\)/, 'the wall polls in step again — every phone at the venue at once (or no longer backs off after a miss — EV1)');
   assert.match(block, /document\.visibilityState !== 'visible'\) return;/, 'a hidden phone must poll nothing');
   assert.doesNotMatch(block, /setInterval\(\(\) => void poll\(\), POLL_MS\)/);
 });
@@ -322,20 +323,21 @@ test('3 · the guests’ header applies the change; only hosts re-read on every 
   assert.match(header, /if \(subscribedOnce\.current\) reread\(\);/);
 });
 
-test('3 · the announcement: one read per event, the writer forgets it BEFORE the ping, phones spread their asks', () => {
-  const action = read('app/[slug]/announcement-actions.ts');
-  assert.match(action, /rememberedLiveRead(<[^(]*>)?\(`announcement-v\d+:\$\{eventId\}`, eventId,/);
-  assert.match(action, /latest === BROADCASTS_UNREADABLE \? notRemembered\(latest\) : latest/, 'a refused read became every guest’s answer');
-  // The per-guest gate stays per request, outside the shared answer.
-  const shared = action.search(/rememberedLiveRead[<(]/);
-  assert.ok(shared > 0 && action.indexOf('readGuestSession()') < shared, 'the cookie check must come first');
-  const writer = read('app/dashboard/[eventId]/_actions/day-of-broadcast.ts');
-  const forget = writer.indexOf('revalidateTag(liveDayTag(eventId))');
-  const ping = writer.indexOf('.channel(`announce:${eventId}`)');
-  assert.ok(forget > 0 && ping > 0 && forget < ping, 'the remembered announcement must be forgotten BEFORE the ping — or phones read the old words');
-  const card = read('app/[slug]/_components/day-of-announcement.tsx');
-  assert.match(card, /herdDelay\(PING_SPREAD_MS\)/, 'every phone asks the instant the ping lands');
-  assert.match(card, /const pull = async \(\) => \{\s*if \(document\.visibilityState !== 'visible'\) return;/, 'a pocketed phone asks every 45 s again');
+test('3 · the announcement: one read per event, the writer forgets it at once, phones ask on a spaced timer (EV1)', () => {
+  // 📵 EV1 (2026-10-28): no ping, no socket — the card asks `/{slug}/announcement` (route.ts), whose words are ONE
+  // remembered read per event and whose gate stays per request, outside the shared answer.
+  const read = read_('app/[slug]/_lib/latest-announcement.server.ts');
+  assert.match(read, /rememberedLiveRead(<[^(]*>)?\(\s*`announcement-v\d+:\$\{eventId\}`,\s*eventId,/);
+  assert.match(read, /latest === BROADCASTS_UNREADABLE \? notRemembered\(latest\) : latest/, 'a refused read became every guest’s answer');
+  const route = read_('app/[slug]/announcement/route.ts');
+  const gate = route.indexOf('holdsThisEventsCurrentPass(event.event_id)');
+  const shared = route.indexOf('latestAnnouncementFor(event.event_id)');
+  assert.ok(gate > 0 && gate < shared, 'the per-phone gate must come first');
+  const writer = read_('app/dashboard/[eventId]/_actions/day-of-broadcast.ts');
+  assert.match(writer, /revalidateTag\(liveDayTag\(eventId\)\)/, 'the remembered announcement must be forgotten the moment it is sent');
+  const card = read_('app/[slug]/_components/day-of-announcement.tsx');
+  assert.match(card, /jittered\(wait\)/, 'every phone asks in step');
+  assert.match(card, /const pull = async \(\) => \{\s*if \(document\.visibilityState !== 'visible'\) return;/, 'a pocketed phone asks again');
 });
 
 // ── 2b · "has anything changed?" — the pulse that replaced the 45 s full re-render ──────────────

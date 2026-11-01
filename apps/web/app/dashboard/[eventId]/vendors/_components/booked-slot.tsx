@@ -23,28 +23,31 @@ import { resolveEventMoneySettled, unreadEventMoney } from '@/lib/budget-truth';
 import { buildBudgetList } from '@/lib/budget-page-view';
 import { readBookedPlans } from '@/lib/booked-plans.server';
 import { readBookedRoomSizes } from '@/lib/booked-room.server';
+import { readBookedCallTimes } from '@/lib/booked-call-times.server';
 import { readOpenDateChange } from '@/lib/date-change.server';
 import { ROOM_SIZE_GROUPS, bookedView, type BookedFacts } from '@/lib/booked-rows';
-import { bookedBudgetBlock } from '@/lib/booked-budget';
 import type { TeamRow } from '@/lib/your-team-rows';
 import { BookedBody } from './booked-body';
-import { BookedBudgetSection } from './booked-budget';
+import type { PillarPart } from '@/lib/pillar-parts';
 
 export async function BookedSlot({
   eventId,
   rows,
   facts,
-  targetPhp,
+  scheduleShared = true,
+  parts,
 }: {
   eventId: string;
   /** `teamRows(...)` — every group; the body draws the asked and the booked. */
   rows: readonly TeamRow[];
   facts: readonly BookedFacts[];
+  /** Booked's parts — Team · Budget · Schedule (`bookedParts`), the body's first-row dropdown. */
+  parts: readonly PillarPart[];
   /**
-   * The couple's Target (`events.estimated_budget_centavos`, in pesos) — the
-   * meter's track. `null` = no target set.
+   * The viewer may read the Schedule (a delegate the host set to Off reads no moments). Off → the call-time line is
+   * not drawn at all, rather than "No call time yet" over moments they simply cannot see.
    */
-  targetPhp: number | null;
+  scheduleShared?: boolean;
 }) {
   const supabase = await createClient();
   const bookedIds = rows.filter((r) => r.group === 'booked').map((r) => r.vendorId);
@@ -56,20 +59,26 @@ export async function BookedSlot({
     ),
   );
   // Together: the ledger, each booked supplier's own payment plan, the venues'
-  // room sizes, and the event's open date-change request (if any).
-  const [money, plans, rooms, dateChange] = await Promise.all([
+  // room sizes, the event's open date-change request (if any), and each supplier's
+  // call time — the Schedule moment they are tagged on (owner 2026-10-27).
+  const [money, plans, rooms, dateChange, callTimes] = await Promise.all([
     isBudgetTruthEnabled() ? resolveEventMoneySettled(supabase, eventId) : Promise.resolve(unreadEventMoney()),
     readBookedPlans(supabase, eventId, bookedIds),
     readBookedRoomSizes(supabase, venueShops),
     bookedIds.length > 0 ? readOpenDateChange(supabase, eventId) : Promise.resolve({ ok: true as const, view: null }),
+    scheduleShared ? readBookedCallTimes(supabase, eventId, bookedIds) : Promise.resolve(undefined),
   ]);
   const list = buildBudgetList(money);
-  const view = bookedView({ rows, facts, money: list.suppliers, plans, rooms, dateChange: dateChange.ok ? dateChange.view : null });
-  // The small Budget block (B4) reads the SAME `money` the rows were drawn from.
-  const budget = bookedBudgetBlock(money, targetPhp);
-  return (
-    <BookedBody eventId={eventId} state={{ kind: 'view', view }} dateChangeUnread={!dateChange.ok}>
-      <BookedBudgetSection eventId={eventId} budget={budget} />
-    </BookedBody>
-  );
+  const view = bookedView({
+    rows,
+    facts,
+    money: list.suppliers,
+    plans,
+    rooms,
+    dateChange: dateChange.ok ? dateChange.view : null,
+    callTimes,
+  });
+  // The Budget is its own part now (Team · Budget · Schedule, owner 2026-10-29) — the whole Budget page, at
+  // `?part=budget`, behind the body's "Team ▾" — so the small block that sat under the rows is not drawn here.
+  return <BookedBody eventId={eventId} state={{ kind: 'view', view }} dateChangeUnread={!dateChange.ok} parts={parts} />;
 }

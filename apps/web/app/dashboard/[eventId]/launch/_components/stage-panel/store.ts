@@ -21,7 +21,9 @@ import type { StageAnimateProps } from './stage-animate';
 export type StageQuiet =
   | { kind: 'info'; words: string; open: () => void }
   | { kind: 'studio'; words: string; open: () => void }
-  | { kind: 'suppliers'; words: string; href: string };
+  | { kind: 'suppliers'; words: string; href: string }
+  /** 🗂 R1: Guests ⚙, open on the reply's row — another page of the app, a plain door like Suppliers. */
+  | { kind: 'guests'; words: string; href: string };
 
 export type StagePanelNow = {
   /** The part picked on the page (`lib/maker-parts.ts` key) — null: none. */

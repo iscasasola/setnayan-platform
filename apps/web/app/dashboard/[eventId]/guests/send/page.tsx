@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { ArrowLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { isUuid } from '@/lib/is-uuid';
@@ -9,10 +8,14 @@ import { fetchGuestsByEventMeasured, guestDisplayName, guestNameAsGiven } from '
 import { NotSharedWithYou } from '../../_components/not-shared-with-you';
 import { fetchInvitationBase } from '../_components/guest-card-data';
 import { loadInviteSetup } from '../_components/invite-message-setup';
-import type { SendInviteGuest } from '../_components/send-invite';
-import { SendRun } from './_components/send-run';
+import { SendRun, type RunGuest, type RunOneLink } from './_components/send-run';
 import { invitationLinkOn } from '@/lib/invitation-link';
-import { sendRunGuests } from '@/lib/guest-roster-view';
+import { hasReplied, sendRunGuests } from '@/lib/guest-roster-view';
+import { loadRoleNames } from '@/lib/role-names.server';
+import { runGuestPage } from '@/lib/send-run-page';
+import { readGuestsGetIn } from '@/lib/who-can-reply';
+import { logQueryError } from '@/lib/supabase/error-detect';
+import { readOneLink } from '../../_components/guest-setup/one-link.server';
 
 export const metadata = { title: 'Send invites one by one' };
 
@@ -52,13 +55,31 @@ export default async function SendInvitesPage({ params, searchParams }: Props) {
     return <NotSharedWithYou title="Send invites" thing="guest list" />;
   }
 
-  const [{ rows, measured }, setup] = await Promise.all([
+  const [{ rows, measured }, setup, roleNames, oneQr] = await Promise.all([
     // The ACCEPTED, living list — requests wait for Keep/Link, and nothing is
     // ever sent to a guest marked Passed away.
     fetchGuestsByEventMeasured(supabase, eventId),
     loadInviteSetup(supabase, eventId),
+    loadRoleNames(supabase, eventId, 'SendRun.roleNames'),
+    // 🔗 ONE LINK FOR EVERYONE (owner 2026-10-27, "THE SEND RUN ALSO SERVES A ONE-QR EVENT"): the same run walks the
+    // list, and every guest is sent the event's one link and QR. A refused read → the personal links, as before.
+    supabase
+      .from('events')
+      .select('rsvp_ask_config')
+      .eq('event_id', eventId)
+      .maybeSingle()
+      .then((r) => {
+        if (r.error) logQueryError('SendRun (one link · rsvp_ask_config)', r.error, { event_id: eventId }, 'graceful_degrade');
+        return !r.error && readGuestsGetIn((r.data as { rsvp_ask_config?: unknown } | null)?.rsvp_ask_config ?? null) === 'one_qr';
+      }),
   ]);
-  const invitationBase = await fetchInvitationBase(eventId, setup.slug);
+  const [invitationBase, eventLink] = await Promise.all([
+    fetchInvitationBase(eventId, setup.slug),
+    oneQr ? readOneLink(supabase, eventId) : Promise.resolve(null),
+  ]);
+  const oneLink: RunOneLink | null = eventLink?.url ? { url: eventLink.url, qrSvg: eventLink.qrSvg } : null;
+  // A sideless event stores every guest as 'both' — so it never says a side.
+  const hasSides = rows.some((g) => g.side !== 'both');
 
   // WHO THE RUN HOLDS — `sendRunGuests`, the ONE "to invite" rule's own list
   // (lib/guest-roster-view.ts): never the couple or the celebrant, and never a
@@ -67,7 +88,7 @@ export default async function SendInvitesPage({ params, searchParams }: Props) {
   // run was opened is gone from the next read, and one who changes back returns.
   // "Invite selected" (owner 2026-09-30, the Fable rows): the ticked guests
   // only, one share sheet each, in the order they were ticked.
-  const guests: SendInviteGuest[] = sendRunGuests(rows, picked)
+  const guests: RunGuest[] = sendRunGuests(rows, picked)
     .map((g) => ({
       guestId: g.guest_id,
       formalName: guestNameAsGiven(g, setup.facts.nameStyle),
@@ -75,21 +96,17 @@ export default async function SendInvitesPage({ params, searchParams }: Props) {
       fullName: guestDisplayName(g),
       inviteUrl: invitationBase && g.qr_token ? invitationLinkOn(invitationBase, g.qr_token) : null,
       sentAt: g.invitation_sent_at,
+      // 💬 Answered already (Attending · Can't come · Maybe) → not "to invite": never queued, never counted.
+      replied: hasReplied(g),
+      // The guest as a page (owner: "the guest's name, role, Pluses, or basic details we need").
+      page: runGuestPage(g, rows, roleNames, hasSides),
     }));
 
-  return (
-    <div className="mx-auto w-full max-w-xl px-4 pb-24 pt-4 sm:px-6">
-      <Link
-        href={`/dashboard/${eventId}/guests`}
-        className="inline-flex min-h-[44px] items-center gap-1.5 text-sm text-ink/60 hover:text-ink"
-      >
-        <ArrowLeft aria-hidden className="h-4 w-4" /> Guest list
-      </Link>
-      <h1 className="mt-1 text-2xl font-semibold tracking-tight text-ink">Send invites one by one</h1>
-      <p className="mt-1 text-sm text-ink/60">
-        Each guest gets their own link and QR, sent from your phone. We send nothing for you.
-      </p>
-      {!invitationBase ? (
+  // 📨 FULL SCREEN (owner 2026-10-27): no title, no "← Guest list" — the run IS the page; its ✕ and Done for now
+  // always land on the Guest list. A one-link event needs no personal address; a personal one does.
+  if (!invitationBase && !oneLink) {
+    return (
+      <div className="mx-auto w-full max-w-xl px-4 pb-24 pt-4 sm:px-6">
         <p role="status" className="mt-6 rounded-xl bg-ink/[0.04] p-4 text-sm text-ink/70">
           Your Event Hub has no address yet, so there are no personal links to send. Set one in{' '}
           <Link href={`/dashboard/${eventId}/invitation`} className="font-medium text-ink underline underline-offset-4">
@@ -97,9 +114,18 @@ export default async function SendInvitesPage({ params, searchParams }: Props) {
           </Link>
           , then come back.
         </p>
-      ) : (
-        <SendRun eventId={eventId} guests={guests} measured={measured} facts={setup.facts} template={setup.template} />
-      )}
-    </div>
+      </div>
+    );
+  }
+  return (
+    <SendRun
+      eventId={eventId}
+      guests={guests}
+      measured={measured}
+      facts={setup.facts}
+      template={setup.template}
+      oneLink={oneLink}
+      picked={picked.length > 0}
+    />
   );
 }

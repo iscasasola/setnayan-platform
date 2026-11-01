@@ -1,5 +1,6 @@
 'use server';
 
+import { withoutAlbumRefs } from '@/lib/put-photo-on-my-page';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { servicesReturnBase } from '@/lib/vendor-services-return';
@@ -277,7 +278,8 @@ function parseSetnayanGift(formData: FormData): boolean {
 function parsePrimaryPhoto(formData: FormData): string | null {
   const raw = formData.get('primary_photo_r2_key');
   if (typeof raw !== 'string' || raw.trim().length === 0) return null;
-  return raw.trim();
+  // An event-album photo never goes on a card — no guest notice, no takedown reach (`withoutAlbumRefs`).
+  return withoutAlbumRefs([raw.trim()])[0] ?? null;
 }
 
 /**
@@ -293,11 +295,12 @@ function parseShowcaseMedia(formData: FormData): {
   const videoRaw = formData.get('showcase_video_r2_key');
   const showcase_video_r2_key =
     typeof videoRaw === 'string' && videoRaw.trim().length > 0 ? videoRaw.trim() : null;
-  const showcase_photo_r2_keys = formData
-    .getAll('showcase_photo_r2_keys')
-    .map((v) => String(v).trim())
-    .filter((v) => v.length > 0)
-    .slice(0, 5);
+  const showcase_photo_r2_keys = withoutAlbumRefs(
+    formData
+      .getAll('showcase_photo_r2_keys')
+      .map((v) => String(v).trim())
+      .filter((v) => v.length > 0),
+  ).slice(0, 5);
   return { showcase_video_r2_key, showcase_photo_r2_keys };
 }
 

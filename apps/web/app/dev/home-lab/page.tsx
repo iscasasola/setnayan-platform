@@ -73,6 +73,10 @@
  *     [&before=1]                    the console as `main` drew it before 22 Oct (no Papic; with &shell=1,
  *                                    main's bar rule too — `/dev/bar-lab`'s `was=1`)
  *     [&shell=1&type=…&needs=…]      the REAL event bar for that type (`/dev/bar-lab`'s gates), phase dayof
+ *   ?sched=before|week|day|none|unread|off  📅 the Schedule widget (owner 2026-11-01, approved
+ *                                    `home_frames_where_you_act_2026-11-01/`): 40 days out (default) · one week out
+ *                                    (Release, Countdown at 7) · the day · no chapters yet · its read failed · absent;
+ *                                    `&plan=pro` — the event owns Pro (Release wears no ◆ PRO)
  *   ?papic=before|on|low|stopped|empty|lowday  🎨 the approved prototype's states (owner
  *                                    2026-10-14): before the window · on · running low ·
  *                                    stopped (Next card) · no photos yet (Next card) · low on the day
@@ -106,7 +110,15 @@ import { notFound } from 'next/navigation';
 import type { HomeHubPickRead } from '@/app/dashboard/[eventId]/_components/home-cards/hub-pick-types';
 import { NEED_PRESETS, needsColumns, needsForPreset, readEventNeeds, switchOnRows, type NeedPreset } from '@/lib/event-needs';
 import { DayPapicRow, HomeFirstScreen, YourServices } from '@/app/dashboard/[eventId]/_components/home-first-screen';
-import { fixtureControl, fixtureControlUnread, fixturePays } from '@/lib/home-control-fixture';
+import { fixtureControl, fixtureControlUnread, fixturePays, fixtureSchedule } from '@/lib/home-control-fixture';
+import { planningProgress } from '@/lib/preparation';
+import { labPlanningList } from '../schedule-lab/lab-planning';
+
+/** The lab's To do tile facts — `planningProgress` over Planning Stage's own fixture list. */
+function labTodoFacts() {
+  const p = planningProgress(labPlanningList().items);
+  return { done: p.done, total: p.total, open: p.open, next: p.next, dueThisWeek: p.dueThisWeek };
+}
 import { resolveSiteNav } from '@/app/[slug]/_lib/site-nav';
 import { STAGE_BAR } from '@/app/[slug]/_lib/stage-bar';
 import { SiteMenuBar } from '@/app/[slug]/_components/site-menu-bar';
@@ -349,7 +361,7 @@ const LAB_HUB_PICK: HomeHubPickRead = { ok: true, pinned: null, byDate: 'rsvp' }
 export default async function HomeLab({
   searchParams,
 }: {
-  searchParams: Promise<{ stage?: string; photos?: string; bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; coord?: string; level?: string; shop?: string; card?: string; cardphase?: string; head?: string; save?: string; challenges?: string; open?: string; need?: string; state?: string; browser?: string; desk?: string; prints?: string; settings?: string; row?: string; date?: string; as?: string; asked?: string; person?: string; whos?: string; chapter?: string }>;
+  searchParams: Promise<{ stage?: string; photos?: string; bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; coord?: string; level?: string; shop?: string; card?: string; cardphase?: string; head?: string; save?: string; challenges?: string; open?: string; need?: string; state?: string; browser?: string; desk?: string; prints?: string; settings?: string; row?: string; date?: string; as?: string; asked?: string; person?: string; whos?: string; chapter?: string; sched?: string; plan?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -606,11 +618,28 @@ export default async function HomeLab({
   /* 🎛 The control row on the prototype's own sample (`lib/home-control-fixture.ts`, the guards' own fixture) — with
      the unread states the page hands over when its reads fail, and the lab's own days / coming / no reply / money. */
   const days = glanceDays(F.days);
+  /* 📅 The Schedule widget on the prototype's own sample (`fixtureSchedule`) — `?sched=` picks the moment. */
+  const schedPhase = q.sched === 'week' || q.sched === 'day' ? q.sched : 'before';
+  const labSchedule =
+    q.sched === 'off'
+      ? null
+      : unread || q.sched === 'unread'
+        ? ('unread' as const)
+        : q.sched === 'none'
+          ? { chapters: 0, now: [], next: [], then: [], toApprove: 0, needYou: 0, oweTimes: 0, pro: false }
+          : fixtureSchedule(schedPhase, q.plan === 'pro');
+  const weekOut = schedPhase === 'week' && labSchedule !== null && labSchedule !== 'unread';
   const labControl = (unread ? fixtureControlUnread : fixtureControl)(E, {
     next,
-    countdown: { value: days.value, label: days.label, days: F.days ?? null, hasDate: days.value !== '—', long: 'Saturday, December 12, 2026', placeLine: 'Tagaytay' },
+    schedule: labSchedule,
+    countdown: weekOut
+      ? { value: '7', label: 'days to go', days: 7, hasDate: true, long: 'Saturday, December 12, 2026', placeLine: 'Tagaytay' }
+      : { value: days.value, label: days.label, days: F.days ?? null, hasDate: days.value !== '—', long: 'Saturday, December 12, 2026', placeLine: 'Tagaytay' },
     ...(labNeeds?.guestList === false ? { guests: null } : unread ? {} : { guests: { coming: F.coming, noReply: F.noReply, toInvite: 35, declined: 4, total: 131 } }),
     ...(q.hidden === '1' ? { budget: null } : unread ? {} : { budget: { paidPhp: F.paid, owingPhp: F.owing, pays: fixturePays() } }),
+    /* ✅ To do (owner 2026-11-01, "Checklist merges into Planning Stage"): the SAME fixture list `/dev/schedule-lab?view=
+       preparation` draws, counted by the SAME rule (`planningProgress`) — so the tile here and the list there agree. */
+    ...(unread ? {} : { checklist: labTodoFacts() }),
   });
   const home = (
     /* The EVENT LAYOUT's own gutter (`app/dashboard/[eventId]/layout.tsx` — px-4 · sm:px-6 · lg:px-8, pt-3 ·

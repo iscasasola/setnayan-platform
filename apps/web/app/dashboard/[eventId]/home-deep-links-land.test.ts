@@ -56,19 +56,21 @@ test('2 · "1 quote to decide" opens that supplier’s quote', () => {
   assert.match(ws, /if \(!rawLanding \|\| rawLanding === 'chat' \|\| rawLanding === 'call'\)/);
 });
 
-test('3 · a checklist task opens itself on the checklist', () => {
+test('3 · a To do task opens itself in Planning Stage’s To do filter', () => {
+  // Owner 2026-11-01, "Checklist merges into Planning Stage": the Checklist page forwards there; the rows keep their address.
   const first = fixtureControl('e1').checklist;
   assert.ok(first && first !== 'unread');
-  assert.equal(face('plan', 'plan-open')?.href, `/dashboard/e1/checklist#${checklistTaskAnchor(first.next[0]!.id)}`);
-  assert.equal(face('plan', 'plan-week')?.href, `/dashboard/e1/checklist#${checklistTaskAnchor(first.next[0]!.id)}`, 'the "due this week" face opens another task');
+  const todo = '/dashboard/e1/schedule?view=preparation&filter=todo';
+  assert.equal(face('plan', 'plan-open')?.href, `${todo}#${checklistTaskAnchor(first.next[0]!.id)}`);
+  assert.equal(face('plan', 'plan-week')?.href, `${todo}#${checklistTaskAnchor(first.next[0]!.id)}`, 'the "due this week" face opens another task');
   assert.equal(checklistTaskAnchor('abc'), 'task-abc');
-  // The row wears the very same id, so the browser lands on it (no folds on the page).
-  const full = src('_components/checklist/checklist-full.tsx');
-  assert.match(full, /id=\{checklistTaskAnchor\(item\.item_id\)\}/, 'the checklist row does not wear its address');
-  assert.match(full, /scroll-mt-24/, 'a landed task hides under the top bar');
+  // The row wears the very same id, so the browser lands on it (the filter shows it; nothing folds a task away).
+  const view = src('schedule/_components/preparation-agenda.tsx');
+  assert.match(view, /id=\{rowId \? checklistTaskAnchor\(rowId\) : undefined\}/, 'the Planning Stage row does not wear its address');
+  assert.match(view, /scroll-mt-24/, 'a landed task hides under the top bar');
   // The md+ card's task lines open their tasks too.
   const html = drawHome();
-  assert.ok(html.includes(`href="/dashboard/e1/checklist#task-t1"`), 'the Checklist card’s first task does not open itself');
+  assert.ok(html.includes(`href="${todo.replace(/&/g, '&amp;')}#task-t1"`), 'the To do card’s first task does not open itself');
 });
 
 test('4 · a payment’s Pay opens that payment’s sheet', () => {

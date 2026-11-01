@@ -40,6 +40,8 @@ import { proposalBackDoor } from '@/lib/proposal-back';
 import { readBookedMoney, type BookedMoney } from '@/lib/booked-money-step.server';
 import { moneyStepLine, quoteNoteShown } from '@/lib/accepted-quote-terms';
 import { depositStepHref } from '@/lib/deposit-pay-step';
+import { readQuoteWhere } from '@/lib/booked-call-times.server';
+import { BookedWhere, QuoteWhereFact } from '@/app/dashboard/[eventId]/vendors/_components/booked-where';
 
 export const metadata = { title: 'Quote' };
 
@@ -360,6 +362,17 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
 
   const paperStatus = proposalPaperStatus(proposal.status);
 
+  /*
+    📍 WHERE, ON THE QUOTE (owner 2026-11-01: *"The can set it even on quotation"* — DECISION_LOG "MANY VENUES PER
+    EVENT; SUPPLIERS PICK THEIR CHAPTERS; COORDINATORS ARE EVERYWHERE"; plan: best set on the quote, since it changes
+    the price). The couple picks the chapters this supplier works, right here; the supplier who sent it reads what was
+    picked (through the admin client, as the rest of their copy of this page reads the couple's side). A shop not on the
+    couple's list for the event yet has nothing to pick on — no row is drawn.
+  */
+  const quoteWhere = proposal.event_id
+    ? await readQuoteWhere(isVendorSide ? createAdminClient() : supabase, proposal.event_id, proposal.vendor_profile_id)
+    : null;
+
   return (
     <main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-10 sm:px-6 print:max-w-none print:space-y-4 print:py-2">
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
@@ -436,6 +449,18 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
           {proposal.valid_until ? ` · valid until ${fmtDate(proposal.valid_until)}` : ''}
         </p>
       </header>
+
+      {quoteWhere && quoteWhere.kind !== 'none' && proposal.event_id ? (
+        <section data-quote-where={quoteWhere.kind} aria-label="Where">
+          {quoteWhere.kind === 'unread' ? (
+            <QuoteWhereFact where={{ kind: 'unread' }} />
+          ) : isVendorSide ? (
+            <QuoteWhereFact where={quoteWhere.where} />
+          ) : (
+            <BookedWhere eventId={proposal.event_id} vendorId={quoteWhere.vendorId} where={quoteWhere.where} booked={quoteWhere.booked} />
+          )}
+        </section>
+      ) : null}
 
       {/* Body */}
       <section className="whitespace-pre-wrap text-[15px] leading-relaxed text-ink/85">

@@ -183,6 +183,7 @@ export async function readEventMemories(
         endAt: b.end_at,
         actualStartAt: b.actual_start_at,
         actualEndAt: b.actual_end_at,
+        timeTba: b.time_tba === true,
       })),
       tz: DEFAULT_EVENT_TZ,
     });

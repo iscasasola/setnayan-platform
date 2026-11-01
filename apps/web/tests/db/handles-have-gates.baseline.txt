@@ -37,7 +37,6 @@
 # not.
 # ── FINDING: the control promises an effect it does not have ────────────────
 # ── DOCUMENTED DORMANT: the column is deliberately unread, and says so ─────
-event_schedule_blocks.is_optional | Step 2 of the 1 Nov schedule plan (migration 20271300072429): the "if kept" mark on a MOMENT, stored now so the schema holds the owner's run of show; no screen draws a control for it yet and no copy promises anything. Step 3's moment sheet is its reader and its control — replace this line then.
 # ── SELF-CONTAINED BY DESIGN: writer and effect are the same surface ────────
 # Each of these is a flag a person sets on one screen whose whole visible effect
 # is on that same screen or its own feature folder. No cross-surface promise is

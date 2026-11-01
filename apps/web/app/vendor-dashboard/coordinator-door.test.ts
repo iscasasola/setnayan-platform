@@ -240,7 +240,7 @@ test('6 · the rows print WHAT NEEDS THEM from the board’s own attention read;
   assert.match(rows, /data-needs="">\{e\.needs\}/, 'the row prints something other than what needs them');
   assert.doesNotMatch(rows.split('export function CheckinDeskRows')[0]!, /\{e\.status\}/, 'the countdown is back on the row');
   const read = src('lib/events-you-run.server.ts');
-  for (const shipped of ['readEventDecisionCounts(supabase, ids)', 'readEventUnreadCounts(supabase)', 'readChecklistItems(supabase, e.eventId)', 'summarizeEventDecisions(', 'checklistOverdueCount(items, e.anchor, todayIso)']) {
+  for (const shipped of ['readEventDecisionCounts(supabase, ids)', 'readEventUnreadCounts(supabase)', 'readPlanningProgress(supabase, e.eventId, e.anchor', 'summarizeEventDecisions(', 'items.overdue']) {
     assert.ok(read.includes(shipped), `the needs line does not reuse the shipped read: ${shipped}`);
   }
   assert.match(

@@ -7,6 +7,7 @@
 import { createContext } from 'react';
 import type { LoadPaySheetResult } from '@/lib/pay-sheet';
 import type { SelfAddedSupplierPrefill } from '../actions';
+import type { SetWhereResult } from '@/lib/supplier-where';
 
 export type BookedStandIns = {
   nudge?: (vendorId: string) => Promise<{ ok: boolean; message?: string }>;
@@ -15,6 +16,14 @@ export type BookedStandIns = {
   askRoom?: (threadId: string) => Promise<void>;
   /** The Pay sheet's one request. */
   loadPay?: (vendorId: string) => Promise<LoadPaySheetResult>;
+  /** 📍 Where — a tick in the Where dropdown (the lab answers in place of `set_supplier_where`). */
+  setWhere?: (args: {
+    eventId: string;
+    vendorId: string;
+    blockIds: string[];
+    coveredGroup: string | null;
+    coveredLabel: string | null;
+  }) => Promise<SetWhereResult>;
   /** The lab's day (Manila 'YYYY-MM-DD') — the Pay sheet's "Was due" reads the SAME day as the row beside it. */
   today?: string;
 };

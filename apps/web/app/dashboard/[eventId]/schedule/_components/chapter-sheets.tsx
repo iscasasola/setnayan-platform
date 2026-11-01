@@ -1,7 +1,7 @@
 'use client';
 
 import { useId, useMemo, useState } from 'react';
-import { CalendarPlus, ChevronRight, Plus, Trash2, X } from 'lucide-react';
+import { CalendarPlus, Trash2, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { Sheet } from '@/app/_components/sheet';
 import { ChosenRow, FormRows, SwitchRow, TypedRow } from '@/app/_components/form-row';
@@ -14,10 +14,10 @@ import {
   PHOTO_WHEN_WORDS,
   PHOTO_WHO,
   PHOTO_WHO_WORDS,
+  TIME_TBA,
   VENUE_TBA,
   callLeadWords,
   capChapterDay,
-  chapterLine,
   chapterWindowFlags,
   egressAt,
   egressMinutesFrom,
@@ -34,48 +34,40 @@ import {
   wallTime,
   type Chapter,
 } from '@/lib/schedule-chapters';
-import { createScheduleBlock, deleteScheduleBlock, updateScheduleBlock } from '../schedule/actions';
+import { createScheduleBlock, deleteScheduleBlock, updateScheduleBlock } from '../actions';
 
 /**
- * 📖 HOME › EVENT SETTINGS › CHAPTERS — make, change and delete the event's chapters (owner 2026-11-01, DECISION_LOG
- * "SCHEDULE AND CHAPTERS — THE PLAN" · "CHAPTER EDIT + DELETE; INGRESS AND EGRESS ARE OPTIONAL TIMES" · "BACK OUT OF A
- * CHAPTER; DATES STOP AT THE EVENT DAY"; corpus SCHEDULE_CHAPTERS_BUILD_PLAN §2, §3, §8 step 3 "Chapters + Event
- * Settings"; approved prototype `prototypes/schedule_chapters_2026-11-01/` — its `chSheet`).
+ * 📖 THE SCHEDULE'S CHAPTER SHEETS — make, change and delete a chapter (owner 2026-11-01, DECISION_LOG "CHAPTERS LIVE ON
+ * THE SCHEDULE PAGE, NOT EVENT SETTINGS": *"Why is the chapters there? Shouldn't it be in schedules?"*; corpus
+ * SCHEDULE_CHAPTERS_BUILD_PLAN §2, §3, §12 Step 3; approved prototype `prototypes/schedule_chapters_2026-11-01/` — its
+ * `chSheet`). Moved here WHOLE from Home › Event Settings (Step 2, #7143), so there is ONE place per thing: the
+ * Schedule page. Event Settings holds no chapters row and no link here (house rule: no go-edit-elsewhere links).
  *
  * A chapter is a top-level schedule block (migration 20271300072429), so every save is the Schedule's OWN door —
  * `createScheduleBlock` · `updateScheduleBlock` · `deleteScheduleBlock` — with the same refusals, the same RLS (the
  * couple, and a helper holding Edit on the Schedule), and no new server action (the route budget).
  *
- *   · A NEW CHAPTER ASKS ONLY NAME AND TIME (plan §2, "the clean slate"): What · Date · Starts, then Create.
- *   · CHAPTER DETAILS: every field saves as it is kept (the Form Row rule), the sheet stays where it is — a save never
- *     resets the screen. What · Date · Starts · Ends · Where (or Venue TBA) · Exact spot · Ingress from · Egress until
- *     (blank = none; both may cross midnight) · Call time · Who sees the photos · When · On the invitation · Notes.
+ *   · A NEW CHAPTER ASKS ONLY NAME AND TIME (plan §2, "the clean slate"): What · Date · Starts, then Create. A blank
+ *     Starts is TIME TBA (owner 2026-11-01, ruled yes; migration 20271300482585): the chapter keeps its day, shows
+ *     "Time TBA" and has no call time.
+ *   · CHAPTER DETAILS: every field saves as it is kept (the Form Row rule) and the sheet stays where it is — a save never
+ *     resets the screen. What · Date · Starts (✕ = Time TBA) · Ends · Where (or Venue TBA) · Exact spot · Ingress from ·
+ *     Egress until (blank = none; both may cross midnight) · Call time · Who sees the photos · When · On the invitation
+ *     · Notes.
  *   · DELETE CHAPTER at its foot: it warns (cannot be undone · its moments · photos stay safe under Unsorted), then
- *     Continue, then a deleting state — the owner's standing delete pattern.
+ *     Continue, then a deleting state — the owner's standing delete pattern. Nothing is removed before Continue.
  *   · Moving the date or the start moves its moments with it (`with_moments`, one statement in the database).
  *   · Dates stop at the event day: the calendar ends there, and a later day is set back to it, with a note.
  *
- * 🔒 NO GUEST-VISIBLE CHANGE (Step 2): a chapter made here starts hidden from guests, and nothing here turns that on.
- * "On the invitation" is stored for the RSVP step and read by no guest page yet.
+ * 🔒 NO GUEST-VISIBLE CHANGE: a chapter made here starts hidden from guests, and nothing here turns that on. "On the
+ * invitation" is stored for the RSVP step and read by no guest page yet. A TBA chapter cannot be shown to guests at all.
  *
- * 🧪 `lab` — the Home lab (`/dev/home-lab?settings=1&row=chapters`) runs the same rows on fake chapters with doors that
- * only answer "saved"; nothing is written anywhere.
+ * 🧪 `LAB_DOORS` — `/dev/schedule-chapters-lab` runs the same sheets on fake chapters with doors that only answer
+ * "saved"; nothing is written anywhere.
  */
-export type ChaptersInput =
-  | {
-      measured: true;
-      chapters: Chapter[];
-      /** The event's own venues by name (Event Settings › Venues) — Where offers them first. */
-      venues: string[];
-      /** The event's last day (`YYYY-MM-DD`) — chapters stop there; null = no exact date yet (no cap). */
-      lastDay: string | null;
-      /** May put a chapter on the invitation (a host or the coordinator — the rule for showing guests anything). */
-      mayInvite: boolean;
-    }
-  | { measured: false };
 
-type Doors = {
-  create: (blockId: string, label: string, startLocal: string) => Promise<boolean>;
+export type ChapterDoors = {
+  create: (blockId: string, label: string, startLocal: string, tba: boolean) => Promise<boolean>;
   save: (blockId: string, fields: Record<string, string>) => Promise<boolean>;
   remove: (blockId: string) => Promise<boolean>;
 };
@@ -89,17 +81,21 @@ function form(eventId: string, fields: Record<string, string>): FormData {
   return fd;
 }
 
-function realDoors(eventId: string): Doors {
+export function realChapterDoors(eventId: string): ChapterDoors {
   const ok = (p: Promise<unknown>) => p.then(() => true, () => false);
   return {
-    create: (blockId, label, startLocal) =>
-      ok(createScheduleBlock(form(eventId, { block_id: blockId, label, block_type: 'custom', start_at: startLocal }))),
+    create: (blockId, label, startLocal, tba) =>
+      ok(
+        createScheduleBlock(
+          form(eventId, { block_id: blockId, label, block_type: 'custom', start_at: startLocal, ...(tba ? { time_tba: '1' } : {}) }),
+        ),
+      ),
     save: (blockId, fields) => ok(updateScheduleBlock(form(eventId, { block_id: blockId, ...fields }))),
     remove: (blockId) => ok(deleteScheduleBlock(form(eventId, { block_id: blockId }))),
   };
 }
 
-const LAB_DOORS: Doors = {
+export const LAB_CHAPTER_DOORS: ChapterDoors = {
   create: () => new Promise((r) => setTimeout(() => r(true), 250)),
   save: () => new Promise((r) => setTimeout(() => r(true), 150)),
   remove: () => new Promise((r) => setTimeout(() => r(true), 700)),
@@ -107,131 +103,41 @@ const LAB_DOORS: Doors = {
 
 const OTHER_PLACE = '__other__';
 const NOT_SAVED = { ok: false as const, error: 'Try again.' };
+/** The clock a TBA chapter is stored at: its DAY at 00:00 (never drawn). */
+const TBA_CLOCK = '00:00';
 
-export function EventSettingsChapters({ eventId, input, lab = false }: { eventId: string; input: ChaptersInput; lab?: boolean }) {
-  const doors = useMemo(() => (lab ? LAB_DOORS : realDoors(eventId)), [eventId, lab]);
-  const [chapters, setChapters] = useState<Chapter[]>(input.measured ? input.chapters : []);
-  const [open, setOpen] = useState<{ kind: 'new' } | { kind: 'edit'; id: string } | null>(null);
-  const [flash, setFlash] = useState<string | null>(null);
-
-  if (!input.measured) {
-    return (
-      <p role="alert" data-chapters-failed="" className="text-sm text-terracotta-700">
-        The chapters couldn’t be read just now. Nothing was changed — close this and try again.
-      </p>
-    );
-  }
-  const sorted = [...chapters].sort((a, b) => (a.start_at < b.start_at ? -1 : a.start_at > b.start_at ? 1 : 0));
-  const editing = open?.kind === 'edit' ? (chapters.find((c) => c.block_id === open.id) ?? null) : null;
-  const patch = (id: string, next: Partial<Chapter>) => setChapters((cs) => cs.map((c) => (c.block_id === id ? { ...c, ...next } : c)));
-
-  return (
-    <div data-chapters="" className="flex flex-col gap-2">
-      <p className="text-[13px] text-ink/60">Everything on the day is a chapter: preparations, the ceremony, the reception, a fitting.</p>
-      {sorted.length === 0 ? (
-        <p data-chapters-empty="" className="text-[14px] text-ink/70">
-          No chapters yet. Start with a name and a time.
-        </p>
-      ) : (
-        <ul data-chapters-list="" className="flex flex-col">
-          {sorted.map((c) => (
-            <li key={c.block_id} className="border-t border-ink/10 first:border-t-0">
-              <button
-                type="button"
-                data-chapter-row={c.block_id}
-                onClick={() => setOpen({ kind: 'edit', id: c.block_id })}
-                className="sn-press flex min-h-14 w-full items-center gap-3 py-2 text-left"
-              >
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[15px] font-semibold text-ink">{c.label}</span>
-                  <span className="block truncate text-[13px] text-ink/60">
-                    {dayWords(wallDay(c.start_at))} · {chapterLine(c)}
-                  </span>
-                </span>
-                <ChevronRight aria-hidden className="h-4 w-4 flex-none text-ink/40" />
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      {flash ? (
-        <p role="status" data-chapters-flash="" className="text-[13px] text-ink/70">
-          {flash}
-        </p>
-      ) : null}
-      <div>
-        <ActionButton tone="brand" icon={Plus} label="Add a chapter" onClick={() => setOpen({ kind: 'new' })} data-testid="chapters-add" />
-      </div>
-
-      {open?.kind === 'new' ? (
-        <NewChapterSheet
-          lastDay={input.lastDay}
-          onClose={() => setOpen(null)}
-          onCreate={async (label, day, hhmm) => {
-            const startLocal = wallLocal(day, hhmm);
-            const startIso = wallIso(day, hhmm);
-            if (!startLocal || !startIso) return false;
-            const blockId = crypto.randomUUID();
-            const ok = await doors.create(blockId, label, startLocal);
-            if (!ok) return false;
-            setChapters((cs) => [
-              ...cs,
-              {
-                block_id: blockId,
-                label,
-                start_at: startIso,
-                end_at: null,
-                location: null,
-                spot: null,
-                notes: null,
-                ingress_minutes_before: null,
-                egress_minutes_after: null,
-                call_lead_minutes: 60,
-                on_invitation: false,
-                photo_who: 'chapter',
-                photo_when: 'right_away',
-                is_public: false,
-                moments: 0,
-              },
-            ]);
-            setFlash(`${label} is added. Tap it to set its venue and the rest.`);
-            setOpen(null);
-            return true;
-          }}
-        />
-      ) : null}
-
-      {editing ? (
-        <ChapterSheet
-          key={editing.block_id}
-          chapter={editing}
-          venues={input.venues}
-          used={chapters.map((c) => c.location).filter((v): v is string => Boolean(v))}
-          lastDay={input.lastDay}
-          mayInvite={input.mayInvite}
-          doors={doors}
-          onPatch={(next) => patch(editing.block_id, next)}
-          onClose={() => setOpen(null)}
-          onDeleted={() => {
-            setChapters((cs) => cs.filter((c) => c.block_id !== editing.block_id));
-            setFlash(`${editing.label} is deleted.`);
-            setOpen(null);
-          }}
-        />
-      ) : null}
-    </div>
-  );
+/** A new chapter as the page lays it on the list at once (the write has landed). */
+export function newChapter(blockId: string, label: string, startIso: string, tba: boolean): Chapter {
+  return {
+    block_id: blockId,
+    label,
+    start_at: startIso,
+    end_at: null,
+    location: null,
+    spot: null,
+    notes: null,
+    ingress_minutes_before: null,
+    egress_minutes_after: null,
+    call_lead_minutes: 60,
+    on_invitation: false,
+    photo_who: 'chapter',
+    photo_when: 'right_away',
+    is_public: false,
+    moments: 0,
+    time_tba: tba,
+  };
 }
 
 /* ── a new chapter: name and time ────────────────────────────────────────────────────────────────────────────── */
 
-function NewChapterSheet({
+export function NewChapterSheet({
   lastDay,
   onClose,
   onCreate,
 }: {
   lastDay: string | null;
   onClose: () => void;
+  /** `hhmm` blank = Time TBA. */
   onCreate: (label: string, day: string, hhmm: string) => Promise<boolean>;
 }) {
   const headingId = useId();
@@ -239,7 +145,8 @@ function NewChapterSheet({
   const [day, setDay] = useState<string>(lastDay ?? todayDay());
   const [time, setTime] = useState('');
   const [state, setState] = useState<'idle' | 'saving' | 'failed'>('idle');
-  const ready = label.trim().length > 0 && /^\d{2}:\d{2}$/.test(time);
+  // A name is enough: a blank Starts is Time TBA (owner 2026-11-01).
+  const ready = label.trim().length > 0 && (time === '' || /^\d{2}:\d{2}$/.test(time));
   return (
     <Sheet open onClose={onClose} labelledById={headingId} title="New chapter">
       <div data-new-chapter="" className="flex flex-col gap-3 px-4 pb-[calc(20px+env(safe-area-inset-bottom))] pt-2">
@@ -272,6 +179,9 @@ function NewChapterSheet({
           <TimeRow
             name="Starts"
             value={time}
+            empty={TIME_TBA}
+            clearable
+            line={time ? undefined : 'Leave it blank while the time is not known.'}
             onKeep={(t) => {
               setTime(t);
               return { ok: true };
@@ -306,7 +216,7 @@ function NewChapterSheet({
 
 /* ── chapter details ─────────────────────────────────────────────────────────────────────────────────────────── */
 
-function ChapterSheet({
+export function ChapterSheet({
   chapter: c,
   venues,
   used,
@@ -322,7 +232,7 @@ function ChapterSheet({
   used: string[];
   lastDay: string | null;
   mayInvite: boolean;
-  doors: Doors;
+  doors: ChapterDoors;
   onPatch: (next: Partial<Chapter>) => void;
   onClose: () => void;
   onDeleted: () => void;
@@ -340,16 +250,39 @@ function ChapterSheet({
     return { ok: true as const };
   };
 
-  /** A new start (date or clock): the chapter, its end and its moments move together. */
+  /** A new start (date or clock): the chapter, its end and its moments move together. A TBA chapter that gets a clock
+   *  leaves TBA in the same save; one that only changes day stays TBA and its moments move by the days. */
   const moveTo = async (day: string, hhmm: string) => {
     const capped = capChapterDay(day, lastDay);
-    const local = wallLocal(capped.day, hhmm);
-    const iso = wallIso(capped.day, hhmm);
+    const stillTba = c.time_tba === true && hhmm === '';
+    const clock = stillTba ? TBA_CLOCK : hhmm;
+    const local = wallLocal(capped.day, clock);
+    const iso = wallIso(capped.day, clock);
     if (!local || !iso) return NOT_SAVED;
     const delta = Math.round((Date.parse(iso) - Date.parse(c.start_at)) / 60_000);
-    const answer = await keep({ start_at: local, with_moments: '1' }, { start_at: iso, end_at: c.end_at ? shiftWall(c.end_at, delta) : null });
+    // Leaving TBA sets a clock where there was none: the moments keep their own times (a 00:00 placeholder is no
+    // start to move them from). Every other move carries them.
+    const leavingTba = c.time_tba === true && !stillTba;
+    const answer = await keep(
+      { start_at: local, ...(leavingTba ? { time_tba: '0' } : { with_moments: '1' }) },
+      { start_at: iso, end_at: c.end_at ? shiftWall(c.end_at, delta) : null, time_tba: stillTba },
+    );
     if (answer.ok && capped.capped) setNote('Chapters stop at the event day, so the date was set back to it.');
-    else if (answer.ok && delta !== 0 && c.moments > 0) setNote(`${c.label} moved. Its ${c.moments} moment${c.moments === 1 ? '' : 's'} moved with it.`);
+    else if (answer.ok && !leavingTba && delta !== 0 && c.moments > 0) setNote(`${c.label} moved. Its ${c.moments} moment${c.moments === 1 ? '' : 's'} moved with it.`);
+    return answer;
+  };
+
+  /** ✕ on Starts — the time is not known (yet): the chapter keeps its DAY, has no end, no ingress, no egress, no call
+   *  time, and is hidden from guests (the database refuses a TBA chapter on the Event Hub). Its moments stay put. */
+  const goTba = async () => {
+    const local = wallLocal(wallDay(c.start_at), TBA_CLOCK);
+    const iso = wallIso(wallDay(c.start_at), TBA_CLOCK);
+    if (!local || !iso) return NOT_SAVED;
+    const answer = await keep(
+      { start_at: local, time_tba: '1' },
+      { start_at: iso, end_at: null, ingress_minutes_before: null, egress_minutes_after: null, is_public: false, time_tba: true },
+    );
+    if (answer.ok) setNote(`${c.label} is Time TBA. It has no call time until the time is set.`);
     return answer;
   };
 
@@ -385,10 +318,19 @@ function ChapterSheet({
                 name="Date"
                 value={wallDay(c.start_at)}
                 max={lastDay}
-                onKeep={(d) => moveTo(d, wallTime(c.start_at))}
+                onKeep={(d) => moveTo(d, c.time_tba ? '' : wallTime(c.start_at))}
                 data="chapter-date"
               />
-              <TimeRow name="Starts" value={wallTime(c.start_at)} onKeep={(t) => (t ? moveTo(wallDay(c.start_at), t) : NOT_SAVED)} data="chapter-start" />
+              <TimeRow
+                name="Starts"
+                value={c.time_tba ? '' : wallTime(c.start_at)}
+                empty={TIME_TBA}
+                clearable
+                line={c.time_tba ? 'No call time until the time is set.' : undefined}
+                onKeep={(t) => (t ? moveTo(wallDay(c.start_at), t) : goTba())}
+                data="chapter-start"
+              />
+              {c.time_tba ? null : (
               <TimeRow
                 name="Ends"
                 value={wallTime(c.end_at)}
@@ -400,6 +342,7 @@ function ChapterSheet({
                 }}
                 data="chapter-end"
               />
+              )}
               <ChosenRow
                 name="Where"
                 value={other ? OTHER_PLACE : (c.location ?? '')}
@@ -437,6 +380,7 @@ function ChapterSheet({
                 onKeep={(t) => keep({ spot: t.trim() }, { spot: t.trim() || null })}
                 data="chapter-spot"
               />
+              {c.time_tba ? null : (
               <TimeRow
                 name="Ingress from"
                 about={{ words: 'When suppliers can start setting up here. Leave it blank for no ingress.' }}
@@ -450,6 +394,8 @@ function ChapterSheet({
                 }}
                 data="chapter-ingress"
               />
+              )}
+              {c.time_tba ? null : (
               <TimeRow
                 name="Egress until"
                 about={{ words: 'When everything must be out. Leave it blank for no egress. It can be after midnight.' }}
@@ -464,6 +410,7 @@ function ChapterSheet({
                 }}
                 data="chapter-egress"
               />
+              )}
               <ChosenRow
                 name="Call time"
                 value={String(c.call_lead_minutes)}
@@ -569,10 +516,4 @@ function ChapterSheet({
 function todayDay(): string {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-}
-
-/** "Fri 18 Dec" for a `YYYY-MM-DD` (a wall day — read as UTC, never a zone). */
-function dayWords(day: string): string {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return '';
-  return new Date(`${day}T00:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
 }

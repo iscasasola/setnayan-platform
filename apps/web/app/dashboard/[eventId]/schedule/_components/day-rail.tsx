@@ -85,6 +85,8 @@ import { ScheduleAddPill, ScheduleSheet } from './schedule-sheet';
 import type { RetimePatch } from '@/lib/schedule-ros';
 import { StudioDay } from './studio-day';
 import { useMaker } from '../../launch/_components/maker-context';
+import { useChapters } from './chapters-context';
+import { TIME_TBA, chapterStage, chapterWhere, gapWords, type Chapter } from '@/lib/schedule-chapters';
 
 type SheetState =
   | { kind: 'add'; dateKey: string | null; startMin: number }
@@ -127,7 +129,10 @@ export function ScheduleDay({
   inspectorSlot = null,
   frame = 'page',
   toolsSlot = null,
+  openRequests = false,
 }: {
+  /** 📅 Open the supplier requests sheet with the page (Home's "N to approve", owner 2026-11-01) — only when there are any. */
+  openRequests?: boolean;
   /**
    * 📅 Drawn as Suppliers › Booked › Schedule (owner 2026-10-31, live iPhone: *"so many upper space not used"* ·
    * *"the pop up. design template."*): the day's tools ride the page's one line (`toolsSlot`, beside Event Day ▾ and
@@ -180,6 +185,12 @@ export function ScheduleDay({
   /* 🗓 The new Maker's Studio (`stagesStudio`, the one Maker since 2026-10-25): the day as the prototype's
      timeline (`studio-day.tsx`) in place of the rail — the same state, writes and sheets. */
   const studio = useMaker()?.stagesStudio === true && live;
+  /* 📖 CHAPTERS (owner 2026-11-01, "CHAPTERS LIVE ON THE SCHEDULE PAGE"): on the Schedule page the rail's top-level
+     blocks ARE the chapters — a tap opens the chapter's page, the add is "+ Add a chapter" (a name and a time), the
+     time between chapters is said, a TBA chapter is listed under the rail, and one dated before the day lives in
+     Planning Stage. Never in the Maker (`live`): Details › Schedule keeps its moment inspector, unchanged. */
+  const chaptersApi = useChapters();
+  const ch = live ? null : chaptersApi;
   const [gone, setGone] = useState<ReadonlySet<string>>(() => new Set());
   /* ➕ Studio's "Add a moment": a moment added in place is on the timeline at once — no render of the Maker brings
      it (its write is quiet) — and cannot be edited until its add has landed (`pending`). */
@@ -199,7 +210,7 @@ export function ScheduleDay({
   const [drag, setDrag] = useState<DragState | null>(null);
   const dragRef = useRef<DragState | null>(null);
   const suppressClick = useRef(false);
-  const [sheet, setSheet] = useState<SheetState>(null);
+  const [sheet, setSheet] = useState<SheetState>(openRequests && requests.length > 0 ? { kind: 'requests' } : null);
   const [lens, setLens] = useState<Lens>({ kind: 'all' });
   const [notice, setNotice] = useState<string | null>(null);
   const [, startTransition] = useTransition();
@@ -257,10 +268,10 @@ export function ScheduleDay({
 
   const merged = useMemo(
     () =>
-      [...moments, ...added.filter((a) => !moments.some((m) => m.block_id === a.block_id))]
+      withChapters([...moments, ...added.filter((a) => !moments.some((m) => m.block_id === a.block_id))], ch?.chapters ?? null)
         .filter((m) => !gone.has(m.block_id) && !(m.parent_block_id && gone.has(m.parent_block_id)))
         .map((m) => ({ ...m, ...(overrides[m.block_id] ?? {}) })),
-    [moments, added, overrides, gone],
+    [moments, added, overrides, gone, ch?.chapters],
   );
   const topLevel = useMemo(() => merged.filter((m) => m.parent_block_id === null), [merged]);
   const partsOf = useMemo(() => {
@@ -274,11 +285,20 @@ export function ScheduleDay({
     return map;
   }, [merged]);
 
+  /** The chapters drawn on the rail: a TBA one is listed under it, one before the day is Planning Stage's. */
+  const onRail = useMemo(
+    () => (ch ? topLevel.filter((m) => !m.time_tba && chapterStage(m, ch.eventDay) === 'day') : topLevel),
+    [ch, topLevel],
+  );
+  const tbaChapters = useMemo(
+    () => (ch ? topLevel.filter((m) => m.time_tba && chapterStage(m, ch.eventDay) === 'day') : []),
+    [ch, topLevel],
+  );
   const rails = useMemo(() => {
-    const grouped = groupByWallDate(topLevel);
+    const grouped = groupByWallDate(onRail);
     if (grouped.length === 0 && eventDateKey) return [{ dateKey: eventDateKey, rows: [] }];
     return grouped;
-  }, [topLevel, eventDateKey]);
+  }, [onRail, eventDateKey]);
 
   const selected = merged.find((m) => m.block_id === selectedId) ?? null;
   const visibleCount = topLevel.filter((m) => m.is_public && !m.staged).length;
@@ -462,11 +482,13 @@ export function ScheduleDay({
       suppressClick.current = false;
       return;
     }
+    if (ch) return ch.open(m.block_id);
     setSelectedId((cur) => (cur === m.block_id ? null : m.block_id));
   }
 
   function openAdd(dateKey: string | null, startMin: number) {
     if (!canEdit) return;
+    if (ch) return ch.add();
     setSelectedId(null);
     setSheet({ kind: 'add', dateKey, startMin });
   }
@@ -742,11 +764,11 @@ export function ScheduleDay({
               onClick={() =>
                 openAdd(lastDateKey, topLevel.length > 0 ? snapMinutes(lastEnd, 15) : 14 * 60)
               }
-              aria-label="Add moment"
+              aria-label={ch ? 'Add a chapter' : 'Add moment'}
               className="ml-1 inline-flex h-9 items-center gap-1.5 rounded-full bg-ink px-2.5 text-[13px] font-semibold text-cream hover:bg-black sm:px-3.5"
             >
               <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
-              <span className="hidden sm:inline">Add moment</span>
+              <span className="hidden sm:inline">{ch ? 'Add a chapter' : 'Add moment'}</span>
             </button>
           ) : null}
         </div>
@@ -796,7 +818,8 @@ export function ScheduleDay({
             const lanes = layoutLanes(
               rows.map((m) => ({ id: m.block_id, ...liveSpans.get(m.block_id)! })),
             );
-            const gaps = canEdit && lens.kind === 'all' ? findGaps([...spans.values()], railStart, railEnd) : [];
+            const gaps = !ch && canEdit && lens.kind === 'all' ? findGaps([...spans.values()], railStart, railEnd) : [];
+            const between = ch && lens.kind === 'all' ? betweenChapters([...spans.values()]) : [];
             const top = (min: number) => ((min - railStart) / 60) * hourPx;
             const nowOnRail = isEventDay && now && now.key === dateKey && now.min >= railStart && now.min <= railEnd;
             const dayVisible = rows.filter((m) => m.is_public && !m.staged).length;
@@ -884,6 +907,34 @@ export function ScheduleDay({
                     </button>
                   ))}
 
+                  {/* 📖 The time between chapters (the prototype's "1h 30m between"): a tap adds a chapter, for an editor. */}
+                  {between.map((g) => {
+                    const words = `${gapWords(g.endMin - g.startMin)} between`;
+                    const style = { top: top(g.startMin) + 2, height: Math.max(((g.endMin - g.startMin) / 60) * hourPx - 6, 18) };
+                    return canEdit ? (
+                      <button
+                        key={`between-${g.startMin}`}
+                        type="button"
+                        data-chapter-between=""
+                        onClick={() => openAdd(dateKey, g.startMin)}
+                        aria-label={`${words} — add a chapter`}
+                        className="absolute left-2.5 right-0 z-[1] grid min-h-0 place-items-center rounded-md text-xs font-semibold text-ink/40 hover:bg-terracotta/10 hover:text-terracotta-700 lg:left-3.5"
+                        style={style}
+                      >
+                        {words}
+                      </button>
+                    ) : (
+                      <p
+                        key={`between-${g.startMin}`}
+                        data-chapter-between=""
+                        className="absolute left-2.5 right-0 z-[1] grid place-items-center text-xs font-semibold text-ink/40 lg:left-3.5"
+                        style={style}
+                      >
+                        {words}
+                      </p>
+                    );
+                  })}
+
                   {rows.length === 0 ? (
                     <EmptyRail
                       canEdit={canEdit}
@@ -946,6 +997,7 @@ export function ScheduleDay({
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' || e.key === ' ') {
                             e.preventDefault();
+                            if (ch) return ch.open(m.block_id);
                             setSelectedId((cur) => (cur === m.block_id ? null : m.block_id));
                           }
                         }}
@@ -1097,6 +1149,28 @@ export function ScheduleDay({
               </section>
             );
           })}
+          {/* 📖 Chapters with no time yet (owner 2026-11-01, "Time TBA"): listed under the rail — never drawn at a
+              guessed hour. A tap opens the chapter. */}
+          {tbaChapters.length > 0 ? (
+            <ul data-chapters-tba="" className="ml-[54px] border-t border-ink/10 lg:ml-16 lg:max-w-[720px]">
+              {tbaChapters.map((m) => (
+                <li key={m.block_id} className="border-b border-ink/10">
+                  <button
+                    type="button"
+                    data-chapter-tba={m.block_id}
+                    onClick={() => ch?.open(m.block_id)}
+                    className="sn-press flex min-h-14 w-full items-center gap-4 py-2 text-left"
+                  >
+                    <span className="w-20 flex-none text-[13px] text-ink/60">{TIME_TBA}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[15px] font-semibold text-ink">{m.label}</span>
+                      <span className="block truncate text-[13px] text-ink/60">{chapterWhere({ location: m.location, spot: null })}</span>
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </div>
 
         {/* THE SIDE — a wide screen only. Nothing selected: the day in
@@ -1150,12 +1224,12 @@ export function ScheduleDay({
       ) : null}
 
       {/* ＋ Under Booked the day's one add is the pill in the thumb zone (frame 19), not a button in a row up top. */}
-      {booked && canEdit && rails.length > 0 ? (
+      {booked && canEdit && (rails.length > 0 || ch) ? (
         <ScheduleAddPill
-          label="Add a moment"
-          data="moment"
+          label={ch ? 'Add a chapter' : 'Add a moment'}
+          data={ch ? 'chapter' : 'moment'}
           view="event-day"
-          hidden={selected !== null}
+          hidden={selected !== null || Boolean(ch?.openId)}
           onPress={() => openAdd(lastDateKey, topLevel.length > 0 ? snapMinutes(lastEnd, 15) : 14 * 60)}
         />
       ) : null}
@@ -1340,4 +1414,52 @@ function EmptyRail({
       )}
     </div>
   );
+}
+
+/**
+ * 📖 The chapters laid on the day's top-level blocks: a chapter made, renamed, moved or deleted on its page is on the
+ * rail at once (those saves are quiet — no render brings them). A block the chapters no longer hold is gone with its
+ * moments; a chapter not among the blocks yet is added. `null` (no chapters here — the Maker): the blocks as they are.
+ */
+function withChapters(blocks: DayMoment[], chapters: readonly Chapter[] | null): DayMoment[] {
+  if (!chapters) return blocks;
+  const byId = new Map(chapters.map((c) => [c.block_id, c]));
+  const kept = blocks.filter((b) => (b.parent_block_id ? byId.has(b.parent_block_id) || !blocks.some((x) => x.block_id === b.parent_block_id) : byId.has(b.block_id)));
+  const out = kept.map((b) => {
+    const c = b.parent_block_id ? null : byId.get(b.block_id);
+    return c ? { ...b, label: c.label, start_at: c.start_at, end_at: c.end_at, location: c.location, is_public: c.is_public, time_tba: c.time_tba === true } : b;
+  });
+  for (const c of chapters) {
+    if (blocks.some((b) => b.block_id === c.block_id)) continue;
+    out.push({
+      block_id: c.block_id,
+      label: c.label,
+      block_type: 'custom',
+      start_at: c.start_at,
+      end_at: c.end_at,
+      location: c.location,
+      notes: c.notes,
+      is_public: c.is_public,
+      parent_block_id: null,
+      run_state: 'upcoming',
+      staged: false,
+      responsible_party: null,
+      responsible_vendor_ids: [],
+      audience: null,
+      time_tba: c.time_tba === true,
+    });
+  }
+  return out;
+}
+
+/** The empty stretches BETWEEN chapters (never before the first or after the last), 30 minutes or more. */
+function betweenChapters(spans: readonly RailSpan[]): { startMin: number; endMin: number }[] {
+  const sorted = [...spans].sort((a, b) => a.startMin - b.startMin);
+  const out: { startMin: number; endMin: number }[] = [];
+  let reach = -Infinity;
+  for (const s of sorted) {
+    if (reach > -Infinity && s.startMin - reach >= 30) out.push({ startMin: reach, endMin: s.startMin });
+    reach = Math.max(reach, s.endMin);
+  }
+  return out;
 }

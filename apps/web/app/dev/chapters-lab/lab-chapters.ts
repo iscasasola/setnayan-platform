@@ -1,7 +1,8 @@
 import type { Chapter, MomentLike, TaskRow } from '@/lib/schedule-chapters';
+import type { ChapterMoment } from '@/app/dashboard/[eventId]/schedule/_components/chapters-host';
 
 /**
- * 🧪 FAKE CHAPTERS FOR THE LABS (`/dev/chapters-lab`, `/dev/home-lab?settings=1&row=chapters`). A sample wedding on
+ * 🧪 FAKE CHAPTERS FOR THE LAB (`/dev/chapters-lab`). A sample wedding on
  * 18 Dec with made-up venues — the SHAPE of a real run of show (preparations split by room in one hotel, a ceremony at
  * a parish, a reception and an after party back at the hotel, a reception egress past midnight), never anyone's data.
  * Nothing here is written anywhere.
@@ -47,10 +48,57 @@ export const LAB_CHAPTERS: Chapter[] = [
   chapter('00000000-0000-4000-8000-0000000000c6', 'After party', '23:00', '02:00', 'Hotel Aurora', 'Foyer', { photo_who: 'tagged' }),
 ];
 
+/**
+ * 📖 Step 3a, the Schedule page: a chapter with no time yet on the day ("Time TBA"), and one before the day — a fitting —
+ * which lives in Planning Stage.
+ */
+export const LAB_TBA_CHAPTER: Chapter = chapter('00000000-0000-4000-8000-0000000000c7', 'Send-off', '00:00', null, null, null, { time_tba: true });
+export const LAB_PLANNING_CHAPTER: Chapter = chapter('00000000-0000-4000-8000-0000000000c8', 'Final fitting', '15:00', '16:00', 'Atelier Rosa', null, {
+  start_at: '2026-12-05T15:00:00.000Z',
+  end_at: '2026-12-05T16:00:00.000Z',
+  moments: 1,
+});
+export const LAB_SCHEDULE_CHAPTERS: Chapter[] = [...LAB_CHAPTERS, LAB_TBA_CHAPTER, LAB_PLANNING_CHAPTER];
+
+const m = (id: string, parent: string, label: string, hhmm: string, pub: boolean, who: string, day = LAB_EVENT_DAY, more: Partial<ChapterMoment> = {}): ChapterMoment => ({
+  block_id: `00000000-0000-4000-8000-0000000m${id}`,
+  parent_block_id: parent,
+  label,
+  start_at: `${day}T${hhmm}:00.000Z`,
+  end_at: new Date(Date.parse(`${day}T${hhmm}:00.000Z`) + 30 * 60_000).toISOString(),
+  location: null,
+  spot: null,
+  notes: null,
+  is_optional: false,
+  travel_from: null,
+  travel_to: null,
+  is_public: pub,
+  who,
+  ...more,
+});
+
+/** The moments inside the lab's chapters — the Ceremony's run of show, the Reception's ingress and egress. */
+export const LAB_CHAPTER_MOMENTS: ChapterMoment[] = [
+  m('0001', LAB_CHAPTERS[0]!.block_id, 'Hair and make-up starts', '06:30', false, 'Glow HMUA'),
+  m('0002', LAB_CHAPTERS[0]!.block_id, 'Gown on', '11:30', false, ''),
+  m('0003', LAB_CHAPTERS[0]!.block_id, 'Bride’s portraits', '12:30', false, 'Lightbox Studio'),
+  m('0004', LAB_CHAPTERS[3]!.block_id, 'Guests arrive', '15:00', true, ''),
+  m('0005', LAB_CHAPTERS[3]!.block_id, 'Line up', '15:15', false, 'The Planning Desk'),
+  m('0006', LAB_CHAPTERS[3]!.block_id, 'Wedding march', '15:30', true, 'Lightbox Studio'),
+  m('0007', LAB_CHAPTERS[3]!.block_id, 'Mass', '15:40', true, ''),
+  m('0012', LAB_CHAPTERS[3]!.block_id, 'Father’s reveal', '16:15', false, '', LAB_EVENT_DAY, { is_optional: true }),
+  m('0013', LAB_CHAPTERS[3]!.block_id, 'Bridal car to the hotel', '16:30', false, '', LAB_EVENT_DAY, { travel_from: 'St. Mary’s Parish', travel_to: 'Hotel Aurora' }),
+  m('0008', LAB_CHAPTERS[4]!.block_id, 'Florist sets the stage', '12:00', false, 'Bloom & Co.'),
+  m('0009', LAB_CHAPTERS[4]!.block_id, 'Dinner is served', '19:00', true, 'Hotel Aurora banquets'),
+  m('0010', LAB_CHAPTERS[4]!.block_id, 'Strike and load-out', '23:30', false, 'Bloom & Co.'),
+  m('0011', LAB_PLANNING_CHAPTER.block_id, 'Last pinning', '15:15', false, '', '2026-12-05'),
+];
+
 /* ── the run-of-show shape: ONE moment, THREE parallel tasks, TWO places ─────────────────────────────────────── */
 
-export const LAB_MOMENT: MomentLike & { label: string } = {
+export const LAB_MOMENT: MomentLike & { label: string; parent_block_id: string } = {
   block_id: '00000000-0000-4000-8000-0000000000m1',
+  parent_block_id: '00000000-0000-4000-8000-0000000000c1',
   label: 'Entourage hair and make-up starts',
   start_at: at('08:00'),
   end_at: at('08:30'),
@@ -89,3 +137,35 @@ export const LAB_TASKS: TaskRow[] = [
 
 /** A clash, for the flag: the planner's Coord A is ALSO asked to be in the lobby at the same time. */
 export const LAB_CLASH_TASK: TaskRow = task('t4', { vendor_id: 'v-coord', crew: 'Coord A' }, 'Receives the florist at the lobby', 'Lobby', 3);
+
+/** The run-of-show moment as the chapter's page lists it: 8:00 in Preparation · Bride, its room the bridal suite. */
+export const LAB_MOMENT_ROW: ChapterMoment = {
+  ...LAB_MOMENT,
+  location: null,
+  spot: LAB_MOMENT.spot,
+  notes: null,
+  is_optional: false,
+  travel_from: null,
+  travel_to: null,
+  is_public: false,
+  who: '',
+  end_at: LAB_MOMENT.end_at,
+};
+
+/** Who a lab task can name — made-up names only. */
+export const LAB_WHO = {
+  suppliers: Object.entries(LAB_SUPPLIERS).map(([id, name]) => ({ id, name })),
+  people: {
+    guests: [
+      { id: 'g-ana', name: 'Ana Cruz', role: 'bride' },
+      { id: 'g-ben', name: 'Ben Santos', role: 'groom' },
+      { id: 'g-cara', name: 'Cara Lim', role: 'bridesmaid' },
+    ],
+    groups: [{ id: 'grp-bridesmaids', name: 'Bridesmaids' }],
+    roles: [
+      { key: 'bride', name: 'Bride' },
+      { key: 'bridesmaid', name: 'Bridesmaid' },
+      { key: 'groom', name: 'Groom' },
+    ],
+  },
+};

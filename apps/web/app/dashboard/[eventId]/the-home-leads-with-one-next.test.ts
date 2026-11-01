@@ -309,7 +309,8 @@ test('e · compact on the phone, detail from md — one column, no second sectio
   assert.match(html, /data-home-cover="[^"]*"[^>]*class="[^"]*-mx-4[^"]*sm:-mx-6[^"]*lg:-mx-8/, 'the cover cancels the layout gutter at every width — a full-width band');
   assert.doesNotMatch(html.slice(html.indexOf('data-home-cover'), html.indexOf('data-home-column')), /rounded/, 'the cover band is square-edged');
   // The two versions, each switched by width alone — no Compact/Detail toggle.
-  assert.match(html, /class="hc-grid md:hidden" data-home-control="compact"/, 'the phone tiles must hide from md');
+  // 🧱 The phone's stack (owner 2026-11-01): Countdown · Schedule · the glance row · Budget — still hidden from md.
+  assert.match(html, /class="hc-stack md:hidden" data-home-control="compact"/, 'the phone tiles must hide from md');
   assert.match(html, /class="hc-two hidden md:grid" data-home-control="detail"/, 'the cards must show from md');
   assert.doesNotMatch(html, /Compact|Detail view|aria-pressed="(true|false)"[^>]*>Detail/, 'a Compact/Detail toggle');
   assert.equal(count(html, '#home-all'), 0, 'a "See all" / "#home-all" link with nothing under it');
@@ -336,12 +337,13 @@ const exists = (route: string) => {
 };
 const read = (route: string) => stripComments(readFileSync(page(route), 'utf8'));
 
-test('e · a calm Today points at the Checklist — the plan, step by step — and the Checklist opens it', () => {
-  assert.ok(exists('checklist'), 'the checklist page exists');
+test('e · a calm Today points at the To do tile — the plan, step by step — and it opens Planning Stage’s To do', () => {
+  // The Checklist merged into Planning Stage (owner 2026-11-01); its old address forwards there.
+  assert.ok(exists('checklist'), 'the old checklist address still exists (it forwards)');
   const html = draw({}, NOTHING);
   assert.match(todayLine(html), /data-home-today="plan"/, 'the calm Today does not point at the Checklist');
   assert.match(todayLine(html), /Nothing waits on you/);
-  assert.match(html, /data-home-tile="plan"[\s\S]*?href="\/dashboard\/e1\/checklist"/, 'the Checklist widget does not open the checklist');
+  assert.match(html, /data-home-tile="plan"[\s\S]*?href="\/dashboard\/e1\/schedule\?view=preparation&amp;filter=todo"/, 'the To do widget does not open Planning Stage’s To do filter');
   assert.doesNotMatch(html, /just below|See your plan/i, 'Home still points at a section that no longer exists');
 });
 
@@ -438,7 +440,7 @@ test('f · no What’s next row, no dashboard mode for it', () => {
   assert.doesNotMatch(DASH, /only\?: 'whatsnext'|only === 'whatsnext'|HomeWhatsNext/, 'the dashboard still carries the What’s next mode');
   assert.throws(() => readFileSync(join(HERE, '_components', 'whats-next-sheet.tsx'), 'utf8'), 'the sheet shell is back');
   // The Checklist widget holds the plan: % done and the next dated tasks.
-  assert.match(html, /data-home-card-key="plan"[\s\S]*?Your checklist · 62% done[\s\S]*?Confirm the caterer’s menu/, 'the Checklist card does not hold the plan');
+  assert.match(html, /data-home-card-key="plan"[\s\S]*?To do · 62% done[\s\S]*?Confirm the caterer’s menu/, 'the To do card does not hold the plan');
 });
 
 test('f · replace means remove — the journey-rail stage line and the non-AI "% locked in" are gone, not hidden', () => {

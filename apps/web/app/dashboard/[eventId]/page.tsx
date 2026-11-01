@@ -15,6 +15,7 @@ import { readEventNeedsFor } from '@/lib/event-needs-read.server';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { makerHasWork } from '@/lib/maker-details-items';
 import { readHomeChecklist, readHomeHub, readHomeSuppliers } from '@/lib/home-control.server';
+import { readHomeSchedule } from '@/lib/home-schedule.server';
 import { composeHomeControl } from './_components/home-control-faces';
 import { startAhead } from '@/lib/start-ahead';
 import { readHubViewers } from '@/lib/whos-here.server';
@@ -780,6 +781,16 @@ export default async function EventHomePage({
       )
       .catch((): 'unread' => 'unread'),
   );
+  /*
+    📅 THE SCHEDULE WIDGET (owner 2026-11-01, "Schedule goes to home" · "Gets its own widget in home"): its chapters and
+    moments, their tasks (clashes), the open supplier requests and the booked suppliers — ONE round of four reads
+    (`readHomeSchedule`), started with the rest, for the viewers who plan here. A refusal is 'unread', said.
+  */
+  const homeScheduleRead = startAhead(
+    homePlansRead
+      .then((plans) => readHomeSchedule(supabase, eventId, { show: plans, tz: (event as { timezone?: string | null }).timezone ?? null }))
+      .catch((): 'unread' => 'unread'),
+  );
   const homeHubRead = startAhead(
     Promise.all([homePlansRead, homeGuideRead, homeTypeProfileRead, storeShellRead, appleRead])
       .then(([plans, guide, profile, shell, apple]) =>
@@ -832,6 +843,7 @@ export default async function EventHomePage({
     homeSuppliers,
     homeChecklist,
     homeHub,
+    homeSchedule,
   ] = await Promise.all([
     guestsRead,
     afterSummaryRead,
@@ -847,6 +859,7 @@ export default async function EventHomePage({
     homeSuppliersRead,
     homeChecklistRead,
     homeHubRead,
+    homeScheduleRead,
   ]);
 
   /*
@@ -1124,6 +1137,11 @@ export default async function EventHomePage({
     hub: homeHub,
     suppliers: homeSuppliers,
     checklist: homeChecklist,
+    // 📅 The Schedule widget — Release wears ◆ PRO unless the event owns Pro (plan §3b; an unlock belongs to the event).
+    schedule:
+      homeSchedule && homeSchedule !== 'unread'
+        ? { ...homeSchedule, pro: homePaidReads[HOME_PAID_SKU.hub]?.active === true }
+        : homeSchedule,
     // 📅 The couple's Countdown opens the Date Finder (owner 2026-10-30); a helper keeps Event Details for now.
     countdownDoor: viewerMemberType === 'couple' ? undefined : `/dashboard/${eventId}/details`,
   });

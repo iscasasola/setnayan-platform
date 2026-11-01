@@ -17,7 +17,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { Eye, RotateCw } from 'lucide-react';
+import { RotateCw } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { ActionButton } from '@/components/action-button';
 import { PersonAvatar } from '@/app/dashboard/(account)/people/_components/person-avatar';
@@ -147,19 +147,17 @@ export function HomeWhosHereCard({
   const clock = useAnswerClock(viewers);
 
   return (
-    <section className="sg-row" data-home-whos-here="" data-tour="home-whos-here" aria-label="Who’s here">
+    /* 🧱 A SECTION ON THE PAGE, NOT A CARD (owner 2026-11-01, frames only where you act): a heading plus faces — each
+       face is its own round press. */
+    <section className="sg-row hc-plain" data-home-whos-here="" data-tour="home-whos-here" aria-label="Who’s here">
       <div className="sg-head">
-        <span className="sg-mark" aria-hidden>
-          <Eye strokeWidth={1.9} />
-        </span>
         <span className="min-w-0 flex-1">
-          <InfoTip label="Who’s here" labelClassName="sg-name" align="start">
+          <InfoTip label="Who’s here" labelClassName="hc-sect-h" align="start">
             On the dashboard: the hosts, co-hosts, helpers and coordinators who have this event open now — a tab left in the
             background drops off after half a minute. Event Hub: guests are named only when they opened it with their own
             invitation; everyone else is a number, never who. The last {WHOS_HERE_WINDOW_MIN} minutes, each device
             counted once per half hour. Only your event’s team sees this card.
           </InfoTip>
-          <span className="sg-brand block truncate">On the dashboard now · the Event Hub, last {WHOS_HERE_WINDOW_MIN} min</span>
         </span>
       </div>
 

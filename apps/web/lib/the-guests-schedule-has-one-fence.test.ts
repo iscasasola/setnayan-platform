@@ -108,6 +108,7 @@ const NOT_GUEST_FACING: Record<string, string> = {
   // ── the host's own tools (the couple's session, or the service role behind a host gate) ──
   'app/dashboard/[eventId]/schedule/actions.ts': 'host — the Schedule’s own writes and their re-reads',
   'app/dashboard/[eventId]/schedule/activity-picks-actions.ts': 'host — activity picks on the Schedule',
+  'lib/home-schedule.server.ts': 'host — Home › the Schedule widget (owner 2026-11-01), read on the caller’s own session for the couple and their coordinator (`homePlansRead`); no guest door reaches it',
   'lib/schedule-chapters.server.ts': 'host — Home › Event Settings › Chapters, read on the caller’s own session (the couple, a helper with Edit on the Schedule); no guest door reaches it',
   'lib/booked-call-times.server.ts': 'host — Suppliers › Booked › Team: each booked supplier’s call time (the couple’s session)',
   'app/dashboard/[eventId]/launch/_components/details-guided-progress.ts': 'host — the Maker’s Details progress ticks',

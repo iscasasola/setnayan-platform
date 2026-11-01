@@ -89,7 +89,8 @@ import {
 import { DropConfirmBubble, type DropConfirmState } from './drop-confirm-bubble';
 import { ActionButton } from '@/components/action-button';
 import { GuestConfirmActions, GuestPopup } from '../../guests/_components/guest-popup';
-import { FormRows, SwitchRow, TypedRow } from '@/app/_components/form-row';
+import { ChosenRow, FormRows, SwitchRow, TypedRow } from '@/app/_components/form-row';
+import { GUEST_SEAT_VIEWS, GUEST_SEAT_VIEW_LABEL, parseGuestSeatView, type GuestSeatView } from '@/lib/guest-seat-view';
 import { StatusLine } from '@/app/_components/status-line';
 import { Counter } from '@/app/_components/counter';
 import { seatCounter, seatStepWords } from '@/lib/seat-counter';
@@ -187,6 +188,7 @@ import {
   commitWeld,
   saveSigns,
   saveVenuePhotoVisibility,
+  setGuestSeatView,
   seatRoleAtTable,
   setGuestSeatingPriority,
   setTableSeat,
@@ -6086,6 +6088,32 @@ export function SeatingEditor({
     setDoorOpen(Boolean(floorPlan.published_at));
   }, [floorPlan.published_at]);
   const [doorNote, setDoorNote] = useState<string | null>(null);
+  /* 🪑 HOW GUESTS SEE THEIR SEAT (owner 2026-11-01, DECISION_LOG "SEATS: WHAT EACH VIEW DOES" item 3) — beside the switch
+     above, live like it; a refusal puts the last saved choice back and says so (a save never resets the screen). */
+  const [seatView, setSeatView] = useState<GuestSeatView>(parseGuestSeatView(floorPlan.guest_seat_view));
+  useEffect(() => {
+    setSeatView(parseGuestSeatView(floorPlan.guest_seat_view));
+  }, [floorPlan.guest_seat_view]);
+  const [seatViewNote, setSeatViewNote] = useState<string | null>(null);
+  const pickSeatView = (next: string) => {
+    const v = parseGuestSeatView(next);
+    const was = seatView;
+    if (v === was) return;
+    setSeatView(v);
+    setSeatViewNote(null);
+    startTransition(async () => {
+      try {
+        const res = await setGuestSeatView(eventId, v);
+        if (!res.ok) {
+          setSeatView(was);
+          setSeatViewNote(res.error);
+        }
+      } catch {
+        setSeatView(was);
+        setSeatViewNote('That did not save — nothing changed. Please try again.');
+      }
+    });
+  };
   const flipDoor = (open: boolean) => {
     const was = doorOpen;
     setDoorOpen(open);
@@ -6124,6 +6152,19 @@ export function SeatingEditor({
           }
           problem={doorNote}
           attrs={{ 'data-seat-plan-door-switch': '' }}
+        />
+        <ChosenRow
+          name="How guests see their seat"
+          about={{
+            words:
+              'What a guest’s seat page shows them. Both: the 2D map first, with the 3D walk beside it. 2D map: the map only. 3D walk: they walk to their seat in 3D (the map shows instead if your room has no 3D walk). Their guest card shows you the same.',
+          }}
+          value={seatView}
+          options={GUEST_SEAT_VIEWS.map((k) => ({ key: k, label: GUEST_SEAT_VIEW_LABEL[k] }))}
+          onPick={pickSeatView}
+          dataAttr="data-seat-plan-guest-view"
+          problem={seatViewNote}
+          attrs={{ 'data-seat-plan-guest-view-row': '' }}
         />
       </FormRows>
     </div>

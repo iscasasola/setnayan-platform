@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { parseGuestSeatView, type GuestSeatView } from './guest-seat-view';
 import { isBookable, isPubliclyVisible, parseVisibility } from './vendor-visibility';
 import { isVendor3dBoothActive } from './vendor-3d-booth-pricing';
 import { boothBrandedAtEvent, fetchEventBrandedBoothVendorIds } from './vendor-3d-booth-event-pricing';
@@ -321,6 +322,8 @@ export type FloorPlanRow = {
   // 'table' (default) = own tablemates only · 'all' = every seated face · 'none'
   // = no photos. Photos are always token-gated in the RPC; this sets the reach.
   venue_photo_visibility: 'table' | 'all' | 'none';
+  /** 🪑 How a guest sees their seat — 2D map · 3D walk · Both (owner 2026-11-01, lib/guest-seat-view.ts). */
+  guest_seat_view: GuestSeatView;
 };
 
 export const DEFAULT_FLOOR_PLAN: FloorPlanRow = {
@@ -358,6 +361,7 @@ export const DEFAULT_FLOOR_PLAN: FloorPlanRow = {
   priority_order: null,
   role_seating: {},
   venue_photo_visibility: 'table',
+  guest_seat_view: 'both',
 };
 
 export async function fetchFloorPlan(
@@ -380,7 +384,7 @@ export async function fetchFloorPlanMeasured(
   const { data, error } = await supabase
     .from('event_floor_plan')
     .select(
-      'stage_x,stage_y,stage_w,stage_h,entrance_enabled,entrance_x,entrance_y,entrance_kind,entrance_depth_m,dance_enabled,dance_x,dance_y,dance_w,dance_h,service_entrance_enabled,service_entrance_x,service_entrance_y,cocktail_enabled,cocktail_x,cocktail_y,cocktail_w,cocktail_h,cocktail_label,cocktail_width_m,cocktail_length_m,cocktail_schedule_block_id,cocktail_vendor_edit,cocktail_linked,venue_width_m,venue_length_m,published_at,priority_order,role_seating,venue_photo_visibility',
+      'stage_x,stage_y,stage_w,stage_h,entrance_enabled,entrance_x,entrance_y,entrance_kind,entrance_depth_m,dance_enabled,dance_x,dance_y,dance_w,dance_h,service_entrance_enabled,service_entrance_x,service_entrance_y,cocktail_enabled,cocktail_x,cocktail_y,cocktail_w,cocktail_h,cocktail_label,cocktail_width_m,cocktail_length_m,cocktail_schedule_block_id,cocktail_vendor_edit,cocktail_linked,venue_width_m,venue_length_m,published_at,priority_order,role_seating,venue_photo_visibility,guest_seat_view',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -442,6 +446,7 @@ export async function fetchFloorPlanMeasured(
       const v = (data as { venue_photo_visibility?: unknown }).venue_photo_visibility;
       return v === 'all' || v === 'none' || v === 'table' ? v : D.venue_photo_visibility;
     })(),
+    guest_seat_view: parseGuestSeatView((data as { guest_seat_view?: unknown }).guest_seat_view),
   };
   return { plan, measured: true };
 }

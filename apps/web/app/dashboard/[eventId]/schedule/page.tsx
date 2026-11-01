@@ -1,4 +1,6 @@
 import { redirect } from 'next/navigation';
+import { isRedirectError } from 'next/dist/client/components/redirect-error';
+import { ensureChecklistSeeded } from '../checklist-actions';
 import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.server';
 import { NotSharedWithYou } from '../_components/not-shared-with-you';
 import { eventNoun } from '@/lib/event-noun';
@@ -127,7 +129,7 @@ import {
   resolveBroadcastAuthority,
 } from '@/lib/coordinator-broadcasts-server';
 import type { CoordinatorBroadcastItem } from '@/lib/coordinator-broadcasts';
-import { getDayOfPhase } from '@/lib/day-of-mode';
+import { getDayOfPhase, getMenuLifecyclePhase } from '@/lib/day-of-mode';
 import { daysBetween, wallDateKey } from '@/lib/schedule-rail';
 import { findBookedHost } from '@/lib/booked-host';
 import { fetchEmceeRecipients } from '@/lib/stage-notes-recipients';
@@ -154,6 +156,16 @@ type Props = {
      * masthead was; everything else is this page, unchanged.
      */
     booked?: string;
+    /**
+     * `requests` = open the supplier requests sheet with the page (Approve one · Approve all) — Home's Schedule widget
+     * door "N to approve" (owner 2026-11-01, plan §5). Anything else is ignored.
+     */
+    sheet?: string;
+    /**
+     * `todo` = Planning Stage opens on its To do filter — where the old Checklist's address forwards (owner
+     * 2026-11-01, "CHECKLIST MERGES INTO PLANNING STAGE").
+     */
+    filter?: string;
   }>;
 };
 
@@ -166,7 +178,11 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
     host_answers: hostAnswersFlash,
     maker: makerParam,
     booked: bookedParam,
+    sheet: sheetParam,
+    filter: filterParam,
   } = await searchParams;
+  const openRequests = sheetParam === 'requests';
+  const planFilter: 'all' | 'todo' = filterParam === 'todo' ? 'todo' : 'all';
   /* 🧭 JOURNEY IS GONE (owner 2026-11-01: "i don't think we need journey anymore? since everything from event created
      can be a chapter"). Every door that still says `?view=journey` lands on Planning Stage — here, BEFORE the doors
      below carry the view on to Suppliers › Booked or the Maker (owner 2026-10-28: all mapping is kept). */
@@ -197,13 +213,13 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
       (await resolveProfileByEvent(eventId)).marketplaceEnabled === true && !isDelegateWithoutArea(viewer, 'vendors');
     if (suppliersOpen) {
       const q = new URLSearchParams({ part: BOOKED_SCHEDULE_PART });
-      for (const [k, v] of Object.entries({ view: viewParam, ros: rosParam, note: noteParam, host_answers: hostAnswersFlash })) {
+      for (const [k, v] of Object.entries({ view: viewParam, ros: rosParam, note: noteParam, host_answers: hostAnswersFlash, filter: filterParam, sheet: openRequests ? 'requests' : undefined })) {
         if (v) q.set(k, v);
       }
       redirect(`/dashboard/${eventId}/vendors?${q.toString()}`);
     }
     if (await detailsIsTheDoor(supabase, eventId, user.id)) {
-      redirect(detailsDoorHref(eventId, 'schedule', { view: viewParam, ros: rosParam, note: noteParam, host_answers: hostAnswersFlash }));
+      redirect(detailsDoorHref(eventId, 'schedule', { view: viewParam, ros: rosParam, note: noteParam, host_answers: hostAnswersFlash, filter: filterParam }));
     }
   }
 
@@ -222,7 +238,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   const [eventRes, blocks, suggestionsRes, chapterReadFirst, taskRead, peopleRead] = await Promise.all([
     supabase
       .from('events')
-      .select('event_id, event_date, event_end_date, ceremony_type, secondary_ceremony_type, event_type, created_at, display_name')
+      .select('event_id, event_date, event_end_date, ceremony_type, secondary_ceremony_type, event_type, created_at, display_name, date_candidates, date_window_start, cleared_at, timezone')
       .eq('event_id', eventId)
       .maybeSingle(),
     /* 🛑 A REFUSED READ OF THE DAY IS SAID, NEVER DRAWN AS AN EMPTY DAY. Inside the Maker (Studio › Schedule) the
@@ -268,6 +284,10 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
         event_type: string | null;
         created_at: string | null;
         display_name: string | null;
+        date_candidates?: string[] | null;
+        date_window_start?: string | null;
+        cleared_at?: string | null;
+        timezone?: string | null;
       }
     | null;
   const eventDate = eventRow?.event_date ?? null;
@@ -316,6 +336,15 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   const statutory = profile.statutoryPackKey === 'ph_marriage';
 
   const now = new Date();
+  /* ✅ THE OLD CHECKLIST'S TASKS LIVE HERE NOW (owner 2026-11-01). Top them up and auto-tick them BEFORE the one read,
+     as the Checklist page did (`ensureChecklistSeeded` — a couple's open only; never un-ticks). A failure here never
+     blocks the page: the read below still says what it found. */
+  try {
+    await ensureChecklistSeeded(eventId);
+  } catch (caught) {
+    if (isRedirectError(caught)) throw caught;
+    logQueryError('SchedulePage.ensureChecklistSeeded', caught instanceof Error ? caught : new Error(String(caught)), { eventId }, 'graceful_degrade');
+  }
   const agenda = await fetchPreparationAgenda({
     supabase,
     eventId,
@@ -323,6 +352,14 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
     ceremonyType,
     now,
     statutory,
+    event: {
+      event_type: eventRow?.event_type ?? null,
+      event_date: eventDate,
+      date_candidates: eventRow?.date_candidates ?? null,
+      date_window_start: eventRow?.date_window_start ?? null,
+      created_at: eventRow?.created_at ?? null,
+    },
+    profile,
   });
 
   // Coordinator P2 (flag-gated) — the responsible-party meta + the event's
@@ -690,6 +727,13 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
       hasEventDate={eventDate !== null}
       eventWord={eventNoun(eventRow?.event_type)}
       booked={inBooked}
+      eventDateIso={eventDate}
+      initialFilter={planFilter}
+      /* AFTER THE DAY A DEADLINE IS JUST A DATE — the ONE lifecycle resolver (the Checklist page's rule, kept when it
+         merged here): no "overdue", no alarm red, on a celebration that already happened. */
+      eventIsOver={
+        getMenuLifecyclePhase(eventDate, eventRow?.cleared_at ?? null, eventRow?.timezone ?? undefined, undefined, eventRow?.event_end_date ?? null) === 'after'
+      }
     />
     </>
   );
@@ -874,6 +918,8 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
               loadScheduleTemplate,
               resolveScheduleSuggestion,
             }}
+            // 📅 `?sheet=requests` — Home's "N to approve" opens the supplier requests sheet with the page (placement, no write).
+            openRequests={openRequests}
             eventId={eventId}
             eventType={eventRow?.event_type ?? null}
             eventDateKey={eventDateKey}

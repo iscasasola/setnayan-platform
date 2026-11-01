@@ -15,6 +15,7 @@ import { readEventNeedsFor } from '@/lib/event-needs-read.server';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { makerHasWork } from '@/lib/maker-details-items';
 import { readHomeChecklist, readHomeHub, readHomeSuppliers } from '@/lib/home-control.server';
+import { readHomeSchedule } from '@/lib/home-schedule.server';
 import { composeHomeControl } from './_components/home-control-faces';
 import { startAhead } from '@/lib/start-ahead';
 import { readHubViewers } from '@/lib/whos-here.server';
@@ -156,7 +157,7 @@ export const dynamic = 'force-dynamic';
 */
 /** Home's own columns of the event row — every one is carried by `DASHBOARD_ROW_CARRIES`. */
 const HOME_EVENT_COLUMNS =
-  'event_id, event_date, event_end_date, event_type, ceremony_type, secondary_ceremony_type, cleared_at, timezone, venue_latitude, venue_longitude, region, mahr_description, gender_separation, slug, display_name, created_at, setnayan_ai_active, event_date_precision, planning_mode, setnayan_ai_active_until, date_candidates, papic_on, papic_window_start, papic_window_end, landing_page_visibility, venue_name, std_invitation_launch_date, launch_mode, manual_phase';
+  'event_id, event_date, event_end_date, event_type, ceremony_type, secondary_ceremony_type, cleared_at, timezone, venue_latitude, venue_longitude, region, mahr_description, gender_separation, slug, display_name, created_at, setnayan_ai_active, event_date_precision, planning_mode, setnayan_ai_active_until, date_candidates, date_window_start, papic_on, papic_window_start, papic_window_end, landing_page_visibility, venue_name, std_invitation_launch_date, launch_mode, manual_phase';
 
 export async function generateMetadata({
   params,
@@ -772,11 +773,22 @@ export default async function EventHomePage({
                 event_type: (event.event_type as string | null) ?? null,
                 event_date: (event.event_date as string | null) ?? null,
                 date_candidates: (event as { date_candidates?: string[] | null }).date_candidates ?? null,
+                date_window_start: (event as { date_window_start?: string | null }).date_window_start ?? null,
                 created_at: (event as { created_at?: string | null }).created_at ?? null,
               },
             })
           : null,
       )
+      .catch((): 'unread' => 'unread'),
+  );
+  /*
+    📅 THE SCHEDULE WIDGET (owner 2026-11-01, "Schedule goes to home" · "Gets its own widget in home"): its chapters and
+    moments, their tasks (clashes), the open supplier requests and the booked suppliers — ONE round of four reads
+    (`readHomeSchedule`), started with the rest, for the viewers who plan here. A refusal is 'unread', said.
+  */
+  const homeScheduleRead = startAhead(
+    homePlansRead
+      .then((plans) => readHomeSchedule(supabase, eventId, { show: plans, tz: (event as { timezone?: string | null }).timezone ?? null }))
       .catch((): 'unread' => 'unread'),
   );
   const homeHubRead = startAhead(
@@ -831,6 +843,7 @@ export default async function EventHomePage({
     homeSuppliers,
     homeChecklist,
     homeHub,
+    homeSchedule,
   ] = await Promise.all([
     guestsRead,
     afterSummaryRead,
@@ -846,6 +859,7 @@ export default async function EventHomePage({
     homeSuppliersRead,
     homeChecklistRead,
     homeHubRead,
+    homeScheduleRead,
   ]);
 
   /*
@@ -1123,6 +1137,11 @@ export default async function EventHomePage({
     hub: homeHub,
     suppliers: homeSuppliers,
     checklist: homeChecklist,
+    // 📅 The Schedule widget — Release wears ◆ PRO unless the event owns Pro (plan §3b; an unlock belongs to the event).
+    schedule:
+      homeSchedule && homeSchedule !== 'unread'
+        ? { ...homeSchedule, pro: homePaidReads[HOME_PAID_SKU.hub]?.active === true }
+        : homeSchedule,
     // 📅 The couple's Countdown opens the Date Finder (owner 2026-10-30); a helper keeps Event Details for now.
     countdownDoor: viewerMemberType === 'couple' ? undefined : `/dashboard/${eventId}/details`,
   });

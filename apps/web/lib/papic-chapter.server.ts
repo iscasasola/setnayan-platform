@@ -61,10 +61,10 @@ export async function linkCaptureToChapter(
   blockId: string,
   capture: { guestCaptureId: string } | { seatPhotoId: string },
 ): Promise<boolean> {
-  const row =
+  const row: { block_id: string; guest_capture_id: string | null; seat_photo_id: string | null } =
     'guestCaptureId' in capture
-      ? { block_id: blockId, guest_capture_id: capture.guestCaptureId }
-      : { block_id: blockId, seat_photo_id: capture.seatPhotoId };
+      ? { block_id: blockId, guest_capture_id: capture.guestCaptureId, seat_photo_id: null }
+      : { block_id: blockId, guest_capture_id: null, seat_photo_id: capture.seatPhotoId };
   const { error } = await admin.from('papic_chapter_captures').insert(row);
   // 23505: this capture is already in this chapter (a replayed record) — that is the outcome we wanted.
   if (error && error.code !== '23505') {

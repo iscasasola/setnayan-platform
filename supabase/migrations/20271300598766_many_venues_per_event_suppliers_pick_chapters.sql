@@ -52,13 +52,10 @@
 -- RLS: no new table. The column rides `event_vendors`' policies (couple read/write); the function gates on the host.
 -- Held by apps/web/tests/db/many-venues-and-where.db.test.ts.
 
--- ── 1 · the venue categories are no longer one per event ─────────────────────────────────────────────────────────────
-UPDATE public.service_categories
-   SET one_per_event = false
- WHERE tier = 2
-   AND id IN ('ceremony_venue', 'reception')
-   AND one_per_event;
-
+-- ⚠ ORDER (hotfix 2026-11-01): the ALTER TABLE on event_vendors runs FIRST. The first deploy failed in production with
+-- SQLSTATE 55006 "cannot ALTER TABLE event_vendors because it has pending trigger events": the service_categories UPDATE
+-- below fires deferred triggers that queue events on event_vendors, and an ALTER after them in the same transaction is
+-- refused. Never applied anywhere (the push rolled back), so this file is safe to reorder.
 -- ── 3 · an in-house supplier's changed chapters ──────────────────────────────────────────────────────────────────────
 ALTER TABLE public.event_vendors
   ADD COLUMN IF NOT EXISTS covered_where JSONB NOT NULL DEFAULT '{}'::jsonb;
@@ -75,6 +72,13 @@ END $$;
 
 COMMENT ON COLUMN public.event_vendors.covered_where IS
   'Where an IN-HOUSE supplier this booking also covers (covers_plan_groups) goes, when the host changed it: { plan_group: [chapter block_id] }. No key = follows this booking''s own chapters (event_schedule_blocks.responsible_vendor_ids on top-level blocks). Written only by set_supplier_where (owner 2026-11-01).';
+
+-- ── 1 · the venue categories are no longer one per event ─────────────────────────────────────────────────────────────
+UPDATE public.service_categories
+   SET one_per_event = false
+ WHERE tier = 2
+   AND id IN ('ceremony_venue', 'reception')
+   AND one_per_event;
 
 -- ── 2 · the one door that writes Where ───────────────────────────────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION public.set_supplier_where(

@@ -83,6 +83,8 @@ export type YourEventInput = {
     helpFirst?: boolean;
     /** 🕒 The Ceremony block's start, HH:MM — as drafted, else live. */
     ceremonyTime?: string | null;
+    /** ⏰ The live ceremony's time is TBA (and nothing is drafted) — the box says so and stays empty. */
+    ceremonyTba?: boolean;
   };
   venues: {
     resolved: readonly EventVenue[];
@@ -304,6 +306,7 @@ export function yourEventFactEditors({
         nudge={input.date.nudge}
         helpFirst={input.date.helpFirst}
         ceremonyTime={input.date.ceremonyTime ?? null}
+        ceremonyTba={input.date.ceremonyTba === true}
       />
     ),
     venues: venuesEditorFor(eventId, input),

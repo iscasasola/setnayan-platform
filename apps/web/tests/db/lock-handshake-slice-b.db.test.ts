@@ -405,18 +405,18 @@ test('a withdrawal frees the category — the couple can ask someone else immedi
   const a = await newVendor('free-a@sliceb.test', 'Venue A');
   const b = await newVendor('free-b@sliceb.test', 'Venue B');
   const { eventId, coupleUid } = await newEventWithSecrets('free');
-  const first = await newBooking(eventId, a.vpid, { pending: true, category: 'venue' });
+  const first = await newBooking(eventId, a.vpid, { pending: true, category: 'planner_coordinator' });
 
   await db.exec('RESET ROLE').catch(() => {});
   await setAuthUid(db, coupleUid);
   // Before withdrawing, a second ask in the same hard-single category is refused
   // by the unique index — proving the index is live and the test is not vacuous.
   await assert.rejects(
-    () => newBooking(eventId, b.vpid, { pending: true, category: 'venue' }),
+    () => newBooking(eventId, b.vpid, { pending: true, category: 'planner_coordinator' }),
     /one_pending_lock_request_per_group/,
   );
   await db.query(`SELECT public.cancel_vendor_lock_request($1)`, [first]);
   await setAuthUid(db, null);
-  const second = await newBooking(eventId, b.vpid, { pending: true, category: 'venue' });
+  const second = await newBooking(eventId, b.vpid, { pending: true, category: 'planner_coordinator' });
   assert.ok(second, 'after the withdrawal the category is open again');
 });

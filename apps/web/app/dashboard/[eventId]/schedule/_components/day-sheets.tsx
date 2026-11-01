@@ -520,7 +520,7 @@ export function RequestsSheet({
   requests: DayRequest[];
   moments: DayMoment[];
 }) {
-  const { resolveScheduleSuggestion, approveAllScheduleSuggestions } = useDayActions();
+  const { resolveScheduleSuggestion } = useDayActions();
   const byId = new Map(moments.map((m) => [m.block_id, m]));
   /* ✅ APPROVE ALL (owner 2026-11-01) — every CHANGE on this sheet, never a suggestion in words; only from 2. */
   const together = approvableTogether(requests);
@@ -637,7 +637,7 @@ export function RequestsSheet({
           data-approve-all={together.length}
         >
           <ConfirmForm
-            action={approveAllScheduleSuggestions}
+            action={resolveScheduleSuggestion}
             title={`Approve all ${together.length}?`}
             confirmLabel={`Approve all ${together.length}`}
             destructive={removals > 0}
@@ -651,6 +651,7 @@ export function RequestsSheet({
             }
           >
             <input type="hidden" name="event_id" value={eventId} />
+            <input type="hidden" name="decision" value="accept_all" />
             {together.map((r) => (
               <input key={r.suggestion_id} type="hidden" name="suggestion_id" value={r.suggestion_id} />
             ))}

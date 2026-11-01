@@ -105,7 +105,6 @@ const STUB_ACTIONS: DayActions = {
   setBlockPrepVisibility: noop,
   loadScheduleTemplate: noop,
   resolveScheduleSuggestion: noop,
-  approveAllScheduleSuggestions: noop,
 };
 
 function render(role: DayRole, requests: DayRequest[] = []) {
@@ -238,7 +237,7 @@ test('5b · the rail writes only through the existing actions the page hands it'
   assert.ok(mount, 'the page hands the rail its actions');
   const names = mount![1]!.split(',').map((x) => x.trim()).filter(Boolean);
   console.log('actions handed to the rail:', names.join(' · '));
-  assert.equal(names.length, 10); // + approveAllScheduleSuggestions (2026-11-01)
+  assert.equal(names.length, 9);
   for (const n of names) {
     assert.match(page, new RegExp(`import \\{[^}]*\\b${n}\\b[^}]*\\} from '\\./actions'`), `${n} comes from ./actions`);
   }

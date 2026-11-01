@@ -154,7 +154,6 @@ export function LabStudioSchedule() {
       setBlockPrepVisibility: ok,
       loadScheduleTemplate: ok,
       resolveScheduleSuggestion: async () => {},
-      approveAllScheduleSuggestions: async () => {},
     };
   }, []);
   return (

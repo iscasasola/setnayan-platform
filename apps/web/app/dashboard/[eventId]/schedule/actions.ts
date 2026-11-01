@@ -896,6 +896,9 @@ async function decideSuggestion(
 
 /** Approve, Noted or Decline ONE suggestion — the Requests sheet's form action (the path: `decideSuggestion`). */
 export async function resolveScheduleSuggestion(formData: FormData) {
+  // ✅ Approve all rides this one action (decision=accept_all) — no new export: every exported action is a Vercel
+  // route, and that budget is full (`scripts/lint-server-action-budget.mjs`).
+  if (formData.get('decision') === 'accept_all') return approveAllScheduleSuggestions(formData);
   await refuseLimitedHelper(formData.get('event_id'), 'schedule');
   const eventId = formData.get('event_id');
   const suggestionId = formData.get('suggestion_id');
@@ -926,10 +929,11 @@ export async function resolveScheduleSuggestion(formData: FormData) {
  * ✅ APPROVE ALL (owner 2026-11-01: *"also have an approve all"*; corpus SCHEDULE_CHAPTERS_BUILD_PLAN §6b) — every
  * supplier change the host was SHOWN (the ids the sheet posts, never "whatever is open now": a change that arrived after
  * they looked is not approved unseen), through the one accept path above. A suggestion in words is left for Noted.
- * Each supplier approved is told in-app, as with one Approve. A refused one does not stop the rest; the count of
+ * Each supplier approved is told in-app, as with one Approve. Reached through `resolveScheduleSuggestion`
+ * (decision=accept_all). A refused one does not stop the rest; the count of
  * refused ones is said, never the look of success.
  */
-export async function approveAllScheduleSuggestions(formData: FormData) {
+async function approveAllScheduleSuggestions(formData: FormData) {
   await refuseLimitedHelper(formData.get('event_id'), 'schedule');
   const eventId = formData.get('event_id');
   const ids = [...new Set(formData.getAll('suggestion_id').filter((v): v is string => typeof v === 'string' && v.length > 0))];

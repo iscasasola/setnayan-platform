@@ -35,7 +35,6 @@ import {
   deleteScheduleBlock,
   toggleBlockVisibility,
   resolveScheduleSuggestion,
-  approveAllScheduleSuggestions,
   setBlockPrepVisibility,
   updateScheduleBlock,
   bulkRetimeScheduleBlocks,
@@ -798,7 +797,6 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
               setBlockPrepVisibility,
               loadScheduleTemplate,
               resolveScheduleSuggestion,
-              approveAllScheduleSuggestions,
             }}
             eventId={eventId}
             eventType={eventRow?.event_type ?? null}

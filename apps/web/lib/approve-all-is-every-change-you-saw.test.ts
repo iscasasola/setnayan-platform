@@ -58,7 +58,8 @@ test('2 · the sheet pins Approve all behind the house confirm, with the ids it 
   assert.match(sheet, /const together = approvableTogether\(requests\)/, 'Approve all counts something other than the changes on the sheet');
   const foot = sheet.slice(sheet.indexOf('together.length > 0 ?'));
   assert.ok(foot.length > 0 && /sticky bottom-0/.test(foot), 'Approve all is not pinned at the foot');
-  assert.match(foot, /<ConfirmForm\s+action=\{approveAllScheduleSuggestions\}/, 'Approve all fires without the house confirm');
+  assert.match(foot, /<ConfirmForm\s+action=\{resolveScheduleSuggestion\}/, 'Approve all fires without the house confirm');
+  assert.match(foot, /<input type="hidden" name="decision" value="accept_all" \/>/, 'the press is not marked as Approve all');
   assert.match(foot, /together\.map\(\(r\) => \(\s*<input key=\{r\.suggestion_id\} type="hidden" name="suggestion_id" value=\{r\.suggestion_id\} \/>/, 'it posts something other than the ids shown');
   assert.match(foot, /Approve all \{together\.length\}/, 'the button does not say how many');
   assert.match(sheet, /\{isNoteOnlySuggestion\(r\) \? 'Noted' : 'Approve'\}/, 'a suggestion in words is Approved, not Noted');
@@ -75,7 +76,10 @@ test('3 · the server keeps notes out and approves through the one accept path',
   const firstWrite = decide.search(/\.from\('event_schedule_blocks'\)/);
   assert.ok(out > 0 && out < firstWrite, 'a suggestion in words can be applied by Approve all');
   assert.match(decide, /emitNotification\(/, 'an approved supplier is not told');
-  assert.match(body(actions, 'resolveScheduleSuggestion'), /decideSuggestion\(supabase, user\.id, eventId, suggestionId, decision\)/, 'one Approve left the shared path');
+  const one = body(actions, 'resolveScheduleSuggestion');
+  assert.match(one, /if \(formData\.get\('decision'\) === 'accept_all'\) return approveAllScheduleSuggestions\(formData\);/, 'Approve all is not reachable');
+  assert.match(one, /decideSuggestion\(supabase, user\.id, eventId, suggestionId, decision\)/, 'one Approve left the shared path');
+  assert.doesNotMatch(actions, /export async function approveAllScheduleSuggestions/, 'a new exported action — each is a Vercel route');
 });
 
 test('4 · it approves the ids that were shown, never whatever is open now', () => {

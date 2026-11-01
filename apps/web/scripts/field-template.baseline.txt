@@ -3,12 +3,11 @@
 # GENERATED — never hand-edit, never hand-merge (on a conflict take either side, then):
 #   node apps/web/scripts/lint-field-template.mjs --update-baseline
 # A RATCHET BOTH WAYS: a count may not rise, and a fall must be written here in the same PR.
-# 328 files · 782 boxes
+# 323 files · 769 boxes
 2 apps/web/app/_components/amendment-builder.tsx
 3 apps/web/app/_components/appointments-section.tsx
 1 apps/web/app/_components/chat-send-form.tsx
 1 apps/web/app/_components/chat-thread-menu.tsx
-1 apps/web/app/_components/decline-reason-fields.tsx
 1 apps/web/app/_components/encoder-key-panel.tsx
 1 apps/web/app/_components/facebook-dual-stream-card.tsx
 1 apps/web/app/_components/formal-name-inputs.tsx
@@ -49,7 +48,7 @@
 4 apps/web/app/admin/categories/_components/ask-prefill.tsx
 5 apps/web/app/admin/categories/_components/drawer-kit.tsx
 8 apps/web/app/admin/categories/_components/event-type-panel.tsx
-2 apps/web/app/admin/categories/_components/four-level-map.tsx
+1 apps/web/app/admin/categories/_components/four-level-map.tsx
 1 apps/web/app/admin/categories/_components/in-place.tsx
 11 apps/web/app/admin/categories/_components/onboarding-editor.tsx
 2 apps/web/app/admin/categories/_components/prepared-job-card.tsx
@@ -107,7 +106,6 @@
 1 apps/web/app/admin/subscriptions/page.tsx
 1 apps/web/app/admin/ugat/_components/ugat-console.tsx
 2 apps/web/app/admin/vendor-recommendations/_editor.tsx
-2 apps/web/app/admin/vendors/_components/invite-vendor-form.tsx
 7 apps/web/app/admin/vendors/[vendorProfileId]/edit/page.tsx
 2 apps/web/app/admin/vendors/[vendorProfileId]/plan/page.tsx
 5 apps/web/app/admin/venues/_components/venue-form.tsx
@@ -247,7 +245,6 @@
 1 apps/web/app/join/crew/[token]/_components/crew-name-form.tsx
 1 apps/web/app/live/page.tsx
 1 apps/web/app/login/_components/sign-in-card.tsx
-2 apps/web/app/onboarding/_shared/needs-step.tsx
 1 apps/web/app/onboarding/_shared/setup-card.tsx
 2 apps/web/app/onboarding/[type]/_components/generic-onboarding.tsx
 5 apps/web/app/onboarding/[type]/_components/specialty-fields.tsx
@@ -268,14 +265,13 @@
 1 apps/web/app/realstories/_components/gallery.tsx
 1 apps/web/app/realstories/_components/stories-search.tsx
 1 apps/web/app/signup/page.tsx
-1 apps/web/app/signup/you/_components/account-name-field.tsx
-3 apps/web/app/signup/you/_components/you-card.tsx
+2 apps/web/app/signup/you/_components/you-card.tsx
 1 apps/web/app/tour/_components/tour-chat-thread.tsx
 1 apps/web/app/tour/budget/_components/tour-budget-planner.tsx
 1 apps/web/app/tour/seating/_components/find-your-seat.tsx
 2 apps/web/app/v/[slug]/_components/anon-inquiry-composer.tsx
 2 apps/web/app/vendor-dashboard/_components/branch-manager.tsx
-4 apps/web/app/vendor-dashboard/_components/overview-sections.tsx
+2 apps/web/app/vendor-dashboard/_components/overview-sections.tsx
 1 apps/web/app/vendor-dashboard/_components/video-links-editor.tsx
 4 apps/web/app/vendor-dashboard/activities/page.tsx
 4 apps/web/app/vendor-dashboard/activities/questions-section.tsx
@@ -318,7 +314,7 @@
 2 apps/web/app/vendor-dashboard/services/_components/canvas-maker.tsx
 3 apps/web/app/vendor-dashboard/services/_components/customization-step.tsx
 2 apps/web/app/vendor-dashboard/services/_components/payment-schedule-editor.tsx
-5 apps/web/app/vendor-dashboard/services/_components/service-list-editors.tsx
+3 apps/web/app/vendor-dashboard/services/_components/service-list-editors.tsx
 1 apps/web/app/vendor-dashboard/services/_components/service-wizard.tsx
 3 apps/web/app/vendor-dashboard/services/_components/services-manager.tsx
 4 apps/web/app/vendor-dashboard/shop/_components/docs-body.tsx
@@ -329,6 +325,5 @@
 2 apps/web/app/vendor-dashboard/shop/_components/voice-match-card.tsx
 1 apps/web/app/vendor-dashboard/team/_components/helpers-view.tsx
 1 apps/web/app/vendor-dashboard/website/_components/page-parts.tsx
-1 apps/web/app/vendor-dashboard/website/_domain-manager.tsx
 1 apps/web/app/wall/[eventId]/_components/wall-claim.tsx
 1 apps/web/components/thumb-row.tsx

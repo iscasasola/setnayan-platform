@@ -21,6 +21,8 @@ const CARD = strip(readFileSync('app/signup/you/_components/you-card.tsx', 'utf8
 const PAGE = `${PAGE_ONLY}\n${CARD}`;
 const ACTIONS = strip(readFileSync('app/signup/you/actions.ts', 'utf8'));
 const FIELD = strip(readFileSync('app/signup/you/_components/account-name-field.tsx', 'utf8'));
+// The Display name is its own Field-template row (`TypedRow`, 1 Nov 2026) — its post name is read there.
+const NAME_FIELD = strip(readFileSync('app/signup/you/_components/display-name-field.tsx', 'utf8'));
 const SIGNUP_ACTIONS = strip(readFileSync('app/signup/actions.ts', 'utf8'));
 const CALLBACK = strip(readFileSync('app/auth/callback/route.ts', 'utf8'));
 const count = (s: string, re: RegExp) => (s.match(new RegExp(re.source, 'g')) || []).length;
@@ -34,7 +36,8 @@ test('the card posts to saveYou, and nothing else', () => {
 });
 
 test('every field the card writes is on the form, by the profile page’s own names', () => {
-  const posted = new Set([...PAGE.matchAll(/\bname=(?:"([^"]+)"|\{([^}]+)\})/g)].map((m) => m[1] ?? m[2]));
+  // A raw box posts by `name`; a Field-template row (`TypedRow`) by `fieldName` — both are what the form posts.
+  const posted = new Set([...`${PAGE}\n${NAME_FIELD}`.matchAll(/\b(?:name|fieldName)=(?:"([^"]+)"|\{([^}]+)\})/g)].map((m) => m[1] ?? m[2]));
   for (const n of ['display_name', 'phone', 'profile_photo_url', 'next', 'public_summary_consent']) {
     assert.ok(posted.has(n), `${n} is not posted by the You card`);
   }
@@ -45,7 +48,7 @@ test('every field the card writes is on the form, by the profile page’s own na
   assert.ok(posted.has('PRESENCE_MARKERS.profile_photo_url'), 'the photo needs its presence marker');
   assert.equal(PRESENCE_MARKERS.profile_photo_url, 'has_profile_photo_url');
   // the @name posts from the client field, as `slug`, like the profile page's editor
-  assert.match(FIELD, /name="slug"/);
+  assert.match(FIELD, /\bfieldName="slug"/);
 });
 
 test('the @name field renders ONLY while the account has none — renames stay on the profile page', () => {

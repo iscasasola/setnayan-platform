@@ -7059,7 +7059,7 @@ export function SeatingEditor({
         return (
           <div
             data-seat-table-bar={st.table_id}
-            className="pointer-events-auto flex min-w-0 flex-col gap-1.5 rounded-2xl bg-cream px-2 py-1.5 shadow-lg"
+            className="pointer-events-auto flex min-w-0 flex-col gap-1.5 rounded-2xl bg-cream px-1 py-1.5 shadow-lg"
           >
             {renamingTable === st.table_id ? (
               <FormRows data="seat-table-bar-name">
@@ -7079,8 +7079,9 @@ export function SeatingEditor({
                 />
               </FormRows>
             ) : null}
-            {/* ONE slim row at 390: Rotate keeps its word (12 Oct "buttons keep their words"); the ⋯ is a 44 px round. */}
-            <div className="flex min-w-0 flex-nowrap items-center gap-1">
+            {/* ONE slim row at 390: Rotate keeps its word (12 Oct "buttons keep their words"), the shape's word is never cut
+                (`shrink-0`), the ⋯ is a 44 px round; on a narrower phone the row wraps rather than cut a word. */}
+            <div className="flex min-w-0 flex-wrap items-center gap-0.5">
               <ActionButton tone="neutral" quiet icon={RotateCw} label="Rotate" disabled={!canEdit} onClick={() => rotateTable(st, 90)} />
               <PickMenu
                 label="Shape"
@@ -7092,7 +7093,7 @@ export function SeatingEditor({
                 buttonText={TABLE_KIND_WORD[shapeHintFor(st.table_type)]}
                 dataAttr="data-seat-table-shape"
                 compact
-                className="border border-ink/15"
+                className="shrink-0 border border-ink/15"
               />
               {dockSeatsStepper(st)}
               <PickMenu

@@ -84,7 +84,6 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
   // author-scoped on actor_user_id, like event_colour_changes.
   { table: 'event_mood_board_changes', decision: 'exported', as: 'mood_board_changes_made' },
   { table: 'event_type_requests', decision: 'exported', as: 'event_type_requests' },
-||||||| 33d4ac7bf4
 
   // ── Excluded, with the reason ───────────────────────────────────────────
   {

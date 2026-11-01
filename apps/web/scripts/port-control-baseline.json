@@ -2653,6 +2653,7 @@
         "admin/categories/_components/category-panels.tsx",
         "admin/categories/_components/download-pick.tsx",
         "admin/categories/_components/drawer-kit.tsx",
+        "admin/categories/_components/event-type-asks.tsx",
         "admin/categories/_components/event-type-panel.tsx",
         "admin/categories/_components/four-level-fixture.ts",
         "admin/categories/_components/four-level-map.tsx",
@@ -2729,6 +2730,7 @@
         "AddRow",
         "AddServicePrefill",
         "AskPrefill",
+        "AskRow",
         "BackFields",
         "BackState",
         "Badge",
@@ -2760,6 +2762,7 @@
         "DrawerMore",
         "DrawerSayProvider",
         "EditorPack",
+        "EventTypeAsks",
         "EventTypePanel",
         "EventTypesList",
         "FieldPick",
@@ -5113,6 +5116,7 @@
     },
     "/dashboard/(account)/create-event": {
       "files": [
+        "dashboard/(account)/create-event/_components/ask-for-event-type.tsx",
         "dashboard/(account)/create-event/_components/create-date-picker.tsx",
         "dashboard/(account)/create-event/_components/create-location-picker.tsx",
         "dashboard/(account)/create-event/_components/event-type-photo-picker.tsx",
@@ -5134,6 +5138,8 @@
         "createWeddingEvent"
       ],
       "blocks": [
+        "AskForEventType",
+        "AskOutcome",
         "BlockingLifeEvent",
         "CreateDatePicker",
         "CreateLocationPicker",
@@ -5154,6 +5160,7 @@
         "PickMenu",
         "PillButton",
         "PillTrack",
+        "Sheet",
         "SubmitButton"
       ]
     },
@@ -6516,6 +6523,7 @@
       "files": [
         "dashboard/[eventId]/details/_components/ask-the-hosts.tsx",
         "dashboard/[eventId]/details/_components/details-form.tsx",
+        "dashboard/[eventId]/details/_components/event-kind-line.tsx",
         "dashboard/[eventId]/details/_components/event-settings-editor.tsx",
         "dashboard/[eventId]/details/_components/governed-fields.tsx",
         "dashboard/[eventId]/details/_components/pax-settings-card.tsx",
@@ -6559,6 +6567,7 @@
         "EditableField",
         "EditableRow",
         "ErrorNote",
+        "EventKindLine",
         "EventSettingsEditor",
         "FormPageSkeleton",
         "GovernedFields",
@@ -6753,6 +6762,7 @@
         "dashboard/[eventId]/guests/_components/guest-card-change-words.ts",
         "dashboard/[eventId]/guests/_components/guest-card-data.ts",
         "dashboard/[eventId]/guests/_components/guest-card-error-copy.ts",
+        "dashboard/[eventId]/guests/_components/guest-card-head.tsx",
         "dashboard/[eventId]/guests/_components/guest-card-in-place.tsx",
         "dashboard/[eventId]/guests/_components/guest-card-kit.ts",
         "dashboard/[eventId]/guests/_components/guest-card-read.ts",
@@ -7633,6 +7643,7 @@
         "EditSheet",
         "Element",
         "ElementSheet",
+        "EventKindLineInput",
         "EventPoster",
         "EventSettingsInput",
         "Explain",
@@ -11285,6 +11296,7 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "EventKindLine",
         "EventTypePicker"
       ]
     },
@@ -11401,7 +11413,8 @@
         "dev/guests-lab/page.tsx"
       ],
       "destinations": [
-        "/dev/guests-lab?part=notices"
+        "/dev/guests-lab?part=notices",
+        "/dev/guests-lab?part=screen&open=1&inspect=[seg]"
       ],
       "actions": [],
       "blocks": [
@@ -11414,10 +11427,12 @@
         "GuestActions",
         "GuestActionsProvider",
         "GuestCard",
+        "GuestCardResult",
         "GuestRemovalActionsContext.Provider",
         "GuestRow",
         "GuestSetupRows",
         "GuestsScreen",
+        "InspectorLayout",
         "InspectorSheetAlone",
         "LabCardSheet",
         "LabGuestActions",

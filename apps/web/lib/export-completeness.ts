@@ -83,6 +83,7 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
   // 🖼⏱ The Mood Board photo changes the subject MADE under Mood Board Edit (2026-10-30, migration 20271299051148) —
   // author-scoped on actor_user_id, like event_colour_changes.
   { table: 'event_mood_board_changes', decision: 'exported', as: 'mood_board_changes_made' },
+  { table: 'event_type_requests', decision: 'exported', as: 'event_type_requests' },
 
   // ── Excluded, with the reason ───────────────────────────────────────────
   {

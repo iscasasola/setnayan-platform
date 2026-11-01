@@ -109,6 +109,7 @@ const NOT_GUEST_FACING: Record<string, string> = {
   'app/dashboard/[eventId]/schedule/actions.ts': 'host — the Schedule’s own writes and their re-reads',
   'app/dashboard/[eventId]/schedule/activity-picks-actions.ts': 'host — activity picks on the Schedule',
   'lib/schedule-chapters.server.ts': 'host — Home › Event Settings › Chapters, read on the caller’s own session (the couple, a helper with Edit on the Schedule); no guest door reaches it',
+  'lib/schedule-view-as.server.ts': 'host — the Schedule page’s View as ▾ (moments’ rooms and travel), read on the caller’s own session (the couple, a helper on the Schedule); its guest VIEW is drawn for the host from the guests’ own fence (`isOnTheGuestsSchedule`), no guest door reaches it',
   'lib/booked-call-times.server.ts': 'host — Suppliers › Booked › Team: each booked supplier’s call time (the couple’s session)',
   'app/dashboard/[eventId]/launch/_components/details-guided-progress.ts': 'host — the Maker’s Details progress ticks',
   'app/dashboard/[eventId]/launch/page.tsx': 'host — the Maker’s Details › Schedule pieces',

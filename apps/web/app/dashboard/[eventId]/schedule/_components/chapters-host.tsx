@@ -41,6 +41,7 @@ import {
   type Chapter,
   type ChapterSection,
 } from '@/lib/schedule-chapters';
+import type { ViewAsInput } from '@/lib/schedule-view-as';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { Tip } from './day-ui';
 import { ChaptersContext, useChapters, type ChaptersApi as Api } from './chapters-context';
@@ -72,6 +73,8 @@ export type ChaptersInput =
       canEdit: boolean;
       /** May put a chapter on the invitation (a host or the coordinator). */
       mayInvite: boolean;
+      /** 👁 The rail's View as ▾ (Step 3c) — its data and whether the event owns it; absent = none drawn. */
+      viewAs?: ViewAsInput | null;
     }
   | { measured: false };
 
@@ -133,6 +136,7 @@ export function ChaptersHost({
             add: () => {
               if (input.canEdit) setSheet('new');
             },
+            viewAs: input.viewAs ?? null,
           }
         : null,
     [chapters, input, openId],

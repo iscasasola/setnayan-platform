@@ -6,7 +6,7 @@
  * the Schedule lab's client), with the chapter sheets' lab doors — they only answer "saved"; nothing is written.
  *
  *   ?empty=1   no chapters yet        ?fail=1   the chapters read failed (said, never "none")
- *   ?view=1    a viewer who cannot edit
+ *   ?view=1    a viewer who cannot edit            ?free=1   a Free event: View as wears ◆ PRO and opens the upgrade
  * Drawn after mount: the rail reads the clock (the Schedule lab's own reason).
  */
 import { useEffect, useState } from 'react';
@@ -15,8 +15,9 @@ import { BookedScheduleFrame } from '@/app/dashboard/[eventId]/schedule/_compone
 import { BOOKED_SCHEDULE_TOOLS_SLOT } from '@/app/dashboard/[eventId]/schedule/_components/booked-schedule-slot';
 import { ChaptersHost, PlanningChapters, type ChaptersInput } from '@/app/dashboard/[eventId]/schedule/_components/chapters-host';
 import { LAB_CHAPTER_MOMENTS, LAB_EVENT_DAY, LAB_SCHEDULE_CHAPTERS, LAB_VENUES } from './lab-chapters';
+import { labViewAs } from './lab-view-as';
 
-export function LabScheduleChapters({ empty, fail, viewOnly }: { empty: boolean; fail: boolean; viewOnly: boolean }) {
+export function LabScheduleChapters({ empty, fail, viewOnly, free = false }: { empty: boolean; fail: boolean; viewOnly: boolean; free?: boolean }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   const input: ChaptersInput = fail
@@ -30,6 +31,7 @@ export function LabScheduleChapters({ empty, fail, viewOnly }: { empty: boolean;
         lastDay: LAB_EVENT_DAY,
         canEdit: !viewOnly,
         mayInvite: !viewOnly,
+        viewAs: empty ? null : labViewAs(!free),
       };
   if (!mounted) return null;
   return (

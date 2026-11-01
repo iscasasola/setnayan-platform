@@ -1,6 +1,9 @@
 'use client';
 
 import { seatPlacedShort, type SeatPlacedBy } from '@/lib/seat-why';
+import { plusOneMark, plusOneSeatIndexes } from '@/lib/plus-one-of';
+import { boothCardFromRow, boothHasSupplier } from '@/lib/booth-card-from-row';
+import { BoothVendorCard } from '@/app/_components/plan3d/booth-vendor-card';
 import { assessSeatMove, seatMoveDoneWords, type MoveAssessment, type MoveGuest } from '@/lib/seat-move-assess';
 import { MERGE_BASE_FIELD } from '@/lib/merge-base-field';
 import { floorPlanFieldsOf } from '@/lib/floor-plan-row';
@@ -85,7 +88,8 @@ import {
 import { DropConfirmBubble, type DropConfirmState } from './drop-confirm-bubble';
 import { ActionButton } from '@/components/action-button';
 import { GuestConfirmActions, GuestPopup } from '../../guests/_components/guest-popup';
-import { FormRows, SwitchRow } from '@/app/_components/form-row';
+import { FormRows, SwitchRow, TypedRow } from '@/app/_components/form-row';
+import { StatusLine } from '@/app/_components/status-line';
 import { Counter } from '@/app/_components/counter';
 import { seatCounter, seatStepWords } from '@/lib/seat-counter';
 import {
@@ -2762,11 +2766,21 @@ export function SeatingEditor({
   // without moving is the tap: it seats the picked guest / group there, joins
   // a table to the one waiting in "Link…", or selects. Nothing ever moves.
   const press = planPress(isPhone);
+  /* 🗺 2D IS THE ROOM (owner 2026-11-01, *"this makes it impossible for me to move the table"*): in Guests › Seats › 2D a
+     tap on a table SELECTS it and the PICKED table drags — on a phone too (the 2026-10-01 "no drag on a phone" stays for
+     everything else: an unpicked table, the elements, the booths). Any other press still pans. */
+  const tablePress = (t: EventTableRow): 'tap' | 'drag' => (roomOnly && highlightId === t.table_id ? 'drag' : press);
   const onTapDown =
     (kind: NonNullable<typeof tapRef.current>['kind'], id: string) => (e: React.PointerEvent) => {
       tapRef.current = { kind, id, sx: e.clientX, sy: e.clientY };
     };
   const runTap = (tap: NonNullable<typeof tapRef.current>) => {
+    // 🏪 2D is the room: a booth a booked supplier runs opens their card — to look at it, so no editing lock is needed.
+    if (roomOnly && tap.kind === 'booth' && booths.some((b) => b.booth_id === tap.id && boothHasSupplier(b))) {
+      clearSelection();
+      setBoothCardId(tap.id);
+      return;
+    }
     if (!canEdit) return;
     if (tap.kind === 'table') {
       const t = tables.find((x) => x.table_id === tap.id);
@@ -3348,6 +3362,9 @@ export function SeatingEditor({
     if (!rect) return { x: cx, y: cy, flipX: false, flipY: false };
     const x = cx - rect.left;
     const y = cy - rect.top;
+    /* 📱 A phone's canvas is narrower than the bubble's room on EITHER side (240 + its offset), so a flip pushed it off
+       the left edge (seen on the first phone drag, 2026-11-01). There the bubble is kept inside the canvas instead. */
+    if (rect.width < 2 * 260) return { x: Math.max(8, Math.min(x, rect.width - 260)), y, flipX: false, flipY: y < 150 };
     return { x, y, flipX: x > rect.width - 260, flipY: y < 150 };
   };
   const askConfirmDrop = (commit: () => void, revert: () => void) => {
@@ -3630,6 +3647,10 @@ export function SeatingEditor({
           );
         }
       }
+    } else if (d && !d.moved && roomOnly && d.kind === 'booth' && booths.some((b) => b.booth_id === d.id && boothHasSupplier(b))) {
+      // 🏪 2D is the room: a booth a booked supplier runs opens their card (the 3D walk's), not the booth's dock.
+      clearSelection();
+      setBoothCardId(d.id);
     } else if (d && !d.moved && !pickedId && !pickedGroupId && canEdit) {
       // A tap (no drag) selects the object → its verbs render in the Context Dock
       // (§1.4). Tables + every marker/booth/sign now share the one selection model
@@ -3977,6 +3998,17 @@ export function SeatingEditor({
   const [show3d, setShow3d] = useState(inGuests ? details?.open3d === true : Boolean(details?.lab));
   const [seen3d, setSeen3d] = useState(show3d);
   const in3d = inGuests ? show3d && Boolean(details?.lab) : Boolean(details?.lab);
+  /* 🗺 SEATS 2D IS THE ROOM, LIST IS THE PEOPLE (owner 2026-11-01, DECISION_LOG — supersedes the same-day "2D does the
+     same"): in Guests › Seats the 2D plan edits the ROOM only. A tap on a table only SELECTS it (drag to move) and its
+     verbs are one slim bar in the thumb row (Rotate · Shape ▾ · Seats − N + · ⋯) — never the full table sheet over the
+     map. No guest list and no guest editing here: names show at their seats and a tap on them does nothing (the press
+     goes on to the room, which pans). The picked table drags, on a phone too (`tablePress`). Seats › List holds the people.
+     A booth a booked supplier runs opens the supplier card (the 3D walk's `BoothVendorCard`).
+     🔒 lib/seats-2d-is-the-room.test.ts */
+  const roomOnly = inGuests && !in3d && view === 'plan';
+  const [boothCardId, setBoothCardId] = useState<string | null>(null);
+  /** The slim bar's ⋯ › Name… — the bar shows the table's name row until it is kept. */
+  const [renamingTable, setRenamingTable] = useState<string | null>(null);
   const seatPlanShowing =
     !details ||
     (inGuests && !in3d) ||
@@ -5529,6 +5561,8 @@ export function SeatingEditor({
   const dockInSheet = inGuests && isPhone;
   const dockNode: React.ReactNode = (() => {
     if (dockPrimary === null) return null;
+    // 🗺 2D is the room: a picked table's verbs are the slim thumb bar (`tableBar`), never a dock or a sheet over the map.
+    if (roomOnly && dockPrimary === 'table') return null;
     const edge = computeDockEdge();
 
     // §1.5 view-only honesty — when a table/marker is selected but a peer
@@ -6029,7 +6063,7 @@ export function SeatingEditor({
     if (!details) return;
     // The picked object is the navigator's picked piece; on a phone its part opens.
     setSeatPiece(seatPieceKey, seatPieceKey ? { openEditor: true } : undefined);
-    if (peopleInSheet && seatPieceKey) setPeopleOpen(true);
+    if (peopleInSheet && seatPieceKey && !(roomOnly && highlightId)) setPeopleOpen(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the setter is rebuilt every render; only the pick matters
   }, [seatPieceKey]);
   // The right part shows the guests, the rules, the Guests' map (the Indoor
@@ -6244,9 +6278,12 @@ export function SeatingEditor({
   // room's default Round, placed in open space and seated in the same tap).
   // No drag on a phone.
   const firstNameOf = (name: string) => name.replace(/^(Mr|Mrs|Ms|Miss|Dr|Atty|Engr|Hon)\.?\s+/i, '').split(/\s+/)[0] ?? name;
+  /* 🔢 "Antonio’s +2" under a "+2 · TBA" seat — the seat's own number among its guest's seats, never a fixed "+1"
+     (owner 2026-11-01, DECISION_LOG "SEATS 2D IS THE ROOM"). 🔒 lib/a-second-plus-one-says-plus-two.test.ts */
+  const plusOneIdx = useMemo(() => plusOneSeatIndexes(guests), [guests]);
   const plusOneHint = (g: SeatingGuest) => {
     const by = g.plus_one_of ? guestsById.get(g.plus_one_of) : null;
-    return by ? `${firstNameOf(by.name)}’s +1` : null;
+    return by ? `${firstNameOf(by.name)}’s ${plusOneMark(plusOneIdx.get(g.guest_id) ?? 0)}` : null;
   };
   const openMove = (id: string) => {
     setMoveGuestId(id);
@@ -6996,12 +7033,107 @@ export function SeatingEditor({
     : autoRun
       ? { text: autoRun.text, onUndo: autoRun.undo ? undoAutoRun : null, onDismiss: () => setAutoRun(null) }
       : null;
+  /* 🗺 2D IS THE ROOM — a picked table's ONE slim bar in the thumb row: Rotate · Shape ▾ · Seats − N + · ⋯ (Name… ·
+     Swap with another table… · Link… / Unlink · Delete). Every verb is the shipped one (`rotateTable` · `changeStyle` ·
+     the Counter · `renameTable` · `armSwap` · the link gesture · `doUnlink` · `requestRemoveTable`); nothing new writes. */
+  const barTable = roomOnly && selTable ? selTable : null;
+  const tableBar = barTable
+    ? (() => {
+        const st = barTable;
+        const seatNote = seatNotice && seatNotice.tableId === st.table_id ? { words: seatStepWords(seatNotice.seat, seatNotice.removed), onUndo: undoSeatRemoval } : null;
+        const armed = linkFrom === st.table_id || swapFrom === st.table_id;
+        const more: PickOption[] = [
+          { key: 'name', label: 'Name…' },
+          { key: 'swap', label: swapFrom === st.table_id ? 'Stop swapping' : 'Swap with another table…' },
+          st.link_group_id ? { key: 'unlink', label: 'Unlink' } : { key: 'link', label: linkFrom === st.table_id ? 'Stop linking' : 'Link…' },
+          { key: 'delete', label: 'Delete this table' },
+        ];
+        const onMore = (k: string) => {
+          if (!canEdit) return;
+          if (k === 'name') setRenamingTable(st.table_id);
+          else if (k === 'swap') armSwap(st);
+          else if (k === 'unlink') doUnlink(st.table_id);
+          else if (k === 'link') {
+            setSwapFrom(null);
+            setLinkFrom((cur) => (cur === st.table_id ? null : st.table_id));
+            if (linkFrom !== st.table_id) setNotice(`Now tap the table to join to “${st.table_label}”.`);
+          } else if (k === 'delete') requestRemoveTable(st);
+        };
+        return (
+          <div
+            data-seat-table-bar={st.table_id}
+            className="pointer-events-auto flex min-w-0 flex-col gap-1.5 rounded-2xl bg-cream px-1 py-1.5 shadow-lg"
+          >
+            {renamingTable === st.table_id ? (
+              <FormRows data="seat-table-bar-name">
+                <TypedRow
+                  key={st.table_id}
+                  data="seat-table-name"
+                  attrs={{ 'data-seat-table-name': '' }}
+                  name="Table name"
+                  value={st.table_label}
+                  maxLength={64}
+                  required
+                  onKeep={(label) => {
+                    renameTable(st.table_id, label);
+                    setRenamingTable(null);
+                    return { ok: true as const };
+                  }}
+                />
+              </FormRows>
+            ) : null}
+            {/* ONE slim row at 390: Rotate keeps its word (12 Oct "buttons keep their words"), the shape's word is never cut
+                (`shrink-0`), the ⋯ is a 44 px round; on a narrower phone the row wraps rather than cut a word. */}
+            <div className="flex min-w-0 flex-wrap items-center gap-0.5">
+              <ActionButton tone="neutral" quiet icon={RotateCw} label="Rotate" disabled={!canEdit} onClick={() => rotateTable(st, 90)} />
+              <PickMenu
+                label="Shape"
+                value={st.table_type}
+                options={TABLE_TYPE_CATALOG.map((c) => ({ key: c.type, label: c.label, group: TABLE_KIND_WORD[c.shapeHint] }))}
+                onPick={(k) => {
+                  if (canEdit) changeStyle(st, k as TableType);
+                }}
+                buttonText={TABLE_KIND_WORD[shapeHintFor(st.table_type)]}
+                dataAttr="data-seat-table-shape"
+                compact
+                className="shrink-0 border border-ink/15"
+              />
+              {dockSeatsStepper(st)}
+              <PickMenu
+                label="More for this table"
+                value={null}
+                options={more}
+                onPick={onMore}
+                dataAttr="data-seat-table-more"
+                compact
+                trigger={<MoreHorizontal aria-hidden className="h-5 w-5" />}
+                className="sn-press ml-auto flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-ink/15 text-ink/70"
+              />
+            </div>
+            {armed && notice ? (
+              <StatusLine tone="info" data="seat-table-armed">
+                {notice}
+              </StatusLine>
+            ) : seatNote ? (
+              <StatusLine tone="info" data="seat-step" action={{ label: 'Undo', onClick: seatNote.onUndo }}>
+                {seatNote.words}
+              </StatusLine>
+            ) : null}
+          </div>
+        );
+      })()
+    : null;
+  /* 🏪 The supplier card a 2D booth opens — the 3D walk's own, inspect-only (no walker here), "View" (they booked them). */
+  const boothCardRow = roomOnly && boothCardId ? booths.find((b) => b.booth_id === boothCardId) ?? null : null;
+  const boothCard = roomOnly ? (
+    <BoothVendorCard booth={boothCardRow ? boothCardFromRow(boothCardRow) : null} onClose={() => setBoothCardId(null)} profileCta="view" />
+  ) : null;
   const seatThumb =
     lens && lens.slot
       ? createPortal(
           <>
             {seatToast ? <SeatToast toast={seatToast} /> : null}
-            {seatPop}
+            {seatPop ?? tableBar}
             <lens.ThumbRow
               name="guests-seats"
               left={
@@ -7049,7 +7181,7 @@ export function SeatingEditor({
                   onFilter: lens.setFilter,
                   hasSides: lens.hasSides,
                   label: 'Show, or open the people',
-                  extras: peopleInSheet
+                  extras: peopleInSheet && !roomOnly
                     ? [{ key: 'people', label: unseatedComing > 0 ? `People · ${formatCount(unseatedComing)} to seat` : 'People', group: 'Open' }]
                     : [],
                   onExtra: (k) => {
@@ -7162,6 +7294,7 @@ export function SeatingEditor({
     <>
       {faceCardSheet}
       {askMoveSheet}
+      {boothCard}
       {seatThumb}
       {peopleInSheet ? (
         <Sheet
@@ -8325,7 +8458,7 @@ export function SeatingEditor({
                   <svg
                     className="absolute inset-0 h-full w-full overflow-visible"
                     viewBox={`${-geo.box.w / 2} ${-geo.box.h / 2} ${geo.box.w} ${geo.box.h}`}
-                    onPointerDown={press === 'drag' ? onHubPointerDown(t) : onTapDown('table', t.table_id)}
+                    onPointerDown={tablePress(t) === 'drag' ? onHubPointerDown(t) : onTapDown('table', t.table_id)}
                     style={{ cursor: pickedId || pickedGroupId ? 'pointer' : dragging ? 'grabbing' : 'grab' }}
                   >
                     <path
@@ -8383,6 +8516,8 @@ export function SeatingEditor({
                         <button
                           type="button"
                           onPointerDown={(e) => {
+                            /* 🗺 2D is the room: a name does nothing — the press goes on to the room (pan). */
+                            if (roomOnly) return;
                             e.stopPropagation();
                             if (pickedGroupId) seatGroupAt(t.table_id);
                             /* 🗂 R4: in Guests › Seats a face opens their card (or, with someone picked, they trade). */ else if (inGuests) tapFace(occupant.guest_id);
@@ -8421,6 +8556,7 @@ export function SeatingEditor({
                         <button
                           type="button"
                           onPointerDown={(e) => {
+                            if (roomOnly) return;
                             e.stopPropagation();
                             if (pickedGroupId) seatGroupAt(t.table_id);
                             /* 🗂 R4: in Guests › Seats a blank seats the picked guest — or asks who sits there. */ else if (inGuests) tapBlank(t.table_id, i);
@@ -8488,7 +8624,7 @@ export function SeatingEditor({
                 ) : (
                   <button
                     type="button"
-                    onPointerDown={press === 'drag' ? onHubPointerDown(t) : onTapDown('table', t.table_id)}
+                    onPointerDown={tablePress(t) === 'drag' ? onHubPointerDown(t) : onTapDown('table', t.table_id)}
                     aria-label={`${t.table_label} — drag to move`}
                     // Blueprint: hairline footprint (directive) — border-2 → border.
                     className={`absolute left-1/2 top-1/2 flex select-none flex-col items-center justify-center border bg-cream text-center shadow-sm transition ${
@@ -9127,7 +9263,7 @@ export function SeatingEditor({
           <SeatPlanPortal name="place" on>
             {placeList}
           </SeatPlanPortal>
-          <SeatPlanPortal name="guests" on={!peopleInSheet}>
+          <SeatPlanPortal name="guests" on={!peopleInSheet && !roomOnly}>
             {guestsNode}
           </SeatPlanPortal>
         </>

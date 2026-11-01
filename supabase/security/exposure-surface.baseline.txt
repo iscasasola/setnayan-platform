@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6946
+# facts: 6948
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     585
-#   col       5074
+#   col       5075
 #   policy    988
 #   view      9
-#   func      286
+#   func      287
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -2052,6 +2052,7 @@ col	public.event_vendors.contact_email	anon=SIU authenticated=SIU
 col	public.event_vendors.contact_phone	anon=SIU authenticated=SIU
 col	public.event_vendors.contract_signed_at	anon=SIU authenticated=SIU
 col	public.event_vendors.cost_basis_pax	anon=SIU authenticated=SIU
+col	public.event_vendors.covered_where	anon=SIU authenticated=SIU
 col	public.event_vendors.covers_plan_groups	anon=SIU authenticated=SIU
 col	public.event_vendors.created_at	anon=SIU authenticated=SIU
 col	public.event_vendors.crew_meal_covered	anon=SIU authenticated=SIU
@@ -6886,6 +6887,7 @@ func	public.set_entourage_order(p_event_id uuid, p_guest_ids uuid[], p_orders in
 func	public.set_march_group(p_event_id uuid, p_guest_id uuid, p_group text)	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.set_march_walking(p_event_id uuid, p_guest_id uuid, p_walks boolean)	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.set_service_slot_day_capacity(p_slot_id uuid, p_reserved_date date, p_seats integer)	secdef=yes exec=authenticated search_path=public
+func	public.set_supplier_where(p_vendor_id uuid, p_block_ids uuid[], p_covered_group text)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.set_vendor_calendar_day_state(p_vendor_profile_id uuid, p_pool_id uuid, p_state_date date, p_day_state text, p_note text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.set_vendor_colour_access(p_event_id uuid, p_vendor_id uuid, p_active boolean)	secdef=yes exec=authenticated search_path=public
 func	public.setnayan_ai_price_tier(p_event_type text)	secdef=no exec=anon,authenticated search_path=public

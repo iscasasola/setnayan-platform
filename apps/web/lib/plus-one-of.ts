@@ -59,7 +59,7 @@ export function plusOneMark(seatIndex: number): string {
  * Each +1's place among their guest's seats, in the order given (the list's order — the same count `plusOneWordsFrom`
  * keeps): 0 for a guest's first seat, 1 for the second. A row that is nobody's +1 is absent.
  */
-export function plusOneSeatIndexes(rows: readonly { guest_id: string; plus_one_of: string | null | undefined }[]): Map<string, number> {
+export function plusOneSeatIndexes(rows: readonly { guest_id: string; plus_one_of?: string | null }[]): Map<string, number> {
   const next = new Map<string, number>();
   const out = new Map<string, number>();
   for (const r of rows) {

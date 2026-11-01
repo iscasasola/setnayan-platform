@@ -282,6 +282,11 @@ export default function ScheduleLabClient({
       },
       async resolveScheduleSuggestion(fd) {
         await gate('resolveScheduleSuggestion', fd);
+        if (str(fd, 'decision') === 'accept_all') {
+          const ids = new Set(fd.getAll('suggestion_id').map(String));
+          setRequests((r) => (r ?? seedRequests(dateKey)).filter((x) => !ids.has(x.suggestion_id)));
+          return;
+        }
         const id = str(fd, 'suggestion_id');
         setRequests((r) => (r ?? seedRequests(dateKey)).filter((x) => x.suggestion_id !== id));
       },

@@ -265,10 +265,12 @@ test('5 · Seat plan: the map gets the space — one head row, tools in the thum
   assert.match(ed, /const studioSeat = details !== null && \(\(isPhone && maker\?\.stagesStudio === true\) \|\| inGuests\);/);
   assert.match(ed, /const peopleInSheet = studioSeat && isPhone;/);
   assert.match(ed, /const phoneFoot =\s*isPhone && view === 'plan' && !in3d && !studioSeat \?/, 'the Studio still draws the 3D door card under the map');
-  assert.match(ed, /<SeatPlanPortal name="guests" on=\{!peopleInSheet\}>/, 'the Studio’s people are drawn in the lower third too');
+  // (Guests › Seats › 2D draws no guest list at all — `!roomOnly`, owner 2026-11-01 "SEATS 2D IS THE ROOM".)
+  assert.match(ed, /<SeatPlanPortal name="guests" on=\{!peopleInSheet && !roomOnly\}>/, 'the Studio’s people are drawn in the lower third too');
   assert.match(ed, /<PeopleSheet[\s\S]{0,900}?\{guestsNode\}\s*<\/PeopleSheet>/, 'the people sheet does not hold the editor’s own list');
   assert.match(ed, /const openDetailsEditor = \(\) => \(peopleInSheet \? setPeopleOpen\(true\) : openDetailsEditorShipped\(\)\);/, 'a table tap / Rules / the people do not raise the sheet in the Studio');
-  assert.match(ed, /if \(peopleInSheet && seatPieceKey\) setPeopleOpen\(true\);/, 'tapping a table does not raise the sheet');
+  // (…except a TABLE on Guests › Seats › 2D, whose verbs are the slim thumb bar — owner 2026-11-01 "SEATS 2D IS THE ROOM".)
+  assert.match(ed, /if \(peopleInSheet && seatPieceKey && !\(roomOnly && highlightId\)\) setPeopleOpen\(true\);/, 'tapping a table does not raise the sheet');
   assert.match(ed, /const ro = new ResizeObserver\(fit\);\s*ro\.observe\(region\);/, 'the room is not fitted to the map’s box on open');
   // In Guests (2026-10-30 "ALWAYS FULL SCREEN") the stack sits just above the thumb row via --sn-thumb-room; elsewhere as before.
   assert.match(ed, /\$\{(?:inGuests \? '' : )?studioSeat \? 'top-3' : 'bottom-\[64px\] lg:bottom-3'\}/, 'the zoom controls sit under the thumb-zone tools');

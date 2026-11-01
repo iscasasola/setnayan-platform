@@ -165,7 +165,7 @@ export function ChaptersHost({
       <div hidden={current !== null}>{children}</div>
       {current ? (
         <ChapterPage
-          key={current.block_id}
+          key={`page:${current.block_id}`}
           chapter={current}
           chapters={sorted}
           moments={input.moments.filter((m) => m.parent_block_id === current.block_id)}
@@ -213,7 +213,7 @@ export function ChaptersHost({
 
       {sheet === 'edit' && current ? (
         <ChapterSheet
-          key={current.block_id}
+          key={`sheet:${current.block_id}`}
           chapter={current}
           venues={input.venues}
           used={chapters.map((c) => c.location).filter((v): v is string => Boolean(v))}

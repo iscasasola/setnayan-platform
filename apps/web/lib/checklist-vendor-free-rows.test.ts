@@ -95,22 +95,20 @@ test('ensureChecklistSeeded filters the per-type template through the profile ga
 
 // ── READ path: /checklist hides already-seeded rows, never deletes them ──────
 
-test('the checklist page hides disallowed rows at READ time, after the profile is resolved', () => {
-  const s = read('../app/dashboard/[eventId]/checklist/page.tsx');
+test('the one list hides disallowed rows at READ time, through the SAME predicate the seed uses', () => {
+  // The Checklist merged into Planning Stage (owner 2026-11-01): the rows are read by the one list now.
+  const lib = read('preparation.ts');
   assert.match(
-    s,
-    /import\s*\{\s*resolveProfile\s*\}\s*from\s*['"]@\/lib\/event-type-profile['"]/,
-    'the page must resolve the event-type profile to know the gate',
-  );
-  assert.match(
-    s,
-    /rawRows\.filter\(\(r\) =>\s*\n?\s*checklistItemAllowedForProfile\(r\.category, r\.template_key, checklistProfile\)/,
+    lib,
+    /rawRows\.filter\(\(r\) => checklistItemAllowedForProfile\(r\.category, r\.template_key, opts\.profile!\)\)/,
     'fetched rows must be filtered through the SAME predicate the seed path uses',
   );
-  // The filter must not be a delete — no DELETE / .update against
-  // event_checklist_items anywhere near this read.
+  // …and both surfaces that show the tasks hand it the event's profile.
+  assert.match(read('../app/dashboard/[eventId]/schedule/page.tsx'), /fetchPreparationAgenda\(\{[\s\S]{0,600}?\bprofile,\s*\}\)/, 'Planning Stage passes the profile');
+  assert.match(read('home-control.server.ts'), /profile: opts\.profile,/, 'Home passes the profile');
+  // The filter must not be a delete — no DELETE against event_checklist_items in the reader.
   assert.doesNotMatch(
-    s,
+    lib,
     /event_checklist_items['"]\)\s*\n?\s*\.delete\(/,
     'existing rows must be hidden, never deleted — a couple\'s data must survive a re-profile',
   );

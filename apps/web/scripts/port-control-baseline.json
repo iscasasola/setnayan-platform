@@ -5748,7 +5748,6 @@
         "dashboard/[eventId]/_components/add-your-own-walk.tsx",
         "dashboard/[eventId]/_components/address-pin-field.tsx",
         "dashboard/[eventId]/_components/after/finished-event-summary.tsx",
-        "dashboard/[eventId]/_components/checklist/checklist-full.tsx",
         "dashboard/[eventId]/_components/cohost-welcome.tsx",
         "dashboard/[eventId]/_components/connect-supplier-modal.tsx",
         "dashboard/[eventId]/_components/coordinating-line.tsx",
@@ -5866,8 +5865,6 @@
         "/api/tiktok/auth/start?event_id=[seg]",
         "/api/website/qr/[seg]",
         "/dashboard",
-        "/dashboard/[seg]/budget",
-        "/dashboard/[seg]/checklist",
         "/dashboard/[seg]/clearance",
         "/dashboard/[seg]/date-selection",
         "/dashboard/[seg]/event-qr",
@@ -5877,7 +5874,6 @@
         "/dashboard/[seg]/guests?q=coming",
         "/dashboard/[seg]/guests?q=declined",
         "/dashboard/[seg]/guests?q=no+reply",
-        "/dashboard/[seg]/invitation",
         "/dashboard/[seg]/launch",
         "/dashboard/[seg]/launch?tool=details",
         "/dashboard/[seg]/launch?tool=details&guide=1",
@@ -5896,7 +5892,6 @@
         "/dashboard/[seg]/vendors?part=budget",
         "/dashboard/[seg]/vendors?part=budget&pay=[seg]",
         "/dashboard/[seg]/vendors?tab=shortlist",
-        "/dashboard/[seg]/vendors?tab=shortlist&open=[seg]",
         "/dashboard/[seg]/website/editor?open=music",
         "/dashboard/notifications",
         "/help",
@@ -5920,7 +5915,6 @@
         "planNextYearEvent",
         "routes.dashboard.accessRequests",
         "savePatiktokBoothTemplates",
-        "toggleChecklistItem",
         "updatePaxSettings"
       ],
       "blocks": [
@@ -5949,12 +5943,8 @@
         "BottomNav",
         "BranchPinMap",
         "BroadcastCardData",
-        "BudgetHealthCard",
-        "BudgetHealthUnreadable",
         "Card",
         "ChannelToggle",
-        "ChecklistItemView",
-        "ChecklistPhaseGroup",
         "ChosenRow",
         "ClusterHead",
         "CohostWelcome",
@@ -6100,8 +6090,6 @@
         "LastSeenFallback",
         "LastSeenScope",
         "LatLng",
-        "LeafSuggestion",
-        "LeafSuggestions",
         "LevelAsk",
         "LevelSeat",
         "LifecyclePhase",
@@ -6167,12 +6155,12 @@
         "PeekToast",
         "PeopleWithAccess",
         "PersonAvatar",
-        "PhaseRows",
         "PickMenu",
         "PillButton",
         "PillThumb",
         "PillTrack",
         "PlanMyselfSwitch",
+        "PlanningRowResult",
         "PostSaveStep",
         "PreviewConflictsResult",
         "PriceSourceChip",
@@ -6256,10 +6244,8 @@
         "UseSongButton",
         "VeilReveal",
         "VendorAvatar",
-        "VendorCategoryProgress",
         "VendorDirectPay",
         "VendorLogo",
-        "VendorProgress",
         "ViewOnlyLine",
         "VoucherBlock",
         "Watermark",
@@ -6438,15 +6424,11 @@
     },
     "/dashboard/[eventId]/checklist": {
       "files": [
-        "dashboard/[eventId]/checklist/loading.tsx",
         "dashboard/[eventId]/checklist/page.tsx"
       ],
       "destinations": [],
       "actions": [],
-      "blocks": [
-        "ChecklistFull",
-        "ListPageSkeleton"
-      ]
+      "blocks": []
     },
     "/dashboard/[eventId]/clearance": {
       "files": [
@@ -6802,6 +6784,7 @@
         "dashboard/[eventId]/guests/_components/guest-papic-bulk.tsx",
         "dashboard/[eventId]/guests/_components/guest-papic-camera.tsx",
         "dashboard/[eventId]/guests/_components/guest-papic-read.ts",
+        "dashboard/[eventId]/guests/_components/guest-peek.tsx",
         "dashboard/[eventId]/guests/_components/guest-popup.tsx",
         "dashboard/[eventId]/guests/_components/guest-proxy-row.tsx",
         "dashboard/[eventId]/guests/_components/guest-reset.tsx",
@@ -6957,6 +6940,7 @@
         "GuestNick",
         "GuestPapicBulkSheet",
         "GuestPapicState",
+        "GuestPeek",
         "GuestPopup",
         "GuestRemovalActions",
         "GuestResetFlow",
@@ -7015,6 +6999,7 @@
         "MarchResult",
         "Mark",
         "MenuSettingsButton",
+        "MindDrill",
         "MiniTour",
         "Mode",
         "MoreMenu",
@@ -8524,6 +8509,7 @@
         "dashboard/[eventId]/schedule/_components/journey-view.tsx",
         "dashboard/[eventId]/schedule/_components/moment-inspector.tsx",
         "dashboard/[eventId]/schedule/_components/note-flash.ts",
+        "dashboard/[eventId]/schedule/_components/planning-todo-controls.tsx",
         "dashboard/[eventId]/schedule/_components/prep-item-controls.tsx",
         "dashboard/[eventId]/schedule/_components/prep-kind-picker.tsx",
         "dashboard/[eventId]/schedule/_components/preparation-agenda.tsx",
@@ -8621,6 +8607,9 @@
         "PhaseSection",
         "PickMenu",
         "PillThumb",
+        "PlanningFilter",
+        "PlanningFilterFrame",
+        "PlanningTick",
         "PrepKind",
         "PreparationAgendaView",
         "PreparationEmptyState",
@@ -8652,6 +8641,7 @@
         "StudioDay",
         "SubmitButton",
         "Switch",
+        "TaskDateButton",
         "TellTheHost",
         "TemplatePicker",
         "TickerPill",
@@ -11885,10 +11875,14 @@
     "/dev/schedule-lab": {
       "files": [
         "dev/schedule-lab/lab-moments.ts",
+        "dev/schedule-lab/lab-planning.ts",
         "dev/schedule-lab/page.tsx",
-        "dev/schedule-lab/schedule-lab-client.tsx"
+        "dev/schedule-lab/schedule-lab-client.tsx",
+        "dev/schedule-lab/schedule-lab-mount.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/dev/schedule-lab?view=preparation"
+      ],
       "actions": [],
       "blocks": [
         "A",
@@ -11896,9 +11890,12 @@
         "DayMoment",
         "DayRole",
         "PickMenu",
+        "PreparationAgendaView",
+        "PreparationItem",
         "RunOfShowHeader",
         "ScheduleDay",
         "ScheduleLabClient",
+        "ScheduleLabMount",
         "Switch"
       ]
     },

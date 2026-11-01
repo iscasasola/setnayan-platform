@@ -59,6 +59,7 @@ export function PreparationAgendaView({
   booked = false,
   eventDateIso = null,
   initialFilter = 'all',
+  eventIsOver = false,
 }: {
   eventId: string;
   agenda: PreparationAgenda;
@@ -70,6 +71,8 @@ export function PreparationAgendaView({
    * 2026-11-01, "Checklist merges into Planning Stage").
    */
   initialFilter?: 'all' | 'todo';
+  /** The celebration already happened — a date is just a date: no "overdue", no alarm red. */
+  eventIsOver?: boolean;
   /**
    * 📅 Drawn as Suppliers › Booked › Schedule › Preparation (owner 2026-10-31: *"so many upper space not used"*): the
    * steps start at once — "+ Add a step" is the pill in the thumb zone and what feeds the agenda is said in the page's
@@ -148,7 +151,7 @@ export function PreparationAgendaView({
                 // 💾 A payment due is money — never kept as last-seen data (lib/last-seen).
                 data-money={displaySourceFor(item) === 'payment' || item.amountPhp !== undefined ? '' : undefined}
               >
-                <PreparationRow eventId={eventId} item={item} eventDateIso={eventDateIso} />
+                <PreparationRow eventId={eventId} item={item} eventDateIso={eventDateIso} eventIsOver={eventIsOver} />
               </li>
               );
             })}
@@ -193,16 +196,20 @@ function PreparationRow({
   eventId,
   item,
   eventDateIso,
+  eventIsOver,
 }: {
   eventId: string;
   item: PreparationItem;
   eventDateIso: string | null;
+  eventIsOver: boolean;
 }) {
   const display = displaySourceFor(item);
   const Icon = iconFor(display);
   const chipLabel = chipLabelFor(item, display);
   const done = item.done === true;
-  const overdue = !done && item.daysFromNow !== null && item.daysFromNow < 0;
+  // AFTER THE DAY, A DEADLINE IS JUST A DATE (the Checklist page's rule, kept): nothing on a finished celebration is
+  // "overdue" — the date stays, the alarm goes.
+  const overdue = !eventIsOver && !done && item.daysFromNow !== null && item.daysFromNow < 0;
   const tickId = item.source === 'task' ? item.taskItemId : item.source === 'manual' ? item.itemId : undefined;
 
   const dateColumn = (
@@ -212,10 +219,10 @@ function PreparationRow({
       </span>
       <span
         className={`mt-0.5 font-mono text-[9px] uppercase tracking-[0.16em] ${
-          done ? 'text-ink/40' : overdue ? 'text-danger-600' : 'text-terracotta'
+          done || eventIsOver ? 'text-ink/40' : overdue ? 'text-danger-600' : 'text-terracotta'
         }`}
       >
-        {done ? 'Done' : item.daysFromNow === null ? 'Set one' : relativeTag(item.daysFromNow)}
+        {done ? 'Done' : item.daysFromNow === null ? 'Set one' : eventIsOver ? '' : relativeTag(item.daysFromNow)}
       </span>
     </>
   );

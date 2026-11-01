@@ -16,8 +16,7 @@
 
 import { useEffect, useId, useState, useTransition, type ReactNode } from 'react';
 import { CheckCircle2, Circle, Loader2, RotateCcw, Save, X } from 'lucide-react';
-import { toggleChecklistItem, setChecklistTaskDate } from '../../checklist-actions';
-import { togglePreparationItemDone } from '../prep-actions';
+import { planningRowAction } from '../../checklist-actions';
 import { ScheduleSheet, SheetField, SheetFoot } from './schedule-sheet';
 import { ActionButton } from '@/components/action-button';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
@@ -49,16 +48,16 @@ export function PlanningTick({
     setOn(next);
     setError(null);
     const fd = new FormData();
+    fd.set('op', kind === 'task' ? 'tick-task' : 'tick-step');
     fd.set('event_id', eventId);
     fd.set('item_id', id);
     fd.set('desired', next ? 'done' : 'pending');
     start(async () => {
-      try {
-        if (kind === 'task') await toggleChecklistItem(fd);
-        else await togglePreparationItemDone(fd);
-      } catch (e) {
+      const r = await planningRowAction(fd).catch(() => ({ ok: false as const, error: 'This did not save. Try again.' }));
+      if (!r.ok) {
+        // A refused save goes back and says so — never a tick that did not happen.
         setOn(!next);
-        setError(e instanceof Error && e.message ? e.message : 'This did not save. Try again.');
+        setError(r.error);
       }
     });
   }
@@ -142,11 +141,12 @@ export function TaskDateButton({
     setError(null);
     setNote(null);
     const fd = new FormData();
+    fd.set('op', 'move-task');
     fd.set('event_id', eventId);
     fd.set('item_id', itemId);
     fd.set('date', next);
     start(async () => {
-      const r = await setChecklistTaskDate(fd).catch(() => ({ ok: false as const, error: 'This date did not save. Try again.' }));
+      const r = await planningRowAction(fd).catch(() => ({ ok: false as const, error: 'This date did not save. Try again.' }));
       if (!r.ok) {
         setError(r.error);
         return;

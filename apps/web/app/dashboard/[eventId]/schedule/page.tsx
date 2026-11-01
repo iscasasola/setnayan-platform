@@ -130,7 +130,7 @@ import {
   resolveBroadcastAuthority,
 } from '@/lib/coordinator-broadcasts-server';
 import type { CoordinatorBroadcastItem } from '@/lib/coordinator-broadcasts';
-import { getDayOfPhase } from '@/lib/day-of-mode';
+import { getDayOfPhase, getMenuLifecyclePhase } from '@/lib/day-of-mode';
 import { daysBetween, wallDateKey } from '@/lib/schedule-rail';
 import { findBookedHost } from '@/lib/booked-host';
 import { fetchEmceeRecipients } from '@/lib/stage-notes-recipients';
@@ -230,7 +230,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   const [eventRes, blocks, suggestionsRes, recapRes] = await Promise.all([
     supabase
       .from('events')
-      .select('event_id, event_date, event_end_date, ceremony_type, secondary_ceremony_type, event_type, created_at, display_name, date_candidates, date_window_start')
+      .select('event_id, event_date, event_end_date, ceremony_type, secondary_ceremony_type, event_type, created_at, display_name, date_candidates, date_window_start, cleared_at, timezone')
       .eq('event_id', eventId)
       .maybeSingle(),
     /* 🛑 A REFUSED READ OF THE DAY IS SAID, NEVER DRAWN AS AN EMPTY DAY. Inside the Maker (Studio › Schedule) the
@@ -278,6 +278,8 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
         display_name: string | null;
         date_candidates?: string[] | null;
         date_window_start?: string | null;
+        cleared_at?: string | null;
+        timezone?: string | null;
       }
     | null;
   const eventDate = eventRow?.event_date ?? null;
@@ -666,6 +668,11 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
       booked={inBooked}
       eventDateIso={eventDate}
       initialFilter={planFilter}
+      /* AFTER THE DAY A DEADLINE IS JUST A DATE — the ONE lifecycle resolver (the Checklist page's rule, kept when it
+         merged here): no "overdue", no alarm red, on a celebration that already happened. */
+      eventIsOver={
+        getMenuLifecyclePhase(eventDate, eventRow?.cleared_at ?? null, eventRow?.timezone ?? undefined, undefined, eventRow?.event_end_date ?? null) === 'after'
+      }
     />
   );
   const eventDayView = (

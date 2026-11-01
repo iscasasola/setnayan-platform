@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6951
+# facts: 6966
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     585
-#   col       5078
-#   policy    988
+#   tpriv     586
+#   col       5086
+#   policy    991
 #   view      9
-#   func      287
+#   func      290
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -180,6 +180,7 @@ tpriv	public.event_sponsors|authenticated	SIUD
 tpriv	public.event_stage_notes|authenticated	SI
 tpriv	public.event_std_views|anon	SIUD
 tpriv	public.event_std_views|authenticated	SIUD
+tpriv	public.event_supplier_schedule_marks|authenticated	S
 tpriv	public.event_tables|anon	SIUD
 tpriv	public.event_tables|authenticated	SIUD
 tpriv	public.event_type_onboarding|anon	SIUD
@@ -1776,14 +1777,17 @@ col	public.event_schedule_blocks.travel_from	anon=SIU authenticated=SIU
 col	public.event_schedule_blocks.travel_to	anon=SIU authenticated=SIU
 col	public.event_schedule_blocks.updated_at	anon=SIU authenticated=SIU
 col	public.event_schedule_blocks.visibility	anon=SIU authenticated=SIU
+col	public.event_schedule_suggestions.auto_agreed	anon=- authenticated=SIU
 col	public.event_schedule_suggestions.block_id	anon=- authenticated=SIU
 col	public.event_schedule_suggestions.created_at	anon=- authenticated=SIU
 col	public.event_schedule_suggestions.event_id	anon=- authenticated=SIU
 col	public.event_schedule_suggestions.kind	anon=- authenticated=SIU
 col	public.event_schedule_suggestions.note	anon=- authenticated=SIU
+col	public.event_schedule_suggestions.proposed_crew	anon=- authenticated=SIU
 col	public.event_schedule_suggestions.proposed_end_at	anon=- authenticated=SIU
 col	public.event_schedule_suggestions.proposed_label	anon=- authenticated=SIU
 col	public.event_schedule_suggestions.proposed_location	anon=- authenticated=SIU
+col	public.event_schedule_suggestions.proposed_parent_block_id	anon=- authenticated=SIU
 col	public.event_schedule_suggestions.proposed_start_at	anon=- authenticated=SIU
 col	public.event_schedule_suggestions.resolved_at	anon=- authenticated=SIU
 col	public.event_schedule_suggestions.resolved_by_user_id	anon=- authenticated=SIU
@@ -1887,6 +1891,10 @@ col	public.event_std_views.event_id	anon=SIU authenticated=SIU
 col	public.event_std_views.updated_at	anon=SIU authenticated=SIU
 col	public.event_std_views.view_date	anon=SIU authenticated=SIU
 col	public.event_std_views.views	anon=SIU authenticated=SIU
+col	public.event_supplier_schedule_marks.confirmed_at	anon=- authenticated=S
+col	public.event_supplier_schedule_marks.event_id	anon=- authenticated=S
+col	public.event_supplier_schedule_marks.seen_at	anon=- authenticated=S
+col	public.event_supplier_schedule_marks.vendor_profile_id	anon=- authenticated=S
 col	public.event_tables.capacity	anon=SIU authenticated=SIU
 col	public.event_tables.created_at	anon=SIU authenticated=SIU
 col	public.event_tables.event_id	anon=SIU authenticated=SIU
@@ -2369,6 +2377,7 @@ col	public.events.story_cover_ref	anon=- authenticated=S
 col	public.events.story_language	anon=SIU authenticated=SIU
 col	public.events.story_tone	anon=SIU authenticated=SIU
 col	public.events.style_preferences	anon=SIU authenticated=SIU
+col	public.events.supplier_requests_auto_agree	anon=- authenticated=S
 col	public.events.suppliers_on	anon=- authenticated=SU
 col	public.events.ticket_url	anon=- authenticated=S
 col	public.events.timezone	anon=SIU authenticated=SIU
@@ -5958,7 +5967,7 @@ policy	public.event_schedule_blocks|event_schedule_blocks_moderator_write	mode=P
 policy	public.event_schedule_blocks|event_schedule_blocks_public_read	mode=PERMISSIVE cmd=SELECT roles=anon using=((is_public = true) AND (visibility <> 'coordinator_only'::text) AND (audience IS NULL)) check=NULL
 policy	public.event_schedule_suggestions|schedule_suggestions_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR (event_id IN ( SELECT current_moderator_event_ids() AS current_moderator_event_ids))) check=NULL
 policy	public.event_schedule_suggestions|schedule_suggestions_couple_resolve	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR (event_id IN ( SELECT l.event_id FROM current_moderator_area_levels('schedule'::text) l(event_id, level) WHERE (l.level = 'edit'::text)))) check=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR (event_id IN ( SELECT l.event_id FROM current_moderator_area_levels('schedule'::text) l(event_id, level) WHERE (l.level = 'edit'::text))))
-policy	public.event_schedule_suggestions|schedule_suggestions_vendor_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids)) AND (vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) AND (suggested_by_user_id = ( SELECT auth.uid() AS uid)) AND (status = 'open'::text) AND ((kind = 'new'::text) = (block_id IS NULL)) AND ((block_id IS NULL) OR (EXISTS ( SELECT 1 FROM event_schedule_blocks b WHERE ((b.block_id = event_schedule_suggestions.block_id) AND (b.event_id = event_schedule_suggestions.event_id))))) AND ((kind = 'new'::text) OR ((kind = 'adjust'::text) AND (proposed_label IS NULL) AND (proposed_start_at IS NULL) AND (proposed_end_at IS NULL) AND (proposed_location IS NULL)) OR current_vendor_owns_schedule_block(block_id, vendor_profile_id)))
+policy	public.event_schedule_suggestions|schedule_suggestions_vendor_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids)) AND (vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) AND (suggested_by_user_id = ( SELECT auth.uid() AS uid)) AND (status = 'open'::text) AND (auto_agreed = false) AND ((kind = 'new'::text) = (block_id IS NULL)) AND ((block_id IS NULL) OR (EXISTS ( SELECT 1 FROM event_schedule_blocks b WHERE ((b.block_id = event_schedule_suggestions.block_id) AND (b.event_id = event_schedule_suggestions.event_id))))) AND ((proposed_parent_block_id IS NULL) OR ((EXISTS ( SELECT 1 FROM event_schedule_blocks c WHERE ((c.block_id = event_schedule_suggestions.proposed_parent_block_id) AND (c.event_id = event_schedule_suggestions.event_id) AND (c.parent_block_id IS NULL)))) AND current_vendor_owns_schedule_block(proposed_parent_block_id, vendor_profile_id))) AND ((kind = 'new'::text) OR ((kind = 'adjust'::text) AND (proposed_label IS NULL) AND (proposed_start_at IS NULL) AND (proposed_end_at IS NULL) AND (proposed_location IS NULL) AND (proposed_crew IS NULL)) OR current_vendor_owns_schedule_block(block_id, vendor_profile_id)))
 policy	public.event_schedule_suggestions|schedule_suggestions_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=NULL
 policy	public.event_schedule_tasks|event_schedule_tasks_booked_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids)) AND (EXISTS ( SELECT 1 FROM event_schedule_blocks b WHERE ((b.block_id = event_schedule_tasks.block_id) AND (b.visibility <> 'coordinator_only'::text))))) check=NULL
 policy	public.event_schedule_tasks|event_schedule_tasks_couple_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids))
@@ -5987,6 +5996,9 @@ policy	public.event_stage_notes|event_stage_notes_recipient_ack	mode=PERMISSIVE 
 policy	public.event_stage_notes|event_stage_notes_recipient_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(recipient_vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=NULL
 policy	public.event_stage_notes|event_stage_notes_sender_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_event_ids() AS current_event_ids)) OR (event_id IN ( SELECT current_coordinator_booked_event_ids() AS current_coordinator_booked_event_ids)) OR (event_id IN ( SELECT l.event_id FROM current_moderator_area_levels('schedule'::text) l(event_id, level) WHERE (l.level IS NOT NULL))) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.event_std_views|event_member_can_read_std_views	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=((event_id IN ( SELECT current_event_ids() AS current_event_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
+policy	public.event_supplier_schedule_marks|event_supplier_schedule_marks_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=NULL
+policy	public.event_supplier_schedule_marks|event_supplier_schedule_marks_moderator_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT l.event_id FROM current_moderator_area_levels('schedule'::text) l(event_id, level) WHERE (l.level IS NOT NULL))) check=NULL
+policy	public.event_supplier_schedule_marks|event_supplier_schedule_marks_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=NULL
 policy	public.event_tables|event_tables_coordinator_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = event_tables.event_id) AND (em.user_id = ( SELECT auth.uid() AS uid)) AND (em.member_type = 'coordinator'::member_type)))) AND (event_id IN ( SELECT l.event_id FROM current_moderator_area_levels('seat_plan'::text) l(event_id, level) WHERE (l.level IS NOT NULL)))) check=NULL
 policy	public.event_tables|event_tables_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=NULL
 policy	public.event_tables|event_tables_couple_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids))
@@ -6883,6 +6895,7 @@ func	public.review_via_vendor_import(p_event_id uuid, p_vendor_profile_id uuid)	
 func	public.rls_auto_enable()	secdef=yes exec=anon,authenticated search_path=pg_catalog
 func	public.rotate_guest_qr_token(p_guest_id uuid, p_actor_kind text, p_reason text)	secdef=yes exec=authenticated search_path=public
 func	public.samahan_unread_counts()	secdef=no exec=authenticated search_path=public
+func	public.schedule_crew_names_ok(p_names text[])	secdef=no exec=anon,authenticated search_path=public, pg_temp
 func	public.service_card_couple_photos(p_vendor_service_ids uuid[])	secdef=yes exec=anon,authenticated search_path=public
 func	public.service_card_records(p_service_ids uuid[])	secdef=yes exec=authenticated search_path=public
 func	public.set_coordinator_colour_access(p_event_id uuid, p_user_id uuid, p_domain text, p_active boolean)	secdef=yes exec=authenticated search_path=public
@@ -6902,6 +6915,7 @@ func	public.shop_portfolio_commit(p_vendor_profile_id uuid, p_refs text[], p_spe
 func	public.shop_portfolio_ref_credits(p_ref text)	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.story_dial_bucket_counts(p_event_id uuid, p_window_start timestamp with time zone, p_window_end timestamp with time zone, p_bucket_minutes integer)	secdef=no exec=authenticated search_path=public
 func	public.supersede_prior_vendor_proposals(p_event_id uuid, p_vendor_profile_id uuid, p_keep_proposal_id uuid)	secdef=yes exec=authenticated search_path=public
+func	public.supplier_mark_schedule(p_event_id uuid, p_mark text)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.swap_entourage_places(p_event_id uuid, p_a uuid, p_b uuid)	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.swap_seat_assignments(p_event_id uuid, p_guest_a uuid, p_guest_b uuid)	secdef=no exec=anon,authenticated search_path=public
 func	public.swap_table_assignments(p_event_id uuid, p_table_a uuid, p_table_b uuid)	secdef=no exec=anon,authenticated search_path=public
@@ -6969,4 +6983,5 @@ func	public.wall_clear_caption(p_message_id uuid)	secdef=yes exec=authenticated 
 func	public.wall_retract(p_source_table text, p_source_id uuid, p_also_gallery boolean)	secdef=yes exec=authenticated search_path=public
 func	public.wall_unhide(p_source_table text, p_source_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.withdraw_change_order(p_change_order_id uuid)	secdef=yes exec=authenticated search_path=public
+func	public.withdraw_schedule_request(p_suggestion_id uuid)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.withdraw_vendor_payment_ask(p_ask_id uuid)	secdef=yes exec=authenticated search_path=public

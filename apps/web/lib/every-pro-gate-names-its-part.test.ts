@@ -116,6 +116,7 @@ const EVERYTHING_ASKED_HERE: Record<string, string> = {
   'app/dashboard/[eventId]/website/editor/page.tsx': "the legacy editor's padlocks and its one Full Pro unlock button",
   'app/dashboard/[eventId]/website/widgets/page.tsx': "the legacy scenes page's Pro marks",
   'lib/onboarding-services-orders.ts': 'onboarding sells ONE offer — Full Pro (owner 2026-10-22)',
+  'lib/schedule-view-as.server.ts': "the Schedule's View as — Pro by the owner's 1 Nov ruling (plan §3b), and not an Event Hub part",
 };
 
 test('(2) "everything" is asked only where everything is the answer', () => {

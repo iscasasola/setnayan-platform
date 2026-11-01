@@ -71,7 +71,8 @@ test('3 · the server keeps notes out and approves through the one accept path',
   const all = body(actions, 'approveAllScheduleSuggestions');
   assert.match(all, /decideSuggestion\(supabase, user\.id, eventId, id, 'accept', true\)/, 'Approve all does not use the one accept path');
   assert.doesNotMatch(all, /\.from\('event_schedule_blocks'\)/, 'Approve all writes the schedule itself — a second accept path');
-  const decide = body(actions, 'decideSuggestion');
+  // The one accept path lives in lib since Step 4b (Auto-agree runs it too).
+  const decide = body(stripComments(readFileSync(join(__dirname, 'schedule-suggestion-decide.server.ts'), 'utf8')), 'decideSuggestion');
   const out = decide.search(/if \(onlyChanges && isNoteOnlySuggestion\(suggestion\)\) return 'words';/);
   const firstWrite = decide.search(/\.from\('event_schedule_blocks'\)/);
   assert.ok(out > 0 && out < firstWrite, 'a suggestion in words can be applied by Approve all');

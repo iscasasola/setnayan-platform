@@ -12,8 +12,8 @@ FRAMES ONLY WHERE YOU ACT" · "HOME PROTOTYPE APPROVED" · "SCHEDULE AND BUDGET 
   (the last week; ◆ PRO on Free) · N need you (`findTaskClashes`) · N owe times (booked suppliers named on nothing).
   ONE round of four reads, started with Home's other reads; a refusal says "Schedule couldn't load", never empty.
 - **To do** — the Checklist widget is named To do; it reads today's progress until #7149 merges (seam marked).
-- Seams: "N to approve" opens the Schedule until #7150's Approve all sheet merges; the share/PDF icon waits for #7150's
-  export route; Time TBA chapters (#7151) are not yet known to this reader.
+- "N to approve" opens the Schedule's supplier requests sheet (`?sheet=requests`, #7150's Approve all). Not built: the card's share/PDF icon (#7150 shipped
+  the export route; its paper picker does not fit a round icon); a Time TBA chapter (#7151) is never "happening now" and shows "Time TBA" in What's next.
 
 Guards: `only-the-acting-widgets-are-framed.test.ts`, `the-schedule-widget-reads-chapters.test.ts`, and the failed-read
 case in `home-control-reads-honestly.test.ts`.

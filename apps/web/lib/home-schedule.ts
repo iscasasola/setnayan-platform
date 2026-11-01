@@ -18,7 +18,7 @@
  * Pure: no React, no I/O, no clock of its own (`nowMs` is handed in). Every time is a WALL CLOCK at the venue
  * (`lib/schedule-chapters.ts`), compared with now only through `plannedInstant` — never a zone sum of its own.
  */
-import { chaptersFromBlocks, clockWords, findTaskClashes, wallDay, type Chapter, type MomentLike, type TaskRow } from '@/lib/schedule-chapters';
+import { TIME_TBA, chaptersFromBlocks, clockWords, findTaskClashes, wallDay, type Chapter, type MomentLike, type TaskRow } from '@/lib/schedule-chapters';
 import { plannedInstant } from '@/lib/run-of-show';
 
 /** One stored block, as the widget reads it — chapters and their moments in ONE read (`HOME_SCHEDULE_FIELDS`). */
@@ -109,6 +109,16 @@ export function homeScheduleFrom(i: {
   const upcoming: Array<{ at: number; line: HomeScheduleLine }> = [];
   for (const c of chapters) {
     const kids = (kidsOf.get(c.block_id) ?? []).slice().sort((a, b) => String(a.start_at ?? '').localeCompare(String(b.start_at ?? '')));
+    // ⏰ TIME TBA (#7151, `time_tba`): the chapter's DAY is known, its clock is not — never "happening now" (a guessed
+    // midnight), and in What's next only from a later day, saying "Time TBA" in place of a clock.
+    if (c.time_tba) {
+      const day = wallDay(c.start_at);
+      const dayStart = plannedInstant(`${day}T00:00`, i.tz);
+      if (day > i.today && dayStart !== null) {
+        upcoming.push({ at: dayStart, line: { chapterId: c.block_id, k: c.label, v: [dayWords(c.start_at), TIME_TBA, placeOf(c)].filter(Boolean).join(' · ') } });
+      }
+      continue;
+    }
     const start = plannedInstant(c.start_at, i.tz);
     const end = chapterEndMs(c, kids, i.tz);
     if (start === null || end === null) continue;

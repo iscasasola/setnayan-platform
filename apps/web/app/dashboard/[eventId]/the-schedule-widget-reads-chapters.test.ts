@@ -79,6 +79,13 @@ test('1 · every running chapter is Happening now, with its running moment; What
   const before = homeScheduleFrom({ blocks: DAY, tasks: [], openRequests: 0, bookedVendorIds: [], nowMs: at('2026-11-01T09:00'), tz: TZ, today: '2026-11-01' });
   assert.match(before.next[0]!.v, /^Sat, Dec 12 · 9:00 AM/, 'a line on another day does not name its day');
   assert.deepEqual(before.then.map((l) => l.k), ['Preparation · Groom'], 'Then is not the group after');
+
+  // ⏰ A Time TBA chapter (#7151): never Happening now at a guessed midnight; from an earlier day, next with "Time TBA".
+  const tba = block('fitting', 'Final fitting', '2026-11-21T00:00', null, null, { time_tba: true });
+  const onItsDay = homeScheduleFrom({ blocks: [tba], tasks: [], openRequests: 0, bookedVendorIds: [], nowMs: at('2026-11-21T00:30'), tz: TZ, today: '2026-11-21' });
+  assert.deepEqual(onItsDay.now, [], 'a Time TBA chapter runs at midnight');
+  const ahead = homeScheduleFrom({ blocks: [tba], tasks: [], openRequests: 0, bookedVendorIds: [], nowMs: at('2026-11-01T09:00'), tz: TZ, today: '2026-11-01' });
+  assert.equal(ahead.next[0]?.v, 'Sat, Nov 21 · Time TBA', 'a Time TBA chapter shows a clock');
 });
 
 test('2 · the doors: to approve · Release in the last week (◆ PRO on Free) · need you · owe times — a zero hides its door', () => {

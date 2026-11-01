@@ -60,7 +60,7 @@ const OPENED_BY_A_PRESS = new Set([
   'app/dashboard/[eventId]/launch/_components/stage-panel/play-status.tsx',
   'app/dashboard/[eventId]/seating/_components/seat-plan-phone.tsx',
   'app/dashboard/[eventId]/guests/_components/guest-popup.tsx',
-  'app/_components/explain.tsx',
+  'app/_components/explain-open.tsx',
   'app/_components/auth/sign-in-here-panel.tsx',
   'app/_components/calendar.tsx',
 ]);

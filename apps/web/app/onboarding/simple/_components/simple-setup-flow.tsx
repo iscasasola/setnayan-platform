@@ -21,6 +21,7 @@ import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { SetupCard } from '@/app/onboarding/_shared/setup-card';
 import { NeedsStep } from '@/app/onboarding/_shared/needs-step';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { nudgeFormRows } from '@/app/_components/form-row';
 import {
   setupCardAnswered,
   setupDefaults,
@@ -91,7 +92,13 @@ function Paced({ view, steps, finish, label, marketplace, dateExempt = false }: 
 
   function next() {
     if (step === 0) {
-      // The name is required; ask the browser to say so before moving on.
+      // The name is required. It is a Field-template row (`TypedRow`, whose carrier is a hidden input the browser
+      // does not check), so an empty one shakes and is brought into view — never a silent refusal.
+      if (!name.trim()) {
+        nudgeFormRows(startRef.current ?? undefined);
+        return;
+      }
+      // The rest still ask the browser to say what is wrong before moving on.
       const fields = startRef.current?.querySelectorAll('input') ?? [];
       for (const f of Array.from(fields)) {
         if (!f.checkValidity()) {
@@ -138,7 +145,17 @@ function Paced({ view, steps, finish, label, marketplace, dateExempt = false }: 
           fieldNames={{ name: 'display_name', when: 'event_date' }}
           cta={
             only ? (
-              <SubmitButton className="button-primary h-12 w-full" pendingLabel="Making…">
+              <SubmitButton
+                className="button-primary h-12 w-full"
+                pendingLabel="Making…"
+                onClick={(e) => {
+                  // The name is required (it was the raw box's `required`; the Field row's carrier is hidden).
+                  if (!name.trim()) {
+                    e.preventDefault();
+                    nudgeFormRows(startRef.current ?? undefined);
+                  }
+                }}
+              >
                 Make the event
               </SubmitButton>
             ) : (

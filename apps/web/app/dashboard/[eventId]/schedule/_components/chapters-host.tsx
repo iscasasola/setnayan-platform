@@ -54,7 +54,7 @@ import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { Tip } from './day-ui';
 import { ChaptersContext, useChapters, type ChaptersApi as Api } from './chapters-context';
 import { ChapterSheet, LAB_CHAPTER_DOORS, NewChapterSheet, newChapter, realChapterDoors } from './chapter-sheets';
-import { LAB_MOMENT_DOORS, MomentSheet, NewMomentSheet, clashMomentOf, realMomentDoors, taskNamesFrom } from './moment-sheets';
+import { LAB_MOMENT_DOORS, MomentLayer, MomentSheet, NewMomentSheet, clashMomentOf, realMomentDoors, taskNamesFrom } from './moment-sheets';
 
 /** A moment as a chapter's page lists it — a child block, with who is on it in words, and what its sheet edits. */
 export type ChapterMoment = {
@@ -130,6 +130,7 @@ export function ChaptersHost({
   input,
   dateLine,
   lab = false,
+  labOpen = null,
   children,
 }: {
   eventId: string;
@@ -138,6 +139,9 @@ export function ChaptersHost({
   dateLine: string;
   /** 🧪 `/dev/schedule-chapters-lab`: the same page and sheets, doors that write nothing. */
   lab?: boolean;
+  /** 🧪 The lab only: open on this chapter's page with this moment's sheet up (`?moment=1`) — a phone can be shown it
+   *  by a link, with no tap. */
+  labOpen?: { chapter: string; moment: string } | null;
   children: ReactNode;
 }) {
   const doors = useMemo(() => (lab ? LAB_CHAPTER_DOORS : realChapterDoors(eventId)), [eventId, lab]);
@@ -145,9 +149,12 @@ export function ChaptersHost({
   const [chapters, setChapters] = useState<Chapter[]>(input.measured ? input.chapters : []);
   const [moments, setMoments] = useState<ChapterMoment[]>(input.measured ? input.moments : []);
   const [tasks, setTasks] = useState<TaskRow[] | null>(input.measured ? input.tasks : null);
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(lab && labOpen ? labOpen.chapter : null);
   const [sheet, setSheet] = useState<'new' | 'edit' | null>(null);
-  const [momentSheet, setMomentSheet] = useState<{ kind: 'new'; section: ChapterSection } | { kind: 'edit'; id: string } | null>(null);
+  const [momentSheet, setMomentSheet] = useState<{ kind: 'new'; section: ChapterSection } | { kind: 'edit'; id: string } | null>(
+    lab && labOpen ? { kind: 'edit', id: labOpen.moment } : null,
+  );
+  const [momentDeleting, setMomentDeleting] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
   // A fresh server answer (a rail write revalidates the page) supersedes what this page laid on the list.
   useEffect(() => {
@@ -254,7 +261,16 @@ export function ChaptersHost({
         />
       ) : null}
 
-      {momentSheet?.kind === 'new' && current ? (
+      {/* ONE sheet for a moment — Add swaps the new moment's body for the moment's own, never a second sheet. */}
+      {momentSheet && current && (momentSheet.kind === 'new' || openMoment) ? (
+        <MomentLayer
+          title={momentSheet.kind === 'new' ? 'New moment' : momentDeleting ? 'Delete moment' : 'Moment'}
+          onClose={() => {
+            setMomentSheet(null);
+            setMomentDeleting(false);
+          }}
+        >
+          {momentSheet.kind === 'new' ? (
         <NewMomentSheet
           key={`new-moment:${current.block_id}`}
           chapter={current}
@@ -289,9 +305,7 @@ export function ChaptersHost({
             return true;
           }}
         />
-      ) : null}
-
-      {momentSheet?.kind === 'edit' && current && openMoment ? (
+          ) : openMoment ? (
         <MomentSheet
           key={`moment:${openMoment.block_id}`}
           moment={openMoment}
@@ -305,14 +319,18 @@ export function ChaptersHost({
           onPatch={(next) => setMoments((ms) => ms.map((x) => (x.block_id === openMoment.block_id ? { ...x, ...next } : x)))}
           onTasks={setTasks}
           onClose={() => setMomentSheet(null)}
+          onStage={setMomentDeleting}
           onDeleted={() => {
             setMoments((ms) => ms.filter((x) => x.block_id !== openMoment.block_id));
             setTasks((ts) => (ts ? ts.filter((t) => t.block_id !== openMoment.block_id) : ts));
             patch(current.block_id, { moments: Math.max(0, current.moments - 1) });
             setMomentSheet(null);
+            setMomentDeleting(false);
             setFlash(`${openMoment.label} is deleted.`);
           }}
         />
+          ) : null}
+        </MomentLayer>
       ) : null}
 
       {sheet === 'new' ? (

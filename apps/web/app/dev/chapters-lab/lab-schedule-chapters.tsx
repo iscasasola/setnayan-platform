@@ -14,7 +14,7 @@ import ScheduleLabClient from '../schedule-lab/schedule-lab-client';
 import { BookedScheduleFrame } from '@/app/dashboard/[eventId]/schedule/_components/booked-schedule-frame';
 import { BOOKED_SCHEDULE_TOOLS_SLOT } from '@/app/dashboard/[eventId]/schedule/_components/booked-schedule-slot';
 import { ChaptersHost, PlanningChapters, type ChaptersInput } from '@/app/dashboard/[eventId]/schedule/_components/chapters-host';
-import { LAB_CHAPTER_MOMENTS, LAB_CLASH_TASK, LAB_EVENT_DAY, LAB_MOMENT_ROW, LAB_SCHEDULE_CHAPTERS, LAB_TASKS, LAB_VENUES, LAB_WHO } from './lab-chapters';
+import { LAB_CHAPTERS, LAB_CHAPTER_MOMENTS, LAB_CLASH_TASK, LAB_EVENT_DAY, LAB_MOMENT_ROW, LAB_SCHEDULE_CHAPTERS, LAB_TASKS, LAB_VENUES, LAB_WHO } from './lab-chapters';
 
 export function LabScheduleChapters({
   empty,
@@ -22,12 +22,15 @@ export function LabScheduleChapters({
   viewOnly,
   clash = false,
   tasksFail = false,
+  openMoment = false,
 }: {
   empty: boolean;
   fail: boolean;
   viewOnly: boolean;
   clash?: boolean;
   tasksFail?: boolean;
+  /** `?moment=1`: open on the run-of-show moment's sheet (a phone shown it by a link). */
+  openMoment?: boolean;
 }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -49,7 +52,10 @@ export function LabScheduleChapters({
       };
   if (!mounted) return null;
   return (
-    <ChaptersHost eventId="00000000-0000-4000-8000-00000000e001" input={input} dateLine="Friday 18 December 2026 · 47 days to go" lab>
+    <ChaptersHost eventId="00000000-0000-4000-8000-00000000e001" input={input} dateLine="Friday 18 December 2026 · 47 days to go"
+      lab
+      labOpen={openMoment ? { chapter: LAB_CHAPTERS[0]!.block_id, moment: LAB_MOMENT_ROW.block_id } : null}
+    >
       <BookedScheduleFrame
         initial="event-day"
         views={[

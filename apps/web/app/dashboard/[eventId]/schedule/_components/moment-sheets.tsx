@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useId, useMemo, useState, type ReactNode } from 'react';
 import { CalendarPlus, Plus, Search, Trash2, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { Sheet } from '@/app/_components/sheet';
@@ -155,6 +155,24 @@ export function clashMomentOf(m: ChapterMoment): ClashMoment {
   };
 }
 
+/* ── the one sheet both stand in ─────────────────────────────────────────────────────────────────────────────── */
+
+const LayerHeading = createContext<string | undefined>(undefined);
+
+/**
+ * ONE sheet for a moment, new or opened: Add swaps its body in place, never a second sheet. Two sheets in a row would
+ * each own a Back entry (`useBackCloses`), and the first one's clean-up stepping back closed the second — measured in
+ * WebKit at 390: Add landed on the chapter page instead of the new moment.
+ */
+export function MomentLayer({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+  const headingId = useId();
+  return (
+    <Sheet open onClose={onClose} labelledById={headingId} title={title}>
+      <LayerHeading.Provider value={headingId}>{children}</LayerHeading.Provider>
+    </Sheet>
+  );
+}
+
 /* ── a new moment ────────────────────────────────────────────────────────────────────────────────────────────── */
 
 export function NewMomentSheet({
@@ -169,7 +187,7 @@ export function NewMomentSheet({
   onClose: () => void;
   onCreate: (label: string, startIso: string, minutes: number) => Promise<boolean>;
 }) {
-  const headingId = useId();
+  const headingId = useContext(LayerHeading);
   const sections = sectionsFor(c);
   const section0 = sections.includes(firstSection) ? firstSection : 'Event';
   const [label, setLabel] = useState('');
@@ -177,8 +195,8 @@ export function NewMomentSheet({
   const [minutes, setMinutes] = useState(DEFAULT_MOMENT_MINUTES);
   const [state, setState] = useState<'idle' | 'saving' | 'failed'>('idle');
   const ready = label.trim().length > 0;
+  void onClose;
   return (
-    <Sheet open onClose={onClose} labelledById={headingId} title="New moment">
       <div data-new-moment="" className="flex flex-col gap-3 px-4 pb-[calc(20px+env(safe-area-inset-bottom))] pt-2">
         <h3 id={headingId} className="sr-only">
           New moment in {c.label}
@@ -249,7 +267,6 @@ export function NewMomentSheet({
           />
         </div>
       </div>
-    </Sheet>
   );
 }
 
@@ -283,6 +300,7 @@ export function MomentSheet({
   onTasks,
   onClose,
   onDeleted,
+  onStage,
 }: {
   moment: ChapterMoment;
   chapter: Chapter;
@@ -299,9 +317,12 @@ export function MomentSheet({
   onTasks: (next: TaskRow[]) => void;
   onClose: () => void;
   onDeleted: () => void;
+  /** The sheet's title follows the stage: "Moment" · "Delete moment". */
+  onStage?: (deleting: boolean) => void;
 }) {
-  const headingId = useId();
+  const headingId = useContext(LayerHeading);
   const [stage, setStage] = useState<'details' | 'ask' | 'deleting' | 'failed'>('details');
+  useEffect(() => onStage?.(stage !== 'details'), [stage, onStage]);
   const [papic, setPapic] = useState<{ ok: true; value: number } | { ok: false } | null>(null);
   const [drafts, setDrafts] = useState<string[]>([]);
   const names = useMemo(() => taskNamesFrom(who), [who]);
@@ -334,8 +355,8 @@ export function MomentSheet({
     void doors.papicCount(c.block_id).then((r) => setPapic(r.ok ? r : { ok: false }));
   };
 
+  void onClose;
   return (
-    <Sheet open onClose={onClose} labelledById={headingId} title={stage === 'details' ? 'Moment' : 'Delete moment'}>
       <div data-moment-sheet={m.block_id} className="flex flex-col gap-3 px-4 pb-[calc(20px+env(safe-area-inset-bottom))] pt-2">
         <h3 id={headingId} className="sr-only">
           {m.label}
@@ -544,7 +565,6 @@ export function MomentSheet({
           </div>
         )}
       </div>
-    </Sheet>
   );
 }
 

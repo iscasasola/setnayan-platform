@@ -1,6 +1,6 @@
 'use client';
 
-import { formatPesoTyping } from '@/lib/peso-as-you-type';
+import { formatPesoTyping, keepPesoTyping } from '@/lib/peso-as-you-type';
 import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { flushSync } from 'react-dom';
 import { Check, ChevronDown, Pencil, X } from 'lucide-react';
@@ -940,18 +940,7 @@ export function FormRowField({
           /* 💱 AN AMOUNT GETS ITS COMMAS AS IT IS TYPED (owner 2026-10-30: "cannot place commas because it only shows
              number pad"). `onInput` runs before React's `onChange` reads the field, so the words the row is told are
              already "100,000"; the caret stays after the digit just typed; the keep still takes only the digits. */
-          onInput={
-            mark
-              ? (e) => {
-                  const el = e.currentTarget;
-                  const f = formatPesoTyping(el.value, el.selectionStart ?? el.value.length, 0);
-                  if (f.text !== el.value) {
-                    el.value = f.text;
-                    el.setSelectionRange(f.caret, f.caret);
-                  }
-                }
-              : undefined
-          }
+          onInput={mark ? (e) => void keepPesoTyping(e.currentTarget, 0) : undefined}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={onKeys}
         />

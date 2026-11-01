@@ -92,7 +92,10 @@ test('the engine: settles a copy onto its real card, advances ≈3 s, pauses 6 s
   }
   const tick = SRC.slice(SRC.indexOf('const tick = window.setInterval('), SRC.indexOf('}, advanceMs);'));
   assert.match(tick, /if \(reduce\.matches \|\| !looping \|\| !onScreen \|\| hovering \|\| focused\) return;/, 'it advances under reduced motion, off screen or while held');
-  assert.match(tick, /document\.visibilityState === 'hidden' \|\| Date\.now\(\) < pausedUntil/);
+  assert.match(tick, /if \(document\.visibilityState === 'hidden'\) return;/);
+  // The touch pause and the hold both go through the one decision (`carouselMove`, held by a-held-carousel-card-stays-put).
+  assert.match(tick, /carouselMove\(\{ held, at: realOf\(slot\), paused: Date\.now\(\) < pausedUntil \}\)/);
+  assert.match(tick, /if \(move === 'stay'\) return;/);
   assert.match(SRC, /matchMedia\('\(prefers-reduced-motion: reduce\)'\)/);
   assert.match(CSS, /@media \(prefers-reduced-motion: reduce\) \{\s*\.track \{\s*scroll-behavior: auto;/);
   // Dots are attributes, never state — a scroll re-renders nothing.

@@ -103,7 +103,7 @@ test('the Schedule PDF prints a TBA chapter as "Time TBA", never 12:00 AM', () =
   });
   const reception = doc.sections.find((s) => s.title === 'Reception');
   assert.ok(reception, 'the TBA chapter is on the page');
-  assert.ok(reception.aside?.includes(TIME_TBA), reception.aside);
+  assert.ok(reception.aside?.includes(TIME_TBA), String(reception.aside));
   assert.doesNotMatch(JSON.stringify(reception), MIDNIGHT);
 });
 

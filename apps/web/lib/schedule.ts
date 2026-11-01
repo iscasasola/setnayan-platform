@@ -122,7 +122,7 @@ export type ScheduleBlockRow = {
   see `insertScheduleBlocks` — so there is still exactly one copy of the list.
 */
 const SELECT =
-  'block_id,public_id,event_id,label,block_type,start_at,end_at,location,notes,is_public,sort_order,parent_block_id,created_at,run_state,actual_start_at,actual_end_at,audience,time_tba';
+  'block_id,public_id,event_id,label,block_type,start_at,end_at,location,notes,is_public,sort_order,parent_block_id,created_at,run_state,actual_start_at,actual_end_at,time_tba,audience';
 
 /**
  * The SAME ordering `fetchScheduleBlocks` asks PostgREST for — `start_at`

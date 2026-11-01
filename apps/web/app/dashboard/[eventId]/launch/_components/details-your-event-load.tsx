@@ -16,7 +16,8 @@ import { readYourEventFacts } from './details-your-event-facts';
 import { loadEntourageSectionOrder, loadEventNameStyle } from '@/app/[slug]/_lib/loaders';
 import { nameStyleOfPrintDetails } from '@/lib/name-style';
 import { coord } from '@/lib/event-venues';
-import { readLiveCeremonyTime } from '@/lib/ceremony-time.server';
+import { readLiveCeremony } from '@/lib/ceremony-time.server';
+import { ceremonyTimeBox } from '@/lib/ceremony-time';
 
 /**
  * Everything Details › Your event reads, for the couple's own Maker (Details
@@ -62,18 +63,18 @@ export async function loadYourEvent({
   /** ⛪ Event Hub Pro as the viewer is shown it — the venue card's "Our drawing ◆" mark. */
   venuePro?: { owns: boolean; storeShell: boolean };
 }): Promise<YourEventInput | null> {
-  const [base, confirmedVendorCount, nameStyle, liveCeremonyTime, savedSections] = await Promise.all([
+  const [base, confirmedVendorCount, nameStyle, liveCeremony, savedSections] = await Promise.all([
     readYourEventFacts({ admin, eventId, parentCount, hostCount, drafted, draftedVenue }),
     getConfirmedVendorCount(supabase, eventId).catch(() => 0),
     // 🔤 The Name style ▾ under the Names (owner 2026-09-30) — the same cached read the entourage uses.
     loadEventNameStyle(admin, eventId),
     // 🕒 The Schedule's Ceremony start (owner 2026-10-04) — unread is "none yet", never a guess written back.
-    readLiveCeremonyTime(admin, eventId).catch(() => null),
+    readLiveCeremony(admin, eventId).catch(() => null),
     // 🚶 The section order the march's header drag steps through (the same cached read the entourage uses).
     loadEntourageSectionOrder(admin, eventId),
   ]);
-  const ceremonyTime =
-    drafted && typeof drafted.ceremony_time === 'string' ? drafted.ceremony_time : liveCeremonyTime;
+  /* ⏰ A Time-TBA ceremony shows "Time TBA" in an empty box — never its placeholder 00:00 (`ceremonyTimeBox`). */
+  const { time: ceremonyTime, tba: ceremonyTba } = ceremonyTimeBox(drafted?.ceremony_time, liveCeremony);
   /* …shown as DRAFTED when the couple picked one in the Maker (owner 2026-10-01,
      "in event hub maker will only take effect when pressed apply"). */
   const shownNameStyle = drafted && 'print_details' in drafted ? nameStyleOfPrintDetails(drafted.print_details) : nameStyle;
@@ -189,6 +190,7 @@ export async function loadYourEvent({
       nudge: chinese ? <ChineseSpecialistNudge /> : null,
       helpFirst,
       ceremonyTime,
+      ceremonyTba,
     },
     venues: {
       resolved: venues,

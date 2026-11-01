@@ -1221,6 +1221,7 @@ export async function MoodBoardStudioBody({ eventId }: { eventId: string }) {
                 sort_order: b.sort_order,
                 parent_block_id: b.parent_block_id,
                 audience: b.audience ?? null,
+                time_tba: b.time_tba === true,
               })),
               eventDate: (() => { const d = (shown as { event_date?: unknown }).event_date; return typeof d === 'string' ? d : (live.event_date ?? null); })(),
             }

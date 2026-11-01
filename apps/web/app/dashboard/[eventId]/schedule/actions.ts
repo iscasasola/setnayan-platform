@@ -41,7 +41,8 @@ import { isCoordinatorPrepReleaseEnabled } from '@/lib/coordinator-prep-release'
 import { eventWordsForEvent, untitledEventName } from '@/app/[slug]/_lib/event-words';
 import { refuseLimitedHelper } from '@/lib/host-gate';
 import { userHostsEvent } from '@/lib/events';
-import { isCallLead, isPhotoWhen, isPhotoWho } from '@/lib/schedule-chapters';
+import { isCallLead, isMomentOp, isPhotoWhen, isPhotoWho } from '@/lib/schedule-chapters';
+import { runMomentOp } from '@/lib/schedule-chapters.server';
 
 const VALID_TYPES = new Set<ScheduleBlockType>(SCHEDULE_BLOCK_TYPES);
 /** A write that reached no row — refused by RLS, or the moment is gone. Thrown, so the rail says "did not save". */
@@ -395,6 +396,15 @@ export async function updateScheduleBlock(formData: FormData) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+
+  // 📖 THE MOMENT SHEET'S TASKS AND ITS DELETE COUNT (Step 3b, owner 2026-11-01 §3c) — an intent branch on this door,
+  // not a new exported action (the server-action budget is at its ceiling). `block_id` is the moment (a task's) or
+  // the chapter (the Papic count). RLS decides every write; each one answers in words and reads back what it changed.
+  const momentOp = formData.get('moment_op');
+  if (momentOp !== null) {
+    if (!isMomentOp(momentOp)) throw new Error('Invalid input');
+    return runMomentOp(supabase, momentOp, blockId, formData, user.id);
+  }
 
   type Patch = {
     label?: string;

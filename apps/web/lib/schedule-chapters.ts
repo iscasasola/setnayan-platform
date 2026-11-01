@@ -1,3 +1,5 @@
+import { TIME_TBA, isTimeTba } from './time-tba';
+
 /**
  * 📖 CHAPTERS, MOMENTS AND THEIR PARALLEL TASKS — the pure half (owner 2026-11-01, DECISION_LOG "SCHEDULE AND
  * CHAPTERS — THE PLAN" · "THE BLOW BY BLOW FROM THE REAL RUN OF SHOW"; corpus SCHEDULE_CHAPTERS_BUILD_PLAN §2, §3, §3c).
@@ -54,23 +56,13 @@ export function isPhotoWhen(v: unknown): v is PhotoWhen {
 
 /** A chapter with no venue yet (owner: *"Sometime it can be tba"*). */
 export const VENUE_TBA = 'Venue TBA';
-/** A chapter whose time is not known yet (owner 2026-11-01, ruled yes): no clock, no call time (plan §3). */
-export const TIME_TBA = 'Time TBA';
-
-/**
- * ⏰ IS THIS ROW'S CLOCK UNKNOWN? (migration 20271300482585, plan §3 "Chapter time TBA = no call time"). A TBA chapter
- * keeps its DAY in `start_at` at 00:00 — that midnight is a placeholder, never a time. Every reader that draws a clock,
- * ranks by time, picks "now", or derives a call time asks THIS before it touches `start_at`: a TBA row is listed as
- * "Time TBA" (or left out), never drawn as 12:00 AM, never "now", never a call time. Held by
- * `a-tba-chapter-is-never-midnight.test.ts`.
- */
-export function isTimeTba(row: { time_tba?: boolean | null }): boolean {
-  return row.time_tba === true;
-}
+// ⏰ `TIME_TBA` and `isTimeTba` live in the leaf `lib/time-tba.ts` (no imports), so a client bundle that only needs the
+// words — the Maker's ceremony-time box, `blockTime` — never carries this whole module (the Maker's JS budget).
+export { TIME_TBA, isTimeTba };
 
 /** The fields a chapter is read with (a chapter-only subset of the block, never the canonical block list) — one list, so the reader and the lab can never disagree. */
 export const CHAPTER_FIELDS =
-  'block_id, parent_block_id, label, start_at, end_at, location, spot, notes, ingress_minutes_before, egress_minutes_after, call_lead_minutes, on_invitation, photo_who, photo_when, is_public, sort_order, time_tba';
+  'block_id, parent_block_id, label, start_at, end_at, location, spot, notes, ingress_minutes_before, egress_minutes_after, call_lead_minutes, on_invitation, photo_who, photo_when, is_public, sort_order, time_tba, is_optional, travel_from, travel_to';
 
 export type Chapter = {
   block_id: string;
@@ -498,3 +490,325 @@ export function findTaskClashes(items: readonly TaskAt[]): TaskClash[] {
   }
   return out;
 }
+
+/* ── a moment's own facts, its time, and the sheet's words (Step 3b) ──────────────────────────────────────────── */
+
+/**
+ * 📖 STEP 3b — A MOMENT AND ITS PARALLEL TASKS (owner 2026-11-01, plan §3 "Moments work the same way" · §3c; DECISION_LOG
+ * "THE BLOW BY BLOW FROM THE REAL RUN OF SHOW"). What a moment carries beyond the block every reader already has: its
+ * room (`spot`, the default place of each task in it), the "if kept" mark, and a travel moment's from → to. Read from
+ * the SAME one read as the chapters (`CHAPTER_FIELDS`), never a second read of the blocks.
+ */
+export type MomentFacts = {
+  block_id: string;
+  parent_block_id: string;
+  spot: string | null;
+  notes: string | null;
+  is_optional: boolean;
+  travel_from: string | null;
+  travel_to: string | null;
+};
+
+/** Every moment's own facts, from the rows the chapter read already holds. */
+export function momentFactsFromBlocks(rows: readonly BlockRow[]): MomentFacts[] {
+  return rows
+    .filter((r): r is BlockRow & { parent_block_id: string } => typeof r.parent_block_id === 'string' && r.parent_block_id.length > 0)
+    .map((r) => ({
+      block_id: r.block_id,
+      parent_block_id: r.parent_block_id,
+      spot: blankToNull(r.spot),
+      notes: blankToNull(r.notes),
+      is_optional: r.is_optional === true,
+      travel_from: blankToNull(r.travel_from),
+      travel_to: blankToNull(r.travel_to),
+    }));
+}
+
+/** A moment's length when none is given — the approved prototype's 30. */
+export const DEFAULT_MOMENT_MINUTES = 30;
+
+/** Whole minutes from `a` to `b` (two stored wall clocks); null when either is unreadable. */
+export function minutesBetween(a: string | null | undefined, b: string | null | undefined): number | null {
+  const x = typeof a === 'string' ? Date.parse(a) : NaN;
+  const y = typeof b === 'string' ? Date.parse(b) : NaN;
+  return Number.isFinite(x) && Number.isFinite(y) ? Math.round((y - x) / 60_000) : null;
+}
+
+/**
+ * A moment's clock → the stored wall clock, ON THE RIGHT DAY. A chapter's window may cross midnight both ways
+ * (§3c #3: ingress from 11 PM the night before; egress until 1 AM after), so the clock alone does not say the day.
+ * Of the chapter's day and the days either side, the one inside the chapter's window wins (ingress → egress, else
+ * start → end, else that day); none inside → the chapter's own day. Null when the clock is unreadable.
+ */
+export function momentStartFrom(c: Pick<Chapter, 'start_at' | 'end_at' | 'ingress_minutes_before' | 'egress_minutes_after'>, hhmm: string): string | null {
+  const day = wallDay(c.start_at);
+  const same = wallIso(day, hhmm.trim());
+  if (!same) return null;
+  const from = Date.parse(ingressAt(c) ?? c.start_at);
+  const lastEnd = egressAt(c) ?? c.end_at;
+  const to = lastEnd ? Date.parse(lastEnd) : Date.parse(c.start_at) + 24 * 3_600_000;
+  for (const shift of [0, 1440, -1440]) {
+    const at = shift === 0 ? same : shiftWall(same, shift);
+    const t = Date.parse(at);
+    if (t >= from && t <= to) return at;
+  }
+  return same;
+}
+
+/**
+ * Where a picked SECTION puts a moment (the section is read from the time — `momentSection` — never stored, so picking
+ * one moves the moment into it): Ingress → when ingress opens (else 30 minutes before the start) · Event → the
+ * chapter's start · Egress → the chapter's end. Null when that section has no time to go to.
+ */
+export function sectionStartFor(c: Pick<Chapter, 'start_at' | 'end_at' | 'ingress_minutes_before' | 'time_tba'>, section: ChapterSection): string | null {
+  if (section === 'Event') return c.start_at;
+  if (c.time_tba) return null;
+  if (section === 'Ingress') return ingressAt(c) ?? shiftWall(c.start_at, -DEFAULT_MOMENT_MINUTES);
+  return c.end_at;
+}
+
+/** The sections a moment of this chapter may be put in: Event always; Ingress once the time is known; Egress once it has an end. */
+export function sectionsFor(c: Pick<Chapter, 'end_at' | 'time_tba'>): ChapterSection[] {
+  if (c.time_tba) return ['Event'];
+  return c.end_at ? ['Ingress', 'Event', 'Egress'] : ['Ingress', 'Event'];
+}
+
+/** Who a task can name, as the sheet's one Who ▾ lists them (`readTaskPeople`). Suppliers come from the page's supplier read. */
+export type TaskPeople = {
+  guests: { id: string; name: string; role: string }[];
+  groups: { id: string; name: string }[];
+  /** The roles held on this event — key and word. */
+  roles: { key: string; name: string }[];
+};
+
+/** The names a task's who is said with — the event's own suppliers, guests and groups, by id. */
+export type TaskNames = {
+  suppliers: ReadonlyMap<string, string>;
+  guests: ReadonlyMap<string, string>;
+  groups: ReadonlyMap<string, string>;
+  /** A role key → its word ("bridesmaid" → "Bridesmaid"). */
+  roles: ReadonlyMap<string, string>;
+};
+
+/** "Glow HMUA · Team B" · "Ana Reyes" · "Bridesmaids" · "Bridesmaid" · "Seda banquet captain". */
+export function taskWhoWords(t: Pick<TaskRow, 'vendor_id' | 'crew' | 'guest_id' | 'group_id' | 'role' | 'who_label'>, names: TaskNames): string {
+  const w = taskWho(t);
+  if (!w) return 'Someone';
+  switch (w.kind) {
+    case 'supplier': {
+      const shop = names.suppliers.get(w.vendorId) ?? 'A supplier';
+      return w.crew ? `${shop} · ${w.crew}` : shop;
+    }
+    case 'guest':
+      return names.guests.get(w.guestId) ?? 'A guest';
+    case 'group':
+      return names.groups.get(w.groupId) ?? 'A group';
+    case 'role':
+      return names.roles.get(w.role) ?? w.role;
+    case 'label':
+      return w.label;
+  }
+}
+
+/** A moment as the clash check reads it: its times, its own room, and its chapter's venue. */
+export type ClashMoment = MomentLike & { label: string; parent_block_id: string };
+
+/**
+ * ⚠ THE CLASHES THAT TOUCH ONE MOMENT (§3c #5 — flagged, never blocked): every pair from `findTaskClashes` over the
+ * WHOLE event's tasks in which one side is a task of this moment, as the words the sheet shows: "Glow HMUA · Team B is
+ * in two places at once: 2F holding room and Lobby (Florist arrives)". Keyed by this moment's task id.
+ */
+export function clashesForMoment(
+  momentId: string,
+  tasks: readonly TaskRow[],
+  moments: readonly ClashMoment[],
+  chapters: readonly Pick<Chapter, 'block_id' | 'location' | 'spot'>[],
+  names: TaskNames,
+): Map<string, string> {
+  const byMoment = new Map(moments.map((m) => [m.block_id, m]));
+  const byChapter = new Map(chapters.map((c) => [c.block_id, c]));
+  const items: TaskAt[] = [];
+  for (const task of tasks) {
+    const moment = byMoment.get(task.block_id);
+    if (!moment) continue;
+    items.push({ task, moment, chapter: byChapter.get(moment.parent_block_id) ?? null });
+  }
+  const byTask = new Map(items.map((it) => [it.task.task_id, it]));
+  const out = new Map<string, string>();
+  for (const clash of findTaskClashes(items)) {
+    const a = byTask.get(clash.first)!;
+    const b = byTask.get(clash.second)!;
+    for (const [mine, other, myPlace, otherPlace] of [
+      [a, b, clash.places[0], clash.places[1]],
+      [b, a, clash.places[1], clash.places[0]],
+    ] as const) {
+      if (mine.task.block_id !== momentId || out.has(mine.task.task_id)) continue;
+      const where = other.task.block_id === momentId ? otherPlace : `${otherPlace} (${(other.moment as ClashMoment).label})`;
+      out.set(mine.task.task_id, `${taskWhoWords(mine.task, names)} is in two places at once: ${myPlace} and ${where}.`);
+    }
+  }
+  return out;
+}
+
+/**
+ * 🗑 WHAT DELETE MOMENT SAYS BEFORE IT DELETES (owner: *"deleting this moment will also delete the papic photos and
+ * videos"* — the warning names the count). Papic shoots into CHAPTERS (`papic_chapter_captures.block_id` is always a
+ * chapter — migration 20271300249267 refuses a moment): no capture belongs to a moment yet, so deleting one removes no
+ * Papic item, and the warning says exactly that, with the chapter's real count. A count that could not be read is
+ * said, never drawn as 0.
+ */
+export function momentDeleteWords(input: {
+  label: string;
+  tasks: number;
+  chapterLabel: string;
+  papic: { ok: true; value: number } | { ok: false } | null;
+}): string {
+  const tasks = input.tasks > 0 ? `, with its ${input.tasks} task${input.tasks === 1 ? '' : 's'},` : '';
+  const head = `${input.label}${tasks} will be deleted. This cannot be undone.`;
+  if (input.papic === null) return `${head} Counting ${input.chapterLabel}’s Papic photos…`;
+  if (!input.papic.ok) {
+    return `${head} ${input.chapterLabel}’s Papic photos and videos couldn’t be counted just now. Papic shoots into the chapter, not one moment, so they stay.`;
+  }
+  const n = input.papic.value;
+  if (n === 0) return `${head} ${input.chapterLabel} has no Papic photos or videos yet, so none are deleted.`;
+  const what = n === 1 ? '1 Papic photo or video stays' : `${n} Papic photos and videos stay`;
+  return `${head} Papic shoots into the chapter, not one moment, so ${input.chapterLabel}’s ${what}.`;
+}
+
+/**
+ * A task's call time typed as a clock → the stored wall clock, on the day nearest its moment's start (a 11:30 PM call
+ * for a 12:30 AM moment is the night before). Blank → null (the moment's own start is their time).
+ */
+export function callAtFrom(momentStart: string, hhmm: string): string | null {
+  if (!hhmm.trim()) return null;
+  const same = wallIso(wallDay(momentStart), hhmm.trim());
+  if (!same) return null;
+  const gap = Date.parse(same) - Date.parse(momentStart);
+  const half = 12 * 3_600_000;
+  return gap > half ? shiftWall(same, -1440) : gap < -half ? shiftWall(same, 1440) : same;
+}
+
+/** "3 tasks at once · 2 places" — how a moment's tasks read on its row; '' for none. */
+export function tasksLine(tasks: readonly TaskRow[], moment: MomentLike, chapter?: Pick<MomentLike, 'location' | 'spot'> | null): string {
+  if (tasks.length === 0) return '';
+  const places = new Set(tasks.map((t) => taskPlace(t, moment, chapter)).filter((p): p is string => Boolean(p)).map(norm));
+  const head = tasks.length === 1 ? '1 task' : `${tasks.length} tasks at once`;
+  return places.size > 1 ? `${head} · ${places.size} places` : head;
+}
+
+/** The moment sheet's operations, posted as `moment_op` on the Schedule's own update door (no new server action). */
+export const MOMENT_OPS = ['task_add', 'task_save', 'task_remove', 'papic_count'] as const;
+export type MomentOp = (typeof MOMENT_OPS)[number];
+export function isMomentOp(v: unknown): v is MomentOp {
+  return typeof v === 'string' && (MOMENT_OPS as readonly string[]).includes(v);
+}
+
+const WHO_KINDS = ['supplier', 'guest', 'group', 'role', 'label'] as const;
+/** A call time is posted as the stored wall clock itself (`wallIso`): "2026-12-18T07:30:00.000Z". */
+const WALL_ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:00\.000Z$/;
+
+/** A task as posted → its input, or what is wrong in words. */
+export function taskInputFromForm(fd: FormData): { ok: true; input: TaskInput } | { ok: false; error: string } {
+  const kind = fd.get('who_kind');
+  const ref = String(fd.get('who_ref') ?? '').trim();
+  if (typeof kind !== 'string' || !(WHO_KINDS as readonly string[]).includes(kind) || !ref) return { ok: false, error: 'Pick who does it.' };
+  const crew = String(fd.get('crew') ?? '').trim() || null;
+  const who: TaskWho =
+    kind === 'supplier'
+      ? { kind: 'supplier', vendorId: ref, crew }
+      : kind === 'guest'
+        ? { kind: 'guest', guestId: ref }
+        : kind === 'group'
+          ? { kind: 'group', groupId: ref }
+          : kind === 'role'
+            ? { kind: 'role', role: ref }
+            : { kind: 'label', label: ref };
+  const callRaw = String(fd.get('call_at') ?? '').trim();
+  if (callRaw && !WALL_ISO.test(callRaw)) return { ok: false, error: 'That call time could not be read.' };
+  const sort = Number(fd.get('sort_order') ?? 0);
+  return {
+    ok: true,
+    input: {
+      who,
+      what: String(fd.get('what') ?? ''),
+      callAt: callRaw || null,
+      place: String(fd.get('place') ?? ''),
+      sortOrder: Number.isInteger(sort) ? sort : 0,
+    },
+  };
+}
+
+
+/* ── a task as the moment sheet posts it ──────────────────────────────────────────────────────────────────────── */
+
+/** A who as Who ▾ keys it: `s:<supplier>` · `c:<supplier>:<crew>` · `r:<role>` · `g:<group>` · `p:<guest>`. */
+export function whoKeyOf(t: Pick<TaskRow, 'vendor_id' | 'crew' | 'guest_id' | 'group_id' | 'role' | 'who_label'>): string | null {
+  const w = taskWho(t);
+  if (!w) return null;
+  switch (w.kind) {
+    case 'supplier':
+      return w.crew ? `c:${w.vendorId}:${w.crew}` : `s:${w.vendorId}`;
+    case 'guest':
+      return `p:${w.guestId}`;
+    case 'group':
+      return `g:${w.groupId}`;
+    case 'role':
+      return `r:${w.role}`;
+    case 'label':
+      return `o:${w.label}`;
+  }
+}
+
+export type WhoFields = { who_kind: string; who_ref: string; crew: string };
+
+export function whoFieldsOf(key: string): WhoFields | null {
+  const [k, ...rest] = key.split(':');
+  const ref = rest.join(':');
+  if (!ref) return null;
+  if (k === 's') return { who_kind: 'supplier', who_ref: ref, crew: '' };
+  if (k === 'c') {
+    const [vendor, ...crew] = ref.split(':');
+    return vendor ? { who_kind: 'supplier', who_ref: vendor, crew: crew.join(':') } : null;
+  }
+  if (k === 'p') return { who_kind: 'guest', who_ref: ref, crew: '' };
+  if (k === 'g') return { who_kind: 'group', who_ref: ref, crew: '' };
+  if (k === 'r') return { who_kind: 'role', who_ref: ref, crew: '' };
+  if (k === 'o') return { who_kind: 'label', who_ref: ref, crew: '' };
+  return null;
+}
+
+/** The row a task becomes once saved (the client's copy of what the door wrote). */
+export function rowOf(id: string, blockId: string, f: WhoFields, what: string, callAt: string | null, place: string | null, sort: number): TaskRow {
+  return {
+    task_id: id,
+    block_id: blockId,
+    vendor_id: f.who_kind === 'supplier' ? f.who_ref : null,
+    crew: f.who_kind === 'supplier' && f.crew.trim() ? f.crew.trim() : null,
+    guest_id: f.who_kind === 'guest' ? f.who_ref : null,
+    group_id: f.who_kind === 'group' ? f.who_ref : null,
+    role: f.who_kind === 'role' ? f.who_ref : null,
+    who_label: f.who_kind === 'label' ? f.who_ref : null,
+    what,
+    call_at: callAt,
+    place,
+    sort_order: sort,
+  };
+}
+
+/**
+ * What the moment sheet POSTS for a task (`moment_op` on the Schedule's update door) — the one encoding, read back by
+ * `taskInputFromForm`. A blank call time or place is posted as '' and stored as none (the moment's time and room).
+ */
+export function taskFields(w: WhoFields, what: string, callAt: string | null, place: string | null, sort: number, taskId: string | null): Record<string, string> {
+  return {
+    who_kind: w.who_kind,
+    who_ref: w.who_ref,
+    crew: w.crew,
+    what: what.trim(),
+    call_at: callAt ?? '',
+    place: place?.trim() ?? '',
+    sort_order: String(sort),
+    ...(taskId ? { task_id: taskId } : {}),
+  };
+}
+

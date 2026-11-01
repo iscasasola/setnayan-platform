@@ -121,6 +121,7 @@ function WherePick({
       }
       setSaid(res.told ? { tone: 'ok', text: 'Saved. They were told in the app.' } : null);
       // The row's own line and the "need a chapter" count read again — in place, the screen kept.
+      // one-render: keep (client-write) — the write is the browser's own rpc, so nothing on the server revalidated
       if (!standIn.setWhere) router.refresh();
     });
   };

@@ -35,7 +35,7 @@ export const HOME_CONTROL_KEYS = ['count', 'guests', 'hub', 'sup', 'budget', 'pl
 export type HomeControlKey = (typeof HOME_CONTROL_KEYS)[number];
 
 /** The ONE page each widget opens (notes: "One widget → the ONE page it opens"). */
-export const HOME_CONTROL_PAGE: Readonly<Record<HomeControlKey, string>> = {
+export const HOME_CONTROL_PAGE: Readonly<Record<HomeControlKey | 'sched', string>> = {
   // 📅 The Date Finder (owner 2026-10-30: *"date finder. because we want them to find the date for their event"*;
   // DECISION_LOG 2026-10-26 "FINAL STRUCTURE" (3)) — Event Details itself is combined into Home's ⚙ Event Settings.
   count: 'Date Finder',
@@ -46,6 +46,8 @@ export const HOME_CONTROL_PAGE: Readonly<Record<HomeControlKey, string>> = {
   // 🪡 SEAM #7149 (Checklist merges into Planning Stage): the widget is "To do" now; its door is still `/checklist`,
   // which #7149 forwards to Planning Stage's To do filter (`planningTodoHref`) — swap the literal when it merges.
   plan: 'To do',
+  // 📅 The Schedule widget (owner 2026-11-01) opens the Schedule — its doors open their own sheets and pages.
+  sched: 'Schedule',
 };
 
 /**

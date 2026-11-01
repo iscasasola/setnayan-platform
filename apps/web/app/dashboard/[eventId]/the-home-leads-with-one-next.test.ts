@@ -309,7 +309,8 @@ test('e · compact on the phone, detail from md — one column, no second sectio
   assert.match(html, /data-home-cover="[^"]*"[^>]*class="[^"]*-mx-4[^"]*sm:-mx-6[^"]*lg:-mx-8/, 'the cover cancels the layout gutter at every width — a full-width band');
   assert.doesNotMatch(html.slice(html.indexOf('data-home-cover'), html.indexOf('data-home-column')), /rounded/, 'the cover band is square-edged');
   // The two versions, each switched by width alone — no Compact/Detail toggle.
-  assert.match(html, /class="hc-grid md:hidden" data-home-control="compact"/, 'the phone tiles must hide from md');
+  // 🧱 The phone's stack (owner 2026-11-01): Countdown · Schedule · the glance row · Budget — still hidden from md.
+  assert.match(html, /class="hc-stack md:hidden" data-home-control="compact"/, 'the phone tiles must hide from md');
   assert.match(html, /class="hc-two hidden md:grid" data-home-control="detail"/, 'the cards must show from md');
   assert.doesNotMatch(html, /Compact|Detail view|aria-pressed="(true|false)"[^>]*>Detail/, 'a Compact/Detail toggle');
   assert.equal(count(html, '#home-all'), 0, 'a "See all" / "#home-all" link with nothing under it');
@@ -437,8 +438,8 @@ test('f · no What’s next row, no dashboard mode for it', () => {
   assert.doesNotMatch(html, /sheet=next/, 'something on Home opens the ?sheet=next portal');
   assert.doesNotMatch(DASH, /only\?: 'whatsnext'|only === 'whatsnext'|HomeWhatsNext/, 'the dashboard still carries the What’s next mode');
   assert.throws(() => readFileSync(join(HERE, '_components', 'whats-next-sheet.tsx'), 'utf8'), 'the sheet shell is back');
-  // The Checklist widget holds the plan: % done and the next dated tasks.
-  assert.match(html, /data-home-card-key="plan"[\s\S]*?Your checklist · 62% done[\s\S]*?Confirm the caterer’s menu/, 'the Checklist card does not hold the plan');
+  // The To do widget (was Checklist, owner 2026-11-01) holds the plan: % done and the next dated tasks.
+  assert.match(html, /data-home-card-key="plan"[\s\S]*?Your plan · 62% done[\s\S]*?Confirm the caterer’s menu/, 'the To do card does not hold the plan');
 });
 
 test('f · replace means remove — the journey-rail stage line and the non-AI "% locked in" are gone, not hidden', () => {

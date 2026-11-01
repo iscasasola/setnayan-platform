@@ -6,7 +6,7 @@
  *   1 · RENDERED, both versions (the phone's tiles and the md+ cards): every door inside a widget — the tile, each
  *       face, each tiny action, each card button — lands on THAT widget's one page, and no page is the door of two
  *       widgets. Countdown → Event Settings · Guests → Guests · Event Hub → the Hub (Maker or public page) · Suppliers
- *       → Suppliers · Budget → Budget · Checklist → Checklist.
+ *       → Suppliers · Budget → Budget · To do (was Checklist) → To do.
  *   2 · THE TABLE ("A face opens the EXACT item"): each face's href, as the notes list it.
  *   3 · THE OTHER CALLERS STILL WORK: the params Home leans on are read by their pages as before (`?q=` by the
  *       Guests search, `?inspect=v:` and `?open=` by Suppliers, `?part=budget`, `?tab=`, the Maker's `?stage=`).
@@ -47,7 +47,8 @@ function pageOf(href: string): string {
   if (/^\/launch\b/.test(path)) return 'Event Hub';
   if (/^\/vendors\?part=budget\b/.test(path)) return 'Budget';
   if (/^\/vendors\b/.test(path)) return 'Suppliers';
-  if (/^\/checklist\b/.test(path)) return 'Checklist';
+  // The To do widget (was Checklist, owner 2026-11-01) — `/checklist` forwards to Planning Stage's To do filter (#7149).
+  if (/^\/checklist\b/.test(path)) return 'To do';
   return `elsewhere (${h})`;
 }
 const hrefs = (html: string) => [...html.matchAll(/(?:href|data-home-face-href)="([^"]*)"/g)].map((m) => m[1]!);

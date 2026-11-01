@@ -4,12 +4,15 @@ import { useEffect, useMemo, useState } from 'react';
 import { Radio, X } from 'lucide-react';
 import { formatRelativeMs } from '@/lib/day-of-mode';
 import { venueNowMs } from '@/lib/schedule';
+import { isTimeTba } from '@/lib/schedule-chapters';
 
 type Block = {
   block_id: string;
   label: string;
   start_at: string;
   end_at: string | null;
+  /** ⏰ A Time-TBA chapter — never "now" or "next" (its stored 00:00 is only its day). */
+  time_tba?: boolean | null;
 };
 
 type Props = {
@@ -25,8 +28,8 @@ type Position = {
   next: Block | null;
 };
 
-function locatePosition(blocks: Block[], now: number): Position {
-  const sorted = [...blocks].sort(
+export function locatePosition(blocks: Block[], now: number): Position {
+  const sorted = blocks.filter((b) => !isTimeTba(b)).sort(
     (a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime(),
   );
   let current: Block | null = null;

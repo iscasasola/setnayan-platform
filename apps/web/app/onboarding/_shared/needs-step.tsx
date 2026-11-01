@@ -26,6 +26,7 @@
 import type { ReactNode } from 'react';
 import { Check } from 'lucide-react';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { FormRows, TypedRow } from '@/app/_components/form-row';
 import {
   NEED_PRESETS,
   NEED_PRESET_LABEL,
@@ -103,33 +104,32 @@ export function NeedsStep({
       ) : null}
       {notice}
 
-      <label className="mt-1 block">
-        <span className={LABEL}>Event name</span>
-        <input
-          autoFocus
-          name={fieldNames?.name}
+      {/* ✍ THE FIELD TEMPLATE (`TypedRow`, owner 1 Nov 2026: every field follows it): the name on the left, the pill on
+          the right; a tap stretches the box across the row. Inside the Get-together's one form, `fieldNames` makes the
+          rows post under the same names the raw boxes did. */}
+      <FormRows width="wide" className="mt-1">
+        <TypedRow
+          name="Event name"
           value={name}
-          onChange={(e) => onName(e.target.value)}
           required
-          autoComplete="off"
-          placeholder={namePlaceholder ?? (solemn ? 'For Lola Rosa' : 'Movie night sa bahay')}
-          className={INPUT}
-          data-needs-name=""
+          empty={namePlaceholder ?? (solemn ? 'For Lola Rosa' : 'Movie night sa bahay')}
+          fieldName={fieldNames?.name}
+          onType={onName}
+          onKeep={(t) => onName(t)}
+          data="needs-name"
+          pillAttrs={{ 'data-needs-name': '' }}
         />
-      </label>
-
-      <label className="block">
-        <span className={LABEL}>Where</span>
-        <input
-          name={fieldNames?.where}
+        <TypedRow
+          name="Where"
           value={where}
-          onChange={(e) => onWhere(e.target.value)}
-          autoComplete="off"
-          placeholder={solemn ? 'The chapel, parish or home' : 'Pasig · our place'}
-          className={INPUT}
-          data-needs-where=""
+          empty={solemn ? 'The chapel, parish or home' : 'Pasig · our place'}
+          fieldName={fieldNames?.where}
+          onType={onWhere}
+          onKeep={(t) => onWhere(t)}
+          data="needs-where"
+          pillAttrs={{ 'data-needs-where': '' }}
         />
-      </label>
+      </FormRows>
 
       {when ? (
         <label className="block">

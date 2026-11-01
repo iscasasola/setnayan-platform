@@ -26,6 +26,7 @@ import {
 import { Explain } from './explain';
 import { tellTheForm } from '@/lib/tell-the-form';
 import { SWITCH_BUTTON, SwitchTrack } from './switch-track';
+import { ClearButton, clearTyped } from '@/components/clear-field';
 
 /**
  * FORM ROW — one fact to type or pick: its name on the left, its answer on the right, one thin line between rows
@@ -94,6 +95,8 @@ export const FORM_PILL_CLASS =
 export const FORM_PICK_CLASS = '!h-10 !min-h-10 flex-none justify-between !gap-1.5 border border-ink/15 !bg-white dark:!bg-raised !pl-3.5 !pr-2.5 !text-[14px] !font-medium';
 /** The small mark at a pill's right. */
 const MARK = 'h-4 w-4 flex-none';
+/** The clear ✕'s disc inside an open field: the house disc (`ClearButton`), a pencil's step larger. */
+export const FORM_ROW_CLEAR_DISC = 'grid h-7 w-7 flex-none place-items-center rounded-full bg-ink/[0.08] text-ink/70';
 
 type Rows = {
   width: FormPillWidth;
@@ -895,6 +898,8 @@ export function FormRowField({
       end('escape');
     }
   };
+  /* The ✕ that empties the box: while it holds words, on a line of words — never an amount or a number. */
+  const clears = !long && !mark && text !== '' && inputMode !== 'numeric';
   const gone = (e: React.AnimationEvent) => {
     if (leaving && e.target === e.currentTarget) onGone();
   };
@@ -927,7 +932,18 @@ export function FormRowField({
       <span id={nameId} className="sr-only">
         {name}
       </span>
-      <span className="flex h-11 min-w-0 flex-1 items-center gap-1.5 rounded-full border border-sn-accent bg-white px-[18px] dark:bg-raised ring-[3px] ring-sn-accent/15">
+      {/* ✕ INSIDE THE BOX EMPTIES IT (owner 1 Nov: "the x inside the box to clear it"). The template draws the shared
+          `ClearButton` itself, as the pill's last item, so it is centred on the pill and stands exactly where a resting
+          row's pencil stands: the pill's own right padding (`pr-2.5`, `FORM_PILL_CLASS`) is its right inset. (The app-wide
+          ✕, `GlobalClearField`, steps aside for a box that draws its own — it drew this one low on an iPhone, measured
+          against the input's own line box instead of the pill.) Not on an amount or a number: a number is corrected,
+          not emptied (`components/clear-field.tsx`). 🔒 the-field-clear-sits-where-the-pencil-does.test.ts */}
+      <span
+        data-form-row-box=""
+        className={`flex h-11 min-w-0 flex-1 items-center gap-1.5 rounded-full border border-sn-accent bg-white pl-[18px] ${
+          clears ? 'pr-2.5' : 'pr-[18px]'
+        } dark:bg-raised ring-[3px] ring-sn-accent/15`}
+      >
         {mark ? (
           <span aria-hidden data-form-row-amount-mark="" className="flex-none font-semibold text-ink/45">
             {mark}
@@ -944,6 +960,17 @@ export function FormRowField({
           onChange={(e) => setText(e.target.value)}
           onKeyDown={onKeys}
         />
+        {clears ? (
+          <ClearButton
+            label={`Clear ${name}`}
+            data-form-row-clear=""
+            className="sn-press sn-hit flex h-full w-11 flex-none items-center justify-end bg-transparent p-0"
+            discClassName={FORM_ROW_CLEAR_DISC}
+            onClear={() => {
+              if (box.current) clearTyped(box.current);
+            }}
+          />
+        ) : null}
       </span>
       {x}
     </div>

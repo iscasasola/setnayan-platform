@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { WhyRow } from './why-row';
 import {
   ArrowRight,
   CalendarClock,
@@ -764,14 +765,7 @@ export function LockRequestBody({
       <Fold data="answer-no" title={onCard ? 'Turn it down' : 'Can’t take this booking?'} className="mt-1">
         <form action={declineLock} className="mb-1 flex flex-wrap items-center gap-2">
           <input type="hidden" name="vendor_id" value={card.eventVendorId} />
-          <input
-            type="text"
-            name="reason"
-            maxLength={240}
-            placeholder="Why? (optional — the couple sees this)"
-            className="h-11 min-w-0 flex-1 rounded-full border px-4 text-sm"
-            style={{ borderColor: 'var(--sn-line)' }}
-          />
+          <WhyRow />
           <SupplierSubmit tone="neutral" icon={<X {...ico} />} label="Turn it down" pendingLabel="Sending…" />
         </form>
       </Fold>
@@ -895,14 +889,7 @@ function DeleteRequestBody({
       <Fold data="answer-no" title="Not yet — say why" className="mt-1">
         <form action={declineDeletion} className="mb-1 flex flex-wrap items-center gap-2">
           <input type="hidden" name="vendor_id" value={card.eventVendorId} />
-          <input
-            type="text"
-            name="reason"
-            maxLength={240}
-            placeholder="Why? (optional — the couple sees this)"
-            className="h-11 min-w-0 flex-1 rounded-full border px-4 text-sm"
-            style={{ borderColor: 'var(--sn-line)' }}
-          />
+          <WhyRow />
           <SupplierSubmit tone="neutral" icon={<X {...ico} />} label="Keep it for now" pendingLabel="Sending…" />
         </form>
       </Fold>

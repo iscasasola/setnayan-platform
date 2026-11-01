@@ -238,6 +238,7 @@ export function RsvpWidget({
     [...answersByChapter.values()].some((a) => a === 'no') &&
     [...answersByChapter.values()].some((a) => a === 'yes');
   const shownAnswer = comingToSome ? 'declined' : guest.rsvp_status;
+  const chapterList = inviteChapters.length > 0 ? <RsvpChapterList chapters={inviteChapters} answers={answersByChapter} /> : null;
 
   // The answer is on record and only details are missing → ask ONLY those.
   if (gate && gate.missing.length > 0 && !gate.missing.includes('attending') && !replyLocked) {
@@ -312,6 +313,15 @@ export function RsvpWidget({
      only for a guest not on record as coming. */
   const declineArm = !revealAll && (!replyLocked || guest.rsvp_status !== 'attending');
   const declineReveal = replyLocked ? '' : 'declined-reveal ';
+  const cantPick =
+    replyLocked || inviteChapters.length < 2 ? null : (
+      <RsvpCantPick
+        chapters={inviteChapters}
+        answers={answersByChapter}
+        className={revealAll ? '' : 'declined-reveal '}
+        questionClassName={questionClass(oneAtATime)}
+      />
+    );
 
   const mobileField = (
     <>
@@ -636,16 +646,22 @@ export function RsvpWidget({
           attending — this is the "your place is reserved" confirmation. */}
       {/* 🧍‍♀️➡️🧍 THE PROXY ON THE REPLY (owner 2026-10-27) rides THIS slot, so a card with no proxy keeps every React id it
           had (`the-reply-card-is-todays-page`): a proxy reads whom they stand in for; the role holder, who stands in. */}
+      {/* ✉ WHAT THE GUEST IS ANSWERING — the invitation's chapters (Step 5) ride the same slot, so a card without
+          chapters keeps every byte and React id it had (`the-reply-card-is-todays-page`). */}
       {proxyBanner ? (
         <>
           {proxyBanner}
           {placeFacts}
+          {chapterList}
+        </>
+      ) : chapterList ? (
+        <>
+          {placeFacts}
+          {chapterList}
         </>
       ) : (
         placeFacts
       )}
-      {/* ✉ WHAT THE GUEST IS ANSWERING — the invitation's chapters (Step 5). Nothing at all without chapters. */}
-      {inviteChapters.length > 0 ? <RsvpChapterList chapters={inviteChapters} answers={answersByChapter} /> : null}
 
       {/* TWO quiet outlined options; the chosen one takes the palette's DEEP
           accent fill. Labels are the spec's reply-card wording — the `key`
@@ -732,16 +748,6 @@ export function RsvpWidget({
           })()}
         </fieldset>
         )
-      )}
-
-      {/* ✉ "I CAN'T MAKE IT" ASKS WHICH (owner 2026-11-01) — the decline arm's first step, two or more chapters only. */}
-      {replyLocked || inviteChapters.length < 2 ? null : (
-        <RsvpCantPick
-          chapters={inviteChapters}
-          answers={answersByChapter}
-          className={revealAll ? '' : 'declined-reveal '}
-          questionClassName={questionClass(oneAtATime)}
-        />
       )}
 
       {/* ── 🪑 SEATS, THEN YOU (owner 2026-10-25, verbatim: *"We reserved one seat for you · We reserved two seats for
@@ -970,7 +976,15 @@ export function RsvpWidget({
           Only for a guest who HOLDS A ROLE and is not already represented, on the decline arm: a name, typed — a guest
           cannot pick from the hosts' list, so the hosts confirm it on their card. `submitRsvp` stores it
           (`proxy_named_by_guest`) only with a decline, and the database refuses it for a guest with no role. */}
-      {standInAsk ? (
+      {/* ✉ "I CAN'T MAKE IT" ASKS WHICH (owner 2026-11-01) — the decline arm's first step, two or more chapters only,
+          in this slot so a card without chapters is unchanged. */}
+      {cantPick ? (
+        <>
+          {cantPick}
+          {standInAsk}
+          {declineDetails}
+        </>
+      ) : standInAsk ? (
         <>
           {standInAsk}
           {declineDetails}

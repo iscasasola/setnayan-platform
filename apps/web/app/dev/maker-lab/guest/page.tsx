@@ -63,6 +63,7 @@ import { RsvpWidget } from '@/app/[slug]/_components/rsvp-widget';
 import { submitInviteReply } from '@/app/[slug]/invite/actions';
 import { RsvpSheet } from '@/app/[slug]/_components/rsvp-sheet';
 import { LabReplyDoor, labWindow } from './lab-reply-door';
+import { LAB_INVITE_BLOCKS, LAB_INVITE_CHAPTERS } from './lab-invite-chapters';
 import { ReplyPanel } from '@/app/[slug]/_components/reply-panel';
 import { GUEST_HUB_DESKTOP_CSS } from '@/lib/guest-hub-desktop';
 import { replyCardOf } from '@/lib/guest-me-parts';
@@ -882,7 +883,12 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       /* 🗓 The day's moments — the REAL Schedule widget on maria-and-jose's run of show, in its drafted (or previewed) Style. */
       <HubCanvasFrame widget={{ ...rowOf('schedule'), widget_id: 'lab-schedule' } as never} hubTheme="house" ownClipPlays>
         <section data-lab-scene="schedule" className="border-t border-ink/10 px-4 py-8 text-left">
-          <ScheduleWidget blocks={LAB_BLOCKS as never} eventTz="Asia/Manila" eventType="wedding" sceneStyle={sceneStyleOfRow(rowOf('schedule'), stage, 'wedding')} />
+          {/* ✉ `&chapters=1` — Details › Schedule by chapter (Step 5, `lab-invite-chapters.ts`). */}
+          {sp.chapters ? (
+            <ScheduleWidget blocks={LAB_INVITE_BLOCKS as never} chapters={LAB_INVITE_CHAPTERS} eventTz="Asia/Manila" eventType="wedding" sceneStyle={sceneStyleOfRow(rowOf('schedule'), stage, 'wedding')} />
+          ) : (
+            <ScheduleWidget blocks={LAB_BLOCKS as never} eventTz="Asia/Manila" eventType="wedding" sceneStyle={sceneStyleOfRow(rowOf('schedule'), stage, 'wedding')} />
+          )}
         </section>
       </HubCanvasFrame>
     ),

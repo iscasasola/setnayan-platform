@@ -293,6 +293,29 @@ export async function submitRsvp(
   stripInviteFaceFields(formData);
 
   /*
+    ✉ BY CHAPTER (owner 2026-11-01: *"Rsvp will depend on what chapters we make."* — plan §3, Step 5). Only the chapters
+    ON THE INVITATION are replied to, re-read here and never taken from the form: a posted tick for any other block is
+    ignored (`resolveChapterReply`). Yes = all of them. "I can't make it" with some ticked = a yes to the rest, so the
+    guest is COMING (`attending`); none or all ticked = a plain no. A chapter with no venue is replied to like any other
+    (Venue TBA still sends). The read happens before anything is written: if it fails while the guest ticked parts,
+    nothing is saved and they are told — a partial "no" is never stored as a whole one.
+  */
+  // Only a post that carries an answer is a reply (a checklist tick, a seat name, one chapter's answer carry none).
+  const postedAnswer = clean(formData.get('rsvp_status'));
+  const chapterAdmin = createAdminClient();
+  const replyChapters = postedAnswer ? await readInvitationChapters(chapterAdmin, eventId) : null;
+  const cantTicks = formData.getAll(CANT_CHAPTER_FIELD).map(String);
+  if (postedAnswer && replyChapters === null && cantTicks.length > 0) {
+    const { data: evNoChapters } = await chapterAdmin.from('events').select('slug').eq('event_id', eventId).maybeSingle();
+    const slugNoChapters = evNoChapters?.slug ?? null;
+    if (toInvite && slugNoChapters) redirect(`${inviteReplyPath(slugNoChapters)}?rsvp=error`);
+    redirect(slugNoChapters ? `/${slugNoChapters}?rsvp=error` : eventAddressUnread('submitRsvp · chapters'));
+  }
+  const chapterReply = replyChapters ? resolveChapterReply(postedAnswer, cantTicks, replyChapters) : null;
+  // The answer the rest of this action reads: "can't make SOME" arrives as a no and is stored as the yes it is.
+  if (chapterReply && chapterReply.status !== postedAnswer) formData.set('rsvp_status', chapterReply.status);
+
+  /*
     ☑ "YOUR CHECKLIST" — ONE TICK (owner 2026-09-26: ticks saved to the GUEST,
     private to them, and the save must reuse an existing guest save action — +0
     server actions). This IS the guest's own save, already bound to THIS guest on
@@ -369,8 +392,7 @@ export async function submitRsvp(
     return;
   }
 
-  // `let`: a "can't make it" to SOME of the invitation's chapters is a yes to the rest (✉ BY CHAPTER, below).
-  let status = clean(formData.get('rsvp_status')) as RsvpStatus;
+  const status = clean(formData.get('rsvp_status')) as RsvpStatus;
   const meal_raw = clean(formData.get('meal_preference'));
   const meal = (meal_raw || 'no_preference') as MealPreference;
   const dietary = clean(formData.get('dietary_restrictions')) || null;
@@ -385,7 +407,8 @@ export async function submitRsvp(
   // 🪑 TWO HOMES, ONE ANSWER (owner 2026-10-25, RSVP seats-first): on a Yes these boxes are the reply's You step;
   // on a No they are the decline arm after the note, posted as `declined_contact_*` (both arms are in the form, the
   // card's CSS shows one). A No's own boxes take these names first, so the reads below are the ones they always were.
-  adoptDeclinedContactArm(formData, status);
+  // ✉ The arm the guest actually filled: "can't make SOME" was typed on the decline arm (`postedAnswer`).
+  adoptDeclinedContactArm(formData, postedAnswer as RsvpStatus);
   const contactMobile = clean(formData.get('contact_mobile')) || null;
   const contactName = clean(formData.get('contact_display_name')) || null;
   // ✍ "Wrong name? Tell the couple" (decision 1): one line added to the guest's note below — never the name itself.
@@ -396,25 +419,6 @@ export async function submitRsvp(
   }
 
   const admin = createAdminClient();
-
-  /*
-    ✉ BY CHAPTER (owner 2026-11-01: *"Rsvp will depend on what chapters we make."* — plan §3, Step 5). Only the chapters
-    ON THE INVITATION are replied to, re-read here and never taken from the form: a posted tick for any other block is
-    ignored (`resolveChapterReply`). Yes = all of them. "I can't make it" with some ticked = a yes to the rest, so the
-    guest is COMING (`attending`); none or all ticked = a plain no. A chapter with no venue is replied to like any other
-    (Venue TBA still sends). The read happens before anything is written: if it fails while the guest ticked parts,
-    nothing is saved and they are told — a partial "no" is never stored as a whole one.
-  */
-  const replyChapters = await readInvitationChapters(admin, eventId);
-  const cantTicks = formData.getAll(CANT_CHAPTER_FIELD).map(String);
-  if (replyChapters === null && cantTicks.length > 0) {
-    const { data: evNoChapters } = await admin.from('events').select('slug').eq('event_id', eventId).maybeSingle();
-    const slugNoChapters = evNoChapters?.slug ?? null;
-    if (toInvite && slugNoChapters) redirect(`${inviteReplyPath(slugNoChapters)}?rsvp=error`);
-    redirect(slugNoChapters ? `/${slugNoChapters}?rsvp=error` : eventAddressUnread('submitRsvp · chapters'));
-  }
-  const chapterReply = replyChapters ? resolveChapterReply(status, cantTicks, replyChapters) : null;
-  if (chapterReply) status = chapterReply.status as RsvpStatus;
 
   // ── ONLY THE ANSWER FREEZES ───────────────────────────────────────────────
   // Owner, 2026-08-20: the invitation link exists so guests "update their

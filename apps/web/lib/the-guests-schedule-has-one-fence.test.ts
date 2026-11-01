@@ -90,6 +90,11 @@ const GUEST_FACING: Record<string, GuestRead> = {
     reads: 1,
     ownShape: true,
   },
+  'lib/invitation-chapters.server.ts': {
+    why: 'Step 5 (2026-11-02): the invitation’s chapters for the reply card and Details › Schedule (`readInvitationChapters`), and the names of chapters a guest said yes to that left the invitation (`readRemovedChapterLabels`). Service-role. Its own fence, `onlyInvitationChapters` — a chapter on the invitation is replied to even when it is not public (a Time-TBA chapter can never be) — held by A7 below and by rows in a-guest-is-asked-only-about-invitation-chapters.test.ts.',
+    reads: 2,
+    ownShape: true,
+  },
   'app/_actions/run-of-show.ts': {
     why: 'fetchRunOfShowBlocks — the realtime refetch behind the guests’ "Now · Up next" header. The visitor’s own session; the anonymous policy does not ask audience, so the action does when the header says forGuests.',
     reads: 1,
@@ -465,4 +470,14 @@ test('B4 · the guests’ schedule is unchanged — the same request, condition 
     'order:["start_at",{"ascending":true}]',
     'order:["sort_order",{"ascending":true}]',
   ]);
+});
+
+test('A7 · the invitation’s chapters reach a guest through their own fence, and only their names, times and places', () => {
+  const code = readers.get('lib/invitation-chapters.server.ts')!;
+  assert.match(code, /onlyInvitationChapters\(\s*admin\.from\('event_schedule_blocks'\)\.select\(INVITATION_CHAPTER_FIELDS\)/, 'the chapters read is not fenced');
+  assert.match(code, /\.eq\('on_invitation', true\)\s*\.is\('parent_block_id', null\)\s*\.neq\('visibility', 'coordinator_only'\)/);
+  // The removed-chapter read: names only, top-level only, only the ids this guest answered.
+  assert.match(code, /\.select\('block_id, label'\)\s*\.eq\('event_id', eventId\)\s*\.is\('parent_block_id', null\)\s*\.in\('block_id', ids\)/);
+  const { INVITATION_CHAPTER_FIELDS } = require('./invitation-chapters') as { INVITATION_CHAPTER_FIELDS: string };
+  assert.doesNotMatch(INVITATION_CHAPTER_FIELDS, /notes|responsible|photo_|call_lead|ingress|egress/, 'a guest never reads a chapter’s private fields');
 });

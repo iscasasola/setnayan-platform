@@ -31,7 +31,7 @@ export function ChapterNotices({
         <form key={c.block_id} action={action} data-chapter-added={c.block_id} className="space-y-2">
           <input type="hidden" name={CHAPTER_ONLY_FIELD} value="1" />
           <input type="hidden" name={CHAPTER_ID_FIELD} value={c.block_id} />
-          <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-mulberry">New on your invitation</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-mulberry">New on your invitation</p>
           <p className="font-pahina text-xl font-light leading-snug text-ink">{c.label}</p>
           <p className="text-sm text-ink/70">
             {chapterWhen(c)} · {chapterWhere(c)}

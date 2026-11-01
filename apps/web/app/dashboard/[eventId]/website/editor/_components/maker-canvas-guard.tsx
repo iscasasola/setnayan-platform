@@ -35,6 +35,12 @@ import { useEffect, useState, type RefObject } from 'react';
  * link out of a page you never reached. Until the frame has shown the couple's
  * page once (for this frame), anything else it lands on is a failed load — it
  * says so and offers Try again. Only after that is a departure an escape.
+ * 🕰 AND A LOAD THAT FIRES NOTHING (WebKit — every iPhone). Measured: an iframe
+ * whose document request fails in WebKit fires NO `load`, NO `error`, and stays
+ * on `about:blank` — the canvas stayed white forever, identical to "still
+ * loading". So a frame that has not reached the page within
+ * `CANVAS_STALL_MS` says so ("taking longer than it should") with Try again;
+ * the moment the page does land, the cover lifts on its own.
  * `canvasLanding` decides it; `the-maker-canvas-is-only-the-page.test.ts` and
  * `a-failed-canvas-load-says-it-failed.test.ts` hold it.
  */
@@ -48,7 +54,15 @@ export function framePathIsThePage(pathname: string, pagePath: string): boolean 
 }
 
 /** What one landing of the canvas frame means. */
-export type CanvasLanding = 'blank' | 'page' | 'escaped' | 'failed';
+export type CanvasLanding = 'blank' | 'page' | 'escaped' | 'failed' | 'stalled';
+
+/** How long a frame may stay blank before the canvas says it is taking too long. */
+export const CANVAS_STALL_MS = 20_000;
+
+/** A frame that never reached the page and is still on `about:blank` when the wait runs out has stalled. */
+export function canvasStalled(path: string | null, reached: boolean): boolean {
+  return !reached && path === 'blank';
+}
 
 /**
  * 🔌 One landing of the frame, judged. `path` is the frame's own pathname, `null` when it cannot be read (a
@@ -87,6 +101,8 @@ export function CanvasStaysOnThePage({
   onBack: () => void;
 }) {
   const [landing, setLanding] = useState<CanvasLanding>('blank');
+  /** Each Try again re-arms the stall wait (a retry that fires nothing again must say so again). */
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     setLanding('blank');
@@ -103,10 +119,16 @@ export function CanvasStaysOnThePage({
     };
     if (frame.contentDocument?.readyState === 'complete' || framePath(frame) === null) judge();
     frame.addEventListener('load', judge);
-    return () => frame.removeEventListener('load', judge);
-  }, [frameRef, pagePath, resetKey]);
+    const stall = window.setTimeout(() => {
+      if (canvasStalled(framePath(frame), reached)) setLanding('stalled');
+    }, CANVAS_STALL_MS);
+    return () => {
+      window.clearTimeout(stall);
+      frame.removeEventListener('load', judge);
+    };
+  }, [frameRef, pagePath, resetKey, attempt]);
 
-  if (landing === 'failed') {
+  if (landing === 'failed' || landing === 'stalled') {
     return (
       <div
         role="alert"
@@ -114,12 +136,15 @@ export function CanvasStaysOnThePage({
         className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-md bg-cream px-6 text-center"
       >
         <p className="max-w-sm text-sm text-ink/75">
-          Your {stageLabel} page didn&rsquo;t load. Check your connection, then try again.
+          {landing === 'failed'
+            ? <>Your {stageLabel} page didn&rsquo;t load. Check your connection, then try again.</>
+            : <>Your {stageLabel} page is taking longer than it should to load. Check your connection, then try again.</>}
         </p>
         <button
           type="button"
           onClick={() => {
             setLanding('blank');
+            setAttempt((n) => n + 1);
             onBack();
           }}
           className="sn-press inline-flex min-h-10 items-center rounded-full bg-ink px-4 text-[13px] font-semibold text-cream hover:bg-ink/90"

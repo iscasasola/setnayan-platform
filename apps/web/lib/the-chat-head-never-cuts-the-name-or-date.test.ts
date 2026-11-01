@@ -49,16 +49,32 @@ for (const [label, href] of [['plain name', undefined], ['name that opens the cu
   });
 }
 
+const ONE_LINE_TEXT = /(?:^|\s)(?:truncate|text-ellipsis|whitespace-nowrap|line-clamp-1)(?:\s|$)/;
+const unescape = (c: string) => c.replace(/&amp;/g, '&').replace(/&gt;/g, '>').replace(/&#x27;/g, "'");
+
 test('🔑 the muted line wraps between its pieces, never through the date', () => {
   const html = head('#customer');
-  // The line is found by what it holds (the date), not by a marker a rewrite could drop.
+  // The line is found by what it holds (the date), not by a marker a rewrite could drop: the row that holds the
+  // pieces is the element the date's own <span> sits in, and every ancestor up to the head's <p> is checked too.
   const at = html.indexOf('December 12, 2026');
   assert.ok(at > 0, 'the date did not reach the head');
-  const open = html.lastIndexOf('<p', at);
-  assert.ok(open >= 0, 'the line is no longer a <p> — re-aim the scan');
-  const tag = html.slice(open, html.indexOf('>', open) + 1);
-  const cls = (tag.match(/class="([^"]*)"/) ?? [])[1] ?? '';
-  assert.doesNotMatch(cls, ONE_ROW_CLIP, `the line is clipped to one row again: "${cls}"`);
-  assert.match(cls, /(?:^|\s)flex-wrap(?:\s|$)/, 'the line no longer wraps — a long service name pushes the date off the edge');
-  assert.match(cls.replace(/&amp;/g, '&').replace(/&gt;/g, '>'), /\[&>\*\]:whitespace-nowrap/, 'each piece of the line may break inside itself ("December" / "12, 2026")');
+  const pAt = html.lastIndexOf('<p', at);
+  assert.ok(pAt >= 0, 'the line is no longer inside a <p> — re-aim the scan');
+  // the open-tag stack from the <p> down to the date (closed siblings — "Catering" — drop off the stack)
+  const opening: string[] = [];
+  for (const m of html.slice(pAt, at).matchAll(/<(\/?)([a-z]+)\b[^>]*>/g)) {
+    if (m[1]) opening.pop();
+    else opening.push(m[0]);
+  }
+  // the last opening tag is the date's own <span>; the one before it is the row that holds the pieces
+  assert.ok(opening.length >= 2, 'the line has no row around its pieces');
+  const classOfTag = (tag: string) => unescape((tag.match(/class="([^"]*)"/) ?? [])[1] ?? '');
+  const row = classOfTag(opening[opening.length - 2]!);
+  for (const tag of opening.slice(0, -1)) {
+    const cls = classOfTag(tag);
+    assert.doesNotMatch(cls, ONE_LINE_TEXT, `the line is forced onto one row again: "${cls}"`);
+  }
+  assert.doesNotMatch(row, /(?:^|\s)overflow-hidden(?:\s|$)/, 'the row that holds the pieces clips them');
+  assert.match(row, /(?:^|\s)flex-wrap(?:\s|$)/, 'the line no longer wraps — a long service name pushes the date off the edge');
+  assert.match(row, /\[&>\*\]:whitespace-nowrap/, 'each piece of the line may break inside itself ("December" / "12, 2026")');
 });

@@ -11,7 +11,8 @@ import type { ReactNode } from 'react';
  * 📏 NOTHING IN THE HEAD IS CUT (walk 2026-11-01): on a phone the supplier's head carries the labelled "Customer"
  * pill (it must stay labelled — `the-mobile-tools-trigger-is-labelled.test.ts`), and the name ("Ana's Wedding (Dec
  * 12)") and the line both ran out of room — the name ended in "…" and the date was sliced mid-digit ("December 1").
- * So the name may take two lines and the line wraps WHOLE pieces (each piece never breaks inside itself). Held by
+ * So the name may take two lines and the line wraps WHOLE pieces (each piece never breaks inside itself, and a
+ * wrapped row never opens on a separator). Held by
  * `lib/the-chat-head-never-cuts-the-name-or-date.test.ts`.
  *
  * Server-safe (no hooks): every slot is whatever the page passes. The avatar is INITIALS, never a logo — a logo is as
@@ -64,11 +65,15 @@ export function ChatThreadHead({
           </p>
         )}
         {line ? (
-          <p
-            className="flex min-w-0 flex-wrap items-center gap-x-1 text-[12px] leading-tight text-ink/55 [&>*]:whitespace-nowrap [&>*+*]:before:mr-1 [&>*+*]:before:content-['·']"
-            data-chat-head-line=""
-          >
-            {line}
+          /* Every piece wears its own "·" in a 12px lead, and the row is pulled 12px left inside a clipping box: a
+             piece that WRAPS to the start of a row has its dot clipped away, so no row ever opens on a stray "·". */
+          <p className="min-w-0 overflow-hidden text-[12px] leading-tight text-ink/55">
+            <span
+              className="-ml-3 flex flex-wrap items-center [&>*]:whitespace-nowrap [&>*]:before:inline-block [&>*]:before:w-3 [&>*]:before:text-center [&>*]:before:content-['·']"
+              data-chat-head-line=""
+            >
+              {line}
+            </span>
           </p>
         ) : null}
         {below ?? null}

@@ -1,7 +1,7 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from './supabase/error-detect';
-import { CHAPTER_COLUMNS, TASK_COLUMNS, chaptersFromBlocks, taskRowFrom, type Chapter, type TaskInput, type TaskRow } from './schedule-chapters';
+import { CHAPTER_FIELDS, TASK_COLUMNS, chaptersFromBlocks, taskRowFrom, type Chapter, type TaskInput, type TaskRow } from './schedule-chapters';
 
 /**
  * 📖 CHAPTERS AND TASKS — the server half (migration 20271300072429; the pure half is lib/schedule-chapters.ts).
@@ -27,7 +27,7 @@ const NOTHING_CHANGED = 'Nothing changed — it is gone, or this account cannot 
 export async function readChapters(supabase: SupabaseClient, eventId: string): Promise<Read<Chapter[]>> {
   const { data, error } = await supabase
     .from('event_schedule_blocks')
-    .select(CHAPTER_COLUMNS)
+    .select(CHAPTER_FIELDS)
     .eq('event_id', eventId)
     .order('start_at', { ascending: true })
     .order('sort_order', { ascending: true });

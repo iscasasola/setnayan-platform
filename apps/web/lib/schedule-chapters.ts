@@ -55,8 +55,8 @@ export function isPhotoWhen(v: unknown): v is PhotoWhen {
 /** A chapter with no venue yet (owner: *"Sometime it can be tba"*). */
 export const VENUE_TBA = 'Venue TBA';
 
-/** The columns a chapter is read with — one list, so the reader and the lab can never disagree. */
-export const CHAPTER_COLUMNS =
+/** The fields a chapter is read with (a chapter-only subset of the block, never the canonical block list) — one list, so the reader and the lab can never disagree. */
+export const CHAPTER_FIELDS =
   'block_id, parent_block_id, label, start_at, end_at, location, spot, notes, ingress_minutes_before, egress_minutes_after, call_lead_minutes, on_invitation, photo_who, photo_when, is_public, sort_order';
 
 export type Chapter = {

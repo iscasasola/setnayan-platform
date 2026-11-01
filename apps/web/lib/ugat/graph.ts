@@ -2661,6 +2661,9 @@ export const UGAT_JOINTS: UgatJoint[] = [
       { kind: 'table', table: 'event_schedule_tasks' },
       { kind: 'fk', table: 'event_schedule_tasks', column: 'block_id', references: 'event_schedule_blocks' },
       { kind: 'fk', table: 'event_schedule_tasks', column: 'vendor_id', references: 'event_vendors' },
+      // …or a guest group ("Bridesmaids") — the groups a moment's who can name.
+      { kind: 'fk', table: 'event_schedule_tasks', column: 'group_id', references: 'guest_groups' },
+      { kind: 'table', table: 'guest_groups' },
       { kind: 'column', table: 'event_schedule_blocks', column: 'call_lead_minutes' },
     ],
     chain: 2,

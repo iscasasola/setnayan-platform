@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
-import { Check, Clock, X } from 'lucide-react';
+import { Check, Clock } from 'lucide-react';
+import { ClearButton } from '@/components/clear-field';
 import { saveFailedWords, type KeepAnswer } from '@/lib/form-row';
 import { FORM_PILL_CLASS, FORM_ROW_TICK_MS, FormRow, usePillWidth, type FormRowAbout } from './form-row';
 
@@ -122,15 +123,12 @@ export function TimeRow({
           {words || empty}
         </span>
         {clearable && shown ? (
-          <button
-            type="button"
-            aria-label={`Clear ${name}`}
+          <ClearButton
+            label={`Clear ${name}`}
             data-form-row-clear=""
-            onClick={() => send('')}
-            className="relative z-10 -mr-1 grid h-7 w-7 flex-none place-items-center rounded-full text-ink/55 hover:bg-ink/[0.06]"
-          >
-            <X aria-hidden className="h-3.5 w-3.5" strokeWidth={2.2} />
-          </button>
+            onClear={() => send('')}
+            className="relative z-10 -mr-1 grid h-7 w-7 flex-none place-items-center rounded-full"
+          />
         ) : state.kind === 'saved' ? (
           <Check aria-hidden data-form-row-mark="tick" className="pointer-events-none h-4 w-4 flex-none text-success-700" strokeWidth={2.6} />
         ) : (

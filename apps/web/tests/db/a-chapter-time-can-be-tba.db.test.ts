@@ -8,6 +8,7 @@
  *   3 · 🛑 a TBA chapter can NEVER be shown to guests (every guest reader filters `is_public`, so the placeholder midnight
  *       never reaches the Event Hub) — refused when made so, and refused when shown later;
  *   4 · only a CHAPTER may be TBA: a TBA moment is refused, and so is a TBA chapter with an end.
+ * `is_public` defaults to TRUE on the table, so a TBA row must say FALSE — the Schedule's door does (`createScheduleBlock`).
  *
  * Run: pnpm --filter @setnayan/web test:db
  */
@@ -71,7 +72,7 @@ after(async () => {
 });
 
 test('1 · a chapter with no time saves, keeps its day, and reads "Time TBA"', async () => {
-  const id = await insert({ label: 'Final fitting', start_at: '2099-12-10T00:00:00Z', time_tba: true });
+  const id = await insert({ label: 'Final fitting', start_at: '2099-12-10T00:00:00Z', time_tba: true, is_public: false });
   const c = (await readAll()).find((x) => x.block_id === id);
   assert.ok(c, 'the TBA chapter did not read back');
   assert.equal(c.time_tba, true);
@@ -82,7 +83,7 @@ test('1 · a chapter with no time saves, keeps its day, and reads "Time TBA"', a
 });
 
 test('2 · setting a time later clears TBA in the same save', async () => {
-  const id = await insert({ label: 'Tasting', start_at: '2099-12-01T00:00:00Z', time_tba: true });
+  const id = await insert({ label: 'Tasting', start_at: '2099-12-01T00:00:00Z', time_tba: true, is_public: false });
   await asCouple();
   await db.query(`UPDATE public.event_schedule_blocks SET start_at = '2099-12-01T15:00:00Z', time_tba = FALSE WHERE block_id = $1`, [id]);
   const c = (await readAll()).find((x) => x.block_id === id)!;
@@ -96,7 +97,7 @@ test('3 · a TBA chapter can never be shown to guests', async () => {
     /time_tba_check|violates/i,
     'a TBA chapter was shown to guests at a guessed midnight',
   );
-  const id = await insert({ label: 'After party', start_at: '2099-12-18T00:00:00Z', time_tba: true });
+  const id = await insert({ label: 'After party', start_at: '2099-12-18T00:00:00Z', time_tba: true, is_public: false });
   await asCouple();
   await assert.rejects(
     db.query(`UPDATE public.event_schedule_blocks SET is_public = TRUE WHERE block_id = $1`, [id]),
@@ -108,12 +109,12 @@ test('3 · a TBA chapter can never be shown to guests', async () => {
 test('4 · only a chapter may be TBA, and a TBA chapter has no end', async () => {
   const parent = await insert({ label: 'Ceremony', start_at: '2099-12-18T15:00:00Z' });
   await assert.rejects(
-    insert({ label: 'Vows', start_at: '2099-12-18T00:00:00Z', time_tba: true, parent_block_id: parent }),
+    insert({ label: 'Vows', start_at: '2099-12-18T00:00:00Z', time_tba: true, is_public: false, parent_block_id: parent }),
     /time_tba_check|violates/i,
     'a moment was saved as TBA',
   );
   await assert.rejects(
-    insert({ label: 'Cocktails', start_at: '2099-12-18T00:00:00Z', end_at: '2099-12-18T02:00:00Z', time_tba: true }),
+    insert({ label: 'Cocktails', start_at: '2099-12-18T00:00:00Z', end_at: '2099-12-18T02:00:00Z', time_tba: true, is_public: false }),
     /time_tba_check|violates/i,
     'a TBA chapter carried an end',
   );

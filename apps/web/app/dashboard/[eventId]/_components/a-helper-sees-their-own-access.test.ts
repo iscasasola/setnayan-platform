@@ -100,7 +100,7 @@ test('2 · Your access is the FIRST row, and nothing in it is pressable but its 
 
 test('3 · the action hands a helper Your access ALONE, from their own seat, before the hosts’ round', () => {
   const action = code('open-event-settings.tsx');
-  const branch = action.slice(action.indexOf('if (!viewer.isCouple) {'), action.indexOf('const [draft, parents, people, claims, settings]'));
+  const branch = action.slice(action.indexOf('if (!viewer.isCouple) {'), action.indexOf('const [draft, parents, people, claims, settings'));
   assert.ok(branch.length > 0, 'the non-host branch is gone, or sits after the hosts’ round');
   assert.match(branch, /if \(viewer\.delegatePermissions\) return yourAccessSheet\(supabase, eventId, user\.id, viewer\.delegatePermissions\)/, 'a helper inside their window is not handed their own access');
   assert.match(branch, /return \{ ok: false, reason:/, 'a non-host who is not a helper is not refused');
@@ -110,7 +110,10 @@ test('3 · the action hands a helper Your access ALONE, from their own seat, bef
   assert.doesNotMatch(sheet, /createAdminClient|admin\./, 'a helper’s sheet reads with the service role — RLS must scope it to their own seat');
   assert.match(sheet, /\.from\('event_moderators'\)[\s\S]*?\.eq\('user_id', userId\)/, 'the helper’s sheet reads a seat that is not their own');
   assert.doesNotMatch(sheet, /loadPeopleWithAccess|readClaimAccessAsks|loadYourEvent|loadEventSettings/, 'a helper’s sheet reads the hosts’ rows');
-  assert.match(sheet, /<EventSettingsRows eventId=\{eventId\} input=\{null\} parents=\{null\} dock=\{null\} yours=\{yours\} \/>/, 'a helper’s sheet draws more than Your access');
+  // Your access — and 📖 the chapters ONLY for a helper holding Edit on the Schedule (owner 2026-11-01: *"the hosts of
+  // the event and the coordinator can start up with a basic schedule"*). Nothing else of the hosts'.
+  assert.match(sheet, /<EventSettingsRows eventId=\{eventId\} input=\{null\} parents=\{null\} dock=\{null\} yours=\{yours\} chapters=\{chapters\} \/>/, 'a helper’s sheet draws more than Your access and the chapters');
+  assert.match(sheet, /let chapters: ChaptersInput \| null = null;\s*if \(resolveAreaLevel\(permissions, 'schedule'\) === 'edit'\) \{/, 'a helper without Edit on the Schedule is handed the chapters');
   assert.match(sheet, /seatRes\.error \|\| datesRes\.error \|\| !seatRes\.data \|\| !accepted\) \{[\s\S]*?return \{ ok: false/, 'a refused read draws a made-up role instead of saying so');
 
   // The hosts' sheet is unchanged: it never carries `yours`.

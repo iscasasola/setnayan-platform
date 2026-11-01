@@ -5774,6 +5774,7 @@
         "dashboard/[eventId]/_components/event-dashboard.tsx",
         "dashboard/[eventId]/_components/event-rail-context.tsx",
         "dashboard/[eventId]/_components/event-rail-match-rows.ts",
+        "dashboard/[eventId]/_components/event-settings-chapters.tsx",
         "dashboard/[eventId]/_components/event-settings-rows.tsx",
         "dashboard/[eventId]/_components/event-team-presence-join.ts",
         "dashboard/[eventId]/_components/event-team-presence.tsx",
@@ -5953,6 +5954,8 @@
         "BudgetHealthUnreadable",
         "Card",
         "ChannelToggle",
+        "Chapter",
+        "ChapterSheet",
         "ChecklistItemView",
         "ChecklistPhaseGroup",
         "ChosenRow",
@@ -5998,6 +6001,7 @@
         "EventMonogram",
         "EventRailContext",
         "EventScene",
+        "EventSettingsChapters",
         "EventSettingsEditor",
         "EventSettingsResult",
         "EventSettingsRows",
@@ -6131,6 +6135,7 @@
         "MoodBoardAsks",
         "MoodBoardAsksActions",
         "MoodBoardAsksDoorway",
+        "NewChapterSheet",
         "OneCodeUnderGetIn",
         "OneLink",
         "OneLinkRow",
@@ -6241,8 +6246,10 @@
         "SupplierShareButton",
         "SupplierShareResult",
         "Suspense",
+        "SwitchRow",
         "SwitchTrack",
         "TeamMeta",
+        "TimeRow",
         "TinyAction",
         "TodayFold.Provider",
         "TodaySheetItem",
@@ -6802,6 +6809,7 @@
         "dashboard/[eventId]/guests/_components/guest-papic-bulk.tsx",
         "dashboard/[eventId]/guests/_components/guest-papic-camera.tsx",
         "dashboard/[eventId]/guests/_components/guest-papic-read.ts",
+        "dashboard/[eventId]/guests/_components/guest-peek.tsx",
         "dashboard/[eventId]/guests/_components/guest-popup.tsx",
         "dashboard/[eventId]/guests/_components/guest-proxy-row.tsx",
         "dashboard/[eventId]/guests/_components/guest-reset.tsx",
@@ -6957,6 +6965,7 @@
         "GuestNick",
         "GuestPapicBulkSheet",
         "GuestPapicState",
+        "GuestPeek",
         "GuestPopup",
         "GuestRemovalActions",
         "GuestResetFlow",
@@ -7015,6 +7024,7 @@
         "MarchResult",
         "Mark",
         "MenuSettingsButton",
+        "MindDrill",
         "MiniTour",
         "Mode",
         "MoreMenu",
@@ -11259,6 +11269,19 @@
         "PartPanel",
         "SearchParamsRecord",
         "ServicePanel"
+      ]
+    },
+    "/dev/chapters-lab": {
+      "files": [
+        "dev/chapters-lab/lab-chapters.ts",
+        "dev/chapters-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "Chapter",
+        "EventSettingsChapters",
+        "TaskRow"
       ]
     },
     "/dev/chat-lab": {

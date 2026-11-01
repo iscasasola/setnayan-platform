@@ -8133,7 +8133,8 @@ html.dark .hc-tiny.hc-tiny-main { color: #161513; }
  * widget — the list of which is framed lives in `HOME_FRAMED_WIDGETS` (home-control-faces.ts), never here.
  * Producers: home-tile.tsx, home-control-row.tsx, home-prints-line.tsx, home-whos-here-card.tsx, home-first-screen.tsx. */
 .hc-stack { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
-:is(.hc-tile, .sg-row, .home-tile, .home-card).hc-plain { border-color: transparent; background: transparent; box-shadow: none; border-radius: 0; padding-left: 0; padding-right: 0; }
+/* Both selectors: the dark card fill (`html.dark :is(.hc-today, .hc-tile)`, 0-2-1) outranks a bare 0-2-0. */
+:is(.hc-tile, .sg-row, .home-tile, .home-card).hc-plain, html.dark :is(.hc-tile, .sg-row, .home-tile, .home-card).hc-plain { border-color: transparent; background: transparent; box-shadow: none; border-radius: 0; padding-left: 0; padding-right: 0; }
 .hc-tile.hc-plain { padding-top: 6px; padding-bottom: 4px; }
 .hc-tile.hc-plain.hc-count { padding: 14px 8px 6px; }
 .hc-tile.hc-plain .hc-chip { right: 0; top: 5px; }

@@ -18,7 +18,8 @@
  *   4 · the CSS: `hc-plain` and the plain services list clear the border and the fill, in light and dark.
  *
  * SABOTAGE (seen red, 2026-11-01): add 'guests' to `HOME_FRAMED_WIDGETS` (1 + 2 red) · drop `hc-plain` from the Prints
- * line (3 red) · delete `background: transparent` from the `hc-plain` rule (4 red).
+ * line (3 red) · delete `background: transparent` from the `hc-plain` rule (4 red) · drop the `html.dark` half of the
+ * `hc-plain` rule (4 red — the dark card fill wins, seen in WebKit on 2026-11-02).
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -107,12 +108,15 @@ test('3 · Papic is a card; Who’s here, Prints and Your services sit on the pa
 });
 
 test('4 · `hc-plain` really takes the frame off — the border and the fill — in light and dark', () => {
-  const rule = /:is\([^)]*\)\.hc-plain\s*\{([^}]*)\}/.exec(CSS);
+  const rule = /:is\([^)]*\)\.hc-plain(?:,\s*html\.dark :is\([^)]*\)\.hc-plain)?\s*\{([^}]*)\}/.exec(CSS);
   assert.ok(rule, 'no `.hc-plain` rule');
   assert.match(rule[1]!, /border-color:\s*transparent/, '`hc-plain` keeps the border');
   assert.match(rule[1]!, /background:\s*transparent/, '`hc-plain` keeps the fill');
-  // Specificity: the dark card fill (`html.dark :is(.hc-tile, …)`, 0-1-1) must not win over the plain rule (0-2-0).
   assert.match(rule[0]!, /^:is\(\.hc-tile, \.sg-row, \.home-tile, \.home-card\)\.hc-plain/, 'the plain rule names fewer frames than Home draws');
+  // DARK: the dark card fill (`html.dark :is(.hc-today, .hc-tile)`, 0-2-1) outranks a bare `.hc-plain` (0-2-0) — seen in
+  // WebKit, 2026-11-02: the glance row drew cards in dark. The plain rule must carry its own `html.dark` selector.
+  const darkFill = /html\.dark :is\([^)]*\.hc-tile[^)]*\)\s*\{[^}]*background/.test(CSS);
+  if (darkFill) assert.match(rule[0]!, /html\.dark :is\(\.hc-tile, \.sg-row, \.home-tile, \.home-card\)\.hc-plain/, 'in dark, the card fill beats `hc-plain` — unframed widgets draw as cards');
   const list = /\.home-svc\.hc-plain-list :is\([^)]*\)\s*\{([^}]*)\}/.exec(CSS);
   assert.ok(list, 'no plain rule for Your services');
   assert.match(list[1]!, /background:\s*transparent/);

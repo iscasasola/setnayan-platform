@@ -1,6 +1,7 @@
 'use client';
 
 import { seatPlacedShort, type SeatPlacedBy } from '@/lib/seat-why';
+import { plusOneMark, plusOneSeatIndexes } from '@/lib/plus-one-of';
 import { assessSeatMove, seatMoveDoneWords, type MoveAssessment, type MoveGuest } from '@/lib/seat-move-assess';
 import { MERGE_BASE_FIELD } from '@/lib/merge-base-field';
 import { floorPlanFieldsOf } from '@/lib/floor-plan-row';
@@ -6244,9 +6245,12 @@ export function SeatingEditor({
   // room's default Round, placed in open space and seated in the same tap).
   // No drag on a phone.
   const firstNameOf = (name: string) => name.replace(/^(Mr|Mrs|Ms|Miss|Dr|Atty|Engr|Hon)\.?\s+/i, '').split(/\s+/)[0] ?? name;
+  /* 🔢 "Antonio’s +2" under a "+2 · TBA" seat — the seat's own number among its guest's seats, never a fixed "+1"
+     (owner 2026-11-01, DECISION_LOG "SEATS 2D IS THE ROOM"). 🔒 lib/a-second-plus-one-says-plus-two.test.ts */
+  const plusOneIdx = useMemo(() => plusOneSeatIndexes(guests), [guests]);
   const plusOneHint = (g: SeatingGuest) => {
     const by = g.plus_one_of ? guestsById.get(g.plus_one_of) : null;
-    return by ? `${firstNameOf(by.name)}’s +1` : null;
+    return by ? `${firstNameOf(by.name)}’s ${plusOneMark(plusOneIdx.get(g.guest_id) ?? 0)}` : null;
   };
   const openMove = (id: string) => {
     setMoveGuestId(id);

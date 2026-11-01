@@ -8,26 +8,24 @@
  *   · Let go while the tab is hidden (`pauseWhileHidden`), joined again on return.
  *   · A refused or dropped channel calls `onFailed` ("Couldn't check") — never an empty list.
  */
+import type { Dispatch, SetStateAction } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { pauseWhileHidden } from '@/lib/tab-return';
 import { eventTeamTopic, nextTeamPeers, type TeamMeta, type TeamPeer } from '@/lib/whos-here';
+import type { EventTeamPresenceState } from './event-team-presence';
 
-export function joinTeamPresence({
-  eventId,
-  me,
-  onPeers,
-  onFailed,
-  peers,
-}: {
-  eventId: string;
-  me: { id: string } & TeamMeta;
-  /** The others now; `first` = the channel's first answer since (re)joining. */
-  onPeers: (next: readonly TeamPeer[], first: boolean) => void;
-  onFailed: () => void;
-  /** The list the provider holds now — `nextTeamPeers` hands it back unchanged when nothing moved. */
-  peers: () => readonly TeamPeer[];
-}): () => void {
+/**
+ * Joins the event's team channel and keeps the provider's state: the others now (`null` until the first answer), `live`
+ * or `failed`, and a `pulse` bumped when someone arrives or leaves. Returns the stop.
+ */
+export function joinTeamPresence(
+  eventId: string,
+  me: { id: string } & TeamMeta,
+  setValue: Dispatch<SetStateAction<EventTeamPresenceState>>,
+): () => void {
   const supabase = createClient();
+  // Kept across a hidden-tab rejoin, so an unchanged list is the SAME list (no render for nothing).
+  let peers: readonly TeamPeer[] = [];
   return pauseWhileHidden(() => {
     let live = true;
     let first = true;
@@ -36,8 +34,18 @@ export function joinTeamPresence({
     });
     channel.on('presence', { event: 'sync' }, () => {
       if (!live) return;
-      onPeers(nextTeamPeers(peers(), channel.presenceState<TeamMeta>(), me.id), first);
+      // Decided OUTSIDE the state updater (an updater may run twice): the same list back = no render, unless this is
+      // the first answer since (re)joining, which turns "Checking…" into the list.
+      const next = nextTeamPeers(peers, channel.presenceState<TeamMeta>(), me.id);
+      const changed = next !== peers;
+      peers = next;
+      const wasFirst = first;
       first = false;
+      setValue((v) =>
+        !changed && !wasFirst && v.state === 'live' && v.peers !== null
+          ? v
+          : { peers: next, state: 'live', pulse: changed ? v.pulse + 1 : v.pulse },
+      );
     });
     // The socket must carry the user's token, or the private channel's predicate sees no one
     // (`lib/panood-webrtc.ts` primeRealtimeAuth — measured 2026-09-01).
@@ -54,7 +62,7 @@ export function joinTeamPresence({
           if (status === 'SUBSCRIBED') {
             void channel.track({ name: me.name, role: me.role, photo: me.photo } satisfies TeamMeta);
           } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-            onFailed();
+            setValue((v) => ({ ...v, state: 'failed' }));
           }
         });
       });

@@ -22,7 +22,7 @@
  *   · Honest: until the channel answers the list is `null` ("Checking…"), and a refused or dropped channel is
  *     `failed` ("Couldn't check") — never an empty list read as "just you".
  */
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import type { TeamMeta, TeamPeer } from '@/lib/whos-here';
 
 export type EventTeamPresenceState = {
@@ -53,39 +53,23 @@ export function EventTeamPresence({
   children: ReactNode;
 }) {
   const [value, setValue] = useState<EventTeamPresenceState>({ peers: null, state: enabled ? 'joining' : 'off', pulse: 0 });
-  const peersRef = useRef<readonly TeamPeer[]>([]);
 
   useEffect(() => {
     if (!enabled) return;
     // ⚡ The channel's code loads AFTER the page has drawn (`event-team-presence-join.ts`), never in the first load of
-    // every event page — the Maker's first-load budget (`scripts/check-maker-js-budget.mjs`) holds that.
+    // every event page — the Maker's first-load budget (`scripts/check-maker-js-budget.mjs`) holds that. This file is
+    // the context and nothing else.
     let gone = false;
-    let stop: (() => void) | null = null;
-    void import('./event-team-presence-join')
-      .then(({ joinTeamPresence }) => {
-        if (gone) return;
-        stop = joinTeamPresence({
-          eventId,
-          me,
-          onPeers: (next, first) => {
-            const changed = next !== peersRef.current;
-            peersRef.current = next;
-            // Decided OUTSIDE the state updater (an updater may run twice): the same list back = no render, unless
-            // this is the first answer, which turns "Checking…" into the list.
-            setValue((v) =>
-              !changed && !first && v.state === 'live' && v.peers !== null
-                ? v
-                : { peers: next, state: 'live', pulse: changed ? v.pulse + 1 : v.pulse },
-            );
-          },
-          onFailed: () => setValue((v) => ({ ...v, state: 'failed' })),
-          peers: () => peersRef.current,
-        });
-      })
+    let stop: (() => void) | undefined;
+    import('./event-team-presence-join').then(
+      (m) => {
+        if (!gone) stop = m.joinTeamPresence(eventId, me, setValue);
+      },
       // The chunk itself did not load (offline, a deploy in between) → "Couldn't check", never "just you".
-      .catch(() => {
+      () => {
         if (!gone) setValue((v) => ({ ...v, state: 'failed' }));
-      });
+      },
+    );
     return () => {
       gone = true;
       stop?.();

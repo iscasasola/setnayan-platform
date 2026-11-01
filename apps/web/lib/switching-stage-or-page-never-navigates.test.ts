@@ -181,6 +181,11 @@ test('the warm budget: 3 frames; none on a phone with ≤ 4 GB, none on save-dat
   assert.equal(warmCanvasBudget({ phone: false, deviceMemory: 4 }), MAX_WARM_FRAMES, 'a laptop is not a phone');
   assert.equal(warmCanvasBudget({ phone: false, saveData: true }), 0);
   assert.equal(warmCanvasBudget({ phone: true, deviceMemory: 8, saveData: true }), 0);
+  /* 📱 1 Nov 2026: iPhone / iPad WebKit never says its memory — it keeps no hidden stage (the iOS web view reloads,
+     "resetting the whole page", when its content process runs out). */
+  assert.equal(warmCanvasBudget({ phone: true }), 0, 'an iPhone (no deviceMemory) keeps a hidden guest page behind the canvas');
+  assert.equal(warmCanvasBudget({ phone: true, deviceMemory: null }), 0, 'an iPhone (no deviceMemory) keeps a hidden guest page behind the canvas');
+  assert.equal(warmCanvasBudget({ phone: false, deviceMemory: null }), MAX_WARM_FRAMES, 'a laptop that does not say its memory still keeps stages warm');
 });
 
 test('the buffer never re-orders a mounted iframe (moving one reloads it), and hears every frame’s ready', () => {

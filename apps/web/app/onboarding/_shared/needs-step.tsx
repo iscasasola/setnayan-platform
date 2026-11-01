@@ -23,9 +23,11 @@
  * the Get-together form both own the state and draw this.
  */
 
+import { EVENT_DATE_FLOOR_MESSAGE, eventDateFloorRefusal, eventDateMinFor } from '@/lib/event-date-floor';
 import type { ReactNode } from 'react';
 import { Check } from 'lucide-react';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { FormRows, TypedRow } from '@/app/_components/form-row';
 import {
   NEED_PRESETS,
   NEED_PRESET_LABEL,
@@ -49,7 +51,8 @@ type Props = {
   where: string;
   onWhere: (v: string) => void;
   /** When (optional) — drawn only on the Simple shape; the other presets ask the date on its own screen. */
-  when?: { value: string; onChange: (v: string) => void } | null;
+  /** `dateExempt` — 💍 the founders' (is_internal) account: any date; everyone else from December 19, 2026. */
+  when?: { value: string; onChange: (v: string) => void; dateExempt?: boolean } | null;
   preset: NeedPreset;
   onPreset: (p: NeedPreset) => void;
   needs: EventNeeds;
@@ -103,33 +106,32 @@ export function NeedsStep({
       ) : null}
       {notice}
 
-      <label className="mt-1 block">
-        <span className={LABEL}>Event name</span>
-        <input
-          autoFocus
-          name={fieldNames?.name}
+      {/* ✍ THE FIELD TEMPLATE (`TypedRow`, owner 1 Nov 2026: every field follows it): the name on the left, the pill on
+          the right; a tap stretches the box across the row. Inside the Get-together's one form, `fieldNames` makes the
+          rows post under the same names the raw boxes did. */}
+      <FormRows width="wide" className="mt-1">
+        <TypedRow
+          name="Event name"
           value={name}
-          onChange={(e) => onName(e.target.value)}
           required
-          autoComplete="off"
-          placeholder={namePlaceholder ?? (solemn ? 'For Lola Rosa' : 'Movie night sa bahay')}
-          className={INPUT}
-          data-needs-name=""
+          empty={namePlaceholder ?? (solemn ? 'For Lola Rosa' : 'Movie night sa bahay')}
+          fieldName={fieldNames?.name}
+          onType={onName}
+          onKeep={(t) => onName(t)}
+          data="needs-name"
+          pillAttrs={{ 'data-needs-name': '' }}
         />
-      </label>
-
-      <label className="block">
-        <span className={LABEL}>Where</span>
-        <input
-          name={fieldNames?.where}
+        <TypedRow
+          name="Where"
           value={where}
-          onChange={(e) => onWhere(e.target.value)}
-          autoComplete="off"
-          placeholder={solemn ? 'The chapel, parish or home' : 'Pasig · our place'}
-          className={INPUT}
-          data-needs-where=""
+          empty={solemn ? 'The chapel, parish or home' : 'Pasig · our place'}
+          fieldName={fieldNames?.where}
+          onType={onWhere}
+          onKeep={(t) => onWhere(t)}
+          data="needs-where"
+          pillAttrs={{ 'data-needs-where': '' }}
         />
-      </label>
+      </FormRows>
 
       {when ? (
         <label className="block">
@@ -141,9 +143,16 @@ export function NeedsStep({
             name={fieldNames?.when}
             value={when.value}
             onChange={(e) => when.onChange(e.target.value)}
+            min={eventDateMinFor(new Date().toISOString().slice(0, 10), when.dateExempt === true)}
             className={INPUT}
             data-needs-when=""
           />
+          {/* 💍 The first-event-day rule, said beside the date (lib/event-date-floor.ts). */}
+          {eventDateFloorRefusal({ date: when.value, exempt: when.dateExempt === true }) ? (
+            <span role="alert" data-event-date-floor="" className="mt-1 block text-xs text-danger-700">
+              {EVENT_DATE_FLOOR_MESSAGE}
+            </span>
+          ) : null}
         </label>
       ) : null}
 

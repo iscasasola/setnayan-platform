@@ -372,16 +372,30 @@ export type SectionIcon =
   | 'declined'
   | 'invite'
   | 'side'
-  | 'none';
+  | 'none'
+  /** 👥 "Guests of [Role]" — the ＋person chip (prototype `guests_of_each_role_2026-11-01`). */
+  | 'guestsOf';
 
 export type RosterSection<G> = {
   /** Stable across renders: `${view}:${label}` (the celebrants: `celebrants`). */
   key: string;
   label: string;
   mark: SectionMark;
+  /** The people this section COUNTS — its "· N" is `guests.length`, and every person is in exactly one section's. */
   guests: G[];
   /** The honorees — first in every view. */
   celebrants?: boolean;
+  /**
+   * 👥 A "Guests of [Role]" section (Role view only): the role bucket whose holders bring the guests it counts.
+   * Absent on every other section.
+   */
+  guestsOf?: RosterRoleBucket;
+  /**
+   * 🔗 "Guests of [Role]" only: the +1s that role's holders bring who hold a role of THEIR OWN — listed here so the
+   * group reads whole ("Ana Reyes · Bridesmaid ↗"), COUNTED in their own role's section. Never in `guests`, never
+   * counted, never selected; a jump to the row that counts them.
+   */
+  jumps?: G[];
 };
 
 /**
@@ -447,6 +461,58 @@ export function roleLabel(grp: RosterRoleBucket, names?: RoleNames | null): stri
   return grp === 'guest' ? 'Guests' : grp === 'honour_attendants' ? HONOUR_ATTENDANTS_LABEL : roleGroupLabel(grp, names);
 }
 
+/**
+ * 👥 GUESTS OF [ROLE] — WHERE THE ROLE VIEW COUNTS A PERSON (owner 2026-11-01, DECISION_LOG "GUESTS › LIST: \"GUESTS OF
+ * [ROLE]\" APPROVED"; prototype `prototypes/guests_of_each_role_2026-11-01/`). Every person is counted in exactly ONE
+ * section, so the sections add up to the total:
+ *   · a guest who is nobody's +1 → their role (`roleBucket`), the celebrants → Bride & Groom;
+ *   · a +1 who holds a role of THEIR OWN (Ana Reyes, a bridesmaid Antonio brings) → that role, once. Under "Guests of
+ *     [their guest's role]" they are only a jump row (`RosterSection.jumps`), never counted again;
+ *   · a +1 with no role of their own, brought by a role holder → "Guests of [that role]" (`guests_of`);
+ *   · a +1 with no role of their own, brought by a plain guest (or by the couple) → Guests, beside their guest — owner,
+ *     verbatim: *"They can stay on guest already. Since they are both guests"*. There is no "Guests of Guests".
+ * The Role view of the List, its Map arrangements and the shared PDF all section through this one answer.
+ * 🔒 app/dashboard/[eventId]/guests/_components/guests-of-each-role-add-up.test.ts
+ */
+export type RoleSectionPlace =
+  | { kind: 'celebrants' }
+  | { kind: 'role'; bucket: RosterRoleBucket }
+  | { kind: 'guests_of'; bucket: RosterRoleBucket };
+
+/** Does this +1 hold a role of their own (any role but a plain guest's)? */
+function holdsOwnRole(g: Pick<GuestRow, 'role' | 'extra_roles'>): boolean {
+  return roleBucket(g) !== 'guest';
+}
+
+export function roleSectionOf(g: GuestRow, at: (g: GuestRow) => GuestRow): RoleSectionPlace {
+  if (isHonoreeRole(g.role)) return { kind: 'celebrants' };
+  const host = at(g);
+  if (host === g || holdsOwnRole(g)) return { kind: 'role', bucket: roleBucket(g) };
+  if (isHonoreeRole(host.role)) return { kind: 'role', bucket: 'guest' };
+  const hb = roleBucket(host);
+  return hb === 'guest' ? { kind: 'role', bucket: 'guest' } : { kind: 'guests_of', bucket: hb };
+}
+
+function isPlace(p: RoleSectionPlace, kind: 'role' | 'guests_of', bucket: RosterRoleBucket): boolean {
+  return p.kind === kind && p.bucket === bucket;
+}
+
+/** A +1 who holds their own role: the role bucket of the guest who brings them (their jump row's group); else null. */
+function broughtByAndHoldsOwnRole(g: GuestRow, at: (g: GuestRow) => GuestRow): RosterRoleBucket | null {
+  const host = at(g);
+  if (host === g || !holdsOwnRole(g) || isHonoreeRole(g.role) || isHonoreeRole(host.role)) return null;
+  const hb = roleBucket(host);
+  return hb === 'guest' ? null : hb;
+}
+
+/** "Guests of Groomsmen" — the section's key (stable, never a rename's word) and its heading (the couple's words). */
+export function guestsOfKey(grp: RosterRoleBucket): string {
+  return `role:guests-of:${grp}`;
+}
+export function guestsOfLabel(grp: RosterRoleBucket, names?: RoleNames | null): string {
+  return `Guests of ${roleLabel(grp, names)}`;
+}
+
 /** The celebrants' heading — "Bride & Groom" at a wedding, "Celebrant" otherwise. */
 function celebrantLabel(g: GuestRow, names?: RoleNames | null): string {
   const grp = roleGroupOf(g.role);
@@ -474,10 +540,15 @@ export function rosterSections(
 ): RosterSection<GuestRow>[] {
   // 🤝 A +1 IS SECTIONED AS THEIR GUEST IS (owner 2026-10-19: "the plus 1 did not connect properly to the guest"):
   // every bucket below reads `at(g)` — the guest who brings them — never the +1's own role, side, name or group.
+  // 👥 …except the Role view, where each role counts its OWN people (owner 2026-11-01, `roleSectionOf`).
   const at = plusOneAnchorOf(guests, facts);
+  const place = (g: GuestRow) => roleSectionOf(g, at);
   const celebrants: GuestRow[] = [];
   const rest: GuestRow[] = [];
-  for (const g of guests) (isHonoreeRole(at(g).role) ? celebrants : rest).push(g);
+  for (const g of guests) {
+    const honoree = view === 'role' ? place(g).kind === 'celebrants' : isHonoreeRole(at(g).role);
+    (honoree ? celebrants : rest).push(g);
+  }
   const rank = new Map(guests.map((g, i) => [g.guest_id, i] as const));
   const beside = (list: GuestRow[]) => besideTheirGuest(list, rank);
 
@@ -497,8 +568,24 @@ export function rosterSections(
   };
 
   if (view === 'role') {
+    // In the guests' order, by their guest: "Guests of Groomsmen" reads in the order the groomsmen do.
+    const byHost = (a: GuestRow, b: GuestRow) =>
+      (rank.get(at(a).guest_id) ?? 0) - (rank.get(at(b).guest_id) ?? 0) || (rank.get(a.guest_id) ?? 0) - (rank.get(b.guest_id) ?? 0);
     for (const grp of ROLE_ORDER) {
-      push(grp, roleLabel(grp, facts.roleNames), { kind: 'icon', icon: ROLE_ICON[grp] ?? 'party' }, rest.filter((g) => roleBucket(at(g)) === grp));
+      push(grp, roleLabel(grp, facts.roleNames), { kind: 'icon', icon: ROLE_ICON[grp] ?? 'party' }, rest.filter((g) => isPlace(place(g), 'role', grp)));
+      // 👥 "Guests of [Role]" — right after the role: the +1s its holders bring who have no role of their own (counted),
+      // then those who do (jump rows, counted in their own role). Shown only when it counts someone.
+      const counted = rest.filter((g) => isPlace(place(g), 'guests_of', grp)).sort(byHost);
+      if (counted.length === 0) continue;
+      const jumps = rest.filter((g) => broughtByAndHoldsOwnRole(g, at) === grp).sort(byHost);
+      out.push({
+        key: guestsOfKey(grp),
+        label: guestsOfLabel(grp, facts.roleNames),
+        mark: { kind: 'icon', icon: 'guestsOf' },
+        guests: counted,
+        guestsOf: grp,
+        ...(jumps.length ? { jumps } : {}),
+      });
     }
   } else if (view === 'last_name') {
     const by = new Map<string, GuestRow[]>();
@@ -548,9 +635,16 @@ export function mapTree(guests: readonly GuestRow[], arrange: MapArrange, facts:
       const kidsBy = new Map<string, GuestRow[]>();
       for (const g of mine) {
         const a = at(g);
-        const k = isHonoreeRole(a.role)
-          ? celebrantLabel(a, facts.roleNames)
-          : (facts.groupsOf(a.guest_id)[0] ?? roleLabel(roleBucket(a), facts.roleNames));
+        // A group is the guest's (a +1 joins their guest's group); with no group, the ROLE rule of the List's Role view
+        // (`roleSectionOf`) — "Guests of Groomsmen", a +1's own role — so the map never counts a role two ways.
+        const p = roleSectionOf(g, at);
+        const k = facts.groupsOf(a.guest_id)[0] && !isHonoreeRole(a.role)
+          ? facts.groupsOf(a.guest_id)[0]!
+          : p.kind === 'celebrants'
+            ? celebrantLabel(a, facts.roleNames)
+            : p.kind === 'guests_of'
+              ? guestsOfLabel(p.bucket, facts.roleNames)
+              : roleLabel(p.bucket, facts.roleNames);
         kidsBy.set(k, [...(kidsBy.get(k) ?? []), g]);
       }
       return {
@@ -734,6 +828,8 @@ export function withTheirPlusOnes<G extends GuestRow>(query: string, hits: reado
 
 /* ─── THE SEARCH UNDERSTANDS WORDS ──────────────────────────────────────── */
 
+/** The words a "Guests of [Role]" heading starts with — the search reads the rest as the role. */
+const GUESTS_OF_WORDS = 'guests of ';
 const TO_INVITE_WORDS = ['to invite', 'not invited', 'uninvited', 'invite'];
 const INVITED_WORDS = ['invited', 'sent'];
 /** "No reply" = `hasNotAnswered` — every guest who has not answered yet (owner 2026-10-07). */
@@ -764,6 +860,13 @@ export function rosterSearchMatches(query: string, g: GuestRow, facts: RosterFac
   if (TO_INVITE_WORDS.includes(q)) return isToInvite(g);
   if (INVITED_WORDS.includes(q)) return Boolean(g.invitation_sent_at);
   if (NO_REPLY_WORDS.includes(q)) return replyFilterMatches(g, 'none');
+  // 👥 "guests of groomsmen" — the Role view's own "Guests of [Role]" heading answers a search, as every heading does,
+  // and finds exactly the people it counts (`roleSectionOf`): never the groomsmen, never a +1 with a role of their own.
+  if (q.startsWith(GUESTS_OF_WORDS)) {
+    const want = q.slice(GUESTS_OF_WORDS.length).trim();
+    const p = roleSectionOf(g, plusOneAnchorOf([g], facts));
+    return p.kind === 'guests_of' && Boolean(want) && normalizeSearchText(roleLabel(p.bucket, facts.roleNames)).includes(want);
+  }
   // "attending" / "not coming" (and every other word for them) — the counts' own filter (`replyFilterMatches`).
   const reply = replyStatusOf(q);
   if (reply === 'attending' || reply === 'declined') return replyFilterMatches(g, reply);
@@ -792,6 +895,7 @@ export function typedLineIsAFilter(query: string, facts: Pick<RosterFacts, 'role
   const q = normalizeSearchText(query ?? '');
   if (!q) return false;
   if (TO_INVITE_WORDS.includes(q) || INVITED_WORDS.includes(q) || NO_REPLY_WORDS.includes(q)) return true;
+  if (q.startsWith(GUESTS_OF_WORDS)) return true;
   if (SIDE_WORDS[q]) return true;
   if (isSearchVocabulary(q, facts.roleNames)) return true;
   return labels.some((l) => {

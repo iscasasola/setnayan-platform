@@ -64,7 +64,8 @@ const TEMPLATE_FILES = [
   'app/_components/ticker.tsx', //             its ticker, and the pill + pop that opens it
   'app/_components/switch-track.tsx', //   3 · Switch (its drawing; the colours are `.sn-switch` in globals.css)
   'app/_components/form-row.tsx', //       6 · Form row / 10 · Field (typed · chosen · on/off · a fact shown)
-  'app/_components/explain.tsx', //        7 · ⓘ explanation (the centred popup on a phone, the note on a computer)
+  'app/_components/explain.tsx', //        7 · ⓘ explanation — its mark
+  'app/_components/explain-open.tsx', //   7 · ⓘ explanation — what it opens (the centred popup on a phone, the note on a computer)
   'app/_components/fold.tsx', //           19 · Fold
   'app/_components/page-card.tsx', //      4 · Page card (the app-icon tile is the accent; its ⓘ is `explain.tsx`)
   'app/_components/calendar.tsx', //       8 · Calendar (the month grid; its sheet on a phone, its panel on a computer)

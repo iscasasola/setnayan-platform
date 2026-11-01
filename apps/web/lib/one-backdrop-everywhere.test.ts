@@ -180,7 +180,7 @@ test('5 Â· a dark that takes no tap is never drawn over a separate close layer â
     'app/dashboard/[eventId]/studio/mood-board/_components/colour-picker-sheet.tsx',
     'app/dashboard/[eventId]/vendors/_components/lock-milestone.tsx',
     'app/_components/calendar.tsx',
-    'app/_components/explain.tsx',
+    'app/_components/explain-open.tsx',
   ]) {
     assert.match(stripComments(read(rel)), /<OverlayBackdrop onClose=\{onClose\} \/>/, `${rel}: the dark is not the close button`);
   }

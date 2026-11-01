@@ -105,5 +105,9 @@ export const MAKER_TOOLS: readonly MakerTool[] = [
   /* 🪪 THE guest card a walker or a parent opens in place (2026-10-29): drawn in the browser from the one read's answer
      (`guest-card-in-place.tsx` — the action may not answer it drawn here), so its code is warmed here and a tap waits
      only for the person's own read. */
+  /* ⓘ What an explanation opens — the phone's centred popup, the computer's note (`explain-open.tsx`, 2026-11-01): its
+     own chunk so the many screens with an ⓘ do not carry it in their first load; warmed here so the first ⓘ tap on the
+     Maker never waits for it. */
+  { key: 'maker:explain', label: 'ⓘ popup', load: () => import('@/app/_components/explain-lazy').then(warmDynamicExports) },
   { key: 'maker:guest-card', label: 'Guest card', load: () => import('../../guests/_components/guest-card-in-place').then(warmDynamicExports) },
 ];

@@ -53,6 +53,8 @@
 // (event name, primary flag, etc.) from silent staleness — the flag is
 // harmless when an action doesn't touch layout data, and load-bearing
 // when it does.
+import { eventDateFloorRefusal } from '@/lib/event-date-floor';
+import { eventDateFloorExempt } from '@/lib/event-date-floor.server';
 import { updateJsonColumn, type JsonColumnClient } from '@/lib/update-json-column';
 import { revalidatePath } from 'next/cache';
 import { parsePersonName } from '@/lib/person-name-parse';
@@ -276,6 +278,15 @@ async function completeSetWeddingDateTask(
 
   const priorDate = (priorRow as { event_date?: string | null }).event_date ?? null;
   const dateChanged = Boolean(priorDate) && priorDate !== isoDate;
+
+  // 💍 No event before December 19, 2026 (owner 2026-11-01, lib/event-date-floor.ts).
+  const floorRefusal = eventDateFloorRefusal({
+    date: isoDate,
+    precision: 'day',
+    prior: priorDate ? { date: priorDate, precision: 'day' } : null,
+    exempt: await eventDateFloorExempt(supabase, { eventId: eventIdRaw }),
+  });
+  if (floorRefusal) throw new Error(floorRefusal);
 
   // Vendor-lock gate · same rule as lockEventDate. Once 1+ confirmed
   // vendors exist on the event the date cannot be moved without support.

@@ -36,6 +36,7 @@ app/vendor-dashboard/calendar/actions.ts → /vendor-dashboard/clients	# first r
 app/vendor-dashboard/calendar/actions.ts → /vendor-dashboard/contracts	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
 app/vendor-dashboard/calendar/actions.ts → /vendor-dashboard/demand	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
 app/vendor-dashboard/calendar/actions.ts → /vendor-dashboard/earnings	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
+app/vendor-dashboard/calendar/actions.ts → /vendor-dashboard/events	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
 app/vendor-dashboard/calendar/actions.ts → /vendor-dashboard/locked-qr	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
 app/vendor-dashboard/calendar/actions.ts → /vendor-dashboard/manpower	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
 app/vendor-dashboard/calendar/actions.ts → /vendor-dashboard/messages	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one

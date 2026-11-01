@@ -1,5 +1,6 @@
 'use client';
 
+import { EVENT_DATE_FLOOR_MESSAGE } from '@/lib/event-date-floor';
 import { DateCalendar, M_FULL } from '@/app/onboarding/_shared/date-calendar';
 
 /**
@@ -1140,7 +1141,10 @@ export function OnboardingShell({
   storeShell = false,
   setupView = null,
   setupSteps = NO_SETUP_STEPS,
+  dateExempt = false,
 }: {
+  /** 💍 The founders' (is_internal) account — any date; everyone else from December 19, 2026. */
+  dateExempt?: boolean;
   authed: boolean;
   resume: boolean;
   /** Date-anchor model: the user's profile religion (already validated against
@@ -2883,6 +2887,12 @@ export function OnboardingShell({
           setCommitError('Please create your account to save your plan.');
           goToId('account');
         }
+      } else if (res.error === 'event_date_before_first_event') {
+        // 💍 No event before December 19, 2026 (lib/event-date-floor.ts): back to the date,
+        // with the owner's words.
+        setFinishing(false);
+        setCommitError(EVENT_DATE_FLOOR_MESSAGE);
+        goToId('date');
       } else if (res.error === 'wedding_exists') {
         // Wedding cardinality (owner-locked 2026-07-12, wired into this commit
         // path 2026-07-17): one wedding in planning at a time — same rule the
@@ -3607,6 +3617,7 @@ export function OnboardingShell({
               centred column in a wide sheet). Mobile (<1024) unaffected. */}
           <section className={`screen onb-twopane${activeId === 'date' ? ' active' : ''}`} id="screen-date">
             <DateCalendar
+              dateExempt={dateExempt}
               mode={state.dateMode}
               candidates={state.dateCandidates}
               windowStart={state.windowStart}

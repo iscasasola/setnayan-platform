@@ -91,6 +91,8 @@ import { papicHeadLine, type PapicHeadFacts } from '@/lib/papic-shoot-now';
 import { ChallengeCardRow } from '@/app/dashboard/[eventId]/studio/papic/_components/challenge-card-row';
 import { PapicCameraHelp } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-camera-help';
 import { papicCardPhase } from '@/lib/papic-home-card';
+import { PapicChapterRow } from '@/app/dashboard/[eventId]/_components/papic-chapter-row';
+import type { PapicChapter } from '@/lib/papic-chapter';
 import type { PapicCardInput } from '@/app/dashboard/[eventId]/_components/home-first-screen';
 import { LabShell } from '@/app/dev/_components/lab-shell';
 import { labEventBar } from '@/app/dev/bar-lab/lab-event';
@@ -272,7 +274,34 @@ const LAB_HEAD: Record<string, PapicHeadFacts> = {
   onwait: { live: false, draftOn: true, early: false },
   unread: { live: true, draftOn: true, early: null },
 };
-function labPapicCard(eventId: string, phase: string | undefined, failed: boolean, challenges = false, head?: string, save?: string): PapicCardInput {
+/* 📷 PAPIC SHOOTS INTO A CHAPTER (owner 2026-11-01) — `?card=1&chapter=now|picked|soon|whole|unread|none`: the REAL
+   chapter row on fixture chapters, at a fixed "now" (Tue 10 Nov 2026, 3 PM Manila).
+     now     — "Meeting with caterer" is on now (2 → 4 PM), 12 photos in it
+     picked  — the host picked "Fitting" (tomorrow), shown with Start now
+     soon    — nothing on now, nothing picked: the dropdown says Whole event
+     whole   — the same as soon
+     unread  — the chapters could not be read: the row says so
+     none    — the event has no chapters: no row (as before chapters)
+   `&save=fail` refuses the lab's picks. */
+const LAB_CHAPTER_NOW = Date.parse('2026-11-10T07:00:00Z');
+const LAB_CHAPTERS: PapicChapter[] = [
+  { blockId: '00000000-0000-4000-8000-0000000c4a01', label: 'Meeting with caterer', startAt: '2026-11-10T14:00:00Z', photoWho: 'chapter', opensAt: '2026-11-10T06:00:00Z', closesAt: '2026-11-10T08:00:00Z', openedEarlyAt: null, picked: false, captures: 12 },
+  { blockId: '00000000-0000-4000-8000-0000000c4a02', label: 'Fitting', startAt: '2026-11-11T10:00:00Z', photoWho: 'tagged', opensAt: '2026-11-11T02:00:00Z', closesAt: '2026-11-11T04:00:00Z', openedEarlyAt: null, picked: false, captures: 0 },
+  { blockId: '00000000-0000-4000-8000-0000000c4a03', label: 'Ceremony', startAt: '2026-12-18T14:00:00Z', photoWho: 'everybody', opensAt: '2026-12-18T06:00:00Z', closesAt: '2026-12-18T07:30:00Z', openedEarlyAt: null, picked: false, captures: 0 },
+];
+function labChapterRow(eventId: string, which: string | undefined, save?: string) {
+  if (!which || which === 'none') return null;
+  const standIn = save === 'fail' ? 'fail' : 'ok';
+  if (which === 'unread') return <PapicChapterRow eventId={eventId} chapters={null} nowMs={LAB_CHAPTER_NOW} standIn={standIn} />;
+  const chapters =
+    which === 'now'
+      ? LAB_CHAPTERS
+      : which === 'picked'
+        ? LAB_CHAPTERS.slice(1).map((c) => ({ ...c, picked: c.label === 'Fitting' }))
+        : LAB_CHAPTERS.slice(1);
+  return <PapicChapterRow eventId={eventId} chapters={chapters} nowMs={LAB_CHAPTER_NOW} standIn={standIn} />;
+}
+function labPapicCard(eventId: string, phase: string | undefined, failed: boolean, challenges = false, head?: string, save?: string, chapter?: string): PapicCardInput {
   const facts = LAB_HEAD[head ?? 'eventday'] ?? LAB_HEAD.eventday!;
   const startIso = '2026-12-10T16:00:00.000Z';
   const endIso = '2026-12-13T04:00:00.000Z';
@@ -285,6 +314,7 @@ function labPapicCard(eventId: string, phase: string | undefined, failed: boolea
     // 🔢 The face (owner 2026-10-26): Total · Taken · Remaining and Add more — the settings open under it.
     counts: { total: failed ? null : 2000, left: failed ? null : 1240 },
     buy: <PapicBuySheet eventId={eventId} left={failed ? null : 1240} tone="brand" main label="Add more" />,
+    chapter: labChapterRow(eventId, chapter, save),
     defaultOpen: challenges,
     settings: (
       <>
@@ -323,7 +353,7 @@ const LAB_HUB_PICK: HomeHubPickRead = { ok: true, pinned: null, byDate: 'rsvp' }
 export default async function HomeLab({
   searchParams,
 }: {
-  searchParams: Promise<{ stage?: string; photos?: string; bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; coord?: string; level?: string; shop?: string; card?: string; cardphase?: string; head?: string; save?: string; challenges?: string; open?: string; need?: string; state?: string; browser?: string; desk?: string; prints?: string; settings?: string; row?: string; date?: string; as?: string; asked?: string; person?: string; whos?: string; sched?: string; plan?: string }>;
+  searchParams: Promise<{ stage?: string; photos?: string; bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; coord?: string; level?: string; shop?: string; card?: string; cardphase?: string; head?: string; save?: string; challenges?: string; open?: string; need?: string; state?: string; browser?: string; desk?: string; prints?: string; settings?: string; row?: string; date?: string; as?: string; asked?: string; person?: string; whos?: string; chapter?: string; sched?: string; plan?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -655,7 +685,7 @@ export default async function HomeLab({
         hubPick={unread ? { ok: false, reason: 'unread' } : LAB_HUB_PICK}
         /* 🖨 The Prints line (R8) — the couple's, where the event needs its Event Hub details; `&prints=0` drops it. */
         prints={q.prints !== '0' && (labNeeds ? labNeeds.hubDetails : true)}
-        papicCard={q.card === '1' ? labPapicCard(E, q.cardphase, q.fail === '1' || q.unread === '1', q.challenges === '1', q.head, q.save) : null}
+        papicCard={q.card === '1' ? labPapicCard(E, q.cardphase, q.fail === '1' || q.unread === '1', q.challenges === '1', q.head, q.save, q.chapter) : null}
         whosHere={q.whos ? labWhosHere(E, q.whos) : null}
         apple={
           q.store === '1' && q.apple === '1'

@@ -13,6 +13,7 @@ import {
   type ReactNode,
 } from 'react';
 import {
+  BookOpen,
   Camera,
   Loader2,
   Check,
@@ -292,6 +293,12 @@ type Props = {
   /** 🏷 The small mark burned into the COPIES of every shot (never the original;
    *  lib/papic-photo-mark.ts). Absent → the Setnayan mark, the free event's. */
   photoMark?: PapicMark | null;
+  /**
+   * 📷 THE CHAPTER THIS CAMERA SHOOTS INTO (owner 2026-11-01, "THE PAPIC CARD ON HOME SHOOTS INTO A CHAPTER"): the
+   * event's chapter now, resolved on the server ONLY when this guest may shoot into it (`papicCameraChapter`). Named on
+   * the camera, and every shot carries its id — the server asks again at the shutter. Null: the whole event.
+   */
+  chapter?: { blockId: string; label: string } | null;
 };
 
 /**
@@ -337,6 +344,7 @@ function announceOutOfShots(): void {
 }
 
 export function PapicGuestCapture({
+  chapter = null,
   eventName,
   eventId,
   uploadOwner,
@@ -802,6 +810,7 @@ export function PapicGuestCapture({
           faceSource,
           ownerTag: uploadOwner,
           mark,
+          chapterId: chapter?.blockId ?? null,
         });
       } catch {
         // The phone could not keep it (storage full / private mode). Say so —
@@ -814,7 +823,7 @@ export function PapicGuestCapture({
       setTimeout(() => setJustSaved(false), 900);
       keepSessionShot({ id: meta.clientCaptureId, url: URL.createObjectURL(small ?? blob), media: 'photo' });
     },
-    [eventId, uploadOwner, keepSessionShot, mark],
+    [eventId, uploadOwner, keepSessionShot, mark, chapter?.blockId],
   );
 
   const capture = useCallback(async () => {
@@ -1003,6 +1012,7 @@ export function PapicGuestCapture({
           poster,
           ownerTag: uploadOwner,
           mark,
+          chapterId: chapter?.blockId ?? null,
         });
       } catch {
         setSaveError("Couldn't save that clip on this phone — free up some space and try again.");
@@ -1017,7 +1027,7 @@ export function PapicGuestCapture({
         keepSessionShot({ id: clientCaptureId, url: URL.createObjectURL(small ?? poster), media: 'clip', durationMs: clamped });
       }
     },
-    [sharePublicly, eventId, capApplies, uploadOwner, keepSessionShot, mark],
+    [sharePublicly, eventId, capApplies, uploadOwner, keepSessionShot, mark, chapter?.blockId],
   );
 
   const stopRecording = useCallback(() => {
@@ -1650,6 +1660,13 @@ export function PapicGuestCapture({
             couple set on her — and hiding a guest's own number from that guest
             would be a second bug wearing this one's clothes. */}
         <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+        {/* 📷 The chapter these shots go into (owner 2026-11-01) — a name, not a control. */}
+        {chapter ? (
+          <span className="inline-flex min-w-0 max-w-[13rem] items-center gap-1.5 rounded-full bg-cream/10 px-3 py-1 text-xs font-medium text-cream" data-papic-camera-chapter={chapter.blockId}>
+            <BookOpen aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
+            <span className="truncate">{chapter.label}</span>
+          </span>
+        ) : null}
         {/* 📡 Save first, send later — the uploader's one line (details in ⓘ). */}
         <PapicUploadChip readyWhenIdle />
         {/* The event's credits ran out: the camera says so over the picture and the

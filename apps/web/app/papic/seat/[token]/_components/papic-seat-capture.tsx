@@ -22,6 +22,7 @@ import {
   CloudOff,
   Ban,
   X,
+  BookOpen,
 } from 'lucide-react';
 import { cameraExitHref } from '@/app/[slug]/_lib/hub-tabs';
 import {
@@ -190,6 +191,9 @@ type Props = {
   /** ✕ back to this event's Event Hub (owner 31 Oct, "needs exit to return to event hub"). The slug is the
    *  event's own, read on the server — never a query param. Null when the event has no slug. */
   exitSlug?: string | null;
+  /** 📷 The chapter this camera shoots into (owner 2026-11-01), resolved on the server only when this claimer may shoot
+   *  into it now (`papicCameraChapter`). Named on the camera; each shot carries its id and the server asks again. */
+  chapter?: { blockId: string; label: string } | null;
 };
 
 /** A single capture as it moves through the background upload queue. Drives both
@@ -221,6 +225,8 @@ type Shot = {
    *  embedding. The event look would wreck face-api's descriptors, so faces are
    *  read from this, never from the styled delivery blob. */
   faceBlob?: Blob | null;
+  /** 📷 The chapter the camera showed at the shutter — stamped when the shot is queued, never re-read. */
+  chapterId?: string | null;
 };
 
 /** Pick a MediaRecorder container the browser actually supports (Safari → mp4,
@@ -261,7 +267,13 @@ export function PapicSeatCapture({
   geoEnabled = false,
   buyOffered = false,
   exitSlug = null,
+  chapter = null,
 }: Props) {
+  // 📷 The chapter as the shutter sees it — a ref, so a shot is stamped with the chapter of ITS moment.
+  const chapterRef = useRef<string | null>(chapter?.blockId ?? null);
+  useEffect(() => {
+    chapterRef.current = chapter?.blockId ?? null;
+  }, [chapter?.blockId]);
   // The event-wide look is LOCKED (couple-set at setup) — baked into every photo.
   // styleRef mirrors the prop so grabFrame reads it without a dep churn.
   const styleRef = useRef<PapicStyle>(eventStyle);
@@ -822,6 +834,7 @@ export function PapicSeatCapture({
                 undefined,
                 shot.geo,
                 shot.capturedAtMs,
+                shot.chapterId ?? null,
               )
             : await recordSeatCapture(
                 token,
@@ -831,6 +844,7 @@ export function PapicSeatCapture({
                 shot.durationMs,
                 shot.geo,
                 shot.capturedAtMs,
+                shot.chapterId ?? null,
               );
 
         if (!result.ok) {
@@ -1025,6 +1039,7 @@ export function PapicSeatCapture({
   // very next tap without waiting for the server round-trip.
   const enqueueShot = useCallback(
     (shot: Shot) => {
+      if (shot.chapterId === undefined) shot.chapterId = chapterRef.current;
       if (shot.kind === 'photo') setPhotos((n) => n + 1);
       else setClips((n) => n + 1);
       flash();
@@ -1428,9 +1443,21 @@ export function PapicSeatCapture({
               <X aria-hidden className="h-5 w-5" strokeWidth={2} />
             </a>
           ) : null}
-          <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-cream/70">
-            Papic · seat {seatIndex}
-          </p>
+          {/* 📷 The chapter these shots go into names the camera (owner 2026-11-01); otherwise the seat. */}
+          {chapter ? (
+            <span
+              className="inline-flex min-w-0 max-w-[11rem] items-center gap-1.5 rounded-full bg-cream/10 px-3 py-1 text-xs font-medium text-cream"
+              title={`Papic · seat ${seatIndex}`}
+              data-papic-camera-chapter={chapter.blockId}
+            >
+              <BookOpen aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
+              <span className="truncate">{chapter.label}</span>
+            </span>
+          ) : (
+            <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-cream/70">
+              Papic · seat {seatIndex}
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {styleMeta && styleMeta.id !== 'ORIG' ? (

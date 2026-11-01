@@ -61,7 +61,9 @@ const LAB_LOGO = (
 /** `?buy=1` — the real floating "Add credits" doorway over the camera, on one fixture rung (it never opens a purchase here). */
 const LAB_OFFERS = [{ kind: 'pool_topup' as const, serviceCode: 'LAB_RUNG', points: 50, pricePhp: 249, phrase: '50 more photos' }];
 
-export function LabCamera({ lane, pro = false, buy = false }: { lane: 'guest' | 'vendor' | 'seat'; pro?: boolean; buy?: boolean }) {
+const LAB_CHAPTER = { blockId: '00000000-0000-4000-8000-0000000c4a01', label: 'Meeting with caterer' };
+
+export function LabCamera({ lane, pro = false, buy = false, chapter = false }: { lane: 'guest' | 'vendor' | 'seat'; pro?: boolean; buy?: boolean; chapter?: boolean }) {
   const [snap, setSnap] = useState<UploaderSnapshot | null>(null);
   useEffect(() => papicUploader().subscribe(setSnap), []);
   // The walk's probes reach the real modules through this (lab only).
@@ -123,6 +125,7 @@ export function LabCamera({ lane, pro = false, buy = false }: { lane: 'guest' | 
           eventStyle="ORIG"
           faceMode="mode_b"
           buyOffered={buy}
+          chapter={chapter ? LAB_CHAPTER : null}
         />
       ) : lane === 'guest' ? (
         <PapicGuestCapture
@@ -141,6 +144,7 @@ export function LabCamera({ lane, pro = false, buy = false }: { lane: 'guest' | 
           exitTo={{ slug: 'lab', tab: null }}
           dress={pro ? { pro: true, tint: LAB_TINT, logo: LAB_LOGO } : { pro: false, tint: '#FFFFFF', logo: null }}
           photoMark={pro ? { kind: 'monogram', svg: null, text: 'A&B', ink: LAB_TINT } : { kind: 'setnayan' }}
+          chapter={chapter ? LAB_CHAPTER : null}
         />
       ) : (
         <div className="bg-cream px-4">

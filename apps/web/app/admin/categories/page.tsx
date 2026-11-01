@@ -133,7 +133,8 @@ export default async function CategoriesPage({ searchParams }: { searchParams: P
     counts = [
       `${formatCount(cats.groups.length)} groups`,
       `${formatCount(cats.categories.length)} categories`,
-      `${formatCount(cats.services.length)} services`,
+      // A refused services read is unknown, not zero (the banner above says so; this number must not contradict it).
+      `${cats.failed.includes('services') ? '—' : formatCount(cats.services.length)} services`,
       `${formatCount(cats.requests.length)} requests`,
       `${formatCount(waiting)} words waiting`,
       unfiled > 0 ? `${formatCount(unfiled)} unfiled` : null,

@@ -33,7 +33,7 @@ function AskRow({ ask, types, back }: { ask: EventTypeAsk; types: readonly Choic
   const [name, setName] = useState(ask.label);
   const linkedTo = ask.eventType ? (types.find((t) => t.key === ask.eventType)?.label ?? ask.eventType) : null;
   return (
-    <li className="space-y-2 rounded-2xl bg-sky-50/40 p-3 dark:bg-raised" data-ask-row="">
+    <li className="space-y-2 rounded-2xl bg-info-50/40 p-3 dark:bg-raised" data-ask-row="">
       <p className="text-sm text-ink">
         <span className="font-semibold">“{ask.label}”</span> from {ask.askedBy}
         <span className="text-ink/70"> · {new Date(ask.createdAt).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })}</span>

@@ -765,6 +765,8 @@ export async function resolveScheduleSuggestion(formData: FormData) {
   // ✅ Approve all rides this one action (decision=accept_all) — no new export: every exported action is a Vercel
   // route, and that budget is full (`scripts/lint-server-action-budget.mjs`).
   if (formData.get('decision') === 'accept_all') return approveAllScheduleSuggestions(formData);
+  // 🤝 Auto-agree (Event Details › Event access) rides this action too — the same budget reason.
+  if (formData.get('decision') === 'auto_agree') return setSupplierAutoAgree(formData);
   await refuseLimitedHelper(formData.get('event_id'), 'schedule');
   const eventId = formData.get('event_id');
   const suggestionId = formData.get('suggestion_id');
@@ -827,6 +829,32 @@ async function approveAllScheduleSuggestions(formData: FormData) {
     );
   }
   redirect(`/dashboard/${eventId}/schedule?view=event-day`);
+}
+
+/**
+ * 🤝 AUTO-AGREE — the host's one setting for supplier changes (3 Oct; ruled 1 Nov: starts Off). Only a host of the event
+ * (`userHostsEvent`: the couple, an accepted primary host) sets it; the write is the caller's own UPDATE under the
+ * events row's RLS and is read back, so a refused one throws instead of looking saved. No redirect: the dropdown stays.
+ * Reached through `resolveScheduleSuggestion` (decision=auto_agree).
+ */
+async function setSupplierAutoAgree(formData: FormData): Promise<void> {
+  const eventId = formData.get('event_id');
+  const on = formData.get('auto_agree');
+  if (typeof eventId !== 'string' || (on !== '1' && on !== '0')) throw new Error('Invalid input');
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+  if (!(await mayShowToGuests(supabase, user.id, eventId))) throw new Error('Only a host of the event can change this.');
+  const { data, error } = await supabase
+    .from('events')
+    .update({ supplier_requests_auto_agree: on === '1' })
+    .eq('event_id', eventId)
+    .select('event_id');
+  if (error) throw new Error(error.message);
+  if (!data?.length) throw new Error('Nothing changed — this account cannot change the event.');
+  revalidatePath(`/dashboard/${eventId}/details`);
 }
 
 // ─────────────────  Coordinator P2 · filtered run-of-show  ─────────────────

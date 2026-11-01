@@ -46,8 +46,7 @@ import { boothStudioEnabled } from '@/lib/booth-studio-flag';
 import { sanitizeBoothStudioContent, type BoothStudioContent } from '@/lib/booth-studio';
 import { VendorChallengeSection } from './_components/vendor-challenge-section';
 import { BoothEventSection } from './_components/booth-event-section';
-import { blockRelevance, deriveCallTime } from '@/lib/vendor-timeline';
-import { fetchBlockRosMeta, isBlockTaggedToVendor } from '@/lib/schedule-ros';
+import { deriveCallTime } from '@/lib/vendor-timeline';
 import {
   fetchVendorThreads,
   fetchReturningClientFlags,
@@ -199,6 +198,9 @@ import { manilaToday } from '@/lib/std-views';
 import { readOpenPaymentAsks, type OpenPaymentAskRow } from '@/lib/vendor-payment-asks-read';
 import { formatWallClock } from '@/lib/schedule-datetime-local';
 import { formatCount } from '@/lib/format-number';
+import { buildSupplierDay, changedSinceSeen, inFinalWeek, type SupplierTaskRow } from '@/lib/supplier-schedule';
+import { SupplierSchedule } from './_components/supplier-schedule';
+import type { ComponentProps } from 'react';
 
 export const metadata = { title: 'Customer Card · Supplier' };
 
@@ -649,6 +651,9 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     { data: liveBlocks },
     { data: mySuggestions },
     returningFlags,
+    myTasksRes,
+    myMarksRes,
+    myScheduleFacts,
   ] = await clientTimer.track('customer-card', () =>
     Promise.all([
       admin
@@ -708,6 +713,26 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       // Graceful-degrades to an empty Map pre-migration, so the marker simply
       // doesn't render until 20261201000000 lands.
       fetchReturningClientFlags(supabase, profile.vendor_profile_id, [eventId]),
+      // 🤝 THE SUPPLIER'S PART OF THE SCHEDULE (Step 4b) — their crews on moments (RLS: a booked supplier reads the
+      // event's tasks), their Seen / Confirm marks (own rows), and the host's Auto-agree + the event day + every
+      // booking row of theirs (admin, scoped to this org on this event — a supplier has no read on events' settings
+      // or event_vendors). Each read's failure is said on the view, never drawn as "none".
+      supabase.from('event_schedule_tasks').select('block_id, vendor_id, crew').eq('event_id', eventId),
+      supabase
+        .from('event_supplier_schedule_marks')
+        .select('seen_at, confirmed_at')
+        .eq('event_id', eventId)
+        .eq('vendor_profile_id', profile.vendor_profile_id)
+        .maybeSingle(),
+      Promise.all([
+        admin.from('events').select('supplier_requests_auto_agree, event_date').eq('event_id', eventId).maybeSingle(),
+        admin
+          .from('event_vendors')
+          .select('vendor_id')
+          .eq('event_id', eventId)
+          .eq('marketplace_vendor_id', profile.vendor_profile_id)
+          .is('archived_at', null),
+      ]),
     ]),
   );
 
@@ -1221,6 +1246,48 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
 
   const allBlocks = (liveBlocks ?? []) as LiveBlock[];
   const suggestions = (mySuggestions ?? []) as SuggestionRow[];
+
+  // 🤝 Their part of the day (Step 4b) — one pass over the reads above (`lib/supplier-schedule.ts`).
+  const [factsEvent, factsBookings] = myScheduleFacts;
+  const myBookingIds = ((factsBookings.data ?? []) as { vendor_id: string }[]).map((b) => b.vendor_id);
+  if (eventVendorId && !myBookingIds.includes(eventVendorId)) myBookingIds.push(eventVendorId);
+  const supplierDay = liveBlocks
+    ? buildSupplierDay({
+        blocks: allBlocks.map((b) => ({
+          block_id: b.block_id,
+          parent_block_id: b.parent_block_id ?? null,
+          label: b.label,
+          start_at: b.start_at,
+          end_at: b.end_at,
+          location: b.location,
+          spot: b.spot ?? null,
+          time_tba: b.time_tba === true,
+          is_optional: b.is_optional === true,
+          responsible_vendor_ids: b.responsible_vendor_ids ?? [],
+          created_at: b.created_at ?? null,
+          updated_at: b.updated_at ?? null,
+        })),
+        myBookingIds,
+        tasks: (myTasksRes.data ?? []) as SupplierTaskRow[],
+        requests: suggestions,
+      })
+    : null;
+  const scheduleMarks = myMarksRes.error
+    ? null
+    : {
+        seenAt: (myMarksRes.data as { seen_at: string | null } | null)?.seen_at ?? null,
+        confirmedAt: (myMarksRes.data as { confirmed_at: string | null } | null)?.confirmed_at ?? null,
+      };
+  const factsRow = (factsEvent.data ?? null) as { supplier_requests_auto_agree: boolean | null; event_date: string | null } | null;
+  const supplierPart = {
+    day: supplierDay,
+    autoAgree: factsRow?.supplier_requests_auto_agree === true,
+    marks: scheduleMarks,
+    changed: supplierDay ? changedSinceSeen(supplierDay.stamps, scheduleMarks?.seenAt ?? null) : false,
+    finalWeek: inFinalWeek(factsRow?.event_date ?? null, manilaToday()),
+    tasksRead: !myTasksRes.error,
+    answered: suggestions.filter((r) => r.status !== 'open').slice(0, 6),
+  };
   // The couple's invitation to arrange the cocktail area is a WORKING control
   // (ruling item 7): its own page is gated, so the door to it is too — a link
   // that only ever lands on a locked screen is a dead end, not an invitation.
@@ -1236,7 +1303,6 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   );
   const posterDisplayUrl = posterRef ? await displayUrlForStoredAsset(posterRef) : null;
 
-  const blockLabel = new Map(allBlocks.map((b) => [b.block_id, b.label]));
 
   const runOfShowBlocks: RunOfShowBlock[] = allBlocks
     .filter((b) => b.start_at)
@@ -1250,37 +1316,9 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       actual_start_at: b.actual_start_at ?? null,
     }));
 
-  const relevance = new Map(
-    allBlocks.map((b) => [b.block_id, blockRelevance(b, brief.booked_categories)]),
-  );
-  // Coordinator P2 — explicit responsible-party tags override the category
-  // heuristic: a row the couple tagged to THIS vendor is always 'primary'
-  // ("Your slot" + included in "My slots only"). Best-effort fetch — before
-  // migration 20270825042743 (or with zero tags) the map is empty and the
-  // lens behaves exactly as today. Full-timeline read stays per locked D2.
-  //
-  // The SAME tags decide which moments are this supplier's OWN (owner
-  // 2026-10-03): those it may ask to change or remove; on every other moment
-  // it may only suggest. The category heuristic never makes a moment "own" —
-  // only a tag does, which is also the only thing the database's rule reads
-  // (`current_vendor_owns_schedule_block`, 20271263061583).
-  const ownBlockIds = new Set<string>();
-  if (eventVendorId && allBlocks.length > 0) {
-    const rosMeta = await fetchBlockRosMeta(supabase, eventId);
-    if (rosMeta.size > 0) {
-      for (const b of allBlocks) {
-        if (isBlockTaggedToVendor(rosMeta, b.block_id, eventVendorId)) {
-          relevance.set(b.block_id, 'primary');
-          ownBlockIds.add(b.block_id);
-        }
-      }
-    }
-  }
-  const mineOnly = search.lens === 'mine';
-  const mineCount = allBlocks.filter((b) => relevance.get(b.block_id) !== 'context').length;
-  const blocks = mineOnly
-    ? allBlocks.filter((b) => relevance.get(b.block_id) !== 'context')
-    : allBlocks;
+  // The old "Full timeline / My slots only" lens and its per-moment forms moved into the Schedule view (Step 4b):
+  // which moments are this supplier's own is read there from `responsible_vendor_ids`, the column the database's
+  // own-items rule reads (`current_vendor_owns_schedule_block`, 20271263061583).
   const callTime = deriveCallTime(allBlocks, brief.booked_categories);
   const callTimeAlreadyRequested = suggestions.some(
     (s) => s.kind === 'new' && s.note.startsWith('Suggested call time'),
@@ -1796,17 +1834,11 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         preAgreement={preAgreement}
         brief={brief}
         allBlocks={allBlocks}
-        blocks={blocks}
-        relevance={relevance}
-        ownBlockIds={ownBlockIds}
-        mineOnly={mineOnly}
-        mineCount={mineCount}
         runOfShowBlocks={runOfShowBlocks}
         canAdvance={isBookedCoordinator}
         callTime={callTime}
         callTimeAlreadyRequested={callTimeAlreadyRequested}
-        suggestions={suggestions}
-        blockLabel={blockLabel}
+        supplierPart={supplierPart}
         handovers={handovers}
         handoversMeasured={handoversMeasured}
         eventVendorId={eventVendorId}
@@ -3282,12 +3314,6 @@ function ScheduleTab(props: {
   preAgreement: boolean;
   brief: Brief;
   allBlocks: LiveBlock[];
-  blocks: LiveBlock[];
-  relevance: Map<string, ReturnType<typeof blockRelevance>>;
-  /** Moments tagged to this supplier's booking — the ones it may ask to change or remove. */
-  ownBlockIds: Set<string>;
-  mineOnly: boolean;
-  mineCount: number;
   runOfShowBlocks: RunOfShowBlock[];
   /**
    * The booked COORDINATOR, and nobody else on the supplier side. Was a
@@ -3298,8 +3324,8 @@ function ScheduleTab(props: {
   canAdvance: boolean;
   callTime: ReturnType<typeof deriveCallTime>;
   callTimeAlreadyRequested: boolean;
-  suggestions: SuggestionRow[];
-  blockLabel: Map<string, string>;
+  /** 🤝 The supplier's part of the schedule (Step 4b) — their Schedule view's data, read once by the page. */
+  supplierPart: Omit<ComponentProps<typeof SupplierSchedule>, 'eventId' | 'lab'>;
   handovers: HandoverRow[];
   /** false = the handover read was refused, so "none delivered" is not a fact. */
   handoversMeasured: boolean;
@@ -3313,17 +3339,11 @@ function ScheduleTab(props: {
     eventId,
     preAgreement,
     allBlocks,
-    blocks,
-    relevance,
-    ownBlockIds,
-    mineOnly,
-    mineCount,
     runOfShowBlocks,
     canAdvance,
     callTime,
     callTimeAlreadyRequested,
-    suggestions,
-    blockLabel,
+    supplierPart,
     handovers,
     handoversMeasured,
     eventVendorId,
@@ -3373,26 +3393,10 @@ function ScheduleTab(props: {
             <CalendarDays aria-hidden className="h-4 w-4 text-terracotta" /> Day-of timeline
           </h2>
           <div className="flex flex-wrap items-center gap-3">
-            {allBlocks.length > 0 && mineCount > 0 && mineCount < allBlocks.length ? (
-              <span className="inline-flex overflow-hidden rounded-full border border-ink/15 text-xs font-medium">
-                <Link
-                  href={`/vendor-dashboard/clients/${eventId}?tab=schedule`}
-                  className={`px-3 py-1 ${!mineOnly ? 'bg-ink text-cream' : 'bg-white text-ink/60 hover:text-ink'}`}
-                >
-                  Full timeline
-                </Link>
-                <Link
-                  href={`/vendor-dashboard/clients/${eventId}?tab=schedule&lens=mine`}
-                  className={`px-3 py-1 ${mineOnly ? 'bg-ink text-cream' : 'bg-white text-ink/60 hover:text-ink'}`}
-                >
-                  My slots only
-                </Link>
-              </span>
-            ) : null}
             {allBlocks.length > 0 ? (
               <SaveFileLink
-                href={`/vendor-dashboard/clients/${eventId}/calendar.ics${mineOnly ? '?mine=1' : ''}`}
-                filename={`schedule-${eventId}${mineOnly ? '-mine' : ''}.ics`}
+                href={`/vendor-dashboard/clients/${eventId}/calendar.ics`}
+                filename={`schedule-${eventId}.ics`}
                 className="inline-flex items-center gap-1 text-sm font-medium text-mulberry underline"
               >
                 <CalendarPlus aria-hidden className="h-4 w-4" /> Add to calendar
@@ -3465,195 +3469,16 @@ function ScheduleTab(props: {
           </p>
         ) : null}
 
-        {allBlocks.length === 0 ? (
-          <p className="mt-2 text-sm text-ink/55">
-            The couple hasn&rsquo;t built their event-day timeline yet.
-          </p>
-        ) : blocks.length === 0 ? (
-          <p className="mt-2 text-sm text-ink/55">
-            No blocks match your booked categories yet —{' '}
-            <Link
-              href={`/vendor-dashboard/clients/${eventId}?tab=schedule`}
-              className="text-mulberry underline"
-            >
-              see the full timeline
-            </Link>
-            .
-          </p>
-        ) : (
-          <ol className="mt-3 divide-y divide-ink/10">
-            {blocks.map((b) => (
-              <li
-                key={b.block_id}
-                className={`py-2.5 pl-3 ${
-                  relevance.get(b.block_id) === 'primary'
-                    ? 'border-l-2 border-terracotta'
-                    : relevance.get(b.block_id) === 'supporting'
-                      ? 'border-l-2 border-ink/20'
-                      : 'border-l-2 border-transparent opacity-60'
-                }`}
-              >
-                <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-                  <span className="w-36 shrink-0 text-sm font-medium tabular-nums text-ink/70">
-                    {fmtTime(b.start_at) ?? 'Time TBD'}
-                    {fmtTime(b.end_at) ? ` – ${fmtTime(b.end_at)}` : ''}
-                  </span>
-                  <span className="text-sm font-medium">{b.label}</span>
-                  {relevance.get(b.block_id) === 'primary' ? (
-                    <span className="rounded-full bg-terracotta/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-terracotta-700">
-                      Your slot
-                    </span>
-                  ) : null}
-                  {b.location ? <span className="text-xs text-ink/55">{b.location}</span> : null}
-                </div>
-                {/*
-                  OWN vs EVERYONE ELSE'S (owner 2026-10-03, "SUPPLIERS WRITE
-                  THEIR OWN PART OF THE SCHEDULE"). A moment tagged to this
-                  supplier's booking may be asked to change (name · time ·
-                  place) or to come off; any other moment only takes a
-                  suggestion in words. Every ask is still a request the couple
-                  or their coordinator approves. The database holds the same
-                  line (schedule_suggestions_vendor_insert), so this split is
-                  the screen saying what is true, not the rule itself.
-                */}
-                {ownBlockIds.has(b.block_id) ? (
-                  <details className="mt-1 pl-0 sm:pl-40">
-                    <summary className="inline-flex min-h-[44px] cursor-pointer items-center gap-1 text-xs text-ink/55 hover:text-ink">
-                      <MessageSquarePlus aria-hidden className="h-3.5 w-3.5" /> Change or remove
-                    </summary>
-                    <form action={suggestScheduleChange} className="mt-2 grid max-w-md gap-2">
-                      <input type="hidden" name="event_id" value={eventId} />
-                      <input type="hidden" name="block_id" value={b.block_id} />
-                      <input
-                        type="text"
-                        name="proposed_label"
-                        maxLength={120}
-                        placeholder={`New name (now “${b.label}”)`}
-                        className={shopInputClass}
-                      />
-                      <div className="flex flex-wrap items-center gap-2">
-                        <input type="datetime-local" name="proposed_start_at" aria-label="New start" className="rounded-lg border border-ink/20 bg-white px-2 py-1 text-xs" />
-                        <span className="text-xs text-ink/45">to</span>
-                        <input type="datetime-local" name="proposed_end_at" aria-label="New end" className="rounded-lg border border-ink/20 bg-white px-2 py-1 text-xs" />
-                      </div>
-                      <input
-                        type="text"
-                        name="proposed_location"
-                        maxLength={200}
-                        placeholder="New place (optional)"
-                        className={shopInputClass}
-                      />
-                      <textarea
-                        name="note"
-                        required
-                        maxLength={1000}
-                        rows={2}
-                        placeholder="What changes, and why"
-                        className={shopInputClass}
-                      />
-                      <SubmitButton pendingLabel="Sending…" className="justify-self-start rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-cream">
-                        Send request
-                      </SubmitButton>
-                    </form>
-                    <form action={suggestScheduleChange} className="mt-3 grid max-w-md gap-2 border-t border-ink/10 pt-3">
-                      <input type="hidden" name="event_id" value={eventId} />
-                      <input type="hidden" name="block_id" value={b.block_id} />
-                      <input type="hidden" name="request" value="remove" />
-                      <textarea
-                        name="note"
-                        required
-                        maxLength={1000}
-                        rows={2}
-                        placeholder="Why this should come off the schedule"
-                        className={shopInputClass}
-                      />
-                      <SubmitButton pendingLabel="Sending…" className="justify-self-start rounded-lg border border-danger-300 bg-danger-50 px-3 py-1.5 text-xs font-medium text-danger-700 hover:bg-danger-100">
-                        Ask to remove
-                      </SubmitButton>
-                    </form>
-                  </details>
-                ) : (
-                  <details className="mt-1 pl-0 sm:pl-40">
-                    <summary className="inline-flex min-h-[44px] cursor-pointer items-center gap-1 text-xs text-ink/55 hover:text-ink">
-                      <MessageSquarePlus aria-hidden className="h-3.5 w-3.5" /> Suggest a change
-                    </summary>
-                    <form action={suggestScheduleChange} className="mt-2 grid max-w-md gap-2">
-                      <input type="hidden" name="event_id" value={eventId} />
-                      <input type="hidden" name="block_id" value={b.block_id} />
-                      <textarea
-                        name="note"
-                        required
-                        maxLength={1000}
-                        rows={2}
-                        placeholder={`e.g. "We need ingress 2 hours before ${b.label}."`}
-                        className={shopInputClass}
-                      />
-                      <SubmitButton pendingLabel="Sending…" className="justify-self-start rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-cream">
-                        Send suggestion
-                      </SubmitButton>
-                    </form>
-                  </details>
-                )}
-              </li>
-            ))}
-          </ol>
-        )}
-
-        <details className="mt-4 rounded-xl border border-ink/10 bg-white/50 p-3">
-          <summary className="cursor-pointer text-sm font-semibold">Suggest a new timeline entry</summary>
-          <form action={suggestScheduleChange} className="mt-3 grid max-w-md gap-2">
-            <input type="hidden" name="event_id" value={eventId} />
-            <input type="text" name="proposed_label" required maxLength={120} placeholder="e.g. Booth setup / ingress" className={shopInputClass} />
-            <textarea name="note" required maxLength={1000} rows={2} placeholder="Why this slot matters" className={shopInputClass} />
-            <div className="flex flex-wrap items-center gap-2">
-              <input type="datetime-local" name="proposed_start_at" className="rounded-lg border border-ink/20 bg-white px-2 py-1 text-xs" />
-              <span className="text-xs text-ink/45">to</span>
-              <input type="datetime-local" name="proposed_end_at" className="rounded-lg border border-ink/20 bg-white px-2 py-1 text-xs" />
-            </div>
-            <input type="text" name="proposed_location" maxLength={200} placeholder="Location (optional)" className={shopInputClass} />
-            <SubmitButton pendingLabel="Sending…" className="justify-self-start rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-cream">
-              Send suggestion
-            </SubmitButton>
-          </form>
-        </details>
-
-        {suggestions.length > 0 ? (
-          <div className="mt-4">
-            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">Your requests</p>
-            <ul className="mt-1.5 space-y-1">
-              {suggestions.map((s) => {
-                // Still open, but the moment it was about is gone (the couple
-                // took it off themselves) — nobody is going to answer it, so
-                // it must not read as waiting.
-                const moot = s.status === 'open' && s.kind !== 'new' && !s.block_id;
-                return (
-                <li key={s.suggestion_id} className="flex flex-wrap items-baseline gap-x-2 text-xs">
-                  <span
-                    className={`rounded-full px-2 py-0.5 font-medium ${
-                      s.status === 'accepted'
-                        ? 'bg-success-100 text-success-900'
-                        : s.status === 'declined' || moot
-                          ? 'bg-ink/5 text-ink/50'
-                          : 'bg-warn-100 text-warn-900'
-                    }`}
-                  >
-                    {moot ? 'moment removed' : s.status}
-                  </span>
-                  <span className="text-ink/70">
-                    {s.kind === 'remove'
-                      ? `Remove ${blockLabel.get(s.block_id ?? '') ?? s.proposed_label ?? 'a block'} — `
-                      : s.kind === 'adjust'
-                        ? `${blockLabel.get(s.block_id ?? '') ?? 'a block'} — `
-                        : 'New entry — '}
-                    {s.note.slice(0, 80)}
-                    {s.note.length > 80 ? '…' : ''}
-                  </span>
-                </li>
-                );
-              })}
-            </ul>
-          </div>
-        ) : null}
+        {/*
+          🤝 THE SUPPLIER'S PART OF THE SCHEDULE (owner 2026-11-01, "SUPPLIERS GIVE THEIR PART FROM THEIR SCHEDULE
+          VIEW"). The 3 Oct forms that sat here under every moment — Change or remove · Suggest a change · Suggest a new
+          timeline entry · Your requests — MOVED into the one view: their chapters, their moments (theirs open, the
+          rest greyed), + My moment · My times · Suggest in the thumb row, Waiting for the host · Take back, Seen and
+          Confirm my times. Not a second copy: the forms are gone from here.
+        */}
+        <div className="mt-4">
+          <SupplierSchedule eventId={eventId} {...supplierPart} />
+        </div>
 
         {/* Delivery handover (Wave 4). */}
         <div className="mt-5 border-t border-ink/10 pt-4">

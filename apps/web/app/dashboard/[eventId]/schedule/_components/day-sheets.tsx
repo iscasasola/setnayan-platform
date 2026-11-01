@@ -585,6 +585,7 @@ export function RequestsSheet({
                     </div>
                   </div>
                   {r.proposed_location ? <p className="mt-2 text-[12.5px] text-ink/60">{r.proposed_location}</p> : null}
+                  {r.proposed_crew?.length ? <p className="mt-1 text-[12.5px] text-ink/60">Their crew: {r.proposed_crew.join(', ')}</p> : null}
                   <p className="mt-3 text-[13.5px] italic text-ink/65">“{r.note}”</p>
                   <div className="mt-3.5 flex justify-end gap-2">
                     {/* A suggestion in WORDS changes nothing to approve or decline — the host says they read it. */}

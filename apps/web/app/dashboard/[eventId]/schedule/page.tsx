@@ -249,7 +249,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
     supabase
       .from('event_schedule_suggestions')
       .select(
-        'suggestion_id, block_id, kind, suggested_by_name, proposed_label, proposed_start_at, proposed_end_at, proposed_location, note, created_at',
+        'suggestion_id, block_id, kind, suggested_by_name, proposed_label, proposed_start_at, proposed_end_at, proposed_location, proposed_crew, proposed_parent_block_id, note, created_at',
       )
       .eq('event_id', eventId)
       .eq('status', 'open')
@@ -653,6 +653,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
     proposed_start_at: s.proposed_start_at,
     proposed_end_at: s.proposed_end_at,
     proposed_location: s.proposed_location,
+    proposed_crew: s.proposed_crew,
     note: s.note,
   }));
 
@@ -1102,6 +1103,7 @@ type VendorSuggestion = {
   proposed_start_at: string | null;
   proposed_end_at: string | null;
   proposed_location: string | null;
+  proposed_crew: string[] | null;
   note: string;
   created_at: string;
 };

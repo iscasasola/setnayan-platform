@@ -11,10 +11,11 @@
  *      that role ranks him, as every other guest does;
  *   3. the section head's ＋ adds one of the five; the crews no longer offer them;
  *   4. the List's role SORT ranks Honour attendants above both crews (`ROLE_SECTION_ORDER`);
- *   5. the five are the dress code's honour roles (`HONOUR_ROW_OF`) — one fact, not two lists that drift.
+ *   5. the five are the dress code's honour roles (`HONOUR_ROW_OF`) — one fact, not two lists that drift;
+ *   6. the Groomsmen / Bridesmaids views (`filterByRoleGroup`) hold only their crews; "honour_attendants" holds the five.
  *
  * SABOTAGE, seen red: `roleBucket` without the honour check → (1) · the section dropped from `ROLE_ORDER` → (1) ·
- * the honour set missing `man_of_honor` → (3) and (5).
+ * the honour set missing `man_of_honor` → (3) and (5) · the crews' views counting the honour roles again → (6).
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -88,4 +89,17 @@ test('4 · the role sort ranks Honour attendants above both crews', () => {
 
 test('5 · the five are the dress code’s honour roles — one fact', () => {
   assert.deepEqual(new Set(HONOUR_ATTENDANT_ROLES), new Set(Object.keys(HONOUR_ROW_OF)));
+});
+
+test('6 · the Groomsmen and Bridesmaids views no longer hold the honour attendants (owner 2026-11-01: yes)', async () => {
+  const { filterByRoleGroup } = await import('./role-groups');
+  const names = (view: string) => filterByRoleGroup(LIST, view).map((g) => g.role).sort();
+  assert.deepEqual(names('groomsmen'), ['groomsman'], 'the Groomsmen view still holds an honour attendant');
+  assert.deepEqual(names('bridesmaids'), ['bridesmaid'], 'the Bridesmaids view still holds an honour attendant');
+  assert.deepEqual(new Set(names('honour_attendants')), new Set(HONOUR_ATTENDANT_ROLES), 'the Honour attendants view does not hold exactly the five');
+  // A guest with a crew role AND an honour role still answers to the crew (their crew role is not an honour one).
+  const both = guest('best_man', 'groom', ['groomsman']);
+  assert.equal(filterByRoleGroup([both], 'groomsmen').length, 1);
+  // Other views are untouched.
+  assert.deepEqual(filterByRoleGroup(LIST, 'all').length, LIST.length);
 });

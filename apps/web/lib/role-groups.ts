@@ -422,7 +422,12 @@ export function filterByRoleGroup<
   // multi-role: a guest matches the view if ANY of their roles (primary
   // or extra) maps to it — so filtering "Principal Sponsors" surfaces a
   // Bridesmaid who is also a principal sponsor.
+  //
+  // 👯 The honour attendants answer ONLY to "Honour attendants" (owner 2026-11-01, asked: yes) — the Groomsmen and
+  // Bridesmaids views stop counting the best man / best woman and the maid / matron / man of honor, as the List no
+  // longer draws them under the crews. A best man who is also a groomsman is still a groomsman.
+  if (view === 'honour_attendants') return guests.filter((g) => [g.role, ...(g.extra_roles ?? [])].some(isHonourAttendant));
   return guests.filter((g) =>
-    [g.role, ...(g.extra_roles ?? [])].some((r) => roleGroupOf(r) === view),
+    [g.role, ...(g.extra_roles ?? [])].some((r) => !isHonourAttendant(r) && roleGroupOf(r) === view),
   );
 }

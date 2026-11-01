@@ -12,6 +12,8 @@ now they are on the grooms crew and brides crew"*.
 - A list section, NOT a new `RoleGroup`: the role groups also key the Mood Board palette, the dress code and the seating
   tiers, where the honour attendants still stand with their side. The five are `HONOUR_ATTENDANT_ROLES` (role-groups.ts),
   held equal to the dress code's `HONOUR_ROW_OF`.
+- The Groomsmen and Bridesmaids views (`filterByRoleGroup`, `?view=`) stop counting the honour attendants (owner, asked:
+  yes); `?view=honour_attendants` holds the five. A best man who is also a groomsman still answers to Groomsmen.
 - Not built: drag-to-change-role (waits for the shared drag piece, per the ruling).
 
 Guard: `lib/the-honour-attendants-are-one-list-group.test.ts` (runs the List's sectioning).

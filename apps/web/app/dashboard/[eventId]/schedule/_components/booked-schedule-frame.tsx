@@ -14,8 +14,8 @@
  *                                               agenda are INSIDE the ⓘ (house rule: title + one short line visible)
  *   the moments, right there                    "+ Add a moment" / "+ Add a step" is the pill in the thumb zone
  *
- * The views are Event Day · Preparation · Journey (Journey has no other home — Home's door to it lands here — so it
- * stays, third, nothing lost). Every view is drawn by the server ONCE, with the page's one read, and kept: a pick
+ * The views are Event Day · Planning Stage. (Journey was a third until the owner removed it on 2026-11-01 — an old
+ * `?view=journey` lands on Planning Stage, `lib/schedule-view.ts`.) Every view is drawn by the server ONCE, with the page's one read, and kept: a pick
  * swaps what is shown in place — no request, no render — and writes `?view=` so a reload and Back come back to it.
  * 🔒 lib/the-schedule-under-booked-is-one-line.test.ts
  */
@@ -24,7 +24,7 @@ import { Tip } from './day-ui';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { ScheduleViewOnScreen } from './schedule-sheet';
 
-export type BookedScheduleView = 'event-day' | 'preparation' | 'journey';
+export type BookedScheduleView = 'event-day' | 'preparation';
 
 import { BOOKED_SCHEDULE_TOOLS_SLOT } from './booked-schedule-slot';
 
@@ -35,6 +35,7 @@ export function BookedScheduleFrame({
   info,
   notes,
   announce,
+  share,
   meetings,
   panels,
 }: {
@@ -49,7 +50,9 @@ export function BookedScheduleFrame({
   notes: Partial<Record<BookedScheduleView, ReactNode>>;
   /** Announce, as its round — null when this person cannot announce. */
   announce: ReactNode | null;
-  /** The supplier meetings, above Preparation and Journey (never above the day itself). */
+  /** 📤 Share the schedule as a PDF (`SharePdfButton`) — on the date line, right; null when there is no file to give. */
+  share?: ReactNode | null;
+  /** The supplier meetings, above Planning Stage (never above the day itself). */
   meetings?: ReactNode;
   panels: Record<BookedScheduleView, ReactNode>;
 }) {
@@ -58,13 +61,13 @@ export function BookedScheduleFrame({
   useEffect(() => {
     const onPop = () => {
       const v = new URLSearchParams(window.location.search).get('view');
-      if (v === 'event-day' || v === 'preparation' || v === 'journey') setView(v);
+      if (v === 'event-day' || v === 'preparation') setView(v);
     };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
   }, []);
   const pick = (key: string) => {
-    if (key !== 'event-day' && key !== 'preparation' && key !== 'journey') return;
+    if (key !== 'event-day' && key !== 'preparation') return;
     if (key === view) return;
     setView(key);
     try {
@@ -109,7 +112,7 @@ export function BookedScheduleFrame({
         </div>
 
         {/* ── THE DATE LINE — everything else about the day is inside its ⓘ. */}
-        <p className="mt-1 flex items-center gap-2 text-[13px] text-ink/60" data-schedule-date-line="">
+        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[13px] text-ink/60" data-schedule-date-line="">
           <span>{dateLine}</span>
           <Tip>
             <span className="block space-y-1.5">
@@ -117,7 +120,8 @@ export function BookedScheduleFrame({
               {notes[view] ? <span className="block">{notes[view]}</span> : null}
             </span>
           </Tip>
-        </p>
+          {share ? <span className="ml-auto">{share}</span> : null}
+        </div>
 
         {/* ── THE VIEWS, each drawn once and kept; the moments start right here. */}
         <div className="mt-3">

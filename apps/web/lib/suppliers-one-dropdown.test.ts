@@ -62,5 +62,5 @@ test('3 · every old address still lands on the same view', () => {
   assert.match(page, /settingsOpenAtFirst=\{/, '`?settings=1` no longer opens the ⚙ sheet');
   const sched = read(V, '..', 'schedule', 'page.tsx');
   assert.match(sched, /const q = new URLSearchParams\(\{ part: BOOKED_SCHEDULE_PART \}\);[\s\S]*?view: viewParam/, '/schedule?view= no longer forwards with its view');
-  assert.match(sched, /viewParam === 'journey' \|\| viewParam === 'preparation' \|\| viewParam === 'event-day'/, '`?view=` no longer picks the view');
+  assert.match(sched, /viewParam === 'preparation' \|\| viewParam === 'event-day'/, '`?view=` no longer picks the view');
 });

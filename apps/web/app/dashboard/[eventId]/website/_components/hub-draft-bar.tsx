@@ -1,6 +1,5 @@
 'use client';
 
-import { EVENT_DATE_FLOOR_MESSAGE } from '@/lib/event-date-floor';
 import { HUB_DRAFT_BAR_FIELD, MAKER_DRAFT_BAR_EVENT, MAKER_REFRESH_EVENT, announceUnheldWrite, keepCanvasForRender, makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { HUB_DRAFT_EXPECT_FIELD, onFirstUndoStep, undoJournal } from '@/lib/maker-drawn-undo';
 import { MAKER_OPEN_RESET_EVENT } from './maker-open-reset';
@@ -146,10 +145,11 @@ const HELD_REASON: Record<HubDraftRefusal, string> = {
 
 /**
  * One held key, in words. 💍 A date before the first event day is said in the owner's own
- * words (`EVENT_DATE_FLOOR_MESSAGE`, lib/event-date-floor.ts), never as a clipped reason.
+ * words — the server sends that sentence AS the label (hub-draft-actions.ts), so it is not
+ * imported into the Maker's first load.
  */
 function heldLine(h: { label: string; reason: HubDraftRefusal }): string {
-  if (h.reason === 'date_before_first_event') return EVENT_DATE_FLOOR_MESSAGE;
+  if (h.reason === 'date_before_first_event') return h.label;
   return `${h.label} ${HELD_REASON[h.reason]}.`;
 }
 

@@ -140,7 +140,7 @@ import { SCENE_STYLES_PREF_KEY, sceneStylesValueAfter, type FixedSceneStylesDraf
 import { writeStylePreferenceKey } from '@/lib/style-preferences.server';
 import { postEventPreset } from '@/lib/post-event-presets';
 import { CONFIRMED_VENDOR_STATUSES, eventDateChangeIsGoverned, eventDatePrecisionOf, eventDateRefusal } from '@/lib/events';
-import { eventDateFloorRefusal } from '@/lib/event-date-floor';
+import { EVENT_DATE_FLOOR_MESSAGE, eventDateFloorRefusal } from '@/lib/event-date-floor';
 import { eventDateFloorExempt } from '@/lib/event-date-floor.server';
 import { isDateChangeAction } from '@/lib/date-change';
 import { afterDateApplied, askDateChange, clashStillOpen, dateApplyClearance, settleDateChange } from '@/lib/date-change.server';
@@ -1198,7 +1198,12 @@ export async function hubDraftAction(
     };
     // A fact held across several columns (the date's day and precision) is said once.
     const heldSaid = held
-      .map(({ item, reason }) => ({ label: hubDraftItemLabel(item, label), reason }))
+      // 💍 The first-event-day hold carries the owner's whole sentence AS its label (said as-is by the bar),
+      // so the Maker's first load never ships the sentence (lib/event-date-floor.ts).
+      .map(({ item, reason }) => ({
+        label: reason === 'date_before_first_event' ? EVENT_DATE_FLOOR_MESSAGE : hubDraftItemLabel(item, label),
+        reason,
+      }))
       .filter((h, i, all) => all.findIndex((o) => o.label === h.label && o.reason === h.reason) === i);
     const applied = done(
       toWrite.length,

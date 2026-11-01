@@ -29,6 +29,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition, type DragEvent, type FormEvent, type ReactNode, type RefObject } from 'react';
 import { useRouter } from 'next/navigation';
 import { InfoTip } from '@/app/_components/info-tip';
+import { FormRows, TypedRow } from '@/app/_components/form-row';
 import { Sheet } from '@/app/_components/sheet';
 import { formatCount } from '@/lib/format-number';
 import { moveTileToFolder } from '../actions';
@@ -747,31 +748,32 @@ function AddRow({
 
   return (
     <div className={card ? 'col-span-2' : ''}>
-      <form
-        onSubmit={submit}
-        data-add={kind}
-        className={
-          card
-            ? 'flex min-h-11 items-center gap-2.5 rounded-2xl border border-dashed border-ink/15 px-3 py-2.5 focus-within:border-solid focus-within:bg-raised' // no-card-ok: the add row is a text input (a pressable control) — the approved last-row "＋ Add" shape
-            : 'mb-0.5 mt-1 flex min-h-11 items-center gap-2.5 rounded-xl border border-dashed border-ink/15 px-2.5 text-[13.5px] text-ink/70 focus-within:border-solid focus-within:bg-raised focus-within:text-ink' // no-card-ok: the add row is a text input (a pressable control)
-        }
-      >
-        <span aria-hidden className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border-[1.5px] border-mulberry text-base text-mulberry">
-          ＋
-        </span>
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          aria-label={placeholder}
-          placeholder={placeholder}
-          maxLength={80}
-          className="min-h-10 min-w-0 flex-1 bg-transparent text-[13.5px] text-ink outline-none placeholder:text-ink/70"
-        />
-        {name.trim().length > 0 ? (
-          <button type="submit" disabled={pending} className="inline-flex min-h-8 shrink-0 items-center rounded-full bg-ink px-3 text-xs font-semibold text-cream disabled:opacity-50">
-            {pending ? 'Adding…' : 'Add'}
-          </button>
-        ) : null}
+      {/* ✍ THE "＋ ADD" ROW IS A ROW OF THE ONE FIELD TEMPLATE (`TypedRow`, owner 1 Nov 2026: every field follows it).
+          It follows what is typed (`onType`), so the close-match warning below reads it live; keeping it (Enter, tap
+          away) only keeps it — adding is the Add button under it, so a tap away never adds a row by accident. */}
+      <form onSubmit={submit} data-add={kind} className={card ? '' : 'mb-0.5 mt-1'}>
+        <FormRows width="auto">
+          <TypedRow
+            name={placeholder}
+            value={name}
+            empty="Name it"
+            maxLength={80}
+            autoCapitalize="words"
+            onType={setName}
+            onKeep={(t) => setName(t)}
+            data={`add-${kind}`}
+            pillAttrs={{ 'data-add-name': kind }}
+            below={
+              name.trim().length > 0 ? (
+                <div className="flex justify-end pb-2">
+                  <button type="submit" disabled={pending} className="inline-flex min-h-11 shrink-0 items-center rounded-full bg-ink px-4 text-[13px] font-semibold text-cream disabled:opacity-50">
+                    {pending ? 'Adding…' : 'Add'}
+                  </button>
+                </div>
+              ) : null
+            }
+          />
+        </FormRows>
       </form>
       {near.length > 0 ? (
         <div className="mb-1.5 mt-0.5 rounded-xl bg-warn-50 px-2.5 py-2 text-[12.5px] text-ink" data-near-matches="">

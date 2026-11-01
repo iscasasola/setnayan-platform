@@ -1,15 +1,14 @@
 'use client';
 
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { CalendarPlus, Clock, MessageSquarePlus, Plus, Trash2 } from 'lucide-react';
-import { ActionButton, actionButtonClass } from '@/components/action-button';
+import { useId, useMemo, useState } from 'react';
+import { ArrowLeft, CalendarPlus, Check, Clock, Eye, MessageSquarePlus, Plus, Trash2, Undo2 } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { SupplierThumbRow } from '@/app/vendor-dashboard/_components/supplier-thumb-row';
 import { Sheet } from '@/app/_components/sheet';
 import { ChosenRow, FormRows, TypedRow } from '@/app/_components/form-row';
 import { TimeRow } from '@/app/_components/form-row-time';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
-import { useThumbRoom } from '@/lib/thumb-room';
 import { chapterWhen, clockWords, wallTime, type ChapterSection } from '@/lib/schedule-chapters';
 import {
   MOMENT_MINUTES_DEFAULT,
@@ -157,13 +156,13 @@ export function SupplierSchedule({
       ) : changed && !seenNow ? (
         <div data-schedule-changed="" className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-warn-50 px-3 py-2 text-sm text-warn-900">
           <span>The schedule changed since you last looked.</span>
-          <ActionButton tone="neutral" label={marking === 'seen' ? 'Saving…' : 'Seen'} disabled={marking !== null} onClick={() => void mark('seen')} data-testid="schedule-seen" />
+          <ActionButton tone="neutral" icon={Eye} label={marking === 'seen' ? 'Saving…' : 'Seen'} disabled={marking !== null} onClick={() => void mark('seen')} data-testid="schedule-seen" />
         </div>
       ) : null}
       {finalWeek && marks !== null && !confirmed ? (
         <div data-confirm-times="" className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-terracotta/10 px-3 py-2 text-sm">
           <span>One week to go. Check your times, then confirm them.</span>
-          <ActionButton tone="brand" main label={marking === 'confirm' ? 'Confirming…' : 'Confirm my times'} disabled={marking !== null} onClick={() => void mark('confirm')} data-testid="confirm-times" />
+          <ActionButton tone="brand" main icon={Check} label={marking === 'confirm' ? 'Confirming…' : 'Confirm my times'} disabled={marking !== null} onClick={() => void mark('confirm')} data-testid="confirm-times" />
         </div>
       ) : confirmed ? (
         <p data-times-confirmed="" className="text-xs text-success-900">✓ You confirmed your times.</p>
@@ -208,7 +207,7 @@ export function SupplierSchedule({
               <div className="flex flex-wrap items-baseline justify-between gap-x-3">
                 <h3 className="text-base font-semibold">{c.label}</h3>
                 <span className="text-xs text-ink/60">
-                  {chapterWhen(c)} · {c.where}
+                  {chapterWhen({ start_at: c.start_at ?? '', end_at: c.end_at, time_tba: c.time_tba })} · {c.where}
                 </span>
               </div>
               <ul className="mt-1 divide-y divide-ink/10">
@@ -275,7 +274,7 @@ export function SupplierSchedule({
         </section>
       ) : null}
 
-      <SupplierThumbRow
+      <ScheduleThumbRow
         canAdd={linked.length > 0}
         canSuggest={others.length > 0}
         onSuggest={() => setSheet({ kind: 'suggest' })}
@@ -350,13 +349,13 @@ function WaitingRow({ r, label, busy, onTakeBack }: { r: SupplierRequestRow; lab
         {waitingWords(r, label)}
         <span className="block text-xs text-warn-900">Waiting for the host</span>
       </span>
-      <ActionButton tone="neutral" label={busy ? 'Taking back…' : 'Take back'} disabled={busy} onClick={onTakeBack} data-testid="take-back" />
+      <ActionButton tone="neutral" icon={Undo2} label={busy ? 'Taking back…' : 'Take back'} disabled={busy} onClick={onTakeBack} data-testid="take-back" />
     </li>
   );
 }
 
-/** The view's thumb row — Suggest · My times · + My moment, in the thumb zone above the bottom nav (prototype `thumb()`). */
-function SupplierThumbRow({
+/** The view's thumb row — Suggest · My times · + My moment, on the suppliers' ONE thumb row (prototype `thumb()`). */
+function ScheduleThumbRow({
   canAdd,
   canSuggest,
   onSuggest,
@@ -369,39 +368,13 @@ function SupplierThumbRow({
   onTimes: () => void;
   onAdd: () => void;
 }) {
-  const [host, setHost] = useState<HTMLElement | null>(null);
-  useEffect(() => setHost(document.body), []);
-  const rowRef = useRef<HTMLDivElement>(null);
-  useThumbRoom(rowRef);
-  if (!host) return null;
-  return createPortal(
-    <div
-      className="pointer-events-none fixed inset-x-0 bottom-[calc(var(--sn-ride-h,var(--sn-bottomdock-h,64px))_+_12px)] z-30 flex justify-end tab:bottom-6 tab:left-auto tab:right-6"
-      data-supplier-schedule-thumb=""
-      data-safe-x=""
-    >
-      <div ref={rowRef} className="pointer-events-auto mx-4 flex flex-wrap justify-end gap-2">
-        {canSuggest ? (
-          <button type="button" onClick={onSuggest} data-supplier-suggest="" className={actionButtonClass('neutral')}>
-            <MessageSquarePlus aria-hidden strokeWidth={2} />
-            Suggest
-          </button>
-        ) : null}
-        {canAdd ? (
-          <>
-            <button type="button" onClick={onTimes} data-supplier-times="" className={actionButtonClass('neutral')}>
-              <Clock aria-hidden strokeWidth={2} />
-              My times
-            </button>
-            <button type="button" onClick={onAdd} data-supplier-add="" className={actionButtonClass('brand', { main: true })}>
-              <Plus aria-hidden strokeWidth={2} />
-              My moment
-            </button>
-          </>
-        ) : null}
-      </div>
-    </div>,
-    host,
+  if (!canAdd && !canSuggest) return null;
+  return (
+    <SupplierThumbRow name="supplier-schedule" label="Your part of the schedule">
+      {canSuggest ? <ActionButton tone="neutral" icon={MessageSquarePlus} label="Suggest" onClick={onSuggest} data-testid="supplier-suggest" /> : null}
+      {canAdd ? <ActionButton tone="neutral" icon={Clock} label="My times" onClick={onTimes} data-testid="supplier-times" /> : null}
+      {canAdd ? <ActionButton tone="brand" main icon={Plus} label="My moment" onClick={onAdd} data-testid="supplier-add" /> : null}
+    </SupplierThumbRow>
   );
 }
 
@@ -490,7 +463,7 @@ function MyMomentSheet({
               Ask to delete “{moment?.label}”? {autoAgree ? 'It comes off the schedule at once.' : 'The host or coordinator approves it.'}
             </p>
             <div className="flex justify-end gap-2">
-              <ActionButton tone="neutral" label="Keep it" onClick={() => setStage('details')} />
+              <ActionButton tone="neutral" icon={ArrowLeft} label="Keep it" onClick={() => setStage('details')} />
               <ActionButton
                 tone="danger"
                 main

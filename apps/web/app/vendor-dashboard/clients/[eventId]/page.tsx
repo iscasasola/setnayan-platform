@@ -3426,7 +3426,9 @@ function ScheduleTab(props: {
                 your couple.
               </span>
             </p>
-            <form action={suggestScheduleChange} className="mt-2">
+            {/* The one door also answers the Schedule view's sheets in words (`quiet=1`); this form never sends that, so it
+                redirects as before — the cast says only that. */}
+            <form action={suggestScheduleChange as (fd: FormData) => Promise<void>} className="mt-2">
               <input type="hidden" name="event_id" value={eventId} />
               <input
                 type="hidden"

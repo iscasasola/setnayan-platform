@@ -20,3 +20,19 @@ PR #7129 — owner: "the Event Hub does not play in the app". Measured in the iO
 - Web-only; no new App Store build needed (the sheet and the app both load the web).
 
 SPEC IMPACT: None
+
+## 2026-11-01 · fix(hub-music): on an iPhone or iPad, the song's start says "No sound? Your phone may be on silent."
+
+Owner's real iPhone on silent: the song started, the music button moved, nothing was heard. Ruling (DECISION_LOG
+2026-11-01, "HUB SONG ON SILENT: RESPECT SILENT, SAY SO"): *"keep it silently playing but a message saying the audio is
+playing but your phone is in silent/muted?"*
+
+- The song keeps respecting the silent switch; nothing sets `navigator.audioSession`.
+- `BackgroundMusic` reuses its own hint chip (the one that says "Tap for their song"): each time the song really
+  starts (button or unveil, the one `startSong` path), on an iPhone or iPad only (`isAppleTouchDevice`, so an iPad
+  that says "Macintosh" counts), it shows "Music is on. No sound? Your phone may be on silent." for 4 s, then fades
+  (no fade under reduced motion). Stopping the song takes it away. Never on Android or a computer. "May": a web page
+  cannot read the switch, and the hint never claims to.
+- Held by `lib/hub-music-silent-hint.test.ts` (sabotaged 6 ways, each red).
+
+SPEC IMPACT: None (the ruling is already in DECISION_LOG.md)

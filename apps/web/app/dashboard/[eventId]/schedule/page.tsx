@@ -51,7 +51,7 @@ import { BlockTimeEditor } from './_components/schedule-lazy';
 // The toggle is a URL-driven segmented control; the agenda is a read-only
 // aggregation of EXISTING dated data (payments / paperwork / meetings /
 // statutory milestones) — see lib/preparation.ts for the source map.
-import { EmceeScriptButton, ScheduleModeToggle } from './_components/schedule-lazy';
+import { EmceeScriptButton, ScheduleModeToggle, SharePdfButton } from './_components/schedule-lazy';
 import { EmceePicks } from './_components/emcee-picks';
 import { HostQuestions } from './_components/host-questions';
 // "Tell the host" — the coordinator → emcee channel, on the EVENT side. The
@@ -129,7 +129,6 @@ import { daysBetween, wallDateKey } from '@/lib/schedule-rail';
 import { findBookedHost } from '@/lib/booked-host';
 import { fetchEmceeRecipients } from '@/lib/stage-notes-recipients';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { SharePdfButton } from '@/app/_components/share-pdf-button';
 
 export const metadata = { title: 'Schedule' };
 

@@ -42,6 +42,7 @@ import {
   Minus,
   MoreHorizontal,
   Navigation,
+  Pencil,
   Package,
   Plus,
   Printer,
@@ -227,7 +228,8 @@ import {
 } from '@/lib/seat-plan-details';
 import { MoveGuestSheet, SeatToast, PeopleSheet, PhoneSeatPlanFoot, PhoneSeatPlanHead, PhoneTableDock, SeatPlanToolRounds, StudioSeatPlanHead, StudioSeatPlanTools } from './seat-plan-phone';
 import { Sheet } from '@/app/_components/sheet';
-import { SeatFacesList, type FaceGuest, type FaceSlot, type FaceUnit } from './seat-faces-list';
+import { SEAT_LIST_UNSEATED, SeatList, type SeatListGuest, type SeatListUnit } from './seat-list';
+import { planSeatDrop, type SeatDropTarget } from '@/lib/seat-list-drop';
 import { GuestCardSheet, SHIPPED_GUEST_CARD } from '../../guests/_components/guest-card-sheet';
 import { PickMenu as SeatPickMenu } from '../../website/editor/_components/pick-menu';
 import { PinCountDoor } from '../../guests/_components/view-summary-cards';
@@ -6620,10 +6622,15 @@ export function SeatingEditor({
      seat tapped is theirs (a blank: they move there; a face: the two trade). A blank tapped with nobody picked raises
      the pop-up bar: Pick a guest ▾. While someone is picked the bar says so, with Cancel. */
   const [faceCard, setFaceCard] = useState<{ id: string; name: string; seated: boolean } | null>(null);
-  /* ⇕ The Seats › List folds, held here so the thumb row's ⇕ opens or folds them all. */
-  const [faceClosed, setFaceClosed] = useState<ReadonlySet<string>>(() => new Set());
+  /* ⇕ The Seats › List's OPEN (= picked) headers, held here so the thumb row's ⇕ opens or folds them all. One opens on
+     arrival, as on Guests › List (`firstOpen`): "To seat" while anyone coming has no seat, else the first table — so a
+     ✎ is never on every header at rest (owner 2026-11-01, "Edit icon only shows when the group is picked"). */
+  const [faceOpen, setFaceOpen] = useState<ReadonlySet<string>>(() => {
+    const first = guests.some((g) => !g.seated_table_id && g.rsvp_status !== 'declined') ? SEAT_LIST_UNSEATED : displayUnits[0]?.key;
+    return new Set(first ? [first] : []);
+  });
   const toggleFaceFold = (k: string) =>
-    setFaceClosed((c) => {
+    setFaceOpen((c) => {
       const n = new Set(c);
       if (n.has(k)) n.delete(k);
       else n.add(k);
@@ -6726,19 +6733,124 @@ export function SeatingEditor({
     setBlankAt({ tableId, seat });
   };
   const comingUnseated = guests.filter((g) => !g.seated_table_id && g.rsvp_status !== 'declined').sort((a, b) => a.name.localeCompare(b.name));
-  const faceOf = (g: SeatingGuest): FaceGuest => ({ id: g.guest_id, name: g.name, initials: g.initials, photo: g.photo_url, color: colorFor(g), placed: seatPlacedShort(g.seat_placed_by) });
-  const faceUnits: FaceUnit[] = inGuests
+  const faceOf = (g: SeatingGuest): SeatListGuest => ({ id: g.guest_id, name: g.name, initials: g.initials, photo: g.photo_url, side: g.side, placed: seatPlacedShort(g.seat_placed_by) });
+  /* 🪑 S1c · Seats › List = the Guests list grouped by table: one row per seat that exists (a removed chair is no row),
+     in seat order, "8 of 10 seats" counted from those rows — never typed. */
+  const faceUnits: SeatListUnit[] = inGuests
     ? displayUnits.map((u) => {
-        const slots: FaceSlot[] = u.members.flatMap((m) => {
+        const seats = u.members.flatMap((m) => {
           const removed = removedSeatSet(m.removed_seats, m.capacity);
-          return occupantsFor(m).flatMap((g, i): FaceSlot[] =>
-            removed.has(i) ? [] : g ? [{ kind: 'face', guest: faceOf(g), tableId: m.table_id, seat: i }] : [{ kind: 'blank', tableId: m.table_id, seat: i }],
-          );
+          return occupantsFor(m).flatMap((g, i) => (removed.has(i) ? [] : [{ tableId: m.table_id, seat: i, guest: g ? faceOf(g) : null }]));
         });
-        const seated = slots.filter((x) => x.kind === 'face').length;
-        return { key: u.key, label: u.label, sub: TABLE_TYPE_LABEL[u.lead.table_type], seated, capacity: slots.length, slots };
+        return { key: u.key, label: u.label, seated: seats.filter((x) => x.guest).length, capacity: seats.length, seats };
       })
     : [];
+  /* ✋ A guest let go on a seat row, or "To seat" (`planSeatDrop`, the ONE answer the drag and "tap · move" share): the
+     plan's own moves, with "before a seat changes hands" asked first where it asks. */
+  const dropSeat = (guestId: string, target: SeatDropTarget) => {
+    if (!canEdit) return;
+    const g = guestsById.get(guestId);
+    if (!g) return;
+    const plan = planSeatDrop({ id: guestId, seated: g.seated_table_id !== null }, target);
+    if (plan.kind === 'unseat') return unseat(guestId);
+    if (plan.kind === 'trade') {
+      if (askBefore(guestId, plan.tableId, plan.seat, plan.otherId)) return;
+      return tradeSeats(guestId, plan.otherId);
+    }
+    if (plan.kind === 'place') {
+      const t = tables.find((x) => x.table_id === plan.tableId);
+      if (!t || askBefore(guestId, plan.tableId, plan.seat, null)) return;
+      setPickedId(null);
+      seatGuestHere(t, guestId, plan.seat);
+    }
+  };
+  const unitOfKey = (key: string) => displayUnits.find((u) => u.key === key) ?? null;
+  /* ＋ An empty seat's Add ▾ — who comes and has no seat yet (the shared dropdown; the plan's own `seatGuestHere`). */
+  const seatListAdd = (tableId: string, seat: number) => {
+    const t = tables.find((x) => x.table_id === tableId);
+    if (!t) return null;
+    return (
+      <SeatPickMenu
+        label={`Add a guest to ${t.table_label}, seat ${seat + 1}`}
+        value={null}
+        buttonText="Add"
+        options={
+          comingUnseated.length
+            ? comingUnseated.map((g) => ({ key: g.guest_id, label: g.name }))
+            : [{ key: '-', label: 'Everyone coming has a seat', disabledNote: 'Nobody to add' }]
+        }
+        onPick={(k) => {
+          if (k !== '-') seatGuestHere(t, k, seat);
+        }}
+        dataAttr="data-seat-row-add"
+        compact
+        className="shrink-0 border border-ink/15"
+      />
+    );
+  };
+  /* ✎ Only on the PICKED (open) table — and only where one name renames it (a linked set is named on 2D). */
+  const seatListPencil = (key: string) => {
+    const u = unitOfKey(key);
+    if (!u || !canEdit || u.members.length !== 1) return null;
+    return (
+      <ActionButton
+        tone="neutral"
+        quiet
+        iconOnly
+        icon={Pencil}
+        label={`Rename ${u.label}`}
+        onClick={() => setRenamingTable(u.lead.table_id)}
+        data-seat-table-rename=""
+      />
+    );
+  };
+  const seatListRename = (key: string) => {
+    const u = unitOfKey(key);
+    if (!u || view !== 'list' || renamingTable !== u.lead.table_id || u.members.length !== 1) return null;
+    return (
+      <div className="min-w-0 flex-1 py-1">
+        <FormRows data="seat-list-name">
+          <TypedRow
+            key={u.lead.table_id}
+            data="seat-list-table-name"
+            attrs={{ 'data-seat-list-table-name': '' }}
+            name="Table name"
+            value={u.lead.table_label}
+            maxLength={64}
+            required
+            onKeep={(label) => {
+              renameTable(u.lead.table_id, label);
+              setRenamingTable(null);
+              return { ok: true as const };
+            }}
+          />
+        </FormRows>
+      </div>
+    );
+  };
+  /* Type ▾ · seats − N + — each table of the unit (a linked set names each), the 2D bar's own Shape list and Counter. */
+  const seatListTools = (key: string) => {
+    const u = unitOfKey(key);
+    if (!u) return null;
+    return u.members.map((m) => (
+      <span key={m.table_id} className="flex min-w-0 flex-wrap items-center gap-1.5" data-seat-list-table={m.table_id}>
+        {u.members.length > 1 ? <span className="text-[12.5px] text-ink/60">{m.table_label}</span> : null}
+        <PickMenu
+          label="Table type"
+          value={m.table_type}
+          options={TABLE_TYPE_CATALOG.map((c) => ({ key: c.type, label: c.label, group: TABLE_KIND_WORD[c.shapeHint], disabledNote: canEdit ? undefined : 'Tap Edit first' }))}
+          onPick={(k) => {
+            if (canEdit) changeStyle(m, k as TableType);
+          }}
+          buttonText={TABLE_TYPE_LABEL[m.table_type]}
+          dataAttr="data-seat-list-type"
+          compact
+          className="shrink-0 border border-ink/15"
+        />
+        {dockSeatsStepper(m)}
+      </span>
+    ));
+  };
   const blankTable = blankAt ? tables.find((t) => t.table_id === blankAt.tableId) ?? null : null;
   const seatPop =
     inGuests && (pickedGuest || (blankAt && blankTable)) ? (
@@ -6996,20 +7108,15 @@ export function SeatingEditor({
     if (view === 'list') {
       const unit = g.seated_table_id ? displayUnits.find((u) => u.members.some((m) => m.table_id === g.seated_table_id)) : null;
       const key = unit ? unit.key : 'unseated';
-      setFaceClosed((c) => {
-        if (!c.has(key)) return c;
-        const n = new Set(c);
-        n.delete(key);
-        return n;
-      });
-      requestAnimationFrame(() => document.querySelector(`[data-seat-face="${CSS.escape(g.guest_id)}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }));
+      setFaceOpen((c) => (c.has(key) ? c : new Set([...c, key])));
+      requestAnimationFrame(() => document.querySelector(`[data-seat-guest="${CSS.escape(g.guest_id)}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }));
     } else if (g.seated_table_id) {
       setSelMarker(null);
       setHighlightId(g.seated_table_id);
     }
   };
-  const faceKeys = ['unseated', ...faceUnits.map((u) => u.key)];
-  const facesAllOpen = faceKeys.every((k) => !faceClosed.has(k));
+  const faceKeys = [SEAT_LIST_UNSEATED, ...faceUnits.map((u) => u.key)];
+  const facesAllOpen = faceKeys.every((k) => faceOpen.has(k));
   const seatAddOptions: PickOption[] = [
     { key: 'table', label: 'New table…', disabledNote: canEdit ? undefined : 'Tap Edit first' },
     { key: 'entrance', label: 'Entrance', disabledNote: !canEdit ? 'Tap Edit first' : view !== 'plan' ? 'On the 2D plan' : entrance.enabled ? 'Already on the plan' : undefined },
@@ -7143,7 +7250,7 @@ export function SeatingEditor({
                         icon: facesAllOpen ? ChevronsDownUp : ChevronsUpDown,
                         label: facesAllOpen ? 'Collapse all' : 'Expand all',
                         expanded: facesAllOpen,
-                        onClick: () => setFaceClosed(facesAllOpen ? new Set(faceKeys) : new Set()),
+                        onClick: () => setFaceOpen(facesAllOpen ? new Set() : new Set(faceKeys)),
                         testId: 'seats-expand',
                       },
                     ]
@@ -8848,15 +8955,26 @@ export function SeatingEditor({
         </div>
         </>
         ) : inGuests ? (
-          /* 🗂 R4 · Guests › Seats › List: each table a foldable header, its people a row of faces and blank seats. */
-          <SeatFacesList
+          /* 🪑 S1c · Guests › Seats › List: the Guests list grouped by table — its rows and headers, a row per seat. */
+          <SeatList
             units={faceUnits}
             unseated={comingUnseated.map(faceOf)}
             pickedId={pickedId}
-            onFace={tapFace}
-            onBlank={tapBlank}
-            closed={faceClosed}
+            canEdit={canEdit}
+            open={faceOpen}
             onToggle={toggleFaceFold}
+            onOpenGuest={tapFace}
+            onPick={(id) => {
+              setBlankAt(null);
+              setPickedId((cur) => (cur === id ? null : id));
+            }}
+            onRemove={unseat}
+            onSeatHere={tapBlank}
+            addMenu={seatListAdd}
+            headTools={seatListPencil}
+            renaming={seatListRename}
+            tableTools={seatListTools}
+            onDrop={dropSeat}
             dim={seatDim}
           />
         ) : (

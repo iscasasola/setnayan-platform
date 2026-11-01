@@ -17,7 +17,7 @@
 .round:not([data-thumb-seat='action']) .btn:global(.ab) { background: transparent; }
 .field { display: flex; flex: 1 1 auto; min-width: 0; height: 44px; align-items: center; gap: 6px; padding: 0 10px 0 12px; border-radius: var(--m-r-full); color: rgb(var(--color-ink)); }
 .glyph { width: 16px; height: 16px; flex: 0 0 auto; opacity: 0.55; }
-.input { height: 100%; min-width: 0; flex: 1 1 auto; background: transparent; font-size: 14px; color: rgb(var(--color-ink)); outline: none; border: 0; padding: 0; }
+.input { height: 100%; min-width: 0; flex: 1 1 auto; background: transparent; font-size: 14px; text-overflow: ellipsis; /* a long rotating hint ends in … (rotating-hint.ts) */ color: rgb(var(--color-ink)); outline: none; border: 0; padding: 0; }
 .input::placeholder { color: rgb(var(--color-ink) / 0.55); font-size: 14px; }
 /* The phone's typed text stays 16 px (globals.css — iOS zooms a smaller field on focus); the PLACEHOLDER is 14 px, the
    Find row's size, so "Search guests" reads whole beside three rounds at 320 (measured in the PR's walk). */

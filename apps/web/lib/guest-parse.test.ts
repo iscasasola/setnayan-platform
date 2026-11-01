@@ -8,6 +8,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseGuestInput, type ParsedGuestDraft } from './guest-parse';
+import { WEDDING_ROLE_SET, resolveRoleSet } from './role-sets';
 
 const BASE: ParsedGuestDraft = {
   firstName: '',
@@ -158,12 +159,67 @@ test('+0 → 0 (reads as none — no phantom +1)', () => {
   assert.equal(parseGuestInput('Ana +0').plusOnes, 0);
 });
 
-test('a non-numeric +tag is NOT a plus token — it stays a name word', () => {
-  // `/^\+(\d+)$/` requires digits, so "+bff" falls through to the name path.
-  const d = parseGuestInput('Ana +bff');
+test('a non-numeric +tag is NOT a plus token — naming no role, it is a GROUP (owner 2026-11-01)', () => {
+  // `/^\+(\d+)$/` requires digits, so "+bff" is not plus-ones; it names no role, so it is a group, like "#bff".
+  const d = parseGuestInput('Ana Cruz +bff');
   assert.equal(d.plusOnes, 0);
-  assert.equal(d.firstName, 'Ana');
-  assert.equal(d.lastName, '+bff');
+  assert.equal(`${d.firstName} ${d.lastName}`, 'Ana Cruz');
+  assert.deepEqual(d.groups, ['bff']);
+  assert.equal(d.roleHint, null);
+});
+
+// ── +Role and titles (owner 2026-11-01) ─────────────────────────────────────
+
+const WEDDING = { offeredRoles: WEDDING_ROLE_SET.offeredRoles };
+
+test("the owner's own line: Mr. Roman Atkinson +2 +Groomsmen → Mr. · Roman Atkinson · +2 · Groomsman", () => {
+  const d = parseGuestInput('Mr. Roman Atkinson +2 +Groomsmen', WEDDING);
+  assert.equal(d.prefix, 'Mr.');
+  assert.equal(d.firstName, 'Roman');
+  assert.equal(d.lastName, 'Atkinson');
+  assert.equal(d.plusOnes, 2);
+  assert.equal(d.roleHint, 'groomsman');
+  assert.deepEqual(d.groups, [], 'a role word must not ALSO become a group');
+});
+
+test('every owner title lands in the prefix, never the first name', () => {
+  for (const t of ['Mr.', 'Mrs.', 'Ms.', 'Dr.', 'Atty.', 'Engr.']) {
+    const d = parseGuestInput(`${t} Lea Santos +1`, WEDDING);
+    assert.equal(d.prefix, t, `${t} is not the title`);
+    assert.equal(`${d.firstName} ${d.lastName}`, 'Lea Santos');
+  }
+});
+
+test('+Role reads singular or plural, any casing, its label, its "(…)" word, or the couple’s own word', () => {
+  const cases: [string, string][] = [
+    ['+Groomsman', 'groomsman'],
+    ['+groomsmen', 'groomsman'],
+    ['+Bridesmaids', 'bridesmaid'],
+    ['+FlowerGirl', 'flower_girl'],
+    ['+flower_girls', 'flower_girl'],
+    ['+BestMan', 'best_man'],
+    ['+Ninang', 'principal_sponsor_ninang'],
+    ['+Ninongs', 'principal_sponsor_ninong'],
+    ['+Sponsor', 'principal_sponsor_ninong'],
+  ];
+  for (const [w, role] of cases) assert.equal(parseGuestInput(`Ana Cruz ${w}`, WEDDING).roleHint, role, w);
+  const renamed = parseGuestInput('Ana Cruz +GroomsCrew', { ...WEDDING, roleNames: { groomsman: { one: "Groom's Crew" } } });
+  assert.equal(renamed.roleHint, 'groomsman');
+});
+
+test('+Word naming a role this event does NOT offer is a group, not a role', () => {
+  const generic = { offeredRoles: resolveRoleSet(null).offeredRoles };
+  const d = parseGuestInput('Ana Cruz +Groomsmen', generic);
+  assert.equal(d.roleHint, null);
+  assert.deepEqual(d.groups, ['Groomsmen']);
+  assert.equal(parseGuestInput('Ana Cruz +VIP', generic).roleHint, 'vip');
+});
+
+test('+N stays plus-ones beside a +Role, and #Group still works with both', () => {
+  const d = parseGuestInput('Ana Cruz +3 +Bridesmaid #Barkada', WEDDING);
+  assert.equal(d.plusOnes, 3);
+  assert.equal(d.roleHint, 'bridesmaid');
+  assert.deepEqual(d.groups, ['Barkada']);
 });
 
 test('last +N wins when several are given', () => {

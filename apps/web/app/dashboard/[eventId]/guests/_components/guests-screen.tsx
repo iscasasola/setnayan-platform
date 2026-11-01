@@ -148,8 +148,9 @@ import { groupLabelWithSide, sidesForNamesakes } from '@/lib/groups-for-side';
 import { GuestListHasSidesContext } from './guest-list-has-sides-context';
 import { ADD_WAYS, openAddGuest, openAddWay, type AddWayKey } from './add-guest-sheet';
 import { AddDoors } from './capture-bar';
-import { SearchAddRow, searchAddLabel } from '@/components/search-add-row';
-import { guestAdds, NEEDS_BOTH_NAMES, queueTypedGuest, useGuestAdds, type AddPicks } from './guest-add-queue';
+import { AddPreviewLine, SearchAddRow, searchAddLabel } from '@/components/search-add-row';
+import { quickAddTips } from '@/lib/quick-add-tips';
+import { guestAdds, NEEDS_BOTH_NAMES, queueTypedGuest, typedGuestPreview, useGuestAdds, type AddPicks } from './guest-add-queue';
 import { SectionHeadToolbar, SectionRenameInPlace } from './section-head-toolbar';
 import { renameSection } from '../role-name-actions';
 import { useSetRoleNames } from './role-names-context';
@@ -1539,6 +1540,16 @@ export function GuestsScreen(props: GuestsScreenProps) {
   const allGroups = useMemo(() => [...groups, ...madeGroups.filter((m) => !groups.some((g) => g.group_id === m.group_id))], [groups, madeGroups]);
   /** The picks a name typed now takes — the box's sticky picks (＋ Add guest here left with the header toolbar). */
   const addPicks: AddPicks = picks;
+  /* 🏷 The roles THIS event offers (absent = the wedding set, as the Add card reads it) — a typed "+Groomsmen" is the
+     role only when it is one of these, else a group (owner 2026-11-01). */
+  const offeredRoles = useMemo(() => resolveRoleSet(roleSetKey ?? 'wedding').offeredRoles, [roleSetKey]);
+  /* 💡 The box's rotating examples (owner 2026-11-01) — this event's roles and real group names, never a person. */
+  const hintLines = useMemo(
+    () => quickAddTips({ hasSides, offeredRoles, groupNames: groups.map((g) => g.label), roleNames }).examples.map((l) => `e.g. ${l}`),
+    [hasSides, offeredRoles, groups, roleNames],
+  );
+  /* 👁 What Enter would add, said before Enter — the SAME draft the add sends (`typedGuestPreview`). */
+  const typedPreview = q && !writesOff ? typedGuestPreview(q, addPicks.side, picksForAdd(addPicks, allGroups, roleNames, offeredRoles)) : null;
   // 🧑‍🤝‍🧑 THE COUPLE'S PEOPLE (owner 2026-10-20: "search also searches the people connected to them. From People.") — the
   // SAME read the "Add from your people" sheet makes (`listPeopleYouCanInvite`), once, when the box is first used.
   const { listPeopleYouCanInvite, addGuestsFromPeople } = useGuestActions();
@@ -1568,7 +1579,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
   };
   const peopleHits = q ? peopleFor(q) : [];
   const addPerson = (p: PersonHit) => {
-    const sent = picksForAdd(addPicks, allGroups, roleNames);
+    const sent = picksForAdd(addPicks, allGroups, roleNames, offeredRoles);
     guestAdds.enqueue({
       eventId,
       name: p.name,
@@ -1604,7 +1615,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
       setNeeds(`${v} is already added.`, v);
       return 'already';
     }
-    const res = queueTypedGuest(eventId, v, addPicks.side, addSingleGuest, guestAdds, picksForAdd(addPicks, allGroups, roleNames));
+    const res = queueTypedGuest(eventId, v, addPicks.side, addSingleGuest, guestAdds, picksForAdd(addPicks, allGroups, roleNames, offeredRoles));
     if (!res.ok) {
       if (res.error) setNeeds(res.error, v);
       return res.error || 'empty';
@@ -1629,6 +1640,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
   const field: ThumbField = {
     placeholder: 'Search guests',
     label: 'Search guests or add',
+    hints: writesOff ? undefined : hintLines,
     tour: 'guests-add',
     inputRef: fieldRef,
     /* ✕ — the words are gone: the whole list AT ONCE, not after the search's wait (owner 2026-10-31). */
@@ -1841,7 +1853,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
           hit, the block below is the add and carries the same ways. 🔒 search-or-add.test.ts */}
       {q && !noMatch && !writesOff ? (
         <div className={styles.typedAdd} data-typed-add="" data-search-result="">
-          <SearchAddRow query={q} as="a guest" onAdd={addTypedOrSheet} />
+          <SearchAddRow query={q} as="a guest" onAdd={addTypedOrSheet} preview={typedPreview} />
           <TypedWays eventId={eventId} />
         </div>
       ) : null}
@@ -2033,6 +2045,8 @@ export function GuestsScreen(props: GuestsScreenProps) {
               }}
             />
           </span>
+          {/* 👁 What the Add will make of the words (owner 2026-11-01) — right under it, before Enter. */}
+          {writesOff ? null : <AddPreviewLine text={typedPreview} className="mt-1.5" />}
           {writesOff ? null : <TypedWays eventId={eventId} />}
           </div>
         </div>

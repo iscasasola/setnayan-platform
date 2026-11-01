@@ -2773,6 +2773,7 @@
         "FlatList",
         "Fold",
         "FormInPlace",
+        "FormRows",
         "FourLevelMap",
         "GroupGlyph",
         "GroupPanel",
@@ -2868,6 +2869,7 @@
         "Thumbs",
         "TogglePick",
         "TypeQuestion",
+        "TypedRow",
         "Uint8Array",
         "UnitPick",
         "Vocab",
@@ -4675,9 +4677,11 @@
       "blocks": [
         "ActionButton",
         "AdminInviteResult",
+        "FormRows",
         "InviteResult",
         "PickMenu",
-        "Sec"
+        "Sec",
+        "TypedRow"
       ]
     },
     "/admin/vendors/[vendorProfileId]": {
@@ -6802,6 +6806,7 @@
         "dashboard/[eventId]/guests/_components/guest-papic-bulk.tsx",
         "dashboard/[eventId]/guests/_components/guest-papic-camera.tsx",
         "dashboard/[eventId]/guests/_components/guest-papic-read.ts",
+        "dashboard/[eventId]/guests/_components/guest-peek.tsx",
         "dashboard/[eventId]/guests/_components/guest-popup.tsx",
         "dashboard/[eventId]/guests/_components/guest-proxy-row.tsx",
         "dashboard/[eventId]/guests/_components/guest-reset.tsx",
@@ -6957,6 +6962,7 @@
         "GuestNick",
         "GuestPapicBulkSheet",
         "GuestPapicState",
+        "GuestPeek",
         "GuestPopup",
         "GuestRemovalActions",
         "GuestResetFlow",
@@ -7015,6 +7021,7 @@
         "MarchResult",
         "Mark",
         "MenuSettingsButton",
+        "MindDrill",
         "MiniTour",
         "Mode",
         "MoreMenu",
@@ -8521,7 +8528,6 @@
         "dashboard/[eventId]/schedule/_components/emcee-picks.tsx",
         "dashboard/[eventId]/schedule/_components/emcee-script-button.tsx",
         "dashboard/[eventId]/schedule/_components/host-questions.tsx",
-        "dashboard/[eventId]/schedule/_components/journey-view.tsx",
         "dashboard/[eventId]/schedule/_components/moment-inspector.tsx",
         "dashboard/[eventId]/schedule/_components/note-flash.ts",
         "dashboard/[eventId]/schedule/_components/prep-item-controls.tsx",
@@ -8546,14 +8552,14 @@
         "dashboard/[eventId]/schedule/stage-note-actions.ts"
       ],
       "destinations": [
+        "/api/schedule/[seg]/export",
         "/dashboard/[seg]/budget",
         "/dashboard/[seg]/messages/[seg]",
-        "/dashboard/[seg]/paperwork",
-        "/dashboard/[seg]/schedule?view=preparation",
-        "/dashboard/[seg]/vendors"
+        "/dashboard/[seg]/paperwork"
       ],
       "actions": [
         "applyActivityPicks",
+        "approveAllScheduleSuggestions",
         "bulkRetimeScheduleBlocks",
         "createScheduleBlock",
         "deleteScheduleBlock",
@@ -8578,6 +8584,7 @@
         "BookedScheduleFrame",
         "BookedScheduleView",
         "BulkRetimePanel",
+        "ConfirmForm",
         "DayActions",
         "DayActionsContext.Provider",
         "DayMoment",
@@ -8601,10 +8608,6 @@
         "Icon",
         "InSlot",
         "InfoTip",
-        "JourneyArc",
-        "JourneyEmptyState",
-        "JourneyRow",
-        "JourneyView",
         "LastSeenCapture",
         "LastSeenFallback",
         "Lens",
@@ -8618,7 +8621,6 @@
         "NotSharedWithYou",
         "OverlayBackdrop",
         "PageMasthead",
-        "PhaseSection",
         "PickMenu",
         "PillThumb",
         "PrepKind",
@@ -8641,6 +8643,7 @@
         "ScheduleSheet",
         "ScheduleViewOnScreen.Provider",
         "SentList",
+        "SharePdfButton",
         "Sheet",
         "SheetChoice",
         "SheetField",
@@ -8651,6 +8654,7 @@
         "Stepper",
         "StudioDay",
         "SubmitButton",
+        "SuggestionOutcome",
         "Switch",
         "TellTheHost",
         "TemplatePicker",
@@ -8659,7 +8663,6 @@
         "TimeTicker",
         "TimelineDash",
         "TimelineEmpty",
-        "TimelineNode",
         "TimelineReadProblem",
         "TimelineRow",
         "Tip",
@@ -12279,7 +12282,6 @@
         "FinalizeVendorResult",
         "FindCategoryList",
         "InspectorLayout",
-        "JourneyView",
         "LabBench",
         "LabBookedSchedule",
         "LabBookedStandIns",
@@ -13478,6 +13480,7 @@
     "/signup/you": {
       "files": [
         "signup/you/_components/account-name-field.tsx",
+        "signup/you/_components/display-name-field.tsx",
         "signup/you/_components/you-card.tsx",
         "signup/you/actions.ts",
         "signup/you/page.tsx"
@@ -13490,11 +13493,15 @@
       "blocks": [
         "AccountNameCheck",
         "AccountNameField",
+        "DisplayNameField",
         "FileUpload",
         "FirstRunBrand",
+        "FormRows",
         "Link",
         "PrefixSelect",
+        "RequiredRowsHold",
         "SubmitButton",
+        "TypedRow",
         "YouCard"
       ]
     },
@@ -13905,6 +13912,7 @@
         "vendor-dashboard/_components/vendor-rail-context.tsx",
         "vendor-dashboard/_components/vendor-track-record-panel.tsx",
         "vendor-dashboard/_components/video-links-editor.tsx",
+        "vendor-dashboard/_components/why-row.tsx",
         "vendor-dashboard/actions.ts",
         "vendor-dashboard/error.tsx",
         "vendor-dashboard/instagram-actions.ts",
@@ -14002,6 +14010,7 @@
         "Figure",
         "Fold",
         "FormRow",
+        "FormRows",
         "GuidedTour",
         "HTMLDivElement",
         "HTMLElement",
@@ -14095,6 +14104,7 @@
         "TodayRow",
         "TodaySettings",
         "TrackRecordRow",
+        "TypedRow",
         "UndoableAnswers",
         "Unread",
         "UnreadBellBadge",
@@ -14104,7 +14114,8 @@
         "VendorRailContext",
         "VerifySection",
         "ViewReport",
-        "WhatsNewFeed"
+        "WhatsNewFeed",
+        "WhyRow"
       ]
     },
     "/vendor-dashboard/activities": {
@@ -15785,6 +15796,7 @@
         "Field",
         "FileUpload",
         "Fold",
+        "FormRows",
         "Fragment",
         "GridCard",
         "HTMLDivElement",
@@ -15792,6 +15804,7 @@
         "HTMLInputElement",
         "Icon",
         "IncludedFlags",
+        "InclusionDraft",
         "InclusionsEditor",
         "KindGroup",
         "KindRow",
@@ -15837,6 +15850,7 @@
         "SupplierSubmit",
         "SupplierThumbRow",
         "SwitchTrack",
+        "TypedRow",
         "YourCoverage"
       ]
     },
@@ -16306,6 +16320,7 @@
         "DomainManager",
         "Fold",
         "FormPageSkeleton",
+        "FormRows",
         "InfoTip",
         "OwnRow",
         "PageData",
@@ -16324,7 +16339,8 @@
         "SupplierThumbRow",
         "SwitchRow",
         "SwitchTrack",
-        "ThumbRow"
+        "ThumbRow",
+        "TypedRow"
       ]
     },
     "/vendor-invite/[slug]": {

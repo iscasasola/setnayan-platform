@@ -283,6 +283,11 @@ export type EventVendorRow = {
    */
   host_inclusions: string[] | null;
   covers_plan_groups: string[] | null;
+  /**
+   * 📍 The in-house groups whose chapters the host changed: { plan_group: [chapter block_id] } (owner 2026-11-01,
+   * migration 20271300598766). No key = that group follows this booking's own chapters (`lib/supplier-where.ts`).
+   */
+  covered_where?: Record<string, string[]> | null;
   /** The Suppliers-page row a moved supplier lives under when `category` cannot name it — read via `homeTileForRow`. */
   category_key?: string | null;
   created_at: string;
@@ -342,7 +347,7 @@ export async function fetchEventVendors(
     supabase
       .from('event_vendors')
       .select(
-        'vendor_id,public_id,event_id,category,vendor_name,contact_email,contact_phone,status,total_cost_php,transport_php,food_allowance_php,deposit_paid_php,notes,host_inclusions,covers_plan_groups,category_key,created_at,marketplace_vendor_id,manual_vendor_id,pax_surcharge_php,pax_quote_base,cost_basis_pax,lock_request_state,lock_requested_at,lock_request_expires_at',
+        'vendor_id,public_id,event_id,category,vendor_name,contact_email,contact_phone,status,total_cost_php,transport_php,food_allowance_php,deposit_paid_php,notes,host_inclusions,covers_plan_groups,covered_where,category_key,created_at,marketplace_vendor_id,manual_vendor_id,pax_surcharge_php,pax_quote_base,cost_basis_pax,lock_request_state,lock_requested_at,lock_request_expires_at',
       )
       .eq('event_id', eventId)
       .order('created_at', { ascending: true }),

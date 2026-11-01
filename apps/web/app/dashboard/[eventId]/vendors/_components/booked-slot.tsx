@@ -23,7 +23,7 @@ import { resolveEventMoneySettled, unreadEventMoney } from '@/lib/budget-truth';
 import { buildBudgetList } from '@/lib/budget-page-view';
 import { readBookedPlans } from '@/lib/booked-plans.server';
 import { readBookedRoomSizes } from '@/lib/booked-room.server';
-import { readBookedCallTimes } from '@/lib/booked-call-times.server';
+import { readBookedSchedule } from '@/lib/booked-call-times.server';
 import { readOpenDateChange } from '@/lib/date-change.server';
 import { ROOM_SIZE_GROUPS, bookedView, type BookedFacts } from '@/lib/booked-rows';
 import type { TeamRow } from '@/lib/your-team-rows';
@@ -61,12 +61,13 @@ export async function BookedSlot({
   // Together: the ledger, each booked supplier's own payment plan, the venues'
   // room sizes, the event's open date-change request (if any), and each supplier's
   // call time — the Schedule moment they are tagged on (owner 2026-10-27).
-  const [money, plans, rooms, dateChange, callTimes] = await Promise.all([
+  const [money, plans, rooms, dateChange, schedule] = await Promise.all([
     isBudgetTruthEnabled() ? resolveEventMoneySettled(supabase, eventId) : Promise.resolve(unreadEventMoney()),
     readBookedPlans(supabase, eventId, bookedIds),
     readBookedRoomSizes(supabase, venueShops),
     bookedIds.length > 0 ? readOpenDateChange(supabase, eventId) : Promise.resolve({ ok: true as const, view: null }),
-    scheduleShared ? readBookedCallTimes(supabase, eventId, bookedIds) : Promise.resolve(undefined),
+    // 📍 The same one read also gives each supplier's Where — the chapters they are on (owner 2026-11-01).
+    scheduleShared ? readBookedSchedule(supabase, eventId, bookedIds) : Promise.resolve(undefined),
   ]);
   const list = buildBudgetList(money);
   const view = bookedView({
@@ -76,7 +77,8 @@ export async function BookedSlot({
     plans,
     rooms,
     dateChange: dateChange.ok ? dateChange.view : null,
-    callTimes,
+    callTimes: schedule === undefined ? undefined : schedule === null ? null : schedule.callTimes,
+    chapters: schedule === undefined ? undefined : schedule === null ? null : schedule.chapters,
   });
   // The Budget is its own part now (Team · Budget · Schedule, owner 2026-10-29) — the whole Budget page, at
   // `?part=budget`, behind the body's "Team ▾" — so the small block that sat under the rows is not drawn here.

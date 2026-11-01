@@ -505,7 +505,13 @@ export type NotificationType =
      (`?settings=1&row=access&person=<seat>`). Written by the DATABASE (`ask_hosts_for_more_access`, 20271299854365),
      never emitNotification — at most one per helper per part a day. ⚠ IN-APP ONLY: NOT on EMAIL_ENABLED_TYPES, Low in
      lib/push-levels.ts (owner: no new emails without his word). ⚠ ENUM value in 20271299515167. */
-  | 'access_more_asked';
+  | 'access_more_asked'
+  /* 📍 THE HOST CHANGED WHERE A BOOKED SUPPLIER GOES (owner 2026-11-01, DECISION_LOG "MANY VENUES PER EVENT; SUPPLIERS
+     PICK THEIR CHAPTERS; COORDINATORS ARE EVERYWHERE"; plan §12 Step 4: "a change after booking sends the supplier an
+     in-app notice (no email), and the price never changes by itself"). → the booked shop's owner, one notice per change,
+     opening their client page. Written by lib/supplier-where-notify.server.ts after `set_supplier_where` changed the
+     set. ⚠ IN-APP ONLY: NOT on EMAIL_ENABLED_TYPES. ⚠ ENUM value in 20271301389353. */
+  | 'supplier_where_changed';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   event_auto_surfaced: 'You were added to an event',
@@ -629,6 +635,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   schedule_shifted: 'Schedule moved',
   mood_board_changed: 'Mood Board changed',
   access_more_asked: 'A helper asks for more access',
+  supplier_where_changed: 'Where you go changed',
 };
 
 export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
@@ -852,6 +859,8 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   mood_board_changed: 'bg-sky-100 text-sky-800',
   // A helper waits on the hosts' answer → the action-needed amber, like every other ask.
   access_more_asked: 'bg-warn-100 text-warn-900',
+  // News the supplier plans around (which chapters), not a yes or no → the informational sky.
+  supplier_where_changed: 'bg-sky-100 text-sky-800',
 };
 
 export type NotificationRow = {
@@ -1130,6 +1139,7 @@ export const NOTIFICATION_TYPE_ICON: Partial<Record<NotificationType, Notificati
   schedule_change_requested: 'calendar',
   schedule_shifted: 'calendar',
   mood_board_changed: 'image',
+  supplier_where_changed: 'calendar',
   appointment_reminder: 'calendar',
   photo_delivery_complete: 'image',
   photo_delivery_failed: 'image',

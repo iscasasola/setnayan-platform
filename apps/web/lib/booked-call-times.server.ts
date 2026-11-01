@@ -4,6 +4,7 @@ import { logQueryError } from './supabase/error-detect';
 import { earliestTaggedBlock } from './coordinator-broadcasts';
 import type { RosMetaMap } from './schedule-ros';
 import type { TaggedMoment } from './booked-rows';
+import { whereChaptersFrom, type WhereChapter } from './supplier-where';
 
 /**
  * EVERY BOOKED SUPPLIER'S CALL TIME, IN ONE READ — for the Booked Team row's "Call time 8:00 AM · Ingress & setup ·
@@ -24,11 +25,27 @@ export async function readBookedCallTimes(
   eventId: string,
   vendorIds: readonly string[],
 ): Promise<Map<string, TaggedMoment> | null> {
+  const read = await readBookedSchedule(supabase, eventId, vendorIds);
+  return read === null ? null : read.callTimes;
+}
+
+/**
+ * 📍 THE CALL TIMES AND THE CHAPTERS, FROM THE SAME ONE READ (owner 2026-11-01, "suppliers pick their chapters"): the
+ * Team row's Where is the chapters (top-level blocks) whose `responsible_vendor_ids` hold the supplier
+ * (`lib/supplier-where.ts`) — the same column the call time folds, so both come from one request. `null` = the read
+ * was refused: neither the call time nor Where is known (never "no chapters").
+ */
+export async function readBookedSchedule(
+  supabase: SupabaseClient,
+  eventId: string,
+  vendorIds: readonly string[],
+): Promise<{ callTimes: Map<string, TaggedMoment>; chapters: WhereChapter[] } | null> {
   const out = new Map<string, TaggedMoment>();
-  if (vendorIds.length === 0) return out;
+  // Nobody booked: no row draws a call time or a Where, so nothing is asked.
+  if (vendorIds.length === 0) return { callTimes: out, chapters: [] };
   const { data, error } = await supabase
     .from('event_schedule_blocks')
-    .select('block_id, label, start_at, responsible_vendor_ids')
+    .select('block_id, parent_block_id, label, start_at, location, responsible_vendor_ids')
     .eq('event_id', eventId);
   if (error) {
     logQueryError('readBookedCallTimes', error, { event_id: eventId }, 'graceful_degrade');
@@ -36,10 +53,13 @@ export async function readBookedCallTimes(
   }
   const rows = (data ?? []) as Array<{
     block_id: string;
+    parent_block_id: string | null;
     label: string;
     start_at: string | null;
+    location: string | null;
     responsible_vendor_ids: string[] | null;
   }>;
+  const chapters = whereChaptersFrom(rows);
   const blocks = rows.flatMap((r) => (r.start_at ? [{ block_id: r.block_id, label: r.label, start_at: r.start_at }] : []));
   const meta: RosMetaMap = new Map(
     rows.map((r) => [r.block_id, { responsible_party: null, responsible_vendor_ids: r.responsible_vendor_ids ?? [] }]),
@@ -48,5 +68,5 @@ export async function readBookedCallTimes(
     const b = earliestTaggedBlock(blocks, meta, vendorId);
     if (b) out.set(vendorId, { startAt: b.start_at, label: b.label });
   }
-  return out;
+  return { callTimes: out, chapters };
 }

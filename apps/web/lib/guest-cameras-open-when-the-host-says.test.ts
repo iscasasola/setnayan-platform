@@ -152,14 +152,21 @@ test('🔑 the UPLOAD ROUTE enforces it — the page is only a courtesy', () => 
   assert.doesNotMatch(priorBranch, /windowRefusal\(/, 'a piece of an accepted shot must not be refused by the window');
   // …judged by the SHUTTER, not by arrival (review 2026-10-23, blocker 1: an
   // in-window shot that finds signal the next afternoon is still in-window).
+  // 📷 Since Papic by chapter (owner 2026-11-01) a NEW shot meets the window through `chapterGate`: with no chapter it
+  // is exactly `windowRefusal`; a chapter the database says this guest may shoot into IS the window (a meeting before
+  // the day), and any other answer falls back to `windowRefusal` (lib/papic-chapter.test.ts holds the decision).
   assert.match(
     sign.slice(sign.indexOf('} else {')),
-    /windowRefusal\(session, admin, judgedShotInstant\(body\.captured_at_ms, Date\.now\(\)\)\)/,
+    /chapterGate\(session, admin, body, judgedShotInstant\(body\.captured_at_ms, Date\.now\(\)\)\)/,
     'a NEW shot must meet the window at sign, judged by its shutter',
   );
   const record = route.slice(route.indexOf('async function handleRecord('), route.indexOf('async function afterVisible('));
   assert.match(record, /const shotAtMs = judgedShotInstant\(body\.captured_at_ms, Date\.now\(\)\);/, 'the record must judge the window by the shutter');
-  assert.match(record, /windowRefusal\(session, admin, shotAtMs\)/, 'a NEW shot must meet the window at record');
+  assert.match(record, /chapterGate\(session, admin, body, shotAtMs\)/, 'a NEW shot must meet the window at record');
+  const gate = route.slice(route.indexOf('async function chapterGate('), route.indexOf('async function moderationRefusal('));
+  assert.ok(gate.length > 100, 'chapterGate moved — re-point this guard');
+  assert.match(gate, /if \(!chapterId\) return \{ res: await windowRefusal\(session, admin, shotAtMs\)/, 'no chapter → the window alone, unchanged');
+  assert.match(gate, /verdict === null \? null : await windowRefusal\(session, admin, shotAtMs\)/, 'a refused chapter → the window decides');
 });
 
 test('🔑 both server callers use the SHARED resolver, not their own date maths', () => {

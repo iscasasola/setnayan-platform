@@ -1,12 +1,11 @@
 'use client';
 
 import { useEffect, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { Play } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
-import { pickPapicChapter, startPapicChapterNow } from '@/app/dashboard/[eventId]/studio/papic/chapter-actions';
+import { papicSaveInPlace } from '@/app/dashboard/[eventId]/studio/papic/in-place-actions';
 import {
   PAPIC_SHOOTS_INTO,
   PAPIC_WHOLE_EVENT,
@@ -33,13 +32,20 @@ import {
  *
  *   · The chapter it names is `papicChapterTarget` — the host's pick, else the one happening now — the SAME rule the
  *     cameras are given, so the card and the camera can never name two chapters.
- *   · A pick and Start now save IN PLACE and the card refreshes (`router.refresh()`); a refusal is said under the row,
+ *   · A pick and Start now save IN PLACE (`papicSaveInPlace`; the door revalidates Home); a refusal is said under the row,
  *     and the shown pick goes back to what is stored.
  *   · `chapters === null` = the read failed: the row says so — never "Whole event", which would hide a real meeting.
  *   · No chapters at all: nothing is drawn (Papic shoots into the whole event, as before chapters).
  *
  * `standIn` is the dev lab's only (`/dev/home-lab?card=1&chapter=…`): picks answer with no server.
  */
+function chapterForm(eventId: string, chapter: string): FormData {
+  const fd = new FormData();
+  fd.set('event_id', eventId);
+  fd.set('chapter', chapter);
+  return fd;
+}
+
 export function PapicChapterRow({
   eventId,
   chapters,
@@ -53,7 +59,6 @@ export function PapicChapterRow({
   nowMs: number;
   standIn?: 'ok' | 'fail';
 }) {
-  const router = useRouter();
   const [pending, start] = useTransition();
   const [problem, setProblem] = useState<string | null>(null);
   const [shown, setShown] = useState<PapicChapter[] | null>(chapters);
@@ -85,9 +90,8 @@ export function PapicChapterRow({
           ? ({ ok: true } as const)
           : ({ ok: false, error: 'That did not save. Nothing changed — please try again.' } as const)
         : await run().catch(() => ({ ok: false as const, error: 'That did not save. Nothing changed — please try again.' }));
-      if (answer.ok) {
-        if (!standIn) router.refresh();
-      } else {
+      // Saved: the door revalidates Home, which re-renders in place with the stored facts.
+      if (!answer.ok) {
         setShown(before);
         setProblem(answer.error);
       }
@@ -97,7 +101,7 @@ export function PapicChapterRow({
   const pick = (key: string) => {
     if (pending || key === value) return;
     const next = shown.map((c) => ({ ...c, picked: c.blockId === key }));
-    save(() => pickPapicChapter(eventId, key), next);
+    save(() => papicSaveInPlace('pickPapicChapter', chapterForm(eventId, key)), next);
   };
 
   const startNow = () => {
@@ -106,7 +110,7 @@ export function PapicChapterRow({
     const next = shown.map((c) =>
       c.blockId === current.blockId ? { ...c, picked: true, openedEarlyAt: at, opensAt: at } : { ...c, picked: false },
     );
-    save(() => startPapicChapterNow(eventId, current.blockId), next);
+    save(() => papicSaveInPlace('startPapicChapterNow', chapterForm(eventId, current.blockId)), next);
   };
 
   // While a chapter is ON, its shots go into it — "Whole event" only un-picks a chapter that has not started.

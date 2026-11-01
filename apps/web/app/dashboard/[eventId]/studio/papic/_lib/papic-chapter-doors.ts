@@ -1,7 +1,6 @@
-'use server';
-
+import 'server-only';
+import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
-import { limitedHelperRefusal } from '@/lib/host-gate';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { PAPIC_WHOLE_EVENT, readChapterId } from '@/lib/papic-chapter';
 
@@ -10,25 +9,31 @@ import { PAPIC_WHOLE_EVENT, readChapterId } from '@/lib/papic-chapter';
  * CHAPTER"): pick the chapter Papic shoots into (or the whole event), and Start now — a meeting before the day turns
  * Papic on at its start; the host may start it early (`papic_chapter_windows`, migration 20271300249267).
  *
- *   · SAVED IN PLACE: each returns { ok } and the card refreshes itself — no redirect, the screen never resets.
- *   · ON THE CALLER'S OWN CLIENT: RLS lets only the couple write (`papic_chapter_windows_couple_write`), and a limited
- *     helper is refused first (`limitedHelperRefusal`, area `photos` — every Papic setting's area).
+ *   · NOT A NEW SERVER ACTION (the route budget, lint-server-action-budget.mjs): two more DOORS of the one Papic
+ *     dispatcher, `papicSaveInPlace` (in-place-actions.ts) — which refuses a limited helper first (area `photos`, every
+ *     Papic setting's area) and answers { ok } or the words thrown here. Home re-renders in place (`revalidatePath`) — no
+ *     redirect, the screen never resets.
+ *   · ON THE CALLER'S OWN CLIENT: RLS lets only the couple write (`papic_chapter_windows_couple_write`).
  *   · HONEST: a write that reached no row is "not saved" — every write reads back what it changed.
  */
 
-type Saved = { ok: true } | { ok: false; error: string };
 const NOT_SAVED = 'That did not save. Nothing changed — please try again.';
 
 function isEventId(v: unknown): v is string {
   return readChapterId(v) !== null;
 }
+function field(fd: FormData, k: string): string {
+  const v = fd.get(k);
+  return typeof v === 'string' ? v.trim() : '';
+}
 
-export async function pickPapicChapter(eventId: string, key: string): Promise<Saved> {
-  const refused = await limitedHelperRefusal(eventId, 'photos');
-  if (refused) return { ok: false, error: refused };
-  if (!isEventId(eventId)) return { ok: false, error: NOT_SAVED };
+/** The card's pick: `event_id` + `chapter` (a chapter id, or `whole`). Throws the words on a refusal. */
+export async function pickPapicChapter(fd: FormData): Promise<void> {
+  const eventId = field(fd, 'event_id');
+  const key = field(fd, 'chapter');
+  if (!isEventId(eventId)) throw new Error(NOT_SAVED);
   const blockId = key === PAPIC_WHOLE_EVENT ? null : readChapterId(key);
-  if (key !== PAPIC_WHOLE_EVENT && !blockId) return { ok: false, error: NOT_SAVED };
+  if (key !== PAPIC_WHOLE_EVENT && !blockId) throw new Error(NOT_SAVED);
 
   const supabase = await createClient();
   // One pick per event: the old pick goes first (the partial unique index would refuse two).
@@ -39,9 +44,12 @@ export async function pickPapicChapter(eventId: string, key: string): Promise<Sa
     .eq('picked', true);
   if (unpickErr) {
     logQueryError('pickPapicChapter.unpick', unpickErr, { event_id: eventId }, 'graceful_degrade');
-    return { ok: false, error: NOT_SAVED };
+    throw new Error(NOT_SAVED);
   }
-  if (!blockId) return { ok: true };
+  if (!blockId) {
+    revalidatePath(`/dashboard/${eventId}`);
+    return;
+  }
 
   const { data, error } = await supabase
     .from('papic_chapter_windows')
@@ -50,17 +58,16 @@ export async function pickPapicChapter(eventId: string, key: string): Promise<Sa
     .maybeSingle();
   if (error || !data || (data as { picked?: boolean }).picked !== true) {
     if (error) logQueryError('pickPapicChapter.pick', error, { event_id: eventId, block_id: blockId }, 'graceful_degrade');
-    return { ok: false, error: NOT_SAVED };
+    throw new Error(NOT_SAVED);
   }
-  return { ok: true };
+  revalidatePath(`/dashboard/${eventId}`);
 }
 
-/** Start now: the chapter opens at this instant (and becomes the one the card shoots into). */
-export async function startPapicChapterNow(eventId: string, blockIdRaw: string): Promise<Saved> {
-  const refused = await limitedHelperRefusal(eventId, 'photos');
-  if (refused) return { ok: false, error: refused };
-  const blockId = readChapterId(blockIdRaw);
-  if (!isEventId(eventId) || !blockId) return { ok: false, error: NOT_SAVED };
+/** Start now: `event_id` + `chapter` — it opens at this instant (and becomes the one the card shoots into). */
+export async function startPapicChapterNow(fd: FormData): Promise<void> {
+  const eventId = field(fd, 'event_id');
+  const blockId = readChapterId(field(fd, 'chapter'));
+  if (!isEventId(eventId) || !blockId) throw new Error(NOT_SAVED);
 
   const supabase = await createClient();
   const { error: unpickErr } = await supabase
@@ -71,7 +78,7 @@ export async function startPapicChapterNow(eventId: string, blockIdRaw: string):
     .neq('block_id', blockId);
   if (unpickErr) {
     logQueryError('startPapicChapterNow.unpick', unpickErr, { event_id: eventId }, 'graceful_degrade');
-    return { ok: false, error: NOT_SAVED };
+    throw new Error(NOT_SAVED);
   }
   const { data, error } = await supabase
     .from('papic_chapter_windows')
@@ -80,7 +87,7 @@ export async function startPapicChapterNow(eventId: string, blockIdRaw: string):
     .maybeSingle();
   if (error || !data || !(data as { opened_early_at?: string | null }).opened_early_at) {
     if (error) logQueryError('startPapicChapterNow', error, { event_id: eventId, block_id: blockId }, 'graceful_degrade');
-    return { ok: false, error: NOT_SAVED };
+    throw new Error(NOT_SAVED);
   }
-  return { ok: true };
+  revalidatePath(`/dashboard/${eventId}`);
 }

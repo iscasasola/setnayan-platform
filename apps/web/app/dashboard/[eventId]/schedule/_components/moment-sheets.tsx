@@ -17,18 +17,22 @@ import {
   momentDeleteWords,
   momentSection,
   momentStartFrom,
+  rowOf,
   sectionStartFor,
   sectionsFor,
   shiftWall,
+  taskFields,
   taskPlace,
-  taskWho,
   taskWhoWords,
+  whoFieldsOf,
+  whoKeyOf,
   wallTime,
   type Chapter,
   type ChapterSection,
   type ClashMoment,
   type TaskNames,
   type TaskRow,
+  type WhoFields,
 } from '@/lib/schedule-chapters';
 import { createScheduleBlock, deleteScheduleBlock, updateScheduleBlock } from '../actions';
 import type { ChapterMoment, TaskWhoList } from './chapters-host';
@@ -548,60 +552,6 @@ export function MomentSheet({
 
 const OTHER = '__other__';
 
-/** A who as Who ▾ keys it: `s:<supplier>` · `c:<supplier>:<crew>` · `r:<role>` · `g:<group>` · `p:<guest>`. */
-function whoKeyOf(t: Pick<TaskRow, 'vendor_id' | 'crew' | 'guest_id' | 'group_id' | 'role' | 'who_label'>): string | null {
-  const w = taskWho(t);
-  if (!w) return null;
-  switch (w.kind) {
-    case 'supplier':
-      return w.crew ? `c:${w.vendorId}:${w.crew}` : `s:${w.vendorId}`;
-    case 'guest':
-      return `p:${w.guestId}`;
-    case 'group':
-      return `g:${w.groupId}`;
-    case 'role':
-      return `r:${w.role}`;
-    case 'label':
-      return `o:${w.label}`;
-  }
-}
-
-type WhoFields = { who_kind: string; who_ref: string; crew: string };
-
-function whoFieldsOf(key: string): WhoFields | null {
-  const [k, ...rest] = key.split(':');
-  const ref = rest.join(':');
-  if (!ref) return null;
-  if (k === 's') return { who_kind: 'supplier', who_ref: ref, crew: '' };
-  if (k === 'c') {
-    const [vendor, ...crew] = ref.split(':');
-    return vendor ? { who_kind: 'supplier', who_ref: vendor, crew: crew.join(':') } : null;
-  }
-  if (k === 'p') return { who_kind: 'guest', who_ref: ref, crew: '' };
-  if (k === 'g') return { who_kind: 'group', who_ref: ref, crew: '' };
-  if (k === 'r') return { who_kind: 'role', who_ref: ref, crew: '' };
-  if (k === 'o') return { who_kind: 'label', who_ref: ref, crew: '' };
-  return null;
-}
-
-/** The row a task becomes once saved (the client's copy of what the door wrote). */
-function rowOf(id: string, blockId: string, f: WhoFields, what: string, callAt: string | null, place: string | null, sort: number): TaskRow {
-  return {
-    task_id: id,
-    block_id: blockId,
-    vendor_id: f.who_kind === 'supplier' ? f.who_ref : null,
-    crew: f.who_kind === 'supplier' && f.crew.trim() ? f.crew.trim() : null,
-    guest_id: f.who_kind === 'guest' ? f.who_ref : null,
-    group_id: f.who_kind === 'group' ? f.who_ref : null,
-    role: f.who_kind === 'role' ? f.who_ref : null,
-    who_label: f.who_kind === 'label' ? f.who_ref : null,
-    what,
-    call_at: callAt,
-    place,
-    sort_order: sort,
-  };
-}
-
 function TaskEditor({
   task,
   sortOrder,
@@ -648,14 +598,7 @@ function TaskEditor({
     const at = next.place !== undefined ? next.place : place;
     if (!task && (!w || !text.trim())) return { ok: true as const }; // a draft waits for its who and its what
     if (!w) return { ok: false as const, error: 'Pick who does it.' };
-    const fields: Record<string, string> = {
-      ...w,
-      what: text.trim(),
-      call_at: call ?? '',
-      place: at ?? '',
-      sort_order: String(sort),
-      ...(task ? { task_id: task.task_id } : {}),
-    };
+    const fields = taskFields(w, text, call, at, sort, task?.task_id ?? null);
     const answer = await doors.task(task ? 'task_save' : 'task_add', m.block_id, fields);
     if (!answer.ok) {
       setProblem(answer.error);

@@ -692,3 +692,120 @@ export function tasksLine(tasks: readonly TaskRow[], moment: MomentLike, chapter
   const head = tasks.length === 1 ? '1 task' : `${tasks.length} tasks at once`;
   return places.size > 1 ? `${head} · ${places.size} places` : head;
 }
+
+/** The moment sheet's operations, posted as `moment_op` on the Schedule's own update door (no new server action). */
+export const MOMENT_OPS = ['task_add', 'task_save', 'task_remove', 'papic_count'] as const;
+export type MomentOp = (typeof MOMENT_OPS)[number];
+export function isMomentOp(v: unknown): v is MomentOp {
+  return typeof v === 'string' && (MOMENT_OPS as readonly string[]).includes(v);
+}
+
+const WHO_KINDS = ['supplier', 'guest', 'group', 'role', 'label'] as const;
+/** A call time is posted as the stored wall clock itself (`wallIso`): "2026-12-18T07:30:00.000Z". */
+const WALL_ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:00\.000Z$/;
+
+/** A task as posted → its input, or what is wrong in words. */
+export function taskInputFromForm(fd: FormData): { ok: true; input: TaskInput } | { ok: false; error: string } {
+  const kind = fd.get('who_kind');
+  const ref = String(fd.get('who_ref') ?? '').trim();
+  if (typeof kind !== 'string' || !(WHO_KINDS as readonly string[]).includes(kind) || !ref) return { ok: false, error: 'Pick who does it.' };
+  const crew = String(fd.get('crew') ?? '').trim() || null;
+  const who: TaskWho =
+    kind === 'supplier'
+      ? { kind: 'supplier', vendorId: ref, crew }
+      : kind === 'guest'
+        ? { kind: 'guest', guestId: ref }
+        : kind === 'group'
+          ? { kind: 'group', groupId: ref }
+          : kind === 'role'
+            ? { kind: 'role', role: ref }
+            : { kind: 'label', label: ref };
+  const callRaw = String(fd.get('call_at') ?? '').trim();
+  if (callRaw && !WALL_ISO.test(callRaw)) return { ok: false, error: 'That call time could not be read.' };
+  const sort = Number(fd.get('sort_order') ?? 0);
+  return {
+    ok: true,
+    input: {
+      who,
+      what: String(fd.get('what') ?? ''),
+      callAt: callRaw || null,
+      place: String(fd.get('place') ?? ''),
+      sortOrder: Number.isInteger(sort) ? sort : 0,
+    },
+  };
+}
+
+
+/* ── a task as the moment sheet posts it ──────────────────────────────────────────────────────────────────────── */
+
+/** A who as Who ▾ keys it: `s:<supplier>` · `c:<supplier>:<crew>` · `r:<role>` · `g:<group>` · `p:<guest>`. */
+export function whoKeyOf(t: Pick<TaskRow, 'vendor_id' | 'crew' | 'guest_id' | 'group_id' | 'role' | 'who_label'>): string | null {
+  const w = taskWho(t);
+  if (!w) return null;
+  switch (w.kind) {
+    case 'supplier':
+      return w.crew ? `c:${w.vendorId}:${w.crew}` : `s:${w.vendorId}`;
+    case 'guest':
+      return `p:${w.guestId}`;
+    case 'group':
+      return `g:${w.groupId}`;
+    case 'role':
+      return `r:${w.role}`;
+    case 'label':
+      return `o:${w.label}`;
+  }
+}
+
+export type WhoFields = { who_kind: string; who_ref: string; crew: string };
+
+export function whoFieldsOf(key: string): WhoFields | null {
+  const [k, ...rest] = key.split(':');
+  const ref = rest.join(':');
+  if (!ref) return null;
+  if (k === 's') return { who_kind: 'supplier', who_ref: ref, crew: '' };
+  if (k === 'c') {
+    const [vendor, ...crew] = ref.split(':');
+    return vendor ? { who_kind: 'supplier', who_ref: vendor, crew: crew.join(':') } : null;
+  }
+  if (k === 'p') return { who_kind: 'guest', who_ref: ref, crew: '' };
+  if (k === 'g') return { who_kind: 'group', who_ref: ref, crew: '' };
+  if (k === 'r') return { who_kind: 'role', who_ref: ref, crew: '' };
+  if (k === 'o') return { who_kind: 'label', who_ref: ref, crew: '' };
+  return null;
+}
+
+/** The row a task becomes once saved (the client's copy of what the door wrote). */
+export function rowOf(id: string, blockId: string, f: WhoFields, what: string, callAt: string | null, place: string | null, sort: number): TaskRow {
+  return {
+    task_id: id,
+    block_id: blockId,
+    vendor_id: f.who_kind === 'supplier' ? f.who_ref : null,
+    crew: f.who_kind === 'supplier' && f.crew.trim() ? f.crew.trim() : null,
+    guest_id: f.who_kind === 'guest' ? f.who_ref : null,
+    group_id: f.who_kind === 'group' ? f.who_ref : null,
+    role: f.who_kind === 'role' ? f.who_ref : null,
+    who_label: f.who_kind === 'label' ? f.who_ref : null,
+    what,
+    call_at: callAt,
+    place,
+    sort_order: sort,
+  };
+}
+
+/**
+ * What the moment sheet POSTS for a task (`moment_op` on the Schedule's update door) — the one encoding, read back by
+ * `taskInputFromForm`. A blank call time or place is posted as '' and stored as none (the moment's time and room).
+ */
+export function taskFields(w: WhoFields, what: string, callAt: string | null, place: string | null, sort: number, taskId: string | null): Record<string, string> {
+  return {
+    who_kind: w.who_kind,
+    who_ref: w.who_ref,
+    crew: w.crew,
+    what: what.trim(),
+    call_at: callAt ?? '',
+    place: place?.trim() ?? '',
+    sort_order: String(sort),
+    ...(taskId ? { task_id: taskId } : {}),
+  };
+}
+

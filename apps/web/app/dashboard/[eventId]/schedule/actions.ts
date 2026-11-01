@@ -41,8 +41,8 @@ import { isCoordinatorPrepReleaseEnabled } from '@/lib/coordinator-prep-release'
 import { eventWordsForEvent, untitledEventName } from '@/app/[slug]/_lib/event-words';
 import { refuseLimitedHelper } from '@/lib/host-gate';
 import { userHostsEvent } from '@/lib/events';
-import { isCallLead, isPhotoWhen, isPhotoWho } from '@/lib/schedule-chapters';
-import { isMomentOp, runMomentOp } from '@/lib/schedule-chapters.server';
+import { isCallLead, isMomentOp, isPhotoWhen, isPhotoWho } from '@/lib/schedule-chapters';
+import { runMomentOp } from '@/lib/schedule-chapters.server';
 
 const VALID_TYPES = new Set<ScheduleBlockType>(SCHEDULE_BLOCK_TYPES);
 /** A write that reached no row — refused by RLS, or the moment is gone. Thrown, so the rail says "did not save". */

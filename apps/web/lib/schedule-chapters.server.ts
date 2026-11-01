@@ -6,13 +6,14 @@ import {
   TASK_COLUMNS,
   chaptersFromBlocks,
   momentFactsFromBlocks,
+  taskInputFromForm,
   taskRowFrom,
+  type MomentOp,
   type Chapter,
   type MomentFacts,
   type TaskInput,
   type TaskPeople,
   type TaskRow,
-  type TaskWho,
 } from './schedule-chapters';
 import { fetchGuestGroupsByEventMeasured, fetchGuestsByEventMeasured, guestDisplayName, guestRoleLabel } from './guests';
 
@@ -155,48 +156,6 @@ export async function countChapterPapic(supabase: SupabaseClient, chapterId: str
     return { ok: false };
   }
   return { ok: true, value: count };
-}
-
-/** The moment sheet's operations, posted as `moment_op` on the Schedule's own update door (no new server action). */
-export const MOMENT_OPS = ['task_add', 'task_save', 'task_remove', 'papic_count'] as const;
-export type MomentOp = (typeof MOMENT_OPS)[number];
-export function isMomentOp(v: unknown): v is MomentOp {
-  return typeof v === 'string' && (MOMENT_OPS as readonly string[]).includes(v);
-}
-
-const WHO_KINDS = ['supplier', 'guest', 'group', 'role', 'label'] as const;
-/** A call time is posted as the stored wall clock itself (`wallIso`): "2026-12-18T07:30:00.000Z". */
-const WALL_ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:00\.000Z$/;
-
-/** A task as posted → its input, or what is wrong in words. */
-export function taskInputFromForm(fd: FormData): { ok: true; input: TaskInput } | { ok: false; error: string } {
-  const kind = fd.get('who_kind');
-  const ref = String(fd.get('who_ref') ?? '').trim();
-  if (typeof kind !== 'string' || !(WHO_KINDS as readonly string[]).includes(kind) || !ref) return { ok: false, error: 'Pick who does it.' };
-  const crew = String(fd.get('crew') ?? '').trim() || null;
-  const who: TaskWho =
-    kind === 'supplier'
-      ? { kind: 'supplier', vendorId: ref, crew }
-      : kind === 'guest'
-        ? { kind: 'guest', guestId: ref }
-        : kind === 'group'
-          ? { kind: 'group', groupId: ref }
-          : kind === 'role'
-            ? { kind: 'role', role: ref }
-            : { kind: 'label', label: ref };
-  const callRaw = String(fd.get('call_at') ?? '').trim();
-  if (callRaw && !WALL_ISO.test(callRaw)) return { ok: false, error: 'That call time could not be read.' };
-  const sort = Number(fd.get('sort_order') ?? 0);
-  return {
-    ok: true,
-    input: {
-      who,
-      what: String(fd.get('what') ?? ''),
-      callAt: callRaw || null,
-      place: String(fd.get('place') ?? ''),
-      sortOrder: Number.isInteger(sort) ? sort : 0,
-    },
-  };
 }
 
 /**

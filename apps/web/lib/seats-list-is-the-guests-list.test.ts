@@ -147,7 +147,7 @@ test('5 · Type ▾ is the shared dropdown over the plan’s shapes, seats − N
   assert.match(tools, /\{dockSeatsStepper\(m\)\}/, 'the table lost seats − N +');
   const pen = ED.slice(ED.indexOf('const seatListPencil = '), ED.indexOf('const seatListRename = '));
   assert.match(pen, /icon=\{Pencil\}/);
-  assert.match(pen, /setRenamingTable\(u\.lead\.table_id\)/);
+  assert.match(pen, /setRenamingTable\(\(cur\) => \(cur === u\.lead\.table_id \? null : u\.lead\.table_id\)\)/);
   assert.match(ED, /label=\{isPending \? 'Arranging…' : 'Auto arrange'\}/, 'Auto arrange left the Seats row’s ⋯');
   assert.match(ED, /createPortal\(<SeatPlanToolRounds more=\{phoneMore\} trailing=\{phoneTrailing\} \/>, lens\.toolsSlot\)/);
   // The old row of faces is gone — one list, not two.

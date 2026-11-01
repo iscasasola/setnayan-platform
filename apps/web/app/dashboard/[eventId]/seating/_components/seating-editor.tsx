@@ -6799,8 +6799,8 @@ export function SeatingEditor({
         iconOnly
         icon={Pencil}
         label={`Rename ${u.label}`}
-        onClick={() => setRenamingTable(u.lead.table_id)}
-        data-seat-table-rename=""
+        onClick={() => setRenamingTable((cur) => (cur === u.lead.table_id ? null : u.lead.table_id))}
+        data-testid="seat-table-rename"
       />
     );
   };
@@ -6808,7 +6808,7 @@ export function SeatingEditor({
     const u = unitOfKey(key);
     if (!u || view !== 'list' || renamingTable !== u.lead.table_id || u.members.length !== 1) return null;
     return (
-      <div className="min-w-0 flex-1 py-1">
+      <div className="min-w-0 py-1">
         <FormRows data="seat-list-name">
           <TypedRow
             key={u.lead.table_id}

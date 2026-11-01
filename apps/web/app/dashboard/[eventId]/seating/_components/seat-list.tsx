@@ -63,7 +63,6 @@ function Head({
   icon,
   onToggle,
   trailing,
-  replace,
 }: {
   sectionKey: string;
   open: boolean;
@@ -73,25 +72,21 @@ function Head({
   onToggle: () => void;
   /** ✎ — drawn by the caller only on the picked (open) table. */
   trailing?: ReactNode;
-  /** The name box, in place of the header's words while renaming. */
-  replace?: ReactNode;
 }) {
   return (
     <div className={`${gs.barWrap} sn-acc-head`} data-open={open ? '' : undefined} data-seat-head={sectionKey}>
-      {replace ?? (
-        <button type="button" className={gs.bar} aria-expanded={open} onClick={onToggle} data-section-head="">
-          <span className={`${gs.ico} sn-acc-chip`} aria-hidden>
-            {icon === 'table' ? <Armchair strokeWidth={1.9} /> : <UserRound strokeWidth={1.9} />}
-          </span>
-          {/* ✂ A table's name WRAPS, never cut (owner v15 — names are never ellipsized; up to three lines). */}
-          <span className={`${gs.lab} line-clamp-3 !whitespace-normal [overflow-wrap:anywhere]`}>{label}</span>
-          <span className={gs.n} data-seat-tally="">
-            · {tally}
-          </span>
-          <ChevronDown className={gs.chev} style={{ flex: '0 0 auto' }} aria-hidden strokeWidth={1.9} width={18} height={18} />
-        </button>
-      )}
-      {replace ? null : trailing}
+      <button type="button" className={gs.bar} aria-expanded={open} onClick={onToggle} data-section-head="">
+        <span className={`${gs.ico} sn-acc-chip`} aria-hidden>
+          {icon === 'table' ? <Armchair strokeWidth={1.9} /> : <UserRound strokeWidth={1.9} />}
+        </span>
+        {/* ✂ A table's name WRAPS, never cut (owner v15 — names are never ellipsized; up to three lines). */}
+        <span className={`${gs.lab} line-clamp-3 !whitespace-normal [overflow-wrap:anywhere]`}>{label}</span>
+        <span className={gs.n} data-seat-tally="">
+          · {tally}
+        </span>
+        <ChevronDown className={gs.chev} style={{ flex: '0 0 auto' }} aria-hidden strokeWidth={1.9} width={18} height={18} />
+      </button>
+      {trailing}
     </div>
   );
 }
@@ -136,7 +131,7 @@ export function SeatList({
   addMenu: (tableId: string, seat: number) => ReactNode;
   /** ✎ on the picked table's header (null = none for this table). */
   headTools: (key: string) => ReactNode;
-  /** The table's name box while it is being renamed (null = not renaming). */
+  /** The table's name box while it is being renamed (null = not renaming) — drawn under its header, which stays. */
   renaming: (key: string) => ReactNode;
   /** Type ▾ · seats − N + — under the picked table's header. */
   tableTools: (key: string) => ReactNode;
@@ -353,10 +348,10 @@ export function SeatList({
               label={where ? 'Swap' : 'Seat'}
               name={`${where ? 'Swap' : 'Seat'} ${g.name}`}
               onClick={() => onPick(g.id)}
-              data-seat-row-pick=""
+              data-testid="seat-row-pick"
             />
             {where ? (
-              <ActionButton tone="danger" icon={UserMinus} label="Remove" name={`Remove ${g.name} from the seat`} onClick={() => onRemove(g.id)} data-seat-row-remove="" />
+              <ActionButton tone="danger" icon={UserMinus} label="Remove" name={`Remove ${g.name} from the seat`} onClick={() => onRemove(g.id)} data-testid="seat-row-remove" />
             ) : null}
           </span>
         ) : null}
@@ -399,7 +394,7 @@ export function SeatList({
       ref={listRef}
       data-seat-list=""
       onPointerDown={onPointerDown}
-      className="absolute inset-0 overflow-y-auto overscroll-contain px-3 pb-28 pt-1"
+      className="absolute inset-0 overflow-y-auto overscroll-contain px-3 pb-28"
       /* 📌 An open table's header sticks at the top of THIS list's own box (it scrolls inside one, under the pinned row),
          so the Guest list's sticky offset is 0 here. */
       style={{ ['--gs-top' as string]: '0px', ['--gs-stick-h' as string]: '0px' } as CSSProperties}
@@ -435,12 +430,12 @@ export function SeatList({
               icon="table"
               onToggle={() => onToggle(u.key)}
               trailing={isOpen ? headTools(u.key) : null}
-              replace={box}
             />
             <div className={gs.fold}>
               <div>
                 {isOpen ? (
                   <>
+                    {box}
                     <div className="flex min-w-0 flex-wrap items-center gap-2 py-2" data-seat-table-tools={u.key}>
                       {tableTools(u.key)}
                     </div>

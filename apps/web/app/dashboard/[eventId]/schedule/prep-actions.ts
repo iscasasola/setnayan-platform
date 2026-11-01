@@ -154,3 +154,4 @@ export async function deletePreparationItem(formData: FormData): Promise<void> {
   revalidatePath(`/dashboard/${eventId}/schedule`);
   revalidatePath(`/dashboard/${eventId}`);
 }
+

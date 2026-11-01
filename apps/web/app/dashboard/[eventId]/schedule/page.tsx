@@ -790,7 +790,6 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
             />
           ) : null}
           <ScheduleDay
-            openRequests={openRequests}
             inspectorSlot={inMaker ? DETAILS_SCHEDULE_INSPECTOR_SLOT : null}
             frame={inBooked ? 'booked' : 'page'}
             toolsSlot={inBooked ? BOOKED_SCHEDULE_TOOLS_SLOT : null}
@@ -805,6 +804,8 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
               loadScheduleTemplate,
               resolveScheduleSuggestion,
             }}
+            // 📅 `?sheet=requests` — Home's "N to approve" opens the supplier requests sheet with the page (placement, no write).
+            openRequests={openRequests}
             eventId={eventId}
             eventType={eventRow?.event_type ?? null}
             eventDateKey={eventDateKey}

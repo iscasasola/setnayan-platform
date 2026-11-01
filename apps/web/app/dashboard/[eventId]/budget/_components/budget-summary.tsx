@@ -36,6 +36,7 @@ import { InfoTip } from '@/app/_components/info-tip';
 import { Count, Fill } from '@/components/count';
 import { onTabReturn } from '@/lib/tab-return';
 import { formatPhp } from '@/lib/orders';
+import { keepPesoTyping } from '@/lib/peso-as-you-type';
 import { budgetMeter, shortDate, type NextPayment } from '@/lib/budget-page-view';
 import { setEventBudget } from '../actions';
 import styles from './budget-page.module.css';
@@ -217,6 +218,9 @@ export function BudgetSummary({
                 inputMode="numeric"
                 autoComplete="off"
                 aria-label="Target"
+                /* 💱 Whole pesos only, commas as typed — the one money keeper (`keepPesoTyping`). A letter never stands
+                   in the Target ("2,250,000abc", walk 2026-11-01). */
+                onInput={(e) => void keepPesoTyping(e.currentTarget, 0)}
                 value={text}
                 onFocus={() => {
                   focused.current = true;

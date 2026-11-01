@@ -875,7 +875,7 @@ export function ScheduleDay({
                       key={`gap-${g.startMin}`}
                       type="button"
                       onClick={() => openAdd(dateKey, g.startMin)}
-                      className="absolute left-2.5 right-0 z-[1] grid place-items-center rounded-md text-xs font-semibold text-ink/30 transition-colors hover:bg-terracotta/10 hover:text-terracotta-700 hover:ring-1 hover:ring-inset hover:ring-terracotta/40 lg:left-3.5"
+                      className="absolute left-2.5 right-0 z-[1] grid min-h-0 place-items-center rounded-md text-xs font-semibold text-ink/30 transition-colors hover:bg-terracotta/10 hover:text-terracotta-700 hover:ring-1 hover:ring-inset hover:ring-terracotta/40 lg:left-3.5"
                       style={{ top: top(g.startMin) + 2, height: Math.max(((g.endMin - g.startMin) / 60) * hourPx - 6, 18) }}
                     >
                       <span>
@@ -894,6 +894,9 @@ export function ScheduleDay({
                     />
                   ) : null}
 
+                  {/* 📏 Drawn at its TIME's height, like a moment (`min-h-0`): the global 44-px button floor grew a
+                      30-minute request past its slot and over the next moment (walk 2026-11-01, "Lumière proposes"
+                      over Cocktails). Held by `the-rail-draws-time-at-its-height.test.ts`. */}
                   {canEdit
                     ? dayRequests.map((r) => {
                         const s = spanOf(r.proposed_start_at!, r.proposed_end_at);
@@ -905,7 +908,7 @@ export function ScheduleDay({
                             key={r.suggestion_id}
                             type="button"
                             onClick={() => setSheet({ kind: 'requests' })}
-                            className={`absolute z-[6] flex items-center overflow-hidden whitespace-nowrap rounded-md border-[1.5px] border-dashed border-mulberry bg-mulberry-50 px-2.5 text-[11.5px] font-semibold text-mulberry-700 ${
+                            className={`absolute z-[6] flex min-h-0 items-center overflow-hidden whitespace-nowrap rounded-md border-[1.5px] border-dashed border-mulberry bg-mulberry-50 px-2.5 text-[11.5px] font-semibold text-mulberry-700 ${
                               overlaps ? 'left-1/2 right-0' : 'left-2.5 right-0 lg:left-3.5'
                             }`}
                             style={{ top: top(s.startMin), height: Math.max(((s.endMin - s.startMin) / 60) * hourPx - 3, 26) }}

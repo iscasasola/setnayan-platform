@@ -771,7 +771,10 @@ export default async function GuestsLabPage({
   const labConfig = { ...guestsGetInPatch(getIn), dietary: false, song_request: false, note: false };
   const hc = typeof sp.hc === 'string' ? sp.hc : 'open';
   const config = labConfig;
+  /* ↔ In the sheet's gutter, as the page's `InvitePanel` draws them (`<div className="px-4">`) — without it the lab drew
+     the rows to the screen's edge, a look the page never had (walk 2026-11-01). */
   const setupRows = (
+                  <div className="px-4">
                     <GuestSetupRows
                       eventId={EVENT}
                       config={config}
@@ -785,6 +788,7 @@ export default async function GuestsLabPage({
                       headcount={{ locked: hc === 'locked', attending: 7, heads: 7 }}
                       requests={3}
                     />
+                  </div>
   );
   if (part === 'rsvp') {
     return (

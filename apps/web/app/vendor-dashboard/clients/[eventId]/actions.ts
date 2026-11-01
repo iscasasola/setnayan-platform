@@ -29,6 +29,10 @@ import { isSupplierDateAnswer } from '@/lib/date-change';
 import { answerDateChange } from '@/lib/date-change.server';
 import { createVendorChallenge } from '@/lib/papic-games';
 import { notifyScheduleRequest } from '@/lib/schedule-request-notify.server';
+import { settleAfterAsking } from '@/lib/schedule-suggestion-decide.server';
+import { isNoteOnlySuggestion } from '@/lib/schedule-ros';
+import { shiftWall } from '@/lib/schedule-chapters';
+import { crewFromText, momentMinutes, momentStartIn, timesRequests } from '@/lib/supplier-schedule';
 
 /**
  * Vendor Suggest flow on the shared day-of timeline — feature-access program
@@ -437,10 +441,40 @@ export async function deleteClientNote(formData: FormData) {
   noteSaved(eventId as string, error, 'deleteClientNote');
 }
 
-export async function suggestScheduleChange(formData: FormData) {
+/**
+ * 🤝 THE SUPPLIER'S PART OF THE SCHEDULE — one door for every ask (owner 2026-10-03 "SUPPLIERS WRITE THEIR OWN PART OF
+ * THE SCHEDULE" · 2026-11-01 "SUPPLIERS GIVE THEIR PART FROM THEIR SCHEDULE VIEW"; corpus SCHEDULE_CHAPTERS_BUILD_PLAN
+ * §3). Every exported action is a Vercel route and that budget is full (`scripts/lint-server-action-budget.mjs`), so
+ * the Schedule view's new asks ride THIS action by `request`:
+ *
+ *   (none) / 'remove' — the 3 Oct asks: add (no block) · change (a block) · delete (a block + remove). From the
+ *                       Schedule view an add names its CHAPTER (`chapter_id`, + My moment) and may carry its crew.
+ *   'times'           — My times: an arrive and a done moment per linked chapter, each its own request.
+ *   'take_back'       — Take back a request still waiting (`withdraw_schedule_request`).
+ *   'seen' · 'confirm' — Seen on a change · Confirm my times in the final week (`supplier_mark_schedule`).
+ *
+ * Every write is the database's to allow (`schedule_suggestions_vendor_insert`, 20271263061583 + 20271300619930): own
+ * items only for an edit or a delete, own linked chapters only for an add, words only on anybody else's. After an ask
+ * lands, `settleAfterAsking` runs the host's ONE accept path IF the host chose Auto-agree — off (the default) it waits.
+ *
+ * `quiet=1` (the Schedule view's sheets) answers in words instead of redirecting, so the sheet can say what happened
+ * and the screen never resets; the old Customer-card forms keep their redirect.
+ */
+export type SupplierScheduleAnswer =
+  | { ok: true; outcome: 'waits' | 'applied' | 'words' | 'done' }
+  | { ok: false; error: string };
+
+const NOT_YOURS_WORDS = 'That isn’t yours, so you can only suggest a change to it in words.';
+const NOT_SENT_WORDS = 'That didn’t send — try again.';
+
+export async function suggestScheduleChange(formData: FormData): Promise<SupplierScheduleAnswer | void> {
   const eventId = formData.get('event_id');
+  const quiet = formData.get('quiet') === '1';
+  const request = formData.get('request');
   const note = formData.get('note');
-  if (typeof eventId !== 'string' || typeof note !== 'string' || note.trim().length === 0) {
+  const sheetAsk = request === 'take_back' || request === 'seen' || request === 'confirm' || request === 'times';
+  if (typeof eventId !== 'string' || (!sheetAsk && !quiet && (typeof note !== 'string' || note.trim().length === 0))) {
+    if (quiet) return { ok: false, error: NOT_SENT_WORDS };
     redirect('/vendor-dashboard/clients');
   }
 
@@ -452,25 +486,123 @@ export async function suggestScheduleChange(formData: FormData) {
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');
 
-  const blockId = nullIfBlank(formData.get('block_id'), 64);
-  /*
-    THE THREE ASKS (owner 2026-10-03, "SUPPLIERS WRITE THEIR OWN PART OF THE
-    SCHEDULE"): no block = add ('new'); a block + `request=remove` = delete
-    ('remove'); a block otherwise = change ('adjust'). An edit or a delete is
-    for the supplier's OWN items only, and that rule is the database's —
-    `schedule_suggestions_vendor_insert` (20271263061583) refuses it on anybody
-    else's item, so this action cannot be talked past by a hand-made POST. On
-    another's item the supplier may only suggest, in words.
-  */
-  const kind: 'new' | 'adjust' | 'remove' = !blockId
-    ? 'new'
-    : formData.get('request') === 'remove'
-      ? 'remove'
-      : 'adjust';
+  const done = (answer: SupplierScheduleAnswer): SupplierScheduleAnswer => {
+    revalidatePath(`/vendor-dashboard/clients/${eventId}`);
+    return answer;
+  };
 
-  // The block's own label: the notice names it, and a 'remove' keeps it as
-  // `proposed_label` so the request still says what it was about once the
-  // block is gone (the FK is ON DELETE SET NULL since 20271263061583).
+  // ── Take back · Seen · Confirm — one RPC each, the database decides who may ──────────────────────────────────────
+  if (request === 'take_back') {
+    const { data, error } = await supabase.rpc('withdraw_schedule_request', {
+      p_suggestion_id: String(formData.get('suggestion_id') ?? ''),
+    });
+    if (error || data !== true) return { ok: false, error: 'It was already answered, so it can’t be taken back.' };
+    return done({ ok: true, outcome: 'done' });
+  }
+  if (request === 'seen' || request === 'confirm') {
+    const { error } = await supabase.rpc('supplier_mark_schedule', { p_event_id: eventId, p_mark: request });
+    if (error) {
+      return {
+        ok: false,
+        error: error.code === '22023' ? 'Confirm my times opens one week before the event.' : NOT_SENT_WORDS,
+      };
+    }
+    return done({ ok: true, outcome: 'done' });
+  }
+
+  const supplierName = profile.business_name?.trim() || 'A supplier';
+
+  /** Write one ask, tell the host, then settle it (Auto-agree on = in at once; off = it waits). */
+  const ask = async (row: {
+    kind: 'new' | 'adjust' | 'remove';
+    block_id: string | null;
+    proposed_label: string | null;
+    proposed_start_at: string | null;
+    proposed_end_at: string | null;
+    proposed_location: string | null;
+    proposed_parent_block_id?: string | null;
+    proposed_crew?: string[] | null;
+    note: string;
+    itemLabel: string | null;
+  }): Promise<{ ok: true; outcome: 'waits' | 'applied' | 'words' } | { ok: false; code: string | null }> => {
+    const { itemLabel, ...fields } = row;
+    // RLS enforces: booked on the event, own org, own user, status open — an edit or a delete only on the supplier's
+    // own item, an add only into a chapter they are linked to.
+    const { data, error } = await supabase
+      .from('event_schedule_suggestions')
+      .insert({
+        event_id: eventId,
+        vendor_profile_id: profile.vendor_profile_id,
+        suggested_by_user_id: user.id,
+        suggested_by_name: profile.business_name ?? null,
+        status: 'open',
+        ...fields,
+        proposed_parent_block_id: fields.proposed_parent_block_id ?? null,
+        proposed_crew: fields.proposed_crew && fields.proposed_crew.length > 0 ? fields.proposed_crew : null,
+        note: fields.note.trim().slice(0, 1000),
+      })
+      .select('suggestion_id')
+      .maybeSingle();
+    if (error || !data) return { ok: false, code: error?.code ?? null };
+    const outcome = await settleAfterAsking(eventId, (data as { suggestion_id: string }).suggestion_id);
+    // Tell everyone who can approve it — the couple AND a coordinator holding The Day = Edit (best-effort: the
+    // request is already written; a failed notice must never undo it). Auto-agreed changes are told too: the
+    // schedule moved and the host should know who moved it.
+    try {
+      await notifyScheduleRequest({
+        eventId,
+        supplierName,
+        kind: row.kind,
+        itemLabel,
+        proposesChange: row.kind !== 'adjust' || !isNoteOnlySuggestion(row),
+        note: row.note,
+        applied: outcome === 'applied',
+      });
+    } catch (e) {
+      console.error('[suggestScheduleChange] notify failed:', e);
+    }
+    return { ok: true, outcome };
+  };
+
+  // ── My times — an arrive and a done per linked chapter ───────────────────────────────────────────────────────────
+  if (request === 'times') {
+    const ids = formData.getAll('chapter_id').filter((v): v is string => typeof v === 'string' && v.length > 0).slice(0, 40);
+    const { data: chapters } = ids.length
+      ? await supabase.from('event_schedule_blocks').select('block_id, start_at').eq('event_id', eventId).in('block_id', ids).is('parent_block_id', null)
+      : { data: [] as { block_id: string; start_at: string | null }[] };
+    const wanted = ((chapters ?? []) as { block_id: string; start_at: string | null }[]).flatMap((c) =>
+      timesRequests({
+        shop: supplierName,
+        chapter: c,
+        arrive: String(formData.get(`arrive_${c.block_id}`) ?? ''),
+        done: String(formData.get(`done_${c.block_id}`) ?? ''),
+      }),
+    );
+    if (wanted.length === 0) return { ok: false, error: 'Add an arrive or a done time first.' };
+    let applied = 0;
+    for (const t of wanted) {
+      const r = await ask({
+        kind: 'new',
+        block_id: null,
+        proposed_label: t.label,
+        proposed_start_at: t.start,
+        proposed_end_at: t.end,
+        proposed_location: null,
+        proposed_parent_block_id: t.parent,
+        note: t.label,
+        itemLabel: t.label,
+      });
+      if (!r.ok) return { ok: false, error: r.code === '42501' ? 'You can only give times for the chapters you are linked to.' : NOT_SENT_WORDS };
+      if (r.outcome === 'applied') applied += 1;
+    }
+    return done({ ok: true, outcome: applied === wanted.length ? 'applied' : 'waits' });
+  }
+
+  const blockId = nullIfBlank(formData.get('block_id'), 64);
+  const kind: 'new' | 'adjust' | 'remove' = !blockId ? 'new' : request === 'remove' ? 'remove' : 'adjust';
+
+  // The block's own label: the notice names it, and a 'remove' keeps it as `proposed_label` so the request still
+  // says what it was about once the block is gone (the FK is ON DELETE SET NULL since 20271263061583).
   let blockLabel: string | null = null;
   if (blockId) {
     const { data: block } = await supabase
@@ -482,58 +614,66 @@ export async function suggestScheduleChange(formData: FormData) {
     blockLabel = (block as { label: string | null } | null)?.label ?? null;
   }
 
+  // + My moment / My moment (the Schedule view's sheet): a chapter, a clock, minutes and crew — not the old
+  // datetime-local boxes.
+  const chapterId = nullIfBlank(formData.get('chapter_id'), 64);
+  const clock = nullIfBlank(formData.get('time'), 5);
+  let sheetTimes: { start: string | null; end: string | null } | null = null;
+  if (clock && (chapterId || blockId)) {
+    const anchorId = kind === 'new' ? chapterId : nullIfBlank(formData.get('chapter_of_block'), 64);
+    const { data: anchor } = anchorId
+      ? await supabase.from('event_schedule_blocks').select('start_at').eq('block_id', anchorId).eq('event_id', eventId).maybeSingle()
+      : { data: null };
+    const section = formData.get('section');
+    const start = anchor
+      ? momentStartIn(anchor as { start_at: string | null }, clock, section === 'Ingress' || section === 'Event' || section === 'Egress' ? section : null)
+      : null;
+    sheetTimes = { start, end: start ? shiftWall(start, momentMinutes(formData.get('minutes'))) : null };
+  }
+  const crewRaw = formData.get('crew');
+  const crew = typeof crewRaw === 'string' ? crewFromText(crewRaw) : null;
+
   const proposed =
     kind === 'remove'
       ? { proposed_label: blockLabel?.slice(0, 120) ?? null, proposed_start_at: null, proposed_end_at: null, proposed_location: null }
       : {
           proposed_label: nullIfBlank(formData.get('proposed_label'), 120),
-          proposed_start_at: parseDatetimeLocal(formData.get('proposed_start_at')),
-          proposed_end_at: parseDatetimeLocal(formData.get('proposed_end_at')),
+          proposed_start_at: sheetTimes ? sheetTimes.start : parseDatetimeLocal(formData.get('proposed_start_at')),
+          proposed_end_at: sheetTimes ? sheetTimes.end : parseDatetimeLocal(formData.get('proposed_end_at')),
           proposed_location: nullIfBlank(formData.get('proposed_location'), 200),
         };
-  const proposesChange =
-    kind === 'adjust' &&
-    Boolean(proposed.proposed_label || proposed.proposed_start_at || proposed.proposed_end_at || proposed.proposed_location);
-
-  // RLS enforces: booked on the event, own org, own user, status open — and
-  // an edit or a delete only on the supplier's own item.
-  const { error } = await supabase.from('event_schedule_suggestions').insert({
-    event_id: eventId,
-    block_id: blockId,
-    vendor_profile_id: profile.vendor_profile_id,
-    suggested_by_user_id: user.id,
-    suggested_by_name: profile.business_name ?? null,
-    kind,
-    ...proposed,
-    note: (note as string).trim().slice(0, 1000),
-    status: 'open',
-  });
-
-  // Tell everyone who can approve it — the couple AND a coordinator holding
-  // The Day = Edit — in the app and by email (best-effort: the request is
-  // already written; a failed notice must never undo it).
-  if (!error) {
-    try {
-      await notifyScheduleRequest({
-        eventId,
-        supplierName: profile.business_name?.trim() || 'A supplier',
-        kind,
-        itemLabel: kind === 'new' ? proposed.proposed_label : blockLabel,
-        proposesChange,
-        note: note as string,
-      });
-    } catch (e) {
-      console.error('[suggestScheduleChange] notify failed:', e);
-    }
+  const typedNote = typeof note === 'string' ? note.trim() : '';
+  const fallbackNote =
+    kind === 'remove'
+      ? `Asks to delete “${blockLabel ?? 'a moment'}”`
+      : kind === 'new'
+        ? `Adds “${proposed.proposed_label ?? 'a moment'}”`
+        : `Changes “${blockLabel ?? 'a moment'}”`;
+  if (kind === 'adjust' && !typedNote && !proposed.proposed_label && !proposed.proposed_start_at && !(crew && crew.length)) {
+    return quiet ? { ok: false, error: 'Say what should change first.' } : redirect('/vendor-dashboard/clients');
   }
 
+  const r = await ask({
+    kind,
+    block_id: blockId,
+    ...proposed,
+    proposed_parent_block_id: kind === 'new' ? chapterId : null,
+    proposed_crew: kind === 'remove' ? null : crew,
+    note: typedNote || fallbackNote,
+    itemLabel: kind === 'new' ? proposed.proposed_label : blockLabel,
+  });
+
+  if (quiet) {
+    revalidatePath(`/vendor-dashboard/clients/${eventId}`);
+    return r.ok ? { ok: true, outcome: r.outcome } : { ok: false, error: r.code === '42501' ? NOT_YOURS_WORDS : NOT_SENT_WORDS };
+  }
   revalidatePath(`/vendor-dashboard/clients/${eventId}`);
   redirect(
     vendorClientSurfaceHref(eventId, 'delivery', {
       shellOn: isRelationshipWorkspaceEnabled(),
       // 42501 = the own-items rule said no. Its own word, so the supplier is
       // told WHY rather than "try again" (which would fail the same way).
-      query: { suggest: !error ? 'sent' : error.code === '42501' ? 'notyours' : 'error' },
+      query: { suggest: r.ok ? 'sent' : r.code === '42501' ? 'notyours' : 'error' },
     }),
   );
 }

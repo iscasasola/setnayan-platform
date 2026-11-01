@@ -398,6 +398,14 @@ type LiveBlock = {
   location: string | null;
   run_state?: 'upcoming' | 'live' | 'done' | null;
   actual_start_at?: string | null;
+  // 📖 Chapters (Step 4b): a top-level block is a chapter, a child its moment — never `notes` (couple-private).
+  parent_block_id?: string | null;
+  spot?: string | null;
+  time_tba?: boolean | null;
+  is_optional?: boolean | null;
+  responsible_vendor_ids?: string[] | null;
+  created_at?: string | null;
+  updated_at?: string | null;
 };
 
 type HandoverRow = {
@@ -416,8 +424,14 @@ type SuggestionRow = {
   kind: 'adjust' | 'new' | 'remove';
   /** For a 'remove', the moment's label as it was when asked — the block may be gone. */
   proposed_label: string | null;
+  proposed_start_at: string | null;
+  proposed_end_at: string | null;
+  /** + My moment: the chapter it goes into (Step 4b). */
+  proposed_parent_block_id: string | null;
+  proposed_crew: string[] | null;
   note: string;
-  status: 'open' | 'accepted' | 'declined';
+  /** 'withdrawn' = Take back (Step 4b). */
+  status: 'open' | 'accepted' | 'declined' | 'withdrawn';
   created_at: string;
 };
 
@@ -673,17 +687,21 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         .maybeSingle(),
       supabase
         .from('event_schedule_blocks')
-        .select('block_id, label, block_type, start_at, end_at, location, run_state, actual_start_at')
+        .select(
+          'block_id, label, block_type, start_at, end_at, location, run_state, actual_start_at, parent_block_id, spot, time_tba, is_optional, responsible_vendor_ids, created_at, updated_at',
+        )
         .eq('event_id', eventId)
         .order('start_at', { ascending: true })
         .order('sort_order', { ascending: true }),
       supabase
         .from('event_schedule_suggestions')
-        .select('suggestion_id, block_id, kind, proposed_label, note, status, created_at')
+        .select(
+          'suggestion_id, block_id, kind, proposed_label, proposed_start_at, proposed_end_at, proposed_parent_block_id, proposed_crew, note, status, created_at',
+        )
         .eq('event_id', eventId)
         .eq('vendor_profile_id', profile.vendor_profile_id)
         .order('created_at', { ascending: false })
-        .limit(10),
+        .limit(60),
       // Returning-client signal (Relationship Workspace · Details tab, PR 5).
       // SAME source as the vendor inbox pending badge — the SECURITY DEFINER
       // RPC that can see the couple's OTHER-event bookings (vendor RLS can't).

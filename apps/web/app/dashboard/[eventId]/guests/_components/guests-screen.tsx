@@ -1893,8 +1893,11 @@ export function GuestsScreen(props: GuestsScreenProps) {
                 <ChevronDown className={styles.chev} style={selectMode ? { marginLeft: 0, flex: '0 0 auto' } : { flex: '0 0 auto' }} aria-hidden strokeWidth={1.9} width={18} height={18} />
               </button>
               )}
-              {/* ✎ Rename on the row itself — only where one word renames this header (`sectionHeadDoors`). */}
-              {selectMode || writesOff ? null : (
+              {/* ✎ Rename on the row itself — only where one word renames this header (`sectionHeadDoors`), and only on the
+                  header that is PICKED — opened, its chip lit (owner 2026-11-01, verbatim: "Edit icon only shows when the
+                  group is picked and highlighted"); never a pencil on every header at rest. A real button while shown, so
+                  the keyboard and a screen reader reach it. 🔒 a-header-pencil-shows-only-when-picked.test.ts */}
+              {selectMode || writesOff || !(opened || renaming === sec.key) ? null : (
                 <SectionRenameInPlace
                   eventId={eventId}
                   section={{ key: sec.key, label: sec.label }}

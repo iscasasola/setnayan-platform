@@ -87,6 +87,13 @@ test('1 · THE SECTIONS ADD UP — every person counted once, jump rows never', 
       seen.set(g.guest_id, s.label);
     }
   }
+  // …and it adds up WITH each role counting only its holders: every roleless +1 a role holder brings is counted in a
+  // "Guests of [Role]" group, never in their guest's own role section.
+  const roleless = ['lea', 'mariac', 'bianca', 'lito'];
+  for (const id of roleless) {
+    const sec = secs.find((s) => s.guests.some((g) => g.guest_id === id))!;
+    assert.ok(sec.guestsOf, `${id} is counted in "${sec.label}" — their guest's role counts them, so the sections only add up by counting a +1 as a role holder`);
+  }
   for (const s of secs) {
     for (const j of s.jumps ?? []) {
       assert.ok(!s.guests.some((g) => g.guest_id === j.guest_id), `${j.guest_id} is a jump row AND counted in "${s.label}"`);

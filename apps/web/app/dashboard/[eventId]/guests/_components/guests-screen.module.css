@@ -978,18 +978,21 @@ button.ico {
   width: 14px;
   height: 14px;
 }
-/* The host's "+2 ↓" — their guests are elsewhere in the list; the pill is the way there. */
-.plusn {
+/* The host's "+2 ↓" — their guests are elsewhere in the list; the pill is the way there. (`.pill.plusn`: it must beat
+   the plain pill's own look, which comes later in this file.) */
+.pill.plusn {
   display: inline-flex;
   align-items: center;
   gap: 2px;
   padding-right: 7px;
+  white-space: nowrap;
   background: rgb(var(--sn-accent) / 0.12);
   color: rgb(var(--sn-accent));
   font-weight: 600;
   cursor: pointer;
 }
-.plusn svg {
+.pill.plusn svg {
+  flex: 0 0 auto;
   width: 12px;
   height: 12px;
   margin-left: 1px;
@@ -1001,7 +1004,7 @@ button.ico {
 }
 /* The row a jump landed on, lit for a moment. */
 .g[data-lit] {
-  border-radius: 10px;
+  border-radius: var(--m-r-sm);
   animation: gs-lit 1800ms var(--gs-ease) both;
 }
 @keyframes gs-lit {

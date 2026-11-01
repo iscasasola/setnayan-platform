@@ -35,8 +35,11 @@ import {
 } from '@/lib/guests';
 import { guestMatchesSearch, isSearchVocabulary, normalizeSearchText, replyStatusOf, type GuestSearchFacts } from '@/lib/guest-search';
 import {
+  HONOUR_ATTENDANTS_LABEL,
   importanceGroupOf,
+  isHonourAttendant,
   isHonoreeRole,
+  mostImportantRole,
   roleGroupLabel,
   roleGroupOf,
   type RoleGroup,
@@ -381,10 +384,17 @@ export type RosterSection<G> = {
   celebrants?: boolean;
 };
 
+/**
+ * A section of the Role view: a role group, plain guests, or 👯 the honour attendants — one group, above both crews and
+ * not split by side (owner 2026-11-01; `HONOUR_ATTENDANT_ROLES`, role-groups.ts).
+ */
+export type RosterRoleBucket = RoleGroup | 'guest' | 'honour_attendants';
+
 /** The roster's curated role hierarchy (the shipped `SECTION_CONFIG` order). */
-const ROLE_ORDER: readonly (RoleGroup | 'guest')[] = [
+const ROLE_ORDER: readonly RosterRoleBucket[] = [
   'vip_family',
   'muslim_principals',
+  'honour_attendants',
   'groomsmen',
   'bridesmaids',
   'principal_sponsors',
@@ -394,9 +404,10 @@ const ROLE_ORDER: readonly (RoleGroup | 'guest')[] = [
   'guest',
 ];
 
-const ROLE_ICON: Partial<Record<RoleGroup | 'guest', SectionIcon>> = {
+const ROLE_ICON: Partial<Record<RosterRoleBucket, SectionIcon>> = {
   vip_family: 'star',
   muslim_principals: 'star',
+  honour_attendants: 'people',
   groomsmen: 'people',
   bridesmaids: 'people',
   principal_sponsors: 'home',
@@ -420,13 +431,20 @@ export function rsvpBucketOf(g: GuestRow): RsvpStatus | 'to_invite' {
   return g.rsvp_status;
 }
 
-function roleBucket(g: GuestRow): RoleGroup | 'guest' {
-  const grp = importanceGroupOf([g.role, ...(g.extra_roles ?? [])]);
+/**
+ * The Role view's section for a guest — by their MOST important role (primary or extra). An honour attendant is in
+ * 👯 Honour attendants, whichever side they stand with; everyone else in their role group.
+ */
+export function roleBucket(g: Pick<GuestRow, 'role' | 'extra_roles'>): RosterRoleBucket {
+  const roles = [g.role, ...(g.extra_roles ?? [])];
+  if (isHonourAttendant(mostImportantRole(roles))) return 'honour_attendants';
+  const grp = importanceGroupOf(roles);
   return grp === 'other_roles' || grp === 'couple' || grp === 'honoree' ? 'guest' : grp;
 }
 
-function roleLabel(grp: RoleGroup | 'guest', names?: RoleNames | null): string {
-  return grp === 'guest' ? 'Guests' : roleGroupLabel(grp, names);
+/** A Role-view section's heading — the couple's own words where the group is named after a role. */
+export function roleLabel(grp: RosterRoleBucket, names?: RoleNames | null): string {
+  return grp === 'guest' ? 'Guests' : grp === 'honour_attendants' ? HONOUR_ATTENDANTS_LABEL : roleGroupLabel(grp, names);
 }
 
 /** The celebrants' heading — "Bride & Groom" at a wedding, "Celebrant" otherwise. */

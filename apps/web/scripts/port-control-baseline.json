@@ -5151,6 +5151,7 @@
         "EventTypePhotoPicker",
         "EventTypePicker",
         "FormPageSkeleton",
+        "HTMLDivElement",
         "HTMLFormElement",
         "HTMLInputElement",
         "Image",
@@ -6511,7 +6512,7 @@
         "/explore?category=date_fengshui_consultant"
       ],
       "actions": [
-        "lockEventDate",
+        "lockThisDate",
         "markDateUndecided"
       ],
       "blocks": [
@@ -6802,6 +6803,7 @@
         "dashboard/[eventId]/guests/_components/guest-papic-bulk.tsx",
         "dashboard/[eventId]/guests/_components/guest-papic-camera.tsx",
         "dashboard/[eventId]/guests/_components/guest-papic-read.ts",
+        "dashboard/[eventId]/guests/_components/guest-peek.tsx",
         "dashboard/[eventId]/guests/_components/guest-popup.tsx",
         "dashboard/[eventId]/guests/_components/guest-proxy-row.tsx",
         "dashboard/[eventId]/guests/_components/guest-reset.tsx",
@@ -6957,6 +6959,7 @@
         "GuestNick",
         "GuestPapicBulkSheet",
         "GuestPapicState",
+        "GuestPeek",
         "GuestPopup",
         "GuestRemovalActions",
         "GuestResetFlow",
@@ -7015,6 +7018,7 @@
         "MarchResult",
         "Mark",
         "MenuSettingsButton",
+        "MindDrill",
         "MiniTour",
         "Mode",
         "MoreMenu",

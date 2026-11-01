@@ -45,8 +45,9 @@ export function QrCodes({
   setupHref,
   shortlist,
   booked,
+  checkADate = null,
 }: {
-  mode: 'shortlist' | 'locked';
+  mode: 'shortlist' | 'locked' | 'dates';
   backHref: string;
   modeOptions: QrPick[];
   /** The shop has an address (a slug) — every code is built from it. */
@@ -73,6 +74,8 @@ export function QrCodes({
     ledgerOpen: boolean;
     newHref: string;
   } | null;
+  /** 📅 Check a date (owner 2026-10-28): the shop's one permanent code → `/v/<slug>/dates` (`lib/check-a-date-qr.ts`). */
+  checkADate?: { url: string; svg: string | null; shopName: string } | null;
 }) {
   const ledger = booked?.ledger ?? null;
   const claimed = ledger?.filter((r) => r.status === 'claimed').length ?? 0;
@@ -109,6 +112,17 @@ export function QrCodes({
             />
           </div>
         </>
+      ) : mode === 'dates' && checkADate ? (
+        <div className="mt-6">
+          <QrCard
+            svg={checkADate.svg}
+            url={checkADate.url}
+            title={checkADate.shopName}
+            line="They scan and see which days you can still be booked — never who booked or who is asking."
+            filename="setnayan-check-a-date-qr.svg"
+            data="check-a-date"
+          />
+        </div>
       ) : booked ? (
         <>
           {booked.error ? (

@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6951
+# facts: 6960
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     585
-#   col       5078
-#   policy    988
+#   tpriv     586
+#   col       5084
+#   policy    990
 #   view      9
 #   func      287
 #
@@ -222,6 +222,7 @@ tpriv	public.founder_seats|authenticated	SIUD
 tpriv	public.godchild_reminder_log|authenticated	SIUD
 tpriv	public.godparents|anon	SIUD
 tpriv	public.godparents|authenticated	SIUD
+tpriv	public.guest_chapter_replies|authenticated	S
 tpriv	public.guest_checkins|anon	SIUD
 tpriv	public.guest_checkins|authenticated	SIUD
 tpriv	public.guest_claims|authenticated	SIUD
@@ -2450,6 +2451,12 @@ col	public.godparents.public_id	anon=SIU authenticated=SIU
 col	public.godparents.reminders_enabled	anon=SIU authenticated=SIU
 col	public.godparents.role	anon=SIU authenticated=SIU
 col	public.godparents.updated_at	anon=SIU authenticated=SIU
+col	public.guest_chapter_replies.attending	anon=- authenticated=S
+col	public.guest_chapter_replies.block_id	anon=- authenticated=S
+col	public.guest_chapter_replies.event_id	anon=- authenticated=S
+col	public.guest_chapter_replies.guest_id	anon=- authenticated=S
+col	public.guest_chapter_replies.removal_seen_at	anon=- authenticated=S
+col	public.guest_chapter_replies.replied_at	anon=- authenticated=S
 col	public.guest_checkins.checked_in_at	anon=SIU authenticated=SIU
 col	public.guest_checkins.checked_in_by_user_id	anon=SIU authenticated=SIU
 col	public.guest_checkins.checkin_id	anon=SIU authenticated=SIU
@@ -6063,6 +6070,8 @@ policy	public.fraud_signals|fraud_signals_admin_update	mode=PERMISSIVE cmd=UPDAT
 policy	public.godchild_reminder_log|godchild_reminder_log_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.godparents|godparents_owner_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=((owner_user_id = ( SELECT auth.uid() AS uid)) OR ( SELECT is_admin() AS is_admin)) check=((owner_user_id = ( SELECT auth.uid() AS uid)) OR ( SELECT is_admin() AS is_admin))
 policy	public.godparents|godparents_subject_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(EXISTS ( SELECT 1 FROM dependents d WHERE ((d.dependent_id = godparents.dependent_id) AND (d.claimed_user_id = ( SELECT auth.uid() AS uid))))) check=NULL
+policy	public.guest_chapter_replies|guest_chapter_replies_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=NULL
+policy	public.guest_chapter_replies|guest_chapter_replies_moderator_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT l.event_id FROM current_moderator_area_levels('guest_list'::text) l(event_id, level) WHERE (l.level IS NOT NULL))) check=NULL
 policy	public.guest_checkins|guest_checkins_member_manage	mode=PERMISSIVE cmd=ALL roles=authenticated using=(( SELECT is_admin() AS is_admin) OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = guest_checkins.event_id) AND (em.user_id = ( SELECT auth.uid() AS uid)) AND (em.member_type = ANY (ARRAY['couple'::member_type, 'coordinator'::member_type])))))) check=(( SELECT is_admin() AS is_admin) OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = guest_checkins.event_id) AND (em.user_id = ( SELECT auth.uid() AS uid)) AND (em.member_type = ANY (ARRAY['couple'::member_type, 'coordinator'::member_type]))))))
 policy	public.guest_checkins|lh_ro_del_guest_checkins	mode=RESTRICTIVE cmd=DELETE roles=authenticated using=((NOT is_limited_helper(event_id)) OR (event_id IN ( SELECT l.event_id FROM current_moderator_area_levels('guest_list'::text) l(event_id, level) WHERE (l.level = 'edit'::text)))) check=NULL
 policy	public.guest_checkins|lh_ro_ins_guest_checkins	mode=RESTRICTIVE cmd=INSERT roles=authenticated using=NULL check=((NOT is_limited_helper(event_id)) OR (event_id IN ( SELECT l.event_id FROM current_moderator_area_levels('guest_list'::text) l(event_id, level) WHERE (l.level = 'edit'::text))))

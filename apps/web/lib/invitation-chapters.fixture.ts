@@ -90,7 +90,6 @@ export function fakeAdmin(rows: Row[] = BLOCKS) {
 
 /** Lets a test import modules that start with `import 'server-only'`. */
 export function allowServerOnly() {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const Mod = require('node:module');
   const load = Mod._load;
   Mod._load = function (request: string, ...rest: unknown[]) {

@@ -4384,6 +4384,9 @@ export async function SiteBody({
                 oneAtATime={askOneAtATime(event.rsvp_ask_config)}
                 answerWords={readRsvpWords(event.rsvp_ask_config)}
                 /* 🎨 The reply card's style — the RSVP row's `canvas.style`. */
+                /* ✉ The invitation's chapters and this guest's answers (Step 5) — the same reads the reply page uses. */
+                chapters={invitationChapters}
+                chapterReplies={chapterReplies}
                 sceneStyle={sceneStyleOfRow(
                   widgets.find((w) => w.widget_type === 'rsvp'),
                   pageStage,
@@ -4394,9 +4397,6 @@ export async function SiteBody({
                    this page already holds. Null for a couple who arranged nothing: the card as it always was. */
                 lines={rsvpScreenLayout(readRsvpLook(event.rsvp_ask_config), 'rsvp')}
                 pictures={rsvpPictures}
-                /* ✉ The invitation's chapters and this guest's answers (Step 5) — the same reads the reply page uses. */
-                chapters={invitationChapters}
-                chapterReplies={chapterReplies}
               />
               {/* 🎨 EACH LINE'S LOOK REACHES THIS SHEET TOO (2026-10-10 — a dead setting until now: a Font, a Colour,
                   a Size, a Build in set on the Maker's RSVP stage showed on the invitation's reply page and never

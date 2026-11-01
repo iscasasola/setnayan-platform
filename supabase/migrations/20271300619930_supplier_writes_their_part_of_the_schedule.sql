@@ -59,6 +59,71 @@ COMMENT ON COLUMN public.events.supplier_requests_auto_agree IS
   'Supplier requests on the schedule: false = "I check and approve / reject" (the default, ruled 1 Nov) · true = '
   '"Auto-agree" (a supplier''s change goes straight in). Read by the app''s one accept path. 20271300619930.';
 
+-- `events` SELECT is a column allowlist (20271007100000): a new column is born unreadable to `authenticated`, so the
+-- host's Event access row can read it. NO UPDATE grant — the host's choice is written by `setSupplierAutoAgree` on the
+-- service role after its host check (the shape of `same_date_count_opt_out`, 20271285020592).
+GRANT SELECT (supplier_requests_auto_agree) ON public.events TO authenticated;
+
+-- ── AND events_host MUST BE REBUILT OVER IT ─────────────────────────────────
+-- The view's projection is COMPUTED from the grants (hence: after the GRANT), so the block below is reproduced
+-- VERBATIM from 20271285020592 (the latest carrier of it) — extracted mechanically, not retyped — including its
+-- private list and its refuse-if-empty guard.
+
+DROP VIEW IF EXISTS public.events_host;
+
+DO $$
+DECLARE
+  private_columns TEXT[] := ARRAY[
+    'partner_a_birth_date','partner_a_birth_time',
+    'partner_b_birth_date','partner_b_birth_time',
+    'bazi_birthdata_consent_at',
+    'estimated_budget_centavos','budget_band',
+    'wizard_state',
+    'photo_delivery_folder_id','photo_delivery_folder_name',
+    'photo_delivery_account_email',
+    'setnayan_ai_tier_at_purchase',
+    'signature_details','honoree_label','honoree_dependent_id'
+  ];
+  projected TEXT;
+BEGIN
+  SELECT string_agg('e.' || quote_ident(c.column_name), ', ' ORDER BY c.ordinal_position)
+    INTO projected
+  FROM information_schema.columns c
+  WHERE c.table_schema = 'public'
+    AND c.table_name = 'events'
+    AND (
+      has_column_privilege('authenticated', 'public.events', c.column_name, 'SELECT')
+      OR c.column_name = ANY (private_columns)
+    );
+
+  IF projected IS NULL THEN
+    RAISE EXCEPTION 'refusing to apply: computed events_host projection is empty';
+  END IF;
+
+  EXECUTE format($ddl$
+    CREATE VIEW public.events_host
+      WITH (security_invoker = false)
+      AS
+      SELECT %s
+        FROM public.events e
+       WHERE e.event_id IN (SELECT public.current_couple_event_ids())
+          OR e.event_id IN (SELECT public.current_moderator_event_ids())
+          -- service_role only, named EXPLICITLY. NOT `auth.uid() IS NULL` —
+          -- that is also true for anon, which would hand every row to an
+          -- unauthenticated caller. Reproduced verbatim from 20271008731642.
+          OR current_user = 'service_role'
+          OR auth.role() = 'service_role'
+  $ddl$, projected);
+END $$;
+
+REVOKE ALL ON public.events_host FROM PUBLIC;
+REVOKE ALL ON public.events_host FROM anon;
+REVOKE ALL ON public.events_host FROM authenticated;
+GRANT SELECT ON public.events_host TO authenticated, service_role;
+
+COMMENT ON VIEW public.events_host IS
+  'Couple/moderator-scoped read path for events, including the columns denied to authenticated on the base table (20271008731642 + 20271025120000: birth data, budget, wizard_state, Drive folder, AI tier, signature_details, honoree_label, honoree_dependent_id). Guests, vendors and coordinators get ZERO rows. security_invoker=false by design.';
+
 -- ── 2 · the request's new fields ────────────────────────────────────────────────────────────────────────────────────
 ALTER TABLE public.event_schedule_suggestions
   ADD COLUMN IF NOT EXISTS proposed_parent_block_id UUID,

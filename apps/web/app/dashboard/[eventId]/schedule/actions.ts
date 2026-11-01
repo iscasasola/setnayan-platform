@@ -833,8 +833,8 @@ async function approveAllScheduleSuggestions(formData: FormData) {
 
 /**
  * 🤝 AUTO-AGREE — the host's one setting for supplier changes (3 Oct; ruled 1 Nov: starts Off). Only a host of the event
- * (`userHostsEvent`: the couple, an accepted primary host) sets it; the write is the caller's own UPDATE under the
- * events row's RLS and is read back, so a refused one throws instead of looking saved. No redirect: the dropdown stays.
+ * (`userHostsEvent`: the couple, an accepted primary host) sets it; the write is the service role's, after that check,
+ * and is read back, so a refused one throws instead of looking saved. No redirect: the dropdown stays.
  * Reached through `resolveScheduleSuggestion` (decision=auto_agree).
  */
 async function setSupplierAutoAgree(formData: FormData): Promise<void> {
@@ -847,7 +847,9 @@ async function setSupplierAutoAgree(formData: FormData): Promise<void> {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
   if (!(await mayShowToGuests(supabase, user.id, eventId))) throw new Error('Only a host of the event can change this.');
-  const { data, error } = await supabase
+  // `events` carries no UPDATE grant for this column (its SELECT is a column allowlist): the service role writes it,
+  // only after the host check above — the shape of `same_date_count_opt_out` (20271285020592).
+  const { data, error } = await createAdminClient()
     .from('events')
     .update({ supplier_requests_auto_agree: on === '1' })
     .eq('event_id', eventId)

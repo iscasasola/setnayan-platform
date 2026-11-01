@@ -27,14 +27,20 @@ import {
   gridHiddenTypes,
   subjectHonoreeDependentId,
   subjectHonoreeLabel,
+  forMenuGroup,
   forMenuHint,
   forMenuLabel,
   forMenuSubjects,
+  forTriggerHint,
   forWhomHiddenTypes,
+  groupHiddenTypes,
   openingSubject,
   selfCelebrantName,
+  subjectCommunityId,
+  subjectMayShowAll,
   type CreateSubject,
 } from '@/lib/create-subjects';
+import { AskForEventType } from './ask-for-event-type';
 import { ChevronDown } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
@@ -78,6 +84,8 @@ export function EventTypePicker({
   todayISO,
   notice,
   couple = null,
+  groupTypeKeys,
+  initialSubjectId,
 }: {
   types: EventTypeRow[];
   /** Budget feel-bands for the optional budget picker on the inline (non-wedding)
@@ -121,6 +129,11 @@ export function EventTypePicker({
    *  name screen through sessionStorage — never the URL — and seated there
    *  only once the person says whether they are the bride or the groom. */
   couple?: CoupleCarry | null;
+  /** 👥 The types a GROUP may hold (`event_class = 'community_eligible'`, the shipped samahan rule) — what the grid
+   *  narrows to when "For ▾" is one of the account's groups (owner 2026-10-28). Absent = no groups on the roster. */
+  groupTypeKeys?: string[];
+  /** Open on this "For ▾" row instead of "You" — the dev lab's `?for=` (and a render test). Unknown id → "You". */
+  initialSubjectId?: string;
 }) {
   const router = useRouter();
   const [selectedKey, setSelectedKey] = useState<EventTypeKey | null>(null);
@@ -131,8 +144,13 @@ export function EventTypePicker({
   // fast-lane) — the household reading, exactly as before. The subject still pre-answers "who are we
   // celebrating?" downstream.
   const [subject, setSubject] = useState<CreateSubject | null>(() =>
-    !samahanCommunityId && !preselect ? openingSubject(subjects) : null,
+    !samahanCommunityId && !preselect
+      ? ((initialSubjectId ? subjects?.find((s) => s.id === initialSubjectId) : undefined) ?? openingSubject(subjects))
+      : null,
   );
+  // 👥 The group a picked "For ▾" row makes the event belong to — or the page's own `?samahan=` group. Either way the
+  // event is created by the SAME shipped path: the inline form posting `community_id`, organizer-checked server-side.
+  const communityId = samahanCommunityId ?? subjectCommunityId(subject);
   // Soft planning-horizon advisory (council § 5 card 2 — never a block): set
   // when the typed party date sits beyond the selected life type's horizon.
   const [farHorizon, setFarHorizon] = useState(false);
@@ -212,7 +230,7 @@ export function EventTypePicker({
     // Samahan context: community events ALWAYS use the inline form below —
     // it carries the hidden community_id; the tailored onboarding routes
     // don't know about communities (plan §7).
-    if (samahanCommunityId) {
+    if (communityId) {
       setSelectedKey(type.key);
       return;
     }
@@ -261,10 +279,15 @@ export function EventTypePicker({
     ...new Set([
       ...gridHiddenTypes(subject, hiddenTypeKeys ?? [], todayISO ?? ''),
       ...forWhomHiddenTypes(types, subject),
+      // 👥 A group holds only what a group may (owner 2026-10-28) — the profile's class, never a list in this file.
+      ...groupHiddenTypes(types, subject, groupTypeKeys),
     ]),
   ];
+  // "Show all event types" is a person's doorway; a business and a group see only their own (owner 2026-10-28,
+  // "business types only") and get "Can't find yours? Ask us to add it" instead.
+  const mayShowAll = subjectMayShowAll(subject);
   const gridTypes =
-    showAllTypes || hidden.length === 0
+    (showAllTypes && mayShowAll) || hidden.length === 0
       ? types
       : types.filter((t) => !hidden.includes(t.key));
   const hiddenCount = types.length - gridTypes.length;
@@ -330,8 +353,8 @@ export function EventTypePicker({
               align="start"
             >
               We show only the events that fit who it’s for — a christening is never your own, a wake is only for
-              someone who passed away, and a business sees what a business throws. “Show all event types” under the
-              grid always opens every one.
+              someone who passed away, a business sees only business events, and a group sees what a group holds.
+              Can’t find yours? Ask us to add it — we add it with the suppliers it needs.
             </InfoTip>
             <div className="mt-2">
               <PickMenu
@@ -345,12 +368,12 @@ export function EventTypePicker({
                     <span className="shrink-0 text-xs font-medium uppercase tracking-[0.14em] text-ink/50">For</span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[15px] font-semibold text-ink">{forMenuLabel(subject)}</span>
-                      <span className="block truncate text-xs text-ink/55">{forMenuHint(subject)}</span>
+                      <span className="block truncate text-xs text-ink/55">{forTriggerHint(subject)}</span>
                     </span>
                     <ChevronDown aria-hidden className={pickArrowClass(false)} strokeWidth={2} />
                   </>
                 }
-                options={forMenu.map((s) => ({ key: s.id, label: forMenuLabel(s), hint: forMenuHint(s) }))}
+                options={forMenu.map((s) => ({ key: s.id, label: forMenuLabel(s), hint: forMenuHint(s), group: forMenuGroup(s) }))}
                 onPick={(key) => {
                   const next = forMenu.find((s) => s.id === key);
                   if (!next) return;
@@ -369,7 +392,7 @@ export function EventTypePicker({
             inPlanningWedding ? { wedding: `Already planning ${inPlanningWedding.displayName}` } : undefined
           }
         />
-        {hiddenCount > 0 && !showAllTypes ? (
+        {hiddenCount > 0 && !showAllTypes && mayShowAll ? (
           <button
             className="mt-4 w-full rounded-xl border border-dashed border-ink/15 bg-ink/[0.02] px-4 py-3 text-sm text-ink/70 transition-colors hover:border-gold/40 hover:text-ink"
             onClick={() => setShowAllTypes(true)}
@@ -379,6 +402,9 @@ export function EventTypePicker({
             <span className="font-medium text-ink">Show all event types</span>
           </button>
         ) : null}
+        {/* ➕ THE LAST ROW (owner 2026-10-28, prototype who_is_it_for_2026-10-28 frame D): every type is specific,
+            so a missing one is asked for, never typed in as "Other". In-app only — no email. */}
+        {forMenu ? <AskForEventType /> : null}
       </section>
 
       {selected && selected.key === 'wedding' && inPlanningWedding ? (
@@ -449,9 +475,7 @@ export function EventTypePicker({
           onChange={refreshHorizonAdvisory}
         >
           <input type="hidden" name="event_type" value={selected.key} />
-          {samahanCommunityId ? (
-            <input type="hidden" name="community_id" value={samahanCommunityId} />
-          ) : null}
+          {communityId ? <input type="hidden" name="community_id" value={communityId} /> : null}
           {next ? <input type="hidden" name="next" value={next} /> : null}
 
           <div className="space-y-1.5">
@@ -492,12 +516,12 @@ export function EventTypePicker({
           {/* "For · You": the celebrant IS the account holder (owner 2026-10-26, "if it is for you, the name of
               the celebrant should automatically be me … only time it needs to be identified is when you picked for
               someone else"). Said, not asked — and the posted label stays blank, the account holder's own slot. */}
-          {subject?.kind === 'self' && pickerAsksHonoree(selected.key, 'self') && !samahanCommunityId ? (
+          {subject?.kind === 'self' && pickerAsksHonoree(selected.key, 'self') && !communityId ? (
             <p className="text-sm text-ink/70" data-self-celebrant>
               For <span className="font-medium text-ink">{selfCelebrantName(subject) || 'you'}</span> — this one’s
               yours.
             </p>
-          ) : pickerAsksHonoree(selected.key, subject?.kind) && !samahanCommunityId ? (
+          ) : pickerAsksHonoree(selected.key, subject?.kind) && !communityId ? (
             <div className="space-y-1.5">
               <label className="block text-sm font-medium text-ink" htmlFor="honoree_label">
                 {isGatedLifeType(selected.key) ? 'For whom?' : 'Which business is this for?'}{' '}

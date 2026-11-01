@@ -124,6 +124,8 @@ function PhotoTile({
       // A disabled type's only state is "Coming soon" — the whole card hides in
       // the store shell (lib/store-shell.ts `COMING_SOON_ATTR`).
       data-coming-soon={enabled ? undefined : ''}
+      // The type's key, for tests and walks (who-is-it-for-renders.test.ts).
+      data-event-type-tile={t.key}
       onClick={() => enabled && onSelect(t)}
       // `[container-type:inline-size]` makes the CARD the measure for the name's
       // `cqi` size below — a card-relative size, whatever frame it sits in.

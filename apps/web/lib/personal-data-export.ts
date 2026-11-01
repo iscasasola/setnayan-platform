@@ -7,6 +7,7 @@ import { listOutcome, singleOutcome, collectIncomplete } from '@/lib/export-inte
 import { VENDOR_PROFILE_EXPORT_SELECT } from '@/lib/export-vendor-profile-columns';
 import { readOwnFaceEnrollments } from '@/lib/export-own-face-enrollments';
 import { readOwnGiftRecords } from '@/lib/export-own-gift-records';
+import { readOwnHubViews } from '@/lib/export-own-hub-views';
 import { displayUrlForPrivateStoredAsset } from '@/lib/uploads';
 import { budgetPaymentProofPolicy } from '@/lib/r2-client-ref';
 import {
@@ -284,6 +285,7 @@ export async function buildPersonalDataExport(
     paymentsRes,
     faceEnrollmentsRes,
     giftRecordsRes,
+    hubViewsRes,
     dependentsRes,
     godparentsRes,
     communityMembershipsRes,
@@ -294,6 +296,7 @@ export async function buildPersonalDataExport(
     papicFreeGrantClaimsRes,
     userUnfollowsRes,
     inviteMutesRes,
+    eventTypeAsksRes,
     vendorReuseRequestsRes,
     workingNotesRes,
     broadcastsSentRes,
@@ -441,6 +444,9 @@ export async function buildPersonalDataExport(
     // this file. The screenshot itself is not copied into the file; the row
     // says whether one is held.
     readOwnGiftRecords(supabase, admin, user.id),
+    // When the subject last opened an Event Hub with their own invitation (Who's here, 2026-10-29) — the one
+    // timestamp a host's Home shows, kept a day at most. Scoped to the subject's own guest ids, exactly as above.
+    readOwnHubViews(supabase, admin, user.id),
     // RA 10173 (2026-07-17) — Alaga (dependents) records: what the subject
     // stores as a guardian, what they claimed as their own profile, and what
     // they handed over (read-only history). Spouse-SHARED rows the OTHER
@@ -576,6 +582,13 @@ export async function buildPersonalDataExport(
     supabase
       .from('invite_mutes')
       .select('muted_user_id, created_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: true }),
+    // RA 10173 (2026-10-28) — the event types the subject ASKED us to add ("Can't find yours? Ask us to add
+    // it", migration 20271294233183): their own words, keyed to them (user_id), readable under their own RLS.
+    supabase
+      .from('event_type_requests')
+      .select('label, status, event_type, created_at, resolved_at')
       .eq('user_id', user.id)
       .order('created_at', { ascending: true }),
     // RA 10173 (2026-08-04) — RE-BOOKING REQUESTS the subject initiated
@@ -844,6 +857,7 @@ export async function buildPersonalDataExport(
   const payments = listOutcome('payments', paymentsRes);
   const faceEnrollments = listOutcome('face_enrollments', faceEnrollmentsRes);
   const giftRecords = listOutcome('gifts_you_said_you_sent', giftRecordsRes, adminUnavailable);
+  const hubViews = listOutcome('event_hub_opens', hubViewsRes, adminUnavailable);
   const dependents = listOutcome('alaga_dependents', dependentsRes);
   const godparents = listOutcome('alaga_godparents', godparentsRes);
   const communityMemberships = listOutcome('samahan_memberships', communityMembershipsRes);
@@ -854,6 +868,7 @@ export async function buildPersonalDataExport(
   const papicFreeGrantClaims = listOutcome('papic_free_grant_claims', papicFreeGrantClaimsRes);
   const userUnfollows = listOutcome('user_unfollows', userUnfollowsRes);
   const inviteMutes = listOutcome('invite_mutes', inviteMutesRes);
+  const eventTypeAsks = listOutcome('event_type_requests', eventTypeAsksRes);
   const vendorReuseRequests = listOutcome('vendor_reuse_requests', vendorReuseRequestsRes);
   const ownSuggestions = listOutcome('event_inspiration_suggestions', ownSuggestionsRes);
   const couplePhotoShares = listOutcome('couple_photo_shares', couplePhotoSharesRes);
@@ -963,6 +978,7 @@ export async function buildPersonalDataExport(
     payments,
     faceEnrollments,
     giftRecords,
+    hubViews,
     dependents,
     godparents,
     communityMemberships,
@@ -1048,6 +1064,9 @@ export async function buildPersonalDataExport(
     // the money. A screenshot you attached is held privately for that host
     // (`screenshot_held`); it is not copied into this file.
     gifts_you_said_you_sent: giftRecords.rows,
+    // When you last opened an event's Event Hub with your own invitation — what its hosts' "Who's here" card
+    // showed. One time per event, deleted after a day.
+    event_hub_opens: hubViews.rows,
     // RA 10173 (2026-07-17) — Alaga records (guardian-stored, claimed-as-own,
     // and handed-over history) + godparent edges. Consent stamps included.
     alaga_dependents: dependents.rows,
@@ -1067,6 +1086,7 @@ export async function buildPersonalDataExport(
     papic_free_grant_claims: papicFreeGrantClaims.rows,
     user_unfollows: userUnfollows.rows,
     invite_mutes: inviteMutes.rows,
+    event_type_requests: eventTypeAsks.rows,
     vendor_reuse_requests: vendorReuseRequests.rows,
     // 🤝🖼 Photos the subject suggested to couples' boards as a booked supplier (author-scoped).
     inspiration_suggestions_sent: ownSuggestions.rows,

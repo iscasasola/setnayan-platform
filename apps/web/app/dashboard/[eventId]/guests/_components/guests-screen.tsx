@@ -73,6 +73,7 @@ import {
 } from 'lucide-react';
 import { ActionButton, actionButtonClass } from '@/components/action-button';
 import { InfoTip } from '@/app/_components/info-tip';
+import { GuestPeek } from './guest-peek';
 import { ThumbRow, type ThumbField, type ThumbMenu } from '@/components/thumb-row';
 import { useThumbRowArrivesLast } from '@/lib/thumb-row-arrives-last';
 import { Count } from '@/components/count';
@@ -93,6 +94,7 @@ import {
   guestNameAsGiven,
   guestNameWithNick,
   guestInitials,
+  guestRoleLabel,
   plusOneSeats,
   replyMarkedByHost,
   RSVP_ROW_WORDS,
@@ -962,6 +964,9 @@ export function GuestsScreen(props: GuestsScreenProps) {
       ),
     });
   };
+  /* 👁 R4 slice 6d — a face on the MAP peeks first (prototype v20 `peekGuest`): name · role · group · seat · Open, over the
+     thumb row, the map still in view; Open = the same card the List opens. */
+  const [peek, setPeek] = useState<{ id: string; el: HTMLElement } | null>(null);
 
   // ── Remove: the one warning, then the shipped soft delete with Undo.
   const { removing, remove, release } = useGuestRemoval(eventId);
@@ -2123,7 +2128,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
               tree={tree}
               isToInvite={isToInvite}
               plusWords={plusWords}
-              onOpen={openCard}
+              onOpen={(id, el) => setPeek({ id, el })}
               fitKey={`${arrange}|${q}`}
             />
           </div>
@@ -2150,6 +2155,33 @@ export function GuestsScreen(props: GuestsScreenProps) {
                 {thumb}
               </div>
             )}
+            {/* 👁 The Map's peek rises just above the thumb row, in the toolbar's seat (slice 6d). */}
+            {peek && gview === 'map' && byId.get(peek.id) ? (
+              <div className={styles.peekSeat} data-guests-peek-seat="">
+                {(() => {
+                  const g = byId.get(peek.id)!;
+                  return (
+                    <GuestPeek
+                      name={plusWords.get(g.guest_id)?.name ?? displayPersonName(guestNameAsGiven(g) ?? guestDisplayName(g))}
+                      initials={guestInitials(g)}
+                      photo={faceByGuest[g.guest_id] ?? null}
+                      line={[
+                        guestRoleLabel(g.role, roleNames),
+                        groupsByGuest[g.guest_id]?.[0] ?? null,
+                        tableByGuest[g.guest_id] ?? 'No seat yet',
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
+                      onOpen={() => {
+                        setPeek(null);
+                        openCard(g.guest_id, peek.el);
+                      }}
+                      onClose={() => setPeek(null)}
+                    />
+                  );
+                })()}
+              </div>
+            ) : null}
           </div>
 
         <DeleteGuestSheet

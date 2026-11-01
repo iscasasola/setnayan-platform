@@ -195,6 +195,8 @@ export type RetimeBlock = {
   start_at: string;
   end_at: string | null;
   sort_order: number;
+  /** ⏰ Time TBA (migration 20271300482585) — `start_at` is a placeholder 00:00; such a chapter is never shifted. */
+  time_tba?: boolean | null;
 };
 
 export type RetimePatch = {
@@ -207,7 +209,9 @@ export type RetimePatch = {
  *  start_at ascending, then sort_order. */
 function orderedTopLevel<T extends RetimeBlock>(blocks: readonly T[]): T[] {
   return blocks
-    .filter((b) => b.parent_block_id === null)
+    // ⏰ A Time-TBA chapter has no clock to shift — "+15 minutes" would turn its placeholder 00:00 into a 12:15 AM
+    // start. It is never in a span, and an anchor on it selects nothing (follow-up to #7158).
+    .filter((b) => b.parent_block_id === null && b.time_tba !== true)
     .sort((a, b) => {
       const at = new Date(a.start_at).getTime();
       const bt = new Date(b.start_at).getTime();

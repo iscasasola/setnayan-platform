@@ -106,9 +106,9 @@ import { knownMoneyTotals } from '@/lib/budget-truth';
 import { costCategoryOptions } from '@/lib/event-costs';
 import type { PillarPart } from '@/lib/pillar-parts';
 import { LabBookedSchedule } from './lab-booked-schedule';
-import { labJourney, labPrepAgenda } from './schedule-fixtures';
+import { labPrepAgenda } from './schedule-fixtures';
+import { forwardScheduleView } from '@/lib/schedule-view';
 import { PreparationAgendaView, preparationLegendWords } from '@/app/dashboard/[eventId]/schedule/_components/preparation-agenda';
-import { JourneyView } from '@/app/dashboard/[eventId]/schedule/_components/journey-view';
 import { SEEDS } from '../schedule-lab/lab-moments';
 import { priceToday } from '@/lib/price-summary';
 import { BookedBudgetSection } from '@/app/dashboard/[eventId]/vendors/_components/booked-budget';
@@ -236,9 +236,8 @@ export default async function SuppliersLabPage({
   const labList = buildBudgetList(bookedMoney);
   const labKnown = knownMoneyTotals(bookedMoney);
   const labMoments = SEEDS.filter((x) => !x[6]?.parent_block_id).length;
-  // Booked › Schedule › Preparation and Journey — the real views on fixtures (`schedule-fixtures.ts`).
+  // Booked › Schedule › Planning Stage — the real view on fixtures (`schedule-fixtures.ts`).
   const labPrep = labPrepAgenda(labBookedNow(bookedOpts));
-  const labJourneyLine = labJourney(labBookedNow(bookedOpts), labPrep);
   const bookedLabView = labBookedView(bookedOpts, bookedMoney);
   const booked = bookedLabView.booked.length;
   /* The shell's Build N/M and cart peek, counted the page's way from the fixtures — and handed over so a press counts
@@ -401,13 +400,11 @@ export default async function SuppliersLabPage({
                   <LabBookedSchedule
                     tags={LAB_SCHEDULE_TAGS}
                     moments={labMoments}
-                    initial={one('view') === 'preparation' || one('view') === 'journey' ? (one('view') as 'preparation' | 'journey') : 'event-day'}
+                    initial={forwardScheduleView(one('view') ?? undefined) === 'preparation' ? 'preparation' : 'event-day'}
                     prepCount={labPrep.items.length}
-                    journeyCount={labJourneyLine.totalEntries}
                     prepNote={preparationLegendWords(labPrep.sourceCounts)}
                     canAnnounce={one('announce') !== '0'}
                     preparation={<PreparationAgendaView eventId={LAB_EVENT} agenda={labPrep} hasEventDate booked />}
-                    journey={<JourneyView timeline={labJourneyLine} hasEventDate eventId={LAB_EVENT} />}
                   />
                 </div>
               ) : (

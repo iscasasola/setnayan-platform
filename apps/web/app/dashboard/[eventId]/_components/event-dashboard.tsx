@@ -2023,7 +2023,7 @@ export async function EventDashboard({
     miniTiles.push(
       <Link
         key="schedule"
-        href={`${base}/schedule?view=journey`}
+        href={`${base}/schedule?view=preparation`}
         className="sn-tile sn-press flex flex-col text-left"
       >
         <span className="sn-eye">
@@ -3128,7 +3128,7 @@ export async function EventDashboard({
             <ExpandCard
               cardClassName="sn-tile"
               title="Schedule"
-              fullHref={`${base}/schedule?view=journey`}
+              fullHref={`${base}/schedule?view=preparation`}
               fullLabel="See full schedule"
               preview={
                 schedulePreview.isEmpty ? (

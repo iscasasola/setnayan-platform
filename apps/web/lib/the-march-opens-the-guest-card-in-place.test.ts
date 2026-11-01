@@ -91,10 +91,11 @@ test('1b · the march draws the card for the tapped person, with the reader it w
 
 test('2 · the card is THE guest card — `GuestCard`, the Guest list’s panel — read by the one card reader, once', () => {
   assert.match(ACTION, /^'use server';/);
-  assert.match(ACTION, /const read = await readGuestCard\(supabase, eventId, guestId, user\.id\);/, 'the card is not read by the one card reader');
+  // The viewer rides beside the card's reads (a promise of their id — the-card-opens-at-the-tap.test.ts 6).
+  assert.match(ACTION, /const read = await readGuestCard\(supabase, eventId, guestId, userRead\.then\(/, 'the card is not read by the one card reader');
   /* The action answers the card's DATA; the browser draws THE card from it (a drawn answer cannot be sent on the routes the
      march opens on — the-settings-sheet-is-in-homes-graph.test.ts). */
-  assert.match(ACTION, /return \{ ok: true, read, returnTo: RETURN_TO\[at\]\(eventId\) \};/, 'the action no longer answers the card’s data');
+  assert.match(ACTION, /return \{ ok: true, read, returnTo: RETURN_TO\[at\]\(eventId, guestId\) \};/, 'the action no longer answers the card’s data');
   assert.doesNotMatch(stripComments(ACTION), /(?<![\w$.])<[A-Z]/, 'the action draws again — its answer cannot be sent on the Maker, the editor, a Details field or Home');
   assert.match(IN_PLACE, /<GuestCard frame="panel" eventId=\{eventId\} \{\.\.\.r\.read\}/, 'the march draws a card other than THE guest card');
   for (const src of [ACTION, IN_PLACE]) assert.doesNotMatch(src, /GuestCardBody|\bkit=\{|actions=\{/, 'the march’s card is drawn around the one card, or takes other writes');

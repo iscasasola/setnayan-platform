@@ -72,7 +72,9 @@ test('3 · the List row, the guest card head and the March chip in Guests draw t
   assert.match(screen, /\{name\}\s*<GuestNick nick=\{nick\} \/>/, 'the List row does not draw the nickname beside the name');
 
   const body = src('app/dashboard/[eventId]/guests/_components/guest-card-body.tsx');
-  assert.match(body, /export function guestCardTitle[\s\S]{0,260}guestNameWithNick\(guest\)\.name/, 'the card title is not the full name');
+  // The card's title words live in the card head's own module (guest card opens fast: the list draws the head at the tap).
+  const head = src('app/dashboard/[eventId]/guests/_components/guest-card-head.tsx');
+  assert.match(head, /export function guestCardTitle[\s\S]{0,260}guestNameWithNick\(guest\)\.name/, 'the card title is not the full name');
   assert.match(body, /\{guestCardTitle\(guest, data\.plusOneOf\)\}<GuestNick nick=\{guestCardNick\(guest, data\.plusOneOf\)\} \/><\/h1>/);
   const card = src('app/dashboard/[eventId]/guests/_components/guest-card.tsx');
   assert.match(card, /\{title\}\s*<GuestNick nick=\{guestCardNick\(guest, data\.plusOneOf\)\} \/>/, 'the card panel head drops the nickname');

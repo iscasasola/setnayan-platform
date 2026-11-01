@@ -37,7 +37,9 @@ export async function readGuestCard(
   supabase: SupabaseClient,
   eventId: string,
   guestId: string,
-  viewerUserId: string,
+  /** The signed-in viewer — or the promise of them, so a caller need not wait for its sign-in check before the card's
+   *  reads leave (`openGuestCard`). Only the helper's grants and the linked face need it; null reads neither. */
+  viewer: string | Promise<string | null>,
 ): Promise<GuestCardRead | null> {
   const [data, inviteSetup, papicRead, storeShell, profile, eventRow] = await Promise.all([
     loadGuestCard(supabase, eventId, guestId),
@@ -49,11 +51,12 @@ export async function readGuestCard(
   ]);
   if (!data) return null;
   const { guest } = data;
+  const viewerUserId = await viewer;
   // ⚠ Refused, `invitationBase` falls to null and the card's link, NFC and copy strip drop — said in the log, never silent.
   if (eventRow.error) logQueryError('readGuestCard.eventRow', eventRow.error, { eventId }, 'graceful_degrade');
   const [invitationBase, helper, photoDisplayUrl] = await Promise.all([
     fetchInvitationBase(eventId, (eventRow.data as { slug?: string | null } | null)?.slug ?? null),
-    data.canManageAccess
+    data.canManageAccess && viewerUserId
       ? loadGuestHelperCard({ eventId, guestId, viewerUserId, displayName: guestDisplayName(guest) })
       : Promise.resolve(null),
     /* The face. `guests.photo_url` holds an `r2://…` REFERENCE — both sources go through the one resolver, and the
@@ -61,6 +64,7 @@ export async function readGuestCard(
     (async () => {
       const own = await guestPhotoDisplayUrls([guest]);
       if (own[guest.photo_url ?? '']) return own[guest.photo_url ?? '']!;
+      if (!viewerUserId) return null;
       const accountRef = (await accountPhotoRefsByGuest(supabase, eventId, viewerUserId))[guest.guest_id];
       if (!accountRef) return null;
       return (await guestPhotoDisplayUrls([{ photo_url: accountRef }]))[accountRef] ?? null;

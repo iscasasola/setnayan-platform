@@ -149,7 +149,7 @@ test('3 · the ticket PNG, the printed batches, the plus-one’s door and the co
   const list = read('app/dashboard/[eventId]/guests/_components/guests-screen.tsx');
   // (Since 2026-10-30 the row is the FULL name with the nickname beside it — `guestNameWithNick`, NAMES v24 — still cased.)
   assert.match(list, /const name = plusWords\?\.name \?\? displayPersonName\(named\?\.name \?\? guestDisplayName\(g\)\);/, 'the Guest list row prints the typed name');
-  assert.match(read('app/dashboard/[eventId]/guests/_components/guest-card-body.tsx'), /return plusOneOf\?\.name \?\? displayPersonName\(guestNameWithNick\(guest\)\.name\);/, 'the guest card’s title prints the typed name');
+  assert.match(read('app/dashboard/[eventId]/guests/_components/guest-card-head.tsx'), /return plusOneOf\?\.name \?\? displayPersonName\(guestNameWithNick\(guest\)\.name\);/, 'the guest card’s title prints the typed name');
   assert.match(read('app/dashboard/[eventId]/guests/_components/guest-map-canvas.tsx'), /const name = words\?\.name \?\? displayPersonName\(guestDisplayName\(g\)\);/, 'the Guest map prints the typed name');
 });
 

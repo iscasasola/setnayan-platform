@@ -29,6 +29,7 @@ import {
   HUB_SEEN_DEBOUNCE_MIN,
   HUB_SEEN_PATH,
   WHOS_HERE_WINDOW_MIN,
+  activeWords,
   eventTeamTopic,
   hubSeenDue,
   hubViewsEnabled,
@@ -198,4 +199,19 @@ test('6b · the team list: the viewer is not a face, roles are words, and an unc
   assert.equal(teamRoleWord({ kind: 'seat', coordinator: true, fullCohost: false }), 'Coordinator');
   assert.equal(teamRoleWord({ kind: 'seat', coordinator: false, fullCohost: true }), 'Co-host');
   assert.equal(teamRoleWord({ kind: 'seat', coordinator: false, fullCohost: false }), 'Helper');
+});
+
+test('7 · the online list: a green dot means active NOW, otherwise "Active N min ago" — never a dot from a stale open', () => {
+  const t0 = Date.parse('2026-11-01T10:00:00Z');
+  assert.deepEqual(activeWords('2026-11-01T10:00:00Z', t0 + 20_000), { now: true, words: 'Active now' });
+  assert.deepEqual(activeWords('2026-11-01T10:00:30Z', t0), { now: true, words: 'Active now' }, 'a phone clock behind the server is still "now"');
+  assert.deepEqual(activeWords('2026-11-01T10:00:00Z', t0 + 7 * 60_000 + 5_000), { now: false, words: 'Active 7 min ago' });
+  assert.equal(activeWords('not a time', t0), null, 'an unreadable time says nothing — no dot, no invented minute');
+
+  const card = code('app/dashboard/[eventId]/_components/home-cards/home-whos-here-card.tsx');
+  // Every team face is on the channel this second → the dot; every guest face takes its dot from its own seen_at.
+  assert.match(card, /<FaceWithDot name=\{p\.name\} photo=\{p\.photo\} now \/>/, 'a team face carries the online dot');
+  assert.match(card, /activeWords\(g\.seen_at, clock\)/, 'a guest face is dated from its own open');
+  assert.match(card, /now=\{active\?\.now \?\? false\}/, 'a guest gets the dot only when its open is "now"');
+  assert.match(card, /\{now \? \(\s*<span[\s\S]*?data-whos-here-dot/, 'the dot is drawn only when now');
 });

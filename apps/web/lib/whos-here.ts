@@ -200,6 +200,30 @@ export function guestFaceName(g: Pick<HubViewerGuest, 'display_name' | 'first_na
   return first || 'Guest';
 }
 
+/**
+ * 🟢 ACTIVE NOW · ACTIVE N MIN AGO — the Messenger online list (owner 2026-10-29, verbatim: *"just like in chat on
+ * facebook where we see people go online"*; DECISION_LOG "FIVE OPEN CALLS ANSWERED" (5): a green dot = active now,
+ * otherwise "active N min ago").
+ *
+ *   · A TEAM face is on the presence channel this second, so it is always `now` (the dot).
+ *   · A GUEST face is the time their open was written (`seen_at`). Inside the first minute that is "Active now" (the
+ *     dot); after it, "Active N min ago" — never a dot for a guest the server last heard from minutes ago.
+ *   · A `seen_at` that does not parse says NOTHING (`null`) — no dot and no invented minute.
+ */
+export const ACTIVE_NOW_MS = 60_000;
+
+export type ActiveWords = { now: boolean; words: string };
+
+export function activeWords(seenAt: string, nowMs: number): ActiveWords | null {
+  const t = Date.parse(seenAt);
+  if (!Number.isFinite(t)) return null;
+  const ago = nowMs - t;
+  // A clock a little ahead of the server's still reads "now", never "-1 min ago".
+  if (ago < ACTIVE_NOW_MS) return { now: true, words: 'Active now' };
+  const min = Math.floor(ago / 60_000);
+  return { now: false, words: `Active ${formatCount(min)} min ago` };
+}
+
 /** How many faces the card draws before "+N". */
 export const WHOS_HERE_FACES = 5;
 

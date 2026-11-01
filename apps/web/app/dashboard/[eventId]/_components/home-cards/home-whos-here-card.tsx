@@ -26,6 +26,7 @@ import { onTabReturn } from '@/lib/tab-return';
 import {
   WHOS_HERE_FACES,
   WHOS_HERE_WINDOW_MIN,
+  activeWords,
   guestFaceName,
   hubWords,
   parseHubViewers,
@@ -40,6 +41,38 @@ import { formatCount } from '@/lib/format-number';
 const GuestSheet = dynamic(() => import('./home-whos-here-guest-sheet'), { ssr: false });
 
 type GuestCardPerson = { id: string; name: string };
+
+/**
+ * 🟢 The face with the online dot (owner 2026-10-29, "just like in chat on facebook"): the dot sits on the avatar's
+ * corner when the person is active NOW (`activeWords` — a team face always, a guest inside the first minute).
+ */
+function FaceWithDot({ name, photo, now }: { name: string; photo: string | null; now: boolean }) {
+  return (
+    <span className="relative inline-flex shrink-0" data-whos-here-now={now ? '1' : '0'}>
+      <PersonAvatar name={name} photoUrl={photo} />
+      {now ? (
+        <span
+          aria-hidden
+          className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-success-500 ring-2 ring-cream"
+          data-whos-here-dot=""
+        />
+      ) : null}
+    </span>
+  );
+}
+
+/**
+ * "Active N min ago" is worked out when an answer ARRIVES (the page's read, a presence pulse, the tab coming back) — the
+ * same moment the list itself is as-of. No clock of its own (the card has no timer: `lib/whos-here.test.ts` 5), and
+ * nothing on the server's first paint, where "now" is the server's clock, not the phone's (no hydration mismatch).
+ */
+function useAnswerClock(answer: unknown): number | null {
+  const [at, setAt] = useState<number | null>(null);
+  useEffect(() => {
+    setAt(Date.now());
+  }, [answer]);
+  return at;
+}
 
 /** Asked again at most this often, whatever pulls it (a burst of arrivals, a flick between tabs). */
 const REREAD_GAP_MS = 20_000;
@@ -111,6 +144,7 @@ export function HomeWhosHereCard({
   const guests = viewers && viewers.may_name ? viewers.guests : [];
   const shownGuests = guests.slice(0, WHOS_HERE_FACES);
   const moreGuests = Math.max(0, (viewers?.guest_total ?? 0) - shownGuests.length);
+  const clock = useAnswerClock(viewers);
 
   return (
     <section className="sg-row" data-home-whos-here="" data-tour="home-whos-here" aria-label="Who’s here">
@@ -141,10 +175,10 @@ export function HomeWhosHereCard({
           <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-2" data-whos-here-team-faces="">
             {peers.map((p) => (
               <li key={p.id} className="flex min-w-0 items-center gap-2" data-whos-here-peer={p.role}>
-                <PersonAvatar name={p.name} photoUrl={p.photo} />
+                <FaceWithDot name={p.name} photo={p.photo} now />
                 <span className="min-w-0 leading-tight">
                   <span className="block truncate text-[13.5px] font-medium">{p.name}</span>
-                  <span className="block truncate text-[11.5px] text-ink/55">{p.role}</span>
+                  <span className="block truncate text-[11.5px] text-ink/55">{p.role} · Active now</span>
                 </span>
               </li>
             ))}
@@ -183,6 +217,7 @@ export function HomeWhosHereCard({
           <ul className="mt-1 flex flex-wrap items-center gap-x-1 gap-y-1" data-whos-here-guest-faces="">
             {shownGuests.map((g) => {
               const name = guestFaceName(g);
+              const active = clock === null ? null : activeWords(g.seen_at, clock);
               return (
                 <li key={g.guest_id}>
                   <button
@@ -192,8 +227,15 @@ export function HomeWhosHereCard({
                     aria-label={`Open ${name}’s guest card`}
                     data-whos-here-guest={g.guest_id}
                   >
-                    <PersonAvatar name={name} photoUrl={g.photo_url} />
-                    <span className="max-w-[9rem] truncate text-[13.5px] font-medium">{name}</span>
+                    <FaceWithDot name={name} photo={g.photo_url} now={active?.now ?? false} />
+                    <span className="min-w-0 leading-tight">
+                      <span className="block max-w-[9rem] truncate text-[13.5px] font-medium">{name}</span>
+                      {active ? (
+                        <span className="block max-w-[9rem] truncate text-[11.5px] text-ink/55" data-whos-here-active="">
+                          {active.words}
+                        </span>
+                      ) : null}
+                    </span>
                   </button>
                 </li>
               );

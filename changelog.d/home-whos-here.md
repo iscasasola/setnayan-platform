@@ -36,6 +36,13 @@ viewing the event hub?"*
   the two tables, two invoker functions; nothing for anon) · guards `lib/whos-here.test.ts` +
   `tests/db/who-is-viewing-the-hub.db.test.ts` (each sabotaged red once) · load harness `--beacon 1 --strangers N` in
   `scripts/load-test-event-day.mjs` with the stand-in modelling `record_hub_view`.
+- **The online list (2026-11-01, DECISION_LOG "FIVE OPEN CALLS ANSWERED" (5), owner: *"just like in chat on facebook
+  where we see people go online"*):** a green dot on a face = active now; otherwise "Active N min ago". Every team face is
+  on the channel this second, so it carries the dot; a guest face is dated from its own open (`seen_at`) — the dot only
+  inside the first minute (`activeWords`, `lib/whos-here.ts`; guard 7). Worked out when an answer arrives, with no timer.
+  ⚠ **Not in this PR: "tap a face to message them"** (DECISION_LOG "WHO'S HERE → TAP A PERSON TO MESSAGE THEM") — there
+  is no team-member or host↔guest thread to open (`chat_threads` is event↔supplier only), so it needs its own schema and
+  an owner call on guests without an account.
 
 SPEC IMPACT: New owner ask recorded in the corpus DECISION_LOG ("WHO'S HERE ON HOME"). One deviation from the brief to
 flag: the card's window is 30 minutes (= the 30-minute debounce), not 15 — a 15-minute window over a 30-minute

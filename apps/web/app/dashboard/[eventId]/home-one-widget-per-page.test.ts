@@ -39,7 +39,10 @@ function pageOf(href: string): string {
   const h = href.replace(/&amp;/g, '&');
   if (h.startsWith(PUBLIC)) return 'Event Hub';
   const path = h.replace(/^\/dashboard\/e1/, '');
-  if (/^\/(details|date-selection)\b/.test(path)) return 'Event Details';
+  // 📅 The Countdown's page is the Date Finder since 2026-10-30 (owner: *"date finder. because we want them to find the
+  // date for their event"*), opened in place on Home (`?date=find`). `/details` itself would be a door to the page that
+  // was combined into Event Settings: it is counted as elsewhere.
+  if (/^\?date=find$/.test(path)) return 'Date Finder';
   if (/^\/guests\b/.test(path)) return 'Guests';
   if (/^\/launch\b/.test(path)) return 'Event Hub';
   if (/^\/vendors\?part=budget\b/.test(path)) return 'Budget';
@@ -80,7 +83,7 @@ test('2 · each face opens the exact item the notes name', () => {
   const { tiles } = homeControlTiles(fixtureControl('e1'));
   const face = (key: HomeControlKey, id: string) => tiles.find((t) => t.key === key)?.faces.find((f) => f.id === id);
   const table: Array<[HomeControlKey, string, string]> = [
-    ['count', 'count', '/dashboard/e1/details'],
+    ['count', 'count', '/dashboard/e1?date=find'],
     ['guests', 'guests-coming', '/dashboard/e1/guests?q=coming'],
     ['guests', 'guests-noreply', '/dashboard/e1/guests?q=no+reply'],
     ['guests', 'guests-toinvite', '/dashboard/e1/guests/send'],

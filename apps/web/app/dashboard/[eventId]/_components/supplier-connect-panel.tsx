@@ -28,8 +28,12 @@
  * is re-entered", which the owner's 2026-10-10 ruling makes untrue: the
  * supplier's price box waits for their photo and what's included.) No "Write
  * to NFC" here (build plan, 2026-10-07 late), so this is NOT the `QrActions`
- * strip. Share stays where the phone offers it — it shipped, and it is how a
- * link reaches Viber or Messenger in one tap.
+ * strip.
+ *
+ * 📨 SHARE IS THE APPROVED INVITE (DECISION_LOG 2026-10-30, "…A SELF-ADDED SUPPLIER GETS A SHARE BUTTON, AN AUTOMATIC
+ * CLAIM LINK AND A DIGITAL CARD"): the guest card's own share (`SupplierShareButton` → `shareInvite`) with the
+ * approved message and their digital card — no longer the bare link. It is drawn on every device: where there is no
+ * share sheet it copies the message, as the guest's Send does.
  *
  * ⚠ LOOKING DOES NOT CREATE. `initial` is the result of `readSupplierInvite`,
  * a read. The only write is the "Create their link" button, which calls
@@ -39,6 +43,7 @@
 
 import { useId, useState, useTransition } from 'react';
 import { Check, Copy, Share, Share2, X } from 'lucide-react';
+import { SupplierShareButton } from './supplier-share-button';
 import { InfoTip } from '@/app/_components/info-tip';
 import { GuestPopup } from '../guests/_components/guest-popup';
 import { useSaveLoader } from '@/components/sd-loader';
@@ -75,8 +80,6 @@ export function SupplierConnectPanel({
   const save = useSaveLoader();
   const words = claimLinkWords(vendorName);
 
-  const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
-
   function create() {
     setErr(null);
     startTransition(async () => {
@@ -109,15 +112,6 @@ export function SupplierConnectPanel({
     setSaved(result === 'failed' ? 'failed' : 'idle');
   }
 
-  function share() {
-    if (!invite) return;
-    navigator
-      .share({ title: `Join me on Setnayan, ${vendorName}!`, url: invite.url })
-      .catch(() => {
-        // Dismissed — nothing to do.
-      });
-  }
-
   // ── THE CONTROLS (INTERACTION_RULES § 9, 2026-10-12) ──────────────────────
   // Every press is the one `ActionButton`; nothing read-only sits in a box
   // (owner 2026-10-11: "only have frames if something needs to be clicked") —
@@ -127,6 +121,8 @@ export function SupplierConnectPanel({
   if (layout === 'top') {
     return (
       <ConnectTop
+        eventId={eventId}
+        vendorId={vendorId}
         vendorName={vendorName}
         heading={words.heading}
         how={words.how}
@@ -135,11 +131,9 @@ export function SupplierConnectPanel({
         err={err}
         copied={copied}
         saved={saved}
-        canShare={canShare}
         onCreate={create}
         onCopy={copy}
         onDownload={download}
-        onShare={share}
       />
     );
   }
@@ -181,9 +175,7 @@ export function SupplierConnectPanel({
               label={copied ? 'Copied' : 'Copy link'}
               onClick={copy}
             />
-            {canShare ? (
-              <ActionButton tone="neutral" icon={Share2} label="Share" name="Share their link" onClick={share} />
-            ) : null}
+            <SupplierShareButton eventId={eventId} vendorId={vendorId} vendorName={vendorName} prepareOnMount />
           </div>
           {saved === 'failed' ? (
             <p role="alert" className="mt-1.5 text-center text-[12px] text-danger-800 dark:text-danger-200">
@@ -215,6 +207,8 @@ export function SupplierConnectPanel({
 
 /** The record card's head — see `layout="top"` above. Presentation only; every press is the panel's own. */
 function ConnectTop({
+  eventId,
+  vendorId,
   vendorName,
   heading,
   how,
@@ -223,12 +217,12 @@ function ConnectTop({
   err,
   copied,
   saved,
-  canShare,
   onCreate,
   onCopy,
   onDownload,
-  onShare,
 }: {
+  eventId: string;
+  vendorId: string;
   vendorName: string;
   heading: string;
   how: string;
@@ -237,11 +231,9 @@ function ConnectTop({
   err: string | null;
   copied: boolean;
   saved: 'idle' | 'saving' | 'failed';
-  canShare: boolean;
   onCreate: () => void;
   onCopy: () => void;
   onDownload: () => void;
-  onShare: () => void;
 }) {
   const [big, setBig] = useState(false);
   const titleId = useId();
@@ -263,7 +255,7 @@ function ConnectTop({
         </InfoTip>
         {invite ? (
           <>
-            <div className="mt-1.5 flex items-center gap-2">
+            <div className="mt-1.5 flex flex-wrap items-center gap-2">
               <ActionButton
                 tone="neutral"
                 iconOnly
@@ -273,7 +265,7 @@ function ConnectTop({
                 disabled={saved === 'saving'}
               />
               <ActionButton tone="neutral" iconOnly icon={copied ? Check : Copy} label={copied ? 'Copied' : 'Copy link'} onClick={onCopy} />
-              {canShare ? <ActionButton tone="neutral" iconOnly icon={Share2} label="Share their link" onClick={onShare} /> : null}
+              <SupplierShareButton eventId={eventId} vendorId={vendorId} vendorName={vendorName} iconOnly prepareOnMount />
             </div>
             <p className="mt-1 text-[12px] text-ink/60">{copied ? 'Link copied' : 'Not joined yet'}</p>
             <p className="select-all break-all font-mono text-[11px] text-ink/55" aria-label="Their claim link" data-claim-link-url="">

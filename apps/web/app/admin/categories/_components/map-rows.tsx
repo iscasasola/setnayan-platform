@@ -150,7 +150,7 @@ export function CategoryTile({ d, c, on, defaultIcon, h }: { d: MapData; c: MapC
         </span>
         <span className="flex flex-wrap items-center gap-1 text-[11.5px] opacity-75">
           {c.hidden ? <Pill>Hidden</Pill> : null}
-          {n === 0 ? <Pill gap>no service</Pill> : <span>{plural(n, 'service')}</span>}
+          {!d.servicesRead ? <span>— services</span> : n === 0 ? <Pill gap>no service</Pill> : <span>{plural(n, 'service')}</span>}
           {parts ? <span>· {plural(parts, 'part')}</span> : null}
         </span>
       </span>

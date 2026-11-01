@@ -19,3 +19,4 @@ once, with no Undo.
 - ⚠ Stacked on the who-placed-each-seat PR (it reads `seat_placed_by`). Merge after it.
 
 SPEC IMPACT: None — builds the approved prototype's swap confirm.
+- 2026-11-01 · brought up to date with main (one conflict in seating-editor.tsx: main's zoom stack and this PR's swap-ask sheet kept side by side).

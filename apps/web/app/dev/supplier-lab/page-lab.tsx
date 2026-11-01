@@ -6,7 +6,10 @@
  *   ?s=details&who=parish|caterer|studio      Your details (the parish: 4 of 6 · left: documents · how clients pay you)
  *   ?s=details&invited=1[&asked=1]            🏷 a shop Setnayan set up: the name asks to change (asked = waiting)
  *   ?s=page&who=…                             Your page   (&draft=1 seeds a waiting change, as if one were made)
- *   ?s=collections&who=…                      Your collections
+ *   ?s=collections&who=…                      Your collections (Shop › Gallery since v13)
+ *   ?s=services&who=…[&fail=1]                🧰 Shop › Services (v13, S5): the pinned row's figures + one row per service
+ *                                             with its tools; &fail=1 = the read refused — "—", never 0
+ *   ?s=analytics[&fail=1]                     📌 Shop › Analytics' pinned row (the cards below read the database)
  *   ?s=avatar                                 the account panel with the supplier's rows (press the avatar)
  *
  * Every editor posts its SHIPPED action; with no session each one refuses — nothing is written from here. The payment
@@ -18,10 +21,17 @@ import { pageSavedFrom } from '@/lib/supplier-page-draft';
 import { DEFAULT_MICROSITE } from '@/lib/vendor-microsite';
 import type { CollectionsInput } from '@/lib/supplier-collections';
 import type { VendorPaymentMethodRow } from '@/lib/vendor-payment-methods';
+import { ShopSettingsRows } from '@/app/vendor-dashboard/shop/_components/shop-settings-rows';
+import { VerifySection } from '@/app/vendor-dashboard/shop/_components/verify-section';
+import { walletRowSubline, walletRowTitle } from '@/lib/shop-wallet';
+import { formatPhp } from '@/lib/php';
 import { DetailsScreen } from '@/app/vendor-dashboard/profile/_components/details-screen';
 import type { DetailsData } from '@/app/vendor-dashboard/profile/details-data';
 import { BranchPanel } from '@/app/vendor-dashboard/shop/_components/branch-panel';
 import { ShopSegments } from '@/app/vendor-dashboard/shop/_components/shop-segments';
+import { ShopServiceRows } from '@/app/vendor-dashboard/shop/_components/shop-service-rows';
+import { servicesFigures, shopServiceRows, type ShopCardLite } from '@/lib/shop-services-summary';
+import { analyticsFigures, galleryFigures, pageFigures } from '@/lib/shop-section-figures';
 import { PageParts, type PageClientData } from '@/app/vendor-dashboard/website/_components/page-parts';
 import { pagePlanLines } from '@/app/vendor-dashboard/website/page-data';
 import { DomainManager } from '@/app/vendor-dashboard/website/_domain-manager';
@@ -42,7 +52,7 @@ import { ShopBadgePill } from '@/app/_components/shop-badge-pill';
 import { MILESTONE_THRESHOLDS } from '@/lib/service-card-record';
 import { badgeTracker, badgesForPrint, nextToEarnLine, shopBadges, trackerSummary, type ShopBadgeFacts, type TrackerFacts } from '@/lib/shop-badges';
 
-export const PAGE_LAB_STATES = ['details', 'page', 'collections', 'avatar', 'badge-today', 'badge-tiers'] as const;
+export const PAGE_LAB_STATES = ['details', 'page', 'collections', 'avatar', 'badge-today', 'badge-tiers', 'services', 'analytics'] as const;
 export type PageLabState = (typeof PAGE_LAB_STATES)[number];
 type Who = 'parish' | 'caterer' | 'studio';
 
@@ -515,6 +525,42 @@ function pageFixture(who: Who): PageClientData {
  * 💳 `&port=48|50|spend|short|unread` on collections — the portfolio priced by the free room, then the shop wallet
  * (frames port-48 · port-50 · port-spend · F3 · F1). Fake refs with flat tile images; nothing is stored.
  */
+/** 🧰 The lab shops' services and cards (v13 S5) — two services for the caterer, one with no card yet for the parish. */
+function labServiceRows(who: Who) {
+  const card = (id: string, cov: number | null, category: string, price: number, on = true): ShopCardLite => ({
+    vendor_service_id: id,
+    coverage_id: cov,
+    category,
+    is_active: on,
+    starting_price_php: price,
+  });
+  const fx: Record<Who, { cov: { id: number; canonical_service: string }[]; cards: ShopCardLite[]; labels: Record<string, string> }> = {
+    parish: {
+      cov: [
+        { id: 1, canonical_service: 'reception' },
+        { id: 2, canonical_service: 'officiants' },
+      ],
+      cards: [card('c1', 1, 'church', 25_000), card('c2', 1, 'church', 38_000, false)],
+      labels: { reception: 'Church wedding', officiants: 'Officiant' },
+    },
+    caterer: {
+      cov: [
+        { id: 1, canonical_service: 'catering' },
+        { id: 2, canonical_service: 'cake' },
+      ],
+      cards: [card('c1', 1, 'catering', 45_000), card('c2', 1, 'catering', 65_000), card('c3', 1, 'catering', 95_000), card('c4', 2, 'cake', 8_500, false)],
+      labels: { catering: 'Catering', cake: 'Wedding cake' },
+    },
+    studio: {
+      cov: [{ id: 1, canonical_service: 'photographer' }],
+      cards: [card('c1', 1, 'photographer', 55_000)],
+      labels: { photographer: 'Photo & video' },
+    },
+  };
+  const f = fx[who];
+  return shopServiceRows(f.cov, f.cards, (cs) => f.labels[cs] ?? cs);
+}
+
 function labPortfolio(who: string, port: string | undefined) {
   // One flat 1×1 PNG stands in for every photo (a still raster — never an SVG, which would read as a logo draw).
   const tile = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGO4dm4fAATgAmPxoKUWAAAAAElFTkSuQmCC';
@@ -527,7 +573,7 @@ function labPortfolio(who: string, port: string | undefined) {
   return { refs, picked, displayMap, walletBalance };
 }
 
-export function PageLab({ state, who: rawWho, draft, invited = false, asked = false, port }: { state: PageLabState; who?: string; draft?: boolean; /** 🎁 `&invited=1` on details — fresh from a personal invite (B4). */ invited?: boolean; /** 🏷 `&asked=1` with invited — a name change waiting. */ asked?: boolean; port?: string }) {
+export function PageLab({ state, who: rawWho, draft, invited = false, asked = false, port, fail = false, gear = false }: { state: PageLabState; who?: string; draft?: boolean; /** ⚙ `&gear=1` on details — the Shop ⚙'s sheet open (2026-10-31). */ gear?: boolean; /** A refused read — the figures say "—", never 0. */ fail?: boolean; /** 🎁 `&invited=1` on details — fresh from a personal invite (B4). */ invited?: boolean; /** 🏷 `&asked=1` with invited — a name change waiting. */ asked?: boolean; port?: string }) {
   const who: Who = rawWho === 'caterer' || rawWho === 'studio' ? rawWho : 'parish';
   if (state === 'badge-tiers') {
     /* 🏅 Every step's pill (the material climbs) on a light and a dark ground, and the Verified pill on the four
@@ -570,6 +616,32 @@ export function PageLab({ state, who: rawWho, draft, invited = false, asked = fa
       </div>
     );
   }
+  if (state === 'services') {
+    const rows = fail ? null : labServiceRows(who);
+    return (
+      <section className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-32 pt-4 sm:px-6" data-lab-shop-services="">
+        <ShopSegments on="services" figures={servicesFigures(rows)} />
+        <ShopServiceRows rows={rows} />
+        <p className="text-[13px] text-ink/55" data-lab-stand-in="cards">
+          The cards list (the shipped services manager) draws here — it reads the database itself.
+        </p>
+      </section>
+    );
+  }
+  if (state === 'analytics') {
+    return (
+      <section className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-32 pt-4 sm:px-6" data-lab-shop-analytics="">
+        <ShopSegments
+          on="insights"
+          figures={analyticsFigures(fail ? null : { views: 86, inquiries: 9, booked: 3 }, fail ? null : { views: 77, inquiries: 6, booked: 2 })}
+        />
+        <h1 className="sn-h1">How is my business doing</h1>
+        <p className="text-[13px] text-ink/55" data-lab-stand-in="analytics">
+          The funnel, the comparison and the badges draw here — they read the database themselves.
+        </p>
+      </section>
+    );
+  }
   if (state === 'avatar') {
     return (
       <div className="flex justify-end p-4" data-lab-avatar="">
@@ -594,6 +666,42 @@ export function PageLab({ state, who: rawWho, draft, invited = false, asked = fa
     return (
       <DetailsScreen
         d={d}
+        gearBody={
+          gear ? (
+            <ShopSettingsRows
+              planLine="Solo · Papic credits · receipts"
+              wallet={{ title: walletRowTitle(fail ? null : 128), line: fail ? walletRowSubline({ balance: null, pendingPack: null }, formatPhp) : 'Portfolio and any event · packs you bought' }}
+              plan={
+                <p className="text-sm text-ink/60" data-lab-stand-in="plan">
+                  The Plan screen draws here — your plan, what it gives you, receipts (it reads the database itself; see
+                  /dev/supplier-plan-lab?s=plan for the same screen on fixtures).
+                </p>
+              }
+              team={
+                <p className="text-sm text-ink/60" data-lab-stand-in="team">
+                  The Helpers screen draws here (it reads the database itself; see /dev/supplier-plan-lab?s=helpers).
+                </p>
+              }
+              docs={{
+                isVerified: d.isVerified,
+                docsIn: d.docsIn,
+                docsTotal: d.docsTotal,
+                measured: d.verifyMeasured,
+                row: d.progress.rows.find((r) => r.key === 'docs')!,
+                section: (
+                  <VerifySection
+                    businessName={d.businessName}
+                    vendorProfileId={d.vendorId}
+                    isVerified={d.isVerified}
+                    profileComplete={d.profileComplete}
+                    profileFieldsLeft={d.fieldsLeft}
+                    verify={d.verify}
+                  />
+                ),
+              }}
+            />
+          ) : null
+        }
         branchBody={<BranchPanel {...d.branch} />}
         payBody={
           <p className="text-sm text-ink/60" data-lab-stand-in="pay">
@@ -608,7 +716,7 @@ export function PageLab({ state, who: rawWho, draft, invited = false, asked = fa
     const d = pageFixture(who);
     return (
       <section className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-32 pt-4 sm:px-6" data-supplier-page="" data-lab-draft={draft ? '' : undefined}>
-        <ShopSegments on="page" />
+        <ShopSegments on="page" figures={pageFigures({ views30: fail ? null : 86, reviewCount: fail ? null : d.reviewCount, rating: d.rating })} />
         <h1 className="sr-only">Your page</h1>
         {draft ? <LabSeedDraft vendorId={d.vendorId} /> : null}
         <PageParts
@@ -631,7 +739,7 @@ export function PageLab({ state, who: rawWho, draft, invited = false, asked = fa
   return (
     <>
       <section className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-32 pt-4 sm:px-6" data-supplier-collections="">
-        <ShopSegments on="page" />
+        <ShopSegments on="gallery" figures={galleryFigures({ photos: f.collections.page?.photos ?? 0, videos: f.collections.page?.videos ?? 0, credits: fail ? null : lp.walletBalance })} />
         <h1 className="sn-h1">Your collections</h1>
         <CollectionsList
           vendorId={`lab-${who}`}

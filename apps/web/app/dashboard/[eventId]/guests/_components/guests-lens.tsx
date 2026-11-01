@@ -54,6 +54,12 @@ export type GuestsLens = {
   registerSeats?: (api: SeatsChannel | null) => void;
   /** The top row's seat for the view's own rounds (Seats' Edit · ⋯), left of the ⚙ — null until mounted. */
   toolsSlot?: HTMLElement | null;
+  /**
+   * 📌 The top row's seat for the view's own COUNTS (Seats' seated · unseated · tables — owner 2026-10-30, *"Like this
+   * one"*: the counts ride the ONE top row on every view), right of its ▾ — null until mounted. Drawn with the ONE count
+   * door (`PinCountDoor`).
+   */
+  countsSlot?: HTMLElement | null;
 };
 
 export type SeatsChannel = { mode: SeatMode; setMode: (mode: SeatMode) => void; show3D: boolean };

@@ -108,11 +108,10 @@ test('(4) the headers stay in sight under the pinned row: Seats › List tables 
   assert.match(march, /guests \? 'sticky top-\[calc\(var\(--gs-top,0px\)\+var\(--gs-stick-h,60px\)\)\][^']*bg-\[/, 'a March group header scrolls away in Guests');
   const css = code('app/dashboard/[eventId]/guests/_components/guests-screen.module.css');
   assert.match(css, /\.sec\.open > \.barWrap \{\s*position: sticky;/, 'a List group header scrolls away');
-  // …and in Seats / March there IS a row to stick under: the block pins (fixed, full face) once it reaches the bar.
-  assert.match(css, /\.screen:is\(\[data-guests-screen='seats'\], \[data-guests-screen='march'\]\) \.stick\.pinned\[data-pinned\] \{\s*position: fixed;/, 'in Seats / March the row scrolls away and the headers stick under nothing');
+  // …and in Seats / March there IS a row to stick under: the ONE row is pinned (fixed) on every view (owner 2026-10-30).
+  assert.match(css, /\.stick\.pinned\[data-pinned\] \{\s*position: fixed;/, 'in Seats / March the row scrolls away and the headers stick under nothing');
   const screen = code('app/dashboard/[eventId]/guests/_components/guests-screen.tsx');
-  assert.match(screen, /if \(maker\) return hold\.getBoundingClientRect\(\)\.top <= bar;/, 'Seats / March never pin the row');
-  assert.match(screen, /if \(maker\) st\.toggleAttribute\('data-pinned', on\);\s*st\.toggleAttribute\('data-collapsed', on\);/);
+  assert.match(screen, /if \(!st \|\| !hold\) return;\s*st\.setAttribute\('data-pinned', ''\);/, 'Seats / March never pin the row');
 });
 
 /**

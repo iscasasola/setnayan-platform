@@ -270,7 +270,8 @@ test('5 · Seat plan: the map gets the space — one head row, tools in the thum
   assert.match(ed, /const openDetailsEditor = \(\) => \(peopleInSheet \? setPeopleOpen\(true\) : openDetailsEditorShipped\(\)\);/, 'a table tap / Rules / the people do not raise the sheet in the Studio');
   assert.match(ed, /if \(peopleInSheet && seatPieceKey\) setPeopleOpen\(true\);/, 'tapping a table does not raise the sheet');
   assert.match(ed, /const ro = new ResizeObserver\(fit\);\s*ro\.observe\(region\);/, 'the room is not fitted to the map’s box on open');
-  assert.match(ed, /\$\{studioSeat \? 'top-3' : 'bottom-\[64px\] lg:bottom-3'\}/, 'the zoom controls sit under the thumb-zone tools');
+  // In Guests (2026-10-30 "ALWAYS FULL SCREEN") the stack sits just above the thumb row via --sn-thumb-room; elsewhere as before.
+  assert.match(ed, /\$\{(?:inGuests \? '' : )?studioSeat \? 'top-3' : 'bottom-\[64px\] lg:bottom-3'\}/, 'the zoom controls sit under the thumb-zone tools');
   /* Behaviour kept: the same handlers. */
   assert.match(ed, /<StudioSeatPlanTools\s*onAutoArrange=\{runAutoArrange\}/);
   assert.match(ed, /onView=\{onSelectView\}/);

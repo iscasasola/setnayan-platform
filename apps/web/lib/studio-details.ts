@@ -128,8 +128,14 @@ export function studioPrintsPieces(items: ReadonlyArray<{ key: DetailsItemKey; l
 
 /** The top nav (52 px) — the panel fills the rest, edge to edge (prototype `.full`). The panel's own height is
  *  `--maker-lt-h` less 8 px (`MAKER_LT_TOOL`), so this is 52 − 8. (It was 104 − 8 while a 52-px title row — "INFO ▾" —
- *  sat under the top nav; owner 2026-10-08: *"we will not have these."* The page has that height now.) */
-const UNDER_THE_ROWS = 'calc(100dvh - 44px)';
+ *  sat under the top nav; owner 2026-10-08: *"we will not have these."* The page has that height now.)
+ *  🧭 …AND THE APP'S OWN BARS (2026-10-31): since the Hub keeps the app's nav (owner 2026-10-30, DECISION_LOG "EVENT HUB
+ *  PRO (look redesign) — THE APP'S NAV STAYS") the shell starts under the app's top bar and ends over its bottom nav
+ *  (`MAKER_IN_THE_APP_CSS`: `--maker-app-top`/`--fd-bar`, `--maker-nav`). `100dvh − 44px` from the screen's foot then
+ *  reached 52 px from the screen's TOP — over the Maker's own bar (measured in /dev/maker-lab?prints=1 at 390: the panel
+ *  52 → 844, the bar 51 → 103, its ⚙ and ✓ Apply under the carousel, the bottom nav under the Download). The panel now
+ *  fills the shell's room under its bar, and stops at the nav (`bottom: var(--maker-nav)` below). */
+const UNDER_THE_ROWS = 'calc(100dvh - var(--maker-app-top,var(--fd-bar,0px)) - var(--maker-nav,0px) - 44px)';
 /** The prototype's warm page (`--page` #F3F0EA), on the app's tokens — the same mix as `STUDIO_PAGE_BG`. */
 export const STUDIO_PAGE = 'color-mix(in srgb,rgb(var(--color-gild)) 9%,rgb(var(--color-cream)))';
 
@@ -237,7 +243,7 @@ export function studioFullScreenCss(): string {
     `${form}{--maker-lt-h:${UNDER_THE_ROWS}}` +
     /* 📐 The prototype's `.full`: the editor is the screen under the Tool row — edge to edge, the warm
        page behind it, no floating sheet (no inset, no rounded top, no ring). */
-    `[data-maker-studio-full] [data-details-workspace] [data-details-editor-panel][data-phone-chrome="panel"]{left:0;right:0;bottom:0;border-radius:0;box-shadow:none;background:${STUDIO_PAGE}}` +
+    `[data-maker-studio-full] [data-details-workspace] [data-details-editor-panel][data-phone-chrome="panel"]{left:0;right:0;bottom:var(--maker-nav,0px);border-radius:0;box-shadow:none;background:${STUDIO_PAGE}}` +
     `[data-maker-studio-full] [data-details-workspace]{background:${STUDIO_PAGE}}` +
     `${form} [data-details-body],${form} [data-details-sheet-head]{display:none}` +
     /* No empty band over a form: its first field starts right under the top nav (the 8-px strip that showed under

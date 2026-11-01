@@ -14,7 +14,7 @@
  * ⚠ WHY THIS IS A `*.db.test.ts`. Every claim here is about a trigger rewriting
  * a value on its way into the table. DDL that PARSES is not DDL that BEHAVES,
  * and no TypeScript test can observe that a design write was silently corrected
- * — the UI refusal in `reception-design-editor.tsx` is the LEGIBILITY half and
+ * — the UI refusal in `accents-sheet.tsx` (was the Reception Designer's, retired 2026-10-30) is the LEGIBILITY half and
  * is guarded separately; this is the half that actually holds.
  *
  * 🔑 THE SABOTAGE THAT MUST GO RED: freeze the zone in the editor only. Every

@@ -67,7 +67,7 @@ test('Save says "Saving…" while its own write waits', () => {
   assert.equal(MORE_TO_COMPARE_SAVING, 'Saving…');
   assert.match(BENCH, /label=\{saving \? MORE_TO_COMPARE_SAVING : MORE_TO_COMPARE_SAVE\}/);
   assert.match(BENCH, /saving=\{moreSaving === row\.vendorProfileId\}/);
-  assert.match(BENCH, /onSave=\{\(\) => void saveFromMore\(row, true\)\}/, 'the Save press is the one that says Saving…');
+  assert.match(BENCH, /onSave=\{\(\) => void saveFromMore\(row, true, c\.serviceId\)\}/, 'the Save press is the one that says Saving…');
   const save = BENCH.slice(BENCH.indexOf('const saveFromMore = async ('), BENCH.indexOf('const undoFromMore = async ('));
   assert.match(save, /if \(pressed\) setMoreSaving\(v\.vendorProfileId\);/);
   assert.match(save, /finally \{[^}]*if \(pressed\) setMoreSaving\(null\);/, 'Saving… must end however the write ends');

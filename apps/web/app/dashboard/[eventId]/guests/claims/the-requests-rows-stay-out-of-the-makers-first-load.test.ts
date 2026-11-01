@@ -49,7 +49,8 @@ test('anti-vacuity: the Maker still imports the Requests page — the chain this
 test('1 · the Requests page reaches its three client parts only through the lazy door', () => {
   assert.match(
     PAGE,
-    /import \{ KeepQuickAdd, LinkPicker, SendInviteActions \} from '\.\.\/\.\.\/_components\/guest-setup\/guest-setup-lazy';/,
+    // (Guests' in-place forms, `DecideForm` · `DecideRow`, come through the same door — R4 slice 11.)
+    /import \{ (?:DecideForm, DecideRow, )?KeepQuickAdd, LinkPicker, SendInviteActions \} from '\.\.\/\.\.\/_components\/guest-setup\/guest-setup-lazy';/,
     'the Requests page does not take its client parts from the lazy door',
   );
   for (const [name, , direct] of PARTS) {

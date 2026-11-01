@@ -30,11 +30,15 @@ const read = (dir: string, ...p: string[]) => stripComments(readFileSync(join(di
 test('the Wedding March has one home — Guests › March (R4) — and the Guest list hands old links to it', () => {
   // ⤷ R4: the view row draws every view the event has, March among them, at every width.
   const screen = read(GUESTS, '_components', 'guests-screen.tsx');
-  // 🎚 2026-10-29: the row is the TOPS (Guests ▾ · Seats ▾ · March) — March is offered where the event's views have it.
-  assert.match(screen, /\{tops\.map\(\(t\) => seg\(t\)\)\}/, 'the Guest list’s view row is not the tops’ own list');
+  // 🎚 2026-10-30: the row is ONE ▾ on every view (owner, *"The menu does not work properly"*) — March is one of its
+  // choices where the event's views have it.
   assert.match(screen, /const tops = GUESTS_TOPS\.filter\(\(t\) => t === 'guests' \|\| guestsViews\.includes\(t\)\);/, 'March is not offered where the event has it');
-  const row = screen.slice(screen.lastIndexOf('<nav', screen.indexOf('aria-label="Guest list views"')), screen.indexOf('aria-label="Guest list views"'));
+  assert.match(screen, /\.\.\.\(tops\.includes\('march'\) \? \[\{ key: 'march', label: GUESTS_TOP_LABEL\.march/, 'the ▾ does not offer the March');
+  const rowAt = screen.indexOf('data-first-row="" data-guests-top-row=""');
+  const row = screen.slice(screen.lastIndexOf('<div', rowAt), rowAt);
   assert.doesNotMatch(row, /\bhidden\b/, 'the view row is hidden at some width — a phone could not reach the March');
+  const summary = screen.slice(screen.indexOf('function PinnedSummary('), screen.indexOf('function joinedToTheRowAbove'));
+  assert.doesNotMatch(summary, /\bhidden\b/, 'the ▾ is hidden at some width');
   const page = read(GUESTS, 'page.tsx');
   assert.match(page, /redirect\(guestsViewHref\(eventId, 'march'\)\)/, 'an old ?gview=walk link no longer lands on Guests › March');
   // ⤷ 2026-09-30 (Fix E): the phone carousel was deleted; the phone draws the

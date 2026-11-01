@@ -65,9 +65,15 @@ type Props = {
   outerKm?: number | null;
   /** Grey the map: the rings are not live yet (an unverified shop). */
   muted?: boolean;
+  /**
+   * The map's spoken label for a reader who is NOT the supplier — the public shop page (supplier website by plan,
+   * 2026-10-30) draws the plan's ring for couples, where "your headquarters" would be the wrong voice. Default: the
+   * supplier's own wording below, unchanged.
+   */
+  ariaLabel?: string;
 };
 
-export function ReachMap({ lat, lng, radiusKm, innerKm = null, outerKm = null, muted = false }: Props) {
+export function ReachMap({ lat, lng, radiusKm, innerKm = null, outerKm = null, muted = false, ariaLabel }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
 
@@ -157,11 +163,12 @@ export function ReachMap({ lat, lng, radiusKm, innerKm = null, outerKm = null, m
       data-reach-map={muted ? 'muted' : ''}
       role="img"
       aria-label={
-        outer !== null
+        ariaLabel ??
+        (outer !== null
           ? `Map of your headquarters: free transport within ${inner ?? 0} kilometres, you cover up to ${outer} kilometres`
           : hasRing
             ? `Map showing your service coverage of about ${radiusKm} kilometres around your headquarters`
-            : 'Map showing your headquarters location'
+            : 'Map showing your headquarters location')
       }
     >
       {tiles.map((t) => (

@@ -135,8 +135,12 @@ export function DayOfAnnouncement({
     );
   /* On the day it is sticky so it follows the reader down a long page — the guest who needs "phones down" is the one
      already scrolled into their seat card. Before the day it sits at the top, in flow. */
+  /* 📱 It is the FIRST row of the page when it shows (mounted by the layout above every page), so it clears the
+     iPhone's clock and Dynamic Island itself — padding by the top inset, in flow and pinned alike (owner 2026-10-30,
+     "event hub's first row in conflict with the iphone's signals row"). `data-safe-x`: the side insets (globals.css).
+     🔒 app/[slug]/_lib/the-hub-clears-the-island.test.ts. */
   return (
-    <div className={stage === 'live' ? 'sticky top-0 z-50' : undefined}>
+    <div data-safe-x="" className={`pt-[env(safe-area-inset-top,0px)] ${stage === 'live' ? 'sticky top-0 z-50' : ''}`}>
       {look}
       {card}
     </div>

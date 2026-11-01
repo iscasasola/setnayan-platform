@@ -23,7 +23,7 @@ import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
 import { supplierPageMenuOf } from './supplier-page-menu';
 import { CUSTOMER_SEGMENTS, CUSTOMER_SEGMENT_HREFS, CUSTOMER_SEGMENT_LABEL } from '../customers/segments';
-import { SHOP_SEGMENT_HREF, SHOP_SEGMENT_LABEL } from '../shop/_components/shop-segments';
+import { SHOP_SEGMENT_HREF, SHOP_SEGMENT_LABEL } from '../shop/_components/shop-sections';
 
 const WEB = join(__dirname, '..', '..', '..');
 const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
@@ -62,7 +62,10 @@ test('3 · the page menu reads each tab from its own source and invents nothing'
   const c = supplierPageMenuOf('/vendor-dashboard/customers', null);
   assert.ok(c, 'Customers has no menu');
   assert.equal(c!.tab, 'Customers');
-  assert.equal(c!.section, CUSTOMER_SEGMENT_LABEL.people);
+  // 2026-10-30: Customers' first section is EVENTS (owner 2026-10-29, "Customers are events, not people").
+  assert.equal(c!.section, CUSTOMER_SEGMENT_LABEL.events);
+  assert.equal(c!.section, 'Events');
+  assert.equal(supplierPageMenuOf('/vendor-dashboard/customers', 'people')!.section, 'Events', 'the old ?seg=people names a section that is gone');
   assert.deepEqual(c!.sections!.map((s) => s.href), CUSTOMER_SEGMENTS.map((s) => CUSTOMER_SEGMENT_HREFS[s]));
   assert.equal(supplierPageMenuOf('/vendor-dashboard/customers', 'money')!.section, CUSTOMER_SEGMENT_LABEL.money);
 

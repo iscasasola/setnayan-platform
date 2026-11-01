@@ -291,10 +291,7 @@ export default async function SupplierPlanLabPage({
       <SettingsView
         unread={3}
         manager={sp.staff !== '1'}
-        storeShell={false}
-        tier={SHOPS[who].tier}
         payout={who === 'parish' ? 'none' : 'ready'}
-        helpers={who === 'parish' ? 1 : who === 'studio' ? 3 : 0}
         tools={settingsMoreTools({ hasMoodboardLibraryAccess: true, hasMusicRepertoireAccess: who === 'studio', storeShell: false })}
       />
     );

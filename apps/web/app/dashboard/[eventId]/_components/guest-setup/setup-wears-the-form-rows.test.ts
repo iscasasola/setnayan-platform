@@ -77,15 +77,15 @@ test('every row is a Form row; the rows that are not a shared part are FormRow w
   const html = await renderSetup({ getIn: 'list' });
   const rows = [...html.matchAll(/data-setup-row="([^"]+)"/g)].map((m) => m[1]);
   // ⚙ Guests ⚙ (2026-10-27): + Requests to join · 🗂 R1 (2026-10-28): + How guests answer, Replies open · close.
-  assert.deepEqual(rows, ['get-in', 'invitations', 'asks', 'answer', 'reply-by', 'replies-window', 'requests', 'finalize']);
+  // 🗂 R4 slice 11: no Invitations row — sending lives on the List (the To invite door's Invite N ›, Select › ✉ Invite N).
+  assert.deepEqual(rows, ['get-in', 'asks', 'answer', 'reply-by', 'replies-window', 'requests', 'finalize']);
   for (const row of rows) assert.match(html, new RegExp(`data-form-row="[^"]*"[^>]*data-setup-row="${row}"|data-setup-row="${row}"[^>]*data-form-row="`), `${row} is not a Form row`);
   assert.equal((html.match(/data-form-rows="guest-setup"/g) ?? []).length, 1, 'more than one list');
-  assert.match(html, /data-testid="setup-send"/);
-  assert.match(html, /data-testid="setup-pick-who"/);
+  assert.doesNotMatch(html, /data-testid="setup-send"|data-testid="setup-pick-who"/, 'the ⚙ sends invitations again');
   assert.match(html, /data-testid="setup-finalize-now"/);
 });
 
-test('one filled forward step per row, and it is the brand (Send · Copy) or the OK (Finalize) — never a second', async () => {
+test('one filled forward step per row, and it is the brand (Copy) or the OK (Finalize) — never a second', async () => {
   for (const getIn of ['list', 'personal', 'one_qr'] as const) {
     const html = await renderSetup({ getIn });
     for (const chunk of html.split('data-form-row=').slice(1)) {
@@ -93,20 +93,15 @@ test('one filled forward step per row, and it is the brand (Send · Copy) or the
       assert.ok(filled <= 1, `${getIn}: a Setup row has ${filled} filled buttons`);
     }
   }
-  const send = await renderSetup({ getIn: 'personal' });
-  assert.match(send, /class="ab ab-brand ab-main[^"]*"[^>]*data-testid="setup-send"|data-testid="setup-send"[^>]*class="ab ab-brand ab-main/, 'Send to N is not the brand filled step');
   const copy = await renderSetup({ getIn: 'one_qr' });
   assert.match(copy, /aria-label="Copy"[^>]*class="ab ab-brand ab-main/, 'Copy is not the brand filled step');
-  const none = await renderSetup({ getIn: 'personal', toInvite: 0 });
-  assert.doesNotMatch(none.slice(none.indexOf('Everyone invited') - 300, none.indexOf('Everyone invited')), /ab-main/, '"Everyone invited" is a filled forward step');
 });
 
 test('the sentences sit behind an ⓘ (Explain), the counts stay on the row', async () => {
   const html = await renderSetup({ getIn: 'list' });
   assert.ok((html.match(/data-explain=""/g) ?? []).length >= 4, 'Setup’s rows lost their ⓘ');
-  assert.doesNotMatch(html, /One by one from your phone/, 'the Invitations sentence is printed under the name');
+  assert.doesNotMatch(html, /One by one from your phone/, 'the Invitations row is back');
   assert.doesNotMatch(html, /Your invitation asks guests to reply by this day/, 'the Reply by sentence is printed under the name');
-  assert.match(html, /to invite\./, 'the count of who is left is not on the row');
   assert.doesNotMatch(read('guest-setup-rows.tsx'), /InfoTip|info-tip/, 'the older ⓘ is back');
 });
 

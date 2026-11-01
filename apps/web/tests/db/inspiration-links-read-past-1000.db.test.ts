@@ -115,7 +115,7 @@ test('4 · Admin › Categories: every part the tables link to Events Place is i
     )
   ).rows.map((r) => r.slot_key);
   assert.ok(want.length > 2, `only ${want.length} parts link events_place — the owner's "2 old parts" would not be visible`);
-  const cats = { groups: [], categories: [], services: [], tax: { hiddenCategories: {}, tileCoarseCategory: {} } };
+  const cats = { groups: [], categories: [], services: [], tax: { hiddenCategories: {}, tileCoarseCategory: {} }, failed: [] };
   const map = await LM.loadMapData(capped() as never, cats as never);
   assert.equal(map.partsRead, true, 'the paged read failed');
   const got = map.parts.filter((p) => p.services.includes('events_place')).map((p) => p.key).sort();
@@ -133,7 +133,7 @@ test('5 · a read that cannot prove it finished is an ERROR to the admin map, ne
       return { ...q, select: (c: string) => q.select(c) };
     },
   };
-  const cats = { groups: [], categories: [], services: [], tax: { hiddenCategories: {}, tileCoarseCategory: {} } };
+  const cats = { groups: [], categories: [], services: [], tax: { hiddenCategories: {}, tileCoarseCategory: {} }, failed: [] };
   const map = await LM.loadMapData(noCount as never, cats as never);
   assert.equal(map.partsRead, false, 'a read with no count was drawn as the whole list');
 });

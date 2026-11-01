@@ -7,7 +7,9 @@ import {
   renderBrandedEmail,
   type BrandedEmailSection,
 } from '@/lib/email-template';
-import { isWebPushConfigured, sendWebPush } from '@/lib/web-push';
+import { isAnyPushConfigured, sendPushForNotice } from '@/lib/push-send.server';
+import { pushDecision } from '@/lib/push-levels';
+import { pushRsvpReply } from '@/lib/rsvp-push.server';
 import { isPlaceholderEmail } from '@/lib/anon-onboarding';
 import type { NotificationType } from '@/lib/notifications';
 import { notificationEmailReason } from '@/lib/notification-email-reason';
@@ -15,33 +17,10 @@ import { eventIdFromRelatedUrl } from '@/lib/notification-event-id';
 import { coupleSupplierEventSections } from '@/lib/couple-supplier-notices';
 import { logQueryError } from '@/lib/supabase/error-detect';
 
-// Web Push is wired at the same funnel as email but kept deliberately MINIMAL:
-// only the highest-signal, time-sensitive types fire a push on top of the
-// in-app notification + email. Everything else stays in-app/email only (the
-// rest of 0028 is untouched). `chat_message` is the canonical "new
-// vendor/couple message"; `vendor_inquiry_received` is its vendor-facing
-// counterpart (a new booking inquiry to answer). Add more types here later as
-// per-channel preferences (0028 deferred item) land.
-//
-// NOTE (deviation): the brief named "wedding-day reminder" as the 2nd emit
-// point, but no `wedding_day_reminder` notification type exists in the code —
-// day-of mode (0031) is UI/cron-free and emits no notification. We wired
-// `vendor_inquiry_received` instead as the second high-signal push type.
-const PUSH_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
-  'chat_message',
-  'vendor_inquiry_received',
-  // security_alert (2026-06-12): "your password was changed" is exactly the
-  // high-signal, time-sensitive class this allowlist exists for — if it
-  // WASN'T the user, every second until they see it matters.
-  'security_alert',
-  // inquiry_accepted (inquiry-accepted-visibility 2026-06-16): a vendor taking
-  // the couple's inquiry opens the thread + reveals the name — the moment the
-  // couple has been waiting on. High-signal + time-sensitive (they'll want to
-  // reply while the vendor is engaged), so it earns a push. The type already
-  // exists in the NotificationType enum + is emitted on accept; this only adds
-  // the push channel — no schema change.
-  'inquiry_accepted',
-]);
+// 📱 WHICH NOTICE REACHES A PHONE, AND WHEN, IS NOT DECIDED HERE: every type has one
+// level in lib/push-levels.ts (owner 2026-10-31, "Yes, add them" — Urgent · Normal ·
+// Low + quiet hours), and `pushDecision` below is the one gate. Mentions further
+// down of why a type "does not buzz" are that type's reason for being Low.
 
 // ---------------------------------------------------------------------------
 // EMAIL allowlist (Notification Foundation · Phase A · 2026-06-19).
@@ -52,7 +31,7 @@ const PUSH_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
 // in-app signal (kwento flash counts, informational badges, etc.). 0028 only
 // ever specified email for the transactional set.
 //
-// This Set mirrors PUSH_ENABLED_TYPES: email fires ONLY for types in here.
+// Email fires ONLY for types in here.
 // Everything else stays in-app/push-only (NO email). Gating to an allowlist
 // can only REDUCE sends — it never emails a type that wasn't already being
 // emailed — so this is a backward-safe, additive-direction change.
@@ -64,7 +43,7 @@ const PUSH_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
 // `payment_instructions` type (instructions go out via the checkout email
 // path, not emitNotification) and `wedding_day_reminder` (day-of mode 0031 is
 // cron-free and emits no notification). "new vendor message" IS `chat_message`
-// (see PUSH_ENABLED_TYPES note above). The two NEW Phase-A types listed here
+// (a phone notice is lib/push-levels.ts). The two NEW Phase-A types listed here
 // (vendor_status_change, dispute_resolved) are transactional and belong on the
 // allowlist now even though Phase A doesn't yet emit them — Phase B wires the
 // emit sites.
@@ -100,7 +79,8 @@ const EMAIL_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
   'security_alert',
   'vendor_status_change',
   // Bookings + vendor relationship.
-  'rsvp_received',
+  // ⛔ `rsvp_received` WAS HERE until 2026-10-31 — the owner asked what an email
+  // per RSVP costs us, and moved it to the phone (lib/push-levels.ts). Do not put it back without his word.
   'inquiry_accepted',
   'booking_confirmed',
   'review_received',
@@ -159,7 +139,7 @@ const EMAIL_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
   // the couple may not be in the app when the window opens. ai_guard_alert
   // (GRD-02 statutory / GRD-05 over-budget) is deliberately NOT here: per the
   // spec's restraint rules everything non-payment stays in-app + weekly digest.
-  // Neither AI type joins PUSH_ENABLED_TYPES — the push-worthy guards
+  // Neither AI type buzzed when this was written — the push-worthy guards
   // (GRD-09/10 booked-out, GRD-03 price change) have no data source yet
   // (availability/price-change log = the MI spec's net-new table).
   'ai_payment_due',
@@ -188,8 +168,7 @@ const EMAIL_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
   //   · withdrawn → the SUPPLIER again, and for the same reason as received:
   //     they set a date aside for this and are owed the fact that they no
   //     longer need to.
-  // Deliberately NOT in PUSH_ENABLED_TYPES: that list is four types and a 7-day
-  // fuse is not that urgent.
+  // A 7-day fuse is not Urgent: Normal in lib/push-levels.ts, held in quiet hours.
   'lock_request_received',
   'lock_request_nudge',
   'lock_request_agreed',
@@ -238,8 +217,7 @@ const EMAIL_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
     `part-finalization-notifications.test.ts` fails if any of these five drops
     off this set or lands in MARKETING_GATED_EMAIL_TYPES below.
 
-    ⚠ Deliberately NOT in PUSH_ENABLED_TYPES: that list is four types, and a
-    48-hour fuse on a design detail is not a 2am buzz.
+    ⚠ Low in lib/push-levels.ts: a 48-hour fuse on a design detail is not a buzz.
     ⚠ Deliberately NOT in MARKETING_GATED_EMAIL_TYPES: that set suppresses
     unless users.marketing_opt_in = TRUE, which is NOT NULL DEFAULT FALSE — the
     mistake that silenced all six lock_request_* types for every user.
@@ -264,8 +242,8 @@ const EMAIL_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
     is about the supplier's own work, and a statutory right was exercised), and
     that set suppresses unless users.marketing_opt_in = TRUE — the mistake that
     silenced all six lock_request_* types for every user.
-    ⚠ Deliberately NOT in PUSH_ENABLED_TYPES: the photo is already down; a 2am
-    buzz would add nothing but alarm.
+    ⚠ Low in lib/push-levels.ts: the photo is already down; a buzz would add
+    nothing but alarm.
   */
   'guest_takedown_honored',
   /*
@@ -283,7 +261,7 @@ const EMAIL_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
     ⚠ Deliberately NOT in MARKETING_GATED_EMAIL_TYPES below: that set suppresses
     unless users.marketing_opt_in = TRUE, which is NOT NULL DEFAULT FALSE — the
     mistake that silenced all six lock_request_* types for every user.
-    ⚠ Deliberately NOT in PUSH_ENABLED_TYPES: a colour is not a 2am buzz.
+    ⚠ Low in lib/push-levels.ts: a colour is not a buzz.
     `colour-change-notifications.test.ts` fails if it drops off this set, lands
     in the gated one, or stops being emitted.
   */
@@ -308,8 +286,8 @@ const EMAIL_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
     supplier's own money and their own booking. That set suppresses unless
     users.marketing_opt_in = TRUE, a NOT NULL DEFAULT FALSE column — the mistake
     that silenced all six lock_request_* types for every user.
-    ⚠ Deliberately NOT in PUSH_ENABLED_TYPES: nothing here is time-critical and
-    there is nothing to act on.
+    ⚠ Low in lib/push-levels.ts: nothing here is time-critical and there is
+    nothing to act on.
     `the-waived-fee-sends-a-receipt.test.ts` fails if it drops off this set,
     lands in the gated one, or stops being emitted.
   */
@@ -644,17 +622,20 @@ export async function emitNotification(args: EmitNotificationArgs): Promise<void
     }
   }
 
-  // Best-effort Web Push for the high-signal types only. Gated on VAPID env
-  // (no-ops when unset) and fully fire-and-forget — a push failure never
-  // affects the in-app notification or the email that already landed.
-  if (isWebPushConfigured() && PUSH_ENABLED_TYPES.has(type)) {
+  // The phone notice: its level decides (lib/push-levels.ts) and the ONE template
+  // writes it (lib/push-message.ts). A held notice is not lost — its bell row just
+  // landed, and the 7 am release or the evening summary reads it
+  // (lib/push-schedule.server.ts). A push failure never affects the bell row or
+  // the email that already landed.
+  if (isAnyPushConfigured() && pushDecision(type, Date.now()) === 'send') {
     try {
-      await sendWebPush(userId, {
-        title,
-        body,
-        url: relatedUrl,
-        tag: type,
-      });
+      // A reply counts the host's unread replies for its event and replaces the
+      // last one on the lock screen; everything else is the bell row's twin.
+      if (type === 'rsvp_received' && eventId) {
+        await pushRsvpReply(userId, eventId);
+      } else {
+        await sendPushForNotice({ userId, type, title, body, relatedUrl, eventId });
+      }
     } catch (e) {
       console.error('[notifications] push-on-emit failed:', e);
     }

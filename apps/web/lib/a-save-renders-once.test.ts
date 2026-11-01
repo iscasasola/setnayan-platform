@@ -42,8 +42,9 @@ const WEB = join(__dirname, '..');
 const sites: RefreshSite[] = auditRefreshes(WEB);
 const at = (s: RefreshSite) => `${s.file}:${s.line}`;
 
-/** The refreshes kept because nobody could prove them either way (2026-10-20). This number may only go DOWN. */
-const UNSURE_CEILING = 7;
+/** The refreshes kept because nobody could prove them either way (2026-10-20). This number may only go DOWN.
+ *  7 → 1 on 2026-10-30: six of them were the 3D room's edit paths, gone when the room became view-only. */
+const UNSURE_CEILING = 1;
 
 const NO_WRITE_REASONS = new Set(['realtime', 'retry', 'auth', 'navigation', 'client-write', 'other-frame', 'no-revalidate']);
 

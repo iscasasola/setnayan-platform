@@ -26,6 +26,7 @@ const code = (rel: string) => {
 const CH = code('_components/memories-chapters.tsx');
 const THUMB = code('_components/memories-thumb.tsx');
 const PAGE = code('page.tsx');
+const WALL = code('_components/memories-wall-viewer.tsx');
 
 const between = (src: string, a: string, b: string) => {
   const i = src.indexOf(a);
@@ -98,7 +99,10 @@ const SEATS: Array<[string, string, RegExp]> = [
   ['Editorials', PAGE, /<EditorialsTab userId=\{user\.id\} \/>/],
   ['Saved suppliers', PAGE, /<VendorsTab userId=\{user\.id\} \/>/],
   // (2026-10-26: the Papic page is gone — the couple's frame opens the event's Memories, where the photos live.)
-  ['A frame opens the event Memories (owned) or the photo (attended)', CH, /item\.role === 'couple'\) return \{ href: `\/dashboard\/\$\{item\.eventId\}\/memories`/],
+  // (2026-10-30: a frame opens the photo itself in the shared viewer template; your own event's Memories is its
+  //  "Event" button — `memories-wall-viewer.tsx`, owner: "the same template will show but no need for tagging".)
+  ['A frame opens the photo in the viewer (WallOpen)', CH, /<WallOpen item=\{item\}/],
+  ['…and your own event’s Memories from it (owned)', WALL, /item\.role === 'couple'\) \{[\s\S]{0,200}router\.push\(`\/dashboard\/\$\{item\.eventId\}\/memories`\)/],
   ['The day’s chapters come from the run of show', CH, /groupIntoChapters\(\{/],
 ];
 for (const [what, src, re] of SEATS) {

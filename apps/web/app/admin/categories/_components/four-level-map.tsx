@@ -38,6 +38,7 @@ import { CATEGORIES_PATH, categoriesHref, type CategoriesShow } from './back';
 import { nearMatches } from './model';
 import {
   addPool,
+  cardById,
   cardsOf,
   categoriesOf,
   categoryById,
@@ -86,6 +87,9 @@ import {
   type RowHandlers,
 } from './map-rows';
 import { MapToast } from './map-toast';
+import { DrawerSayProvider, useSay } from './drawer-kit';
+import { MoreHorizontal } from 'lucide-react';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 
 type WriteResult = { ok: true; message: string; id?: string; previous?: string } | { ok: false; error: string };
 
@@ -456,10 +460,12 @@ export function FourLevelMap({ data, start, q, show, drawer, counts, groupDefaul
         <ColHead
           level="service"
           title={tip('Services', 'What a shop picks as its service (vendor_services.category). Its cards live inside it. Drag a service onto another category to move it. Order ▾ in a service’s drawer orders it on this page; couples and shops still see services A–Z.')}
-          sub={c ? `${plural(servicesOf(data, c.id).length, 'service')} · what suppliers pick` : '—'}
+          sub={c && data.servicesRead ? `${plural(servicesOf(data, c.id).length, 'service')} · what suppliers pick` : '—'}
         />
       ),
-      body: c ? (
+      body: !data.servicesRead ? (
+        <p role="alert" className="px-2.5 py-3 text-sm text-ink" data-services-unread="">Couldn’t load the services — refresh to try again.</p>
+      ) : c ? (
         <>
           {servicesOf(data, c.id).map((s) => {
             const st = rowState(`s:${s.key}`);
@@ -580,7 +586,7 @@ export function FourLevelMap({ data, start, q, show, drawer, counts, groupDefaul
         >
           <Dot /> Needs a look · {needs}
           <span className="hidden font-normal opacity-70 sm:inline">
-            ({gapCategories(data).length} without a service · {gapParts(data).length} parts without a service · {heldCards(data).length} held cards
+            ({data.servicesRead ? gapCategories(data).length : '—'} without a service · {gapParts(data).length} parts without a service · {heldCards(data).length} held cards
             {unfiledCategories(data).length ? ` · ${unfiledCategories(data).length} filed under Other` : ''})
           </span>
         </a>
@@ -661,7 +667,9 @@ export function FourLevelMap({ data, start, q, show, drawer, counts, groupDefaul
       <MapDrawer
         open={drawerOpen}
         onClose={closeDrawer}
-        label={picker ? 'Pick parts' : LEVEL_WORD[drawerLevel]}
+        level={picker ? 'Pick parts' : LEVEL_WORD[drawerLevel]}
+        name={picker ? (categoryById(data, picker.cid)?.label ?? '') : nameOfItem(data, drawerItem)}
+        more={picker || !drawerItem ? null : <DrawerMore data={data} item={drawerItem} />}
         back={{ label: backLabel, onBack: closeDrawer }}
         ownsHistory={Boolean(drawerItem)}
       >
@@ -1031,7 +1039,7 @@ function PhoneMap({
               key={x.id}
               id={`c:${x.id}`}
               label={x.label}
-              sub={servicesOf(data, x.id).length ? plural(servicesOf(data, x.id).length, 'service') : 'no service'}
+              sub={!data.servicesRead ? '— services' : servicesOf(data, x.id).length ? plural(servicesOf(data, x.id).length, 'service') : 'no service'}
               on={false}
               glyph={<GroupGlyph name={x.iconName ?? g.iconName} fallback={groupDefaultIcon[g.id] ?? null} className="h-8 w-8" />}
               onTap={() => handlers.onTap(`c:${x.id}`)}
@@ -1128,13 +1136,19 @@ function PhoneMap({
               <h3 className="flex items-center gap-2 text-sm font-semibold text-ink">
                 <LevelIcon level="service" /> Services <small className="font-normal text-ink/70">— what suppliers pick</small>
               </h3>
-              <small className="text-xs text-ink/70">{plural(svcs.length, 'service')}</small>
+              <small className="text-xs text-ink/70">{data.servicesRead ? plural(svcs.length, 'service') : '—'}</small>
             </div>
-            {svcs.map((s) => (
-              <ServiceRow key={s.key} d={data} s={s} on={sel.sel === `s:${s.key}`} isNew={justAdded === `s:${s.key}`} h={{ ...handlers, drag: null }} />
-            ))}
-            {svcs.length ? null : <p className="px-2.5 py-3 text-xs text-terracotta-700">No service yet — no shop can file here until one exists.</p>}
-            <AddRow kind="service" placeholder="Add a service" data={data} onAdd={(l) => addService(c.id, l)} asWord={{ q, show }} />
+            {!data.servicesRead ? (
+              <p role="alert" className="px-2.5 py-3 text-sm text-ink" data-services-unread="">Couldn’t load the services — refresh to try again.</p>
+            ) : (
+              <>
+                {svcs.map((s) => (
+                  <ServiceRow key={s.key} d={data} s={s} on={sel.sel === `s:${s.key}`} isNew={justAdded === `s:${s.key}`} h={{ ...handlers, drag: null }} />
+                ))}
+                {svcs.length ? null : <p className="px-2.5 py-3 text-xs text-terracotta-700">No service yet — no shop can file here until one exists.</p>}
+                <AddRow kind="service" placeholder="Add a service" data={data} onAdd={(l) => addService(c.id, l)} asWord={{ q, show }} />
+              </>
+            )}
           </section>
           <section className="mt-3.5" data-block="parts">
             <div className="mb-1.5 flex min-h-10 items-center justify-between gap-2 border-b border-ink/10">
@@ -1223,30 +1237,108 @@ function PhoneMap({
  * ‹ in its pinned header that goes back to the map standing on the level it was opened from (`closeDrawer`, which
  * already writes `?in=…&at=…`). The phone's Back: a drawer opened by a tap owns its own history entry (`?open=`), so Back
  * pops that and the map follows the address; the parts picker has no address, so the sheet takes one for it.
- * ⚠ Its CONTENTS are untouched — the drawer's sections are being redesigned separately.
+ * 📌 THE APPROVED FRAME (owner 2026-10-29, "Approve panels" — prototype `carry-2026-10-29/admin-categories-proto`): the
+ * sheet's PINNED ROW — ‹ · the level word over the item's name (wraps) · ⋯ rare actions — and, on a phone, the whole
+ * screen. Its toast (`DrawerSayProvider`) is drawn on <body> too, so "Saved — … · Undo" is never under the sheet.
+ * Room under the last fold (32vh) so an open fold can always sit at the top.
  */
 function MapDrawer({
   open,
   onClose,
-  label,
+  level,
+  name,
+  more,
   back,
   ownsHistory,
   children,
 }: {
   open: boolean;
   onClose: () => void;
-  label: string;
+  /** The level word over the name — "Category", "Service card", "Pick parts". */
+  level: string;
+  /** The item's name — wraps, never cut. */
+  name: string;
+  /** The ⋯ of rare actions (Copy key · Delete … · Open the shop). */
+  more: ReactNode;
   back: { label: string; onBack: () => void };
   /** The drawer has an address of its own (`?open=`) — Back already steps out of it. */
   ownsHistory: boolean;
   children: ReactNode;
 }) {
   return (
-    <Sheet open={open} onClose={onClose} labelledById="map-drawer-label" title={label} wide backCloses={!ownsHistory} back={back}>
-      <div data-map-drawer="" className="px-5 pb-6 pt-3">
-        {children}
-      </div>
-    </Sheet>
+    <DrawerSayProvider>
+      <Sheet
+        open={open}
+        onClose={onClose}
+        labelledById="map-drawer-label"
+        wide
+        full
+        backCloses={!ownsHistory}
+        back={back}
+        pinned={{ level, name, more }}
+      >
+        <div data-map-drawer="" className="px-4 pb-6 [&::after]:block [&::after]:h-[32vh] [&::after]:content-['']">
+          {children}
+        </div>
+      </Sheet>
+    </DrawerSayProvider>
+  );
+}
+
+/** The drawer item's name, for the pinned row. */
+function nameOfItem(data: MapData, item: string): string {
+  const id = item.slice(2);
+  if (item.startsWith('g:')) return groupById(data, id)?.label ?? '';
+  if (item.startsWith('c:')) return categoryById(data, id)?.label ?? '';
+  if (item.startsWith('s:')) return serviceByKey(data, id)?.label ?? '';
+  if (item.startsWith('p:')) return partByKey(data, id)?.label ?? '';
+  if (item.startsWith('k:')) return cardById(data, id)?.title ?? '';
+  return '';
+}
+
+/**
+ * ⋯ — the drawer's RARE actions (prototype's ⋯): Copy key · Delete category… / Combine into another service… (opens
+ * the red fold at the foot and brings it into view — the act itself stays there, behind its confirm) · Open the shop.
+ * One PickMenu, like every set of choices.
+ */
+function DrawerMore({ data, item }: { data: MapData; item: string }) {
+  const router = useRouter();
+  const say = useSay();
+  const id = item.slice(2);
+  const card = item.startsWith('k:') ? cardById(data, id) : null;
+  const options = [
+    ...(card ? [] : [{ key: 'copy', label: `Copy key ${id}` }]),
+    ...(item.startsWith('c:') ? [{ key: 'danger', label: 'Delete category…' }] : []),
+    ...(item.startsWith('s:') ? [{ key: 'danger', label: 'Combine into another service…' }] : []),
+    ...(card ? [{ key: 'shop', label: 'Open the shop' }] : []),
+  ];
+  return (
+    <PickMenu
+      label="More actions"
+      value=""
+      options={options}
+      trigger={<MoreHorizontal aria-hidden className="h-[22px] w-[22px]" strokeWidth={1.75} />}
+      className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink hover:bg-ink/5"
+      onPick={(key) => {
+        if (key === 'copy') {
+          void navigator.clipboard?.writeText(id).then(
+            () => say?.({ text: 'Key copied', tone: 'ok' }),
+            () => say?.({ text: 'Couldn’t copy — the key is in the ⓘ under the name', tone: 'bad' }),
+          );
+        } else if (key === 'danger') {
+          // The red fold carries `anchor="drawer-danger"`: the address opens it and brings it into view.
+          try {
+            window.history.replaceState(window.history.state, '', `${window.location.pathname}${window.location.search}#drawer-danger`);
+            window.dispatchEvent(new HashChangeEvent('hashchange'));
+            window.history.replaceState(window.history.state, '', `${window.location.pathname}${window.location.search}`);
+          } catch {
+            /* the fold is still at the foot of the panel */
+          }
+        } else if (key === 'shop' && card) {
+          router.push(`/admin/vendors/${card.shopId}`);
+        }
+      }}
+    />
   );
 }
 
@@ -1289,6 +1381,7 @@ function PartPicker({
   const count = data.parts.filter(linkedNow).length;
 
   function toggle(p: MapPart) {
+    if (!data.servicesRead) return onSaid('Couldn’t load the services — refresh to try again.');
     if (targets.length === 0) return onSaid('This category has no service yet — add one first.');
     const on = !linkedNow(p);
     setOptimistic((o) => ({ ...o, [p.key]: on }));

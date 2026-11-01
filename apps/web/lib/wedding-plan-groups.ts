@@ -735,60 +735,15 @@ export function statusOfVendor(rawStatus: string | null | undefined): VendorPick
   return rawStatus && LOCKED_STATUSES.has(rawStatus) ? 'locked' : 'picked';
 }
 
-/**
- * Saturation rules per CLAUDE.md 2026-05-09 lock + 2026-05-20 row 470
- * (12-folder marketplace remap) + 2026-05-22 22-card grid expansion.
- *
- * Hard-single groups: only one vendor can be locked at any time. A
- * second lock attempt surfaces a Switch / Cancel modal so the host can
- * either swap the existing lock OR cancel the new attempt.
- *
- * Soft-single + multi-uncapped groups: lock proceeds without confirm.
- * (Soft-single warning UX is V1.1 — for V1 we don't gate beyond the
- * hard-single set because the multi-pick reality is common across
- * Filipino weddings — e.g. two principal officiants, three photo teams.)
- *
- * Hard-single across the 22-card grid:
- *   • ceremony_venue   — 1 church/chapel only
- *   • reception_venue  — 1 venue only
- *   • officiant        — 1 officiant. Mixed-faith weddings override via Switch.
- *   • coordinator      — 1 coordinator. Partial-coordinator splits handle
- *     via the Logistics card multi-pick.
- *   • host_mc          — 1 emcee. Co-hosts handled via Switch + custom
- *     vendor add to the secondary slot.
- *   • led_background   — 1 LED supplier. Multi-screen events go via
- *     Logistics multi-pick.
- *
- * Other groups have legitimate multi-lock scenarios:
- *   • catering: 1 main caterer is common but specialty caterers (cake,
- *     dessert bar, signature drinks) are routinely co-locked.
- *   • photography: photo + video are separate categories often booked
- *     separately as 2 different vendors.
- *   • attire: gown + suit are 2 separate vendors.
- *   • hair_makeup: bridal MUA + hair + family MUA all separately booked.
- *   • florals_decor: florist + stylist often separate.
- *   • music_entertainment: DJ + string quartet + choir all separable.
- *   • cocktail_booths: multiple booth types co-locked (mobile bar +
- *     coffee + cocktail station).
- *   • photobooth: classic + 360 + mirror sometimes co-booked.
- *   • logistics: transportation + security + giveaways all separate.
+/*
+ * ONE PER EVENT — which groups allow only ONE locked supplier at a time (a second lock surfaces the Switch / Cancel
+ * modal) — is NOT a list in code any more. It was `HARD_SINGLE_PICK_GROUPS` here (ceremony venue · reception venue ·
+ * officiant · coordinator · host / MC · LED) plus a matching CASE in the database, kept in step by hand. Since the
+ * owner's ruling of 2026-10-29 ("build them, with the One per event switch"; "remove LED Background. we can book
+ * multiple for that as well") it is ONE switch per category, `service_categories.one_per_event`, edited on
+ * Admin › Categories, read by the app through `lib/one-per-event.ts` and by the database lock guard. Every other
+ * group has legitimate multi-lock scenarios (specialty caterers, photo + video, gown + suit, DJ + quartet …).
  */
-export const HARD_SINGLE_PICK_GROUPS: ReadonlySet<PlanGroupId> = new Set([
-  'ceremony_venue',
-  'reception_venue',
-  'officiant',
-  'coordinator',
-  'host_mc',
-  'led_background',
-]);
-// after_party_music NOT in HARD_SINGLE — it's an entry-point card
-// (countsTowardLockable: false). Picks locked via this card aggregate
-// into the music_entertainment plan-grid cell where the existing
-// non-hard-single semantics apply (multiple band_dj picks allowed).
-
-export function isHardSinglePickGroup(groupId: PlanGroupId): boolean {
-  return HARD_SINGLE_PICK_GROUPS.has(groupId);
-}
 
 /**
  * Look up which PlanGroupId a vendor category belongs to, or null if the

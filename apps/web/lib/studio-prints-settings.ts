@@ -36,6 +36,53 @@ export type PrintSettingsHead = keyof typeof PRINT_SETTINGS_HEADS;
 /** Said once, under "On every print": the sizes stay on the rows (one home per decision). */
 export const PRINT_SETTINGS_SIZES_LINE = 'Sizes are picked on each piece’s row, where its picture redraws.';
 
+/**
+ * ⚙ THE SHEET OPENS AT THE PRINT ON SCREEN (owner 2026-10-31, *"Yes follow your recommendation"* — "when you tap ⚙ on a print, open
+ * the same sheet already scrolled to that print's own section, with 'On every print' still above it. You land on the right
+ * settings, but nothing is hidden or split into separate sheets."). Which heading holds a print's OWN switches — only where that
+ * heading's switches change that print's file (measured on the routes: the Digital ticket forces names on and has no corners, so it
+ * is not under Passes; Table signs & place cards read no seat-plan switch). A print not named here has no section of its own: the
+ * sheet opens at its top. The sheet scrolls; it never hides, filters or splits a section (`print-settings-opens-at-this-print.test.ts`).
+ */
+export const PRINT_SETTINGS_SECTION_OF: Readonly<Partial<Record<string, PrintSettingsHead>>> = {
+  invitation: 'invitation',
+  details: 'details',
+  pass: 'passes',
+  'story-poster': 'story',
+  'seat-plan': 'seating',
+  'seating-chart': 'seating',
+};
+/** The heading the sheet opens at for the print on screen — null: its top (the lead, then "On every print"). */
+export function printSettingsSectionFor(piece: string | null | undefined): PrintSettingsHead | null {
+  return piece ? (PRINT_SETTINGS_SECTION_OF[piece] ?? null) : null;
+}
+
+/** The sheet's scrolling body, as much of it as the open needs (an `HTMLElement` is one). */
+export type PrintSettingsScroller = {
+  scrollTop: number;
+  /** The scroll area's height, and its content's — measured with the room below (`room`) at 0. */
+  clientHeight: number;
+  scrollHeight: number;
+  getBoundingClientRect(): { top: number };
+  querySelector(selector: string): { getBoundingClientRect(): { top: number } } | null;
+};
+/**
+ * Where the sheet's body opens for `piece`: that print's section at the top of the scroll area (its offset inside the body, whatever
+ * the body was last scrolled to), else 0. `key` is null when the print has no section of its own — or its section is not drawn on
+ * this event (no parents and no opening line: no "The invitation"; no Love Story: no poster section).
+ *
+ * `room` — the blank space the body needs under its last section so a section near the end CAN reach the top (measured in the lab
+ * at 390×844: Passes sat 306 px down, the body out of scroll; without it the last sections never sit at the top). Only while the
+ * body already scrolls: a sheet that fits shows everything and grows with nothing.
+ */
+export function printSettingsOpenAt(body: PrintSettingsScroller, piece: string | null | undefined): { key: PrintSettingsHead | null; top: number; room: number } {
+  const key = printSettingsSectionFor(piece);
+  const at = key ? body.querySelector(`[data-print-settings-section="${key}"]`) : null;
+  if (!key || !at || body.scrollHeight <= body.clientHeight) return { key: at ? key : null, top: 0, room: 0 };
+  const top = Math.max(0, at.getBoundingClientRect().top - body.getBoundingClientRect().top + body.scrollTop);
+  return { key, top, room: Math.max(0, Math.ceil(body.clientHeight - (body.scrollHeight - top))) };
+}
+
 /** The four prints drawn for ONE guest at a time. The Event card is the event's, not a guest's — never here. */
 export const GUEST_PRINT_KEYS = ['pass', 'digital-ticket', 'qr-codes', 'seating-pack'] as const;
 export type GuestPrintKey = (typeof GUEST_PRINT_KEYS)[number];

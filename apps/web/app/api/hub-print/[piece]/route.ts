@@ -58,6 +58,7 @@ import type { HubDraftEvents } from '@/lib/hub-draft';
 import { printDraftOf } from '@/lib/ceremony-time';
 import { allInOneRefusal } from '@/lib/studio-prints-six';
 import { PAPER_HOW, previewPage, printPaperHeader, type PrintPaperFacts } from '@/lib/print-paper';
+import { printsPageHref } from '@/lib/prints-page-href';
 
 /**
  * /api/hub-print/[piece] — PRINTS & TICKETS (Event Hub Maker Phase 9, the
@@ -620,10 +621,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ piece: string 
   const eventId = g.eventId;
   const admin = createAdminClient();
   const current = await readPrintEvent(admin, eventId);
-  const back = new URL(`/dashboard/${eventId}/launch`, req.url);
-  // Both land on Details (Prints & Tickets folded in, 2026-09-28) — the Menu on its own item.
-  back.searchParams.set('tool', 'details');
-  back.searchParams.set('item', piece === 'menu' ? 'menu' : 'invitation');
+  /* 🖨 Both land on the Prints page (R8, 2026-10-27 "PRINTS LEAVES STUDIO") — the Menu on its own print, the words on the
+     Invitation. Never the Maker: its print addresses only forward here (`lib/prints-page.ts`). */
+  const back = new URL(printsPageHref(eventId, piece === 'menu' ? 'menu' : 'invitation'), req.url);
   /* A quiet save (Studio › Prints' menu) is told in its own words — never answered with a whole Maker page. */
   if (!current && piece === 'menu' && (req.headers.get('accept') ?? '').includes('application/json')) return NextResponse.json({ ok: false }, { status: 500 });
   if (!current) {

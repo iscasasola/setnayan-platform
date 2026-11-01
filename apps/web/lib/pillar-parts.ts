@@ -66,6 +66,46 @@ export function yourTeamParts({
 }
 
 /**
+ * 📅 SUPPLIERS › BOOKED = TEAM · BUDGET · SCHEDULE (owner 2026-10-29, *"so booked has budget and schedule."*; the
+ * approved final Suppliers design, 2026-10-30 — `carry-2026-10-29/suppliers-final-proto/`). ONE dropdown on the
+ * Booked body's first row ("Team ▾ · 3 booked"), never a pill row.
+ *
+ *   Team      the Booked body itself (`?tab=budget` is the Booked mode's own bus key — `SUPPLIERS_MODE_TAB`)
+ *   Budget    the shipped Budget page, rendered whole (`?part=budget`, as since 2026-09-29)
+ *   Schedule  the shipped Schedule page, rendered whole (`?part=schedule`) — moved here from Studio (2026-10-27:
+ *             "rendered whole the way Budget is"); its old address forwards here (`schedule/page.tsx`)
+ *
+ * 🔑 Every door keeps its condition: Budget only where the event type has the budget surface.
+ */
+export type BookedPartKey = 'team' | 'budget' | 'schedule';
+
+/** The `?part=` value that renders the Schedule part in the Suppliers page. */
+export const BOOKED_SCHEDULE_PART = 'schedule';
+
+/** Booked › Schedule — the one address every schedule doorway lands on. */
+export function bookedScheduleHref(eventId: string): string {
+  return `/dashboard/${eventId}/vendors?part=${BOOKED_SCHEDULE_PART}`;
+}
+
+/** Booked › Team — the Booked body (its bus key). */
+export function bookedTeamHref(eventId: string): string {
+  return `/dashboard/${eventId}/vendors?tab=budget`;
+}
+
+export function bookedParts({
+  eventId,
+  budgetEnabled,
+}: {
+  eventId: string;
+  budgetEnabled: boolean;
+}): PillarPart<BookedPartKey>[] {
+  const parts: PillarPart<BookedPartKey>[] = [{ key: 'team', label: 'Team', href: bookedTeamHref(eventId) }];
+  if (budgetEnabled) parts.push({ key: 'budget', label: 'Budget', href: yourTeamBudgetHref(eventId) });
+  parts.push({ key: 'schedule', label: 'Schedule', href: bookedScheduleHref(eventId) });
+  return parts;
+}
+
+/**
  * Where an old standalone route's query string lands inside its pillar. Every
  * param is carried (a Hosts action redirects with `?invite_sent=1&token=…`,
  * and that banner must still show), and `extra` wins over a same-named one.

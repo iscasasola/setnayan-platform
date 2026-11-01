@@ -50,23 +50,25 @@ test('every headline count on Today has a destination', () => {
   // three counts are FILTER buttons (`TodayCounts`) — pressing one shows ITS list right under the row — and each list
   // ends with the door to the whole of it. So a count still goes somewhere twice over: to its list, and through it.
   const counts = stripComments(readFileSync(join(WEB, 'app/vendor-dashboard/_components/today-counts.tsx'), 'utf8'));
-  assert.equal((counts.match(/aria-pressed=\{on === key\}/g) ?? []).length, 1, 'a count is no longer a filter (aria-pressed)');
+  assert.equal((counts.match(/on=\{on === key\}/g) ?? []).length, 1, 'a count is no longer a filter (aria-pressed via PinDoor)');
   for (const word of ["'waiting'", "'this week'", "'to come in'"]) assert.ok(counts.includes(word), `the ${word} count is gone`);
   // Each filtered list ends with its door: the week → Dates, the money → Money in · Payday (here), waiting → Customers (below).
   assert.match(block, /<ListDoor label="All dates" href="\/vendor-dashboard\/customers\?seg=dates" \/>/, 'the week list lost its door');
   assert.match(block, /<ListDoor label="Money in" href=\{customerLandingHref\('payday'\)\} \/>/, 'the money list lost its door');
   assert.match(src(), /<ListDoor label="All customers" href="\/vendor-dashboard\/customers\?lane=waiting#customers" \/>/, 'the waiting list lost its door');
   // 🌑 On an event day the row is the day's own: waiting · next moment · checked in — each a link, as before.
-  const links = block.match(/<Link\b[^>]*>/g) ?? [];
-  assert.equal(links.length, 3, `${links.length} of the event day's three numbers are links`);
+  // 📌 2026-10-31: each is the shared door as a link (`<PinDoor … href=…>`, ONE SELECTOR Q3).
+  const links = block.match(/<PinDoor\b[\s\S]*?'data-today-number'/g) ?? [];
+  assert.equal(links.filter((l) => /\bhref=/.test(l)).length, 3, `${links.length} of the event day's three numbers are links`);
   for (const l of links) assert.match(l, /href=(?:"\/vendor-dashboard[^"]*"|\{customerLandingHref\('\w+'\)\})/, `a number links nowhere real: ${l}`);
   for (const word of ['waiting on you', 'next moment', 'checked in']) {
     assert.ok(block.includes(word), `the "${word}" number is gone`);
   }
   // A number that could not be read says so IN PLACE — "couldn't load", never a dead 0 (the day row's own <Unread />;
   // the pinned counts' own line in `today-counts.tsx`).
-  assert.equal((block.match(/<Unread \/>/g) ?? []).length, 1, 'the event day\'s waiting number no longer says when it could not read');
-  assert.match(counts, /value === null \?[\s\S]{0,400}couldn&rsquo;t load/, 'a pinned count that could not read no longer says so');
+  assert.match(block, /value=\{numbers\.waiting === null \? null :/, 'the event day\'s waiting number no longer says when it could not read');
+  assert.match(counts, /value=\{value === null \? null :/, 'a pinned count that could not read no longer hands the null to the door');
+  assert.match(stripComments(readFileSync(join(WEB, 'app/_components/pinned-row/pin-door.tsx'), 'utf8')), /value === null \?[\s\S]{0,400}couldn&rsquo;t load/, 'the shared door that could not read no longer says so');
 });
 
 test('the destinations exist as routes', () => {

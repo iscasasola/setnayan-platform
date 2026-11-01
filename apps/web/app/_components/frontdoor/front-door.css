@@ -2382,6 +2382,26 @@ button.fd-ask.quiet {
    instead of being sliced; `max-width: 100%` keeps the box inside the slot on
    a narrow strip, where `shrink-0` on the mark would otherwise let a wide lockup
    push past it. The viewBox is untouched, so the lockup still scales whole. */
+/* ⚙ THE MARK IS A DOOR (owner 2026-10-30, *"tapping monogram not working"*): a real link to Home's ⚙ Event Settings,
+   never smaller than a thumb — 44 × 44 at least, the mark centred in it — with the rail's own focus ring. */
+.fd[data-chrome='app'] .fd-rctx-door {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  max-width: 100%;
+  border-radius: var(--m-r-sm);
+  -webkit-tap-highlight-color: transparent;
+}
+.fd[data-chrome='app'] .fd-rctx-door:active {
+  opacity: 0.7;
+}
+.fd[data-chrome='app'] .fd-rctx-door:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
 .fd[data-chrome='app'] .fd-rctx-mark svg {
   overflow: visible;
   max-width: 100%;

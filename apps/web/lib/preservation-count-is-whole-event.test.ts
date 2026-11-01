@@ -23,10 +23,8 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const LIB = readFileSync(resolve(HERE, 'papic-gallery.ts'), 'utf8');
-const GRID = readFileSync(
-  resolve(HERE, '..', 'app/dashboard/[eventId]/studio/papic/_components/papic-gallery-grid.tsx'),
-  'utf8',
-);
+// The meter's own tests read `papic-gallery-grid.tsx`, deleted 2026-10-31 (unmounted since 2026-10-23; its last
+// import went with #7108). The counter's tests below still hold.
 const codeOnly = (s: string) =>
   s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
 
@@ -38,16 +36,6 @@ function counter(): string {
   assert.ok(body.length > 200, 'the counter body came back suspiciously short');
   return body;
 }
-
-test('🚨 the meter is NOT computed from the capped gallery array', () => {
-  const grid = codeOnly(GRID);
-  const meter = grid.slice(grid.indexOf('function PreservationMeterLine'));
-  assert.ok(
-    !/photos\s*\./.test(meter),
-    'the meter reads the gallery array again — that array is capped at 120 per source',
-  );
-  assert.match(meter, /totals/, 'it must take a counted total instead');
-});
 
 test('🚨 the count is a server-side count, not a length of a fetched list', () => {
   const fn = counter();
@@ -88,120 +76,3 @@ test('already-compressed captures are excluded', () => {
   assert.match(counter(), /is\('full_res_dropped_at',\s*null\)/);
 });
 
-test('🚨 the meter prices the selection in CREDITS, derived — never re-typed', () => {
-  // Owner 2026-08-10: 1 credit = 1 photo, 8 credits = a 10-second video, and
-  // preservation is ₱500/year per 5,000 credits' worth. A count of ITEMS is not
-  // a bill — one video costs eight times what a photo costs.
-  const raw = codeOnly(GRID).slice(codeOnly(GRID).indexOf('function PreservationMeterLine'));
-  // ⚠ CLASS NAMES ARE NOT PRICES. A first cut flagged `bg-success-500` as a
-  // hard-coded ₱500. Strip styling before looking for numbers, or the guard
-  // cries wolf on a colour token and teaches you to skim past it.
-  const meter = raw.replace(/className="[^"]*"/g, '').replace(/className=\{[^}]*\}/g, '');
-  // ⚠ ASSERT THE USE, NOT THE PRESENCE. A first cut checked that `keptCredits`
-  // and `blocksNeeded(` merely APPEARED — so swapping the bill to
-  // `blocksNeeded(totals.kept)` (a video billed as a photo, one eighth of the
-  // truth) sailed through, because the word was still on screen elsewhere.
-  // "Keep the call, discard its result" beats every presence check.
-  assert.match(
-    meter,
-    /blocksNeeded\(\s*totals\.keptCredits\s*\)/,
-    'the bill must be computed from CREDITS — item counts bill a video as a photo',
-  );
-  assert.match(meter, /PRESERVATION_BLOCK_PHP/, 'the price must come from the constant');
-  assert.match(
-    meter,
-    /formatPhp\(\s*annualPhp\s*\)/,
-    'the yearly figure must be the derived one, not typed into the copy',
-  );
-  // Any bare peso amount in the copy is a hard-coded price, however it is spelled.
-  assert.ok(
-    !/[₱P]\s?\d/.test(meter),
-    'a peso amount is written into the copy — derive it from the constant',
-  );
-  assert.ok(!/\b5,?000\b/.test(meter), 'the block size is hard-coded — derive it');
-  assert.match(meter, /PAPIC_POINTS_PER_SNIPPET/, 'the video credit cost must be the constant');
-  assert.ok(
-    !/video is \d/.test(meter),
-    'the video credit cost is written into the copy — use the constant',
-  );
-
-  // …and the credits themselves must be WEIGHTED, or every figure above is a
-  // count of items wearing the word "credits".
-  const counter = codeOnly(LIB).slice(codeOnly(LIB).indexOf('export async function fetchPreservationTotals'));
-  assert.match(
-    counter,
-    /PAPIC_PRESERVATION_UNITS_PER_SNIPPET/,
-    'clips must be weighted at the storage cost — an unweighted sum is not credits',
-  );
-  // ⚠ THE CONSTANT MOVED, THE INTENT DID NOT (2026-08-11). This asked for
-  // `papicCaptureCost('clip')`. Capture is now billed BY LENGTH, and that call
-  // only still returns the storage figure because a missing duration falls to
-  // the ceiling — so preservation would have been resting on a default argument
-  // rather than on a decision. PAPIC_PRESERVATION_UNITS_PER_SNIPPET says out loud
-  // that storage is billed flat and why (a stored row carries `is_clip` and no
-  // duration). What this test guards is unchanged: a clip must be WEIGHTED, not
-  // counted as one item.
-  assert.ok(
-    !/papicCaptureCost\(\s*'clip'\s*\)/.test(counter),
-    'preservation must not bill through the capture-cost helper — that is now length-aware, and its flat answer here is only a default',
-  );
-  // Same move on the photo side: PAPIC_POINTS_PER_PHOTO rather than
-  // `papicCaptureCost('photo')`. The helper is length-aware now, and a photo
-  // reaching it with no duration is a coincidence of the signature, not a
-  // statement about storage.
-  assert.match(counter, /PAPIC_POINTS_PER_PHOTO/);
-});
-
-test('🚨 the meter promises no "forever" and claims no deletion', () => {
-  const meter = codeOnly(GRID).slice(codeOnly(GRID).indexOf('function PreservationMeterLine'));
-  assert.ok(!/forever/i.test(meter), '"forever" was retired 2026-08-07 — do not reintroduce it');
-  // ⚠ BAN THE CLAIM, NOT THE WORD. A blunt /delete/i ban flagged the sentence
-  // "nothing is ever deleted" — which is the exact reassurance the owner asked
-  // for, twice ("again. not delete. just compress"). What must never appear is
-  // an ASSERTION that we delete; a denial of it is the point.
-  const deletionClaim = /(we|is|are|will be|gets?|going to be)\s+delet/i;
-  const denial = /(never|not|nothing[^.]*ever)\s+[^.]*delet/i;
-  const claims = meter.match(deletionClaim);
-  assert.ok(
-    !claims || denial.test(meter),
-    `the copy asserts deletion — the vocabulary is "compressed"/"size": ${claims?.[0]}`,
-  );
-});
-
-test('🚨 the price reads as a FUTURE choice, never a standing bill', () => {
-  // Everything is kept by default (a couple picks what to RELEASE), so a couple
-  // who has done nothing still has every capture selected. Saying "keeping this
-  // costs ₱500 a year" to them presents a bill for a selection they never made
-  // and a period that is included free. The figure must be conditional and
-  // clearly after the free window.
-  const meter = codeOnly(GRID).slice(codeOnly(GRID).indexOf('function PreservationMeterLine'));
-  assert.match(
-    meter,
-    /would be \{formatPhp\(annualPhp\)\}/,
-    'the price must be conditional ("would be"), not stated as an amount owed',
-  );
-  assert.match(meter, /included/, 'the free window must be named as included');
-  assert.match(
-    meter,
-    /three months after your event ends/,
-    'and the free window must say when it ends, in the words the owner set',
-  );
-  assert.ok(
-    !/costs \{formatPhp/.test(meter),
-    'a bare "costs ₱X a year" reads as a debt for a choice the couple never made',
-  );
-});
-
-test('the meter stays silent when there is nothing to say', () => {
-  const meter = codeOnly(GRID).slice(codeOnly(GRID).indexOf('function PreservationMeterLine'));
-  assert.match(meter, /!totals\s*\|\|\s*totals\.total\s*===\s*0/, 'no totals, or none held → render nothing');
-});
-
-test('🚨 the gallery cannot be mounted without an event id', () => {
-  // It was optional, so a caller that forgot it silently rendered a gallery with
-  // no preserve toggle and no meter — no build error, no visible cause.
-  const grid = codeOnly(GRID);
-  const props = grid.slice(grid.indexOf('photos: GalleryPhoto[];'), grid.indexOf('}) {'));
-  assert.ok(!/eventId\?:/.test(props), 'eventId must be REQUIRED, so forgetting it breaks the build');
-  assert.match(props, /eventId:\s*string;/);
-});

@@ -195,7 +195,7 @@ export function SceneTemplatePicker({
             overlay
               ? /* 🧰 On a phone: IN the Maker's lower third (owner 2026-10-05), never
                    over the page; a panel from lg up. */
-                'fixed z-[91] mx-auto max-w-3xl overflow-y-auto bg-cream p-3 shadow-lg ring-1 ring-ink/10 max-lg:inset-x-1 max-lg:bottom-[calc(env(safe-area-inset-bottom)+4px)] max-lg:top-auto max-lg:h-[calc(var(--maker-lt-h,45dvh)-8px)] max-lg:rounded-2xl lg:inset-x-6 lg:bottom-3 lg:top-16 lg:rounded-md'
+                'fixed z-[91] mx-auto max-w-3xl overflow-y-auto bg-cream p-3 shadow-lg ring-1 ring-ink/10 max-lg:inset-x-1 max-lg:bottom-[calc(env(safe-area-inset-bottom)+4px+var(--maker-lift,0px))] max-lg:top-auto max-lg:h-[calc(var(--maker-lt-h,45dvh)-8px)] max-lg:rounded-2xl lg:inset-x-6 lg:bottom-3 lg:top-16 lg:rounded-md'
               : 'mt-2 rounded-md border border-ink/10 bg-cream p-3 shadow-sm'
           }
         >

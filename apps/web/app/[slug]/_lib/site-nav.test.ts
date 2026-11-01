@@ -247,7 +247,9 @@ test('the Invitation bar for a guest is ALWAYS the four — Home · Details · S
     destinations: { camera: '/papic/guest' },
     stageSlots: STAGE_BAR.rsvp.slots,
   } as Partial<NavInput>;
-  assert.deepEqual(keys(at(base)), ['home', 'details', 'story', 'me']);
+  // 📷 Papic off: the four. Papic on adds the Camera (owner 2026-10-30) — still no RSVP tab.
+  assert.deepEqual(keys(at({ ...base, hostAllowsCamera: false })), ['home', 'details', 'story', 'me']);
+  assert.deepEqual(keys(at(base)), ['home', 'details', 'story', 'camera', 'me']);
   assert.ok(!(STAGE_BAR.rsvp.slots as readonly string[]).includes('rsvp'), 'the stage still lists an RSVP slot');
   for (const stage of Object.keys(STAGE_BAR) as Array<keyof typeof STAGE_BAR>) {
     assert.ok(!(STAGE_BAR[stage].slots as readonly string[]).includes('rsvp'), `${stage} offers an RSVP tab`);
@@ -273,13 +275,15 @@ test('🖼 RULING 2026-10-14: early shooting gives an invited guest "Your shots"
     destinations: { camera: '/papic/guest' },
     stageSlots: STAGE_BAR.rsvp.slots,
   } as Partial<NavInput>;
-  assert.deepEqual(keys(at(inv)), ['home', 'details', 'story', 'me'], 'early off: the Invitation keeps its four');
+  // 📷 Early off AND Papic off: the four (with Papic on the Camera joins — owner 2026-10-30, pinned in
+  // `papic-on-camera-every-stage.test.ts`; early shooting adds Memories on top).
+  assert.deepEqual(keys(at({ ...inv, hostAllowsCamera: false })), ['home', 'details', 'story', 'me'], 'early off: the Invitation keeps its four');
   // …and (owner 2026-10-14, on #6529) the Camera too — SIX, once: Welcome · Details · Story · Camera · Gallery · Me.
   assert.deepEqual(keys(at({ ...inv, earlyOwnShots: true })), ['home', 'details', 'story', 'camera', 'gallery', 'me']);
   const c = at({ ...inv, earlyOwnShots: true }).find((s) => s.key === 'camera');
   assert.equal(c?.state, 'live');
   assert.equal(c?.href, '/papic/guest', 'the Camera tab goes where the Gallery\'s "Take your first photo" goes');
-  assert.ok(!keys(at(inv)).includes('camera'), 'early off: no Camera before the day');
+  assert.ok(!keys(at({ ...inv, hostAllowsCamera: false })).includes('camera'), 'early off, Papic off: no Camera before the day');
   const g = at({ ...inv, earlyOwnShots: true }).find((s) => s.key === 'gallery');
   assert.equal(g?.state, 'live');
   assert.equal(g?.label, 'Memories', 'NAMING LOCK — never "Photos"');

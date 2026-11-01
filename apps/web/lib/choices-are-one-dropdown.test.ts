@@ -41,7 +41,6 @@ const SURFACES: Surface[] = [
   { name: 'Papic Decorate — filter + caption colour', file: 'app/papic/decorate/_components/kwento-decorator.tsx' },
   { name: 'Live Wall layout', file: 'app/dashboard/[eventId]/studio/papic/_components/live-wall-controls.tsx' },
   { name: 'Live Wall mode', file: 'app/dashboard/[eventId]/live/_components/mode-control.tsx' },
-  { name: 'Papic gallery filter', file: 'app/dashboard/[eventId]/studio/papic/_components/papic-gallery-grid.tsx' },
   {
     name: 'Patiktok categories',
     file: 'app/dashboard/[eventId]/studio/patiktok/page.tsx',

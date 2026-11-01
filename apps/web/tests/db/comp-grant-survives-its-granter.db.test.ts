@@ -322,6 +322,17 @@ const UNREVIEWED_CASCADING_ACTOR_STAMPS = [
   // and this is the second half of that sentence.
   'live_studio_encoder_claims.requested_by',
 
+  // ── REVIEWED 2026-10-30, and CASCADE is CORRECT — the sharer IS the subject (#7089) ──
+  // couple_photo_shares.shared_by_user_id is not "who acted on somebody else's record": the row is the uploader's
+  // OWN consent ("this photo is mine, the people in it agree"), the credit line they chose and the audience they set,
+  // for THEIR OWN board photo. The only other party is the supplier whose card shows it, and the supplier has no claim
+  // to keep a couple's photo once the couple is gone — RA 10173 erasure removes it on purpose: purgeCouplePhotoShares
+  // (lib/erasure/purge.ts) deletes each share's frozen copy through the cleanup executor and then the row (also a
+  // SUBJECT_ROW_DELETES entry in lib/erasure/coverage.ts). A hard delete of the account cascades the rows the same
+  // way, and the frozen-copy sweep (reconcileCoupleLooks) deletes any copy no approved share names any more.
+  // The shop's own decision stamp, decided_by_user_id, is SET NULL — the actor half of this table.
+  'couple_photo_shares.shared_by_user_id',
+
   // ── nothing else. The six this list shipped with are all settled ─────────
   // Five converted by migration 20271210831005 (vendor_admin_motions.proposed_by,
   // coordinator_access_consents.consented_by_user_id,

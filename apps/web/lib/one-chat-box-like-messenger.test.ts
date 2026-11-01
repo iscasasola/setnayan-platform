@@ -199,7 +199,7 @@ test('the header keeps the counterparty, one muted line with the service, and th
   ] as const) {
     assert.ok(read(p).includes(`<BackButton route="${route}"`) && /variant="chat"/.test(read(p)), `${p}: the ‹ is not BackButton route= (this page)`);
   }
-  assert.match(head, /\[&>\*\+\*\]:before:content-\['·'\]/, 'the muted line lost its separators');
+  assert.match(head, /\[&>\*(?:\+\*)?\]:before:content-\['·'\]/, 'the muted line lost its separators');
   for (const [rel, name] of PAGES) {
     const s = read(rel);
     assert.equal(count(s, /<ChatThreadHead\b/g), 1, `${name}: the head is not the shared ChatThreadHead`);

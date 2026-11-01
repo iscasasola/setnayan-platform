@@ -32,6 +32,12 @@
   padding-top: 0;
   padding-bottom: 0;
 }
+/* A door strip that had to TIGHTEN to fit (`pin-doors.tsx` `data-tight`) keeps each number over its word when folded too
+   — laid flat, three peso figures beside a `Page · View ▾` would run off a 390-px line (measured 2026-10-31). */
+[data-pin-fold][data-folded] [data-tight] > [data-pin-door] {
+  flex-direction: column;
+  gap: 2px;
+}
 [data-pin-fold][data-folded] [data-pin-n] {
   font-size: 15px;
 }

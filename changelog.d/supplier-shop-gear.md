@@ -1,0 +1,14 @@
+## 2026-10-31 · feat(supplier-dashboard): the Shop ⚙ — plan and billing, team, verification, notifications in one sheet
+
+Owner, verbatim: *"Yes follow your recommendation"* — the Shop ⚙ holds what a supplier sets once and rarely touches; what they edit often stays on the page (the Home rule).
+
+- **One ⚙** (`MenuSettingsButton menu="shop"`, new live `shop` entry in `lib/menu-settings.ts`) at the right end of Shop's pinned row on every Shop section (`ShopSegments` → `ShopSettings`). The sheet is read only while open (`?gear=1`, the Customers ⚙ pattern); a page hands its row the rows via `shopGearBody(searchParams)`.
+- **The shipped editors, as folds** (`shop-settings-rows.tsx`): Plan and billing = the shop wallet's balance row + the Plan page's own screen (`PlanScreen`, extracted from `/subscription`, which now mounts the same component) · Team = the Helpers page's own screen (`TeamScreen`, extracted from `/team`) · Verification and documents = `VerifySection`, moved off Shop › Details · Notifications = the push switch + the email line, moved off the account menu's Settings page (which also loses its Plan and Helpers rows; the inbox row stays).
+- **A save never resets the screen**: a Helpers save sent from the open sheet comes back to it, on its fold (`lib/gear-return.server.ts` — the Referer's same-site path only, never its host).
+- **Every old link lands**: `/subscription`, `/team` unchanged addresses; `/vendor-dashboard/profile#docs` (Get verified, the Hub, the Plan picker, `/verify`, the Details figures) opens the ⚙ on Verification and documents — on arrival or from the same page.
+- **The slow-reply email's "Enable push notifications" link** (`lib/vendor-email-triggers.ts`) now opens `/vendor-dashboard/profile#notifications` — the Shop ⚙ on its Notifications fold, where the push switch lives now; `settings#notifications` named a fold Settings no longer has. The Plan screen's Deep Search card carries `data-web-only` (it mounts in the ⚙ now, and its route is refused in the app).
+- **Guards re-aimed to the new homes, each property kept**: the "n of 4 required" count, the doors' `VerifySection` mount (exactly 1, now in the ⚙ body), the link-into-a-fold guard (a hash naming one of the ⚙'s folds must land in the ⚙ — page draws it, ⚙ opens on the hash, its rows carry the anchor), and the Email line's two checks (every part really emailed · fits 375 px).
+- **Not built — Shop status** (open/pause bookings, transfer/close): nothing stores a shop-wide pause, and only Admin can transfer or close a shop. Needs a schema + an owner ruling; no row that saves nothing.
+- Guard: `app/vendor-dashboard/shop/the-shop-gear-holds-the-set-once-things.test.ts` (one ⚙, the four folds in order on what renders, none left on the page, every old link lands) — sabotaged red four ways.
+
+SPEC IMPACT: DECISION_LOG.md row 2026-10-31 "SHOP ⚙ — WHAT A SUPPLIER SETS ONCE" (corpus f9bfb4b8) — the owner's ruling, as built, and the Shop-status gap.

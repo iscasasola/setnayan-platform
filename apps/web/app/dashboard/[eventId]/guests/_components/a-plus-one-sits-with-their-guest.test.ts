@@ -269,10 +269,10 @@ test('9 · the card on a +1 names the guest who brings them, in its title and it
   // own page, and the card data loads it.
   const card = stripComments(readFileSync(join(HERE, 'guest-card.tsx'), 'utf8'));
   assert.match(card, /eyebrow=\{guestCardEyebrow\(guest, \{[^}]*plusOneOf: data\.plusOneOf \}\)\}/);
-  assert.match(card, /const title = guestCardTitle\(guest, data\.plusOneOf\);[\s\S]*title=\{title\}/);
+  assert.match(card, /const title = guestCardTitle\(guest, data\.plusOneOf\);[\s\S]*title=\{(?:title|\s*<>\s*\{title\})/);
   const body = stripComments(readFileSync(join(HERE, 'guest-card-body.tsx'), 'utf8'));
   assert.match(body, /guestCardEyebrow\(guest, \{ hasSides, roleNames, plusOneOf: data\.plusOneOf \}\)/);
-  assert.match(body, /\{guestCardTitle\(guest, data\.plusOneOf\)\}<\/h1>/);
+  assert.match(body, /\{guestCardTitle\(guest, data\.plusOneOf\)\}(?:<GuestNick nick=\{guestCardNick\(guest, data\.plusOneOf\)\} \/>)?<\/h1>/);
   const data = stripComments(readFileSync(join(HERE, 'guest-card-data.ts'), 'utf8'));
   assert.match(data, /return plusOneOfWords\(guest, host as never, Math\.max\(0, seatIndex\)\)/);
   assert.match(data, /\n\s+plusOneOf,\n/);

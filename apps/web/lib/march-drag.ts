@@ -43,6 +43,8 @@ import { joinVerdict, nextSectionOrder, swapVerdict } from '@/lib/march-moves';
 export type MarchPerson = {
   id: string;
   name: string;
+  /** 💬 The couple's nickname for them, drawn beside the name on the chip (`EntouragePerson.nick`). */
+  nick?: string;
   role: string;
   tag?: string | null;
   tied?: boolean;

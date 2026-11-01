@@ -56,6 +56,8 @@ test('5 · the picked table drags, on a phone too', () => {
   assert.match(ED, /const tablePress = \(t: EventTableRow\): 'tap' \| 'drag' => \(roomOnly && highlightId === t\.table_id \? 'drag' : press\);/);
   const hubs = [...ED.matchAll(/onPointerDown=\{tablePress\(t\) === 'drag' \? onHubPointerDown\(t\) : onTapDown\('table', t\.table_id\)\}/g)];
   assert.equal(hubs.length, 2, 'a table hub ignores the picked-table drag');
+  // …and its "Drop here?" stays on a phone's screen (a flip pushed it off the left edge).
+  assert.match(ED, /if \(rect\.width < 2 \* 260\) return \{ x: Math\.max\(8, Math\.min\(x, rect\.width - 260\)\), y, flipX: false/);
 });
 
 test('4 · a supplier’s booth opens THE supplier card, with public identity only', () => {

@@ -3362,6 +3362,9 @@ export function SeatingEditor({
     if (!rect) return { x: cx, y: cy, flipX: false, flipY: false };
     const x = cx - rect.left;
     const y = cy - rect.top;
+    /* 📱 A phone's canvas is narrower than the bubble's room on EITHER side (240 + its offset), so a flip pushed it off
+       the left edge (seen on the first phone drag, 2026-11-01). There the bubble is kept inside the canvas instead. */
+    if (rect.width < 2 * 260) return { x: Math.max(8, Math.min(x, rect.width - 260)), y, flipX: false, flipY: y < 150 };
     return { x, y, flipX: x > rect.width - 260, flipY: y < 150 };
   };
   const askConfirmDrop = (commit: () => void, revert: () => void) => {

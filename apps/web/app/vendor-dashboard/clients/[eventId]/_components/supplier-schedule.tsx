@@ -265,7 +265,7 @@ export function SupplierSchedule({
             {answered.map((r) => (
               <li key={r.suggestion_id} className="flex flex-wrap items-baseline gap-x-2 text-xs">
                 <span className={r.status === 'accepted' ? 'font-semibold text-success-900' : 'text-ink/55'}>
-                  {r.status === 'accepted' ? 'Approved' : r.status === 'withdrawn' ? 'Taken back' : 'Not approved'}
+                  {r.status === 'accepted' ? (r.auto_agreed ? 'In (Auto-agree)' : 'Approved') : r.status === 'withdrawn' ? 'Taken back' : 'Not approved'}
                 </span>
                 <span className="text-ink/70">{waitingWords(r, labelOf(day, r.block_id))}</span>
               </li>

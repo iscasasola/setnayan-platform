@@ -132,6 +132,8 @@ export type SupplierRequestRow = {
   proposed_crew: string[] | null;
   note: string;
   status: 'open' | 'accepted' | 'declined' | 'withdrawn' | string;
+  /** Went straight in under the host's Auto-agree (no person decided) — the Answered list says so. */
+  auto_agreed?: boolean | null;
   created_at: string;
 };
 

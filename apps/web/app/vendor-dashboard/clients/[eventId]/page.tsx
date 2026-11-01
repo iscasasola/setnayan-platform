@@ -436,6 +436,8 @@ type SuggestionRow = {
   note: string;
   /** 'withdrawn' = Take back (Step 4b). */
   status: 'open' | 'accepted' | 'declined' | 'withdrawn';
+  /** Went straight in under the host's Auto-agree — no person decided (Step 4b). */
+  auto_agreed?: boolean | null;
   created_at: string;
 };
 
@@ -708,7 +710,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       supabase
         .from('event_schedule_suggestions')
         .select(
-          'suggestion_id, block_id, kind, proposed_label, proposed_start_at, proposed_end_at, proposed_parent_block_id, proposed_crew, note, status, created_at',
+          'suggestion_id, block_id, kind, proposed_label, proposed_start_at, proposed_end_at, proposed_parent_block_id, proposed_crew, note, status, auto_agreed, created_at',
         )
         .eq('event_id', eventId)
         .eq('vendor_profile_id', profile.vendor_profile_id)

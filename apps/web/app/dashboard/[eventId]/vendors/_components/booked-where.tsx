@@ -16,11 +16,35 @@
  *
  * Every word and every state is decided in `lib/supplier-where.ts`; this file draws it and calls the one action.
  */
-import { useContext, useState, useTransition } from 'react';
+import { useContext, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { ChosenRow, FactRow } from '@/app/_components/form-row';
-import { WHERE_WORDS, whereSaveVerdict, type InHouseWhere, type SupplierWhere, type WhereOption } from '@/lib/supplier-where';
-import { setSupplierWhere, type SetSupplierWhereResult } from '../_actions/supplier-where';
+import { createClient } from '@/lib/supabase/client';
+import {
+  WHERE_WORDS,
+  whereRefusalWords,
+  whereSaveVerdict,
+  type InHouseWhere,
+  type SetWhereResult,
+  type SupplierWhere,
+  type WhereOption,
+} from '@/lib/supplier-where';
 import { BookedStandInCtx } from './booked-stand-ins';
+
+/**
+ * 📍 THE ONE WRITE — `set_supplier_where`, on the host's own session (no server action: the database gates on the host,
+ * writes the chapters, and tells a booked supplier of a change in the same statement, so nothing can skip the notice).
+ */
+async function saveWhere(args: { vendorId: string; blockIds: string[]; coveredGroup: string | null }): Promise<SetWhereResult> {
+  const { data, error } = await createClient().rpc('set_supplier_where', {
+    p_vendor_id: args.vendorId,
+    p_block_ids: args.blockIds,
+    p_covered_group: args.coveredGroup,
+  });
+  if (error || !data) return { ok: false, message: whereRefusalWords(error?.message ?? '') };
+  const r = data as { after: string[] | null; told: boolean | null };
+  return { ok: true, picked: r.after ?? [], told: r.told === true };
+}
 
 /** The pill's words: the picked chapters' own names, or the ask. */
 function pillText(options: readonly WhereOption[], picked: readonly string[]): string {
@@ -52,9 +76,14 @@ function WherePick({
   data: string;
 }) {
   const standIn = useContext(BookedStandInCtx);
+  const router = useRouter();
   const [picked, setPicked] = useState<string[]>([...initial]);
   const [said, setSaid] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
-  const [, start] = useTransition();
+  // Ticks save IN ORDER (each save sends the whole set, so the last tap is what stays), and only the newest answer
+  // speaks; a refusal puts back what was last saved.
+  const chain = useRef<Promise<void>>(Promise.resolve());
+  const seq = useRef(0);
+  const saved = useRef<string[]>([...initial]);
 
   const pick = (key: string) => {
     const set = new Set(picked);
@@ -72,18 +101,27 @@ function WherePick({
       setSaid({ tone: 'error', text: verdict.words });
       return;
     }
-    const before = picked;
     setPicked(next);
     setSaid(null);
-    start(async () => {
+    const mine = ++seq.current;
+    chain.current = chain.current.then(async () => {
       const args = { eventId, vendorId, blockIds: next, coveredGroup: covered?.key ?? null, coveredLabel: covered?.label ?? null };
-      const res: SetSupplierWhereResult = standIn.setWhere ? await standIn.setWhere(args) : await setSupplierWhere(args);
+      let res: SetWhereResult;
+      try {
+        res = standIn.setWhere ? await standIn.setWhere(args) : await saveWhere(args);
+      } catch {
+        res = { ok: false, message: 'That didn’t save. Nothing changed — try again.' };
+      }
+      if (res.ok) saved.current = next;
+      if (mine !== seq.current) return;
       if (!res.ok) {
-        setPicked(before);
+        setPicked(saved.current);
         setSaid({ tone: 'error', text: res.message });
         return;
       }
       setSaid(res.told ? { tone: 'ok', text: 'Saved. They were told in the app.' } : null);
+      // The row's own line and the "need a chapter" count read again — in place, the screen kept.
+      if (!standIn.setWhere) router.refresh();
     });
   };
 

@@ -4,7 +4,7 @@
  *
  * The database half (two venues book · `set_supplier_where` refuses) is `tests/db/many-venues-and-where.db.test.ts`.
  * Here: what a Team row says and what a save may do, through the REAL `bookedView` where a row is concerned, and the
- * notice a booked supplier gets — down to the one action that sends it.
+ * one write the row makes (the notice it sends is asserted in the database test).
  */
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -21,8 +21,8 @@ import {
   coveredKeyOf,
   inHouseWhere,
   supplierWhere,
-  whereChangeNotice,
   whereChaptersFrom,
+  whereRefusalWords,
   whereSaveVerdict,
   type WhereChapter,
 } from './supplier-where';
@@ -122,25 +122,16 @@ test('IN-HOUSE starts on its venue’s chapters; a change of its own sticks; a d
   assert.match(coveredKeyOf({ label: '!!!' }), /^[a-z0-9_:]{1,64}$/);
 });
 
-test('🔒 A WHERE CHANGE NOTIFIES — a booked supplier whose chapters changed; never before booking, never on no change', () => {
-  const n = whereChangeNotice({ booked: true, before: ['rec'], after: ['cer', 'rec'], hostName: 'Sample Couple', afterNames: ['Ceremony', 'Reception'] });
-  assert.ok(n, 'a booked supplier is told');
-  assert.match(n!.title, /Sample Couple changed where you go/);
-  assert.match(n!.body, /Ceremony, Reception/);
-  assert.match(n!.body, /price doesn’t change by itself/, 'the price never changes by itself — said');
-  assert.equal(whereChangeNotice({ booked: false, before: [], after: ['rec'], hostName: 'x', afterNames: ['Reception'] }), null, 'on the quote: nobody to tell');
-  assert.equal(whereChangeNotice({ booked: true, before: ['rec', 'cer'], after: ['cer', 'rec'], hostName: 'x', afterNames: [] }), null, 'order is not a change');
-  assert.match(whereChangeNotice({ booked: true, before: null, after: ['rec'], hostName: 'x', afterNames: ['Reception'], inHouse: 'Cake' })!.body, /^Cake: /);
-});
-
-test('🔒 the ONE action sends it: the database’s before/after reach the notifier, which emits the in-app type', () => {
-  const action = src('app', 'dashboard', '[eventId]', 'vendors', '_actions', 'supplier-where.ts');
-  assert.match(action, /\.rpc\('set_supplier_where'/, 'the one writer is the database door');
-  assert.match(action, /notifySupplierWhereChanged\(\{[\s\S]*?booked: r\.booked,[\s\S]*?before: r\.before,[\s\S]*?after: r\.after/, 'the saved before/after are what decide the notice');
-  const notify = src('lib', 'supplier-where-notify.server.ts');
-  assert.match(notify, /whereChangeNotice\(/);
-  assert.match(notify, /type: 'supplier_where_changed'/);
+test('🔒 the ONE write is the database door — no server action, so nothing can skip the notice it writes', () => {
+  const row = src('app', 'dashboard', '[eventId]', 'vendors', '_components', 'booked-where.tsx');
+  assert.match(row, /\.rpc\('set_supplier_where'/, 'the row saves through the database door');
+  assert.doesNotMatch(row, /from '\.\.\/_actions\//, 'no server action of its own (each one is a Vercel route)');
+  // The refusals become words — never "saved".
+  assert.equal(whereRefusalWords('a_booked_supplier_needs_a_chapter: keep at least 1'), WHERE_WORDS.keepOne);
+  assert.equal(whereRefusalWords('coordinators_are_everywhere'), WHERE_WORDS.everywhereInfo);
+  assert.match(whereRefusalWords('boom'), /didn’t save/);
+  // In the app only — never on the email allowlist (the notice itself is held by many-venues-and-where.db.test.ts).
   const emails = src('lib', 'notification-emit.ts');
   const allow = emails.slice(emails.indexOf('EMAIL_ENABLED_TYPES'), emails.indexOf(']', emails.indexOf('EMAIL_ENABLED_TYPES')));
-  assert.doesNotMatch(allow, /supplier_where_changed/, 'in the app only — never on the email allowlist');
+  assert.doesNotMatch(allow, /supplier_where_changed/);
 });

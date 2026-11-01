@@ -26,12 +26,19 @@
 -- per-supplier lens (lib/schedule-ros.ts) and the call time (lib/booked-call-times.server.ts). No link table: a second
 -- table would be a second, competing answer to "which chapters is this supplier on".
 --
--- `set_supplier_where(vendor_id, block_ids, covered_group)` is the ONE door that writes it. SECURITY INVOKER: RLS
--- decides who may (the couple, through the existing block and booking policies). It refuses, in words:
+-- `set_supplier_where(vendor_id, block_ids, covered_group)` is the ONE door that writes it. SECURITY DEFINER with an
+-- explicit gate: only a HOST of the supplier's event (`current_couple_event_ids()`) may call it; every read and write
+-- inside is scoped to that one event. Definer because the same statement TELLS the supplier (below) — the couple cannot
+-- read another shop's owner or write their notification. It refuses, in words:
 --   · a coordinator — *"Coordinators are all around"*: on every chapter, no Where to set;
 --   · a block that is not a chapter of this supplier's event;
 --   · NO chapter for a BOOKED supplier while the event has chapters (plan: "required, at least 1, once booked");
---   · a write that reached nothing (RLS answers a refused UPDATE with zero rows) — never "saved".
+--   · anyone who is not a host of the event.
+-- 🔔 A CHANGE AFTER BOOKING TELLS THE SUPPLIER (plan §12 Step 4): when the booking is booked and the set changed, ONE
+-- in-app notice (`supplier_where_changed`, 20271301389353) goes to the shop's owner — written HERE, by the database, so
+-- no path that changes Where can skip it (the precedent: `mood_board_changed`, `access_more_asked`). Never email; never
+-- to the person who made the change; a supplier the couple added by hand has no shop and nobody to tell. The notice says
+-- the price does not change by itself — nothing here touches a price.
 -- Before booking it may be empty: Where is best set on the quote, since it changes the price, and allowed any time.
 -- The price is never touched here.
 --
@@ -42,7 +49,7 @@
 -- A group with no key follows the venue's own chapters — resolved at READ, never copied, so moving the venue moves it.
 -- Dangling ids (a deleted chapter) are dropped at read, like `responsible_vendor_ids`'.
 --
--- RLS: no new table. The column rides `event_vendors`' policies (couple read/write); the function is INVOKER.
+-- RLS: no new table. The column rides `event_vendors`' policies (couple read/write); the function gates on the host.
 -- Held by apps/web/tests/db/many-venues-and-where.db.test.ts.
 
 -- ── 1 · the venue categories are no longer one per event ─────────────────────────────────────────────────────────────
@@ -77,10 +84,14 @@ CREATE OR REPLACE FUNCTION public.set_supplier_where(
 )
 RETURNS JSONB
 LANGUAGE plpgsql
-SECURITY INVOKER
+SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 DECLARE
+  v_uid      UUID := auth.uid();
+  v_owner    UUID;
+  v_host     TEXT;
+  v_told     BOOLEAN := false;
   v_ev       public.event_vendors%ROWTYPE;
   v_ids      UUID[];
   v_chapters UUID[];
@@ -90,8 +101,9 @@ DECLARE
   v_n        INT;
   v_names    TEXT[];
 BEGIN
-  SELECT * INTO v_ev FROM public.event_vendors WHERE vendor_id = p_vendor_id;
-  IF NOT FOUND THEN
+  SELECT * INTO v_ev FROM public.event_vendors WHERE vendor_id = p_vendor_id FOR UPDATE;
+  -- Only a host of this supplier's event. A stranger cannot tell "not yours" from "not there".
+  IF NOT FOUND OR v_uid IS NULL OR NOT (v_ev.event_id IN (SELECT public.current_couple_event_ids())) THEN
     RAISE EXCEPTION 'supplier_not_found: this supplier is not on an event you can edit' USING ERRCODE = 'P0002';
   END IF;
 
@@ -143,7 +155,6 @@ BEGIN
        AND NOT (b.block_id = ANY (v_ids))
        AND p_vendor_id = ANY (b.responsible_vendor_ids);
 
-    -- Read back: RLS answers a refused UPDATE with zero rows and no error.
     SELECT COALESCE(array_agg(b.block_id ORDER BY b.block_id), '{}'::uuid[]) INTO v_after
       FROM public.event_schedule_blocks b
      WHERE b.event_id = v_ev.event_id AND b.parent_block_id IS NULL
@@ -163,9 +174,33 @@ BEGIN
     RAISE EXCEPTION 'not_saved: this account cannot change where this supplier goes' USING ERRCODE = '42501';
   END IF;
 
-  -- The chapters it is on now, by name and in time order — the words a notice to the supplier uses.
+  -- The chapters it is on now, by name and in time order — the words of the notice.
   SELECT COALESCE(array_agg(b.label ORDER BY b.start_at, b.sort_order), '{}'::text[]) INTO v_names
     FROM public.event_schedule_blocks b WHERE b.block_id = ANY (v_ids);
+
+  -- 🔔 Booked, and the set changed (order never matters) → tell the shop's owner, in the app.
+  IF v_booked
+     AND v_ev.marketplace_vendor_id IS NOT NULL
+     AND NOT (COALESCE(v_before, '{}'::uuid[]) @> v_ids AND v_ids @> COALESCE(v_before, '{}'::uuid[])) THEN
+    SELECT vp.user_id INTO v_owner FROM public.vendor_profiles vp WHERE vp.vendor_profile_id = v_ev.marketplace_vendor_id;
+    IF v_owner IS NOT NULL AND v_owner <> v_uid THEN
+      SELECT NULLIF(btrim(e.display_name), '') INTO v_host FROM public.events e WHERE e.event_id = v_ev.event_id;
+      INSERT INTO public.notifications (user_id, type, title, body, related_url, event_id)
+      VALUES (
+        v_owner,
+        'supplier_where_changed'::public.notification_type,
+        left(format('%s changed where you go', COALESCE(v_host, 'The host')), 160),
+        format(
+          '%syou are now on %s. Your price doesn’t change by itself — if it should, tell them in your chat.',
+          CASE WHEN p_covered_group IS NULL THEN '' ELSE initcap(replace(regexp_replace(p_covered_group, '^(label|tile):', ''), '_', ' ')) || ': ' END,
+          CASE WHEN cardinality(v_names) = 0 THEN 'no chapter yet' ELSE array_to_string(v_names, ', ') END
+        ),
+        '/vendor-dashboard/clients/' || v_ev.event_id::text,
+        v_ev.event_id
+      );
+      v_told := true;
+    END IF;
+  END IF;
 
   RETURN jsonb_build_object(
     'event_id', v_ev.event_id,
@@ -173,6 +208,7 @@ BEGIN
     'booked', v_booked,
     'shop', v_ev.marketplace_vendor_id,
     'covered_group', p_covered_group,
+    'told', v_told,
     'before', to_jsonb(v_before),
     'after', to_jsonb(v_after)
   );
@@ -180,7 +216,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.set_supplier_where(UUID, UUID[], TEXT) IS
-  'The ONE door that writes a supplier''s Where (owner 2026-11-01): their chapters = top-level event_schedule_blocks whose responsible_vendor_ids hold them; an in-house group''s changed chapters = event_vendors.covered_where. Refuses a coordinator (on every chapter), a non-chapter, and an empty Where for a booked supplier while the event has chapters. SECURITY INVOKER — RLS decides who may. Returns before/after so the caller can tell a booked supplier it changed (in-app, never email); the price is never touched.';
+  'The ONE door that writes a supplier''s Where (owner 2026-11-01): their chapters = top-level event_schedule_blocks whose responsible_vendor_ids hold them; an in-house group''s changed chapters = event_vendors.covered_where. Hosts only (current_couple_event_ids). Refuses a coordinator (on every chapter), a non-chapter, and an empty Where for a booked supplier while the event has chapters. A change to a BOOKED supplier writes ONE in-app notice (supplier_where_changed) to the shop owner — never email, never the actor; the price is never touched.';
 
-REVOKE ALL ON FUNCTION public.set_supplier_where(UUID, UUID[], TEXT) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.set_supplier_where(UUID, UUID[], TEXT) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.set_supplier_where(UUID, UUID[], TEXT) TO authenticated;

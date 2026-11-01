@@ -9,8 +9,8 @@
 -- price never changes by itself — the notice says so.
 --
 -- No existing type says it truthfully: `schedule_shifted` reads "Schedule
--- moved" and is about the clock, not the chapters. Written by
--- apps/web/lib/supplier-where-notify.server.ts.
+-- moved" and is about the clock, not the chapters. Written by the database
+-- itself, in `set_supplier_where` (20271300598766).
 --
 -- ⚠ ITS OWN FILE, AND NOTHING ELSE IN IT, ON PURPOSE. notification_type is a
 -- Postgres ENUM and Postgres forbids USING a newly-added value in the same

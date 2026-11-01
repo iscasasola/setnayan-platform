@@ -509,8 +509,8 @@ export type NotificationType =
   /* 📍 THE HOST CHANGED WHERE A BOOKED SUPPLIER GOES (owner 2026-11-01, DECISION_LOG "MANY VENUES PER EVENT; SUPPLIERS
      PICK THEIR CHAPTERS; COORDINATORS ARE EVERYWHERE"; plan §12 Step 4: "a change after booking sends the supplier an
      in-app notice (no email), and the price never changes by itself"). → the booked shop's owner, one notice per change,
-     opening their client page. Written by lib/supplier-where-notify.server.ts after `set_supplier_where` changed the
-     set. ⚠ IN-APP ONLY: NOT on EMAIL_ENABLED_TYPES. ⚠ ENUM value in 20271301389353. */
+     opening their client page. Written by the DATABASE (`set_supplier_where`, 20271300598766) in the same statement
+     that changes the set — never emitNotification. ⚠ IN-APP ONLY: NOT on EMAIL_ENABLED_TYPES. ⚠ ENUM value in 20271301389353. */
   | 'supplier_where_changed';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {

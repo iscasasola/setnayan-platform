@@ -35,7 +35,7 @@ async function asOwner(): Promise<void> {
   await db.query(`SELECT set_config('request.jwt.claim.role', '', false)`);
 }
 
-const F = { couple: '', stranger: '', eventId: '', otherEventId: '', prep: '', cer: '', rec: '', moment: '', otherChapter: '' };
+const F = { couple: '', stranger: '', shopOwner: '', shop: '', eventId: '', otherEventId: '', prep: '', cer: '', rec: '', moment: '', otherChapter: '' };
 
 async function book(category: string, name: string, status = 'contracted', eventId = F.eventId): Promise<string> {
   await asUser(F.couple);
@@ -95,6 +95,14 @@ before(async () => {
     ).rows[0]!.event_id;
   F.couple = await mkUser('couple@where.test');
   F.stranger = await mkUser('stranger@where.test');
+  F.shopOwner = await mkUser('shop@where.test');
+  F.shop = (
+    await db.query<{ vendor_profile_id: string }>(
+      `INSERT INTO public.vendor_profiles (user_id, business_name, location_city, services, verification_state, last_verified_at)
+       VALUES ($1,'Sample Lights','Manila',ARRAY['lights_and_sound']::text[],'verified', NOW()) RETURNING vendor_profile_id`,
+      [F.shopOwner],
+    )
+  ).rows[0]!.vendor_profile_id;
   F.eventId = await mkEvent('Sample Wedding');
   F.otherEventId = await mkEvent('Another Wedding');
   for (const ev of [F.eventId, F.otherEventId]) {
@@ -190,6 +198,45 @@ test('an IN-HOUSE group’s change lands in covered_where; the venue’s own cha
   assert.deepEqual(await chaptersOf(venue), [F.prep, F.rec], 'the venue itself still hosts both');
   await assert.rejects(() => setWhere(F.couple, venue, [], 'catering'), /a_booked_supplier_needs_a_chapter/);
   await assert.rejects(() => setWhere(F.couple, venue, [F.rec], 'Bad Key!'), /not_covered/);
+});
+
+async function notices(): Promise<Array<{ title: string; body: string; related_url: string }>> {
+  await asOwner();
+  const r = await db.query<{ title: string; body: string; related_url: string }>(
+    `SELECT title, body, related_url FROM public.notifications WHERE user_id = $1 AND type = 'supplier_where_changed' ORDER BY created_at, notification_id`,
+    [F.shopOwner],
+  );
+  return r.rows;
+}
+
+test('🔒 A WHERE CHANGE NOTIFIES — a booked shop is told in the app; on the quote, or with no change, nobody is', async () => {
+  await asUser(F.couple);
+  const lights = (
+    await db.query<{ vendor_id: string }>(
+      `INSERT INTO public.event_vendors (event_id, category, vendor_name, status, marketplace_vendor_id)
+       VALUES ($1,'lights_and_sound','Sample Lights','shortlisted',$2) RETURNING vendor_id`,
+      [F.eventId, F.shop],
+    )
+  ).rows[0]!.vendor_id;
+  // On the quote: set, nobody told.
+  const q = await setWhere(F.couple, lights, [F.rec]);
+  assert.equal((q as { told?: boolean }).told, false);
+  assert.equal((await notices()).length, 0, 'before booking there is nobody to tell');
+  await asOwner();
+  await db.query(`UPDATE public.event_vendors SET status = 'contracted' WHERE vendor_id = $1`, [lights]);
+  // Booked, the same set again: no change, no notice.
+  await setWhere(F.couple, lights, [F.rec]);
+  assert.equal((await notices()).length, 0, 'saving the same chapters is not a change');
+  // Booked, a change: ONE notice, naming the chapters, saying the price does not move by itself.
+  // MUTATION: drop the INSERT INTO notifications ⇒ zero rows ⇒ red.
+  const r = await setWhere(F.couple, lights, [F.cer, F.rec]);
+  assert.equal((r as { told?: boolean }).told, true);
+  const n = await notices();
+  assert.equal(n.length, 1);
+  assert.match(n[0]!.title, /Sample Wedding changed where you go/);
+  assert.match(n[0]!.body, /Ceremony, Reception/);
+  assert.match(n[0]!.body, /price doesn’t change by itself/);
+  assert.equal(n[0]!.related_url, `/vendor-dashboard/clients/${F.eventId}`);
 });
 
 test('a stranger changes nothing', async () => {

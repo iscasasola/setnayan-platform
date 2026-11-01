@@ -16,8 +16,8 @@
  * `responsible_vendor_ids` hold their `event_vendors.vendor_id` — the column the Schedule's per-supplier lens and the
  * call time already read (migration 20271300598766). An in-house group's CHANGED chapters live in
  * `event_vendors.covered_where`; a group with no entry follows its venue, resolved here at read.
- * The one writer is `set_supplier_where` (the database refuses the same three things `whereSaveVerdict` does, so the
- * sheet can answer in place before it asks).
+ * The one writer is `set_supplier_where`: it refuses the same three things `whereSaveVerdict` does (so the row answers in
+ * place before it asks), and when a BOOKED supplier's set changes it writes their in-app notice in the same statement.
  *
  * Pure: no React, no I/O. Executed by `supplier-where.test.ts`.
  */
@@ -231,34 +231,17 @@ export function whereSaveVerdict(args: {
   return { ok: true, ids };
 }
 
-/** The set changed (order never matters). */
-export function whereChanged(before: readonly string[] | null | undefined, after: readonly string[]): boolean {
-  const a = new Set(before ?? []);
-  const b = new Set(after);
-  return a.size !== b.size || [...a].some((x) => !b.has(x));
-}
+/** What a save answers: the chapters now saved, and whether the supplier was told (a booked supplier, a change). */
+export type SetWhereResult = { ok: true; picked: string[]; told: boolean } | { ok: false; message: string };
 
 /**
- * THE NOTICE A BOOKED SUPPLIER GETS when their Where changes (plan §12 Step 4: in-app, no email; the price never
- * changes by itself). `null` = nobody is told: not booked yet (best set on the quote — nothing to tell), or nothing
- * changed.
+ * The database's refusal (`set_supplier_where` raises a named reason) → the words the row says. Unknown → a plain
+ * "didn't save". Never "saved".
  */
-export function whereChangeNotice(args: {
-  booked: boolean;
-  before: readonly string[] | null | undefined;
-  after: readonly string[];
-  hostName: string;
-  /** The chapter names the supplier is on now, in time order. */
-  afterNames: readonly string[];
-  /** The in-house group it is about ("Catering"), when it is one. */
-  inHouse?: string | null;
-}): { title: string; body: string } | null {
-  if (!args.booked || !whereChanged(args.before, args.after)) return null;
-  const who = args.hostName.trim() || 'The host';
-  const what = args.inHouse ? `${args.inHouse}: ` : '';
-  const list = args.afterNames.length > 0 ? args.afterNames.join(', ') : 'no chapter yet';
-  return {
-    title: `${who} changed where you go`.slice(0, 160),
-    body: `${what}you are now on ${list}. Your price doesn’t change by itself — if it should, tell them in your chat.`,
-  };
+export function whereRefusalWords(message: string): string {
+  if (message.includes('a_booked_supplier_needs_a_chapter')) return WHERE_WORDS.keepOne;
+  if (message.includes('coordinators_are_everywhere')) return WHERE_WORDS.everywhereInfo;
+  if (message.includes('not_a_chapter')) return 'That chapter is gone. Reload and pick again.';
+  if (message.includes('supplier_not_found') || message.includes('not_saved')) return 'This account can’t change where this supplier goes.';
+  return 'That didn’t save. Nothing changed — try again.';
 }

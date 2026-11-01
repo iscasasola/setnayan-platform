@@ -26,7 +26,7 @@
  * client component that needs a piece's name.
  */
 import { formatWallClock } from '@/lib/schedule-datetime-local';
-import { TIME_TBA } from '@/lib/schedule-chapters';
+import { TIME_TBA } from '@/lib/time-tba';
 import { isOnTheGuestsSchedule } from '@/lib/schedule-audience';
 import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
 import type { ThemeColours } from '@/lib/theme-colours';

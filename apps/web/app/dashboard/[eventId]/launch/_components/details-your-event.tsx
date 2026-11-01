@@ -36,7 +36,7 @@ import { nameStyleDraftPatch } from '@/lib/name-style-save';
 import { coupleNameColumns, nameOrderOf } from '@/lib/typed-names';
 import type { DateClash } from '@/lib/date-fits-booked';
 import { DateClashNote } from './details-date-clash';
-import { TIME_TBA } from '@/lib/schedule-chapters';
+import { TIME_TBA } from '@/lib/time-tba';
 
 /**
  * DETAILS › YOUR EVENT — the editors (Details part 2a; owner 2026-09-28,

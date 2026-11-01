@@ -1,0 +1,9 @@
+## 2026-11-01 · fix(chat,maker): chat times hydrate, the chat head keeps the date, a failed canvas load says so, the araña clears the cover words
+
+- **Chat threads no longer throw away their server HTML.** `formatChatTimestamp` (`lib/chat.ts`) printed with the running machine's zone and locale, so the server and the browser wrote every message time differently — WebKit (every iPhone) joins date and time with " at " where Node writes ", ", and production's UTC server disagreed with a Manila phone in every browser. React logged a hydration mismatch on every thread and redrew it. The time is now built from fixed `en-US` parts in Manila's zone. Guard: `lib/a-chat-time-reads-the-same-on-every-machine.test.ts`.
+- **The chat head never cuts the name or the date.** On a phone the supplier's head (with its labelled "Customer" pill) showed "Ana's Wedding …" and "Catering · December 1". `ChatThreadHead` lets the name take two lines and wraps the muted line between whole pieces. Guard: `lib/the-chat-head-never-cuts-the-name-or-date.test.ts`.
+- **A failed Maker canvas load says it failed.** The canvas guard read the browser's error page (cross-origin) as a link out and said "That link leads out of your Invitation page". `canvasLanding` now tells them apart — you cannot leave a page you never reached — and a failed load shows "Your … page didn't load" with Try again. Guard: `a-failed-canvas-load-says-it-failed.test.ts`.
+- **The Vintage cover's araña hangs above the words, as the approved proof shows.** It was drawn over the top line and the first name. A cover piece in the words' column now carries `clearsWords`, and the kit stylesheet starts the cover's words below it (`coverWordsClearance`). Guard: `lib/the-cover-words-start-below-the-chandelier.test.ts`.
+- Not changed: the inbox's All · Unread · Suppliers chips are the owner-approved Messenger inbox (DECISION_LOG 2026-10-28 "CHAT APPROVED — MESSENGER LOOK"), so they stay.
+
+SPEC IMPACT: None

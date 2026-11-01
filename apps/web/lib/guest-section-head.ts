@@ -51,6 +51,9 @@ export function sectionHeadDoors(
   const rest = key.slice(at + 1);
   if (view === 'role') {
     if (rest === 'guest') return { rename: null, add: { roles: ['guest'] } };
+    /* 👥 "Guests of [Role]" (owner 2026-11-01): the +1s a role's holders bring — its word is the role's, renamed on the
+       role's own heading; and a name typed here would have nobody bringing them, so nothing lands here either. */
+    if (rest.startsWith('guests-of:')) return NONE;
     /* 👯 Honour attendants — one group, both sides (owner 2026-11-01): adds one of its five roles; a category heading,
        so nothing to rename. The crews below no longer offer them (they are not drawn there). */
     if (rest === 'honour_attendants') {

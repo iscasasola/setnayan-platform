@@ -90,6 +90,15 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
 
   // ── Excluded, with the reason ───────────────────────────────────────────
   {
+    table: 'event_schedule_tasks',
+    decision: 'excluded',
+    why:
+      'A moment\'s parallel tasks on an event\'s run of show (migration 20271300072429) — "the bridesmaids\' hair, ' +
+      '2F holding room". The row belongs to the EVENT\'s schedule; it is keyed to a person only by `created_by`, the ' +
+      'host or coordinator who typed it, the same way a schedule block (not exported) is theirs to edit. A guest named ' +
+      'on one is named by the event, not by their own act.',
+  },
+  {
     table: 'app_store_purchases',
     decision: 'excluded',
     why:

@@ -18,6 +18,10 @@ import { loadPeopleWithAccess } from '@/lib/people-with-access.server';
 import { readClaimAccessAsks } from '@/lib/claim-access-asks.server';
 import { accessFlashFrom, ownAccessOf } from '@/lib/people-with-access';
 import { EventSettingsRows, type EventSettingsAccess, type EventSettingsMore } from './event-settings-rows';
+import type { ChaptersInput } from './event-settings-chapters';
+import { readChapters } from '@/lib/schedule-chapters.server';
+import { resolveAreaLevel } from '@/lib/delegate-areas';
+import { userHostsEvent } from '@/lib/events';
 
 /**
  * ⚙ HOME › EVENT SETTINGS — THE SHEET'S ROWS, READ AT THE TAP (owner 2026-10-29, verbatim: *"on event dashboard> home
@@ -65,7 +69,12 @@ export async function openEventSettings(
     const [viewer, typeRes] = await Promise.all([
       fetchEventViewer(supabase, eventId, user.id),
       // + what the moved Event Details parts draw (Plan it myself · Put this away) — one row, read once.
-      supabase.from('events').select('event_type, planning_mode, archived, display_name').eq('event_id', eventId).maybeSingle(),
+      // + the event's last day — 📖 chapters stop there (owner 2026-11-01, *"date must be until event day only"*).
+      supabase
+        .from('events')
+        .select('event_type, planning_mode, archived, display_name, event_date, event_end_date, event_date_precision')
+        .eq('event_id', eventId)
+        .maybeSingle(),
     ]);
     // The couple changes the event's own facts — who may open these fields on Event Details (`canEditHub`).
     // 🪪 A helper inside their window reads their own access instead; anyone else, a plain refusal.
@@ -83,7 +92,7 @@ export async function openEventSettings(
     const maker = surfaceEnabled(profile, 'website');
 
     const admin = createAdminClient();
-    const [draft, parents, people, claims, settings] = await Promise.all([
+    const [draft, parents, people, claims, settings, chapterRead] = await Promise.all([
       // A draft that cannot be read shows the live values — the fields never invent a draft.
       maker ? readHubDraft(supabase, eventId).catch(() => null) : Promise.resolve(null),
       maker ? parentGuestsForEvent(eventId).catch(() => null) : Promise.resolve(null),
@@ -98,8 +107,17 @@ export async function openEventSettings(
         console.error('[event-settings] the event settings could not be read:', e instanceof Error ? e.message : e);
         return null;
       }),
+      // 📖 The event's chapters — one read of its blocks, in the same round (a failure is said, never "none").
+      readChapters(supabase, eventId).catch(() => ({ ok: false as const })),
     ]);
-    const row = typeRes.data as { planning_mode?: string | null; archived?: boolean | null; display_name?: string | null };
+    const row = typeRes.data as {
+      planning_mode?: string | null;
+      archived?: boolean | null;
+      display_name?: string | null;
+      event_date?: string | null;
+      event_end_date?: string | null;
+      event_date_precision?: string | null;
+    };
     const more: EventSettingsMore = {
       settings: settings ?? 'failed',
       planMyself: planMyselfOn(typeof row.planning_mode === 'string' ? row.planning_mode : null),
@@ -110,8 +128,14 @@ export async function openEventSettings(
     const access: EventSettingsAccess = people.measured
       ? { measured: true, rows: people.rows, addable: people.addable, claims, flash }
       : { measured: false, claims, flash };
+    // The couple hosts the event, so they may put a chapter on the invitation (`mayShowToGuests`'s rule).
+    const chaptersFor = (venues: string[]): ChaptersInput =>
+      chapterRead.ok ? { measured: true, chapters: chapterRead.value, venues, lastDay: eventLastDay(row), mayInvite: true } : { measured: false };
     if (!maker) {
-      return { ok: true, body: <EventSettingsRows eventId={eventId} input={null} parents={null} dock={null} access={access} more={more} /> };
+      return {
+        ok: true,
+        body: <EventSettingsRows eventId={eventId} input={null} parents={null} dock={null} access={access} more={more} chapters={chaptersFor([])} />,
+      };
     }
     const input = await loadYourEvent({
       supabase,
@@ -132,7 +156,15 @@ export async function openEventSettings(
     return {
       ok: true,
       body: (
-        <EventSettingsRows eventId={eventId} input={input} parents={parents} dock={<HubDraftDock eventId={eventId} />} access={access} more={more} />
+        <EventSettingsRows
+          eventId={eventId}
+          input={input}
+          parents={parents}
+          dock={<HubDraftDock eventId={eventId} />}
+          access={access}
+          more={more}
+          chapters={chaptersFor(input.venues.resolved.map((v) => v.name ?? '').filter(Boolean))}
+        />
       ),
     };
   } catch (e) {
@@ -177,5 +209,23 @@ async function yourAccessSheet(
     permissions,
     window: { eventDate: dates.event_date ?? null, eventEndDate: dates.event_end_date ?? null, precision: dates.event_date_precision ?? null },
   });
-  return { ok: true, body: <EventSettingsRows eventId={eventId} input={null} parents={null} dock={null} yours={yours} /> };
+  // 📖 A helper holding EDIT on the Schedule (the coordinator) makes the chapters too (owner 2026-11-01: *"the hosts
+  // of the event and the coordinator can start up with a basic schedule"*) — the same rows, the same doors, which RLS
+  // already opens to them. View or Off: not drawn.
+  let chapters: ChaptersInput | null = null;
+  if (resolveAreaLevel(permissions, 'schedule') === 'edit') {
+    const [read, hosts] = await Promise.all([
+      readChapters(supabase, eventId).catch(() => ({ ok: false as const })),
+      userHostsEvent(supabase, userId, eventId).catch(() => false),
+    ]);
+    chapters = read.ok ? { measured: true, chapters: read.value, venues: [], lastDay: eventLastDay(dates), mayInvite: hosts } : { measured: false };
+  }
+  return { ok: true, body: <EventSettingsRows eventId={eventId} input={null} parents={null} dock={null} yours={yours} chapters={chapters} /> };
+}
+
+/** The event's last day as `YYYY-MM-DD`, or null when it has no exact day yet (then chapters have no cap). */
+function eventLastDay(e: { event_date?: string | null; event_end_date?: string | null; event_date_precision?: string | null }): string | null {
+  if (e.event_date_precision !== 'day' || !e.event_date) return null;
+  const last = e.event_end_date && e.event_end_date > e.event_date ? e.event_end_date : e.event_date;
+  return /^\d{4}-\d{2}-\d{2}/.test(last) ? last.slice(0, 10) : null;
 }

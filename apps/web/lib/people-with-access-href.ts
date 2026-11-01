@@ -11,7 +11,7 @@
 export const PEOPLE_WITH_ACCESS_ANCHOR = 'people-with-access';
 
 /** The Event Settings sheet's rows a link may land on (`?settings=1&row=<row>`). */
-export const EVENT_SETTINGS_ROWS = ['names', 'date', 'venues', 'parents', 'event', 'plan', 'get-in', 'access', 'put-away'] as const;
+export const EVENT_SETTINGS_ROWS = ['names', 'date', 'venues', 'chapters', 'parents', 'event', 'plan', 'get-in', 'access', 'put-away'] as const;
 export type EventSettingsRow = (typeof EVENT_SETTINGS_ROWS)[number];
 
 export function isEventSettingsRow(v: unknown): v is EventSettingsRow {

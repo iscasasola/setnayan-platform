@@ -8,3 +8,7 @@ Owner-approved 2026-10-30 ("Supplier website by plan approve", DECISION_LOG "APP
 - Dev lab `/dev/shop-page-lab` (404 in production) mounts the real pieces for the side-by-side shots.
 
 SPEC IMPACT: None — builds the approved 2026-10-30 contract. Two gaps are reported, not invented: a shop cannot declare non-wedding counts (only `weddings_done_approx` exists), so the by-kind rows for debuts/corporate/… are Setnayan-measured only; and the declared wedding count has no writer in the app today.
+
+Carried onto main on 2026-11-01 by `claude/supplier-dash-web-facts` (Step 4 of `SCHEDULE_CHAPTERS_BUILD_PLAN_2026-11-01.md`
+§12, "+ #7065"): #7007 (`/v/[slug]/dates`) is live, so the Check a date door no longer 404s — a new guard holds that the
+landing exists and the door points at it.

@@ -5,7 +5,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
@@ -27,4 +27,10 @@ test('Check a date sits in the action row, after Share, inside the bookable gate
   assert.ok(gate > 0 && door > row && door - row < 800, 'Check a date is not beside Share in the action row');
   // One door: the Pro desktop rail it also sat in was retired 2026-10-30 (slice 4 — the whole card column is sticky now).
   assert.equal((PAGE.match(/<CheckADateLink/g) ?? []).length, 1, 'Check a date is on the action row only');
+});
+
+test('Check a date opens the live landing (#7007) — never a 404', () => {
+  // #7065 waited for #7007 (`/v/[slug]/dates`), now on main. The door must point at a page that exists.
+  assert.ok(existsSync(join(HERE, 'dates', 'page.tsx')), '/v/[slug]/dates is gone — the door would 404');
+  assert.match(PAGE, /<CheckADateLink\s+href=\{`\/v\/\$\{vendor\.business_slug \?\? slug\}\/dates`\}/, 'the door does not point at /v/<slug>/dates');
 });
